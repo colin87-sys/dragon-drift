@@ -21,10 +21,12 @@ const birdData = [];
 let whale = null;
 let whaleTail = null;
 let whaleFins = [];
+let flyby = null; // foreground single-bird flyby (dusk sanctuary)
 
 // Tier gate: birds (per-frame matrix writes) drop out at the lowest tier.
 export function setAmbientQuality(q) {
   if (birds) birds.visible = q > 0.4;
+  if (flyby) flyby.visible = q > 0.4;
 }
 
 const m4 = new THREE.Matrix4();
@@ -66,6 +68,7 @@ export function createAmbient(scene) {
     BIRD_COUNT
   );
   birds.frustumCulled = false;
+  birds.layers.set(1);
   for (let i = 0; i < BIRD_COUNT; i++) {
     birdData.push({
       radius: 18 + Math.random() * 26,
@@ -76,6 +79,17 @@ export function createAmbient(scene) {
     });
   }
   scene.add(birds);
+
+  // Foreground flyby: single gull crossing high over the lane (biome 0 only).
+  flyby = new THREE.InstancedMesh(
+    wing,
+    new THREE.MeshBasicMaterial({ color: 0xd0c8e8, fog: true, transparent: true, opacity: 0 }),
+    1
+  );
+  flyby.frustumCulled = false;
+  flyby.layers.set(1);
+  flyby.visible = false;
+  scene.add(flyby);
 
   // Sky whale: a single colossal silhouette far beyond the course, only
   // visible in the Astral Shallows (opacity follows env.whaleMix). Cheap:
@@ -163,8 +177,8 @@ export function updateAmbient(dt, camera, time, playerDist, playerSpeed, feverMi
     }
   }
 
-  // Flock: lazy circles high above the course, far ahead — color, size and
-  // wingbeat re-skin per biome (gulls / ash-wyverns / glow moths / petrels).
+  // Flock: lazy circles above the course — color, size and wingbeat re-skin
+  // per biome. Brought 30m closer than before so they enter the view cone.
   if (!birds.visible) return;
   birds.material.color.copy(env.faunaColor);
   for (let i = 0; i < BIRD_COUNT; i++) {
@@ -173,7 +187,7 @@ export function updateAmbient(dt, camera, time, playerDist, playerSpeed, feverMi
     pos.set(
       Math.cos(a) * b.radius,
       b.height + Math.sin(a * 1.7) * 2.5,
-      -playerDist - 160 - Math.sin(a) * b.radius * 0.5
+      -playerDist - 130 - Math.sin(a) * b.radius * 0.5
     );
     const flapT = time * b.flap * env.faunaFlap + i;
     eul.set(0, a + Math.PI / 2, Math.sin(flapT) * 0.35);
@@ -184,4 +198,29 @@ export function updateAmbient(dt, camera, time, playerDist, playerSpeed, feverMi
     birds.setMatrixAt(i, m4);
   }
   birds.instanceMatrix.needsUpdate = true;
+
+  // Foreground flyby: a lone gull crossing high over the lane (biome 0 dusk
+  // sanctuary and transitions towards it, faunaFlyby lerped via whaleMix-like
+  // key on env). Reuses the same bird material. Period ~40 s.
+  if (flyby && env.flybyMix > 0.02) {
+    const ft = (time * 0.025) % 1;
+    const side = Math.floor(time * 0.025) % 2 === 0 ? 1 : -1;
+    flyby.visible = true;
+    flyby.material.opacity = Math.min(env.flybyMix,
+      Math.sin(ft * Math.PI) * env.flybyMix * 1.4);
+    flyby.material.color.copy(env.faunaColor);
+    pos.set(
+      side * (ft - 0.5) * 90,
+      26 + Math.sin(ft * Math.PI) * 6,
+      -playerDist - 55 - ft * 8
+    );
+    eul.set(0, side > 0 ? Math.PI * 0.55 : Math.PI * 1.45, Math.sin(time * 4) * 0.2);
+    quat.setFromEuler(eul);
+    scl.set(env.faunaScale * 1.3, env.faunaScale * 1.3, env.faunaScale * 1.3);
+    m4.compose(pos, quat, scl);
+    flyby.setMatrixAt(0, m4);
+    flyby.instanceMatrix.needsUpdate = true;
+  } else if (flyby) {
+    flyby.visible = false;
+  }
 }
