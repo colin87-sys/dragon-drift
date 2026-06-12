@@ -87,6 +87,7 @@ export const CONFIG = {
 
   // Endless generation
   spawnAhead: 500,
+  spawnAheadTime: 7,    // minimum reaction seconds; lead = max(spawnAhead, speed×this)
   cullBehind: 80,
   difficultyRamp: 1800,
   pathClearance: 5,

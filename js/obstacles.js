@@ -40,10 +40,10 @@ export function initObstacles(s) {
     gate: new THREE.MeshStandardMaterial({
       color: 0x9d9aec,
       transparent: true,
-      opacity: 0.55,
+      opacity: 0.68,
       roughness: 0.2,
       emissive: 0x3a2c66,
-      emissiveIntensity: 0.5,
+      emissiveIntensity: 0.7,
     }),
     frame: new THREE.MeshStandardMaterial({
       color: 0x55e0ff,
@@ -110,27 +110,45 @@ function buildGate(o) {
   };
   const W = o.gapW * 2;
   const H = o.gapH * 2;
-  edge(W + 0.6, 0.28, o.gapX, top + 0.14); // top edge
-  edge(W + 0.6, 0.28, o.gapX, bottom - 0.14); // bottom edge
-  edge(0.28, H + 0.6, left - 0.14, o.gapY); // left edge
-  edge(0.28, H + 0.6, right + 0.14, o.gapY); // right edge
+  edge(W + 0.6, 0.42, o.gapX, top + 0.21); // top edge
+  edge(W + 0.6, 0.42, o.gapX, bottom - 0.21); // bottom edge
+  edge(0.42, H + 0.6, left - 0.21, o.gapY); // left edge
+  edge(0.42, H + 0.6, right + 0.21, o.gapY); // right edge
 
   // Coral outer warning frame on the approach side: "this edge kills".
   // Sits proud of the wall (local +z, toward the incoming player).
   const M = 0.85; // outward margin from the cyan frame
-  edge(W + 2 * M + 0.5, 0.24, o.gapX, top + M, mats.warnFrame, 0.8);
-  edge(W + 2 * M + 0.5, 0.24, o.gapX, bottom - M, mats.warnFrame, 0.8);
-  edge(0.24, H + 2 * M + 0.5, left - M, o.gapY, mats.warnFrame, 0.8);
-  edge(0.24, H + 2 * M + 0.5, right + M, o.gapY, mats.warnFrame, 0.8);
+  edge(W + 2 * M + 0.5, 0.36, o.gapX, top + M, mats.warnFrame, 1.2);
+  edge(W + 2 * M + 0.5, 0.36, o.gapX, bottom - M, mats.warnFrame, 1.2);
+  edge(0.36, H + 2 * M + 0.5, left - M, o.gapY, mats.warnFrame, 1.2);
+  edge(0.36, H + 2 * M + 0.5, right + M, o.gapY, mats.warnFrame, 1.2);
+
+  // Beacon column: a tall additive light pillar above the gap — visible
+  // through fog and bloom well beyond the wall.
+  const beaconMat = new THREE.MeshBasicMaterial({
+    color: 0x55e0ff,
+    transparent: true,
+    opacity: 0,
+    depthWrite: false,
+    blending: THREE.AdditiveBlending,
+    side: THREE.DoubleSide,
+  });
+  const beacon = new THREE.Mesh(new THREE.PlaneGeometry(W, 60), beaconMat);
+  beacon.position.set(o.gapX, top + 30, 0.5);
+  beacon.layers.set(1); // hidden from water reflection
+  group.add(beacon);
+  group.userData.beacon = beacon;
 
   group.position.z = -o.dist;
   return group;
 }
 
-export function updateObstacles(dt, time, playerDist) {
+export function updateObstacles(dt, time, playerDist, speedNorm = 0) {
   // Warning pulse on every moving shard (shared material, one write).
   mats.mover.emissiveIntensity = 0.9 + Math.sin(time * 6) * 0.45;
-  mats.warnFrame.emissiveIntensity = 1.1 + Math.sin(time * 4) * 0.35;
+  const sn = Math.max(0, Math.min(1, speedNorm));
+  mats.warnFrame.emissiveIntensity = (1.1 + Math.sin(time * 4) * 0.35) * (1 + 0.8 * sn);
+  mats.frame.emissiveIntensity = 1.2 * (1 + 0.5 * sn);
 
   for (let i = entries.length - 1; i >= 0; i--) {
     const e = entries[i];
@@ -151,6 +169,15 @@ export function updateObstacles(dt, time, playerDist) {
       }
     } else if (e.type === 'bar') {
       e.object.rotation.x += dt * 0.5; // spin around its long axis
+    } else if (e.type === 'gate') {
+      const beacon = e.object.userData.beacon;
+      if (beacon) {
+        const dz = e.dist - playerDist;
+        // Fade in from 250m out, full brightness 120m out, off once passed.
+        const alpha = Math.min(1, Math.max(0, (dz - 120) / 130));
+        const pulse = 0.85 + Math.sin(time * 3) * 0.15;
+        beacon.material.opacity = alpha * 0.32 * pulse;
+      }
     }
   }
 }

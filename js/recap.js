@@ -112,7 +112,7 @@ const CAUSE_TEXT = {
   ground: 'DRAGGED INTO THE WAVES',
 };
 
-function recordChips(sum) {
+function recordChips(sum, maxVisible = 3) {
   const chips = [];
   if (game.isNewHighScore) chips.push('★ HIGH SCORE');
   if (game.isNewBestDistance) chips.push('★ LONGEST FLIGHT');
@@ -122,12 +122,17 @@ function recordChips(sum) {
     chips.push(`★ ${r.label} ${v}`);
   }
   if (!chips.length) return '';
-  return `<div class="record-chips">${chips.map((c, i) =>
-    `<span class="record-chip" style="animation-delay:${REDUCED ? 0 : i * 0.08}s">${c}</span>`).join('')}</div>`;
+  const visible = chips.slice(0, maxVisible);
+  const overflow = chips.length - maxVisible;
+  const extra = overflow > 0
+    ? `<span class="record-chip more-chip">+${overflow} MORE RECORDS</span>` : '';
+  return `<div class="record-chips">${visible.map((c, i) =>
+    `<span class="record-chip" style="animation-delay:${REDUCED ? 0 : i * 0.08}s">${c}</span>`).join('')}${extra}</div>`;
 }
 
 // The earnings ledger: ordered reveal items. Returns array of html strings.
-function ledgerItems(sum) {
+// compact=true drops low-signal quest unlock rows (used on narrow screens).
+function ledgerItems(sum, compact = false) {
   const items = [];
   const eb = sum.emberBreakdown;
   if (eb && eb.total > 0) {
@@ -142,8 +147,10 @@ function ledgerItems(sum) {
   for (const r of sum.missionResults || []) {
     items.push(`<div class="earn-line mission-done-line">✓ ${r.def.label} <b>+◆${r.reward}</b></div>`);
   }
-  for (const u of sum.questUnlocks || []) {
-    items.push(`<div class="earn-line quest-unlock">⊕ NEW QUEST — ${u.label}</div>`);
+  if (!compact) {
+    for (const u of sum.questUnlocks || []) {
+      items.push(`<div class="earn-line quest-unlock">⊕ NEW QUEST — ${u.label}</div>`);
+    }
   }
   for (const w of sum.weeklyResults || []) {
     items.push(`<div class="earn-line weekly-done">★ WEEKLY TRIAL — ${w.def.label} <b>+◆${w.reward}</b>${w.titleName ? ` <span class="title-won">«${w.titleName}»</span>` : ''}</div>`);
@@ -170,11 +177,27 @@ function ledgerItems(sum) {
 
 export function buildRecapHtml(score, dist, { isTouch, ICONS }) {
   const sum = game.runSummary || {};
+  const isCompact = window.innerWidth <= 700;
   const causeText = CAUSE_TEXT[game.deathCause] || '';
   const pb  = game.highScore;
   const gap = pb > score ? pb - score : 0;
   const pct = pb > 0 && gap > 0 ? Math.round((1 - gap / pb) * 100) : null;
   const maxSpd = Math.round(game.maxSpeed);
+
+  // Pre-render all ledger items into the DOM before first paint so iOS WebKit's
+  // backdrop-filter never sees post-paint DOM growth (ghosting bug).
+  const items = ledgerItems(sum, isCompact);
+  const interval = REDUCED ? 0 : Math.min(220, items.length ? 2000 / items.length : 0);
+  const earnListHtml = `<div class="earn-list revealing" id="earn-list">${
+    items.map((html, i) =>
+      html.replace(/class="earn-line/, `class="earn-line" style="--d:${i * interval}ms"`)
+    ).join('')
+  }</div>`;
+
+  const hasGambit = !!(sum.gambit && sum.gambit.eligible);
+  // On compact screens: NEXT UP is hidden while the gambit panel is live;
+  // wireRecap reveals it if the player declines.
+  const nextupHidden = hasGambit && isCompact;
 
   return `
     <h1 class="bad">CRASHED!</h1>
@@ -185,22 +208,23 @@ export function buildRecapHtml(score, dist, { isTouch, ICONS }) {
     ${gap > 0 ? `<p class="sub gap">Only <b>${gap}</b> pts away from your best${pct !== null ? ` (${pct}% there!)` : ''}</p>` : ''}
     ${challengeResultHtml(score)}
     ${game.scoreMult > 1.001 ? `<p class="hc-line">⚔ ASSISTS OFF — every point earned at +${Math.round((game.scoreMult - 1) * 100)}%</p>` : ''}
-    <div class="earn-list" id="earn-list"></div>
+    ${earnListHtml}
     <div class="xp-wrap">
       <div class="xp-row"><span class="lvl">LV ${saveData.level}</span><span>+${sum.xpGained || 0} XP</span><span class="lvl">LV ${saveData.level + 1}</span></div>
       <div class="xp-bar"><span id="xp-fill"></span></div>
     </div>
-    ${nextUpCardHtml(sum.nextUp || selectNextUp())}
-    ${sum.gambit && sum.gambit.eligible ? gambitPanelHtml(sum.gambit.stake) : ''}
-    <div class="run-stats">
-      <div class="stat"><span class="stat-val">${dist} m</span><span class="stat-lbl">distance</span></div>
-      <div class="stat"><span class="stat-val">${game.ringsCollected}</span><span class="stat-lbl">rings</span></div>
-      <div class="stat"><span class="stat-val">${game.perfectRings}</span><span class="stat-lbl">perfect</span></div>
-      <div class="stat"><span class="stat-val">${game.maxCombo.toFixed(2)}x</span><span class="stat-lbl">best combo</span></div>
-      <div class="stat"><span class="stat-val">${game.nearMisses}</span><span class="stat-lbl">near misses</span></div>
-      <div class="stat"><span class="stat-val">${game.gauntletsClearedRun}</span><span class="stat-lbl">gauntlets</span></div>
-      <div class="stat"><span class="stat-val">${maxSpd}</span><span class="stat-lbl">top speed</span></div>
-      <div class="stat"><span class="stat-val">${game.time.toFixed(1)}s</span><span class="stat-lbl">time</span></div>
+    ${hasGambit ? gambitPanelHtml(sum.gambit.stake) : ''}
+    <div id="nextup-wrap"${nextupHidden ? ' style="display:none"' : ''}>${nextUpCardHtml(sum.nextUp || selectNextUp())}</div>
+    <div class="run-stats" id="run-stats">
+      <div class="stat key-stat"><span class="stat-val">${dist} m</span><span class="stat-lbl">distance</span></div>
+      <div class="stat key-stat"><span class="stat-val">${maxSpd}</span><span class="stat-lbl">top speed</span></div>
+      <div class="stat key-stat"><span class="stat-val">${game.maxCombo.toFixed(2)}x</span><span class="stat-lbl">best combo</span></div>
+      <div class="stat key-stat"><span class="stat-val">${game.ringsCollected}</span><span class="stat-lbl">rings</span></div>
+      <div class="stat sec-stat"><span class="stat-val">${game.perfectRings}</span><span class="stat-lbl">perfect</span></div>
+      <div class="stat sec-stat"><span class="stat-val">${game.nearMisses}</span><span class="stat-lbl">near misses</span></div>
+      <div class="stat sec-stat"><span class="stat-val">${game.gauntletsClearedRun}</span><span class="stat-lbl">gauntlets</span></div>
+      <div class="stat sec-stat"><span class="stat-val">${game.time.toFixed(1)}s</span><span class="stat-lbl">time</span></div>
+      ${isCompact ? '<button class="stats-more-btn btn-tertiary" id="stats-more-btn">MORE ▾</button>' : ''}
     </div>
     <div class="action-row">
       <button id="btn-again" class="btn-primary">FLY AGAIN</button>
@@ -275,25 +299,20 @@ export function wireRecap(screenEl, handlers) {
     }
   }
 
-  // Earnings ledger reveal queue (capped at ~2s total), soft tick per line
+  // Earnings ledger: items are already in the DOM (pre-rendered in buildRecapHtml).
+  // We schedule sound-only ticks to match the CSS animation-delay reveal timing.
   const list = screenEl.querySelector('#earn-list');
-  if (list) {
-    const items = ledgerItems(game.runSummary || {});
-    if (REDUCED) {
-      list.innerHTML = items.join('');
-    } else {
-      const interval = Math.min(220, items.length ? 2000 / items.length : 0);
-      items.forEach((html, i) => {
+  if (list && !REDUCED) {
+    const lines = list.querySelectorAll('.earn-line');
+    if (lines.length > 0) {
+      const interval = Math.min(220, 2000 / lines.length);
+      lines.forEach((_, i) => {
         setTimeout(() => {
-          // The screen may have been replaced (restart) — bail quietly.
           if (!list.isConnected) return;
-          list.insertAdjacentHTML('beforeend', html);
-          const el = list.lastElementChild;
-          if (el) el.classList.add('reveal');
           sfx.tick(0.3);
         }, i * interval);
       });
-      revealMs = items.length * interval;
+      revealMs = lines.length * interval;
     }
   }
 
@@ -314,8 +333,23 @@ export function wireRecap(screenEl, handlers) {
     e.stopPropagation();
     const panel = screenEl.querySelector('#gambit-panel');
     if (panel) panel.classList.add('declined');
+    // On compact screens the NEXT UP card was hidden while the gambit was live;
+    // reveal it now so the player has something to aim for.
+    const nextupWrap = screenEl.querySelector('#nextup-wrap');
+    if (nextupWrap) nextupWrap.style.display = '';
     handlers.onGambitDecline && handlers.onGambitDecline();
   };
+
+  // MORE STATS toggle (compact screens only)
+  const moreBtn = screenEl.querySelector('#stats-more-btn');
+  const statsGrid = screenEl.querySelector('#run-stats');
+  if (moreBtn && statsGrid) {
+    moreBtn.onclick = (e) => {
+      e.stopPropagation();
+      const expanded = statsGrid.classList.toggle('expanded');
+      moreBtn.textContent = expanded ? 'LESS ▴' : 'MORE ▾';
+    };
+  }
 
   return revealMs;
 }

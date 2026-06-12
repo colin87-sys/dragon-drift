@@ -104,8 +104,9 @@ let levelGen = createLevelGen(runSeed);
 const pendingGauntletStarts = [];
 const pendingGauntletEnds = [];
 function spawnAhead() {
-  if (levelGen.generatedUntil >= player.dist + CONFIG.spawnAhead) return;
-  const chunk = levelGen.ensure(player.dist + CONFIG.spawnAhead);
+  const lead = Math.max(CONFIG.spawnAhead, player.speed * CONFIG.spawnAheadTime);
+  if (levelGen.generatedUntil >= player.dist + lead) return;
+  const chunk = levelGen.ensure(player.dist + lead);
   chunk.rings.forEach(addRing);
   chunk.obstacles.forEach(addObstacle);
   chunk.orbs.forEach(addOrb);
@@ -679,7 +680,8 @@ function tick() {
     const t = clock.getElapsedTime();
     updateDragon(dt, player, t);
     updateParticles(dt, camera);
-    updateObstacles(dt, t, player.dist);
+    const obstacleSpeedNorm = (player.speed - CONFIG.baseSpeed) / (CONFIG.orbSpeed - CONFIG.baseSpeed);
+    updateObstacles(dt, t, player.dist, obstacleSpeedNorm);
     cameraCtl.update(dt, player, game.state === 'ready');
     updateReticle(player, game.state === 'playing');
     updateEnvironment(dt, camera, t, player.dist, game.feverActive, player.speed);
