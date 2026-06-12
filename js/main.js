@@ -4,9 +4,9 @@ import { game } from './gameState.js';
 import { initInput, initTouch } from './input.js';
 import { createLevelGen } from './level.js';
 import { createEnvironment, updateEnvironment, resetEnvironment } from './environment.js';
-import { createDragon, updateDragon, resetDragon, setDragonPalette } from './dragon.js';
+import { createDragon, updateDragon, resetDragon, rebuildDragon } from './dragon.js';
 import { initReticle, updateReticle } from './reticle.js';
-import { player } from './player.js';
+import { player, applyDragonStats } from './player.js';
 import { cameraCtl } from './cameraController.js';
 import { initRings, addRing, updateRings, resetRings } from './rings.js';
 import { initObstacles, addObstacle, updateObstacles, resetObstacles } from './obstacles.js';
@@ -21,7 +21,8 @@ import { createWater, setWaterReflective, updateWater } from './water.js';
 import { burst } from './particles.js';
 import { buildSetPiece } from './setpieces.js';
 import { BIOMES, biomeIndexAt } from './biomes.js';
-import { PALETTES } from './dragonPalettes.js';
+import { DRAGONS } from './dragons.js';
+import { RIDERS } from './riders.js';
 import { dailySeed, recordDailyRun, saveData, persist, grantXp } from './save.js';
 import { initEmbers, addEmberLine, updateEmbers, bankEmbers, resetEmbers } from './embers.js';
 import { emit } from './events.js';
@@ -69,9 +70,12 @@ let runSeed = seedForRun();
 game.runSeed = runSeed;
 
 // --- Build the world ---
+const equippedDragon = () => DRAGONS[saveData.skins.equipped] || DRAGONS.azure;
+const equippedRider = () => RIDERS[saveData.riders.equipped] || RIDERS.drifter;
 createEnvironment(scene, runSeed);
 createWater(scene, true); // real reflection by default; tiers downgrade it
-createDragon(scene, PALETTES[saveData.skins.equipped] || PALETTES.azure);
+createDragon(scene, equippedDragon(), equippedRider());
+applyDragonStats(equippedDragon());
 initRings(scene);
 initObstacles(scene);
 initPowerups(scene);
@@ -126,7 +130,11 @@ ui.init({
   getCard: makeShareCard,
   onRestart: restart,
   onStart: (mode) => startGame(mode),
-  onEquipSkin: (key) => setDragonPalette(PALETTES[key] || PALETTES.azure),
+  onEquipDragon: () => {
+    rebuildDragon(equippedDragon(), equippedRider(), player);
+    applyDragonStats(equippedDragon());
+  },
+  onEquipRider: () => rebuildDragon(equippedDragon(), equippedRider(), player),
   onQualityChange: (v) => { if (v !== null) applyQuality(v); },
   onPause: () => pauseManual(),
   onResume: () => resumeFromPause(),
@@ -149,7 +157,12 @@ window.addEventListener('pointerdown', (e) => {
   // Buttons, cards and sliders handle their own clicks — don't treat them
   // as "tap to fly" / "tap to resume"
   if (e.target.closest && e.target.closest('button, .skin-card, .daily-card, .seg-btn, .pause-menu, input')) return;
-  if (game.state === 'paused') resumeFromPause();
+  if (game.state === 'paused') {
+    // Browsing the shop/settings from pause: outside taps go back to the
+    // pause overlay instead of resuming mid-shop.
+    if (ui.inPauseSubscreen()) ui.showPauseOverlay();
+    else resumeFromPause();
+  }
   else if (game.state === 'ready') startGame();
 });
 
@@ -251,10 +264,15 @@ window.addEventListener('keydown', (e) => {
   // Esc toggles pause
   if (e.code === 'Escape') {
     if (game.state === 'playing') pauseManual();
-    else if (game.state === 'paused') resumeFromPause();
+    else if (game.state === 'paused') {
+      if (ui.inPauseSubscreen()) ui.showPauseOverlay();
+      else resumeFromPause();
+    }
     return;
   }
-  if (game.state === 'paused') resumeFromPause();
+  if (game.state === 'paused') {
+    if (!ui.inPauseSubscreen()) resumeFromPause();
+  }
   else if (game.state === 'ready'    && (e.code === 'Enter' || e.code === 'Space')) startGame();
   else if (game.state === 'gameover' && e.code === 'KeyR') restart();
 });
@@ -384,7 +402,7 @@ function tick() {
     }
     player.update(dt);
     game.distance = player.dist;
-    game.score += player.speed * dt * CONFIG.distanceScore;
+    game.score += player.speed * dt * CONFIG.distanceScore * game.scoreMult;
     spawnAhead();
     updateCollision(dt, player);
     updateRings(dt, player, clock.getElapsedTime());
@@ -405,7 +423,7 @@ function tick() {
       player.rollJustStarted = false;
       cameraCtl.rollKick(player.roll ? player.roll.dir : 1);
       sfx.roll();
-      const bonus = Math.round(CONFIG.rollBonus * game.combo);
+      const bonus = Math.round(CONFIG.rollBonus * game.combo * game.scoreMult);
       game.score += bonus;
       game.rolls = (game.rolls || 0) + 1;
       ui.rollPopup(bonus);

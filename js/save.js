@@ -9,13 +9,14 @@ const DEFAULTS = {
   v: 1,
   best: { score: 0, dist: 0 },
   flags: { seenFirstSurge: false },
-  audio: { musicMuted: false, sfxMuted: false, musicVol: 1, sfxVol: 1, track: 0 },
-  settings: { qualityOverride: null },
+  audio: { musicMuted: false, sfxMuted: false, musicVol: 1, sfxVol: 1, track: 0, ownedTracks: [] },
+  settings: { qualityOverride: null, reticle: true, slowMo: true },
   embers: 0,
   xp: 0,
   level: 1,
   revives: 1, // one free revive token to teach the mechanic
-  skins: { owned: ['azure'], equipped: 'azure' },
+  skins: { owned: ['azure'], equipped: 'azure' },   // dragons (legacy key name)
+  riders: { owned: ['drifter'], equipped: 'drifter' },
   missions: { active: [], completedCount: 0 },
   daily: { date: '', played: false, bestScore: 0, streak: 0 },
   stats: { runs: 0, totalDist: 0, totalRings: 0, totalEmbers: 0 },

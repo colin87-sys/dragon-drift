@@ -4,6 +4,15 @@
 // high-lead on combo≥2 → percussion on combo≥3 → fever sparkle on surge.
 
 import { saveData, persist } from './save.js';
+import { TRACKS } from './tracks.js';
+
+export { TRACKS };
+
+// A track is playable if it's free or has been bought in the shop.
+export function trackUnlocked(i) {
+  const t = TRACKS[i];
+  return !!t && (t.cost === 0 || saveData.audio.ownedTracks.includes(t.id));
+}
 
 let ctx = null;
 let masterGain = null;
@@ -321,206 +330,12 @@ export const sfx = {
 };
 
 // --- Music engine ---
-// Bright C major over the classic I–V–vi–IV pop loop (C–G–Am–F), twice per
-// 8-bar loop: bars 1-4 state the hook, bars 5-8 lift it an octave-ish for
-// the soaring "takeoff" feel. Note frequencies (Hz):
-const N = {
-  F2:87.31, G2:98.00, A2:110.00,
-  C3:130.81, D3:146.83, E3:164.81, F3:174.61, G3:196.00, A3:220.00, B3:246.94,
-  C4:261.63, D4:293.66, E4:329.63, F4:349.23, G4:392.00, A4:440.00, B4:493.88,
-  C5:523.25, D5:587.33, E5:659.25, F5:698.46, G5:783.99, A5:880.00, B5:987.77,
-  C6:1046.50, D6:1174.66, E6:1318.51,
-};
-
-// Extra accidentals for the new stations
-N.Bb3 = 233.08; N.Bb4 = 466.16; N.Bb5 = 932.33;
-N.E2 = 82.41; N.B2 = 123.47; N.D2 = 73.42;
-
-function pumpBass(roots) {
-  // Driving octave-pump bass: root/octave eighths under each chord
-  const out = [];
-  for (const root of roots) {
-    for (let i = 0; i < 4; i++) out.push([root, 1], [root * 2, 1]);
-  }
-  return out;
-}
-
-function slowBass(roots) {
-  // Laid-back root + fifth half notes (lo-fi)
-  const out = [];
-  for (const root of roots) out.push([root, 4], [root * 1.5, 4]);
-  return out;
-}
-
-// ============================ DRAGON RADIO ============================
-// Four stations, all procedural, all reactive to gameplay: the boost arp,
-// combo layers, percussion and fever lead read their patterns from whichever
-// track is active. Each track: 8 bars, [freq, duration-in-eighths] rows.
-export const TRACKS = [
-  { // 0 — the original anthem, refined
-    name: 'Skyborne',
-    bpm: 160,
-    voices: {
-      melody: { osc: 'square', vol: 0.16 },
-      bass:   { osc: 'triangle', vol: 0.22 },
-      high:   { osc: 'triangle', vol: 0.13 },
-      arp:    { osc: 'sawtooth', vol: 0.09 },
-      lead:   { osc: 'sawtooth', vol: 0.11 },
-    },
-    drums: { kick: 1, snare: 1, hat: 1, heavy: true },
-    pad: false,
-    melody: [
-      [N.E5,1],[0,1],[N.G5,1],[0,1],[N.C6,2],[N.G5,2],
-      [N.A5,1],[N.G5,1],[0,1],[N.E5,1],[N.D5,2],[0,2],
-      [N.C5,1],[0,1],[N.E5,1],[0,1],[N.A5,2],[N.G5,1],[N.E5,1],
-      [N.F5,1],[N.G5,1],[N.A5,2],[N.G5,2],[N.E5,1],[N.D5,1],
-      [N.G5,1],[0,1],[N.E5,1],[N.G5,1],[N.C6,2],[N.D6,2],
-      [N.E6,1],[N.D6,1],[N.C6,2],[N.B5,2],[N.G5,2],
-      [N.A5,1],[0,1],[N.C6,1],[0,1],[N.E6,2],[N.D6,1],[N.C6,1],
-      [N.A5,1],[N.G5,1],[N.F5,1],[N.G5,1],[N.A5,2],[N.B5,2],
-    ],
-    bass: pumpBass([N.C3, N.G2, N.A2, N.F2, N.C3, N.G2, N.A2, N.F2]),
-    high: [
-      [0,8],[0,8],[0,8],[0,8],
-      [N.G5,2],[N.E5,2],[N.G5,2],[N.C6,2],
-      [N.B5,2],[N.G5,2],[N.D5,2],[N.G5,2],
-      [N.A5,2],[N.E5,2],[N.C6,2],[N.E6,2],
-      [N.C6,2],[N.A5,2],[N.F5,2],[N.G5,2],
-    ],
-    arps: [
-      [N.C4, N.E4, N.G4, N.C5, N.E5, N.C5, N.G4, N.E4],
-      [N.B3, N.D4, N.G4, N.B4, N.D5, N.B4, N.G4, N.D4],
-      [N.A3, N.C4, N.E4, N.A4, N.C5, N.A4, N.E4, N.C4],
-      [N.A3, N.C4, N.F4, N.A4, N.C5, N.A4, N.F4, N.C4],
-    ],
-    chords: null,
-  },
-  { // 1 — Panzer-Dragoon-flavoured modal epic: bells over slow pads
-    name: 'Ancient Tides',
-    bpm: 105,
-    voices: {
-      melody: { osc: 'triangle', vol: 0.2, stack: 'octave' },
-      bass:   { osc: 'sine', vol: 0.26 },
-      high:   { osc: 'sine', vol: 0.12 },
-      arp:    { osc: 'triangle', vol: 0.08 },
-      lead:   { osc: 'sawtooth', vol: 0.09 },
-    },
-    drums: { kick: 0.8, snare: 0.6, hat: 0.5, heavy: false },
-    pad: true,
-    melody: [
-      [N.A4,2],[N.C5,1],[N.D5,1],[N.E5,3],[N.D5,1],
-      [N.G4,2],[N.B4,1],[N.D5,1],[N.B4,2],[0,2],
-      [N.F4,2],[N.A4,1],[N.C5,1],[N.D5,3],[N.C5,1],
-      [N.E5,2],[N.D5,1],[N.B4,1],[N.A4,4],
-      [N.A4,1],[N.E5,2],[N.D5,1],[N.E5,2],[N.G5,2],
-      [N.D5,1],[N.G5,2],[N.F5,1],[N.D5,2],[N.B4,2],
-      [N.A4,1],[N.C5,1],[N.D5,1],[N.E5,1],[N.A5,2],[N.G5,1],[N.E5,1],
-      [N.D5,2],[N.C5,1],[N.B4,1],[N.A4,4],
-    ],
-    bass: pumpBass([N.A2, N.G2, N.F2, N.E2, N.A2, N.G2, N.F2, N.E2]),
-    high: [
-      [0,8],[0,8],[0,8],[0,8],
-      [N.E5,4],[N.C5,4],
-      [N.D5,4],[N.B4,4],
-      [N.C5,4],[N.A4,4],
-      [N.B4,4],[N.E5,4],
-    ],
-    arps: [
-      [N.A3, N.C4, N.E4, N.A4, N.C5, N.A4, N.E4, N.C4],
-      [N.G3, N.B3, N.D4, N.G4, N.B4, N.G4, N.D4, N.B3],
-      [N.F3, N.A3, N.C4, N.F4, N.A4, N.F4, N.C4, N.A3],
-      [N.E3, N.G3, N.B3, N.E4, N.G4, N.E4, N.B3, N.G3],
-    ],
-    chords: [
-      [N.A3, N.C4, N.E4], [N.G3, N.B3, N.D4], [N.F3, N.A3, N.C4], [N.E3, N.G3, N.B3],
-      [N.A3, N.C4, N.E4], [N.G3, N.B3, N.D4], [N.F3, N.A3, N.C4], [N.E3, N.G3, N.B3],
-    ],
-  },
-  { // 2 — driving synthwave: pumping saw bass, neon hook
-    name: 'Ember Rush',
-    bpm: 128,
-    voices: {
-      melody: { osc: 'sawtooth', vol: 0.13, stack: 'detune' },
-      bass:   { osc: 'sawtooth', vol: 0.15 },
-      high:   { osc: 'square', vol: 0.09 },
-      arp:    { osc: 'sawtooth', vol: 0.1 },
-      lead:   { osc: 'square', vol: 0.1 },
-    },
-    drums: { kick: 1.1, snare: 1, hat: 0.8, heavy: true },
-    pad: true,
-    melody: [
-      [N.A4,1],[N.A4,1],[0,1],[N.C5,1],[0,1],[N.E5,1],[N.D5,1],[N.C5,1],
-      [N.F4,1],[N.F4,1],[0,1],[N.A4,1],[0,1],[N.C5,2],[N.A4,1],
-      [N.E4,1],[N.E4,1],[0,1],[N.G4,1],[0,1],[N.C5,1],[N.B4,1],[N.G4,1],
-      [N.G4,1],[N.A4,1],[N.B4,2],[N.D5,2],[N.B4,2],
-      [N.A4,1],[N.C5,1],[N.E5,2],[0,1],[N.E5,1],[N.G5,2],
-      [N.F5,1],[N.E5,1],[N.C5,2],[N.A4,2],[N.F4,2],
-      [N.E5,1],[N.E5,1],[0,1],[N.D5,1],[0,1],[N.C5,1],[N.B4,1],[N.C5,1],
-      [N.D5,2],[N.B4,2],[N.G4,2],[N.B4,2],
-    ],
-    bass: pumpBass([N.A2, N.F2, N.C3, N.G2, N.A2, N.F2, N.C3, N.G2]),
-    high: [
-      [0,8],[0,8],[0,8],[0,8],
-      [N.C6,2],[N.A5,2],[N.E5,2],[N.A5,2],
-      [N.A5,2],[N.F5,2],[N.C5,2],[N.F5,2],
-      [N.G5,2],[N.E5,2],[N.C5,2],[N.E5,2],
-      [N.D5,2],[N.G5,2],[N.B5,2],[N.G5,2],
-    ],
-    arps: [
-      [N.A3, N.E4, N.A4, N.C5, N.E5, N.C5, N.A4, N.E4],
-      [N.F3, N.C4, N.F4, N.A4, N.C5, N.A4, N.F4, N.C4],
-      [N.C4, N.G4, N.C5, N.E5, N.G5, N.E5, N.C5, N.G4],
-      [N.G3, N.D4, N.G4, N.B4, N.D5, N.B4, N.G4, N.D4],
-    ],
-    chords: [
-      [N.A3, N.C4, N.E4], [N.F3, N.A3, N.C4], [N.C4, N.E4, N.G4], [N.G3, N.B3, N.D4],
-      [N.A3, N.C4, N.E4], [N.F3, N.A3, N.C4], [N.C4, N.E4, N.G4], [N.G3, N.B3, N.D4],
-    ],
-  },
-  { // 3 — mellow lo-fi glide: jazzy 7ths, soft drums
-    name: 'Moonlit Drift',
-    bpm: 85,
-    voices: {
-      melody: { osc: 'triangle', vol: 0.16 },
-      bass:   { osc: 'sine', vol: 0.24 },
-      high:   { osc: 'sine', vol: 0.1 },
-      arp:    { osc: 'triangle', vol: 0.06 },
-      lead:   { osc: 'triangle', vol: 0.09 },
-    },
-    drums: { kick: 0.6, snare: 0.45, hat: 0.4, heavy: false },
-    pad: true,
-    melody: [
-      [0,1],[N.E5,1],[N.D5,1],[N.B4,1],[N.G4,2],[0,2],
-      [0,1],[N.C5,1],[N.E5,1],[N.G5,1],[N.E5,2],[N.C5,2],
-      [0,1],[N.D5,1],[N.F5,1],[N.A5,1],[N.F5,2],[N.D5,2],
-      [N.B4,2],[N.D5,1],[N.F5,1],[N.G5,4],
-      [0,1],[N.G5,1],[N.E5,1],[N.C5,1],[N.A4,2],[0,2],
-      [0,1],[N.A4,1],[N.C5,1],[N.E5,1],[N.G5,2],[N.E5,2],
-      [N.F5,2],[N.E5,1],[N.D5,1],[N.C5,2],[N.A4,2],
-      [N.B4,1],[N.D5,1],[N.G4,4],[0,2],
-    ],
-    bass: slowBass([N.C3, N.A2, N.D3, N.G2, N.C3, N.A2, N.D3, N.G2]),
-    high: [
-      [0,8],[0,8],[0,8],[0,8],
-      [N.B4,4],[N.E5,4],
-      [N.G4,4],[N.C5,4],
-      [N.A4,4],[N.D5,4],
-      [N.B4,4],[N.F5,4],
-    ],
-    arps: [
-      [N.C4, N.E4, N.G4, N.B4, N.E5, N.B4, N.G4, N.E4],
-      [N.A3, N.C4, N.E4, N.G4, N.C5, N.G4, N.E4, N.C4],
-      [N.D4, N.F4, N.A4, N.C5, N.F5, N.C5, N.A4, N.F4],
-      [N.G3, N.B3, N.D4, N.F4, N.B4, N.F4, N.D4, N.B3],
-    ],
-    chords: [
-      [N.C4, N.E4, N.G4, N.B4], [N.A3, N.C4, N.E4, N.G4], [N.D4, N.F4, N.A4, N.C5], [N.G3, N.B3, N.D4, N.F4],
-      [N.C4, N.E4, N.G4, N.B4], [N.A3, N.C4, N.E4, N.G4], [N.D4, N.F4, N.A4, N.C5], [N.G3, N.B3, N.D4, N.F4],
-    ],
-  },
-];
+// Track data lives in tracks.js (Dragon Radio stations): 8 bars of
+// [freq, duration-in-eighths] rows per layer. The scheduler below turns
+// whichever station is active into gameplay-reactive layers.
 
 let trackIndex = Math.min(Math.max(saveData.audio.track | 0, 0), TRACKS.length - 1);
+if (!trackUnlocked(trackIndex)) trackIndex = 0; // stale save pointing at an unowned track
 let E8 = 60 / TRACKS[trackIndex].bpm / 2; // eighth-note seconds (per track)
 
 // --- Layer gain nodes ---
@@ -847,7 +662,9 @@ export const music = {
 
   // Switch station: quick fade out, rebuild, fade back in (radio retune).
   setTrack(i) {
-    trackIndex = ((i % TRACKS.length) + TRACKS.length) % TRACKS.length;
+    const idx = ((i % TRACKS.length) + TRACKS.length) % TRACKS.length;
+    if (!trackUnlocked(idx)) return TRACKS[trackIndex].name;
+    trackIndex = idx;
     saveData.audio.track = trackIndex;
     persist();
     const a = getCtx();
@@ -864,8 +681,13 @@ export const music = {
     return TRACKS[trackIndex].name;
   },
 
+  // Cycle stations, skipping tracks not yet bought in the shop.
   nextTrack(dir = 1) {
-    return this.setTrack(trackIndex + dir);
+    for (let step = 1; step <= TRACKS.length; step++) {
+      const idx = ((trackIndex + dir * step) % TRACKS.length + TRACKS.length) % TRACKS.length;
+      if (trackUnlocked(idx)) return this.setTrack(idx);
+    }
+    return TRACKS[trackIndex].name;
   },
 
   // Biome key shift, applied at the next loop boundary (no mid-bar lurch).

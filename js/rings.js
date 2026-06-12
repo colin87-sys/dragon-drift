@@ -72,7 +72,9 @@ function collect(r, centerDist) {
   }
 
   const feverBonus = game.feverActive ? CONFIG.feverMultiplier : 1;
-  const points = Math.round(CONFIG.ringScore * game.combo * feverBonus) + (perfect ? CONFIG.ringCenterBonus : 0);
+  const points = Math.round(
+    (CONFIG.ringScore * game.combo * feverBonus + (perfect ? CONFIG.ringCenterBonus : 0)) * game.scoreMult
+  );
   game.score += points;
   game.ringsCollected++;
   if (perfect) game.perfectRings++;

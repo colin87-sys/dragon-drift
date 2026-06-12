@@ -57,6 +57,11 @@ export const CONFIG = {
   nearMissBonus: 25,
   nearMissCooldown: 1.8,  // seconds before same obstacle can award near-miss again
 
+  // Assist-off score bonuses (settings): flying without the target reticle
+  // and/or without last-chance slow-mo pays a permanent score multiplier.
+  reticleOffBonus: 0.10,
+  slowMoOffBonus: 0.15,
+
   // Barrel roll (dodge move: brief i-frames, near-misses still award)
   rollDuration: 0.45,
   rollCooldown: 1.2,
