@@ -31,6 +31,7 @@ check('gambit eligible at ◆90 haul', sum.gambit.eligible === true && sum.gambi
 
 check('exactly one NEXT UP card', (await page.$$('.nextup-card')).length === 1);
 check('gambit panel rendered', !!(await page.$('#gambit-panel')));
+check('earn list pre-rendered', !!(await page.$('.earn-list.revealing')));
 check('stats grid rendered', (await page.$$('.run-stats .stat')).length === 8);
 check('share menu present', !!(await page.$('#share-menu')));
 
@@ -40,8 +41,8 @@ const counted = await page.$eval('#score-countup', (el) => el.textContent);
 const score = await page.evaluate(() => Math.floor(window.__dd.game.score));
 check(`count-up settles to score (${counted} = ${score})`, Number(counted) === score);
 
-// Ledger revealed the ember line.
-await page.waitForTimeout(800);
+// Ledger is pre-rendered — ember tally is in the DOM without waiting.
+await page.waitForSelector('.earn-list .ember-tally', { timeout: 3000 });
 check('earnings ledger revealed ember tally', !!(await page.$('.earn-list .ember-tally')));
 
 // Wallet got exactly the banked haul (no quests/feats fired in this run).
