@@ -2,6 +2,8 @@
 
 A browser-based endless 3D dragon-flight game built with [Three.js](https://threejs.org/) (vendored locally — no build step, no dependencies to install). Runs on desktop and mobile.
 
+> **Also in this repo: [GODFALL RUSH](godfall/)** — a completely separate boss-rush action RPG. Orbit god-sized summons on an invisible combat shell, dodge telegraphed attacks, warp-strike weak points, break their stagger, and execute them in a slow-mo finisher. Four gods (Leviathan, Titan, Ramuh, Bahamut), four weapon classes with forgeable tiers, armor sets that change your hero's look, S/A/B/C ranks, medals, and a fully procedural orchestral score. Shares nothing with Dragon Drift but the vendored Three.js engine. Play it at `/godfall/` (e.g. `http://localhost:8002/godfall/`). Desktop: WASD move · J attack · K dodge · L warp · Q weapon · F Armiger. Mobile: drag to fly, on-screen buttons, hold ATTACK to warp. Dev checks: `node --experimental-loader ./godfall/tools/loader.mjs godfall/tools/smoke.mjs`.
+
 Fly low over a sunlit sea through six drowned worlds — golden-hour ruins, amber wastes, frozen crystal, a molten caldera, a bioluminescent mire and a star-flooded night sea (a love letter to *Panzer Dragoon*). Build ring chains, thread crystal windows, barrel-roll through danger, gather embers, level up your pilot, and unlock real dragon upgrades. The course never ends — it only gets meaner.
 
 ## Run it
