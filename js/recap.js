@@ -205,7 +205,7 @@ export function buildRecapHtml(score, dist, { isTouch, ICONS }) {
     ${recordChips(sum)}
     <p class="sub big"><b class="count-up" id="score-countup" data-target="${score}">0</b> points</p>
     ${pb > 0 && !game.isNewHighScore ? `<p class="sub">Personal best: <b>${pb}</b></p>` : ''}
-    ${gap > 0 ? `<p class="sub gap">Only <b>${gap}</b> pts away from your best${pct !== null ? ` (${pct}% there!)` : ''}</p>` : ''}
+    ${gap > 0 ? `<p class="sub gap">Only <b>${gap}</b> pts away from your best${pct !== null && pct >= 60 ? ` (${pct}% there!)` : ''}</p>` : ''}
     ${challengeResultHtml(score)}
     ${game.scoreMult > 1.001 ? `<p class="hc-line">⚔ ASSISTS OFF — every point earned at +${Math.round((game.scoreMult - 1) * 100)}%</p>` : ''}
     ${earnListHtml}

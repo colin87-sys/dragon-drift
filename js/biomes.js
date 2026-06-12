@@ -17,36 +17,40 @@ const C = (hex) => new THREE.Color(hex);
 
 export const BIOMES = [
   {
-    // Hero biome: golden-hour water flight through verdigris ruins
-    // (the Panzer Dragoon look).
+    // Dusk sanctuary: deep teal-indigo sky, warm gold compressed to a narrow
+    // horizon band — gameplay elements (rings/orbs/gates/dragon) pop against
+    // the cool ground. Biome 1 becomes the designated bright world.
+    // Light-dark rhythm across the 6-biome cycle: dusk→blaze→cold→inferno→night→cosmos.
     name: 'SUNKEN SANCTUARY',
     keyShift: 0,
-    stars: 0,
-    sky: { top: C(0x3f7ec8), mid: C(0xe0a070), horizon: C(0xffe2a8), sun: C(0xfff0c8) },
-    fog: { color: C(0xf2c694), near: 85, far: 430 },
-    light: { sun: C(0xffe0b0), sunI: 1.8, hemiSky: C(0xbfdcff), hemiGround: C(0x2e5448) },
-    water: { deep: C(0x0c4a66), shallow: C(0x2fa39a), waveAmp: 1.0 },
-    ambient: { color: C(0xc8ec96), fall: 1.2, sway: 2.6, size: 0.34, opacity: 0.8 },
-    fauna: { color: C(0x2a2438), scale: 1.0, flap: 1.0 },
+    stars: 0.15,
+    sky: { top: C(0x0d1f3c), mid: C(0x1e4060), horizon: C(0xe8a040), sun: C(0xffd080) },
+    fog: { color: C(0x1a3050), near: 75, far: 400 },
+    light: { sun: C(0xff9a40), sunI: 1.5, hemiSky: C(0x7ab0d8), hemiGround: C(0x1a3828) },
+    water: { deep: C(0x061828), shallow: C(0x1a5a6a), waveAmp: 1.0 },
+    ambient: { color: C(0xc8ec96), fall: 1.2, sway: 2.6, size: 0.34, opacity: 0.75 },
+    fauna: { color: C(0xd0c8e8), scale: 1.0, flap: 1.0 },
+    faunaFlyby: true, // foreground gull flyby pass visible over the lane
     props: ['tower', 'column', 'archruin', 'slab', 'dome'],
     matIndex: 0, // verdigris stone
   },
   {
-    // Desert ruins drowned in amber haze.
+    // Amber Wastes: high-noon desert — the designated bright world in the cycle,
+    // contrasting with the surrounding dusk/cold biomes.
     name: 'AMBER WASTES',
     keyShift: 2,
     stars: 0,
-    sky: { top: C(0x8a5a72), mid: C(0xe09a62), horizon: C(0xffcf96), sun: C(0xffd9a0) },
+    sky: { top: C(0x6a3820), mid: C(0xd08040), horizon: C(0xffcf96), sun: C(0xfff0c0) },
     fog: { color: C(0xeaaf80), near: 60, far: 330 },
-    light: { sun: C(0xffc88a), sunI: 1.7, hemiSky: C(0xe8c8a8), hemiGround: C(0x6a4a30) },
+    light: { sun: C(0xffc88a), sunI: 2.0, hemiSky: C(0xe8c8a8), hemiGround: C(0x6a4a30) },
     water: { deep: C(0x3a3214), shallow: C(0x9a7a3a), waveAmp: 0.7 },
     ambient: { color: C(0xffd9a0), fall: 0.4, sway: 1.6, size: 0.3, opacity: 0.6 },
-    fauna: { color: C(0x3a2418), scale: 1.15, flap: 0.8 },
+    fauna: { color: C(0xc8a060), scale: 1.3, flap: 0.5 }, // slow wide sand-kite gliders
     props: ['obelisk', 'column', 'slab', 'dome'],
     matIndex: 1, // sandstone
   },
   {
-    // The original neon-ice canyon, now over glassy melt-water.
+    // Cold sunset canyon — petrel pair + aurora wisps
     name: 'FROZEN REACH',
     keyShift: -3,
     stars: 0,
@@ -55,13 +59,12 @@ export const BIOMES = [
     light: { sun: C(0xffb070), sunI: 1.6, hemiSky: C(0x9ab8ff), hemiGround: C(0x32435e) },
     water: { deep: C(0x122a4a), shallow: C(0x3a6a9a), waveAmp: 0.3 },
     ambient: { color: C(0xffffff), fall: 3.5, sway: 0.6, size: 0.4, opacity: 0.75 },
-    fauna: { color: C(0xdce8f4), scale: 0.9, flap: 1.1 },
+    fauna: { color: C(0xe8f4ff), scale: 0.85, flap: 1.3 }, // petrel pair: tight, fast flap
     props: ['crystal', 'crystalSmall'],
     matIndex: 2, // ice
   },
   {
-    // Black basalt spires over a sea of cooling magma; embers RISE through
-    // the air and ash-wyverns wheel against the glow.
+    // Inferno — erratic fire-moth glow points rise with the embers
     name: 'EMBERFALL CALDERA',
     keyShift: -2,
     stars: 0,
@@ -70,13 +73,12 @@ export const BIOMES = [
     light: { sun: C(0xff9a50), sunI: 1.6, hemiSky: C(0x8a5040), hemiGround: C(0x301010) },
     water: { deep: C(0x2a0a08), shallow: C(0xc84818), waveAmp: 0.55 },
     ambient: { color: C(0xff9a40), fall: -2.2, sway: 1.4, size: 0.36, opacity: 0.9 },
-    fauna: { color: C(0x4a1410), scale: 1.25, flap: 0.9 },
+    fauna: { color: C(0xff6a20), scale: 0.6, flap: 3.5 }, // fire-moths: tiny, erratic
     props: ['basalt', 'vent'],
     matIndex: 3, // basalt + ember veins
   },
   {
-    // Bioluminescent night marsh: colossal glowcap mushrooms, drifting
-    // spores, fireflies — everything lit from within.
+    // Night garden — slow-bobbing translucent glow-jellies (additive blend)
     name: 'LUMEN MIRE',
     keyShift: -4,
     stars: 0.6,
@@ -85,13 +87,12 @@ export const BIOMES = [
     light: { sun: C(0x70e8c0), sunI: 1.15, hemiSky: C(0x2a5a6a), hemiGround: C(0x0c2a1a) },
     water: { deep: C(0x041820), shallow: C(0x0f6a5a), waveAmp: 0.6 },
     ambient: { color: C(0xaaffc0), fall: 0.15, sway: 3.4, size: 0.42, opacity: 0.9 },
-    fauna: { color: C(0x6affd8), scale: 0.7, flap: 1.5 },
+    fauna: { color: C(0x80ffc8), scale: 1.1, flap: 0.3 }, // glow-jellies: large, slow bob
     props: ['glowcap', 'glowcapSmall', 'spirevine'],
     matIndex: 4, // mossy biolume
   },
   {
-    // Star-flooded night sea beneath a violet aurora; crystal monoliths
-    // hum on the banks and a sky whale drifts the far horizon.
+    // Cosmos — star-koi shoal + existing whale; star-koi share whale drift pattern
     name: 'ASTRAL SHALLOWS',
     keyShift: 3,
     stars: 1,
@@ -101,7 +102,7 @@ export const BIOMES = [
     light: { sun: C(0xbfd8ff), sunI: 1.3, hemiSky: C(0x4a4a8a), hemiGround: C(0x101030) },
     water: { deep: C(0x060a24), shallow: C(0x2a3a8a), waveAmp: 0.4 },
     ambient: { color: C(0xcfe0ff), fall: 0.1, sway: 0.8, size: 0.3, opacity: 0.9 },
-    fauna: { color: C(0xb8c8f0), scale: 0.95, flap: 0.7 },
+    fauna: { color: C(0xa8d8ff), scale: 0.7, flap: 0.5 }, // star-koi: small, gentle drift
     props: ['monolith', 'arcshard'],
     matIndex: 5, // astral slate
   },
@@ -135,7 +136,7 @@ const env = {
   waterDeep: new THREE.Color(), waterShallow: new THREE.Color(), waveAmp: 1,
   ambColor: new THREE.Color(), ambFall: 1, ambSway: 1, ambSize: 0.4, ambOpacity: 0.75,
   faunaColor: new THREE.Color(), faunaScale: 1, faunaFlap: 1,
-  starMix: 0, whaleMix: 0,
+  starMix: 0, whaleMix: 0, flybyMix: 0,
 };
 
 const lerp = THREE.MathUtils.lerp;
@@ -168,5 +169,6 @@ export function computeEnv(dist) {
   env.faunaFlap = lerp(a.fauna.flap, b.fauna.flap, t);
   env.starMix = lerp(a.stars || 0, b.stars || 0, t);
   env.whaleMix = lerp(a.whale || 0, b.whale || 0, t);
+  env.flybyMix = lerp(a.faunaFlyby ? 1 : 0, b.faunaFlyby ? 1 : 0, t);
   return env;
 }

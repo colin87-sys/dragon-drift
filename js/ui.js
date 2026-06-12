@@ -94,6 +94,7 @@ export const ui = {
       <div class="audio-btns">
         <button class="mute-btn" id="pause-btn" title="Pause (Esc) — audio &amp; radio live here">${ICONS.pause}</button>
       </div>
+      <div class="milestone-banner" id="milestone-banner"></div>
       <div class="popup" id="popup"></div>
       <div class="popup popup2" id="popup2"></div>
       <div class="feat-toast" id="feat-toast"></div>
@@ -113,6 +114,7 @@ export const ui = {
         </div>
       </div>
       <div class="screen" id="screen"></div>
+      <div class="menu-motes" id="menu-motes"></div>
       <div class="celebrate" id="celebrate"></div>
     `;
     document.body.appendChild(root);
@@ -147,6 +149,7 @@ export const ui = {
       blueFlash:    root.querySelector('#blue-flash'),
       feverOverlay: root.querySelector('#fever-overlay'),
       speedlines:   root.querySelector('#speedlines'),
+      milestoneBanner: root.querySelector('#milestone-banner'),
       screen:       root.querySelector('#screen'),
       celebrate:    root.querySelector('#celebrate'),
       revive:       root.querySelector('#revive-offer'),
@@ -321,7 +324,12 @@ export const ui = {
   },
 
   milestonePopup(metres) {
-    this._popup2(`${metres} m!`, 'gold');
+    const b = els.milestoneBanner;
+    if (!b) { this._popup2(`${metres} m!`, 'gold'); return; }
+    b.textContent = `${metres} m!`;
+    b.classList.remove('ms-anim');
+    void b.offsetWidth;
+    b.classList.add('ms-anim');
   },
 
   recordPopup() {
@@ -502,7 +510,7 @@ export const ui = {
           <div class="mission-info">
             <div class="mission-label">${m.def.label}</div>
             ${barHtml(m.progress / m.def.target)}
-            <div class="mission-prog">${m.progress} / ${m.def.target}</div>
+            <div class="mission-prog">${Math.min(m.progress, m.def.target)} / ${m.def.target}</div>
           </div>
           <div class="mission-reward">◆ ${m.def.reward}</div>
         </div>`).join('');
@@ -631,12 +639,14 @@ export const ui = {
       }
 
       html = `
-        <h1>SHOP</h1>
-        <div class="meta-row"><div class="meta-chip"><span class="ember-ico">◆</span> <b>${saveData.embers}</b> embers</div></div>
-        <div class="seg-row shop-tabs">${tabBtn('dragons', '🐉 DRAGONS')}${tabBtn('riders', '🛡 RIDERS')}${tabBtn('music', '♪ MUSIC')}</div>
+        <div class="screen-topbar">
+          <span class="topbar-title">SHOP</span>
+          <div class="meta-chip"><span class="ember-ico">◆</span> <b>${saveData.embers}</b></div>
+          <button class="topbar-close" id="btn-back" title="Back">✕</button>
+        </div>
+        <div class="seg-row shop-tabs" style="margin-top:12px">${tabBtn('dragons', '🐉 DRAGONS')}${tabBtn('riders', '🛡 RIDERS')}${tabBtn('music', '♪ MUSIC')}</div>
         ${body}
-        <p class="share-hint" id="shop-hint"></p>
-        <div class="action-row"><button class="btn-secondary" id="btn-back">← BACK</button></div>`;
+        <p class="share-hint" id="shop-hint"></p>`;
 
     } else if (type === 'settings') {
       const q = saveData.settings.qualityOverride;
@@ -698,6 +708,7 @@ export const ui = {
 
     els.screen.innerHTML = html;
     els.screen.classList.add('visible');
+    document.body.classList.add('screen-open');
     els.screen.classList.toggle('stagger', fresh && type === 'start');
     if (fresh) restartAnim(els.screen, 'screen-anim');
     pauseSubscreen = returnScreen === 'pause' && (type === 'shop' || type === 'settings' || type === 'pilot');
@@ -750,6 +761,7 @@ export const ui = {
   hideScreen() {
     pauseSubscreen = false;
     els.screen.classList.remove('visible');
+    document.body.classList.remove('screen-open');
   },
 
   // Pause hub, AAA-clean: resume up top, an at-a-glance stats strip, then
@@ -801,7 +813,7 @@ export const ui = {
             <div class="pm-quest-label">${m.def.label}</div>
             ${barHtml(m.progress / m.def.target)}
           </div>
-          <div class="pm-quest-meta"><b>${m.progress}/${m.def.target}</b><span>◆ ${m.def.reward}</span></div>
+          <div class="pm-quest-meta"><b>${Math.min(m.progress, m.def.target)}/${m.def.target}</b><span>◆ ${m.def.reward}</span></div>
         </div>`).join('');
       const weekly = weeklyTrials().map((t) => `
         <div class="pm-quest weekly${t.done ? ' done' : ''}">
@@ -837,6 +849,7 @@ export const ui = {
       </div>
       <p class="action-key">${isTouch() ? 'tap outside the menu to resume' : 'Esc or click outside the menu to resume'}</p>`;
     els.screen.classList.add('visible');
+    document.body.classList.add('screen-open');
     els.screen.classList.remove('stagger');
     if (fresh) restartAnim(els.screen, 'screen-anim');
     els.screen.onclick = null; // pause uses the global outside-tap-to-resume

@@ -16,7 +16,9 @@ check('twitter card meta', !!(await page.$('meta[name="twitter:card"]')));
 const fetches = await page.evaluate(async () => {
   const out = {};
   for (const path of ['./manifest.json', './sw.js', './assets/og.png', './assets/icon-192.png',
-    './lib/fonts/russo-one-latin-400.woff2']) {
+    './lib/fonts/russo-one-latin-400.woff2',
+    './lib/fonts/rajdhani-latin-500.ttf',
+    './lib/fonts/rajdhani-latin-700.ttf']) {
     try { out[path] = (await fetch(path)).status; } catch { out[path] = 0; }
   }
   return out;
@@ -31,6 +33,8 @@ check('manifest start_url/scope relative (Pages subpath safe)',
 
 check('display font loaded', await page.evaluate(() =>
   document.fonts.ready.then(() => document.fonts.check("16px 'Russo One'"))));
+check('body font loaded', await page.evaluate(() =>
+  document.fonts.ready.then(() => document.fonts.check("16px 'Rajdhani'"))));
 
 check('app-loaded set, loading screen hidden', await page.evaluate(() =>
   document.body.classList.contains('app-loaded') &&
