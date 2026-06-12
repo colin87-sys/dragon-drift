@@ -338,6 +338,35 @@ export const sfx = {
     [523.25, 659.25, 783.99, 1046.5, 1318.5].forEach((f, i) =>
       tone({ freq: f, end: f * 1.2, dur: 0.22, type: 'square', vol: 0.09, delay: i * 0.08 }));
   },
+  // Golden ember: a treasure-chest glissando — unmistakably richer than the
+  // ordinary ember blip.
+  goldEmber() {
+    [880, 1108.7, 1318.5, 1760].forEach((f, i) =>
+      tone({ freq: f, dur: 0.16, type: 'triangle', vol: 0.12, delay: i * 0.05 }));
+    tone({ freq: 2637, dur: 0.3, type: 'sine', vol: 0.06, delay: 0.2 });
+    noiseWhoosh({ from: 5000, to: 9000, dur: 0.2, vol: 0.05, q: 3 });
+  },
+  // Feat unlocked: a proud little fanfare stamp (distinct from missions)
+  featUnlock() {
+    [659.25, 880, 1318.5].forEach((f, i) =>
+      tone({ freq: f, dur: 0.2, type: 'triangle', vol: 0.11, delay: i * 0.1 }));
+    tone({ freq: 1760, end: 2093, dur: 0.32, type: 'sine', vol: 0.07, delay: 0.3 });
+  },
+  // Gambit won: full phoenix fanfare — the biggest jingle in the game
+  gambitWin() {
+    [523.25, 659.25, 783.99, 1046.5].forEach((f, i) => {
+      tone({ freq: f, dur: 0.3, type: 'triangle', vol: 0.11, delay: i * 0.09 });
+      tone({ freq: f * 2, dur: 0.24, type: 'sine', vol: 0.05, delay: i * 0.09 });
+    });
+    [1318.5, 1567.98, 2093].forEach((f, i) =>
+      tone({ freq: f, end: f * 1.12, dur: 0.4, type: 'square', vol: 0.07, delay: 0.42 + i * 0.1 }));
+    noiseWhoosh({ from: 1000, to: 6000, dur: 0.5, vol: 0.07, q: 1.2, delay: 0.4 });
+  },
+  // Gambit lost: low ember-fade — somber, never punishing
+  gambitLose() {
+    tone({ freq: 330, end: 165, dur: 0.6, type: 'triangle', vol: 0.1 });
+    tone({ freq: 196, end: 98, dur: 0.8, type: 'sine', vol: 0.08, delay: 0.2 });
+  },
 };
 
 // --- Music engine ---

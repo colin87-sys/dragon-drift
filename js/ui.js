@@ -1,9 +1,15 @@
 import { CONFIG } from './config.js';
+import { on } from './events.js';
 import { game } from './gameState.js';
 import { toggleMusicMute, toggleSfxMute, musicMuted, sfxMuted, music, sfx, TRACKS, trackUnlocked, setMusicVolume, setSfxVolume } from './sfx.js';
 import { comboTier } from './util.js';
 import { saveData, persist, xpToNext, todayUTC } from './save.js';
 import { activeMissions } from './missions.js';
+import { weeklyTrials } from './weekly.js';
+import { equippedTitleName } from './titles.js';
+import { buildRecapHtml, wireRecap, buildGambitResultHtml, wireGambitResult, selectNextUp } from './recap.js';
+import { buildPilotHtml, wirePilot } from './pilotScreen.js';
+import { gambitStake } from './gambit.js';
 import { DRAGONS, DRAGON_STAT_CAP } from './dragons.js';
 import { RIDERS } from './riders.js';
 import { attachPreviews } from './preview.js';
@@ -55,11 +61,14 @@ export const ui = {
       </div>
       <div class="hud-top-right">
         <div class="score" id="score">0</div>
+        <div class="race-bar" id="race-bar"><span class="race-fill" id="race-fill"></span><span class="race-target" id="race-target"></span></div>
         <div class="combo" id="combo" data-tier="0"><span class="combo-x" id="combo-x">×1.00</span><span class="combo-word">COMBO</span></div>
         <div class="chain" id="chain"><span class="chain-n" id="chain-n">0</span><span class="chain-word">CHAIN</span></div>
         <div class="dist" id="dist">0 m</div>
         <div class="best" id="best"></div>
         <div class="embers-hud" id="embers-hud"></div>
+        <div class="gambit-chip" id="gambit-chip"></div>
+        <div class="ff-chip" id="ff-chip"></div>
         <div class="assist-chip" id="assist-chip"></div>
         <div class="surge-widget" id="surge-widget" data-tier="0">
           <svg viewBox="0 0 84 84">
@@ -84,6 +93,8 @@ export const ui = {
       </div>
       <div class="popup" id="popup"></div>
       <div class="popup popup2" id="popup2"></div>
+      <div class="feat-toast" id="feat-toast"></div>
+      <div class="hint" id="hint"></div>
       <div class="vignette" id="vignette"></div>
       <div class="blue-flash" id="blue-flash"></div>
       <div class="gold-flash" id="gold-flash"></div>
@@ -114,12 +125,19 @@ export const ui = {
       surgeX:       root.querySelector('#surge-x'),
       surgeLbl:     root.querySelector('#surge-lbl'),
       embersHud:    root.querySelector('#embers-hud'),
+      gambitChip:   root.querySelector('#gambit-chip'),
+      ffChip:       root.querySelector('#ff-chip'),
+      raceBar:      root.querySelector('#race-bar'),
+      raceFill:     root.querySelector('#race-fill'),
+      raceTarget:   root.querySelector('#race-target'),
       assistChip:   root.querySelector('#assist-chip'),
       lvlNum:       root.querySelector('#lvl-num'),
       dist:         root.querySelector('#dist'),
       best:         root.querySelector('#best'),
       popup:        root.querySelector('#popup'),
       popup2:       root.querySelector('#popup2'),
+      featToast:    root.querySelector('#feat-toast'),
+      hint:         root.querySelector('#hint'),
       vignette:     root.querySelector('#vignette'),
       blueFlash:    root.querySelector('#blue-flash'),
       feverOverlay: root.querySelector('#fever-overlay'),
@@ -151,6 +169,14 @@ export const ui = {
     els.surgeArc.style.strokeDasharray = C;
     els.surgeArc.style.strokeDashoffset = C;
     els.lvlNum.textContent = saveData.level;
+
+    // Live feat unlocks toast over the event bus (feats.js stays ui-free).
+    on('featUnlocked', (p) => {
+      if (p && p.live) {
+        this.featToast(p.def.name, p.def.reward);
+        sfx.featUnlock();
+      }
+    });
   },
 
   update(player) {
@@ -205,6 +231,35 @@ export const ui = {
     els.assistChip.textContent = hcBonus > 0 ? `⚔ ASSISTS OFF +${hcBonus}%` : '';
     els.lvlNum.textContent = saveData.level;
 
+    // Challenge race bar: live progress against the friend's score, gold
+    // once beaten. Today's comparison shouldn't wait for the crash screen.
+    const racing = game.challengeScore > 0 && game.mode !== 'gambit';
+    els.raceBar.classList.toggle('on', racing);
+    if (racing) {
+      const frac = Math.min(1, game.score / game.challengeScore);
+      els.raceFill.style.width = `${frac * 100}%`;
+      els.raceTarget.textContent = game.challengeBeaten ? 'BEATEN!' : `vs ${game.challengeScore}`;
+      els.raceBar.classList.toggle('won', game.challengeBeaten);
+      if (!game.challengeBeaten && game.score > game.challengeScore) {
+        game.challengeBeaten = true;
+        this._popup('CHALLENGE BEATEN — KEEP FLYING!', 'gold');
+        sfx.record();
+      }
+    }
+
+    // Gambit: the stake rides on the HUD with the metres left to the arch.
+    if (game.mode === 'gambit') {
+      const left = Math.max(0, Math.ceil(CONFIG.gambitGoal - player.dist));
+      els.gambitChip.textContent = `🔥 ◆${gambitStake()} AT STAKE · ${left}m`;
+    } else {
+      els.gambitChip.textContent = '';
+    }
+
+    // First flight of the day: the ×1.5 chip shows until the bonus banks.
+    els.ffChip.textContent =
+      game.mode !== 'gambit' && saveData.firstFlightDay !== todayUTC()
+        ? `☀ FIRST FLIGHT ◆×${CONFIG.firstFlightMult}` : '';
+
     // Fever overlay pulse
     els.feverOverlay.classList.toggle('active', game.feverActive);
   },
@@ -248,6 +303,40 @@ export const ui = {
 
   radioPopup(name) {
     this._popup2(`♪ Now playing: ${name}`, 'gold');
+  },
+
+  // Live personal-record break (throttled by records.js)
+  newBestPopup(label, value) {
+    this._popup2(`★ NEW BEST ${label}: ${value} ★`, 'gold');
+    sfx.record();
+  },
+
+  goldEmberPopup(value) {
+    this._popup2(`✦ GOLDEN EMBER +◆${value} ✦`, 'gold');
+  },
+
+  pbMarkerPopup(bonus) {
+    this._popup(`⟡ PAST YOUR BEST FLIGHT +◆${bonus} ⟡`, 'gold');
+  },
+
+  gambitStartPopup() {
+    this._popup('THE PHOENIX GAUNTLET — ONE TOUCH AND IT BURNS', 'fever');
+  },
+
+  // Feat toast: its own element so gameplay popups are never eaten.
+  featToast(name, reward) {
+    els.featToast.innerHTML = `⬢ FEAT — ${name} <b>+◆${reward}</b>`;
+    restartAnim(els.featToast, 'feat-toast-anim');
+  },
+
+  // Onboarding hint line (hints.js drives show/hide)
+  showHint(text) {
+    els.hint.textContent = text;
+    els.hint.classList.add('on');
+  },
+
+  hideHint() {
+    els.hint.classList.remove('on');
   },
 
   showReviveOffer() {
@@ -319,18 +408,36 @@ export const ui = {
           </div>
           <div class="mission-reward">◆ ${m.def.reward}</div>
         </div>`).join('');
+      const trials = weeklyTrials();
+      const feather = saveData.weekly.feather;
+      const weeklyStrip = `
+        <div class="weekly-strip">
+          <div class="weekly-head">WEEKLY TRIALS${feather ? ' <span class="feather" title="Phoenix Feather — bridges one missed streak day">🪶</span>' : ''}</div>
+          ${trials.map((t) => `
+            <div class="weekly-row${t.done ? ' done' : ''}">
+              <span class="weekly-label">${t.done ? '★ ' : ''}${t.def.label}</span>
+              <div class="mission-bar"><span style="width:${Math.min(100, (t.progress / t.def.target) * 100)}%"></span></div>
+              <span class="weekly-reward">◆${t.def.reward}</span>
+            </div>`).join('')}
+        </div>`;
+      const nextUp = selectNextUp();
+      const title = equippedTitleName();
       const daily = saveData.daily;
       const dailyDone = daily.date === todayUTC() && daily.played;
       html = `
         <h1>DRAGON DRIFT</h1>
         ${game.challengeScore ? `<p class="challenge">CHALLENGE — beat ${game.challengeScore} points!</p>` : ''}
+        ${startNotice ? `<p class="start-notice">${startNotice}</p>` : ''}
         <div class="meta-row">
           <div class="meta-chip">PILOT <b>LV ${saveData.level}</b></div>
+          ${title ? `<div class="meta-chip title-chip" id="chip-title">«${title}»</div>` : ''}
           <div class="meta-chip"><span class="ember-ico">◆</span> <b>${saveData.embers}</b></div>
           ${game.highScore ? `<div class="meta-chip">BEST <b>${game.highScore}</b></div>` : ''}
         </div>
         <p class="sub">${touch ? 'Drag to steer · hold a second finger to boost · swipe it sideways to barrel roll' : 'WASD/Arrows to steer · SPACE to boost · double-tap a direction to barrel roll'}</p>
         <div class="mission-list">${missions}</div>
+        ${weeklyStrip}
+        <p class="nextup-line">${nextUp.icon} NEXT UP — ${nextUp.label} <span class="nextup-line-sub">${nextUp.sub}</span></p>
         <div class="daily-card">
           <div class="daily-info">
             <div class="daily-title">DAILY CHALLENGE</div>
@@ -341,6 +448,7 @@ export const ui = {
         </div>
         <div class="action-row">
           <button class="btn-primary" id="btn-start">TAKE OFF</button>
+          <button class="btn-tertiary" id="btn-pilot">⬢ PILOT</button>
           <button class="btn-tertiary" id="btn-shop">⬡ SHOP</button>
           <button class="btn-tertiary" id="btn-settings">⚙ SETTINGS</button>
         </div>
@@ -466,91 +574,60 @@ export const ui = {
         <div class="action-row"><button class="btn-secondary" id="btn-back">← BACK</button></div>`;
 
     } else if (type === 'gameover') {
-      const causeText = {
-        wall:   'FLEW INTO THE CANYON WALL',
-        gate:   'CLIPPED THE CRYSTAL WINDOW',
-        shard:  'SHATTERED BY AN ICE SHARD',
-        pillar: 'IMPALED ON AN ICE SPIKE',
-        bar:    'SMASHED INTO AN ICE BEAM',
-        ground: 'DRAGGED INTO THE WAVES',
-      }[game.deathCause] || '';
-      const pb    = game.highScore;
-      const gap   = pb > score ? pb - score : 0;
-      const pct   = pb > 0 && gap > 0 ? Math.round((1 - gap / pb) * 100) : null;
-      const maxSpd = Math.round(game.maxSpeed);
-      const missionLines = (game.missionResults || []).map((r) =>
-        `<div class="mission-done-line">✓ ${r.def.label} <b>+◆${r.reward}</b></div>`).join('');
-      const xpFrac = Math.min(1, saveData.xp / xpToNext(saveData.level));
-      html = `
-        <h1 class="bad">CRASHED!</h1>
-        ${causeText ? `<p class="death-cause">${causeText}</p>` : ''}
-        ${game.isNewHighScore  ? '<p class="newbest">★ NEW HIGH SCORE ★</p>' : ''}
-        ${game.isNewBestDistance && !game.isNewHighScore ? '<p class="newbest">★ LONGEST FLIGHT ★</p>' : ''}
-        <p class="sub big"><b>${score}</b> points</p>
-        ${pb > 0 ? `<p class="sub">Personal best: <b>${pb}</b></p>` : ''}
-        ${gap > 0 ? `<p class="sub gap">Only <b>${gap}</b> pts away from your best${pct !== null ? ` (${pct}% there!)` : ''}</p>` : ''}
-        ${challengeResult(score)}
-        ${game.scoreMult > 1.001 ? `<p class="hc-line">⚔ ASSISTS OFF — every point earned at +${Math.round((game.scoreMult - 1) * 100)}%</p>` : ''}
-        ${game.embersRun > 0 ? `<p class="ember-tally">◆ +${game.embersRun} embers${game.emberBonusEarned > 0 ? ` <span class="rider-bonus">+${game.emberBonusEarned} rider bonus</span>` : ''} <span style="opacity:0.6">(${saveData.embers} total)</span></p>` : ''}
-        ${missionLines ? `<div class="mission-results">${missionLines}</div>` : ''}
-        ${(game.levelUps || 0) > 0 ? `<p class="levelup-badge">⬆ PILOT LEVEL ${saveData.level}!</p>` : ''}
-        <div class="xp-wrap">
-          <div class="xp-row"><span class="lvl">LV ${saveData.level}</span><span>+${game.xpGained || 0} XP</span><span class="lvl">LV ${saveData.level + 1}</span></div>
-          <div class="xp-bar"><span id="xp-fill"></span></div>
-        </div>
-        <div class="run-stats">
-          <div class="stat"><span class="stat-val">${dist} m</span><span class="stat-lbl">distance</span></div>
-          <div class="stat"><span class="stat-val">${game.ringsCollected}</span><span class="stat-lbl">rings</span></div>
-          <div class="stat"><span class="stat-val">${game.perfectRings}</span><span class="stat-lbl">perfect</span></div>
-          <div class="stat"><span class="stat-val">${game.maxCombo.toFixed(2)}x</span><span class="stat-lbl">best combo</span></div>
-          <div class="stat"><span class="stat-val">${game.nearMisses}</span><span class="stat-lbl">near misses</span></div>
-          <div class="stat"><span class="stat-val">${game.speedOrbsCollected}</span><span class="stat-lbl">orbs</span></div>
-          <div class="stat"><span class="stat-val">${maxSpd}</span><span class="stat-lbl">top speed</span></div>
-          <div class="stat"><span class="stat-val">${game.time.toFixed(1)}s</span><span class="stat-lbl">time</span></div>
-        </div>
-        <div class="action-row">
-          <button id="btn-again" class="btn-primary">FLY AGAIN</button>
-          <button id="btn-share" class="btn-secondary">SHARE &amp; CHALLENGE</button>
-          <button id="btn-shop" class="btn-tertiary">⬡ SHOP</button>
-        </div>
-        <div class="share-menu" id="share-menu" hidden>
-          <button id="share-ig"   title="Instagram">${ICONS.ig}</button>
-          <button id="share-x"    title="X">${ICONS.x}</button>
-          <button id="share-tt"   title="TikTok">${ICONS.tt}</button>
-          <button id="share-link" title="Copy challenge link">${ICONS.link}</button>
-        </div>
-        <p class="share-hint" id="share-hint"></p>
-        ${isTouch() ? '' : '<p class="action-key">or press R to retry</p>'}`;
+      // Run Recap v2 lives in recap.js (count-up, record chips, earnings
+      // ledger, NEXT UP, gambit panel) — ui.js keeps screen ownership.
+      html = buildRecapHtml(score, dist, { isTouch: isTouch(), ICONS });
+
+    } else if (type === 'gambitResult') {
+      html = buildGambitResultHtml(game.gambitResult || { won: false, stake: 0 }, { isTouch: isTouch() });
+
+    } else if (type === 'pilot') {
+      html = buildPilotHtml(pilotTab);
     }
 
     els.screen.innerHTML = html;
     els.screen.classList.add('visible');
-    pauseSubscreen = returnScreen === 'pause' && (type === 'shop' || type === 'settings');
+    pauseSubscreen = returnScreen === 'pause' && (type === 'shop' || type === 'settings' || type === 'pilot');
     // Live 3D turntables on the dragon/rider cards
     if (type === 'shop') {
       attachPreviews(els.screen, (kind, key) => (kind === 'dragon' ? DRAGONS[key] : RIDERS[key]));
     }
-    // Tapping a blank spot on the shop/settings screen goes back — the
+    // Tapping a blank spot on the shop/settings/pilot screen goes back — the
     // screen container itself is the only target blank space resolves to.
     els.screen.onclick = (e) => {
       if (e.target !== els.screen) return;
-      if (type === 'shop' || type === 'settings') {
+      if (type === 'shop' || type === 'settings' || type === 'pilot') {
         if (returnScreen === 'pause') ui.showPauseOverlay();
         else ui.showScreen(returnScreen);
       }
     };
     if (type === 'gameover') {
       wireShareButtons(score, dist);
-      // XP bar fill animation: paint at 0, then transition to the real value.
-      const fill = els.screen.querySelector('#xp-fill');
-      if (fill) {
-        const xpFrac = Math.min(1, saveData.xp / xpToNext(saveData.level));
-        requestAnimationFrame(() => requestAnimationFrame(() => {
-          fill.style.width = `${xpFrac * 100}%`;
-        }));
-      }
+      this.recapRevealMs = wireRecap(els.screen, handlers);
+    }
+    if (type === 'gambitResult') {
+      wireGambitResult(els.screen, handlers);
+    }
+    if (type === 'pilot') {
+      wirePilot(els.screen, {
+        onTab: (tab) => { pilotTab = tab; ui.showScreen('pilot'); },
+        onEquipTitle: (id) => {
+          saveData.titles.equipped = id;
+          persist();
+          ui.showScreen('pilot');
+        },
+      });
     }
     wireScreenButtons(type);
+  },
+
+  // Duration of the recap's reveal queue (main.js delays blank-tap arming).
+  recapRevealMs: 0,
+
+  // One-shot notice on the next start screen (welcome-back gift, gambit
+  // stake refund). Cleared after first render.
+  setStartNotice(text) {
+    startNotice = text;
   },
 
   hideScreen() {
@@ -605,7 +682,18 @@ export const ui = {
           </div>
           <div class="pm-quest-meta"><b>${m.progress}/${m.def.target}</b><span>◆ ${m.def.reward}</span></div>
         </div>`).join('');
-      body = `${rows}<p class="pm-hint">Quests pay out when the run ends.</p>`;
+      const weekly = weeklyTrials().map((t) => `
+        <div class="pm-quest weekly${t.done ? ' done' : ''}">
+          <div class="pm-quest-info">
+            <div class="pm-quest-label">${t.done ? '★ ' : ''}${t.def.label}</div>
+            <div class="mission-bar"><span style="width:${Math.min(100, (t.progress / t.def.target) * 100)}%"></span></div>
+          </div>
+          <div class="pm-quest-meta"><b>${Math.min(t.progress, t.def.target)}/${t.def.target}</b><span>◆ ${t.def.reward}</span></div>
+        </div>`).join('');
+      body = `${rows}
+        <div class="pm-weekly-head">WEEKLY TRIALS${saveData.weekly.feather ? ' 🪶' : ''}</div>
+        ${weekly}
+        <p class="pm-hint">Quests pay when the run ends · weeklies reset Mondays (UTC).</p>`;
     }
 
     els.screen.innerHTML = `
@@ -694,19 +782,21 @@ export const ui = {
     return pauseSubscreen;
   },
 
-  // True while a shop/settings subscreen is showing (any origin) — main.js
-  // suppresses the crash-screen tap-to-restart while browsing.
+  // True while a shop/settings/pilot subscreen is showing (any origin) —
+  // main.js suppresses the crash-screen tap-to-restart while browsing.
   inSubscreen() {
-    return lastScreen === 'shop' || lastScreen === 'settings';
+    return lastScreen === 'shop' || lastScreen === 'settings' || lastScreen === 'pilot';
   },
 };
 
-// Where BACK should land from shop/settings (start, gameover or pause).
+// Where BACK should land from shop/settings/pilot (start, gameover or pause).
 let lastScreen = 'start';
 let returnScreen = 'start';
 let pauseSubscreen = false; // shop/settings opened from the pause menu
 let shopTab = 'dragons';    // dragons | riders | music
 let pauseTab = 'audio';     // audio | assists | quests
+let pilotTab = 'feats';     // feats | log | titles
+let startNotice = '';       // one-shot line on the start screen
 
 function wireScreenButtons(type) {
   const q = (sel) => els.screen.querySelector(sel);
@@ -725,6 +815,10 @@ function wireScreenButtons(type) {
   if (shop) shop.onclick = stop(() => ui.showScreen('shop'));
   const settings = q('#btn-settings');
   if (settings) settings.onclick = stop(() => ui.showScreen('settings'));
+  const pilot = q('#btn-pilot');
+  if (pilot) pilot.onclick = stop(() => ui.showScreen('pilot'));
+  const chipTitle = q('#chip-title');
+  if (chipTitle) chipTitle.onclick = stop(() => { pilotTab = 'titles'; ui.showScreen('pilot'); });
   const back = q('#btn-back');
   if (back) back.onclick = stop(() => {
     // BACK from a pause-opened subscreen returns to the pause overlay.
@@ -863,13 +957,6 @@ function wireScreenButtons(type) {
   }
 }
 
-function challengeResult(score) {
-  if (!game.challengeScore) return '';
-  return score > game.challengeScore
-    ? `<p class="challenge won">CHALLENGE BEATEN! (beat ${game.challengeScore})</p>`
-    : `<p class="challenge">Challenge: ${game.challengeScore} — not this time!</p>`;
-}
-
 function challengeUrl(score) {
   // Seed travels with the link so the challenger races the exact same course.
   return `${location.origin}${location.pathname}?challenge=${score}&seed=${game.runSeed}`;
@@ -943,10 +1030,22 @@ function wireShareButtons(score, dist) {
 }
 
 function buildShareText(score, dist) {
+  // Beating a friend's challenge turns the share into a riposte.
+  const opening = game.challengeScore && score > game.challengeScore
+    ? [`I beat your ${game.challengeScore.toLocaleString()} with ${score.toLocaleString()} in Dragon Drift 🐉`,
+       `Your move.`]
+    : [`I scored ${score.toLocaleString()} in Dragon Drift 🐉`,
+       `Can you beat my run?`];
+  const title = equippedTitleName();
+  const streak = saveData.daily.streak;
+  const identity = [
+    title ? `«${title}»` : '',
+    streak > 1 ? `🔥 ${streak}-day streak` : '',
+  ].filter(Boolean).join(' · ');
   return [
-    `I scored ${score.toLocaleString()} in Dragon Drift 🐉`,
-    `Can you beat my run?`,
+    ...opening,
     ``,
+    ...(identity ? [identity] : []),
     `Course: ${game.runSeed.toString(36).toUpperCase()}`,
     `Combo: ${game.maxCombo.toFixed(2)}x · Perfect Rings: ${game.perfectRings} · Near Misses: ${game.nearMisses}`,
   ].join('\n');

@@ -445,3 +445,190 @@ body.app-loaded .load-hint { display: none; }
   .chain         { font-size: 10px; }
   .chain .chain-n { font-size: 12px; }
 }
+
+/* ============ LEGEND UPDATE (retention systems) ============ */
+
+/* Challenge race bar: live HUD progress vs a friend's score */
+.race-bar { display: none; position: relative; width: 150px; height: 8px; margin: 6px 0 2px auto;
+  border-radius: 5px; background: rgba(10, 20, 42, 0.85); border: 1px solid rgba(140, 200, 255, 0.3); }
+.race-bar.on { display: block; }
+.race-fill { display: block; height: 100%; border-radius: 5px; width: 0;
+  background: linear-gradient(90deg, #3fd8e8, #ff9a5a); transition: width 0.3s; }
+.race-bar.won .race-fill { background: linear-gradient(90deg, #ffd86a, #ff9540); }
+.race-target { position: absolute; right: 2px; top: -14px; font-size: 9.5px; letter-spacing: 1px;
+  color: #ff9a5a; font-weight: 800; }
+.race-bar.won .race-target { color: #ffd86a; }
+
+/* HUD chips: gambit stake + first-flight bonus */
+.gambit-chip { font-size: 12px; letter-spacing: 1.5px; color: #ff8050; margin-top: 5px;
+  font-weight: 900; text-shadow: 0 0 12px rgba(255, 90, 30, 0.8); }
+.ff-chip { font-size: 10.5px; letter-spacing: 1.5px; color: #ffe27a; margin-top: 5px;
+  font-weight: 800; text-shadow: 0 0 10px rgba(255, 220, 90, 0.55); }
+
+/* Feat toast: own element so gameplay popups are never eaten */
+.feat-toast { position: absolute; top: 52%; left: 50%; transform: translateX(-50%);
+  font-size: 16px; font-weight: 800; letter-spacing: 1.5px; color: #c8a0ff; opacity: 0;
+  text-shadow: 0 0 14px rgba(170, 110, 255, 0.8); white-space: nowrap; }
+.feat-toast b { color: #ffd86a; }
+.feat-toast.feat-toast-anim { animation: feat-toast 2.4s ease-out forwards; }
+@keyframes feat-toast {
+  0%   { opacity: 0; transform: translateX(-50%) translateY(14px) scale(0.9); }
+  12%  { opacity: 1; transform: translateX(-50%) translateY(0) scale(1.06); }
+  20%  { transform: translateX(-50%) scale(1); }
+  80%  { opacity: 1; }
+  100% { opacity: 0; transform: translateX(-50%) translateY(-12px); }
+}
+
+/* Onboarding hint line */
+.hint { position: absolute; bottom: 17%; left: 50%; transform: translateX(-50%);
+  font-size: 16px; font-weight: 700; letter-spacing: 1.5px; color: #cfeaff;
+  background: rgba(10, 20, 42, 0.65); border: 1px solid rgba(140, 200, 255, 0.35);
+  border-radius: 999px; padding: 9px 22px; opacity: 0; transition: opacity 0.35s;
+  pointer-events: none; white-space: nowrap; text-shadow: 0 2px 8px rgba(0,0,0,0.6); }
+.hint.on { opacity: 1; animation: hint-pulse 1.6s ease-in-out infinite; }
+@keyframes hint-pulse { 0%, 100% { transform: translateX(-50%) scale(1); } 50% { transform: translateX(-50%) scale(1.035); } }
+
+/* Recap: NEW BEST record chips */
+.record-chips { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; margin: 4px 0 8px; max-width: 90vw; }
+.record-chip { padding: 6px 14px; border-radius: 999px; font-size: 12.5px; font-weight: 800; letter-spacing: 1.5px;
+  color: #1a1206; background: linear-gradient(135deg, #ffe27a, #ffb84d);
+  box-shadow: 0 0 16px rgba(255, 200, 90, 0.55); opacity: 0; transform: scale(0.6);
+  animation: chip-pop 0.45s cubic-bezier(0.2, 1.6, 0.4, 1) forwards; }
+@keyframes chip-pop { to { opacity: 1; transform: scale(1); } }
+
+/* Recap: earnings ledger reveal queue */
+.earn-list { display: flex; flex-direction: column; gap: 4px; align-items: center; margin: 8px 0 4px;
+  min-height: 10px; max-width: 92vw; }
+.earn-line { font-size: 14px; opacity: 1; }
+.earn-line.reveal { animation: earn-reveal 0.4s ease-out backwards; }
+@keyframes earn-reveal {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.earn-detail { font-size: 12px; opacity: 0.75; margin-left: 6px; }
+.earn-dim { font-size: 12px; opacity: 0.55; margin-left: 6px; }
+.quest-unlock { color: #7fe0ff; font-weight: 700; letter-spacing: 0.5px; }
+.weekly-done { color: #c8a0ff; font-weight: 700; }
+.milestone-line { color: #8aff9a; font-weight: 700; }
+.feat-line { color: #c8a0ff; font-weight: 700; }
+.streak-line { color: #ff9a5a; font-weight: 700; }
+.title-won { color: #ffd86a; font-style: italic; }
+.earn-line b { color: #ffd86a; }
+
+/* NEXT UP: the one goal planted at the stopping point */
+.nextup-card { width: min(440px, 88vw); text-align: left; margin: 10px 0 4px;
+  background: rgba(20, 48, 86, 0.65); border: 1px solid rgba(63, 216, 232, 0.45);
+  border-radius: 12px; padding: 11px 16px; box-shadow: 0 0 18px rgba(63, 216, 232, 0.12) inset; }
+.nextup-head { font-size: 10.5px; letter-spacing: 2.5px; color: #3fd8e8; font-weight: 900; }
+.nextup-label { font-size: 14.5px; font-weight: 700; margin: 4px 0 6px; }
+.nextup-sub { font-size: 11.5px; opacity: 0.75; margin-top: 5px; }
+.nextup-line { font-size: 12.5px; color: #7fe0ff; letter-spacing: 0.5px; margin: 6px 0 2px; }
+.nextup-line-sub { opacity: 0.65; font-size: 11px; margin-left: 6px; }
+
+/* Ember Gambit panel */
+.gambit-panel { width: min(440px, 88vw); margin: 10px 0 2px; text-align: center;
+  background: linear-gradient(160deg, rgba(70, 22, 8, 0.8), rgba(40, 10, 14, 0.85));
+  border: 1px solid rgba(255, 120, 50, 0.65); border-radius: 14px; padding: 14px 16px 12px;
+  box-shadow: 0 0 26px rgba(255, 90, 20, 0.25), 0 0 14px rgba(255, 120, 40, 0.18) inset;
+  animation: gambit-breathe 2.4s ease-in-out infinite; }
+@keyframes gambit-breathe {
+  0%, 100% { box-shadow: 0 0 26px rgba(255, 90, 20, 0.25), 0 0 14px rgba(255, 120, 40, 0.18) inset; }
+  50%      { box-shadow: 0 0 38px rgba(255, 110, 30, 0.45), 0 0 20px rgba(255, 140, 60, 0.28) inset; }
+}
+.gambit-head { font-size: 15px; font-weight: 900; letter-spacing: 3px; color: #ffb060;
+  text-shadow: 0 0 14px rgba(255, 130, 40, 0.8); }
+.gambit-body { font-size: 14px; margin: 8px 0 4px; line-height: 1.5; }
+.gambit-body b { color: #ffd86a; }
+.gambit-note { font-size: 11px; opacity: 0.7; margin: 4px 0 2px; }
+.gambit-panel .action-row { margin-top: 10px; }
+.gambit-panel.declined { display: none; }
+.gambit-go { background: linear-gradient(135deg, #ffb060, #ff7030, #e84a18) !important; }
+
+/* Gambit result screens */
+.gambit-won-title { color: #ffd86a; text-shadow: 0 0 30px rgba(255, 200, 80, 0.9);
+  animation: pulse 1.2s ease-in-out infinite; }
+.gambit-stake-line b { color: #ffd86a; }
+.gambit-flavor { font-size: 13px; opacity: 0.75; font-style: italic; margin: 6px 0; max-width: 80vw; }
+
+/* Weekly trials strip (start screen) */
+.weekly-strip { width: min(440px, 88vw); margin: 8px 0 2px; text-align: left;
+  background: rgba(34, 26, 66, 0.6); border: 1px solid rgba(170, 130, 255, 0.3);
+  border-radius: 10px; padding: 9px 14px; }
+.weekly-head { font-size: 10.5px; letter-spacing: 2.5px; color: #c8a0ff; font-weight: 900; margin-bottom: 6px; }
+.weekly-row { display: flex; align-items: center; gap: 10px; margin: 4px 0; }
+.weekly-row .mission-bar { flex: 1; margin-top: 0; }
+.weekly-row.done .weekly-label { color: #8aff9a; }
+.weekly-label { font-size: 12px; font-weight: 600; flex-basis: 52%; }
+.weekly-reward { font-size: 11.5px; color: #ffd86a; font-weight: 700; }
+.feather { font-size: 13px; }
+.pm-weekly-head { font-size: 10px; letter-spacing: 2.5px; color: #c8a0ff; font-weight: 900;
+  margin: 10px 0 2px; text-align: left; }
+
+/* Start-screen one-shot notice (welcome back / gambit refund) */
+.start-notice { font-size: 13.5px; color: #8aff9a; letter-spacing: 0.5px; margin: 4px 0;
+  text-shadow: 0 0 12px rgba(110, 255, 140, 0.5); }
+
+/* Title chip */
+.meta-chip.title-chip { color: #ffd86a; font-style: italic; cursor: pointer;
+  border-color: rgba(255, 215, 110, 0.45); }
+
+/* PILOT screen */
+.pilot-body { width: min(560px, 92vw); margin: 8px 0; }
+.pilot-cat { font-size: 11px; letter-spacing: 3px; color: #7fe0ff; font-weight: 900;
+  margin: 14px 0 8px; text-align: left; }
+.feat-grid { display: flex; flex-direction: column; gap: 6px; }
+.feat-card { display: flex; align-items: center; gap: 12px; text-align: left;
+  background: rgba(24, 42, 80, 0.45); border: 1px solid rgba(120, 190, 255, 0.18);
+  border-radius: 10px; padding: 8px 14px; opacity: 0.62; }
+.feat-card.got { opacity: 1; border-color: rgba(200, 160, 255, 0.5);
+  background: rgba(44, 32, 86, 0.55); }
+.feat-mark { font-size: 20px; color: #c8a0ff; }
+.feat-card:not(.got) .feat-mark { color: rgba(140, 170, 220, 0.5); }
+.feat-info { flex: 1; }
+.feat-name { font-size: 13.5px; font-weight: 800; letter-spacing: 0.5px; }
+.feat-desc { font-size: 11.5px; opacity: 0.7; margin-top: 1px; }
+.feat-reward { font-size: 12px; color: #ffd86a; font-weight: 700; text-align: right; }
+.feat-title-tag { display: block; font-size: 10.5px; color: #c8a0ff; font-style: italic; }
+.pilot-stats { width: 100%; max-width: none; }
+.mastery-list { display: flex; flex-direction: column; gap: 5px; }
+.mastery-row { display: flex; align-items: center; gap: 12px; text-align: left;
+  background: rgba(24, 42, 80, 0.45); border: 1px solid rgba(120, 190, 255, 0.18);
+  border-radius: 10px; padding: 8px 14px; font-size: 12.5px; }
+.mastery-name { font-weight: 800; flex-basis: 30%; }
+.mastery-stars { color: #ffd86a; letter-spacing: 2px; font-size: 14px; }
+.mastery-dist { opacity: 0.7; font-size: 11.5px; flex: 1; text-align: right; }
+.title-list { display: flex; flex-direction: column; gap: 5px; }
+.title-row { display: flex; align-items: center; gap: 12px; text-align: left; cursor: pointer;
+  background: rgba(24, 42, 80, 0.45); border: 1px solid rgba(120, 190, 255, 0.18);
+  border-radius: 10px; padding: 9px 14px; transition: border-color 0.12s, background 0.12s; }
+.title-row:not(.locked):hover { border-color: rgba(255, 215, 110, 0.5); }
+.title-row.sel { border-color: rgba(255, 215, 110, 0.75); background: rgba(66, 52, 22, 0.5); }
+.title-row.locked { opacity: 0.5; cursor: default; }
+.title-name { font-size: 14px; font-weight: 800; color: #ffd86a; font-style: italic; flex-basis: 38%; }
+.title-src { font-size: 11px; opacity: 0.65; flex: 1; }
+.title-state { font-size: 10px; letter-spacing: 2px; color: #8aff9a; font-weight: 800; }
+
+/* Reduced motion: collapse every reveal/celebration animation */
+@media (prefers-reduced-motion: reduce) {
+  .record-chip { animation: none; opacity: 1; transform: none; }
+  .earn-line.reveal { animation: none; }
+  .gambit-panel { animation: none; }
+  .feat-toast.feat-toast-anim { animation: feat-toast 0.8s ease-out forwards; }
+  .hint.on { animation: none; }
+  .gambit-won-title { animation: none; }
+}
+
+/* Mobile sizing for the new surfaces */
+@media (max-width: 600px) {
+  .race-bar { width: 110px; }
+  .record-chip { font-size: 10.5px; padding: 5px 10px; }
+  .earn-line { font-size: 12px; }
+  .nextup-label { font-size: 13px; }
+  .gambit-head { font-size: 13px; }
+  .gambit-body { font-size: 12.5px; }
+  .weekly-label { font-size: 11px; }
+  .feat-name { font-size: 12px; }
+  .feat-desc { font-size: 10.5px; }
+  .hint { font-size: 13px; padding: 8px 16px; bottom: 20%; }
+  .title-name { font-size: 12.5px; }
+}

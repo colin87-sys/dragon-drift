@@ -23,8 +23,12 @@ function setPiecesBetween(a, b, out) {
   }
 }
 
-export function createLevelGen(seed = CONFIG.seed) {
+export function createLevelGen(seed = CONFIG.seed, opts = {}) {
   const rnd = mulberry32(seed);
+  // Golden embers draw from an INDEPENDENT stream: adding calls to the main
+  // rnd would reshuffle every existing seed and break old challenge links.
+  const goldRnd = mulberry32((seed ^ 0x6b79d8a1) >>> 0);
+  let nextGoldAt = CONFIG.goldEmberInterval;
   let prev = { dist: 0, x: 0, y: 8 };
   let swingX = 1;
   let swingY = 1;
@@ -221,6 +225,43 @@ export function createLevelGen(seed = CONFIG.seed) {
     return { dist, x: cx + (rnd() - 0.5) * 2, y: cy + (rnd() - 0.5) * 1.5 };
   }
 
+  // Straight guide line of embers between two waypoints (gauntlet/gambit
+  // corridors): follow the embers = thread the door.
+  function guideLine(a, b, out) {
+    const points = [];
+    for (let k = 0; k < 5; k++) {
+      const tt = 0.3 + k * 0.14;
+      points.push({
+        dist: a.dist + (b.dist - a.dist) * tt,
+        x: a.x + (b.x - a.x) * tt,
+        y: a.y + (b.y - a.y) * tt,
+      });
+    }
+    out.embers.push({ points });
+  }
+
+  // Golden embers: one spawn opportunity per goldEmberInterval metres, rolled
+  // on the independent goldRnd stream. Skipped inside gauntlets and the
+  // tutorial zone (the opportunity passes silently). Pity: after two missed
+  // rolls the third golden is guaranteed — variable ratio with a floor, so
+  // no run goes treasure-less for kilometres (bounded randomness).
+  let goldMisses = 0;
+  function maybeGold(a, b, out, allow) {
+    while (b.dist > nextGoldAt) {
+      const at = nextGoldAt;
+      nextGoldAt += CONFIG.goldEmberInterval;
+      if (!allow || at < 400) continue;
+      if (goldRnd() >= CONFIG.goldEmberChance && goldMisses < 2) { goldMisses++; continue; }
+      goldMisses = 0;
+      const t = clamp((at - a.dist) / Math.max(b.dist - a.dist, 1), 0.15, 0.85);
+      out.goldEmbers.push({
+        dist: a.dist + (b.dist - a.dist) * t,
+        x: clamp(a.x + (b.x - a.x) * t + (goldRnd() * 2 - 1) * 3, -10, 10),
+        y: clamp(a.y + (b.y - a.y) * t + 1.2 + goldRnd() * 1.6, 5, 18),
+      });
+    }
+  }
+
   // Ember coin-trail: an arc of pickups tracing the ideal line to the next
   // reward. Doubles as path guidance (follow the embers = thread the ring).
   function emberArc(a, b, out) {
@@ -239,8 +280,44 @@ export function createLevelGen(seed = CONFIG.seed) {
     out.embers.push({ points });
   }
 
+  // --- Gambit corridor: the Phoenix Gauntlet. A short fixed course of
+  // back-to-back gauntlet stations with guide embers (paying 0 — embers.js
+  // guards gambit mode), no rings/orbs/goldens, and a finish arch at the
+  // goal line. Generated instead of the endless course when opts.gambit.
+  let gambitQx = 1;
+  let gambitQyLow = true;
+  let gambitFinishPlaced = false;
+  function ensureGambit(target, out) {
+    while (prev.dist < target) {
+      if (prev.dist < CONFIG.gambitLeadIn) {
+        const wp = { dist: CONFIG.gambitLeadIn, x: 0, y: 10 };
+        guideLine(prev, wp, out);
+        prev = wp;
+      } else if (prev.dist + CONFIG.gambitSpacing <= CONFIG.gambitGoal - 40) {
+        const st = { qx: gambitQx, qyLow: gambitQyLow };
+        if (rnd() < 0.5) gambitQx *= -1;
+        else gambitQyLow = !gambitQyLow;
+        const wp = gauntletStation(st, prev.dist + CONFIG.gambitSpacing, out);
+        guideLine(prev, wp, out);
+        prev = wp;
+      } else if (!gambitFinishPlaced) {
+        gambitFinishPlaced = true;
+        out.setPieces.push({ type: 'biomeGate', dist: CONFIG.gambitGoal, biomeIndex: 1 });
+        prev = { dist: CONFIG.gambitGoal, x: prev.x, y: prev.y };
+      } else {
+        prev = { dist: target, x: prev.x, y: prev.y }; // open sky past the line
+      }
+    }
+    generatedUntil = prev.dist;
+    return out;
+  }
+
   function ensure(target) {
-    const out = { rings: [], obstacles: [], orbs: [], setPieces: [], embers: [] };
+    const out = {
+      rings: [], obstacles: [], orbs: [], setPieces: [], embers: [],
+      goldEmbers: [], gauntletStarts: [], gauntletEnds: [],
+    };
+    if (opts.gambit) return ensureGambit(target, out);
     while (prev.dist < target) {
       // Gauntlet corridors take over waypoint placement while active: each
       // station's ring sits in the open quadrant, an ember line leads in,
@@ -257,27 +334,23 @@ export function createLevelGen(seed = CONFIG.seed) {
         }
         gauntlet = { stations, i: 0 };
         untilGauntlet = prev.dist + 800 + rnd() * 500;
+        out.gauntletStarts.push(prev.dist + 30);
       }
       if (gauntlet) {
         const st = gauntlet.stations[gauntlet.i++];
         const wp = gauntletStation(st, prev.dist + 70, out);
         out.rings.push({ dist: wp.dist, x: wp.x, y: wp.y });
-        const points = [];
-        for (let k = 0; k < 5; k++) {
-          const tt = 0.3 + k * 0.14;
-          points.push({
-            dist: prev.dist + (wp.dist - prev.dist) * tt,
-            x: prev.x + (wp.x - prev.x) * tt,
-            y: prev.y + (wp.y - prev.y) * tt,
-          });
-        }
-        out.embers.push({ points });
+        guideLine(prev, wp, out);
+        maybeGold(prev, wp, out, false); // opportunities pass silently here
         setPiecesBetween(prev.dist, wp.dist, out.setPieces);
         auditHop(prev, wp, 'gauntlet');
         prevHopDirX = Math.sign(wp.x - prev.x) || prevHopDirX;
         prevHopDirY = Math.sign(wp.y - prev.y) || prevHopDirY;
         prev = wp;
-        if (gauntlet.i >= gauntlet.stations.length) gauntlet = null;
+        if (gauntlet.i >= gauntlet.stations.length) {
+          gauntlet = null;
+          out.gauntletEnds.push(prev.dist + 15);
+        }
         continue;
       }
 
@@ -337,6 +410,7 @@ export function createLevelGen(seed = CONFIG.seed) {
         out.rings.push({ dist: wp.dist, x: wp.x, y: wp.y });
         emberArc(prev, wp, out);
       }
+      maybeGold(prev, wp, out, true);
       auditHop(prev, wp, isGate ? 'gate' : 'ring');
       prevHopDirX = Math.sign(wp.x - prev.x) || prevHopDirX;
       prevHopDirY = Math.sign(wp.y - prev.y) || prevHopDirY;

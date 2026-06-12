@@ -3,12 +3,17 @@
 // can never block the game from starting), migrated from the legacy
 // one-key-per-value format on first run.
 
+import { emit } from './events.js';
+
 const KEY = 'dragonDriftSave';
 
+// NOTE for new fields: deepMerge() iterates DEFAULTS' keys, so dynamic-key
+// objects under a {} default are dropped on load — collections MUST be
+// arrays (e.g. mastery.flown is [[key, metres], ...], never a map).
 const DEFAULTS = {
-  v: 1,
+  v: 2,
   best: { score: 0, dist: 0 },
-  flags: { seenFirstSurge: false },
+  flags: { seenFirstSurge: false, hintsSeen: 0 },
   audio: { musicMuted: false, sfxMuted: false, musicVol: 1, sfxVol: 1, track: 0, ownedTracks: [] },
   settings: { qualityOverride: null, reticle: true, slowMo: true },
   embers: 0,
@@ -17,9 +22,26 @@ const DEFAULTS = {
   revives: 1, // one free revive token to teach the mechanic
   skins: { owned: ['azure'], equipped: 'azure' },   // dragons (legacy key name)
   riders: { owned: ['drifter'], equipped: 'drifter' },
-  missions: { active: [], completedCount: 0 },
-  daily: { date: '', played: false, bestScore: 0, streak: 0 },
-  stats: { runs: 0, totalDist: 0, totalRings: 0, totalEmbers: 0 },
+  missions: { active: [], completedCount: 0, completedIds: [] },
+  daily: { date: '', played: false, bestScore: 0, streak: 0, bonusDay: '' },
+  stats: {
+    runs: 0, totalDist: 0, totalRings: 0, totalEmbers: 0,
+    totalPerfects: 0, totalGates: 0, totalNearMisses: 0, totalRolls: 0,
+    totalSurges: 0, totalOrbs: 0, totalGoldEmbers: 0, gauntletsCleared: 0,
+    gambitsWon: 0, gambitsLost: 0, dailiesCompleted: 0,
+  },
+  records: {
+    bestChain: 0, bestPerfectStreak: 0, mostRingsRun: 0,
+    mostPerfectsRun: 0, longestCleanDist: 0, bestCombo: 0, bestDailyScore: 0,
+  },
+  feats: { unlocked: [] },
+  titles: { owned: [], equipped: '' },
+  weekly: { key: '', trialIds: [], progress: [], done: [], feather: false },
+  milestones: { claimed: [] },
+  mastery: { flown: [], starsClaimed: [] }, // flown: [[dragonKey, metres], ...]
+  gambitPending: null,  // { stake: N } while a gambit corridor is airborne
+  lastSeen: '',         // YYYY-MM-DD UTC, set on every boot
+  firstFlightDay: '',   // last UTC day the first-flight ember bonus was paid
 };
 
 function clone(obj) {
@@ -78,7 +100,11 @@ function load() {
   }
   let parsed = null;
   try { parsed = JSON.parse(raw); } catch { /* corrupt blob */ }
-  return deepMerge(clone(DEFAULTS), parsed);
+  const data = deepMerge(clone(DEFAULTS), parsed);
+  // v1 → v2 needs no migration body (deep-merge fills the new fields), but
+  // deepMerge keeps the OLD version marker — stamp the current one.
+  data.v = DEFAULTS.v;
+  return data;
 }
 
 export const saveData = load();
@@ -105,7 +131,14 @@ export function xpToNext(level) {
   return 120 + level * 80;
 }
 
+// Pilot levels pay embers: small, growing, capped — leveling always means
+// something tangible (the recap prints the amount).
+export function levelEmberReward(level) {
+  return Math.min(25 + level * 5, 100);
+}
+
 // Grants xp, returns the number of level-ups (for the game-over celebration).
+// Each level-up pays its ember reward and emits 'levelUp' for feats/sfx.
 export function grantXp(amount) {
   saveData.xp += Math.max(0, Math.round(amount));
   let ups = 0;
@@ -113,6 +146,8 @@ export function grantXp(amount) {
     saveData.xp -= xpToNext(saveData.level);
     saveData.level++;
     ups++;
+    saveData.embers += levelEmberReward(saveData.level);
+    emit('levelUp', { level: saveData.level });
   }
   persist();
   return ups;
@@ -138,18 +173,42 @@ export function dailySeed() {
   return hashStr('dragon-drift-' + todayUTC()) & 0x7fffffff;
 }
 
-// Record a daily-challenge run; maintains the streak counter.
+// Record a daily-challenge run; maintains the streak counter and pays the
+// once-per-day streak bonus. A banked Phoenix Feather (earned from weekly
+// trials) silently bridges a single missed day — warmth, not punishment.
+// Returns { firstToday, streakBonus, featherUsed } for the recap.
 export function recordDailyRun(score) {
   const today = todayUTC();
   const d = saveData.daily;
+  let featherUsed = false;
   if (d.date !== today) {
-    // Streak continues if the last played day was yesterday (UTC).
-    const y = new Date(Date.now() - 86400000).toISOString().slice(0, 10);
-    d.streak = d.date === y ? d.streak + 1 : 1;
+    const y  = new Date(Date.now() - 86400000).toISOString().slice(0, 10);
+    const y2 = new Date(Date.now() - 2 * 86400000).toISOString().slice(0, 10);
+    if (d.date === y) {
+      d.streak = d.streak + 1;
+    } else if (d.date === y2 && saveData.weekly.feather) {
+      // One missed day, one feather: the streak carries across the gap.
+      saveData.weekly.feather = false;
+      featherUsed = true;
+      d.streak = d.streak + 1;
+    } else {
+      d.streak = 1;
+    }
     d.date = today;
     d.bestScore = 0;
   }
   d.played = true;
   d.bestScore = Math.max(d.bestScore, Math.floor(score));
+  saveData.records.bestDailyScore = Math.max(saveData.records.bestDailyScore, Math.floor(score));
+  // First completion each UTC day pays a streak-scaled ember bonus.
+  let streakBonus = 0;
+  const firstToday = d.bonusDay !== today;
+  if (firstToday) {
+    d.bonusDay = today;
+    saveData.stats.dailiesCompleted++;
+    streakBonus = 30 + 10 * Math.min(d.streak, 7);
+    saveData.embers += streakBonus;
+  }
   persist();
+  return { firstToday, streakBonus, featherUsed };
 }

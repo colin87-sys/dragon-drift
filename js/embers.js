@@ -1,6 +1,7 @@
 import * as THREE from 'three';
+import { CONFIG } from './config.js';
 import { game } from './gameState.js';
-import { saveData, persist } from './save.js';
+import { saveData, persist, todayUTC } from './save.js';
 import { riderEmberBonus } from './riders.js';
 import { burst } from './particles.js';
 import { sfx } from './sfx.js';
@@ -88,26 +89,38 @@ export function updateEmbers(dt, player, time) {
     if (dx * dx + dy * dy + dz * dz < PICKUP_R2) {
       s.active = false;
       mesh.setMatrixAt(i, HIDDEN);
-      game.embersRun++;
+      // Gambit corridors keep the guide trails visible but inert — nothing
+      // collected inside the wager can join the wager.
+      if (game.mode !== 'gambit') {
+        game.embersRun++;
+        emit('ember');
+      }
       streak = Math.min(streak + 1, 24);
       streakTimer = 1.2;
       sfx.ember(streak);
       burst(posV, 0xffc050, { count: 4, speed: 6, size: 0.5, life: 0.4 });
-      emit('ember');
     }
   }
   mesh.instanceMatrix.needsUpdate = true;
 }
 
 // Bank the run's embers into the save (called once at run end). The equipped
-// rider's emberBonus pays extra on top — shown on the crash screen.
+// rider's emberBonus pays extra on top, and the first flight of each UTC day
+// pays ×CONFIG.firstFlightMult — both broken out on the recap. Returns the
+// banked total (the Ember Gambit wagers exactly this number).
 export function bankEmbers() {
-  if (game.embersRun <= 0) return;
+  if (game.embersRun <= 0) return 0;
   game.emberBonusEarned = Math.round(game.embersRun * riderEmberBonus());
-  const total = game.embersRun + game.emberBonusEarned;
+  let total = game.embersRun + game.emberBonusEarned;
+  if (saveData.firstFlightDay !== todayUTC()) {
+    saveData.firstFlightDay = todayUTC();
+    game.firstFlightBonus = Math.round(total * (CONFIG.firstFlightMult - 1));
+    total += game.firstFlightBonus;
+  }
   saveData.embers += total;
   saveData.stats.totalEmbers += total;
   persist();
+  return total;
 }
 
 export function resetEmbers() {

@@ -35,16 +35,19 @@ Any static server works (`npx serve`, GitHub Pages, etc.).
 
 - **Rings & windows** build a combo (max ×5) and a visible **CHAIN** counter. Chain enough in a row to trigger **DRAGON SURGE** — double score, halved stamina drain, sky on fire.
 - **Perfect rings** (dead-center) detonate a gold starburst and climb a chime ladder with every consecutive perfect — the streak resets if you clip an edge.
-- **Embers** (amber trails along the racing line) are the meta currency: spend them in the **Shop** on dragons, riders, radio stations and revive tokens.
-- **Dragons are real upgrades**: six dragons with distinct models, trails and flight stats (speed / handling / stamina), each shown as a **live 3D turntable** on its shop card. The 5000-ember **Solar Sovereign** is the apex — fastest, most agile, best-looking, permanent golden aura. Handling always scales ahead of speed, so faster dragons are *easier* to steer onto the line.
-- **Riders are earners**: four pilots with signature looks (gilded banner, storm visor, void gem) and an **ember bonus on every run payout** — +3% (Lancer), +7% (Storm Caller), +12% (Void Oracle).
-- **Quests** (3 active) pay embers and are always in view — on the start screen and in the pause hub's QUESTS tab; **pilot XP** levels you up after every run.
-- **Gauntlets**: every ~1 km the course funnels into a hand-built corridor — a spanning log, a spike wall and one generous open door, three or four stations in a row. Follow the embers.
+- **Embers** (amber trails along the racing line) are the meta currency: spend them in the **Shop** on dragons, riders, radio stations and revive tokens. Rare **Golden Embers** (◆25 comets, seeded per course with dry-spell protection) spice every kilometre, and your **first flight each UTC day banks ×1.5**.
+- **The Ember Gambit**: crash with a worthwhile haul and the recap offers the **Phoenix Gauntlet** — one ~600 m corridor of back-to-back gauntlet stations, no revives, one touch and it burns. Cross the arch and the haul doubles. Quest pay, XP and streaks are banked *before* the wager — only the haul ever rides, and a mid-corridor refresh refunds the stake.
+- **Run Recap**: every crash ends in a designed moment — **NEW BEST** record chips (chain, perfect streak, rings-in-a-run, clean flight, combo), a score count-up, an animated earnings ledger (quests, weeklies, milestones, feats, level pay, streak bonus), and exactly one **NEXT UP** goal so you always leave knowing what's a couple of runs away.
+- **Dragons are real upgrades**: six dragons with distinct models, trails and flight stats, each a **live 3D turntable** on its shop card, each logging **mastery stars** (10/30/75 km flown → ember payouts). The 5000-ember **Solar Sovereign** is the apex. **Riders are earners**: +3% / +7% / +12% embers on every payout.
+- **Quests chain**: six families run in tiers I→III — finishing one slides the next tier into the slot ("NEW QUEST UNLOCKED"); six more quests rotate forever. **Weekly Trials** draw 3 big objectives per ISO week (UTC) paying 350–500◆ plus an **exclusive title** each; completing any trial banks a **Phoenix Feather** that bridges one missed daily-streak day.
+- **Feats**: 24 one-time achievements across skill / journey / collection, paying embers, several granting equippable **titles** («Goldwing», «Ghost», «Mythwing»…). Your title rides the start screen and every share text. The **PILOT** screen holds the feat wall, the flight log (lifetime stats + personal records + dragon mastery) and the title wardrobe.
+- **Flight Milestones**: lifetime rungs (rings, km, perfects, near-misses, windows, gauntlets, goldens) auto-pay at run end — the next rung is rarely more than a couple of runs out. **Pilot levels pay embers** (and a title every 5 levels).
+- **Gauntlets**: every ~1 km the course funnels into a hand-built corridor — follow the embers through the open door. A shimmering **gold beacon stands at your best distance**; passing it pays +◆10 and the record falls in-world.
 - The reward rhythm breathes: tight ring **bursts**, normal flow, and open **straights** to boost flat-out.
-- **Near-misses** pay; barrel-rolling *through* a hazard cluster still awards them.
-- When a hit would kill you, time dilates for a heartbeat — your last chance to dodge. If you die holding a **revive token**, you can burn it to keep flying.
-- **Assist toggles**: turn off the target reticle (+10% score) and/or last-chance slow-mo (+15% score) in Settings or the pause hub — flying raw pays more, and the HUD shows the active bonus.
-- **Daily challenge**: one fixed course per UTC day, with a streak counter. Normal runs get a fresh random course every flight; challenge links (`?challenge=SCORE&seed=S`) race the exact same course.
+- **Near-misses** pay; barrel-rolling *through* a hazard cluster still awards them. When a hit would kill you, time dilates for a heartbeat. Revive tokens grant one second wind per run (never inside a gambit).
+- **Assist toggles**: turn off the target reticle (+10% score) and/or last-chance slow-mo (+15% score) — flying raw pays more, and the HUD shows the active bonus.
+- **Daily challenge**: one fixed course per UTC day; the streak **pays embers** (30 + 10×streak, capped at 7) on the first completion each day. Challenge links (`?challenge=SCORE&seed=S`) race the exact same course — with a live **race bar** under your score, a "CHALLENGE BEATEN" moment mid-run, and a riposte share text when you win ("Your move.").
+- **First-flight coaching**: four one-time contextual hints (steer → boost → perfect centers → follow the embers) that never outlive your second run. Come back after 5+ days away and a small **tailwind gift** is waiting — streaks warm you back in, they never scold.
 - **Dragon Radio**: seventeen procedural stations — four free (Skyborne / Ancient Tides / Ember Rush / Moonlit Drift) and thirteen premium unlocks at a flat ◆800, spanning idol dance-pop, EDM-trap, uplifting trance, big-room, hardstyle, synthwave, future bass, liquid D&B, French house and tropical house. All layers react to boosts, combos and Surge; skip tracks from the pause hub or with N / [ ].
 
 ## Worlds
@@ -65,23 +68,35 @@ The course cycles six ~1500 m biomes with crossfading sky/fog/water, per-biome p
 - **Rendering**: EffectComposer pipeline (bloom → ACES tone map → vibrance/vignette/chromatic-aberration grading), planar-reflection water (real mirror pass on tier 0, analytic fake on lower tiers), instanced prop bands recycled around the player.
 - **Adaptive quality**: 3 tiers driven by FPS with hysteresis (pixel ratio, bloom, reflection, particle counts, birds). Override in Settings. `?debug=perf` shows fps/draw-calls/tier.
 - **Audio**: 100% procedural Web Audio — no audio files. Data-driven track table, per-biome key shifts at loop boundaries, master compressor.
-- **Persistence**: one versioned localStorage blob (`dragonDriftSave`) with corruption-safe deep-merge loading and legacy-key migration.
+- **Persistence**: one versioned localStorage blob (`dragonDriftSave`, v2) with corruption-safe deep-merge loading and legacy-key migration.
+- **Tests**: `node tests/run-all.mjs` — 11 suites (boot smoke, v1→v2 save migration, recap pipeline, full gambit lifecycle incl. reload-refund, feats idempotency, weekly seeding incl. year boundaries, golden-ember RNG isolation against a pre-update course fixture, race bar, def-table integrity, economy bands, return triggers). Browser suites use the globally installed Playwright.
 
 ## Code layout
 
 ```
 index.html              HTML shell + import map
 css/style.css           All UI styling (HUD, screens, shop, pause menu)
-js/main.js              Setup, game flow, quality tiers, main loop
+js/main.js              Setup, game flow, settle pipeline, main loop
 js/config.js            All tuning constants
 js/gameState.js         Run state (score/combo/health/fever/slow-mo)
-js/save.js              Versioned save blob, XP, daily seed/streak
+js/save.js              Versioned save blob (v2), XP/levels, daily streak
 js/input.js             Keyboard + touch + roll gestures
 js/player.js            Flight model, boost, stamina, barrel roll
 js/dragon.js            Procedural dragon + rider builder, trails, rebuild on equip
 js/dragons.js           Dragon roster: stats, model proportions, FX (shop)
 js/riders.js            Rider roster: outfits, accessories, ember bonuses (shop)
 js/preview.js           Live 3D turntable previews on shop cards
+js/recap.js             Run Recap v2: count-up, ledger, NEXT UP, gambit panel
+js/records.js           Personal records: live tracking + run-end settle
+js/feats.js             24 achievements (live + settle), event-driven
+js/titles.js            Equippable title registry (feats/weeklies/levels)
+js/weekly.js            Weekly Trials: ISO-week seeded 3-of-9 draw, feather
+js/milestones.js        Lifetime milestone ladder + dragon mastery stars
+js/pilotScreen.js       PILOT screen: feat wall, flight log, title wardrobe
+js/gambit.js            Ember Gambit: escrow, corridor seed, refund-on-boot
+js/goldEmbers.js        Golden ember pickups (independent seeded RNG)
+js/pbMarker.js          Personal-best beacon in the world
+js/hints.js             First-flight contextual hints (one at a time)
 js/cameraController.js  Chase cam, kicks, shake, showcase orbit
 js/level.js             Endless seeded generator: rhythm, gauntlets, set-pieces
 js/biomes.js            Six world palettes + distance lookup/lerp
