@@ -11,8 +11,6 @@ import { saveData } from './save.js';
 let el = null;
 let camera = null;
 const tmpV = new THREE.Vector3();
-const MAX_AHEAD = 220;
-
 export function initReticle(cam) {
   camera = cam;
   el = document.createElement('div');
@@ -31,13 +29,17 @@ export function updateReticle(player, playing) {
   let target = null;
   if (ring && gate) target = ring.dist < gate.dist ? ring : gate;
   else target = ring || gate;
-  if (!target || target.dist > player.dist + MAX_AHEAD) {
+  const maxAhead = Math.max(220, player.speed * 2.6);
+  if (!target || target.dist > player.dist + maxAhead) {
     el.style.opacity = 0;
     return;
   }
 
-  const tx = target.gapX !== undefined ? target.gapX : target.x;
-  const ty = target.gapY !== undefined ? target.gapY : target.y;
+  const isGate = target.gapX !== undefined;
+  el.classList.toggle('gate', isGate);
+
+  const tx = isGate ? target.gapX : target.x;
+  const ty = isGate ? target.gapY : target.y;
   tmpV.set(tx, ty, -target.dist).project(camera);
   if (tmpV.z > 1) { el.style.opacity = 0; return; } // behind the camera
 
@@ -45,10 +47,10 @@ export function updateReticle(player, playing) {
   const sy = (-tmpV.y * 0.5 + 0.5) * window.innerHeight;
   const dz = target.dist - player.dist;
   const scale = Math.min(Math.max(120 / dz, 0.45), 2.6);
-  const fade = dz > MAX_AHEAD - 40 ? (MAX_AHEAD - dz) / 40 : 1;
+  const fade = dz > maxAhead - 40 ? (maxAhead - dz) / 40 : 1;
 
   // Locked = current trajectory passes inside the catch area.
-  const catchR = target.gapX !== undefined
+  const catchR = isGate
     ? Math.min(target.gapW, target.gapH) - 0.6
     : CONFIG.ringCatchRadius;
   const locked = Math.abs(player.position.x - tx) < catchR &&
