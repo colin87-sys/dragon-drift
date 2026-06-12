@@ -12,7 +12,7 @@ import { buildPilotHtml, wirePilot } from './pilotScreen.js';
 import { gambitStake } from './gambit.js';
 import { DRAGONS, DRAGON_STAT_CAP } from './dragons.js';
 import { RIDERS } from './riders.js';
-import { attachPreviews } from './preview.js';
+import { attachPreviews, attachPreviewCanvas } from './preview.js';
 
 let els = {};
 let handlers = {};
@@ -41,6 +41,9 @@ let popupTimer = null;
 let lastCombo = 1;
 let lastChain = 0;
 let reviveTimer = null;
+let lastShownScore = 0;
+let lastSpeedlines = -1;
+let celebrateShownAt = 0;
 
 export const ui = {
   init(h = {}) {
@@ -99,6 +102,7 @@ export const ui = {
       <div class="blue-flash" id="blue-flash"></div>
       <div class="gold-flash" id="gold-flash"></div>
       <div class="fever-overlay" id="fever-overlay"></div>
+      <div class="speedlines" id="speedlines"></div>
       <div class="revive-offer" id="revive-offer">
         <div class="revive-count" id="revive-count">3</div>
         <div class="revive-title">SECOND WIND?</div>
@@ -109,6 +113,7 @@ export const ui = {
         </div>
       </div>
       <div class="screen" id="screen"></div>
+      <div class="celebrate" id="celebrate"></div>
     `;
     document.body.appendChild(root);
     els = {
@@ -141,10 +146,21 @@ export const ui = {
       vignette:     root.querySelector('#vignette'),
       blueFlash:    root.querySelector('#blue-flash'),
       feverOverlay: root.querySelector('#fever-overlay'),
+      speedlines:   root.querySelector('#speedlines'),
       screen:       root.querySelector('#screen'),
+      celebrate:    root.querySelector('#celebrate'),
       revive:       root.querySelector('#revive-offer'),
       reviveCount:  root.querySelector('#revive-count'),
     };
+
+    // Celebration overlay tap-shield: the global pointerdown listener in
+    // main.js starts/restarts/resumes on blank taps — propagation must die
+    // HERE so a celebration can never fall through into a takeoff.
+    els.celebrate.addEventListener('pointerdown', (e) => e.stopPropagation());
+    els.celebrate.addEventListener('click', (e) => {
+      e.stopPropagation();
+      this.dismissCelebrate();
+    });
 
     // Revive offer buttons
     root.querySelector('#btn-revive').addEventListener('click', (e) => {
@@ -183,7 +199,22 @@ export const ui = {
     els.health.style.width  = `${(game.health / CONFIG.healthMax) * 100}%`;
     els.stamina.style.width = `${(game.stamina / CONFIG.staminaMax) * 100}%`;
     els.stamina.classList.toggle('depleted', game.stamina <= 0.5);
-    els.score.textContent = Math.floor(game.score);
+    const shownScore = Math.floor(game.score);
+    els.score.textContent = shownScore;
+    // Earn pop: big single-frame jumps (rings/gates/bonuses) tick the score
+    // up visibly. transform-origin:right keeps the right-aligned digits firm.
+    if (shownScore - lastShownScore >= CONFIG.JUICE.earnPopThreshold) {
+      restartAnim(els.score, 'score-earn-pop');
+    }
+    lastShownScore = shownScore;
+
+    // Anime speed-lines: fade in with speed (boost/orb), CSS-only.
+    const sn = Math.min(Math.max((player.speed - CONFIG.baseSpeed) / (CONFIG.orbSpeed - CONFIG.baseSpeed), 0), 1);
+    const slOpacity = Math.min(Math.max((sn - 0.45) * 1.4, 0), 0.8);
+    if (Math.abs(slOpacity - lastSpeedlines) > 0.02) {
+      els.speedlines.style.opacity = slOpacity;
+      lastSpeedlines = slOpacity;
+    }
 
     // Score pulses while boosting, warms with combo, glows pink during fever
     els.score.classList.toggle('boost-pulse', player.boosting);
@@ -339,6 +370,67 @@ export const ui = {
     els.hint.classList.remove('on');
   },
 
+  // Purchase/unlock celebration: the four-phase staging (dim+spotlight →
+  // overshoot reveal → confetti+stamp → afterglow). One reusable overlay,
+  // built as a SIBLING of #screen so shop re-renders can't destroy it.
+  // spec: { kind, tier: 'big'|'small', title, subtitle, glyph, renderPreview }
+  celebrate(spec) {
+    const big = spec.tier !== 'small';
+    celebrateShownAt = performance.now();
+    const kicker = {
+      dragon: 'NEW DRAGON', rider: 'NEW RIDER',
+      track: 'NEW STATION', generic: 'UNLOCKED',
+    }[spec.kind] || 'UNLOCKED';
+    els.celebrate.innerHTML = `
+      ${big ? '<div class="celebrate-burst"></div>' : ''}
+      <div class="celebrate-card${big ? '' : ' small'}">
+        <div class="celebrate-kicker">${kicker}</div>
+        ${spec.renderPreview
+          ? '<canvas class="celebrate-canvas" width="150" height="150"></canvas>'
+          : `<div class="celebrate-glyph">${spec.glyph || '◆'}</div>`}
+        <div class="celebrate-name">${spec.title}</div>
+        ${spec.subtitle ? `<div class="celebrate-sub">${spec.subtitle}</div>` : ''}
+        <button class="btn-primary" id="celebrate-continue">CONTINUE</button>
+      </div>
+      <div class="celebrate-confetti"></div>`;
+    const confetti = els.celebrate.querySelector('.celebrate-confetti');
+    const COLORS = ['#ffe27a', '#ffb84d', '#7fe0ff', '#ff9540', '#fff6dd'];
+    const n = big ? 24 : 12;
+    for (let i = 0; i < n; i++) {
+      const p = document.createElement('span');
+      const ang = (i / n) * Math.PI * 2 + Math.random() * 0.5;
+      const dist = 90 + Math.random() * 160;
+      p.style.setProperty('--dx', `${Math.round(Math.cos(ang) * dist)}px`);
+      p.style.setProperty('--dy', `${Math.round(Math.sin(ang) * dist - 70)}px`);
+      p.style.setProperty('--rot', `${Math.round(Math.random() * 720 - 360)}deg`);
+      p.style.animationDelay = `${320 + Math.round(Math.random() * 140)}ms`;
+      p.style.background = COLORS[i % COLORS.length];
+      confetti.appendChild(p);
+    }
+    if (spec.renderPreview) spec.renderPreview(els.celebrate.querySelector('.celebrate-canvas'));
+    els.celebrate.classList.add('visible');
+    if (big) sfx.levelUp(); else sfx.missionComplete();
+    els.celebrate.querySelector('#celebrate-continue').onclick = (e) => {
+      e.stopPropagation();
+      this.dismissCelebrate();
+    };
+  },
+
+  // Returns true while the overlay owns input (dismissed OR tap eaten by the
+  // min-show window) — main.js's keydown handler checks this first so Enter
+  // can't launch a run underneath the overlay.
+  dismissCelebrate() {
+    if (!els.celebrate.classList.contains('visible')) return false;
+    if (performance.now() - celebrateShownAt < 600) return true; // eaten, not dismissed
+    els.celebrate.classList.remove('visible');
+    // Clear after the fade so the canvas leaves the DOM (preview.js's
+    // isConnected sweep auto-disposes the turntable).
+    setTimeout(() => {
+      if (!els.celebrate.classList.contains('visible')) els.celebrate.innerHTML = '';
+    }, 220);
+    return true;
+  },
+
   showReviveOffer() {
     els.revive.classList.add('visible');
     let remaining = 3;
@@ -363,6 +455,9 @@ export const ui = {
 
   comboBreak() {
     this._popup('COMBO LOST', 'red');
+    // Soft red edge pulse — the damage vignette at lower stakes.
+    els.vignette.classList.remove('lethal');
+    restartAnim(els.vignette, 'flash-anim');
   },
 
   orbFlash() {
@@ -395,6 +490,9 @@ export const ui = {
     const score = Math.floor(game.score);
     const dist  = Math.floor(game.distance);
     let html = '';
+    // Freshness: animate the screen in only on genuine navigation — tab
+    // switches re-render the SAME type and must not re-flash.
+    const fresh = !els.screen.classList.contains('visible') || lastScreen !== type;
     lastScreen = type;
 
     if (type === 'start') {
@@ -403,7 +501,7 @@ export const ui = {
         <div class="mission-card${m.progress >= m.def.target ? ' done' : ''}">
           <div class="mission-info">
             <div class="mission-label">${m.def.label}</div>
-            <div class="mission-bar"><span style="width:${Math.min(100, (m.progress / m.def.target) * 100)}%"></span></div>
+            ${barHtml(m.progress / m.def.target)}
             <div class="mission-prog">${m.progress} / ${m.def.target}</div>
           </div>
           <div class="mission-reward">◆ ${m.def.reward}</div>
@@ -416,7 +514,7 @@ export const ui = {
           ${trials.map((t) => `
             <div class="weekly-row${t.done ? ' done' : ''}">
               <span class="weekly-label">${t.done ? '★ ' : ''}${t.def.label}</span>
-              <div class="mission-bar"><span style="width:${Math.min(100, (t.progress / t.def.target) * 100)}%"></span></div>
+              ${barHtml(t.progress / t.def.target)}
               <span class="weekly-reward">◆${t.def.reward}</span>
             </div>`).join('')}
         </div>`;
@@ -444,17 +542,23 @@ export const ui = {
             <div class="daily-sub">${dailyDone ? `Done today — best ${daily.bestScore}. New course at UTC midnight.` : 'One course, the whole world, every day.'}</div>
           </div>
           ${daily.streak > 1 ? `<div class="daily-streak">🔥 ${daily.streak} day streak</div>` : ''}
-          <button class="btn-secondary btn-daily" id="btn-daily">FLY DAILY</button>
+          <button class="btn-secondary btn-daily${dailyDone ? '' : ' glow'}" id="btn-daily">FLY DAILY</button>
         </div>
         <div class="action-row">
-          <button class="btn-primary" id="btn-start">TAKE OFF</button>
-          <button class="btn-tertiary" id="btn-pilot">⬢ PILOT</button>
-          <button class="btn-tertiary" id="btn-shop">⬡ SHOP</button>
+          <button class="btn-primary breathe" id="btn-start">TAKE OFF</button>
+          <button class="btn-tertiary" id="btn-pilot">⬢ PILOT${badgeHtml(pilotBadgeDue())}</button>
+          <button class="btn-tertiary" id="btn-shop">⬡ SHOP${badgeHtml(shopBadgeDue())}</button>
           <button class="btn-tertiary" id="btn-settings">⚙ SETTINGS</button>
         </div>
         <p class="action-key">${touch ? 'or tap anywhere to take off' : 'or press ENTER to take off'}</p>`;
 
     } else if (type === 'shop') {
+      // Opening the shop clears its badge: the wallet watermark records what
+      // you could see was affordable RIGHT NOW (honesty invariant).
+      if (saveData.ui.shopSeenEmbers !== saveData.embers) {
+        saveData.ui.shopSeenEmbers = saveData.embers;
+        persist();
+      }
       const hex = (n) => '#' + n.toString(16).padStart(6, '0');
       const tabBtn = (key, label) =>
         `<button class="seg-btn${shopTab === key ? ' sel' : ''}" data-shoptab="${key}">${label}</button>`;
@@ -582,11 +686,20 @@ export const ui = {
       html = buildGambitResultHtml(game.gambitResult || { won: false, stake: 0 }, { isTouch: isTouch() });
 
     } else if (type === 'pilot') {
+      // Opening PILOT clears its badge: watermark = everything now seen.
+      if (saveData.ui.seenFeats !== saveData.feats.unlocked.length ||
+          saveData.ui.seenTitles !== saveData.titles.owned.length) {
+        saveData.ui.seenFeats = saveData.feats.unlocked.length;
+        saveData.ui.seenTitles = saveData.titles.owned.length;
+        persist();
+      }
       html = buildPilotHtml(pilotTab);
     }
 
     els.screen.innerHTML = html;
     els.screen.classList.add('visible');
+    els.screen.classList.toggle('stagger', fresh && type === 'start');
+    if (fresh) restartAnim(els.screen, 'screen-anim');
     pauseSubscreen = returnScreen === 'pause' && (type === 'shop' || type === 'settings' || type === 'pilot');
     // Live 3D turntables on the dragon/rider cards
     if (type === 'shop') {
@@ -615,6 +728,10 @@ export const ui = {
           saveData.titles.equipped = id;
           persist();
           ui.showScreen('pilot');
+          // Quiet celebration: a shine sweep across the newly worn title.
+          const sel = els.screen.querySelector('.title-row.sel');
+          if (sel) sel.classList.add('title-shine');
+          sfx.ember(3);
         },
       });
     }
@@ -640,6 +757,10 @@ export const ui = {
   // for attention, and the shop on a single footer row.
   showPauseOverlay() {
     pauseSubscreen = false;
+    // Same freshness rule as showScreen: pause-tab clicks re-render without
+    // re-animating ('pause' is routing-inert in inSubscreen()).
+    const fresh = !els.screen.classList.contains('visible') || lastScreen !== 'pause';
+    lastScreen = 'pause';
     const a = saveData.audio;
     const hcBonus = Math.round((game.scoreMult - 1) * 100);
     const tabBtn = (key, label) =>
@@ -678,7 +799,7 @@ export const ui = {
         <div class="pm-quest${m.progress >= m.def.target ? ' done' : ''}">
           <div class="pm-quest-info">
             <div class="pm-quest-label">${m.def.label}</div>
-            <div class="mission-bar"><span style="width:${Math.min(100, (m.progress / m.def.target) * 100)}%"></span></div>
+            ${barHtml(m.progress / m.def.target)}
           </div>
           <div class="pm-quest-meta"><b>${m.progress}/${m.def.target}</b><span>◆ ${m.def.reward}</span></div>
         </div>`).join('');
@@ -686,7 +807,7 @@ export const ui = {
         <div class="pm-quest weekly${t.done ? ' done' : ''}">
           <div class="pm-quest-info">
             <div class="pm-quest-label">${t.done ? '★ ' : ''}${t.def.label}</div>
-            <div class="mission-bar"><span style="width:${Math.min(100, (t.progress / t.def.target) * 100)}%"></span></div>
+            ${barHtml(t.progress / t.def.target)}
           </div>
           <div class="pm-quest-meta"><b>${Math.min(t.progress, t.def.target)}/${t.def.target}</b><span>◆ ${t.def.reward}</span></div>
         </div>`).join('');
@@ -699,7 +820,7 @@ export const ui = {
     els.screen.innerHTML = `
       <h1 class="pause-title">PAUSED</h1>
       <div class="pause-menu pm2">
-        <button class="btn-primary pm-resume" id="pm-resume">RESUME FLIGHT</button>
+        <button class="btn-primary pm-resume breathe" id="pm-resume">RESUME FLIGHT</button>
         <div class="pm-strip">
           <div class="pm-cell"><b>${Math.floor(game.score)}</b><span>SCORE</span></div>
           <div class="pm-cell"><b>${Math.floor(game.distance)}m</b><span>DIST</span></div>
@@ -711,11 +832,13 @@ export const ui = {
         <div class="pm-body">${body}</div>
         <div class="pm-footer">
           <span class="pm-wallet"><span class="ember-ico">◆</span> <b>${saveData.embers}</b> · LV <b>${saveData.level}</b></span>
-          <button class="btn-secondary pm-shop-btn" id="pm-shop">SHOP</button>
+          <button class="btn-secondary pm-shop-btn" id="pm-shop">SHOP${badgeHtml(shopBadgeDue())}</button>
         </div>
       </div>
       <p class="action-key">${isTouch() ? 'tap outside the menu to resume' : 'Esc or click outside the menu to resume'}</p>`;
     els.screen.classList.add('visible');
+    els.screen.classList.remove('stagger');
+    if (fresh) restartAnim(els.screen, 'screen-anim');
     els.screen.onclick = null; // pause uses the global outside-tap-to-resume
 
     const stop = (fn) => (e) => { e.stopPropagation(); fn(e); };
@@ -789,6 +912,40 @@ export const ui = {
   },
 };
 
+// --- Appointment UI: honest badges -----------------------------------
+// A badge NEVER points at nothing, clears the moment its surface opens, and
+// the clear persists. Watermarks live in saveData.ui (numbers only).
+function pilotBadgeDue() {
+  return saveData.feats.unlocked.length > saveData.ui.seenFeats ||
+         saveData.titles.owned.length > saveData.ui.seenTitles;
+}
+
+// "Newly affordable": an unowned item costs ≤ embers AND more than the
+// wallet had when the shop was last opened — so browsing and choosing not
+// to buy silences the badge until the wallet grows past a new price line.
+function shopBadgeDue() {
+  const embers = saveData.embers;
+  const seen = saveData.ui.shopSeenEmbers;
+  const due = (cost) => cost <= embers && cost > seen;
+  for (const [key, d] of Object.entries(DRAGONS)) {
+    if (!saveData.skins.owned.includes(key) && due(d.cost)) return true;
+  }
+  for (const [key, r] of Object.entries(RIDERS)) {
+    if (!saveData.riders.owned.includes(key) && due(r.cost)) return true;
+  }
+  for (let i = 0; i < TRACKS.length; i++) {
+    if (!trackUnlocked(i) && due(TRACKS[i].cost)) return true;
+  }
+  return false;
+}
+
+const badgeHtml = (due) => (due ? '<span class="badge"></span>' : '');
+
+// Goal-gradient bars: the final stretch glows + shimmers (motivation peaks
+// near completion — make the bar feel it).
+const barHtml = (frac) =>
+  `<div class="mission-bar${frac >= 0.85 && frac < 1 ? ' near' : ''}"><span style="width:${Math.min(100, frac * 100)}%"></span></div>`;
+
 // Where BACK should land from shop/settings/pilot (start, gameover or pause).
 let lastScreen = 'start';
 let returnScreen = 'start';
@@ -856,6 +1013,10 @@ function wireScreenButtons(type) {
           persist();
           handlers.onEquipDragon && handlers.onEquipDragon(key);
           ui.showScreen('shop');
+          ui.celebrate({
+            kind: 'dragon', tier: 'big', title: d.name, subtitle: d.title,
+            renderPreview: (c) => attachPreviewCanvas(c, 'dragon', d),
+          });
         } else {
           needMore(d.cost, d.name);
         }
@@ -879,6 +1040,10 @@ function wireScreenButtons(type) {
           persist();
           handlers.onEquipRider && handlers.onEquipRider(key);
           ui.showScreen('shop');
+          ui.celebrate({
+            kind: 'rider', tier: 'big', title: r.name, subtitle: r.title,
+            renderPreview: (c) => attachPreviewCanvas(c, 'rider', r),
+          });
         } else {
           needMore(r.cost, r.name);
         }
@@ -901,6 +1066,10 @@ function wireScreenButtons(type) {
           music.setTrack(i);
           sfx.radio();
           ui.showScreen('shop');
+          ui.celebrate({
+            kind: 'track', tier: 'small', glyph: '♪',
+            title: t.name, subtitle: `${t.desc} · now on air`,
+          });
         } else {
           needMore(t.cost, `“${t.name}”`);
         }
@@ -914,6 +1083,10 @@ function wireScreenButtons(type) {
         saveData.revives++;
         persist();
         ui.showScreen('shop');
+        ui.celebrate({
+          kind: 'generic', tier: 'small', glyph: '✦',
+          title: 'Revive Token', subtitle: `One more chance per run — you hold ${saveData.revives}`,
+        });
       } else {
         needMore(250, 'a revive token');
       }

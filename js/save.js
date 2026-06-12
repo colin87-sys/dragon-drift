@@ -42,6 +42,8 @@ const DEFAULTS = {
   gambitPending: null,  // { stake: N } while a gambit corridor is airborne
   lastSeen: '',         // YYYY-MM-DD UTC, set on every boot
   firstFlightDay: '',   // last UTC day the first-flight ember bonus was paid
+  // Appointment-UI watermarks (honest badges): fixed numeric keys only.
+  ui: { seenFeats: 0, seenTitles: 0, shopSeenEmbers: 0 },
 };
 
 function clone(obj) {

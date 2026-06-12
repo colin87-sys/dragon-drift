@@ -16,7 +16,8 @@ import { setDragonQuality } from './dragon.js';
 import { updateCollision, resetCollision, acceptRevive, finishDeath } from './collision.js';
 import { ui } from './ui.js';
 import { music, sfx, setSlowMo } from './sfx.js';
-import { initPostFX, setPostSize, setPostPixelRatio, setPostTier, updatePostFX, renderPostFX } from './postfx.js';
+import { initPostFX, setPostSize, setPostPixelRatio, setPostTier, updatePostFX, renderPostFX, postfx, kick, clearDeath, kickState } from './postfx.js';
+import { hitstop, juiceEvent } from './juice.js';
 import { createWater, setWaterReflective, updateWater } from './water.js';
 import { burst } from './particles.js';
 import { buildSetPiece } from './setpieces.js';
@@ -38,8 +39,6 @@ import { gambitEligible, markGambitOffered, resetGambitOffer, acceptGambit, gamb
 import { initGoldEmbers, addGoldEmber, updateGoldEmbers, resetGoldEmbers } from './goldEmbers.js';
 import { initHints, updateHints } from './hints.js';
 import { initPbMarker, updatePbMarker } from './pbMarker.js';
-
-document.body.classList.add('app-loaded');
 
 // --- Renderer / scene / camera ---
 const renderer = new THREE.WebGLRenderer({ antialias: true });
@@ -130,7 +129,11 @@ function triggerSetPiece(sp) {
 // Debug: force Dragon Surge for visual verification
 const debugFever = urlParams.get('debug') === 'fever';
 if (urlParams.has('debug')) {
-  window.__dd = { renderer, game, player, save: saveData, emit, ui, postfx: { setPostTier } };
+  window.__dd = {
+    renderer, game, player, save: saveData, emit, ui,
+    juice: { hitstop, juiceEvent },
+    postfx: { setPostTier, kick, kickState, handle: postfx },
+  };
 }
 
 // Perf overlay (?debug=perf): fps / draw calls / quality tier
@@ -307,6 +310,7 @@ function restart() {
   runSeed = seedForRun();
   game.runSeed = runSeed;
   resetEnvironment(runSeed);
+  clearDeath(true); // instant color restore (cameraCtl.init below resets the death cam)
   pendingGauntletStarts.length = 0;
   pendingGauntletEnds.length = 0;
   // Cull old set-pieces
@@ -379,6 +383,7 @@ function settleRun() {
   if (game.missionResults.length) setTimeout(() => sfx.missionComplete(), 700);
   if (game.levelUps > 0) setTimeout(() => sfx.levelUp(), 1200);
   if (featResults.length) setTimeout(() => sfx.featUnlock(), 1700);
+  clearDeath(); // recap fades back to full color (fast decay)
   ui.showScreen('gameover');
   // Blank-tap restart arms only after the ledger reveal settles.
   gameoverTapArmed = performance.now() + 700 + ui.recapRevealMs;
@@ -387,6 +392,9 @@ function settleRun() {
 window.addEventListener('keydown', (e) => {
   // Don't hijack keys while a slider/input is focused (pause-menu volumes)
   if (e.target && e.target.tagName === 'INPUT') return;
+  // Celebration overlay owns input while visible — Enter/Space dismiss it
+  // instead of launching a run underneath.
+  if (ui.dismissCelebrate()) return;
   // Dragon Radio: N cycles stations, [ / ] step back / forward
   if (e.code === 'KeyN' || e.code === 'BracketRight' || e.code === 'BracketLeft') {
     const name = music.nextTrack(e.code === 'BracketLeft' ? -1 : 1);
@@ -414,6 +422,7 @@ function pauseForBackground() {
   if (game.state !== 'playing') return;
   game.state = 'paused';
   game.pauseReason = 'background';
+  game.hitstopTimer = 0;
   boostWasActive = false;
   music.pauseForBackground();
   updateReticle(player, false);
@@ -425,6 +434,7 @@ function pauseManual() {
   if (game.state !== 'playing') return;
   game.state = 'paused';
   game.pauseReason = 'manual';
+  game.hitstopTimer = 0;
   boostWasActive = false;
   updateReticle(player, false);
   ui.showPauseOverlay();
@@ -467,9 +477,11 @@ const PIXEL_RATIOS = [
   Math.min(window.devicePixelRatio, 1.5),
   1,
 ];
+document.body.dataset.qtier = qualityTier; // boot default (applyQuality only runs on change)
 
 function applyQuality(tier) {
   qualityTier = tier;
+  document.body.dataset.qtier = tier; // CSS gates (speedlines, motes) read this
   setParticleQuality(QUALITY_SCALARS[tier]);
   setDragonQuality(QUALITY_SCALARS[tier]);
   renderer.setPixelRatio(PIXEL_RATIOS[tier]);
@@ -519,11 +531,18 @@ function tick() {
   if (game.slowMoTimer > 0) {
     game.slowMoTimer -= rawDt;
     game.timeScale = 0.35;
+    game.hitstopTimer = 0; // slow-mo wins: kill any in-flight impact freeze
     if (game.slowMoTimer <= 0) setSlowMo(false);
   } else if (game.timeScale < 1) {
     game.timeScale = Math.min(1, game.timeScale + rawDt * 3);
   }
-  const dt = rawDt * (game.state === 'playing' ? game.timeScale : 1);
+  let dt = rawDt * (game.state === 'playing' ? game.timeScale : 1);
+  // Impact-frame hitstop (juice.js): real-time countdown, near-freeze while
+  // active, instant restore — no ramp, distinct from slow-mo's channel.
+  if (game.state === 'playing' && game.hitstopTimer > 0) {
+    game.hitstopTimer -= rawDt;
+    dt *= CONFIG.JUICE.hitstopScale;
+  }
 
   if (game.state === 'playing') {
     game.time += dt;
@@ -638,6 +657,7 @@ function tick() {
           // was already wagered, everything else was settled before it.
           game.gambitResult = settleGambit(false); // resets mode to normal
           sfx.gambitLose();
+          clearDeath();
           ui.showScreen('gambitResult');
           gameoverTapArmed = performance.now() + 700;
         } else {
@@ -681,7 +701,7 @@ function tick() {
   }
 
   const speedNorm = (player.speed - CONFIG.baseSpeed) / (CONFIG.orbSpeed - CONFIG.baseSpeed);
-  updatePostFX(dt, speedNorm, game.feverActive);
+  updatePostFX(dt, speedNorm, game.feverActive, rawDt);
   renderPostFX();
 
   if (perfEl) {
@@ -699,3 +719,6 @@ function tick() {
 }
 
 tick();
+
+// Boot complete: cross-fade the loading screen out, the canvas in (CSS-driven).
+document.body.classList.add('app-loaded');

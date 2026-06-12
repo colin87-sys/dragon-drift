@@ -5,7 +5,7 @@ import { weeklyTrials } from './weekly.js';
 import { nextMilestone } from './milestones.js';
 import { DRAGONS } from './dragons.js';
 import { RIDERS } from './riders.js';
-import { TRACKS, trackUnlocked } from './sfx.js';
+import { TRACKS, trackUnlocked, sfx } from './sfx.js';
 
 // Run Recap v2: the session's designed stopping point. One screen, strict
 // hierarchy — records pop, the score counts up, the earnings ledger reveals
@@ -96,7 +96,7 @@ export function nextUpCardHtml(n) {
     <div class="nextup-card">
       <div class="nextup-head">${n.icon} NEXT UP — ${n.head}</div>
       <div class="nextup-label">${n.label}</div>
-      <div class="mission-bar"><span style="width:${Math.round(Math.min(1, n.frac) * 100)}%"></span></div>
+      <div class="mission-bar${n.frac >= 0.85 && n.frac < 1 ? ' near' : ''}"><span style="width:${Math.round(Math.min(1, n.frac) * 100)}%"></span></div>
       <div class="nextup-sub">${n.sub}</div>
     </div>`;
 }
@@ -159,7 +159,11 @@ function ledgerItems(sum) {
   }
   const d = sum.dailyResult;
   if (d && d.streakBonus > 0) {
-    items.push(`<div class="earn-line streak-line">🔥 ${saveData.daily.streak}-day streak <b>+◆${d.streakBonus}</b>${d.featherUsed ? ' <span class="earn-detail">— a Phoenix Feather carried your streak</span>' : ''}</div>`);
+    const flames = Math.min(saveData.daily.streak, 7);
+    const row = Array.from({ length: flames }, (_, i) =>
+      `<span class="flame" style="animation-delay:${i * 60}ms">🔥</span>`).join('');
+    items.push(`<div class="earn-line streak-line">${saveData.daily.streak}-day streak <b>+◆${d.streakBonus}</b>${d.featherUsed ? ' <span class="earn-detail">— a Phoenix Feather carried your streak</span>' : ''}
+      <span class="streak-flames">${row}</span></div>`);
   }
   return items;
 }
@@ -237,26 +241,41 @@ function gambitPanelHtml(stake) {
 // Wire the recap's animated parts. Returns the reveal duration in ms so the
 // caller can delay arming blank-tap-to-restart until the queue settles.
 export function wireRecap(screenEl, handlers) {
-  // Score count-up
+  // Score count-up — the slot-machine rollup: rising ticks while it climbs,
+  // a settle pop + puff when the final number lands.
   const scoreEl = screenEl.querySelector('#score-countup');
   let revealMs = 0;
   if (scoreEl) {
     const target = Number(scoreEl.dataset.target) || 0;
+    // Reserve the final width so the line never reflows while counting.
+    scoreEl.style.minWidth = `${String(target).length}ch`;
     if (REDUCED || target < 200) {
       scoreEl.textContent = target;
     } else {
       const t0 = performance.now();
       const DUR = 800;
+      let lastTick = 0;
       const step = (now) => {
         const k = Math.min((now - t0) / DUR, 1);
         scoreEl.textContent = Math.floor(target * (1 - Math.pow(1 - k, 3)));
-        if (k < 1) requestAnimationFrame(step);
+        if (now - lastTick > 80) { lastTick = now; sfx.tick(k); }
+        if (k < 1) {
+          requestAnimationFrame(step);
+        } else if (scoreEl.isConnected) {
+          sfx.settle();
+          scoreEl.classList.add('count-settle');
+          const puff = document.createElement('span');
+          puff.className = 'count-puff';
+          scoreEl.parentElement.style.position = 'relative';
+          scoreEl.parentElement.appendChild(puff);
+          puff.addEventListener('animationend', () => puff.remove());
+        }
       };
       requestAnimationFrame(step);
     }
   }
 
-  // Earnings ledger reveal queue (capped at ~2s total)
+  // Earnings ledger reveal queue (capped at ~2s total), soft tick per line
   const list = screenEl.querySelector('#earn-list');
   if (list) {
     const items = ledgerItems(game.runSummary || {});
@@ -271,6 +290,7 @@ export function wireRecap(screenEl, handlers) {
           list.insertAdjacentHTML('beforeend', html);
           const el = list.lastElementChild;
           if (el) el.classList.add('reveal');
+          sfx.tick(0.3);
         }, i * interval);
       });
       revealMs = items.length * interval;
@@ -304,7 +324,15 @@ export function wireRecap(screenEl, handlers) {
 
 export function buildGambitResultHtml({ won, stake }, { isTouch }) {
   if (won) {
+    // The rarest big moment gets the BIG WIN staging: sunburst + confetti.
+    const confetti = Array.from({ length: 16 }, (_, i) => {
+      const ang = (i / 16) * Math.PI * 2;
+      const dist = 110 + (i % 4) * 35;
+      return `<span style="--dx:${Math.round(Math.cos(ang) * dist)}px;--dy:${Math.round(Math.sin(ang) * dist - 60)}px;--rot:${i * 67 - 360}deg;animation-delay:${200 + i * 25}ms;background:${['#ffe27a', '#ffb84d', '#7fe0ff', '#fff6dd'][i % 4]}"></span>`;
+    }).join('');
     return `
+      <div class="celebrate-burst win-burst"></div>
+      <div class="celebrate-confetti win-confetti">${confetti}</div>
       <h1 class="gambit-won-title">GAUNTLET CLEARED</h1>
       <p class="sub big gambit-stake-line">◆ ${stake} → <b class="count-up" id="score-countup" data-target="${stake * 2}">◆ ${stake}</b></p>
       <p class="ember-tally">+◆${stake} profit banked <span style="opacity:0.6">(${saveData.embers.toLocaleString()} total)</span></p>
@@ -330,10 +358,17 @@ export function wireGambitResult(screenEl, handlers) {
     } else {
       const t0 = performance.now();
       const DUR = 900;
+      let lastTick = 0;
       const step = (now) => {
         const k = Math.min((now - t0) / DUR, 1);
         scoreEl.textContent = `◆ ${Math.floor(from + (target - from) * (1 - Math.pow(1 - k, 3)))}`;
-        if (k < 1) requestAnimationFrame(step);
+        if (now - lastTick > 80) { lastTick = now; sfx.tick(k); }
+        if (k < 1) {
+          requestAnimationFrame(step);
+        } else if (scoreEl.isConnected) {
+          sfx.settle();
+          scoreEl.classList.add('count-settle');
+        }
       };
       requestAnimationFrame(step);
     }

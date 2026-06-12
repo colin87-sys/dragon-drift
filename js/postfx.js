@@ -77,9 +77,62 @@ export const postfx = {
   _h: 1,
   _pixelRatio: 1,
   _bloomScale: 0.5,
+  _baseBloom: 0.32,
   _aberrationOn: true,
   _feverMix: 0,
+  _kickScale: 1, // tier 1 halves impulse magnitudes
 };
+
+// --- Event-driven impulse kicks ---------------------------------------
+// Five channels riding on top of the continuous dynamics, each an impulse
+// that exp-decays back to zero. Presets keep shader-coupled tuning next to
+// the shader; CONFIG.JUICE only maps events -> preset names.
+const _kick = { bloom: 0, lift: 0, sat: 0, vig: 0, ab: 0 };
+const KICK_DECAY = { bloom: 6, lift: 5, sat: 7, vig: 6, ab: 8 };
+const KICK_MAX = { bloom: 0.5, lift: 0.6, sat: 0.35, vig: 0.25, ab: 0.010 };
+let _flashFrames = 0;   // hard gold flash, decremented per PRESENTED frame
+let _deathOn = false;
+let _deathMix = 0;
+
+const KICK_PRESETS = {
+  goldenEmber:      { bloom: 0.30, lift: 0.35 },
+  perfectMilestone: { flashFrames: 1, bloom: 0.20, lift: 0.20 },
+  surgeStart:       { bloom: 0.40 },
+  // The RED of a combo break comes from the existing #vignette DOM flash —
+  // the shader's vignette is colorless darkening.
+  comboBreak:       { sat: -0.25, vig: 0.18 },
+};
+
+export function kick(name) {
+  if (!postfx.enabled) return; // tier 2 / unsupported: true no-op
+  const p = KICK_PRESETS[name];
+  if (!p) return;
+  const s = postfx._kickScale;
+  for (const c of Object.keys(_kick)) {
+    if (p[c]) {
+      _kick[c] = clamp(_kick[c] + p[c] * s, -KICK_MAX[c], KICK_MAX[c]);
+    }
+  }
+  if (p.flashFrames) _flashFrames = Math.max(_flashFrames, p.flashFrames);
+}
+
+// Sustained death grade: desaturate + crush the edges across the crash
+// freeze, released when the recap shows (fast decay) or on restart (instant).
+// Unguarded by tier: this is STATE — a tier flap mid-death must not strand
+// it (the uniform write is what tier-gates, in updatePostFX).
+export function kickDeath() {
+  _deathOn = true;
+}
+
+export function clearDeath(instant = false) {
+  _deathOn = false;
+  if (instant) _deathMix = 0;
+}
+
+// Test/debug introspection (read-only snapshot).
+export function kickState() {
+  return { ..._kick, flashFrames: _flashFrames, deathMix: _deathMix, deathOn: _deathOn };
+}
 
 export function initPostFX(renderer, scene, camera) {
   postfx._renderer = renderer;
@@ -152,31 +205,64 @@ export function setPostTier(tier) {
   }
   postfx.enabled = true;
   if (tier === 0) {
-    postfx.bloomPass.strength = 0.32;
+    postfx._baseBloom = 0.32;
     postfx._bloomScale = 0.5;
     postfx._aberrationOn = true;
+    postfx._kickScale = 1;
   } else {
-    postfx.bloomPass.strength = 0.26;
+    postfx._baseBloom = 0.26;
     postfx._bloomScale = 0.25;
     postfx._aberrationOn = false;
+    postfx._kickScale = 0.5;
   }
+  postfx.bloomPass.strength = postfx._baseBloom;
+  for (const c of Object.keys(_kick)) _kick[c] = 0; // no stale impulses across tiers
+  _flashFrames = 0;
   applySize();
 }
 
-// Per-frame dynamics: speed-driven chromatic aberration, fever pulse.
-export function updatePostFX(dt, speedNorm, feverActive) {
+// Per-frame dynamics: speed-driven chromatic aberration, fever pulse, and
+// the impulse kicks. Kicks decay with rawDt (real time) so a hitstop can't
+// freeze its own flash on screen.
+export function updatePostFX(dt, speedNorm, feverActive, rawDt = dt) {
+  // State decays UNCONDITIONALLY — if the adaptive tier drops to 2 (composer
+  // off) mid-decay, a frozen half-applied grade must not survive to pop back
+  // when the tier restores.
+  for (const c of Object.keys(_kick)) {
+    _kick[c] = damp(_kick[c], 0, KICK_DECAY[c], rawDt);
+  }
+  if (_deathOn) _deathMix = Math.min(_deathMix + rawDt / 0.45, 1);
+  else if (_deathMix > 0) _deathMix = damp(_deathMix, 0, 10, rawDt);
+
   if (!postfx.enabled) return;
   const u = postfx.gradingPass.uniforms;
   postfx._feverMix = damp(postfx._feverMix, feverActive ? 1 : 0, 4, dt);
+  const flash = _flashFrames > 0 ? 1 : 0;
+
   const targetAb = postfx._aberrationOn
     ? clamp(speedNorm, 0, 1) * 0.012 + postfx._feverMix * 0.006
     : 0;
-  u.aberration.value = damp(u.aberration.value, targetAb, 5, dt);
-  u.lift.value = postfx._feverMix * (0.55 + Math.sin(performance.now() * 0.006) * 0.2);
-  u.saturation.value = 1.18 + postfx._feverMix * 0.08;
+  u.aberration.value = damp(u.aberration.value, targetAb, 5, dt) + _kick.ab;
+  u.lift.value = postfx._feverMix * (0.55 + Math.sin(performance.now() * 0.006) * 0.2)
+    + _kick.lift + flash * 0.55;
+  let sat = 1.18 + postfx._feverMix * 0.08 + _kick.sat;
+  let vig = 0.30 + _kick.vig;
+  postfx.bloomPass.strength = postfx._baseBloom + _kick.bloom + flash * 0.25;
+
+  // Death grade overrides last (state itself ramps/decays above).
+  if (_deathMix > 0.001) {
+    sat = sat + (0.25 - sat) * _deathMix;
+    vig = vig + (0.62 - vig) * _deathMix;
+  }
+  u.saturation.value = sat;
+  u.vignette.value = vig;
 }
 
 export function renderPostFX() {
-  if (postfx.enabled) postfx.composer.render();
-  else postfx._renderer.render(postfx._scene, postfx._camera);
+  if (postfx.enabled) {
+    postfx.composer.render();
+    if (_flashFrames > 0) _flashFrames--; // "1 frame" = one PRESENTED frame
+  } else {
+    postfx._renderer.render(postfx._scene, postfx._camera);
+  }
 }

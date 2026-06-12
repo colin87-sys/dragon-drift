@@ -43,6 +43,7 @@ export const game = {
   runSummary: null,    // built once at settle for the recap screen
   timeScale: 1,        // near-death slow-mo (main.js scales sim dt by this)
   slowMoTimer: 0,      // remaining slow-mo, in REAL seconds
+  hitstopTimer: 0,     // impact-frame near-freeze, REAL seconds (juice.js)
   reviveUsed: false,   // one revive per run
   pendingDeath: null,  // { cause, lethal } while the revive offer is up
   seenFirstSurge: saveData.flags.seenFirstSurge,
@@ -104,6 +105,7 @@ export const game = {
     this.runSummary = null;
     this.timeScale = 1;
     this.slowMoTimer = 0;
+    this.hitstopTimer = 0;
     this.reviveUsed = false;
     this.pendingDeath = null;
   },

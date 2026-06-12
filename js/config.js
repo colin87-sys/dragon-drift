@@ -116,4 +116,25 @@ export const CONFIG = {
   welcomeBackGift: 100,    // embers gifted after a long absence
   welcomeBackGapDays: 5,
   pbMarkerBonus: 10,       // embers for passing your best-distance beacon
+
+  // Juice budget — single source of truth for "how much spectacle per event".
+  // hitstopMs: real-time near-freeze (timeScale ~0.05, instant in/out).
+  // kick: postfx impulse preset name (postfx.js owns magnitudes; tier1 ×0.5,
+  // tier2 no-op). Enforcement (cooldown + max-merge) lives in juice.js so the
+  // habituation budget stays a deliberate, auditable decision.
+  JUICE: {
+    hitstopScale: 0.05,
+    hitstopCooldownMs: 180,   // min gap between freezes — habituation guard
+    earnPopThreshold: 100,    // score jump in one frame that pops the HUD score
+    events: {
+      perfect:          { hitstop: 35, kick: null },
+      perfectMilestone: { hitstop: 70, kick: 'perfectMilestone' }, // streak 5,10,15…
+      goldenEmber:      { hitstop: 80, kick: 'goldenEmber' },
+      nearMiss:         { hitstop: 50, kick: null },
+      gateThread:       { hitstop: 0,  kick: null },   // camera gateKick instead
+      surgeStart:       { hitstop: 0,  kick: 'surgeStart' },
+      comboBreak:       { hitstop: 0,  kick: 'comboBreak' },
+      death:            { hitstop: 0,  kick: 'death' }, // sustained grade over the freeze
+    },
+  },
 };

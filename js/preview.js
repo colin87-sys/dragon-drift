@@ -334,3 +334,19 @@ export function attachPreviews(root, lookup) {
   }
   if (items.length && !rafId) rafId = requestAnimationFrame(loop);
 }
+
+// Additive single-canvas attach (celebration overlay): unlike attachPreviews
+// this does NOT disposeAll, so shop-card turntables behind the overlay keep
+// spinning. The canvas leaving the DOM auto-disposes it (loop's isConnected
+// sweep) — dismissing the overlay is the cleanup.
+export function attachPreviewCanvas(canvas, kind, def) {
+  if (!def) return;
+  ensureRenderer();
+  const built = kind === 'dragon' ? buildDragonIcon(def) : buildRiderIcon(def);
+  items.push({
+    canvas, ctx: canvas.getContext('2d'),
+    group: built.group, tick: built.tick,
+    phase: Math.random() * 6,
+  });
+  if (!rafId) rafId = requestAnimationFrame(loop);
+}
