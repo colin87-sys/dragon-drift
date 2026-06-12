@@ -67,14 +67,28 @@ export function initInput() {
 // Touch controls on the game canvas (not the HUD, so menu buttons still work):
 // the first finger is a relative joystick — drag from wherever it landed and
 // the dragon steers by the offset. Any additional finger held down = boost.
+// Barrel roll on touch, two ways:
+//   1. swipe a SECOND finger horizontally (boost finger doubles as the roll
+//      trigger — steering thumb never has to leave its anchor), or
+//   2. flick the steering finger fast sideways; the joystick re-anchors at
+//      the finger's new position so steering control is never lost.
+// Finger roles are sticky: a boost finger never silently becomes the steering
+// finger. If the steering finger lifts, steering returns to neutral and the
+// next NEW touch becomes the steering finger.
 export function initTouch(el) {
-  const SPAN = 110; // px of drag for full deflection
-  const FLICK_SPEED = 2200; // px/s horizontal flick = barrel roll
+  const SPAN = 110;          // px of drag for full deflection
+  const FLICK_SPEED = 1700;  // px/s horizontal flick on the steer finger = roll
+  const SWIPE_SPEED = 250;   // px/s a second finger must sustain to count as swiping
+  const SWIPE_DIST = 48;     // px of sustained same-direction travel = roll
   let steerId = null;
   let baseX = 0;
   let baseY = 0;
   let lastX = 0;
   let lastT = 0;
+  // Non-steer touches tracked for swipe-to-roll: id -> {lx, ly, lt, acc, dir, rolled}
+  const extras = new Map();
+
+  const countBoost = () => { input.boost = extras.size > 0; };
 
   el.addEventListener(
     'touchstart',
@@ -87,9 +101,13 @@ export function initTouch(el) {
           lastX = t.clientX;
           lastT = performance.now();
         } else {
-          input.boost = true;
+          extras.set(t.identifier, {
+            lx: t.clientX, ly: t.clientY, lt: performance.now(),
+            acc: 0, dir: 0, rolled: false,
+          });
         }
       }
+      countBoost();
       e.preventDefault(); // no scrolling/zooming over the game
     },
     { passive: false }
@@ -102,15 +120,54 @@ export function initTouch(el) {
         if (t.identifier === steerId) {
           input.tx = clamp((t.clientX - baseX) / SPAN, -1, 1);
           input.ty = clamp(-(t.clientY - baseY) / SPAN, -1, 1); // drag up = fly up
-          // Fast horizontal flick = barrel roll in that direction.
+          // Fast horizontal flick = barrel roll; re-anchor the joystick at the
+          // finger so the flick doesn't leave steering pinned at full deflection.
           const now = performance.now();
           const dtMs = now - lastT;
           if (dtMs > 0) {
             const vx = (t.clientX - lastX) / (dtMs / 1000);
-            if (Math.abs(vx) > FLICK_SPEED) input.rollRequest = Math.sign(vx);
+            if (Math.abs(vx) > FLICK_SPEED) {
+              input.rollRequest = Math.sign(vx);
+              baseX = t.clientX;
+              baseY = t.clientY;
+              input.tx = 0;
+              input.ty = 0;
+            }
           }
           lastX = t.clientX;
           lastT = now;
+        } else {
+          // Second-finger swipe = barrel roll in the swipe direction.
+          // Velocity-accumulation: the finger may rest (boosting) for any
+          // length of time first — a sustained fast horizontal sweep rolls,
+          // slow drift or vertical movement never does.
+          const rec = extras.get(t.identifier);
+          if (rec) {
+            const now = performance.now();
+            const dx = t.clientX - rec.lx;
+            const dy = t.clientY - rec.ly;
+            const dtMs = now - rec.lt;
+            if (dtMs > 0) {
+              const speed = Math.abs(dx) / (dtMs / 1000);
+              const dir = Math.sign(dx);
+              if (speed > SWIPE_SPEED && dir !== 0 && Math.abs(dx) > Math.abs(dy)) {
+                if (dir !== rec.dir) { rec.dir = dir; rec.acc = 0; }
+                rec.acc += dx;
+                if (!rec.rolled && Math.abs(rec.acc) > SWIPE_DIST) {
+                  rec.rolled = true;
+                  input.rollRequest = dir;
+                }
+              } else {
+                // Finger slowed/changed axis: reset so a later swipe can roll again.
+                rec.acc = 0;
+                rec.dir = 0;
+                rec.rolled = false;
+              }
+            }
+            rec.lx = t.clientX;
+            rec.ly = t.clientY;
+            rec.lt = now;
+          }
         }
       }
       e.preventDefault();
@@ -121,22 +178,16 @@ export function initTouch(el) {
   const end = (e) => {
     for (const t of e.changedTouches) {
       if (t.identifier === steerId) {
+        // Steering finger lifted: neutral steering until a new finger lands.
+        // Held boost fingers keep boosting — roles never swap mid-flight.
         steerId = null;
         input.tx = 0;
         input.ty = 0;
+      } else {
+        extras.delete(t.identifier);
       }
     }
-    // Promote a surviving finger to steering so a lifted thumb mid-flight
-    // doesn't strand the player.
-    const remaining = [...e.touches];
-    if (steerId === null && remaining.length > 0) {
-      steerId = remaining[0].identifier;
-      baseX = remaining[0].clientX;
-      baseY = remaining[0].clientY;
-      input.tx = 0;
-      input.ty = 0;
-    }
-    input.boost = remaining.filter((t) => t.identifier !== steerId).length > 0;
+    countBoost();
   };
   el.addEventListener('touchend', end);
   el.addEventListener('touchcancel', end);

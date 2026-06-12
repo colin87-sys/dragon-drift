@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { nextRingAhead } from './rings.js';
 import { nextGateAhead } from './obstacles.js';
 import { CONFIG } from './config.js';
+import { saveData } from './save.js';
 
 // Panzer-Dragoon-style nested-square target reticle: projects the next
 // ring/window onto the screen as two counter-rotating squares. Pure DOM
@@ -22,7 +23,8 @@ export function initReticle(cam) {
 
 export function updateReticle(player, playing) {
   if (!el) return;
-  if (!playing) { el.style.opacity = 0; return; }
+  // Reticle assist can be disabled in settings for a score bonus.
+  if (!playing || !saveData.settings.reticle) { el.style.opacity = 0; return; }
 
   const ring = nextRingAhead(player.dist + 4);
   const gate = nextGateAhead(player.dist + 4);

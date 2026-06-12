@@ -43,6 +43,14 @@ export const game = {
     return this.runFeverThreshold;
   },
 
+  // Hardcore bonus: every point scales up while assists are switched off.
+  get scoreMult() {
+    let m = 1;
+    if (!saveData.settings.reticle) m += CONFIG.reticleOffBonus;
+    if (!saveData.settings.slowMo) m += CONFIG.slowMoOffBonus;
+    return m;
+  },
+
   markSurgeSeen() {
     if (this.seenFirstSurge) return;
     this.seenFirstSurge = true;

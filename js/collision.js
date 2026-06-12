@@ -23,9 +23,11 @@ export function resetCollision() {
 
 // Near-death slow-mo: when the next hit would end the run and something on
 // the current trajectory is about to connect, time dilates for a beat —
-// one last chance to dodge (or barrel-roll through it).
+// one last chance to dodge (or barrel-roll through it). Can be switched off
+// in settings for a permanent score bonus.
 function checkSlowMo(dt, player) {
   slowMoCooldown -= dt;
+  if (!saveData.settings.slowMo) return;
   if (slowMoCooldown > 0 || game.slowMoTimer > 0) return;
   const lethalHealth = game.health <= CONFIG.obstacleDamage;
   const p = player.position;
@@ -142,7 +144,7 @@ export function updateCollision(dt, player) {
 // Threading a window pays like a ring: score, combo, stamina, fever progress.
 function threadGate(player) {
   const feverBonus = game.feverActive ? CONFIG.feverMultiplier : 1;
-  const points = Math.round(CONFIG.gateScore * game.combo * feverBonus);
+  const points = Math.round(CONFIG.gateScore * game.combo * feverBonus * game.scoreMult);
   game.score += points;
   const tierBefore = comboTier(game.combo);
   game.combo = Math.min(CONFIG.comboMax, game.combo + CONFIG.comboStep);
@@ -174,7 +176,7 @@ function awardNearMiss(collider, player) {
   if (cd > 0) return;
   nearMissCooldowns.set(collider, CONFIG.nearMissCooldown);
   game.nearMisses++;
-  const bonus = Math.round(CONFIG.nearMissBonus * game.combo);
+  const bonus = Math.round(CONFIG.nearMissBonus * game.combo * game.scoreMult);
   game.score += bonus;
   ui.nearMissPopup(bonus);
   sfx.nearMiss();

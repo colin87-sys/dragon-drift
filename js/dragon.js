@@ -1,6 +1,14 @@
 import * as THREE from 'three';
 import { damp, makeGlowTexture } from './util.js';
 
+// Procedural dragon + rider. Built from a dragon def (dragons.js: palette,
+// model proportions, fx) and a rider def (riders.js: outfit, hair, accessory,
+// glow). disposeDragon/rebuildDragon let the shop swap either mid-session.
+
+let sceneRef = null;
+let activeDef = null;
+let activeRider = null;
+
 let group = null;
 let wingPivotL = null;
 let wingPivotR = null;
@@ -8,7 +16,6 @@ let wingTipL = null;  // secondary fold joint for 2-segment wing
 let wingTipR = null;
 let head = null;
 let tailSegs = [];
-const TAIL_COUNT = 9; // more segments = snakier coil
 
 // Materials animated at runtime (boost glow / fever tint)
 let bodyMat = null;
@@ -24,16 +31,18 @@ export function setDragonQuality(q) {
   quality = q;
 }
 
-// Rider ponytail
+// Rider
 let riderHead = null;
 let riderGroup = null;
 let scarfMesh = null;
-const PONY_SEGS = 10;
+let riderGlow = null;     // glow sprite behind the rider (premium riders)
+let accessoryGem = null;  // oracle's floating gem
 const PONY_LEN = 0.24;
+let ponySegs = 10;
 let ponyPoints = [];
 let ponyMeshes = [];
 
-// Speed trail: two separate pools — cyan (orb/boost) and blue (boost only)
+// Speed trail: two separate pools — body trail and boost-only trail
 const TRAIL_POOL = 140;
 let trailSprites = [];
 let boostTrailSprites = [];
@@ -87,45 +96,26 @@ function applyWingGradient(geo, palette, tStart = 0, tEnd = 1) {
   geo.setAttribute('color', new THREE.BufferAttribute(colors, 3));
 }
 
-// Live material registry so the shop can re-tint an equipped skin in place.
-let matRefs = null;
-let wingGeos = null; // [{geo, tStart, tEnd}]
-let activePalette = null;
-
-export function setDragonPalette(palette) {
-  activePalette = palette;
-  matRefs.body.color.setHex(palette.body);
-  matRefs.belly.color.setHex(palette.belly);
-  matRefs.scales.color.setHex(palette.scales);
-  matRefs.horn.color.setHex(palette.horn);
-  matRefs.cloak.color.setHex(palette.cloak);
-  wingMat.emissive.setHex(palette.wingEmissive);
-  eyeMat.emissive.setHex(palette.eye);
-  for (const w of wingGeos) applyWingGradient(w.geo, palette, w.tStart, w.tEnd);
-}
-
-export function createDragon(scene, palette) {
+export function createDragon(scene, def, riderDef) {
+  sceneRef = scene;
+  activeDef = def;
+  activeRider = riderDef;
+  const model = def.model;
   group = new THREE.Group();
-  activePalette = palette;
 
   bodyMat = new THREE.MeshStandardMaterial({
-    color: palette.body, roughness: 0.38, metalness: 0.12,
-    emissive: palette.body, emissiveIntensity: 0.12,
+    color: def.body, roughness: 0.38, metalness: 0.12,
+    emissive: def.body, emissiveIntensity: 0.12,
   });
-  const hornMat  = new THREE.MeshStandardMaterial({ color: palette.horn, emissive: 0x6b3400, emissiveIntensity: 0.22, roughness: 0.24 });
-  // Membrane wings: vertex-color orange→red gradient, warm backlit emissive.
+  const hornMat  = new THREE.MeshStandardMaterial({ color: def.horn, emissive: 0x6b3400, emissiveIntensity: 0.22, roughness: 0.24 });
+  // Membrane wings: vertex-color gradient, warm backlit emissive.
   wingMat = new THREE.MeshStandardMaterial({
     color: 0xffffff, vertexColors: true, roughness: 0.55, side: THREE.DoubleSide,
     transparent: true, opacity: 0.94,
-    emissive: palette.wingEmissive, emissiveIntensity: 0.28,
+    emissive: def.wingEmissive, emissiveIntensity: 0.28,
   });
-  const riderMat = new THREE.MeshStandardMaterial({ color: 0x231624, roughness: 0.78 });
-  const cloakMat = new THREE.MeshStandardMaterial({ color: palette.cloak, emissive: 0x441000, emissiveIntensity: 0.25, roughness: 0.7 });
-  const scalesMat = new THREE.MeshStandardMaterial({ color: palette.scales, emissive: 0x0b79aa, emissiveIntensity: 0.42, roughness: 0.28, metalness: 0.22 });
-  const bellyMat = new THREE.MeshStandardMaterial({ color: palette.belly, roughness: 0.5 });
-  const strapMat = new THREE.MeshStandardMaterial({ color: 0x3a1b16, roughness: 0.75 });
-  const amberMat = new THREE.MeshStandardMaterial({ color: 0xffb13d, emissive: 0x773100, emissiveIntensity: 0.35, roughness: 0.45 });
-  matRefs = { body: bodyMat, belly: bellyMat, scales: scalesMat, horn: hornMat, cloak: cloakMat };
+  const scalesMat = new THREE.MeshStandardMaterial({ color: def.scales, emissive: 0x0b79aa, emissiveIntensity: 0.42, roughness: 0.28, metalness: 0.22 });
+  const bellyMat = new THREE.MeshStandardMaterial({ color: def.belly, roughness: 0.5 });
 
   // Main body
   const body = new THREE.Mesh(new THREE.CapsuleGeometry(0.34, 1.9, 8, 14), bodyMat);
@@ -133,8 +123,7 @@ export function createDragon(scene, palette) {
   body.scale.set(0.72, 0.62, 1);
   group.add(body);
 
-  // Overlapping armored body plates replace the old barrel read with a
-  // sleeker serpentine silhouette.
+  // Overlapping armored body plates — sleek serpentine silhouette.
   const bodyProfile = [
     [-1.75, 0.82, 0.68, 1.0],
     [-1.22, 1.02, 0.8, 1.08],
@@ -160,11 +149,13 @@ export function createDragon(scene, palette) {
   waist.position.set(0, -0.05, 0.75);
   group.add(waist);
 
-  // Scale ridge along back
-  for (let i = 0; i < 12; i++) {
+  // Scale ridge along back: count varies per dragon, denser = spikier.
+  const ridgeCount = model.ridgeCount;
+  const ridgeStep = Math.min(0.43, 5.2 / ridgeCount);
+  for (let i = 0; i < ridgeCount; i++) {
     const ridge = new THREE.Mesh(new THREE.ConeGeometry(0.11 + Math.max(0, 5 - Math.abs(i - 4)) * 0.018, 0.44, 5), scalesMat);
     ridge.rotation.x = -Math.PI / 2;
-    ridge.position.set(0, 0.88 - Math.max(0, i - 5) * 0.03, -2.55 + i * 0.43);
+    ridge.position.set(0, 0.88 - Math.max(0, i - 5) * 0.03, -2.55 + i * ridgeStep);
     group.add(ridge);
   }
   for (const sx of [-1, 1]) {
@@ -195,13 +186,20 @@ export function createDragon(scene, palette) {
     nostril.position.set(0.14 * s, -0.1, -1.3);
     head.add(nostril);
   }
-  // Horns
+  // Horns: length and pair-count vary per dragon (the flagship gets a crown).
   for (const s of [-1, 1]) {
-    const horn = new THREE.Mesh(new THREE.ConeGeometry(0.16, 1.15, 6), hornMat);
+    const horn = new THREE.Mesh(new THREE.ConeGeometry(0.16, model.hornLen, 6), hornMat);
     horn.position.set(0.42 * s, 0.54, 0.28);
     horn.rotation.x = 0.65;
     horn.rotation.z = s * -0.2;
     head.add(horn);
+    if (model.hornPairs > 1) {
+      const horn2 = new THREE.Mesh(new THREE.ConeGeometry(0.11, model.hornLen * 0.62, 6), hornMat);
+      horn2.position.set(0.26 * s, 0.5, 0.55);
+      horn2.rotation.x = 0.95;
+      horn2.rotation.z = s * -0.34;
+      head.add(horn2);
+    }
     const cheekFin = new THREE.Mesh(new THREE.ConeGeometry(0.12, 0.72, 5), scalesMat);
     cheekFin.position.set(0.58 * s, 0.02, -0.12);
     cheekFin.rotation.z = s * -1.2;
@@ -215,37 +213,40 @@ export function createDragon(scene, palette) {
     brow.rotation.x = 0.9;
     head.add(brow);
   }
-  // Glowing eyes (cyan; shift magenta during Dragon Surge)
+  // Glowing eyes (per-dragon color; shift magenta during Dragon Surge)
   eyeMat = new THREE.MeshStandardMaterial({
-    color: 0x223344, emissive: 0x55e0ff, emissiveIntensity: 2.2,
+    color: 0x223344, emissive: def.eye, emissiveIntensity: 2.2,
   });
   for (const s of [-1, 1]) {
     const eye = new THREE.Mesh(new THREE.SphereGeometry(0.09, 8, 6), eyeMat);
     eye.position.set(0.3 * s, 0.22, -0.42);
     head.add(eye);
   }
-  head.position.set(0, 0.5, -3.08);
+  // Longer necks push the head further out and up.
+  const neckSegs = model.neckSegments;
+  head.position.set(0, 0.5 + (neckSegs - 4) * 0.09, -3.08 - (neckSegs - 4) * 0.34);
   group.add(head);
 
-  // Segmented neck gives the silhouette a longer S-curve from body to head.
-  for (let i = 0; i < 4; i++) {
-    const neck = new THREE.Mesh(new THREE.SphereGeometry(0.52 - i * 0.055, 9, 7), bodyMat);
+  // Segmented neck: longer S-curve from body to head on serpentine dragons.
+  for (let i = 0; i < neckSegs; i++) {
+    const neck = new THREE.Mesh(new THREE.SphereGeometry(Math.max(0.52 - i * 0.05, 0.22), 9, 7), bodyMat);
     neck.scale.set(0.82, 0.62, 1.35);
     neck.position.set(Math.sin(i * 0.8) * 0.1, 0.28 + i * 0.09, -1.95 - i * 0.36);
     group.add(neck);
   }
 
-  // Tail: tapering segments with varying cone orientation for snake-like coil
+  // Tail: tapering segments, count varies (serpents trail long coils)
+  tailSegs = [];
   let radius = 0.58;
   let z = 2.4;
-  for (let i = 0; i < TAIL_COUNT; i++) {
+  for (let i = 0; i < model.tailSegments; i++) {
     const seg = new THREE.Mesh(new THREE.ConeGeometry(radius, 1.2, 7), bodyMat);
     seg.rotation.x = Math.PI / 2;
     seg.position.set(0, 0, z);
     group.add(seg);
     tailSegs.push(seg);
     z += 0.9;
-    radius *= 0.76;
+    radius = Math.max(radius * 0.78, 0.05);
   }
   // Spiky tail tip
   const tip = new THREE.Mesh(new THREE.ConeGeometry(0.09, 0.6, 5), scalesMat);
@@ -254,40 +255,36 @@ export function createDragon(scene, palette) {
   group.add(tip);
   tailSegs.push(tip);
 
-  // Wings: 2-segment (root + tip fold) for more organic flap
+  // Wings: 2-segment (root + tip fold), span scales per dragon.
+  const ws = model.wingScale;
   const wingGeo = new THREE.ShapeGeometry(buildWingShape());
   wingGeo.rotateX(-Math.PI / 2);
-  wingGeo.scale(1.34, 1.28, 1);
-  applyWingGradient(wingGeo, palette, 0, 0.78);
+  wingGeo.scale(1.34 * ws, 1.28 * ws, 1);
+  applyWingGradient(wingGeo, def, 0, 0.78);
   const tipGeoR = new THREE.ShapeGeometry(buildWingShape());
   const tipGeoL = new THREE.ShapeGeometry(buildWingShape());
-  applyWingGradient(tipGeoR, palette, 0.72, 1);
-  applyWingGradient(tipGeoL, palette, 0.72, 1);
-  wingGeos = [
-    { geo: wingGeo, tStart: 0, tEnd: 0.78 },
-    { geo: tipGeoR, tStart: 0.72, tEnd: 1 },
-    { geo: tipGeoL, tStart: 0.72, tEnd: 1 },
-  ];
-  const wingBoneGeo = new THREE.BoxGeometry(3.7, 0.055, 0.055);
+  applyWingGradient(tipGeoR, def, 0.72, 1);
+  applyWingGradient(tipGeoL, def, 0.72, 1);
+  const wingBoneGeo = new THREE.BoxGeometry(3.7 * ws, 0.055, 0.055);
 
   // Right wing root
   wingPivotR = new THREE.Group();
   wingPivotR.position.set(0.55, 0.4, -0.2);
   const wRRoot = new THREE.Mesh(wingGeo, wingMat);
-  for (const [z, rot] of [[-0.12, -0.18], [0.18, 0.02], [0.48, 0.2]]) {
+  for (const [bz, rot] of [[-0.12, -0.18], [0.18, 0.02], [0.48, 0.2]]) {
     const bone = new THREE.Mesh(wingBoneGeo, hornMat);
-    bone.position.set(2.0, 0.03, z);
+    bone.position.set(2.0 * ws, 0.03, bz);
     bone.rotation.y = rot;
     wingPivotR.add(bone);
   }
   // Right tip pivot at the outer edge
   wingTipR = new THREE.Group();
-  wingTipR.position.set(3.5, 0, 0);
+  wingTipR.position.set(3.5 * ws, 0, 0);
   const wRTip = new THREE.Mesh(tipGeoR, wingMat);
-  wRTip.scale.set(0.42, 0.42, 1);
+  wRTip.scale.set(0.42 * ws, 0.42 * ws, 1);
   wingTipR.add(wRTip);
   tipMarkerR = new THREE.Object3D();
-  tipMarkerR.position.set(2.0, 0, -0.2); // true wing tip for contrails
+  tipMarkerR.position.set(2.0 * ws, 0, -0.2); // true wing tip for contrails
   wingTipR.add(tipMarkerR);
   wingPivotR.add(wRRoot, wingTipR);
   group.add(wingPivotR);
@@ -297,71 +294,48 @@ export function createDragon(scene, palette) {
   wingPivotL.position.set(-0.55, 0.4, -0.2);
   const wLRoot = new THREE.Mesh(wingGeo, wingMat);
   wLRoot.scale.x = -1;
-  for (const [z, rot] of [[-0.12, 0.18], [0.18, -0.02], [0.48, -0.2]]) {
+  for (const [bz, rot] of [[-0.12, 0.18], [0.18, -0.02], [0.48, -0.2]]) {
     const bone = new THREE.Mesh(wingBoneGeo, hornMat);
-    bone.position.set(-2.0, 0.03, z);
+    bone.position.set(-2.0 * ws, 0.03, bz);
     bone.rotation.y = rot;
     wingPivotL.add(bone);
   }
   wingTipL = new THREE.Group();
-  wingTipL.position.set(-3.5, 0, 0);
+  wingTipL.position.set(-3.5 * ws, 0, 0);
   const wLTip = new THREE.Mesh(tipGeoL, wingMat);
-  wLTip.scale.set(-0.42, 0.42, 1);
+  wLTip.scale.set(-0.42 * ws, 0.42 * ws, 1);
   wingTipL.add(wLTip);
   tipMarkerL = new THREE.Object3D();
-  tipMarkerL.position.set(-2.0, 0, -0.2);
+  tipMarkerL.position.set(-2.0 * ws, 0, -0.2);
   wingTipL.add(tipMarkerL);
   wingPivotL.add(wLRoot, wingTipL);
   group.add(wingPivotL);
 
-  // Rider
-  const rider = new THREE.Group();
-  riderGroup = rider;
-  const torso = new THREE.Mesh(new THREE.CapsuleGeometry(0.19, 0.52, 4, 8), riderMat);
-  torso.rotation.x = -0.4;
-  rider.add(torso);
-  const cloak = new THREE.Mesh(new THREE.ConeGeometry(0.28, 0.82, 5), cloakMat);
-  cloak.position.set(0, 0.18, 0.28);
-  cloak.rotation.x = -0.78;
-  rider.add(cloak);
-  const saddle = new THREE.Mesh(new THREE.BoxGeometry(0.72, 0.12, 0.5), strapMat);
-  saddle.position.set(0, -0.16, -0.02);
-  rider.add(saddle);
-  for (const sx of [-1, 1]) {
-    const strap = new THREE.Mesh(new THREE.BoxGeometry(0.045, 0.5, 0.08), amberMat);
-    strap.position.set(sx * 0.26, 0.05, 0.03);
-    rider.add(strap);
-  }
-  riderHead = new THREE.Mesh(new THREE.SphereGeometry(0.22, 10, 8), riderMat);
-  riderHead.position.set(0, 0.52, -0.2);
-  rider.add(riderHead);
-  // Scarf tail (static decorative)
-  const scarf = new THREE.Mesh(new THREE.ConeGeometry(0.06, 0.82, 4), cloakMat);
-  scarfMesh = scarf;
-  scarf.position.set(0.05, 0.2, 0.3);
-  scarf.rotation.x = -0.6;
-  rider.add(scarf);
-  rider.position.set(0, 1.12, -0.6);
-  group.add(rider);
+  // --- Rider (outfit/hair/accessory from the rider def) ---
+  buildRider(riderDef);
 
-  // Fever aura: pulsing magenta glow enveloping the dragon during surge
+  // Fever aura: pulsing glow enveloping the dragon during surge. Premium
+  // dragons keep a faint idle aura at all times (fx.auraIdle > 0).
   auraSprite = new THREE.Sprite(new THREE.SpriteMaterial({
-    map: makeGlowTexture('255,130,235'), transparent: true, opacity: 0,
+    map: makeGlowTexture(def.fx.auraColor), transparent: true, opacity: 0,
     blending: THREE.AdditiveBlending, depthWrite: false,
   }));
   auraSprite.scale.set(9, 9, 1);
   auraSprite.layers.set(1); // sprite layer: excluded from water reflection
   group.add(auraSprite);
 
+  // Overall size: visual only — the gameplay hitbox stays CONFIG.playerRadius.
+  group.scale.setScalar(model.scale);
   scene.add(group);
 
-  // Ponytail chain (world-space follow)
-  const hairMat = new THREE.MeshStandardMaterial({ color: 0x1a1020, roughness: 0.9 });
+  // Ponytail chain (world-space follow), length varies per rider
+  const hairMat = new THREE.MeshStandardMaterial({ color: riderDef.hair, roughness: 0.9 });
+  ponySegs = riderDef.ponySegs;
   ponyPoints = [];
   ponyMeshes = [];
-  for (let i = 0; i < PONY_SEGS; i++) {
+  for (let i = 0; i < ponySegs; i++) {
     ponyPoints.push(new THREE.Vector3(0, 9, i * PONY_LEN));
-    const r = 0.12 * (1 - i / (PONY_SEGS + 2));
+    const r = 0.12 * (1 - i / (ponySegs + 2));
     const m = new THREE.Mesh(new THREE.SphereGeometry(Math.max(r, 0.04), 8, 6), hairMat);
     scene.add(m);
     ponyMeshes.push(m);
@@ -371,6 +345,7 @@ export function createDragon(scene, palette) {
   const cyanTex = makeGlowTexture('120,220,255');
   const blueTex = makeGlowTexture('80,130,255');
 
+  trailSprites = [];
   for (let i = 0; i < TRAIL_POOL; i++) {
     const s = new THREE.Sprite(new THREE.SpriteMaterial({
       map: cyanTex, transparent: true, opacity: 0,
@@ -381,6 +356,7 @@ export function createDragon(scene, palette) {
     scene.add(s);
     trailSprites.push(s);
   }
+  boostTrailSprites = [];
   for (let i = 0; i < TRAIL_POOL; i++) {
     const s = new THREE.Sprite(new THREE.SpriteMaterial({
       map: blueTex, transparent: true, opacity: 0,
@@ -407,6 +383,141 @@ export function createDragon(scene, palette) {
   }
 
   return group;
+}
+
+function buildRider(riderDef) {
+  const rider = new THREE.Group();
+  riderGroup = rider;
+  const riderMat = new THREE.MeshStandardMaterial({
+    color: riderDef.suit, roughness: 0.78 - riderDef.suitMetal * 0.4,
+    metalness: riderDef.suitMetal,
+    emissive: riderDef.suitEmissive, emissiveIntensity: 0.45,
+  });
+  const cloakMat = new THREE.MeshStandardMaterial({
+    color: riderDef.cloak, emissive: riderDef.cloakEmissive, emissiveIntensity: 0.3, roughness: 0.7,
+  });
+  const scarfMat = new THREE.MeshStandardMaterial({
+    color: riderDef.scarf, emissive: riderDef.scarf, emissiveIntensity: 0.18, roughness: 0.7,
+  });
+  const strapMat = new THREE.MeshStandardMaterial({ color: 0x3a1b16, roughness: 0.75 });
+  const amberMat = new THREE.MeshStandardMaterial({ color: 0xffb13d, emissive: 0x773100, emissiveIntensity: 0.35, roughness: 0.45 });
+
+  const torso = new THREE.Mesh(new THREE.CapsuleGeometry(0.19, 0.52, 4, 8), riderMat);
+  torso.rotation.x = -0.4;
+  rider.add(torso);
+  const cloak = new THREE.Mesh(new THREE.ConeGeometry(0.28, 0.82, 5), cloakMat);
+  cloak.position.set(0, 0.18, 0.28);
+  cloak.rotation.x = -0.78;
+  rider.add(cloak);
+  const saddle = new THREE.Mesh(new THREE.BoxGeometry(0.72, 0.12, 0.5), strapMat);
+  saddle.position.set(0, -0.16, -0.02);
+  rider.add(saddle);
+  for (const sx of [-1, 1]) {
+    const strap = new THREE.Mesh(new THREE.BoxGeometry(0.045, 0.5, 0.08), amberMat);
+    strap.position.set(sx * 0.26, 0.05, 0.03);
+    rider.add(strap);
+  }
+  riderHead = new THREE.Mesh(new THREE.SphereGeometry(0.22, 10, 8), riderMat);
+  riderHead.position.set(0, 0.52, -0.2);
+  rider.add(riderHead);
+  // Scarf tail
+  const scarf = new THREE.Mesh(new THREE.ConeGeometry(0.06, 0.82, 4), scarfMat);
+  scarfMesh = scarf;
+  scarf.position.set(0.05, 0.2, 0.3);
+  scarf.rotation.x = -0.6;
+  rider.add(scarf);
+
+  // Accessory geometry — each rider's signature.
+  accessoryGem = null;
+  if (riderDef.accessory === 'banner') {
+    // Back-mounted pennant: thin pole + glowing flag
+    const pole = new THREE.Mesh(new THREE.BoxGeometry(0.035, 1.35, 0.035), strapMat);
+    pole.position.set(-0.16, 0.62, 0.22);
+    pole.rotation.x = 0.22;
+    rider.add(pole);
+    const flag = new THREE.Mesh(new THREE.ConeGeometry(0.16, 0.5, 4), scarfMat);
+    flag.position.set(-0.16, 1.28, 0.32);
+    flag.rotation.z = Math.PI / 2;
+    flag.scale.set(0.4, 1, 1);
+    rider.add(flag);
+  } else if (riderDef.accessory === 'visor') {
+    // Glowing eye band across the helmet
+    const visor = new THREE.Mesh(
+      new THREE.BoxGeometry(0.36, 0.075, 0.1),
+      new THREE.MeshStandardMaterial({
+        color: 0x102030, emissive: riderDef.scarf, emissiveIntensity: 1.8, roughness: 0.2,
+      })
+    );
+    visor.position.set(0, 0.55, -0.38);
+    rider.add(visor);
+  } else if (riderDef.accessory === 'hood') {
+    // Deep hood + a gem that floats above it (animated in updateDragon)
+    const hood = new THREE.Mesh(new THREE.ConeGeometry(0.27, 0.52, 6), cloakMat);
+    hood.position.set(0, 0.66, -0.16);
+    hood.rotation.x = 0.18;
+    rider.add(hood);
+    accessoryGem = new THREE.Mesh(
+      new THREE.OctahedronGeometry(0.075, 0),
+      new THREE.MeshStandardMaterial({
+        color: 0x301840, emissive: riderDef.scarf, emissiveIntensity: 2.4, roughness: 0.2,
+      })
+    );
+    accessoryGem.position.set(0, 1.05, -0.2);
+    rider.add(accessoryGem);
+  }
+
+  // Soft signature glow behind the rider (premium riders only)
+  riderGlow = null;
+  if (riderDef.glowColor) {
+    riderGlow = new THREE.Sprite(new THREE.SpriteMaterial({
+      map: makeGlowTexture(riderDef.glowColor), transparent: true, opacity: 0.3,
+      blending: THREE.AdditiveBlending, depthWrite: false,
+    }));
+    riderGlow.scale.set(1.6, 1.6, 1);
+    riderGlow.position.set(0, 0.5, 0.05);
+    riderGlow.layers.set(1);
+    rider.add(riderGlow);
+  }
+
+  rider.position.set(0, 1.12, -0.6);
+  group.add(rider);
+}
+
+// Remove every scene object this module owns (dragon, rider, ponytail,
+// trail pools, death shards) so a new dragon/rider combo can be built.
+export function disposeDragon() {
+  if (!sceneRef || !group) return;
+  group.traverse((o) => {
+    if (o.geometry) o.geometry.dispose();
+    if (o.material) o.material.dispose();
+  });
+  sceneRef.remove(group);
+  for (const m of ponyMeshes) {
+    m.geometry.dispose();
+    sceneRef.remove(m);
+  }
+  for (const s of [...trailSprites, ...boostTrailSprites]) {
+    s.material.dispose();
+    sceneRef.remove(s);
+  }
+  for (const p of burstParticles) {
+    p.geometry.dispose();
+    p.material.dispose();
+    sceneRef.remove(p);
+  }
+  group = null;
+  ponyMeshes = [];
+  trailSprites = [];
+  boostTrailSprites = [];
+  burstParticles = [];
+  burstActive = false;
+}
+
+// Shop equip: tear down and rebuild at the player's current position.
+export function rebuildDragon(def, riderDef, player) {
+  disposeDragon();
+  createDragon(sceneRef, def, riderDef);
+  resetDragon(player);
 }
 
 // Lethal crashes (wall/gate) explode hot coral-red; health deaths stay icy.
@@ -468,9 +579,19 @@ export function updateDragon(dt, player, time) {
   scarfMesh.rotation.x = damp(scarfMesh.rotation.x, -0.65 - speedNorm * 0.75, 10, dt);
   scarfMesh.rotation.z = Math.sin(time * (6 + speedNorm * 8)) * (0.12 + speedNorm * 0.18);
 
+  // Rider effects: glow breathes with speed; oracle gem orbits/bobs.
+  if (riderGlow) {
+    riderGlow.material.opacity = 0.22 + speedNorm * 0.25 + Math.sin(time * 4) * 0.06;
+  }
+  if (accessoryGem) {
+    accessoryGem.position.y = 1.05 + Math.sin(time * 2.6) * 0.06;
+    accessoryGem.rotation.y = time * 2.2;
+  }
+
   // Wing flap: 2-segment articulation with speed/turn-driven asymmetry.
+  // flapBias gives each dragon its own wingbeat character.
   const feverBoost = player.feverActive ? 1.3 : 1;
-  const flapSpeed = (player.speedActive ? 11 : 6) * feverBoost;
+  const flapSpeed = (player.speedActive ? 11 : 6) * feverBoost * activeDef.model.flapBias;
   const flapAmp   = player.speedActive ? 0.7 : 0.52;
   const turnBias = Math.max(-0.28, Math.min(0.28, player.velocity.x * 0.018));
   const climbBias = Math.max(-0.18, Math.min(0.18, player.velocity.y * 0.015));
@@ -494,14 +615,14 @@ export function updateDragon(dt, player, time) {
   // Snake-like tail wave: each segment lags behind the previous and trails
   // opposite the dragon's steering, so sharp turns bend the whole silhouette.
   for (let i = 0; i < tailSegs.length; i++) {
-    const phase = time * 3.8 - i * 0.55;
-    const amp = 0.09 * (i + 1) * (i < TAIL_COUNT ? 1 : 0.6);
+    const tphase = time * 3.8 - i * 0.55;
+    const amp = 0.09 * (i + 1) * (i < tailSegs.length - 1 ? 1 : 0.6);
     const trailK = (i + 1) / tailSegs.length;
     const motionTrailX = -player.velocity.x * 0.055 * trailK * trailK;
     const motionTrailY = -player.velocity.y * 0.04 * trailK * trailK;
     const speedWhip = speedNorm * Math.sin(time * 7.5 - i * 0.7) * 0.12 * trailK;
-    const waveX = Math.sin(phase) * amp + motionTrailX + speedWhip;
-    const waveY = Math.cos(phase * 0.7) * amp * 0.4 + motionTrailY;
+    const waveX = Math.sin(tphase) * amp + motionTrailX + speedWhip;
+    const waveY = Math.cos(tphase * 0.7) * amp * 0.4 + motionTrailY;
     tailSegs[i].position.x = damp(tailSegs[i].position.x, waveX, 9 + i * 0.45, dt);
     tailSegs[i].position.y = damp(tailSegs[i].position.y, waveY, 9 + i * 0.45, dt);
     // Rotation follows the wave direction for organic feel
@@ -515,10 +636,14 @@ export function updateDragon(dt, player, time) {
   const backlit = 0.22 + Math.max(0, Math.sin(phase)) * 0.18;
   const wingGlowTarget = backlit + (player.boosting ? 0.7 : 0);
   wingMat.emissiveIntensity = damp(wingMat.emissiveIntensity, wingGlowTarget, 6, dt);
-  wingMat.emissive.setHex(player.feverActive ? 0xff44cc : activePalette.wingEmissive);
+  wingMat.emissive.setHex(player.feverActive ? 0xff44cc : activeDef.wingEmissive);
   bodyMat.emissiveIntensity = damp(bodyMat.emissiveIntensity, player.feverActive ? 0.35 : 0.12, 4, dt);
-  eyeMat.emissive.setHex(player.feverActive ? 0xff66ee : activePalette.eye);
-  const auraTarget = player.feverActive ? 0.5 + Math.sin(time * 5) * 0.18 : 0;
+  eyeMat.emissive.setHex(player.feverActive ? 0xff66ee : activeDef.eye);
+  // Aura: full blaze during fever; premium dragons idle with a faint halo.
+  const idle = activeDef.fx.auraIdle;
+  const auraTarget = player.feverActive
+    ? 0.5 + Math.sin(time * 5) * 0.18
+    : idle > 0 ? idle * (0.85 + Math.sin(time * 3) * 0.15) : 0;
   auraSprite.material.opacity = damp(auraSprite.material.opacity, auraTarget, 5, dt);
 
   group.updateMatrixWorld(true);
@@ -535,7 +660,7 @@ export function updateDragon(dt, player, time) {
         marker.getWorldPosition(tmpV);
         s.visible = true;
         s.userData.life = player.feverActive ? 0.75 : 0.6; // shorter than body trail = crisp ribbon
-        s.material.color.setHex(player.feverActive ? 0xff9ad6 : activePalette.trail);
+        s.material.color.setHex(player.feverActive ? 0xff9ad6 : activeDef.trail);
         s.position.copy(tmpV);
       }
     }
@@ -546,7 +671,7 @@ export function updateDragon(dt, player, time) {
   tmpV.y += 0.1;
   tmpV.z += 0.14;
   ponyPoints[0].copy(tmpV);
-  for (let i = 1; i < PONY_SEGS; i++) {
+  for (let i = 1; i < ponySegs; i++) {
     const dir = tmpV2.copy(ponyPoints[i]).sub(ponyPoints[i - 1]);
     dir.y -= 2.4 * dt;
     dir.z += (player.speed / 35) * 2.8 * dt;
@@ -557,7 +682,7 @@ export function updateDragon(dt, player, time) {
   }
   ponyMeshes[0].position.copy(ponyPoints[0]);
 
-  // Cyan speed trail (orb/fast); shifts pink during fever
+  // Speed trail (orb/fast), tinted per dragon; shifts pink during fever
   trailTimer -= dt;
   if (player.speedActive && trailTimer <= 0) {
     trailTimer = (player.feverActive ? 0.009 : player.boosting ? 0.012 : 0.015) / quality;
@@ -584,7 +709,7 @@ export function updateDragon(dt, player, time) {
     }
   }
 
-  // Blue boost trail (only while boosting); shifts pink during fever
+  // Boost trail (only while boosting), per-dragon tint; pink during fever
   boostTrailTimer -= dt;
   if (player.boosting && boostTrailTimer <= 0) {
     boostTrailTimer = (player.feverActive ? 0.012 : 0.018) / quality;
@@ -592,7 +717,7 @@ export function updateDragon(dt, player, time) {
     if (s) {
       s.visible = true;
       s.userData.life = player.feverActive ? 1.2 : 1;
-      s.material.color.setHex(player.feverActive ? 0xff88cc : 0xffffff);
+      s.material.color.setHex(player.feverActive ? 0xff88cc : activeDef.boostTrail);
       s.position.set(
         group.position.x + (Math.random() - 0.5) * (player.feverActive ? 1.5 : 1.0),
         group.position.y + (Math.random() - 0.5) * (player.feverActive ? 1.3 : 0.9),
@@ -633,6 +758,7 @@ export function updateDragon(dt, player, time) {
 }
 
 export function resetDragon(player) {
+  group.position.set(player.position.x, player.position.y, player.position.z);
   group.rotation.set(0, 0, 0);
   head.rotation.set(0, 0, 0);
   bankZ = 0;

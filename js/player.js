@@ -12,6 +12,30 @@ function speedRamp(t) {
   return 1 + (CONFIG.speedRampMax - 1) * k;
 }
 
+// Effective flight stats: CONFIG baseline scaled by the equipped dragon.
+// Handling scales >= speed across the roster (see dragons.js) so faster
+// dragons are strictly easier to steer onto the generated reward line.
+const S = {
+  baseSpeed: CONFIG.baseSpeed,
+  boostSpeed: CONFIG.boostSpeed,
+  orbSpeed: CONFIG.orbSpeed,
+  lateralSpeed: CONFIG.lateralSpeed,
+  verticalSpeed: CONFIG.verticalSpeed,
+  drainMult: 1,
+  regenMult: 1,
+};
+
+export function applyDragonStats(def) {
+  const st = (def && def.stats) || { speed: 1, handling: 1, drain: 1, regen: 1 };
+  S.baseSpeed = CONFIG.baseSpeed * st.speed;
+  S.boostSpeed = CONFIG.boostSpeed * st.speed;
+  S.orbSpeed = CONFIG.orbSpeed * st.speed;
+  S.lateralSpeed = CONFIG.lateralSpeed * st.handling;
+  S.verticalSpeed = CONFIG.verticalSpeed * st.handling;
+  S.drainMult = st.drain;
+  S.regenMult = st.regen;
+}
+
 export const player = {
   position: new THREE.Vector3(0, 8, 0),
   velocity: new THREE.Vector2(0, 0),
@@ -29,7 +53,7 @@ export const player = {
   rollJustStarted: false, // one-frame flag for SFX/camera in main.js
 
   get speedActive() {
-    return this.speed > CONFIG.baseSpeed + 8;
+    return this.speed > S.baseSpeed + 8;
   },
 
   reset() {
@@ -81,8 +105,8 @@ export const player = {
 
     const axes = getAxes();
     const steeringBonus = this.boosting ? CONFIG.boostSteeringBonus : 1;
-    this.velocity.x = damp(this.velocity.x, axes.x * CONFIG.lateralSpeed * steeringBonus, CONFIG.moveAccel, dt);
-    this.velocity.y = damp(this.velocity.y, axes.y * CONFIG.verticalSpeed * steeringBonus, CONFIG.moveAccel, dt);
+    this.velocity.x = damp(this.velocity.x, axes.x * S.lateralSpeed * steeringBonus, CONFIG.moveAccel, dt);
+    this.velocity.y = damp(this.velocity.y, axes.y * S.verticalSpeed * steeringBonus, CONFIG.moveAccel, dt);
     this.position.x += this.velocity.x * dt;
     this.position.y += this.velocity.y * dt;
 
@@ -95,23 +119,23 @@ export const player = {
       // Orb surge = free boost; fever halves the burn. Combined with ring /
       // window / orb refills, a skilled chain sustains boost indefinitely.
       if (this.orbTimer <= 0) {
-        const drain = CONFIG.staminaDrain * (game.feverActive ? 0.5 : 1);
+        const drain = CONFIG.staminaDrain * S.drainMult * (game.feverActive ? 0.5 : 1);
         game.stamina = Math.max(0, game.stamina - drain * dt);
       }
       this.regenDelay = CONFIG.staminaRegenDelay;
     } else {
       this.regenDelay -= dt;
       if (this.regenDelay <= 0) {
-        game.stamina = Math.min(CONFIG.staminaMax, game.stamina + CONFIG.staminaRegen * dt);
+        game.stamina = Math.min(CONFIG.staminaMax, game.stamina + CONFIG.staminaRegen * S.regenMult * dt);
       }
     }
 
     if (this.orbTimer > 0) this.orbTimer -= dt;
 
     const ramp = speedRamp(game.time);
-    let targetSpeed = CONFIG.baseSpeed * ramp;
-    if (this.boosting)     targetSpeed = CONFIG.boostSpeed * ramp;
-    if (this.orbTimer > 0) targetSpeed = Math.max(targetSpeed, CONFIG.orbSpeed * ramp);
+    let targetSpeed = S.baseSpeed * ramp;
+    if (this.boosting)     targetSpeed = S.boostSpeed * ramp;
+    if (this.orbTimer > 0) targetSpeed = Math.max(targetSpeed, S.orbSpeed * ramp);
     this.speed = damp(this.speed, targetSpeed, CONFIG.speedEase, dt);
 
     // Track max speed for stats
