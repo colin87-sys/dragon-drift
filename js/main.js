@@ -23,11 +23,21 @@ import { buildSetPiece } from './setpieces.js';
 import { BIOMES, biomeIndexAt } from './biomes.js';
 import { DRAGONS } from './dragons.js';
 import { RIDERS } from './riders.js';
-import { dailySeed, recordDailyRun, saveData, persist, grantXp } from './save.js';
+import { dailySeed, recordDailyRun, saveData, persist, grantXp, levelEmberReward, todayUTC } from './save.js';
 import { initEmbers, addEmberLine, updateEmbers, bankEmbers, resetEmbers } from './embers.js';
 import { emit } from './events.js';
 import { initMissions, settleMissions } from './missions.js';
 import { setAmbientQuality } from './ambient.js';
+import { initRecords, settleRecords } from './records.js';
+import { initFeats, settleFeats } from './feats.js';
+import { settleWeekly } from './weekly.js';
+import { settleMilestones, settleMasteryStars } from './milestones.js';
+import { grantTitle, levelTitleId } from './titles.js';
+import { selectNextUp } from './recap.js';
+import { gambitEligible, markGambitOffered, resetGambitOffer, acceptGambit, gambitSeed, gambitStake, settleGambit, refundPendingGambit } from './gambit.js';
+import { initGoldEmbers, addGoldEmber, updateGoldEmbers, resetGoldEmbers } from './goldEmbers.js';
+import { initHints, updateHints } from './hints.js';
+import { initPbMarker, updatePbMarker } from './pbMarker.js';
 
 document.body.classList.add('app-loaded');
 
@@ -58,6 +68,7 @@ const challengeSeed = Number.isFinite(challengeSeedParam) && challengeSeedParam 
 if (urlParams.has('daily')) game.mode = 'daily';
 
 function seedForRun() {
+  if (game.mode === 'gambit') return gambitSeed();
   if (game.mode === 'daily') return dailySeed();
   if (challengeSeed !== null && game.challengeScore > 0) return challengeSeed;
   return (Math.random() * 0x7fffffff) | 0;
@@ -81,12 +92,18 @@ initObstacles(scene);
 initPowerups(scene);
 initParticles(scene);
 initEmbers(scene);
+initGoldEmbers(scene);
+initPbMarker(scene);
 
 // Set-piece meshes must exist before the first spawnAhead() call below,
 // since the first chunk can contain set-pieces.
 const setpieceMeshes = [];
 
 let levelGen = createLevelGen(runSeed);
+// Gauntlet corridor boundaries queued from level chunks; crossing an end
+// alive = a cleared gauntlet (weekly trials, feats, milestones).
+const pendingGauntletStarts = [];
+const pendingGauntletEnds = [];
 function spawnAhead() {
   if (levelGen.generatedUntil >= player.dist + CONFIG.spawnAhead) return;
   const chunk = levelGen.ensure(player.dist + CONFIG.spawnAhead);
@@ -94,6 +111,9 @@ function spawnAhead() {
   chunk.obstacles.forEach(addObstacle);
   chunk.orbs.forEach(addOrb);
   chunk.embers.forEach(addEmberLine);
+  chunk.goldEmbers && chunk.goldEmbers.forEach(addGoldEmber);
+  chunk.gauntletStarts && pendingGauntletStarts.push(...chunk.gauntletStarts);
+  chunk.gauntletEnds && pendingGauntletEnds.push(...chunk.gauntletEnds);
   // Set-pieces
   chunk.setPieces && chunk.setPieces.forEach(sp => triggerSetPiece(sp));
 }
@@ -109,7 +129,9 @@ function triggerSetPiece(sp) {
 
 // Debug: force Dragon Surge for visual verification
 const debugFever = urlParams.get('debug') === 'fever';
-if (urlParams.has('debug')) window.__dd = { renderer, game, player, postfx: { setPostTier } };
+if (urlParams.has('debug')) {
+  window.__dd = { renderer, game, player, save: saveData, emit, ui, postfx: { setPostTier } };
+}
 
 // Perf overlay (?debug=perf): fps / draw calls / quality tier
 let perfEl = null;
@@ -126,6 +148,9 @@ if (urlParams.get('debug') === 'perf') {
 initInput();
 initTouch(renderer.domElement);
 initMissions();
+initRecords(); // before initFeats: feats read counters records increments
+initFeats();
+initHints();
 ui.init({
   getCard: makeShareCard,
   onRestart: restart,
@@ -148,16 +173,49 @@ ui.init({
     game.pendingDeath = null;
     finishDeath(player, d.cause, d.lethal);
   },
+  onGambitAccept: () => {
+    const sum = game.runSummary;
+    const stake = sum && sum.gambit ? sum.gambit.stake : 0;
+    // Funds can dip below the stake if the player shopped from the recap.
+    if (stake <= 0 || saveData.embers < stake) return;
+    acceptGambit(stake);
+    restart();
+    ui.gambitStartPopup();
+  },
+  onGambitDecline: () => {
+    if (game.runSummary && game.runSummary.gambit) {
+      game.runSummary.gambit.eligible = false; // no re-offer on re-render
+    }
+  },
 });
 initReticle(camera);
 cameraCtl.init(camera, player);
+
+// --- Boot-time return triggers ---
+// A gambit corridor that never resolved (refresh, tab eviction) refunds its
+// stake; a long absence earns a small tailwind gift. lastSeen always updates.
+{
+  const today = todayUTC();
+  if (saveData.lastSeen) {
+    const gapDays = Math.floor((Date.parse(today) - Date.parse(saveData.lastSeen)) / 86400000);
+    if (gapDays > CONFIG.welcomeBackGapDays) {
+      saveData.embers += CONFIG.welcomeBackGift;
+      ui.setStartNotice(`Tailwind while you were away: +◆${CONFIG.welcomeBackGift}. The sky kept your seat.`);
+    }
+  }
+  saveData.lastSeen = today;
+  persist();
+  const refunded = refundPendingGambit();
+  if (refunded) ui.setStartNotice(`Gauntlet interrupted — your ◆${refunded} stake was returned.`);
+}
+
 ui.showScreen('start');
 
 let gameoverTapArmed = 0; // taps restart only after a short grace period
 window.addEventListener('pointerdown', (e) => {
   // Buttons, cards and sliders handle their own clicks — don't treat them
   // as "tap to fly" / "tap to resume"
-  if (e.target.closest && e.target.closest('button, .skin-card, .daily-card, .seg-btn, .pause-menu, .share-menu, input')) return;
+  if (e.target.closest && e.target.closest('button, .skin-card, .daily-card, .seg-btn, .pause-menu, .share-menu, .gambit-panel, .title-row, input')) return;
   if (game.state === 'paused') {
     // Browsing the shop/settings from pause: outside taps go back to the
     // pause overlay instead of resuming mid-shop.
@@ -244,13 +302,17 @@ function restart() {
   resetParticles();
   resetCollision();
   resetEmbers();
+  resetGoldEmbers();
+  if (game.mode !== 'gambit') resetGambitOffer();
   runSeed = seedForRun();
   game.runSeed = runSeed;
   resetEnvironment(runSeed);
+  pendingGauntletStarts.length = 0;
+  pendingGauntletEnds.length = 0;
   // Cull old set-pieces
   for (const sp of setpieceMeshes) scene.remove(sp.object);
   setpieceMeshes.length = 0;
-  levelGen = createLevelGen(runSeed);
+  levelGen = createLevelGen(runSeed, { gambit: game.mode === 'gambit' });
   spawnAhead();
   cameraCtl.init(camera, player);
   ui.hideScreen();
@@ -258,6 +320,68 @@ function restart() {
   boostWasActive = false;
   currentBiome = 0;
   emit('runStart');
+}
+
+// Run-end settle pipeline — the ORDER IS A CONTRACT:
+// bests first (lifetime stats feed milestones), bank before mission totals
+// display, daily before weekly (the daily-count trial reads firstToday),
+// XP/levels before feats, feats LAST (they see everything else's writes).
+function settleRun() {
+  game.recordBests();                                  // 1 stats + mastery metres
+  const newRecords = settleRecords();                  // 2 personal records
+  const emberTotal = bankEmbers();                     // 3 haul (rider ×, first-flight ×)
+  const missionSettle = settleMissions();              // 4 quests pay, chains unlock
+  game.missionResults = missionSettle.completed;
+  const dailyResult = game.mode === 'daily' ? recordDailyRun(game.score) : null; // 5
+  const weeklyResults = settleWeekly(game, {           // 6
+    dailyFirstToday: !!(dailyResult && dailyResult.firstToday),
+  });
+  const missionXp = game.missionResults.reduce((a, r) => a + Math.round(r.reward / 2), 0);
+  game.xpGained = Math.floor(game.score / 150) + game.ringsCollected * 2 + missionXp;
+  game.levelUps = grantXp(game.xpGained);              // 7 levels pay embers inside
+  let levelEmbers = 0;
+  for (let i = 0; i < game.levelUps; i++) {
+    const lv = saveData.level - game.levelUps + 1 + i;
+    levelEmbers += levelEmberReward(lv);
+    const titleId = levelTitleId(lv);
+    if (titleId) grantTitle(titleId);
+  }
+  const milestoneResults = settleMilestones();         // 8 lifetime rungs
+  const masteryResults = settleMasteryStars((key) => (DRAGONS[key] || { name: key }).name);
+  const featResults = settleFeats();                   // 9 feats see everything
+  const goldValue = game.goldEmbersRun * CONFIG.goldEmberValue;
+  game.runSummary = {                                  // 10 the recap reads this
+    newRecords,
+    missionResults: game.missionResults,
+    questUnlocks: missionSettle.unlocked,
+    weeklyResults,
+    milestoneResults: [
+      ...milestoneResults,
+      ...masteryResults.map((m) => ({ at: '', unit: '', label: `${m.dragonName} mastery ★${m.star}`, reward: m.reward })),
+    ],
+    featResults,
+    levelUps: game.levelUps,
+    levelEmbers,
+    xpGained: game.xpGained,
+    dailyResult,
+    emberBreakdown: {
+      base: game.embersRun - goldValue,
+      gold: goldValue,
+      rider: game.emberBonusEarned,
+      firstFlight: game.firstFlightBonus,
+      total: emberTotal,
+    },
+    nextUp: selectNextUp(),
+    gambit: { eligible: gambitEligible(emberTotal), stake: emberTotal },
+  };
+  if (game.runSummary.gambit.eligible) markGambitOffered();
+  persist();
+  if (game.missionResults.length) setTimeout(() => sfx.missionComplete(), 700);
+  if (game.levelUps > 0) setTimeout(() => sfx.levelUp(), 1200);
+  if (featResults.length) setTimeout(() => sfx.featUnlock(), 1700);
+  ui.showScreen('gameover');
+  // Blank-tap restart arms only after the ledger reveal settles.
+  gameoverTapArmed = performance.now() + 700 + ui.recapRevealMs;
 }
 
 window.addEventListener('keydown', (e) => {
@@ -413,12 +537,39 @@ function tick() {
     game.distance = player.dist;
     game.score += player.speed * dt * CONFIG.distanceScore * game.scoreMult;
     spawnAhead();
+
+    // Gambit win line: cross the finish arch untouched and the haul doubles.
+    if (game.mode === 'gambit' && player.dist >= CONFIG.gambitGoal) {
+      game.gambitResult = settleGambit(true); // resets mode to normal
+      sfx.gambitWin();
+      ui.perfectFlash();
+      game.state = 'gameover';
+      game.deathFreezeTimer = 0;
+      ui.showScreen('gambitResult');
+      gameoverTapArmed = performance.now() + 700;
+    }
+
     updateCollision(dt, player);
     updateRings(dt, player, clock.getElapsedTime());
     updatePowerups(dt, player, clock.getElapsedTime());
     updateEmbers(dt, player, clock.getElapsedTime());
+    updateGoldEmbers(dt, player, clock.getElapsedTime());
+    updatePbMarker(dt, player, clock.getElapsedTime());
+    updateHints(dt, player);
     music.update(game, player);
     ui.update(player);
+
+    // Gauntlet boundaries: starts cue the onboarding hint, ends crossed
+    // alive count as cleared corridors.
+    while (pendingGauntletStarts.length && player.dist >= pendingGauntletStarts[0]) {
+      pendingGauntletStarts.shift();
+      emit('gauntletStart', { dist: player.dist });
+    }
+    while (pendingGauntletEnds.length && player.dist >= pendingGauntletEnds[0]) {
+      pendingGauntletEnds.shift();
+      game.gauntletsClearedRun++;
+      emit('gauntletCleared', { dist: player.dist });
+    }
 
     // Boost start: camera kick + whoosh SFX
     if (player.boosting && !boostWasActive) {
@@ -478,22 +629,20 @@ function tick() {
     }
 
   } else if (game.state === 'gameover') {
-    // Death freeze: hold the crash frame briefly, then show game-over screen
+    // Death freeze: hold the crash frame briefly, then settle + recap
     if (game.deathFreezeTimer > 0) {
       game.deathFreezeTimer -= dt;
       if (game.deathFreezeTimer <= 0) {
-        game.recordBests();
-        bankEmbers();
-        // Missions + XP settle once per run, results stored for the screen
-        game.missionResults = settleMissions();
-        const missionXp = game.missionResults.reduce((a, r) => a + Math.round(r.reward / 2), 0);
-        game.xpGained = Math.floor(game.score / 150) + game.ringsCollected * 2 + missionXp;
-        game.levelUps = grantXp(game.xpGained);
-        if (game.missionResults.length) setTimeout(() => sfx.missionComplete(), 700);
-        if (game.levelUps > 0) setTimeout(() => sfx.levelUp(), 1200);
-        if (game.mode === 'daily') recordDailyRun(game.score);
-        ui.showScreen('gameover');
-        gameoverTapArmed = performance.now() + 700;
+        if (game.mode === 'gambit') {
+          // A crashed gambit banks nothing and records nothing — the haul
+          // was already wagered, everything else was settled before it.
+          game.gambitResult = settleGambit(false); // resets mode to normal
+          sfx.gambitLose();
+          ui.showScreen('gambitResult');
+          gameoverTapArmed = performance.now() + 700;
+        } else {
+          settleRun();
+        }
       }
     }
   }

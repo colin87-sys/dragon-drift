@@ -189,6 +189,12 @@ function hit(player, pushX, pushY, damage = CONFIG.obstacleDamage, cause = 'shar
   // Barrel-roll i-frames: damage is dodged, and the near-miss checks above
   // keep firing — rolling through a cluster showers bonuses instead.
   if (player.rollInvuln > 0 && cause !== 'ground') return;
+  // The Phoenix Gauntlet allows no scratches: any contact ends the wager
+  // (i-frame dodges above still work — skill keeps its say).
+  if (game.mode === 'gambit') {
+    crash(player, cause);
+    return;
+  }
   invuln = CONFIG.invulnTime;
   game.health = Math.max(0, game.health - damage);
   if (pushX) player.velocity.x += pushX * 10;
@@ -213,8 +219,8 @@ function crash(player, cause) {
 
 function die(player, cause, lethal) {
   // Revive offer: if a token is banked and unused this run, freeze on the
-  // brink instead of ending the run.
-  if (saveData.revives > 0 && !game.reviveUsed) {
+  // brink instead of ending the run. No second chances inside a gambit.
+  if (saveData.revives > 0 && !game.reviveUsed && game.mode !== 'gambit') {
     game.state = 'dying';
     game.pendingDeath = { cause, lethal };
     sfx.damage();

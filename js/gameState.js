@@ -30,10 +30,17 @@ export const game = {
   isNewHighScore: false,
   isNewBestDistance: false,
   challengeScore: 0,
-  mode: 'normal',      // normal | daily
+  challengeBeaten: false, // crossed the challenge target mid-run (race bar)
+  mode: 'normal',      // normal | daily | gambit
   runSeed: CONFIG.seed,
   embersRun: 0,        // embers collected this run (banked at run end)
   emberBonusEarned: 0, // extra embers from the equipped rider's bonus
+  firstFlightBonus: 0, // extra embers from the first-flight-of-the-day ×1.5
+  gatesRun: 0,         // windows threaded this run
+  surgesRun: 0,        // Dragon Surges triggered this run
+  goldEmbersRun: 0,    // golden embers caught this run
+  gauntletsClearedRun: 0,
+  runSummary: null,    // built once at settle for the recap screen
   timeScale: 1,        // near-death slow-mo (main.js scales sim dt by this)
   slowMoTimer: 0,      // remaining slow-mo, in REAL seconds
   reviveUsed: false,   // one revive per run
@@ -88,6 +95,13 @@ export const game = {
     this.isNewBestDistance = false;
     this.embersRun = 0;
     this.emberBonusEarned = 0;
+    this.firstFlightBonus = 0;
+    this.gatesRun = 0;
+    this.surgesRun = 0;
+    this.goldEmbersRun = 0;
+    this.gauntletsClearedRun = 0;
+    this.challengeBeaten = false;
+    this.runSummary = null;
     this.timeScale = 1;
     this.slowMoTimer = 0;
     this.reviveUsed = false;
@@ -105,9 +119,25 @@ export const game = {
       this.bestDistance = Math.floor(this.distance);
       saveData.best.dist = this.bestDistance;
     }
-    saveData.stats.runs++;
-    saveData.stats.totalDist += Math.floor(this.distance);
-    saveData.stats.totalRings += this.ringsCollected;
+    const s = saveData.stats;
+    s.runs++;
+    s.totalDist += Math.floor(this.distance);
+    s.totalRings += this.ringsCollected;
+    s.totalPerfects += this.perfectRings;
+    s.totalGates += this.gatesRun;
+    s.totalNearMisses += this.nearMisses;
+    s.totalRolls += this.rolls;
+    s.totalSurges += this.surgesRun;
+    s.totalOrbs += this.speedOrbsCollected;
+    s.totalGoldEmbers += this.goldEmbersRun;
+    s.gauntletsCleared += this.gauntletsClearedRun;
+    // Dragon mastery: metres flown per dragon (array of [key, metres] pairs —
+    // deepMerge drops dynamic-key maps, see save.js).
+    const key = saveData.skins.equipped;
+    const flown = saveData.mastery.flown;
+    const entry = flown.find((e) => e[0] === key);
+    if (entry) entry[1] += Math.floor(this.distance);
+    else flown.push([key, Math.floor(this.distance)]);
     persist();
   },
 };
