@@ -11,6 +11,7 @@ export const game = {
   stamina: CONFIG.staminaMax,
   ringsCollected: 0,
   perfectRings: 0,
+  perfectStreak: 0,    // consecutive perfect-center rings (drives the chime ladder)
   nearMisses: 0,
   speedOrbsCollected: 0,
   rolls: 0,
@@ -32,6 +33,7 @@ export const game = {
   mode: 'normal',      // normal | daily
   runSeed: CONFIG.seed,
   embersRun: 0,        // embers collected this run (banked at run end)
+  emberBonusEarned: 0, // extra embers from the equipped rider's bonus
   timeScale: 1,        // near-death slow-mo (main.js scales sim dt by this)
   slowMoTimer: 0,      // remaining slow-mo, in REAL seconds
   reviveUsed: false,   // one revive per run
@@ -68,6 +70,7 @@ export const game = {
     this.stamina = CONFIG.staminaMax;
     this.ringsCollected = 0;
     this.perfectRings = 0;
+    this.perfectStreak = 0;
     this.nearMisses = 0;
     this.speedOrbsCollected = 0;
     this.rolls = 0;
@@ -84,6 +87,7 @@ export const game = {
     this.isNewHighScore = false;
     this.isNewBestDistance = false;
     this.embersRun = 0;
+    this.emberBonusEarned = 0;
     this.timeScale = 1;
     this.slowMoTimer = 0;
     this.reviveUsed = false;

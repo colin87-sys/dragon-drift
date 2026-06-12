@@ -122,17 +122,18 @@ export function initTouch(el) {
           input.ty = clamp(-(t.clientY - baseY) / SPAN, -1, 1); // drag up = fly up
           // Fast horizontal flick = barrel roll; re-anchor the joystick at the
           // finger so the flick doesn't leave steering pinned at full deflection.
+          // dt floors at 1ms — browsers can coalesce several moves into one
+          // timestamp, and those bursts ARE fast motion. The 10px travel gate
+          // keeps micro-jitter from registering as a flick.
           const now = performance.now();
-          const dtMs = now - lastT;
-          if (dtMs > 0) {
-            const vx = (t.clientX - lastX) / (dtMs / 1000);
-            if (Math.abs(vx) > FLICK_SPEED) {
-              input.rollRequest = Math.sign(vx);
-              baseX = t.clientX;
-              baseY = t.clientY;
-              input.tx = 0;
-              input.ty = 0;
-            }
+          const dtMs = Math.max(now - lastT, 1);
+          const vx = (t.clientX - lastX) / (dtMs / 1000);
+          if (Math.abs(vx) > FLICK_SPEED && Math.abs(t.clientX - lastX) > 10) {
+            input.rollRequest = Math.sign(vx);
+            baseX = t.clientX;
+            baseY = t.clientY;
+            input.tx = 0;
+            input.ty = 0;
           }
           lastX = t.clientX;
           lastT = now;
@@ -146,23 +147,23 @@ export function initTouch(el) {
             const now = performance.now();
             const dx = t.clientX - rec.lx;
             const dy = t.clientY - rec.ly;
-            const dtMs = now - rec.lt;
-            if (dtMs > 0) {
-              const speed = Math.abs(dx) / (dtMs / 1000);
-              const dir = Math.sign(dx);
-              if (speed > SWIPE_SPEED && dir !== 0 && Math.abs(dx) > Math.abs(dy)) {
-                if (dir !== rec.dir) { rec.dir = dir; rec.acc = 0; }
-                rec.acc += dx;
-                if (!rec.rolled && Math.abs(rec.acc) > SWIPE_DIST) {
-                  rec.rolled = true;
-                  input.rollRequest = dir;
-                }
-              } else {
-                // Finger slowed/changed axis: reset so a later swipe can roll again.
-                rec.acc = 0;
-                rec.dir = 0;
-                rec.rolled = false;
+            // dt floors at 1ms so same-timestamp coalesced moves still count
+            // toward the swipe instead of being silently dropped.
+            const dtMs = Math.max(now - rec.lt, 1);
+            const speed = Math.abs(dx) / (dtMs / 1000);
+            const dir = Math.sign(dx);
+            if (speed > SWIPE_SPEED && dir !== 0 && Math.abs(dx) > Math.abs(dy)) {
+              if (dir !== rec.dir) { rec.dir = dir; rec.acc = 0; }
+              rec.acc += dx;
+              if (!rec.rolled && Math.abs(rec.acc) > SWIPE_DIST) {
+                rec.rolled = true;
+                input.rollRequest = dir;
               }
+            } else {
+              // Finger slowed/changed axis: reset so a later swipe can roll again.
+              rec.acc = 0;
+              rec.dir = 0;
+              rec.rolled = false;
             }
             rec.lx = t.clientX;
             rec.ly = t.clientY;

@@ -1,5 +1,6 @@
 import { CONFIG } from './config.js';
 import { mulberry32, clamp } from './util.js';
+import { BIOMES } from './biomes.js';
 
 const lerp = (a, b, k) => a + (b - a) * k;
 const REACH_AUDIT = new URLSearchParams(window.location.search).get('debug') === 'reach';
@@ -10,14 +11,15 @@ const REACH_AUDIT = new URLSearchParams(window.location.search).get('debug') ===
 function setPiecesBetween(a, b, out) {
   const L = CONFIG.biomeLength;
   const HALF = L / 2;
+  const N = BIOMES.length;
   // Boundary gateways
   for (let k = Math.floor(a / L) + 1; k * L <= b; k++) {
-    out.push({ type: 'biomeGate', dist: k * L, biomeIndex: k % 3 });
+    out.push({ type: 'biomeGate', dist: k * L, biomeIndex: k % N });
   }
   // Midpoint mega-arches (skip the very first half-point: tutorial zone)
   for (let k = Math.floor((a - HALF) / L) + 1; k * L + HALF <= b; k++) {
     if (k * L + HALF < 600) continue;
-    out.push({ type: 'megaArch', dist: k * L + HALF, biomeIndex: k % 3 });
+    out.push({ type: 'megaArch', dist: k * L + HALF, biomeIndex: k % N });
   }
 }
 
@@ -32,6 +34,26 @@ export function createLevelGen(seed = CONFIG.seed) {
   let prevHopDirX = 0;
   let prevHopDirY = 0;
 
+  // Reward rhythm: the course breathes between flowing spacing, rapid-fire
+  // ring bursts and long open straights, so the cadence never goes metronomic.
+  //   flow   — the tuned default spacing
+  //   burst  — tight chains of close rings (gentle swing, no gates)
+  //   breath — sparse stretch, room to boost flat-out
+  let rhythm = { mode: 'flow', left: 5 };
+  const RHYTHM = { flow: 1, burst: 0.7, breath: 1.45 };
+
+  function nextRhythm() {
+    const r = rnd();
+    const mode = r < 0.5 ? 'flow' : r < 0.8 ? 'burst' : 'breath';
+    rhythm = { mode, left: mode === 'flow' ? 4 + Math.floor(rnd() * 3) : 3 + Math.floor(rnd() * 3) };
+  }
+
+  // Gauntlets: occasional hand-built corridor sequences (bar + spike walls
+  // leaving one generous open quadrant) that steer the player along a
+  // slalom path — a forced line that breaks up the free-roam cruising.
+  let gauntlet = null; // { stations: [{qx, qyLow}], i }
+  let untilGauntlet = 650 + rnd() * 450;
+
   const difficulty = (d) => {
     // First 300m: forced easy approach (tutorial)
     if (d < 300) return 0;
@@ -42,12 +64,15 @@ export function createLevelGen(seed = CONFIG.seed) {
   function nextWaypoint() {
     const t = difficulty(prev.dist);
     const tc = Math.min(t, 1);
+    if (--rhythm.left <= 0) nextRhythm();
+    const inBurst = rhythm.mode === 'burst' && t > 0;
     // First few hops are shorter so the player gets rewards quickly
     const baseClose = prev.dist < 200 ? 42 : 78;
     const idealSpacing = CONFIG.lineDesignSpeed * CONFIG.idealRewardHopTime;
     const minLateSpacing = CONFIG.lineDesignSpeed * CONFIG.minRewardHopTime;
     let spacing = lerp(baseClose, idealSpacing, tc) * (0.88 + rnd() * 0.24);
     if (prev.dist > 1600) spacing = Math.max(spacing, minLateSpacing);
+    spacing *= t > 0 ? RHYTHM[rhythm.mode] : 1; // tutorial zone keeps the tuned cadence
     const dist = prev.dist + spacing;
     const hopTime = spacing / CONFIG.lineDesignSpeed;
     const safety = Math.min(lerp(0.45, CONFIG.lateGameReachSafety, t), CONFIG.lateGameReachSafety); // gentler early
@@ -57,8 +82,9 @@ export function createLevelGen(seed = CONFIG.seed) {
     if (rnd() < 0.8) swingX *= -1;
     if (rnd() < 0.6) swingY *= -1;
 
-    // First waypoint stays near centre so first ring is easy
-    const swingFraction = prev.dist < 80 ? 0.2 : (0.45 + rnd() * 0.55);
+    // First waypoint stays near centre so first ring is easy; ring bursts
+    // swing gently so the rapid chain stays flowing, not twitchy.
+    const swingFraction = prev.dist < 80 ? 0.2 : inBurst ? (0.2 + rnd() * 0.2) : (0.45 + rnd() * 0.55);
     let x = prev.x + swingX * swingFraction * maxDx;
     let y = prev.y + swingY * swingFraction * maxDy;
 
@@ -170,6 +196,31 @@ export function createLevelGen(seed = CONFIG.seed) {
     }
   }
 
+  // One gauntlet station: blockers sealing everything except one generous
+  // open quadrant (≈9 units wide, half the lane tall — roomy, never
+  // claustrophobic). A spanning bar reads as the "log", a spike wall and a
+  // floating shard close the other side, leaving one obvious door.
+  function gauntletStation(st, dist, out) {
+    const cx = st.qx * 4.5;
+    const cy = st.qyLow ? 8 : 14.5;
+    // Horizontal log sealing the other vertical half
+    const barY = st.qyLow ? 16.5 + rnd() * 2 : 4 + rnd();
+    out.obstacles.push({ type: 'bar', dist, y: barY, r: 0.85 });
+    // Spike wall sealing the other lateral side
+    out.obstacles.push({
+      type: 'pillar', dist: dist + 6,
+      x: -st.qx * (6.5 + rnd() * 2.5), r: 1.9 + rnd() * 0.7,
+      h: st.qyLow ? 20 : 11,
+    });
+    // A floating shard plugs the diagonal at corridor height
+    out.obstacles.push({
+      type: 'shard', dist: dist - 5,
+      x: -st.qx * (4.5 + rnd() * 2), y: cy + (st.qyLow ? 1.5 : -1.5),
+      r: 1.5 + rnd() * 0.5,
+    });
+    return { dist, x: cx + (rnd() - 0.5) * 2, y: cy + (rnd() - 0.5) * 1.5 };
+  }
+
   // Ember coin-trail: an arc of pickups tracing the ideal line to the next
   // reward. Doubles as path guidance (follow the embers = thread the ring).
   function emberArc(a, b, out) {
@@ -191,6 +242,45 @@ export function createLevelGen(seed = CONFIG.seed) {
   function ensure(target) {
     const out = { rings: [], obstacles: [], orbs: [], setPieces: [], embers: [] };
     while (prev.dist < target) {
+      // Gauntlet corridors take over waypoint placement while active: each
+      // station's ring sits in the open quadrant, an ember line leads in,
+      // and only ONE axis changes between stations so the slalom stays fair.
+      if (!gauntlet && prev.dist > untilGauntlet && difficulty(prev.dist) > 0.3) {
+        const stations = [];
+        let qx = Math.sign(prev.x) || 1;
+        let qyLow = prev.y < 11;
+        const n = 3 + (rnd() < 0.4 ? 1 : 0);
+        for (let i = 0; i < n; i++) {
+          stations.push({ qx, qyLow });
+          if (rnd() < 0.5) qx *= -1;
+          else qyLow = !qyLow;
+        }
+        gauntlet = { stations, i: 0 };
+        untilGauntlet = prev.dist + 800 + rnd() * 500;
+      }
+      if (gauntlet) {
+        const st = gauntlet.stations[gauntlet.i++];
+        const wp = gauntletStation(st, prev.dist + 70, out);
+        out.rings.push({ dist: wp.dist, x: wp.x, y: wp.y });
+        const points = [];
+        for (let k = 0; k < 5; k++) {
+          const tt = 0.3 + k * 0.14;
+          points.push({
+            dist: prev.dist + (wp.dist - prev.dist) * tt,
+            x: prev.x + (wp.x - prev.x) * tt,
+            y: prev.y + (wp.y - prev.y) * tt,
+          });
+        }
+        out.embers.push({ points });
+        setPiecesBetween(prev.dist, wp.dist, out.setPieces);
+        auditHop(prev, wp, 'gauntlet');
+        prevHopDirX = Math.sign(wp.x - prev.x) || prevHopDirX;
+        prevHopDirY = Math.sign(wp.y - prev.y) || prevHopDirY;
+        prev = wp;
+        if (gauntlet.i >= gauntlet.stations.length) gauntlet = null;
+        continue;
+      }
+
       const wp = nextWaypoint();
       const t = difficulty(wp.dist);
       const tc = Math.min(t, 1);
@@ -201,7 +291,9 @@ export function createLevelGen(seed = CONFIG.seed) {
       // in this hop even at full boost, so it always stays fair. The waypoint
       // itself moves to the window so the rest of the course flows from it.
       untilGate--;
-      const isGate = wp.dist > 420 && t > 0 && untilGate <= 0;
+      // No gates inside ring bursts: tight spacing + an off-path window
+      // would stack two demands into one short hop.
+      const isGate = wp.dist > 420 && t > 0 && untilGate <= 0 && rhythm.mode !== 'burst';
       if (isGate) {
         untilGate = tc > 0.7 ? 2 + Math.floor(rnd() * 2) : 3 + Math.floor(rnd() * 3);
         const hopTime = (wp.dist - prev.dist) / CONFIG.lineDesignSpeed;

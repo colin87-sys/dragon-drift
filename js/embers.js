@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { game } from './gameState.js';
 import { saveData, persist } from './save.js';
+import { riderEmberBonus } from './riders.js';
 import { burst } from './particles.js';
 import { sfx } from './sfx.js';
 import { emit } from './events.js';
@@ -98,11 +99,14 @@ export function updateEmbers(dt, player, time) {
   mesh.instanceMatrix.needsUpdate = true;
 }
 
-// Bank the run's embers into the save (called once at run end).
+// Bank the run's embers into the save (called once at run end). The equipped
+// rider's emberBonus pays extra on top — shown on the crash screen.
 export function bankEmbers() {
   if (game.embersRun <= 0) return;
-  saveData.embers += game.embersRun;
-  saveData.stats.totalEmbers += game.embersRun;
+  game.emberBonusEarned = Math.round(game.embersRun * riderEmberBonus());
+  const total = game.embersRun + game.emberBonusEarned;
+  saveData.embers += total;
+  saveData.stats.totalEmbers += total;
   persist();
 }
 

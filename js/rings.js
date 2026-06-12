@@ -77,14 +77,26 @@ function collect(r, centerDist) {
   );
   game.score += points;
   game.ringsCollected++;
-  if (perfect) game.perfectRings++;
+  // Perfect streak: consecutive center hits climb a chime ladder and flash
+  // gold — the audio/visual reward that makes hunting the bullseye addictive.
+  if (perfect) {
+    game.perfectRings++;
+    game.perfectStreak++;
+  } else {
+    game.perfectStreak = 0;
+  }
   game.consecutiveRings++;
   const tierBefore = comboTier(game.combo);
   game.combo = Math.min(CONFIG.comboMax, game.combo + CONFIG.comboStep);
   game.maxCombo = Math.max(game.maxCombo, game.combo);
   game.stamina = Math.min(CONFIG.staminaMax, game.stamina + CONFIG.ringStamina);
-  ui.ringPopup(points, perfect);
-  sfx.ring(game.combo);
+  ui.ringPopup(points, perfect, game.perfectStreak);
+  if (perfect) {
+    sfx.perfect(game.perfectStreak);
+    ui.perfectFlash();
+  } else {
+    sfx.ring(game.combo);
+  }
 
   // Perfect rings flash GOLD: tint the mesh itself for the flash-out
   // animation (updateRings stops re-setting emissive once collected).
@@ -113,6 +125,7 @@ function collect(r, centerDist) {
 function miss(r) {
   r.missed = true;
   game.consecutiveRings = 0;
+  game.perfectStreak = 0;
   if (game.feverActive) { game.feverActive = false; game.feverTimer = 0; }
   if (game.combo > 1) { ui.comboBreak(); sfx.comboBreak(); }
   game.combo = 1;

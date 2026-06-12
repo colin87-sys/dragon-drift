@@ -9,6 +9,9 @@ const PALETTES = [
   { stone: 0x86b39c, accent: 0xc08a50, glow: 0x3fd9a8 }, // sanctuary
   { stone: 0xe2bd8a, accent: 0xb56a40, glow: 0xffb347 }, // wastes
   { stone: 0x88ccee, accent: 0x9fd8f0, glow: 0x55ccff }, // frozen
+  { stone: 0x3a2a2e, accent: 0xff5a20, glow: 0xff7a30 }, // caldera
+  { stone: 0x1d4438, accent: 0x4dffd0, glow: 0x3fd8b0 }, // mire
+  { stone: 0x3a3a6a, accent: 0x9fb8ff, glow: 0x8a6aff }, // astral
 ];
 
 function stoneMat(biomeIdx) {

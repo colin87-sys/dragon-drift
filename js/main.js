@@ -153,17 +153,26 @@ initReticle(camera);
 cameraCtl.init(camera, player);
 ui.showScreen('start');
 
+let gameoverTapArmed = 0; // taps restart only after a short grace period
 window.addEventListener('pointerdown', (e) => {
   // Buttons, cards and sliders handle their own clicks — don't treat them
   // as "tap to fly" / "tap to resume"
-  if (e.target.closest && e.target.closest('button, .skin-card, .daily-card, .seg-btn, .pause-menu, input')) return;
+  if (e.target.closest && e.target.closest('button, .skin-card, .daily-card, .seg-btn, .pause-menu, .share-menu, input')) return;
   if (game.state === 'paused') {
     // Browsing the shop/settings from pause: outside taps go back to the
     // pause overlay instead of resuming mid-shop.
     if (ui.inPauseSubscreen()) ui.showPauseOverlay();
     else resumeFromPause();
   }
-  else if (game.state === 'ready') startGame();
+  // Tap-to-fly only from the start screen itself — while browsing the
+  // shop/settings, blank taps mean "back" (handled by the screen itself).
+  else if (game.state === 'ready' && !ui.inSubscreen()) startGame();
+  // Crash screen: tapping any blank spot starts a new flight. Armed only
+  // after a grace period so a frantic last-second tap can't skip the screen.
+  else if (game.state === 'gameover' && game.deathFreezeTimer <= 0 &&
+           performance.now() > gameoverTapArmed && !ui.inSubscreen()) {
+    restart();
+  }
 });
 
 // Share card: re-renders the scene at crash moment (with death particles visible)
@@ -445,7 +454,7 @@ function tick() {
     const bi = biomeIndexAt(player.dist);
     if (bi !== currentBiome) {
       currentBiome = bi;
-      music.setKeyShift([0, 2, -3][bi]);
+      music.setKeyShift(BIOMES[bi].keyShift);
       if (player.dist > 100) {
         ui.biomePopup(BIOMES[bi].name);
         sfx.milestone();
@@ -484,6 +493,7 @@ function tick() {
         if (game.levelUps > 0) setTimeout(() => sfx.levelUp(), 1200);
         if (game.mode === 'daily') recordDailyRun(game.score);
         ui.showScreen('gameover');
+        gameoverTapArmed = performance.now() + 700;
       }
     }
   }
