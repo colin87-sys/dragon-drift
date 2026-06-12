@@ -9,6 +9,7 @@ import { burst, gateThreadBurst, nearMissSparks } from './particles.js';
 import { comboTier } from './util.js';
 import { saveData, persist } from './save.js';
 import { emit } from './events.js';
+import { juiceEvent } from './juice.js';
 
 // Near-miss cooldown: track per-collider so same obstacle can't spam
 const nearMissCooldowns = new WeakMap();
@@ -157,6 +158,7 @@ function threadGate(player) {
   ui.gatePopup(points);
   sfx.gate();
   gateThreadBurst(player.position);
+  cameraCtl.gateKick();
   emit('gate');
   const tierAfter = comboTier(game.combo);
   if (tierAfter > tierBefore) sfx.comboUp(tierAfter);
@@ -167,6 +169,7 @@ function threadGate(player) {
     ui.feverStart();
     sfx.feverStart();
     burst(player.position, 0xff88ff, { count: 30, speed: 16, size: 1.3 });
+    juiceEvent('surgeStart');
     emit('surge');
   }
 }
@@ -181,6 +184,7 @@ function awardNearMiss(collider, player) {
   ui.nearMissPopup(bonus);
   sfx.nearMiss();
   nearMissSparks(player.position);
+  juiceEvent('nearMiss'); // a breath of hitstop — the close call registers
   emit('nearMiss');
 }
 
@@ -239,6 +243,8 @@ export function finishDeath(player, cause, lethal) {
   triggerDeathBurst(player.position.clone(), lethal);
   sfx.crash();
   ui.damageFlash(lethal);
+  cameraCtl.deathCam();  // slow push-in across the freeze
+  juiceEvent('death');   // grade-to-gray across the freeze
 }
 
 // Burn a revive token: restored to the sky with a cleared path ahead.

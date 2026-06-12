@@ -20,6 +20,15 @@ let rollKickT = 0;
 let rollKickDir = 0;
 const ROLL_KICK_DUR = 0.5;
 
+// Gate kick: a small forward nudge when a window is threaded
+let gateKickT = 0;
+const GATE_KICK_DUR = 0.22;
+
+// Death cam: slow ease-out dolly toward the crash during the freeze frame
+let deathOn = false;
+let deathT = 0;
+const DEATH_DUR = 0.45;
+
 // Start-screen showcase orbit
 let showcaseAngle = 0;
 
@@ -29,6 +38,9 @@ export const cameraCtl = {
     smoothPos.set(player.position.x, player.position.y + 3.2, player.position.z + 11);
     camera.position.copy(smoothPos);
     camera.lookAt(player.position.x, player.position.y, player.position.z - 16);
+    deathOn = false;
+    deathT = 0;
+    gateKickT = 0;
   },
 
   shake(mag = 0.6) {
@@ -43,6 +55,17 @@ export const cameraCtl = {
   rollKick(dir) {
     rollKickT = ROLL_KICK_DUR;
     rollKickDir = dir;
+  },
+
+  gateKick() {
+    gateKickT = GATE_KICK_DUR;
+  },
+
+  // Engaged by finishDeath(); reset free via init() on restart. The
+  // revive-accept path never calls finishDeath, so a saved run never dollies.
+  deathCam() {
+    deathOn = true;
+    deathT = 0;
   },
 
   update(dt, player, showcase = false) {
@@ -79,6 +102,22 @@ export const cameraCtl = {
       // Push back on start, then settle — gives "punch" feel
       camera.position.z -= Math.sin(k * Math.PI) * 1.4;
       camera.position.y -= Math.sin(k * Math.PI) * 0.25;
+    }
+
+    // Gate kick: boost kick's little sibling — threading should *tug*
+    if (gateKickT > 0) {
+      gateKickT -= dt;
+      const k = gateKickT / GATE_KICK_DUR;
+      camera.position.z -= Math.sin(k * Math.PI) * 0.5;
+    }
+
+    // Death cam: dolly 2m toward the crash + slight sink, holds through the
+    // freeze and recap (camera is otherwise static there).
+    if (deathOn) {
+      deathT = Math.min(deathT + dt, DEATH_DUR);
+      const k = 1 - Math.pow(1 - deathT / DEATH_DUR, 3);
+      camera.position.z -= k * 2.0;
+      camera.position.y -= k * 0.35;
     }
 
     if (shakeT > 0) {

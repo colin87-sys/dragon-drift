@@ -6,6 +6,7 @@ import { sfx } from './sfx.js';
 import { burst, ringBurst } from './particles.js';
 import { comboTier } from './util.js';
 import { emit } from './events.js';
+import { juiceEvent } from './juice.js';
 
 const tmpV = new THREE.Vector3();
 let scene = null;
@@ -94,6 +95,10 @@ function collect(r, centerDist) {
   if (perfect) {
     sfx.perfect(game.perfectStreak);
     ui.perfectFlash();
+    // Impact frames: a micro-stop on every perfect, the full stop + gold
+    // flash-frame on streak milestones (5, 10, 15…) — peak juice stays rare.
+    juiceEvent(game.perfectStreak > 0 && game.perfectStreak % 5 === 0
+      ? 'perfectMilestone' : 'perfect');
   } else {
     sfx.ring(game.combo);
   }
@@ -118,6 +123,7 @@ function collect(r, centerDist) {
     ui.feverStart();
     sfx.feverStart();
     burst(tmpV, 0xff88ff, { count: 30, speed: 16, size: 1.3 });
+    juiceEvent('surgeStart');
     emit('surge');
   }
 }
@@ -127,7 +133,11 @@ function miss(r) {
   game.consecutiveRings = 0;
   game.perfectStreak = 0;
   if (game.feverActive) { game.feverActive = false; game.feverTimer = 0; }
-  if (game.combo > 1) { ui.comboBreak(); sfx.comboBreak(); }
+  if (game.combo > 1) {
+    ui.comboBreak();
+    sfx.comboBreak();
+    juiceEvent('comboBreak'); // desat dip — losing the streak should sting
+  }
   game.combo = 1;
   emit('ringMiss');
 }

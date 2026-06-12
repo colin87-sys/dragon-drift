@@ -61,13 +61,22 @@ The course cycles six ~1500 m biomes with crossfading sky/fog/water, per-biome p
 | **Lumen Mire** | colossal glowcap mushrooms, night marsh | drifting spores | glow moths |
 | **Astral Shallows** | starfield, aurora, crystal monoliths | star motes | pale petrels + a **sky whale** |
 
+## Feel & presentation (the Spectacle layer)
+
+- **Impact frames**: real hitstop on golden embers (80 ms), perfect-streak milestones (70 ms) and near-misses (50 ms) — budgeted in `CONFIG.JUICE` with a cooldown so peak juice stays rare; slow-mo always wins, pause always clears.
+- **Event-driven post-FX kicks**: bloom/warm-lift swells on golden embers and Surge, a 1-frame gold flash on streak milestones, a desaturation sting on combo breaks, and a **death grade** — the world drains to gray while the camera dollies into the crash.
+- **Celebration architecture**: every purchase stages the full anticipation → overshoot-reveal → confetti → afterglow arc, with the **live 3D turntable in a spotlight** for dragons and riders. The recap's count-up rolls with rising ticks and lands with a settle pop; daily streaks pop a flame row; gambit wins get the big-win sunburst.
+- **Appointment UI (honest)**: gold badges on PILOT/SHOP only when something is genuinely new or *newly affordable* — they clear the instant you look and the clear persists. Quest bars glow + shimmer in their final stretch (goal-gradient); the XP bar has milestone notches.
+- **Identity**: vendored *Russo One* display face for the wordmark, score and big numbers (tabular where it counts), wordmark shine sweep, screen transitions with staggered start-screen entrances, breathing CTAs and drifting ember motes behind menus.
+- **App-feel**: a real loading screen (tips + shimmer, cross-fades into the sky), SVG favicon + theme color + OG card (challenge links unfurl with art), and a **PWA manifest + network-first service worker** — installable, plays offline, and deploys still take effect on the very next online load.
+
 ## Tech notes
 
 - **Rendering**: EffectComposer pipeline (bloom → ACES tone map → vibrance/vignette/chromatic-aberration grading), planar-reflection water (real mirror pass on tier 0, analytic fake on lower tiers), instanced prop bands recycled around the player.
 - **Adaptive quality**: 3 tiers driven by FPS with hysteresis (pixel ratio, bloom, reflection, particle counts, birds). Override in Settings. `?debug=perf` shows fps/draw-calls/tier.
 - **Audio**: 100% procedural Web Audio — no audio files. Data-driven track table, per-biome key shifts at loop boundaries, master compressor.
 - **Persistence**: one versioned localStorage blob (`dragonDriftSave`, v2) with corruption-safe deep-merge loading and legacy-key migration.
-- **Tests**: `node tests/run-all.mjs` — 11 suites (boot smoke, v1→v2 save migration, recap pipeline, full gambit lifecycle incl. reload-refund, feats idempotency, weekly seeding incl. year boundaries, golden-ember RNG isolation against a pre-update course fixture, race bar, def-table integrity, economy bands, return triggers). Browser suites use the globally installed Playwright.
+- **Tests**: `node tests/run-all.mjs` — 15 suites (boot smoke, v1→v2 save migration, recap pipeline, full gambit lifecycle incl. reload-refund, feats idempotency, weekly seeding incl. year boundaries, golden-ember RNG isolation against a pre-update course fixture, race bar, def-table integrity, economy bands, return triggers, hitstop/post-FX juice contract, celebration overlay input-ownership, badge honesty, app-shell/PWA). Browser suites use the globally installed Playwright.
 
 ## Code layout
 

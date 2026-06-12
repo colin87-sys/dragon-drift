@@ -40,6 +40,8 @@ const V1_BLOB = {
   check('new: lifetime stats extended, legacy kept', s.stats.runs === 12 && s.stats.totalPerfects === 0);
   check('new: missions.completedIds defaulted', Array.isArray(s.missions.completedIds));
   check('new: lastSeen stamped today', s.lastSeen === new Date().toISOString().slice(0, 10));
+  check('new: appointment-UI watermarks defaulted',
+    s.ui && s.ui.seenFeats === 0 && s.ui.seenTitles === 0 && s.ui.shopSeenEmbers === 0);
   check('no welcome-back gift on first v2 boot (lastSeen was empty)', s.embers === 777);
   await done();
 }

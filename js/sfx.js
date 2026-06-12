@@ -367,6 +367,16 @@ export const sfx = {
     tone({ freq: 330, end: 165, dur: 0.6, type: 'triangle', vol: 0.1 });
     tone({ freq: 196, end: 98, dur: 0.8, type: 'sine', vol: 0.08, delay: 0.2 });
   },
+  // Count-up tick: tiny metallic blip, pitch rising with progress (0..1) —
+  // the slot-machine rollup that makes a tallied number feel bigger.
+  tick(pitch01 = 0) {
+    tone({ freq: 600 + pitch01 * 900, dur: 0.045, type: 'triangle', vol: 0.05 });
+  },
+  // Count-up settle: the final number lands.
+  settle() {
+    tone({ freq: 520, dur: 0.12, type: 'triangle', vol: 0.1 });
+    tone({ freq: 1040, end: 1240, dur: 0.3, type: 'sine', vol: 0.08, delay: 0.06 });
+  },
 };
 
 // --- Music engine ---

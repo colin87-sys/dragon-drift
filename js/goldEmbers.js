@@ -6,6 +6,7 @@ import { sfx } from './sfx.js';
 import { makeGlowTexture } from './util.js';
 import { burst } from './particles.js';
 import { emit } from './events.js';
+import { juiceEvent } from './juice.js';
 
 // Golden Embers: rare seeded comet pickups worth a fistful of ordinary
 // embers. Placement comes from level.js's independent gold RNG stream
@@ -67,6 +68,7 @@ export function updateGoldEmbers(dt, player, time) {
         game.goldEmbersRun++;
         ui.goldEmberPopup(CONFIG.goldEmberValue);
         ui.perfectFlash();
+        juiceEvent('goldenEmber'); // the treasure moment: hitstop + warm bloom
         sfx.goldEmber();
         burst(o.mesh.position, 0xffd040, { count: 26, speed: 15, size: 1.2 });
         emit('goldEmber');
