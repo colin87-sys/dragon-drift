@@ -10,7 +10,7 @@
 //   - Cache-first / stale-while-revalidate were rejected: with ~45 unhashed
 //     files they can serve mixed-version module graphs after a deploy.
 // CACHE is an escape hatch: bumping it force-flushes old caches on activate.
-const CACHE = 'dd-v1';
+const CACHE = 'dd-v2';
 
 self.addEventListener('install', () => self.skipWaiting());
 
