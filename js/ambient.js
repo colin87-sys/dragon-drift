@@ -2,9 +2,11 @@ import * as THREE from 'three';
 import { makeGlowTexture } from './util.js';
 
 // Atmosphere particles wrapped around the camera — snow in Frozen Reach,
-// drifting leaves in the Sanctuary, dust motes in the Wastes. One pool, the
-// behaviour params lerp with the biome env. Plus a tiny instanced bird flock
-// circling high ahead for scale and life.
+// leaves in the Sanctuary, dust in the Wastes, RISING embers in the Caldera,
+// spores in the Mire, star motes in the Shallows. One pool, the behaviour
+// params lerp with the biome env. Plus a tiny instanced flock circling high
+// ahead (re-skinned per biome: gulls, ash-wyverns, glow moths, star petrels)
+// and a colossal sky whale that drifts the horizon of the Astral Shallows.
 
 const COUNT = 1200;
 const BOX = { x: 80, y: 50, z: 160 };
@@ -16,6 +18,9 @@ let positions = null;
 let birds = null;
 const BIRD_COUNT = 7;
 const birdData = [];
+let whale = null;
+let whaleTail = null;
+let whaleFins = [];
 
 // Tier gate: birds (per-frame matrix writes) drop out at the lowest tier.
 export function setAmbientQuality(q) {
@@ -71,6 +76,37 @@ export function createAmbient(scene) {
     });
   }
   scene.add(birds);
+
+  // Sky whale: a single colossal silhouette far beyond the course, only
+  // visible in the Astral Shallows (opacity follows env.whaleMix). Cheap:
+  // one fogged basic material, four meshes, slow drift.
+  const whaleMat = new THREE.MeshBasicMaterial({
+    color: 0x46467e, fog: true, transparent: true, opacity: 0,
+  });
+  whale = new THREE.Group();
+  const body = new THREE.Mesh(new THREE.CapsuleGeometry(3.2, 14, 6, 10), whaleMat);
+  body.rotation.y = Math.PI / 2;
+  whale.add(body);
+  const brow = new THREE.Mesh(new THREE.SphereGeometry(3.0, 8, 6), whaleMat);
+  brow.scale.set(1.4, 0.8, 1);
+  brow.position.set(7.5, 0.8, 0);
+  whale.add(brow);
+  whaleTail = new THREE.Mesh(new THREE.ConeGeometry(2.8, 5, 4), whaleMat);
+  whaleTail.scale.set(1, 1, 0.25);
+  whaleTail.rotation.z = Math.PI / 2;
+  whaleTail.position.set(-10.5, 0.5, 0);
+  whale.add(whaleTail);
+  whaleFins = [];
+  for (const s of [-1, 1]) {
+    const fin = new THREE.Mesh(new THREE.ConeGeometry(1.6, 5.5, 3), whaleMat);
+    fin.scale.set(1, 1, 0.2);
+    fin.rotation.z = s * 1.9;
+    fin.position.set(2, -1.4, s * 3.2);
+    whale.add(fin);
+    whaleFins.push(fin);
+  }
+  whale.visible = false;
+  scene.add(whale);
 }
 
 export function updateAmbient(dt, camera, time, playerDist, playerSpeed, feverMix, env) {
@@ -96,8 +132,10 @@ export function updateAmbient(dt, camera, time, playerDist, playerSpeed, feverMi
     if (y > cy + 25) y -= BOX.y;
     while (x < cx - BOX.x / 2) x += BOX.x;
     while (x > cx + BOX.x / 2) x -= BOX.x;
-    while (z < cz - BOX.z + 30) z += BOX.z;
-    while (z > cz + 30) z -= BOX.z;
+    // Keep the band strictly ahead of the lens: a glow particle wrapping to
+    // the camera plane renders as a giant screen-filling blob.
+    while (z < cz - BOX.z - 6) z += BOX.z;
+    while (z > cz - 6) z -= BOX.z;
 
     positions[i * 3] = x;
     positions[i * 3 + 1] = y;
@@ -105,8 +143,30 @@ export function updateAmbient(dt, camera, time, playerDist, playerSpeed, feverMi
   }
   points.geometry.attributes.position.needsUpdate = true;
 
-  // Bird flock: lazy circles high above the course, far ahead.
+  // Sky whale: drifts the far horizon, fading with the biome seam.
+  if (whale) {
+    const mix = env.whaleMix;
+    whale.visible = mix > 0.02;
+    if (whale.visible) {
+      whaleTail.material.opacity = mix * 0.92;
+      const wt = time * 0.06;
+      whale.position.set(
+        Math.sin(wt) * 110,
+        46 + Math.sin(time * 0.18) * 4,
+        -playerDist - 330 - Math.cos(wt * 0.7) * 60
+      );
+      whale.rotation.y = wt + Math.PI / 2;
+      whale.rotation.z = Math.sin(time * 0.22) * 0.08;
+      whaleTail.rotation.y = Math.sin(time * 0.9) * 0.45;
+      whaleFins[0].rotation.x = Math.sin(time * 0.7) * 0.3;
+      whaleFins[1].rotation.x = -Math.sin(time * 0.7) * 0.3;
+    }
+  }
+
+  // Flock: lazy circles high above the course, far ahead — color, size and
+  // wingbeat re-skin per biome (gulls / ash-wyverns / glow moths / petrels).
   if (!birds.visible) return;
+  birds.material.color.copy(env.faunaColor);
   for (let i = 0; i < BIRD_COUNT; i++) {
     const b = birdData[i];
     const a = time * b.speed + b.phase;
@@ -115,10 +175,11 @@ export function updateAmbient(dt, camera, time, playerDist, playerSpeed, feverMi
       b.height + Math.sin(a * 1.7) * 2.5,
       -playerDist - 160 - Math.sin(a) * b.radius * 0.5
     );
-    eul.set(0, a + Math.PI / 2, Math.sin(time * b.flap + i) * 0.35);
+    const flapT = time * b.flap * env.faunaFlap + i;
+    eul.set(0, a + Math.PI / 2, Math.sin(flapT) * 0.35);
     quat.setFromEuler(eul);
-    const flap = 0.75 + Math.abs(Math.sin(time * b.flap + i)) * 0.5;
-    scl.set(1, flap, 1);
+    const flap = 0.75 + Math.abs(Math.sin(flapT)) * 0.5;
+    scl.set(env.faunaScale, flap * env.faunaScale, env.faunaScale);
     m4.compose(pos, quat, scl);
     birds.setMatrixAt(i, m4);
   }

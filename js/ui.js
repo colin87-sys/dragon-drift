@@ -6,6 +6,7 @@ import { saveData, persist, xpToNext, todayUTC } from './save.js';
 import { activeMissions } from './missions.js';
 import { DRAGONS, DRAGON_STAT_CAP } from './dragons.js';
 import { RIDERS } from './riders.js';
+import { attachPreviews } from './preview.js';
 
 let els = {};
 let handlers = {};
@@ -32,6 +33,7 @@ const ICONS = {
 // Popup text IDs used across multiple popups
 let popupTimer = null;
 let lastCombo = 1;
+let lastChain = 0;
 let reviveTimer = null;
 
 export const ui = {
@@ -54,6 +56,7 @@ export const ui = {
       <div class="hud-top-right">
         <div class="score" id="score">0</div>
         <div class="combo" id="combo" data-tier="0"><span class="combo-x" id="combo-x">×1.00</span><span class="combo-word">COMBO</span></div>
+        <div class="chain" id="chain"><span class="chain-n" id="chain-n">0</span><span class="chain-word">CHAIN</span></div>
         <div class="dist" id="dist">0 m</div>
         <div class="best" id="best"></div>
         <div class="embers-hud" id="embers-hud"></div>
@@ -83,6 +86,7 @@ export const ui = {
       <div class="popup popup2" id="popup2"></div>
       <div class="vignette" id="vignette"></div>
       <div class="blue-flash" id="blue-flash"></div>
+      <div class="gold-flash" id="gold-flash"></div>
       <div class="fever-overlay" id="fever-overlay"></div>
       <div class="revive-offer" id="revive-offer">
         <div class="revive-count" id="revive-count">3</div>
@@ -102,6 +106,9 @@ export const ui = {
       score:        root.querySelector('#score'),
       combo:        root.querySelector('#combo'),
       comboX:       root.querySelector('#combo-x'),
+      chain:        root.querySelector('#chain'),
+      chainN:       root.querySelector('#chain-n'),
+      goldFlash:    root.querySelector('#gold-flash'),
       surgeWidget:  root.querySelector('#surge-widget'),
       surgeArc:     root.querySelector('#surge-arc'),
       surgeX:       root.querySelector('#surge-x'),
@@ -180,6 +187,16 @@ export const ui = {
     if (game.combo > lastCombo + 0.001) restartAnim(els.comboX, 'combo-pop');
     lastCombo = game.combo;
 
+    // Chain counter: consecutive rings/windows without a miss. Appears from
+    // 2 and pops on every link — the visible streak you don't want to drop.
+    const chain = game.consecutiveRings;
+    els.chain.classList.toggle('on', chain >= 2);
+    if (chain !== lastChain) {
+      els.chainN.textContent = chain;
+      if (chain > lastChain && chain >= 2) restartAnim(els.chain, 'chain-pop');
+      lastChain = chain;
+    }
+
     els.dist.textContent  = `${Math.floor(player.dist)} m`;
     els.best.textContent  = game.highScore > 0 ? `BEST ${game.highScore}` : '';
     els.embersHud.textContent = game.embersRun > 0 ? `◆ ${game.embersRun}` : '';
@@ -192,8 +209,17 @@ export const ui = {
     els.feverOverlay.classList.toggle('active', game.feverActive);
   },
 
-  ringPopup(points, perfect) {
-    this._popup(perfect ? `+${points} PERFECT!` : `+${points}`, perfect ? 'gold' : 'green');
+  ringPopup(points, perfect, streak = 0) {
+    if (perfect) {
+      this._popup(streak > 1 ? `+${points} PERFECT ×${streak}!` : `+${points} PERFECT!`, 'gold');
+    } else {
+      this._popup(`+${points}`, 'green');
+    }
+  },
+
+  // Gold radial flash on a perfect-center ring.
+  perfectFlash() {
+    restartAnim(els.goldFlash, 'flash-anim');
   },
 
   nearMissPopup(points) {
@@ -339,9 +365,11 @@ export const ui = {
           const spd = (st.speed - 1) / (DRAGON_STAT_CAP.speed - 1 || 1);
           const agi = (st.handling - 1) / (DRAGON_STAT_CAP.handling - 1 || 1);
           const sta = ((1 - st.drain) + (st.regen - 1)) / ((1 - DRAGON_STAT_CAP.drain) + (DRAGON_STAT_CAP.regen - 1) || 1);
+          // Premium dragons radiate on the card too (aura tint via CSS var)
+          const lux = d.fx.auraIdle > 0 ? ` lux" style="--aura: rgba(${d.fx.auraColor},0.45)` : '';
           return `
-            <div class="skin-card${equipped ? ' equipped' : ''}${owned ? '' : ' locked'}" data-dragon="${key}">
-              <div class="skin-swatch" style="background: linear-gradient(135deg, ${hex(d.body)} 30%, ${hex(d.wingInner)} 60%, ${hex(d.wingOuter)})"></div>
+            <div class="skin-card${equipped ? ' equipped' : ''}${owned ? '' : ' locked'}${lux}" data-dragon="${key}">
+              <canvas class="skin-preview" data-kind="dragon" data-key="${key}" width="150" height="150"></canvas>
               <div class="skin-name">${d.name}</div>
               <div class="skin-title">${d.title}</div>
               <div class="stat-bars">${bar('SPD', spd)}${bar('AGI', agi)}${bar('STA', sta)}</div>
@@ -361,15 +389,18 @@ export const ui = {
         const cards = Object.entries(RIDERS).map(([key, r]) => {
           const owned = saveData.riders.owned.includes(key);
           const equipped = saveData.riders.equipped === key;
+          const lux = r.glowColor ? ` lux" style="--aura: rgba(${r.glowColor},0.4)` : '';
           return `
-            <div class="skin-card${equipped ? ' equipped' : ''}${owned ? '' : ' locked'}" data-rider="${key}">
-              <div class="skin-swatch" style="background: linear-gradient(135deg, ${hex(r.suit)} 35%, ${hex(r.cloak)} 65%, ${hex(r.scarf)})"></div>
+            <div class="skin-card${equipped ? ' equipped' : ''}${owned ? '' : ' locked'}${lux}" data-rider="${key}">
+              <canvas class="skin-preview" data-kind="rider" data-key="${key}" width="150" height="150"></canvas>
               <div class="skin-name">${r.name}</div>
               <div class="skin-title">${r.title}</div>
+              <div class="skin-perk">${r.emberBonus > 0 ? `◆ +${Math.round(r.emberBonus * 100)}% EMBERS EARNED` : 'STANDARD PAYOUT'}</div>
               <div class="skin-cost ${owned ? 'owned' : ''}">${equipped ? 'EQUIPPED' : owned ? 'TAP TO EQUIP' : `◆ ${r.cost}`}</div>
             </div>`;
         }).join('');
-        body = `<div class="shop-grid">${cards}</div>`;
+        body = `<div class="shop-grid">${cards}</div>
+          <p class="share-hint">Riders pay a bonus on every ember banked at the end of a run.</p>`;
 
       } else { // music
         const cards = TRACKS.map((t, i) => {
@@ -460,7 +491,7 @@ export const ui = {
         ${gap > 0 ? `<p class="sub gap">Only <b>${gap}</b> pts away from your best${pct !== null ? ` (${pct}% there!)` : ''}</p>` : ''}
         ${challengeResult(score)}
         ${game.scoreMult > 1.001 ? `<p class="hc-line">⚔ ASSISTS OFF — every point earned at +${Math.round((game.scoreMult - 1) * 100)}%</p>` : ''}
-        ${game.embersRun > 0 ? `<p class="ember-tally">◆ +${game.embersRun} embers <span style="opacity:0.6">(${saveData.embers} total)</span></p>` : ''}
+        ${game.embersRun > 0 ? `<p class="ember-tally">◆ +${game.embersRun} embers${game.emberBonusEarned > 0 ? ` <span class="rider-bonus">+${game.emberBonusEarned} rider bonus</span>` : ''} <span style="opacity:0.6">(${saveData.embers} total)</span></p>` : ''}
         ${missionLines ? `<div class="mission-results">${missionLines}</div>` : ''}
         ${(game.levelUps || 0) > 0 ? `<p class="levelup-badge">⬆ PILOT LEVEL ${saveData.level}!</p>` : ''}
         <div class="xp-wrap">
@@ -495,6 +526,19 @@ export const ui = {
     els.screen.innerHTML = html;
     els.screen.classList.add('visible');
     pauseSubscreen = returnScreen === 'pause' && (type === 'shop' || type === 'settings');
+    // Live 3D turntables on the dragon/rider cards
+    if (type === 'shop') {
+      attachPreviews(els.screen, (kind, key) => (kind === 'dragon' ? DRAGONS[key] : RIDERS[key]));
+    }
+    // Tapping a blank spot on the shop/settings screen goes back — the
+    // screen container itself is the only target blank space resolves to.
+    els.screen.onclick = (e) => {
+      if (e.target !== els.screen) return;
+      if (type === 'shop' || type === 'settings') {
+        if (returnScreen === 'pause') ui.showPauseOverlay();
+        else ui.showScreen(returnScreen);
+      }
+    };
     if (type === 'gameover') {
       wireShareButtons(score, dist);
       // XP bar fill animation: paint at 0, then transition to the real value.
@@ -514,42 +558,24 @@ export const ui = {
     els.screen.classList.remove('visible');
   },
 
-  // Pause hub: resume, live run stats + wallet, Dragon Radio with track
-  // skipping, volume, assist toggles (bonus score) and shop access.
+  // Pause hub, AAA-clean: resume up top, an at-a-glance stats strip, then
+  // one panel with three tabs (AUDIO / ASSISTS / QUESTS) so nothing fights
+  // for attention, and the shop on a single footer row.
   showPauseOverlay() {
     pauseSubscreen = false;
     const a = saveData.audio;
-    const segOnOff = (id, on, bonusPct) => `
-      <div class="seg-row toggle-seg">
-        <button class="seg-btn${on ? ' sel' : ''}" data-assist="${id}" data-val="1">ON</button>
-        <button class="seg-btn${on ? '' : ' sel'}" data-assist="${id}" data-val="0">OFF +${bonusPct}%</button>
-      </div>`;
     const hcBonus = Math.round((game.scoreMult - 1) * 100);
-    els.screen.innerHTML = `
-      <h1 class="pause-title">PAUSED</h1>
-      <div class="pause-menu">
-        <button class="btn-primary" id="pm-resume">▶ RESUME</button>
+    const tabBtn = (key, label) =>
+      `<button class="seg-btn${pauseTab === key ? ' sel' : ''}" data-pmtab="${key}">${label}</button>`;
 
-        <div class="pm-label">THIS RUN ${hcBonus > 0 ? `<span class="pm-hc">⚔ +${hcBonus}% SCORE</span>` : ''}</div>
-        <div class="run-stats pm-stats">
-          <div class="stat"><span class="stat-val">${Math.floor(game.score)}</span><span class="stat-lbl">score</span></div>
-          <div class="stat"><span class="stat-val">${Math.floor(game.distance)} m</span><span class="stat-lbl">distance</span></div>
-          <div class="stat"><span class="stat-val">${game.ringsCollected}</span><span class="stat-lbl">rings</span></div>
-          <div class="stat"><span class="stat-val">${game.perfectRings}</span><span class="stat-lbl">perfect</span></div>
-          <div class="stat"><span class="stat-val">${game.maxCombo.toFixed(2)}x</span><span class="stat-lbl">best combo</span></div>
-          <div class="stat"><span class="stat-val">${game.nearMisses}</span><span class="stat-lbl">near misses</span></div>
-          <div class="stat"><span class="stat-val">${Math.round(game.maxSpeed)}</span><span class="stat-lbl">top speed</span></div>
-          <div class="stat"><span class="stat-val">◆ ${game.embersRun}</span><span class="stat-lbl">embers run</span></div>
-        </div>
-        <div class="pm-wallet"><span class="ember-ico">◆</span> <b>${saveData.embers}</b> banked &nbsp;·&nbsp; PILOT <b>LV ${saveData.level}</b></div>
-
-        <div class="pm-label">DRAGON RADIO</div>
+    let body = '';
+    if (pauseTab === 'audio') {
+      body = `
         <div class="radio-row">
           <button class="mute-btn" id="pm-prev" title="Previous station">${ICONS.prev}</button>
           <div class="radio-name" id="pm-track">♪ ${music.trackName}</div>
           <button class="mute-btn" id="pm-next" title="Next station">${ICONS.next}</button>
         </div>
-
         <div class="vol-row">
           <button class="mute-btn${musicMuted ? ' off' : ''}" id="pm-music-mute">${musicMuted ? ICONS.musicOff : ICONS.music}</button>
           <span class="vol-lbl">MUSIC</span>
@@ -559,16 +585,50 @@ export const ui = {
           <button class="mute-btn${sfxMuted ? ' off' : ''}" id="pm-sfx-mute">${sfxMuted ? ICONS.sfxOff : ICONS.sfxOn}</button>
           <span class="vol-lbl">SOUND</span>
           <input type="range" id="pm-sfx-vol" min="0" max="100" value="${Math.round(a.sfxVol * 100)}">
-        </div>
-
-        <div class="pm-label">ASSISTS — fly without them for bonus score</div>
+        </div>`;
+    } else if (pauseTab === 'assists') {
+      const segOnOff = (id, on, bonusPct) => `
+        <div class="seg-row toggle-seg">
+          <button class="seg-btn${on ? ' sel' : ''}" data-assist="${id}" data-val="1">ON</button>
+          <button class="seg-btn${on ? '' : ' sel'}" data-assist="${id}" data-val="0">OFF +${bonusPct}%</button>
+        </div>`;
+      body = `
         <div class="toggle-row"><span class="toggle-lbl">TARGET RETICLE</span>${segOnOff('reticle', saveData.settings.reticle, Math.round(CONFIG.reticleOffBonus * 100))}</div>
         <div class="toggle-row"><span class="toggle-lbl">LAST-CHANCE SLOW-MO</span>${segOnOff('slowMo', saveData.settings.slowMo, Math.round(CONFIG.slowMoOffBonus * 100))}</div>
+        <p class="pm-hint">Fly without assists and every point pays more.</p>`;
+    } else { // quests
+      const rows = activeMissions().map((m) => `
+        <div class="pm-quest${m.progress >= m.def.target ? ' done' : ''}">
+          <div class="pm-quest-info">
+            <div class="pm-quest-label">${m.def.label}</div>
+            <div class="mission-bar"><span style="width:${Math.min(100, (m.progress / m.def.target) * 100)}%"></span></div>
+          </div>
+          <div class="pm-quest-meta"><b>${m.progress}/${m.def.target}</b><span>◆ ${m.def.reward}</span></div>
+        </div>`).join('');
+      body = `${rows}<p class="pm-hint">Quests pay out when the run ends.</p>`;
+    }
 
-        <button class="btn-secondary" id="pm-shop">⬡ SHOP — dragons · riders · music</button>
+    els.screen.innerHTML = `
+      <h1 class="pause-title">PAUSED</h1>
+      <div class="pause-menu pm2">
+        <button class="btn-primary pm-resume" id="pm-resume">RESUME FLIGHT</button>
+        <div class="pm-strip">
+          <div class="pm-cell"><b>${Math.floor(game.score)}</b><span>SCORE</span></div>
+          <div class="pm-cell"><b>${Math.floor(game.distance)}m</b><span>DIST</span></div>
+          <div class="pm-cell"><b>×${game.maxCombo.toFixed(1)}</b><span>COMBO</span></div>
+          <div class="pm-cell"><b>◆${game.embersRun}</b><span>EMBERS</span></div>
+        </div>
+        ${hcBonus > 0 ? `<div class="pm-hc-line">⚔ ASSISTS OFF — SCORING +${hcBonus}%</div>` : ''}
+        <div class="seg-row pm-tabs">${tabBtn('audio', 'AUDIO')}${tabBtn('assists', 'ASSISTS')}${tabBtn('quests', 'QUESTS')}</div>
+        <div class="pm-body">${body}</div>
+        <div class="pm-footer">
+          <span class="pm-wallet"><span class="ember-ico">◆</span> <b>${saveData.embers}</b> · LV <b>${saveData.level}</b></span>
+          <button class="btn-secondary pm-shop-btn" id="pm-shop">SHOP</button>
+        </div>
       </div>
       <p class="action-key">${isTouch() ? 'tap outside the menu to resume' : 'Esc or click outside the menu to resume'}</p>`;
     els.screen.classList.add('visible');
+    els.screen.onclick = null; // pause uses the global outside-tap-to-resume
 
     const stop = (fn) => (e) => { e.stopPropagation(); fn(e); };
     els.screen.querySelector('#pm-resume').onclick = stop(() => handlers.onResume && handlers.onResume());
@@ -576,40 +636,47 @@ export const ui = {
       returnScreen = 'pause';
       ui.showScreen('shop');
     });
-
-    // Radio: skip back / forward (skips stations not yet bought)
-    const trackEl = els.screen.querySelector('#pm-track');
-    const retune = (dir) => {
-      const name = music.nextTrack(dir);
-      sfx.radio();
-      trackEl.textContent = `♪ ${name}`;
-    };
-    els.screen.querySelector('#pm-prev').onclick = stop(() => retune(-1));
-    els.screen.querySelector('#pm-next').onclick = stop(() => retune(1));
-
-    // Mutes
-    const mBtn = els.screen.querySelector('#pm-music-mute');
-    const sBtn = els.screen.querySelector('#pm-sfx-mute');
-    mBtn.onclick = stop(() => {
-      const muted = toggleMusicMute();
-      mBtn.innerHTML = muted ? ICONS.musicOff : ICONS.music;
-      mBtn.classList.toggle('off', muted);
-    });
-    sBtn.onclick = stop(() => {
-      const muted = toggleSfxMute();
-      sBtn.innerHTML = muted ? ICONS.sfxOff : ICONS.sfxOn;
-      sBtn.classList.toggle('off', muted);
-    });
-
-    // Sliders: live volume; pointerdown must not bubble into tap-to-resume
-    const mVol = els.screen.querySelector('#pm-music-vol');
-    const sVol = els.screen.querySelector('#pm-sfx-vol');
-    for (const el of [mVol, sVol]) {
-      el.addEventListener('pointerdown', (e) => e.stopPropagation());
+    for (const btn of els.screen.querySelectorAll('.seg-btn[data-pmtab]')) {
+      btn.onclick = stop(() => {
+        pauseTab = btn.dataset.pmtab;
+        ui.showPauseOverlay();
+      });
     }
-    mVol.addEventListener('input', () => setMusicVolume(mVol.value / 100));
-    sVol.addEventListener('input', () => setSfxVolume(sVol.value / 100));
-    sVol.addEventListener('change', () => sfx.ember(1)); // feedback blip on release
+
+    if (pauseTab === 'audio') {
+      // Radio: skip back / forward (skips stations not yet bought)
+      const trackEl = els.screen.querySelector('#pm-track');
+      const retune = (dir) => {
+        const name = music.nextTrack(dir);
+        sfx.radio();
+        trackEl.textContent = `♪ ${name}`;
+      };
+      els.screen.querySelector('#pm-prev').onclick = stop(() => retune(-1));
+      els.screen.querySelector('#pm-next').onclick = stop(() => retune(1));
+
+      const mBtn = els.screen.querySelector('#pm-music-mute');
+      const sBtn = els.screen.querySelector('#pm-sfx-mute');
+      mBtn.onclick = stop(() => {
+        const muted = toggleMusicMute();
+        mBtn.innerHTML = muted ? ICONS.musicOff : ICONS.music;
+        mBtn.classList.toggle('off', muted);
+      });
+      sBtn.onclick = stop(() => {
+        const muted = toggleSfxMute();
+        sBtn.innerHTML = muted ? ICONS.sfxOff : ICONS.sfxOn;
+        sBtn.classList.toggle('off', muted);
+      });
+
+      // Sliders: live volume; pointerdown must not bubble into tap-to-resume
+      const mVol = els.screen.querySelector('#pm-music-vol');
+      const sVol = els.screen.querySelector('#pm-sfx-vol');
+      for (const el of [mVol, sVol]) {
+        el.addEventListener('pointerdown', (e) => e.stopPropagation());
+      }
+      mVol.addEventListener('input', () => setMusicVolume(mVol.value / 100));
+      sVol.addEventListener('input', () => setSfxVolume(sVol.value / 100));
+      sVol.addEventListener('change', () => sfx.ember(1)); // feedback blip on release
+    }
 
     // Assist toggles: take effect immediately (and repaint the menu)
     for (const btn of els.screen.querySelectorAll('.seg-btn[data-assist]')) {
@@ -626,6 +693,12 @@ export const ui = {
   inPauseSubscreen() {
     return pauseSubscreen;
   },
+
+  // True while a shop/settings subscreen is showing (any origin) — main.js
+  // suppresses the crash-screen tap-to-restart while browsing.
+  inSubscreen() {
+    return lastScreen === 'shop' || lastScreen === 'settings';
+  },
 };
 
 // Where BACK should land from shop/settings (start, gameover or pause).
@@ -633,6 +706,7 @@ let lastScreen = 'start';
 let returnScreen = 'start';
 let pauseSubscreen = false; // shop/settings opened from the pause menu
 let shopTab = 'dragons';    // dragons | riders | music
+let pauseTab = 'audio';     // audio | assists | quests
 
 function wireScreenButtons(type) {
   const q = (sel) => els.screen.querySelector(sel);

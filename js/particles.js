@@ -119,12 +119,22 @@ function shockwave(pos, colorHex, { rect = false, grow = 16, life = 0.5, aspect 
   }
 }
 
-// Ring collect: green sparks; perfect = gold sparks + gold ring shockwave.
+// Ring collect: green sparks; perfect = gold supernova — sparks, radial
+// streaks and a double ring shockwave (the chase-this-feeling moment).
 export function ringBurst(pos, perfect) {
   if (perfect) {
-    burst(pos, 0xffd86a, { count: 24, speed: 15, size: 1.08 });
-    burst(pos, 0xfff2c0, { count: 10, speed: 21, size: 0.7, life: 0.5 });
-    shockwave(pos, 0xffd86a, { grow: 28, life: 0.6 });
+    burst(pos, 0xffd86a, { count: 26, speed: 16, size: 1.1 });
+    burst(pos, 0xfff2c0, { count: 12, speed: 23, size: 0.7, life: 0.5 });
+    // Radial starburst streaks (no gravity, elongated along velocity)
+    const n = Math.round(10 * quality) || 1;
+    for (let i = 0; i < n; i++) {
+      spawn(pos, i % 2 ? 0xffe9a0 : 0xffc23c, {
+        speed: 30, size: 0.6, life: 0.4,
+        gravityScale: 0, drag: 0.4, stretch: 3.6,
+      });
+    }
+    shockwave(pos, 0xffd86a, { grow: 30, life: 0.62 });
+    shockwave(pos, 0xfff2c0, { grow: 14, life: 0.4 });
   } else {
     burst(pos, 0x4dffa0, { count: 14, speed: 10 });
   }

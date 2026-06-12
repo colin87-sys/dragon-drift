@@ -235,6 +235,17 @@ export const sfx = {
     tone({ freq: f * 2.76, dur: 0.22, type: 'sine', vol: 0.07 });
     tone({ freq: 1480, dur: 0.1, type: 'triangle', vol: 0.05, delay: 0.04 });
   },
+  // Perfect-center ring: triumphant bell flourish that climbs a pentatonic
+  // ladder with each consecutive perfect — chaining perfects plays a melody.
+  perfect(streak = 1) {
+    const PENTA = [0, 2, 4, 7, 9];
+    const step = PENTA[(streak - 1) % 5] + Math.floor((streak - 1) / 5) * 12;
+    const f = 880 * Math.pow(2, Math.min(step, 24) / 12);
+    tone({ freq: f, dur: 0.22, type: 'triangle', vol: 0.13 });
+    tone({ freq: f * 1.5, dur: 0.26, type: 'sine', vol: 0.09, delay: 0.05 });
+    tone({ freq: f * 2, end: f * 2.4, dur: 0.3, type: 'sine', vol: 0.07, delay: 0.1 });
+    noiseWhoosh({ from: 4000, to: 8000, dur: 0.18, vol: 0.05, q: 2.2 });
+  },
   orb() {
     tone({ freq: 300, end: 950, dur: 0.3, type: 'sawtooth', vol: 0.08 });
     tone({ freq: 600, end: 1900, dur: 0.2, type: 'triangle', vol: 0.05, delay: 0.1 });
