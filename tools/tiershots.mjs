@@ -21,7 +21,7 @@ page.on('pageerror', e => console.error('PAGEERROR', String(e)));
 await page.goto(srv.url + '/tools/tiershots.html');
 await page.waitForFunction(() => window.__ready, { timeout: 15000 });
 
-const dragons = ['azure', 'ember', 'jade', 'obsidian', 'pearl', 'solar'];
+const dragons = ['azure', 'ember', 'jade', 'obsidian', 'pearl', 'solar', 'phoenix'];
 for (const key of dragons) {
   await page.evaluate(k => window.renderDragon(k), key);
   await page.waitForTimeout(120);

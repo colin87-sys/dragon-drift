@@ -308,6 +308,19 @@ export function buildCleanTail(def, model, bodyMat) {
       edge.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), dir.clone().normalize());
       tip.add(edge);
     }
+  } else if (style === 'firefan') {
+    // Phoenix fire-feather fan: a splayed fan of flame plumes (centre longest),
+    // each gold-edged — a flowing tail of fire seen from behind.
+    for (let i = 0; i < 5; i++) {
+      const a = (i - 2) / 2;                       // -1 .. 1 across the fan
+      const len = 1.5 - Math.abs(a) * 0.45;
+      const plumeGeo = new THREE.ShapeGeometry(buildBladeShape(0.2, len));
+      plumeGeo.rotateX(Math.PI / 2);
+      const plume = new THREE.Mesh(plumeGeo, plateMat);
+      plume.rotation.y = a * 0.6;                   // splay outward
+      plume.position.set(a * 0.08, 0, -0.05);
+      tip.add(plume);
+    }
   } else if (style === 'blade') {
     const bladeGeo = new THREE.ShapeGeometry(buildBladeShape(0.3, 1.35));
     bladeGeo.rotateX(Math.PI / 2);
