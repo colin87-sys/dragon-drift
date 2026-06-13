@@ -209,7 +209,7 @@ export function buildRecapHtml(score, dist, { isTouch, ICONS }) {
   const interval = REDUCED ? 0 : Math.min(220, items.length ? 2000 / items.length : 0);
   const earnListHtml = `<div class="earn-list revealing" id="earn-list">${
     items.map((html, i) =>
-      html.replace(/class="earn-line/, `class="earn-line" style="--d:${i * interval}ms"`)
+      html.replace(/<div class="(earn-line[^"]*)"/, `<div class="$1" style="--d:${i * interval}ms"`)
     ).join('')
   }</div>`;
 

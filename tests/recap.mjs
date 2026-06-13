@@ -41,7 +41,7 @@ const score = await page.evaluate(() => Math.floor(window.__dd.game.score));
 check(`count-up settles to score (${counted} = ${score})`, Number(counted) === score);
 
 // Ledger is pre-rendered — ember tally is in the DOM without waiting.
-await page.waitForSelector('.earn-list .ember-tally', { timeout: 3000 });
+await page.waitForSelector('.earn-list .ember-tally', { timeout: 3000, state: 'attached' });
 check('earnings ledger revealed ember tally', !!(await page.$('.earn-list .ember-tally')));
 
 // Wallet got exactly the banked haul (no quests/feats fired in this run).
