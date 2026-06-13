@@ -243,8 +243,11 @@ export function updatePostFX(dt, speedNorm, feverActive, rawDt = dt) {
     ? clamp(speedNorm, 0, 1) * 0.012 + postfx._feverMix * 0.006
     : 0;
   u.aberration.value = damp(u.aberration.value, targetAb, 5, dt) + _kick.ab;
-  u.lift.value = postfx._feverMix * (0.55 + Math.sin(performance.now() * 0.006) * 0.2)
-    + _kick.lift + flash * 0.55;
+  // Surge wash trimmed ~27% so rings/hazards/centre lane stay readable — the
+  // dragon itself carries the spectacle (spine/core/wing-edge), not a full
+  // screen-fill pink wash.
+  u.lift.value = postfx._feverMix * (0.40 + Math.sin(performance.now() * 0.006) * 0.14)
+    + _kick.lift + flash * 0.42;
   let sat = 1.18 + postfx._feverMix * 0.08 + _kick.sat;
   let vig = 0.30 + _kick.vig;
   postfx.bloomPass.strength = postfx._baseBloom + _kick.bloom + flash * 0.25;

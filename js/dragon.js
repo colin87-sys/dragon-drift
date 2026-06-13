@@ -28,6 +28,7 @@ let eyeMat = null;
 let tipMarkerL = null;
 let tipMarkerR = null;
 let auraSprite = null;
+let coreGlow = null;      // violet core energy sprite (pulses during Surge)
 let quality = 1;
 
 export function setDragonQuality(q) {
@@ -83,6 +84,7 @@ export function createDragon(scene, def, riderDef) {
      wingPivot2L, wingPivot2R, tipMarkerL, tipMarkerR } = result.parts);
   ({ bodyMat, wingMat, eyeMat } = result.materials);
   auraSprite = result.auraSprite;
+  coreGlow = result.parts.coreGlow;
 
   buildRider(riderDef);
   scene.add(group);
@@ -410,6 +412,18 @@ export function updateDragon(dt, player, time) {
   const wingGlowTarget = backlit + (player.boosting ? 0.7 : 0);
   wingMat.emissiveIntensity = damp(wingMat.emissiveIntensity, wingGlowTarget, 6, dt);
   wingMat.emissive.setHex(player.feverActive ? 0xff44cc : activeDef.wingEmissive);
+  // Membrane translucency by state (bones/struts keep their own opaque mats):
+  // see upcoming rings through the wing — more so while boosting / surging.
+  const wingOpacity = player.feverActive ? 0.70 : player.boosting ? 0.77 : 0.82;
+  wingMat.opacity = damp(wingMat.opacity, wingOpacity, 5, dt);
+  // Violet core energy pulses brighter on boost, blazes during Surge.
+  if (coreGlow) {
+    const cb = coreGlow.userData.base || 0.3;
+    const coreTarget = player.feverActive
+      ? cb * 2.4 + Math.sin(time * 9) * 0.08
+      : player.boosting ? cb * 1.5 : cb;
+    coreGlow.material.opacity = damp(coreGlow.material.opacity, coreTarget, 5, dt);
+  }
   bodyMat.emissiveIntensity = damp(bodyMat.emissiveIntensity, player.feverActive ? 0.35 : 0.12, 4, dt);
   eyeMat.emissive.setHex(player.feverActive ? 0xff66ee : activeDef.eye);
   // Aura: full blaze during fever; premium dragons idle with a faint halo.

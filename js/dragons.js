@@ -177,37 +177,44 @@ export const DRAGONS = {
       flapBias: 0.8, flapAmp: 0.6, // slow, gliding, majestic wingbeat
     },
     forms: [
-      // T0 — Solar Whelp: a genuinely small baby. Stubby straight glider wings,
-      // short clean tail, no spine glow, no aura, and a DULL muted-bronze palette
-      // so the vivid T1 "ignition" is worth chasing.
+      // FORM 1 — Ember Hatchling: small, clean, charcoal body + muted bronze,
+      // subdued ember wings, a faint violet core. Cleanest readability.
       { wingForm: 0, tailStyle: 'simple', tailSegments: 5, ridgeCount: 8,
         spineGlow: 0, crest: 0, hornPairs: 1, hornLen: 1.0, neckSegments: 5,
-        colors: { wingInner: 0x5a2a18, wingOuter: 0x9c6334, wingEmissive: 0x6e3712,
-          scales: 0xb6975c, horn: 0xc7a774, eye: 0xc2a558, body: 0x231a12 } },
-      // T1 — Kindled Drake: it ignites. Vivid palette returns, wider wings with a
-      // small wrist elbow, a dorsal ridge + sail, a longer finned tail.
+        colors: { body: 0x1b1a1f, wingInner: 0xc85c28, wingOuter: 0x8a3a1c,
+          wingEmissive: 0x7a3514, scales: 0x6f4a2c, horn: 0x8a6a48,
+          apexSeam: 0x6f4a2c, eye: 0xb08850, coreGlow: 0x9b7bff } },
+      // FORM 2 — Sunflare Drake: brighter orange-red wings with deep-red edges,
+      // blackened-bronze body, stronger violet core, a subtle spine.
       { wingForm: 1, tailStyle: 'finned', tailSegments: 7, ridgeCount: 12,
         spineGlow: 0.34, crest: 1, dorsal: true, hornLen: 1.25,
-        colors: { wingInner: 0x9a2310, wingOuter: 0xffb43a, wingEmissive: 0xff5a14,
-          scales: 0xffc24a, horn: 0xffe08a, eye: 0xffd86a, body: 0x18110b } },
-      // T2 — Radiant Wyvern: elite. Swept wings with a strong elbow + hooked tip,
-      // glowing veins, a bright keel spine, a clean blade tail. Fast, premium.
+        colors: { body: 0x221a18, wingInner: 0xe96a1c, wingOuter: 0xc93a18,
+          wingEmissive: 0xe9541c, scales: 0xa8682f, horn: 0xc08a50,
+          apexSeam: 0xa8682f, eye: 0xffcf6a, coreGlow: 0xa270ff } },
+      // FORM 3 — Royal Dusk Dragon: obsidian body, luminous-gold spine plates,
+      // ember wings with scarlet structure, amethyst core. Mature + elegant.
       { wingForm: 2, tailStyle: 'blade', tailSegments: 8, ridgeCount: 14,
         spineGlow: 0.7, wingVeins: true, glowSeams: true,
-        crest: 2, hornPairs: 2, hornLen: 1.5, tusks: true, neckSegments: 6 },
-      // T3 — Solar Sovereign: apex. Widest framing wings, pronounced elbow +
-      // flared flame tips, blazing solar spine, heroic back-crest, forked comet
-      // tail, a subtle backlight. Legendary — and the centre lane stays open.
+        crest: 2, hornPairs: 2, hornLen: 1.5, tusks: true, neckSegments: 6,
+        colors: { body: 0x18151d, wingInner: 0xff6d1f, wingOuter: 0xd93a1e,
+          wingEmissive: 0xff5a14, scales: 0xf2c35b, horn: 0xffe090,
+          apexSeam: 0xf2c35b, eye: 0xffe49a, coreGlow: 0xb27bff } },
+      // FORM 4 — SOVEREIGN: deep-obsidian body, imperial-gold spine + crown,
+      // ember-orange wing roots gradient to a premium rose-magenta outer edge,
+      // amethyst-violet core/halo. Regal, legendary — still readable.
       { wingForm: 3, tailStyle: 'comet', tailSegments: 9, ridgeCount: 16,
         spineGlow: 1.0, wingVeins: true, glowSeams: true,
-        backCrest: true, auraHalo: true, crest: 3, hornLen: 1.7 },
+        backCrest: true, auraHalo: true, crest: 3, hornLen: 1.7,
+        colors: { body: 0x120f18, wingInner: 0xff7a1a, wingOuter: 0xff5fa8,
+          wingEmissive: 0xff5a1e, scales: 0xffd166, horn: 0xfff0a8,
+          apexSeam: 0xffd166, eye: 0xfff0a8, coreGlow: 0xb784ff } },
     ],
     fx: { auraColor: '255,150,40', auraIdle: 0.0, sparkle: false },
-    body: 0x18110b, belly: 0x3a2a16, scales: 0xffc24a, horn: 0xffe08a,
-    // Gradient runs crimson at the root → bright gold at the TIP, so the bowed
-    // outer wing glows against the sky (drama at the edges, dark near centre).
-    wingInner: 0x9a2310, wingOuter: 0xffb43a, wingEmissive: 0xff5a14,
-    apexEye: 0xfff0a0, apexSeam: 0xff7a18,
+    body: 0x120f18, belly: 0x3a2a16, scales: 0xffd166, horn: 0xfff0a8,
+    // Membrane gradient runs ember-orange at the ROOT → rose-magenta at the
+    // outer edge (apex), a premium accent — never a solid-pink wing.
+    wingInner: 0xff7a1a, wingOuter: 0xff5fa8, wingEmissive: 0xff5a1e,
+    apexEye: 0xfff0a8, apexSeam: 0xffd166, coreGlow: 0xb784ff,
     eye: 0xffd86a, trail: 0xffb030, boostTrail: 0xff6a20,
   },
 };

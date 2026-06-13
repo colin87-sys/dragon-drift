@@ -24,6 +24,16 @@ export const SIZE_RAMP = [0.70, 0.82, 0.93, 1.0];
 // ≈ SIZE_RAMP × WING_RAMP, deliberately small at T0 for a dramatic T0→T1 jump.
 export const WING_RAMP = [0.86, 0.92, 0.97, 1.0];
 
+// Subtle per-form stat multipliers (index = tier 0..3) on the dragon's stats.
+// Deltas are small (~1-3% between adjacent forms) so the apex feels smoother and
+// a touch faster without breaking balance. drain<1 = better stamina efficiency.
+export const STAT_RAMP = [
+  { speed: 0.99,  handling: 0.96, drain: 1.04, regen: 0.95 }, // F1 baseline
+  { speed: 0.995, handling: 0.98, drain: 1.01, regen: 0.99 }, // F2 +stamina/boost
+  { speed: 1.0,   handling: 1.00, drain: 0.99, regen: 1.02 }, // F3 +stamina/handling
+  { speed: 1.01,  handling: 1.02, drain: 0.97, regen: 1.04 }, // F4 +handling/boost/stamina
+];
+
 // Per-dragon cost multiplier: 1 + dragonCost/5000, rounded to nearest 0.5.
 export function tierCostMult(dragonCost) {
   return Math.round((1 + dragonCost / 5000) * 2) / 2;
@@ -121,6 +131,18 @@ export function ascendedDef(def, tier, radiance) {
   // each tier — the core of the "different silhouette per form" goal.
   d.model.scale = (def.model.scale || 1) * (SIZE_RAMP[tier] || 1);
   d.model.wingScale = (d.model.wingScale || 1) * (WING_RAMP[tier] || 1);
+
+  // Subtle per-form stat progression: later forms fly a touch smoother and
+  // faster (more handling/stamina/boost-efficiency, a sliver of top speed) so
+  // ascending feels rewarding without trivialising the run. drain<1 = better
+  // stamina/boost efficiency, regen>1 = faster stamina recovery.
+  const sr = STAT_RAMP[Math.min(tier, STAT_RAMP.length - 1)];
+  d.stats = {
+    speed: (def.stats?.speed ?? 1) * sr.speed,
+    handling: (def.stats?.handling ?? 1) * sr.handling,
+    drain: (def.stats?.drain ?? 1) * sr.drain,
+    regen: (def.stats?.regen ?? 1) * sr.regen,
+  };
 
   const isFinal = tier >= ASCENSION_TIERS.length;
   d.fx = { ...d.fx };
