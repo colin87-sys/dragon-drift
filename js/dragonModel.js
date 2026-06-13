@@ -35,7 +35,7 @@ export function buildDragonModel(def, opts = {}) {
   });
   const wingMat = new THREE.MeshStandardMaterial({
     color: 0xffffff, vertexColors: true, roughness: 0.55, side: THREE.DoubleSide,
-    transparent: true, opacity: 0.94,
+    transparent: true, opacity: 0.82, // translucent membrane — see rings through it
     emissive: def.wingEmissive, emissiveIntensity: 0.28,
   });
   const scalesMat = new THREE.MeshStandardMaterial({
@@ -501,6 +501,25 @@ export function buildDragonModel(def, opts = {}) {
     group.add(auraCard);
   }
 
+  // Violet core energy — a soft amethyst glow nestled between the shoulders that
+  // reads as the dragon's power source. Faint on the hatchling, stronger each
+  // form (escalates with spineGlow). Controlled size/opacity so it never blooms
+  // over the body silhouette. Tagged so the rig can pulse it during Surge.
+  let coreGlow = null;
+  if (def.coreGlow) {
+    const lvl = 0.45 + (model.spineGlow || 0) * 0.55;
+    const coreRgb = `${(def.coreGlow >> 16) & 255},${(def.coreGlow >> 8) & 255},${def.coreGlow & 255}`;
+    coreGlow = new THREE.Sprite(new THREE.SpriteMaterial({
+      map: makeGlowTexture(coreRgb), transparent: true, opacity: 0.18 + lvl * 0.22,
+      blending: THREE.AdditiveBlending, depthWrite: false,
+    }));
+    coreGlow.scale.setScalar(0.85 + lvl * 0.7);
+    coreGlow.position.set(0, 0.5, -0.35); // between the shoulders, on the back
+    coreGlow.layers.set(1);
+    coreGlow.userData.base = coreGlow.material.opacity;
+    group.add(coreGlow);
+  }
+
   // Aura sprite (fever glow + idle premium aura)
   const auraSprite = new THREE.Sprite(new THREE.SpriteMaterial({
     map: makeGlowTexture(def.fx.auraColor), transparent: true, opacity: 0,
@@ -532,7 +551,7 @@ export function buildDragonModel(def, opts = {}) {
 
     return {
       group: wrapper,
-      parts: { head, tailSegs, wingPivotL, wingPivotR, wingTipL, wingTipR, wingPivot2L, wingPivot2R, tipMarkerL, tipMarkerR },
+      parts: { head, tailSegs, wingPivotL, wingPivotR, wingTipL, wingTipR, wingPivot2L, wingPivot2R, tipMarkerL, tipMarkerR, coreGlow },
       materials: { bodyMat, wingMat, eyeMat },
       auraSprite,
     };
@@ -546,6 +565,7 @@ export function buildDragonModel(def, opts = {}) {
       wingTipL, wingTipR,
       wingPivot2L, wingPivot2R,
       tipMarkerL, tipMarkerR,
+      coreGlow,
     },
     materials: { bodyMat, wingMat, eyeMat },
     auraSprite,
