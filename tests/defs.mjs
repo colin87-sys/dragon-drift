@@ -9,6 +9,7 @@ const { MILESTONES, MASTERY_STARS } = await import('../js/milestones.js');
 const { TITLES, titleById, levelTitleId } = await import('../js/titles.js');
 const { ASCENSION_TIERS } = await import('../js/ascension.js');
 const { FLIGHTMARKS } = await import('../js/flightmarks.js');
+const { DRAGONS } = await import('../js/dragons.js');
 
 let n = 0;
 const ok = (msg) => { n++; console.log(`  ✓ ${msg}`); };
@@ -112,5 +113,14 @@ for (const m of FLIGHTMARKS) {
   assert(typeof m.trail === 'number', `flightmark ${m.id} has trail color`);
 }
 ok(`${FLIGHTMARKS.length} flightmarks, unique ids, costs ≥800`);
+
+// --- Dragon evolution stages ---
+for (const [key, d] of Object.entries(DRAGONS)) {
+  assert(Array.isArray(d.stages) && d.stages.length === 3, `dragon ${key} has 3 stages`);
+  for (let i = 0; i < 3; i++) {
+    assert(d.stages[i] !== null && typeof d.stages[i] === 'object', `dragon ${key} stage ${i} is an object`);
+  }
+}
+ok(`${Object.keys(DRAGONS).length} dragons each have 3 evolution stages`);
 
 console.log(`\n${n} def checks passed.`);

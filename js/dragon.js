@@ -72,6 +72,20 @@ function buildWingShape() {
   return shape;
 }
 
+function buildFeatherWingShape() {
+  const shape = new THREE.Shape();
+  shape.moveTo(0, 0);
+  shape.bezierCurveTo(0.8, 0.5, 2.2, 1.0, 3.0, 0.7);
+  shape.lineTo(4.8, 0.2);
+  // Feather notches along the trailing edge
+  shape.lineTo(4.6, -0.25); shape.lineTo(4.2, -0.05);
+  shape.lineTo(3.8, -0.55); shape.lineTo(3.3, -0.2);
+  shape.lineTo(2.8, -0.8);  shape.lineTo(2.2, -0.4);
+  shape.lineTo(1.6, -1.05); shape.lineTo(1.2, -0.75);
+  shape.bezierCurveTo(0.8, -0.6, 0.4, -0.45, 0, -0.4);
+  return shape;
+}
+
 // Paint a root→tip membrane gradient into a wing geometry's vertex colors.
 // tStart/tEnd let the tip fins continue where the root membrane left off.
 const innerC = new THREE.Color();
@@ -167,6 +181,46 @@ export function createDragon(scene, def, riderDef) {
       group.add(fin);
     }
   }
+  // Dorsal fin: single tall sail fin along the spine centre (apex variant).
+  if (model.dorsal) {
+    const dorsalCount = 5;
+    for (let i = 0; i < dorsalCount; i++) {
+      const h = 0.3 + Math.sin((i / (dorsalCount - 1)) * Math.PI) * 0.28;
+      const df = new THREE.Mesh(new THREE.ConeGeometry(0.055, h, 4), scalesMat);
+      df.rotation.x = -Math.PI / 2;
+      df.position.set(0, 1.02 + h / 2, -1.6 + i * (3.2 / (dorsalCount - 1)));
+      group.add(df);
+    }
+  }
+  // Armor plates: angular shoulder overlays (battle-hardened apex look).
+  if (model.armorPlates) {
+    const plateMat = new THREE.MeshStandardMaterial({
+      color: def.scales, emissive: 0x0b79aa, emissiveIntensity: 0.38,
+      roughness: 0.2, metalness: 0.4,
+    });
+    for (const [zp, sx, ry, rz] of [[-1.2, 0.72, 0.3, -0.28], [-1.2, -0.72, -0.3, 0.28],
+                                     [-0.5, 0.62, 0.44, -0.32], [-0.5, -0.62, -0.44, 0.32]]) {
+      const plate = new THREE.Mesh(new THREE.BoxGeometry(0.3, 0.5, 0.16), plateMat);
+      plate.position.set(sx, 0.46, zp);
+      plate.rotation.set(0, ry, rz);
+      group.add(plate);
+    }
+  }
+  // Glow seams: emissive lines tracing the body flanks (premium apex effect).
+  if (model.glowSeams) {
+    const seamMat = new THREE.MeshStandardMaterial({
+      color: def.eye, emissive: def.eye, emissiveIntensity: 1.6, roughness: 0.3,
+    });
+    for (const xo of [-0.28, 0.28]) {
+      const seam = new THREE.Mesh(new THREE.BoxGeometry(0.032, 0.032, 3.8), seamMat);
+      seam.position.set(xo, 0.62, -0.85);
+      group.add(seam);
+    }
+    // Short seam across the chest
+    const chestSeam = new THREE.Mesh(new THREE.BoxGeometry(1.1, 0.032, 0.032), seamMat);
+    chestSeam.position.set(0, 0.62, -1.55);
+    group.add(chestSeam);
+  }
 
   // Head
   head = new THREE.Group();
@@ -185,6 +239,15 @@ export function createDragon(scene, def, riderDef) {
     const nostril = new THREE.Mesh(new THREE.SphereGeometry(0.06, 6, 5), hornMat);
     nostril.position.set(0.14 * s, -0.1, -1.3);
     head.add(nostril);
+  }
+  // Whiskers: long tendrils from the snout (serpentine apex signature).
+  if (model.whiskers) {
+    for (const [sx, angle] of [[-0.18, 0.3], [0.18, -0.3], [-0.1, 0.52], [0.1, -0.52]]) {
+      const w = new THREE.Mesh(new THREE.CylinderGeometry(0.018, 0.005, 0.8, 4), scalesMat);
+      w.rotation.set(Math.PI / 2 + 0.08, 0, angle);
+      w.position.set(sx, -0.13, -1.22);
+      head.add(w);
+    }
   }
   // Horns: length and pair-count vary per dragon (the flagship gets a crown).
   for (const s of [-1, 1]) {
@@ -213,12 +276,22 @@ export function createDragon(scene, def, riderDef) {
     brow.rotation.x = 0.9;
     head.add(brow);
   }
+  // Crest spines above the skull (apex signature for several dragons).
+  const crestCount = model.crest || 0;
+  for (let i = 0; i < crestCount; i++) {
+    const h = 0.42 + i * 0.1;
+    const crestSpine = new THREE.Mesh(new THREE.ConeGeometry(0.08 - i * 0.01, h, 5), scalesMat);
+    crestSpine.position.set(0, 0.88 + h / 2, 0.38 - i * 0.22);
+    crestSpine.rotation.x = 0.28 + i * 0.08;
+    head.add(crestSpine);
+  }
   // Glowing eyes (per-dragon color; shift magenta during Dragon Surge)
   eyeMat = new THREE.MeshStandardMaterial({
     color: 0x223344, emissive: def.eye, emissiveIntensity: 2.2,
   });
+  const eyeR = 0.09 * (model.eyeScale || 1);
   for (const s of [-1, 1]) {
-    const eye = new THREE.Mesh(new THREE.SphereGeometry(0.09, 8, 6), eyeMat);
+    const eye = new THREE.Mesh(new THREE.SphereGeometry(eyeR, 8, 6), eyeMat);
     eye.position.set(0.3 * s, 0.22, -0.42);
     head.add(eye);
   }
@@ -248,21 +321,33 @@ export function createDragon(scene, def, riderDef) {
     z += 0.9;
     radius = Math.max(radius * 0.78, 0.05);
   }
-  // Spiky tail tip
-  const tip = new THREE.Mesh(new THREE.ConeGeometry(0.09, 0.6, 5), scalesMat);
-  tip.rotation.x = Math.PI / 2;
-  tip.position.set(0, 0, z);
-  group.add(tip);
-  tailSegs.push(tip);
+  // Tail tip: spike (default) or fan (serpentine apex).
+  if (model.tailTip === 'fan') {
+    for (let i = 0; i < 3; i++) {
+      const angle = (i - 1) * 0.48;
+      const fin = new THREE.Mesh(new THREE.ConeGeometry(0.11, 0.74, 5), scalesMat);
+      fin.rotation.set(Math.PI / 2, 0, angle);
+      fin.position.set(Math.sin(angle) * 0.14, Math.cos(angle) * 0.14, z);
+      group.add(fin);
+      tailSegs.push(fin);
+    }
+  } else {
+    const tip = new THREE.Mesh(new THREE.ConeGeometry(0.09, 0.6, 5), scalesMat);
+    tip.rotation.x = Math.PI / 2;
+    tip.position.set(0, 0, z);
+    group.add(tip);
+    tailSegs.push(tip);
+  }
 
   // Wings: 2-segment (root + tip fold), span scales per dragon.
   const ws = model.wingScale;
-  const wingGeo = new THREE.ShapeGeometry(buildWingShape());
+  const wingBuilder = model.wingShape === 'feather' ? buildFeatherWingShape : buildWingShape;
+  const wingGeo = new THREE.ShapeGeometry(wingBuilder());
   wingGeo.rotateX(-Math.PI / 2);
   wingGeo.scale(1.34 * ws, 1.28 * ws, 1);
   applyWingGradient(wingGeo, def, 0, 0.78);
-  const tipGeoR = new THREE.ShapeGeometry(buildWingShape());
-  const tipGeoL = new THREE.ShapeGeometry(buildWingShape());
+  const tipGeoR = new THREE.ShapeGeometry(wingBuilder());
+  const tipGeoL = new THREE.ShapeGeometry(wingBuilder());
   applyWingGradient(tipGeoR, def, 0.72, 1);
   applyWingGradient(tipGeoL, def, 0.72, 1);
   const wingBoneGeo = new THREE.BoxGeometry(3.7 * ws, 0.055, 0.055);
