@@ -500,6 +500,14 @@ body.app-loaded > canvas { opacity: 1; }
   font-size: 9px; letter-spacing: 1.5px; font-weight: 800; color: #1a1206;
   background: linear-gradient(135deg, #ffe27a, #ffb84d); border-radius: 5px;
   padding: 2px 7px; white-space: nowrap; pointer-events: none; }
+.form-scrub { display: flex; align-items: center; justify-content: center; gap: 6px;
+  margin: 4px 0 0; padding: 2px 0; }
+.form-arrow { background: none; border: 1px solid rgba(140,200,255,0.22); border-radius: 6px;
+  color: rgba(180,220,255,0.75); font-size: 11px; padding: 2px 7px; cursor: pointer;
+  line-height: 1.4; transition: border-color 0.15s, color 0.15s; }
+.form-arrow:hover { border-color: rgba(140,200,255,0.55); color: #fff; }
+.form-tier-label { font-size: 10px; letter-spacing: 1.5px; color: rgba(180,220,255,0.65);
+  font-weight: 600; min-width: 62px; text-align: center; text-transform: uppercase; }
 
 /* Music station cards */
 .track-disc { width: 58px; height: 58px; border-radius: 50%; display: flex; align-items: center;

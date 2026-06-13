@@ -13,7 +13,7 @@ import { DRAGONS, DRAGON_STAT_CAP } from './dragons.js';
 import { RIDERS } from './riders.js';
 import { attachPreviews, attachPreviewCanvas } from './preview.js';
 import { FLIGHTMARKS, flightmarkOwned, equippedFlightmark } from './flightmarks.js';
-import { ASCENSION_TIERS, ascensionTier, canAscend, radianceRank, radianceCost } from './ascension.js';
+import { ASCENSION_TIERS, ascendedDef, ascensionTier, canAscend, radianceRank, radianceCost } from './ascension.js';
 
 let els = {};
 let handlers = {};
@@ -49,6 +49,24 @@ let assistFadeTimer = null;
 let lastAssistText = '';
 let lastEmbersRun = 0;
 let emberDimTimer = null;
+
+function getFormPref(key) {
+  const fp = saveData.cosmetics.formPref.find(e => e[0] === key);
+  const maxTier = ascensionTier(key);
+  return fp ? Math.min(fp[1], maxTier) : maxTier;
+}
+function setFormPref(key, tier) {
+  const maxTier = ascensionTier(key);
+  tier = Math.max(0, Math.min(tier, maxTier));
+  const entry = saveData.cosmetics.formPref.find(e => e[0] === key);
+  if (entry) entry[1] = tier;
+  else saveData.cosmetics.formPref.push([key, tier]);
+  persist();
+}
+function formTierLabel(tier) {
+  if (tier === 0) return 'Hatchling';
+  return ASCENSION_TIERS[tier - 1]?.name ?? 'Eternal';
+}
 
 export const ui = {
   init(h = {}) {
@@ -604,18 +622,26 @@ export const ui = {
         const cards = Object.entries(DRAGONS).map(([key, d]) => {
           const owned = saveData.skins.owned.includes(key);
           const equipped = saveData.skins.equipped === key;
+          const maxTier = ascensionTier(key);
+          const displayTier = owned ? getFormPref(key) : ASCENSION_TIERS.length;
           const st = d.stats;
           const spd = (st.speed - 1) / (DRAGON_STAT_CAP.speed - 1 || 1);
           const agi = (st.handling - 1) / (DRAGON_STAT_CAP.handling - 1 || 1);
           const sta = ((1 - st.drain) + (st.regen - 1)) / ((1 - DRAGON_STAT_CAP.drain) + (DRAGON_STAT_CAP.regen - 1) || 1);
           // Premium dragons radiate on the card too (aura tint via CSS var)
           const lux = d.fx.auraIdle > 0 ? ` lux" style="--aura: rgba(${d.fx.auraColor},0.45)` : '';
+          const scrub = owned && maxTier > 0 ? `
+              <div class="form-scrub">
+                <button class="form-arrow" data-form-prev="${key}">◀</button>
+                <span class="form-tier-label" data-form-label="${key}">${formTierLabel(displayTier)}</span>
+                <button class="form-arrow" data-form-next="${key}">▶</button>
+              </div>` : '';
           return `
             <div class="skin-card${equipped ? ' equipped' : ''}${owned ? '' : ' locked'}${lux}" data-dragon="${key}">
               <div class="preview-wrap">
                 <canvas class="skin-preview" data-kind="dragon" data-key="${key}" width="180" height="180"></canvas>
                 ${equipped ? '<div class="equipped-badge">✓ EQUIPPED</div>' : ''}
-              </div>
+              </div>${scrub}
               <div class="skin-name">${d.name}</div>
               <div class="skin-title">${d.title}</div>
               <div class="stat-bars">${bar('SPD', spd)}${bar('AGI', agi)}${bar('STA', sta)}</div>
@@ -773,7 +799,14 @@ export const ui = {
     pauseSubscreen = returnScreen === 'pause' && (type === 'shop' || type === 'settings' || type === 'pilot');
     // Live 3D turntables on the dragon/rider cards
     if (type === 'shop') {
-      attachPreviews(els.screen, (kind, key) => (kind === 'dragon' ? DRAGONS[key] : RIDERS[key]));
+      attachPreviews(els.screen, (kind, key) => {
+        if (kind !== 'dragon') return RIDERS[key];
+        const def = DRAGONS[key];
+        if (!def) return null;
+        const owned = saveData.skins.owned.includes(key);
+        const tier = owned ? getFormPref(key) : ASCENSION_TIERS.length;
+        return ascendedDef(def, tier, radianceRank(key));
+      });
     }
     // Tapping a blank spot on the shop/settings/pilot screen goes back — the
     // screen container itself is the only target blank space resolves to.
@@ -1195,6 +1228,17 @@ function wireScreenButtons(type) {
         } else {
           needMore(mark.cost, `${mark.name} trail`);
         }
+      });
+    }
+
+    // Form-preview scrub: ◀▶ arrows change the displayed tier without re-equipping
+    for (const btn of els.screen.querySelectorAll('[data-form-prev],[data-form-next]')) {
+      btn.onclick = stop(() => {
+        const key = btn.dataset.formPrev || btn.dataset.formNext;
+        const delta = btn.dataset.formPrev ? -1 : 1;
+        setFormPref(key, getFormPref(key) + delta);
+        shopTab = 'dragons';
+        ui.showScreen('shop');
       });
     }
 
