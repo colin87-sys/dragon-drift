@@ -24,9 +24,11 @@ function ensureRenderer() {
   renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
   renderer.toneMapping = THREE.ACESFilmicToneMapping;
   scene = new THREE.Scene();
-  camera = new THREE.PerspectiveCamera(35, 1, 0.1, 50);
-  camera.position.set(0, 0.7, 7.5);
-  camera.lookAt(0, 0.2, 0);
+  // Chase-cam framing: behind and slightly above, so the card shows the same
+  // rear flying view as gameplay (the dragon faces away and flaps).
+  camera = new THREE.PerspectiveCamera(40, 1, 0.1, 60);
+  camera.position.set(0, 1.25, 7.9);
+  camera.lookAt(0, 0.25, 0);
   scene.add(new THREE.HemisphereLight(0xbfdcff, 0x2e3448, 1.0));
   const key = new THREE.DirectionalLight(0xffe0b0, 1.7);
   key.position.set(2.5, 3, 4);

@@ -512,40 +512,23 @@ export function buildDragonModel(def, opts = {}) {
 
   group.scale.setScalar(model.scale);
 
-  // Preview pedestal: rarity-tinted disc + spinning rune ring.
+  // Shop preview: a clean flying showcase (no turntable / no pedestal). Downscale
+  // so the widest apex wings fit the small card, and float a soft rarity-tinted
+  // corona behind the dragon instead of a spinning rune disc.
   if (opts.preview) {
-    const RARITY_GLOW = { R: 0x4aff88, SR: 0x4ac0ff, SSR: 0xc060ff, SSSR: 0xffd040 };
+    const RARITY_GLOW = { R: 0x6affa0, SR: 0x4ac0ff, SSR: 0xc060ff, SSSR: 0xffd040 };
     const glowHex = RARITY_GLOW[def.rarity] ?? RARITY_GLOW.R;
     const glowRgb = `${(glowHex >> 16) & 255},${(glowHex >> 8) & 255},${glowHex & 255}`;
     const wrapper = new THREE.Group();
     wrapper.add(group);
 
-    const pedMat = new THREE.MeshStandardMaterial({
-      color: 0x0a0e1a, emissive: glowHex, emissiveIntensity: 0.5,
-      roughness: 0.35, metalness: 0.75,
-    });
-    const ped = new THREE.Mesh(new THREE.CylinderGeometry(1.1, 1.3, 0.09, 32), pedMat);
-    ped.position.y = -1.95;
-    wrapper.add(ped);
-
-    const runeMat = new THREE.MeshStandardMaterial({
-      color: glowHex, emissive: glowHex, emissiveIntensity: 2.5, roughness: 0.15,
-    });
-    const nRunes = def.rarity === 'SSSR' ? 12 : def.rarity === 'SSR' ? 10 : 8;
-    for (let i = 0; i < nRunes; i++) {
-      const ang = (i / nRunes) * Math.PI * 2;
-      const rune = new THREE.Mesh(new THREE.SphereGeometry(0.065, 5, 4), runeMat);
-      rune.position.set(Math.cos(ang) * 1.15, -1.88, Math.sin(ang) * 1.15);
-      wrapper.add(rune);
-    }
-
-    const groundGlow = new THREE.Sprite(new THREE.SpriteMaterial({
-      map: makeGlowTexture(glowRgb), transparent: true, opacity: 0.48,
+    const corona = new THREE.Sprite(new THREE.SpriteMaterial({
+      map: makeGlowTexture(glowRgb), transparent: true, opacity: 0.4,
       blending: THREE.AdditiveBlending, depthWrite: false,
     }));
-    groundGlow.scale.set(6.5, 3.5, 1);
-    groundGlow.position.y = -2.1;
-    wrapper.add(groundGlow);
+    corona.scale.set(5.5, 5.5, 1);
+    corona.position.set(0, 0.25, -0.6);
+    wrapper.add(corona);
 
     return {
       group: wrapper,
@@ -569,24 +552,41 @@ export function buildDragonModel(def, opts = {}) {
   };
 }
 
-// Shared tick function for preview turntables — called by preview.js.
+// Shared tick for the shop preview — NOT a turntable. The dragon faces away and
+// FLAPS exactly like it does in flight (banking, bobbing, coiling its tail), so
+// scrubbing forms reads like a real "what you'll fly" preview instead of a janky
+// spinning model.
 export function makePreviewTick(def, result) {
   const { group, parts, auraSprite } = result;
   const { head, tailSegs, wingPivotL, wingPivotR, wingPivot2L, wingPivot2R } = parts;
+  const flapBias = def.model.flapBias || 1;
+  const flapAmp = def.model.flapAmp ?? 1;
   return (t) => {
-    group.rotation.y = t * 0.65;
-    group.position.y = 0.1 + Math.sin(t * 1.4) * 0.06;
-    const flap = Math.sin(t * 4.2 * (def.model.flapBias || 1)) * 0.5 * (def.model.flapAmp ?? 1);
-    wingPivotR.rotation.z = -(flap - 0.15);
-    wingPivotL.rotation.z =   flap - 0.15;
-    if (wingPivot2L) wingPivot2L.rotation.z = flap * 0.7;
-    if (wingPivot2R) wingPivot2R.rotation.z = -(flap * 0.7);
+    // Float + gentle bank/pitch — the in-flight read, no spin.
+    group.position.y = 0.15 + Math.sin(t * 1.5) * 0.09;
+    group.rotation.y = 0;
+    group.rotation.z = Math.sin(t * 0.7) * 0.13;        // lazy bank left/right
+    group.rotation.x = -0.05 + Math.sin(t * 1.5 + 1) * 0.03;
+    // Wingbeat — same shape as the live rig (root flap + feather pitch).
+    const phase = t * 6.2 * flapBias;
+    const flap = Math.sin(phase) * 0.52 * flapAmp + 0.12;
+    const feather = Math.sin(phase + Math.PI * 0.55) * 0.16;
+    wingPivotR.rotation.z = -flap;
+    wingPivotL.rotation.z = flap;
+    wingPivotR.rotation.x = 0.12 + feather;
+    wingPivotL.rotation.x = 0.12 - feather;
+    if (wingPivot2L) { wingPivot2L.rotation.z = flap * 0.65; wingPivot2R.rotation.z = -flap * 0.65; }
+    // Root-locked snake coil (x + y) so the tail stays attached and alive.
     const nT = tailSegs.length;
     for (let i = 0; i < nT; i++) {
-      const lock = nT > 1 ? i / (nT - 1) : 0;     // root locked, sway ramps to tip
-      tailSegs[i].position.x = Math.sin(t * 2.4 - i * 0.6) * 0.22 * lock * lock;
+      const lock = nT > 1 ? i / (nT - 1) : 0;
+      const l2 = lock * lock;
+      const tp = t * 3.6 - i * 0.6;
+      tailSegs[i].position.x = Math.sin(tp) * 0.3 * l2;
+      tailSegs[i].position.y = Math.cos(tp * 0.8) * 0.16 * l2;
+      tailSegs[i].rotation.z = -Math.sin(tp) * 0.16 * l2;
     }
-    head.rotation.y = Math.sin(t * 0.9) * 0.18;
+    head.rotation.y = Math.sin(t * 0.9) * 0.1;
     if (auraSprite) {
       auraSprite.material.opacity = def.fx.auraIdle > 0
         ? 0.3 + def.fx.auraIdle + Math.sin(t * 2.6) * 0.12

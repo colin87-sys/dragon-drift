@@ -48,6 +48,7 @@ export function applyFlightmark(def) {
   const d = { ...def };
   d.trail = mark.trail;
   d.boostTrail = mark.boostTrail;
+  d.hasStyle = true; // an equipped style dominates trail color, even in Surge
   if (mark.trailPalette) d.trailPalette = mark.trailPalette;
   return d;
 }

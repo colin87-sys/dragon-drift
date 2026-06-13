@@ -478,12 +478,14 @@ body.app-loaded > canvas { opacity: 1; }
   background: linear-gradient(175deg, rgba(40,28,8,0.65), rgba(24,42,80,0.6) 60%); }
 .skin-card.equipped { border-color: #ffd86a; }
 /* Rarity corner gem */
-.rarity-gem { position: absolute; top: 7px; right: 7px; font-size: 8px; font-weight: 900;
-  letter-spacing: 1px; border-radius: 4px; padding: 2px 6px; pointer-events: none; }
-.skin-card[data-rarity="R"]    .rarity-gem { color: #a0c8a0; background: rgba(120,200,120,0.14); border: 1px solid rgba(120,200,120,0.25); }
-.skin-card[data-rarity="SR"]   .rarity-gem { color: #60a8ff; background: rgba(80,140,255,0.14); border: 1px solid rgba(80,140,255,0.3); }
-.skin-card[data-rarity="SSR"]  .rarity-gem { color: #c080ff; background: rgba(160,80,255,0.14); border: 1px solid rgba(160,80,255,0.3); }
-.skin-card[data-rarity="SSSR"] .rarity-gem { color: #ffd86a; background: rgba(255,200,90,0.18); border: 1px solid rgba(255,200,90,0.45);
+/* Gem shows the SCRUBBED form's rarity (R→SSSR), not a fixed dragon grade. */
+.rarity-gem { position: absolute; top: 7px; right: 7px; font-size: 8.5px; font-weight: 900;
+  letter-spacing: 1px; border-radius: 5px; padding: 2px 6px; pointer-events: none;
+  transition: color 0.2s, background 0.2s, border-color 0.2s; }
+.rarity-gem[data-fr="R"]    { color: #a0c8a0; background: rgba(120,200,120,0.14); border: 1px solid rgba(120,200,120,0.3); }
+.rarity-gem[data-fr="SR"]   { color: #60a8ff; background: rgba(80,140,255,0.16); border: 1px solid rgba(80,140,255,0.35); }
+.rarity-gem[data-fr="SSR"]  { color: #c080ff; background: rgba(160,80,255,0.16); border: 1px solid rgba(160,80,255,0.4); }
+.rarity-gem[data-fr="SSSR"] { color: #ffd86a; background: rgba(255,200,90,0.2); border: 1px solid rgba(255,200,90,0.5);
   animation: sssr-gem-pulse 2.2s ease-in-out infinite; }
 @keyframes sssr-gem-pulse {
   0%, 100% { box-shadow: none; }
@@ -540,6 +542,29 @@ body.app-loaded > canvas { opacity: 1; }
 .form-arrow:hover { border-color: rgba(140,200,255,0.55); color: #fff; }
 .form-tier-label { font-size: 10px; letter-spacing: 1.5px; color: rgba(180,220,255,0.65);
   font-weight: 600; min-width: 62px; text-align: center; text-transform: uppercase; }
+
+/* Evolution ladder: one pip per form, tinted by that form's rarity, + the
+   ascend / prestige control (previously unstyled). */
+.skin-tier { display: flex; align-items: center; justify-content: center; gap: 9px;
+  flex-wrap: wrap; width: 100%; margin-top: 2px; }
+.tier-pips { display: inline-flex; gap: 3px; }
+.tier-pip { font-size: 11px; line-height: 1; color: rgba(150,180,220,0.26);
+  filter: grayscale(1); transition: color 0.2s, filter 0.2s, text-shadow 0.2s; }
+.tier-pip.filled { filter: none; }
+.tier-pip.filled[data-fr="R"]    { color: #7fd49a; }
+.tier-pip.filled[data-fr="SR"]   { color: #60a8ff; }
+.tier-pip.filled[data-fr="SSR"]  { color: #c080ff; }
+.tier-pip.filled[data-fr="SSSR"] { color: #ffd34d; text-shadow: 0 0 6px rgba(255,200,90,0.7); }
+.btn-ascend { pointer-events: auto; cursor: pointer; font-size: 9.5px; font-weight: 800;
+  letter-spacing: 0.4px; color: #1a1206; border: none; border-radius: 7px; padding: 4px 9px;
+  background: linear-gradient(135deg, #ffe27a, #ffb84d); box-shadow: 0 2px 8px rgba(255,180,70,0.3);
+  transition: transform 0.1s, box-shadow 0.2s; }
+.btn-ascend:hover { transform: translateY(-1px); box-shadow: 0 3px 12px rgba(255,180,70,0.5); }
+.btn-ascend.dim { opacity: 0.5; filter: grayscale(0.4); }
+.btn-ascend.prestige { background: linear-gradient(135deg, #c9a0ff, #8a5cff); color: #fff;
+  box-shadow: 0 2px 8px rgba(150,90,255,0.35); }
+.tier-gate { font-size: 9px; letter-spacing: 0.4px; color: rgba(180,210,255,0.55);
+  border: 1px dashed rgba(140,200,255,0.25); border-radius: 6px; padding: 3px 8px; }
 
 /* Music station cards */
 .track-disc { width: 58px; height: 58px; border-radius: 50%; display: flex; align-items: center;
