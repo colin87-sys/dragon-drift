@@ -134,23 +134,42 @@ export const DRAGONS = {
     title: 'Apex of the skies',
     rarity: 'SSSR',
     cost: 5000,
-    // Bahamut, the Dragon King: obsidian-black armor, molten gold plating,
-    // crimson blade-wings — the awe-inducing showpiece.
+    // A legendary solar/fire wyvern-racing mount: obsidian-black body, molten
+    // core glow, gold highlights, crimson flame-wings. The benchmark redesign —
+    // each form is a distinct rear-view silhouette, not the same shape rescaled
+    // (see the per-form wingForm / tailStyle / spineGlow ramp below).
     stats: { speed: 1.16, handling: 1.28, drain: 0.7, regen: 1.35 },
+    // Base model holds the APEX reference proportions; each form dials the
+    // per-stage silhouette. Cumulative: later forms override earlier keys.
     model: {
       scale: 1.22, wingScale: 1.3, tailSegments: 9, neckSegments: 6,
       hornLen: 1.7, hornPairs: 2, ridgeCount: 16, flapBias: 1.1,
     },
     forms: [
-      {},                                                        // base — bare gold drake
-      { armorPlates: true, crest: 1 },                          // +chest/flank armor + crest
-      { glowSeams: true, tusks: true, hornPairs: 2, crest: 2 }, // +molten seams + tusks + crown
-      { maceTail: true, secondWingPair: true, wingScale: 1.4, sparkle: true }, // apex — full regalia
+      // T0 — Solar Whelp: compact starter. Narrow 3-finger wings, short simple
+      // tail, no spine glow or aura ornaments. Basic but appealing.
+      { wingForm: 0, tailStyle: 'simple', tailSegments: 5, ridgeCount: 9,
+        spineGlow: 0, crest: 0, hornPairs: 1, hornLen: 1.15, neckSegments: 5 },
+      // T1 — Kindled Drake: awakened. Wider 4-finger wings with a gentle
+      // scallop, a small dorsal ridge + sail, a longer finned tail.
+      { wingForm: 1, tailStyle: 'finned', tailSegments: 7, ridgeCount: 12,
+        spineGlow: 0.32, crest: 1, dorsal: true },
+      // T2 — Radiant Wyvern: elite. Deep-scalloped wings with glowing veins, a
+      // bright spine line, molten seams, a blade/fork tail. Fast and desirable.
+      { wingForm: 2, tailStyle: 'blade', tailSegments: 8, ridgeCount: 14,
+        spineGlow: 0.7, wingVeins: true, glowSeams: true,
+        crest: 2, hornPairs: 2, hornLen: 1.5, tusks: true, neckSegments: 6 },
+      // T3 — Solar Sovereign: apex. Widest flame-segmented wings, blazing solar
+      // spine, heroic back-crest, forked comet tail, subtle solar halo. Regal,
+      // aerodynamic, premium — and the centre lane stays open.
+      { wingForm: 3, tailStyle: 'comet', tailSegments: 9, ridgeCount: 16,
+        spineGlow: 1.0, wingVeins: true, glowSeams: true,
+        backCrest: true, auraHalo: true, crest: 3, hornLen: 1.7 },
     ],
-    fx: { auraColor: '255,150,40', auraIdle: 0.24, sparkle: true },
-    body: 0x1c140e, belly: 0x3a2a16, scales: 0xffc24a, horn: 0xffe08a,
+    fx: { auraColor: '255,150,40', auraIdle: 0.10, sparkle: false },
+    body: 0x18110b, belly: 0x3a2a16, scales: 0xffc24a, horn: 0xffe08a,
     wingInner: 0xffb52a, wingOuter: 0xb01818, wingEmissive: 0xff5a14,
-    apexEye: 0xfff0a0, apexSeam: 0xff5500,
+    apexEye: 0xfff0a0, apexSeam: 0xff7a18,
     eye: 0xffd86a, trail: 0xffb030, boostTrail: 0xff6a20,
   },
 };

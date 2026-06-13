@@ -31,33 +31,47 @@
 
     let current = null;
     const _box = new THREE.Box3();
-    const _sph = new THREE.Sphere();
     // Match the in-game chase cam: behind and slightly above (dragon faces -z,
     // away from camera), so previews read like live gameplay.
-    const _dir = new THREE.Vector3(0.05, 0.36, 0.95).normalize();
-    function renderTier(key, tier) {
+    const _dir = new THREE.Vector3(0.06, 0.20, 0.95).normalize();
+
+    // Measure a dragon's apex (T3) wingspan so every tier can be framed at ONE
+    // fixed distance — that's what makes the size/silhouette RAMP visible
+    // (re-framing each tier to the same width would hide the wingspan growth).
+    function apexFraming(key) {
+      const def = ascendedDef(DRAGONS[key], 3, 0);
+      const { group } = buildDragonModel(def, {});
+      scene.add(group);
+      _box.setFromObject(group);
+      const width = (_box.max.x - _box.min.x) || 4;
+      const fov = camera.fov * Math.PI / 180;
+      const dist = ((width * 0.5) / Math.tan(fov / 2)) * 1.32; // headroom for halo
+      scene.remove(group);
+      group.traverse(o => { if (o.geometry) o.geometry.dispose(); if (o.material) o.material.dispose(); });
+      return { dist, target: new THREE.Vector3(0, 0.2, 0.6) };
+    }
+
+    function renderTier(key, tier, frame) {
       if (current) {
         scene.remove(current);
         current.traverse(o => { if (o.geometry) o.geometry.dispose(); if (o.material) o.material.dispose(); });
       }
       const def = ascendedDef(DRAGONS[key], tier, 0);
-      const { group } = buildDragonModel(def, {});
+      const { group, parts } = buildDragonModel(def, {});
       group.rotation.y = 0;
+      // Hero pose: lift the wings into a shallow spread so the membrane shape
+      // (scallop/flame edge, finger fan) faces the above-and-behind camera —
+      // the rest pose is edge-on and hides it. Live gameplay catches it
+      // mid-flap; this just makes the isolated silhouette legible.
+      if (parts.wingPivotR) { parts.wingPivotR.rotation.z = -0.30; parts.wingPivotR.rotation.x = 0.12; }
+      if (parts.wingPivotL) { parts.wingPivotL.rotation.z = 0.30; parts.wingPivotL.rotation.x = 0.12; }
       current = group;
       scene.add(group);
-      // Frame on the WINGSPAN (width), not the whole sphere — the long tail
-      // otherwise shrinks everything. Target the head/wing region (front).
-      _box.setFromObject(group);
-      const width = (_box.max.x - _box.min.x) || 4;
-      const cx = (_box.max.x + _box.min.x) / 2;
-      const fov = camera.fov * Math.PI / 180;
-      const dist = ((width * 0.5) / Math.tan(fov / 2)) * 1.18;
-      const target = new THREE.Vector3(cx, 0.3, _box.min.z * 0.45 + 0.3);
-      camera.position.copy(target).addScaledVector(_dir, dist);
-      camera.near = dist / 100;
-      camera.far = dist * 20;
+      camera.position.copy(frame.target).addScaledVector(_dir, frame.dist);
+      camera.near = frame.dist / 100;
+      camera.far = frame.dist * 20;
       camera.updateProjectionMatrix();
-      camera.lookAt(target);
+      camera.lookAt(frame.target);
       renderer.render(scene, camera);
     }
 
@@ -67,8 +81,9 @@
       ctx.fillStyle = '#0a0e1a';
       ctx.fillRect(0, 0, m.width, m.height);
       const PW = 310;
+      const frame = apexFraming(key);
       for (let tier = 0; tier <= 3; tier++) {
-        renderTier(key, tier);
+        renderTier(key, tier, frame);
         const x = tier * PW;
         ctx.drawImage(gl, x + 5, 8, 300, 300);
         ctx.fillStyle = '#ffd86a';

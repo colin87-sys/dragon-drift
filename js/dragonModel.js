@@ -12,27 +12,80 @@ import { makeGlowTexture } from './util.js';
 //   auraSprite                                    — fever/idle aura
 
 // --- Wing geometry helpers ---
-
-// Finger-tip anchors for the membrane (x = span outward, y = chord fore/aft).
+//
 // Dragon wings follow BAT anatomy: an arm + fanned finger bones with a
-// scalloped membrane webbed between them — not a flat paddle.
-const WING_TIPS = [[5.25, 0.34], [4.4, -0.5], [3.05, -1.0], [1.7, -1.12]];
+// scalloped membrane webbed between them — never a flat paddle. Each evolution
+// FORM carries its own silhouette preset so the four stages read differently
+// from the chase camera (the dominant rear-view feature), not just bigger:
+//
+//   tips    finger-tip anchors [x span outward, y chord fore/aft], far tip first
+//   lead    mid control point for the leading-edge sweep (wrist → far tip)
+//   scallop how far each trailing web dips toward the body — the edge signature
+//   flame   cut trailing webs as sharp V notches → segmented flame edge (apex)
+const WING_FORMS = {
+  // T0 — compact starter: 3 short fingers, an almost-straight trailing edge.
+  0: { tips: [[4.75, 0.30], [3.70, -0.42], [2.25, -0.78]],
+       lead: [3.05, 0.52], scallop: 0.20, flame: false },
+  // T1 — awakened: a 4th finger emerges and a gentle scallop forms.
+  1: { tips: [[5.05, 0.32], [4.05, -0.46], [2.75, -0.92], [1.50, -0.98]],
+       lead: [3.40, 0.58], scallop: 0.36, flame: false },
+  // T2 — elite: wider, a deep scalloped web, clear finger anatomy.
+  2: { tips: [[5.30, 0.34], [4.45, -0.50], [3.10, -1.04], [1.70, -1.16]],
+       lead: [3.70, 0.62], scallop: 0.56, flame: false },
+  // T3 — apex: longest reach, a 5th finger, and the trailing edge breaks into a
+  // segmented flame edge — dramatic but still a clean, readable outline.
+  3: { tips: [[5.55, 0.36], [4.78, -0.48], [3.50, -1.00], [2.15, -1.20], [1.05, -1.02]],
+       lead: [3.98, 0.66], scallop: 0.50, flame: true },
+};
+// Legacy membrane for dragons not yet on the per-form system — reproduces the
+// previous single shape so the rest of the roster is untouched until redesigned.
+const DEFAULT_WING = {
+  tips: [[5.25, 0.34], [4.40, -0.50], [3.05, -1.00], [1.70, -1.12]],
+  lead: [3.80, 0.64], scallop: 0.50, flame: false,
+};
 
-function buildWingShape() {
+function wingSpecFor(model) {
+  const f = model.wingForm;
+  return (f != null && WING_FORMS[f]) ? WING_FORMS[f] : DEFAULT_WING;
+}
+
+function buildWingShape(spec) {
+  const tips = spec.tips;
   const s = new THREE.Shape();
   s.moveTo(0, 0);
   // Leading edge: a clean sweep from the wrist out to the far wing tip.
-  s.bezierCurveTo(1.8, 0.62, 3.8, 0.64, WING_TIPS[0][0], WING_TIPS[0][1]);
-  // Trailing edge: a concave web (scallop) dipping toward the body between
-  // each successive finger tip — the signature bat/dragon membrane silhouette.
-  for (let i = 0; i < WING_TIPS.length - 1; i++) {
-    const [ax, ay] = WING_TIPS[i];
-    const [bx, by] = WING_TIPS[i + 1];
+  s.bezierCurveTo(1.8, 0.62, spec.lead[0], spec.lead[1], tips[0][0], tips[0][1]);
+  // Trailing edge: a concave web (scallop) dipping toward the body between each
+  // successive finger tip — the signature bat/dragon membrane silhouette. Apex
+  // forms cut the webs as sharp V notches for a segmented flame edge.
+  for (let i = 0; i < tips.length - 1; i++) {
+    const [ax, ay] = tips[i];
+    const [bx, by] = tips[i + 1];
     const cx = (ax + bx) / 2;
-    const cy = (ay + by) / 2 + 0.5; // pull the web toward the body
-    s.quadraticCurveTo(cx, cy, bx, by);
+    if (spec.flame) {
+      s.lineTo(cx, (ay + by) / 2 + spec.scallop * 1.5);
+      s.lineTo(bx, by);
+    } else {
+      s.quadraticCurveTo(cx, (ay + by) / 2 + spec.scallop, bx, by);
+    }
   }
   s.quadraticCurveTo(0.85, -0.34, 0, -0.28);
+  return s;
+}
+
+// A flat swallowtail outline for the comet tail — two tines splaying from a
+// shared root. Baked as one shape (not two splayed meshes) so the fork survives
+// the tail-wave animation, which overwrites per-segment rotation/position.
+// Built along +y (tine length); the caller rotates +y → +z (trailing back).
+function buildForkShape(spread, length, notch) {
+  const s = new THREE.Shape();
+  s.moveTo(0, 0);
+  s.lineTo(0.18, 0.12);
+  s.lineTo(spread, length);   // right tine tip
+  s.lineTo(0, notch);         // inner V between the tines
+  s.lineTo(-spread, length);  // left tine tip
+  s.lineTo(-0.18, 0.12);
+  s.closePath();
   return s;
 }
 
@@ -137,10 +190,53 @@ export function buildDragonModel(def, opts = {}) {
   // Defined shoulder masses at the wing roots — after the wings these are the
   // strongest rear-view silhouette mass, and they anchor the wing connection.
   for (const s of [-1, 1]) {
-    const shoulder = new THREE.Mesh(new THREE.SphereGeometry(0.46, 10, 8), bodyMat);
-    shoulder.scale.set(0.92, 0.8, 1.08);
-    shoulder.position.set(s * 0.46, 0.5, -0.3);
+    const shoulder = new THREE.Mesh(new THREE.SphereGeometry(0.5, 10, 8), bodyMat);
+    shoulder.scale.set(0.96, 0.82, 1.12);
+    shoulder.position.set(s * 0.48, 0.5, -0.3);
     group.add(shoulder);
+  }
+
+  // Glowing dorsal spine — a molten line running the length of the back that
+  // reads as a bright stripe from directly behind. Ramps in over the forms
+  // (spineGlow 0→1): invisible on the whelp, a blazing solar spine at apex.
+  if (model.spineGlow > 0) {
+    const g = model.spineGlow;
+    const spineCol = def.apexSeam || def.eye;
+    const spineMat = new THREE.MeshStandardMaterial({
+      color: spineCol, emissive: spineCol,
+      emissiveIntensity: 0.7 + g * 2.0, roughness: 0.3, metalness: 0.3,
+    });
+    const segN = 10;
+    for (let i = 0; i < segN; i++) {
+      const k = i / (segN - 1);
+      const node = new THREE.Mesh(
+        new THREE.ConeGeometry(0.045 + g * 0.045, 0.18 + g * 0.22, 4), spineMat);
+      node.rotation.x = -Math.PI / 2;
+      // Follows the back from just behind the shoulders down to the tail root.
+      node.position.set(0, 1.02 - Math.max(0, k - 0.45) * 0.95, -1.9 + k * 3.5);
+      group.add(node);
+    }
+  }
+
+  // Heroic back-crest — a crown of swept, raked-back blades rising off the
+  // shoulders. The apex's "crown-like, rear-visible" silhouette; tallest in the
+  // centre, splayed outward so it frames the rider from behind.
+  if (model.backCrest) {
+    const crestMat = new THREE.MeshStandardMaterial({
+      color: def.horn, emissive: def.apexSeam || def.wingEmissive,
+      emissiveIntensity: 0.85, roughness: 0.25, metalness: 0.5,
+      side: THREE.DoubleSide,
+    });
+    for (let i = 0; i < 5; i++) {
+      const t = (i - 2) / 2;                    // -1 .. 1 across the back
+      const h = 0.95 - Math.abs(t) * 0.32;
+      const blade = new THREE.Mesh(new THREE.ConeGeometry(0.085, h, 4), crestMat);
+      blade.scale.set(1, 1, 0.38);              // flatten into a blade
+      blade.position.set(t * 0.52, 1.04 + h / 2 - Math.abs(t) * 0.14, -0.42);
+      blade.rotation.x = -0.62;                  // rake back
+      blade.rotation.z = -t * 0.55;              // splay outward into a fan
+      group.add(blade);
+    }
   }
 
   // Scale ridge
@@ -375,56 +471,106 @@ export function buildDragonModel(def, opts = {}) {
   }
 
   // Tail — continues straight off the lathe's tail root for a clean transition.
-  // Stays a visible whip to the very tip (min radius) so the tip ornament
-  // reads from behind and never floats detached on an invisible thread.
+  // Tapers hard to a slim whip so even the longest apex tail stays elegant and
+  // aerodynamic (never a tadpole), and the tip ornament reads from behind.
   const tailSegs = [];
   let radius = 0.4;
   let zTail = 1.7;
-  const nTail = Math.min(model.tailSegments, 7); // cap length for rear readability
+  const nTail = Math.min(model.tailSegments, 9); // longer at apex, still readable
+  const taper = nTail > 7 ? 0.74 : 0.78;         // slimmer the longer it runs
   for (let i = 0; i < nTail; i++) {
     const seg = new THREE.Mesh(new THREE.ConeGeometry(radius, 0.95, 7), bodyMat);
     seg.rotation.x = Math.PI / 2;
     seg.position.set(0, 0.1, zTail);
     group.add(seg);
     tailSegs.push(seg);
-    zTail += 0.6;            // tight spacing — aerodynamic, less tadpole
-    radius = Math.max(radius * 0.78, 0.1); // gentle taper, keep a visible whip
+    zTail += 0.58;          // tight spacing — aerodynamic, less tadpole
+    radius = Math.max(radius * taper, 0.08);
   }
 
-  // Mace tail tip (Solar/Ember apex — spiky club end)
-  if (model.maceTail) {
-    const maceMat = new THREE.MeshStandardMaterial({
-      color: def.scales, emissive: def.wingEmissive, emissiveIntensity: 0.6,
-      roughness: 0.2, metalness: 0.55,
-    });
-    const mace = new THREE.Mesh(new THREE.SphereGeometry(0.28, 8, 7), maceMat);
+  // Tail tip. The redesign language is elegant + aerodynamic — NO mace/ball. A
+  // per-form ramp: short point → small fin → blade → forked solar comet. The
+  // legacy 'mace'/'fan' paths remain for dragons not yet on tailStyle.
+  const tailStyle = model.tailStyle
+    || (model.maceTail ? 'mace' : model.tailTip === 'fan' ? 'fan' : 'simple');
+  const bladeMat = new THREE.MeshStandardMaterial({
+    color: def.scales, emissive: def.wingEmissive, emissiveIntensity: 0.7,
+    roughness: 0.25, metalness: 0.5, side: THREE.DoubleSide,
+  });
+  // Slim back-pointing point that anchors every tip style.
+  function tailPoint(len = 0.6, r = 0.09, mat = scalesMat) {
+    const tip = new THREE.Mesh(new THREE.ConeGeometry(r, len, 5), mat);
+    tip.rotation.x = Math.PI / 2;
+    tip.position.set(0, 0.1, zTail);
+    group.add(tip);
+    tailSegs.push(tip);
+  }
+  // One flattened blade trailing back along +z, optionally splayed outward to
+  // form a fork tine. scale.z flattens it into a slim membrane.
+  function tailBlade(sx, splay, len, r) {
+    const blade = new THREE.Mesh(new THREE.ConeGeometry(r, len, 4), bladeMat);
+    blade.scale.set(1, 1, 0.3);
+    blade.rotation.x = Math.PI / 2;
+    blade.rotation.y = sx * splay;
+    blade.position.set(sx * 0.12, 0.1, zTail + len * 0.32);
+    group.add(blade);
+    tailSegs.push(blade);
+  }
+
+  if (tailStyle === 'comet') {
+    // Forked solar comet: one baked swallowtail (so the fork holds through the
+    // tail wave), with a soft solar glow welling from the root — the apex's
+    // elegant signature. Pushed as a single tail segment so it sways as a unit.
+    const forkGeo = new THREE.ShapeGeometry(buildForkShape(0.62, 1.95, 1.05));
+    forkGeo.rotateX(Math.PI / 2);   // tine length +y → world +z (trailing back)
+    const fork = new THREE.Mesh(forkGeo, bladeMat);
+    fork.position.set(0, 0.1, zTail);
+    group.add(fork);
+    tailSegs.push(fork);
+    const glow = new THREE.Sprite(new THREE.SpriteMaterial({
+      map: makeGlowTexture(def.fx.auraColor), transparent: true, opacity: 0.55,
+      blending: THREE.AdditiveBlending, depthWrite: false,
+    }));
+    glow.scale.set(2.6, 1.4, 1);
+    glow.position.set(0, 0.1, zTail + 0.4);
+    glow.layers.set(1);
+    group.add(glow);
+  } else if (tailStyle === 'blade') {
+    // Elite: a single slim blade trailing straight back (no splay → unaffected
+    // by the tail wave's per-segment yaw).
+    tailBlade(0, 0, 1.6, 0.18);
+  } else if (tailStyle === 'finned') {
+    // Awakened: the simple point gains a small upright dorsal fin just ahead.
+    tailPoint(0.7, 0.1);
+    const fin = new THREE.Mesh(new THREE.ConeGeometry(0.09, 0.5, 5), scalesMat);
+    fin.position.set(0, 0.34, zTail - 0.5);
+    fin.rotation.x = 0.5;
+    group.add(fin);
+  } else if (tailStyle === 'mace') {
+    // Legacy spiky club (not used by redesigned dragons).
+    const mace = new THREE.Mesh(new THREE.SphereGeometry(0.28, 8, 7), bladeMat);
     mace.position.set(0, 0.1, zTail);
     group.add(mace);
     tailSegs.push(mace);
     for (let i = 0; i < 6; i++) {
       const a = (i / 6) * Math.PI * 2;
-      const spike = new THREE.Mesh(new THREE.ConeGeometry(0.06, 0.38, 4), maceMat);
-      spike.position.set(Math.cos(a) * 0.24 + 0, Math.sin(a) * 0.24 + 0.1, zTail);
+      const spike = new THREE.Mesh(new THREE.ConeGeometry(0.06, 0.38, 4), bladeMat);
+      spike.position.set(Math.cos(a) * 0.24, Math.sin(a) * 0.24 + 0.1, zTail);
       spike.rotation.z = Math.sin(a) * Math.PI / 2;
       spike.rotation.x = Math.cos(a) * Math.PI / 2;
       group.add(spike);
     }
-    zTail += 0.3;
-  } else if (model.tailTip === 'fan') {
+  } else if (tailStyle === 'fan') {
     for (let i = 0; i < 3; i++) {
       const angle = (i - 1) * 0.48;
       const fin = new THREE.Mesh(new THREE.ConeGeometry(0.11, 0.74, 5), scalesMat);
       fin.rotation.set(Math.PI / 2, 0, angle);
-      fin.position.set(Math.sin(angle) * 0.14, Math.cos(angle) * 0.14, zTail);
+      fin.position.set(Math.sin(angle) * 0.14, Math.cos(angle) * 0.14 + 0.1, zTail);
       group.add(fin);
       tailSegs.push(fin);
     }
   } else {
-    const tip = new THREE.Mesh(new THREE.ConeGeometry(0.09, 0.6, 5), scalesMat);
-    tip.rotation.x = Math.PI / 2;
-    tip.position.set(0, 0, zTail);
-    group.add(tip);
-    tailSegs.push(tip);
+    tailPoint(0.6, 0.09); // simple starter point
   }
 
   // Wings — primary pair. One scalloped bat-wing membrane per side with fanned
@@ -432,16 +578,24 @@ export function buildDragonModel(def, opts = {}) {
   // marker (and the animation's secondary fold).
   const ws = model.wingScale;
   const featherShape = model.wingShape === 'feather';
+  const wingSpec = featherShape ? DEFAULT_WING : wingSpecFor(model);
   const boneMat = new THREE.MeshStandardMaterial({
     color: def.horn, emissive: def.wingEmissive, emissiveIntensity: 0.35,
     roughness: 0.3, metalness: 0.5,
   });
+  // Molten veins traced along the finger bones — the elite/apex "glowing wing
+  // veins". Brighter apex-seam tone so they read against the dark membrane.
+  const veinMat = model.wingVeins ? new THREE.MeshStandardMaterial({
+    color: def.apexSeam || def.wingEmissive,
+    emissive: def.apexSeam || def.wingEmissive, emissiveIntensity: 1.7,
+    roughness: 0.3, metalness: 0.4,
+  }) : null;
 
   function buildWingSide(side) {
     const pivot = new THREE.Group();
     pivot.position.set(0.55 * side, 0.4, -0.2);
 
-    const geo = new THREE.ShapeGeometry((featherShape ? buildFeatherWingShape : buildWingShape)(), 14);
+    const geo = new THREE.ShapeGeometry(featherShape ? buildFeatherWingShape() : buildWingShape(wingSpec), 14);
     geo.rotateX(-Math.PI / 2);
     geo.scale(1.34 * ws, 1.28 * ws, 1);
     applyWingGradient(geo, def, 0, 1);
@@ -450,18 +604,24 @@ export function buildDragonModel(def, opts = {}) {
     pivot.add(membrane);
 
     // Finger bones fanning from the wrist to each membrane tip, + a thicker
-    // leading-edge arm — this is what kills the "flat paddle" read.
-    for (let i = 0; i < WING_TIPS.length; i++) {
-      const [px, py] = WING_TIPS[i];
+    // leading-edge arm — this is what kills the "flat paddle" read. A glowing
+    // vein rides on top of each bone once the dragon reaches the elite forms.
+    for (let i = 0; i < wingSpec.tips.length; i++) {
+      const [px, py] = wingSpec.tips[i];
       const x = px * 1.34 * ws * side;
       const z = -py * 1.0;
       pivot.add(wingStrut(x, z, i === 0 ? 0.075 : 0.05, 0.012, boneMat));
+      if (veinMat) {
+        const vein = wingStrut(x, z, i === 0 ? 0.045 : 0.03, 0.006, veinMat);
+        vein.position.y = 0.05;
+        pivot.add(vein);
+      }
     }
 
     const wingTip = new THREE.Group();
     wingTip.position.set(3.3 * ws * side, 0, 0);
     const marker = new THREE.Object3D();
-    marker.position.set(WING_TIPS[0][0] * 1.34 * ws * side - 3.3 * ws * side, 0, -WING_TIPS[0][1]);
+    marker.position.set(wingSpec.tips[0][0] * 1.34 * ws * side - 3.3 * ws * side, 0, -wingSpec.tips[0][1]);
     wingTip.add(marker);
     pivot.add(wingTip);
     group.add(pivot);
@@ -478,7 +638,7 @@ export function buildDragonModel(def, opts = {}) {
   let wingPivot2R = null;
   if (model.secondWingPair) {
     const ws2 = ws * 0.48;
-    const miniGeo = new THREE.ShapeGeometry(buildWingShape());
+    const miniGeo = new THREE.ShapeGeometry(buildWingShape(DEFAULT_WING));
     miniGeo.rotateX(-Math.PI / 2);
     miniGeo.scale(ws2, ws2, 1);
     applyWingGradient(miniGeo, def, 0.3, 0.9);
@@ -494,6 +654,22 @@ export function buildDragonModel(def, opts = {}) {
       if (s === 1) wingPivot2R = pivot;
       else wingPivot2L = pivot;
     }
+  }
+
+  // Solar halo — a faint corona ring behind the shoulders (apex only). Thin and
+  // additive so it haloes the silhouette from behind without filling the open
+  // centre lane the player reads. On layer 0 so it shows in every view; the
+  // open ring (not a filled disc) keeps the path ahead clear.
+  if (model.auraHalo) {
+    const haloCol = def.apexSeam || def.horn;
+    const halo = new THREE.Mesh(
+      new THREE.TorusGeometry(2.4, 0.06, 8, 56),
+      new THREE.MeshBasicMaterial({
+        color: haloCol, transparent: true, opacity: 0.3,
+        blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide,
+      }));
+    halo.position.set(0, 0.7, 0.7); // centred on the upper body, just behind it
+    group.add(halo);
   }
 
   // Aura sprite (fever glow + idle premium aura)

@@ -21,11 +21,12 @@ function loadPlaywright() {
 
 // Boots the game in headless chromium. Returns { page, errors, url, done() }.
 // `errors` collects console errors + pageerrors for the caller to assert on.
-export async function boot({ query = '?debug', initScript = null } = {}) {
+export async function boot({ query = '?debug', initScript = null,
+  viewport = { width: 900, height: 640 }, deviceScaleFactor = 1 } = {}) {
   const { chromium } = loadPlaywright();
   const srv = await serve();
   const browser = await chromium.launch();
-  const page = await browser.newPage({ viewport: { width: 900, height: 640 } });
+  const page = await browser.newPage({ viewport, deviceScaleFactor });
   const errors = [];
   page.on('console', (m) => { if (m.type() === 'error') errors.push(m.text()); });
   page.on('pageerror', (e) => errors.push(String(e)));
