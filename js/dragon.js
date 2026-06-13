@@ -381,22 +381,26 @@ export function updateDragon(dt, player, time) {
     wingPivot2R.rotation.z = damp(wingPivot2R.rotation.z, -rootFlap * 0.6 + turnBias, 14, dt);
   }
 
-  // Snake-like tail wave: each segment lags behind the previous and trails
-  // opposite the dragon's steering, so sharp turns bend the whole silhouette.
-  for (let i = 0; i < tailSegs.length; i++) {
-    const tphase = time * 3.8 - i * 0.55;
-    const amp = 0.09 * (i + 1) * (i < tailSegs.length - 1 ? 1 : 0.6);
-    const trailK = (i + 1) / tailSegs.length;
-    const motionTrailX = -player.velocity.x * 0.055 * trailK * trailK;
-    const motionTrailY = -player.velocity.y * 0.04 * trailK * trailK;
-    const speedWhip = speedNorm * Math.sin(time * 7.5 - i * 0.7) * 0.12 * trailK;
+  // Snake-like tail coil: the ROOT segment is locked to the body (lock=0) and
+  // the sway ramps toward the tip (lock→1), so the whole tail coils with a
+  // travelling wave while staying anchored — it never detaches into a spear.
+  // Heavy segment overlap (built in dragonParts) hides the joints as it bends.
+  const nTail = tailSegs.length;
+  for (let i = 0; i < nTail; i++) {
+    const lock = nTail > 1 ? i / (nTail - 1) : 0;
+    const lock2 = lock * lock;
+    const tphase = time * 4.0 - i * 0.6;
+    const amp = 0.3 * lock2;
+    const motionTrailX = -player.velocity.x * 0.05 * lock2;
+    const motionTrailY = -player.velocity.y * 0.04 * lock2;
+    const speedWhip = speedNorm * Math.sin(time * 8 - i * 0.7) * 0.12 * lock2;
     const waveX = Math.sin(tphase) * amp + motionTrailX + speedWhip;
-    const waveY = Math.cos(tphase * 0.7) * amp * 0.4 + motionTrailY;
-    tailSegs[i].position.x = damp(tailSegs[i].position.x, waveX, 9 + i * 0.45, dt);
-    tailSegs[i].position.y = damp(tailSegs[i].position.y, waveY, 9 + i * 0.45, dt);
-    // Rotation follows the wave direction for organic feel
-    tailSegs[i].rotation.z = damp(tailSegs[i].rotation.z, -waveX * 0.6, 14, dt);
-    tailSegs[i].rotation.y = damp(tailSegs[i].rotation.y, waveX * 0.4, 14, dt);
+    const waveY = Math.cos(tphase * 0.8) * amp * 0.55 + motionTrailY;
+    tailSegs[i].position.x = damp(tailSegs[i].position.x, waveX, 10, dt);
+    tailSegs[i].position.y = damp(tailSegs[i].position.y, waveY, 10, dt);
+    // Rotation follows the wave direction so segments bank into the coil.
+    tailSegs[i].rotation.z = damp(tailSegs[i].rotation.z, -waveX * 0.5, 12, dt);
+    tailSegs[i].rotation.y = damp(tailSegs[i].rotation.y, waveX * 0.5, 12, dt);
   }
 
   // Boost wing glow + fever tint + eyes + aura (cheap material writes).

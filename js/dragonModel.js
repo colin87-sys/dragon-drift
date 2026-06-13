@@ -331,8 +331,10 @@ export function buildDragonModel(def, opts = {}) {
   // the roster keeps the legacy segmented tail (fan / mace / simple).
   const tailSegs = [];
   if (model.tailStyle) {
+    // Tail root anchored at hipRear and overlapping the body (base radius ≈ hip
+    // width) so it flows out of the torso seamlessly — never a detached spear.
     const { group: tailGroup, segs } = buildCleanTail(def, model, bodyMat);
-    tailGroup.position.set(0, 0, 1.7); // continue from the slim tail root
+    tailGroup.position.set(0, 0.28, 1.15);
     group.add(tailGroup);
     for (const s of segs) tailSegs.push(s);
   } else {
@@ -402,11 +404,22 @@ export function buildDragonModel(def, opts = {}) {
     emissive: def.apexSeam || def.wingEmissive, emissiveIntensity: 1.7,
     roughness: 0.3, metalness: 0.4,
   }) : null;
+  // Brighter, thicker leading-edge ARM bone so the wing reads as bone + membrane
+  // (an organic limb) instead of a flat triangular plane.
+  const armMat = new THREE.MeshStandardMaterial({
+    color: def.horn, emissive: def.apexSeam || def.wingEmissive,
+    emissiveIntensity: 0.55, roughness: 0.3, metalness: 0.55,
+  });
 
   function buildWingSide(side) {
     const pivot = new THREE.Group();
     // Roots high on the back so the bowed wings lift clear of the torso.
     pivot.position.set(0.5 * side, 0.55, -0.25);
+
+    // Shoulder joint — a small mass anchoring the wing to the body.
+    const shoulder = new THREE.Mesh(new THREE.SphereGeometry(0.16, 9, 7), armMat);
+    shoulder.scale.set(1.1, 0.9, 1.2);
+    pivot.add(shoulder);
 
     const geo = new THREE.ShapeGeometry(featherShape ? buildFeatherWingShape() : buildWingShape(wingSpec), 14);
     geo.rotateX(-Math.PI / 2);
@@ -422,9 +435,13 @@ export function buildDragonModel(def, opts = {}) {
       const x = px * 1.34 * ws * side;
       const z = -py * 1.0;
       const lift = archLift(x, maxX, arc, ws);
-      pivot.add(wingStrut(x, z, i === 0 ? 0.07 : 0.045, 0.012, boneMat, lift));
-      if (veinMat) {
-        const vein = wingStrut(x, z, i === 0 ? 0.042 : 0.028, 0.006, veinMat, lift);
+      // The leading-edge bone (to the far tip) is the thick bright "arm"; the
+      // rest are slimmer finger struts.
+      const lead = i === 0;
+      pivot.add(wingStrut(x, z, lead ? 0.1 : 0.04, lead ? 0.02 : 0.012,
+        lead ? armMat : boneMat, lift));
+      if (veinMat && !lead) {
+        const vein = wingStrut(x, z, 0.028, 0.006, veinMat, lift);
         vein.position.y += 0.05;
         pivot.add(vein);
       }
@@ -564,8 +581,10 @@ export function makePreviewTick(def, result) {
     wingPivotL.rotation.z =   flap - 0.15;
     if (wingPivot2L) wingPivot2L.rotation.z = flap * 0.7;
     if (wingPivot2R) wingPivot2R.rotation.z = -(flap * 0.7);
-    for (let i = 0; i < tailSegs.length; i++) {
-      tailSegs[i].position.x = Math.sin(t * 2.4 - i * 0.6) * 0.06 * (i + 1);
+    const nT = tailSegs.length;
+    for (let i = 0; i < nT; i++) {
+      const lock = nT > 1 ? i / (nT - 1) : 0;     // root locked, sway ramps to tip
+      tailSegs[i].position.x = Math.sin(t * 2.4 - i * 0.6) * 0.22 * lock * lock;
     }
     head.rotation.y = Math.sin(t * 0.9) * 0.18;
     if (auraSprite) {

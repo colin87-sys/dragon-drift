@@ -234,101 +234,99 @@ function buildBladeShape(halfW, length) {
   return s;
 }
 
-// Build the whole tail as ONE swaying unit: a continuous tapered shaft of
-// heavily-overlapping frustums (reads as a smooth tube, never separates) with a
-// gold dorsal ridge and an elegant connected tip. Returns { group, segs } where
-// segs is the single entry the rig sways.
+// Build the tail as a CHAIN of heavily-overlapping segments, each a little
+// group (tapered frustum + dorsal spine plate) so the rig can coil them like a
+// snake while the root segment stays locked to the body — it never reads as a
+// detached spear, and the spine flows continuously from the back onto the tail.
+// Returns { group, segs }: `group` is anchored at the hip by the caller; `segs`
+// is the root→tip chain the rig animates (segs[0] locked, amplitude ramps out).
 export function buildCleanTail(def, model, bodyMat) {
   const root = new THREE.Group();
+  const segs = [];
   const style = model.tailStyle || 'simple';
   const g = model.spineGlow || 0;
   const lenScale = Math.min(model.tailSegments || 6, 9) / 6;
-  const len = 3.0 * lenScale;
-  const baseR = 0.24, tipR = 0.045;
-  const N = 6;
+  const N = 7;
+  const len = 2.7 * lenScale;
+  const baseR = 0.27, tipR = 0.05;        // base ≈ hip width, so it flows out cleanly
+  const spacing = len / (N - 1);
+  const segLen = spacing * 2.4;            // big overlap → seamless even when coiling
 
-  const accentCol = def.apexSeam || def.scales;
-  const edgeMat = new THREE.MeshStandardMaterial({
-    color: accentCol, emissive: accentCol, emissiveIntensity: 0.45 + g * 1.3,
-    roughness: 0.3, metalness: 0.5, side: THREE.DoubleSide,
+  // Spine plates: dull at the whelp (def.scales), molten from the lit forms.
+  const accentCol = g > 0 ? (def.apexSeam || def.scales) : def.scales;
+  const plateMat = new THREE.MeshStandardMaterial({
+    color: accentCol, emissive: accentCol, emissiveIntensity: 0.3 + g * 1.5,
+    roughness: 0.35, metalness: 0.5,
   });
-  // Dark membrane for blade/comet tips — obsidian body tone with a faint inner
-  // ember, never the bright hazard-orange the old shards used.
   const membraneMat = new THREE.MeshStandardMaterial({
-    color: def.body, emissive: def.wingOuter || def.body, emissiveIntensity: 0.22,
+    color: def.body, emissive: def.wingOuter || def.body, emissiveIntensity: 0.2,
     roughness: 0.5, metalness: 0.25, side: THREE.DoubleSide,
   });
 
-  // Continuous tapered shaft.
+  function spinePlate(r) {
+    const h = 0.12 + g * 0.16;
+    const plate = new THREE.Mesh(new THREE.ConeGeometry(0.04 + r * 0.16, h, 4), plateMat);
+    plate.position.set(0, r * 0.85, 0.04);
+    plate.rotation.x = -0.18;
+    return plate;
+  }
+
+  // Shaft segments. Each is its own group at a fixed z; the rig sways x/y so the
+  // chain coils, with the root (segs[0]) held at the hip.
   for (let i = 0; i < N; i++) {
-    const t0 = i / N, t1 = (i + 1) / N;
-    const r0 = baseR + (tipR - baseR) * t0;
-    const r1 = baseR + (tipR - baseR) * t1;
-    const z0 = t0 * len, z1 = t1 * len;
-    const segLen = (z1 - z0) * 1.7; // overlap → reads as one smooth tube
-    const seg = new THREE.Mesh(new THREE.CylinderGeometry(r1, r0, segLen, 8), bodyMat);
-    seg.rotation.x = Math.PI / 2;
-    seg.position.set(0, 0.1, (z0 + z1) / 2);
+    const r0 = baseR + (tipR - baseR) * (i / (N - 1));
+    const r1 = baseR + (tipR - baseR) * ((i + 1) / (N - 1));
+    const seg = new THREE.Group();
+    seg.position.set(0, 0, i * spacing);
+    const frustum = new THREE.Mesh(new THREE.CylinderGeometry(r1, r0, segLen, 8), bodyMat);
+    frustum.rotation.x = Math.PI / 2;
+    seg.add(frustum);
+    seg.add(spinePlate(r0));
     root.add(seg);
+    segs.push(seg);
   }
 
-  // Gold dorsal ridge running the shaft — continues the spine onto the tail.
-  const ridgeN = 7;
-  for (let i = 0; i < ridgeN; i++) {
-    const t = i / (ridgeN - 1);
-    const r = baseR + (tipR - baseR) * t;
-    const h = (0.11 + g * 0.12) * (1 - t * 0.45);
-    const ridge = new THREE.Mesh(new THREE.ConeGeometry(0.028, h, 4), edgeMat);
-    ridge.rotation.x = -Math.PI / 2;
-    ridge.position.set(0, 0.1 + r * 0.75 + h / 2 - 0.03, t * len * 0.94);
-    root.add(ridge);
-  }
-
-  const tipZ = len - 0.05;
+  // Tip ornament — the final coiling segment, overlapping the shaft end.
+  const tip = new THREE.Group();
+  tip.position.set(0, 0, (N - 1) * spacing);
   if (style === 'comet') {
-    // Forked comet: dark membrane swallowtail with gold edge lines on the tines.
-    const forkGeo = new THREE.ShapeGeometry(buildForkShape(0.5, 1.7, 0.95));
+    const forkGeo = new THREE.ShapeGeometry(buildForkShape(0.46, 1.5, 0.85));
     forkGeo.rotateX(Math.PI / 2);
-    const fork = new THREE.Mesh(forkGeo, membraneMat);
-    fork.position.set(0, 0.1, tipZ);
-    root.add(fork);
+    tip.add(new THREE.Mesh(forkGeo, membraneMat));
     for (const sx of [-1, 1]) {
-      const a = new THREE.Vector3(sx * 0.06, 0.1, tipZ);
-      const b = new THREE.Vector3(sx * 0.5, 0.1, tipZ + 1.7);
+      const a = new THREE.Vector3(sx * 0.05, 0, 0);
+      const b = new THREE.Vector3(sx * 0.46, 0, 1.5);
       const dir = b.clone().sub(a);
-      const edge = new THREE.Mesh(new THREE.CylinderGeometry(0.016, 0.05, dir.length(), 4), edgeMat);
+      const edge = new THREE.Mesh(new THREE.CylinderGeometry(0.014, 0.045, dir.length(), 4), plateMat);
       edge.position.copy(a).add(b).multiplyScalar(0.5);
       edge.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), dir.clone().normalize());
-      root.add(edge);
+      tip.add(edge);
     }
   } else if (style === 'blade') {
-    // Single elegant blade: dark membrane with a gold leading edge.
-    const bladeGeo = new THREE.ShapeGeometry(buildBladeShape(0.34, 1.5));
+    const bladeGeo = new THREE.ShapeGeometry(buildBladeShape(0.3, 1.35));
     bladeGeo.rotateX(Math.PI / 2);
-    const blade = new THREE.Mesh(bladeGeo, membraneMat);
-    blade.position.set(0, 0.1, tipZ);
-    root.add(blade);
-    const edge = new THREE.Mesh(new THREE.CylinderGeometry(0.018, 0.05, 1.5, 4), edgeMat);
+    tip.add(new THREE.Mesh(bladeGeo, membraneMat));
+    const edge = new THREE.Mesh(new THREE.CylinderGeometry(0.016, 0.045, 1.35, 4), plateMat);
     edge.rotation.x = Math.PI / 2;
-    edge.position.set(0, 0.1, tipZ + 0.75);
-    root.add(edge);
+    edge.position.set(0, 0, 0.67);
+    tip.add(edge);
   } else if (style === 'finned') {
-    // A small upright dorsal fin just ahead of a clean tapered point.
-    const fin = new THREE.Mesh(new THREE.ConeGeometry(0.09, 0.5, 4), edgeMat);
+    const fin = new THREE.Mesh(new THREE.ConeGeometry(0.085, 0.46, 4), plateMat);
     fin.scale.set(1, 1, 0.5);
-    fin.position.set(0, 0.32, tipZ - 0.45);
-    root.add(fin);
-    const point = new THREE.Mesh(new THREE.ConeGeometry(tipR + 0.02, 0.55, 6), bodyMat);
+    fin.position.set(0, 0.26, -0.05);
+    tip.add(fin);
+    const point = new THREE.Mesh(new THREE.ConeGeometry(tipR + 0.03, 0.6, 6), bodyMat);
     point.rotation.x = Math.PI / 2;
-    point.position.set(0, 0.1, tipZ + 0.2);
-    root.add(point);
+    point.position.set(0, 0, 0.3);
+    tip.add(point);
   } else {
-    // simple: a clean tapered point.
-    const point = new THREE.Mesh(new THREE.ConeGeometry(tipR + 0.02, 0.5, 6), bodyMat);
+    const point = new THREE.Mesh(new THREE.ConeGeometry(tipR + 0.03, 0.55, 6), bodyMat);
     point.rotation.x = Math.PI / 2;
-    point.position.set(0, 0.1, tipZ + 0.2);
-    root.add(point);
+    point.position.set(0, 0, 0.28);
+    tip.add(point);
   }
+  root.add(tip);
+  segs.push(tip);
 
-  return { group: root, segs: [root] };
+  return { group: root, segs };
 }
