@@ -637,10 +637,11 @@ export const ui = {
                 <button class="form-arrow" data-form-next="${key}">▶</button>
               </div>` : '';
           return `
-            <div class="skin-card${equipped ? ' equipped' : ''}${owned ? '' : ' locked'}${lux}" data-dragon="${key}">
+            <div class="skin-card${equipped ? ' equipped' : ''}${owned ? '' : ' locked'}${lux}" data-dragon="${key}" data-rarity="${d.rarity}">
               <div class="preview-wrap">
                 <canvas class="skin-preview" data-kind="dragon" data-key="${key}" width="180" height="180"></canvas>
                 ${equipped ? '<div class="equipped-badge">✓ EQUIPPED</div>' : ''}
+                <div class="rarity-gem">${d.rarity}</div>
               </div>${scrub}
               <div class="skin-name">${d.name}</div>
               <div class="skin-title">${d.title}</div>
@@ -1250,10 +1251,12 @@ function wireScreenButtons(type) {
         const newTier = handlers.onAscend && handlers.onAscend(key);
         if (newTier) {
           ui.showScreen('shop');
+          const resolvedDef = ascendedDef(d, newTier, radianceRank(key));
           ui.celebrate({
-            kind: 'ascension', tier: 'big', glyph: '▲',
+            kind: 'ascension', tier: 'big',
             title: `${d.name} Ascended`,
             subtitle: ASCENSION_TIERS[newTier - 1].name,
+            renderPreview: (c) => attachPreviewCanvas(c, 'dragon', resolvedDef),
           });
         } else {
           const check = canAscend(key, d.cost);

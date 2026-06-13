@@ -461,9 +461,28 @@ body.app-loaded > canvas { opacity: 1; }
   gap: 12px; width: min(620px, 92vw); margin: 14px 0; }
 .skin-card { pointer-events: auto; cursor: pointer; border-radius: 12px; padding: 12px 10px;
   background: rgba(24, 42, 80, 0.6); border: 1px solid var(--gold-trim);
+  position: relative;
   display: flex; flex-direction: column; align-items: center; gap: 6px; transition: transform 0.12s, border-color 0.2s; }
 .skin-card:hover { transform: translateY(-2px); border-color: rgba(180, 230, 255, 0.6); }
 .skin-card.equipped { border-color: #ffd86a; box-shadow: 0 0 16px rgba(255, 200, 90, 0.35); }
+/* Rarity-tinted card borders */
+.skin-card[data-rarity="SR"]   { border-color: rgba(80,140,255,0.45); }
+.skin-card[data-rarity="SSR"]  { border-color: rgba(160,80,255,0.5); }
+.skin-card[data-rarity="SSSR"] { border-color: rgba(255,200,90,0.55);
+  background: linear-gradient(175deg, rgba(40,28,8,0.65), rgba(24,42,80,0.6) 60%); }
+.skin-card.equipped { border-color: #ffd86a; }
+/* Rarity corner gem */
+.rarity-gem { position: absolute; top: 7px; right: 7px; font-size: 8px; font-weight: 900;
+  letter-spacing: 1px; border-radius: 4px; padding: 2px 6px; pointer-events: none; }
+.skin-card[data-rarity="R"]    .rarity-gem { color: #a0c8a0; background: rgba(120,200,120,0.14); border: 1px solid rgba(120,200,120,0.25); }
+.skin-card[data-rarity="SR"]   .rarity-gem { color: #60a8ff; background: rgba(80,140,255,0.14); border: 1px solid rgba(80,140,255,0.3); }
+.skin-card[data-rarity="SSR"]  .rarity-gem { color: #c080ff; background: rgba(160,80,255,0.14); border: 1px solid rgba(160,80,255,0.3); }
+.skin-card[data-rarity="SSSR"] .rarity-gem { color: #ffd86a; background: rgba(255,200,90,0.18); border: 1px solid rgba(255,200,90,0.45);
+  animation: sssr-gem-pulse 2.2s ease-in-out infinite; }
+@keyframes sssr-gem-pulse {
+  0%, 100% { box-shadow: none; }
+  50% { box-shadow: 0 0 8px rgba(255,200,90,0.7); }
+}
 .skin-card.locked { opacity: 0.85; }
 /* Premium aura: top-tier dragons/riders radiate on the card itself */
 .skin-card.lux { animation: lux-breathe 2.6s ease-in-out infinite; }
