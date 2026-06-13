@@ -19,7 +19,7 @@ const GradingShader = {
     tDiffuse: { value: null },
     saturation: { value: 1.18 },
     vibrance: { value: 0.30 },
-    contrast: { value: 0.16 },     // 0..1 blend toward an S-curve
+    contrast: { value: 0.24 },     // 0..1 blend toward an S-curve (more punch)
     vignette: { value: 0.30 },
     aberration: { value: 0.0 },    // chromatic aberration strength
     lift: { value: 0.0 },          // fever warm-glow pulse
@@ -77,7 +77,7 @@ export const postfx = {
   _h: 1,
   _pixelRatio: 1,
   _bloomScale: 0.5,
-  _baseBloom: 0.32,
+  _baseBloom: 0.24,
   _aberrationOn: true,
   _feverMix: 0,
   _kickScale: 1, // tier 1 halves impulse magnitudes
@@ -205,12 +205,12 @@ export function setPostTier(tier) {
   }
   postfx.enabled = true;
   if (tier === 0) {
-    postfx._baseBloom = 0.32;
+    postfx._baseBloom = 0.24; // trimmed so the bright sky stops bleeding
     postfx._bloomScale = 0.5;
     postfx._aberrationOn = true;
     postfx._kickScale = 1;
   } else {
-    postfx._baseBloom = 0.26;
+    postfx._baseBloom = 0.20;
     postfx._bloomScale = 0.25;
     postfx._aberrationOn = false;
     postfx._kickScale = 0.5;

@@ -565,6 +565,9 @@ body.app-loaded > canvas { opacity: 1; }
   box-shadow: 0 2px 8px rgba(150,90,255,0.35); }
 .tier-gate { font-size: 9px; letter-spacing: 0.4px; color: rgba(180,210,255,0.55);
   border: 1px dashed rgba(140,200,255,0.25); border-radius: 6px; padding: 3px 8px; }
+.tier-max { font-size: 9px; font-weight: 800; letter-spacing: 0.6px; color: #ffd34d;
+  text-shadow: 0 0 6px rgba(255,200,90,0.45); }
+.btn-ascend.prestige { font-size: 8.5px; padding: 3px 7px; } /* optional cosmetic — smaller */
 
 /* Music station cards */
 .track-disc { width: 58px; height: 58px; border-radius: 50%; display: flex; align-items: center;

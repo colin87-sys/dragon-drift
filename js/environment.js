@@ -262,7 +262,9 @@ export function createEnvironment(scene, seed = CONFIG.seed) {
         vec3 col = mix(hor, mid, smoothstep(0.0, 0.25, h));
         col = mix(col, topColor, smoothstep(0.2, 0.7, h));
         float s = max(dot(d, normalize(sunDir)), 0.0);
-        col += sunGlow * (pow(s, 600.0) * 1.3 + pow(s, 8.0) * 0.35);
+        // Tighter, dimmer sun: a smaller disc + a much softer halo so it stops
+        // blowing out the centre of the screen and washing out contrast.
+        col += sunGlow * (pow(s, 900.0) * 0.7 + pow(s, 10.0) * 0.16);
         // Aurora bands during surge: two drifting sine curtains in the upper
         // sky, fading cyan <-> magenta. Branchless — everything * feverMix.
         float band1 = sin(d.x * 9.0 + time * 0.7 + d.y * 14.0);
