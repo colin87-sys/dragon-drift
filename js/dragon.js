@@ -435,19 +435,21 @@ export function updateDragon(dt, player, time) {
 
   group.updateMatrixWorld(true);
 
-  // Wing-tip contrails while boosting: small sprites pinned to the true
-  // wing tips, sampled after the matrix update so they track the flap.
-  if (player.boosting) {
+  // Wing-tip contrails — the SECONDARY boost accent, only on the elite forms
+  // (spineGlow ≥ 0.5) and only while boosting, so it stays restrained. Violet
+  // wisps during Surge (the apex's amethyst energy at the wing edge).
+  const wingFx = (activeDef.model.spineGlow || 0) >= 0.5;
+  if (player.boosting && wingFx) {
     contrailTimer -= dt;
     if (contrailTimer <= 0) {
-      contrailTimer = (player.feverActive ? 0.018 : 0.026) / quality;
+      contrailTimer = (player.feverActive ? 0.02 : 0.03) / quality;
       for (const marker of [tipMarkerL, tipMarkerR]) {
         const s = trailSprites.find(s => !s.visible);
         if (!s) break;
         marker.getWorldPosition(tmpV);
         s.visible = true;
         s.userData.life = player.feverActive ? 0.75 : 0.6; // shorter than body trail = crisp ribbon
-        s.material.color.setHex(player.feverActive && !activeDef.hasStyle ? 0xff9ad6 : pickTrailHex(activeDef.trail));
+        s.material.color.setHex(player.feverActive && !activeDef.hasStyle ? 0xc998ff : pickTrailHex(activeDef.trail));
         s.position.copy(tmpV);
       }
     }
@@ -496,19 +498,23 @@ export function updateDragon(dt, player, time) {
     }
   }
 
-  // Boost trail (only while boosting), per-dragon tint; pink during fever
+  // Boost exhaust — the TAIL is the primary boost source: emit from the tail
+  // TIP, denser the more evolved the form (spineGlow proxies the tier), and a
+  // white-gold core during Surge.
   boostTrailTimer -= dt;
   if (player.boosting && boostTrailTimer <= 0) {
-    boostTrailTimer = (player.feverActive ? 0.012 : 0.018) / quality;
+    const fxLvl = activeDef.model.spineGlow || 0; // 0 hatchling → 1 apex
+    boostTrailTimer = (player.feverActive ? 0.012 : 0.018) / (quality * (1 + fxLvl * 0.7));
     const s = boostTrailSprites.find(s => !s.visible);
-    if (s) {
+    if (s && tailSegs.length) {
+      tailSegs[tailSegs.length - 1].getWorldPosition(tmpV);
       s.visible = true;
       s.userData.life = player.feverActive ? 1.2 : 1;
-      s.material.color.setHex(player.feverActive && !activeDef.hasStyle ? 0xff88cc : pickTrailHex(activeDef.boostTrail));
+      s.material.color.setHex(player.feverActive && !activeDef.hasStyle ? 0xfff0c0 : pickTrailHex(activeDef.boostTrail));
       s.position.set(
-        group.position.x + (Math.random() - 0.5) * (player.feverActive ? 1.5 : 1.0),
-        group.position.y + (Math.random() - 0.5) * (player.feverActive ? 1.3 : 0.9),
-        group.position.z + 2 + Math.random() * (player.feverActive ? 6 : 4)
+        tmpV.x + (Math.random() - 0.5) * 0.8,
+        tmpV.y + (Math.random() - 0.5) * 0.6,
+        tmpV.z + Math.random() * (player.feverActive ? 3 : 2)
       );
     }
   }
