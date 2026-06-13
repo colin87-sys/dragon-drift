@@ -353,7 +353,10 @@ export function updateDragon(dt, player, time) {
   // flapBias gives each dragon its own wingbeat character.
   const feverBoost = player.feverActive ? 1.3 : 1;
   const flapSpeed = (player.speedActive ? 11 : 6) * feverBoost * activeDef.model.flapBias;
-  const flapAmp   = player.speedActive ? 0.7 : 0.52;
+  // flapAmp: per-dragon wingbeat size. Premium gliders (Solar) beat smaller so
+  // the bowed elbow silhouette stays readable from behind instead of washing
+  // out into a flat strip at the extremes of a big flap.
+  const flapAmp = (player.speedActive ? 0.7 : 0.52) * (activeDef.model.flapAmp ?? 1);
   const turnBias = Math.max(-0.28, Math.min(0.28, player.velocity.x * 0.018));
   const climbBias = Math.max(-0.18, Math.min(0.18, player.velocity.y * 0.015));
   const phase = time * flapSpeed;

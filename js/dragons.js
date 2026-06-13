@@ -143,30 +143,36 @@ export const DRAGONS = {
     // per-stage silhouette. Cumulative: later forms override earlier keys.
     model: {
       scale: 1.22, wingScale: 1.3, tailSegments: 9, neckSegments: 6,
-      hornLen: 1.7, hornPairs: 2, ridgeCount: 16, flapBias: 1.1,
+      hornLen: 1.7, hornPairs: 2, ridgeCount: 16,
+      flapBias: 0.8, flapAmp: 0.6, // slow, gliding, majestic wingbeat
     },
     forms: [
-      // T0 — Solar Whelp: compact starter. Narrow 3-finger wings, short simple
-      // tail, no spine glow or aura ornaments. Basic but appealing.
-      { wingForm: 0, tailStyle: 'simple', tailSegments: 5, ridgeCount: 9,
-        spineGlow: 0, crest: 0, hornPairs: 1, hornLen: 1.15, neckSegments: 5 },
-      // T1 — Kindled Drake: awakened. Wider 4-finger wings with a gentle
-      // scallop, a small dorsal ridge + sail, a longer finned tail.
+      // T0 — Solar Whelp: a genuinely small baby. Stubby straight glider wings,
+      // short clean tail, no spine glow, no aura, and a DULL muted-bronze palette
+      // so the vivid T1 "ignition" is worth chasing.
+      { wingForm: 0, tailStyle: 'simple', tailSegments: 5, ridgeCount: 8,
+        spineGlow: 0, crest: 0, hornPairs: 1, hornLen: 1.0, neckSegments: 5,
+        colors: { wingInner: 0x5a2a18, wingOuter: 0x9c6334, wingEmissive: 0x6e3712,
+          scales: 0xb6975c, horn: 0xc7a774, eye: 0xc2a558, body: 0x231a12 } },
+      // T1 — Kindled Drake: it ignites. Vivid palette returns, wider wings with a
+      // small wrist elbow, a dorsal ridge + sail, a longer finned tail.
       { wingForm: 1, tailStyle: 'finned', tailSegments: 7, ridgeCount: 12,
-        spineGlow: 0.32, crest: 1, dorsal: true },
-      // T2 — Radiant Wyvern: elite. Deep-scalloped wings with glowing veins, a
-      // bright spine line, molten seams, a blade/fork tail. Fast and desirable.
+        spineGlow: 0.34, crest: 1, dorsal: true, hornLen: 1.25,
+        colors: { wingInner: 0x9a2310, wingOuter: 0xffb43a, wingEmissive: 0xff5a14,
+          scales: 0xffc24a, horn: 0xffe08a, eye: 0xffd86a, body: 0x18110b } },
+      // T2 — Radiant Wyvern: elite. Swept wings with a strong elbow + hooked tip,
+      // glowing veins, a bright keel spine, a clean blade tail. Fast, premium.
       { wingForm: 2, tailStyle: 'blade', tailSegments: 8, ridgeCount: 14,
         spineGlow: 0.7, wingVeins: true, glowSeams: true,
         crest: 2, hornPairs: 2, hornLen: 1.5, tusks: true, neckSegments: 6 },
-      // T3 — Solar Sovereign: apex. Widest flame-segmented wings, blazing solar
-      // spine, heroic back-crest, forked comet tail, subtle solar halo. Regal,
-      // aerodynamic, premium — and the centre lane stays open.
+      // T3 — Solar Sovereign: apex. Widest framing wings, pronounced elbow +
+      // flared flame tips, blazing solar spine, heroic back-crest, forked comet
+      // tail, a subtle backlight. Legendary — and the centre lane stays open.
       { wingForm: 3, tailStyle: 'comet', tailSegments: 9, ridgeCount: 16,
         spineGlow: 1.0, wingVeins: true, glowSeams: true,
         backCrest: true, auraHalo: true, crest: 3, hornLen: 1.7 },
     ],
-    fx: { auraColor: '255,150,40', auraIdle: 0.10, sparkle: false },
+    fx: { auraColor: '255,150,40', auraIdle: 0.0, sparkle: false },
     body: 0x18110b, belly: 0x3a2a16, scales: 0xffc24a, horn: 0xffe08a,
     // Gradient runs crimson at the root → bright gold at the TIP, so the bowed
     // outer wing glows against the sky (drama at the edges, dark near centre).

@@ -1,9 +1,19 @@
 import * as THREE from 'three';
 import { makeGlowTexture } from './util.js';
+import {
+  buildArrowTorso, keelTopAt,
+  DEFAULT_WING, wingSpecFor, buildWingShape, buildFeatherWingShape,
+  archWing, archLift, wingStrut, applyWingGradient,
+  buildCleanTail,
+} from './dragonParts.js';
 
 // Unified procedural dragon mesh builder.
 // Both the in-game rig (dragon.js) and the shop turntable (preview.js)
 // consume this single function so they always show the same creature.
+//
+// The heavy redesigned geometry (arrowhead torso, elbow-profile wings, single
+// clean tail) lives in dragonParts.js; this file assembles those, layers the
+// per-dragon decoration flags, and exposes the animation hookpoints.
 //
 // Returns { group, parts, materials, auraSprite } where:
 //   parts.wingPivotL/R, wingTipL/R, tipMarkerL/R — wing animation hookpoints
@@ -11,161 +21,7 @@ import { makeGlowTexture } from './util.js';
 //   materials.bodyMat, .wingMat, .eyeMat         — runtime-animated materials
 //   auraSprite                                    — fever/idle aura
 
-// --- Wing geometry helpers ---
-//
-// Dragon wings follow BAT anatomy: an arm + fanned finger bones with a
-// scalloped membrane webbed between them — never a flat paddle. Each evolution
-// FORM carries its own silhouette preset so the four stages read differently
-// from the DIRECT REAR gameplay camera — the only view that matters here.
-//
-// The dominant rear-view lever is ARC, not membrane detail: a flat wing is seen
-// edge-on and collapses to a thin strip, so all four forms would look the same.
-// Each form instead bows its membrane UPWARD toward the tip (outer-weighted, so
-// the inner half stays low and the centre lane open), and the bow grows per
-// tier — that upward curve is what gives each stage a distinct rear outline.
-//
-//   tips    finger-tip anchors [x span outward, y chord fore/aft], far tip first
-//   lead    mid control point for the leading-edge sweep (wrist → far tip)
-//   scallop how far each trailing web dips toward the body — the edge signature
-//   flame   cut the OUTER trailing webs as sharp V notches → flame edge (apex)
-//   arc     upward bow of the tip vs. the root (outer-weighted) — the rear read
-const WING_FORMS = {
-  // T0 — compact starter: 3 short fingers, level wing, almost-straight edge.
-  0: { tips: [[4.60, 0.30], [3.60, -0.40], [2.20, -0.74]],
-       lead: [3.00, 0.50], scallop: 0.18, flame: false, arc: 0.4 },
-  // T1 — awakened: a 4th finger, a gentle scallop, wing begins to bow up.
-  1: { tips: [[5.00, 0.34], [4.00, -0.46], [2.70, -0.92], [1.50, -0.98]],
-       lead: [3.40, 0.58], scallop: 0.36, flame: false, arc: 1.0 },
-  // T2 — elite: wider, hooked upswept tip, deep scallop, strong gull bow.
-  2: { tips: [[5.30, 0.44], [4.45, -0.50], [3.10, -1.04], [1.70, -1.16]],
-       lead: [3.70, 0.66], scallop: 0.56, flame: false, arc: 1.9 },
-  // T3 — apex: widest, long up-flared tip, flame edge on the outer third only,
-  // most dramatic bow — legendary rear silhouette with the centre still open.
-  3: { tips: [[5.60, 0.52], [4.80, -0.44], [3.50, -1.00], [2.15, -1.20], [1.05, -1.02]],
-       lead: [4.00, 0.74], scallop: 0.50, flame: true, arc: 2.9 },
-};
-// Legacy membrane for dragons not yet on the per-form system — reproduces the
-// previous single flat shape so the rest of the roster is untouched until
-// redesigned in turn (arc: 0 keeps them exactly as shipped).
-const DEFAULT_WING = {
-  tips: [[5.25, 0.34], [4.40, -0.50], [3.05, -1.00], [1.70, -1.12]],
-  lead: [3.80, 0.64], scallop: 0.50, flame: false, arc: 0,
-};
-
-function wingSpecFor(model) {
-  const f = model.wingForm;
-  return (f != null && WING_FORMS[f]) ? WING_FORMS[f] : DEFAULT_WING;
-}
-
-function buildWingShape(spec) {
-  const tips = spec.tips;
-  const s = new THREE.Shape();
-  s.moveTo(0, 0);
-  // Leading edge: a clean sweep from the wrist out to the far wing tip.
-  s.bezierCurveTo(1.8, 0.62, spec.lead[0], spec.lead[1], tips[0][0], tips[0][1]);
-  // Trailing edge: a concave web (scallop) dipping toward the body between each
-  // successive finger tip — the signature bat/dragon membrane silhouette. Apex
-  // forms cut only the OUTER webs as sharp V notches (drama at the wing edge,
-  // clean toward the centre), keeping the inner silhouette disciplined.
-  for (let i = 0; i < tips.length - 1; i++) {
-    const [ax, ay] = tips[i];
-    const [bx, by] = tips[i + 1];
-    const cx = (ax + bx) / 2;
-    if (spec.flame && i < 2) {
-      s.lineTo(cx, (ay + by) / 2 + spec.scallop * 1.5);
-      s.lineTo(bx, by);
-    } else {
-      s.quadraticCurveTo(cx, (ay + by) / 2 + spec.scallop, bx, by);
-    }
-  }
-  s.quadraticCurveTo(0.85, -0.34, 0, -0.28);
-  return s;
-}
-
-// Bow a flattened wing membrane (or its bone endpoints) upward toward the tip so
-// it presents a real curved outline to the direct-rear camera instead of a thin
-// edge-on strip. Outer-weighted (∝ (x/maxX)^2) so the inner half stays low and
-// the player's forward lane stays open. archLift() gives the per-point rise.
-function archLift(x, maxX, arc) {
-  const nx = maxX > 0 ? Math.abs(x) / maxX : 0;
-  return arc * nx * nx;
-}
-function archWing(geo, arc) {
-  if (!arc) return;
-  geo.computeBoundingBox();
-  const bb = geo.boundingBox;
-  const maxX = Math.max(Math.abs(bb.min.x), Math.abs(bb.max.x)) || 1;
-  const pos = geo.attributes.position;
-  for (let i = 0; i < pos.count; i++) {
-    pos.setY(i, pos.getY(i) + archLift(pos.getX(i), maxX, arc));
-  }
-  pos.needsUpdate = true;
-  geo.computeVertexNormals();
-}
-
-// A flat swallowtail outline for the comet tail — two tines splaying from a
-// shared root. Baked as one shape (not two splayed meshes) so the fork survives
-// the tail-wave animation, which overwrites per-segment rotation/position.
-// Built along +y (tine length); the caller rotates +y → +z (trailing back).
-function buildForkShape(spread, length, notch) {
-  const s = new THREE.Shape();
-  s.moveTo(0, 0);
-  s.lineTo(0.18, 0.12);
-  s.lineTo(spread, length);   // right tine tip
-  s.lineTo(0, notch);         // inner V between the tines
-  s.lineTo(-spread, length);  // left tine tip
-  s.lineTo(-0.18, 0.12);
-  s.closePath();
-  return s;
-}
-
-// A tapered bone strut from the wrist (origin) to a finger tip in the wing's
-// flattened XZ plane (after the membrane's rotateX(-PI/2)). endY lifts the tip
-// so the bone follows the membrane's upward arc instead of poking through flat.
-function wingStrut(x, z, r0, r1, mat, endY = 0) {
-  const dir = new THREE.Vector3(x, endY, z);
-  const len = dir.length() || 0.001;
-  const m = new THREE.Mesh(new THREE.CylinderGeometry(r1, r0, len, 5), mat);
-  m.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), dir.clone().normalize());
-  m.position.set(x / 2, 0.015 + endY / 2, z / 2);
-  return m;
-}
-
-function buildFeatherWingShape() {
-  const s = new THREE.Shape();
-  s.moveTo(0, 0);
-  s.bezierCurveTo(0.8, 0.5, 2.2, 1.0, 3.0, 0.7);
-  s.lineTo(4.8, 0.2);
-  s.lineTo(4.6, -0.25); s.lineTo(4.2, -0.05);
-  s.lineTo(3.8, -0.55); s.lineTo(3.3, -0.2);
-  s.lineTo(2.8, -0.8);  s.lineTo(2.2, -0.4);
-  s.lineTo(1.6, -1.05); s.lineTo(1.2, -0.75);
-  s.bezierCurveTo(0.8, -0.6, 0.4, -0.45, 0, -0.4);
-  return s;
-}
-
-const innerC = new THREE.Color();
-const outerC = new THREE.Color();
-function applyWingGradient(geo, palette, tStart = 0, tEnd = 1) {
-  innerC.setHex(palette.wingInner);
-  outerC.setHex(palette.wingOuter);
-  geo.computeBoundingBox();
-  const bb = geo.boundingBox;
-  const pos = geo.attributes.position;
-  const colors = new Float32Array(pos.count * 3);
-  const c = new THREE.Color();
-  const spanX = Math.max(bb.max.x - bb.min.x, 1e-5);
-  for (let i = 0; i < pos.count; i++) {
-    const kx = Math.abs(pos.getX(i) - (Math.abs(bb.min.x) > Math.abs(bb.max.x) ? bb.max.x : bb.min.x)) / spanX;
-    const t = tStart + (tEnd - tStart) * kx;
-    c.lerpColors(innerC, outerC, Math.min(t, 1));
-    colors[i * 3] = c.r; colors[i * 3 + 1] = c.g; colors[i * 3 + 2] = c.b;
-  }
-  geo.setAttribute('color', new THREE.BufferAttribute(colors, 3));
-}
-
 // Build the full dragon mesh from a resolved def (post-ascendedDef).
-// opts.detail: 'full' (game) | 'preview' (shop — same mesh, can tune later)
 export function buildDragonModel(def, opts = {}) {
   const model = def.model;
   const group = new THREE.Group();
@@ -191,43 +47,26 @@ export function buildDragonModel(def, opts = {}) {
     color: 0x223344, emissive: def.eye, emissiveIntensity: 2.2,
   });
 
-  // --- Body foundation ---------------------------------------------------
-  // A single lathed torso: thin at the neck → broad defined shoulders (the wing
-  // root) → sleek thorax → tapered pelvis → strong tail root. Replaces the old
-  // sphere-stack/rear-ball so the silhouette reads cleanly from the chase cam.
-  const profile = [
-    [0.14, -0.30], // neck cap (front, toward head)
-    [0.30,  0.10], // neck base
-    [0.46,  0.70],
-    [0.60,  1.30],
-    [0.72,  1.95], // shoulder peak — broadest mass, wing root
-    [0.60,  2.35],
-    [0.50,  2.75], // sleek thorax
-    [0.46,  3.15], // subtle pelvis / hip
-    [0.36,  3.55],
-    [0.27,  3.95], // strong tail root (animated tail continues from here)
-    [0.10,  4.20],
-  ].map(([r, h]) => new THREE.Vector2(r, h));
-  const torsoGeo = new THREE.LatheGeometry(profile, 18);
-  torsoGeo.rotateX(Math.PI / 2);   // lathe length axis → world +z (head at -z)
-  torsoGeo.translate(0, 0, -2.35); // neck end forward, tail root just behind 0
-  const torso = new THREE.Mesh(torsoGeo, bodyMat);
-  torso.scale.set(1.06, 0.96, 1);  // slimmer from behind — a sleek spine, not a slab
+  // --- Body foundation: aerodynamic arrowhead ----------------------------
+  // A lofted blade torso (keel + strong shoulders + narrow hips) replaces the
+  // round lathe so the body reads as a sleek predator, not a lump. DoubleSide
+  // keeps the closed loft robust regardless of face winding.
+  const torsoMat = bodyMat.clone();
+  torsoMat.side = THREE.DoubleSide;
+  const torso = new THREE.Mesh(buildArrowTorso(), torsoMat);
   torso.position.y = 0.2;
   group.add(torso);
 
-  // Defined shoulder masses at the wing roots — after the wings these are the
-  // strongest rear-view silhouette mass, and they anchor the wing connection.
+  // Small smooth fairings where the wings attach, so they never look bolted on.
   for (const s of [-1, 1]) {
-    const shoulder = new THREE.Mesh(new THREE.SphereGeometry(0.5, 10, 8), bodyMat);
-    shoulder.scale.set(0.96, 0.82, 1.12);
-    shoulder.position.set(s * 0.48, 0.5, -0.3);
-    group.add(shoulder);
+    const root = new THREE.Mesh(new THREE.SphereGeometry(0.3, 9, 7), bodyMat);
+    root.scale.set(0.86, 0.78, 1.2);
+    root.position.set(s * 0.46, 0.54, -0.4);
+    group.add(root);
   }
 
-  // Glowing dorsal spine — a molten line running the length of the back that
-  // reads as a bright stripe from directly behind. Ramps in over the forms
-  // (spineGlow 0→1): invisible on the whelp, a blazing solar spine at apex.
+  // Glowing dorsal spine — runs along the crest of the keel so it reads as a
+  // bright stripe from directly behind. Ramps with the forms (spineGlow 0→1).
   if (model.spineGlow > 0) {
     const g = model.spineGlow;
     const spineCol = def.apexSeam || def.eye;
@@ -235,21 +74,21 @@ export function buildDragonModel(def, opts = {}) {
       color: spineCol, emissive: spineCol,
       emissiveIntensity: 0.7 + g * 2.0, roughness: 0.3, metalness: 0.3,
     });
-    const segN = 10;
+    const segN = 11;
     for (let i = 0; i < segN; i++) {
-      const k = i / (segN - 1);
-      const node = new THREE.Mesh(
-        new THREE.ConeGeometry(0.045 + g * 0.045, 0.18 + g * 0.22, 4), spineMat);
+      const t = i / (segN - 1);
+      const z = -1.7 + t * 3.4;                 // shoulders → tail root
+      const top = 0.2 + keelTopAt(z);           // crest of the keel (torso y=0.2)
+      const h = 0.16 + g * 0.22;
+      const node = new THREE.Mesh(new THREE.ConeGeometry(0.04 + g * 0.045, h, 4), spineMat);
       node.rotation.x = -Math.PI / 2;
-      // Follows the back from just behind the shoulders down to the tail root.
-      node.position.set(0, 1.02 - Math.max(0, k - 0.45) * 0.95, -1.9 + k * 3.5);
+      node.position.set(0, top + h / 2 - 0.04, z);
       group.add(node);
     }
   }
 
   // Heroic back-crest — a crown of swept, raked-back blades rising off the
-  // shoulders. The apex's "crown-like, rear-visible" silhouette; tallest in the
-  // centre, splayed outward so it frames the rider from behind.
+  // shoulders. The apex's "crown-like, rear-visible" silhouette.
   if (model.backCrest) {
     const crestMat = new THREE.MeshStandardMaterial({
       color: def.horn, emissive: def.apexSeam || def.wingEmissive,
@@ -257,35 +96,26 @@ export function buildDragonModel(def, opts = {}) {
       side: THREE.DoubleSide,
     });
     for (let i = 0; i < 5; i++) {
-      const t = (i - 2) / 2;                    // -1 .. 1 across the back
+      const t = (i - 2) / 2;
       const h = 0.95 - Math.abs(t) * 0.32;
       const blade = new THREE.Mesh(new THREE.ConeGeometry(0.085, h, 4), crestMat);
-      blade.scale.set(1, 1, 0.38);              // flatten into a blade
-      blade.position.set(t * 0.52, 1.04 + h / 2 - Math.abs(t) * 0.14, -0.42);
-      blade.rotation.x = -0.62;                  // rake back
-      blade.rotation.z = -t * 0.55;              // splay outward into a fan
+      blade.scale.set(1, 1, 0.38);
+      blade.position.set(t * 0.5, 1.0 + h / 2 - Math.abs(t) * 0.14, -0.5);
+      blade.rotation.x = -0.62;
+      blade.rotation.z = -t * 0.55;
       group.add(blade);
     }
   }
 
-  // Scale ridge
+  // Scale ridge (legacy back detailing kept for the rest of the roster)
   const ridgeCount = model.ridgeCount;
   const ridgeStep = Math.min(0.43, 5.2 / ridgeCount);
   for (let i = 0; i < ridgeCount; i++) {
     const ridge = new THREE.Mesh(
-      new THREE.ConeGeometry(0.11 + Math.max(0, 5 - Math.abs(i - 4)) * 0.018, 0.44, 5), scalesMat);
+      new THREE.ConeGeometry(0.09 + Math.max(0, 5 - Math.abs(i - 4)) * 0.016, 0.34, 5), scalesMat);
     ridge.rotation.x = -Math.PI / 2;
-    ridge.position.set(0, 0.88 - Math.max(0, i - 5) * 0.03, -2.55 + i * ridgeStep);
+    ridge.position.set(0, 0.2 + keelTopAt(-2.55 + i * ridgeStep) + 0.06, -2.55 + i * ridgeStep);
     group.add(ridge);
-  }
-  for (const sx of [-1, 1]) {
-    for (let i = 0; i < 5; i++) {
-      const fin = new THREE.Mesh(new THREE.ConeGeometry(0.07, 0.48 - i * 0.045, 5), scalesMat);
-      fin.position.set(sx * (0.42 - i * 0.03), 0.34 - i * 0.035, -1.55 + i * 0.44);
-      fin.rotation.z = sx * -1.05;
-      fin.rotation.x = -0.35;
-      group.add(fin);
-    }
   }
 
   // Dorsal sail fin
@@ -294,7 +124,8 @@ export function buildDragonModel(def, opts = {}) {
       const h = 0.3 + Math.sin((i / 4) * Math.PI) * 0.28;
       const df = new THREE.Mesh(new THREE.ConeGeometry(0.055, h, 4), scalesMat);
       df.rotation.x = -Math.PI / 2;
-      df.position.set(0, 1.02 + h / 2, -1.6 + i * 0.8);
+      const z = -1.6 + i * 0.8;
+      df.position.set(0, 0.2 + keelTopAt(z) + h / 2, z);
       group.add(df);
     }
   }
@@ -310,7 +141,8 @@ export function buildDragonModel(def, opts = {}) {
       const spine = new THREE.Mesh(new THREE.ConeGeometry(0.045, h, 4), spineMat);
       spine.rotation.x = -Math.PI / 2;
       spine.rotation.z = (i % 2 === 0 ? 0.12 : -0.12);
-      spine.position.set((i % 2 === 0 ? 0.1 : -0.1), 0.96 + h / 2, -0.8 + i * 0.55);
+      const z = -0.8 + i * 0.55;
+      spine.position.set((i % 2 === 0 ? 0.08 : -0.08), 0.2 + keelTopAt(z) + h / 2, z);
       group.add(spine);
     }
   }
@@ -339,14 +171,11 @@ export function buildDragonModel(def, opts = {}) {
     const seamMat = new THREE.MeshStandardMaterial({
       color: seamColor, emissive: seamColor, emissiveIntensity: 1.8, roughness: 0.3,
     });
-    for (const xo of [-0.28, 0.28]) {
-      const seam = new THREE.Mesh(new THREE.BoxGeometry(0.032, 0.032, 3.8), seamMat);
-      seam.position.set(xo, 0.62, -0.85);
+    for (const xo of [-0.26, 0.26]) {
+      const seam = new THREE.Mesh(new THREE.BoxGeometry(0.03, 0.03, 3.4), seamMat);
+      seam.position.set(xo, 0.5, -0.7);
       group.add(seam);
     }
-    const chestSeam = new THREE.Mesh(new THREE.BoxGeometry(1.1, 0.032, 0.032), seamMat);
-    chestSeam.position.set(0, 0.62, -1.55);
-    group.add(chestSeam);
   }
 
   // Blade fins (Pearl — sharp blade-like lateral fins)
@@ -369,35 +198,34 @@ export function buildDragonModel(def, opts = {}) {
 
   // Head group
   const head = new THREE.Group();
-  const skull = new THREE.Mesh(new THREE.SphereGeometry(0.76, 14, 12), bodyMat);
-  skull.scale.set(1.32, 0.84, 0.95);
-  const snout = new THREE.Mesh(new THREE.ConeGeometry(0.48, 1.55, 8), bodyMat);
+  const skull = new THREE.Mesh(new THREE.SphereGeometry(0.74, 14, 12), bodyMat);
+  skull.scale.set(1.28, 0.82, 0.95);
+  const snout = new THREE.Mesh(new THREE.ConeGeometry(0.46, 1.5, 8), bodyMat);
   snout.rotation.x = -Math.PI / 2;
-  snout.scale.set(0.86, 1, 1.18);
-  snout.position.set(0, -0.08, -1.08);
+  snout.scale.set(0.84, 1, 1.18);
+  snout.position.set(0, -0.08, -1.05);
   head.add(skull, snout);
-  const jaw = new THREE.Mesh(new THREE.BoxGeometry(0.7, 0.22, 0.62), bellyMat);
-  jaw.position.set(0, -0.34, -0.74);
+  const jaw = new THREE.Mesh(new THREE.BoxGeometry(0.66, 0.2, 0.6), bellyMat);
+  jaw.position.set(0, -0.32, -0.72);
   head.add(jaw);
 
-  // Nostrils
   for (const s of [-1, 1]) {
     const nostril = new THREE.Mesh(new THREE.SphereGeometry(0.06, 6, 5), hornMat);
-    nostril.position.set(0.14 * s, -0.1, -1.3);
+    nostril.position.set(0.13 * s, -0.1, -1.26);
     head.add(nostril);
   }
 
-  // Whiskers (Jade/Pearl — flowing facial tendrils)
+  // Whiskers (Jade/Pearl)
   if (model.whiskers) {
     for (const [sx, angle] of [[-0.18, 0.3], [0.18, -0.3], [-0.1, 0.52], [0.1, -0.52]]) {
       const w = new THREE.Mesh(new THREE.CylinderGeometry(0.018, 0.005, 0.8, 4), scalesMat);
       w.rotation.set(Math.PI / 2 + 0.08, 0, angle);
-      w.position.set(sx, -0.13, -1.22);
+      w.position.set(sx, -0.13, -1.2);
       head.add(w);
     }
   }
 
-  // Ear tendrils (Obsidian/Toothless — wide frilled ear-flaps)
+  // Ear tendrils (Obsidian/Toothless)
   if (model.earTendrils) {
     const tendrilMat = new THREE.MeshStandardMaterial({
       color: def.body, emissive: def.eye, emissiveIntensity: 0.4,
@@ -407,7 +235,7 @@ export function buildDragonModel(def, opts = {}) {
       for (let i = 0; i < 3; i++) {
         const h = 0.42 - i * 0.08;
         const t = new THREE.Mesh(new THREE.ConeGeometry(0.065, h, 4), tendrilMat);
-        t.position.set(0.62 * s, 0.28 + i * 0.12, 0.38 + i * 0.18);
+        t.position.set(0.6 * s, 0.28 + i * 0.12, 0.38 + i * 0.18);
         t.rotation.x = 0.4 + i * 0.12;
         t.rotation.z = s * (0.9 + i * 0.15);
         head.add(t);
@@ -418,29 +246,29 @@ export function buildDragonModel(def, opts = {}) {
   // Horns
   for (const s of [-1, 1]) {
     const horn = new THREE.Mesh(new THREE.ConeGeometry(0.16, model.hornLen, 6), hornMat);
-    horn.position.set(0.42 * s, 0.54, 0.28);
+    horn.position.set(0.4 * s, 0.52, 0.26);
     horn.rotation.x = 0.65;
     horn.rotation.z = s * -0.2;
     head.add(horn);
     if (model.hornPairs > 1) {
       const horn2 = new THREE.Mesh(new THREE.ConeGeometry(0.11, model.hornLen * 0.62, 6), hornMat);
-      horn2.position.set(0.26 * s, 0.5, 0.55);
+      horn2.position.set(0.24 * s, 0.48, 0.52);
       horn2.rotation.x = 0.95;
       horn2.rotation.z = s * -0.34;
       head.add(horn2);
     }
-    const cheekFin = new THREE.Mesh(new THREE.ConeGeometry(0.12, 0.72, 5), scalesMat);
-    cheekFin.position.set(0.58 * s, 0.02, -0.12);
+    const cheekFin = new THREE.Mesh(new THREE.ConeGeometry(0.11, 0.68, 5), scalesMat);
+    cheekFin.position.set(0.56 * s, 0.02, -0.12);
     cheekFin.rotation.z = s * -1.2;
     cheekFin.rotation.x = 0.25;
     head.add(cheekFin);
   }
 
-  // Tusks (Solar/Bahamut — small tusk protrusions from jaw)
+  // Tusks (Solar/Bahamut)
   if (model.tusks) {
     for (const s of [-1, 1]) {
-      const tusk = new THREE.Mesh(new THREE.ConeGeometry(0.085, 0.48, 5), hornMat);
-      tusk.position.set(0.3 * s, -0.28, -0.86);
+      const tusk = new THREE.Mesh(new THREE.ConeGeometry(0.085, 0.46, 5), hornMat);
+      tusk.position.set(0.28 * s, -0.26, -0.84);
       tusk.rotation.x = -0.45;
       tusk.rotation.z = s * 0.2;
       head.add(tusk);
@@ -450,39 +278,38 @@ export function buildDragonModel(def, opts = {}) {
   // Brow ridges
   for (const s of [-1, 1]) {
     const brow = new THREE.Mesh(new THREE.ConeGeometry(0.08, 0.3, 5), scalesMat);
-    brow.position.set(0.28 * s, 0.44, -0.1);
+    brow.position.set(0.26 * s, 0.42, -0.1);
     brow.rotation.x = 0.9;
     head.add(brow);
   }
 
-  // Crest spines
+  // Crest spines (head)
   const crestCount = model.crest || 0;
   for (let i = 0; i < crestCount; i++) {
     const h = 0.42 + i * 0.1;
     const crestSpine = new THREE.Mesh(new THREE.ConeGeometry(0.08 - i * 0.01, h, 5), scalesMat);
-    crestSpine.position.set(0, 0.88 + h / 2, 0.38 - i * 0.22);
+    crestSpine.position.set(0, 0.86 + h / 2, 0.36 - i * 0.22);
     crestSpine.rotation.x = 0.28 + i * 0.08;
     head.add(crestSpine);
   }
 
-  // Halo (Pearl/Seraph — luminous ring above head)
+  // Halo (Pearl/Seraph)
   if (model.halo) {
     const haloMat = new THREE.MeshStandardMaterial({
       color: def.eye, emissive: def.eye, emissiveIntensity: 2.4,
       roughness: 0.2, metalness: 0.5, transparent: true, opacity: 0.9,
     });
-    const haloGeo = new THREE.TorusGeometry(0.52, 0.04, 8, 24);
-    const haloMesh = new THREE.Mesh(haloGeo, haloMat);
+    const haloMesh = new THREE.Mesh(new THREE.TorusGeometry(0.52, 0.04, 8, 24), haloMat);
     haloMesh.position.set(0, 1.32, 0);
     haloMesh.rotation.x = 0.18;
     head.add(haloMesh);
   }
 
-  // Eyes (per-dragon color, apex palette override applied via ascendedDef)
+  // Eyes
   const eyeR = 0.09 * (model.eyeScale || 1);
   for (const s of [-1, 1]) {
     const eye = new THREE.Mesh(new THREE.SphereGeometry(eyeR, 8, 6), eyeMat);
-    eye.position.set(0.3 * s, 0.22, -0.42);
+    eye.position.set(0.29 * s, 0.2, -0.4);
     head.add(eye);
   }
 
@@ -490,167 +317,114 @@ export function buildDragonModel(def, opts = {}) {
   head.position.set(0, 0.5 + (neckSegs - 4) * 0.09, -3.08 - (neckSegs - 4) * 0.34);
   group.add(head);
 
-  // Neck
+  // Neck — slim chain bridging the arrowhead's neck cap to the head.
   for (let i = 0; i < neckSegs; i++) {
     const neck = new THREE.Mesh(
-      new THREE.SphereGeometry(Math.max(0.52 - i * 0.05, 0.22), 9, 7), bodyMat);
-    neck.scale.set(0.82, 0.62, 1.35);
-    neck.position.set(Math.sin(i * 0.8) * 0.1, 0.28 + i * 0.09, -1.95 - i * 0.36);
+      new THREE.SphereGeometry(Math.max(0.46 - i * 0.045, 0.2), 9, 7), bodyMat);
+    neck.scale.set(0.8, 0.66, 1.3);
+    neck.position.set(Math.sin(i * 0.8) * 0.1, 0.3 + i * 0.085, -2.0 - i * 0.36);
     group.add(neck);
   }
 
-  // Tail — continues straight off the lathe's tail root for a clean transition.
-  // Tapers hard to a slim whip so even the longest apex tail stays elegant and
-  // aerodynamic (never a tadpole), and the tip ornament reads from behind.
+  // --- Tail --------------------------------------------------------------
+  // Redesigned dragons (model.tailStyle) get the single clean tail; the rest of
+  // the roster keeps the legacy segmented tail (fan / mace / simple).
   const tailSegs = [];
-  let radius = 0.4;
-  let zTail = 1.7;
-  const nTail = Math.min(model.tailSegments, 9); // longer at apex, still readable
-  const taper = nTail > 7 ? 0.74 : 0.78;         // slimmer the longer it runs
-  for (let i = 0; i < nTail; i++) {
-    const seg = new THREE.Mesh(new THREE.ConeGeometry(radius, 0.95, 7), bodyMat);
-    seg.rotation.x = Math.PI / 2;
-    seg.position.set(0, 0.1, zTail);
-    group.add(seg);
-    tailSegs.push(seg);
-    zTail += 0.58;          // tight spacing — aerodynamic, less tadpole
-    radius = Math.max(radius * taper, 0.08);
-  }
-
-  // Tail tip. The redesign language is elegant + aerodynamic — NO mace/ball. A
-  // per-form ramp: short point → small fin → blade → forked solar comet. The
-  // legacy 'mace'/'fan' paths remain for dragons not yet on tailStyle.
-  const tailStyle = model.tailStyle
-    || (model.maceTail ? 'mace' : model.tailTip === 'fan' ? 'fan' : 'simple');
-  const bladeMat = new THREE.MeshStandardMaterial({
-    color: def.scales, emissive: def.wingEmissive, emissiveIntensity: 0.7,
-    roughness: 0.25, metalness: 0.5, side: THREE.DoubleSide,
-  });
-  // Slim back-pointing point that anchors every tip style.
-  function tailPoint(len = 0.6, r = 0.09, mat = scalesMat) {
-    const tip = new THREE.Mesh(new THREE.ConeGeometry(r, len, 5), mat);
-    tip.rotation.x = Math.PI / 2;
-    tip.position.set(0, 0.1, zTail);
-    group.add(tip);
-    tailSegs.push(tip);
-  }
-  // One flattened blade trailing back along +z, optionally splayed outward to
-  // form a fork tine. scale.z flattens it into a slim membrane.
-  function tailBlade(sx, splay, len, r) {
-    const blade = new THREE.Mesh(new THREE.ConeGeometry(r, len, 4), bladeMat);
-    blade.scale.set(1, 1, 0.3);
-    blade.rotation.x = Math.PI / 2;
-    blade.rotation.y = sx * splay;
-    blade.position.set(sx * 0.12, 0.1, zTail + len * 0.32);
-    group.add(blade);
-    tailSegs.push(blade);
-  }
-
-  if (tailStyle === 'comet') {
-    // Forked solar comet: one baked swallowtail (so the fork holds through the
-    // tail wave), with a soft solar glow welling from the root — the apex's
-    // elegant signature. Pushed as a single tail segment so it sways as a unit.
-    const forkGeo = new THREE.ShapeGeometry(buildForkShape(0.62, 1.95, 1.05));
-    forkGeo.rotateX(Math.PI / 2);   // tine length +y → world +z (trailing back)
-    const fork = new THREE.Mesh(forkGeo, bladeMat);
-    fork.position.set(0, 0.1, zTail);
-    group.add(fork);
-    tailSegs.push(fork);
-    const glow = new THREE.Sprite(new THREE.SpriteMaterial({
-      map: makeGlowTexture(def.fx.auraColor), transparent: true, opacity: 0.55,
-      blending: THREE.AdditiveBlending, depthWrite: false,
-    }));
-    glow.scale.set(2.6, 1.4, 1);
-    glow.position.set(0, 0.1, zTail + 0.4);
-    glow.layers.set(1);
-    group.add(glow);
-  } else if (tailStyle === 'blade') {
-    // Elite: a single slim blade trailing straight back (no splay → unaffected
-    // by the tail wave's per-segment yaw).
-    tailBlade(0, 0, 1.6, 0.18);
-  } else if (tailStyle === 'finned') {
-    // Awakened: the simple point gains a small upright dorsal fin just ahead.
-    tailPoint(0.7, 0.1);
-    const fin = new THREE.Mesh(new THREE.ConeGeometry(0.09, 0.5, 5), scalesMat);
-    fin.position.set(0, 0.34, zTail - 0.5);
-    fin.rotation.x = 0.5;
-    group.add(fin);
-  } else if (tailStyle === 'mace') {
-    // Legacy spiky club (not used by redesigned dragons).
-    const mace = new THREE.Mesh(new THREE.SphereGeometry(0.28, 8, 7), bladeMat);
-    mace.position.set(0, 0.1, zTail);
-    group.add(mace);
-    tailSegs.push(mace);
-    for (let i = 0; i < 6; i++) {
-      const a = (i / 6) * Math.PI * 2;
-      const spike = new THREE.Mesh(new THREE.ConeGeometry(0.06, 0.38, 4), bladeMat);
-      spike.position.set(Math.cos(a) * 0.24, Math.sin(a) * 0.24 + 0.1, zTail);
-      spike.rotation.z = Math.sin(a) * Math.PI / 2;
-      spike.rotation.x = Math.cos(a) * Math.PI / 2;
-      group.add(spike);
-    }
-  } else if (tailStyle === 'fan') {
-    for (let i = 0; i < 3; i++) {
-      const angle = (i - 1) * 0.48;
-      const fin = new THREE.Mesh(new THREE.ConeGeometry(0.11, 0.74, 5), scalesMat);
-      fin.rotation.set(Math.PI / 2, 0, angle);
-      fin.position.set(Math.sin(angle) * 0.14, Math.cos(angle) * 0.14 + 0.1, zTail);
-      group.add(fin);
-      tailSegs.push(fin);
-    }
+  if (model.tailStyle) {
+    const { group: tailGroup, segs } = buildCleanTail(def, model, bodyMat);
+    tailGroup.position.set(0, 0, 1.7); // continue from the slim tail root
+    group.add(tailGroup);
+    for (const s of segs) tailSegs.push(s);
   } else {
-    tailPoint(0.6, 0.09); // simple starter point
+    let radius = 0.4;
+    let zTail = 1.7;
+    const nTail = Math.min(model.tailSegments, 9);
+    const taper = nTail > 7 ? 0.74 : 0.78;
+    for (let i = 0; i < nTail; i++) {
+      const seg = new THREE.Mesh(new THREE.ConeGeometry(radius, 0.95, 7), bodyMat);
+      seg.rotation.x = Math.PI / 2;
+      seg.position.set(0, 0.1, zTail);
+      group.add(seg);
+      tailSegs.push(seg);
+      zTail += 0.58;
+      radius = Math.max(radius * taper, 0.08);
+    }
+    const bladeMat = new THREE.MeshStandardMaterial({
+      color: def.scales, emissive: def.wingEmissive, emissiveIntensity: 0.7,
+      roughness: 0.25, metalness: 0.5, side: THREE.DoubleSide,
+    });
+    if (model.maceTail) {
+      const mace = new THREE.Mesh(new THREE.SphereGeometry(0.28, 8, 7), bladeMat);
+      mace.position.set(0, 0.1, zTail);
+      group.add(mace);
+      tailSegs.push(mace);
+      for (let i = 0; i < 6; i++) {
+        const a = (i / 6) * Math.PI * 2;
+        const spike = new THREE.Mesh(new THREE.ConeGeometry(0.06, 0.38, 4), bladeMat);
+        spike.position.set(Math.cos(a) * 0.24, Math.sin(a) * 0.24 + 0.1, zTail);
+        spike.rotation.z = Math.sin(a) * Math.PI / 2;
+        spike.rotation.x = Math.cos(a) * Math.PI / 2;
+        group.add(spike);
+      }
+    } else if (model.tailTip === 'fan') {
+      for (let i = 0; i < 3; i++) {
+        const angle = (i - 1) * 0.48;
+        const fin = new THREE.Mesh(new THREE.ConeGeometry(0.11, 0.74, 5), scalesMat);
+        fin.rotation.set(Math.PI / 2, 0, angle);
+        fin.position.set(Math.sin(angle) * 0.14, Math.cos(angle) * 0.14 + 0.1, zTail);
+        group.add(fin);
+        tailSegs.push(fin);
+      }
+    } else {
+      const tip = new THREE.Mesh(new THREE.ConeGeometry(0.09, 0.6, 5), scalesMat);
+      tip.rotation.x = Math.PI / 2;
+      tip.position.set(0, 0.1, zTail);
+      group.add(tip);
+      tailSegs.push(tip);
+    }
   }
 
-  // Wings — primary pair. One scalloped bat-wing membrane per side with fanned
-  // finger bones; the pivot flaps, the wingTip group carries the contrail
-  // marker (and the animation's secondary fold).
+  // --- Wings -------------------------------------------------------------
+  // One membrane per side, bowed along its per-form elbow profile so each tier
+  // reads as a distinct wing from directly behind. The pivot flaps; the wingTip
+  // group carries the contrail marker.
   const ws = model.wingScale;
   const featherShape = model.wingShape === 'feather';
   const wingSpec = featherShape ? DEFAULT_WING : wingSpecFor(model);
+  const arc = wingSpec.arc;
+  const maxX = Math.abs(wingSpec.tips[0][0] * 1.34 * ws);
   const boneMat = new THREE.MeshStandardMaterial({
     color: def.horn, emissive: def.wingEmissive, emissiveIntensity: 0.35,
     roughness: 0.3, metalness: 0.5,
   });
-  // Molten veins traced along the finger bones — the elite/apex "glowing wing
-  // veins". Brighter apex-seam tone so they read against the dark membrane.
   const veinMat = model.wingVeins ? new THREE.MeshStandardMaterial({
     color: def.apexSeam || def.wingEmissive,
     emissive: def.apexSeam || def.wingEmissive, emissiveIntensity: 1.7,
     roughness: 0.3, metalness: 0.4,
   }) : null;
 
-  // Per-form upward bow (outer-weighted) and the span it's measured against.
-  const arcMag = wingSpec.arc * ws;
-  const maxX = Math.abs(wingSpec.tips[0][0] * 1.34 * ws);
-
   function buildWingSide(side) {
     const pivot = new THREE.Group();
-    // Roots sit high on the back so the bowed wings lift clear of the torso
-    // (kills the "central blob with strips" read) and frame the body.
-    pivot.position.set(0.55 * side, 0.52, -0.2);
+    // Roots high on the back so the bowed wings lift clear of the torso.
+    pivot.position.set(0.5 * side, 0.55, -0.25);
 
     const geo = new THREE.ShapeGeometry(featherShape ? buildFeatherWingShape() : buildWingShape(wingSpec), 14);
     geo.rotateX(-Math.PI / 2);
     geo.scale(1.34 * ws, 1.28 * ws, 1);
     applyWingGradient(geo, def, 0, 1);
-    archWing(geo, arcMag); // bow the membrane up toward the tip — the rear read
+    archWing(geo, arc, ws); // bow with the elbow profile (∝ ws)
     const membrane = new THREE.Mesh(geo, wingMat);
-    membrane.scale.x = side; // mirror the left wing
+    membrane.scale.x = side;
     pivot.add(membrane);
 
-    // Finger bones fanning from the wrist to each membrane tip, + a thicker
-    // leading-edge arm — this is what kills the "flat paddle" read. Each bone's
-    // tip rides up with the membrane arc; a glowing vein rides on top from the
-    // elite forms.
     for (let i = 0; i < wingSpec.tips.length; i++) {
       const [px, py] = wingSpec.tips[i];
       const x = px * 1.34 * ws * side;
       const z = -py * 1.0;
-      const lift = archLift(x, maxX, arcMag);
-      pivot.add(wingStrut(x, z, i === 0 ? 0.075 : 0.05, 0.012, boneMat, lift));
+      const lift = archLift(x, maxX, arc, ws);
+      pivot.add(wingStrut(x, z, i === 0 ? 0.07 : 0.045, 0.012, boneMat, lift));
       if (veinMat) {
-        const vein = wingStrut(x, z, i === 0 ? 0.045 : 0.03, 0.006, veinMat, lift);
+        const vein = wingStrut(x, z, i === 0 ? 0.042 : 0.028, 0.006, veinMat, lift);
         vein.position.y += 0.05;
         pivot.add(vein);
       }
@@ -659,9 +433,8 @@ export function buildDragonModel(def, opts = {}) {
     const wingTip = new THREE.Group();
     wingTip.position.set(3.3 * ws * side, 0, 0);
     const marker = new THREE.Object3D();
-    // Contrails emit from the lifted wingtip so the ribbon tracks the arc.
     marker.position.set(wingSpec.tips[0][0] * 1.34 * ws * side - 3.3 * ws * side,
-      archLift(maxX, maxX, arcMag), -wingSpec.tips[0][1]);
+      archLift(maxX, maxX, arc, ws), -wingSpec.tips[0][1]);
     wingTip.add(marker);
     pivot.add(wingTip);
     group.add(pivot);
@@ -686,7 +459,7 @@ export function buildDragonModel(def, opts = {}) {
 
     for (const s of [-1, 1]) {
       const pivot = new THREE.Group();
-      pivot.position.set(s * 0.45, 0.25, 1.2);
+      pivot.position.set(s * 0.4, 0.3, 1.2);
       const w = new THREE.Mesh(miniGeo, miniMat);
       w.scale.x = s;
       pivot.add(w);
@@ -696,21 +469,18 @@ export function buildDragonModel(def, opts = {}) {
     }
   }
 
-  // Solar aura card (apex only). A tall, narrow additive glow sprite sitting
-  // BEHIND the upper body — a solar backlight, not a ring around the centre
-  // lane (the old torus competed with the collectible rings). Narrow so it
-  // backlights the dragon without bleeding into the forward path; on layer 0 so
-  // it reads in every view.
+  // Solar aura card (apex only): a tall narrow backlight behind the body — a
+  // corona, not a ring that competes with the collectible rings.
   if (model.auraHalo) {
     const haloRgb = def.apexSeam
       ? `${(def.apexSeam >> 16) & 255},${(def.apexSeam >> 8) & 255},${def.apexSeam & 255}`
       : def.fx.auraColor;
     const auraCard = new THREE.Sprite(new THREE.SpriteMaterial({
-      map: makeGlowTexture(haloRgb), transparent: true, opacity: 0.34,
+      map: makeGlowTexture(haloRgb), transparent: true, opacity: 0.32,
       blending: THREE.AdditiveBlending, depthWrite: false,
     }));
-    auraCard.scale.set(4.2, 6.4, 1); // taller than wide — a backlight column
-    auraCard.position.set(0, 0.9, 0.2);
+    auraCard.scale.set(4.0, 6.2, 1);
+    auraCard.position.set(0, 0.9, 0.25);
     group.add(auraCard);
   }
 
@@ -726,12 +496,9 @@ export function buildDragonModel(def, opts = {}) {
   group.scale.setScalar(model.scale);
 
   // Preview pedestal: rarity-tinted disc + spinning rune ring.
-  // Wraps the scaled dragon group so the pedestal stays in world-space coords
-  // while the turntable rotation carries both together.
   if (opts.preview) {
     const RARITY_GLOW = { R: 0x4aff88, SR: 0x4ac0ff, SSR: 0xc060ff, SSSR: 0xffd040 };
     const glowHex = RARITY_GLOW[def.rarity] ?? RARITY_GLOW.R;
-    // makeGlowTexture wants an "r,g,b" string, not a numeric hex.
     const glowRgb = `${(glowHex >> 16) & 255},${(glowHex >> 8) & 255},${glowHex & 255}`;
     const wrapper = new THREE.Group();
     wrapper.add(group);
@@ -786,27 +553,21 @@ export function buildDragonModel(def, opts = {}) {
 }
 
 // Shared tick function for preview turntables — called by preview.js.
-// Accepts the full result from buildDragonModel so group is captured directly.
 export function makePreviewTick(def, result) {
   const { group, parts, auraSprite } = result;
   const { head, tailSegs, wingPivotL, wingPivotR, wingPivot2L, wingPivot2R } = parts;
   return (t) => {
     group.rotation.y = t * 0.65;
-    // Gentle hover bob
     group.position.y = 0.1 + Math.sin(t * 1.4) * 0.06;
-    // Wing flap
-    const flap = Math.sin(t * 4.2 * (def.model.flapBias || 1)) * 0.5;
+    const flap = Math.sin(t * 4.2 * (def.model.flapBias || 1)) * 0.5 * (def.model.flapAmp ?? 1);
     wingPivotR.rotation.z = -(flap - 0.15);
     wingPivotL.rotation.z =   flap - 0.15;
     if (wingPivot2L) wingPivot2L.rotation.z = flap * 0.7;
     if (wingPivot2R) wingPivot2R.rotation.z = -(flap * 0.7);
-    // Tail wave
     for (let i = 0; i < tailSegs.length; i++) {
-      tailSegs[i].position.x = Math.sin(t * 2.4 - i * 0.6) * 0.07 * (i + 1);
+      tailSegs[i].position.x = Math.sin(t * 2.4 - i * 0.6) * 0.06 * (i + 1);
     }
-    // Head look-around
     head.rotation.y = Math.sin(t * 0.9) * 0.18;
-    // Aura breathe
     if (auraSprite) {
       auraSprite.material.opacity = def.fx.auraIdle > 0
         ? 0.3 + def.fx.auraIdle + Math.sin(t * 2.6) * 0.12
