@@ -18,22 +18,56 @@ export const DRAGONS = {
     title: 'The trusted courier',
     rarity: 'R',
     cost: 0,
+    // The humble free starter: the smallest, NARROWEST, cleanest wings in the
+    // roster (a nimble messenger), so the premiums feel rare. Sky-blue + gold.
     stats: { speed: 1.0, handling: 1.0, drain: 1.0, regen: 1.0 },
     model: {
-      scale: 1.05, wingScale: 1.0, tailSegments: 8, neckSegments: 4,
-      hornLen: 1.1, hornPairs: 1, ridgeCount: 10, flapBias: 1.0,
+      scale: 1.0, wingScale: 0.95, tailSegments: 8, neckSegments: 4,
+      hornLen: 1.0, hornPairs: 1, ridgeCount: 12,
+      flapBias: 1.18, flapAmp: 0.85, // quick, light courier wingbeat
     },
-    // Humble starter: stays the simplest even maxed, so the premiums feel rare.
-    forms: [
-      {},                                                        // base — bare drake
-      { ridgeCount: 13, dorsal: true, crest: 1 },                // +back sail + small crest
-      { crest: 2, hornLen: 1.35, glowSeams: true },              // +bigger crest/horns + seams
-      { tailTip: 'fan', sparkle: true },                         // apex — fan tail + sparkle
+    // Narrow, short, clean wings — the most compact silhouette of the roster.
+    wingForms: [
+      { tips: [[3.90, 0.28], [3.00, -0.40], [1.90, -0.66]],
+        lead: [2.50, 0.42], scallop: 0.16, flame: false,
+        arc: { bow: 0.50, hump: 0.0, humpAt: 0.6, hook: 0.10 } },
+      { tips: [[4.40, 0.30], [3.50, -0.44], [2.30, -0.82], [1.30, -0.85]],
+        lead: [2.90, 0.50], scallop: 0.28, flame: false,
+        arc: { bow: 0.55, hump: 0.40, humpAt: 0.55, hook: 0.18 } },
+      { tips: [[4.70, 0.34], [3.85, -0.48], [2.60, -0.95], [1.45, -1.00]],
+        lead: [3.15, 0.56], scallop: 0.40, flame: false,
+        arc: { bow: 0.60, hump: 0.70, humpAt: 0.57, hook: 0.30 } },
+      { tips: [[4.95, 0.38], [4.10, -0.50], [2.85, -1.00], [1.60, -1.05]],
+        lead: [3.35, 0.62], scallop: 0.45, flame: false,
+        arc: { bow: 0.65, hump: 1.00, humpAt: 0.58, hook: 0.45 } },
     ],
-    fx: { auraColor: '120,200,255', auraIdle: 0, sparkle: false },
-    body: 0x2b58c8, belly: 0xffd9a8, scales: 0x9fe8ff, horn: 0xffdf8a,
-    wingInner: 0x6aa8ff, wingOuter: 0x1f3fb0, wingEmissive: 0x4a90ff,
-    eye: 0x55e0ff, trail: 0x88c0ff, boostTrail: 0x88aaff,
+    forms: [
+      { wingForm: 0, tailStyle: 'simple', tailSegments: 5, ridgeCount: 8,
+        spineGlow: 0, crest: 0, neckSegments: 4,
+        colors: { body: 0x1c2230, wingInner: 0x3a5a8a, wingOuter: 0x223f5e,
+          wingEmissive: 0x3a6a9a, scales: 0x5a7890, horn: 0x7a90a8,
+          apexSeam: 0x4a6080, eye: 0x6aa0c0, coreGlow: 0x6a90c0 } },
+      { wingForm: 1, tailStyle: 'finned', tailSegments: 6, ridgeCount: 10,
+        spineGlow: 0.28, crest: 1, dorsal: true,
+        colors: { body: 0x1a2a44, wingInner: 0x4a8ad8, wingOuter: 0x2a5aa8,
+          wingEmissive: 0x4a90ff, scales: 0x9fe8ff, horn: 0xffdf8a,
+          apexSeam: 0x5aa8e0, eye: 0x88c8ff, coreGlow: 0x80b0ff } },
+      { wingForm: 2, tailStyle: 'blade', tailSegments: 7, ridgeCount: 11,
+        spineGlow: 0.55, wingVeins: true, glowSeams: true, crest: 1, hornLen: 1.3,
+        colors: { body: 0x16243c, wingInner: 0x60a8ff, wingOuter: 0x2a6ad0,
+          wingEmissive: 0x5aa0ff, scales: 0xbfe8ff, horn: 0xffe8a0,
+          apexSeam: 0x7ac0ff, eye: 0xa0d8ff, coreGlow: 0x90c8ff } },
+      { wingForm: 3, tailStyle: 'comet', tailSegments: 8, ridgeCount: 12,
+        spineGlow: 0.82, wingVeins: true, glowSeams: true, crest: 2,
+        colors: { body: 0x121f34, wingInner: 0x7ab8ff, wingOuter: 0x3a7ae0,
+          wingEmissive: 0x6ab0ff, scales: 0xdcf0ff, horn: 0xffe8a0,
+          apexSeam: 0x88d0ff, eye: 0xcaeaff, coreGlow: 0xaad8ff } },
+    ],
+    fx: { auraColor: '120,200,255', auraIdle: 0.0, sparkle: false },
+    body: 0x121f34, belly: 0xffd9a8, scales: 0xdcf0ff, horn: 0xffe8a0,
+    wingInner: 0x7ab8ff, wingOuter: 0x3a7ae0, wingEmissive: 0x6ab0ff,
+    apexEye: 0xcaeaff, apexSeam: 0x88d0ff, coreGlow: 0xaad8ff, surgeHi: 0xeaf6ff,
+    eye: 0x88c8ff, trail: 0x88c0ff, boostTrail: 0x88aaff,
   },
 
   ember: {
