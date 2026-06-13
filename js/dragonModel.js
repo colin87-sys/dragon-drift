@@ -543,18 +543,6 @@ export function buildDragonModel(def, opts = {}) {
   auraSprite.layers.set(1);
   group.add(auraSprite);
 
-  // Surge ripple — an energy ring the rig pulses outward during Dragon Surge
-  // (an "aura ripple" around the dragon). Invisible at all other times.
-  const surgeRipple = new THREE.Mesh(
-    new THREE.TorusGeometry(1.0, 0.045, 8, 40),
-    new THREE.MeshBasicMaterial({
-      color: def.coreGlow || def.apexSeam || 0xffffff, transparent: true, opacity: 0,
-      blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide,
-    }));
-  surgeRipple.position.set(0, 0.5, 0.3);
-  surgeRipple.layers.set(1);
-  group.add(surgeRipple);
-
   group.scale.setScalar(model.scale);
 
   // Shop preview: a clean flying showcase (no turntable / no pedestal). Downscale
@@ -577,7 +565,7 @@ export function buildDragonModel(def, opts = {}) {
 
     return {
       group: wrapper,
-      parts: { head, tailSegs, wingPivotL, wingPivotR, wingTipL, wingTipR, wingPivot2L, wingPivot2R, tipMarkerL, tipMarkerR, coreGlow, surgeRipple },
+      parts: { head, tailSegs, wingPivotL, wingPivotR, wingTipL, wingTipR, wingPivot2L, wingPivot2R, tipMarkerL, tipMarkerR, coreGlow },
       materials: { bodyMat, wingMat, eyeMat, spineMats },
       auraSprite,
     };
@@ -591,7 +579,7 @@ export function buildDragonModel(def, opts = {}) {
       wingTipL, wingTipR,
       wingPivot2L, wingPivot2R,
       tipMarkerL, tipMarkerR,
-      coreGlow, surgeRipple,
+      coreGlow,
     },
     materials: { bodyMat, wingMat, eyeMat, spineMats },
     auraSprite,

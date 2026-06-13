@@ -114,12 +114,14 @@ export const DRAGONS = {
       { wingForm: 0, tailStyle: 'simple', tailSegments: 6, ridgeCount: 7,
         spineGlow: 0, crest: 0, eyeScale: 1.3, neckSegments: 5,
         colors: { wingInner: 0x1c1b24, wingOuter: 0x121118, wingEmissive: 0x36424c,
-          scales: 0x37343f, horn: 0x4a4658, eye: 0x5a8a98, apexSeam: 0x49555f, body: 0x161620 } },
+          scales: 0x37343f, horn: 0x4a4658, eye: 0x5a8a98, apexSeam: 0x49555f,
+          coreGlow: 0x2a5560, body: 0x161620 } },
       // T1 — Nightwing: plasma ignites, ear frills, wider swept wings, finned tail.
       { wingForm: 1, tailStyle: 'finned', tailSegments: 7, ridgeCount: 9,
         spineGlow: 0.3, earTendrils: true, eyeScale: 1.3,
         colors: { wingInner: 0x26233a, wingOuter: 0x141a26, wingEmissive: 0x00ccff,
-          scales: 0x4a3f70, horn: 0x6a5fa0, eye: 0x33e0ff, apexSeam: 0x00e5ff, body: 0x14131c } },
+          scales: 0x4a3f70, horn: 0x6a5fa0, eye: 0x33e0ff, apexSeam: 0x00e5ff,
+          coreGlow: 0x00c0e0, body: 0x14131c } },
       // T2 — Plasma Shade: plasma seams + glowing spine + wing veins, blade tail.
       { wingForm: 2, tailStyle: 'blade', tailSegments: 8, ridgeCount: 9,
         spineGlow: 0.7, wingVeins: true, glowSeams: true, earTendrils: true, crest: 1 },
@@ -131,7 +133,7 @@ export const DRAGONS = {
     fx: { auraColor: '0,225,255', auraIdle: 0.0, sparkle: false },
     body: 0x14131c, belly: 0x2c2740, scales: 0x4a3f70, horn: 0x6a5fa0,
     wingInner: 0x26233a, wingOuter: 0x141a26, wingEmissive: 0x00ccff,
-    apexEye: 0x00ffee, apexSeam: 0x00e5ff,
+    apexEye: 0x00ffee, apexSeam: 0x00e5ff, coreGlow: 0x00e5ff, surgeHi: 0xe8fcff,
     eye: 0x33e0ff, trail: 0x00d8ff, boostTrail: 0x40f0ff,
   },
 
@@ -214,7 +216,7 @@ export const DRAGONS = {
     // Membrane gradient runs ember-orange at the ROOT → rose-magenta at the
     // outer edge (apex), a premium accent — never a solid-pink wing.
     wingInner: 0xff7a1a, wingOuter: 0xff5fa8, wingEmissive: 0xff5a1e,
-    apexEye: 0xfff0a8, apexSeam: 0xffd166, coreGlow: 0xb784ff,
+    apexEye: 0xfff0a8, apexSeam: 0xffd166, coreGlow: 0xb784ff, surgeHi: 0xfff8e8,
     eye: 0xffd86a, trail: 0xffb030, boostTrail: 0xff6a20,
   },
 };

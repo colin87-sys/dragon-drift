@@ -17,7 +17,10 @@ export const ASCENSION_TIERS = [
 
 // Body scale per form (index = tier 0..3): the whelp is a genuinely small baby,
 // the final form lands at the dragon's reference size.
-export const SIZE_RAMP = [0.70, 0.82, 0.93, 1.0];
+// Trimmed ~12% across the board (apex 1.0 → 0.88) so the bigger redesigned
+// dragon stops crowding the view of the path ahead — paired with a slightly
+// higher/further chase cam (cameraController).
+export const SIZE_RAMP = [0.62, 0.72, 0.82, 0.88];
 
 // Wing growth is decoupled from body growth so the SILHOUETTE evolves, not just
 // the size: the whelp is stubby-winged, the apex broad-winged. Absolute wingspan

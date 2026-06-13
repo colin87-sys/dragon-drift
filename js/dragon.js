@@ -30,10 +30,11 @@ let tipMarkerR = null;
 let auraSprite = null;
 let coreGlow = null;      // violet core energy sprite (pulses during Surge)
 let spineMats = [];       // spine/crest/seam/plate mats → white-gold in Surge
-let surgeRipple = null;   // energy ring that pulses outward during Surge
 let surgeMix = 0;         // 0..1 damped Surge transition
+let prevFever = false;    // rising-edge detect for the Surge ignition flourish
+let surgeAnimT = 0;       // one-shot transformation timer (s)
 const _surgeBaseCol = new THREE.Color();
-const _surgeWhiteGold = new THREE.Color(0xfff8e8);
+const _surgeHi = new THREE.Color(); // per-dragon Surge highlight (def.surgeHi)
 let quality = 1;
 
 export function setDragonQuality(q) {
@@ -91,8 +92,9 @@ export function createDragon(scene, def, riderDef) {
   auraSprite = result.auraSprite;
   coreGlow = result.parts.coreGlow;
   spineMats = result.materials.spineMats || [];
-  surgeRipple = result.parts.surgeRipple;
   surgeMix = 0;
+  surgeAnimT = 0;
+  prevFever = false;
 
   buildRider(riderDef);
   scene.add(group);
@@ -413,46 +415,52 @@ export function updateDragon(dt, player, time) {
     tailSegs[i].rotation.y = damp(tailSegs[i].rotation.y, waveX * 0.5, 12, dt);
   }
 
-  // Boost wing glow + fever tint + eyes + aura (cheap material writes).
-  // The membrane reads "backlit" — emissive swells on the downstroke as the
-  // sun shines through, and surges while boosting.
+  // Boost/Surge glow + fever tint + eyes + aura (cheap material writes).
   const backlit = 0.22 + Math.max(0, Math.sin(phase)) * 0.18;
-  const wingGlowTarget = backlit + (player.boosting ? 0.7 : 0);
+
+  // Surge TRANSFORMATION: a Surge START fires a ~0.7s ignition flourish (a
+  // 0→1→0 burst) instead of a hard color swap — it flashes the core, overshoots
+  // the spine, swells a glow around the wings and pulses the body, then settles
+  // into the steady transformed state (surgeMix).
+  if (player.feverActive && !prevFever) surgeAnimT = 0.7;
+  prevFever = player.feverActive;
+  if (surgeAnimT > 0) surgeAnimT = Math.max(0, surgeAnimT - dt);
+  const ignite = surgeAnimT > 0 ? Math.sin((1 - surgeAnimT / 0.7) * Math.PI) : 0;
+  surgeMix = damp(surgeMix, player.feverActive ? 1 : 0, 4, dt);
+
+  // Wings: a soft emitting glow swells AROUND them during Surge (replaces the
+  // old emitting ring), spiking on the ignition flourish.
+  const wingGlowTarget = backlit + (player.boosting ? 0.7 : 0) + surgeMix * 0.55 + ignite * 0.8;
   wingMat.emissiveIntensity = damp(wingMat.emissiveIntensity, wingGlowTarget, 6, dt);
   wingMat.emissive.setHex(player.feverActive ? 0xff44cc : activeDef.wingEmissive);
   // Membrane translucency by state (bones/struts keep their own opaque mats):
   // see upcoming rings through the wing — more so while boosting / surging.
   const wingOpacity = player.feverActive ? 0.70 : player.boosting ? 0.77 : 0.82;
   wingMat.opacity = damp(wingMat.opacity, wingOpacity, 5, dt);
-  // Violet core energy pulses brighter on boost, blazes during Surge.
+  // Violet core energy: pulses on boost, blazes + flashes on the Surge ignition.
   if (coreGlow) {
     const cb = coreGlow.userData.base || 0.3;
-    const coreTarget = player.feverActive
-      ? cb * 2.4 + Math.sin(time * 9) * 0.08
-      : player.boosting ? cb * 1.5 : cb;
+    const coreTarget = (player.feverActive ? cb * 2.4 + Math.sin(time * 9) * 0.08
+      : player.boosting ? cb * 1.5 : cb) + ignite * 0.5;
     coreGlow.material.opacity = damp(coreGlow.material.opacity, coreTarget, 5, dt);
   }
-  // Dragon Surge dressing: spine/crest/seam plates flare toward white-gold and
-  // an energy ring ripples outward — the apex's transformed, regal Surge.
-  surgeMix = damp(surgeMix, player.feverActive ? 1 : 0, 4, dt);
-  if (surgeMix > 0.002) {
+  // Spine/crest/seam/tail plates flare toward the per-dragon Surge highlight,
+  // overshooting on the ignition.
+  if (surgeMix > 0.002 || ignite > 0.002) {
+    _surgeHi.setHex(activeDef.surgeHi || 0xfff8e8); // white-gold default; cool per dragon
     for (const m of spineMats) {
       _surgeBaseCol.setHex(m.userData.baseEmissive ?? 0xffffff);
-      m.emissive.copy(_surgeBaseCol).lerp(_surgeWhiteGold, surgeMix * 0.85);
-      m.emissiveIntensity = (m.userData.baseIntensity ?? 1) * (1 + surgeMix * 0.9);
-    }
-    if (surgeRipple) {
-      const ph = (time * 0.85) % 1;              // expanding ring, ~1.2s loop
-      surgeRipple.scale.setScalar(0.6 + ph * 3.1);
-      surgeRipple.material.opacity = surgeMix * (1 - ph) * 0.5;
+      m.emissive.copy(_surgeBaseCol).lerp(_surgeHi, Math.min(1, surgeMix * 0.85 + ignite * 0.4));
+      m.emissiveIntensity = (m.userData.baseIntensity ?? 1) * (1 + surgeMix * 0.9 + ignite * 1.6);
     }
   } else {
     for (const m of spineMats) {
       m.emissive.setHex(m.userData.baseEmissive ?? 0xffffff);
       m.emissiveIntensity = m.userData.baseIntensity ?? 1;
     }
-    if (surgeRipple) surgeRipple.material.opacity = 0;
   }
+  // Body "power-up" pulse on the ignition flourish (settles back to scale).
+  group.scale.setScalar(activeDef.model.scale * (1 + ignite * 0.05));
   bodyMat.emissiveIntensity = damp(bodyMat.emissiveIntensity, player.feverActive ? 0.35 : 0.12, 4, dt);
   eyeMat.emissive.setHex(player.feverActive ? 0xff66ee : activeDef.eye);
   // Aura: full blaze during fever; premium dragons idle with a faint halo.
