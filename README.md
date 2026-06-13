@@ -36,15 +36,14 @@ Any static server works (`npx serve`, GitHub Pages, etc.).
 - **Rings & windows** build a combo (max ×5) and a visible **CHAIN** counter. Chain enough in a row to trigger **DRAGON SURGE** — double score, halved stamina drain, sky on fire.
 - **Perfect rings** (dead-center) detonate a gold starburst and climb a chime ladder with every consecutive perfect — the streak resets if you clip an edge.
 - **Embers** (amber trails along the racing line) are the meta currency: spend them in the **Shop** on dragons, riders, radio stations and revive tokens. Rare **Golden Embers** (◆25 comets, seeded per course with dry-spell protection) spice every kilometre, and your **first flight each UTC day banks ×1.5**.
-- **The Ember Gambit**: crash with a worthwhile haul and the recap offers the **Phoenix Gauntlet** — one ~600 m corridor of back-to-back gauntlet stations, no revives, one touch and it burns. Cross the arch and the haul doubles. Quest pay, XP and streaks are banked *before* the wager — only the haul ever rides, and a mid-corridor refresh refunds the stake.
 - **Run Recap**: every crash ends in a designed moment — **NEW BEST** record chips (chain, perfect streak, rings-in-a-run, clean flight, combo), a score count-up, an animated earnings ledger (quests, weeklies, milestones, feats, level pay, streak bonus), and exactly one **NEXT UP** goal so you always leave knowing what's a couple of runs away.
 - **Dragons are real upgrades**: six dragons with distinct models, trails and flight stats, each a **live 3D turntable** on its shop card, each logging **mastery stars** (10/30/75 km flown → ember payouts). The 5000-ember **Solar Sovereign** is the apex. **Riders are earners**: +3% / +7% / +12% embers on every payout.
 - **Quests chain**: six families run in tiers I→III — finishing one slides the next tier into the slot ("NEW QUEST UNLOCKED"); six more quests rotate forever. **Weekly Trials** draw 3 big objectives per ISO week (UTC) paying 350–500◆ plus an **exclusive title** each; completing any trial banks a **Phoenix Feather** that bridges one missed daily-streak day.
-- **Feats**: 24 one-time achievements across skill / journey / collection, paying embers, several granting equippable **titles** («Goldwing», «Ghost», «Mythwing»…). Your title rides the start screen and every share text. The **PILOT** screen holds the feat wall, the flight log (lifetime stats + personal records + dragon mastery) and the title wardrobe.
+- **Feats**: 23 one-time achievements across skill / journey / collection, paying embers, several granting equippable **titles** («Goldwing», «Ghost», «Mythwing»…). Your title rides the start screen and every share text. The **PILOT** screen holds the feat wall, the flight log (lifetime stats + personal records + dragon mastery) and the title wardrobe.
 - **Flight Milestones**: lifetime rungs (rings, km, perfects, near-misses, windows, gauntlets, goldens) auto-pay at run end — the next rung is rarely more than a couple of runs out. **Pilot levels pay embers** (and a title every 5 levels).
 - **Gauntlets**: every ~1 km the course funnels into a hand-built corridor — follow the embers through the open door. A shimmering **gold beacon stands at your best distance**; passing it pays +◆10 and the record falls in-world.
 - The reward rhythm breathes: tight ring **bursts**, normal flow, and open **straights** to boost flat-out.
-- **Near-misses** pay; barrel-rolling *through* a hazard cluster still awards them. When a hit would kill you, time dilates for a heartbeat. Revive tokens grant one second wind per run (never inside a gambit).
+- **Near-misses** pay; barrel-rolling *through* a hazard cluster still awards them. When a hit would kill you, time dilates for a heartbeat. Revive tokens grant one second wind per run.
 - **Assist toggles**: turn off the target reticle (+10% score) and/or last-chance slow-mo (+15% score) — flying raw pays more, and the HUD shows the active bonus.
 - **Daily challenge**: one fixed course per UTC day; the streak **pays embers** (30 + 10×streak, capped at 7) on the first completion each day. Challenge links (`?challenge=SCORE&seed=S`) race the exact same course — with a live **race bar** under your score, a "CHALLENGE BEATEN" moment mid-run, and a riposte share text when you win ("Your move.").
 - **First-flight coaching**: four one-time contextual hints (steer → boost → perfect centers → follow the embers) that never outlive your second run. Come back after 5+ days away and a small **tailwind gift** is waiting — streaks warm you back in, they never scold.
@@ -67,7 +66,7 @@ The course cycles six ~1500 m biomes with crossfading sky/fog/water, per-biome p
 
 - **Impact frames**: real hitstop on golden embers (80 ms), perfect-streak milestones (70 ms) and near-misses (50 ms) — budgeted in `CONFIG.JUICE` with a cooldown so peak juice stays rare; slow-mo always wins, pause always clears.
 - **Event-driven post-FX kicks**: bloom/warm-lift swells on golden embers and Surge, a 1-frame gold flash on streak milestones, a desaturation sting on combo breaks, and a **death grade** — the world drains to gray while the camera dollies into the crash.
-- **Celebration architecture**: every purchase stages the full anticipation → overshoot-reveal → confetti → afterglow arc, with the **live 3D turntable in a spotlight** for dragons and riders. The recap's count-up rolls with rising ticks and lands with a settle pop; daily streaks pop a flame row; gambit wins get the big-win sunburst.
+- **Celebration architecture**: every purchase stages the full anticipation → overshoot-reveal → confetti → afterglow arc, with the **live 3D turntable in a spotlight** for dragons and riders. The recap's count-up rolls with rising ticks and lands with a settle pop; daily streaks pop a flame row.
 - **Appointment UI (honest)**: gold badges on PILOT/SHOP only when something is genuinely new or *newly affordable* — they clear the instant you look and the clear persists. Quest bars glow + shimmer in their final stretch (goal-gradient); the XP bar has milestone notches.
 - **Identity**: vendored *Russo One* display face for the wordmark, score and big numbers (tabular where it counts), wordmark shine sweep, screen transitions with staggered start-screen entrances, breathing CTAs and drifting ember motes behind menus.
 - **App-feel**: a real loading screen (tips + shimmer, cross-fades into the sky), SVG favicon + theme color + OG card (challenge links unfurl with art), and a **PWA manifest + network-first service worker** — installable, plays offline, and deploys still take effect on the very next online load.
@@ -78,7 +77,7 @@ The course cycles six ~1500 m biomes with crossfading sky/fog/water, per-biome p
 - **Adaptive quality**: 3 tiers driven by FPS with hysteresis (pixel ratio, bloom, reflection, particle counts, birds). Override in Settings. `?debug=perf` shows fps/draw-calls/tier.
 - **Audio**: 100% procedural Web Audio — no audio files. Data-driven track table, per-biome key shifts at loop boundaries, master compressor.
 - **Persistence**: one versioned localStorage blob (`dragonDriftSave`, v2) with corruption-safe deep-merge loading and legacy-key migration.
-- **Tests**: `node tests/run-all.mjs` — 15 suites (boot smoke, v1→v2 save migration, recap pipeline, full gambit lifecycle incl. reload-refund, feats idempotency, weekly seeding incl. year boundaries, golden-ember RNG isolation against a pre-update course fixture, race bar, def-table integrity, economy bands, return triggers, hitstop/post-FX juice contract, celebration overlay input-ownership, badge honesty, app-shell/PWA). Browser suites use the globally installed Playwright.
+- **Tests**: `node tests/run-all.mjs` — 13 suites (boot smoke, v1→v2 save migration incl. gambit-stake sunset refund, recap pipeline, feats idempotency, weekly seeding incl. year boundaries, golden-ember RNG isolation against a pre-update course fixture, race bar, def-table integrity, economy bands, return triggers, hitstop/post-FX juice contract, celebration overlay input-ownership, badge honesty, app-shell/PWA). Browser suites use the globally installed Playwright.
 
 ## Code layout
 
@@ -95,14 +94,13 @@ js/dragon.js            Procedural dragon + rider builder, trails, rebuild on eq
 js/dragons.js           Dragon roster: stats, model proportions, FX (shop)
 js/riders.js            Rider roster: outfits, accessories, ember bonuses (shop)
 js/preview.js           Live 3D turntable previews on shop cards
-js/recap.js             Run Recap v2: count-up, ledger, NEXT UP, gambit panel
+js/recap.js             Run Recap v2: count-up, ledger, NEXT UP
 js/records.js           Personal records: live tracking + run-end settle
-js/feats.js             24 achievements (live + settle), event-driven
+js/feats.js             23 achievements (live + settle), event-driven
 js/titles.js            Equippable title registry (feats/weeklies/levels)
 js/weekly.js            Weekly Trials: ISO-week seeded 3-of-9 draw, feather
 js/milestones.js        Lifetime milestone ladder + dragon mastery stars
 js/pilotScreen.js       PILOT screen: feat wall, flight log, title wardrobe
-js/gambit.js            Ember Gambit: escrow, corridor seed, refund-on-boot
 js/goldEmbers.js        Golden ember pickups (independent seeded RNG)
 js/pbMarker.js          Personal-best beacon in the world
 js/hints.js             First-flight contextual hints (one at a time)

@@ -7,12 +7,13 @@ import { saveData, persist, xpToNext, todayUTC } from './save.js';
 import { activeMissions } from './missions.js';
 import { weeklyTrials } from './weekly.js';
 import { equippedTitleName } from './titles.js';
-import { buildRecapHtml, wireRecap, buildGambitResultHtml, wireGambitResult, selectNextUp } from './recap.js';
+import { buildRecapHtml, wireRecap, selectNextUp } from './recap.js';
 import { buildPilotHtml, wirePilot } from './pilotScreen.js';
-import { gambitStake } from './gambit.js';
 import { DRAGONS, DRAGON_STAT_CAP } from './dragons.js';
 import { RIDERS } from './riders.js';
 import { attachPreviews, attachPreviewCanvas } from './preview.js';
+import { FLIGHTMARKS, flightmarkOwned, equippedFlightmark } from './flightmarks.js';
+import { ASCENSION_TIERS, ascensionTier, canAscend, radianceRank, radianceCost } from './ascension.js';
 
 let els = {};
 let handlers = {};
@@ -44,6 +45,10 @@ let reviveTimer = null;
 let lastShownScore = 0;
 let lastSpeedlines = -1;
 let celebrateShownAt = 0;
+let assistFadeTimer = null;
+let lastAssistText = '';
+let lastEmbersRun = 0;
+let emberDimTimer = null;
 
 export const ui = {
   init(h = {}) {
@@ -52,15 +57,10 @@ export const ui = {
     root.id = 'hud';
     root.innerHTML = `
       <div class="bottom-bar">
-        <div class="bb-medallion">
-          <div class="lvl-num" id="lvl-num">1</div>
-          <div class="lvl-lbl">PILOT</div>
-        </div>
         <div class="bb-bars">
           <div class="bb-row"><span class="bb-ico">♥</span><div class="bar"><div class="bar-fill health" id="health-fill"></div></div></div>
           <div class="bb-row"><span class="bb-ico">⚡</span><div class="bar"><div class="bar-fill stamina" id="stamina-fill"></div></div></div>
         </div>
-        <div class="bb-wing"><svg viewBox="0 0 40 46"><path fill="currentColor" d="M2 23 C14 8 26 4 38 2 C30 12 28 16 22 20 C30 18 34 18 38 18 C30 26 26 28 20 28 C26 30 30 32 34 34 C24 36 12 34 2 23 Z"/></svg></div>
       </div>
       <div class="hud-top-right">
         <div class="score" id="score">0</div>
@@ -70,7 +70,6 @@ export const ui = {
         <div class="dist" id="dist">0 m</div>
         <div class="best" id="best"></div>
         <div class="embers-hud" id="embers-hud"></div>
-        <div class="gambit-chip" id="gambit-chip"></div>
         <div class="ff-chip" id="ff-chip"></div>
         <div class="assist-chip" id="assist-chip"></div>
         <div class="surge-widget" id="surge-widget" data-tier="0">
@@ -132,13 +131,11 @@ export const ui = {
       surgeX:       root.querySelector('#surge-x'),
       surgeLbl:     root.querySelector('#surge-lbl'),
       embersHud:    root.querySelector('#embers-hud'),
-      gambitChip:   root.querySelector('#gambit-chip'),
       ffChip:       root.querySelector('#ff-chip'),
       raceBar:      root.querySelector('#race-bar'),
       raceFill:     root.querySelector('#race-fill'),
       raceTarget:   root.querySelector('#race-target'),
       assistChip:   root.querySelector('#assist-chip'),
-      lvlNum:       root.querySelector('#lvl-num'),
       dist:         root.querySelector('#dist'),
       best:         root.querySelector('#best'),
       popup:        root.querySelector('#popup'),
@@ -187,7 +184,6 @@ export const ui = {
     const C = 2 * Math.PI * 35;
     els.surgeArc.style.strokeDasharray = C;
     els.surgeArc.style.strokeDashoffset = C;
-    els.lvlNum.textContent = saveData.level;
 
     // Live feat unlocks toast over the event bus (feats.js stays ui-free).
     on('featUnlocked', (p) => {
@@ -257,17 +253,37 @@ export const ui = {
       lastChain = chain;
     }
 
-    els.dist.textContent  = `${Math.floor(player.dist)} m`;
-    els.best.textContent  = game.highScore > 0 ? `BEST ${game.highScore}` : '';
-    els.embersHud.textContent = game.embersRun > 0 ? `◆ ${game.embersRun}` : '';
-    // Hardcore chip: visible whenever an assist is switched off
+    els.dist.textContent = `${Math.floor(player.dist)} m`;
+
+    // C1: BEST chip — only surface when closing in on the record (≥70%)
+    els.best.textContent = game.highScore > 0 && game.score >= 0.7 * game.highScore
+      ? `BEST ${game.highScore}` : '';
+
+    // C3: Ember HUD — pop bright on pickup, dim after 2.5s idle
+    const curEmbers = game.embersRun;
+    els.embersHud.textContent = curEmbers > 0 ? `◆ ${curEmbers}` : '';
+    if (curEmbers > lastEmbersRun) {
+      els.embersHud.classList.remove('dim');
+      restartAnim(els.embersHud, 'ember-pickup');
+      clearTimeout(emberDimTimer);
+      emberDimTimer = setTimeout(() => els.embersHud.classList.add('dim'), 2500);
+    }
+    lastEmbersRun = curEmbers;
+
+    // C2: Assist chip — fades after 4s when value hasn't changed
     const hcBonus = Math.round((game.scoreMult - 1) * 100);
-    els.assistChip.textContent = hcBonus > 0 ? `⚔ ASSISTS OFF +${hcBonus}%` : '';
-    els.lvlNum.textContent = saveData.level;
+    const newAssistText = hcBonus > 0 ? `⚔ ASSISTS OFF +${hcBonus}%` : '';
+    if (newAssistText !== lastAssistText) {
+      els.assistChip.textContent = newAssistText;
+      els.assistChip.classList.remove('faded');
+      clearTimeout(assistFadeTimer);
+      if (newAssistText) assistFadeTimer = setTimeout(() => els.assistChip.classList.add('faded'), 4000);
+      lastAssistText = newAssistText;
+    }
 
     // Challenge race bar: live progress against the friend's score, gold
     // once beaten. Today's comparison shouldn't wait for the crash screen.
-    const racing = game.challengeScore > 0 && game.mode !== 'gambit';
+    const racing = game.challengeScore > 0;
     els.raceBar.classList.toggle('on', racing);
     if (racing) {
       const frac = Math.min(1, game.score / game.challengeScore);
@@ -281,17 +297,9 @@ export const ui = {
       }
     }
 
-    // Gambit: the stake rides on the HUD with the metres left to the arch.
-    if (game.mode === 'gambit') {
-      const left = Math.max(0, Math.ceil(CONFIG.gambitGoal - player.dist));
-      els.gambitChip.textContent = `🔥 ◆${gambitStake()} AT STAKE · ${left}m`;
-    } else {
-      els.gambitChip.textContent = '';
-    }
-
     // First flight of the day: the ×1.5 chip shows until the bonus banks.
     els.ffChip.textContent =
-      game.mode !== 'gambit' && saveData.firstFlightDay !== todayUTC()
+      saveData.firstFlightDay !== todayUTC()
         ? `☀ FIRST FLIGHT ◆×${CONFIG.firstFlightMult}` : '';
 
     // Fever overlay pulse
@@ -358,10 +366,6 @@ export const ui = {
     this._popup(`⟡ PAST YOUR BEST FLIGHT +◆${bonus} ⟡`, 'gold');
   },
 
-  gambitStartPopup() {
-    this._popup('THE PHOENIX GAUNTLET — ONE TOUCH AND IT BURNS', 'fever');
-  },
-
   // Feat toast: its own element so gameplay popups are never eaten.
   featToast(name, reward) {
     els.featToast.innerHTML = `⬢ FEAT — ${name} <b>+◆${reward}</b>`;
@@ -388,6 +392,7 @@ export const ui = {
     const kicker = {
       dragon: 'NEW DRAGON', rider: 'NEW RIDER',
       track: 'NEW STATION', generic: 'UNLOCKED',
+      ascension: 'ASCENDED', flightmark: 'NEW TRAIL', radiance: 'RADIANCE',
     }[spec.kind] || 'UNLOCKED';
     els.celebrate.innerHTML = `
       ${big ? '<div class="celebrate-burst"></div>' : ''}
@@ -558,7 +563,8 @@ export const ui = {
           <button class="btn-tertiary" id="btn-shop">⬡ SHOP${badgeHtml(shopBadgeDue())}</button>
           <button class="btn-tertiary" id="btn-settings">⚙ SETTINGS</button>
         </div>
-        <p class="action-key">${touch ? 'or tap anywhere to take off' : 'or press ENTER to take off'}</p>`;
+        <p class="action-key">${touch ? 'or tap anywhere to take off' : 'or press ENTER to take off'}</p>
+        ${iosInstallHint()}`;
 
     } else if (type === 'shop') {
       // Opening the shop clears its badge: the wallet watermark records what
@@ -578,6 +584,23 @@ export const ui = {
           <div class="stat-bar-row"><span>${lbl}</span>
             <div class="stat-bar"><span style="width:${Math.round(12 + 88 * Math.max(0, Math.min(1, k)))}%"></span></div>
           </div>`;
+        const tierPips = (key) => {
+          const t = ascensionTier(key);
+          return Array.from({ length: 5 }, (_, i) =>
+            `<span class="tier-pip${i < t ? ' filled' : ''}">◆</span>`).join('');
+        };
+        const tierAction = (key, cost) => {
+          const t = ascensionTier(key);
+          if (t >= ASCENSION_TIERS.length) {
+            const rc = radianceCost(key);
+            const rr = radianceRank(key);
+            return `<button class="btn-ascend${saveData.embers >= rc ? '' : ' dim'}" data-ascend-radiance="${key}">✦ R${rr + 1} ◆${rc}</button>`;
+          }
+          const check = canAscend(key, cost);
+          const gateMet = check.flown >= check.gateMetres;
+          if (!gateMet) return `<span class="tier-gate">${(check.gateMetres / 1000).toFixed(0)}k m to unlock</span>`;
+          return `<button class="btn-ascend${saveData.embers >= check.cost ? '' : ' dim'}" data-ascend="${key}">▲ ${ASCENSION_TIERS[t].name} ◆${check.cost}</button>`;
+        };
         const cards = Object.entries(DRAGONS).map(([key, d]) => {
           const owned = saveData.skins.owned.includes(key);
           const equipped = saveData.skins.equipped === key;
@@ -589,11 +612,15 @@ export const ui = {
           const lux = d.fx.auraIdle > 0 ? ` lux" style="--aura: rgba(${d.fx.auraColor},0.45)` : '';
           return `
             <div class="skin-card${equipped ? ' equipped' : ''}${owned ? '' : ' locked'}${lux}" data-dragon="${key}">
-              <canvas class="skin-preview" data-kind="dragon" data-key="${key}" width="150" height="150"></canvas>
+              <div class="preview-wrap">
+                <canvas class="skin-preview" data-kind="dragon" data-key="${key}" width="180" height="180"></canvas>
+                ${equipped ? '<div class="equipped-badge">✓ EQUIPPED</div>' : ''}
+              </div>
               <div class="skin-name">${d.name}</div>
               <div class="skin-title">${d.title}</div>
               <div class="stat-bars">${bar('SPD', spd)}${bar('AGI', agi)}${bar('STA', sta)}</div>
-              <div class="skin-cost ${owned ? 'owned' : ''}">${equipped ? 'EQUIPPED' : owned ? 'TAP TO EQUIP' : `◆ ${d.cost}`}</div>
+              ${owned ? `<div class="skin-tier">${tierPips(key)} ${tierAction(key, d.cost)}</div>` : ''}
+              <div class="skin-cost ${owned ? 'owned' : ''}">${owned ? (equipped ? '' : 'TAP TO EQUIP') : `◆ ${d.cost}`}</div>
             </div>`;
         }).join('');
         body = `<div class="shop-grid">${cards}
@@ -622,20 +649,55 @@ export const ui = {
         body = `<div class="shop-grid">${cards}</div>
           <p class="share-hint">Riders pay a bonus on every ember banked at the end of a run.</p>`;
 
-      } else { // music
+      } else if (shopTab === 'music') {
+        // One accent color per station — drives disc border + ON AIR badge tint
+        const TRACK_ACCENTS = [
+          '#4ab8ff', '#00d4cc', '#ff8800', '#c880ff', '#ff00cc',
+          '#0088ff', '#ffd800', '#ff4488', '#8800ff', '#00ffff',
+          '#ff2222', '#ffaa00', '#aa66ff', '#88ff88', '#00eeff',
+          '#ffcc00', '#00ccff', '#ff5500', '#ffdd00', '#44cc88',
+          '#ff6600', '#ffaaff',
+        ];
+        const eqBars = '<div class="eq-bars"><span></span><span></span><span></span><span></span></div>';
         const cards = TRACKS.map((t, i) => {
           const owned = trackUnlocked(i);
           const playing = music.trackIndex === i;
+          const accent = TRACK_ACCENTS[i] || '#ffd86a';
           return `
-            <div class="skin-card track-card${playing ? ' equipped' : ''}${owned ? '' : ' locked'}" data-track-i="${i}">
+            <div class="skin-card track-card${playing ? ' equipped' : ''}${owned ? '' : ' locked'}"
+                 data-track-i="${i}" style="--accent:${accent}">
               <div class="track-disc${playing ? ' spin' : ''}">♪</div>
               <div class="skin-name">${t.name}</div>
               <div class="skin-title">${t.desc} · ${t.bpm} BPM</div>
-              <div class="skin-cost ${owned ? 'owned' : ''}">${playing ? 'ON AIR' : owned ? 'TAP TO PLAY' : `◆ ${t.cost}`}</div>
+              <div class="skin-cost ${owned ? 'owned' : ''}">${playing ? `${eqBars} ON AIR` : owned ? 'TAP TO PLAY' : `◆ ${t.cost}`}</div>
             </div>`;
         }).join('');
         body = `<div class="shop-grid">${cards}</div>
           <p class="share-hint">New stations join the radio rotation everywhere — pause menu, N / [ ] keys.</p>`;
+
+      } else { // style — flightmark trail cosmetics
+        const activeId = equippedFlightmark();
+        const defaultActive = activeId === '';
+        const defaultCard = `
+          <div class="skin-card${defaultActive ? ' equipped' : ''}" data-flightmark="">
+            <div class="trail-swatch" style="background: radial-gradient(circle at 35% 30%, #ffd070, #ff8020)"></div>
+            <div class="skin-name">Dragon's Colors</div>
+            <div class="skin-title">Default trail</div>
+            <div class="skin-cost owned">${defaultActive ? 'ACTIVE' : 'TAP TO EQUIP'}</div>
+          </div>`;
+        const markCards = FLIGHTMARKS.map(mark => {
+          const owned = flightmarkOwned(mark.id);
+          const active = activeId === mark.id;
+          return `
+            <div class="skin-card${active ? ' equipped' : ''}${owned ? '' : ' locked'}" data-flightmark="${mark.id}">
+              <div class="trail-swatch" style="background: radial-gradient(circle at 35% 30%, ${hex(mark.boostTrail)}, ${hex(mark.trail)})"></div>
+              <div class="skin-name">${mark.name}</div>
+              <div class="skin-title">Trail cosmetic</div>
+              <div class="skin-cost ${owned ? 'owned' : ''}">${active ? 'ACTIVE' : owned ? 'TAP TO EQUIP' : `◆ ${mark.cost}`}</div>
+            </div>`;
+        }).join('');
+        body = `<div class="shop-grid">${defaultCard}${markCards}</div>
+          <p class="share-hint">Trail marks are purely cosmetic — fly any color you like.</p>`;
       }
 
       html = `
@@ -644,7 +706,7 @@ export const ui = {
           <div class="meta-chip"><span class="ember-ico">◆</span> <b>${saveData.embers}</b></div>
           <button class="topbar-close" id="btn-back" title="Back">✕</button>
         </div>
-        <div class="seg-row shop-tabs" style="margin-top:12px">${tabBtn('dragons', '🐉 DRAGONS')}${tabBtn('riders', '🛡 RIDERS')}${tabBtn('music', '♪ MUSIC')}</div>
+        <div class="seg-row shop-tabs" style="margin-top:12px">${tabBtn('dragons', '🐉 DRAGONS')}${tabBtn('riders', '🛡 RIDERS')}${tabBtn('music', '♪ MUSIC')}${tabBtn('style', '✦ STYLE')}</div>
         ${body}
         <p class="share-hint" id="shop-hint"></p>`;
 
@@ -689,11 +751,8 @@ export const ui = {
 
     } else if (type === 'gameover') {
       // Run Recap v2 lives in recap.js (count-up, record chips, earnings
-      // ledger, NEXT UP, gambit panel) — ui.js keeps screen ownership.
+      // ledger, NEXT UP) — ui.js keeps screen ownership.
       html = buildRecapHtml(score, dist, { isTouch: isTouch(), ICONS });
-
-    } else if (type === 'gambitResult') {
-      html = buildGambitResultHtml(game.gambitResult || { won: false, stake: 0 }, { isTouch: isTouch() });
 
     } else if (type === 'pilot') {
       // Opening PILOT clears its badge: watermark = everything now seen.
@@ -729,9 +788,6 @@ export const ui = {
       wireShareButtons(score, dist);
       this.recapRevealMs = wireRecap(els.screen, handlers);
     }
-    if (type === 'gambitResult') {
-      wireGambitResult(els.screen, handlers);
-    }
     if (type === 'pilot') {
       wirePilot(els.screen, {
         onTab: (tab) => { pilotTab = tab; ui.showScreen('pilot'); },
@@ -752,8 +808,8 @@ export const ui = {
   // Duration of the recap's reveal queue (main.js delays blank-tap arming).
   recapRevealMs: 0,
 
-  // One-shot notice on the next start screen (welcome-back gift, gambit
-  // stake refund). Cleared after first render.
+  // One-shot notice on the next start screen (welcome-back gift, refund).
+  // Cleared after first render.
   setStartNotice(text) {
     startNotice = text;
   },
@@ -954,6 +1010,15 @@ function shopBadgeDue() {
 
 const badgeHtml = (due) => (due ? '<span class="badge"></span>' : '');
 
+// C7: One-time iOS "Add to Home Screen" nudge for Safari users not yet in standalone
+function iosInstallHint() {
+  const isIOS = /iPhone|iPad|iPod/.test(navigator.userAgent);
+  if (!isIOS || navigator.standalone || saveData.flags.seenIOSHint) return '';
+  saveData.flags.seenIOSHint = true;
+  persist();
+  return '<p class="ios-hint">Tip: tap <b>Share ⬆</b> → <b>Add to Home Screen</b> for the full-screen experience</p>';
+}
+
 // Goal-gradient bars: the final stretch glows + shimmers (motivation peaks
 // near completion — make the bar feel it).
 const barHtml = (frac) =>
@@ -963,7 +1028,7 @@ const barHtml = (frac) =>
 let lastScreen = 'start';
 let returnScreen = 'start';
 let pauseSubscreen = false; // shop/settings opened from the pause menu
-let shopTab = 'dragons';    // dragons | riders | music
+let shopTab = 'dragons';    // dragons | riders | music | style
 let pauseTab = 'audio';     // audio | assists | quests
 let pilotTab = 'feats';     // feats | log | titles
 let startNotice = '';       // one-shot line on the start screen
@@ -1104,6 +1169,73 @@ function wireScreenButtons(type) {
         needMore(250, 'a revive token');
       }
     });
+
+    // Flightmarks: equip free default or buy/equip a mark
+    for (const card of els.screen.querySelectorAll('.skin-card[data-flightmark]')) {
+      card.onclick = stop(() => {
+        const id = card.dataset.flightmark;
+        if (id === '') {
+          handlers.onEquipFlightmark && handlers.onEquipFlightmark('');
+          ui.showScreen('shop');
+          return;
+        }
+        const mark = FLIGHTMARKS.find(m => m.id === id);
+        if (flightmarkOwned(id)) {
+          handlers.onEquipFlightmark && handlers.onEquipFlightmark(id);
+          ui.showScreen('shop');
+        } else if (saveData.embers >= mark.cost) {
+          if (handlers.onBuyFlightmark && handlers.onBuyFlightmark(id)) {
+            handlers.onEquipFlightmark && handlers.onEquipFlightmark(id);
+            ui.showScreen('shop');
+            ui.celebrate({
+              kind: 'flightmark', tier: 'small', glyph: '✦',
+              title: mark.name, subtitle: 'Trail equipped',
+            });
+          }
+        } else {
+          needMore(mark.cost, `${mark.name} trail`);
+        }
+      });
+    }
+
+    // Ascension: ▲ tier button inside dragon card
+    for (const btn of els.screen.querySelectorAll('[data-ascend]')) {
+      btn.onclick = stop(() => {
+        const key = btn.dataset.ascend;
+        const d = DRAGONS[key];
+        const newTier = handlers.onAscend && handlers.onAscend(key);
+        if (newTier) {
+          ui.showScreen('shop');
+          ui.celebrate({
+            kind: 'ascension', tier: 'big', glyph: '▲',
+            title: `${d.name} Ascended`,
+            subtitle: ASCENSION_TIERS[newTier - 1].name,
+          });
+        } else {
+          const check = canAscend(key, d.cost);
+          if (check.cost) needMore(check.cost, `${d.name} ascension`);
+        }
+      });
+    }
+
+    // Radiance: ✦ rank button inside dragon card
+    for (const btn of els.screen.querySelectorAll('[data-ascend-radiance]')) {
+      btn.onclick = stop(() => {
+        const key = btn.dataset.ascendRadiance;
+        const d = DRAGONS[key];
+        const newRank = handlers.onBuyRadiance && handlers.onBuyRadiance(key);
+        if (newRank) {
+          ui.showScreen('shop');
+          ui.celebrate({
+            kind: 'radiance', tier: 'small', glyph: '✦',
+            title: `Radiance Rank ${newRank}`,
+            subtitle: d ? d.name : key,
+          });
+        } else {
+          needMore(radianceCost(key), `${d ? d.name : key} radiance`);
+        }
+      });
+    }
   }
 
   if (type === 'settings') {

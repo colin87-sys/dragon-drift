@@ -19,6 +19,9 @@ export const TITLES = [
   { id: 'dawnchaser',   name: 'Dawnchaser',     source: 'Feat: Dawn Patrol' },
   { id: 'driftveteran', name: 'Drift Veteran',  source: 'Feat: Veteran of the Drift' },
   { id: 'midas',        name: 'Midas',          source: 'Feat: Midas Wing' },
+  // Ascension feats
+  { id: 'eternal',      name: 'Eternal',       source: 'Feat: Eternal Bond' },
+  { id: 'lightbringer', name: 'Lightbringer',  source: 'Radiance rank 10' },
   // Weekly trials
   { id: 'longhauler',   name: 'Long Hauler',     source: 'Weekly trial' },
   { id: 'deadeye',      name: 'Deadeye',         source: 'Weekly trial' },

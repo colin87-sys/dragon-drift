@@ -25,7 +25,6 @@ export const FEAT_DEFS = [
   { id: 'gauntlet_3run',  cat: 'skill', name: 'Corridor King',         desc: 'Clear 3 gauntlets in one run',           reward: 60 },
   { id: 'clean_2k',       cat: 'skill', name: 'Untouchable',           desc: 'Fly 2,000 m without a scratch',          reward: 100, title: 'ghost' },
   { id: 'raw_5k',         cat: 'skill', name: 'Raw Sky',               desc: 'Score 5,000 with every assist off',      reward: 80,  settle: () => game.score >= 5000 && game.scoreMult > 1.24 },
-  { id: 'gambit_win',     cat: 'skill', name: 'All In',                desc: 'Win an Ember Gambit',                    reward: 50,  settle: () => saveData.stats.gambitsWon >= 1 },
   // --- Journey ---
   { id: 'dist_5k_run',    cat: 'journey', name: 'Marathon Wing',       desc: 'Fly 5,000 m in one run',                 reward: 80,  settle: () => game.distance >= 5000 },
   { id: 'runs_10',        cat: 'journey', name: 'Regular',             desc: 'Finish 10 flights',                      reward: 30,  settle: () => saveData.stats.runs >= 10 },
@@ -35,6 +34,8 @@ export const FEAT_DEFS = [
   { id: 'biome_6',        cat: 'journey', name: 'World Tour',          desc: 'Reach the Astral Shallows in one run',   reward: 120, settle: () => game.distance >= 7500 },
   { id: 'level_10',       cat: 'journey', name: 'Ace Pilot',           desc: 'Reach pilot level 10',                   reward: 80,  settle: () => saveData.level >= 10 },
   { id: 'weekly_first',   cat: 'journey', name: 'Trialblazer',         desc: 'Complete a weekly trial',                reward: 60,  settle: () => TRIAL_POOL.some((t) => saveData.titles.owned.includes(t.title)) },
+  { id: 'ascend_first',   cat: 'skill',      name: 'First Flame',  desc: 'Ascend any dragon to tier 1', reward: 60,  settle: () => (saveData.ascension.tiers || []).some(e => e[1] >= 1) },
+  { id: 'ascend_eternal', cat: 'collection', name: 'Eternal Bond', desc: 'Ascend any dragon to tier 5', reward: 150, title: 'eternal', settle: () => (saveData.ascension.tiers || []).some(e => e[1] >= 5) },
   // --- Collection ---
   { id: 'gold_first',     cat: 'collection', name: 'Gilded',           desc: 'Catch a golden ember',                   reward: 25 },
   { id: 'gold_25',        cat: 'collection', name: 'Midas Wing',       desc: 'Catch 25 golden embers lifetime',        reward: 120, title: 'midas', settle: () => saveData.stats.totalGoldEmbers >= 25 },
@@ -79,6 +80,7 @@ export function takeFeatsThisRun() {
 let lastDamageDist = 0;
 
 export function initFeats() {
+  saveData.feats.unlocked = saveData.feats.unlocked.filter(id => FEAT_DEFS.some(d => d.id === id));
   on('runStart', () => { featsThisRun = []; lastDamageDist = 0; });
   on('damage', (p) => { lastDamageDist = p.m; });
 

@@ -31,11 +31,12 @@ export const game = {
   isNewBestDistance: false,
   challengeScore: 0,
   challengeBeaten: false, // crossed the challenge target mid-run (race bar)
-  mode: 'normal',      // normal | daily | gambit
+  mode: 'normal',      // normal | daily
   runSeed: CONFIG.seed,
   embersRun: 0,        // embers collected this run (banked at run end)
   emberBonusEarned: 0, // extra embers from the equipped rider's bonus
   firstFlightBonus: 0, // extra embers from the first-flight-of-the-day ×1.5
+  ascendBonusEarned: 0, // extra embers from ascension tier bonus (1% per tier)
   gatesRun: 0,         // windows threaded this run
   surgesRun: 0,        // Dragon Surges triggered this run
   goldEmbersRun: 0,    // golden embers caught this run
@@ -97,6 +98,7 @@ export const game = {
     this.embersRun = 0;
     this.emberBonusEarned = 0;
     this.firstFlightBonus = 0;
+    this.ascendBonusEarned = 0;
     this.gatesRun = 0;
     this.surgesRun = 0;
     this.goldEmbersRun = 0;

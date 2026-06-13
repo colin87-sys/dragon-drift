@@ -13,7 +13,7 @@ const KEY = 'dragonDriftSave';
 const DEFAULTS = {
   v: 2,
   best: { score: 0, dist: 0 },
-  flags: { seenFirstSurge: false, hintsSeen: 0 },
+  flags: { seenFirstSurge: false, hintsSeen: 0, seenIOSHint: false },
   audio: { musicMuted: false, sfxMuted: false, musicVol: 1, sfxVol: 1, track: 0, ownedTracks: [] },
   settings: { qualityOverride: null, reticle: true, slowMo: true },
   embers: 0,
@@ -28,7 +28,7 @@ const DEFAULTS = {
     runs: 0, totalDist: 0, totalRings: 0, totalEmbers: 0,
     totalPerfects: 0, totalGates: 0, totalNearMisses: 0, totalRolls: 0,
     totalSurges: 0, totalOrbs: 0, totalGoldEmbers: 0, gauntletsCleared: 0,
-    gambitsWon: 0, gambitsLost: 0, dailiesCompleted: 0,
+    dailiesCompleted: 0,
   },
   records: {
     bestChain: 0, bestPerfectStreak: 0, mostRingsRun: 0,
@@ -39,7 +39,8 @@ const DEFAULTS = {
   weekly: { key: '', trialIds: [], progress: [], done: [], feather: false },
   milestones: { claimed: [] },
   mastery: { flown: [], starsClaimed: [] }, // flown: [[dragonKey, metres], ...]
-  gambitPending: null,  // { stake: N } while a gambit corridor is airborne
+  ascension: { tiers: [], radiance: [] },   // tiers: [[dragonKey, n], ...]
+  cosmetics: { marksOwned: [], markEquipped: '' },
   lastSeen: '',         // YYYY-MM-DD UTC, set on every boot
   firstFlightDay: '',   // last UTC day the first-flight ember bonus was paid
   // Appointment-UI watermarks (honest badges): fixed numeric keys only.
@@ -94,6 +95,8 @@ function migrateLegacy(data) {
   return data;
 }
 
+export let gambitSunsetRefund = 0;
+
 function load() {
   let raw = null;
   try { raw = localStorage.getItem(KEY); } catch { /* private mode */ }
@@ -106,6 +109,10 @@ function load() {
   // v1 → v2 needs no migration body (deep-merge fills the new fields), but
   // deepMerge keeps the OLD version marker — stamp the current one.
   data.v = DEFAULTS.v;
+  if (parsed && parsed.gambitPending && parsed.gambitPending.stake > 0) {
+    data.embers += Math.floor(parsed.gambitPending.stake);
+    gambitSunsetRefund = Math.floor(parsed.gambitPending.stake);
+  }
   return data;
 }
 

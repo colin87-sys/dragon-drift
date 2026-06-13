@@ -7,6 +7,9 @@ const { FEAT_DEFS } = await import('../js/feats.js');
 const { TRIAL_POOL } = await import('../js/weekly.js');
 const { MILESTONES, MASTERY_STARS } = await import('../js/milestones.js');
 const { TITLES, titleById, levelTitleId } = await import('../js/titles.js');
+const { ASCENSION_TIERS } = await import('../js/ascension.js');
+const { FLIGHTMARKS } = await import('../js/flightmarks.js');
+const { DRAGONS } = await import('../js/dragons.js');
 
 let n = 0;
 const ok = (msg) => { n++; console.log(`  ✓ ${msg}`); };
@@ -50,13 +53,13 @@ ok(`${untiered.length} untiered missions rotate forever`);
 // --- Feats ---
 const fids = FEAT_DEFS.map((d) => d.id);
 assertEq(new Set(fids).size, fids.length, 'feat ids unique');
-assertEq(FEAT_DEFS.length, 24, 'exactly 24 feats');
+assertEq(FEAT_DEFS.length, 25, 'exactly 25 feats');
 for (const d of FEAT_DEFS) {
   assert(d.reward >= 20 && d.reward <= 150, `feat ${d.id} reward in [20,150]`);
   assert(['skill', 'journey', 'collection'].includes(d.cat), `feat ${d.id} category valid`);
   if (d.title) assert(titleById(d.title), `feat ${d.id} title '${d.title}' exists`);
 }
-ok('24 feats, unique ids, rewards in [20,150], titles resolvable');
+ok('25 feats, unique ids, rewards in [20,150], titles resolvable');
 
 // --- Weekly trials ---
 const tids = TRIAL_POOL.map((t) => t.id);
@@ -91,5 +94,33 @@ for (const t of TITLES) assert(t.name.length <= 16, `title '${t.name}' ≤ 16 ch
 assertEq(levelTitleId(5), 'skylark', 'level 5 grants Skylark');
 assertEq(levelTitleId(7), null, 'level 7 grants nothing');
 ok('titles unique, ≤16 chars, level mapping correct');
+
+// --- Ascension tiers ---
+assertEq(ASCENSION_TIERS.length, 5, 'exactly 5 ascension tiers');
+let prevMetres = 0;
+for (const t of ASCENSION_TIERS) {
+  assert(t.cost > 0, `tier ${t.name} cost > 0`);
+  assert(t.metres > prevMetres, `tier ${t.name} metres strictly increasing`);
+  prevMetres = t.metres;
+}
+ok('5 ascension tiers, costs positive, metres increasing');
+
+// --- Flightmarks ---
+const fmIds = FLIGHTMARKS.map(m => m.id);
+assertEq(new Set(fmIds).size, fmIds.length, 'flightmark ids unique');
+for (const m of FLIGHTMARKS) {
+  assert(m.cost >= 800, `flightmark ${m.id} cost >= 800`);
+  assert(typeof m.trail === 'number', `flightmark ${m.id} has trail color`);
+}
+ok(`${FLIGHTMARKS.length} flightmarks, unique ids, costs ≥800`);
+
+// --- Dragon evolution stages ---
+for (const [key, d] of Object.entries(DRAGONS)) {
+  assert(Array.isArray(d.stages) && d.stages.length === 3, `dragon ${key} has 3 stages`);
+  for (let i = 0; i < 3; i++) {
+    assert(d.stages[i] !== null && typeof d.stages[i] === 'object', `dragon ${key} stage ${i} is an object`);
+  }
+}
+ok(`${Object.keys(DRAGONS).length} dragons each have 3 evolution stages`);
 
 console.log(`\n${n} def checks passed.`);

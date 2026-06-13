@@ -19,7 +19,7 @@ let hideAt = 0;      // game.time to auto-hide
 let boostedThisRun = false;
 
 function seen(bit) { return (saveData.flags.hintsSeen & bit) !== 0; }
-function eligible() { return saveData.stats.runs < 2 && game.mode !== 'gambit'; }
+function eligible() { return saveData.stats.runs < 2; }
 
 function show(bit, text, holdFor) {
   saveData.flags.hintsSeen |= bit;
