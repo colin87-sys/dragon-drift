@@ -1,11 +1,12 @@
 import * as THREE from 'three';
 import { makeGlowTexture } from './util.js';
+import { buildDragonModel, makePreviewTick } from './dragonModel.js';
 
 // Live 3D shop previews: every dragon/rider card gets a little turntable —
-// a compact procedural icon of the actual model (colors, horns, wings, aura)
-// rendered into the card's <canvas>. One shared offscreen WebGL renderer is
-// blitted into each card at ~30fps; the loop self-stops when the shop closes
-// (canvases leave the DOM) and everything is disposed.
+// the real dragon model (same mesh as in-game, tier-aware) rendered into the
+// card's <canvas>. One shared offscreen WebGL renderer is blitted into each
+// card at ~30fps; the loop self-stops when the shop closes (canvases leave
+// the DOM) and everything is disposed.
 
 const SIZE = 150;
 
@@ -20,12 +21,12 @@ function ensureRenderer() {
   if (renderer) return;
   renderer = new THREE.WebGLRenderer({ alpha: true, antialias: true });
   renderer.setSize(SIZE, SIZE);
-  renderer.setPixelRatio(1);
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
   renderer.toneMapping = THREE.ACESFilmicToneMapping;
   scene = new THREE.Scene();
   camera = new THREE.PerspectiveCamera(35, 1, 0.1, 50);
-  camera.position.set(0, 0.7, 6.4);
-  camera.lookAt(0, 0, 0);
+  camera.position.set(0, 0.7, 7.5);
+  camera.lookAt(0, 0.2, 0);
   scene.add(new THREE.HemisphereLight(0xbfdcff, 0x2e3448, 1.0));
   const key = new THREE.DirectionalLight(0xffe0b0, 1.7);
   key.position.set(2.5, 3, 4);
@@ -33,155 +34,12 @@ function ensureRenderer() {
   const rim = new THREE.DirectionalLight(0x7fb8ff, 0.8);
   rim.position.set(-3, 1.5, -3);
   scene.add(rim);
+  const fill = new THREE.DirectionalLight(0xd0f0ff, 0.4);
+  fill.position.set(0, -2, 2);
+  scene.add(fill);
 }
 
 const mat = (color, opts = {}) => new THREE.MeshStandardMaterial({ color, roughness: 0.45, ...opts });
-
-// Compact dragon bust: body + head + horns + two-tone wings + tail, all from
-// the dragon def, so the icon really is the dragon you're buying.
-function buildDragonIcon(def) {
-  const g = new THREE.Group();
-  const m = def.model;
-  const bodyMat = mat(def.body, { emissive: def.body, emissiveIntensity: 0.18 });
-  const bellyMat = mat(def.belly);
-  const hornMat = mat(def.horn, { emissive: 0x6b3400, emissiveIntensity: 0.25, roughness: 0.25 });
-  const scalesMat = mat(def.scales, { emissive: def.scales, emissiveIntensity: 0.3, metalness: 0.2 });
-
-  const body = new THREE.Mesh(new THREE.CapsuleGeometry(0.44, 1.6, 6, 10), bodyMat);
-  body.rotation.x = Math.PI / 2;
-  body.scale.set(0.85, 0.75, 1);
-  g.add(body);
-  const chest = new THREE.Mesh(new THREE.SphereGeometry(0.62, 10, 8), bellyMat);
-  chest.scale.set(0.9, 0.78, 1.0);
-  chest.position.set(0, -0.12, -0.55);
-  g.add(chest);
-
-  // Head
-  const head = new THREE.Group();
-  const skull = new THREE.Mesh(new THREE.SphereGeometry(0.46, 10, 8), bodyMat);
-  skull.scale.set(1.2, 0.85, 1);
-  head.add(skull);
-  const snout = new THREE.Mesh(new THREE.ConeGeometry(0.28, 0.85, 7), bodyMat);
-  snout.rotation.x = -Math.PI / 2;
-  snout.position.set(0, -0.06, -0.62);
-  head.add(snout);
-  const eyeMat = mat(0x223344, { emissive: def.eye, emissiveIntensity: 2.4 });
-  for (const s of [-1, 1]) {
-    const eye = new THREE.Mesh(new THREE.SphereGeometry(0.07, 6, 5), eyeMat);
-    eye.position.set(0.2 * s, 0.12, -0.3);
-    head.add(eye);
-    const horn = new THREE.Mesh(new THREE.ConeGeometry(0.1, m.hornLen * 0.55, 5), hornMat);
-    horn.position.set(0.26 * s, 0.32, 0.18);
-    horn.rotation.x = 0.7;
-    horn.rotation.z = s * -0.2;
-    head.add(horn);
-    if (m.hornPairs > 1) {
-      const horn2 = new THREE.Mesh(new THREE.ConeGeometry(0.07, m.hornLen * 0.34, 5), hornMat);
-      horn2.position.set(0.16 * s, 0.3, 0.36);
-      horn2.rotation.x = 1.0;
-      head.add(horn2);
-    }
-  }
-  head.position.set(0, 0.35, -1.55);
-  g.add(head);
-
-  // Back ridge density hints at the real ridgeCount
-  for (let i = 0; i < Math.min(5, Math.round(m.ridgeCount / 3)); i++) {
-    const ridge = new THREE.Mesh(new THREE.ConeGeometry(0.08, 0.26, 4), scalesMat);
-    ridge.rotation.x = -Math.PI / 2;
-    ridge.position.set(0, 0.45 - i * 0.02, -0.9 + i * 0.42);
-    g.add(ridge);
-  }
-
-  // Two-tone membrane wings (inner gradient root, outer tip), flapped in tick
-  const innerMat = mat(def.wingInner, { emissive: def.wingEmissive, emissiveIntensity: 0.35, side: THREE.DoubleSide, transparent: true, opacity: 0.95 });
-  const outerMat = mat(def.wingOuter, { emissive: def.wingEmissive, emissiveIntensity: 0.25, side: THREE.DoubleSide, transparent: true, opacity: 0.95 });
-  const ws = m.wingScale;
-  const wingPivots = [];
-  for (const s of [-1, 1]) {
-    const pivot = new THREE.Group();
-    pivot.position.set(s * 0.3, 0.28, -0.5);
-    const root = new THREE.Mesh(new THREE.ShapeGeometry(wingShape()), innerMat);
-    root.scale.set(s * 0.85 * ws, 0.85 * ws, 1);
-    root.rotation.x = -Math.PI / 2;
-    pivot.add(root);
-    const tip = new THREE.Mesh(new THREE.ShapeGeometry(wingShape()), outerMat);
-    tip.scale.set(s * 0.5 * ws, 0.55 * ws, 1);
-    tip.rotation.x = -Math.PI / 2;
-    tip.position.set(s * 1.35 * ws, 0.05, -0.1);
-    pivot.add(tip);
-    g.add(pivot);
-    wingPivots.push({ pivot, s });
-  }
-
-  // Tail length scales with the real segment count
-  let r = 0.3;
-  let z = 1.1;
-  const tailSegs = [];
-  for (let i = 0; i < Math.min(6, Math.round(m.tailSegments / 2)); i++) {
-    const seg = new THREE.Mesh(new THREE.ConeGeometry(r, 0.75, 6), bodyMat);
-    seg.rotation.x = Math.PI / 2;
-    seg.position.set(0, 0, z);
-    g.add(seg);
-    tailSegs.push(seg);
-    z += 0.52;
-    r *= 0.72;
-  }
-
-  // Aura halo + sparkles for the premium dragons — the flex is visible.
-  let aura = null;
-  if (def.fx.auraIdle > 0) {
-    aura = new THREE.Sprite(new THREE.SpriteMaterial({
-      map: makeGlowTexture(def.fx.auraColor), transparent: true,
-      opacity: 0.4, blending: THREE.AdditiveBlending, depthWrite: false,
-    }));
-    aura.scale.set(6.5, 6.5, 1);
-    g.add(aura);
-  }
-  const sparkles = [];
-  if (def.fx.sparkle) {
-    const tex = makeGlowTexture(def.fx.auraColor);
-    for (let i = 0; i < 5; i++) {
-      const sp = new THREE.Sprite(new THREE.SpriteMaterial({
-        map: tex, transparent: true, opacity: 0.9,
-        blending: THREE.AdditiveBlending, depthWrite: false,
-      }));
-      sp.scale.set(0.3, 0.3, 1);
-      g.add(sp);
-      sparkles.push(sp);
-    }
-  }
-
-  g.scale.setScalar(0.92 * m.scale);
-  g.position.y = 0.1;
-
-  const tick = (t) => {
-    g.rotation.y = t * 0.7;
-    const flap = Math.sin(t * 4.2 * m.flapBias) * 0.5;
-    for (const { pivot, s } of wingPivots) pivot.rotation.z = s * (flap - 0.15);
-    for (let i = 0; i < tailSegs.length; i++) {
-      tailSegs[i].position.x = Math.sin(t * 2.4 - i * 0.6) * 0.07 * (i + 1);
-    }
-    head.rotation.y = Math.sin(t * 0.9) * 0.18;
-    if (aura) aura.material.opacity = 0.3 + def.fx.auraIdle + Math.sin(t * 2.6) * 0.12;
-    for (let i = 0; i < sparkles.length; i++) {
-      const a = t * 1.4 + (i / sparkles.length) * Math.PI * 2;
-      sparkles[i].position.set(Math.cos(a) * 1.9, Math.sin(a * 1.7) * 1.1 + 0.2, Math.sin(a) * 1.9);
-      sparkles[i].material.opacity = 0.5 + Math.sin(t * 6 + i * 2) * 0.4;
-    }
-  };
-  return { group: g, tick };
-}
-
-function wingShape() {
-  const s = new THREE.Shape();
-  s.moveTo(0, 0);
-  s.bezierCurveTo(0.5, 0.35, 1.3, 0.55, 1.8, 0.4);
-  s.lineTo(2.2, -0.1);
-  s.bezierCurveTo(1.5, -0.55, 0.7, -0.7, 0.2, -0.5);
-  s.lineTo(0, -0.2);
-  return s;
-}
 
 // Rider bust on a floating saddle disc: outfit, hair, signature accessory
 // and glow, true to the def.
@@ -310,8 +168,8 @@ function loop(now = performance.now()) {
     item.tick(t + item.phase);
     renderer.render(scene, camera);
     scene.remove(item.group);
-    item.ctx.clearRect(0, 0, SIZE, SIZE);
-    item.ctx.drawImage(renderer.domElement, 0, 0, SIZE, SIZE);
+    item.ctx.clearRect(0, 0, item.canvas.width, item.canvas.height);
+    item.ctx.drawImage(renderer.domElement, 0, 0, item.canvas.width, item.canvas.height);
   }
 }
 
@@ -325,10 +183,19 @@ export function attachPreviews(root, lookup) {
   for (const canvas of canvases) {
     const def = lookup(canvas.dataset.kind, canvas.dataset.key);
     if (!def) continue;
-    const built = canvas.dataset.kind === 'dragon' ? buildDragonIcon(def) : buildRiderIcon(def);
+    let group, tick;
+    if (canvas.dataset.kind === 'dragon') {
+      const result = buildDragonModel(def);
+      group = result.group;
+      tick = makePreviewTick(def, result);
+    } else {
+      const built = buildRiderIcon(def);
+      group = built.group;
+      tick = built.tick;
+    }
     items.push({
       canvas, ctx: canvas.getContext('2d'),
-      group: built.group, tick: built.tick,
+      group, tick,
       phase: Math.random() * 6,
     });
   }
@@ -342,10 +209,19 @@ export function attachPreviews(root, lookup) {
 export function attachPreviewCanvas(canvas, kind, def) {
   if (!def) return;
   ensureRenderer();
-  const built = kind === 'dragon' ? buildDragonIcon(def) : buildRiderIcon(def);
+  let group, tick;
+  if (kind === 'dragon') {
+    const result = buildDragonModel(def);
+    group = result.group;
+    tick = makePreviewTick(def, result);
+  } else {
+    const built = buildRiderIcon(def);
+    group = built.group;
+    tick = built.tick;
+  }
   items.push({
     canvas, ctx: canvas.getContext('2d'),
-    group: built.group, tick: built.tick,
+    group, tick,
     phase: Math.random() * 6,
   });
   if (!rafId) rafId = requestAnimationFrame(loop);

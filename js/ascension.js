@@ -85,24 +85,50 @@ export function ascendEmberBonus() {
   return Math.min(tier * 0.01, 0.05);
 }
 
-// Pokémon-style evolution stage: 0 = hatchling, 1-2 = adolescent, 3+ = apex.
+// Pokémon-style evolution stage: proportion curve (scale/eyeScale).
+// 0 = hatchling, 1-2 = adolescent, 3+ = apex.
 export function evoStage(tier) {
   return tier >= 3 ? 2 : tier >= 1 ? 1 : 0;
 }
 
 // Derived dragon def incorporating ascension tier + radiance amplification.
+// stages[] drives proportions; tierKit[] cumulatively bolts on parts per tier.
 export function ascendedDef(def, tier, radiance) {
   radiance = radiance || 0;
   const d = JSON.parse(JSON.stringify(def));
+
+  // Proportion curve (hatchling → adolescent → apex silhouette)
   const stage = evoStage(tier);
   if (def.stages && def.stages[stage]) {
     Object.assign(d.model, def.stages[stage]);
   }
+
+  // Cumulative part accretion — each tier bolts on what tierKit[t] specifies
+  if (def.tierKit) {
+    for (let t = 0; t <= Math.min(tier, def.tierKit.length - 1); t++) {
+      const kit = def.tierKit[t];
+      if (!kit) continue;
+      for (const [k, v] of Object.entries(kit)) {
+        // Numeric model params: take the max (highest tier wins for scales etc.)
+        if (typeof v === 'number' && typeof d.model[k] === 'number') {
+          d.model[k] = Math.max(d.model[k], v);
+        } else {
+          // Booleans and strings: direct assign (additive — once set, stays set)
+          d.model[k] = v;
+        }
+      }
+    }
+  }
+
   d.fx = { ...d.fx };
   d.fx.auraIdle = Math.min(0.5, (def.fx.auraIdle || 0) + 0.06 * tier + 0.01 * radiance);
   d.fx.sparkle = def.fx.sparkle || tier >= 3;
   d.fx.wingGlow = 1 + 0.15 * tier;
   if (tier >= 5) d.fx.bodyGlow = 1.6;
+
+  // Apex palette overrides (plasma-cyan, sapphire, molten seams)
+  if (tier >= 3 && def.apexEye) d.eye = def.apexEye;
+
   return d;
 }
 

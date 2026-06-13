@@ -40,7 +40,7 @@ const DEFAULTS = {
   milestones: { claimed: [] },
   mastery: { flown: [], starsClaimed: [] }, // flown: [[dragonKey, metres], ...]
   ascension: { tiers: [], radiance: [] },   // tiers: [[dragonKey, n], ...]
-  cosmetics: { marksOwned: [], markEquipped: '' },
+  cosmetics: { marksOwned: [], markEquipped: '', formPref: [] }, // formPref: [[key, tierToDisplay]]
   lastSeen: '',         // YYYY-MM-DD UTC, set on every boot
   firstFlightDay: '',   // last UTC day the first-flight ember bonus was paid
   // Appointment-UI watermarks (honest badges): fixed numeric keys only.
