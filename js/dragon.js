@@ -52,6 +52,15 @@ let boostTrailSprites = [];
 let trailTimer = 0;
 let boostTrailTimer = 0;
 let contrailTimer = 0;
+let trailPaletteIdx = 0;
+
+// Trail color for a freshly-spawned sprite: cycles the equipped flightmark's
+// trailPalette (aurora/goldleaf) when present, else the flat per-dragon color.
+function pickTrailHex(fallback) {
+  const pal = activeDef && activeDef.trailPalette;
+  if (pal && pal.length) return pal[trailPaletteIdx++ % pal.length];
+  return fallback;
+}
 
 // Ice-burst death particles
 const BURST_COUNT = 60;
@@ -417,7 +426,7 @@ export function updateDragon(dt, player, time) {
         marker.getWorldPosition(tmpV);
         s.visible = true;
         s.userData.life = player.feverActive ? 0.75 : 0.6; // shorter than body trail = crisp ribbon
-        s.material.color.setHex(player.feverActive ? 0xff9ad6 : activeDef.trail);
+        s.material.color.setHex(player.feverActive ? 0xff9ad6 : pickTrailHex(activeDef.trail));
         s.position.copy(tmpV);
       }
     }
@@ -447,7 +456,7 @@ export function updateDragon(dt, player, time) {
     if (s) {
       s.visible = true;
       s.userData.life = 1;
-      s.material.color.setHex(player.feverActive ? 0xff9ad6 : 0xffffff);
+      s.material.color.setHex(player.feverActive ? 0xff9ad6 : pickTrailHex(activeDef.trail));
       s.position.set(
         group.position.x + (Math.random() - 0.5) * 1.6,
         group.position.y + (Math.random() - 0.5) * 1.2,
@@ -474,7 +483,7 @@ export function updateDragon(dt, player, time) {
     if (s) {
       s.visible = true;
       s.userData.life = player.feverActive ? 1.2 : 1;
-      s.material.color.setHex(player.feverActive ? 0xff88cc : activeDef.boostTrail);
+      s.material.color.setHex(player.feverActive ? 0xff88cc : pickTrailHex(activeDef.boostTrail));
       s.position.set(
         group.position.x + (Math.random() - 0.5) * (player.feverActive ? 1.5 : 1.0),
         group.position.y + (Math.random() - 0.5) * (player.feverActive ? 1.3 : 0.9),

@@ -206,6 +206,15 @@ export function attachPreviews(root, lookup) {
 // this does NOT disposeAll, so shop-card turntables behind the overlay keep
 // spinning. The canvas leaving the DOM auto-disposes it (loop's isConnected
 // sweep) — dismissing the overlay is the cleanup.
+// Replace a single card's turntable in place (form scrub) — dispose only that
+// canvas's item and rebuild it, leaving every other turntable untouched.
+export function refreshPreview(canvas, kind, def) {
+  for (let i = items.length - 1; i >= 0; i--) {
+    if (items[i].canvas === canvas) { disposeItem(items[i]); items.splice(i, 1); }
+  }
+  attachPreviewCanvas(canvas, kind, def);
+}
+
 export function attachPreviewCanvas(canvas, kind, def) {
   if (!def) return;
   ensureRenderer();

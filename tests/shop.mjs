@@ -7,8 +7,8 @@ import { boot, check } from './browser.mjs';
 const { page, errors, done } = await boot({
   initScript: `localStorage.setItem('dragonDriftSave', JSON.stringify({
     v: 2, embers: 9000,
-    skins: { owned: ['azure', 'ember', 'solar'], equipped: 'azure' },
-    ascension: { tiers: [['solar', 5]], radiance: [] },
+    skins: { owned: ['azure', 'ember', 'solar'], equipped: 'solar' },
+    ascension: { tiers: [['solar', 5], ['ember', 3]], radiance: [] },
     cosmetics: { marksOwned: ['goldleaf'], markEquipped: '', formPref: [] },
   }))`,
 });
@@ -35,6 +35,21 @@ const drew = await page.evaluate(() => {
 });
 check('a dragon turntable rendered visible pixels', drew);
 
+// Form scrub must change ONLY the scrubbed dragon, not every card.
+const emberBefore = await page.$eval('[data-form-label="ember"]', el => el.textContent);
+const solarBefore = await page.$eval('[data-form-label="solar"]', el => el.textContent);
+await page.click('.form-arrow[data-form-prev="ember"]');
+await page.waitForTimeout(120);
+const emberAfter = await page.$eval('[data-form-label="ember"]', el => el.textContent);
+const solarAfter = await page.$eval('[data-form-label="solar"]', el => el.textContent);
+check('scrubbing ember changes ember\'s own form label', emberAfter !== emberBefore);
+check('scrubbing ember leaves solar\'s form untouched', solarAfter === solarBefore);
+
+// Scrubbing the EQUIPPED dragon (solar) also rebuilds the in-game model.
+await page.click('.form-arrow[data-form-prev="solar"]');
+await page.waitForTimeout(150);
+check('scrubbing the equipped dragon rebuilds in-game without erroring', errors.length === 0) || console.error(errors.join('\n'));
+
 // Tabs respond (the wiring that was dead before).
 await page.click('.seg-btn[data-shoptab="music"]');
 await page.waitForSelector('.track-card');
@@ -43,6 +58,9 @@ check('MUSIC tab switches', !!(await page.$('.track-card')));
 await page.click('.seg-btn[data-shoptab="style"]');
 await page.waitForSelector('canvas.trail-preview');
 check('STYLE tab switches + trail previews render', !!(await page.$('canvas.trail-preview')));
+// Trail-preview canvases must let touch-scroll through (not global touch-action:none).
+const trailTouch = await page.$eval('canvas.trail-preview', el => getComputedStyle(el).touchAction);
+check('STYLE trail previews allow scroll (touch-action not none)', trailTouch !== 'none');
 
 await page.click('.seg-btn[data-shoptab="riders"]');
 await page.waitForSelector('.skin-card[data-rider]');

@@ -503,6 +503,9 @@ body.app-loaded > canvas { opacity: 1; }
 .trail-preview { width: 140px; height: 104px; border-radius: 14px;
   background: rgba(8,14,30,0.65); border: 1px solid rgba(140,200,255,0.14);
   display: block; }
+/* Shop preview canvases must let touch-scroll pass through — the global
+   `canvas { touch-action: none }` (for in-game steering) otherwise traps it. */
+.skin-preview, .trail-preview { touch-action: pan-y; }
 /* Live 3D turntable preview (canvas blitted from a shared renderer) */
 .skin-preview { width: 104px; height: 104px; border-radius: 14px;
   background: radial-gradient(circle at 50% 38%, rgba(70, 110, 180, 0.35), rgba(8, 14, 30, 0.65) 78%);
@@ -587,19 +590,19 @@ body.app-loaded > canvas { opacity: 1; }
   .hud-bottom-left  { bottom: calc(10px + env(safe-area-inset-bottom, 0px)); left: 10px; }
   .hud-bottom-right { bottom: calc(10px + env(safe-area-inset-bottom, 0px)); right: 10px; }
   .hud-bottom-left .bar, .hud-bottom-right .bar { width: min(120px, 30vw); }
-  .score         { font-size: 26px; }
-  .combo                 { font-size: 12px; }
-  .combo[data-tier="1"]  { font-size: 13px; }
-  .combo[data-tier="2"]  { font-size: 15px; }
-  .combo[data-tier="3"]  { font-size: 17px; }
-  .combo[data-tier="4"]  { font-size: 19px; }
-  .combo[data-tier="5"]  { font-size: 20px; }
+  .score         { font-size: 36px; }
+  .combo                 { font-size: 16px; }
+  .combo[data-tier="1"]  { font-size: 17px; }
+  .combo[data-tier="2"]  { font-size: 19px; }
+  .combo[data-tier="3"]  { font-size: 21px; }
+  .combo[data-tier="4"]  { font-size: 23px; }
+  .combo[data-tier="5"]  { font-size: 24px; }
   .surge-widget  { width: 64px; height: 64px; }
   .surge-x       { font-size: 15px; }
   .surge-lbl     { font-size: 6.5px; }
-  .dist          { font-size: 10px; }
-  .best          { font-size: 9px; }
-  .embers-hud    { font-size: 11px; }
+  .dist          { font-size: 15px; }
+  .best          { font-size: 11px; }
+  .embers-hud    { font-size: 14px; }
   #reticle       { width: 64px; height: 64px; margin: -32px 0 0 -32px; }
   .popup         { font-size: 20px; top: 22%; }
   .popup2        { font-size: 16px; top: 30%; }
