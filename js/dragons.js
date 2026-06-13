@@ -18,22 +18,56 @@ export const DRAGONS = {
     title: 'The trusted courier',
     rarity: 'R',
     cost: 0,
+    // The humble free starter: the smallest, NARROWEST, cleanest wings in the
+    // roster (a nimble messenger), so the premiums feel rare. Sky-blue + gold.
     stats: { speed: 1.0, handling: 1.0, drain: 1.0, regen: 1.0 },
     model: {
-      scale: 1.05, wingScale: 1.0, tailSegments: 8, neckSegments: 4,
-      hornLen: 1.1, hornPairs: 1, ridgeCount: 10, flapBias: 1.0,
+      scale: 1.0, wingScale: 0.95, tailSegments: 8, neckSegments: 4,
+      hornLen: 1.0, hornPairs: 1, ridgeCount: 12,
+      flapBias: 1.18, flapAmp: 0.85, // quick, light courier wingbeat
     },
-    // Humble starter: stays the simplest even maxed, so the premiums feel rare.
-    forms: [
-      {},                                                        // base — bare drake
-      { ridgeCount: 13, dorsal: true, crest: 1 },                // +back sail + small crest
-      { crest: 2, hornLen: 1.35, glowSeams: true },              // +bigger crest/horns + seams
-      { tailTip: 'fan', sparkle: true },                         // apex — fan tail + sparkle
+    // Narrow, short, clean wings — the most compact silhouette of the roster.
+    wingForms: [
+      { tips: [[3.90, 0.28], [3.00, -0.40], [1.90, -0.66]],
+        lead: [2.50, 0.42], scallop: 0.16, flame: false,
+        arc: { bow: 0.50, hump: 0.0, humpAt: 0.6, hook: 0.10 } },
+      { tips: [[4.40, 0.30], [3.50, -0.44], [2.30, -0.82], [1.30, -0.85]],
+        lead: [2.90, 0.50], scallop: 0.28, flame: false,
+        arc: { bow: 0.55, hump: 0.40, humpAt: 0.55, hook: 0.18 } },
+      { tips: [[4.70, 0.34], [3.85, -0.48], [2.60, -0.95], [1.45, -1.00]],
+        lead: [3.15, 0.56], scallop: 0.40, flame: false,
+        arc: { bow: 0.60, hump: 0.70, humpAt: 0.57, hook: 0.30 } },
+      { tips: [[4.95, 0.38], [4.10, -0.50], [2.85, -1.00], [1.60, -1.05]],
+        lead: [3.35, 0.62], scallop: 0.45, flame: false,
+        arc: { bow: 0.65, hump: 1.00, humpAt: 0.58, hook: 0.45 } },
     ],
-    fx: { auraColor: '120,200,255', auraIdle: 0, sparkle: false },
-    body: 0x2b58c8, belly: 0xffd9a8, scales: 0x9fe8ff, horn: 0xffdf8a,
-    wingInner: 0x6aa8ff, wingOuter: 0x1f3fb0, wingEmissive: 0x4a90ff,
-    eye: 0x55e0ff, trail: 0x88c0ff, boostTrail: 0x88aaff,
+    forms: [
+      { wingForm: 0, tailStyle: 'simple', tailSegments: 5, ridgeCount: 8,
+        spineGlow: 0, crest: 0, neckSegments: 4,
+        colors: { body: 0x1c2230, wingInner: 0x3a5a8a, wingOuter: 0x223f5e,
+          wingEmissive: 0x3a6a9a, scales: 0x5a7890, horn: 0x7a90a8,
+          apexSeam: 0x4a6080, eye: 0x6aa0c0, coreGlow: 0x6a90c0 } },
+      { wingForm: 1, tailStyle: 'finned', tailSegments: 6, ridgeCount: 10,
+        spineGlow: 0.28, crest: 1, dorsal: true,
+        colors: { body: 0x1a2a44, wingInner: 0x4a8ad8, wingOuter: 0x2a5aa8,
+          wingEmissive: 0x4a90ff, scales: 0x9fe8ff, horn: 0xffdf8a,
+          apexSeam: 0x5aa8e0, eye: 0x88c8ff, coreGlow: 0x80b0ff } },
+      { wingForm: 2, tailStyle: 'blade', tailSegments: 7, ridgeCount: 11,
+        spineGlow: 0.55, wingVeins: true, glowSeams: true, crest: 1, hornLen: 1.3,
+        colors: { body: 0x16243c, wingInner: 0x60a8ff, wingOuter: 0x2a6ad0,
+          wingEmissive: 0x5aa0ff, scales: 0xbfe8ff, horn: 0xffe8a0,
+          apexSeam: 0x7ac0ff, eye: 0xa0d8ff, coreGlow: 0x90c8ff } },
+      { wingForm: 3, tailStyle: 'comet', tailSegments: 8, ridgeCount: 12,
+        spineGlow: 0.82, wingVeins: true, glowSeams: true, crest: 2,
+        colors: { body: 0x121f34, wingInner: 0x7ab8ff, wingOuter: 0x3a7ae0,
+          wingEmissive: 0x6ab0ff, scales: 0xdcf0ff, horn: 0xffe8a0,
+          apexSeam: 0x88d0ff, eye: 0xcaeaff, coreGlow: 0xaad8ff } },
+    ],
+    fx: { auraColor: '120,200,255', auraIdle: 0.0, sparkle: false },
+    body: 0x121f34, belly: 0xffd9a8, scales: 0xdcf0ff, horn: 0xffe8a0,
+    wingInner: 0x7ab8ff, wingOuter: 0x3a7ae0, wingEmissive: 0x6ab0ff,
+    apexEye: 0xcaeaff, apexSeam: 0x88d0ff, coreGlow: 0xaad8ff, surgeHi: 0xeaf6ff,
+    eye: 0x88c8ff, trail: 0x88c0ff, boostTrail: 0x88aaff,
   },
 
   ember: {
@@ -41,21 +75,59 @@ export const DRAGONS = {
     title: 'Forged in cinder',
     rarity: 'SR',
     cost: 600,
+    // A brutish CINDER-WYRM: broad, JAGGED flame-edged wings, a spiked back and
+    // lava-crack seams — stockier and more aggressive than Solar's elegant
+    // flame. Dark-cinder → bright lava.
     stats: { speed: 1.04, handling: 1.06, drain: 0.95, regen: 1.05 },
     model: {
-      scale: 1.04, wingScale: 1.05, tailSegments: 8, neckSegments: 4,
-      hornLen: 1.35, hornPairs: 1, ridgeCount: 12, flapBias: 1.08,
+      scale: 1.08, wingScale: 1.15, tailSegments: 8, neckSegments: 4,
+      hornLen: 1.4, hornPairs: 2, ridgeCount: 14,
+      flapBias: 1.0, flapAmp: 0.95, // heavy, powerful wingbeat
     },
-    forms: [
-      {},                                                        // base
-      { backSpines: true, crest: 1, ridgeCount: 14 },            // +back-spines + crest
-      { armorPlates: true, crest: 2, hornLen: 1.7 },             // +shoulder armor + horn crown
-      { maceTail: true, glowSeams: true, secondWingPair: true, hornPairs: 2, sparkle: true }, // apex
+    // Broad wings with deep, JAGGED flame notches (aggressive cinder edges).
+    wingForms: [
+      { tips: [[4.30, 0.34], [3.50, -0.46], [2.30, -0.80]],
+        lead: [2.90, 0.50], scallop: 0.34, flame: false,
+        arc: { bow: 0.55, hump: 0.30, humpAt: 0.55, hook: 0.20 } },
+      { tips: [[4.85, 0.38], [4.00, -0.50], [2.70, -0.95], [1.50, -1.00]],
+        lead: [3.30, 0.58], scallop: 0.50, flame: true,
+        arc: { bow: 0.60, hump: 0.70, humpAt: 0.55, hook: 0.35 } },
+      { tips: [[5.20, 0.42], [4.35, -0.52], [3.00, -1.05], [1.65, -1.10]],
+        lead: [3.60, 0.64], scallop: 0.60, flame: true,
+        arc: { bow: 0.70, hump: 1.10, humpAt: 0.57, hook: 0.55 } },
+      { tips: [[5.45, 0.46], [4.60, -0.52], [3.25, -1.10], [1.90, -1.15], [1.00, -0.95]],
+        lead: [3.80, 0.70], scallop: 0.60, flame: true,
+        arc: { bow: 0.80, hump: 1.50, humpAt: 0.58, hook: 0.85 } },
     ],
-    fx: { auraColor: '255,150,70', auraIdle: 0, sparkle: false },
-    body: 0xb83820, belly: 0xffd9a8, scales: 0xffb060, horn: 0xffe8a0,
-    wingInner: 0xffc23c, wingOuter: 0xb81f30, wingEmissive: 0xff7022,
-    eye: 0xffd060, trail: 0xffa040, boostTrail: 0xffc060,
+    forms: [
+      { wingForm: 0, tailStyle: 'simple', tailSegments: 6, ridgeCount: 10,
+        spineGlow: 0, crest: 0, hornPairs: 1, hornLen: 1.1,
+        colors: { body: 0x231410, wingInner: 0xa83820, wingOuter: 0x6e1e16,
+          wingEmissive: 0x7a2410, scales: 0x8a4828, horn: 0xb87848,
+          apexSeam: 0x7a3418, eye: 0xd07040, coreGlow: 0xe05828 } },
+      { wingForm: 1, tailStyle: 'finned', tailSegments: 7, ridgeCount: 13,
+        spineGlow: 0.32, backSpines: true, crest: 1,
+        colors: { body: 0x2a1510, wingInner: 0xe85628, wingOuter: 0xb81f20,
+          wingEmissive: 0xff5a20, scales: 0xffa050, horn: 0xffc878,
+          apexSeam: 0xff6a28, eye: 0xff9040, coreGlow: 0xff6030 } },
+      { wingForm: 2, tailStyle: 'blade', tailSegments: 8, ridgeCount: 14,
+        spineGlow: 0.7, backSpines: true, wingVeins: true, glowSeams: true,
+        crest: 2, hornPairs: 2, hornLen: 1.6,
+        colors: { body: 0x241310, wingInner: 0xff6a28, wingOuter: 0xd02418,
+          wingEmissive: 0xff6a22, scales: 0xffb850, horn: 0xffd878,
+          apexSeam: 0xff7a2a, eye: 0xffb050, coreGlow: 0xff7838 } },
+      { wingForm: 3, tailStyle: 'blade', tailSegments: 9, ridgeCount: 15,
+        spineGlow: 1.0, backSpines: true, wingVeins: true, glowSeams: true,
+        backCrest: true, hornPairs: 2, hornLen: 1.8, crest: 2,
+        colors: { body: 0x1f1108, wingInner: 0xff7a2a, wingOuter: 0xff3a14,
+          wingEmissive: 0xff6a1e, scales: 0xffcf60, horn: 0xffe690,
+          apexSeam: 0xff8a2e, eye: 0xffd060, coreGlow: 0xff8a40 } },
+    ],
+    fx: { auraColor: '255,110,40', auraIdle: 0.0, sparkle: false },
+    body: 0x1f1108, belly: 0xffd9a8, scales: 0xffcf60, horn: 0xffe690,
+    wingInner: 0xff7a2a, wingOuter: 0xff3a14, wingEmissive: 0xff6a1e,
+    apexEye: 0xffd060, apexSeam: 0xff8a2e, coreGlow: 0xff8a40, surgeHi: 0xfff0d8,
+    eye: 0xff9040, trail: 0xffa040, boostTrail: 0xffc060,
   },
 
   jade: {
@@ -63,20 +135,58 @@ export const DRAGONS = {
     title: 'River-wind dancer',
     rarity: 'SR',
     cost: 1200,
+    // A serpentine EASTERN river-dragon: the SMALLEST wings of the roster on a
+    // long sinuous body — long neck, long flowing tail, trailing whiskers. Its
+    // silhouette is read by the body, not the wings. Jade → bright emerald.
     stats: { speed: 1.07, handling: 1.11, drain: 0.9, regen: 1.1 },
     model: {
-      scale: 1.02, wingScale: 0.98, tailSegments: 9, neckSegments: 6,
-      hornLen: 0.9, hornPairs: 1, ridgeCount: 14, flapBias: 1.15,
+      scale: 1.0, wingScale: 0.82, tailSegments: 11, neckSegments: 7,
+      hornLen: 0.9, hornPairs: 1, ridgeCount: 14,
+      flapBias: 1.25, flapAmp: 0.7, // small, quick serpent wings
     },
-    forms: [
-      {},                                                        // base
-      { whiskers: true, neckSegments: 7, tailSegments: 11 },     // +whiskers + longer serpent
-      { crest: 2, tailTip: 'fan', glowSeams: true },             // +fin-crest + fan tail + seams
-      { secondWingPair: true, neckSegments: 8, sparkle: true },  // apex
+    // Small, narrow wings — secondary to the long serpentine body.
+    wingForms: [
+      { tips: [[3.40, 0.24], [2.60, -0.36], [1.60, -0.58]],
+        lead: [2.10, 0.36], scallop: 0.16, flame: false,
+        arc: { bow: 0.45, hump: 0.0, humpAt: 0.6, hook: 0.10 } },
+      { tips: [[3.80, 0.28], [3.00, -0.40], [1.95, -0.70], [1.10, -0.74]],
+        lead: [2.50, 0.44], scallop: 0.26, flame: false,
+        arc: { bow: 0.50, hump: 0.35, humpAt: 0.55, hook: 0.16 } },
+      { tips: [[4.10, 0.30], [3.30, -0.44], [2.20, -0.82], [1.25, -0.88]],
+        lead: [2.75, 0.50], scallop: 0.36, flame: false,
+        arc: { bow: 0.55, hump: 0.60, humpAt: 0.57, hook: 0.26 } },
+      { tips: [[4.35, 0.34], [3.55, -0.46], [2.45, -0.88], [1.40, -0.92], [0.80, -0.78]],
+        lead: [2.95, 0.56], scallop: 0.38, flame: false,
+        arc: { bow: 0.60, hump: 0.85, humpAt: 0.58, hook: 0.40 } },
     ],
-    fx: { auraColor: '120,255,190', auraIdle: 0, sparkle: false },
-    body: 0x1f9a60, belly: 0xe8ffd0, scales: 0xa0ffd0, horn: 0xffe8a0,
-    wingInner: 0x60e8a0, wingOuter: 0x106a8a, wingEmissive: 0x40e890,
+    forms: [
+      { wingForm: 0, tailStyle: 'simple', tailSegments: 8, ridgeCount: 12,
+        spineGlow: 0, crest: 0, neckSegments: 6,
+        colors: { body: 0x14281c, wingInner: 0x2a6a48, wingOuter: 0x184438,
+          wingEmissive: 0x2a7a5a, scales: 0x5a8a6a, horn: 0x8aa078,
+          apexSeam: 0x3a6a52, eye: 0x6aa080, coreGlow: 0x3ac888 } },
+      { wingForm: 1, tailStyle: 'finned', tailSegments: 10, ridgeCount: 14,
+        spineGlow: 0.3, whiskers: true, neckSegments: 7, crest: 1,
+        colors: { body: 0x123420, wingInner: 0x40c888, wingOuter: 0x107060,
+          wingEmissive: 0x40e890, scales: 0xa0ffd0, horn: 0xffe8a0,
+          apexSeam: 0x40d8a0, eye: 0xa0ffc0, coreGlow: 0x50e8b0 } },
+      { wingForm: 2, tailStyle: 'finned', tailSegments: 11, ridgeCount: 15,
+        spineGlow: 0.6, whiskers: true, wingVeins: true, glowSeams: true,
+        crest: 2, neckSegments: 7,
+        colors: { body: 0x103020, wingInner: 0x50e0a0, wingOuter: 0x108878,
+          wingEmissive: 0x40f0a0, scales: 0xb0ffe0, horn: 0xffe8a0,
+          apexSeam: 0x50f0c0, eye: 0xb0ffd0, coreGlow: 0x60f0c0 } },
+      { wingForm: 3, tailStyle: 'comet', tailSegments: 11, ridgeCount: 16,
+        spineGlow: 0.9, whiskers: true, wingVeins: true, glowSeams: true,
+        crest: 2, neckSegments: 8,
+        colors: { body: 0x0e2c1e, wingInner: 0x60f0b0, wingOuter: 0x18a088,
+          wingEmissive: 0x50ffb0, scales: 0xc8ffe8, horn: 0xfff0b0,
+          apexSeam: 0x60ffd0, eye: 0xc8ffe0, coreGlow: 0x70ffd0 } },
+    ],
+    fx: { auraColor: '90,255,190', auraIdle: 0.0, sparkle: false },
+    body: 0x0e2c1e, belly: 0xe8ffd0, scales: 0xc8ffe8, horn: 0xfff0b0,
+    wingInner: 0x60f0b0, wingOuter: 0x18a088, wingEmissive: 0x50ffb0,
+    apexEye: 0xc8ffe0, apexSeam: 0x60ffd0, coreGlow: 0x70ffd0, surgeHi: 0xeafff4,
     eye: 0xa0ffc0, trail: 0x70ffc0, boostTrail: 0x50e8b0,
   },
 
@@ -142,22 +252,58 @@ export const DRAGONS = {
     title: 'Dawn incarnate',
     rarity: 'SSR',
     cost: 3400,
-    // Blue-Eyes / celestial seraph: luminous white, sapphire eyes, gold accents.
+    // A celestial SERAPH: broad, SMOOTH, high-raised angelic wings (no flame
+    // notches), a luminous white-gold body, a head halo and blade-fins. Holy
+    // white, set apart from Phoenix's flame-feather gold.
     stats: { speed: 1.13, handling: 1.22, drain: 0.78, regen: 1.25 },
     model: {
-      scale: 1.12, wingScale: 1.18, tailSegments: 9, neckSegments: 5,
-      hornLen: 1.3, hornPairs: 1, ridgeCount: 12, flapBias: 0.95,
+      scale: 1.12, wingScale: 1.2, tailSegments: 9, neckSegments: 5,
+      hornLen: 1.3, hornPairs: 1, ridgeCount: 12,
+      flapBias: 0.9, flapAmp: 0.82, // slow, graceful, lofty wingbeat
     },
-    forms: [
-      {},                                                        // base
-      { bladeFins: true, wingShape: 'feather' },                // +blade-fins + feathered wings
-      { crest: 2, glowSeams: true, halo: true },                // +crest + halo + seams
-      { secondWingPair: true, whiskers: true, sparkle: true },  // apex
+    // Broad, smooth, strongly UP-RAISED wings (an angel spreading) — clean
+    // edges, no flame.
+    wingForms: [
+      { tips: [[4.40, 0.42], [3.60, -0.10], [2.50, -0.50], [1.40, -0.72]],
+        lead: [2.90, 0.62], scallop: 0.22, flame: false,
+        arc: { bow: 0.75, hump: 0.70, humpAt: 0.50, hook: 0.30 } },
+      { tips: [[4.95, 0.48], [4.10, -0.08], [2.90, -0.56], [1.60, -0.80]],
+        lead: [3.30, 0.72], scallop: 0.30, flame: false,
+        arc: { bow: 0.85, hump: 1.00, humpAt: 0.52, hook: 0.40 } },
+      { tips: [[5.30, 0.54], [4.45, -0.02], [3.20, -0.62], [1.80, -0.88]],
+        lead: [3.60, 0.80], scallop: 0.34, flame: false,
+        arc: { bow: 0.95, hump: 1.40, humpAt: 0.55, hook: 0.60 } },
+      { tips: [[5.55, 0.60], [4.70, 0.04], [3.45, -0.62], [2.05, -0.92], [1.05, -0.85]],
+        lead: [3.85, 0.88], scallop: 0.34, flame: false,
+        arc: { bow: 1.05, hump: 1.85, humpAt: 0.58, hook: 0.95 } },
     ],
-    fx: { auraColor: '150,200,255', auraIdle: 0.16, sparkle: true },
-    body: 0xeef2ff, belly: 0xfff4d8, scales: 0xdce8ff, horn: 0xffd86a,
-    wingInner: 0xeaf4ff, wingOuter: 0x3a7bff, wingEmissive: 0x88b8ff,
-    apexEye: 0x2a6bff, apexSeam: 0xfff2c0,
+    forms: [
+      { wingForm: 0, tailStyle: 'simple', tailSegments: 6, ridgeCount: 10,
+        spineGlow: 0, crest: 0,
+        colors: { body: 0xb8c0d0, wingInner: 0xc8d4e8, wingOuter: 0x8a9ec0,
+          wingEmissive: 0x90a8d0, scales: 0xc0cce0, horn: 0xd8b878,
+          apexSeam: 0xa0b0d0, eye: 0x7a9ed0, coreGlow: 0xb0c8ff } },
+      { wingForm: 1, tailStyle: 'finned', tailSegments: 7, ridgeCount: 12,
+        spineGlow: 0.3, bladeFins: true, crest: 1,
+        colors: { body: 0xdde6f5, wingInner: 0xeaf4ff, wingOuter: 0x6a9ae8,
+          wingEmissive: 0x88b8ff, scales: 0xdce8ff, horn: 0xffd86a,
+          apexSeam: 0xb8d8ff, eye: 0x6aa8ff, coreGlow: 0xbcd8ff } },
+      { wingForm: 2, tailStyle: 'blade', tailSegments: 8, ridgeCount: 13,
+        spineGlow: 0.65, bladeFins: true, glowSeams: true, halo: true, crest: 2,
+        colors: { body: 0xe8eefc, wingInner: 0xf2f8ff, wingOuter: 0x5a8ae8,
+          wingEmissive: 0xa0c8ff, scales: 0xe8f2ff, horn: 0xffe08a,
+          apexSeam: 0xccddff, eye: 0x88c0ff, coreGlow: 0xccddff } },
+      { wingForm: 3, tailStyle: 'comet', tailSegments: 9, ridgeCount: 14,
+        spineGlow: 1.0, bladeFins: true, wingVeins: true, glowSeams: true,
+        halo: true, backCrest: true, crest: 2,
+        colors: { body: 0xf2f6ff, wingInner: 0xffffff, wingOuter: 0x6aa0f0,
+          wingEmissive: 0xc0e0ff, scales: 0xf4faff, horn: 0xfff0b0,
+          apexSeam: 0xe0ecff, eye: 0xaad8ff, coreGlow: 0xe8f2ff } },
+    ],
+    fx: { auraColor: '180,210,255', auraIdle: 0.08, sparkle: true },
+    body: 0xf2f6ff, belly: 0xfff4d8, scales: 0xf4faff, horn: 0xfff0b0,
+    wingInner: 0xffffff, wingOuter: 0x6aa0f0, wingEmissive: 0xc0e0ff,
+    apexEye: 0xaad8ff, apexSeam: 0xe0ecff, coreGlow: 0xe8f2ff, surgeHi: 0xffffff,
     eye: 0x6aa8ff, trail: 0xcfe4ff, boostTrail: 0x9fd0ff,
   },
 
