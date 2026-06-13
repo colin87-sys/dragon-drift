@@ -499,6 +499,10 @@ body.app-loaded > canvas { opacity: 1; }
 .skin-card.lux.equipped { border-color: #ffd86a; }
 .skin-swatch { width: 58px; height: 58px; border-radius: 50%; border: 2px solid rgba(255,255,255,0.25);
   box-shadow: inset 0 0 14px rgba(0,0,0,0.4); }
+/* Animated 2D trail preview canvas (STYLE tab) */
+.trail-preview { width: 140px; height: 104px; border-radius: 14px;
+  background: rgba(8,14,30,0.65); border: 1px solid rgba(140,200,255,0.14);
+  display: block; }
 /* Live 3D turntable preview (canvas blitted from a shared renderer) */
 .skin-preview { width: 104px; height: 104px; border-radius: 14px;
   background: radial-gradient(circle at 50% 38%, rgba(70, 110, 180, 0.35), rgba(8, 14, 30, 0.65) 78%);

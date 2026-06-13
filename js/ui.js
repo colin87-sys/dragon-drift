@@ -12,6 +12,7 @@ import { buildPilotHtml, wirePilot } from './pilotScreen.js';
 import { DRAGONS, DRAGON_STAT_CAP } from './dragons.js';
 import { RIDERS } from './riders.js';
 import { attachPreviews, attachPreviewCanvas } from './preview.js';
+import { attachTrailPreviews } from './trailPreview.js';
 import { FLIGHTMARKS, flightmarkOwned, equippedFlightmark } from './flightmarks.js';
 import { ASCENSION_TIERS, ascendedDef, ascensionTier, canAscend, radianceRank, radianceCost } from './ascension.js';
 
@@ -709,7 +710,7 @@ export const ui = {
         const defaultActive = activeId === '';
         const defaultCard = `
           <div class="skin-card${defaultActive ? ' equipped' : ''}" data-flightmark="">
-            <div class="trail-swatch" style="background: radial-gradient(circle at 35% 30%, #ffd070, #ff8020)"></div>
+            <canvas class="trail-preview" data-mark="" width="140" height="104"></canvas>
             <div class="skin-name">Dragon's Colors</div>
             <div class="skin-title">Default trail</div>
             <div class="skin-cost owned">${defaultActive ? 'ACTIVE' : 'TAP TO EQUIP'}</div>
@@ -719,7 +720,7 @@ export const ui = {
           const active = activeId === mark.id;
           return `
             <div class="skin-card${active ? ' equipped' : ''}${owned ? '' : ' locked'}" data-flightmark="${mark.id}">
-              <div class="trail-swatch" style="background: radial-gradient(circle at 35% 30%, ${hex(mark.boostTrail)}, ${hex(mark.trail)})"></div>
+              <canvas class="trail-preview" data-mark="${mark.id}" width="140" height="104"></canvas>
               <div class="skin-name">${mark.name}</div>
               <div class="skin-title">Trail cosmetic</div>
               <div class="skin-cost ${owned ? 'owned' : ''}">${active ? 'ACTIVE' : owned ? 'TAP TO EQUIP' : `◆ ${mark.cost}`}</div>
@@ -800,8 +801,9 @@ export const ui = {
     els.screen.classList.toggle('stagger', fresh && type === 'start');
     if (fresh) restartAnim(els.screen, 'screen-anim');
     pauseSubscreen = returnScreen === 'pause' && (type === 'shop' || type === 'settings' || type === 'pilot');
-    // Live 3D turntables on the dragon/rider cards
+    // Live 3D turntables on the dragon/rider cards; animated 2D trail previews
     if (type === 'shop') {
+      attachTrailPreviews(els.screen, FLIGHTMARKS);
       attachPreviews(els.screen, (kind, key) => {
         if (kind !== 'dragon') return RIDERS[key];
         const def = DRAGONS[key];
