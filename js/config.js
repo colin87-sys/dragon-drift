@@ -106,12 +106,6 @@ export const CONFIG = {
   goldEmberInterval: 500,  // metres between spawn opportunities
   goldEmberChance: 0.35,   // roll per opportunity
 
-  // Ember Gambit: post-crash double-or-nothing corridor
-  gambitMinHaul: 40,       // minimum banked haul before the offer appears
-  gambitGoal: 620,         // metres to the finish arch
-  gambitLeadIn: 120,       // clean approach before the first station
-  gambitSpacing: 70,       // metres between gauntlet stations
-
   // Return triggers
   firstFlightMult: 1.5,    // ember multiplier on the first run each UTC day
   welcomeBackGift: 100,    // embers gifted after a long absence

@@ -67,7 +67,6 @@ export function initRecords() {
 // Run-end diff vs the saved records. Returns [{key,label,value,prev}] of the
 // records broken this run (excluding score/dist — those have their own flags).
 export function settleRecords() {
-  if (game.mode === 'gambit') return [];
   const values = {
     bestChain: run.bestChain,
     bestPerfectStreak: run.bestPerfectStreak,

@@ -25,7 +25,6 @@ export const FEAT_DEFS = [
   { id: 'gauntlet_3run',  cat: 'skill', name: 'Corridor King',         desc: 'Clear 3 gauntlets in one run',           reward: 60 },
   { id: 'clean_2k',       cat: 'skill', name: 'Untouchable',           desc: 'Fly 2,000 m without a scratch',          reward: 100, title: 'ghost' },
   { id: 'raw_5k',         cat: 'skill', name: 'Raw Sky',               desc: 'Score 5,000 with every assist off',      reward: 80,  settle: () => game.score >= 5000 && game.scoreMult > 1.24 },
-  { id: 'gambit_win',     cat: 'skill', name: 'All In',                desc: 'Win an Ember Gambit',                    reward: 50,  settle: () => saveData.stats.gambitsWon >= 1 },
   // --- Journey ---
   { id: 'dist_5k_run',    cat: 'journey', name: 'Marathon Wing',       desc: 'Fly 5,000 m in one run',                 reward: 80,  settle: () => game.distance >= 5000 },
   { id: 'runs_10',        cat: 'journey', name: 'Regular',             desc: 'Finish 10 flights',                      reward: 30,  settle: () => saveData.stats.runs >= 10 },
@@ -79,6 +78,7 @@ export function takeFeatsThisRun() {
 let lastDamageDist = 0;
 
 export function initFeats() {
+  saveData.feats.unlocked = saveData.feats.unlocked.filter(id => FEAT_DEFS.some(d => d.id === id));
   on('runStart', () => { featsThisRun = []; lastDamageDist = 0; });
   on('damage', (p) => { lastDamageDist = p.m; });
 

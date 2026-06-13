@@ -26,7 +26,6 @@ await page.evaluate(() => {
 });
 await page.waitForFunction(() => !!window.__dd.game.runSummary, { timeout: 30000 });
 check('recap shows CHALLENGE BEATEN', (await page.textContent('#screen')).includes('CHALLENGE BEATEN'));
-check('no gambit offer on challenge runs', !(await page.$('#gambit-panel')));
 
 check('no console errors', errors.length === 0) || console.error(errors.join('\n'));
 await done();

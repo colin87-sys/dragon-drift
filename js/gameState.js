@@ -31,7 +31,7 @@ export const game = {
   isNewBestDistance: false,
   challengeScore: 0,
   challengeBeaten: false, // crossed the challenge target mid-run (race bar)
-  mode: 'normal',      // normal | daily | gambit
+  mode: 'normal',      // normal | daily
   runSeed: CONFIG.seed,
   embersRun: 0,        // embers collected this run (banked at run end)
   emberBonusEarned: 0, // extra embers from the equipped rider's bonus

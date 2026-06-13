@@ -17,17 +17,7 @@ const result = await page.evaluate(async () => {
   const a = run();
   createLevelGen(99999).ensure(3000); // interleave a different seed
   const b = run();
-  const gambit = createLevelGen(1337, { gambit: true }).ensure(1000);
-  return {
-    a, b,
-    gambit: {
-      golds: gambit.goldEmbers.length,
-      rings: gambit.rings.length,
-      obstacles: gambit.obstacles.length,
-      embers: gambit.embers.length,
-      finish: gambit.setPieces.filter((s) => s.type === 'biomeGate').length,
-    },
-  };
+  return { a, b };
 });
 
 check('base rings identical to pre-update fixture',
@@ -39,9 +29,6 @@ check('same seed → identical golden embers (after a different-seed run)',
 check('golden embers spawn over 3 km', result.a.golds.length >= 1);
 check('goldens land inside the lane',
   result.a.golds.every((g) => g.x >= -10 && g.x <= 10 && g.y >= 5 && g.y <= 18));
-check('gambit corridor: no rings, no goldens', result.gambit.rings === 0 && result.gambit.golds === 0);
-check('gambit corridor: stations + guide embers + finish arch',
-  result.gambit.obstacles >= 15 && result.gambit.embers >= 5 && result.gambit.finish === 1);
 
 console.log(`  (goldens over 3km: ${result.a.golds.length})`);
 await done();

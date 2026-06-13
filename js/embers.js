@@ -89,12 +89,8 @@ export function updateEmbers(dt, player, time) {
     if (dx * dx + dy * dy + dz * dz < PICKUP_R2) {
       s.active = false;
       mesh.setMatrixAt(i, HIDDEN);
-      // Gambit corridors keep the guide trails visible but inert — nothing
-      // collected inside the wager can join the wager.
-      if (game.mode !== 'gambit') {
-        game.embersRun++;
-        emit('ember');
-      }
+      game.embersRun++;
+      emit('ember');
       streak = Math.min(streak + 1, 24);
       streakTimer = 1.2;
       sfx.ember(streak);

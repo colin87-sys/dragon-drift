@@ -7,9 +7,8 @@ import { saveData, persist, xpToNext, todayUTC } from './save.js';
 import { activeMissions } from './missions.js';
 import { weeklyTrials } from './weekly.js';
 import { equippedTitleName } from './titles.js';
-import { buildRecapHtml, wireRecap, buildGambitResultHtml, wireGambitResult, selectNextUp } from './recap.js';
+import { buildRecapHtml, wireRecap, selectNextUp } from './recap.js';
 import { buildPilotHtml, wirePilot } from './pilotScreen.js';
-import { gambitStake } from './gambit.js';
 import { DRAGONS, DRAGON_STAT_CAP } from './dragons.js';
 import { RIDERS } from './riders.js';
 import { attachPreviews, attachPreviewCanvas } from './preview.js';
@@ -70,7 +69,6 @@ export const ui = {
         <div class="dist" id="dist">0 m</div>
         <div class="best" id="best"></div>
         <div class="embers-hud" id="embers-hud"></div>
-        <div class="gambit-chip" id="gambit-chip"></div>
         <div class="ff-chip" id="ff-chip"></div>
         <div class="assist-chip" id="assist-chip"></div>
         <div class="surge-widget" id="surge-widget" data-tier="0">
@@ -132,7 +130,6 @@ export const ui = {
       surgeX:       root.querySelector('#surge-x'),
       surgeLbl:     root.querySelector('#surge-lbl'),
       embersHud:    root.querySelector('#embers-hud'),
-      gambitChip:   root.querySelector('#gambit-chip'),
       ffChip:       root.querySelector('#ff-chip'),
       raceBar:      root.querySelector('#race-bar'),
       raceFill:     root.querySelector('#race-fill'),
@@ -267,7 +264,7 @@ export const ui = {
 
     // Challenge race bar: live progress against the friend's score, gold
     // once beaten. Today's comparison shouldn't wait for the crash screen.
-    const racing = game.challengeScore > 0 && game.mode !== 'gambit';
+    const racing = game.challengeScore > 0;
     els.raceBar.classList.toggle('on', racing);
     if (racing) {
       const frac = Math.min(1, game.score / game.challengeScore);
@@ -281,17 +278,9 @@ export const ui = {
       }
     }
 
-    // Gambit: the stake rides on the HUD with the metres left to the arch.
-    if (game.mode === 'gambit') {
-      const left = Math.max(0, Math.ceil(CONFIG.gambitGoal - player.dist));
-      els.gambitChip.textContent = `🔥 ◆${gambitStake()} AT STAKE · ${left}m`;
-    } else {
-      els.gambitChip.textContent = '';
-    }
-
     // First flight of the day: the ×1.5 chip shows until the bonus banks.
     els.ffChip.textContent =
-      game.mode !== 'gambit' && saveData.firstFlightDay !== todayUTC()
+      saveData.firstFlightDay !== todayUTC()
         ? `☀ FIRST FLIGHT ◆×${CONFIG.firstFlightMult}` : '';
 
     // Fever overlay pulse
@@ -356,10 +345,6 @@ export const ui = {
 
   pbMarkerPopup(bonus) {
     this._popup(`⟡ PAST YOUR BEST FLIGHT +◆${bonus} ⟡`, 'gold');
-  },
-
-  gambitStartPopup() {
-    this._popup('THE PHOENIX GAUNTLET — ONE TOUCH AND IT BURNS', 'fever');
   },
 
   // Feat toast: its own element so gameplay popups are never eaten.
@@ -689,11 +674,8 @@ export const ui = {
 
     } else if (type === 'gameover') {
       // Run Recap v2 lives in recap.js (count-up, record chips, earnings
-      // ledger, NEXT UP, gambit panel) — ui.js keeps screen ownership.
+      // ledger, NEXT UP) — ui.js keeps screen ownership.
       html = buildRecapHtml(score, dist, { isTouch: isTouch(), ICONS });
-
-    } else if (type === 'gambitResult') {
-      html = buildGambitResultHtml(game.gambitResult || { won: false, stake: 0 }, { isTouch: isTouch() });
 
     } else if (type === 'pilot') {
       // Opening PILOT clears its badge: watermark = everything now seen.
@@ -729,9 +711,6 @@ export const ui = {
       wireShareButtons(score, dist);
       this.recapRevealMs = wireRecap(els.screen, handlers);
     }
-    if (type === 'gambitResult') {
-      wireGambitResult(els.screen, handlers);
-    }
     if (type === 'pilot') {
       wirePilot(els.screen, {
         onTab: (tab) => { pilotTab = tab; ui.showScreen('pilot'); },
@@ -752,8 +731,8 @@ export const ui = {
   // Duration of the recap's reveal queue (main.js delays blank-tap arming).
   recapRevealMs: 0,
 
-  // One-shot notice on the next start screen (welcome-back gift, gambit
-  // stake refund). Cleared after first render.
+  // One-shot notice on the next start screen (welcome-back gift, refund).
+  // Cleared after first render.
   setStartNotice(text) {
     startNotice = text;
   },

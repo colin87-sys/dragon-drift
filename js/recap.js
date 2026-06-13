@@ -9,9 +9,9 @@ import { TRACKS, trackUnlocked, sfx } from './sfx.js';
 
 // Run Recap v2: the session's designed stopping point. One screen, strict
 // hierarchy — records pop, the score counts up, the earnings ledger reveals
-// line by line, then exactly ONE next goal and (when eligible) the Ember
-// Gambit panel. ui.js owns #screen and delegates the game-over rendering
-// here; share buttons keep their ids and are wired by ui.js as before.
+// line by line, then exactly ONE next goal. ui.js owns #screen and delegates
+// the game-over rendering here; share buttons keep their ids and are wired
+// by ui.js as before.
 
 const REDUCED = globalThis.matchMedia &&
   matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -194,11 +194,6 @@ export function buildRecapHtml(score, dist, { isTouch, ICONS }) {
     ).join('')
   }</div>`;
 
-  const hasGambit = !!(sum.gambit && sum.gambit.eligible);
-  // On compact screens: NEXT UP is hidden while the gambit panel is live;
-  // wireRecap reveals it if the player declines.
-  const nextupHidden = hasGambit && isCompact;
-
   return `
     <h1 class="bad">CRASHED!</h1>
     ${causeText ? `<p class="death-cause">${causeText}</p>` : ''}
@@ -213,8 +208,7 @@ export function buildRecapHtml(score, dist, { isTouch, ICONS }) {
       <div class="xp-row"><span class="lvl">LV ${saveData.level}</span><span>+${sum.xpGained || 0} XP</span><span class="lvl">LV ${saveData.level + 1}</span></div>
       <div class="xp-bar"><span id="xp-fill"></span></div>
     </div>
-    ${hasGambit ? gambitPanelHtml(sum.gambit.stake) : ''}
-    <div id="nextup-wrap"${nextupHidden ? ' style="display:none"' : ''}>${nextUpCardHtml(sum.nextUp || selectNextUp())}</div>
+    <div id="nextup-wrap">${nextUpCardHtml(sum.nextUp || selectNextUp())}</div>
     <div class="run-stats" id="run-stats">
       <div class="stat key-stat"><span class="stat-val">${dist} m</span><span class="stat-lbl">distance</span></div>
       <div class="stat key-stat"><span class="stat-val">${maxSpd}</span><span class="stat-lbl">top speed</span></div>
@@ -246,20 +240,6 @@ function challengeResultHtml(score) {
   return score > game.challengeScore
     ? `<p class="challenge won">CHALLENGE BEATEN! (beat ${game.challengeScore})</p>`
     : `<p class="challenge">Challenge: ${game.challengeScore} — not this time!</p>`;
-}
-
-function gambitPanelHtml(stake) {
-  return `
-    <div class="gambit-panel" id="gambit-panel">
-      <div class="gambit-head">🔥 THE PHOENIX GAUNTLET</div>
-      <div class="gambit-body">Double your <b>◆ ${stake}</b> haul — or lose it.<br>
-        One corridor. One touch and it burns.</div>
-      <div class="gambit-note">Quest pay, XP and your streak are already banked — only the haul rides.</div>
-      <div class="action-row">
-        <button class="btn-primary gambit-go" id="btn-gambit-go">RIDE THE GAUNTLET ◆${stake * 2}</button>
-        <button class="btn-secondary" id="btn-gambit-no">KEEP MY EMBERS</button>
-      </div>
-    </div>`;
 }
 
 // Wire the recap's animated parts. Returns the reveal duration in ms so the
@@ -325,21 +305,6 @@ export function wireRecap(screenEl, handlers) {
     }));
   }
 
-  // Gambit panel
-  const go = screenEl.querySelector('#btn-gambit-go');
-  const no = screenEl.querySelector('#btn-gambit-no');
-  if (go) go.onclick = (e) => { e.stopPropagation(); handlers.onGambitAccept && handlers.onGambitAccept(); };
-  if (no) no.onclick = (e) => {
-    e.stopPropagation();
-    const panel = screenEl.querySelector('#gambit-panel');
-    if (panel) panel.classList.add('declined');
-    // On compact screens the NEXT UP card was hidden while the gambit was live;
-    // reveal it now so the player has something to aim for.
-    const nextupWrap = screenEl.querySelector('#nextup-wrap');
-    if (nextupWrap) nextupWrap.style.display = '';
-    handlers.onGambitDecline && handlers.onGambitDecline();
-  };
-
   // MORE STATS toggle (compact screens only)
   const moreBtn = screenEl.querySelector('#stats-more-btn');
   const statsGrid = screenEl.querySelector('#run-stats');
@@ -354,59 +319,3 @@ export function wireRecap(screenEl, handlers) {
   return revealMs;
 }
 
-// --- Gambit result screens ------------------------------------------------
-
-export function buildGambitResultHtml({ won, stake }, { isTouch }) {
-  if (won) {
-    // The rarest big moment gets the BIG WIN staging: sunburst + confetti.
-    const confetti = Array.from({ length: 16 }, (_, i) => {
-      const ang = (i / 16) * Math.PI * 2;
-      const dist = 110 + (i % 4) * 35;
-      return `<span style="--dx:${Math.round(Math.cos(ang) * dist)}px;--dy:${Math.round(Math.sin(ang) * dist - 60)}px;--rot:${i * 67 - 360}deg;animation-delay:${200 + i * 25}ms;background:${['#ffe27a', '#ffb84d', '#7fe0ff', '#fff6dd'][i % 4]}"></span>`;
-    }).join('');
-    return `
-      <div class="celebrate-burst win-burst"></div>
-      <div class="celebrate-confetti win-confetti">${confetti}</div>
-      <h1 class="gambit-won-title">GAUNTLET CLEARED</h1>
-      <p class="sub big gambit-stake-line">◆ ${stake} → <b class="count-up" id="score-countup" data-target="${stake * 2}">◆ ${stake}</b></p>
-      <p class="ember-tally">+◆${stake} profit banked <span style="opacity:0.6">(${saveData.embers.toLocaleString()} total)</span></p>
-      <p class="gambit-flavor">The phoenix bows. The sky remembers.</p>
-      <div class="action-row"><button id="btn-again" class="btn-primary">FLY AGAIN</button></div>
-      ${isTouch ? '<p class="action-key">or tap anywhere for a new flight</p>' : '<p class="action-key">or press R for a new flight</p>'}`;
-  }
-  return `
-    <h1 class="bad">THE GAUNTLET KEEPS ◆${stake}</h1>
-    <p class="gambit-flavor">Quest pay, XP and your streak were banked before the wager — only the haul burned.</p>
-    ${nextUpCardHtml(selectNextUp())}
-    <div class="action-row"><button id="btn-again" class="btn-primary">FLY AGAIN</button></div>
-    ${isTouch ? '<p class="action-key">or tap anywhere for a new flight</p>' : '<p class="action-key">or press R for a new flight</p>'}`;
-}
-
-export function wireGambitResult(screenEl, handlers) {
-  const scoreEl = screenEl.querySelector('#score-countup');
-  if (scoreEl) {
-    const target = Number(scoreEl.dataset.target) || 0;
-    const from = Math.floor(target / 2);
-    if (REDUCED) {
-      scoreEl.textContent = `◆ ${target}`;
-    } else {
-      const t0 = performance.now();
-      const DUR = 900;
-      let lastTick = 0;
-      const step = (now) => {
-        const k = Math.min((now - t0) / DUR, 1);
-        scoreEl.textContent = `◆ ${Math.floor(from + (target - from) * (1 - Math.pow(1 - k, 3)))}`;
-        if (now - lastTick > 80) { lastTick = now; sfx.tick(k); }
-        if (k < 1) {
-          requestAnimationFrame(step);
-        } else if (scoreEl.isConnected) {
-          sfx.settle();
-          scoreEl.classList.add('count-settle');
-        }
-      };
-      requestAnimationFrame(step);
-    }
-  }
-  const again = screenEl.querySelector('#btn-again');
-  if (again) again.onclick = (e) => { e.stopPropagation(); handlers.onRestart && handlers.onRestart(); };
-}

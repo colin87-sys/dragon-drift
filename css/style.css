@@ -586,9 +586,7 @@ body.app-loaded > canvas { opacity: 1; }
   color: #ff9a5a; font-weight: 800; }
 .race-bar.won .race-target { color: #ffd86a; }
 
-/* HUD chips: gambit stake + first-flight bonus */
-.gambit-chip { font-size: 12px; letter-spacing: 1.5px; color: #ff8050; margin-top: 5px;
-  font-weight: 900; text-shadow: 0 0 12px rgba(255, 90, 30, 0.8); }
+/* HUD chips: first-flight bonus */
 .ff-chip { font-size: 10.5px; letter-spacing: 1.5px; color: #ffe27a; margin-top: 5px;
   font-weight: 800; text-shadow: 0 0 10px rgba(255, 220, 90, 0.55); }
 
@@ -658,31 +656,6 @@ body.app-loaded > canvas { opacity: 1; }
 .nextup-line { font-size: 12.5px; color: #7fe0ff; letter-spacing: 0.5px; margin: 6px 0 2px; }
 .nextup-line-sub { opacity: 0.65; font-size: 11px; margin-left: 6px; }
 
-/* Ember Gambit panel */
-.gambit-panel { width: min(440px, 88vw); margin: 10px 0 2px; text-align: center;
-  background: linear-gradient(160deg, rgba(70, 22, 8, 0.8), rgba(40, 10, 14, 0.85));
-  border: 1px solid rgba(255, 120, 50, 0.65); border-radius: 14px; padding: 14px 16px 12px;
-  box-shadow: 0 0 26px rgba(255, 90, 20, 0.25), 0 0 14px rgba(255, 120, 40, 0.18) inset;
-  animation: gambit-breathe 2.4s ease-in-out infinite; }
-@keyframes gambit-breathe {
-  0%, 100% { box-shadow: 0 0 26px rgba(255, 90, 20, 0.25), 0 0 14px rgba(255, 120, 40, 0.18) inset; }
-  50%      { box-shadow: 0 0 38px rgba(255, 110, 30, 0.45), 0 0 20px rgba(255, 140, 60, 0.28) inset; }
-}
-.gambit-head { font-size: 15px; font-weight: 900; letter-spacing: 3px; color: #ffb060;
-  text-shadow: 0 0 14px rgba(255, 130, 40, 0.8); }
-.gambit-body { font-size: 14px; margin: 8px 0 4px; line-height: 1.5; }
-.gambit-body b { color: #ffd86a; }
-.gambit-note { font-size: 11px; opacity: 0.7; margin: 4px 0 2px; }
-.gambit-panel .action-row { margin-top: 10px; }
-.gambit-panel.declined { display: none; }
-.gambit-go { background: linear-gradient(135deg, #ffb060, #ff7030, #e84a18) !important; }
-
-/* Gambit result screens */
-.gambit-won-title { color: #ffd86a; text-shadow: 0 0 30px rgba(255, 200, 80, 0.9);
-  animation: pulse 1.2s ease-in-out infinite; }
-.gambit-stake-line b { color: #ffd86a; }
-.gambit-flavor { font-size: 13px; opacity: 0.75; font-style: italic; margin: 6px 0; max-width: 80vw; }
-
 /* Weekly trials strip (start screen) */
 .weekly-strip { width: min(440px, 88vw); margin: 8px 0 2px; text-align: left;
   background: rgba(34, 26, 66, 0.6); border: 1px solid var(--gold-trim);
@@ -697,7 +670,7 @@ body.app-loaded > canvas { opacity: 1; }
 .pm-weekly-head { font-size: 10px; letter-spacing: 2.5px; color: #c8a0ff; font-weight: 900;
   margin: 10px 0 2px; text-align: left; }
 
-/* Start-screen one-shot notice (welcome back / gambit refund) */
+/* Start-screen one-shot notice (welcome back / stake refund) */
 .start-notice { font-size: 13.5px; color: #8aff9a; letter-spacing: 0.5px; margin: 4px 0;
   text-shadow: 0 0 12px rgba(110, 255, 140, 0.5); }
 
@@ -746,10 +719,8 @@ body.app-loaded > canvas { opacity: 1; }
   .record-chip { animation: none; opacity: 1; transform: none; }
   .earn-line.reveal,
   .earn-list.revealing .earn-line { animation: none; opacity: 1; transform: none; }
-  .gambit-panel { animation: none; }
   .feat-toast.feat-toast-anim { animation: feat-toast 0.8s ease-out forwards; }
   .hint.on { animation: none; }
-  .gambit-won-title { animation: none; }
 }
 
 /* Mobile sizing for the new surfaces */
@@ -758,8 +729,6 @@ body.app-loaded > canvas { opacity: 1; }
   .record-chip { font-size: 10.5px; padding: 5px 10px; }
   .earn-line { font-size: 12px; }
   .nextup-label { font-size: 13px; }
-  .gambit-head { font-size: 13px; }
-  .gambit-body { font-size: 12.5px; }
   .weekly-label { font-size: 11px; }
   .feat-name { font-size: 12px; }
   .feat-desc { font-size: 10.5px; }

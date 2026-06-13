@@ -24,7 +24,7 @@ import { buildSetPiece } from './setpieces.js';
 import { BIOMES, biomeIndexAt } from './biomes.js';
 import { DRAGONS } from './dragons.js';
 import { RIDERS } from './riders.js';
-import { dailySeed, recordDailyRun, saveData, persist, grantXp, levelEmberReward, todayUTC } from './save.js';
+import { dailySeed, recordDailyRun, saveData, persist, grantXp, levelEmberReward, todayUTC, gambitSunsetRefund } from './save.js';
 import { initEmbers, addEmberLine, updateEmbers, bankEmbers, resetEmbers } from './embers.js';
 import { emit } from './events.js';
 import { initMissions, settleMissions } from './missions.js';
@@ -35,7 +35,6 @@ import { settleWeekly } from './weekly.js';
 import { settleMilestones, settleMasteryStars } from './milestones.js';
 import { grantTitle, levelTitleId } from './titles.js';
 import { selectNextUp } from './recap.js';
-import { gambitEligible, markGambitOffered, resetGambitOffer, acceptGambit, gambitSeed, gambitStake, settleGambit, refundPendingGambit } from './gambit.js';
 import { initGoldEmbers, addGoldEmber, updateGoldEmbers, resetGoldEmbers } from './goldEmbers.js';
 import { initHints, updateHints } from './hints.js';
 import { initPbMarker, updatePbMarker } from './pbMarker.js';
@@ -67,7 +66,6 @@ const challengeSeed = Number.isFinite(challengeSeedParam) && challengeSeedParam 
 if (urlParams.has('daily')) game.mode = 'daily';
 
 function seedForRun() {
-  if (game.mode === 'gambit') return gambitSeed();
   if (game.mode === 'daily') return dailySeed();
   if (challengeSeed !== null && game.challengeScore > 0) return challengeSeed;
   return (Math.random() * 0x7fffffff) | 0;
@@ -177,27 +175,12 @@ ui.init({
     game.pendingDeath = null;
     finishDeath(player, d.cause, d.lethal);
   },
-  onGambitAccept: () => {
-    const sum = game.runSummary;
-    const stake = sum && sum.gambit ? sum.gambit.stake : 0;
-    // Funds can dip below the stake if the player shopped from the recap.
-    if (stake <= 0 || saveData.embers < stake) return;
-    acceptGambit(stake);
-    restart();
-    ui.gambitStartPopup();
-  },
-  onGambitDecline: () => {
-    if (game.runSummary && game.runSummary.gambit) {
-      game.runSummary.gambit.eligible = false; // no re-offer on re-render
-    }
-  },
 });
 initReticle(camera);
 cameraCtl.init(camera, player);
 
 // --- Boot-time return triggers ---
-// A gambit corridor that never resolved (refresh, tab eviction) refunds its
-// stake; a long absence earns a small tailwind gift. lastSeen always updates.
+// A long absence earns a small tailwind gift. lastSeen always updates.
 {
   const today = todayUTC();
   if (saveData.lastSeen) {
@@ -209,8 +192,7 @@ cameraCtl.init(camera, player);
   }
   saveData.lastSeen = today;
   persist();
-  const refunded = refundPendingGambit();
-  if (refunded) ui.setStartNotice(`Gauntlet interrupted — your ◆${refunded} stake was returned.`);
+  if (gambitSunsetRefund > 0) ui.setStartNotice(`An interrupted Gauntlet returned your ◆${gambitSunsetRefund} stake.`);
 }
 
 ui.showScreen('start');
@@ -219,7 +201,7 @@ let gameoverTapArmed = 0; // taps restart only after a short grace period
 window.addEventListener('pointerdown', (e) => {
   // Buttons, cards and sliders handle their own clicks — don't treat them
   // as "tap to fly" / "tap to resume"
-  if (e.target.closest && e.target.closest('button, .skin-card, .daily-card, .seg-btn, .pause-menu, .share-menu, .gambit-panel, .title-row, input')) return;
+  if (e.target.closest && e.target.closest('button, .skin-card, .daily-card, .seg-btn, .pause-menu, .share-menu, .title-row, input')) return;
   if (game.state === 'paused') {
     // Browsing the shop/settings from pause: outside taps go back to the
     // pause overlay instead of resuming mid-shop.
@@ -307,7 +289,6 @@ function restart() {
   resetCollision();
   resetEmbers();
   resetGoldEmbers();
-  if (game.mode !== 'gambit') resetGambitOffer();
   runSeed = seedForRun();
   game.runSeed = runSeed;
   resetEnvironment(runSeed);
@@ -317,7 +298,7 @@ function restart() {
   // Cull old set-pieces
   for (const sp of setpieceMeshes) scene.remove(sp.object);
   setpieceMeshes.length = 0;
-  levelGen = createLevelGen(runSeed, { gambit: game.mode === 'gambit' });
+  levelGen = createLevelGen(runSeed);
   spawnAhead();
   cameraCtl.init(camera, player);
   ui.hideScreen();
@@ -377,9 +358,7 @@ function settleRun() {
       total: emberTotal,
     },
     nextUp: selectNextUp(),
-    gambit: { eligible: gambitEligible(emberTotal), stake: emberTotal },
   };
-  if (game.runSummary.gambit.eligible) markGambitOffered();
   persist();
   if (game.missionResults.length) setTimeout(() => sfx.missionComplete(), 700);
   if (game.levelUps > 0) setTimeout(() => sfx.levelUp(), 1200);
@@ -558,17 +537,6 @@ function tick() {
     game.score += player.speed * dt * CONFIG.distanceScore * game.scoreMult;
     spawnAhead();
 
-    // Gambit win line: cross the finish arch untouched and the haul doubles.
-    if (game.mode === 'gambit' && player.dist >= CONFIG.gambitGoal) {
-      game.gambitResult = settleGambit(true); // resets mode to normal
-      sfx.gambitWin();
-      ui.perfectFlash();
-      game.state = 'gameover';
-      game.deathFreezeTimer = 0;
-      ui.showScreen('gambitResult');
-      gameoverTapArmed = performance.now() + 700;
-    }
-
     updateCollision(dt, player);
     updateRings(dt, player, clock.getElapsedTime());
     updatePowerups(dt, player, clock.getElapsedTime());
@@ -653,17 +621,7 @@ function tick() {
     if (game.deathFreezeTimer > 0) {
       game.deathFreezeTimer -= dt;
       if (game.deathFreezeTimer <= 0) {
-        if (game.mode === 'gambit') {
-          // A crashed gambit banks nothing and records nothing — the haul
-          // was already wagered, everything else was settled before it.
-          game.gambitResult = settleGambit(false); // resets mode to normal
-          sfx.gambitLose();
-          clearDeath();
-          ui.showScreen('gambitResult');
-          gameoverTapArmed = performance.now() + 700;
-        } else {
-          settleRun();
-        }
+        settleRun();
       }
     }
   }

@@ -42,7 +42,7 @@ export function initPbMarker(scene) {
 // Stand the beacon at the saved best distance for the new run.
 function resetPbMarker() {
   markerDist = Math.floor(saveData.best.dist);
-  passed = !(markerDist > 400 && game.mode !== 'gambit');
+  passed = !(markerDist > 400);
   fade = 0;
   group.visible = false;
 }

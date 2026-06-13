@@ -225,8 +225,8 @@ export function createLevelGen(seed = CONFIG.seed, opts = {}) {
     return { dist, x: cx + (rnd() - 0.5) * 2, y: cy + (rnd() - 0.5) * 1.5 };
   }
 
-  // Straight guide line of embers between two waypoints (gauntlet/gambit
-  // corridors): follow the embers = thread the door.
+  // Straight guide line of embers between two waypoints (gauntlet corridors):
+  // follow the embers = thread the door.
   function guideLine(a, b, out) {
     const points = [];
     for (let k = 0; k < 5; k++) {
@@ -280,44 +280,11 @@ export function createLevelGen(seed = CONFIG.seed, opts = {}) {
     out.embers.push({ points });
   }
 
-  // --- Gambit corridor: the Phoenix Gauntlet. A short fixed course of
-  // back-to-back gauntlet stations with guide embers (paying 0 — embers.js
-  // guards gambit mode), no rings/orbs/goldens, and a finish arch at the
-  // goal line. Generated instead of the endless course when opts.gambit.
-  let gambitQx = 1;
-  let gambitQyLow = true;
-  let gambitFinishPlaced = false;
-  function ensureGambit(target, out) {
-    while (prev.dist < target) {
-      if (prev.dist < CONFIG.gambitLeadIn) {
-        const wp = { dist: CONFIG.gambitLeadIn, x: 0, y: 10 };
-        guideLine(prev, wp, out);
-        prev = wp;
-      } else if (prev.dist + CONFIG.gambitSpacing <= CONFIG.gambitGoal - 40) {
-        const st = { qx: gambitQx, qyLow: gambitQyLow };
-        if (rnd() < 0.5) gambitQx *= -1;
-        else gambitQyLow = !gambitQyLow;
-        const wp = gauntletStation(st, prev.dist + CONFIG.gambitSpacing, out);
-        guideLine(prev, wp, out);
-        prev = wp;
-      } else if (!gambitFinishPlaced) {
-        gambitFinishPlaced = true;
-        out.setPieces.push({ type: 'biomeGate', dist: CONFIG.gambitGoal, biomeIndex: 1 });
-        prev = { dist: CONFIG.gambitGoal, x: prev.x, y: prev.y };
-      } else {
-        prev = { dist: target, x: prev.x, y: prev.y }; // open sky past the line
-      }
-    }
-    generatedUntil = prev.dist;
-    return out;
-  }
-
   function ensure(target) {
     const out = {
       rings: [], obstacles: [], orbs: [], setPieces: [], embers: [],
       goldEmbers: [], gauntletStarts: [], gauntletEnds: [],
     };
-    if (opts.gambit) return ensureGambit(target, out);
     while (prev.dist < target) {
       // Gauntlet corridors take over waypoint placement while active: each
       // station's ring sits in the open quadrant, an ember line leads in,
