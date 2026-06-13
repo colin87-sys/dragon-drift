@@ -13,15 +13,40 @@ import { makeGlowTexture } from './util.js';
 
 // --- Wing geometry helpers ---
 
+// Finger-tip anchors for the membrane (x = span outward, y = chord fore/aft).
+// Dragon wings follow BAT anatomy: an arm + fanned finger bones with a
+// scalloped membrane webbed between them — not a flat paddle.
+const WING_TIPS = [[5.25, 0.34], [4.4, -0.5], [3.05, -1.0], [1.7, -1.12]];
+
 function buildWingShape() {
   const s = new THREE.Shape();
   s.moveTo(0, 0);
-  s.bezierCurveTo(0.8, 0.5, 2.2, 1.0, 3.0, 0.7);
-  s.lineTo(4.8, 0.2);
-  s.lineTo(5.2, -0.5);
-  s.bezierCurveTo(4.0, -1.0, 2.4, -1.4, 1.2, -1.2);
-  s.lineTo(0, -0.4);
+  // Leading edge: a clean sweep from the wrist out to the far wing tip.
+  s.bezierCurveTo(1.8, 0.62, 3.8, 0.64, WING_TIPS[0][0], WING_TIPS[0][1]);
+  // Trailing edge: a concave web (scallop) dipping toward the body between
+  // each successive finger tip — the signature bat/dragon membrane silhouette.
+  for (let i = 0; i < WING_TIPS.length - 1; i++) {
+    const [ax, ay] = WING_TIPS[i];
+    const [bx, by] = WING_TIPS[i + 1];
+    const cx = (ax + bx) / 2;
+    const cy = (ay + by) / 2 + 0.5; // pull the web toward the body
+    s.quadraticCurveTo(cx, cy, bx, by);
+  }
+  s.quadraticCurveTo(0.85, -0.34, 0, -0.28);
   return s;
+}
+
+// A tapered bone strut from the wrist (origin) to a finger tip in the wing's
+// flattened XZ plane (after the membrane's rotateX(-PI/2)).
+function wingStrut(x, z, r0, r1, mat) {
+  const len = Math.hypot(x, z) || 0.001;
+  const m = new THREE.Mesh(new THREE.CylinderGeometry(r1, r0, len, 5), mat);
+  m.quaternion.setFromUnitVectors(
+    new THREE.Vector3(0, 1, 0),
+    new THREE.Vector3(x, 0, z).normalize(),
+  );
+  m.position.set(x / 2, 0.015, z / 2);
+  return m;
 }
 
 function buildFeatherWingShape() {
@@ -345,16 +370,16 @@ export function buildDragonModel(def, opts = {}) {
 
   // Tail
   const tailSegs = [];
-  let radius = 0.58;
-  let zTail = 2.4;
+  let radius = 0.6;
+  let zTail = 2.25;
   for (let i = 0; i < model.tailSegments; i++) {
-    const seg = new THREE.Mesh(new THREE.ConeGeometry(radius, 1.2, 7), bodyMat);
+    const seg = new THREE.Mesh(new THREE.ConeGeometry(radius, 1.05, 7), bodyMat);
     seg.rotation.x = Math.PI / 2;
     seg.position.set(0, 0, zTail);
     group.add(seg);
     tailSegs.push(seg);
-    zTail += 0.9;
-    radius = Math.max(radius * 0.78, 0.05);
+    zTail += 0.72;          // tighter spacing — less tadpole
+    radius = Math.max(radius * 0.72, 0.04); // faster taper to a fine tip
   }
 
   // Mace tail tip (Solar/Ember apex — spiky club end)
@@ -393,57 +418,51 @@ export function buildDragonModel(def, opts = {}) {
     tailSegs.push(tip);
   }
 
-  // Wings — primary pair
+  // Wings — primary pair. One scalloped bat-wing membrane per side with fanned
+  // finger bones; the pivot flaps, the wingTip group carries the contrail
+  // marker (and the animation's secondary fold).
   const ws = model.wingScale;
-  const wingBuilder = model.wingShape === 'feather' ? buildFeatherWingShape : buildWingShape;
-  const wingGeo = new THREE.ShapeGeometry(wingBuilder());
-  wingGeo.rotateX(-Math.PI / 2);
-  wingGeo.scale(1.34 * ws, 1.28 * ws, 1);
-  applyWingGradient(wingGeo, def, 0, 0.78);
-  const tipGeoR = new THREE.ShapeGeometry(wingBuilder());
-  const tipGeoL = new THREE.ShapeGeometry(wingBuilder());
-  applyWingGradient(tipGeoR, def, 0.72, 1);
-  applyWingGradient(tipGeoL, def, 0.72, 1);
-  const wingBoneGeo = new THREE.BoxGeometry(3.7 * ws, 0.055, 0.055);
+  const featherShape = model.wingShape === 'feather';
+  const boneMat = new THREE.MeshStandardMaterial({
+    color: def.horn, emissive: def.wingEmissive, emissiveIntensity: 0.35,
+    roughness: 0.3, metalness: 0.5,
+  });
 
-  const wingPivotR = new THREE.Group();
-  wingPivotR.position.set(0.55, 0.4, -0.2);
-  const wRRoot = new THREE.Mesh(wingGeo, wingMat);
-  for (const [bz, rot] of [[-0.12, -0.18], [0.18, 0.02], [0.48, 0.2]]) {
-    const bone = new THREE.Mesh(wingBoneGeo, hornMat);
-    bone.position.set(2.0 * ws, 0.03, bz); bone.rotation.y = rot;
-    wingPivotR.add(bone);
-  }
-  const wingTipR = new THREE.Group();
-  wingTipR.position.set(3.5 * ws, 0, 0);
-  const wRTip = new THREE.Mesh(tipGeoR, wingMat);
-  wRTip.scale.set(0.42 * ws, 0.42 * ws, 1);
-  wingTipR.add(wRTip);
-  const tipMarkerR = new THREE.Object3D();
-  tipMarkerR.position.set(2.0 * ws, 0, -0.2);
-  wingTipR.add(tipMarkerR);
-  wingPivotR.add(wRRoot, wingTipR);
-  group.add(wingPivotR);
+  function buildWingSide(side) {
+    const pivot = new THREE.Group();
+    pivot.position.set(0.55 * side, 0.4, -0.2);
 
-  const wingPivotL = new THREE.Group();
-  wingPivotL.position.set(-0.55, 0.4, -0.2);
-  const wLRoot = new THREE.Mesh(wingGeo, wingMat);
-  wLRoot.scale.x = -1;
-  for (const [bz, rot] of [[-0.12, 0.18], [0.18, -0.02], [0.48, -0.2]]) {
-    const bone = new THREE.Mesh(wingBoneGeo, hornMat);
-    bone.position.set(-2.0 * ws, 0.03, bz); bone.rotation.y = rot;
-    wingPivotL.add(bone);
+    const geo = new THREE.ShapeGeometry((featherShape ? buildFeatherWingShape : buildWingShape)(), 14);
+    geo.rotateX(-Math.PI / 2);
+    geo.scale(1.34 * ws, 1.28 * ws, 1);
+    applyWingGradient(geo, def, 0, 1);
+    const membrane = new THREE.Mesh(geo, wingMat);
+    membrane.scale.x = side; // mirror the left wing
+    pivot.add(membrane);
+
+    // Finger bones fanning from the wrist to each membrane tip, + a thicker
+    // leading-edge arm — this is what kills the "flat paddle" read.
+    for (let i = 0; i < WING_TIPS.length; i++) {
+      const [px, py] = WING_TIPS[i];
+      const x = px * 1.34 * ws * side;
+      const z = -py * 1.0;
+      pivot.add(wingStrut(x, z, i === 0 ? 0.075 : 0.05, 0.012, boneMat));
+    }
+
+    const wingTip = new THREE.Group();
+    wingTip.position.set(3.3 * ws * side, 0, 0);
+    const marker = new THREE.Object3D();
+    marker.position.set(WING_TIPS[0][0] * 1.34 * ws * side - 3.3 * ws * side, 0, -WING_TIPS[0][1]);
+    wingTip.add(marker);
+    pivot.add(wingTip);
+    group.add(pivot);
+    return { pivot, wingTip, marker };
   }
-  const wingTipL = new THREE.Group();
-  wingTipL.position.set(-3.5 * ws, 0, 0);
-  const wLTip = new THREE.Mesh(tipGeoL, wingMat);
-  wLTip.scale.set(-0.42 * ws, 0.42 * ws, 1);
-  wingTipL.add(wLTip);
-  const tipMarkerL = new THREE.Object3D();
-  tipMarkerL.position.set(-2.0 * ws, 0, -0.2);
-  wingTipL.add(tipMarkerL);
-  wingPivotL.add(wLRoot, wingTipL);
-  group.add(wingPivotL);
+
+  const R = buildWingSide(1);
+  const L = buildWingSide(-1);
+  const wingPivotR = R.pivot, wingTipR = R.wingTip, tipMarkerR = R.marker;
+  const wingPivotL = L.pivot, wingTipL = L.wingTip, tipMarkerL = L.marker;
 
   // Secondary small wing pair (Obsidian T4/Toothless — near tail base)
   let wingPivot2L = null;

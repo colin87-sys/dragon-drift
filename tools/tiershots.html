@@ -6,7 +6,7 @@
   <script type="importmap">{ "imports": { "three": "/lib/three.module.js" } }</script>
 </head>
 <body>
-  <canvas id="montage" width="1860" height="360"></canvas>
+  <canvas id="montage" width="1240" height="360"></canvas>
   <canvas id="gl" width="360" height="360" style="display:none"></canvas>
   <script type="module">
     import * as THREE from 'three';
@@ -14,7 +14,7 @@
     import { ascendedDef } from '/js/ascension.js';
     import { buildDragonModel } from '/js/dragonModel.js';
 
-    const TIER_NAMES = ['Hatchling', 'Kindled', 'Blazing', 'Radiant', 'Mythic', 'Eternal'];
+    const TIER_NAMES = ['Base', 'Kindled', 'Radiant', 'Eternal'];
 
     const gl = document.getElementById('gl');
     const renderer = new THREE.WebGLRenderer({ canvas: gl, alpha: true, antialias: true, preserveDrawingBuffer: true });
@@ -32,7 +32,9 @@
     let current = null;
     const _box = new THREE.Box3();
     const _sph = new THREE.Sphere();
-    const _dir = new THREE.Vector3(0.55, 0.32, 0.78).normalize();
+    // 3/4 above-and-behind — close to the in-game chase cam but raised enough
+    // to reveal the wing membranes (dragon faces -z, away from camera).
+    const _dir = new THREE.Vector3(0.34, 0.62, 0.70).normalize();
     function renderTier(key, tier) {
       if (current) {
         scene.remove(current);
@@ -40,21 +42,17 @@
       }
       const def = ascendedDef(DRAGONS[key], tier, 0);
       const { group } = buildDragonModel(def, {});
-      group.rotation.y = Math.PI; // head toward camera (3/4 front)
+      group.rotation.y = 0;
       current = group;
       scene.add(group);
-      // Frame the head + wings + upper body (where the per-tier parts accrue);
-      // the long tail trails off behind so the silhouette changes read large.
+      // Frame on the WINGSPAN (width), not the whole sphere — the long tail
+      // otherwise shrinks everything. Target the head/wing region (front).
       _box.setFromObject(group);
-      _box.getBoundingSphere(_sph);
+      const width = (_box.max.x - _box.min.x) || 4;
+      const cx = (_box.max.x + _box.min.x) / 2;
       const fov = camera.fov * Math.PI / 180;
-      const dist = (_sph.radius / Math.sin(fov / 2)) * 0.60;
-      // head sits toward +z after the PI spin; bias the look target forward.
-      const target = new THREE.Vector3(
-        _sph.center.x,
-        _sph.center.y + _sph.radius * 0.10,
-        _sph.center.z + _sph.radius * 0.55,
-      );
+      const dist = ((width * 0.5) / Math.tan(fov / 2)) * 1.18;
+      const target = new THREE.Vector3(cx, 0.3, _box.min.z * 0.45 + 0.3);
       camera.position.copy(target).addScaledVector(_dir, dist);
       camera.near = dist / 100;
       camera.far = dist * 20;
@@ -69,7 +67,7 @@
       ctx.fillStyle = '#0a0e1a';
       ctx.fillRect(0, 0, m.width, m.height);
       const PW = 310;
-      for (let tier = 0; tier <= 5; tier++) {
+      for (let tier = 0; tier <= 3; tier++) {
         renderTier(key, tier);
         const x = tier * PW;
         ctx.drawImage(gl, x + 5, 8, 300, 300);

@@ -607,7 +607,7 @@ export const ui = {
           </div>`;
         const tierPips = (key) => {
           const t = ascensionTier(key);
-          return Array.from({ length: 5 }, (_, i) =>
+          return Array.from({ length: ASCENSION_TIERS.length }, (_, i) =>
             `<span class="tier-pip${i < t ? ' filled' : ''}">◆</span>`).join('');
         };
         const tierAction = (key, cost) => {

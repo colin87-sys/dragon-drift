@@ -113,6 +113,10 @@ function load() {
     data.embers += Math.floor(parsed.gambitPending.stake);
     gambitSunsetRefund = Math.floor(parsed.gambitPending.stake);
   }
+  // Ascension collapsed 5 tiers → 3 (4 visual forms). Clamp any legacy tier /
+  // form-preference values so old saves resolve to a valid form.
+  for (const e of data.ascension.tiers) if (e[1] > 3) e[1] = 3;
+  for (const e of data.cosmetics.formPref) if (e[1] > 3) e[1] = 3;
   return data;
 }
 

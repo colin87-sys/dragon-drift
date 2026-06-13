@@ -7,7 +7,7 @@ const {
   ASCENSION_TIERS, tierCostMult, tierCost,
   ascensionTier, radianceRank, flownMetres, canAscend,
   ascend, radianceCost, buyRadiance,
-  ascendEmberBonus, evoStage, grandfatherAscension,
+  ascendEmberBonus, grandfatherAscension,
 } = await import('../js/ascension.js');
 
 let n = 0;
@@ -23,14 +23,6 @@ function reset(embers = 5000, flown = [], tiers = []) {
   saveData.skins.owned = ['azure'];
 }
 
-// --- evoStage ---
-assertEq(evoStage(0), 0, 'tier 0 → hatchling');
-assertEq(evoStage(1), 1, 'tier 1 → adolescent');
-assertEq(evoStage(2), 1, 'tier 2 → adolescent');
-assertEq(evoStage(3), 2, 'tier 3 → apex');
-assertEq(evoStage(5), 2, 'tier 5 → apex');
-ok('evoStage: hatchling/adolescent/apex boundaries correct');
-
 // --- tierCostMult ---
 // base dragon (cost 0): mult = 1
 assertEq(tierCostMult(0), 1, 'free dragon: mult = 1');
@@ -41,9 +33,9 @@ assertEq(tierCostMult(2500), 1.5, 'cost-2500 dragon: mult = 1.5');
 ok('tierCostMult rounds to nearest 0.5 correctly');
 
 // --- tierCost ---
-// Tier 0 (Kindled) base cost 600, mult 1 → 600 → rounded to 50 → 600
+// Tier 0 (Kindled) base cost 700, mult 1 → 700 → rounded to 50 → 700
 const azureCost = 0; // azure is free
-assertEq(tierCost(azureCost, 0), 600, 'azure tier-0 cost = 600');
+assertEq(tierCost(azureCost, 0), 700, 'azure tier-0 cost = 700');
 // Ember dragon cost 1200 (example): mult = Math.round((1 + 1200/5000)*2)/2 = Math.round(2.48)/2 = 2.5/2 = 1.5? no...
 // (1 + 1200/5000) = 1.24, * 2 = 2.48, round = 2, /2 = 1.0? No: Math.round(2.48) = 2, 2/2 = 1.0? Wait
 // Actually: Math.round((1 + dragonCost/5000) * 2) / 2
@@ -89,15 +81,15 @@ const r2 = canAscend('azure', 0);
 assert(!r2.ok, 'cannot ascend: not enough embers');
 assert(r2.cost > 100, 'cost reported correctly');
 
-// Tier already at max
-reset(99999, [['azure', 999999]], [['azure', 5]]);
+// Tier already at max (3 = final form)
+reset(99999, [['azure', 999999]], [['azure', 3]]);
 const rMax = canAscend('azure', 0);
-assert(!rMax.ok, 'cannot ascend beyond tier 5');
+assert(!rMax.ok, 'cannot ascend beyond the final form (tier 3)');
 assertEq(Object.keys(rMax).length, 1, 'max tier returns bare { ok: false }');
 ok('canAscend correctly gates on metres, embers, and tier limit');
 
 // --- ascend ---
-reset(5000, [['azure', 10000]]);
+reset(5000, [['azure', 15000]]);
 const result = ascend('azure', 0);
 assert(result, 'ascend returns true on success');
 assertEq(ascensionTier('azure'), 1, 'tier incremented to 1');
@@ -120,11 +112,8 @@ saveData.skins.equipped = 'azure';
 saveData.ascension.tiers = [];
 assertEq(ascendEmberBonus(), 0, 'tier 0: no bonus');
 saveData.ascension.tiers = [['azure', 3]];
-assert(Math.abs(ascendEmberBonus() - 0.03) < 0.001, 'tier 3: 3% bonus');
-saveData.ascension.tiers = [['azure', 5]];
-assert(Math.abs(ascendEmberBonus() - 0.05) < 0.001, 'tier 5: 5% bonus (max)');
-// Radiance doesn't push beyond 5% in ascendEmberBonus
-ok('ascendEmberBonus is 1% per tier, capped at 5%');
+assert(Math.abs(ascendEmberBonus() - 0.03) < 0.001, 'tier 3 (final): 3% bonus');
+ok('ascendEmberBonus is 1% per tier (final form = 3%)');
 
 // --- radianceCost / buyRadiance ---
 reset(5000, [], [['azure', 5]]);
@@ -137,13 +126,13 @@ assertEq(radianceCost('azure'), 4500, 'rank 1: cost = 3000 + 1500 = 4500');
 ok('radianceCost and buyRadiance work correctly');
 
 // --- grandfatherAscension ---
-// Fresh save: no tiers yet, but azure has 35000m flown
-reset(0, [['azure', 35000]]);
+// Fresh save: no tiers yet, but azure has 70000m flown
+reset(0, [['azure', 70000]]);
 saveData.ascension.tiers = [];
 saveData.skins.owned = ['azure'];
 grandfatherAscension(['azure']);
-// 35000m ≥ 30000 (tier 2 gate) but < 75000 (tier 3 gate) → should grant tier 2
-assertEq(ascensionTier('azure'), 2, 'grandfather grants tier 2 for 35000m flown');
+// 70000m ≥ 60000 (tier 2 gate) but < 150000 (tier 3 gate) → should grant tier 2
+assertEq(ascensionTier('azure'), 2, 'grandfather grants tier 2 for 70000m flown');
 
 // Already has tiers: don't overwrite
 reset(0, [['azure', 250000]]);

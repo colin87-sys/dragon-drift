@@ -6,13 +6,19 @@ import { saveData, persist } from './save.js';
 //
 // Collections are arrays of [key, n] pairs — deepMerge drops dynamic-key maps.
 
+// 3 paid upgrades → 4 visual forms (base + 3). Each upgrade is a dramatic,
+// unmistakable evolution (Charmander → Charmeleon → Charizard), the last one
+// the earned, majestic apex.
 export const ASCENSION_TIERS = [
-  { name: 'Kindled', cost: 600,  metres: 10000  }, // gate = mastery star 1
-  { name: 'Blazing', cost: 1000, metres: 30000  }, // star 2
-  { name: 'Radiant', cost: 1600, metres: 75000  }, // star 3
-  { name: 'Mythic',  cost: 2400, metres: 150000 }, // new star 4
-  { name: 'Eternal', cost: 3500, metres: 250000 }, // new star 5
+  { name: 'Kindled', cost: 700,  metres: 15000  }, // form 1
+  { name: 'Radiant', cost: 1600, metres: 60000  }, // form 2
+  { name: 'Eternal', cost: 3200, metres: 150000 }, // form 3 — the apex
 ];
+
+// Body scale per form (index = tier 0..3): base is noticeably the smallest and
+// the final form lands at the dragon's reference size, so it never obscures
+// more of the screen than the current dragon does.
+export const SIZE_RAMP = [0.72, 0.84, 0.93, 1.0];
 
 // Per-dragon cost multiplier: 1 + dragonCost/5000, rounded to nearest 0.5.
 export function tierCostMult(dragonCost) {
@@ -85,49 +91,33 @@ export function ascendEmberBonus() {
   return Math.min(tier * 0.01, 0.05);
 }
 
-// Pokémon-style evolution stage: proportion curve (scale/eyeScale).
-// 0 = hatchling, 1-2 = adolescent, 3+ = apex.
-export function evoStage(tier) {
-  return tier >= 3 ? 2 : tier >= 1 ? 1 : 0;
-}
-
-// Derived dragon def incorporating ascension tier + radiance amplification.
-// stages[] drives proportions; tierKit[] cumulatively bolts on parts per tier.
+// Derived dragon def for a given form (ascension tier 0..3) + radiance.
+// def.forms[t] lists the parts that arrive at form t; they apply cumulatively
+// so every upgrade visibly bolts more on (booleans stay set, numerics take the
+// latest form's value). Size comes from SIZE_RAMP; the final form lights up.
 export function ascendedDef(def, tier, radiance) {
   radiance = radiance || 0;
+  tier = Math.max(0, Math.min(tier, ASCENSION_TIERS.length));
   const d = JSON.parse(JSON.stringify(def));
 
-  // Proportion curve (hatchling → adolescent → apex silhouette)
-  const stage = evoStage(tier);
-  if (def.stages && def.stages[stage]) {
-    Object.assign(d.model, def.stages[stage]);
-  }
-
-  // Cumulative part accretion — each tier bolts on what tierKit[t] specifies
-  if (def.tierKit) {
-    for (let t = 0; t <= Math.min(tier, def.tierKit.length - 1); t++) {
-      const kit = def.tierKit[t];
-      if (!kit) continue;
-      for (const [k, v] of Object.entries(kit)) {
-        // Numeric model params: take the max (highest tier wins for scales etc.)
-        if (typeof v === 'number' && typeof d.model[k] === 'number') {
-          d.model[k] = Math.max(d.model[k], v);
-        } else {
-          // Booleans and strings: direct assign (additive — once set, stays set)
-          d.model[k] = v;
-        }
-      }
+  if (def.forms) {
+    for (let t = 0; t <= tier; t++) {
+      if (def.forms[t]) Object.assign(d.model, def.forms[t]);
     }
   }
 
-  d.fx = { ...d.fx };
-  d.fx.auraIdle = Math.min(0.5, (def.fx.auraIdle || 0) + 0.06 * tier + 0.01 * radiance);
-  d.fx.sparkle = def.fx.sparkle || tier >= 3;
-  d.fx.wingGlow = 1 + 0.15 * tier;
-  if (tier >= 5) d.fx.bodyGlow = 1.6;
+  // Size ramp: noticeably smaller at base, reference size at the final form.
+  d.model.scale = (def.model.scale || 1) * (SIZE_RAMP[tier] || 1);
 
-  // Apex palette overrides (plasma-cyan, sapphire, molten seams)
-  if (tier >= 3 && def.apexEye) d.eye = def.apexEye;
+  const isFinal = tier >= ASCENSION_TIERS.length;
+  d.fx = { ...d.fx };
+  d.fx.auraIdle = Math.min(0.6, (def.fx.auraIdle || 0) + 0.09 * tier + 0.012 * radiance);
+  d.fx.sparkle = def.fx.sparkle || isFinal;
+  d.fx.wingGlow = 1 + 0.18 * tier;
+  if (isFinal) d.fx.bodyGlow = 1.7;
+
+  // Premium palette: the awe-inducing eyes/seams switch in from form 2 onward.
+  if (tier >= 2 && def.apexEye) d.eye = def.apexEye;
 
   return d;
 }
