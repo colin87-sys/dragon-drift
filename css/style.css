@@ -817,7 +817,7 @@ body[data-qtier="2"] .speedlines { display: none; }
   100% { transform: translate(var(--dx), calc(var(--dy) + 110px)) rotate(var(--rot)); opacity: 0; }
 }
 
-/* Gambit-win garnish reuses the celebration pieces inline on the screen */
+/* Win burst/confetti: inline celebration pieces on the screen */
 .win-burst { position: fixed; left: 50%; top: 50%; transform: translate(-50%, -50%); pointer-events: none; }
 .win-confetti { top: 38%; }
 

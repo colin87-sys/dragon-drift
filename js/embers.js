@@ -103,7 +103,7 @@ export function updateEmbers(dt, player, time) {
 // Bank the run's embers into the save (called once at run end). The equipped
 // rider's emberBonus pays extra on top, and the first flight of each UTC day
 // pays ×CONFIG.firstFlightMult — both broken out on the recap. Returns the
-// banked total (the Ember Gambit wagers exactly this number).
+// banked total.
 export function bankEmbers() {
   if (game.embersRun <= 0) return 0;
   game.emberBonusEarned = Math.round(game.embersRun * riderEmberBonus());

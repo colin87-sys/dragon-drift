@@ -39,6 +39,8 @@ const DEFAULTS = {
   weekly: { key: '', trialIds: [], progress: [], done: [], feather: false },
   milestones: { claimed: [] },
   mastery: { flown: [], starsClaimed: [] }, // flown: [[dragonKey, metres], ...]
+  ascension: { tiers: [], radiance: [] },   // tiers: [[dragonKey, n], ...]
+  cosmetics: { marksOwned: [], markEquipped: '' },
   lastSeen: '',         // YYYY-MM-DD UTC, set on every boot
   firstFlightDay: '',   // last UTC day the first-flight ember bonus was paid
   // Appointment-UI watermarks (honest badges): fixed numeric keys only.
