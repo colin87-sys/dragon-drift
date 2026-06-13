@@ -239,8 +239,10 @@ export function updatePostFX(dt, speedNorm, feverActive, rawDt = dt) {
   postfx._feverMix = damp(postfx._feverMix, feverActive ? 1 : 0, 4, dt);
   const flash = _flashFrames > 0 ? 1 : 0;
 
+  // Surge adds a stronger radial chromatic streak (mild cinematic speed-lines)
+  // at the frame edges, leaving the readable centre clean.
   const targetAb = postfx._aberrationOn
-    ? clamp(speedNorm, 0, 1) * 0.012 + postfx._feverMix * 0.006
+    ? clamp(speedNorm, 0, 1) * 0.012 + postfx._feverMix * 0.013
     : 0;
   u.aberration.value = damp(u.aberration.value, targetAb, 5, dt) + _kick.ab;
   // Surge wash trimmed ~27% so rings/hazards/centre lane stay readable — the

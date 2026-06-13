@@ -65,6 +65,10 @@ export function buildDragonModel(def, opts = {}) {
     group.add(root);
   }
 
+  // Accent materials (spine plates, crest, glow seams, tail plates) that flare
+  // toward white-gold during Dragon Surge — collected for the rig to drive.
+  const spineMats = [];
+
   // Glowing dorsal spine — runs along the crest of the keel so it reads as a
   // bright stripe from directly behind. Ramps with the forms (spineGlow 0→1).
   if (model.spineGlow > 0) {
@@ -74,6 +78,9 @@ export function buildDragonModel(def, opts = {}) {
       color: spineCol, emissive: spineCol,
       emissiveIntensity: 0.7 + g * 2.0, roughness: 0.3, metalness: 0.3,
     });
+    spineMat.userData.baseEmissive = spineCol;
+    spineMat.userData.baseIntensity = 0.7 + g * 2.0;
+    spineMats.push(spineMat);
     const segN = 11;
     for (let i = 0; i < segN; i++) {
       const t = i / (segN - 1);
@@ -95,6 +102,9 @@ export function buildDragonModel(def, opts = {}) {
       emissiveIntensity: 0.85, roughness: 0.25, metalness: 0.5,
       side: THREE.DoubleSide,
     });
+    crestMat.userData.baseEmissive = def.apexSeam || def.wingEmissive;
+    crestMat.userData.baseIntensity = 0.85;
+    spineMats.push(crestMat);
     for (let i = 0; i < 5; i++) {
       const t = (i - 2) / 2;
       const h = 0.95 - Math.abs(t) * 0.32;
@@ -171,6 +181,9 @@ export function buildDragonModel(def, opts = {}) {
     const seamMat = new THREE.MeshStandardMaterial({
       color: seamColor, emissive: seamColor, emissiveIntensity: 1.8, roughness: 0.3,
     });
+    seamMat.userData.baseEmissive = seamColor;
+    seamMat.userData.baseIntensity = 1.8;
+    spineMats.push(seamMat);
     for (const xo of [-0.26, 0.26]) {
       const seam = new THREE.Mesh(new THREE.BoxGeometry(0.03, 0.03, 3.4), seamMat);
       seam.position.set(xo, 0.5, -0.7);
@@ -333,7 +346,8 @@ export function buildDragonModel(def, opts = {}) {
   if (model.tailStyle) {
     // Tail root anchored at hipRear and overlapping the body (base radius ≈ hip
     // width) so it flows out of the torso seamlessly — never a detached spear.
-    const { group: tailGroup, segs } = buildCleanTail(def, model, bodyMat);
+    const { group: tailGroup, segs, plateMat } = buildCleanTail(def, model, bodyMat);
+    if (plateMat) spineMats.push(plateMat);
     tailGroup.position.set(0, 0.28, 1.15);
     group.add(tailGroup);
     for (const s of segs) tailSegs.push(s);
@@ -529,6 +543,18 @@ export function buildDragonModel(def, opts = {}) {
   auraSprite.layers.set(1);
   group.add(auraSprite);
 
+  // Surge ripple — an energy ring the rig pulses outward during Dragon Surge
+  // (an "aura ripple" around the dragon). Invisible at all other times.
+  const surgeRipple = new THREE.Mesh(
+    new THREE.TorusGeometry(1.0, 0.045, 8, 40),
+    new THREE.MeshBasicMaterial({
+      color: def.coreGlow || def.apexSeam || 0xffffff, transparent: true, opacity: 0,
+      blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide,
+    }));
+  surgeRipple.position.set(0, 0.5, 0.3);
+  surgeRipple.layers.set(1);
+  group.add(surgeRipple);
+
   group.scale.setScalar(model.scale);
 
   // Shop preview: a clean flying showcase (no turntable / no pedestal). Downscale
@@ -551,8 +577,8 @@ export function buildDragonModel(def, opts = {}) {
 
     return {
       group: wrapper,
-      parts: { head, tailSegs, wingPivotL, wingPivotR, wingTipL, wingTipR, wingPivot2L, wingPivot2R, tipMarkerL, tipMarkerR, coreGlow },
-      materials: { bodyMat, wingMat, eyeMat },
+      parts: { head, tailSegs, wingPivotL, wingPivotR, wingTipL, wingTipR, wingPivot2L, wingPivot2R, tipMarkerL, tipMarkerR, coreGlow, surgeRipple },
+      materials: { bodyMat, wingMat, eyeMat, spineMats },
       auraSprite,
     };
   }
@@ -565,9 +591,9 @@ export function buildDragonModel(def, opts = {}) {
       wingTipL, wingTipR,
       wingPivot2L, wingPivot2R,
       tipMarkerL, tipMarkerR,
-      coreGlow,
+      coreGlow, surgeRipple,
     },
-    materials: { bodyMat, wingMat, eyeMat },
+    materials: { bodyMat, wingMat, eyeMat, spineMats },
     auraSprite,
   };
 }

@@ -262,6 +262,8 @@ export function buildCleanTail(def, model, bodyMat) {
     color: accentCol, emissive: accentCol, emissiveIntensity: 0.3 + g * 1.5,
     roughness: 0.35, metalness: 0.5,
   });
+  plateMat.userData.baseEmissive = accentCol;
+  plateMat.userData.baseIntensity = 0.3 + g * 1.5;
   const membraneMat = new THREE.MeshStandardMaterial({
     color: def.body, emissive: def.wingOuter || def.body, emissiveIntensity: 0.2,
     roughness: 0.5, metalness: 0.25, side: THREE.DoubleSide,
@@ -350,5 +352,5 @@ export function buildCleanTail(def, model, bodyMat) {
   root.add(tip);
   segs.push(tip);
 
-  return { group: root, segs };
+  return { group: root, segs, plateMat };
 }

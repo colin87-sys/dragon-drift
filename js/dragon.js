@@ -29,6 +29,11 @@ let tipMarkerL = null;
 let tipMarkerR = null;
 let auraSprite = null;
 let coreGlow = null;      // violet core energy sprite (pulses during Surge)
+let spineMats = [];       // spine/crest/seam/plate mats → white-gold in Surge
+let surgeRipple = null;   // energy ring that pulses outward during Surge
+let surgeMix = 0;         // 0..1 damped Surge transition
+const _surgeBaseCol = new THREE.Color();
+const _surgeWhiteGold = new THREE.Color(0xfff8e8);
 let quality = 1;
 
 export function setDragonQuality(q) {
@@ -85,6 +90,9 @@ export function createDragon(scene, def, riderDef) {
   ({ bodyMat, wingMat, eyeMat } = result.materials);
   auraSprite = result.auraSprite;
   coreGlow = result.parts.coreGlow;
+  spineMats = result.materials.spineMats || [];
+  surgeRipple = result.parts.surgeRipple;
+  surgeMix = 0;
 
   buildRider(riderDef);
   scene.add(group);
@@ -423,6 +431,27 @@ export function updateDragon(dt, player, time) {
       ? cb * 2.4 + Math.sin(time * 9) * 0.08
       : player.boosting ? cb * 1.5 : cb;
     coreGlow.material.opacity = damp(coreGlow.material.opacity, coreTarget, 5, dt);
+  }
+  // Dragon Surge dressing: spine/crest/seam plates flare toward white-gold and
+  // an energy ring ripples outward — the apex's transformed, regal Surge.
+  surgeMix = damp(surgeMix, player.feverActive ? 1 : 0, 4, dt);
+  if (surgeMix > 0.002) {
+    for (const m of spineMats) {
+      _surgeBaseCol.setHex(m.userData.baseEmissive ?? 0xffffff);
+      m.emissive.copy(_surgeBaseCol).lerp(_surgeWhiteGold, surgeMix * 0.85);
+      m.emissiveIntensity = (m.userData.baseIntensity ?? 1) * (1 + surgeMix * 0.9);
+    }
+    if (surgeRipple) {
+      const ph = (time * 0.85) % 1;              // expanding ring, ~1.2s loop
+      surgeRipple.scale.setScalar(0.6 + ph * 3.1);
+      surgeRipple.material.opacity = surgeMix * (1 - ph) * 0.5;
+    }
+  } else {
+    for (const m of spineMats) {
+      m.emissive.setHex(m.userData.baseEmissive ?? 0xffffff);
+      m.emissiveIntensity = m.userData.baseIntensity ?? 1;
+    }
+    if (surgeRipple) surgeRipple.material.opacity = 0;
   }
   bodyMat.emissiveIntensity = damp(bodyMat.emissiveIntensity, player.feverActive ? 0.35 : 0.12, 4, dt);
   eyeMat.emissive.setHex(player.feverActive ? 0xff66ee : activeDef.eye);
