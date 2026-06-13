@@ -479,6 +479,50 @@ export function buildDragonModel(def, opts = {}) {
 
   group.scale.setScalar(model.scale);
 
+  // Preview pedestal: rarity-tinted disc + spinning rune ring.
+  // Wraps the scaled dragon group so the pedestal stays in world-space coords
+  // while the turntable rotation carries both together.
+  if (opts.preview) {
+    const RARITY_GLOW = { R: 0x4aff88, SR: 0x4ac0ff, SSR: 0xc060ff, SSSR: 0xffd040 };
+    const glowHex = RARITY_GLOW[def.rarity] ?? RARITY_GLOW.R;
+    const wrapper = new THREE.Group();
+    wrapper.add(group);
+
+    const pedMat = new THREE.MeshStandardMaterial({
+      color: 0x0a0e1a, emissive: glowHex, emissiveIntensity: 0.5,
+      roughness: 0.35, metalness: 0.75,
+    });
+    const ped = new THREE.Mesh(new THREE.CylinderGeometry(1.1, 1.3, 0.09, 32), pedMat);
+    ped.position.y = -1.95;
+    wrapper.add(ped);
+
+    const runeMat = new THREE.MeshStandardMaterial({
+      color: glowHex, emissive: glowHex, emissiveIntensity: 2.5, roughness: 0.15,
+    });
+    const nRunes = def.rarity === 'SSSR' ? 12 : def.rarity === 'SSR' ? 10 : 8;
+    for (let i = 0; i < nRunes; i++) {
+      const ang = (i / nRunes) * Math.PI * 2;
+      const rune = new THREE.Mesh(new THREE.SphereGeometry(0.065, 5, 4), runeMat);
+      rune.position.set(Math.cos(ang) * 1.15, -1.88, Math.sin(ang) * 1.15);
+      wrapper.add(rune);
+    }
+
+    const groundGlow = new THREE.Sprite(new THREE.SpriteMaterial({
+      map: makeGlowTexture(glowHex), transparent: true, opacity: 0.48,
+      blending: THREE.AdditiveBlending, depthWrite: false,
+    }));
+    groundGlow.scale.set(6.5, 3.5, 1);
+    groundGlow.position.y = -2.1;
+    wrapper.add(groundGlow);
+
+    return {
+      group: wrapper,
+      parts: { head, tailSegs, wingPivotL, wingPivotR, wingTipL, wingTipR, wingPivot2L, wingPivot2R, tipMarkerL, tipMarkerR },
+      materials: { bodyMat, wingMat, eyeMat },
+      auraSprite,
+    };
+  }
+
   return {
     group,
     parts: {

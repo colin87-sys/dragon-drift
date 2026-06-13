@@ -185,7 +185,7 @@ export function attachPreviews(root, lookup) {
     if (!def) continue;
     let group, tick;
     if (canvas.dataset.kind === 'dragon') {
-      const result = buildDragonModel(def);
+      const result = buildDragonModel(def, { preview: true });
       group = result.group;
       tick = makePreviewTick(def, result);
     } else {
@@ -211,7 +211,7 @@ export function attachPreviewCanvas(canvas, kind, def) {
   ensureRenderer();
   let group, tick;
   if (kind === 'dragon') {
-    const result = buildDragonModel(def);
+    const result = buildDragonModel(def, { preview: true });
     group = result.group;
     tick = makePreviewTick(def, result);
   } else {
