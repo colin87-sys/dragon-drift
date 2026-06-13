@@ -21,7 +21,7 @@
     renderer.setPixelRatio(2);
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
     const scene = new THREE.Scene();
-    const camera = new THREE.PerspectiveCamera(35, 1, 0.1, 100);
+    const camera = new THREE.PerspectiveCamera(55, 1, 0.1, 100);
     camera.position.set(0, 0.7, 7.6);
     camera.lookAt(0, 0.2, 0);
     scene.add(new THREE.HemisphereLight(0xbfdcff, 0x2e3448, 1.0));
@@ -32,9 +32,9 @@
     let current = null;
     const _box = new THREE.Box3();
     const _sph = new THREE.Sphere();
-    // 3/4 above-and-behind — close to the in-game chase cam but raised enough
-    // to reveal the wing membranes (dragon faces -z, away from camera).
-    const _dir = new THREE.Vector3(0.34, 0.62, 0.70).normalize();
+    // Match the in-game chase cam: behind and slightly above (dragon faces -z,
+    // away from camera), so previews read like live gameplay.
+    const _dir = new THREE.Vector3(0.05, 0.36, 0.95).normalize();
     function renderTier(key, tier) {
       if (current) {
         scene.remove(current);

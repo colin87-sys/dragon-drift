@@ -109,33 +109,39 @@ export function buildDragonModel(def, opts = {}) {
     color: 0x223344, emissive: def.eye, emissiveIntensity: 2.2,
   });
 
-  // Body core
-  const body = new THREE.Mesh(new THREE.CapsuleGeometry(0.34, 1.9, 8, 14), bodyMat);
-  body.rotation.x = Math.PI / 2;
-  body.scale.set(0.72, 0.62, 1);
-  group.add(body);
+  // --- Body foundation ---------------------------------------------------
+  // A single lathed torso: thin at the neck → broad defined shoulders (the wing
+  // root) → sleek thorax → tapered pelvis → strong tail root. Replaces the old
+  // sphere-stack/rear-ball so the silhouette reads cleanly from the chase cam.
+  const profile = [
+    [0.14, -0.30], // neck cap (front, toward head)
+    [0.30,  0.10], // neck base
+    [0.46,  0.70],
+    [0.60,  1.30],
+    [0.72,  1.95], // shoulder peak — broadest mass, wing root
+    [0.60,  2.35],
+    [0.50,  2.75], // sleek thorax
+    [0.46,  3.15], // subtle pelvis / hip
+    [0.36,  3.55],
+    [0.27,  3.95], // strong tail root (animated tail continues from here)
+    [0.10,  4.20],
+  ].map(([r, h]) => new THREE.Vector2(r, h));
+  const torsoGeo = new THREE.LatheGeometry(profile, 18);
+  torsoGeo.rotateX(Math.PI / 2);   // lathe length axis → world +z (head at -z)
+  torsoGeo.translate(0, 0, -2.35); // neck end forward, tail root just behind 0
+  const torso = new THREE.Mesh(torsoGeo, bodyMat);
+  torso.scale.set(1.2, 0.92, 1);   // broad back + slightly flat belly
+  torso.position.y = 0.2;
+  group.add(torso);
 
-  const bodyProfile = [
-    [-1.75, 0.82, 0.68, 1.0], [-1.22, 1.02, 0.8, 1.08],
-    [-0.68, 0.86, 0.66, 1.0], [-0.12, 0.66, 0.52, 0.9],
-    [0.44, 0.48, 0.42, 0.78],  [0.95, 0.35, 0.34, 0.66],
-  ];
-  for (let i = 0; i < bodyProfile.length; i++) {
-    const [zPos, sx, sy, sz] = bodyProfile[i];
-    const seg = new THREE.Mesh(new THREE.SphereGeometry(0.82, 12, 9), i < 2 ? bodyMat : bellyMat);
-    seg.scale.set(sx, sy, sz);
-    seg.position.set(Math.sin(i * 0.72) * 0.08, 0.03 + Math.cos(i * 0.6) * 0.05, zPos);
-    group.add(seg);
+  // Defined shoulder masses at the wing roots — after the wings these are the
+  // strongest rear-view silhouette mass, and they anchor the wing connection.
+  for (const s of [-1, 1]) {
+    const shoulder = new THREE.Mesh(new THREE.SphereGeometry(0.46, 10, 8), bodyMat);
+    shoulder.scale.set(0.92, 0.8, 1.08);
+    shoulder.position.set(s * 0.46, 0.5, -0.3);
+    group.add(shoulder);
   }
-
-  const chest = new THREE.Mesh(new THREE.SphereGeometry(1.0, 12, 10), bodyMat);
-  chest.scale.set(1.16, 0.82, 0.98);
-  chest.position.set(0, 0.16, -1.55);
-  group.add(chest);
-  const waist = new THREE.Mesh(new THREE.SphereGeometry(0.58, 10, 8), bellyMat);
-  waist.scale.set(0.78, 0.64, 1.25);
-  waist.position.set(0, -0.05, 0.75);
-  group.add(waist);
 
   // Scale ridge
   const ridgeCount = model.ridgeCount;
@@ -368,18 +374,21 @@ export function buildDragonModel(def, opts = {}) {
     group.add(neck);
   }
 
-  // Tail
+  // Tail — continues straight off the lathe's tail root for a clean transition.
+  // Stays a visible whip to the very tip (min radius) so the tip ornament
+  // reads from behind and never floats detached on an invisible thread.
   const tailSegs = [];
-  let radius = 0.6;
-  let zTail = 2.25;
-  for (let i = 0; i < model.tailSegments; i++) {
-    const seg = new THREE.Mesh(new THREE.ConeGeometry(radius, 1.05, 7), bodyMat);
+  let radius = 0.4;
+  let zTail = 1.7;
+  const nTail = Math.min(model.tailSegments, 7); // cap length for rear readability
+  for (let i = 0; i < nTail; i++) {
+    const seg = new THREE.Mesh(new THREE.ConeGeometry(radius, 0.95, 7), bodyMat);
     seg.rotation.x = Math.PI / 2;
-    seg.position.set(0, 0, zTail);
+    seg.position.set(0, 0.1, zTail);
     group.add(seg);
     tailSegs.push(seg);
-    zTail += 0.72;          // tighter spacing — less tadpole
-    radius = Math.max(radius * 0.72, 0.04); // faster taper to a fine tip
+    zTail += 0.6;            // tight spacing — aerodynamic, less tadpole
+    radius = Math.max(radius * 0.78, 0.1); // gentle taper, keep a visible whip
   }
 
   // Mace tail tip (Solar/Ember apex — spiky club end)
@@ -389,13 +398,13 @@ export function buildDragonModel(def, opts = {}) {
       roughness: 0.2, metalness: 0.55,
     });
     const mace = new THREE.Mesh(new THREE.SphereGeometry(0.28, 8, 7), maceMat);
-    mace.position.set(0, 0, zTail);
+    mace.position.set(0, 0.1, zTail);
     group.add(mace);
     tailSegs.push(mace);
     for (let i = 0; i < 6; i++) {
       const a = (i / 6) * Math.PI * 2;
       const spike = new THREE.Mesh(new THREE.ConeGeometry(0.06, 0.38, 4), maceMat);
-      spike.position.set(Math.cos(a) * 0.24 + 0, Math.sin(a) * 0.24, zTail);
+      spike.position.set(Math.cos(a) * 0.24 + 0, Math.sin(a) * 0.24 + 0.1, zTail);
       spike.rotation.z = Math.sin(a) * Math.PI / 2;
       spike.rotation.x = Math.cos(a) * Math.PI / 2;
       group.add(spike);
