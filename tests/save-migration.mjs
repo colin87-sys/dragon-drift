@@ -67,7 +67,7 @@ const V1_BLOB = {
   const s = await page.evaluate(() => window.__dd.save);
   check('gambit refund: embers credited (500 + 120 = 620)', s.embers === 620);
   check('gambit refund: gambitPending not in save schema', !('gambitPending' in s));
-  check('gambit refund: start notice set', await page.$eval('#start-notice', el => el.textContent).then(t => t.includes('120')).catch(() => false));
+  check('gambit refund: start notice set', await page.$eval('.start-notice', el => el.textContent).then(t => t.includes('120')).catch(() => false));
   check('gambit refund: boots clean', errors.length === 0) || console.error(errors.join('\n'));
   await done();
 }

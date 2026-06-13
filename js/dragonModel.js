@@ -485,6 +485,8 @@ export function buildDragonModel(def, opts = {}) {
   if (opts.preview) {
     const RARITY_GLOW = { R: 0x4aff88, SR: 0x4ac0ff, SSR: 0xc060ff, SSSR: 0xffd040 };
     const glowHex = RARITY_GLOW[def.rarity] ?? RARITY_GLOW.R;
+    // makeGlowTexture wants an "r,g,b" string, not a numeric hex.
+    const glowRgb = `${(glowHex >> 16) & 255},${(glowHex >> 8) & 255},${glowHex & 255}`;
     const wrapper = new THREE.Group();
     wrapper.add(group);
 
@@ -508,7 +510,7 @@ export function buildDragonModel(def, opts = {}) {
     }
 
     const groundGlow = new THREE.Sprite(new THREE.SpriteMaterial({
-      map: makeGlowTexture(glowHex), transparent: true, opacity: 0.48,
+      map: makeGlowTexture(glowRgb), transparent: true, opacity: 0.48,
       blending: THREE.AdditiveBlending, depthWrite: false,
     }));
     groundGlow.scale.set(6.5, 3.5, 1);
