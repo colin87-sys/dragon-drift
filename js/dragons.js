@@ -168,7 +168,9 @@ export const DRAGONS = {
     ],
     fx: { auraColor: '255,150,40', auraIdle: 0.10, sparkle: false },
     body: 0x18110b, belly: 0x3a2a16, scales: 0xffc24a, horn: 0xffe08a,
-    wingInner: 0xffb52a, wingOuter: 0xb01818, wingEmissive: 0xff5a14,
+    // Gradient runs crimson at the root → bright gold at the TIP, so the bowed
+    // outer wing glows against the sky (drama at the edges, dark near centre).
+    wingInner: 0x9a2310, wingOuter: 0xffb43a, wingEmissive: 0xff5a14,
     apexEye: 0xfff0a0, apexSeam: 0xff7a18,
     eye: 0xffd86a, trail: 0xffb030, boostTrail: 0xff6a20,
   },
