@@ -87,8 +87,10 @@ export const cameraCtl = {
       return;
     }
     const speedNorm = Math.min(Math.max((player.speed - 35) / 55, 0), 1);
-    const targetBack = player.feverActive ? 6.8 : player.boosting ? 8.2 : 11.5;
-    const targetHeight = player.feverActive ? 2.25 : player.boosting ? 2.65 : 3.2;
+    // A touch further back + higher than before so the (now larger) dragon sits
+    // lower in frame and more of the path ahead stays visible.
+    const targetBack = player.feverActive ? 7.2 : player.boosting ? 8.8 : 12.3;
+    const targetHeight = player.feverActive ? 2.5 : player.boosting ? 3.0 : 3.6;
     const dx = player.position.x * 0.9;
     smoothPos.x = damp(smoothPos.x, dx,                    4.5, dt);
     smoothPos.y = damp(smoothPos.y, player.position.y + targetHeight, player.boosting ? 6.5 : 4.5, dt);
@@ -127,7 +129,8 @@ export const cameraCtl = {
       camera.position.y += (Math.random() * 2 - 1) * k;
     }
 
-    lookTarget.set(player.position.x, player.position.y + 0.65 + speedNorm * 0.25, player.position.z - 16);
+    // Aim a little higher (toward the path) so the dragon drops lower in frame.
+    lookTarget.set(player.position.x, player.position.y + 1.0 + speedNorm * 0.25, player.position.z - 16);
     camera.lookAt(lookTarget);
 
     // Roll lean: applied after lookAt (which resets orientation each frame).
