@@ -392,7 +392,7 @@ export function buildDragonModel(def, opts = {}) {
   // group carries the contrail marker.
   const ws = model.wingScale;
   const featherShape = model.wingShape === 'feather';
-  const wingSpec = featherShape ? DEFAULT_WING : wingSpecFor(model);
+  const wingSpec = featherShape ? DEFAULT_WING : wingSpecFor(def, model);
   const arc = wingSpec.arc;
   const maxX = Math.abs(wingSpec.tips[0][0] * 1.34 * ws);
   const boneMat = new THREE.MeshStandardMaterial({

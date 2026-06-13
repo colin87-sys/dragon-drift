@@ -113,8 +113,12 @@ export const DEFAULT_WING = {
   arc: { bow: 0, hump: 0, humpAt: 0.6, hook: 0 },
 };
 
-export function wingSpecFor(model) {
+// Per-form wing shape: a dragon may define its OWN `wingForms` (so each dragon
+// has a distinct silhouette); otherwise fall back to the shared Solar set, then
+// the flat legacy default.
+export function wingSpecFor(def, model) {
   const f = model.wingForm;
+  if (def.wingForms && def.wingForms[f]) return def.wingForms[f];
   return (f != null && WING_FORMS[f]) ? WING_FORMS[f] : DEFAULT_WING;
 }
 
@@ -310,6 +314,24 @@ export function buildCleanTail(def, model, bodyMat) {
     edge.rotation.x = Math.PI / 2;
     edge.position.set(0, 0, 0.67);
     tip.add(edge);
+  } else if (style === 'twinfin') {
+    // Night-fury twin tail fins: two swept membrane fans flanking the tip, with
+    // a glowing rib on each — reads as a distinct forked rudder from behind.
+    for (const sx of [-1, 1]) {
+      const finGeo = new THREE.ShapeGeometry(buildBladeShape(0.55, 1.25));
+      finGeo.rotateX(Math.PI / 2);
+      const fin = new THREE.Mesh(finGeo, membraneMat);
+      fin.rotation.y = sx * 0.62;          // splay the two fins outward
+      fin.position.set(sx * 0.08, 0, -0.05);
+      tip.add(fin);
+      const a = new THREE.Vector3(sx * 0.05, 0, 0);
+      const b = new THREE.Vector3(sx * 0.62, 0, 1.2);
+      const dir = b.clone().sub(a);
+      const rib = new THREE.Mesh(new THREE.CylinderGeometry(0.014, 0.04, dir.length(), 4), plateMat);
+      rib.position.copy(a).add(b).multiplyScalar(0.5);
+      rib.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), dir.clone().normalize());
+      tip.add(rib);
+    }
   } else if (style === 'finned') {
     const fin = new THREE.Mesh(new THREE.ConeGeometry(0.085, 0.46, 4), plateMat);
     fin.scale.set(1, 1, 0.5);

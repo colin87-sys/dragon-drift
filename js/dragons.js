@@ -85,22 +85,52 @@ export const DRAGONS = {
     title: 'Night given wings',
     rarity: 'SSR',
     cost: 2200,
-    // Toothless / Night Fury: sleek near-black drake, wide flat head, large
-    // almond eyes, plasma-cyan glow.
+    // Night-fury interceptor: a sleek near-black drake with NARROW SWEPT wings
+    // (a falcon, not Solar's broad flame-wyvern), big almond eyes, twin tail
+    // fins and a plasma-cyan glow. Its own silhouette — see wingForms below.
     stats: { speed: 1.1, handling: 1.16, drain: 0.84, regen: 1.18 },
     model: {
       scale: 1.12, wingScale: 1.12, tailSegments: 9, neckSegments: 5,
-      hornLen: 1.2, hornPairs: 1, ridgeCount: 8, flapBias: 1.05, eyeScale: 1.25,
+      hornLen: 1.1, hornPairs: 1, ridgeCount: 10, eyeScale: 1.25,
+      flapBias: 1.2, flapAmp: 0.78, // quick, agile wingbeat — not Solar's glide
     },
-    forms: [
-      { eyeScale: 1.3 },                                         // base — big-eyed sleek drake
-      { earTendrils: true, backSpines: true },                  // +ear frills + dorsal spines
-      { glowSeams: true, crest: 1, wingScale: 1.2 },            // +plasma seams + crest
-      { secondWingPair: true, tailTip: 'fan', sparkle: true },  // apex — twin wings + tail fins
+    // Narrow, swept-back, low-arc wings (vs Solar's wide flared flame wings).
+    wingForms: [
+      { tips: [[4.20, 0.10], [3.35, -0.72], [2.10, -1.02]],
+        lead: [2.85, 0.32], scallop: 0.12, flame: false,
+        arc: { bow: 0.55, hump: 0.0, humpAt: 0.6, hook: 0.1 } },
+      { tips: [[4.70, 0.12], [3.85, -0.80], [2.55, -1.18], [1.45, -1.12]],
+        lead: [3.20, 0.36], scallop: 0.16, flame: false,
+        arc: { bow: 0.65, hump: 0.35, humpAt: 0.56, hook: 0.16 } },
+      { tips: [[5.05, 0.16], [4.20, -0.86], [2.90, -1.28], [1.60, -1.22]],
+        lead: [3.50, 0.42], scallop: 0.18, flame: false,
+        arc: { bow: 0.75, hump: 0.55, humpAt: 0.58, hook: 0.28 } },
+      { tips: [[5.40, 0.20], [4.55, -0.88], [3.25, -1.34], [1.95, -1.32], [1.00, -1.10]],
+        lead: [3.75, 0.50], scallop: 0.18, flame: false,
+        arc: { bow: 0.85, hump: 0.70, humpAt: 0.60, hook: 0.42 } },
     ],
-    fx: { auraColor: '0,225,255', auraIdle: 0.12, sparkle: false },
+    forms: [
+      // T0 — Shadeling: small, plain near-black drake, big eyes, plasma dormant.
+      { wingForm: 0, tailStyle: 'simple', tailSegments: 6, ridgeCount: 7,
+        spineGlow: 0, crest: 0, eyeScale: 1.3, neckSegments: 5,
+        colors: { wingInner: 0x1c1b24, wingOuter: 0x121118, wingEmissive: 0x36424c,
+          scales: 0x37343f, horn: 0x4a4658, eye: 0x5a8a98, apexSeam: 0x49555f, body: 0x161620 } },
+      // T1 — Nightwing: plasma ignites, ear frills, wider swept wings, finned tail.
+      { wingForm: 1, tailStyle: 'finned', tailSegments: 7, ridgeCount: 9,
+        spineGlow: 0.3, earTendrils: true, eyeScale: 1.3,
+        colors: { wingInner: 0x26233a, wingOuter: 0x141a26, wingEmissive: 0x00ccff,
+          scales: 0x4a3f70, horn: 0x6a5fa0, eye: 0x33e0ff, apexSeam: 0x00e5ff, body: 0x14131c } },
+      // T2 — Plasma Shade: plasma seams + glowing spine + wing veins, blade tail.
+      { wingForm: 2, tailStyle: 'blade', tailSegments: 8, ridgeCount: 9,
+        spineGlow: 0.7, wingVeins: true, glowSeams: true, earTendrils: true, crest: 1 },
+      // T3 — Night Sovereign: widest swept wings, TWIN TAIL FINS, full plasma.
+      { wingForm: 3, tailStyle: 'twinfin', tailSegments: 9, ridgeCount: 10,
+        spineGlow: 1.0, wingVeins: true, glowSeams: true, earTendrils: true,
+        crest: 1, sparkle: true },
+    ],
+    fx: { auraColor: '0,225,255', auraIdle: 0.0, sparkle: false },
     body: 0x14131c, belly: 0x2c2740, scales: 0x4a3f70, horn: 0x6a5fa0,
-    wingInner: 0x26233a, wingOuter: 0x0a0a14, wingEmissive: 0x00ccff,
+    wingInner: 0x26233a, wingOuter: 0x141a26, wingEmissive: 0x00ccff,
     apexEye: 0x00ffee, apexSeam: 0x00e5ff,
     eye: 0x33e0ff, trail: 0x00d8ff, boostTrail: 0x40f0ff,
   },
