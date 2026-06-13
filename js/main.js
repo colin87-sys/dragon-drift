@@ -83,7 +83,9 @@ game.runSeed = runSeed;
 const equippedDragon = () => {
   const key = saveData.skins.equipped;
   const def = DRAGONS[key] || DRAGONS.azure;
-  return applyFlightmark(ascendedDef(def, ascensionTier(key), radianceRank(key)));
+  const fp = saveData.cosmetics.formPref.find(e => e[0] === key);
+  const tier = fp ? Math.min(fp[1], ascensionTier(key)) : ascensionTier(key);
+  return applyFlightmark(ascendedDef(def, tier, radianceRank(key)));
 };
 const equippedRider = () => RIDERS[saveData.riders.equipped] || RIDERS.drifter;
 createEnvironment(scene, runSeed);

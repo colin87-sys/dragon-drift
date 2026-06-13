@@ -450,6 +450,19 @@ function buildEvents() {
         all.push({ t: bt, special: 'kick2', layer: 'perc2', dvol: 1 });
         if (beat % 2 === 1) all.push({ t: bt, special: 'clap', layer: 'perc2', dvol: 1 });
       }
+      // Flavour layer: shaker (off-beats), conga (backbeats), logDrum (downbeats)
+      if (d.shaker) {
+        all.push({ t: bt + E8,     special: 'shaker', layer: 'perc3', dvol: d.shaker });
+        all.push({ t: bt + E8 * 3, special: 'shaker', layer: 'perc3', dvol: d.shaker * 0.7 });
+      }
+      if (d.conga && beat % 2 === 1) {
+        all.push({ t: bt,           special: 'conga', layer: 'perc3', dvol: d.conga });
+        all.push({ t: bt + E8 * 1.5, special: 'conga', layer: 'perc3', dvol: d.conga * 0.6 });
+      }
+      if (d.logDrum) {
+        if (beat === 0) all.push({ t: bt,            special: 'logDrum', layer: 'perc3', dvol: d.logDrum });
+        if (beat === 2) all.push({ t: bt + E8 * 0.5, special: 'logDrum', layer: 'perc3', dvol: d.logDrum * 0.8 });
+      }
     }
   }
 
@@ -539,6 +552,60 @@ function playNoteEvent(ev, absTime) {
       src.connect(bp).connect(g).connect(layerGain);
       src.start(absTime);
       src.stop(absTime + 0.1);
+      return;
+    }
+    if (ev.special === 'shaker') {
+      // Lightweight hi-frequency rattle (shaker / maraca feel)
+      const src = a.createBufferSource();
+      src.buffer = getNoiseBuffer(a);
+      const bp = a.createBiquadFilter();
+      bp.type = 'bandpass';
+      bp.frequency.value = 9000;
+      bp.Q.value = 2.5;
+      g.gain.setValueAtTime(0.07 * dv, absTime);
+      g.gain.exponentialRampToValueAtTime(0.001, absTime + 0.025);
+      src.connect(bp).connect(g).connect(layerGain);
+      src.start(absTime);
+      src.stop(absTime + 0.04);
+      return;
+    }
+    if (ev.special === 'conga') {
+      // Tonal mid-range hand-drum thump
+      const osc = a.createOscillator();
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(260, absTime);
+      osc.frequency.exponentialRampToValueAtTime(140, absTime + 0.07);
+      g.gain.setValueAtTime(0.18 * dv, absTime);
+      g.gain.exponentialRampToValueAtTime(0.001, absTime + 0.1);
+      osc.connect(g).connect(layerGain);
+      osc.start(absTime);
+      osc.stop(absTime + 0.12);
+      return;
+    }
+    if (ev.special === 'logDrum') {
+      // Amapiano log-drum: low woody thump with short sustain
+      const osc = a.createOscillator();
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(105, absTime);
+      osc.frequency.exponentialRampToValueAtTime(55, absTime + 0.12);
+      g.gain.setValueAtTime(0.28 * dv, absTime);
+      g.gain.exponentialRampToValueAtTime(0.001, absTime + 0.18);
+      osc.connect(g).connect(layerGain);
+      osc.start(absTime);
+      osc.stop(absTime + 0.22);
+      // Woody click attack on top
+      const click = a.createBufferSource();
+      click.buffer = getNoiseBuffer(a);
+      const bp = a.createBiquadFilter();
+      bp.type = 'bandpass';
+      bp.frequency.value = 1800;
+      bp.Q.value = 3;
+      const cg = a.createGain();
+      cg.gain.setValueAtTime(0.1 * dv, absTime);
+      cg.gain.exponentialRampToValueAtTime(0.001, absTime + 0.02);
+      click.connect(bp).connect(cg).connect(layerGain);
+      click.start(absTime);
+      click.stop(absTime + 0.03);
       return;
     }
     // hat: metallic highpassed noise tick
@@ -638,6 +705,7 @@ export const music = {
       arp:       makeLayer(),
       perc:      makeLayer(),
       perc2:     makeLayer(),
+      perc3:     makeLayer(),
       fever:     makeLayer(),
       feverlead: makeLayer(),
       wind:      makeLayer(),
@@ -768,6 +836,7 @@ export const music = {
     layers.high.gain.setTargetAtTime(game.combo >= 1.5 ? 1 : 0, now, SLOW);
     layers.perc.gain.setTargetAtTime(game.combo >= 2 ? 1 : 0, now, FAST);
     layers.perc2.gain.setTargetAtTime(game.combo >= 3 ? 1 : 0, now, FAST);
+    if (layers.perc3) layers.perc3.gain.setTargetAtTime(game.combo >= 2 ? 1 : 0, now, FAST);
     layers.fever.gain.setTargetAtTime(game.feverActive ? 1 : 0, now, FAST);
     layers.feverlead.gain.setTargetAtTime(game.feverActive ? 1 : 0, now, FAST);
 

@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { damp, makeGlowTexture } from './util.js';
+import { buildDragonModel } from './dragonModel.js';
 
 // Procedural dragon + rider. Built from a dragon def (dragons.js: palette,
 // model proportions, fx) and a rider def (riders.js: outfit, hair, accessory,
@@ -14,6 +15,8 @@ let wingPivotL = null;
 let wingPivotR = null;
 let wingTipL = null;  // secondary fold joint for 2-segment wing
 let wingTipR = null;
+let wingPivot2L = null;
+let wingPivot2R = null;
 let head = null;
 let tailSegs = [];
 
@@ -60,357 +63,19 @@ const tmpV = new THREE.Vector3();
 const tmpV2 = new THREE.Vector3();
 let bankZ = 0; // banking component of rotation.z (roll spin stacks on top)
 
-// --- Body/wing geometry helpers ---
-function buildWingShape() {
-  const shape = new THREE.Shape();
-  shape.moveTo(0, 0);
-  shape.bezierCurveTo(0.8, 0.5, 2.2, 1.0, 3.0, 0.7);   // leading edge sweep
-  shape.lineTo(4.8, 0.2);
-  shape.lineTo(5.2, -0.5);
-  shape.bezierCurveTo(4.0, -1.0, 2.4, -1.4, 1.2, -1.2); // trailing membrane
-  shape.lineTo(0, -0.4);
-  return shape;
-}
-
-function buildFeatherWingShape() {
-  const shape = new THREE.Shape();
-  shape.moveTo(0, 0);
-  shape.bezierCurveTo(0.8, 0.5, 2.2, 1.0, 3.0, 0.7);
-  shape.lineTo(4.8, 0.2);
-  // Feather notches along the trailing edge
-  shape.lineTo(4.6, -0.25); shape.lineTo(4.2, -0.05);
-  shape.lineTo(3.8, -0.55); shape.lineTo(3.3, -0.2);
-  shape.lineTo(2.8, -0.8);  shape.lineTo(2.2, -0.4);
-  shape.lineTo(1.6, -1.05); shape.lineTo(1.2, -0.75);
-  shape.bezierCurveTo(0.8, -0.6, 0.4, -0.45, 0, -0.4);
-  return shape;
-}
-
-// Paint a root→tip membrane gradient into a wing geometry's vertex colors.
-// tStart/tEnd let the tip fins continue where the root membrane left off.
-const innerC = new THREE.Color();
-const outerC = new THREE.Color();
-function applyWingGradient(geo, palette, tStart = 0, tEnd = 1) {
-  innerC.setHex(palette.wingInner);
-  outerC.setHex(palette.wingOuter);
-  geo.computeBoundingBox();
-  const bb = geo.boundingBox;
-  const pos = geo.attributes.position;
-  const colors = new Float32Array(pos.count * 3);
-  const c = new THREE.Color();
-  const spanX = Math.max(bb.max.x - bb.min.x, 1e-5);
-  for (let i = 0; i < pos.count; i++) {
-    const kx = Math.abs(pos.getX(i) - (Math.abs(bb.min.x) > Math.abs(bb.max.x) ? bb.max.x : bb.min.x)) / spanX;
-    const t = tStart + (tEnd - tStart) * kx;
-    c.lerpColors(innerC, outerC, Math.min(t, 1));
-    colors[i * 3] = c.r;
-    colors[i * 3 + 1] = c.g;
-    colors[i * 3 + 2] = c.b;
-  }
-  geo.setAttribute('color', new THREE.BufferAttribute(colors, 3));
-}
-
 export function createDragon(scene, def, riderDef) {
   sceneRef = scene;
   activeDef = def;
   activeRider = riderDef;
-  const model = def.model;
-  group = new THREE.Group();
 
-  bodyMat = new THREE.MeshStandardMaterial({
-    color: def.body, roughness: 0.38, metalness: 0.12,
-    emissive: def.body, emissiveIntensity: 0.12,
-  });
-  const hornMat  = new THREE.MeshStandardMaterial({ color: def.horn, emissive: 0x6b3400, emissiveIntensity: 0.22, roughness: 0.24 });
-  // Membrane wings: vertex-color gradient, warm backlit emissive.
-  wingMat = new THREE.MeshStandardMaterial({
-    color: 0xffffff, vertexColors: true, roughness: 0.55, side: THREE.DoubleSide,
-    transparent: true, opacity: 0.94,
-    emissive: def.wingEmissive, emissiveIntensity: 0.28,
-  });
-  const scalesMat = new THREE.MeshStandardMaterial({ color: def.scales, emissive: 0x0b79aa, emissiveIntensity: 0.42, roughness: 0.28, metalness: 0.22 });
-  const bellyMat = new THREE.MeshStandardMaterial({ color: def.belly, roughness: 0.5 });
+  const result = buildDragonModel(def);
+  group = result.group;
+  ({ head, tailSegs, wingPivotL, wingPivotR, wingTipL, wingTipR,
+     wingPivot2L, wingPivot2R, tipMarkerL, tipMarkerR } = result.parts);
+  ({ bodyMat, wingMat, eyeMat } = result.materials);
+  auraSprite = result.auraSprite;
 
-  // Main body
-  const body = new THREE.Mesh(new THREE.CapsuleGeometry(0.34, 1.9, 8, 14), bodyMat);
-  body.rotation.x = Math.PI / 2;
-  body.scale.set(0.72, 0.62, 1);
-  group.add(body);
-
-  // Overlapping armored body plates — sleek serpentine silhouette.
-  const bodyProfile = [
-    [-1.75, 0.82, 0.68, 1.0],
-    [-1.22, 1.02, 0.8, 1.08],
-    [-0.68, 0.86, 0.66, 1.0],
-    [-0.12, 0.66, 0.52, 0.9],
-    [0.44, 0.48, 0.42, 0.78],
-    [0.95, 0.35, 0.34, 0.66],
-  ];
-  for (let i = 0; i < bodyProfile.length; i++) {
-    const [zPos, sx, sy, sz] = bodyProfile[i];
-    const seg = new THREE.Mesh(new THREE.SphereGeometry(0.82, 12, 9), i < 2 ? bodyMat : bellyMat);
-    seg.scale.set(sx, sy, sz);
-    seg.position.set(Math.sin(i * 0.72) * 0.08, 0.03 + Math.cos(i * 0.6) * 0.05, zPos);
-    group.add(seg);
-  }
-
-  const chest = new THREE.Mesh(new THREE.SphereGeometry(1.0, 12, 10), bodyMat);
-  chest.scale.set(1.16, 0.82, 0.98);
-  chest.position.set(0, 0.16, -1.55);
-  group.add(chest);
-  const waist = new THREE.Mesh(new THREE.SphereGeometry(0.58, 10, 8), bellyMat);
-  waist.scale.set(0.78, 0.64, 1.25);
-  waist.position.set(0, -0.05, 0.75);
-  group.add(waist);
-
-  // Scale ridge along back: count varies per dragon, denser = spikier.
-  const ridgeCount = model.ridgeCount;
-  const ridgeStep = Math.min(0.43, 5.2 / ridgeCount);
-  for (let i = 0; i < ridgeCount; i++) {
-    const ridge = new THREE.Mesh(new THREE.ConeGeometry(0.11 + Math.max(0, 5 - Math.abs(i - 4)) * 0.018, 0.44, 5), scalesMat);
-    ridge.rotation.x = -Math.PI / 2;
-    ridge.position.set(0, 0.88 - Math.max(0, i - 5) * 0.03, -2.55 + i * ridgeStep);
-    group.add(ridge);
-  }
-  for (const sx of [-1, 1]) {
-    for (let i = 0; i < 5; i++) {
-      const fin = new THREE.Mesh(new THREE.ConeGeometry(0.07, 0.48 - i * 0.045, 5), scalesMat);
-      fin.position.set(sx * (0.42 - i * 0.03), 0.34 - i * 0.035, -1.55 + i * 0.44);
-      fin.rotation.z = sx * -1.05;
-      fin.rotation.x = -0.35;
-      group.add(fin);
-    }
-  }
-  // Dorsal fin: single tall sail fin along the spine centre (apex variant).
-  if (model.dorsal) {
-    const dorsalCount = 5;
-    for (let i = 0; i < dorsalCount; i++) {
-      const h = 0.3 + Math.sin((i / (dorsalCount - 1)) * Math.PI) * 0.28;
-      const df = new THREE.Mesh(new THREE.ConeGeometry(0.055, h, 4), scalesMat);
-      df.rotation.x = -Math.PI / 2;
-      df.position.set(0, 1.02 + h / 2, -1.6 + i * (3.2 / (dorsalCount - 1)));
-      group.add(df);
-    }
-  }
-  // Armor plates: angular shoulder overlays (battle-hardened apex look).
-  if (model.armorPlates) {
-    const plateMat = new THREE.MeshStandardMaterial({
-      color: def.scales, emissive: 0x0b79aa, emissiveIntensity: 0.38,
-      roughness: 0.2, metalness: 0.4,
-    });
-    for (const [zp, sx, ry, rz] of [[-1.2, 0.72, 0.3, -0.28], [-1.2, -0.72, -0.3, 0.28],
-                                     [-0.5, 0.62, 0.44, -0.32], [-0.5, -0.62, -0.44, 0.32]]) {
-      const plate = new THREE.Mesh(new THREE.BoxGeometry(0.3, 0.5, 0.16), plateMat);
-      plate.position.set(sx, 0.46, zp);
-      plate.rotation.set(0, ry, rz);
-      group.add(plate);
-    }
-  }
-  // Glow seams: emissive lines tracing the body flanks (premium apex effect).
-  if (model.glowSeams) {
-    const seamMat = new THREE.MeshStandardMaterial({
-      color: def.eye, emissive: def.eye, emissiveIntensity: 1.6, roughness: 0.3,
-    });
-    for (const xo of [-0.28, 0.28]) {
-      const seam = new THREE.Mesh(new THREE.BoxGeometry(0.032, 0.032, 3.8), seamMat);
-      seam.position.set(xo, 0.62, -0.85);
-      group.add(seam);
-    }
-    // Short seam across the chest
-    const chestSeam = new THREE.Mesh(new THREE.BoxGeometry(1.1, 0.032, 0.032), seamMat);
-    chestSeam.position.set(0, 0.62, -1.55);
-    group.add(chestSeam);
-  }
-
-  // Head
-  head = new THREE.Group();
-  const skull = new THREE.Mesh(new THREE.SphereGeometry(0.76, 14, 12), bodyMat);
-  skull.scale.set(1.32, 0.84, 0.95);
-  const snout = new THREE.Mesh(new THREE.ConeGeometry(0.48, 1.55, 8), bodyMat);
-  snout.rotation.x = -Math.PI / 2;
-  snout.scale.set(0.86, 1, 1.18);
-  snout.position.set(0, -0.08, -1.08);
-  head.add(skull, snout);
-  const jaw = new THREE.Mesh(new THREE.BoxGeometry(0.7, 0.22, 0.62), bellyMat);
-  jaw.position.set(0, -0.34, -0.74);
-  head.add(jaw);
-  // Nostril gems
-  for (const s of [-1, 1]) {
-    const nostril = new THREE.Mesh(new THREE.SphereGeometry(0.06, 6, 5), hornMat);
-    nostril.position.set(0.14 * s, -0.1, -1.3);
-    head.add(nostril);
-  }
-  // Whiskers: long tendrils from the snout (serpentine apex signature).
-  if (model.whiskers) {
-    for (const [sx, angle] of [[-0.18, 0.3], [0.18, -0.3], [-0.1, 0.52], [0.1, -0.52]]) {
-      const w = new THREE.Mesh(new THREE.CylinderGeometry(0.018, 0.005, 0.8, 4), scalesMat);
-      w.rotation.set(Math.PI / 2 + 0.08, 0, angle);
-      w.position.set(sx, -0.13, -1.22);
-      head.add(w);
-    }
-  }
-  // Horns: length and pair-count vary per dragon (the flagship gets a crown).
-  for (const s of [-1, 1]) {
-    const horn = new THREE.Mesh(new THREE.ConeGeometry(0.16, model.hornLen, 6), hornMat);
-    horn.position.set(0.42 * s, 0.54, 0.28);
-    horn.rotation.x = 0.65;
-    horn.rotation.z = s * -0.2;
-    head.add(horn);
-    if (model.hornPairs > 1) {
-      const horn2 = new THREE.Mesh(new THREE.ConeGeometry(0.11, model.hornLen * 0.62, 6), hornMat);
-      horn2.position.set(0.26 * s, 0.5, 0.55);
-      horn2.rotation.x = 0.95;
-      horn2.rotation.z = s * -0.34;
-      head.add(horn2);
-    }
-    const cheekFin = new THREE.Mesh(new THREE.ConeGeometry(0.12, 0.72, 5), scalesMat);
-    cheekFin.position.set(0.58 * s, 0.02, -0.12);
-    cheekFin.rotation.z = s * -1.2;
-    cheekFin.rotation.x = 0.25;
-    head.add(cheekFin);
-  }
-  // Brow ridges
-  for (const s of [-1, 1]) {
-    const brow = new THREE.Mesh(new THREE.ConeGeometry(0.08, 0.3, 5), scalesMat);
-    brow.position.set(0.28 * s, 0.44, -0.1);
-    brow.rotation.x = 0.9;
-    head.add(brow);
-  }
-  // Crest spines above the skull (apex signature for several dragons).
-  const crestCount = model.crest || 0;
-  for (let i = 0; i < crestCount; i++) {
-    const h = 0.42 + i * 0.1;
-    const crestSpine = new THREE.Mesh(new THREE.ConeGeometry(0.08 - i * 0.01, h, 5), scalesMat);
-    crestSpine.position.set(0, 0.88 + h / 2, 0.38 - i * 0.22);
-    crestSpine.rotation.x = 0.28 + i * 0.08;
-    head.add(crestSpine);
-  }
-  // Glowing eyes (per-dragon color; shift magenta during Dragon Surge)
-  eyeMat = new THREE.MeshStandardMaterial({
-    color: 0x223344, emissive: def.eye, emissiveIntensity: 2.2,
-  });
-  const eyeR = 0.09 * (model.eyeScale || 1);
-  for (const s of [-1, 1]) {
-    const eye = new THREE.Mesh(new THREE.SphereGeometry(eyeR, 8, 6), eyeMat);
-    eye.position.set(0.3 * s, 0.22, -0.42);
-    head.add(eye);
-  }
-  // Longer necks push the head further out and up.
-  const neckSegs = model.neckSegments;
-  head.position.set(0, 0.5 + (neckSegs - 4) * 0.09, -3.08 - (neckSegs - 4) * 0.34);
-  group.add(head);
-
-  // Segmented neck: longer S-curve from body to head on serpentine dragons.
-  for (let i = 0; i < neckSegs; i++) {
-    const neck = new THREE.Mesh(new THREE.SphereGeometry(Math.max(0.52 - i * 0.05, 0.22), 9, 7), bodyMat);
-    neck.scale.set(0.82, 0.62, 1.35);
-    neck.position.set(Math.sin(i * 0.8) * 0.1, 0.28 + i * 0.09, -1.95 - i * 0.36);
-    group.add(neck);
-  }
-
-  // Tail: tapering segments, count varies (serpents trail long coils)
-  tailSegs = [];
-  let radius = 0.58;
-  let z = 2.4;
-  for (let i = 0; i < model.tailSegments; i++) {
-    const seg = new THREE.Mesh(new THREE.ConeGeometry(radius, 1.2, 7), bodyMat);
-    seg.rotation.x = Math.PI / 2;
-    seg.position.set(0, 0, z);
-    group.add(seg);
-    tailSegs.push(seg);
-    z += 0.9;
-    radius = Math.max(radius * 0.78, 0.05);
-  }
-  // Tail tip: spike (default) or fan (serpentine apex).
-  if (model.tailTip === 'fan') {
-    for (let i = 0; i < 3; i++) {
-      const angle = (i - 1) * 0.48;
-      const fin = new THREE.Mesh(new THREE.ConeGeometry(0.11, 0.74, 5), scalesMat);
-      fin.rotation.set(Math.PI / 2, 0, angle);
-      fin.position.set(Math.sin(angle) * 0.14, Math.cos(angle) * 0.14, z);
-      group.add(fin);
-      tailSegs.push(fin);
-    }
-  } else {
-    const tip = new THREE.Mesh(new THREE.ConeGeometry(0.09, 0.6, 5), scalesMat);
-    tip.rotation.x = Math.PI / 2;
-    tip.position.set(0, 0, z);
-    group.add(tip);
-    tailSegs.push(tip);
-  }
-
-  // Wings: 2-segment (root + tip fold), span scales per dragon.
-  const ws = model.wingScale;
-  const wingBuilder = model.wingShape === 'feather' ? buildFeatherWingShape : buildWingShape;
-  const wingGeo = new THREE.ShapeGeometry(wingBuilder());
-  wingGeo.rotateX(-Math.PI / 2);
-  wingGeo.scale(1.34 * ws, 1.28 * ws, 1);
-  applyWingGradient(wingGeo, def, 0, 0.78);
-  const tipGeoR = new THREE.ShapeGeometry(wingBuilder());
-  const tipGeoL = new THREE.ShapeGeometry(wingBuilder());
-  applyWingGradient(tipGeoR, def, 0.72, 1);
-  applyWingGradient(tipGeoL, def, 0.72, 1);
-  const wingBoneGeo = new THREE.BoxGeometry(3.7 * ws, 0.055, 0.055);
-
-  // Right wing root
-  wingPivotR = new THREE.Group();
-  wingPivotR.position.set(0.55, 0.4, -0.2);
-  const wRRoot = new THREE.Mesh(wingGeo, wingMat);
-  for (const [bz, rot] of [[-0.12, -0.18], [0.18, 0.02], [0.48, 0.2]]) {
-    const bone = new THREE.Mesh(wingBoneGeo, hornMat);
-    bone.position.set(2.0 * ws, 0.03, bz);
-    bone.rotation.y = rot;
-    wingPivotR.add(bone);
-  }
-  // Right tip pivot at the outer edge
-  wingTipR = new THREE.Group();
-  wingTipR.position.set(3.5 * ws, 0, 0);
-  const wRTip = new THREE.Mesh(tipGeoR, wingMat);
-  wRTip.scale.set(0.42 * ws, 0.42 * ws, 1);
-  wingTipR.add(wRTip);
-  tipMarkerR = new THREE.Object3D();
-  tipMarkerR.position.set(2.0 * ws, 0, -0.2); // true wing tip for contrails
-  wingTipR.add(tipMarkerR);
-  wingPivotR.add(wRRoot, wingTipR);
-  group.add(wingPivotR);
-
-  // Left wing (mirrored)
-  wingPivotL = new THREE.Group();
-  wingPivotL.position.set(-0.55, 0.4, -0.2);
-  const wLRoot = new THREE.Mesh(wingGeo, wingMat);
-  wLRoot.scale.x = -1;
-  for (const [bz, rot] of [[-0.12, 0.18], [0.18, -0.02], [0.48, -0.2]]) {
-    const bone = new THREE.Mesh(wingBoneGeo, hornMat);
-    bone.position.set(-2.0 * ws, 0.03, bz);
-    bone.rotation.y = rot;
-    wingPivotL.add(bone);
-  }
-  wingTipL = new THREE.Group();
-  wingTipL.position.set(-3.5 * ws, 0, 0);
-  const wLTip = new THREE.Mesh(tipGeoL, wingMat);
-  wLTip.scale.set(-0.42 * ws, 0.42 * ws, 1);
-  wingTipL.add(wLTip);
-  tipMarkerL = new THREE.Object3D();
-  tipMarkerL.position.set(-2.0 * ws, 0, -0.2);
-  wingTipL.add(tipMarkerL);
-  wingPivotL.add(wLRoot, wingTipL);
-  group.add(wingPivotL);
-
-  // --- Rider (outfit/hair/accessory from the rider def) ---
   buildRider(riderDef);
-
-  // Fever aura: pulsing glow enveloping the dragon during surge. Premium
-  // dragons keep a faint idle aura at all times (fx.auraIdle > 0).
-  auraSprite = new THREE.Sprite(new THREE.SpriteMaterial({
-    map: makeGlowTexture(def.fx.auraColor), transparent: true, opacity: 0,
-    blending: THREE.AdditiveBlending, depthWrite: false,
-  }));
-  auraSprite.scale.set(9, 9, 1);
-  auraSprite.layers.set(1); // sprite layer: excluded from water reflection
-  group.add(auraSprite);
-
-  // Overall size: visual only — the gameplay hitbox stays CONFIG.playerRadius.
-  group.scale.setScalar(model.scale);
   scene.add(group);
 
   // Ponytail chain (world-space follow), length varies per rider
@@ -591,6 +256,8 @@ export function disposeDragon() {
     sceneRef.remove(p);
   }
   group = null;
+  wingPivot2L = null;
+  wingPivot2R = null;
   ponyMeshes = [];
   trailSprites = [];
   boostTrailSprites = [];
@@ -696,6 +363,11 @@ export function updateDragon(dt, player, time) {
   wingTipL.rotation.z = damp(wingTipL.rotation.z, -Math.sin(phase + 1.18) * 0.42 + turnBias * 0.45, 12, dt);
   wingTipR.rotation.x = damp(wingTipR.rotation.x, -0.12 + feather * 0.16, 10, dt);
   wingTipL.rotation.x = damp(wingTipL.rotation.x, -0.12 - feather * 0.16, 10, dt);
+  // Secondary wing pair (Obsidian T4): shadow flap at reduced amplitude.
+  if (wingPivot2L) {
+    wingPivot2L.rotation.z = damp(wingPivot2L.rotation.z,  rootFlap * 0.6 + turnBias, 14, dt);
+    wingPivot2R.rotation.z = damp(wingPivot2R.rotation.z, -rootFlap * 0.6 + turnBias, 14, dt);
+  }
 
   // Snake-like tail wave: each segment lags behind the previous and trails
   // opposite the dragon's steering, so sharp turns bend the whole silhouette.

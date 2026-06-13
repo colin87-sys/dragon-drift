@@ -12,8 +12,9 @@ import { buildPilotHtml, wirePilot } from './pilotScreen.js';
 import { DRAGONS, DRAGON_STAT_CAP } from './dragons.js';
 import { RIDERS } from './riders.js';
 import { attachPreviews, attachPreviewCanvas } from './preview.js';
+import { attachTrailPreviews } from './trailPreview.js';
 import { FLIGHTMARKS, flightmarkOwned, equippedFlightmark } from './flightmarks.js';
-import { ASCENSION_TIERS, ascensionTier, canAscend, radianceRank, radianceCost } from './ascension.js';
+import { ASCENSION_TIERS, ascendedDef, ascensionTier, canAscend, radianceRank, radianceCost } from './ascension.js';
 
 let els = {};
 let handlers = {};
@@ -50,26 +51,43 @@ let lastAssistText = '';
 let lastEmbersRun = 0;
 let emberDimTimer = null;
 
+function getFormPref(key) {
+  const fp = saveData.cosmetics.formPref.find(e => e[0] === key);
+  const maxTier = ascensionTier(key);
+  return fp ? Math.min(fp[1], maxTier) : maxTier;
+}
+function setFormPref(key, tier) {
+  const maxTier = ascensionTier(key);
+  tier = Math.max(0, Math.min(tier, maxTier));
+  const entry = saveData.cosmetics.formPref.find(e => e[0] === key);
+  if (entry) entry[1] = tier;
+  else saveData.cosmetics.formPref.push([key, tier]);
+  persist();
+}
+function formTierLabel(tier) {
+  if (tier === 0) return 'Hatchling';
+  return ASCENSION_TIERS[tier - 1]?.name ?? 'Eternal';
+}
+
 export const ui = {
   init(h = {}) {
     handlers = h;
     const root = document.createElement('div');
     root.id = 'hud';
     root.innerHTML = `
-      <div class="bottom-bar">
-        <div class="bb-bars">
-          <div class="bb-row"><span class="bb-ico">♥</span><div class="bar"><div class="bar-fill health" id="health-fill"></div></div></div>
-          <div class="bb-row"><span class="bb-ico">⚡</span><div class="bar"><div class="bar-fill stamina" id="stamina-fill"></div></div></div>
-        </div>
+      <div class="hud-top-left">
+        <button class="mute-btn" id="pause-btn" title="Pause (Esc) — audio &amp; radio live here">${ICONS.pause}</button>
+      </div>
+      <div class="hud-top-center">
+        <div class="dist" id="dist">0 m</div>
+        <div class="best" id="best"></div>
       </div>
       <div class="hud-top-right">
         <div class="score" id="score">0</div>
+        <div class="embers-hud" id="embers-hud"></div>
         <div class="race-bar" id="race-bar"><span class="race-fill" id="race-fill"></span><span class="race-target" id="race-target"></span></div>
         <div class="combo" id="combo" data-tier="0"><span class="combo-x" id="combo-x">×1.00</span><span class="combo-word">COMBO</span></div>
         <div class="chain" id="chain"><span class="chain-n" id="chain-n">0</span><span class="chain-word">CHAIN</span></div>
-        <div class="dist" id="dist">0 m</div>
-        <div class="best" id="best"></div>
-        <div class="embers-hud" id="embers-hud"></div>
         <div class="ff-chip" id="ff-chip"></div>
         <div class="assist-chip" id="assist-chip"></div>
         <div class="surge-widget" id="surge-widget" data-tier="0">
@@ -90,8 +108,11 @@ export const ui = {
           </div>
         </div>
       </div>
-      <div class="audio-btns">
-        <button class="mute-btn" id="pause-btn" title="Pause (Esc) — audio &amp; radio live here">${ICONS.pause}</button>
+      <div class="hud-bottom-left">
+        <div class="bb-row"><span class="bb-ico">♥</span><div class="bar"><div class="bar-fill health" id="health-fill"></div></div></div>
+      </div>
+      <div class="hud-bottom-right">
+        <div class="bb-row"><span class="bb-ico">⚡</span><div class="bar"><div class="bar-fill stamina" id="stamina-fill"></div></div></div>
       </div>
       <div class="milestone-banner" id="milestone-banner"></div>
       <div class="popup" id="popup"></div>
@@ -604,18 +625,27 @@ export const ui = {
         const cards = Object.entries(DRAGONS).map(([key, d]) => {
           const owned = saveData.skins.owned.includes(key);
           const equipped = saveData.skins.equipped === key;
+          const maxTier = ascensionTier(key);
+          const displayTier = owned ? getFormPref(key) : ASCENSION_TIERS.length;
           const st = d.stats;
           const spd = (st.speed - 1) / (DRAGON_STAT_CAP.speed - 1 || 1);
           const agi = (st.handling - 1) / (DRAGON_STAT_CAP.handling - 1 || 1);
           const sta = ((1 - st.drain) + (st.regen - 1)) / ((1 - DRAGON_STAT_CAP.drain) + (DRAGON_STAT_CAP.regen - 1) || 1);
           // Premium dragons radiate on the card too (aura tint via CSS var)
           const lux = d.fx.auraIdle > 0 ? ` lux" style="--aura: rgba(${d.fx.auraColor},0.45)` : '';
+          const scrub = owned && maxTier > 0 ? `
+              <div class="form-scrub">
+                <button class="form-arrow" data-form-prev="${key}">◀</button>
+                <span class="form-tier-label" data-form-label="${key}">${formTierLabel(displayTier)}</span>
+                <button class="form-arrow" data-form-next="${key}">▶</button>
+              </div>` : '';
           return `
-            <div class="skin-card${equipped ? ' equipped' : ''}${owned ? '' : ' locked'}${lux}" data-dragon="${key}">
+            <div class="skin-card${equipped ? ' equipped' : ''}${owned ? '' : ' locked'}${lux}" data-dragon="${key}" data-rarity="${d.rarity}">
               <div class="preview-wrap">
                 <canvas class="skin-preview" data-kind="dragon" data-key="${key}" width="180" height="180"></canvas>
                 ${equipped ? '<div class="equipped-badge">✓ EQUIPPED</div>' : ''}
-              </div>
+                <div class="rarity-gem">${d.rarity}</div>
+              </div>${scrub}
               <div class="skin-name">${d.name}</div>
               <div class="skin-title">${d.title}</div>
               <div class="stat-bars">${bar('SPD', spd)}${bar('AGI', agi)}${bar('STA', sta)}</div>
@@ -680,7 +710,7 @@ export const ui = {
         const defaultActive = activeId === '';
         const defaultCard = `
           <div class="skin-card${defaultActive ? ' equipped' : ''}" data-flightmark="">
-            <div class="trail-swatch" style="background: radial-gradient(circle at 35% 30%, #ffd070, #ff8020)"></div>
+            <canvas class="trail-preview" data-mark="" width="140" height="104"></canvas>
             <div class="skin-name">Dragon's Colors</div>
             <div class="skin-title">Default trail</div>
             <div class="skin-cost owned">${defaultActive ? 'ACTIVE' : 'TAP TO EQUIP'}</div>
@@ -690,7 +720,7 @@ export const ui = {
           const active = activeId === mark.id;
           return `
             <div class="skin-card${active ? ' equipped' : ''}${owned ? '' : ' locked'}" data-flightmark="${mark.id}">
-              <div class="trail-swatch" style="background: radial-gradient(circle at 35% 30%, ${hex(mark.boostTrail)}, ${hex(mark.trail)})"></div>
+              <canvas class="trail-preview" data-mark="${mark.id}" width="140" height="104"></canvas>
               <div class="skin-name">${mark.name}</div>
               <div class="skin-title">Trail cosmetic</div>
               <div class="skin-cost ${owned ? 'owned' : ''}">${active ? 'ACTIVE' : owned ? 'TAP TO EQUIP' : `◆ ${mark.cost}`}</div>
@@ -771,9 +801,17 @@ export const ui = {
     els.screen.classList.toggle('stagger', fresh && type === 'start');
     if (fresh) restartAnim(els.screen, 'screen-anim');
     pauseSubscreen = returnScreen === 'pause' && (type === 'shop' || type === 'settings' || type === 'pilot');
-    // Live 3D turntables on the dragon/rider cards
+    // Live 3D turntables on the dragon/rider cards; animated 2D trail previews
     if (type === 'shop') {
-      attachPreviews(els.screen, (kind, key) => (kind === 'dragon' ? DRAGONS[key] : RIDERS[key]));
+      attachTrailPreviews(els.screen, FLIGHTMARKS);
+      attachPreviews(els.screen, (kind, key) => {
+        if (kind !== 'dragon') return RIDERS[key];
+        const def = DRAGONS[key];
+        if (!def) return null;
+        const owned = saveData.skins.owned.includes(key);
+        const tier = owned ? getFormPref(key) : ASCENSION_TIERS.length;
+        return ascendedDef(def, tier, radianceRank(key));
+      });
     }
     // Tapping a blank spot on the shop/settings/pilot screen goes back — the
     // screen container itself is the only target blank space resolves to.
@@ -1198,6 +1236,17 @@ function wireScreenButtons(type) {
       });
     }
 
+    // Form-preview scrub: ◀▶ arrows change the displayed tier without re-equipping
+    for (const btn of els.screen.querySelectorAll('[data-form-prev],[data-form-next]')) {
+      btn.onclick = stop(() => {
+        const key = btn.dataset.formPrev || btn.dataset.formNext;
+        const delta = btn.dataset.formPrev ? -1 : 1;
+        setFormPref(key, getFormPref(key) + delta);
+        shopTab = 'dragons';
+        ui.showScreen('shop');
+      });
+    }
+
     // Ascension: ▲ tier button inside dragon card
     for (const btn of els.screen.querySelectorAll('[data-ascend]')) {
       btn.onclick = stop(() => {
@@ -1206,10 +1255,12 @@ function wireScreenButtons(type) {
         const newTier = handlers.onAscend && handlers.onAscend(key);
         if (newTier) {
           ui.showScreen('shop');
+          const resolvedDef = ascendedDef(d, newTier, radianceRank(key));
           ui.celebrate({
-            kind: 'ascension', tier: 'big', glyph: '▲',
+            kind: 'ascension', tier: 'big',
             title: `${d.name} Ascended`,
             subtitle: ASCENSION_TIERS[newTier - 1].name,
+            renderPreview: (c) => attachPreviewCanvas(c, 'dragon', resolvedDef),
           });
         } else {
           const check = canAscend(key, d.cost);

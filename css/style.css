@@ -66,18 +66,24 @@ body.app-loaded > canvas { opacity: 1; }
 #hud { position: fixed; inset: 0; pointer-events: none; color: #eaf4ff; }
 
 /* ============ ORNATE BOTTOM BAR (Panzer Dragoon style) ============ */
-.bottom-bar {
-  position: absolute; left: 50%; bottom: calc(14px + env(safe-area-inset-bottom));
-  transform: translateX(-50%);
-  width: min(560px, 86vw);
-  display: flex; align-items: center; gap: 0;
-  filter: drop-shadow(0 3px 10px rgba(0,0,0,0.45));
+/* ============ HUD CORNER LAYOUT (WS6) ============ */
+.hud-top-left {
+  position: absolute; top: calc(14px + env(safe-area-inset-top, 0px)); left: 14px; z-index: 5;
 }
-.bb-bars { flex: 1; position: relative; padding: 5px 14px;
-  background: linear-gradient(180deg, rgba(16, 26, 52, 0.78), rgba(8, 14, 30, 0.85));
-  border: 1px solid rgba(200, 160, 80, 0.55);
-  border-radius: 10px;
+.hud-top-center {
+  position: absolute; top: calc(14px + env(safe-area-inset-top, 0px)); left: 50%;
+  transform: translateX(-50%); text-align: center; z-index: 5; pointer-events: none;
 }
+.hud-bottom-left {
+  position: absolute; bottom: calc(14px + env(safe-area-inset-bottom, 0px)); left: 14px; z-index: 5;
+  filter: drop-shadow(0 2px 8px rgba(0,0,0,0.5));
+}
+.hud-bottom-right {
+  position: absolute; bottom: calc(14px + env(safe-area-inset-bottom, 0px)); right: 14px; z-index: 5;
+  filter: drop-shadow(0 2px 8px rgba(0,0,0,0.5));
+}
+.hud-bottom-left .bar,
+.hud-bottom-right .bar { width: min(150px, 34vw); flex: none; }
 .bb-row { display: flex; align-items: center; gap: 8px; padding: 3px 0; }
 .bb-ico { width: 14px; text-align: center; font-size: 10px; opacity: 0.85; }
 .bar { flex: 1; height: 11px; background: rgba(8, 18, 38, 0.85); border: 1px solid rgba(160, 210, 255, 0.28); border-radius: 6px; overflow: hidden; position: relative; }
@@ -86,7 +92,7 @@ body.app-loaded > canvas { opacity: 1; }
 .bar-fill.stamina { background: linear-gradient(90deg, #2f9aff, #3fd8e8, #7fffe0); box-shadow: 0 0 8px rgba(60,210,255,0.55); width: 100%; }
 .bar-fill.stamina.depleted { background: #58606e; box-shadow: none; }
 /* ============ SCORE / COMBO (top-right) ============ */
-.hud-top-right { position: absolute; top: calc(16px + env(safe-area-inset-top, 0px)); right: 60px; text-align: right; }
+.hud-top-right { position: absolute; top: calc(14px + env(safe-area-inset-top, 0px)); right: 14px; text-align: right; }
 .score { font-family: var(--font-display); font-variant-numeric: tabular-nums; font-size: 40px;
   font-weight: 400; letter-spacing: 1px; transform-origin: right center;
   text-shadow: 0 0 18px rgba(80, 190, 255, 0.8), 0 2px 4px rgba(0,0,0,0.5); transition: transform 0.08s, color 0.3s; }
@@ -162,8 +168,8 @@ body.app-loaded > canvas { opacity: 1; }
 @keyframes ret-spin { from { transform: rotate(0deg); } to { transform: rotate(90deg); } }
 @keyframes ret-spin-rev { from { transform: rotate(45deg); } to { transform: rotate(-45deg); } }
 
-/* ============ AUDIO / PAUSE BUTTONS ============ */
-.audio-btns { position: absolute; top: calc(16px + env(safe-area-inset-top, 0px)); right: 14px; display: flex; flex-direction: column; gap: 8px; }
+/* ============ AUDIO / PAUSE BUTTON ============ */
+.audio-btns { display: none; }
 .mute-btn {
   pointer-events: auto; cursor: pointer;
   width: 36px; height: 36px; border-radius: 50%;
@@ -461,9 +467,28 @@ body.app-loaded > canvas { opacity: 1; }
   gap: 12px; width: min(620px, 92vw); margin: 14px 0; }
 .skin-card { pointer-events: auto; cursor: pointer; border-radius: 12px; padding: 12px 10px;
   background: rgba(24, 42, 80, 0.6); border: 1px solid var(--gold-trim);
+  position: relative;
   display: flex; flex-direction: column; align-items: center; gap: 6px; transition: transform 0.12s, border-color 0.2s; }
 .skin-card:hover { transform: translateY(-2px); border-color: rgba(180, 230, 255, 0.6); }
 .skin-card.equipped { border-color: #ffd86a; box-shadow: 0 0 16px rgba(255, 200, 90, 0.35); }
+/* Rarity-tinted card borders */
+.skin-card[data-rarity="SR"]   { border-color: rgba(80,140,255,0.45); }
+.skin-card[data-rarity="SSR"]  { border-color: rgba(160,80,255,0.5); }
+.skin-card[data-rarity="SSSR"] { border-color: rgba(255,200,90,0.55);
+  background: linear-gradient(175deg, rgba(40,28,8,0.65), rgba(24,42,80,0.6) 60%); }
+.skin-card.equipped { border-color: #ffd86a; }
+/* Rarity corner gem */
+.rarity-gem { position: absolute; top: 7px; right: 7px; font-size: 8px; font-weight: 900;
+  letter-spacing: 1px; border-radius: 4px; padding: 2px 6px; pointer-events: none; }
+.skin-card[data-rarity="R"]    .rarity-gem { color: #a0c8a0; background: rgba(120,200,120,0.14); border: 1px solid rgba(120,200,120,0.25); }
+.skin-card[data-rarity="SR"]   .rarity-gem { color: #60a8ff; background: rgba(80,140,255,0.14); border: 1px solid rgba(80,140,255,0.3); }
+.skin-card[data-rarity="SSR"]  .rarity-gem { color: #c080ff; background: rgba(160,80,255,0.14); border: 1px solid rgba(160,80,255,0.3); }
+.skin-card[data-rarity="SSSR"] .rarity-gem { color: #ffd86a; background: rgba(255,200,90,0.18); border: 1px solid rgba(255,200,90,0.45);
+  animation: sssr-gem-pulse 2.2s ease-in-out infinite; }
+@keyframes sssr-gem-pulse {
+  0%, 100% { box-shadow: none; }
+  50% { box-shadow: 0 0 8px rgba(255,200,90,0.7); }
+}
 .skin-card.locked { opacity: 0.85; }
 /* Premium aura: top-tier dragons/riders radiate on the card itself */
 .skin-card.lux { animation: lux-breathe 2.6s ease-in-out infinite; }
@@ -474,6 +499,10 @@ body.app-loaded > canvas { opacity: 1; }
 .skin-card.lux.equipped { border-color: #ffd86a; }
 .skin-swatch { width: 58px; height: 58px; border-radius: 50%; border: 2px solid rgba(255,255,255,0.25);
   box-shadow: inset 0 0 14px rgba(0,0,0,0.4); }
+/* Animated 2D trail preview canvas (STYLE tab) */
+.trail-preview { width: 140px; height: 104px; border-radius: 14px;
+  background: rgba(8,14,30,0.65); border: 1px solid rgba(140,200,255,0.14);
+  display: block; }
 /* Live 3D turntable preview (canvas blitted from a shared renderer) */
 .skin-preview { width: 104px; height: 104px; border-radius: 14px;
   background: radial-gradient(circle at 50% 38%, rgba(70, 110, 180, 0.35), rgba(8, 14, 30, 0.65) 78%);
@@ -500,6 +529,14 @@ body.app-loaded > canvas { opacity: 1; }
   font-size: 9px; letter-spacing: 1.5px; font-weight: 800; color: #1a1206;
   background: linear-gradient(135deg, #ffe27a, #ffb84d); border-radius: 5px;
   padding: 2px 7px; white-space: nowrap; pointer-events: none; }
+.form-scrub { display: flex; align-items: center; justify-content: center; gap: 6px;
+  margin: 4px 0 0; padding: 2px 0; }
+.form-arrow { background: none; border: 1px solid rgba(140,200,255,0.22); border-radius: 6px;
+  color: rgba(180,220,255,0.75); font-size: 11px; padding: 2px 7px; cursor: pointer;
+  line-height: 1.4; transition: border-color 0.15s, color 0.15s; }
+.form-arrow:hover { border-color: rgba(140,200,255,0.55); color: #fff; }
+.form-tier-label { font-size: 10px; letter-spacing: 1.5px; color: rgba(180,220,255,0.65);
+  font-weight: 600; min-width: 62px; text-align: center; text-transform: uppercase; }
 
 /* Music station cards */
 .track-disc { width: 58px; height: 58px; border-radius: 50%; display: flex; align-items: center;
@@ -543,9 +580,13 @@ body.app-loaded > canvas { opacity: 1; }
   /* Secondary run-stats hidden until MORE is tapped */
   .sec-stat { display: none; }
   #run-stats.expanded .sec-stat { display: flex; }
-  .bottom-bar    { width: min(420px, 92vw); bottom: calc(10px + env(safe-area-inset-bottom)); }
   .bar           { height: 9px; }
-  .hud-top-right { top: calc(10px + env(safe-area-inset-top, 0px)); right: 52px; }
+  .hud-top-left  { top: calc(10px + env(safe-area-inset-top, 0px)); left: 10px; }
+  .hud-top-center{ top: calc(10px + env(safe-area-inset-top, 0px)); }
+  .hud-top-right { top: calc(10px + env(safe-area-inset-top, 0px)); right: 10px; }
+  .hud-bottom-left  { bottom: calc(10px + env(safe-area-inset-bottom, 0px)); left: 10px; }
+  .hud-bottom-right { bottom: calc(10px + env(safe-area-inset-bottom, 0px)); right: 10px; }
+  .hud-bottom-left .bar, .hud-bottom-right .bar { width: min(120px, 30vw); }
   .score         { font-size: 26px; }
   .combo                 { font-size: 12px; }
   .combo[data-tier="1"]  { font-size: 13px; }
