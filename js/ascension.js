@@ -18,7 +18,13 @@ export const ASCENSION_TIERS = [
 // Body scale per form (index = tier 0..3): base is noticeably the smallest and
 // the final form lands at the dragon's reference size, so it never obscures
 // more of the screen than the current dragon does.
-export const SIZE_RAMP = [0.72, 0.84, 0.93, 1.0];
+export const SIZE_RAMP = [0.75, 0.85, 0.94, 1.0];
+
+// Wing growth is decoupled from body growth so the SILHOUETTE — not just the
+// overall size — evolves: wings widen faster than the torso, so the apex reads
+// as a broad-winged predator while the whelp is compact and stubby-winged.
+// Absolute wingspan target ≈ SIZE_RAMP × WING_RAMP = [0.68, 0.80, 0.91, 1.0].
+export const WING_RAMP = [0.907, 0.941, 0.968, 1.0];
 
 // Per-dragon cost multiplier: 1 + dragonCost/5000, rounded to nearest 0.5.
 export function tierCostMult(dragonCost) {
@@ -107,7 +113,10 @@ export function ascendedDef(def, tier, radiance) {
   }
 
   // Size ramp: noticeably smaller at base, reference size at the final form.
+  // Body and wings ramp on separate curves so the wing-to-body proportion grows
+  // each tier — the core of the "different silhouette per form" goal.
   d.model.scale = (def.model.scale || 1) * (SIZE_RAMP[tier] || 1);
+  d.model.wingScale = (d.model.wingScale || 1) * (WING_RAMP[tier] || 1);
 
   const isFinal = tier >= ASCENSION_TIERS.length;
   d.fx = { ...d.fx };
