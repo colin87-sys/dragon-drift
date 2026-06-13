@@ -123,6 +123,18 @@ function buildGate(o) {
   edge(0.36, H + 2 * M + 0.5, left - M, o.gapY, mats.warnFrame, 1.2);
   edge(0.36, H + 2 * M + 0.5, right + M, o.gapY, mats.warnFrame, 1.2);
 
+  // Window pane: a faint additive fill of the OPENING so the gap is easy to
+  // locate and aim for from any altitude — including when you're above the wall
+  // looking down at it. Low opacity so you still see straight through it.
+  const winMat = new THREE.MeshBasicMaterial({
+    color: 0x6ce4ff, transparent: true, opacity: 0.15, depthWrite: false,
+    blending: THREE.AdditiveBlending, side: THREE.DoubleSide,
+  });
+  const win = new THREE.Mesh(new THREE.PlaneGeometry(W, H), winMat);
+  win.position.set(o.gapX, o.gapY, 0.45);
+  win.layers.set(1); // out of the water reflection, like the beacon
+  group.add(win);
+
   // Beacon column: a tall additive light pillar above the gap — visible
   // through fog and bloom well beyond the wall.
   const beaconMat = new THREE.MeshBasicMaterial({

@@ -4,7 +4,7 @@
 import { boot } from '../tests/browser.mjs';
 
 const { page, done } = await boot({
-  query: '?debug',
+  query: process.argv.includes('dev') ? '?debug&dev' : '?debug',
   viewport: { width: 900, height: 1000 },
   deviceScaleFactor: 2,
   initScript: `localStorage.setItem('dragonDriftSave', JSON.stringify({

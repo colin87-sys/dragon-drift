@@ -624,9 +624,12 @@ export const ui = {
         const tierAction = (key, cost) => {
           const t = ascensionTier(key);
           if (t >= ASCENSION_TIERS.length) {
+            // Evolution is COMPLETE at Eternal — say so clearly. Radiance is now
+            // just an OPTIONAL cosmetic prestige (a brighter idle aura), not a
+            // required next step, so it reads as a small "+Aura" not "Radiance 5".
             const rc = radianceCost(key);
-            const rr = radianceRank(key);
-            return `<button class="btn-ascend prestige${saveData.embers >= rc ? '' : ' dim'}" data-ascend-radiance="${key}">✦ RADIANCE ${rr + 1} ◆${rc}</button>`;
+            return `<span class="tier-max">EVOLVED ✦ MAX</span>`
+              + `<button class="btn-ascend prestige${saveData.embers >= rc ? '' : ' dim'}" data-ascend-radiance="${key}" title="Optional cosmetic prestige — a brighter idle aura">✦ Aura ◆${rc}</button>`;
           }
           const check = canAscend(key, cost);
           const gateMet = check.flown >= check.gateMetres;

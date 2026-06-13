@@ -123,14 +123,19 @@ function load() {
 export const saveData = load();
 
 let saveTimer = 0;
+// Dev mode (?dev) freezes writes so a temporary "everything unlocked" override
+// never overwrites the player's real progress.
+let writesFrozen = false;
+export function freezeSaves() { writesFrozen = true; }
 export function persistNow() {
   saveTimer = 0;
+  if (writesFrozen) return;
   try { localStorage.setItem(KEY, JSON.stringify(saveData)); } catch { /* full/private */ }
 }
 
 // Debounced write — call freely after any mutation.
 export function persist() {
-  if (saveTimer) return;
+  if (writesFrozen || saveTimer) return;
   saveTimer = setTimeout(persistNow, 500);
 }
 

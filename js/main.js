@@ -24,7 +24,7 @@ import { buildSetPiece } from './setpieces.js';
 import { BIOMES, biomeIndexAt } from './biomes.js';
 import { DRAGONS } from './dragons.js';
 import { RIDERS } from './riders.js';
-import { dailySeed, recordDailyRun, saveData, persist, grantXp, levelEmberReward, todayUTC, gambitSunsetRefund } from './save.js';
+import { dailySeed, recordDailyRun, saveData, persist, grantXp, levelEmberReward, todayUTC, gambitSunsetRefund, freezeSaves } from './save.js';
 import { initEmbers, addEmberLine, updateEmbers, bankEmbers, resetEmbers } from './embers.js';
 import { emit } from './events.js';
 import { initMissions, settleMissions } from './missions.js';
@@ -38,14 +38,15 @@ import { selectNextUp } from './recap.js';
 import { initGoldEmbers, addGoldEmber, updateGoldEmbers, resetGoldEmbers } from './goldEmbers.js';
 import { initHints, updateHints } from './hints.js';
 import { initPbMarker, updatePbMarker } from './pbMarker.js';
-import { ascendedDef, grandfatherAscension, ascend, buyRadiance, ascensionTier, radianceRank } from './ascension.js';
-import { applyFlightmark, buyFlightmark, equipFlightmark } from './flightmarks.js';
+import { ascendedDef, grandfatherAscension, ascend, buyRadiance, ascensionTier, radianceRank, ASCENSION_TIERS } from './ascension.js';
+import { applyFlightmark, buyFlightmark, equipFlightmark, FLIGHTMARKS } from './flightmarks.js';
 
 // --- Renderer / scene / camera ---
 const renderer = new THREE.WebGLRenderer({ antialias: true });
 renderer.setSize(window.innerWidth, window.innerHeight);
 renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 0.92; // pull exposure back so highlights don't wash out
 document.body.appendChild(renderer.domElement);
 
 const scene = new THREE.Scene();
@@ -227,6 +228,26 @@ cameraCtl.init(camera, player);
   if (gambitSunsetRefund > 0) ui.setStartNotice(`An interrupted Gauntlet returned your ◆${gambitSunsetRefund} stake.`);
 }
 grandfatherAscension(Object.keys(DRAGONS));
+
+// Dev mode (?dev): unlock everything for testing — all dragons at max form, all
+// riders + styles, full embers. Saves are FROZEN first so this override never
+// overwrites real progress: reload without ?dev to return to normal.
+if (urlParams.has('dev')) {
+  freezeSaves();
+  for (const key of Object.keys(DRAGONS)) {
+    if (!saveData.skins.owned.includes(key)) saveData.skins.owned.push(key);
+    const e = saveData.ascension.tiers.find((t) => t[0] === key);
+    if (e) e[1] = ASCENSION_TIERS.length; else saveData.ascension.tiers.push([key, ASCENSION_TIERS.length]);
+  }
+  for (const key of Object.keys(RIDERS)) {
+    if (!saveData.riders.owned.includes(key)) saveData.riders.owned.push(key);
+  }
+  for (const m of FLIGHTMARKS) {
+    if (!saveData.cosmetics.marksOwned.includes(m.id)) saveData.cosmetics.marksOwned.push(m.id);
+  }
+  saveData.embers = 999999;
+  console.log('[dev] everything unlocked for this session');
+}
 
 ui.showScreen('start');
 
