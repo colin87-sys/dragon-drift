@@ -51,14 +51,23 @@ let lastAssistText = '';
 let lastEmbersRun = 0;
 let emberDimTimer = null;
 
+// The four forms double as a rarity ladder in the shop: Hatchling reads R and
+// the apex reads SSSR, so scrubbing shows how much cooler the dragon gets.
+const FORM_RARITY = ['R', 'SR', 'SSR', 'SSSR'];
+function formRarity(tier) { return FORM_RARITY[Math.max(0, Math.min(tier, 3))]; }
+
+// Shop display form. Free to scrub all four forms (owned or not) so players can
+// preview the whole evolution; the FLOWN form stays clamped to what's owned in
+// main.equippedDragon.
 function getFormPref(key) {
+  const cap = ASCENSION_TIERS.length; // apex form index (3)
   const fp = saveData.cosmetics.formPref.find(e => e[0] === key);
-  const maxTier = ascensionTier(key);
-  return fp ? Math.min(fp[1], maxTier) : maxTier;
+  if (fp) return Math.max(0, Math.min(fp[1], cap));
+  // Owned → your current form; unowned → the apex (the goal you'd grind for).
+  return saveData.skins.owned.includes(key) ? ascensionTier(key) : cap;
 }
 function setFormPref(key, tier) {
-  const maxTier = ascensionTier(key);
-  tier = Math.max(0, Math.min(tier, maxTier));
+  tier = Math.max(0, Math.min(tier, ASCENSION_TIERS.length));
   const entry = saveData.cosmetics.formPref.find(e => e[0] === key);
   if (entry) entry[1] = tier;
   else saveData.cosmetics.formPref.push([key, tier]);
@@ -605,17 +614,19 @@ export const ui = {
           <div class="stat-bar-row"><span>${lbl}</span>
             <div class="stat-bar"><span style="width:${Math.round(12 + 88 * Math.max(0, Math.min(1, k)))}%"></span></div>
           </div>`;
+        // One pip per FORM (Hatchling → Eternal), filled up to the owned tier and
+        // tinted by that form's rarity — the evolution ladder, not the old R1-R5.
         const tierPips = (key) => {
           const t = ascensionTier(key);
-          return Array.from({ length: ASCENSION_TIERS.length }, (_, i) =>
-            `<span class="tier-pip${i < t ? ' filled' : ''}">◆</span>`).join('');
+          return Array.from({ length: ASCENSION_TIERS.length + 1 }, (_, i) =>
+            `<span class="tier-pip${i <= t ? ' filled' : ''}" data-fr="${formRarity(i)}">◆</span>`).join('');
         };
         const tierAction = (key, cost) => {
           const t = ascensionTier(key);
           if (t >= ASCENSION_TIERS.length) {
             const rc = radianceCost(key);
             const rr = radianceRank(key);
-            return `<button class="btn-ascend${saveData.embers >= rc ? '' : ' dim'}" data-ascend-radiance="${key}">✦ R${rr + 1} ◆${rc}</button>`;
+            return `<button class="btn-ascend prestige${saveData.embers >= rc ? '' : ' dim'}" data-ascend-radiance="${key}">✦ RADIANCE ${rr + 1} ◆${rc}</button>`;
           }
           const check = canAscend(key, cost);
           const gateMet = check.flown >= check.gateMetres;
@@ -633,23 +644,25 @@ export const ui = {
           const sta = ((1 - st.drain) + (st.regen - 1)) / ((1 - DRAGON_STAT_CAP.drain) + (DRAGON_STAT_CAP.regen - 1) || 1);
           // Premium dragons radiate on the card too (aura tint via CSS var)
           const lux = d.fx.auraIdle > 0 ? ` lux" style="--aura: rgba(${d.fx.auraColor},0.45)` : '';
-          const scrub = owned && maxTier > 0 ? `
+          // Scrub the whole evolution on every card — preview the forms you'd
+          // grind toward even before you own the dragon.
+          const scrub = `
               <div class="form-scrub">
                 <button class="form-arrow" data-form-prev="${key}">◀</button>
                 <span class="form-tier-label" data-form-label="${key}">${formTierLabel(displayTier)}</span>
                 <button class="form-arrow" data-form-next="${key}">▶</button>
-              </div>` : '';
+              </div>`;
           return `
             <div class="skin-card${equipped ? ' equipped' : ''}${owned ? '' : ' locked'}${lux}" data-dragon="${key}" data-rarity="${d.rarity}">
               <div class="preview-wrap">
                 <canvas class="skin-preview" data-kind="dragon" data-key="${key}" width="180" height="180"></canvas>
                 ${equipped ? '<div class="equipped-badge">✓ EQUIPPED</div>' : ''}
-                <div class="rarity-gem">${d.rarity}</div>
+                <div class="rarity-gem" data-fr="${formRarity(displayTier)}">${formRarity(displayTier)}</div>
               </div>${scrub}
               <div class="skin-name">${d.name}</div>
               <div class="skin-title">${d.title}</div>
               <div class="stat-bars">${bar('SPD', spd)}${bar('AGI', agi)}${bar('STA', sta)}</div>
-              ${owned ? `<div class="skin-tier">${tierPips(key)} ${tierAction(key, d.cost)}</div>` : ''}
+              ${owned ? `<div class="skin-tier"><span class="tier-pips">${tierPips(key)}</span> ${tierAction(key, d.cost)}</div>` : ''}
               <div class="skin-cost ${owned ? 'owned' : ''}">${owned ? (equipped ? '' : 'TAP TO EQUIP') : `◆ ${d.cost}`}</div>
             </div>`;
         }).join('');
@@ -1255,6 +1268,9 @@ function wireScreenButtons(type) {
         // turntable at once, which read as "all the dragons changed".
         const label = els.screen.querySelector(`[data-form-label="${key}"]`);
         if (label) label.textContent = formTierLabel(tier);
+        // Per-form rarity gem tracks the scrub (Hatchling R → Eternal SSSR).
+        const gem = btn.closest('.skin-card')?.querySelector('.rarity-gem');
+        if (gem) { gem.textContent = formRarity(tier); gem.dataset.fr = formRarity(tier); }
         const canvas = els.screen.querySelector(`canvas.skin-preview[data-key="${key}"]`);
         if (canvas) refreshPreview(canvas, 'dragon', ascendedDef(DRAGONS[key], tier, radianceRank(key)));
         // If this is the equipped dragon, rebuild the in-game model so the
