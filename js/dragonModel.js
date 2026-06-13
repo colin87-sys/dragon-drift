@@ -16,32 +16,40 @@ import { makeGlowTexture } from './util.js';
 // Dragon wings follow BAT anatomy: an arm + fanned finger bones with a
 // scalloped membrane webbed between them — never a flat paddle. Each evolution
 // FORM carries its own silhouette preset so the four stages read differently
-// from the chase camera (the dominant rear-view feature), not just bigger:
+// from the DIRECT REAR gameplay camera — the only view that matters here.
+//
+// The dominant rear-view lever is ARC, not membrane detail: a flat wing is seen
+// edge-on and collapses to a thin strip, so all four forms would look the same.
+// Each form instead bows its membrane UPWARD toward the tip (outer-weighted, so
+// the inner half stays low and the centre lane open), and the bow grows per
+// tier — that upward curve is what gives each stage a distinct rear outline.
 //
 //   tips    finger-tip anchors [x span outward, y chord fore/aft], far tip first
 //   lead    mid control point for the leading-edge sweep (wrist → far tip)
 //   scallop how far each trailing web dips toward the body — the edge signature
-//   flame   cut trailing webs as sharp V notches → segmented flame edge (apex)
+//   flame   cut the OUTER trailing webs as sharp V notches → flame edge (apex)
+//   arc     upward bow of the tip vs. the root (outer-weighted) — the rear read
 const WING_FORMS = {
-  // T0 — compact starter: 3 short fingers, an almost-straight trailing edge.
-  0: { tips: [[4.75, 0.30], [3.70, -0.42], [2.25, -0.78]],
-       lead: [3.05, 0.52], scallop: 0.20, flame: false },
-  // T1 — awakened: a 4th finger emerges and a gentle scallop forms.
-  1: { tips: [[5.05, 0.32], [4.05, -0.46], [2.75, -0.92], [1.50, -0.98]],
-       lead: [3.40, 0.58], scallop: 0.36, flame: false },
-  // T2 — elite: wider, a deep scalloped web, clear finger anatomy.
-  2: { tips: [[5.30, 0.34], [4.45, -0.50], [3.10, -1.04], [1.70, -1.16]],
-       lead: [3.70, 0.62], scallop: 0.56, flame: false },
-  // T3 — apex: longest reach, a 5th finger, and the trailing edge breaks into a
-  // segmented flame edge — dramatic but still a clean, readable outline.
-  3: { tips: [[5.55, 0.36], [4.78, -0.48], [3.50, -1.00], [2.15, -1.20], [1.05, -1.02]],
-       lead: [3.98, 0.66], scallop: 0.50, flame: true },
+  // T0 — compact starter: 3 short fingers, level wing, almost-straight edge.
+  0: { tips: [[4.60, 0.30], [3.60, -0.40], [2.20, -0.74]],
+       lead: [3.00, 0.50], scallop: 0.18, flame: false, arc: 0.4 },
+  // T1 — awakened: a 4th finger, a gentle scallop, wing begins to bow up.
+  1: { tips: [[5.00, 0.34], [4.00, -0.46], [2.70, -0.92], [1.50, -0.98]],
+       lead: [3.40, 0.58], scallop: 0.36, flame: false, arc: 1.0 },
+  // T2 — elite: wider, hooked upswept tip, deep scallop, strong gull bow.
+  2: { tips: [[5.30, 0.44], [4.45, -0.50], [3.10, -1.04], [1.70, -1.16]],
+       lead: [3.70, 0.66], scallop: 0.56, flame: false, arc: 1.9 },
+  // T3 — apex: widest, long up-flared tip, flame edge on the outer third only,
+  // most dramatic bow — legendary rear silhouette with the centre still open.
+  3: { tips: [[5.60, 0.52], [4.80, -0.44], [3.50, -1.00], [2.15, -1.20], [1.05, -1.02]],
+       lead: [4.00, 0.74], scallop: 0.50, flame: true, arc: 2.9 },
 };
 // Legacy membrane for dragons not yet on the per-form system — reproduces the
-// previous single shape so the rest of the roster is untouched until redesigned.
+// previous single flat shape so the rest of the roster is untouched until
+// redesigned in turn (arc: 0 keeps them exactly as shipped).
 const DEFAULT_WING = {
   tips: [[5.25, 0.34], [4.40, -0.50], [3.05, -1.00], [1.70, -1.12]],
-  lead: [3.80, 0.64], scallop: 0.50, flame: false,
+  lead: [3.80, 0.64], scallop: 0.50, flame: false, arc: 0,
 };
 
 function wingSpecFor(model) {
@@ -57,12 +65,13 @@ function buildWingShape(spec) {
   s.bezierCurveTo(1.8, 0.62, spec.lead[0], spec.lead[1], tips[0][0], tips[0][1]);
   // Trailing edge: a concave web (scallop) dipping toward the body between each
   // successive finger tip — the signature bat/dragon membrane silhouette. Apex
-  // forms cut the webs as sharp V notches for a segmented flame edge.
+  // forms cut only the OUTER webs as sharp V notches (drama at the wing edge,
+  // clean toward the centre), keeping the inner silhouette disciplined.
   for (let i = 0; i < tips.length - 1; i++) {
     const [ax, ay] = tips[i];
     const [bx, by] = tips[i + 1];
     const cx = (ax + bx) / 2;
-    if (spec.flame) {
+    if (spec.flame && i < 2) {
       s.lineTo(cx, (ay + by) / 2 + spec.scallop * 1.5);
       s.lineTo(bx, by);
     } else {
@@ -71,6 +80,27 @@ function buildWingShape(spec) {
   }
   s.quadraticCurveTo(0.85, -0.34, 0, -0.28);
   return s;
+}
+
+// Bow a flattened wing membrane (or its bone endpoints) upward toward the tip so
+// it presents a real curved outline to the direct-rear camera instead of a thin
+// edge-on strip. Outer-weighted (∝ (x/maxX)^2) so the inner half stays low and
+// the player's forward lane stays open. archLift() gives the per-point rise.
+function archLift(x, maxX, arc) {
+  const nx = maxX > 0 ? Math.abs(x) / maxX : 0;
+  return arc * nx * nx;
+}
+function archWing(geo, arc) {
+  if (!arc) return;
+  geo.computeBoundingBox();
+  const bb = geo.boundingBox;
+  const maxX = Math.max(Math.abs(bb.min.x), Math.abs(bb.max.x)) || 1;
+  const pos = geo.attributes.position;
+  for (let i = 0; i < pos.count; i++) {
+    pos.setY(i, pos.getY(i) + archLift(pos.getX(i), maxX, arc));
+  }
+  pos.needsUpdate = true;
+  geo.computeVertexNormals();
 }
 
 // A flat swallowtail outline for the comet tail — two tines splaying from a
@@ -90,15 +120,14 @@ function buildForkShape(spread, length, notch) {
 }
 
 // A tapered bone strut from the wrist (origin) to a finger tip in the wing's
-// flattened XZ plane (after the membrane's rotateX(-PI/2)).
-function wingStrut(x, z, r0, r1, mat) {
-  const len = Math.hypot(x, z) || 0.001;
+// flattened XZ plane (after the membrane's rotateX(-PI/2)). endY lifts the tip
+// so the bone follows the membrane's upward arc instead of poking through flat.
+function wingStrut(x, z, r0, r1, mat, endY = 0) {
+  const dir = new THREE.Vector3(x, endY, z);
+  const len = dir.length() || 0.001;
   const m = new THREE.Mesh(new THREE.CylinderGeometry(r1, r0, len, 5), mat);
-  m.quaternion.setFromUnitVectors(
-    new THREE.Vector3(0, 1, 0),
-    new THREE.Vector3(x, 0, z).normalize(),
-  );
-  m.position.set(x / 2, 0.015, z / 2);
+  m.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), dir.clone().normalize());
+  m.position.set(x / 2, 0.015 + endY / 2, z / 2);
   return m;
 }
 
@@ -183,7 +212,7 @@ export function buildDragonModel(def, opts = {}) {
   torsoGeo.rotateX(Math.PI / 2);   // lathe length axis → world +z (head at -z)
   torsoGeo.translate(0, 0, -2.35); // neck end forward, tail root just behind 0
   const torso = new THREE.Mesh(torsoGeo, bodyMat);
-  torso.scale.set(1.2, 0.92, 1);   // broad back + slightly flat belly
+  torso.scale.set(1.06, 0.96, 1);  // slimmer from behind — a sleek spine, not a slab
   torso.position.y = 0.2;
   group.add(torso);
 
@@ -591,29 +620,38 @@ export function buildDragonModel(def, opts = {}) {
     roughness: 0.3, metalness: 0.4,
   }) : null;
 
+  // Per-form upward bow (outer-weighted) and the span it's measured against.
+  const arcMag = wingSpec.arc * ws;
+  const maxX = Math.abs(wingSpec.tips[0][0] * 1.34 * ws);
+
   function buildWingSide(side) {
     const pivot = new THREE.Group();
-    pivot.position.set(0.55 * side, 0.4, -0.2);
+    // Roots sit high on the back so the bowed wings lift clear of the torso
+    // (kills the "central blob with strips" read) and frame the body.
+    pivot.position.set(0.55 * side, 0.52, -0.2);
 
     const geo = new THREE.ShapeGeometry(featherShape ? buildFeatherWingShape() : buildWingShape(wingSpec), 14);
     geo.rotateX(-Math.PI / 2);
     geo.scale(1.34 * ws, 1.28 * ws, 1);
     applyWingGradient(geo, def, 0, 1);
+    archWing(geo, arcMag); // bow the membrane up toward the tip — the rear read
     const membrane = new THREE.Mesh(geo, wingMat);
     membrane.scale.x = side; // mirror the left wing
     pivot.add(membrane);
 
     // Finger bones fanning from the wrist to each membrane tip, + a thicker
-    // leading-edge arm — this is what kills the "flat paddle" read. A glowing
-    // vein rides on top of each bone once the dragon reaches the elite forms.
+    // leading-edge arm — this is what kills the "flat paddle" read. Each bone's
+    // tip rides up with the membrane arc; a glowing vein rides on top from the
+    // elite forms.
     for (let i = 0; i < wingSpec.tips.length; i++) {
       const [px, py] = wingSpec.tips[i];
       const x = px * 1.34 * ws * side;
       const z = -py * 1.0;
-      pivot.add(wingStrut(x, z, i === 0 ? 0.075 : 0.05, 0.012, boneMat));
+      const lift = archLift(x, maxX, arcMag);
+      pivot.add(wingStrut(x, z, i === 0 ? 0.075 : 0.05, 0.012, boneMat, lift));
       if (veinMat) {
-        const vein = wingStrut(x, z, i === 0 ? 0.045 : 0.03, 0.006, veinMat);
-        vein.position.y = 0.05;
+        const vein = wingStrut(x, z, i === 0 ? 0.045 : 0.03, 0.006, veinMat, lift);
+        vein.position.y += 0.05;
         pivot.add(vein);
       }
     }
@@ -621,7 +659,9 @@ export function buildDragonModel(def, opts = {}) {
     const wingTip = new THREE.Group();
     wingTip.position.set(3.3 * ws * side, 0, 0);
     const marker = new THREE.Object3D();
-    marker.position.set(wingSpec.tips[0][0] * 1.34 * ws * side - 3.3 * ws * side, 0, -wingSpec.tips[0][1]);
+    // Contrails emit from the lifted wingtip so the ribbon tracks the arc.
+    marker.position.set(wingSpec.tips[0][0] * 1.34 * ws * side - 3.3 * ws * side,
+      archLift(maxX, maxX, arcMag), -wingSpec.tips[0][1]);
     wingTip.add(marker);
     pivot.add(wingTip);
     group.add(pivot);
@@ -656,20 +696,22 @@ export function buildDragonModel(def, opts = {}) {
     }
   }
 
-  // Solar halo — a faint corona ring behind the shoulders (apex only). Thin and
-  // additive so it haloes the silhouette from behind without filling the open
-  // centre lane the player reads. On layer 0 so it shows in every view; the
-  // open ring (not a filled disc) keeps the path ahead clear.
+  // Solar aura card (apex only). A tall, narrow additive glow sprite sitting
+  // BEHIND the upper body — a solar backlight, not a ring around the centre
+  // lane (the old torus competed with the collectible rings). Narrow so it
+  // backlights the dragon without bleeding into the forward path; on layer 0 so
+  // it reads in every view.
   if (model.auraHalo) {
-    const haloCol = def.apexSeam || def.horn;
-    const halo = new THREE.Mesh(
-      new THREE.TorusGeometry(2.4, 0.06, 8, 56),
-      new THREE.MeshBasicMaterial({
-        color: haloCol, transparent: true, opacity: 0.3,
-        blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide,
-      }));
-    halo.position.set(0, 0.7, 0.7); // centred on the upper body, just behind it
-    group.add(halo);
+    const haloRgb = def.apexSeam
+      ? `${(def.apexSeam >> 16) & 255},${(def.apexSeam >> 8) & 255},${def.apexSeam & 255}`
+      : def.fx.auraColor;
+    const auraCard = new THREE.Sprite(new THREE.SpriteMaterial({
+      map: makeGlowTexture(haloRgb), transparent: true, opacity: 0.34,
+      blending: THREE.AdditiveBlending, depthWrite: false,
+    }));
+    auraCard.scale.set(4.2, 6.4, 1); // taller than wide — a backlight column
+    auraCard.position.set(0, 0.9, 0.2);
+    group.add(auraCard);
   }
 
   // Aura sprite (fever glow + idle premium aura)

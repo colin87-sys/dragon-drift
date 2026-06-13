@@ -57,14 +57,10 @@
         current.traverse(o => { if (o.geometry) o.geometry.dispose(); if (o.material) o.material.dispose(); });
       }
       const def = ascendedDef(DRAGONS[key], tier, 0);
-      const { group, parts } = buildDragonModel(def, {});
+      const { group } = buildDragonModel(def, {});
       group.rotation.y = 0;
-      // Hero pose: lift the wings into a shallow spread so the membrane shape
-      // (scallop/flame edge, finger fan) faces the above-and-behind camera —
-      // the rest pose is edge-on and hides it. Live gameplay catches it
-      // mid-flap; this just makes the isolated silhouette legible.
-      if (parts.wingPivotR) { parts.wingPivotR.rotation.z = -0.30; parts.wingPivotR.rotation.x = 0.12; }
-      if (parts.wingPivotL) { parts.wingPivotL.rotation.z = 0.30; parts.wingPivotL.rotation.x = 0.12; }
+      // No hero pose: the membrane now bakes its own upward arc, so the neutral
+      // rest silhouette is what actually reads from the rear gameplay camera.
       current = group;
       scene.add(group);
       camera.position.copy(frame.target).addScaledVector(_dir, frame.dist);
