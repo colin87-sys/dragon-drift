@@ -33,7 +33,7 @@ let spineMats = [];       // spine/crest/seam/plate mats → white-gold in Surge
 let surgeRipple = null;   // energy ring that pulses outward during Surge
 let surgeMix = 0;         // 0..1 damped Surge transition
 const _surgeBaseCol = new THREE.Color();
-const _surgeWhiteGold = new THREE.Color(0xfff8e8);
+const _surgeHi = new THREE.Color(); // per-dragon Surge highlight (def.surgeHi)
 let quality = 1;
 
 export function setDragonQuality(q) {
@@ -436,9 +436,10 @@ export function updateDragon(dt, player, time) {
   // an energy ring ripples outward — the apex's transformed, regal Surge.
   surgeMix = damp(surgeMix, player.feverActive ? 1 : 0, 4, dt);
   if (surgeMix > 0.002) {
+    _surgeHi.setHex(activeDef.surgeHi || 0xfff8e8); // white-gold default; cool per dragon
     for (const m of spineMats) {
       _surgeBaseCol.setHex(m.userData.baseEmissive ?? 0xffffff);
-      m.emissive.copy(_surgeBaseCol).lerp(_surgeWhiteGold, surgeMix * 0.85);
+      m.emissive.copy(_surgeBaseCol).lerp(_surgeHi, surgeMix * 0.85);
       m.emissiveIntensity = (m.userData.baseIntensity ?? 1) * (1 + surgeMix * 0.9);
     }
     if (surgeRipple) {
