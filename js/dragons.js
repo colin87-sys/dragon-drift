@@ -1,12 +1,15 @@
-// Dragon roster. Each dragon is an individual creature with distinct silhouette,
-// palette, and per-tier part accretion (gacha R→SR→SSR→SSSR). Price escalates
-// both stats AND visual quality. Tier 5 apex = S-tier.
+// Dragon roster. Each dragon is an individual creature with a distinct
+// silhouette and palette, evolving across 4 forms (base + 3 paid upgrades),
+// gacha-style R → SR → SSR → SSSR. Price escalates stats AND visual drama.
 //
-// stats: multipliers on CONFIG flight model (speed/handling/drain/regen)
-// model: base proportions fed to the builder
-// stages[evoStage]: proportion curve (scale/eyeScale hatchling→adolescent→adult)
-// tierKit[0..5]: parts that ACCRETE at each tier (cumulative, never removed)
-// fx: trail colors, idle aura (flagship glow without needing Dragon Surge)
+// stats : multipliers on the CONFIG flight model (speed/handling/drain/regen)
+// model : base proportions fed to the builder (this is also the FINAL size;
+//         SIZE_RAMP in ascension.js shrinks the earlier forms)
+// forms[0..3]: parts that ACCRETE at each form (cumulative — never removed).
+//         Every upgrade bolts on something obvious from the chase camera; the
+//         final form is the earned, glowing, fully-decked apex.
+// fx    : trail colors + idle aura (premium dragons glow without Dragon Surge)
+// apexEye/apexSeam: premium palette that switches in from form 2
 //
 // Rarity by price: R (free) · SR (600-1200) · SSR (2200-3400) · SSSR (5000)
 export const DRAGONS = {
@@ -17,27 +20,20 @@ export const DRAGONS = {
     cost: 0,
     stats: { speed: 1.0, handling: 1.0, drain: 1.0, regen: 1.0 },
     model: {
-      scale: 1.0, wingScale: 1.0, tailSegments: 9, neckSegments: 4,
-      hornLen: 1.15, hornPairs: 1, ridgeCount: 12, flapBias: 1.0,
+      scale: 1.05, wingScale: 1.0, tailSegments: 8, neckSegments: 4,
+      hornLen: 1.1, hornPairs: 1, ridgeCount: 10, flapBias: 1.0,
     },
-    stages: [
-      { scale: 0.84, eyeScale: 1.28, hornLen: 0.88, ridgeCount: 9, tailSegments: 7, neckSegments: 3 },
-      {},
-      { scale: 1.06, ridgeCount: 15 },
+    // Humble starter: stays the simplest even maxed, so the premiums feel rare.
+    forms: [
+      {},                                                        // base — bare drake
+      { ridgeCount: 13, dorsal: true, crest: 1 },                // +back sail + small crest
+      { crest: 2, hornLen: 1.35, glowSeams: true },              // +bigger crest/horns + seams
+      { tailTip: 'fan', sparkle: true },                         // apex — fan tail + sparkle
     ],
-    // Parts that accrue at each ascension tier (index = tier 0..5)
-    tierKit: [
-      {},                                                        // T0 R   — bare starter drake
-      { ridgeCount: 13 },                                        // T1 SR  — fuller ridge
-      { dorsal: true },                                          // T2 SR+ — dorsal spine row
-      { crest: 1, glowSeams: true },                            // T3 SSR — crest + faint seams
-      { crest: 2 },                                              // T4 SSR+— double crest
-      { sparkle: true },                                         // T5 SSSR— sparkle
-    ],
-    fx: { auraColor: '255,130,235', auraIdle: 0, sparkle: false },
+    fx: { auraColor: '120,200,255', auraIdle: 0, sparkle: false },
     body: 0x2b58c8, belly: 0xffd9a8, scales: 0x9fe8ff, horn: 0xffdf8a,
-    wingInner: 0xff8a3c, wingOuter: 0xd91f1f, wingEmissive: 0xff5222,
-    eye: 0x55e0ff, trail: 0xffc080, boostTrail: 0x88aaff,
+    wingInner: 0x6aa8ff, wingOuter: 0x1f3fb0, wingEmissive: 0x4a90ff,
+    eye: 0x55e0ff, trail: 0x88c0ff, boostTrail: 0x88aaff,
   },
 
   ember: {
@@ -47,26 +43,19 @@ export const DRAGONS = {
     cost: 600,
     stats: { speed: 1.04, handling: 1.06, drain: 0.95, regen: 1.05 },
     model: {
-      scale: 0.97, wingScale: 1.04, tailSegments: 9, neckSegments: 4,
-      hornLen: 1.35, hornPairs: 1, ridgeCount: 14, flapBias: 1.08,
+      scale: 1.04, wingScale: 1.05, tailSegments: 8, neckSegments: 4,
+      hornLen: 1.35, hornPairs: 1, ridgeCount: 12, flapBias: 1.08,
     },
-    stages: [
-      { scale: 0.83, eyeScale: 1.25, hornLen: 1.0, ridgeCount: 10, tailSegments: 7 },
-      {},
-      { scale: 1.02, ridgeCount: 18, hornLen: 1.62 },
+    forms: [
+      {},                                                        // base
+      { backSpines: true, crest: 1, ridgeCount: 14 },            // +back-spines + crest
+      { armorPlates: true, crest: 2, hornLen: 1.7 },             // +shoulder armor + horn crown
+      { maceTail: true, glowSeams: true, secondWingPair: true, hornPairs: 2, sparkle: true }, // apex
     ],
-    tierKit: [
-      {},                                                        // T0 R
-      { backSpines: true },                                      // T1 SR  — back-spines emerge
-      { armorPlates: true },                                     // T2 SR+ — shoulder plates
-      { glowSeams: true, crest: 1 },                            // T3 SSR — seams + horn crown
-      { hornLen: 1.8 },                                          // T4 SSR+— extended horns
-      { maceTail: true, sparkle: true },                         // T5 SSSR— mace tail + fire
-    ],
-    fx: { auraColor: '255,160,80', auraIdle: 0, sparkle: false },
+    fx: { auraColor: '255,150,70', auraIdle: 0, sparkle: false },
     body: 0xb83820, belly: 0xffd9a8, scales: 0xffb060, horn: 0xffe8a0,
-    wingInner: 0xffc23c, wingOuter: 0xb81f60, wingEmissive: 0xff8022,
-    eye: 0xffd060, trail: 0xffd080, boostTrail: 0xffa060,
+    wingInner: 0xffc23c, wingOuter: 0xb81f30, wingEmissive: 0xff7022,
+    eye: 0xffd060, trail: 0xffa040, boostTrail: 0xffc060,
   },
 
   jade: {
@@ -76,26 +65,19 @@ export const DRAGONS = {
     cost: 1200,
     stats: { speed: 1.07, handling: 1.11, drain: 0.9, regen: 1.1 },
     model: {
-      scale: 0.95, wingScale: 0.96, tailSegments: 12, neckSegments: 6,
-      hornLen: 0.9, hornPairs: 1, ridgeCount: 16, flapBias: 1.15,
+      scale: 1.02, wingScale: 0.98, tailSegments: 9, neckSegments: 6,
+      hornLen: 0.9, hornPairs: 1, ridgeCount: 14, flapBias: 1.15,
     },
-    stages: [
-      { scale: 0.82, eyeScale: 1.3, hornLen: 0.65, ridgeCount: 12, tailSegments: 9, neckSegments: 4 },
-      {},
-      { scale: 0.99, neckSegments: 8, ridgeCount: 20 },
-    ],
-    tierKit: [
-      {},                                                        // T0 R
-      { whiskers: true },                                        // T1 SR  — whiskers appear
-      { crest: 1, tailSegments: 14 },                           // T2 SR+ — fin-crest + longer tail
-      { tailTip: 'fan' },                                        // T3 SSR — fan tail
-      { crest: 2, glowSeams: true },                            // T4 SSR+— double crest + seams
-      { sparkle: true },                                         // T5 SSSR— jade sparkle
+    forms: [
+      {},                                                        // base
+      { whiskers: true, neckSegments: 7, tailSegments: 11 },     // +whiskers + longer serpent
+      { crest: 2, tailTip: 'fan', glowSeams: true },             // +fin-crest + fan tail + seams
+      { secondWingPair: true, neckSegments: 8, sparkle: true },  // apex
     ],
     fx: { auraColor: '120,255,190', auraIdle: 0, sparkle: false },
     body: 0x1f9a60, belly: 0xe8ffd0, scales: 0xa0ffd0, horn: 0xffe8a0,
     wingInner: 0x60e8a0, wingOuter: 0x106a8a, wingEmissive: 0x40e890,
-    eye: 0xa0ffc0, trail: 0xa0ffd0, boostTrail: 0x50e8b0,
+    eye: 0xa0ffc0, trail: 0x70ffc0, boostTrail: 0x50e8b0,
   },
 
   obsidian: {
@@ -103,32 +85,24 @@ export const DRAGONS = {
     title: 'Night given wings',
     rarity: 'SSR',
     cost: 2200,
+    // Toothless / Night Fury: sleek near-black drake, wide flat head, large
+    // almond eyes, plasma-cyan glow.
     stats: { speed: 1.1, handling: 1.16, drain: 0.84, regen: 1.18 },
     model: {
-      // Toothless-reference: sleek black drake, wide flat head, large almond eyes
-      scale: 1.02, wingScale: 1.1, tailSegments: 11, neckSegments: 5,
-      hornLen: 1.5, hornPairs: 2, ridgeCount: 14, flapBias: 1.05,
+      scale: 1.12, wingScale: 1.12, tailSegments: 9, neckSegments: 5,
+      hornLen: 1.2, hornPairs: 1, ridgeCount: 8, flapBias: 1.05, eyeScale: 1.25,
     },
-    stages: [
-      // Hatchling: very big eyes (almond stare), compact, minimal hardware
-      { scale: 0.86, eyeScale: 1.35, hornLen: 0.9, ridgeCount: 10, tailSegments: 8, hornPairs: 1 },
-      {},
-      { scale: 1.08, wingScale: 1.22 },
+    forms: [
+      { eyeScale: 1.3 },                                         // base — big-eyed sleek drake
+      { earTendrils: true, backSpines: true },                  // +ear frills + dorsal spines
+      { glowSeams: true, crest: 1, wingScale: 1.2 },            // +plasma seams + crest
+      { secondWingPair: true, tailTip: 'fan', sparkle: true },  // apex — twin wings + tail fins
     ],
-    tierKit: [
-      { eyeScale: 1.2 },                                        // T0 R   — big eyes, bare
-      { earTendrils: true },                                     // T1 SR  — ear tendrils deploy
-      { backSpines: true },                                      // T2 SR+ — back-spines emerge
-      { glowSeams: true },                                       // T3 SSR — plasma-cyan seams
-      { secondWingPair: true },                                  // T4 SSR+— small 2nd wing pair
-      { tailTip: 'fan', sparkle: true },                         // T5 SSSR— twin tail-fins
-    ],
-    fx: { auraColor: '170,90,255', auraIdle: 0.1, sparkle: false },
-    body: 0x282038, belly: 0x6a5a8a, scales: 0xb090ff, horn: 0xd0c0ff,
-    wingInner: 0x8a40ff, wingOuter: 0xff2080, wingEmissive: 0xa040ff,
-    // Apex palette override — plasma-cyan eyes/seams at T3+
-    apexEye: 0x00ffee, apexSeam: 0x00ccff,
-    eye: 0xff60c0, trail: 0xc090ff, boostTrail: 0xb060ff,
+    fx: { auraColor: '0,225,255', auraIdle: 0.12, sparkle: false },
+    body: 0x14131c, belly: 0x2c2740, scales: 0x4a3f70, horn: 0x6a5fa0,
+    wingInner: 0x26233a, wingOuter: 0x0a0a14, wingEmissive: 0x00ccff,
+    apexEye: 0x00ffee, apexSeam: 0x00e5ff,
+    eye: 0x33e0ff, trail: 0x00d8ff, boostTrail: 0x40f0ff,
   },
 
   pearl: {
@@ -136,31 +110,23 @@ export const DRAGONS = {
     title: 'Dawn incarnate',
     rarity: 'SSR',
     cost: 3400,
+    // Blue-Eyes / celestial seraph: luminous white, sapphire eyes, gold accents.
     stats: { speed: 1.13, handling: 1.22, drain: 0.78, regen: 1.25 },
     model: {
-      // Blue-Eyes reference: pale slim dragon, elegant proportions
-      scale: 1.05, wingScale: 1.18, tailSegments: 10, neckSegments: 5,
+      scale: 1.12, wingScale: 1.18, tailSegments: 9, neckSegments: 5,
       hornLen: 1.3, hornPairs: 1, ridgeCount: 12, flapBias: 0.95,
     },
-    stages: [
-      { scale: 0.87, eyeScale: 1.25, hornLen: 1.0, ridgeCount: 9, tailSegments: 8 },
-      {},
-      { scale: 1.1, wingScale: 1.26 },
+    forms: [
+      {},                                                        // base
+      { bladeFins: true, wingShape: 'feather' },                // +blade-fins + feathered wings
+      { crest: 2, glowSeams: true, halo: true },                // +crest + halo + seams
+      { secondWingPair: true, whiskers: true, sparkle: true },  // apex
     ],
-    tierKit: [
-      {},                                                        // T0 R
-      { bladeFins: true },                                       // T1 SR  — blade-fins emerge
-      { wingShape: 'feather' },                                  // T2 SR+ — feathered wings
-      { crest: 1, glowSeams: true },                            // T3 SSR — blade-fan crest + seams
-      { halo: true, whiskers: true },                            // T4 SSR+— halo + whiskers
-      { crest: 2, sparkle: true },                               // T5 SSSR— full regalia + sparkle
-    ],
-    fx: { auraColor: '255,230,150', auraIdle: 0.14, sparkle: true },
-    body: 0xe8e8f0, belly: 0xffe8c0, scales: 0xfff0d0, horn: 0xffd060,
-    wingInner: 0xffe080, wingOuter: 0xff8040, wingEmissive: 0xffc040,
-    // Apex palette: sapphire eyes, white-gold seams
-    apexEye: 0x4488ff, apexSeam: 0xfffce8,
-    eye: 0x80c0ff, trail: 0xffe8a0, boostTrail: 0xffd870,
+    fx: { auraColor: '150,200,255', auraIdle: 0.16, sparkle: true },
+    body: 0xeef2ff, belly: 0xfff4d8, scales: 0xdce8ff, horn: 0xffd86a,
+    wingInner: 0xeaf4ff, wingOuter: 0x3a7bff, wingEmissive: 0x88b8ff,
+    apexEye: 0x2a6bff, apexSeam: 0xfff2c0,
+    eye: 0x6aa8ff, trail: 0xcfe4ff, boostTrail: 0x9fd0ff,
   },
 
   solar: {
@@ -168,31 +134,24 @@ export const DRAGONS = {
     title: 'Apex of the skies',
     rarity: 'SSSR',
     cost: 5000,
+    // Bahamut, the Dragon King: obsidian-black armor, molten gold plating,
+    // crimson blade-wings — the awe-inducing showpiece.
     stats: { speed: 1.16, handling: 1.28, drain: 0.7, regen: 1.35 },
     model: {
-      // Bahamut/Smaug reference: armored regal build, huge wings, layered plates
-      scale: 1.1, wingScale: 1.28, tailSegments: 12, neckSegments: 6,
-      hornLen: 1.7, hornPairs: 2, ridgeCount: 18, flapBias: 1.1,
+      scale: 1.22, wingScale: 1.3, tailSegments: 9, neckSegments: 6,
+      hornLen: 1.7, hornPairs: 2, ridgeCount: 16, flapBias: 1.1,
     },
-    stages: [
-      { scale: 0.9, eyeScale: 1.2, hornLen: 1.25, ridgeCount: 14, tailSegments: 9, hornPairs: 1 },
-      {},
-      { scale: 1.18, wingScale: 1.36 },
+    forms: [
+      {},                                                        // base — bare gold drake
+      { armorPlates: true, crest: 1 },                          // +chest/flank armor + crest
+      { glowSeams: true, tusks: true, hornPairs: 2, crest: 2 }, // +molten seams + tusks + crown
+      { maceTail: true, secondWingPair: true, wingScale: 1.4, sparkle: true }, // apex — full regalia
     ],
-    tierKit: [
-      {},                                                        // T0 R   — bare gold drake
-      { armorPlates: true },                                     // T1 SR  — chest + flank plates
-      { glowSeams: true },                                       // T2 SR+ — under-scale seams
-      { tusks: true, hornPairs: 2 },                             // T3 SSR — tusks + antler crown
-      { maceTail: true, crest: 2 },                              // T4 SSR+— mace tail + crest
-      { wingScale: 1.42, sparkle: true },                        // T5 SSSR— enormous wings + full regalia
-    ],
-    fx: { auraColor: '255,200,90', auraIdle: 0.22, sparkle: true },
-    body: 0xd88a18, belly: 0xfff0c8, scales: 0xffe070, horn: 0xfff0b0,
-    wingInner: 0xffd84a, wingOuter: 0xff4a18, wingEmissive: 0xffaa20,
-    // Apex palette: molten cracks, cyan-gold core
-    apexEye: 0xffffff, apexSeam: 0xff8800,
-    eye: 0xfff0a0, trail: 0xffe060, boostTrail: 0xffb030,
+    fx: { auraColor: '255,150,40', auraIdle: 0.24, sparkle: true },
+    body: 0x1c140e, belly: 0x3a2a16, scales: 0xffc24a, horn: 0xffe08a,
+    wingInner: 0xffb52a, wingOuter: 0xb01818, wingEmissive: 0xff5a14,
+    apexEye: 0xfff0a0, apexSeam: 0xff5500,
+    eye: 0xffd86a, trail: 0xffb030, boostTrail: 0xff6a20,
   },
 };
 

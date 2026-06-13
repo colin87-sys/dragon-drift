@@ -8,7 +8,7 @@ const { page, errors, done } = await boot({
   initScript: `localStorage.setItem('dragonDriftSave', JSON.stringify({
     v: 2, embers: 9000,
     skins: { owned: ['azure', 'ember', 'solar'], equipped: 'solar' },
-    ascension: { tiers: [['solar', 5], ['ember', 3]], radiance: [] },
+    ascension: { tiers: [['solar', 3], ['ember', 2]], radiance: [] },
     cosmetics: { marksOwned: ['goldleaf'], markEquipped: '', formPref: [] },
   }))`,
 });

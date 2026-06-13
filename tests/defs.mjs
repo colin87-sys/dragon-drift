@@ -96,14 +96,14 @@ assertEq(levelTitleId(7), null, 'level 7 grants nothing');
 ok('titles unique, ≤16 chars, level mapping correct');
 
 // --- Ascension tiers ---
-assertEq(ASCENSION_TIERS.length, 5, 'exactly 5 ascension tiers');
+assertEq(ASCENSION_TIERS.length, 3, 'exactly 3 ascension tiers (4 forms incl. base)');
 let prevMetres = 0;
 for (const t of ASCENSION_TIERS) {
   assert(t.cost > 0, `tier ${t.name} cost > 0`);
   assert(t.metres > prevMetres, `tier ${t.name} metres strictly increasing`);
   prevMetres = t.metres;
 }
-ok('5 ascension tiers, costs positive, metres increasing');
+ok('3 ascension tiers, costs positive, metres increasing');
 
 // --- Flightmarks ---
 const fmIds = FLIGHTMARKS.map(m => m.id);
@@ -114,13 +114,13 @@ for (const m of FLIGHTMARKS) {
 }
 ok(`${FLIGHTMARKS.length} flightmarks, unique ids, costs ≥800`);
 
-// --- Dragon evolution stages ---
+// --- Dragon evolution forms (base + 3 = 4) ---
 for (const [key, d] of Object.entries(DRAGONS)) {
-  assert(Array.isArray(d.stages) && d.stages.length === 3, `dragon ${key} has 3 stages`);
-  for (let i = 0; i < 3; i++) {
-    assert(d.stages[i] !== null && typeof d.stages[i] === 'object', `dragon ${key} stage ${i} is an object`);
+  assert(Array.isArray(d.forms) && d.forms.length === 4, `dragon ${key} has 4 forms`);
+  for (let i = 0; i < 4; i++) {
+    assert(d.forms[i] !== null && typeof d.forms[i] === 'object', `dragon ${key} form ${i} is an object`);
   }
 }
-ok(`${Object.keys(DRAGONS).length} dragons each have 3 evolution stages`);
+ok(`${Object.keys(DRAGONS).length} dragons each have 4 evolution forms`);
 
 console.log(`\n${n} def checks passed.`);
