@@ -219,6 +219,73 @@ export const DRAGONS = {
     apexEye: 0xfff0a8, apexSeam: 0xffd166, coreGlow: 0xb784ff, surgeHi: 0xfff8e8,
     eye: 0xffd86a, trail: 0xffb030, boostTrail: 0xff6a20,
   },
+
+  phoenix: {
+    name: 'Phoenix Ascendant',
+    title: 'Reborn in fire',
+    rarity: 'SSSR',
+    cost: 6000,
+    // The new apex unlockable — a molten fire-BIRD, not a wyvern: broad upswept
+    // feathered flame wings, a flowing fire-fan tail, a white-gold heart-fire
+    // core. Pure fire (gold/white-hot, no magenta) sets it apart from Solar.
+    stats: { speed: 1.16, handling: 1.26, drain: 0.72, regen: 1.34 },
+    model: {
+      scale: 1.2, wingScale: 1.32, tailSegments: 9, neckSegments: 5,
+      hornLen: 1.4, hornPairs: 1, ridgeCount: 15,
+      flapBias: 0.95, flapAmp: 0.88, // broad, powerful, majestic wingbeat
+    },
+    // Broad, UPSWEPT, shallow-chord wings (a spreading bird) with flame-feather
+    // edges — vs Solar's swept-back deep membrane.
+    wingForms: [
+      { tips: [[4.30, 0.50], [3.50, -0.10], [2.40, -0.52], [1.30, -0.70]],
+        lead: [2.85, 0.70], scallop: 0.30, flame: false,
+        arc: { bow: 0.70, hump: 0.60, humpAt: 0.50, hook: 0.30 } },
+      { tips: [[4.90, 0.55], [4.00, -0.05], [2.80, -0.56], [1.50, -0.78]],
+        lead: [3.20, 0.78], scallop: 0.40, flame: false,
+        arc: { bow: 0.80, hump: 0.95, humpAt: 0.52, hook: 0.42 } },
+      { tips: [[5.30, 0.60], [4.40, 0.00], [3.10, -0.60], [1.70, -0.86]],
+        lead: [3.50, 0.86], scallop: 0.50, flame: true,
+        arc: { bow: 0.90, hump: 1.35, humpAt: 0.55, hook: 0.65 } },
+      { tips: [[5.60, 0.66], [4.70, 0.06], [3.40, -0.60], [2.00, -0.90], [1.00, -0.82]],
+        lead: [3.80, 0.94], scallop: 0.50, flame: true,
+        arc: { bow: 1.00, hump: 1.85, humpAt: 0.58, hook: 1.05 } },
+    ],
+    forms: [
+      // FORM 1 — Ember Chick: small, dull charcoal + muted ember, a tiny crest.
+      { wingForm: 0, tailStyle: 'simple', tailSegments: 6, ridgeCount: 8,
+        spineGlow: 0, crest: 1, hornPairs: 1, hornLen: 1.0, neckSegments: 5,
+        colors: { body: 0x1a1410, wingInner: 0xc8541c, wingOuter: 0x8a3a14,
+          wingEmissive: 0x6e2e10, scales: 0x8a6038, horn: 0xa07a4a,
+          apexSeam: 0x6e4a28, eye: 0xc89050, coreGlow: 0xd88840 } },
+      // FORM 2 — Flame Fledgling: brighter ember, a dorsal ridge, finned tail.
+      { wingForm: 1, tailStyle: 'finned', tailSegments: 7, ridgeCount: 11,
+        spineGlow: 0.3, crest: 2, dorsal: true,
+        colors: { body: 0x201712, wingInner: 0xff6a1c, wingOuter: 0xd9381a,
+          wingEmissive: 0xff5a14, scales: 0xd99040, horn: 0xf0b060,
+          apexSeam: 0xe09038, eye: 0xffc060, coreGlow: 0xffb050 } },
+      // FORM 3 — Blaze Phoenix: vivid fire, glowing spine + veins, the fire-fan
+      // tail emerges. Fast, radiant.
+      { wingForm: 2, tailStyle: 'firefan', tailSegments: 8, ridgeCount: 13,
+        spineGlow: 0.65, wingVeins: true, glowSeams: true, crest: 2, hornLen: 1.3,
+        colors: { body: 0x18130f, wingInner: 0xff7a1a, wingOuter: 0xff4a14,
+          wingEmissive: 0xff6a1e, scales: 0xffc24a, horn: 0xffe090,
+          apexSeam: 0xffb030, eye: 0xffe090, coreGlow: 0xffd060 } },
+      // FORM 4 — PHOENIX ASCENDANT: widest upswept wings → GOLD tips (pure fire,
+      // no magenta), blazing white-gold spine + heart-fire core, full fire-fan
+      // tail, crown crest. Legendary rebirth.
+      { wingForm: 3, tailStyle: 'firefan', tailSegments: 9, ridgeCount: 15,
+        spineGlow: 1.0, wingVeins: true, glowSeams: true,
+        backCrest: true, auraHalo: true, crest: 3, hornLen: 1.4,
+        colors: { body: 0x140f0c, wingInner: 0xff8a20, wingOuter: 0xffd060,
+          wingEmissive: 0xff7a1e, scales: 0xffe49a, horn: 0xfff0c0,
+          apexSeam: 0xffe07a, eye: 0xfff0c0, coreGlow: 0xffe88a } },
+    ],
+    fx: { auraColor: '255,140,40', auraIdle: 0.0, sparkle: false },
+    body: 0x140f0c, belly: 0x3a2a16, scales: 0xffe49a, horn: 0xfff0c0,
+    wingInner: 0xff8a20, wingOuter: 0xffd060, wingEmissive: 0xff7a1e,
+    apexEye: 0xfff0c0, apexSeam: 0xffe07a, coreGlow: 0xffe88a, surgeHi: 0xfff8e8,
+    eye: 0xffd86a, trail: 0xff8030, boostTrail: 0xffb050,
+  },
 };
 
 // Highest multipliers in the roster (for shop stat-bar normalisation).
