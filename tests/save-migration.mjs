@@ -37,6 +37,8 @@ const V1_BLOB = {
   check('new: weekly drawn for current week', /^\d{4}-W\d{2}$/.test(s.weekly.key) && s.weekly.trialIds.length === 3);
   check('new: milestones/mastery defaulted', s.milestones.claimed.length === 0 && s.mastery.flown.length === 0);
   check('new: gambitPending not in schema', !('gambitPending' in s));
+  check('new: ascension defaulted', s.ascension && Array.isArray(s.ascension.tiers) && Array.isArray(s.ascension.radiance));
+  check('new: cosmetics defaulted', s.cosmetics && Array.isArray(s.cosmetics.marksOwned) && s.cosmetics.markEquipped === '');
   check('new: lifetime stats extended, legacy kept', s.stats.runs === 12 && s.stats.totalPerfects === 0);
   check('new: missions.completedIds defaulted', Array.isArray(s.missions.completedIds));
   check('new: lastSeen stamped today', s.lastSeen === new Date().toISOString().slice(0, 10));

@@ -38,6 +38,8 @@ import { selectNextUp } from './recap.js';
 import { initGoldEmbers, addGoldEmber, updateGoldEmbers, resetGoldEmbers } from './goldEmbers.js';
 import { initHints, updateHints } from './hints.js';
 import { initPbMarker, updatePbMarker } from './pbMarker.js';
+import { ascendedDef, grandfatherAscension, ascend, buyRadiance, ascensionTier, radianceRank } from './ascension.js';
+import { applyFlightmark, buyFlightmark, equipFlightmark } from './flightmarks.js';
 
 // --- Renderer / scene / camera ---
 const renderer = new THREE.WebGLRenderer({ antialias: true });
@@ -78,7 +80,11 @@ let runSeed = seedForRun();
 game.runSeed = runSeed;
 
 // --- Build the world ---
-const equippedDragon = () => DRAGONS[saveData.skins.equipped] || DRAGONS.azure;
+const equippedDragon = () => {
+  const key = saveData.skins.equipped;
+  const def = DRAGONS[key] || DRAGONS.azure;
+  return applyFlightmark(ascendedDef(def, ascensionTier(key), radianceRank(key)));
+};
 const equippedRider = () => RIDERS[saveData.riders.equipped] || RIDERS.drifter;
 createEnvironment(scene, runSeed);
 createWater(scene, true); // real reflection by default; tiers downgrade it
@@ -162,6 +168,30 @@ ui.init({
     applyDragonStats(equippedDragon());
   },
   onEquipRider: () => rebuildDragon(equippedDragon(), equippedRider(), player),
+  onAscend: (key) => {
+    const def = DRAGONS[key] || DRAGONS.azure;
+    if (ascend(key, def.cost)) {
+      rebuildDragon(equippedDragon(), equippedRider(), player);
+      applyDragonStats(equippedDragon());
+      return ascensionTier(key);
+    }
+    return 0;
+  },
+  onBuyRadiance: (key) => {
+    if (buyRadiance(key)) {
+      rebuildDragon(equippedDragon(), equippedRider(), player);
+      return radianceRank(key);
+    }
+    return 0;
+  },
+  onBuyFlightmark: (id) => buyFlightmark(id),
+  onEquipFlightmark: (id) => {
+    if (equipFlightmark(id)) {
+      rebuildDragon(equippedDragon(), equippedRider(), player);
+      return true;
+    }
+    return false;
+  },
   onQualityChange: (v) => { if (v !== null) applyQuality(v); },
   onPause: () => pauseManual(),
   onResume: () => resumeFromPause(),
@@ -194,6 +224,7 @@ cameraCtl.init(camera, player);
   persist();
   if (gambitSunsetRefund > 0) ui.setStartNotice(`An interrupted Gauntlet returned your ◆${gambitSunsetRefund} stake.`);
 }
+grandfatherAscension(Object.keys(DRAGONS));
 
 ui.showScreen('start');
 
@@ -355,6 +386,7 @@ function settleRun() {
       gold: goldValue,
       rider: game.emberBonusEarned,
       firstFlight: game.firstFlightBonus,
+      ascend: game.ascendBonusEarned,
       total: emberTotal,
     },
     nextUp: selectNextUp(),

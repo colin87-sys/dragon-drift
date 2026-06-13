@@ -34,6 +34,8 @@ export const FEAT_DEFS = [
   { id: 'biome_6',        cat: 'journey', name: 'World Tour',          desc: 'Reach the Astral Shallows in one run',   reward: 120, settle: () => game.distance >= 7500 },
   { id: 'level_10',       cat: 'journey', name: 'Ace Pilot',           desc: 'Reach pilot level 10',                   reward: 80,  settle: () => saveData.level >= 10 },
   { id: 'weekly_first',   cat: 'journey', name: 'Trialblazer',         desc: 'Complete a weekly trial',                reward: 60,  settle: () => TRIAL_POOL.some((t) => saveData.titles.owned.includes(t.title)) },
+  { id: 'ascend_first',   cat: 'skill',      name: 'First Flame',  desc: 'Ascend any dragon to tier 1', reward: 60,  settle: () => (saveData.ascension.tiers || []).some(e => e[1] >= 1) },
+  { id: 'ascend_eternal', cat: 'collection', name: 'Eternal Bond', desc: 'Ascend any dragon to tier 5', reward: 150, title: 'eternal', settle: () => (saveData.ascension.tiers || []).some(e => e[1] >= 5) },
   // --- Collection ---
   { id: 'gold_first',     cat: 'collection', name: 'Gilded',           desc: 'Catch a golden ember',                   reward: 25 },
   { id: 'gold_25',        cat: 'collection', name: 'Midas Wing',       desc: 'Catch 25 golden embers lifetime',        reward: 120, title: 'midas', settle: () => saveData.stats.totalGoldEmbers >= 25 },

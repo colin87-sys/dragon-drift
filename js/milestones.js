@@ -40,7 +40,7 @@ export function settleMilestones() {
 // Dragon mastery stars: metres flown per dragon (gameState.recordBests
 // accumulates into mastery.flown) cross star thresholds that pay embers —
 // a quiet nudge to rotate the roster. Claim keys 'dragonKey:starIndex'.
-export const MASTERY_STARS = [[10000, 40], [30000, 80], [75000, 150]];
+export const MASTERY_STARS = [[10000, 40], [30000, 80], [75000, 150], [150000, 250], [250000, 400]];
 
 export function masteryStarsFor(metres) {
   return MASTERY_STARS.filter(([at]) => metres >= at).length;

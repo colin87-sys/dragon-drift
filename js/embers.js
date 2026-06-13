@@ -3,6 +3,7 @@ import { CONFIG } from './config.js';
 import { game } from './gameState.js';
 import { saveData, persist, todayUTC } from './save.js';
 import { riderEmberBonus } from './riders.js';
+import { ascendEmberBonus } from './ascension.js';
 import { burst } from './particles.js';
 import { sfx } from './sfx.js';
 import { emit } from './events.js';
@@ -113,6 +114,8 @@ export function bankEmbers() {
     game.firstFlightBonus = Math.round(total * (CONFIG.firstFlightMult - 1));
     total += game.firstFlightBonus;
   }
+  game.ascendBonusEarned = Math.round(total * ascendEmberBonus());
+  total += game.ascendBonusEarned;
   saveData.embers += total;
   saveData.stats.totalEmbers += total;
   persist();

@@ -6,6 +6,8 @@ import { nextMilestone } from './milestones.js';
 import { DRAGONS } from './dragons.js';
 import { RIDERS } from './riders.js';
 import { TRACKS, trackUnlocked, sfx } from './sfx.js';
+import { FLIGHTMARKS, flightmarkOwned } from './flightmarks.js';
+import { ASCENSION_TIERS, ascensionTier, canAscend } from './ascension.js';
 
 // Run Recap v2: the session's designed stopping point. One screen, strict
 // hierarchy — records pop, the score counts up, the earnings ledger reveals
@@ -85,8 +87,24 @@ function cheapestUnowned() {
     if (!saveData.riders.owned.includes(key)) items.push({ name: r.name, cost: r.cost });
   }
   TRACKS.forEach((t, i) => {
-    if (!trackUnlocked(i)) items.push({ name: `“${t.name}” station`, cost: t.cost });
+    if (!trackUnlocked(i)) items.push({ name: `”${t.name}” station`, cost: t.cost });
   });
+  // Gate-met ascension steps (mastery metres earned; just needs embers)
+  for (const [key, d] of Object.entries(DRAGONS)) {
+    if (!saveData.skins.owned.includes(key)) continue;
+    const check = canAscend(key, d.cost);
+    if (!check.cost) continue; // tier >= 5
+    if (check.flown >= check.gateMetres) {
+      items.push({ name: `Ascend ${d.name} to ${ASCENSION_TIERS[ascensionTier(key)].name}`, cost: check.cost });
+    }
+  }
+  // Cheapest unowned flightmark
+  for (const mark of FLIGHTMARKS) {
+    if (!flightmarkOwned(mark.id)) {
+      items.push({ name: `${mark.name} trail`, cost: mark.cost });
+      break;
+    }
+  }
   items.sort((a, b) => a.cost - b.cost);
   return items[0] || null;
 }
@@ -140,6 +158,7 @@ function ledgerItems(sum, compact = false) {
     if (eb.gold) bits.push(`golden ${eb.gold}`);
     if (eb.rider) bits.push(`rider +${eb.rider}`);
     if (eb.firstFlight) bits.push(`first flight +${eb.firstFlight}`);
+    if (eb.ascend) bits.push(`ascended +${eb.ascend}`);
     items.push(`<div class="earn-line ember-tally">◆ <b>+${eb.total}</b> embers
       <span class="earn-detail">${bits.join(' · ')}</span>
       <span class="earn-dim">(${saveData.embers.toLocaleString()} total)</span></div>`);

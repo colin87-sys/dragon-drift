@@ -12,6 +12,8 @@ import { buildPilotHtml, wirePilot } from './pilotScreen.js';
 import { DRAGONS, DRAGON_STAT_CAP } from './dragons.js';
 import { RIDERS } from './riders.js';
 import { attachPreviews, attachPreviewCanvas } from './preview.js';
+import { FLIGHTMARKS, flightmarkOwned, equippedFlightmark } from './flightmarks.js';
+import { ASCENSION_TIERS, ascensionTier, canAscend, radianceRank, radianceCost } from './ascension.js';
 
 let els = {};
 let handlers = {};
@@ -373,6 +375,7 @@ export const ui = {
     const kicker = {
       dragon: 'NEW DRAGON', rider: 'NEW RIDER',
       track: 'NEW STATION', generic: 'UNLOCKED',
+      ascension: 'ASCENDED', flightmark: 'NEW TRAIL', radiance: 'RADIANCE',
     }[spec.kind] || 'UNLOCKED';
     els.celebrate.innerHTML = `
       ${big ? '<div class="celebrate-burst"></div>' : ''}
@@ -563,6 +566,23 @@ export const ui = {
           <div class="stat-bar-row"><span>${lbl}</span>
             <div class="stat-bar"><span style="width:${Math.round(12 + 88 * Math.max(0, Math.min(1, k)))}%"></span></div>
           </div>`;
+        const tierPips = (key) => {
+          const t = ascensionTier(key);
+          return Array.from({ length: 5 }, (_, i) =>
+            `<span class="tier-pip${i < t ? ' filled' : ''}">◆</span>`).join('');
+        };
+        const tierAction = (key, cost) => {
+          const t = ascensionTier(key);
+          if (t >= ASCENSION_TIERS.length) {
+            const rc = radianceCost(key);
+            const rr = radianceRank(key);
+            return `<button class="btn-ascend${saveData.embers >= rc ? '' : ' dim'}" data-ascend-radiance="${key}">✦ R${rr + 1} ◆${rc}</button>`;
+          }
+          const check = canAscend(key, cost);
+          const gateMet = check.flown >= check.gateMetres;
+          if (!gateMet) return `<span class="tier-gate">${(check.gateMetres / 1000).toFixed(0)}k m to unlock</span>`;
+          return `<button class="btn-ascend${saveData.embers >= check.cost ? '' : ' dim'}" data-ascend="${key}">▲ ${ASCENSION_TIERS[t].name} ◆${check.cost}</button>`;
+        };
         const cards = Object.entries(DRAGONS).map(([key, d]) => {
           const owned = saveData.skins.owned.includes(key);
           const equipped = saveData.skins.equipped === key;
@@ -578,6 +598,7 @@ export const ui = {
               <div class="skin-name">${d.name}</div>
               <div class="skin-title">${d.title}</div>
               <div class="stat-bars">${bar('SPD', spd)}${bar('AGI', agi)}${bar('STA', sta)}</div>
+              ${owned ? `<div class="skin-tier">${tierPips(key)} ${tierAction(key, d.cost)}</div>` : ''}
               <div class="skin-cost ${owned ? 'owned' : ''}">${equipped ? 'EQUIPPED' : owned ? 'TAP TO EQUIP' : `◆ ${d.cost}`}</div>
             </div>`;
         }).join('');
@@ -607,7 +628,7 @@ export const ui = {
         body = `<div class="shop-grid">${cards}</div>
           <p class="share-hint">Riders pay a bonus on every ember banked at the end of a run.</p>`;
 
-      } else { // music
+      } else if (shopTab === 'music') {
         const cards = TRACKS.map((t, i) => {
           const owned = trackUnlocked(i);
           const playing = music.trackIndex === i;
@@ -621,6 +642,30 @@ export const ui = {
         }).join('');
         body = `<div class="shop-grid">${cards}</div>
           <p class="share-hint">New stations join the radio rotation everywhere — pause menu, N / [ ] keys.</p>`;
+
+      } else { // style — flightmark trail cosmetics
+        const activeId = equippedFlightmark();
+        const defaultActive = activeId === '';
+        const defaultCard = `
+          <div class="skin-card${defaultActive ? ' equipped' : ''}" data-flightmark="">
+            <div class="trail-swatch" style="background: radial-gradient(circle at 35% 30%, #ffd070, #ff8020)"></div>
+            <div class="skin-name">Dragon's Colors</div>
+            <div class="skin-title">Default trail</div>
+            <div class="skin-cost owned">${defaultActive ? 'ACTIVE' : 'TAP TO EQUIP'}</div>
+          </div>`;
+        const markCards = FLIGHTMARKS.map(mark => {
+          const owned = flightmarkOwned(mark.id);
+          const active = activeId === mark.id;
+          return `
+            <div class="skin-card${active ? ' equipped' : ''}${owned ? '' : ' locked'}" data-flightmark="${mark.id}">
+              <div class="trail-swatch" style="background: radial-gradient(circle at 35% 30%, ${hex(mark.boostTrail)}, ${hex(mark.trail)})"></div>
+              <div class="skin-name">${mark.name}</div>
+              <div class="skin-title">Trail cosmetic</div>
+              <div class="skin-cost ${owned ? 'owned' : ''}">${active ? 'ACTIVE' : owned ? 'TAP TO EQUIP' : `◆ ${mark.cost}`}</div>
+            </div>`;
+        }).join('');
+        body = `<div class="shop-grid">${defaultCard}${markCards}</div>
+          <p class="share-hint">Trail marks are purely cosmetic — fly any color you like.</p>`;
       }
 
       html = `
@@ -629,7 +674,7 @@ export const ui = {
           <div class="meta-chip"><span class="ember-ico">◆</span> <b>${saveData.embers}</b></div>
           <button class="topbar-close" id="btn-back" title="Back">✕</button>
         </div>
-        <div class="seg-row shop-tabs" style="margin-top:12px">${tabBtn('dragons', '🐉 DRAGONS')}${tabBtn('riders', '🛡 RIDERS')}${tabBtn('music', '♪ MUSIC')}</div>
+        <div class="seg-row shop-tabs" style="margin-top:12px">${tabBtn('dragons', '🐉 DRAGONS')}${tabBtn('riders', '🛡 RIDERS')}${tabBtn('music', '♪ MUSIC')}${tabBtn('style', '✦ STYLE')}</div>
         ${body}
         <p class="share-hint" id="shop-hint"></p>`;
 
@@ -942,7 +987,7 @@ const barHtml = (frac) =>
 let lastScreen = 'start';
 let returnScreen = 'start';
 let pauseSubscreen = false; // shop/settings opened from the pause menu
-let shopTab = 'dragons';    // dragons | riders | music
+let shopTab = 'dragons';    // dragons | riders | music | style
 let pauseTab = 'audio';     // audio | assists | quests
 let pilotTab = 'feats';     // feats | log | titles
 let startNotice = '';       // one-shot line on the start screen
@@ -1083,6 +1128,73 @@ function wireScreenButtons(type) {
         needMore(250, 'a revive token');
       }
     });
+
+    // Flightmarks: equip free default or buy/equip a mark
+    for (const card of els.screen.querySelectorAll('.skin-card[data-flightmark]')) {
+      card.onclick = stop(() => {
+        const id = card.dataset.flightmark;
+        if (id === '') {
+          handlers.onEquipFlightmark && handlers.onEquipFlightmark('');
+          ui.showScreen('shop');
+          return;
+        }
+        const mark = FLIGHTMARKS.find(m => m.id === id);
+        if (flightmarkOwned(id)) {
+          handlers.onEquipFlightmark && handlers.onEquipFlightmark(id);
+          ui.showScreen('shop');
+        } else if (saveData.embers >= mark.cost) {
+          if (handlers.onBuyFlightmark && handlers.onBuyFlightmark(id)) {
+            handlers.onEquipFlightmark && handlers.onEquipFlightmark(id);
+            ui.showScreen('shop');
+            ui.celebrate({
+              kind: 'flightmark', tier: 'small', glyph: '✦',
+              title: mark.name, subtitle: 'Trail equipped',
+            });
+          }
+        } else {
+          needMore(mark.cost, `${mark.name} trail`);
+        }
+      });
+    }
+
+    // Ascension: ▲ tier button inside dragon card
+    for (const btn of els.screen.querySelectorAll('[data-ascend]')) {
+      btn.onclick = stop(() => {
+        const key = btn.dataset.ascend;
+        const d = DRAGONS[key];
+        const newTier = handlers.onAscend && handlers.onAscend(key);
+        if (newTier) {
+          ui.showScreen('shop');
+          ui.celebrate({
+            kind: 'ascension', tier: 'big', glyph: '▲',
+            title: `${d.name} Ascended`,
+            subtitle: ASCENSION_TIERS[newTier - 1].name,
+          });
+        } else {
+          const check = canAscend(key, d.cost);
+          if (check.cost) needMore(check.cost, `${d.name} ascension`);
+        }
+      });
+    }
+
+    // Radiance: ✦ rank button inside dragon card
+    for (const btn of els.screen.querySelectorAll('[data-ascend-radiance]')) {
+      btn.onclick = stop(() => {
+        const key = btn.dataset.ascendRadiance;
+        const d = DRAGONS[key];
+        const newRank = handlers.onBuyRadiance && handlers.onBuyRadiance(key);
+        if (newRank) {
+          ui.showScreen('shop');
+          ui.celebrate({
+            kind: 'radiance', tier: 'small', glyph: '✦',
+            title: `Radiance Rank ${newRank}`,
+            subtitle: d ? d.name : key,
+          });
+        } else {
+          needMore(radianceCost(key), `${d ? d.name : key} radiance`);
+        }
+      });
+    }
   }
 
   if (type === 'settings') {
