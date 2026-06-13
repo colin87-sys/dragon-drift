@@ -74,20 +74,19 @@ export const ui = {
     const root = document.createElement('div');
     root.id = 'hud';
     root.innerHTML = `
-      <div class="bottom-bar">
-        <div class="bb-bars">
-          <div class="bb-row"><span class="bb-ico">♥</span><div class="bar"><div class="bar-fill health" id="health-fill"></div></div></div>
-          <div class="bb-row"><span class="bb-ico">⚡</span><div class="bar"><div class="bar-fill stamina" id="stamina-fill"></div></div></div>
-        </div>
+      <div class="hud-top-left">
+        <button class="mute-btn" id="pause-btn" title="Pause (Esc) — audio &amp; radio live here">${ICONS.pause}</button>
+      </div>
+      <div class="hud-top-center">
+        <div class="dist" id="dist">0 m</div>
+        <div class="best" id="best"></div>
       </div>
       <div class="hud-top-right">
         <div class="score" id="score">0</div>
+        <div class="embers-hud" id="embers-hud"></div>
         <div class="race-bar" id="race-bar"><span class="race-fill" id="race-fill"></span><span class="race-target" id="race-target"></span></div>
         <div class="combo" id="combo" data-tier="0"><span class="combo-x" id="combo-x">×1.00</span><span class="combo-word">COMBO</span></div>
         <div class="chain" id="chain"><span class="chain-n" id="chain-n">0</span><span class="chain-word">CHAIN</span></div>
-        <div class="dist" id="dist">0 m</div>
-        <div class="best" id="best"></div>
-        <div class="embers-hud" id="embers-hud"></div>
         <div class="ff-chip" id="ff-chip"></div>
         <div class="assist-chip" id="assist-chip"></div>
         <div class="surge-widget" id="surge-widget" data-tier="0">
@@ -108,8 +107,11 @@ export const ui = {
           </div>
         </div>
       </div>
-      <div class="audio-btns">
-        <button class="mute-btn" id="pause-btn" title="Pause (Esc) — audio &amp; radio live here">${ICONS.pause}</button>
+      <div class="hud-bottom-left">
+        <div class="bb-row"><span class="bb-ico">♥</span><div class="bar"><div class="bar-fill health" id="health-fill"></div></div></div>
+      </div>
+      <div class="hud-bottom-right">
+        <div class="bb-row"><span class="bb-ico">⚡</span><div class="bar"><div class="bar-fill stamina" id="stamina-fill"></div></div></div>
       </div>
       <div class="milestone-banner" id="milestone-banner"></div>
       <div class="popup" id="popup"></div>

@@ -66,18 +66,24 @@ body.app-loaded > canvas { opacity: 1; }
 #hud { position: fixed; inset: 0; pointer-events: none; color: #eaf4ff; }
 
 /* ============ ORNATE BOTTOM BAR (Panzer Dragoon style) ============ */
-.bottom-bar {
-  position: absolute; left: 50%; bottom: calc(14px + env(safe-area-inset-bottom));
-  transform: translateX(-50%);
-  width: min(560px, 86vw);
-  display: flex; align-items: center; gap: 0;
-  filter: drop-shadow(0 3px 10px rgba(0,0,0,0.45));
+/* ============ HUD CORNER LAYOUT (WS6) ============ */
+.hud-top-left {
+  position: absolute; top: calc(14px + env(safe-area-inset-top, 0px)); left: 14px; z-index: 5;
 }
-.bb-bars { flex: 1; position: relative; padding: 5px 14px;
-  background: linear-gradient(180deg, rgba(16, 26, 52, 0.78), rgba(8, 14, 30, 0.85));
-  border: 1px solid rgba(200, 160, 80, 0.55);
-  border-radius: 10px;
+.hud-top-center {
+  position: absolute; top: calc(14px + env(safe-area-inset-top, 0px)); left: 50%;
+  transform: translateX(-50%); text-align: center; z-index: 5; pointer-events: none;
 }
+.hud-bottom-left {
+  position: absolute; bottom: calc(14px + env(safe-area-inset-bottom, 0px)); left: 14px; z-index: 5;
+  filter: drop-shadow(0 2px 8px rgba(0,0,0,0.5));
+}
+.hud-bottom-right {
+  position: absolute; bottom: calc(14px + env(safe-area-inset-bottom, 0px)); right: 14px; z-index: 5;
+  filter: drop-shadow(0 2px 8px rgba(0,0,0,0.5));
+}
+.hud-bottom-left .bar,
+.hud-bottom-right .bar { width: min(150px, 34vw); flex: none; }
 .bb-row { display: flex; align-items: center; gap: 8px; padding: 3px 0; }
 .bb-ico { width: 14px; text-align: center; font-size: 10px; opacity: 0.85; }
 .bar { flex: 1; height: 11px; background: rgba(8, 18, 38, 0.85); border: 1px solid rgba(160, 210, 255, 0.28); border-radius: 6px; overflow: hidden; position: relative; }
@@ -86,7 +92,7 @@ body.app-loaded > canvas { opacity: 1; }
 .bar-fill.stamina { background: linear-gradient(90deg, #2f9aff, #3fd8e8, #7fffe0); box-shadow: 0 0 8px rgba(60,210,255,0.55); width: 100%; }
 .bar-fill.stamina.depleted { background: #58606e; box-shadow: none; }
 /* ============ SCORE / COMBO (top-right) ============ */
-.hud-top-right { position: absolute; top: calc(16px + env(safe-area-inset-top, 0px)); right: 60px; text-align: right; }
+.hud-top-right { position: absolute; top: calc(14px + env(safe-area-inset-top, 0px)); right: 14px; text-align: right; }
 .score { font-family: var(--font-display); font-variant-numeric: tabular-nums; font-size: 40px;
   font-weight: 400; letter-spacing: 1px; transform-origin: right center;
   text-shadow: 0 0 18px rgba(80, 190, 255, 0.8), 0 2px 4px rgba(0,0,0,0.5); transition: transform 0.08s, color 0.3s; }
@@ -162,8 +168,8 @@ body.app-loaded > canvas { opacity: 1; }
 @keyframes ret-spin { from { transform: rotate(0deg); } to { transform: rotate(90deg); } }
 @keyframes ret-spin-rev { from { transform: rotate(45deg); } to { transform: rotate(-45deg); } }
 
-/* ============ AUDIO / PAUSE BUTTONS ============ */
-.audio-btns { position: absolute; top: calc(16px + env(safe-area-inset-top, 0px)); right: 14px; display: flex; flex-direction: column; gap: 8px; }
+/* ============ AUDIO / PAUSE BUTTON ============ */
+.audio-btns { display: none; }
 .mute-btn {
   pointer-events: auto; cursor: pointer;
   width: 36px; height: 36px; border-radius: 50%;
@@ -570,9 +576,13 @@ body.app-loaded > canvas { opacity: 1; }
   /* Secondary run-stats hidden until MORE is tapped */
   .sec-stat { display: none; }
   #run-stats.expanded .sec-stat { display: flex; }
-  .bottom-bar    { width: min(420px, 92vw); bottom: calc(10px + env(safe-area-inset-bottom)); }
   .bar           { height: 9px; }
-  .hud-top-right { top: calc(10px + env(safe-area-inset-top, 0px)); right: 52px; }
+  .hud-top-left  { top: calc(10px + env(safe-area-inset-top, 0px)); left: 10px; }
+  .hud-top-center{ top: calc(10px + env(safe-area-inset-top, 0px)); }
+  .hud-top-right { top: calc(10px + env(safe-area-inset-top, 0px)); right: 10px; }
+  .hud-bottom-left  { bottom: calc(10px + env(safe-area-inset-bottom, 0px)); left: 10px; }
+  .hud-bottom-right { bottom: calc(10px + env(safe-area-inset-bottom, 0px)); right: 10px; }
+  .hud-bottom-left .bar, .hud-bottom-right .bar { width: min(120px, 30vw); }
   .score         { font-size: 26px; }
   .combo                 { font-size: 12px; }
   .combo[data-tier="1"]  { font-size: 13px; }
