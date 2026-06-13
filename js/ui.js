@@ -45,6 +45,10 @@ let reviveTimer = null;
 let lastShownScore = 0;
 let lastSpeedlines = -1;
 let celebrateShownAt = 0;
+let assistFadeTimer = null;
+let lastAssistText = '';
+let lastEmbersRun = 0;
+let emberDimTimer = null;
 
 export const ui = {
   init(h = {}) {
@@ -53,15 +57,10 @@ export const ui = {
     root.id = 'hud';
     root.innerHTML = `
       <div class="bottom-bar">
-        <div class="bb-medallion">
-          <div class="lvl-num" id="lvl-num">1</div>
-          <div class="lvl-lbl">PILOT</div>
-        </div>
         <div class="bb-bars">
           <div class="bb-row"><span class="bb-ico">♥</span><div class="bar"><div class="bar-fill health" id="health-fill"></div></div></div>
           <div class="bb-row"><span class="bb-ico">⚡</span><div class="bar"><div class="bar-fill stamina" id="stamina-fill"></div></div></div>
         </div>
-        <div class="bb-wing"><svg viewBox="0 0 40 46"><path fill="currentColor" d="M2 23 C14 8 26 4 38 2 C30 12 28 16 22 20 C30 18 34 18 38 18 C30 26 26 28 20 28 C26 30 30 32 34 34 C24 36 12 34 2 23 Z"/></svg></div>
       </div>
       <div class="hud-top-right">
         <div class="score" id="score">0</div>
@@ -137,7 +136,6 @@ export const ui = {
       raceFill:     root.querySelector('#race-fill'),
       raceTarget:   root.querySelector('#race-target'),
       assistChip:   root.querySelector('#assist-chip'),
-      lvlNum:       root.querySelector('#lvl-num'),
       dist:         root.querySelector('#dist'),
       best:         root.querySelector('#best'),
       popup:        root.querySelector('#popup'),
@@ -186,7 +184,6 @@ export const ui = {
     const C = 2 * Math.PI * 35;
     els.surgeArc.style.strokeDasharray = C;
     els.surgeArc.style.strokeDashoffset = C;
-    els.lvlNum.textContent = saveData.level;
 
     // Live feat unlocks toast over the event bus (feats.js stays ui-free).
     on('featUnlocked', (p) => {
@@ -256,13 +253,33 @@ export const ui = {
       lastChain = chain;
     }
 
-    els.dist.textContent  = `${Math.floor(player.dist)} m`;
-    els.best.textContent  = game.highScore > 0 ? `BEST ${game.highScore}` : '';
-    els.embersHud.textContent = game.embersRun > 0 ? `◆ ${game.embersRun}` : '';
-    // Hardcore chip: visible whenever an assist is switched off
+    els.dist.textContent = `${Math.floor(player.dist)} m`;
+
+    // C1: BEST chip — only surface when closing in on the record (≥70%)
+    els.best.textContent = game.highScore > 0 && game.score >= 0.7 * game.highScore
+      ? `BEST ${game.highScore}` : '';
+
+    // C3: Ember HUD — pop bright on pickup, dim after 2.5s idle
+    const curEmbers = game.embersRun;
+    els.embersHud.textContent = curEmbers > 0 ? `◆ ${curEmbers}` : '';
+    if (curEmbers > lastEmbersRun) {
+      els.embersHud.classList.remove('dim');
+      restartAnim(els.embersHud, 'ember-pickup');
+      clearTimeout(emberDimTimer);
+      emberDimTimer = setTimeout(() => els.embersHud.classList.add('dim'), 2500);
+    }
+    lastEmbersRun = curEmbers;
+
+    // C2: Assist chip — fades after 4s when value hasn't changed
     const hcBonus = Math.round((game.scoreMult - 1) * 100);
-    els.assistChip.textContent = hcBonus > 0 ? `⚔ ASSISTS OFF +${hcBonus}%` : '';
-    els.lvlNum.textContent = saveData.level;
+    const newAssistText = hcBonus > 0 ? `⚔ ASSISTS OFF +${hcBonus}%` : '';
+    if (newAssistText !== lastAssistText) {
+      els.assistChip.textContent = newAssistText;
+      els.assistChip.classList.remove('faded');
+      clearTimeout(assistFadeTimer);
+      if (newAssistText) assistFadeTimer = setTimeout(() => els.assistChip.classList.add('faded'), 4000);
+      lastAssistText = newAssistText;
+    }
 
     // Challenge race bar: live progress against the friend's score, gold
     // once beaten. Today's comparison shouldn't wait for the crash screen.
@@ -546,7 +563,8 @@ export const ui = {
           <button class="btn-tertiary" id="btn-shop">⬡ SHOP${badgeHtml(shopBadgeDue())}</button>
           <button class="btn-tertiary" id="btn-settings">⚙ SETTINGS</button>
         </div>
-        <p class="action-key">${touch ? 'or tap anywhere to take off' : 'or press ENTER to take off'}</p>`;
+        <p class="action-key">${touch ? 'or tap anywhere to take off' : 'or press ENTER to take off'}</p>
+        ${iosInstallHint()}`;
 
     } else if (type === 'shop') {
       // Opening the shop clears its badge: the wallet watermark records what
@@ -594,12 +612,15 @@ export const ui = {
           const lux = d.fx.auraIdle > 0 ? ` lux" style="--aura: rgba(${d.fx.auraColor},0.45)` : '';
           return `
             <div class="skin-card${equipped ? ' equipped' : ''}${owned ? '' : ' locked'}${lux}" data-dragon="${key}">
-              <canvas class="skin-preview" data-kind="dragon" data-key="${key}" width="150" height="150"></canvas>
+              <div class="preview-wrap">
+                <canvas class="skin-preview" data-kind="dragon" data-key="${key}" width="180" height="180"></canvas>
+                ${equipped ? '<div class="equipped-badge">✓ EQUIPPED</div>' : ''}
+              </div>
               <div class="skin-name">${d.name}</div>
               <div class="skin-title">${d.title}</div>
               <div class="stat-bars">${bar('SPD', spd)}${bar('AGI', agi)}${bar('STA', sta)}</div>
               ${owned ? `<div class="skin-tier">${tierPips(key)} ${tierAction(key, d.cost)}</div>` : ''}
-              <div class="skin-cost ${owned ? 'owned' : ''}">${equipped ? 'EQUIPPED' : owned ? 'TAP TO EQUIP' : `◆ ${d.cost}`}</div>
+              <div class="skin-cost ${owned ? 'owned' : ''}">${owned ? (equipped ? '' : 'TAP TO EQUIP') : `◆ ${d.cost}`}</div>
             </div>`;
         }).join('');
         body = `<div class="shop-grid">${cards}
@@ -629,15 +650,26 @@ export const ui = {
           <p class="share-hint">Riders pay a bonus on every ember banked at the end of a run.</p>`;
 
       } else if (shopTab === 'music') {
+        // One accent color per station — drives disc border + ON AIR badge tint
+        const TRACK_ACCENTS = [
+          '#4ab8ff', '#00d4cc', '#ff8800', '#c880ff', '#ff00cc',
+          '#0088ff', '#ffd800', '#ff4488', '#8800ff', '#00ffff',
+          '#ff2222', '#ffaa00', '#aa66ff', '#88ff88', '#00eeff',
+          '#ffcc00', '#00ccff', '#ff5500', '#ffdd00', '#44cc88',
+          '#ff6600', '#ffaaff',
+        ];
+        const eqBars = '<div class="eq-bars"><span></span><span></span><span></span><span></span></div>';
         const cards = TRACKS.map((t, i) => {
           const owned = trackUnlocked(i);
           const playing = music.trackIndex === i;
+          const accent = TRACK_ACCENTS[i] || '#ffd86a';
           return `
-            <div class="skin-card track-card${playing ? ' equipped' : ''}${owned ? '' : ' locked'}" data-track-i="${i}">
+            <div class="skin-card track-card${playing ? ' equipped' : ''}${owned ? '' : ' locked'}"
+                 data-track-i="${i}" style="--accent:${accent}">
               <div class="track-disc${playing ? ' spin' : ''}">♪</div>
               <div class="skin-name">${t.name}</div>
               <div class="skin-title">${t.desc} · ${t.bpm} BPM</div>
-              <div class="skin-cost ${owned ? 'owned' : ''}">${playing ? 'ON AIR' : owned ? 'TAP TO PLAY' : `◆ ${t.cost}`}</div>
+              <div class="skin-cost ${owned ? 'owned' : ''}">${playing ? `${eqBars} ON AIR` : owned ? 'TAP TO PLAY' : `◆ ${t.cost}`}</div>
             </div>`;
         }).join('');
         body = `<div class="shop-grid">${cards}</div>
@@ -977,6 +1009,15 @@ function shopBadgeDue() {
 }
 
 const badgeHtml = (due) => (due ? '<span class="badge"></span>' : '');
+
+// C7: One-time iOS "Add to Home Screen" nudge for Safari users not yet in standalone
+function iosInstallHint() {
+  const isIOS = /iPhone|iPad|iPod/.test(navigator.userAgent);
+  if (!isIOS || navigator.standalone || saveData.flags.seenIOSHint) return '';
+  saveData.flags.seenIOSHint = true;
+  persist();
+  return '<p class="ios-hint">Tip: tap <b>Share ⬆</b> → <b>Add to Home Screen</b> for the full-screen experience</p>';
+}
 
 // Goal-gradient bars: the final stretch glows + shimmers (motivation peaks
 // near completion — make the bar feel it).

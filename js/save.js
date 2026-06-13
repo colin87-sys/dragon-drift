@@ -13,7 +13,7 @@ const KEY = 'dragonDriftSave';
 const DEFAULTS = {
   v: 2,
   best: { score: 0, dist: 0 },
-  flags: { seenFirstSurge: false, hintsSeen: 0 },
+  flags: { seenFirstSurge: false, hintsSeen: 0, seenIOSHint: false },
   audio: { musicMuted: false, sfxMuted: false, musicVol: 1, sfxVol: 1, track: 0, ownedTracks: [] },
   settings: { qualityOverride: null, reticle: true, slowMo: true },
   embers: 0,
