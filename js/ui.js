@@ -11,7 +11,7 @@ import { buildRecapHtml, wireRecap, selectNextUp } from './recap.js';
 import { buildPilotHtml, wirePilot } from './pilotScreen.js';
 import { DRAGONS, DRAGON_STAT_CAP } from './dragons.js';
 import { RIDERS } from './riders.js';
-import { attachPreviews, attachPreviewCanvas } from './preview.js';
+import { attachPreviews, attachPreviewCanvas, refreshPreview } from './preview.js';
 import { attachTrailPreviews } from './trailPreview.js';
 import { FLIGHTMARKS, flightmarkOwned, equippedFlightmark } from './flightmarks.js';
 import { ASCENSION_TIERS, ascendedDef, ascensionTier, canAscend, radianceRank, radianceCost } from './ascension.js';
@@ -1247,9 +1247,19 @@ function wireScreenButtons(type) {
       btn.onclick = stop(() => {
         const key = btn.dataset.formPrev || btn.dataset.formNext;
         const delta = btn.dataset.formPrev ? -1 : 1;
-        setFormPref(key, getFormPref(key) + delta);
-        shopTab = 'dragons';
-        ui.showScreen('shop');
+        const before = getFormPref(key);
+        setFormPref(key, before + delta);
+        const tier = getFormPref(key);
+        if (tier === before) return; // already at a bound — nothing changed
+        // Update ONLY this card in place. A full shop re-render rebuilt every
+        // turntable at once, which read as "all the dragons changed".
+        const label = els.screen.querySelector(`[data-form-label="${key}"]`);
+        if (label) label.textContent = formTierLabel(tier);
+        const canvas = els.screen.querySelector(`canvas.skin-preview[data-key="${key}"]`);
+        if (canvas) refreshPreview(canvas, 'dragon', ascendedDef(DRAGONS[key], tier, radianceRank(key)));
+        // If this is the equipped dragon, rebuild the in-game model so the
+        // chosen form is what you actually fly.
+        if (saveData.skins.equipped === key && handlers.onEquipDragon) handlers.onEquipDragon();
       });
     }
 
