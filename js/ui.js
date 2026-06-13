@@ -803,15 +803,21 @@ export const ui = {
     pauseSubscreen = returnScreen === 'pause' && (type === 'shop' || type === 'settings' || type === 'pilot');
     // Live 3D turntables on the dragon/rider cards; animated 2D trail previews
     if (type === 'shop') {
-      attachTrailPreviews(els.screen, FLIGHTMARKS);
-      attachPreviews(els.screen, (kind, key) => {
-        if (kind !== 'dragon') return RIDERS[key];
-        const def = DRAGONS[key];
-        if (!def) return null;
-        const owned = saveData.skins.owned.includes(key);
-        const tier = owned ? getFormPref(key) : ASCENSION_TIERS.length;
-        return ascendedDef(def, tier, radianceRank(key));
-      });
+      // Previews must never block button wiring below — a failure here used to
+      // leave the tabs and ✕ dead. Guard so wireScreenButtons always runs.
+      try {
+        attachTrailPreviews(els.screen, FLIGHTMARKS);
+        attachPreviews(els.screen, (kind, key) => {
+          if (kind !== 'dragon') return RIDERS[key];
+          const def = DRAGONS[key];
+          if (!def) return null;
+          const owned = saveData.skins.owned.includes(key);
+          const tier = owned ? getFormPref(key) : ASCENSION_TIERS.length;
+          return ascendedDef(def, tier, radianceRank(key));
+        });
+      } catch (e) {
+        console.error('shop preview attach failed', e);
+      }
     }
     // Tapping a blank spot on the shop/settings/pilot screen goes back — the
     // screen container itself is the only target blank space resolves to.
