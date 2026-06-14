@@ -178,7 +178,7 @@ function ledgerItems(sum, compact = false) {
     items.push(`<div class="earn-line milestone-line">▲ ${m.at.toLocaleString()}${m.unit} ${m.label} <b>+◆${m.reward}</b></div>`);
   }
   for (const f of sum.featResults || []) {
-    items.push(`<div class="earn-line feat-line">⬢ FEAT — ${f.def.name} <b>+◆${f.def.reward}</b>${f.titleName ? ` <span class="title-won">«${f.titleName}»</span>` : ''}</div>`);
+    items.push(`<div class="earn-line feat-line">⬢ FEAT — ${f.def.name} <b>◆${f.def.reward} — claim in Pilot</b>${f.titleName ? ` <span class="title-won">«${f.titleName}»</span>` : ''}</div>`);
   }
   if (sum.levelUps > 0) {
     items.push(`<div class="earn-line levelup-badge">⬆ PILOT LEVEL ${saveData.level} <b>+◆${sum.levelEmbers}</b></div>`);

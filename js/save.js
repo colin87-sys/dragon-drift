@@ -11,7 +11,7 @@ const KEY = 'dragonDriftSave';
 // objects under a {} default are dropped on load — collections MUST be
 // arrays (e.g. mastery.flown is [[key, metres], ...], never a map).
 const DEFAULTS = {
-  v: 2,
+  v: 3,
   best: { score: 0, dist: 0 },
   flags: { seenFirstSurge: false, hintsSeen: 0, seenIOSHint: false },
   audio: { musicMuted: false, sfxMuted: false, musicVol: 1, sfxVol: 1, track: 0, ownedTracks: [] },
@@ -34,7 +34,7 @@ const DEFAULTS = {
     bestChain: 0, bestPerfectStreak: 0, mostRingsRun: 0,
     mostPerfectsRun: 0, longestCleanDist: 0, bestCombo: 0, bestDailyScore: 0,
   },
-  feats: { unlocked: [] },
+  feats: { unlocked: [], claimed: [] }, // claimed: feats whose reward was paid out
   titles: { owned: [], equipped: '' },
   weekly: { key: '', trialIds: [], progress: [], done: [], feather: false },
   milestones: { claimed: [] },
@@ -108,6 +108,12 @@ function load() {
   const data = deepMerge(clone(DEFAULTS), parsed);
   // v1 → v2 needs no migration body (deep-merge fills the new fields), but
   // deepMerge keeps the OLD version marker — stamp the current one.
+  // v2 → v3: feats moved from auto-pay-on-unlock to click-to-claim. Every feat
+  // already unlocked under v2 was paid out historically, so mark them all
+  // claimed — never re-pay them; only feats unlocked from here on are claimable.
+  if (parsed && (parsed.v || 0) < 3) {
+    data.feats.claimed = [...new Set(data.feats.unlocked)];
+  }
   data.v = DEFAULTS.v;
   if (parsed && parsed.gambitPending && parsed.gambitPending.stake > 0) {
     data.embers += Math.floor(parsed.gambitPending.stake);
