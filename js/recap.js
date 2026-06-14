@@ -184,6 +184,9 @@ function ledgerItems(sum, compact = false) {
   if (sum.levelUps > 0) {
     items.push(`<div class="earn-line levelup-badge">⬆ PILOT LEVEL ${saveData.level} <b>+◆${sum.levelEmbers}</b></div>`);
   }
+  if (game.mode === 'daily' && game.dailyMod) {
+    items.push(`<div class="earn-line daily-mod-line">${game.dailyMod.glyph} DAILY MODIFIER — ${game.dailyMod.name}<span class="earn-detail"> · ${game.dailyMod.brief}</span></div>`);
+  }
   const d = sum.dailyResult;
   if (d && d.streakBonus > 0) {
     const flames = Math.min(saveData.daily.streak, 7);

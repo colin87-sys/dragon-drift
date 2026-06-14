@@ -47,6 +47,8 @@ export const game = {
   hitstopTimer: 0,     // impact-frame near-freeze, REAL seconds (juice.js)
   reviveUsed: false,   // one revive per run
   pendingDeath: null,  // { cause, lethal } while the revive offer is up
+  dailyMod: null,      // active Daily Challenge modifier (daily.js), or null
+  mods: { gold: 1, speed: 1, perfect: 1, score: 1 }, // run-level multipliers (neutral; daily sets them)
   seenFirstSurge: saveData.flags.seenFirstSurge,
   runFeverThreshold: saveData.flags.seenFirstSurge ? CONFIG.normalFeverThreshold : CONFIG.firstFeverThreshold,
 
@@ -110,18 +112,26 @@ export const game = {
     this.hitstopTimer = 0;
     this.reviveUsed = false;
     this.pendingDeath = null;
+    // Run-level multipliers — neutral by default; the Daily Challenge modifier
+    // sets these (see daily.js / main.js restart()).
+    this.mods = { gold: 1, speed: 1, perfect: 1, score: 1 };
   },
 
   recordBests() {
-    this.isNewHighScore = this.score > this.highScore && this.score > 0;
-    if (this.isNewHighScore) {
-      this.highScore = Math.floor(this.score);
-      saveData.best.score = this.highScore;
-    }
-    this.isNewBestDistance = this.distance > this.bestDistance;
-    if (this.isNewBestDistance) {
-      this.bestDistance = Math.floor(this.distance);
-      saveData.best.dist = this.bestDistance;
+    // Daily runs keep their OWN best (saveData.daily.bestScore via recordDailyRun)
+    // so a modifier (e.g. Hot Streak ×score, High Winds ×speed) can never pollute
+    // the main high-score / best-distance records.
+    if (this.mode !== 'daily') {
+      this.isNewHighScore = this.score > this.highScore && this.score > 0;
+      if (this.isNewHighScore) {
+        this.highScore = Math.floor(this.score);
+        saveData.best.score = this.highScore;
+      }
+      this.isNewBestDistance = this.distance > this.bestDistance;
+      if (this.isNewBestDistance) {
+        this.bestDistance = Math.floor(this.distance);
+        saveData.best.dist = this.bestDistance;
+      }
     }
     const s = saveData.stats;
     s.runs++;

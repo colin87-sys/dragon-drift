@@ -137,6 +137,7 @@ export const player = {
     let targetSpeed = S.baseSpeed * ramp;
     if (this.boosting)     targetSpeed = S.boostSpeed * ramp;
     if (this.orbTimer > 0) targetSpeed = Math.max(targetSpeed, S.orbSpeed * ramp);
+    targetSpeed *= game.mods.speed; // Daily "High Winds" tailwind
     this.speed = damp(this.speed, targetSpeed, CONFIG.speedEase, dt);
 
     // Track max speed for stats

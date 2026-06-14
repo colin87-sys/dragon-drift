@@ -5,6 +5,7 @@ import { toggleMusicMute, toggleSfxMute, musicMuted, sfxMuted, music, sfx, TRACK
 import { comboTier, EMBER_ICON } from './util.js';
 import { saveData, persist, persistNow, unfreezeSaves, xpToNext, todayUTC } from './save.js';
 import { activeMissions } from './missions.js';
+import { todaysDailyMod } from './daily.js';
 import { weeklyTrials } from './weekly.js';
 import { equippedTitleName } from './titles.js';
 import { buildRecapHtml, wireRecap, selectNextUp } from './recap.js';
@@ -882,6 +883,7 @@ export const ui = {
       const title = equippedTitleName();
       const daily = saveData.daily;
       const dailyDone = daily.date === todayUTC() && daily.played;
+      const dmod = todaysDailyMod();
       html = `
         <h1>DRAGON DRIFT</h1>
         ${game.challengeScore ? `<p class="challenge">CHALLENGE — beat ${game.challengeScore} points!</p>` : ''}
@@ -899,9 +901,11 @@ export const ui = {
         <div class="daily-card">
           <div class="daily-info">
             <div class="daily-title">DAILY CHALLENGE</div>
-            <div class="daily-sub">${dailyDone ? `Done today — best ${daily.bestScore}. New course at UTC midnight.` : 'One course, the whole world, every day.'}</div>
+            <div class="daily-mod"><span class="daily-mod-glyph">${dmod.glyph}</span> ${dmod.name}</div>
+            <div class="daily-sub">${dmod.brief}</div>
+            ${dailyDone ? `<div class="daily-done">✓ Cleared today — best ${daily.bestScore}. New twist at UTC midnight.</div>` : ''}
           </div>
-          ${daily.streak > 1 ? `<div class="daily-streak">🔥 ${daily.streak} day streak</div>` : ''}
+          ${daily.streak > 1 ? `<div class="daily-streak">🔥 ${daily.streak}</div>` : ''}
           <button class="btn-secondary btn-daily${dailyDone ? '' : ' glow'}" id="btn-daily">FLY DAILY</button>
         </div>
         <div class="action-row">
