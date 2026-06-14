@@ -1,4 +1,4 @@
-import { saveData, persist } from './save.js';
+import { saveData, persistNow } from './save.js';
 
 // Flightmarks: purchasable trail cosmetics for the dragon. The STYLE tab in
 // the shop. Equipped '' = dragon's own colors.
@@ -28,14 +28,14 @@ export function buyFlightmark(id) {
   if (saveData.embers < def.cost) return false;
   saveData.embers -= def.cost;
   saveData.cosmetics.marksOwned.push(id);
-  persist();
+  persistNow(); // discrete purchase — write immediately, never debounced
   return true;
 }
 
 export function equipFlightmark(id) {
   if (id !== '' && !flightmarkOwned(id)) return false;
   saveData.cosmetics.markEquipped = id;
-  persist();
+  persistNow();
   return true;
 }
 

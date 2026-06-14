@@ -33,12 +33,12 @@ import { initRecords, settleRecords } from './records.js';
 import { initFeats, settleFeats } from './feats.js';
 import { settleWeekly } from './weekly.js';
 import { settleMilestones, settleMasteryStars } from './milestones.js';
-import { grantTitle, levelTitleId } from './titles.js';
+import { grantTitle, levelTitleId, grantEarnedLevelTitles } from './titles.js';
 import { selectNextUp } from './recap.js';
 import { initGoldEmbers, addGoldEmber, updateGoldEmbers, resetGoldEmbers } from './goldEmbers.js';
 import { initHints, updateHints } from './hints.js';
 import { initPbMarker, updatePbMarker } from './pbMarker.js';
-import { ascendedDef, grandfatherAscension, ascend, buyRadiance, ascensionTier, radianceRank, ASCENSION_TIERS } from './ascension.js';
+import { ascendedDef, grandfatherAscension, ascend, ascensionTier, radianceRank, ASCENSION_TIERS } from './ascension.js';
 import { applyFlightmark, buyFlightmark, equipFlightmark, FLIGHTMARKS } from './flightmarks.js';
 
 // --- Renderer / scene / camera ---
@@ -180,13 +180,6 @@ ui.init({
     }
     return 0;
   },
-  onBuyRadiance: (key) => {
-    if (buyRadiance(key)) {
-      rebuildDragon(equippedDragon(), equippedRider(), player);
-      return radianceRank(key);
-    }
-    return 0;
-  },
   onBuyFlightmark: (id) => buyFlightmark(id),
   onEquipFlightmark: (id) => {
     if (equipFlightmark(id)) {
@@ -227,6 +220,9 @@ cameraCtl.init(camera, player);
   persist();
   if (gambitSunsetRefund > 0) ui.setStartNotice(`An interrupted Gauntlet returned your ◆${gambitSunsetRefund} stake.`);
 }
+// Backfill any pilot-level titles already earned (retroactive — covers levels
+// reached before a title existed, or before the per-level grant ran).
+grantEarnedLevelTitles(saveData.level);
 grandfatherAscension(Object.keys(DRAGONS));
 
 // Dev mode (?dev URL, or the Settings toggle saveData.settings.dev): unlock

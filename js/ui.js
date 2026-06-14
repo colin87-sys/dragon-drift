@@ -15,7 +15,7 @@ import { RIDERS } from './riders.js';
 import { attachPreviews, attachPreviewCanvas, refreshPreview, setShowcaseDef, closeShowcase } from './preview.js';
 import { attachTrailPreviews } from './trailPreview.js';
 import { FLIGHTMARKS, flightmarkOwned, equippedFlightmark } from './flightmarks.js';
-import { ASCENSION_TIERS, ascendedDef, ascensionTier, canAscend, radianceRank, radianceCost, maxTierFor } from './ascension.js';
+import { ASCENSION_TIERS, ascendedDef, ascensionTier, canAscend, radianceRank, maxTierFor } from './ascension.js';
 
 let els = {};
 let handlers = {};
@@ -124,7 +124,7 @@ function buyOrEquipDragon(key) {
   const d = DRAGONS[key];
   if (saveData.skins.owned.includes(key)) {
     saveData.skins.equipped = key;
-    persist();
+    persistNow(); // discrete purchase/equip — write immediately, never debounced
     handlers.onEquipDragon && handlers.onEquipDragon(key);
     return 'equipped';
   }
@@ -132,7 +132,7 @@ function buyOrEquipDragon(key) {
     saveData.embers -= d.cost;
     saveData.skins.owned.push(key);
     saveData.skins.equipped = key;
-    persist();
+    persistNow();
     handlers.onEquipDragon && handlers.onEquipDragon(key);
     return 'bought';
   }
@@ -913,13 +913,9 @@ export const ui = {
         const tierAction = (key, cost) => {
           const t = ascensionTier(key);
           if (t >= maxTierFor(key)) {
-            // Evolution is COMPLETE at the apex — say so clearly. The optional
-            // cosmetic aura prestige is reserved for the premium (SSSR) tier;
-            // restrained SSR starters simply read EVOLVED ✦ MAX.
-            if (DRAGONS[key].maxRarity !== 'SSSR') return `<span class="tier-max">EVOLVED ✦ MAX</span>`;
-            const rc = radianceCost(key);
-            return `<span class="tier-max">EVOLVED ✦ MAX</span>`
-              + `<button class="btn-ascend prestige${saveData.embers >= rc ? '' : ' dim'}" data-ascend-radiance="${key}" title="Optional cosmetic prestige — a brighter idle aura, paid in embers">✦ Brighter Aura · <span class="ember-ico">◆</span> ${rc} embers</button>`;
+            // Evolution is COMPLETE at the apex — say so clearly and stop there.
+            // (The old endless "Brighter Aura" ember sink was removed.)
+            return `<span class="tier-max">EVOLVED ✦ MAX</span>`;
           }
           const check = canAscend(key, cost);
           const gateMet = check.flown >= check.gateMetres;
@@ -1499,14 +1495,14 @@ function wireScreenButtons(type) {
         const r = RIDERS[key];
         if (saveData.riders.owned.includes(key)) {
           saveData.riders.equipped = key;
-          persist();
+          persistNow();
           handlers.onEquipRider && handlers.onEquipRider(key);
           ui.showScreen('shop');
         } else if (saveData.embers >= r.cost) {
           saveData.embers -= r.cost;
           saveData.riders.owned.push(key);
           saveData.riders.equipped = key;
-          persist();
+          persistNow();
           handlers.onEquipRider && handlers.onEquipRider(key);
           ui.showScreen('shop');
           ui.celebrate({
@@ -1531,8 +1527,8 @@ function wireScreenButtons(type) {
         } else if (saveData.embers >= t.cost) {
           saveData.embers -= t.cost;
           saveData.audio.ownedTracks.push(t.id);
-          persist();
-          music.setTrack(i);
+          persistNow(); // write the purchase synchronously so it survives an
+          music.setTrack(i); // immediate app close (mobile lifecycle can drop debounced writes)
           sfx.radio();
           ui.showScreen('shop');
           ui.celebrate({
@@ -1550,7 +1546,7 @@ function wireScreenButtons(type) {
       if (saveData.embers >= 250) {
         saveData.embers -= 250;
         saveData.revives++;
-        persist();
+        persistNow();
         ui.showScreen('shop');
         ui.celebrate({
           kind: 'generic', tier: 'small', glyph: '✦',
@@ -1636,24 +1632,6 @@ function wireScreenButtons(type) {
       });
     }
 
-    // Radiance: ✦ rank button inside dragon card
-    for (const btn of els.screen.querySelectorAll('[data-ascend-radiance]')) {
-      btn.onclick = stop(() => {
-        const key = btn.dataset.ascendRadiance;
-        const d = DRAGONS[key];
-        const newRank = handlers.onBuyRadiance && handlers.onBuyRadiance(key);
-        if (newRank) {
-          ui.showScreen('shop');
-          ui.celebrate({
-            kind: 'radiance', tier: 'small', glyph: '✦',
-            title: `Radiance Rank ${newRank}`,
-            subtitle: d ? d.name : key,
-          });
-        } else {
-          needMore(radianceCost(key), `${d ? d.name : key} radiance`);
-        }
-      });
-    }
   }
 
   if (type === 'settings') {
