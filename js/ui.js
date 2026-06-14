@@ -978,7 +978,11 @@ export const ui = {
         <div class="pm-body">${body}</div>
         <div class="pm-footer">
           <span class="pm-wallet"><span class="ember-ico">◆</span> <b>${saveData.embers}</b> · LV <b>${saveData.level}</b></span>
-          <button class="btn-secondary pm-shop-btn" id="pm-shop">SHOP${badgeHtml(shopBadgeDue())}</button>
+          <div class="pm-nav" style="display:flex; gap:8px; flex-wrap:wrap; justify-content:flex-end">
+            <button class="btn-secondary pm-nav-btn" id="pm-pilot">PILOT${badgeHtml(pilotBadgeDue())}</button>
+            <button class="btn-secondary pm-nav-btn" id="pm-settings">SETTINGS</button>
+            <button class="btn-secondary pm-shop-btn" id="pm-shop">SHOP${badgeHtml(shopBadgeDue())}</button>
+          </div>
         </div>
       </div>
       <p class="action-key">${isTouch() ? 'tap outside the menu to resume' : 'Esc or click outside the menu to resume'}</p>`;
@@ -993,6 +997,16 @@ export const ui = {
     els.screen.querySelector('#pm-shop').onclick = stop(() => {
       returnScreen = 'pause';
       ui.showScreen('shop');
+    });
+    // Pilot + Settings are now reachable mid-run from the pause menu, not just
+    // from the start screen (back routes to the pause overlay via pauseSubscreen).
+    els.screen.querySelector('#pm-pilot').onclick = stop(() => {
+      returnScreen = 'pause';
+      ui.showScreen('pilot');
+    });
+    els.screen.querySelector('#pm-settings').onclick = stop(() => {
+      returnScreen = 'pause';
+      ui.showScreen('settings');
     });
     for (const btn of els.screen.querySelectorAll('.seg-btn[data-pmtab]')) {
       btn.onclick = stop(() => {
