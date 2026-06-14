@@ -25,7 +25,7 @@ export const DRAGONS = {
     model: {
       scale: 1.0, wingScale: 0.95, tailSegments: 8, neckSegments: 4,
       hornLen: 1.0, hornPairs: 1, ridgeCount: 12,
-      flapBias: 1.18, flapAmp: 0.85, // quick, light courier wingbeat
+      flapBias: 1.0, flapAmp: 0.9, // light courier beat, smoothed toward the Phoenix feel
     },
     // Narrow, short, clean wings — the most compact silhouette of the roster.
     wingForms: [
@@ -86,7 +86,7 @@ export const DRAGONS = {
     model: {
       scale: 1.08, wingScale: 1.15, tailSegments: 8, neckSegments: 4,
       hornLen: 1.4, hornPairs: 2, ridgeCount: 14,
-      flapBias: 1.0, flapAmp: 0.95, // heavy, powerful wingbeat
+      flapBias: 0.95, flapAmp: 0.95, // heavy, powerful beat, smoothed toward the Phoenix feel
     },
     // Broad wings with deep, JAGGED flame notches (aggressive cinder edges).
     wingForms: [
@@ -150,7 +150,7 @@ export const DRAGONS = {
     model: {
       scale: 1.0, wingScale: 0.82, tailSegments: 11, neckSegments: 7,
       hornLen: 0.9, hornPairs: 1, ridgeCount: 14,
-      flapBias: 1.25, flapAmp: 0.7, // small, quick serpent wings
+      flapBias: 1.05, flapAmp: 0.82, // serpent wings, smoothed/fuller toward the Phoenix feel
     },
     // Small, narrow wings — secondary to the long serpentine body.
     wingForms: [
@@ -213,7 +213,7 @@ export const DRAGONS = {
     model: {
       scale: 1.12, wingScale: 1.12, tailSegments: 9, neckSegments: 5,
       hornLen: 1.1, hornPairs: 1, ridgeCount: 10, eyeScale: 1.25,
-      flapBias: 1.2, flapAmp: 0.78, // quick, agile wingbeat — not Solar's glide
+      flapBias: 1.0, flapAmp: 0.85, // agile beat, smoothed/fuller toward the Phoenix feel
     },
     // Narrow, swept-back, low-arc wings (vs Solar's wide flared flame wings).
     wingForms: [
@@ -272,7 +272,7 @@ export const DRAGONS = {
     model: {
       scale: 1.12, wingScale: 1.2, tailSegments: 9, neckSegments: 5,
       hornLen: 1.3, hornPairs: 1, ridgeCount: 12,
-      flapBias: 0.9, flapAmp: 0.82, // slow, graceful, lofty wingbeat
+      flapBias: 0.9, flapAmp: 0.88, // graceful, lofty beat — already near the Phoenix feel
     },
     // Broad, smooth, strongly UP-RAISED wings (an angel spreading) — clean
     // edges, no flame.
@@ -337,7 +337,7 @@ export const DRAGONS = {
     model: {
       scale: 1.22, wingScale: 1.3, tailSegments: 9, neckSegments: 6,
       hornLen: 1.7, hornPairs: 2, ridgeCount: 16,
-      flapBias: 0.8, flapAmp: 0.6, // slow, gliding, majestic wingbeat
+      flapBias: 0.85, flapAmp: 0.72, // gliding majesty, a fuller stroke toward the Phoenix feel
     },
     forms: [
       // FORM 1 — Duskling: small, clean, dark-navy body + muted bronze, subdued
