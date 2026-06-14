@@ -408,6 +408,8 @@ body.app-loaded > canvas { opacity: 1; }
 .pm-hc-line { font-size: 10px; letter-spacing: 1.5px; font-weight: 800; color: #ffb070;
   text-align: center; margin-top: -4px; }
 .pm-tabs .seg-btn { padding: 9px 0; font-size: 10.5px; letter-spacing: 1.5px; }
+/* §14 — inline category icons sit on the text baseline next to their label. */
+.seg-btn svg, .btn-tertiary svg, .btn-secondary svg, .daily-title svg, .feat-toast svg, .weekly-head svg { vertical-align: -2px; margin-right: 4px; }
 .pm-body { display: flex; flex-direction: column; gap: 11px; min-height: 128px; }
 .pm-hint { font-size: 10.5px; opacity: 0.55; text-align: center; letter-spacing: 0.5px; }
 .pm-footer { display: flex; align-items: center; gap: 10px; margin-top: 2px;

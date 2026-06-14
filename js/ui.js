@@ -51,6 +51,17 @@ const ICONS = {
   inspect:  '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="10.5" cy="10.5" r="6.5"/><path d="M20 20l-4.6-4.6"/></svg>',
   prev:     '<svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor"><path d="M6 4h2v16H6zM20 4v16L9 12z"/></svg>',
   next:     '<svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor"><path d="M16 4h2v16h-2zM4 4v16l11-8z"/></svg>',
+  // §14 — one consistent premium line-icon set for the section/category labels
+  // (matches the music/radio/inspect SVGs above, not the old grab-bag of emoji).
+  dragon:   '<svg viewBox="0 0 18 18" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M9 2.6c2.1 3 3.2 4.2 3.2 6.9A3.2 3.2 0 0 1 5.8 9.5c0-1.7 1-2.8 2-3.7 0 1.1.5 1.6 1 1.6-.5-2 .2-3.9.2-4.8z"/></svg>',
+  rider:    '<svg viewBox="0 0 18 18" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="5.2" r="2.5"/><path d="M3.9 15c0-2.8 2.3-4.7 5.1-4.7s5.1 1.9 5.1 4.7"/></svg>',
+  style:    '<svg viewBox="0 0 18 18" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"><path d="M9 2.2l1.7 4.7 4.7 1.6-4.7 1.6L9 14.8l-1.7-4.7L2.6 8.5l4.7-1.6z"/></svg>',
+  shop:     '<svg viewBox="0 0 18 18" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M4.4 6h9.2l-.8 9.2H5.2z"/><path d="M6.6 6a2.4 2.4 0 0 1 4.8 0"/></svg>',
+  settings: '<svg viewBox="0 0 18 18" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><line x1="3" y1="6" x2="15" y2="6"/><line x1="3" y1="12" x2="15" y2="12"/><circle cx="11.5" cy="6" r="1.9"/><circle cx="6.5" cy="12" r="1.9"/></svg>',
+  pilot:    '<svg viewBox="0 0 18 18" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M9 3.6l5 3.1-5-1-5 1z"/><path d="M9 8.7l5 3.1-5-1-5 1z"/></svg>',
+  daily:    '<svg viewBox="0 0 18 18" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4.5" width="12" height="10.5" rx="1.4"/><path d="M3 7.6h12M6 3v3M12 3v3"/></svg>',
+  feat:     '<svg viewBox="0 0 18 18" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M6.4 2.2l2.6 4.1 2.6-4.1"/><circle cx="9" cy="11" r="3.9"/></svg>',
+  weekly:   '<svg viewBox="0 0 18 18" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5.5 3.2h7v2.6a3.5 3.5 0 0 1-7 0z"/><path d="M5.5 4.2H4a1.6 1.6 0 0 0 1.6 1.9M12.5 4.2H14a1.6 1.6 0 0 1-1.6 1.9"/><path d="M9 9.4v2.3M6.8 14.6h4.4l-.6-2.9H7.4z"/></svg>',
 };
 
 // Popup text IDs used across multiple popups
@@ -715,7 +726,7 @@ export const ui = {
 
   // Feat toast: its own element so gameplay popups are never eaten.
   featToast(name, reward) {
-    els.featToast.innerHTML = `⬢ FEAT — ${name} <b>◆${reward} ▸ claim in Pilot</b>`;
+    els.featToast.innerHTML = `${ICONS.feat} FEAT — ${name} <b>◆${reward} ▸ claim in Pilot</b>`;
     restartAnim(els.featToast, 'feat-toast-anim');
   },
 
@@ -871,7 +882,7 @@ export const ui = {
       const doneCount = trials.filter((t) => t.done).length;
       const weeklyStrip = `
         <div class="weekly-strip">
-          <div class="weekly-head">WEEKLY TRIALS <span class="weekly-count${doneCount ? ' some' : ''}">${doneCount}/${trials.length} ✓</span>${feather ? ' <span class="feather" title="Phoenix Feather — bridges one missed streak day">🪶</span>' : ''}</div>
+          <div class="weekly-head">${ICONS.weekly} WEEKLY TRIALS <span class="weekly-count${doneCount ? ' some' : ''}">${doneCount}/${trials.length} ✓</span>${feather ? ' <span class="feather" title="Phoenix Feather — bridges one missed streak day">🪶</span>' : ''}</div>
           ${trials.map((t) => `
             <div class="weekly-row${t.done ? ' done' : ''}">
               <span class="weekly-label">${t.def.label}</span>
@@ -900,7 +911,7 @@ export const ui = {
         <p class="nextup-line">${nextUp.icon} NEXT UP — ${nextUp.label} <span class="nextup-line-sub">${nextUp.sub}</span></p>
         <div class="daily-card">
           <div class="daily-info">
-            <div class="daily-title">DAILY CHALLENGE</div>
+            <div class="daily-title">${ICONS.daily} DAILY CHALLENGE</div>
             <div class="daily-mod"><span class="daily-mod-glyph">${dmod.glyph}</span> ${dmod.name}</div>
             <div class="daily-sub">${dmod.brief}</div>
             ${dailyDone ? `<div class="daily-done">✓ Cleared today — best ${daily.bestScore}. New twist at UTC midnight.</div>` : ''}
@@ -910,9 +921,9 @@ export const ui = {
         </div>
         <div class="action-row">
           <button class="btn-primary breathe" id="btn-start">TAKE OFF</button>
-          <button class="btn-tertiary" id="btn-pilot">⬢ PILOT${badgeHtml(pilotBadgeDue())}</button>
-          <button class="btn-tertiary" id="btn-shop">⬡ SHOP${badgeHtml(shopBadgeDue())}</button>
-          <button class="btn-tertiary" id="btn-settings">⚙ SETTINGS</button>
+          <button class="btn-tertiary" id="btn-pilot">${ICONS.pilot} PILOT${badgeHtml(pilotBadgeDue())}</button>
+          <button class="btn-tertiary" id="btn-shop">${ICONS.shop} SHOP${badgeHtml(shopBadgeDue())}</button>
+          <button class="btn-tertiary" id="btn-settings">${ICONS.settings} SETTINGS</button>
         </div>
         <p class="action-key">${touch ? 'or tap anywhere to take off' : 'or press ENTER to take off'}</p>
         ${iosInstallHint()}`;
@@ -1072,7 +1083,7 @@ export const ui = {
           <div class="meta-chip"><span class="ember-ico">${EMBER_ICON}</span> <b>${saveData.embers}</b></div>
           <button class="topbar-close" id="btn-back" title="Back">✕</button>
         </div>
-        <div class="seg-row shop-tabs" style="margin-top:12px">${tabBtn('dragons', '🐉 DRAGONS')}${tabBtn('riders', '🛡 RIDERS')}${tabBtn('music', '♪ MUSIC')}${tabBtn('style', '✦ STYLE')}</div>
+        <div class="seg-row shop-tabs" style="margin-top:12px">${tabBtn('dragons', `${ICONS.dragon} DRAGONS`)}${tabBtn('riders', `${ICONS.rider} RIDERS`)}${tabBtn('music', `${ICONS.music} MUSIC`)}${tabBtn('style', `${ICONS.style} STYLE`)}</div>
         ${body}
         <p class="share-hint" id="shop-hint"></p>`;
 

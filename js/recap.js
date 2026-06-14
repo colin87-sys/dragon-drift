@@ -247,8 +247,8 @@ export function buildRecapHtml(score, dist, { isTouch, ICONS }) {
     <div class="action-row">
       <button id="btn-again" class="btn-primary">FLY AGAIN</button>
       <button id="btn-share" class="btn-secondary">SHARE &amp; CHALLENGE</button>
-      <button id="btn-shop" class="btn-tertiary">⬡ SHOP</button>
-      <button id="btn-pilot" class="btn-tertiary">⬢ PILOT</button>
+      <button id="btn-shop" class="btn-tertiary">${ICONS.shop} SHOP</button>
+      <button id="btn-pilot" class="btn-tertiary">${ICONS.pilot} PILOT</button>
     </div>
     <div class="share-menu" id="share-menu" hidden>
       <button id="share-ig"   title="Instagram">${ICONS.ig}</button>
