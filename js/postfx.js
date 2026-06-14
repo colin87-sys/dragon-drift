@@ -23,6 +23,7 @@ const GradingShader = {
     vignette: { value: 0.30 },
     aberration: { value: 0.0 },    // chromatic aberration strength
     lift: { value: 0.0 },          // fever warm-glow pulse
+    liftTint: { value: new THREE.Vector3(0.10, 0.03, 0.08) }, // wash hue (magenta default)
   },
   vertexShader: /* glsl */`
     varying vec2 vUv;
@@ -38,6 +39,7 @@ const GradingShader = {
     uniform float vignette;
     uniform float aberration;
     uniform float lift;
+    uniform vec3 liftTint;
     varying vec2 vUv;
     void main() {
       vec2 d = vUv - 0.5;
@@ -56,8 +58,8 @@ const GradingShader = {
       // Gentle S-curve contrast (smoothstep blend avoids hard clipping).
       vec3 curved = col * col * (3.0 - 2.0 * clamp(col, 0.0, 1.0));
       col = mix(col, curved, contrast);
-      // Fever warm lift
-      col += vec3(0.10, 0.03, 0.08) * lift * (1.0 - r2 * 1.6);
+      // Fever warm lift (hue per equipped dragon — magenta dragons, gold Phoenix)
+      col += liftTint * lift * (1.0 - r2 * 1.6);
       // Vignette
       col *= 1.0 - vignette * smoothstep(0.18, 0.95, r2 * 2.4);
       gl_FragColor = vec4(col, 1.0);
@@ -80,8 +82,17 @@ export const postfx = {
   _baseBloom: 0.24,
   _aberrationOn: true,
   _feverMix: 0,
+  _feverTint: [0.10, 0.03, 0.08], // fever wash hue; setFeverTint() swaps per dragon
   _kickScale: 1, // tier 1 halves impulse magnitudes
 };
+
+// Fever-wash hue. Dragons wash magenta (the default); the Phoenix washes warm
+// gold and a touch dimmer so its Rebirth reads celestial, never like Dragon
+// Surge. Called on dragon equip; applied every frame in updatePostFX.
+const FEVER_TINT_DEFAULT = [0.10, 0.03, 0.08];
+export function setFeverTint(rgb) {
+  postfx._feverTint = rgb || FEVER_TINT_DEFAULT;
+}
 
 // --- Event-driven impulse kicks ---------------------------------------
 // Five channels riding on top of the continuous dynamics, each an impulse
@@ -250,6 +261,7 @@ export function updatePostFX(dt, speedNorm, feverActive, rawDt = dt) {
   // screen-fill pink wash.
   u.lift.value = postfx._feverMix * (0.40 + Math.sin(performance.now() * 0.006) * 0.14)
     + _kick.lift + flash * 0.42;
+  u.liftTint.value.set(postfx._feverTint[0], postfx._feverTint[1], postfx._feverTint[2]);
   let sat = 1.18 + postfx._feverMix * 0.08 + _kick.sat;
   let vig = 0.30 + _kick.vig;
   postfx.bloomPass.strength = postfx._baseBloom + _kick.bloom + flash * 0.25;

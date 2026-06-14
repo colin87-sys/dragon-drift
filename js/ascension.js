@@ -129,6 +129,10 @@ export function ascendedDef(def, tier, radiance) {
     }
   }
 
+  // Stamp the resolved form index (0..3) so archetype models (e.g. the Phoenix)
+  // can switch geometry per form without re-deriving it from glow ramps.
+  d.model.formLevel = Math.min(tier, (def.forms?.length ?? 1) - 1);
+
   // Size ramp: noticeably smaller at base, reference size at the final form.
   // Body and wings ramp on separate curves so the wing-to-body proportion grows
   // each tier — the core of the "different silhouette per form" goal.
