@@ -309,7 +309,9 @@ export function createLevelGen(seed = CONFIG.seed, opts = {}) {
         out.rings.push({ dist: wp.dist, x: wp.x, y: wp.y });
         guideLine(prev, wp, out);
         maybeGold(prev, wp, out, false); // opportunities pass silently here
+        const spBeforeG = out.setPieces.length;
         setPiecesBetween(prev.dist, wp.dist, out.setPieces);
+        if (wp.y > 14) out.setPieces.length = spBeforeG; // keep a high gauntlet ring clear of arches
         auditHop(prev, wp, 'gauntlet');
         prevHopDirX = Math.sign(wp.x - prev.x) || prevHopDirX;
         prevHopDirY = Math.sign(wp.y - prev.y) || prevHopDirY;
@@ -361,6 +363,7 @@ export function createLevelGen(seed = CONFIG.seed, opts = {}) {
       }
 
       // Set-piece events (biome gateways + mega-arches)
+      const spBefore = out.setPieces.length;
       setPiecesBetween(prev.dist, wp.dist, out.setPieces);
 
       if (isGate) {
@@ -376,6 +379,10 @@ export function createLevelGen(seed = CONFIG.seed, opts = {}) {
       } else {
         out.rings.push({ dist: wp.dist, x: wp.x, y: wp.y });
         emberArc(prev, wp, out);
+        // A HIGH green ring must not hide behind a set-piece arch emitted just in
+        // front of it this hop — the chase cam looks down the lane through the
+        // arch's crown, making a clean pass hard. Drop the arch (purely scenic).
+        if (wp.y > 14) out.setPieces.length = spBefore;
       }
       maybeGold(prev, wp, out, true);
       auditHop(prev, wp, isGate ? 'gate' : 'ring');

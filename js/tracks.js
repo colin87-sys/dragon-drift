@@ -11,12 +11,12 @@
 // Note frequencies (Hz)
 export const N = {
   D2:73.42, E2:82.41, F2:87.31, G2:98.00, A2:110.00, Bb2:116.54, B2:123.47,
-  C3:130.81, Cs3:138.59, D3:146.83, E3:164.81, F3:174.61, Fs3:185.00,
-  G3:196.00, A3:220.00, Bb3:233.08, B3:246.94,
+  C3:130.81, Cs3:138.59, D3:146.83, Ds3:155.56, E3:164.81, F3:174.61, Fs3:185.00,
+  G3:196.00, Gs3:207.65, A3:220.00, Bb3:233.08, B3:246.94,
   C4:261.63, Cs4:277.18, D4:293.66, Ds4:311.13, E4:329.63, F4:349.23, Fs4:369.99,
   G4:392.00, Gs4:415.30, A4:440.00, Bb4:466.16, B4:493.88,
   C5:523.25, Cs5:554.37, D5:587.33, Ds5:622.25, E5:659.25, F5:698.46,
-  Fs5:739.99, G5:783.99, A5:880.00, Bb5:932.33, B5:987.77,
+  Fs5:739.99, G5:783.99, Gs5:830.61, A5:880.00, Bb5:932.33, B5:987.77,
   C6:1046.50, Cs6:1108.73, D6:1174.66, Ds6:1244.51, E6:1318.51,
 };
 
@@ -1396,6 +1396,56 @@ export const TRACKS = [
     chords: [
       [N.F3, N.A3, N.C4, N.E4], [N.G3, N.B3, N.D4, N.F4], [N.E3, N.G3, N.B3, N.D4], [N.A3, N.C4, N.E4, N.G4],
       [N.F3, N.A3, N.C4, N.E4], [N.G3, N.B3, N.D4, N.F4], [N.E3, N.G3, N.B3, N.D4], [N.A3, N.C4, N.E4, N.G4],
+    ],
+  },
+  { // 30 — FFXVI "Find the Flame" homage: driving F-minor Eikon-battle anthem.
+    // The original melody is copyright-locked everywhere, so this is an ORIGINAL
+    // chiptune line over the song's confirmed harmony: F minor, ~168 BPM, the
+    // canonical epic loop i–♭VI–♭VII–V (Fm–Db–Eb–C) with the harmonic-minor
+    // raised-7th leading tone (E natural over the C dominant).
+    id: 'findflame',
+    name: 'Find the Flame',
+    desc: 'Eikonic battle anthem · con fuoco',
+    cost: 1800,
+    bpm: 168,
+    voices: {
+      melody: { osc: 'square',   vol: 0.16 },
+      bass:   { osc: 'sawtooth', vol: 0.22 },
+      high:   { osc: 'triangle', vol: 0.12 },
+      arp:    { osc: 'sawtooth', vol: 0.10 },
+      lead:   { osc: 'square',   vol: 0.12 },
+    },
+    drums: { kick: 1, snare: 1, hat: 1, heavy: true },
+    pad: true,
+    melody: [
+      [N.C5,1],[N.F5,1],[N.Gs5,2],[N.G5,1],[N.F5,1],[N.Ds5,2],
+      [N.Cs5,1],[N.F5,1],[N.Gs5,2],[N.F5,1],[N.Cs5,1],[N.F5,2],
+      [N.Ds5,1],[N.G5,1],[N.Bb5,2],[N.G5,1],[N.Ds5,1],[N.G5,2],
+      [N.C5,1],[N.E5,1],[N.G5,2],[N.E5,1],[N.C5,1],[N.G5,2],
+      [N.F5,2],[N.Gs5,2],[N.C6,2],[N.Gs5,2],
+      [N.Cs6,2],[N.Bb5,1],[N.Gs5,1],[N.F5,2],[N.Gs5,2],
+      [N.Ds6,2],[N.C6,1],[N.Bb5,1],[N.G5,2],[N.Bb5,2],
+      [N.C6,1],[N.Bb5,1],[N.Gs5,1],[N.G5,1],[N.E5,2],[N.F5,2],
+    ],
+    bass: pumpBass([N.F3, N.Cs3, N.Ds3, N.C3, N.F3, N.Cs3, N.Ds3, N.C3]),
+    high: [
+      [0,8],[0,8],
+      [N.Bb5,2],[N.G5,2],[N.Bb5,2],[N.Ds6,2],
+      [N.C6,2],[N.G5,2],[N.E5,2],[N.G5,2],
+      [N.C6,2],[N.Gs5,2],[N.F5,2],[N.Gs5,2],
+      [N.Cs6,2],[N.Gs5,2],[N.F5,2],[N.Gs5,2],
+      [N.Ds6,2],[N.Bb5,2],[N.G5,2],[N.Bb5,2],
+      [N.C6,2],[N.G5,2],[N.E5,2],[N.C6,2],
+    ],
+    arps: [
+      [N.F3, N.Gs3, N.C4, N.F4, N.Gs4, N.F4, N.C4, N.Gs3],
+      [N.Cs4, N.F4, N.Gs4, N.Cs5, N.F5, N.Cs5, N.Gs4, N.F4],
+      [N.Ds4, N.G4, N.Bb4, N.Ds5, N.G5, N.Ds5, N.Bb4, N.G4],
+      [N.C4, N.E4, N.G4, N.C5, N.E5, N.C5, N.G4, N.E4],
+    ],
+    chords: [
+      [N.F3, N.Gs3, N.C4, N.F4], [N.Cs4, N.F4, N.Gs4, N.Cs5], [N.Ds4, N.G4, N.Bb4, N.Ds5], [N.C4, N.E4, N.G4, N.C5],
+      [N.F3, N.Gs3, N.C4, N.F4], [N.Cs4, N.F4, N.Gs4, N.Cs5], [N.Ds4, N.G4, N.Bb4, N.Ds5], [N.C4, N.E4, N.G4, N.C5],
     ],
   },
 ];

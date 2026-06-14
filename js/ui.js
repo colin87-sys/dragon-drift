@@ -12,7 +12,7 @@ import { buildPilotHtml, wirePilot } from './pilotScreen.js';
 import { claimFeat, unclaimedFeatCount } from './feats.js';
 import { DRAGONS, DRAGON_STAT_CAP } from './dragons.js';
 import { RIDERS } from './riders.js';
-import { attachPreviews, attachPreviewCanvas, refreshPreview, setShowcaseDef, closeShowcase } from './preview.js';
+import { attachPreviews, attachPreviewCanvas, refreshPreview, setShowcaseDef, closeShowcase, setShowcaseZoom } from './preview.js';
 import { attachTrailPreviews } from './trailPreview.js';
 import { FLIGHTMARKS, flightmarkOwned, equippedFlightmark } from './flightmarks.js';
 import { ASCENSION_TIERS, ascendedDef, ascensionTier, canAscend, radianceRank, maxTierFor } from './ascension.js';
@@ -303,36 +303,65 @@ function openInspect(startKey) {
     render();
   };
 
-  // Drag / swipe across the hero → previous / next dragon.
+  // Gestures on the hero: ONE finger drag = previous / next dragon; TWO-finger
+  // pinch (or the mouse wheel) = zoom the 3D showcase to see the full wingspan.
   const vp = q('#inspect-viewport');
+  const pointers = new Map();
   let dragId = null, startX = 0, dx = 0;
+  let pinching = false, pinchStartDist = 0, pinchStartZoom = 1, zoom = 1;
+  const clampZoom = (z) => Math.max(0.55, Math.min(z, 2.4));
+  const pinchDist = () => {
+    const p = [...pointers.values()];
+    return Math.hypot(p[0].x - p[1].x, p[0].y - p[1].y);
+  };
+  const springBack = () => {
+    content.style.transition = 'transform 0.2s ease, opacity 0.2s ease';
+    content.style.transform = 'translateX(0)';
+    content.style.opacity = '1';
+  };
   vp.addEventListener('pointerdown', (e) => {
-    if (animating || (e.target.closest && e.target.closest('button'))) return;
-    dragId = e.pointerId; startX = e.clientX; dx = 0;
+    if (e.target.closest && e.target.closest('button')) return;
     try { vp.setPointerCapture(e.pointerId); } catch { /* ok */ }
-    content.style.transition = 'none';
+    pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    if (pointers.size === 2) {
+      // Promote to a pinch — abandon any single-finger drag mid-stroke.
+      pinching = true; dragId = null; springBack();
+      pinchStartDist = pinchDist(); pinchStartZoom = zoom;
+    } else if (pointers.size === 1 && !animating) {
+      dragId = e.pointerId; startX = e.clientX; dx = 0;
+      content.style.transition = 'none';
+    }
   });
   vp.addEventListener('pointermove', (e) => {
+    if (pointers.has(e.pointerId)) pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    if (pinching && pointers.size >= 2) {
+      zoom = clampZoom(pinchStartZoom * (pinchDist() / (pinchStartDist || 1)));
+      setShowcaseZoom(zoom);
+      return;
+    }
     if (e.pointerId !== dragId) return;
     dx = e.clientX - startX;
     const damp = Math.sign(dx) * Math.min(Math.abs(dx) * 0.55, 100);
     content.style.transform = `translateX(${damp}px)`;
     content.style.opacity = String(1 - Math.min(Math.abs(damp) / 260, 0.45));
   });
-  const endDrag = (e) => {
+  const endPointer = (e) => {
+    try { vp.releasePointerCapture(e.pointerId); } catch { /* ok */ }
+    pointers.delete(e.pointerId);
+    if (pointers.size < 2) pinching = false;
     if (e.pointerId !== dragId) return;
     dragId = null;
-    try { vp.releasePointerCapture(e.pointerId); } catch { /* ok */ }
     if (dx <= -48) goTo(1);
     else if (dx >= 48) goTo(-1);
-    else {
-      content.style.transition = 'transform 0.2s ease, opacity 0.2s ease';
-      content.style.transform = 'translateX(0)';
-      content.style.opacity = '1';
-    }
+    else springBack();
   };
-  vp.addEventListener('pointerup', endDrag);
-  vp.addEventListener('pointercancel', endDrag);
+  vp.addEventListener('pointerup', endPointer);
+  vp.addEventListener('pointercancel', endPointer);
+  vp.addEventListener('wheel', (e) => {
+    e.preventDefault();
+    zoom = clampZoom(zoom * (e.deltaY < 0 ? 1.12 : 0.89));
+    setShowcaseZoom(zoom);
+  }, { passive: false });
 
   // Capture-phase so Escape closes the modal before the game's own Esc handler.
   const onKey = (e) => {
