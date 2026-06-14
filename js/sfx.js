@@ -33,6 +33,21 @@ try {
   if (navigator.audioSession) navigator.audioSession.type = 'playback';
 } catch { /* not supported */ }
 
+// Soft-clip curve (tanh): unity slope at 0 so it's transparent for normal
+// levels, then rounds peaks and hard-caps at ±1 — a brickwall safety that
+// catches the fast transients the master compressor's attack misses.
+let _tanhCurve = null;
+function makeTanhCurve() {
+  if (_tanhCurve) return _tanhCurve;
+  const n = 2048;
+  _tanhCurve = new Float32Array(n);
+  for (let i = 0; i < n; i++) {
+    const x = (i / (n - 1)) * 2 - 1;
+    _tanhCurve[i] = Math.tanh(x);
+  }
+  return _tanhCurve;
+}
+
 function getCtx() {
   try {
     if (!ctx) {
@@ -45,15 +60,29 @@ function getCtx() {
       comp.ratio.value = 4;
       comp.attack.value = 0.004;
       comp.release.value = 0.18;
+      // Brickwall-ish soft limiter after the compressor: stacked layers + drum
+      // transients can never clip into harsh digital crackle.
+      const limiter = ctx.createWaveShaper();
+      limiter.curve = makeTanhCurve();
+      limiter.oversample = '4x';
       masterGain.connect(comp);
-      comp.connect(ctx.destination);
+      comp.connect(limiter);
+      limiter.connect(ctx.destination);
       musicBus = ctx.createGain();
       musicBus.gain.value = musicTarget();
+      // Master "glue" EQ on MUSIC only: a gentle low-mid scoop clears the mud the
+      // stacked saw/triangle layers build up. SFX bypass it and stay crisp.
+      const glue = ctx.createBiquadFilter();
+      glue.type = 'peaking';
+      glue.frequency.value = 320;
+      glue.Q.value = 0.9;
+      glue.gain.value = -2.5;
       // Slow-mo filter: music ducks underwater during near-death time dilation
       slowFilter = ctx.createBiquadFilter();
       slowFilter.type = 'lowpass';
       slowFilter.frequency.value = 18000;
-      musicBus.connect(slowFilter);
+      musicBus.connect(glue);
+      glue.connect(slowFilter);
       slowFilter.connect(masterGain);
       sfxBus = ctx.createGain();
       sfxBus.gain.value = sfxTarget();
@@ -382,6 +411,7 @@ let nextEvtIdx = 0;
 let schedulerTimer = null;
 let windSource = null;
 let echoDelay = null;  // dotted-eighth echo (delay time follows the track BPM)
+let echoDelayR = null; // right tap of the stereo ping-pong echo
 let pendingRebuild = false; // biome key shift applies at the next loop wrap
 const LOOK_AHEAD = 0.4; // schedule this many seconds ahead
 const SCHED_INTERVAL = 100; // ms between scheduler runs
@@ -685,6 +715,7 @@ function runScheduler() {
         pendingRebuild = false;
         events = buildEvents();
         if (echoDelay) echoDelay.delayTime.value = E8 * 1.5;
+      if (echoDelayR) echoDelayR.delayTime.value = E8 * 1.5;
       }
     }
   }
@@ -717,23 +748,38 @@ export const music = {
     layers.melody.gain.value = 1;
     layers.pad.gain.value    = 1;
 
-    // Echo: dotted-eighth delay with filtered feedback. Sends tap the layer
-    // gains so fading a layer also fades its echoes.
-    const delay = a.createDelay(1);
-    echoDelay = delay;
-    delay.delayTime.value = E8 * 1.5; // dotted eighth at the track BPM
-    const feedback = a.createGain();
-    feedback.gain.value = 0.3;
-    const echoFilter = a.createBiquadFilter();
-    echoFilter.type = 'lowpass';
-    echoFilter.frequency.value = 2000;
+    // Stereo ping-pong echo: a dotted-eighth delay that bounces L↔R with
+    // filtered cross-feedback — instant width vs the old mono single-tap. Sends
+    // tap the layer gains so fading a layer also fades its echoes. Falls back to
+    // a centred tap where StereoPanner is unavailable (very old WebKit).
+    const delayL = a.createDelay(1);
+    const delayR = a.createDelay(1);
+    echoDelay = delayL;
+    echoDelayR = delayR;
+    delayL.delayTime.value = E8 * 1.5; // dotted eighth at the track BPM
+    delayR.delayTime.value = E8 * 1.5;
+    const fbL = a.createGain(); fbL.gain.value = 0.34;
+    const fbR = a.createGain(); fbR.gain.value = 0.34;
+    const filtL = a.createBiquadFilter(); filtL.type = 'lowpass'; filtL.frequency.value = 2200;
+    const filtR = a.createBiquadFilter(); filtR.type = 'lowpass'; filtR.frequency.value = 2200;
     const echoOut = a.createGain();
     echoOut.gain.value = 0.4;
-    delay.connect(echoFilter).connect(feedback).connect(delay);
-    delay.connect(echoOut).connect(musicBus);
-    layers.melody.connect(delay);
-    layers.high.connect(delay);
-    layers.feverlead.connect(delay);
+    // Cross-feedback: each side feeds the OTHER, so the echo pans across.
+    delayL.connect(filtL).connect(fbL).connect(delayR);
+    delayR.connect(filtR).connect(fbR).connect(delayL);
+    if (a.createStereoPanner) {
+      const panL = a.createStereoPanner(); panL.pan.value = -0.6;
+      const panR = a.createStereoPanner(); panR.pan.value = 0.6;
+      delayL.connect(panL).connect(echoOut);
+      delayR.connect(panR).connect(echoOut);
+    } else {
+      delayL.connect(echoOut);
+      delayR.connect(echoOut);
+    }
+    echoOut.connect(musicBus);
+    layers.melody.connect(delayL);
+    layers.high.connect(delayL);
+    layers.feverlead.connect(delayL);
 
     // Boost wind: looped filtered noise under the arpeggio
     stopWindSource();
@@ -777,6 +823,7 @@ export const music = {
       if (!musicActive) return;
       events = buildEvents();
       if (echoDelay) echoDelay.delayTime.value = E8 * 1.5;
+      if (echoDelayR) echoDelayR.delayTime.value = E8 * 1.5;
       loopOffset = ctx.currentTime + 0.06;
       nextEvtIdx = 0;
       restoreBuses(ctx);
