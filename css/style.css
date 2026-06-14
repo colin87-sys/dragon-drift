@@ -198,15 +198,16 @@ body.app-loaded > canvas { opacity: 1; }
 .vignette  { position: absolute; inset: 0; opacity: 0; background: radial-gradient(ellipse at center, transparent 45%, rgba(255,40,40,0.55) 100%); }
 .vignette.lethal { background: radial-gradient(ellipse at center, rgba(255,30,30,0.25) 20%, rgba(255,20,20,0.8) 100%); }
 .blue-flash{ position: absolute; inset: 0; opacity: 0; background: radial-gradient(ellipse at center, rgba(110,200,255,0.22) 0%, transparent 70%); }
-.gold-flash{ position: absolute; inset: 0; opacity: 0; background: radial-gradient(ellipse at center, rgba(255,216,106,0.26) 0%, transparent 65%); }
+.gold-flash{ position: absolute; inset: 0; opacity: 0; background: radial-gradient(ellipse at center, rgba(255,216,106,0.17) 0%, transparent 65%); }
 .flash-anim{ animation: flash 0.45s ease-out forwards; }
 @keyframes flash { 0%{opacity:1} 100%{opacity:0} }
 
+/* Surge edge-wash — kept faint so it frames the action without fogging the screen. */
 .fever-overlay { position: absolute; inset: 0; opacity: 0; pointer-events: none;
-  background: radial-gradient(ellipse at center, transparent 30%, rgba(200,80,255,0.12) 100%);
+  background: radial-gradient(ellipse at center, transparent 34%, rgba(200,80,255,0.07) 100%);
   transition: opacity 0.4s; }
 .fever-overlay.active { opacity: 1; animation: fever-pulse 0.8s ease-in-out infinite; }
-@keyframes fever-pulse { 0%,100%{opacity:0.6} 50%{opacity:1} }
+@keyframes fever-pulse { 0%,100%{opacity:0.4} 50%{opacity:0.66} }
 
 /* ============ REVIVE OFFER ============ */
 .revive-offer { position: absolute; left: 50%; top: 38%; transform: translate(-50%, -50%) scale(0.92);

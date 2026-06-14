@@ -434,7 +434,7 @@ export function updateDragon(dt, player, time) {
   // Aura: full blaze during fever; premium dragons idle with a faint halo.
   const idle = activeDef.fx.auraIdle;
   const auraTarget = player.feverActive
-    ? 0.5 + Math.sin(time * 5) * 0.18
+    ? 0.30 + Math.sin(time * 5) * 0.10   // trimmed ~40%: the big additive halo was the main "lens-flare" blob
     : idle > 0 ? idle * (0.85 + Math.sin(time * 3) * 0.15) : 0;
   auraSprite.material.opacity = damp(auraSprite.material.opacity, auraTarget, 5, dt);
 
@@ -568,7 +568,7 @@ export function updateDragon(dt, player, time) {
         }
       }
     }
-    const peak = isPhx ? 0.35 + fxLvl * 0.2 : 0.55;
+    const peak = isPhx ? 0.26 + fxLvl * 0.14 : 0.5; // Phoenix embers eased down so they read as accents, not clutter
     for (const s of emberMotes) {
       if (!s.visible) continue;
       s.userData.life -= dt * 0.85;

@@ -421,7 +421,7 @@ export const DRAGONS = {
     hasStyle: true,        // keep its own white-gold trail colour even in Surge
     feverWing: 0xffe6a8,   // Rebirth wing ignition is white-gold, not magenta
     feverEye: 0xfff2c8,
-    feverWash: [0.095, 0.07, 0.022], // Rebirth screen wash: warm gold, not pink
+    feverWash: [0.058, 0.043, 0.014], // Rebirth screen wash: warm gold, kept low so it never overexposes the frame
     model: {
       scale: 1.18, wingScale: 1.34,
       flapBias: 0.9, flapAmp: 0.92, // broad, powerful, majestic bird wingbeat

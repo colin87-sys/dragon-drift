@@ -100,7 +100,7 @@ export function setFeverTint(rgb) {
 // the shader; CONFIG.JUICE only maps events -> preset names.
 const _kick = { bloom: 0, lift: 0, sat: 0, vig: 0, ab: 0 };
 const KICK_DECAY = { bloom: 6, lift: 5, sat: 7, vig: 6, ab: 8 };
-const KICK_MAX = { bloom: 0.5, lift: 0.6, sat: 0.35, vig: 0.25, ab: 0.010 };
+const KICK_MAX = { bloom: 0.36, lift: 0.6, sat: 0.35, vig: 0.25, ab: 0.010 };
 let _flashFrames = 0;   // hard gold flash, decremented per PRESENTED frame
 let _deathOn = false;
 let _deathMix = 0;
@@ -108,7 +108,7 @@ let _deathMix = 0;
 const KICK_PRESETS = {
   goldenEmber:      { bloom: 0.30, lift: 0.35 },
   perfectMilestone: { flashFrames: 1, bloom: 0.20, lift: 0.20 },
-  surgeStart:       { bloom: 0.40 },
+  surgeStart:       { bloom: 0.24 },
   // The RED of a combo break comes from the existing #vignette DOM flash —
   // the shader's vignette is colorless darkening.
   comboBreak:       { sat: -0.25, vig: 0.18 },
@@ -256,15 +256,20 @@ export function updatePostFX(dt, speedNorm, feverActive, rawDt = dt) {
     ? clamp(speedNorm, 0, 1) * 0.012 + postfx._feverMix * 0.013
     : 0;
   u.aberration.value = damp(u.aberration.value, targetAb, 5, dt) + _kick.ab;
-  // Surge wash trimmed ~27% so rings/hazards/centre lane stay readable — the
-  // dragon itself carries the spectacle (spine/core/wing-edge), not a full
-  // screen-fill pink wash.
-  u.lift.value = postfx._feverMix * (0.40 + Math.sin(performance.now() * 0.006) * 0.14)
-    + _kick.lift + flash * 0.42;
+  // Surge wash kept deliberately LOW so rings/hazards/centre lane stay readable —
+  // the dragon itself carries the spectacle (spine/core/wing-edge), not a full
+  // screen-fill wash. Trimmed ~40% again: the white-hot Phoenix Rebirth was
+  // washing out the entire frame and burying the silhouette + hazards.
+  u.lift.value = postfx._feverMix * (0.24 + Math.sin(performance.now() * 0.006) * 0.09)
+    + _kick.lift + flash * 0.26;
   u.liftTint.value.set(postfx._feverTint[0], postfx._feverTint[1], postfx._feverTint[2]);
   let sat = 1.18 + postfx._feverMix * 0.08 + _kick.sat;
   let vig = 0.30 + _kick.vig;
-  postfx.bloomPass.strength = postfx._baseBloom + _kick.bloom + flash * 0.25;
+  // Bloom eases DOWN during Surge (clamped) so the bright scene/sky can't blow
+  // out and bury the silhouette — the dragon's own emissive is far brighter and
+  // still blooms, keeping the glow ON the dragon, not the whole screen.
+  postfx.bloomPass.strength = Math.max(0.08,
+    postfx._baseBloom + _kick.bloom + flash * 0.25 - postfx._feverMix * 0.07);
 
   // Death grade overrides last (state itself ramps/decays above).
   if (_deathMix > 0.001) {
