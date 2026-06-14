@@ -315,10 +315,11 @@ export const DRAGONS = {
     title: 'Apex of the skies',
     rarity: 'SSSR',
     cost: 5000,
-    // A legendary solar/fire wyvern-racing mount: obsidian-black body, molten
-    // core glow, gold highlights, crimson flame-wings. The benchmark redesign —
-    // each form is a distinct rear-view silhouette, not the same shape rescaled
-    // (see the per-form wingForm / tailStyle / spineGlow ramp below).
+    // A regal ECLIPSE dragon — the dark, cool-toned counterpoint to the Phoenix's
+    // white-gold solar fire: a midnight-indigo body, antique-gold crown + spine,
+    // dark burnt-crimson wings and blue-violet/cyan eclipse energy. Predatory and
+    // royal, NOT a bright flame-wyvern. Each form is a distinct rear-view
+    // silhouette (see the per-form wingForm / tailStyle / spineGlow ramp below).
     stats: { speed: 1.16, handling: 1.28, drain: 0.7, regen: 1.35 },
     // Base model holds the APEX reference proportions; each form dials the
     // per-stage silhouette. Cumulative: later forms override earlier keys.
@@ -328,45 +329,48 @@ export const DRAGONS = {
       flapBias: 0.8, flapAmp: 0.6, // slow, gliding, majestic wingbeat
     },
     forms: [
-      // FORM 1 — Ember Hatchling: small, clean, charcoal body + muted bronze,
-      // subdued ember wings, a faint violet core. Cleanest readability.
+      // FORM 1 — Duskling: small, clean, dark-navy body + muted bronze, subdued
+      // dark-crimson wings, a faint blue-violet core. Cleanest readability.
       { wingForm: 0, tailStyle: 'simple', tailSegments: 5, ridgeCount: 8,
         spineGlow: 0, crest: 0, hornPairs: 1, hornLen: 1.0, neckSegments: 5,
-        colors: { body: 0x1b1a1f, wingInner: 0xc85c28, wingOuter: 0x8a3a1c,
-          wingEmissive: 0x7a3514, scales: 0x6f4a2c, horn: 0x8a6a48,
-          apexSeam: 0x6f4a2c, eye: 0xb08850, coreGlow: 0x9b7bff } },
-      // FORM 2 — Sunflare Drake: brighter orange-red wings with deep-red edges,
-      // blackened-bronze body, stronger violet core, a subtle spine.
+        colors: { body: 0x0d1018, wingInner: 0x6e2418, wingOuter: 0x4a160e,
+          wingEmissive: 0x5a1c10, scales: 0x7a6038, horn: 0x9a7c4a,
+          apexSeam: 0x5a5c8a, eye: 0x8f9cd0, coreGlow: 0x6f7dff } },
+      // FORM 2 — Eclipse Drake: deep-indigo body, dark copper→crimson wings,
+      // antique-gold spine, a stronger blue-violet core.
       { wingForm: 1, tailStyle: 'finned', tailSegments: 7, ridgeCount: 12,
         spineGlow: 0.34, crest: 1, dorsal: true, hornLen: 1.25,
-        colors: { body: 0x221a18, wingInner: 0xe96a1c, wingOuter: 0xc93a18,
-          wingEmissive: 0xe9541c, scales: 0xa8682f, horn: 0xc08a50,
-          apexSeam: 0xa8682f, eye: 0xffcf6a, coreGlow: 0xa270ff } },
-      // FORM 3 — Royal Dusk Dragon: obsidian body, luminous-gold spine plates,
-      // ember wings with scarlet structure, amethyst core. Mature + elegant.
+        colors: { body: 0x0c1322, wingInner: 0x8a2e18, wingOuter: 0x6e1f14,
+          wingEmissive: 0x7a2414, scales: 0xa88a48, horn: 0xc09a54,
+          apexSeam: 0x6f7dff, eye: 0x9fb0ff, coreGlow: 0x6f7dff } },
+      // FORM 3 — Royal Eclipse Dragon: obsidian-indigo body, antique-gold spine
+      // plates, dark-crimson wings with blue-violet veins, electric core.
       { wingForm: 2, tailStyle: 'blade', tailSegments: 8, ridgeCount: 14,
         spineGlow: 0.7, wingVeins: true, glowSeams: true,
         crest: 2, hornPairs: 2, hornLen: 1.5, tusks: true, neckSegments: 6,
-        colors: { body: 0x18151d, wingInner: 0xff6d1f, wingOuter: 0xd93a1e,
-          wingEmissive: 0xff5a14, scales: 0xf2c35b, horn: 0xffe090,
-          apexSeam: 0xf2c35b, eye: 0xffe49a, coreGlow: 0xb27bff } },
-      // FORM 4 — SOVEREIGN: deep-obsidian body, imperial-gold spine + crown,
-      // ember-orange wing roots gradient to a premium rose-magenta outer edge,
-      // amethyst-violet core/halo. Regal, legendary — still readable.
+        colors: { body: 0x0a1020, wingInner: 0x8a2e18, wingOuter: 0x6e1f14,
+          wingEmissive: 0x6e1f14, scales: 0xc8a24a, horn: 0xd8b25a,
+          apexSeam: 0x6f7dff, eye: 0xbcd0ff, coreGlow: 0x6f7dff } },
+      // FORM 4 — SOVEREIGN (Royal Eclipse): midnight body, antique-gold crown +
+      // spine, dark burnt-crimson wings, blue-violet core/halo, pale electric-blue
+      // eyes. Dark, regal, legendary — the cool counterpoint to the Phoenix.
       { wingForm: 3, tailStyle: 'comet', tailSegments: 9, ridgeCount: 16,
         spineGlow: 1.0, wingVeins: true, glowSeams: true,
         backCrest: true, auraHalo: true, crest: 3, hornLen: 1.7,
-        colors: { body: 0x120f18, wingInner: 0xff7a1a, wingOuter: 0xff5fa8,
-          wingEmissive: 0xff5a1e, scales: 0xffd166, horn: 0xfff0a8,
-          apexSeam: 0xffd166, eye: 0xfff0a8, coreGlow: 0xb784ff } },
+        colors: { body: 0x080b14, wingInner: 0x8a2e18, wingOuter: 0x5a160e,
+          wingEmissive: 0x6e1f14, scales: 0xc8a24a, horn: 0xddc070,
+          apexSeam: 0x6f7dff, eye: 0xddebff, coreGlow: 0x6f7dff } },
     ],
-    fx: { auraColor: '255,150,40', auraIdle: 0.0, sparkle: false },
-    body: 0x120f18, belly: 0x3a2a16, scales: 0xffd166, horn: 0xfff0a8,
-    // Membrane gradient runs ember-orange at the ROOT → rose-magenta at the
-    // outer edge (apex), a premium accent — never a solid-pink wing.
-    wingInner: 0xff7a1a, wingOuter: 0xff5fa8, wingEmissive: 0xff5a1e,
-    apexEye: 0xfff0a8, apexSeam: 0xffd166, coreGlow: 0xb784ff, surgeHi: 0xfff8e8,
-    eye: 0xffd86a, trail: 0xffb030, boostTrail: 0xff6a20,
+    fx: { auraColor: '111,125,255', auraIdle: 0.0, sparkle: false },
+    // Eclipse Surge: cool electric blue, never magenta — the dark royal contrast
+    // to the Phoenix's gold Rebirth.
+    feverWing: 0x9fc0ff, feverEye: 0xddebff, feverWash: [0.035, 0.045, 0.10],
+    body: 0x080b14, belly: 0x1a1830, scales: 0xc8a24a, horn: 0xddc070,
+    // Wing membrane runs dark copper at the ROOT → dark burnt-crimson at the
+    // outer edge — antique bronze struts, blue-violet veins. Never bright orange.
+    wingInner: 0x8a2e18, wingOuter: 0x5a160e, wingEmissive: 0x6e1f14,
+    apexEye: 0xddebff, apexSeam: 0x6f7dff, coreGlow: 0x6f7dff, surgeHi: 0xddebff,
+    eye: 0x9fb0ff, trail: 0x8090ff, boostTrail: 0xbcd0ff,
   },
 
   phoenix: {
@@ -384,6 +388,7 @@ export const DRAGONS = {
     hasStyle: true,        // keep its own white-gold trail colour even in Surge
     feverWing: 0xffe6a8,   // Rebirth wing ignition is white-gold, not magenta
     feverEye: 0xfff2c8,
+    feverWash: [0.095, 0.07, 0.022], // Rebirth screen wash: warm gold, not pink
     model: {
       scale: 1.18, wingScale: 1.34,
       flapBias: 0.9, flapAmp: 0.92, // broad, powerful, majestic bird wingbeat
@@ -403,27 +408,29 @@ export const DRAGONS = {
           featherEdge: 0xd93618, featherHi: 0xfff0b8, wingEmissive: 0xc24014,
           coreGlow: 0xfff0b8, apexSeam: 0xffb030, horn: 0xffd166, scales: 0xffdf90,
           eye: 0xffd166, trail: 0xff8c2e, boostTrail: 0xffd36b } },
-      // FORM 3 — Solar Phoenix: radiant gold, rose-gold edges, the body brightens.
+      // FORM 3 — Solar Phoenix: white-gold begins to dominate, gold feathers with
+      // ivory tips, rose-gold edges, the body warms brighter. Orange now support.
       { spineGlow: 0.7,
-        colors: { body: 0x241510, featherIn: 0xff7a1a, featherOut: 0xffd76a,
-          featherEdge: 0xff9c7a, featherHi: 0xfff8d8, wingEmissive: 0xff7a1e,
-          coreGlow: 0xfff8d8, apexSeam: 0xffd76a, horn: 0xffe6a0, scales: 0xfff0c8,
+        colors: { body: 0x2c1d12, featherIn: 0xffb24a, featherOut: 0xffe8b0,
+          featherEdge: 0xff9c7a, featherHi: 0xfff8e0, wingEmissive: 0xff8a2a,
+          coreGlow: 0xfff8e0, apexSeam: 0xffe6a0, horn: 0xffeec4, scales: 0xfff2d4,
           eye: 0xffe6a0, trail: 0xff942e, boostTrail: 0xffe082 } },
-      // FORM 4 — CELESTIAL REBIRTH: a white-gold firebird — gold feathers,
-      // rose-gold edges, solar halo, blazing heart-fire core. The divine unlock.
+      // FORM 4 — CELESTIAL REBIRTH: a WHITE-GOLD divine firebird. Wings read gold
+      // → solar ivory → white-hot, orange only as the emissive flame support,
+      // rose-gold on the feather edges. Solar halo + blazing heart-fire core.
       { spineGlow: 1.0,
-        colors: { body: 0xf0e2c4, featherIn: 0xff7a1a, featherOut: 0xffd166,
-          featherEdge: 0xff8fa3, featherHi: 0xfff8e8, wingEmissive: 0xff9b2f,
-          coreGlow: 0xfff8e8, apexSeam: 0xffe07a, horn: 0xfff0c0, scales: 0xfff4d8,
-          eye: 0xfff0c0, aura: 0xfff0a8, trail: 0xff9b2f, boostTrail: 0xffd76a } },
+        colors: { body: 0xeee2c6, featherIn: 0xffd166, featherOut: 0xfff0c8,
+          featherEdge: 0xff8fa3, featherHi: 0xfff8e8, wingEmissive: 0xff8a2a,
+          coreGlow: 0xfff8e8, apexSeam: 0xffe07a, horn: 0xfff4d8, scales: 0xfff4d8,
+          eye: 0xfff0c0, aura: 0xfff0a8, trail: 0xffd76a, boostTrail: 0xfff0c8 } },
     ],
-    fx: { auraColor: '255,224,150', auraIdle: 0.0, sparkle: false },
-    // Top-level fallbacks (≈ the final form, for any raw/unascended render).
-    body: 0xf0e2c4, belly: 0x3a2a16, scales: 0xfff4d8, horn: 0xfff0c0,
-    featherIn: 0xff7a1a, featherOut: 0xffd166, featherEdge: 0xff8fa3, featherHi: 0xfff8e8,
-    wingInner: 0xff7a1a, wingOuter: 0xffd166, wingEmissive: 0xff9b2f,
+    fx: { auraColor: '255,236,190', auraIdle: 0.0, sparkle: false },
+    // Top-level fallbacks (≈ the final white-gold form, for any raw render).
+    body: 0xeee2c6, belly: 0x3a2a16, scales: 0xfff4d8, horn: 0xfff4d8,
+    featherIn: 0xffd166, featherOut: 0xfff0c8, featherEdge: 0xff8fa3, featherHi: 0xfff8e8,
+    wingInner: 0xffd166, wingOuter: 0xfff0c8, wingEmissive: 0xff8a2a,
     apexEye: 0xfff0c0, apexSeam: 0xffe07a, coreGlow: 0xfff8e8, surgeHi: 0xfff8e8,
-    aura: 0xfff0a8, eye: 0xffd86a, trail: 0xff9b2f, boostTrail: 0xffd76a,
+    aura: 0xfff0a8, eye: 0xfff0c0, trail: 0xffd76a, boostTrail: 0xfff0c8,
   },
 };
 
