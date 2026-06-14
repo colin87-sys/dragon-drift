@@ -351,22 +351,15 @@ export function buildPhoenixModel(def, opts = {}) {
     tailSegs.push(seg);
   }
 
-  // ── Solar halo (form 3-4): a ring behind the head + a soft backlight card.
+  // ── Soft solar backlight (form 3-4): a divine corona behind the body — a soft
+  // glow only, NOT a hard ring (the ring read like a collar around the neck).
   if (F >= 3) {
-    const halo = new THREE.Mesh(new THREE.TorusGeometry(0.62, 0.04, 8, 28), tagged(
-      new THREE.MeshStandardMaterial({
-        color: cSeam, emissive: cSeam, emissiveIntensity: 1.8, roughness: 0.25, metalness: 0.4,
-        transparent: true, opacity: 0.92,
-      }), cSeam, 1.8));
-    halo.position.set(0, 0.95, -0.2);
-    halo.rotation.x = 0.4;
-    group.add(halo);
     const auraCard = new THREE.Sprite(new THREE.SpriteMaterial({
       map: makeGlowTexture(def.aura ? hexRgb(def.aura) : hexRgb(cSeam)), transparent: true,
-      opacity: 0.3, blending: THREE.AdditiveBlending, depthWrite: false,
+      opacity: 0.34, blending: THREE.AdditiveBlending, depthWrite: false,
     }));
-    auraCard.scale.set(4.2, 5.6, 1);
-    auraCard.position.set(0, 0.8, 0.3);
+    auraCard.scale.set(4.4, 5.8, 1);
+    auraCard.position.set(0, 0.7, 0.25);
     group.add(auraCard);
   }
 
