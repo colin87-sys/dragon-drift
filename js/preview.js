@@ -199,6 +199,12 @@ export function attachPreviewCanvas(canvas, kind, def) {
 // top of the live flap. One showcase at a time; opened/closed by ui.js.
 let scRenderer = null, scScene = null, scCamera = null, scItem = null, scRaf = 0;
 const SC_SIZE = 480;
+// Pinch / wheel zoom: dolly the camera along its view ray (1 = default framing,
+// <1 pulls back to fit the full wingspan, >1 pushes in for detail). Eased toward
+// a target each frame so the gesture feels smooth.
+let scZoom = 1, scZoomTarget = 1;
+export function setShowcaseZoom(z) { scZoomTarget = Math.max(0.55, Math.min(z, 2.4)); }
+export function getShowcaseZoom() { return scZoomTarget; }
 
 function disposeGroup(group) {
   group.traverse((o) => {
@@ -241,6 +247,10 @@ function scLoop(now = performance.now()) {
   const t = now / 1000;
   scItem.tick(t);
   scItem.group.rotation.y = Math.sin(t * 0.45) * 0.4; // gentle showcase orbit over the flap
+  // Apply the eased zoom by dollying along the view ray toward the look target.
+  scZoom += (scZoomTarget - scZoom) * 0.22;
+  scCamera.position.set(0, 0.3 + 1.0 / scZoom, 8.6 / scZoom);
+  scCamera.lookAt(0, 0.3, 0);
   scRenderer.render(scScene, scCamera);
   const c = scItem.canvas;
   scItem.ctx.clearRect(0, 0, c.width, c.height);
@@ -250,4 +260,5 @@ function scLoop(now = performance.now()) {
 export function closeShowcase() {
   if (scRaf) { cancelAnimationFrame(scRaf); scRaf = 0; }
   if (scItem) { scScene.remove(scItem.group); disposeGroup(scItem.group); scItem = null; }
+  scZoom = scZoomTarget = 1; // reset framing for the next time the showcase opens
 }
