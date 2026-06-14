@@ -765,7 +765,31 @@ body.app-loaded > canvas { opacity: 1; }
 .daily-mod-line { color: #d8b8ff; font-weight: 700; }
 .streak-line { color: #ff9a5a; font-weight: 700; }
 .title-won { color: #ffd86a; font-style: italic; }
-.earn-line b { color: #ffd86a; }
+/* §16 — every earned ◆ pops with a sparkle as its recap line reveals
+   (weekly / daily / mission / milestone / streak / level / feat rewards),
+   timed to the line's own reveal delay so the rewards cascade in. */
+.earn-line b { color: #ffd86a; display: inline-block; position: relative; }
+.earn-list.revealing .earn-line b {
+  animation: reward-pop 0.6s ease-out backwards;
+  animation-delay: var(--d, 0ms);
+}
+@keyframes reward-pop {
+  0%   { transform: scale(0.5); opacity: 0; }
+  45%  { transform: scale(1.32); opacity: 1; text-shadow: 0 0 16px rgba(255, 216, 106, 0.95); }
+  72%  { transform: scale(0.97); }
+  100% { transform: scale(1); text-shadow: 0 0 6px rgba(255, 216, 106, 0.4); }
+}
+.earn-list.revealing .earn-line b::after {
+  content: '✦'; position: absolute; right: -13px; top: -8px; font-size: 11px; color: #fff;
+  opacity: 0; pointer-events: none;
+  animation: reward-sparkle 0.7s ease-out backwards;
+  animation-delay: var(--d, 0ms);
+}
+@keyframes reward-sparkle {
+  0%   { opacity: 0; transform: translate(-4px, 6px) scale(0.4) rotate(-20deg); }
+  35%  { opacity: 1; transform: translate(0, -2px) scale(1.1) rotate(0deg); }
+  100% { opacity: 0; transform: translate(9px, -15px) scale(0.6) rotate(25deg); }
+}
 
 /* NEXT UP: the one goal planted at the stopping point */
 .nextup-card { width: min(440px, 88vw); text-align: left; margin: 10px 0 4px;
@@ -1108,6 +1132,8 @@ body.screen-open .menu-motes { display: block; }
   .mission-bar.near::after { animation: none; display: none; }
   .speedlines { display: none; }
   .score.score-earn-pop, .count-up.count-settle { animation: none; }
+  .earn-list.revealing .earn-line b { animation: none; }
+  .earn-list.revealing .earn-line b::after { display: none; }
   .count-puff { display: none; }
   .celebrate-burst { display: none; }
   .celebrate-confetti { display: none; }
