@@ -683,10 +683,12 @@ body.app-loaded > canvas { opacity: 1; }
 .ff-chip { font-size: 10.5px; letter-spacing: 1.5px; color: #ffe27a; margin-top: 5px;
   font-weight: 800; text-shadow: 0 0 10px rgba(255, 220, 90, 0.55); }
 
-/* Feat toast: own element so gameplay popups are never eaten */
-.feat-toast { position: absolute; top: 52%; left: 50%; transform: translateX(-50%);
-  font-size: 16px; font-weight: 800; letter-spacing: 1.5px; color: #c8a0ff; opacity: 0;
-  text-shadow: 0 0 14px rgba(170, 110, 255, 0.8); white-space: nowrap; }
+/* Feat toast: own element so gameplay popups are never eaten. Sits high in the
+   sky (not over the dragon / centre lane, where it blocked the action). */
+.feat-toast { position: absolute; top: 26%; left: 50%; transform: translateX(-50%);
+  font-size: 15px; font-weight: 800; letter-spacing: 1.2px; color: #c8a0ff; opacity: 0;
+  text-shadow: 0 0 14px rgba(170, 110, 255, 0.8); pointer-events: none;
+  max-width: min(360px, 78vw); text-align: center; line-height: 1.3; }
 .feat-toast b { color: #ffd86a; }
 .feat-toast.feat-toast-anim { animation: feat-toast 2.4s ease-out forwards; }
 @keyframes feat-toast {
