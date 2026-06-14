@@ -53,8 +53,10 @@ export const DRAGONS = {
         colors: { body: 0x1a2a44, wingInner: 0x4a8ad8, wingOuter: 0x2a5aa8,
           wingEmissive: 0x4a90ff, scales: 0x9fe8ff, horn: 0xffdf8a,
           apexSeam: 0x5aa8e0, eye: 0x88c8ff, coreGlow: 0x80b0ff } },
-      { wingForm: 2, tailStyle: 'blade', tailSegments: 7, ridgeCount: 11,
-        spineGlow: 0.55, wingVeins: true, glowSeams: true, crest: 1, hornLen: 1.3,
+      // Radiant = the SSR apex: clean finned tail, soft glow, NO premium glow-
+      // seams/veins — clearly a notch below the premium SSR creatures.
+      { wingForm: 2, tailStyle: 'finned', tailSegments: 7, ridgeCount: 11,
+        spineGlow: 0.38, crest: 1, hornLen: 1.15,
         colors: { body: 0x16243c, wingInner: 0x60a8ff, wingOuter: 0x2a6ad0,
           wingEmissive: 0x5aa0ff, scales: 0xbfe8ff, horn: 0xffe8a0,
           apexSeam: 0x7ac0ff, eye: 0xa0d8ff, coreGlow: 0x90c8ff } },
@@ -114,9 +116,11 @@ export const DRAGONS = {
         colors: { body: 0x2a1510, wingInner: 0xe85628, wingOuter: 0xb81f20,
           wingEmissive: 0xff5a20, scales: 0xffa050, horn: 0xffc878,
           apexSeam: 0xff6a28, eye: 0xff9040, coreGlow: 0xff6030 } },
+      // Radiant = the SSR apex: keeps Ember's blade tail + back-spines but drops
+      // the premium glow-seams/veins, softer glow — a notch below premium SSR.
       { wingForm: 2, tailStyle: 'blade', tailSegments: 8, ridgeCount: 14,
-        spineGlow: 0.7, backSpines: true, wingVeins: true, glowSeams: true,
-        crest: 2, hornPairs: 2, hornLen: 1.6,
+        spineGlow: 0.4, backSpines: true,
+        crest: 1, hornPairs: 1, hornLen: 1.3,
         colors: { body: 0x241310, wingInner: 0xff6a28, wingOuter: 0xd02418,
           wingEmissive: 0xff6a22, scales: 0xffb850, horn: 0xffd878,
           apexSeam: 0xff7a2a, eye: 0xffb050, coreGlow: 0xff7838 } },
@@ -178,9 +182,11 @@ export const DRAGONS = {
         colors: { body: 0x123420, wingInner: 0x40c888, wingOuter: 0x107060,
           wingEmissive: 0x40e890, scales: 0xa0ffd0, horn: 0xffe8a0,
           apexSeam: 0x40d8a0, eye: 0xa0ffc0, coreGlow: 0x50e8b0 } },
+      // Radiant = the SSR apex: keeps Jade's whiskers + finned tail but drops the
+      // premium glow-seams/veins, softer glow — a notch below premium SSR.
       { wingForm: 2, tailStyle: 'finned', tailSegments: 11, ridgeCount: 15,
-        spineGlow: 0.6, whiskers: true, wingVeins: true, glowSeams: true,
-        crest: 2, neckSegments: 7,
+        spineGlow: 0.4, whiskers: true,
+        crest: 1, neckSegments: 7,
         colors: { body: 0x103020, wingInner: 0x50e0a0, wingOuter: 0x108878,
           wingEmissive: 0x40f0a0, scales: 0xb0ffe0, horn: 0xffe8a0,
           apexSeam: 0x50f0c0, eye: 0xb0ffd0, coreGlow: 0x60f0c0 } },

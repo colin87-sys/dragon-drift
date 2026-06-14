@@ -276,10 +276,12 @@ body.app-loaded > canvas { opacity: 1; }
 .meta-chip { display: flex; align-items: center; gap: 7px; padding: 7px 16px; border-radius: 999px;
   background: rgba(30, 50, 95, 0.55); border: 1px solid var(--gold-trim); font-size: 14px; }
 .meta-chip b { color: #ffd86a; }
-.meta-chip .ember-ico { color: #ffc050; }
-/* Premium faceted-gem currency glyph: inline-aligned with a soft radiant glow. */
-.ember-ico { display: inline-flex; align-items: center; }
-.ember-svg { vertical-align: -2px; filter: drop-shadow(0 0 3px rgba(255, 180, 60, 0.55)); }
+/* Premium currency ◆: faceted gold gradient + a soft drop-shadow for depth. */
+.ember-ico { display: inline-block; font-style: normal;
+  background: linear-gradient(165deg, #fff2cc 8%, #ffc850 46%, #e88a1c 92%);
+  -webkit-background-clip: text; background-clip: text;
+  color: transparent; -webkit-text-fill-color: transparent;
+  filter: drop-shadow(0 1px 1.5px rgba(150, 80, 0, 0.55)); }
 
 /* mission cards */
 .mission-list { display: flex; flex-direction: column; gap: 8px; width: min(440px, 88vw); margin: 14px 0 4px; }
@@ -386,7 +388,7 @@ body.app-loaded > canvas { opacity: 1; }
   padding-top: 12px; border-top: 1px solid rgba(120, 180, 240, 0.16); }
 .pm-wallet { flex: 1; font-size: 13px; text-align: left; color: #cfe6ff; }
 .pm-wallet b { color: #ffd86a; }
-.pm-wallet .ember-ico { color: #ffc050; }
+.pm-wallet .ember-ico { -webkit-text-fill-color: transparent; }
 .pm-shop-btn { padding: 10px 26px; }
 /* Quest rows (pause tab) */
 .pm-quest { display: flex; align-items: center; gap: 12px; text-align: left; }

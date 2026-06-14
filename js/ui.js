@@ -15,7 +15,7 @@ import { RIDERS } from './riders.js';
 import { attachPreviews, attachPreviewCanvas, refreshPreview } from './preview.js';
 import { attachTrailPreviews } from './trailPreview.js';
 import { FLIGHTMARKS, flightmarkOwned, equippedFlightmark } from './flightmarks.js';
-import { ASCENSION_TIERS, ascendedDef, ascensionTier, canAscend, radianceRank, radianceCost } from './ascension.js';
+import { ASCENSION_TIERS, ascendedDef, ascensionTier, canAscend, radianceRank, radianceCost, maxTierFor } from './ascension.js';
 
 let els = {};
 let handlers = {};
@@ -70,26 +70,26 @@ let emberDimTimer = null;
 // reads SSR while premiums climb to SSSR — so evolving still feels cooler
 // without letting starters masquerade as eternal legendaries.
 const RARITY_LADDERS = {
-  SSR:  ['R', 'SR', 'SR', 'SSR'],
-  SSSR: ['R', 'SR', 'SSR', 'SSSR'],
+  SSR:  ['R', 'SR', 'SSR'],          // starters: 3 forms, apex Radiant = SSR
+  SSSR: ['R', 'SR', 'SSR', 'SSSR'],  // premiums: 4 forms, apex Eternal = SSSR
 };
 function formRarity(tier, maxR = 'SSSR') {
   const ladder = RARITY_LADDERS[maxR] || RARITY_LADDERS.SSSR;
-  return ladder[Math.max(0, Math.min(tier, 3))];
+  return ladder[Math.max(0, Math.min(tier, ladder.length - 1))];
 }
 
 // Shop display form. Free to scrub all four forms (owned or not) so players can
 // preview the whole evolution; the FLOWN form stays clamped to what's owned in
 // main.equippedDragon.
 function getFormPref(key) {
-  const cap = ASCENSION_TIERS.length; // apex form index (3)
+  const cap = maxTierFor(key); // apex form index (3 premiums / 2 starters)
   const fp = saveData.cosmetics.formPref.find(e => e[0] === key);
   if (fp) return Math.max(0, Math.min(fp[1], cap));
   // Owned → your current form; unowned → the apex (the goal you'd grind for).
   return saveData.skins.owned.includes(key) ? ascensionTier(key) : cap;
 }
 function setFormPref(key, tier) {
-  tier = Math.max(0, Math.min(tier, ASCENSION_TIERS.length));
+  tier = Math.max(0, Math.min(tier, maxTierFor(key)));
   const entry = saveData.cosmetics.formPref.find(e => e[0] === key);
   if (entry) entry[1] = tier;
   else saveData.cosmetics.formPref.push([key, tier]);
@@ -642,19 +642,19 @@ export const ui = {
         const tierPips = (key) => {
           const t = ascensionTier(key);
           const mr = DRAGONS[key].maxRarity;
-          return Array.from({ length: ASCENSION_TIERS.length + 1 }, (_, i) =>
+          return Array.from({ length: maxTierFor(key) + 1 }, (_, i) =>
             `<span class="tier-pip${i <= t ? ' filled' : ''}" data-fr="${formRarity(i, mr)}">◆</span>`).join('');
         };
         const tierAction = (key, cost) => {
           const t = ascensionTier(key);
-          if (t >= ASCENSION_TIERS.length) {
+          if (t >= maxTierFor(key)) {
             // Evolution is COMPLETE at the apex — say so clearly. The optional
-            // cosmetic "✦ Aura" prestige is reserved for the premium (SSSR) tier;
+            // cosmetic aura prestige is reserved for the premium (SSSR) tier;
             // restrained SSR starters simply read EVOLVED ✦ MAX.
             if (DRAGONS[key].maxRarity !== 'SSSR') return `<span class="tier-max">EVOLVED ✦ MAX</span>`;
             const rc = radianceCost(key);
             return `<span class="tier-max">EVOLVED ✦ MAX</span>`
-              + `<button class="btn-ascend prestige${saveData.embers >= rc ? '' : ' dim'}" data-ascend-radiance="${key}" title="Optional cosmetic prestige — a brighter idle aura">✦ Aura ◆${rc}</button>`;
+              + `<button class="btn-ascend prestige${saveData.embers >= rc ? '' : ' dim'}" data-ascend-radiance="${key}" title="Optional cosmetic prestige — a brighter idle aura, paid in embers">✦ Brighter Aura · <span class="ember-ico">◆</span> ${rc} embers</button>`;
           }
           const check = canAscend(key, cost);
           const gateMet = check.flown >= check.gateMetres;
@@ -665,7 +665,7 @@ export const ui = {
           const owned = saveData.skins.owned.includes(key);
           const equipped = saveData.skins.equipped === key;
           const maxTier = ascensionTier(key);
-          const displayTier = owned ? getFormPref(key) : ASCENSION_TIERS.length;
+          const displayTier = owned ? getFormPref(key) : maxTierFor(key);
           const st = d.stats;
           const spd = (st.speed - 1) / (DRAGON_STAT_CAP.speed - 1 || 1);
           const agi = (st.handling - 1) / (DRAGON_STAT_CAP.handling - 1 || 1);
@@ -860,7 +860,7 @@ export const ui = {
           const def = DRAGONS[key];
           if (!def) return null;
           const owned = saveData.skins.owned.includes(key);
-          const tier = owned ? getFormPref(key) : ASCENSION_TIERS.length;
+          const tier = owned ? getFormPref(key) : maxTierFor(key);
           return ascendedDef(def, tier, radianceRank(key));
         });
       } catch (e) {

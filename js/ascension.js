@@ -1,4 +1,5 @@
 import { saveData, persist } from './save.js';
+import { DRAGONS } from './dragons.js';
 
 // Dragon Ascension: a 5-tier per-dragon ladder gated by mastery metres + ember
 // cost. Each tier is visible as a Pokémon-style growth stage (hatchling →
@@ -46,9 +47,16 @@ export function tierCost(dragonCost, tierIndex) {
   return Math.round(ASCENSION_TIERS[tierIndex].cost * tierCostMult(dragonCost) / 50) * 50;
 }
 
+// Apex form index per dragon: starters (SSR) cap at Radiant (tier 2 = SSR);
+// premiums (SSSR) go to Eternal (tier 3 = SSSR). Keeps starters from reaching
+// the eternal/legendary form at all.
+export function maxTierFor(key) {
+  return DRAGONS[key]?.maxRarity === 'SSR' ? 2 : ASCENSION_TIERS.length;
+}
+
 export function ascensionTier(key) {
   const entry = (saveData.ascension.tiers || []).find(e => e[0] === key);
-  return entry ? entry[1] : 0;
+  return Math.min(entry ? entry[1] : 0, maxTierFor(key)); // clamp legacy over-ascends
 }
 
 export function radianceRank(key) {
@@ -63,7 +71,7 @@ export function flownMetres(key) {
 
 export function canAscend(key, dragonCost) {
   const tier = ascensionTier(key);
-  if (tier >= ASCENSION_TIERS.length) return { ok: false };
+  if (tier >= maxTierFor(key)) return { ok: false };
   const next = ASCENSION_TIERS[tier];
   const cost = tierCost(dragonCost, tier);
   const flown = flownMetres(key);
