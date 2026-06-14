@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { damp, makeGlowTexture } from './util.js';
 import { buildDragonModel } from './dragonModel.js';
+import { buildRiderFigure, riderMaterials } from './riderParts.js';
 
 // Procedural dragon + rider. Built from a dragon def (dragons.js: palette,
 // model proportions, fx) and a rider def (riders.js: outfit, hair, accessory,
@@ -46,7 +47,7 @@ let riderHead = null;
 let riderGroup = null;
 let scarfMesh = null;
 let riderGlow = null;     // glow sprite behind the rider (premium riders)
-let accessoryGem = null;  // oracle's floating gem
+let riderOrbiters = [];   // orbiting shards (Void Oracle) animated each frame
 const PONY_LEN = 0.24;
 let ponySegs = 10;
 let ponyPoints = [];
@@ -159,27 +160,21 @@ export function createDragon(scene, def, riderDef) {
 function buildRider(riderDef) {
   const rider = new THREE.Group();
   riderGroup = rider;
-  const riderMat = new THREE.MeshStandardMaterial({
-    color: riderDef.suit, roughness: 0.78 - riderDef.suitMetal * 0.4,
-    metalness: riderDef.suitMetal,
-    emissive: riderDef.suitEmissive, emissiveIntensity: 0.45,
-  });
-  const cloakMat = new THREE.MeshStandardMaterial({
-    color: riderDef.cloak, emissive: riderDef.cloakEmissive, emissiveIntensity: 0.3, roughness: 0.7,
-  });
-  const scarfMat = new THREE.MeshStandardMaterial({
-    color: riderDef.scarf, emissive: riderDef.scarf, emissiveIntensity: 0.18, roughness: 0.7,
-  });
+
+  // The character (torso-up, with its signature headgear/back-gear/trail) is
+  // built by the shared riderParts module so it matches the shop turntable.
+  const mats = riderMaterials(riderDef);
+  const fig = buildRiderFigure(riderDef, mats);
+  rider.add(fig.group);
+  riderHead = fig.head;
+  scarfMesh = fig.trail;        // a Group now; the trail swings as one
+  riderOrbiters = fig.orbiters; // empty for most riders
+  riderGlow = fig.glow;
+  if (riderGlow) riderGlow.layers.set(1); // bloom layer in-game
+
+  // Saddle + cinch straps anchoring the rider to the dragon's back.
   const strapMat = new THREE.MeshStandardMaterial({ color: 0x3a1b16, roughness: 0.75 });
   const amberMat = new THREE.MeshStandardMaterial({ color: 0xffb13d, emissive: 0x773100, emissiveIntensity: 0.35, roughness: 0.45 });
-
-  const torso = new THREE.Mesh(new THREE.CapsuleGeometry(0.19, 0.52, 4, 8), riderMat);
-  torso.rotation.x = -0.4;
-  rider.add(torso);
-  const cloak = new THREE.Mesh(new THREE.ConeGeometry(0.28, 0.82, 5), cloakMat);
-  cloak.position.set(0, 0.18, 0.28);
-  cloak.rotation.x = -0.78;
-  rider.add(cloak);
   const saddle = new THREE.Mesh(new THREE.BoxGeometry(0.72, 0.12, 0.5), strapMat);
   saddle.position.set(0, -0.16, -0.02);
   rider.add(saddle);
@@ -187,67 +182,6 @@ function buildRider(riderDef) {
     const strap = new THREE.Mesh(new THREE.BoxGeometry(0.045, 0.5, 0.08), amberMat);
     strap.position.set(sx * 0.26, 0.05, 0.03);
     rider.add(strap);
-  }
-  riderHead = new THREE.Mesh(new THREE.SphereGeometry(0.22, 10, 8), riderMat);
-  riderHead.position.set(0, 0.52, -0.2);
-  rider.add(riderHead);
-  // Scarf tail
-  const scarf = new THREE.Mesh(new THREE.ConeGeometry(0.06, 0.82, 4), scarfMat);
-  scarfMesh = scarf;
-  scarf.position.set(0.05, 0.2, 0.3);
-  scarf.rotation.x = -0.6;
-  rider.add(scarf);
-
-  // Accessory geometry — each rider's signature.
-  accessoryGem = null;
-  if (riderDef.accessory === 'banner') {
-    // Back-mounted pennant: thin pole + glowing flag
-    const pole = new THREE.Mesh(new THREE.BoxGeometry(0.035, 1.35, 0.035), strapMat);
-    pole.position.set(-0.16, 0.62, 0.22);
-    pole.rotation.x = 0.22;
-    rider.add(pole);
-    const flag = new THREE.Mesh(new THREE.ConeGeometry(0.16, 0.5, 4), scarfMat);
-    flag.position.set(-0.16, 1.28, 0.32);
-    flag.rotation.z = Math.PI / 2;
-    flag.scale.set(0.4, 1, 1);
-    rider.add(flag);
-  } else if (riderDef.accessory === 'visor') {
-    // Glowing eye band across the helmet
-    const visor = new THREE.Mesh(
-      new THREE.BoxGeometry(0.36, 0.075, 0.1),
-      new THREE.MeshStandardMaterial({
-        color: 0x102030, emissive: riderDef.scarf, emissiveIntensity: 1.8, roughness: 0.2,
-      })
-    );
-    visor.position.set(0, 0.55, -0.38);
-    rider.add(visor);
-  } else if (riderDef.accessory === 'hood') {
-    // Deep hood + a gem that floats above it (animated in updateDragon)
-    const hood = new THREE.Mesh(new THREE.ConeGeometry(0.27, 0.52, 6), cloakMat);
-    hood.position.set(0, 0.66, -0.16);
-    hood.rotation.x = 0.18;
-    rider.add(hood);
-    accessoryGem = new THREE.Mesh(
-      new THREE.OctahedronGeometry(0.075, 0),
-      new THREE.MeshStandardMaterial({
-        color: 0x301840, emissive: riderDef.scarf, emissiveIntensity: 2.4, roughness: 0.2,
-      })
-    );
-    accessoryGem.position.set(0, 1.05, -0.2);
-    rider.add(accessoryGem);
-  }
-
-  // Soft signature glow behind the rider (premium riders only)
-  riderGlow = null;
-  if (riderDef.glowColor) {
-    riderGlow = new THREE.Sprite(new THREE.SpriteMaterial({
-      map: makeGlowTexture(riderDef.glowColor), transparent: true, opacity: 0.3,
-      blending: THREE.AdditiveBlending, depthWrite: false,
-    }));
-    riderGlow.scale.set(1.6, 1.6, 1);
-    riderGlow.position.set(0, 0.5, 0.05);
-    riderGlow.layers.set(1);
-    rider.add(riderGlow);
   }
 
   rider.position.set(0, 1.12, -0.6);
@@ -349,16 +283,21 @@ export function updateDragon(dt, player, time) {
   head.rotation.x = damp(head.rotation.x, -player.velocity.y * 0.008, 8, dt);
   riderGroup.rotation.z = damp(riderGroup.rotation.z, -player.velocity.x * 0.035, 8, dt);
   riderGroup.rotation.x = damp(riderGroup.rotation.x, -0.08 - speedNorm * 0.16 + player.velocity.y * 0.008, 8, dt);
-  scarfMesh.rotation.x = damp(scarfMesh.rotation.x, -0.65 - speedNorm * 0.75, 10, dt);
-  scarfMesh.rotation.z = Math.sin(time * (6 + speedNorm * 8)) * (0.12 + speedNorm * 0.18);
+  // Trail group rests pre-oriented; speed sweeps it back and a gentle waggle
+  // keeps it alive. Works for every trail style (tatters/cape/ribbon/robe).
+  scarfMesh.rotation.x = damp(scarfMesh.rotation.x, -0.08 - speedNorm * 0.5, 10, dt);
+  scarfMesh.rotation.z = Math.sin(time * (5 + speedNorm * 7)) * (0.1 + speedNorm * 0.16);
 
-  // Rider effects: glow breathes with speed; oracle gem orbits/bobs.
+  // Rider effects: glow breathes with speed; oracle's shards orbit the head.
   if (riderGlow) {
-    riderGlow.material.opacity = 0.22 + speedNorm * 0.25 + Math.sin(time * 4) * 0.06;
+    riderGlow.material.opacity = 0.2 + speedNorm * 0.22 + Math.sin(time * 4) * 0.05;
   }
-  if (accessoryGem) {
-    accessoryGem.position.y = 1.05 + Math.sin(time * 2.6) * 0.06;
-    accessoryGem.rotation.y = time * 2.2;
+  for (const o of riderOrbiters) {
+    o.ang += dt * o.speed;
+    o.mesh.position.x = Math.cos(o.ang) * o.radius;
+    o.mesh.position.z = Math.sin(o.ang) * o.radius * o.flat;
+    o.mesh.position.y = o.baseY + Math.sin(time * 1.6 + o.ang) * 0.04;
+    o.mesh.rotation.y = time * 1.5;
   }
 
   // Wing flap: 2-segment articulation with speed/turn-driven asymmetry.
@@ -492,21 +431,23 @@ export function updateDragon(dt, player, time) {
     }
   }
 
-  // Ponytail: hair chain
-  riderHead.getWorldPosition(tmpV);
-  tmpV.y += 0.1;
-  tmpV.z += 0.14;
-  ponyPoints[0].copy(tmpV);
-  for (let i = 1; i < ponySegs; i++) {
-    const dir = tmpV2.copy(ponyPoints[i]).sub(ponyPoints[i - 1]);
-    dir.y -= 2.4 * dt;
-    dir.z += (player.speed / 35) * 2.8 * dt;
-    if (dir.lengthSq() < 1e-8) dir.set(0, 0, 1);
-    dir.setLength(PONY_LEN);
-    ponyPoints[i].copy(ponyPoints[i - 1]).add(dir);
-    ponyMeshes[i].position.copy(ponyPoints[i]);
+  // Ponytail: hair chain (only the loose-haired riders have one)
+  if (ponySegs > 0) {
+    riderHead.getWorldPosition(tmpV);
+    tmpV.y += 0.1;
+    tmpV.z += 0.14;
+    ponyPoints[0].copy(tmpV);
+    for (let i = 1; i < ponySegs; i++) {
+      const dir = tmpV2.copy(ponyPoints[i]).sub(ponyPoints[i - 1]);
+      dir.y -= 2.4 * dt;
+      dir.z += (player.speed / 35) * 2.8 * dt;
+      if (dir.lengthSq() < 1e-8) dir.set(0, 0, 1);
+      dir.setLength(PONY_LEN);
+      ponyPoints[i].copy(ponyPoints[i - 1]).add(dir);
+      ponyMeshes[i].position.copy(ponyPoints[i]);
+    }
+    ponyMeshes[0].position.copy(ponyPoints[0]);
   }
-  ponyMeshes[0].position.copy(ponyPoints[0]);
 
   // Speed trail (orb/fast), tinted per dragon; shifts pink during fever
   trailTimer -= dt;

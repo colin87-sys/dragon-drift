@@ -1,6 +1,6 @@
 import * as THREE from 'three';
-import { makeGlowTexture } from './util.js';
 import { buildDragonModel, makePreviewTick } from './dragonModel.js';
+import { buildRiderFigure, riderMaterials } from './riderParts.js';
 
 // Live 3D shop previews: every dragon/rider card gets a little turntable —
 // the real dragon model (same mesh as in-game, tier-aware) rendered into the
@@ -43,100 +43,54 @@ function ensureRenderer() {
 
 const mat = (color, opts = {}) => new THREE.MeshStandardMaterial({ color, roughness: 0.45, ...opts });
 
-// Rider bust on a floating saddle disc: outfit, hair, signature accessory
-// and glow, true to the def.
+// Rider bust on a floating saddle disc. Same shared figure as the in-game
+// model (riderParts.js), scaled up for the card — so the shop shows each
+// rider's true silhouette, gear and trail.
 function buildRiderIcon(def) {
   const g = new THREE.Group();
-  const suitMat = mat(def.suit, {
-    metalness: def.suitMetal, roughness: 0.75 - def.suitMetal * 0.4,
-    emissive: def.suitEmissive, emissiveIntensity: 0.5,
-  });
-  const cloakMat = mat(def.cloak, { emissive: def.cloakEmissive, emissiveIntensity: 0.35, roughness: 0.7 });
-  const scarfMat = mat(def.scarf, { emissive: def.scarf, emissiveIntensity: 0.22 });
-  const hairMat = mat(def.hair, { roughness: 0.9 });
+  const mats = riderMaterials(def);
+  const fig = buildRiderFigure(def, mats);
+  fig.group.scale.setScalar(1.8);
+  g.add(fig.group);
 
-  const torso = new THREE.Mesh(new THREE.CapsuleGeometry(0.34, 0.85, 4, 8), suitMat);
-  torso.rotation.x = -0.18;
-  g.add(torso);
-  const cloak = new THREE.Mesh(new THREE.ConeGeometry(0.52, 1.35, 6), cloakMat);
-  cloak.position.set(0, -0.1, 0.38);
-  cloak.rotation.x = -0.55;
-  g.add(cloak);
-  const headM = new THREE.Mesh(new THREE.SphereGeometry(0.36, 10, 8), suitMat);
-  headM.position.set(0, 0.92, -0.1);
-  g.add(headM);
-  const scarf = new THREE.Mesh(new THREE.ConeGeometry(0.11, 1.1, 4), scarfMat);
-  scarf.position.set(0.1, 0.45, 0.45);
-  scarf.rotation.x = -0.7;
-  g.add(scarf);
-  // Ponytail arc — length follows the def
+  // Saddle disc the rider floats on.
+  const disc = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.78, 0.92, 0.16, 12), mat(0x3a1b16, { roughness: 0.8 }));
+  disc.position.y = -0.9;
+  g.add(disc);
+
+  // Preview-only loose hair (the in-game ponytail is a world-space chain).
+  const hairMat = mat(def.hair, { roughness: 0.9 });
   const ponyN = Math.min(6, Math.round(def.ponySegs / 2));
   const pony = [];
   for (let i = 0; i < ponyN; i++) {
-    const b = new THREE.Mesh(new THREE.SphereGeometry(0.13 * (1 - i / (ponyN + 2)), 6, 5), hairMat);
-    b.position.set(0, 0.95 - i * 0.1, 0.25 + i * 0.16);
+    const b = new THREE.Mesh(
+      new THREE.SphereGeometry(0.16 * (1 - i / (ponyN + 2)), 6, 5), hairMat);
+    b.position.set(0, 0.92 - i * 0.14, 0.32 + i * 0.24);
     g.add(b);
     pony.push(b);
   }
-  // Saddle disc underneath
-  const disc = new THREE.Mesh(new THREE.CylinderGeometry(0.75, 0.85, 0.16, 10), mat(0x3a1b16, { roughness: 0.8 }));
-  disc.position.y = -0.85;
-  g.add(disc);
 
-  let gem = null;
-  if (def.accessory === 'banner') {
-    const pole = new THREE.Mesh(new THREE.BoxGeometry(0.05, 1.9, 0.05), mat(0x3a1b16));
-    pole.position.set(-0.3, 0.55, 0.3);
-    g.add(pole);
-    const flag = new THREE.Mesh(new THREE.ConeGeometry(0.26, 0.8, 4), scarfMat);
-    flag.position.set(-0.3, 1.5, 0.42);
-    flag.rotation.z = Math.PI / 2;
-    flag.scale.set(0.4, 1, 1);
-    g.add(flag);
-  } else if (def.accessory === 'visor') {
-    const visor = new THREE.Mesh(
-      new THREE.BoxGeometry(0.58, 0.13, 0.16),
-      mat(0x102030, { emissive: def.scarf, emissiveIntensity: 2.0, roughness: 0.2 })
-    );
-    visor.position.set(0, 0.96, -0.38);
-    g.add(visor);
-  } else if (def.accessory === 'hood') {
-    const hood = new THREE.Mesh(new THREE.ConeGeometry(0.46, 0.8, 6), cloakMat);
-    hood.position.set(0, 1.12, 0);
-    hood.rotation.x = 0.15;
-    g.add(hood);
-    gem = new THREE.Mesh(
-      new THREE.OctahedronGeometry(0.14, 0),
-      mat(0x301840, { emissive: def.scarf, emissiveIntensity: 2.6, roughness: 0.2 })
-    );
-    gem.position.set(0, 1.75, -0.1);
-    g.add(gem);
-  }
+  const trail = fig.trail;
+  const glow = fig.glow;
+  if (glow) { glow.scale.setScalar(2.5); glow.material.opacity = 0.36; }
 
-  let glow = null;
-  if (def.glowColor) {
-    glow = new THREE.Sprite(new THREE.SpriteMaterial({
-      map: makeGlowTexture(def.glowColor), transparent: true, opacity: 0.4,
-      blending: THREE.AdditiveBlending, depthWrite: false,
-    }));
-    glow.scale.set(4.5, 4.5, 1);
-    glow.position.set(0, 0.4, -0.2);
-    g.add(glow);
-  }
-
-  g.position.y = -0.15;
+  g.position.y = -0.35;
   const tick = (t) => {
-    g.rotation.y = t * 0.7;
-    g.position.y = -0.15 + Math.sin(t * 1.8) * 0.06;
-    scarf.rotation.z = Math.sin(t * 3.2) * 0.2;
+    g.rotation.y = t * 0.6;
+    g.position.y = -0.35 + Math.sin(t * 1.8) * 0.06;
+    if (trail) trail.rotation.z = Math.sin(t * 3.0) * 0.16;
     for (let i = 0; i < pony.length; i++) {
       pony[i].position.x = Math.sin(t * 2.6 - i * 0.7) * 0.05 * i;
     }
-    if (gem) {
-      gem.position.y = 1.75 + Math.sin(t * 2.4) * 0.08;
-      gem.rotation.y = t * 2.4;
+    for (const o of fig.orbiters) {
+      o.ang += 0.03;
+      o.mesh.position.x = Math.cos(o.ang) * o.radius;
+      o.mesh.position.z = Math.sin(o.ang) * o.radius * o.flat;
+      o.mesh.position.y = o.baseY + Math.sin(t * 1.6 + o.ang) * 0.04;
+      o.mesh.rotation.y = t * 1.5;
     }
-    if (glow) glow.material.opacity = 0.32 + Math.sin(t * 3) * 0.12;
+    if (glow) glow.material.opacity = 0.3 + Math.sin(t * 3) * 0.12;
   };
   return { group: g, tick };
 }
