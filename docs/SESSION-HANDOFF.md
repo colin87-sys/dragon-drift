@@ -1,277 +1,104 @@
-# Dragon Drift — Dragon Redesign Session Handoff
+# Dragon Drift — Session Handoff (2026‑06‑14)
 
-A handoff for the next chat. Covers **what was built, the problems hit, and how
-each was solved** — especially the dragon model, so the same mistakes aren't
-repeated. Everything below is **merged to `master`** (PRs #14–#26).
-
----
-
-## 1. Project & current status
-
-- **Dragon Drift** = a Three.js, browser/mobile, third‑person **endless flyer**.
-  Camera is **behind + slightly above** the dragon (rear / top‑rear). The player
-  almost always sees the dragon **from the rear during gameplay** — so the
-  dragon must be designed for that exact camera, never a side/front/3‑4 view.
-- Plain ES modules in `js/`, Three.js in `lib/`. No build step. Served statically.
-- **Status: the full dragon roadmap is done & live.** All 7 dragons redesigned
-  with unique silhouettes + a shared polish system, a new Phoenix, a reworked
-  shop, and a batch of readability/UX fixes. Nothing pending.
-
-### The 7 dragons (each a deliberately distinct rear silhouette)
-| key | name | silhouette identity |
-|---|---|---|
-| `azure` | Azure Drake (R, free) | narrow, clean **blue** courier — smallest/simplest |
-| `ember` | Ember Wyrm (SR) | broad, **jagged** flame edges, **lava‑red** cinder‑wyrm |
-| `jade` | Jade Serpent (SR) | **smallest wings**, long sinuous **green** serpent body |
-| `obsidian` | Obsidian Shade (SSR) | swept **plasma‑cyan** night‑fury, **twin tail fins** |
-| `pearl` | Pearl Seraph (SSR) | broad **smooth white** seraph + **halo** |
-| `solar` | Solar Sovereign (SSSR) | swept **ember→magenta** flame wyvern (the benchmark) |
-| `phoenix` | Phoenix Ascendant (SSSR, new) | broad **upswept gold** fire‑bird, fire‑fan tail |
+Handoff for the next chat. Everything below is **merged to `master`** unless noted.
+Work happens on branch **`claude/quirky-goldberg-8n8pik`**, draft PRs into `master`
+(the user merges fast). **Never** put a model identifier in commits/PRs/code.
 
 ---
 
-## 2. How to work in this repo
+## 1. Project
 
-### Verify loop (do this every change)
-1. `node --check js/<file>.js` — syntax.
-2. **Pure‑node tests** (fast): `node tests/defs.mjs`, `tests/ascension.mjs`. `defs`
-   asserts every dragon has exactly 4 forms (objects) — keep that true.
-3. **Browser smoke** (Playwright, global install): `node tests/smoke.mjs` boots
-   the game and flies — must be "no errors during flight". `tests/shop.mjs`
-   exercises the shop (builds the preview model).
-4. **Render QA** (this is how you judge visuals — NOT a model viewer):
-   - `node tools/tiershots.mjs` → `/tmp/tier-<key>.png` — isolated T0→T3 montage
-     at a FIXED per‑dragon distance + a hero wing pose. Best for **silhouette**
-     comparison.
-   - `node tools/gameshots.mjs <key>` → `/tmp/game-<key>-montage.png` — **real
-     chase‑cam** gameplay, 2× cropped. The real arbiter.
-   - `node tools/fullshot.mjs <key> <tier> [fever]` → full‑frame (judge how much
-     of the path is visible / contrast / surge).
-   - `node tools/surgeshot.mjs <key> <tier>` → `?debug=fever` forces Dragon Surge.
-   - `node tools/shopshot.mjs [dev]` → shop screenshot.
-   - **Always `Read` the PNG and judge from the rear gameplay camera**, then tune.
-   - Renders take ~30s (tier) to ~4min (gameplay montage). Run gameplay montages
-     `run_in_background: true`; **don't run two chromium renders concurrently** —
-     they contend and time out. `serve.mjs` uses a random port (safe to overlap
-     tests, but not heavy renders).
+- **Dragon Drift** — Three.js, browser/mobile, third‑person **endless flyer**. Camera is
+  **behind + slightly above** the creature (rear / top‑rear). Judge every model/visual
+  decision from that gameplay camera, never a side/front beauty view.
+- Plain ES modules in `js/`, Three.js in `lib/`, CSS in `css/style.css`. **No build step.**
+- **No PR‑gating CI** (only a GitHub‑Pages deploy that runs on `master`, not on PRs).
+- **Can't audition audio or judge motion‑feel in this environment** — music/SFX/flap changes
+  are theory‑sound + structurally verified; tell the user to confirm by ear/eye.
 
-### Git workflow (important)
-- Branch: **`claude/quirky-goldberg-8n8pik`** (dev branch — never push elsewhere).
-- One logical change per PR. `git add` specific files, commit, then:
-  `git fetch origin && git rebase origin/master` (PRs merge fast, so rebase to
-  stay clean) → `git push --force-with-lease` → **create a draft PR**.
-- The user merges PRs themselves, usually within minutes; rebase onto the merge.
-- Commit msg footer: the session URL line (the harness appends it). **Never** put
-  the model identifier in commits/PRs/code.
-
-### Debug URLs
-- `?debug` exposes `window.__dd` (the test hook — the QA harness needs it).
-- `?debug=fever` forces Dragon Surge on. `?debug=perf` = fps overlay.
-- **`?dev`** = unlock everything (see §8). Combine as `?debug&dev` for tests.
+### Render‑QA tools (Playwright; write to `/tmp/*.png`)
+- `tools/tiershots.mjs` → `/tmp/tier-<key>.png` (4‑form montage, rear cam, framed to apex span).
+- `tools/gameshots.mjs <key>` → in‑game chase‑cam crops/montage.
+- `tools/surgeshot.mjs <key> <tier>` → forced Surge.
+- `tools/shopshot.mjs [dev]` → shop dragons + riders tabs (`dev` = `?debug&dev`, unlock all).
+- `tools/ridershot.mjs` → riders from the rear gameplay angle.
+- `tests/browser.mjs` `boot({query,initScript,viewport,deviceScaleFactor})` → headless boot,
+  returns `{page, errors, done}`. `?debug` exposes test hooks; `?debug=fever` forces Surge;
+  `?debug&dev` unlocks everything (non‑destructive — `freezeSaves()`).
+- `node tests/tracks.mjs` → structural music test (bars=8 eighths, freqs ≤ E6, arps 4×8).
 
 ---
 
-## 3. Architecture map
+## 2. Architecture map
 
-| file | role |
+| File | Role |
 |---|---|
-| `js/dragons.js` | **Data**: the `DRAGONS` table. Per dragon: `model` proportions (= APEX reference), `wingForms[0..3]` (own wing shapes), `forms[0..3]` (per‑tier accreting params + `colors` overrides), palette, `fx`. `DRAGON_STAT_CAP`. |
-| `js/dragonParts.js` | **Geometry builders**: `buildArrowTorso` (body), `WING_FORMS`/`buildWingShape`/`archWing`/`archProfile`/`wingStrut` (wings), `buildCleanTail` (tail), shapes. |
-| `js/dragonModel.js` | **Assembler** `buildDragonModel(def, opts)`: builds body + decorations + head + tail + wings + core/aura, returns `{ group, parts, materials, auraSprite }`. Also `makePreviewTick` (shop preview anim). Consumed by both the in‑game rig and the shop preview. |
-| `js/dragon.js` | **In‑game rig**: animates wings/tail/body, trails/particles, Surge transform, materials. The runtime. |
-| `js/ascension.js` | **Evolution system**: `SIZE_RAMP`/`WING_RAMP`/`STAT_RAMP`, `ascendedDef(def, tier, radiance)` (merges forms + colors, applies ramps), Radiance prestige, costs/gates. |
-| `js/ui.js` | Shop UI (dragon cards, form scrub, pips, rarity gems). |
-| `js/preview.js` | Shop 3D preview turntable host (camera, blit loop). |
-| `js/environment.js` / `js/biomes.js` | Sky shader (sun), lighting, biomes. |
-| `js/postfx.js` | Bloom + color grade + Surge wash. |
-| `js/obstacles.js` | Obstacles incl. the crystal‑wall **gate**. |
-| `js/main.js` | Boot, save load, `?dev`, loop. |
-| `js/save.js` | Persistence (`freezeSaves()` for dev mode). |
+| `js/dragons.js` | `DRAGONS` table (7: azure, ember, jade, obsidian, pearl, solar, phoenix). Per dragon: `rarity` (card frame), **`maxRarity`** (apex cap: SSR/SSSR), `cost`, `stats`, `model`, `wingForms[0..3]`, `forms[0..3]` (per‑form `colors` + flags). Phoenix has `archetype:'phoenix'`. Solar/Phoenix carry `feverWing/feverEye/feverWash`; solar+phoenix have `surgeMotes`/gold motes. |
+| `js/dragonModel.js` | `buildDragonModel(def, opts)` → **dispatches to `buildPhoenixModel` when `def.archetype==='phoenix'`**. Returns `{group, parts, materials, auraSprite}`. `makePreviewTick` = shared flap/coil tick for previews. |
+| `js/phoenixModel.js` | Separate **firebird** archetype (feather wings = inner web + outer scalloped web, flame‑plume tail, beak+crest head, heart‑core). Same rig handles as dragons. |
+| `js/dragonParts.js` | `buildArrowTorso`, wing shapes, **`buildCleanTail`** (styles: `simple/finned/blade/comet/twinfin/firefan/shard`). `shard` = Obsidian crystal shards. |
+| `js/dragon.js` | The rig: `createDragon`, `updateDragon`. Wing flap (per‑dragon `flapBias/flapAmp`), tail coil, **Surge transform** (per‑def `feverWing/feverEye`), trails, **ember/arcane motes** (`def.archetype==='phoenix'` warm idle motes; `def.surgeMotes` cool arcane motes during Surge). `setFeverTint(def.feverWash)`. |
+| `js/riders.js` + `js/riderParts.js` | 4 riders, distinct silhouettes via shared `buildRiderFigure` (build/headgear/shoulders/back/trail). |
+| `js/ascension.js` | `ASCENSION_TIERS` (3: Kindled/Radiant/Eternal → forms 1‑3; form 0 = Hatchling). **`maxTierFor(key)`** = 2 for SSR starters, 3 for SSSR. `ascensionTier` clamps to it. `ascendedDef(def,tier,radiance)` merges forms cumulatively + ramps (`SIZE_RAMP`, `WING_RAMP`, `STAT_RAMP`); stamps `model.formLevel`. |
+| `js/ui.js` | Shop / settings / pause / pilot routing. `formRarity(tier,maxR)` via `RARITY_LADDERS` (SSR:`R/SR/SSR`, SSSR:`R/SR/SSR/SSSR`). **`openInspect(key)`** = the showcase modal. Delegated UI click‑sound. `pilotBadgeDue` includes `unclaimedFeatCount`. `ICONS` (incl. `inspect` 🔍). |
+| `js/pilotScreen.js` | Pilot FEATS/LOG/TITLES. Feats render **claim buttons** (`featClaimable`); `wirePilot({onClaim})`. |
+| `js/feats.js` | `FEAT_DEFS`. `unlockFeat` (no longer auto‑pays) → **`claimFeat`/`featClaimable`/`unclaimedFeatCount`** (pay once, `claimed` set is the guard). |
+| `js/save.js` | Versioned save (**v3**). `feats:{unlocked,claimed}`. **v2→v3 migration marks all existing unlocked feats `claimed`** (no retroactive double‑pay). `freezeSaves` for dev mode. |
+| `js/sfx.js` | Audio engine. Master: gain→compressor→**tanh soft‑limiter**→dest; music bus has a **de‑mud glue EQ**; **stereo ping‑pong echo**. `drumEnergy` (BPM‑gated kick punch + bass sub). `music.setTrack` **starts playback when not active** (menu preview). `sfx.select()/deny()`. |
+| `js/tracks.js` | **30 stations** (note‑data, synthesized live). |
+| `js/preview.js` | Card turntables + **`setShowcaseDef`/`closeShowcase`** (dedicated 480px high‑res `DragonShowcase` renderer for the inspect modal). |
+| others | `recap.js` (run recap), `weekly.js`, `missions.js`, `milestones.js`, `titles.js`, `environment.js`, `postfx.js` (`liftTint` per‑dragon fever wash). |
 
 ---
 
-## 4. THE DRAGON MODEL — problems & solutions (read this before touching models)
+## 3. Roster identities (rear cam, all merged)
 
-The redesign went through several rounds because **the wrong lever was tried
-first each time**. The lessons:
-
-### P1 — "All 4 forms look the same"
-**Root cause:** evolution was driven by *uniform scale* + a *single fixed wing
-shape* + bolt‑on flags. Forms only got bigger, never *different*.
-**Solution:** carry evolution on **silhouette**, not detail/scale:
-- Decoupled **body vs wing growth** (`SIZE_RAMP` ≠ `WING_RAMP` in `ascension.js`)
-  so wing‑to‑body proportion changes per tier.
-- **Per‑form wing shape presets** (finger count, span reach, trailing scallop,
-  apex flame edge).
-- Per‑form **tail / spine / aura** ramps.
-> Lesson: if two adjacent forms would read the same as a *black silhouette* at
-> gameplay distance, the design has failed. Differentiate shape, not color.
-
-### P2 — "Wings read as flat orange RAILS/ribbons" (the biggest one)
-**Root cause:** the wings sit ~horizontal, so the rear‑top camera sees them
-**edge‑on** → every form collapses to a thin strip; all membrane detail
-(scallop/flame/fingers) is invisible edge‑on.
-**Solution:** **bake an upward ARC into the membrane** so it presents a real
-curved outline to the rear camera. Implemented as `archWing`/`archProfile` in
-`dragonParts.js`. The arc is:
-- **Outer‑weighted** → inner half stays low ⇒ the **centre lane stays open**,
-  drama lives at the outer wing.
-- A **profile** (`{bow, hump, humpAt, hook}`), not a single magnitude: the
-  `hump` puts a **wrist peak** (the dragon‑wing "elbow"), the `hook` flares the
-  tip. This is what makes wings read as *wings*, not panels — and what makes
-  each tier's vertical silhouette distinct.
-- The finger **bones** (`wingStrut`) lift to follow the arc (`endY`).
-> Lesson: from the rear camera, **wing POSE/ARC reads, membrane detail does not.**
-> Don't add scallops/flame hoping they'll show — bow the wing.
-
-### P3 — "Wings still look like rails in MOTION"
-**Root cause:** even with the arc, a fast wingbeat catches the wing flat at flap
-extremes.
-**Solution:** per‑dragon **calmer wingbeat** via `model.flapAmp` (+ `flapBias`)
-read in `dragon.js` — premium gliders flap small so the arc stays readable.
-
-### P4 — "Body is a blobby/spherical lump"
-**Root cause:** round lathe torso (circular cross‑section).
-**Solution:** **arrowhead loft** (`buildArrowTorso`) — a blade cross‑section with
-a dorsal **keel**, strong shoulders, narrow waist/hips, slim tail root. Lofted
-from station rings. Rendered DoubleSide so face winding can't cause inside‑out.
-Wing roots raised onto the back so bowed wings **lift clear of the torso**.
-
-### P5 — "Tail is a detached black SPEAR hanging below the body"
-**Root cause:** the tail was a single rigid unit the rig *translated*, so it
-drifted off the body and never coiled.
-**Solution (in `buildCleanTail` + `dragon.js` tail loop):**
-- A **chain of heavily‑overlapping segment‑groups** (each = tapered frustum +
-  a dorsal **spine plate**), base radius ≈ hip width, **anchored at the hip**
-  and overlapping the torso (no seam).
-- **Root‑locked snake coil**: `segs[0]` is pinned to the hip; sway amplitude
-  ramps to the tip (`lock = i/(n-1)`), so it coils like a snake but never
-  separates. Heavy overlap hides joints.
-- **Dark + gold accents**, never bright‑orange (orange = hazard color → was
-  read as a floating obstacle).
-> Lesson: anything attached to the body must be **root‑locked** to it, or the
-> rig's per‑segment translation will detach it.
-
-### P6 — "Mace/ball tail looks bad"
-**Solution:** removed mace entirely; tail tip is per‑form `tailStyle`:
-`simple → finned → blade → comet` (+ `twinfin` for Obsidian, `firefan` for
-Phoenix). Elegant, connected, tapered.
-
-### P7 — "Every dragon shares Solar's wings" (after Solar was good)
-**Solution:** `def.wingForms` — each dragon defines its **own** 4 wing presets;
-`wingSpecFor(def, model)` consults it first (falls back to the shared
-`WING_FORMS`, then `DEFAULT_WING`). **This is how you add roster variety.**
-
-### P8 — "Dragon got too big — can't see the path ahead"
-**Solution (combination, not one lever):** trimmed `SIZE_RAMP` ~12% (apex
-1.0→0.88) **and** lifted/pulled the chase cam back + aimed it higher
-(`cameraController.js`) so the dragon sits low in frame. Wing **translucency**
-(membrane opacity 0.82 / 0.77 boost / 0.70 surge; bones stay opaque) helps but
-is **not enough alone** — translucent wings still occlude.
-
-### P9 — "Dragon Surge is a full‑screen pink wash that hides hazards"
-**Solution:** the spectacle should be **on the dragon**, not the screen:
-- Trimmed the global fever `lift`/flash ~27% in `postfx.js`.
-- **Transform the dragon**: spine/crest/seam/tail plates flare to a per‑dragon
-  `surgeHi` (white‑gold for fire, white‑cyan for Obsidian); the violet/themed
-  **core** blazes; a soft **glow swells around the wings** (NOT a ring — an
-  emitting ring was tried and rejected as clutter).
-- A **transformation animation** on Surge *start* (a ~0.7s ignition flourish:
-  core flash → spine overshoot → wing‑glow swell → body pulse) instead of a
-  hard color swap. Driven by a rising‑edge + `surgeMix`/`ignite` in `dragon.js`.
-
-### P10 — Color progression (Solar spec, reusable pattern)
-Per‑form exact palettes via `forms[t].colors` (merged onto the def in
-`ascendedDef`). The "dull base → vivid ignite" jump (T0 muted, T1 restores vivid)
-makes the first ascension feel earned. Apex accent goes on the **outer wing
-only** (Solar = ember root → rose‑**magenta** outer; never a solid‑pink wing).
-A violet/themed **core** glow (`def.coreGlow`) escalates with `spineGlow`.
+- **Azure / Ember / Jade** — *starters*. `maxRarity:'SSR'`, **3‑form ladder** Hatchling(R)→Kindled(SR)→Radiant(SSR), **no Eternal**. Radiant apex deliberately restrained (no glow‑seams/veins, simple `finned`/`blade` tail, low `spineGlow`, small crest) so it reads clearly **below** premium SSR.
+- **Obsidian** (SSR) — dark night/void, plasma **cyan**, narrow swept falcon wings, **crystal‑`shard` tail**.
+- **Pearl** (SSR) — luminous white, broad elegant wings, **soft aura** (halo ring removed).
+- **Solar Sovereign** (SSSR) — dark royal **eclipse**: midnight body, dark‑crimson wings, antique gold crown/spine, blue‑violet/cyan energy. **Cool‑arcane Surge** (lavender/indigo, `surgeMotes`).
+- **Phoenix Ascendant** (SSSR) — celestial **firebird** archetype: white‑gold feathered wings, flame‑plume tail, white‑hot core. **White‑gold "Rebirth" Surge** + warm ember motes.
+- Premium 4 keep their premium signal layers (crystal tails / halos / auras / high glow / aura prestige); starters do not.
 
 ---
 
-## 5. Evolution / ascension (`ascension.js`)
-- 4 forms = base + **3** `ASCENSION_TIERS` (Kindled/Radiant/Eternal). Gated by
-  flown‑metres + ember cost.
-- `ascendedDef(def, tier, radiance)`: clones def → merges `forms[0..t]`
-  cumulatively (later overrides earlier; `colors` split out to top‑level) →
-  applies `SIZE_RAMP`/`WING_RAMP`/`STAT_RAMP`. `model` base holds APEX values;
-  each form dials down per stage.
-- **Radiance** = optional post‑Eternal cosmetic prestige (brighter aura). It is
-  NOT required progression — the shop was confusing players with "Radiance 5",
-  so the card now reads **"EVOLVED ✦ MAX"** + a small optional "✦ Aura".
+## 4. Done this session (the premium‑polish epic — all merged)
+
+- **§1/§2** starter SSR caps + toned‑down apexes + accurate shop badges/pips (3 vs 4).
+- **§3** full‑screen **inspect/showcase modal** (🔍 on each card → high‑res render, blurred/vignetted backdrop, soft lighting, gentle orbit, rarity/name/lore/stats, form cycling capped per dragon, close via ✕/backdrop/**Esc capture**).
+- **§4** Obsidian shard tail · **§5** Pearl halo→aura · **§6** premium separation · **§7** flap feel tuned toward the Phoenix benchmark (`flapBias/flapAmp`; Phoenix unchanged).
+- **§8** consistent UI selection SFX (`sfx.select/deny` via one delegated capture listener).
+- **§9** Dragon Radio **plays the selected station in menus** (was a no‑op when music inactive).
+- **§10** Settings **+ Pilot reachable from the pause menu**.
+- **§11** weekly‑trial **completion status on the start screen** (`X/Y ✓` + per‑trial COMPLETE badge).
+- **§13** feat rewards are **click‑to‑claim in Pilot** (migration‑safe, no double‑pay) + **§16** claim feedback (chime + floating `+◆` count‑up).
+- **§14 (currency)** the **◆ diamond made premium** via CSS faceted gradient + drop‑shadow (an SVG‑gem attempt was rejected — keep the ◆). Aura prestige button relabeled **"✦ Brighter Aura · ◆ N embers"**.
+- *(Earlier in the broader session, also merged: riders rework, Phoenix firebird redesign, Sovereign cool‑arcane Surge, audio remaster + 5 new stations + 6 redone melodies + punchier kit.)*
 
 ---
 
-## 6. Boost FX + Surge (`dragon.js`)
-- **Tail = primary boost source** (emit from the tail TIP; denser per form via
-  `spineGlow`). **Wings = secondary** (wing‑tip contrails only on elite forms,
-  amethyst in Surge). Never emit from the whole membrane.
-- Surge: see P9.
+## 5. Remaining (smaller follow‑ups — NOT done)
+
+- **§12 Daily Challenge** — the "Fly Daily" button currently just does a normal takeoff. Either implement a **real daily modifier/briefing/objective** (there's a `dailySeed()` + `recordDailyRun()` streak system in `save.js` to build on) **or** relabel the UI so it's honest. Acceptance: feels like a real feature with a clear modifier + reward + completion state.
+- **§15 declutter / hierarchy** — progressive‑disclosure pass on the start‑screen quest/trial stack, Pilot, shop cards, settings (essentials first, details on tap). Diffuse — scope carefully.
+- **§14 broader icon set** — make the weekly/daily/feat/shop/settings icons feel as premium/consistent as the new currency ◆ (the currency itself is done).
+- **§16 reward fly‑ups beyond feats** — weekly/daily/mission rewards pay in the run **recap** (which has its own count‑up); extend a satisfying fly‑up/sparkle to those claim moments if desired.
 
 ---
 
-## 7. Shop (`ui.js`, `preview.js`, `dragonModel.makePreviewTick`)
-- Preview = the dragon **flapping in place from the rear** (NOT a turntable —
-  the old spin read as janky). Camera at a chase‑cam angle, no pedestal.
-- **Scrub ◀▶** on any card (owned or not) walks T0→T3; the model swaps live; the
-  rarity gem updates **R→SR→SSR→SSSR per FORM** (the form is the rarity ladder).
-  Flown form stays clamped to what's owned (`equippedDragon` in `main.js`).
-- Bottom pips = one per form (4), rarity‑tinted. (Old "3 pip / R1‑R5" replaced.)
+## 6. Gotchas / conventions
+
+- **Rarity** = card frame (`d.rarity`); **`maxRarity`** = apex cap → drives `maxTierFor`, `formRarity` ladders, tier‑pip count, "EVOLVED ✦ MAX", aura‑prestige gating (SSSR only). Touch all of these together.
+- **Phoenix uses the dragon rig** (shared `updateDragon`); per‑dragon Surge color via `feverWing/feverEye/feverWash` (defaults = dragon magenta). Don't hardcode pink.
+- **Inspect modal** lives in `ui.js` `openInspect` + `preview.js` `DragonShowcase` (its own 480px renderer; card previews are 150px and would look soft). Gem top‑left, ✕ top‑right (don't overlap). Esc handler is **capture‑phase + stopPropagation** so it doesn't also exit the shop.
+- **Feats**: never re‑introduce auto‑pay in `unlockFeat`; pay only via `claimFeat`. The `claimed` set is the single guard.
+- **Music `setTrack`** auto‑starts playback when `!musicActive` (menu preview) — taking off no‑ops the second start. Don't revert.
+- **Currency** = `EMBER_ICON='◆'` in `util.js`, premium via `.ember-ico` CSS. User explicitly wants the **◆ glyph**, not an SVG gem.
+- Tier‑shot framing renders all 4 tiers even for starters (the tool doesn't know `maxTier`); the **game** caps correctly. That's fine for the dev tool.
+- After pushing, **create a draft PR** if none is open. Check `get_check_runs` on each PR (there's no real CI, so it's always empty/clean).
 
 ---
 
-## 8. Readability / UX fixes
-- **Contrast** (`environment.js` sun glow tightened/dimmed; `postfx.js` bloom
-  0.32→0.24, contrast 0.16→0.24; `main.js` `toneMappingExposure = 0.92`): the
-  low sun was blowing out into a white blob and washing the scene.
-- **Gate** (`obstacles.js`): added a faint glowing **window pane filling the
-  opening** so you can locate/aim for it from above (was crashing when high
-  above the wall, couldn't see the hole). Beacon column above the gap is still
-  there.
-- **`?dev`** (`main.js`): unlocks all dragons (max form) + riders + styles +
-  999999 embers. Calls `freezeSaves()` so it **never overwrites the real save**
-  — reload without `?dev` to restore. (For the test harness, use `?debug&dev`.)
-- **Style‑color dominance**: an equipped Style/flightmark keeps its trail color
-  even during Surge (`hasStyle` flag in `flightmarks.js` + checks in `dragon.js`).
+## 7. Open question for the user
 
----
-
-## 9. Adding or reworking a dragon (the recipe)
-1. In `js/dragons.js`, give it **`wingForms: [4 specs]`** — each
-   `{ tips:[[x,y]…], lead:[x,y], scallop, flame, arc:{bow,hump,humpAt,hook} }`.
-   Pick a *distinct* shape: narrow vs broad span, swept‑back vs upswept (tip y),
-   smooth vs flame edges, low vs high arc. Verify it differs as a silhouette.
-2. **`forms[0..3]`**: set `wingForm: t`, a `tailStyle`, `spineGlow` (0→1), crest
-   /veins/seams/halo/etc., and a **`colors`** object per form (dull base → vivid;
-   include `coreGlow`). Put apex values in the base `model`/palette; add
-   `surgeHi` (white‑hot tint) + `coreGlow` at the def level.
-3. New dragons auto‑appear in the shop/unlock/ascension (everything iterates
-   `DRAGONS`). Keep stats within `DRAGON_STAT_CAP` so the bars don't renormalize.
-4. Add the key to `tools/tiershots.mjs`'s dragon list. Render tier + gameplay +
-   surge montages and **judge from the rear camera**, then tune.
-5. The shared polish (translucency, tail FX, stats, Surge) applies automatically.
-
----
-
-## 10. Open items / ideas (not done)
-- Live chase‑cam **gameplay montages for Azure/Ember/Jade/Pearl** were not
-  rendered (verified via isolated tier montages; global polish is gameplay‑proven
-  on Solar/Obsidian/Phoenix). Render if you want a final gameplay pass.
-- **Riders** are still essentially color reskins — the user flagged wanting each
-  to be a unique character (silhouette/gear), not done yet. (`js/riders.js`,
-  `buildRider` in `dragon.js`, `buildRiderIcon` in `preview.js`.)
-- Per‑biome Surge wash tint (currently global pink; slightly clashes with
-  cool/gold dragons) — optional polish.
-- Deeper Surge "speed lines" are currently just a chromatic‑aberration streak.
-
----
-
-## 11. Conventions / gotchas
-- **Judge visuals from the rear gameplay camera**, via the render tools — never
-  assume from a model viewer or isolated pose.
-- `defs.mjs` requires exactly **4 forms** per dragon (objects).
-- Don't run two heavy chromium renders at once (timeouts).
-- The rig (`dragon.js`) **overwrites** each `tailSeg`'s position/rotation every
-  frame — bake shapes into geometry, don't rely on per‑seg static transforms.
-- `materials.spineMats` (collected accent mats) + `parts.coreGlow` are the hooks
-  the rig drives during Surge — keep returning them if you refactor.
+Music "catchiness" and flap "feel" can't be judged here — ask the user to **listen / watch in‑game** and flag specifics (which station/dragon wants tuning). Same for any subjective mix/motion call.
