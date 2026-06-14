@@ -435,6 +435,36 @@ export function buildDragonModel(def, opts = {}) {
     emissiveIntensity: 0.55, roughness: 0.3, metalness: 0.55,
   });
 
+  // Split the membrane at the WRIST into an inner panel (root→wrist, on the flap
+  // pivot) and an outer panel (wrist→tip, on the wingTip group). The wingTip
+  // already carries a lagged wrist-wave in the flap animation (dragon.js /
+  // makePreviewTick) that previously moved nothing; handing it the outer membrane
+  // makes the wing FOLD at the wrist for a fluid two-segment beat instead of a
+  // rigid single hinge. Both panels reuse the SAME shape (verts outside the panel
+  // collapse onto a shared seam, with a small overlap to hide the joint) and the
+  // outer panel is re-origined to the seam, so at rest every vertex lands exactly
+  // where the old single membrane did — the silhouette is unchanged, the motion
+  // gains a wrist break.
+  const wristXGeo = 3.3 * ws;
+  const seamOv = 0.22 * ws;
+  const wristLift = archLift(wristXGeo, maxX, arc, ws);
+  function membranePanel(clipMin, clipMax, originX, originY) {
+    const g2 = new THREE.ShapeGeometry(featherShape ? buildFeatherWingShape() : buildWingShape(wingSpec), 14);
+    g2.rotateX(-Math.PI / 2);
+    g2.scale(1.34 * ws, 1.28 * ws, 1);
+    applyWingGradient(g2, def, 0, 1);
+    archWing(g2, arc, ws); // bow with the elbow profile (∝ ws)
+    const pos = g2.attributes.position;
+    for (let i = 0; i < pos.count; i++) {
+      const x = pos.getX(i);
+      if (x < clipMin) pos.setX(i, clipMin);
+      else if (x > clipMax) pos.setX(i, clipMax);
+    }
+    pos.needsUpdate = true;
+    if (originX || originY) g2.translate(-originX, -originY, 0);
+    return g2;
+  }
+
   function buildWingSide(side) {
     const pivot = new THREE.Group();
     // Roots high on the back so the bowed wings lift clear of the torso.
@@ -445,37 +475,46 @@ export function buildDragonModel(def, opts = {}) {
     shoulder.scale.set(1.1, 0.9, 1.2);
     pivot.add(shoulder);
 
-    const geo = new THREE.ShapeGeometry(featherShape ? buildFeatherWingShape() : buildWingShape(wingSpec), 14);
-    geo.rotateX(-Math.PI / 2);
-    geo.scale(1.34 * ws, 1.28 * ws, 1);
-    applyWingGradient(geo, def, 0, 1);
-    archWing(geo, arc, ws); // bow with the elbow profile (∝ ws)
-    const membrane = new THREE.Mesh(geo, wingMat);
-    membrane.scale.x = side;
-    pivot.add(membrane);
+    // Inner membrane panel (root→wrist) rides the flap pivot.
+    const innerMem = new THREE.Mesh(membranePanel(-Infinity, wristXGeo + seamOv, 0, 0), wingMat);
+    innerMem.scale.x = side;
+    pivot.add(innerMem);
 
+    // Forearm bone: root → wrist (the inner leading edge), stays on the pivot.
+    pivot.add(wingStrut(wristXGeo * side, 0, 0.1, 0.04, armMat, wristLift));
+
+    // wingTip pivots AT the wrist seam (x + arch-lift) so the outer panel folds
+    // cleanly; its membrane is re-origined to the seam to sit exactly where the
+    // old single membrane did at rest.
+    const wingTip = new THREE.Group();
+    wingTip.position.set(wristXGeo * side, wristLift, 0);
+    const outerMem = new THREE.Mesh(membranePanel(wristXGeo - seamOv, Infinity, wristXGeo, wristLift), wingMat);
+    outerMem.scale.x = side;
+    wingTip.add(outerMem);
+
+    // Finger / outer-arm bones (wrist → tips) ride wingTip so they FOLD WITH the
+    // outer membrane — the bright leading edge breaks at the wrist instead of
+    // staying rigid while the membrane folds away from it. (i=0 is the bright
+    // "hand" continuing the forearm; the rest are slimmer finger struts.)
     for (let i = 0; i < wingSpec.tips.length; i++) {
       const [px, py] = wingSpec.tips[i];
-      const x = px * 1.34 * ws * side;
       const z = -py * 1.0;
-      const lift = archLift(x, maxX, arc, ws);
-      // The leading-edge bone (to the far tip) is the thick bright "arm"; the
-      // rest are slimmer finger struts.
+      const tipLift = archLift(px * 1.34 * ws * side, maxX, arc, ws);
       const lead = i === 0;
-      pivot.add(wingStrut(x, z, lead ? 0.1 : 0.04, lead ? 0.02 : 0.012,
-        lead ? armMat : boneMat, lift));
+      const bx = px * 1.34 * ws * side - wristXGeo * side; // bone origin = the wrist
+      const by = tipLift - wristLift;
+      wingTip.add(wingStrut(bx, z, lead ? 0.1 : 0.04, lead ? 0.02 : 0.012,
+        lead ? armMat : boneMat, by));
       if (veinMat && !lead) {
-        const vein = wingStrut(x, z, 0.028, 0.006, veinMat, lift);
+        const vein = wingStrut(bx, z, 0.028, 0.006, veinMat, by);
         vein.position.y += 0.05;
-        pivot.add(vein);
+        wingTip.add(vein);
       }
     }
 
-    const wingTip = new THREE.Group();
-    wingTip.position.set(3.3 * ws * side, 0, 0);
     const marker = new THREE.Object3D();
-    marker.position.set(wingSpec.tips[0][0] * 1.34 * ws * side - 3.3 * ws * side,
-      archLift(maxX, maxX, arc, ws), -wingSpec.tips[0][1]);
+    marker.position.set(wingSpec.tips[0][0] * 1.34 * ws * side - wristXGeo * side,
+      archLift(maxX, maxX, arc, ws) - wristLift, -wingSpec.tips[0][1]);
     wingTip.add(marker);
     pivot.add(wingTip);
     group.add(pivot);
@@ -602,7 +641,7 @@ export function buildDragonModel(def, opts = {}) {
 // spinning model.
 export function makePreviewTick(def, result) {
   const { group, parts, auraSprite } = result;
-  const { head, tailSegs, wingPivotL, wingPivotR, wingPivot2L, wingPivot2R } = parts;
+  const { head, tailSegs, wingPivotL, wingPivotR, wingPivot2L, wingPivot2R, wingTipL, wingTipR } = parts;
   const flapBias = def.model.flapBias || 1;
   const flapAmp = def.model.flapAmp ?? 1;
   return (t) => {
@@ -620,6 +659,15 @@ export function makePreviewTick(def, result) {
     wingPivotR.rotation.x = 0.12 + feather;
     wingPivotL.rotation.x = 0.12 - feather;
     if (wingPivot2L) { wingPivot2L.rotation.z = flap * 0.65; wingPivot2R.rotation.z = -flap * 0.65; }
+    // Wrist fold — the outer membrane lags the root flap so the wing breaks at
+    // the wrist (matches the in-game rig; needs the split outer panel to be felt).
+    if (wingTipR) {
+      const tipLag = Math.sin(phase + 0.95) * 0.34;
+      wingTipR.rotation.z = tipLag;
+      wingTipL.rotation.z = -Math.sin(phase + 1.18) * 0.34;
+      wingTipR.rotation.x = -0.06 + feather;
+      wingTipL.rotation.x = -0.06 - feather;
+    }
     // Root-locked snake coil (x + y) so the tail stays attached and alive.
     const nT = tailSegs.length;
     for (let i = 0; i < nT; i++) {

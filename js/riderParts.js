@@ -314,12 +314,14 @@ function buildTrail(def, mats, g) {
 
   } else if (def.trail === 'robe') {
     // A long, voluminous open robe — the deepest trailing silhouette.
+    // Anchored a touch lower/further back so the robe streams clear of the
+    // orbiting back shards instead of clipping up through the constellation.
     const robe = new THREE.Mesh(new THREE.ConeGeometry(0.34, 1.3, 8, 1, true), mats.cloak);
-    robe.position.set(0, -0.48, 0.36);
+    robe.position.set(0, -0.62, 0.42);
     robe.rotation.x = Math.PI / 2 + 0.55;
     trail.add(robe);
     const inner = new THREE.Mesh(new THREE.ConeGeometry(0.2, 1.05, 6, 1, true), mats.scarf);
-    inner.position.set(0, -0.42, 0.34);
+    inner.position.set(0, -0.56, 0.4);
     inner.rotation.x = Math.PI / 2 + 0.55;
     trail.add(inner);
   }

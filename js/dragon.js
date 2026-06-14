@@ -312,8 +312,11 @@ export function updateDragon(dt, player, time) {
   riderGroup.rotation.x = damp(riderGroup.rotation.x, -0.08 - speedNorm * 0.16 + player.velocity.y * 0.008, 8, dt);
   // Trail group rests pre-oriented; speed sweeps it back and a gentle waggle
   // keeps it alive. Works for every trail style (tatters/cape/ribbon/robe).
+  // The sway is SLOW + damped (was a raw ~1.9 Hz sine that whipped the Void
+  // Oracle's big robe into a glitchy oscillation) so it reads as a flowing drift.
   scarfMesh.rotation.x = damp(scarfMesh.rotation.x, -0.08 - speedNorm * 0.5, 10, dt);
-  scarfMesh.rotation.z = Math.sin(time * (5 + speedNorm * 7)) * (0.1 + speedNorm * 0.16);
+  const swayTarget = Math.sin(time * (1.6 + speedNorm * 1.9)) * (0.08 + speedNorm * 0.12);
+  scarfMesh.rotation.z = damp(scarfMesh.rotation.z, swayTarget, 6, dt);
 
   // Rider effects: glow breathes with speed; oracle's shards orbit the head.
   if (riderGlow) {
