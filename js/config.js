@@ -27,15 +27,20 @@ export const CONFIG = {
   gateReachSafety: 0.62,
   boostSteeringBonus: 1.15,
 
-  // Stamina system — tuned so a player who chains rings/windows/orbs can
-  // stay boosted indefinitely (drain 16/s vs ~1 reward per second at boost).
+  // Stamina system — boost is a STRATEGIC resource, not a permanent hold. It
+  // depletes if you just hold it; normal rings only PARTLY pay for it; perfect
+  // rings pay more; speed orbs are the real boost-extender; and Dragon Surge
+  // eases the burn but never makes it free. (Per-dragon drain/regen stats still
+  // scale these, so the stamina stat actually matters.) Tune by feel.
   staminaMax: 100,
-  staminaDrain: 16,
-  staminaRegen: 18,
-  staminaRegenDelay: 1,
-  ringStamina: 28,
+  staminaDrain: 24,
+  staminaRegen: 12,
+  staminaRegenDelay: 1.25,
+  ringStamina: 10,
+  perfectRingStaminaBonus: 6,   // perfect rings refund this much ON TOP of ringStamina
+  gateStamina: 12,
   orbStamina: 35,
-  gateStamina: 22,
+  feverStaminaDrainMult: 0.65,  // Dragon Surge eases the boost burn (× drain, not free)
 
   // Health / collision
   healthMax: 100,

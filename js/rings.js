@@ -90,7 +90,10 @@ function collect(r, centerDist) {
   const tierBefore = comboTier(game.combo);
   game.combo = Math.min(CONFIG.comboMax, game.combo + CONFIG.comboStep);
   game.maxCombo = Math.max(game.maxCombo, game.combo);
-  game.stamina = Math.min(CONFIG.staminaMax, game.stamina + CONFIG.ringStamina);
+  // Perfect rings refund extra stamina — the skill-reward that meaningfully
+  // extends boost, where a normal ring only chips in.
+  game.stamina = Math.min(CONFIG.staminaMax,
+    game.stamina + CONFIG.ringStamina + (perfect ? CONFIG.perfectRingStaminaBonus : 0));
   ui.ringPopup(points, perfect, game.perfectStreak);
   if (perfect) {
     sfx.perfect(game.perfectStreak);
