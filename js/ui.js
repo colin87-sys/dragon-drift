@@ -9,6 +9,7 @@ import { weeklyTrials } from './weekly.js';
 import { equippedTitleName } from './titles.js';
 import { buildRecapHtml, wireRecap, selectNextUp } from './recap.js';
 import { buildPilotHtml, wirePilot } from './pilotScreen.js';
+import { claimFeat, unclaimedFeatCount } from './feats.js';
 import { DRAGONS, DRAGON_STAT_CAP } from './dragons.js';
 import { RIDERS } from './riders.js';
 import { attachPreviews, attachPreviewCanvas, refreshPreview } from './preview.js';
@@ -407,7 +408,7 @@ export const ui = {
 
   // Feat toast: its own element so gameplay popups are never eaten.
   featToast(name, reward) {
-    els.featToast.innerHTML = `⬢ FEAT — ${name} <b>+◆${reward}</b>`;
+    els.featToast.innerHTML = `⬢ FEAT — ${name} <b>◆${reward} ▸ claim in Pilot</b>`;
     restartAnim(els.featToast, 'feat-toast-anim');
   },
 
@@ -869,6 +870,26 @@ export const ui = {
     if (type === 'pilot') {
       wirePilot(els.screen, {
         onTab: (tab) => { pilotTab = tab; ui.showScreen('pilot'); },
+        onClaim: (id, btn) => {
+          const reward = claimFeat(id);
+          if (reward <= 0) return;
+          sfx.featUnlock(); // satisfying proud claim chime
+          // A small "+◆" floats up off the button (Web Animations — no CSS dep),
+          // then the screen refreshes so the row flips to claimed + wallet updates.
+          if (btn) {
+            const fly = document.createElement('div');
+            fly.textContent = `+◆${reward}`;
+            fly.style.cssText = 'position:absolute;left:50%;top:0;transform:translateX(-50%);color:#ffd86a;font-weight:800;pointer-events:none;text-shadow:0 1px 4px rgba(0,0,0,.6);z-index:5';
+            btn.style.position = 'relative';
+            btn.appendChild(fly);
+            fly.animate([
+              { transform: 'translate(-50%, 4px)', opacity: 0 },
+              { transform: 'translate(-50%, -6px)', opacity: 1, offset: 0.25 },
+              { transform: 'translate(-50%, -30px)', opacity: 0 },
+            ], { duration: 650, easing: 'ease-out' });
+          }
+          setTimeout(() => { if (lastScreen === 'pilot') ui.showScreen('pilot'); }, 480);
+        },
         onEquipTitle: (id) => {
           saveData.titles.equipped = id;
           persist();
@@ -1077,7 +1098,8 @@ export const ui = {
 // A badge NEVER points at nothing, clears the moment its surface opens, and
 // the clear persists. Watermarks live in saveData.ui (numbers only).
 function pilotBadgeDue() {
-  return saveData.feats.unlocked.length > saveData.ui.seenFeats ||
+  return unclaimedFeatCount() > 0 ||
+         saveData.feats.unlocked.length > saveData.ui.seenFeats ||
          saveData.titles.owned.length > saveData.ui.seenTitles;
 }
 

@@ -50,13 +50,13 @@ export function featUnlockedAlready(id) {
   return saveData.feats.unlocked.includes(id);
 }
 
-// One-time unlock: credit embers, grant any title, record for the recap.
+// One-time unlock: grant any title and record for the recap. The ember reward
+// is NO LONGER paid here — it becomes claimable in the Pilot screen (claimFeat).
 // Live unlocks (mid-run) also toast + chime. Safe to call repeatedly.
 export function unlockFeat(id, { live = false } = {}) {
   const def = defById(id);
   if (!def || featUnlockedAlready(id)) return false;
   saveData.feats.unlocked.push(id);
-  saveData.embers += def.reward;
   let titleName = '';
   if (def.title && grantTitle(def.title)) {
     const t = titleById(def.title);
@@ -72,6 +72,28 @@ export function takeFeatsThisRun() {
   const out = featsThisRun;
   featsThisRun = [];
   return out;
+}
+
+// --- Reward claiming (Pilot screen) ---
+// A feat is claimable once unlocked and not yet claimed; claiming pays its
+// embers exactly once. The claimed set is the single guard against double-pay.
+export function featClaimable(id) {
+  return saveData.feats.unlocked.includes(id) && !saveData.feats.claimed.includes(id);
+}
+export function unclaimedFeatCount() {
+  let n = 0;
+  for (const id of saveData.feats.unlocked) if (!saveData.feats.claimed.includes(id)) n++;
+  return n;
+}
+export function claimFeat(id) {
+  if (!featClaimable(id)) return 0;
+  const def = defById(id);
+  if (!def) return 0;
+  saveData.feats.claimed.push(id);
+  saveData.embers += def.reward;
+  persist();
+  emit('featClaimed', { def });
+  return def.reward;
 }
 
 // Live triggers, wired explicitly (heterogeneous conditions don't want a

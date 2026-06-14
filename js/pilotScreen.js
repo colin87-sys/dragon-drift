@@ -1,5 +1,5 @@
 import { saveData } from './save.js';
-import { FEAT_DEFS, featUnlockedAlready } from './feats.js';
+import { FEAT_DEFS, featUnlockedAlready, featClaimable } from './feats.js';
 import { TITLES, titleById } from './titles.js';
 import { MILESTONES, masteryStarsFor, MASTERY_STARS } from './milestones.js';
 import { DRAGONS } from './dragons.js';
@@ -20,15 +20,21 @@ function featsBody() {
   return CATS.map(([cat, label]) => {
     const cards = FEAT_DEFS.filter((d) => d.cat === cat).map((d) => {
       const got = featUnlockedAlready(d.id);
+      const claimable = featClaimable(d.id);
       const title = d.title && titleById(d.title);
+      // Achieved-but-unclaimed → a CLAIM button that pays the reward; claimed →
+      // a ticked reward; locked → the greyed target.
+      const rewardCell = claimable
+        ? `<button class="feat-claim" data-claim="${d.id}">CLAIM ◆${d.reward}</button>`
+        : `<div class="feat-reward${got ? ' claimed' : ''}">${got ? '✓ ' : ''}◆ ${d.reward}${title ? `<span class="feat-title-tag">«${title.name}»</span>` : ''}</div>`;
       return `
-        <div class="feat-card${got ? ' got' : ''}">
-          <div class="feat-mark">${got ? '⬢' : '⬡'}</div>
+        <div class="feat-card${got ? ' got' : ''}${claimable ? ' claimable' : ''}">
+          <div class="feat-mark">${claimable ? '<span class="claim-dot"></span>' : got ? '⬢' : '⬡'}</div>
           <div class="feat-info">
             <div class="feat-name">${d.name}</div>
             <div class="feat-desc">${d.desc}</div>
           </div>
-          <div class="feat-reward">◆ ${d.reward}${title ? `<span class="feat-title-tag">«${title.name}»</span>` : ''}</div>
+          ${rewardCell}
         </div>`;
     }).join('');
     return `<div class="pilot-cat">${label}</div><div class="feat-grid">${cards}</div>`;
@@ -127,11 +133,14 @@ export function buildPilotHtml(tab) {
 }
 
 // Returns true if a re-render is needed (tab switch / title equip).
-export function wirePilot(screenEl, { onTab, onEquipTitle }) {
+export function wirePilot(screenEl, { onTab, onEquipTitle, onClaim }) {
   for (const btn of screenEl.querySelectorAll('.seg-btn[data-pilottab]')) {
     btn.onclick = (e) => { e.stopPropagation(); onTab(btn.dataset.pilottab); };
   }
   for (const row of screenEl.querySelectorAll('.title-row[data-title]')) {
     row.onclick = (e) => { e.stopPropagation(); onEquipTitle(row.dataset.title); };
+  }
+  for (const btn of screenEl.querySelectorAll('.feat-claim[data-claim]')) {
+    btn.onclick = (e) => { e.stopPropagation(); onClaim && onClaim(btn.dataset.claim, btn); };
   }
 }
