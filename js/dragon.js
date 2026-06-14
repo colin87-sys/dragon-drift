@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { damp, makeGlowTexture } from './util.js';
 import { buildDragonModel } from './dragonModel.js';
 import { buildRiderFigure, riderMaterials } from './riderParts.js';
+import { setFeverTint } from './postfx.js';
 
 // Procedural dragon + rider. Built from a dragon def (dragons.js: palette,
 // model proportions, fx) and a rider def (riders.js: outfit, hair, accessory,
@@ -96,6 +97,9 @@ export function createDragon(scene, def, riderDef) {
   surgeMix = 0;
   surgeAnimT = 0;
   prevFever = false;
+
+  // The Phoenix's Rebirth washes warm gold instead of the dragons' magenta.
+  setFeverTint(def.archetype === 'phoenix' ? [0.095, 0.07, 0.022] : null);
 
   buildRider(riderDef);
   scene.add(group);
@@ -371,7 +375,9 @@ export function updateDragon(dt, player, time) {
   // old emitting ring), spiking on the ignition flourish.
   const wingGlowTarget = backlit + (player.boosting ? 0.7 : 0) + surgeMix * 0.55 + ignite * 0.8;
   wingMat.emissiveIntensity = damp(wingMat.emissiveIntensity, wingGlowTarget, 6, dt);
-  wingMat.emissive.setHex(player.feverActive ? 0xff44cc : activeDef.wingEmissive);
+  // Surge wing tint is per-dragon: dragons blaze magenta, the Phoenix ignites
+  // white-gold (def.feverWing) so its Rebirth reads celestial, not pink.
+  wingMat.emissive.setHex(player.feverActive ? (activeDef.feverWing ?? 0xff44cc) : activeDef.wingEmissive);
   // Membrane translucency by state (bones/struts keep their own opaque mats):
   // see upcoming rings through the wing — more so while boosting / surging.
   const wingOpacity = player.feverActive ? 0.70 : player.boosting ? 0.77 : 0.82;
@@ -401,7 +407,7 @@ export function updateDragon(dt, player, time) {
   // Body "power-up" pulse on the ignition flourish (settles back to scale).
   group.scale.setScalar(activeDef.model.scale * (1 + ignite * 0.05));
   bodyMat.emissiveIntensity = damp(bodyMat.emissiveIntensity, player.feverActive ? 0.35 : 0.12, 4, dt);
-  eyeMat.emissive.setHex(player.feverActive ? 0xff66ee : activeDef.eye);
+  eyeMat.emissive.setHex(player.feverActive ? (activeDef.feverEye ?? 0xff66ee) : activeDef.eye);
   // Aura: full blaze during fever; premium dragons idle with a faint halo.
   const idle = activeDef.fx.auraIdle;
   const auraTarget = player.feverActive

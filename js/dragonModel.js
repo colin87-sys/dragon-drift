@@ -6,6 +6,7 @@ import {
   archWing, archLift, wingStrut, applyWingGradient,
   buildCleanTail,
 } from './dragonParts.js';
+import { buildPhoenixModel } from './phoenixModel.js';
 
 // Unified procedural dragon mesh builder.
 // Both the in-game rig (dragon.js) and the shop turntable (preview.js)
@@ -23,6 +24,10 @@ import {
 
 // Build the full dragon mesh from a resolved def (post-ascendedDef).
 export function buildDragonModel(def, opts = {}) {
+  // Legendary firebird archetype has an entirely separate model (avian body,
+  // feather wings, flame-plume tail) but returns the same animation handles.
+  if (def.archetype === 'phoenix') return buildPhoenixModel(def, opts);
+
   const model = def.model;
   const group = new THREE.Group();
 
