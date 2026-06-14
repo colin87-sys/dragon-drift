@@ -573,14 +573,15 @@ export const ui = {
         </div>`).join('');
       const trials = weeklyTrials();
       const feather = saveData.weekly.feather;
+      const doneCount = trials.filter((t) => t.done).length;
       const weeklyStrip = `
         <div class="weekly-strip">
-          <div class="weekly-head">WEEKLY TRIALS${feather ? ' <span class="feather" title="Phoenix Feather — bridges one missed streak day">🪶</span>' : ''}</div>
+          <div class="weekly-head">WEEKLY TRIALS <span class="weekly-count${doneCount ? ' some' : ''}">${doneCount}/${trials.length} ✓</span>${feather ? ' <span class="feather" title="Phoenix Feather — bridges one missed streak day">🪶</span>' : ''}</div>
           ${trials.map((t) => `
             <div class="weekly-row${t.done ? ' done' : ''}">
-              <span class="weekly-label">${t.done ? '★ ' : ''}${t.def.label}</span>
-              ${barHtml(t.progress / t.def.target)}
-              <span class="weekly-reward">◆${t.def.reward}</span>
+              <span class="weekly-label">${t.def.label}</span>
+              ${t.done ? '<span class="weekly-done-badge">✓ COMPLETE</span>' : barHtml(t.progress / t.def.target)}
+              <span class="weekly-reward${t.done ? ' earned' : ''}">${t.done ? '✓ ' : ''}◆${t.def.reward}</span>
             </div>`).join('')}
         </div>`;
       const nextUp = selectNextUp();
