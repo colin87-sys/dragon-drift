@@ -3,6 +3,7 @@ import { CONFIG } from './config.js';
 import { game } from './gameState.js';
 import { initInput, initTouch } from './input.js';
 import { createLevelGen } from './level.js';
+import { todaysDailyMod, dailyMods } from './daily.js';
 import { createEnvironment, updateEnvironment, resetEnvironment } from './environment.js';
 import { createDragon, updateDragon, resetDragon, rebuildDragon } from './dragon.js';
 import { initReticle, updateReticle } from './reticle.js';
@@ -334,6 +335,9 @@ let currentBiome = 0;
 
 function restart() {
   game.reset();
+  // Daily Challenge modifier (deterministic per UTC day) → run-level multipliers.
+  game.dailyMod = game.mode === 'daily' ? todaysDailyMod() : null;
+  game.mods = dailyMods(game.dailyMod);
   player.reset();
   resetDragon(player);
   resetRings();
@@ -389,7 +393,7 @@ function settleRun() {
   const milestoneResults = settleMilestones();         // 8 lifetime rungs
   const masteryResults = settleMasteryStars((key) => (DRAGONS[key] || { name: key }).name);
   const featResults = settleFeats();                   // 9 feats see everything
-  const goldValue = game.goldEmbersRun * CONFIG.goldEmberValue;
+  const goldValue = Math.round(game.goldEmbersRun * CONFIG.goldEmberValue * game.mods.gold);
   game.runSummary = {                                  // 10 the recap reads this
     newRecords,
     missionResults: game.missionResults,
