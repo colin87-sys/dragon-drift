@@ -12,6 +12,7 @@ export const TITLES = [
   { id: 'emberlord',    name: 'Ember Lord',     source: 'Pilot level 20' },
   { id: 'skysovereign', name: 'Sky Sovereign',  source: 'Pilot level 25' },
   { id: 'mythwing',     name: 'Mythwing',       source: 'Pilot level 30' },
+  { id: 'lightbringer', name: 'Lightbringer',   source: 'Pilot level 40' },
   // Feats
   { id: 'goldwing',     name: 'Goldwing',       source: 'Feat: Golden Thread' },
   { id: 'slipstream',   name: 'Slipstream',     source: 'Feat: Flow State' },
@@ -21,7 +22,6 @@ export const TITLES = [
   { id: 'midas',        name: 'Midas',          source: 'Feat: Midas Wing' },
   // Ascension feats
   { id: 'eternal',      name: 'Eternal',       source: 'Feat: Eternal Bond' },
-  { id: 'lightbringer', name: 'Lightbringer',  source: 'Radiance rank 10' },
   // Weekly trials
   { id: 'longhauler',   name: 'Long Hauler',     source: 'Weekly trial' },
   { id: 'deadeye',      name: 'Deadeye',         source: 'Weekly trial' },
@@ -34,12 +34,23 @@ export const TITLES = [
   { id: 'highflyer',    name: 'Highflyer',       source: 'Weekly trial' },
 ];
 
-// Title for hitting a level milestone (every 5 levels), or null.
+// Title for hitting a level milestone (every 5 levels to 30, then 40), or null.
 const LEVEL_TITLES = [[5, 'skylark'], [10, 'cloudcarver'], [15, 'stormrider'],
-  [20, 'emberlord'], [25, 'skysovereign'], [30, 'mythwing']];
+  [20, 'emberlord'], [25, 'skysovereign'], [30, 'mythwing'], [40, 'lightbringer']];
 export function levelTitleId(level) {
   const hit = LEVEL_TITLES.find(([lv]) => lv === level);
   return hit ? hit[1] : null;
+}
+
+// Retroactively grant every level title the pilot has already earned. The
+// per-level-up grant (main.js) only fires on the EXACT level it happens, so a
+// title added later — or a level reached before this system existed — would
+// otherwise never unlock. Idempotent (grantTitle no-ops if already owned), so
+// it's safe to run on every boot.
+export function grantEarnedLevelTitles(level) {
+  for (const [lv, id] of LEVEL_TITLES) {
+    if (level >= lv) grantTitle(id);
+  }
 }
 
 export function titleById(id) {

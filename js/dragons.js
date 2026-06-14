@@ -42,31 +42,38 @@ export const DRAGONS = {
         lead: [3.35, 0.62], scallop: 0.45, flame: false,
         arc: { bow: 0.65, hump: 1.00, humpAt: 0.58, hook: 0.45 } },
     ],
+    // Form ladder shifted so each evolution is an OBVIOUS leap, not just a size
+    // bump: a BARE hatchling (no horns, no back ridges) → horns + back ridges
+    // sprout (the old hatchling) → broader wings, head crest, dorsal sail +
+    // spine-glow (the old Kindled). forms[3] is the capped-off extra — starters
+    // stop at Radiant (tier 2).
     forms: [
-      { wingForm: 0, tailStyle: 'simple', tailSegments: 5, ridgeCount: 8,
-        spineGlow: 0, crest: 0, neckSegments: 4,
+      // Hatchling — bare whelp: no horns, no back ridges, dull palette.
+      { wingForm: 0, tailStyle: 'simple', tailSegments: 5, ridgeCount: 0,
+        spineGlow: 0, crest: 0, neckSegments: 4, hornLen: 0,
         colors: { body: 0x1c2230, wingInner: 0x3a5a8a, wingOuter: 0x223f5e,
           wingEmissive: 0x3a6a9a, scales: 0x5a7890, horn: 0x7a90a8,
           apexSeam: 0x4a6080, eye: 0x6aa0c0, coreGlow: 0x6a90c0 } },
+      // Kindled — horns + back ridges grow in (the old hatchling silhouette).
+      { wingForm: 0, tailStyle: 'simple', tailSegments: 5, ridgeCount: 8,
+        spineGlow: 0, crest: 0, neckSegments: 4, hornLen: 1.0,
+        colors: { body: 0x1c2230, wingInner: 0x3a5a8a, wingOuter: 0x223f5e,
+          wingEmissive: 0x3a6a9a, scales: 0x5a7890, horn: 0x7a90a8,
+          apexSeam: 0x4a6080, eye: 0x6aa0c0, coreGlow: 0x6a90c0 } },
+      // Radiant = the SSR apex: broader wings, finned tail, head crest, dorsal
+      // sail and a soft spine-glow — vivid blue, but NO premium glow-seams/veins
+      // (a notch below the premium SSR creatures).
       { wingForm: 1, tailStyle: 'finned', tailSegments: 6, ridgeCount: 10,
         spineGlow: 0.28, crest: 1, dorsal: true,
         colors: { body: 0x1a2a44, wingInner: 0x4a8ad8, wingOuter: 0x2a5aa8,
           wingEmissive: 0x4a90ff, scales: 0x9fe8ff, horn: 0xffdf8a,
           apexSeam: 0x5aa8e0, eye: 0x88c8ff, coreGlow: 0x80b0ff } },
-      // Radiant = the SSR apex: clean finned tail, soft glow, NO premium glow-
-      // seams/veins — clearly a notch below the premium SSR creatures.
+      // Capped-off extra (unused — starters stop at Radiant): the old Radiant.
       { wingForm: 2, tailStyle: 'finned', tailSegments: 7, ridgeCount: 11,
         spineGlow: 0.38, crest: 1, hornLen: 1.15,
         colors: { body: 0x16243c, wingInner: 0x60a8ff, wingOuter: 0x2a6ad0,
           wingEmissive: 0x5aa0ff, scales: 0xbfe8ff, horn: 0xffe8a0,
           apexSeam: 0x7ac0ff, eye: 0xa0d8ff, coreGlow: 0x90c8ff } },
-      // Restrained starter apex: clean finned tail (not the premium comet) and a
-      // softer glow so it reads SSR, well below the eternal premiums.
-      { wingForm: 3, tailStyle: 'finned', tailSegments: 8, ridgeCount: 12,
-        spineGlow: 0.6, wingVeins: true, crest: 1,
-        colors: { body: 0x121f34, wingInner: 0x7ab8ff, wingOuter: 0x3a7ae0,
-          wingEmissive: 0x6ab0ff, scales: 0xdcf0ff, horn: 0xffe8a0,
-          apexSeam: 0x88d0ff, eye: 0xcaeaff, coreGlow: 0xaad8ff } },
     ],
     fx: { auraColor: '120,200,255', auraIdle: 0.0, sparkle: false },
     body: 0x121f34, belly: 0xffd9a8, scales: 0xdcf0ff, horn: 0xffe8a0,
@@ -105,34 +112,36 @@ export const DRAGONS = {
         lead: [3.80, 0.70], scallop: 0.60, flame: true,
         arc: { bow: 0.80, hump: 1.50, humpAt: 0.58, hook: 0.85 } },
     ],
+    // Shifted ladder (see azure): bare cinder whelp → horns + back ridges →
+    // jagged flame wings, blade-finned spines, crest + spine-glow. forms[3] is
+    // the capped-off extra (starters stop at Radiant, tier 2).
     forms: [
+      // Hatchling — bare cinder whelp: no horns, no back ridges.
+      { wingForm: 0, tailStyle: 'simple', tailSegments: 6, ridgeCount: 0,
+        spineGlow: 0, crest: 0, hornPairs: 1, hornLen: 0,
+        colors: { body: 0x231410, wingInner: 0xa83820, wingOuter: 0x6e1e16,
+          wingEmissive: 0x7a2410, scales: 0x8a4828, horn: 0xb87848,
+          apexSeam: 0x7a3418, eye: 0xd07040, coreGlow: 0xe05828 } },
+      // Kindled — horns + back ridges grow in (the old hatchling silhouette).
       { wingForm: 0, tailStyle: 'simple', tailSegments: 6, ridgeCount: 10,
         spineGlow: 0, crest: 0, hornPairs: 1, hornLen: 1.1,
         colors: { body: 0x231410, wingInner: 0xa83820, wingOuter: 0x6e1e16,
           wingEmissive: 0x7a2410, scales: 0x8a4828, horn: 0xb87848,
           apexSeam: 0x7a3418, eye: 0xd07040, coreGlow: 0xe05828 } },
+      // Radiant = the SSR apex: jagged flame wings, finned tail, back-spines,
+      // crest + spine-glow — bright lava, but NO premium glow-seams/veins.
       { wingForm: 1, tailStyle: 'finned', tailSegments: 7, ridgeCount: 13,
         spineGlow: 0.32, backSpines: true, crest: 1,
         colors: { body: 0x2a1510, wingInner: 0xe85628, wingOuter: 0xb81f20,
           wingEmissive: 0xff5a20, scales: 0xffa050, horn: 0xffc878,
           apexSeam: 0xff6a28, eye: 0xff9040, coreGlow: 0xff6030 } },
-      // Radiant = the SSR apex: keeps Ember's blade tail + back-spines but drops
-      // the premium glow-seams/veins, softer glow — a notch below premium SSR.
+      // Capped-off extra (unused — starters stop at Radiant): the old Radiant.
       { wingForm: 2, tailStyle: 'blade', tailSegments: 8, ridgeCount: 14,
         spineGlow: 0.4, backSpines: true,
         crest: 1, hornPairs: 1, hornLen: 1.3,
         colors: { body: 0x241310, wingInner: 0xff6a28, wingOuter: 0xd02418,
           wingEmissive: 0xff6a22, scales: 0xffb850, horn: 0xffd878,
           apexSeam: 0xff7a2a, eye: 0xffb050, coreGlow: 0xff7838 } },
-      // Apex stays a notch BELOW the premium tier (no back-crest / no aura halo)
-      // so the SSR+ dragons read as more awe-inspiring — Ember is brawn, not regalia.
-      // Restrained SSR apex — softer glow, no premium seams.
-      { wingForm: 3, tailStyle: 'blade', tailSegments: 9, ridgeCount: 15,
-        spineGlow: 0.62, backSpines: true, wingVeins: true,
-        hornPairs: 2, hornLen: 1.8, crest: 2,
-        colors: { body: 0x1f1108, wingInner: 0xff7a2a, wingOuter: 0xff3a14,
-          wingEmissive: 0xff6a1e, scales: 0xffcf60, horn: 0xffe690,
-          apexSeam: 0xff8a2e, eye: 0xffd060, coreGlow: 0xff8a40 } },
     ],
     fx: { auraColor: '255,110,40', auraIdle: 0.0, sparkle: false },
     body: 0x1f1108, belly: 0xffd9a8, scales: 0xffcf60, horn: 0xffe690,
@@ -171,33 +180,36 @@ export const DRAGONS = {
         lead: [2.95, 0.56], scallop: 0.38, flame: false,
         arc: { bow: 0.60, hump: 0.85, humpAt: 0.58, hook: 0.40 } },
     ],
+    // Shifted ladder (see azure): bare river-whelp → horns + back ridges →
+    // longer body, finned tail, whiskers, crest + spine-glow. forms[3] is the
+    // capped-off extra (starters stop at Radiant, tier 2).
     forms: [
-      { wingForm: 0, tailStyle: 'simple', tailSegments: 8, ridgeCount: 12,
-        spineGlow: 0, crest: 0, neckSegments: 6,
+      // Hatchling — bare river-whelp: no horns, no back ridges, no whiskers.
+      { wingForm: 0, tailStyle: 'simple', tailSegments: 8, ridgeCount: 0,
+        spineGlow: 0, crest: 0, neckSegments: 6, hornLen: 0,
         colors: { body: 0x14281c, wingInner: 0x2a6a48, wingOuter: 0x184438,
           wingEmissive: 0x2a7a5a, scales: 0x5a8a6a, horn: 0x8aa078,
           apexSeam: 0x3a6a52, eye: 0x6aa080, coreGlow: 0x3ac888 } },
+      // Kindled — horns + back ridges grow in (the old hatchling silhouette).
+      { wingForm: 0, tailStyle: 'simple', tailSegments: 8, ridgeCount: 12,
+        spineGlow: 0, crest: 0, neckSegments: 6, hornLen: 0.9,
+        colors: { body: 0x14281c, wingInner: 0x2a6a48, wingOuter: 0x184438,
+          wingEmissive: 0x2a7a5a, scales: 0x5a8a6a, horn: 0x8aa078,
+          apexSeam: 0x3a6a52, eye: 0x6aa080, coreGlow: 0x3ac888 } },
+      // Radiant = the SSR apex: longer body + neck, finned tail, whiskers, crest
+      // + spine-glow — bright emerald, but NO premium glow-seams/veins.
       { wingForm: 1, tailStyle: 'finned', tailSegments: 10, ridgeCount: 14,
         spineGlow: 0.3, whiskers: true, neckSegments: 7, crest: 1,
         colors: { body: 0x123420, wingInner: 0x40c888, wingOuter: 0x107060,
           wingEmissive: 0x40e890, scales: 0xa0ffd0, horn: 0xffe8a0,
           apexSeam: 0x40d8a0, eye: 0xa0ffc0, coreGlow: 0x50e8b0 } },
-      // Radiant = the SSR apex: keeps Jade's whiskers + finned tail but drops the
-      // premium glow-seams/veins, softer glow — a notch below premium SSR.
+      // Capped-off extra (unused — starters stop at Radiant): the old Radiant.
       { wingForm: 2, tailStyle: 'finned', tailSegments: 11, ridgeCount: 15,
         spineGlow: 0.4, whiskers: true,
         crest: 1, neckSegments: 7,
         colors: { body: 0x103020, wingInner: 0x50e0a0, wingOuter: 0x108878,
           wingEmissive: 0x40f0a0, scales: 0xb0ffe0, horn: 0xffe8a0,
           apexSeam: 0x50f0c0, eye: 0xb0ffd0, coreGlow: 0x60f0c0 } },
-      // SR apex: graceful, but no premium back-crest/halo (kept below the SSR+ tier).
-      // Restrained SSR apex — clean finned tail, softer glow, no premium seams.
-      { wingForm: 3, tailStyle: 'finned', tailSegments: 11, ridgeCount: 16,
-        spineGlow: 0.62, whiskers: true, wingVeins: true,
-        crest: 2, neckSegments: 8,
-        colors: { body: 0x0e2c1e, wingInner: 0x60f0b0, wingOuter: 0x18a088,
-          wingEmissive: 0x50ffb0, scales: 0xc8ffe8, horn: 0xfff0b0,
-          apexSeam: 0x60ffd0, eye: 0xc8ffe0, coreGlow: 0x70ffd0 } },
     ],
     fx: { auraColor: '90,255,190', auraIdle: 0.0, sparkle: false },
     body: 0x0e2c1e, belly: 0xe8ffd0, scales: 0xc8ffe8, horn: 0xfff0b0,

@@ -261,19 +261,22 @@ export function buildDragonModel(def, opts = {}) {
     }
   }
 
-  // Horns
+  // Horns — skipped entirely when hornLen is 0 (the bare hatchling form, before
+  // the first evolution sprouts its horns). Cheek fins stay as facial structure.
   for (const s of [-1, 1]) {
-    const horn = new THREE.Mesh(new THREE.ConeGeometry(0.16, model.hornLen, 6), hornMat);
-    horn.position.set(0.4 * s, 0.52, 0.26);
-    horn.rotation.x = 0.65;
-    horn.rotation.z = s * -0.2;
-    head.add(horn);
-    if (model.hornPairs > 1) {
-      const horn2 = new THREE.Mesh(new THREE.ConeGeometry(0.11, model.hornLen * 0.62, 6), hornMat);
-      horn2.position.set(0.24 * s, 0.48, 0.52);
-      horn2.rotation.x = 0.95;
-      horn2.rotation.z = s * -0.34;
-      head.add(horn2);
+    if (model.hornLen > 0) {
+      const horn = new THREE.Mesh(new THREE.ConeGeometry(0.16, model.hornLen, 6), hornMat);
+      horn.position.set(0.4 * s, 0.52, 0.26);
+      horn.rotation.x = 0.65;
+      horn.rotation.z = s * -0.2;
+      head.add(horn);
+      if (model.hornPairs > 1) {
+        const horn2 = new THREE.Mesh(new THREE.ConeGeometry(0.11, model.hornLen * 0.62, 6), hornMat);
+        horn2.position.set(0.24 * s, 0.48, 0.52);
+        horn2.rotation.x = 0.95;
+        horn2.rotation.z = s * -0.34;
+        head.add(horn2);
+      }
     }
     const cheekFin = new THREE.Mesh(new THREE.ConeGeometry(0.11, 0.68, 5), scalesMat);
     cheekFin.position.set(0.56 * s, 0.02, -0.12);

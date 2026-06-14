@@ -1,4 +1,4 @@
-import { saveData, persist } from './save.js';
+import { saveData, persist, persistNow } from './save.js';
 import { DRAGONS } from './dragons.js';
 
 // Dragon Ascension: a 5-tier per-dragon ladder gated by mastery metres + ember
@@ -90,24 +90,13 @@ export function ascend(key, dragonCost) {
   const entry = saveData.ascension.tiers.find(e => e[0] === key);
   if (entry) entry[1]++;
   else saveData.ascension.tiers.push([key, 1]);
-  persist();
+  persistNow(); // discrete purchase — write immediately, never debounced
   return true;
 }
 
-export function radianceCost(key) {
-  return 3000 + 1500 * radianceRank(key);
-}
-
-export function buyRadiance(key) {
-  const cost = radianceCost(key);
-  if (saveData.embers < cost) return false;
-  saveData.embers -= cost;
-  const entry = saveData.ascension.radiance.find(e => e[0] === key);
-  if (entry) entry[1]++;
-  else saveData.ascension.radiance.push([key, 1]);
-  persist();
-  return true;
-}
+// NOTE: the old "Brighter Aura" radiance prestige was removed — at the apex
+// (Eternal) a dragon now simply reads EVOLVED ✦ MAX, no endless ember sink.
+// `radianceRank` is kept so any aura ranks bought before the change still glow.
 
 // 1% ember bonus per equipped dragon's ascension tier, max 5%.
 export function ascendEmberBonus() {
