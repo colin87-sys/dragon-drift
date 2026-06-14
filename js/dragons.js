@@ -17,6 +17,7 @@ export const DRAGONS = {
     name: 'Azure Drake',
     title: 'The trusted courier',
     rarity: 'R',
+    maxRarity: 'SSR',   // starter: evolution caps at SSR, never SSSR
     cost: 0,
     // The humble free starter: the smallest, NARROWEST, cleanest wings in the
     // roster (a nimble messenger), so the premiums feel rare. Sky-blue + gold.
@@ -57,8 +58,10 @@ export const DRAGONS = {
         colors: { body: 0x16243c, wingInner: 0x60a8ff, wingOuter: 0x2a6ad0,
           wingEmissive: 0x5aa0ff, scales: 0xbfe8ff, horn: 0xffe8a0,
           apexSeam: 0x7ac0ff, eye: 0xa0d8ff, coreGlow: 0x90c8ff } },
-      { wingForm: 3, tailStyle: 'comet', tailSegments: 8, ridgeCount: 12,
-        spineGlow: 0.82, wingVeins: true, glowSeams: true, crest: 2,
+      // Restrained starter apex: clean finned tail (not the premium comet) and a
+      // softer glow so it reads SSR, well below the eternal premiums.
+      { wingForm: 3, tailStyle: 'finned', tailSegments: 8, ridgeCount: 12,
+        spineGlow: 0.6, wingVeins: true, crest: 1,
         colors: { body: 0x121f34, wingInner: 0x7ab8ff, wingOuter: 0x3a7ae0,
           wingEmissive: 0x6ab0ff, scales: 0xdcf0ff, horn: 0xffe8a0,
           apexSeam: 0x88d0ff, eye: 0xcaeaff, coreGlow: 0xaad8ff } },
@@ -74,6 +77,7 @@ export const DRAGONS = {
     name: 'Ember Wyrm',
     title: 'Forged in cinder',
     rarity: 'SR',
+    maxRarity: 'SSR',   // starter: evolution caps at SSR, never SSSR
     cost: 600,
     // A brutish CINDER-WYRM: broad, JAGGED flame-edged wings, a spiked back and
     // lava-crack seams — stockier and more aggressive than Solar's elegant
@@ -118,8 +122,9 @@ export const DRAGONS = {
           apexSeam: 0xff7a2a, eye: 0xffb050, coreGlow: 0xff7838 } },
       // Apex stays a notch BELOW the premium tier (no back-crest / no aura halo)
       // so the SSR+ dragons read as more awe-inspiring — Ember is brawn, not regalia.
+      // Restrained SSR apex — softer glow, no premium seams.
       { wingForm: 3, tailStyle: 'blade', tailSegments: 9, ridgeCount: 15,
-        spineGlow: 0.85, backSpines: true, wingVeins: true, glowSeams: true,
+        spineGlow: 0.62, backSpines: true, wingVeins: true,
         hornPairs: 2, hornLen: 1.8, crest: 2,
         colors: { body: 0x1f1108, wingInner: 0xff7a2a, wingOuter: 0xff3a14,
           wingEmissive: 0xff6a1e, scales: 0xffcf60, horn: 0xffe690,
@@ -136,6 +141,7 @@ export const DRAGONS = {
     name: 'Jade Serpent',
     title: 'River-wind dancer',
     rarity: 'SR',
+    maxRarity: 'SSR',   // starter: evolution caps at SSR, never SSSR
     cost: 1200,
     // A serpentine EASTERN river-dragon: the SMALLEST wings of the roster on a
     // long sinuous body — long neck, long flowing tail, trailing whiskers. Its
@@ -179,8 +185,9 @@ export const DRAGONS = {
           wingEmissive: 0x40f0a0, scales: 0xb0ffe0, horn: 0xffe8a0,
           apexSeam: 0x50f0c0, eye: 0xb0ffd0, coreGlow: 0x60f0c0 } },
       // SR apex: graceful, but no premium back-crest/halo (kept below the SSR+ tier).
-      { wingForm: 3, tailStyle: 'comet', tailSegments: 11, ridgeCount: 16,
-        spineGlow: 0.85, whiskers: true, wingVeins: true, glowSeams: true,
+      // Restrained SSR apex — clean finned tail, softer glow, no premium seams.
+      { wingForm: 3, tailStyle: 'finned', tailSegments: 11, ridgeCount: 16,
+        spineGlow: 0.62, whiskers: true, wingVeins: true,
         crest: 2, neckSegments: 8,
         colors: { body: 0x0e2c1e, wingInner: 0x60f0b0, wingOuter: 0x18a088,
           wingEmissive: 0x50ffb0, scales: 0xc8ffe8, horn: 0xfff0b0,
@@ -197,6 +204,7 @@ export const DRAGONS = {
     name: 'Obsidian Shade',
     title: 'Night given wings',
     rarity: 'SSR',
+    maxRarity: 'SSSR',
     cost: 2200,
     // Night-fury interceptor: a sleek near-black drake with NARROW SWEPT wings
     // (a falcon, not Solar's broad flame-wyvern), big almond eyes, twin tail
@@ -254,6 +262,7 @@ export const DRAGONS = {
     name: 'Pearl Seraph',
     title: 'Dawn incarnate',
     rarity: 'SSR',
+    maxRarity: 'SSSR',
     cost: 3400,
     // A celestial SERAPH: broad, SMOOTH, high-raised angelic wings (no flame
     // notches), a luminous white-gold body, a head halo and blade-fins. Holy
@@ -314,6 +323,7 @@ export const DRAGONS = {
     name: 'Solar Sovereign',
     title: 'Apex of the skies',
     rarity: 'SSSR',
+    maxRarity: 'SSSR',
     cost: 5000,
     // A regal ECLIPSE dragon — the dark, cool-toned counterpoint to the Phoenix's
     // white-gold solar fire: a midnight-indigo body, antique-gold crown + spine,
@@ -380,6 +390,7 @@ export const DRAGONS = {
     name: 'Phoenix Ascendant',
     title: 'Reborn in fire',
     rarity: 'SSSR',
+    maxRarity: 'SSSR',
     cost: 6000,
     archetype: 'phoenix', // separate firebird model — see phoenixModel.js
     // A celestial firebird, NOT a wyvern: broad layered FEATHER wings, a flowing

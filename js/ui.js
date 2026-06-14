@@ -53,8 +53,17 @@ let emberDimTimer = null;
 
 // The four forms double as a rarity ladder in the shop: Hatchling reads R and
 // the apex reads SSSR, so scrubbing shows how much cooler the dragon gets.
-const FORM_RARITY = ['R', 'SR', 'SSR', 'SSSR'];
-function formRarity(tier) { return FORM_RARITY[Math.max(0, Math.min(tier, 3))]; }
+// Per-form rarity ladders that END at a dragon's max rarity: a starter's apex
+// reads SSR while premiums climb to SSSR — so evolving still feels cooler
+// without letting starters masquerade as eternal legendaries.
+const RARITY_LADDERS = {
+  SSR:  ['R', 'SR', 'SR', 'SSR'],
+  SSSR: ['R', 'SR', 'SSR', 'SSSR'],
+};
+function formRarity(tier, maxR = 'SSSR') {
+  const ladder = RARITY_LADDERS[maxR] || RARITY_LADDERS.SSSR;
+  return ladder[Math.max(0, Math.min(tier, 3))];
+}
 
 // Shop display form. Free to scrub all four forms (owned or not) so players can
 // preview the whole evolution; the FLOWN form stays clamped to what's owned in
@@ -618,15 +627,17 @@ export const ui = {
         // tinted by that form's rarity — the evolution ladder, not the old R1-R5.
         const tierPips = (key) => {
           const t = ascensionTier(key);
+          const mr = DRAGONS[key].maxRarity;
           return Array.from({ length: ASCENSION_TIERS.length + 1 }, (_, i) =>
-            `<span class="tier-pip${i <= t ? ' filled' : ''}" data-fr="${formRarity(i)}">◆</span>`).join('');
+            `<span class="tier-pip${i <= t ? ' filled' : ''}" data-fr="${formRarity(i, mr)}">◆</span>`).join('');
         };
         const tierAction = (key, cost) => {
           const t = ascensionTier(key);
           if (t >= ASCENSION_TIERS.length) {
-            // Evolution is COMPLETE at Eternal — say so clearly. Radiance is now
-            // just an OPTIONAL cosmetic prestige (a brighter idle aura), not a
-            // required next step, so it reads as a small "+Aura" not "Radiance 5".
+            // Evolution is COMPLETE at the apex — say so clearly. The optional
+            // cosmetic "✦ Aura" prestige is reserved for the premium (SSSR) tier;
+            // restrained SSR starters simply read EVOLVED ✦ MAX.
+            if (DRAGONS[key].maxRarity !== 'SSSR') return `<span class="tier-max">EVOLVED ✦ MAX</span>`;
             const rc = radianceCost(key);
             return `<span class="tier-max">EVOLVED ✦ MAX</span>`
               + `<button class="btn-ascend prestige${saveData.embers >= rc ? '' : ' dim'}" data-ascend-radiance="${key}" title="Optional cosmetic prestige — a brighter idle aura">✦ Aura ◆${rc}</button>`;
@@ -660,7 +671,7 @@ export const ui = {
               <div class="preview-wrap">
                 <canvas class="skin-preview" data-kind="dragon" data-key="${key}" width="180" height="180"></canvas>
                 ${equipped ? '<div class="equipped-badge">✓ EQUIPPED</div>' : ''}
-                <div class="rarity-gem" data-fr="${formRarity(displayTier)}">${formRarity(displayTier)}</div>
+                <div class="rarity-gem" data-fr="${formRarity(displayTier, d.maxRarity)}">${formRarity(displayTier, d.maxRarity)}</div>
               </div>${scrub}
               <div class="skin-name">${d.name}</div>
               <div class="skin-title">${d.title}</div>
@@ -1278,9 +1289,10 @@ function wireScreenButtons(type) {
         // turntable at once, which read as "all the dragons changed".
         const label = els.screen.querySelector(`[data-form-label="${key}"]`);
         if (label) label.textContent = formTierLabel(tier);
-        // Per-form rarity gem tracks the scrub (Hatchling R → Eternal SSSR).
+        // Per-form rarity gem tracks the scrub, capped at the dragon's max rarity.
         const gem = btn.closest('.skin-card')?.querySelector('.rarity-gem');
-        if (gem) { gem.textContent = formRarity(tier); gem.dataset.fr = formRarity(tier); }
+        const mr = DRAGONS[key].maxRarity;
+        if (gem) { gem.textContent = formRarity(tier, mr); gem.dataset.fr = formRarity(tier, mr); }
         const canvas = els.screen.querySelector(`canvas.skin-preview[data-key="${key}"]`);
         if (canvas) refreshPreview(canvas, 'dragon', ascendedDef(DRAGONS[key], tier, radianceRank(key)));
         // If this is the equipped dragon, rebuild the in-game model so the
