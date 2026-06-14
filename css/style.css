@@ -277,6 +277,9 @@ body.app-loaded > canvas { opacity: 1; }
   background: rgba(30, 50, 95, 0.55); border: 1px solid var(--gold-trim); font-size: 14px; }
 .meta-chip b { color: #ffd86a; }
 .meta-chip .ember-ico { color: #ffc050; }
+/* Premium faceted-gem currency glyph: inline-aligned with a soft radiant glow. */
+.ember-ico { display: inline-flex; align-items: center; }
+.ember-svg { vertical-align: -2px; filter: drop-shadow(0 0 3px rgba(255, 180, 60, 0.55)); }
 
 /* mission cards */
 .mission-list { display: flex; flex-direction: column; gap: 8px; width: min(440px, 88vw); margin: 14px 0 4px; }

@@ -3,6 +3,7 @@ import { FEAT_DEFS, featUnlockedAlready, featClaimable } from './feats.js';
 import { TITLES, titleById } from './titles.js';
 import { MILESTONES, masteryStarsFor, MASTERY_STARS } from './milestones.js';
 import { DRAGONS } from './dragons.js';
+import { EMBER_ICON } from './util.js';
 
 // The PILOT screen: who you are in this game. Three tabs —
 //   FEATS  : the achievement wall (locked ones show exactly what to do)
@@ -125,7 +126,7 @@ export function buildPilotHtml(tab) {
       <div class="meta-chip">LV <b>${saveData.level}</b></div>
       ${saveData.titles.equipped ? `<div class="meta-chip title-chip">«${(titleById(saveData.titles.equipped) || {}).name || ''}»</div>` : ''}
       <div class="meta-chip">⬢ <b>${featCount}</b>/${FEAT_DEFS.length} feats</div>
-      <div class="meta-chip"><span class="ember-ico">◆</span> <b>${saveData.embers.toLocaleString()}</b></div>
+      <div class="meta-chip"><span class="ember-ico">${EMBER_ICON}</span> <b>${saveData.embers.toLocaleString()}</b></div>
     </div>
     <div class="seg-row shop-tabs">${tabBtn('feats', '⬢ FEATS')}${tabBtn('log', '✈ FLIGHT LOG')}${tabBtn('titles', '« TITLES »')}</div>
     <div class="pilot-body">${body}</div>
