@@ -361,16 +361,19 @@ export const DRAGONS = {
           wingEmissive: 0x6e1f14, scales: 0xc8a24a, horn: 0xddc070,
           apexSeam: 0x6f7dff, eye: 0xddebff, coreGlow: 0x6f7dff } },
     ],
-    fx: { auraColor: '111,125,255', auraIdle: 0.0, sparkle: false },
-    // Eclipse Surge: cool electric blue, never magenta — the dark royal contrast
-    // to the Phoenix's gold Rebirth.
-    feverWing: 0x9fc0ff, feverEye: 0xddebff, feverWash: [0.035, 0.045, 0.10],
+    fx: { auraColor: '122,92,255', auraIdle: 0.0, sparkle: false },
+    // Eclipse Surge: a premium COOL ARCANE transformation — the obsidian shell
+    // stays dark while spine, seams, wing veins and core blaze blue-violet /
+    // cyan / indigo (surgeHi lavender, never white-hot or magenta). hasStyle keeps
+    // the tail boost cool; surgeMotes breathes arcane motes off the tail + body.
+    hasStyle: true, surgeMotes: true,
+    feverWing: 0x5a64e0, feverEye: 0xb8a8ff, feverWash: [0.03, 0.03, 0.11],
     body: 0x080b14, belly: 0x1a1830, scales: 0xc8a24a, horn: 0xddc070,
     // Wing membrane runs dark copper at the ROOT → dark burnt-crimson at the
     // outer edge — antique bronze struts, blue-violet veins. Never bright orange.
     wingInner: 0x8a2e18, wingOuter: 0x5a160e, wingEmissive: 0x6e1f14,
-    apexEye: 0xddebff, apexSeam: 0x6f7dff, coreGlow: 0x6f7dff, surgeHi: 0xddebff,
-    eye: 0x9fb0ff, trail: 0x8090ff, boostTrail: 0xbcd0ff,
+    apexEye: 0xddebff, apexSeam: 0x6f7dff, coreGlow: 0x6f7dff, surgeHi: 0x9a86ff,
+    eye: 0x9fb0ff, trail: 0x8090ff, boostTrail: 0x9a90ff,
   },
 
   phoenix: {
