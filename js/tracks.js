@@ -1448,4 +1448,53 @@ export const TRACKS = [
       [N.F3, N.Gs3, N.C4, N.F4], [N.Cs4, N.F4, N.Gs4, N.Cs5], [N.Ds4, N.G4, N.Bb4, N.Ds5], [N.C4, N.E4, N.G4, N.C5],
     ],
   },
+  { // 31 — TITLE / MENU theme. Bright, inviting, anthemic: the catchy first
+    // impression on the start screen. C major, the timeless I–V–vi–IV (C–G–Am–F)
+    // anthem progression under a soaring hook, with cascading broken-chord arps
+    // for that classic FF-Prelude shimmer. Auto-plays on the menu (sfx.js).
+    id: 'skybound',
+    name: 'Skybound',
+    desc: 'Soaring title theme',
+    cost: 0,
+    bpm: 128,
+    voices: {
+      melody: { osc: 'triangle', vol: 0.17 },
+      bass:   { osc: 'triangle', vol: 0.20 },
+      high:   { osc: 'triangle', vol: 0.11 },
+      arp:    { osc: 'sawtooth', vol: 0.08 },
+      lead:   { osc: 'triangle', vol: 0.11 },
+    },
+    drums: { kick: 1, snare: 1, hat: 1 },
+    pad: true,
+    melody: [
+      [N.G4,1],[N.C5,1],[N.E5,2],[N.G5,2],[N.E5,2],
+      [N.D5,1],[N.G5,1],[N.B5,2],[N.G5,2],[N.D5,2],
+      [N.C5,1],[N.E5,1],[N.A5,2],[N.E5,2],[N.C5,2],
+      [N.C5,1],[N.F5,1],[N.A5,2],[N.G5,2],[N.F5,2],
+      [N.E5,2],[N.G5,2],[N.C6,2],[N.G5,2],
+      [N.D6,2],[N.B5,1],[N.G5,1],[N.D5,2],[N.G5,2],
+      [N.C6,2],[N.A5,1],[N.E5,1],[N.A5,2],[N.C6,2],
+      [N.A5,1],[N.G5,1],[N.F5,1],[N.E5,1],[N.D5,2],[N.C5,2],
+    ],
+    bass: pumpBass([N.C3, N.G2, N.A2, N.F2, N.C3, N.G2, N.A2, N.F2]),
+    high: [
+      [0,8],[0,8],
+      [N.E5,2],[N.A5,2],[N.C6,2],[N.A5,2],
+      [N.F5,2],[N.A5,2],[N.C6,2],[N.A5,2],
+      [N.G5,2],[N.C6,2],[N.G5,2],[N.C6,2],
+      [N.B5,2],[N.D6,2],[N.B5,2],[N.G5,2],
+      [N.C6,2],[N.A5,2],[N.E5,2],[N.A5,2],
+      [N.A5,2],[N.F5,2],[N.A5,2],[N.C6,2],
+    ],
+    arps: [
+      [N.C4, N.E4, N.G4, N.C5, N.E5, N.C5, N.G4, N.E4],
+      [N.G3, N.B3, N.D4, N.G4, N.B4, N.G4, N.D4, N.B3],
+      [N.A3, N.C4, N.E4, N.A4, N.C5, N.A4, N.E4, N.C4],
+      [N.F3, N.A3, N.C4, N.F4, N.A4, N.F4, N.C4, N.A3],
+    ],
+    chords: [
+      [N.C4, N.E4, N.G4, N.C5], [N.G3, N.B3, N.D4, N.G4], [N.A3, N.C4, N.E4, N.A4], [N.F3, N.A3, N.C4, N.F4],
+      [N.C4, N.E4, N.G4, N.C5], [N.G3, N.B3, N.D4, N.G4], [N.A3, N.C4, N.E4, N.A4], [N.F3, N.A3, N.C4, N.F4],
+    ],
+  },
 ];

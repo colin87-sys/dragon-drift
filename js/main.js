@@ -324,6 +324,7 @@ function startGame(mode = 'normal') {
     ui.hideScreen();
     emit('runStart');
   }
+  music.endMenuTheme(); // swap the title theme back to the chosen gameplay station
   music.start();
 }
 
