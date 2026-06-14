@@ -2,7 +2,7 @@ import { CONFIG } from './config.js';
 import { on } from './events.js';
 import { game } from './gameState.js';
 import { toggleMusicMute, toggleSfxMute, musicMuted, sfxMuted, music, sfx, TRACKS, trackUnlocked, setMusicVolume, setSfxVolume } from './sfx.js';
-import { comboTier } from './util.js';
+import { comboTier, EMBER_ICON } from './util.js';
 import { saveData, persist, persistNow, unfreezeSaves, xpToNext, todayUTC } from './save.js';
 import { activeMissions } from './missions.js';
 import { weeklyTrials } from './weekly.js';
@@ -595,7 +595,7 @@ export const ui = {
         <div class="meta-row">
           <div class="meta-chip">PILOT <b>LV ${saveData.level}</b></div>
           ${title ? `<div class="meta-chip title-chip" id="chip-title">«${title}»</div>` : ''}
-          <div class="meta-chip"><span class="ember-ico">◆</span> <b>${saveData.embers}</b></div>
+          <div class="meta-chip"><span class="ember-ico">${EMBER_ICON}</span> <b>${saveData.embers}</b></div>
           ${game.highScore ? `<div class="meta-chip">BEST <b>${game.highScore}</b></div>` : ''}
         </div>
         <p class="sub">${touch ? 'Drag to steer · hold a second finger to boost · swipe it sideways to barrel roll' : 'WASD/Arrows to steer · SPACE to boost · double-tap a direction to barrel roll'}</p>
@@ -774,7 +774,7 @@ export const ui = {
       html = `
         <div class="screen-topbar">
           <span class="topbar-title">SHOP</span>
-          <div class="meta-chip"><span class="ember-ico">◆</span> <b>${saveData.embers}</b></div>
+          <div class="meta-chip"><span class="ember-ico">${EMBER_ICON}</span> <b>${saveData.embers}</b></div>
           <button class="topbar-close" id="btn-back" title="Back">✕</button>
         </div>
         <div class="seg-row shop-tabs" style="margin-top:12px">${tabBtn('dragons', '🐉 DRAGONS')}${tabBtn('riders', '🛡 RIDERS')}${tabBtn('music', '♪ MUSIC')}${tabBtn('style', '✦ STYLE')}</div>
@@ -1011,7 +1011,7 @@ export const ui = {
         <div class="seg-row pm-tabs">${tabBtn('audio', 'AUDIO')}${tabBtn('assists', 'ASSISTS')}${tabBtn('quests', 'QUESTS')}</div>
         <div class="pm-body">${body}</div>
         <div class="pm-footer">
-          <span class="pm-wallet"><span class="ember-ico">◆</span> <b>${saveData.embers}</b> · LV <b>${saveData.level}</b></span>
+          <span class="pm-wallet"><span class="ember-ico">${EMBER_ICON}</span> <b>${saveData.embers}</b> · LV <b>${saveData.level}</b></span>
           <div class="pm-nav" style="display:flex; gap:8px; flex-wrap:wrap; justify-content:flex-end">
             <button class="btn-secondary pm-nav-btn" id="pm-pilot">PILOT${badgeHtml(pilotBadgeDue())}</button>
             <button class="btn-secondary pm-nav-btn" id="pm-settings">SETTINGS</button>

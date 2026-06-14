@@ -1,5 +1,9 @@
 import * as THREE from 'three';
 
+// Premium currency glyph (the "ember"): a faceted radiant gold gem rather than a
+// plain ◆. Shared by every wallet display (ui.js, pilotScreen.js).
+export const EMBER_ICON = '<svg class="ember-svg" viewBox="0 0 24 24" width="14" height="14" aria-hidden="true"><path d="M12 2l6.4 6L12 22 5.6 8z" fill="#ffc24a"/><path d="M12 2L8.7 8 12 22z" fill="#e0861c"/><path d="M12 2l3.3 6L12 22z" fill="#ffe28c"/><path d="M5.6 8h12.8" stroke="#fff3d0" stroke-width="0.8" opacity="0.85"/><path d="M12 2l6.4 6L12 22 5.6 8z" fill="none" stroke="#fff6df" stroke-width="0.8"/></svg>';
+
 // Deterministic PRNG so the course layout is stable between runs.
 export function mulberry32(seed) {
   return function () {
