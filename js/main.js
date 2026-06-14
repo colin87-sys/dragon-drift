@@ -39,7 +39,7 @@ import { initGoldEmbers, addGoldEmber, updateGoldEmbers, resetGoldEmbers } from 
 import { initHints, updateHints } from './hints.js';
 import { initPbMarker, updatePbMarker } from './pbMarker.js';
 import { ascendedDef, grandfatherAscension, ascend, ascensionTier, radianceRank, ASCENSION_TIERS } from './ascension.js';
-import { applyFlightmark, buyFlightmark, equipFlightmark, FLIGHTMARKS } from './flightmarks.js';
+import { applyFlightmark, buyFlightmark, equipFlightmark, FLIGHTMARKS, migrateFlightmarks } from './flightmarks.js';
 
 // --- Renderer / scene / camera ---
 const renderer = new THREE.WebGLRenderer({ antialias: true });
@@ -223,6 +223,8 @@ cameraCtl.init(camera, player);
 // Backfill any pilot-level titles already earned (retroactive — covers levels
 // reached before a title existed, or before the per-level grant ran).
 grantEarnedLevelTitles(saveData.level);
+// Remap any old generic trail-style purchases onto the new dragon-signature roster.
+migrateFlightmarks();
 grandfatherAscension(Object.keys(DRAGONS));
 
 // Dev mode (?dev URL, or the Settings toggle saveData.settings.dev): unlock
