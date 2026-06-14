@@ -311,16 +311,18 @@ export function buildDragonModel(def, opts = {}) {
     head.add(crestSpine);
   }
 
-  // Halo (Pearl/Seraph)
+  // Pearl's luminous aura: a soft opalescent glow, NOT a hard torus ring (the
+  // old ring read like a collar / UI artefact). Elegant and pristine.
   if (model.halo) {
-    const haloMat = new THREE.MeshStandardMaterial({
-      color: def.eye, emissive: def.eye, emissiveIntensity: 2.4,
-      roughness: 0.2, metalness: 0.5, transparent: true, opacity: 0.9,
-    });
-    const haloMesh = new THREE.Mesh(new THREE.TorusGeometry(0.52, 0.04, 8, 24), haloMat);
-    haloMesh.position.set(0, 1.32, 0);
-    haloMesh.rotation.x = 0.18;
-    head.add(haloMesh);
+    const haloRgb = `${(def.eye >> 16) & 255},${(def.eye >> 8) & 255},${def.eye & 255}`;
+    const glow = new THREE.Sprite(new THREE.SpriteMaterial({
+      map: makeGlowTexture(haloRgb), transparent: true, opacity: 0.34,
+      blending: THREE.AdditiveBlending, depthWrite: false,
+    }));
+    glow.scale.set(3.4, 4.0, 1);
+    glow.position.set(0, 0.7, 0.05);
+    glow.layers.set(1);
+    group.add(glow);
   }
 
   // Eyes

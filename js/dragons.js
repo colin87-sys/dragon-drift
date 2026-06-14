@@ -247,7 +247,8 @@ export const DRAGONS = {
       { wingForm: 2, tailStyle: 'blade', tailSegments: 8, ridgeCount: 9,
         spineGlow: 0.7, wingVeins: true, glowSeams: true, earTendrils: true, crest: 1 },
       // T3 — Night Sovereign: widest swept wings, TWIN TAIL FINS, full plasma.
-      { wingForm: 3, tailStyle: 'twinfin', tailSegments: 9, ridgeCount: 10,
+      // Obsidian crystal-shard tail — its own severe, shattered identity.
+      { wingForm: 3, tailStyle: 'shard', tailSegments: 9, ridgeCount: 10,
         spineGlow: 1.0, wingVeins: true, glowSeams: true, earTendrils: true,
         crest: 1, sparkle: true },
     ],
