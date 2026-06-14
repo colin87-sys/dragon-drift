@@ -20,6 +20,18 @@ import { ASCENSION_TIERS, ascendedDef, ascensionTier, canAscend, radianceRank, r
 let els = {};
 let handlers = {};
 
+// §8 — one consistent, satisfying UI sound across the whole interface. A single
+// delegated capture-listener plays a soft "select" tick on any meaningful
+// control, or a gentle "deny" on locked/disabled ones. Action chimes (equip,
+// claim, radio, ascend) keep layering their richer sound on top of this quiet
+// press, so every interaction feels responsive without double-handling.
+document.addEventListener('click', (e) => {
+  const el = e.target.closest('button, .skin-card, .title-row');
+  if (!el) return;
+  if (el.disabled || el.getAttribute('aria-disabled') === 'true') sfx.deny();
+  else sfx.select();
+}, true);
+
 const isTouch = () =>
   (globalThis.matchMedia && matchMedia('(pointer: coarse)').matches) ||
   'ontouchstart' in globalThis;

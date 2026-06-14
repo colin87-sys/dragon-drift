@@ -339,6 +339,17 @@ export const sfx = {
     noiseWhoosh({ from: 2000, to: 600, dur: 0.12, vol: 0.1, q: 0.6 });
     tone({ freq: 880, end: 1320, dur: 0.1, type: 'square', vol: 0.05, delay: 0.1 });
   },
+  // Soft, premium UI selection tick — a tiny rising two-tone chime played on any
+  // meaningful control click (delegated in ui.js). Clean attack, gentle decay,
+  // deliberately quiet so it layers under action chimes without getting annoying.
+  select() {
+    tone({ freq: 920, dur: 0.045, type: 'triangle', vol: 0.05 });
+    tone({ freq: 1380, dur: 0.05, type: 'sine', vol: 0.03, delay: 0.012 });
+  },
+  // Soft "not yet" for locked / disabled controls.
+  deny() {
+    tone({ freq: 300, end: 210, dur: 0.12, type: 'triangle', vol: 0.05 });
+  },
   feverStart() {
     [523.25, 659.25, 783.99, 1046.50].forEach((f, i) =>
       tone({ freq: f, end: f * 1.5, dur: 0.3, type: 'square', vol: 0.1, delay: i * 0.09 }));
