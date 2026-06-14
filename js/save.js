@@ -15,7 +15,7 @@ const DEFAULTS = {
   best: { score: 0, dist: 0 },
   flags: { seenFirstSurge: false, hintsSeen: 0, seenIOSHint: false },
   audio: { musicMuted: false, sfxMuted: false, musicVol: 1, sfxVol: 1, track: 0, ownedTracks: [] },
-  settings: { qualityOverride: null, reticle: true, slowMo: true },
+  settings: { qualityOverride: null, reticle: true, slowMo: true, dev: false },
   embers: 0,
   xp: 0,
   level: 1,
@@ -127,6 +127,7 @@ let saveTimer = 0;
 // never overwrites the player's real progress.
 let writesFrozen = false;
 export function freezeSaves() { writesFrozen = true; }
+export function unfreezeSaves() { writesFrozen = false; }
 export function persistNow() {
   saveTimer = 0;
   if (writesFrozen) return;

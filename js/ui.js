@@ -3,7 +3,7 @@ import { on } from './events.js';
 import { game } from './gameState.js';
 import { toggleMusicMute, toggleSfxMute, musicMuted, sfxMuted, music, sfx, TRACKS, trackUnlocked, setMusicVolume, setSfxVolume } from './sfx.js';
 import { comboTier } from './util.js';
-import { saveData, persist, xpToNext, todayUTC } from './save.js';
+import { saveData, persist, persistNow, unfreezeSaves, xpToNext, todayUTC } from './save.js';
 import { activeMissions } from './missions.js';
 import { weeklyTrials } from './weekly.js';
 import { equippedTitleName } from './titles.js';
@@ -790,6 +790,13 @@ export const ui = {
           <p class="sub" style="font-size:13px; opacity:0.75">Music &amp; sound volume live in the pause menu (Esc during flight).</p>
         </div>
         <div class="settings-group">
+          <div class="settings-label">DEV MODE — unlock every dragon, rider &amp; style at max form for testing. Your real save is untouched; turn it off to restore.</div>
+          <div class="seg-row">
+            <button class="seg-btn${saveData.settings.dev ? ' sel' : ''}" data-dev="1">ON</button>
+            <button class="seg-btn${saveData.settings.dev ? '' : ' sel'}" data-dev="0">OFF</button>
+          </div>
+        </div>
+        <div class="settings-group">
           <div class="settings-label">DATA</div>
           <div class="seg-row"><button class="seg-btn" id="btn-reset-save">RESET ALL PROGRESS</button></div>
         </div>
@@ -1347,6 +1354,18 @@ function wireScreenButtons(type) {
         saveData.settings[btn.dataset.assist] = btn.dataset.val === '1';
         persist();
         ui.showScreen('settings');
+      });
+    }
+    for (const btn of els.screen.querySelectorAll('.seg-btn[data-dev]')) {
+      btn.onclick = stop(() => {
+        const on = btn.dataset.dev === '1';
+        if (on === !!saveData.settings.dev) return;
+        saveData.settings.dev = on;
+        // Persist the preference even if dev froze writes, then reload so boot
+        // applies (or removes) the unlock from a clean save state.
+        unfreezeSaves();
+        persistNow();
+        location.reload();
       });
     }
     const reset = q('#btn-reset-save');
