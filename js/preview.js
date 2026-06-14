@@ -191,3 +191,63 @@ export function attachPreviewCanvas(canvas, kind, def) {
   });
   if (!rafId) rafId = requestAnimationFrame(loop);
 }
+
+// ── DragonShowcase ──────────────────────────────────────────────────────────
+// A dedicated HIGH-RES single-dragon renderer for the full-screen inspect modal
+// (the card previews render at 150px and would look soft blown up). Its own
+// renderer / scene / premium lighting, with a gentle showcase orbit layered on
+// top of the live flap. One showcase at a time; opened/closed by ui.js.
+let scRenderer = null, scScene = null, scCamera = null, scItem = null, scRaf = 0;
+const SC_SIZE = 480;
+
+function disposeGroup(group) {
+  group.traverse((o) => {
+    if (o.geometry) o.geometry.dispose();
+    if (o.material) o.material.dispose();
+  });
+}
+
+function ensureShowcase() {
+  if (scRenderer) return;
+  scRenderer = new THREE.WebGLRenderer({ alpha: true, antialias: true });
+  scRenderer.setSize(SC_SIZE, SC_SIZE);
+  scRenderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+  scRenderer.toneMapping = THREE.ACESFilmicToneMapping;
+  scScene = new THREE.Scene();
+  // Same rear chase framing as the cards (so the dragon fits at any flap), just
+  // rendered far larger, with a touch more headroom.
+  scCamera = new THREE.PerspectiveCamera(40, 1, 0.1, 100);
+  scCamera.position.set(0, 1.3, 8.6);
+  scCamera.lookAt(0, 0.3, 0);
+  scScene.add(new THREE.HemisphereLight(0xbfdcff, 0x2e3448, 1.05));
+  const key = new THREE.DirectionalLight(0xffe8c0, 2.0); key.position.set(3, 4.5, 5); scScene.add(key);
+  const rim = new THREE.DirectionalLight(0x88b8ff, 1.05); rim.position.set(-4, 2, -3); scScene.add(rim);
+  const fill = new THREE.DirectionalLight(0xd0f0ff, 0.4); fill.position.set(0, -2, 3); scScene.add(fill);
+}
+
+// Build (or rebuild, for form cycling) the showcased dragon into `canvas`.
+export function setShowcaseDef(canvas, def) {
+  ensureShowcase();
+  if (scItem) { scScene.remove(scItem.group); disposeGroup(scItem.group); }
+  const result = buildDragonModel(def, { preview: true });
+  scScene.add(result.group);
+  scItem = { canvas, ctx: canvas.getContext('2d'), group: result.group, tick: makePreviewTick(def, result) };
+  if (!scRaf) scRaf = requestAnimationFrame(scLoop);
+}
+
+function scLoop(now = performance.now()) {
+  if (!scItem) { scRaf = 0; return; }
+  scRaf = requestAnimationFrame(scLoop);
+  const t = now / 1000;
+  scItem.tick(t);
+  scItem.group.rotation.y = Math.sin(t * 0.45) * 0.4; // gentle showcase orbit over the flap
+  scRenderer.render(scScene, scCamera);
+  const c = scItem.canvas;
+  scItem.ctx.clearRect(0, 0, c.width, c.height);
+  scItem.ctx.drawImage(scRenderer.domElement, 0, 0, c.width, c.height);
+}
+
+export function closeShowcase() {
+  if (scRaf) { cancelAnimationFrame(scRaf); scRaf = 0; }
+  if (scItem) { scScene.remove(scItem.group); disposeGroup(scItem.group); scItem = null; }
+}

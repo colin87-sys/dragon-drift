@@ -12,7 +12,7 @@ import { buildPilotHtml, wirePilot } from './pilotScreen.js';
 import { claimFeat, unclaimedFeatCount } from './feats.js';
 import { DRAGONS, DRAGON_STAT_CAP } from './dragons.js';
 import { RIDERS } from './riders.js';
-import { attachPreviews, attachPreviewCanvas, refreshPreview } from './preview.js';
+import { attachPreviews, attachPreviewCanvas, refreshPreview, setShowcaseDef, closeShowcase } from './preview.js';
 import { attachTrailPreviews } from './trailPreview.js';
 import { FLIGHTMARKS, flightmarkOwned, equippedFlightmark } from './flightmarks.js';
 import { ASCENSION_TIERS, ascendedDef, ascensionTier, canAscend, radianceRank, radianceCost, maxTierFor } from './ascension.js';
@@ -47,6 +47,7 @@ const ICONS = {
   sfxOff:   '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M11 5L6 9H2v6h4l5 4V5z"/><line x1="23" y1="9" x2="17" y2="15"/><line x1="17" y1="9" x2="23" y2="15"/></svg>',
   radio:    '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="9" width="20" height="12" rx="2"/><path d="M5 9l13-6"/><circle cx="8" cy="15" r="2.5"/><path d="M15 13h4M15 17h4"/></svg>',
   pause:    '<svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor"><rect x="6" y="4" width="4" height="16" rx="1"/><rect x="14" y="4" width="4" height="16" rx="1"/></svg>',
+  inspect:  '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="10.5" cy="10.5" r="6.5"/><path d="M20 20l-4.6-4.6"/></svg>',
   prev:     '<svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor"><path d="M6 4h2v16H6zM20 4v16L9 12z"/></svg>',
   next:     '<svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor"><path d="M16 4h2v16h-2zM4 4v16l11-8z"/></svg>',
 };
@@ -98,6 +99,77 @@ function setFormPref(key, tier) {
 function formTierLabel(tier) {
   if (tier === 0) return 'Hatchling';
   return ASCENSION_TIERS[tier - 1]?.name ?? 'Eternal';
+}
+
+function inspectStatBars(d) {
+  const st = d.stats;
+  const spd = (st.speed - 1) / (DRAGON_STAT_CAP.speed - 1 || 1);
+  const agi = (st.handling - 1) / (DRAGON_STAT_CAP.handling - 1 || 1);
+  const sta = ((1 - st.drain) + (st.regen - 1)) / ((1 - DRAGON_STAT_CAP.drain) + (DRAGON_STAT_CAP.regen - 1) || 1);
+  const row = (lbl, k) => `<div class="stat-bar-row"><span>${lbl}</span><div class="stat-bar"><span style="width:${Math.round(12 + 88 * Math.max(0, Math.min(1, k)))}%"></span></div></div>`;
+  return row('SPD', spd) + row('AGI', agi) + row('STA', sta);
+}
+
+// §3 — full-screen premium dragon inspect/showcase. A blurred, vignetted backdrop
+// behind a large high-res render (preview.js DragonShowcase) with name / rarity /
+// lore / stats and form cycling. Built on demand, disposed on close.
+let inspectOpen = false;
+function openInspect(key) {
+  if (inspectOpen) return;
+  const d = DRAGONS[key];
+  if (!d) return;
+  inspectOpen = true;
+  const owned = saveData.skins.owned.includes(key);
+  const cap = maxTierFor(key);
+  let tier = owned ? getFormPref(key) : cap;
+
+  const overlay = document.createElement('div');
+  overlay.className = 'inspect-overlay';
+  overlay.innerHTML = `
+    <div class="inspect-modal">
+      <button class="inspect-close" id="inspect-close" title="Close">✕</button>
+      <div class="inspect-stage">
+        <div class="rarity-gem inspect-gem" id="inspect-gem"></div>
+        <canvas class="inspect-canvas" width="480" height="480"></canvas>
+      </div>
+      <div class="form-scrub inspect-scrub">
+        <button class="form-arrow" id="inspect-prev">◀</button>
+        <span class="form-tier-label" id="inspect-formlabel"></span>
+        <button class="form-arrow" id="inspect-next">▶</button>
+      </div>
+      <div class="inspect-name">${d.name}</div>
+      <div class="inspect-title">${d.title}</div>
+      <div class="inspect-stats">${inspectStatBars(d)}</div>
+    </div>`;
+  document.body.appendChild(overlay);
+  const canvas = overlay.querySelector('.inspect-canvas');
+  const gem = overlay.querySelector('#inspect-gem');
+  const label = overlay.querySelector('#inspect-formlabel');
+
+  const render = () => {
+    setShowcaseDef(canvas, ascendedDef(d, tier, owned ? radianceRank(key) : 0));
+    label.textContent = formTierLabel(tier);
+    const fr = formRarity(tier, d.maxRarity);
+    gem.textContent = fr; gem.dataset.fr = fr;
+  };
+  render();
+
+  // Capture-phase so Escape closes the modal before the game's own Esc handler.
+  const onKey = (e) => { if (e.key === 'Escape') { e.stopPropagation(); close(); } };
+  const close = () => {
+    if (!inspectOpen) return;
+    inspectOpen = false;
+    document.removeEventListener('keydown', onKey, true);
+    closeShowcase();
+    overlay.classList.remove('open');
+    setTimeout(() => overlay.remove(), 220);
+  };
+  document.addEventListener('keydown', onKey, true);
+  overlay.querySelector('#inspect-close').onclick = (e) => { e.stopPropagation(); close(); };
+  overlay.addEventListener('click', (e) => { if (e.target === overlay) close(); });
+  overlay.querySelector('#inspect-prev').onclick = (e) => { e.stopPropagation(); if (tier > 0) { tier--; render(); } };
+  overlay.querySelector('#inspect-next').onclick = (e) => { e.stopPropagation(); if (tier < cap) { tier++; render(); } };
+  requestAnimationFrame(() => overlay.classList.add('open'));
 }
 
 export const ui = {
@@ -686,6 +758,7 @@ export const ui = {
                 <canvas class="skin-preview" data-kind="dragon" data-key="${key}" width="180" height="180"></canvas>
                 ${equipped ? '<div class="equipped-badge">✓ EQUIPPED</div>' : ''}
                 <div class="rarity-gem" data-fr="${formRarity(displayTier, d.maxRarity)}">${formRarity(displayTier, d.maxRarity)}</div>
+                <button class="inspect-btn" data-inspect="${key}" title="Inspect — full-screen showcase" aria-label="Inspect ${d.name}">${ICONS.inspect}</button>
               </div>${scrub}
               <div class="skin-name">${d.name}</div>
               <div class="skin-title">${d.title}</div>
@@ -1202,6 +1275,10 @@ function wireScreenButtons(type) {
     }
 
     // Dragons: buy/equip — equipping swaps the model AND the flight stats.
+    for (const btn of els.screen.querySelectorAll('.inspect-btn[data-inspect]')) {
+      // stopPropagation so inspecting never also equips/buys the card.
+      btn.onclick = (e) => { e.stopPropagation(); openInspect(btn.dataset.inspect); };
+    }
     for (const card of els.screen.querySelectorAll('.skin-card[data-dragon]')) {
       card.onclick = stop(() => {
         const key = card.dataset.dragon;
