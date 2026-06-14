@@ -224,14 +224,16 @@ export const DRAGONS = {
     rarity: 'SSR',
     maxRarity: 'SSSR',
     cost: 2200,
-    // Night-fury interceptor: a sleek near-black drake with NARROW SWEPT wings
-    // (a falcon, not Solar's broad flame-wyvern), big almond eyes, twin tail
-    // fins and a plasma-cyan glow. Its own silhouette — see wingForms below.
+    // STEALTH NIGHT-FURY DRAKE: sleek, COMPACT, near-black with electric-CYAN
+    // plasma. Narrow swept bat-wings, a SMOOTH low-spike back (no head crest),
+    // big almond eyes, ear-frills and TWIN tail-fins (a forked rudder). Strictly
+    // blue-black + cyan — never purple/regal — the cool opposite of Sovereign's
+    // crimson-gold dragon-lord. Read = silent night hunter.
     stats: { speed: 1.1, handling: 1.16, drain: 0.84, regen: 1.18 },
     model: {
-      scale: 1.12, wingScale: 1.12, tailSegments: 9, neckSegments: 5,
-      hornLen: 1.1, hornPairs: 1, ridgeCount: 10, eyeScale: 1.25,
-      flapBias: 1.0, flapAmp: 0.85, // agile beat, smoothed/fuller toward the Phoenix feel
+      scale: 1.05, wingScale: 1.1, tailSegments: 9, neckSegments: 5,
+      hornLen: 0.85, hornPairs: 1, ridgeCount: 6, eyeScale: 1.3,
+      flapBias: 1.05, flapAmp: 0.85, // quick, agile, low-profile beat
     },
     // Narrow, swept-back, low-arc wings (vs Solar's wide flared flame wings).
     wingForms: [
@@ -249,32 +251,34 @@ export const DRAGONS = {
         arc: { bow: 0.85, hump: 0.70, humpAt: 0.60, hook: 0.42 } },
     ],
     forms: [
-      // T0 — Shadeling: small, plain near-black drake, big eyes, plasma dormant.
-      { wingForm: 0, tailStyle: 'simple', tailSegments: 6, ridgeCount: 7,
-        spineGlow: 0, crest: 0, eyeScale: 1.3, neckSegments: 5,
-        colors: { wingInner: 0x1c1b24, wingOuter: 0x121118, wingEmissive: 0x36424c,
-          scales: 0x37343f, horn: 0x4a4658, eye: 0x5a8a98, apexSeam: 0x49555f,
-          coreGlow: 0x2a5560, body: 0x161620 } },
-      // T1 — Nightwing: plasma ignites, ear frills, wider swept wings, finned tail.
-      { wingForm: 1, tailStyle: 'finned', tailSegments: 7, ridgeCount: 9,
-        spineGlow: 0.3, earTendrils: true, eyeScale: 1.3,
-        colors: { wingInner: 0x26233a, wingOuter: 0x141a26, wingEmissive: 0x00ccff,
-          scales: 0x4a3f70, horn: 0x6a5fa0, eye: 0x33e0ff, apexSeam: 0x00e5ff,
-          coreGlow: 0x00c0e0, body: 0x14131c } },
-      // T2 — Plasma Shade: plasma seams + glowing spine + wing veins, blade tail.
-      { wingForm: 2, tailStyle: 'blade', tailSegments: 8, ridgeCount: 9,
-        spineGlow: 0.7, wingVeins: true, glowSeams: true, earTendrils: true, crest: 1 },
-      // T3 — Night Sovereign: widest swept wings, TWIN TAIL FINS, full plasma.
-      // Obsidian crystal-shard tail — its own severe, shattered identity.
-      { wingForm: 3, tailStyle: 'shard', tailSegments: 9, ridgeCount: 10,
-        spineGlow: 1.0, wingVeins: true, glowSeams: true, earTendrils: true,
-        crest: 1, sparkle: true },
+      // T0 — Shadeling: small smooth night drake, plasma dormant (cool grey-cyan).
+      { wingForm: 0, tailStyle: 'simple', tailSegments: 6, ridgeCount: 4,
+        spineGlow: 0, crest: 0, eyeScale: 1.35, neckSegments: 5, hornLen: 0.8,
+        colors: { body: 0x0a0d12, wingInner: 0x141c28, wingOuter: 0x0c1118,
+          wingEmissive: 0x2a4a5a, scales: 0x1a2230, horn: 0x2a3848,
+          eye: 0x4a8a9a, apexSeam: 0x3a5560, coreGlow: 0x2a5560 } },
+      // T1 — Nightwing: electric-cyan plasma ignites, ear frills, finned tail.
+      { wingForm: 1, tailStyle: 'finned', tailSegments: 7, ridgeCount: 5,
+        spineGlow: 0.3, earTendrils: true, eyeScale: 1.32,
+        colors: { body: 0x0a0d12, wingInner: 0x182334, wingOuter: 0x0e1622,
+          wingEmissive: 0x59d8ff, scales: 0x223044, horn: 0x33506a,
+          eye: 0x59d8ff, apexSeam: 0x59d8ff, coreGlow: 0x4aa3ff } },
+      // T2 — Plasma Shade: brighter cyan seams + glowing spine + wing veins.
+      { wingForm: 2, tailStyle: 'finned', tailSegments: 8, ridgeCount: 6,
+        spineGlow: 0.7, wingVeins: true, glowSeams: true, earTendrils: true,
+        colors: { body: 0x0a0d12, wingInner: 0x1b2838, wingOuter: 0x0e1828,
+          wingEmissive: 0x59d8ff, scales: 0x243450, horn: 0x3a5a78,
+          eye: 0x8be9ff, apexSeam: 0x59d8ff, coreGlow: 0x59d8ff } },
+      // T3 — Apex stealth drake: widest swept wings, full cyan plasma, and the
+      // iconic Night-Fury TWIN TAIL-FINS (a forked rudder). Sleek, deadly, silent.
+      { wingForm: 3, tailStyle: 'twinfin', tailSegments: 9, ridgeCount: 7,
+        spineGlow: 1.0, wingVeins: true, glowSeams: true, earTendrils: true },
     ],
-    fx: { auraColor: '0,225,255', auraIdle: 0.0, sparkle: false },
-    body: 0x14131c, belly: 0x2c2740, scales: 0x4a3f70, horn: 0x6a5fa0,
-    wingInner: 0x26233a, wingOuter: 0x141a26, wingEmissive: 0x00ccff,
-    apexEye: 0x00ffee, apexSeam: 0x00e5ff, coreGlow: 0x00e5ff, surgeHi: 0xe8fcff,
-    eye: 0x33e0ff, trail: 0x00d8ff, boostTrail: 0x40f0ff,
+    fx: { auraColor: '89,216,255', auraIdle: 0.0, sparkle: false },
+    body: 0x0a0d12, belly: 0x111827, scales: 0x243450, horn: 0x3a5a78,
+    wingInner: 0x182334, wingOuter: 0x0e1622, wingEmissive: 0x59d8ff,
+    apexEye: 0x8be9ff, apexSeam: 0x59d8ff, coreGlow: 0x4aa3ff, surgeHi: 0xd8f6ff,
+    eye: 0x59d8ff, trail: 0x59d8ff, boostTrail: 0x8be9ff,
   },
 
   pearl: {
@@ -364,31 +368,31 @@ export const DRAGONS = {
         spineGlow: 0, crest: 0, hornPairs: 1, hornLen: 1.0, neckSegments: 5,
         colors: { body: 0x0d1018, wingInner: 0x6e2418, wingOuter: 0x4a160e,
           wingEmissive: 0x5a1c10, scales: 0x7a6038, horn: 0x9a7c4a,
-          apexSeam: 0x5a5c8a, eye: 0x8f9cd0, coreGlow: 0x6f7dff } },
+          apexSeam: 0x5a5c8a, eye: 0xc8a868, coreGlow: 0xb784ff } },
       // FORM 2 — Eclipse Drake: deep-indigo body, dark copper→crimson wings,
       // antique-gold spine, a stronger blue-violet core.
       { wingForm: 1, tailStyle: 'finned', tailSegments: 7, ridgeCount: 12,
         spineGlow: 0.34, crest: 1, dorsal: true, hornLen: 1.25,
-        colors: { body: 0x0c1322, wingInner: 0x8a2e18, wingOuter: 0x6e1f14,
+        colors: { body: 0x0c1322, wingInner: 0x9c2233, wingOuter: 0x7a1622,
           wingEmissive: 0x7a2414, scales: 0xa88a48, horn: 0xc09a54,
-          apexSeam: 0x6f7dff, eye: 0x9fb0ff, coreGlow: 0x6f7dff } },
+          apexSeam: 0xb784ff, eye: 0xe0bc78, coreGlow: 0xb784ff } },
       // FORM 3 — Royal Eclipse Dragon: obsidian-indigo body, antique-gold spine
       // plates, dark-crimson wings with blue-violet veins, electric core.
       { wingForm: 2, tailStyle: 'blade', tailSegments: 8, ridgeCount: 14,
         spineGlow: 0.7, wingVeins: true, glowSeams: true,
         crest: 2, hornPairs: 2, hornLen: 1.5, tusks: true, neckSegments: 6,
-        colors: { body: 0x0a1020, wingInner: 0x8a2e18, wingOuter: 0x6e1f14,
-          wingEmissive: 0x6e1f14, scales: 0xc8a24a, horn: 0xd8b25a,
-          apexSeam: 0x6f7dff, eye: 0xbcd0ff, coreGlow: 0x6f7dff } },
+        colors: { body: 0x0a1020, wingInner: 0x9c2233, wingOuter: 0x7a1622,
+          wingEmissive: 0x7a1622, scales: 0xd4a84f, horn: 0xd8b25a,
+          apexSeam: 0xb784ff, eye: 0xecd090, coreGlow: 0xb784ff } },
       // FORM 4 — SOVEREIGN (Royal Eclipse): midnight body, antique-gold crown +
       // spine, dark burnt-crimson wings, blue-violet core/halo, pale electric-blue
       // eyes. Dark, regal, legendary — the cool counterpoint to the Phoenix.
       { wingForm: 3, tailStyle: 'comet', tailSegments: 9, ridgeCount: 16,
         spineGlow: 1.0, wingVeins: true, glowSeams: true,
         backCrest: true, auraHalo: true, crest: 3, hornLen: 1.7,
-        colors: { body: 0x080b14, wingInner: 0x8a2e18, wingOuter: 0x5a160e,
-          wingEmissive: 0x6e1f14, scales: 0xc8a24a, horn: 0xddc070,
-          apexSeam: 0x6f7dff, eye: 0xddebff, coreGlow: 0x6f7dff } },
+        colors: { body: 0x080b14, wingInner: 0x9c2233, wingOuter: 0x5a160e,
+          wingEmissive: 0x7a1622, scales: 0xd4a84f, horn: 0xddc070,
+          apexSeam: 0xb784ff, eye: 0xf4e2a8, coreGlow: 0xb784ff } },
     ],
     fx: { auraColor: '122,92,255', auraIdle: 0.0, sparkle: false },
     // Eclipse Surge: a premium COOL ARCANE transformation — the obsidian shell
@@ -396,13 +400,13 @@ export const DRAGONS = {
     // cyan / indigo (surgeHi lavender, never white-hot or magenta). hasStyle keeps
     // the tail boost cool; surgeMotes breathes arcane motes off the tail + body.
     hasStyle: true, surgeMotes: true,
-    feverWing: 0x5a64e0, feverEye: 0xb8a8ff, feverWash: [0.03, 0.03, 0.11],
-    body: 0x080b14, belly: 0x1a1830, scales: 0xc8a24a, horn: 0xddc070,
+    feverWing: 0x8a5cf0, feverEye: 0xc8a8ff, feverWash: [0.06, 0.025, 0.10],
+    body: 0x080b14, belly: 0x1a1830, scales: 0xd4a84f, horn: 0xddc070,
     // Wing membrane runs dark copper at the ROOT → dark burnt-crimson at the
     // outer edge — antique bronze struts, blue-violet veins. Never bright orange.
-    wingInner: 0x8a2e18, wingOuter: 0x5a160e, wingEmissive: 0x6e1f14,
-    apexEye: 0xddebff, apexSeam: 0x6f7dff, coreGlow: 0x6f7dff, surgeHi: 0x9a86ff,
-    eye: 0x9fb0ff, trail: 0x8090ff, boostTrail: 0x9a90ff,
+    wingInner: 0x9c2233, wingOuter: 0x5a160e, wingEmissive: 0x7a1622,
+    apexEye: 0xf4e2a8, apexSeam: 0xb784ff, coreGlow: 0xb784ff, surgeHi: 0x9a86ff,
+    eye: 0xe0bc78, trail: 0xb47cf0, boostTrail: 0xc8a8ff,
   },
 
   phoenix: {
