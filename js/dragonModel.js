@@ -4,7 +4,7 @@ import {
   buildArrowTorso, keelTopAt,
   DEFAULT_WING, wingSpecFor, buildWingShape, buildFeatherWingShape,
   archWing, archLift, wingStrut, applyWingGradient,
-  buildCleanTail,
+  buildCleanTail, edgedFin,
 } from './dragonParts.js';
 import { buildPhoenixModel } from './phoenixModel.js';
 
@@ -30,6 +30,12 @@ export function buildDragonModel(def, opts = {}) {
 
   const model = def.model;
   const group = new THREE.Group();
+  // Emissive multiplier (Radiant = 1.0; the apex can exceed 1) shared by every
+  // glowing accent so a form's whole light signature ramps from one constant.
+  // giM clamps the per-element emissive so high gi reads as MORE cyan glow
+  // (chevrons/edges/particles), not a white-blown bloom under the ACES tone-map.
+  const gi = model.glowIntensity ?? 1;
+  const giM = Math.min(gi, 1.3);
 
   const bodyMat = new THREE.MeshStandardMaterial({
     color: def.body, roughness: 0.38, metalness: 0.12,
@@ -40,8 +46,10 @@ export function buildDragonModel(def, opts = {}) {
   });
   const wingMat = new THREE.MeshStandardMaterial({
     color: 0xffffff, vertexColors: true, roughness: 0.55, side: THREE.DoubleSide,
-    transparent: true, opacity: 0.82, // translucent membrane — see rings through it
-    emissive: def.wingEmissive, emissiveIntensity: 0.28,
+    transparent: true, opacity: model.wingOpacity ?? 0.82, // translucent membrane — see rings through it
+    // wingPanelGlow keeps the membrane mostly DARK on dragons that carry their
+    // brightness on the edges (the cyan-rimmed apex) instead of the whole panel.
+    emissive: def.wingEmissive, emissiveIntensity: model.wingPanelGlow ?? 0.28,
   });
   const scalesMat = new THREE.MeshStandardMaterial({
     color: def.scales, emissive: 0x0b79aa, emissiveIntensity: 0.42,
@@ -76,15 +84,16 @@ export function buildDragonModel(def, opts = {}) {
 
   // Glowing dorsal spine — runs along the crest of the keel so it reads as a
   // bright stripe from directly behind. Ramps with the forms (spineGlow 0→1).
-  if (model.spineGlow > 0) {
+  // Dragons that author a dorsalGlowCount get the CHEVRON line below instead.
+  if (model.spineGlow > 0 && !model.dorsalGlowCount) {
     const g = model.spineGlow;
     const spineCol = def.apexSeam || def.eye;
     const spineMat = new THREE.MeshStandardMaterial({
       color: spineCol, emissive: spineCol,
-      emissiveIntensity: 0.7 + g * 2.0, roughness: 0.3, metalness: 0.3,
+      emissiveIntensity: (0.7 + g * 2.0) * gi, roughness: 0.3, metalness: 0.3,
     });
     spineMat.userData.baseEmissive = spineCol;
-    spineMat.userData.baseIntensity = 0.7 + g * 2.0;
+    spineMat.userData.baseIntensity = (0.7 + g * 2.0) * gi;
     spineMats.push(spineMat);
     const segN = 11;
     for (let i = 0; i < segN; i++) {
@@ -96,6 +105,40 @@ export function buildDragonModel(def, opts = {}) {
       node.rotation.x = -Math.PI / 2;
       node.position.set(0, top + h / 2 - 0.04, z);
       group.add(node);
+    }
+  }
+
+  // Dorsal ENERGY LINE — a row of cyan chevrons marching head→tail along the keel
+  // crest (the Night-drake signature). Reads as a bright "<<<" stripe straight
+  // down the back from the top-rear camera; count + brightness ramp per form
+  // (dorsalGlowCount / glowIntensity) so the apex is unmistakably more charged.
+  if (model.dorsalGlowCount > 0) {
+    const n = model.dorsalGlowCount;
+    const chevCol = def.apexSeam || def.eye;
+    const chevInt = (0.6 + (model.spineGlow || 0) * 0.6) * giM;
+    const chevMat = new THREE.MeshStandardMaterial({
+      color: chevCol, emissive: chevCol, emissiveIntensity: chevInt,
+      roughness: 0.3, metalness: 0.35,
+    });
+    chevMat.userData.baseEmissive = chevCol;
+    chevMat.userData.baseIntensity = chevInt;
+    spineMats.push(chevMat);
+    const barLen = 0.17 + giM * 0.06;
+    const barW = 0.03 + giM * 0.008;
+    for (let i = 0; i < n; i++) {
+      const t = n > 1 ? i / (n - 1) : 0;
+      const z = -1.75 + t * 3.55;               // shoulders → tail root
+      const top = 0.2 + keelTopAt(z);
+      const wide = 0.10 + (1 - Math.abs(t - 0.45) * 1.4) * 0.05; // fuller across the mid-back
+      const chev = new THREE.Group();
+      for (const sx of [-1, 1]) {
+        const bar = new THREE.Mesh(new THREE.BoxGeometry(barW, barW, barLen * 1.5), chevMat);
+        bar.position.set(sx * wide, 0, barLen * 0.36);
+        bar.rotation.y = sx * 0.72;             // angle the two bars into a forward "^"
+        chev.add(bar);
+      }
+      chev.position.set(0, top + 0.05, z);
+      group.add(chev);
     }
   }
 
@@ -184,10 +227,10 @@ export function buildDragonModel(def, opts = {}) {
   if (model.glowSeams) {
     const seamColor = def.apexSeam || def.eye;
     const seamMat = new THREE.MeshStandardMaterial({
-      color: seamColor, emissive: seamColor, emissiveIntensity: 1.8, roughness: 0.3,
+      color: seamColor, emissive: seamColor, emissiveIntensity: 1.8 * giM, roughness: 0.3,
     });
     seamMat.userData.baseEmissive = seamColor;
-    seamMat.userData.baseIntensity = 1.8;
+    seamMat.userData.baseIntensity = 1.8 * giM;
     spineMats.push(seamMat);
     for (const xo of [-0.26, 0.26]) {
       const seam = new THREE.Mesh(new THREE.BoxGeometry(0.03, 0.03, 3.4), seamMat);
@@ -356,8 +399,8 @@ export function buildDragonModel(def, opts = {}) {
   if (model.tailStyle) {
     // Tail root anchored at hipRear and overlapping the body (base radius ≈ hip
     // width) so it flows out of the torso seamlessly — never a detached spear.
-    const { group: tailGroup, segs, plateMat } = buildCleanTail(def, model, bodyMat);
-    if (plateMat) spineMats.push(plateMat);
+    const { group: tailGroup, segs, accentMats } = buildCleanTail(def, model, bodyMat);
+    if (accentMats) for (const m of accentMats) spineMats.push(m);
     tailGroup.position.set(0, 0.28, 1.15);
     group.add(tailGroup);
     for (const s of segs) tailSegs.push(s);
@@ -425,7 +468,7 @@ export function buildDragonModel(def, opts = {}) {
   });
   const veinMat = model.wingVeins ? new THREE.MeshStandardMaterial({
     color: def.apexSeam || def.wingEmissive,
-    emissive: def.apexSeam || def.wingEmissive, emissiveIntensity: 1.7,
+    emissive: def.apexSeam || def.wingEmissive, emissiveIntensity: 1.7 * giM,
     roughness: 0.3, metalness: 0.4,
   }) : null;
   // Brighter, thicker leading-edge ARM bone so the wing reads as bone + membrane
@@ -434,6 +477,27 @@ export function buildDragonModel(def, opts = {}) {
     color: def.horn, emissive: def.apexSeam || def.wingEmissive,
     emissiveIntensity: 0.55, roughness: 0.3, metalness: 0.55,
   });
+
+  // Premium edge accents (apex forms only): a bright cyan RIM material + a dark
+  // fin membrane, shared by the wingtip winglets, the wing trailing-edge glow and
+  // the hip fins. Built lazily so only the forms that ask for them pay the cost;
+  // the rim flares on Surge via spineMats.
+  const wantsEdge = model.wingtipFins || model.wingEdgeGlow || model.hipFins;
+  const finMembraneMat = wantsEdge ? new THREE.MeshStandardMaterial({
+    color: def.wingInner || def.body, emissive: def.body, emissiveIntensity: 0.16,
+    roughness: 0.5, metalness: 0.25, side: THREE.DoubleSide, transparent: true, opacity: 0.94,
+  }) : null;
+  // Clamp the rim emissive so the cyan edge never blooms to white at high gi.
+  const finEdgeInt = 0.7 + giM * 0.35;
+  const finEdgeMat = wantsEdge ? new THREE.MeshStandardMaterial({
+    color: def.wingEmissive, emissive: def.wingEmissive,
+    emissiveIntensity: finEdgeInt, roughness: 0.3, metalness: 0.3, side: THREE.DoubleSide,
+  }) : null;
+  if (finEdgeMat) {
+    finEdgeMat.userData.baseEmissive = def.wingEmissive;
+    finEdgeMat.userData.baseIntensity = finEdgeInt;
+    spineMats.push(finEdgeMat);
+  }
 
   // Split the membrane at the WRIST into an inner panel (root→wrist, on the flap
   // pivot) and an outer panel (wrist→tip, on the wingTip group). The wingTip
@@ -451,7 +515,9 @@ export function buildDragonModel(def, opts = {}) {
   function membranePanel(clipMin, clipMax, originX, originY) {
     const g2 = new THREE.ShapeGeometry(featherShape ? buildFeatherWingShape() : buildWingShape(wingSpec), 14);
     g2.rotateX(-Math.PI / 2);
-    g2.scale(1.34 * ws, 1.28 * ws, 1);
+    // 3rd factor = wing CHORD (front-to-back depth); wingChord deepens the apex
+    // wing without widening its span (span rides ws). Default 1 = unchanged.
+    g2.scale(1.34 * ws, 1.28 * ws, model.wingChord ?? 1);
     applyWingGradient(g2, def, 0, 1);
     archWing(g2, arc, ws); // bow with the elbow profile (∝ ws)
     const pos = g2.attributes.position;
@@ -516,6 +582,37 @@ export function buildDragonModel(def, opts = {}) {
     marker.position.set(wingSpec.tips[0][0] * 1.34 * ws * side - wristXGeo * side,
       archLift(maxX, maxX, arc, ws) - wristLift, -wingSpec.tips[0][1]);
     wingTip.add(marker);
+
+    // Premium cyan TRAILING-EDGE rim (apex): trace tip[i]→tip[i+1] with thin
+    // emissive ribs so the wing reads as a dark membrane with a glowing outline
+    // (never a solid glowing panel). Rides wingTip so it folds at the wrist too.
+    if (model.wingEdgeGlow && finEdgeMat) {
+      for (let i = 0; i < wingSpec.tips.length - 1; i++) {
+        const [ax, ay] = wingSpec.tips[i];
+        const [bx, by] = wingSpec.tips[i + 1];
+        const a = new THREE.Vector3(ax * 1.34 * ws * side - wristXGeo * side,
+          archLift(ax * 1.34 * ws * side, maxX, arc, ws) - wristLift, -ay);
+        const b = new THREE.Vector3(bx * 1.34 * ws * side - wristXGeo * side,
+          archLift(bx * 1.34 * ws * side, maxX, arc, ws) - wristLift, -by);
+        const dir = b.clone().sub(a);
+        const rib = new THREE.Mesh(new THREE.CylinderGeometry(0.024, 0.024, dir.length(), 5), finEdgeMat);
+        rib.position.copy(a).add(b).multiplyScalar(0.5);
+        rib.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), dir.clone().normalize());
+        wingTip.add(rib);
+      }
+    }
+
+    // Wingtip winglet (apex): a small swept fin at the very tip — dark membrane,
+    // cyan rim, smooth bat-like — adding a distinctive outer-edge silhouette.
+    if (model.wingtipFins && finEdgeMat) {
+      const winglet = edgedFin(0.16, 0.5, finMembraneMat, finEdgeMat, 1.2);
+      winglet.position.copy(marker.position);
+      winglet.rotation.x = Math.PI / 2 + 0.35;     // lay back along the trailing direction
+      winglet.rotation.z = side * 0.55;
+      winglet.scale.setScalar(0.5 + ws * 0.45);
+      wingTip.add(winglet);
+    }
+
     pivot.add(wingTip);
     group.add(pivot);
     return { pivot, wingTip, marker };
@@ -546,6 +643,20 @@ export function buildDragonModel(def, opts = {}) {
       group.add(pivot);
       if (s === 1) wingPivot2R = pivot;
       else wingPivot2L = pivot;
+    }
+  }
+
+  // Hip / side fins (apex): a small swept fin at each hip — subtle, dark with a
+  // cyan rim — filling the gap between the wings and the twin tail stabilizers so
+  // the whole rear silhouette flows together.
+  if (model.hipFins && finEdgeMat) {
+    for (const s of [-1, 1]) {
+      const hip = edgedFin(0.13, 0.42, finMembraneMat, finEdgeMat, 1.2);
+      hip.position.set(s * 0.34, 0.24, 0.95);
+      hip.rotation.x = Math.PI / 2 + 0.2;        // lay back, sweeping toward the tail
+      hip.rotation.z = s * 0.7;                  // splay outward and down
+      hip.rotation.y = s * 0.2;
+      group.add(hip);
     }
   }
 
@@ -599,7 +710,9 @@ export function buildDragonModel(def, opts = {}) {
   // corona behind the dragon instead of a spinning rune disc.
   if (opts.preview) {
     const RARITY_GLOW = { R: 0x6affa0, SR: 0x4ac0ff, SSR: 0xc060ff, SSSR: 0xffd040 };
-    const glowHex = RARITY_GLOW[def.rarity] ?? RARITY_GLOW.R;
+    // A dragon's own signature corona (previewAccent) wins over the rarity tint so
+    // its card/showcase stays on-brand (Obsidian cyan, not rarity gold/purple).
+    const glowHex = def.previewAccent ?? (RARITY_GLOW[def.rarity] ?? RARITY_GLOW.R);
     const glowRgb = `${(glowHex >> 16) & 255},${(glowHex >> 8) & 255},${glowHex & 255}`;
     const wrapper = new THREE.Group();
     wrapper.add(group);
