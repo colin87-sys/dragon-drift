@@ -840,7 +840,11 @@ export const music = {
     saveData.audio.track = trackIndex;
     persist();
     const a = getCtx();
-    if (!musicActive || !a) return TRACKS[trackIndex].name;
+    if (!a) return TRACKS[trackIndex].name;
+    // In menus the music isn't running yet, so setTrack used to silently update
+    // the index and play nothing. Start playback (preview) so the picked station
+    // is actually heard; in-game (already playing) cross-fade to the new station.
+    if (!musicActive) { music.start(); return TRACKS[trackIndex].name; }
     musicBus.gain.setTargetAtTime(0, a.currentTime, 0.04);
     setTimeout(() => {
       if (!musicActive) return;
