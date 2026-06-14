@@ -224,18 +224,34 @@ export const DRAGONS = {
     rarity: 'SSR',
     maxRarity: 'SSSR',
     cost: 2200,
-    // STEALTH NIGHT-FURY DRAKE: sleek, COMPACT, near-black with electric-CYAN
-    // plasma. Narrow swept bat-wings, a SMOOTH low-spike back (no head crest),
-    // big almond eyes, ear-frills and TWIN tail-fins (a forked rudder). Strictly
-    // blue-black + cyan — never purple/regal — the cool opposite of Sovereign's
-    // crimson-gold dragon-lord. Read = silent night hunter.
+    // STEALTH NIGHT-DRAKE: sleek, near-black with electric-CYAN plasma. A smooth
+    // hornless head with ear-frills, a SMOOTH back lit only by a cyan chevron
+    // energy line, narrow swept bat-wings (dark membrane, cyan edges — never a
+    // solid glowing panel) and an evolving tail: bare dart → finlet → full fin →
+    // TWIN swept stabilizers. Strictly blue-black + cyan, never purple/regal —
+    // the cool opposite of Sovereign's crimson-gold dragon-lord.
+    //
+    // 4-FORM SILHOUETTE PROGRESSION (Radiant = 100% baseline). Every form is
+    // authored from named constants so the rear read is unmistakable and the
+    // apex is obviously superior (not just a wider/brighter Radiant):
+    //   bodyScale     overall size (group scale, vs Radiant)
+    //   wingSpan      wing width (× bodyScale = on-screen wingspan)
+    //   wingChord     wing front-to-back depth
+    //   tailLength    tail length (× bodyScale)
+    //   tailFinScale  tail-fin / stabilizer size      tailFinSpread  stabilizer splay
+    //   dorsalGlowCount  cyan chevrons down the back   spineGlow  glow geometry ramp
+    //   glowIntensity emissive multiplier (apex > 1)   particleRate trail density
+    //   wingOpacity   membrane translucency            previewScale showcase framing
+    // Progressive drama target — Hatchling 25% · Kindled 45% · Radiant 70% ·
+    // Eternal 100%.
     stats: { speed: 1.1, handling: 1.16, drain: 0.84, regen: 1.18 },
     model: {
-      scale: 1.05, wingScale: 1.1, tailSegments: 9, neckSegments: 5,
-      hornLen: 0.85, hornPairs: 1, ridgeCount: 6, eyeScale: 1.3,
-      flapBias: 1.05, flapAmp: 0.85, // quick, agile, low-profile beat
+      scale: 0.86, wingScale: 1.07, tailSegments: 9, neckSegments: 5,
+      hornLen: 0, hornPairs: 1, ridgeCount: 0, eyeScale: 1.3, // hornless, smooth back
+      flapBias: 1.08, flapAmp: 0.82, // quick, agile, low-profile beat
     },
-    // Narrow, swept-back, low-arc wings (vs Solar's wide flared flame wings).
+    // Narrow, swept-back, low-arc wings (vs Solar's wide flared flame wings); the
+    // span/chord grow via wingSpan/wingChord per form, not just the finger count.
     wingForms: [
       { tips: [[4.20, 0.10], [3.35, -0.72], [2.10, -1.02]],
         lead: [2.85, 0.32], scallop: 0.12, flame: false,
@@ -246,37 +262,68 @@ export const DRAGONS = {
       { tips: [[5.05, 0.16], [4.20, -0.86], [2.90, -1.28], [1.60, -1.22]],
         lead: [3.50, 0.42], scallop: 0.18, flame: false,
         arc: { bow: 0.75, hump: 0.55, humpAt: 0.58, hook: 0.28 } },
-      { tips: [[5.40, 0.20], [4.55, -0.88], [3.25, -1.34], [1.95, -1.32], [1.00, -1.10]],
-        lead: [3.75, 0.50], scallop: 0.18, flame: false,
-        arc: { bow: 0.85, hump: 0.70, humpAt: 0.60, hook: 0.42 } },
+      { tips: [[5.50, 0.22], [4.70, -0.84], [3.40, -1.34], [2.05, -1.36], [1.05, -1.14]],
+        lead: [3.85, 0.52], scallop: 0.20, flame: false,
+        arc: { bow: 0.92, hump: 0.82, humpAt: 0.60, hook: 0.50 } },
     ],
     forms: [
-      // T0 — Shadeling: small smooth night drake, plasma dormant (cool grey-cyan).
-      { wingForm: 0, tailStyle: 'simple', tailSegments: 6, ridgeCount: 4,
-        spineGlow: 0, crest: 0, eyeScale: 1.35, neckSegments: 5, hornLen: 0.8,
+      // ── HATCHLING (T0) ── tiny smooth night dart, plasma dormant. No chevrons,
+      // no tail fin, stubby wings, dim grey-cyan. Drama ≈ 25%.
+      { wingForm: 0, tailStyle: 'simple',
+        bodyScale: 0.65, wingSpan: 0.85, wingChord: 0.92, tailLength: 0.78,
+        tailFinScale: 0, tailFinSpread: 0, dorsalGlowCount: 0,
+        spineGlow: 0, glowIntensity: 0.25, particleRate: 0.30,
+        wingOpacity: 0.93, wingPanelGlow: 0.10, previewScale: 0.75,
+        eyeScale: 1.35, neckSegments: 5,
         colors: { body: 0x0a0d12, wingInner: 0x141c28, wingOuter: 0x0c1118,
-          wingEmissive: 0x2a4a5a, scales: 0x1a2230, horn: 0x2a3848,
-          eye: 0x4a8a9a, apexSeam: 0x3a5560, coreGlow: 0x2a5560 } },
-      // T1 — Nightwing: electric-cyan plasma ignites, ear frills, finned tail.
-      { wingForm: 1, tailStyle: 'finned', tailSegments: 7, ridgeCount: 5,
-        spineGlow: 0.3, earTendrils: true, eyeScale: 1.32,
+          wingEmissive: 0x2a4a5a, scales: 0x18202c, horn: 0x2a3848,
+          eye: 0x4a8a9a, apexSeam: 0x3a5560, coreGlow: 0x223540 } },
+      // ── KINDLED (T1) ── electric-cyan plasma ignites: ear frills, a faint
+      // chevron line, a finlet on the tail. Drama ≈ 45%.
+      { wingForm: 1, tailStyle: 'finned', earTendrils: true,
+        bodyScale: 0.82, wingSpan: 0.95, wingChord: 0.96, tailLength: 0.90,
+        tailFinScale: 0.5, tailFinSpread: 0, dorsalGlowCount: 6,
+        spineGlow: 0.45, glowIntensity: 0.55, particleRate: 0.55,
+        wingOpacity: 0.87, wingPanelGlow: 0.13, previewScale: 0.88,
+        eyeScale: 1.32,
         colors: { body: 0x0a0d12, wingInner: 0x182334, wingOuter: 0x0e1622,
           wingEmissive: 0x59d8ff, scales: 0x223044, horn: 0x33506a,
           eye: 0x59d8ff, apexSeam: 0x59d8ff, coreGlow: 0x4aa3ff } },
-      // T2 — Plasma Shade: brighter cyan seams + glowing spine + wing veins.
-      { wingForm: 2, tailStyle: 'finned', tailSegments: 8, ridgeCount: 6,
-        spineGlow: 0.7, wingVeins: true, glowSeams: true, earTendrils: true,
-        colors: { body: 0x0a0d12, wingInner: 0x1b2838, wingOuter: 0x0e1828,
-          wingEmissive: 0x59d8ff, scales: 0x243450, horn: 0x3a5a78,
+      // ── RADIANT (T2 · 100% baseline) ── full body, full single swept tail-fin,
+      // an 8-chevron dorsal line, cyan-edged wings, plasma veins + glow seams.
+      // Looks good — but the Eternal must read as obviously beyond it. Drama 70%.
+      { wingForm: 2, tailStyle: 'tailfin', earTendrils: true,
+        bodyScale: 1.00, wingSpan: 1.00, wingChord: 1.00, tailLength: 1.00,
+        tailFinScale: 1.00, tailFinSpread: 1.00, dorsalGlowCount: 8,
+        spineGlow: 0.75, glowIntensity: 1.00, particleRate: 1.00,
+        wingOpacity: 0.82, wingPanelGlow: 0.15, previewScale: 1.00,
+        wingVeins: true, glowSeams: true, wingEdgeGlow: true,
+        colors: { body: 0x0a0d12, wingInner: 0x182334, wingOuter: 0x0e1828,
+          wingEmissive: 0x59d8ff, scales: 0x273052, horn: 0x3a5a78,
           eye: 0x8be9ff, apexSeam: 0x59d8ff, coreGlow: 0x59d8ff } },
-      // T3 — Apex stealth drake: widest swept wings, full cyan plasma, and the
-      // iconic Night-Fury TWIN TAIL-FINS (a forked rudder). Sleek, deadly, silent.
-      { wingForm: 3, tailStyle: 'twinfin', tailSegments: 9, ridgeCount: 7,
-        spineGlow: 1.0, wingVeins: true, glowSeams: true, earTendrils: true },
+      // ── ETERNAL (T3 · the apex) ── the dramatic rear-silhouette change:
+      // markedly bigger, wider deeper wings with wingtip winglets, an 11-chevron
+      // blazing dorsal line, subtle hip fins, and the signature TWIN swept tail
+      // STABILIZERS (canted down & outward + a central rudder). Drama 100%.
+      { wingForm: 3, tailStyle: 'twinstab', earTendrils: true,
+        bodyScale: 1.20, wingSpan: 1.10, wingChord: 1.12, tailLength: 1.12,
+        tailFinScale: 1.60, tailFinSpread: 1.55, dorsalGlowCount: 11,
+        spineGlow: 1.00, glowIntensity: 1.30, particleRate: 1.80,
+        wingOpacity: 0.78, wingPanelGlow: 0.17, previewScale: 1.12,
+        wingVeins: true, glowSeams: true, wingEdgeGlow: true,
+        wingtipFins: true, hipFins: true },
     ],
     fx: { auraColor: '89,216,255', auraIdle: 0.0, sparkle: false },
-    body: 0x0a0d12, belly: 0x111827, scales: 0x243450, horn: 0x3a5a78,
-    wingInner: 0x182334, wingOuter: 0x0e1622, wingEmissive: 0x59d8ff,
+    previewAccent: 0x59d8ff, // showcase spotlight stays CYAN despite the gold SSSR badge
+    // Night Surge: a COOL plasma overdrive — the dark shell stays dark while the
+    // wing edges, chevrons, seams and tail rims blaze electric CYAN (never the
+    // default hot magenta, which would shatter the stealth identity). hasStyle
+    // keeps its cyan trails in Surge; surgeMotes breathes cool plasma motes; the
+    // screen wash is a gentle cyan, kept low so it never overexposes the frame.
+    hasStyle: true, surgeMotes: true,
+    feverWing: 0x6ad8ff, feverEye: 0xb0f0ff, feverWash: [0.015, 0.05, 0.085],
+    body: 0x0a0d12, belly: 0x111827, scales: 0x273052, horn: 0x3a5a78,
+    wingInner: 0x182334, wingOuter: 0x0e1828, wingEmissive: 0x59d8ff,
     apexEye: 0x8be9ff, apexSeam: 0x59d8ff, coreGlow: 0x4aa3ff, surgeHi: 0xd8f6ff,
     eye: 0x59d8ff, trail: 0x59d8ff, boostTrail: 0x8be9ff,
   },

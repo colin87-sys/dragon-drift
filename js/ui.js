@@ -263,6 +263,11 @@ function openInspect(startKey) {
     setShowcaseDef(canvas, ascendedDef(d, tier, owned ? radianceRank(key) : 0));
     const fr = formRarity(tier, d.maxRarity);
     modal.style.setProperty('--accent', FR_ACCENT[fr] || FR_ACCENT.SSSR);
+    // Spotlight tint = the dragon's own signature when it sets one (so Obsidian
+    // stays cyan despite its gold SSSR badge), else the rarity accent.
+    modal.style.setProperty('--glow', d.previewAccent
+      ? '#' + d.previewAccent.toString(16).padStart(6, '0')
+      : (FR_ACCENT[fr] || FR_ACCENT.SSSR));
     gem.textContent = fr; gem.dataset.fr = fr;
     nameEl.textContent = d.name;
     titleEl.textContent = d.title;

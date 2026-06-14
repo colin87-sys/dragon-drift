@@ -405,8 +405,11 @@ export function updateDragon(dt, player, time) {
   // white-gold (def.feverWing) so its Rebirth reads celestial, not pink.
   wingMat.emissive.setHex(player.feverActive ? (activeDef.feverWing ?? 0xff44cc) : activeDef.wingEmissive);
   // Membrane translucency by state (bones/struts keep their own opaque mats):
-  // see upcoming rings through the wing — more so while boosting / surging.
-  const wingOpacity = player.feverActive ? 0.70 : player.boosting ? 0.77 : 0.82;
+  // see upcoming rings through the wing — more so while boosting / surging. The
+  // rest opacity is per-form (model.wingOpacity); boost/Surge drop below it so the
+  // cyan-edged apex wing turns gauzy (its bright rim still reads).
+  const baseWingOp = activeDef.model.wingOpacity ?? 0.82;
+  const wingOpacity = player.feverActive ? baseWingOp - 0.12 : player.boosting ? baseWingOp - 0.05 : baseWingOp;
   wingMat.opacity = damp(wingMat.opacity, wingOpacity, 5, dt);
   // Violet core energy: pulses on boost, blazes + flashes on the Surge ignition.
   if (coreGlow) {
@@ -514,7 +517,8 @@ export function updateDragon(dt, player, time) {
   boostTrailTimer -= dt;
   if (player.boosting && boostTrailTimer <= 0) {
     const fxLvl = activeDef.model.spineGlow || 0; // 0 hatchling → 1 apex
-    boostTrailTimer = (player.feverActive ? 0.012 : 0.018) / (quality * (1 + fxLvl * 0.7));
+    const pr = activeDef.model.particleRate ?? 1; // per-form trail density (apex emits more)
+    boostTrailTimer = (player.feverActive ? 0.012 : 0.018) / (quality * (1 + fxLvl * 0.7) * pr);
     const s = boostTrailSprites.find(s => !s.visible);
     if (s && tailSegs.length) {
       tailSegs[tailSegs.length - 1].getWorldPosition(tmpV);

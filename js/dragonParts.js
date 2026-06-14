@@ -238,6 +238,21 @@ function buildBladeShape(halfW, length) {
   return s;
 }
 
+// A swept fin with a DARK translucent membrane and a bright glowing RIM — the
+// premium "dark base, cyan edges" read (never a solid glowing panel). A slightly
+// larger emissive blade sits just behind the dark membrane, so only its border
+// peeks out as a luminous outline. Returned upright (tip at +y, width on ±x) in
+// its own group; the caller rotates/positions it into a tail stabilizer, a
+// wingtip winglet or a hip fin.
+export function edgedFin(halfW, length, membraneMat, edgeMat, rim = 1.16) {
+  const g = new THREE.Group();
+  const rimMesh = new THREE.Mesh(new THREE.ShapeGeometry(buildBladeShape(halfW * rim, length * rim)), edgeMat);
+  rimMesh.position.z = -0.014;           // tuck behind so only the rim shows
+  g.add(rimMesh);
+  g.add(new THREE.Mesh(new THREE.ShapeGeometry(buildBladeShape(halfW, length)), membraneMat));
+  return g;
+}
+
 // Build the tail as a CHAIN of heavily-overlapping segments, each a little
 // group (tapered frustum + dorsal spine plate) so the rig can coil them like a
 // snake while the root segment stays locked to the body — it never reads as a
@@ -249,7 +264,17 @@ export function buildCleanTail(def, model, bodyMat) {
   const segs = [];
   const style = model.tailStyle || 'simple';
   const g = model.spineGlow || 0;
-  const lenScale = Math.min(model.tailSegments || 6, 9) / 6;
+  const gi = model.glowIntensity ?? 1;     // emissive multiplier (can exceed 1 at the apex)
+  // Emissive-intensity clamp: the apex carries its extra "charge" through MORE
+  // glowing elements (chevrons, edges, particles) + size, not a blown-out cyan
+  // that the ACES tone-map would just clip to white.
+  const giM = Math.min(gi, 1.3);
+  // tailLength (Radiant = 1.0) authors the per-form tail proportion directly when
+  // present; otherwise fall back to the segment-count proxy used by the rest of
+  // the roster.
+  const lenScale = model.tailLength != null
+    ? model.tailLength * (4 / 3)                          // 3.6 at Radiant (matches the proxy)
+    : Math.min(model.tailSegments || 6, 9) / 6;
   const N = 7;
   const len = 2.7 * lenScale;
   const baseR = 0.27, tipR = 0.05;        // base ≈ hip width, so it flows out cleanly
@@ -259,15 +284,45 @@ export function buildCleanTail(def, model, bodyMat) {
   // Spine plates: dull at the whelp (def.scales), molten from the lit forms.
   const accentCol = g > 0 ? (def.apexSeam || def.scales) : def.scales;
   const plateMat = new THREE.MeshStandardMaterial({
-    color: accentCol, emissive: accentCol, emissiveIntensity: 0.3 + g * 1.5,
+    color: accentCol, emissive: accentCol, emissiveIntensity: (0.3 + g * 1.5) * giM,
     roughness: 0.35, metalness: 0.5,
   });
   plateMat.userData.baseEmissive = accentCol;
-  plateMat.userData.baseIntensity = 0.3 + g * 1.5;
+  plateMat.userData.baseIntensity = (0.3 + g * 1.5) * giM;
+  const accentMats = [plateMat];
   const membraneMat = new THREE.MeshStandardMaterial({
     color: def.body, emissive: def.wingOuter || def.body, emissiveIntensity: 0.2,
     roughness: 0.5, metalness: 0.25, side: THREE.DoubleSide,
+    transparent: true, opacity: 0.9,
   });
+  // Bright rim material for edged fins (tail stabilizers) — created lazily so only
+  // the apex tail pays for it; flares on Surge via spineMats. The intensity is
+  // CLAMPED (giM) so the cyan rim stays cyan under the ACES tone-map.
+  let edgeMat = null;
+  function ensureEdgeMat() {
+    if (edgeMat) return edgeMat;
+    const edgeCol = def.apexSeam || def.eye || def.wingEmissive;
+    const eInt = 0.7 + giM * 0.35;
+    edgeMat = new THREE.MeshStandardMaterial({
+      color: edgeCol, emissive: edgeCol, emissiveIntensity: eInt,
+      roughness: 0.3, metalness: 0.3, side: THREE.DoubleSide,
+    });
+    edgeMat.userData.baseEmissive = edgeCol;
+    edgeMat.userData.baseIntensity = eInt;
+    accentMats.push(edgeMat);
+    return edgeMat;
+  }
+  // Fin FILL for the edged stabilizers/fins: a dark NAVY membrane (not near-black)
+  // so the fins read as solid dark blades with a cyan rim — never hollow.
+  let finFillMat = null;
+  function ensureFinFill() {
+    if (finFillMat) return finFillMat;
+    finFillMat = new THREE.MeshStandardMaterial({
+      color: def.wingInner || def.body, emissive: def.body, emissiveIntensity: 0.14,
+      roughness: 0.5, metalness: 0.3, side: THREE.DoubleSide, transparent: true, opacity: 0.95,
+    });
+    return finFillMat;
+  }
 
   function spinePlate(r) {
     const h = 0.12 + g * 0.16;
@@ -347,6 +402,57 @@ export function buildCleanTail(def, model, bodyMat) {
       rib.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), dir.clone().normalize());
       tip.add(rib);
     }
+  } else if (style === 'tailfin') {
+    // RADIANT signature: one prominent swept dorsal tail-fin (a dark membrane
+    // diamond with a bright cyan rim) plus a small ventral counter-fin — the
+    // "full tail fin" that the apex's twin stabilizers later evolve from. Scales
+    // with tailFinScale so it reads clearly bigger than the Kindled finlet.
+    const fs = model.tailFinScale ?? 1;
+    const em = ensureEdgeMat();
+    const fill = ensureFinFill();
+    const dorsal = edgedFin(0.34 * fs, 1.12 * fs, fill, em);
+    dorsal.rotation.x = 0.6;                  // stand it up + sweep the tip rearward
+    dorsal.position.set(0, 0.10, 0.02);
+    tip.add(dorsal);
+    const ventral = edgedFin(0.18 * fs, 0.52 * fs, fill, em);
+    ventral.rotation.x = Math.PI - 0.5;       // mirror below the tail
+    ventral.position.set(0, -0.06, 0.02);
+    tip.add(ventral);
+    const point = new THREE.Mesh(new THREE.ConeGeometry(tipR + 0.03, 0.6, 6), bodyMat);
+    point.rotation.x = Math.PI / 2;
+    point.position.set(0, 0, 0.3);
+    tip.add(point);
+  } else if (style === 'twinstab') {
+    // ETERNAL signature — the dramatic rear-silhouette change: TWIN swept
+    // stabilizers canted DOWN and OUTWARD (an anhedral V, not a flat fork or a
+    // spear) flanking a slim central rudder. Dark membranes, bright cyan rims.
+    // tailFinScale sizes them, tailFinSpread sets how far they splay.
+    const fs = model.tailFinScale ?? 1.6;
+    const spread = model.tailFinSpread ?? 1.6;
+    const em = ensureEdgeMat();
+    const fill = ensureFinFill();
+    for (const sx of [-1, 1]) {
+      // Build upright, then mount on a pivot that cants it down-and-out + toes it
+      // outward + sweeps it back — the swept stabilizer read from directly behind.
+      const fin = edgedFin(0.30 * fs, 1.30 * fs, fill, em);
+      const pivot = new THREE.Group();
+      pivot.add(fin);
+      pivot.rotation.z = sx * (1.05 + 0.32 * spread);  // past horizontal → tips DOWN & OUT
+      pivot.rotation.y = sx * 0.30 * spread;           // toe the blade outward
+      pivot.rotation.x = 0.34;                         // sweep the whole fin rearward
+      pivot.position.set(sx * 0.12, 0.04, 0.0);
+      tip.add(pivot);
+    }
+    // Slim central rudder — a short upright fin that breaks the gap between the
+    // two stabilizers so the cluster never reads as a simple fork.
+    const rudder = edgedFin(0.15, 0.74, fill, em);
+    rudder.rotation.x = 0.46;
+    rudder.position.set(0, 0.14, 0.0);
+    tip.add(rudder);
+    const point = new THREE.Mesh(new THREE.ConeGeometry(tipR + 0.03, 0.62, 6), bodyMat);
+    point.rotation.x = Math.PI / 2;
+    point.position.set(0, 0, 0.32);
+    tip.add(point);
   } else if (style === 'shard') {
     // Obsidian crystal shards: a cluster of sharp, faceted obsidian-crystal
     // spikes radiating from the tip — shattered, severe and brutal (not a soft
@@ -389,5 +495,5 @@ export function buildCleanTail(def, model, bodyMat) {
   root.add(tip);
   segs.push(tip);
 
-  return { group: root, segs, plateMat };
+  return { group: root, segs, plateMat, accentMats };
 }

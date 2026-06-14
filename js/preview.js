@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { buildDragonModel, makePreviewTick } from './dragonModel.js';
 import { buildRiderFigure, riderMaterials } from './riderParts.js';
+import { makeGlowTexture } from './util.js';
 
 // Live 3D shop previews: every dragon/rider card gets a little turntable —
 // the real dragon model (same mesh as in-game, tier-aware) rendered into the
@@ -198,13 +199,35 @@ export function attachPreviewCanvas(canvas, kind, def) {
 // renderer / scene / premium lighting, with a gentle showcase orbit layered on
 // top of the live flap. One showcase at a time; opened/closed by ui.js.
 let scRenderer = null, scScene = null, scCamera = null, scItem = null, scRaf = 0;
+let scFloor = null;
 const SC_SIZE = 480;
-// Pinch / wheel zoom: dolly the camera along its view ray (1 = default framing,
-// <1 pulls back to fit the full wingspan, >1 pushes in for detail). Eased toward
-// a target each frame so the gesture feels smooth.
+// Default framing is AUTO-FIT to the dragon's real mesh bounds, so the full
+// wingspan + tail show the instant the modal opens — no manual zoom-out needed.
+// scBaseDist / scLookY are recomputed per dragon in setShowcaseDef.
+let scBaseDist = 9, scLookY = 0.3;
+// Pinch / wheel zoom: dolly the camera along its view ray (1 = the auto-fit
+// framing that shows the whole dragon, >1 pushes in for detail, <1 pulls back
+// further). Eased toward a target each frame so the gesture feels smooth.
 let scZoom = 1, scZoomTarget = 1;
 export function setShowcaseZoom(z) { scZoomTarget = Math.max(0.55, Math.min(z, 2.4)); }
 export function getShowcaseZoom() { return scZoomTarget; }
+
+// Tight bounds over the MESHES only (skips the huge soft corona/aura sprites that
+// would otherwise dominate the fit) so the camera frames the actual creature.
+const _tmpBox = new THREE.Box3();
+function meshBounds(root) {
+  const box = new THREE.Box3();
+  box.makeEmpty();
+  root.updateWorldMatrix(true, true);
+  root.traverse((o) => {
+    if (o.isMesh && o.geometry) {
+      if (!o.geometry.boundingBox) o.geometry.computeBoundingBox();
+      _tmpBox.copy(o.geometry.boundingBox).applyMatrix4(o.matrixWorld);
+      box.union(_tmpBox);
+    }
+  });
+  return box;
+}
 
 function disposeGroup(group) {
   group.traverse((o) => {
@@ -238,6 +261,39 @@ export function setShowcaseDef(canvas, def) {
   const result = buildDragonModel(def, { preview: true });
   scScene.add(result.group);
   scItem = { canvas, ctx: canvas.getContext('2d'), group: result.group, tick: makePreviewTick(def, result) };
+
+  // Auto-fit: pull the camera back just far enough that the widest wings + tail
+  // sit inside the frame at the broad rest pose — the full silhouette shows the
+  // instant the modal opens, no manual zoom-out. previewScale (Radiant = 1)
+  // biases how much the form FILLS the frame (apex fills it, hatchling sits
+  // smaller with air around it) without ever cropping.
+  const box = meshBounds(result.group);
+  if (box.isEmpty()) { scBaseDist = 9; scLookY = 0.3; }
+  else {
+    const halfW = Math.max(Math.abs(box.min.x), Math.abs(box.max.x));
+    scLookY = (box.min.y + box.max.y) / 2;
+    const halfH = Math.max(box.max.y - scLookY, scLookY - box.min.y);
+    const fovR = scCamera.fov * Math.PI / 180;
+    const fit = Math.max(halfW, halfH * 0.92) / Math.tan(fovR / 2);
+    const ps = Math.min(1.22, Math.max(0.6, def.model.previewScale ?? 1));
+    scBaseDist = fit * (1.32 / ps) + 0.6;
+  }
+
+  // Soft aura-tinted floor glow / backlight behind the dragon — a gentle showcase
+  // spotlight, recoloured per dragon so Obsidian stays cyan.
+  const auraRgb = def.fx?.auraColor || '150,200,255';
+  if (!scFloor) {
+    scFloor = new THREE.Sprite(new THREE.SpriteMaterial({
+      transparent: true, opacity: 0.5, blending: THREE.AdditiveBlending, depthWrite: false,
+    }));
+    scScene.add(scFloor);
+  }
+  if (scFloor.material.map) scFloor.material.map.dispose();
+  scFloor.material.map = makeGlowTexture(auraRgb);
+  scFloor.material.needsUpdate = true;
+  scFloor.scale.set(scBaseDist * 0.95, scBaseDist * 0.8, 1);
+  scFloor.position.set(0, scLookY - 0.2, -scBaseDist * 0.42); // behind + slightly below
+
   if (!scRaf) scRaf = requestAnimationFrame(scLoop);
 }
 
@@ -247,10 +303,11 @@ function scLoop(now = performance.now()) {
   const t = now / 1000;
   scItem.tick(t);
   scItem.group.rotation.y = Math.sin(t * 0.45) * 0.4; // gentle showcase orbit over the flap
-  // Apply the eased zoom by dollying along the view ray toward the look target.
+  // Apply the eased zoom by dollying along the view ray toward the auto-fit frame.
   scZoom += (scZoomTarget - scZoom) * 0.22;
-  scCamera.position.set(0, 0.3 + 1.0 / scZoom, 8.6 / scZoom);
-  scCamera.lookAt(0, 0.3, 0);
+  const dist = scBaseDist / scZoom;
+  scCamera.position.set(0, scLookY + dist * 0.16, dist); // rear, gently raised (top-rear)
+  scCamera.lookAt(0, scLookY, 0);
   scRenderer.render(scScene, scCamera);
   const c = scItem.canvas;
   scItem.ctx.clearRect(0, 0, c.width, c.height);
