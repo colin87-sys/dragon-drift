@@ -133,8 +133,16 @@ export function ascendedDef(def, tier, radiance) {
   // Size ramp: noticeably smaller at base, reference size at the final form.
   // Body and wings ramp on separate curves so the wing-to-body proportion grows
   // each tier — the core of the "different silhouette per form" goal.
-  d.model.scale = (def.model.scale || 1) * (SIZE_RAMP[tier] || 1);
-  d.model.wingScale = (d.model.wingScale || 1) * (WING_RAMP[tier] || 1);
+  //
+  // A dragon's forms may instead author an EXPLICIT per-form silhouette curve via
+  // named constants (bodyScale / wingSpan, with the Radiant form = 1.0) for a
+  // dramatic, hand-tuned progression — used by Obsidian so its Eternal form is
+  // unmistakably bigger-winged than Radiant, not just brighter. When present these
+  // win over the shared SIZE_RAMP / WING_RAMP curves.
+  d.model.scale = (def.model.scale || 1) *
+    (d.model.bodyScale != null ? d.model.bodyScale : (SIZE_RAMP[tier] || 1));
+  d.model.wingScale = (d.model.wingScale || 1) *
+    (d.model.wingSpan != null ? d.model.wingSpan : (WING_RAMP[tier] || 1));
 
   // Subtle per-form stat progression: later forms fly a touch smoother and
   // faster (more handling/stamina/boost-efficiency, a sliver of top speed) so
