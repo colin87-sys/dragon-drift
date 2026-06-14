@@ -881,14 +881,16 @@ export const ui = {
       const feather = saveData.weekly.feather;
       const doneCount = trials.filter((t) => t.done).length;
       const weeklyStrip = `
-        <div class="weekly-strip">
-          <div class="weekly-head">${ICONS.weekly} WEEKLY TRIALS <span class="weekly-count${doneCount ? ' some' : ''}">${doneCount}/${trials.length} ✓</span>${feather ? ' <span class="feather" title="Phoenix Feather — bridges one missed streak day">🪶</span>' : ''}</div>
+        <div class="weekly-strip${weeklyExpanded ? ' expanded' : ''}">
+          <button class="weekly-head" id="weekly-toggle" aria-label="Toggle weekly trial details">${ICONS.weekly} WEEKLY TRIALS <span class="weekly-count${doneCount ? ' some' : ''}">${doneCount}/${trials.length} ✓</span>${feather ? ' <span class="feather" title="Phoenix Feather — bridges one missed streak day">🪶</span>' : ''}<span class="weekly-chevron">▾</span></button>
+          <div class="weekly-rows">
           ${trials.map((t) => `
             <div class="weekly-row${t.done ? ' done' : ''}">
               <span class="weekly-label">${t.def.label}</span>
               ${t.done ? '<span class="weekly-done-badge">✓ COMPLETE</span>' : barHtml(t.progress / t.def.target)}
               <span class="weekly-reward${t.done ? ' earned' : ''}">${t.done ? '✓ ' : ''}◆${t.def.reward}</span>
             </div>`).join('')}
+          </div>
         </div>`;
       const nextUp = selectNextUp();
       const title = equippedTitleName();
@@ -1467,6 +1469,7 @@ let pauseSubscreen = false; // shop/settings opened from the pause menu
 let shopTab = 'dragons';    // dragons | riders | music | style
 let pauseTab = 'audio';     // audio | assists | quests
 let pilotTab = 'feats';     // feats | log | titles
+let weeklyExpanded = false; // §15 — weekly trial DETAIL collapses behind the header (count stays)
 let startNotice = '';       // one-shot line on the start screen
 
 function wireScreenButtons(type) {
@@ -1479,6 +1482,14 @@ function wireScreenButtons(type) {
     if (start) start.onclick = stop(() => handlers.onStart && handlers.onStart('normal'));
     const daily = q('#btn-daily');
     if (daily) daily.onclick = stop(() => handlers.onStart && handlers.onStart('daily'));
+    // §15 — tap the weekly header to reveal/hide the per-trial detail (the count
+    // summary always shows). Toggles in place; no full re-render.
+    const wkToggle = q('#weekly-toggle');
+    if (wkToggle) wkToggle.onclick = stop(() => {
+      weeklyExpanded = !weeklyExpanded;
+      const strip = els.screen.querySelector('.weekly-strip');
+      if (strip) strip.classList.toggle('expanded', weeklyExpanded);
+    });
   }
   if (type === 'gameover') returnScreen = 'gameover';
 

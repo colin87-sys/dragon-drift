@@ -807,7 +807,16 @@ body.app-loaded > canvas { opacity: 1; }
 .weekly-strip { width: min(440px, 88vw); margin: 8px 0 2px; text-align: left;
   background: rgba(34, 26, 66, 0.6); border: 1px solid var(--gold-trim);
   border-radius: 10px; padding: 9px 14px; }
-.weekly-head { font-size: 10.5px; letter-spacing: 2.5px; color: #c8a0ff; font-weight: 900; margin-bottom: 6px; }
+.weekly-head { font-size: 10.5px; letter-spacing: 2.5px; color: #c8a0ff; font-weight: 900;
+  width: 100%; display: flex; align-items: center; gap: 4px; padding: 0; margin: 0;
+  background: none; border: none; cursor: pointer; text-align: left; }
+.weekly-chevron { margin-left: auto; font-size: 11px; opacity: 0.65; transition: transform 0.25s ease; }
+.weekly-strip.expanded .weekly-chevron { transform: rotate(180deg); }
+/* §15 — the per-trial detail collapses behind the header; the X/Y count stays
+   visible as the at-a-glance summary, the rows reveal on tap. */
+.weekly-rows { max-height: 0; overflow: hidden; opacity: 0;
+  transition: max-height 0.32s ease, opacity 0.25s ease; }
+.weekly-strip.expanded .weekly-rows { max-height: 260px; opacity: 1; margin-top: 6px; }
 .weekly-row { display: flex; align-items: center; gap: 10px; margin: 4px 0; }
 .weekly-row .mission-bar { flex: 1; margin-top: 0; }
 .weekly-row.done .weekly-label { color: #8aff9a; }
@@ -1136,6 +1145,7 @@ body.screen-open .menu-motes { display: block; }
   .score.score-earn-pop, .count-up.count-settle { animation: none; }
   .earn-list.revealing .earn-line b { animation: none; }
   .earn-list.revealing .earn-line b::after { display: none; }
+  .weekly-rows, .weekly-chevron { transition: none; }
   .count-puff { display: none; }
   .celebrate-burst { display: none; }
   .celebrate-confetti { display: none; }
