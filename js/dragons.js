@@ -116,9 +116,11 @@ export const DRAGONS = {
         colors: { body: 0x241310, wingInner: 0xff6a28, wingOuter: 0xd02418,
           wingEmissive: 0xff6a22, scales: 0xffb850, horn: 0xffd878,
           apexSeam: 0xff7a2a, eye: 0xffb050, coreGlow: 0xff7838 } },
+      // Apex stays a notch BELOW the premium tier (no back-crest / no aura halo)
+      // so the SSR+ dragons read as more awe-inspiring — Ember is brawn, not regalia.
       { wingForm: 3, tailStyle: 'blade', tailSegments: 9, ridgeCount: 15,
-        spineGlow: 1.0, backSpines: true, wingVeins: true, glowSeams: true,
-        backCrest: true, hornPairs: 2, hornLen: 1.8, crest: 2,
+        spineGlow: 0.85, backSpines: true, wingVeins: true, glowSeams: true,
+        hornPairs: 2, hornLen: 1.8, crest: 2,
         colors: { body: 0x1f1108, wingInner: 0xff7a2a, wingOuter: 0xff3a14,
           wingEmissive: 0xff6a1e, scales: 0xffcf60, horn: 0xffe690,
           apexSeam: 0xff8a2e, eye: 0xffd060, coreGlow: 0xff8a40 } },
@@ -176,8 +178,9 @@ export const DRAGONS = {
         colors: { body: 0x103020, wingInner: 0x50e0a0, wingOuter: 0x108878,
           wingEmissive: 0x40f0a0, scales: 0xb0ffe0, horn: 0xffe8a0,
           apexSeam: 0x50f0c0, eye: 0xb0ffd0, coreGlow: 0x60f0c0 } },
+      // SR apex: graceful, but no premium back-crest/halo (kept below the SSR+ tier).
       { wingForm: 3, tailStyle: 'comet', tailSegments: 11, ridgeCount: 16,
-        spineGlow: 0.9, whiskers: true, wingVeins: true, glowSeams: true,
+        spineGlow: 0.85, whiskers: true, wingVeins: true, glowSeams: true,
         crest: 2, neckSegments: 8,
         colors: { body: 0x0e2c1e, wingInner: 0x60f0b0, wingOuter: 0x18a088,
           wingEmissive: 0x50ffb0, scales: 0xc8ffe8, horn: 0xfff0b0,

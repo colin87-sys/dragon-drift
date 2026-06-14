@@ -229,10 +229,11 @@ cameraCtl.init(camera, player);
 }
 grandfatherAscension(Object.keys(DRAGONS));
 
-// Dev mode (?dev): unlock everything for testing — all dragons at max form, all
-// riders + styles, full embers. Saves are FROZEN first so this override never
-// overwrites real progress: reload without ?dev to return to normal.
-if (urlParams.has('dev')) {
+// Dev mode (?dev URL, or the Settings toggle saveData.settings.dev): unlock
+// everything for testing — all dragons at max form, all riders + styles, full
+// embers. Saves are FROZEN first so this override never overwrites real
+// progress: turn it off (or reload without ?dev) to return to normal.
+if (urlParams.has('dev') || saveData.settings.dev) {
   freezeSaves();
   for (const key of Object.keys(DRAGONS)) {
     if (!saveData.skins.owned.includes(key)) saveData.skins.owned.push(key);
