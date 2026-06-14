@@ -1,0 +1,29 @@
+name: PR Preview
+
+# Deploys every pull request to a throwaway preview at
+#   https://<user>.github.io/<repo>/pr-preview/pr-<N>/
+# and comments the link on the PR. `closed` tears the preview back down when the
+# PR is merged or closed. Free — runs on GitHub Actions + Pages only.
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, closed]
+
+permissions:
+  contents: write          # push the preview to the gh-pages branch
+  pull-requests: write     # comment the preview URL on the PR
+
+# Shares the gh-pages concurrency group with the production deploy so writes to
+# the branch are serialised (no clobbered pushes).
+concurrency:
+  group: gh-pages
+  cancel-in-progress: false
+
+jobs:
+  preview:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Deploy / update / remove this PR's preview
+        uses: rossjrw/pr-preview-action@v1
+        with:
+          source-dir: ./
