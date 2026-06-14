@@ -116,10 +116,11 @@ export const player = {
     }
 
     if (this.boosting) {
-      // Orb surge = free boost; fever halves the burn. Combined with ring /
-      // window / orb refills, a skilled chain sustains boost indefinitely.
+      // Boost is a resource: it drains while held. An orb surge is free boost;
+      // Dragon Surge eases the burn (feverStaminaDrainMult); ring / window / orb
+      // refills extend it, but rings alone never fully pay for the drain.
       if (this.orbTimer <= 0) {
-        const drain = CONFIG.staminaDrain * S.drainMult * (game.feverActive ? 0.5 : 1);
+        const drain = CONFIG.staminaDrain * S.drainMult * (game.feverActive ? CONFIG.feverStaminaDrainMult : 1);
         game.stamina = Math.max(0, game.stamina - drain * dt);
       }
       this.regenDelay = CONFIG.staminaRegenDelay;
