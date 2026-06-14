@@ -101,74 +101,267 @@ function formTierLabel(tier) {
   return ASCENSION_TIERS[tier - 1]?.name ?? 'Eternal';
 }
 
-function inspectStatBars(d) {
+// Readable stat rows for the showcase: a clear label, a thick accent-tinted bar
+// and a numeric rating (40–99 so even the humble starter reads as a real stat).
+function inspectStatRows(d) {
   const st = d.stats;
   const spd = (st.speed - 1) / (DRAGON_STAT_CAP.speed - 1 || 1);
   const agi = (st.handling - 1) / (DRAGON_STAT_CAP.handling - 1 || 1);
   const sta = ((1 - st.drain) + (st.regen - 1)) / ((1 - DRAGON_STAT_CAP.drain) + (DRAGON_STAT_CAP.regen - 1) || 1);
-  const row = (lbl, k) => `<div class="stat-bar-row"><span>${lbl}</span><div class="stat-bar"><span style="width:${Math.round(12 + 88 * Math.max(0, Math.min(1, k)))}%"></span></div></div>`;
-  return row('SPD', spd) + row('AGI', agi) + row('STA', sta);
+  const row = (lbl, k) => {
+    const p = Math.max(0, Math.min(1, k));
+    const rating = Math.round(40 + 59 * p);
+    return `<div class="ins-stat"><span class="ins-stat-label">${lbl}</span>`
+      + `<div class="ins-stat-track"><span class="ins-stat-fill" style="width:${Math.round(10 + 90 * p)}%"></span></div>`
+      + `<span class="ins-stat-val">${rating}</span></div>`;
+  };
+  return row('SPEED', spd) + row('AGILITY', agi) + row('STAMINA', sta);
 }
 
-// §3 — full-screen premium dragon inspect/showcase. A blurred, vignetted backdrop
-// behind a large high-res render (preview.js DragonShowcase) with name / rarity /
-// lore / stats and form cycling. Built on demand, disposed on close.
-let inspectOpen = false;
-function openInspect(key) {
-  if (inspectOpen) return;
+// Buy (if affordable) or equip a dragon — shared by the shop card and the
+// inspect modal's CTA. Returns 'equipped' | 'bought' | 'need-more'.
+function buyOrEquipDragon(key) {
   const d = DRAGONS[key];
-  if (!d) return;
+  if (saveData.skins.owned.includes(key)) {
+    saveData.skins.equipped = key;
+    persist();
+    handlers.onEquipDragon && handlers.onEquipDragon(key);
+    return 'equipped';
+  }
+  if (saveData.embers >= d.cost) {
+    saveData.embers -= d.cost;
+    saveData.skins.owned.push(key);
+    saveData.skins.equipped = key;
+    persist();
+    handlers.onEquipDragon && handlers.onEquipDragon(key);
+    return 'bought';
+  }
+  return 'need-more';
+}
+
+// §3 — full-screen premium dragon showcase. A blurred, vignetted backdrop behind
+// a large high-res render (preview.js DragonShowcase). Two axes of navigation:
+//   • DRAGON  — swipe / drag, big edge chevrons, or the carousel dots (wraps).
+//   • FORM    — the big ◀ ▶ ladder arrows below the model (Hatchling→apex).
+// Themed live by the scrubbed form's rarity (--accent). Disposed on close.
+const FR_ACCENT = { R: '#7fd49a', SR: '#62a8ff', SSR: '#c489ff', SSSR: '#ffd24d' };
+let inspectOpen = false;
+function openInspect(startKey) {
+  if (inspectOpen) return;
+  const keys = Object.keys(DRAGONS);
+  let di = keys.indexOf(startKey);
+  if (di < 0) return;
   inspectOpen = true;
-  const owned = saveData.skins.owned.includes(key);
-  const cap = maxTierFor(key);
-  let tier = owned ? getFormPref(key) : cap;
+  let changed = false;   // did we equip / buy / re-form? → refresh the shop on close
+  let animating = false;
+
+  // Current dragon's state (recomputed whenever we slide to a new dragon).
+  let key, d, owned, cap, tier;
+  const loadDragon = () => {
+    key = keys[di];
+    d = DRAGONS[key];
+    owned = saveData.skins.owned.includes(key);
+    cap = maxTierFor(key);
+    tier = owned ? getFormPref(key) : cap;
+  };
+  loadDragon();
 
   const overlay = document.createElement('div');
   overlay.className = 'inspect-overlay';
   overlay.innerHTML = `
     <div class="inspect-modal">
-      <button class="inspect-close" id="inspect-close" title="Close">✕</button>
-      <div class="inspect-stage">
-        <div class="rarity-gem inspect-gem" id="inspect-gem"></div>
-        <canvas class="inspect-canvas" width="480" height="480"></canvas>
+      <button class="inspect-close" id="inspect-close" title="Close" aria-label="Close">✕</button>
+      <div class="rarity-gem inspect-gem" id="inspect-gem"></div>
+      <div class="inspect-viewport" id="inspect-viewport">
+        <button class="inspect-nav prev" id="inspect-dragon-prev" aria-label="Previous dragon">‹</button>
+        <button class="inspect-nav next" id="inspect-dragon-next" aria-label="Next dragon">›</button>
+        <div class="inspect-content" id="inspect-content">
+          <div class="inspect-stage">
+            <div class="inspect-glow"></div>
+            <canvas class="inspect-canvas" width="480" height="480"></canvas>
+            <div class="inspect-pedestal"></div>
+          </div>
+          <div class="inspect-name" id="inspect-name"></div>
+          <div class="inspect-title" id="inspect-title"></div>
+        </div>
       </div>
-      <div class="form-scrub inspect-scrub">
-        <button class="form-arrow" id="inspect-prev">◀</button>
-        <span class="form-tier-label" id="inspect-formlabel"></span>
-        <button class="form-arrow" id="inspect-next">▶</button>
+      <div class="inspect-lower" id="inspect-lower">
+        <div class="inspect-formbar">
+          <button class="form-btn" id="inspect-prev" aria-label="Previous form">◀</button>
+          <div class="form-meta">
+            <span class="form-name" id="inspect-formlabel"></span>
+            <span class="form-rarity" id="inspect-formrarity"></span>
+          </div>
+          <button class="form-btn" id="inspect-next" aria-label="Next form">▶</button>
+        </div>
+        <div class="form-pips" id="inspect-formpips"></div>
+        <div class="inspect-stats" id="inspect-stats"></div>
+        <div class="inspect-cta" id="inspect-cta"></div>
       </div>
-      <div class="inspect-name">${d.name}</div>
-      <div class="inspect-title">${d.title}</div>
-      <div class="inspect-stats">${inspectStatBars(d)}</div>
+      <div class="inspect-dots" id="inspect-dots"></div>
     </div>`;
   document.body.appendChild(overlay);
-  const canvas = overlay.querySelector('.inspect-canvas');
-  const gem = overlay.querySelector('#inspect-gem');
-  const label = overlay.querySelector('#inspect-formlabel');
+
+  const q = (sel) => overlay.querySelector(sel);
+  const modal = q('.inspect-modal');
+  const canvas = q('.inspect-canvas');
+  const content = q('#inspect-content');
+  const lower = q('#inspect-lower');
+  const gem = q('#inspect-gem');
+  const nameEl = q('#inspect-name');
+  const titleEl = q('#inspect-title');
+  const formLabel = q('#inspect-formlabel');
+  const formRarityEl = q('#inspect-formrarity');
+  const formPips = q('#inspect-formpips');
+  const statsEl = q('#inspect-stats');
+  const ctaEl = q('#inspect-cta');
+  const dotsEl = q('#inspect-dots');
+  const prevForm = q('#inspect-prev');
+  const nextForm = q('#inspect-next');
+  dotsEl.innerHTML = keys.map((_, i) => `<i data-di="${i}"></i>`).join('');
+
+  const renderCta = () => {
+    const equipped = saveData.skins.equipped === key;
+    if (owned && equipped) {
+      ctaEl.innerHTML = `<span class="ins-owned">✓ EQUIPPED</span>`;
+      return;
+    }
+    if (owned) {
+      ctaEl.innerHTML = `<button class="ins-equip" id="ins-equip">EQUIP</button>`;
+    } else {
+      const can = saveData.embers >= d.cost;
+      ctaEl.innerHTML = `<button class="ins-equip buy${can ? '' : ' cant'}" id="ins-equip"`
+        + `${can ? '' : ' aria-disabled="true"'}>${EMBER_ICON} ${d.cost}${can ? ' · UNLOCK' : ''}</button>`
+        + `${can ? '' : `<span class="ins-hint" id="ins-hint"></span>`}`;
+    }
+    q('#ins-equip').onclick = (e) => {
+      e.stopPropagation();
+      const res = buyOrEquipDragon(key);
+      if (res === 'need-more') {
+        const hint = q('#ins-hint');
+        if (hint) hint.textContent = `Need ${EMBER_ICON} ${d.cost - saveData.embers} more`;
+        return;
+      }
+      changed = true; owned = true;
+      renderCta();
+    };
+  };
 
   const render = () => {
     setShowcaseDef(canvas, ascendedDef(d, tier, owned ? radianceRank(key) : 0));
-    label.textContent = formTierLabel(tier);
     const fr = formRarity(tier, d.maxRarity);
+    modal.style.setProperty('--accent', FR_ACCENT[fr] || FR_ACCENT.SSSR);
     gem.textContent = fr; gem.dataset.fr = fr;
+    nameEl.textContent = d.name;
+    titleEl.textContent = d.title;
+    formLabel.textContent = formTierLabel(tier);
+    formRarityEl.textContent = fr;
+    prevForm.disabled = tier <= 0;
+    nextForm.disabled = tier >= cap;
+    formPips.innerHTML = Array.from({ length: cap + 1 }, (_, i) => `<i class="${i <= tier ? 'on' : ''}"></i>`).join('');
+    statsEl.innerHTML = inspectStatRows(d);
+    renderCta();
+    for (const dot of dotsEl.children) dot.classList.toggle('on', Number(dot.dataset.di) === di);
   };
   render();
 
+  // Slide to another dragon (delta may be ±1 from a chevron/swipe, or a larger
+  // jump from a dot). The hero slides out, we swap, then it slides back in.
+  const goTo = (delta) => {
+    if (animating || !delta) return;
+    animating = true;
+    const dir = delta > 0 ? -1 : 1; // exit left when advancing
+    content.style.transition = 'transform 0.15s ease, opacity 0.15s ease';
+    content.style.transform = `translateX(${dir * 70}px)`;
+    content.style.opacity = '0';
+    lower.style.transition = 'opacity 0.15s ease';
+    lower.style.opacity = '0';
+    setTimeout(() => {
+      di = (di + delta + keys.length) % keys.length;
+      loadDragon();
+      render();
+      content.style.transition = 'none';
+      content.style.transform = `translateX(${-dir * 70}px)`;
+      void content.offsetWidth; // commit the off-screen start before animating in
+      content.style.transition = 'transform 0.24s cubic-bezier(0.2, 0.9, 0.3, 1.2), opacity 0.24s ease';
+      content.style.transform = 'translateX(0)';
+      content.style.opacity = '1';
+      lower.style.opacity = '1';
+      setTimeout(() => { animating = false; }, 250);
+    }, 150);
+  };
+
+  const changeForm = (delta) => {
+    const nt = Math.max(0, Math.min(cap, tier + delta));
+    if (nt === tier) return;
+    tier = nt;
+    if (owned) {
+      setFormPref(key, tier);
+      changed = true;
+      if (saveData.skins.equipped === key && handlers.onEquipDragon) handlers.onEquipDragon();
+    }
+    render();
+  };
+
+  // Drag / swipe across the hero → previous / next dragon.
+  const vp = q('#inspect-viewport');
+  let dragId = null, startX = 0, dx = 0;
+  vp.addEventListener('pointerdown', (e) => {
+    if (animating || (e.target.closest && e.target.closest('button'))) return;
+    dragId = e.pointerId; startX = e.clientX; dx = 0;
+    try { vp.setPointerCapture(e.pointerId); } catch { /* ok */ }
+    content.style.transition = 'none';
+  });
+  vp.addEventListener('pointermove', (e) => {
+    if (e.pointerId !== dragId) return;
+    dx = e.clientX - startX;
+    const damp = Math.sign(dx) * Math.min(Math.abs(dx) * 0.55, 100);
+    content.style.transform = `translateX(${damp}px)`;
+    content.style.opacity = String(1 - Math.min(Math.abs(damp) / 260, 0.45));
+  });
+  const endDrag = (e) => {
+    if (e.pointerId !== dragId) return;
+    dragId = null;
+    try { vp.releasePointerCapture(e.pointerId); } catch { /* ok */ }
+    if (dx <= -48) goTo(1);
+    else if (dx >= 48) goTo(-1);
+    else {
+      content.style.transition = 'transform 0.2s ease, opacity 0.2s ease';
+      content.style.transform = 'translateX(0)';
+      content.style.opacity = '1';
+    }
+  };
+  vp.addEventListener('pointerup', endDrag);
+  vp.addEventListener('pointercancel', endDrag);
+
   // Capture-phase so Escape closes the modal before the game's own Esc handler.
-  const onKey = (e) => { if (e.key === 'Escape') { e.stopPropagation(); close(); } };
+  const onKey = (e) => {
+    if (e.key === 'Escape') { e.stopPropagation(); close(); }
+    else if (e.key === 'ArrowLeft') { e.stopPropagation(); goTo(-1); }
+    else if (e.key === 'ArrowRight') { e.stopPropagation(); goTo(1); }
+  };
   const close = () => {
     if (!inspectOpen) return;
     inspectOpen = false;
     document.removeEventListener('keydown', onKey, true);
     closeShowcase();
     overlay.classList.remove('open');
-    setTimeout(() => overlay.remove(), 220);
+    setTimeout(() => overlay.remove(), 240);
+    if (changed) ui.showScreen('shop');
   };
   document.addEventListener('keydown', onKey, true);
-  overlay.querySelector('#inspect-close').onclick = (e) => { e.stopPropagation(); close(); };
+  overlay.addEventListener('pointerdown', (e) => e.stopPropagation()); // never fall through to tap-to-fly
+  q('#inspect-close').onclick = (e) => { e.stopPropagation(); close(); };
   overlay.addEventListener('click', (e) => { if (e.target === overlay) close(); });
-  overlay.querySelector('#inspect-prev').onclick = (e) => { e.stopPropagation(); if (tier > 0) { tier--; render(); } };
-  overlay.querySelector('#inspect-next').onclick = (e) => { e.stopPropagation(); if (tier < cap) { tier++; render(); } };
+  prevForm.onclick = (e) => { e.stopPropagation(); changeForm(-1); };
+  nextForm.onclick = (e) => { e.stopPropagation(); changeForm(1); };
+  q('#inspect-dragon-prev').onclick = (e) => { e.stopPropagation(); goTo(-1); };
+  q('#inspect-dragon-next').onclick = (e) => { e.stopPropagation(); goTo(1); };
+  dotsEl.onclick = (e) => {
+    const dot = e.target.closest('i[data-di]');
+    if (!dot) return;
+    goTo(Number(dot.dataset.di) - di);
+  };
   requestAnimationFrame(() => overlay.classList.add('open'));
 }
 
@@ -1275,32 +1468,26 @@ function wireScreenButtons(type) {
     }
 
     // Dragons: buy/equip — equipping swaps the model AND the flight stats.
+    // Tapping the 3D turntable (or the 🔍 button) opens the full-screen showcase
+    // instead; stopPropagation so it never also equips/buys the card.
     for (const btn of els.screen.querySelectorAll('.inspect-btn[data-inspect]')) {
-      // stopPropagation so inspecting never also equips/buys the card.
       btn.onclick = (e) => { e.stopPropagation(); openInspect(btn.dataset.inspect); };
+    }
+    for (const cv of els.screen.querySelectorAll('canvas.skin-preview[data-kind="dragon"]')) {
+      cv.addEventListener('click', (e) => { e.stopPropagation(); openInspect(cv.dataset.key); });
     }
     for (const card of els.screen.querySelectorAll('.skin-card[data-dragon]')) {
       card.onclick = stop(() => {
         const key = card.dataset.dragon;
         const d = DRAGONS[key];
-        if (saveData.skins.owned.includes(key)) {
-          saveData.skins.equipped = key;
-          persist();
-          handlers.onEquipDragon && handlers.onEquipDragon(key);
-          ui.showScreen('shop');
-        } else if (saveData.embers >= d.cost) {
-          saveData.embers -= d.cost;
-          saveData.skins.owned.push(key);
-          saveData.skins.equipped = key;
-          persist();
-          handlers.onEquipDragon && handlers.onEquipDragon(key);
-          ui.showScreen('shop');
+        const res = buyOrEquipDragon(key);
+        if (res === 'need-more') { needMore(d.cost, d.name); return; }
+        ui.showScreen('shop');
+        if (res === 'bought') {
           ui.celebrate({
             kind: 'dragon', tier: 'big', title: d.name, subtitle: d.title,
             renderPreview: (c) => attachPreviewCanvas(c, 'dragon', d),
           });
-        } else {
-          needMore(d.cost, d.name);
         }
       });
     }
