@@ -418,6 +418,7 @@ const SCHED_INTERVAL = 100; // ms between scheduler runs
 
 let LOOP_LEN = 64 * E8; // total loop duration in seconds (per track)
 let biomeSemitones = 0; // biome key shift, applied at loop boundaries
+let drumEnergy = 0;     // 0..1 BPM-driven kit punch / bass thickness
 
 function seqToEvents(seq, layerKey, voice, freqMult, durMult = 0.85) {
   const out = [];
@@ -438,6 +439,9 @@ function buildEvents() {
   const tr = TRACKS[trackIndex];
   E8 = 60 / tr.bpm / 2;
   LOOP_LEN = 64 * E8;
+  // Punchier kit + thicker bass on the high-energy stations; chill low-BPM
+  // tracks stay soft. 100bpm→0 … 174bpm→1, with an optional per-track nudge.
+  drumEnergy = Math.max(0, Math.min(1, (tr.bpm - 100) / 74)) * (tr.drums.punch ?? 1);
   const km = Math.pow(2, biomeSemitones / 12); // biome key shift
   const v = tr.voices;
 
@@ -519,17 +523,33 @@ function playNoteEvent(ev, absTime) {
     const dv = ev.dvol ?? 1;
     const g = a.createGain();
     if (ev.special === 'kick' || ev.special === 'kick2') {
-      // Body: sine sweep. Click: tiny noise transient on top.
+      // Body: sine sweep. Click: tiny noise transient on top. On the high-energy
+      // stations the kick punches harder (more thwack, a sub thump, a sharper
+      // click); chill low-BPM kits (drumEnergy≈0) keep the original soft body.
       const deep = ev.special === 'kick2';
+      const punch = 1 + drumEnergy * 0.4;
       const osc = a.createOscillator();
       osc.type = 'sine';
-      osc.frequency.setValueAtTime(deep ? 85 : 115, absTime);
-      osc.frequency.exponentialRampToValueAtTime(deep ? 22 : 30, absTime + (deep ? 0.14 : 0.09));
-      g.gain.setValueAtTime((deep ? 0.5 : 0.45) * dv, absTime);
+      osc.frequency.setValueAtTime(deep ? 90 : 115 + drumEnergy * 22, absTime);
+      osc.frequency.exponentialRampToValueAtTime(deep ? 21 : 30 - drumEnergy * 4, absTime + (deep ? 0.15 : 0.09));
+      g.gain.setValueAtTime((deep ? 0.5 : 0.45) * dv * punch, absTime);
       g.gain.exponentialRampToValueAtTime(0.001, absTime + (deep ? 0.16 : 0.1));
       osc.connect(g).connect(layerGain);
       osc.start(absTime);
       osc.stop(absTime + 0.2);
+      // Extra sub thump for body on the energetic kits.
+      if (drumEnergy > 0.05) {
+        const sub = a.createOscillator();
+        sub.type = 'sine';
+        sub.frequency.setValueAtTime(deep ? 55 : 70, absTime);
+        sub.frequency.exponentialRampToValueAtTime(deep ? 25 : 33, absTime + 0.12);
+        const sg = a.createGain();
+        sg.gain.setValueAtTime(0.3 * dv * drumEnergy, absTime);
+        sg.gain.exponentialRampToValueAtTime(0.001, absTime + 0.14);
+        sub.connect(sg).connect(layerGain);
+        sub.start(absTime);
+        sub.stop(absTime + 0.16);
+      }
       if (!deep) {
         const click = a.createBufferSource();
         click.buffer = getNoiseBuffer(a);
@@ -537,7 +557,7 @@ function playNoteEvent(ev, absTime) {
         hp.type = 'highpass';
         hp.frequency.value = 3000;
         const cg = a.createGain();
-        cg.gain.setValueAtTime(0.12 * dv, absTime);
+        cg.gain.setValueAtTime(0.12 * dv * (1 + drumEnergy * 0.8), absTime);
         cg.gain.exponentialRampToValueAtTime(0.001, absTime + 0.018);
         click.connect(hp).connect(cg).connect(layerGain);
         click.start(absTime);
@@ -551,7 +571,7 @@ function playNoteEvent(ev, absTime) {
       osc.type = 'triangle';
       osc.frequency.setValueAtTime(210, absTime);
       osc.frequency.exponentialRampToValueAtTime(120, absTime + 0.05);
-      g.gain.setValueAtTime(0.14 * dv, absTime);
+      g.gain.setValueAtTime(0.14 * dv * (1 + drumEnergy * 0.3), absTime);
       g.gain.exponentialRampToValueAtTime(0.001, absTime + 0.07);
       osc.connect(g).connect(layerGain);
       osc.start(absTime);
@@ -563,7 +583,7 @@ function playNoteEvent(ev, absTime) {
       bp.frequency.value = 2600;
       bp.Q.value = 0.8;
       const ng = a.createGain();
-      ng.gain.setValueAtTime(0.22 * dv, absTime);
+      ng.gain.setValueAtTime(0.22 * dv * (1 + drumEnergy * 0.35), absTime);
       ng.gain.exponentialRampToValueAtTime(0.001, absTime + 0.1);
       noise.connect(bp).connect(ng).connect(layerGain);
       noise.start(absTime);
@@ -577,7 +597,7 @@ function playNoteEvent(ev, absTime) {
       bp.type = 'bandpass';
       bp.frequency.value = 1600;
       bp.Q.value = 1.4;
-      g.gain.setValueAtTime(0.3 * dv, absTime);
+      g.gain.setValueAtTime(0.3 * dv * (1 + drumEnergy * 0.3), absTime);
       g.gain.exponentialRampToValueAtTime(0.001, absTime + 0.08);
       src.connect(bp).connect(g).connect(layerGain);
       src.start(absTime);
@@ -679,6 +699,9 @@ function playNoteEvent(ev, absTime) {
   } else {
     spawn(ev.freq, ev.vol);
   }
+  // Thicken the bass with a clean sub-octave sine — subtle on chill stations,
+  // strong on the high-energy ones (per the "thicker bass, punchier when fast").
+  if (ev.layer === 'bass') spawn(ev.freq * 0.5, ev.vol * (0.12 + drumEnergy * 0.55), 0, 'sine');
 }
 
 function runScheduler() {
