@@ -5,28 +5,28 @@ on:
     branches: [master]
   workflow_dispatch:
 
+# Publishes the site to the `gh-pages` branch (its root = production). Per-PR
+# previews live alongside production under `pr-preview/` and are preserved here
+# by `clean-exclude`, so a production deploy never wipes an open PR's preview.
 permissions:
-  contents: read
-  pages: write
-  id-token: write
+  contents: write
 
+# Serialise every write to gh-pages (production + previews share this group) so
+# concurrent jobs can't clobber each other's git push.
 concurrency:
-  group: pages
-  cancel-in-progress: true
+  group: gh-pages
+  cancel-in-progress: false
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/configure-pages@v5
+      - name: Publish master to gh-pages root (keep PR previews)
+        uses: JamesIves/github-pages-deploy-action@v4
         with:
-          enablement: true
-      - uses: actions/upload-pages-artifact@v3
-        with:
-          path: .
-      - id: deployment
-        uses: actions/deploy-pages@v4
+          branch: gh-pages
+          folder: .
+          clean: true
+          clean-exclude: |
+            pr-preview/
