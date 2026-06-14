@@ -1019,7 +1019,7 @@ export const TRACKS = [
       [N.E5,2],[N.Cs5,2],[N.A4,4],
       [N.A5,2],[N.Cs6,2],[N.E5,2],[N.Cs6,2],
       [N.A5,2],[N.Cs6,2],[N.E5,2],[N.Cs6,2],
-      [N.A5,2],[N.Cs6,2],[N.E5,2],[N.Cs6,2],
+      [N.A5,2],[N.Cs6,2],[N.E5,1],[N.Fs5,1],[N.A5,1],[N.B5,1],
       [N.D6,4],[N.Cs6,2],[N.A5,2],
     ],
     bass: pumpBass([N.A2, N.Fs3, N.D3, N.E3, N.A2, N.Fs3, N.D3, N.E3]),
