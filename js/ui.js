@@ -1139,6 +1139,9 @@ export const ui = {
     document.body.classList.add('screen-open');
     els.screen.classList.toggle('stagger', fresh && type === 'start');
     if (fresh) restartAnim(els.screen, 'screen-anim');
+    // Title screen → the catchy menu theme (no-ops until audio is unlocked, and
+    // bows out once the player has picked a Dragon Radio station).
+    if (type === 'start') music.startMenuTheme();
     pauseSubscreen = returnScreen === 'pause' && (type === 'shop' || type === 'settings' || type === 'pilot');
     // Live 3D turntables on the dragon/rider cards; animated 2D trail previews
     if (type === 'shop') {

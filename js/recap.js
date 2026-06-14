@@ -8,6 +8,7 @@ import { RIDERS } from './riders.js';
 import { TRACKS, trackUnlocked, sfx } from './sfx.js';
 import { FLIGHTMARKS, flightmarkOwned } from './flightmarks.js';
 import { ASCENSION_TIERS, ascensionTier, canAscend } from './ascension.js';
+import { claimAllFeats, unclaimedFeatCount, unclaimedFeatReward } from './feats.js';
 
 // Run Recap v2: the session's designed stopping point. One screen, strict
 // hierarchy — records pop, the score counts up, the earnings ledger reveals
@@ -178,7 +179,7 @@ function ledgerItems(sum, compact = false) {
     items.push(`<div class="earn-line milestone-line">▲ ${m.at.toLocaleString()}${m.unit} ${m.label} <b>+◆${m.reward}</b></div>`);
   }
   for (const f of sum.featResults || []) {
-    items.push(`<div class="earn-line feat-line">⬢ FEAT — ${f.def.name} <b>◆${f.def.reward} — claim in Pilot</b>${f.titleName ? ` <span class="title-won">«${f.titleName}»</span>` : ''}</div>`);
+    items.push(`<div class="earn-line feat-line">⬢ FEAT — ${f.def.name} <b>◆${f.def.reward}</b>${f.titleName ? ` <span class="title-won">«${f.titleName}»</span>` : ''}</div>`);
   }
   if (sum.levelUps > 0) {
     items.push(`<div class="earn-line levelup-badge">⬆ PILOT LEVEL ${saveData.level} <b>+◆${sum.levelEmbers}</b></div>`);
@@ -223,6 +224,7 @@ export function buildRecapHtml(score, dist, { isTouch, ICONS }) {
     ${challengeResultHtml(score)}
     ${game.scoreMult > 1.001 ? `<p class="hc-line">⚔ ASSISTS OFF — every point earned at +${Math.round((game.scoreMult - 1) * 100)}%</p>` : ''}
     ${earnListHtml}
+    ${unclaimedFeatCount() > 0 ? `<button class="feat-claim-cta" id="feat-claim-cta">✦ Claim ${unclaimedFeatCount()} feat reward${unclaimedFeatCount() > 1 ? 's' : ''} · <span class="ember-ico">◆</span> ${unclaimedFeatReward()}</button>` : ''}
     <div class="xp-wrap">
       <div class="xp-row"><span class="lvl">LV ${saveData.level}</span><span>+${sum.xpGained || 0} XP</span><span class="lvl">LV ${saveData.level + 1}</span></div>
       <div class="xp-bar"><span id="xp-fill"></span></div>
@@ -243,6 +245,7 @@ export function buildRecapHtml(score, dist, { isTouch, ICONS }) {
       <button id="btn-again" class="btn-primary">FLY AGAIN</button>
       <button id="btn-share" class="btn-secondary">SHARE &amp; CHALLENGE</button>
       <button id="btn-shop" class="btn-tertiary">⬡ SHOP</button>
+      <button id="btn-pilot" class="btn-tertiary">⬢ PILOT</button>
     </div>
     <div class="share-menu" id="share-menu" hidden>
       <button id="share-ig"   title="Instagram">${ICONS.ig}</button>
@@ -332,6 +335,30 @@ export function wireRecap(screenEl, handlers) {
       e.stopPropagation();
       const expanded = statsGrid.classList.toggle('expanded');
       moreBtn.textContent = expanded ? 'LESS ▴' : 'MORE ▾';
+    };
+  }
+
+  // Claim-on-the-spot: bank every unclaimed feat reward right here (no detour to
+  // Pilot), with a proud chime + a floating +◆ — the dopamine payoff in place.
+  const claimCta = screenEl.querySelector('#feat-claim-cta');
+  if (claimCta) {
+    claimCta.onclick = (e) => {
+      e.stopPropagation();
+      if (claimCta.classList.contains('claimed')) return;
+      const { count, embers } = claimAllFeats();
+      if (embers <= 0) return;
+      sfx.featUnlock();
+      claimCta.classList.add('claimed');
+      claimCta.innerHTML = `✓ Claimed <span class="ember-ico">◆</span> ${embers}`;
+      const fly = document.createElement('div');
+      fly.className = 'claim-flyup';
+      fly.textContent = `+◆${embers}`;
+      claimCta.appendChild(fly);
+      fly.animate([
+        { transform: 'translate(-50%, 6px)', opacity: 0 },
+        { transform: 'translate(-50%, -8px)', opacity: 1, offset: 0.25 },
+        { transform: 'translate(-50%, -38px)', opacity: 0 },
+      ], { duration: 750, easing: 'ease-out' });
     };
   }
 

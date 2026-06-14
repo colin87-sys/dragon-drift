@@ -333,6 +333,27 @@ body.app-loaded > canvas { opacity: 1; }
 
 /* buttons */
 .action-row { display: flex; gap: 12px; margin-top: 16px; flex-wrap: wrap; justify-content: center; }
+
+/* Crash-screen "claim your rewards" CTA — bank unclaimed feats in place (no
+   detour to Pilot). A pulsing gold reward that flips green + floats a +◆. */
+.feat-claim-cta { position: relative; display: flex; align-items: center; justify-content: center; gap: 6px;
+  width: fit-content; margin: 12px auto 2px; padding: 11px 24px; border: none; border-radius: 12px;
+  font-size: 14px; font-weight: 900; letter-spacing: 0.5px; color: #1a1206; cursor: pointer;
+  background: linear-gradient(135deg, #ffe27a, #ffb84d);
+  box-shadow: 0 4px 18px rgba(255, 184, 77, 0.42), inset 0 1px 0 rgba(255, 255, 255, 0.5);
+  animation: claim-pulse 1.6s ease-in-out infinite; }
+.feat-claim-cta:hover, .feat-claim-cta:active { transform: translateY(-1px);
+  box-shadow: 0 6px 24px rgba(255, 184, 77, 0.6), inset 0 1px 0 rgba(255, 255, 255, 0.5); }
+@keyframes claim-pulse {
+  0%, 100% { box-shadow: 0 4px 18px rgba(255, 184, 77, 0.40), inset 0 1px 0 rgba(255, 255, 255, 0.5); }
+  50%      { box-shadow: 0 4px 26px rgba(255, 214, 92, 0.78), inset 0 1px 0 rgba(255, 255, 255, 0.5); }
+}
+.feat-claim-cta.claimed { animation: none; cursor: default; transform: none;
+  background: linear-gradient(135deg, #8fe6b0, #5fd08a); color: #0c2417;
+  box-shadow: 0 3px 12px rgba(95, 208, 138, 0.4); }
+.claim-flyup { position: absolute; left: 50%; top: 0; transform: translateX(-50%);
+  color: #fff; font-weight: 900; font-size: 15px; pointer-events: none;
+  text-shadow: 0 1px 5px rgba(0, 0, 0, 0.55); z-index: 5; }
 .btn-primary   { pointer-events: auto; cursor: pointer; font-family: var(--font-display); font-weight: 400;
   font-size: 15px; letter-spacing: 2px; color: #1a1206; padding: 13px 30px; border: none;
   border-radius: 12px; background: linear-gradient(135deg, #ffe27a, #ffb84d 60%, #ff9540);
@@ -683,10 +704,12 @@ body.app-loaded > canvas { opacity: 1; }
 .ff-chip { font-size: 10.5px; letter-spacing: 1.5px; color: #ffe27a; margin-top: 5px;
   font-weight: 800; text-shadow: 0 0 10px rgba(255, 220, 90, 0.55); }
 
-/* Feat toast: own element so gameplay popups are never eaten */
-.feat-toast { position: absolute; top: 52%; left: 50%; transform: translateX(-50%);
-  font-size: 16px; font-weight: 800; letter-spacing: 1.5px; color: #c8a0ff; opacity: 0;
-  text-shadow: 0 0 14px rgba(170, 110, 255, 0.8); white-space: nowrap; }
+/* Feat toast: own element so gameplay popups are never eaten. Sits high in the
+   sky (not over the dragon / centre lane, where it blocked the action). */
+.feat-toast { position: absolute; top: 26%; left: 50%; transform: translateX(-50%);
+  font-size: 15px; font-weight: 800; letter-spacing: 1.2px; color: #c8a0ff; opacity: 0;
+  text-shadow: 0 0 14px rgba(170, 110, 255, 0.8); pointer-events: none;
+  max-width: min(360px, 78vw); text-align: center; line-height: 1.3; }
 .feat-toast b { color: #ffd86a; }
 .feat-toast.feat-toast-anim { animation: feat-toast 2.4s ease-out forwards; }
 @keyframes feat-toast {

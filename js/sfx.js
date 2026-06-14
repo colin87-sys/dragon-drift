@@ -412,6 +412,13 @@ export const sfx = {
 let trackIndex = Math.min(Math.max(saveData.audio.track | 0, 0), TRACKS.length - 1);
 if (!trackUnlocked(trackIndex)) trackIndex = 0; // stale save pointing at an unowned track
 let E8 = 60 / TRACKS[trackIndex].bpm / 2; // eighth-note seconds (per track)
+// Title-screen theme: plays the menu theme on the start screen WITHOUT saving
+// over the player's chosen Dragon Radio station. `menuOverride` = the theme is
+// transiently driving the index; `radioChosen` = the player explicitly picked a
+// station this session, so stop forcing the theme on the menu.
+const MENU_THEME_INDEX = TRACKS.findIndex(t => t.id === 'skybound');
+let menuOverride = false;
+let radioChosen = false;
 
 // --- Layer gain nodes ---
 let layers = {};       // keyed: bass, melody, high, arp, perc, fever, pad
@@ -755,6 +762,26 @@ function runScheduler() {
   }
 }
 
+// Switch the LIVE track to idx and (re)play it: start if idle, else a quick
+// fade-out → rebuild → fade-in retune. Does NOT persist — callers decide if this
+// is a saved radio pick or a transient menu-theme override.
+function retuneTo(idx) {
+  trackIndex = ((idx % TRACKS.length) + TRACKS.length) % TRACKS.length;
+  const a = getCtx();
+  if (!a) return;
+  if (!musicActive) { music.start(); return; }
+  musicBus.gain.setTargetAtTime(0, a.currentTime, 0.04);
+  setTimeout(() => {
+    if (!musicActive) return;
+    events = buildEvents();            // recomputes E8/LOOP_LEN for the new track
+    if (echoDelay) echoDelay.delayTime.value = E8 * 1.5;
+    if (echoDelayR) echoDelayR.delayTime.value = E8 * 1.5;
+    loopOffset = ctx.currentTime + 0.06;
+    nextEvtIdx = 0;
+    restoreBuses(ctx);
+  }, 140);
+}
+
 export const music = {
   start() {
     const a = getCtx();
@@ -847,26 +874,28 @@ export const music = {
   setTrack(i) {
     const idx = ((i % TRACKS.length) + TRACKS.length) % TRACKS.length;
     if (!trackUnlocked(idx)) return TRACKS[trackIndex].name;
-    trackIndex = idx;
-    saveData.audio.track = trackIndex;
+    radioChosen = true;   // an explicit pick: respect it everywhere from now on
+    menuOverride = false; // …and stop the title theme from taking the menu back
+    saveData.audio.track = idx;
     persist();
-    const a = getCtx();
-    if (!a) return TRACKS[trackIndex].name;
-    // In menus the music isn't running yet, so setTrack used to silently update
-    // the index and play nothing. Start playback (preview) so the picked station
-    // is actually heard; in-game (already playing) cross-fade to the new station.
-    if (!musicActive) { music.start(); return TRACKS[trackIndex].name; }
-    musicBus.gain.setTargetAtTime(0, a.currentTime, 0.04);
-    setTimeout(() => {
-      if (!musicActive) return;
-      events = buildEvents();
-      if (echoDelay) echoDelay.delayTime.value = E8 * 1.5;
-      if (echoDelayR) echoDelayR.delayTime.value = E8 * 1.5;
-      loopOffset = ctx.currentTime + 0.06;
-      nextEvtIdx = 0;
-      restoreBuses(ctx);
-    }, 140);
+    retuneTo(idx);        // start (menu preview) or cross-fade retune (in-game)
     return TRACKS[trackIndex].name;
+  },
+
+  // Title screen: play the menu theme without disturbing the chosen gameplay
+  // station. No-ops until audio is unlocked (then it plays on the next call),
+  // and stays out of the way once the player has picked a station via the radio.
+  startMenuTheme() {
+    if (MENU_THEME_INDEX < 0 || radioChosen) return;
+    if (menuOverride && trackIndex === MENU_THEME_INDEX) return;
+    menuOverride = true;
+    retuneTo(MENU_THEME_INDEX);
+  },
+  // Back to the chosen gameplay station — called as a run starts.
+  endMenuTheme() {
+    if (!menuOverride) return;
+    menuOverride = false;
+    retuneTo(saveData.audio.track | 0);
   },
 
   // Cycle stations, skipping tracks not yet bought in the shop.
