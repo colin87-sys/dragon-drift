@@ -73,8 +73,10 @@ function collect(r, centerDist) {
   }
 
   const feverBonus = game.feverActive ? CONFIG.feverMultiplier : 1;
+  // Daily mods: "Sharpshooter" boosts the perfect bonus; "Hot Streak" boosts all points.
   const points = Math.round(
-    (CONFIG.ringScore * game.combo * feverBonus + (perfect ? CONFIG.ringCenterBonus : 0)) * game.scoreMult
+    (CONFIG.ringScore * game.combo * feverBonus + (perfect ? CONFIG.ringCenterBonus * game.mods.perfect : 0))
+    * game.scoreMult * game.mods.score
   );
   game.score += points;
   game.ringsCollected++;

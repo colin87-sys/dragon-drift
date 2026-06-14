@@ -64,15 +64,16 @@ export function updateGoldEmbers(dt, player, time) {
       if (dx * dx + dy * dy + dz * dz < 2.6 * 2.6) {
         o.collected = true;
         o.flash = 1;
-        game.embersRun += CONFIG.goldEmberValue;
+        const goldVal = Math.round(CONFIG.goldEmberValue * game.mods.gold); // Daily "Gold Rush" pays more
+        game.embersRun += goldVal;
         game.goldEmbersRun++;
-        ui.goldEmberPopup(CONFIG.goldEmberValue);
+        ui.goldEmberPopup(goldVal);
         ui.perfectFlash();
         juiceEvent('goldenEmber'); // the treasure moment: hitstop + warm bloom
         sfx.goldEmber();
         burst(o.mesh.position, 0xffd040, { count: 26, speed: 15, size: 1.2 });
         emit('goldEmber');
-        emit('ember', { n: CONFIG.goldEmberValue, gold: true });
+        emit('ember', { n: goldVal, gold: true });
       }
     } else if (o.flash > 0) {
       o.flash -= dt * 3;
