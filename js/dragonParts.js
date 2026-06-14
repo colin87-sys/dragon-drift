@@ -347,6 +347,30 @@ export function buildCleanTail(def, model, bodyMat) {
       rib.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), dir.clone().normalize());
       tip.add(rib);
     }
+  } else if (style === 'shard') {
+    // Obsidian crystal shards: a cluster of sharp, faceted obsidian-crystal
+    // spikes radiating from the tip — shattered, severe and brutal (not a soft
+    // membrane fin), with a dangerous plasma edge. Unique to Obsidian.
+    const shardMat = new THREE.MeshStandardMaterial({
+      color: def.body, emissive: def.apexSeam || def.eye, emissiveIntensity: 0.25 + g * 1.1,
+      roughness: 0.26, metalness: 0.55, flatShading: true,
+    });
+    shardMat.userData.baseEmissive = def.apexSeam || def.eye;
+    shardMat.userData.baseIntensity = 0.25 + g * 1.1;
+    const layout = [
+      { ry: 0.0, len: 1.6, w: 0.14 },
+      { ry: 0.52, len: 1.2, w: 0.11 }, { ry: -0.52, len: 1.2, w: 0.11 },
+      { ry: 1.0, len: 0.82, w: 0.085 }, { ry: -1.0, len: 0.82, w: 0.085 },
+    ];
+    for (const s of layout) {
+      // Elongated octahedron = a sharp, faceted obsidian crystal shard.
+      const shard = new THREE.Mesh(new THREE.OctahedronGeometry(1, 0), shardMat);
+      shard.scale.set(s.w, s.w * 0.72, s.len);
+      const reach = s.len * 0.5 + 0.12;       // radiate from a common root
+      shard.position.set(Math.sin(s.ry) * reach, 0.02, Math.cos(s.ry) * reach);
+      shard.rotation.y = s.ry;
+      tip.add(shard);
+    }
   } else if (style === 'finned') {
     const fin = new THREE.Mesh(new THREE.ConeGeometry(0.085, 0.46, 4), plateMat);
     fin.scale.set(1, 1, 0.5);
