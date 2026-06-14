@@ -155,7 +155,10 @@ document.addEventListener('visibilitychange', () => {
 // stranded by a debounced write that didn't fire before a mobile tab was killed
 // (pagehide/visibilitychange aren't 100% reliable on iOS). persistNow no-ops in
 // dev mode and when nothing has changed it just rewrites the same blob (cheap).
-setInterval(persistNow, 15000);
+// .unref() so this timer never keeps Node's event loop alive in the test runner
+// (no-op in the browser, where setInterval returns a number, not a Timeout).
+const _periodicSave = setInterval(persistNow, 15000);
+if (_periodicSave && typeof _periodicSave.unref === 'function') _periodicSave.unref();
 
 // --- XP / pilot level ---
 export function xpToNext(level) {
