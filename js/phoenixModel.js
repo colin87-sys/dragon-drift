@@ -110,7 +110,7 @@ export function buildPhoenixModel(def, opts = {}) {
   // during Phoenix Surge.
   const bodyMat = new THREE.MeshStandardMaterial({
     color: cBody, roughness: 0.44, metalness: 0.08,
-    emissive: cBody, emissiveIntensity: 0.1 + F * 0.14, side: THREE.DoubleSide,
+    emissive: cBody, emissiveIntensity: 0.1 + F * 0.1, side: THREE.DoubleSide,
   });
   const wingMat = new THREE.MeshStandardMaterial({
     color: 0xffffff, vertexColors: true, roughness: 0.5, side: THREE.DoubleSide,
@@ -262,32 +262,53 @@ export function buildPhoenixModel(def, opts = {}) {
     web.scale.x = side;
     pivot.add(web);
 
-    // A few secondary feathers laid on the web for a layered feather edge.
+    // Secondary feathers — broad, overlapping, laid over the web as a clean
+    // layered feather sheet (clusters, not stringy quills).
     const nIn = 3 + F;
     for (let k = 0; k < nIn; k++) {
       const t = nIn > 1 ? k / (nIn - 1) : 0;
-      const rx = innerSpan * (0.15 + t * 0.8);
+      const rx = innerSpan * (0.12 + t * 0.82);
       const ry = rise * 0.5 * (rx / innerSpan) * (rx / innerSpan) + 0.05;
-      const len = (0.72 + Math.sin(t * Math.PI) * 0.4) * ws;
-      feather(pivot, side, rx, ry, 0, len, 0.34 * ws, 0.3 + t * back * 0.4, -(0.04 + t * 0.08), cIn, cOut);
+      const len = (0.78 + Math.sin(t * Math.PI) * 0.38) * ws;
+      feather(pivot, side, rx, ry, 0, len, 0.5 * ws, 0.24 + t * back * 0.34, -(0.04 + t * 0.07), cIn, cOut);
     }
+    // Glowing leading-edge accent — elite forms only, a single clean line (not
+    // per-feather wires) that ignites white-gold on Surge.
+    if (F >= 2) pivot.add(bone(0.1 * side, 0.05, 0, wristX * side, wristY + 0.04, wristZ, 0.02, 0.014, edgeMat));
 
-    // Outer primaries: spread "finger" feathers folding at the wrist.
+    // Outer primaries — a clean LAYERED feather GROUP at the wrist: broad,
+    // overlapping, gently swept (clustered, never splayed wires), growing into a
+    // long elegant white-hot tip. No wire shafts.
     const wingTip = new THREE.Group();
     wingTip.position.set(wristX * side, wristY, wristZ);
-    wingTip.add(bone(0, 0, 0, (reach - wristX) * side, rise - wristY, 0.02, 0.05, 0.02, armMat));
-    const nOut = 4 + F;
-    for (let k = 0; k < nOut; k++) {
-      const t = nOut > 1 ? k / (nOut - 1) : 0;
-      const rx = (reach - wristX) * t * 0.55, ry = (rise - wristY) * t * t, rz = 0.02;
-      const len = (1.05 + (1 - Math.abs(t - 0.4) * 1.3) * 0.6) * ws;
-      feather(wingTip, side, rx, ry, rz, len, 0.42 * ws, 0.5 + t * back, -(0.05 + t * 0.12), cIn, cOut);
-      if (F >= 1) { // bright primary shaft — ignites white-gold on Surge
-        const ang = 0.5 + t * back;
-        wingTip.add(bone(rx * side, ry, rz,
-          (rx + Math.sin(ang) * len) * side, ry + len * 0.05, rz + Math.cos(ang) * len,
-          0.016, 0.005, edgeMat));
-      }
+    wingTip.add(bone(0, 0, 0, (reach - wristX) * side, rise - wristY, 0.02, 0.055, 0.02, armMat));
+    if (F >= 2) wingTip.add(bone(0, 0.03, 0, (reach - wristX) * side, rise - wristY + 0.03, 0.02, 0.018, 0.01, edgeMat));
+    // The outer wing is a second scalloped WEB (wrist → tip): a broad continuous
+    // surface whose deeply notched trailing edge reads as a clean row of primary
+    // feather tips — feathered, never wiry. Gold → white-hot toward the tip.
+    const outerSpan = reach - wristX, oRise = rise - wristY;
+    const oRoot = 1.0 * ws, oTip = 0.42 * ws;
+    const so = new THREE.Shape();
+    so.moveTo(0, 0);
+    so.lineTo(outerSpan, 0.02 * ws);                  // leading edge → tip
+    const nF = 4 + F;
+    for (let k = nF; k >= 0; k--) {                   // notched trailing edge → wrist
+      const tx = k / nF;
+      const chord = oTip + (oRoot - oTip) * (1 - tx); // chord shrinks toward the tip
+      const notch = (k % 2 === 0 ? 0.02 : 0.2) * ws;  // deep notches = feather separation
+      so.lineTo(outerSpan * tx, chord - notch);
+    }
+    const oGeo = new THREE.ShapeGeometry(so, 14);
+    oGeo.rotateX(Math.PI / 2);
+    archUp(oGeo, outerSpan, oRise);
+    webGradient(oGeo, cOut, cHi);
+    const oWeb = new THREE.Mesh(oGeo, wingMat);
+    oWeb.scale.x = side;
+    wingTip.add(oWeb);
+    // Two broad covert feathers layered over the outer-wing base for depth.
+    for (let k = 0; k < 2; k++) {
+      feather(wingTip, side, outerSpan * (0.1 + k * 0.22), oRise * (0.1 + k * 0.22) + 0.04, -0.03,
+        (0.7 + k * 0.2) * ws, 0.5 * ws, 0.22 + k * 0.2, -0.05, cBody, cOut);
     }
     const marker = new THREE.Object3D();
     marker.position.set((reach - wristX) * side, rise - wristY, 1.1 * ws);
@@ -330,22 +351,15 @@ export function buildPhoenixModel(def, opts = {}) {
     tailSegs.push(seg);
   }
 
-  // ── Solar halo (form 3-4): a ring behind the head + a soft backlight card.
+  // ── Soft solar backlight (form 3-4): a divine corona behind the body — a soft
+  // glow only, NOT a hard ring (the ring read like a collar around the neck).
   if (F >= 3) {
-    const halo = new THREE.Mesh(new THREE.TorusGeometry(0.62, 0.04, 8, 28), tagged(
-      new THREE.MeshStandardMaterial({
-        color: cSeam, emissive: cSeam, emissiveIntensity: 1.8, roughness: 0.25, metalness: 0.4,
-        transparent: true, opacity: 0.92,
-      }), cSeam, 1.8));
-    halo.position.set(0, 0.95, -0.2);
-    halo.rotation.x = 0.4;
-    group.add(halo);
     const auraCard = new THREE.Sprite(new THREE.SpriteMaterial({
       map: makeGlowTexture(def.aura ? hexRgb(def.aura) : hexRgb(cSeam)), transparent: true,
-      opacity: 0.3, blending: THREE.AdditiveBlending, depthWrite: false,
+      opacity: 0.34, blending: THREE.AdditiveBlending, depthWrite: false,
     }));
-    auraCard.scale.set(4.2, 5.6, 1);
-    auraCard.position.set(0, 0.8, 0.3);
+    auraCard.scale.set(4.4, 5.8, 1);
+    auraCard.position.set(0, 0.7, 0.25);
     group.add(auraCard);
   }
 

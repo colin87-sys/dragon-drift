@@ -58,6 +58,8 @@ let ponyMeshes = [];
 const TRAIL_POOL = 140;
 let trailSprites = [];
 let boostTrailSprites = [];
+let emberMotes = [];   // Phoenix-only: floating ember-feather motes
+let moteTimer = 0;
 let trailTimer = 0;
 let boostTrailTimer = 0;
 let contrailTimer = 0;
@@ -98,8 +100,9 @@ export function createDragon(scene, def, riderDef) {
   surgeAnimT = 0;
   prevFever = false;
 
-  // The Phoenix's Rebirth washes warm gold instead of the dragons' magenta.
-  setFeverTint(def.archetype === 'phoenix' ? [0.095, 0.07, 0.022] : null);
+  // Per-dragon Surge wash hue (def.feverWash): the Phoenix Rebirth washes warm
+  // gold, the Sovereign eclipse washes cool blue, the rest keep the magenta default.
+  setFeverTint(def.feverWash || null);
 
   buildRider(riderDef);
   scene.add(group);
@@ -142,6 +145,23 @@ export function createDragon(scene, def, riderDef) {
     s.layers.set(1);
     scene.add(s);
     boostTrailSprites.push(s);
+  }
+
+  // Phoenix only: a small pool of floating ember-feather motes that shed gently
+  // from the plume — the firebird's signature "rebirth" embers.
+  emberMotes = [];
+  if (def.archetype === 'phoenix') {
+    const moteTex = makeGlowTexture('255,224,150');
+    for (let i = 0; i < 28; i++) {
+      const s = new THREE.Sprite(new THREE.SpriteMaterial({
+        map: moteTex, transparent: true, opacity: 0,
+        blending: THREE.AdditiveBlending, depthWrite: false,
+      }));
+      s.visible = false; s.userData.life = 0; s.userData.vy = 0;
+      s.layers.set(1);
+      scene.add(s);
+      emberMotes.push(s);
+    }
   }
 
   // Death-burst crystal shards
@@ -205,7 +225,7 @@ export function disposeDragon() {
     m.geometry.dispose();
     sceneRef.remove(m);
   }
-  for (const s of [...trailSprites, ...boostTrailSprites]) {
+  for (const s of [...trailSprites, ...boostTrailSprites, ...emberMotes]) {
     s.material.dispose();
     sceneRef.remove(s);
   }
@@ -220,6 +240,7 @@ export function disposeDragon() {
   ponyMeshes = [];
   trailSprites = [];
   boostTrailSprites = [];
+  emberMotes = [];
   burstParticles = [];
   burstActive = false;
 }
@@ -513,6 +534,40 @@ export function updateDragon(dt, player, time) {
     }
   }
 
+  // Phoenix ember-feather motes: faint warm motes shed from the plume and drift
+  // UP + BACK (toward the camera, away from the centre lane), denser on later
+  // forms and while boosting. White-gold on boost. Controlled so it never clutters.
+  if (emberMotes.length) {
+    const fxLvl = activeDef.model.spineGlow || 0;
+    moteTimer -= dt;
+    if (moteTimer <= 0 && tailSegs.length) {
+      moteTimer = Math.max(0.05, (player.boosting ? 0.08 : 0.18) - fxLvl * 0.07);
+      const s = emberMotes.find(s => !s.visible);
+      if (s) {
+        tailSegs[Math.floor(tailSegs.length * 0.6)].getWorldPosition(tmpV);
+        s.visible = true;
+        s.userData.life = 1;
+        s.userData.vy = 0.5 + Math.random() * 0.9;
+        s.material.color.setHex(player.boosting ? 0xfff0c8 : 0xffd987);
+        s.position.set(
+          tmpV.x + (Math.random() - 0.5) * 1.0,
+          tmpV.y + (Math.random() - 0.5) * 0.5,
+          tmpV.z + Math.random() * 1.2
+        );
+      }
+    }
+    for (const s of emberMotes) {
+      if (!s.visible) continue;
+      s.userData.life -= dt * 0.85;
+      if (s.userData.life <= 0) { s.visible = false; s.material.opacity = 0; continue; }
+      s.position.y += s.userData.vy * dt;   // buoyant rise
+      s.position.z += dt * 1.4;             // drift back toward the camera
+      s.material.opacity = s.userData.life * (0.35 + fxLvl * 0.2);
+      const sz = 0.22 + (1 - s.userData.life) * 0.5;
+      s.scale.set(sz, sz, 1);
+    }
+  }
+
   // Death burst update
   if (burstActive) {
     burstTimer -= dt;
@@ -545,6 +600,7 @@ export function resetDragon(player) {
   for (const p of ponyPoints) p.set(player.position.x, player.position.y + 1.5, player.position.z);
   for (const s of trailSprites) { s.visible = false; s.userData.life = 0; }
   for (const s of boostTrailSprites) { s.visible = false; s.userData.life = 0; }
+  for (const s of emberMotes) { s.visible = false; s.material.opacity = 0; s.userData.life = 0; }
   for (const p of burstParticles) { p.visible = false; }
   burstActive = false;
 }
