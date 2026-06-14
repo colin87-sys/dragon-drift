@@ -95,6 +95,26 @@ export function claimFeat(id) {
   emit('featClaimed', { def });
   return def.reward;
 }
+// Total embers still owed by unclaimed feats (for the recap's claim CTA).
+export function unclaimedFeatReward() {
+  let r = 0;
+  for (const id of saveData.feats.unlocked) {
+    if (saveData.feats.claimed.includes(id)) continue;
+    const def = defById(id);
+    if (def) r += def.reward;
+  }
+  return r;
+}
+// Claim every unclaimed feat at once (the crash-screen "Claim" button) — pays
+// each exactly once via claimFeat. Returns { count, embers }.
+export function claimAllFeats() {
+  let count = 0, embers = 0;
+  for (const id of [...saveData.feats.unlocked]) {
+    const r = claimFeat(id);
+    if (r > 0) { count++; embers += r; }
+  }
+  return { count, embers };
+}
 
 // Live triggers, wired explicitly (heterogeneous conditions don't want a
 // generic engine). Listener order note: records.js increments the per-run
