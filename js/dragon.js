@@ -58,8 +58,9 @@ let ponyMeshes = [];
 const TRAIL_POOL = 140;
 let trailSprites = [];
 let boostTrailSprites = [];
-let emberMotes = [];   // Phoenix-only: floating ember-feather motes
+let emberMotes = [];   // Phoenix ember-feathers / Sovereign arcane surge motes
 let moteTimer = 0;
+let moteIdx = 0;
 let trailTimer = 0;
 let boostTrailTimer = 0;
 let contrailTimer = 0;
@@ -147,12 +148,13 @@ export function createDragon(scene, def, riderDef) {
     boostTrailSprites.push(s);
   }
 
-  // Phoenix only: a small pool of floating ember-feather motes that shed gently
-  // from the plume — the firebird's signature "rebirth" embers.
+  // Glowing motes: the Phoenix sheds warm ember-feathers continuously; dragons
+  // with def.surgeMotes (the Sovereign) breathe cool arcane motes during Surge.
+  // One white-texture pool, tinted per mote so it serves both.
   emberMotes = [];
-  if (def.archetype === 'phoenix') {
-    const moteTex = makeGlowTexture('255,224,150');
-    for (let i = 0; i < 28; i++) {
+  if (def.archetype === 'phoenix' || def.surgeMotes) {
+    const moteTex = makeGlowTexture('255,255,255');
+    for (let i = 0; i < 34; i++) {
       const s = new THREE.Sprite(new THREE.SpriteMaterial({
         map: moteTex, transparent: true, opacity: 0,
         blending: THREE.AdditiveBlending, depthWrite: false,
@@ -534,35 +536,46 @@ export function updateDragon(dt, player, time) {
     }
   }
 
-  // Phoenix ember-feather motes: faint warm motes shed from the plume and drift
-  // UP + BACK (toward the camera, away from the centre lane), denser on later
-  // forms and while boosting. White-gold on boost. Controlled so it never clutters.
+  // Glowing motes drift UP + BACK (toward the camera, away from the centre lane).
+  //  • Phoenix: warm ember-feathers, always, denser on later forms / boost.
+  //  • Sovereign (def.surgeMotes): cool arcane motes — ONLY during Surge — that
+  //    breathe blue-violet / cyan / indigo eclipse energy off the tail and body.
   if (emberMotes.length) {
+    const isPhx = activeDef.archetype === 'phoenix';
     const fxLvl = activeDef.model.spineGlow || 0;
+    const emitting = isPhx || player.feverActive;
     moteTimer -= dt;
-    if (moteTimer <= 0 && tailSegs.length) {
-      moteTimer = Math.max(0.05, (player.boosting ? 0.08 : 0.18) - fxLvl * 0.07);
+    if (emitting && moteTimer <= 0 && tailSegs.length) {
+      moteTimer = isPhx ? Math.max(0.05, (player.boosting ? 0.08 : 0.18) - fxLvl * 0.07) : 0.045;
       const s = emberMotes.find(s => !s.visible);
       if (s) {
-        tailSegs[Math.floor(tailSegs.length * 0.6)].getWorldPosition(tmpV);
+        const src = isPhx ? tailSegs[Math.floor(tailSegs.length * 0.6)]
+          : tailSegs[Math.floor(Math.random() * tailSegs.length)];
+        src.getWorldPosition(tmpV);
         s.visible = true;
         s.userData.life = 1;
-        s.userData.vy = 0.5 + Math.random() * 0.9;
-        s.material.color.setHex(player.boosting ? 0xfff0c8 : 0xffd987);
-        s.position.set(
-          tmpV.x + (Math.random() - 0.5) * 1.0,
-          tmpV.y + (Math.random() - 0.5) * 0.5,
-          tmpV.z + Math.random() * 1.2
-        );
+        if (isPhx) {
+          s.userData.vy = 0.5 + Math.random() * 0.9;
+          s.material.color.setHex(player.boosting ? 0xfff0c8 : 0xffd987);
+          s.position.set(tmpV.x + (Math.random() - 0.5) * 1.0,
+            tmpV.y + (Math.random() - 0.5) * 0.5, tmpV.z + Math.random() * 1.2);
+        } else {
+          const arcane = [0x7a5cff, 0x5ce6ff, 0x4b5dff, 0xb8a8ff];
+          s.userData.vy = 0.3 + Math.random() * 0.7;
+          s.material.color.setHex(arcane[moteIdx++ % arcane.length]);
+          s.position.set(tmpV.x + (Math.random() - 0.5) * 1.4,
+            tmpV.y + (Math.random() - 0.5) * 0.8 + 0.25, tmpV.z + Math.random() * 1.4);
+        }
       }
     }
+    const peak = isPhx ? 0.35 + fxLvl * 0.2 : 0.55;
     for (const s of emberMotes) {
       if (!s.visible) continue;
       s.userData.life -= dt * 0.85;
       if (s.userData.life <= 0) { s.visible = false; s.material.opacity = 0; continue; }
       s.position.y += s.userData.vy * dt;   // buoyant rise
       s.position.z += dt * 1.4;             // drift back toward the camera
-      s.material.opacity = s.userData.life * (0.35 + fxLvl * 0.2);
+      s.material.opacity = s.userData.life * peak;
       const sz = 0.22 + (1 - s.userData.life) * 0.5;
       s.scale.set(sz, sz, 1);
     }
