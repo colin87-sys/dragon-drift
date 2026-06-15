@@ -15,34 +15,44 @@ import { registerWings } from './dragonRecipe.js';
 // raised inner glow panel (a visible second surface), a bright leading-edge RIB
 // bone, and a tip gem — a structured astral sail, not a flat card.
 function buildSail(len, wid, fillMat, edgeMat) {
+  // A DEFINED SWEPT wing: a long leading edge sweeping out to a fine pointed tip,
+  // then a concave (scythe) trailing edge cutting back to the root — a falcon/jet
+  // wing silhouette, not a rounded petal.
   const shape = (l, w) => {
     const s = new THREE.Shape();
-    s.moveTo(0, 0);
-    s.quadraticCurveTo(l * 0.5, w * 0.9, l * 0.96, w * 0.5);   // leading edge bows out
-    s.quadraticCurveTo(l * 1.02, w * 0.16, l * 0.86, -w * 0.04); // to a fine swept tip
-    s.quadraticCurveTo(l * 0.5, -w * 0.18, 0, -w * 0.12);        // trailing edge back to root
+    s.moveTo(0, w * 0.42);                                        // leading root corner
+    s.quadraticCurveTo(l * 0.62, w * 0.30, l * 1.04, -w * 0.18);  // leading edge → far swept tip
+    s.quadraticCurveTo(l * 0.52, -w * 0.46, l * 0.16, -w * 0.5);  // concave trailing edge scythes back
+    s.quadraticCurveTo(l * 0.04, -w * 0.5, 0, -w * 0.28);         // to the trailing root corner
+    s.closePath();
     return s;
   };
   const g = new THREE.Group();
-  const rim = new THREE.Mesh(new THREE.ShapeGeometry(shape(len * 1.08, wid * 1.16), 14), edgeMat);
+  const rim = new THREE.Mesh(new THREE.ShapeGeometry(shape(len * 1.05, wid * 1.16), 16), edgeMat);
   rim.position.z = -0.02;
   g.add(rim);
-  g.add(new THREE.Mesh(new THREE.ShapeGeometry(shape(len, wid), 14), fillMat));
-  // Raised inner glow panel — a smaller sail sat proud, so the membrane reads as
-  // two layered surfaces with a luminous inlay.
-  const inner = new THREE.Mesh(new THREE.ShapeGeometry(shape(len * 0.6, wid * 0.5), 8), edgeMat);
-  inner.position.set(len * 0.06, 0, 0.02);
+  g.add(new THREE.Mesh(new THREE.ShapeGeometry(shape(len, wid), 16), fillMat));
+  // Inner glow panel — a smaller swept sail inset (a luminous second surface).
+  const inner = new THREE.Mesh(new THREE.ShapeGeometry(shape(len * 0.6, wid * 0.58), 10), edgeMat);
+  inner.position.set(len * 0.05, -wid * 0.03, 0.02);
   g.add(inner);
-  // Leading-edge rib bone (root → swept tip).
-  const a = new THREE.Vector3(0, 0, 0), b = new THREE.Vector3(len * 0.92, wid * 0.32, 0);
-  const dir = b.clone().sub(a);
-  const rib = new THREE.Mesh(new THREE.CylinderGeometry(0.018, 0.05, dir.length(), 5), edgeMat);
-  rib.position.copy(a).add(b).multiplyScalar(0.5);
-  rib.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), dir.clone().normalize());
-  g.add(rib);
+  // Leading-edge spar (root → swept tip) — the wing bone that defines the sweep.
+  const root = new THREE.Vector3(0, wid * 0.36, 0), tip = new THREE.Vector3(len * 1.0, -wid * 0.12, 0);
+  const dir = tip.clone().sub(root);
+  const spar = new THREE.Mesh(new THREE.CylinderGeometry(0.015, 0.055, dir.length(), 5), edgeMat);
+  spar.position.copy(root).add(tip).multiplyScalar(0.5);
+  spar.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), dir.clone().normalize());
+  g.add(spar);
+  // A second swept vein from the root toward mid-trailing edge — wing definition.
+  const v2tip = new THREE.Vector3(len * 0.5, -wid * 0.34, 0);
+  const v2dir = v2tip.clone().sub(root);
+  const vein = new THREE.Mesh(new THREE.CylinderGeometry(0.012, 0.03, v2dir.length(), 4), edgeMat);
+  vein.position.copy(root).add(v2tip).multiplyScalar(0.5);
+  vein.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), v2dir.clone().normalize());
+  g.add(vein);
   // Tip gem.
-  const gem = new THREE.Mesh(new THREE.OctahedronGeometry(wid * 0.12, 0), edgeMat);
-  gem.position.copy(b);
+  const gem = new THREE.Mesh(new THREE.OctahedronGeometry(wid * 0.1, 0), edgeMat);
+  gem.position.copy(tip);
   g.add(gem);
   return g;
 }
