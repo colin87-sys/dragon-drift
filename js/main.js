@@ -253,6 +253,17 @@ if (urlParams.has('dev') || saveData.settings.dev) {
 
 ui.showScreen('start');
 
+// First-ever launch: a one-time cinematic fly-in to the soaring dragon, then the
+// hero menu materialises (CSS .hero-intro). Marked seen immediately so it plays
+// exactly once. Skips on reduced-motion, dev unlocks, and shared-challenge boots.
+let introPlaying = false;
+if (!saveData.flags.seenIntro && game.state === 'ready' && game.mode === 'normal' && !game.challengeScore) {
+  const reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  if (!reduce) { cameraCtl.playIntro(); introPlaying = true; }
+  saveData.flags.seenIntro = true;
+  persist();
+}
+
 // First impression: the Skybound title theme plays on the menu. The audio graph
 // builds now (silent in the suspended context); the player's first gesture
 // resumes the context (sfx.js unlockAudio) and the theme becomes audible — and a
@@ -279,7 +290,12 @@ window.addEventListener('pointerdown', (e) => {
   }
   // Tap-to-fly only from the start screen itself — while browsing the
   // shop/settings, blank taps mean "back" (handled by the screen itself).
-  else if (game.state === 'ready' && !ui.inSubscreen()) startGame();
+  else if (game.state === 'ready' && !ui.inSubscreen()) {
+    // A tap during the intro fast-forwards to the resting menu — it must NOT
+    // also launch a run (no accidental take-off on the very first frame).
+    if (introPlaying) { cameraCtl.skipIntro(); introPlaying = false; }
+    else startGame();
+  }
   // Crash screen: tapping any blank spot starts a new flight. Armed only
   // after a grace period so a frantic last-second tap can't skip the screen.
   else if (game.state === 'gameover' && game.deathFreezeTimer <= 0 &&
@@ -468,7 +484,10 @@ window.addEventListener('keydown', (e) => {
   if (game.state === 'paused') {
     if (!ui.inPauseSubscreen()) resumeFromPause();
   }
-  else if (game.state === 'ready'    && (e.code === 'Enter' || e.code === 'Space')) startGame();
+  else if (game.state === 'ready'    && (e.code === 'Enter' || e.code === 'Space')) {
+    if (introPlaying) { cameraCtl.skipIntro(); introPlaying = false; }
+    else startGame();
+  }
   else if (game.state === 'gameover' && e.code === 'KeyR') restart();
 });
 
@@ -715,6 +734,7 @@ function tick() {
     const obstacleSpeedNorm = (player.speed - CONFIG.baseSpeed) / (CONFIG.orbSpeed - CONFIG.baseSpeed);
     updateObstacles(dt, t, player.dist, obstacleSpeedNorm);
     cameraCtl.update(dt, player, game.state === 'ready');
+    if (introPlaying && !cameraCtl.introPlaying) introPlaying = false;
     updateReticle(player, game.state === 'playing');
     updateEnvironment(dt, camera, t, player.dist, game.feverActive, player.speed);
     updateWater(dt, player.dist, t, scene.fog);

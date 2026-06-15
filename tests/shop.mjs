@@ -6,7 +6,7 @@ import { boot, check } from './browser.mjs';
 
 const { page, errors, done } = await boot({
   initScript: `localStorage.setItem('dragonDriftSave', JSON.stringify({
-    v: 2, embers: 9000,
+    v: 2, stats: { runs: 5 }, flags: { seenIntro: true }, embers: 9000,
     skins: { owned: ['azure', 'ember', 'solar'], equipped: 'solar' },
     ascension: { tiers: [['solar', 3], ['ember', 2]], radiance: [] },
     cosmetics: { marksOwned: ['goldleaf'], markEquipped: '', formPref: [] },

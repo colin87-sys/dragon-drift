@@ -893,7 +893,74 @@ export const ui = {
     lastScreen = type;
 
     if (type === 'start') {
+      // The hero menu: a clean stage for the live dragon. One primary action
+      // (TAKE OFF) over the wordmark; the meta lives behind a compact top bar +
+      // bottom icon rail, revealed progressively so a brand-new pilot sees only
+      // the one decision they need to make.
       const touch = isTouch();
+      const runs = saveData.stats.runs;
+      const cold = runs === 0;            // brand-new pilot — strip to one choice
+      const showQuests = runs >= 2;       // missions / weekly objectives
+      const showDeep = runs >= 3;         // DAILY + PILOT long-horizon meta
+      const title = equippedTitleName();
+
+      // Drifting ember motes behind the hero — pure decoration (transform/opacity
+      // only, GPU-cheap), regenerated each time the screen mounts.
+      const motes = cold ? 10 : 16;
+      const embers = Array.from({ length: motes }, () => {
+        const gold = Math.random() > 0.4;
+        return `<span style="left:${(Math.random() * 100).toFixed(1)}%;` +
+          `--d:${(Math.random() * 9).toFixed(2)}s;--dur:${(7 + Math.random() * 8).toFixed(2)}s;` +
+          `--sz:${(2 + Math.random() * 4).toFixed(1)}px;--dx:${(Math.random() * 44 - 22).toFixed(0)}px;` +
+          `--c:${gold ? '#ffce6a' : '#7fe6ff'}"></span>`;
+      }).join('');
+
+      // Top bar (wallet + settings gear) — absent on the cold first screen.
+      const topbar = cold ? '' : `
+        <div class="hero-topbar">
+          <div class="hero-wallet">
+            <div class="meta-chip"><span class="ember-ico">${EMBER_ICON}</span> <b>${saveData.embers}</b></div>
+            ${game.highScore ? `<div class="meta-chip">BEST <b>${game.highScore}</b></div>` : ''}
+          </div>
+          <button class="hero-gear" id="btn-settings" title="Settings" aria-label="Settings">${ICONS.settings}</button>
+        </div>`;
+
+      // Bottom icon rail — revealed progressively as systems become relevant.
+      const railBtn = (id, icon, label, due) =>
+        `<button class="hero-rail-btn" id="${id}">${icon}<span>${label}</span>${badgeHtml(due)}</button>`;
+      let rail = '';
+      if (!cold) {
+        let items = '';
+        if (showDeep)   items += railBtn('btn-pilot',  ICONS.pilot,  'PILOT',  pilotBadgeDue());
+        if (showQuests) items += railBtn('btn-quests', ICONS.weekly, 'QUESTS', questsBadgeDue());
+        items += railBtn('btn-shop', ICONS.shop, 'SHOP', shopBadgeDue());
+        if (showDeep)   items += railBtn('btn-daily',  ICONS.daily,  'DAILY',  dailyBadgeDue());
+        rail = `<nav class="hero-rail">${items}</nav>`;
+      }
+
+      const sub = cold
+        ? (touch ? 'Drag to steer · hold to boost' : 'WASD to steer · SPACE to boost')
+        : (touch ? 'Drag to steer · hold a second finger to boost · swipe it sideways to barrel roll'
+                 : 'WASD/Arrows to steer · SPACE to boost · double-tap a direction to barrel roll');
+
+      html = `
+        ${topbar}
+        <div class="hero-embers" aria-hidden="true">${embers}</div>
+        <div class="hero-core">
+          ${game.challengeScore ? `<p class="challenge">CHALLENGE — beat ${game.challengeScore} points!</p>` : ''}
+          ${startNotice ? `<p class="start-notice">${startNotice}</p>` : ''}
+          ${(!cold && title) ? `<button class="hero-title-chip" id="chip-title">«${title}»</button>` : ''}
+          <h1 class="wordmark hero-wordmark">DRAGON DRIFT</h1>
+          <button class="btn-primary hero-cta breathe" id="btn-start"><span class="cta-glyph" aria-hidden="true">➤</span>TAKE OFF</button>
+          <p class="hero-sub">${sub}</p>
+          <p class="action-key">${touch ? 'or tap anywhere to fly' : 'or press ENTER to fly'}</p>
+        </div>
+        ${rail}
+        ${iosInstallHint()}`;
+
+    } else if (type === 'quests') {
+      // Objectives panel (reached from the QUESTS rail icon): the missions,
+      // weekly trials and NEXT UP goal that used to crowd the start screen.
       const missions = activeMissions().map((m) => `
         <div class="mission-card${m.progress >= m.def.target ? ' done' : ''}">
           <div class="mission-info">
@@ -906,9 +973,16 @@ export const ui = {
       const trials = weeklyTrials();
       const feather = saveData.weekly.feather;
       const doneCount = trials.filter((t) => t.done).length;
-      const weeklyStrip = `
-        <div class="weekly-strip${weeklyExpanded ? ' expanded' : ''}">
-          <button class="weekly-head" id="weekly-toggle" aria-label="Toggle weekly trial details">${ICONS.weekly} WEEKLY TRIALS <span class="weekly-count${doneCount ? ' some' : ''}">${doneCount}/${trials.length} ✓</span>${feather ? ' <span class="feather" title="Phoenix Feather — bridges one missed streak day">🪶</span>' : ''}<span class="weekly-chevron">▾</span></button>
+      const nextUp = selectNextUp();
+      html = `
+        <div class="screen-topbar">
+          <span class="topbar-title">QUESTS</span>
+          <button class="topbar-close" id="btn-back" title="Back">✕</button>
+        </div>
+        <p class="nextup-line">${nextUp.icon} NEXT UP — ${nextUp.label} <span class="nextup-line-sub">${nextUp.sub}</span></p>
+        <div class="mission-list">${missions}</div>
+        <div class="weekly-strip expanded">
+          <div class="weekly-head">${ICONS.weekly} WEEKLY TRIALS <span class="weekly-count${doneCount ? ' some' : ''}">${doneCount}/${trials.length} ✓</span>${feather ? ' <span class="feather" title="Phoenix Feather — bridges one missed streak day">🪶</span>' : ''}</div>
           <div class="weekly-rows">
           ${trials.map((t) => `
             <div class="weekly-row${t.done ? ' done' : ''}">
@@ -917,44 +991,30 @@ export const ui = {
               <span class="weekly-reward${t.done ? ' earned' : ''}">${t.done ? '✓ ' : ''}◆${t.def.reward}</span>
             </div>`).join('')}
           </div>
-        </div>`;
-      const nextUp = selectNextUp();
-      const title = equippedTitleName();
+        </div>
+        <p class="share-hint">Quests pay out when a run ends · weeklies reset Monday (UTC).</p>`;
+
+    } else if (type === 'daily') {
+      // Daily Challenge panel (reached from the DAILY rail icon).
       const daily = saveData.daily;
       const dailyDone = daily.date === todayUTC() && daily.played;
       const dmod = todaysDailyMod();
       html = `
-        <h1>DRAGON DRIFT</h1>
-        ${game.challengeScore ? `<p class="challenge">CHALLENGE — beat ${game.challengeScore} points!</p>` : ''}
-        ${startNotice ? `<p class="start-notice">${startNotice}</p>` : ''}
-        <div class="meta-row">
-          <div class="meta-chip">PILOT <b>LV ${saveData.level}</b></div>
-          ${title ? `<div class="meta-chip title-chip" id="chip-title">«${title}»</div>` : ''}
-          <div class="meta-chip"><span class="ember-ico">${EMBER_ICON}</span> <b>${saveData.embers}</b></div>
-          ${game.highScore ? `<div class="meta-chip">BEST <b>${game.highScore}</b></div>` : ''}
+        <div class="screen-topbar">
+          <span class="topbar-title">DAILY CHALLENGE</span>
+          <button class="topbar-close" id="btn-back" title="Back">✕</button>
         </div>
-        <p class="sub">${touch ? 'Drag to steer · hold a second finger to boost · swipe it sideways to barrel roll' : 'WASD/Arrows to steer · SPACE to boost · double-tap a direction to barrel roll'}</p>
-        <div class="mission-list">${missions}</div>
-        ${weeklyStrip}
-        <p class="nextup-line">${nextUp.icon} NEXT UP — ${nextUp.label} <span class="nextup-line-sub">${nextUp.sub}</span></p>
-        <div class="daily-card">
+        <div class="daily-card daily-panel">
           <div class="daily-info">
-            <div class="daily-title">${ICONS.daily} DAILY CHALLENGE</div>
+            <div class="daily-title">${ICONS.daily} TODAY'S TWIST</div>
             <div class="daily-mod"><span class="daily-mod-glyph">${dmod.glyph}</span> ${dmod.name}</div>
             <div class="daily-sub">${dmod.brief}</div>
             ${dailyDone ? `<div class="daily-done">✓ Cleared today — best ${daily.bestScore}. New twist at UTC midnight.</div>` : ''}
           </div>
           ${daily.streak > 1 ? `<div class="daily-streak">🔥 ${daily.streak}</div>` : ''}
-          <button class="btn-secondary btn-daily${dailyDone ? '' : ' glow'}" id="btn-daily">FLY DAILY</button>
+          <button class="btn-secondary btn-daily${dailyDone ? '' : ' glow'}" id="btn-fly-daily">FLY DAILY</button>
         </div>
-        <div class="action-row">
-          <button class="btn-primary breathe" id="btn-start">TAKE OFF</button>
-          <button class="btn-tertiary" id="btn-pilot">${ICONS.pilot} PILOT${badgeHtml(pilotBadgeDue())}</button>
-          <button class="btn-tertiary" id="btn-shop">${ICONS.shop} SHOP${badgeHtml(shopBadgeDue())}</button>
-          <button class="btn-tertiary" id="btn-settings">${ICONS.settings} SETTINGS</button>
-        </div>
-        <p class="action-key">${touch ? 'or tap anywhere to take off' : 'or press ENTER to take off'}</p>
-        ${iosInstallHint()}`;
+        <p class="share-hint">A fresh modifier every day · your daily score stays out of your main best.</p>`;
 
     } else if (type === 'shop') {
       // Opening the shop clears its badge: the wallet watermark records what
@@ -1194,7 +1254,11 @@ export const ui = {
     els.screen.innerHTML = html;
     els.screen.classList.add('visible');
     document.body.classList.add('screen-open');
-    els.screen.classList.toggle('stagger', fresh && type === 'start');
+    // The hero start screen runs its own bespoke entrance (see .hero-* CSS), so
+    // the generic per-child stagger is reserved for other dense screens.
+    els.screen.classList.remove('stagger');
+    els.screen.classList.toggle('hero-screen', type === 'start');
+    els.screen.classList.toggle('hero-intro', type === 'start' && fresh && !saveData.flags.seenIntro);
     if (fresh) restartAnim(els.screen, 'screen-anim');
     // Title screen → the catchy menu theme (no-ops until audio is unlocked, and
     // bows out once the player has picked a Dragon Radio station).
@@ -1222,7 +1286,8 @@ export const ui = {
     // screen container itself is the only target blank space resolves to.
     els.screen.onclick = (e) => {
       if (e.target !== els.screen) return;
-      if (type === 'shop' || type === 'settings' || type === 'pilot') {
+      if (type === 'shop' || type === 'settings' || type === 'pilot' ||
+          type === 'quests' || type === 'daily') {
         if (returnScreen === 'pause') ui.showPauseOverlay();
         else ui.showScreen(returnScreen);
       }
@@ -1461,7 +1526,8 @@ export const ui = {
   // True while a shop/settings/pilot subscreen is showing (any origin) —
   // main.js suppresses the crash-screen tap-to-restart while browsing.
   inSubscreen() {
-    return lastScreen === 'shop' || lastScreen === 'settings' || lastScreen === 'pilot';
+    return lastScreen === 'shop' || lastScreen === 'settings' || lastScreen === 'pilot' ||
+           lastScreen === 'quests' || lastScreen === 'daily';
   },
 };
 
@@ -1493,6 +1559,19 @@ function shopBadgeDue() {
   return false;
 }
 
+// DAILY rail badge: today's challenge is still waiting to be flown. Honest —
+// it points at a real action and clears the moment the run is recorded.
+function dailyBadgeDue() {
+  return !(saveData.daily.date === todayUTC() && saveData.daily.played);
+}
+
+// QUESTS rail badge: a mission has hit its target and is ready to pay out at the
+// next run's end (a genuine "you've earned this" nudge), or a weekly is done.
+function questsBadgeDue() {
+  if (activeMissions().some((m) => m.progress >= m.def.target)) return true;
+  return weeklyTrials().some((t) => t.done);
+}
+
 const badgeHtml = (due) => (due ? '<span class="badge"></span>' : '');
 
 // C7: One-time iOS "Add to Home Screen" nudge for Safari users not yet in standalone
@@ -1516,7 +1595,6 @@ let pauseSubscreen = false; // shop/settings opened from the pause menu
 let shopTab = 'dragons';    // dragons | riders | music | style
 let pauseTab = 'audio';     // audio | assists | quests
 let pilotTab = 'feats';     // feats | log | titles
-let weeklyExpanded = false; // §15 — weekly trial DETAIL collapses behind the header (count stays)
 let startNotice = '';       // one-shot line on the start screen
 
 function wireScreenButtons(type) {
@@ -1527,16 +1605,17 @@ function wireScreenButtons(type) {
     returnScreen = 'start';
     const start = q('#btn-start');
     if (start) start.onclick = stop(() => handlers.onStart && handlers.onStart('normal'));
-    const daily = q('#btn-daily');
-    if (daily) daily.onclick = stop(() => handlers.onStart && handlers.onStart('daily'));
-    // §15 — tap the weekly header to reveal/hide the per-trial detail (the count
-    // summary always shows). Toggles in place; no full re-render.
-    const wkToggle = q('#weekly-toggle');
-    if (wkToggle) wkToggle.onclick = stop(() => {
-      weeklyExpanded = !weeklyExpanded;
-      const strip = els.screen.querySelector('.weekly-strip');
-      if (strip) strip.classList.toggle('expanded', weeklyExpanded);
-    });
+    // Rail icons open their panels (never launch a run directly).
+    const quests = q('#btn-quests');
+    if (quests) quests.onclick = stop(() => ui.showScreen('quests'));
+    const dailyBtn = q('#btn-daily');
+    if (dailyBtn) dailyBtn.onclick = stop(() => ui.showScreen('daily'));
+  }
+  // QUESTS / DAILY panels are only ever opened from the start screen.
+  if (type === 'quests' || type === 'daily') {
+    returnScreen = 'start';
+    const fly = q('#btn-fly-daily');
+    if (fly) fly.onclick = stop(() => handlers.onStart && handlers.onStart('daily'));
   }
   if (type === 'gameover') returnScreen = 'gameover';
 
