@@ -23,7 +23,26 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+
+      # Stage the publishable site into a sibling dir BEFORE deploying. The deploy
+      # action creates its temp worktree at the repo root and rsyncs the source
+      # into a subfolder of it; with source-dir '.' that source IS the repo root,
+      # which now contains the temp folder — so rsync recurses into the folder it's
+      # writing and dies racing its own --delete ("file has vanished", exit 24).
+      # Staging into ./_site (a sibling the temp folder is never inside) removes the
+      # self-copy entirely. Excludes match what the deploy already drops (.git /
+      # .github) plus _site itself.
+      - name: Stage site
+        run: |
+          mkdir -p _site
+          rsync -a --delete \
+            --exclude '.git' \
+            --exclude '.github' \
+            --exclude '_site' \
+            --exclude 'github-pages-deploy-action-temp-deployment-folder' \
+            ./ _site/
+
       - name: Deploy / update / remove this PR's preview
         uses: rossjrw/pr-preview-action@v1
         with:
-          source-dir: ./
+          source-dir: ./_site
