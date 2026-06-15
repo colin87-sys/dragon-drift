@@ -140,6 +140,27 @@ export function ringBurst(pos, perfect) {
   }
 }
 
+// Surge phase: a violet crystal-shatter explosion. Perfect phases get the full
+// treatment (twin shockwave rings + elongated shards); minor phases a modest puff.
+export function phaseBurst(pos, perfect) {
+  if (perfect) {
+    burst(pos, 0xc060ff, { count: 28, speed: 18, size: 1.2 });
+    burst(pos, 0xe8d0ff, { count: 12, speed: 25, size: 0.7, life: 0.5 });
+    const n = Math.round(12 * quality) || 1;
+    for (let i = 0; i < n; i++) {
+      spawn(pos, i % 2 ? 0xd59bff : 0x9b6bff, {
+        speed: 32, size: 0.62, life: 0.42,
+        gravityScale: 0, drag: 0.4, stretch: 3.6,
+      });
+    }
+    shockwave(pos, 0xc060ff, { grow: 32, life: 0.6 });
+    shockwave(pos, 0xe8d0ff, { grow: 15, life: 0.4 });
+  } else {
+    burst(pos, 0xc060ff, { count: 14, speed: 13, size: 0.9 });
+    burst(pos, 0xe8d0ff, { count: 5, speed: 18, size: 0.55, life: 0.4 });
+  }
+}
+
 // Gate thread: cyan crystal sparks + rectangular shockwave shaped like the window.
 export function gateThreadBurst(pos) {
   burst(pos, 0x7fe0ff, { count: 20, speed: 13, size: 1.0 });

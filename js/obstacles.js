@@ -182,6 +182,15 @@ export function updateObstacles(dt, time, playerDist, speedNorm = 0) {
     } else if (e.type === 'bar') {
       e.object.rotation.x += dt * 0.5; // spin around its long axis
     } else if (e.type === 'gate') {
+      // Phase shatter: blow the wall apart (scale + spin) then hide it. Transform
+      // only — the gate material is shared across all gates, so we never touch it.
+      if (e.shatterT > 0) {
+        e.shatterT -= dt;
+        const k = 1 - Math.max(e.shatterT, 0) / CONFIG.phaseShatterDur;
+        e.object.scale.setScalar(1 + k * (e.shatterBig ? 0.8 : 0.4));
+        e.object.rotation.z += dt * (e.shatterBig ? 6 : 3);
+        if (e.shatterT <= 0) e.object.visible = false;
+      }
       const beacon = e.object.userData.beacon;
       if (beacon) {
         const dz = e.dist - playerDist;

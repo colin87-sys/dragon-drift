@@ -81,7 +81,14 @@ export const CONFIG = {
   // through a crystal wall (gate) that would normally crash you. Spends stamina
   // (which is why the stamina budget above is generous) and pays style points.
   phaseStaminaCost: 40,
-  phaseBonus: 150,        // style points × combo on a successful phase
+  phaseBonus: 150,        // style points × combo on a successful (minor) phase
+  // Tiered phase feel (modeled on perfect rings): a cleanly-timed roll just before
+  // the wall keeps lots of i-frame window left at the crossing → PERFECT; a desperate
+  // last-instant roll scrapes through → minor. Forgiving window, like a perfect dodge.
+  phasePerfectWindow: 0.18,       // rollInvuln (s) remaining at the wall to count as perfect
+  phasePerfectBonus: 200,         // extra style points × combo on a perfect phase
+  phasePerfectStaminaRefund: 22,  // refund of the cost on a perfect (net ~18 spent)
+  phaseShatterDur: 0.35,          // wall scatter animation length (s)
 
   // Fever / Dragon Surge
   feverThreshold: 8,      // legacy display fallback
@@ -142,7 +149,8 @@ export const CONFIG = {
       nearMiss:         { hitstop: 50, kick: null },
       gateThread:       { hitstop: 0,  kick: null },   // camera gateKick instead
       surgeStart:       { hitstop: 0,  kick: 'surgeStart' },
-      phase:            { hitstop: 90, kick: 'goldenEmber' }, // shatter through a wall
+      phase:            { hitstop: 45, kick: null },          // minor phase: light beat
+      phasePerfect:     { hitstop: 95, kick: 'surgeStart' },  // perfect phase: big magenta kick
       comboBreak:       { hitstop: 0,  kick: 'comboBreak' },
       death:            { hitstop: 0,  kick: 'death' }, // sustained grade over the freeze
     },

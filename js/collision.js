@@ -5,7 +5,7 @@ import { cameraCtl } from './cameraController.js';
 import { ui } from './ui.js';
 import { sfx, setSlowMo } from './sfx.js';
 import { triggerDeathBurst } from './dragon.js';
-import { burst, gateThreadBurst, nearMissSparks } from './particles.js';
+import { burst, gateThreadBurst, nearMissSparks, phaseBurst } from './particles.js';
 import { comboTier } from './util.js';
 import { saveData, persist } from './save.js';
 import { emit } from './events.js';
@@ -52,6 +52,10 @@ function checkSlowMo(dt, player) {
       slowMoCooldown = 6;
       game.slowMoTimer = 0.6;
       setSlowMo(true);
+      // First-ever Surge wall: cue the phase teaching prompt during the dilation.
+      if (c.type === 'gate' && game.feverActive && !saveData.flags.phaseTaught) {
+        emit('surgeWallSlowMo');
+      }
       return;
     }
   }
@@ -135,6 +139,12 @@ export function updateCollision(dt, player) {
               c.phased = true;
               game.stamina -= CONFIG.phaseStaminaCost;
               phaseThroughGate(c, player);
+            } else if (game.feverActive && !saveData.flags.phaseTaught) {
+              // No-fail first teach: rather than ending the run on the lesson,
+              // the dragon auto-rolls and phases through as a one-time demo.
+              c.phased = true;
+              player.tryRoll(Math.sign(c.gapX - p.x) || 1);
+              phaseThroughGate(c, player, { assisted: true });
             } else {
               crash(player, 'gate');
               return;
@@ -190,18 +200,39 @@ function threadGate(player) {
   }
 }
 
-// Surge phase-through: shatter the crystal wall instead of crashing. Pays style
-// points (× combo) and a crystal burst; combo and Surge stay intact so the run
-// keeps its momentum. Stamina was already spent by the caller.
-function phaseThroughGate(c, player) {
-  const points = Math.round(CONFIG.phaseBonus * game.combo * game.scoreMult);
-  game.score += points;
-  gateThreadBurst(player.position);
-  burst(player.position, 0xc060ff, { count: 24, speed: 18, size: 1.2 });
-  cameraCtl.shake(0.7);
-  juiceEvent('phase');
-  ui.nearMissPopup(points);
-  sfx.gate();
+// Surge phase-through: shatter the crystal wall instead of crashing. Tiered like a
+// perfect ring — a cleanly-timed roll (lots of i-frame window left at the wall) is a
+// PERFECT phase (big payoff, partial stamina refund, streak chime); a last-instant
+// scrape is a minor phase. `opts.assisted` is the one-time no-fail teaching demo:
+// minor tier, no score/stamina change, a coaching popup. Combo and Surge stay intact.
+function phaseThroughGate(c, player, opts = {}) {
+  const assisted = !!opts.assisted;
+  const perfect = !assisted && player.rollInvuln >= CONFIG.phasePerfectWindow;
+
+  if (perfect) {
+    game.phaseStreak++;
+    game.stamina = Math.min(CONFIG.staminaMax, game.stamina + CONFIG.phasePerfectStaminaRefund);
+  } else {
+    game.phaseStreak = 0;
+  }
+
+  const bonus = perfect ? CONFIG.phaseBonus + CONFIG.phasePerfectBonus : CONFIG.phaseBonus;
+  const points = Math.round(bonus * game.combo * game.scoreMult);
+  if (!assisted) game.score += points; // the teaching demo doesn't pad the score
+
+  // Wall shatter (transform-only scatter, animated in obstacles.js).
+  c.shatterT = CONFIG.phaseShatterDur;
+  c.shatterBig = perfect;
+
+  phaseBurst(player.position, perfect);
+  cameraCtl.shake(perfect ? 1.1 : 0.5);
+  juiceEvent(perfect ? 'phasePerfect' : 'phase');
+  if (perfect) ui.phaseFlash();
+  sfx.phase(perfect, game.phaseStreak);
+  ui.phasePopup(points, perfect, game.phaseStreak, assisted);
+
+  // First wall resolved (rolled or demoed) → the move is learned; no more no-fail net.
+  if (!saveData.flags.phaseTaught) { saveData.flags.phaseTaught = true; persist(); }
   emit('phase');
 }
 
