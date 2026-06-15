@@ -1,9 +1,10 @@
 import * as THREE from 'three';
 import { makeGlowTexture } from './util.js';
 import { buildCleanTail } from './dragonParts.js';
-import { resolveRecipe, getTorsoBuilder, getWingsBuilder } from './dragonRecipe.js';
+import { resolveRecipe, getTorsoBuilder, getWingsBuilder, getHeadBuilder } from './dragonRecipe.js';
 import './dragonTorso.js'; // self-registers the 'arrow' / 'serpent' torso profiles
 import './dragonWings.js'; // self-registers the 'membrane' / 'none' wing builders
+import './dragonHead.js';  // self-registers the 'horned' / 'beaked' head builders
 import { buildPhoenixModel } from './phoenixModel.js';
 
 // Unified procedural dragon mesh builder.
@@ -242,108 +243,16 @@ export function buildDragonModel(def, opts = {}) {
     }
   }
 
-  // Head group
-  const head = new THREE.Group();
-  const skull = new THREE.Mesh(new THREE.SphereGeometry(0.74, 14, 12), bodyMat);
-  skull.scale.set(1.28, 0.82, 0.95);
-  const snout = new THREE.Mesh(new THREE.ConeGeometry(0.46, 1.5, 8), bodyMat);
-  snout.rotation.x = -Math.PI / 2;
-  snout.scale.set(0.84, 1, 1.18);
-  snout.position.set(0, -0.08, -1.05);
-  head.add(skull, snout);
-  const jaw = new THREE.Mesh(new THREE.BoxGeometry(0.66, 0.2, 0.6), bellyMat);
-  jaw.position.set(0, -0.32, -0.72);
-  head.add(jaw);
+  // Head — from the recipe's HEAD module (horned / beaked). Sits at the torso's
+  // published head anchor (varies per body plan); the neck chain bridging the
+  // torso's neck cap to the head is built inside the torso module.
+  const head = getHeadBuilder(recipe.head)(def, model, { bodyMat, hornMat, bellyMat, scalesMat, eyeMat });
+  const hb = attach.headBase;
+  head.position.set(hb.x, hb.y, hb.z);
+  group.add(head);
 
-  for (const s of [-1, 1]) {
-    const nostril = new THREE.Mesh(new THREE.SphereGeometry(0.06, 6, 5), hornMat);
-    nostril.position.set(0.13 * s, -0.1, -1.26);
-    head.add(nostril);
-  }
-
-  // Whiskers (Jade/Pearl)
-  if (model.whiskers) {
-    for (const [sx, angle] of [[-0.18, 0.3], [0.18, -0.3], [-0.1, 0.52], [0.1, -0.52]]) {
-      const w = new THREE.Mesh(new THREE.CylinderGeometry(0.018, 0.005, 0.8, 4), scalesMat);
-      w.rotation.set(Math.PI / 2 + 0.08, 0, angle);
-      w.position.set(sx, -0.13, -1.2);
-      head.add(w);
-    }
-  }
-
-  // Ear tendrils (Obsidian/Toothless)
-  if (model.earTendrils) {
-    const tendrilMat = new THREE.MeshStandardMaterial({
-      color: def.body, emissive: def.eye, emissiveIntensity: 0.4,
-      roughness: 0.55, side: THREE.DoubleSide,
-    });
-    for (const s of [-1, 1]) {
-      for (let i = 0; i < 3; i++) {
-        const h = 0.42 - i * 0.08;
-        const t = new THREE.Mesh(new THREE.ConeGeometry(0.065, h, 4), tendrilMat);
-        t.position.set(0.6 * s, 0.28 + i * 0.12, 0.38 + i * 0.18);
-        t.rotation.x = 0.4 + i * 0.12;
-        t.rotation.z = s * (0.9 + i * 0.15);
-        head.add(t);
-      }
-    }
-  }
-
-  // Horns — skipped entirely when hornLen is 0 (the bare hatchling form, before
-  // the first evolution sprouts its horns). Cheek fins stay as facial structure.
-  for (const s of [-1, 1]) {
-    if (model.hornLen > 0) {
-      const horn = new THREE.Mesh(new THREE.ConeGeometry(0.16, model.hornLen, 6), hornMat);
-      horn.position.set(0.4 * s, 0.52, 0.26);
-      horn.rotation.x = 0.65;
-      horn.rotation.z = s * -0.2;
-      head.add(horn);
-      if (model.hornPairs > 1) {
-        const horn2 = new THREE.Mesh(new THREE.ConeGeometry(0.11, model.hornLen * 0.62, 6), hornMat);
-        horn2.position.set(0.24 * s, 0.48, 0.52);
-        horn2.rotation.x = 0.95;
-        horn2.rotation.z = s * -0.34;
-        head.add(horn2);
-      }
-    }
-    const cheekFin = new THREE.Mesh(new THREE.ConeGeometry(0.11, 0.68, 5), scalesMat);
-    cheekFin.position.set(0.56 * s, 0.02, -0.12);
-    cheekFin.rotation.z = s * -1.2;
-    cheekFin.rotation.x = 0.25;
-    head.add(cheekFin);
-  }
-
-  // Tusks (Solar/Bahamut)
-  if (model.tusks) {
-    for (const s of [-1, 1]) {
-      const tusk = new THREE.Mesh(new THREE.ConeGeometry(0.085, 0.46, 5), hornMat);
-      tusk.position.set(0.28 * s, -0.26, -0.84);
-      tusk.rotation.x = -0.45;
-      tusk.rotation.z = s * 0.2;
-      head.add(tusk);
-    }
-  }
-
-  // Brow ridges
-  for (const s of [-1, 1]) {
-    const brow = new THREE.Mesh(new THREE.ConeGeometry(0.08, 0.3, 5), scalesMat);
-    brow.position.set(0.26 * s, 0.42, -0.1);
-    brow.rotation.x = 0.9;
-    head.add(brow);
-  }
-
-  // Crest spines (head)
-  const crestCount = model.crest || 0;
-  for (let i = 0; i < crestCount; i++) {
-    const h = 0.42 + i * 0.1;
-    const crestSpine = new THREE.Mesh(new THREE.ConeGeometry(0.08 - i * 0.01, h, 5), scalesMat);
-    crestSpine.position.set(0, 0.86 + h / 2, 0.36 - i * 0.22);
-    crestSpine.rotation.x = 0.28 + i * 0.08;
-    head.add(crestSpine);
-  }
-
-  // Pearl's luminous aura: a soft opalescent glow, NOT a hard torus ring (the
-  // old ring read like a collar / UI artefact). Elegant and pristine.
+  // Pearl's luminous head aura: a soft opalescent glow (a body-level sprite, NOT
+  // part of the head group), elegant and pristine — never a hard torus ring.
   if (model.halo) {
     const haloRgb = `${(def.eye >> 16) & 255},${(def.eye >> 8) & 255},${def.eye & 255}`;
     const glow = new THREE.Sprite(new THREE.SpriteMaterial({
@@ -355,21 +264,6 @@ export function buildDragonModel(def, opts = {}) {
     glow.layers.set(1);
     group.add(glow);
   }
-
-  // Eyes
-  const eyeR = 0.09 * (model.eyeScale || 1);
-  for (const s of [-1, 1]) {
-    const eye = new THREE.Mesh(new THREE.SphereGeometry(eyeR, 8, 6), eyeMat);
-    eye.position.set(0.29 * s, 0.2, -0.4);
-    head.add(eye);
-  }
-
-  // Head sits at the torso's published head anchor (varies per body plan); the
-  // neck chain bridging the torso's neck cap to the head is built inside the
-  // torso module (it's part of the body-plan identity — long on a serpent).
-  const hb = attach.headBase;
-  head.position.set(hb.x, hb.y, hb.z);
-  group.add(head);
 
   // --- Tail --------------------------------------------------------------
   // Redesigned dragons (model.tailStyle) get the single clean tail; the rest of

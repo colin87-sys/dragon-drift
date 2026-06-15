@@ -24,6 +24,7 @@
 // Each maps a part name → builder fn. Modules call register* at import time.
 const TORSO_BUILDERS = {};
 const WINGS_BUILDERS = {};
+const HEAD_BUILDERS = {};
 
 export function registerTorso(name, fn) { TORSO_BUILDERS[name] = fn; }
 export function getTorsoBuilder(name) { return TORSO_BUILDERS[name] || TORSO_BUILDERS.arrow; }
@@ -32,6 +33,10 @@ export function hasTorso(name) { return !!TORSO_BUILDERS[name]; }
 export function registerWings(name, fn) { WINGS_BUILDERS[name] = fn; }
 export function getWingsBuilder(name) { return WINGS_BUILDERS[name] || WINGS_BUILDERS.membrane; }
 export function hasWings(name) { return !!WINGS_BUILDERS[name]; }
+
+export function registerHead(name, fn) { HEAD_BUILDERS[name] = fn; }
+export function getHeadBuilder(name) { return HEAD_BUILDERS[name] || HEAD_BUILDERS.horned; }
+export function hasHead(name) { return !!HEAD_BUILDERS[name]; }
 
 // --- recipe resolution ------------------------------------------------------
 // Resolve a dragon def to an explicit { torso, wings, tail, head } recipe.
@@ -55,8 +60,10 @@ export function resolveRecipe(def) {
   const tail = explicit.tail
     || model.tailStyle
     || (model.maceTail ? 'mace' : model.tailTip === 'fan' ? 'fan' : 'legacy');
+  // HEAD: the reptilian horned head (with its whisker/tusk/frill flags) covers
+  // the whole shipped roster; a recipe opts into 'beaked' for an avian creature.
   const head = explicit.head
-    || (model.earTendrils && !(model.hornLen > 0) ? 'frilled' : 'horned');
+    || (def.archetype === 'phoenix' ? 'beaked' : 'horned');
 
   return { torso, wings, tail, head };
 }
