@@ -384,8 +384,8 @@ export function updateDragon(dt, player, time) {
   wingPivotL.rotation.y = damp(wingPivotL.rotation.y,  0.18 + turnBias * 0.8, 9, dt);
   // Tip fold: folds on up-stroke, extends on down-stroke, with a small delay
   // between wings so the silhouette feels less mechanical.
-  wingTipR.rotation.z = damp(wingTipR.rotation.z, tipLag * 0.42 + turnBias * 0.45, 12, dt);
-  wingTipL.rotation.z = damp(wingTipL.rotation.z, -Math.sin(phase + 1.18) * 0.42 + turnBias * 0.45, 12, dt);
+  wingTipR.rotation.z = damp(wingTipR.rotation.z, tipLag * 0.28 + turnBias * 0.45, 12, dt);
+  wingTipL.rotation.z = damp(wingTipL.rotation.z, -Math.sin(phase + 1.18) * 0.28 + turnBias * 0.45, 12, dt);
   wingTipR.rotation.x = damp(wingTipR.rotation.x, -0.12 + feather * 0.16, 10, dt);
   wingTipL.rotation.x = damp(wingTipL.rotation.x, -0.12 - feather * 0.16, 10, dt);
   // Secondary wing pair (Obsidian T4): shadow flap at reduced amplitude.

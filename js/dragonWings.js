@@ -151,15 +151,21 @@ function buildMembraneWings(def, model, attach, giM) {
     // "hand" continuing the forearm; the rest are slimmer finger struts.)
     for (let i = 0; i < wingSpec.tips.length; i++) {
       const [px, py] = wingSpec.tips[i];
-      const z = -py * 1.0;
-      const tipLift = archLift(px * 1.34 * ws * side, maxX, arc, ws);
       const lead = i === 0;
-      const bx = px * 1.34 * ws * side - wristXGeo * side; // bone origin = the wrist
+      // Inset the bone endpoints so the struts sit WITHIN the bowed/scalloped
+      // membrane instead of poking past it like a kite frame — the leading "hand"
+      // bone only a touch, the slim trailing finger struts well inside. Thinner
+      // too, so they read as faint internal veins, not a skeleton.
+      const ins = lead ? 0.95 : 0.8;
+      const z = -py * ins;
+      const tipX = px * 1.34 * ws * side * ins;
+      const tipLift = archLift(tipX, maxX, arc, ws);
+      const bx = tipX - wristXGeo * side; // bone origin = the wrist
       const by = tipLift - wristLift;
-      wingTip.add(wingStrut(bx, z, lead ? 0.1 : 0.04, lead ? 0.02 : 0.012,
+      wingTip.add(wingStrut(bx, z, lead ? 0.1 : 0.03, lead ? 0.02 : 0.008,
         lead ? armMat : boneMat, by));
       if (veinMat && !lead) {
-        const vein = wingStrut(bx, z, 0.028, 0.006, veinMat, by);
+        const vein = wingStrut(bx, z, 0.02, 0.005, veinMat, by);
         vein.position.y += 0.05;
         wingTip.add(vein);
       }
