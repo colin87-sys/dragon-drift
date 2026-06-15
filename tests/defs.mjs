@@ -114,13 +114,14 @@ for (const m of FLIGHTMARKS) {
 }
 ok(`${FLIGHTMARKS.length} flightmarks, unique ids, costs ≥800`);
 
-// --- Dragon evolution forms (base + 3 = 4) ---
+// --- Dragon evolution forms: starters (SSR) cap at 3, premiums (SSSR) have 4 ---
 for (const [key, d] of Object.entries(DRAGONS)) {
-  assert(Array.isArray(d.forms) && d.forms.length === 4, `dragon ${key} has 4 forms`);
-  for (let i = 0; i < 4; i++) {
+  const want = d.maxRarity === 'SSR' ? 3 : 4;
+  assert(Array.isArray(d.forms) && d.forms.length === want, `dragon ${key} has ${want} forms`);
+  for (let i = 0; i < want; i++) {
     assert(d.forms[i] !== null && typeof d.forms[i] === 'object', `dragon ${key} form ${i} is an object`);
   }
 }
-ok(`${Object.keys(DRAGONS).length} dragons each have 4 evolution forms`);
+ok(`${Object.keys(DRAGONS).length} dragons have expected form counts (3 starter / 4 premium)`);
 
 console.log(`\n${n} def checks passed.`);
