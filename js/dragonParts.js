@@ -5,85 +5,16 @@ import * as THREE from 'three';
 // geometry here keeps that file focused on materials, decoration flags and the
 // animation hookpoints the rig/preview depend on.
 //
-//   buildArrowTorso()   sleek arrowhead torso (keel + strong shoulders + narrow
-//                        hips), replacing the round lathe.
+// The TORSO (body plan + neck + wing-root fairings + attach contract) now lives
+// in its own composable module, dragonTorso.js, behind the recipe registry —
+// this file holds the wings + tail that mount onto it.
+//
 //   wing system         WING_FORMS / buildWingShape / archWing — per-form wing
 //                        SHAPE + a vertical arc PROFILE that bakes a dragon-wing
 //                        elbow (wrist peak) so each tier reads differently from
 //                        the direct-rear gameplay camera.
 //   buildCleanTail()    one continuous tapered tail (no detached shards), dark
 //                        with gold accents so it never reads as a hazard.
-
-// ===========================================================================
-// BODY — aerodynamic arrowhead
-// ===========================================================================
-// Lofted from a blade cross-section: a pointed dorsal keel on top, flatter
-// sides (less round/lumpy mass), a tapered belly. Strong shoulders → narrow
-// waist → narrow hips → slim tail root that the tail continues cleanly from.
-//
-// bodyStretch (default 1) lengthens ONLY the after-body: torso stations behind
-// the wing-root band (z > TORSO_ZHOLD) are pushed back about the hold line, so
-// the head/neck/shoulder/wing-root attach zone stays pinned and the apex reads
-// as a longer, sleeker drake — girth/height (halfWidth/keelTop/belly) untouched.
-const TORSO_ZHOLD = 0;     // hold line: nothing forward of the waist lengthens
-const TORSO_TAIL_Z = 1.70; // slim tail-root station (last entry below)
-// z-shift to add to the tail-group anchor so it stays flush with a stretched body.
-export function torsoTailShift(stretch = 1) {
-  return (TORSO_TAIL_Z - TORSO_ZHOLD) * (stretch - 1);
-}
-export function buildArrowTorso(stretch = 1) {
-  // station: [z, halfWidth, keelTop, belly]  (z: head at -, tail at +)
-  const stations = [
-    [-3.05, 0.15, 0.10, 0.13], // neck cap (meets the neck chain)
-    [-2.45, 0.30, 0.22, 0.24], // neck base
-    [-1.65, 0.52, 0.42, 0.38], // fore-shoulder
-    [-0.85, 0.66, 0.54, 0.46], // shoulder peak — broadest, tallest keel
-    [-0.10, 0.55, 0.45, 0.40], // thorax
-    [ 0.60, 0.39, 0.33, 0.29], // waist (clear pinch)
-    [ 1.15, 0.29, 0.25, 0.20], // narrow hips
-    [ 1.70, 0.17, 0.17, 0.11], // slim tail root
-  ];
-  const M = 8;
-  // Unit cross-section: keel apex on top (0,top), widest at mid-height, rounded
-  // belly. Ordered CCW looking toward -z so face winding points outward.
-  const ring = (w, top, bot) => [
-    [0, top], [-w * 0.70, top * 0.30], [-w, -bot * 0.10], [-w * 0.62, -bot * 0.64],
-    [0, -bot], [w * 0.62, -bot * 0.64], [w, -bot * 0.10], [w * 0.70, top * 0.30],
-  ];
-  // Rear-band lengthening: only stations behind the hold line move (toward +z).
-  const zAt = (z) => (z > TORSO_ZHOLD ? TORSO_ZHOLD + (z - TORSO_ZHOLD) * stretch : z);
-  const verts = [];
-  for (const [z, w, top, bot] of stations)
-    for (const [x, y] of ring(w, top, bot)) verts.push(x, y, zAt(z));
-  const idx = [];
-  for (let s = 0; s < stations.length - 1; s++) {
-    const a0 = s * M, b0 = (s + 1) * M;
-    for (let m = 0; m < M; m++) {
-      const n = (m + 1) % M;
-      idx.push(a0 + m, b0 + m, a0 + n, a0 + n, b0 + m, b0 + n);
-    }
-  }
-  const g = new THREE.BufferGeometry();
-  g.setAttribute('position', new THREE.Float32BufferAttribute(verts, 3));
-  g.setIndex(idx);
-  g.computeVertexNormals();
-  return g;
-}
-
-// Top-of-keel height at a given body z — lets the caller run a glowing spine
-// ridge precisely along the crest of the arrowhead back.
-export function keelTopAt(z) {
-  const pts = [[-2.45, 0.22], [-0.85, 0.54], [-0.10, 0.45], [0.60, 0.33], [1.15, 0.25], [1.70, 0.17]];
-  if (z <= pts[0][0]) return pts[0][1];
-  if (z >= pts[pts.length - 1][0]) return pts[pts.length - 1][1];
-  for (let i = 0; i < pts.length - 1; i++) {
-    if (z <= pts[i + 1][0]) {
-      const t = (z - pts[i][0]) / (pts[i + 1][0] - pts[i][0]);
-      return pts[i][1] + (pts[i + 1][1] - pts[i][1]) * t;
-    }
-  }
-  return pts[pts.length - 1][1];
-}
 
 // ===========================================================================
 // WINGS — shape per form + a baked vertical "elbow" arc profile

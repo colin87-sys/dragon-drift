@@ -1,11 +1,12 @@
 import * as THREE from 'three';
 import { makeGlowTexture } from './util.js';
 import {
-  buildArrowTorso, torsoTailShift, keelTopAt,
   DEFAULT_WING, wingSpecFor, buildWingShape, buildFeatherWingShape,
   archWing, archLift, wingStrut, applyWingGradient,
   buildCleanTail, edgedFin,
 } from './dragonParts.js';
+import { resolveRecipe, getTorsoBuilder } from './dragonRecipe.js';
+import './dragonTorso.js'; // self-registers the 'arrow' / 'serpent' torso profiles
 import { buildPhoenixModel } from './phoenixModel.js';
 
 // Unified procedural dragon mesh builder.
@@ -62,23 +63,15 @@ export function buildDragonModel(def, opts = {}) {
     color: 0x223344, emissive: def.eye, emissiveIntensity: 2.2,
   });
 
-  // --- Body foundation: aerodynamic arrowhead ----------------------------
-  // A lofted blade torso (keel + strong shoulders + narrow hips) replaces the
-  // round lathe so the body reads as a sleek predator, not a lump. DoubleSide
-  // keeps the closed loft robust regardless of face winding.
-  const torsoMat = bodyMat.clone();
-  torsoMat.side = THREE.DoubleSide;
-  const torso = new THREE.Mesh(buildArrowTorso(model.bodyStretch ?? 1), torsoMat);
-  torso.position.y = 0.2;
-  group.add(torso);
-
-  // Small smooth fairings where the wings attach, so they never look bolted on.
-  for (const s of [-1, 1]) {
-    const root = new THREE.Mesh(new THREE.SphereGeometry(0.3, 9, 7), bodyMat);
-    root.scale.set(0.86, 0.78, 1.2);
-    root.position.set(s * 0.46, 0.54, -0.4);
-    group.add(root);
-  }
+  // --- Body foundation: composable torso ---------------------------------
+  // The body plan (torso loft + wing-root fairings + neck chain) comes from the
+  // recipe's TORSO module (dragonTorso.js). That module also publishes the
+  // ATTACH contract — where the wings, head and tail mount, and the keel crest
+  // for the spine — so a different skeleton (e.g. the long 'serpent' profile)
+  // drops in without changing any of the wing / head / tail / spine code below.
+  const recipe = resolveRecipe(def);
+  const { group: torsoGroup, attach } = getTorsoBuilder(recipe.torso)(def, model, bodyMat);
+  group.add(torsoGroup);
 
   // Accent materials (spine plates, crest, glow seams, tail plates) that flare
   // toward white-gold during Dragon Surge — collected for the rig to drive.
@@ -101,7 +94,7 @@ export function buildDragonModel(def, opts = {}) {
     for (let i = 0; i < segN; i++) {
       const t = i / (segN - 1);
       const z = -1.7 + t * 3.4;                 // shoulders → tail root
-      const top = 0.2 + keelTopAt(z);           // crest of the keel (torso y=0.2)
+      const top = attach.keelTopAt(z);          // crest of the keel (incl. torso y)
       const h = 0.16 + g * 0.22;
       const node = new THREE.Mesh(new THREE.ConeGeometry(0.04 + g * 0.045, h, 4), spineMat);
       node.rotation.x = -Math.PI / 2;
@@ -130,7 +123,7 @@ export function buildDragonModel(def, opts = {}) {
     for (let i = 0; i < n; i++) {
       const t = n > 1 ? i / (n - 1) : 0;
       const z = -1.75 + t * 3.55;               // shoulders → tail root
-      const top = 0.2 + keelTopAt(z);
+      const top = attach.keelTopAt(z);
       const wide = 0.10 + (1 - Math.abs(t - 0.45) * 1.4) * 0.05; // fuller across the mid-back
       const chev = new THREE.Group();
       for (const sx of [-1, 1]) {
@@ -174,7 +167,7 @@ export function buildDragonModel(def, opts = {}) {
     const ridge = new THREE.Mesh(
       new THREE.ConeGeometry(0.09 + Math.max(0, 5 - Math.abs(i - 4)) * 0.016, 0.34, 5), scalesMat);
     ridge.rotation.x = -Math.PI / 2;
-    ridge.position.set(0, 0.2 + keelTopAt(-2.55 + i * ridgeStep) + 0.06, -2.55 + i * ridgeStep);
+    ridge.position.set(0, attach.keelTopAt(-2.55 + i * ridgeStep) + 0.06, -2.55 + i * ridgeStep);
     group.add(ridge);
   }
 
@@ -185,7 +178,7 @@ export function buildDragonModel(def, opts = {}) {
       const df = new THREE.Mesh(new THREE.ConeGeometry(0.055, h, 4), scalesMat);
       df.rotation.x = -Math.PI / 2;
       const z = -1.6 + i * 0.8;
-      df.position.set(0, 0.2 + keelTopAt(z) + h / 2, z);
+      df.position.set(0, attach.keelTopAt(z) + h / 2, z);
       group.add(df);
     }
   }
@@ -202,7 +195,7 @@ export function buildDragonModel(def, opts = {}) {
       spine.rotation.x = -Math.PI / 2;
       spine.rotation.z = (i % 2 === 0 ? 0.12 : -0.12);
       const z = -0.8 + i * 0.55;
-      spine.position.set((i % 2 === 0 ? 0.08 : -0.08), 0.2 + keelTopAt(z) + h / 2, z);
+      spine.position.set((i % 2 === 0 ? 0.08 : -0.08), attach.keelTopAt(z) + h / 2, z);
       group.add(spine);
     }
   }
@@ -381,18 +374,12 @@ export function buildDragonModel(def, opts = {}) {
     head.add(eye);
   }
 
-  const neckSegs = model.neckSegments;
-  head.position.set(0, 0.5 + (neckSegs - 4) * 0.09, -3.08 - (neckSegs - 4) * 0.34);
+  // Head sits at the torso's published head anchor (varies per body plan); the
+  // neck chain bridging the torso's neck cap to the head is built inside the
+  // torso module (it's part of the body-plan identity — long on a serpent).
+  const hb = attach.headBase;
+  head.position.set(hb.x, hb.y, hb.z);
   group.add(head);
-
-  // Neck — slim chain bridging the arrowhead's neck cap to the head.
-  for (let i = 0; i < neckSegs; i++) {
-    const neck = new THREE.Mesh(
-      new THREE.SphereGeometry(Math.max(0.46 - i * 0.045, 0.2), 9, 7), bodyMat);
-    neck.scale.set(0.8, 0.66, 1.3);
-    neck.position.set(Math.sin(i * 0.8) * 0.1, 0.3 + i * 0.085, -2.0 - i * 0.36);
-    group.add(neck);
-  }
 
   // --- Tail --------------------------------------------------------------
   // Redesigned dragons (model.tailStyle) get the single clean tail; the rest of
@@ -405,7 +392,7 @@ export function buildDragonModel(def, opts = {}) {
     const { group: tailGroup, segs, accentMats, tailFins: tf } = buildCleanTail(def, model, bodyMat);
     if (accentMats) for (const m of accentMats) spineMats.push(m);
     tailFins = tf;
-    tailGroup.position.set(0, 0.28, 1.15 + torsoTailShift(model.bodyStretch ?? 1));
+    tailGroup.position.set(0, attach.tailAnchor.y, attach.tailAnchor.z);
     group.add(tailGroup);
     for (const s of segs) tailSegs.push(s);
   } else {
@@ -537,8 +524,11 @@ export function buildDragonModel(def, opts = {}) {
 
   function buildWingSide(side) {
     const pivot = new THREE.Group();
-    // Roots high on the back so the bowed wings lift clear of the torso.
-    pivot.position.set(0.5 * side, 0.55, -0.25);
+    // Root reported by the torso's attach contract, so the wings mount correctly
+    // on any body plan (high on the back for the arrow drake, further forward and
+    // lower on the long serpent) without this code knowing which body it's on.
+    const wr = attach.wingRoot(side);
+    pivot.position.set(wr.x, wr.y, wr.z);
 
     // Shoulder joint — a small mass anchoring the wing to the body.
     const shoulder = new THREE.Mesh(new THREE.SphereGeometry(0.16, 9, 7), armMat);
