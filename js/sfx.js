@@ -300,6 +300,14 @@ export const sfx = {
     tone({ freq: 200, end: 600, dur: 0.3, type: 'sawtooth', vol: 0.07 });
     noiseWhoosh({ from: 300, to: 1600, dur: 0.35, vol: 0.08 });
   },
+  // Take-off launch: a deep rising swell + big air whoosh + a bright phoenix
+  // sparkle on top — the punchy "we're flying" moment under the splash flash.
+  launch() {
+    tone({ freq: 110, end: 460, dur: 0.5, type: 'sawtooth', vol: 0.12 });
+    tone({ freq: 220, end: 880, dur: 0.45, type: 'triangle', vol: 0.07, delay: 0.02 });
+    noiseWhoosh({ from: 280, to: 4200, dur: 0.55, vol: 0.16, q: 0.8 });
+    tone({ freq: 1320, end: 1980, dur: 0.4, type: 'sine', vol: 0.06, delay: 0.12 });
+  },
   // Whipping air whoosh as something deadly slides past
   nearMiss() {
     noiseWhoosh({ from: 700, to: 3200, dur: 0.22, vol: 0.16, q: 1.6 });
