@@ -507,6 +507,68 @@ export const DRAGONS = {
     apexEye: 0xfff0c0, apexSeam: 0xffe07a, coreGlow: 0xfff8e8, surgeHi: 0xfff8e8,
     aura: 0xfff0a8, eye: 0xfff0c0, trail: 0xffd76a, boostTrail: 0xfff0c8,
   },
+
+  // A cosmic centipede-serpent: a chain of separate floating celestial vertebrae
+  // with glowing gaps, lateral astral fin-vanes, a regal mask head and an orbiting
+  // shard-relic tail. The first fully NON-standard body plan — built entirely from
+  // new composable parts (segmentedWyrm / sideFins / orbitSpines / celestialMask).
+  astralWyrm: {
+    name: 'Astral Centipede Wyrm',
+    title: 'Emperor of the Star Current',
+    rarity: 'SSR', maxRarity: 'SSSR', cost: 4200,
+    parts: { torso: 'segmentedWyrm', wings: 'sideFins', tail: 'orbitSpines', head: 'celestialMask' },
+    stats: { speed: 1.13, handling: 1.24, drain: 0.82, regen: 1.18 },
+    model: {
+      scale: 1.08, wingScale: 1.12, neckSegments: 3, ridgeCount: 0,
+      flapBias: 0.45, flapAmp: 0.28,             // tiny beat → the fins flex, never flap
+      segmentSpacing: 1.02, segmentTaper: 0.9, segmentSway: 0.18, segmentBob: 0.09, segmentLag: 0.16,
+      sideFinSweep: 0.72, sideFinFlex: 0.18,
+      orbitRadius: 0.42, orbitSpeed: 0.55,
+    },
+    forms: [
+      // Star-Larva — a tiny 3-plate dart, one fin pair, a single shard, a bare mask.
+      { segmentCount: 3, sideFinPairs: 1, orbitShardCount: 1, orbitRingCount: 0,
+        crown: 0, maskTier: 0, spineGlow: 0.08, coreIntensity: 0.15,
+        bodyScale: 0.78, wingSpan: 0.62, tailLength: 0.55,
+        colors: { body: 0x151a35, belly: 0x6f78aa, scales: 0x4d5ad8, horn: 0x9aa6dd,
+          wingInner: 0x242a64, wingOuter: 0x0d1029, wingEmissive: 0x405cff,
+          eye: 0x9eeaff, apexSeam: 0x5566ff, coreGlow: 0x405cff, surgeHi: 0xbfd7ff,
+          trail: 0x5268ff, boostTrail: 0x84eaff } },
+      // Segmented Comet Wyrm — 5 plates, 2 fin pairs, 3 shards, the first crown.
+      { segmentCount: 5, sideFinPairs: 2, orbitShardCount: 3, orbitRingCount: 0,
+        crown: 0.35, maskTier: 1, spineGlow: 0.18, coreIntensity: 0.28,
+        bodyScale: 0.92, wingSpan: 0.84, tailLength: 0.78,
+        colors: { body: 0x12183a, belly: 0x8795d8, scales: 0x6172ff, horn: 0xb6c2f2,
+          wingInner: 0x293177, wingOuter: 0x0b0f2a, wingEmissive: 0x5bcfff,
+          eye: 0xb8f3ff, apexSeam: 0x7084ff, coreGlow: 0x5bcfff, surgeHi: 0xd8e8ff,
+          trail: 0x6888ff, boostTrail: 0x91f3ff } },
+      // Astral Centipede — 7 plates, 3 fin pairs, 5 shards + 1 ring, fuller crown.
+      { segmentCount: 7, sideFinPairs: 3, orbitShardCount: 5, orbitRingCount: 1,
+        crown: 0.7, maskTier: 2, spineGlow: 0.34, coreIntensity: 0.48,
+        bodyScale: 1.04, wingSpan: 1.08, tailLength: 1.0,
+        colors: { body: 0x101632, belly: 0xaab8f4, scales: 0x7f8cff, horn: 0xd0dcff,
+          wingInner: 0x2d378a, wingOuter: 0x090d24, wingEmissive: 0x7ee8ff,
+          eye: 0xcff8ff, apexSeam: 0x8e76ff, coreGlow: 0x7ee8ff, surgeHi: 0xeaf4ff,
+          trail: 0x7e9cff, boostTrail: 0x9df4ff } },
+      // Galaxy Emperor — 9 plates, 4 fin pairs, 7 shards + 2 rings, emperor mask.
+      { segmentCount: 9, sideFinPairs: 4, orbitShardCount: 7, orbitRingCount: 2,
+        crown: 1.0, maskTier: 3, spineGlow: 0.58, coreIntensity: 0.72,
+        bodyScale: 1.16, wingSpan: 1.28, tailLength: 1.22,
+        colors: { body: 0x090d24, belly: 0xdce6ff, scales: 0x9d7cff, horn: 0xf2f6ff,
+          wingInner: 0x3440a0, wingOuter: 0x050719, wingEmissive: 0x9df4ff,
+          eye: 0xffffff, apexEye: 0xffffff, apexSeam: 0xb28cff, coreGlow: 0x9df4ff,
+          surgeHi: 0xf4fbff, trail: 0x9d7cff, boostTrail: 0xb8f8ff } },
+    ],
+    fx: { auraColor: '126,180,255', auraIdle: 0.22, sparkle: true },
+    previewAccent: 0x7e9cff,
+    // Cool astral Surge (lavender/cyan, never fiery).
+    hasStyle: true, surgeMotes: true,
+    feverWing: 0x8ea6ff, feverEye: 0xffffff, feverWash: [0.03, 0.04, 0.09],
+    body: 0x101632, belly: 0xbcc9ff, scales: 0x7f8cff, horn: 0xdce6ff,
+    wingInner: 0x273078, wingOuter: 0x090d24, wingEmissive: 0x7ee8ff,
+    eye: 0xcff8ff, apexEye: 0xffffff, apexSeam: 0x9d7cff, coreGlow: 0x7ee8ff,
+    surgeHi: 0xf4fbff, trail: 0x7e9cff, boostTrail: 0x9df4ff,
+  },
 };
 
 // Highest multipliers in the roster (for shop stat-bar normalisation).

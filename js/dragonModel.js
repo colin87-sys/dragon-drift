@@ -1,10 +1,14 @@
 import * as THREE from 'three';
 import { makeGlowTexture } from './util.js';
 import { resolveRecipe, getTorsoBuilder, getWingsBuilder, getHeadBuilder, getTailBuilder } from './dragonRecipe.js';
-import './dragonTorso.js'; // self-registers the 'arrow' / 'serpent' torso profiles
-import './dragonWings.js'; // self-registers the 'membrane' / 'none' wing builders
+import './dragonTorso.js'; // self-registers the 'arrow' / 'serpent' / 'avian' torsos
+import './dragonWings.js'; // self-registers the 'membrane' / 'feather' / 'none' wings
 import './dragonHead.js';  // self-registers the 'horned' / 'beaked' head builders
 import './dragonTail.js';  // self-registers the 'clean' / 'legacy' tail builders
+import './dragonSegmentedTorso.js'; // 'segmentedWyrm' torso (floating vertebrae)
+import './dragonSideFins.js';       // 'sideFins' wings (lateral astral vanes)
+import './dragonOrbitTail.js';      // 'orbitSpines' tail (orbiting shard relics)
+import './dragonCelestialHead.js';  // 'celestialMask' head (regal faceplate)
 import { applyFresnelRim } from './surface.js';
 
 // Unified procedural dragon mesh builder.
@@ -74,6 +78,9 @@ export function buildDragonModel(def, opts = {}) {
     if (torsoResult.mats.eyeMat) eyeMat = torsoResult.mats.eyeMat;
   }
   const torsoCoreGlow = torsoResult.coreGlow ?? null;
+  // A segmented torso (the centipede-wyrm) returns its plate Groups so the rig
+  // sways them as a lead-first travelling wave (see dragon.js / makePreviewTick).
+  const bodySegs = torsoResult.bodySegs ?? null;
 
   // Accent materials (spine plates, crest, glow seams, tail plates) that flare
   // toward white-gold during Dragon Surge — collected for the rig to drive.
@@ -83,8 +90,10 @@ export function buildDragonModel(def, opts = {}) {
   // Glowing dorsal spine — runs along the crest of the keel so it reads as a
   // bright stripe from directly behind. Ramps with the forms (spineGlow 0→1).
   // Dragons that author a dorsalGlowCount get the CHEVRON line below instead.
-  // Skipped for the avian body plan (a firebird has a feather crown, not a keel).
-  if (recipe.torso !== 'avian' && model.spineGlow > 0 && !model.dorsalGlowCount) {
+  // Skipped for the avian body plan (a firebird has a feather crown, not a keel)
+  // and for any SEGMENTED torso (a chain of separate plates has no continuous
+  // crest — it carries its own per-plate vanes + glowing gaps instead).
+  if (recipe.torso !== 'avian' && !attach.segmentAnchors && model.spineGlow > 0 && !model.dorsalGlowCount) {
     const g = model.spineGlow;
     const spineCol = def.apexSeam || def.eye;
     const spineMat = new THREE.MeshStandardMaterial({
@@ -288,6 +297,8 @@ export function buildDragonModel(def, opts = {}) {
   if (tailResult.accentMats) for (const m of tailResult.accentMats) spineMats.push(m);
   const tailFins = tailResult.tailFins;
   const tailSegs = tailResult.segs;
+  // An orbit-style tail (the wyrm's shard relics) returns orbiters the rig spins.
+  const tailOrbiters = tailResult.orbiters ?? null;
 
   // --- Wings -------------------------------------------------------------
   // The wing system (membrane / none) comes from the recipe's WINGS module
@@ -372,7 +383,7 @@ export function buildDragonModel(def, opts = {}) {
 
     return {
       group: wrapper,
-      parts: { head, tailSegs, tailFins, wingPivotL, wingPivotR, wingTipL, wingTipR, wingPivot2L, wingPivot2R, tipMarkerL, tipMarkerR, coreGlow },
+      parts: { head, tailSegs, tailFins, bodySegs, tailOrbiters, wingPivotL, wingPivotR, wingTipL, wingTipR, wingPivot2L, wingPivot2R, tipMarkerL, tipMarkerR, coreGlow },
       materials: { bodyMat, wingMat, eyeMat, spineMats },
       auraSprite,
     };
@@ -381,7 +392,7 @@ export function buildDragonModel(def, opts = {}) {
   return {
     group,
     parts: {
-      head, tailSegs, tailFins,
+      head, tailSegs, tailFins, bodySegs, tailOrbiters,
       wingPivotL, wingPivotR,
       wingTipL, wingTipR,
       wingPivot2L, wingPivot2R,
@@ -400,8 +411,12 @@ export function buildDragonModel(def, opts = {}) {
 export function makePreviewTick(def, result) {
   const { group, parts, auraSprite } = result;
   const { head, tailSegs, wingPivotL, wingPivotR, wingPivot2L, wingPivot2R, wingTipL, wingTipR } = parts;
+  const { bodySegs, tailOrbiters } = parts;
   const flapBias = def.model.flapBias || 1;
   const flapAmp = def.model.flapAmp ?? 1;
+  const segLag = (def.model.segmentLag ?? 0.14) * 7;
+  const segSway = def.model.segmentSway ?? 0.16;
+  const segBob = def.model.segmentBob ?? 0.08;
   return (t) => {
     // Float + gentle bank/pitch — the in-flight read, no spin.
     group.position.y = 0.15 + Math.sin(t * 1.5) * 0.09;
@@ -437,6 +452,27 @@ export function makePreviewTick(def, result) {
       tailSegs[i].rotation.z = -Math.sin(tp) * 0.16 * l2;
     }
     head.rotation.y = Math.sin(t * 0.9) * 0.1;
+    // Segmented-wyrm body: a lead-first travelling wave (each plate trails the
+    // one ahead with a phase lag) + a gentle vertical bob — a zero-gravity drift.
+    if (bodySegs) {
+      for (let i = 0; i < bodySegs.length; i++) {
+        const ph = t * 2.0 - i * segLag;
+        bodySegs[i].position.x = Math.sin(ph) * segSway;
+        bodySegs[i].position.y = (bodySegs[i].userData.baseY ?? 0.5) + Math.cos(ph * 0.85) * segBob;
+        bodySegs[i].rotation.z = -Math.sin(ph) * 0.18;
+        bodySegs[i].rotation.y = Math.sin(ph) * 0.1;
+      }
+    }
+    // Orbiting tail shards / ring fragments.
+    if (tailOrbiters) {
+      for (const o of tailOrbiters) {
+        o.ang += 0.016 * o.speed * 60;
+        o.mesh.position.x = Math.cos(o.ang) * o.radius;
+        o.mesh.position.z = Math.sin(o.ang) * o.radius * o.flat;
+        o.mesh.position.y = o.baseY + Math.sin(t * 1.6 + o.ang) * 0.05;
+        if (o.spin) o.mesh.rotation.y = t * 1.2;
+      }
+    }
     if (auraSprite) {
       auraSprite.material.opacity = def.fx.auraIdle > 0
         ? 0.3 + def.fx.auraIdle + Math.sin(t * 2.6) * 0.12

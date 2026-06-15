@@ -41,10 +41,10 @@ it and you get the default (the common drake).
 
 | slot | options | default | notes |
 |---|---|---|---|
-| `torso` | `arrow` · `serpent` · `avian` | `arrow` | body plan: arrowhead drake · long eastern serpent · firebird egg-body |
-| `wings` | `membrane` · `feather` · `none` | `membrane` | bat membrane · bird feathers · wingless |
-| `tail`  | *(set a `tailStyle`, see below)* · `plume` · `legacy` | `clean` | `clean` auto-dispatches ~11 styles; `plume` = flame fan |
-| `head`  | `horned` · `beaked` | `horned` | reptilian (horns/whiskers/tusks) · avian (hooked beak + feather crown) |
+| `torso` | `arrow` · `serpent` · `avian` · `segmentedWyrm` | `arrow` | body plan: arrowhead drake · long eastern serpent · firebird egg-body · **floating crystal vertebrae** (the centipede-wyrm) |
+| `wings` | `membrane` · `feather` · `sideFins` · `none` | `membrane` | bat membrane · bird feathers · **lateral astral vanes** · wingless |
+| `tail`  | *(set a `tailStyle`, see below)* · `plume` · `orbitSpines` · `legacy` | `clean` | `clean` auto-dispatches ~11 styles; `plume` = flame fan; **`orbitSpines` = orbiting shard/ring relics** |
+| `head`  | `horned` · `beaked` · `celestialMask` | `horned` | reptilian (horns/whiskers/tusks) · avian (hooked beak + crown) · **regal faceplate + crown/halo** |
 
 ```js
 // A few example recipes:
@@ -220,6 +220,33 @@ Two contracts make parts compose:
 A radically different creature (like the firebird) can also have its torso
 *return its own `bodyMat`/`eyeMat`* (via `mats`), so its whole material recipe
 threads through the system. See `buildAvianTorso` for the worked reference.
+
+### 7a. Novel MOTION — extending the rig
+
+The parts above cover **geometry**. **Animation** still lives in one shared file,
+`js/dragon.js`, which natively drives a fixed vocabulary: wing-flap, wrist-fold,
+tail-coil, head-sway, bank. If your part wants motion outside that — a body that
+slithers in segments, shards that orbit — you extend the rig. It's the only place
+the part system doesn't fully abstract, so plan for a small, clean addition:
+
+1. Your part returns its animated objects as a **new handle** (e.g. the segmented
+   torso returns `bodySegs`; the orbit tail returns `orbiters`).
+2. `dragonModel.js` threads that handle into `parts` (both the live + preview
+   returns), `dragon.js` extracts it in `createDragon` + nulls it in
+   `disposeDragon`, and animates it in `updateDragon` — **and** `makePreviewTick`
+   (so the shop card moves too).
+3. **Reuse the existing templates.** A lead-first travelling wave is the
+   `tailSegs` coil with the phase-lag applied to the body; an orbit is the Void
+   Oracle's `riderOrbiters` loop. Copy them.
+
+**Worked reference: the Astral Centipede Wyrm** (`astralWyrm`) — a fully novel
+body plan built entirely from new parts (`segmentedWyrm` / `sideFins` /
+`orbitSpines` / `celestialMask`) plus exactly those two rig hooks (`bodySegs`
+travelling wave, `tailOrbiters` orbit). It also extends the attach contract with
+`segmentAnchors` + `sideFinRoots(side, i)` so the fins mount along the chain, and
+**spends ~80% of the tri budget at the apex** (the density climb across the four
+forms *is* the unlock reward). Read those four modules end-to-end as the template
+for an ambitious creature.
 
 ---
 
