@@ -42,44 +42,36 @@ export const DRAGONS = {
         lead: [3.35, 0.62], scallop: 0.45, flame: false,
         arc: { bow: 0.65, hump: 1.00, humpAt: 0.58, hook: 0.45 } },
     ],
-    // Form ladder shifted so each evolution is an OBVIOUS leap, not just a size
-    // bump: a BARE hatchling (no horns, no back ridges) → horns + back ridges
-    // sprout (the old hatchling) → broader wings, head crest, dorsal sail +
-    // spine-glow (the old Kindled). forms[3] is the capped-off extra — starters
-    // stop at Radiant (tier 2).
+    // Three forms (starter caps at SSR / tier 2): a BARE hatchling (no horns, no
+    // back ridges) → horns + back ridges sprout, wings broaden → the SSR apex
+    // (broadest wings, head crest, dorsal sail, soft spine-glow). Restrained —
+    // no premium glow-seams/veins/aura. Soft airy sky-blue, not too electric.
     forms: [
-      // Hatchling — bare whelp: no horns, no back ridges, dull palette.
+      // Hatchling — bare whelp: no horns, no back ridges, dull sky-grey.
       { wingForm: 0, tailStyle: 'simple', tailSegments: 5, ridgeCount: 0,
         spineGlow: 0, crest: 0, neckSegments: 4, hornLen: 0,
-        colors: { body: 0x1c2230, wingInner: 0x3a5a8a, wingOuter: 0x223f5e,
-          wingEmissive: 0x3a6a9a, scales: 0x5a7890, horn: 0x7a90a8,
-          apexSeam: 0x4a6080, eye: 0x6aa0c0, coreGlow: 0x6a90c0 } },
-      // Kindled — horns + back ridges grow in (the old hatchling silhouette).
-      { wingForm: 0, tailStyle: 'simple', tailSegments: 5, ridgeCount: 8,
+        colors: { body: 0x21384f, wingInner: 0x4d7ba6, wingOuter: 0x2f5d84,
+          wingEmissive: 0x42729c, scales: 0x6f93b2, horn: 0x86a0b8,
+          apexSeam: 0x4a7090, eye: 0x74a8cc, coreGlow: 0x5f8fc0 } },
+      // Kindled — horns + back ridges sprout, wings broaden, clearer sky-blue.
+      { wingForm: 1, tailStyle: 'simple', tailSegments: 5, ridgeCount: 8,
         spineGlow: 0, crest: 0, neckSegments: 4, hornLen: 1.0,
-        colors: { body: 0x1c2230, wingInner: 0x3a5a8a, wingOuter: 0x223f5e,
-          wingEmissive: 0x3a6a9a, scales: 0x5a7890, horn: 0x7a90a8,
-          apexSeam: 0x4a6080, eye: 0x6aa0c0, coreGlow: 0x6a90c0 } },
-      // Radiant = the SSR apex: broader wings, finned tail, head crest, dorsal
-      // sail and a soft spine-glow — vivid blue, but NO premium glow-seams/veins
-      // (a notch below the premium SSR creatures).
-      { wingForm: 1, tailStyle: 'finned', tailSegments: 6, ridgeCount: 10,
-        spineGlow: 0.28, crest: 1, dorsal: true,
-        colors: { body: 0x1a2a44, wingInner: 0x4a8ad8, wingOuter: 0x2a5aa8,
-          wingEmissive: 0x4a90ff, scales: 0x9fe8ff, horn: 0xffdf8a,
-          apexSeam: 0x5aa8e0, eye: 0x88c8ff, coreGlow: 0x80b0ff } },
-      // Capped-off extra (unused — starters stop at Radiant): the old Radiant.
-      { wingForm: 2, tailStyle: 'finned', tailSegments: 7, ridgeCount: 11,
-        spineGlow: 0.38, crest: 1, hornLen: 1.15,
-        colors: { body: 0x16243c, wingInner: 0x60a8ff, wingOuter: 0x2a6ad0,
-          wingEmissive: 0x5aa0ff, scales: 0xbfe8ff, horn: 0xffe8a0,
-          apexSeam: 0x7ac0ff, eye: 0xa0d8ff, coreGlow: 0x90c8ff } },
+        colors: { body: 0x1f3650, wingInner: 0x67b7ff, wingOuter: 0x2f5d84,
+          wingEmissive: 0x5fa6ef, scales: 0xa6cdec, horn: 0xa8c4de,
+          apexSeam: 0x67b7ff, eye: 0x8ed5ff, coreGlow: 0x67b7ff } },
+      // Radiant = the SSR apex: broadest wings, finned tail, head crest, dorsal
+      // sail + soft spine-glow — bright airy sky-blue, NO premium glow-seams/veins.
+      { wingForm: 2, tailStyle: 'finned', tailSegments: 6, ridgeCount: 10,
+        spineGlow: 0.3, crest: 1, dorsal: true,
+        colors: { body: 0x1c3048, wingInner: 0x8ed5ff, wingOuter: 0x357096,
+          wingEmissive: 0x8ed5ff, scales: 0xc6ecff, horn: 0xc2dcf2,
+          apexSeam: 0x8ed5ff, eye: 0xc6ecff, coreGlow: 0x8ed5ff } },
     ],
-    fx: { auraColor: '120,200,255', auraIdle: 0.0, sparkle: false },
-    body: 0x121f34, belly: 0xffd9a8, scales: 0xdcf0ff, horn: 0xffe8a0,
-    wingInner: 0x7ab8ff, wingOuter: 0x3a7ae0, wingEmissive: 0x6ab0ff,
-    apexEye: 0xcaeaff, apexSeam: 0x88d0ff, coreGlow: 0xaad8ff, surgeHi: 0xeaf6ff,
-    eye: 0x88c8ff, trail: 0x88c0ff, boostTrail: 0x88aaff,
+    fx: { auraColor: '142,213,255', auraIdle: 0.0, sparkle: false },
+    body: 0x1c3048, belly: 0xcfe6ff, scales: 0xc6ecff, horn: 0xbcd9f0,
+    wingInner: 0x8ed5ff, wingOuter: 0x2f5d84, wingEmissive: 0x67b7ff,
+    apexEye: 0xc6ecff, apexSeam: 0x8ed5ff, coreGlow: 0x8ed5ff, surgeHi: 0xeaf6ff,
+    eye: 0x8ed5ff, trail: 0x8ed5ff, boostTrail: 0x67b7ff,
   },
 
   ember: {
@@ -112,42 +104,35 @@ export const DRAGONS = {
         lead: [3.80, 0.70], scallop: 0.60, flame: true,
         arc: { bow: 0.80, hump: 1.50, humpAt: 0.58, hook: 0.85 } },
     ],
-    // Shifted ladder (see azure): bare cinder whelp → horns + back ridges →
-    // jagged flame wings, blade-finned spines, crest + spine-glow. forms[3] is
-    // the capped-off extra (starters stop at Radiant, tier 2).
+    // Three forms (starter caps at SSR / tier 2): a bare cinder whelp → horns +
+    // back ridges sprout, flame wings broaden → the SSR apex (jagged flame wings,
+    // blade-finned spine, crest + soft spine-glow). Restrained — no premium seams.
     forms: [
-      // Hatchling — bare cinder whelp: no horns, no back ridges.
+      // Hatchling — bare cinder whelp: no horns, no back ridges, dull ember.
       { wingForm: 0, tailStyle: 'simple', tailSegments: 6, ridgeCount: 0,
         spineGlow: 0, crest: 0, hornPairs: 1, hornLen: 0,
-        colors: { body: 0x231410, wingInner: 0xa83820, wingOuter: 0x6e1e16,
-          wingEmissive: 0x7a2410, scales: 0x8a4828, horn: 0xb87848,
-          apexSeam: 0x7a3418, eye: 0xd07040, coreGlow: 0xe05828 } },
-      // Kindled — horns + back ridges grow in (the old hatchling silhouette).
-      { wingForm: 0, tailStyle: 'simple', tailSegments: 6, ridgeCount: 10,
+        colors: { body: 0x2a1610, wingInner: 0x8a3a1e, wingOuter: 0x5c2414,
+          wingEmissive: 0x9a4420, scales: 0x9a5a34, horn: 0xb08058,
+          apexSeam: 0x7a3418, eye: 0xcf7a44, coreGlow: 0xc25a2a } },
+      // Kindled — horns + back ridges sprout, wings broaden, warmer ember-orange.
+      { wingForm: 1, tailStyle: 'simple', tailSegments: 6, ridgeCount: 10,
         spineGlow: 0, crest: 0, hornPairs: 1, hornLen: 1.1,
-        colors: { body: 0x231410, wingInner: 0xa83820, wingOuter: 0x6e1e16,
-          wingEmissive: 0x7a2410, scales: 0x8a4828, horn: 0xb87848,
-          apexSeam: 0x7a3418, eye: 0xd07040, coreGlow: 0xe05828 } },
+        colors: { body: 0x281410, wingInner: 0xe3561f, wingOuter: 0x7a3018,
+          wingEmissive: 0xff8b2a, scales: 0xe0884a, horn: 0xe0b070,
+          apexSeam: 0xff8b2a, eye: 0xffa347, coreGlow: 0xff7a30 } },
       // Radiant = the SSR apex: jagged flame wings, finned tail, back-spines,
-      // crest + spine-glow — bright lava, but NO premium glow-seams/veins.
-      { wingForm: 1, tailStyle: 'finned', tailSegments: 7, ridgeCount: 13,
+      // crest + soft spine-glow — bright ember-orange, NO premium glow-seams.
+      { wingForm: 2, tailStyle: 'finned', tailSegments: 7, ridgeCount: 13,
         spineGlow: 0.32, backSpines: true, crest: 1,
-        colors: { body: 0x2a1510, wingInner: 0xe85628, wingOuter: 0xb81f20,
-          wingEmissive: 0xff5a20, scales: 0xffa050, horn: 0xffc878,
-          apexSeam: 0xff6a28, eye: 0xff9040, coreGlow: 0xff6030 } },
-      // Capped-off extra (unused — starters stop at Radiant): the old Radiant.
-      { wingForm: 2, tailStyle: 'blade', tailSegments: 8, ridgeCount: 14,
-        spineGlow: 0.4, backSpines: true,
-        crest: 1, hornPairs: 1, hornLen: 1.3,
-        colors: { body: 0x241310, wingInner: 0xff6a28, wingOuter: 0xd02418,
-          wingEmissive: 0xff6a22, scales: 0xffb850, horn: 0xffd878,
-          apexSeam: 0xff7a2a, eye: 0xffb050, coreGlow: 0xff7838 } },
+        colors: { body: 0x261208, wingInner: 0xff8b2a, wingOuter: 0x7a3018,
+          wingEmissive: 0xffb347, scales: 0xffc070, horn: 0xffd28a,
+          apexSeam: 0xffb347, eye: 0xffc878, coreGlow: 0xff9a3a } },
     ],
-    fx: { auraColor: '255,110,40', auraIdle: 0.0, sparkle: false },
-    body: 0x1f1108, belly: 0xffd9a8, scales: 0xffcf60, horn: 0xffe690,
-    wingInner: 0xff7a2a, wingOuter: 0xff3a14, wingEmissive: 0xff6a1e,
-    apexEye: 0xffd060, apexSeam: 0xff8a2e, coreGlow: 0xff8a40, surgeHi: 0xfff0d8,
-    eye: 0xff9040, trail: 0xffa040, boostTrail: 0xffc060,
+    fx: { auraColor: '255,139,42', auraIdle: 0.0, sparkle: false },
+    body: 0x231108, belly: 0xffd9a8, scales: 0xffc070, horn: 0xffd28a,
+    wingInner: 0xff8b2a, wingOuter: 0xe3561f, wingEmissive: 0xffb347,
+    apexEye: 0xffc878, apexSeam: 0xffb347, coreGlow: 0xff9a3a, surgeHi: 0xfff0d8,
+    eye: 0xffa347, trail: 0xffa347, boostTrail: 0xffc060,
   },
 
   jade: {
@@ -180,42 +165,35 @@ export const DRAGONS = {
         lead: [2.95, 0.56], scallop: 0.38, flame: false,
         arc: { bow: 0.60, hump: 0.85, humpAt: 0.58, hook: 0.40 } },
     ],
-    // Shifted ladder (see azure): bare river-whelp → horns + back ridges →
-    // longer body, finned tail, whiskers, crest + spine-glow. forms[3] is the
-    // capped-off extra (starters stop at Radiant, tier 2).
+    // Three forms (starter caps at SSR / tier 2): a bare river-whelp → horns +
+    // back ridges sprout, body lengthens → the SSR apex (longer body + neck,
+    // finned tail, whiskers, crest + soft spine-glow). Restrained — no premium seams.
     forms: [
       // Hatchling — bare river-whelp: no horns, no back ridges, no whiskers.
       { wingForm: 0, tailStyle: 'simple', tailSegments: 8, ridgeCount: 0,
         spineGlow: 0, crest: 0, neckSegments: 6, hornLen: 0,
-        colors: { body: 0x14281c, wingInner: 0x2a6a48, wingOuter: 0x184438,
-          wingEmissive: 0x2a7a5a, scales: 0x5a8a6a, horn: 0x8aa078,
-          apexSeam: 0x3a6a52, eye: 0x6aa080, coreGlow: 0x3ac888 } },
-      // Kindled — horns + back ridges grow in (the old hatchling silhouette).
-      { wingForm: 0, tailStyle: 'simple', tailSegments: 8, ridgeCount: 12,
+        colors: { body: 0x16302a, wingInner: 0x2a7a5e, wingOuter: 0x1d4c43,
+          wingEmissive: 0x2f8a66, scales: 0x5e9080, horn: 0x88a890,
+          apexSeam: 0x3a6a56, eye: 0x6aa88c, coreGlow: 0x3aa078 } },
+      // Kindled — horns + back ridges sprout, wings broaden, clearer jade-green.
+      { wingForm: 1, tailStyle: 'simple', tailSegments: 8, ridgeCount: 12,
         spineGlow: 0, crest: 0, neckSegments: 6, hornLen: 0.9,
-        colors: { body: 0x14281c, wingInner: 0x2a6a48, wingOuter: 0x184438,
-          wingEmissive: 0x2a7a5a, scales: 0x5a8a6a, horn: 0x8aa078,
-          apexSeam: 0x3a6a52, eye: 0x6aa080, coreGlow: 0x3ac888 } },
+        colors: { body: 0x143028, wingInner: 0x3bcb8e, wingOuter: 0x255d50,
+          wingEmissive: 0x3bcb8e, scales: 0x8fd9bc, horn: 0xa8c4a0,
+          apexSeam: 0x3bcb8e, eye: 0x79e2b7, coreGlow: 0x3bcb8e } },
       // Radiant = the SSR apex: longer body + neck, finned tail, whiskers, crest
-      // + spine-glow — bright emerald, but NO premium glow-seams/veins.
-      { wingForm: 1, tailStyle: 'finned', tailSegments: 10, ridgeCount: 14,
+      // + soft spine-glow — bright emerald, NO premium glow-seams/veins.
+      { wingForm: 2, tailStyle: 'finned', tailSegments: 10, ridgeCount: 14,
         spineGlow: 0.3, whiskers: true, neckSegments: 7, crest: 1,
-        colors: { body: 0x123420, wingInner: 0x40c888, wingOuter: 0x107060,
-          wingEmissive: 0x40e890, scales: 0xa0ffd0, horn: 0xffe8a0,
-          apexSeam: 0x40d8a0, eye: 0xa0ffc0, coreGlow: 0x50e8b0 } },
-      // Capped-off extra (unused — starters stop at Radiant): the old Radiant.
-      { wingForm: 2, tailStyle: 'finned', tailSegments: 11, ridgeCount: 15,
-        spineGlow: 0.4, whiskers: true,
-        crest: 1, neckSegments: 7,
-        colors: { body: 0x103020, wingInner: 0x50e0a0, wingOuter: 0x108878,
-          wingEmissive: 0x40f0a0, scales: 0xb0ffe0, horn: 0xffe8a0,
-          apexSeam: 0x50f0c0, eye: 0xb0ffd0, coreGlow: 0x60f0c0 } },
+        colors: { body: 0x123026, wingInner: 0x79e2b7, wingOuter: 0x1f9e77,
+          wingEmissive: 0x79e2b7, scales: 0xbdf3dc, horn: 0xcfe8c0,
+          apexSeam: 0x79e2b7, eye: 0xbdf3dc, coreGlow: 0x79e2b7 } },
     ],
-    fx: { auraColor: '90,255,190', auraIdle: 0.0, sparkle: false },
-    body: 0x0e2c1e, belly: 0xe8ffd0, scales: 0xc8ffe8, horn: 0xfff0b0,
-    wingInner: 0x60f0b0, wingOuter: 0x18a088, wingEmissive: 0x50ffb0,
-    apexEye: 0xc8ffe0, apexSeam: 0x60ffd0, coreGlow: 0x70ffd0, surgeHi: 0xeafff4,
-    eye: 0xa0ffc0, trail: 0x70ffc0, boostTrail: 0x50e8b0,
+    fx: { auraColor: '121,226,183', auraIdle: 0.0, sparkle: false },
+    body: 0x102a22, belly: 0xe8ffd0, scales: 0xbdf3dc, horn: 0xcfe8c0,
+    wingInner: 0x79e2b7, wingOuter: 0x1f9e77, wingEmissive: 0x3bcb8e,
+    apexEye: 0xbdf3dc, apexSeam: 0x79e2b7, coreGlow: 0x79e2b7, surgeHi: 0xeafff4,
+    eye: 0x79e2b7, trail: 0x79e2b7, boostTrail: 0x3bcb8e,
   },
 
   obsidian: {
