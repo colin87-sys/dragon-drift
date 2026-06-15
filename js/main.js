@@ -16,7 +16,7 @@ import { initParticles, updateParticles, resetParticles, setParticleQuality } fr
 import { setDragonQuality } from './dragon.js';
 import { updateCollision, resetCollision, acceptRevive, finishDeath } from './collision.js';
 import { ui } from './ui.js';
-import { music, sfx, setSlowMo } from './sfx.js';
+import { music, sfx, setSlowMo, unlockAllTracks } from './sfx.js';
 import { initPostFX, setPostSize, setPostPixelRatio, setPostTier, updatePostFX, renderPostFX, postfx, kick, clearDeath, kickState } from './postfx.js';
 import { hitstop, juiceEvent } from './juice.js';
 import { createWater, setWaterReflective, updateWater } from './water.js';
@@ -245,11 +245,25 @@ if (urlParams.has('dev') || saveData.settings.dev) {
   for (const m of FLIGHTMARKS) {
     if (!saveData.cosmetics.marksOwned.includes(m.id)) saveData.cosmetics.marksOwned.push(m.id);
   }
+  unlockAllTracks();           // every premium radio station too
   saveData.embers = 999999;
   console.log('[dev] everything unlocked for this session');
 }
 
 ui.showScreen('start');
+
+// First impression: the Skybound title theme plays on the menu. The audio graph
+// builds now (silent in the suspended context); the player's first gesture
+// resumes the context (sfx.js unlockAudio) and the theme becomes audible — and a
+// one-shot gesture listener re-kicks it for browsers that block context creation
+// until a gesture. Takeoff swaps it to the chosen station (endMenuTheme).
+music.startMenuTheme();
+{
+  const kick = () => { music.startMenuTheme(); window.removeEventListener('pointerdown', kick); window.removeEventListener('keydown', kick); window.removeEventListener('touchstart', kick); };
+  window.addEventListener('pointerdown', kick, { passive: true });
+  window.addEventListener('keydown', kick, { passive: true });
+  window.addEventListener('touchstart', kick, { passive: true });
+}
 
 let gameoverTapArmed = 0; // taps restart only after a short grace period
 window.addEventListener('pointerdown', (e) => {

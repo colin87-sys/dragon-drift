@@ -559,7 +559,7 @@ export const DRAGONS = {
           eye: 0xffffff, apexEye: 0xffffff, apexSeam: 0xb28cff, coreGlow: 0x9df4ff,
           surgeHi: 0xf4fbff, trail: 0x9d7cff, boostTrail: 0xb8f8ff } },
     ],
-    fx: { auraColor: '126,180,255', auraIdle: 0.22, sparkle: true },
+    fx: { auraColor: '126,180,255', auraIdle: 0.1, sparkle: true },
     previewAccent: 0x7e9cff,
     // Cool astral Surge (lavender/cyan, never fiery).
     hasStyle: true, surgeMotes: true,
