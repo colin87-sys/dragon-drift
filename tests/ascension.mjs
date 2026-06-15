@@ -6,8 +6,7 @@ const { saveData } = await import('../js/save.js');
 const {
   ASCENSION_TIERS, tierCostMult, tierCost,
   ascensionTier, radianceRank, flownMetres, canAscend,
-  ascend, radianceCost, buyRadiance,
-  ascendEmberBonus, grandfatherAscension,
+  ascend, ascendEmberBonus, grandfatherAscension,
 } = await import('../js/ascension.js');
 
 let n = 0;
@@ -107,23 +106,22 @@ assertEq(ascensionTier('azure'), 1, 'tier unchanged on failure');
 ok('ascend fails gracefully when gate not met');
 
 // --- ascendEmberBonus ---
+// Equip a PREMIUM dragon (SSSR) so tier 3 is actually reachable — starters cap
+// at SSR/tier 2, where the bonus clamps to 2% (see maxTierFor).
 reset();
-saveData.skins.equipped = 'azure';
+saveData.skins.equipped = 'solar';
 saveData.ascension.tiers = [];
 assertEq(ascendEmberBonus(), 0, 'tier 0: no bonus');
-saveData.ascension.tiers = [['azure', 3]];
+saveData.ascension.tiers = [['solar', 3]];
 assert(Math.abs(ascendEmberBonus() - 0.03) < 0.001, 'tier 3 (final): 3% bonus');
 ok('ascendEmberBonus is 1% per tier (final form = 3%)');
 
-// --- radianceCost / buyRadiance ---
-reset(5000, [], [['azure', 5]]);
-saveData.ascension.radiance = [];
-assertEq(radianceCost('azure'), 3000, 'radiance rank 0: cost = 3000');
-const boughtR1 = buyRadiance('azure');
-assert(boughtR1, 'buyRadiance succeeds');
-assertEq(radianceRank('azure'), 1, 'radiance rank incremented to 1');
-assertEq(radianceCost('azure'), 4500, 'rank 1: cost = 3000 + 1500 = 4500');
-ok('radianceCost and buyRadiance work correctly');
+// --- radianceRank (legacy) ---
+// The "Brighter Aura" radiance ember-sink was removed (apex now reads EVOLVED ✦
+// MAX). radianceRank survives only to keep pre-removal aura ranks glowing.
+reset();
+assertEq(radianceRank('azure'), 0, 'radianceRank defaults to 0');
+ok('radianceRank reads legacy radiance data');
 
 // --- grandfatherAscension ---
 // Fresh save: no tiers yet, but azure has 70000m flown
