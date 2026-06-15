@@ -31,6 +31,8 @@ const DEATH_DUR = 0.45;
 
 // Start-screen showcase orbit
 let showcaseAngle = 0;
+// Splash attract-screen framing: behind the dragon, looking down the course.
+let splashT = 0;
 
 // First-launch cinematic: a one-time fly-in that glides from a dramatic low,
 // wide, far pose into the resting showcase orbit while the FOV narrows.
@@ -38,6 +40,14 @@ let introT = 0;
 const INTRO_DUR = 2.8;
 
 export const cameraCtl = {
+  splash: false,
+
+  // Toggle the cinematic splash framing (behind the dragon, rings ahead).
+  setSplash(on) {
+    this.splash = on;
+    splashT = 0;
+  },
+
   init(cam, player) {
     camera = cam;
     smoothPos.set(player.position.x, player.position.y + 3.2, player.position.z + 11);
@@ -79,6 +89,27 @@ export const cameraCtl = {
   get introPlaying() { return introT > 0; },
 
   update(dt, player, showcase = false) {
+    // Splash attract screen: sit behind + above the dragon, looking down the ring
+    // course, with a gentle sway/bob for parallax life. The dragon shows from
+    // behind with the real rings receding ahead — the very course TAKE OFF flies.
+    if (this.splash) {
+      splashT += dt;
+      const sx = Math.sin(splashT * 0.22) * 0.85;
+      const sy = Math.sin(splashT * 0.35 + 1) * 0.4;
+      const push = Math.sin(splashT * 0.15) * 0.7; // slow in/out parallax
+      camera.position.set(
+        player.position.x + sx,
+        player.position.y + 4.0 + sy,
+        player.position.z + 14 + push
+      );
+      smoothPos.copy(camera.position);
+      camera.lookAt(player.position.x + sx * 0.3, player.position.y + 0.6, player.position.z - 30);
+      if (Math.abs(camera.fov - 66) > 0.1) {
+        camera.fov = damp(camera.fov, 66, 2.5, dt);
+        camera.updateProjectionMatrix();
+      }
+      return;
+    }
     // Start-screen showcase: slow orbit around the live dragon.
     if (showcase) {
       showcaseAngle += dt * 0.3;
