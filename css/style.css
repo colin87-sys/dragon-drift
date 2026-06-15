@@ -1291,10 +1291,25 @@ body.splash-open #hud { display: none; }
   50% { box-shadow: 0 0 0 1px rgba(255,235,180,0.95) inset, 0 12px 40px rgba(255,150,60,0.62), 0 0 58px rgba(255,180,80,0.6); filter: brightness(1.06); }
 }
 
+/* Take-off launch flash: a gold burst that blooms from the dragon and fades,
+   masking the cut from the attract framing into gameplay. Top layer, no input. */
+#launch-flash {
+  position: fixed; inset: 0; z-index: 60; pointer-events: none; opacity: 0;
+  background: radial-gradient(circle at 50% 58%,
+    rgba(255,255,255,0.92), rgba(255,214,134,0.62) 16%, rgba(255,150,60,0.26) 38%, transparent 64%);
+}
+#launch-flash.fire { animation: launch-flash 0.55s var(--ease-out); }
+@keyframes launch-flash {
+  0%   { opacity: 0;    transform: scale(0.7); }
+  18%  { opacity: 0.95; }
+  100% { opacity: 0;    transform: scale(1.6); }
+}
+
 @media (prefers-reduced-motion: reduce) {
   #splash .splash-title, #splash .splash-cta, #splash .splash-horizon, #splash .splash-ember,
   #splash .splash-slogan, #splash .splash-tag { animation: none; }
   #splash .splash-slogan, #splash .splash-tag { opacity: 1; }
+  #launch-flash.fire { animation: none; }
 }
 
 /* Drifting ember motes — on .menu-motes so innerHTML swaps on #screen are safe.

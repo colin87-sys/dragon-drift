@@ -7,7 +7,7 @@ import { todaysDailyMod, dailyMods } from './daily.js';
 import { createEnvironment, updateEnvironment, resetEnvironment } from './environment.js';
 import { createDragon, updateDragon, resetDragon, rebuildDragon } from './dragon.js';
 import { initReticle, updateReticle } from './reticle.js';
-import { initSplash, showSplash, hideSplash, splashVisible } from './splash.js';
+import { initSplash, showSplash, hideSplash, splashVisible, launchFlash } from './splash.js';
 import { player, applyDragonStats } from './player.js';
 import { cameraCtl } from './cameraController.js';
 import { initRings, addRing, updateRings, resetRings } from './rings.js';
@@ -373,6 +373,12 @@ function makeShareCard() {
 // --- Game flow ---
 function startGame(mode = 'normal') {
   if (game.state !== 'ready') return;
+  // Premium launch: a quick gold flash burst + whoosh + camera punch masks the
+  // cut from the attract/menu framing into gameplay. No delay — the run starts
+  // underneath the flash, so it reads as accelerating into flight, not a load.
+  launchFlash();
+  sfx.launch();
+  cameraCtl.boostKick();
   // Leave the attract splash on any takeoff path (CTA, tap-anywhere, ENTER).
   hideSplash();
   cameraCtl.setSplash(false);

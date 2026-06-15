@@ -11,6 +11,7 @@
 // is the camera splash framing in cameraController.js plus the live scene update.
 
 let root = null;
+let flashEl = null;
 let handlers = {};
 let built = false;
 
@@ -55,6 +56,13 @@ export function initSplash(h = {}) {
   document.body.appendChild(root);
   buildEmbers(root.querySelector('.splash-embers'));
 
+  // Take-off flash: a separate top-layer element (survives the splash hide) that
+  // blooms a gold burst from the dragon, masking the cut from the attract framing
+  // into gameplay. Triggered by launchFlash() on every takeoff.
+  flashEl = document.createElement('div');
+  flashEl.id = 'launch-flash';
+  document.body.appendChild(flashEl);
+
   root.querySelector('#splash-takeoff').addEventListener('click', (e) => {
     e.stopPropagation();
     handlers.onTakeOff && handlers.onTakeOff();
@@ -77,4 +85,13 @@ export function hideSplash() {
 
 export function splashVisible() {
   return !!root && root.classList.contains('show');
+}
+
+// Fire the take-off flash burst (retriggerable — forces a reflow so the CSS
+// animation restarts even on a rapid second takeoff).
+export function launchFlash() {
+  if (!flashEl) return;
+  flashEl.classList.remove('fire');
+  void flashEl.offsetWidth; // reflow to restart the animation
+  flashEl.classList.add('fire');
 }
