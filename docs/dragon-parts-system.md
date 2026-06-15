@@ -1,8 +1,8 @@
 # Dragon Parts System — composable body plans
 
-Status: **Backbone + first module (TORSO) landed.** The shipped roster renders
-byte-identically (verified by exact triangle-count parity); wings / tail / head
-are next.
+Status: **Backbone + TORSO + WINGS landed.** The shipped roster renders
+byte-identically (verified by exact triangle-count parity); tail / head are next,
+then folding the Phoenix into a recipe.
 
 ## Why
 
@@ -59,28 +59,38 @@ what made the demo below a one-line change.
 ## What's implemented now
 
 - **`js/dragonRecipe.js`** — the registry + `resolveRecipe(def)` (explicit
-  `parts` wins; otherwise inferred from flags). Currently dispatches the torso;
-  resolves wings/tail/head ahead of their extraction.
+  `parts` wins; otherwise inferred from flags). Dispatches torso + wings;
+  resolves tail/head ahead of their extraction.
 - **`js/dragonTorso.js`** — a torso is now **data**: a profile (cross-section
   stations + neck + fairings + mount points) fed to one generic loft.
   - `arrow` — reproduces the shipped arrowhead drake *exactly*.
   - `serpent` — a new long, slim eastern-dragon body plan.
-- **`js/dragonModel.js`** — calls the torso module and reads the attach contract
-  instead of hard-coded constants; everything else unchanged.
-- **`js/dragonParts.js`** — torso geometry removed (single source of truth in
-  `dragonTorso.js`); still owns wings + tail.
+- **`js/dragonWings.js`** — owns the membrane material + the apex fin accents;
+  mounts via the attach contract; returns the flap rig handles.
+  - `membrane` — the shipped per-form elbow wing (verbatim; also the legacy
+    `wingShape:'feather'` variant).
+  - `none` — a wingless body plan (empty rig handles the shared animation loop
+    drives harmlessly) for a true river-serpent / sea-drake.
+- **`js/dragonModel.js`** — calls the torso + wings modules and reads the attach
+  contract instead of hard-coded constants; everything else unchanged.
+- **`js/dragonParts.js`** — now a **shared-primitives** library: the wing
+  *shape* helpers (`buildWingShape` / `archWing` / `wingStrut` / `edgedFin` …)
+  and the tail (`buildCleanTail`). The torso geometry and the wing *assembly*
+  moved to their part modules; this file holds the pieces they build from.
 
 ### Proof it composes
 
-Pointing Jade at the new body plan is one line:
+A wingless eastern serpent is two lines:
 
 ```js
-jade: { …, parts: { torso: 'serpent' }, … }
+jade: { …, parts: { torso: 'serpent', wings: 'none' }, … }
 ```
 
-…and a completely different skeleton (longer, slimmer, long tail-boom) drops in,
-wings/tail/head re-mounted via the attach contract, no limb code touched. (Not
-shipped — Jade still ships the arrow torso; this PR changes nothing visually.)
+…and a long sinuous body with **no wings** drops in — the head + tail re-mount
+via the attach contract, the rig drives the empty wing handles harmlessly, no
+limb code touched. A creature class that was structurally impossible before (every
+dragon had to carry membrane wings). (Not shipped — Jade still ships the arrow
+torso + membrane wings; these PRs change nothing visually.)
 
 ## Backward-compatibility guarantee
 
@@ -92,9 +102,8 @@ recap, save-migration) pass.
 
 ## Roadmap (remaining modules)
 
-1. **Wings registry** — `membrane` (the per-form elbow wing) and `feather` (the
-   Phoenix bird wing) behind `getWingsBuilder(recipe.wings)`. Add `none` for a
-   true wingless serpent.
+1. ~~**Wings registry**~~ — **done** (`membrane` + `none`). The Phoenix-style
+   layered `feather` wing arrives with the Phoenix fold (step 3).
 2. **Tail registry** — formalize the existing `buildCleanTail` styles
    (`comet/plume/shard/stealthrudder/…`) as the tail registry.
 3. **Head registry** — `horned` / `beaked` / `frilled`; pulls the beaked head

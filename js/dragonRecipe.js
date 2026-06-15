@@ -23,10 +23,15 @@
 // --- part registries --------------------------------------------------------
 // Each maps a part name → builder fn. Modules call register* at import time.
 const TORSO_BUILDERS = {};
+const WINGS_BUILDERS = {};
 
 export function registerTorso(name, fn) { TORSO_BUILDERS[name] = fn; }
 export function getTorsoBuilder(name) { return TORSO_BUILDERS[name] || TORSO_BUILDERS.arrow; }
 export function hasTorso(name) { return !!TORSO_BUILDERS[name]; }
+
+export function registerWings(name, fn) { WINGS_BUILDERS[name] = fn; }
+export function getWingsBuilder(name) { return WINGS_BUILDERS[name] || WINGS_BUILDERS.membrane; }
+export function hasWings(name) { return !!WINGS_BUILDERS[name]; }
 
 // --- recipe resolution ------------------------------------------------------
 // Resolve a dragon def to an explicit { torso, wings, tail, head } recipe.
