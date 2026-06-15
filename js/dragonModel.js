@@ -49,7 +49,9 @@ export function buildDragonModel(def, opts = {}) {
     transparent: true, opacity: model.wingOpacity ?? 0.82, // translucent membrane — see rings through it
     // wingPanelGlow keeps the membrane mostly DARK on dragons that carry their
     // brightness on the edges (the cyan-rimmed apex) instead of the whole panel.
-    emissive: def.wingEmissive, emissiveIntensity: model.wingPanelGlow ?? 0.28,
+    // wingMembraneEmissive retints the PANEL glow (default = wingEmissive); the
+    // stealth apex sets it to a dark navy so cyan stays on the edges, not the fill.
+    emissive: def.wingMembraneEmissive ?? def.wingEmissive, emissiveIntensity: model.wingPanelGlow ?? 0.28,
   });
   const scalesMat = new THREE.MeshStandardMaterial({
     color: def.scales, emissive: 0x0b79aa, emissiveIntensity: 0.42,
@@ -114,7 +116,7 @@ export function buildDragonModel(def, opts = {}) {
   // (dorsalGlowCount / glowIntensity) so the apex is unmistakably more charged.
   if (model.dorsalGlowCount > 0) {
     const n = model.dorsalGlowCount;
-    const chevCol = def.apexSeam || def.eye;
+    const chevCol = def.dorsalHi ?? def.apexSeam ?? def.eye;
     const chevInt = (0.6 + (model.spineGlow || 0) * 0.6) * giM;
     const chevMat = new THREE.MeshStandardMaterial({
       color: chevCol, emissive: chevCol, emissiveIntensity: chevInt,
@@ -396,11 +398,13 @@ export function buildDragonModel(def, opts = {}) {
   // Redesigned dragons (model.tailStyle) get the single clean tail; the rest of
   // the roster keeps the legacy segmented tail (fan / mace / simple).
   const tailSegs = [];
+  let tailFins = null;
   if (model.tailStyle) {
     // Tail root anchored at hipRear and overlapping the body (base radius ≈ hip
     // width) so it flows out of the torso seamlessly — never a detached spear.
-    const { group: tailGroup, segs, accentMats } = buildCleanTail(def, model, bodyMat);
+    const { group: tailGroup, segs, accentMats, tailFins: tf } = buildCleanTail(def, model, bodyMat);
     if (accentMats) for (const m of accentMats) spineMats.push(m);
+    tailFins = tf;
     tailGroup.position.set(0, 0.28, 1.15 + torsoTailShift(model.bodyStretch ?? 1));
     group.add(tailGroup);
     for (const s of segs) tailSegs.push(s);
@@ -727,7 +731,7 @@ export function buildDragonModel(def, opts = {}) {
 
     return {
       group: wrapper,
-      parts: { head, tailSegs, wingPivotL, wingPivotR, wingTipL, wingTipR, wingPivot2L, wingPivot2R, tipMarkerL, tipMarkerR, coreGlow },
+      parts: { head, tailSegs, tailFins, wingPivotL, wingPivotR, wingTipL, wingTipR, wingPivot2L, wingPivot2R, tipMarkerL, tipMarkerR, coreGlow },
       materials: { bodyMat, wingMat, eyeMat, spineMats },
       auraSprite,
     };
@@ -736,7 +740,7 @@ export function buildDragonModel(def, opts = {}) {
   return {
     group,
     parts: {
-      head, tailSegs,
+      head, tailSegs, tailFins,
       wingPivotL, wingPivotR,
       wingTipL, wingTipR,
       wingPivot2L, wingPivot2R,

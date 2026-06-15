@@ -306,13 +306,32 @@ export function edgedFin(halfW, length, membraneMat, edgeMat, rim = 1.16) {
 export function buildLayeredFin(halfW, length, fillMat, edgeMat, opts = {}) {
   const g = new THREE.Group();
   const shape = opts.shape || buildStealthFinShape;
-  const rim = new THREE.Mesh(new THREE.ShapeGeometry(shape(halfW * 1.13, length * 1.08)), edgeMat);
+  const curve = opts.curve ?? 0;        // 0 = flat card (default); >0 dishes the blade
+  const pinch = opts.tipPinch ?? 1;     // <1 narrows the inner panel into a finer blade
+  // Camber a built layer in local z: a gentle leaf-dish (max at mid-height) plus a
+  // shallow spanwise bow, so the fin reads as a curved membrane under load instead
+  // of a flat polygon card. Done once at construction → negligible cost.
+  const camber = (mesh) => {
+    if (curve > 0) {
+      const pos = mesh.geometry.attributes.position;
+      for (let i = 0; i < pos.count; i++) {
+        const x = pos.getX(i);
+        const t = Math.max(0, Math.min(1, pos.getY(i) / length));
+        const bow = halfW ? (x / halfW) * (x / halfW) : 0;
+        pos.setZ(i, pos.getZ(i) + curve * length * (t - t * t) + curve * 0.4 * bow * length);
+      }
+      pos.needsUpdate = true;
+      mesh.geometry.computeVertexNormals();
+    }
+    return mesh;
+  };
+  const rim = camber(new THREE.Mesh(new THREE.ShapeGeometry(shape(halfW * 1.13, length * 1.08)), edgeMat));
   rim.position.z = -0.022;               // behind → only the cyan border shows
   g.add(rim);
-  g.add(new THREE.Mesh(new THREE.ShapeGeometry(shape(halfW, length)), fillMat));
+  g.add(camber(new THREE.Mesh(new THREE.ShapeGeometry(shape(halfW, length)), fillMat)));
   // Raised inner panel: a smaller fin sat slightly proud, so the base shows as a
   // dark border around it and the fin reads as two layered surfaces.
-  const inner = new THREE.Mesh(new THREE.ShapeGeometry(shape(halfW * 0.58, length * 0.72)), fillMat);
+  const inner = camber(new THREE.Mesh(new THREE.ShapeGeometry(shape(halfW * 0.58 * pinch, length * 0.72)), fillMat));
   inner.position.set(0, length * 0.10, 0.028);
   g.add(inner);
   // Glowing centre seam (a slim cyan rib up the spine).
@@ -333,6 +352,7 @@ export function buildLayeredFin(halfW, length, fillMat, edgeMat, opts = {}) {
 export function buildCleanTail(def, model, bodyMat) {
   const root = new THREE.Group();
   const segs = [];
+  const tailFins = [];   // deployable fin groups (apex only) — the rig opens these on boost/Surge
   const style = model.tailStyle || 'simple';
   // Obsidian's stealth-tail styles: a SMOOTH stem (no spike plates) lit by a
   // continuous cyan dorsal-segment line, ending in a layered fin assembly.
@@ -425,6 +445,16 @@ export function buildCleanTail(def, model, bodyMat) {
     segs.push(seg);
   }
 
+  // Anatomical root collar (apex): a short flared fairing on the root segment that
+  // reaches FORWARD into the hip region so the tail visibly grows out of the hips
+  // instead of butting against them — dark body material, no cyan.
+  if (model.tailRootCollar) {
+    const collar = new THREE.Mesh(new THREE.CylinderGeometry(baseR, baseR * 1.2, 0.44, 8), bodyMat);
+    collar.rotation.x = Math.PI / 2;        // lie along z (wide end toward the hip, -z)
+    collar.position.set(0, 0, -0.18);
+    segs[0].add(collar);
+  }
+
   // Dorsal / tail SEGMENT line (Obsidian): a row of small cyan chevrons marching
   // along the smooth stem crest, continuing the body's dorsal line onto the tail
   // so spine → hips → stem → fins reads as one connected system. Attached to the
@@ -447,6 +477,21 @@ export function buildCleanTail(def, model, bodyMat) {
       chev.position.set(0, r * 0.92, localZ);
       seg.add(chev);
     }
+  }
+
+  // Dorsal link (apex): one extra chevron at the very root crest so the body's
+  // dorsal line continues UNBROKEN onto the tail stem (head→back→hips→tail reads
+  // as one connected spine). Rides the root segment + flares on Surge via plateMat.
+  if (model.tailDorsalLink && smoothStem) {
+    const chev = new THREE.Group();
+    for (const sx of [-1, 1]) {
+      const bar = new THREE.Mesh(new THREE.BoxGeometry(0.024, 0.024, 0.12 + baseR * 0.2), plateMat);
+      bar.position.set(sx * (0.03 + baseR * 0.22), 0, 0.02);
+      bar.rotation.y = sx * 0.7;
+      chev.add(bar);
+    }
+    chev.position.set(0, baseR * 0.92, -0.12);
+    segs[0].add(chev);
   }
 
   // Tip ornament — the final coiling segment, overlapping the shaft end.
@@ -581,26 +626,42 @@ export function buildCleanTail(def, model, bodyMat) {
     const spread = model.tailFinSpread ?? 1.55;
     const em = ensureEdgeMat();
     const fill = ensureFinFill();
+    // Register a fin group as DEPLOYABLE: store its rest pose so the rig can open
+    // it further (anhedral, down & out — away from the centre lane) on boost/Surge.
+    const reg = (grp) => {
+      grp.userData.restRotZ = grp.rotation.z;
+      grp.userData.restRotY = grp.rotation.y;
+      grp.userData.restScale = 1;
+      tailFins.push(grp);
+      return grp;
+    };
     for (const sx of [-1, 1]) {
-      const fin = buildLayeredFin(0.34 * fs, 1.42 * fs, fill, em);
+      const fin = buildLayeredFin(0.34 * fs, 1.42 * fs, fill, em, { curve: 0.18, tipPinch: 0.8 });
       fin.scale.x = sx;
       const p = new THREE.Group();
       p.add(fin);
+      // Trailing finlet — a small secondary control surface behind the main fin
+      // root, sharing the main fin's deploy transform (parented to p).
+      const finlet = buildLayeredFin(0.10, 0.34, fill, em, { seam: false, curve: 0.14 });
+      finlet.scale.x = sx;
+      finlet.rotation.x = -0.5;
+      finlet.position.set(0, 0.05, 0.30);
+      p.add(finlet);
       p.rotation.z = sx * (1.0 + 0.3 * spread);   // down & out (anhedral V)
       p.rotation.y = sx * 0.26 * spread;
       p.rotation.x = 0.32;                        // sweep rearward
       p.position.set(sx * 0.12, 0.05, 0.0);
-      tip.add(p);
-      const micro = buildLayeredFin(0.13, 0.52, fill, em, { seam: false });
+      tip.add(reg(p));
+      const micro = buildLayeredFin(0.13, 0.52, fill, em, { seam: false, curve: 0.12 });
       micro.scale.x = sx;
       const mp = new THREE.Group();
       mp.add(micro);
       mp.rotation.z = sx * 0.82;
       mp.rotation.x = 0.42;
       mp.position.set(sx * 0.14, 0.0, -0.62);    // micro-stabilizer forward on the stem
-      tip.add(mp);
+      tip.add(reg(mp));
     }
-    const rudder = buildLayeredFin(0.17, 0.96, fill, em);
+    const rudder = buildLayeredFin(0.17, 0.96, fill, em, { curve: 0.16 });
     rudder.rotation.x = 0.4;
     rudder.position.set(0, 0.17, 0.0);
     tip.add(rudder);
@@ -650,5 +711,5 @@ export function buildCleanTail(def, model, bodyMat) {
   root.add(tip);
   segs.push(tip);
 
-  return { group: root, segs, plateMat, accentMats };
+  return { group: root, segs, plateMat, accentMats, tailFins: tailFins.length ? tailFins : null };
 }

@@ -21,6 +21,8 @@ let wingPivot2L = null;
 let wingPivot2R = null;
 let head = null;
 let tailSegs = [];
+let tailFins = [];        // apex deployable tail-fin groups (empty for every other dragon)
+let tailDeploy = 0.82;    // deploy factor: cruise 0.82 · boost 1.0 · Surge 1.08
 
 // Materials animated at runtime (boost glow / fever tint)
 let bodyMat = null;
@@ -96,6 +98,7 @@ export function createDragon(scene, def, riderDef) {
   group = result.group;
   ({ head, tailSegs, wingPivotL, wingPivotR, wingTipL, wingTipR,
      wingPivot2L, wingPivot2R, tipMarkerL, tipMarkerR } = result.parts);
+  tailFins = result.parts.tailFins || [];
   ({ bodyMat, wingMat, eyeMat } = result.materials);
   auraSprite = result.auraSprite;
   coreGlow = result.parts.coreGlow;
@@ -407,6 +410,22 @@ export function updateDragon(dt, player, time) {
     tailSegs[i].rotation.y = damp(tailSegs[i].rotation.y, waveX * 0.5, 12, dt);
   }
 
+  // Eternal tail DEPLOYMENT: the apex stabilizers ride a deploy factor by flight
+  // state — tucked-sleek in cruise (~0.82), full at boost (1.0), over-opened on
+  // Surge (~1.08). Deploy scales the anhedral roll about each fin's REST pose, so
+  // it only ever opens further DOWN & OUTWARD — never up into the centre lane. The
+  // cyan edge flare rides the shared spineMats Surge loop below (not duplicated
+  // here). No-op for every other dragon + non-apex form (tailFins is empty).
+  if (tailFins.length) {
+    const deployTarget = player.feverActive ? 1.08 : player.boosting ? 1.0 : 0.82;
+    tailDeploy = damp(tailDeploy, deployTarget, 5, dt);
+    for (const f of tailFins) {
+      f.rotation.z = f.userData.restRotZ * tailDeploy;
+      f.rotation.y = f.userData.restRotY * tailDeploy;
+      f.scale.setScalar((f.userData.restScale ?? 1) * (0.96 + 0.06 * tailDeploy));
+    }
+  }
+
   // Boost/Surge glow + fever tint + eyes + aura (cheap material writes).
   const backlit = 0.22 + Math.max(0, Math.sin(phase)) * 0.18;
 
@@ -429,7 +448,7 @@ export function updateDragon(dt, player, time) {
   wingMat.emissiveIntensity = damp(wingMat.emissiveIntensity, wingGlowTarget, 6, dt);
   // Surge wing tint is per-dragon: dragons blaze magenta, the Phoenix ignites
   // white-gold (def.feverWing) so its Rebirth reads celestial, not pink.
-  wingMat.emissive.setHex(player.feverActive ? (activeDef.feverWing ?? 0xff44cc) : activeDef.wingEmissive);
+  wingMat.emissive.setHex(player.feverActive ? (activeDef.feverWing ?? 0xff44cc) : (activeDef.wingMembraneEmissive ?? activeDef.wingEmissive));
   // Membrane translucency by state (bones/struts keep their own opaque mats):
   // see upcoming rings through the wing — more so while boosting / surging. The
   // rest opacity is per-form (model.wingOpacity); boost/Surge drop below it so the
@@ -682,5 +701,6 @@ export function resetDragon(player) {
   for (const s of emberMotes) { s.visible = false; s.material.opacity = 0; s.userData.life = 0; }
   for (const s of wingMotes) { s.visible = false; s.material.opacity = 0; s.userData.life = 0; }
   for (const p of burstParticles) { p.visible = false; }
+  tailDeploy = 0.82;
   burstActive = false;
 }
