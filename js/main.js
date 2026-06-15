@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { CONFIG } from './config.js';
 import { game } from './gameState.js';
-import { initInput, initTouch } from './input.js';
+import { initInput, initTouch, initMouse } from './input.js';
 import { createLevelGen } from './level.js';
 import { todaysDailyMod, dailyMods } from './daily.js';
 import { createEnvironment, updateEnvironment, resetEnvironment } from './environment.js';
@@ -159,6 +159,7 @@ if (urlParams.get('debug') === 'perf') {
 
 initInput();
 initTouch(renderer.domElement);
+initMouse(renderer.domElement);
 initMissions();
 initRecords(); // before initFeats: feats read counters records increments
 initFeats();

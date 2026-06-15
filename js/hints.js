@@ -8,7 +8,7 @@ import { ui } from './ui.js';
 // (never the gameplay popups), each shown once ever, none after the second
 // run. Teaches by timing, not by wall of text.
 
-const BIT = { steer: 1, boost: 2, perfect: 4, gauntlet: 8 };
+const BIT = { steer: 1, boost: 2, perfect: 4, gauntlet: 8, glide: 16 };
 
 const isTouch = () =>
   (globalThis.matchMedia && matchMedia('(pointer: coarse)').matches) ||
@@ -61,6 +61,15 @@ export function updateHints(dt, player) {
     if (dismissed || game.time >= hideAt) hide();
     return;
   }
+
+  // Glide Assist teaches its own gesture once ever, for assist users on any run
+  // (beginners may take more than two flights to graduate).
+  if (saveData.settings.glideAssist && !seen(BIT.glide) && game.time > 1.2) {
+    show(BIT.glide, isTouch() ? 'It auto-flies — SWIPE toward the next ring'
+                              : 'It auto-flies — steer toward the next ring', 5);
+    return;
+  }
+
   if (!eligible()) return;
 
   if (!seen(BIT.steer) && game.time > 1.2) {

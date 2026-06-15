@@ -15,7 +15,7 @@ const DEFAULTS = {
   best: { score: 0, dist: 0 },
   flags: { seenFirstSurge: false, hintsSeen: 0, seenIOSHint: false },
   audio: { musicMuted: false, sfxMuted: false, musicVol: 1, sfxVol: 1, track: 0, ownedTracks: [] },
-  settings: { qualityOverride: null, reticle: true, slowMo: true, dev: false },
+  settings: { qualityOverride: null, reticle: true, slowMo: true, glideAssist: false, mouseSteer: true, dev: false },
   embers: 0,
   xp: 0,
   level: 1,
