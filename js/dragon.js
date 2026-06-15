@@ -115,7 +115,7 @@ export function createDragon(scene, def, riderDef) {
   // gold, the Sovereign eclipse washes cool blue, the rest keep the magenta default.
   setFeverTint(def.feverWash || null);
 
-  buildRider(riderDef);
+  buildRider(riderDef, result.parts.riderSocket);
   scene.add(group);
 
   // Ponytail chain (world-space follow), length varies per rider
@@ -212,7 +212,7 @@ export function createDragon(scene, def, riderDef) {
   return group;
 }
 
-function buildRider(riderDef) {
+function buildRider(riderDef, socket) {
   const rider = new THREE.Group();
   riderGroup = rider;
 
@@ -239,7 +239,10 @@ function buildRider(riderDef) {
     rider.add(strap);
   }
 
-  rider.position.set(0, 1.12, -0.6);
+  // Seat the rider at the torso's published socket (front-third, believable),
+  // defaulting to the back-of-shoulders spot the dragons have always used.
+  const rs = socket || { x: 0, y: 1.12, z: -0.6 };
+  rider.position.set(rs.x, rs.y, rs.z);
   group.add(rider);
 }
 

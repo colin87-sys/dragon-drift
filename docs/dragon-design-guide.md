@@ -20,6 +20,48 @@ below renders from that camera on purpose.
 
 ---
 
+## 0.5 PLAYABILITY-FIRST — the hard gate (read this twice)
+
+A dragon is **invalid — no matter how cool it looks — if it hurts the player's
+ability to fly the course.** The camera looks forward-and-down over the
+creature, and the player threads the **head/aim point** through rings for
+perfects while reading upcoming rings + obstacles in the centre of the screen.
+So a creature is **rejected** if it:
+
+- **hides the head / aim point** (you can't see where to thread a perfect),
+- **stacks body mass over the head** from the chase camera,
+- **blocks the central ring path / sight-line** (you crash into things you can't see),
+- **occupies too much vertical screen** (height is what blocks the forward view),
+- has **no believable rider seat**, or
+- only reads well in **side / shop view**.
+
+> Collision is a **fixed `playerRadius`**, independent of model size — so big
+> creatures are *not* penalised with bigger hitboxes. Crashes from a large dragon
+> are always a **visibility** problem. Fix them with silhouette, not collision.
+
+### The gameplay silhouette envelope (design to this)
+
+- **Low-profile** and **horizontally readable** — wider/longer than tall is the
+  safe default.
+- **Head visible at the front**, with the **aim marker** above it (every dragon
+  gets a cyan-white aim crystal at the nose — `dragonModel.js` — rendered
+  always-on-top so the body can never hide it; that's your perfect-threading point).
+- **Body mass trails backward and slightly *down*** (below the sight-line) or
+  **spreads sideways** — never up through the ring sight-line.
+- **Wings / fins / tendrils** push **out to the sides or behind**, not up.
+- **Big glow / particle FX** offset to the lower-left/right or trail behind —
+  keep the central lane clear; the aim marker + ring path stay dominant.
+- **Body over the centre lane goes translucent / additive** so you see through it
+  to the head + rings.
+- **Rider** seated in the **front third**, on the torso's `attach.riderSocket`
+  (the rig places it there) — a believable seat, never on the tail/mid-body.
+
+**Validate before shipping:** `node tools/readability.mjs <key>` flags envelope
+violations (vertical occupancy / mass-over-head), and `tools/gameshots.mjs`
+shows the real chase cam — fly it in your head: *can I see the head + the rings?*
+
+---
+
 ## 1. The mental model
 
 A dragon is one object in `js/dragons.js`. It has four kinds of content:

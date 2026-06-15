@@ -81,6 +81,10 @@ export function buildDragonModel(def, opts = {}) {
   // A segmented torso (the centipede-wyrm) returns its plate Groups so the rig
   // sways them as a lead-first travelling wave (see dragon.js / makePreviewTick).
   const bodySegs = torsoResult.bodySegs ?? null;
+  // Where the rider sits — the torso publishes it (a believable seat near the
+  // front third); default = the back-of-shoulders spot the dragons have always
+  // used. The rig (dragon.js) places the rider here.
+  const riderSocket = attach.riderSocket ?? { x: 0, y: 1.12, z: -0.6 };
 
   // Accent materials (spine plates, crest, glow seams, tail plates) that flare
   // toward white-gold during Dragon Surge — collected for the rig to drive.
@@ -275,6 +279,26 @@ export function buildDragonModel(def, opts = {}) {
   head.position.set(hb.x, hb.y, hb.z);
   group.add(head);
 
+  // AIM MARKER — a small always-on-top cyan-white crystal + halo at the head's
+  // nose: the ring-alignment point. depthTest off + a high renderOrder so the
+  // body can NEVER hide it, so you always know where to thread a perfect (the
+  // playability fix for long/tall creatures whose mass would occlude the head).
+  // Rides the head group so it tracks the head sway. ~10 tris, every dragon.
+  const aimCore = new THREE.Mesh(
+    new THREE.OctahedronGeometry(0.12, 0),
+    new THREE.MeshBasicMaterial({ color: 0xe2f6ff, depthTest: false, depthWrite: false, transparent: true }));
+  aimCore.renderOrder = 999;
+  aimCore.position.set(0, 0.12, -1.18);
+  head.add(aimCore);
+  const aimHalo = new THREE.Sprite(new THREE.SpriteMaterial({
+    map: makeGlowTexture('190,235,255'), transparent: true, opacity: 0.85,
+    blending: THREE.AdditiveBlending, depthTest: false, depthWrite: false,
+  }));
+  aimHalo.scale.setScalar(0.62);
+  aimHalo.position.copy(aimCore.position);
+  aimHalo.renderOrder = 998;
+  head.add(aimHalo);
+
   // Pearl's luminous head aura: a soft opalescent glow (a body-level sprite, NOT
   // part of the head group), elegant and pristine — never a hard torus ring.
   if (model.halo) {
@@ -383,7 +407,7 @@ export function buildDragonModel(def, opts = {}) {
 
     return {
       group: wrapper,
-      parts: { head, tailSegs, tailFins, bodySegs, tailOrbiters, wingPivotL, wingPivotR, wingTipL, wingTipR, wingPivot2L, wingPivot2R, tipMarkerL, tipMarkerR, coreGlow },
+      parts: { head, tailSegs, tailFins, bodySegs, tailOrbiters, riderSocket, wingPivotL, wingPivotR, wingTipL, wingTipR, wingPivot2L, wingPivot2R, tipMarkerL, tipMarkerR, coreGlow },
       materials: { bodyMat, wingMat, eyeMat, spineMats },
       auraSprite,
     };
@@ -392,7 +416,7 @@ export function buildDragonModel(def, opts = {}) {
   return {
     group,
     parts: {
-      head, tailSegs, tailFins, bodySegs, tailOrbiters,
+      head, tailSegs, tailFins, bodySegs, tailOrbiters, riderSocket,
       wingPivotL, wingPivotR,
       wingTipL, wingTipR,
       wingPivot2L, wingPivot2R,
