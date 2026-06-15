@@ -500,18 +500,27 @@ body.app-loaded > canvas { opacity: 1; }
 .shop-tabs { width: min(440px, 88vw); margin: 10px 0 2px; }
 .shop-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
   gap: 12px; width: min(620px, 92vw); margin: 14px 0; }
-.skin-card { pointer-events: auto; cursor: pointer; border-radius: 12px; padding: 12px 10px;
-  background: rgba(24, 42, 80, 0.6); border: 1px solid var(--gold-trim);
-  position: relative;
-  display: flex; flex-direction: column; align-items: center; gap: 6px; transition: transform 0.12s, border-color 0.2s; }
-.skin-card:hover { transform: translateY(-2px); border-color: rgba(180, 230, 255, 0.6); }
-.skin-card.equipped { border-color: #ffd86a; box-shadow: 0 0 16px rgba(255, 200, 90, 0.35); }
-/* Rarity-tinted card borders */
-.skin-card[data-rarity="SR"]   { border-color: rgba(80,140,255,0.45); }
-.skin-card[data-rarity="SSR"]  { border-color: rgba(160,80,255,0.5); }
-.skin-card[data-rarity="SSSR"] { border-color: rgba(255,200,90,0.55);
-  background: linear-gradient(175deg, rgba(40,28,8,0.65), rgba(24,42,80,0.6) 60%); }
-.skin-card.equipped { border-color: #ffd86a; }
+/* Premium dark-glass card: layered translucent gradient (glass look without the
+   iOS backdrop-filter cost), an inset top highlight + soft drop shadow for depth,
+   and a lift + glow on hover. Rarity adds a tinted border + accent glow. */
+.skin-card { pointer-events: auto; cursor: pointer; border-radius: 16px; padding: 13px 11px;
+  background: linear-gradient(168deg, rgba(36, 52, 92, 0.62), rgba(11, 17, 36, 0.8));
+  border: 1px solid rgba(150, 200, 255, 0.18); position: relative;
+  box-shadow: 0 10px 26px rgba(0, 0, 0, 0.42), inset 0 1px 0 rgba(255, 255, 255, 0.07);
+  display: flex; flex-direction: column; align-items: center; gap: 6px;
+  transition: transform 0.16s var(--ease-out), box-shadow 0.22s, border-color 0.22s; }
+.skin-card:hover { transform: translateY(-3px) scale(1.012); border-color: rgba(186, 228, 255, 0.55);
+  box-shadow: 0 18px 40px rgba(0, 0, 0, 0.5), 0 0 30px rgba(120, 180, 255, 0.2), inset 0 1px 0 rgba(255, 255, 255, 0.09); }
+.skin-card.equipped { border-color: #ffd86a;
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.45), 0 0 24px rgba(255, 200, 90, 0.38), inset 0 1px 0 rgba(255, 255, 255, 0.08); }
+/* Rarity-tinted border + accent glow (glow on ALL tiers, not just gold) */
+.skin-card[data-rarity="SR"]   { border-color: rgba(90, 150, 255, 0.5);
+  box-shadow: 0 10px 26px rgba(0, 0, 0, 0.42), 0 0 18px rgba(80, 140, 255, 0.14), inset 0 1px 0 rgba(255, 255, 255, 0.07); }
+.skin-card[data-rarity="SSR"]  { border-color: rgba(178, 112, 255, 0.55);
+  box-shadow: 0 10px 26px rgba(0, 0, 0, 0.42), 0 0 18px rgba(160, 90, 255, 0.16), inset 0 1px 0 rgba(255, 255, 255, 0.07); }
+.skin-card[data-rarity="SSSR"] { border-color: rgba(255, 205, 100, 0.6);
+  background: linear-gradient(168deg, rgba(56, 42, 16, 0.6), rgba(14, 20, 42, 0.82) 62%);
+  box-shadow: 0 10px 26px rgba(0, 0, 0, 0.45), 0 0 22px rgba(255, 200, 90, 0.17), inset 0 1px 0 rgba(255, 255, 255, 0.08); }
 /* Rarity corner gem */
 /* Gem shows the SCRUBBED form's rarity (R→SSSR), not a fixed dragon grade. */
 .rarity-gem { position: absolute; top: 7px; right: 7px; font-size: 8.5px; font-weight: 900;
@@ -557,24 +566,28 @@ body.app-loaded > canvas { opacity: 1; }
 .stat-bars { width: 100%; display: flex; flex-direction: column; gap: 3px; margin: 2px 0; }
 .stat-bar-row { display: flex; align-items: center; gap: 6px; }
 .stat-bar-row span:first-child { font-size: 8.5px; letter-spacing: 1px; opacity: 0.65; width: 24px; text-align: left; }
-.stat-bar { flex: 1; height: 5px; border-radius: 3px; background: rgba(10, 20, 40, 0.8); overflow: hidden; }
-.stat-bar span { display: block; height: 100%; border-radius: 3px;
-  background: linear-gradient(90deg, #3fd8e8, #ffd86a, #ff9540); }
+.stat-bar { flex: 1; height: 7px; border-radius: 4px; background: rgba(5, 11, 24, 0.88); overflow: hidden;
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.55); }
+.stat-bar span { display: block; height: 100%; border-radius: 4px;
+  background: linear-gradient(90deg, #3fd8e8, #7fe0ff 42%, #ffd86a);
+  box-shadow: 0 0 7px rgba(127, 224, 255, 0.32); }
 /* C5: Dragon card hero — bigger turntable + EQUIPPED overlay badge */
 .preview-wrap { position: relative; display: flex; align-items: center; justify-content: center; }
-.skin-preview { width: 120px; height: 120px; border-radius: 14px;
-  background: radial-gradient(circle at 50% 38%, rgba(70, 110, 180, 0.35), rgba(8, 14, 30, 0.65) 78%);
-  border: 1px solid rgba(140, 200, 255, 0.18); }
+.skin-preview { width: 126px; height: 126px; border-radius: 15px;
+  background: radial-gradient(circle at 50% 34%, rgba(86, 124, 196, 0.4), rgba(6, 11, 26, 0.7) 80%);
+  border: 1px solid rgba(150, 200, 255, 0.24);
+  box-shadow: inset 0 0 22px rgba(0, 0, 0, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.06); }
 .equipped-badge { position: absolute; bottom: 6px; left: 50%; transform: translateX(-50%);
   font-size: 9px; letter-spacing: 1.5px; font-weight: 800; color: #1a1206;
   background: linear-gradient(135deg, #ffe27a, #ffb84d); border-radius: 5px;
   padding: 2px 7px; white-space: nowrap; pointer-events: none; }
 .form-scrub { display: flex; align-items: center; justify-content: center; gap: 6px;
   margin: 4px 0 0; padding: 2px 0; }
-.form-arrow { background: none; border: 1px solid rgba(140,200,255,0.22); border-radius: 6px;
-  color: rgba(180,220,255,0.75); font-size: 11px; padding: 2px 7px; cursor: pointer;
-  line-height: 1.4; transition: border-color 0.15s, color 0.15s; }
-.form-arrow:hover { border-color: rgba(140,200,255,0.55); color: #fff; }
+.form-arrow { background: rgba(18, 30, 58, 0.7); border: 1px solid rgba(150,200,255,0.28); border-radius: 8px;
+  color: rgba(200,228,255,0.9); font-size: 11px; padding: 3px 9px; cursor: pointer;
+  line-height: 1.3; transition: background 0.15s, border-color 0.15s, transform 0.1s; }
+.form-arrow:hover { background: rgba(40, 62, 104, 0.85); border-color: rgba(185,222,255,0.6); color: #fff; transform: translateY(-1px); }
+.form-arrow:active { transform: scale(0.94); }
 .form-tier-label { font-size: 10px; letter-spacing: 1.5px; color: rgba(180,220,255,0.65);
   font-weight: 600; min-width: 62px; text-align: center; text-transform: uppercase; }
 
@@ -634,9 +647,14 @@ body.app-loaded > canvas { opacity: 1; }
 .settings-label { font-size: 12px; letter-spacing: 2px; opacity: 0.75; margin-bottom: 8px; }
 .seg-row { display: flex; gap: 8px; }
 .seg-btn { pointer-events: auto; cursor: pointer; flex: 1; padding: 10px 0; font-family: inherit;
-  font-size: 12px; letter-spacing: 1px; font-weight: 700; color: #b8d4f0;
-  background: rgba(30, 55, 100, 0.4); border: 1px solid var(--gold-trim); border-radius: 9px; }
-.seg-btn.sel { color: #1a1206; background: linear-gradient(135deg, #ffe27a, #ffb84d); border-color: transparent; }
+  font-size: 12px; letter-spacing: 1px; font-weight: 700; color: #d2e3f7;
+  background: linear-gradient(180deg, rgba(38, 56, 98, 0.62), rgba(18, 28, 56, 0.7));
+  border: 1px solid rgba(150, 200, 255, 0.2); border-radius: 11px;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05);
+  transition: color 0.16s, border-color 0.16s, background 0.16s, box-shadow 0.16s; }
+.seg-btn:hover { color: #fff; border-color: rgba(185, 222, 255, 0.5); }
+.seg-btn.sel { color: #1a1206; background: linear-gradient(135deg, #ffe27a, #ffb84d); border-color: transparent;
+  box-shadow: 0 4px 14px rgba(255, 180, 70, 0.32); }
 
 /* ============ MOBILE ============ */
 @media (max-width: 700px) {
@@ -690,7 +708,8 @@ body.app-loaded > canvas { opacity: 1; }
   .btn-secondary { font-size: 11px; padding: 11px 14px; }
   .newbest       { font-size: 15px; }
   .shop-grid     { grid-template-columns: repeat(2, 1fr); }
-  .skin-preview  { width: 84px; height: 84px; }
+  .skin-preview  { width: 104px; height: 104px; }
+  .inspect-stage { width: min(440px, 92vw); }
   .pause-menu    { padding: 14px 14px; gap: 9px; max-height: 76vh; }
   .pm-resume     { font-size: 14px; padding: 13px 0; }
   .pm-cell b     { font-size: 13px; }
@@ -1417,7 +1436,7 @@ canvas.skin-preview[data-kind="dragon"] { cursor: pointer; }
 .inspect-overlay.open { opacity: 1; }
 
 .inspect-modal { --accent: #ffd24d; position: relative;
-  width: min(440px, 94vw); max-height: 96vh; overflow-y: auto; overflow-x: hidden;
+  width: min(520px, 96vw); max-height: 96vh; overflow-y: auto; overflow-x: hidden;
   display: flex; flex-direction: column; align-items: center; text-align: center;
   padding: 16px 16px 16px; border-radius: 24px;
   background:
@@ -1462,7 +1481,7 @@ canvas.skin-preview[data-kind="dragon"] { cursor: pointer; }
   box-shadow: 0 6px 22px color-mix(in srgb, var(--accent) 32%, transparent); }
 
 /* the 3D stage: framed by a pulsing accent halo + a grounding pedestal glow */
-.inspect-stage { position: relative; width: min(340px, 76vw); aspect-ratio: 1; margin: 0 auto; }
+.inspect-stage { position: relative; width: min(470px, 90vw); aspect-ratio: 1; margin: 0 auto; }
 .inspect-glow { position: absolute; inset: -8%; z-index: 0; border-radius: 50%;
   /* --glow is the dragon's signature spotlight (falls back to the rarity accent);
      it lets a dragon stay on-brand (e.g. Obsidian cyan) even when its badge is
@@ -1476,6 +1495,18 @@ canvas.skin-preview[data-kind="dragon"] { cursor: pointer; }
   width: 60%; height: 13%; z-index: 0; border-radius: 50%;
   background: radial-gradient(ellipse at center, color-mix(in srgb, var(--accent) 60%, transparent), transparent 70%);
   filter: blur(6px); opacity: 0.65; }
+/* "drag to rotate" affordance — fades out the first time you spin the dragon */
+.inspect-rothint { position: absolute; left: 50%; bottom: 7%; transform: translateX(-50%);
+  z-index: 4; pointer-events: none; white-space: nowrap;
+  font-size: 11px; font-weight: 700; letter-spacing: 1.5px; text-transform: uppercase;
+  color: #dbe8ff; padding: 6px 13px; border-radius: 20px;
+  background: rgba(8, 14, 30, 0.55); border: 1px solid rgba(150, 200, 255, 0.22);
+  -webkit-backdrop-filter: blur(5px); backdrop-filter: blur(5px);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.4);
+  opacity: 0; animation: rothint-in 0.5s ease 0.5s forwards;
+  transition: opacity 0.35s ease, transform 0.35s ease; }
+@keyframes rothint-in { from { opacity: 0; transform: translate(-50%, 6px); } to { opacity: 0.92; transform: translate(-50%, 0); } }
+.inspect-stage.rotated .inspect-rothint { opacity: 0; transform: translate(-50%, 6px); animation: none; }
 
 .inspect-name { font-size: 26px; font-weight: 900; letter-spacing: 0.5px; margin-top: 6px;
   background: linear-gradient(180deg, #ffffff, color-mix(in srgb, var(--accent) 60%, #cfe0ff));

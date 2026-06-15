@@ -13,7 +13,7 @@ import { buildPilotHtml, wirePilot } from './pilotScreen.js';
 import { claimFeat, unclaimedFeatCount } from './feats.js';
 import { DRAGONS, DRAGON_STAT_CAP } from './dragons.js';
 import { RIDERS } from './riders.js';
-import { attachPreviews, attachPreviewCanvas, refreshPreview, setShowcaseDef, closeShowcase, setShowcaseZoom } from './preview.js';
+import { attachPreviews, attachPreviewCanvas, refreshPreview, setShowcaseDef, closeShowcase, setShowcaseZoom, showcaseDragStart, showcaseDragMove, showcaseDragEnd } from './preview.js';
 import { attachTrailPreviews } from './trailPreview.js';
 import { FLIGHTMARKS, flightmarkOwned, equippedFlightmark } from './flightmarks.js';
 import { ASCENSION_TIERS, ascendedDef, ascensionTier, canAscend, radianceRank, maxTierFor } from './ascension.js';
@@ -190,8 +190,9 @@ function openInspect(startKey) {
         <div class="inspect-content" id="inspect-content">
           <div class="inspect-stage">
             <div class="inspect-glow"></div>
-            <canvas class="inspect-canvas" width="480" height="480"></canvas>
+            <canvas class="inspect-canvas" width="640" height="640"></canvas>
             <div class="inspect-pedestal"></div>
+            <div class="inspect-rothint">⟲ drag to rotate</div>
           </div>
           <div class="inspect-name" id="inspect-name"></div>
           <div class="inspect-title" id="inspect-title"></div>
@@ -320,33 +321,31 @@ function openInspect(startKey) {
     render();
   };
 
-  // Gestures on the hero: ONE finger drag = previous / next dragon; TWO-finger
-  // pinch (or the mouse wheel) = zoom the 3D showcase to see the full wingspan.
+  // Gestures on the hero: ONE finger drag = spin the dragon 360° (turntable);
+  // TWO-finger pinch (or the mouse wheel) = zoom in for detail. Switch dragons with
+  // the ‹ › chevrons, the carousel dots, or the ← → arrow keys.
   const vp = q('#inspect-viewport');
+  const stage = q('.inspect-stage');
   const pointers = new Map();
-  let dragId = null, startX = 0, dx = 0;
+  let dragId = null, lastX = 0, rotated = false;
   let pinching = false, pinchStartDist = 0, pinchStartZoom = 1, zoom = 1;
   const clampZoom = (z) => Math.max(0.55, Math.min(z, 2.4));
   const pinchDist = () => {
     const p = [...pointers.values()];
     return Math.hypot(p[0].x - p[1].x, p[0].y - p[1].y);
   };
-  const springBack = () => {
-    content.style.transition = 'transform 0.2s ease, opacity 0.2s ease';
-    content.style.transform = 'translateX(0)';
-    content.style.opacity = '1';
-  };
   vp.addEventListener('pointerdown', (e) => {
     if (e.target.closest && e.target.closest('button')) return;
     try { vp.setPointerCapture(e.pointerId); } catch { /* ok */ }
     pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
     if (pointers.size === 2) {
-      // Promote to a pinch — abandon any single-finger drag mid-stroke.
-      pinching = true; dragId = null; springBack();
+      // Promote to a pinch — end any single-finger turntable drag mid-stroke.
+      pinching = true; dragId = null; showcaseDragEnd();
       pinchStartDist = pinchDist(); pinchStartZoom = zoom;
-    } else if (pointers.size === 1 && !animating) {
-      dragId = e.pointerId; startX = e.clientX; dx = 0;
-      content.style.transition = 'none';
+    } else if (pointers.size === 1) {
+      dragId = e.pointerId; lastX = e.clientX;
+      showcaseDragStart();
+      if (!rotated) { rotated = true; stage.classList.add('rotated'); } // fade the hint
     }
   });
   vp.addEventListener('pointermove', (e) => {
@@ -357,10 +356,8 @@ function openInspect(startKey) {
       return;
     }
     if (e.pointerId !== dragId) return;
-    dx = e.clientX - startX;
-    const damp = Math.sign(dx) * Math.min(Math.abs(dx) * 0.55, 100);
-    content.style.transform = `translateX(${damp}px)`;
-    content.style.opacity = String(1 - Math.min(Math.abs(damp) / 260, 0.45));
+    const step = e.clientX - lastX; lastX = e.clientX;
+    showcaseDragMove(step);   // spin the turntable
   });
   const endPointer = (e) => {
     try { vp.releasePointerCapture(e.pointerId); } catch { /* ok */ }
@@ -368,9 +365,7 @@ function openInspect(startKey) {
     if (pointers.size < 2) pinching = false;
     if (e.pointerId !== dragId) return;
     dragId = null;
-    if (dx <= -48) goTo(1);
-    else if (dx >= 48) goTo(-1);
-    else springBack();
+    showcaseDragEnd();         // release → inertia
   };
   vp.addEventListener('pointerup', endPointer);
   vp.addEventListener('pointercancel', endPointer);
