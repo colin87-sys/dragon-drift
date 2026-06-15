@@ -3,7 +3,10 @@
 // out of the main PB.
 import { boot, check } from './browser.mjs';
 
-const { page, errors, done } = await boot();
+// Seeded with runs=3 so the DAILY rail icon is revealed (progressive disclosure).
+const { page, errors, done } = await boot({
+  initScript: `localStorage.setItem('dragonDriftSave', JSON.stringify({ v: 3, stats: { runs: 3 }, flags: { seenIntro: true } }))`,
+});
 
 // Module: pool shape, determinism, neutral defaults, merge.
 const mod = await page.evaluate(async () => {
@@ -24,12 +27,14 @@ check('dailyMods(null) is a neutral 1× set', Object.values(mod.neutral).every(v
 check(`today's modifier merges over defaults (${mod.today.name})`,
   Object.keys(mod.today.mods).every(k => mod.mergedToday[k] === mod.today.mods[k]));
 
-// The start-screen daily card announces the modifier (the "briefing").
+// The DAILY panel (opened from the rail) announces the modifier (the "briefing").
+await page.click('#btn-daily');
+await page.waitForSelector('.daily-card .daily-mod');
 const cardMod = await page.$eval('.daily-card .daily-mod', el => el.textContent.trim()).catch(() => '');
 check(`daily card shows the modifier (${cardMod})`, cardMod.includes(mod.today.name));
 
 // Flying the daily applies the modifier to the run.
-await page.click('#btn-daily');
+await page.click('#btn-fly-daily');
 await page.waitForFunction(() => window.__dd.game.state === 'playing');
 const run = await page.evaluate(() => ({
   mode: window.__dd.game.mode,

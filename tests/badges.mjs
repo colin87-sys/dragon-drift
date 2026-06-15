@@ -6,7 +6,7 @@ import { boot, check } from './browser.mjs';
 {
   const { page, errors, done } = await boot({
     initScript: `localStorage.setItem('dragonDriftSave', JSON.stringify({
-      v: 2, feats: { unlocked: ['first_perfect'] }, ui: { seenFeats: 0, seenTitles: 0, shopSeenEmbers: 0 },
+      v: 2, stats: { runs: 5 }, flags: { seenIntro: true }, feats: { unlocked: ['first_perfect'] }, ui: { seenFeats: 0, seenTitles: 0, shopSeenEmbers: 0 },
     }))`,
   });
   check('PILOT badge shows for unseen feat', !!(await page.$('#btn-pilot .badge')));
@@ -29,7 +29,7 @@ import { boot, check } from './browser.mjs';
 {
   const { page, errors, done } = await boot({
     initScript: `localStorage.setItem('dragonDriftSave', JSON.stringify({
-      v: 2, embers: 700, ui: { seenFeats: 0, seenTitles: 0, shopSeenEmbers: 0 },
+      v: 2, stats: { runs: 5 }, flags: { seenIntro: true }, embers: 700, ui: { seenFeats: 0, seenTitles: 0, shopSeenEmbers: 0 },
     }))`,
   });
   check('SHOP badge: 700◆ makes the 600◆ dragon newly affordable', !!(await page.$('#btn-shop .badge')));
@@ -47,7 +47,7 @@ import { boot, check } from './browser.mjs';
 {
   const { page, errors, done } = await boot({
     initScript: `localStorage.setItem('dragonDriftSave', JSON.stringify({
-      v: 2, embers: 700, ui: { seenFeats: 0, seenTitles: 0, shopSeenEmbers: 700 },
+      v: 2, stats: { runs: 5 }, flags: { seenIntro: true }, embers: 700, ui: { seenFeats: 0, seenTitles: 0, shopSeenEmbers: 700 },
     }))`,
   });
   check('no SHOP badge when the wallet has not grown past a price line', !(await page.$('#btn-shop .badge')));
@@ -55,21 +55,23 @@ import { boot, check } from './browser.mjs';
   await done();
 }
 
-// --- Daily glow: on when not flown today, off when done ---
+// --- DAILY rail badge: present when not flown today, gone once done ---
 {
   const today = new Date().toISOString().slice(0, 10);
   const { page, errors, done } = await boot({
     initScript: `localStorage.setItem('dragonDriftSave', JSON.stringify({
-      v: 2, daily: { date: '${today}', played: true, bestScore: 100, streak: 1, bonusDay: '${today}' },
+      v: 2, stats: { runs: 5 }, flags: { seenIntro: true }, daily: { date: '${today}', played: true, bestScore: 100, streak: 1, bonusDay: '${today}' },
     }))`,
   });
-  check('no daily glow once flown today', !(await page.$('#btn-daily.glow')));
+  check('no DAILY badge once flown today', !(await page.$('#btn-daily .badge')));
   check('no errors', errors.length === 0) || console.error(errors.join('\n'));
   await done();
 }
 {
-  const { page, errors, done } = await boot();
-  check('daily glow invites on a fresh day', !!(await page.$('#btn-daily.glow')));
+  const { page, errors, done } = await boot({
+    initScript: `localStorage.setItem('dragonDriftSave', JSON.stringify({ v: 3, stats: { runs: 5 }, flags: { seenIntro: true } }))`,
+  });
+  check('DAILY badge invites on a fresh day', !!(await page.$('#btn-daily .badge')));
   check('no errors', errors.length === 0) || console.error(errors.join('\n'));
   await done();
 }

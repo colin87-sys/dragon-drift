@@ -32,6 +32,11 @@ const DEATH_DUR = 0.45;
 // Start-screen showcase orbit
 let showcaseAngle = 0;
 
+// First-launch cinematic: a one-time fly-in that glides from a dramatic low,
+// wide, far pose into the resting showcase orbit while the FOV narrows.
+let introT = 0;
+const INTRO_DUR = 2.8;
+
 export const cameraCtl = {
   init(cam, player) {
     camera = cam;
@@ -68,20 +73,38 @@ export const cameraCtl = {
     deathT = 0;
   },
 
+  // First-launch cinematic. skipIntro() lands it instantly (tap-to-skip).
+  playIntro() { introT = INTRO_DUR; },
+  skipIntro() { introT = 0; },
+  get introPlaying() { return introT > 0; },
+
   update(dt, player, showcase = false) {
     // Start-screen showcase: slow orbit around the live dragon.
     if (showcase) {
       showcaseAngle += dt * 0.3;
       const r = 10.5;
-      camera.position.set(
-        player.position.x + Math.sin(showcaseAngle) * r,
-        player.position.y + 2.6 + Math.sin(showcaseAngle * 0.6) * 1.2,
-        player.position.z + Math.cos(showcaseAngle) * r
-      );
-      smoothPos.copy(camera.position);
+      const ox = player.position.x + Math.sin(showcaseAngle) * r;
+      const oy = player.position.y + 2.6 + Math.sin(showcaseAngle * 0.6) * 1.2;
+      const oz = player.position.z + Math.cos(showcaseAngle) * r;
+      let fovTarget = 58;
+      if (introT > 0) {
+        // Glide in from a low/wide/far pose; the offset decays to nothing as the
+        // orbit takes over. damp() keeps it buttery and frame-rate independent.
+        introT = Math.max(0, introT - dt);
+        const k = introT / INTRO_DUR;     // 1 → 0
+        const e = k * k;                  // ease-out emphasis on the settle
+        smoothPos.x = damp(smoothPos.x, ox + Math.sin(showcaseAngle + 1.4) * e * 7, 3.2, dt);
+        smoothPos.y = damp(smoothPos.y, oy - e * 3.0,  3.2, dt);
+        smoothPos.z = damp(smoothPos.z, oz + e * 10.0, 3.2, dt);
+        camera.position.copy(smoothPos);
+        fovTarget = 58 + e * 16;          // start wide (cinematic), narrow to 58
+      } else {
+        camera.position.set(ox, oy, oz);
+        smoothPos.copy(camera.position);
+      }
       camera.lookAt(player.position.x, player.position.y + 0.5, player.position.z);
-      if (Math.abs(camera.fov - 58) > 0.1) {
-        camera.fov = damp(camera.fov, 58, 2.5, dt);
+      if (Math.abs(camera.fov - fovTarget) > 0.05) {
+        camera.fov = damp(camera.fov, fovTarget, 2.5, dt);
         camera.updateProjectionMatrix();
       }
       return;
