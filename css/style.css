@@ -161,10 +161,11 @@ body.app-loaded > canvas { opacity: 1; }
   border-radius: 4px; box-shadow: 0 0 10px rgba(255, 170, 40, 0.5); animation: ret-spin 6s linear infinite; }
 #reticle .rsq.inner { inset: 18%; border-width: 2px; animation: ret-spin-rev 4s linear infinite; opacity: 0.85; }
 #reticle.locked .rsq { border-color: rgba(80, 255, 170, 0.95); box-shadow: 0 0 14px rgba(60, 255, 160, 0.7); }
-/* Gate reticle: coral/amber colours and faster spin distinguish it from ring (gold) */
-#reticle.gate .rsq { border-color: rgba(255, 120, 50, 0.9); box-shadow: 0 0 10px rgba(255, 90, 30, 0.55); animation: ret-spin 4s linear infinite; }
-#reticle.gate .rsq.inner { border-color: rgba(255, 210, 70, 0.85); animation: ret-spin-rev 2.5s linear infinite; }
-#reticle.gate.locked .rsq { border-color: rgba(255, 230, 80, 0.95); box-shadow: 0 0 14px rgba(255, 210, 60, 0.75); }
+/* Gate reticle: a calm cool cyan-white that reads on every biome veil (warm or
+   cool) and stays distinct from the warm gold ring reticle; faster spin too. */
+#reticle.gate .rsq { border-color: rgba(170, 230, 255, 0.92); box-shadow: 0 0 12px rgba(120, 210, 255, 0.55); animation: ret-spin 4s linear infinite; }
+#reticle.gate .rsq.inner { border-color: rgba(220, 245, 255, 0.85); animation: ret-spin-rev 2.5s linear infinite; }
+#reticle.gate.locked .rsq { border-color: rgba(235, 250, 255, 0.97); box-shadow: 0 0 16px rgba(150, 225, 255, 0.8); }
 @keyframes ret-spin { from { transform: rotate(0deg); } to { transform: rotate(90deg); } }
 @keyframes ret-spin-rev { from { transform: rotate(45deg); } to { transform: rotate(-45deg); } }
 
