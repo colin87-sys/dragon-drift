@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { makeGlowTexture } from './util.js';
+import { applyFresnelRim } from './surface.js';
 
 // ── Phoenix: a separate legendary firebird archetype ─────────────────────────
 // NOT a recoloured dragon. A celestial bird made of white-hot gold and fire:
@@ -112,6 +113,8 @@ export function buildPhoenixModel(def, opts = {}) {
     color: cBody, roughness: 0.44, metalness: 0.08,
     emissive: cBody, emissiveIntensity: 0.1 + F * 0.1, side: THREE.DoubleSide,
   });
+  // Surface detail: a warm gold fresnel rim defines the firebird's body contour.
+  applyFresnelRim(bodyMat, cSeam);
   const wingMat = new THREE.MeshStandardMaterial({
     color: 0xffffff, vertexColors: true, roughness: 0.5, side: THREE.DoubleSide,
     transparent: true, opacity: 0.82, emissive: cEmis, emissiveIntensity: 0.3,

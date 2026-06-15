@@ -5,6 +5,7 @@ import { resolveRecipe, getTorsoBuilder, getWingsBuilder, getHeadBuilder } from 
 import './dragonTorso.js'; // self-registers the 'arrow' / 'serpent' torso profiles
 import './dragonWings.js'; // self-registers the 'membrane' / 'none' wing builders
 import './dragonHead.js';  // self-registers the 'horned' / 'beaked' head builders
+import { applyFresnelRim } from './surface.js';
 import { buildPhoenixModel } from './phoenixModel.js';
 
 // Unified procedural dragon mesh builder.
@@ -40,6 +41,10 @@ export function buildDragonModel(def, opts = {}) {
     color: def.body, roughness: 0.38, metalness: 0.12,
     emissive: def.body, emissiveIntensity: 0.12,
   });
+  // Surface detail: an on-brand fresnel rim defines the body's contour from the
+  // rear camera so it stops reading as a flat dark mass. Set before the torso
+  // clones bodyMat, so the DoubleSide torso + every body sphere/cone inherit it.
+  applyFresnelRim(bodyMat, def.apexSeam || def.eye);
   const hornMat = new THREE.MeshStandardMaterial({
     color: def.horn, emissive: 0x6b3400, emissiveIntensity: 0.22, roughness: 0.24,
   });
