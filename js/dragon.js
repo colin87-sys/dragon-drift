@@ -23,6 +23,8 @@ let head = null;
 let tailSegs = [];
 let tailFins = [];        // apex deployable tail-fin groups (empty for every other dragon)
 let tailDeploy = 0.82;    // deploy factor: cruise 0.82 · boost 1.0 · Surge 1.08
+let bodySegs = null;      // segmented-wyrm body plates (lead-first travelling wave)
+let tailOrbiters = null;  // orbiting tail shards / ring fragments
 
 // Materials animated at runtime (boost glow / fever tint)
 let bodyMat = null;
@@ -99,6 +101,8 @@ export function createDragon(scene, def, riderDef) {
   ({ head, tailSegs, wingPivotL, wingPivotR, wingTipL, wingTipR,
      wingPivot2L, wingPivot2R, tipMarkerL, tipMarkerR } = result.parts);
   tailFins = result.parts.tailFins || [];
+  bodySegs = result.parts.bodySegs || null;
+  tailOrbiters = result.parts.tailOrbiters || null;
   ({ bodyMat, wingMat, eyeMat } = result.materials);
   auraSprite = result.auraSprite;
   coreGlow = result.parts.coreGlow;
@@ -264,6 +268,8 @@ export function disposeDragon() {
   group = null;
   wingPivot2L = null;
   wingPivot2R = null;
+  bodySegs = null;
+  tailOrbiters = null;
   ponyMeshes = [];
   trailSprites = [];
   boostTrailSprites = [];
@@ -408,6 +414,38 @@ export function updateDragon(dt, player, time) {
     // Rotation follows the wave direction so segments bank into the coil.
     tailSegs[i].rotation.z = damp(tailSegs[i].rotation.z, -waveX * 0.5, 12, dt);
     tailSegs[i].rotation.y = damp(tailSegs[i].rotation.y, waveX * 0.5, 12, dt);
+  }
+
+  // Segmented-wyrm body: a lead-first travelling wave. The lead plate leads; each
+  // plate behind trails with a phase lag, so the chain slithers in zero-g; turning
+  // bends it (lead first, rear dragging), speed adds a faint whip.
+  if (bodySegs) {
+    const lag = (activeDef.model.segmentLag ?? 0.14) * 7;
+    const sway = activeDef.model.segmentSway ?? 0.16;
+    const bob = activeDef.model.segmentBob ?? 0.08;
+    for (let i = 0; i < bodySegs.length; i++) {
+      const ph = time * 2.2 - i * lag;
+      const drag = -player.velocity.x * 0.012 * i;     // rear plates drag into the turn
+      const wx = Math.sin(ph) * sway + drag;
+      const wy = (bodySegs[i].userData.baseY ?? 0.5) + Math.cos(ph * 0.85) * bob;
+      bodySegs[i].position.x = damp(bodySegs[i].position.x, wx, 9, dt);
+      bodySegs[i].position.y = damp(bodySegs[i].position.y, wy, 9, dt);
+      bodySegs[i].rotation.z = damp(bodySegs[i].rotation.z, -Math.sin(ph) * 0.18 - player.velocity.x * 0.004 * i, 10, dt);
+      bodySegs[i].rotation.y = damp(bodySegs[i].rotation.y, Math.sin(ph) * 0.1, 10, dt);
+    }
+  }
+  // Orbiting tail relics: boost tightens the orbit + aligns with speed; Surge
+  // flares it wide. Rings (baseRadius 0) just spin; their Surge flare is emissive.
+  if (tailOrbiters) {
+    const tighten = player.feverActive ? 1.4 : player.boosting ? 0.74 : 1;
+    for (const o of tailOrbiters) {
+      o.ang += dt * o.speed;
+      o.radius = damp(o.radius, o.baseRadius * tighten, 4, dt);
+      o.mesh.position.x = Math.cos(o.ang) * o.radius;
+      o.mesh.position.z = Math.sin(o.ang) * o.radius * o.flat;
+      o.mesh.position.y = o.baseY + Math.sin(time * 1.6 + o.ang) * 0.05;
+      if (o.spin) o.mesh.rotation.y = time * 1.2;
+    }
   }
 
   // Eternal tail DEPLOYMENT: the apex stabilizers ride a deploy factor by flight
