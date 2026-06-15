@@ -8,7 +8,7 @@ import { ui } from './ui.js';
 // (never the gameplay popups), each shown once ever, none after the second
 // run. Teaches by timing, not by wall of text.
 
-const BIT = { steer: 1, boost: 2, perfect: 4, gauntlet: 8, glide: 16 };
+const BIT = { steer: 1, boost: 2, perfect: 4, gauntlet: 8, glide: 16, surge: 32, phase: 64 };
 
 const isTouch = () =>
   (globalThis.matchMedia && matchMedia('(pointer: coarse)').matches) ||
@@ -47,6 +47,21 @@ export function initHints() {
     if (!eligible() || active || seen(BIT.gauntlet)) return;
     show(BIT.gauntlet, 'FOLLOW THE EMBERS through the corridor', 3.5);
   });
+  // Surge teaches the phase move (not run-gated — Surge may first happen later).
+  // Soft intro at Surge start plants the idea before the high-pressure wall.
+  on('surge', () => {
+    if (active || seen(BIT.surge)) return;
+    show(BIT.surge, isTouch()
+      ? 'SURGE! You can smash through walls — flick to roll'
+      : 'SURGE! You can smash through walls — double-tap A/D to roll', 4);
+  });
+  // Imminent first Surge wall: urgent coaching during the slow-mo dilation. The
+  // phase itself is no-fail the first time (collision.js demos it), so this is a
+  // prompt, not a death threat. Overrides any active hint; gated by phaseTaught.
+  on('surgeWallSlowMo', () => {
+    if (saveData.flags.phaseTaught) return;
+    show(BIT.phase, isTouch() ? 'FLICK to PHASE through!' : 'Double-tap A/D to PHASE!', 3);
+  });
 }
 
 export function updateHints(dt, player) {
@@ -72,9 +87,12 @@ export function updateHints(dt, player) {
 
   if (!eligible()) return;
 
+  const mouse = saveData.settings.mouseSteer;
   if (!seen(BIT.steer) && game.time > 1.2) {
-    show(BIT.steer, isTouch() ? 'DRAG anywhere to steer' : 'Steer with WASD or ARROWS', 5);
+    show(BIT.steer, isTouch() ? 'DRAG anywhere to steer'
+      : (mouse ? 'Steer: WASD / ARROWS — or hold LEFT-CLICK' : 'Steer with WASD or ARROWS'), 5);
   } else if (!seen(BIT.boost) && game.time > 8 && !boostedThisRun && !input.boost) {
-    show(BIT.boost, isTouch() ? 'HOLD a second finger to BOOST' : 'HOLD SPACE to boost', 5);
+    show(BIT.boost, isTouch() ? 'HOLD a second finger to BOOST'
+      : (mouse ? 'HOLD SPACE or RIGHT-CLICK to boost' : 'HOLD SPACE to boost'), 5);
   }
 }

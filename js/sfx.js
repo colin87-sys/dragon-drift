@@ -369,6 +369,26 @@ export const sfx = {
     tone({ freq: 520, end: 1040, dur: 0.16, type: 'triangle', vol: 0.13 });
     tone({ freq: 780, end: 1560, dur: 0.18, type: 'square', vol: 0.06, delay: 0.06 });
   },
+  // Surge phase-through. Minor = a quick crystalline CRACK (acknowledges the save
+  // without euphoria). Perfect = a bright shatter into a rising triumphant chord
+  // that climbs a pentatonic ladder with the phase streak (a dopamine "YES!").
+  phase(perfect = false, streak = 1) {
+    if (!perfect) {
+      noiseWhoosh({ from: 2600, to: 900, dur: 0.16, vol: 0.13, q: 1.4 });
+      tone({ freq: 660, end: 440, dur: 0.14, type: 'triangle', vol: 0.08 });
+      tone({ freq: 990, end: 700, dur: 0.1, type: 'square', vol: 0.04, delay: 0.04 });
+      return;
+    }
+    const PENTA = [0, 4, 7, 11, 14];
+    const step = PENTA[(streak - 1) % 5] + Math.floor((streak - 1) / 5) * 12;
+    const f = 740 * Math.pow(2, Math.min(step, 24) / 12);
+    // Bright shatter, then a low whoomp under a rising chord stack.
+    noiseWhoosh({ from: 5200, to: 1400, dur: 0.22, vol: 0.13, q: 2.4 });
+    tone({ freq: 130, end: 90, dur: 0.4, type: 'sawtooth', vol: 0.09 });
+    tone({ freq: f, end: f * 1.5, dur: 0.32, type: 'triangle', vol: 0.13, delay: 0.05 });
+    tone({ freq: f * 1.5, end: f * 2, dur: 0.34, type: 'square', vol: 0.08, delay: 0.11 });
+    tone({ freq: f * 2, end: f * 2.5, dur: 0.36, type: 'sine', vol: 0.06, delay: 0.17 });
+  },
   // Rising jingle when the combo crosses an intensity tier — higher tier,
   // higher pitch.
   comboUp(tier) {
