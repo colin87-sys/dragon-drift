@@ -268,10 +268,10 @@ export const DRAGONS = {
     ],
     forms: [
       // ── HATCHLING (T0) ── tiny smooth night dart, plasma dormant. No chevrons,
-      // no tail fin, stubby wings, dim grey-cyan. Drama ≈ 25%.
-      { wingForm: 0, tailStyle: 'simple',
-        bodyScale: 0.65, wingSpan: 0.85, wingChord: 0.92, tailLength: 0.78,
-        tailFinScale: 0, tailFinSpread: 0, dorsalGlowCount: 0,
+      // a tapered stem + small dark spade tip, stubby wings, dim grey-cyan. ~25%.
+      { wingForm: 0, tailStyle: 'spade',
+        bodyScale: 0.65, wingSpan: 0.85, wingChord: 0.92, tailLength: 0.80,
+        tailFinScale: 0, tailFinSpread: 0, dorsalGlowCount: 0, tailGlowSegs: 0,
         spineGlow: 0, glowIntensity: 0.25, particleRate: 0.30,
         wingOpacity: 0.93, wingPanelGlow: 0.10, previewScale: 0.75,
         eyeScale: 1.35, neckSegments: 5,
@@ -279,35 +279,38 @@ export const DRAGONS = {
           wingEmissive: 0x2a4a5a, scales: 0x18202c, horn: 0x2a3848,
           eye: 0x4a8a9a, apexSeam: 0x3a5560, coreGlow: 0x223540 } },
       // ── KINDLED (T1) ── electric-cyan plasma ignites: ear frills, a faint
-      // chevron line, a finlet on the tail. Drama ≈ 45%.
-      { wingForm: 1, tailStyle: 'finned', earTendrils: true,
+      // chevron line continuing onto the tail, and the first SPLIT tail-fin
+      // identity (two flared finlets + side-fin hints). Drama ≈ 45%.
+      { wingForm: 1, tailStyle: 'splitfin', earTendrils: true,
         bodyScale: 0.82, wingSpan: 0.95, wingChord: 0.96, tailLength: 0.90,
-        tailFinScale: 0.5, tailFinSpread: 0, dorsalGlowCount: 6,
+        tailFinScale: 0.62, tailFinSpread: 0, dorsalGlowCount: 6, tailGlowSegs: 3,
         spineGlow: 0.45, glowIntensity: 0.55, particleRate: 0.55,
         wingOpacity: 0.87, wingPanelGlow: 0.13, previewScale: 0.88,
         eyeScale: 1.32,
         colors: { body: 0x0a0d12, wingInner: 0x182334, wingOuter: 0x0e1622,
           wingEmissive: 0x59d8ff, scales: 0x223044, horn: 0x33506a,
           eye: 0x59d8ff, apexSeam: 0x59d8ff, coreGlow: 0x4aa3ff } },
-      // ── RADIANT (T2 · 100% baseline) ── full body, full single swept tail-fin,
-      // an 8-chevron dorsal line, cyan-edged wings, plasma veins + glow seams.
-      // Looks good — but the Eternal must read as obviously beyond it. Drama 70%.
-      { wingForm: 2, tailStyle: 'tailfin', earTendrils: true,
+      // ── RADIANT (T2 · 100% baseline) ── full body, a proper stealth-RUDDER tail
+      // (two swept layered fins + central rudder), an 8-chevron body line + 6 tail
+      // segments, cyan-edged wings, plasma veins + glow seams. Looks good — but the
+      // Eternal must read as obviously beyond it. Drama 70%.
+      { wingForm: 2, tailStyle: 'stealthrudder', earTendrils: true,
         bodyScale: 1.00, wingSpan: 1.00, wingChord: 1.00, tailLength: 1.00,
-        tailFinScale: 1.00, tailFinSpread: 1.00, dorsalGlowCount: 8,
+        tailFinScale: 1.00, tailFinSpread: 1.00, dorsalGlowCount: 8, tailGlowSegs: 6,
         spineGlow: 0.75, glowIntensity: 1.00, particleRate: 1.00,
         wingOpacity: 0.82, wingPanelGlow: 0.15, previewScale: 1.00,
         wingVeins: true, glowSeams: true, wingEdgeGlow: true,
         colors: { body: 0x0a0d12, wingInner: 0x182334, wingOuter: 0x0e1828,
           wingEmissive: 0x59d8ff, scales: 0x273052, horn: 0x3a5a78,
           eye: 0x8be9ff, apexSeam: 0x59d8ff, coreGlow: 0x59d8ff } },
-      // ── ETERNAL (T3 · the apex) ── the dramatic rear-silhouette change:
-      // markedly bigger, wider deeper wings with wingtip winglets, an 11-chevron
-      // blazing dorsal line, subtle hip fins, and the signature TWIN swept tail
-      // STABILIZERS (canted down & outward + a central rudder). Drama 100%.
-      { wingForm: 3, tailStyle: 'twinstab', earTendrils: true,
-        bodyScale: 1.20, wingSpan: 1.10, wingChord: 1.12, tailLength: 1.12,
-        tailFinScale: 1.60, tailFinSpread: 1.55, dorsalGlowCount: 11,
+      // ── ETERNAL (T3 · the apex) ── the dramatic rear-silhouette change: markedly
+      // bigger, wider deeper wings with wingtip winglets, an 11-chevron body line
+      // flowing into 10 tail segments, subtle hip fins, and the signature apex
+      // stealth-tail ASSEMBLY — two large swept layered stabilizers (anhedral) +
+      // micro support fins + a tall central rudder on a long stem. Drama 100%.
+      { wingForm: 3, tailStyle: 'apexstealth', earTendrils: true,
+        bodyScale: 1.20, wingSpan: 1.10, wingChord: 1.12, tailLength: 1.14,
+        tailFinScale: 1.50, tailFinSpread: 1.55, dorsalGlowCount: 11, tailGlowSegs: 10,
         spineGlow: 1.00, glowIntensity: 1.30, particleRate: 1.80,
         wingOpacity: 0.78, wingPanelGlow: 0.17, previewScale: 1.12,
         wingVeins: true, glowSeams: true, wingEdgeGlow: true,
