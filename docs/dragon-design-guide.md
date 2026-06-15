@@ -85,7 +85,7 @@ it and you get the default (the common drake).
 |---|---|---|---|
 | `torso` | `arrow` · `serpent` · `avian` · `segmentedWyrm` | `arrow` | body plan: arrowhead drake · long eastern serpent · firebird egg-body · **floating crystal vertebrae** (the centipede-wyrm) |
 | `wings` | `membrane` · `feather` · `sideFins` · `none` | `membrane` | bat membrane · bird feathers · **lateral astral vanes** · wingless |
-| `tail`  | *(set a `tailStyle`, see below)* · `plume` · `orbitSpines` · `legacy` | `clean` | `clean` auto-dispatches ~11 styles; `plume` = flame fan; **`orbitSpines` = orbiting shard/ring relics** |
+| `tail`  | *(set a `tailStyle`, see below)* · `plume` · `cometWake` · `legacy` | `clean` | `clean` auto-dispatches ~11 styles; `plume` = flame fan; **`cometWake` = a streaming comet glow-trail (sprites + lateral spark debris, low + behind)** |
 | `head`  | `horned` · `beaked` · `celestialMask` | `horned` | reptilian (horns/whiskers/tusks) · avian (hooked beak + crown) · **regal faceplate + crown/halo** |
 
 ```js
@@ -283,12 +283,22 @@ the part system doesn't fully abstract, so plan for a small, clean addition:
 
 **Worked reference: the Astral Centipede Wyrm** (`astralWyrm`) — a fully novel
 body plan built entirely from new parts (`segmentedWyrm` / `sideFins` /
-`orbitSpines` / `celestialMask`) plus exactly those two rig hooks (`bodySegs`
-travelling wave, `tailOrbiters` orbit). It also extends the attach contract with
-`segmentAnchors` + `sideFinRoots(side, i)` so the fins mount along the chain, and
-**spends ~80% of the tri budget at the apex** (the density climb across the four
-forms *is* the unlock reward). Read those four modules end-to-end as the template
-for an ambitious creature.
+`cometWake` / `celestialMask`) plus the `bodySegs` rig hook (a lead-first
+travelling wave retuned into a *horizontal slither* — lateral-dominant, the wave
+amplitude ramping front→tail so the head/saddle stays calm and the tail whips). It
+extends the attach contract with `segmentAnchors` + `sideFinRoots(side, i)` (the
+fins mount along the chain) and **`riderSocket`** (the celestial saddle in the
+front third), and **spends ~80% of the tri budget at the apex** (the density climb
+across the four forms *is* the unlock reward).
+
+It is also the **playability exemplar** (§0.5): a long creature whose tail swings
+near the chase camera, so it's deliberately kept *low-profile* — a head-led chain
+that descends gently back-and-down (no vertical arch), a crown + brow-horns raked
+hard back, side fins rolled flat-and-out (not up), and the comet wake built almost
+entirely from uncounted sprites with its only counted debris flung wide to the
+lower-left/right. That's what drops it from a `FAIL` (vertical tower over the head)
+to a clean Solar-class `WARN`. Read those four modules + the §0.5 reworks
+end-to-end as the template for an ambitious creature.
 
 ---
 
