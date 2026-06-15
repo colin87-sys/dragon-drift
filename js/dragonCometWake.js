@@ -67,38 +67,21 @@ function buildCometWake(def, model, mats, anchor) {
   headGlow.layers.set(1);
   group.add(headGlow);
 
-  // Lateral SPARK DEBRIS — faceted crystal shards thrown off to the lower-left and
-  // lower-right of the wake (§0.5: decorative FX offset to the SIDES, never into
-  // the central sight-line). These are counted geometry, but sit well outside the
-  // central column + low + behind, so they enrich the SSSR finish — a shattering
-  // comet of starstuff — without ever touching the silhouette metric. Grows per form.
-  const shardMat = new THREE.MeshStandardMaterial({
-    color: def.body, emissive: cCore, emissiveIntensity: (0.8 + F * 0.5) * giM,
-    roughness: 0.28, metalness: 0.55, flatShading: true,
-  });
-  shardMat.userData.baseEmissive = cCore;
-  shardMat.userData.baseIntensity = (0.8 + F * 0.5) * giM;
-  accentMats.push(shardMat);
-  const debrisN = wisps + 2;
-  for (let i = 0; i < debrisN; i++) {
-    const side = i % 2 ? 1 : -1;
-    const row = Math.floor(i / 2);
-    const shard = new THREE.Mesh(new THREE.OctahedronGeometry(1, 1), shardMat);
-    const s = (0.18 - row * 0.022) * bodyScale;
-    shard.scale.set(s, s * 0.7, s * 1.9);             // faceted sliver
-    shard.position.set(
-      side * (1.7 + row * 0.55) * bodyScale,          // well OUT to the sides (clear of the central column)
-      -0.12 - row * 0.14 * len,                        // a touch low
-      dz * (0.05 + row * 0.22));                        // hugging the wake, not reaching the camera
-    shard.rotation.set(0.3 * i, 0.7 * i, 0.2 * i);    // deterministic scatter
-    group.add(shard);
-    // A bright inner glint so each shard reads as living crystal in the bloom.
-    const glint = new THREE.Sprite(new THREE.SpriteMaterial({
-      map: seamTex, transparent: true, opacity: 0.55, blending: THREE.AdditiveBlending, depthWrite: false }));
-    glint.scale.setScalar(s * 3.2);
-    glint.position.copy(shard.position);
-    glint.layers.set(1);
-    group.add(glint);
+  // Faint twin spark-streaks riding just inside the wake (additive sprites only —
+  // no detached debris), so the trail reads as a clean comet of light rather than
+  // floating bits. They hug the wake centreline and fade out behind.
+  const sparkN = wisps + 1;
+  for (let i = 0; i < sparkN; i++) {
+    const t = i / sparkN;
+    for (const side of [-1, 1]) {
+      const spark = new THREE.Sprite(new THREE.SpriteMaterial({
+        map: seamTex, transparent: true, opacity: 0.4 * (1 - t * 0.7),
+        blending: THREE.AdditiveBlending, depthWrite: false }));
+      spark.scale.setScalar((0.32 - t * 0.12) * bodyScale * (0.9 + len * 0.3));
+      spark.position.set(side * 0.16 * bodyScale * (1 + t), dy * (i + 1) * 0.9, dz * (i + 1) * 0.85);
+      spark.layers.set(1);
+      group.add(spark);
+    }
   }
 
   return { group, segs: [], tailFins: null, accentMats, orbiters: [] };
