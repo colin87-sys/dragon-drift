@@ -1,4 +1,4 @@
-// Save compatibility: a verbatim v1 production blob boots into v2 with every
+// Save compatibility: a verbatim v1 production blob boots into v3 with every
 // legacy value preserved and every new field at its default. A corrupt blob
 // must never block boot.
 import { boot, check } from './browser.mjs';
@@ -23,7 +23,7 @@ const V1_BLOB = {
   });
   const s = await page.evaluate(() => window.__dd.save);
   check('boots a v1 blob with zero errors', errors.length === 0) || console.error(errors.join('\n'));
-  check('version stamped to 2', s.v === 2);
+  check('version stamped to 3', s.v === 3);
   check('legacy embers preserved', s.embers === 777);
   check('legacy level preserved', s.level === 3);
   check('legacy best preserved', s.best.score === 4321 && s.best.dist === 2100);
@@ -53,7 +53,7 @@ const V1_BLOB = {
     initScript: `localStorage.setItem('dragonDriftSave', '{"v":2,"embers":###corrupt')`,
   });
   const v = await page.evaluate(() => window.__dd.save.v);
-  check('corrupt blob still boots', errors.length === 0 && v === 2) || console.error(errors.join('\n'));
+  check('corrupt blob still boots', errors.length === 0 && v === 3) || console.error(errors.join('\n'));
   await done();
 }
 

@@ -31,7 +31,7 @@ import { emit } from './events.js';
 import { initMissions, settleMissions } from './missions.js';
 import { setAmbientQuality } from './ambient.js';
 import { initRecords, settleRecords } from './records.js';
-import { initFeats, settleFeats } from './feats.js';
+import { initFeats, settleFeats, claimFeat } from './feats.js';
 import { settleWeekly } from './weekly.js';
 import { settleMilestones, settleMasteryStars } from './milestones.js';
 import { grantTitle, levelTitleId, grantEarnedLevelTitles } from './titles.js';
@@ -139,7 +139,7 @@ function triggerSetPiece(sp) {
 const debugFever = urlParams.get('debug') === 'fever';
 if (urlParams.has('debug')) {
   window.__dd = {
-    renderer, game, player, save: saveData, emit, ui,
+    renderer, game, player, save: saveData, emit, ui, claimFeat,
     juice: { hitstop, juiceEvent },
     postfx: { setPostTier, kick, kickState, handle: postfx },
   };
