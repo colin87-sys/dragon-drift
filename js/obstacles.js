@@ -6,14 +6,85 @@ import { biomeIndexAt } from './biomes.js';
 //   pillar — floor spike (health damage)
 //   shard  — floating octahedron, optionally oscillating ("dynamic") (damage)
 //   bar    — horizontal beam spanning the lane (damage)
-//   gate   — crystal wall with a hole on the flight path (FATAL on contact)
+//   gate   — a Phase Gate: a translucent magical veil spanning the lane with a
+//            clearly-framed opening on the flight path (FATAL on contact, or
+//            roll-phaseable during a Surge). Biome-adaptive (see PHASE_SKINS).
 // Each entry doubles as its own collider; `colliders` is consumed by collision.js.
-// Body materials are biome-keyed (verdigris stone / sandstone / ice); warning
-// and gate materials stay constant across biomes for readability.
+// Body materials are biome-keyed (verdigris stone / sandstone / ice); the Phase
+// Gate is skinned per biome too — same shape language, biome-tinted veil + glow.
 let scene = null;
 let mats = null;
+// Phase Gate shared materials, one per biome (built in initObstacles).
+let veilMats = null; // translucent fresnel membrane
+let edgeMats = null; // bright aperture ring + corner brackets (visual hierarchy #1)
+let rimMats = null;  // dim outer silhouette frame (secondary)
 const entries = [];
 export const colliders = entries; // same objects, same array
+
+// Per-biome Phase Gate skin: same gameplay/shape, biome-tinted presentation.
+// Colours track each biome's signature accents; `rise` biases the mote drift
+// (ember/spore rise, frost settles, astral hovers).
+const PHASE_SKINS = [
+  { veil: 0x3fd9a8, edge: 0x6ce4ff, core: 0x9ffff0, mote: 0x8fe9ff, rise:  0.4 }, // 0 Sanctuary — ethereal cyan-teal
+  { veil: 0xffcf96, edge: 0xffb347, core: 0xfff0c8, mote: 0xffd98a, rise:  0.2 }, // 1 Wastes — gold mirage
+  { veil: 0xbfe8ff, edge: 0x9fd8f0, core: 0xffffff, mote: 0xd6f3ff, rise: -0.4 }, // 2 Frozen — frost
+  { veil: 0xff8a44, edge: 0xff6a24, core: 0xffd0a0, mote: 0xff8a3a, rise:  0.9 }, // 3 Caldera — ember rift
+  { veil: 0x6effc8, edge: 0x4dffd0, core: 0xcfffd8, mote: 0xaaffc0, rise:  0.7 }, // 4 Mire — spore veil
+  { veil: 0x8a6aff, edge: 0x9fb8ff, core: 0xd8c8ff, mote: 0xb9a8ff, rise:  0.05 }, // 5 Astral — cosmic violet
+];
+
+// Fresnel veil: a magical membrane that is MOST transparent viewed head-on (so
+// the player sees rings/hazards/lane straight through it while planning), and
+// only catches light along its grazing silhouette edges. Alpha is hard-capped
+// at 0.30 so it can never blind the route ahead. Unlit + cheap.
+function makeVeilMat(color, edge) {
+  return new THREE.ShaderMaterial({
+    uniforms: {
+      uTime: { value: 0 },
+      uColor: { value: new THREE.Color(color) },
+      uEdge: { value: new THREE.Color(edge) },
+      uAlpha: { value: 0.6 },
+    },
+    vertexShader: `
+      varying vec3 vN; varying vec3 vView; varying vec3 vPos;
+      void main() {
+        vec4 mv = modelViewMatrix * vec4(position, 1.0);
+        vView = -mv.xyz;
+        vN = normalMatrix * normal;
+        vPos = position;
+        gl_Position = projectionMatrix * mv;
+      }`,
+    fragmentShader: `
+      uniform float uTime; uniform vec3 uColor; uniform vec3 uEdge; uniform float uAlpha;
+      varying vec3 vN; varying vec3 vView; varying vec3 vPos;
+      void main() {
+        vec3 N = normalize(vN);
+        vec3 V = normalize(vView);
+        float fres = pow(1.0 - clamp(dot(N, V), 0.0, 1.0), 3.0);
+        float band = sin((vPos.y * 0.5 + vPos.x * 0.3) - uTime * 1.5);
+        float shimmer = 0.85 + 0.15 * band;
+        float a = clamp(uAlpha * (0.30 + 0.70 * fres) * shimmer, 0.0, 0.30);
+        vec3 col = mix(uColor, uEdge, clamp(fres * 0.85, 0.0, 1.0));
+        col += uEdge * max(0.0, band) * 0.12;
+        gl_FragColor = vec4(col, a);
+      }`,
+    transparent: true,
+    depthWrite: false,
+    side: THREE.FrontSide,
+    blending: THREE.NormalBlending,
+  });
+}
+
+// Emissive glow line for the frame/ring/brackets — blooms in postfx.
+function makeEdgeMat(color, intensity) {
+  return new THREE.MeshStandardMaterial({
+    color: 0x0a0a12,
+    emissive: new THREE.Color(color),
+    emissiveIntensity: intensity,
+    roughness: 0.4,
+    metalness: 0,
+  });
+}
 
 export function initObstacles(s) {
   scene = s;
@@ -36,27 +107,11 @@ export function initObstacles(s) {
       emissive: 0xff5a47,
       emissiveIntensity: 0.9,
     }),
-    // Gate panels lean violet so they never read as orbs or score rings.
-    gate: new THREE.MeshStandardMaterial({
-      color: 0x9d9aec,
-      transparent: true,
-      opacity: 0.68,
-      roughness: 0.2,
-      emissive: 0x3a2c66,
-      emissiveIntensity: 0.7,
-    }),
-    frame: new THREE.MeshStandardMaterial({
-      color: 0x55e0ff,
-      emissive: 0x2299cc,
-      emissiveIntensity: 1.2,
-    }),
-    // Coral warning frame: lethal-edge cue around the safe window.
-    warnFrame: new THREE.MeshStandardMaterial({
-      color: 0xff7449,
-      emissive: 0xdd3322,
-      emissiveIntensity: 1.1,
-    }),
   };
+  // Phase Gate skins, one material set per biome.
+  veilMats = PHASE_SKINS.map((s) => makeVeilMat(s.veil, s.edge));
+  edgeMats = PHASE_SKINS.map((s) => makeEdgeMat(s.edge, 1.4));
+  rimMats = PHASE_SKINS.map((s) => makeEdgeMat(s.edge, 0.5));
 }
 
 export function addObstacle(o) {
@@ -79,22 +134,36 @@ export function addObstacle(o) {
   entries.push(e);
 }
 
-// A translucent crystal wall spanning the lane with a rectangular opening.
-// The hole is outlined with a RECTANGULAR glow frame — deliberately not a
-// circle, so it can't be mistaken for a score ring. The wall itself is fatal.
+// A biome-adaptive Phase Gate: a translucent fresnel veil spanning the lane
+// around a clearly-framed rectangular opening. Layered per the design spec —
+//   1. outer silhouette frame (dim, reads from afar)
+//   2. bright aperture ring + corner brackets (the clearest "fly here" cue)
+//   3. translucent veil membrane (most transparent head-on; never blocks view)
+//   4. reactive FX: core-glow locator, long-range beacon, drifting motes
+// Veil/ring/rim materials are shared per biome; core/beacon/motes are
+// per-instance (marked so removeAt disposes them).
 function buildGate(o) {
   const group = new THREE.Group();
-  const T = 1.6; // wall thickness
-  const X = 16; // wall half-span
+  const bi = biomeIndexAt(o.dist);
+  const skin = PHASE_SKINS[bi];
+  const veilMat = veilMats[bi];
+  const edgeMat = edgeMats[bi];
+  const rimMat = rimMats[bi];
+
+  const T = 1.2; // veil thickness (thin so the side faces read as a glowing rim)
+  const X = 16; // veil half-span
   const TOP = 24;
   const left = o.gapX - o.gapW;
   const right = o.gapX + o.gapW;
   const bottom = o.gapY - o.gapH;
   const top = o.gapY + o.gapH;
+  const W = o.gapW * 2;
+  const H = o.gapH * 2;
 
+  // Layer 3 — translucent phase field (veil panels around the aperture).
   const panel = (w, h, cx, cy) => {
     if (w <= 0.1 || h <= 0.1) return;
-    const mesh = new THREE.Mesh(new THREE.BoxGeometry(w, h, T), mats.gate);
+    const mesh = new THREE.Mesh(new THREE.BoxGeometry(w, h, T), veilMat);
     mesh.position.set(cx, cy, 0);
     group.add(mesh);
   };
@@ -103,53 +172,84 @@ function buildGate(o) {
   panel(right - left, TOP - top, o.gapX, (top + TOP) / 2); // above gap
   panel(right - left, bottom, o.gapX, bottom / 2); // below gap
 
-  const edge = (w, h, cx, cy, mat = mats.frame, z = 0) => {
-    const mesh = new THREE.Mesh(new THREE.BoxGeometry(w, h, 0.35), mat);
+  const bar = (w, h, cx, cy, mat, z) => {
+    const mesh = new THREE.Mesh(new THREE.BoxGeometry(w, h, 0.3), mat);
     mesh.position.set(cx, cy, z);
     group.add(mesh);
   };
-  const W = o.gapW * 2;
-  const H = o.gapH * 2;
-  edge(W + 0.6, 0.42, o.gapX, top + 0.21); // top edge
-  edge(W + 0.6, 0.42, o.gapX, bottom - 0.21); // bottom edge
-  edge(0.42, H + 0.6, left - 0.21, o.gapY); // left edge
-  edge(0.42, H + 0.6, right + 0.21, o.gapY); // right edge
 
-  // Coral outer warning frame on the approach side: "this edge kills".
-  // Sits proud of the wall (local +z, toward the incoming player).
-  const M = 0.85; // outward margin from the cyan frame
-  edge(W + 2 * M + 0.5, 0.36, o.gapX, top + M, mats.warnFrame, 1.2);
-  edge(W + 2 * M + 0.5, 0.36, o.gapX, bottom - M, mats.warnFrame, 1.2);
-  edge(0.36, H + 2 * M + 0.5, left - M, o.gapY, mats.warnFrame, 1.2);
-  edge(0.36, H + 2 * M + 0.5, right + M, o.gapY, mats.warnFrame, 1.2);
+  // Layer 1 — outer silhouette frame: a slim, dim glowing rim around the whole
+  // span so the gate reads as an intentional portal from a distance (secondary
+  // in the hierarchy, hence rimMat's lower emissive).
+  bar(2 * X, 0.3, 0, TOP - 0.15, rimMat, 0.15);
+  bar(2 * X, 0.3, 0, 0.15, rimMat, 0.15);
+  bar(0.3, TOP, -X + 0.15, TOP / 2, rimMat, 0.15);
+  bar(0.3, TOP, X - 0.15, TOP / 2, rimMat, 0.15);
 
-  // Window pane: a faint additive fill of the OPENING so the gap is easy to
-  // locate and aim for from any altitude — including when you're above the wall
-  // looking down at it. Low opacity so you still see straight through it.
-  const winMat = new THREE.MeshBasicMaterial({
-    color: 0x6ce4ff, transparent: true, opacity: 0.15, depthWrite: false,
+  // Layer 2 — aperture ring: the brightest element, framing the safe route.
+  bar(W + 0.7, 0.5, o.gapX, top + 0.25, edgeMat, 0.3);
+  bar(W + 0.7, 0.5, o.gapX, bottom - 0.25, edgeMat, 0.3);
+  bar(0.5, H + 0.7, left - 0.25, o.gapY, edgeMat, 0.3);
+  bar(0.5, H + 0.7, right + 0.25, o.gapY, edgeMat, 0.3);
+  // Corner brackets (viewfinder cue) opening toward the centre of the gap.
+  const legLen = 1.2;
+  const gap = 0.75;
+  for (const sx of [-1, 1]) {
+    for (const sy of [-1, 1]) {
+      const cx = o.gapX + sx * (o.gapW + gap);
+      const cy = o.gapY + sy * (o.gapH + gap);
+      bar(legLen, 0.34, cx - sx * legLen / 2, cy, edgeMat, 0.5); // horizontal leg
+      bar(0.34, legLen, cx, cy - sy * legLen / 2, edgeMat, 0.5); // vertical leg
+    }
+  }
+
+  // Layer 4 — core-glow locator: a faint additive fill of the OPENING so the
+  // safe route is easy to find from any altitude. Per-instance (approach-lit).
+  const coreMat = new THREE.MeshBasicMaterial({
+    color: skin.core, transparent: true, opacity: 0, depthWrite: false,
     blending: THREE.AdditiveBlending, side: THREE.DoubleSide,
   });
-  const win = new THREE.Mesh(new THREE.PlaneGeometry(W, H), winMat);
-  win.position.set(o.gapX, o.gapY, 0.45);
-  win.layers.set(1); // out of the water reflection, like the beacon
-  group.add(win);
+  coreMat.userData.perInstance = true;
+  const core = new THREE.Mesh(new THREE.PlaneGeometry(W, H), coreMat);
+  core.position.set(o.gapX, o.gapY, 0.12);
+  core.layers.set(1); // out of the water reflection
+  group.add(core);
+  group.userData.core = core;
 
-  // Beacon column: a tall additive light pillar above the gap — visible
-  // through fog and bloom well beyond the wall.
+  // Layer 4 — long-range beacon: a tall biome-tinted light pillar above the
+  // gap, visible through fog/bloom from far away (telegraphs the route early).
   const beaconMat = new THREE.MeshBasicMaterial({
-    color: 0x55e0ff,
-    transparent: true,
-    opacity: 0,
-    depthWrite: false,
-    blending: THREE.AdditiveBlending,
-    side: THREE.DoubleSide,
+    color: skin.edge, transparent: true, opacity: 0, depthWrite: false,
+    blending: THREE.AdditiveBlending, side: THREE.DoubleSide,
   });
-  const beacon = new THREE.Mesh(new THREE.PlaneGeometry(W, 60), beaconMat);
-  beacon.position.set(o.gapX, top + 30, 0.5);
+  beaconMat.userData.perInstance = true;
+  const beacon = new THREE.Mesh(new THREE.PlaneGeometry(W * 0.7, 60), beaconMat);
+  beacon.position.set(o.gapX, top + 30, 0.3);
   beacon.layers.set(1); // hidden from water reflection
   group.add(beacon);
   group.userData.beacon = beacon;
+
+  // Layer 4 — sparse drifting motes for life (tertiary; one shared material per
+  // gate, animated in updateObstacles). Tiny additive quads, kept low-density.
+  const moteMat = new THREE.MeshBasicMaterial({
+    color: skin.mote, transparent: true, opacity: 0, depthWrite: false,
+    blending: THREE.AdditiveBlending, side: THREE.DoubleSide,
+  });
+  moteMat.userData.perInstance = true;
+  const moteGeo = new THREE.PlaneGeometry(0.45, 0.45);
+  const motes = [];
+  for (let i = 0; i < 7; i++) {
+    const m = new THREE.Mesh(moteGeo, moteMat);
+    const mx = o.gapX + (Math.random() * 2 - 1) * (X * 0.7);
+    const my = 2 + Math.random() * (TOP - 4);
+    m.position.set(mx, my, 0.4);
+    m.userData = { baseX: mx, baseY: my, phase: Math.random() * Math.PI * 2, sp: 0.5 + Math.random() * 0.7 };
+    m.layers.set(1);
+    group.add(m);
+    motes.push(m);
+  }
+  group.userData.motes = motes;
+  group.userData.rise = skin.rise;
 
   group.position.z = -o.dist;
   return group;
@@ -159,8 +259,10 @@ export function updateObstacles(dt, time, playerDist, speedNorm = 0) {
   // Warning pulse on every moving shard (shared material, one write).
   mats.mover.emissiveIntensity = 0.9 + Math.sin(time * 6) * 0.45;
   const sn = Math.max(0, Math.min(1, speedNorm));
-  mats.warnFrame.emissiveIntensity = (1.1 + Math.sin(time * 4) * 0.35) * (1 + 0.8 * sn);
-  mats.frame.emissiveIntensity = 1.2 * (1 + 0.5 * sn);
+  // Phase Gate: flow the veil shimmer (shared per biome) and give the aperture
+  // ring a gentle, speed-aware breath. Six writes each — negligible.
+  for (const m of veilMats) m.uniforms.uTime.value = time;
+  for (const m of edgeMats) m.emissiveIntensity = (1.25 + Math.sin(time * 2.4) * 0.18) * (1 + 0.4 * sn);
 
   for (let i = entries.length - 1; i >= 0; i--) {
     const e = entries[i];
@@ -182,8 +284,8 @@ export function updateObstacles(dt, time, playerDist, speedNorm = 0) {
     } else if (e.type === 'bar') {
       e.object.rotation.x += dt * 0.5; // spin around its long axis
     } else if (e.type === 'gate') {
-      // Phase shatter: blow the wall apart (scale + spin) then hide it. Transform
-      // only — the gate material is shared across all gates, so we never touch it.
+      // Phase shatter: blow the gate apart (scale + spin) then hide it. Transform
+      // only — shared veil/ring materials are never touched here.
       if (e.shatterT > 0) {
         e.shatterT -= dt;
         const k = 1 - Math.max(e.shatterT, 0) / CONFIG.phaseShatterDur;
@@ -191,13 +293,27 @@ export function updateObstacles(dt, time, playerDist, speedNorm = 0) {
         e.object.rotation.z += dt * (e.shatterBig ? 6 : 3);
         if (e.shatterT <= 0) e.object.visible = false;
       }
-      const beacon = e.object.userData.beacon;
-      if (beacon) {
-        const dz = e.dist - playerDist;
-        // Fade in from 250m out, full brightness 120m out, off once passed.
+      const ud = e.object.userData;
+      const dz = e.dist - playerDist;
+      // Beacon: brightest far out, fades off as you arrive so it never blinds
+      // the route up close.
+      if (ud.beacon) {
         const alpha = Math.min(1, Math.max(0, (dz - 120) / 130));
         const pulse = 0.85 + Math.sin(time * 3) * 0.15;
-        beacon.material.opacity = alpha * 0.32 * pulse;
+        ud.beacon.material.opacity = alpha * 0.30 * pulse;
+      }
+      // Approach state: the core-glow locator and motes "wake up" as the gate
+      // nears, then ease back so they stay subtle at the threshold.
+      const appr = Math.min(1, Math.max(0, (200 - dz) / 150));
+      if (ud.core) ud.core.material.opacity = appr * 0.13 * (0.9 + 0.1 * Math.sin(time * 2.5));
+      if (ud.motes && ud.motes.length) {
+        ud.motes[0].material.opacity = appr * 0.5;
+        const rise = ud.rise || 0;
+        for (const m of ud.motes) {
+          const u = m.userData;
+          m.position.y = u.baseY + Math.sin(time * u.sp + u.phase) * (0.8 + rise * 0.8);
+          m.position.x = u.baseX + Math.cos(time * u.sp * 0.6 + u.phase) * 0.5;
+        }
       }
     }
   }
@@ -207,7 +323,11 @@ function removeAt(i) {
   const e = entries[i];
   scene.remove(e.object);
   e.object.traverse((m) => {
-    if (m.geometry) m.geometry.dispose(); // materials are shared
+    if (m.geometry) m.geometry.dispose();
+    // Most materials are shared (biome pools); only per-instance ones
+    // (gate core-glow / beacon / motes) are owned by this object and disposed.
+    const mat = m.material;
+    if (mat && mat.userData && mat.userData.perInstance) mat.dispose();
   });
   entries.splice(i, 1);
 }
