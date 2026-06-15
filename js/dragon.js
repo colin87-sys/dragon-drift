@@ -426,15 +426,24 @@ export function updateDragon(dt, player, time) {
     const lag = (activeDef.model.segmentLag ?? 0.14) * 7;
     const sway = activeDef.model.segmentSway ?? 0.16;
     const bob = activeDef.model.segmentBob ?? 0.08;
+    const last = Math.max(1, bodySegs.length - 1);
     for (let i = 0; i < bodySegs.length; i++) {
+      const tt = i / last;                              // 0 = lead/head → 1 = tail
+      const ramp = 0.18 + 0.95 * tt;                    // front (saddle) calm, tail whips widest
       const ph = time * 2.2 - i * lag;
-      const drag = -player.velocity.x * 0.012 * i;     // rear plates drag into the turn
-      const wx = Math.sin(ph) * sway + drag;
-      const wy = (bodySegs[i].userData.baseY ?? 0.5) + Math.cos(ph * 0.85) * bob;
+      const drag = -player.velocity.x * 0.012 * i;      // rear plates drag into the turn
+      // Horizontal SLITHER (§0.5): lateral sway dominates and the vertical bob is
+      // nearly gone, so the chain S-curves side to side like a serpent swimming
+      // through the air — it never bobs up into the sight-line.
+      const wx = Math.sin(ph) * sway * ramp + drag;
+      const wy = (bodySegs[i].userData.baseY ?? 0.5) + Math.sin(ph * 0.9) * bob * tt * 0.3;
       bodySegs[i].position.x = damp(bodySegs[i].position.x, wx, 9, dt);
       bodySegs[i].position.y = damp(bodySegs[i].position.y, wy, 9, dt);
-      bodySegs[i].rotation.z = damp(bodySegs[i].rotation.z, -Math.sin(ph) * 0.18 - player.velocity.x * 0.004 * i, 10, dt);
-      bodySegs[i].rotation.y = damp(bodySegs[i].rotation.y, Math.sin(ph) * 0.1, 10, dt);
+      // Yaw each plate to face along the S (cos = the wave's travel direction) so
+      // the body reads as following its own curve, not plates sliding sideways.
+      bodySegs[i].rotation.y = damp(bodySegs[i].rotation.y, Math.cos(ph) * 0.34 * ramp + player.velocity.x * 0.006, 10, dt);
+      // Gentle bank into the wave; rear plates lean more.
+      bodySegs[i].rotation.z = damp(bodySegs[i].rotation.z, -Math.sin(ph) * 0.12 * ramp - player.velocity.x * 0.004 * i, 10, dt);
     }
   }
   // Orbiting tail relics: boost tightens the orbit + aligns with speed; Surge

@@ -71,28 +71,32 @@ function buildCelestialMask(def, model, mats) {
     head.add(jewel);
   }
 
-  // Crown — a fan of raked celestial points rising off the brow, growing with the
-  // form. Tier 0 has none (a bare faceplate); the emperor tier fans wide.
+  // Crown — a fan of celestial points sweeping off the brow, growing with the
+  // form. Raked BACK over the neck and fanned WIDE (§0.5: a low regal crown that
+  // frames the head from the sides, never a tall spike towering over the aim
+  // point). Tier 0 has none (a bare faceplate); the emperor tier fans widest.
   const crownN = Math.round(crown * 6);          // 0 → 6 points
   for (let i = 0; i < crownN; i++) {
     const t = crownN > 1 ? (i / (crownN - 1)) * 2 - 1 : 0; // -1..1
-    const h = (0.5 + crown * 0.5) - Math.abs(t) * 0.18;
+    const h = (0.42 + crown * 0.4) - Math.abs(t) * 0.12;
     const spire = new THREE.Mesh(new THREE.ConeGeometry(0.05, h, 4), crownMat);
     spire.scale.z = 0.45;
-    spire.position.set(t * 0.34, 0.36 + h / 2 - Math.abs(t) * 0.08, 0.18);
-    spire.rotation.x = -0.5 + Math.abs(t) * 0.2; // rake back, fan out
-    spire.rotation.z = -t * 0.45;
+    spire.position.set(t * 0.52, 0.2 - Math.abs(t) * 0.05, 0.2);
+    spire.rotation.x = 1.0 + Math.abs(t) * 0.15;  // rake hard BACK over the neck (low profile)
+    spire.rotation.z = -t * 0.7;                  // fan wide to the sides
     head.add(spire);
   }
 
-  // Side brow projections (tier 1+) — short swept horns framing the mask.
+  // Side brow projections (tier 1+) — short swept horns framing the mask, laid
+  // out near-horizontal and raked back so they widen the silhouette to the sides
+  // instead of rising over the aim point (§0.5).
   if (tier >= 1) {
     for (const s of [-1, 1]) {
       const horn = new THREE.Mesh(new THREE.ConeGeometry(0.06, 0.5 + tier * 0.12, 4), crownMat);
       horn.scale.z = 0.5;
-      horn.position.set(0.34 * s, 0.18, 0.12);
-      horn.rotation.z = s * 1.0;
-      horn.rotation.x = -0.3;
+      horn.position.set(0.34 * s, 0.1, 0.12);
+      horn.rotation.z = s * 1.32;     // splay near-horizontal, out to the sides
+      horn.rotation.x = 0.5;          // rake back over the neck
       head.add(horn);
     }
   }
@@ -100,11 +104,11 @@ function buildCelestialMask(def, model, mats) {
   // Halo — a thin partial ring behind the head (tier 2+), a second fragment at
   // the emperor tier. A celestial crown of light, open at the bottom.
   for (let r = 0; r < Math.max(0, tier - 1); r++) {
-    const rr = 0.62 + r * 0.18;
+    const rr = 0.56 + r * 0.16;
     const halo = new THREE.Mesh(
       new THREE.TorusGeometry(rr, 0.03, 8, 40, Math.PI * 1.3), crownMat);
-    halo.position.set(0, 0.5, 0.28);
-    halo.rotation.x = 0.3;
+    halo.position.set(0, 0.34, 0.34);
+    halo.rotation.x = 0.6;                        // laid back behind the head, not standing tall
     halo.rotation.z = Math.PI - 0.65 - r * 0.1;  // open at the bottom
     head.add(halo);
   }

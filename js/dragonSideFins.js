@@ -92,11 +92,12 @@ function buildSideFins(def, model, attach, giM) {
       fin.scale.x = side;                       // mirror so the sail sweeps outward
       const holder = new THREE.Group();
       holder.add(fin);
-      // Lay the sail roughly horizontal, swept back and tilted up-and-out so it
-      // widens the silhouette from the rear camera.
+      // Lay the sail near-horizontal, swept back and spread FLAT out to the sides
+      // (a wide glider spread) so it widens the silhouette without rising above the
+      // head/aim line (§0.5: fins push out to the sides, not up).
       holder.rotation.y = side * (0.5 + sweep * 0.4);  // sweep back
-      holder.rotation.z = side * -0.5;                 // tilt up & out (anhedral-ish)
-      holder.rotation.x = 0.12;
+      holder.rotation.z = side * -1.28;                // roll flat-and-out (low spread)
+      holder.rotation.x = 0.04;
       holder.position.set(root.x, root.y - 0.5, root.z); // local to the pivot (pivot.y=0.5)
       pivot.add(holder);
     }

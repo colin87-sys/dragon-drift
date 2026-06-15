@@ -72,12 +72,17 @@ function buildSegmentedWyrmTorso(def, model, _bodyMat) {
   // Centre the chain around the body so head/tail anchors sit symmetrically.
   const z0 = -((N - 1) * spacing * bodyScale) / 2;
 
-  // Baseline ARC: the chain bows up over its length so, from the top-rear camera,
-  // the plates fan to different heights and the gaps between them read clearly
-  // (a straight chain into depth would just clump into a dark column). Ends sit at
-  // bodyY so the head + tail anchors stay level.
-  const arcH = leadHalf * 1.7 * bodyScale;
-  const yAt = (t) => bodyY + Math.sin(t * Math.PI) * arcH;
+  // Head-led LOW profile (§0.5 PLAYABILITY-FIRST): the lead plate sits just under
+  // the head and the chain sinks gently back-and-DOWN behind it — a slither that
+  // trails below the sight-line, never an arch that stacks mass over the head. The
+  // quadratic ease keeps the FRONT plates near-level (a stable saddle area) and
+  // lets the rear plates sink away into the comet wake.
+  // Gentle descent only — a LONG creature's rear swings close to the chase camera,
+  // so dropping it far there would loom huge + low in the frame. Keep the whole
+  // chain in a tight band just under the head; the comet wake (sprites) carries the
+  // long trailing-down drama instead of counted body geometry.
+  const sink = leadHalf * 0.55 * bodyScale;   // total descent, front → rear
+  const yAt = (t) => bodyY - 0.05 - t * t * sink;
 
   const bodySegs = [];
   const segmentAnchors = [];
@@ -98,21 +103,27 @@ function buildSegmentedWyrmTorso(def, model, _bodyMat) {
     // crest rides the back. Built rich so the apex chain reads as cut-jewel
     // vertebrae strung on light — worth the grind.
 
-    // Translucent beveled shell (the dark armored casing).
+    // Translucent beveled shell — built WIDER + LONGER than it is tall (§0.5: a
+    // low, horizontally-readable vertebra, not a tall diamond standing in the lane).
     const shell = new THREE.Mesh(new THREE.OctahedronGeometry(1, 1), shellMat);
-    shell.scale.set(size * 1.6, size * 1.4, size * 0.5);
+    shell.scale.set(size * 1.7, size * 0.92, size * 0.82);
     seg.add(shell);
-    // Bright faceted core crystal, glowing through the shell. Brightest at the lead.
-    const core = new THREE.Mesh(new THREE.OctahedronGeometry(1, 0), seamMat);
+    // Bright faceted core crystal, glowing through the shell. Brightest at the
+    // lead. A finely-cut gem (detail 1) with a small inner star nested in it, so
+    // the chain reads as living cut-jewel vertebrae from the rear camera.
+    const core = new THREE.Mesh(new THREE.OctahedronGeometry(1, 1), seamMat);
     const cs = size * (0.74 - i / N * 0.14);
-    core.scale.set(cs, cs * 1.1, cs * 0.62);
+    core.scale.set(cs, cs * 0.8, cs * 0.92);
     seg.add(core);
-    // Armor facets — four angular plates clasping the shell edges, catching the
+    const innerGem = new THREE.Mesh(new THREE.OctahedronGeometry(1, 0), vaneMat);
+    innerGem.scale.set(cs * 0.46, cs * 0.46, cs * 0.6);
+    seg.add(innerGem);
+    // Armor facets — six angular plates clasping the shell edges, catching the
     // fresnel rim as bright crystalline ridges.
-    for (let f = 0; f < 4; f++) {
-      const a = (f / 4) * Math.PI * 2 + Math.PI / 4;
+    for (let f = 0; f < 6; f++) {
+      const a = (f / 6) * Math.PI * 2 + Math.PI / 6;
       const facet = new THREE.Mesh(new THREE.OctahedronGeometry(1, 0), bodyMat);
-      facet.scale.set(size * 0.34, size * 0.9, size * 0.16);
+      facet.scale.set(size * 0.3, size * 0.85, size * 0.16);
       facet.position.set(Math.cos(a) * size * 1.05, Math.sin(a) * size * 0.85, 0);
       facet.rotation.z = a;
       seg.add(facet);
@@ -128,17 +139,18 @@ function buildSegmentedWyrmTorso(def, model, _bodyMat) {
         seg.add(spur);
       }
     }
-    // Finned dorsal crest — a raked vane + a thin glowing finlet riding the back,
-    // a constellation ridge marching down the chain.
-    const crest = new THREE.Mesh(new THREE.ConeGeometry(size * 0.15, size * 1.0, 4), vaneMat);
-    crest.scale.z = 0.4;
-    crest.position.set(0, size * 1.1, 0);
-    crest.rotation.x = -0.3;
+    // Dorsal crest — swept HARD back (not a vertical spike): a comet-raked sail
+    // that LENGTHENS the silhouette down the chain instead of stacking height over
+    // the sight-line. Low base + back-rake keeps it under the head line (§0.5).
+    const crest = new THREE.Mesh(new THREE.ConeGeometry(size * 0.16, size * 1.05, 4), vaneMat);
+    crest.scale.z = 0.42;
+    crest.position.set(0, size * 0.5, size * 0.34);
+    crest.rotation.x = 1.12;                 // rake the tip back along +z, barely rising
     seg.add(crest);
-    const finlet = new THREE.Mesh(new THREE.ConeGeometry(size * 0.07, size * 0.55, 4), seamMat);
-    finlet.scale.z = 0.3;
-    finlet.position.set(0, size * 1.45, -0.04);
-    finlet.rotation.x = -0.5;
+    const finlet = new THREE.Mesh(new THREE.ConeGeometry(size * 0.07, size * 0.6, 4), seamMat);
+    finlet.scale.z = 0.32;
+    finlet.position.set(0, size * 0.66, size * 0.5);
+    finlet.rotation.x = 1.25;
     seg.add(finlet);
 
     group.add(seg);
@@ -179,12 +191,44 @@ function buildSegmentedWyrmTorso(def, model, _bodyMat) {
 
   const leadZ = z0;
   const lastZ = z0 + (N - 1) * spacing * bodyScale;
+
+  // Rider SEAT in the front third (§0.5): a celestial saddle on the lead plate,
+  // just behind the head, where the slither stays calm (the wave amplitude ramps
+  // toward the tail). Published as attach.riderSocket so the rig seats the rider
+  // here, and built as real geometry so the seat reads under the rider.
+  const leadSize = sizes[0];
+  const riderSocket = {
+    x: 0,
+    y: yAt(0) + leadSize * 0.62,
+    z: leadZ + spacing * bodyScale * 0.28,
+  };
+  const saddle = new THREE.Group();
+  const seatR = leadSize * 0.5;
+  // A shallow cradle (open-topped) the rider sits in...
+  const cradle = new THREE.Mesh(
+    new THREE.CylinderGeometry(seatR, seatR * 1.12, seatR * 0.5, 10, 1, true, Math.PI * 0.16, Math.PI * 0.68),
+    vaneMat);
+  cradle.rotation.x = Math.PI;            // open side up
+  cradle.position.y = -seatR * 0.12;
+  saddle.add(cradle);
+  // ...flanked by two glowing pommel horns.
+  for (const sx of [-1, 1]) {
+    const pommel = new THREE.Mesh(new THREE.ConeGeometry(seatR * 0.22, seatR * 0.72, 4), seamMat);
+    pommel.position.set(sx * seatR * 0.72, seatR * 0.16, -seatR * 0.28);
+    pommel.rotation.z = sx * 0.22;
+    saddle.add(pommel);
+  }
+  saddle.position.set(riderSocket.x, riderSocket.y - seatR * 0.5, riderSocket.z);
+  group.add(saddle);
+
   const attach = {
-    // Head sits just ahead of the lead plate; tail just behind the last.
+    // Head sits just ahead of the lead plate; tail just behind the last — now LOW,
+    // where the descending chain ends and the comet wake streams on from there.
     headBase: { x: 0, y: bodyY + 0.04, z: leadZ - sizes[0] * 1.5 - 0.2 },
-    tailAnchor: { y: bodyY, z: lastZ + sizes[N - 1] * 1.4 + 0.1 },
+    tailAnchor: { y: yAt(1), z: lastZ + sizes[N - 1] * 1.4 + 0.1 },
+    riderSocket,
     // Side fins mount on the front plates, widening toward the lead.
-    wingRoot: (side) => ({ x: 0.28 * side * bodyScale, y: bodyY + 0.1, z: leadZ + spacing * bodyScale }),
+    wingRoot: (side) => ({ x: 0.28 * side * bodyScale, y: yAt(0) + 0.1, z: leadZ + spacing * bodyScale }),
     sideFinRoots: (side, pairIndex) => {
       const a = segmentAnchors[Math.min(pairIndex, segmentAnchors.length - 1)];
       return { x: a.scale * 0.55 * side * bodyScale, y: a.y + a.scale * 0.18, z: a.z };

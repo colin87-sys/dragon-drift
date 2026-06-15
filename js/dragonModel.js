@@ -7,7 +7,7 @@ import './dragonHead.js';  // self-registers the 'horned' / 'beaked' head builde
 import './dragonTail.js';  // self-registers the 'clean' / 'legacy' tail builders
 import './dragonSegmentedTorso.js'; // 'segmentedWyrm' torso (floating vertebrae)
 import './dragonSideFins.js';       // 'sideFins' wings (lateral astral vanes)
-import './dragonOrbitTail.js';      // 'orbitSpines' tail (orbiting shard relics)
+import './dragonCometWake.js';      // 'cometWake' tail (streaming comet glow-trail)
 import './dragonCelestialHead.js';  // 'celestialMask' head (regal faceplate)
 import { applyFresnelRim } from './surface.js';
 
