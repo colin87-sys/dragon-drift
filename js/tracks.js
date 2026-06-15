@@ -1497,4 +1497,62 @@ export const TRACKS = [
       [N.C4, N.E4, N.G4, N.C5], [N.G3, N.B3, N.D4, N.G4], [N.A3, N.C4, N.E4, N.A4], [N.F3, N.A3, N.C4, N.F4],
     ],
   },
+  { // 32 — "First Flight": a film-score flight anthem in homage to the HTTYD
+    //   Flying Theme ("Test Drive"/"Romantic Flight" DNA). ORIGINAL melody — not a
+    //   transcription — that traces the theme's signature gesture: a leap up into a
+    //   sustained high note, a graceful descending arc, then a rising sequence that
+    //   re-launches HIGHER. D major, broad cinematic tempo, I–V–vi–IV (D–A–Bm–G)
+    //   with a plagal "soar" lift. Warm octave-stacked horn/strings lead, sine
+    //   sub, harp-like triangle arps, soft kit (no EDM pump) and a high counter-
+    //   line that answers the melody. The lyrical, orchestral entry in the radio.
+    id: 'firstflight',
+    name: 'First Flight',
+    desc: 'Cinematic flight anthem — soaring film-score',
+    cost: 0,
+    bpm: 96,
+    voices: {
+      melody: { osc: 'triangle', vol: 0.2, stack: 'octave' },
+      bass:   { osc: 'sine', vol: 0.26 },
+      high:   { osc: 'sine', vol: 0.12 },
+      arp:    { osc: 'triangle', vol: 0.08 },
+      lead:   { osc: 'sawtooth', vol: 0.1 },
+    },
+    drums: { kick: 0.7, snare: 0.55, hat: 0.5, heavy: false },
+    pad: true,
+    // Verse (1-4): the soar opens — leap A→D→Fs→A, ease down, lift to B5, breathe.
+    // Chorus (5-8): the grand catchy bit — big leap to a sustained D6, descending
+    //   arc, then the rising-sequence re-launch and a resolving fall back to the top.
+    melody: [
+      [N.A4,1],[N.D5,1],[N.Fs5,2],[N.A5,2],[N.Fs5,1],[N.E5,1],
+      [N.Fs5,2],[N.E5,2],[N.D5,2],[N.E5,2],
+      [N.Fs5,2],[N.A5,2],[N.B5,3],[N.A5,1],
+      [N.G5,2],[N.Fs5,2],[N.E5,3],[0,1],
+      [N.Fs5,1],[N.A5,1],[N.D6,4],[N.Cs6,2],
+      [N.B5,2],[N.A5,2],[N.Fs5,2],[N.E5,2],
+      [N.D5,1],[N.Fs5,1],[N.A5,2],[N.B5,4],
+      [N.A5,2],[N.G5,2],[N.Fs5,2],[N.E5,2],
+    ],
+    bass: slowBass([N.D3, N.A2, N.B2, N.G2, N.D3, N.A2, N.B2, N.G2]),
+    // High counter-line: silent at the open, swells in under the verse lift (3-4),
+    // then soars in parallel-thirds-ish answer through the chorus.
+    high: [
+      [0,8],[0,8],
+      [N.Fs5,4],[N.A5,4],
+      [N.G5,4],[N.B5,4],
+      [N.A5,2],[N.D6,2],[N.Fs5,2],[N.A5,2],
+      [N.Cs6,2],[N.A5,2],[N.E5,2],[N.A5,2],
+      [N.D6,2],[N.B5,2],[N.Fs5,2],[N.B5,2],
+      [N.B5,2],[N.G5,2],[N.D5,2],[N.G5,2],
+    ],
+    arps: [
+      [N.D4, N.Fs4, N.A4, N.D5, N.Fs5, N.D5, N.A4, N.Fs4],
+      [N.A3, N.Cs4, N.E4, N.A4, N.Cs5, N.A4, N.E4, N.Cs4],
+      [N.B3, N.D4, N.Fs4, N.B4, N.D5, N.B4, N.Fs4, N.D4],
+      [N.G3, N.B3, N.D4, N.G4, N.B4, N.G4, N.D4, N.B3],
+    ],
+    chords: [
+      [N.D4, N.Fs4, N.A4], [N.A3, N.Cs4, N.E4], [N.B3, N.D4, N.Fs4], [N.G3, N.B3, N.D4],
+      [N.D4, N.Fs4, N.A4], [N.A3, N.Cs4, N.E4], [N.B3, N.D4, N.Fs4], [N.G3, N.B3, N.D4],
+    ],
+  },
 ];

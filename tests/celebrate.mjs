@@ -5,7 +5,7 @@
 import { boot, check } from './browser.mjs';
 
 const { page, errors, done } = await boot({
-  initScript: `localStorage.setItem('dragonDriftSave', JSON.stringify({ v: 2, embers: 9999 }))`,
+  initScript: `localStorage.setItem('dragonDriftSave', JSON.stringify({ v: 2, stats: { runs: 5 }, flags: { seenIntro: true }, embers: 9999 }))`,
 });
 
 // Buy a dragon from the start-screen shop.

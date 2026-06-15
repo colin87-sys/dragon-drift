@@ -10,7 +10,7 @@ import { boot, check } from './browser.mjs';
 // (1) Buying a station writes it to localStorage immediately (no wait).
 {
   const SEED = JSON.stringify({
-    v: 3, embers: 99999,
+    v: 3, embers: 99999, stats: { runs: 5 }, flags: { seenIntro: true },
     skins: { owned: ['azure'], equipped: 'azure' },
     riders: { owned: ['drifter'], equipped: 'drifter' },
     audio: { musicMuted: false, sfxMuted: false, musicVol: 1, sfxVol: 1, track: 0, ownedTracks: [] },

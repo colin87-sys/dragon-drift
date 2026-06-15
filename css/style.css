@@ -671,6 +671,13 @@ body.app-loaded > canvas { opacity: 1; }
   .audio-btns    { top: calc(10px + env(safe-area-inset-top, 0px)); right: 10px; gap: 6px; }
   .mute-btn      { width: 32px; height: 32px; }
   .screen h1     { font-size: 32px; letter-spacing: 4px; padding: 0 10px; }
+  .screen h1.hero-wordmark { font-size: 40px; letter-spacing: 6px; margin-bottom: 10px; }
+  .btn-primary.hero-cta { font-size: 16px; padding: 14px 38px; }
+  .hero-core .hero-sub { font-size: 13px; }
+  .hero-rail { gap: 8px; bottom: calc(12px + env(safe-area-inset-bottom, 0px)); }
+  .hero-rail-btn { min-width: 60px; padding: 9px 9px 8px; font-size: 9px; }
+  .hero-rail-btn svg { width: 18px; height: 18px; }
+  .hero-topbar .meta-chip { font-size: 12px; padding: 5px 11px; }
   .screen .sub   { font-size: 13px; padding: 0 16px; }
   .screen .sub.big{ font-size: 19px; }
   .mission-label { font-size: 12px; }
@@ -1070,6 +1077,102 @@ body[data-qtier="2"] .speedlines { display: none; }
 @keyframes flame-flicker {
   0%, 100% { filter: brightness(1); } 42% { filter: brightness(1.18); } 58% { filter: brightness(0.96); }
 }
+
+/* ============================ HERO START SCREEN ============================
+   A clean, cinematic stage for the live 3D dragon: a compact top bar, the
+   wordmark + one breathing TAKE OFF, and a bottom icon rail. The dragon and sky
+   show through, so the scrim is lighter than other screens and the chrome is
+   pinned to the edges (absolute) leaving the centre to the hero. */
+.screen.hero-screen { background: radial-gradient(ellipse at 50% 42%,
+  rgba(8,13,30,0.30) 0%, rgba(6,10,24,0.52) 52%, rgba(4,7,18,0.78) 100%); }
+
+/* Top bar — wallet on the left, settings gear on the right. */
+.hero-topbar { position: absolute; top: 0; left: 0; right: 0; z-index: 4;
+  display: flex; align-items: center; justify-content: space-between; gap: 10px;
+  padding: calc(13px + env(safe-area-inset-top, 0px)) 16px 12px;
+  animation: hero-bar-in 0.6s var(--ease-out) backwards; animation-delay: 0.15s; }
+.hero-wallet { display: flex; gap: 10px; }
+.hero-topbar .meta-chip { font-size: 13px; padding: 6px 13px;
+  background: rgba(12, 22, 46, 0.62); backdrop-filter: blur(6px); }
+.hero-gear { pointer-events: auto; cursor: pointer; flex: 0 0 auto;
+  width: 40px; height: 40px; border-radius: 50%; display: flex; align-items: center;
+  justify-content: center; color: #cfe6ff; background: rgba(18, 32, 62, 0.6);
+  border: 1px solid var(--gold-trim); backdrop-filter: blur(6px);
+  transition: transform var(--t-micro) var(--ease-out), background var(--t-micro); }
+.hero-gear:hover { background: rgba(40, 70, 120, 0.65); transform: rotate(30deg); }
+.hero-gear:active { transform: scale(0.94); }
+@keyframes hero-bar-in { from { opacity: 0; transform: translateY(-12px); } }
+
+/* The centred hero stack. */
+.hero-core { position: relative; z-index: 3; display: flex; flex-direction: column;
+  align-items: center; padding: 0 16px; }
+.screen h1.hero-wordmark { font-size: 66px; letter-spacing: 11px; margin: 0 0 14px;
+  filter: drop-shadow(0 0 34px rgba(255, 190, 80, 0.5)) drop-shadow(0 3px 6px rgba(0,0,0,0.65));
+  animation: wordmark-shine 7s ease-in-out infinite, hero-word-in 1s var(--ease-out) backwards; }
+@keyframes hero-word-in {
+  from { opacity: 0; transform: translateY(16px) scale(0.94); letter-spacing: 26px; filter: blur(6px) drop-shadow(0 0 34px rgba(255,190,80,0.5)); }
+}
+.hero-title-chip { pointer-events: auto; cursor: pointer; font-family: inherit;
+  font-size: 12px; letter-spacing: 1.5px; color: #ffe0a6; margin: 0 0 12px;
+  padding: 4px 14px; border-radius: 999px; background: rgba(40,28,8,0.5);
+  border: 1px solid var(--gold-trim); animation: hero-fade-in 0.7s var(--ease-out) backwards; animation-delay: 0.25s; }
+.hero-title-chip:hover { background: rgba(60,44,14,0.65); }
+
+/* The one primary action — large, gold, breathing, with a soft glow halo. */
+.btn-primary.hero-cta { font-size: 19px; letter-spacing: 3px; padding: 17px 52px;
+  border-radius: 16px; display: inline-flex; align-items: center; gap: 10px;
+  animation: cta-breathe 2.8s ease-in-out infinite, hero-cta-in 0.7s var(--ease-spring) backwards;
+  animation-delay: 0s, 0.35s; }
+.hero-cta .cta-glyph { font-size: 14px; transform: translateY(1px); opacity: 0.9; }
+@keyframes hero-cta-in { from { opacity: 0; transform: translateY(20px) scale(0.9); } }
+.hero-core .hero-sub { font-size: 15px; opacity: 0.88; margin: 16px 0 2px; letter-spacing: 0.3px;
+  animation: hero-fade-in 0.7s var(--ease-out) backwards; animation-delay: 0.45s; }
+.hero-core .action-key { animation: hero-fade-in 0.7s var(--ease-out) backwards; animation-delay: 0.55s; }
+.hero-core .start-notice, .hero-core .challenge { animation: hero-fade-in 0.7s var(--ease-out) backwards; }
+@keyframes hero-fade-in { from { opacity: 0; transform: translateY(8px); } }
+
+/* Bottom icon rail — progressive entry points to the meta. */
+.hero-rail { position: absolute; left: 0; right: 0; z-index: 4;
+  bottom: calc(16px + env(safe-area-inset-bottom, 0px));
+  display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; padding: 0 12px;
+  animation: hero-rail-in 0.65s var(--ease-out) backwards; animation-delay: 0.4s; }
+.hero-rail-btn { position: relative; pointer-events: auto; cursor: pointer;
+  display: flex; flex-direction: column; align-items: center; gap: 5px;
+  min-width: 66px; padding: 10px 12px 9px; border-radius: 14px;
+  color: #cfe2f7; font-family: inherit; font-size: 10px; letter-spacing: 1.5px; font-weight: 700;
+  background: rgba(14, 26, 52, 0.55); border: 1px solid rgba(120, 170, 230, 0.28);
+  backdrop-filter: blur(6px);
+  transition: transform var(--t-micro) var(--ease-out), background var(--t-micro), border-color var(--t-micro); }
+.hero-rail-btn svg { width: 20px; height: 20px; }
+.hero-rail-btn:hover { background: rgba(34, 60, 108, 0.7); border-color: rgba(160, 210, 255, 0.5);
+  transform: translateY(-3px); }
+.hero-rail-btn:active { transform: scale(0.95); }
+.hero-rail-btn .badge { top: 5px; right: 9px; }
+@keyframes hero-rail-in { from { opacity: 0; transform: translateY(18px); } }
+
+/* Drifting ember motes behind the hero — GPU-only transform/opacity. */
+.hero-embers { position: absolute; inset: 0; z-index: 1; overflow: hidden; pointer-events: none; }
+.hero-embers span { position: absolute; bottom: -5%; width: var(--sz); height: var(--sz);
+  border-radius: 50%; background: radial-gradient(circle at 50% 50%, var(--c), transparent 70%);
+  filter: drop-shadow(0 0 6px var(--c)); opacity: 0;
+  animation: ember-rise var(--dur) linear var(--d) infinite; }
+@keyframes ember-rise {
+  0%   { transform: translate(0, 0) scale(0.5); opacity: 0; }
+  12%  { opacity: 0.85; }
+  82%  { opacity: 0.6; }
+  100% { transform: translate(var(--dx), -112vh) scale(1.1); opacity: 0; }
+}
+
+/* First-launch grand entrance: hold the chrome back a beat so the camera fly-in
+   and the wordmark own the moment, then the rail/topbar arrive. */
+.screen.hero-intro .hero-wordmark { animation-duration: 7s, 1.5s; animation-delay: 0s, 0.5s; }
+.screen.hero-intro .hero-cta { animation-delay: 0s, 1.5s; }
+.screen.hero-intro .hero-core .hero-sub { animation-delay: 1.7s; }
+.screen.hero-intro .hero-core .action-key { animation-delay: 1.9s; }
+.screen.hero-intro .hero-topbar { animation-delay: 1.9s; }
+.screen.hero-intro .hero-rail { animation-delay: 2.0s; }
+
+.daily-card.daily-panel { margin: 18px auto; }
 /* HUD hand-off: all HUD children except screen/celebrate/motes fade while a
    menu is open. visibility deferred so pointer-events collapses after fade. */
 body.screen-open #hud > :not(#screen):not(#celebrate):not(.menu-motes) {
@@ -1157,6 +1260,12 @@ body.screen-open .menu-motes { display: block; }
   .feat-toast.feat-toast-anim::after { display: none; }
   .load-bar span { animation-duration: 2.4s; }
   h1.wordmark, .screen h1.wordmark { animation: none; }
+  /* Hero: keep it still — no entrance, no drifting embers, no rotating gear. */
+  .screen h1.hero-wordmark, .hero-cta, .hero-topbar, .hero-rail,
+  .hero-title-chip, .hero-core .hero-sub, .hero-core .action-key,
+  .hero-core .start-notice, .hero-core .challenge { animation: none; }
+  .hero-embers { display: none; }
+  .hero-gear:hover { transform: none; }
 }
 
 /* --- Mobile sizing for Spectacle surfaces --- */
