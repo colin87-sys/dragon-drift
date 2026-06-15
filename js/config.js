@@ -32,13 +32,13 @@ export const CONFIG = {
   // rings pay more; speed orbs are the real boost-extender; and Dragon Surge
   // eases the burn but never makes it free. (Per-dragon drain/regen stats still
   // scale these, so the stamina stat actually matters.) Tune by feel.
-  staminaMax: 100,
-  staminaDrain: 24,
-  staminaRegen: 12,
-  staminaRegenDelay: 1.25,
-  ringStamina: 10,
+  staminaMax: 110,
+  staminaDrain: 20,
+  staminaRegen: 16,
+  staminaRegenDelay: 0.8,
+  ringStamina: 11,
   perfectRingStaminaBonus: 6,   // perfect rings refund this much ON TOP of ringStamina
-  gateStamina: 12,
+  gateStamina: 13,
   orbStamina: 35,
   feverStaminaDrainMult: 0.65,  // Dragon Surge eases the boost burn (× drain, not free)
 
@@ -66,6 +66,9 @@ export const CONFIG = {
   // and/or without last-chance slow-mo pays a permanent score multiplier.
   reticleOffBonus: 0.10,
   slowMoOffBonus: 0.15,
+  // Glide Assist (beginner auto-fly): trades a slice of the score multiplier for
+  // accessibility — the inverse of the assist-off bonuses above.
+  glideAssistScoreMult: 0.7,
 
   // Barrel roll (dodge move: brief i-frames, near-misses still award)
   rollDuration: 0.45,
@@ -73,6 +76,12 @@ export const CONFIG = {
   rollImpulse: 30,        // lateral velocity kick
   rollInvuln: 0.5,        // i-frame window from roll start
   rollBonus: 50,          // style points × combo
+
+  // Surge phase-through: during Dragon Surge, a well-timed barrel roll shatters
+  // through a crystal wall (gate) that would normally crash you. Spends stamina
+  // (which is why the stamina budget above is generous) and pays style points.
+  phaseStaminaCost: 40,
+  phaseBonus: 150,        // style points × combo on a successful phase
 
   // Fever / Dragon Surge
   feverThreshold: 8,      // legacy display fallback
@@ -133,6 +142,7 @@ export const CONFIG = {
       nearMiss:         { hitstop: 50, kick: null },
       gateThread:       { hitstop: 0,  kick: null },   // camera gateKick instead
       surgeStart:       { hitstop: 0,  kick: 'surgeStart' },
+      phase:            { hitstop: 90, kick: 'goldenEmber' }, // shatter through a wall
       comboBreak:       { hitstop: 0,  kick: 'comboBreak' },
       death:            { hitstop: 0,  kick: 'death' }, // sustained grade over the freeze
     },

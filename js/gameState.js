@@ -61,6 +61,8 @@ export const game = {
     let m = 1;
     if (!saveData.settings.reticle) m += CONFIG.reticleOffBonus;
     if (!saveData.settings.slowMo) m += CONFIG.slowMoOffBonus;
+    // Glide Assist (beginner auto-fly) trades score for accessibility.
+    if (saveData.settings.glideAssist) m *= CONFIG.glideAssistScoreMult;
     return m;
   },
 

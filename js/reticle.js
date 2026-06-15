@@ -21,8 +21,10 @@ export function initReticle(cam) {
 
 export function updateReticle(player, playing) {
   if (!el) return;
-  // Reticle assist can be disabled in settings for a score bonus.
-  if (!playing || !saveData.settings.reticle) { el.style.opacity = 0; return; }
+  // Reticle assist can be disabled in settings for a score bonus, but Glide
+  // Assist forces it on — it's the directional cue beginners aim their swipe at.
+  const wantReticle = saveData.settings.reticle || saveData.settings.glideAssist;
+  if (!playing || !wantReticle) { el.style.opacity = 0; return; }
 
   const ring = nextRingAhead(player.dist + 4);
   const gate = nextGateAhead(player.dist + 4);
