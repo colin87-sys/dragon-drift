@@ -1245,12 +1245,22 @@ body.splash-open #hud { display: none; }
   background-size: 250% 100%, 100% 100%;
   -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent;
   filter: drop-shadow(0 0 28px rgba(255,190,80,0.5)) drop-shadow(0 3px 6px rgba(0,0,0,0.7));
-  animation: wordmark-shine 7s ease-in-out infinite;
+  /* Slow sheen sweep + an out-of-phase glow-breath — alive but premium-calm. */
+  animation: wordmark-shine 7s ease-in-out infinite, splash-title-glow 5.5s ease-in-out infinite;
+}
+@keyframes splash-title-glow {
+  0%, 100% { filter: drop-shadow(0 0 22px rgba(255,188,80,0.42)) drop-shadow(0 3px 6px rgba(0,0,0,0.7)); }
+  50%      { filter: drop-shadow(0 0 42px rgba(255,206,112,0.72)) drop-shadow(0 3px 6px rgba(0,0,0,0.7)); }
 }
 #splash .splash-slogan {
   margin: 8px 0 0; font-family: 'Rajdhani', sans-serif; font-style: italic; font-weight: 600;
   font-size: clamp(15px, 5vw, 22px); letter-spacing: 3px; color: #ffe9c2;
   text-shadow: 0 0 14px rgba(255,200,120,0.5);
+  animation: splash-slogan-breathe 5s ease-in-out infinite;
+}
+@keyframes splash-slogan-breathe {
+  0%, 100% { opacity: 0.82; text-shadow: 0 0 10px rgba(255,200,120,0.4); }
+  50%      { opacity: 1;    text-shadow: 0 0 20px rgba(255,214,150,0.7); }
 }
 
 /* Tagline + CTA */
@@ -1262,7 +1272,9 @@ body.splash-open #hud { display: none; }
   margin: 0; font-family: 'Rajdhani', sans-serif; font-weight: 600;
   font-size: clamp(13px, 4vw, 17px); letter-spacing: 1.5px; color: #f3d9a6;
   text-shadow: 0 1px 6px rgba(0,0,0,0.65);
+  animation: splash-tag-breathe 6s ease-in-out infinite;
 }
+@keyframes splash-tag-breathe { 0%, 100% { opacity: 0.78; } 50% { opacity: 1; } }
 #splash .splash-cta {
   pointer-events: auto; cursor: pointer; width: 100%; max-width: 420px;
   font-family: var(--font-display); font-weight: 400;
@@ -1280,7 +1292,9 @@ body.splash-open #hud { display: none; }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  #splash .splash-title, #splash .splash-cta, #splash .splash-horizon, #splash .splash-ember { animation: none; }
+  #splash .splash-title, #splash .splash-cta, #splash .splash-horizon, #splash .splash-ember,
+  #splash .splash-slogan, #splash .splash-tag { animation: none; }
+  #splash .splash-slogan, #splash .splash-tag { opacity: 1; }
 }
 
 /* Drifting ember motes — on .menu-motes so innerHTML swaps on #screen are safe.
