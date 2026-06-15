@@ -687,6 +687,22 @@ export const ui = {
     restartAnim(els.goldFlash, 'flash-anim');
   },
 
+  // Crystal-flash for a perfect phase (reuses the radial flash overlay).
+  phaseFlash() {
+    restartAnim(els.blueFlash, 'flash-anim');
+  },
+
+  // Surge phase popup. Perfect = big violet banner (climbs with the streak);
+  // minor = a smaller "PHASE" tag; assisted = the one-time teaching coach line.
+  phasePopup(points, perfect, streak = 0, assisted = false) {
+    if (assisted) { this._popup2('Like that! — roll to phase', 'orange'); return; }
+    if (perfect) {
+      this._popup(streak > 1 ? `PERFECT PHASE ×${streak}! +${points}` : `PERFECT PHASE! +${points}`, 'phase');
+    } else {
+      this._popup2(`PHASE +${points}`, 'orange');
+    }
+  },
+
   nearMissPopup(points) {
     this._popup2(`NEAR MISS +${points}`, 'orange');
   },

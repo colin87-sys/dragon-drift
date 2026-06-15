@@ -17,6 +17,7 @@ export const game = {
   rolls: 0,
   maxSpeed: CONFIG.baseSpeed,
   consecutiveRings: 0,
+  phaseStreak: 0,      // consecutive PERFECT phases (drives the phase chime ladder)
   feverActive: false,
   feverTimer: 0,
   distance: 0,
@@ -89,6 +90,7 @@ export const game = {
     this.rolls = 0;
     this.maxSpeed = CONFIG.baseSpeed;
     this.consecutiveRings = 0;
+    this.phaseStreak = 0;
     this.feverActive = false;
     this.feverTimer = 0;
     this.distance = 0;

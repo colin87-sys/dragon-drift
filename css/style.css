@@ -188,6 +188,7 @@ body.app-loaded > canvas { opacity: 1; }
 .popup[data-color="gold"]   { color: #ffd86a; }
 .popup[data-color="red"]    { color: #ff7a7a; }
 .popup[data-color="fever"]  { color: #ff88ff; font-size: 38px; text-shadow: 0 0 24px rgba(255,100,255,0.9); }
+.popup[data-color="phase"]  { color: #d59bff; font-size: 36px; text-shadow: 0 0 22px rgba(190,110,255,0.9); }
 .popup2[data-color="orange"]{ color: #ffbb55; }
 .popup2[data-color="gold"]  { color: #ffd86a; text-shadow: 0 0 14px rgba(255,200,90,0.8); }
 .popup.popup-anim  { animation: popup 0.9s ease-out forwards; }
