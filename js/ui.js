@@ -1680,6 +1680,7 @@ function wireScreenButtons(type) {
         const d = DRAGONS[key];
         const newTier = handlers.onAscend && handlers.onAscend(key);
         if (newTier) {
+          setFormPref(key, newTier); // snap the card preview to the form you just earned
           ui.showScreen('shop');
           const resolvedDef = ascendedDef(d, newTier, radianceRank(key));
           ui.celebrate({

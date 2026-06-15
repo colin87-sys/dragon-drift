@@ -14,6 +14,13 @@ export function trackUnlocked(i) {
   return !!t && (t.cost === 0 || saveData.audio.ownedTracks.includes(t.id));
 }
 
+// Dev mode: grant every premium station so the radio is fully unlocked.
+export function unlockAllTracks() {
+  for (const t of TRACKS) {
+    if (t.cost > 0 && !saveData.audio.ownedTracks.includes(t.id)) saveData.audio.ownedTracks.push(t.id);
+  }
+}
+
 let ctx = null;
 let masterGain = null;
 let musicBus = null; // all music layers route here (independent mute + volume)
