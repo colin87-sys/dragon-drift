@@ -7,6 +7,7 @@ import { todaysDailyMod, dailyMods } from './daily.js';
 import { createEnvironment, updateEnvironment, resetEnvironment } from './environment.js';
 import { createDragon, updateDragon, resetDragon, rebuildDragon } from './dragon.js';
 import { initReticle, updateReticle } from './reticle.js';
+import { initSplash, showSplash, hideSplash, splashVisible } from './splash.js';
 import { player, applyDragonStats } from './player.js';
 import { cameraCtl } from './cameraController.js';
 import { initRings, addRing, updateRings, resetRings } from './rings.js';
@@ -142,6 +143,13 @@ if (urlParams.has('debug')) {
     renderer, game, player, save: saveData, emit, ui, claimFeat,
     juice: { hitstop, juiceEvent },
     postfx: { setPostTier, kick, kickState, handle: postfx },
+    // Test seam: skip the attract splash and land on the dashboard hub.
+    toHub: () => {
+      if (!splashVisible()) return;
+      hideSplash();
+      cameraCtl.setSplash(false);
+      ui.showScreen('start');
+    },
   };
 }
 
@@ -209,6 +217,7 @@ cameraCtl.init(camera, player);
 
 // --- Boot-time return triggers ---
 // A long absence earns a small tailwind gift. lastSeen always updates.
+let bootHasNotice = false; // a returning-pilot notice → show the hub, not the splash
 {
   const today = todayUTC();
   if (saveData.lastSeen) {
@@ -216,11 +225,15 @@ cameraCtl.init(camera, player);
     if (gapDays > CONFIG.welcomeBackGapDays) {
       saveData.embers += CONFIG.welcomeBackGift;
       ui.setStartNotice(`Tailwind while you were away: +◆${CONFIG.welcomeBackGift}. The sky kept your seat.`);
+      bootHasNotice = true;
     }
   }
   saveData.lastSeen = today;
   persist();
-  if (gambitSunsetRefund > 0) ui.setStartNotice(`An interrupted Gauntlet returned your ◆${gambitSunsetRefund} stake.`);
+  if (gambitSunsetRefund > 0) {
+    ui.setStartNotice(`An interrupted Gauntlet returned your ◆${gambitSunsetRefund} stake.`);
+    bootHasNotice = true;
+  }
 }
 // Backfill any pilot-level titles already earned (retroactive — covers levels
 // reached before a title existed, or before the per-level grant ran).
@@ -251,7 +264,21 @@ if (urlParams.has('dev') || saveData.settings.dev) {
   console.log('[dev] everything unlocked for this session');
 }
 
-ui.showScreen('start');
+// First impression: a brand-new pilot lands on a cinematic attract splash over
+// the LIVE 3D scene — the camera frames behind the dragon looking down the real
+// ring course (spawned at boot), so TAKE OFF flies the very course shown. Only a
+// genuine first-timer in normal mode sees it; returning pilots, challenge/daily
+// links, and welcome-back/refund notices route to the dashboard hub as before.
+// startGame() clears the splash on every entry path (CTA, tap-anywhere, ENTER).
+initSplash({ onTakeOff: () => startGame('normal') });
+const firstTimePilot = saveData.stats.runs === 0 && !bootHasNotice &&
+  game.mode === 'normal' && !game.challengeScore;
+if (firstTimePilot) {
+  cameraCtl.setSplash(true);
+  showSplash();
+} else {
+  ui.showScreen('start');
+}
 
 // First impression: the Skybound title theme plays on the menu. The audio graph
 // builds now (silent in the suspended context); the player's first gesture
@@ -330,6 +357,9 @@ function makeShareCard() {
 // --- Game flow ---
 function startGame(mode = 'normal') {
   if (game.state !== 'ready') return;
+  // Leave the attract splash on any takeoff path (CTA, tap-anywhere, ENTER).
+  hideSplash();
+  cameraCtl.setSplash(false);
   const modeChanged = mode !== game.mode;
   game.mode = mode;
   if (modeChanged || mode === 'daily') {

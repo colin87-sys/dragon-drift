@@ -21,7 +21,11 @@ function loadPlaywright() {
 
 // Boots the game in headless chromium. Returns { page, errors, url, done() }.
 // `errors` collects console errors + pageerrors for the caller to assert on.
-export async function boot({ query = '?debug', initScript = null,
+// A brand-new pilot boots onto the cinematic attract splash; everything else is
+// reached via the dashboard hub. By default boot() skips the splash (calls the
+// __dd.toHub seam) so existing tests see the dashboard exactly as before. Pass
+// `splash: true` to leave the splash up and test it directly.
+export async function boot({ query = '?debug', initScript = null, splash = false,
   viewport = { width: 900, height: 640 }, deviceScaleFactor = 1 } = {}) {
   const { chromium } = loadPlaywright();
   const srv = await serve();
@@ -33,6 +37,7 @@ export async function boot({ query = '?debug', initScript = null,
   if (initScript) await page.addInitScript(initScript);
   await page.goto(srv.url + '/' + query);
   await page.waitForFunction(() => !!window.__dd, { timeout: 15000 });
+  if (!splash) await page.evaluate(() => window.__dd.toHub && window.__dd.toHub());
   return {
     page, errors, url: srv.url,
     done: async () => { await browser.close(); srv.close(); },

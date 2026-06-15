@@ -1076,6 +1076,109 @@ body.screen-open #hud > :not(#screen):not(#celebrate):not(.menu-motes) {
   opacity: 0; visibility: hidden;
   transition: opacity var(--t-ui) var(--ease-out), visibility 0s var(--t-ui); }
 
+/* --- Cinematic attract / splash screen ------------------------------------
+   A DOM overlay layered over the LIVE 3D scene (dragon from behind + the real
+   mint ring course). Atmosphere is painted with TRANSPARENT layers so the scene
+   shows through the middle; purple sky on top, gold horizon glow behind the
+   dragon, purple vignette framing the edges + seating the UI. */
+#splash {
+  position: fixed; inset: 0; z-index: 20;
+  display: none; flex-direction: column; align-items: center; justify-content: space-between;
+  text-align: center; overflow: hidden;
+  padding: calc(env(safe-area-inset-top, 0px) + 20px) 20px calc(env(safe-area-inset-bottom, 0px) + 24px);
+  pointer-events: auto; -webkit-tap-highlight-color: transparent;
+}
+#splash.show { display: flex; animation: splash-in 0.6s var(--ease-out); }
+@keyframes splash-in { from { opacity: 0; } }
+body.splash-open #hud { display: none; }
+
+#splash .splash-sky, #splash .splash-horizon,
+#splash .splash-vignette, #splash .splash-embers {
+  position: absolute; inset: 0; pointer-events: none;
+}
+/* Purple sky wash, top-heavy, fading out above the dragon. */
+#splash .splash-sky {
+  background: linear-gradient(180deg,
+    rgba(54,22,92,0.88) 0%, rgba(58,26,98,0.46) 26%,
+    rgba(40,18,72,0.12) 44%, transparent 58%);
+}
+/* Warm gold horizon glow behind the dragon. */
+#splash .splash-horizon {
+  background: radial-gradient(ellipse 82% 42% at 50% 60%,
+    rgba(255,184,92,0.42), rgba(255,140,70,0.16) 45%, transparent 70%);
+  animation: splash-horizon-breathe 6s ease-in-out infinite;
+}
+@keyframes splash-horizon-breathe { 0%,100% { opacity: 0.82; } 50% { opacity: 1; } }
+/* Purple edge vignette + a darker base so the CTA/tagline stay legible. */
+#splash .splash-vignette {
+  background:
+    radial-gradient(ellipse at 50% 46%, transparent 36%, rgba(28,8,52,0.5) 84%, rgba(18,4,38,0.85) 100%),
+    linear-gradient(0deg, rgba(20,6,42,0.92) 0%, rgba(20,6,42,0.34) 16%, transparent 34%);
+}
+
+/* Drifting embers rising up the frame. */
+#splash .splash-ember {
+  position: absolute; bottom: -10px; border-radius: 50%;
+  background: radial-gradient(circle, #ffe6a8, #ff9a3c 60%, transparent 72%);
+  box-shadow: 0 0 8px rgba(255,180,90,0.8);
+  animation-name: splash-ember-rise; animation-timing-function: linear; animation-iteration-count: infinite;
+}
+@keyframes splash-ember-rise {
+  0% { transform: translate(0, 0) scale(1); opacity: 0; }
+  12% { opacity: 1; }
+  88% { opacity: 0.8; }
+  100% { transform: translate(var(--drift), -104vh) scale(0.4); opacity: 0; }
+}
+
+/* Title + slogan */
+#splash .splash-top { position: relative; z-index: 2; margin-top: 4px; }
+#splash .splash-title {
+  margin: 0; font-family: var(--font-display); font-weight: 400;
+  font-size: clamp(54px, 21vw, 116px); line-height: 0.9; letter-spacing: 4px;
+  background:
+    linear-gradient(120deg, transparent 38%, rgba(255,255,255,0.85) 50%, transparent 62%),
+    linear-gradient(180deg, #fff6dd, #ffd86a 55%, #ff9a3c);
+  background-size: 250% 100%, 100% 100%;
+  -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent;
+  filter: drop-shadow(0 0 28px rgba(255,190,80,0.5)) drop-shadow(0 3px 6px rgba(0,0,0,0.7));
+  animation: wordmark-shine 7s ease-in-out infinite;
+}
+#splash .splash-slogan {
+  margin: 8px 0 0; font-family: 'Rajdhani', sans-serif; font-style: italic; font-weight: 600;
+  font-size: clamp(15px, 5vw, 22px); letter-spacing: 3px; color: #ffe9c2;
+  text-shadow: 0 0 14px rgba(255,200,120,0.5);
+}
+
+/* Tagline + CTA */
+#splash .splash-bottom {
+  position: relative; z-index: 2; width: 100%; max-width: 460px;
+  display: flex; flex-direction: column; align-items: center; gap: 12px;
+}
+#splash .splash-tag {
+  margin: 0; font-family: 'Rajdhani', sans-serif; font-weight: 600;
+  font-size: clamp(13px, 4vw, 17px); letter-spacing: 1.5px; color: #f3d9a6;
+  text-shadow: 0 1px 6px rgba(0,0,0,0.65);
+}
+#splash .splash-cta {
+  pointer-events: auto; cursor: pointer; width: 100%; max-width: 420px;
+  font-family: var(--font-display); font-weight: 400;
+  font-size: clamp(20px, 6.5vw, 30px); letter-spacing: 4px; color: #2a1700;
+  padding: 18px 28px; border: none; border-radius: 16px;
+  background: linear-gradient(135deg, #ffe27a, #ffb84d 60%, #ff9540);
+  box-shadow: 0 0 0 1px rgba(255,220,150,0.7) inset, 0 10px 30px rgba(255,150,60,0.45), 0 0 40px rgba(255,170,70,0.35);
+  animation: splash-cta-pulse 2.4s ease-in-out infinite;
+}
+#splash .splash-cta:active { transform: scale(0.97); }
+/* Glow-only pulse (no transform) so the CTA stays put — premium without jitter. */
+@keyframes splash-cta-pulse {
+  0%, 100% { box-shadow: 0 0 0 1px rgba(255,220,150,0.7) inset, 0 10px 30px rgba(255,150,60,0.4), 0 0 30px rgba(255,170,70,0.3); filter: brightness(1); }
+  50% { box-shadow: 0 0 0 1px rgba(255,235,180,0.95) inset, 0 12px 40px rgba(255,150,60,0.62), 0 0 58px rgba(255,180,80,0.6); filter: brightness(1.06); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  #splash .splash-title, #splash .splash-cta, #splash .splash-horizon, #splash .splash-ember { animation: none; }
+}
+
 /* Drifting ember motes — on .menu-motes so innerHTML swaps on #screen are safe.
    Shown only under body.screen-open; ::before/::after on .screen are freed for
    the flex-spacer safe-centering trick. */
