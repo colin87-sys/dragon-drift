@@ -238,6 +238,36 @@ function buildBladeShape(halfW, length) {
   return s;
 }
 
+// A soft leaf / spade outline (rounded body tapering to a point) for the
+// hatchling tail tip — a hint of the fin system to come, not a plain stick.
+function buildSpadeShape(halfW, length) {
+  const s = new THREE.Shape();
+  s.moveTo(0, 0);
+  s.bezierCurveTo(halfW * 0.85, length * 0.10, halfW, length * 0.48, halfW * 0.52, length * 0.82);
+  s.quadraticCurveTo(halfW * 0.20, length * 1.0, 0, length);
+  s.quadraticCurveTo(-halfW * 0.20, length * 1.0, -halfW * 0.52, length * 0.82);
+  s.bezierCurveTo(-halfW, length * 0.48, -halfW * 0.85, length * 0.10, 0, 0);
+  return s;
+}
+
+// A swept stealth-fin outline (upright, tip at +y): a curved leading edge (+x)
+// that bows out then sweeps to a fine hooked tip, and a trailing edge (-x) with a
+// subtle concave inner notch — an aerodynamic control surface, not a flat diamond.
+// Mirror via scale.x to put the leading edge on either side.
+function buildStealthFinShape(halfW, length) {
+  const s = new THREE.Shape();
+  s.moveTo(0, 0);
+  // leading edge: bow outward, then sweep up and in toward the tip
+  s.bezierCurveTo(halfW * 1.05, length * 0.16, halfW * 1.02, length * 0.54, halfW * 0.44, length * 0.86);
+  // tip: taper to a fine point, hooked slightly back
+  s.quadraticCurveTo(halfW * 0.18, length * 1.03, -halfW * 0.05, length * 0.9);
+  // trailing edge: down with a subtle concave inner notch
+  s.quadraticCurveTo(-halfW * 0.5, length * 0.68, -halfW * 0.46, length * 0.44);
+  s.quadraticCurveTo(-halfW * 0.42, length * 0.30, -halfW * 0.58, length * 0.22);
+  s.quadraticCurveTo(-halfW * 0.30, length * 0.07, 0, 0);
+  return s;
+}
+
 // A swept fin with a DARK translucent membrane and a bright glowing RIM — the
 // premium "dark base, cyan edges" read (never a solid glowing panel). A slightly
 // larger emissive blade sits just behind the dark membrane, so only its border
@@ -253,6 +283,34 @@ export function edgedFin(halfW, length, membraneMat, edgeMat, rim = 1.16) {
   return g;
 }
 
+// A premium LAYERED swept fin (upright, tip at +y): a curved stealth-fin outline
+// built up in depth so it never reads as a flat polygon card —
+//   · a bright cyan RIM peeking behind the dark base (edge glow)
+//   · the dark base membrane (the main surface)
+//   · a smaller, raised INNER panel (a second layer → visible surface step)
+//   · a glowing centre SEAM up the spine (seam light)
+// Used for every Obsidian tail fin from Kindled up; mirror via scale.x.
+export function buildLayeredFin(halfW, length, fillMat, edgeMat, opts = {}) {
+  const g = new THREE.Group();
+  const shape = opts.shape || buildStealthFinShape;
+  const rim = new THREE.Mesh(new THREE.ShapeGeometry(shape(halfW * 1.13, length * 1.08)), edgeMat);
+  rim.position.z = -0.022;               // behind → only the cyan border shows
+  g.add(rim);
+  g.add(new THREE.Mesh(new THREE.ShapeGeometry(shape(halfW, length)), fillMat));
+  // Raised inner panel: a smaller fin sat slightly proud, so the base shows as a
+  // dark border around it and the fin reads as two layered surfaces.
+  const inner = new THREE.Mesh(new THREE.ShapeGeometry(shape(halfW * 0.58, length * 0.72)), fillMat);
+  inner.position.set(0, length * 0.10, 0.028);
+  g.add(inner);
+  // Glowing centre seam (a slim cyan rib up the spine).
+  if (opts.seam !== false) {
+    const seam = new THREE.Mesh(new THREE.CylinderGeometry(0.011, 0.02, length * 0.78, 4), edgeMat);
+    seam.position.set(0, length * 0.4, 0.05);
+    g.add(seam);
+  }
+  return g;
+}
+
 // Build the tail as a CHAIN of heavily-overlapping segments, each a little
 // group (tapered frustum + dorsal spine plate) so the rig can coil them like a
 // snake while the root segment stays locked to the body — it never reads as a
@@ -263,6 +321,10 @@ export function buildCleanTail(def, model, bodyMat) {
   const root = new THREE.Group();
   const segs = [];
   const style = model.tailStyle || 'simple';
+  // Obsidian's stealth-tail styles: a SMOOTH stem (no spike plates) lit by a
+  // continuous cyan dorsal-segment line, ending in a layered fin assembly.
+  const smoothStem = style === 'spade' || style === 'splitfin'
+    || style === 'stealthrudder' || style === 'apexstealth';
   const g = model.spineGlow || 0;
   const gi = model.glowIntensity ?? 1;     // emissive multiplier (can exceed 1 at the apex)
   // Emissive-intensity clamp: the apex carries its extra "charge" through MORE
@@ -277,7 +339,10 @@ export function buildCleanTail(def, model, bodyMat) {
     : Math.min(model.tailSegments || 6, 9) / 6;
   const N = 7;
   const len = 2.7 * lenScale;
-  const baseR = 0.27, tipR = 0.05;        // base ≈ hip width, so it flows out cleanly
+  // base ≈ hip width so the tail flows out cleanly. The stealth stem keeps a
+  // FULLER taper (thicker toward the fins) so the long apex stem reads as a
+  // substantial tail-boom the stabilizers root into, not a thin whip.
+  const baseR = 0.27, tipR = smoothStem ? 0.095 : 0.05;
   const spacing = len / (N - 1);
   const segLen = spacing * 2.4;            // big overlap → seamless even when coiling
 
@@ -342,9 +407,33 @@ export function buildCleanTail(def, model, bodyMat) {
     const frustum = new THREE.Mesh(new THREE.CylinderGeometry(r1, r0, segLen, 8), bodyMat);
     frustum.rotation.x = Math.PI / 2;
     seg.add(frustum);
-    seg.add(spinePlate(r0));
+    if (!smoothStem) seg.add(spinePlate(r0));
     root.add(seg);
     segs.push(seg);
+  }
+
+  // Dorsal / tail SEGMENT line (Obsidian): a row of small cyan chevrons marching
+  // along the smooth stem crest, continuing the body's dorsal line onto the tail
+  // so spine → hips → stem → fins reads as one connected system. Attached to the
+  // shaft segments so they coil with the tail. Count + glow ramp per form.
+  if (smoothStem && (model.tailGlowSegs ?? 0) > 0) {
+    const count = model.tailGlowSegs;
+    for (let i = 0; i < count; i++) {
+      const f = (i + 0.45) / count;                  // 0..1 along the stem
+      const segIdx = Math.min(N - 1, Math.floor(f * N));
+      const seg = segs[segIdx];
+      const localZ = f * len - segIdx * spacing;     // z within that segment's frame
+      const r = baseR + (tipR - baseR) * f;
+      const chev = new THREE.Group();
+      for (const sx of [-1, 1]) {
+        const bar = new THREE.Mesh(new THREE.BoxGeometry(0.024, 0.024, 0.12 + r * 0.2), plateMat);
+        bar.position.set(sx * (0.03 + r * 0.22), 0, 0.02);
+        bar.rotation.y = sx * 0.7;                    // angle into a forward "^"
+        chev.add(bar);
+      }
+      chev.position.set(0, r * 0.92, localZ);
+      seg.add(chev);
+    }
   }
 
   // Tip ornament — the final coiling segment, overlapping the shaft end.
@@ -402,56 +491,109 @@ export function buildCleanTail(def, model, bodyMat) {
       rib.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), dir.clone().normalize());
       tip.add(rib);
     }
-  } else if (style === 'tailfin') {
-    // RADIANT signature: one prominent swept dorsal tail-fin (a dark membrane
-    // diamond with a bright cyan rim) plus a small ventral counter-fin — the
-    // "full tail fin" that the apex's twin stabilizers later evolve from. Scales
-    // with tailFinScale so it reads clearly bigger than the Kindled finlet.
-    const fs = model.tailFinScale ?? 1;
-    const em = ensureEdgeMat();
-    const fill = ensureFinFill();
-    const dorsal = edgedFin(0.34 * fs, 1.12 * fs, fill, em);
-    dorsal.rotation.x = 0.6;                  // stand it up + sweep the tip rearward
-    dorsal.position.set(0, 0.10, 0.02);
-    tip.add(dorsal);
-    const ventral = edgedFin(0.18 * fs, 0.52 * fs, fill, em);
-    ventral.rotation.x = Math.PI - 0.5;       // mirror below the tail
-    ventral.position.set(0, -0.06, 0.02);
-    tip.add(ventral);
-    const point = new THREE.Mesh(new THREE.ConeGeometry(tipR + 0.03, 0.6, 6), bodyMat);
+  } else if (style === 'spade') {
+    // HATCHLING: a clean tapered stem ending in a small dark spade / leaf tip —
+    // a hint of the fin system to come, kept tiny and simple.
+    const spadeGeo = new THREE.ShapeGeometry(buildSpadeShape(0.17, 0.62));
+    spadeGeo.rotateX(Math.PI / 2);            // lay flat: a horizontal leaf, tip back
+    const spade = new THREE.Mesh(spadeGeo, membraneMat);
+    spade.position.set(0, 0.03, 0.04);
+    tip.add(spade);
+    const point = new THREE.Mesh(new THREE.ConeGeometry(tipR + 0.02, 0.34, 6), bodyMat);
     point.rotation.x = Math.PI / 2;
-    point.position.set(0, 0, 0.3);
+    point.position.set(0, 0, 0.13);
     tip.add(point);
-  } else if (style === 'twinstab') {
-    // ETERNAL signature — the dramatic rear-silhouette change: TWIN swept
-    // stabilizers canted DOWN and OUTWARD (an anhedral V, not a flat fork or a
-    // spear) flanking a slim central rudder. Dark membranes, bright cyan rims.
-    // tailFinScale sizes them, tailFinSpread sets how far they splay.
-    const fs = model.tailFinScale ?? 1.6;
-    const spread = model.tailFinSpread ?? 1.6;
+  } else if (style === 'splitfin') {
+    // KINDLED: the first fin identity — a SPLIT dorsal fin (two small flared
+    // finlets) with a tiny side-fin hint each side; the tail beginning to evolve
+    // into a stealth flight-control surface.
+    const fs = model.tailFinScale ?? 0.6;
     const em = ensureEdgeMat();
     const fill = ensureFinFill();
     for (const sx of [-1, 1]) {
-      // Build upright, then mount on a pivot that cants it down-and-out + toes it
-      // outward + sweeps it back — the swept stabilizer read from directly behind.
-      const fin = edgedFin(0.30 * fs, 1.30 * fs, fill, em);
-      const pivot = new THREE.Group();
-      pivot.add(fin);
-      pivot.rotation.z = sx * (1.05 + 0.32 * spread);  // past horizontal → tips DOWN & OUT
-      pivot.rotation.y = sx * 0.30 * spread;           // toe the blade outward
-      pivot.rotation.x = 0.34;                         // sweep the whole fin rearward
-      pivot.position.set(sx * 0.12, 0.04, 0.0);
-      tip.add(pivot);
+      const lobe = buildLayeredFin(0.13 * fs, 0.64 * fs, fill, em, { seam: false });
+      lobe.scale.x = sx;
+      const p = new THREE.Group();
+      p.add(lobe);
+      p.rotation.z = sx * 0.34;               // split into a shallow V
+      p.rotation.x = 0.5;
+      p.position.set(sx * 0.05, 0.05, 0.0);
+      tip.add(p);
+      const side = buildLayeredFin(0.08 * fs, 0.3 * fs, fill, em, { seam: false });
+      side.scale.x = sx;
+      const sp = new THREE.Group();
+      sp.add(side);
+      sp.rotation.z = sx * 1.1;
+      sp.rotation.x = 0.45;
+      sp.position.set(sx * 0.12, -0.02, -0.32);
+      tip.add(sp);
     }
-    // Slim central rudder — a short upright fin that breaks the gap between the
-    // two stabilizers so the cluster never reads as a simple fork.
-    const rudder = edgedFin(0.15, 0.74, fill, em);
-    rudder.rotation.x = 0.46;
-    rudder.position.set(0, 0.14, 0.0);
+    const point = new THREE.Mesh(new THREE.ConeGeometry(tipR + 0.03, 0.5, 6), bodyMat);
+    point.rotation.x = Math.PI / 2;
+    point.position.set(0, 0, 0.24);
+    tip.add(point);
+  } else if (style === 'stealthrudder') {
+    // RADIANT: a proper stealth-RUDDER — two main swept LAYERED fins (curved
+    // tapered edges, inner notch, raised inner panel, cyan rim + centre seam) in a
+    // shallow up-and-out V, flanking a slim central rudder. A refined control
+    // surface, not a flat diamond. Sizes with tailFinScale.
+    const fs = model.tailFinScale ?? 1;
+    const em = ensureEdgeMat();
+    const fill = ensureFinFill();
+    for (const sx of [-1, 1]) {
+      const fin = buildLayeredFin(0.30 * fs, 1.18 * fs, fill, em);
+      fin.scale.x = sx;                       // leading edge outward
+      const p = new THREE.Group();
+      p.add(fin);
+      p.rotation.z = sx * 0.52;               // shallow upward V
+      p.rotation.y = sx * 0.14;
+      p.rotation.x = 0.5;                      // sweep rearward
+      p.position.set(sx * 0.1, 0.06, 0.0);
+      tip.add(p);
+    }
+    const rudder = buildLayeredFin(0.16, 0.74, fill, em);
+    rudder.rotation.x = 0.5;
+    rudder.position.set(0, 0.12, 0.0);
     tip.add(rudder);
     const point = new THREE.Mesh(new THREE.ConeGeometry(tipR + 0.03, 0.62, 6), bodyMat);
     point.rotation.x = Math.PI / 2;
-    point.position.set(0, 0, 0.32);
+    point.position.set(0, 0, 0.3);
+    tip.add(point);
+  } else if (style === 'apexstealth') {
+    // ETERNAL: the apex stealth-tail ASSEMBLY — two LARGE swept layered
+    // stabilizers canted down & outward (anhedral), two micro support fins
+    // forward on the stem, and a tall central rudder. Layered surfaces, cyan rims
+    // + seams. Aerodynamic, elegant, dangerous — the "worth the grind" tail.
+    const fs = model.tailFinScale ?? 1.6;
+    const spread = model.tailFinSpread ?? 1.55;
+    const em = ensureEdgeMat();
+    const fill = ensureFinFill();
+    for (const sx of [-1, 1]) {
+      const fin = buildLayeredFin(0.34 * fs, 1.42 * fs, fill, em);
+      fin.scale.x = sx;
+      const p = new THREE.Group();
+      p.add(fin);
+      p.rotation.z = sx * (1.0 + 0.3 * spread);   // down & out (anhedral V)
+      p.rotation.y = sx * 0.26 * spread;
+      p.rotation.x = 0.32;                        // sweep rearward
+      p.position.set(sx * 0.12, 0.05, 0.0);
+      tip.add(p);
+      const micro = buildLayeredFin(0.13, 0.52, fill, em, { seam: false });
+      micro.scale.x = sx;
+      const mp = new THREE.Group();
+      mp.add(micro);
+      mp.rotation.z = sx * 0.82;
+      mp.rotation.x = 0.42;
+      mp.position.set(sx * 0.14, 0.0, -0.62);    // micro-stabilizer forward on the stem
+      tip.add(mp);
+    }
+    const rudder = buildLayeredFin(0.17, 0.96, fill, em);
+    rudder.rotation.x = 0.4;
+    rudder.position.set(0, 0.17, 0.0);
+    tip.add(rudder);
+    const point = new THREE.Mesh(new THREE.ConeGeometry(tipR + 0.03, 0.66, 6), bodyMat);
+    point.rotation.x = Math.PI / 2;
+    point.position.set(0, 0, 0.34);
     tip.add(point);
   } else if (style === 'shard') {
     // Obsidian crystal shards: a cluster of sharp, faceted obsidian-crystal
