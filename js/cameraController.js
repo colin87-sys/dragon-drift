@@ -89,25 +89,28 @@ export const cameraCtl = {
   get introPlaying() { return introT > 0; },
 
   update(dt, player, showcase = false) {
-    // Splash attract screen: sit behind + above the dragon, looking down the ring
-    // course, with a gentle sway/bob for parallax life. The dragon shows from
-    // behind with the real rings receding ahead — the very course TAKE OFF flies.
+    // Splash attract screen: a LOCKED hero composition behind + above the dragon,
+    // looking down the ring course. The framing is essentially still — only an
+    // extremely subtle, loop-safe "breath" remains (the world carries the life:
+    // dragon idle, water, drifting embers). All sine-driven, so it loops forever
+    // with no drift, snap, or reset no matter how long the screen idles.
     if (this.splash) {
       splashT += dt;
-      const sx = Math.sin(splashT * 0.22) * 0.85;
-      const sy = Math.sin(splashT * 0.35 + 1) * 0.4;
-      const push = Math.sin(splashT * 0.15) * 0.7; // slow in/out parallax
+      const sx = Math.sin(splashT * 0.80) * 0.07;        // ~8s lateral micro-sway (sub-pixel)
+      const sy = Math.sin(splashT * 0.62 + 1.0) * 0.05;  // ~10s vertical float
+      const zb = Math.sin(splashT * 0.50) * 0.10;        // tiny in/out breath
       camera.position.set(
         player.position.x + sx,
         player.position.y + 4.0 + sy,
-        player.position.z + 14 + push
+        player.position.z + 14 + zb
       );
       smoothPos.copy(camera.position);
-      camera.lookAt(player.position.x + sx * 0.3, player.position.y + 0.6, player.position.z - 30);
-      if (Math.abs(camera.fov - 66) > 0.1) {
-        camera.fov = damp(camera.fov, 66, 2.5, dt);
-        camera.updateProjectionMatrix();
-      }
+      camera.lookAt(player.position.x + sx * 0.25, player.position.y + 0.6, player.position.z - 30);
+      // Breathing zoom: ~±1% FOV around 66°, gently eased so it never reads as
+      // a push-in. damp() also smooths the entry from the prior framing.
+      const fovTarget = 66 + Math.sin(splashT * 0.70) * 0.7;
+      camera.fov = damp(camera.fov, fovTarget, 3, dt);
+      camera.updateProjectionMatrix();
       return;
     }
     // Start-screen showcase: slow orbit around the live dragon.
