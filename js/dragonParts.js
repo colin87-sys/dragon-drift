@@ -273,3 +273,77 @@ export function buildLayeredFin(halfW, length, fillMat, edgeMat, opts = {}) {
   }
   return g;
 }
+
+// ===========================================================================
+// FEATHER PRIMITIVES — shared by the avian body plan (torso / feather wings /
+// plume tail). A firebird is built from leaf-shaped feathers + vertex-colour
+// gradients + a parabolic upsweep, not membranes; these are those building blocks.
+// ===========================================================================
+export const hexRgb = (h) => `${(h >> 16) & 255},${(h >> 8) & 255},${h & 255}`;
+
+// A single feather: a leaf shape whose length runs along +Z (trailing back),
+// width along ±X, laid flat (face up). Vertex-coloured base→tip for a gradient.
+export function featherGeo(len, wid) {
+  const s = new THREE.Shape();
+  s.moveTo(0, 0);
+  s.quadraticCurveTo(wid * 0.5, len * 0.32, wid * 0.16, len * 0.92);
+  s.quadraticCurveTo(0, len, -wid * 0.16, len * 0.92);
+  s.quadraticCurveTo(-wid * 0.5, len * 0.32, 0, 0);
+  const g = new THREE.ShapeGeometry(s, 6);
+  g.rotateX(Math.PI / 2); // XY (len +Y) → XZ (len +Z), face up
+  return g;
+}
+
+// Lengthwise (base→tip, along Z) vertex-colour gradient on a feather.
+export function featherGradient(geo, baseHex, tipHex) {
+  geo.computeBoundingBox();
+  const { min, max } = geo.boundingBox;
+  const z0 = min.z, span = (max.z - min.z) || 1;
+  const pos = geo.attributes.position;
+  const base = new THREE.Color(baseHex), tip = new THREE.Color(tipHex), c = new THREE.Color();
+  const col = [];
+  for (let i = 0; i < pos.count; i++) {
+    const t = (pos.getZ(i) - z0) / span;
+    c.copy(base).lerp(tip, t * t);
+    col.push(c.r, c.g, c.b);
+  }
+  geo.setAttribute('color', new THREE.Float32BufferAttribute(col, 3));
+}
+
+// Spanwise vertex-colour gradient (root→tip along X) for the wing web.
+export function webGradient(geo, baseHex, tipHex) {
+  geo.computeBoundingBox();
+  const { min, max } = geo.boundingBox;
+  const x0 = min.x, span = (max.x - min.x) || 1;
+  const pos = geo.attributes.position;
+  const base = new THREE.Color(baseHex), tip = new THREE.Color(tipHex), c = new THREE.Color();
+  const col = [];
+  for (let i = 0; i < pos.count; i++) {
+    const t = (pos.getX(i) - x0) / span;
+    c.copy(base).lerp(tip, t);
+    col.push(c.r, c.g, c.b);
+  }
+  geo.setAttribute('color', new THREE.Float32BufferAttribute(col, 3));
+}
+
+// Parabolic upsweep: raise vertices toward the wing tip so the wing arcs up and
+// presents its feathered surface to the above-and-behind camera from any pitch.
+export function archUp(geo, span, h) {
+  const pos = geo.attributes.position;
+  for (let i = 0; i < pos.count; i++) {
+    const x = Math.abs(pos.getX(i)) / span;
+    pos.setY(i, pos.getY(i) + x * x * h);
+  }
+  pos.needsUpdate = true;
+  geo.computeVertexNormals();
+}
+
+// Oriented bone/cylinder from a→b (for leading-edge arms + feather shafts).
+export function bone(ax, ay, az, bx, by, bz, r0, r1, mat) {
+  const dir = new THREE.Vector3(bx - ax, by - ay, bz - az);
+  const len = dir.length() || 0.001;
+  const m = new THREE.Mesh(new THREE.CylinderGeometry(r1, r0, len, 6), mat);
+  m.position.set((ax + bx) / 2, (ay + by) / 2, (az + bz) / 2);
+  m.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), dir.normalize());
+  return m;
+}
