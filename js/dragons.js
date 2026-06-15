@@ -202,6 +202,10 @@ export const DRAGONS = {
     rarity: 'SSR',
     maxRarity: 'SSSR',
     cost: 2200,
+    // House-style draconic head: the Soft Stealth archetype — rounded wedge skull,
+    // short blunt snout, large intelligent catlike eyes, swept-back ear-fins, cyan
+    // rear glow. Intelligent, stealthy, fast (NOT regal or spiky).
+    parts: { head: 'draconic' },
     // STEALTH NIGHT-DRAKE: sleek, near-black with electric-CYAN plasma. A smooth
     // hornless head with ear-frills, a SMOOTH back lit only by a cyan chevron
     // energy line, narrow swept bat-wings (dark membrane, cyan edges — never a
@@ -227,7 +231,9 @@ export const DRAGONS = {
     stats: { speed: 1.1, handling: 1.16, drain: 0.84, regen: 1.18 },
     model: {
       scale: 0.86, wingScale: 1.07, tailSegments: 9, neckSegments: 5,
-      hornLen: 0, hornPairs: 1, ridgeCount: 0, eyeScale: 1.3, // hornless, smooth back
+      ridgeCount: 0, // smooth back (cyan chevrons via dorsalGlowCount, not ridges)
+      // Soft Stealth draconic head — large catlike eyes, compact, cyan-lit ear-fins.
+      headArchetype: 'softStealth', headScale: 1.18, eyeScale: 1.32, rearGlowIntensity: 0.4,
       flapBias: 1.08, flapAmp: 0.82, // quick, agile, low-profile beat
     },
     // Narrow, swept-back, low-arc wings (vs Solar's wide flared flame wings); the
