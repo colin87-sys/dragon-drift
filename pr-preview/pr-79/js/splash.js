@@ -14,6 +14,7 @@ let root = null;
 let flashEl = null;
 let handlers = {};
 let built = false;
+let armed = false; // first tap "wakes" audio (browser autoplay) before takeoff
 
 const EMBER_COUNT = 16;
 
@@ -52,6 +53,7 @@ export function initSplash(h = {}) {
     <div class="splash-bottom">
       <p class="splash-tag">Evolve. Drift. Conquer the skies.</p>
       <button class="splash-cta" id="splash-takeoff">TAKE OFF</button>
+      <p class="splash-begin" id="splash-begin">TAP TO BEGIN</p>
     </div>`;
   document.body.appendChild(root);
   buildEmbers(root.querySelector('.splash-embers'));
@@ -63,12 +65,29 @@ export function initSplash(h = {}) {
   flashEl.id = 'launch-flash';
   document.body.appendChild(flashEl);
 
-  root.querySelector('#splash-takeoff').addEventListener('click', (e) => {
+  // The attract screen owns all of its taps (stopPropagation) so the global
+  // tap-to-fly / audio-unlock handlers never fire underneath it. Browser autoplay
+  // blocks sound until a gesture, so the FIRST tap "ignites" — it wakes the audio
+  // (onIgnite swells the intro theme in) and reveals TAKE OFF, WITHOUT launching.
+  // From then on the splash idles with music; any further tap (or TAKE OFF) flies.
+  root.addEventListener('pointerdown', (e) => {
     e.stopPropagation();
-    handlers.onTakeOff && handlers.onTakeOff();
+    if (!armed) igniteSplash();
+    else handlers.onTakeOff && handlers.onTakeOff();
   });
-  // Tap anywhere else on the attract screen also takes off (arcade "tap to play").
-  root.addEventListener('click', () => { handlers.onTakeOff && handlers.onTakeOff(); });
+}
+
+// Wake the attract screen on the first interaction: start the intro theme and
+// reveal the CTA. Idempotent. Also reachable from a keypress via main.js.
+export function igniteSplash() {
+  if (armed || !root) return;
+  armed = true;
+  root.classList.add('armed');
+  handlers.onIgnite && handlers.onIgnite();
+}
+
+export function splashArmed() {
+  return armed;
 }
 
 export function showSplash() {
