@@ -1291,6 +1291,23 @@ body.splash-open #hud { display: none; }
   50% { box-shadow: 0 0 0 1px rgba(255,235,180,0.95) inset, 0 12px 40px rgba(255,150,60,0.62), 0 0 58px rgba(255,180,80,0.6); filter: brightness(1.06); }
 }
 
+/* First-load "ignite" gate: browser autoplay needs one gesture before audio, so
+   the splash opens showing a soft "TAP TO BEGIN" prompt instead of TAKE OFF. The
+   first tap/keypress swells the intro theme in and reveals the CTA (.armed). */
+#splash .splash-begin {
+  margin: 0; font-family: 'Rajdhani', sans-serif; font-weight: 600;
+  font-size: clamp(15px, 5vw, 21px); letter-spacing: 5px; color: #ffe9c2;
+  text-shadow: 0 0 16px rgba(255,200,120,0.6);
+  animation: splash-begin-pulse 2.4s ease-in-out infinite;
+}
+@keyframes splash-begin-pulse { 0%, 100% { opacity: 0.55; } 50% { opacity: 1; } }
+/* Before ignite: show the prompt, hide the CTA. After (.armed): swap them, and
+   fade the CTA in so it arrives gracefully with the music. */
+#splash .splash-cta { display: none; }
+#splash.armed .splash-begin { display: none; }
+#splash.armed .splash-cta { display: block; animation: splash-cta-in 0.5s var(--ease-out), splash-cta-pulse 2.4s ease-in-out infinite 0.5s; }
+@keyframes splash-cta-in { from { opacity: 0; transform: translateY(10px); } }
+
 /* Take-off launch flash: a gold burst that blooms from the dragon and fades,
    masking the cut from the attract framing into gameplay. Top layer, no input. */
 #launch-flash {
@@ -1307,8 +1324,9 @@ body.splash-open #hud { display: none; }
 
 @media (prefers-reduced-motion: reduce) {
   #splash .splash-title, #splash .splash-cta, #splash .splash-horizon, #splash .splash-ember,
-  #splash .splash-slogan, #splash .splash-tag { animation: none; }
-  #splash .splash-slogan, #splash .splash-tag { opacity: 1; }
+  #splash .splash-slogan, #splash .splash-tag, #splash .splash-begin { animation: none; }
+  #splash .splash-slogan, #splash .splash-tag, #splash .splash-begin { opacity: 1; }
+  #splash.armed .splash-cta { animation: none; }
   #launch-flash.fire { animation: none; }
 }
 

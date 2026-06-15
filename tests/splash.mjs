@@ -1,5 +1,7 @@
 // Cinematic attract splash: a brand-new pilot lands on the splash (not the
-// dashboard), and TAKE OFF flies straight into the run on the shown course.
+// dashboard). Browser autoplay blocks audio until a gesture, so the first
+// interaction "ignites" (wakes the intro theme + reveals TAKE OFF) WITHOUT
+// launching; TAKE OFF then flies straight into the run on the shown course.
 import { boot, check } from './browser.mjs';
 
 // No initScript → empty save → stats.runs === 0 → genuine first-timer.
@@ -10,10 +12,20 @@ check('splash visible for a brand-new pilot',
   await page.$eval('#splash', (el) => el.classList.contains('show')));
 check('splash title reads DRAGON DRIFT',
   /DRAGON\s*DRIFT/.test((await page.textContent('.splash-title')) || ''));
-check('TAKE OFF button present', !!(await page.$('#splash-takeoff')));
+check('TAP TO BEGIN prompt shown before ignite', await page.isVisible('#splash-begin'));
+check('TAKE OFF hidden until ignite', !(await page.isVisible('#splash-takeoff')));
 check('dashboard NOT shown over the splash',
   !(await page.$eval('#screen', (el) => el.classList.contains('visible'))));
 check('HUD hidden under the splash',
+  await page.evaluate(() => document.body.classList.contains('splash-open')));
+
+// First interaction ignites the attract screen: wakes the intro theme + reveals
+// TAKE OFF, but does NOT launch the run.
+await page.keyboard.press('Enter');
+await page.waitForSelector('#splash.armed', { timeout: 5000 });
+check('ignite does not launch the run', await page.evaluate(() => window.__dd.game.state === 'ready'));
+check('TAKE OFF revealed after ignite', await page.isVisible('#splash-takeoff'));
+check('still on the splash after ignite',
   await page.evaluate(() => document.body.classList.contains('splash-open')));
 
 await page.click('#splash-takeoff');
