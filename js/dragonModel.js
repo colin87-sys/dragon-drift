@@ -1,10 +1,10 @@
 import * as THREE from 'three';
 import { makeGlowTexture } from './util.js';
-import { buildCleanTail } from './dragonParts.js';
-import { resolveRecipe, getTorsoBuilder, getWingsBuilder, getHeadBuilder } from './dragonRecipe.js';
+import { resolveRecipe, getTorsoBuilder, getWingsBuilder, getHeadBuilder, getTailBuilder } from './dragonRecipe.js';
 import './dragonTorso.js'; // self-registers the 'arrow' / 'serpent' torso profiles
 import './dragonWings.js'; // self-registers the 'membrane' / 'none' wing builders
 import './dragonHead.js';  // self-registers the 'horned' / 'beaked' head builders
+import './dragonTail.js';  // self-registers the 'clean' / 'legacy' tail builders
 import { applyFresnelRim } from './surface.js';
 import { buildPhoenixModel } from './phoenixModel.js';
 
@@ -270,68 +270,14 @@ export function buildDragonModel(def, opts = {}) {
     group.add(glow);
   }
 
-  // --- Tail --------------------------------------------------------------
-  // Redesigned dragons (model.tailStyle) get the single clean tail; the rest of
-  // the roster keeps the legacy segmented tail (fan / mace / simple).
-  const tailSegs = [];
-  let tailFins = null;
-  if (model.tailStyle) {
-    // Tail root anchored at hipRear and overlapping the body (base radius ≈ hip
-    // width) so it flows out of the torso seamlessly — never a detached spear.
-    const { group: tailGroup, segs, accentMats, tailFins: tf } = buildCleanTail(def, model, bodyMat);
-    if (accentMats) for (const m of accentMats) spineMats.push(m);
-    tailFins = tf;
-    tailGroup.position.set(0, attach.tailAnchor.y, attach.tailAnchor.z);
-    group.add(tailGroup);
-    for (const s of segs) tailSegs.push(s);
-  } else {
-    let radius = 0.4;
-    let zTail = 1.7;
-    const nTail = Math.min(model.tailSegments, 9);
-    const taper = nTail > 7 ? 0.74 : 0.78;
-    for (let i = 0; i < nTail; i++) {
-      const seg = new THREE.Mesh(new THREE.ConeGeometry(radius, 0.95, 7), bodyMat);
-      seg.rotation.x = Math.PI / 2;
-      seg.position.set(0, 0.1, zTail);
-      group.add(seg);
-      tailSegs.push(seg);
-      zTail += 0.58;
-      radius = Math.max(radius * taper, 0.08);
-    }
-    const bladeMat = new THREE.MeshStandardMaterial({
-      color: def.scales, emissive: def.wingEmissive, emissiveIntensity: 0.7,
-      roughness: 0.25, metalness: 0.5, side: THREE.DoubleSide,
-    });
-    if (model.maceTail) {
-      const mace = new THREE.Mesh(new THREE.SphereGeometry(0.28, 8, 7), bladeMat);
-      mace.position.set(0, 0.1, zTail);
-      group.add(mace);
-      tailSegs.push(mace);
-      for (let i = 0; i < 6; i++) {
-        const a = (i / 6) * Math.PI * 2;
-        const spike = new THREE.Mesh(new THREE.ConeGeometry(0.06, 0.38, 4), bladeMat);
-        spike.position.set(Math.cos(a) * 0.24, Math.sin(a) * 0.24 + 0.1, zTail);
-        spike.rotation.z = Math.sin(a) * Math.PI / 2;
-        spike.rotation.x = Math.cos(a) * Math.PI / 2;
-        group.add(spike);
-      }
-    } else if (model.tailTip === 'fan') {
-      for (let i = 0; i < 3; i++) {
-        const angle = (i - 1) * 0.48;
-        const fin = new THREE.Mesh(new THREE.ConeGeometry(0.11, 0.74, 5), scalesMat);
-        fin.rotation.set(Math.PI / 2, 0, angle);
-        fin.position.set(Math.sin(angle) * 0.14, Math.cos(angle) * 0.14 + 0.1, zTail);
-        group.add(fin);
-        tailSegs.push(fin);
-      }
-    } else {
-      const tip = new THREE.Mesh(new THREE.ConeGeometry(0.09, 0.6, 5), scalesMat);
-      tip.rotation.x = Math.PI / 2;
-      tip.position.set(0, 0.1, zTail);
-      group.add(tip);
-      tailSegs.push(tip);
-    }
-  }
+  // --- Tail — from the recipe's TAIL module (dragonTail.js). The builder
+  // positions the tail at the torso's published anchor and returns the coil
+  // chain (segs), the apex deploy fins, and the Surge-flaring accent mats.
+  const tailResult = getTailBuilder(recipe.tail)(def, model, { bodyMat, scalesMat }, attach.tailAnchor);
+  group.add(tailResult.group);
+  if (tailResult.accentMats) for (const m of tailResult.accentMats) spineMats.push(m);
+  const tailFins = tailResult.tailFins;
+  const tailSegs = tailResult.segs;
 
   // --- Wings -------------------------------------------------------------
   // The wing system (membrane / none) comes from the recipe's WINGS module

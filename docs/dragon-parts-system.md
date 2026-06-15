@@ -1,10 +1,9 @@
 # Dragon Parts System — composable body plans
 
-Status: **Backbone + TORSO + WINGS + HEAD landed.** The shipped roster renders
-byte-identically (verified by exact triangle-count parity). The tail is left in
-`dragonParts.js` (`buildCleanTail`) — it's already a recipe field (`tailStyle`)
-with many variants, so a dedicated module would be pure tidiness. Remaining:
-fold the Phoenix into a recipe, then a surface-detail pass.
+Status: **Backbone + TORSO + WINGS + HEAD + TAIL landed**, plus a procedural
+fresnel-rim surface pass. The shipped roster renders byte-identically (verified
+by exact triangle-count parity). All four part slots are now composable;
+**remaining: fold the Phoenix into a recipe** (the last bespoke builder).
 
 ## Why
 
@@ -76,12 +75,19 @@ what made the demo below a one-line change.
 - **`js/dragonHead.js`** — a head builder takes `(def, model, mats)` and returns
   a Group the rig sways. `horned` (the shipped reptilian head, verbatim) +
   `beaked` (a hooked-beak avian head, no horns/snout — the variety lever).
-- **`js/dragonModel.js`** — calls the torso + wings + head modules and reads the
-  attach contract instead of hard-coded constants; everything else unchanged.
-- **`js/dragonParts.js`** — now a **shared-primitives** library: the wing
+- **`js/dragonTail.js`** — a tail builder takes `(def, model, mats, anchor)` and
+  returns `{ group, segs, tailFins, accentMats }`. `clean` is one builder
+  dispatching all ~11 `model.tailStyle` variants (the moved `buildCleanTail`);
+  `legacy` is the old segmented tail.
+- **`js/surface.js`** — `applyFresnelRim(material, colorHex, opts)`: a procedural
+  view-angle rim (via `onBeforeCompile`) that defines the body contour so it
+  stops reading as a flat blob. On-brand per dragon (`def.apexSeam`).
+- **`js/dragonModel.js`** — composes torso + wings + head + tail via the registry
+  and reads the attach contract instead of hard-coded constants.
+- **`js/dragonParts.js`** — now a **shared-primitives** library only: the wing
   *shape* helpers (`buildWingShape` / `archWing` / `wingStrut` / `edgedFin` …)
-  and the tail (`buildCleanTail`). The torso geometry and the wing *assembly*
-  moved to their part modules; this file holds the pieces they build from.
+  and the tail *outlines* (`buildForkShape` / `buildBladeShape` / `buildLayeredFin`
+  …). The torso, wing *assembly*, and tail *assembly* moved to their modules.
 
 ### Proof it composes
 
@@ -112,9 +118,10 @@ recap, save-migration) pass.
    whole reptilian roster (its `hornLen:0` + `earTendrils` flags give the
    hornless night-drake look); `beaked` is the new avian head for griffins /
    sky-serpents / firebirds.
-3. **Tail** — *intentionally not extracted.* `buildCleanTail` already dispatches
-   ~11 styles off `model.tailStyle`, so it's effectively the tail recipe field
-   already; a dedicated module would be pure tidiness. Left in `dragonParts.js`.
+3. ~~**Tail registry**~~ — **done** (`clean` + `legacy`). `clean` is one builder
+   that dispatches all ~11 `model.tailStyle` variants (`dragonTail.js`); a recipe
+   can name a bespoke style (e.g. `plume`). The shape outlines stay in
+   `dragonParts.js`.
 4. **Fold Phoenix into a recipe** — the firebird becomes roughly
    `{ torso:'avian', wings:'feather', tail:'plume', head:'beaked' }`, retiring
    the `archetype === 'phoenix'` special-case. Needs an `avian` torso, a
