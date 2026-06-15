@@ -25,6 +25,7 @@
 const TORSO_BUILDERS = {};
 const WINGS_BUILDERS = {};
 const HEAD_BUILDERS = {};
+const TAIL_BUILDERS = {};
 
 export function registerTorso(name, fn) { TORSO_BUILDERS[name] = fn; }
 export function getTorsoBuilder(name) { return TORSO_BUILDERS[name] || TORSO_BUILDERS.arrow; }
@@ -37,6 +38,10 @@ export function hasWings(name) { return !!WINGS_BUILDERS[name]; }
 export function registerHead(name, fn) { HEAD_BUILDERS[name] = fn; }
 export function getHeadBuilder(name) { return HEAD_BUILDERS[name] || HEAD_BUILDERS.horned; }
 export function hasHead(name) { return !!HEAD_BUILDERS[name]; }
+
+export function registerTail(name, fn) { TAIL_BUILDERS[name] = fn; }
+export function getTailBuilder(name) { return TAIL_BUILDERS[name] || TAIL_BUILDERS.clean; }
+export function hasTail(name) { return !!TAIL_BUILDERS[name]; }
 
 // --- recipe resolution ------------------------------------------------------
 // Resolve a dragon def to an explicit { torso, wings, tail, head } recipe.
@@ -57,9 +62,11 @@ export function resolveRecipe(def) {
   // recipe object is already complete when those modules are extracted.
   const wings = explicit.wings
     || (model.wingShape === 'feather' ? 'feather' : 'membrane');
+  // TAIL: the modern single tail ('clean') dispatches all model.tailStyle
+  // variants internally; only a dragon with no tailStyle falls to the old
+  // segmented 'legacy' tail. A recipe can name a bespoke style (e.g. 'plume').
   const tail = explicit.tail
-    || model.tailStyle
-    || (model.maceTail ? 'mace' : model.tailTip === 'fan' ? 'fan' : 'legacy');
+    || (model.tailStyle ? 'clean' : 'legacy');
   // HEAD: the reptilian horned head (with its whisker/tusk/frill flags) covers
   // the whole shipped roster; a recipe opts into 'beaked' for an avian creature.
   const head = explicit.head
