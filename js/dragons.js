@@ -235,6 +235,7 @@ export const DRAGONS = {
     // authored from named constants so the rear read is unmistakable and the
     // apex is obviously superior (not just a wider/brighter Radiant):
     //   bodyScale     overall size (group scale, vs Radiant)
+    //   bodyStretch   after-body LENGTH only (longer, not bulkier; apex)
     //   wingSpan      wing width (× bodyScale = on-screen wingspan)
     //   wingChord     wing front-to-back depth
     //   tailLength    tail length (× bodyScale)
@@ -242,6 +243,7 @@ export const DRAGONS = {
     //   dorsalGlowCount  cyan chevrons down the back   spineGlow  glow geometry ramp
     //   glowIntensity emissive multiplier (apex > 1)   particleRate trail density
     //   wingOpacity   membrane translucency            previewScale showcase framing
+    //   surgeGlowMultiplier  apex Surge flare boost     wingParticleRate  wingtip wisp rate
     // Progressive drama target — Hatchling 25% · Kindled 45% · Radiant 70% ·
     // Eternal 100%.
     stats: { speed: 1.1, handling: 1.16, drain: 0.84, regen: 1.18 },
@@ -309,10 +311,11 @@ export const DRAGONS = {
       // stealth-tail ASSEMBLY — two large swept layered stabilizers (anhedral) +
       // micro support fins + a tall central rudder on a long stem. Drama 100%.
       { wingForm: 3, tailStyle: 'apexstealth', earTendrils: true,
-        bodyScale: 1.20, wingSpan: 1.10, wingChord: 1.12, tailLength: 1.14,
+        bodyScale: 1.12, bodyStretch: 1.18, wingSpan: 1.10, wingChord: 1.12, tailLength: 1.14,
         tailFinScale: 1.50, tailFinSpread: 1.55, dorsalGlowCount: 11, tailGlowSegs: 10,
         spineGlow: 1.00, glowIntensity: 1.30, particleRate: 1.80,
         wingOpacity: 0.78, wingPanelGlow: 0.17, previewScale: 1.12,
+        surgeGlowMultiplier: 1.3, wingParticleRate: 0.6,
         wingVeins: true, glowSeams: true, wingEdgeGlow: true,
         wingtipFins: true, hipFins: true },
     ],
