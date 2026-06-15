@@ -534,24 +534,24 @@ export const DRAGONS = {
           wingInner: 0x242a64, wingOuter: 0x0d1029, wingEmissive: 0x405cff,
           eye: 0x9eeaff, apexSeam: 0x5566ff, coreGlow: 0x405cff, surgeHi: 0xbfd7ff,
           trail: 0x5268ff, boostTrail: 0x84eaff } },
-      // Comet Wyrm — a longer body, 2 fin pairs, a fuller comet wake, the first crown.
-      { segmentCount: 9, sideFinPairs: 2, cometWisps: 3,
+      // Comet Wyrm — a longer body, a bigger wing pair, a fuller comet wake, the first crown.
+      { segmentCount: 9, sideFinPairs: 1, cometWisps: 3,
         crown: 0.35, maskTier: 1, spineGlow: 0.18, coreIntensity: 0.28,
         bodyScale: 0.92, wingSpan: 0.84, tailLength: 0.78,
         colors: { body: 0x12183a, belly: 0x8795d8, scales: 0x6172ff, horn: 0xb6c2f2,
           wingInner: 0x293177, wingOuter: 0x0b0f2a, wingEmissive: 0x5bcfff,
           eye: 0xb8f3ff, apexSeam: 0x7084ff, coreGlow: 0x5bcfff, surgeHi: 0xd8e8ff,
           trail: 0x6888ff, boostTrail: 0x91f3ff } },
-      // Astral Serpent — a long body, 3 fin pairs, a long comet wake, fuller crown.
-      { segmentCount: 12, sideFinPairs: 3, cometWisps: 4,
+      // Astral Serpent — a long body, a wide wing pair, a long comet wake, fuller crown.
+      { segmentCount: 12, sideFinPairs: 1, cometWisps: 4,
         crown: 0.7, maskTier: 2, spineGlow: 0.34, coreIntensity: 0.48,
         bodyScale: 1.04, wingSpan: 1.08, tailLength: 1.0,
         colors: { body: 0x101632, belly: 0xaab8f4, scales: 0x7f8cff, horn: 0xd0dcff,
           wingInner: 0x2d378a, wingOuter: 0x090d24, wingEmissive: 0x7ee8ff,
           eye: 0xcff8ff, apexSeam: 0x8e76ff, coreGlow: 0x7ee8ff, surgeHi: 0xeaf4ff,
           trail: 0x7e9cff, boostTrail: 0x9df4ff } },
-      // Galaxy Emperor — a long sweeping body, 4 fin pairs, a sweeping comet wake, emperor mask.
-      { segmentCount: 15, sideFinPairs: 4, cometWisps: 6,
+      // Galaxy Emperor — a long sweeping body, broad sweeping wings, a sweeping comet wake, emperor mask.
+      { segmentCount: 15, sideFinPairs: 1, cometWisps: 6,
         crown: 1.0, maskTier: 3, spineGlow: 0.58, coreIntensity: 0.72,
         bodyScale: 1.16, wingSpan: 1.28, tailLength: 1.22,
         colors: { body: 0x090d24, belly: 0xdce6ff, scales: 0x9d7cff, horn: 0xf2f6ff,
