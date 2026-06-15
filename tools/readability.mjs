@@ -13,8 +13,8 @@
 //   node tools/readability.mjs <key>      just one dragon (all forms)
 //   node tools/readability.mjs --ci       exit 1 if any apex form FAILs
 //
-// FAIL if VOcc > 0.72 OR AboveH > 0.28 (calibrated to the shipped roster) (the body shouldn't crowd the top of the
-// frame or sit above the aim point). Counts MESHES only (glow sprites aren't mass).
+// FAIL if central VOcc > 58% OR AboveH > 8% (central mass over the aim point);
+// WARN at the Solar/Phoenix ceiling (>43% / >4.5%). Counts MESHES only (sprites excluded).
 
 import { register } from 'node:module';
 register('./three-resolver.mjs', import.meta.url);
@@ -80,7 +80,11 @@ function measure(group) {
     }
   });
   if (headWorld) headNdc = project(headWorld.x, headWorld.y, headWorld.z).y;
-  // Then the body's vertical screen span (all 8 corners of each mesh box).
+  // Then the vertical screen span ONLY in the CENTRAL AIMING COLUMN — the band of
+  // the frame around your aim point where rings + the path appear. Mass out at the
+  // sides (wings spreading wide) is fine even if it's tall; mass stacked in the
+  // centre is what blocks the view. (|NDC.x| < 0.30 ≈ the middle ~30% of the frame.)
+  const BAND = 0.30;
   group.traverse((o) => {
     if (o.isMesh && o.geometry) {
       const bb = o.geometry.boundingBox;
@@ -89,13 +93,14 @@ function measure(group) {
           i & 1 ? bb.max.x : bb.min.x, i & 2 ? bb.max.y : bb.min.y, i & 4 ? bb.max.z : bb.min.z)
           .applyMatrix4(o.matrixWorld);
         const n = project(c.x, c.y, c.z);
+        if (Math.abs(n.x) > BAND) continue;   // off to the side → not in the sight-line
         if (n.y > topNdc) topNdc = n.y;
         if (n.y < botNdc) botNdc = n.y;
       }
     }
   });
-  const vOcc = (topNdc - botNdc) / 2;     // NDC span 2 → fraction of frame height
-  const aboveH = (topNdc - headNdc) / 2;  // how far the body rises above the aim point
+  const vOcc = (topNdc - botNdc) / 2;     // central-column span / frame height
+  const aboveH = (topNdc - headNdc) / 2;  // central mass rising above the aim point
   return { vOcc, aboveH };
 }
 function dispose(obj) {
@@ -103,11 +108,12 @@ function dispose(obj) {
 }
 
 const FORM_NAMES = ['Hatchling', 'Kindled', 'Radiant', 'Eternal'];
-// Calibrated against the SHIPPED roster as the accepted baseline (Solar, the
-// biggest playable dragon, sits at ~55% / ~12%); a creature is only flagged when
-// it's clearly worse than the worst dragon you already fly happily.
+// Calibrated to how the roster actually FEELS: measuring only the CENTRAL column,
+// the comfortable dragons sit clear; Solar/Phoenix nudge into WARN ("takes a bit
+// of skill"); the real fail signal is AboveH — central mass stacked OVER the aim
+// point (the wyrm at 12% vs everyone else ≤5%), which is what hides your head.
 const verdict = (vOcc, aboveH) =>
-  (vOcc > 0.72 || aboveH > 0.28) ? 'FAIL' : (vOcc > 0.60 || aboveH > 0.18) ? 'WARN' : 'OK  ';
+  (vOcc > 0.58 || aboveH > 0.08) ? 'FAIL' : (vOcc > 0.43 || aboveH > 0.045) ? 'WARN' : 'OK  ';
 const keys = only ? [only] : Object.keys(DRAGONS);
 const padR = (s, n) => String(s).padEnd(n);
 const padL = (s, n) => String(s).padStart(n);
@@ -133,5 +139,5 @@ for (const key of keys) {
   }
 }
 console.log('-'.repeat(46));
-console.log(`${fails} apex form(s) FAIL the silhouette envelope (VOcc ≤ 72%, AboveH ≤ 28% — vs the shipped roster).\n`);
+console.log(`${fails} apex form(s) FAIL the silhouette envelope (FAIL > 58% central VOcc or > 8% AboveH · WARN = the Solar/Phoenix ceiling).\n`);
 if (ci && fails > 0) process.exitCode = 1;
