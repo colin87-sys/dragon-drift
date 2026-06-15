@@ -61,6 +61,9 @@ let boostTrailSprites = [];
 let emberMotes = [];   // Phoenix ember-feathers / Sovereign arcane surge motes
 let moteTimer = 0;
 let moteIdx = 0;
+let wingMotes = [];    // cyan wingtip wisps (apex Obsidian — def.model.wingParticleRate)
+let wingMoteTimer = 0;
+let wingMoteSide = 0;
 let trailTimer = 0;
 let boostTrailTimer = 0;
 let contrailTimer = 0;
@@ -166,6 +169,25 @@ export function createDragon(scene, def, riderDef) {
     }
   }
 
+  // Wingtip wisps: cool cyan motes shed continuously from the wing-tip markers —
+  // the apex Obsidian's stealth-plasma accent (def.model.wingParticleRate > 0). A
+  // small dedicated pool, allocated only when asked, so every other dragon pays
+  // nothing (no pool, no emit, no per-frame cost).
+  wingMotes = [];
+  if ((def.model.wingParticleRate || 0) > 0) {
+    const wispTex = makeGlowTexture('120,220,255');
+    for (let i = 0; i < 24; i++) {
+      const s = new THREE.Sprite(new THREE.SpriteMaterial({
+        map: wispTex, transparent: true, opacity: 0,
+        blending: THREE.AdditiveBlending, depthWrite: false,
+      }));
+      s.visible = false; s.userData.life = 0; s.userData.vy = 0;
+      s.layers.set(1);
+      scene.add(s);
+      wingMotes.push(s);
+    }
+  }
+
   // Death-burst crystal shards
   const shardMat = new THREE.MeshStandardMaterial({
     color: 0xaaddff, emissive: 0x44aaff, emissiveIntensity: 2.5,
@@ -227,7 +249,7 @@ export function disposeDragon() {
     m.geometry.dispose();
     sceneRef.remove(m);
   }
-  for (const s of [...trailSprites, ...boostTrailSprites, ...emberMotes]) {
+  for (const s of [...trailSprites, ...boostTrailSprites, ...emberMotes, ...wingMotes]) {
     s.material.dispose();
     sceneRef.remove(s);
   }
@@ -243,6 +265,7 @@ export function disposeDragon() {
   trailSprites = [];
   boostTrailSprites = [];
   emberMotes = [];
+  wingMotes = [];
   burstParticles = [];
   burstActive = false;
 }
@@ -396,10 +419,13 @@ export function updateDragon(dt, player, time) {
   if (surgeAnimT > 0) surgeAnimT = Math.max(0, surgeAnimT - dt);
   const ignite = surgeAnimT > 0 ? Math.sin((1 - surgeAnimT / 0.7) * Math.PI) : 0;
   surgeMix = damp(surgeMix, player.feverActive ? 1 : 0, 4, dt);
+  // Per-form Surge intensity (apex Obsidian flares a touch harder); default 1 =
+  // unchanged. Scales ONLY the Surge-delta terms below, never the steady base.
+  const sgm = activeDef.model.surgeGlowMultiplier ?? 1;
 
   // Wings: a soft emitting glow swells AROUND them during Surge (replaces the
   // old emitting ring), spiking on the ignition flourish.
-  const wingGlowTarget = backlit + (player.boosting ? 0.7 : 0) + surgeMix * 0.55 + ignite * 0.8;
+  const wingGlowTarget = backlit + (player.boosting ? 0.7 : 0) + (surgeMix * 0.55 + ignite * 0.8) * sgm;
   wingMat.emissiveIntensity = damp(wingMat.emissiveIntensity, wingGlowTarget, 6, dt);
   // Surge wing tint is per-dragon: dragons blaze magenta, the Phoenix ignites
   // white-gold (def.feverWing) so its Rebirth reads celestial, not pink.
@@ -414,8 +440,8 @@ export function updateDragon(dt, player, time) {
   // Violet core energy: pulses on boost, blazes + flashes on the Surge ignition.
   if (coreGlow) {
     const cb = coreGlow.userData.base || 0.3;
-    const coreTarget = (player.feverActive ? cb * 2.4 + Math.sin(time * 9) * 0.08
-      : player.boosting ? cb * 1.5 : cb) + ignite * 0.5;
+    const coreTarget = (player.feverActive ? cb * (1 + 1.4 * sgm) + Math.sin(time * 9) * 0.08 * sgm
+      : player.boosting ? cb * 1.5 : cb) + ignite * 0.5 * sgm;
     coreGlow.material.opacity = damp(coreGlow.material.opacity, coreTarget, 5, dt);
   }
   // Spine/crest/seam/tail plates flare toward the per-dragon Surge highlight,
@@ -425,7 +451,7 @@ export function updateDragon(dt, player, time) {
     for (const m of spineMats) {
       _surgeBaseCol.setHex(m.userData.baseEmissive ?? 0xffffff);
       m.emissive.copy(_surgeBaseCol).lerp(_surgeHi, Math.min(1, surgeMix * 0.85 + ignite * 0.4));
-      m.emissiveIntensity = (m.userData.baseIntensity ?? 1) * (1 + surgeMix * 0.9 + ignite * 1.6);
+      m.emissiveIntensity = (m.userData.baseIntensity ?? 1) * (1 + (surgeMix * 0.9 + ignite * 1.6) * sgm);
     }
   } else {
     for (const m of spineMats) {
@@ -588,6 +614,39 @@ export function updateDragon(dt, player, time) {
     }
   }
 
+  // Wingtip wisps — the apex Obsidian sheds cool cyan plasma off its winglets,
+  // continuously (not boost-gated like the contrail), from the wing-tip markers
+  // (kept current by the updateMatrixWorld above). Low + small so it reads as a
+  // stealth accent, not clutter; absent entirely when wingParticleRate is 0.
+  if (wingMotes.length && tipMarkerL && tipMarkerR) {
+    const wpr = activeDef.model.wingParticleRate || 0;
+    wingMoteTimer -= dt;
+    if (wpr > 0 && wingMoteTimer <= 0) {
+      wingMoteTimer = 0.10 / (quality * wpr);
+      const s = wingMotes.find(s => !s.visible);
+      if (s) {
+        const marker = (wingMoteSide++ & 1) ? tipMarkerL : tipMarkerR;
+        marker.getWorldPosition(tmpV);
+        s.visible = true;
+        s.userData.life = 1;
+        s.userData.vy = 0.15 + Math.random() * 0.25;
+        s.material.color.setHex(0x8be9ff);
+        s.position.set(tmpV.x + (Math.random() - 0.5) * 0.3,
+          tmpV.y + (Math.random() - 0.5) * 0.2, tmpV.z + (Math.random() - 0.5) * 0.3);
+      }
+    }
+    for (const s of wingMotes) {
+      if (!s.visible) continue;
+      s.userData.life -= dt * 1.6;
+      if (s.userData.life <= 0) { s.visible = false; s.material.opacity = 0; continue; }
+      s.position.y += s.userData.vy * dt;   // gentle rise
+      s.position.z += dt * 0.9;             // drift back toward the camera
+      s.material.opacity = s.userData.life * 0.32;
+      const sz = 0.10 + (1 - s.userData.life) * 0.18;
+      s.scale.set(sz, sz, 1);
+    }
+  }
+
   // Death burst update
   if (burstActive) {
     burstTimer -= dt;
@@ -621,6 +680,7 @@ export function resetDragon(player) {
   for (const s of trailSprites) { s.visible = false; s.userData.life = 0; }
   for (const s of boostTrailSprites) { s.visible = false; s.userData.life = 0; }
   for (const s of emberMotes) { s.visible = false; s.material.opacity = 0; s.userData.life = 0; }
+  for (const s of wingMotes) { s.visible = false; s.material.opacity = 0; s.userData.life = 0; }
   for (const p of burstParticles) { p.visible = false; }
   burstActive = false;
 }

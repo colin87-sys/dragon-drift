@@ -20,7 +20,18 @@ import * as THREE from 'three';
 // Lofted from a blade cross-section: a pointed dorsal keel on top, flatter
 // sides (less round/lumpy mass), a tapered belly. Strong shoulders → narrow
 // waist → narrow hips → slim tail root that the tail continues cleanly from.
-export function buildArrowTorso() {
+//
+// bodyStretch (default 1) lengthens ONLY the after-body: torso stations behind
+// the wing-root band (z > TORSO_ZHOLD) are pushed back about the hold line, so
+// the head/neck/shoulder/wing-root attach zone stays pinned and the apex reads
+// as a longer, sleeker drake — girth/height (halfWidth/keelTop/belly) untouched.
+const TORSO_ZHOLD = 0;     // hold line: nothing forward of the waist lengthens
+const TORSO_TAIL_Z = 1.70; // slim tail-root station (last entry below)
+// z-shift to add to the tail-group anchor so it stays flush with a stretched body.
+export function torsoTailShift(stretch = 1) {
+  return (TORSO_TAIL_Z - TORSO_ZHOLD) * (stretch - 1);
+}
+export function buildArrowTorso(stretch = 1) {
   // station: [z, halfWidth, keelTop, belly]  (z: head at -, tail at +)
   const stations = [
     [-3.05, 0.15, 0.10, 0.13], // neck cap (meets the neck chain)
@@ -39,9 +50,11 @@ export function buildArrowTorso() {
     [0, top], [-w * 0.70, top * 0.30], [-w, -bot * 0.10], [-w * 0.62, -bot * 0.64],
     [0, -bot], [w * 0.62, -bot * 0.64], [w, -bot * 0.10], [w * 0.70, top * 0.30],
   ];
+  // Rear-band lengthening: only stations behind the hold line move (toward +z).
+  const zAt = (z) => (z > TORSO_ZHOLD ? TORSO_ZHOLD + (z - TORSO_ZHOLD) * stretch : z);
   const verts = [];
   for (const [z, w, top, bot] of stations)
-    for (const [x, y] of ring(w, top, bot)) verts.push(x, y, z);
+    for (const [x, y] of ring(w, top, bot)) verts.push(x, y, zAt(z));
   const idx = [];
   for (let s = 0; s < stations.length - 1; s++) {
     const a0 = s * M, b0 = (s + 1) * M;
