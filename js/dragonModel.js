@@ -9,6 +9,7 @@ import './dragonCrystalSerpent.js'; // 'crystalSerpent' torso (continuous astral
 import './dragonSideFins.js';       // 'sideFins' wings (lateral astral vanes)
 import './dragonCometWake.js';      // 'cometWake' tail (streaming comet glow-trail)
 import './dragonCelestialHead.js';  // 'celestialMask' head (regal faceplate)
+import './dragonDraconicHead.js';   // 'draconic' head (modular house-style dragon head)
 import { applyFresnelRim } from './surface.js';
 
 // Unified procedural dragon mesh builder.
