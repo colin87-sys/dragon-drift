@@ -2,7 +2,29 @@ import * as THREE from 'three';
 import { CONFIG } from './config.js';
 import { game } from './gameState.js';
 import { input, getAxes } from './input.js';
-import { damp } from './util.js';
+import { damp, clamp } from './util.js';
+import { saveData } from './save.js';
+import { nextRingAhead } from './rings.js';
+import { nextGateAhead } from './obstacles.js';
+
+// Glide Assist (beginner auto-fly): compute the steering axes that intercept
+// the next ring (else gate) before the player reaches its plane. Returns the
+// same [-1,1] axis pair manual steering uses, so it feeds the identical damping
+// path and motion stays smooth. Levels off when nothing is ahead.
+function assistAxes(player) {
+  const ring = nextRingAhead(player.dist + 4);
+  const gate = nextGateAhead(player.dist + 4);
+  const target = ring && gate ? (ring.dist < gate.dist ? ring : gate) : (ring || gate);
+  if (!target) return { x: 0, y: 0 };
+  const tx = target.gapX !== undefined ? target.gapX : target.x;
+  const ty = target.gapY !== undefined ? target.gapY : target.y;
+  const time = Math.max((target.dist - player.dist) / Math.max(player.speed, 1), 0.0001);
+  const bonus = player.boosting ? CONFIG.boostSteeringBonus : 1;
+  return {
+    x: clamp((tx - player.position.x) / time / (S.lateralSpeed * bonus), -1, 1),
+    y: clamp((ty - player.position.y) / time / (S.verticalSpeed * bonus), -1, 1),
+  };
+}
 
 // Time-based speed ramp: game gets faster as the run progresses.
 function speedRamp(t) {
@@ -103,7 +125,13 @@ export const player = {
     this.rollCooldown = Math.max(0, this.rollCooldown - dt);
     this.rollInvuln = Math.max(0, this.rollInvuln - dt);
 
-    const axes = getAxes();
+    const manual = getAxes();
+    let axes = manual;
+    if (saveData.settings.glideAssist) {
+      // Forgiving blend: auto-steer flies the line; manual input bends it.
+      const a = assistAxes(this);
+      axes = { x: clamp(a.x + manual.x, -1, 1), y: clamp(a.y + manual.y, -1, 1) };
+    }
     const steeringBonus = this.boosting ? CONFIG.boostSteeringBonus : 1;
     this.velocity.x = damp(this.velocity.x, axes.x * S.lateralSpeed * steeringBonus, CONFIG.moveAccel, dt);
     this.velocity.y = damp(this.velocity.y, axes.y * S.verticalSpeed * steeringBonus, CONFIG.moveAccel, dt);

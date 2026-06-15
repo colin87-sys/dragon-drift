@@ -635,7 +635,12 @@ export const ui = {
 
     // C2: Assist chip — fades after 4s when value hasn't changed
     const hcBonus = Math.round((game.scoreMult - 1) * 100);
-    const newAssistText = hcBonus > 0 ? `⚔ ASSISTS OFF +${hcBonus}%` : '';
+    let newAssistText = '';
+    if (saveData.settings.glideAssist) {
+      newAssistText = `🪶 GLIDE ASSIST −${Math.round((1 - CONFIG.glideAssistScoreMult) * 100)}%`;
+    } else if (hcBonus > 0) {
+      newAssistText = `⚔ ASSISTS OFF +${hcBonus}%`;
+    }
     if (newAssistText !== lastAssistText) {
       els.assistChip.textContent = newAssistText;
       els.assistChip.classList.remove('faded');
@@ -1118,6 +1123,20 @@ export const ui = {
           ${assistSeg('slowMo', saveData.settings.slowMo, Math.round(CONFIG.slowMoOffBonus * 100))}
         </div>
         <div class="settings-group">
+          <div class="settings-label">GLIDE ASSIST — auto-flies to each ring &amp; collects embers; just steer toward the next one. Great for learning.</div>
+          <div class="seg-row">
+            <button class="seg-btn${saveData.settings.glideAssist ? ' sel' : ''}" data-assist="glideAssist" data-val="1">ON — SCORE −${Math.round((1 - CONFIG.glideAssistScoreMult) * 100)}%</button>
+            <button class="seg-btn${saveData.settings.glideAssist ? '' : ' sel'}" data-assist="glideAssist" data-val="0">OFF</button>
+          </div>
+        </div>
+        ${isTouch() ? '' : `<div class="settings-group">
+          <div class="settings-label">MOUSE STEERING — hold LEFT-click to steer, RIGHT-click to boost (Space still boosts)</div>
+          <div class="seg-row">
+            <button class="seg-btn${saveData.settings.mouseSteer ? ' sel' : ''}" data-assist="mouseSteer" data-val="1">ON</button>
+            <button class="seg-btn${saveData.settings.mouseSteer ? '' : ' sel'}" data-assist="mouseSteer" data-val="0">OFF</button>
+          </div>
+        </div>`}
+        <div class="settings-group">
           <div class="settings-label">DRAGON RADIO ${isTouch() ? '' : '(N to cycle in flight)'} — buy more stations in the shop</div>
           <div class="seg-row radio-segs">${TRACKS.map((t, i) => trackUnlocked(i)
             ? `<button class="seg-btn${music.trackIndex === i ? ' sel' : ''}" data-track="${i}">${t.name.toUpperCase()}</button>`
@@ -1286,10 +1305,17 @@ export const ui = {
           <button class="seg-btn${on ? ' sel' : ''}" data-assist="${id}" data-val="1">ON</button>
           <button class="seg-btn${on ? '' : ' sel'}" data-assist="${id}" data-val="0">OFF +${bonusPct}%</button>
         </div>`;
+      const toggleOnOff = (id, on) => `
+        <div class="seg-row toggle-seg">
+          <button class="seg-btn${on ? ' sel' : ''}" data-assist="${id}" data-val="1">ON</button>
+          <button class="seg-btn${on ? '' : ' sel'}" data-assist="${id}" data-val="0">OFF</button>
+        </div>`;
       body = `
         <div class="toggle-row"><span class="toggle-lbl">TARGET RETICLE</span>${segOnOff('reticle', saveData.settings.reticle, Math.round(CONFIG.reticleOffBonus * 100))}</div>
         <div class="toggle-row"><span class="toggle-lbl">LAST-CHANCE SLOW-MO</span>${segOnOff('slowMo', saveData.settings.slowMo, Math.round(CONFIG.slowMoOffBonus * 100))}</div>
-        <p class="pm-hint">Fly without assists and every point pays more.</p>`;
+        <div class="toggle-row"><span class="toggle-lbl">GLIDE ASSIST <small>−${Math.round((1 - CONFIG.glideAssistScoreMult) * 100)}%</small></span>${toggleOnOff('glideAssist', saveData.settings.glideAssist)}</div>
+        ${isTouch() ? '' : `<div class="toggle-row"><span class="toggle-lbl">MOUSE STEERING</span>${toggleOnOff('mouseSteer', saveData.settings.mouseSteer)}</div>`}
+        <p class="pm-hint">Glide Assist auto-flies for you · turn the others off and every point pays more.</p>`;
     } else { // quests
       const rows = activeMissions().map((m) => `
         <div class="pm-quest${m.progress >= m.def.target ? ' done' : ''}">

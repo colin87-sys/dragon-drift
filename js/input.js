@@ -1,4 +1,6 @@
 import { clamp } from './util.js';
+import { game } from './gameState.js';
+import { saveData } from './save.js';
 
 // Input state. Keyboard (WASD/arrows + Space) and touch (drag to steer,
 // second finger held = boost). Game-flow keys/taps are handled in main.js.
@@ -192,4 +194,49 @@ export function initTouch(el) {
   };
   el.addEventListener('touchend', end);
   el.addEventListener('touchcancel', end);
+}
+
+// Desktop mouse controls (gated by settings.mouseSteer): hold LEFT to steer —
+// a relative drag from the press point, like the touch joystick — and hold
+// RIGHT to boost (spacebar still works). Only engages during play so it never
+// fights the tap-to-start / tap-to-restart pointer handlers in main.js.
+export function initMouse(el) {
+  const SPAN = 220; // px of drag for full deflection (more room than a thumb)
+  let steering = false;
+  let baseX = 0;
+  let baseY = 0;
+
+  const stopSteer = () => {
+    if (!steering) return;
+    steering = false;
+    input.tx = 0;
+    input.ty = 0;
+  };
+
+  el.addEventListener('mousedown', (e) => {
+    if (!saveData.settings.mouseSteer || game.state !== 'playing') return;
+    if (e.button === 0) {
+      steering = true;
+      baseX = e.clientX;
+      baseY = e.clientY;
+      e.preventDefault();
+    } else if (e.button === 2) {
+      input.boost = true;
+      e.preventDefault();
+    }
+  });
+  window.addEventListener('mousemove', (e) => {
+    if (!steering) return;
+    input.tx = clamp((e.clientX - baseX) / SPAN, -1, 1);
+    input.ty = clamp(-(e.clientY - baseY) / SPAN, -1, 1); // move up = fly up
+  });
+  window.addEventListener('mouseup', (e) => {
+    if (e.button === 0) stopSteer();
+    else if (e.button === 2) input.boost = false;
+  });
+  el.addEventListener('contextmenu', (e) => {
+    if (saveData.settings.mouseSteer) e.preventDefault();
+  });
+  // Leaving the window / losing focus must never leave steer or boost stuck on.
+  window.addEventListener('blur', () => { stopSteer(); input.boost = false; });
 }

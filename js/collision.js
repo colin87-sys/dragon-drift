@@ -123,18 +123,34 @@ export function updateCollision(dt, player) {
           Math.abs(p.x - c.gapX) < c.gapW - 0.5 &&
           Math.abs(p.y - c.gapY) < c.gapH - 0.5;
         if (!inGap) {
-          crash(player, 'gate');
-          return;
-        }
-        if (!c.passed) {
-          c.passed = true;
-          threadGate(player);
-        }
-        // Threading through gate close to the edge = near miss
-        const marginX = c.gapW - Math.abs(p.x - c.gapX);
-        const marginY = c.gapH - Math.abs(p.y - c.gapY);
-        if (Math.min(marginX, marginY) < 1.2) {
-          awardNearMiss(c, player);
+          // Surge phase-through: during Dragon Surge, a well-timed barrel roll
+          // (active i-frames) + enough stamina shatters the wall instead of
+          // crashing. Once shattered, this wall stays passable while we're in
+          // its z-range (c.phased), so we don't re-crash on the next frame.
+          if (!c.phased) {
+            const canPhase = game.feverActive &&
+              player.rollInvuln > 0 &&
+              game.stamina >= CONFIG.phaseStaminaCost;
+            if (canPhase) {
+              c.phased = true;
+              game.stamina -= CONFIG.phaseStaminaCost;
+              phaseThroughGate(c, player);
+            } else {
+              crash(player, 'gate');
+              return;
+            }
+          }
+        } else {
+          if (!c.passed) {
+            c.passed = true;
+            threadGate(player);
+          }
+          // Threading through gate close to the edge = near miss
+          const marginX = c.gapW - Math.abs(p.x - c.gapX);
+          const marginY = c.gapH - Math.abs(p.y - c.gapY);
+          if (Math.min(marginX, marginY) < 1.2) {
+            awardNearMiss(c, player);
+          }
         }
       }
     }
@@ -172,6 +188,21 @@ function threadGate(player) {
     juiceEvent('surgeStart');
     emit('surge');
   }
+}
+
+// Surge phase-through: shatter the crystal wall instead of crashing. Pays style
+// points (× combo) and a crystal burst; combo and Surge stay intact so the run
+// keeps its momentum. Stamina was already spent by the caller.
+function phaseThroughGate(c, player) {
+  const points = Math.round(CONFIG.phaseBonus * game.combo * game.scoreMult);
+  game.score += points;
+  gateThreadBurst(player.position);
+  burst(player.position, 0xc060ff, { count: 24, speed: 18, size: 1.2 });
+  cameraCtl.shake(0.7);
+  juiceEvent('phase');
+  ui.nearMissPopup(points);
+  sfx.gate();
+  emit('phase');
 }
 
 function awardNearMiss(collider, player) {
