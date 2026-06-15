@@ -1,5 +1,6 @@
-// Feats: event-driven live unlocks pay once (idempotent), toast fires,
-// streak thresholds read the game state.
+// Feats: event-driven live unlocks are idempotent (toast fires); the ember
+// reward is paid once on CLAIM (Pilot), never on unlock; streak thresholds read
+// the game state.
 import { boot, check } from './browser.mjs';
 
 const { page, errors, done } = await boot();
@@ -8,14 +9,22 @@ await page.waitForFunction(() => window.__dd.game.state === 'playing');
 
 const w0 = await page.evaluate(() => window.__dd.save.embers);
 
-// First perfect ring → Bullseye (+20), exactly once.
+// First perfect ring → Bullseye unlocks (idempotently). Unlocking no longer
+// auto-pays embers — the reward is claimed in Pilot (claimFeat) — so the wallet
+// stays put through repeated unlock emits.
 await page.evaluate(() => { window.__dd.emit('ring', { perfect: true }); });
 check('Bullseye unlocks on first perfect', await page.evaluate(() =>
   window.__dd.save.feats.unlocked.includes('first_perfect')));
 check('feat toast fired', await page.$eval('#feat-toast', (el) => el.textContent.includes('Bullseye')));
 await page.evaluate(() => { window.__dd.emit('ring', { perfect: true }); });
+check('unlock does not auto-pay (claimed in Pilot)',
+  (await page.evaluate(() => window.__dd.save.embers)) - w0 === 0);
+
+// Claiming pays the reward exactly once; the claimed set guards double-pay.
+const paid1 = await page.evaluate(() => window.__dd.claimFeat('first_perfect'));
+const paid2 = await page.evaluate(() => window.__dd.claimFeat('first_perfect'));
 const w1 = await page.evaluate(() => window.__dd.save.embers);
-check('double emit pays exactly once (+20)', w1 - w0 === 20);
+check('claim pays Bullseye once (+20), never twice', paid1 === 20 && paid2 === 0 && w1 - w0 === 20);
 
 // Streak feat reads live game state.
 await page.evaluate(() => {
