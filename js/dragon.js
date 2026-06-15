@@ -337,7 +337,10 @@ export function updateDragon(dt, player, time) {
     rollSpin = -player.roll.dir * Math.PI * 2 * ease; // matches bank direction
     rollFold = Math.sin(Math.PI * k) * 0.55;
   }
-  group.rotation.z = bankZ + rollSpin;
+  // A segmented serpent BENDS its spine to turn (handled per-plate below) rather
+  // than banking like a plane — so soften the whole-body roll for the wyrm, or the
+  // barrel-bank would hide the snake-bend.
+  group.rotation.z = bankZ * (bodySegs ? 0.4 : 1) + rollSpin;
   group.rotation.x = damp(group.rotation.x, player.velocity.y * 0.022, 9, dt);
   // Slight yaw toward lateral movement
   group.rotation.y = damp(group.rotation.y, player.velocity.x * 0.008, 6, dt);
@@ -427,23 +430,28 @@ export function updateDragon(dt, player, time) {
     const sway = activeDef.model.segmentSway ?? 0.16;
     const bob = activeDef.model.segmentBob ?? 0.08;
     const last = Math.max(1, bodySegs.length - 1);
+    const steer = player.velocity.x;                    // + = steering right
     for (let i = 0; i < bodySegs.length; i++) {
       const tt = i / last;                              // 0 = lead/head → 1 = tail
       const ramp = 0.18 + 0.95 * tt;                    // front (saddle) calm, tail whips widest
       const ph = time * 2.2 - i * lag;
-      const drag = -player.velocity.x * 0.012 * i;      // rear plates drag into the turn
-      // Horizontal SLITHER (§0.5): lateral sway dominates and the vertical bob is
-      // nearly gone, so the chain S-curves side to side like a serpent swimming
-      // through the air — it never bobs up into the sight-line.
-      const wx = Math.sin(ph) * sway * ramp + drag;
+      // SNAKE TURN: the head leads and the body TRAILS into a following C-curve —
+      // rear plates lag toward the outside of the turn (they haven't caught up),
+      // the bend accumulating down the chain (∝ tt²). This is the lateral spine
+      // bend a serpent makes to change direction; combined with the horizontal
+      // SLITHER (§0.5) below, the chain S-curves side to side instead of bobbing up.
+      // (steer ranges to ~±24 = CONFIG.lateralSpeed at full input, so coefficients
+      // are small — full steer should curve the chain, not fling segments apart.)
+      const turnBend = -steer * 0.04 * tt * tt;
+      const wx = Math.sin(ph) * sway * ramp + turnBend;
       const wy = (bodySegs[i].userData.baseY ?? 0.5) + Math.sin(ph * 0.9) * bob * tt * 0.3;
       bodySegs[i].position.x = damp(bodySegs[i].position.x, wx, 9, dt);
       bodySegs[i].position.y = damp(bodySegs[i].position.y, wy, 9, dt);
-      // Yaw each plate to face along the S (cos = the wave's travel direction) so
-      // the body reads as following its own curve, not plates sliding sideways.
-      bodySegs[i].rotation.y = damp(bodySegs[i].rotation.y, Math.cos(ph) * 0.34 * ramp + player.velocity.x * 0.006, 10, dt);
-      // Gentle bank into the wave; rear plates lean more.
-      bodySegs[i].rotation.z = damp(bodySegs[i].rotation.z, -Math.sin(ph) * 0.12 * ramp - player.velocity.x * 0.004 * i, 10, dt);
+      // Yaw each plate to face along the path: the slither's travel direction (cos)
+      // PLUS a turn yaw so the plates swing to follow the curve (rear angles most).
+      bodySegs[i].rotation.y = damp(bodySegs[i].rotation.y, Math.cos(ph) * 0.34 * ramp + steer * 0.013 * (0.4 + tt), 10, dt);
+      // Lean into the turn (a snake rolls slightly into its bend) over the wave roll.
+      bodySegs[i].rotation.z = damp(bodySegs[i].rotation.z, -Math.sin(ph) * 0.12 * ramp - steer * 0.008 * tt, 10, dt);
     }
   }
   // Orbiting tail relics: boost tightens the orbit + aligns with speed; Surge

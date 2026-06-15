@@ -83,7 +83,7 @@ it and you get the default (the common drake).
 
 | slot | options | default | notes |
 |---|---|---|---|
-| `torso` | `arrow` · `serpent` · `avian` · `segmentedWyrm` | `arrow` | body plan: arrowhead drake · long eastern serpent · firebird egg-body · **floating crystal vertebrae** (the centipede-wyrm) |
+| `torso` | `arrow` · `serpent` · `avian` · `crystalSerpent` | `arrow` | body plan: arrowhead drake · long eastern serpent · firebird egg-body · **continuous astral-crystal serpent** (overlapping sections + glowing energy bands; the wyrm) |
 | `wings` | `membrane` · `feather` · `sideFins` · `none` | `membrane` | bat membrane · bird feathers · **lateral astral vanes** · wingless |
 | `tail`  | *(set a `tailStyle`, see below)* · `plume` · `cometWake` · `legacy` | `clean` | `clean` auto-dispatches ~11 styles; `plume` = flame fan; **`cometWake` = a streaming comet glow-trail (sprites + lateral spark debris, low + behind)** |
 | `head`  | `horned` · `beaked` · `celestialMask` | `horned` | reptilian (horns/whiskers/tusks) · avian (hooked beak + crown) · **regal faceplate + crown/halo** |
@@ -281,24 +281,30 @@ the part system doesn't fully abstract, so plan for a small, clean addition:
    `tailSegs` coil with the phase-lag applied to the body; an orbit is the Void
    Oracle's `riderOrbiters` loop. Copy them.
 
-**Worked reference: the Astral Centipede Wyrm** (`astralWyrm`) — a fully novel
-body plan built entirely from new parts (`segmentedWyrm` / `sideFins` /
-`cometWake` / `celestialMask`) plus the `bodySegs` rig hook (a lead-first
-travelling wave retuned into a *horizontal slither* — lateral-dominant, the wave
-amplitude ramping front→tail so the head/saddle stays calm and the tail whips). It
-extends the attach contract with `segmentAnchors` + `sideFinRoots(side, i)` (the
-fins mount along the chain) and **`riderSocket`** (the celestial saddle in the
-front third), and **spends ~80% of the tri budget at the apex** (the density climb
-across the four forms *is* the unlock reward).
+**Worked reference: the Astral Wyrm** (`astralWyrm`) — a fully novel body plan
+built entirely from new parts (`crystalSerpent` / `sideFins` / `cometWake` /
+`celestialMask`) plus the `bodySegs` rig hook (a lead-first travelling wave tuned
+into a *horizontal slither* — lateral-dominant, amplitude ramping front→tail so the
+head/saddle stays calm and the tail whips, **plus a turn-bend**: steering curves
+the body into a following C-curve like a real snake, with the whole-body bank
+softened so the bend reads). It extends the attach contract with `segmentAnchors`
++ `sideFinRoots(side, i)` (fins mount along the body) and **`riderSocket`** (the
+celestial saddle in the front third).
 
 It is also the **playability exemplar** (§0.5): a long creature whose tail swings
-near the chase camera, so it's deliberately kept *low-profile* — a head-led chain
-that descends gently back-and-down (no vertical arch), a crown + brow-horns raked
-hard back, side fins rolled flat-and-out (not up), and the comet wake built almost
-entirely from uncounted sprites with its only counted debris flung wide to the
-lower-left/right. That's what drops it from a `FAIL` (vertical tower over the head)
-to a clean Solar-class `WARN`. Read those four modules + the §0.5 reworks
-end-to-end as the template for an ambitious creature.
+near the chase camera, so it's deliberately kept *low-profile* — a head-led body
+descending gently back-and-down (no vertical arch), crown + brow-horns raked hard
+back, side fins rolled flat-and-out (not up), and the comet wake built almost
+entirely from uncounted sprites.
+
+> **The hardest lesson (learned the hard way):** the game is *only ever seen from
+> behind*, so a creature has to read from the chase/back view above all else. The
+> wyrm's first body was **separate floating vertebrae** — gorgeous in side/shop
+> renders, but from behind you look straight down the chain and the gaps just
+> stack into a knobbly column. A **continuous** body (overlapping sections that
+> merge into one flowing tube, segmentation kept as *surface* detail — glowing
+> bands, not gaps) is what reads as a real creature from the back. **Judge every
+> design on the back view first; if it only looks good in the turntable, it fails.**
 
 ---
 

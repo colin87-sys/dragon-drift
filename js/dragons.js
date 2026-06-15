@@ -289,8 +289,8 @@ export const DRAGONS = {
       // stealth-tail ASSEMBLY — two large swept layered stabilizers (anhedral) +
       // micro support fins + a tall central rudder on a long stem. Drama 100%.
       { wingForm: 3, tailStyle: 'apexstealth', earTendrils: true,
-        bodyScale: 1.12, bodyStretch: 1.18, wingSpan: 1.10, wingChord: 1.15, tailLength: 1.14,
-        tailFinScale: 1.35, tailFinSpread: 1.55, dorsalGlowCount: 11, tailGlowSegs: 10,
+        bodyScale: 1.12, bodyStretch: 1.18, wingSpan: 1.10, wingChord: 1.15, tailLength: 1.06,
+        tailFinScale: 1.08, tailFinSpread: 1.2, dorsalGlowCount: 11, tailGlowSegs: 10,
         tailRootCollar: true, tailDorsalLink: true,
         spineGlow: 1.00, glowIntensity: 1.30, particleRate: 1.80,
         wingOpacity: 0.78, wingPanelGlow: 0.16, previewScale: 1.12,
@@ -508,50 +508,50 @@ export const DRAGONS = {
     aura: 0xfff0a8, eye: 0xfff0c0, trail: 0xffd76a, boostTrail: 0xfff0c8,
   },
 
-  // A cosmic centipede-serpent: a head-led chain of separate floating celestial
-  // vertebrae with glowing gaps, lateral astral fin-vanes, a regal mask head + a
-  // celestial saddle, that slithers HORIZONTALLY (low + readable, §0.5) and tapers
-  // into a streaming comet wake. The first fully NON-standard body plan — built
-  // entirely from composable parts (segmentedWyrm / sideFins / cometWake / celestialMask).
+  // A sleek astral serpent: one continuous flowing crystal body wrapped in glowing
+  // energy bands, lateral astral fin-vanes, a regal mask head + a celestial saddle,
+  // that slithers HORIZONTALLY (low + readable, §0.5) and tapers into a streaming
+  // comet wake. A fully NON-standard body plan — built entirely from composable
+  // parts (crystalSerpent / sideFins / cometWake / celestialMask).
   astralWyrm: {
-    name: 'Astral Centipede Wyrm',
+    name: 'Astral Wyrm',
     title: 'Emperor of the Star Current',
     rarity: 'SSR', maxRarity: 'SSSR', cost: 4200,
-    parts: { torso: 'segmentedWyrm', wings: 'sideFins', tail: 'cometWake', head: 'celestialMask' },
+    parts: { torso: 'crystalSerpent', wings: 'sideFins', tail: 'cometWake', head: 'celestialMask' },
     stats: { speed: 1.13, handling: 1.24, drain: 0.82, regen: 1.18 },
     model: {
       scale: 1.08, wingScale: 1.12, neckSegments: 3, ridgeCount: 0,
       flapBias: 0.45, flapAmp: 0.28,             // tiny beat → the fins flex, never flap
-      segmentSpacing: 1.02, segmentTaper: 0.9, segmentSway: 0.26, segmentBob: 0.05, segmentLag: 0.16,
+      segmentTaper: 0.93, segmentSway: 0.26, segmentBob: 0.05, segmentLag: 0.16,
       sideFinSweep: 0.72, sideFinFlex: 0.18,
     },
     forms: [
-      // Star-Larva — a tiny 3-plate dart, one fin pair, a short comet wisp, a bare mask.
-      { segmentCount: 3, sideFinPairs: 1, cometWisps: 2,
+      // Star-Larva — a short slender serpent, one fin pair, a short comet wisp, a bare mask.
+      { segmentCount: 6, sideFinPairs: 1, cometWisps: 2,
         crown: 0, maskTier: 0, spineGlow: 0.08, coreIntensity: 0.15,
         bodyScale: 0.78, wingSpan: 0.62, tailLength: 0.55,
         colors: { body: 0x151a35, belly: 0x6f78aa, scales: 0x4d5ad8, horn: 0x9aa6dd,
           wingInner: 0x242a64, wingOuter: 0x0d1029, wingEmissive: 0x405cff,
           eye: 0x9eeaff, apexSeam: 0x5566ff, coreGlow: 0x405cff, surgeHi: 0xbfd7ff,
           trail: 0x5268ff, boostTrail: 0x84eaff } },
-      // Segmented Comet Wyrm — 5 plates, 2 fin pairs, a fuller comet wake, the first crown.
-      { segmentCount: 5, sideFinPairs: 2, cometWisps: 3,
+      // Comet Wyrm — a longer body, a bigger wing pair, a fuller comet wake, the first crown.
+      { segmentCount: 9, sideFinPairs: 1, cometWisps: 3,
         crown: 0.35, maskTier: 1, spineGlow: 0.18, coreIntensity: 0.28,
         bodyScale: 0.92, wingSpan: 0.84, tailLength: 0.78,
         colors: { body: 0x12183a, belly: 0x8795d8, scales: 0x6172ff, horn: 0xb6c2f2,
           wingInner: 0x293177, wingOuter: 0x0b0f2a, wingEmissive: 0x5bcfff,
           eye: 0xb8f3ff, apexSeam: 0x7084ff, coreGlow: 0x5bcfff, surgeHi: 0xd8e8ff,
           trail: 0x6888ff, boostTrail: 0x91f3ff } },
-      // Astral Centipede — 7 plates, 3 fin pairs, a long comet wake, fuller crown.
-      { segmentCount: 7, sideFinPairs: 3, cometWisps: 4,
+      // Astral Serpent — a long body, a wide wing pair, a long comet wake, fuller crown.
+      { segmentCount: 12, sideFinPairs: 1, cometWisps: 4,
         crown: 0.7, maskTier: 2, spineGlow: 0.34, coreIntensity: 0.48,
         bodyScale: 1.04, wingSpan: 1.08, tailLength: 1.0,
         colors: { body: 0x101632, belly: 0xaab8f4, scales: 0x7f8cff, horn: 0xd0dcff,
           wingInner: 0x2d378a, wingOuter: 0x090d24, wingEmissive: 0x7ee8ff,
           eye: 0xcff8ff, apexSeam: 0x8e76ff, coreGlow: 0x7ee8ff, surgeHi: 0xeaf4ff,
           trail: 0x7e9cff, boostTrail: 0x9df4ff } },
-      // Galaxy Emperor — 9 plates, 4 fin pairs, a sweeping comet wake, emperor mask.
-      { segmentCount: 9, sideFinPairs: 4, cometWisps: 6,
+      // Galaxy Emperor — a long sweeping body, broad sweeping wings, a sweeping comet wake, emperor mask.
+      { segmentCount: 15, sideFinPairs: 1, cometWisps: 6,
         crown: 1.0, maskTier: 3, spineGlow: 0.58, coreIntensity: 0.72,
         bodyScale: 1.16, wingSpan: 1.28, tailLength: 1.22,
         colors: { body: 0x090d24, belly: 0xdce6ff, scales: 0x9d7cff, horn: 0xf2f6ff,
