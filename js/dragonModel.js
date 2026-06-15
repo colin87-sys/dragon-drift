@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { makeGlowTexture } from './util.js';
 import {
-  buildArrowTorso, keelTopAt,
+  buildArrowTorso, torsoTailShift, keelTopAt,
   DEFAULT_WING, wingSpecFor, buildWingShape, buildFeatherWingShape,
   archWing, archLift, wingStrut, applyWingGradient,
   buildCleanTail, edgedFin,
@@ -66,7 +66,7 @@ export function buildDragonModel(def, opts = {}) {
   // keeps the closed loft robust regardless of face winding.
   const torsoMat = bodyMat.clone();
   torsoMat.side = THREE.DoubleSide;
-  const torso = new THREE.Mesh(buildArrowTorso(), torsoMat);
+  const torso = new THREE.Mesh(buildArrowTorso(model.bodyStretch ?? 1), torsoMat);
   torso.position.y = 0.2;
   group.add(torso);
 
@@ -401,7 +401,7 @@ export function buildDragonModel(def, opts = {}) {
     // width) so it flows out of the torso seamlessly — never a detached spear.
     const { group: tailGroup, segs, accentMats } = buildCleanTail(def, model, bodyMat);
     if (accentMats) for (const m of accentMats) spineMats.push(m);
-    tailGroup.position.set(0, 0.28, 1.15);
+    tailGroup.position.set(0, 0.28, 1.15 + torsoTailShift(model.bodyStretch ?? 1));
     group.add(tailGroup);
     for (const s of segs) tailSegs.push(s);
   } else {
