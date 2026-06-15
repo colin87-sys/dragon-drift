@@ -1,8 +1,10 @@
 # Dragon Parts System — composable body plans
 
-Status: **Backbone + TORSO + WINGS landed.** The shipped roster renders
-byte-identically (verified by exact triangle-count parity); tail / head are next,
-then folding the Phoenix into a recipe.
+Status: **Backbone + TORSO + WINGS + HEAD landed.** The shipped roster renders
+byte-identically (verified by exact triangle-count parity). The tail is left in
+`dragonParts.js` (`buildCleanTail`) — it's already a recipe field (`tailStyle`)
+with many variants, so a dedicated module would be pure tidiness. Remaining:
+fold the Phoenix into a recipe, then a surface-detail pass.
 
 ## Why
 
@@ -71,8 +73,11 @@ what made the demo below a one-line change.
     `wingShape:'feather'` variant).
   - `none` — a wingless body plan (empty rig handles the shared animation loop
     drives harmlessly) for a true river-serpent / sea-drake.
-- **`js/dragonModel.js`** — calls the torso + wings modules and reads the attach
-  contract instead of hard-coded constants; everything else unchanged.
+- **`js/dragonHead.js`** — a head builder takes `(def, model, mats)` and returns
+  a Group the rig sways. `horned` (the shipped reptilian head, verbatim) +
+  `beaked` (a hooked-beak avian head, no horns/snout — the variety lever).
+- **`js/dragonModel.js`** — calls the torso + wings + head modules and reads the
+  attach contract instead of hard-coded constants; everything else unchanged.
 - **`js/dragonParts.js`** — now a **shared-primitives** library: the wing
   *shape* helpers (`buildWingShape` / `archWing` / `wingStrut` / `edgedFin` …)
   and the tail (`buildCleanTail`). The torso geometry and the wing *assembly*
@@ -102,16 +107,18 @@ recap, save-migration) pass.
 
 ## Roadmap (remaining modules)
 
-1. ~~**Wings registry**~~ — **done** (`membrane` + `none`). The Phoenix-style
-   layered `feather` wing arrives with the Phoenix fold (step 3).
-2. **Tail registry** — formalize the existing `buildCleanTail` styles
-   (`comet/plume/shard/stealthrudder/…`) as the tail registry.
-3. **Head registry** — `horned` / `beaked` / `frilled`; pulls the beaked head
-   out of `phoenixModel.js`.
-4. **Fold Phoenix into a recipe** — once all four slots exist, the firebird
-   becomes `{ torso:'avian', wings:'feather', tail:'plume', head:'beaked' }` and
-   the `archetype === 'phoenix'` special-case in `dragonModel.js` disappears.
-   That retires the only bespoke builder and proves the system fully general.
+1. ~~**Wings registry**~~ — **done** (`membrane` + `none`).
+2. ~~**Head registry**~~ — **done** (`horned` + `beaked`). `horned` covers the
+   whole reptilian roster (its `hornLen:0` + `earTendrils` flags give the
+   hornless night-drake look); `beaked` is the new avian head for griffins /
+   sky-serpents / firebirds.
+3. **Tail** — *intentionally not extracted.* `buildCleanTail` already dispatches
+   ~11 styles off `model.tailStyle`, so it's effectively the tail recipe field
+   already; a dedicated module would be pure tidiness. Left in `dragonParts.js`.
+4. **Fold Phoenix into a recipe** — the firebird becomes roughly
+   `{ torso:'avian', wings:'feather', tail:'plume', head:'beaked' }`, retiring
+   the `archetype === 'phoenix'` special-case. Needs an `avian` torso, a
+   `feather` wing, and a `plume` tail style (the `beaked` head already exists).
 5. **Author new dragons** — once parts compose freely, new creatures (a wingless
    river-serpent, a crystal golem-drake, a 4-wing insectoid) are *recipes*, each
    a few KB of data, validated by `tricount` + `tiershots` before shipping.
