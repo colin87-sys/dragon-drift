@@ -449,7 +449,11 @@ export const DRAGONS = {
     rarity: 'SSSR',
     maxRarity: 'SSSR',
     cost: 6000,
-    archetype: 'phoenix', // separate firebird model — see phoenixModel.js
+    // Composed from a recipe like every other dragon: an avian body, feather
+    // wings, a flame-plume tail and a beaked head. `archetype` is kept only as a
+    // RIG flag (warm ember motes / Rebirth Surge in dragon.js), not a model path.
+    archetype: 'phoenix',
+    parts: { torso: 'avian', wings: 'feather', tail: 'plume', head: 'beaked' },
     // A celestial firebird, NOT a wyvern: broad layered FEATHER wings, a flowing
     // flame-feather PLUME tail, a back-raked feather crown and a white-hot
     // heart-fire core. White-gold dominant (no magenta) — its Surge is a

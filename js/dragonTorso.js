@@ -1,5 +1,8 @@
 import * as THREE from 'three';
 import { registerTorso } from './dragonRecipe.js';
+import { makeGlowTexture } from './util.js';
+import { applyFresnelRim } from './surface.js';
+import { featherGeo, hexRgb } from './dragonParts.js';
 
 // Torso modules — the dragon's BODY PLAN, the first part extracted behind the
 // recipe registry (dragonRecipe.js). A body plan is now DATA: a profile object
@@ -187,3 +190,121 @@ registerTorso('arrow', (def, model, bodyMat) => buildTorso(ARROW_PROFILE, def, m
 registerTorso('serpent', (def, model, bodyMat) => buildTorso(SERPENT_PROFILE, def, model, bodyMat));
 
 export { ARROW_PROFILE, SERPENT_PROFILE, buildTorso };
+
+// ===========================================================================
+// AVIAN — a firebird body plan (the Phoenix, folded out of its bespoke builder).
+// ===========================================================================
+// A compact egg body + breast swell + a glowing heart-fire core, a back-raked
+// feather crown down the spine, and a short avian neck — NOT a lofted reptile
+// torso. It owns the firebird body materials (returned so the head/tail share
+// them and the rig animates them) and the heart-core + solar-backlight sprites.
+// Form level (model.formLevel) drives brightness, feather count and core size.
+//
+// attach mounts the feather wings high on the shoulders, the beaked head on the
+// short neck, and the plume tail off the rump; keelTopAt is a no-op (no dorsal
+// spine — the crown is the back read).
+function buildAvianTorso(def, model, _bodyMat) {
+  const F = model.formLevel ?? (model.spineGlow >= 1 ? 3 : model.spineGlow >= 0.6 ? 2 : model.spineGlow >= 0.25 ? 1 : 0);
+  const group = new THREE.Group();
+  const spineMats = [];
+
+  const cBody = def.body;
+  const cCore = def.coreGlow ?? def.scales;
+  const cSeam = def.apexSeam ?? def.wingEmissive;
+  const cCrest = def.horn ?? def.scales;
+
+  const bodyMat = new THREE.MeshStandardMaterial({
+    color: cBody, roughness: 0.44, metalness: 0.08,
+    emissive: cBody, emissiveIntensity: 0.1 + F * 0.1, side: THREE.DoubleSide,
+  });
+  applyFresnelRim(bodyMat, cSeam);
+  const eyeMat = new THREE.MeshStandardMaterial({ color: 0x221100, emissive: def.eye, emissiveIntensity: 2.2 });
+  const tagged = (mat, baseEmissive, baseIntensity) => {
+    mat.userData.baseEmissive = baseEmissive;
+    mat.userData.baseIntensity = baseIntensity;
+    spineMats.push(mat);
+    return mat;
+  };
+  const crestMat = tagged(new THREE.MeshStandardMaterial({
+    color: cCrest, emissive: cSeam, emissiveIntensity: 0.8 + F * 0.6, roughness: 0.3, metalness: 0.4,
+    side: THREE.DoubleSide,
+  }), cSeam, 0.8 + F * 0.6);
+  const coreMat = tagged(new THREE.MeshStandardMaterial({
+    color: cCore, emissive: cCore, emissiveIntensity: 1.5 + F * 0.9, roughness: 0.3,
+  }), cCore, 1.5 + F * 0.9);
+
+  // Body: a compact egg leaning into the flight + a breast swell.
+  const body = new THREE.Mesh(new THREE.SphereGeometry(0.6, 14, 12), bodyMat);
+  body.scale.set(0.8, 0.84, 1.46 + F * 0.08);
+  body.position.set(0, 0.5, 0.12);
+  group.add(body);
+  const breast = new THREE.Mesh(new THREE.SphereGeometry(0.44, 12, 10), bodyMat);
+  breast.scale.set(0.92, 0.92, 1.05);
+  breast.position.set(0, 0.36, -0.5);
+  group.add(breast);
+
+  // Heart-fire core mesh: a bright sphere nestled in the chest (blazes on Surge).
+  const heart = new THREE.Mesh(new THREE.SphereGeometry(0.24 + F * 0.05, 12, 10), coreMat);
+  heart.position.set(0, 0.48, -0.18);
+  group.add(heart);
+
+  // Back crown: a row of back-raked feathers down the spine (firebird read from
+  // directly behind). Grows with the form.
+  const backN = 3 + F * 2;
+  for (let i = 0; i < backN; i++) {
+    const t = i / (backN - 1);
+    const h = (0.4 + Math.sin(t * Math.PI) * (0.4 + F * 0.18));
+    const fe = new THREE.Mesh(featherGeo(h, 0.16 + F * 0.02), crestMat);
+    fe.position.set(0, 0.78 + Math.sin(t * Math.PI) * 0.1, -0.7 + t * 1.7);
+    fe.rotation.x = -1.15; // rake up-and-back
+    group.add(fe);
+  }
+
+  // Short avian neck (2 small spheres) — bird, not serpent.
+  for (let i = 0; i < 2; i++) {
+    const t = (i + 1) / 3;
+    const n = new THREE.Mesh(new THREE.SphereGeometry(0.34 - i * 0.06, 9, 7), bodyMat);
+    n.scale.set(0.82, 0.78, 1.0);
+    n.position.set(0, 0.5 + t * 0.22, -0.62 - t * 0.72);
+    group.add(n);
+  }
+
+  // Soft solar backlight (form 3-4): a divine corona behind the body.
+  if (F >= 3) {
+    const auraCard = new THREE.Sprite(new THREE.SpriteMaterial({
+      map: makeGlowTexture(def.aura ? hexRgb(def.aura) : hexRgb(cSeam)), transparent: true,
+      opacity: 0.34, blending: THREE.AdditiveBlending, depthWrite: false,
+    }));
+    auraCard.scale.set(4.4, 5.8, 1);
+    auraCard.position.set(0, 0.7, 0.25);
+    group.add(auraCard);
+  }
+
+  // Heart-fire core sprite (white-hot glow that pulses on boost / blazes Surge).
+  let coreGlow = null;
+  if (def.coreGlow) {
+    const lvl = 0.4 + F * 0.2;
+    coreGlow = new THREE.Sprite(new THREE.SpriteMaterial({
+      map: makeGlowTexture(hexRgb(cCore)), transparent: true, opacity: 0.2 + lvl * 0.24,
+      blending: THREE.AdditiveBlending, depthWrite: false,
+    }));
+    coreGlow.scale.setScalar(0.9 + lvl * 0.8);
+    coreGlow.position.set(0, 0.48, -0.18);
+    coreGlow.layers.set(1);
+    coreGlow.userData.base = coreGlow.material.opacity;
+    group.add(coreGlow);
+  }
+
+  const attach = {
+    wingRoot: (side) => ({ x: 0.4 * side, y: 0.62, z: -0.12 }),
+    headBase: { x: 0, y: 0.74, z: -1.32 - F * 0.04 },
+    tailAnchor: { y: 0.42, z: 0.55 },
+    keelTopAt: () => 0,   // no dorsal spine — the crown is the back read
+    tailShift: 0,
+  };
+  // mats override the dragon defaults so the head shares the firebird body/eye
+  // material (rig pulse stays consistent); spineMats flare on Rebirth Surge.
+  return { group, attach, mats: { bodyMat, eyeMat }, coreGlow, spineMats };
+}
+
+registerTorso('avian', buildAvianTorso);

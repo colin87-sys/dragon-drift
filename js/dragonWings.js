@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import {
   DEFAULT_WING, wingSpecFor, buildWingShape, buildFeatherWingShape,
   archWing, archLift, wingStrut, applyWingGradient, edgedFin,
+  featherGeo, featherGradient, webGradient, archUp, bone,
 } from './dragonParts.js';
 import { registerWings } from './dragonRecipe.js';
 
@@ -293,3 +294,150 @@ function buildNoneWings(def, model, attach) {
 
 registerWings('membrane', buildMembraneWings);
 registerWings('none', buildNoneWings);
+
+// ── FEATHER ─────────────────────────────────────────────────────────────────
+// The firebird wing (the Phoenix, folded out of its bespoke builder): a bird
+// wing, not a membrane — a continuous translucent inner WEB (the secondaries)
+// carries the broad surface, with broad overlapping feathers and an outer
+// scalloped WEB whose deep notches read as primary feather tips. Strongly UPSWEPT
+// so it arcs up like a spreading firebird. Mounts via attach.wingRoot (the avian
+// torso reports the firebird's shoulder), F drives reach/rise/feather counts.
+function buildFeatherWings(def, model, attach, _giM) {
+  const F = model.formLevel ?? (model.spineGlow >= 1 ? 3 : model.spineGlow >= 0.6 ? 2 : model.spineGlow >= 0.25 ? 1 : 0);
+  const group = new THREE.Group();
+  const spineMats = [];
+
+  const cBody = def.body;
+  const cIn = def.featherIn ?? def.wingInner;
+  const cOut = def.featherOut ?? def.wingOuter;
+  const cEdge = def.featherEdge ?? def.apexSeam ?? def.wingEmissive;
+  const cHi = def.featherHi ?? def.scales;
+  const cEmis = def.wingEmissive;
+  const cSeam = def.apexSeam ?? def.wingEmissive;
+  const cCrest = def.horn ?? def.scales;
+
+  const wingMat = new THREE.MeshStandardMaterial({
+    color: 0xffffff, vertexColors: true, roughness: 0.5, side: THREE.DoubleSide,
+    transparent: true, opacity: 0.82, emissive: cEmis, emissiveIntensity: 0.3,
+  });
+  const armMat = new THREE.MeshStandardMaterial({
+    color: cCrest, emissive: cSeam, emissiveIntensity: 0.5, roughness: 0.32, metalness: 0.45,
+  });
+  const edgeMat = new THREE.MeshStandardMaterial({
+    color: cEdge, emissive: cEdge, emissiveIntensity: 0.85 + F * 0.5, roughness: 0.3, metalness: 0.3,
+  });
+  edgeMat.userData.baseEmissive = cEdge;
+  edgeMat.userData.baseIntensity = 0.85 + F * 0.5;
+  spineMats.push(edgeMat);
+
+  const ws = model.wingScale;
+  const reach = (2.6 + F * 0.5) * ws;   // outward span of one wing
+  const rise = (1.0 + F * 0.28) * ws;   // tip upsweep (Y at the wing tip)
+  const back = 0.5 + F * 0.14;          // trailing-edge sweep
+  const wristX = reach * 0.5, wristY = rise * 0.4, wristZ = 0.06;
+
+  function feather(parent, side, rx, ry, rz, len, wid, sweep, dihedral, baseHex, tipHex, mat = wingMat) {
+    const g = featherGeo(len, wid);
+    featherGradient(g, baseHex, tipHex);
+    const f = new THREE.Mesh(g, mat);
+    f.position.set(rx * side, ry, rz);
+    f.rotation.y = side * sweep;   // sweep outward + back
+    f.rotation.x = dihedral;       // tilt the plane (dihedral / billow)
+    f.rotation.z = side * 0.04;
+    parent.add(f);
+    return f;
+  }
+
+  function buildWing(side) {
+    const pivot = new THREE.Group();
+    const wr = attach.wingRoot(side);
+    pivot.position.set(wr.x, wr.y, wr.z); // root high on the shoulders
+    const shoulder = new THREE.Mesh(new THREE.SphereGeometry(0.17, 9, 7), armMat);
+    shoulder.scale.set(1.1, 0.85, 1.2);
+    pivot.add(shoulder);
+    pivot.add(bone(0, 0, 0, wristX * side, wristY, wristZ, 0.09, 0.05, armMat));
+
+    // Inner web — a solid, arced, scalloped wing surface (shoulder → wrist).
+    const innerSpan = wristX * 1.08;
+    const chordRoot = 0.72 * ws, chordTip = 1.06 * ws;
+    const sh = new THREE.Shape();
+    sh.moveTo(0, 0);
+    sh.lineTo(innerSpan, 0.05 * ws);             // leading edge → wrist
+    const nSc = 5;
+    for (let k = nSc; k >= 0; k--) {             // scalloped trailing edge → root
+      const tx = k / nSc;
+      const chord = chordRoot + (chordTip - chordRoot) * tx;
+      const scallop = 0.07 * ws * (k % 2 === 0 ? 1 : 0.45);
+      sh.lineTo(innerSpan * tx, chord - scallop);
+    }
+    const webGeo = new THREE.ShapeGeometry(sh, 12);
+    webGeo.rotateX(Math.PI / 2);
+    archUp(webGeo, innerSpan, rise * 0.5);
+    webGradient(webGeo, cIn, cOut);
+    const web = new THREE.Mesh(webGeo, wingMat);
+    web.scale.x = side;
+    pivot.add(web);
+
+    // Secondary feathers — broad, overlapping, laid over the web.
+    const nIn = 3 + F;
+    for (let k = 0; k < nIn; k++) {
+      const t = nIn > 1 ? k / (nIn - 1) : 0;
+      const rx = innerSpan * (0.12 + t * 0.82);
+      const ry = rise * 0.5 * (rx / innerSpan) * (rx / innerSpan) + 0.05;
+      const len = (0.78 + Math.sin(t * Math.PI) * 0.38) * ws;
+      feather(pivot, side, rx, ry, 0, len, 0.5 * ws, 0.24 + t * back * 0.34, -(0.04 + t * 0.07), cIn, cOut);
+    }
+    // Glowing leading-edge accent — elite forms only.
+    if (F >= 2) pivot.add(bone(0.1 * side, 0.05, 0, wristX * side, wristY + 0.04, wristZ, 0.02, 0.014, edgeMat));
+
+    // Outer primaries — a LAYERED feather group at the wrist.
+    const wingTip = new THREE.Group();
+    wingTip.position.set(wristX * side, wristY, wristZ);
+    wingTip.add(bone(0, 0, 0, (reach - wristX) * side, rise - wristY, 0.02, 0.055, 0.02, armMat));
+    if (F >= 2) wingTip.add(bone(0, 0.03, 0, (reach - wristX) * side, rise - wristY + 0.03, 0.02, 0.018, 0.01, edgeMat));
+    const outerSpan = reach - wristX, oRise = rise - wristY;
+    const oRoot = 1.0 * ws, oTip = 0.42 * ws;
+    const so = new THREE.Shape();
+    so.moveTo(0, 0);
+    so.lineTo(outerSpan, 0.02 * ws);                  // leading edge → tip
+    const nF = 4 + F;
+    for (let k = nF; k >= 0; k--) {                   // notched trailing edge → wrist
+      const tx = k / nF;
+      const chord = oTip + (oRoot - oTip) * (1 - tx); // chord shrinks toward the tip
+      const notch = (k % 2 === 0 ? 0.02 : 0.2) * ws;  // deep notches = feather separation
+      so.lineTo(outerSpan * tx, chord - notch);
+    }
+    const oGeo = new THREE.ShapeGeometry(so, 14);
+    oGeo.rotateX(Math.PI / 2);
+    archUp(oGeo, outerSpan, oRise);
+    webGradient(oGeo, cOut, cHi);
+    const oWeb = new THREE.Mesh(oGeo, wingMat);
+    oWeb.scale.x = side;
+    wingTip.add(oWeb);
+    for (let k = 0; k < 2; k++) {
+      feather(wingTip, side, outerSpan * (0.1 + k * 0.22), oRise * (0.1 + k * 0.22) + 0.04, -0.03,
+        (0.7 + k * 0.2) * ws, 0.5 * ws, 0.22 + k * 0.2, -0.05, cBody, cOut);
+    }
+    const marker = new THREE.Object3D();
+    marker.position.set((reach - wristX) * side, rise - wristY, 1.1 * ws);
+    wingTip.add(marker);
+    pivot.add(wingTip);
+    group.add(pivot);
+    return { pivot, wingTip, marker };
+  }
+
+  const R = buildWing(1), L = buildWing(-1);
+  return {
+    group,
+    parts: {
+      wingPivotL: L.pivot, wingPivotR: R.pivot,
+      wingTipL: L.wingTip, wingTipR: R.wingTip,
+      tipMarkerL: L.marker, tipMarkerR: R.marker,
+      wingPivot2L: null, wingPivot2R: null,
+    },
+    wingMat,
+    spineMats,
+  };
+}
+
+registerWings('feather', buildFeatherWings);

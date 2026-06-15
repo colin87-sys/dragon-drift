@@ -1,9 +1,11 @@
 # Dragon Parts System — composable body plans
 
-Status: **Backbone + TORSO + WINGS + HEAD + TAIL landed**, plus a procedural
-fresnel-rim surface pass. The shipped roster renders byte-identically (verified
-by exact triangle-count parity). All four part slots are now composable;
-**remaining: fold the Phoenix into a recipe** (the last bespoke builder).
+Status: **COMPLETE.** All four part slots (torso / wings / head / tail) are
+composable, plus a procedural fresnel-rim surface pass, and **the Phoenix is
+folded into a recipe** — `phoenixModel.js` is gone and there are **no bespoke
+builders left**. Every one of the 7 dragons, firebird included, is composed from
+a `parts` recipe through one code path. The whole roster renders byte-identically
+to before (verified by exact triangle-count parity + render comparison).
 
 ## Why
 
@@ -111,24 +113,33 @@ The refactor is verified non-destructive by **exact triangle-count parity**:
 identical. `node tests/run-all.mjs` model-relevant suites (smoke, defs, shop,
 recap, save-migration) pass.
 
-## Roadmap (remaining modules)
+## Roadmap — all done
 
-1. ~~**Wings registry**~~ — **done** (`membrane` + `none`).
-2. ~~**Head registry**~~ — **done** (`horned` + `beaked`). `horned` covers the
-   whole reptilian roster (its `hornLen:0` + `earTendrils` flags give the
-   hornless night-drake look); `beaked` is the new avian head for griffins /
-   sky-serpents / firebirds.
-3. ~~**Tail registry**~~ — **done** (`clean` + `legacy`). `clean` is one builder
-   that dispatches all ~11 `model.tailStyle` variants (`dragonTail.js`); a recipe
-   can name a bespoke style (e.g. `plume`). The shape outlines stay in
-   `dragonParts.js`.
-4. **Fold Phoenix into a recipe** — the firebird becomes roughly
-   `{ torso:'avian', wings:'feather', tail:'plume', head:'beaked' }`, retiring
-   the `archetype === 'phoenix'` special-case. Needs an `avian` torso, a
-   `feather` wing, and a `plume` tail style (the `beaked` head already exists).
-5. **Author new dragons** — once parts compose freely, new creatures (a wingless
-   river-serpent, a crystal golem-drake, a 4-wing insectoid) are *recipes*, each
-   a few KB of data, validated by `tricount` + `tiershots` before shipping.
+1. ~~**Wings registry**~~ — `membrane` · `none` · `feather` (firebird).
+2. ~~**Head registry**~~ — `horned` (the reptilian roster; `hornLen:0` +
+   `earTendrils` = the hornless night-drake) · `beaked` (the avian feather-crowned
+   head, used by the firebird and any griffin).
+3. ~~**Tail registry**~~ — `clean` (one builder, all ~11 `tailStyle` variants) ·
+   `legacy` · `plume` (the firebird flame-feather fan).
+4. ~~**Fold Phoenix into a recipe**~~ — **done.** The firebird is now
+   `{ torso:'avian', wings:'feather', tail:'plume', head:'beaked' }`; the
+   `archetype === 'phoenix'` model path and `phoenixModel.js` are gone (a torso
+   may return its own body/eye materials + heart-core so the firebird's shared
+   F-driven materials thread through the part system). `archetype` survives only
+   as a **rig flag** (warm ember motes / Rebirth Surge in `dragon.js`).
+
+### Available part palette (for authoring new dragons)
+
+| slot | options |
+|---|---|
+| `torso` | `arrow` (drake) · `serpent` (eastern) · `avian` (firebird) |
+| `wings` | `membrane` (per-form elbow) · `feather` (bird) · `none` (wingless) |
+| `tail`  | `clean` + any `tailStyle` (simple/finned/blade/comet/twinfin/shard/spade/splitfin/stealthrudder/apexstealth/firefan) · `plume` (flame fan) · `legacy` |
+| `head`  | `horned` (+ whisker/tusk/frill flags) · `beaked` (feather crown) |
+
+A new creature (a wingless river-serpent, a crystal golem-drake, a 4-wing
+insectoid) is now a `parts` recipe + palette — a few KB of data, validated by
+`tricount` + `tiershots` before shipping.
 
 ## Why this also unlocks "make new dragons" / AI generation
 
