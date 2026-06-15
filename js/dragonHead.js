@@ -1,19 +1,22 @@
 import * as THREE from 'three';
 import { registerHead } from './dragonRecipe.js';
+import { featherGeo } from './dragonParts.js';
 
 // Head modules — the third part behind the recipe registry. A head builder takes
-// (def, model, mats) and returns a THREE.Group the rig sways via head.rotation,
-// where mats = { bodyMat, hornMat, bellyMat, scalesMat, eyeMat } (the shared
-// materials dragonModel already built). The head is positioned by the caller at
-// the torso's attach.headBase, so a head sits correctly on any body plan.
+// (def, model, mats) and returns { group, spineMats }: a THREE.Group the rig
+// sways via head.rotation, plus any Surge-flaring accent materials. mats =
+// { bodyMat, hornMat, bellyMat, scalesMat, eyeMat } (shared materials the torso /
+// dragonModel built; bodyMat + eyeMat may be overridden by the torso so the head
+// matches the body). The head is positioned by the caller at attach.headBase.
 //
 //   horned — the shipped reptilian dragon head (snout + jaw + horns + cheek fins
 //            + brows, with whisker / ear-frill / tusk / crest flags). Covers the
 //            whole roster; hornLen 0 + earTendrils gives the hornless "frilled"
 //            night-drake look without a separate module.
-//   beaked — an avian head (curved beak, no snout/horns/whiskers), for firebirds
-//            / griffins / sky-serpents. The variety lever; also the head the
-//            Phoenix will use once it folds into a recipe.
+//   beaked — an avian head (hooked beak + a back-raked FEATHER crown, no horns),
+//            for firebirds / griffins / sky-serpents — the head the Phoenix uses
+//            now that it composes from a recipe. F (model.formLevel) grows the
+//            crown; the crown flares on Surge.
 
 // ── HORNED ────────────────────────────────────────────────────────────────
 // Transcribed verbatim from the original inline builder — byte-identical output,
@@ -128,66 +131,60 @@ function buildHornedHead(def, model, mats) {
     head.add(eye);
   }
 
-  return head;
+  return { group: head, spineMats: [] };
 }
 
 // ── BEAKED ────────────────────────────────────────────────────────────────
-// A clean avian head: a compact skull, a hooked two-part beak (no snout/jaw box),
-// forward eyes, and a raked-back crest. No horns/whiskers/tusks (those reptilian
-// flags are ignored). Self-contained — for griffins, sky-serpents and firebirds.
-// Same group conventions as the horned head so the rig sways it identically.
+// The firebird/avian head (the Phoenix's, folded out of its bespoke builder): a
+// compact skull, a hooked two-part beak, forward eyes, and a back-raked FEATHER
+// crown that grows with the form (F) and flares on Surge. No snout/horns/whiskers.
+// Skull + eyes use the threaded body/eye materials so they match the body and
+// rig-pulse with it; the beak/crown use the dragon's horn + apex-seam accents.
 function buildBeakedHead(def, model, mats) {
-  const { bodyMat, hornMat, scalesMat, eyeMat } = mats;
+  const { bodyMat, eyeMat } = mats;
+  const F = model.formLevel ?? (model.spineGlow >= 1 ? 3 : model.spineGlow >= 0.6 ? 2 : model.spineGlow >= 0.25 ? 1 : 0);
+  const cSeam = def.apexSeam ?? def.wingEmissive;
+  const cCrest = def.horn ?? def.scales;
+  const armMat = new THREE.MeshStandardMaterial({
+    color: cCrest, emissive: cSeam, emissiveIntensity: 0.5, roughness: 0.32, metalness: 0.45,
+  });
+  const crestMat = new THREE.MeshStandardMaterial({
+    color: cCrest, emissive: cSeam, emissiveIntensity: 0.8 + F * 0.6, roughness: 0.3, metalness: 0.4,
+    side: THREE.DoubleSide,
+  });
+  crestMat.userData.baseEmissive = cSeam;
+  crestMat.userData.baseIntensity = 0.8 + F * 0.6;
+
   const head = new THREE.Group();
-
-  // Rounder, shorter skull than the drake muzzle.
-  const skull = new THREE.Mesh(new THREE.SphereGeometry(0.66, 14, 12), bodyMat);
-  skull.scale.set(1.0, 1.0, 1.12);
-  skull.position.set(0, 0.02, -0.18);
+  const skull = new THREE.Mesh(new THREE.SphereGeometry(0.33, 12, 10), bodyMat);
+  skull.scale.set(0.92, 0.98, 1.06);
   head.add(skull);
-
-  // Hooked beak: a broad upper mandible curving to a point + a shorter lower one,
-  // built from the horn material so it reads as keratin, not flesh.
-  const upper = new THREE.Mesh(new THREE.ConeGeometry(0.3, 1.15, 7), hornMat);
-  upper.rotation.x = -Math.PI / 2;
-  upper.scale.set(0.9, 1, 0.62);          // flatten top-to-bottom into a beak
-  upper.position.set(0, 0.0, -1.02);
-  head.add(upper);
-  const lower = new THREE.Mesh(new THREE.ConeGeometry(0.2, 0.72, 7), hornMat);
-  lower.rotation.x = -Math.PI / 2;
-  lower.scale.set(0.82, 1, 0.55);
-  lower.position.set(0, -0.2, -0.86);
-  head.add(lower);
-  // Cere / nostril ridge where the beak meets the skull.
+  const upperBeak = new THREE.Mesh(new THREE.ConeGeometry(0.14, 0.52, 6), armMat);
+  upperBeak.rotation.x = -Math.PI / 2; upperBeak.scale.set(0.92, 1, 0.66);
+  upperBeak.position.set(0, 0.02, -0.46);
+  head.add(upperBeak);
+  const lowerBeak = new THREE.Mesh(new THREE.ConeGeometry(0.1, 0.34, 6), armMat);
+  lowerBeak.rotation.x = -Math.PI / 2; lowerBeak.scale.set(0.8, 1, 0.6);
+  lowerBeak.position.set(0, -0.12, -0.38);
+  head.add(lowerBeak);
   for (const s of [-1, 1]) {
-    const nostril = new THREE.Mesh(new THREE.SphereGeometry(0.05, 6, 5), hornMat);
-    nostril.position.set(0.1 * s, 0.06, -0.62);
-    head.add(nostril);
-  }
-
-  // Large forward-set raptor eyes (eyeScale-aware like the horned head).
-  const eyeR = 0.11 * (model.eyeScale || 1);
-  for (const s of [-1, 1]) {
-    const eye = new THREE.Mesh(new THREE.SphereGeometry(eyeR, 9, 7), eyeMat);
-    eye.position.set(0.3 * s, 0.16, -0.42);
+    const eye = new THREE.Mesh(new THREE.SphereGeometry(0.07, 8, 6), eyeMat);
+    eye.position.set(0.17 * s, 0.07, -0.16);
     head.add(eye);
   }
-
-  // Swept-back crest of head feathers/spines (a few more than the drake crest so
-  // the avian read carries from behind). Sizes with model.crest, min 2.
-  const crestN = Math.max(2, model.crest || 0);
-  for (let i = 0; i < crestN; i++) {
-    const t = crestN > 1 ? (i / (crestN - 1)) * 2 - 1 : 0; // -1..1 across the fan
-    const h = 0.62 - Math.abs(t) * 0.18;
-    const feather = new THREE.Mesh(new THREE.ConeGeometry(0.06, h, 4), scalesMat);
-    feather.scale.set(1, 1, 0.4);
-    feather.position.set(t * 0.22, 0.66 + h / 2 - Math.abs(t) * 0.06, 0.12);
-    feather.rotation.x = 0.7;            // rake back over the crown
-    feather.rotation.z = -t * 0.4;       // fan outward
-    head.add(feather);
+  // Crown plume: a fan of back-swept crest feathers rising off the head.
+  const crownN = 3 + F;
+  for (let i = 0; i < crownN; i++) {
+    const t = crownN > 1 ? (i / (crownN - 1)) * 2 - 1 : 0; // -1..1
+    const h = (0.5 + F * 0.16) - Math.abs(t) * 0.16;
+    const cf = new THREE.Mesh(featherGeo(h, 0.13), crestMat);
+    cf.position.set(t * 0.16, 0.3, 0.06);
+    cf.rotation.x = -1.0;           // rake back
+    cf.rotation.z = -t * 0.5;       // fan
+    head.add(cf);
   }
 
-  return head;
+  return { group: head, spineMats: [crestMat] };
 }
 
 registerHead('horned', buildHornedHead);

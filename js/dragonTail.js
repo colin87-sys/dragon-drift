@@ -1,5 +1,8 @@
 import * as THREE from 'three';
-import { buildForkShape, buildBladeShape, buildSpadeShape, buildLayeredFin } from './dragonParts.js';
+import {
+  buildForkShape, buildBladeShape, buildSpadeShape, buildLayeredFin,
+  featherGeo, featherGradient,
+} from './dragonParts.js';
 import { registerTail } from './dragonRecipe.js';
 
 // Tail modules — the fourth part behind the recipe registry. A tail builder takes
@@ -448,3 +451,53 @@ registerTail('clean', (def, model, mats, anchor) => {
 });
 // 'legacy' keeps its absolute coords (no anchor).
 registerTail('legacy', (def, model, mats) => buildLegacyTail(def, model, mats));
+
+// ── PLUME ─────────────────────────────────────────────────────────────────────
+// The firebird flame-feather tail (the Phoenix, folded out of its bespoke
+// builder): a fan of luminous ribbons, NOT a reptile tail/spear. A short chain of
+// anchor segments (the rig coils them into a flowing wave); each anchor holds a
+// fanned cross-section of feather slivers, so consecutive slivers form continuous
+// ribbons that taper to the tip. F drives length + fan width + segment count.
+function buildPlumeTail(def, model, _mats, anchor) {
+  const F = model.formLevel ?? (model.spineGlow >= 1 ? 3 : model.spineGlow >= 0.6 ? 2 : model.spineGlow >= 0.25 ? 1 : 0);
+  const cOut = def.featherOut ?? def.wingOuter;
+  const cHi = def.featherHi ?? def.scales;
+  const cEdge = def.featherEdge ?? def.apexSeam ?? def.wingEmissive;
+  const cEmis = def.wingEmissive;
+
+  const plumeMat = new THREE.MeshStandardMaterial({
+    color: 0xffffff, vertexColors: true, transparent: true, opacity: 0.72, side: THREE.DoubleSide,
+    emissive: cEmis, emissiveIntensity: 0.65 + F * 0.35, depthWrite: false,
+  });
+  plumeMat.userData.baseEmissive = cEmis;
+  plumeMat.userData.baseIntensity = 0.65 + F * 0.35;
+
+  const plume = new THREE.Group();
+  plume.position.set(0, anchor.y, anchor.z);
+  plume.rotation.x = 0.12; // trail slightly downward
+  const segs = [];
+  const segN = 4 + F;
+  const plumeLen = 2.4 + F * 0.75;
+  const step = plumeLen / segN;
+  const fan = F >= 2 ? [-0.5, -0.25, 0, 0.25, 0.5] : F >= 1 ? [-0.34, 0, 0.34] : [-0.26, 0, 0.26];
+  for (let i = 0; i < segN; i++) {
+    const t = segN > 1 ? i / (segN - 1) : 0;
+    const seg = new THREE.Group();
+    seg.position.z = i * step; // along the plume; rig waves x/y + banks z/y
+    const segScale = 1 - t * 0.5;
+    for (const a of fan) {
+      const len = step * 2.0 * (1 - t * 0.28);
+      const sl = new THREE.Mesh(featherGeo(len, (0.34 - t * 0.12) * (1 + F * 0.1)), plumeMat);
+      featherGradient(sl.geometry, t < 0.34 ? cHi : cOut, t > 0.66 ? cEdge : cOut);
+      sl.rotation.y = a * (0.7 + t * 0.7);   // fan widens toward the tip
+      sl.rotation.x = 0.12 + t * 0.08;       // gentle droop
+      sl.scale.setScalar(segScale);
+      seg.add(sl);
+    }
+    plume.add(seg);
+    segs.push(seg);
+  }
+  return { group: plume, segs, tailFins: null, accentMats: [plumeMat] };
+}
+
+registerTail('plume', buildPlumeTail);

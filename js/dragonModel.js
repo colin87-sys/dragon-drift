@@ -6,7 +6,6 @@ import './dragonWings.js'; // self-registers the 'membrane' / 'none' wing builde
 import './dragonHead.js';  // self-registers the 'horned' / 'beaked' head builders
 import './dragonTail.js';  // self-registers the 'clean' / 'legacy' tail builders
 import { applyFresnelRim } from './surface.js';
-import { buildPhoenixModel } from './phoenixModel.js';
 
 // Unified procedural dragon mesh builder.
 // Both the in-game rig (dragon.js) and the shop turntable (preview.js)
@@ -24,10 +23,6 @@ import { buildPhoenixModel } from './phoenixModel.js';
 
 // Build the full dragon mesh from a resolved def (post-ascendedDef).
 export function buildDragonModel(def, opts = {}) {
-  // Legendary firebird archetype has an entirely separate model (avian body,
-  // feather wings, flame-plume tail) but returns the same animation handles.
-  if (def.archetype === 'phoenix') return buildPhoenixModel(def, opts);
-
   const model = def.model;
   const group = new THREE.Group();
   // Emissive multiplier (Radiant = 1.0; the apex can exceed 1) shared by every
@@ -37,7 +32,10 @@ export function buildDragonModel(def, opts = {}) {
   const gi = model.glowIntensity ?? 1;
   const giM = Math.min(gi, 1.3);
 
-  const bodyMat = new THREE.MeshStandardMaterial({
+  // bodyMat / eyeMat are `let` because a torso module may override them (the
+  // avian/firebird torso returns its own body + eye materials so the head shares
+  // them and the rig pulses body + head together).
+  let bodyMat = new THREE.MeshStandardMaterial({
     color: def.body, roughness: 0.38, metalness: 0.12,
     emissive: def.body, emissiveIntensity: 0.12,
   });
@@ -55,7 +53,7 @@ export function buildDragonModel(def, opts = {}) {
     roughness: 0.28, metalness: 0.22,
   });
   const bellyMat = new THREE.MeshStandardMaterial({ color: def.belly, roughness: 0.5 });
-  const eyeMat = new THREE.MeshStandardMaterial({
+  let eyeMat = new THREE.MeshStandardMaterial({
     color: 0x223344, emissive: def.eye, emissiveIntensity: 2.2,
   });
 
@@ -66,17 +64,27 @@ export function buildDragonModel(def, opts = {}) {
   // for the spine — so a different skeleton (e.g. the long 'serpent' profile)
   // drops in without changing any of the wing / head / tail / spine code below.
   const recipe = resolveRecipe(def);
-  const { group: torsoGroup, attach } = getTorsoBuilder(recipe.torso)(def, model, bodyMat);
+  const torsoResult = getTorsoBuilder(recipe.torso)(def, model, bodyMat);
+  const { group: torsoGroup, attach } = torsoResult;
   group.add(torsoGroup);
+  // A torso may override the body/eye materials (the firebird body plan returns
+  // its own) and provide its own heart-core glow — adopt them.
+  if (torsoResult.mats) {
+    if (torsoResult.mats.bodyMat) bodyMat = torsoResult.mats.bodyMat;
+    if (torsoResult.mats.eyeMat) eyeMat = torsoResult.mats.eyeMat;
+  }
+  const torsoCoreGlow = torsoResult.coreGlow ?? null;
 
   // Accent materials (spine plates, crest, glow seams, tail plates) that flare
   // toward white-gold during Dragon Surge — collected for the rig to drive.
   const spineMats = [];
+  if (torsoResult.spineMats) for (const m of torsoResult.spineMats) spineMats.push(m);
 
   // Glowing dorsal spine — runs along the crest of the keel so it reads as a
   // bright stripe from directly behind. Ramps with the forms (spineGlow 0→1).
   // Dragons that author a dorsalGlowCount get the CHEVRON line below instead.
-  if (model.spineGlow > 0 && !model.dorsalGlowCount) {
+  // Skipped for the avian body plan (a firebird has a feather crown, not a keel).
+  if (recipe.torso !== 'avian' && model.spineGlow > 0 && !model.dorsalGlowCount) {
     const g = model.spineGlow;
     const spineCol = def.apexSeam || def.eye;
     const spineMat = new THREE.MeshStandardMaterial({
@@ -251,7 +259,9 @@ export function buildDragonModel(def, opts = {}) {
   // Head — from the recipe's HEAD module (horned / beaked). Sits at the torso's
   // published head anchor (varies per body plan); the neck chain bridging the
   // torso's neck cap to the head is built inside the torso module.
-  const head = getHeadBuilder(recipe.head)(def, model, { bodyMat, hornMat, bellyMat, scalesMat, eyeMat });
+  const headResult = getHeadBuilder(recipe.head)(def, model, { bodyMat, hornMat, bellyMat, scalesMat, eyeMat });
+  const head = headResult.group;
+  for (const m of headResult.spineMats) spineMats.push(m);
   const hb = attach.headBase;
   head.position.set(hb.x, hb.y, hb.z);
   group.add(head);
@@ -313,8 +323,9 @@ export function buildDragonModel(def, opts = {}) {
   // reads as the dragon's power source. Faint on the hatchling, stronger each
   // form (escalates with spineGlow). Controlled size/opacity so it never blooms
   // over the body silhouette. Tagged so the rig can pulse it during Surge.
-  let coreGlow = null;
-  if (def.coreGlow) {
+  // (The firebird's avian torso supplies its own heart-fire core — adopt it.)
+  let coreGlow = torsoCoreGlow;
+  if (!coreGlow && def.coreGlow) {
     const lvl = 0.45 + (model.spineGlow || 0) * 0.55;
     const coreRgb = `${(def.coreGlow >> 16) & 255},${(def.coreGlow >> 8) & 255},${def.coreGlow & 255}`;
     coreGlow = new THREE.Sprite(new THREE.SpriteMaterial({
