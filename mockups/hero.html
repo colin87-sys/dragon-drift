@@ -7,10 +7,8 @@ h2{font-family:var(--font-d);letter-spacing:3px;font-size:18px;text-align:center
 .row{display:flex;gap:24px;justify-content:center;flex-wrap:wrap;}
 .frame{display:flex;flex-direction:column;align-items:center;gap:9px;}
 .cap{font-size:11px;letter-spacing:1.5px;color:var(--rf-ink-3);text-transform:uppercase;}
-.phone{position:relative;width:320px;height:680px;border-radius:32px;overflow:hidden;
-  box-shadow:0 18px 50px rgba(0,0,0,.6);}
-.phone.blaze{background:url('renders/hero-blaze.png') center/cover;}
-.phone.inferno{background:url('renders/hero-inferno.png') center/cover;}
+.phone{position:relative;width:320px;height:692px;border-radius:32px;overflow:hidden;
+  background:url('renders/plate-solar.png') center/cover;box-shadow:0 18px 50px rgba(0,0,0,.6);}
 
 .pause{position:absolute;top:15px;left:15px;width:34px;height:34px;border-radius:50%;
   display:grid;place-items:center;color:#fff;background:rgba(20,14,12,.38);
@@ -26,53 +24,53 @@ h2{font-family:var(--font-d);letter-spacing:3px;font-size:18px;text-align:center
 .hearts span{color:#ff8a7a;font-size:14px;filter:drop-shadow(0 1px 3px rgba(0,0,0,.8));}
 .hearts span.dim{color:rgba(255,160,150,.22);}
 
-.arc{position:absolute;left:50%;transform:translateX(-50%);width:240px;height:90px;pointer-events:none;}
+.arc{position:absolute;left:50%;transform:translateX(-50%);width:250px;height:92px;pointer-events:none;}
 .arc svg{width:100%;height:100%;overflow:visible;}
 .arc .trk{fill:none;stroke:rgba(255,255,255,.18);stroke-width:5;stroke-linecap:round;}
 .arc .fil{fill:none;stroke:url(#sg);stroke-width:5;stroke-linecap:round;
   filter:drop-shadow(0 0 6px rgba(60,225,215,.85));}
 
-.gemrow{position:absolute;left:50%;bottom:56px;transform:translateX(-50%);display:flex;gap:7px;}
+.gemrow{position:absolute;left:50%;bottom:54px;transform:translateX(-50%);display:flex;gap:7px;}
 .gemrow i{width:11px;height:11px;clip-path:polygon(50% 0,100% 50%,50% 100%,0 50%);
   background:rgba(255,210,150,.18);box-shadow:inset 0 0 0 1px rgba(255,210,150,.3);}
 .gemrow i.lit{background:linear-gradient(160deg,#ffe6a6,#ff8a3c);
   box-shadow:0 0 7px rgba(255,150,80,.95),0 0 2px rgba(255,225,160,.9);}
-.mult{position:absolute;left:50%;bottom:76px;transform:translateX(-50%);font-family:var(--font-d);
+.mult{position:absolute;left:50%;bottom:74px;transform:translateX(-50%);font-family:var(--font-d);
   font-size:13px;color:#ffd9ac;opacity:.9;text-shadow:0 0 10px rgba(255,160,70,.6),0 1px 3px rgba(0,0,0,.7);letter-spacing:1px;}
 </style></head>
 <body>
-  <h2>BEAUTY-FIRST HUD — over a "sovereign" frame</h2>
-  <div class="sub">stamina arc below the dragon · quiet hearts · bare gem row · subtle numbers</div>
+  <h2>MINIMAL HUD — Eternal Solar Sovereign (largest dragon)</h2>
+  <div class="sub">does the stamina arc still sit cleanly around the biggest wingspan?</div>
   <div class="row">
 
-    <div class="frame"><div class="cap">Blaze — eternal sun</div>
-      <div class="phone blaze">
+    <div class="frame"><div class="cap">arc below · ~64%</div>
+      <div class="phone">
         <div class="pause"><svg viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="4" width="4" height="16" rx="1"/><rect x="14" y="4" width="4" height="16" rx="1"/></svg></div>
         <div class="dist">5,820 M</div>
         <div class="score">62,400<small>◆ 480</small></div>
         <div class="hearts"><span>♥</span><span>♥</span><span class="dim">♥</span></div>
-        <div class="arc" style="top:57%"><svg viewBox="0 0 240 90" preserveAspectRatio="none">
+        <div class="arc" style="top:63%"><svg viewBox="0 0 250 92" preserveAspectRatio="none">
           <defs><linearGradient id="sg" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#2bb6c9"/><stop offset="1" stop-color="#9affe6"/></linearGradient></defs>
-          <path class="trk" pathLength="100" d="M 12 8 Q 120 98 228 8"/>
-          <path class="fil" pathLength="100" stroke-dasharray="60 100" d="M 12 8 Q 120 98 228 8"/>
+          <path class="trk" pathLength="100" d="M 12 8 Q 125 100 238 8"/>
+          <path class="fil" pathLength="100" stroke-dasharray="60 100" d="M 12 8 Q 125 100 238 8"/>
         </svg></div>
         <div class="mult">×2.4</div>
         <div class="gemrow"><i class="lit"></i><i class="lit"></i><i class="lit"></i><i class="lit"></i><i class="lit"></i><i></i><i></i><i></i></div>
       </div>
     </div>
 
-    <div class="frame"><div class="cap">Inferno — dramatic</div>
-      <div class="phone inferno">
+    <div class="frame"><div class="cap">arc lower · ~72% (clears the wings)</div>
+      <div class="phone">
         <div class="pause"><svg viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="4" width="4" height="16" rx="1"/><rect x="14" y="4" width="4" height="16" rx="1"/></svg></div>
         <div class="dist">5,820 M</div>
         <div class="score">62,400<small>◆ 480</small></div>
         <div class="hearts"><span>♥</span><span>♥</span><span class="dim">♥</span></div>
-        <div class="arc" style="top:60%"><svg viewBox="0 0 240 90" preserveAspectRatio="none">
-          <path class="trk" pathLength="100" d="M 12 8 Q 120 98 228 8"/>
-          <path class="fil" pathLength="100" stroke-dasharray="60 100" d="M 12 8 Q 120 98 228 8"/>
+        <div class="arc" style="top:72%"><svg viewBox="0 0 250 92" preserveAspectRatio="none">
+          <path class="trk" pathLength="100" d="M 12 8 Q 125 100 238 8"/>
+          <path class="fil" pathLength="100" stroke-dasharray="60 100" d="M 12 8 Q 125 100 238 8"/>
         </svg></div>
-        <div class="mult" style="bottom:76px">×2.4</div>
-        <div class="gemrow"><i class="lit"></i><i class="lit"></i><i class="lit"></i><i class="lit"></i><i class="lit"></i><i></i><i></i><i></i></div>
+        <div class="mult" style="bottom:64px">×2.4</div>
+        <div class="gemrow" style="bottom:44px"><i class="lit"></i><i class="lit"></i><i class="lit"></i><i class="lit"></i><i class="lit"></i><i></i><i></i><i></i></div>
       </div>
     </div>
 
