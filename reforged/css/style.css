@@ -310,7 +310,7 @@ body.app-loaded > canvas { opacity: 1; }
 .screen { position: absolute; inset: 0; z-index: 10; display: none; flex-direction: column; align-items: center;
   justify-content: flex-start; /* safe-center via ::before/::after spacers below */
   text-align: center;
-  background: radial-gradient(ellipse at 50% 38%, rgba(10,16,34,0.62), rgba(5,9,22,0.93));
+  background: radial-gradient(ellipse at 50% 38%, rgba(22,13,10,0.66), rgba(8,5,6,0.94));
   backdrop-filter: blur(3px); overflow-y: auto;
   padding: env(safe-area-inset-top, 0px) 0 env(safe-area-inset-bottom, 0px); }
 .screen.visible { display: flex; pointer-events: auto; }
@@ -761,21 +761,38 @@ body.app-loaded > canvas { opacity: 1; }
   display: flex; flex-direction: column; align-items: stretch; }
 /* The stage is a square sized by whichever is smaller — width OR a slice of the
    viewport height — so the whole layout (stats / CTA / rail) always fits a phone. */
+/* OPAQUE designed character-select stage: a warm-dark base (nothing bleeds
+   through), a top spotlight + dragon-tinted glow, a floor pool, and an edge
+   vignette that frames the model. The preview canvas is alpha:true, so this
+   backdrop is what the dragon actually sits on. */
 .hero-stage { position: relative; width: min(100%, 42vh); aspect-ratio: 1; margin: 0 auto; border-radius: 22px; overflow: hidden;
-  background: radial-gradient(80% 64% at 50% 40%, color-mix(in srgb, var(--haccent) 22%, transparent), transparent 72%),
-    linear-gradient(180deg, rgba(20,30,56,0.5), rgba(8,12,26,0.62));
-  border: 1px solid rgba(150,200,255,0.16);
-  box-shadow: inset 0 1px 0 rgba(255,255,255,0.06), 0 14px 40px rgba(0,0,0,0.45); }
+  background:
+    radial-gradient(95% 70% at 50% 8%, rgba(255,196,120,0.16), transparent 56%),
+    radial-gradient(80% 58% at 50% 30%, color-mix(in srgb, var(--haccent) 30%, transparent), transparent 66%),
+    radial-gradient(56% 34% at 50% 88%, color-mix(in srgb, var(--haccent) 26%, transparent), transparent 72%),
+    radial-gradient(120% 120% at 50% 36%, #221913, #0c0807 76%),
+    #090605;
+  border: 1px solid var(--rf-stroke-hi);
+  box-shadow: inset 0 1px 0 rgba(255,224,170,0.10), inset 0 -46px 70px rgba(0,0,0,0.55), 0 16px 44px rgba(0,0,0,0.5); }
+/* edge vignette over the canvas — darkens the corners so the dragon pops */
+.hero-stage::before { content: ""; position: absolute; inset: 0; z-index: 2; pointer-events: none; border-radius: inherit;
+  background: radial-gradient(72% 72% at 50% 42%, transparent 52%, rgba(6,4,3,0.5) 100%); }
 .hero-canvas { position: relative; z-index: 1; width: 100%; height: 100%; display: block;
-  touch-action: none; cursor: grab; filter: drop-shadow(0 18px 30px rgba(0,0,0,0.5)); }
+  touch-action: none; cursor: grab; filter: drop-shadow(0 20px 34px rgba(0,0,0,0.6)); }
 .hero-canvas:active { cursor: grabbing; }
-.hero-pedestal { position: absolute; left: 50%; bottom: 7%; transform: translateX(-50%); z-index: 0;
-  width: 64%; height: 12%; border-radius: 50%;
-  background: radial-gradient(ellipse at center, color-mix(in srgb, var(--haccent) 60%, transparent), transparent 70%);
-  filter: blur(7px); opacity: 0.7; }
+/* pedestal: a luminous platform disc + a thin ring, the dragon stands on it */
+.hero-pedestal { position: absolute; left: 50%; bottom: 8%; transform: translateX(-50%); z-index: 0;
+  width: 60%; height: 13%; border-radius: 50%;
+  background:
+    radial-gradient(ellipse at center, color-mix(in srgb, var(--haccent) 85%, #fff) 0%, color-mix(in srgb, var(--haccent) 55%, transparent) 38%, transparent 72%);
+  box-shadow: 0 0 28px color-mix(in srgb, var(--haccent) 45%, transparent);
+  filter: blur(3px); opacity: 0.85; }
+.hero-pedestal::after { content: ""; position: absolute; left: 50%; top: 46%; transform: translate(-50%,-50%);
+  width: 78%; height: 60%; border-radius: 50%;
+  border: 1.5px solid color-mix(in srgb, var(--haccent) 60%, transparent); opacity: 0.7; filter: blur(0.4px); }
 .hero-rothint { position: absolute; left: 50%; bottom: 4%; transform: translateX(-50%); z-index: 3; pointer-events: none;
-  font-size: 10.5px; font-weight: 700; letter-spacing: 1.5px; text-transform: uppercase; color: #dbe8ff;
-  padding: 6px 13px; border-radius: 18px; background: rgba(8,14,30,0.5); border: 1px solid rgba(150,200,255,0.22);
+  font-size: 10.5px; font-weight: 700; letter-spacing: 1.5px; text-transform: uppercase; color: var(--rf-ink-2);
+  padding: 6px 13px; border-radius: 18px; background: rgba(20,12,9,0.55); border: 1px solid var(--rf-stroke);
   -webkit-backdrop-filter: blur(5px); backdrop-filter: blur(5px); opacity: 0.92; transition: opacity 0.3s; }
 .hero-stage.rotated .hero-rothint { opacity: 0; }
 .hero-gem { position: absolute; top: 12px; left: 12px; z-index: 3; font-family: var(--font-display);
@@ -788,9 +805,9 @@ body.app-loaded > canvas { opacity: 1; }
   text-shadow: 0 2px 22px color-mix(in srgb, var(--haccent) 30%, transparent); }
 .dpick-sub { font-size: 13px; opacity: 0.66; font-style: italic; margin-top: 3px; }
 .hero-forms { display: flex; gap: 5px; margin: 11px 0 4px; padding: 4px; border-radius: 13px;
-  background: rgba(6,11,24,0.55); border: 1px solid rgba(150,200,255,0.12); }
+  background: rgba(16,10,8,0.55); border: 1px solid var(--rf-stroke); }
 .hero-seg { flex: 1; text-align: center; padding: 8px 0; font-size: 11px; font-weight: 700; letter-spacing: 1px;
-  color: rgba(200,224,255,0.7); border-radius: 9px; text-transform: uppercase; cursor: pointer;
+  color: var(--rf-ink-2); border-radius: 9px; text-transform: uppercase; cursor: pointer;
   transition: color 0.15s, background 0.15s; }
 .hero-seg.on { color: #06101e; background: linear-gradient(135deg, color-mix(in srgb, var(--haccent) 92%, #fff), var(--haccent));
   box-shadow: 0 3px 12px color-mix(in srgb, var(--haccent) 40%, transparent); }
