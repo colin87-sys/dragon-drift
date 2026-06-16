@@ -13,7 +13,12 @@ const KEY = 'dragonDriftSave';
 const DEFAULTS = {
   v: 3,
   best: { score: 0, dist: 0 },
-  flags: { seenFirstSurge: false, hintsSeen: 0, seenIOSHint: false, phaseTaught: false, seenIntro: false },
+  flags: {
+    seenFirstSurge: false, hintsSeen: 0, seenIOSHint: false, phaseTaught: false, seenIntro: false,
+    // FTUE onboarding one-shots (deepMerge fills these for existing saves).
+    seenFirstRoll: false, celebratedFirstSurge: false,
+    seenShopIntro: false, seenQuestsIntro: false, seenDailyIntro: false, seenPilotIntro: false,
+  },
   audio: { musicMuted: false, sfxMuted: false, musicVol: 1, sfxVol: 1, track: 0, ownedTracks: [] },
   settings: { qualityOverride: null, reticle: true, slowMo: true, glideAssist: false, mouseSteer: true, dev: false },
   embers: 0,
@@ -115,6 +120,20 @@ function load() {
     data.feats.claimed = [...new Set(data.feats.unlocked)];
   }
   data.v = DEFAULTS.v;
+  // FTUE onboarding one-shots are new flags: a returning pilot who predates them
+  // has already met these systems, so backfill "seen" by their run count. A
+  // brand-new player (no save → migrateLegacy path) skips this and gets the full
+  // first-time experience. Only backfill keys the old blob never had.
+  if (parsed && parsed.flags) {
+    const had = (k) => parsed.flags[k] !== undefined;
+    const f = data.flags;
+    const r = data.stats.runs;
+    if (!had('seenShopIntro')   && r >= 1) f.seenShopIntro = true;
+    if (!had('seenQuestsIntro') && r >= 2) f.seenQuestsIntro = true;
+    if (!had('seenDailyIntro')  && r >= 3) f.seenDailyIntro = true;
+    if (!had('seenPilotIntro')  && r >= 3) f.seenPilotIntro = true;
+    if (!had('seenFirstRoll')   && r >= 2) f.seenFirstRoll = true;
+  }
   if (parsed && parsed.gambitPending && parsed.gambitPending.stake > 0) {
     data.embers += Math.floor(parsed.gambitPending.stake);
     gambitSunsetRefund = Math.floor(parsed.gambitPending.stake);

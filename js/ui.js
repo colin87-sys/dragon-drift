@@ -1,5 +1,5 @@
 import { CONFIG } from './config.js';
-import { on } from './events.js';
+import { on, emit } from './events.js';
 import { game } from './gameState.js';
 import { toggleMusicMute, toggleSfxMute, musicMuted, sfxMuted, music, sfx, TRACKS, trackUnlocked, setMusicVolume, setSfxVolume } from './sfx.js';
 import { comboTier, EMBER_ICON } from './util.js';
@@ -723,6 +723,18 @@ export const ui = {
     this._popup('★ NEW RECORD ★', 'gold');
   },
 
+  // First-ever Dragon Surge: a one-shot, non-blocking flourish (the run never
+  // pauses). Reuses the milestone banner's pop; the surge hint line and the
+  // sky-fire (feverStart) carry the rest, and recap.js names it at run end.
+  surgeFlourish() {
+    const b = els.milestoneBanner;
+    if (!b) { this._popup('⚡ DRAGON SURGE ⚡', 'gold'); return; }
+    b.textContent = '⚡ DRAGON SURGE ⚡';
+    b.classList.remove('ms-anim');
+    void b.offsetWidth;
+    b.classList.add('ms-anim');
+  },
+
   biomePopup(name) {
     this._popup(`— ${name} —`, 'cyan');
   },
@@ -921,16 +933,23 @@ export const ui = {
           <button class="hero-gear" id="btn-settings" title="Settings" aria-label="Settings">${ICONS.settings}</button>
         </div>`;
 
-      // Bottom icon rail — revealed progressively as systems become relevant.
-      const railBtn = (id, icon, label, due) =>
-        `<button class="hero-rail-btn" id="${id}">${icon}<span>${label}</span>${badgeHtml(due)}</button>`;
+      // Bottom icon rail — one stable frame whose slots reveal in place. A newly
+      // unlocked system animates in and wears a NEW pill until first opened, so
+      // the reveal is announced, not a silent reflow (WS0).
+      const newPilot  = !saveData.flags.seenPilotIntro;
+      const newQuests = !saveData.flags.seenQuestsIntro;
+      const newShop   = !saveData.flags.seenShopIntro;
+      const newDaily  = !saveData.flags.seenDailyIntro;
+      const railBtn = (id, icon, label, due, isNew) =>
+        `<button class="hero-rail-btn${isNew ? ' rail-new' : ''}" id="${id}">${icon}<span>${label}</span>${
+          isNew ? '<span class="rail-new-pill">NEW</span>' : badgeHtml(due)}</button>`;
       let rail = '';
       if (!cold) {
         let items = '';
-        if (showDeep)   items += railBtn('btn-pilot',  ICONS.pilot,  'PILOT',  pilotBadgeDue());
-        if (showQuests) items += railBtn('btn-quests', ICONS.weekly, 'QUESTS', questsBadgeDue());
-        items += railBtn('btn-shop', ICONS.shop, 'SHOP', shopBadgeDue());
-        if (showDeep)   items += railBtn('btn-daily',  ICONS.daily,  'DAILY',  dailyBadgeDue());
+        if (showDeep)   items += railBtn('btn-pilot',  ICONS.pilot,  'PILOT',  pilotBadgeDue(), newPilot);
+        if (showQuests) items += railBtn('btn-quests', ICONS.weekly, 'QUESTS', questsBadgeDue(), newQuests);
+        items += railBtn('btn-shop', ICONS.shop, 'SHOP', shopBadgeDue(), newShop);
+        if (showDeep)   items += railBtn('btn-daily',  ICONS.daily,  'DAILY',  dailyBadgeDue(), newDaily);
         rail = `<nav class="hero-rail">${items}</nav>`;
       }
 
@@ -949,6 +968,7 @@ export const ui = {
           <h1 class="wordmark hero-wordmark">DRAGON DRIFT</h1>
           <button class="btn-primary hero-cta breathe" id="btn-start"><span class="cta-glyph" aria-hidden="true">➤</span>TAKE OFF</button>
           <p class="hero-sub">${sub}</p>
+          ${cold ? '<p class="hero-goal">Fly as far as you can — chain rings to ignite the sky.</p>' : ''}
           <p class="action-key">${touch ? 'or tap anywhere to fly' : 'or press ENTER to fly'}</p>
         </div>
         ${rail}
@@ -1207,6 +1227,25 @@ export const ui = {
         persist();
       }
       html = buildPilotHtml(pilotTab);
+    }
+
+    // First-open coachmark: the first time a revealed meta system is opened,
+    // a one-line explainer slides in under its top bar, then never again (WS0).
+    const coachText = {
+      shop:   'Spend embers here — new dragons, riders, trails and radio stations.',
+      quests: 'Quests and weekly trials pay out when a run ends. No extra effort.',
+      daily:  'A fresh modifier every day. Your daily score stays out of your main best.',
+      pilot:  'Level up, claim the feats you’ve earned, and equip a title.',
+    }[type];
+    if (coachText) {
+      const flagKey = 'seen' + type[0].toUpperCase() + type.slice(1) + 'Intro';
+      if (!saveData.flags[flagKey]) {
+        saveData.flags[flagKey] = true;
+        persist();
+        emit('systemOpened', { system: type });
+        const coach = `<p class="screen-coach">${coachText}</p>`;
+        html = html.includes('</div>') ? html.replace('</div>', '</div>' + coach) : coach + html;
+      }
     }
 
     els.screen.innerHTML = html;

@@ -1,6 +1,7 @@
 import { CONFIG } from './config.js';
 import { mulberry32, clamp } from './util.js';
 import { BIOMES } from './biomes.js';
+import { FIRST_FLIGHT_BEATS, FIRST_FLIGHT_END } from './firstFlight.js';
 
 const lerp = (a, b, k) => a + (b - a) * k;
 const REACH_AUDIT = new URLSearchParams(window.location.search).get('debug') === 'reach';
@@ -25,6 +26,11 @@ function setPiecesBetween(a, b, out) {
 
 export function createLevelGen(seed = CONFIG.seed, opts = {}) {
   const rnd = mulberry32(seed);
+  // First-flight authored opening: walk FIRST_FLIGHT_BEATS until FIRST_FLIGHT_END,
+  // then fall through to procedural generation. Only set for a brand-new pilot's
+  // very first normal run (main.js).
+  const scripted = !!opts.scripted;
+  let scriptIdx = 0;
   // Golden embers draw from an INDEPENDENT stream: adding calls to the main
   // rnd would reshuffle every existing seed and break old challenge links.
   const goldRnd = mulberry32((seed ^ 0x6b79d8a1) >>> 0);
@@ -280,12 +286,66 @@ export function createLevelGen(seed = CONFIG.seed, opts = {}) {
     out.embers.push({ points });
   }
 
+  // Emit one authored first-flight beat, advancing `prev` so procedural
+  // generation can continue seamlessly once the script ends. Reuses the same
+  // spawn shapes and helpers as the procedural path.
+  function scriptedBeat(b, out) {
+    if (b.type === 'gauntlet') {
+      out.gauntletStarts.push(prev.dist + 20);
+      let p = prev;
+      let d = b.dist;
+      for (const st of b.stations) {
+        const wp = gauntletStation(st, d, out);
+        out.rings.push({ dist: wp.dist, x: wp.x, y: wp.y });
+        guideLine(p, wp, out);
+        p = wp;
+        d += 70;
+      }
+      out.gauntletEnds.push(p.dist + 15);
+      prev = p;
+      return;
+    }
+    if (b.type === 'gate') {
+      emberArc(prev, b, out);
+      setPiecesBetween(prev.dist, b.dist, out.setPieces);
+      out.obstacles.push({
+        type: 'gate', dist: b.dist, gapX: b.x, gapY: b.y,
+        gapW: CONFIG.gateGapW, gapH: CONFIG.gateGapH, thick: 1.5,
+      });
+      prev = { dist: b.dist, x: b.x, y: b.y };
+      return;
+    }
+    if (b.type === 'obstacle') {
+      // One pillar set into the lane; the reward ring sits just past on the open
+      // side, so a gentle steer OR a barrel roll clears it (i-frames forgive).
+      out.obstacles.push({ type: 'pillar', dist: b.dist, x: b.x, r: b.r || 1.8, h: b.h || 11 });
+      const ring = { dist: b.dist + 28, x: b.ringX ?? -Math.sign(b.x || 1) * 2, y: b.y };
+      out.rings.push(ring);
+      emberArc(prev, ring, out);
+      prev = ring;
+      return;
+    }
+    // Default: a ring (with an optional speed orb just before it).
+    setPiecesBetween(prev.dist, b.dist, out.setPieces);
+    out.rings.push({ dist: b.dist, x: b.x, y: b.y });
+    emberArc(prev, b, out);
+    if (b.orb) {
+      out.orbs.push({ dist: b.dist - 14, x: clamp(b.x, -11, 11), y: clamp(b.y + 1.5, 4.5, 20) });
+    }
+    prev = { dist: b.dist, x: b.x, y: b.y };
+  }
+
   function ensure(target) {
     const out = {
       rings: [], obstacles: [], orbs: [], setPieces: [], embers: [],
       goldEmbers: [], gauntletStarts: [], gauntletEnds: [],
     };
     while (prev.dist < target) {
+      // Authored first-flight opening takes over placement until it's spent.
+      if (scripted && scriptIdx < FIRST_FLIGHT_BEATS.length && prev.dist < FIRST_FLIGHT_END) {
+        scriptedBeat(FIRST_FLIGHT_BEATS[scriptIdx++], out);
+        continue;
+      }
       // Gauntlet corridors take over waypoint placement while active: each
       // station's ring sits in the open quadrant, an ember line leads in,
       // and only ONE axis changes between stations so the slalom stays fair.
