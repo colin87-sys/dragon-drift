@@ -362,7 +362,9 @@ export function bone(ax, ay, az, bx, by, bz, r0, r1, mat) {
 // tip (max x) into a leading (front) and trailing (back) boundary; the grid fills
 // the chord between them at each span station. Axes match the membrane build's
 // rotateX(-PI/2): shape-x -> world x (span), shape-y -> world -z (chord), height
-// in world y. clip/origin reproduce the inner/outer wrist split.
+// in world y. spanStart/spanEnd (world x) bound the panel so the grid columns are
+// distributed across the REAL extent — no clamped/collapsed columns (which would
+// make degenerate triangles → bad normals + doubled strips); origin re-roots it.
 export function buildCurvedPatch(spec, opts = {}) {
   const scaleX = opts.scaleX ?? 1;
   const scaleZ = opts.scaleZ ?? 1;
@@ -371,8 +373,6 @@ export function buildCurvedPatch(spec, opts = {}) {
   const billow = opts.billow ?? 0;
   const segU = Math.max(2, opts.segU ?? 12);
   const segV = Math.max(1, opts.segV ?? 5);
-  const clipMin = opts.clipMin ?? -Infinity;
-  const clipMax = opts.clipMax ?? Infinity;
   const originX = opts.originX ?? 0;
   const originY = opts.originY ?? 0;
 
@@ -396,10 +396,13 @@ export function buildCurvedPatch(spec, opts = {}) {
   const verts = [];
   const idx = [];
   const worldMaxX = maxX * scaleX;
+  const clamp01x = (x) => Math.min(Math.max(x, 0), worldMaxX);
+  const spanStart = clamp01x(opts.spanStart ?? 0);
+  const spanEnd = clamp01x(opts.spanEnd ?? worldMaxX);
+  const span = Math.max(spanEnd - spanStart, 1e-4);
   for (let i = 0; i <= segU; i++) {
     const u = i / segU;
-    let wx = u * worldMaxX;
-    if (wx < clipMin) wx = clipMin; else if (wx > clipMax) wx = clipMax; // collapse onto the seam
+    const wx = spanStart + u * span;               // distributed across the real panel extent
     const sx = wx / scaleX;
     const frontY = yAt(lead, sx);
     const backY = yAt(trail, sx);

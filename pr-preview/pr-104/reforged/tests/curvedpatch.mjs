@@ -1,7 +1,10 @@
 // Headless test of buildCurvedPatch — the curved-membrane surface primitive.
-// Asserts a well-formed grid (verts/index/normals), that it preserves the wing
-// OUTLINE (silhouette bbox parity vs the flat ShapeGeometry it replaces), and
-// that the wrist CLIP collapses out-of-panel columns onto the seam.
+// Asserts a well-formed grid, that it preserves the wing OUTLINE (silhouette
+// bbox parity vs the flat ShapeGeometry it replaces), that chordwise billow
+// produces a real cup, that the inner/outer split distributes columns across
+// each panel's real span range — and, as a regression guard for the reported
+// "spoke" artifact, that a panel has NO degenerate (zero-area) triangles and NO
+// non-finite normals (the old clamped-column path produced both).
 import { register } from 'node:module';
 register('../tools/three-resolver.mjs', import.meta.url);
 import { assert } from './shim.mjs';
@@ -41,14 +44,44 @@ for (let i = 0; i < p.count; i++) maxY = Math.max(maxY, p.getY(i));
 assert(maxY > 0.05, 'chordwise billow produces positive height (a cup, not a flat sheet)');
 ok('chordwise billow present (surface is double-curved, not a bent flat sheet)');
 
-// --- wrist clip collapses outboard columns onto the seam --------------------
+// --- inner/outer split distributes columns across each real span range -------
 const seam = 3.0;
-const inner = buildCurvedPatch(spec, { scaleX, scaleZ, segU, segV, clipMax: seam });
+const inner = buildCurvedPatch(spec, { scaleX, scaleZ, segU, segV, spanStart: 0, spanEnd: seam });
 inner.computeBoundingBox();
-near(inner.boundingBox.max.x, seam, 0.001, 'clipMax collapses the inner panel at the wrist seam');
-const outer = buildCurvedPatch(spec, { scaleX, scaleZ, segU, segV, clipMin: seam, originX: seam });
+near(inner.boundingBox.max.x, seam, 0.05, 'inner panel ends at the wrist seam (spanEnd)');
+const outer = buildCurvedPatch(spec, { scaleX, scaleZ, segU, segV, spanStart: seam, originX: seam });
 outer.computeBoundingBox();
-near(outer.boundingBox.min.x, 0, 0.001, 'outer panel re-origined to the seam (min x → 0)');
-ok('inner/outer wrist split shares the seam (clip + re-origin)');
+near(outer.boundingBox.min.x, 0, 0.05, 'outer panel re-origined to the seam (min x → 0)');
+ok('inner/outer split distributes columns across each real span range');
+
+// --- regression guard: no degenerate triangles / NaN normals -----------------
+// The clamped-column path piled grid columns onto one x → zero-area triangles
+// whose normals went haywire (the "spokes" sticking toward the body) and a
+// doubled strip at the wrist (the janky overlap). A span-bounded grid must not.
+function triStats(geo) {
+  const pos = geo.attributes.position, idx = geo.index;
+  const a = new THREE.Vector3(), b = new THREE.Vector3(), c = new THREE.Vector3();
+  const ab = new THREE.Vector3(), ac = new THREE.Vector3();
+  let degenerate = 0;
+  for (let i = 0; i < idx.count; i += 3) {
+    a.fromBufferAttribute(pos, idx.getX(i));
+    b.fromBufferAttribute(pos, idx.getX(i + 1));
+    c.fromBufferAttribute(pos, idx.getX(i + 2));
+    const area = 0.5 * ab.subVectors(b, a).cross(ac.subVectors(c, a)).length();
+    if (area < 1e-6) degenerate++;
+  }
+  const nrm = geo.attributes.normal; let badN = 0;
+  for (let i = 0; i < nrm.count; i++) {
+    if (!Number.isFinite(nrm.getX(i)) || !Number.isFinite(nrm.getY(i)) || !Number.isFinite(nrm.getZ(i))) badN++;
+  }
+  return { degenerate, badN };
+}
+// A non-tip panel (chord never collapses) must be entirely non-degenerate.
+const sInner = triStats(inner);
+assert(sInner.degenerate === 0, `inner panel: no degenerate triangles (found ${sInner.degenerate})`);
+assert(sInner.badN === 0, `inner panel: all normals finite (found ${sInner.badN} bad)`);
+// The outer panel runs to the natural tip taper, but normals must still be finite.
+assert(triStats(outer).badN === 0, 'outer panel: all normals finite');
+ok('no degenerate triangles or NaN normals (the spoke/overlap artifact is gone)');
 
 console.log(`\n${n} curvedpatch checks passed.`);
