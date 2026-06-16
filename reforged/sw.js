@@ -10,7 +10,9 @@
 //   - Cache-first / stale-while-revalidate were rejected: with ~45 unhashed
 //     files they can serve mixed-version module graphs after a deploy.
 // CACHE is an escape hatch: bumping it force-flushes old caches on activate.
-const CACHE = 'dd-v2';
+// Bump on each deploy that changes the module graph, so a flaky-network load
+// can't fall back to a stale file and assemble a mixed-version HUD.
+const CACHE = 'dd-reforged-v3';
 
 self.addEventListener('install', () => self.skipWaiting());
 
