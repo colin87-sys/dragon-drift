@@ -456,6 +456,7 @@ export const ui = {
       <div class="popup popup2" id="popup2"></div>
       <div class="feat-toast" id="feat-toast"></div>
       <div class="hint" id="hint"></div>
+      <div class="gesture-overlay" id="gesture-overlay"></div>
       <div class="vignette" id="vignette"></div>
       <div class="blue-flash" id="blue-flash"></div>
       <div class="gold-flash" id="gold-flash"></div>
@@ -500,6 +501,7 @@ export const ui = {
       popup2:       root.querySelector('#popup2'),
       featToast:    root.querySelector('#feat-toast'),
       hint:         root.querySelector('#hint'),
+      gestureOverlay: root.querySelector('#gesture-overlay'),
       vignette:     root.querySelector('#vignette'),
       blueFlash:    root.querySelector('#blue-flash'),
       feverOverlay: root.querySelector('#fever-overlay'),
@@ -771,6 +773,40 @@ export const ui = {
 
   hideHint() {
     els.hint.classList.remove('on');
+  },
+
+  // Paused gesture tutorial overlay (gestureTutorial.js drives show/hide while
+  // the run is frozen). A dim backdrop keeps the frozen scene visible; an
+  // animated finger (touch) or key-caps (desktop) demonstrate the move, with one
+  // instruction line. Non-blocking to input — the gesture itself resumes play.
+  // spec: { gesture: 'steer'|'boost'|'roll', touch, text }
+  showGesture(spec) {
+    const g = spec.gesture;
+    const FINGER = '<svg class="gx-finger" viewBox="0 0 40 56" width="44" height="60" aria-hidden="true">' +
+      '<path d="M16 6a4 4 0 018 0v20l5 1c4 1 7 4 7 9v9a5 5 0 01-5 5H17c-3 0-5-1-7-4L3 45c-2-3-1-6 2-7 2-1 4 0 6 2l3 3V6z" ' +
+      'fill="#eaf6ff" stroke="#0a1530" stroke-width="1.5" stroke-linejoin="round"/></svg>';
+    const KEY = (k) => `<span class="gx-key">${k}</span>`;
+    let demo;
+    if (spec.touch) {
+      // One finger for steer; a held "anchor" dot + the acting finger for the
+      // second-finger boost/roll moves.
+      const anchor = (g === 'boost' || g === 'roll') ? '<span class="gx-anchor"></span>' : '';
+      demo = `<div class="gx-stage gx-${g}">${anchor}<span class="gx-hand">${FINGER}</span>` +
+        (g === 'boost' ? '<span class="gx-ring"></span>' : '') +
+        (g === 'roll' ? '<span class="gx-trail"></span>' : '') + '</div>';
+    } else {
+      const keys = g === 'steer' ? `${KEY('A')}${KEY('D')}`
+        : g === 'boost' ? KEY('SPACE')
+        : `${KEY('A')}${KEY('A')}`; // double-tap
+      demo = `<div class="gx-stage gx-keys gx-${g}">${keys}</div>`;
+    }
+    els.gestureOverlay.innerHTML = `<div class="gx-card">${demo}<div class="gx-text">${spec.text}</div></div>`;
+    els.gestureOverlay.classList.add('on');
+  },
+
+  hideGesture() {
+    els.gestureOverlay.classList.remove('on');
+    els.gestureOverlay.innerHTML = '';
   },
 
   // Purchase/unlock celebration: the four-phase staging (dim+spotlight →
