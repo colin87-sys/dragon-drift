@@ -1,0 +1,84 @@
+<!DOCTYPE html><html><head><meta charset="utf-8">
+<link rel="stylesheet" href="base.css">
+<style>
+.sky{position:absolute;inset:0;background:
+  radial-gradient(80% 50% at 50% 6%, rgba(61,240,255,.13), transparent 55%),
+  linear-gradient(180deg,#070a1c,#0b1026 60%,#0a0d20);}
+.top{position:absolute;top:0;left:0;right:0;padding:18px 16px 12px;background:linear-gradient(180deg,rgba(8,12,28,.94),rgba(8,12,28,0));}
+.top h1{font-family:var(--font-d);font-size:26px;letter-spacing:3px;}
+.meta{display:flex;gap:8px;margin-top:10px;flex-wrap:wrap;}
+.lv{display:flex;align-items:center;gap:6px;padding:7px 14px;font-weight:700;font-size:13px;letter-spacing:1px;
+  color:#0c1020;background:var(--energy);clip-path:polygon(7px 0,100% 0,100% calc(100% - 7px),calc(100% - 7px) 100%,0 100%,0 7px);}
+.lv b{font-family:var(--font-d);}
+
+.tabs{position:absolute;top:108px;left:14px;right:14px;display:flex;gap:8px;}
+.tab{flex:1;text-align:center;padding:10px 0;font-size:11.5px;font-weight:700;letter-spacing:1.5px;color:var(--ink-2);
+  background:rgba(18,28,58,.5);border:1px solid var(--stroke);clip-path:polygon(8px 0,100% 0,calc(100% - 8px) 100%,0 100%);}
+.tab.on{color:#0c1020;background:var(--energy);border-color:transparent;box-shadow:0 0 18px rgba(90,160,255,.4);}
+
+.body{position:absolute;top:158px;left:16px;right:16px;bottom:20px;overflow:hidden;}
+.cat{font-size:11px;letter-spacing:4px;font-weight:700;color:var(--ink-3);margin:14px 0 9px;}
+.cat:first-child{margin-top:0;}
+.feat{display:flex;align-items:center;gap:12px;padding:12px;margin-bottom:9px;}
+.feat .mk{width:42px;height:42px;flex:none;display:grid;place-items:center;
+  background:rgba(20,30,62,.7);border:1px solid var(--stroke);
+  clip-path:polygon(8px 0,100% 0,100% calc(100% - 8px),calc(100% - 8px) 100%,0 100%,0 8px);}
+.feat .mk svg{width:22px;height:22px;color:#7fa8ff;}
+.feat.got .mk{border-color:rgba(196,150,255,.6);}
+.feat.got .mk svg{color:#c9a8ff;}
+.feat .txt{flex:1;}
+.feat .nm{font-weight:700;font-size:14px;letter-spacing:.5px;}
+.feat .ds{font-size:11px;color:var(--ink-2);margin-top:2px;}
+.feat .rw{font-family:var(--font-d);font-size:13px;color:transparent;background:var(--gold);-webkit-background-clip:text;background-clip:text;}
+.feat .rw.done{color:#46d98a;background:none;-webkit-background-clip:initial;}
+.claim{padding:9px 14px;font-size:11px;font-weight:700;letter-spacing:1px;color:#1a1206;background:var(--gold);border:none;
+  clip-path:polygon(7px 0,100% 0,calc(100% - 7px) 100%,0 100%);box-shadow:0 0 16px rgba(255,170,60,.5);position:relative;}
+.feat.lock{opacity:.6;}
+
+/* flight-log style stat tiles to show another archetype on the right edge (peeking) */
+</style></head>
+<body><div class="stage">
+  <div class="sky"></div>
+  <div class="top">
+    <h1>PILOT</h1>
+    <div class="meta">
+      <div class="lv">LV <b>18</b></div>
+      <div class="chip" style="font-style:italic">« GOLDWING »</div>
+      <div class="chip">⬢ <b style="margin-left:4px">32 / 48</b></div>
+      <div class="chip"><span class="g num">◆ 24,500</span></div>
+    </div>
+  </div>
+  <div class="tabs"><div class="tab on">FEATS</div><div class="tab">FLIGHT LOG</div><div class="tab">TITLES</div></div>
+
+  <div class="body">
+    <div class="cat">SKILL</div>
+    <div class="feat panel got">
+      <div class="mk"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l2.6 6.6L22 9.2l-5 4.6 1.4 7.2L12 17.6 5.6 21l1.4-7.2-5-4.6 7.4-.6z"/></svg></div>
+      <div class="txt"><div class="nm">Perfect Phase ×3</div><div class="ds">Land 3 perfect phases in one run</div></div>
+      <div class="rw done">✓ ◆ 75</div>
+    </div>
+    <div class="feat panel claimable" style="border-color:rgba(255,200,90,.55);box-shadow:0 0 22px rgba(255,180,70,.25)">
+      <div class="mk" style="border-color:rgba(255,200,90,.6)"><svg viewBox="0 0 24 24" fill="#ffd16a"><path d="M13 2L3 14h6l-1 8 9-12h-6z"/></svg></div>
+      <div class="txt"><div class="nm">Surge Streak</div><div class="ds">Trigger Dragon Surge 5 times</div></div>
+      <button class="claim">CLAIM ◆150<span class="badge"></span></button>
+    </div>
+    <div class="cat">JOURNEY</div>
+    <div class="feat panel got">
+      <div class="mk"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M3 20l9-16 9 16z"/></svg></div>
+      <div class="txt"><div class="nm">Tidewalker</div><div class="ds">Fly 50 km lifetime</div></div>
+      <div class="rw done">✓ ◆ 100</div>
+    </div>
+    <div class="feat panel lock">
+      <div class="mk"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 3"/></svg></div>
+      <div class="txt"><div class="nm">Six Worlds</div><div class="ds">Reach the Astral Shallows</div></div>
+      <div class="rw">◆ 250</div>
+    </div>
+    <div class="cat">COLLECTION</div>
+    <div class="feat panel got">
+      <div class="mk"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 3l8 4v6c0 4-3.5 7-8 8-4.5-1-8-4-8-8V7z"/></svg></div>
+      <div class="txt"><div class="nm">Hoarder</div><div class="ds">Bank 10,000 embers</div></div>
+      <div class="rw done">✓ ◆ 120</div>
+    </div>
+  </div>
+  <div class="tag">Pilot · Feats</div>
+</div></body></html>

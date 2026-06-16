@@ -1,0 +1,165 @@
+<!DOCTYPE html><html><head><meta charset="utf-8">
+<link rel="stylesheet" href="base.css">
+<style>
+/* ===== biome scene (Sunken Sanctuary, golden hour) ===== */
+.sky{position:absolute;inset:0;background:
+  radial-gradient(120% 80% at 64% 6%, #ffe6a8 0%, #ffb877 14%, #f08a6a 30%, transparent 56%),
+  linear-gradient(180deg,#ffd58a 0%,#f3a571 16%,#cf7d76 33%,#5b6f9c 52%,#21506e 64%,#0f3a55 100%);}
+.sun{position:absolute;top:5%;left:60%;width:160px;height:160px;transform:translate(-50%,0);
+  background:radial-gradient(circle,#fff6d8 0%,#ffd98a 34%,rgba(255,180,110,.4) 60%,transparent 72%);
+  filter:blur(2px);}
+.haze{position:absolute;left:0;right:0;top:46%;height:22%;background:linear-gradient(180deg,transparent,rgba(255,210,150,.22),transparent);filter:blur(8px);}
+.sea{position:absolute;left:0;right:0;bottom:0;height:42%;
+  background:linear-gradient(180deg,#2f6f88 0%,#1b5070 26%,#0c3550 64%,#06223a 100%);}
+.sea::before{content:"";position:absolute;inset:0;background:
+  radial-gradient(60% 40% at 60% 0%, rgba(255,221,150,.55), transparent 60%);mix-blend-mode:screen;}
+.glitter{position:absolute;left:0;right:0;top:0;height:38%;
+  background:repeating-linear-gradient(90deg,transparent 0 6px,rgba(255,235,190,.10) 6px 7px);
+  -webkit-mask:radial-gradient(50% 70% at 60% 0%,#000,transparent 70%);mask:radial-gradient(50% 70% at 60% 0%,#000,transparent 70%);}
+.horizon{position:absolute;left:0;right:0;top:58%;height:2px;background:linear-gradient(90deg,transparent,rgba(255,236,190,.8),transparent);filter:blur(.5px);}
+/* perspective ring gates */
+.gate{position:absolute;left:50%;border-radius:50%;transform:translate(-50%,-50%);
+  border:3px solid rgba(255,205,110,.85);box-shadow:0 0 18px rgba(255,190,90,.6),inset 0 0 14px rgba(255,210,120,.4);}
+.gate.cy{border-color:rgba(120,225,255,.85);box-shadow:0 0 18px rgba(110,210,255,.6),inset 0 0 14px rgba(150,230,255,.4);}
+.speed{position:absolute;inset:-12%;pointer-events:none;opacity:.5;
+  background:repeating-conic-gradient(from 0deg at 50% 46%,transparent 0 5.5deg,rgba(200,230,255,.07) 5.5deg 6deg);
+  -webkit-mask:radial-gradient(ellipse at 50% 46%,transparent 0 40%,#000 78%);mask:radial-gradient(ellipse at 50% 46%,transparent 0 40%,#000 78%);}
+/* dragon */
+.dragon{position:absolute;left:48%;top:62%;width:230px;transform:translate(-50%,-50%);filter:drop-shadow(0 14px 16px rgba(0,0,0,.45));}
+.trail{position:absolute;left:50%;top:64%;width:60%;height:120px;transform:translate(-90%,-50%);
+  background:linear-gradient(90deg,transparent,rgba(122,150,255,.0),rgba(122,150,255,.55),rgba(196,107,255,.75));
+  filter:blur(7px);border-radius:50%;}
+/* fever wash */
+.fever{position:absolute;inset:0;pointer-events:none;
+  background:radial-gradient(ellipse at 50% 60%,transparent 34%,rgba(255,90,160,.10) 100%);
+  animation:fev 2.4s ease-in-out infinite;}
+@keyframes fev{0%,100%{opacity:.55;}50%{opacity:.9;}}
+
+/* ===== HUD ===== */
+#hud{position:absolute;inset:0;font-family:var(--font-ui);}
+.tl{position:absolute;top:16px;left:16px;}
+.pausebtn{width:46px;height:46px;display:grid;place-items:center;color:var(--ink);}
+.pausebtn svg{width:18px;height:18px;}
+.tc{position:absolute;top:16px;left:50%;transform:translateX(-50%);text-align:center;}
+.tc .dist{font-family:var(--font-d);font-size:15px;letter-spacing:3px;color:#fff;text-shadow:0 2px 8px rgba(0,0,0,.5);}
+.tc .best{font-size:11px;letter-spacing:3px;color:var(--ink-2);margin-top:3px;}
+.tr{position:absolute;top:14px;right:16px;text-align:right;display:flex;flex-direction:column;align-items:flex-end;gap:7px;}
+.score{font-family:var(--font-d);font-variant-numeric:tabular-nums;font-size:46px;line-height:.9;color:#fff;
+  text-shadow:0 0 22px rgba(120,200,255,.85),0 2px 6px rgba(0,0,0,.6);}
+.ember{font-family:var(--font-d);font-size:16px;color:transparent;background:var(--gold);-webkit-background-clip:text;background-clip:text;
+  filter:drop-shadow(0 0 8px rgba(255,180,70,.5));letter-spacing:1px;}
+.combo{font-family:var(--font-d);font-size:26px;color:#ffd16a;text-shadow:0 0 16px rgba(255,180,70,.9);}
+.combo small{font-family:var(--font-ui);font-size:11px;letter-spacing:3px;opacity:.8;vertical-align:3px;margin-left:4px;}
+.chain{font-weight:700;font-size:13px;letter-spacing:2px;color:#7fe0ff;text-shadow:0 0 10px rgba(80,200,255,.7);}
+
+/* center popup */
+.popup{position:absolute;top:30%;left:50%;transform:translateX(-50%);text-align:center;}
+.popup .big{font-family:var(--font-d);font-size:30px;letter-spacing:1px;
+  color:transparent;background:linear-gradient(180deg,#fff,#ffd16a);-webkit-background-clip:text;background-clip:text;
+  filter:drop-shadow(0 2px 10px rgba(0,0,0,.5));}
+.popup .sub{font-weight:700;letter-spacing:2px;color:#fff;font-size:15px;margin-top:2px;text-shadow:0 2px 8px rgba(0,0,0,.6);}
+
+/* ===== VITALS CLUSTER — low-center, flanking ===== */
+.vitals{position:absolute;left:50%;bottom:30px;transform:translateX(-50%);
+  display:flex;flex-direction:column;align-items:center;gap:11px;width:min(92vw,360px);}
+/* surge module — its own prominent slot */
+.surge{position:relative;display:flex;align-items:center;gap:12px;padding:9px 20px 9px 12px;
+  background:linear-gradient(115deg,rgba(255,77,141,.22),rgba(255,138,60,.20));
+  border:1px solid rgba(255,150,120,.55);
+  clip-path:polygon(12px 0,100% 0,calc(100% - 12px) 100%,0 100%);
+  box-shadow:0 0 30px rgba(255,90,150,.4),inset 0 1px 0 rgba(255,255,255,.14);
+  animation:surgeb 2.2s ease-in-out infinite;}
+@keyframes surgeb{0%,100%{box-shadow:0 0 26px rgba(255,90,150,.35),inset 0 1px 0 rgba(255,255,255,.14);}50%{box-shadow:0 0 40px rgba(255,120,80,.6),inset 0 1px 0 rgba(255,255,255,.18);}}
+.surge .ring{width:42px;height:42px;flex:none;position:relative;}
+.surge .ring svg{transform:rotate(-90deg);}
+.surge .ring .mx{position:absolute;inset:0;display:grid;place-items:center;font-family:var(--font-d);font-size:13px;color:#fff;text-shadow:0 0 8px rgba(255,120,150,.9);}
+.surge .lbl{display:flex;flex-direction:column;line-height:1.05;}
+.surge .lbl b{font-family:var(--font-d);font-size:16px;letter-spacing:2px;color:#fff;
+  text-shadow:0 0 14px rgba(255,110,90,.9);}
+.surge .lbl span{font-size:10.5px;letter-spacing:2px;color:#ffd9c0;font-weight:700;}
+.surge .timer{margin-left:auto;font-family:var(--font-d);font-size:20px;color:#fff;
+  font-variant-numeric:tabular-nums;text-shadow:0 0 12px rgba(255,140,90,.9);}
+/* secondary motion dots (the Hoyoverse "finish") */
+.dots{position:absolute;left:18px;right:18px;display:flex;justify-content:space-between;pointer-events:none;}
+.dots.top{top:-7px;}.dots.bot{bottom:-7px;}
+.dots i{width:3px;height:3px;border-radius:50%;background:#ffd0b0;opacity:.5;animation:dot 1.6s ease-in-out infinite;}
+.dots i:nth-child(2){animation-delay:.2s}.dots i:nth-child(3){animation-delay:.4s}.dots i:nth-child(4){animation-delay:.6s}.dots i:nth-child(5){animation-delay:.8s}
+@keyframes dot{0%,100%{transform:translateY(0);opacity:.35;}50%{transform:translateY(-3px);opacity:1;}}
+
+.vitbars{display:flex;gap:14px;width:100%;}
+.vit{flex:1;display:flex;align-items:center;gap:8px;}
+.vit .ico{width:22px;height:22px;flex:none;display:grid;place-items:center;}
+.vit .ico svg{width:18px;height:18px;}
+.vit .col{flex:1;}
+.vit .meter{width:100%;}
+.vit .cap{display:flex;justify-content:space-between;font-size:9.5px;letter-spacing:2px;font-weight:700;color:var(--ink-2);margin-bottom:3px;}
+.vit.r{flex-direction:row-reverse;}
+.vit.r .cap{flex-direction:row-reverse;}
+.vit.r .meter{transform:scaleX(-1);}
+
+/* subtle thumb-rest hints to show occlusion is solved */
+.thumb{position:absolute;bottom:-30px;width:150px;height:150px;border-radius:50%;
+  background:radial-gradient(circle,rgba(255,255,255,.06),transparent 70%);pointer-events:none;}
+.thumb.l{left:-40px;}.thumb.r{right:-40px;}
+</style></head>
+<body><div class="stage">
+  <div class="sky"></div><div class="sun"></div><div class="haze"></div>
+  <div class="sea"></div><div class="glitter"></div><div class="horizon"></div>
+  <!-- gates receding to horizon -->
+  <div class="gate cy" style="top:57%;width:30px;height:22px;"></div>
+  <div class="gate" style="top:58.5%;width:60px;height:42px;"></div>
+  <div class="gate cy" style="top:61%;left:46%;width:120px;height:82px;"></div>
+  <div class="gate" style="top:66%;left:53%;width:210px;height:140px;opacity:.85;"></div>
+  <div class="speed"></div>
+  <div class="trail"></div>
+  <!-- dragon silhouette -->
+  <svg class="dragon" viewBox="0 0 240 150">
+    <defs><linearGradient id="dg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#1a2342"/><stop offset="1" stop-color="#0a0f22"/></linearGradient>
+      <linearGradient id="wg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#3d4d86"/><stop offset="1" stop-color="#141a34"/></linearGradient></defs>
+    <path d="M120 96 C150 70 196 40 232 16 C206 44 196 64 198 78 C214 70 228 74 236 84 C220 86 206 96 196 108 C176 100 150 102 134 110 Z" fill="url(#wg)"/>
+    <path d="M120 96 C92 70 44 42 8 18 C36 46 46 64 44 80 C28 70 14 76 6 86 C24 88 38 98 48 110 C70 102 96 104 112 112 Z" fill="url(#wg)"/>
+    <path d="M112 78 C124 70 140 72 150 86 C156 98 150 116 132 124 C118 130 100 128 92 116 C84 102 96 86 112 78 Z" fill="url(#dg)"/>
+    <path d="M150 92 C166 92 182 100 196 116 C180 112 166 116 156 124 C150 112 150 100 150 92 Z" fill="url(#dg)"/>
+    <circle cx="138" cy="92" r="3.2" fill="#ffd16a"/>
+  </svg>
+  <div class="fever"></div>
+
+  <div id="hud">
+    <div class="tl"><div class="panel pausebtn"><svg viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="4" width="4" height="16" rx="1"/><rect x="14" y="4" width="4" height="16" rx="1"/></svg></div></div>
+    <div class="tc"><div class="dist num">1,820 M</div><div class="best">BEST 24,500</div></div>
+    <div class="tr">
+      <div class="score num">48,250</div>
+      <div class="ember num">◆ 312</div>
+      <div class="combo num">×3.75<small>COMBO</small></div>
+      <div class="chain">⟢ 12 CHAIN</div>
+    </div>
+
+    <div class="popup"><div class="big num">PERFECT ×7</div><div class="sub">+600</div></div>
+
+    <div class="vitals">
+      <div class="surge">
+        <div class="dots top"><i></i><i></i><i></i><i></i><i></i></div>
+        <div class="ring"><svg width="42" height="42"><circle cx="21" cy="21" r="17" fill="none" stroke="rgba(255,255,255,.15)" stroke-width="4"/><circle cx="21" cy="21" r="17" fill="none" stroke="#ffb88a" stroke-width="4" stroke-linecap="round" stroke-dasharray="107" stroke-dashoffset="34" style="filter:drop-shadow(0 0 4px rgba(255,140,90,.9))"/></svg><div class="mx num">×2.4</div></div>
+        <div class="lbl"><b>DRAGON SURGE</b><span>SCORE ×2 · DRAIN ½</span></div>
+        <div class="timer num">4.2</div>
+        <div class="dots bot"><i></i><i></i><i></i><i></i><i></i></div>
+      </div>
+      <div class="vitbars">
+        <div class="vit">
+          <div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="#7fffe0" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"><path d="M13 2 L4 14 h6 l-1 8 9-12 h-6 z" fill="#7fffe0" fill-opacity=".25"/></svg></div>
+          <div class="col"><div class="cap"><span>STAMINA</span><span class="num">72</span></div>
+            <div class="meter"><i class="fill-st" style="width:72%"></i><span class="seg" style="left:25%"></span><span class="seg" style="left:50%"></span><span class="seg" style="left:75%"></span></div></div>
+        </div>
+        <div class="vit r">
+          <div class="ico"><svg viewBox="0 0 24 24" fill="#ff8a7a" stroke="#ffb0a0" stroke-width="1.5"><path d="M12 21 C5 15 2 11 2 7.5 A4.5 4.5 0 0 1 12 5 A4.5 4.5 0 0 1 22 7.5 C22 11 19 15 12 21 Z"/></svg></div>
+          <div class="col"><div class="cap"><span>HEALTH</span><span class="num">86</span></div>
+            <div class="meter"><i class="fill-hp" style="width:86%"></i><span class="seg" style="left:25%"></span><span class="seg" style="left:50%"></span><span class="seg" style="left:75%"></span></div></div>
+        </div>
+      </div>
+      <div class="thumb l"></div><div class="thumb r"></div>
+    </div>
+  </div>
+  <div class="tag">Gameplay HUD · Dragon Surge active</div>
+</div></body></html>
