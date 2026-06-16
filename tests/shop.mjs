@@ -14,17 +14,18 @@ const { page, errors, done } = await boot({
 });
 
 await page.click('#btn-shop');
-await page.waitForSelector('.shop-grid');
+await page.waitForSelector('.hero-select');
 
-// Both reported symptoms: previews present + nothing threw during render.
-const dragonCanvases = await page.$$eval('canvas.skin-preview[data-kind="dragon"]', els => els.length);
-check('dragon preview canvases present', dragonCanvases >= 6);
+// Hero character-select: a thumbnail RAIL (one per dragon) + the big hero stage.
+const railThumbs = await page.$$eval('.hero-thumb-canvas', els => els.length);
+check('rail thumbnails present (one per dragon)', railThumbs >= 6);
+check('hero stage canvas present', !!(await page.$('#hero-canvas')));
 check('shop render threw nothing', errors.length === 0) || console.error(errors.join('\n'));
 
-// Turntable actually drew: at least one dragon canvas has non-transparent pixels.
+// Turntables actually drew: at least one rail thumbnail has non-transparent pixels.
 await page.waitForTimeout(700); // let the ~30fps preview loop blit a few frames
 const drew = await page.evaluate(() => {
-  const cs = [...document.querySelectorAll('canvas.skin-preview[data-kind="dragon"]')];
+  const cs = [...document.querySelectorAll('.hero-thumb-canvas')];
   return cs.some((c) => {
     try {
       const d = c.getContext('2d').getImageData(0, 0, c.width, c.height).data;
@@ -35,20 +36,22 @@ const drew = await page.evaluate(() => {
 });
 check('a dragon turntable rendered visible pixels', drew);
 
-// Form scrub must change ONLY the scrubbed dragon, not every card.
-const emberBefore = await page.$eval('[data-form-label="ember"]', el => el.textContent);
-const solarBefore = await page.$eval('[data-form-label="solar"]', el => el.textContent);
-await page.click('.form-arrow[data-form-prev="ember"]');
-await page.waitForTimeout(120);
-const emberAfter = await page.$eval('[data-form-label="ember"]', el => el.textContent);
-const solarAfter = await page.$eval('[data-form-label="solar"]', el => el.textContent);
-check('scrubbing ember changes ember\'s own form label', emberAfter !== emberBefore);
-check('scrubbing ember leaves solar\'s form untouched', solarAfter === solarBefore);
-
-// Scrubbing the EQUIPPED dragon (solar) also rebuilds the in-game model.
-await page.click('.form-arrow[data-form-prev="solar"]');
+// Form segments switch the displayed form (the active segment moves). The hero
+// defaults to the EQUIPPED dragon (solar), so this also rebuilds the in-game model.
+const segBefore = await page.$eval('.hero-seg.on', el => el.dataset.form);
+const segs = await page.$$('.hero-forms .hero-seg');
+await segs[segBefore === '0' ? 1 : 0].click();
 await page.waitForTimeout(150);
-check('scrubbing the equipped dragon rebuilds in-game without erroring', errors.length === 0) || console.error(errors.join('\n'));
+const segAfter = await page.$eval('.hero-seg.on', el => el.dataset.form);
+check('tapping a form segment changes the active form', segAfter !== segBefore);
+check('switching the equipped form rebuilds in-game without erroring', errors.length === 0) || console.error(errors.join('\n'));
+
+// The rail switches the hero to another dragon (the name updates in place).
+const heroNameBefore = await page.$eval('#hero-name', el => el.textContent);
+await page.click('.hero-thumb:not(.on)');
+await page.waitForTimeout(150);
+const heroNameAfter = await page.$eval('#hero-name', el => el.textContent);
+check('tapping a rail thumbnail switches the hero dragon', heroNameAfter !== heroNameBefore);
 
 // Tabs respond (the wiring that was dead before).
 await page.click('.seg-btn[data-shoptab="music"]');
@@ -68,7 +71,7 @@ check('RIDERS tab switches', !!(await page.$('.skin-card[data-rider]')));
 
 // Close button works.
 await page.click('.seg-btn[data-shoptab="dragons"]');
-await page.waitForSelector('.skin-card[data-dragon]');
+await page.waitForSelector('.hero-select');
 await page.click('#btn-back');
 await page.waitForSelector('#btn-start');
 check('close button exits the shop to the start screen', !!(await page.$('#btn-start')));
