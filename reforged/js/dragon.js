@@ -4,6 +4,7 @@ import { buildDragonModel } from './dragonModel.js';
 import { buildRiderFigure, riderMaterials } from './riderParts.js';
 import { setFeverTint } from './postfx.js';
 import { applyRim, updateRim, resetRim } from './rimLight.js';
+import { flapWing } from './dragonWingFlap.js';
 
 // Procedural dragon + rider. Built from a dragon def (dragons.js: palette,
 // model proportions, fx) and a rider def (riders.js: outfit, hair, accessory,
@@ -20,6 +21,8 @@ let wingTipL = null;  // secondary fold joint for 2-segment wing
 let wingTipR = null;
 let wingPivot2L = null;
 let wingPivot2R = null;
+let wingRigL = null;  // skinned-wing flap rigs (shoulder/elbow/wrist), null otherwise
+let wingRigR = null;
 let head = null;
 let tailSegs = [];
 let tailFins = [];        // apex deployable tail-fin groups (empty for every other dragon)
@@ -103,6 +106,8 @@ export function createDragon(scene, def, riderDef) {
   group = result.group;
   ({ head, tailSegs, wingPivotL, wingPivotR, wingTipL, wingTipR,
      wingPivot2L, wingPivot2R, tipMarkerL, tipMarkerR } = result.parts);
+  wingRigL = result.parts.wingRigL || null;
+  wingRigR = result.parts.wingRigR || null;
   tailFins = result.parts.tailFins || [];
   bodySegs = result.parts.bodySegs || null;
   tailOrbiters = result.parts.tailOrbiters || null;
@@ -394,18 +399,26 @@ export function updateDragon(dt, player, time) {
   const rootFlap = Math.sin(phase) * flapAmp + 0.1;
   const feather = Math.sin(phase + Math.PI * 0.55);
   const tipLag = Math.sin(phase + 0.95);
-  wingPivotR.rotation.z = damp(wingPivotR.rotation.z, -rootFlap + turnBias + rollFold, 14, dt);
-  wingPivotL.rotation.z = damp(wingPivotL.rotation.z,  rootFlap + turnBias - rollFold, 14, dt);
-  wingPivotR.rotation.x = damp(wingPivotR.rotation.x, 0.14 + feather * 0.18 + climbBias, 10, dt);
-  wingPivotL.rotation.x = damp(wingPivotL.rotation.x, 0.14 - feather * 0.18 + climbBias, 10, dt);
-  wingPivotR.rotation.y = damp(wingPivotR.rotation.y, -0.18 + turnBias * 0.8, 9, dt);
-  wingPivotL.rotation.y = damp(wingPivotL.rotation.y,  0.18 + turnBias * 0.8, 9, dt);
-  // Tip fold: folds on up-stroke, extends on down-stroke, with a small delay
-  // between wings so the silhouette feels less mechanical.
-  wingTipR.rotation.z = damp(wingTipR.rotation.z, tipLag * 0.28 + turnBias * 0.45, 12, dt);
-  wingTipL.rotation.z = damp(wingTipL.rotation.z, -Math.sin(phase + 1.18) * 0.28 + turnBias * 0.45, 12, dt);
-  wingTipR.rotation.x = damp(wingTipR.rotation.x, -0.12 + feather * 0.16, 10, dt);
-  wingTipL.rotation.x = damp(wingTipL.rotation.x, -0.12 - feather * 0.16, 10, dt);
+  if (wingRigL) {
+    // Skinned wings: the shared animator drives the shoulder→elbow→wrist cascade
+    // (lagged whip + anatomical limits). Same flight state, organic motion.
+    const flapState = { phase, flapAmp, turnBias, climbBias, rollFold, feather };
+    flapWing(wingRigL, flapState, dt);
+    flapWing(wingRigR, flapState, dt);
+  } else {
+    wingPivotR.rotation.z = damp(wingPivotR.rotation.z, -rootFlap + turnBias + rollFold, 14, dt);
+    wingPivotL.rotation.z = damp(wingPivotL.rotation.z,  rootFlap + turnBias - rollFold, 14, dt);
+    wingPivotR.rotation.x = damp(wingPivotR.rotation.x, 0.14 + feather * 0.18 + climbBias, 10, dt);
+    wingPivotL.rotation.x = damp(wingPivotL.rotation.x, 0.14 - feather * 0.18 + climbBias, 10, dt);
+    wingPivotR.rotation.y = damp(wingPivotR.rotation.y, -0.18 + turnBias * 0.8, 9, dt);
+    wingPivotL.rotation.y = damp(wingPivotL.rotation.y,  0.18 + turnBias * 0.8, 9, dt);
+    // Tip fold: folds on up-stroke, extends on down-stroke, with a small delay
+    // between wings so the silhouette feels less mechanical.
+    wingTipR.rotation.z = damp(wingTipR.rotation.z, tipLag * 0.28 + turnBias * 0.45, 12, dt);
+    wingTipL.rotation.z = damp(wingTipL.rotation.z, -Math.sin(phase + 1.18) * 0.28 + turnBias * 0.45, 12, dt);
+    wingTipR.rotation.x = damp(wingTipR.rotation.x, -0.12 + feather * 0.16, 10, dt);
+    wingTipL.rotation.x = damp(wingTipL.rotation.x, -0.12 - feather * 0.16, 10, dt);
+  }
   // Secondary wing pair (Obsidian T4): shadow flap at reduced amplitude.
   if (wingPivot2L) {
     wingPivot2L.rotation.z = damp(wingPivot2L.rotation.z,  rootFlap * 0.6 + turnBias, 14, dt);

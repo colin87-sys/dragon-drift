@@ -11,6 +11,7 @@ import './dragonCometWake.js';      // 'cometWake' tail (streaming comet glow-tr
 import './dragonCelestialHead.js';  // 'celestialMask' head (regal faceplate)
 import './dragonDraconicHead.js';   // 'draconic' head (modular house-style dragon head)
 import { applyFresnelRim } from './surface.js';
+import { flapWing } from './dragonWingFlap.js';
 import { composeSurface, fresnelRimPatch, buildSurfacePatches } from './dragonSurfaceShader.js';
 
 // Unified procedural dragon mesh builder.
@@ -347,6 +348,7 @@ export function buildDragonModel(def, opts = {}) {
   const {
     wingPivotL, wingPivotR, wingTipL, wingTipR,
     tipMarkerL, tipMarkerR, wingPivot2L, wingPivot2R,
+    wingRigL, wingRigR,
   } = wingsResult.parts;
 
   // Solar aura card (apex only): a tall narrow backlight behind the body — a
@@ -417,7 +419,7 @@ export function buildDragonModel(def, opts = {}) {
 
     return {
       group: wrapper,
-      parts: { head, tailSegs, tailFins, bodySegs, tailOrbiters, riderSocket, wingPivotL, wingPivotR, wingTipL, wingTipR, wingPivot2L, wingPivot2R, tipMarkerL, tipMarkerR, coreGlow },
+      parts: { head, tailSegs, tailFins, bodySegs, tailOrbiters, riderSocket, wingPivotL, wingPivotR, wingTipL, wingTipR, wingPivot2L, wingPivot2R, tipMarkerL, tipMarkerR, wingRigL, wingRigR, coreGlow },
       materials: { bodyMat, wingMat, eyeMat, spineMats },
       auraSprite,
     };
@@ -431,6 +433,7 @@ export function buildDragonModel(def, opts = {}) {
       wingTipL, wingTipR,
       wingPivot2L, wingPivot2R,
       tipMarkerL, tipMarkerR,
+      wingRigL, wingRigR,
       coreGlow,
     },
     materials: { bodyMat, wingMat, eyeMat, spineMats },
@@ -444,7 +447,7 @@ export function buildDragonModel(def, opts = {}) {
 // spinning model.
 export function makePreviewTick(def, result) {
   const { group, parts, auraSprite } = result;
-  const { head, tailSegs, wingPivotL, wingPivotR, wingPivot2L, wingPivot2R, wingTipL, wingTipR } = parts;
+  const { head, tailSegs, wingPivotL, wingPivotR, wingPivot2L, wingPivot2R, wingTipL, wingTipR, wingRigL, wingRigR } = parts;
   const { bodySegs, tailOrbiters } = parts;
   const flapBias = def.model.flapBias || 1;
   const flapAmp = def.model.flapAmp ?? 1;
@@ -459,21 +462,30 @@ export function makePreviewTick(def, result) {
     group.rotation.x = -0.05 + Math.sin(t * 1.5 + 1) * 0.03;
     // Wingbeat — same shape as the live rig (root flap + feather pitch).
     const phase = t * 6.2 * flapBias;
-    const flap = Math.sin(phase) * 0.52 * flapAmp + 0.12;
-    const feather = Math.sin(phase + Math.PI * 0.55) * 0.16;
-    wingPivotR.rotation.z = -flap;
-    wingPivotL.rotation.z = flap;
-    wingPivotR.rotation.x = 0.12 + feather;
-    wingPivotL.rotation.x = 0.12 - feather;
-    if (wingPivot2L) { wingPivot2L.rotation.z = flap * 0.65; wingPivot2R.rotation.z = -flap * 0.65; }
-    // Wrist fold — the outer membrane lags the root flap so the wing breaks at
-    // the wrist (matches the in-game rig; needs the split outer panel to be felt).
-    if (wingTipR) {
-      const tipLag = Math.sin(phase + 0.95) * 0.34;
-      wingTipR.rotation.z = tipLag;
-      wingTipL.rotation.z = -Math.sin(phase + 1.18) * 0.34;
-      wingTipR.rotation.x = -0.06 + feather;
-      wingTipL.rotation.x = -0.06 - feather;
+    if (wingRigL) {
+      // Skinned wings: the shared animator drives the shoulder→elbow→wrist cascade
+      // (dt=1 snaps to target, matching the preview's direct-set style).
+      const st = { phase, flapAmp: 0.52 * flapAmp, turnBias: 0, climbBias: 0, rollFold: 0, feather: Math.sin(phase + Math.PI * 0.55) };
+      flapWing(wingRigL, st, 1);
+      flapWing(wingRigR, st, 1);
+      if (wingPivot2L) { const f = Math.sin(phase) * 0.52 * flapAmp + 0.12; wingPivot2L.rotation.z = f * 0.65; wingPivot2R.rotation.z = -f * 0.65; }
+    } else {
+      const flap = Math.sin(phase) * 0.52 * flapAmp + 0.12;
+      const feather = Math.sin(phase + Math.PI * 0.55) * 0.16;
+      wingPivotR.rotation.z = -flap;
+      wingPivotL.rotation.z = flap;
+      wingPivotR.rotation.x = 0.12 + feather;
+      wingPivotL.rotation.x = 0.12 - feather;
+      if (wingPivot2L) { wingPivot2L.rotation.z = flap * 0.65; wingPivot2R.rotation.z = -flap * 0.65; }
+      // Wrist fold — the outer membrane lags the root flap so the wing breaks at
+      // the wrist (matches the in-game rig; needs the split outer panel to be felt).
+      if (wingTipR) {
+        const tipLag = Math.sin(phase + 0.95) * 0.34;
+        wingTipR.rotation.z = tipLag;
+        wingTipL.rotation.z = -Math.sin(phase + 1.18) * 0.34;
+        wingTipR.rotation.x = -0.06 + feather;
+        wingTipL.rotation.x = -0.06 - feather;
+      }
     }
     // Root-locked snake coil (x + y) so the tail stays attached and alive.
     const nT = tailSegs.length;

@@ -30,13 +30,27 @@ ob.group.traverse((o) => { if (o.isSkinnedMesh) { skinnedMeshes++; boneCounts.ad
 // Each wing = 1 membrane + surface ribs (leading edge + finger veins), all
 // skinned to the same skeleton → > 2 skinned meshes total. Guards the rib fix.
 assert(skinnedMeshes >= 6, `obsidian has skinned membrane + rib meshes (found ${skinnedMeshes})`);
-assertEq([...boneCounts].join(','), '2', 'every skinned piece shares the 2-bone skeleton (shoulder + wrist)');
-ok('skinnedMembrane builds continuous membrane + surface ribs on one shared skeleton');
+assertEq([...boneCounts].join(','), '3', 'every skinned piece shares the 3-bone skeleton (shoulder→elbow→wrist)');
+ok('skinnedMembrane builds continuous membrane + surface ribs on one shared 3-bone skeleton');
 
 assert(ob.parts.wingPivotL?.isBone && ob.parts.wingPivotR?.isBone, 'wingPivot handles are Bones');
 assert(ob.parts.wingTipL?.isBone && ob.parts.wingTipR?.isBone, 'wingTip handles are Bones');
 assert(!!ob.parts.tipMarkerL && !!ob.parts.tipMarkerR, 'tip markers present (trails read them)');
 ok('rig handles are bones — existing flap/fold rotations drive the skin, no rig change');
+
+// living-fan: each wing exposes a flap RIG (shoulder/elbow/wrist) for the animator
+const rigL = ob.parts.wingRigL, rigR = ob.parts.wingRigR;
+assert(rigL && rigR, 'skinned wings expose per-side flap rigs');
+assert(rigL.shoulder?.isBone && rigL.elbow?.isBone && rigL.wrist?.isBone, 'rig has shoulder + elbow + wrist bones');
+assert(rigL.side === -1 && rigR.side === 1, 'rigs carry their side');
+ok('living-fan flap rig exposed (shoulder→elbow→wrist + side)');
+
+// the animator drives the cascade without throwing and rotates the elbow
+const { flapWing } = await import('../js/dragonWingFlap.js');
+const e0 = rigL.elbow.rotation.z;
+flapWing(rigL, { phase: 1.3, flapAmp: 0.52, turnBias: 0, climbBias: 0, rollFold: 0, feather: 0.3 }, 1);
+assert(Math.abs(rigL.elbow.rotation.z - e0) > 1e-3, 'flapWing rotates the elbow (lagged cascade)');
+ok('flap animator drives the shoulder→elbow→wrist cascade');
 
 // skin weights: each vertex sums to 1, indices in range, positions finite
 let badW = 0, badI = 0, badP = 0, checked = 0;
@@ -46,13 +60,13 @@ ob.group.traverse((o) => {
   const sw = o.geometry.attributes.skinWeight, si = o.geometry.attributes.skinIndex, p = o.geometry.attributes.position;
   for (let i = 0; i < sw.count; i++) {
     if (Math.abs(sw.getX(i) + sw.getY(i) + sw.getZ(i) + sw.getW(i) - 1) > 1e-3) badW++;
-    if (si.getX(i) > 1 || si.getY(i) > 1) badI++;
+    if (si.getX(i) > 2 || si.getY(i) > 2) badI++;   // 3-bone skeleton: indices 0..2
     if (!Number.isFinite(p.getX(i)) || !Number.isFinite(p.getY(i)) || !Number.isFinite(p.getZ(i))) badP++;
   }
 });
 assert(checked >= 2, 'inspected the skinned wing meshes');
 assertEq(badW, 0, 'every vertex skinWeight sums to 1');
-assertEq(badI, 0, 'every skinIndex references one of the 2 bones');
+assertEq(badI, 0, 'every skinIndex references one of the 3 bones');
 assertEq(badP, 0, 'no non-finite vertex positions');
 ok('skin weights well-formed (sum=1, indices in range, finite positions)');
 
