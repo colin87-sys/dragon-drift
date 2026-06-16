@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import {
   DEFAULT_WING, wingSpecFor, buildWingShape, buildFeatherWingShape,
   archWing, archLift, wingStrut, applyWingGradient, edgedFin,
-  featherGeo, featherGradient, webGradient, archUp, bone,
+  featherGeo, featherGradient, webGradient, archUp, bone, buildCurvedPatch,
 } from './dragonParts.js';
 import { registerWings } from './dragonRecipe.js';
 
@@ -29,9 +29,15 @@ import { registerWings } from './dragonRecipe.js';
 // secondary wing pair, and hip fins. (Also serves the legacy `wingShape:'feather'`
 // flat-feather variant.) Geometry is transcribed verbatim from the original inline
 // builder — byte-identical output, verified by triangle-count parity.
-function buildMembraneWings(def, model, attach, giM) {
+function buildMembraneWings(def, model, attach, giM, opts = {}) {
   const group = new THREE.Group();
   const spineMats = [];
+  // 'curvedMembrane' recipe: build the membrane as a smooth double-curved grid
+  // (buildCurvedPatch) instead of a flat clipped sheet — chordwise billow + smooth
+  // normals so the wing reads as taut skin and the inner/outer panels meet at a
+  // shared seam without the hard flat-panel crease.
+  const curved = !!opts.curved;
+  const panelBillow = model.wingBillow ?? 0.12;
 
   const wingMat = new THREE.MeshStandardMaterial({
     color: 0xffffff, vertexColors: true, roughness: 0.55, side: THREE.DoubleSide,
@@ -97,6 +103,19 @@ function buildMembraneWings(def, model, attach, giM) {
   const seamOv = 0.22 * ws;
   const wristLift = archLift(wristXGeo, maxX, arc, ws);
   function membranePanel(clipMin, clipMax, originX, originY) {
+    // Curved path: a smooth (span×chord) grid resampled from the same outline,
+    // with chordwise billow + smooth normals. Same clip/origin → same at-rest
+    // silhouette, no flat-panel facets. (Legacy 'feather'-shaped membranes keep
+    // the flat path.)
+    if (curved && !featherShape) {
+      const g = buildCurvedPatch(wingSpec, {
+        scaleX: 1.34 * ws, scaleZ: model.wingChord ?? 1, arc, k: ws,
+        billow: panelBillow, segU: 16, segV: 6,
+        clipMin, clipMax, originX, originY,
+      });
+      applyWingGradient(g, def, 0, 1);
+      return g;
+    }
     const g2 = new THREE.ShapeGeometry(featherShape ? buildFeatherWingShape() : buildWingShape(wingSpec), 14);
     g2.rotateX(-Math.PI / 2);
     // 3rd factor = wing CHORD (front-to-back depth); wingChord deepens the apex
@@ -299,6 +318,9 @@ function buildNoneWings(def, model, attach) {
 }
 
 registerWings('membrane', buildMembraneWings);
+// Smooth double-curved membrane (buildCurvedPatch) — coexists with 'membrane' so
+// it can be proven on a hero before the roster migrates. Same rig handles.
+registerWings('curvedMembrane', (def, model, attach, giM) => buildMembraneWings(def, model, attach, giM, { curved: true }));
 registerWings('none', buildNoneWings);
 
 // ── FEATHER ─────────────────────────────────────────────────────────────────

@@ -347,3 +347,81 @@ export function bone(ax, ay, az, bx, by, bz, r0, r1, mat) {
   m.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), dir.normalize());
   return m;
 }
+
+// ===========================================================================
+// CURVED MEMBRANE PATCH — the creature framework's smooth surface primitive.
+//
+// Replaces "flat ShapeGeometry + archWing" (a bent flat sheet, faceted along its
+// triangulation and split into clipped panels that crease at the wrist) with a
+// regular (segU x segV) GRID resampled from the SAME wing outline, so it keeps
+// the silhouette but gains: spanwise arc lift, CHORDWISE BILLOW (the cup a flat
+// sheet lacks), smooth vertex normals, and detail-driven tessellation. Reusable
+// for wings, fins, sails and future creatures.
+//
+// The outline is read from buildWingShape(spec).getPoints() and split at the far
+// tip (max x) into a leading (front) and trailing (back) boundary; the grid fills
+// the chord between them at each span station. Axes match the membrane build's
+// rotateX(-PI/2): shape-x -> world x (span), shape-y -> world -z (chord), height
+// in world y. clip/origin reproduce the inner/outer wrist split.
+export function buildCurvedPatch(spec, opts = {}) {
+  const scaleX = opts.scaleX ?? 1;
+  const scaleZ = opts.scaleZ ?? 1;
+  const arc = opts.arc || spec.arc || DEFAULT_WING.arc;
+  const k = opts.k ?? 1;
+  const billow = opts.billow ?? 0;
+  const segU = Math.max(2, opts.segU ?? 12);
+  const segV = Math.max(1, opts.segV ?? 5);
+  const clipMin = opts.clipMin ?? -Infinity;
+  const clipMax = opts.clipMax ?? Infinity;
+  const originX = opts.originX ?? 0;
+  const originY = opts.originY ?? 0;
+
+  const pts = buildWingShape(spec).getPoints(48);
+  let maxI = 0;
+  for (let i = 1; i < pts.length; i++) if (pts[i].x > pts[maxI].x) maxI = i;
+  const lead = pts.slice(0, maxI + 1);           // x increasing: leading edge
+  const trail = pts.slice(maxI).reverse();        // x increasing: trailing edge
+  const maxX = pts[maxI].x || 1;
+  const yAt = (poly, x) => {
+    if (x <= poly[0].x) return poly[0].y;
+    for (let i = 1; i < poly.length; i++) {
+      if (x <= poly[i].x) {
+        const t = (x - poly[i - 1].x) / Math.max(poly[i].x - poly[i - 1].x, 1e-6);
+        return poly[i - 1].y + (poly[i].y - poly[i - 1].y) * t;
+      }
+    }
+    return poly[poly.length - 1].y;
+  };
+
+  const verts = [];
+  const idx = [];
+  const worldMaxX = maxX * scaleX;
+  for (let i = 0; i <= segU; i++) {
+    const u = i / segU;
+    let wx = u * worldMaxX;
+    if (wx < clipMin) wx = clipMin; else if (wx > clipMax) wx = clipMax; // collapse onto the seam
+    const sx = wx / scaleX;
+    const frontY = yAt(lead, sx);
+    const backY = yAt(trail, sx);
+    const liftY = archLift(wx, worldMaxX, arc, k);
+    const chordW = Math.abs(backY - frontY) * scaleZ;
+    for (let j = 0; j <= segV; j++) {
+      const v = j / segV;
+      const chordY = frontY + (backY - frontY) * v;        // shape-y
+      const wz = -chordY * scaleZ;                          // shape-y -> world -z
+      const cupY = billow * Math.sin(Math.PI * v) * chordW; // chordwise cup
+      verts.push(wx - originX, liftY + cupY - originY, wz);
+    }
+  }
+  for (let i = 0; i < segU; i++) {
+    for (let j = 0; j < segV; j++) {
+      const a = i * (segV + 1) + j, b = a + 1, c = a + (segV + 1), d = c + 1;
+      idx.push(a, c, b, b, c, d);
+    }
+  }
+  const g = new THREE.BufferGeometry();
+  g.setIndex(idx);
+  g.setAttribute('position', new THREE.Float32BufferAttribute(verts, 3));
+  g.computeVertexNormals();
+  return g;
+}
