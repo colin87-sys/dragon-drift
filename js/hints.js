@@ -3,12 +3,17 @@ import { saveData, persist } from './save.js';
 import { game } from './gameState.js';
 import { getAxes, input } from './input.js';
 import { ui } from './ui.js';
+import { gestureTutorialActive } from './gestureTutorial.js';
 
 // Contextual first-flight hints: one line at a time in a dedicated element
 // (never the gameplay popups), each shown once ever, none after the second
 // run. Teaches by timing, not by wall of text.
 
-const BIT = { steer: 1, boost: 2, perfect: 4, gauntlet: 8, glide: 16, surge: 32, phase: 64, roll: 128 };
+const BIT = {
+  steer: 1, boost: 2, perfect: 4, gauntlet: 8, glide: 16, surge: 32, phase: 64, roll: 128,
+  // Live (non-pausing) callouts for the remaining mechanics.
+  orb: 256, gate: 512, ember: 1024, gold: 2048, nearMiss: 4096,
+};
 
 const isTouch = () =>
   (globalThis.matchMedia && matchMedia('(pointer: coarse)').matches) ||
@@ -62,8 +67,32 @@ export function initHints() {
   // phase itself is no-fail the first time (collision.js demos it), so this is a
   // prompt, not a death threat. Overrides any active hint; gated by phaseTaught.
   on('surgeWallSlowMo', () => {
-    if (saveData.flags.phaseTaught) return;
+    if (gestureTutorialActive() || saveData.flags.phaseTaught) return; // run-1 pause owns phase
     show(BIT.phase, isTouch() ? 'FLICK to PHASE through!' : 'Double-tap A/D to PHASE!', 3);
+  });
+
+  // Live (non-pausing) callouts for the remaining mechanics — one line, once
+  // ever, only while learning (runs < 2), shown when each first occurs.
+  on('orb', () => {
+    if (!eligible() || active || seen(BIT.orb)) return;
+    show(BIT.orb, 'Speed orb — grab it for a burst of speed', 3.2);
+  });
+  on('gate', () => {
+    if (!eligible() || active || seen(BIT.gate)) return;
+    show(BIT.gate, 'Thread the window — it pays like a ring', 3.2);
+  });
+  on('ember', (p) => {
+    if (p && p.gold) return; // golden embers get their own callout below
+    if (!eligible() || active || seen(BIT.ember)) return;
+    show(BIT.ember, 'Collect embers — they unlock new dragons & more', 3.2);
+  });
+  on('goldEmber', () => {
+    if (!eligible() || active || seen(BIT.gold)) return;
+    show(BIT.gold, 'Golden ember! Worth far more — chase the comets', 3.5);
+  });
+  on('nearMiss', () => {
+    if (!eligible() || active || seen(BIT.nearMiss)) return;
+    show(BIT.nearMiss, 'Near miss! Shave past obstacles for bonus points', 3.2);
   });
 }
 
@@ -99,7 +128,8 @@ export function updateHints(dt, player) {
   // obstacle is bearing down (run 1's authored pillar sits at ~395m). Kept out
   // of the runs<2 gate so a cautious pilot still learns the i-frames later. The
   // Surge phase hint stays as the second teaching context (both contexts).
-  if (!saveData.flags.seenFirstRoll && !seen(BIT.roll) && game.time > 2 && player.dist > 360) {
+  if (!gestureTutorialActive() && !saveData.flags.seenFirstRoll && !seen(BIT.roll) &&
+      game.time > 2 && player.dist > 360) {
     rollsAtShow = game.rolls;
     show(BIT.roll, isTouch()
       ? 'Swipe a second finger to BARREL ROLL — dodges damage'
@@ -108,6 +138,9 @@ export function updateHints(dt, player) {
   }
 
   if (!eligible()) return;
+  // On the first flight the paused gesture tutorial teaches steer/boost — keep
+  // their text versions silent so the lesson isn't doubled.
+  if (gestureTutorialActive()) return;
 
   const mouse = saveData.settings.mouseSteer;
   if (!seen(BIT.steer) && game.time > 1.2) {
