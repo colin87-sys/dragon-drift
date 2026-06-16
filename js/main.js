@@ -4,7 +4,7 @@ import { game } from './gameState.js';
 import { initInput, initTouch, initMouse } from './input.js';
 import { createLevelGen } from './level.js';
 import { todaysDailyMod, dailyMods } from './daily.js';
-import { createEnvironment, updateEnvironment, resetEnvironment } from './environment.js';
+import { createEnvironment, updateEnvironment, resetEnvironment, getSkyMesh } from './environment.js';
 import { createDragon, updateDragon, resetDragon, rebuildDragon } from './dragon.js';
 import { initReticle, updateReticle } from './reticle.js';
 import { initSplash, showSplash, hideSplash, splashVisible, launchFlash, igniteSplash, splashArmed } from './splash.js';
@@ -18,13 +18,13 @@ import { setDragonQuality } from './dragon.js';
 import { updateCollision, resetCollision, acceptRevive, finishDeath } from './collision.js';
 import { ui } from './ui.js';
 import { music, sfx, setSlowMo, unlockAllTracks } from './sfx.js';
-import { initPostFX, setPostSize, setPostPixelRatio, setPostTier, updatePostFX, renderPostFX, postfx, kick, clearDeath, kickState } from './postfx.js';
+import { initPostFX, setPostSize, setPostPixelRatio, setPostTier, updatePostFX, renderPostFX, postfx, kick, clearDeath, kickState, setupGodRays, setGodRaySun } from './postfx.js';
 import { initContactShadow, updateContactShadow, resetContactShadow, setContactShadowQuality } from './contactShadow.js';
 import { hitstop, juiceEvent } from './juice.js';
 import { createWater, setWaterReflective, updateWater } from './water.js';
 import { burst } from './particles.js';
 import { buildSetPiece } from './setpieces.js';
-import { BIOMES, biomeIndexAt } from './biomes.js';
+import { BIOMES, biomeIndexAt, SUN_DIR } from './biomes.js';
 import { DRAGONS } from './dragons.js';
 import { RIDERS } from './riders.js';
 import { dailySeed, recordDailyRun, saveData, persist, grantXp, levelEmberReward, todayUTC, gambitSunsetRefund, freezeSaves } from './save.js';
@@ -100,6 +100,7 @@ const equippedDragon = () => {
 };
 const equippedRider = () => RIDERS[saveData.riders.equipped] || RIDERS.drifter;
 createEnvironment(scene, runSeed);
+setupGodRays(scene, camera, getSkyMesh()); // occlusion-masked god-rays (tier 0)
 createWater(scene, true); // real reflection by default; tiers downgrade it
 createDragon(scene, equippedDragon(), equippedRider());
 initContactShadow(scene);
@@ -622,6 +623,8 @@ window.addEventListener('blur', pauseForBackground);
 const clock = new THREE.Clock();
 let sprayTimer = 0;
 const sprayPos = new THREE.Vector3();
+const _sunProj = new THREE.Vector3();   // sun world dir → screen NDC (god-rays)
+const _camFwd = new THREE.Vector3();      // camera forward, for the sun-facing gate
 // Screenshot capture: delayed slightly after death to catch burst particles
 let screenshotPending = false;
 let screenshotTimer = 0;
@@ -834,6 +837,19 @@ function tick() {
     updateEnvironment(dt, camera, t, player.dist, game.feverActive, player.speed);
     updateWater(dt, player.dist, t, scene.fog);
     updateContactShadow(dt, player);
+
+    // God-rays: project the sun to screen space and gate intensity by how
+    // front-facing it is (postfx disables the pass + mask render when it's ~0).
+    camera.updateMatrixWorld();
+    camera.getWorldDirection(_camFwd);
+    const sunFacing = _camFwd.dot(SUN_DIR);
+    if (sunFacing > 0.05) {
+      _sunProj.copy(SUN_DIR).add(camera.position).project(camera);
+      setGodRaySun(_sunProj.x * 0.5 + 0.5, _sunProj.y * 0.5 + 0.5,
+        Math.min(sunFacing, 1) * 0.6);
+    } else {
+      setGodRaySun(0.5, 0.8, 0);
+    }
 
     // Skimming the water kicks up spray (throttled, gameplay only).
     if (game.state === 'playing' && player.position.y < 3.6) {
