@@ -68,6 +68,10 @@ const ICONS = {
 let popupTimer = null;
 let lastCombo = 1;
 let lastChain = 0;
+let lastSurgeLit = -1;     // gems currently lit (avoid per-frame DOM churn)
+let lastThreshold = -1;    // gem-slot count (feverThreshold can change)
+let wasFever = false;      // fever-start edge -> ignition animation
+let surgeIgniteTO = null;  // ignition one-shot cleanup timer
 let reviveTimer = null;
 let lastShownScore = 0;
 let lastSpeedlines = -1;
@@ -430,30 +434,23 @@ export const ui = {
       </div>
       <div class="hud-vitals" id="hud-vitals">
         <div class="surge-widget" id="surge-widget" data-tier="0">
-          <div class="surge-dots top"><i></i><i></i><i></i><i></i><i></i></div>
-          <div class="surge-ring">
-            <svg viewBox="0 0 84 84">
-              <defs>
-                <linearGradient id="surge-grad" x1="0" y1="0" x2="1" y2="1">
-                  <stop offset="0" stop-color="#ffd86a"/>
-                  <stop offset="0.55" stop-color="#ff8a3c"/>
-                  <stop offset="1" stop-color="#ff4d6a"/>
-                </linearGradient>
-              </defs>
-              <circle class="surge-track" cx="42" cy="42" r="35"/>
-              <circle class="surge-arc" id="surge-arc" cx="42" cy="42" r="35"/>
-            </svg>
-            <div class="surge-x" id="surge-x">×1.00</div>
-          </div>
+          <div class="surge-fx" id="surge-fx"><span class="flash"></span><span class="shock"></span><span class="shock s2"></span></div>
+          <div class="surge-ring"><div class="surge-x" id="surge-x">×1.00</div></div>
           <div class="surge-text">
             <div class="surge-title">DRAGON SURGE</div>
-            <div class="surge-lbl" id="surge-lbl">SURGE 0/8</div>
+            <div class="surge-gems" id="surge-gems"></div>
           </div>
-          <div class="surge-dots bot"><i></i><i></i><i></i><i></i><i></i></div>
+          <div class="surge-timer" id="surge-timer"></div>
         </div>
         <div class="vit-bars">
-          <div class="bb-row vit"><span class="bb-ico">⚡</span><div class="bar"><div class="bar-fill stamina" id="stamina-fill"></div></div></div>
-          <div class="bb-row vit r"><span class="bb-ico">♥</span><div class="bar"><div class="bar-fill health" id="health-fill"></div></div></div>
+          <div class="vit">
+            <div class="vit-cap stamina-cap"><span>⚡ STAMINA</span></div>
+            <div class="bar"><div class="bar-fill stamina" id="stamina-fill"></div></div>
+          </div>
+          <div class="vit r">
+            <div class="vit-cap health-cap"><span>HEALTH ♥</span></div>
+            <div class="bar"><div class="bar-fill health" id="health-fill"></div></div>
+          </div>
         </div>
       </div>
       <div class="milestone-banner" id="milestone-banner"></div>
@@ -490,9 +487,10 @@ export const ui = {
       chainN:       root.querySelector('#chain-n'),
       goldFlash:    root.querySelector('#gold-flash'),
       surgeWidget:  root.querySelector('#surge-widget'),
-      surgeArc:     root.querySelector('#surge-arc'),
       surgeX:       root.querySelector('#surge-x'),
-      surgeLbl:     root.querySelector('#surge-lbl'),
+      surgeGems:    root.querySelector('#surge-gems'),
+      surgeTimer:   root.querySelector('#surge-timer'),
+      surgeFx:      root.querySelector('#surge-fx'),
       embersHud:    root.querySelector('#embers-hud'),
       ffChip:       root.querySelector('#ff-chip'),
       raceBar:      root.querySelector('#race-bar'),
@@ -543,11 +541,6 @@ export const ui = {
       handlers.onPause && handlers.onPause();
     });
 
-    // Surge arc geometry (set once; per-frame writes only move dashoffset)
-    const C = 2 * Math.PI * 35;
-    els.surgeArc.style.strokeDasharray = C;
-    els.surgeArc.style.strokeDashoffset = C;
-
     // Live feat unlocks toast over the event bus (feats.js stays ui-free).
     on('featUnlocked', (p) => {
       if (p && p.live) {
@@ -561,6 +554,7 @@ export const ui = {
     els.health.style.width  = `${(game.health / CONFIG.healthMax) * 100}%`;
     els.stamina.style.width = `${(game.stamina / CONFIG.staminaMax) * 100}%`;
     els.stamina.classList.toggle('depleted', game.stamina <= 0.5);
+    els.stamina.classList.toggle('low', game.stamina > 0.5 && game.stamina < CONFIG.staminaMax * 0.25);
     const shownScore = Math.floor(game.score);
     els.score.textContent = shownScore;
     // Earn pop: big single-frame jumps (rings/gates/bonuses) tick the score
@@ -588,21 +582,37 @@ export const ui = {
     els.comboX.textContent = `×${game.combo.toFixed(2)}`;
     els.combo.dataset.tier = tier;
 
-    // Circular surge widget: arc fills toward Dragon Surge, then counts the
-    // fever down. Replaces both the old top strip and the in-world sprite.
-    const C = 2 * Math.PI * 35;
-    const surgeProgress = Math.min(game.consecutiveRings, game.feverThreshold);
-    const frac = game.feverActive
-      ? game.feverTimer / CONFIG.feverDuration
-      : surgeProgress / game.feverThreshold;
-    els.surgeArc.style.strokeDashoffset = C * (1 - frac);
+    // Dragon Surge: a row of gem pips fills as you chain rings. Hit the
+    // threshold and fever IGNITES (flash + shockwave); all gems then blaze
+    // and the timer counts the fever down. (Gem count = feverThreshold,
+    // which can change — e.g. the first-flight assist lowers it.)
+    const threshold = game.feverThreshold;
+    const surgeProgress = Math.min(game.consecutiveRings, threshold);
+    if (threshold !== lastThreshold) {
+      els.surgeGems.innerHTML = '';
+      for (let i = 0; i < threshold; i++) els.surgeGems.appendChild(document.createElement('i'));
+      lastThreshold = threshold; lastSurgeLit = -1;
+    }
+    const lit = game.feverActive ? threshold : surgeProgress;
+    if (lit !== lastSurgeLit) {
+      const gems = els.surgeGems.children;
+      for (let i = 0; i < gems.length; i++) gems[i].classList.toggle('lit', i < lit);
+      if (lit > lastSurgeLit && lit > 0 && lit <= gems.length) restartAnim(gems[lit - 1], 'gem-pop');
+      lastSurgeLit = lit;
+    }
     els.surgeWidget.dataset.tier = tier;
     els.surgeWidget.classList.toggle('fever', game.feverActive);
     els.surgeWidget.classList.toggle('active', game.combo > 1.001 || game.consecutiveRings > 0 || game.feverActive);
     els.surgeX.textContent = `×${game.combo.toFixed(2)}`;
-    els.surgeLbl.textContent = game.feverActive
-      ? `SURGE ${Math.ceil(game.feverTimer)}s`
-      : `SURGE ${surgeProgress}/${game.feverThreshold}`;
+    els.surgeTimer.textContent = game.feverActive ? `${Math.ceil(game.feverTimer)}s` : '';
+    if (game.feverActive && !wasFever) {           // the ignition moment
+      els.surgeWidget.classList.remove('igniting');
+      void els.surgeWidget.offsetWidth;            // reflow -> restart the one-shot
+      els.surgeWidget.classList.add('igniting');
+      clearTimeout(surgeIgniteTO);
+      surgeIgniteTO = setTimeout(() => els.surgeWidget.classList.remove('igniting'), 750);
+    }
+    wasFever = game.feverActive;
     if (game.combo > lastCombo + 0.001) restartAnim(els.comboX, 'combo-pop');
     lastCombo = game.combo;
 
