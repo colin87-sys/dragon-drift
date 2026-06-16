@@ -1,4 +1,4 @@
-import { on } from './events.js';
+import { on, emit } from './events.js';
 import { saveData, persist } from './save.js';
 import { game } from './gameState.js';
 import { getAxes, input } from './input.js';
@@ -8,7 +8,7 @@ import { ui } from './ui.js';
 // (never the gameplay popups), each shown once ever, none after the second
 // run. Teaches by timing, not by wall of text.
 
-const BIT = { steer: 1, boost: 2, perfect: 4, gauntlet: 8, glide: 16, surge: 32, phase: 64 };
+const BIT = { steer: 1, boost: 2, perfect: 4, gauntlet: 8, glide: 16, surge: 32, phase: 64, roll: 128 };
 
 const isTouch = () =>
   (globalThis.matchMedia && matchMedia('(pointer: coarse)').matches) ||
@@ -17,6 +17,9 @@ const isTouch = () =>
 let active = 0;      // currently shown bit (0 = none)
 let hideAt = 0;      // game.time to auto-hide
 let boostedThisRun = false;
+let rollsAtShow = 0; // game.rolls when the roll-dodge hint was shown (dismiss on first roll after)
+let sentFirstInput = false; // funnel one-shots (analytics dedups across the install too)
+let sentFirstBoost = false;
 
 function seen(bit) { return (saveData.flags.hintsSeen & bit) !== 0; }
 function eligible() { return saveData.stats.runs < 2; }
@@ -68,11 +71,18 @@ export function updateHints(dt, player) {
   if (game.state !== 'playing') return;
   if (player.boosting) boostedThisRun = true;
 
+  // Funnel one-shots: first steering input and first boost (analytics.js).
+  const axes = getAxes();
+  if (!sentFirstInput && (axes.x !== 0 || axes.y !== 0)) { sentFirstInput = true; emit('firstInput'); }
+  if (!sentFirstBoost && player.boosting) { sentFirstBoost = true; emit('firstBoost'); }
+
   if (active) {
-    const axes = getAxes();
+    const rolled = active === BIT.roll && game.rolls > rollsAtShow;
     const dismissed =
       (active === BIT.steer && (axes.x !== 0 || axes.y !== 0)) ||
-      (active === BIT.boost && player.boosting);
+      (active === BIT.boost && player.boosting) ||
+      rolled;
+    if (rolled) { saveData.flags.seenFirstRoll = true; persist(); }
     if (dismissed || game.time >= hideAt) hide();
     return;
   }
@@ -82,6 +92,18 @@ export function updateHints(dt, player) {
   if (saveData.settings.glideAssist && !seen(BIT.glide) && game.time > 1.2) {
     show(BIT.glide, isTouch() ? 'It auto-flies — SWIPE toward the next ring'
                               : 'It auto-flies — steer toward the next ring', 5);
+    return;
+  }
+
+  // Barrel roll as a defensive dodge — taught once ever, when the first real
+  // obstacle is bearing down (run 1's authored pillar sits at ~395m). Kept out
+  // of the runs<2 gate so a cautious pilot still learns the i-frames later. The
+  // Surge phase hint stays as the second teaching context (both contexts).
+  if (!saveData.flags.seenFirstRoll && !seen(BIT.roll) && game.time > 2 && player.dist > 360) {
+    rollsAtShow = game.rolls;
+    show(BIT.roll, isTouch()
+      ? 'Swipe a second finger to BARREL ROLL — dodges damage'
+      : 'Double-tap a direction (or Shift) to BARREL ROLL — dodges damage', 6);
     return;
   }
 

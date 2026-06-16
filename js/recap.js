@@ -23,6 +23,30 @@ const REDUCED = globalThis.matchMedia &&
 // Priority: a nearly-done quest → a half-done weekly → a close milestone →
 // the cheapest shop unlock → the next pilot level. Always returns a goal.
 export function selectNextUp() {
+  // Brand-new pilots (runs 1–2): a near, beat-this-next-run goal — never a
+  // multi-run economy target. Goal-gradient pull after the first death.
+  if (saveData.stats.runs <= 2) {
+    const best = saveData.best.dist || 0;
+    if (best < 500) {
+      return {
+        icon: '▲', head: 'NEXT GOAL', label: 'Reach 500m',
+        frac: Math.min(1, (game.distance || 0) / 500),
+        sub: `Your best: ${Math.floor(best)}m — fly past 500m`,
+      };
+    }
+    if (saveData.stats.totalSurges < 2) {
+      return {
+        icon: '⚡', head: 'NEXT GOAL', label: 'Trigger 2 Dragon Surges',
+        frac: Math.min(1, saveData.stats.totalSurges / 2),
+        sub: `${saveData.stats.totalSurges} / 2 — chain rings to ignite the sky`,
+      };
+    }
+    return {
+      icon: '▲', head: 'NEXT GOAL', label: 'Beat your best distance',
+      frac: 0, sub: `Your best: ${Math.floor(best)}m`,
+    };
+  }
+
   const quest = activeMissions()
     .map((m) => ({ ...m, frac: m.progress / m.def.target }))
     .filter((m) => m.frac >= 0.6 && m.frac < 1)
@@ -153,6 +177,11 @@ function recordChips(sum, maxVisible = 3) {
 // compact=true drops low-signal quest unlock rows (used on narrow screens).
 function ledgerItems(sum, compact = false) {
   const items = [];
+  // Peak-end: the run-1 recap names the signature first Surge once, up top.
+  if (sum.firstSurgeExplain) {
+    items.push(`<div class="earn-line milestone-line">⚡ <b>FIRST DRAGON SURGE!</b>
+      <span class="earn-detail">Chain rings to ignite the sky — your score doubles.</span></div>`);
+  }
   const eb = sum.emberBreakdown;
   if (eb && eb.total > 0) {
     const bits = [`run ${eb.base}`];

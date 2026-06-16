@@ -1,5 +1,6 @@
 import { CONFIG } from './config.js';
 import { saveData, persist } from './save.js';
+import { emit } from './events.js';
 
 export const game = {
   state: 'ready', // ready | playing | paused | gameover
@@ -72,6 +73,9 @@ export const game = {
     this.seenFirstSurge = true;
     saveData.flags.seenFirstSurge = true;
     persist();
+    // The signature first peak — fired exactly once ever. Listeners (main.js)
+    // play the non-blocking celebration; analytics records time_to_first_surge.
+    emit('firstSurge');
   },
 
   reset() {
