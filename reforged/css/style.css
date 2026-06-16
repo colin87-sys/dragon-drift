@@ -166,18 +166,17 @@ body.app-loaded > canvas { opacity: 1; }
 .health-hearts span.full { color: #ff7a6b;
   filter: drop-shadow(0 1px 3px rgba(0,0,0,0.85)) drop-shadow(0 0 5px rgba(255,90,80,0.45)); }
 
-/* Stamina arc — cradles the dragon, in the gaze, draining along the curve */
-.stamina-arc { position: absolute; left: 50%; top: 63%; transform: translate(-50%,-50%);
-  width: min(66vw, 280px); height: 104px; z-index: 4; pointer-events: none;
-  filter: drop-shadow(0 2px 8px rgba(0,0,0,0.5)); }
+/* Stamina arc — cradles the dragon, in the gaze; kept narrow + faint so it
+   never fights the scene (info should whisper, not shout) */
+.stamina-arc { position: absolute; left: 50%; top: 62%; transform: translate(-50%,-50%);
+  width: min(44vw, 178px); height: 66px; z-index: 4; pointer-events: none; opacity: 0.85; }
 .stamina-arc svg { width: 100%; height: 100%; overflow: visible; }
-.arc-trk { fill: none; stroke: rgba(255,255,255,0.16); stroke-width: 4.5; stroke-linecap: round; }
-.arc-fil { fill: none; stroke: url(#stam-grad); stroke-width: 4.5; stroke-linecap: round;
-  filter: drop-shadow(0 0 6px rgba(60,225,215,0.8)); transition: stroke-dasharray 0.12s linear; }
+.arc-trk { fill: none; stroke: rgba(255,255,255,0.10); stroke-width: 2.6; stroke-linecap: round; }
+.arc-fil { fill: none; stroke: url(#stam-grad); stroke-width: 2.6; stroke-linecap: round; opacity: 0.8;
+  filter: drop-shadow(0 0 3px rgba(60,225,215,0.4)); transition: stroke-dasharray 0.12s linear; }
 .arc-fil.depleted { stroke: #58606e; filter: none; }
 .arc-fil.low { animation: vit-low 0.7s ease-in-out infinite; }
-@keyframes vit-low { 0%,100%{filter:drop-shadow(0 0 6px rgba(60,225,215,0.8))}
-  50%{filter:drop-shadow(0 0 13px rgba(130,255,235,1))} }
+@keyframes vit-low { 0%,100%{opacity:0.8} 50%{opacity:1; filter:drop-shadow(0 0 7px rgba(130,255,235,0.9))} }
 
 /* Surge — a bare gem row + quiet multiplier, centred low */
 .surge-min { position: absolute; left: 50%; bottom: clamp(46px, 9vh, 108px);
@@ -829,7 +828,7 @@ body.app-loaded > canvas { opacity: 1; }
   .hud-top-center{ top: calc(10px + env(safe-area-inset-top, 0px)); }
   .hud-top-right { top: calc(10px + env(safe-area-inset-top, 0px)); right: 10px; }
   .score         { font-size: 36px; }
-  .stamina-arc   { top: 64%; width: min(72vw, 270px); }
+  .stamina-arc   { top: 63%; width: min(52vw, 180px); }
   .surge-x       { font-size: 13px; }
   .dist          { font-size: 15px; }
   .best          { font-size: 11px; }
