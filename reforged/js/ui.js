@@ -441,11 +441,9 @@ export const ui = {
           </div>
           <div class="surge-timer" id="surge-timer"></div>
         </div>
-        <div class="vit-bars">
-          <div class="vit"><span class="vit-ico stam">⚡</span><div class="bar"><div class="bar-fill stamina" id="stamina-fill"></div></div></div>
-          <div class="vit r"><span class="vit-ico heal">♥</span><div class="bar"><div class="bar-fill health" id="health-fill"></div></div></div>
-        </div>
       </div>
+      <div class="vit-rail left"><span class="vit-ico stam">⚡</span><div class="vbar"><div class="vbar-fill stamina" id="stamina-fill"></div></div></div>
+      <div class="vit-rail right"><span class="vit-ico heal">♥</span><div class="vbar"><div class="vbar-fill health" id="health-fill"></div></div></div>
       <div class="milestone-banner" id="milestone-banner"></div>
       <div class="popup" id="popup"></div>
       <div class="popup popup2" id="popup2"></div>
@@ -542,8 +540,8 @@ export const ui = {
   },
 
   update(player) {
-    els.health.style.width  = `${(game.health / CONFIG.healthMax) * 100}%`;
-    els.stamina.style.width = `${(game.stamina / CONFIG.staminaMax) * 100}%`;
+    els.health.style.height  = `${(game.health / CONFIG.healthMax) * 100}%`;
+    els.stamina.style.height = `${(game.stamina / CONFIG.staminaMax) * 100}%`;
     els.stamina.classList.toggle('depleted', game.stamina <= 0.5);
     els.stamina.classList.toggle('low', game.stamina > 0.5 && game.stamina < CONFIG.staminaMax * 0.25);
     const shownScore = Math.floor(game.score);
