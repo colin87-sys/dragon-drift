@@ -4,6 +4,7 @@ import { RenderPass } from '../lib/postprocessing/RenderPass.js';
 import { ShaderPass } from '../lib/postprocessing/ShaderPass.js';
 import { UnrealBloomPass } from '../lib/postprocessing/UnrealBloomPass.js';
 import { OutputPass } from '../lib/postprocessing/OutputPass.js';
+import { GodRaysShader, initGodRays, renderGodRayMask, setGodRaysReady, godRayTexture, resizeGodRays } from './godrays.js';
 import { damp, clamp } from './util.js';
 
 // Post pipeline: RenderPass -> UnrealBloom -> OutputPass -> grading.
@@ -71,6 +72,7 @@ export const postfx = {
   supported: false,
   composer: null,
   bloomPass: null,
+  godRayPass: null,
   gradingPass: null,
   _renderer: null,
   _scene: null,
@@ -92,6 +94,30 @@ export const postfx = {
 const FEVER_TINT_DEFAULT = [0.10, 0.03, 0.08];
 export function setFeverTint(rgb) {
   postfx._feverTint = rgb || FEVER_TINT_DEFAULT;
+}
+
+// --- God-rays (occlusion-masked) --------------------------------------------
+// Sun screen position + base intensity fed each frame from main.js. The mask
+// render + pass are TIER-0 ONLY (the extra half-res scene pass costs too much
+// lower down), and the pass disables itself when the sun is hidden so it is free
+// off-axis. `_grAvailable` = tier 0 and the occlusion buffer is initialised.
+let _grSunX = 0.5, _grSunY = 0.8, _grIntensity = 0;
+let _grAvailable = false;
+let _grTier0 = true;
+
+export function setGodRaySun(uvX, uvY, intensity) {
+  _grSunX = uvX; _grSunY = uvY; _grIntensity = intensity;
+}
+
+// Called once after the world (and its sky) exist — wires the occlusion buffer
+// to the pass. Safe no-op if post-FX is unsupported.
+export function setupGodRays(scene, camera, sky) {
+  if (!postfx.supported || !postfx.godRayPass) return;
+  initGodRays(postfx._renderer, scene, camera, sky);
+  postfx.godRayPass.uniforms.tMask.value = godRayTexture();
+  _grAvailable = true;
+  // Boot is tier 0 (applyQuality only runs on a tier CHANGE), so arm the mask now.
+  setGodRaysReady(_grTier0 && _grAvailable);
 }
 
 // --- Event-driven impulse kicks ---------------------------------------
@@ -173,6 +199,14 @@ export function initPostFX(renderer, scene, camera) {
     new THREE.Vector2(postfx._w / 2, postfx._h / 2), 0.32, 0.25, 1.0
   );
   composer.addPass(bloomPass);
+
+  // God-rays: AFTER bloom (so the bloomed sky reads bright) and BEFORE OutputPass
+  // (linear add → tonemapped with the rest of the frame). Off until setupGodRays
+  // wires the mask and a tier-0 sun turns it on.
+  const godRayPass = new ShaderPass(GodRaysShader);
+  godRayPass.enabled = false;
+  composer.addPass(godRayPass);
+
   composer.addPass(new OutputPass());
 
   const gradingPass = new ShaderPass(GradingShader);
@@ -180,6 +214,7 @@ export function initPostFX(renderer, scene, camera) {
 
   postfx.composer = composer;
   postfx.bloomPass = bloomPass;
+  postfx.godRayPass = godRayPass;
   postfx.gradingPass = gradingPass;
   postfx.enabled = true;
   applySize();
@@ -193,6 +228,7 @@ function applySize() {
   // Bloom mip chain at a fraction of screen res (composer.setSize resets it
   // to full size, so re-apply after).
   postfx.bloomPass.setSize(postfx._w * postfx._bloomScale, postfx._h * postfx._bloomScale);
+  resizeGodRays();
 }
 
 export function setPostSize(w, h) {
@@ -215,6 +251,7 @@ export function setPostTier(tier) {
     return;
   }
   postfx.enabled = true;
+  _grTier0 = tier === 0;
   if (tier === 0) {
     postfx._baseBloom = 0.24; // trimmed so the bright sky stops bleeding
     postfx._bloomScale = 0.5;
@@ -226,6 +263,9 @@ export function setPostTier(tier) {
     postfx._aberrationOn = false;
     postfx._kickScale = 0.5;
   }
+  // God-rays are tier-0 only; force the pass off (and stop the mask render) below.
+  setGodRaysReady(_grTier0 && _grAvailable);
+  if (postfx.godRayPass && !_grTier0) postfx.godRayPass.enabled = false;
   postfx.bloomPass.strength = postfx._baseBloom;
   for (const c of Object.keys(_kick)) _kick[c] = 0; // no stale impulses across tiers
   _flashFrames = 0;
@@ -271,6 +311,20 @@ export function updatePostFX(dt, speedNorm, feverActive, rawDt = dt) {
   postfx.bloomPass.strength = Math.max(0.08,
     postfx._baseBloom + _kick.bloom + flash * 0.25 - postfx._feverMix * 0.07);
 
+  // God-rays (tier 0): place the sun, ease the shafts down a touch in Surge, and
+  // disable the whole thing (mask render included) when the sun isn't on-screen.
+  if (postfx.godRayPass) {
+    if (_grTier0 && _grAvailable) {
+      const inten = _grIntensity * (1 - postfx._feverMix * 0.45);
+      const gu = postfx.godRayPass.uniforms;
+      gu.uSunUv.value.set(_grSunX, _grSunY);
+      gu.uIntensity.value = inten;
+      postfx.godRayPass.enabled = inten > 0.004;
+    } else {
+      postfx.godRayPass.enabled = false;
+    }
+  }
+
   // Death grade overrides last (state itself ramps/decays above).
   if (_deathMix > 0.001) {
     sat = sat + (0.25 - sat) * _deathMix;
@@ -282,6 +336,9 @@ export function updatePostFX(dt, speedNorm, feverActive, rawDt = dt) {
 
 export function renderPostFX() {
   if (postfx.enabled) {
+    // Build the sky/occluder mask just before compositing (cheap, tier-0, only
+    // while the pass is live).
+    if (postfx.godRayPass && postfx.godRayPass.enabled) renderGodRayMask();
     postfx.composer.render();
     if (_flashFrames > 0) _flashFrames--; // "1 frame" = one PRESENTED frame
   } else {

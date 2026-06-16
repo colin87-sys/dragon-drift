@@ -161,8 +161,20 @@ function buildReflective() {
   // Mirror pass renders gameplay layer 0 only — sprite clutter (trails,
   // particles, aura) lives on layer 1 and is excluded from the reflection.
   mesh.camera.layers.set(0);
+  // Let callers (the god-ray occlusion mask) skip the expensive mirror render
+  // when the water is being drawn purely as a black occluder.
+  const origOBR = mesh.onBeforeRender;
+  mesh.onBeforeRender = function (renderer, scene, camera, geometry, material, group) {
+    if (_reflectSuspended) return;
+    origOBR.call(this, renderer, scene, camera, geometry, material, group);
+  };
   return mesh;
 }
+
+// When TRUE, the reflective water skips its mirror render — used during the
+// god-ray occlusion pass, where the water only needs to draw a black silhouette.
+let _reflectSuspended = false;
+export function setWaterReflectionSuspended(on) { _reflectSuspended = on; }
 
 function buildCheap() {
   const mat = new THREE.ShaderMaterial({
