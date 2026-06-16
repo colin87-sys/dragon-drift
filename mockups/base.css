@@ -1,8 +1,7 @@
 /* ============================================================
-   DRAGON DRIFT — Reforged UI · mockup design system
-   Kinetic sci-fi-fantasy: Honkai precision + Genshin elegance
-   + Fortnite "Rift UI" component discipline.
-   Everything re-skins from the tokens below.
+   DRAGON DRIFT — Reforged UI · mockup design system  (v2: warm / ember / fantasy)
+   Same polished chamfered component language — reskinned to
+   a mythic dragonfire palette. UI layer ONLY; in-game 3D art untouched.
    ============================================================ */
 
 @font-face{font-family:'Russo One';src:url('../lib/fonts/russo-one-latin-400.woff2') format('woff2');font-weight:400;font-display:swap;}
@@ -10,25 +9,28 @@
 @font-face{font-family:'Rajdhani';src:url('../lib/fonts/rajdhani-latin-700.ttf') format('truetype');font-weight:700;font-display:swap;}
 
 :root{
-  /* — base / cosmos — */
-  --void:#05060d; --void-2:#0a0d1c; --void-3:#10152b;
-  /* — panel glass — */
-  --glass:linear-gradient(158deg, rgba(34,46,84,.50), rgba(9,13,28,.74));
-  --glass-hi:linear-gradient(158deg, rgba(54,72,128,.62), rgba(12,17,36,.80));
-  --stroke:rgba(150,196,255,.20);
-  --stroke-hi:rgba(170,210,255,.42);
-  /* — signature accent: dragon energy (cyan→violet) — */
-  --e1:#3df0ff; --e2:#6f86ff; --e3:#c46bff;
-  --energy:linear-gradient(115deg,var(--e1),var(--e2) 52%,var(--e3));
-  --energy-soft:linear-gradient(115deg,rgba(61,240,255,.18),rgba(196,107,255,.18));
-  /* — gold: VALUE ONLY (currency / rewards) — */
-  --gold-1:#fff1c4; --gold-2:#ffce5a; --gold-3:#f5a23c;
-  --gold:linear-gradient(180deg,var(--gold-1),var(--gold-2) 56%,var(--gold-3));
-  /* — surge: fever — */
-  --surge:linear-gradient(115deg,#ff4d8d,#ff8a3c);
+  /* — base: warm-tinted dark — */
+  --void:#0c0a12; --void-2:#151019; --void-3:#1d1620;
+  /* — gilded glass panels — */
+  --glass:linear-gradient(158deg, rgba(54,40,30,.50), rgba(18,12,12,.76));
+  --glass-hi:linear-gradient(158deg, rgba(80,58,38,.60), rgba(24,15,12,.82));
+  --stroke:rgba(255,201,130,.24);
+  --stroke-hi:rgba(255,219,150,.48);
+  /* — signature accent: DRAGONFIRE (gold→amber→ember) — */
+  --e1:#ffe6a6; --e2:#ffb24d; --e3:#ff6a36;
+  --energy:linear-gradient(115deg,var(--e1),var(--e2) 50%,var(--e3));
+  --energy-soft:linear-gradient(115deg,rgba(255,201,120,.20),rgba(255,110,60,.16));
+  /* — luminous currency gold (gem sheen) — */
+  --gold-1:#fff4d0; --gold-2:#ffd24f; --gold-3:#f0a02e;
+  --gold:linear-gradient(180deg,var(--gold-1),var(--gold-2) 55%,var(--gold-3));
+  /* — fantasy contrast accents (rarity / secondary) — */
+  --teal:#37d0c4; --violet:#b07bff;
+  /* — surge fever (radiant, pops against gold) — */
+  --surge:linear-gradient(115deg,#ff4d8d,#ff7a2c);
   --hp:linear-gradient(90deg,#ff5663,#ff9a4d,#ffd24d);
-  /* — ink — */
-  --ink:#eef4ff; --ink-2:rgba(225,235,255,.70); --ink-3:rgba(200,215,255,.42);
+  --st:linear-gradient(90deg,#2bb6c9,#3fe0d2,#9affe6);
+  /* — warm ink — */
+  --ink:#fdf3e4; --ink-2:rgba(255,238,212,.72); --ink-3:rgba(255,224,186,.44);
   /* — motion — */
   --t-micro:140ms; --t-ui:240ms; --t-screen:360ms;
   --ease:cubic-bezier(.22,1,.36,1); --spring:cubic-bezier(.2,1.5,.35,1);
@@ -41,37 +43,41 @@ body{font-family:var(--font-ui);color:var(--ink);background:var(--void);
   -webkit-font-smoothing:antialiased;letter-spacing:.3px;}
 .stage{position:relative;width:100%;height:100%;overflow:hidden;}
 
-/* ---- chamfered glass panel (the signature shape) ---- */
+/* ---- chamfered gilded glass panel (signature shape, kept) ---- */
 .panel{position:relative;background:var(--glass);
   border:1px solid var(--stroke);
-  -webkit-backdrop-filter:blur(14px) saturate(1.1);backdrop-filter:blur(14px) saturate(1.1);
+  -webkit-backdrop-filter:blur(14px) saturate(1.05);backdrop-filter:blur(14px) saturate(1.05);
   clip-path:polygon(0 0, calc(100% - 16px) 0, 100% 16px, 100% 100%, 16px 100%, 0 calc(100% - 16px));
-  box-shadow:0 18px 50px rgba(0,0,0,.55), inset 0 1px 0 rgba(255,255,255,.06);}
-/* animated hairline energy edge */
+  box-shadow:0 18px 50px rgba(0,0,0,.55), inset 0 1px 0 rgba(255,224,170,.08);}
+/* animated hairline dragonfire edge */
 .panel.energy::before{content:"";position:absolute;inset:0;padding:1px;
   clip-path:polygon(0 0, calc(100% - 16px) 0, 100% 16px, 100% 100%, 16px 100%, 0 calc(100% - 16px));
-  background:linear-gradient(120deg,transparent 20%, rgba(61,240,255,.7), rgba(196,107,255,.7), transparent 80%);
+  background:linear-gradient(120deg,transparent 20%, rgba(255,210,120,.85), rgba(255,110,60,.85), transparent 80%);
   background-size:240% 100%;-webkit-mask:linear-gradient(#000 0 0) content-box,linear-gradient(#000 0 0);
-  -webkit-mask-composite:xor;mask-composite:exclude;animation:edge 5s linear infinite;opacity:.85;}
+  -webkit-mask-composite:xor;mask-composite:exclude;animation:edge 5s linear infinite;opacity:.9;}
 @keyframes edge{to{background-position:240% 0;}}
+/* small fantasy corner spark on the chamfer */
+.panel.spark::after{content:"";position:absolute;right:3px;top:3px;width:7px;height:7px;
+  background:var(--gold);clip-path:polygon(50% 0,100% 50%,50% 100%,0 50%);opacity:.8;
+  filter:drop-shadow(0 0 4px rgba(255,190,90,.9));}
 
 /* ---- buttons ---- */
 .btn{font-family:var(--font-ui);font-weight:700;letter-spacing:1.5px;cursor:pointer;
   border:none;text-transform:uppercase;position:relative;}
-.btn-primary{padding:16px 40px;font-size:17px;color:#1a1206;
+.btn-primary{padding:16px 40px;font-size:17px;color:#2a1606;
   background:var(--gold);border-radius:2px;
   clip-path:polygon(10px 0,100% 0,calc(100% - 10px) 100%,0 100%);
-  box-shadow:0 8px 28px rgba(255,170,60,.45), inset 0 1px 0 rgba(255,255,255,.6);}
-.btn-energy{padding:14px 30px;font-size:15px;color:#eafcff;
+  box-shadow:0 8px 28px rgba(255,150,50,.5), inset 0 1px 0 rgba(255,255,255,.6);}
+.btn-energy{padding:14px 30px;font-size:15px;color:#fff0db;
   background:var(--energy-soft);border:1px solid var(--stroke-hi);
   clip-path:polygon(8px 0,100% 0,calc(100% - 8px) 100%,0 100%);
-  box-shadow:0 0 22px rgba(80,180,255,.22), inset 0 1px 0 rgba(255,255,255,.12);}
+  box-shadow:0 0 22px rgba(255,160,70,.22), inset 0 1px 0 rgba(255,235,190,.14);}
 .breathe{animation:breathe 2.8s var(--ease) infinite;}
-@keyframes breathe{0%,100%{filter:brightness(1);transform:translateZ(0) scale(1);}50%{filter:brightness(1.12);transform:scale(1.02);}}
+@keyframes breathe{0%,100%{filter:brightness(1);transform:translateZ(0) scale(1);}50%{filter:brightness(1.13);transform:scale(1.02);}}
 
 /* ---- chips / badges ---- */
 .chip{display:inline-flex;align-items:center;gap:7px;padding:7px 14px;font-size:13px;font-weight:700;
-  letter-spacing:.6px;color:var(--ink);background:rgba(18,28,58,.6);border:1px solid var(--stroke);
+  letter-spacing:.6px;color:var(--ink);background:rgba(40,26,18,.6);border:1px solid var(--stroke);
   clip-path:polygon(7px 0,100% 0,100% calc(100% - 7px),calc(100% - 7px) 100%,0 100%,0 7px);}
 .chip .g{background:var(--gold);-webkit-background-clip:text;background-clip:text;color:transparent;font-family:var(--font-d);}
 .badge{position:absolute;top:-4px;right:-4px;width:11px;height:11px;border-radius:50%;
@@ -80,17 +86,15 @@ body{font-family:var(--font-ui);color:var(--ink);background:var(--void);
 @keyframes pulse{0%,100%{transform:scale(1);opacity:1;}50%{transform:scale(1.35);opacity:.7;}}
 
 /* ---- meters (health / stamina) ---- */
-.meter{position:relative;height:13px;background:rgba(6,12,28,.82);border:1px solid var(--stroke);
+.meter{position:relative;height:13px;background:rgba(18,10,8,.82);border:1px solid var(--stroke);
   clip-path:polygon(5px 0,100% 0,calc(100% - 5px) 100%,0 100%);overflow:hidden;}
 .meter > i{position:absolute;inset:0;display:block;transform-origin:left;}
 .meter .seg{position:absolute;top:0;bottom:0;width:1px;background:rgba(0,0,0,.35);}
 .fill-hp{background:var(--hp);box-shadow:0 0 10px rgba(255,120,60,.6);}
-.fill-st{background:linear-gradient(90deg,#2f9aff,#3fd8e8,#7fffe0);box-shadow:0 0 10px rgba(60,210,255,.6);}
+.fill-st{background:var(--st);box-shadow:0 0 10px rgba(60,220,210,.55);}
 
-/* ---- section heading ---- */
 .eyebrow{font-size:11px;letter-spacing:4px;font-weight:700;color:var(--ink-3);text-transform:uppercase;}
 .num{font-family:var(--font-d);font-variant-numeric:tabular-nums;}
 
-/* mockup frame label */
 .tag{position:absolute;left:50%;transform:translateX(-50%);bottom:10px;z-index:99;
-  font-size:10px;letter-spacing:3px;color:rgba(255,255,255,.32);text-transform:uppercase;}
+  font-size:10px;letter-spacing:3px;color:rgba(255,240,220,.34);text-transform:uppercase;}
