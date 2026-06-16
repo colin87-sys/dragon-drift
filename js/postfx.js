@@ -4,6 +4,7 @@ import { RenderPass } from '../lib/postprocessing/RenderPass.js';
 import { ShaderPass } from '../lib/postprocessing/ShaderPass.js';
 import { UnrealBloomPass } from '../lib/postprocessing/UnrealBloomPass.js';
 import { OutputPass } from '../lib/postprocessing/OutputPass.js';
+import { GodRaysShader, GODRAY_TIERS } from './godrays.js';
 import { damp, clamp } from './util.js';
 
 // Post pipeline: RenderPass -> UnrealBloom -> OutputPass -> grading.
@@ -71,6 +72,7 @@ export const postfx = {
   supported: false,
   composer: null,
   bloomPass: null,
+  godRayPass: null,
   gradingPass: null,
   _renderer: null,
   _scene: null,
@@ -92,6 +94,29 @@ export const postfx = {
 const FEVER_TINT_DEFAULT = [0.10, 0.03, 0.08];
 export function setFeverTint(rgb) {
   postfx._feverTint = rgb || FEVER_TINT_DEFAULT;
+}
+
+// --- God-rays ---------------------------------------------------------------
+// Sun screen position + base intensity are fed each frame from main.js (which
+// owns the camera + sun projection). The tier sets the sample budget/scale; the
+// per-frame update folds in a Surge ease-down and toggles the pass off when the
+// sun is hidden so it costs nothing when you can't see it.
+let _grSunX = 0.5, _grSunY = 0.85, _grIntensity = 0;
+let _grTierScale = 1;
+
+export function setGodRaySun(uvX, uvY, intensity) {
+  _grSunX = uvX;
+  _grSunY = uvY;
+  _grIntensity = intensity;
+}
+
+function applyGodRayTier(tier) {
+  if (!postfx.godRayPass) return;
+  const g = GODRAY_TIERS[tier] || GODRAY_TIERS[GODRAY_TIERS.length - 1];
+  const u = postfx.godRayPass.uniforms;
+  u.uSamples.value = g.samples;
+  u.uWeight.value = g.weight;
+  _grTierScale = g.scale;
 }
 
 // --- Event-driven impulse kicks ---------------------------------------
@@ -173,6 +198,13 @@ export function initPostFX(renderer, scene, camera) {
     new THREE.Vector2(postfx._w / 2, postfx._h / 2), 0.32, 0.25, 1.0
   );
   composer.addPass(bloomPass);
+
+  // God-rays sit AFTER bloom (so the bright bloomed sky feeds the shafts) and
+  // BEFORE OutputPass (linear space → tonemapped consistently with the frame).
+  const godRayPass = new ShaderPass(GodRaysShader);
+  godRayPass.enabled = false; // off until the sun is on-screen / a tier turns it on
+  composer.addPass(godRayPass);
+
   composer.addPass(new OutputPass());
 
   const gradingPass = new ShaderPass(GradingShader);
@@ -180,6 +212,7 @@ export function initPostFX(renderer, scene, camera) {
 
   postfx.composer = composer;
   postfx.bloomPass = bloomPass;
+  postfx.godRayPass = godRayPass;
   postfx.gradingPass = gradingPass;
   postfx.enabled = true;
   applySize();
@@ -220,11 +253,13 @@ export function setPostTier(tier) {
     postfx._bloomScale = 0.5;
     postfx._aberrationOn = true;
     postfx._kickScale = 1;
+    applyGodRayTier(0);
   } else {
     postfx._baseBloom = 0.20;
     postfx._bloomScale = 0.25;
     postfx._aberrationOn = false;
     postfx._kickScale = 0.5;
+    applyGodRayTier(1);
   }
   postfx.bloomPass.strength = postfx._baseBloom;
   for (const c of Object.keys(_kick)) _kick[c] = 0; // no stale impulses across tiers
@@ -270,6 +305,16 @@ export function updatePostFX(dt, speedNorm, feverActive, rawDt = dt) {
   // still blooms, keeping the glow ON the dragon, not the whole screen.
   postfx.bloomPass.strength = Math.max(0.08,
     postfx._baseBloom + _kick.bloom + flash * 0.25 - postfx._feverMix * 0.07);
+
+  // God-rays: ease down during Surge (the wash already lifts the frame) and
+  // disable the whole pass when the sun is hidden so it costs nothing off-axis.
+  if (postfx.godRayPass) {
+    const inten = _grIntensity * _grTierScale * (1 - postfx._feverMix * 0.5);
+    const gu = postfx.godRayPass.uniforms;
+    gu.uSunUv.value.set(_grSunX, _grSunY);
+    gu.uIntensity.value = inten;
+    postfx.godRayPass.enabled = inten > 0.003;
+  }
 
   // Death grade overrides last (state itself ramps/decays above).
   if (_deathMix > 0.001) {
