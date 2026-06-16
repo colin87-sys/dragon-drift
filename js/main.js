@@ -4,7 +4,7 @@ import { game } from './gameState.js';
 import { initInput, initTouch, initMouse } from './input.js';
 import { createLevelGen } from './level.js';
 import { todaysDailyMod, dailyMods } from './daily.js';
-import { createEnvironment, updateEnvironment, resetEnvironment } from './environment.js';
+import { createEnvironment, updateEnvironment, resetEnvironment, getSkyMesh } from './environment.js';
 import { createDragon, updateDragon, resetDragon, rebuildDragon } from './dragon.js';
 import { initReticle, updateReticle } from './reticle.js';
 import { initSplash, showSplash, hideSplash, splashVisible, launchFlash, igniteSplash, splashArmed } from './splash.js';
@@ -18,13 +18,13 @@ import { setDragonQuality } from './dragon.js';
 import { updateCollision, resetCollision, acceptRevive, finishDeath } from './collision.js';
 import { ui } from './ui.js';
 import { music, sfx, setSlowMo, unlockAllTracks } from './sfx.js';
-import { initPostFX, setPostSize, setPostPixelRatio, setPostTier, updatePostFX, renderPostFX, postfx, kick, clearDeath, kickState } from './postfx.js';
+import { initPostFX, setPostSize, setPostPixelRatio, setPostTier, updatePostFX, renderPostFX, postfx, kick, clearDeath, kickState, setupGodRays, setGodRaySun } from './postfx.js';
 import { initContactShadow, updateContactShadow, resetContactShadow, setContactShadowQuality } from './contactShadow.js';
 import { hitstop, juiceEvent } from './juice.js';
 import { createWater, setWaterReflective, updateWater } from './water.js';
 import { burst } from './particles.js';
 import { buildSetPiece } from './setpieces.js';
-import { BIOMES, biomeIndexAt } from './biomes.js';
+import { BIOMES, biomeIndexAt, SUN_DIR } from './biomes.js';
 import { DRAGONS } from './dragons.js';
 import { RIDERS } from './riders.js';
 import { dailySeed, recordDailyRun, saveData, persist, grantXp, levelEmberReward, todayUTC, gambitSunsetRefund, freezeSaves } from './save.js';
@@ -41,6 +41,7 @@ import { grantTitle, levelTitleId, grantEarnedLevelTitles } from './titles.js';
 import { selectNextUp } from './recap.js';
 import { initGoldEmbers, addGoldEmber, updateGoldEmbers, resetGoldEmbers } from './goldEmbers.js';
 import { initHints, updateHints } from './hints.js';
+import { initGestureTutorial, updateGestureTutorial } from './gestureTutorial.js';
 import { initPbMarker, updatePbMarker } from './pbMarker.js';
 import { ascendedDef, grandfatherAscension, ascend, ascensionTier, radianceRank, ASCENSION_TIERS } from './ascension.js';
 import { applyFlightmark, buyFlightmark, equipFlightmark, FLIGHTMARKS, migrateFlightmarks } from './flightmarks.js';
@@ -99,6 +100,7 @@ const equippedDragon = () => {
 };
 const equippedRider = () => RIDERS[saveData.riders.equipped] || RIDERS.drifter;
 createEnvironment(scene, runSeed);
+setupGodRays(scene, camera, getSkyMesh()); // occlusion-masked god-rays (tier 0)
 createWater(scene, true); // real reflection by default; tiers downgrade it
 createDragon(scene, equippedDragon(), equippedRider());
 initContactShadow(scene);
@@ -327,6 +329,9 @@ window.addEventListener('pointerdown', (e) => {
   // as "tap to fly" / "tap to resume"
   if (e.target.closest && e.target.closest('button, .skin-card, .daily-card, .seg-btn, .pause-menu, .share-menu, .title-row, input')) return;
   if (game.state === 'paused') {
+    // Tutorial pause: only performing the taught gesture resumes — a blank tap
+    // must not skip the lesson (gestureTutorial.js handles the resume).
+    if (game.pauseReason === 'tutorial') return;
     // Browsing the shop/settings from pause: outside taps go back to the
     // pause overlay instead of resuming mid-shop.
     if (ui.inPauseSubscreen()) ui.showPauseOverlay();
@@ -527,6 +532,10 @@ window.addEventListener('keydown', (e) => {
   // Celebration overlay owns input while visible — Enter/Space dismiss it
   // instead of launching a run underneath.
   if (ui.dismissCelebrate()) return;
+  // During a tutorial pause, the gesture tutorial owns input — keys reach
+  // input.js for gesture detection, but the pause/resume/radio shortcuts here
+  // must not fire (the taught gesture is what resumes play).
+  if (game.pauseReason === 'tutorial') return;
   // Dragon Radio: N cycles stations, [ / ] step back / forward
   if (e.code === 'KeyN' || e.code === 'BracketRight' || e.code === 'BracketLeft') {
     const name = music.nextTrack(e.code === 'BracketLeft' ? -1 : 1);
@@ -587,6 +596,23 @@ function resumeFromPause() {
   music.start();
 }
 
+// Tutorial freeze: like a manual pause but with its own reason, no pause menu,
+// and music left running (the run is only briefly held to teach one gesture).
+function pauseForTutorial() {
+  if (game.state !== 'playing') return;
+  game.state = 'paused';
+  game.pauseReason = 'tutorial';
+  game.hitstopTimer = 0;
+  boostWasActive = false;
+}
+function resumeFromTutorial() {
+  if (game.state !== 'paused') return;
+  discardNextDelta = true; // zero the first post-pause frame so there's no dt jump
+  game.pauseReason = '';
+  game.state = 'playing';
+}
+initGestureTutorial({ onPause: pauseForTutorial, onResume: resumeFromTutorial });
+
 document.addEventListener('visibilitychange', () => {
   if (document.hidden) pauseForBackground();
 });
@@ -597,6 +623,8 @@ window.addEventListener('blur', pauseForBackground);
 const clock = new THREE.Clock();
 let sprayTimer = 0;
 const sprayPos = new THREE.Vector3();
+const _sunProj = new THREE.Vector3();   // sun world dir → screen NDC (god-rays)
+const _camFwd = new THREE.Vector3();      // camera forward, for the sun-facing gate
 // Screenshot capture: delayed slightly after death to catch burst particles
 let screenshotPending = false;
 let screenshotTimer = 0;
@@ -785,6 +813,10 @@ function tick() {
     }
   }
 
+  // Run-1 gesture tutorial: checks step triggers while playing and gesture
+  // completion while frozen (self-gates; first flight only).
+  updateGestureTutorial(player);
+
   if (game.state !== 'paused') {
     // Cull old set-pieces
     for (let i = setpieceMeshes.length - 1; i >= 0; i--) {
@@ -805,6 +837,19 @@ function tick() {
     updateEnvironment(dt, camera, t, player.dist, game.feverActive, player.speed);
     updateWater(dt, player.dist, t, scene.fog);
     updateContactShadow(dt, player);
+
+    // God-rays: project the sun to screen space and gate intensity by how
+    // front-facing it is (postfx disables the pass + mask render when it's ~0).
+    camera.updateMatrixWorld();
+    camera.getWorldDirection(_camFwd);
+    const sunFacing = _camFwd.dot(SUN_DIR);
+    if (sunFacing > 0.05) {
+      _sunProj.copy(SUN_DIR).add(camera.position).project(camera);
+      setGodRaySun(_sunProj.x * 0.5 + 0.5, _sunProj.y * 0.5 + 0.5,
+        Math.min(sunFacing, 1) * 0.6);
+    } else {
+      setGodRaySun(0.5, 0.8, 0);
+    }
 
     // Skimming the water kicks up spray (throttled, gameplay only).
     if (game.state === 'playing' && player.position.y < 3.6) {

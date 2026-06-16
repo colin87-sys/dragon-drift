@@ -1,0 +1,78 @@
+name: Deploy Pages
+
+# Single source of truth for the live site now that Pages Source = "GitHub
+# Actions". One deployment serves the WHOLE site, so we assemble it from two
+# places and publish it as one artifact:
+#   • production  → checked out fresh from `master` (the repo root IS the site)
+#   • PR previews → the `pr-preview/` tree that pr-preview.yml still maintains on
+#                   the `gh-pages` branch (that branch is now just a preview store,
+#                   no longer served directly).
+#
+# Triggers:
+#   • push to master            → production changed, redeploy.
+#   • PR Preview workflow done  → a preview was added/updated/removed on
+#                                 gh-pages; republish so it goes live. (workflow_run
+#                                 fires even though that workflow pushed with the
+#                                 default GITHUB_TOKEN.)
+#   • manual                    → workflow_dispatch.
+on:
+  push:
+    branches: [master]
+  workflow_run:
+    workflows: ["PR Preview"]
+    types: [completed]
+  workflow_dispatch:
+
+permissions:
+  contents: read       # read master + the gh-pages preview store
+  pages: write         # deploy to the github-pages environment
+  id-token: write      # OIDC for actions/deploy-pages
+
+# Serialise deployments so concurrent triggers (a merge + a preview) can't race;
+# never cancel an in-flight publish.
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+    steps:
+      - name: Checkout production (master)
+        uses: actions/checkout@v4
+        with:
+          path: src
+
+      - name: Checkout preview store (gh-pages)
+        uses: actions/checkout@v4
+        with:
+          ref: gh-pages
+          path: ghp
+        continue-on-error: true   # first run / no previews yet → just ship production
+
+      - name: Assemble the published site
+        run: |
+          mkdir -p _site
+          # Production = the repo root, minus VCS/CI plumbing.
+          rsync -a --exclude '.git' --exclude '.github' src/ _site/
+          # Overlay any PR previews preserved on gh-pages.
+          if [ -d ghp/pr-preview ]; then
+            rsync -a ghp/pr-preview _site/
+          fi
+          # Disable Jekyll so files/dirs beginning with _ are served verbatim.
+          touch _site/.nojekyll
+
+      - name: Configure Pages
+        uses: actions/configure-pages@v5
+
+      - name: Upload artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: _site
+
+      - name: Deploy to GitHub Pages
+        id: deploy
+        uses: actions/deploy-pages@v4
