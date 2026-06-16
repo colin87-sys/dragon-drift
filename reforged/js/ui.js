@@ -433,7 +433,7 @@ export const ui = {
       </div>
       <div class="hud-vitals" id="hud-vitals">
         <div class="surge-widget" id="surge-widget" data-tier="0">
-          <div class="surge-fx" id="surge-fx"><span class="flash"></span><span class="shock"></span><span class="shock s2"></span></div>
+          <div class="surge-fx" id="surge-fx"><span class="flash"></span><span class="shock"></span><span class="shock s2"></span><span class="ember e1"></span><span class="ember e2"></span><span class="ember e3"></span><span class="ember e4"></span><span class="ember e5"></span></div>
           <div class="surge-ring"><div class="surge-x" id="surge-x">×1.00</div></div>
           <div class="surge-text">
             <div class="surge-title">DRAGON SURGE</div>
@@ -442,14 +442,8 @@ export const ui = {
           <div class="surge-timer" id="surge-timer"></div>
         </div>
         <div class="vit-bars">
-          <div class="vit">
-            <div class="vit-cap stamina-cap"><span>⚡ STAMINA</span></div>
-            <div class="bar"><div class="bar-fill stamina" id="stamina-fill"></div></div>
-          </div>
-          <div class="vit r">
-            <div class="vit-cap health-cap"><span>HEALTH ♥</span></div>
-            <div class="bar"><div class="bar-fill health" id="health-fill"></div></div>
-          </div>
+          <div class="vit"><span class="vit-ico stam">⚡</span><div class="bar"><div class="bar-fill stamina" id="stamina-fill"></div></div></div>
+          <div class="vit r"><span class="vit-ico heal">♥</span><div class="bar"><div class="bar-fill health" id="health-fill"></div></div></div>
         </div>
       </div>
       <div class="milestone-banner" id="milestone-banner"></div>
