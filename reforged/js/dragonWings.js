@@ -43,6 +43,9 @@ function buildMembraneWings(def, model, attach, giM, opts = {}) {
   // discrete hinge to crease or camouflage. Implies the curved surface.
   const skinned = !!opts.skinned && model.wingShape !== 'feather';
   const panelBillow = model.wingBillow ?? 0.12;
+  // Blueprint-driven flap character (lag/amp/limits per joint) — the animator fills
+  // defaults, so a creature tunes its wingbeat by declaring `model.flapProfile`.
+  const flapProfile = model.flapProfile || null;
 
   const wingMat = new THREE.MeshStandardMaterial({
     color: 0xffffff, vertexColors: true, roughness: 0.55, side: THREE.DoubleSide,
@@ -147,24 +150,33 @@ function buildMembraneWings(def, model, attach, giM, opts = {}) {
     return g2;
   }
 
-  // Skin weight at span |x|: bone 0 (shoulder) → bone 1 (wrist), smooth-stepped
-  // over a band straddling the wrist. Shared by the membrane AND the surface ribs
-  // so they deform identically and can never separate.
-  const foldBand = 0.9 * ws;
+  // Skin weights along span |x|: shoulder(0) → elbow(1) → wrist(2), smooth-stepped
+  // across bands at the elbow and the wrist. Shared by the membrane AND the surface
+  // ribs so they deform identically. The animator rotates the three bones in a
+  // LAGGED CASCADE (shoulder leads, elbow + wrist follow) for a whip-like organic
+  // flap — the membrane bends through the whole arm, not just one hinge.
+  const foldBand = 0.7 * ws;
+  const elbowXGeo = wristXGeo * 0.52;                // mid-forearm joint
   const SEG_U = 24, SEG_V = 6;
-  function foldWeight(ax) {
-    let t = (ax - (wristXGeo - foldBand)) / Math.max(2 * foldBand, 1e-4);
-    t = Math.min(Math.max(t, 0), 1);
-    return t * t * (3 - 2 * t);
+  const sstep = (x) => { x = Math.min(Math.max(x, 0), 1); return x * x * (3 - 2 * x); };
+  // Two active bones (a→b blended by t) for a span position; padded to 4 wide.
+  function spanSkin(ax) {
+    const e = elbowXGeo, w = wristXGeo, b = foldBand;
+    let a = 2, bb = 2, t = 0;
+    if (ax <= e - b) { a = 0; bb = 0; }
+    else if (ax < e + b) { a = 0; bb = 1; t = sstep((ax - (e - b)) / (2 * b)); }
+    else if (ax <= w - b) { a = 1; bb = 1; }
+    else if (ax < w + b) { a = 1; bb = 2; t = sstep((ax - (w - b)) / (2 * b)); }
+    return { si: [a, bb, 0, 0], sw: [1 - t, t, 0, 0] };
   }
-  function writeFoldWeights(geo) {
+  function writeSpanWeights(geo) {
     const pos = geo.attributes.position;
     const si = new Uint16Array(pos.count * 4);
     const sw = new Float32Array(pos.count * 4);
     for (let i = 0; i < pos.count; i++) {
-      const t = foldWeight(Math.abs(pos.getX(i)));
-      si[i * 4 + 1] = 1;                              // bone 1 = wrist (bone 0 = shoulder)
-      sw[i * 4] = 1 - t; sw[i * 4 + 1] = t;
+      const s = spanSkin(Math.abs(pos.getX(i)));
+      si[i * 4] = s.si[0]; si[i * 4 + 1] = s.si[1];
+      sw[i * 4] = s.sw[0]; sw[i * 4 + 1] = s.sw[1];
     }
     geo.setAttribute('skinIndex', new THREE.Uint16BufferAttribute(si, 4));
     geo.setAttribute('skinWeight', new THREE.Float32BufferAttribute(sw, 4));
@@ -189,7 +201,7 @@ function buildMembraneWings(def, model, attach, giM, opts = {}) {
       }
       g.computeVertexNormals();
     }
-    writeFoldWeights(g);
+    writeSpanWeights(g);
     return g;
   }
 
@@ -207,7 +219,7 @@ function buildMembraneWings(def, model, attach, giM, opts = {}) {
       up.copy(line[s].n).normalize();
       sideV.crossVectors(tangent, up).normalize();
       up2.crossVectors(sideV, tangent).normalize();
-      const w = line[s].w;
+      const sk = spanSkin(Math.abs(c.x));            // same span weights as the membrane
       for (let k = 0; k < rings; k++) {
         const a = (k / rings) * Math.PI * 2;
         verts.push(
@@ -215,7 +227,7 @@ function buildMembraneWings(def, model, attach, giM, opts = {}) {
           c.y + (sideV.y * Math.cos(a) + up2.y * Math.sin(a)) * r,
           c.z + (sideV.z * Math.cos(a) + up2.z * Math.sin(a)) * r,
         );
-        si.push(0, 1, 0, 0); sw.push(1 - w, w, 0, 0);
+        si.push(sk.si[0], sk.si[1], 0, 0); sw.push(sk.sw[0], sk.sw[1], 0, 0);
       }
     }
     for (let s = 0; s < N - 1; s++) for (let k = 0; k < rings; k++) {
@@ -245,7 +257,7 @@ function buildMembraneWings(def, model, attach, giM, opts = {}) {
       const k = i * (SEG_V + 1) + j;
       const n = new THREE.Vector3(nrm.getX(k), nrm.getY(k), nrm.getZ(k)).normalize();
       const p = new THREE.Vector3(pos.getX(k), pos.getY(k), pos.getZ(k)).addScaledVector(n, lift);
-      return { p, n, w: foldWeight(Math.abs(pos.getX(k))) };
+      return { p, n };                                // skinnedTube derives weights from p.x
     };
     // Downsample the centreline (a gentle curve needs few stations — keeps the rib
     // tri-count modest so the wing stays within the per-form budget).
@@ -306,8 +318,14 @@ function buildMembraneWings(def, model, attach, giM, opts = {}) {
 
     // wingTip pivots AT the wrist seam (x + arch-lift) so the outer wing folds —
     // a Bone when skinned (bends the skin), a Group otherwise (rotates the panel).
+    // Elbow joint (skinned only): the flap travels shoulder→elbow→wrist as a
+    // lagged cascade. The wrist is parented to the elbow so the rotations compound.
+    const elbowLift = archLift(elbowXGeo, maxX, arc, ws);
+    const elbow = skinned ? new THREE.Bone() : null;
+    if (skinned) elbow.position.set(elbowXGeo * side, elbowLift, 0);
     const wingTip = skinned ? new THREE.Bone() : new THREE.Group();
-    wingTip.position.set(wristXGeo * side, wristLift, 0);
+    if (skinned) wingTip.position.set((wristXGeo - elbowXGeo) * side, wristLift - elbowLift, 0);
+    else wingTip.position.set(wristXGeo * side, wristLift, 0);
     if (!skinned) {
       const outerMem = new THREE.Mesh(membranePanel(wristXGeo - seamOv, Infinity, wristXGeo, wristLift), wingMat);
       outerMem.scale.x = side;
@@ -375,20 +393,20 @@ function buildMembraneWings(def, model, attach, giM, opts = {}) {
       wingTip.add(winglet);
     }
 
-    pivot.add(wingTip);
+    if (skinned) { pivot.add(elbow); elbow.add(wingTip); } else { pivot.add(wingTip); }
 
     if (skinned) {
-      // Ribs sampled from the membrane surface, bound to the SAME skeleton as the
-      // membrane → the wing arm + finger veins bend exactly with the skin. Bind in
-      // local space (mount at origin) so bone inverses + bind matrices are
-      // offset-free, then move the whole rig onto the body. The rig rotates pivot
-      // (shoulder/flap) + wingTip (wrist/fold); membrane AND ribs follow for free.
+      // Ribs sampled from the membrane surface, bound to the SAME 3-bone skeleton
+      // (shoulder→elbow→wrist) → the wing arm + finger veins bend exactly with the
+      // skin. Bind in local space (mount at origin) so bone inverses + bind matrices
+      // are offset-free, then move the whole rig onto the body. The animator rotates
+      // the three bones in a lagged cascade; membrane AND ribs follow for free.
       const ribs = buildSkinnedRibs(skinnedMem.geometry);
       mount.add(pivot);
       mount.add(skinnedMem);
       for (const rib of ribs) mount.add(rib);
       mount.updateMatrixWorld(true);
-      const skeleton = new THREE.Skeleton([pivot, wingTip]);
+      const skeleton = new THREE.Skeleton([pivot, elbow, wingTip]);
       skinnedMem.bind(skeleton);
       for (const rib of ribs) rib.bind(skeleton);
       mount.position.set(wr.x, wr.y, wr.z);
@@ -396,13 +414,18 @@ function buildMembraneWings(def, model, attach, giM, opts = {}) {
     } else {
       group.add(pivot);
     }
-    return { pivot, wingTip, marker };
+    return { pivot, wingTip, marker, elbow, side, flapProfile };
   }
 
   const R = buildWingSide(1);
   const L = buildWingSide(-1);
   const wingPivotR = R.pivot, wingTipR = R.wingTip, tipMarkerR = R.marker;
   const wingPivotL = L.pivot, wingTipL = L.wingTip, tipMarkerL = L.marker;
+  // Skinned wings expose a per-side flap RIG (shoulder/elbow/wrist + profile) so
+  // the shared animator (dragonWingFlap) can drive the lagged cascade. Null for
+  // non-skinned wings → dragon.js keeps its direct pivot/tip drive.
+  const wingRigL = skinned ? { shoulder: L.pivot, elbow: L.elbow, wrist: L.wingTip, side: L.side, profile: L.flapProfile } : null;
+  const wingRigR = skinned ? { shoulder: R.pivot, elbow: R.elbow, wrist: R.wingTip, side: R.side, profile: R.flapProfile } : null;
 
   // Secondary small wing pair (Obsidian T4/Toothless — near tail base)
   let wingPivot2L = null;
@@ -443,7 +466,7 @@ function buildMembraneWings(def, model, attach, giM, opts = {}) {
 
   return {
     group,
-    parts: { wingPivotL, wingPivotR, wingTipL, wingTipR, tipMarkerL, tipMarkerR, wingPivot2L, wingPivot2R },
+    parts: { wingPivotL, wingPivotR, wingTipL, wingTipR, tipMarkerL, tipMarkerR, wingPivot2L, wingPivot2R, wingRigL, wingRigR },
     wingMat,
     spineMats,
   };
