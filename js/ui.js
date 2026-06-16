@@ -879,6 +879,7 @@ export const ui = {
   },
 
   showScreen(type) {
+    closeShowcase(); // stop any inline hero-stage turntable from the previous screen
     const score = Math.floor(game.score);
     const dist  = Math.floor(game.distance);
     let html = '';
@@ -1024,72 +1025,34 @@ export const ui = {
       let body = '';
 
       if (shopTab === 'dragons') {
-        // Stat bars normalised against the flagship (DRAGON_STAT_CAP).
-        const bar = (lbl, k) => `
-          <div class="stat-bar-row"><span>${lbl}</span>
-            <div class="stat-bar"><span style="width:${Math.round(12 + 88 * Math.max(0, Math.min(1, k)))}%"></span></div>
-          </div>`;
-        // One pip per FORM (Hatchling → Eternal), filled up to the owned tier and
-        // tinted by that form's rarity — the evolution ladder, not the old R1-R5.
-        const tierPips = (key) => {
-          const t = ascensionTier(key);
-          const mr = DRAGONS[key].maxRarity;
-          return Array.from({ length: maxTierFor(key) + 1 }, (_, i) =>
-            `<span class="tier-pip${i <= t ? ' filled' : ''}" data-fr="${formRarity(i, mr)}">◆</span>`).join('');
-        };
-        const tierAction = (key, cost) => {
-          const t = ascensionTier(key);
-          if (t >= maxTierFor(key)) {
-            // Evolution is COMPLETE at the apex — say so clearly and stop there.
-            // (The old endless "Brighter Aura" ember sink was removed.)
-            return `<span class="tier-max">EVOLVED ✦ MAX</span>`;
-          }
-          const check = canAscend(key, cost);
-          const gateMet = check.flown >= check.gateMetres;
-          if (!gateMet) return `<span class="tier-gate">${(check.gateMetres / 1000).toFixed(0)}k m to unlock</span>`;
-          return `<button class="btn-ascend${saveData.embers >= check.cost ? '' : ' dim'}" data-ascend="${key}">▲ ${ASCENSION_TIERS[t].name} ◆${check.cost}</button>`;
-        };
-        const cards = Object.entries(DRAGONS).map(([key, d]) => {
-          const owned = saveData.skins.owned.includes(key);
-          const equipped = saveData.skins.equipped === key;
-          const maxTier = ascensionTier(key);
-          const displayTier = owned ? getFormPref(key) : maxTierFor(key);
-          const st = d.stats;
-          const spd = (st.speed - 1) / (DRAGON_STAT_CAP.speed - 1 || 1);
-          const agi = (st.handling - 1) / (DRAGON_STAT_CAP.handling - 1 || 1);
-          const sta = ((1 - st.drain) + (st.regen - 1)) / ((1 - DRAGON_STAT_CAP.drain) + (DRAGON_STAT_CAP.regen - 1) || 1);
-          // Premium dragons radiate on the card too (aura tint via CSS var)
-          const lux = d.fx.auraIdle > 0 ? ` lux" style="--aura: rgba(${d.fx.auraColor},0.45)` : '';
-          // Scrub the whole evolution on every card — preview the forms you'd
-          // grind toward even before you own the dragon.
-          const scrub = `
-              <div class="form-scrub">
-                <button class="form-arrow" data-form-prev="${key}">◀</button>
-                <span class="form-tier-label" data-form-label="${key}">${formTierLabel(displayTier)}</span>
-                <button class="form-arrow" data-form-next="${key}">▶</button>
-              </div>`;
-          return `
-            <div class="skin-card${equipped ? ' equipped' : ''}${owned ? '' : ' locked'}${lux}" data-dragon="${key}" data-rarity="${d.rarity}">
-              <div class="preview-wrap">
-                <canvas class="skin-preview" data-kind="dragon" data-key="${key}" width="180" height="180"></canvas>
-                ${equipped ? '<div class="equipped-badge">✓ EQUIPPED</div>' : ''}
-                <div class="rarity-gem" data-fr="${formRarity(displayTier, d.maxRarity)}">${formRarity(displayTier, d.maxRarity)}</div>
-                <button class="inspect-btn" data-inspect="${key}" title="Inspect — full-screen showcase" aria-label="Inspect ${d.name}">${ICONS.inspect}</button>
-              </div>${scrub}
-              <div class="skin-name">${d.name}</div>
-              <div class="skin-title">${d.title}</div>
-              <div class="stat-bars">${bar('SPD', spd)}${bar('AGI', agi)}${bar('STA', sta)}</div>
-              ${owned ? `<div class="skin-tier"><span class="tier-pips">${tierPips(key)}</span> ${tierAction(key, d.cost)}</div>` : ''}
-              <div class="skin-cost ${owned ? 'owned' : ''}">${owned ? (equipped ? '' : 'TAP TO EQUIP') : `◆ ${d.cost}`}</div>
-            </div>`;
+        // Hero character-select — a big rotatable hero, a thumbnail RAIL to switch
+        // dragon, a segmented form selector, lean stats + one CTA. The identity /
+        // forms / stats / CTA are filled in by wireHeroSelect once the screen builds.
+        const keysAll = Object.keys(DRAGONS);
+        if (!heroKey || !DRAGONS[heroKey]) heroKey = saveData.skins.equipped || keysAll[0];
+        const rail = keysAll.map((k) => {
+          const d = DRAGONS[k];
+          const owned = saveData.skins.owned.includes(k);
+          const equipped = saveData.skins.equipped === k;
+          const tier = owned ? getFormPref(k) : maxTierFor(k);
+          const fr = formRarity(tier, d.maxRarity);
+          return `<div class="hero-thumb${k === heroKey ? ' on' : ''}${owned ? '' : ' locked'}${equipped ? ' equip-dot' : ''}" data-hero="${k}" style="--hthumb:${hex(d.apexSeam ?? d.eye)};--tr:${FR_ACCENT[fr] || '#fff'}">
+              <canvas class="hero-thumb-canvas" data-key="${k}" data-tier="${tier}" width="120" height="120"></canvas>
+              <span class="tgem"></span></div>`;
         }).join('');
-        body = `<div class="shop-grid">${cards}
-          <div class="skin-card" id="buy-revive">
-            <div class="skin-swatch" style="background: radial-gradient(circle at 35% 30%, #ffe8a0, #c87010)"></div>
-            <div class="skin-name">Revive Token</div>
-            <div class="skin-title">One more chance per run</div>
-            <div class="skin-cost">◆ 250 — you have ${saveData.revives}</div>
+        body = `<div class="hero-select" id="hero-select">
+          <div class="hero-stage" id="hero-stage">
+            <div class="hero-gem" id="hero-gem"></div>
+            <canvas class="hero-canvas" id="hero-canvas" width="640" height="640"></canvas>
+            <div class="hero-pedestal"></div>
+            <div class="hero-rothint">⟲ drag to rotate</div>
           </div>
+          <div class="hero-ident"><div class="hero-name" id="hero-name"></div><div class="dpick-sub" id="hero-sub"></div></div>
+          <div class="hero-forms" id="hero-forms"></div>
+          <div class="hero-stats" id="hero-stats"></div>
+          <div class="dpick-cta" id="hero-cta"></div>
+          <div class="dpick-rail" id="hero-rail">${rail}</div>
+          <button class="revive-chip" id="buy-revive"><b>✦ Revive Token</b><span>◆ 250 · you have ${saveData.revives}</span></button>
         </div>`;
 
       } else if (shopTab === 'riders') {
@@ -1588,6 +1551,7 @@ let lastScreen = 'start';
 let returnScreen = 'start';
 let pauseSubscreen = false; // shop/settings opened from the pause menu
 let shopTab = 'dragons';    // dragons | riders | music | style
+let heroKey = null;         // the dragon shown in the hero character-select stage
 let pauseTab = 'audio';     // audio | assists | quests
 let pilotTab = 'feats';     // feats | log | titles
 let startNotice = '';       // one-shot line on the start screen
@@ -1642,30 +1606,133 @@ function wireScreenButtons(type) {
       });
     }
 
-    // Dragons: buy/equip — equipping swaps the model AND the flight stats.
-    // Tapping the 3D turntable (or the 🔍 button) opens the full-screen showcase
-    // instead; stopPropagation so it never also equips/buys the card.
-    for (const btn of els.screen.querySelectorAll('.inspect-btn[data-inspect]')) {
-      btn.onclick = (e) => { e.stopPropagation(); openInspect(btn.dataset.inspect); };
-    }
-    for (const cv of els.screen.querySelectorAll('canvas.skin-preview[data-kind="dragon"]')) {
-      cv.addEventListener('click', (e) => { e.stopPropagation(); openInspect(cv.dataset.key); });
-    }
-    for (const card of els.screen.querySelectorAll('.skin-card[data-dragon]')) {
-      card.onclick = stop(() => {
-        const key = card.dataset.dragon;
-        const d = DRAGONS[key];
-        const res = buyOrEquipDragon(key);
-        if (res === 'need-more') { needMore(d.cost, d.name); return; }
-        ui.showScreen('shop');
-        if (res === 'bought') {
-          ui.celebrate({
-            kind: 'dragon', tier: 'big', title: d.name, subtitle: d.title,
-            renderPreview: (c) => attachPreviewCanvas(c, 'dragon', d),
-          });
+    // Dragons: the hero character-select. Drag the stage to rotate (and ONLY that);
+    // the rail switches dragon; the segments switch form; one CTA equips/buys/ascends.
+    function wireHeroSelect() {
+      const hx = (n) => '#' + n.toString(16).padStart(6, '0');
+      const rarAccent = { R: '#7fd49a', SR: '#62a8ff', SSR: '#c489ff', SSSR: '#ffd24d' };
+      const sel = q('#hero-select');
+      const stage = q('#hero-stage');
+      const heroCanvas = q('#hero-canvas');
+      const railEl = q('#hero-rail');
+      const segEl = q('#hero-forms');
+      const ctaEl = q('#hero-cta');
+      const ownedOf = (k) => saveData.skins.owned.includes(k);
+      let hTier = ownedOf(heroKey) ? getFormPref(heroKey) : maxTierFor(heroKey);
+
+      const ctaHtml = () => {
+        const d = DRAGONS[heroKey];
+        if (!ownedOf(heroKey)) {
+          const can = saveData.embers >= d.cost;
+          return `<button class="locked${can ? '' : ' dim'}" data-cta="buy">◆ ${d.cost} · UNLOCK</button>`;
         }
+        if (saveData.skins.equipped !== heroKey) return `<button data-cta="equip">EQUIP</button>`;
+        const t = ascensionTier(heroKey), cap = maxTierFor(heroKey);
+        if (t < cap) {
+          const check = canAscend(heroKey, d.cost);
+          if (check.flown >= check.gateMetres)
+            return `<button class="ascend${saveData.embers >= check.cost ? '' : ' dim'}" data-cta="ascend">▲ ASCEND · ${ASCENSION_TIERS[t].name} ◆${check.cost}</button>`;
+          return `<button class="equipped" data-cta="none">✓ EQUIPPED · ${(check.gateMetres / 1000).toFixed(0)}k m to ascend</button>`;
+        }
+        return `<button class="equipped" data-cta="none">✓ EQUIPPED · MAX</button>`;
+      };
+
+      const wireCta = () => {
+        const btn = ctaEl.querySelector('button[data-cta]');
+        if (!btn || btn.dataset.cta === 'none') return;
+        btn.onclick = stop(() => {
+          const d = DRAGONS[heroKey];
+          if (btn.dataset.cta === 'ascend') {
+            const newTier = handlers.onAscend && handlers.onAscend(heroKey);
+            if (newTier) {
+              setFormPref(heroKey, newTier);
+              ui.showScreen('shop');
+              ui.celebrate({ kind: 'ascension', tier: 'big', title: `${d.name} Ascended`, subtitle: ASCENSION_TIERS[newTier - 1].name,
+                renderPreview: (c) => attachPreviewCanvas(c, 'dragon', ascendedDef(d, newTier, radianceRank(heroKey))) });
+            } else { const ch = canAscend(heroKey, d.cost); if (ch.cost) needMore(ch.cost, `${d.name} ascension`); }
+            return;
+          }
+          const res = buyOrEquipDragon(heroKey);
+          if (res === 'need-more') { needMore(d.cost, d.name); return; }
+          ui.showScreen('shop');
+          if (res === 'bought') ui.celebrate({ kind: 'dragon', tier: 'big', title: d.name, subtitle: d.title,
+            renderPreview: (c) => attachPreviewCanvas(c, 'dragon', ascendedDef(d, maxTierFor(heroKey), 0)) });
+        });
+      };
+
+      const refresh = () => {
+        const d = DRAGONS[heroKey];
+        const owned = ownedOf(heroKey);
+        const cap = maxTierFor(heroKey);
+        hTier = Math.min(hTier, cap);
+        const fr = formRarity(hTier, d.maxRarity);
+        sel.style.setProperty('--haccent', hx(d.apexSeam ?? d.eye));
+        sel.style.setProperty('--hrar', rarAccent[fr] || rarAccent.SSSR);
+        const gem = q('#hero-gem'); gem.textContent = fr; gem.dataset.fr = fr;
+        q('#hero-name').textContent = d.name;
+        q('#hero-sub').textContent = d.title;
+        segEl.innerHTML = Array.from({ length: cap + 1 }, (_, i) =>
+          `<div class="hero-seg${i === hTier ? ' on' : ''}" data-form="${i}">${formTierLabel(i)}</div>`).join('');
+        const st = d.stats;
+        const spd = (st.speed - 1) / (DRAGON_STAT_CAP.speed - 1 || 1);
+        const agi = (st.handling - 1) / (DRAGON_STAT_CAP.handling - 1 || 1);
+        const sta = ((1 - st.drain) + (st.regen - 1)) / ((1 - DRAGON_STAT_CAP.drain) + (DRAGON_STAT_CAP.regen - 1) || 1);
+        const srow = (lbl, kf) => { const v = Math.max(0.06, Math.min(1, kf));
+          return `<div class="hsrow"><div class="hslabel">${lbl}</div><div class="hstrack"><div class="hsfill" style="width:${Math.round(12 + 88 * v)}%"></div></div><div class="hsval">${Math.round(40 + 59 * v)}</div></div>`; };
+        q('#hero-stats').innerHTML = srow('SPEED', spd) + srow('AGILITY', agi) + srow('STAMINA', sta);
+        ctaEl.innerHTML = ctaHtml(); wireCta();
+        for (const t2 of railEl.querySelectorAll('.hero-thumb')) t2.classList.toggle('on', t2.dataset.hero === heroKey);
+        setShowcaseDef(heroCanvas, ascendedDef(d, hTier, owned ? radianceRank(heroKey) : 0));
+        stage.classList.remove('rotated');
+      };
+
+      // Rail → switch dragon (in place, smooth).
+      for (const thumb of railEl.querySelectorAll('.hero-thumb')) {
+        thumb.onclick = stop(() => {
+          if (thumb.dataset.hero === heroKey) return;
+          heroKey = thumb.dataset.hero;
+          hTier = ownedOf(heroKey) ? getFormPref(heroKey) : maxTierFor(heroKey);
+          refresh();
+        });
+      }
+      // Form segments → switch form (persist + restat the live model if owned).
+      segEl.onclick = stop((e) => {
+        const seg = e.target.closest('.hero-seg'); if (!seg) return;
+        const t = Number(seg.dataset.form);
+        if (t === hTier) return;
+        hTier = t;
+        if (ownedOf(heroKey)) {
+          setFormPref(heroKey, t);
+          if (saveData.skins.equipped === heroKey && handlers.onEquipDragon) handlers.onEquipDragon();
+        }
+        refresh();
       });
+      // Drag the stage → rotate the hero, and only that.
+      let dragId = null, lastX = 0;
+      heroCanvas.addEventListener('pointerdown', (e) => {
+        dragId = e.pointerId; lastX = e.clientX;
+        try { heroCanvas.setPointerCapture(e.pointerId); } catch { /* ok */ }
+        showcaseDragStart(); stage.classList.add('rotated');
+      });
+      heroCanvas.addEventListener('pointermove', (e) => {
+        if (e.pointerId !== dragId) return;
+        const step = e.clientX - lastX; lastX = e.clientX; showcaseDragMove(step);
+      });
+      const endDrag = (e) => {
+        if (e.pointerId !== dragId) return;
+        dragId = null; showcaseDragEnd();
+        try { heroCanvas.releasePointerCapture(e.pointerId); } catch { /* ok */ }
+      };
+      heroCanvas.addEventListener('pointerup', endDrag);
+      heroCanvas.addEventListener('pointercancel', endDrag);
+      // Rail thumbnails = live mini turntables.
+      for (const cv of railEl.querySelectorAll('.hero-thumb-canvas')) {
+        const k = cv.dataset.key;
+        attachPreviewCanvas(cv, 'dragon', ascendedDef(DRAGONS[k], Number(cv.dataset.tier), radianceRank(k)));
+      }
+      refresh();
     }
+    if (q('#hero-select')) wireHeroSelect();
 
     // Riders: buy/equip
     for (const card of els.screen.querySelectorAll('.skin-card[data-rider]')) {
@@ -1760,54 +1827,6 @@ function wireScreenButtons(type) {
           }
         } else {
           needMore(mark.cost, `${mark.name} trail`);
-        }
-      });
-    }
-
-    // Form-preview scrub: ◀▶ arrows change the displayed tier without re-equipping
-    for (const btn of els.screen.querySelectorAll('[data-form-prev],[data-form-next]')) {
-      btn.onclick = stop(() => {
-        const key = btn.dataset.formPrev || btn.dataset.formNext;
-        const delta = btn.dataset.formPrev ? -1 : 1;
-        const before = getFormPref(key);
-        setFormPref(key, before + delta);
-        const tier = getFormPref(key);
-        if (tier === before) return; // already at a bound — nothing changed
-        // Update ONLY this card in place. A full shop re-render rebuilt every
-        // turntable at once, which read as "all the dragons changed".
-        const label = els.screen.querySelector(`[data-form-label="${key}"]`);
-        if (label) label.textContent = formTierLabel(tier);
-        // Per-form rarity gem tracks the scrub, capped at the dragon's max rarity.
-        const gem = btn.closest('.skin-card')?.querySelector('.rarity-gem');
-        const mr = DRAGONS[key].maxRarity;
-        if (gem) { gem.textContent = formRarity(tier, mr); gem.dataset.fr = formRarity(tier, mr); }
-        const canvas = els.screen.querySelector(`canvas.skin-preview[data-key="${key}"]`);
-        if (canvas) refreshPreview(canvas, 'dragon', ascendedDef(DRAGONS[key], tier, radianceRank(key)));
-        // If this is the equipped dragon, rebuild the in-game model so the
-        // chosen form is what you actually fly.
-        if (saveData.skins.equipped === key && handlers.onEquipDragon) handlers.onEquipDragon();
-      });
-    }
-
-    // Ascension: ▲ tier button inside dragon card
-    for (const btn of els.screen.querySelectorAll('[data-ascend]')) {
-      btn.onclick = stop(() => {
-        const key = btn.dataset.ascend;
-        const d = DRAGONS[key];
-        const newTier = handlers.onAscend && handlers.onAscend(key);
-        if (newTier) {
-          setFormPref(key, newTier); // snap the card preview to the form you just earned
-          ui.showScreen('shop');
-          const resolvedDef = ascendedDef(d, newTier, radianceRank(key));
-          ui.celebrate({
-            kind: 'ascension', tier: 'big',
-            title: `${d.name} Ascended`,
-            subtitle: ASCENSION_TIERS[newTier - 1].name,
-            renderPreview: (c) => attachPreviewCanvas(c, 'dragon', resolvedDef),
-          });
-        } else {
-          const check = canAscend(key, d.cost);
-          if (check.cost) needMore(check.cost, `${d.name} ascension`);
         }
       });
     }
