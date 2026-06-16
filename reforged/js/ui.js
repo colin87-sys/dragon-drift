@@ -453,6 +453,7 @@ export const ui = {
       <div class="popup popup2" id="popup2"></div>
       <div class="feat-toast" id="feat-toast"></div>
       <div class="hint" id="hint"></div>
+      <div class="gesture-overlay" id="gesture-overlay"></div>
       <div class="vignette" id="vignette"></div>
       <div class="blue-flash" id="blue-flash"></div>
       <div class="gold-flash" id="gold-flash"></div>
@@ -495,6 +496,7 @@ export const ui = {
       popup2:       root.querySelector('#popup2'),
       featToast:    root.querySelector('#feat-toast'),
       hint:         root.querySelector('#hint'),
+      gestureOverlay: root.querySelector('#gesture-overlay'),
       vignette:     root.querySelector('#vignette'),
       blueFlash:    root.querySelector('#blue-flash'),
       feverOverlay: root.querySelector('#fever-overlay'),
@@ -779,6 +781,52 @@ export const ui = {
 
   hideHint() {
     els.hint.classList.remove('on');
+  },
+
+  // Paused gesture tutorial overlay (gestureTutorial.js drives show/hide while
+  // the run is frozen). A dim backdrop keeps the frozen scene visible; an
+  // animated finger (touch) or key-caps (desktop) demonstrate the move, with one
+  // instruction line. Non-blocking to input — the gesture itself resumes play.
+  // spec: { gesture: 'steer'|'boost'|'roll', touch, text, onSkip }
+  showGesture(spec) {
+    const g = spec.gesture;
+    // Premium hand: warm gradient fill + soft glow (CSS), with a luminous
+    // contact orb + ripple rings at the fingertip.
+    const FINGER = '<svg class="gx-finger" viewBox="0 0 44 60" width="48" height="64" aria-hidden="true">' +
+      '<defs><linearGradient id="gxf" x1="0" y1="0" x2="0" y2="1">' +
+      '<stop offset="0" stop-color="#fff7ea"/><stop offset="1" stop-color="#ffd9a0"/></linearGradient></defs>' +
+      '<path d="M18 9a4.5 4.5 0 019 0v20l5.6 1c4.4.8 7.6 4.2 7.6 9.4v9.1a5.4 5.4 0 01-5.4 5.4H19.2c-3.2 0-5.7-1.1-7.7-4.2L4.2 48c-2.1-3.1-1-6.3 2.2-7.5 2.2-.8 4.3.1 6.2 2.2l3 3.2V9z" ' +
+      'fill="url(#gxf)" stroke="rgba(90,48,18,0.5)" stroke-width="1.4" stroke-linejoin="round"/></svg>';
+    const TOUCH = '<span class="gx-touch"><i></i><i></i></span>';
+    const KEY = (k) => `<span class="gx-key">${k}</span>`;
+    let demo;
+    if (spec.touch) {
+      // One finger for steer; a held "anchor" orb + the acting finger for the
+      // second-finger boost/roll moves.
+      const anchor = (g === 'boost' || g === 'roll') ? '<span class="gx-anchor"></span>' : '';
+      demo = `<div class="gx-stage gx-${g}">${anchor}<span class="gx-hand">${TOUCH}${FINGER}</span>` +
+        (g === 'boost' ? '<span class="gx-ring"></span>' : '') +
+        (g === 'roll' ? '<span class="gx-trail"></span>' : '') + '</div>';
+    } else {
+      const keys = g === 'steer' ? `${KEY('A')}${KEY('D')}`
+        : g === 'boost' ? KEY('SPACE')
+        : `${KEY('A')}${KEY('A')}`; // double-tap
+      demo = `<div class="gx-stage gx-keys gx-${g}">${keys}</div>`;
+    }
+    els.gestureOverlay.innerHTML = `<div class="gx-card">${demo}<div class="gx-text">${spec.text}</div>` +
+      `<button class="gx-skip" id="gx-skip">SKIP TUTORIAL ›</button></div>`;
+    els.gestureOverlay.classList.add('on');
+    const skip = els.gestureOverlay.querySelector('#gx-skip');
+    if (skip && spec.onSkip) {
+      const fire = (e) => { e.preventDefault(); e.stopPropagation(); spec.onSkip(); };
+      skip.addEventListener('click', fire);
+      skip.addEventListener('pointerup', fire); // iOS reliability
+    }
+  },
+
+  hideGesture() {
+    els.gestureOverlay.classList.remove('on');
+    els.gestureOverlay.innerHTML = '';
   },
 
   // Purchase/unlock celebration: the four-phase staging (dim+spotlight →
@@ -1157,9 +1205,11 @@ export const ui = {
           <div class="meta-chip"><span class="ember-ico">${EMBER_ICON}</span> <b>${saveData.embers}</b></div>
           <button class="topbar-close" id="btn-back" title="Back">✕</button>
         </div>
-        <div class="seg-row shop-tabs" style="margin-top:12px">${tabBtn('dragons', `${ICONS.dragon} DRAGONS`)}${tabBtn('riders', `${ICONS.rider} RIDERS`)}${tabBtn('music', `${ICONS.music} MUSIC`)}${tabBtn('style', `${ICONS.style} STYLE`)}</div>
-        ${body}
-        <p class="share-hint" id="shop-hint"></p>`;
+        <div class="shop-scroll">
+          <div class="seg-row shop-tabs" style="margin-top:12px">${tabBtn('dragons', `${ICONS.dragon} DRAGONS`)}${tabBtn('riders', `${ICONS.rider} RIDERS`)}${tabBtn('music', `${ICONS.music} MUSIC`)}${tabBtn('style', `${ICONS.style} STYLE`)}</div>
+          ${body}
+          <p class="share-hint" id="shop-hint"></p>
+        </div>`;
 
     } else if (type === 'settings') {
       const q = saveData.settings.qualityOverride;
@@ -1263,6 +1313,10 @@ export const ui = {
     // the generic per-child stagger is reserved for other dense screens.
     els.screen.classList.remove('stagger');
     els.screen.classList.toggle('hero-screen', type === 'start');
+    // The shop scrolls inside a dedicated container (not the screen itself), so a
+    // tall hero layout can't turn the whole screen into a janky scroll surface
+    // that mis-fires taps as "close" on mobile.
+    els.screen.classList.toggle('scroll-screen', type === 'shop');
     els.screen.classList.toggle('hero-intro', type === 'start' && fresh && !saveData.flags.seenIntro);
     if (fresh) restartAnim(els.screen, 'screen-anim');
     // Title screen → the catchy menu theme (no-ops until audio is unlocked, and
@@ -1287,10 +1341,17 @@ export const ui = {
         console.error('shop preview attach failed', e);
       }
     }
-    // Tapping a blank spot on the shop/settings/pilot screen goes back — the
-    // screen container itself is the only target blank space resolves to.
+    // Tapping a blank spot on the shop/settings/pilot screen goes back — blank
+    // Tapping a blank spot goes back. ONLY the true screen backdrop counts —
+    // NOT the shop's scroll container: iOS retargets a tap's synthesized `click`
+    // onto the momentum scroller (`-webkit-overflow-scrolling: touch`), so
+    // including `.shop-scroll` here made every form/dragon tap close the shop.
+    // Hero-select taps are handled on pointerup (below), which doesn't retarget.
+    let backDownX = 0, backDownY = 0;
+    els.screen.addEventListener('pointerdown', (e) => { backDownX = e.clientX; backDownY = e.clientY; }, true);
     els.screen.onclick = (e) => {
       if (e.target !== els.screen) return;
+      if (Math.hypot(e.clientX - backDownX, e.clientY - backDownY) > 10) return; // a scroll/drag, not a tap
       if (type === 'shop' || type === 'settings' || type === 'pilot' ||
           type === 'quests' || type === 'daily') {
         if (returnScreen === 'pause') ui.showPauseOverlay();
@@ -1733,17 +1794,31 @@ function wireScreenButtons(type) {
         stage.classList.remove('rotated');
       };
 
-      // Rail → switch dragon (in place, smooth).
-      for (const thumb of railEl.querySelectorAll('.hero-thumb')) {
-        thumb.onclick = stop(() => {
-          if (thumb.dataset.hero === heroKey) return;
-          heroKey = thumb.dataset.hero;
-          hTier = ownedOf(heroKey) ? getFormPref(heroKey) : maxTierFor(heroKey);
-          refresh();
+      // Rail → switch dragon · Form segments → switch form.
+      // Wired on POINTERUP (not click): inside the shop's momentum scroller iOS
+      // retargets the synthesized `click` to the scroller, so click handlers on
+      // these non-button divs never fire (and the stray click used to close the
+      // shop). Pointer events target the real element. A movement guard rejects
+      // scrolls so a swipe-to-scroll isn't mistaken for a tap.
+      const onTap = (el, handler) => {
+        let dx = 0, dy = 0, moved = false;
+        el.addEventListener('pointerdown', (e) => { dx = e.clientX; dy = e.clientY; moved = false; });
+        el.addEventListener('pointermove', (e) => {
+          if (Math.hypot(e.clientX - dx, e.clientY - dy) > 10) moved = true;
         });
-      }
-      // Form segments → switch form (persist + restat the live model if owned).
-      segEl.onclick = stop((e) => {
+        el.addEventListener('pointerup', (e) => {
+          if (moved || Math.hypot(e.clientX - dx, e.clientY - dy) > 10) return;
+          handler(e);
+        });
+      };
+      onTap(railEl, (e) => {
+        const thumb = e.target.closest('.hero-thumb'); if (!thumb) return;
+        if (thumb.dataset.hero === heroKey) return;
+        heroKey = thumb.dataset.hero;
+        hTier = ownedOf(heroKey) ? getFormPref(heroKey) : maxTierFor(heroKey);
+        refresh();
+      });
+      onTap(segEl, (e) => {
         const seg = e.target.closest('.hero-seg'); if (!seg) return;
         const t = Number(seg.dataset.form);
         if (t === hTier) return;

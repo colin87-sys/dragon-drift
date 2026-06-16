@@ -422,6 +422,10 @@ export function resetEnvironment(seed) {
   feverMix = 0;
 }
 
+// The sky-dome mesh — the god-ray occlusion mask hides it to paint the open-sky
+// light field while every solid occluder draws black.
+export function getSkyMesh() { return sky; }
+
 export function updateEnvironment(dt, camera, time, playerDist, feverActive = false, playerSpeed = 0) {
   sky.position.copy(camera.position);
   for (const band of bands) recycleBand(band, playerDist);
