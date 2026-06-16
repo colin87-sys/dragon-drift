@@ -200,7 +200,15 @@ export function attachPreviewCanvas(canvas, kind, def) {
 // top of the live flap. One showcase at a time; opened/closed by ui.js.
 let scRenderer = null, scScene = null, scCamera = null, scItem = null, scRaf = 0;
 let scFloor = null;
-const SC_SIZE = 480;
+const SC_SIZE = 640;
+// User-controlled 360° turntable yaw. Drag accumulates `scYaw`; on release the
+// `scYawVel` carries it with inertia; after it settles + a short idle, a slow
+// auto-turntable resumes so the stage always feels alive (but never fights a drag).
+let scYaw = 0, scYawVel = 0, scDragging = false, scIdle = 0;
+export function showcaseDragStart() { scDragging = true; scYawVel = 0; scIdle = 0; }
+export function showcaseDragMove(stepPx) { const d = stepPx * 0.011; scYaw += d; scYawVel = d; }
+export function showcaseDragEnd() { scDragging = false; }
+export function resetShowcaseYaw() { scYaw = 0; scYawVel = 0; scIdle = 0; }
 // Default framing is AUTO-FIT to the dragon's real mesh bounds, so the full
 // wingspan + tail show the instant the modal opens — no manual zoom-out needed.
 // scBaseDist / scLookY are recomputed per dragon in setShowcaseDef.
@@ -267,16 +275,21 @@ export function setShowcaseDef(canvas, def) {
   // instant the modal opens, no manual zoom-out. previewScale (Radiant = 1)
   // biases how much the form FILLS the frame (apex fills it, hatchling sits
   // smaller with air around it) without ever cropping.
+  resetShowcaseYaw();   // every dragon opens facing the camera
   const box = meshBounds(result.group);
   if (box.isEmpty()) { scBaseDist = 9; scLookY = 0.3; }
   else {
     const halfW = Math.max(Math.abs(box.min.x), Math.abs(box.max.x));
+    const halfD = Math.max(Math.abs(box.min.z), Math.abs(box.max.z));
+    // Worst-case horizontal extent at ANY turntable yaw (the bounding cylinder
+    // radius) so the dragon never clips while it spins a full 360°.
+    const halfWide = Math.hypot(halfW, halfD);
     scLookY = (box.min.y + box.max.y) / 2;
     const halfH = Math.max(box.max.y - scLookY, scLookY - box.min.y);
     const fovR = scCamera.fov * Math.PI / 180;
-    const fit = Math.max(halfW, halfH * 0.92) / Math.tan(fovR / 2);
+    const fit = Math.max(halfWide, halfH * 0.92) / Math.tan(fovR / 2);
     const ps = Math.min(1.22, Math.max(0.6, def.model.previewScale ?? 1));
-    scBaseDist = fit * (1.32 / ps) + 0.6;
+    scBaseDist = fit * (1.22 / ps) + 0.6;
   }
 
   // Soft aura-tinted floor glow / backlight behind the dragon — a gentle showcase
@@ -302,7 +315,14 @@ function scLoop(now = performance.now()) {
   scRaf = requestAnimationFrame(scLoop);
   const t = now / 1000;
   scItem.tick(t);
-  scItem.group.rotation.y = Math.sin(t * 0.45) * 0.4; // gentle showcase orbit over the flap
+  // 360° turntable: the user drags to spin; on release inertia carries it, then a
+  // slow idle auto-rotate resumes so the stage stays alive.
+  if (!scDragging) {
+    scYaw += scYawVel;
+    if (Math.abs(scYawVel) < 0.001) { scYawVel = 0; scIdle++; } else { scYawVel *= 0.93; scIdle = 0; }
+    if (scIdle > 80) scYaw += 0.0024; // gentle idle turntable after a pause
+  }
+  scItem.group.rotation.y = scYaw;
   // Apply the eased zoom by dollying along the view ray toward the auto-fit frame.
   scZoom += (scZoomTarget - scZoom) * 0.22;
   const dist = scBaseDist / scZoom;
