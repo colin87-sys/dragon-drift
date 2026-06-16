@@ -161,59 +161,91 @@ body.app-loaded > canvas { opacity: 1; }
 @media (pointer: coarse) {
   .hud-vitals { width: min(78vw, 330px); bottom: calc(32px + env(safe-area-inset-bottom, 0px)); }
 }
-.vit-bars { display: flex; gap: 14px; width: 100%; }
-.vit { flex: 1; }
-.vit.r { flex-direction: row-reverse; }
+.vit-bars { display: flex; gap: 16px; width: 100%; }
+.vit { flex: 1; display: flex; flex-direction: column; gap: 4px; }
+.vit-cap { font-size: 11px; letter-spacing: 1.6px; font-weight: 800; line-height: 1;
+  text-shadow: 0 1px 3px rgba(0,0,0,0.85); }
+.stamina-cap { color: #8ff0e4; text-align: left; }
+.health-cap  { color: #ffb0a4; text-align: right; }
+.vit.r { align-items: flex-end; }
 .vit.r .bar { transform: scaleX(-1); }
-.hud-vitals .bb-ico { width: 18px; font-size: 13px; opacity: 0.95;
-  filter: drop-shadow(0 1px 2px rgba(0,0,0,0.7)); }
-.hud-vitals .bar { width: auto; flex: 1; height: 12px; border-radius: 7px;
-  border-color: var(--rf-stroke); background: rgba(18,10,8,0.82); }
-.bar-fill.stamina { background: var(--rf-st); box-shadow: 0 0 9px rgba(60,220,210,0.55); }
-.bar-fill.health  { background: var(--rf-hp); box-shadow: 0 0 9px rgba(255,120,60,0.55); }
+/* Bigger, high-contrast bars — stamina is boost-critical, must read instantly */
+.hud-vitals .bar { width: 100%; flex: none; height: 17px; border-radius: 9px;
+  border: 1.5px solid var(--rf-stroke); background: rgba(14,8,7,0.88);
+  box-shadow: inset 0 1px 3px rgba(0,0,0,0.6); }
+.hud-vitals .bar-fill { border-radius: 8px; }
+.bar-fill.stamina { background: var(--rf-st); box-shadow: 0 0 12px rgba(60,225,215,0.7); }
+.bar-fill.health  { background: var(--rf-hp); box-shadow: 0 0 12px rgba(255,120,60,0.65); }
+.bar-fill.stamina.depleted { background: #58606e; box-shadow: none; }
+/* low-stamina pulse so the most important resource shouts when it's running out */
+.bar-fill.stamina.low { animation: vit-low 0.7s ease-in-out infinite; }
+@keyframes vit-low { 0%,100%{filter:brightness(1)} 50%{filter:brightness(1.6)} }
 
-/* Surge module — its own prominent slot, fades in when active */
-.surge-widget { position: relative; display: flex; align-items: center; gap: 11px;
-  padding: 8px 18px 8px 10px; border-radius: var(--rf-swept);
+/* ===== Surge module — swept-wing accent, gem-row progress, ignition ===== */
+.surge-widget { position: relative; display: flex; align-items: center; gap: 12px;
+  padding: 9px 18px 9px 11px; border-radius: var(--rf-swept);
   background: linear-gradient(115deg, rgba(255,138,60,0.16), rgba(255,77,106,0.14));
   border: 1px solid rgba(255,170,120,0.42);
   box-shadow: 0 0 22px rgba(255,120,80,0.22), inset 0 1px 0 rgba(255,235,200,0.12);
   opacity: 0; transform: translateY(6px) scale(0.96);
-  transition: opacity 0.25s, transform 0.25s; min-height: 52px; }
+  transition: opacity 0.25s, transform 0.25s; min-height: 56px; }
 .surge-widget.active { opacity: 1; transform: translateY(0) scale(1); }
-.surge-widget.fever { animation: surge-breathe 2.2s ease-in-out infinite;
-  border-color: rgba(255,180,140,0.7); }
+.surge-widget.fever { border-color: rgba(255,190,140,0.85);
+  background: linear-gradient(115deg, rgba(255,138,60,0.3), rgba(255,77,106,0.24));
+  animation: surge-breathe 2.1s ease-in-out infinite; }
 @keyframes surge-breathe {
-  0%,100% { box-shadow: 0 0 24px rgba(255,90,120,0.4), inset 0 1px 0 rgba(255,240,210,0.16); }
-  50%     { box-shadow: 0 0 44px rgba(255,130,70,0.7), inset 0 1px 0 rgba(255,245,220,0.2); } }
-.surge-ring { position: relative; width: 44px; height: 44px; flex: none; }
-.surge-ring svg { width: 100%; height: 100%; transform: rotate(-90deg); }
-.surge-track { fill: none; stroke: rgba(255,255,255,0.16); stroke-width: 7; }
-.surge-arc { fill: none; stroke: url(#surge-grad); stroke-width: 7; stroke-linecap: round;
-  transition: stroke-dashoffset 0.18s ease-out; filter: drop-shadow(0 0 4px rgba(255,160,90,0.9)); }
-.surge-widget.fever .surge-arc { filter: drop-shadow(0 0 7px rgba(255,120,90,0.95)); }
-.surge-x { position: absolute; inset: 0; display: grid; place-items: center;
-  font-family: var(--font-display); font-variant-numeric: tabular-nums; font-size: 13px;
+  0%,100% { box-shadow: 0 0 26px rgba(255,90,120,0.45), inset 0 1px 0 rgba(255,240,210,0.18); }
+  50%     { box-shadow: 0 0 48px rgba(255,130,70,0.78), inset 0 1px 0 rgba(255,245,220,0.22); } }
+
+/* multiplier badge */
+.surge-ring { position: relative; width: 42px; height: 42px; flex: none; display: grid;
+  place-items: center; border-radius: 50%; border: 2px solid rgba(255,190,120,0.55);
+  background: radial-gradient(circle at 50% 40%, rgba(255,140,70,0.22), rgba(20,12,10,0.5)); }
+.surge-widget.fever .surge-ring { border-color: rgba(255,230,170,0.95);
+  box-shadow: 0 0 14px rgba(255,160,80,0.7) inset, 0 0 12px rgba(255,150,80,0.5); }
+.surge-x { font-family: var(--font-display); font-variant-numeric: tabular-nums; font-size: 13px;
   color: #fff; text-shadow: 0 0 8px rgba(255,150,110,0.95); line-height: 1; }
 .surge-widget[data-tier="2"] .surge-x { color: #ffe6a6; }
 .surge-widget[data-tier="3"] .surge-x { color: #ffc070; }
 .surge-widget[data-tier="4"] .surge-x { color: #ff9a5a; }
-.surge-widget[data-tier="5"] .surge-x { color: #ffd0b0; animation: combo-rage 0.38s ease-in-out infinite; }
-.surge-text { display: flex; flex-direction: column; line-height: 1.08; }
-.surge-title { font-family: var(--font-display); font-size: 15px; letter-spacing: 1.5px;
+.surge-widget[data-tier="5"] .surge-x { color: #ffd0b0; }
+.surge-x.combo-pop { animation: combo-pop 0.3s var(--ease-out); }
+.surge-text { display: flex; flex-direction: column; gap: 6px; line-height: 1; }
+.surge-title { font-family: var(--font-display); font-size: 14px; letter-spacing: 1.5px;
   color: #fff; text-shadow: 0 0 12px rgba(255,120,80,0.85), 0 1px 2px rgba(0,0,0,0.6); }
-.surge-lbl { font-size: 10px; letter-spacing: 1.6px; color: #ffe0c8; margin-top: 2px;
-  font-weight: 800; text-shadow: 0 1px 2px rgba(0,0,0,0.7); }
-/* secondary-motion accent dots (the premium "finish") */
-.surge-dots { position: absolute; left: 18px; right: 18px; display: flex;
-  justify-content: space-between; pointer-events: none; opacity: 0; transition: opacity 0.25s; }
-.surge-dots.top { top: -6px; } .surge-dots.bot { bottom: -6px; }
-.surge-widget.fever .surge-dots { opacity: 1; }
-.surge-dots i { width: 3px; height: 3px; border-radius: 50%; background: #ffd0b0;
-  opacity: 0.5; animation: surge-dot 1.6s ease-in-out infinite; }
-.surge-dots i:nth-child(2){animation-delay:.2s} .surge-dots i:nth-child(3){animation-delay:.4s}
-.surge-dots i:nth-child(4){animation-delay:.6s} .surge-dots i:nth-child(5){animation-delay:.8s}
-@keyframes surge-dot { 0%,100%{transform:translateY(0);opacity:.35} 50%{transform:translateY(-3px);opacity:1} }
+
+/* gem-row progress: pips light as you chain */
+.surge-gems { display: flex; gap: 5px; }
+.surge-gems i { width: 11px; height: 11px; clip-path: polygon(50% 0,100% 50%,50% 100%,0 50%);
+  background: rgba(255,200,140,0.16); box-shadow: inset 0 0 0 1px rgba(255,200,140,0.25);
+  transition: background 0.15s, box-shadow 0.15s; }
+.surge-gems i.lit { background: linear-gradient(160deg,#ffe6a6,#ff8a3c);
+  box-shadow: 0 0 7px rgba(255,150,80,0.95), 0 0 2px rgba(255,225,160,0.9); }
+.surge-widget.fever .surge-gems i.lit { animation: gem-blaze 1.3s ease-in-out infinite; }
+.surge-widget.fever .surge-gems i:nth-child(2n).lit { animation-delay: 0.25s; }
+@keyframes gem-blaze { 0%,100%{filter:brightness(1)} 50%{filter:brightness(1.5)} }
+.surge-gems i.gem-pop { animation: gem-pop 0.3s var(--ease-out); }
+@keyframes gem-pop { 0%{transform:scale(1)} 45%{transform:scale(1.55)} 100%{transform:scale(1)} }
+
+/* fever countdown timer */
+.surge-timer { margin-left: auto; min-width: 0; font-family: var(--font-display);
+  font-variant-numeric: tabular-nums; font-size: 19px; color: #fff;
+  text-shadow: 0 0 12px rgba(255,150,90,0.95); }
+.surge-timer:empty { margin-left: 0; }
+
+/* ===== IGNITION: flash sweep + shockwave + scale overshoot ===== */
+.surge-fx { position: absolute; inset: 0; pointer-events: none; }
+.surge-fx .flash { position: absolute; inset: 0; border-radius: var(--rf-swept); opacity: 0;
+  background: radial-gradient(120% 100% at 22% 50%, rgba(255,247,214,0.95), rgba(255,180,90,0.25) 52%, transparent 74%); }
+.surge-fx .shock { position: absolute; left: 32px; top: 50%; width: 40px; height: 40px;
+  margin: -20px 0 0 -20px; border-radius: 50%; border: 2px solid rgba(255,210,140,0.9); opacity: 0; }
+.surge-widget.igniting { animation: surge-ignite 0.6s var(--ease-spring) both; }
+.surge-widget.igniting .flash { animation: surge-flash 0.55s ease-out; }
+.surge-widget.igniting .shock { animation: surge-shock 0.6s ease-out; }
+.surge-widget.igniting .shock.s2 { animation-delay: 0.1s; }
+@keyframes surge-ignite { 0%{transform:scale(1)} 32%{transform:scale(1.07)} 62%{transform:scale(0.985)} 100%{transform:scale(1)} }
+@keyframes surge-flash { 0%{opacity:0} 22%{opacity:1} 100%{opacity:0} }
+@keyframes surge-shock { 0%{opacity:0.9;transform:scale(0.4)} 100%{opacity:0;transform:scale(2.8)} }
 
 /* ============ TARGET RETICLE (nested squares) ============ */
 #reticle { position: absolute; left: 0; top: 0; width: 90px; height: 90px;
