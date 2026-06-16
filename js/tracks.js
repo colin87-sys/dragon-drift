@@ -192,6 +192,7 @@ export const TRACKS = [
     desc: 'Mellow lo-fi glide',
     cost: 0,
     bpm: 85,
+    swing: 0.18,
     voices: {
       melody: { osc: 'triangle', vol: 0.16 },
       bass:   { osc: 'sine', vol: 0.24 },
@@ -634,6 +635,7 @@ export const TRACKS = [
     desc: 'Future bass — lift-and-sigh, rising-sixth hook',
     cost: 800,
     bpm: 100,
+    swing: 0.14,
     voices: {
       melody: { osc: 'triangle', vol: 0.18, stack: 'octave' },
       bass:   { osc: 'sine', vol: 0.26 },
@@ -684,6 +686,7 @@ export const TRACKS = [
     desc: 'Liquid D&B — rolling, airborne',
     cost: 800,
     bpm: 174,
+    swing: 0.08,
     voices: {
       melody: { osc: 'triangle', vol: 0.16 },
       bass:   { osc: 'sawtooth', vol: 0.17 },
@@ -725,6 +728,7 @@ export const TRACKS = [
     desc: 'French house — filtered disco funk',
     cost: 800,
     bpm: 124,
+    swing: 0.12,
     voices: {
       melody: { osc: 'square', vol: 0.12 },
       bass:   { osc: 'sawtooth', vol: 0.18 },
@@ -769,6 +773,7 @@ export const TRACKS = [
     desc: 'Tropical house — steel-pan bounce',
     cost: 800,
     bpm: 104,
+    swing: 0.12,
     voices: {
       melody: { osc: 'triangle', vol: 0.19, stack: 'octave' },
       bass:   { osc: 'sine', vol: 0.24 },
@@ -1087,6 +1092,7 @@ export const TRACKS = [
     desc: 'Amapiano — jazzy 7ths, log-drum groove',
     cost: 800,
     bpm: 112,
+    swing: 0.16,
     voices: {
       melody: { osc: 'triangle', vol: 0.17, stack: 'octave' },
       bass:   { osc: 'sine', vol: 0.27 },
