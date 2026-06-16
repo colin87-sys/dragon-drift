@@ -205,7 +205,7 @@ export const DRAGONS = {
     // House-style draconic head: the Soft Stealth archetype — rounded wedge skull,
     // short blunt snout, large intelligent catlike eyes, swept-back ear-fins, cyan
     // rear glow. Intelligent, stealthy, fast (NOT regal or spiky).
-    parts: { head: 'draconic', surface: { shader: ['cellularScales', 'iridescence'] } },
+    parts: { head: 'draconic', wings: 'skinnedMembrane', surface: { shader: ['cellularScales', 'iridescence'] } },
     // STEALTH NIGHT-DRAKE: sleek, near-black with electric-CYAN plasma. A smooth
     // hornless head with ear-frills, a SMOOTH back lit only by a cyan chevron
     // energy line, narrow swept bat-wings (dark membrane, cyan edges — never a
