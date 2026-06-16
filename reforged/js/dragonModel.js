@@ -11,7 +11,7 @@ import './dragonCometWake.js';      // 'cometWake' tail (streaming comet glow-tr
 import './dragonCelestialHead.js';  // 'celestialMask' head (regal faceplate)
 import './dragonDraconicHead.js';   // 'draconic' head (modular house-style dragon head)
 import { applyFresnelRim } from './surface.js';
-import { flapWing } from './dragonWingFlap.js';
+import { flapWing, formStrength } from './dragonWingFlap.js';
 import { composeSurface, fresnelRimPatch, buildSurfacePatches } from './dragonSurfaceShader.js';
 
 // Unified procedural dragon mesh builder.
@@ -465,7 +465,7 @@ export function makePreviewTick(def, result) {
     if (wingRigL) {
       // Skinned wings: the shared animator drives the shoulder→elbow→wrist cascade
       // (dt=1 snaps to target, matching the preview's direct-set style).
-      const st = { phase, flapAmp: 0.52 * flapAmp, turnBias: 0, climbBias: 0, rollFold: 0, feather: Math.sin(phase + Math.PI * 0.55) };
+      const st = { phase, flapAmp: 0.52 * flapAmp, turnBias: 0, climbBias: 0, rollFold: 0, feather: Math.sin(phase + Math.PI * 0.55), strength: formStrength(def.model) };
       flapWing(wingRigL, st, 1);
       flapWing(wingRigR, st, 1);
       if (wingPivot2L) { const f = Math.sin(phase) * 0.52 * flapAmp + 0.12; wingPivot2L.rotation.z = f * 0.65; wingPivot2R.rotation.z = -f * 0.65; }

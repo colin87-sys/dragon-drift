@@ -28,13 +28,16 @@ const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
 const damp = (cur, tgt, lambda, dt) => cur + (tgt - cur) * (1 - Math.exp(-lambda * dt));
 
 // rig:   { shoulder, elbow, wrist, side, profile }   (side: +1 right, -1 left)
-// state: { phase, flapAmp, turnBias, climbBias, rollFold, feather }
+// state: { phase, flapAmp, turnBias, climbBias, rollFold, feather, strength }
+//   strength (default 1) scales the BEAT — its swing + whip + fold — so a young
+//   form (Hatchling) flaps weaker than a grown one (Eternal). Resting droop stays.
 export function flapWing(rig, state, dt) {
   if (!rig || !rig.shoulder) return;
   const P = { ...DEFAULTS, ...(rig.profile || {}) };
   const side = rig.side;
   const { phase, flapAmp, turnBias, climbBias, rollFold, feather } = state;
-  const rootFlap = Math.sin(phase) * flapAmp + 0.1;
+  const str = state.strength ?? 1;
+  const rootFlap = Math.sin(phase) * flapAmp * str + 0.1;
 
   // Shoulder — the main flap (reproduces the existing wingbeat).
   const sh = rig.shoulder;
@@ -44,14 +47,20 @@ export function flapWing(rig, state, dt) {
 
   // Elbow — the new lagged mid-arm joint that gives the whip (continues the flap).
   if (rig.elbow) {
-    const eFlap = clamp(Math.sin(phase - P.lagElbow) * flapAmp * P.elbowAmp, P.elbowLimit[0], P.elbowLimit[1]);
+    const eFlap = clamp(Math.sin(phase - P.lagElbow) * flapAmp * P.elbowAmp * str, P.elbowLimit[0], P.elbowLimit[1]);
     rig.elbow.rotation.z = damp(rig.elbow.rotation.z, -side * eFlap, 12, dt);
     rig.elbow.rotation.x = damp(rig.elbow.rotation.x, -side * feather * 0.08, 10, dt);
   }
 
   // Wrist — the trailing counter-fold (folds on up-stroke, extends on down-stroke).
-  const fold = clamp(Math.sin(phase + P.lagWrist) * P.foldAmp, P.wristLimit[0], P.wristLimit[1]);
+  const fold = clamp(Math.sin(phase + P.lagWrist) * P.foldAmp * str, P.wristLimit[0], P.wristLimit[1]);
   const w = rig.wrist;
   w.rotation.z = damp(w.rotation.z, side * fold + turnBias * 0.45, 12, dt);
   w.rotation.x = damp(w.rotation.x, -0.12 + side * feather * 0.16, 10, dt);
+}
+
+// Per-form beat strength from the stamped form index (0..3): Hatchling feels
+// weaker, Eternal full-powered. Shared by the live rig + the shop preview.
+export function formStrength(model) {
+  return 0.68 + 0.107 * Math.min(model?.formLevel ?? 3, 3);
 }
