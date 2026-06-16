@@ -5,6 +5,7 @@
 
 import { saveData, persist } from './save.js';
 import { TRACKS } from './tracks.js';
+import { mulberry32 } from './util.js';
 
 export { TRACKS };
 
@@ -522,6 +523,7 @@ let LOOP_LEN = 64 * E8; // total loop duration in seconds (per track)
 let biomeSemitones = 0; // biome key shift, applied at loop boundaries
 let drumEnergy = 0;     // 0..1 BPM-driven kit punch / bass thickness
 let pumpAmt = 0;        // sidechain depth: 0 (no pump) .. ~0.42 (hard four-on-floor)
+let loopCount = 0;      // which 8-bar loop we're on — drives fills/crash/humanize variation
 
 function seqToEvents(seq, layerKey, voice, freqMult, durMult = 0.85) {
   const out = [];
@@ -550,6 +552,12 @@ function buildEvents() {
   pumpAmt = tr.drums.heavy ? Math.min(0.42, 0.16 + drumEnergy * 0.32) : drumEnergy * 0.07;
   const km = Math.pow(2, biomeSemitones / 12); // biome key shift
   const v = tr.voices;
+  // Swing: delay the off-beats by a fraction of an eighth on the groove
+  // stations (lo-fi / house / liquid D&B …). Straight-time dance tracks omit
+  // `swing` and stay rigid. Applied to hats / shaker / arp only — never to the
+  // melody/bass (variable note lengths make melodic swing unmusical here).
+  const swing = (tr.swing ?? 0) * E8;
+  const swing16 = swing * 0.5;
 
   const all = [
     ...seqToEvents(tr.melody, 'melody', v.melody, km),
@@ -566,8 +574,9 @@ function buildEvents() {
     for (let cycle = 0; cycle < 2; cycle++) {           // 2 × 8-note cycles per bar
       const cycleStart = barStart + cycle * 4 * E8;
       for (let i = 0; i < arp.length; i++) {
-        all.push({ t: cycleStart + i * e16, freq: arp[i] * km, durS: e16 * 0.65, layer: 'arp', osc: v.arp.osc, vol: v.arp.vol });
-        all.push({ t: cycleStart + i * e16, freq: arp[i] * 2 * km, durS: e16 * 0.55, layer: 'fever', osc: 'triangle', vol: 0.08 });
+        const at = cycleStart + i * e16 + (i % 2 ? swing16 : 0);
+        all.push({ t: at, freq: arp[i] * km, durS: e16 * 0.65, layer: 'arp', osc: v.arp.osc, vol: v.arp.vol });
+        all.push({ t: at, freq: arp[i] * 2 * km, durS: e16 * 0.55, layer: 'fever', osc: 'triangle', vol: 0.08 });
       }
     }
     // Pad: slow-attack chord swell once per bar
@@ -583,8 +592,8 @@ function buildEvents() {
       const bt = barStart + beat * BEAT;
       all.push({ t: bt, special: 'kick', layer: 'perc', dvol: d.kick });
       if (beat % 2 === 1) all.push({ t: bt, special: 'snare', layer: 'perc', dvol: d.snare });
-      all.push({ t: bt,      special: 'hat', layer: 'perc', dvol: d.hat });
-      all.push({ t: bt + E8, special: 'hat', layer: 'perc', dvol: d.hat });
+      all.push({ t: bt,           special: 'hat', layer: 'perc', dvol: d.hat });
+      all.push({ t: bt + E8 + swing, special: 'hat', layer: 'perc', dvol: d.hat });
       // Heavy layer at combo >= 3: deeper kick doubled, clap on backbeat
       if (d.heavy) {
         all.push({ t: bt, special: 'kick2', layer: 'perc2', dvol: 1 });
@@ -592,8 +601,8 @@ function buildEvents() {
       }
       // Flavour layer: shaker (off-beats), conga (backbeats), logDrum (downbeats)
       if (d.shaker) {
-        all.push({ t: bt + E8,     special: 'shaker', layer: 'perc3', dvol: d.shaker });
-        all.push({ t: bt + E8 * 3, special: 'shaker', layer: 'perc3', dvol: d.shaker * 0.7 });
+        all.push({ t: bt + E8 + swing,     special: 'shaker', layer: 'perc3', dvol: d.shaker });
+        all.push({ t: bt + E8 * 3 + swing, special: 'shaker', layer: 'perc3', dvol: d.shaker * 0.7 });
       }
       if (d.conga && beat % 2 === 1) {
         all.push({ t: bt,           special: 'conga', layer: 'perc3', dvol: d.conga });
@@ -604,6 +613,50 @@ function buildEvents() {
         if (beat === 2) all.push({ t: bt + E8 * 0.5, special: 'logDrum', layer: 'perc3', dvol: d.logDrum * 0.8 });
       }
     }
+  }
+
+  // --- Longevity: crash + fills + humanization (varied per loop) ---------
+  // Keeps the 8-bar loop from machine-gunning over a long flight. Energetic
+  // (heavy) kits get a crash at the loop top and snare fills into it; chill
+  // kits get only a light, sparse fill so they stay calm.
+  const d = tr.drums;
+  const BEAT = 2 * E8;
+  if (d.heavy) {
+    // Crash cymbal on the downbeat of bar 0 — the phrase "1".
+    all.push({ t: 0, special: 'crash', layer: 'perc2', dvol: 0.45 + drumEnergy * 0.35 });
+  }
+  // Snare fill on the last bar, building into the loop-top crash. Four shapes
+  // rotate by loopCount so consecutive loops differ.
+  const lastBar = 7 * 8 * E8;
+  const variant = loopCount % 4;
+  const fillBase = d.heavy ? d.snare : d.snare * 0.6;
+  const fill = [];
+  if (variant === 0) {
+    // sparse: two pickups on the final "and"
+    fill.push([lastBar + 3 * BEAT + E8, 0.7], [lastBar + 3 * BEAT + E8 + e16, 0.85]);
+  } else if (variant === 1) {
+    // 16th roll across the final beat
+    for (let i = 0; i < 4; i++) fill.push([lastBar + 3 * BEAT + i * e16, 0.55 + i * 0.14]);
+  } else if (variant === 2) {
+    // 16th roll across the final two beats
+    for (let i = 0; i < 8; i++) fill.push([lastBar + 2 * BEAT + i * e16, 0.45 + i * 0.07]);
+  } else {
+    // 32nd buildup on the final beat (heavy only — chill kits thin it out)
+    const step = d.heavy ? e16 / 2 : e16;
+    const n = d.heavy ? 8 : 4;
+    for (let i = 0; i < n; i++) fill.push([lastBar + 3 * BEAT + i * step, 0.5 + i * (0.45 / n)]);
+  }
+  for (const [t, vel] of fill) all.push({ t, special: 'snare', layer: 'perc', dvol: fillBase * vel });
+
+  // Humanization: tiny deterministic timing/velocity jitter on percussion only
+  // (tonal layers stay clean). Seeded by loopCount so it's reproducible and
+  // varies loop to loop. The loop-top "1" is left tight (no timing jitter).
+  const rng = mulberry32((loopCount + 1) * 0x9e3779b1);
+  const jT = 0.005; // ±5 ms
+  for (const ev of all) {
+    if (!ev.special) continue;
+    if (ev.t > 0.02) ev.t = Math.max(0, ev.t + (rng() * 2 - 1) * jT);
+    if (ev.dvol != null) ev.dvol *= 1 + (rng() * 2 - 1) * 0.1;
   }
 
   all.sort((a, b) => a.t - b.t);
@@ -725,6 +778,22 @@ function playNoteEvent(ev, absTime) {
       src.connect(bp).connect(g).connect(layerGain);
       src.start(absTime);
       src.stop(absTime + 0.1);
+      return;
+    }
+    if (ev.special === 'crash') {
+      // Crash cymbal: bright highpassed noise with a long shimmering tail —
+      // the phrase-top accent the loop never had. Quick attack, ~1.4s decay.
+      const src = a.createBufferSource();
+      src.buffer = getNoiseBuffer(a);
+      const hp = a.createBiquadFilter();
+      hp.type = 'highpass';
+      hp.frequency.value = 5200;
+      g.gain.setValueAtTime(0.0001, absTime);
+      g.gain.exponentialRampToValueAtTime(0.16 * dv, absTime + 0.006);
+      g.gain.exponentialRampToValueAtTime(0.0001, absTime + 1.4);
+      src.connect(hp).connect(g).connect(layerGain);
+      src.start(absTime);
+      src.stop(absTime + 1.5);
       return;
     }
     if (ev.special === 'shaker') {
@@ -903,12 +972,16 @@ function runScheduler() {
     if (nextEvtIdx >= events.length) {
       nextEvtIdx = 0;
       loopOffset += LOOP_LEN;
-      // Key shifts (biome changes) land cleanly on the downbeat of a new loop
-      if (pendingRebuild) {
-        pendingRebuild = false;
-        events = buildEvents();
+      loopCount++;
+      // Rebuild every loop so fills / crash / humanization vary (cheap: a few
+      // hundred events, once every several seconds). Key shifts (biome changes)
+      // also fold in here, landing cleanly on the downbeat of the new loop.
+      const keyShift = pendingRebuild;
+      pendingRebuild = false;
+      events = buildEvents();
+      if (keyShift) {
         if (echoDelay) echoDelay.delayTime.value = E8 * 1.5;
-      if (echoDelayR) echoDelayR.delayTime.value = E8 * 1.5;
+        if (echoDelayR) echoDelayR.delayTime.value = E8 * 1.5;
       }
     }
   }
@@ -925,6 +998,7 @@ function retuneTo(idx) {
   musicBus.gain.setTargetAtTime(0, a.currentTime, 0.04);
   setTimeout(() => {
     if (!musicActive) return;
+    loopCount = 0;
     events = buildEvents();            // recomputes E8/LOOP_LEN for the new track
     if (echoDelay) echoDelay.delayTime.value = E8 * 1.5;
     if (echoDelayR) echoDelayR.delayTime.value = E8 * 1.5;
@@ -940,6 +1014,7 @@ export const music = {
     if (!a || musicActive) return;
     restoreBuses(a, true);
     musicActive = true;
+    loopCount = 0;
     events = buildEvents();
 
     // Sidechain "pump" bus: the musical layers route through this gain, which
