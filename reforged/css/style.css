@@ -1252,11 +1252,11 @@ body[data-qtier="2"] .speedlines { display: none; }
   animation: hero-bar-in 0.6s var(--ease-out) backwards; animation-delay: 0.15s; }
 .hero-wallet { display: flex; gap: 10px; }
 .hero-topbar .meta-chip { font-size: 13px; padding: 6px 13px;
-  background: rgba(12, 22, 46, 0.62); backdrop-filter: blur(6px); }
+  background: rgba(40, 26, 18, 0.62); border-color: var(--rf-stroke); backdrop-filter: blur(6px); }
 .hero-gear { pointer-events: auto; cursor: pointer; flex: 0 0 auto;
   width: 40px; height: 40px; border-radius: 50%; display: flex; align-items: center;
-  justify-content: center; color: #cfe6ff; background: rgba(18, 32, 62, 0.6);
-  border: 1px solid var(--gold-trim); backdrop-filter: blur(6px);
+  justify-content: center; color: #ffe6c8; background: rgba(40, 26, 18, 0.6);
+  border: 1px solid var(--rf-stroke); backdrop-filter: blur(6px);
   transition: transform var(--t-micro) var(--ease-out), background var(--t-micro); }
 .hero-gear:hover { background: rgba(40, 70, 120, 0.65); transform: rotate(30deg); }
 .hero-gear:active { transform: scale(0.94); }
@@ -1279,7 +1279,7 @@ body[data-qtier="2"] .speedlines { display: none; }
 
 /* The one primary action — large, gold, breathing, with a soft glow halo. */
 .btn-primary.hero-cta { font-size: 19px; letter-spacing: 3px; padding: 17px 52px;
-  border-radius: 16px; display: inline-flex; align-items: center; gap: 10px;
+  border-radius: var(--rf-swept); display: inline-flex; align-items: center; gap: 10px;
   animation: cta-breathe 2.8s ease-in-out infinite, hero-cta-in 0.7s var(--ease-spring) backwards;
   animation-delay: 0s, 0.35s; }
 .hero-cta .cta-glyph { font-size: 14px; transform: translateY(1px); opacity: 0.9; }
@@ -1298,12 +1298,12 @@ body[data-qtier="2"] .speedlines { display: none; }
 .hero-rail-btn { position: relative; pointer-events: auto; cursor: pointer;
   display: flex; flex-direction: column; align-items: center; gap: 5px;
   min-width: 66px; padding: 10px 12px 9px; border-radius: 14px;
-  color: #cfe2f7; font-family: inherit; font-size: 10px; letter-spacing: 1.5px; font-weight: 700;
-  background: rgba(14, 26, 52, 0.55); border: 1px solid rgba(120, 170, 230, 0.28);
+  color: #ffe6c8; font-family: inherit; font-size: 10px; letter-spacing: 1.5px; font-weight: 700;
+  background: rgba(40, 26, 18, 0.55); border: 1px solid var(--rf-stroke);
   backdrop-filter: blur(6px);
   transition: transform var(--t-micro) var(--ease-out), background var(--t-micro), border-color var(--t-micro); }
-.hero-rail-btn svg { width: 20px; height: 20px; }
-.hero-rail-btn:hover { background: rgba(34, 60, 108, 0.7); border-color: rgba(160, 210, 255, 0.5);
+.hero-rail-btn svg { width: 20px; height: 20px; color: #ffd9ac; }
+.hero-rail-btn:hover { background: rgba(70, 44, 24, 0.7); border-color: var(--rf-stroke-hi);
   transform: translateY(-3px); }
 .hero-rail-btn:active { transform: scale(0.95); }
 .hero-rail-btn .badge { top: 5px; right: 9px; }
