@@ -11,6 +11,7 @@ import './dragonCometWake.js';      // 'cometWake' tail (streaming comet glow-tr
 import './dragonCelestialHead.js';  // 'celestialMask' head (regal faceplate)
 import './dragonDraconicHead.js';   // 'draconic' head (modular house-style dragon head)
 import { applyFresnelRim } from './surface.js';
+import { composeSurface, fresnelRimPatch, buildSurfacePatches } from './dragonSurfaceShader.js';
 
 // Unified procedural dragon mesh builder.
 // Both the in-game rig (dragon.js) and the shop turntable (preview.js)
@@ -47,7 +48,15 @@ export function buildDragonModel(def, opts = {}) {
   // Surface detail: an on-brand fresnel rim defines the body's contour from the
   // rear camera so it stops reading as a flat dark mass. Set before the torso
   // clones bodyMat, so the DoubleSide torso + every body sphere/cone inherit it.
-  applyFresnelRim(bodyMat, def.apexSeam || def.eye);
+  // A dragon's blueprint may opt into extra composable patches (cellular scales,
+  // iridescence, subsurface) via `parts.surface.shader` — stacked with the rim
+  // through one program. No blueprint = just the rim (byte-identical to before).
+  const surfaceShaders = def.parts && def.parts.surface && def.parts.surface.shader;
+  if (surfaceShaders && surfaceShaders.length) {
+    composeSurface(bodyMat, [fresnelRimPatch(def.apexSeam || def.eye), ...buildSurfacePatches(surfaceShaders, def)]);
+  } else {
+    applyFresnelRim(bodyMat, def.apexSeam || def.eye);
+  }
   const hornMat = new THREE.MeshStandardMaterial({
     color: def.horn, emissive: 0x6b3400, emissiveIntensity: 0.22, roughness: 0.24,
   });
