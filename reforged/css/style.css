@@ -148,136 +148,92 @@ body.app-loaded > canvas { opacity: 1; }
 .embers-hud { font-size: 13px; letter-spacing: 1px; color: #ffc050; margin-top: 5px;
   text-shadow: 0 0 10px rgba(255,170,50,0.6); }
 
-/* ============ VITALS CLUSTER (low-center, flanking) ============
-   Health + stamina paired below a prominent Surge module, sitting above
-   the thumb line so the boost finger never occludes them on mobile. */
-/* hud-vitals now holds only the Surge module, centred in the lower third */
-.hud-vitals {
-  position: absolute; left: 50%; bottom: clamp(60px, 12vh, 140px);
+/* ============ MINIMAL VITALS (beauty-first) ============
+   Health = quiet hearts (top-left). Stamina = an arc cradling the dragon.
+   Surge = a bare gem row (no label/box) + a quiet multiplier. */
+
+/* These vitals live only during a run — hide them whenever a menu/screen is up */
+#hud:has(#screen.visible) .stamina-arc,
+#hud:has(#screen.visible) .surge-min,
+#hud:has(#screen.visible) .health-hearts { opacity: 0 !important; pointer-events: none; }
+
+/* hud-top-left now stacks the pause button + the hearts */
+.hud-top-left { display: flex; flex-direction: column; gap: 9px; align-items: flex-start; }
+.health-hearts { display: flex; gap: 5px; padding-left: 5px; }
+.health-hearts span { font-size: 15px; line-height: 1; color: rgba(255,160,150,0.22);
+  transition: color 0.2s, filter 0.2s; filter: drop-shadow(0 1px 2px rgba(0,0,0,0.75)); }
+.health-hearts span::before { content: "\2665"; }
+.health-hearts span.full { color: #ff7a6b;
+  filter: drop-shadow(0 1px 3px rgba(0,0,0,0.85)) drop-shadow(0 0 5px rgba(255,90,80,0.45)); }
+
+/* Stamina arc — cradles the dragon, in the gaze, draining along the curve */
+.stamina-arc { position: absolute; left: 50%; top: 63%; transform: translate(-50%,-50%);
+  width: min(66vw, 280px); height: 104px; z-index: 4; pointer-events: none;
+  filter: drop-shadow(0 2px 8px rgba(0,0,0,0.5)); }
+.stamina-arc svg { width: 100%; height: 100%; overflow: visible; }
+.arc-trk { fill: none; stroke: rgba(255,255,255,0.16); stroke-width: 4.5; stroke-linecap: round; }
+.arc-fil { fill: none; stroke: url(#stam-grad); stroke-width: 4.5; stroke-linecap: round;
+  filter: drop-shadow(0 0 6px rgba(60,225,215,0.8)); transition: stroke-dasharray 0.12s linear; }
+.arc-fil.depleted { stroke: #58606e; filter: none; }
+.arc-fil.low { animation: vit-low 0.7s ease-in-out infinite; }
+@keyframes vit-low { 0%,100%{filter:drop-shadow(0 0 6px rgba(60,225,215,0.8))}
+  50%{filter:drop-shadow(0 0 13px rgba(130,255,235,1))} }
+
+/* Surge — a bare gem row + quiet multiplier, centred low */
+.surge-min { position: absolute; left: 50%; bottom: clamp(46px, 9vh, 108px);
   transform: translateX(-50%); z-index: 5; pointer-events: none;
-  display: flex; flex-direction: column; align-items: center; gap: 11px;
-  filter: drop-shadow(0 2px 10px rgba(0,0,0,0.55));
-}
-@media (pointer: coarse) { .hud-vitals { bottom: clamp(74px, 14vh, 170px); } }
-
-/* Vertical vitals gauges hugging the edges, in the mid-third gaze zone.
-   Stamina (left) + health (right) drain downward. Clear of the thumbs. */
-.vit-rail { position: absolute; top: 50%; transform: translateY(-50%); z-index: 5;
-  pointer-events: none; display: flex; flex-direction: column; align-items: center; gap: 7px;
-  height: min(40vh, 320px); filter: drop-shadow(0 2px 8px rgba(0,0,0,0.6)); }
-.vit-rail.left  { left: clamp(8px, 2.5vw, 18px); }
-.vit-rail.right { right: clamp(8px, 2.5vw, 18px); }
-.vit-ico { font-size: 19px; line-height: 1; flex: none;
-  filter: drop-shadow(0 1px 3px rgba(0,0,0,0.85)); }
-.vit-ico.stam { color: #8ff0e4; } .vit-ico.heal { color: #ffb0a4; }
-.vbar { flex: 1; width: 15px; border-radius: 9px; position: relative; overflow: hidden;
-  border: 1.5px solid var(--rf-stroke); background: rgba(14,8,7,0.86);
-  box-shadow: inset 0 0 4px rgba(0,0,0,0.6); }
-.vbar-fill { position: absolute; left: 0; right: 0; bottom: 0; height: 100%;
-  border-radius: 8px; transition: height 0.12s linear; }
-.vbar-fill.stamina { background: linear-gradient(0deg,#2bb6c9,#3fe0d2,#9affe6);
-  box-shadow: 0 0 12px rgba(60,225,215,0.7); }
-.vbar-fill.health  { background: linear-gradient(0deg,#ff5663,#ff9a4d,#ffd24d);
-  box-shadow: 0 0 12px rgba(255,120,60,0.65); }
-.vbar-fill.stamina.depleted { background: #58606e; box-shadow: none; }
-/* low-stamina pulse so the boost-critical gauge shouts when it's running out */
-.vbar-fill.stamina.low { animation: vit-low 0.7s ease-in-out infinite; }
-@keyframes vit-low { 0%,100%{filter:brightness(1)} 50%{filter:brightness(1.7)} }
-
-/* ===== Surge module — swept-wing accent, gem-row progress, ignition ===== */
-.surge-widget { position: relative; display: flex; align-items: center; gap: 12px;
-  padding: 9px 18px 9px 11px; border-radius: var(--rf-swept);
-  background: linear-gradient(115deg, rgba(255,138,60,0.16), rgba(255,77,106,0.14));
-  border: 1px solid rgba(255,170,120,0.42);
-  box-shadow: 0 0 22px rgba(255,120,80,0.22), inset 0 1px 0 rgba(255,235,200,0.12);
-  opacity: 0; transform: translateY(6px) scale(0.96);
-  transition: opacity 0.25s, transform 0.25s; min-height: 56px; }
-.surge-widget.active { opacity: 1; transform: translateY(0) scale(1); }
-/* FEVER = a big deal: deep glow, scale pulse, aura halo, running fire edge */
-.surge-widget.fever { border-color: rgba(255,210,160,0.98);
-  background: linear-gradient(115deg, rgba(255,150,70,0.44), rgba(255,70,100,0.36));
-  animation: surge-breathe 1.5s ease-in-out infinite; }
-@keyframes surge-breathe {
-  0%,100% { transform: scale(1);
-    box-shadow: 0 0 30px rgba(255,110,70,0.6), 0 0 72px rgba(255,90,55,0.28), inset 0 1px 0 rgba(255,245,220,0.25); }
-  50%     { transform: scale(1.025);
-    box-shadow: 0 0 62px rgba(255,150,70,0.98), 0 0 130px rgba(255,110,50,0.5), inset 0 1px 0 rgba(255,250,232,0.3); } }
-/* outer aura halo */
-.surge-widget.fever::before { content:""; position:absolute; inset:-16px; z-index:-1;
-  border-radius: calc(6px + 16px); pointer-events:none;
-  background: radial-gradient(closest-side, rgba(255,140,55,0.5), transparent 76%);
-  animation: surge-aura 1.5s ease-in-out infinite; }
-@keyframes surge-aura { 0%,100%{opacity:.5;transform:scale(.96)} 50%{opacity:1;transform:scale(1.12)} }
-/* sweeping dragonfire edge */
-.surge-widget.fever::after { content:""; position:absolute; inset:0; padding:1.6px;
-  border-radius: var(--rf-swept); pointer-events:none;
-  background: linear-gradient(115deg, transparent 18%, #ffe08a, #ff6a2c, #ff3d6a, transparent 82%);
-  background-size: 250% 100%;
-  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
-  -webkit-mask-composite: xor; mask-composite: exclude;
-  animation: surge-edge 1.3s linear infinite; }
-@keyframes surge-edge { to { background-position: 250% 0; } }
-.surge-widget.fever .surge-x { animation: gem-blaze 0.9s ease-in-out infinite; }
-.surge-widget.fever .surge-timer { animation: gem-blaze 0.9s ease-in-out infinite; }
-/* rising embers (fever only) */
-.surge-fx .ember { position:absolute; bottom:8px; width:4px; height:4px; border-radius:50%;
-  background:#ffd9a0; box-shadow:0 0 7px rgba(255,180,100,0.95); opacity:0; }
-.surge-widget.fever .ember { animation: surge-ember 1.9s ease-in infinite; }
-.surge-fx .ember.e1{left:16%;animation-delay:0s} .surge-fx .ember.e2{left:34%;animation-delay:.5s}
-.surge-fx .ember.e3{left:54%;animation-delay:.95s} .surge-fx .ember.e4{left:72%;animation-delay:1.35s}
-.surge-fx .ember.e5{left:88%;animation-delay:.25s}
-@keyframes surge-ember { 0%{opacity:0;transform:translateY(0) scale(1)} 18%{opacity:1}
-  100%{opacity:0;transform:translateY(-38px) scale(0.35)} }
-
-/* multiplier badge */
-.surge-ring { position: relative; width: 42px; height: 42px; flex: none; display: grid;
-  place-items: center; border-radius: 50%; border: 2px solid rgba(255,190,120,0.55);
-  background: radial-gradient(circle at 50% 40%, rgba(255,140,70,0.22), rgba(20,12,10,0.5)); }
-.surge-widget.fever .surge-ring { border-color: rgba(255,230,170,0.95);
-  box-shadow: 0 0 14px rgba(255,160,80,0.7) inset, 0 0 12px rgba(255,150,80,0.5); }
-.surge-x { font-family: var(--font-display); font-variant-numeric: tabular-nums; font-size: 13px;
-  color: #fff; text-shadow: 0 0 8px rgba(255,150,110,0.95); line-height: 1; }
-.surge-widget[data-tier="2"] .surge-x { color: #ffe6a6; }
-.surge-widget[data-tier="3"] .surge-x { color: #ffc070; }
-.surge-widget[data-tier="4"] .surge-x { color: #ff9a5a; }
-.surge-widget[data-tier="5"] .surge-x { color: #ffd0b0; }
+  display: flex; flex-direction: column; align-items: center; gap: 6px; }
+/* empty gems stay visible (the "rings to go" gauge); multiplier fades in only
+   once you're actually building a combo, so ×1.00 never sits there as noise */
+.surge-x { font-family: var(--font-display); font-variant-numeric: tabular-nums; font-size: 14px;
+  color: #ffd9ac; opacity: 0; transition: opacity 0.25s; letter-spacing: 1px; line-height: 1;
+  text-shadow: 0 0 10px rgba(255,160,70,0.6), 0 1px 3px rgba(0,0,0,0.7); }
+.surge-min.active .surge-x { opacity: 0.92; }
+.surge-min[data-tier="3"] .surge-x { color: #ffc070; }
+.surge-min[data-tier="4"] .surge-x { color: #ff9a5a; }
+.surge-min[data-tier="5"] .surge-x { color: #fff; }
 .surge-x.combo-pop { animation: combo-pop 0.3s var(--ease-out); }
-.surge-text { display: flex; flex-direction: column; gap: 6px; line-height: 1; }
-.surge-title { font-family: var(--font-display); font-size: 14px; letter-spacing: 1.5px;
-  color: #fff; text-shadow: 0 0 12px rgba(255,120,80,0.85), 0 1px 2px rgba(0,0,0,0.6); }
+.surge-min.fever .surge-x { animation: gem-blaze 0.9s ease-in-out infinite; color: #fff; }
 
-/* gem-row progress: pips light as you chain */
-.surge-gems { display: flex; gap: 5px; }
+/* gem row: pips light as you chain (this IS the "rings to go" readout) */
+.surge-gems { display: flex; gap: 6px; }
 .surge-gems i { width: 11px; height: 11px; clip-path: polygon(50% 0,100% 50%,50% 100%,0 50%);
-  background: rgba(255,200,140,0.16); box-shadow: inset 0 0 0 1px rgba(255,200,140,0.25);
+  background: rgba(255,210,150,0.18); box-shadow: inset 0 0 0 1px rgba(255,210,150,0.3);
   transition: background 0.15s, box-shadow 0.15s; }
 .surge-gems i.lit { background: linear-gradient(160deg,#ffe6a6,#ff8a3c);
   box-shadow: 0 0 7px rgba(255,150,80,0.95), 0 0 2px rgba(255,225,160,0.9); }
-.surge-widget.fever .surge-gems i.lit { animation: gem-blaze 1.3s ease-in-out infinite; }
-.surge-widget.fever .surge-gems i:nth-child(2n).lit { animation-delay: 0.25s; }
-@keyframes gem-blaze { 0%,100%{filter:brightness(1)} 50%{filter:brightness(1.5)} }
+.surge-min.fever .surge-gems i.lit { animation: gem-blaze 1.3s ease-in-out infinite; }
+.surge-min.fever .surge-gems i:nth-child(2n).lit { animation-delay: 0.25s; }
+@keyframes gem-blaze { 0%,100%{filter:brightness(1)} 50%{filter:brightness(1.55)} }
 .surge-gems i.gem-pop { animation: gem-pop 0.3s var(--ease-out); }
-@keyframes gem-pop { 0%{transform:scale(1)} 45%{transform:scale(1.55)} 100%{transform:scale(1)} }
+@keyframes gem-pop { 0%{transform:scale(1)} 45%{transform:scale(1.6)} 100%{transform:scale(1)} }
 
-/* fever countdown timer */
-.surge-timer { margin-left: auto; min-width: 0; font-family: var(--font-display);
-  font-variant-numeric: tabular-nums; font-size: 19px; color: #fff;
-  text-shadow: 0 0 12px rgba(255,150,90,0.95); }
-.surge-timer:empty { margin-left: 0; }
+/* fever glow behind the gems (subtle, not a box) */
+.surge-min.fever::before { content:""; position:absolute; left:50%; bottom:-6px;
+  transform:translateX(-50%); width:170px; height:60px; z-index:-1; pointer-events:none;
+  background: radial-gradient(closest-side, rgba(255,140,60,0.4), transparent 74%);
+  animation: surge-aura 1.6s ease-in-out infinite; }
+@keyframes surge-aura { 0%,100%{opacity:.45;transform:translateX(-50%) scale(.95)}
+  50%{opacity:.9;transform:translateX(-50%) scale(1.08)} }
 
-/* ===== IGNITION: flash sweep + shockwave + scale overshoot ===== */
-.surge-fx { position: absolute; inset: 0; pointer-events: none; }
-.surge-fx .flash { position: absolute; inset: 0; border-radius: var(--rf-swept); opacity: 0;
-  background: radial-gradient(120% 100% at 22% 50%, rgba(255,247,214,0.95), rgba(255,180,90,0.25) 52%, transparent 74%); }
-.surge-fx .shock { position: absolute; left: 32px; top: 50%; width: 40px; height: 40px;
-  margin: -20px 0 0 -20px; border-radius: 50%; border: 2px solid rgba(255,210,140,0.9); opacity: 0; }
-.surge-widget.igniting { animation: surge-ignite 0.6s var(--ease-spring) both; }
-.surge-widget.igniting .flash { animation: surge-flash 0.55s ease-out; }
-.surge-widget.igniting .shock { animation: surge-shock 0.6s ease-out; }
-.surge-widget.igniting .shock.s2 { animation-delay: 0.1s; }
-@keyframes surge-ignite { 0%{transform:scale(1)} 32%{transform:scale(1.07)} 62%{transform:scale(0.985)} 100%{transform:scale(1)} }
-@keyframes surge-flash { 0%{opacity:0} 22%{opacity:1} 100%{opacity:0} }
-@keyframes surge-shock { 0%{opacity:0.9;transform:scale(0.4)} 100%{opacity:0;transform:scale(2.8)} }
+/* IGNITION + embers */
+.surge-fx { position: absolute; left:50%; bottom:-8px; transform:translateX(-50%);
+  width:170px; height:64px; pointer-events:none; }
+.surge-fx .flash { position:absolute; inset:0; opacity:0; border-radius:50%;
+  background: radial-gradient(closest-side, rgba(255,247,214,0.92), rgba(255,180,90,0.22) 55%, transparent 75%); }
+.surge-fx .ember { position:absolute; bottom:12px; width:3px; height:3px; border-radius:50%;
+  background:#ffd9a0; box-shadow:0 0 6px rgba(255,180,100,0.9); opacity:0; }
+.surge-min.fever .ember { animation: surge-ember 1.9s ease-in infinite; }
+.surge-fx .ember.e1{left:14%;animation-delay:0s} .surge-fx .ember.e2{left:33%;animation-delay:.5s}
+.surge-fx .ember.e3{left:52%;animation-delay:.95s} .surge-fx .ember.e4{left:71%;animation-delay:1.35s}
+.surge-fx .ember.e5{left:88%;animation-delay:.25s}
+@keyframes surge-ember { 0%{opacity:0;transform:translateY(0) scale(1)} 18%{opacity:1}
+  100%{opacity:0;transform:translateY(-34px) scale(0.35)} }
+.surge-min.igniting { animation: surge-ignite 0.6s var(--ease-spring); }
+.surge-min.igniting .flash { animation: surge-flash 0.55s ease-out; }
+@keyframes surge-ignite { 0%{transform:translateX(-50%) scale(1)} 32%{transform:translateX(-50%) scale(1.14)}
+  100%{transform:translateX(-50%) scale(1)} }
+@keyframes surge-flash { 0%{opacity:0} 25%{opacity:1} 100%{opacity:0} }
 
 /* ============ TARGET RETICLE (nested squares) ============ */
 #reticle { position: absolute; left: 0; top: 0; width: 90px; height: 90px;
@@ -872,19 +828,9 @@ body.app-loaded > canvas { opacity: 1; }
   .hud-top-left  { top: calc(10px + env(safe-area-inset-top, 0px)); left: 10px; }
   .hud-top-center{ top: calc(10px + env(safe-area-inset-top, 0px)); }
   .hud-top-right { top: calc(10px + env(safe-area-inset-top, 0px)); right: 10px; }
-  /* Surge module gap tightens; vertical rails handle the vitals on the edges */
-  .hud-vitals { gap: 8px; }
-  .vit-rail { height: min(44vh, 300px); }
-  .vbar { width: 13px; }
   .score         { font-size: 36px; }
-  .combo                 { font-size: 16px; }
-  .combo[data-tier="1"]  { font-size: 17px; }
-  .combo[data-tier="2"]  { font-size: 19px; }
-  .combo[data-tier="3"]  { font-size: 21px; }
-  .combo[data-tier="4"]  { font-size: 23px; }
-  .combo[data-tier="5"]  { font-size: 24px; }
-  .surge-title   { font-size: 14px; }
-  .surge-x       { font-size: 12px; }
+  .stamina-arc   { top: 64%; width: min(72vw, 270px); }
+  .surge-x       { font-size: 13px; }
   .dist          { font-size: 15px; }
   .best          { font-size: 11px; }
   .embers-hud    { font-size: 14px; }
