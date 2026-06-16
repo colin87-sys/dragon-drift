@@ -41,6 +41,7 @@ import { grantTitle, levelTitleId, grantEarnedLevelTitles } from './titles.js';
 import { selectNextUp } from './recap.js';
 import { initGoldEmbers, addGoldEmber, updateGoldEmbers, resetGoldEmbers } from './goldEmbers.js';
 import { initHints, updateHints } from './hints.js';
+import { initGestureTutorial, updateGestureTutorial } from './gestureTutorial.js';
 import { initPbMarker, updatePbMarker } from './pbMarker.js';
 import { ascendedDef, grandfatherAscension, ascend, ascensionTier, radianceRank, ASCENSION_TIERS } from './ascension.js';
 import { applyFlightmark, buyFlightmark, equipFlightmark, FLIGHTMARKS, migrateFlightmarks } from './flightmarks.js';
@@ -328,6 +329,9 @@ window.addEventListener('pointerdown', (e) => {
   // as "tap to fly" / "tap to resume"
   if (e.target.closest && e.target.closest('button, .skin-card, .daily-card, .seg-btn, .pause-menu, .share-menu, .title-row, input')) return;
   if (game.state === 'paused') {
+    // Tutorial pause: only performing the taught gesture resumes — a blank tap
+    // must not skip the lesson (gestureTutorial.js handles the resume).
+    if (game.pauseReason === 'tutorial') return;
     // Browsing the shop/settings from pause: outside taps go back to the
     // pause overlay instead of resuming mid-shop.
     if (ui.inPauseSubscreen()) ui.showPauseOverlay();
@@ -528,6 +532,10 @@ window.addEventListener('keydown', (e) => {
   // Celebration overlay owns input while visible — Enter/Space dismiss it
   // instead of launching a run underneath.
   if (ui.dismissCelebrate()) return;
+  // During a tutorial pause, the gesture tutorial owns input — keys reach
+  // input.js for gesture detection, but the pause/resume/radio shortcuts here
+  // must not fire (the taught gesture is what resumes play).
+  if (game.pauseReason === 'tutorial') return;
   // Dragon Radio: N cycles stations, [ / ] step back / forward
   if (e.code === 'KeyN' || e.code === 'BracketRight' || e.code === 'BracketLeft') {
     const name = music.nextTrack(e.code === 'BracketLeft' ? -1 : 1);
@@ -587,6 +595,23 @@ function resumeFromPause() {
   ui.hideScreen();
   music.start();
 }
+
+// Tutorial freeze: like a manual pause but with its own reason, no pause menu,
+// and music left running (the run is only briefly held to teach one gesture).
+function pauseForTutorial() {
+  if (game.state !== 'playing') return;
+  game.state = 'paused';
+  game.pauseReason = 'tutorial';
+  game.hitstopTimer = 0;
+  boostWasActive = false;
+}
+function resumeFromTutorial() {
+  if (game.state !== 'paused') return;
+  discardNextDelta = true; // zero the first post-pause frame so there's no dt jump
+  game.pauseReason = '';
+  game.state = 'playing';
+}
+initGestureTutorial({ onPause: pauseForTutorial, onResume: resumeFromTutorial });
 
 document.addEventListener('visibilitychange', () => {
   if (document.hidden) pauseForBackground();
@@ -787,6 +812,10 @@ function tick() {
       }
     }
   }
+
+  // Run-1 gesture tutorial: checks step triggers while playing and gesture
+  // completion while frozen (self-gates; first flight only).
+  updateGestureTutorial(player);
 
   if (game.state !== 'paused') {
     // Cull old set-pieces
