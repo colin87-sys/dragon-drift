@@ -427,7 +427,6 @@ export const ui = {
         <div class="score" id="score">0</div>
         <div class="embers-hud" id="embers-hud"></div>
         <div class="race-bar" id="race-bar"><span class="race-fill" id="race-fill"></span><span class="race-target" id="race-target"></span></div>
-        <div class="combo" id="combo" data-tier="0"><span class="combo-x" id="combo-x">×1.00</span><span class="combo-word">COMBO</span></div>
         <div class="chain" id="chain"><span class="chain-n" id="chain-n">0</span><span class="chain-word">CHAIN</span></div>
         <div class="ff-chip" id="ff-chip"></div>
         <div class="assist-chip" id="assist-chip"></div>
@@ -481,8 +480,6 @@ export const ui = {
       health:       root.querySelector('#health-fill'),
       stamina:      root.querySelector('#stamina-fill'),
       score:        root.querySelector('#score'),
-      combo:        root.querySelector('#combo'),
-      comboX:       root.querySelector('#combo-x'),
       chain:        root.querySelector('#chain'),
       chainN:       root.querySelector('#chain-n'),
       goldFlash:    root.querySelector('#gold-flash'),
@@ -578,10 +575,6 @@ export const ui = {
     const tier = game.feverActive ? 5 : comboTier(game.combo);
     els.score.dataset.tier = tier;
 
-    // Combo: intensity tiers escalate the styling; fever overrides everything
-    els.comboX.textContent = `×${game.combo.toFixed(2)}`;
-    els.combo.dataset.tier = tier;
-
     // Dragon Surge: a row of gem pips fills as you chain rings. Hit the
     // threshold and fever IGNITES (flash + shockwave); all gems then blaze
     // and the timer counts the fever down. (Gem count = feverThreshold,
@@ -613,7 +606,7 @@ export const ui = {
       surgeIgniteTO = setTimeout(() => els.surgeWidget.classList.remove('igniting'), 750);
     }
     wasFever = game.feverActive;
-    if (game.combo > lastCombo + 0.001) restartAnim(els.comboX, 'combo-pop');
+    if (game.combo > lastCombo + 0.001) restartAnim(els.surgeX, 'combo-pop');
     lastCombo = game.combo;
 
     // Chain counter: consecutive rings/windows without a miss. Appears from

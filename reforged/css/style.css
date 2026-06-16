@@ -209,6 +209,7 @@ body.app-loaded > canvas { opacity: 1; }
 .surge-widget[data-tier="3"] .surge-x { color: #ffc070; }
 .surge-widget[data-tier="4"] .surge-x { color: #ff9a5a; }
 .surge-widget[data-tier="5"] .surge-x { color: #ffd0b0; }
+.surge-x.combo-pop { animation: combo-pop 0.3s var(--ease-out); }
 .surge-text { display: flex; flex-direction: column; gap: 6px; line-height: 1; }
 .surge-title { font-family: var(--font-display); font-size: 14px; letter-spacing: 1.5px;
   color: #fff; text-shadow: 0 0 12px rgba(255,120,80,0.85), 0 1px 2px rgba(0,0,0,0.6); }
