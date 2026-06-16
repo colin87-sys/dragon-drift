@@ -220,3 +220,22 @@ shared `formCurve(model, lo, hi)` so every per-form ramp is declared, not hand-c
 **→ Leapfrog:** if form is a single normalized driver, an entire creature can *grow* on
 one parameter — proportions, motion, colour, FX, sound all keyed to it. Ascension becomes
 a felt arc (frail whelp → titan), and new creatures get the whole growth story for free.
+
+### L8 — Differentiation must be WIDE and multi-cue; perfect the hero before migrating
+**Did / learned:** the first per-form scale (strength 0.68→1.0) was too subtle — Hatchling
+and Eternal "felt the same." A *felt* difference needs a **wide gap** AND **multiple
+complementary cues**: widened strength to 0.42→1.0 *and* added speed 1.18→1.0, so a
+Hatchling reads fast-but-feeble (frantic baby) and an Eternal slow-but-powerful (titan).
+One subtle lever is invisible; two opposed cues over a wide range sell it. Process call
+(user): **get ALL the graphical/modeling work perfect on the ONE hero (Obsidian) first,
+THEN write the migration rules** — don't roll half-tuned tech across 16 dragons.
+**→ Systematize:** (1) make a reusable `formCurve(model, lo, hi)` and prefer a *visible*
+range — when a value is felt, default to a bold spread and let tuning pull it back, not
+the reverse. (2) Codify "perfect-the-hero → extract a written migration checklist → roll
+out" as the standard rollout: the hero IS the spec; migration becomes mechanical rule-
+following, not re-derivation. The migration rules themselves become a ledger artifact.
+**→ Leapfrog:** a written "Obsidian → any dragon" migration checklist (which recipe keys
+to set, which model fields, how to pick a flap profile, what to verify) turns roster-wide
+rollout into a near-zero-thought batch — and is the template for migrating *every* future
+system (surface, shingle, deform) hero-first. Perfecting one creature fully then
+mechanizing the spread is the fastest safe path to a whole polished roster.
