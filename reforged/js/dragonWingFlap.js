@@ -59,8 +59,17 @@ export function flapWing(rig, state, dt) {
   w.rotation.x = damp(w.rotation.x, -0.12 + side * feather * 0.16, 10, dt);
 }
 
-// Per-form beat strength from the stamped form index (0..3): Hatchling feels
-// weaker, Eternal full-powered. Shared by the live rig + the shop preview.
+// Per-form wingbeat character from the stamped form index (0..3). The gap is
+// deliberately WIDE so growth is unmistakable: a Hatchling beats fast but feeble
+// (≈0.42 strength, ≈1.18× speed — a frantic baby), an Eternal beats slow but
+// powerful (full strength + whip, ≈1.0× speed — a titan moving real air). Shared
+// by the live rig + the shop preview.
+function formK(model) {
+  return Math.min(model?.formLevel ?? 3, 3) / 3;        // 0 (hatchling) → 1 (eternal)
+}
 export function formStrength(model) {
-  return 0.68 + 0.107 * Math.min(model?.formLevel ?? 3, 3);
+  return 0.42 + 0.58 * formK(model);                    // beat amplitude + whip + fold
+}
+export function formSpeed(model) {
+  return 1.18 - 0.18 * formK(model);                    // young beats quicker, elder slower
 }

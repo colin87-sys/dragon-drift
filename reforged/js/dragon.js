@@ -4,7 +4,7 @@ import { buildDragonModel } from './dragonModel.js';
 import { buildRiderFigure, riderMaterials } from './riderParts.js';
 import { setFeverTint } from './postfx.js';
 import { applyRim, updateRim, resetRim } from './rimLight.js';
-import { flapWing, formStrength } from './dragonWingFlap.js';
+import { flapWing, formStrength, formSpeed } from './dragonWingFlap.js';
 
 // Procedural dragon + rider. Built from a dragon def (dragons.js: palette,
 // model proportions, fx) and a rider def (riders.js: outfit, hair, accessory,
@@ -388,7 +388,7 @@ export function updateDragon(dt, player, time) {
   // Wing flap: 2-segment articulation with speed/turn-driven asymmetry.
   // flapBias gives each dragon its own wingbeat character.
   const feverBoost = player.feverActive ? 1.3 : 1;
-  const flapSpeed = (player.speedActive ? 11 : 6) * feverBoost * activeDef.model.flapBias;
+  const flapSpeed = (player.speedActive ? 11 : 6) * feverBoost * activeDef.model.flapBias * formSpeed(activeDef.model);
   // flapAmp: per-dragon wingbeat size. Premium gliders (Solar) beat smaller so
   // the bowed elbow silhouette stays readable from behind instead of washing
   // out into a flat strip at the extremes of a big flap.

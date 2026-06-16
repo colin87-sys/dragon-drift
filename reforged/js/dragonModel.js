@@ -11,7 +11,7 @@ import './dragonCometWake.js';      // 'cometWake' tail (streaming comet glow-tr
 import './dragonCelestialHead.js';  // 'celestialMask' head (regal faceplate)
 import './dragonDraconicHead.js';   // 'draconic' head (modular house-style dragon head)
 import { applyFresnelRim } from './surface.js';
-import { flapWing, formStrength } from './dragonWingFlap.js';
+import { flapWing, formStrength, formSpeed } from './dragonWingFlap.js';
 import { composeSurface, fresnelRimPatch, buildSurfacePatches } from './dragonSurfaceShader.js';
 
 // Unified procedural dragon mesh builder.
@@ -461,7 +461,7 @@ export function makePreviewTick(def, result) {
     group.rotation.z = Math.sin(t * 0.7) * 0.13;        // lazy bank left/right
     group.rotation.x = -0.05 + Math.sin(t * 1.5 + 1) * 0.03;
     // Wingbeat — same shape as the live rig (root flap + feather pitch).
-    const phase = t * 6.2 * flapBias;
+    const phase = t * 6.2 * flapBias * formSpeed(def.model);
     if (wingRigL) {
       // Skinned wings: the shared animator drives the shoulder→elbow→wrist cascade
       // (dt=1 snaps to target, matching the preview's direct-set style).
