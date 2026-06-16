@@ -205,7 +205,7 @@ export const DRAGONS = {
     // House-style draconic head: the Soft Stealth archetype — rounded wedge skull,
     // short blunt snout, large intelligent catlike eyes, swept-back ear-fins, cyan
     // rear glow. Intelligent, stealthy, fast (NOT regal or spiky).
-    parts: { head: 'draconic' },
+    parts: { head: 'draconic', surface: { shader: ['cellularScales', 'iridescence'] } },
     // STEALTH NIGHT-DRAKE: sleek, near-black with electric-CYAN plasma. A smooth
     // hornless head with ear-frills, a SMOOTH back lit only by a cyan chevron
     // energy line, narrow swept bat-wings (dark membrane, cyan edges — never a
@@ -388,6 +388,7 @@ export const DRAGONS = {
     rarity: 'SSSR',
     maxRarity: 'SSSR',
     cost: 5000,
+    parts: { surface: { shader: ['cellularScales', 'iridescence'] } },
     // A regal ECLIPSE dragon — the dark, cool-toned counterpoint to the Phoenix's
     // white-gold solar fire: a midnight-indigo body, antique-gold crown + spine,
     // dark burnt-crimson wings and blue-violet/cyan eclipse energy. Predatory and
