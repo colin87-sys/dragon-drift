@@ -1249,6 +1249,24 @@ body[data-qtier="2"] .speedlines { display: none; }
 .hero-rail-btn .badge { top: 5px; right: 9px; }
 @keyframes hero-rail-in { from { opacity: 0; transform: translateY(18px); } }
 
+/* WS0 — a newly revealed meta system announces itself: it pops into the rail
+   and wears a NEW pill until the player opens it for the first time. */
+.hero-rail-btn.rail-new { animation: rail-new-in 0.5s var(--ease-out) backwards; animation-delay: 0.5s; }
+@keyframes rail-new-in { from { opacity: 0; transform: translateY(20px) scale(0.82); } }
+.rail-new-pill { position: absolute; top: -7px; right: -7px; z-index: 1;
+  background: linear-gradient(180deg, #ffe27a, #ff9540); color: #14233f;
+  font-size: 8.5px; font-weight: 800; letter-spacing: 0.06em; padding: 1px 5px; border-radius: 8px;
+  box-shadow: 0 0 8px rgba(255, 180, 60, 0.85); pointer-events: none; }
+
+/* WS0 — first-open coachmark line under a meta screen's top bar. */
+.screen-coach { font-size: 13.5px; color: #ffce6a; letter-spacing: 0.3px;
+  margin: 8px auto 4px; max-width: 34ch; line-height: 1.4;
+  text-shadow: 0 0 12px rgba(255, 200, 90, 0.35); }
+
+/* WS0 — cold start: the goal/promise line beneath the controls. */
+.hero-core .hero-goal { font-size: 14px; color: #bfe9ff; opacity: 0.9; margin: 10px 0 0; letter-spacing: 0.3px;
+  animation: hero-fade-in 0.7s var(--ease-out) backwards; animation-delay: 0.5s; }
+
 /* Drifting ember motes behind the hero — GPU-only transform/opacity. */
 .hero-embers { position: absolute; inset: 0; z-index: 1; overflow: hidden; pointer-events: none; }
 .hero-embers span { position: absolute; bottom: -5%; width: var(--sz); height: var(--sz);
@@ -1512,7 +1530,8 @@ body.screen-open .menu-motes { display: block; }
   /* Hero: keep it still — no entrance, no drifting embers, no rotating gear. */
   .screen h1.hero-wordmark, .hero-cta, .hero-topbar, .hero-rail,
   .hero-title-chip, .hero-core .hero-sub, .hero-core .action-key,
-  .hero-core .start-notice, .hero-core .challenge { animation: none; }
+  .hero-core .start-notice, .hero-core .challenge,
+  .hero-rail-btn.rail-new, .hero-core .hero-goal { animation: none; }
   .hero-embers { display: none; }
   .hero-gear:hover { transform: none; }
 }

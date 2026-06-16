@@ -29,7 +29,8 @@ import { DRAGONS } from './dragons.js';
 import { RIDERS } from './riders.js';
 import { dailySeed, recordDailyRun, saveData, persist, grantXp, levelEmberReward, todayUTC, gambitSunsetRefund, freezeSaves } from './save.js';
 import { initEmbers, addEmberLine, updateEmbers, bankEmbers, resetEmbers } from './embers.js';
-import { emit } from './events.js';
+import { emit, on } from './events.js';
+import { initAnalytics } from './analytics.js';
 import { initMissions, settleMissions } from './missions.js';
 import { setAmbientQuality } from './ambient.js';
 import { initRecords, settleRecords } from './records.js';
@@ -71,9 +72,14 @@ const challengeSeed = Number.isFinite(challengeSeedParam) && challengeSeedParam 
   ? challengeSeedParam : null;
 if (urlParams.has('daily')) game.mode = 'daily';
 
+// A brand-new pilot's very first normal run is authored (scripted opening +
+// pinned seed) so the first ~90s is intentional, repeatable and QA-able.
+const isFirstFlight = () => game.mode === 'normal' && saveData.stats.runs === 0;
+
 function seedForRun() {
   if (game.mode === 'daily') return dailySeed();
   if (challengeSeed !== null && game.challengeScore > 0) return challengeSeed;
+  if (isFirstFlight()) return CONFIG.seed; // pinned so run 1 is identical every time
   return (Math.random() * 0x7fffffff) | 0;
 }
 
@@ -109,7 +115,7 @@ initPbMarker(scene);
 // since the first chunk can contain set-pieces.
 const setpieceMeshes = [];
 
-let levelGen = createLevelGen(runSeed);
+let levelGen = createLevelGen(runSeed, { scripted: isFirstFlight() });
 // Gauntlet corridor boundaries queued from level chunks; crossing an end
 // alive = a cleared gauntlet (weekly trials, feats, milestones).
 const pendingGauntletStarts = [];
@@ -174,6 +180,10 @@ initMissions();
 initRecords(); // before initFeats: feats read counters records increments
 initFeats();
 initHints();
+initAnalytics();
+// First-ever Dragon Surge: the signature peak. A non-blocking flourish names the
+// moment mid-flight (the run never pauses); the run-1 recap explains it (recap.js).
+on('firstSurge', () => ui.surgeFlourish());
 ui.init({
   getCard: makeShareCard,
   onRestart: restart,
@@ -334,6 +344,7 @@ window.addEventListener('pointerdown', (e) => {
   // after a grace period so a frantic last-second tap can't skip the screen.
   else if (game.state === 'gameover' && game.deathFreezeTimer <= 0 &&
            performance.now() > gameoverTapArmed && !ui.inSubscreen()) {
+    emit('restartTapped');
     restart();
   }
 });
@@ -431,7 +442,7 @@ function restart() {
   // Cull old set-pieces
   for (const sp of setpieceMeshes) scene.remove(sp.object);
   setpieceMeshes.length = 0;
-  levelGen = createLevelGen(runSeed);
+  levelGen = createLevelGen(runSeed, { scripted: isFirstFlight() });
   spawnAhead();
   cameraCtl.init(camera, player);
   ui.hideScreen();
@@ -469,6 +480,11 @@ function settleRun() {
   const masteryResults = settleMasteryStars((key) => (DRAGONS[key] || { name: key }).name);
   const featResults = settleFeats();                   // 9 feats see everything
   const goldValue = Math.round(game.goldEmbersRun * CONFIG.goldEmberValue * game.mods.gold);
+  // Run-1 recap names the signature peak once (peak-end). recordBests() has
+  // already bumped stats.runs, so the just-finished first run reads as runs===1.
+  const firstSurgeExplain =
+    saveData.stats.runs === 1 && game.surgesRun > 0 && !saveData.flags.celebratedFirstSurge;
+  if (firstSurgeExplain) saveData.flags.celebratedFirstSurge = true;
   game.runSummary = {                                  // 10 the recap reads this
     newRecords,
     missionResults: game.missionResults,
@@ -492,7 +508,9 @@ function settleRun() {
       total: emberTotal,
     },
     nextUp: selectNextUp(),
+    firstSurgeExplain,
   };
+  emit('runSettled', { runs: saveData.stats.runs, score: Math.floor(game.score), dist: Math.floor(game.distance) });
   persist();
   if (game.missionResults.length) setTimeout(() => sfx.missionComplete(), 700);
   if (game.levelUps > 0) setTimeout(() => sfx.levelUp(), 1200);
