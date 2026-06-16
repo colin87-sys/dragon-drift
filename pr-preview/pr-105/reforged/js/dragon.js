@@ -4,7 +4,7 @@ import { buildDragonModel } from './dragonModel.js';
 import { buildRiderFigure, riderMaterials } from './riderParts.js';
 import { setFeverTint } from './postfx.js';
 import { applyRim, updateRim, resetRim } from './rimLight.js';
-import { flapWing } from './dragonWingFlap.js';
+import { flapWing, formStrength } from './dragonWingFlap.js';
 
 // Procedural dragon + rider. Built from a dragon def (dragons.js: palette,
 // model proportions, fx) and a rider def (riders.js: outfit, hair, accessory,
@@ -402,7 +402,7 @@ export function updateDragon(dt, player, time) {
   if (wingRigL) {
     // Skinned wings: the shared animator drives the shoulder→elbow→wrist cascade
     // (lagged whip + anatomical limits). Same flight state, organic motion.
-    const flapState = { phase, flapAmp, turnBias, climbBias, rollFold, feather };
+    const flapState = { phase, flapAmp, turnBias, climbBias, rollFold, feather, strength: formStrength(activeDef.model) };
     flapWing(wingRigL, flapState, dt);
     flapWing(wingRigR, flapState, dt);
   } else {
