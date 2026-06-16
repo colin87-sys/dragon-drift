@@ -1157,9 +1157,11 @@ export const ui = {
           <div class="meta-chip"><span class="ember-ico">${EMBER_ICON}</span> <b>${saveData.embers}</b></div>
           <button class="topbar-close" id="btn-back" title="Back">✕</button>
         </div>
-        <div class="seg-row shop-tabs" style="margin-top:12px">${tabBtn('dragons', `${ICONS.dragon} DRAGONS`)}${tabBtn('riders', `${ICONS.rider} RIDERS`)}${tabBtn('music', `${ICONS.music} MUSIC`)}${tabBtn('style', `${ICONS.style} STYLE`)}</div>
-        ${body}
-        <p class="share-hint" id="shop-hint"></p>`;
+        <div class="shop-scroll">
+          <div class="seg-row shop-tabs" style="margin-top:12px">${tabBtn('dragons', `${ICONS.dragon} DRAGONS`)}${tabBtn('riders', `${ICONS.rider} RIDERS`)}${tabBtn('music', `${ICONS.music} MUSIC`)}${tabBtn('style', `${ICONS.style} STYLE`)}</div>
+          ${body}
+          <p class="share-hint" id="shop-hint"></p>
+        </div>`;
 
     } else if (type === 'settings') {
       const q = saveData.settings.qualityOverride;
@@ -1263,6 +1265,10 @@ export const ui = {
     // the generic per-child stagger is reserved for other dense screens.
     els.screen.classList.remove('stagger');
     els.screen.classList.toggle('hero-screen', type === 'start');
+    // The shop scrolls inside a dedicated container (not the screen itself), so a
+    // tall hero layout can't turn the whole screen into a janky scroll surface
+    // that mis-fires taps as "close" on mobile.
+    els.screen.classList.toggle('scroll-screen', type === 'shop');
     els.screen.classList.toggle('hero-intro', type === 'start' && fresh && !saveData.flags.seenIntro);
     if (fresh) restartAnim(els.screen, 'screen-anim');
     // Title screen → the catchy menu theme (no-ops until audio is unlocked, and
@@ -1287,10 +1293,18 @@ export const ui = {
         console.error('shop preview attach failed', e);
       }
     }
-    // Tapping a blank spot on the shop/settings/pilot screen goes back — the
-    // screen container itself is the only target blank space resolves to.
+    // Tapping a blank spot on the shop/settings/pilot screen goes back — blank
+    // space resolves either to the screen itself or, in the scrollable shop, to
+    // the scroll container's backdrop. A movement guard ensures a *scroll* (drag
+    // that ends on the backdrop) never counts as a back-tap — the iOS bug where
+    // a tiny scroll re-fired a form tap onto the background and closed the shop.
+    let backDownX = 0, backDownY = 0;
+    els.screen.addEventListener('pointerdown', (e) => { backDownX = e.clientX; backDownY = e.clientY; }, true);
     els.screen.onclick = (e) => {
-      if (e.target !== els.screen) return;
+      const onBackdrop = e.target === els.screen ||
+        (e.target.classList && e.target.classList.contains('shop-scroll'));
+      if (!onBackdrop) return;
+      if (Math.hypot(e.clientX - backDownX, e.clientY - backDownY) > 10) return; // a scroll/drag, not a tap
       if (type === 'shop' || type === 'settings' || type === 'pilot' ||
           type === 'quests' || type === 'daily') {
         if (returnScreen === 'pause') ui.showPauseOverlay();
