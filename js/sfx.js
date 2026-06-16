@@ -524,6 +524,9 @@ let biomeSemitones = 0; // biome key shift, applied at loop boundaries
 let drumEnergy = 0;     // 0..1 BPM-driven kit punch / bass thickness
 let pumpAmt = 0;        // sidechain depth: 0 (no pump) .. ~0.42 (hard four-on-floor)
 let loopCount = 0;      // which 8-bar loop we're on — drives fills/crash/humanize variation
+// Per-station "remaster" mix scalars (from each track's optional `mix` object).
+// All default to 1.0 → byte-for-byte the current global sound when `mix` is absent.
+let mixReverb = 1, mixWidth = 1, mixDrive = 1, mixBright = 1;
 
 function seqToEvents(seq, layerKey, voice, freqMult, durMult = 0.85) {
   const out = [];
@@ -547,9 +550,17 @@ function buildEvents() {
   // Punchier kit + thicker bass on the high-energy stations; chill low-BPM
   // tracks stay soft. 100bpm→0 … 174bpm→1, with an optional per-track nudge.
   drumEnergy = Math.max(0, Math.min(1, (tr.bpm - 100) / 74)) * (tr.drums.punch ?? 1);
+  // Per-station mix scalars (the remaster knobs). Neutral (1.0) when `mix` is absent.
+  const mx = tr.mix || {};
+  mixReverb = mx.reverb ?? 1;
+  mixWidth  = mx.width  ?? 1;
+  mixDrive  = mx.drive  ?? 1;
+  mixBright = mx.bright ?? 1;
   // Sidechain pump depth follows the kit: heavy four-on-the-floor stations pump
-  // hard (the genre's signature), chill/acoustic kits barely move.
-  pumpAmt = tr.drums.heavy ? Math.min(0.42, 0.16 + drumEnergy * 0.32) : drumEnergy * 0.07;
+  // hard (the genre's signature), chill/acoustic kits barely move. The per-station
+  // `mix.pump` scales it (capped) so each genre pumps as hard as it should.
+  pumpAmt = (tr.drums.heavy ? Math.min(0.42, 0.16 + drumEnergy * 0.32) : drumEnergy * 0.07) * (mx.pump ?? 1);
+  pumpAmt = Math.min(0.5, pumpAmt);
   const km = Math.pow(2, biomeSemitones / 12); // biome key shift
   const v = tr.voices;
   // Swing: delay the off-beats by a fraction of an eighth on the groove
@@ -906,7 +917,7 @@ function playNoteEvent(ev, absTime) {
     if (type !== 'sine') {
       const lp = a.createBiquadFilter();
       lp.type = 'lowpass';
-      const peak = Math.min(ev.slow ? freq * 4 : freq * 7, 11000);
+      const peak = Math.min((ev.slow ? freq * 4 : freq * 7) * mixBright, 11000);
       const floor = Math.min(ev.slow ? freq * 3 : freq * 3.2, 7000);
       lp.Q.value = ev.slow ? 0.5 : 1.1;
       lp.frequency.setValueAtTime(Math.max(peak, floor + 1), absTime);
@@ -1031,19 +1042,21 @@ export const music = {
     bassDrive = a.createWaveShaper();
     bassDrive.oversample = '2x';
     bassDrive.curve = makeDriveCurve(
-      tr0.voices.bass.osc === 'sawtooth' ? 0.25 + drumEnergy * 0.4 : 0.05);
+      (tr0.voices.bass.osc === 'sawtooth' ? 0.25 + drumEnergy * 0.4 : 0.05) * mixDrive);
     bassDrive.connect(pumpGain);
 
+    // Per-station stereo width scales the base pan positions (clamped to ±1).
+    const pan = (p) => Math.max(-1, Math.min(1, p * mixWidth));
     layers = {
       bass:      makeLayer(bassDrive, 0),
       melody:    makeLayer(pumpGain, 0),
-      high:      makeLayer(pumpGain, 0.32),
-      arp:       makeLayer(pumpGain, -0.28),
+      high:      makeLayer(pumpGain, pan(0.32)),
+      arp:       makeLayer(pumpGain, pan(-0.28)),
       perc:      makeLayer(musicBus, 0),
       perc2:     makeLayer(musicBus, 0),
-      perc3:     makeLayer(musicBus, -0.18),
-      fever:     makeLayer(pumpGain, 0.22),
-      feverlead: makeLayer(pumpGain, -0.2),
+      perc3:     makeLayer(musicBus, pan(-0.18)),
+      fever:     makeLayer(pumpGain, pan(0.22)),
+      feverlead: makeLayer(pumpGain, pan(-0.2)),
       wind:      makeLayer(pumpGain, 0),
       pad:       makeLayer(pumpGain, 0),
     };
@@ -1059,7 +1072,7 @@ export const music = {
       const send = (layer, amt) => {
         if (!layer) return;
         const sg = a.createGain();
-        sg.gain.value = amt;
+        sg.gain.value = amt * mixReverb; // per-station space
         layer.connect(sg).connect(reverbConvolver);
       };
       send(layers.melody, 0.16);
