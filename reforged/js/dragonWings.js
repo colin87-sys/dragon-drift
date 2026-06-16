@@ -100,7 +100,10 @@ function buildMembraneWings(def, model, attach, giM, opts = {}) {
   // where the old single membrane did — the silhouette is unchanged, the motion
   // gains a wrist break.
   const wristXGeo = 3.3 * ws;
-  const seamOv = 0.22 * ws;
+  // Curved panels share one continuous profile + meet at the seam, so they need
+  // only a hair of overlap (vs the flat sheet's 0.22) — less overlap = no janky
+  // doubled membrane at the wrist.
+  const seamOv = (curved ? 0.06 : 0.22) * ws;
   const wristLift = archLift(wristXGeo, maxX, arc, ws);
   function membranePanel(clipMin, clipMax, originX, originY) {
     // Curved path: a smooth (span×chord) grid resampled from the same outline,
@@ -108,12 +111,17 @@ function buildMembraneWings(def, model, attach, giM, opts = {}) {
     // silhouette, no flat-panel facets. (Legacy 'feather'-shaped membranes keep
     // the flat path.)
     if (curved && !featherShape) {
+      const worldMaxX = (wingSpec.tips[0][0] || 5.7) * 1.34 * ws;
+      const spanStart = Math.max(isFinite(clipMin) ? clipMin : 0, 0);
+      const spanEnd = Math.min(isFinite(clipMax) ? clipMax : worldMaxX, worldMaxX);
       const g = buildCurvedPatch(wingSpec, {
         scaleX: 1.34 * ws, scaleZ: model.wingChord ?? 1, arc, k: ws,
         billow: panelBillow, segU: 16, segV: 6,
-        clipMin, clipMax, originX, originY,
+        spanStart, spanEnd, originX, originY,
       });
-      applyWingGradient(g, def, 0, 1);
+      // Gradient by GLOBAL span fraction so the inner/outer panels share one
+      // continuous colour ramp across the seam (no colour break at the wrist).
+      applyWingGradient(g, def, spanStart / worldMaxX, spanEnd / worldMaxX);
       return g;
     }
     const g2 = new THREE.ShapeGeometry(featherShape ? buildFeatherWingShape() : buildWingShape(wingSpec), 14);
