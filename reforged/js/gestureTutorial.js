@@ -134,6 +134,10 @@ export function updateGestureTutorial(player) {
   }
 
   // Playing: pause for the next step once its trigger is met.
+  // Skip any step already taught in a previous (unfinished) run — runs only
+  // increments on a COMPLETED flight, so without this a refresh mid-first-flight
+  // would re-teach from scratch. hintsSeen persists per step (markSeen).
+  while (idx < STEPS.length && (saveData.flags.hintsSeen & HINT_BIT[STEPS[idx].id])) idx++;
   if (game.state !== 'playing' || idx >= STEPS.length) return;
   const step = STEPS[idx];
   if (!step.trigger(player)) return;
