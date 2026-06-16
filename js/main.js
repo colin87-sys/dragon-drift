@@ -18,13 +18,13 @@ import { setDragonQuality } from './dragon.js';
 import { updateCollision, resetCollision, acceptRevive, finishDeath } from './collision.js';
 import { ui } from './ui.js';
 import { music, sfx, setSlowMo, unlockAllTracks } from './sfx.js';
-import { initPostFX, setPostSize, setPostPixelRatio, setPostTier, updatePostFX, renderPostFX, postfx, kick, clearDeath, kickState, setGodRaySun } from './postfx.js';
+import { initPostFX, setPostSize, setPostPixelRatio, setPostTier, updatePostFX, renderPostFX, postfx, kick, clearDeath, kickState } from './postfx.js';
 import { initContactShadow, updateContactShadow, resetContactShadow, setContactShadowQuality } from './contactShadow.js';
 import { hitstop, juiceEvent } from './juice.js';
 import { createWater, setWaterReflective, updateWater } from './water.js';
 import { burst } from './particles.js';
 import { buildSetPiece } from './setpieces.js';
-import { BIOMES, biomeIndexAt, SUN_DIR } from './biomes.js';
+import { BIOMES, biomeIndexAt } from './biomes.js';
 import { DRAGONS } from './dragons.js';
 import { RIDERS } from './riders.js';
 import { dailySeed, recordDailyRun, saveData, persist, grantXp, levelEmberReward, todayUTC, gambitSunsetRefund, freezeSaves } from './save.js';
@@ -579,8 +579,6 @@ window.addEventListener('blur', pauseForBackground);
 const clock = new THREE.Clock();
 let sprayTimer = 0;
 const sprayPos = new THREE.Vector3();
-const _sunProj = new THREE.Vector3();   // sun world pos → screen NDC (god-rays)
-const _camFwd = new THREE.Vector3();     // camera forward, for sun-facing gate
 // Screenshot capture: delayed slightly after death to catch burst particles
 let screenshotPending = false;
 let screenshotTimer = 0;
@@ -789,20 +787,6 @@ function tick() {
     updateEnvironment(dt, camera, t, player.dist, game.feverActive, player.speed);
     updateWater(dt, player.dist, t, scene.fog);
     updateContactShadow(dt, player);
-
-    // God-rays: project the sun onto the screen and gate intensity by how
-    // front-facing it is — when you're not looking toward the sun the pass
-    // disables itself (postfx.js), so it costs nothing off-axis.
-    camera.updateMatrixWorld();
-    camera.getWorldDirection(_camFwd);
-    const sunFacing = _camFwd.dot(SUN_DIR);
-    if (sunFacing > 0.05) {
-      _sunProj.copy(SUN_DIR).add(camera.position).project(camera);
-      setGodRaySun(_sunProj.x * 0.5 + 0.5, _sunProj.y * 0.5 + 0.5,
-        Math.min(sunFacing, 1) * 0.95);
-    } else {
-      setGodRaySun(0.5, 0.85, 0);
-    }
 
     // Skimming the water kicks up spray (throttled, gameplay only).
     if (game.state === 'playing' && player.position.y < 3.6) {
