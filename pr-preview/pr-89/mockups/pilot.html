@@ -8,31 +8,31 @@
 .top h1{font-family:var(--font-d);font-size:26px;letter-spacing:3px;}
 .meta{display:flex;gap:8px;margin-top:10px;flex-wrap:wrap;}
 .lv{display:flex;align-items:center;gap:6px;padding:7px 14px;font-weight:700;font-size:13px;letter-spacing:1px;
-  color:#0c1020;background:var(--energy);clip-path:polygon(7px 0,100% 0,100% calc(100% - 7px),calc(100% - 7px) 100%,0 100%,0 7px);}
+  color:#2a1606;background:var(--energy);border-radius:10px;}
 .lv b{font-family:var(--font-d);}
 
 .tabs{position:absolute;top:108px;left:14px;right:14px;display:flex;gap:8px;}
 .tab{flex:1;text-align:center;padding:10px 0;font-size:11.5px;font-weight:700;letter-spacing:1.5px;color:var(--ink-2);
-  background:rgba(18,28,58,.5);border:1px solid var(--stroke);clip-path:polygon(8px 0,100% 0,calc(100% - 8px) 100%,0 100%);}
-.tab.on{color:#0c1020;background:var(--energy);border-color:transparent;box-shadow:0 0 18px rgba(90,160,255,.4);}
+  background:rgba(40,26,18,.5);border:1px solid var(--stroke);border-radius:11px;}
+.tab.on{color:#2a1606;background:var(--energy);border-color:transparent;box-shadow:0 0 18px rgba(255,150,60,.4);}
 
 .body{position:absolute;top:158px;left:16px;right:16px;bottom:20px;overflow:hidden;}
 .cat{font-size:11px;letter-spacing:4px;font-weight:700;color:var(--ink-3);margin:14px 0 9px;}
 .cat:first-child{margin-top:0;}
 .feat{display:flex;align-items:center;gap:12px;padding:12px;margin-bottom:9px;}
 .feat .mk{width:42px;height:42px;flex:none;display:grid;place-items:center;
-  background:rgba(20,30,62,.7);border:1px solid var(--stroke);
-  clip-path:polygon(8px 0,100% 0,100% calc(100% - 8px),calc(100% - 8px) 100%,0 100%,0 8px);}
+  background:rgba(44,28,18,.7);border:1px solid var(--stroke);border-radius:11px;}
 .feat .mk svg{width:22px;height:22px;color:#caa46a;}
 .feat.got .mk{border-color:rgba(255,200,120,.55);}
 .feat.got .mk svg{color:#ffd292;}
+.feat::after{display:none;}
 .feat .txt{flex:1;}
 .feat .nm{font-weight:700;font-size:14px;letter-spacing:.5px;}
 .feat .ds{font-size:11px;color:var(--ink-2);margin-top:2px;}
 .feat .rw{font-family:var(--font-d);font-size:13px;color:transparent;background:var(--gold);-webkit-background-clip:text;background-clip:text;}
 .feat .rw.done{color:#46d98a;background:none;-webkit-background-clip:initial;}
 .claim{padding:9px 14px;font-size:11px;font-weight:700;letter-spacing:1px;color:#1a1206;background:var(--gold);border:none;
-  clip-path:polygon(7px 0,100% 0,calc(100% - 7px) 100%,0 100%);box-shadow:0 0 16px rgba(255,170,60,.5);position:relative;}
+  border-radius:5px 14px 5px 14px;box-shadow:0 0 16px rgba(255,170,60,.5);position:relative;}
 .feat.lock{opacity:.6;}
 
 /* flight-log style stat tiles to show another archetype on the right edge (peeking) */

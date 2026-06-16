@@ -12,6 +12,7 @@
 #hud{position:absolute;inset:0;font-family:var(--font-ui);}
 .tl{position:absolute;top:16px;left:16px;}
 .pausebtn{width:46px;height:46px;display:grid;place-items:center;color:var(--ink);}
+.pausebtn::after{display:none;}
 .pausebtn svg{width:18px;height:18px;}
 .tc{position:absolute;top:18px;left:50%;transform:translateX(-50%);text-align:center;}
 .tc .dist{font-family:var(--font-d);font-size:15px;letter-spacing:3px;color:#fff;text-shadow:0 2px 8px rgba(0,0,0,.6);}
@@ -37,7 +38,7 @@
 .surge{position:relative;display:flex;align-items:center;gap:12px;padding:9px 20px 9px 12px;
   background:linear-gradient(115deg,rgba(255,77,141,.24),rgba(255,122,44,.22));
   border:1px solid rgba(255,160,120,.6);
-  clip-path:polygon(12px 0,100% 0,calc(100% - 12px) 100%,0 100%);
+  border-radius:6px 20px 6px 20px;
   box-shadow:0 0 30px rgba(255,90,120,.42),inset 0 1px 0 rgba(255,235,200,.16);
   animation:surgeb 2.2s ease-in-out infinite;}
 @keyframes surgeb{0%,100%{box-shadow:0 0 26px rgba(255,90,120,.36),inset 0 1px 0 rgba(255,235,200,.16);}50%{box-shadow:0 0 42px rgba(255,130,70,.62),inset 0 1px 0 rgba(255,240,210,.2);}}
