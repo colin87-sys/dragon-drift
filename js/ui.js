@@ -1322,16 +1322,15 @@ export const ui = {
       }
     }
     // Tapping a blank spot on the shop/settings/pilot screen goes back — blank
-    // space resolves either to the screen itself or, in the scrollable shop, to
-    // the scroll container's backdrop. A movement guard ensures a *scroll* (drag
-    // that ends on the backdrop) never counts as a back-tap — the iOS bug where
-    // a tiny scroll re-fired a form tap onto the background and closed the shop.
+    // Tapping a blank spot goes back. ONLY the true screen backdrop counts —
+    // NOT the shop's scroll container: iOS retargets a tap's synthesized `click`
+    // onto the momentum scroller (`-webkit-overflow-scrolling: touch`), so
+    // including `.shop-scroll` here made every form/dragon tap close the shop.
+    // Hero-select taps are handled on pointerup (below), which doesn't retarget.
     let backDownX = 0, backDownY = 0;
     els.screen.addEventListener('pointerdown', (e) => { backDownX = e.clientX; backDownY = e.clientY; }, true);
     els.screen.onclick = (e) => {
-      const onBackdrop = e.target === els.screen ||
-        (e.target.classList && e.target.classList.contains('shop-scroll'));
-      if (!onBackdrop) return;
+      if (e.target !== els.screen) return;
       if (Math.hypot(e.clientX - backDownX, e.clientY - backDownY) > 10) return; // a scroll/drag, not a tap
       if (type === 'shop' || type === 'settings' || type === 'pilot' ||
           type === 'quests' || type === 'daily') {
@@ -1775,17 +1774,31 @@ function wireScreenButtons(type) {
         stage.classList.remove('rotated');
       };
 
-      // Rail → switch dragon (in place, smooth).
-      for (const thumb of railEl.querySelectorAll('.hero-thumb')) {
-        thumb.onclick = stop(() => {
-          if (thumb.dataset.hero === heroKey) return;
-          heroKey = thumb.dataset.hero;
-          hTier = ownedOf(heroKey) ? getFormPref(heroKey) : maxTierFor(heroKey);
-          refresh();
+      // Rail → switch dragon · Form segments → switch form.
+      // Wired on POINTERUP (not click): inside the shop's momentum scroller iOS
+      // retargets the synthesized `click` to the scroller, so click handlers on
+      // these non-button divs never fire (and the stray click used to close the
+      // shop). Pointer events target the real element. A movement guard rejects
+      // scrolls so a swipe-to-scroll isn't mistaken for a tap.
+      const onTap = (el, handler) => {
+        let dx = 0, dy = 0, moved = false;
+        el.addEventListener('pointerdown', (e) => { dx = e.clientX; dy = e.clientY; moved = false; });
+        el.addEventListener('pointermove', (e) => {
+          if (Math.hypot(e.clientX - dx, e.clientY - dy) > 10) moved = true;
         });
-      }
-      // Form segments → switch form (persist + restat the live model if owned).
-      segEl.onclick = stop((e) => {
+        el.addEventListener('pointerup', (e) => {
+          if (moved || Math.hypot(e.clientX - dx, e.clientY - dy) > 10) return;
+          handler(e);
+        });
+      };
+      onTap(railEl, (e) => {
+        const thumb = e.target.closest('.hero-thumb'); if (!thumb) return;
+        if (thumb.dataset.hero === heroKey) return;
+        heroKey = thumb.dataset.hero;
+        hTier = ownedOf(heroKey) ? getFormPref(heroKey) : maxTierFor(heroKey);
+        refresh();
+      });
+      onTap(segEl, (e) => {
         const seg = e.target.closest('.hero-seg'); if (!seg) return;
         const t = Number(seg.dataset.form);
         if (t === hTier) return;
