@@ -438,8 +438,8 @@ export const ui = {
           <defs><linearGradient id="stam-grad" x1="0" y1="0" x2="1" y2="0">
             <stop offset="0" stop-color="#2bb6c9"/><stop offset="1" stop-color="#9affe6"/>
           </linearGradient></defs>
-          <path class="arc-trk" pathLength="100" d="M 12 8 Q 125 100 238 8"/>
-          <path class="arc-fil" id="stamina-fill" pathLength="100" stroke-dasharray="100 100" d="M 12 8 Q 125 100 238 8"/>
+          <path class="arc-trk" pathLength="100" d="M 22 14 Q 125 74 228 14"/>
+          <path class="arc-fil" id="stamina-fill" pathLength="100" stroke-dasharray="100 100" d="M 22 14 Q 125 74 228 14"/>
         </svg>
       </div>
       <!-- Surge: a bare gem row (no label/box) + a quiet multiplier -->
