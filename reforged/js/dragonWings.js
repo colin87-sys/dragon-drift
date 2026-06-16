@@ -262,6 +262,11 @@ function buildMembraneWings(def, model, attach, giM, opts = {}) {
     for (const j of [Math.round(SEG_V * 0.34), Math.round(SEG_V * 0.7)]) {
       meshes.push(skinnedTube(rowLine(j, wristCol, SEG_U, 6), 0.028, 0.007, veinMat || boneMat, 4));
     }
+    // glowing cyan TRAILING rim — a skinned tube along the back row, so the lit
+    // outline follows the bent membrane instead of rigid ribs poking through it.
+    if (model.wingEdgeGlow && finEdgeMat) {
+      meshes.push(skinnedTube(rowLine(SEG_V, 0, SEG_U, 12), 0.022, 0.013, finEdgeMat, 5));
+    }
     return meshes;
   }
 
@@ -340,9 +345,10 @@ function buildMembraneWings(def, model, attach, giM, opts = {}) {
     wingTip.add(marker);
 
     // Premium cyan TRAILING-EDGE rim (apex): trace tip[i]→tip[i+1] with thin
-    // emissive ribs so the wing reads as a dark membrane with a glowing outline
-    // (never a solid glowing panel). Rides wingTip so it folds at the wrist too.
-    if (model.wingEdgeGlow && finEdgeMat) {
+    // emissive ribs so the wing reads as a dark membrane with a glowing outline.
+    // NON-SKINNED only — skinned wings build the rim as a surface tube (above) so
+    // it follows the bent membrane instead of rigid ribs poking through it.
+    if (!skinned && model.wingEdgeGlow && finEdgeMat) {
       for (let i = 0; i < wingSpec.tips.length - 1; i++) {
         const [ax, ay] = wingSpec.tips[i];
         const [bx, by] = wingSpec.tips[i + 1];
