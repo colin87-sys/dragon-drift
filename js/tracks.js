@@ -1555,4 +1555,110 @@ export const TRACKS = [
       [N.D4, N.Fs4, N.A4], [N.A3, N.Cs4, N.E4], [N.B3, N.D4, N.Fs4], [N.G3, N.B3, N.D4],
     ],
   },
+  { // 33 — "Pyre Ascendant": an ORIGINAL tragic-Phoenix flight anthem. Shares only
+    //   the EMOTIONAL category of a sacred firebird ascension — no melody, motif or
+    //   arrangement is quoted from any existing work. D natural minor with a C#
+    //   harmonic-minor leading tone for the firebird/destiny pull home to D. Loop:
+    //   Dm–Bb–C–A. A slow, heroic horn melody (rise→burn→fall→rebirth) rides over a
+    //   fast wing-beat string ostinato + taiko. Engine layers carry the adaptive
+    //   intensity (bass/melody/pad always; high ostinato on combo; fever lead on Surge).
+    id: 'pyre',
+    name: 'Pyre Ascendant',
+    desc: 'Tragic phoenix ascension — sacred fire',
+    cost: 0,
+    bpm: 160,
+    voices: {
+      melody: { osc: 'triangle', vol: 0.19, stack: 'octave' }, // french-horn-ish, grand + tragic
+      bass:   { osc: 'sawtooth', vol: 0.20 },                  // low strings, dark and ancient
+      high:   { osc: 'sawtooth', vol: 0.12, stack: 'detune' }, // high-string wing-beat ostinato
+      arp:    { osc: 'triangle', vol: 0.08 },                  // harp-like flight figure
+      lead:   { osc: 'sawtooth', vol: 0.12 },                  // brass fever lead (Surge)
+    },
+    drums: { kick: 1.1, snare: 0.85, hat: 0.6, heavy: true, punch: 1.1 },
+    pad: true,
+    // Phoenix motif — rise / burn / fall / rebirth; slow + heroic across the loop.
+    melody: [
+      [N.D4,2],[N.F4,2],[N.A4,2],[N.C5,2],   // rise
+      [N.Bb4,2],[N.A4,2],[N.G4,2],[N.F4,2],  // burn — stepwise fall
+      [N.E4,2],[N.F4,2],[N.G4,2],[N.A4,2],   // re-ascend
+      [N.Cs5,2],[N.A4,2],[N.D5,4],           // C# leading tone → rebirth, held
+      [N.A4,2],[N.D5,2],[N.F5,2],[N.E5,2],   // response, airborne
+      [N.D5,2],[N.C5,2],[N.Bb4,2],[N.A4,2],  // tragic descent
+      [N.G4,2],[N.Bb4,2],[N.D5,2],[N.F5,2],  // fire answering fire
+      [N.E5,2],[N.Cs5,2],[N.D5,4],           // resolve home, held
+    ],
+    bass: pumpBass([N.D3, N.Bb2, N.C3, N.A2, N.D3, N.Bb2, N.C3, N.A2]),
+    // Fast wing-beat ostinato (sounds in at combo — intensity 2+).
+    high: [
+      [N.D5,1],[N.A4,1],[N.D5,1],[N.F5,1],[N.A4,1],[N.F5,1],[N.D5,1],[N.A4,1],
+      [N.Bb4,1],[N.F4,1],[N.Bb4,1],[N.D5,1],[N.F5,1],[N.D5,1],[N.Bb4,1],[N.F4,1],
+      [N.C5,1],[N.G4,1],[N.C5,1],[N.E5,1],[N.G5,1],[N.E5,1],[N.C5,1],[N.G4,1],
+      [N.A4,1],[N.E4,1],[N.A4,1],[N.Cs5,1],[N.E5,1],[N.Cs5,1],[N.A4,1],[N.E4,1],
+      [N.D5,1],[N.A4,1],[N.D5,1],[N.F5,1],[N.A4,1],[N.F5,1],[N.D5,1],[N.A4,1],
+      [N.Bb4,1],[N.F4,1],[N.Bb4,1],[N.D5,1],[N.F5,1],[N.D5,1],[N.Bb4,1],[N.F4,1],
+      [N.C5,1],[N.G4,1],[N.C5,1],[N.E5,1],[N.G5,1],[N.E5,1],[N.C5,1],[N.G4,1],
+      [N.A4,1],[N.E4,1],[N.A4,1],[N.Cs5,1],[N.E5,1],[N.Cs5,1],[N.A4,1],[N.E4,1],
+    ],
+    arps: [
+      [N.D4, N.F4, N.A4, N.D5, N.F5, N.D5, N.A4, N.F4],
+      [N.Bb3, N.D4, N.F4, N.Bb4, N.D5, N.Bb4, N.F4, N.D4],
+      [N.C4, N.E4, N.G4, N.C5, N.E5, N.C5, N.G4, N.E4],
+      [N.A3, N.Cs4, N.E4, N.A4, N.Cs5, N.A4, N.E4, N.Cs4],
+    ],
+    chords: [
+      [N.D4, N.F4, N.A4], [N.Bb3, N.D4, N.F4], [N.C4, N.E4, N.G4], [N.A3, N.Cs4, N.E4],
+      [N.D4, N.F4, N.A4], [N.Bb3, N.D4, N.F4], [N.C4, N.E4, N.G4], [N.A3, N.Cs4, N.E4],
+    ],
+  },
+  { // 34 — "Cinder Requiem": the second, fiercer take on the same Phoenix emotion —
+    //   a driving battle-ascent. ORIGINAL throughout. D minor, climb-progression
+    //   Dm–Bb–Gm–A (the minor subdominant Gm darkens it) with the C# leading tone.
+    //   Brassier saws, octave-leap melody, a galloping high ostinato — built for the
+    //   combo/Surge layers to roar. 160 BPM.
+    id: 'cinder',
+    name: 'Cinder Requiem',
+    desc: 'Phoenix battle-ascent — fire answering fire',
+    cost: 0,
+    bpm: 160,
+    voices: {
+      melody: { osc: 'sawtooth', vol: 0.16, stack: 'detune' }, // heroic brass
+      bass:   { osc: 'sawtooth', vol: 0.20 },
+      high:   { osc: 'sawtooth', vol: 0.12, stack: 'detune' },
+      arp:    { osc: 'sawtooth', vol: 0.10 },
+      lead:   { osc: 'sawtooth', vol: 0.12 },
+    },
+    drums: { kick: 1.25, snare: 1.0, hat: 0.85, heavy: true, punch: 1.2 },
+    pad: true,
+    melody: [
+      [N.D5,2],[N.A4,1],[N.D5,1],[N.F5,2],[N.E5,2],  // octave-leap call
+      [N.D5,2],[N.Bb4,2],[N.F4,2],[N.Bb4,2],         // fall
+      [N.G4,2],[N.D5,2],[N.Bb4,2],[N.G4,2],          // Gm darkening
+      [N.A4,2],[N.E5,2],[N.Cs5,2],[N.A4,2],          // C# tension
+      [N.F5,2],[N.E5,1],[N.D5,1],[N.A4,2],[N.D5,2],  // soaring response
+      [N.Bb4,2],[N.D5,2],[N.F5,3],[N.D5,1],          // burn
+      [N.G5,2],[N.F5,2],[N.D5,2],[N.Bb4,2],          // octave climax
+      [N.A4,2],[N.Cs5,2],[N.D5,4],                   // resolve home
+    ],
+    bass: pumpBass([N.D3, N.Bb2, N.G2, N.A2, N.D3, N.Bb2, N.G2, N.A2]),
+    high: [
+      [N.D5,1],[N.F5,1],[N.A5,1],[N.F5,1],[N.D5,1],[N.F5,1],[N.A5,1],[N.F5,1],
+      [N.D5,1],[N.F5,1],[N.Bb5,1],[N.F5,1],[N.D5,1],[N.F5,1],[N.Bb5,1],[N.F5,1],
+      [N.D5,1],[N.G5,1],[N.Bb5,1],[N.G5,1],[N.D5,1],[N.G5,1],[N.Bb5,1],[N.G5,1],
+      [N.Cs5,1],[N.E5,1],[N.A5,1],[N.E5,1],[N.Cs5,1],[N.E5,1],[N.A5,1],[N.E5,1],
+      [N.D5,1],[N.F5,1],[N.A5,1],[N.F5,1],[N.D5,1],[N.F5,1],[N.A5,1],[N.F5,1],
+      [N.D5,1],[N.F5,1],[N.Bb5,1],[N.F5,1],[N.D5,1],[N.F5,1],[N.Bb5,1],[N.F5,1],
+      [N.D5,1],[N.G5,1],[N.Bb5,1],[N.G5,1],[N.D5,1],[N.G5,1],[N.Bb5,1],[N.G5,1],
+      [N.Cs5,1],[N.E5,1],[N.A5,1],[N.E5,1],[N.Cs5,1],[N.E5,1],[N.A5,1],[N.E5,1],
+    ],
+    arps: [
+      [N.D4, N.F4, N.A4, N.D5, N.F5, N.D5, N.A4, N.F4],
+      [N.Bb3, N.D4, N.F4, N.Bb4, N.D5, N.Bb4, N.F4, N.D4],
+      [N.G3, N.Bb3, N.D4, N.G4, N.Bb4, N.G4, N.D4, N.Bb3],
+      [N.A3, N.Cs4, N.E4, N.A4, N.Cs5, N.A4, N.E4, N.Cs4],
+    ],
+    chords: [
+      [N.D4, N.F4, N.A4], [N.Bb3, N.D4, N.F4], [N.G3, N.Bb3, N.D4], [N.A3, N.Cs4, N.E4],
+      [N.D4, N.F4, N.A4], [N.Bb3, N.D4, N.F4], [N.G3, N.Bb3, N.D4], [N.A3, N.Cs4, N.E4],
+    ],
+  },
 ];

@@ -7,7 +7,7 @@ import { todaysDailyMod, dailyMods } from './daily.js';
 import { createEnvironment, updateEnvironment, resetEnvironment } from './environment.js';
 import { createDragon, updateDragon, resetDragon, rebuildDragon } from './dragon.js';
 import { initReticle, updateReticle } from './reticle.js';
-import { initSplash, showSplash, hideSplash, splashVisible } from './splash.js';
+import { initSplash, showSplash, hideSplash, splashVisible, launchFlash, igniteSplash, splashArmed } from './splash.js';
 import { player, applyDragonStats } from './player.js';
 import { cameraCtl } from './cameraController.js';
 import { initRings, addRing, updateRings, resetRings } from './rings.js';
@@ -270,7 +270,12 @@ if (urlParams.has('dev') || saveData.settings.dev) {
 // genuine first-timer in normal mode sees it; returning pilots, challenge/daily
 // links, and welcome-back/refund notices route to the dashboard hub as before.
 // startGame() clears the splash on every entry path (CTA, tap-anywhere, ENTER).
-initSplash({ onTakeOff: () => startGame('normal') });
+initSplash({
+  onTakeOff: () => startGame('normal'),
+  // First splash interaction: unlock + swell in the intro/title theme (browser
+  // autoplay only permits audio inside a user gesture). The run does NOT start.
+  onIgnite: () => music.startMenuTheme(),
+});
 const firstTimePilot = saveData.stats.runs === 0 && !bootHasNotice &&
   game.mode === 'normal' && !game.challengeScore;
 if (firstTimePilot) {
@@ -373,6 +378,12 @@ function makeShareCard() {
 // --- Game flow ---
 function startGame(mode = 'normal') {
   if (game.state !== 'ready') return;
+  // Premium launch: a quick gold flash burst + whoosh + camera punch masks the
+  // cut from the attract/menu framing into gameplay. No delay — the run starts
+  // underneath the flash, so it reads as accelerating into flight, not a load.
+  launchFlash();
+  sfx.launch();
+  cameraCtl.boostKick();
   // Leave the attract splash on any takeoff path (CTA, tap-anywhere, ENTER).
   hideSplash();
   cameraCtl.setSplash(false);
@@ -515,7 +526,10 @@ window.addEventListener('keydown', (e) => {
     if (!ui.inPauseSubscreen()) resumeFromPause();
   }
   else if (game.state === 'ready'    && (e.code === 'Enter' || e.code === 'Space')) {
-    if (introPlaying) { cameraCtl.skipIntro(); introPlaying = false; }
+    // On the attract splash, the first keypress ignites (wakes audio + reveals
+    // TAKE OFF) rather than launching — matches the first-tap behaviour.
+    if (splashVisible() && !splashArmed()) igniteSplash();
+    else if (introPlaying) { cameraCtl.skipIntro(); introPlaying = false; }
     else startGame();
   }
   else if (game.state === 'gameover' && e.code === 'KeyR') restart();
