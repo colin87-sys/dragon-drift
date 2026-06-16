@@ -55,6 +55,41 @@ function makeTanhCurve() {
   return _tanhCurve;
 }
 
+// Generated reverb impulse: exponentially-decaying stereo noise. A real
+// convolution tail gives the score the sense of air/space a soaring sea-flight
+// wants — no audio files, just synthesized noise shaped by an exp decay. The
+// two channels decorrelate (independent noise) for a wide, natural stereo tail.
+function makeImpulse(a, seconds = 2.6, decay = 2.8) {
+  const len = Math.max(1, Math.floor(a.sampleRate * seconds));
+  const buf = a.createBuffer(2, len, a.sampleRate);
+  for (let ch = 0; ch < 2; ch++) {
+    const d = buf.getChannelData(ch);
+    for (let i = 0; i < len; i++) {
+      const t = i / len;
+      d[i] = (Math.random() * 2 - 1) * Math.pow(1 - t, decay);
+    }
+  }
+  return buf;
+}
+
+// Soft-saturation curve for bass drive: adds harmonics/grit without the harsh
+// fold of a hard clip (a smooth knee that stays bounded to ±1). `amount` 0..~1
+// scales the drive — heavy saw-bass stations want it, sine-bass stations don't.
+let _driveCurves = {};
+function makeDriveCurve(amount = 0.4) {
+  const key = amount.toFixed(2);
+  if (_driveCurves[key]) return _driveCurves[key];
+  const n = 1024;
+  const curve = new Float32Array(n);
+  const k = amount * 8;
+  for (let i = 0; i < n; i++) {
+    const x = (i / (n - 1)) * 2 - 1;
+    curve[i] = (1 + k) * x / (1 + k * Math.abs(x));
+  }
+  _driveCurves[key] = curve;
+  return curve;
+}
+
 function getCtx() {
   try {
     if (!ctx) {
@@ -94,6 +129,16 @@ function getCtx() {
       sfxBus = ctx.createGain();
       sfxBus.gain.value = sfxTarget();
       sfxBus.connect(masterGain);
+      // Reverb send/return: a convolution tail (generated impulse) shared by the
+      // musical layers. The return routes back into the music bus so it inherits
+      // music mute/volume and gets muffled by the slow-mo lowpass like the rest
+      // of the score. Per-layer send levels are set up in music.start().
+      reverbConvolver = ctx.createConvolver();
+      reverbConvolver.buffer = makeImpulse(ctx);
+      reverbReturn = ctx.createGain();
+      reverbReturn.gain.value = 0.9;
+      reverbConvolver.connect(reverbReturn);
+      reverbReturn.connect(musicBus);
     }
     if (ctx.state === 'suspended') ctx.resume();
     return ctx;
@@ -465,6 +510,10 @@ let schedulerTimer = null;
 let windSource = null;
 let echoDelay = null;  // dotted-eighth echo (delay time follows the track BPM)
 let echoDelayR = null; // right tap of the stereo ping-pong echo
+let pumpGain = null;   // sidechain bus: musical layers duck on every kick
+let bassDrive = null;  // soft-saturation waveshaper on the bass layer
+let reverbConvolver = null; // shared convolution reverb (input)
+let reverbReturn = null;    // reverb return gain → music bus
 let pendingRebuild = false; // biome key shift applies at the next loop wrap
 const LOOK_AHEAD = 0.4; // schedule this many seconds ahead
 const SCHED_INTERVAL = 100; // ms between scheduler runs
@@ -472,6 +521,7 @@ const SCHED_INTERVAL = 100; // ms between scheduler runs
 let LOOP_LEN = 64 * E8; // total loop duration in seconds (per track)
 let biomeSemitones = 0; // biome key shift, applied at loop boundaries
 let drumEnergy = 0;     // 0..1 BPM-driven kit punch / bass thickness
+let pumpAmt = 0;        // sidechain depth: 0 (no pump) .. ~0.42 (hard four-on-floor)
 
 function seqToEvents(seq, layerKey, voice, freqMult, durMult = 0.85) {
   const out = [];
@@ -495,6 +545,9 @@ function buildEvents() {
   // Punchier kit + thicker bass on the high-energy stations; chill low-BPM
   // tracks stay soft. 100bpm→0 … 174bpm→1, with an optional per-track nudge.
   drumEnergy = Math.max(0, Math.min(1, (tr.bpm - 100) / 74)) * (tr.drums.punch ?? 1);
+  // Sidechain pump depth follows the kit: heavy four-on-the-floor stations pump
+  // hard (the genre's signature), chill/acoustic kits barely move.
+  pumpAmt = tr.drums.heavy ? Math.min(0.42, 0.16 + drumEnergy * 0.32) : drumEnergy * 0.07;
   const km = Math.pow(2, biomeSemitones / 12); // biome key shift
   const v = tr.voices;
 
@@ -557,12 +610,22 @@ function buildEvents() {
   return all;
 }
 
-function makeLayer() {
+function makeLayer(dest, pan = 0) {
   const a = getCtx();
   if (!a) return null;
   const g = a.createGain();
   g.gain.value = 0;
-  g.connect(musicBus);
+  const target = dest || musicBus;
+  // A fixed stereo position spreads the dry mix (only the echo was stereo
+  // before). Echo/reverb sends tap the gain node `g` upstream of this pan, so
+  // they keep their own width.
+  if (pan && a.createStereoPanner) {
+    const p = a.createStereoPanner();
+    p.pan.value = pan;
+    g.connect(p).connect(target);
+  } else {
+    g.connect(target);
+  }
   return g;
 }
 
@@ -580,6 +643,13 @@ function playNoteEvent(ev, absTime) {
       // stations the kick punches harder (more thwack, a sub thump, a sharper
       // click); chill low-BPM kits (drumEnergy≈0) keep the original soft body.
       const deep = ev.special === 'kick2';
+      // Sidechain pump: duck the musical bus on the main kick, then let it
+      // breathe back up — the pumping "sssh-WAH" the dance stations live on.
+      if (ev.special === 'kick' && pumpGain && pumpAmt > 0.001) {
+        pumpGain.gain.cancelScheduledValues(absTime);
+        pumpGain.gain.setValueAtTime(1 - pumpAmt, absTime);
+        pumpGain.gain.setTargetAtTime(1, absTime + 0.001, 0.07);
+      }
       const punch = 1 + drumEnergy * 0.4;
       const osc = a.createOscillator();
       osc.type = 'sine';
@@ -729,23 +799,70 @@ function playNoteEvent(ev, absTime) {
   // 'octave' = soft sine an octave up (bell shimmer). `slow` = pad swell.
   const att = ev.slow ? ev.durS * 0.35 : 0.008;
   const rel = ev.slow ? ev.durS * 0.3 : Math.min(ev.durS * 0.2, 0.03);
-  const spawn = (freq, vol, detuneCents = 0, type = ev.osc) => {
+
+  // Shared vibrato LFO for sustained lead/melody notes — a slow, delayed pitch
+  // wobble that keeps long held notes from sounding dead-static. Skipped on the
+  // fast eighth-note runs (durS gate) so it never adds overhead in busy passages.
+  let lfoGain = null;
+  if (!ev.slow && ev.durS > 0.24 &&
+      (ev.layer === 'melody' || ev.layer === 'high' || ev.layer === 'feverlead')) {
+    const lfo = a.createOscillator();
+    lfo.type = 'sine';
+    lfo.frequency.value = 5.2;
+    lfoGain = a.createGain();
+    lfoGain.gain.setValueAtTime(0, absTime);
+    lfoGain.gain.linearRampToValueAtTime(7, absTime + Math.min(0.14, ev.durS * 0.5)); // cents
+    lfo.connect(lfoGain);
+    lfo.start(absTime);
+    lfo.stop(absTime + ev.durS + 0.02);
+  }
+
+  const spawn = (freq, vol, detuneCents = 0, type = ev.osc, pan = 0) => {
     const osc = a.createOscillator();
     const g = a.createGain();
     osc.type = type;
     osc.frequency.value = freq;
     if (detuneCents) osc.detune.value = detuneCents;
+    if (lfoGain) lfoGain.connect(osc.detune);
     g.gain.setValueAtTime(0, absTime);
     g.gain.linearRampToValueAtTime(vol, absTime + att);
     g.gain.setValueAtTime(vol, absTime + ev.durS - rel);
     g.gain.exponentialRampToValueAtTime(0.0001, absTime + ev.durS);
-    osc.connect(g).connect(layerGain);
+
+    // Per-voice lowpass with a quick filter envelope: opens bright on the attack,
+    // then settles to a warmer body — the subtractive-synth move that turns a
+    // bare saw/square into a "produced" tone. Pure sines have no harmonics to
+    // shape, so they skip the filter (and the extra node).
+    let head = osc;
+    if (type !== 'sine') {
+      const lp = a.createBiquadFilter();
+      lp.type = 'lowpass';
+      const peak = Math.min(ev.slow ? freq * 4 : freq * 7, 11000);
+      const floor = Math.min(ev.slow ? freq * 3 : freq * 3.2, 7000);
+      lp.Q.value = ev.slow ? 0.5 : 1.1;
+      lp.frequency.setValueAtTime(Math.max(peak, floor + 1), absTime);
+      lp.frequency.exponentialRampToValueAtTime(
+        Math.max(floor, 80), absTime + Math.min(ev.durS, ev.slow ? ev.durS : 0.22));
+      osc.connect(lp);
+      head = lp;
+    }
+
+    if (pan && a.createStereoPanner) {
+      const p = a.createStereoPanner();
+      p.pan.value = pan;
+      head.connect(g).connect(p).connect(layerGain);
+    } else {
+      head.connect(g).connect(layerGain);
+    }
     osc.start(absTime);
     osc.stop(absTime + ev.durS + 0.02);
   };
   if (ev.stack === 'detune') {
-    spawn(ev.freq, ev.vol * 0.6, -6);
-    spawn(ev.freq, ev.vol * 0.6, 6);
+    // Proper supersaw: a detuned pair panned hard L/R for width + a quieter
+    // centre voice for body (was just two ±6¢ voices dead-centre before).
+    spawn(ev.freq, ev.vol * 0.38, -12, ev.osc, -0.45);
+    spawn(ev.freq, ev.vol * 0.38, 12, ev.osc, 0.45);
+    spawn(ev.freq, ev.vol * 0.46, 0);
   } else if (ev.stack === 'octave') {
     spawn(ev.freq, ev.vol);
     spawn(ev.freq * 2, ev.vol * 0.3, 0, 'sine');
@@ -825,24 +942,58 @@ export const music = {
     musicActive = true;
     events = buildEvents();
 
+    // Sidechain "pump" bus: the musical layers route through this gain, which
+    // ducks on every kick — the four-on-the-floor pump that defines the EDM /
+    // house / trance / hardstyle stations. Percussion bypasses it so the kick
+    // itself stays punchy and isn't ducked by its own trigger.
+    pumpGain = a.createGain();
+    pumpGain.gain.value = 1;
+    pumpGain.connect(musicBus);
+
+    // Bass drive: soft saturation for grit/harmonics on the aggressive saw-bass
+    // stations (hardstyle, D&B, big-room); near-transparent for sine-bass kits.
+    const tr0 = TRACKS[trackIndex];
+    bassDrive = a.createWaveShaper();
+    bassDrive.oversample = '2x';
+    bassDrive.curve = makeDriveCurve(
+      tr0.voices.bass.osc === 'sawtooth' ? 0.25 + drumEnergy * 0.4 : 0.05);
+    bassDrive.connect(pumpGain);
+
     layers = {
-      bass:      makeLayer(),
-      melody:    makeLayer(),
-      high:      makeLayer(),
-      arp:       makeLayer(),
-      perc:      makeLayer(),
-      perc2:     makeLayer(),
-      perc3:     makeLayer(),
-      fever:     makeLayer(),
-      feverlead: makeLayer(),
-      wind:      makeLayer(),
-      pad:       makeLayer(),
+      bass:      makeLayer(bassDrive, 0),
+      melody:    makeLayer(pumpGain, 0),
+      high:      makeLayer(pumpGain, 0.32),
+      arp:       makeLayer(pumpGain, -0.28),
+      perc:      makeLayer(musicBus, 0),
+      perc2:     makeLayer(musicBus, 0),
+      perc3:     makeLayer(musicBus, -0.18),
+      fever:     makeLayer(pumpGain, 0.22),
+      feverlead: makeLayer(pumpGain, -0.2),
+      wind:      makeLayer(pumpGain, 0),
+      pad:       makeLayer(pumpGain, 0),
     };
 
     // Permanently-on layers
     layers.bass.gain.value   = 1;
     layers.melody.gain.value = 1;
     layers.pad.gain.value    = 1;
+
+    // Reverb sends: tap each musical layer's gain (so the wet level fades with
+    // the layer and respects mute). Pads/leads sit in more space than bass/arp.
+    if (reverbConvolver) {
+      const send = (layer, amt) => {
+        if (!layer) return;
+        const sg = a.createGain();
+        sg.gain.value = amt;
+        layer.connect(sg).connect(reverbConvolver);
+      };
+      send(layers.melody, 0.16);
+      send(layers.high, 0.26);
+      send(layers.arp, 0.10);
+      send(layers.pad, 0.34);
+      send(layers.fever, 0.20);
+      send(layers.feverlead, 0.22);
+    }
 
     // Stereo ping-pong echo: a dotted-eighth delay that bounces L↔R with
     // filtered cross-feedback — instant width vs the old mono single-tap. Sends
