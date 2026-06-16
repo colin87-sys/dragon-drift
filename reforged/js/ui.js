@@ -418,6 +418,7 @@ export const ui = {
     root.innerHTML = `
       <div class="hud-top-left">
         <button class="mute-btn" id="pause-btn" title="Pause (Esc) — audio &amp; radio live here">${ICONS.pause}</button>
+        <div class="health-hearts" id="health-hearts"><span></span><span></span><span></span><span></span></div>
       </div>
       <div class="hud-top-center">
         <div class="dist" id="dist">0 m</div>
@@ -431,19 +432,22 @@ export const ui = {
         <div class="ff-chip" id="ff-chip"></div>
         <div class="assist-chip" id="assist-chip"></div>
       </div>
-      <div class="hud-vitals" id="hud-vitals">
-        <div class="surge-widget" id="surge-widget" data-tier="0">
-          <div class="surge-fx" id="surge-fx"><span class="flash"></span><span class="shock"></span><span class="shock s2"></span><span class="ember e1"></span><span class="ember e2"></span><span class="ember e3"></span><span class="ember e4"></span><span class="ember e5"></span></div>
-          <div class="surge-ring"><div class="surge-x" id="surge-x">×1.00</div></div>
-          <div class="surge-text">
-            <div class="surge-title">DRAGON SURGE</div>
-            <div class="surge-gems" id="surge-gems"></div>
-          </div>
-          <div class="surge-timer" id="surge-timer"></div>
-        </div>
+      <!-- Stamina: an arc cradling the dragon (beauty-first, near the gaze) -->
+      <div class="stamina-arc" id="stamina-arc">
+        <svg viewBox="0 0 250 92" preserveAspectRatio="none">
+          <defs><linearGradient id="stam-grad" x1="0" y1="0" x2="1" y2="0">
+            <stop offset="0" stop-color="#2bb6c9"/><stop offset="1" stop-color="#9affe6"/>
+          </linearGradient></defs>
+          <path class="arc-trk" pathLength="100" d="M 12 8 Q 125 100 238 8"/>
+          <path class="arc-fil" id="stamina-fill" pathLength="100" stroke-dasharray="100 100" d="M 12 8 Q 125 100 238 8"/>
+        </svg>
       </div>
-      <div class="vit-rail left"><span class="vit-ico stam">⚡</span><div class="vbar"><div class="vbar-fill stamina" id="stamina-fill"></div></div></div>
-      <div class="vit-rail right"><span class="vit-ico heal">♥</span><div class="vbar"><div class="vbar-fill health" id="health-fill"></div></div></div>
+      <!-- Surge: a bare gem row (no label/box) + a quiet multiplier -->
+      <div class="surge-min" id="surge-widget" data-tier="0">
+        <div class="surge-fx" id="surge-fx"><span class="flash"></span><span class="ember e1"></span><span class="ember e2"></span><span class="ember e3"></span><span class="ember e4"></span><span class="ember e5"></span></div>
+        <div class="surge-x" id="surge-x">×1.00</div>
+        <div class="surge-gems" id="surge-gems"></div>
+      </div>
       <div class="milestone-banner" id="milestone-banner"></div>
       <div class="popup" id="popup"></div>
       <div class="popup popup2" id="popup2"></div>
@@ -469,7 +473,6 @@ export const ui = {
     `;
     document.body.appendChild(root);
     els = {
-      health:       root.querySelector('#health-fill'),
       stamina:      root.querySelector('#stamina-fill'),
       score:        root.querySelector('#score'),
       chain:        root.querySelector('#chain'),
@@ -478,8 +481,8 @@ export const ui = {
       surgeWidget:  root.querySelector('#surge-widget'),
       surgeX:       root.querySelector('#surge-x'),
       surgeGems:    root.querySelector('#surge-gems'),
-      surgeTimer:   root.querySelector('#surge-timer'),
       surgeFx:      root.querySelector('#surge-fx'),
+      healthHearts: root.querySelector('#health-hearts'),
       embersHud:    root.querySelector('#embers-hud'),
       ffChip:       root.querySelector('#ff-chip'),
       raceBar:      root.querySelector('#race-bar'),
@@ -540,8 +543,14 @@ export const ui = {
   },
 
   update(player) {
-    els.health.style.height  = `${(game.health / CONFIG.healthMax) * 100}%`;
-    els.stamina.style.height = `${(game.stamina / CONFIG.staminaMax) * 100}%`;
+    // Health = discrete hearts (healthMax 100 / obstacleDamage 25 = 4 hearts)
+    const heartUnit = CONFIG.obstacleDamage; // 25 -> 4 hearts
+    const hearts = els.healthHearts.children;
+    for (let i = 0; i < hearts.length; i++)
+      hearts[i].classList.toggle('full', game.health > i * heartUnit + 0.01);
+    // Stamina = arc fill (stroke length 0..100 via pathLength)
+    const stamPct = (game.stamina / CONFIG.staminaMax) * 100;
+    els.stamina.style.strokeDasharray = `${stamPct} 100`;
     els.stamina.classList.toggle('depleted', game.stamina <= 0.5);
     els.stamina.classList.toggle('low', game.stamina > 0.5 && game.stamina < CONFIG.staminaMax * 0.25);
     const shownScore = Math.floor(game.score);
@@ -589,7 +598,6 @@ export const ui = {
     els.surgeWidget.classList.toggle('fever', game.feverActive);
     els.surgeWidget.classList.toggle('active', game.combo > 1.001 || game.consecutiveRings > 0 || game.feverActive);
     els.surgeX.textContent = `×${game.combo.toFixed(2)}`;
-    els.surgeTimer.textContent = game.feverActive ? `${Math.ceil(game.feverTimer)}s` : '';
     if (game.feverActive && !wasFever) {           // the ignition moment
       els.surgeWidget.classList.remove('igniting');
       void els.surgeWidget.offsetWidth;            // reflow -> restart the one-shot
