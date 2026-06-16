@@ -27,9 +27,11 @@ const ok = (m) => { n++; console.log(`  ✓ ${m}`); };
 const ob = buildDragonModel(ascendedDef(DRAGONS.obsidian, 3, 0), {});
 let skinnedMeshes = 0, boneCounts = new Set();
 ob.group.traverse((o) => { if (o.isSkinnedMesh) { skinnedMeshes++; boneCounts.add(o.skeleton.bones.length); } });
-assert(skinnedMeshes >= 2, `obsidian has skinned wing meshes (found ${skinnedMeshes})`);
-assertEq([...boneCounts].join(','), '2', 'each skinned wing has a 2-bone skeleton (shoulder + wrist)');
-ok('skinnedMembrane builds continuous SkinnedMesh wings on a 2-bone skeleton');
+// Each wing = 1 membrane + surface ribs (leading edge + finger veins), all
+// skinned to the same skeleton → > 2 skinned meshes total. Guards the rib fix.
+assert(skinnedMeshes >= 6, `obsidian has skinned membrane + rib meshes (found ${skinnedMeshes})`);
+assertEq([...boneCounts].join(','), '2', 'every skinned piece shares the 2-bone skeleton (shoulder + wrist)');
+ok('skinnedMembrane builds continuous membrane + surface ribs on one shared skeleton');
 
 assert(ob.parts.wingPivotL?.isBone && ob.parts.wingPivotR?.isBone, 'wingPivot handles are Bones');
 assert(ob.parts.wingTipL?.isBone && ob.parts.wingTipR?.isBone, 'wingTip handles are Bones');
