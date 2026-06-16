@@ -1502,9 +1502,9 @@ export const ui = {
         <div class="pm-footer">
           <span class="pm-wallet"><span class="ember-ico">${EMBER_ICON}</span> <b>${saveData.embers}</b> · LV <b>${saveData.level}</b></span>
           <div class="pm-nav" style="display:flex; gap:8px; flex-wrap:wrap; justify-content:flex-end">
-            <button class="btn-secondary pm-nav-btn" id="pm-pilot">PILOT${badgeHtml(pilotBadgeDue())}</button>
+            ${saveData.stats.runs === 0 ? '' : `<button class="btn-secondary pm-nav-btn" id="pm-pilot">PILOT${badgeHtml(pilotBadgeDue())}</button>`}
             <button class="btn-secondary pm-nav-btn" id="pm-settings">SETTINGS</button>
-            <button class="btn-secondary pm-shop-btn" id="pm-shop">SHOP${badgeHtml(shopBadgeDue())}</button>
+            ${saveData.stats.runs === 0 ? '' : `<button class="btn-secondary pm-shop-btn" id="pm-shop">SHOP${badgeHtml(shopBadgeDue())}</button>`}
           </div>
         </div>
       </div>
@@ -1517,13 +1517,16 @@ export const ui = {
 
     const stop = (fn) => (e) => { e.stopPropagation(); fn(e); };
     els.screen.querySelector('#pm-resume').onclick = stop(() => handlers.onResume && handlers.onResume());
-    els.screen.querySelector('#pm-shop').onclick = stop(() => {
+    // Shop + Pilot are hidden during the first flight (tutorial) — guard wiring.
+    const pmShop = els.screen.querySelector('#pm-shop');
+    if (pmShop) pmShop.onclick = stop(() => {
       returnScreen = 'pause';
       ui.showScreen('shop');
     });
     // Pilot + Settings are now reachable mid-run from the pause menu, not just
     // from the start screen (back routes to the pause overlay via pauseSubscreen).
-    els.screen.querySelector('#pm-pilot').onclick = stop(() => {
+    const pmPilot = els.screen.querySelector('#pm-pilot');
+    if (pmPilot) pmPilot.onclick = stop(() => {
       returnScreen = 'pause';
       ui.showScreen('pilot');
     });
@@ -1801,15 +1804,21 @@ function wireScreenButtons(type) {
       // shop). Pointer events target the real element. A movement guard rejects
       // scrolls so a swipe-to-scroll isn't mistaken for a tap.
       const onTap = (el, handler) => {
-        let dx = 0, dy = 0, moved = false;
+        let dx = 0, dy = 0, moved = false, handledAt = 0;
+        const fire = (e) => { handledAt = Date.now(); handler(e); };
         el.addEventListener('pointerdown', (e) => { dx = e.clientX; dy = e.clientY; moved = false; });
         el.addEventListener('pointermove', (e) => {
           if (Math.hypot(e.clientX - dx, e.clientY - dy) > 10) moved = true;
         });
         el.addEventListener('pointerup', (e) => {
           if (moved || Math.hypot(e.clientX - dx, e.clientY - dy) > 10) return;
-          handler(e);
+          fire(e);
         });
+        // Desktop fallback: a plain click is reliable even if pointerup gets
+        // swallowed. Deduped against the pointerup path; on iOS the synthesized
+        // click can retarget to the scroller, where the handler's closest()
+        // returns null and it harmlessly no-ops.
+        el.addEventListener('click', (e) => { if (Date.now() - handledAt < 400) return; handler(e); });
       };
       onTap(railEl, (e) => {
         const thumb = e.target.closest('.hero-thumb'); if (!thumb) return;
