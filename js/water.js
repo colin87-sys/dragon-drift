@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { Reflector } from '../lib/objects/Reflector.js';
+import { SUN_DIR } from './biomes.js';
 
 // Endless water plane that replaces the snow floor. One GLSL source, two
 // variants: USE_REFLECTION samples a Reflector render target (tier 0); the
@@ -20,7 +21,7 @@ const sharedUniforms = {
   waveAmp: { value: 1.0 },
   deepColor: { value: new THREE.Color(0x0d3a5c) },
   shallowColor: { value: new THREE.Color(0x2e8aa8) },
-  sunDir: { value: new THREE.Vector3(-0.22, 0.1, -1).normalize() },
+  sunDir: { value: SUN_DIR.clone() },
   sunColor: { value: new THREE.Color(0xffb070) },
   horizonColor: { value: new THREE.Color(0xff9a55) },
   zenithColor: { value: new THREE.Color(0x1c2e5e) },
@@ -106,11 +107,30 @@ const fragmentShader = /* glsl */`
     float spec = pow(max(dot(Ns, H), 0.0), 240.0);
     col += sunColor * spec * 2.6;
 
+    // Crest foam: a broken band where the swell peaks. Hashed in world cells
+    // (and time-stepped) so it tears apart instead of reading as a flat cap, and
+    // gated to real peaks so calm biomes (frozen/astral) stay glassy.
+    float crest = smoothstep(0.13 * waveAmp + 0.03, 0.26 * waveAmp + 0.05, h);
+    float foamN = hash(floor(p * 3.0) + floor(time * 1.6));
+    float foam = crest * smoothstep(0.55, 1.0, foamN);
+    col += vec3(0.82, 0.92, 1.0) * foam * 0.4;
+
+    // Fine sun-glitter on the wave faces toward the camera — a sparse, slow
+    // twinkle gated to glancing angles (both water variants; the reflective path
+    // otherwise has no micro-sparkle of its own). Kept rare so it reads as
+    // catch-lights, not noise.
+    float glit = hash(floor(p * 4.0) + floor(time * 3.0));
+    col += sunColor * step(0.9965, glit) * pow(1.0 - NdotV, 1.6) * 1.5;
+
     // Manual fog (matches scene linear fog).
     float dist = length(vWorldPos - cameraPosition);
     col = mix(col, fogColor, smoothstep(fogNear, fogFar, dist));
 
     gl_FragColor = vec4(col, 1.0);
+    // These chunks are render-target aware in r160: the renderer forces
+    // NoToneMapping + linear output when drawing into the composer's HDR target
+    // (so they no-op there and OutputPass owns ACES+sRGB), and apply ACES+sRGB
+    // on the tier-2 direct-to-screen path. One shader, both paths, no double grade.
     #include <tonemapping_fragment>
     #include <colorspace_fragment>
   }`;
@@ -127,10 +147,12 @@ function buildReflective() {
     vertexShader,
     fragmentShader,
   };
+  // Tier 0 is the only reflective tier, so the hero mirror can afford a sharper
+  // render target — 768² keeps reflected props/dragon crisp instead of mushy.
   const mesh = new Reflector(new THREE.PlaneGeometry(SIZE_W, SIZE_L), {
     shader,
-    textureWidth: 512,
-    textureHeight: 512,
+    textureWidth: 768,
+    textureHeight: 768,
     clipBias: 0.02,
     multisample: 0,
   });

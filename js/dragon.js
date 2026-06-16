@@ -3,6 +3,7 @@ import { damp, makeGlowTexture } from './util.js';
 import { buildDragonModel } from './dragonModel.js';
 import { buildRiderFigure, riderMaterials } from './riderParts.js';
 import { setFeverTint } from './postfx.js';
+import { applyRim, updateRim, resetRim } from './rimLight.js';
 
 // Procedural dragon + rider. Built from a dragon def (dragons.js: palette,
 // model proportions, fx) and a rider def (riders.js: outfit, hair, accessory,
@@ -89,6 +90,8 @@ let burstTimer = 0;
 
 const tmpV = new THREE.Vector3();
 const tmpV2 = new THREE.Vector3();
+const _rimCol = new THREE.Color();    // scratch for the per-frame rim hue
+const _rimHi = new THREE.Color();     // scratch for the Surge rim highlight
 let bankZ = 0; // banking component of rotation.z (roll spin stacks on top)
 
 export function createDragon(scene, def, riderDef) {
@@ -107,6 +110,15 @@ export function createDragon(scene, def, riderDef) {
   auraSprite = result.auraSprite;
   coreGlow = result.parts.coreGlow;
   spineMats = result.materials.spineMats || [];
+
+  // Fresnel rim light on the hero's solid surfaces — lifts the silhouette off a
+  // bright sky/water. Additive to outgoing light (independent of the emissive
+  // Surge animation below). Cleared first so a shop rebuild doesn't leak the
+  // old materials' uniform sets into the registry.
+  resetRim();
+  applyRim(bodyMat, { strength: 0.0, power: 3.2 });
+  applyRim(wingMat, { strength: 0.0, power: 2.4 });
+  for (const m of spineMats) applyRim(m, { strength: 0.0, power: 3.0 });
   surgeMix = 0;
   surgeAnimT = 0;
   prevFever = false;
@@ -536,6 +548,17 @@ export function updateDragon(dt, player, time) {
       m.emissiveIntensity = m.userData.baseIntensity ?? 1;
     }
   }
+  // Fresnel rim: a warm edge light in cruise that brightens on boost and flares
+  // toward the per-dragon Surge highlight during a surge. Strength scales with
+  // the adaptive quality factor so the lowest tier softens it. (updateRim is a
+  // no-op until the materials compile — registry fills on first render.)
+  _rimCol.setHex(0xfff0d8);
+  if (surgeMix > 0.002) {
+    _rimHi.setHex(activeDef.surgeHi || 0xff66cc);
+    _rimCol.lerp(_rimHi, Math.min(1, surgeMix * 0.7));
+  }
+  const rimStrength = (0.5 + (player.boosting ? 0.2 : 0) + surgeMix * 0.7) * quality;
+  updateRim(_rimCol, rimStrength);
   // Body "power-up" pulse on the ignition flourish (settles back to scale).
   group.scale.setScalar(activeDef.model.scale * (1 + ignite * 0.05));
   bodyMat.emissiveIntensity = damp(bodyMat.emissiveIntensity, player.feverActive ? 0.35 : 0.12, 4, dt);

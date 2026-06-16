@@ -22,10 +22,50 @@ let feverMix = 0;
 
 const WALL_WINDOW = 900; // prop band: 100 behind the player to 800 ahead
 
+// Subtle procedural surface detail for the prop materials: a world-space value
+// noise that breaks up the flat emissive/diffuse so the big stone/crystal/basalt
+// silhouettes read as weathered rather than plastic — without a single texture.
+// Injected via onBeforeCompile (works with the InstancedMesh bands; instanceMatrix
+// is applied in <project_vertex>, so world position is derived right after it).
+const PROP_NOISE_HEAD = /* glsl */`
+  varying vec3 vPropWPos;
+  float _hash13(vec3 p){ p = fract(p * 0.1031); p += dot(p, p.yzx + 33.33); return fract((p.x + p.y) * p.z); }
+  float _vnoise(vec3 x){
+    vec3 i = floor(x); vec3 f = fract(x); f = f*f*(3.0-2.0*f);
+    float n000=_hash13(i), n100=_hash13(i+vec3(1,0,0)), n010=_hash13(i+vec3(0,1,0)), n110=_hash13(i+vec3(1,1,0));
+    float n001=_hash13(i+vec3(0,0,1)), n101=_hash13(i+vec3(1,0,1)), n011=_hash13(i+vec3(0,1,1)), n111=_hash13(i+vec3(1,1,1));
+    return mix(mix(mix(n000,n100,f.x),mix(n010,n110,f.x),f.y),
+               mix(mix(n001,n101,f.x),mix(n011,n111,f.x),f.y), f.z);
+  }
+  void main() {`;
+
+function addPropDetail(mat) {
+  mat.onBeforeCompile = (shader) => {
+    shader.vertexShader = shader.vertexShader
+      .replace('void main() {', 'varying vec3 vPropWPos;\nvoid main() {')
+      .replace('#include <project_vertex>', `#include <project_vertex>
+        #ifdef USE_INSTANCING
+          vPropWPos = (modelMatrix * instanceMatrix * vec4(transformed, 1.0)).xyz;
+        #else
+          vPropWPos = (modelMatrix * vec4(transformed, 1.0)).xyz;
+        #endif`);
+    shader.fragmentShader = shader.fragmentShader
+      .replace('void main() {', PROP_NOISE_HEAD)
+      .replace('#include <color_fragment>', `#include <color_fragment>
+        float _pn = _vnoise(vPropWPos * 0.5) * 0.6 + _vnoise(vPropWPos * 1.7) * 0.4;
+        diffuseColor.rgb *= 0.86 + 0.26 * _pn;`)
+      .replace('#include <emissivemap_fragment>', `#include <emissivemap_fragment>
+        totalEmissiveRadiance *= 0.78 + 0.44 * _pn;`);
+  };
+  // Own cache bucket so these never share a program with plain standard mats.
+  mat.customProgramCacheKey = () => 'propDetail';
+  return mat;
+}
+
 // --- Shared prop materials (index = biome matIndex) -------------------------
 function makeMats() {
   const opts = { flatShading: true, roughness: 0.7, metalness: 0.05 };
-  return {
+  const mats = {
     // [primary, accent] per biome
     primary: [
       new THREE.MeshStandardMaterial({ ...opts, color: 0x86b39c, emissive: 0x0e2018, emissiveIntensity: 0.25 }),
@@ -44,6 +84,9 @@ function makeMats() {
       new THREE.MeshStandardMaterial({ ...opts, color: 0x9fb8ff, roughness: 0.3, emissive: 0x5a78ff, emissiveIntensity: 1.1 }),  // starlit crystal
     ],
   };
+  for (const m of mats.primary) addPropDetail(m);
+  for (const m of mats.accent) addPropDetail(m);
+  return mats;
 }
 let propMats = null;
 

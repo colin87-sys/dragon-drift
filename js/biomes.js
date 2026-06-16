@@ -15,6 +15,12 @@ import { CONFIG } from './config.js';
 
 const C = (hex) => new THREE.Color(hex);
 
+// Canonical sun direction — a low sun ahead of the player. Shared by the sky
+// shader, the water shader and the god-ray pass so the light shafts streak from
+// exactly where the visible sun disc sits. (Previously duplicated as a literal
+// in water.js + environment.js.)
+export const SUN_DIR = new THREE.Vector3(-0.22, 0.1, -1).normalize();
+
 export const BIOMES = [
   {
     // Dusk sanctuary: deep teal-indigo sky, warm gold compressed to a narrow
