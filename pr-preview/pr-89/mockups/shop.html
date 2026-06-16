@@ -1,0 +1,111 @@
+<!DOCTYPE html><html><head><meta charset="utf-8">
+<link rel="stylesheet" href="base.css">
+<style>
+.sky{position:absolute;inset:0;background:
+  radial-gradient(90% 60% at 50% 8%, rgba(196,107,255,.16), transparent 55%),
+  radial-gradient(70% 50% at 50% 60%, rgba(61,240,255,.12), transparent 60%),
+  linear-gradient(180deg,#070a1c,#0b1026 60%,#0a0d20);}
+.top{position:absolute;top:0;left:0;right:0;height:64px;display:flex;align-items:center;padding:0 16px;gap:12px;
+  background:linear-gradient(180deg,rgba(8,12,28,.92),rgba(8,12,28,0));}
+.top h1{font-family:var(--font-d);font-size:24px;letter-spacing:3px;}
+.top .bal{margin-left:auto;}
+.x{width:40px;height:40px;display:grid;place-items:center;color:var(--ink);}
+.x svg{width:18px;height:18px;}
+
+.tabs{position:absolute;top:64px;left:14px;right:14px;display:flex;gap:8px;}
+.tab{flex:1;text-align:center;padding:11px 0;font-size:12px;font-weight:700;letter-spacing:1.5px;color:var(--ink-2);
+  background:rgba(18,28,58,.5);border:1px solid var(--stroke);
+  clip-path:polygon(8px 0,100% 0,calc(100% - 8px) 100%,0 100%);}
+.tab.on{color:#0c1020;background:var(--energy);border-color:transparent;
+  box-shadow:0 0 20px rgba(90,160,255,.4);}
+
+/* hero stage */
+.stagewrap{position:absolute;top:118px;left:16px;right:16px;height:300px;}
+.pedestal{position:absolute;left:50%;bottom:0;width:230px;height:60px;transform:translateX(-50%);
+  background:radial-gradient(50% 80% at 50% 30%,rgba(120,160,255,.4),transparent 70%);filter:blur(3px);}
+.spot{position:absolute;left:50%;top:-10px;width:240px;height:300px;transform:translateX(-50%);
+  background:radial-gradient(50% 60% at 50% 30%,rgba(150,180,255,.20),transparent 70%);}
+.ring3d{position:absolute;left:50%;bottom:24px;width:200px;height:50px;transform:translateX(-50%);
+  border:2px solid rgba(120,200,255,.5);border-radius:50%;box-shadow:0 0 24px rgba(110,180,255,.4);}
+.dragon3d{position:absolute;left:50%;top:30%;width:280px;transform:translate(-50%,-50%);
+  filter:drop-shadow(0 18px 24px rgba(0,0,0,.5)) drop-shadow(0 0 26px rgba(140,160,255,.35));}
+.gem{position:absolute;right:6px;top:6px;display:flex;align-items:center;gap:6px;padding:5px 12px;font-size:11px;font-weight:700;letter-spacing:1px;
+  color:#fff;background:linear-gradient(115deg,rgba(196,107,255,.5),rgba(110,130,255,.4));border:1px solid rgba(196,150,255,.6);
+  clip-path:polygon(7px 0,100% 0,100% 100%,0 100%);}
+.rothint{position:absolute;left:50%;bottom:2px;transform:translateX(-50%);font-size:10px;letter-spacing:3px;color:var(--ink-3);}
+
+.info{position:absolute;top:418px;left:16px;right:16px;}
+.dname{font-family:var(--font-d);font-size:30px;letter-spacing:1px;
+  background:var(--energy);-webkit-background-clip:text;background-clip:text;color:transparent;}
+.dsub{font-size:12px;letter-spacing:1px;color:var(--ink-2);margin-top:2px;}
+.pips{display:flex;gap:6px;margin:12px 0;}
+.pips i{width:34px;height:5px;background:rgba(120,160,255,.25);clip-path:polygon(4px 0,100% 0,calc(100% - 4px) 100%,0 100%);}
+.pips i.on{background:var(--energy);box-shadow:0 0 8px rgba(110,180,255,.6);}
+.stats{display:flex;flex-direction:column;gap:9px;margin-top:6px;}
+.stat{display:flex;align-items:center;gap:10px;}
+.stat .k{width:74px;font-size:11px;letter-spacing:2px;font-weight:700;color:var(--ink-2);}
+.stat .meter{flex:1;height:9px;}
+.stat .v{width:30px;text-align:right;font-family:var(--font-d);font-size:13px;color:#cfe2ff;}
+.fill-e{background:var(--energy);box-shadow:0 0 8px rgba(110,180,255,.5);}
+
+.buy{position:absolute;left:16px;right:16px;bottom:96px;}
+.buy .btn-primary{width:100%;display:block;text-align:center;}
+
+/* thumbnail rail */
+.thumbs{position:absolute;left:0;right:0;bottom:24px;display:flex;gap:10px;padding:0 16px;overflow:hidden;}
+.th{width:62px;height:62px;flex:none;position:relative;background:rgba(16,24,52,.6);border:1px solid var(--stroke);
+  clip-path:polygon(8px 0,100% 0,100% calc(100% - 8px),calc(100% - 8px) 100%,0 100%,0 8px);display:grid;place-items:center;}
+.th svg{width:46px;height:34px;opacity:.85;}
+.th.on{border-color:var(--e1);box-shadow:0 0 18px rgba(80,180,255,.5);}
+.th .dot{position:absolute;bottom:4px;right:4px;width:8px;height:8px;border-radius:50%;background:#46d98a;box-shadow:0 0 6px #46d98a;}
+.th.lock{opacity:.5;}
+.th .lk{position:absolute;font-size:14px;}
+</style></head>
+<body><div class="stage">
+  <div class="sky"></div>
+  <div class="top">
+    <h1>SHOP</h1>
+    <div class="bal chip"><span class="g num">◆ 24,500</span></div>
+    <div class="panel x" style="clip-path:none;border-radius:50%;width:40px;height:40px"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M6 6l12 12M18 6L6 18"/></svg></div>
+  </div>
+  <div class="tabs">
+    <div class="tab on">DRAGONS</div><div class="tab">RIDERS</div><div class="tab">MUSIC</div><div class="tab">STYLE</div>
+  </div>
+
+  <div class="stagewrap">
+    <div class="spot"></div>
+    <svg class="dragon3d" viewBox="0 0 240 150">
+      <defs><linearGradient id="w1" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#ffd98a"/><stop offset=".5" stop-color="#f0954e"/><stop offset="1" stop-color="#9a3c2e"/></linearGradient>
+      <linearGradient id="b1" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#ffe9b0"/><stop offset="1" stop-color="#c2632e"/></linearGradient></defs>
+      <path d="M120 96 C152 64 204 30 240 6 C212 38 202 60 204 78 C222 66 234 72 240 86 C222 88 208 100 198 112 C176 102 150 104 134 112 Z" fill="url(#w1)"/>
+      <path d="M120 96 C88 64 36 32 0 8 C28 40 38 60 36 80 C18 68 6 74 0 88 C18 90 32 102 42 114 C66 104 92 104 110 112 Z" fill="url(#w1)"/>
+      <path d="M112 76 C124 68 142 70 152 86 C158 100 150 118 132 126 C118 132 98 130 90 116 C82 100 96 84 112 76 Z" fill="url(#b1)"/>
+      <circle cx="140" cy="92" r="3.6" fill="#fff3c0"/>
+    </svg>
+    <div class="ring3d"></div><div class="pedestal"></div>
+    <div class="gem">◆ SSR · RADIANT</div>
+    <div class="rothint">⟲ DRAG TO ROTATE</div>
+  </div>
+
+  <div class="info">
+    <div class="dname">SOLAR SOVEREIGN</div>
+    <div class="dsub">Apex of the ember line · sun-forged scales</div>
+    <div class="pips"><i class="on"></i><i class="on"></i><i class="on"></i><i></i></div>
+    <div class="stats">
+      <div class="stat"><span class="k">SPEED</span><div class="meter"><i class="fill-e" style="width:88%"></i></div><span class="v num">88</span></div>
+      <div class="stat"><span class="k">AGILITY</span><div class="meter"><i class="fill-e" style="width:74%"></i></div><span class="v num">74</span></div>
+      <div class="stat"><span class="k">STAMINA</span><div class="meter"><i class="fill-e" style="width:81%"></i></div><span class="v num">81</span></div>
+    </div>
+  </div>
+
+  <div class="buy"><button class="btn btn-primary breathe">UNLOCK · ◆ 5,000</button></div>
+
+  <div class="thumbs">
+    <div class="th"><svg viewBox="0 0 48 34"><path d="M24 22 C32 14 44 6 48 2 C42 10 42 16 44 20 C40 18 36 22 34 26 C30 22 26 22 24 24 Z M24 22 C16 14 4 6 0 2 C6 10 6 16 4 20 C8 18 12 22 14 26 C18 22 22 22 24 24Z" fill="#5a6ab0"/></svg><span class="dot"></span></div>
+    <div class="th on"><svg viewBox="0 0 48 34"><path d="M24 22 C32 14 44 6 48 2 C42 10 42 16 44 20 C40 18 36 22 34 26 C30 22 26 22 24 24 Z M24 22 C16 14 4 6 0 2 C6 10 6 16 4 20 C8 18 12 22 14 26 C18 22 22 22 24 24Z" fill="#f0954e"/></svg></div>
+    <div class="th"><svg viewBox="0 0 48 34"><path d="M24 22 C32 14 44 6 48 2 C42 10 42 16 44 20 C40 18 36 22 34 26 C30 22 26 22 24 24 Z M24 22 C16 14 4 6 0 2 C6 10 6 16 4 20 C8 18 12 22 14 26 C18 22 22 22 24 24Z" fill="#46c2b0"/></svg><span class="dot"></span></div>
+    <div class="th lock"><svg viewBox="0 0 48 34"><path d="M24 22 C32 14 44 6 48 2 C42 10 42 16 44 20 C40 18 36 22 34 26 C30 22 26 22 24 24 Z M24 22 C16 14 4 6 0 2 C6 10 6 16 4 20 C8 18 12 22 14 26 C18 22 22 22 24 24Z" fill="#7c6bd0"/></svg><span class="lk">🔒</span></div>
+    <div class="th lock"><svg viewBox="0 0 48 34"><path d="M24 22 C32 14 44 6 48 2 C42 10 42 16 44 20 C40 18 36 22 34 26 C30 22 26 22 24 24 Z M24 22 C16 14 4 6 0 2 C6 10 6 16 4 20 C8 18 12 22 14 26 C18 22 22 22 24 24Z" fill="#c46bff"/></svg><span class="lk">🔒</span></div>
+  </div>
+  <div class="tag">Shop · Dragon select</div>
+</div></body></html>
