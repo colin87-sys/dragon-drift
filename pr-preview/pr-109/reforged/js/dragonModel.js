@@ -13,6 +13,7 @@ import './dragonDraconicHead.js';   // 'draconic' head (modular house-style drag
 import { applyFresnelRim } from './surface.js';
 import { flapWing, formStrength, formSpeed } from './dragonWingFlap.js';
 import { composeSurface, fresnelRimPatch, buildSurfacePatches } from './dragonSurfaceShader.js';
+import { setActiveDetail, seg } from './modelDetail.js';
 
 // Unified procedural dragon mesh builder.
 // Both the in-game rig (dragon.js) and the shop turntable (preview.js)
@@ -31,6 +32,11 @@ import { composeSurface, fresnelRimPatch, buildSurfacePatches } from './dragonSu
 // Build the full dragon mesh from a resolved def (post-ascendedDef).
 export function buildDragonModel(def, opts = {}) {
   const model = def.model;
+  // Geometry level-of-detail: an explicit opts.detail pins the segment multiplier
+  // for THIS build (the tricount tool + any preview that wants a fixed level);
+  // otherwise the build inherits the process-wide active level the live rig set
+  // (createDragon → setActiveDetail). HIGH is byte-identical to the old geometry.
+  if (opts.detail) setActiveDetail(opts.detail);
   const group = new THREE.Group();
   // Emissive multiplier (Radiant = 1.0; the apex can exceed 1) shared by every
   // glowing accent so a form's whole light signature ramps from one constant.
@@ -124,7 +130,7 @@ export function buildDragonModel(def, opts = {}) {
       const z = -1.7 + t * 3.4;                 // shoulders → tail root
       const top = attach.keelTopAt(z);          // crest of the keel (incl. torso y)
       const h = 0.16 + g * 0.22;
-      const node = new THREE.Mesh(new THREE.ConeGeometry(0.04 + g * 0.045, h, 4), spineMat);
+      const node = new THREE.Mesh(new THREE.ConeGeometry(0.04 + g * 0.045, h, seg(4)), spineMat);
       node.rotation.x = -Math.PI / 2;
       node.position.set(0, top + h / 2 - 0.04, z);
       group.add(node);
@@ -179,7 +185,7 @@ export function buildDragonModel(def, opts = {}) {
     for (let i = 0; i < 5; i++) {
       const t = (i - 2) / 2;
       const h = 0.95 - Math.abs(t) * 0.32;
-      const blade = new THREE.Mesh(new THREE.ConeGeometry(0.085, h, 4), crestMat);
+      const blade = new THREE.Mesh(new THREE.ConeGeometry(0.085, h, seg(4)), crestMat);
       blade.scale.set(1, 1, 0.38);
       blade.position.set(t * 0.5, 1.0 + h / 2 - Math.abs(t) * 0.14, -0.5);
       blade.rotation.x = -0.62;
@@ -193,7 +199,7 @@ export function buildDragonModel(def, opts = {}) {
   const ridgeStep = Math.min(0.43, 5.2 / ridgeCount);
   for (let i = 0; i < ridgeCount; i++) {
     const ridge = new THREE.Mesh(
-      new THREE.ConeGeometry(0.09 + Math.max(0, 5 - Math.abs(i - 4)) * 0.016, 0.34, 5), scalesMat);
+      new THREE.ConeGeometry(0.09 + Math.max(0, 5 - Math.abs(i - 4)) * 0.016, 0.34, seg(5)), scalesMat);
     ridge.rotation.x = -Math.PI / 2;
     ridge.position.set(0, attach.keelTopAt(-2.55 + i * ridgeStep) + 0.06, -2.55 + i * ridgeStep);
     group.add(ridge);
@@ -203,7 +209,7 @@ export function buildDragonModel(def, opts = {}) {
   if (model.dorsal) {
     for (let i = 0; i < 5; i++) {
       const h = 0.3 + Math.sin((i / 4) * Math.PI) * 0.28;
-      const df = new THREE.Mesh(new THREE.ConeGeometry(0.055, h, 4), scalesMat);
+      const df = new THREE.Mesh(new THREE.ConeGeometry(0.055, h, seg(4)), scalesMat);
       df.rotation.x = -Math.PI / 2;
       const z = -1.6 + i * 0.8;
       df.position.set(0, attach.keelTopAt(z) + h / 2, z);
@@ -219,7 +225,7 @@ export function buildDragonModel(def, opts = {}) {
     });
     for (let i = 0; i < 7; i++) {
       const h = 0.22 + Math.sin((i / 6) * Math.PI) * 0.32;
-      const spine = new THREE.Mesh(new THREE.ConeGeometry(0.045, h, 4), spineMat);
+      const spine = new THREE.Mesh(new THREE.ConeGeometry(0.045, h, seg(4)), spineMat);
       spine.rotation.x = -Math.PI / 2;
       spine.rotation.z = (i % 2 === 0 ? 0.12 : -0.12);
       const z = -0.8 + i * 0.55;
@@ -272,7 +278,7 @@ export function buildDragonModel(def, opts = {}) {
       [0.62, -1.0, -0.55], [-0.62, -1.0, 0.55],
       [0.5, -0.2, -0.65], [-0.5, -0.2, 0.65],
     ]) {
-      const blade = new THREE.Mesh(new THREE.ConeGeometry(0.06, 0.9, 4), bladeMat);
+      const blade = new THREE.Mesh(new THREE.ConeGeometry(0.06, 0.9, seg(4)), bladeMat);
       blade.position.set(sx, 0.35, zp);
       blade.rotation.z = ang;
       blade.rotation.x = -0.15;
