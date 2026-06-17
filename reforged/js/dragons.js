@@ -219,12 +219,11 @@ export const DRAGONS = {
         { count: [0, 0, 0, 8], zRange: [-1.1, -0.4], len: 0.4, wid: 0.26, cup: 0.36, tilt: 0.52, yLift: 0.6, cardRows: 2, edge: true },
       ],
     },
-    // STEALTH NIGHT-DRAKE: sleek, near-black with electric-CYAN plasma. A smooth
-    // hornless head with ear-frills, a SMOOTH back lit only by a cyan chevron
-    // energy line, narrow swept bat-wings (dark membrane, cyan edges — never a
-    // solid glowing panel) and an evolving tail: bare dart → finlet → full fin →
-    // TWIN swept stabilizers. Strictly blue-black + cyan, never purple/regal —
-    // the cool opposite of Sovereign's crimson-gold dragon-lord.
+    // NIGHT FURY: matte jet-black, sleek and cat-like (a Toothless-class night drake).
+    // A smooth hornless head with ear-frills + acid-GREEN eyes, a SMOOTH unlit back,
+    // matte bat-wings, and a slim continuous swept tail ending in TWIN splayed fan-fins.
+    // Plasma blue is held back for the Night-Surge moment ONLY — in cruise it reads
+    // pure black (no cyan chevron lines, no glowing wing seams), never a lit panel.
     //
     // 4-FORM SILHOUETTE PROGRESSION (Radiant = 100% baseline). Every form is
     // authored from named constants so the rear read is unmistakable and the
@@ -275,33 +274,33 @@ export const DRAGONS = {
         wingOpacity: 0.93, wingPanelGlow: 0.10, previewScale: 0.75,
         eyeScale: 1.35, neckSegments: 5,
         colors: { body: 0x0a0d12, wingInner: 0x141c28, wingOuter: 0x0c1118,
-          wingEmissive: 0x2a4a5a, wingMembraneEmissive: 0x10161f, scales: 0x18202c, horn: 0x2a3848,
-          eye: 0x4a8a9a, apexSeam: 0x3a5560, coreGlow: 0x223540 } },
+          wingEmissive: 0x0d1219, wingMembraneEmissive: 0x10161f, scales: 0x18202c, horn: 0x2a3848,
+          eye: 0x6f9a28, apexSeam: 0x161e28, coreGlow: 0x1a2c3c } },
       // ── KINDLED (T1) ── electric-cyan plasma ignites: ear frills, a faint
       // chevron line continuing onto the tail, and the first SPLIT tail-fin
       // identity (two flared finlets + side-fin hints). Drama ≈ 45%.
       { wingForm: 1, tailStyle: 'nightfury', earTendrils: true,
         bodyScale: 0.82, wingSpan: 0.95, wingChord: 0.96, tailLength: 0.90,
-        tailFinScale: 0.62, tailFinSpread: 0, dorsalGlowCount: 6, tailGlowSegs: 3,
+        tailFinScale: 0.62, tailFinSpread: 0, dorsalGlowCount: 0, tailGlowSegs: 0,
         spineGlow: 0.45, glowIntensity: 0.55, particleRate: 0.55,
         wingOpacity: 0.87, wingPanelGlow: 0.12, previewScale: 0.88,
         eyeScale: 1.32,
         colors: { body: 0x0a0d12, wingInner: 0x182334, wingOuter: 0x0e1622,
-          wingEmissive: 0x59d8ff, wingMembraneEmissive: 0x16202e, scales: 0x223044, horn: 0x33506a,
-          eye: 0x59d8ff, apexSeam: 0x59d8ff, coreGlow: 0x4aa3ff } },
+          wingEmissive: 0x0d1219, wingMembraneEmissive: 0x16202e, scales: 0x223044, horn: 0x33506a,
+          eye: 0x96d62a, apexSeam: 0x161e28, coreGlow: 0x1d3548 } },
       // ── RADIANT (T2 · 100% baseline) ── full body, a proper stealth-RUDDER tail
       // (two swept layered fins + central rudder), an 8-chevron body line + 6 tail
       // segments, cyan-edged wings, plasma veins + glow seams. Looks good — but the
       // Eternal must read as obviously beyond it. Drama 70%.
       { wingForm: 2, tailStyle: 'nightfury', earTendrils: true,
         bodyScale: 1.00, wingSpan: 1.00, wingChord: 1.00, tailLength: 1.00,
-        tailFinScale: 1.00, tailFinSpread: 1.00, dorsalGlowCount: 8, tailGlowSegs: 6,
+        tailFinScale: 1.00, tailFinSpread: 1.00, dorsalGlowCount: 0, tailGlowSegs: 0,
         spineGlow: 0.75, glowIntensity: 1.00, particleRate: 1.00,
         wingOpacity: 0.82, wingPanelGlow: 0.14, previewScale: 1.00,
-        wingVeins: true, glowSeams: true, wingEdgeGlow: true,
+        wingVeins: false, glowSeams: false, wingEdgeGlow: false,
         colors: { body: 0x0a0d12, wingInner: 0x182334, wingOuter: 0x0e1828,
-          wingEmissive: 0x59d8ff, wingMembraneEmissive: 0x1a2636, scales: 0x273052, horn: 0x3a5a78,
-          eye: 0x8be9ff, apexSeam: 0x59d8ff, coreGlow: 0x59d8ff } },
+          wingEmissive: 0x0d1219, wingMembraneEmissive: 0x1a2636, scales: 0x273052, horn: 0x3a5a78,
+          eye: 0x96d62a, apexSeam: 0x161e28, coreGlow: 0x1d3548 } },
       // ── ETERNAL (T3 · the apex) ── the dramatic rear-silhouette change: markedly
       // bigger, wider deeper wings with wingtip winglets, an 11-chevron body line
       // flowing into 10 tail segments, subtle hip fins, and the signature apex
@@ -309,17 +308,17 @@ export const DRAGONS = {
       // micro support fins + a tall central rudder on a long stem. Drama 100%.
       { wingForm: 3, tailStyle: 'nightfury', earTendrils: true,
         bodyScale: 1.12, bodyStretch: 1.18, wingSpan: 1.10, wingChord: 1.15, tailLength: 1.06,
-        tailFinScale: 1.08, tailFinSpread: 1.2, dorsalGlowCount: 11, tailGlowSegs: 10,
-        tailRootCollar: true, tailDorsalLink: true,
+        tailFinScale: 1.08, tailFinSpread: 1.2, dorsalGlowCount: 0, tailGlowSegs: 0,
+        tailRootCollar: true, tailDorsalLink: false,
         spineGlow: 1.00, glowIntensity: 1.30, particleRate: 1.80,
         wingOpacity: 0.78, wingPanelGlow: 0.16, previewScale: 1.12,
         surgeGlowMultiplier: 1.3, wingParticleRate: 0.6,
-        wingVeins: true, glowSeams: true, wingEdgeGlow: true,
+        wingVeins: false, glowSeams: false, wingEdgeGlow: false,
         wingtipFins: true, hipFins: true,
         colors: { wingMembraneEmissive: 0x202b3c } },
     ],
-    fx: { auraColor: '89,216,255', auraIdle: 0.0, sparkle: false },
-    previewAccent: 0x59d8ff, // showcase spotlight stays CYAN despite the gold SSSR badge
+    fx: { auraColor: '50,110,140', auraIdle: 0.0, sparkle: false },
+    previewAccent: 0x2e5a6a, // dim plasma-teal showcase spotlight (matte Night Fury reads black)
     // Night Surge: a COOL plasma overdrive — the dark shell stays dark while the
     // wing edges, chevrons, seams and tail rims blaze electric CYAN (never the
     // default hot magenta, which would shatter the stealth identity). hasStyle
@@ -328,10 +327,10 @@ export const DRAGONS = {
     hasStyle: true, surgeMotes: true,
     feverWing: 0x6ad8ff, feverEye: 0xb0f0ff, feverWash: [0.015, 0.05, 0.085],
     body: 0x0a0d12, belly: 0x111827, scales: 0x273052, horn: 0x3a5a78,
-    wingInner: 0x182334, wingOuter: 0x0e1828, wingEmissive: 0x59d8ff,
-    wingMembraneEmissive: 0x1a2636, dorsalHi: 0xb7f7ff,
-    apexEye: 0x8be9ff, apexSeam: 0x59d8ff, coreGlow: 0x4aa3ff, surgeHi: 0xd8f6ff,
-    eye: 0x59d8ff, trail: 0x59d8ff, boostTrail: 0x8be9ff,
+    wingInner: 0x182334, wingOuter: 0x0e1828, wingEmissive: 0x0d1219,
+    wingMembraneEmissive: 0x1a2636, dorsalHi: 0x2c3a44,
+    apexEye: 0xb6e85a, apexSeam: 0x161e28, coreGlow: 0x1d3548, surgeHi: 0x9fd8ff,
+    eye: 0x96d62a, trail: 0x2a5a78, boostTrail: 0x4a90c0,
   },
 
   pearl: {

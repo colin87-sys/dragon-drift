@@ -20,7 +20,7 @@ lessons for the one after. That is the whole studio: we rapidly improve the game
 
 You are a fresh session continuing **Dragon Drift** (the `reforged/` rewrite). Read this
 file top-to-bottom: **this HANDOFF** (where we are) → the **Active roadmap** (the next big
-build) → **THE RULE** + the **lessons ledger L1–L16** (how we work + everything learned so
+build) → **THE RULE** + the **lessons ledger L1–L17** (how we work + everything learned so
 far). Then continue — and **append a lesson after every meaningful change**.
 
 ### Where we are (state of the world)
@@ -681,3 +681,25 @@ show it** (the tail, not the cross-section). Process lesson: a reference-driven 
 → Toothless Night Fury) runs best as SEQUENCED preview-judged passes (tail → colour → wings →
 proportions) — headless tools verify the engineering; only the human judges the look, so ship each pass
 coexisting + reversible.
+
+### L17 — Matte-ifying a dragon: mute emissives + ZERO the glow-geometry counts (colour is data, glow is sometimes geometry)
+**Did / learned:** pass 2 of Obsidian → Toothless — recoloured the cyan stealth-drake to a matte black
+Night Fury (acid-green eyes, blue plasma reserved for the Night-Surge moment). Mostly a pure def-data
+edit (per-form + base `colors`), BUT the "cyan look" was not only colour: the dorsal/tail chevron LINES
+(`dorsalGlowCount`/`tailGlowSegs`) and `wingVeins`/`glowSeams`/`wingEdgeGlow` are GEOMETRY toggles —
+zeroing them removed real meshes (Obsidian Eternal HIGH 4898→4258), so a "recolour" can move the tri
+budget. Kept the procedural surface sheen (`cellularScales`/`iridescence`) so the black reads as scales,
+not a flat silhouette — muting EMISSIVE accents ≠ darkening the base/sheen. Reserved the accent hue for
+the transient state (`surgeHi`/`fever*` stay cool-blue plasma) so cruise reads pure black but Surge
+still flares. Colour lives per-form AND in the base `colors` (forms override base) — edit both.
+**→ Systematize:** a reusable "matte-ify / re-theme" recipe: (1) mute the emissive accent fields
+(`*Emissive`, `apexSeam`, `eye`, `coreGlow`, `dorsalHi`, trails, aura) toward the new hue/near-black;
+(2) ZERO the glow-GEOMETRY counts + flags (chevron counts, vein/seam/edge bools) and **re-check
+`tricount`** — these are meshes, not just colours; (3) KEEP the procedural sheen shaders for form
+definition; (4) reserve the old accent for the transient/surge state. This is the template for any
+reference-driven recolour or a new colourway of an existing dragon.
+**→ Leapfrog (innovate):** with re-theming reduced to a data recipe, ALT COLOURWAYS (skins/variants)
+are near-free — a matte/plasma/frost Obsidian is a `colors` swap + a few flags. Combined with the
+geometry passes (`sweptLoft`/`sweptTail`/wings), an entire creature identity is declarative data over
+shared builders — the L14 "declarative layers over one hull" thesis now extends to PALETTE. Next on the
+Night Fury: the wing reshape (broad rounded bat-wings) + compact cat proportions complete the read.
