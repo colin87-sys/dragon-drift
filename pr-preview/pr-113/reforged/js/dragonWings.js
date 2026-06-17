@@ -470,11 +470,13 @@ function buildMembraneWings(def, model, attach, giM, opts = {}) {
   // the whole rear silhouette flows together.
   if (model.hipFins && finEdgeMat) {
     for (const s of [-1, 1]) {
-      const hip = edgedFin(0.13, 0.42, finMembraneMat, finEdgeMat, 1.2);
-      hip.position.set(s * 0.34, 0.24, 0.95);
-      hip.rotation.x = Math.PI / 2 + 0.2;        // lay back, sweeping toward the tail
-      hip.rotation.z = s * 0.7;                  // splay outward and down
-      hip.rotation.y = s * 0.2;
+      // Rear STABILIZER fins near the hips/tail-base (behind the main wings): dark,
+      // nearly flat, swept with the flight line — control surfaces, not side flippers.
+      const hip = edgedFin(0.16, 0.52, finMembraneMat, finEdgeMat, 1.1);
+      hip.position.set(s * 0.32, 0.16, 1.25);
+      hip.rotation.x = Math.PI / 2 + 0.1;        // lay nearly flat, swept toward the tail
+      hip.rotation.z = s * 0.5;                  // gentle outward splay
+      hip.rotation.y = s * 0.15;
       group.add(hip);
     }
   }

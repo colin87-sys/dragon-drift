@@ -108,6 +108,15 @@ function buildTorso(profile, def, model, bodyMat, geoFn = buildTorsoGeometry) {
   const group = new THREE.Group();
   const stretch = model.bodyStretch ?? 1;
 
+  // Broaden the SHOULDER region (additive, default = unchanged) so the wing roots
+  // feel anatomically supported. Scales only the shoulder-zone station half-widths
+  // and flows through the loft + attach.halfWidthAt; other dragons stay byte-identical.
+  const shoulderW = model.shoulderWidthScale ?? 1;
+  if (shoulderW !== 1) {
+    profile = { ...profile, stations: profile.stations.map(([z, w, t, b]) =>
+      [z, (z >= -1.7 && z <= 0.0) ? w * shoulderW : w, t, b]) };
+  }
+
   const torsoMat = bodyMat.clone();
   torsoMat.side = THREE.DoubleSide;
   const torso = new THREE.Mesh(geoFn(profile, stretch), torsoMat);
@@ -142,7 +151,7 @@ function buildTorso(profile, def, model, bodyMat, geoFn = buildTorsoGeometry) {
   const tailShift = (profile.tailShiftRefZ - profile.zHold) * (stretch - 1);
 
   const attach = {
-    wingRoot: (side) => ({ x: wr.x * side, y: wr.y, z: wr.z }),
+    wingRoot: (side) => ({ x: wr.x * side, y: wr.y + (model.wingRootOffset?.y ?? 0), z: wr.z + (model.wingRootOffset?.z ?? 0) }),
     headBase: hb,
     tailAnchor: { y: profile.tailAnchorY, z: profile.tailAnchorZ + tailShift },
     keelTopAt: (z) => TORSO_Y + keelTopFor(profile, z),
