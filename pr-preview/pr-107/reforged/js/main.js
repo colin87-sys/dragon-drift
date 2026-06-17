@@ -194,6 +194,11 @@ ui.init({
     rebuildDragon(equippedDragon(), equippedRider(), player);
     applyDragonStats(equippedDragon());
   },
+  // Shop browse: park ANY dragon (the one being inspected, at its form/tier) in the
+  // live menu scene so it's shown organically in the biome — no preview box. Does NOT
+  // persist the equip; leaving the shop restores the equipped dragon.
+  onPreviewDragon: (def) => rebuildDragon(def, equippedRider(), player),
+  onRestoreMenuDragon: () => rebuildDragon(equippedDragon(), equippedRider(), player),
   onEquipRider: () => rebuildDragon(equippedDragon(), equippedRider(), player),
   onAscend: (key) => {
     const def = DRAGONS[key] || DRAGONS.azure;
@@ -834,13 +839,12 @@ function tick() {
     cameraCtl.update(dt, player, game.state === 'ready');
     if (introPlaying && !cameraCtl.introPlaying) introPlaying = false;
     updateReticle(player, game.state === 'playing');
-    // In a MENU subscreen (shop / pilot / etc. — NOT the start screen) the live world
-    // is the backdrop, so park it in ASTRAL SHALLOWS (the dark cosmos biome: violet
-    // sky, pale moon, stars, aurora, reflective water) by feeding the environment a
-    // distance mid-way through biome 5 (5.5 × biomeLength). The start screen and
-    // gameplay keep their real biome (player.dist).
-    const inMenu = game.state === 'ready' && ui.inSubscreen();
-    const envDist = inMenu ? CONFIG.biomeLength * 5.5 : player.dist;
+    // In the SHOP the live world is the backdrop, so park it in ASTRAL SHALLOWS (the
+    // dark cosmos biome: violet sky, pale moon, stars, aurora, reflective water) by
+    // feeding the environment a distance mid-way through biome 5 (5.5 × biomeLength).
+    // The start screen and gameplay keep their real biome (player.dist).
+    const inShopMenu = game.state === 'ready' && ui.atShop();
+    const envDist = inShopMenu ? CONFIG.biomeLength * 5.5 : player.dist;
     updateEnvironment(dt, camera, t, envDist, game.feverActive, player.speed);
     updateWater(dt, envDist, t, scene.fog);
     updateContactShadow(dt, player);

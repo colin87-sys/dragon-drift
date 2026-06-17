@@ -781,6 +781,21 @@ body.app-loaded > canvas { opacity: 1; }
 .hero-gem { position: absolute; top: 12px; left: 12px; z-index: 3; font-family: var(--font-display);
   font-size: 12px; letter-spacing: 1.5px; padding: 5px 11px; border-radius: 9px; color: var(--hrar);
   background: color-mix(in srgb, var(--hrar) 16%, rgba(8,14,30,0.7)); border: 1px solid color-mix(in srgb, var(--hrar) 50%, transparent); }
+/* ===== Shop DRAGONS tab: dragon parked in the LIVE astral biome (no preview box) =====
+   The shop drives the live menu scene (main.js onPreviewDragon), so de-dim the screen
+   to reveal that full-quality world + the centred, flapping dragon, and turn the stage
+   into a transparent window (its boxed turntable / frame / pedestal removed). Scoped to
+   the dragons tab only via :has(.hero-select). */
+.screen:has(.hero-select) {
+  background: radial-gradient(ellipse at 50% 34%, transparent 0%, transparent 52%, rgba(4,7,18,0.5) 100%);
+  -webkit-backdrop-filter: none; backdrop-filter: none;
+}
+.hero-select .hero-stage { background: none; border: 0; box-shadow: none; border-radius: 0; }
+.hero-select .hero-canvas,
+.hero-select .hero-pedestal,
+.hero-select .hero-gem,
+.hero-select .hero-rothint { display: none; }
+
 .hero-ident { text-align: center; margin: 9px 0 2px; }
 .hero-name { font-family: var(--font-display); font-size: 26px; letter-spacing: 0.5px; line-height: 1;
   background: linear-gradient(180deg, #fff, color-mix(in srgb, var(--haccent) 55%, #cfe0ff));
