@@ -5,13 +5,13 @@ import { initInput, initTouch, initMouse } from './input.js';
 import { createLevelGen } from './level.js';
 import { todaysDailyMod, dailyMods } from './daily.js';
 import { createEnvironment, updateEnvironment, resetEnvironment, getSkyMesh } from './environment.js';
-import { createDragon, updateDragon, resetDragon, rebuildDragon } from './dragon.js';
+import { createDragon, updateDragon, resetDragon, rebuildDragon, setDragonFxVisible } from './dragon.js';
 import { initReticle, updateReticle } from './reticle.js';
 import { initSplash, showSplash, hideSplash, splashVisible, launchFlash, igniteSplash, splashArmed } from './splash.js';
 import { player, applyDragonStats } from './player.js';
 import { cameraCtl } from './cameraController.js';
-import { initRings, addRing, updateRings, resetRings } from './rings.js';
-import { initObstacles, addObstacle, updateObstacles, resetObstacles } from './obstacles.js';
+import { initRings, addRing, updateRings, resetRings, setRingsVisible } from './rings.js';
+import { initObstacles, addObstacle, updateObstacles, resetObstacles, setObstaclesVisible } from './obstacles.js';
 import { initPowerups, addOrb, updatePowerups, resetPowerups } from './powerups.js';
 import { initParticles, updateParticles, resetParticles, setParticleQuality } from './particles.js';
 import { setDragonQuality } from './dragon.js';
@@ -702,6 +702,15 @@ function tick() {
   }
   updateQuality(rawDt);
 
+  // Shop hero shot: hide gameplay FX (rings, obstacle markers, the dragon's flight
+  // trail) for a clean static dragon. The `&& game.state !== 'playing'` is the hard
+  // guard — during an ACTUAL run these are forced visible every frame, so a wall can
+  // NEVER be hidden mid-flight (the old bug); nothing is ever removed, only .visible.
+  const hideShopFx = ui.atShop() && game.state !== 'playing';
+  setRingsVisible(!hideShopFx);
+  setObstaclesVisible(!hideShopFx);
+  setDragonFxVisible(!hideShopFx);
+
   // Slow-mo bookkeeping runs in REAL time so 0.6s of dilation is 0.6s felt.
   if (game.slowMoTimer > 0) {
     game.slowMoTimer -= rawDt;
@@ -846,7 +855,12 @@ function tick() {
     cameraCtl.update(dt, player, game.state === 'ready' || atShop, atShop);
     if (introPlaying && !cameraCtl.introPlaying) introPlaying = false;
     updateReticle(player, game.state === 'playing');
-    updateEnvironment(dt, camera, t, player.dist, game.feverActive, player.speed);
+    // Shop → theme the env to ASTRAL SHALLOWS: feed the astral distance to the env so the
+    // sky dome (camera-following) + water tint resolve to the cosmos biome, while the
+    // water PLANE stays positioned at the real player (envDist would shove it offscreen).
+    // Colours/props only — never the run. atShop is false during play (real biome).
+    const envDist = atShop ? CONFIG.biomeLength * 5.5 : player.dist;
+    updateEnvironment(dt, camera, t, envDist, game.feverActive, player.speed);
     updateWater(dt, player.dist, t, scene.fog);
     updateContactShadow(dt, player);
 

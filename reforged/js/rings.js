@@ -168,3 +168,8 @@ export function nextRingAhead(dist) {
 export function resetRings() {
   while (rings.length) removeAt(rings.length - 1);
 }
+
+// Visual-only hide for the shop hero shot (NEVER removes — the run is untouched).
+export function setRingsVisible(v) {
+  for (const r of rings) if (r.mesh) r.mesh.visible = v;
+}

@@ -356,3 +356,8 @@ export function clearAhead(untilDist) {
 export function resetObstacles() {
   while (entries.length) removeAt(entries.length - 1);
 }
+
+// Visual-only hide for the shop hero shot (NEVER culls/removes — the run is untouched).
+export function setObstaclesVisible(v) {
+  for (const e of entries) if (e.object) e.object.visible = v;
+}
