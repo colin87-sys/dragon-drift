@@ -239,3 +239,32 @@ to set, which model fields, how to pick a flap profile, what to verify) turns ro
 rollout into a near-zero-thought batch — and is the template for migrating *every* future
 system (surface, shingle, deform) hero-first. Perfecting one creature fully then
 mechanizing the spread is the fastest safe path to a whole polished roster.
+
+### L9 — The shop preview is a SECOND render context; own its fidelity separately
+**Did / learned:** the inspect showcase looked flat/ugly for three compounding reasons,
+all about render *context*, not the model: (1) the preview cameras rendered **layer 0
+only**, so every plasma sprite (core glow, aura, halos) — authored on **layer 1** to sit
+out of the in-game water reflection — was **invisible in the shop**. A sprite's layer is
+a *per-context* decision; adding a new camera (preview/minimap/reflection) means
+auditing which layers it should see. (2) No post-processing → emissive eyes/edges never
+*glowed*. (3) The always-on-top **aim-marker** crystal (a chase-cam HUD aid) rendered as
+an ugly nub on the snout when the showcase faced the dragon. Then the *first* fix
+over-corrected: strong bloom **stacked** with additive corona + floor + a bright stage
+centre → the dragon became a **silhouette against a white sun**. Bloom is multiplicative
+over additive sprites; keep the stage DARK + front-light the hero, bloom is a
+high-threshold *accent*, never base brightness.
+**→ Systematize:** treat **preview vs gameplay as a first-class fidelity seam**. The
+`opts.preview` flag on `buildDragonModel` already gates preview-only choices (drop the
+aim marker, tame the corona) — lean on it: the shop is an isolated scene/renderer, so
+spend there (bloom, lit glow, a themed backdrop) with **zero gameplay-budget cost** and
+**strip** anything that exists only for gameplay readability. The new
+`showcaseBackdrop.js` (themed sky gradient + drifting motes + vignette, coloured by the
+dragon's aura) is a reusable "hero on a stage" system — any unlock/celebration/victory
+surface can reuse it. Rule of thumb: **bright additive + bloom = washout**; dark stage +
+front key light + high-threshold bloom = the hero pops.
+**→ Leapfrog:** with a context-aware fidelity seam + a themed-backdrop system, the shop
+can chase AAA gacha quality (character-select stages per biome, particles, post,
+dramatic lighting) while gameplay stays lean — the two contexts evolve independently.
+Next: theme the backdrop by the dragon's **biome** (the world we fly through, not just
+its aura), add foreground depth motes, and a **hero camera angle** (¾-front) so the face
+greets the player — then this becomes the template for every "admire your unlock" moment.
