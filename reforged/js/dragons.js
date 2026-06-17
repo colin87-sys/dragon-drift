@@ -244,8 +244,13 @@ export const DRAGONS = {
     model: {
       scale: 0.86, wingScale: 1.07, tailSegments: 9, neckSegments: 5,
       ridgeCount: 0, // smooth back (cyan chevrons via dorsalGlowCount, not ridges)
-      wingRootScale: 1.5, wingSSS: true, // thick Night-Fury wing root + backlit-membrane subsurface
-      shoulderWidthScale: 1.2, wingRootOffset: { y: 0.06, z: -0.1 }, // broader shoulders + wing root raised/forward
+      wingSSS: true, // backlit-membrane subsurface (Night-Fury wings against the sky)
+      // Continuous shoulder girdle: a lofted deltoid that bridges the body surface to
+      // the wing socket so the wing grows OUT of the shoulder (replaces the bolt-on
+      // fairing/shoulder spheres). Mass swells per form (grow×formLevel) → Eternal is
+      // the most muscular. See buildShoulderGirdle in dragonTorso.js.
+      shoulderGirdle: { chord: 0.62, vert: 0.74, baseInset: 0.42, baseY: 0.55, capR: 0.13, mass: 0.95, grow: 0.12 },
+      shoulderWidthScale: 1.1, wingRootOffset: { y: 0.05, z: -0.08 }, // modest shoulder broadening; girdle bridges the rest
       riderSocket: { x: 0, y: 0.92, z: -0.45 }, // nestle the rider low between the shoulders, behind the head
       // Soft Stealth draconic head — large catlike eyes, compact, cyan-lit ear-fins.
       headArchetype: 'softStealth', headScale: 1.18, eyeScale: 1.32, rearGlowIntensity: 0.4,

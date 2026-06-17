@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import {
-  buildForkShape, buildBladeShape, buildSpadeShape, buildLayeredFin,
+  buildForkShape, buildBladeShape, buildSpadeShape, buildLayeredFin, buildBatFinShape,
   featherGeo, featherGradient,
 } from './dragonParts.js';
 import { registerTail } from './dragonRecipe.js';
@@ -406,22 +406,24 @@ export function buildCleanTail(def, model, bodyMat, swept = false) {
     point.position.set(0, 0, 0.34);
     tip.add(point);
   } else if (style === 'nightfury') {
-    // Toothless-style TWIN tail-fins: two broad rounded membrane fans lying FLAT &
+    // Toothless-style TWIN tail-fins: two POINTED bat-membrane fans lying FLAT &
     // HORIZONTAL (aircraft horizontal stabilizers), swept out to the sides at the tip
-    // of the smooth swept stem — the Night Fury signature. Built from the layered-fin
-    // primitive with a strong curve; sizes with tailFinScale so the fins grow per form.
+    // of the smooth swept stem — the Night Fury signature. Built from the bat-fin
+    // outline (sharp tip + finger notch) with the camber flattened so it reads as a
+    // crisp pointed fin, NOT a rounded paddle/lily-pad; sizes with tailFinScale.
     const fs = model.tailFinScale ?? 1;
     const em = ensureEdgeMat();
     const fill = ensureFinFill();
     for (const sx of [-1, 1]) {
-      const fin = buildLayeredFin(0.5 * fs, 1.3 * fs, fill, em, { curve: 0.1, tipPinch: 0.85 });
+      const fin = buildLayeredFin(0.52 * fs, 1.4 * fs, fill, em,
+        { shape: buildBatFinShape, curve: 0.04, tipPinch: 0.8, seam: false });
       fin.scale.x = sx;
       const p = new THREE.Group();
       p.add(fin);
       p.rotation.x = Math.PI / 2;   // lay the blade FLAT — a crisp horizontal stabilizer (face +Y)
-      p.rotation.y = sx * 0.26;     // shallow horizontal V — reads as a split fin from above
+      p.rotation.y = sx * 0.5;      // wide horizontal V — two DISTINCT pointed fins, not one oval
       p.rotation.z = 0;             // no vertical splay
-      p.position.set(sx * 0.05, 0.02, 0.0);
+      p.position.set(sx * 0.07, 0.02, 0.0);
       tip.add(p);
     }
     const point = new THREE.Mesh(new THREE.ConeGeometry(tipR + 0.02, 0.3, lod(6)), bodyMat);

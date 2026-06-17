@@ -219,6 +219,25 @@ function buildStealthFinShape(halfW, length) {
   return s;
 }
 
+// A POINTED bat-membrane fin (upright, tip at +y): a swept leading edge rising to a
+// SHARP point, and a trailing edge broken by a finger NOTCH into a second point —
+// the Night Fury tail read (a pointed bat fin), NOT a rounded paddle/lily-pad.
+// Drop-in for buildStealthFinShape via buildLayeredFin's `opts.shape`. Mirror via
+// scale.x. halfW = half-width at the base, length = tip height.
+export function buildBatFinShape(halfW, length) {
+  const s = new THREE.Shape();
+  s.moveTo(0, 0);
+  // leading edge: a near-straight sweep out and up to a SHARP swept tip
+  s.bezierCurveTo(halfW * 0.88, length * 0.22, halfW * 0.74, length * 0.82, halfW * 0.20, length);
+  // trailing edge: a fingered bat membrane — upper lobe → notch valley → lower lobe
+  // point, so the back edge reads as two clear points, not a round paddle rim.
+  s.quadraticCurveTo(-halfW * 0.02, length * 0.82, -halfW * 0.18, length * 0.70); // upper lobe
+  s.lineTo(-halfW * 0.46, length * 0.56);                                          // notch valley
+  s.quadraticCurveTo(-halfW * 0.26, length * 0.46, -halfW * 0.50, length * 0.30); // lower lobe point
+  s.quadraticCurveTo(-halfW * 0.30, length * 0.12, 0, 0);
+  return s;
+}
+
 // A swept fin with a DARK translucent membrane and a bright glowing RIM — the
 // premium "dark base, cyan edges" read (never a solid glowing panel). A slightly
 // larger emissive blade sits just behind the dark membrane, so only its border

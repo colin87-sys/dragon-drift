@@ -20,7 +20,7 @@ lessons for the one after. That is the whole studio: we rapidly improve the game
 
 You are a fresh session continuing **Dragon Drift** (the `reforged/` rewrite). Read this
 file top-to-bottom: **this HANDOFF** (where we are) → the **Active roadmap** (the next big
-build) → **THE RULE** + the **lessons ledger L1–L19** (how we work + everything learned so
+build) → **THE RULE** + the **lessons ledger L1–L20** (how we work + everything learned so
 far). Then continue — and **append a lesson after every meaningful change**.
 
 ### Where we are (state of the world)
@@ -768,3 +768,36 @@ so dialing a creature's anatomy (girth, shoulder mass, mount points, membrane so
 pure data tuning — no new code, roster-safe. This completes the "creature = declarative layers + knobs over
 one hull" thesis: the roster migration + non-dragon creatures can be SHAPED (not just coloured/decorated)
 through data alone. Remaining Night-Fury work is preview-driven value tuning, not engineering.
+
+### L20 — Continuity is a LOFTED BRIDGE from the body surface to the mount socket, not scaled blobs
+**Did / learned:** the wing→body join still read as "Lego bolted onto new tech" — the rest of Obsidian is
+modern (`sweptLoft`/`skinnedMembrane`/surface shaders/`shingle`/`sweptTail`), but the join was two discrete
+spheres (the torso `fairing` sphere + the wing `shoulder` sphere) plus a membrane that started at a POINT.
+L19 tried to fix the "too thin" read by independently SCALING each blob (`shoulderWidthScale`,
+`wingRootScale`, `rootChord`, `wingRootOffset`) and pushing the socket outward — which just made bigger,
+more-obviously-separate masses (the L19 gotcha, restated: scaling pieces ≠ making them one surface). The
+real fix was a new reusable system: **`buildShoulderGirdle`** (dragonTorso.js) lofts a DELTOID — a tube of
+elliptical rings from a broad BASE ellipse buried in the upper flank (sampled off the torso's own
+`attach.halfWidthAt`/`keelTopAt`/`bodyMidY`) out + up to a small CAP at `attach.wingRoot(side)`. It wears
+the shared `bodyMat` (same composed surface shader) so it reads as ONE skin; the wing arm emerges from
+inside it; mass grows with `model.formLevel` (Eternal most muscular). Built in dragonModel after bodyMat is
+finalized; opt-in via `model.shoulderGirdle` → roster byte-identical (only Obsidian's tris moved, 0 over
+budget, HIGH 4250→4182 because two fairing spheres left and the lofted girdle came in cheaper).
+**GOTCHA:** the wing's own shoulder sphere uses the shiny metallic `armMat` — left as-is it reads as a
+bolted-on BALL on top of the matte girdle (visible top-down). Fix: when a girdle is present, give that nub
+a dark MATTE body-coloured material + shrink it so it merges into the mound. Rule: **any junction prop
+must wear the SAME matte skin as the surface it sits on, or specular betrays it as a separate part.**
+Also (tail): a flat split fin built from a SMOOTH outline + small splay overlaps into one rounded
+"lily-pad". Two levers make it read as two POINTED bat fins: a sharp-tipped outline with a trailing NOTCH
+(`buildBatFinShape` via `buildLayeredFin`'s `opts.shape`) AND a WIDE enough splay (`rotation.y` 0.24→0.5)
+so the pair separates into a clear V — shape + separation, not shape alone.
+**→ Systematize:** the "make a limb continuous with the body" recipe — don't bolt a sphere and scale it;
+**loft a bridge** from the body surface (queried via the `attach` contract) to the mount socket, in the
+shared body material, form-scaled, opt-in + nullable. `buildShoulderGirdle` is the reusable lever for ANY
+limb root (wings/legs/fins) on ANY torso; the `attach` contract is the universal adapter that makes it
+body-agnostic. Junction nubs inherit the surface's matte material. Split fins need shape + splay.
+**→ Leapfrog (innovate):** the join is no longer special-cased geometry — it's a declarative layer over the
+surface contract, exactly like `shingle`. With girdle + shingle + surface shaders + sweep all reading off
+`attach`, a creature's entire skin (body, scale relief, limb roots) is ONE continuous shader-shared surface
+generated from the body plan + per-dragon knobs. Next: migrate the girdle across the roster (legs/fins),
+and judge the Night-Fury wing chord/tail pointiness on the lit preview (static dark shots can't call it).

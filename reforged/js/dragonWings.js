@@ -311,8 +311,16 @@ function buildMembraneWings(def, model, attach, giM, opts = {}) {
     // Shoulder joint — a mass anchoring the wing to the body. wingRootScale thickens
     // it AND flares the base wide/flat so the wing swells into a deltoid shoulder mound
     // where it meets the body; additive, rootScale 1 = byte-identical for other dragons.
-    const rootScale = model.wingRootScale ?? 1;
-    const shoulder = new THREE.Mesh(new THREE.SphereGeometry(0.16 * rootScale, seg(9), seg(7)), armMat);
+    // When the torso carries a continuous shoulder GIRDLE (model.shoulderGirdle, built in
+    // dragonModel) the external deltoid mass lives there, so this sphere shrinks to a
+    // small INTERNAL joint nub that fills the girdle's socket cap — no double bulge —
+    // and wears a DARK MATTE body-coloured material (not the shiny metallic armMat) so it
+    // merges into the matte girdle instead of reading as a bolted-on shoulder ball.
+    const rootScale = model.shoulderGirdle ? 0.85 : (model.wingRootScale ?? 1);
+    const shoulderMat = model.shoulderGirdle
+      ? new THREE.MeshStandardMaterial({ color: def.body, emissive: def.body, emissiveIntensity: 0.1, roughness: 0.62, metalness: 0.1 })
+      : armMat;
+    const shoulder = new THREE.Mesh(new THREE.SphereGeometry(0.16 * rootScale, seg(9), seg(7)), shoulderMat);
     shoulder.scale.set(1.1 + (rootScale - 1) * 0.9, 0.9, 1.2 + (rootScale - 1) * 0.9);
     if (rootScale !== 1) shoulder.position.set(0, -0.04, 0.02);
     pivot.add(shoulder);
