@@ -168,3 +168,9 @@ export function nextRingAhead(dist) {
 export function resetRings() {
   while (rings.length) removeAt(rings.length - 1);
 }
+
+// Hide/show all live rings — the menu (shop over a paused/finished run) shows a clean
+// biome, not the course collectibles.
+export function setRingsVisible(v) {
+  for (const r of rings) if (r.mesh) r.mesh.visible = v;
+}

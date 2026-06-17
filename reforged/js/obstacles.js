@@ -356,3 +356,9 @@ export function clearAhead(untilDist) {
 export function resetObstacles() {
   while (entries.length) removeAt(entries.length - 1);
 }
+
+// Hide/show all live obstacles — used to clear the course clutter when the shop is
+// opened over a paused/finished run (the menu shows a clean biome, not the level).
+export function setObstaclesVisible(v) {
+  for (const e of entries) if (e.object) e.object.visible = v;
+}
