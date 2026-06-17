@@ -954,6 +954,9 @@ export const ui = {
     // Freshness: animate the screen in only on genuine navigation — tab
     // switches re-render the SAME type and must not re-flash.
     const fresh = !els.screen.classList.contains('visible') || lastScreen !== type;
+    // Leaving the shop: restore the equipped dragon to the live menu scene (browsing
+    // the shop parked the inspected dragon there).
+    if (lastScreen === 'shop' && type !== 'shop' && handlers.onRestoreMenuDragon) handlers.onRestoreMenuDragon();
     lastScreen = type;
 
     if (type === 'start') {
@@ -1598,6 +1601,7 @@ export const ui = {
     return lastScreen === 'shop' || lastScreen === 'settings' || lastScreen === 'pilot' ||
            lastScreen === 'quests' || lastScreen === 'daily';
   },
+  atShop() { return lastScreen === 'shop'; },
 };
 
 // --- Appointment UI: honest badges -----------------------------------
@@ -1793,7 +1797,9 @@ function wireScreenButtons(type) {
         q('#hero-stats').innerHTML = srow('SPEED', spd) + srow('AGILITY', agi) + srow('STAMINA', sta);
         ctaEl.innerHTML = ctaHtml(); wireCta();
         for (const t2 of railEl.querySelectorAll('.hero-thumb')) t2.classList.toggle('on', t2.dataset.hero === heroKey);
-        setShowcaseDef(heroCanvas, ascendedDef(d, hTier, owned ? radianceRank(heroKey) : 0));
+        // Park the inspected dragon in the LIVE menu scene — shown organically in the
+        // astral biome (no preview box) — instead of a separate boxed turntable.
+        if (handlers.onPreviewDragon) handlers.onPreviewDragon(ascendedDef(d, hTier, owned ? radianceRank(heroKey) : 0));
         stage.classList.remove('rotated');
       };
 
