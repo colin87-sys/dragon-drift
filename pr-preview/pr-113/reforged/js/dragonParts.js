@@ -69,8 +69,14 @@ export function wingSpecFor(def, model) {
 
 export function buildWingShape(spec) {
   const tips = spec.tips;
+  // Root CHORD: how long the wing BASE attaches to the body (front↔back). Default
+  // 0.28 = a pinched, bolted-on root; spec.rootChord lengthens it so wide wings read
+  // as anchored ALONG the back. The extra depth splits half forward of the pivot so
+  // the longer root stays balanced. Other dragons omit it → byte-identical.
+  const rc = spec.rootChord ?? 0.28;
+  const lead0 = Math.max(0, (rc - 0.28) * 0.5);
   const s = new THREE.Shape();
-  s.moveTo(0, 0);
+  s.moveTo(0, lead0);
   // Leading edge: a clean sweep from the wrist out to the far wing tip.
   s.bezierCurveTo(1.8, 0.62, spec.lead[0], spec.lead[1], tips[0][0], tips[0][1]);
   // Trailing edge: scalloped webs between finger tips. Flame forms V-notch only
@@ -86,7 +92,7 @@ export function buildWingShape(spec) {
       s.quadraticCurveTo(cx, (ay + by) / 2 + spec.scallop, bx, by);
     }
   }
-  s.quadraticCurveTo(0.85, -0.34, 0, -0.28);
+  s.quadraticCurveTo(0.85, -0.34, 0, -rc);
   return s;
 }
 
