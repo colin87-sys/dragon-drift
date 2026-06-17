@@ -28,7 +28,7 @@ import { BIOMES, biomeIndexAt, SUN_DIR } from './biomes.js';
 import { DRAGONS } from './dragons.js';
 import { RIDERS } from './riders.js';
 import { dailySeed, recordDailyRun, saveData, persist, grantXp, levelEmberReward, todayUTC, gambitSunsetRefund, freezeSaves } from './save.js';
-import { initEmbers, addEmberLine, updateEmbers, bankEmbers, resetEmbers } from './embers.js';
+import { initEmbers, addEmberLine, updateEmbers, bankEmbers, resetEmbers, setEmbersVisible } from './embers.js';
 import { emit, on } from './events.js';
 import { initAnalytics } from './analytics.js';
 import { initMissions, settleMissions } from './missions.js';
@@ -39,7 +39,7 @@ import { settleWeekly } from './weekly.js';
 import { settleMilestones, settleMasteryStars } from './milestones.js';
 import { grantTitle, levelTitleId, grantEarnedLevelTitles } from './titles.js';
 import { selectNextUp } from './recap.js';
-import { initGoldEmbers, addGoldEmber, updateGoldEmbers, resetGoldEmbers } from './goldEmbers.js';
+import { initGoldEmbers, addGoldEmber, updateGoldEmbers, resetGoldEmbers, setGoldEmbersVisible } from './goldEmbers.js';
 import { initHints, updateHints } from './hints.js';
 import { initGestureTutorial, updateGestureTutorial } from './gestureTutorial.js';
 import { initPbMarker, updatePbMarker } from './pbMarker.js';
@@ -828,29 +828,41 @@ function tick() {
   // The SHOP is a clean menu showcase over WHATEVER state we came from (ready, paused
   // mid-run, or game-over): render + animate the live scene even while 'paused', so the
   // dragon flaps in the astral biome instead of a frozen, cluttered run frame.
-  const menuMode = ui.atShop();
+  // menuMode = the shop is the showcase. Gate on `!== 'playing'` so a stale lastScreen
+  // (the shop screen var isn't cleared when you resume/take-off straight from the shop)
+  // can never hide the walls or force the menu biome during an actual run.
+  const menuMode = ui.atShop() && game.state !== 'playing';
   // Course clutter visibility is toggled OUTSIDE the render gate so it always restores
   // — otherwise returning from the shop to a still-PAUSED run (gate skipped) would
   // leave the rings/obstacles/set-pieces/dragon hidden until the next resumed frame.
-  // The shop shows a clean biome (clutter off; dragon only on the dragons tab).
+  // The shop shows a clean biome (gameplay clutter off; only the ambient sky-dots +
+  // dragon remain — and the dragon only on the dragons tab).
   setRingsVisible(!menuMode);
   setObstaclesVisible(!menuMode);
+  setEmbersVisible(!menuMode);
+  setGoldEmbersVisible(!menuMode);
   for (const sp of setpieceMeshes) if (sp.object) sp.object.visible = !menuMode;
   setDragonVisible(!menuMode || ui.atDragonsShop());
   if (game.state !== 'paused' || menuMode) {
-    // Cull old set-pieces
-    for (let i = setpieceMeshes.length - 1; i >= 0; i--) {
-      if (setpieceMeshes[i].dist < player.dist - CONFIG.cullBehind - 200) {
-        scene.remove(setpieceMeshes[i].object);
-        setpieceMeshes.splice(i, 1);
+    // Cull old set-pieces — but NOT while the shop is showing over a frozen run, or it
+    // would permanently remove the course behind the paused player (walls vanish).
+    if (!menuMode) {
+      for (let i = setpieceMeshes.length - 1; i >= 0; i--) {
+        if (setpieceMeshes[i].dist < player.dist - CONFIG.cullBehind - 200) {
+          scene.remove(setpieceMeshes[i].object);
+          setpieceMeshes.splice(i, 1);
+        }
       }
     }
 
     const t = clock.getElapsedTime();
     updateDragon(dt, player, t, menuMode);
     updateParticles(dt, camera);
-    const obstacleSpeedNorm = (player.speed - CONFIG.baseSpeed) / (CONFIG.orbSpeed - CONFIG.baseSpeed);
-    updateObstacles(dt, t, player.dist, obstacleSpeedNorm);
+    // Don't mutate/cull the frozen run's obstacles while the shop showcase is up.
+    if (!menuMode) {
+      const obstacleSpeedNorm = (player.speed - CONFIG.baseSpeed) / (CONFIG.orbSpeed - CONFIG.baseSpeed);
+      updateObstacles(dt, t, player.dist, obstacleSpeedNorm);
+    }
     cameraCtl.update(dt, player, game.state === 'ready' || menuMode, menuMode);
     if (introPlaying && !cameraCtl.introPlaying) introPlaying = false;
     updateReticle(player, game.state === 'playing' && !menuMode);

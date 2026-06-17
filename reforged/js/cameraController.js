@@ -120,7 +120,9 @@ export const cameraCtl = {
       // isn't crammed in and the biome's water + horizon read below it. The start
       // screen keeps its tighter, raised hero framing (shopMode = false).
       const r = shopMode ? 14 : 10.5;
-      const yLift = shopMode ? 1.5 : 2.6;
+      // The dragon flies ~8 units above the water, so the shop orbit sits well above it
+      // and looks DOWN, putting the reflective water + horizon across the lower frame.
+      const yLift = shopMode ? 3.4 : 2.6;
       const ox = player.position.x + Math.sin(showcaseAngle) * r;
       const oy = player.position.y + yLift + Math.sin(showcaseAngle * 0.6) * 1.2;
       const oz = player.position.z + Math.cos(showcaseAngle) * r;
@@ -142,7 +144,7 @@ export const cameraCtl = {
       }
       // Look slightly BELOW the dragon in the shop so the reflective water spreads
       // across the lower frame (start screen looks at the dragon).
-      camera.lookAt(player.position.x, player.position.y + (shopMode ? -0.6 : 0.5), player.position.z);
+      camera.lookAt(player.position.x, player.position.y + (shopMode ? -2.6 : 0.5), player.position.z);
       if (Math.abs(camera.fov - fovTarget) > 0.05) {
         camera.fov = damp(camera.fov, fovTarget, 2.5, dt);
         camera.updateProjectionMatrix();
