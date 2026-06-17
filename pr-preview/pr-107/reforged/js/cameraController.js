@@ -139,7 +139,9 @@ export const cameraCtl = {
         camera.position.set(ox, oy, oz);
         smoothPos.copy(camera.position);
       }
-      camera.lookAt(player.position.x, player.position.y + 0.5, player.position.z);
+      // Shop: look a touch BELOW the dragon so it rides higher in the frame, clear of
+      // the stats/EQUIP panel that overlays the lower third.
+      camera.lookAt(player.position.x, player.position.y + (shopMode ? -0.9 : 0.5), player.position.z);
       if (Math.abs(camera.fov - fovTarget) > 0.05) {
         camera.fov = damp(camera.fov, fovTarget, 2.5, dt);
         camera.updateProjectionMatrix();
