@@ -14,6 +14,7 @@ import { claimFeat, unclaimedFeatCount } from './feats.js';
 import { DRAGONS, DRAGON_STAT_CAP } from './dragons.js';
 import { RIDERS } from './riders.js';
 import { attachPreviews, attachPreviewCanvas, refreshPreview, setShowcaseDef, closeShowcase, setShowcaseZoom, showcaseDragStart, showcaseDragMove, showcaseDragEnd } from './preview.js';
+import { openMenuStage, closeMenuStage, setMenuDragon, setMenuDragonVisible } from './menuStage.js';
 import { attachTrailPreviews } from './trailPreview.js';
 import { FLIGHTMARKS, flightmarkOwned, equippedFlightmark } from './flightmarks.js';
 import { ASCENSION_TIERS, ascendedDef, ascensionTier, canAscend, radianceRank, maxTierFor } from './ascension.js';
@@ -954,6 +955,11 @@ export const ui = {
     // Freshness: animate the screen in only on genuine navigation — tab
     // switches re-render the SAME type and must not re-flash.
     const fresh = !els.screen.classList.contains('visible') || lastScreen !== type;
+    // Dedicated menu stage: a self-contained hero scene behind the shop HUD (the dragon
+    // idling in the astral backdrop), fully decoupled from gameplay. Open it for the
+    // shop, show the dragon only on the dragons tab, and close it when leaving the shop.
+    if (type === 'shop') { openMenuStage(); setMenuDragonVisible(shopTab === 'dragons'); }
+    else if (lastScreen === 'shop') { closeMenuStage(); }
     lastScreen = type;
 
     if (type === 'start') {
@@ -1414,6 +1420,7 @@ export const ui = {
     pauseSubscreen = false;
     els.screen.classList.remove('visible');
     document.body.classList.remove('screen-open');
+    closeMenuStage();   // tear down the shop's menu stage when returning to gameplay
   },
 
   // Pause hub, AAA-clean: resume up top, an at-a-glance stats strip, then
@@ -1795,7 +1802,9 @@ function wireScreenButtons(type) {
         q('#hero-stats').innerHTML = srow('SPEED', spd) + srow('AGILITY', agi) + srow('STAMINA', sta);
         ctaEl.innerHTML = ctaHtml(); wireCta();
         for (const t2 of railEl.querySelectorAll('.hero-thumb')) t2.classList.toggle('on', t2.dataset.hero === heroKey);
-        setShowcaseDef(heroCanvas, ascendedDef(d, hTier, owned ? radianceRank(heroKey) : 0));
+        // Centre the inspected dragon in the dedicated menu stage (decoupled hero scene).
+        setMenuDragon(ascendedDef(d, hTier, owned ? radianceRank(heroKey) : 0));
+        setMenuDragonVisible(true);
         stage.classList.remove('rotated');
       };
 

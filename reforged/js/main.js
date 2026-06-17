@@ -19,6 +19,7 @@ import { updateCollision, resetCollision, acceptRevive, finishDeath } from './co
 import { ui } from './ui.js';
 import { music, sfx, setSlowMo, unlockAllTracks } from './sfx.js';
 import { initPostFX, setPostSize, setPostPixelRatio, setPostTier, updatePostFX, renderPostFX, postfx, kick, clearDeath, kickState, setupGodRays, setGodRaySun } from './postfx.js';
+import { isMenuStageActive } from './menuStage.js';
 import { initContactShadow, updateContactShadow, resetContactShadow, setContactShadowQuality } from './contactShadow.js';
 import { hitstop, juiceEvent } from './juice.js';
 import { createWater, setWaterReflective, updateWater } from './water.js';
@@ -874,7 +875,9 @@ function tick() {
 
   const speedNorm = (player.speed - CONFIG.baseSpeed) / (CONFIG.orbSpeed - CONFIG.baseSpeed);
   updatePostFX(dt, speedNorm, game.feverActive, rawDt);
-  renderPostFX();
+  // The shop's dedicated menu stage covers the screen with its own opaque scene, so
+  // skip the gameplay render while it's up (it would just be painted over).
+  if (!isMenuStageActive()) renderPostFX();
 
   if (perfEl) {
     perfTimer -= rawDt;
