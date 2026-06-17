@@ -2,6 +2,15 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
+  <script>
+    // PR-preview convenience: active development is the reforged/ rebuild, so bounce
+    // the root to it — the shared preview link then lands on the NEW build instead of
+    // the legacy game. Reverted when reforged is ported back to the root.
+    (function () {
+      var p = location.pathname.replace(/\/+$/, '');
+      if (!p.endsWith('/reforged')) { location.replace('./reforged/'); }
+    })();
+  </script>
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
   <title>Dragon Drift</title>
   <meta name="description" content="Dragon Drift — an endless dragon-flight arcade game. Thread rings, ride the surge, chase the sky." />

@@ -408,21 +408,11 @@ export function buildDragonModel(def, opts = {}) {
   // so the widest apex wings fit the small card, and float a soft rarity-tinted
   // corona behind the dragon instead of a spinning rune disc.
   if (opts.preview) {
-    const RARITY_GLOW = { R: 0x6affa0, SR: 0x4ac0ff, SSR: 0xc060ff, SSSR: 0xffd040 };
-    // A dragon's own signature corona (previewAccent) wins over the rarity tint so
-    // its card/showcase stays on-brand (Obsidian cyan, not rarity gold/purple).
-    const glowHex = def.previewAccent ?? (RARITY_GLOW[def.rarity] ?? RARITY_GLOW.R);
-    const glowRgb = `${(glowHex >> 16) & 255},${(glowHex >> 8) & 255},${glowHex & 255}`;
+    // No corona/aura sprite behind the dragon — the showcase renders a full biome
+    // backdrop, so a central glow halo only muddies it (and read as an ugly white
+    // aura). The dragon's own plasma (core glow, eyes, edges) + bloom carry the light.
     const wrapper = new THREE.Group();
     wrapper.add(group);
-
-    const corona = new THREE.Sprite(new THREE.SpriteMaterial({
-      map: makeGlowTexture(glowRgb), transparent: true, opacity: 0.2,
-      blending: THREE.AdditiveBlending, depthWrite: false,
-    }));
-    corona.scale.set(4.6, 4.6, 1);
-    corona.position.set(0, 0.25, -0.6);
-    wrapper.add(corona);
 
     return {
       group: wrapper,
