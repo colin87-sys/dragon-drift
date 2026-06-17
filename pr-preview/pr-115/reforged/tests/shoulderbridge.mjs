@@ -103,5 +103,11 @@ assert(!pm.group.getObjectByName('shoulderBridgeL') && !pm.group.getObjectByName
   'plain skinnedMembrane builds no shoulder bridge (opt-in only)');
 ok('skinnedMembrane is untouched — the bridge is opt-in (coexist)');
 
+// --- 7. the bridge subsumes BOTH static knobs at the joint: the 2 torso fairing
+//        spheres AND the 2 metallic wing shoulder spheres (plain keeps all 4) -----
+const countSpheres = (g) => { let c = 0; g.traverse((o) => { if ((o.isMesh || o.isSkinnedMesh) && o.geometry?.type === 'SphereGeometry') c++; }); return c; };
+assertEq(countSpheres(pm.group) - countSpheres(model.group), 4, 'bridging drops 4 sphere knobs (2 torso fairings + 2 metallic shoulder balls)');
+ok('both static knobs at the joint are gone (2 fairings + 2 shoulder balls) — the bridge fills it');
+
 setActiveDetail('high');
 console.log(`\n${n} shoulderBridge checks passed.`);
