@@ -834,11 +834,13 @@ function tick() {
     cameraCtl.update(dt, player, game.state === 'ready');
     if (introPlaying && !cameraCtl.introPlaying) introPlaying = false;
     updateReticle(player, game.state === 'playing');
-    // In the menu the live world IS the backdrop — park it in ASTRAL SHALLOWS (the
-    // dark cosmos biome: violet sky, pale moon, stars, aurora, reflective water) by
-    // feeding the environment a distance mid-way through biome 5 (5.5 × biomeLength),
-    // so the shop/start screen shows that biome behind the centred, flapping dragon.
-    const envDist = game.state === 'ready' ? CONFIG.biomeLength * 5.5 : player.dist;
+    // In a MENU subscreen (shop / pilot / etc. — NOT the start screen) the live world
+    // is the backdrop, so park it in ASTRAL SHALLOWS (the dark cosmos biome: violet
+    // sky, pale moon, stars, aurora, reflective water) by feeding the environment a
+    // distance mid-way through biome 5 (5.5 × biomeLength). The start screen and
+    // gameplay keep their real biome (player.dist).
+    const inMenu = game.state === 'ready' && ui.inSubscreen();
+    const envDist = inMenu ? CONFIG.biomeLength * 5.5 : player.dist;
     updateEnvironment(dt, camera, t, envDist, game.feverActive, player.speed);
     updateWater(dt, envDist, t, scene.fog);
     updateContactShadow(dt, player);
