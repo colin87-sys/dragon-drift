@@ -69,8 +69,14 @@ export function wingSpecFor(def, model) {
 
 export function buildWingShape(spec) {
   const tips = spec.tips;
+  // Root CHORD: how long the wing BASE attaches to the body (front↔back). Default
+  // 0.28 = a pinched, bolted-on root; spec.rootChord lengthens it so wide wings read
+  // as anchored ALONG the back. The extra depth splits half forward of the pivot so
+  // the longer root stays balanced. Other dragons omit it → byte-identical.
+  const rc = spec.rootChord ?? 0.28;
+  const lead0 = Math.max(0, (rc - 0.28) * 0.5);
   const s = new THREE.Shape();
-  s.moveTo(0, 0);
+  s.moveTo(0, lead0);
   // Leading edge: a clean sweep from the wrist out to the far wing tip.
   s.bezierCurveTo(1.8, 0.62, spec.lead[0], spec.lead[1], tips[0][0], tips[0][1]);
   // Trailing edge: scalloped webs between finger tips. Flame forms V-notch only
@@ -86,7 +92,7 @@ export function buildWingShape(spec) {
       s.quadraticCurveTo(cx, (ay + by) / 2 + spec.scallop, bx, by);
     }
   }
-  s.quadraticCurveTo(0.85, -0.34, 0, -0.28);
+  s.quadraticCurveTo(0.85, -0.34, 0, -rc);
   return s;
 }
 
@@ -210,6 +216,25 @@ function buildStealthFinShape(halfW, length) {
   s.quadraticCurveTo(-halfW * 0.5, length * 0.68, -halfW * 0.46, length * 0.44);
   s.quadraticCurveTo(-halfW * 0.42, length * 0.30, -halfW * 0.58, length * 0.22);
   s.quadraticCurveTo(-halfW * 0.30, length * 0.07, 0, 0);
+  return s;
+}
+
+// A POINTED bat-membrane fin (upright, tip at +y): a swept leading edge rising to a
+// SHARP point, and a trailing edge broken by a finger NOTCH into a second point —
+// the Night Fury tail read (a pointed bat fin), NOT a rounded paddle/lily-pad.
+// Drop-in for buildStealthFinShape via buildLayeredFin's `opts.shape`. Mirror via
+// scale.x. halfW = half-width at the base, length = tip height.
+export function buildBatFinShape(halfW, length) {
+  const s = new THREE.Shape();
+  s.moveTo(0, 0);
+  // leading edge: a near-straight sweep out and up to a SHARP swept tip
+  s.bezierCurveTo(halfW * 0.88, length * 0.22, halfW * 0.74, length * 0.82, halfW * 0.20, length);
+  // trailing edge: a fingered bat membrane — upper lobe → notch valley → lower lobe
+  // point, so the back edge reads as two clear points, not a round paddle rim.
+  s.quadraticCurveTo(-halfW * 0.02, length * 0.82, -halfW * 0.18, length * 0.70); // upper lobe
+  s.lineTo(-halfW * 0.46, length * 0.56);                                          // notch valley
+  s.quadraticCurveTo(-halfW * 0.26, length * 0.46, -halfW * 0.50, length * 0.30); // lower lobe point
+  s.quadraticCurveTo(-halfW * 0.30, length * 0.12, 0, 0);
   return s;
 }
 

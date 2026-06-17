@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { makeGlowTexture } from './util.js';
 import { resolveRecipe, getTorsoBuilder, getWingsBuilder, getHeadBuilder, getTailBuilder } from './dragonRecipe.js';
 import './dragonTorso.js'; // self-registers the 'arrow' / 'serpent' / 'avian' torsos
+import { buildShoulderGirdle } from './dragonTorso.js'; // continuous wing→body deltoid bridge
 import './dragonWings.js'; // self-registers the 'membrane' / 'feather' / 'none' wings
 import './dragonHead.js';  // self-registers the 'horned' / 'beaked' head builders
 import './dragonTail.js';  // self-registers the 'clean' / 'legacy' tail builders
@@ -141,6 +142,13 @@ export function buildDragonModel(def, opts = {}) {
     if (torsoResult.mats.bodyMat) bodyMat = torsoResult.mats.bodyMat;
     if (torsoResult.mats.eyeMat) eyeMat = torsoResult.mats.eyeMat;
   }
+  // Continuous shoulder girdle — a lofted deltoid bridging the body surface to the
+  // wing socket so the wing grows OUT of the shoulder (replaces the bolt-on fairing
+  // sphere). Built here, after bodyMat is finalized (surface shader composed + any
+  // torso override adopted), so it wears the same skin. Opt-in via model.shoulderGirdle;
+  // other dragons skip it → byte-identical roster.
+  const girdle = buildShoulderGirdle(attach, model, def, bodyMat);
+  if (girdle) group.add(girdle);
   const torsoCoreGlow = torsoResult.coreGlow ?? null;
   // A segmented torso (the centipede-wyrm) returns its plate Groups so the rig
   // sways them as a lead-first travelling wave (see dragon.js / makePreviewTick).
@@ -148,7 +156,7 @@ export function buildDragonModel(def, opts = {}) {
   // Where the rider sits — the torso publishes it (a believable seat near the
   // front third); default = the back-of-shoulders spot the dragons have always
   // used. The rig (dragon.js) places the rider here.
-  const riderSocket = attach.riderSocket ?? { x: 0, y: 1.12, z: -0.6 };
+  const riderSocket = model.riderSocket ?? attach.riderSocket ?? { x: 0, y: 1.12, z: -0.6 };
 
   // Accent materials (spine plates, crest, glow seams, tail plates) that flare
   // toward white-gold during Dragon Surge — collected for the rig to drive.

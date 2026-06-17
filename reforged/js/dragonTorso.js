@@ -108,19 +108,35 @@ function buildTorso(profile, def, model, bodyMat, geoFn = buildTorsoGeometry) {
   const group = new THREE.Group();
   const stretch = model.bodyStretch ?? 1;
 
+  // Broaden the SHOULDER region (additive, default = unchanged) so the wing roots
+  // feel anatomically supported. Scales only the shoulder-zone station half-widths
+  // and flows through the loft + attach.halfWidthAt; other dragons stay byte-identical.
+  const shoulderW = model.shoulderWidthScale ?? 1;
+  if (shoulderW !== 1) {
+    profile = { ...profile, stations: profile.stations.map(([z, w, t, b]) =>
+      [z, (z >= -1.7 && z <= 0.0) ? w * shoulderW : w, t, b]) };
+  }
+
   const torsoMat = bodyMat.clone();
   torsoMat.side = THREE.DoubleSide;
   const torso = new THREE.Mesh(geoFn(profile, stretch), torsoMat);
   torso.position.y = TORSO_Y;
   group.add(torso);
 
-  // Smooth fairings where the wings attach, so they never look bolted on.
-  const fr = profile.fairing;
-  for (const s of [-1, 1]) {
-    const root = new THREE.Mesh(new THREE.SphereGeometry(fr.r, seg(9), seg(7)), bodyMat);
-    root.scale.set(fr.scale[0], fr.scale[1], fr.scale[2]);
-    root.position.set(s * fr.pos[0], fr.pos[1], fr.pos[2]);
-    group.add(root);
+  // Smooth fairings where the wings attach, so they never look bolted on. When the
+  // shoulder is widened (shoulderWidthScale), the fairing rides OUT with it (radius +
+  // x) so it stays proud of the surface as a muscular shoulder mound, not buried.
+  // SKIPPED when the dragon opts into the continuous shoulder girdle (buildShoulderGirdle
+  // in dragonModel): the lofted deltoid replaces this discrete bolt-on sphere entirely.
+  if (!model.shoulderGirdle) {
+    const fr = profile.fairing;
+    const fScale = shoulderW;
+    for (const s of [-1, 1]) {
+      const root = new THREE.Mesh(new THREE.SphereGeometry(fr.r * fScale, seg(9), seg(7)), bodyMat);
+      root.scale.set(fr.scale[0], fr.scale[1], fr.scale[2]);
+      root.position.set(s * fr.pos[0] * fScale, fr.pos[1], fr.pos[2]);
+      group.add(root);
+    }
   }
 
   // Neck chain — slim spheres bridging the torso's neck cap to the head.
@@ -142,7 +158,7 @@ function buildTorso(profile, def, model, bodyMat, geoFn = buildTorsoGeometry) {
   const tailShift = (profile.tailShiftRefZ - profile.zHold) * (stretch - 1);
 
   const attach = {
-    wingRoot: (side) => ({ x: wr.x * side, y: wr.y, z: wr.z }),
+    wingRoot: (side) => ({ x: wr.x * shoulderW * side, y: wr.y + (model.wingRootOffset?.y ?? 0), z: wr.z + (model.wingRootOffset?.z ?? 0) }),
     headBase: hb,
     tailAnchor: { y: profile.tailAnchorY, z: profile.tailAnchorZ + tailShift },
     keelTopAt: (z) => TORSO_Y + keelTopFor(profile, z),
@@ -154,6 +170,68 @@ function buildTorso(profile, def, model, bodyMat, geoFn = buildTorsoGeometry) {
     tailShift,
   };
   return { group, attach };
+}
+
+// SHOULDER GIRDLE — a lofted DELTOID that bridges the body surface to the wing
+// socket, so the wing grows out of a muscular shoulder instead of bolting on at a
+// point (the old discrete fairing/shoulder spheres). It samples the torso's own
+// ATTACH contract (halfWidthAt / keelTopAt / bodyMidY / wingRoot) so it seats on
+// whatever body it's mounted on, and wears the shared bodyMat (same surface shader)
+// so it reads as ONE continuous skin. Pure static body geometry — no rig, no
+// contract change. Opt-in per dragon via `model.shoulderGirdle = {…}`; every other
+// dragon skips it (byte-identical). The mass grows with `model.formLevel` so the
+// shoulder gets more pronounced each ascension (Eternal = most muscular).
+//
+// Construction: per side, a tube of elliptical rings stacked from a broad BASE
+// ellipse buried in the upper flank (overlapping the body) out + up to a small CAP
+// at the wing socket. The base disc hides inside the body; only the outward mound
+// shows — a smooth deltoid swelling into the wing root.
+export function buildShoulderGirdle(attach, model, def, bodyMat) {
+  const cfg = model.shoulderGirdle;
+  if (!cfg || !attach.halfWidthAt) return null;       // not opted in / no flank contract
+  const group = new THREE.Group();
+  const F = model.formLevel ?? 0;
+  const mass = (cfg.mass ?? 1) + (cfg.grow ?? 0.1) * F; // shoulder swells per form
+  const M = Math.max(3, seg(6));                        // base→socket stations
+  const RINGS = Math.max(5, seg(10));                   // ring resolution
+  const capR = cfg.capR ?? 0.12;
+  for (const side of [-1, 1]) {
+    const wr = attach.wingRoot(side);                   // x already signed by side
+    const zc = wr.z;
+    const keelY = attach.keelTopAt(zc);
+    const midY = attach.bodyMidY ?? TORSO_Y;
+    const bodyX = attach.halfWidthAt(zc);
+    // Base ellipse on the upper flank (overlaps the body); apex at the socket.
+    const baseX = side * bodyX * (cfg.baseInset ?? 0.42);
+    const baseY = midY + (keelY - midY) * (cfg.baseY ?? 0.55);
+    const chordHalf = (cfg.chord ?? 0.55) * 0.5 * mass; // half z-extent along the back
+    const vertHalf = (keelY - midY) * (cfg.vert ?? 0.72) * mass;
+    const verts = [], idx = [];
+    for (let s = 0; s <= M; s++) {
+      const t = s / M;
+      const e = t * t * (3 - 2 * t);                    // smoothstep (ease the rise)
+      const cx = baseX + (wr.x - baseX) * t;
+      const cy = baseY + (wr.y - baseY) * e;
+      const rz = chordHalf + (capR - chordHalf) * e;
+      const ry = vertHalf + (capR - vertHalf) * e;
+      for (let j = 0; j < RINGS; j++) {
+        const a = (j / RINGS) * Math.PI * 2;
+        verts.push(cx, cy + ry * Math.cos(a), zc + rz * Math.sin(a));
+      }
+    }
+    for (let s = 0; s < M; s++) for (let j = 0; j < RINGS; j++) {
+      const a = s * RINGS + j, b = s * RINGS + (j + 1) % RINGS;
+      const c = (s + 1) * RINGS + j, d = (s + 1) * RINGS + (j + 1) % RINGS;
+      if (side > 0) idx.push(a, c, b, b, c, d);
+      else idx.push(a, b, c, b, d, c);                  // reverse winding on the mirror
+    }
+    const g = new THREE.BufferGeometry();
+    g.setAttribute('position', new THREE.Float32BufferAttribute(verts, 3));
+    g.setIndex(idx);
+    g.computeVertexNormals();
+    group.add(new THREE.Mesh(g, bodyMat));
+  }
+  return group;
 }
 
 // ===========================================================================

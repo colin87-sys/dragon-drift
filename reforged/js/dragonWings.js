@@ -6,6 +6,7 @@ import {
 } from './dragonParts.js';
 import { registerWings } from './dragonRecipe.js';
 import { seg } from './modelDetail.js';
+import { composeSurface, membraneSSSPatch } from './dragonSurfaceShader.js';
 
 // Wings modules — the second part extracted behind the recipe registry. A wings
 // build owns its own materials (the runtime-animated membrane `wingMat`, the
@@ -55,6 +56,13 @@ function buildMembraneWings(def, model, attach, giM, opts = {}) {
     // stealth apex sets it to a dark navy so cyan stays on the edges, not the fill.
     emissive: def.wingMembraneEmissive ?? def.wingEmissive, emissiveIntensity: model.wingPanelGlow ?? 0.28,
   });
+  // Bat-wing SUBSURFACE: the thin black membrane glows faintly at the silhouette
+  // when backlit (the Night Fury "wings against the sky" read) — a cool desaturated
+  // edge, no hue. Additive + nullable: only a dragon that opts in (model.wingSSS)
+  // pays the patch; every other dragon's wingMat is byte-identical.
+  if (model.wingSSS) {
+    composeSurface(wingMat, [membraneSSSPatch({ color: def.wingMembraneSSS ?? 0x2a3a52, strength: 0.22, power: 1.5 })]);
+  }
 
   const ws = model.wingScale;
   const featherShape = model.wingShape === 'feather';
@@ -300,9 +308,21 @@ function buildMembraneWings(def, model, attach, giM, opts = {}) {
     // at the mount origin (=wing root). Non-skinned positions the pivot directly.
     if (!skinned) pivot.position.set(wr.x, wr.y, wr.z);
 
-    // Shoulder joint — a small mass anchoring the wing to the body.
-    const shoulder = new THREE.Mesh(new THREE.SphereGeometry(0.16, seg(9), seg(7)), armMat);
-    shoulder.scale.set(1.1, 0.9, 1.2);
+    // Shoulder joint — a mass anchoring the wing to the body. wingRootScale thickens
+    // it AND flares the base wide/flat so the wing swells into a deltoid shoulder mound
+    // where it meets the body; additive, rootScale 1 = byte-identical for other dragons.
+    // When the torso carries a continuous shoulder GIRDLE (model.shoulderGirdle, built in
+    // dragonModel) the external deltoid mass lives there, so this sphere shrinks to a
+    // small INTERNAL joint nub that fills the girdle's socket cap — no double bulge —
+    // and wears a DARK MATTE body-coloured material (not the shiny metallic armMat) so it
+    // merges into the matte girdle instead of reading as a bolted-on shoulder ball.
+    const rootScale = model.shoulderGirdle ? 0.85 : (model.wingRootScale ?? 1);
+    const shoulderMat = model.shoulderGirdle
+      ? new THREE.MeshStandardMaterial({ color: def.body, emissive: def.body, emissiveIntensity: 0.1, roughness: 0.62, metalness: 0.1 })
+      : armMat;
+    const shoulder = new THREE.Mesh(new THREE.SphereGeometry(0.16 * rootScale, seg(9), seg(7)), shoulderMat);
+    shoulder.scale.set(1.1 + (rootScale - 1) * 0.9, 0.9, 1.2 + (rootScale - 1) * 0.9);
+    if (rootScale !== 1) shoulder.position.set(0, -0.04, 0.02);
     pivot.add(shoulder);
 
     // Membrane. Skinned: ONE continuous SkinnedMesh (added to the mount + bound
@@ -437,7 +457,7 @@ function buildMembraneWings(def, model, attach, giM, opts = {}) {
   let wingPivot2R = null;
   if (model.secondWingPair) {
     const ws2 = ws * 0.48;
-    const miniGeo = new THREE.ShapeGeometry(buildWingShape(DEFAULT_WING));
+    const miniGeo = new THREE.ShapeGeometry(buildWingShape(wingSpec));   // mini fins echo the main Night-Fury wing silhouette
     miniGeo.rotateX(-Math.PI / 2);
     miniGeo.scale(ws2, ws2, 1);
     applyWingGradient(miniGeo, def, 0.3, 0.9);
@@ -460,11 +480,13 @@ function buildMembraneWings(def, model, attach, giM, opts = {}) {
   // the whole rear silhouette flows together.
   if (model.hipFins && finEdgeMat) {
     for (const s of [-1, 1]) {
-      const hip = edgedFin(0.13, 0.42, finMembraneMat, finEdgeMat, 1.2);
-      hip.position.set(s * 0.34, 0.24, 0.95);
-      hip.rotation.x = Math.PI / 2 + 0.2;        // lay back, sweeping toward the tail
-      hip.rotation.z = s * 0.7;                  // splay outward and down
-      hip.rotation.y = s * 0.2;
+      // Rear STABILIZER fins near the hips/tail-base (behind the main wings): dark,
+      // nearly flat, swept with the flight line — control surfaces, not side flippers.
+      const hip = edgedFin(0.16, 0.52, finMembraneMat, finEdgeMat, 1.1);
+      hip.position.set(s * 0.32, 0.16, 1.25);
+      hip.rotation.x = Math.PI / 2 + 0.1;        // lay nearly flat, swept toward the tail
+      hip.rotation.z = s * 0.5;                  // gentle outward splay
+      hip.rotation.y = s * 0.15;
       group.add(hip);
     }
   }

@@ -20,7 +20,7 @@ lessons for the one after. That is the whole studio: we rapidly improve the game
 
 You are a fresh session continuing **Dragon Drift** (the `reforged/` rewrite). Read this
 file top-to-bottom: **this HANDOFF** (where we are) → the **Active roadmap** (the next big
-build) → **THE RULE** + the **lessons ledger L1–L16** (how we work + everything learned so
+build) → **THE RULE** + the **lessons ledger L1–L20** (how we work + everything learned so
 far). Then continue — and **append a lesson after every meaningful change**.
 
 ### Where we are (state of the world)
@@ -681,3 +681,123 @@ show it** (the tail, not the cross-section). Process lesson: a reference-driven 
 → Toothless Night Fury) runs best as SEQUENCED preview-judged passes (tail → colour → wings →
 proportions) — headless tools verify the engineering; only the human judges the look, so ship each pass
 coexisting + reversible.
+
+### L17 — Matte-ifying a dragon: mute emissives + ZERO the glow-geometry counts (colour is data, glow is sometimes geometry)
+**Did / learned:** pass 2 of Obsidian → Toothless — recoloured the cyan stealth-drake to a matte black
+Night Fury (acid-green eyes, blue plasma reserved for the Night-Surge moment). Mostly a pure def-data
+edit (per-form + base `colors`), BUT the "cyan look" was not only colour: the dorsal/tail chevron LINES
+(`dorsalGlowCount`/`tailGlowSegs`) and `wingVeins`/`glowSeams`/`wingEdgeGlow` are GEOMETRY toggles —
+zeroing them removed real meshes (Obsidian Eternal HIGH 4898→4258), so a "recolour" can move the tri
+budget. Kept the procedural surface sheen (`cellularScales`/`iridescence`) so the black reads as scales,
+not a flat silhouette — muting EMISSIVE accents ≠ darkening the base/sheen. Reserved the accent hue for
+the transient state (`surgeHi`/`fever*` stay cool-blue plasma) so cruise reads pure black but Surge
+still flares. Colour lives per-form AND in the base `colors` (forms override base) — edit both.
+**→ Systematize:** a reusable "matte-ify / re-theme" recipe: (1) mute the emissive accent fields
+(`*Emissive`, `apexSeam`, `eye`, `coreGlow`, `dorsalHi`, trails, aura) toward the new hue/near-black;
+(2) ZERO the glow-GEOMETRY counts + flags (chevron counts, vein/seam/edge bools) and **re-check
+`tricount`** — these are meshes, not just colours; (3) KEEP the procedural sheen shaders for form
+definition; (4) reserve the old accent for the transient/surge state. This is the template for any
+reference-driven recolour or a new colourway of an existing dragon.
+**→ Leapfrog (innovate):** with re-theming reduced to a data recipe, ALT COLOURWAYS (skins/variants)
+are near-free — a matte/plasma/frost Obsidian is a `colors` swap + a few flags. Combined with the
+geometry passes (`sweptLoft`/`sweptTail`/wings), an entire creature identity is declarative data over
+shared builders — the L14 "declarative layers over one hull" thesis now extends to PALETTE. Next on the
+Night Fury: the wing reshape (broad rounded bat-wings) + compact cat proportions complete the read.
+
+### L18 — Reshaping a creature is mostly DATA + dormant features; texture-pop is light, not hue
+**Did / learned:** Night Fury pass 3 (wings + horizontal tail-fins + texture). Reusable findings: (1)
+**the wing silhouette is pure DATA** — `wingForms[]` (`tips` = trailing finger-points, `scallop` = the
+fanned webs between them, `arc.hump` = elbow peakiness, `lead` = leading-edge roundness) feeds
+`buildWingShape`→`buildCurvedPatch`, so a broad fanned bat-wing is a per-form data edit, zero geometry
+code. (2) **fin orientation is ONE rotation** — `buildLayeredFin` builds upright (face +Y, span +Y);
+`rotation.x = π/2` lays it FLAT/horizontal (aircraft stabilizer) vs the vertical-V splay (`rotation.z`);
+the existing `'twinfin'` already pre-rotated its geometry flat — check sibling code before deriving. (3)
+**a dormant built-in was waiting** — `model.secondWingPair` (the "Obsidian/Toothless" mini-wings near
+the tail base) already existed UNUSED; grepping the system found it, so "add the mini wings" was a flag
+flip + pointing it at the dragon's own `wingForm` silhouette (not `DEFAULT_WING`). Search for an existing
+feature before building. (4) **gotcha:** `wingSpan` in the def is **dead** (unused by geometry) —
+proportions ride `wingScale`/`wingChord`; don't tune a no-op field. Coexist held via **additive +
+nullable** model flags (`wingRootScale`, `wingSSS`) defaulting to the shipped value → roster
+byte-identical (verified: only Obsidian's tris moved; 0 over budget).
+**→ Systematize:** "reshape a creature" is now a recipe — silhouette = `wingForms` data; fin/limb
+orientation = the one flat-vs-upright rotation; secondary parts = existing flags
+(`secondWingPair`/`hipFins`/`wingtipFins`); size = `wingScale`/`wingChord` (never `wingSpan`); all
+per-dragon + additive-nullable so the roster never moves. **Texture-pop WITHOUT colour = light
+interaction:** `membraneSSSPatch` on `wingMat` (via `composeSurface`, gated by `model.wingSSS`) makes the
+thin black membrane glow faintly at the silhouette when backlit (the Toothless-against-sky read),
+layered with the body's `fresnelRim` (edge catch) + `cellularScales` (scale micro-relief) + `iridescence`
+(raven oil-slick sheen). Hue stays black; FORM comes from rim/SSS/sheen/relief — bank this patch stack as
+the reusable "matte-creature definition" kit.
+**→ Leapfrog (innovate):** wings, tail, body, palette, and now LIGHT-RESPONSE are all declarative layers
+over shared builders (L14's thesis, complete) — a new creature is data + flags, and "make the black pop"
+is a fixed shader kit. The membrane-SSS + rim combo is the default finish for ANY dark/stealth creature.
+Next: compact cat-like BODY proportions (the last Night-Fury pass); then this recipe (silhouette data +
+flat-fin + secondary flags + SSS kit) is the template for the roster migration and non-dragon creatures.
+
+### L19 — Anatomy tuning: diagnose the READ, fix with additive per-dragon knobs
+**Did / learned:** Obsidian → Night Fury anatomy pass (wings/shoulders/mini-wings/tail/rider) driven off a
+shop render. The diagnoses are the lesson: (1) **"ribbon wings" = shallow chord + translucency** — chord
+is `scaleZ = model.wingChord` over the `buildWingShape` outline, and the membrane also washed PALE because
+`wingOpacity` ~0.8 let the bright backdrop show through. Fix = deepen `wingChord` (1.1→1.7) AND raise
+opacity (0.82→0.90): a translucent wing reads by its BACKDROP, so a hero against bright sky needs more
+opacity to read solid/dark. (2) **"pale thin rod" tail = a lit grey cylinder** — a thin tube catches
+specular and reads grey even when near-black; fix = a dedicated **dark MATTE** material (`roughness 0.85,
+metalness ~0`) + a fuller taper. (3) **per-dragon shoulder widening without a new profile** = an additive
+`model.shoulderWidthScale` that remaps ONLY the shoulder-zone station half-widths inside `buildTorso`
+(flows through the loft + `attach.halfWidthAt`), default 1 = byte-identical. (4) **repurpose, don't
+proliferate** — the "mini-wings" brief was best served by RETIRING the `secondWingPair` baby-wings and
+re-aiming the existing `hipFins` as rear stabilizers (moved back, flattened, darkened): fewer parts,
+clearer silhouette, and Obsidian got LIGHTER. (5) **mount points are per-dragon overrides** —
+`wingRootOffset` + `riderSocket` as additive `model.*` reads (rider nestles lower/back between the
+shoulders). All Obsidian-only + additive-nullable → roster byte-identical, 0 over budget.
+**→ Systematize:** the "fix a creature's READ" loop — diagnose from the rendered silhouette (ribbon =
+chord/opacity · pale = material/thinness · floppy = wrong part · perched = mount socket) → fix with
+**additive per-dragon `model.*` knobs** that default to the shipped value (`shoulderWidthScale`,
+`wingRootOffset`, `riderSocket`, per-form `wingChord`/`wingOpacity`). Rules of thumb to bank: a thin dark
+form needs a **matte** material (kill specular) to read black; a translucent membrane needs **opacity** to
+read solid against a bright scene; **repurpose an existing part** before adding geometry.
+`model.shoulderWidthScale` (a station-zone remap in `buildTorso`) is the reusable "widen any region of any
+body" lever. **GOTCHA (found the next pass):** widening a region's STATIONS alone *buries* the FIXED
+junction geometry that rides the old surface — the wing fairing (`r:0.3, pos.x:0.46`) and the wing-root
+mount (`wingRoot.x:0.5`) don't move, so the connection reads THINNER, not thicker. A region-widen MUST
+also scale the mount-x + any fairing/mound on that surface by the same factor (fairing `r`/`pos.x` ×
+shoulderW, `wingRoot.x` × shoulderW, wing-side shoulder flared by wingRootScale). Rule: **when you scale a
+body region, scale everything mounted ON it too, or it sinks inside.**
+**→ Leapfrog (innovate):** every silhouette lever is now an additive per-dragon knob over shared builders,
+so dialing a creature's anatomy (girth, shoulder mass, mount points, membrane solidity, tail finish) is
+pure data tuning — no new code, roster-safe. This completes the "creature = declarative layers + knobs over
+one hull" thesis: the roster migration + non-dragon creatures can be SHAPED (not just coloured/decorated)
+through data alone. Remaining Night-Fury work is preview-driven value tuning, not engineering.
+
+### L20 — Continuity is a LOFTED BRIDGE from the body surface to the mount socket, not scaled blobs
+**Did / learned:** the wing→body join still read as "Lego bolted onto new tech" — the rest of Obsidian is
+modern (`sweptLoft`/`skinnedMembrane`/surface shaders/`shingle`/`sweptTail`), but the join was two discrete
+spheres (the torso `fairing` sphere + the wing `shoulder` sphere) plus a membrane that started at a POINT.
+L19 tried to fix the "too thin" read by independently SCALING each blob (`shoulderWidthScale`,
+`wingRootScale`, `rootChord`, `wingRootOffset`) and pushing the socket outward — which just made bigger,
+more-obviously-separate masses (the L19 gotcha, restated: scaling pieces ≠ making them one surface). The
+real fix was a new reusable system: **`buildShoulderGirdle`** (dragonTorso.js) lofts a DELTOID — a tube of
+elliptical rings from a broad BASE ellipse buried in the upper flank (sampled off the torso's own
+`attach.halfWidthAt`/`keelTopAt`/`bodyMidY`) out + up to a small CAP at `attach.wingRoot(side)`. It wears
+the shared `bodyMat` (same composed surface shader) so it reads as ONE skin; the wing arm emerges from
+inside it; mass grows with `model.formLevel` (Eternal most muscular). Built in dragonModel after bodyMat is
+finalized; opt-in via `model.shoulderGirdle` → roster byte-identical (only Obsidian's tris moved, 0 over
+budget, HIGH 4250→4182 because two fairing spheres left and the lofted girdle came in cheaper).
+**GOTCHA:** the wing's own shoulder sphere uses the shiny metallic `armMat` — left as-is it reads as a
+bolted-on BALL on top of the matte girdle (visible top-down). Fix: when a girdle is present, give that nub
+a dark MATTE body-coloured material + shrink it so it merges into the mound. Rule: **any junction prop
+must wear the SAME matte skin as the surface it sits on, or specular betrays it as a separate part.**
+Also (tail): a flat split fin built from a SMOOTH outline + small splay overlaps into one rounded
+"lily-pad". Two levers make it read as two POINTED bat fins: a sharp-tipped outline with a trailing NOTCH
+(`buildBatFinShape` via `buildLayeredFin`'s `opts.shape`) AND a WIDE enough splay (`rotation.y` 0.24→0.5)
+so the pair separates into a clear V — shape + separation, not shape alone.
+**→ Systematize:** the "make a limb continuous with the body" recipe — don't bolt a sphere and scale it;
+**loft a bridge** from the body surface (queried via the `attach` contract) to the mount socket, in the
+shared body material, form-scaled, opt-in + nullable. `buildShoulderGirdle` is the reusable lever for ANY
+limb root (wings/legs/fins) on ANY torso; the `attach` contract is the universal adapter that makes it
+body-agnostic. Junction nubs inherit the surface's matte material. Split fins need shape + splay.
+**→ Leapfrog (innovate):** the join is no longer special-cased geometry — it's a declarative layer over the
+surface contract, exactly like `shingle`. With girdle + shingle + surface shaders + sweep all reading off
+`attach`, a creature's entire skin (body, scale relief, limb roots) is ONE continuous shader-shared surface
+generated from the body plan + per-dragon knobs. Next: migrate the girdle across the roster (legs/fins),
+and judge the Night-Fury wing chord/tail pointiness on the lit preview (static dark shots can't call it).
