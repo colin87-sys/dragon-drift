@@ -406,22 +406,22 @@ export function buildCleanTail(def, model, bodyMat, swept = false) {
     point.position.set(0, 0, 0.34);
     tip.add(point);
   } else if (style === 'nightfury') {
-    // Toothless-style TWIN tail-fins: two broad rounded membrane fans splayed in a
-    // shallow up-and-out V at the tip of the smooth swept stem — the Night Fury
-    // signature. Built from the layered-fin primitive with a strong curve for the
-    // rounded paddle look; sizes with tailFinScale so the fins grow across forms.
+    // Toothless-style TWIN tail-fins: two broad rounded membrane fans lying FLAT &
+    // HORIZONTAL (aircraft horizontal stabilizers), swept out to the sides at the tip
+    // of the smooth swept stem — the Night Fury signature. Built from the layered-fin
+    // primitive with a strong curve; sizes with tailFinScale so the fins grow per form.
     const fs = model.tailFinScale ?? 1;
     const em = ensureEdgeMat();
     const fill = ensureFinFill();
     for (const sx of [-1, 1]) {
-      const fin = buildLayeredFin(0.46 * fs, 1.05 * fs, fill, em, { curve: 0.3, tipPinch: 0.62 });
+      const fin = buildLayeredFin(0.5 * fs, 1.3 * fs, fill, em, { curve: 0.1, tipPinch: 0.85 });
       fin.scale.x = sx;
       const p = new THREE.Group();
       p.add(fin);
-      p.rotation.z = sx * 0.66;     // splay up-and-out into the twin-fin V
-      p.rotation.y = sx * 0.32;     // fan outward (broad paddle)
-      p.rotation.x = 0.28;          // slight rearward sweep
-      p.position.set(sx * 0.06, 0.05, 0.0);
+      p.rotation.x = Math.PI / 2;   // lay the blade FLAT — a crisp horizontal stabilizer (face +Y)
+      p.rotation.y = sx * 0.26;     // shallow horizontal V — reads as a split fin from above
+      p.rotation.z = 0;             // no vertical splay
+      p.position.set(sx * 0.05, 0.02, 0.0);
       tip.add(p);
     }
     const point = new THREE.Mesh(new THREE.ConeGeometry(tipR + 0.02, 0.3, lod(6)), bodyMat);
@@ -477,15 +477,19 @@ export function buildCleanTail(def, model, bodyMat, swept = false) {
   if (swept) {
     const bones = segs.slice(0, N);                  // the 7 shaft bones (tip excluded)
     const M = (N - 1) * 2 + 1;                       // longitudinal stations (smooth bend)
+    const tEnd = Math.max(tipR, 0.13);               // fuller tail end — not a thin pale rod
+    // Dark MATTE stem material so the tail integrates with the black body instead of
+    // reading as a lit grey cylinder (no metallic sheen, high roughness).
+    const stemMat = new THREE.MeshStandardMaterial({ color: def.body, roughness: 0.85, metalness: 0.04 });
     const centre = [], radii = [], skin = [];
     for (let s = 0; s < M; s++) {
       const z = (s / (M - 1)) * len;
       centre.push({ x: 0, y: 0, z });
-      radii.push(baseR + (tipR - baseR) * (z / len));
+      radii.push(baseR + (tEnd - baseR) * (z / len));
       const t = z / spacing, i0 = Math.min(N - 1, Math.floor(t)), i1 = Math.min(N - 1, i0 + 1), f = t - i0;
       skin.push({ si: [i0, i1, 0, 0], sw: [1 - f, f, 0, 0] });
     }
-    const tube = skinnedTube(centre, radii, lod(8), (s) => skin[s], bodyMat);
+    const tube = skinnedTube(centre, radii, lod(8), (s) => skin[s], stemMat);
     tube.name = 'sweptTailTube';
     root.add(tube);
     root.updateMatrixWorld(true);
