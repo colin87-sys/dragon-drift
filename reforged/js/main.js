@@ -19,7 +19,6 @@ import { updateCollision, resetCollision, acceptRevive, finishDeath } from './co
 import { ui } from './ui.js';
 import { music, sfx, setSlowMo, unlockAllTracks } from './sfx.js';
 import { initPostFX, setPostSize, setPostPixelRatio, setPostTier, updatePostFX, renderPostFX, postfx, kick, clearDeath, kickState, setupGodRays, setGodRaySun } from './postfx.js';
-import { isMenuStageActive } from './menuStage.js';
 import { initContactShadow, updateContactShadow, resetContactShadow, setContactShadowQuality } from './contactShadow.js';
 import { hitstop, juiceEvent } from './juice.js';
 import { createWater, setWaterReflective, updateWater } from './water.js';
@@ -195,6 +194,11 @@ ui.init({
     rebuildDragon(equippedDragon(), equippedRider(), player);
     applyDragonStats(equippedDragon());
   },
+  // Shop browse: show the inspected dragon (at its form/tier) in the live menu scene.
+  // ONLY rebuilds the dragon mesh — never the run's obstacles — so walls are untouched.
+  // Does NOT persist the equip; leaving the shop restores the equipped dragon.
+  onPreviewDragon: (def) => rebuildDragon(def, equippedRider(), player),
+  onRestoreMenuDragon: () => rebuildDragon(equippedDragon(), equippedRider(), player),
   onEquipRider: () => rebuildDragon(equippedDragon(), equippedRider(), player),
   onAscend: (key) => {
     const def = DRAGONS[key] || DRAGONS.azure;
@@ -838,7 +842,8 @@ function tick() {
     updateParticles(dt, camera);
     const obstacleSpeedNorm = (player.speed - CONFIG.baseSpeed) / (CONFIG.orbSpeed - CONFIG.baseSpeed);
     updateObstacles(dt, t, player.dist, obstacleSpeedNorm);
-    cameraCtl.update(dt, player, game.state === 'ready');
+    const atShop = ui.atShop();   // shop open → static hero framing (no orbit)
+    cameraCtl.update(dt, player, game.state === 'ready' || atShop, atShop);
     if (introPlaying && !cameraCtl.introPlaying) introPlaying = false;
     updateReticle(player, game.state === 'playing');
     updateEnvironment(dt, camera, t, player.dist, game.feverActive, player.speed);
@@ -875,9 +880,7 @@ function tick() {
 
   const speedNorm = (player.speed - CONFIG.baseSpeed) / (CONFIG.orbSpeed - CONFIG.baseSpeed);
   updatePostFX(dt, speedNorm, game.feverActive, rawDt);
-  // The shop's dedicated menu stage covers the screen with its own opaque scene, so
-  // skip the gameplay render while it's up (it would just be painted over).
-  if (!isMenuStageActive()) renderPostFX();
+  renderPostFX();
 
   if (perfEl) {
     perfTimer -= rawDt;
