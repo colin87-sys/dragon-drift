@@ -245,6 +245,8 @@ export const DRAGONS = {
       scale: 0.86, wingScale: 1.07, tailSegments: 9, neckSegments: 5,
       ridgeCount: 0, // smooth back (cyan chevrons via dorsalGlowCount, not ridges)
       wingRootScale: 1.5, wingSSS: true, // thick Night-Fury wing root + backlit-membrane subsurface
+      shoulderWidthScale: 1.2, wingRootOffset: { y: 0.06, z: -0.1 }, // broader shoulders + wing root raised/forward
+      riderSocket: { x: 0, y: 0.92, z: -0.45 }, // nestle the rider low between the shoulders, behind the head
       // Soft Stealth draconic head — large catlike eyes, compact, cyan-lit ear-fins.
       headArchetype: 'softStealth', headScale: 1.18, eyeScale: 1.32, rearGlowIntensity: 0.4,
       flapBias: 1.08, flapAmp: 0.82, // quick, agile, low-profile beat
@@ -272,7 +274,7 @@ export const DRAGONS = {
       // ── HATCHLING (T0) ── tiny smooth night dart, plasma dormant. No chevrons,
       // a tapered stem + small dark spade tip, stubby wings, dim grey-cyan. ~25%.
       { wingForm: 0, tailStyle: 'nightfury',
-        bodyScale: 0.65, wingSpan: 0.85, wingChord: 1.00, tailLength: 0.80,
+        bodyScale: 0.65, wingSpan: 0.85, wingChord: 1.40, tailLength: 0.80,
         tailFinScale: 0.5, tailFinSpread: 0, dorsalGlowCount: 0, tailGlowSegs: 0,
         spineGlow: 0, glowIntensity: 0.25, particleRate: 0.30,
         wingOpacity: 0.93, wingPanelGlow: 0.10, previewScale: 0.75,
@@ -284,10 +286,10 @@ export const DRAGONS = {
       // chevron line continuing onto the tail, and the first SPLIT tail-fin
       // identity (two flared finlets + side-fin hints). Drama ≈ 45%.
       { wingForm: 1, tailStyle: 'nightfury', earTendrils: true,
-        bodyScale: 0.82, wingSpan: 0.95, wingChord: 1.06, tailLength: 0.90,
+        bodyScale: 0.82, wingSpan: 0.95, wingChord: 1.55, tailLength: 0.90,
         tailFinScale: 0.62, tailFinSpread: 0, dorsalGlowCount: 0, tailGlowSegs: 0,
         spineGlow: 0.45, glowIntensity: 0.55, particleRate: 0.55,
-        wingOpacity: 0.87, wingPanelGlow: 0.12, previewScale: 0.88,
+        wingOpacity: 0.92, wingPanelGlow: 0.12, previewScale: 0.88,
         eyeScale: 1.32,
         colors: { body: 0x0a0d12, wingInner: 0x182334, wingOuter: 0x0e1622,
           wingEmissive: 0x0d1219, wingMembraneEmissive: 0x16202e, scales: 0x223044, horn: 0x33506a,
@@ -296,11 +298,11 @@ export const DRAGONS = {
       // (two swept layered fins + central rudder), an 8-chevron body line + 6 tail
       // segments, cyan-edged wings, plasma veins + glow seams. Looks good — but the
       // Eternal must read as obviously beyond it. Drama 70%.
-      { wingForm: 2, tailStyle: 'nightfury', earTendrils: true, secondWingPair: true,
-        bodyScale: 1.00, wingSpan: 1.00, wingChord: 1.12, tailLength: 1.00,
+      { wingForm: 2, tailStyle: 'nightfury', earTendrils: true, hipFins: true,
+        bodyScale: 1.00, wingSpan: 1.00, wingChord: 1.70, tailLength: 1.00,
         tailFinScale: 1.00, tailFinSpread: 1.00, dorsalGlowCount: 0, tailGlowSegs: 0,
         spineGlow: 0.75, glowIntensity: 1.00, particleRate: 1.00,
-        wingOpacity: 0.82, wingPanelGlow: 0.14, previewScale: 1.00,
+        wingOpacity: 0.90, wingPanelGlow: 0.14, previewScale: 1.00,
         wingVeins: false, glowSeams: false, wingEdgeGlow: false,
         colors: { body: 0x0a0d12, wingInner: 0x182334, wingOuter: 0x0e1828,
           wingEmissive: 0x0d1219, wingMembraneEmissive: 0x1a2636, scales: 0x273052, horn: 0x3a5a78,
@@ -310,15 +312,15 @@ export const DRAGONS = {
       // flowing into 10 tail segments, subtle hip fins, and the signature apex
       // stealth-tail ASSEMBLY — two large swept layered stabilizers (anhedral) +
       // micro support fins + a tall central rudder on a long stem. Drama 100%.
-      { wingForm: 3, tailStyle: 'nightfury', earTendrils: true, secondWingPair: true,
-        bodyScale: 1.12, bodyStretch: 1.18, wingSpan: 1.10, wingChord: 1.22, tailLength: 1.06,
+      { wingForm: 3, tailStyle: 'nightfury', earTendrils: true,
+        bodyScale: 1.12, bodyStretch: 1.18, wingSpan: 1.10, wingChord: 1.90, tailLength: 1.06,
         tailFinScale: 1.08, tailFinSpread: 1.2, dorsalGlowCount: 0, tailGlowSegs: 0,
         tailRootCollar: true, tailDorsalLink: false,
         spineGlow: 1.00, glowIntensity: 1.30, particleRate: 1.80,
-        wingOpacity: 0.78, wingPanelGlow: 0.16, previewScale: 1.12,
+        wingOpacity: 0.90, wingPanelGlow: 0.16, previewScale: 1.12,
         surgeGlowMultiplier: 1.3, wingParticleRate: 0.6,
         wingVeins: false, glowSeams: false, wingEdgeGlow: false,
-        wingtipFins: true, hipFins: true,
+        hipFins: true,
         colors: { wingMembraneEmissive: 0x202b3c } },
     ],
     fx: { auraColor: '50,110,140', auraIdle: 0.0, sparkle: false },

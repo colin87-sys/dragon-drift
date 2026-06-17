@@ -20,7 +20,7 @@ lessons for the one after. That is the whole studio: we rapidly improve the game
 
 You are a fresh session continuing **Dragon Drift** (the `reforged/` rewrite). Read this
 file top-to-bottom: **this HANDOFF** (where we are) → the **Active roadmap** (the next big
-build) → **THE RULE** + the **lessons ledger L1–L18** (how we work + everything learned so
+build) → **THE RULE** + the **lessons ledger L1–L19** (how we work + everything learned so
 far). Then continue — and **append a lesson after every meaningful change**.
 
 ### Where we are (state of the world)
@@ -733,3 +733,33 @@ over shared builders (L14's thesis, complete) — a new creature is data + flags
 is a fixed shader kit. The membrane-SSS + rim combo is the default finish for ANY dark/stealth creature.
 Next: compact cat-like BODY proportions (the last Night-Fury pass); then this recipe (silhouette data +
 flat-fin + secondary flags + SSS kit) is the template for the roster migration and non-dragon creatures.
+
+### L19 — Anatomy tuning: diagnose the READ, fix with additive per-dragon knobs
+**Did / learned:** Obsidian → Night Fury anatomy pass (wings/shoulders/mini-wings/tail/rider) driven off a
+shop render. The diagnoses are the lesson: (1) **"ribbon wings" = shallow chord + translucency** — chord
+is `scaleZ = model.wingChord` over the `buildWingShape` outline, and the membrane also washed PALE because
+`wingOpacity` ~0.8 let the bright backdrop show through. Fix = deepen `wingChord` (1.1→1.7) AND raise
+opacity (0.82→0.90): a translucent wing reads by its BACKDROP, so a hero against bright sky needs more
+opacity to read solid/dark. (2) **"pale thin rod" tail = a lit grey cylinder** — a thin tube catches
+specular and reads grey even when near-black; fix = a dedicated **dark MATTE** material (`roughness 0.85,
+metalness ~0`) + a fuller taper. (3) **per-dragon shoulder widening without a new profile** = an additive
+`model.shoulderWidthScale` that remaps ONLY the shoulder-zone station half-widths inside `buildTorso`
+(flows through the loft + `attach.halfWidthAt`), default 1 = byte-identical. (4) **repurpose, don't
+proliferate** — the "mini-wings" brief was best served by RETIRING the `secondWingPair` baby-wings and
+re-aiming the existing `hipFins` as rear stabilizers (moved back, flattened, darkened): fewer parts,
+clearer silhouette, and Obsidian got LIGHTER. (5) **mount points are per-dragon overrides** —
+`wingRootOffset` + `riderSocket` as additive `model.*` reads (rider nestles lower/back between the
+shoulders). All Obsidian-only + additive-nullable → roster byte-identical, 0 over budget.
+**→ Systematize:** the "fix a creature's READ" loop — diagnose from the rendered silhouette (ribbon =
+chord/opacity · pale = material/thinness · floppy = wrong part · perched = mount socket) → fix with
+**additive per-dragon `model.*` knobs** that default to the shipped value (`shoulderWidthScale`,
+`wingRootOffset`, `riderSocket`, per-form `wingChord`/`wingOpacity`). Rules of thumb to bank: a thin dark
+form needs a **matte** material (kill specular) to read black; a translucent membrane needs **opacity** to
+read solid against a bright scene; **repurpose an existing part** before adding geometry.
+`model.shoulderWidthScale` (a station-zone remap in `buildTorso`) is the reusable "widen any region of any
+body" lever.
+**→ Leapfrog (innovate):** every silhouette lever is now an additive per-dragon knob over shared builders,
+so dialing a creature's anatomy (girth, shoulder mass, mount points, membrane solidity, tail finish) is
+pure data tuning — no new code, roster-safe. This completes the "creature = declarative layers + knobs over
+one hull" thesis: the roster migration + non-dragon creatures can be SHAPED (not just coloured/decorated)
+through data alone. Remaining Night-Fury work is preview-driven value tuning, not engineering.
