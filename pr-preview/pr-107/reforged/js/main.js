@@ -5,7 +5,7 @@ import { initInput, initTouch, initMouse } from './input.js';
 import { createLevelGen } from './level.js';
 import { todaysDailyMod, dailyMods } from './daily.js';
 import { createEnvironment, updateEnvironment, resetEnvironment, getSkyMesh } from './environment.js';
-import { createDragon, updateDragon, resetDragon, rebuildDragon } from './dragon.js';
+import { createDragon, updateDragon, resetDragon, rebuildDragon, setDragonVisible } from './dragon.js';
 import { initReticle, updateReticle } from './reticle.js';
 import { initSplash, showSplash, hideSplash, splashVisible, launchFlash, igniteSplash, splashArmed } from './splash.js';
 import { player, applyDragonStats } from './player.js';
@@ -333,14 +333,17 @@ window.addEventListener('pointerdown', (e) => {
   // Buttons, cards and sliders handle their own clicks — don't treat them
   // as "tap to fly" / "tap to resume"
   if (e.target.closest && e.target.closest('button, .skin-card, .daily-card, .seg-btn, .pause-menu, .share-menu, .title-row, input')) return;
-  if (game.state === 'paused') {
+  // NOTE: while a subscreen (shop/settings/…) is open — even one opened FROM pause —
+  // this global handler must NOT fire: the subscreen owns its taps (rail, cards, its
+  // own backdrop-to-go-back). Without the !inSubscreen guard, a tap on the shop's
+  // dragon rail (opened from pause) was swapping back to the pause overlay before the
+  // rail's pointerup ran (the gameover path already had this guard, which is why only
+  // the pause path was broken).
+  if (game.state === 'paused' && !ui.inSubscreen()) {
     // Tutorial pause: only performing the taught gesture resumes — a blank tap
     // must not skip the lesson (gestureTutorial.js handles the resume).
     if (game.pauseReason === 'tutorial') return;
-    // Browsing the shop/settings from pause: outside taps go back to the
-    // pause overlay instead of resuming mid-shop.
-    if (ui.inPauseSubscreen()) ui.showPauseOverlay();
-    else resumeFromPause();
+    resumeFromPause();
   }
   // Tap-to-fly only from the start screen itself — while browsing the
   // shop/settings, blank taps mean "back" (handled by the screen itself).
@@ -850,6 +853,9 @@ function tick() {
     setRingsVisible(!menuMode);
     setObstaclesVisible(!menuMode);
     for (const sp of setpieceMeshes) if (sp.object) sp.object.visible = !menuMode;
+    // The dragon shows on the DRAGONS tab; the riders/music/style tabs share the same
+    // biome backdrop without it, so the shop flows tab to tab. (Visible everywhere else.)
+    setDragonVisible(!menuMode || ui.atDragonsShop());
     updateEnvironment(dt, camera, t, envDist, game.feverActive, player.speed);
     updateWater(dt, envDist, t, scene.fog);
     updateContactShadow(dt, player);

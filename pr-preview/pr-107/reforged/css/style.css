@@ -781,12 +781,12 @@ body.app-loaded > canvas { opacity: 1; }
 .hero-gem { position: absolute; top: 12px; left: 12px; z-index: 3; font-family: var(--font-display);
   font-size: 12px; letter-spacing: 1.5px; padding: 5px 11px; border-radius: 9px; color: var(--hrar);
   background: color-mix(in srgb, var(--hrar) 16%, rgba(8,14,30,0.7)); border: 1px solid color-mix(in srgb, var(--hrar) 50%, transparent); }
-/* ===== Shop DRAGONS tab: dragon parked in the LIVE astral biome (no preview box) =====
-   The shop drives the live menu scene (main.js onPreviewDragon), so de-dim the screen
-   to reveal that full-quality world + the centred, flapping dragon, and turn the stage
-   into a transparent window (its boxed turntable / frame / pedestal removed). Scoped to
-   the dragons tab only via :has(.hero-select). */
-.screen:has(.hero-select) {
+/* ===== Shop: the LIVE astral biome is the backdrop on EVERY tab =====
+   The shop drives the live menu scene (main.js), so de-dim the whole shop screen to
+   reveal that full-quality world. The DRAGONS tab parks the flapping dragon in it (no
+   preview box — the stage becomes a transparent window, below); the riders/music/style
+   tabs share the same biome without a dragon so the shop flows tab to tab. */
+.screen.shop-screen {
   background: radial-gradient(ellipse at 50% 34%, transparent 0%, transparent 52%, rgba(4,7,18,0.5) 100%);
   -webkit-backdrop-filter: none; backdrop-filter: none;
 }

@@ -306,6 +306,12 @@ export function rebuildDragon(def, riderDef, player) {
   resetDragon(player);
 }
 
+// Show/hide the dragon — the shop's non-dragon tabs (riders/music/style) share the
+// biome backdrop but without the dragon, so the menu flows tab to tab.
+export function setDragonVisible(v) {
+  if (group) group.visible = v;
+}
+
 // Lethal crashes (wall/gate) explode hot coral-red; health deaths stay icy.
 export function triggerDeathBurst(position, lethal = false) {
   burstActive = true;
