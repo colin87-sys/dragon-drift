@@ -20,7 +20,7 @@ lessons for the one after. That is the whole studio: we rapidly improve the game
 
 You are a fresh session continuing **Dragon Drift** (the `reforged/` rewrite). Read this
 file top-to-bottom: **this HANDOFF** (where we are) → the **Active roadmap** (the next big
-build) → **THE RULE** + the **lessons ledger L1–L10** (how we work + everything learned so
+build) → **THE RULE** + the **lessons ledger L1–L14** (how we work + everything learned so
 far). Then continue — and **append a lesson after every meaningful change**.
 
 ### Where we are (state of the world)
@@ -69,9 +69,11 @@ far). Then continue — and **append a lesson after every meaningful change**.
    pillars **on the hero (Obsidian) first, migration LAST** (user directive — see the roadmap's
    SEQUENCING note). **Shipped to master:** roadmap **#3 Model-detail LOD/ULTRA tier** (L11, PR
    #108 — HIGH = no regression `== 89460`, ULTRA ≈2×, AUTO by tier, `MODEL DETAIL` Settings row;
-   ULTRA preview sign-off ✅). **Just built (new PR):** roadmap **#2 `shingle()` generator** (L13)
-   — Obsidian flank plates + Eternal shoulder mantle, one draw call/run, HIGH 5816 ≤6000;
-   **awaiting human preview sign-off**. **Next:** #4 `sweepProfile`, then #1 migrate the roster.
+   ULTRA preview sign-off ✅). **Also shipped to master:** roadmap **#2 `shingle()` generator**
+   (L13, PR #110 — merged) — Obsidian flank plates + Eternal shoulder mantle, one draw call/run,
+   HIGH 5816 ≤6000. **Synthesis:** **L14** ties #3 + #2 into the layered-hull architecture (one
+   skinned hull + declarative, detail-scaled, draw-call-merged layers over the surface contract).
+   **Next:** #4 `sweepProfile`, then #1 migrate the roster.
 
 ### The one law that took ~20 rounds to learn (don't relearn it)
 **A menu is the real game world, reframed + frozen — never a mutated or reinvented one.**
@@ -125,7 +127,7 @@ the run / obstacles / player), not **RENDERING**; touch only the *subject* (the 
    green. **STILL TODO here:** the torso-loft 8-pt cross-section is NOT detail-aware (needs a
    *spline resample* to round, not a linear subdivide — deferred); a posed/ULTRA `tiershots`
    to diff smoothness headlessly. The human must confirm ULTRA reads better on the preview.
-2. **`shingle()` generator — ✅ BUILT + proven on the hero (pending human preview sign-off).**
+2. **`shingle()` generator — ✅ SHIPPED to master (PR #110, L13).**
    `dragonShingle.js` lays overlapping cupped cards along a parametric run and merges them to ONE
    mesh (one draw call, the `mergeGeometries` + in-place-bake pattern). Opt-in via
    `def.parts.shingle` (a flank-style band: `count` per-form array, `zRange`, size, `cup`, `tilt`,
@@ -560,3 +562,42 @@ hull" vision realized for add-ons): torn/wet/armoured/mossy variants are just di
 `parts.shingle` for ~free. Next: skin the cards to the same bones as `skinnedMembrane` (so plates on
 a wing/limb bend with it — `skinnedTube` already proves surface-sampled skinning), and add a
 `shapeMenu` so #4's `sweepProfile` bodies get scaled by the same system the moment they exist.
+
+### L14 — The convergence: a creature = one hull + declarative, detail-scaled, draw-call-merged layers over a surface contract
+**Did / learned:** two pillars shipped back-to-back on the hero — the detail tier (L11) and the
+shingle decorator (L13) — and stepping back they are not separate features but two layers of the
+ONE architecture L1/L4 predicted. The synthesis: **a creature = one skinned hull (membrane/loft)
++ a growing `attach` SURFACE CONTRACT + declarative layers over it** (surface shaders
+`composeSurface`, geometric `shingle` runs, soon `sweepProfile` bodies) — **every layer
+detail-scaled by `seg()` and merged to one draw call.** Three cross-cutting *disciplines* emerged
+that make adding such a layer fearless: (1) **identity-default + baseline-number gating** (L11) — a
+new axis defaults to a provable no-op — byte-identical to the pre-feature `tricount` baseline (L11
+pinned `--detail=high` at 89460; a shipped feature then moves it by exactly its delta, +160 for
+shingle → 89620) — so it can touch the whole roster safely; (2) **additive + nullable contract extension** (L13's `halfWidthAt`/`bodyMidY`, the
+frozen-rig-contract rule) — grow the surface API without breaking any body that doesn't read it;
+(3) **merge-to-one-draw-call / spend-tris-not-draw-calls** — the GPU is idle, JS+draw calls are the
+bottleneck. And the ORDER was itself the leapfrog: building detail (#3) *before* shingle (#2) meant
+shingle was *born* detail-aware for free — each rung is inherited by the next.
+**→ Systematize:** the studio's universal shape is now **dumb primitive ← smart resolver ←
+declarative blueprint** (`shingle`←`buildShingleRun`←`parts.shingle`, mirroring
+`composeSurface`←`buildSurfacePatches`←`parts.surface`, and the recipe registry). Everything
+reusable lives at one of three layers: the **surface contract** (`attach`: `keelTopAt`/
+`halfWidthAt`/`wingRoot`/`bodyMidY` — the universal adapter every layer queries), a **body-path
+library** to promote next (`dorsalPath`/`flankPath`/`limbPath` over that contract), and a
+**card/shape menu** (scale/feather/plate/fin). With those three, a new look is *data*: pick a path
++ a shape + a density and it is automatically detail-scaled and draw-call-merged. The safety
+disciplines (identity-default baseline gate; additive-nullable extension; merge-once-normals /
+null-merge guards from L13) are the standing rules that keep roster-wide change a no-op until
+opted in — codify them in shared helpers (`seg()` exists; add `mergeCards()`).
+**→ Leapfrog (innovate):** the three layers converge on the L1 dream — *a creature's entire look is
+layers over one hull*. Two moves complete it: **(a) skin the decoration cards to the same bones as
+`skinnedMembrane`** (the `skinnedTube` weight-copy already proves surface-sampled skinning) →
+plates/scales that *ripple with motion*, unifying "decoration" and "deformation"; **(b)
+`sweepProfile()` (#4)**, which simultaneously discharges L11's deferred torso-resample debt (round
+the body by resampling the swept curve at `seg()` res, not subdividing the 8-gon) *and* opens
+spline bodies → non-dragon creatures (manta/serpent/insect) become a different profile + different
+paths + different cards. After those, the **roster migration (#1) is pure declarative payoff** —
+each dragon gets wings + surface + shingle + sweep blueprints at ~zero new code, carrying the
+detail tier for free. The process cadence that produced this is itself the reusable system:
+**perfect the hero → pin taste-forks with the human up front → extract a written migration
+checklist → mechanize the spread.**
