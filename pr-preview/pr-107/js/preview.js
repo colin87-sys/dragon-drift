@@ -291,7 +291,11 @@ function ensureShowcase() {
     scComposer.addPass(new RenderPass(scScene, scCamera));
     // (resolution, strength, radius, threshold) — threshold ~0.8 so only the bright
     // plasma/eyes bloom while the matte-black body stays crisp and dark.
-    scBloom = new UnrealBloomPass(new THREE.Vector2(SC_SIZE, SC_SIZE), 0.62, 0.55, 0.8);
+    // Restrained: a soft halo on the brightest plasma/eyes, NOT a white sun. High
+    // threshold so only genuinely bright emissive blooms; the matte body + stage
+    // stay dark. (strength/radius/threshold tuned down hard after the first pass
+    // blew the whole frame out into a backlit silhouette.)
+    scBloom = new UnrealBloomPass(new THREE.Vector2(SC_SIZE, SC_SIZE), 0.16, 0.4, 1.1);
     scComposer.addPass(scBloom);
     scComposer.addPass(new OutputPass());
     scComposer.setPixelRatio(scRenderer.getPixelRatio());
@@ -307,11 +311,14 @@ function makeStageTexture(rgb) {
   const [r, g, b] = rgb.split(',').map(Number);
   const cv = document.createElement('canvas'); cv.width = cv.height = 256;
   const cx = cv.getContext('2d');
-  const grad = cx.createRadialGradient(128, 158, 16, 128, 138, 210);
-  const tint = (v, lo) => Math.round(v * 0.16 + lo);
-  grad.addColorStop(0, `rgb(${tint(r, 16)},${tint(g, 18)},${tint(b, 26)})`);
-  grad.addColorStop(0.5, 'rgb(11,13,19)');
-  grad.addColorStop(1, 'rgb(4,5,9)');
+  // A DARK stage — a near-black backdrop with only a faint aura-tinted lift, so the
+  // matte dragon is lit from the FRONT (key light) and reads against darkness,
+  // never silhouetted against a bright central pool (the first pass's washout).
+  const grad = cx.createRadialGradient(128, 150, 24, 128, 138, 220);
+  const tint = (v, lo) => Math.round(v * 0.04 + lo);
+  grad.addColorStop(0, `rgb(${tint(r, 8)},${tint(g, 10)},${tint(b, 13)})`);
+  grad.addColorStop(0.55, 'rgb(7,9,13)');
+  grad.addColorStop(1, 'rgb(3,4,7)');
   cx.fillStyle = grad; cx.fillRect(0, 0, 256, 256);
   const tex = new THREE.CanvasTexture(cv);
   tex.colorSpace = THREE.SRGBColorSpace;
@@ -354,19 +361,21 @@ export function setShowcaseDef(canvas, def) {
   scScene.background = makeStageTexture(def.fx?.auraColor || '150,200,255');
 
   // Soft aura-tinted floor glow / backlight behind the dragon — a gentle showcase
-  // spotlight, recoloured per dragon so Obsidian stays cyan.
+  // spotlight, recoloured per dragon so Obsidian stays cyan. Kept LOW and small: a
+  // subtle pool low behind the dragon, not a backlight sun that silhouettes it.
   const auraRgb = def.fx?.auraColor || '150,200,255';
   if (!scFloor) {
     scFloor = new THREE.Sprite(new THREE.SpriteMaterial({
-      transparent: true, opacity: 0.5, blending: THREE.AdditiveBlending, depthWrite: false,
+      transparent: true, blending: THREE.AdditiveBlending, depthWrite: false,
     }));
     scScene.add(scFloor);
   }
+  scFloor.material.opacity = 0.16;
   if (scFloor.material.map) scFloor.material.map.dispose();
   scFloor.material.map = makeGlowTexture(auraRgb);
   scFloor.material.needsUpdate = true;
-  scFloor.scale.set(scBaseDist * 0.95, scBaseDist * 0.8, 1);
-  scFloor.position.set(0, scLookY - 0.2, -scBaseDist * 0.42); // behind + slightly below
+  scFloor.scale.set(scBaseDist * 0.6, scBaseDist * 0.5, 1);
+  scFloor.position.set(0, scLookY - 0.55, -scBaseDist * 0.4); // low + behind
 
   if (!scRaf) scRaf = requestAnimationFrame(scLoop);
 }
