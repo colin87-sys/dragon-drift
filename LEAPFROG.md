@@ -757,7 +757,12 @@ chord/opacity · pale = material/thinness · floppy = wrong part · perched = mo
 form needs a **matte** material (kill specular) to read black; a translucent membrane needs **opacity** to
 read solid against a bright scene; **repurpose an existing part** before adding geometry.
 `model.shoulderWidthScale` (a station-zone remap in `buildTorso`) is the reusable "widen any region of any
-body" lever.
+body" lever. **GOTCHA (found the next pass):** widening a region's STATIONS alone *buries* the FIXED
+junction geometry that rides the old surface — the wing fairing (`r:0.3, pos.x:0.46`) and the wing-root
+mount (`wingRoot.x:0.5`) don't move, so the connection reads THINNER, not thicker. A region-widen MUST
+also scale the mount-x + any fairing/mound on that surface by the same factor (fairing `r`/`pos.x` ×
+shoulderW, `wingRoot.x` × shoulderW, wing-side shoulder flared by wingRootScale). Rule: **when you scale a
+body region, scale everything mounted ON it too, or it sinks inside.**
 **→ Leapfrog (innovate):** every silhouette lever is now an additive per-dragon knob over shared builders,
 so dialing a creature's anatomy (girth, shoulder mass, mount points, membrane solidity, tail finish) is
 pure data tuning — no new code, roster-safe. This completes the "creature = declarative layers + knobs over
