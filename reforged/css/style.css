@@ -602,13 +602,13 @@ body.app-loaded > canvas { opacity: 1; }
    iOS backdrop-filter cost), an inset top highlight + soft drop shadow for depth,
    and a lift + glow on hover. Rarity adds a tinted border + accent glow. */
 .skin-card { pointer-events: auto; cursor: pointer; border-radius: 16px; padding: 13px 11px;
-  background: linear-gradient(168deg, rgba(36, 52, 92, 0.62), rgba(11, 17, 36, 0.8));
-  border: 1px solid rgba(150, 200, 255, 0.18); position: relative;
+  background: linear-gradient(168deg, rgba(54, 40, 30, 0.62), rgba(16, 11, 11, 0.82));
+  border: 1px solid var(--rf-stroke); position: relative;
   box-shadow: 0 10px 26px rgba(0, 0, 0, 0.42), inset 0 1px 0 rgba(255, 255, 255, 0.07);
   display: flex; flex-direction: column; align-items: center; gap: 6px;
   transition: transform 0.16s var(--ease-out), box-shadow 0.22s, border-color 0.22s; }
-.skin-card:hover { transform: translateY(-3px) scale(1.012); border-color: rgba(186, 228, 255, 0.55);
-  box-shadow: 0 18px 40px rgba(0, 0, 0, 0.5), 0 0 30px rgba(120, 180, 255, 0.2), inset 0 1px 0 rgba(255, 255, 255, 0.09); }
+.skin-card:hover { transform: translateY(-3px) scale(1.012); border-color: var(--rf-stroke-hi);
+  box-shadow: 0 18px 40px rgba(0, 0, 0, 0.5), 0 0 30px rgba(255, 180, 90, 0.2), inset 0 1px 0 rgba(255, 255, 255, 0.09); }
 .skin-card.equipped { border-color: #ffd86a;
   box-shadow: 0 12px 30px rgba(0, 0, 0, 0.45), 0 0 24px rgba(255, 200, 90, 0.38), inset 0 1px 0 rgba(255, 255, 255, 0.08); }
 /* Rarity-tinted border + accent glow (glow on ALL tiers, not just gold) */
@@ -645,21 +645,21 @@ body.app-loaded > canvas { opacity: 1; }
   box-shadow: inset 0 0 14px rgba(0,0,0,0.4); }
 /* Animated 2D trail preview canvas (STYLE tab) */
 .trail-preview { width: 140px; height: 104px; border-radius: 14px;
-  background: rgba(8,14,30,0.65); border: 1px solid rgba(140,200,255,0.14);
+  background: rgba(24,16,12,0.6); border: 1px solid var(--rf-stroke);
   display: block; }
 /* Shop preview canvases must let touch-scroll pass through — the global
    `canvas { touch-action: none }` (for in-game steering) otherwise traps it. */
 .skin-preview, .trail-preview { touch-action: pan-y; }
 /* Live 3D turntable preview (canvas blitted from a shared renderer) */
 .skin-preview { width: 104px; height: 104px; border-radius: 14px;
-  background: radial-gradient(circle at 50% 38%, rgba(70, 110, 180, 0.35), rgba(8, 14, 30, 0.65) 78%);
-  border: 1px solid rgba(140, 200, 255, 0.18); }
+  background: radial-gradient(circle at 50% 38%, rgba(120, 88, 56, 0.32), rgba(16, 11, 11, 0.68) 78%);
+  border: 1px solid var(--rf-stroke); }
 .skin-name { font-size: 13px; font-weight: 700; }
 .skin-title { font-size: 10px; opacity: 0.6; letter-spacing: 0.5px; margin-top: -3px; }
 .skin-perk { font-size: 10px; font-weight: 800; letter-spacing: 0.8px; color: #ffc050; }
 .skin-cost { font-size: 12px; color: #ffc050; font-weight: 700; }
 .skin-cost.owned { color: #8affc0; }
-.rider-bonus { color: #c08aff; font-weight: 800; }
+.rider-bonus { color: #ffce8a; font-weight: 800; }
 /* Dragon stat bars (SPD / AGI / STA, normalised to the flagship) */
 .stat-bars { width: 100%; display: flex; flex-direction: column; gap: 3px; margin: 2px 0; }
 .stat-bar-row { display: flex; align-items: center; gap: 6px; }
@@ -672,8 +672,8 @@ body.app-loaded > canvas { opacity: 1; }
 /* C5: Dragon card hero — bigger turntable + EQUIPPED overlay badge */
 .preview-wrap { position: relative; display: flex; align-items: center; justify-content: center; }
 .skin-preview { width: 126px; height: 126px; border-radius: 15px;
-  background: radial-gradient(circle at 50% 34%, rgba(86, 124, 196, 0.4), rgba(6, 11, 26, 0.7) 80%);
-  border: 1px solid rgba(150, 200, 255, 0.24);
+  background: radial-gradient(circle at 50% 34%, rgba(128, 94, 58, 0.36), rgba(14, 10, 9, 0.7) 80%);
+  border: 1px solid var(--rf-stroke-hi);
   box-shadow: inset 0 0 22px rgba(0, 0, 0, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.06); }
 .equipped-badge { position: absolute; bottom: 6px; left: 50%; transform: translateX(-50%);
   font-size: 9px; letter-spacing: 1.5px; font-weight: 800; color: #1a1206;
@@ -694,7 +694,7 @@ body.app-loaded > canvas { opacity: 1; }
 .skin-tier { display: flex; align-items: center; justify-content: center; gap: 9px;
   flex-wrap: wrap; width: 100%; margin-top: 2px; }
 .tier-pips { display: inline-flex; gap: 3px; }
-.tier-pip { font-size: 11px; line-height: 1; color: rgba(150,180,220,0.26);
+.tier-pip { font-size: 11px; line-height: 1; color: rgba(200,180,150,0.26);
   filter: grayscale(1); transition: color 0.2s, filter 0.2s, text-shadow 0.2s; }
 .tier-pip.filled { filter: none; }
 .tier-pip.filled[data-fr="R"]    { color: #7fd49a; }
@@ -804,21 +804,21 @@ body.app-loaded > canvas { opacity: 1; }
   text-shadow: 0 2px 22px color-mix(in srgb, var(--haccent) 30%, transparent); }
 .dpick-sub { font-size: 13px; opacity: 0.66; font-style: italic; margin-top: 3px; }
 .hero-forms { display: flex; gap: 5px; margin: 11px 0 4px; padding: 4px; border-radius: 13px;
-  background: rgba(6,11,24,0.55); border: 1px solid rgba(150,200,255,0.12); }
+  background: rgba(24,16,12,0.55); border: 1px solid var(--rf-stroke); }
 .hero-seg { flex: 1; text-align: center; padding: 8px 0; font-size: 11px; font-weight: 700; letter-spacing: 1px;
-  color: rgba(200,224,255,0.7); border-radius: 9px; text-transform: uppercase; cursor: pointer;
+  color: var(--rf-ink-2); border-radius: 9px; text-transform: uppercase; cursor: pointer;
   transition: color 0.15s, background 0.15s; }
 .hero-seg.on { color: #06101e; background: linear-gradient(135deg, color-mix(in srgb, var(--haccent) 92%, #fff), var(--haccent));
   box-shadow: 0 3px 12px color-mix(in srgb, var(--haccent) 40%, transparent); }
 .hero-stats { display: flex; flex-direction: column; gap: 8px; margin: 8px 0 4px; padding: 13px 15px; border-radius: 14px;
-  background: rgba(8,14,30,0.45); border: 1px solid rgba(150,190,255,0.12); }
+  background: rgba(24,16,12,0.45); border: 1px solid var(--rf-stroke); }
 .hsrow { display: flex; align-items: center; gap: 11px; }
-.hslabel { width: 64px; text-align: left; font-size: 11px; font-weight: 700; letter-spacing: 1px; color: rgba(206,224,255,0.9); }
-.hstrack { flex: 1; height: 8px; border-radius: 5px; background: rgba(4,8,18,0.85); overflow: hidden; box-shadow: inset 0 1px 2px rgba(0,0,0,0.5); }
+.hslabel { width: 64px; text-align: left; font-size: 11px; font-weight: 700; letter-spacing: 1px; color: var(--rf-ink-2); }
+.hstrack { flex: 1; height: 8px; border-radius: 5px; background: rgba(20,13,10,0.85); overflow: hidden; box-shadow: inset 0 1px 2px rgba(0,0,0,0.5); }
 .hsfill { height: 100%; border-radius: 5px; transition: width 0.3s ease;
   background: linear-gradient(90deg, color-mix(in srgb, var(--haccent) 45%, #2a3a5a), var(--haccent));
   box-shadow: 0 0 8px color-mix(in srgb, var(--haccent) 45%, transparent); }
-.hsval { width: 26px; text-align: right; font-family: var(--font-display); font-size: 13px; color: #eef5ff; }
+.hsval { width: 26px; text-align: right; font-family: var(--font-display); font-size: 13px; color: var(--rf-ink); }
 .dpick-cta { margin: 11px 0 4px; display: flex; justify-content: center; }
 .dpick-cta button { width: 100%; padding: 14px 0; border: none; border-radius: 13px; cursor: pointer; font-family: var(--font-display);
   font-size: 15px; letter-spacing: 2px; color: #1a1206; background: linear-gradient(135deg, #ffe27a, #ffb84d);
@@ -833,8 +833,8 @@ body.app-loaded > canvas { opacity: 1; }
   padding: 4px 2px 8px; scrollbar-width: none; -webkit-overflow-scrolling: touch; }
 .dpick-rail::-webkit-scrollbar { display: none; }
 .hero-thumb { position: relative; flex: 0 0 58px; width: 58px; height: 58px; border-radius: 12px; overflow: hidden; cursor: pointer;
-  background: radial-gradient(circle at 50% 36%, rgba(70,110,180,0.3), rgba(6,11,26,0.7) 80%);
-  border: 1px solid rgba(150,200,255,0.16); box-shadow: inset 0 1px 0 rgba(255,255,255,0.05);
+  background: radial-gradient(circle at 50% 36%, rgba(120,88,56,0.3), rgba(14,10,9,0.7) 80%);
+  border: 1px solid var(--rf-stroke); box-shadow: inset 0 1px 0 rgba(255,255,255,0.05);
   transition: border-color 0.15s, box-shadow 0.15s, transform 0.12s; }
 .hero-thumb canvas { width: 100%; height: 100%; display: block; border: none; background: transparent; }
 .hero-thumb.on { border-color: var(--hthumb, #7fe0ff); transform: translateY(-2px);
