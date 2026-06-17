@@ -63,3 +63,50 @@ export function sweepProfile(profile, stretch = 1) {
   g.computeVertexNormals();
   return g;
 }
+
+// A continuous tapered tube swept along a centreline and SKINNED to a bone chain,
+// so a rig that bends the bones bends ONE smooth surface (no segment joints) — the
+// "organism, not puppet" upgrade (L1), generalising the wing's internal skinnedTube.
+// The caller supplies the centreline points, a radius per station, the ring count,
+// and a skinAt(station) -> { si:[4], sw:[4] } weight function (e.g. a 2-bone
+// z-proximity blend for a tail). Returns a SkinnedMesh — bind the skeleton in LOCAL
+// space (assemble at origin → updateMatrixWorld → bind → then position), per L2.
+// Cross-section rings follow the caller's count; pass seg() for detail-awareness.
+export function skinnedTube(centreline, radii, rings, skinAt, mat) {
+  const N = centreline.length;
+  const verts = [], idx = [], si = [], sw = [];
+  const tan = new THREE.Vector3(), side = new THREE.Vector3(), up = new THREE.Vector3();
+  const UP = new THREE.Vector3(0, 1, 0);
+  for (let s = 0; s < N; s++) {
+    const c = centreline[s], r = radii[s];
+    const a = centreline[Math.max(s - 1, 0)], b = centreline[Math.min(s + 1, N - 1)];
+    tan.set(b.x - a.x, b.y - a.y, b.z - a.z).normalize();
+    side.crossVectors(UP, tan);
+    if (side.lengthSq() < 1e-6) side.set(1, 0, 0); else side.normalize();
+    up.crossVectors(tan, side).normalize();
+    const k = skinAt(s);
+    for (let j = 0; j < rings; j++) {
+      const ang = (j / rings) * Math.PI * 2, cos = Math.cos(ang), sin = Math.sin(ang);
+      verts.push(
+        c.x + (side.x * cos + up.x * sin) * r,
+        c.y + (side.y * cos + up.y * sin) * r,
+        c.z + (side.z * cos + up.z * sin) * r);
+      si.push(k.si[0], k.si[1], k.si[2] || 0, k.si[3] || 0);
+      sw.push(k.sw[0], k.sw[1], k.sw[2] || 0, k.sw[3] || 0);
+    }
+  }
+  for (let s = 0; s < N - 1; s++) for (let j = 0; j < rings; j++) {
+    const a = s * rings + j, b = s * rings + (j + 1) % rings;
+    const c = (s + 1) * rings + j, d = (s + 1) * rings + (j + 1) % rings;
+    idx.push(a, c, b, b, c, d);
+  }
+  const g = new THREE.BufferGeometry();
+  g.setIndex(idx);
+  g.setAttribute('position', new THREE.Float32BufferAttribute(verts, 3));
+  g.setAttribute('skinIndex', new THREE.Uint16BufferAttribute(new Uint16Array(si), 4));
+  g.setAttribute('skinWeight', new THREE.Float32BufferAttribute(sw, 4));
+  g.computeVertexNormals();
+  const m = new THREE.SkinnedMesh(g, mat);
+  m.frustumCulled = false;   // skinning deforms outside the bind bbox (L2)
+  return m;
+}

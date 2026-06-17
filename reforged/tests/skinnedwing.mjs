@@ -26,7 +26,9 @@ const ok = (m) => { n++; console.log(`  ✓ ${m}`); };
 // --- obsidian: skinnedMembrane ----------------------------------------------
 const ob = buildDragonModel(ascendedDef(DRAGONS.obsidian, 3, 0), {});
 let skinnedMeshes = 0, boneCounts = new Set();
-ob.group.traverse((o) => { if (o.isSkinnedMesh) { skinnedMeshes++; boneCounts.add(o.skeleton.bones.length); } });
+// Wing skinned pieces only — the swept tail adds its own (7-bone) skinned tube,
+// verified separately in sweptail.mjs; exclude it from the wing-contract checks.
+ob.group.traverse((o) => { if (o.isSkinnedMesh && o.name !== 'sweptTailTube') { skinnedMeshes++; boneCounts.add(o.skeleton.bones.length); } });
 // Each wing = 1 membrane + surface ribs (leading edge + finger veins), all
 // skinned to the same skeleton → > 2 skinned meshes total. Guards the rib fix.
 assert(skinnedMeshes >= 6, `obsidian has skinned membrane + rib meshes (found ${skinnedMeshes})`);
@@ -55,7 +57,7 @@ ok('flap animator drives the shoulder→elbow→wrist cascade');
 // skin weights: each vertex sums to 1, indices in range, positions finite
 let badW = 0, badI = 0, badP = 0, checked = 0;
 ob.group.traverse((o) => {
-  if (!o.isSkinnedMesh) return;
+  if (!o.isSkinnedMesh || o.name === 'sweptTailTube') return;   // wing pieces only (tail tube → sweptail.mjs)
   checked++;
   const sw = o.geometry.attributes.skinWeight, si = o.geometry.attributes.skinIndex, p = o.geometry.attributes.position;
   for (let i = 0; i < sw.count; i++) {

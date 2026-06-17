@@ -20,7 +20,7 @@ lessons for the one after. That is the whole studio: we rapidly improve the game
 
 You are a fresh session continuing **Dragon Drift** (the `reforged/` rewrite). Read this
 file top-to-bottom: **this HANDOFF** (where we are) → the **Active roadmap** (the next big
-build) → **THE RULE** + the **lessons ledger L1–L15** (how we work + everything learned so
+build) → **THE RULE** + the **lessons ledger L1–L16** (how we work + everything learned so
 far). Then continue — and **append a lesson after every meaningful change**.
 
 ### Where we are (state of the world)
@@ -141,8 +141,9 @@ the run / obstacles / player), not **RENDERING**; touch only the *subject* (the 
    small additive `attach.halfWidthAt(z)` + `bodyMidY` on the ARROW torso for flank placement.
    Verified: HIGH Eternal 5696→**5816 ≤6000**, ULTRA →**11980 ≤13000**, roster +160 tris;
    `tests/shingle.mjs` green. See **L13**. The human judges the relief/material on the preview.
-4. **`sweepProfile()` (spline-swept bodies/necks/tails/horns) — ✅ 4a BUILT (cross-section resample,
-   proven on Obsidian; L15), 4b (spline-centreline BENDING) remains.** Generalizes the torso loft so
+4. **`sweepProfile()` (spline-swept bodies/necks/tails/horns) — ✅ 4a (cross-section resample, L15) +
+   4b (skinned swept TAIL reusing the rig coil, L16) BUILT on Obsidian; free-bending spline-centreline
+   (serpentine bodies) remains.** Generalizes the torso loft so
    future creatures animate by *bending a curve*, not rotating segments — the path to many non-dragon
    creatures from one technique. **4a** (`dragonSweep.js#sweepProfile`) already makes the body loft
    detail-aware: it resamples the cross-section as a closed Catmull-Rom at `seg()` (octagon→13-gon at
@@ -647,3 +648,36 @@ flip every `arrow`/`serpent` dragon to `sweptLoft` for a free ULTRA round-up (HI
 hero→roster mechanization L8 prescribes. **Watch in 4b:** `computeFrenetFrames` picks an arbitrary
 initial normal, so a straight centreline could rotate/swap the section's axes vs today — pin the
 initial frame (binormal=+x, normal=+y) to keep the straight case byte-identical.
+
+### L16 — Skinned swept tube: reuse the EXISTING rig transforms as bones, don't re-rig
+**Did / learned:** built roadmap #4b — a continuous skinned tail tube (`dragonSweep.js#skinnedTube`)
+replacing the 7 overlapping frustums, proven on Obsidian as a Night Fury tail. The key insight: the
+tail's 7 segments were ALREADY a tuned travelling-wave coil driven by `dragon.js`; rather than author
+a new bone rig + animator (as the wing did with `wingRig`/`flapWing`), I made the 7 EXISTING segment
+transforms the skeleton's bones (`Group`→`Bone`, a drop-in `Object3D`) and skinned ONE tube to them by
+z-proximity (2-bone blend). So `dragon.js` is UNCHANGED — its coil writes the same `.position`/
+`.rotation`, now bending a seamless surface instead of rigid frustums; the tip-FX read (`segs[last]`)
+still works. Coexist via an additive `swept` flag on `buildCleanTail` (default = the byte-identical
+frustum path) + a new `'sweptTail'` recipe; only Obsidian opts in. Gotchas: (1) bind in LOCAL space
+(build at origin → `updateMatrixWorld` → `bind` → the recipe positions the group after) — L2 again;
+(2) a `SkinnedMesh` skeleton accepts any `Object3D` as a bone (`Bone` is a labelled `Object3D`), so
+reusing rig handles is free; (3) headless skinning IS testable — `applyBoneTransform` + a
+MAX-displacement scan over all verts proves a bone rotation deforms the mesh (don't sample ONE vertex
+— it's only weighted to its 2 nearest bones, so you'll miss the bone you rotated); (4) a new skinned
+part broke an over-broad wing test asserting "every skinned mesh is 3-bone" — scope such invariants to
+the part (name the tube, exclude it): the L12 "verify against the real wired structure" rule.
+**→ Systematize:** the reusable law — **to make a rigged segmented part continuous, skin ONE surface
+to the part's existing transforms-as-bones; never re-author the motion.** The cheapest "puppet →
+organism" upgrade (L1), applies to any segment chain (neck spheres, body plates, antennae).
+`skinnedTube(centreline, radii, rings, skinAt, mat)` is now a shared primitive beside `sweepProfile`;
+the weight fn (arc/z-proximity 2-bone blend) is the general pattern. The coexist recipe (additive flag
+defaulting to the shipped path + a new registered variant + per-dragon opt-in) now serves torso
+(`sweptLoft`) AND tail (`sweptTail`) — boilerplate.
+**→ Leapfrog (innovate):** a skinned tube on a bone chain IS a serpentine body — so an eel/serpent/
+wyrm is `skinnedTube` along a longer chain driven by `driveChain` (L5's phase-lagged cascade), no
+per-segment puppet. The roster's tails migrate onto `sweptTail` for free (continuous coils). And the
+bend reads in-motion from the chase cam — the 4a ROI lesson: **spend detail where the camera + motion
+show it** (the tail, not the cross-section). Process lesson: a reference-driven hero redesign (Obsidian
+→ Toothless Night Fury) runs best as SEQUENCED preview-judged passes (tail → colour → wings →
+proportions) — headless tools verify the engineering; only the human judges the look, so ship each pass
+coexisting + reversible.
