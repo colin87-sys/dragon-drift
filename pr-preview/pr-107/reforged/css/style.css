@@ -1270,8 +1270,12 @@ body[data-qtier="2"] .speedlines { display: none; }
    wordmark + one breathing TAKE OFF, and a bottom icon rail. The dragon and sky
    show through, so the scrim is lighter than other screens and the chrome is
    pinned to the edges (absolute) leaving the centre to the hero. */
-.screen.hero-screen { background: radial-gradient(ellipse at 50% 42%,
-  rgba(8,13,30,0.30) 0%, rgba(6,10,24,0.52) 52%, rgba(4,7,18,0.78) 100%); }
+/* The start/home screen shows the LIVE world (the dragon flapping in the astral
+   biome) — keep the backdrop almost clear so that full-quality scene reads, with
+   only a soft edge vignette so the overlaid menu text stays legible. */
+.screen.hero-screen { background: radial-gradient(ellipse at 50% 46%,
+  transparent 0%, transparent 40%, rgba(4,7,18,0.18) 72%, rgba(4,7,18,0.42) 100%);
+  backdrop-filter: none; -webkit-backdrop-filter: none; }
 
 /* Top bar — wallet on the left, settings gear on the right. */
 .hero-topbar { position: absolute; top: 0; left: 0; right: 0; z-index: 4;
