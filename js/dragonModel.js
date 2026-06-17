@@ -406,10 +406,10 @@ export function buildDragonModel(def, opts = {}) {
     wrapper.add(group);
 
     const corona = new THREE.Sprite(new THREE.SpriteMaterial({
-      map: makeGlowTexture(glowRgb), transparent: true, opacity: 0.4,
+      map: makeGlowTexture(glowRgb), transparent: true, opacity: 0.2,
       blending: THREE.AdditiveBlending, depthWrite: false,
     }));
-    corona.scale.set(5.5, 5.5, 1);
+    corona.scale.set(4.6, 4.6, 1);
     corona.position.set(0, 0.25, -0.6);
     wrapper.add(corona);
 
