@@ -306,6 +306,12 @@ export function rebuildDragon(def, riderDef, player) {
   resetDragon(player);
 }
 
+// Hide/show the dragon's OWN flight FX (trail ribbons + wingtip/ember wisps) for the
+// shop's static hero shot. Visual only — these belong to the dragon, not the run.
+export function setDragonFxVisible(v) {
+  for (const s of [...trailSprites, ...boostTrailSprites, ...emberMotes, ...wingMotes]) s.visible = v;
+}
+
 // Lethal crashes (wall/gate) explode hot coral-red; health deaths stay icy.
 export function triggerDeathBurst(position, lethal = false) {
   burstActive = true;

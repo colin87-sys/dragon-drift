@@ -295,20 +295,27 @@ export function buildDragonModel(def, opts = {}) {
   // body can NEVER hide it, so you always know where to thread a perfect (the
   // playability fix for long/tall creatures whose mass would occlude the head).
   // Rides the head group so it tracks the head sway. ~10 tris, every dragon.
-  const aimCore = new THREE.Mesh(
-    new THREE.OctahedronGeometry(0.12, 0),
-    new THREE.MeshBasicMaterial({ color: 0xe2f6ff, depthTest: false, depthWrite: false, transparent: true }));
-  aimCore.renderOrder = 999;
-  aimCore.position.set(0, 0.12, -1.18);
-  head.add(aimCore);
-  const aimHalo = new THREE.Sprite(new THREE.SpriteMaterial({
-    map: makeGlowTexture('190,235,255'), transparent: true, opacity: 0.85,
-    blending: THREE.AdditiveBlending, depthTest: false, depthWrite: false,
-  }));
-  aimHalo.scale.setScalar(0.62);
-  aimHalo.position.copy(aimCore.position);
-  aimHalo.renderOrder = 998;
-  head.add(aimHalo);
+  //
+  // SHOP-PREVIEW EXCEPTION: the marker is a gameplay HUD aid for the rear chase
+  // camera. In the inspect showcase (which the player rotates to admire the face)
+  // its always-on-top crystal becomes an ugly glowing nub stuck on the snout — so
+  // the preview build omits it. The shop shows the dragon, not the targeting aid.
+  if (!opts.preview) {
+    const aimCore = new THREE.Mesh(
+      new THREE.OctahedronGeometry(0.12, 0),
+      new THREE.MeshBasicMaterial({ color: 0xe2f6ff, depthTest: false, depthWrite: false, transparent: true }));
+    aimCore.renderOrder = 999;
+    aimCore.position.set(0, 0.12, -1.18);
+    head.add(aimCore);
+    const aimHalo = new THREE.Sprite(new THREE.SpriteMaterial({
+      map: makeGlowTexture('190,235,255'), transparent: true, opacity: 0.85,
+      blending: THREE.AdditiveBlending, depthTest: false, depthWrite: false,
+    }));
+    aimHalo.scale.setScalar(0.62);
+    aimHalo.position.copy(aimCore.position);
+    aimHalo.renderOrder = 998;
+    head.add(aimHalo);
+  }
 
   // Pearl's luminous head aura: a soft opalescent glow (a body-level sprite, NOT
   // part of the head group), elegant and pristine — never a hard torus ring.
@@ -401,21 +408,11 @@ export function buildDragonModel(def, opts = {}) {
   // so the widest apex wings fit the small card, and float a soft rarity-tinted
   // corona behind the dragon instead of a spinning rune disc.
   if (opts.preview) {
-    const RARITY_GLOW = { R: 0x6affa0, SR: 0x4ac0ff, SSR: 0xc060ff, SSSR: 0xffd040 };
-    // A dragon's own signature corona (previewAccent) wins over the rarity tint so
-    // its card/showcase stays on-brand (Obsidian cyan, not rarity gold/purple).
-    const glowHex = def.previewAccent ?? (RARITY_GLOW[def.rarity] ?? RARITY_GLOW.R);
-    const glowRgb = `${(glowHex >> 16) & 255},${(glowHex >> 8) & 255},${glowHex & 255}`;
+    // No corona/aura sprite behind the dragon — the showcase renders a full biome
+    // backdrop, so a central glow halo only muddies it (and read as an ugly white
+    // aura). The dragon's own plasma (core glow, eyes, edges) + bloom carry the light.
     const wrapper = new THREE.Group();
     wrapper.add(group);
-
-    const corona = new THREE.Sprite(new THREE.SpriteMaterial({
-      map: makeGlowTexture(glowRgb), transparent: true, opacity: 0.4,
-      blending: THREE.AdditiveBlending, depthWrite: false,
-    }));
-    corona.scale.set(5.5, 5.5, 1);
-    corona.position.set(0, 0.25, -0.6);
-    wrapper.add(corona);
 
     return {
       group: wrapper,
@@ -523,6 +520,12 @@ export function makePreviewTick(def, result) {
       auraSprite.material.opacity = def.fx.auraIdle > 0
         ? 0.3 + def.fx.auraIdle + Math.sin(t * 2.6) * 0.12
         : 0;
+    }
+    // Core plasma breathes — a slow charge pulse so the shop dragon feels alive
+    // and powered (the preview now renders layer 1, so this glow is finally seen).
+    if (parts.coreGlow) {
+      const base = parts.coreGlow.userData.base ?? 0.3;
+      parts.coreGlow.material.opacity = base * (0.82 + Math.sin(t * 2.1) * 0.18);
     }
   };
 }

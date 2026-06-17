@@ -954,6 +954,9 @@ export const ui = {
     // Freshness: animate the screen in only on genuine navigation — tab
     // switches re-render the SAME type and must not re-flash.
     const fresh = !els.screen.classList.contains('visible') || lastScreen !== type;
+    // Leaving the shop: restore the equipped dragon to the live menu scene (browsing
+    // swapped the inspected dragon into it).
+    if (lastScreen === 'shop' && type !== 'shop' && handlers.onRestoreMenuDragon) handlers.onRestoreMenuDragon();
     lastScreen = type;
 
     if (type === 'start') {
@@ -1313,6 +1316,8 @@ export const ui = {
     // the generic per-child stagger is reserved for other dense screens.
     els.screen.classList.remove('stagger');
     els.screen.classList.toggle('hero-screen', type === 'start');
+    // The whole shop (every tab) shows the live astral biome behind it, so de-dim it.
+    els.screen.classList.toggle('shop-screen', type === 'shop');
     // The shop scrolls inside a dedicated container (not the screen itself), so a
     // tall hero layout can't turn the whole screen into a janky scroll surface
     // that mis-fires taps as "close" on mobile.
@@ -1598,6 +1603,7 @@ export const ui = {
     return lastScreen === 'shop' || lastScreen === 'settings' || lastScreen === 'pilot' ||
            lastScreen === 'quests' || lastScreen === 'daily';
   },
+  atShop() { return lastScreen === 'shop' && els.screen.classList.contains('visible'); },
 };
 
 // --- Appointment UI: honest badges -----------------------------------
@@ -1793,7 +1799,9 @@ function wireScreenButtons(type) {
         q('#hero-stats').innerHTML = srow('SPEED', spd) + srow('AGILITY', agi) + srow('STAMINA', sta);
         ctaEl.innerHTML = ctaHtml(); wireCta();
         for (const t2 of railEl.querySelectorAll('.hero-thumb')) t2.classList.toggle('on', t2.dataset.hero === heroKey);
-        setShowcaseDef(heroCanvas, ascendedDef(d, hTier, owned ? radianceRank(heroKey) : 0));
+        // Show the inspected dragon in the LIVE menu scene (the real environment behind
+        // the shop) — swaps only the dragon mesh, never the run.
+        if (handlers.onPreviewDragon) handlers.onPreviewDragon(ascendedDef(d, hTier, owned ? radianceRank(heroKey) : 0));
         stage.classList.remove('rotated');
       };
 

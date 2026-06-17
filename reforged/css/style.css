@@ -781,6 +781,22 @@ body.app-loaded > canvas { opacity: 1; }
 .hero-gem { position: absolute; top: 12px; left: 12px; z-index: 3; font-family: var(--font-display);
   font-size: 12px; letter-spacing: 1.5px; padding: 5px 11px; border-radius: 9px; color: var(--hrar);
   background: color-mix(in srgb, var(--hrar) 16%, rgba(8,14,30,0.7)); border: 1px solid color-mix(in srgb, var(--hrar) 50%, transparent); }
+
+/* ===== Shop: the LIVE real environment (the gameplay scene + dragon — the same proven
+   pipeline the start screen renders) is the backdrop. De-dim the shop so it shows
+   through, with a soft bottom vignette for control legibility. The boxed dragon preview
+   is hidden (the live scene's dragon shows behind) but its .hero-stage keeps its layout
+   space as a clear window so the dragon sits above the name/stats/EQUIP/rail. ===== */
+.screen.shop-screen {
+  background: radial-gradient(ellipse at 50% 28%, transparent 0%, transparent 56%, rgba(4,6,16,0.55) 100%);
+  -webkit-backdrop-filter: none; backdrop-filter: none;
+}
+.hero-select .hero-stage { background: none; border: 0; box-shadow: none; border-radius: 0; }
+.hero-select .hero-canvas,
+.hero-select .hero-pedestal,
+.hero-select .hero-gem,
+.hero-select .hero-rothint { display: none; }
+
 .hero-ident { text-align: center; margin: 9px 0 2px; }
 .hero-name { font-family: var(--font-display); font-size: 26px; letter-spacing: 0.5px; line-height: 1;
   background: linear-gradient(180deg, #fff, color-mix(in srgb, var(--haccent) 55%, #cfe0ff));
@@ -1793,6 +1809,42 @@ canvas.skin-preview[data-kind="dragon"] { cursor: pointer; }
   cursor: pointer; transition: background 0.2s, transform 0.2s, box-shadow 0.2s; }
 .inspect-dots i.on { background: var(--accent); transform: scale(1.25);
   box-shadow: 0 0 10px color-mix(in srgb, var(--accent) 70%, transparent); }
+
+/* ===== Full-screen, frameless inspect showcase =====
+   The dragon is centred in a real 3D biome (preview.js DragonShowcase) that fills the
+   whole screen — no card frame. The 3D stage is a fixed full-screen background; the
+   name / form ladder / stats / CTA overlay the bottom over a readability scrim. */
+.inspect-overlay { padding: 0; }
+.inspect-modal {
+  width: 100%; height: 100%; max-width: none; max-height: none;
+  padding: 0; border: 0; border-radius: 0; background: none;
+  box-shadow: none; overflow: hidden; justify-content: flex-end;
+}
+/* drop the entry scale so position:fixed children stay glued to the viewport */
+.inspect-overlay.open .inspect-modal, .inspect-modal { transform: none; }
+/* bottom scrim so the overlaid controls stay legible over a bright biome */
+.inspect-modal::after {
+  content: ''; position: fixed; left: 0; right: 0; bottom: 0; height: 46%;
+  background: linear-gradient(to top, rgba(4, 6, 14, 0.94), rgba(4, 6, 14, 0.5) 55%, transparent);
+  z-index: 1; pointer-events: none;
+}
+.inspect-stage {
+  position: fixed; inset: 0; width: 100%; height: 100%;
+  aspect-ratio: auto; margin: 0; z-index: 0;
+}
+.inspect-canvas { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; filter: none; }
+/* Full-screen has no scroll, so claim ALL touch gestures on the stage — this lets the
+   two-finger PINCH-zoom through (touch-action: pan-y was eating it). */
+.inspect-viewport, .inspect-stage, .inspect-canvas { touch-action: none; }
+.inspect-glow, .inspect-pedestal { display: none; }   /* the 3D biome replaces them */
+.inspect-viewport { position: relative; z-index: 3; padding-top: 0; }
+.inspect-name { text-shadow: 0 2px 18px rgba(0, 0, 0, 0.85); }
+.inspect-lower { position: relative; z-index: 3; padding-bottom: calc(10px + env(safe-area-inset-bottom, 0px)); }
+.inspect-dots { position: relative; z-index: 3; padding-bottom: calc(8px + env(safe-area-inset-bottom, 0px)); }
+.inspect-nav { position: fixed; top: 50%; z-index: 6; }
+.inspect-close { position: fixed; top: calc(10px + env(safe-area-inset-top, 0px)); right: 14px; z-index: 12; }
+.inspect-modal .inspect-gem { position: fixed; top: calc(12px + env(safe-area-inset-top, 0px)); left: 14px; z-index: 12; }
+@media (max-width: 600px) { .inspect-stage { width: 100%; } }   /* override the 440px square cap */
 
 /* ===== Paused gesture tutorial — premium restyle (run 1) ===== */
 .gesture-overlay { position: absolute; inset: 0; z-index: 6; display: none;

@@ -5,12 +5,12 @@ import { initInput, initTouch, initMouse } from './input.js';
 import { createLevelGen } from './level.js';
 import { todaysDailyMod, dailyMods } from './daily.js';
 import { createEnvironment, updateEnvironment, resetEnvironment, getSkyMesh } from './environment.js';
-import { createDragon, updateDragon, resetDragon, rebuildDragon } from './dragon.js';
+import { createDragon, updateDragon, resetDragon, rebuildDragon, setDragonFxVisible } from './dragon.js';
 import { initReticle, updateReticle } from './reticle.js';
 import { initSplash, showSplash, hideSplash, splashVisible, launchFlash, igniteSplash, splashArmed } from './splash.js';
 import { player, applyDragonStats } from './player.js';
 import { cameraCtl } from './cameraController.js';
-import { initRings, addRing, updateRings, resetRings } from './rings.js';
+import { initRings, addRing, updateRings, resetRings, setRingsVisible } from './rings.js';
 import { initObstacles, addObstacle, updateObstacles, resetObstacles } from './obstacles.js';
 import { initPowerups, addOrb, updatePowerups, resetPowerups } from './powerups.js';
 import { initParticles, updateParticles, resetParticles, setParticleQuality } from './particles.js';
@@ -194,6 +194,11 @@ ui.init({
     rebuildDragon(equippedDragon(), equippedRider(), player);
     applyDragonStats(equippedDragon());
   },
+  // Shop browse: show the inspected dragon (at its form/tier) in the live menu scene.
+  // ONLY rebuilds the dragon mesh — never the run's obstacles — so walls are untouched.
+  // Does NOT persist the equip; leaving the shop restores the equipped dragon.
+  onPreviewDragon: (def) => rebuildDragon(def, equippedRider(), player),
+  onRestoreMenuDragon: () => rebuildDragon(equippedDragon(), equippedRider(), player),
   onEquipRider: () => rebuildDragon(equippedDragon(), equippedRider(), player),
   onAscend: (key) => {
     const def = DRAGONS[key] || DRAGONS.azure;
@@ -328,14 +333,17 @@ window.addEventListener('pointerdown', (e) => {
   // Buttons, cards and sliders handle their own clicks — don't treat them
   // as "tap to fly" / "tap to resume"
   if (e.target.closest && e.target.closest('button, .skin-card, .daily-card, .seg-btn, .pause-menu, .share-menu, .title-row, input')) return;
-  if (game.state === 'paused') {
+  // NOTE: while a subscreen (shop/settings/…) is open — even one opened FROM pause —
+  // this global handler must NOT fire: the subscreen owns its taps (rail, cards, its
+  // own backdrop-to-go-back). Without the !inSubscreen guard, a tap on the shop's
+  // dragon rail (opened from pause) was swapping back to the pause overlay before the
+  // rail's pointerup ran (the gameover path already had this guard, which is why only
+  // the pause path was broken).
+  if (game.state === 'paused' && !ui.inSubscreen()) {
     // Tutorial pause: only performing the taught gesture resumes — a blank tap
     // must not skip the lesson (gestureTutorial.js handles the resume).
     if (game.pauseReason === 'tutorial') return;
-    // Browsing the shop/settings from pause: outside taps go back to the
-    // pause overlay instead of resuming mid-shop.
-    if (ui.inPauseSubscreen()) ui.showPauseOverlay();
-    else resumeFromPause();
+    resumeFromPause();
   }
   // Tap-to-fly only from the start screen itself — while browsing the
   // shop/settings, blank taps mean "back" (handled by the screen itself).
@@ -694,6 +702,15 @@ function tick() {
   }
   updateQuality(rawDt);
 
+  // Shop hero shot: hide the loose gameplay FX — collectible rings + the dragon's own
+  // flight trail — for a clean static dragon. The `&& game.state !== 'playing'` guard
+  // forces them visible every frame during an ACTUAL run, so nothing can vanish
+  // mid-flight; nothing is removed, only .visible toggled. (Obstacles are NOT touched —
+  // the game manages their visibility, and they're the course "walls" we must keep.)
+  const hideShopFx = ui.atShop() && game.state !== 'playing';
+  setRingsVisible(!hideShopFx);
+  setDragonFxVisible(!hideShopFx);
+
   // Slow-mo bookkeeping runs in REAL time so 0.6s of dilation is 0.6s felt.
   if (game.slowMoTimer > 0) {
     game.slowMoTimer -= rawDt;
@@ -817,6 +834,9 @@ function tick() {
   // completion while frozen (self-gates; first flight only).
   updateGestureTutorial(player);
 
+  // The SHOP is a clean menu showcase over WHATEVER state we came from (ready, paused
+  // mid-run, or game-over): render + animate the live scene even while 'paused', so the
+  // dragon flaps in the astral biome instead of a frozen, cluttered run frame.
   if (game.state !== 'paused') {
     // Cull old set-pieces
     for (let i = setpieceMeshes.length - 1; i >= 0; i--) {
@@ -831,7 +851,8 @@ function tick() {
     updateParticles(dt, camera);
     const obstacleSpeedNorm = (player.speed - CONFIG.baseSpeed) / (CONFIG.orbSpeed - CONFIG.baseSpeed);
     updateObstacles(dt, t, player.dist, obstacleSpeedNorm);
-    cameraCtl.update(dt, player, game.state === 'ready');
+    const atShop = ui.atShop();   // shop open → static hero framing (no orbit)
+    cameraCtl.update(dt, player, game.state === 'ready' || atShop, atShop);
     if (introPlaying && !cameraCtl.introPlaying) introPlaying = false;
     updateReticle(player, game.state === 'playing');
     updateEnvironment(dt, camera, t, player.dist, game.feverActive, player.speed);

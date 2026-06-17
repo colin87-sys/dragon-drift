@@ -88,7 +88,7 @@ export const cameraCtl = {
   skipIntro() { introT = 0; },
   get introPlaying() { return introT > 0; },
 
-  update(dt, player, showcase = false) {
+  update(dt, player, showcase = false, shopMode = false) {
     // Splash attract screen: a LOCKED hero composition behind + above the dragon,
     // looking down the ring course. The framing is essentially still — only an
     // extremely subtle, loop-safe "breath" remains (the world carries the life:
@@ -113,15 +113,18 @@ export const cameraCtl = {
       camera.updateProjectionMatrix();
       return;
     }
-    // Start-screen showcase: slow orbit around the live dragon.
+    // Start-screen showcase: slow orbit around the live dragon. The SHOP is STATIC
+    // (shopMode) — a fixed hero framing, no orbit, so the dragon sits composed in the
+    // real environment with the horizon behind it.
     if (showcase) {
-      showcaseAngle += dt * 0.3;
-      const r = 10.5;
-      const ox = player.position.x + Math.sin(showcaseAngle) * r;
-      const oy = player.position.y + 2.6 + Math.sin(showcaseAngle * 0.6) * 1.2;
-      const oz = player.position.z + Math.cos(showcaseAngle) * r;
-      let fovTarget = 58;
-      if (introT > 0) {
+      if (!shopMode) showcaseAngle += dt * 0.3;
+      const ang = shopMode ? 0.32 : showcaseAngle;   // fixed gentle 3/4 for the shop
+      const r = shopMode ? 12.5 : 10.5;
+      const ox = player.position.x + Math.sin(ang) * r;
+      const oy = player.position.y + (shopMode ? 2.1 : 2.6) + (shopMode ? 0 : Math.sin(showcaseAngle * 0.6) * 1.2);
+      const oz = player.position.z + Math.cos(ang) * r;
+      let fovTarget = shopMode ? 55 : 58;
+      if (introT > 0 && !shopMode) {
         // Glide in from a low/wide/far pose; the offset decays to nothing as the
         // orbit takes over. damp() keeps it buttery and frame-rate independent.
         introT = Math.max(0, introT - dt);
@@ -136,7 +139,9 @@ export const cameraCtl = {
         camera.position.set(ox, oy, oz);
         smoothPos.copy(camera.position);
       }
-      camera.lookAt(player.position.x, player.position.y + 0.5, player.position.z);
+      // Shop: look a touch BELOW the dragon so it rides higher in the frame, clear of
+      // the stats/EQUIP panel that overlays the lower third.
+      camera.lookAt(player.position.x, player.position.y + (shopMode ? -0.9 : 0.5), player.position.z);
       if (Math.abs(camera.fov - fovTarget) > 0.05) {
         camera.fov = damp(camera.fov, fovTarget, 2.5, dt);
         camera.updateProjectionMatrix();

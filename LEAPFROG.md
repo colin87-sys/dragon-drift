@@ -14,6 +14,139 @@ operate at the level we've already reached — then push past it, and record *it
 lessons for the one after. That is the whole studio: we rapidly improve the game
 **and ourselves**.
 
+---
+
+## ▶ HANDOFF — read this FIRST to pick up where the last session left off
+
+You are a fresh session continuing **Dragon Drift** (the `reforged/` rewrite). Read this
+file top-to-bottom: **this HANDOFF** (where we are) → the **Active roadmap** (the next big
+build) → **THE RULE** + the **lessons ledger L1–L10** (how we work + everything learned so
+far). Then continue — and **append a lesson after every meaningful change**.
+
+### Where we are (state of the world)
+- **Live work:** PR **#107**, branch `claude/game-graphics-review-q22iuh`. Deployed preview:
+  `https://colin87-sys.github.io/dragon-drift/pr-preview/pr-107/` (the root `index.html`
+  redirects to the `reforged/` build, which is the real game now). **The human judges ALL
+  visuals on that preview — there is no WebGL in CI** (the Chromium CDN is blocked by the
+  network policy), so headless tools (`tricount`, `run-all`) are the only automated checks;
+  everything visual is human-verified on the PR. Commit + push to the branch → the preview
+  auto-rebuilds; respond to its `<github-webhook-activity>` events.
+- **What just shipped — the SHOP/MENU is now a "real-world hero scene".** The shop renders
+  the **real game environment** (the tuned sky + shader-water + god-rays + post-FX pipeline)
+  behind a transparent HUD — *exactly what the start screen already does* — with the
+  inspected dragon swapped in on browse, a **static** hero camera, and the loose gameplay FX
+  (collectible rings + the dragon's flight trail) hidden for a clean shot. It is **fully
+  decoupled from the run** (no player teleport, no obstacle culling, no render-gate hacks),
+  so the long "walls vanish / embers leak / crash-pose freeze / no-UI" bug parade is dead at
+  the root. **Read L9 and L10 below — they are the hard-won core of this.**
+- **Key shop files (`reforged/js/`):** `ui.js` (shop opens the real env behind a transparent
+  `.shop-screen`; `wireHeroSelect` browse → `handlers.onPreviewDragon` swaps only the
+  dragon; the `atShop()` flag = `lastScreen==='shop' && screen visible`), `main.js` (the
+  `hideShopFx = ui.atShop() && game.state !== 'playing'` FX hide — **the `!== 'playing'`
+  guard is the seatbelt that makes it structurally impossible to hide a wall mid-run** — and
+  the `atShop` static-camera flag), `cameraController.js` (`shopMode` static framing),
+  `dragon.js` (`setDragonFxVisible`), `rings.js` (`setRingsVisible`). The old inspect-modal
+  (`preview.js` DragonShowcase + `showcaseBackdrop.js`) still exists but is no longer the
+  shop's main view; `menuStage.js` (a hand-rolled fake backdrop) was tried and **deleted**
+  (see L10 — reuse the real engine, don't reinvent it).
+
+### Open items / next steps (in priority order)
+1. **Confirm the walls hold** on the latest build (pause→shop→swap→resume; crash→shop→
+   restart) — that was the last thing the user was verifying.
+2. **Astral biome for the shop (DEFERRED, do carefully):** the user likes the cosmos/astral
+   biome for the menu. The naive "feed the env the astral distance" approach **displaces the
+   biome props** (they recycle *forward* past the player and the recycler never pulls them
+   back) — that was a real wall-class regression. The clean fix is a **colour-only biome
+   override inside `environment.js`**: decouple the palette distance (`computeEnv` /
+   `updateEnvironment` ~line 429) from the prop-recycling distance (`recycleBand`). Caveats:
+   it gives an astral *sky* over the *real biome's* props, and the **paused** shop freezes
+   the env (its render gate `if (game.state !== 'paused')` is skipped). Theme via COLOUR,
+   never via world displacement.
+3. **Pop / composition** tuning for the hero shot (rim separation per dragon, framing so the
+   stats panel never covers the body).
+4. **THE BIG ONE — the Creature Modeling roadmap below.** This is the next major frontier and
+   was the original north-star before the shop detour.
+
+### The one law that took ~20 rounds to learn (don't relearn it)
+**A menu is the real game world, reframed + frozen — never a mutated or reinvented one.**
+Reuse the rendering pipeline (it's tuned + on-brand + free); decouple **STATE** (never modify
+the run / obstacles / player), not **RENDERING**; touch only the *subject* (the dragon). Any
+"hide gameplay element for the menu" MUST be `.visible`-only and hard-gated by
+`game.state !== 'playing'` so it can never affect a live run.
+
+---
+
+## 🗺 Active roadmap — Creature Modeling ("Organism" tech): current state + what remains
+
+> **The wing-seam "organism" FOUNDATION is already built and proven on the hero.** What
+> remains is rolling it across the roster + a detail/ULTRA tier + a couple of un-built
+> pillars. (An older written plan proposed building `modelDetail`/`dragonSurface`/`skinDeform`/
+> `creatureShader` from scratch — that plan is **STALE**: the seam fix actually shipped via
+> curved/skinned membrane *recipes* + the surface-shader system instead. Trust the code +
+> the L1–L8 lessons below, not that plan.)
+
+### Already DONE (the foundation — see L1–L8)
+- **The wing seam is fixed by construction.** `dragonParts.js#buildCurvedPatch` builds a smooth
+  **double-curved** membrane (spanwise arc + chordwise billow). Wing recipes coexist via the
+  registry (`dragonRecipe.js`): `'membrane'` (legacy flat, the fallback), `'curvedMembrane'`
+  (curved patch), **`'skinnedMembrane'`** (ONE continuous `SkinnedMesh` on shoulder→elbow→wrist
+  bones — the deep organism fix, no crease), `'feather'`, `'none'`.
+- **Proven on the hero:** **Obsidian** already runs `parts: { wings: 'skinnedMembrane',
+  surface: { shader: ['cellularScales','iridescence'] } }` (`dragons.js:208`) — seamless skinned
+  wing + procedural surface detail, in budget, rig contract intact. Phase-0/1 of the old plan
+  is effectively done.
+- **Surface shader system** (`dragonSurfaceShader.js`, L4): composable `onBeforeCompile` patches
+  (`fresnelRimPatch`/`cellularScales`/`iridescence`/`membraneSSS`) via `composeSurface`.
+- **Flap-as-data** (`dragonWingFlap.js`, L5), **recipe/registry + attach contract**
+  (`dragonRecipe.js`), per-form feel (L7). Rig contract frozen (below).
+
+### What REMAINS (the actual next work, in order)
+1. **Migrate the roster (the L8 "perfect-hero → mechanize" payoff).** Only Obsidian is on
+   `skinnedMembrane` + surface shaders; the other ~13 dragons still default to the flat
+   `'membrane'` (`dragonRecipe.js:64`). Roll each onto `curvedMembrane`/`skinnedMembrane`
+   (keeping its `wingSpec` silhouette) + opt-in surface shaders, with `'membrane'` as the
+   per-dragon fallback until proven. Write the "Obsidian → any dragon" migration checklist as
+   a ledger artifact so the rollout is mechanical, not re-derived.
+2. **Phoenix polish + a reusable `shingle()` generator** (overlapping curved cards = the Phoenix
+   feather trick, generalized to scales/plates/fins on any creature) — NOT built yet. Cupped/
+   curved feathers + webs on `buildCurvedPatch`.
+3. **Model-detail LOD / ULTRA tier — NOT built.** There is NO geometry LOD today
+   (`setDragonQuality` only scales particle rates; segment counts are hardcoded low — cones
+   4–8, spheres 6–14). Add `modelDetail.js` (`LOW/HIGH/ULTRA`, default HIGH = today, no
+   regression), make low-level helpers detail-aware (`wingStrut`/`bone`/`featherGeo` read a
+   `seg()` picker), thread `opts.detail` through `buildDragonModel(def, opts)`, auto-select by
+   render tier (tier0→ULTRA on a 17 Pro Max), a `MODEL DETAIL` Settings seg-row
+   (AUTO/HIGH/ULTRA, mirror the GRAPHICS QUALITY pattern), and a ~4s sustained rebuild gate
+   (`rebuildDragon` only in menus/at death, never under the active camera). This is what makes
+   "more tris on high-end" pay off — the GPU is idle, the bottleneck is CPU/JS, and the skinned
+   membrane already animates high-poly on the GPU for ~free.
+4. **`sweepProfile()` (spline-swept bodies/necks/tails/horns) — NOT built.** Generalizes the
+   torso loft so future creatures animate by *bending a curve*, not rotating segments — the
+   path to many non-dragon creatures from one technique.
+
+### Frozen rig contract (do NOT break — every wing builder obeys it)
+Return `{ group, parts: { wingPivotL/R, wingTipL/R, wingPivot2L/R, tipMarkerL/R }, wingMat,
+spineMats }` with `wingTip` a child of `wingPivot`. `dragon.js` writes `wingPivot*.rotation`
+(flap) + `wingTip*.rotation` (wrist fold ±0.28 rad); `tipMarker*` is read for trail spawn. New
+handles are additive + nullable (the `'none'` builder is the template). Never rename/restructure.
+
+### Verification (all in `reforged/`)
+`node tools/tricount.mjs` (per-form budget 6000; roster ≈ 89k tris, 0 over); `tests/run-all.mjs`
++ `tests/skinnedwing.mjs` + `tests/smoke.mjs` green (zero console errors + the rig still
+animates). The **human** judges seam-gone folds, silhouette parity, cupping/iridescence on the
+PR preview — headless tools can't see motion or folded-pose seams. For a detail tier:
+`tricount --max=6000 --ci` at LOW and ULTRA → exit 0; detail must map tier2→LOW and never
+*raise* under sustained low FPS.
+
+### Strategy + risks
+Coexist → prove on a hero → migrate (done for the hero — now mechanize the roster). Risks:
+rig-contract drift (keep `'membrane'` as the untouched fallback until each dragon is proven);
+tri budget / draw calls (`tricount --ci`; `mergeGeometries` from `../lib/utils/
+BufferGeometryUtils.js` for same-material detail); rebuild thrash (4s gate, menus/death only);
+save compat for the detail setting (`modelDetail` deep-merge default, no migration).
+
+---
+
 ## THE RULE (do this every time)
 
 1. **Read this file first.** It is the accumulated state of the art for this repo.
@@ -239,3 +372,58 @@ to set, which model fields, how to pick a flap profile, what to verify) turns ro
 rollout into a near-zero-thought batch — and is the template for migrating *every* future
 system (surface, shingle, deform) hero-first. Perfecting one creature fully then
 mechanizing the spread is the fastest safe path to a whole polished roster.
+
+### L9 — The shop preview is a SECOND render context; own its fidelity separately
+**Did / learned:** the inspect showcase looked flat/ugly for three compounding reasons,
+all about render *context*, not the model: (1) the preview cameras rendered **layer 0
+only**, so every plasma sprite (core glow, aura, halos) — authored on **layer 1** to sit
+out of the in-game water reflection — was **invisible in the shop**. A sprite's layer is
+a *per-context* decision; adding a new camera (preview/minimap/reflection) means
+auditing which layers it should see. (2) No post-processing → emissive eyes/edges never
+*glowed*. (3) The always-on-top **aim-marker** crystal (a chase-cam HUD aid) rendered as
+an ugly nub on the snout when the showcase faced the dragon. Then the *first* fix
+over-corrected: strong bloom **stacked** with additive corona + floor + a bright stage
+centre → the dragon became a **silhouette against a white sun**. Bloom is multiplicative
+over additive sprites; keep the stage DARK + front-light the hero, bloom is a
+high-threshold *accent*, never base brightness.
+**→ Systematize:** treat **preview vs gameplay as a first-class fidelity seam**. The
+`opts.preview` flag on `buildDragonModel` already gates preview-only choices (drop the
+aim marker, tame the corona) — lean on it: the shop is an isolated scene/renderer, so
+spend there (bloom, lit glow, a themed backdrop) with **zero gameplay-budget cost** and
+**strip** anything that exists only for gameplay readability. The new
+`showcaseBackdrop.js` (themed sky gradient + drifting motes + vignette, coloured by the
+dragon's aura) is a reusable "hero on a stage" system — any unlock/celebration/victory
+surface can reuse it. Rule of thumb: **bright additive + bloom = washout**; dark stage +
+front key light + high-threshold bloom = the hero pops.
+**→ Leapfrog:** with a context-aware fidelity seam + a themed-backdrop system, the shop
+can chase AAA gacha quality (character-select stages per biome, particles, post,
+dramatic lighting) while gameplay stays lean — the two contexts evolve independently.
+Next: theme the backdrop by the dragon's **biome** (the world we fly through, not just
+its aura), add foreground depth motes, and a **hero camera angle** (¾-front) so the face
+greets the player — then this becomes the template for every "admire your unlock" moment.
+
+### L10 — A menu is the real world, reframed — never a reinvented one
+**Did / learned:** the shop/menu cost ~20 rounds because of two opposite mistakes. First
+I reused the gameplay scene but **mutated the run** to make it menu-like — ~35 "menuMode"
+hacks (teleport the player into a biome, toggle obstacle/ring/ember visibility, override
+the render gate). That entanglement *was* the bug parade: walls vanished, embers leaked,
+the dragon froze in its crash pose, the player desynced. Then I over-corrected by **hand-
+rolling a separate "menu engine"** (a crude sky shader + box "pillars" + a bare Reflector)
+— which looked amateur, because it was a worse reinvention of an engine that's already
+beautiful. What finally worked: render the **REAL environment pipeline** (the tuned sky +
+shader water + god-rays + fog + post-FX) for the shop — *exactly what the start screen
+already does* — overlay the HUD, and swap **only the dragon mesh** (`rebuildDragon`). The
+bugs were never from reusing the scene; they were from mutating the *run state*. The
+ugliness was never from "a separate engine"; it was from reinventing the renderer.
+**→ Systematize:** the law is **"menu = the real game world, reframed + frozen, never
+mutated."** For any showcase, REUSE the actual render pipeline (it's tuned, on-brand,
+free) and overlay UI; the only thing you touch is the *subject* (the dragon), never the
+world/run state. The decoupling that matters is **STATE** (don't modify the run), not
+**RENDERING** (do reuse the engine). And reserve "invent" for the differentiating layer
+(look/feel/composition); never re-derive the plumbing you already have.
+**→ Leapfrog:** with "menu = reframed real world" locked, EVERY admire-your-unlock surface
+(shop, ascension/unlock celebration, victory, character-select) reuses the one tuned
+environment + a static hero camera + a swappable subject — near-zero new render code,
+guaranteed beauty. Next: a data-driven per-surface camera/biome theme (e.g. force the
+astral biome for the shop) and a clean "freeze the world" helper for the paused-mid-run
+case — both pure additions over a foundation that can no longer break gameplay.
