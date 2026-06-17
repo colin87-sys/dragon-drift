@@ -41,16 +41,16 @@ const SKY_FRAG = `
     // base vertical gradient
     vec3 col = mix(horizonColor, midColor, smoothstep(0.0, 0.35, h));
     col = mix(col, topColor, smoothstep(0.25, 0.85, h));
-    // Milky-Way band: a soft diagonal dusty arc of brighter haze + concentrated stars
+    // Milky-Way band: a soft diagonal dusty arc of fainter haze + concentrated stars
     float band = 1.0 - abs(dot(d, normalize(vec3(0.55, 0.45, -0.7))));
-    float milk = smoothstep(0.82, 1.0, band);
-    col += vec3(0.30, 0.34, 0.55) * milk * 0.5;
-    // Starfield — hashed cells, denser inside the band, gentle twinkle.
-    vec3 cell = floor(d * 140.0);
+    float milk = smoothstep(0.85, 1.0, band);
+    col += vec3(0.16, 0.18, 0.34) * milk * 0.5;
+    // Starfield — fine hashed cells, denser inside the band, gentle twinkle.
+    vec3 cell = floor(d * 240.0);
     float s = hash(cell);
-    float star = smoothstep(0.992, 1.0, s) * (0.55 + 0.45*sin(time*1.6 + s*120.0));
-    star *= smoothstep(0.02, 0.25, h) * (0.6 + milk*1.6);
-    col += vec3(0.9, 0.94, 1.0) * star;
+    float star = smoothstep(0.9965, 1.0, s) * (0.55 + 0.45*sin(time*1.6 + s*120.0));
+    star *= smoothstep(0.02, 0.25, h) * (0.6 + milk*1.4);
+    col += vec3(0.85, 0.9, 1.0) * star * 0.85;
     // Faint aurora veil up high.
     float a1 = sin(d.x*7.0 + time*0.4 + d.y*11.0);
     float a2 = sin(d.x*4.0 - time*0.3 + d.y*7.0 + 2.1);
@@ -83,22 +83,22 @@ function buildBackdrop(scn, rgb) {
   sky.frustumCulled = false;
   grp.add(sky);
 
-  // Moon — a soft bright disc + halo, upper-back, so it backlights the dragon and
-  // streaks across the water.
-  const moonDir = new THREE.Vector3(-0.5, 0.42, -1).normalize();
-  const moonPos = moonDir.clone().multiplyScalar(52);
+  // Moon — set into the UPPER-LEFT corner (NOT behind the dragon, which would blow the
+  // centre out) so it lights the sky + streaks the water without flattening the hero.
+  const moonDir = new THREE.Vector3(-0.85, 0.52, -0.5).normalize();
+  const moonPos = moonDir.clone().multiplyScalar(56);
   const moon = new THREE.Sprite(new THREE.SpriteMaterial({
-    map: makeGlowTexture('230,240,255'), transparent: true, opacity: 0.95,
+    map: makeGlowTexture('200,216,255'), transparent: true, opacity: 0.6,
     blending: THREE.AdditiveBlending, depthWrite: false,
   }));
-  moon.scale.setScalar(11);
+  moon.scale.setScalar(7);
   moon.position.copy(moonPos);
   grp.add(moon);
   const moonCore = new THREE.Sprite(new THREE.SpriteMaterial({
-    map: makeGlowTexture('255,255,255'), transparent: true, opacity: 1,
+    map: makeGlowTexture('245,248,255'), transparent: true, opacity: 0.85,
     blending: THREE.AdditiveBlending, depthWrite: false,
   }));
-  moonCore.scale.setScalar(4.2);
+  moonCore.scale.setScalar(2.0);
   moonCore.position.copy(moonPos);
   grp.add(moonCore);
 
@@ -145,15 +145,26 @@ function buildBackdrop(scn, rgb) {
   }
   grp.add(motes);
 
-  // Soft contrast pocket behind where the dragon stands — a backlight halo so the
-  // dragon's silhouette reads against the sky (Pillar C2 pop).
+  // A SMALL, dim contrast pocket low behind the dragon — just enough to lift a dark
+  // dragon off the sky; kept faint so a light dragon doesn't blow out (the rim light +
+  // dark sky do most of the separation).
   const halo = new THREE.Sprite(new THREE.SpriteMaterial({
-    map: makeGlowTexture('120,150,210'), transparent: true, opacity: 0.5,
+    map: makeGlowTexture('90,115,180'), transparent: true, opacity: 0.16,
     blending: THREE.AdditiveBlending, depthWrite: false,
   }));
-  halo.scale.set(10, 10, 1);
-  halo.position.set(0, 0.6, -3.5);
+  halo.scale.set(5, 4, 1);
+  halo.position.set(0, 0.2, -3);
   grp.add(halo);
+
+  // Horizon glow — a thin bright band where the water meets the sky, so the transition
+  // reads as a luminous horizon instead of a hard line.
+  const horizon = new THREE.Sprite(new THREE.SpriteMaterial({
+    map: makeGlowTexture('150,170,230'), transparent: true, opacity: 0.4,
+    blending: THREE.AdditiveBlending, depthWrite: false,
+  }));
+  horizon.scale.set(80, 6, 1);
+  horizon.position.set(0, -1.4, -34);
+  grp.add(horizon);
 
   let last = 0;
   const tick = (t) => {
@@ -173,7 +184,7 @@ function buildBackdrop(scn, rgb) {
     pillarMat.dispose(); for (const p of pillars) p.geometry.dispose();
     for (const d of motesData) d.m.material.dispose();
     moteTex.dispose();
-    moon.material.dispose(); moonCore.material.dispose(); halo.material.dispose();
+    moon.material.dispose(); moonCore.material.dispose(); halo.material.dispose(); horizon.material.dispose();
   };
   return { tick, dispose, moonDir };
 }
@@ -191,21 +202,25 @@ function ensureStage() {
   renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
   renderer.toneMapping = THREE.ACESFilmicToneMapping;
   scene = new THREE.Scene();
+  // Atmospheric depth — a dark violet haze so distant pillars + the far water recede
+  // softly into the horizon instead of reading as hard black shapes.
+  scene.fog = new THREE.Fog(0x0a0a1c, 14, 60);
 
   // STATIC hero camera: straight-on, slightly above the water, looking level toward
   // the horizon so the moon sits upper-frame, horizon mid, water lower, dragon centred.
   camera = new THREE.PerspectiveCamera(42, 1, 0.1, 200);
-  camera.position.set(0, 1.4, 9.2);
-  camera.lookAt(0, 0.5, 0);
+  camera.position.set(0, 1.05, 9.4);
+  camera.lookAt(0, 0.7, 0);
 
-  // Lighting rig tuned for POP: warm KEY (front), cool FILL, bright back RIM.
-  scene.add(new THREE.HemisphereLight(0x9fb4ff, 0x14102a, 0.55));
-  const key = new THREE.DirectionalLight(0xfff0d8, 2.1); key.position.set(3, 4, 6); scene.add(key);
-  const fill = new THREE.DirectionalLight(0x88a8ff, 0.5); fill.position.set(-4, 1.5, 3); scene.add(fill);
-  const rim = new THREE.DirectionalLight(0xbfe6ff, 2.4); rim.position.set(-2, 3.5, -6); scene.add(rim);
+  // Lighting rig tuned for POP against a DARK sky: a moderate warm KEY (front), a low
+  // cool FILL, and a strong cool back RIM that traces a bright edge on the silhouette.
+  scene.add(new THREE.HemisphereLight(0x8aa0e0, 0x0c0a1e, 0.35));
+  const key = new THREE.DirectionalLight(0xffe8cc, 1.45); key.position.set(3.5, 4, 6); scene.add(key);
+  const fill = new THREE.DirectionalLight(0x6f8cff, 0.35); fill.position.set(-4, 1.5, 3); scene.add(fill);
+  const rim = new THREE.DirectionalLight(0xcde7ff, 2.6); rim.position.set(-2.5, 3, -6); scene.add(rim);
 
-  // Bloom (HDR) — soft, threshold high so only the dragon's bright plasma/eyes + the
-  // moon bloom, not the whole sky. Guarded behind float-buffer support.
+  // Subtle bloom — only the dragon's bright plasma/eyes + the moon core should glow;
+  // high threshold + low strength so it never washes the dark sky to grey.
   const gl = renderer.getContext();
   const canBloom = renderer.capabilities.isWebGL2 &&
     (gl.getExtension('EXT_color_buffer_float') || gl.getExtension('EXT_color_buffer_half_float'));
@@ -213,7 +228,7 @@ function ensureStage() {
     const rt = new THREE.WebGLRenderTarget(2, 2, { type: THREE.HalfFloatType, samples: 4 });
     composer = new EffectComposer(renderer, rt);
     composer.addPass(new RenderPass(scene, camera));
-    composer.addPass(new UnrealBloomPass(new THREE.Vector2(2, 2), 0.34, 0.5, 0.9));
+    composer.addPass(new UnrealBloomPass(new THREE.Vector2(2, 2), 0.13, 0.4, 1.05));
     composer.addPass(new OutputPass());
   }
   resizeMenuStage();
