@@ -782,11 +782,11 @@ body.app-loaded > canvas { opacity: 1; }
   font-size: 12px; letter-spacing: 1.5px; padding: 5px 11px; border-radius: 9px; color: var(--hrar);
   background: color-mix(in srgb, var(--hrar) 16%, rgba(8,14,30,0.7)); border: 1px solid color-mix(in srgb, var(--hrar) 50%, transparent); }
 
-/* ===== Shop: the dedicated MENU STAGE (menuStage.js) renders the hero scene full-
-   screen BEHIND the HUD. De-dim the shop so the stage shows through, with a soft
-   bottom vignette for control legibility. The dragons tab's boxed preview is hidden
-   (the stage replaces it) but its .hero-stage keeps its layout space as a clear window
-   so the centred dragon sits above the name/stats/EQUIP/rail. ===== */
+/* ===== Shop: the LIVE real environment (the gameplay scene + dragon — the same proven
+   pipeline the start screen renders) is the backdrop. De-dim the shop so it shows
+   through, with a soft bottom vignette for control legibility. The boxed dragon preview
+   is hidden (the live scene's dragon shows behind) but its .hero-stage keeps its layout
+   space as a clear window so the dragon sits above the name/stats/EQUIP/rail. ===== */
 .screen.shop-screen {
   background: radial-gradient(ellipse at 50% 28%, transparent 0%, transparent 56%, rgba(4,6,16,0.55) 100%);
   -webkit-backdrop-filter: none; backdrop-filter: none;

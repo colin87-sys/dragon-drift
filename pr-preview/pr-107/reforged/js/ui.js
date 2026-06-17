@@ -14,7 +14,6 @@ import { claimFeat, unclaimedFeatCount } from './feats.js';
 import { DRAGONS, DRAGON_STAT_CAP } from './dragons.js';
 import { RIDERS } from './riders.js';
 import { attachPreviews, attachPreviewCanvas, refreshPreview, setShowcaseDef, closeShowcase, setShowcaseZoom, showcaseDragStart, showcaseDragMove, showcaseDragEnd } from './preview.js';
-import { openMenuStage, closeMenuStage, setMenuDragon, setMenuDragonVisible } from './menuStage.js';
 import { attachTrailPreviews } from './trailPreview.js';
 import { FLIGHTMARKS, flightmarkOwned, equippedFlightmark } from './flightmarks.js';
 import { ASCENSION_TIERS, ascendedDef, ascensionTier, canAscend, radianceRank, maxTierFor } from './ascension.js';
@@ -955,11 +954,9 @@ export const ui = {
     // Freshness: animate the screen in only on genuine navigation — tab
     // switches re-render the SAME type and must not re-flash.
     const fresh = !els.screen.classList.contains('visible') || lastScreen !== type;
-    // Dedicated menu stage: a self-contained hero scene behind the shop HUD (the dragon
-    // idling in the astral backdrop), fully decoupled from gameplay. Open it for the
-    // shop, show the dragon only on the dragons tab, and close it when leaving the shop.
-    if (type === 'shop') { openMenuStage(); setMenuDragonVisible(shopTab === 'dragons'); }
-    else if (lastScreen === 'shop') { closeMenuStage(); }
+    // Leaving the shop: restore the equipped dragon to the live menu scene (browsing
+    // swapped the inspected dragon into it).
+    if (lastScreen === 'shop' && type !== 'shop' && handlers.onRestoreMenuDragon) handlers.onRestoreMenuDragon();
     lastScreen = type;
 
     if (type === 'start') {
@@ -1420,7 +1417,6 @@ export const ui = {
     pauseSubscreen = false;
     els.screen.classList.remove('visible');
     document.body.classList.remove('screen-open');
-    closeMenuStage();   // tear down the shop's menu stage when returning to gameplay
   },
 
   // Pause hub, AAA-clean: resume up top, an at-a-glance stats strip, then
@@ -1607,6 +1603,7 @@ export const ui = {
     return lastScreen === 'shop' || lastScreen === 'settings' || lastScreen === 'pilot' ||
            lastScreen === 'quests' || lastScreen === 'daily';
   },
+  atShop() { return lastScreen === 'shop' && els.screen.classList.contains('visible'); },
 };
 
 // --- Appointment UI: honest badges -----------------------------------
@@ -1802,9 +1799,9 @@ function wireScreenButtons(type) {
         q('#hero-stats').innerHTML = srow('SPEED', spd) + srow('AGILITY', agi) + srow('STAMINA', sta);
         ctaEl.innerHTML = ctaHtml(); wireCta();
         for (const t2 of railEl.querySelectorAll('.hero-thumb')) t2.classList.toggle('on', t2.dataset.hero === heroKey);
-        // Centre the inspected dragon in the dedicated menu stage (decoupled hero scene).
-        setMenuDragon(ascendedDef(d, hTier, owned ? radianceRank(heroKey) : 0));
-        setMenuDragonVisible(true);
+        // Show the inspected dragon in the LIVE menu scene (the real environment behind
+        // the shop) — swaps only the dragon mesh, never the run.
+        if (handlers.onPreviewDragon) handlers.onPreviewDragon(ascendedDef(d, hTier, owned ? radianceRank(heroKey) : 0));
         stage.classList.remove('rotated');
       };
 
