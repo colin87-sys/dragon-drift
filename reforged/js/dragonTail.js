@@ -4,6 +4,7 @@ import {
   featherGeo, featherGradient,
 } from './dragonParts.js';
 import { registerTail } from './dragonRecipe.js';
+import { seg as lod } from './modelDetail.js'; // aliased: this file has a local `seg` mesh var
 
 // Tail modules — the fourth part behind the recipe registry. A tail builder takes
 // (def, model, mats, anchor) and returns { group, segs, tailFins, accentMats }:
@@ -33,7 +34,7 @@ function buildLegacyTail(def, model, mats) {
   const nTail = Math.min(model.tailSegments, 9);
   const taper = nTail > 7 ? 0.74 : 0.78;
   for (let i = 0; i < nTail; i++) {
-    const seg = new THREE.Mesh(new THREE.ConeGeometry(radius, 0.95, 7), bodyMat);
+    const seg = new THREE.Mesh(new THREE.ConeGeometry(radius, 0.95, lod(7)), bodyMat);
     seg.rotation.x = Math.PI / 2;
     seg.position.set(0, 0.1, zTail);
     root.add(seg);
@@ -46,13 +47,13 @@ function buildLegacyTail(def, model, mats) {
     roughness: 0.25, metalness: 0.5, side: THREE.DoubleSide,
   });
   if (model.maceTail) {
-    const mace = new THREE.Mesh(new THREE.SphereGeometry(0.28, 8, 7), bladeMat);
+    const mace = new THREE.Mesh(new THREE.SphereGeometry(0.28, lod(8), lod(7)), bladeMat);
     mace.position.set(0, 0.1, zTail);
     root.add(mace);
     segs.push(mace);
     for (let i = 0; i < 6; i++) {
       const a = (i / 6) * Math.PI * 2;
-      const spike = new THREE.Mesh(new THREE.ConeGeometry(0.06, 0.38, 4), bladeMat);
+      const spike = new THREE.Mesh(new THREE.ConeGeometry(0.06, 0.38, lod(4)), bladeMat);
       spike.position.set(Math.cos(a) * 0.24, Math.sin(a) * 0.24 + 0.1, zTail);
       spike.rotation.z = Math.sin(a) * Math.PI / 2;
       spike.rotation.x = Math.cos(a) * Math.PI / 2;
@@ -61,14 +62,14 @@ function buildLegacyTail(def, model, mats) {
   } else if (model.tailTip === 'fan') {
     for (let i = 0; i < 3; i++) {
       const angle = (i - 1) * 0.48;
-      const fin = new THREE.Mesh(new THREE.ConeGeometry(0.11, 0.74, 5), scalesMat);
+      const fin = new THREE.Mesh(new THREE.ConeGeometry(0.11, 0.74, lod(5)), scalesMat);
       fin.rotation.set(Math.PI / 2, 0, angle);
       fin.position.set(Math.sin(angle) * 0.14, Math.cos(angle) * 0.14 + 0.1, zTail);
       root.add(fin);
       segs.push(fin);
     }
   } else {
-    const tip = new THREE.Mesh(new THREE.ConeGeometry(0.09, 0.6, 5), scalesMat);
+    const tip = new THREE.Mesh(new THREE.ConeGeometry(0.09, 0.6, lod(5)), scalesMat);
     tip.rotation.x = Math.PI / 2;
     tip.position.set(0, 0.1, zTail);
     root.add(tip);
@@ -152,7 +153,7 @@ export function buildCleanTail(def, model, bodyMat) {
 
   function spinePlate(r) {
     const h = 0.12 + g * 0.16;
-    const plate = new THREE.Mesh(new THREE.ConeGeometry(0.04 + r * 0.16, h, 4), plateMat);
+    const plate = new THREE.Mesh(new THREE.ConeGeometry(0.04 + r * 0.16, h, lod(4)), plateMat);
     plate.position.set(0, r * 0.85, 0.04);
     plate.rotation.x = -0.18;
     return plate;
@@ -165,7 +166,7 @@ export function buildCleanTail(def, model, bodyMat) {
     const r1 = baseR + (tipR - baseR) * ((i + 1) / (N - 1));
     const seg = new THREE.Group();
     seg.position.set(0, 0, i * spacing);
-    const frustum = new THREE.Mesh(new THREE.CylinderGeometry(r1, r0, segLen, 8), bodyMat);
+    const frustum = new THREE.Mesh(new THREE.CylinderGeometry(r1, r0, segLen, lod(8)), bodyMat);
     frustum.rotation.x = Math.PI / 2;
     seg.add(frustum);
     if (!smoothStem) seg.add(spinePlate(r0));
@@ -177,7 +178,7 @@ export function buildCleanTail(def, model, bodyMat) {
   // reaches FORWARD into the hip region so the tail visibly grows out of the hips
   // instead of butting against them — dark body material, no cyan.
   if (model.tailRootCollar) {
-    const collar = new THREE.Mesh(new THREE.CylinderGeometry(baseR, baseR * 1.2, 0.44, 8), bodyMat);
+    const collar = new THREE.Mesh(new THREE.CylinderGeometry(baseR, baseR * 1.2, 0.44, lod(8)), bodyMat);
     collar.rotation.x = Math.PI / 2;        // lie along z (wide end toward the hip, -z)
     collar.position.set(0, 0, -0.18);
     segs[0].add(collar);
@@ -233,7 +234,7 @@ export function buildCleanTail(def, model, bodyMat) {
       const a = new THREE.Vector3(sx * 0.05, 0, 0);
       const b = new THREE.Vector3(sx * 0.46, 0, 1.5);
       const dir = b.clone().sub(a);
-      const edge = new THREE.Mesh(new THREE.CylinderGeometry(0.014, 0.045, dir.length(), 4), plateMat);
+      const edge = new THREE.Mesh(new THREE.CylinderGeometry(0.014, 0.045, dir.length(), lod(4)), plateMat);
       edge.position.copy(a).add(b).multiplyScalar(0.5);
       edge.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), dir.clone().normalize());
       tip.add(edge);
@@ -255,7 +256,7 @@ export function buildCleanTail(def, model, bodyMat) {
     const bladeGeo = new THREE.ShapeGeometry(buildBladeShape(0.3, 1.35));
     bladeGeo.rotateX(Math.PI / 2);
     tip.add(new THREE.Mesh(bladeGeo, membraneMat));
-    const edge = new THREE.Mesh(new THREE.CylinderGeometry(0.016, 0.045, 1.35, 4), plateMat);
+    const edge = new THREE.Mesh(new THREE.CylinderGeometry(0.016, 0.045, 1.35, lod(4)), plateMat);
     edge.rotation.x = Math.PI / 2;
     edge.position.set(0, 0, 0.67);
     tip.add(edge);
@@ -272,7 +273,7 @@ export function buildCleanTail(def, model, bodyMat) {
       const a = new THREE.Vector3(sx * 0.05, 0, 0);
       const b = new THREE.Vector3(sx * 0.62, 0, 1.2);
       const dir = b.clone().sub(a);
-      const rib = new THREE.Mesh(new THREE.CylinderGeometry(0.014, 0.04, dir.length(), 4), plateMat);
+      const rib = new THREE.Mesh(new THREE.CylinderGeometry(0.014, 0.04, dir.length(), lod(4)), plateMat);
       rib.position.copy(a).add(b).multiplyScalar(0.5);
       rib.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), dir.clone().normalize());
       tip.add(rib);
@@ -285,7 +286,7 @@ export function buildCleanTail(def, model, bodyMat) {
     const spade = new THREE.Mesh(spadeGeo, membraneMat);
     spade.position.set(0, 0.03, 0.04);
     tip.add(spade);
-    const point = new THREE.Mesh(new THREE.ConeGeometry(tipR + 0.02, 0.34, 6), bodyMat);
+    const point = new THREE.Mesh(new THREE.ConeGeometry(tipR + 0.02, 0.34, lod(6)), bodyMat);
     point.rotation.x = Math.PI / 2;
     point.position.set(0, 0, 0.13);
     tip.add(point);
@@ -314,7 +315,7 @@ export function buildCleanTail(def, model, bodyMat) {
       sp.position.set(sx * 0.12, -0.02, -0.32);
       tip.add(sp);
     }
-    const point = new THREE.Mesh(new THREE.ConeGeometry(tipR + 0.03, 0.5, 6), bodyMat);
+    const point = new THREE.Mesh(new THREE.ConeGeometry(tipR + 0.03, 0.5, lod(6)), bodyMat);
     point.rotation.x = Math.PI / 2;
     point.position.set(0, 0, 0.24);
     tip.add(point);
@@ -341,7 +342,7 @@ export function buildCleanTail(def, model, bodyMat) {
     rudder.rotation.x = 0.5;
     rudder.position.set(0, 0.12, 0.0);
     tip.add(rudder);
-    const point = new THREE.Mesh(new THREE.ConeGeometry(tipR + 0.03, 0.62, 6), bodyMat);
+    const point = new THREE.Mesh(new THREE.ConeGeometry(tipR + 0.03, 0.62, lod(6)), bodyMat);
     point.rotation.x = Math.PI / 2;
     point.position.set(0, 0, 0.3);
     tip.add(point);
@@ -393,7 +394,7 @@ export function buildCleanTail(def, model, bodyMat) {
     rudder.rotation.x = 0.4;
     rudder.position.set(0, 0.17, 0.0);
     tip.add(rudder);
-    const point = new THREE.Mesh(new THREE.ConeGeometry(tipR + 0.03, 0.66, 6), bodyMat);
+    const point = new THREE.Mesh(new THREE.ConeGeometry(tipR + 0.03, 0.66, lod(6)), bodyMat);
     point.rotation.x = Math.PI / 2;
     point.position.set(0, 0, 0.34);
     tip.add(point);
@@ -422,16 +423,16 @@ export function buildCleanTail(def, model, bodyMat) {
       tip.add(shard);
     }
   } else if (style === 'finned') {
-    const fin = new THREE.Mesh(new THREE.ConeGeometry(0.085, 0.46, 4), plateMat);
+    const fin = new THREE.Mesh(new THREE.ConeGeometry(0.085, 0.46, lod(4)), plateMat);
     fin.scale.set(1, 1, 0.5);
     fin.position.set(0, 0.26, -0.05);
     tip.add(fin);
-    const point = new THREE.Mesh(new THREE.ConeGeometry(tipR + 0.03, 0.6, 6), bodyMat);
+    const point = new THREE.Mesh(new THREE.ConeGeometry(tipR + 0.03, 0.6, lod(6)), bodyMat);
     point.rotation.x = Math.PI / 2;
     point.position.set(0, 0, 0.3);
     tip.add(point);
   } else {
-    const point = new THREE.Mesh(new THREE.ConeGeometry(tipR + 0.03, 0.55, 6), bodyMat);
+    const point = new THREE.Mesh(new THREE.ConeGeometry(tipR + 0.03, 0.55, lod(6)), bodyMat);
     point.rotation.x = Math.PI / 2;
     point.position.set(0, 0, 0.28);
     tip.add(point);

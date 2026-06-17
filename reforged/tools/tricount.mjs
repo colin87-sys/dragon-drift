@@ -62,7 +62,16 @@ const { buildDragonModel } = await import('../js/dragonModel.js');
 const args = process.argv.slice(2);
 const ci = args.includes('--ci');
 const maxArg = args.find((a) => a.startsWith('--max='));
-const BUDGET = maxArg ? Number(maxArg.slice(6)) : 6000; // per-form ceiling (current apex max ~4400)
+// --detail=low|high|ultra picks the geometry LOD the build runs at (default HIGH
+// = today's exact geometry, the no-regression baseline). LOW/ULTRA verify the
+// detail tier's floor + ceiling: HIGH must equal the historical counts, LOW must
+// undercut it, and ULTRA must densify but stay inside its (larger) ceiling.
+const detailArg = args.find((a) => a.startsWith('--detail='));
+const detail = detailArg ? detailArg.slice(9) : 'high';
+// HIGH keeps the shipped 6000 mobile ceiling; ULTRA is an idle-GPU-only level so
+// it gets a larger default ceiling (more tris on high-end is the whole point).
+const defaultBudget = detail === 'ultra' ? 13000 : 6000;
+const BUDGET = maxArg ? Number(maxArg.slice(6)) : defaultBudget;
 
 // --- counting --------------------------------------------------------------
 function countTris(obj) {
@@ -94,7 +103,7 @@ for (const key of Object.keys(DRAGONS)) {
   const maxTier = maxTierFor(key);
   for (let tier = 0; tier <= maxTier; tier++) {
     const def = ascendedDef(DRAGONS[key], tier, 0);
-    const { group } = buildDragonModel(def, {});
+    const { group } = buildDragonModel(def, { detail });
     const tris = Math.round(countTris(group));
     dispose(group);
     rosterTotal += tris;
@@ -107,7 +116,7 @@ for (const key of Object.keys(DRAGONS)) {
 // --- report ----------------------------------------------------------------
 const padR = (s, n) => String(s).padEnd(n);
 const padL = (s, n) => String(s).padStart(n);
-console.log(`\nDragon Drift — model triangle budget (per-form ceiling: ${BUDGET})\n`);
+console.log(`\nDragon Drift — model triangle budget (detail: ${detail.toUpperCase()} · per-form ceiling: ${BUDGET})\n`);
 console.log(padR('Dragon', 12) + padR('Form', 11) + padL('Tris', 8) + '  Status');
 console.log('-'.repeat(41));
 let lastKey = null;

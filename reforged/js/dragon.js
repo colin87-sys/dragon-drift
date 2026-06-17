@@ -5,6 +5,7 @@ import { buildRiderFigure, riderMaterials } from './riderParts.js';
 import { setFeverTint } from './postfx.js';
 import { applyRim, updateRim, resetRim } from './rimLight.js';
 import { flapWing, formStrength, formSpeed } from './dragonWingFlap.js';
+import { setActiveDetail } from './modelDetail.js';
 
 // Procedural dragon + rider. Built from a dragon def (dragons.js: palette,
 // model proportions, fx) and a rider def (riders.js: outfit, hair, accessory,
@@ -50,6 +51,15 @@ let quality = 1;
 export function setDragonQuality(q) {
   quality = q;
 }
+
+// Geometry level-of-detail for the next (re)build — 'low' | 'high' | 'ultra'.
+// main.js resolves this from the MODEL DETAIL setting + the live render tier and
+// sets it before a gated rebuildDragon (menus/death only, never mid-flight). It
+// is applied to the process-wide active level in createDragon so the dragon AND
+// rider both build at it. HIGH = today's geometry.
+let modelDetail = 'high';
+export function setDragonModelDetail(level) { modelDetail = level; }
+export function getDragonModelDetail() { return modelDetail; }
 
 // Rider
 let riderHead = null;
@@ -102,6 +112,9 @@ export function createDragon(scene, def, riderDef) {
   activeDef = def;
   activeRider = riderDef;
 
+  // Pin the geometry LOD for this whole build (dragon + rider read the process-
+  // wide active level via seg()). buildDragonModel inherits it (no opts.detail).
+  setActiveDetail(modelDetail);
   const result = buildDragonModel(def);
   group = result.group;
   ({ head, tailSegs, wingPivotL, wingPivotR, wingTipL, wingTipR,
