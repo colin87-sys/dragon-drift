@@ -5,13 +5,13 @@ import { initInput, initTouch, initMouse } from './input.js';
 import { createLevelGen } from './level.js';
 import { todaysDailyMod, dailyMods } from './daily.js';
 import { createEnvironment, updateEnvironment, resetEnvironment, getSkyMesh } from './environment.js';
-import { createDragon, updateDragon, resetDragon, rebuildDragon, setDragonVisible } from './dragon.js';
+import { createDragon, updateDragon, resetDragon, rebuildDragon } from './dragon.js';
 import { initReticle, updateReticle } from './reticle.js';
 import { initSplash, showSplash, hideSplash, splashVisible, launchFlash, igniteSplash, splashArmed } from './splash.js';
 import { player, applyDragonStats } from './player.js';
 import { cameraCtl } from './cameraController.js';
-import { initRings, addRing, updateRings, resetRings, setRingsVisible } from './rings.js';
-import { initObstacles, addObstacle, updateObstacles, resetObstacles, setObstaclesVisible } from './obstacles.js';
+import { initRings, addRing, updateRings, resetRings } from './rings.js';
+import { initObstacles, addObstacle, updateObstacles, resetObstacles } from './obstacles.js';
 import { initPowerups, addOrb, updatePowerups, resetPowerups } from './powerups.js';
 import { initParticles, updateParticles, resetParticles, setParticleQuality } from './particles.js';
 import { setDragonQuality } from './dragon.js';
@@ -28,7 +28,7 @@ import { BIOMES, biomeIndexAt, SUN_DIR } from './biomes.js';
 import { DRAGONS } from './dragons.js';
 import { RIDERS } from './riders.js';
 import { dailySeed, recordDailyRun, saveData, persist, grantXp, levelEmberReward, todayUTC, gambitSunsetRefund, freezeSaves } from './save.js';
-import { initEmbers, addEmberLine, updateEmbers, bankEmbers, resetEmbers, setEmbersVisible } from './embers.js';
+import { initEmbers, addEmberLine, updateEmbers, bankEmbers, resetEmbers } from './embers.js';
 import { emit, on } from './events.js';
 import { initAnalytics } from './analytics.js';
 import { initMissions, settleMissions } from './missions.js';
@@ -39,7 +39,7 @@ import { settleWeekly } from './weekly.js';
 import { settleMilestones, settleMasteryStars } from './milestones.js';
 import { grantTitle, levelTitleId, grantEarnedLevelTitles } from './titles.js';
 import { selectNextUp } from './recap.js';
-import { initGoldEmbers, addGoldEmber, updateGoldEmbers, resetGoldEmbers, setGoldEmbersVisible } from './goldEmbers.js';
+import { initGoldEmbers, addGoldEmber, updateGoldEmbers, resetGoldEmbers } from './goldEmbers.js';
 import { initHints, updateHints } from './hints.js';
 import { initGestureTutorial, updateGestureTutorial } from './gestureTutorial.js';
 import { initPbMarker, updatePbMarker } from './pbMarker.js';
@@ -194,11 +194,6 @@ ui.init({
     rebuildDragon(equippedDragon(), equippedRider(), player);
     applyDragonStats(equippedDragon());
   },
-  // Shop browse: park ANY dragon (the one being inspected, at its form/tier) in the
-  // live menu scene so it's shown organically in the biome — no preview box. Does NOT
-  // persist the equip; leaving the shop restores the equipped dragon.
-  onPreviewDragon: (def) => rebuildDragon(def, equippedRider(), player),
-  onRestoreMenuDragon: () => rebuildDragon(equippedDragon(), equippedRider(), player),
   onEquipRider: () => rebuildDragon(equippedDragon(), equippedRider(), player),
   onAscend: (key) => {
     const def = DRAGONS[key] || DRAGONS.azure;
@@ -691,13 +686,6 @@ function updateQuality(dt) {
   }
 }
 
-// Shop showcase: park the dragon at a fixed point INSIDE the astral biome (5.5 ×
-// biomeLength) so the REAL world renders around it — water, monolith props,
-// reflections, god-rays — instead of only tinting the sky dome. The run's player
-// state is saved on entry and restored on exit so paused runs resume untouched.
-const MENU_DIST = CONFIG.biomeLength * 5.5;
-let menuSaved = null;
-
 function tick() {
   requestAnimationFrame(tick);
   // rawDt drives FPS metering and UI; simDt (scaled by near-death slow-mo)
@@ -835,63 +823,23 @@ function tick() {
   // The SHOP is a clean menu showcase over WHATEVER state we came from (ready, paused
   // mid-run, or game-over): render + animate the live scene even while 'paused', so the
   // dragon flaps in the astral biome instead of a frozen, cluttered run frame.
-  // menuMode = the shop is the showcase. Gate on `!== 'playing'` so a stale lastScreen
-  // can never hide the walls or force the menu biome during an actual run (ui.atShop()
-  // also requires the shop screen to be on-screen).
-  const menuMode = ui.atShop() && game.state !== 'playing';
-  // Enter/leave the showcase: teleport the dragon into the astral biome (saving the
-  // run's player state) so the full real world renders around it; restore on exit.
-  if (menuMode && !menuSaved) {
-    menuSaved = { pos: player.position.clone(), dist: player.dist, vel: player.velocity.clone() };
-    player.position.set(0, 8, -MENU_DIST);
-    player.dist = MENU_DIST;
-    player.velocity.set(0, 0, 0);
-  } else if (!menuMode && menuSaved) {
-    player.position.copy(menuSaved.pos);
-    player.dist = menuSaved.dist;
-    player.velocity.copy(menuSaved.vel);
-    menuSaved = null;
-  }
-  // Course clutter visibility is toggled OUTSIDE the render gate so it always restores
-  // — otherwise returning from the shop to a still-PAUSED run (gate skipped) would
-  // leave the rings/obstacles/set-pieces/dragon hidden until the next resumed frame.
-  // The shop shows a clean biome (gameplay clutter off; only the ambient sky-dots +
-  // dragon remain — and the dragon only on the dragons tab).
-  setRingsVisible(!menuMode);
-  setObstaclesVisible(!menuMode);
-  setEmbersVisible(!menuMode);
-  setGoldEmbersVisible(!menuMode);
-  for (const sp of setpieceMeshes) if (sp.object) sp.object.visible = !menuMode;
-  setDragonVisible(!menuMode || ui.atDragonsShop());
-  if (game.state !== 'paused' || menuMode) {
-    // Cull old set-pieces — but NOT while the shop is showing over a frozen run, or it
-    // would permanently remove the course behind the paused player (walls vanish).
-    if (!menuMode) {
-      for (let i = setpieceMeshes.length - 1; i >= 0; i--) {
-        if (setpieceMeshes[i].dist < player.dist - CONFIG.cullBehind - 200) {
-          scene.remove(setpieceMeshes[i].object);
-          setpieceMeshes.splice(i, 1);
-        }
+  if (game.state !== 'paused') {
+    // Cull old set-pieces
+    for (let i = setpieceMeshes.length - 1; i >= 0; i--) {
+      if (setpieceMeshes[i].dist < player.dist - CONFIG.cullBehind - 200) {
+        scene.remove(setpieceMeshes[i].object);
+        setpieceMeshes.splice(i, 1);
       }
     }
 
     const t = clock.getElapsedTime();
-    updateDragon(dt, player, t, menuMode);
+    updateDragon(dt, player, t);
     updateParticles(dt, camera);
-    // Don't mutate/cull the frozen run's obstacles while the shop showcase is up.
-    if (!menuMode) {
-      const obstacleSpeedNorm = (player.speed - CONFIG.baseSpeed) / (CONFIG.orbSpeed - CONFIG.baseSpeed);
-      updateObstacles(dt, t, player.dist, obstacleSpeedNorm);
-    }
-    cameraCtl.update(dt, player, game.state === 'ready' || menuMode, menuMode);
+    const obstacleSpeedNorm = (player.speed - CONFIG.baseSpeed) / (CONFIG.orbSpeed - CONFIG.baseSpeed);
+    updateObstacles(dt, t, player.dist, obstacleSpeedNorm);
+    cameraCtl.update(dt, player, game.state === 'ready');
     if (introPlaying && !cameraCtl.introPlaying) introPlaying = false;
-    updateReticle(player, game.state === 'playing' && !menuMode);
-    // In the shop the live world is the backdrop: park it in ASTRAL SHALLOWS (violet
-    // sky, pale moon, stars, aurora, reflective water). Clutter/dragon visibility is
-    // handled above the gate so it always restores.
-    // player.dist is the astral MENU_DIST while in the showcase (the dragon is parked
-    // there), so the sky, water position + tint, and props all resolve to the real
-    // astral biome — no colour-only faking.
+    updateReticle(player, game.state === 'playing');
     updateEnvironment(dt, camera, t, player.dist, game.feverActive, player.speed);
     updateWater(dt, player.dist, t, scene.fog);
     updateContactShadow(dt, player);
