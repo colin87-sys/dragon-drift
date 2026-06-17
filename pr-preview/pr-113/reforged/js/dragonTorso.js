@@ -123,12 +123,15 @@ function buildTorso(profile, def, model, bodyMat, geoFn = buildTorsoGeometry) {
   torso.position.y = TORSO_Y;
   group.add(torso);
 
-  // Smooth fairings where the wings attach, so they never look bolted on.
+  // Smooth fairings where the wings attach, so they never look bolted on. When the
+  // shoulder is widened (shoulderWidthScale), the fairing rides OUT with it (radius +
+  // x) so it stays proud of the surface as a muscular shoulder mound, not buried.
   const fr = profile.fairing;
+  const fScale = shoulderW;
   for (const s of [-1, 1]) {
-    const root = new THREE.Mesh(new THREE.SphereGeometry(fr.r, seg(9), seg(7)), bodyMat);
+    const root = new THREE.Mesh(new THREE.SphereGeometry(fr.r * fScale, seg(9), seg(7)), bodyMat);
     root.scale.set(fr.scale[0], fr.scale[1], fr.scale[2]);
-    root.position.set(s * fr.pos[0], fr.pos[1], fr.pos[2]);
+    root.position.set(s * fr.pos[0] * fScale, fr.pos[1], fr.pos[2]);
     group.add(root);
   }
 
@@ -151,7 +154,7 @@ function buildTorso(profile, def, model, bodyMat, geoFn = buildTorsoGeometry) {
   const tailShift = (profile.tailShiftRefZ - profile.zHold) * (stretch - 1);
 
   const attach = {
-    wingRoot: (side) => ({ x: wr.x * side, y: wr.y + (model.wingRootOffset?.y ?? 0), z: wr.z + (model.wingRootOffset?.z ?? 0) }),
+    wingRoot: (side) => ({ x: wr.x * shoulderW * side, y: wr.y + (model.wingRootOffset?.y ?? 0), z: wr.z + (model.wingRootOffset?.z ?? 0) }),
     headBase: hb,
     tailAnchor: { y: profile.tailAnchorY, z: profile.tailAnchorZ + tailShift },
     keelTopAt: (z) => TORSO_Y + keelTopFor(profile, z),

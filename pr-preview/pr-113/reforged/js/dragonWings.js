@@ -309,10 +309,12 @@ function buildMembraneWings(def, model, attach, giM, opts = {}) {
     if (!skinned) pivot.position.set(wr.x, wr.y, wr.z);
 
     // Shoulder joint — a mass anchoring the wing to the body. wingRootScale thickens
-    // it so the wing swells into the thorax (Night Fury); additive, default unchanged.
+    // it AND flares the base wide/flat so the wing swells into a deltoid shoulder mound
+    // where it meets the body; additive, rootScale 1 = byte-identical for other dragons.
     const rootScale = model.wingRootScale ?? 1;
     const shoulder = new THREE.Mesh(new THREE.SphereGeometry(0.16 * rootScale, seg(9), seg(7)), armMat);
-    shoulder.scale.set(1.1, 0.9, 1.2);
+    shoulder.scale.set(1.1 + (rootScale - 1) * 0.9, 0.9, 1.2 + (rootScale - 1) * 0.9);
+    if (rootScale !== 1) shoulder.position.set(0, -0.04, 0.02);
     pivot.add(shoulder);
 
     // Membrane. Skinned: ONE continuous SkinnedMesh (added to the mount + bound
