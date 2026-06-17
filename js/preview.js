@@ -2,6 +2,10 @@ import * as THREE from 'three';
 import { buildDragonModel, makePreviewTick } from './dragonModel.js';
 import { buildRiderFigure, riderMaterials } from './riderParts.js';
 import { makeGlowTexture } from './util.js';
+import { EffectComposer } from '../lib/postprocessing/EffectComposer.js';
+import { RenderPass } from '../lib/postprocessing/RenderPass.js';
+import { UnrealBloomPass } from '../lib/postprocessing/UnrealBloomPass.js';
+import { OutputPass } from '../lib/postprocessing/OutputPass.js';
 
 // Live 3D shop previews: every dragon/rider card gets a little turntable —
 // the real dragon model (same mesh as in-game, tier-aware) rendered into the
@@ -30,6 +34,11 @@ function ensureRenderer() {
   camera = new THREE.PerspectiveCamera(40, 1, 0.1, 60);
   camera.position.set(0, 1.25, 7.9);
   camera.lookAt(0, 0.25, 0);
+  // Render the SPRITE GLOW layer (1). In gameplay layer 1 is the dragon's plasma
+  // (core glow, aura, halos) kept out of the water reflection; the shop has no
+  // water, so without this enable the card dragons lose all their glow and read
+  // flat/dark. Turning it on simply shows the FX that were authored but hidden.
+  camera.layers.enable(1);
   scene.add(new THREE.HemisphereLight(0xbfdcff, 0x2e3448, 1.0));
   const key = new THREE.DirectionalLight(0xffe0b0, 1.7);
   key.position.set(2.5, 3, 4);
@@ -199,7 +208,7 @@ export function attachPreviewCanvas(canvas, kind, def) {
 // renderer / scene / premium lighting, with a gentle showcase orbit layered on
 // top of the live flap. One showcase at a time; opened/closed by ui.js.
 let scRenderer = null, scScene = null, scCamera = null, scItem = null, scRaf = 0;
-let scFloor = null;
+let scFloor = null, scComposer = null, scBloom = null;
 const SC_SIZE = 640;
 // User-controlled 360° turntable yaw. Drag accumulates `scYaw`; on release the
 // `scYawVel` carries it with inertia; after it settles + a short idle, a slow
@@ -256,10 +265,57 @@ function ensureShowcase() {
   scCamera = new THREE.PerspectiveCamera(40, 1, 0.1, 100);
   scCamera.position.set(0, 1.3, 8.6);
   scCamera.lookAt(0, 0.3, 0);
+  scCamera.layers.enable(1);   // show the plasma glow layer (see ensureRenderer)
   scScene.add(new THREE.HemisphereLight(0xbfdcff, 0x2e3448, 1.05));
-  const key = new THREE.DirectionalLight(0xffe8c0, 2.0); key.position.set(3, 4.5, 5); scScene.add(key);
-  const rim = new THREE.DirectionalLight(0x88b8ff, 1.05); rim.position.set(-4, 2, -3); scScene.add(rim);
-  const fill = new THREE.DirectionalLight(0xd0f0ff, 0.4); fill.position.set(0, -2, 3); scScene.add(fill);
+  const key = new THREE.DirectionalLight(0xffe8c0, 2.1); key.position.set(3, 4.5, 5); scScene.add(key);
+  const rim = new THREE.DirectionalLight(0x88b8ff, 1.1); rim.position.set(-4, 2, -3); scScene.add(rim);
+  const fill = new THREE.DirectionalLight(0xd0f0ff, 0.42); fill.position.set(0, -2, 3); scScene.add(fill);
+  // A cool BACK-rim raking the silhouette from behind-below, so wing edges and the
+  // crest catch a crisp halo — the dramatic separation a character-select hero shot
+  // wants. Bloom (below) turns that rim light into a glow.
+  const backRim = new THREE.DirectionalLight(0x59d8ff, 0.7); backRim.position.set(0, 1.2, -6); scScene.add(backRim);
+
+  // ── Premium HDR bloom: the shop is the money shot ──────────────────────────
+  // No environment to render here, so we spend the whole frame budget making the
+  // dragon DAZZLE: a dedicated EffectComposer (mirroring the in-game pipeline)
+  // blooms the cyan plasma, glowing eyes and edge-light into a Genshin/Honkai-style
+  // character-select glow — far stronger than the gameplay bloom, since this view
+  // is static and singular. Guarded behind the float-buffer support the HDR target
+  // needs; falls back to a raw render (set in scLoop) when unavailable.
+  const gl = scRenderer.getContext();
+  const canBloom = scRenderer.capabilities.isWebGL2 &&
+    (gl.getExtension('EXT_color_buffer_float') || gl.getExtension('EXT_color_buffer_half_float'));
+  if (canBloom) {
+    const rt = new THREE.WebGLRenderTarget(SC_SIZE, SC_SIZE, { type: THREE.HalfFloatType, samples: 4 });
+    scComposer = new EffectComposer(scRenderer, rt);
+    scComposer.addPass(new RenderPass(scScene, scCamera));
+    // (resolution, strength, radius, threshold) — threshold ~0.8 so only the bright
+    // plasma/eyes bloom while the matte-black body stays crisp and dark.
+    scBloom = new UnrealBloomPass(new THREE.Vector2(SC_SIZE, SC_SIZE), 0.62, 0.55, 0.8);
+    scComposer.addPass(scBloom);
+    scComposer.addPass(new OutputPass());
+    scComposer.setPixelRatio(scRenderer.getPixelRatio());
+    scComposer.setSize(SC_SIZE, SC_SIZE);
+  }
+}
+
+// A dark "stage" backdrop tinted to the dragon's signature aura — turns the
+// inspect modal into a real character-select stage and (being opaque + HDR) lets
+// the bloom read cleanly instead of fighting a transparent buffer. A faint pool of
+// the aura colour rises behind where the dragon stands; the edges fall to near-black.
+function makeStageTexture(rgb) {
+  const [r, g, b] = rgb.split(',').map(Number);
+  const cv = document.createElement('canvas'); cv.width = cv.height = 256;
+  const cx = cv.getContext('2d');
+  const grad = cx.createRadialGradient(128, 158, 16, 128, 138, 210);
+  const tint = (v, lo) => Math.round(v * 0.16 + lo);
+  grad.addColorStop(0, `rgb(${tint(r, 16)},${tint(g, 18)},${tint(b, 26)})`);
+  grad.addColorStop(0.5, 'rgb(11,13,19)');
+  grad.addColorStop(1, 'rgb(4,5,9)');
+  cx.fillStyle = grad; cx.fillRect(0, 0, 256, 256);
+  const tex = new THREE.CanvasTexture(cv);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  return tex;
 }
 
 // Build (or rebuild, for form cycling) the showcased dragon into `canvas`.
@@ -291,6 +347,11 @@ export function setShowcaseDef(canvas, def) {
     const ps = Math.min(1.22, Math.max(0.6, def.model.previewScale ?? 1));
     scBaseDist = fit * (1.22 / ps) + 0.6;
   }
+
+  // Premium character-select STAGE: a dark backdrop pooled with the dragon's own
+  // aura colour, rebuilt per dragon (Obsidian = cool cyan-black).
+  if (scScene.background && scScene.background.isTexture) scScene.background.dispose();
+  scScene.background = makeStageTexture(def.fx?.auraColor || '150,200,255');
 
   // Soft aura-tinted floor glow / backlight behind the dragon — a gentle showcase
   // spotlight, recoloured per dragon so Obsidian stays cyan.
@@ -328,7 +389,8 @@ function scLoop(now = performance.now()) {
   const dist = scBaseDist / scZoom;
   scCamera.position.set(0, scLookY + dist * 0.16, dist); // rear, gently raised (top-rear)
   scCamera.lookAt(0, scLookY, 0);
-  scRenderer.render(scScene, scCamera);
+  if (scComposer) scComposer.render();
+  else scRenderer.render(scScene, scCamera);
   const c = scItem.canvas;
   scItem.ctx.clearRect(0, 0, c.width, c.height);
   scItem.ctx.drawImage(scRenderer.domElement, 0, 0, c.width, c.height);
@@ -337,5 +399,9 @@ function scLoop(now = performance.now()) {
 export function closeShowcase() {
   if (scRaf) { cancelAnimationFrame(scRaf); scRaf = 0; }
   if (scItem) { scScene.remove(scItem.group); disposeGroup(scItem.group); scItem = null; }
+  if (scScene && scScene.background && scScene.background.isTexture) {
+    scScene.background.dispose();
+    scScene.background = null;
+  }
   scZoom = scZoomTarget = 1; // reset framing for the next time the showcase opens
 }
