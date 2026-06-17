@@ -131,9 +131,3 @@ export function resetEmbers() {
   streak = 0;
   cursor = 0;
 }
-
-// Hide/show the ember coin-trail — the shop menu shows a clean biome, not the run's
-// collectibles (the tiny ambient sky-dots stay; these gold embers don't).
-export function setEmbersVisible(v) {
-  if (mesh) mesh.visible = v;
-}
