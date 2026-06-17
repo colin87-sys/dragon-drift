@@ -5,6 +5,7 @@ import {
   featherGeo, featherGradient, webGradient, archUp, bone, buildCurvedPatch,
 } from './dragonParts.js';
 import { registerWings } from './dragonRecipe.js';
+import { seg } from './modelDetail.js';
 
 // Wings modules — the second part extracted behind the recipe registry. A wings
 // build owns its own materials (the runtime-animated membrane `wingMat`, the
@@ -124,7 +125,7 @@ function buildMembraneWings(def, model, attach, giM, opts = {}) {
       const spanEnd = Math.min(isFinite(clipMax) ? clipMax : worldMaxX, worldMaxX);
       const g = buildCurvedPatch(wingSpec, {
         scaleX: 1.34 * ws, scaleZ: model.wingChord ?? 1, arc, k: ws,
-        billow: panelBillow, segU: 16, segV: 6,
+        billow: panelBillow, segU: seg(16), segV: seg(6),
         spanStart, spanEnd, originX, originY,
       });
       // Gradient by GLOBAL span fraction so the inner/outer panels share one
@@ -157,7 +158,11 @@ function buildMembraneWings(def, model, attach, giM, opts = {}) {
   // flap — the membrane bends through the whole arm, not just one hinge.
   const foldBand = 0.7 * ws;
   const elbowXGeo = wristXGeo * 0.52;                // mid-forearm joint
-  const SEG_U = 24, SEG_V = 6;
+  // Spanwise × chordwise resolution of the continuous skinned membrane — the
+  // single biggest tessellation knob on the hero. Detail-scaled: HIGH = 24×6
+  // (today), ULTRA densifies the fold curve + billow for a smooth wing on idle
+  // GPUs, LOW trims it for the weakest devices. The surface ribs sample this grid.
+  const SEG_U = seg(24), SEG_V = seg(6);
   const sstep = (x) => { x = Math.min(Math.max(x, 0), 1); return x * x * (3 - 2 * x); };
   // Two active bones (a→b blended by t) for a span position; padded to 4 wide.
   function spanSkin(ax) {
@@ -269,15 +274,15 @@ function buildMembraneWings(def, model, attach, giM, opts = {}) {
     const wristCol = Math.max(1, Math.round(SEG_U * (wristXGeo / ((wingSpec.tips[0][0] || 5.7) * 1.34 * ws))));
     const meshes = [];
     // leading edge / arm bone — front row, full span, thick → thin
-    meshes.push(skinnedTube(rowLine(0, 0, SEG_U, 10), 0.11, 0.02, armMat, 5));
+    meshes.push(skinnedTube(rowLine(0, 0, SEG_U, seg(10)), 0.11, 0.02, armMat, seg(5)));
     // finger veins — interior rows from the wrist out, slim (they converge at tip)
     for (const j of [Math.round(SEG_V * 0.34), Math.round(SEG_V * 0.7)]) {
-      meshes.push(skinnedTube(rowLine(j, wristCol, SEG_U, 6), 0.028, 0.007, veinMat || boneMat, 4));
+      meshes.push(skinnedTube(rowLine(j, wristCol, SEG_U, seg(6)), 0.028, 0.007, veinMat || boneMat, seg(4)));
     }
     // glowing cyan TRAILING rim — a skinned tube along the back row, so the lit
     // outline follows the bent membrane instead of rigid ribs poking through it.
     if (model.wingEdgeGlow && finEdgeMat) {
-      meshes.push(skinnedTube(rowLine(SEG_V, 0, SEG_U, 12), 0.022, 0.013, finEdgeMat, 5));
+      meshes.push(skinnedTube(rowLine(SEG_V, 0, SEG_U, seg(12)), 0.022, 0.013, finEdgeMat, seg(5)));
     }
     return meshes;
   }
@@ -296,7 +301,7 @@ function buildMembraneWings(def, model, attach, giM, opts = {}) {
     if (!skinned) pivot.position.set(wr.x, wr.y, wr.z);
 
     // Shoulder joint — a small mass anchoring the wing to the body.
-    const shoulder = new THREE.Mesh(new THREE.SphereGeometry(0.16, 9, 7), armMat);
+    const shoulder = new THREE.Mesh(new THREE.SphereGeometry(0.16, seg(9), seg(7)), armMat);
     shoulder.scale.set(1.1, 0.9, 1.2);
     pivot.add(shoulder);
 
@@ -375,7 +380,7 @@ function buildMembraneWings(def, model, attach, giM, opts = {}) {
         const b = new THREE.Vector3(bx * 1.34 * ws * side - wristXGeo * side,
           archLift(bx * 1.34 * ws * side, maxX, arc, ws) - wristLift, -by);
         const dir = b.clone().sub(a);
-        const rib = new THREE.Mesh(new THREE.CylinderGeometry(0.024, 0.024, dir.length(), 5), finEdgeMat);
+        const rib = new THREE.Mesh(new THREE.CylinderGeometry(0.024, 0.024, dir.length(), seg(5)), finEdgeMat);
         rib.position.copy(a).add(b).multiplyScalar(0.5);
         rib.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), dir.clone().normalize());
         wingTip.add(rib);
@@ -574,7 +579,7 @@ function buildFeatherWings(def, model, attach, _giM) {
     const pivot = new THREE.Group();
     const wr = attach.wingRoot(side);
     pivot.position.set(wr.x, wr.y, wr.z); // root high on the shoulders
-    const shoulder = new THREE.Mesh(new THREE.SphereGeometry(0.17, 9, 7), armMat);
+    const shoulder = new THREE.Mesh(new THREE.SphereGeometry(0.17, seg(9), seg(7)), armMat);
     shoulder.scale.set(1.1, 0.85, 1.2);
     pivot.add(shoulder);
     pivot.add(bone(0, 0, 0, wristX * side, wristY, wristZ, 0.09, 0.05, armMat));

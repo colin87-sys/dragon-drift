@@ -3,6 +3,7 @@ import { registerTorso } from './dragonRecipe.js';
 import { makeGlowTexture } from './util.js';
 import { applyFresnelRim } from './surface.js';
 import { featherGeo, hexRgb } from './dragonParts.js';
+import { seg } from './modelDetail.js';
 
 // Torso modules — the dragon's BODY PLAN, the first part extracted behind the
 // recipe registry (dragonRecipe.js). A body plan is now DATA: a profile object
@@ -91,7 +92,7 @@ function buildTorso(profile, def, model, bodyMat) {
   // Smooth fairings where the wings attach, so they never look bolted on.
   const fr = profile.fairing;
   for (const s of [-1, 1]) {
-    const root = new THREE.Mesh(new THREE.SphereGeometry(fr.r, 9, 7), bodyMat);
+    const root = new THREE.Mesh(new THREE.SphereGeometry(fr.r, seg(9), seg(7)), bodyMat);
     root.scale.set(fr.scale[0], fr.scale[1], fr.scale[2]);
     root.position.set(s * fr.pos[0], fr.pos[1], fr.pos[2]);
     group.add(root);
@@ -102,7 +103,7 @@ function buildTorso(profile, def, model, bodyMat) {
   const neckSegs = model.neckSegments;
   for (let i = 0; i < neckSegs; i++) {
     const neck = new THREE.Mesh(
-      new THREE.SphereGeometry(Math.max(n.rBase - i * n.rStep, n.rMin), 9, 7), bodyMat);
+      new THREE.SphereGeometry(Math.max(n.rBase - i * n.rStep, n.rMin), seg(9), seg(7)), bodyMat);
     neck.scale.set(n.scale[0], n.scale[1], n.scale[2]);
     neck.position.set(
       Math.sin(i * n.wobbleFreq) * n.wobbleAmp,
@@ -234,17 +235,17 @@ function buildAvianTorso(def, model, _bodyMat) {
   }), cCore, 1.5 + F * 0.9);
 
   // Body: a compact egg leaning into the flight + a breast swell.
-  const body = new THREE.Mesh(new THREE.SphereGeometry(0.6, 14, 12), bodyMat);
+  const body = new THREE.Mesh(new THREE.SphereGeometry(0.6, seg(14), seg(12)), bodyMat);
   body.scale.set(0.8, 0.84, 1.46 + F * 0.08);
   body.position.set(0, 0.5, 0.12);
   group.add(body);
-  const breast = new THREE.Mesh(new THREE.SphereGeometry(0.44, 12, 10), bodyMat);
+  const breast = new THREE.Mesh(new THREE.SphereGeometry(0.44, seg(12), seg(10)), bodyMat);
   breast.scale.set(0.92, 0.92, 1.05);
   breast.position.set(0, 0.36, -0.5);
   group.add(breast);
 
   // Heart-fire core mesh: a bright sphere nestled in the chest (blazes on Surge).
-  const heart = new THREE.Mesh(new THREE.SphereGeometry(0.24 + F * 0.05, 12, 10), coreMat);
+  const heart = new THREE.Mesh(new THREE.SphereGeometry(0.24 + F * 0.05, seg(12), seg(10)), coreMat);
   heart.position.set(0, 0.48, -0.18);
   group.add(heart);
 
@@ -263,7 +264,7 @@ function buildAvianTorso(def, model, _bodyMat) {
   // Short avian neck (2 small spheres) — bird, not serpent.
   for (let i = 0; i < 2; i++) {
     const t = (i + 1) / 3;
-    const n = new THREE.Mesh(new THREE.SphereGeometry(0.34 - i * 0.06, 9, 7), bodyMat);
+    const n = new THREE.Mesh(new THREE.SphereGeometry(0.34 - i * 0.06, seg(9), seg(7)), bodyMat);
     n.scale.set(0.82, 0.78, 1.0);
     n.position.set(0, 0.5 + t * 0.22, -0.62 - t * 0.72);
     group.add(n);
