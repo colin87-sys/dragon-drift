@@ -829,6 +829,14 @@ function tick() {
   // mid-run, or game-over): render + animate the live scene even while 'paused', so the
   // dragon flaps in the astral biome instead of a frozen, cluttered run frame.
   const menuMode = ui.atShop();
+  // Course clutter visibility is toggled OUTSIDE the render gate so it always restores
+  // — otherwise returning from the shop to a still-PAUSED run (gate skipped) would
+  // leave the rings/obstacles/set-pieces/dragon hidden until the next resumed frame.
+  // The shop shows a clean biome (clutter off; dragon only on the dragons tab).
+  setRingsVisible(!menuMode);
+  setObstaclesVisible(!menuMode);
+  for (const sp of setpieceMeshes) if (sp.object) sp.object.visible = !menuMode;
+  setDragonVisible(!menuMode || ui.atDragonsShop());
   if (game.state !== 'paused' || menuMode) {
     // Cull old set-pieces
     for (let i = setpieceMeshes.length - 1; i >= 0; i--) {
@@ -839,23 +847,17 @@ function tick() {
     }
 
     const t = clock.getElapsedTime();
-    updateDragon(dt, player, t);
+    updateDragon(dt, player, t, menuMode);
     updateParticles(dt, camera);
     const obstacleSpeedNorm = (player.speed - CONFIG.baseSpeed) / (CONFIG.orbSpeed - CONFIG.baseSpeed);
     updateObstacles(dt, t, player.dist, obstacleSpeedNorm);
-    cameraCtl.update(dt, player, game.state === 'ready' || menuMode);
+    cameraCtl.update(dt, player, game.state === 'ready' || menuMode, menuMode);
     if (introPlaying && !cameraCtl.introPlaying) introPlaying = false;
     updateReticle(player, game.state === 'playing' && !menuMode);
     // In the shop the live world is the backdrop: park it in ASTRAL SHALLOWS (violet
-    // sky, pale moon, stars, aurora, reflective water) and HIDE the course clutter
-    // (rings, obstacles, set-pieces) so the menu shows a clean biome, not the level.
+    // sky, pale moon, stars, aurora, reflective water). Clutter/dragon visibility is
+    // handled above the gate so it always restores.
     const envDist = menuMode ? CONFIG.biomeLength * 5.5 : player.dist;
-    setRingsVisible(!menuMode);
-    setObstaclesVisible(!menuMode);
-    for (const sp of setpieceMeshes) if (sp.object) sp.object.visible = !menuMode;
-    // The dragon shows on the DRAGONS tab; the riders/music/style tabs share the same
-    // biome backdrop without it, so the shop flows tab to tab. (Visible everywhere else.)
-    setDragonVisible(!menuMode || ui.atDragonsShop());
     updateEnvironment(dt, camera, t, envDist, game.feverActive, player.speed);
     updateWater(dt, envDist, t, scene.fog);
     updateContactShadow(dt, player);

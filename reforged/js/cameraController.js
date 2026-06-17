@@ -88,7 +88,7 @@ export const cameraCtl = {
   skipIntro() { introT = 0; },
   get introPlaying() { return introT > 0; },
 
-  update(dt, player, showcase = false) {
+  update(dt, player, showcase = false, shopMode = false) {
     // Splash attract screen: a LOCKED hero composition behind + above the dragon,
     // looking down the ring course. The framing is essentially still — only an
     // extremely subtle, loop-safe "breath" remains (the world carries the life:
@@ -116,12 +116,16 @@ export const cameraCtl = {
     // Start-screen showcase: slow orbit around the live dragon.
     if (showcase) {
       showcaseAngle += dt * 0.3;
-      const r = 10.5;
+      // The SHOP showcase pulls back + sits lower than the start screen so the dragon
+      // isn't crammed in and the biome's water + horizon read below it. The start
+      // screen keeps its tighter, raised hero framing (shopMode = false).
+      const r = shopMode ? 14 : 10.5;
+      const yLift = shopMode ? 1.5 : 2.6;
       const ox = player.position.x + Math.sin(showcaseAngle) * r;
-      const oy = player.position.y + 2.6 + Math.sin(showcaseAngle * 0.6) * 1.2;
+      const oy = player.position.y + yLift + Math.sin(showcaseAngle * 0.6) * 1.2;
       const oz = player.position.z + Math.cos(showcaseAngle) * r;
-      let fovTarget = 58;
-      if (introT > 0) {
+      let fovTarget = shopMode ? 62 : 58;
+      if (introT > 0 && !shopMode) {
         // Glide in from a low/wide/far pose; the offset decays to nothing as the
         // orbit takes over. damp() keeps it buttery and frame-rate independent.
         introT = Math.max(0, introT - dt);
@@ -136,7 +140,9 @@ export const cameraCtl = {
         camera.position.set(ox, oy, oz);
         smoothPos.copy(camera.position);
       }
-      camera.lookAt(player.position.x, player.position.y + 0.5, player.position.z);
+      // Look slightly BELOW the dragon in the shop so the reflective water spreads
+      // across the lower frame (start screen looks at the dragon).
+      camera.lookAt(player.position.x, player.position.y + (shopMode ? -0.6 : 0.5), player.position.z);
       if (Math.abs(camera.fov - fovTarget) > 0.05) {
         camera.fov = damp(camera.fov, fovTarget, 2.5, dt);
         camera.updateProjectionMatrix();

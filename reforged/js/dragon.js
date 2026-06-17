@@ -307,9 +307,15 @@ export function rebuildDragon(def, riderDef, player) {
 }
 
 // Show/hide the dragon — the shop's non-dragon tabs (riders/music/style) share the
-// biome backdrop but without the dragon, so the menu flows tab to tab.
+// biome backdrop but without the dragon, so the menu flows tab to tab. Also hides the
+// world-space rider extras (the ponytail chain + glow + orbiters) which live on the
+// scene, not the dragon group, so they don't float on their own when the dragon is off.
 export function setDragonVisible(v) {
   if (group) group.visible = v;
+  if (riderGroup) riderGroup.visible = v;
+  if (riderGlow) riderGlow.visible = v;
+  for (const m of ponyMeshes) m.visible = v;
+  for (const o of riderOrbiters) if (o.mesh) o.mesh.visible = v;
 }
 
 // Lethal crashes (wall/gate) explode hot coral-red; health deaths stay icy.
@@ -338,7 +344,7 @@ export function triggerDeathBurst(position, lethal = false) {
   }
 }
 
-export function updateDragon(dt, player, time) {
+export function updateDragon(dt, player, time, menuMode = false) {
   // Follow flight position with hover bob
   group.position.set(
     player.position.x,
@@ -350,27 +356,33 @@ export function updateDragon(dt, player, time) {
   // Bank is tracked separately so the barrel-roll spin can stack on top
   // without fighting the damper.
   const speedNorm = Math.min(Math.max((player.speed - 35) / 45, 0), 1);
-  const bankFactor = 0.035 + speedNorm * 0.015;
-  bankZ = damp(bankZ, -player.velocity.x * bankFactor, 9, dt);
+  // In the menu (shop showcase) the dragon idles LEVEL — ignore the run's velocity,
+  // roll and speed so a crash's banking pose isn't frozen into the lobby.
+  const vx = menuMode ? 0 : player.velocity.x;
+  const vy = menuMode ? 0 : player.velocity.y;
+  const roll = menuMode ? null : player.roll;
+  const sN = menuMode ? 0 : speedNorm;
+  const bankFactor = 0.035 + sN * 0.015;
+  bankZ = damp(bankZ, -vx * bankFactor, 9, dt);
   let rollSpin = 0;
   let rollFold = 0;
-  if (player.roll) {
-    const k = Math.min(player.roll.t / player.roll.dur, 1);
+  if (roll) {
+    const k = Math.min(roll.t / roll.dur, 1);
     const ease = k < 0.5 ? 4 * k * k * k : 1 - Math.pow(-2 * k + 2, 3) / 2;
-    rollSpin = -player.roll.dir * Math.PI * 2 * ease; // matches bank direction
+    rollSpin = -roll.dir * Math.PI * 2 * ease; // matches bank direction
     rollFold = Math.sin(Math.PI * k) * 0.55;
   }
   // A segmented serpent BENDS its spine to turn (handled per-plate below) rather
   // than banking like a plane — so soften the whole-body roll for the wyrm, or the
   // barrel-bank would hide the snake-bend.
   group.rotation.z = bankZ * (bodySegs ? 0.4 : 1) + rollSpin;
-  group.rotation.x = damp(group.rotation.x, player.velocity.y * 0.022, 9, dt);
+  group.rotation.x = damp(group.rotation.x, vy * 0.022, 9, dt);
   // Slight yaw toward lateral movement
-  group.rotation.y = damp(group.rotation.y, player.velocity.x * 0.008, 6, dt);
-  head.rotation.y = damp(head.rotation.y, -player.velocity.x * 0.014, 8, dt);
-  head.rotation.x = damp(head.rotation.x, -player.velocity.y * 0.008, 8, dt);
-  riderGroup.rotation.z = damp(riderGroup.rotation.z, -player.velocity.x * 0.035, 8, dt);
-  riderGroup.rotation.x = damp(riderGroup.rotation.x, -0.08 - speedNorm * 0.16 + player.velocity.y * 0.008, 8, dt);
+  group.rotation.y = damp(group.rotation.y, vx * 0.008, 6, dt);
+  head.rotation.y = damp(head.rotation.y, -vx * 0.014, 8, dt);
+  head.rotation.x = damp(head.rotation.x, -vy * 0.008, 8, dt);
+  riderGroup.rotation.z = damp(riderGroup.rotation.z, -vx * 0.035, 8, dt);
+  riderGroup.rotation.x = damp(riderGroup.rotation.x, -0.08 - sN * 0.16 + vy * 0.008, 8, dt);
   // Trail group rests pre-oriented; speed sweeps it back and a gentle waggle
   // keeps it alive. Works for every trail style (tatters/cape/ribbon/robe).
   // The sway is SLOW + damped (was a raw ~1.9 Hz sine that whipped the Void
