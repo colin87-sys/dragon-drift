@@ -268,3 +268,29 @@ dramatic lighting) while gameplay stays lean — the two contexts evolve indepen
 Next: theme the backdrop by the dragon's **biome** (the world we fly through, not just
 its aura), add foreground depth motes, and a **hero camera angle** (¾-front) so the face
 greets the player — then this becomes the template for every "admire your unlock" moment.
+
+### L10 — A menu is the real world, reframed — never a reinvented one
+**Did / learned:** the shop/menu cost ~20 rounds because of two opposite mistakes. First
+I reused the gameplay scene but **mutated the run** to make it menu-like — ~35 "menuMode"
+hacks (teleport the player into a biome, toggle obstacle/ring/ember visibility, override
+the render gate). That entanglement *was* the bug parade: walls vanished, embers leaked,
+the dragon froze in its crash pose, the player desynced. Then I over-corrected by **hand-
+rolling a separate "menu engine"** (a crude sky shader + box "pillars" + a bare Reflector)
+— which looked amateur, because it was a worse reinvention of an engine that's already
+beautiful. What finally worked: render the **REAL environment pipeline** (the tuned sky +
+shader water + god-rays + fog + post-FX) for the shop — *exactly what the start screen
+already does* — overlay the HUD, and swap **only the dragon mesh** (`rebuildDragon`). The
+bugs were never from reusing the scene; they were from mutating the *run state*. The
+ugliness was never from "a separate engine"; it was from reinventing the renderer.
+**→ Systematize:** the law is **"menu = the real game world, reframed + frozen, never
+mutated."** For any showcase, REUSE the actual render pipeline (it's tuned, on-brand,
+free) and overlay UI; the only thing you touch is the *subject* (the dragon), never the
+world/run state. The decoupling that matters is **STATE** (don't modify the run), not
+**RENDERING** (do reuse the engine). And reserve "invent" for the differentiating layer
+(look/feel/composition); never re-derive the plumbing you already have.
+**→ Leapfrog:** with "menu = reframed real world" locked, EVERY admire-your-unlock surface
+(shop, ascension/unlock celebration, victory, character-select) reuses the one tuned
+environment + a static hero camera + a swappable subject — near-zero new render code,
+guaranteed beauty. Next: a data-driven per-surface camera/biome theme (e.g. force the
+astral biome for the shop) and a clean "freeze the world" helper for the paused-mid-run
+case — both pure additions over a foundation that can no longer break gameplay.
