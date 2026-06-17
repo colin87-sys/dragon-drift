@@ -1316,6 +1316,8 @@ export const ui = {
     // the generic per-child stagger is reserved for other dense screens.
     els.screen.classList.remove('stagger');
     els.screen.classList.toggle('hero-screen', type === 'start');
+    // The whole shop (every tab) shows the live astral biome behind it, so de-dim it.
+    els.screen.classList.toggle('shop-screen', type === 'shop');
     // The shop scrolls inside a dedicated container (not the screen itself), so a
     // tall hero layout can't turn the whole screen into a janky scroll surface
     // that mis-fires taps as "close" on mobile.
@@ -1602,6 +1604,7 @@ export const ui = {
            lastScreen === 'quests' || lastScreen === 'daily';
   },
   atShop() { return lastScreen === 'shop'; },
+  atDragonsShop() { return lastScreen === 'shop' && shopTab === 'dragons'; },
 };
 
 // --- Appointment UI: honest badges -----------------------------------
