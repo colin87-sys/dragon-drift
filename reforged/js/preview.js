@@ -320,11 +320,12 @@ export function setShowcaseDef(canvas, def) {
     scBaseDist = fit * (1.22 / ps) + 0.6;
   }
 
-  // Character-select backdrop: a pretty atmospheric sky themed to the dragon's aura
-  // (a night cloudscape we fly through), drifting motes + vignette. Rebuilt per
-  // dragon so the theme colour follows it (Obsidian = cool cyan night).
+  // Character-select backdrop: the game's ASTRAL SHALLOWS biome rendered behind the
+  // dragon — astral sky + reflective water + monolith pillars + drifting motes. The
+  // water sits just under the dragon's lowest point so it reflects the whole model.
   if (scBackdrop) scBackdrop.dispose();
-  scBackdrop = buildShowcaseBackdrop(scScene, def.fx?.auraColor || '150,200,255');
+  const floorY = box.isEmpty() ? -2 : box.min.y - 0.15;
+  scBackdrop = buildShowcaseBackdrop(scScene, def.fx?.auraColor || '150,200,255', floorY);
 
   if (!scRaf) scRaf = requestAnimationFrame(scLoop);
 }
