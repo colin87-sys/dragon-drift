@@ -206,7 +206,7 @@ export const DRAGONS = {
     // short blunt snout, large intelligent catlike eyes, swept-back ear-fins, cyan
     // rear glow. Intelligent, stealthy, fast (NOT regal or spiky).
     parts: {
-      torso: 'sweptLoft', head: 'draconic', wings: 'skinnedMembrane',
+      torso: 'sweptLoft', head: 'draconic', wings: 'skinnedMembrane', tail: 'sweptTail',
       surface: { shader: ['cellularScales', 'iridescence'] },
       // Apex-dramatic SCALE RELIEF (the shingle system): overlapping dark cupped
       // plates on the FLANKS (arriving at Radiant, fuller at Eternal) + a denser
@@ -268,9 +268,9 @@ export const DRAGONS = {
     forms: [
       // ── HATCHLING (T0) ── tiny smooth night dart, plasma dormant. No chevrons,
       // a tapered stem + small dark spade tip, stubby wings, dim grey-cyan. ~25%.
-      { wingForm: 0, tailStyle: 'spade',
+      { wingForm: 0, tailStyle: 'nightfury',
         bodyScale: 0.65, wingSpan: 0.85, wingChord: 0.92, tailLength: 0.80,
-        tailFinScale: 0, tailFinSpread: 0, dorsalGlowCount: 0, tailGlowSegs: 0,
+        tailFinScale: 0.5, tailFinSpread: 0, dorsalGlowCount: 0, tailGlowSegs: 0,
         spineGlow: 0, glowIntensity: 0.25, particleRate: 0.30,
         wingOpacity: 0.93, wingPanelGlow: 0.10, previewScale: 0.75,
         eyeScale: 1.35, neckSegments: 5,
@@ -280,7 +280,7 @@ export const DRAGONS = {
       // ── KINDLED (T1) ── electric-cyan plasma ignites: ear frills, a faint
       // chevron line continuing onto the tail, and the first SPLIT tail-fin
       // identity (two flared finlets + side-fin hints). Drama ≈ 45%.
-      { wingForm: 1, tailStyle: 'splitfin', earTendrils: true,
+      { wingForm: 1, tailStyle: 'nightfury', earTendrils: true,
         bodyScale: 0.82, wingSpan: 0.95, wingChord: 0.96, tailLength: 0.90,
         tailFinScale: 0.62, tailFinSpread: 0, dorsalGlowCount: 6, tailGlowSegs: 3,
         spineGlow: 0.45, glowIntensity: 0.55, particleRate: 0.55,
@@ -293,7 +293,7 @@ export const DRAGONS = {
       // (two swept layered fins + central rudder), an 8-chevron body line + 6 tail
       // segments, cyan-edged wings, plasma veins + glow seams. Looks good — but the
       // Eternal must read as obviously beyond it. Drama 70%.
-      { wingForm: 2, tailStyle: 'stealthrudder', earTendrils: true,
+      { wingForm: 2, tailStyle: 'nightfury', earTendrils: true,
         bodyScale: 1.00, wingSpan: 1.00, wingChord: 1.00, tailLength: 1.00,
         tailFinScale: 1.00, tailFinSpread: 1.00, dorsalGlowCount: 8, tailGlowSegs: 6,
         spineGlow: 0.75, glowIntensity: 1.00, particleRate: 1.00,
@@ -307,7 +307,7 @@ export const DRAGONS = {
       // flowing into 10 tail segments, subtle hip fins, and the signature apex
       // stealth-tail ASSEMBLY — two large swept layered stabilizers (anhedral) +
       // micro support fins + a tall central rudder on a long stem. Drama 100%.
-      { wingForm: 3, tailStyle: 'apexstealth', earTendrils: true,
+      { wingForm: 3, tailStyle: 'nightfury', earTendrils: true,
         bodyScale: 1.12, bodyStretch: 1.18, wingSpan: 1.10, wingChord: 1.15, tailLength: 1.06,
         tailFinScale: 1.08, tailFinSpread: 1.2, dorsalGlowCount: 11, tailGlowSegs: 10,
         tailRootCollar: true, tailDorsalLink: true,
