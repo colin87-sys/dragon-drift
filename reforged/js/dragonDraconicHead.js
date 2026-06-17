@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { registerHead } from './dragonRecipe.js';
+import { seg } from './modelDetail.js';
 
 // DRACONIC HEAD — Dragon Drift's "house style" dragon head: a sleek, intelligent,
 // catlike wedge skull (Night-Fury *inspired*, never a copy) assembled from a
@@ -29,8 +30,9 @@ import { registerHead } from './dragonRecipe.js';
 // they flare on Surge. The aim marker is added by dragonModel — not here.
 
 // ── shared helpers ──────────────────────────────────────────────────────────
-function ellipsoid(mat, r, sx, sy, sz, x, y, z, seg = 10) {
-  const m = new THREE.Mesh(new THREE.SphereGeometry(r, seg, Math.round(seg * 0.7)), mat);
+function ellipsoid(mat, r, sx, sy, sz, x, y, z, segs = 10) {
+  const s = seg(segs);   // detail-scaled (HIGH = the passed count, ULTRA rounder)
+  const m = new THREE.Mesh(new THREE.SphereGeometry(r, s, Math.round(s * 0.7)), mat);
   m.scale.set(sx, sy, sz);
   m.position.set(x, y, z);
   return m;
@@ -47,7 +49,7 @@ function accentMat(color, intensity) {
 // A back-raked horn/blade: a cone (points +y) raked toward +z (BACK) and splayed
 // out, so it lengthens the rear silhouette without towering over the aim point.
 function rakedHorn(mat, { baseR, len, x, y, z, rake, splay, segments = 6, flatZ = 1 }) {
-  const horn = new THREE.Mesh(new THREE.ConeGeometry(baseR, len, segments), mat);
+  const horn = new THREE.Mesh(new THREE.ConeGeometry(baseR, len, seg(segments)), mat);
   if (flatZ !== 1) horn.scale.z = flatZ;
   horn.position.set(x, y, z);
   horn.rotation.x = rake;     // +rake → tip sweeps BACK (+z), low
@@ -90,7 +92,7 @@ function snoutBase(c, { len, baseW, noseW, drop }) {
   // with a small rounded nose pad. After rotation.x = -PI/2 the cone's wide end
   // (radiusBottom) faces +z (cranium) and the narrow end (radiusTop) faces -z.
   const baseR = c.faceR * baseW, noseR = c.faceR * noseW;
-  const muzzle = new THREE.Mesh(new THREE.CylinderGeometry(noseR, baseR, len, 16, 1), m);
+  const muzzle = new THREE.Mesh(new THREE.CylinderGeometry(noseR, baseR, len, seg(16), 1), m);
   muzzle.rotation.x = -Math.PI / 2;
   muzzle.scale.set(1.0, 1.0, 0.82);            // flatten the vertical a touch (wider than tall)
   const baseZ = c.hz * 0.1;                     // base seats inside the cranium
@@ -99,7 +101,7 @@ function snoutBase(c, { len, baseW, noseW, drop }) {
   const noseZ = baseZ - len;
   c.head.add(ellipsoid(m, noseR, 1.04, 0.84, 0.86, 0, -drop, noseZ + noseR * 0.2, 8));
   for (const s of [-1, 1]) {
-    const n = new THREE.Mesh(new THREE.SphereGeometry(noseR * 0.32, 6, 5), c.mats.hornMat);
+    const n = new THREE.Mesh(new THREE.SphereGeometry(noseR * 0.32, seg(6), seg(5)), c.mats.hornMat);
     n.position.set(s * noseR * 0.42, -drop, noseZ);
     c.head.add(n);
   }
@@ -124,13 +126,13 @@ function refinedNobleJaw(c)    { jaw(c, { len: 1.06, wid: 0.78, drop: 0.38, shar
 // ── EYE ZONE ──────────────────────────────────────────────────────────────── // large forward eyes set under the brow — the intelligent/expressive read
 function eyeZone(c, { r, x, y, z, glow }) {
   for (const s of [-1, 1]) {
-    const eye = new THREE.Mesh(new THREE.SphereGeometry(r, 12, 9), c.mats.eyeMat);
+    const eye = new THREE.Mesh(new THREE.SphereGeometry(r, seg(12), seg(9)), c.mats.eyeMat);
     eye.scale.set(0.92, 1.18, 0.82);
     eye.rotation.set(0.1, -s * 0.3, -s * 0.34);   // almond/feline tilt
     eye.position.set(s * x, y, z);
     c.head.add(eye);
     if (glow) {
-      const rim = new THREE.Mesh(new THREE.TorusGeometry(r * 1.12, r * 0.14, 5, 10, Math.PI * 1.1), c.glowMat);
+      const rim = new THREE.Mesh(new THREE.TorusGeometry(r * 1.12, r * 0.14, seg(5), seg(10), Math.PI * 1.1), c.glowMat);
       rim.position.set(s * x, y + r * 0.16, z + 0.02);
       rim.rotation.set(0.1, 0, -s * 0.34 + Math.PI * 0.85);
       c.head.add(rim);
@@ -145,7 +147,7 @@ function narrowRegalEyeZone(c) { eyeZone(c, { r: 0.105 * c.cfg.eyeScale, x: c.hx
 function brow(c, { lift, length, angle }) {
   const i = c.cfg.browIntensity;
   for (const s of [-1, 1]) {
-    const b = new THREE.Mesh(new THREE.ConeGeometry(0.055 * (0.8 + i * 0.6), length, 5), c.mats.scalesMat);
+    const b = new THREE.Mesh(new THREE.ConeGeometry(0.055 * (0.8 + i * 0.6), length, seg(5)), c.mats.scalesMat);
     b.scale.z = 0.4;
     b.position.set(s * c.hx * 0.5, c.hy * (0.36 + lift * 0.12), c.faceZ + c.faceR * 0.55);
     b.rotation.x = 1.45;            // lie flat over the brow
@@ -162,14 +164,14 @@ function commandingBrow(c) { brow(c, { lift: 0.34, length: 0.42, angle: 0.16 });
 // that sweeps back-and-OUT off the back of the skull, low, with a glowing trailing
 // edge. Sweeps BACK (not up) so it never towers over the aim point (§0.5).
 function earFin(c, { baseR, len, x, y, z, rake, splay, glow }) {
-  const fin = new THREE.Mesh(new THREE.ConeGeometry(baseR, len, 5), c.flapMat);
+  const fin = new THREE.Mesh(new THREE.ConeGeometry(baseR, len, seg(5)), c.flapMat);
   fin.scale.set(1.25, 1, 0.16);            // broad + FLAT → an ear flap, not a spike
   fin.position.set(x, y, z);
   fin.rotation.x = rake;                   // rake BACK (tip → +z), low
   fin.rotation.z = splay;                  // splay OUT to the side
   c.head.add(fin);
   if (glow) {
-    const edge = new THREE.Mesh(new THREE.ConeGeometry(baseR * 0.9, len * 1.06, 5), c.glowMat);
+    const edge = new THREE.Mesh(new THREE.ConeGeometry(baseR * 0.9, len * 1.06, seg(5)), c.glowMat);
     edge.scale.set(1.25, 1, 0.1);
     edge.position.set(x * 1.04, y + 0.01, z + 0.02);
     edge.rotation.x = rake; edge.rotation.z = splay;
@@ -235,14 +237,14 @@ function rearCrest(c, { count, glow, height }) {
   for (let i = 0; i < count; i++) {
     const t = count > 1 ? i / (count - 1) : 0;
     const h = height * (1 - t * 0.4);
-    const fin = new THREE.Mesh(new THREE.ConeGeometry(0.05, h, 4), c.mats.scalesMat);
+    const fin = new THREE.Mesh(new THREE.ConeGeometry(0.05, h, seg(4)), c.mats.scalesMat);
     fin.scale.set(1.4, 1, 0.4);                // a wide low blade, not a spike
     fin.position.set(0, c.hy * 0.38 - t * 0.04, c.hz * (0.78 + t * 0.42));
     fin.rotation.x = 1.46;                     // nearly flat along the nape
     c.head.add(fin);
   }
   if (glow) {
-    const nape = new THREE.Mesh(new THREE.SphereGeometry(R * 0.3, 9, 6), c.glowMat);
+    const nape = new THREE.Mesh(new THREE.SphereGeometry(R * 0.3, seg(9), seg(6)), c.glowMat);
     nape.scale.set(1.5, 0.34, 1.1);
     nape.position.set(0, c.hy * 0.3, c.hz * 0.96);
     c.head.add(nape);
@@ -255,7 +257,7 @@ function crownRearCrest(c) { rearCrest(c, { count: 3, glow: c.cfg.rearGlowIntens
 // ── SIGNATURE ADD-ONS (preserve per-species identity) ────────────────────────
 function whiskerFins(c) {                          // Jade — calm mystical
   for (const [sx, ang] of [[-0.5, 0.26], [0.5, -0.26], [-0.4, 0.48], [0.4, -0.48]]) {
-    const w = new THREE.Mesh(new THREE.CylinderGeometry(0.015, 0.004, 0.66, 4), c.mats.scalesMat);
+    const w = new THREE.Mesh(new THREE.CylinderGeometry(0.015, 0.004, 0.66, seg(4)), c.mats.scalesMat);
     w.rotation.set(Math.PI / 2 + 0.12, 0, ang);
     w.position.set(sx * c.hx, -c.hy * 0.18, c.snoutTipZ + 0.1);
     c.head.add(w);
@@ -263,7 +265,7 @@ function whiskerFins(c) {                          // Jade — calm mystical
 }
 function tuskJaw(c) {                               // Solar / Sovereign
   for (const s of [-1, 1]) {
-    const tusk = new THREE.Mesh(new THREE.ConeGeometry(0.06, 0.36, 5), c.mats.hornMat);
+    const tusk = new THREE.Mesh(new THREE.ConeGeometry(0.06, 0.36, seg(5)), c.mats.hornMat);
     tusk.position.set(s * c.hx * 0.42, -c.hy * 0.42, c.faceZ - 0.1);
     tusk.rotation.x = -0.5; tusk.rotation.z = s * 0.18;
     c.head.add(tusk);

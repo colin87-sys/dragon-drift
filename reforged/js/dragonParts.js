@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { seg } from './modelDetail.js';
 
 // Dragon body components — the from-the-ground-up geometry for the redesigned
 // anatomy. dragonModel.js assembles these into the full rig; keeping the heavy
@@ -116,7 +117,7 @@ export function archWing(geo, a, k = 1) {
 export function wingStrut(x, z, r0, r1, mat, endY = 0) {
   const dir = new THREE.Vector3(x, endY, z);
   const len = dir.length() || 0.001;
-  const m = new THREE.Mesh(new THREE.CylinderGeometry(r1, r0, len, 5), mat);
+  const m = new THREE.Mesh(new THREE.CylinderGeometry(r1, r0, len, seg(5)), mat);
   m.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), dir.clone().normalize());
   m.position.set(x / 2, 0.015 + endY / 2, z / 2);
   return m;
@@ -267,7 +268,7 @@ export function buildLayeredFin(halfW, length, fillMat, edgeMat, opts = {}) {
   g.add(inner);
   // Glowing centre seam (a slim cyan rib up the spine).
   if (opts.seam !== false) {
-    const seam = new THREE.Mesh(new THREE.CylinderGeometry(0.011, 0.02, length * 0.78, 4), edgeMat);
+    const seam = new THREE.Mesh(new THREE.CylinderGeometry(0.011, 0.02, length * 0.78, seg(4)), edgeMat);
     seam.position.set(0, length * 0.4, 0.05);
     g.add(seam);
   }
@@ -289,7 +290,7 @@ export function featherGeo(len, wid) {
   s.quadraticCurveTo(wid * 0.5, len * 0.32, wid * 0.16, len * 0.92);
   s.quadraticCurveTo(0, len, -wid * 0.16, len * 0.92);
   s.quadraticCurveTo(-wid * 0.5, len * 0.32, 0, 0);
-  const g = new THREE.ShapeGeometry(s, 6);
+  const g = new THREE.ShapeGeometry(s, seg(6));
   g.rotateX(Math.PI / 2); // XY (len +Y) → XZ (len +Z), face up
   return g;
 }
@@ -342,7 +343,7 @@ export function archUp(geo, span, h) {
 export function bone(ax, ay, az, bx, by, bz, r0, r1, mat) {
   const dir = new THREE.Vector3(bx - ax, by - ay, bz - az);
   const len = dir.length() || 0.001;
-  const m = new THREE.Mesh(new THREE.CylinderGeometry(r1, r0, len, 6), mat);
+  const m = new THREE.Mesh(new THREE.CylinderGeometry(r1, r0, len, seg(6)), mat);
   m.position.set((ax + bx) / 2, (ay + by) / 2, (az + bz) / 2);
   m.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), dir.normalize());
   return m;

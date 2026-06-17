@@ -5,7 +5,8 @@ import { initInput, initTouch, initMouse } from './input.js';
 import { createLevelGen } from './level.js';
 import { todaysDailyMod, dailyMods } from './daily.js';
 import { createEnvironment, updateEnvironment, resetEnvironment, getSkyMesh } from './environment.js';
-import { createDragon, updateDragon, resetDragon, rebuildDragon, setDragonFxVisible } from './dragon.js';
+import { createDragon, updateDragon, resetDragon, rebuildDragon, setDragonFxVisible, setDragonModelDetail } from './dragon.js';
+import { resolveDetail } from './modelDetail.js';
 import { initReticle, updateReticle } from './reticle.js';
 import { initSplash, showSplash, hideSplash, splashVisible, launchFlash, igniteSplash, splashArmed } from './splash.js';
 import { player, applyDragonStats } from './player.js';
@@ -218,6 +219,10 @@ ui.init({
     return false;
   },
   onQualityChange: (v) => { if (v !== null) applyQuality(v); },
+  // MODEL DETAIL (geometry LOD) changed in Settings. The player is in a menu, so
+  // rebuild the dragon at the new level immediately (no 4s gate) for instant
+  // feedback; AUTO drift between runs is handled by updateModelDetail's gate.
+  onModelDetailChange: () => applyModelDetail(true),
   onPause: () => pauseManual(),
   onResume: () => resumeFromPause(),
   onRevive: () => {
@@ -691,6 +696,33 @@ function updateQuality(dt) {
   }
 }
 
+// --- Model detail (geometry LOD): more triangles on idle high-end GPUs ---
+// The render TIER measures whether the device can sustain 60fps; this maps it to
+// how many triangles the dragon mesh is worth (tier0→ULTRA, tier1→HIGH, tier2→LOW)
+// — or a manual MODEL DETAIL override pins it. Changing level means REBUILDING the
+// mesh, which we only ever do off the active chase camera and after the new level
+// has held for ~4s, so a transient FPS dip can't thrash a costly rebuild and a
+// rebuild never hitches a live run. HIGH == today's geometry (no regression).
+let liveModelDetail = 'high';   // the level currently built into the live dragon
+let modelDetailTimer = 0;
+function applyModelDetail(force) {
+  const want = resolveDetail(saveData.settings.modelDetail, qualityTier);
+  if (want === liveModelDetail) return false;
+  // The seatbelt (L10): a rebuild swaps the whole mesh, so never under the active
+  // camera. `force` (a manual Settings change, always from a menu) skips the gate.
+  if (!force && game.state === 'playing') return false;
+  liveModelDetail = want;
+  setDragonModelDetail(want);
+  rebuildDragon(equippedDragon(), equippedRider(), player);
+  return true;
+}
+function updateModelDetail(dt) {
+  const want = resolveDetail(saveData.settings.modelDetail, qualityTier);
+  if (want === liveModelDetail || game.state === 'playing') { modelDetailTimer = 0; return; }
+  modelDetailTimer += dt;
+  if (modelDetailTimer >= 4) { applyModelDetail(false); modelDetailTimer = 0; }
+}
+
 function tick() {
   requestAnimationFrame(tick);
   // rawDt drives FPS metering and UI; simDt (scaled by near-death slow-mo)
@@ -701,6 +733,7 @@ function tick() {
     rawDt = 0;
   }
   updateQuality(rawDt);
+  updateModelDetail(rawDt);
 
   // Shop hero shot: hide the loose gameplay FX — collectible rings + the dragon's own
   // flight trail — for a clean static dragon. The `&& game.state !== 'playing'` guard

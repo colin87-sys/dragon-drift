@@ -65,7 +65,12 @@ far). Then continue — and **append a lesson after every meaningful change**.
 3. **Pop / composition** tuning for the hero shot (rim separation per dragon, framing so the
    stats panel never covers the body).
 4. **THE BIG ONE — the Creature Modeling roadmap below.** This is the next major frontier and
-   was the original north-star before the shop detour.
+   was the original north-star before the shop detour. **LIVE NOW:** building the remaining
+   pillars **on the hero (Obsidian) first, migration LAST** (user directive — see the roadmap's
+   SEQUENCING note). **Just shipped:** roadmap #3, the **Model-detail LOD/ULTRA tier** (see L11)
+   — HIGH = today's geometry (no regression, `tricount --detail=high` == 89460), ULTRA ≈2× on
+   the hero, AUTO by render tier, `MODEL DETAIL` Settings row. **Awaiting human preview sign-off
+   on ULTRA**, then on to #2 (shingle relief) and #4 (sweepProfile), then #1 (migrate).
 
 ### The one law that took ~20 rounds to learn (don't relearn it)
 **A menu is the real game world, reframed + frozen — never a mutated or reinvented one.**
@@ -100,29 +105,43 @@ the run / obstacles / player), not **RENDERING**; touch only the *subject* (the 
 - **Flap-as-data** (`dragonWingFlap.js`, L5), **recipe/registry + attach contract**
   (`dragonRecipe.js`), per-form feel (L7). Rig contract frozen (below).
 
-### What REMAINS (the actual next work, in order)
-1. **Migrate the roster (the L8 "perfect-hero → mechanize" payoff).** Only Obsidian is on
-   `skinnedMembrane` + surface shaders; the other ~13 dragons still default to the flat
-   `'membrane'` (`dragonRecipe.js:64`). Roll each onto `curvedMembrane`/`skinnedMembrane`
-   (keeping its `wingSpec` silhouette) + opt-in surface shaders, with `'membrane'` as the
-   per-dragon fallback until proven. Write the "Obsidian → any dragon" migration checklist as
-   a ledger artifact so the rollout is mechanical, not re-derived.
+### What REMAINS (the actual next work)
+> **SEQUENCING (user directive, 2026-06):** do EVERYTHING ELSE on the hero (Obsidian) first
+> and get human sign-off on the preview; **the roster migration (#1) is the LAST step**, not
+> the first — the L8 law restated. So the working order is now **#3 → #2 → #4 → then #1.**
+
+3. **Model-detail LOD / ULTRA tier — ✅ BUILT + proven on the hero (pending human preview
+   sign-off).** `modelDetail.js` is the `seg()` segment-multiplier system (LOW/HIGH/ULTRA;
+   HIGH ×1.0 = byte-identical to before). Low-level geometry is detail-aware across
+   `dragonParts` (`wingStrut`/`bone`/`featherGeo`/layered-fin seam), `dragonWings` (the skinned
+   membrane grid + ribs + shoulder), `dragonModel`, `dragonTorso`, `dragonDraconicHead`,
+   `dragonTail`. Threaded via `buildDragonModel(def,{detail})` + `createDragon`→`setActiveDetail`;
+   AUTO-resolves from the render tier (`tier0→ULTRA, 1→HIGH, 2→LOW`, monotone — never raises
+   under low FPS); `MODEL DETAIL` Settings seg-row (AUTO/HIGH/ULTRA); 4s-sustained,
+   never-mid-flight rebuild gate; `modelDetail` save setting (deep-merge default, no migration).
+   Verified: `tricount --detail=high` == **89460** (no regression), LOW 60414, ULTRA 155538,
+   hero Eternal **5696→11316 (~2×)**, 0 over budget at every level; `tests/modeldetail.mjs`
+   green. **STILL TODO here:** the torso-loft 8-pt cross-section is NOT detail-aware (needs a
+   *spline resample* to round, not a linear subdivide — deferred); a posed/ULTRA `tiershots`
+   to diff smoothness headlessly. The human must confirm ULTRA reads better on the preview.
 2. **Phoenix polish + a reusable `shingle()` generator** (overlapping curved cards = the Phoenix
    feather trick, generalized to scales/plates/fins on any creature) — NOT built yet. Cupped/
-   curved feathers + webs on `buildCurvedPatch`.
-3. **Model-detail LOD / ULTRA tier — NOT built.** There is NO geometry LOD today
-   (`setDragonQuality` only scales particle rates; segment counts are hardcoded low — cones
-   4–8, spheres 6–14). Add `modelDetail.js` (`LOW/HIGH/ULTRA`, default HIGH = today, no
-   regression), make low-level helpers detail-aware (`wingStrut`/`bone`/`featherGeo` read a
-   `seg()` picker), thread `opts.detail` through `buildDragonModel(def, opts)`, auto-select by
-   render tier (tier0→ULTRA on a 17 Pro Max), a `MODEL DETAIL` Settings seg-row
-   (AUTO/HIGH/ULTRA, mirror the GRAPHICS QUALITY pattern), and a ~4s sustained rebuild gate
-   (`rebuildDragon` only in menus/at death, never under the active camera). This is what makes
-   "more tris on high-end" pay off — the GPU is idle, the bottleneck is CPU/JS, and the skinned
-   membrane already animates high-poly on the GPU for ~free.
+   curved feathers + webs on `buildCurvedPatch`. Prove on the hero (shingled scales/plates on
+   Obsidian — real geometric relief over the shader-only `cellularScales` it has now). Born
+   detail-aware: card COUNTS read `seg()` from day one (see L11).
 4. **`sweepProfile()` (spline-swept bodies/necks/tails/horns) — NOT built.** Generalizes the
    torso loft so future creatures animate by *bending a curve*, not rotating segments — the
-   path to many non-dragon creatures from one technique.
+   path to many non-dragon creatures from one technique. (Also the clean way to make the torso
+   loft detail-aware — resample the swept profile at `seg()` resolution.)
+1. **Migrate the roster (LAST — the L8 "perfect-hero → mechanize" payoff).** Only Obsidian is on
+   `skinnedMembrane` + surface shaders; the other membrane dragons (azure/ember/jade/pearl/solar)
+   still default to the flat `'membrane'` (`dragonRecipe.js:64`). Roll each onto `curvedMembrane`/
+   `skinnedMembrane` (keeping its `wingSpec` silhouette) + opt-in surface shaders, with
+   `'membrane'` as the per-dragon fallback until proven. Write the "Obsidian → any dragon"
+   migration checklist as a ledger artifact so the rollout is mechanical, not re-derived. (The
+   detail tier from #3 rides along for free — HIGH unchanged, ULTRA a ~2× bump per dragon.)
+   NOTE: `skinnedwing.mjs`/`smoke.mjs` currently use **azure** as the non-skinned proof — when
+   azure migrates, repoint that to force `parts:{wings:'membrane'}` on a clone instead.
 
 ### Frozen rig contract (do NOT break — every wing builder obeys it)
 Return `{ group, parts: { wingPivotL/R, wingTipL/R, wingPivot2L/R, tipMarkerL/R }, wingMat,
@@ -134,9 +153,12 @@ handles are additive + nullable (the `'none'` builder is the template). Never re
 `node tools/tricount.mjs` (per-form budget 6000; roster ≈ 89k tris, 0 over); `tests/run-all.mjs`
 + `tests/skinnedwing.mjs` + `tests/smoke.mjs` green (zero console errors + the rig still
 animates). The **human** judges seam-gone folds, silhouette parity, cupping/iridescence on the
-PR preview — headless tools can't see motion or folded-pose seams. For a detail tier:
-`tricount --max=6000 --ci` at LOW and ULTRA → exit 0; detail must map tier2→LOW and never
-*raise* under sustained low FPS.
+PR preview — headless tools can't see motion or folded-pose seams. **Detail tier (#3, built):**
+`tricount --detail=high --max=6000 --ci` (== the shipped roster, the no-regression baseline),
+`--detail=low --max=6000 --ci`, and `--detail=ultra --ci` (ULTRA is idle-GPU-only so it gets
+its OWN higher ceiling, 13000 — it cannot fit the 6000 *mobile* budget once HIGH is near it) all
+exit 0; `tests/modeldetail.mjs` green. AUTO maps `tier2→LOW` and is monotone (never *raises*
+under sustained low FPS).
 
 ### Strategy + risks
 Coexist → prove on a hero → migrate (done for the hero — now mechanize the roster). Risks:
@@ -427,3 +449,44 @@ environment + a static hero camera + a swappable subject — near-zero new rende
 guaranteed beauty. Next: a data-driven per-surface camera/biome theme (e.g. force the
 astral biome for the shop) and a clean "freeze the world" helper for the paused-mid-run
 case — both pure additions over a foundation that can no longer break gameplay.
+
+### L11 — Model-detail LOD: one segment multiplier, gated by the no-regression contract
+**Did / learned:** built the geometry **detail tier** (roadmap #3) and proved it on the
+hero. The whole system is ONE idea: a `seg(base)` picker (`modelDetail.js`) that scales a
+segment count by a process-wide active level — **HIGH ×1.0 returns the base UNCHANGED**, so
+turning it on is a guaranteed no-op until LOW/ULTRA is chosen. Every geometry helper just
+wraps its segment literal: `new ConeGeometry(r, h, seg(4))`. No per-mesh rewrite, no new
+draw calls (tris only — the GPU is idle, JS is the bottleneck). Wired it through `buildDragon
+Model(def,{detail})` (explicit) + `createDragon`→`setActiveDetail` (the live rig sets it for
+dragon **and** rider), AUTO-resolves from the render tier (`tier0→ULTRA, 1→HIGH, 2→LOW`,
+monotone so it **never raises under low FPS**), a `MODEL DETAIL` Settings seg-row (AUTO/HIGH/
+ULTRA), and a **4s-sustained, never-mid-flight rebuild gate** (the L10 `state!=='playing'`
+seatbelt again — a rebuild swaps the whole mesh, so only off the chase camera). Gotchas that
+bit / were avoided: (1) two part files (`dragonTail`/`dragonDraconicHead`) already had a LOCAL
+`seg` — import the picker **aliased** (`seg as lod`) or **rename the local** (`seg`→`segs`),
+or you shadow/redeclare it; (2) a build with no `opts.detail` **inherits** the ambient active
+level (correct, but a test that builds ULTRA then asserts a no-opts build == HIGH fails — pin
+the level first); (3) ULTRA can't honour the 6000 *mobile* ceiling — it's an idle-GPU-only
+level, so it gets its **own** higher budget (13000). Verified headless: HIGH == the historical
+**89460** roster total (byte-identical), LOW 60414 (−32%), ULTRA 155538, hero Obsidian Eternal
+**5696→11316 (~2×)**, 0 over its ceiling at every level; rig contract (skinned bones) holds at
+LOW/HIGH/ULTRA. **The human judges the actual ULTRA smoothness on the preview** — tools see
+tri-counts, not whether the rounder body/wing reads better.
+**→ Systematize:** the reusable pattern is **"a scalar that defaults to identity, threaded by
+one shared picker, gated by a no-regression contract."** It generalises past geometry: the
+same `seg()`/active-level shape fits a `tessU()` for the torso-loft cross-section (the one big
+piece NOT yet detail-aware — its 8-pt ring needs a *spline resample* to actually round, not a
+linear subdivide, so it was deliberately deferred), particle-pool sizes, shadow map res, even
+shingle/feather COUNTS. Rule that made it safe: **make the default a literal passthrough and
+prove it with a byte-identical baseline number** (`tricount --detail=high == 89460`) before
+trusting any of the scaled paths. And the **alias-or-rename** discipline for a shared helper
+name (`seg`) is now a known gotcha for any future cross-cutting util.
+**→ Leapfrog (innovate):** detail is now a FREE dimension the later creature systems are born
+into — the shingle generator (#2) and `sweepProfile` (#4) read `seg()` from day one, so scale/
+plate/feather density and spline-loft resolution scale per device with zero extra work, and
+the eventual roster migration (#1) carries the detail tier for the whole roster automatically
+(HIGH = each dragon unchanged, ULTRA = each gets the same ~2× idle-GPU bump the hero just got).
+The next concrete win is the **torso-loft spline resample** (round the 8-sided body at ULTRA) +
+a **posed/ULTRA `tiershots`** so we can finally diff "smoother on high-end" headlessly instead
+of waiting on the human. This is the rung that makes "more creature on capable hardware" a
+declarative knob, not a rebuild.

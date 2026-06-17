@@ -1218,6 +1218,9 @@ export const ui = {
       const q = saveData.settings.qualityOverride;
       const seg = (val, label) =>
         `<button class="seg-btn${q === val ? ' sel' : ''}" data-q="${val === null ? 'auto' : val}">${label}</button>`;
+      const md = saveData.settings.modelDetail;
+      const mdSeg = (val, label) =>
+        `<button class="seg-btn${md === val ? ' sel' : ''}" data-md="${val === null ? 'auto' : val}">${label}</button>`;
       const assistSeg = (id, on, bonusPct) => `
         <div class="seg-row">
           <button class="seg-btn${on ? ' sel' : ''}" data-assist="${id}" data-val="1">ON</button>
@@ -1228,6 +1231,10 @@ export const ui = {
         <div class="settings-group">
           <div class="settings-label">GRAPHICS QUALITY</div>
           <div class="seg-row">${seg(null, 'AUTO')}${seg(0, 'HIGH')}${seg(1, 'MEDIUM')}${seg(2, 'LOW')}</div>
+        </div>
+        <div class="settings-group">
+          <div class="settings-label">MODEL DETAIL — dragon geometry density; ULTRA spends more triangles on high-end devices (AUTO matches your graphics tier)</div>
+          <div class="seg-row">${mdSeg(null, 'AUTO')}${mdSeg('high', 'HIGH')}${mdSeg('ultra', 'ULTRA')}</div>
         </div>
         <div class="settings-group">
           <div class="settings-label">TARGET RETICLE — the tracking square on the next ring</div>
@@ -1986,6 +1993,16 @@ function wireScreenButtons(type) {
         saveData.settings.qualityOverride = v;
         persist();
         handlers.onQualityChange && handlers.onQualityChange(v);
+        ui.showScreen('settings');
+      });
+    }
+    // MODEL DETAIL (geometry LOD): null = AUTO (track graphics tier), else 'high'/'ultra'.
+    for (const btn of els.screen.querySelectorAll('.seg-btn[data-md]')) {
+      btn.onclick = stop(() => {
+        const v = btn.dataset.md === 'auto' ? null : btn.dataset.md;
+        saveData.settings.modelDetail = v;
+        persist();
+        handlers.onModelDetailChange && handlers.onModelDetailChange(v);
         ui.showScreen('settings');
       });
     }
