@@ -76,6 +76,22 @@ function keelTopFor(profile, z) {
   return pts[pts.length - 1][1];
 }
 
+// Body HALF-WIDTH at a body z, interpolated over the profile's stations (column 1
+// is halfWidth). The flank counterpart to keelTopFor — lets a surface-following
+// decoration (e.g. the shingle scale run) sit on the widest part of the body.
+function halfWidthFor(profile, z) {
+  const s = profile.stations;
+  if (z <= s[0][0]) return s[0][1];
+  if (z >= s[s.length - 1][0]) return s[s.length - 1][1];
+  for (let i = 0; i < s.length - 1; i++) {
+    if (z <= s[i + 1][0]) {
+      const t = (z - s[i][0]) / (s[i + 1][0] - s[i][0]);
+      return s[i][1] + (s[i + 1][1] - s[i][1]) * t;
+    }
+  }
+  return s[s.length - 1][1];
+}
+
 // Assemble torso mesh + wing-root fairings + neck chain into one group, and
 // publish the attach contract. bodyMat is the dragon's shared body material;
 // the torso clones it DoubleSide so the closed loft is robust to face winding.
@@ -121,6 +137,11 @@ function buildTorso(profile, def, model, bodyMat) {
     headBase: hb,
     tailAnchor: { y: profile.tailAnchorY, z: profile.tailAnchorZ + tailShift },
     keelTopAt: (z) => TORSO_Y + keelTopFor(profile, z),
+    // Flank anchors for surface-following decorations (additive + nullable — a
+    // torso that omits them just won't carry flank shingles). halfWidthAt → the
+    // body's outer x at a z; bodyMidY → world Y of the widest cross-section line.
+    halfWidthAt: (z) => halfWidthFor(profile, z),
+    bodyMidY: TORSO_Y,
     tailShift,
   };
   return { group, attach };

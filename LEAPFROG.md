@@ -67,10 +67,11 @@ far). Then continue — and **append a lesson after every meaningful change**.
 4. **THE BIG ONE — the Creature Modeling roadmap below.** This is the next major frontier and
    was the original north-star before the shop detour. **LIVE NOW:** building the remaining
    pillars **on the hero (Obsidian) first, migration LAST** (user directive — see the roadmap's
-   SEQUENCING note). **Just shipped:** roadmap #3, the **Model-detail LOD/ULTRA tier** (see L11)
-   — HIGH = today's geometry (no regression, `tricount --detail=high` == 89460), ULTRA ≈2× on
-   the hero, AUTO by render tier, `MODEL DETAIL` Settings row. **Awaiting human preview sign-off
-   on ULTRA**, then on to #2 (shingle relief) and #4 (sweepProfile), then #1 (migrate).
+   SEQUENCING note). **Shipped to master:** roadmap **#3 Model-detail LOD/ULTRA tier** (L11, PR
+   #108 — HIGH = no regression `== 89460`, ULTRA ≈2×, AUTO by tier, `MODEL DETAIL` Settings row;
+   ULTRA preview sign-off ✅). **Just built (new PR):** roadmap **#2 `shingle()` generator** (L13)
+   — Obsidian flank plates + Eternal shoulder mantle, one draw call/run, HIGH 5816 ≤6000;
+   **awaiting human preview sign-off**. **Next:** #4 `sweepProfile`, then #1 migrate the roster.
 
 ### The one law that took ~20 rounds to learn (don't relearn it)
 **A menu is the real game world, reframed + frozen — never a mutated or reinvented one.**
@@ -124,11 +125,18 @@ the run / obstacles / player), not **RENDERING**; touch only the *subject* (the 
    green. **STILL TODO here:** the torso-loft 8-pt cross-section is NOT detail-aware (needs a
    *spline resample* to round, not a linear subdivide — deferred); a posed/ULTRA `tiershots`
    to diff smoothness headlessly. The human must confirm ULTRA reads better on the preview.
-2. **Phoenix polish + a reusable `shingle()` generator** (overlapping curved cards = the Phoenix
-   feather trick, generalized to scales/plates/fins on any creature) — NOT built yet. Cupped/
-   curved feathers + webs on `buildCurvedPatch`. Prove on the hero (shingled scales/plates on
-   Obsidian — real geometric relief over the shader-only `cellularScales` it has now). Born
-   detail-aware: card COUNTS read `seg()` from day one (see L11).
+2. **`shingle()` generator — ✅ BUILT + proven on the hero (pending human preview sign-off).**
+   `dragonShingle.js` lays overlapping cupped cards along a parametric run and merges them to ONE
+   mesh (one draw call, the `mergeGeometries` + in-place-bake pattern). Opt-in via
+   `def.parts.shingle` (a flank-style band: `count` per-form array, `zRange`, size, `cup`, `tilt`,
+   `yLift`, `edge`), resolved by `buildShingleRun` in `dragonModel.js`; non-declaring dragons are
+   byte-identical. Born detail-aware (card tess + `count` read `seg()`). Obsidian gets
+   **flank plates (Radiant+) + an Eternal shoulder mantle** — dark cupped plates with a faint cyan
+   edge that joins `spineMats` (rim + Night-Surge flare), placed OFF the dorsal crest so the smooth
+   back + chevron line stays the read (apex-dramatic ramp 0/0/10/14 flank + 8 mantle). Needed a
+   small additive `attach.halfWidthAt(z)` + `bodyMidY` on the ARROW torso for flank placement.
+   Verified: HIGH Eternal 5696→**5816 ≤6000**, ULTRA →**11980 ≤13000**, roster +160 tris;
+   `tests/shingle.mjs` green. See **L13**. The human judges the relief/material on the preview.
 4. **`sweepProfile()` (spline-swept bodies/necks/tails/horns) — NOT built.** Generalizes the
    torso loft so future creatures animate by *bending a curve*, not rotating segments — the
    path to many non-dragon creatures from one technique. (Also the clean way to make the torso
@@ -517,3 +525,38 @@ inherit `--rf-*` + `.gx-card` + `.btn-*`/`.seg-btn` and are warm by default. **O
 the dead inspect showcase (`openInspect` + `.inspect-*`/`.form-btn`/`.ins-*`/`.form-scrub`/
 `.stat-bar` CSS) should be deleted in a dedicated dead-code-removal pass — left in place this
 session by choice, recorded here so a future session removes it deliberately.
+
+### L13 — Shingle: a surface decorator is a parametric run baked + merged to one draw call
+**Did / learned:** built roadmap #2, the `shingle()` generator (`dragonShingle.js`) — overlapping
+cupped cards (scales/plates/feathers), proven on Obsidian as flank plates + an Eternal shoulder
+mantle. The architecture that made it cheap + reusable: **(1) a placement-agnostic generator** that
+takes a parametric run — `at(t,row)`/`normalAt(t,row)`/`tangentAt(t,row)` closures + size/cup/tilt
+— and **bakes each card's transform IN PLACE** (`geo.rotateX` / `applyQuaternion(setFromRotation
+Matrix(makeBasis(X,N,T)))` / `translate`) then `mergeGeometries` → **ONE mesh, ONE draw call**
+(the env-prop pattern, not `applyMatrix4` per-card meshes). **(2) Policy lives in the orchestrator**
+(`buildShingleRun` in `dragonModel.js` owns palette + per-form `count` + the body-following
+closures); the module hard-codes no colours and is pure geometry — same policy/mechanism split as
+`composeSurface`/`buildSurfacePatches`. Gotchas avoided: a tapering card must keep a **non-zero tip
+width** or the apex quads go degenerate (L3 again); compute normals **once on the merged geometry**
+(per-card recompute is wasted + seam-inconsistent); `mergeGeometries` returns **null on mismatched
+attribute sets**, so a run must be homogeneous (assert non-null). Flank placement needed a body
+**half-width** the attach contract didn't expose — added `attach.halfWidthAt(z)` + `bodyMidY` as a
+**nullable, additive** extension (a torso without them just can't carry flank runs), exactly the
+"new handles are additive + nullable" rig-contract discipline. Budget held by construction: cheap
+1×1 cards (2 tris) × a `seg()`-scaled per-form count → Eternal +120 tris HIGH (5816 ≤6000), the
+apex-dramatic ramp keeping Hatchling/Kindled at 0.
+**→ Systematize:** the reusable law is **"surface decoration = (parametric run) × (a cheap card)
+baked + merged."** ANY registered band — dorsal spines, belly scutes, frills, rune plates, the
+Phoenix's feathers — is now the same call with different `at/normalAt` + a different card shape;
+the only new code per creature is a declarative `parts.shingle` spec. Promote the run closures to a
+small library of body paths (`dorsalPath`/`flankPath`/`limbPath`) over the torso's `keelTopAt`/
+`halfWidthAt`, and the card to a shape menu (scale/feather/plate/fin) — then "scaly vs feathered vs
+plated" is two enum picks, not new geometry code. Carry the **null-merge** + **non-zero-tip** +
+**merge-once-normals** rules into a shared `mergeCards()` helper so the whole class is solved once.
+**→ Leapfrog (innovate):** with decoration unified as runs-of-cards over the torso's surface
+contract, a creature's *entire skin* becomes declarative layers (the L1 "everything derived from one
+hull" vision realized for add-ons): torn/wet/armoured/mossy variants are just different card shapes
++ densities over the same paths, and the roster migration (#1) can hand each dragon a tasteful
+`parts.shingle` for ~free. Next: skin the cards to the same bones as `skinnedMembrane` (so plates on
+a wing/limb bend with it — `skinnedTube` already proves surface-sampled skinning), and add a
+`shapeMenu` so #4's `sweepProfile` bodies get scaled by the same system the moment they exist.

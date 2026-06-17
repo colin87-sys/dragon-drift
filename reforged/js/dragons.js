@@ -205,7 +205,20 @@ export const DRAGONS = {
     // House-style draconic head: the Soft Stealth archetype — rounded wedge skull,
     // short blunt snout, large intelligent catlike eyes, swept-back ear-fins, cyan
     // rear glow. Intelligent, stealthy, fast (NOT regal or spiky).
-    parts: { head: 'draconic', wings: 'skinnedMembrane', surface: { shader: ['cellularScales', 'iridescence'] } },
+    parts: {
+      head: 'draconic', wings: 'skinnedMembrane',
+      surface: { shader: ['cellularScales', 'iridescence'] },
+      // Apex-dramatic SCALE RELIEF (the shingle system): overlapping dark cupped
+      // plates on the FLANKS (arriving at Radiant, fuller at Eternal) + a denser
+      // SHOULDER MANTLE at Eternal only — so ascension visibly "armors up". Kept
+      // off the dorsal crest so the smooth back + cyan chevron line stays the read;
+      // each plate carries a faint cyan edge that flares on Night Surge (edge:true →
+      // spineMats). Counts are per-form [H,K,R,E] and seg()-scaled per device tier.
+      shingle: [
+        { count: [0, 0, 10, 14], zRange: [-1.55, 1.1], len: 0.34, wid: 0.2, cup: 0.3, tilt: 0.42, yLift: 0.42, edge: true },
+        { count: [0, 0, 0, 8], zRange: [-1.1, -0.4], len: 0.4, wid: 0.26, cup: 0.36, tilt: 0.52, yLift: 0.6, cardRows: 2, edge: true },
+      ],
+    },
     // STEALTH NIGHT-DRAKE: sleek, near-black with electric-CYAN plasma. A smooth
     // hornless head with ear-frills, a SMOOTH back lit only by a cyan chevron
     // energy line, narrow swept bat-wings (dark membrane, cyan edges — never a
