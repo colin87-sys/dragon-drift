@@ -97,3 +97,12 @@ function removeAt(i) {
 export function resetGoldEmbers() {
   while (golds.length) removeAt(golds.length - 1);
 }
+
+// Hide/show the gold embers — the shop menu shows a clean biome (no run collectibles
+// confetti); restored when leaving the shop.
+export function setGoldEmbersVisible(v) {
+  for (const g of golds) {
+    if (g.mesh) g.mesh.visible = v;
+    if (g.glow) g.glow.visible = v;
+  }
+}
