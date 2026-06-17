@@ -1603,8 +1603,11 @@ export const ui = {
     return lastScreen === 'shop' || lastScreen === 'settings' || lastScreen === 'pilot' ||
            lastScreen === 'quests' || lastScreen === 'daily';
   },
-  atShop() { return lastScreen === 'shop'; },
-  atDragonsShop() { return lastScreen === 'shop' && shopTab === 'dragons'; },
+  // Require the shop screen to actually be ON-SCREEN, not just the last type — when you
+  // resume/take off straight from the shop, lastScreen isn't cleared, and a stale 'shop'
+  // would otherwise keep forcing the menu biome (hiding walls) into the live run.
+  atShop() { return lastScreen === 'shop' && els.screen.classList.contains('visible'); },
+  atDragonsShop() { return this.atShop() && shopTab === 'dragons'; },
 };
 
 // --- Appointment UI: honest badges -----------------------------------

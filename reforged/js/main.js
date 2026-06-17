@@ -691,6 +691,13 @@ function updateQuality(dt) {
   }
 }
 
+// Shop showcase: park the dragon at a fixed point INSIDE the astral biome (5.5 ×
+// biomeLength) so the REAL world renders around it — water, monolith props,
+// reflections, god-rays — instead of only tinting the sky dome. The run's player
+// state is saved on entry and restored on exit so paused runs resume untouched.
+const MENU_DIST = CONFIG.biomeLength * 5.5;
+let menuSaved = null;
+
 function tick() {
   requestAnimationFrame(tick);
   // rawDt drives FPS metering and UI; simDt (scaled by near-death slow-mo)
@@ -829,9 +836,22 @@ function tick() {
   // mid-run, or game-over): render + animate the live scene even while 'paused', so the
   // dragon flaps in the astral biome instead of a frozen, cluttered run frame.
   // menuMode = the shop is the showcase. Gate on `!== 'playing'` so a stale lastScreen
-  // (the shop screen var isn't cleared when you resume/take-off straight from the shop)
-  // can never hide the walls or force the menu biome during an actual run.
+  // can never hide the walls or force the menu biome during an actual run (ui.atShop()
+  // also requires the shop screen to be on-screen).
   const menuMode = ui.atShop() && game.state !== 'playing';
+  // Enter/leave the showcase: teleport the dragon into the astral biome (saving the
+  // run's player state) so the full real world renders around it; restore on exit.
+  if (menuMode && !menuSaved) {
+    menuSaved = { pos: player.position.clone(), dist: player.dist, vel: player.velocity.clone() };
+    player.position.set(0, 8, -MENU_DIST);
+    player.dist = MENU_DIST;
+    player.velocity.set(0, 0, 0);
+  } else if (!menuMode && menuSaved) {
+    player.position.copy(menuSaved.pos);
+    player.dist = menuSaved.dist;
+    player.velocity.copy(menuSaved.vel);
+    menuSaved = null;
+  }
   // Course clutter visibility is toggled OUTSIDE the render gate so it always restores
   // — otherwise returning from the shop to a still-PAUSED run (gate skipped) would
   // leave the rings/obstacles/set-pieces/dragon hidden until the next resumed frame.
@@ -869,9 +889,11 @@ function tick() {
     // In the shop the live world is the backdrop: park it in ASTRAL SHALLOWS (violet
     // sky, pale moon, stars, aurora, reflective water). Clutter/dragon visibility is
     // handled above the gate so it always restores.
-    const envDist = menuMode ? CONFIG.biomeLength * 5.5 : player.dist;
-    updateEnvironment(dt, camera, t, envDist, game.feverActive, player.speed);
-    updateWater(dt, envDist, t, scene.fog);
+    // player.dist is the astral MENU_DIST while in the showcase (the dragon is parked
+    // there), so the sky, water position + tint, and props all resolve to the real
+    // astral biome — no colour-only faking.
+    updateEnvironment(dt, camera, t, player.dist, game.feverActive, player.speed);
+    updateWater(dt, player.dist, t, scene.fog);
     updateContactShadow(dt, player);
 
     // God-rays: project the sun to screen space and gate intensity by how
