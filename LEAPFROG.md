@@ -20,7 +20,7 @@ lessons for the one after. That is the whole studio: we rapidly improve the game
 
 You are a fresh session continuing **Dragon Drift** (the `reforged/` rewrite). Read this
 file top-to-bottom: **this HANDOFF** (where we are) → the **Active roadmap** (the next big
-build) → **THE RULE** + the **lessons ledger L1–L20** (how we work + everything learned so
+build) → **THE RULE** + the **lessons ledger L1–L21** (how we work + everything learned so
 far). Then continue — and **append a lesson after every meaningful change**.
 
 ### Where we are (state of the world)
@@ -809,3 +809,42 @@ seals to the body for free. **Watch on the preview (headless can't):** the bridg
 wear a `composeSurface` (cellularScales+iridescence) material — confirm the GLSL compiles under the skinning
 path (`tiershots obsidian` / the live preview, no `PAGEERROR`), and judge the deltoid's reach/bulge in motion
 (the `inboard 0.30 / radii 0.18→0.10` constants are conservative starting points, tuned by eye).
+
+### L21 — Pass 2: skin the BODY to the wing's bones across the scene graph (the cross-hierarchy bind), gated by rest-parity
+**Did / learned:** completed the "go all the way" shoulder: made Obsidian's torso a `SkinnedMesh` whose
+shoulder-zone verts are weighted to the WING's existing shoulder bones, so the BODY SURFACE ITSELF bulges
+with the beat (not just the bridge). The bones live in the wing `mount` (a DIFFERENT subtree from the torso),
+so unlike the membrane/bridge (bound in local space, bones in the same group), this is a **cross-hierarchy
+WORLD-rest bind**: build the whole model to rest → `group.updateMatrixWorld(true)` → `torso.bind(skeleton,
+torso.matrixWorld)` once both torso and wings exist (orchestrated in `dragonModel.js` AFTER `group.scale`).
+**Three.js attached bind mode handles this for free** — its per-frame `bindMatrixInverse` recompute from the
+mesh's live `matrixWorld` self-corrects for the later model placement/scale, so no `DetachedBindMode` was
+needed. A **static root bone** (added to the torso group, never rotated) holds every non-shoulder vertex via
+the `[1-wS, wS]` split (index 0 = root). Weights are authored in `buildTorso` (it owns the geometry + the
+`wingRoot` incl. PR-113's `shoulderWidthScale`/`wingRootOffset`); the bind is in the orchestrator (only it has
+the wing bones) — a clean **author-weights-here / bind-there** split. Pass 2 adds **ZERO triangles** (skin
+attributes only; tri-count identical). Safety levers that made it land first try: **(1) cap the weight** (MAXW
+0.34) + **smoothstep falloff** (R 0.95) → a bulge, never a tear; **(2) side-gate at the midline** (`_sstep(0.04,
+0.22, |x|)`) so the belly/keel is never dragged sideways by one wing; **(3) a rest-parity test is the bind's
+correctness oracle** — `applyBoneTransform(i, rest_i) ≈ rest_i` at rest (max Δ < 1e-4) catches a wrong
+bind/double-offset INSTANTLY (headless), the thing the eye can't verify. Coexist: a new `sweptLoftSkinned`
+torso variant + an additive `opts.skinShoulders` on `buildTorso` (default = the shipped static `Mesh`), so the
+roster is byte-identical; only Obsidian opts in. Gotcha (L16 again): the new 3-bone `torsoShoulderSkin` mesh
+falls into `skinnedwing.mjs`'s wing-piece scan unless excluded — extended the `wingPiece()` name filter.
+**→ Systematize:** the reusable law — **to deform a SHARED mesh by a limb that lives elsewhere in the graph,
+bind it in WORLD rest (build → updateMatrixWorld → bind with the live world matrix) to a skeleton of the
+existing limb bones + a static root bone; cap + smoothstep + side-gate the weights; prove it with a
+rest-parity assertion.** This is the general "make ANY body region follow ANY limb" tool (neck↔jaw, hip↔leg,
+body↔tail) without re-rigging — the L20 joint-bridge's heavier sibling for when the body itself must move, not
+just a patch over it. Bank the **author-weights-in-the-part / bind-in-the-orchestrator** split and the
+**rest-parity oracle** as standing patterns for every cross-hierarchy skin. With L20 (bridge) + L21 (body
+skin), the shoulder is now ONE continuous surface that deforms as a unit — the L1/L14 "no bolted parts" ideal
+reached at the hardest joint.
+**→ Leapfrog (innovate):** the cross-hierarchy bind retires the last reason a creature needed separate rigid
+chunks — ANY part can now drive ANY surface, so the **segmented neck/head** (next) becomes a skinned tube the
+body flows into, the whole creature trending to ONE hull on a shared skeleton driven by the existing rig (zero
+new animation). The author-weights/orchestrator-bind split + rest-parity oracle make each such conversion a
+mechanical, provably-safe step. **Judge on the preview (headless can't):** the body's bulge is deliberately
+subtle (MAXW 0.34) — confirm it reads as breathing muscle in motion, and tune MAXW/R up if the shoulder should
+heave more; confirm the skinned torso (now wearing the `composeSurface` body shader) compiles under skinning
+with no `PAGEERROR`.

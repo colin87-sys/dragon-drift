@@ -101,10 +101,35 @@ function halfWidthFor(profile, z) {
   return s[s.length - 1][1];
 }
 
+// Pass 2 shoulder skinning — weight each body vertex to a 3-bone skeleton
+// [root=0, shoulderL=1, shoulderR=2]. Verts near a wing root get a CAPPED, smoothly
+// decaying weight to that side's shoulder bone (the rest stays on the static root),
+// so the torso surface bulges with the beat. Side-gated at the midline so the belly
+// never drags sideways. Weights sum to 1 (L3); the orchestrator binds the skeleton.
+const _sstep = (e0, e1, x) => { let t = (x - e0) / (e1 - e0); t = t < 0 ? 0 : t > 1 ? 1 : t; return t * t * (3 - 2 * t); };
+function writeShoulderWeights(geo, wrR, wrL) {
+  const pos = geo.attributes.position;
+  const si = new Uint16Array(pos.count * 4);
+  const sw = new Float32Array(pos.count * 4);
+  const MAXW = 0.34, R = 0.95;                       // cap (a bulge, not a tear) + reach
+  for (let i = 0; i < pos.count; i++) {
+    const gx = pos.getX(i), gy = pos.getY(i) + TORSO_Y, gz = pos.getZ(i);   // group space
+    const right = gx >= 0, w = right ? wrR : wrL;
+    const dx = gx - w.x, dy = gy - w.y, dz = gz - w.z;
+    const d = Math.sqrt(dx * dx + dy * dy + dz * dz);
+    const gate = _sstep(0.04, 0.22, Math.abs(gx));    // midline/belly → 0 (no sideways drag)
+    const wS = MAXW * _sstep(R, R * 0.32, d) * gate;  // near a root → up to MAXW, far → 0
+    si[i * 4 + 1] = right ? 2 : 1;                     // shoulderR=2 / shoulderL=1 (root=0 implicit)
+    sw[i * 4] = 1 - wS; sw[i * 4 + 1] = wS;
+  }
+  geo.setAttribute('skinIndex', new THREE.Uint16BufferAttribute(si, 4));
+  geo.setAttribute('skinWeight', new THREE.Float32BufferAttribute(sw, 4));
+}
+
 // Assemble torso mesh + wing-root fairings + neck chain into one group, and
 // publish the attach contract. bodyMat is the dragon's shared body material;
 // the torso clones it DoubleSide so the closed loft is robust to face winding.
-function buildTorso(profile, def, model, bodyMat, geoFn = buildTorsoGeometry) {
+function buildTorso(profile, def, model, bodyMat, geoFn = buildTorsoGeometry, opts = {}) {
   const group = new THREE.Group();
   const stretch = model.bodyStretch ?? 1;
 
@@ -119,7 +144,20 @@ function buildTorso(profile, def, model, bodyMat, geoFn = buildTorsoGeometry) {
 
   const torsoMat = bodyMat.clone();
   torsoMat.side = THREE.DoubleSide;
-  const torso = new THREE.Mesh(geoFn(profile, stretch), torsoMat);
+  const torsoGeo = geoFn(profile, stretch);
+  // Pass 2 (opt-in): weight the body verts near each wing root to that side's
+  // shoulder bone so the torso surface itself bulges with the wingbeat. The bones
+  // live in the wing mounts → the orchestrator binds this mesh once both exist.
+  if (opts.skinShoulders) {
+    const wrFor = (side) => ({
+      x: profile.wingRoot.x * shoulderW * side,
+      y: profile.wingRoot.y + (model.wingRootOffset?.y ?? 0),
+      z: profile.wingRoot.z + (model.wingRootOffset?.z ?? 0),
+    });
+    writeShoulderWeights(torsoGeo, wrFor(1), wrFor(-1));
+  }
+  const torso = opts.skinShoulders ? new THREE.SkinnedMesh(torsoGeo, torsoMat) : new THREE.Mesh(torsoGeo, torsoMat);
+  if (opts.skinShoulders) { torso.frustumCulled = false; torso.name = 'torsoShoulderSkin'; }
   torso.position.y = TORSO_Y;
   group.add(torso);
 
@@ -170,6 +208,9 @@ function buildTorso(profile, def, model, bodyMat, geoFn = buildTorsoGeometry) {
     // The DoubleSide body material (surface shaders included) so a surface-continuous
     // add-on — e.g. the skinned shoulder bridge — matches the torso exactly (no seam).
     bodyMatDouble: torsoMat,
+    // The torso SkinnedMesh (Pass 2) for the orchestrator to bind to the wing
+    // shoulder bones — null unless this torso opted into skinShoulders.
+    shoulderSkin: opts.skinShoulders ? torso : null,
   };
   return { group, attach };
 }
@@ -242,6 +283,10 @@ registerTorso('serpent', (def, model, bodyMat) => buildTorso(SERPENT_PROFILE, de
 // Opt-in per dragon via parts.torso:'sweptLoft' (proving on the hero, Obsidian, first).
 registerTorso('sweptLoft', (def, model, bodyMat) =>
   buildTorso(ARROW_PROFILE, def, model, bodyMat, buildSweptTorsoGeometry));
+// sweptLoft + Pass-2 shoulder skinning: the body surface bulges with the wingbeat
+// (bound to the wing shoulder bones by the orchestrator). Obsidian-only opt-in.
+registerTorso('sweptLoftSkinned', (def, model, bodyMat) =>
+  buildTorso(ARROW_PROFILE, def, model, bodyMat, buildSweptTorsoGeometry, { skinShoulders: true }));
 
 export { ARROW_PROFILE, SERPENT_PROFILE, buildTorso };
 

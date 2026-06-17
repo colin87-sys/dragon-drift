@@ -29,7 +29,7 @@ let skinnedMeshes = 0, boneCounts = new Set();
 // Wing skinned pieces only — the swept tail (7-bone tube) and the shoulder bridge
 // (2-bone deltoid) add their own skinned meshes, verified separately (sweptail.mjs /
 // shoulderbridge.mjs); exclude them from the wing-contract checks.
-const wingPiece = (o) => o.isSkinnedMesh && o.name !== 'sweptTailTube' && !o.name.startsWith('shoulderBridge');
+const wingPiece = (o) => o.isSkinnedMesh && o.name !== 'sweptTailTube' && o.name !== 'torsoShoulderSkin' && !o.name.startsWith('shoulderBridge');
 ob.group.traverse((o) => { if (wingPiece(o)) { skinnedMeshes++; boneCounts.add(o.skeleton.bones.length); } });
 // Each wing = 1 membrane + surface ribs (leading edge + finger veins), all
 // skinned to the same skeleton → > 2 skinned meshes total. Guards the rib fix.
