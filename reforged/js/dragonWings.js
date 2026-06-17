@@ -6,6 +6,7 @@ import {
 } from './dragonParts.js';
 import { registerWings } from './dragonRecipe.js';
 import { seg } from './modelDetail.js';
+import { skinnedTube as sweepTube } from './dragonSweep.js';
 
 // Wings modules — the second part extracted behind the recipe registry. A wings
 // build owns its own materials (the runtime-animated membrane `wingMat`, the
@@ -43,6 +44,12 @@ function buildMembraneWings(def, model, attach, giM, opts = {}) {
   // flap/fold rotations drive the bones, so the wrist BENDS as smooth skin with no
   // discrete hinge to crease or camouflage. Implies the curved surface.
   const skinned = !!opts.skinned && model.wingShape !== 'feather';
+  // 'skinnedMembraneBridge' recipe: also grow a continuous body-material DELTOID
+  // from the torso flank to the membrane root, skinned anchor(static)→shoulder, so
+  // the wing reads as PART OF the body — no metallic ball-joint, and no frozen-body
+  // seam during the beat. Needs the torso's body material (attach.bodyMatDouble) and
+  // the skinned path (it shares the membrane's shoulder bone).
+  const wantBridge = !!opts.bridge && skinned && !!attach.bodyMatDouble;
   const panelBillow = model.wingBillow ?? 0.12;
   // Blueprint-driven flap character (lag/amp/limits per joint) — the animator fills
   // defaults, so a creature tunes its wingbeat by declaring `model.flapProfile`.
@@ -287,6 +294,34 @@ function buildMembraneWings(def, model, attach, giM, opts = {}) {
     return meshes;
   }
 
+  // Shoulder BRIDGE (deltoid): a short continuous body-material tube from the torso
+  // flank up to the membrane root, skinned across [anchor(static), shoulder]. It
+  // replaces the bolted metallic shoulder sphere so the body and wing share ONE
+  // stretching surface at the joint (the L1 "organism, not puppet" rule applied to
+  // the last seam). Built in mount-local space (the membrane root is sampled from
+  // memGeo; the anchor + shoulder bones sit at the mount origin), so it binds in the
+  // same local frame as the membrane (L2). Tuned conservatively — preview-judged.
+  function buildShoulderBridge(memGeo, side) {
+    const pos = memGeo.attributes.position;
+    const jMid = Math.round(SEG_V / 2);                  // membrane root centre (i=0 column)
+    const root = new THREE.Vector3(pos.getX(jMid), pos.getY(jMid), pos.getZ(jMid));
+    // Inboard end drops toward the torso shoulder (a touch back), buried in the
+    // flank so the seam is sealed; outboard end coincides with the membrane root.
+    const inboard = new THREE.Vector3(root.x + side * 0.02, root.y - 0.30, root.z - 0.02);
+    const N = 5;
+    const centre = [], radii = [], skin = [];
+    for (let s = 0; s < N; s++) {
+      const t = s / (N - 1);                             // 0 = body, 1 = membrane root
+      centre.push(inboard.clone().lerp(root, t));
+      radii.push(0.18 + (0.10 - 0.18) * t);             // deltoid base → root taper
+      const w = sstep(t);
+      skin.push({ si: [0, 1, 0, 0], sw: [1 - w, w, 0, 0] }); // anchor(0) → shoulder(1)
+    }
+    const tube = sweepTube(centre, radii, seg(7), (s) => skin[s], attach.bodyMatDouble);
+    tube.name = 'shoulderBridge' + (side < 0 ? 'L' : 'R');
+    return tube;
+  }
+
   function buildWingSide(side) {
     // Skinned wings mount on a Group; the flap/fold handles are BONES the rig
     // rotates (drop-in for the old pivot/wingTip Groups). Non-skinned keeps Groups.
@@ -300,10 +335,15 @@ function buildMembraneWings(def, model, attach, giM, opts = {}) {
     // at the mount origin (=wing root). Non-skinned positions the pivot directly.
     if (!skinned) pivot.position.set(wr.x, wr.y, wr.z);
 
-    // Shoulder joint — a small mass anchoring the wing to the body.
-    const shoulder = new THREE.Mesh(new THREE.SphereGeometry(0.16, seg(9), seg(7)), armMat);
-    shoulder.scale.set(1.1, 0.9, 1.2);
-    pivot.add(shoulder);
+    // Shoulder joint — a small mass anchoring the wing to the body. The bridge
+    // recipe replaces this metallic ball with a continuous body-material deltoid
+    // (buildShoulderBridge, below), so skip it when bridging — keeping it would
+    // re-introduce the very ball-joint seam the bridge exists to remove.
+    if (!wantBridge) {
+      const shoulder = new THREE.Mesh(new THREE.SphereGeometry(0.16, seg(9), seg(7)), armMat);
+      shoulder.scale.set(1.1, 0.9, 1.2);
+      pivot.add(shoulder);
+    }
 
     // Membrane. Skinned: ONE continuous SkinnedMesh (added to the mount + bound
     // below). Non-skinned: the inner panel (root→wrist) rides the flap pivot.
@@ -410,10 +450,23 @@ function buildMembraneWings(def, model, attach, giM, opts = {}) {
       mount.add(pivot);
       mount.add(skinnedMem);
       for (const rib of ribs) mount.add(rib);
+      // Shoulder bridge: a STATIC anchor bone at the mount origin + a body-material
+      // deltoid skinned anchor→shoulder, bound in the same local frame BEFORE the
+      // mount is moved onto the body (L2). It shares the shoulder bone with the
+      // membrane so the joint deforms as ONE surface; the anchor never rotates,
+      // planting the body end. (Replaces the metallic shoulder sphere skipped above.)
+      let bridgeMesh = null, anchorBone = null;
+      if (wantBridge) {
+        anchorBone = new THREE.Bone();
+        mount.add(anchorBone);
+        bridgeMesh = buildShoulderBridge(skinnedMem.geometry, side);
+        mount.add(bridgeMesh);
+      }
       mount.updateMatrixWorld(true);
       const skeleton = new THREE.Skeleton([pivot, elbow, wingTip]);
       skinnedMem.bind(skeleton);
       for (const rib of ribs) rib.bind(skeleton);
+      if (bridgeMesh) bridgeMesh.bind(new THREE.Skeleton([anchorBone, pivot]));
       mount.position.set(wr.x, wr.y, wr.z);
       group.add(mount);
     } else {
@@ -520,6 +573,9 @@ registerWings('membrane', buildMembraneWings);
 registerWings('curvedMembrane', (def, model, attach, giM) => buildMembraneWings(def, model, attach, giM, { curved: true }));
 // Continuous skinned membrane — the discrete wrist hinge becomes a smooth bend.
 registerWings('skinnedMembrane', (def, model, attach, giM) => buildMembraneWings(def, model, attach, giM, { curved: true, skinned: true }));
+// Skinned membrane + a continuous body-material shoulder bridge (deltoid), so the
+// wing grows out of the body instead of bolting on at a pivot. Same rig handles.
+registerWings('skinnedMembraneBridge', (def, model, attach, giM) => buildMembraneWings(def, model, attach, giM, { curved: true, skinned: true, bridge: true }));
 registerWings('none', buildNoneWings);
 
 // ── FEATHER ─────────────────────────────────────────────────────────────────

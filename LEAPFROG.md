@@ -681,3 +681,44 @@ show it** (the tail, not the cross-section). Process lesson: a reference-driven 
 → Toothless Night Fury) runs best as SEQUENCED preview-judged passes (tail → colour → wings →
 proportions) — headless tools verify the engineering; only the human judges the look, so ship each pass
 coexisting + reversible.
+
+### L17 — The wing-body JOINT was the last puppet seam; seal it with a skinned bridge sharing the limb's bone
+**Did / learned:** Obsidian's wings are a continuous skinned organism, but they bolted onto a RIGID body
+at a single pivot with a metallic `armMat` shoulder SPHERE (`dragonWings.js`) — so at rest it read as a
+ball-joint over a matte body (material seam), and in motion everything outboard of the pivot swung while
+the body + the static torso "fairing" stayed frozen (a hard rotational discontinuity = the "Lego" look the
+user saw). The wing obeyed L1 internally but the wing-as-a-whole was still "a separate piece rotating on a
+pivot" relative to the body — the LAST puppet joint. Pass 1 fix (`parts.wings:'skinnedMembraneBridge'`,
+Obsidian-only): grow a continuous BODY-MATERIAL **shoulder bridge** (a deltoid tube) from the torso flank
+to the membrane root, skinned across **[static anchor, shoulder bone]** — the inboard end weighted 100% to a
+non-rotating `Bone` at the mount origin (planted on the body), the outboard end 100% to the SAME shoulder
+bone the membrane root already uses (follows the wing exactly), smoothstep-blended between. It **subsumes
+the metallic sphere**, so the seam is gone at rest, and the joint deforms as ONE surface in motion. Reused
+the shared `skinnedTube` (`dragonSweep.js`) + the L2 local-space bind dance (bind before `mount.position.set`);
+because the bridge shares the existing shoulder bone, there is **zero new animation and zero rig-contract
+change**. Net **−104 tris/form** (removing the sphere over-pays for the tube), roster otherwise byte-identical
+(0 over budget HIGH + ULTRA). Gotchas: (1) the over-broad "every skinned mesh is 3-bone" invariant in
+`skinnedwing.mjs` broke the instant a 2-bone bridge appeared — **L16 again**; scoped it with a `wingPiece()`
+name filter (`!name.startsWith('shoulderBridge')`), same fix shape as the `sweptTailTube` exclusion. (2) The
+bridge's outboard ring must COINCIDE with the membrane root, so sample the membrane geometry's column-0 vert
+(`i=0` of the `k=i*(SEG_V+1)+j` grid) rather than guessing a position. (3) The body material had to reach the
+wings module: published `attach.bodyMatDouble` (the torso's DoubleSide clone, surface shaders included) as a
+**nullable/additive** extension of the attach contract — the surface-MATERIAL counterpart to `halfWidthAt`/
+`keelTopAt` — so the wings builder reads it off `attach` with no call-signature change.
+**→ Systematize:** the reusable law is **"a joint = a short surface skinned across [staticAnchor, theMovingBone],
+sampling the moving part's root ring."** ANY place a rigged part meets the body at a pivot (neck↔head,
+tail↔hip, future limbs/fins/horns↔body) is the same call with a different root ring + bones — promote a
+`buildJointBridge(rootRing, staticBone, movingBone, mat)` beside `skinnedTube`. The two safety disciplines
+held: **share the existing animated bone** (no new rig handle, no contract drift), and **scope skinned-mesh
+test invariants to the named part** (the 3rd time an over-broad "all skinned meshes are N-bone" assert has
+bitten — bake the `wingPiece()`/name-scope into any future skinned-part test). The attach contract is now the
+universal adapter for geometry (`wingRoot`/`keelTopAt`/`halfWidthAt`) AND material (`bodyMatDouble`) — any
+body-continuous add-on can match the hull exactly by querying it.
+**→ Leapfrog (innovate):** this is the on-ramp to Pass 2 (skin the torso's shoulder ZONE so the body itself
+bulges — the cross-hierarchy bind) and, past that, to the L1/L14 endgame: once every joint is a skinned
+bridge over shared bones, the creature trends toward **ONE continuous skinned hull with no bolted parts** —
+"make this joint organic" becomes a declarative recipe flag, not bespoke rigging, and every future appendage
+seals to the body for free. **Watch on the preview (headless can't):** the bridge is the FIRST skinned mesh to
+wear a `composeSurface` (cellularScales+iridescence) material — confirm the GLSL compiles under the skinning
+path (`tiershots obsidian` / the live preview, no `PAGEERROR`), and judge the deltoid's reach/bulge in motion
+(the `inboard 0.30 / radii 0.18→0.10` constants are conservative starting points, tuned by eye).

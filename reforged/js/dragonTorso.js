@@ -152,6 +152,9 @@ function buildTorso(profile, def, model, bodyMat, geoFn = buildTorsoGeometry) {
     halfWidthAt: (z) => halfWidthFor(profile, z),
     bodyMidY: TORSO_Y,
     tailShift,
+    // The DoubleSide body material (surface shaders included) so a surface-continuous
+    // add-on — e.g. the skinned shoulder bridge — matches the torso exactly (no seam).
+    bodyMatDouble: torsoMat,
   };
   return { group, attach };
 }

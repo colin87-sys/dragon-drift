@@ -206,7 +206,7 @@ export const DRAGONS = {
     // short blunt snout, large intelligent catlike eyes, swept-back ear-fins, cyan
     // rear glow. Intelligent, stealthy, fast (NOT regal or spiky).
     parts: {
-      torso: 'sweptLoft', head: 'draconic', wings: 'skinnedMembrane', tail: 'sweptTail',
+      torso: 'sweptLoft', head: 'draconic', wings: 'skinnedMembraneBridge', tail: 'sweptTail',
       surface: { shader: ['cellularScales', 'iridescence'] },
       // Apex-dramatic SCALE RELIEF (the shingle system): overlapping dark cupped
       // plates on the FLANKS (arriving at Radiant, fuller at Eternal) + a denser
