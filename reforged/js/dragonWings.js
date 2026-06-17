@@ -7,6 +7,7 @@ import {
 import { registerWings } from './dragonRecipe.js';
 import { seg } from './modelDetail.js';
 import { skinnedTube as sweepTube } from './dragonSweep.js';
+import { composeSurface, membraneSSSPatch } from './dragonSurfaceShader.js';
 
 // Wings modules — the second part extracted behind the recipe registry. A wings
 // build owns its own materials (the runtime-animated membrane `wingMat`, the
@@ -62,6 +63,13 @@ function buildMembraneWings(def, model, attach, giM, opts = {}) {
     // stealth apex sets it to a dark navy so cyan stays on the edges, not the fill.
     emissive: def.wingMembraneEmissive ?? def.wingEmissive, emissiveIntensity: model.wingPanelGlow ?? 0.28,
   });
+  // Bat-wing SUBSURFACE: the thin black membrane glows faintly at the silhouette
+  // when backlit (the Night Fury "wings against the sky" read) — a cool desaturated
+  // edge, no hue. Additive + nullable: only a dragon that opts in (model.wingSSS)
+  // pays the patch; every other dragon's wingMat is byte-identical.
+  if (model.wingSSS) {
+    composeSurface(wingMat, [membraneSSSPatch({ color: def.wingMembraneSSS ?? 0x2a3a52, strength: 0.22, power: 1.5 })]);
+  }
 
   const ws = model.wingScale;
   const featherShape = model.wingShape === 'feather';
@@ -335,13 +343,15 @@ function buildMembraneWings(def, model, attach, giM, opts = {}) {
     // at the mount origin (=wing root). Non-skinned positions the pivot directly.
     if (!skinned) pivot.position.set(wr.x, wr.y, wr.z);
 
-    // Shoulder joint — a small mass anchoring the wing to the body. The bridge
-    // recipe replaces this metallic ball with a continuous body-material deltoid
-    // (buildShoulderBridge, below), so skip it when bridging — keeping it would
-    // re-introduce the very ball-joint seam the bridge exists to remove.
+    // Shoulder joint — a mass anchoring the wing to the body. The bridge recipe
+    // replaces this metallic ball with a continuous body-material deltoid
+    // (buildShoulderBridge, below), so SKIP it when bridging. Otherwise wingRootScale
+    // thickens it AND flares the base into a deltoid mound; rootScale 1 = byte-identical.
     if (!wantBridge) {
-      const shoulder = new THREE.Mesh(new THREE.SphereGeometry(0.16, seg(9), seg(7)), armMat);
-      shoulder.scale.set(1.1, 0.9, 1.2);
+      const rootScale = model.wingRootScale ?? 1;
+      const shoulder = new THREE.Mesh(new THREE.SphereGeometry(0.16 * rootScale, seg(9), seg(7)), armMat);
+      shoulder.scale.set(1.1 + (rootScale - 1) * 0.9, 0.9, 1.2 + (rootScale - 1) * 0.9);
+      if (rootScale !== 1) shoulder.position.set(0, -0.04, 0.02);
       pivot.add(shoulder);
     }
 
@@ -490,7 +500,7 @@ function buildMembraneWings(def, model, attach, giM, opts = {}) {
   let wingPivot2R = null;
   if (model.secondWingPair) {
     const ws2 = ws * 0.48;
-    const miniGeo = new THREE.ShapeGeometry(buildWingShape(DEFAULT_WING));
+    const miniGeo = new THREE.ShapeGeometry(buildWingShape(wingSpec));   // mini fins echo the main Night-Fury wing silhouette
     miniGeo.rotateX(-Math.PI / 2);
     miniGeo.scale(ws2, ws2, 1);
     applyWingGradient(miniGeo, def, 0.3, 0.9);
@@ -513,11 +523,13 @@ function buildMembraneWings(def, model, attach, giM, opts = {}) {
   // the whole rear silhouette flows together.
   if (model.hipFins && finEdgeMat) {
     for (const s of [-1, 1]) {
-      const hip = edgedFin(0.13, 0.42, finMembraneMat, finEdgeMat, 1.2);
-      hip.position.set(s * 0.34, 0.24, 0.95);
-      hip.rotation.x = Math.PI / 2 + 0.2;        // lay back, sweeping toward the tail
-      hip.rotation.z = s * 0.7;                  // splay outward and down
-      hip.rotation.y = s * 0.2;
+      // Rear STABILIZER fins near the hips/tail-base (behind the main wings): dark,
+      // nearly flat, swept with the flight line — control surfaces, not side flippers.
+      const hip = edgedFin(0.16, 0.52, finMembraneMat, finEdgeMat, 1.1);
+      hip.position.set(s * 0.32, 0.16, 1.25);
+      hip.rotation.x = Math.PI / 2 + 0.1;        // lay nearly flat, swept toward the tail
+      hip.rotation.z = s * 0.5;                  // gentle outward splay
+      hip.rotation.y = s * 0.15;
       group.add(hip);
     }
   }

@@ -148,7 +148,7 @@ export function buildDragonModel(def, opts = {}) {
   // Where the rider sits — the torso publishes it (a believable seat near the
   // front third); default = the back-of-shoulders spot the dragons have always
   // used. The rig (dragon.js) places the rider here.
-  const riderSocket = attach.riderSocket ?? { x: 0, y: 1.12, z: -0.6 };
+  const riderSocket = model.riderSocket ?? attach.riderSocket ?? { x: 0, y: 1.12, z: -0.6 };
 
   // Accent materials (spine plates, crest, glow seams, tail plates) that flare
   // toward white-gold during Dragon Surge — collected for the rig to drive.

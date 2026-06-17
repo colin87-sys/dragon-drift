@@ -108,22 +108,33 @@ function buildTorso(profile, def, model, bodyMat, geoFn = buildTorsoGeometry) {
   const group = new THREE.Group();
   const stretch = model.bodyStretch ?? 1;
 
+  // Broaden the SHOULDER region (additive, default = unchanged) so the wing roots
+  // feel anatomically supported. Scales only the shoulder-zone station half-widths
+  // and flows through the loft + attach.halfWidthAt; other dragons stay byte-identical.
+  const shoulderW = model.shoulderWidthScale ?? 1;
+  if (shoulderW !== 1) {
+    profile = { ...profile, stations: profile.stations.map(([z, w, t, b]) =>
+      [z, (z >= -1.7 && z <= 0.0) ? w * shoulderW : w, t, b]) };
+  }
+
   const torsoMat = bodyMat.clone();
   torsoMat.side = THREE.DoubleSide;
   const torso = new THREE.Mesh(geoFn(profile, stretch), torsoMat);
   torso.position.y = TORSO_Y;
   group.add(torso);
 
-  // Smooth fairings where the wings attach, so they never look bolted on. The
-  // skinned shoulder BRIDGE (dragonWings.js) replaces this STATIC blob with a
-  // continuous body-deltoid that follows the wing — so a bridged dragon skips the
-  // fairing; leaving it in is the very "bolted-on knob" the bridge exists to remove.
+  // Smooth fairings where the wings attach, so they never look bolted on. The skinned
+  // shoulder BRIDGE (dragonWings.js) replaces this STATIC blob with a continuous
+  // body-deltoid that follows the wing — so a bridged dragon SKIPS the fairing.
+  // Otherwise, when the shoulder is widened (shoulderWidthScale) the fairing rides OUT
+  // with it (radius + x) so it stays a proud muscular shoulder mound, not buried.
   const bridged = def.parts && def.parts.wings === 'skinnedMembraneBridge';
   const fr = profile.fairing;
+  const fScale = shoulderW;
   if (!bridged) for (const s of [-1, 1]) {
-    const root = new THREE.Mesh(new THREE.SphereGeometry(fr.r, seg(9), seg(7)), bodyMat);
+    const root = new THREE.Mesh(new THREE.SphereGeometry(fr.r * fScale, seg(9), seg(7)), bodyMat);
     root.scale.set(fr.scale[0], fr.scale[1], fr.scale[2]);
-    root.position.set(s * fr.pos[0], fr.pos[1], fr.pos[2]);
+    root.position.set(s * fr.pos[0] * fScale, fr.pos[1], fr.pos[2]);
     group.add(root);
   }
 
@@ -146,7 +157,7 @@ function buildTorso(profile, def, model, bodyMat, geoFn = buildTorsoGeometry) {
   const tailShift = (profile.tailShiftRefZ - profile.zHold) * (stretch - 1);
 
   const attach = {
-    wingRoot: (side) => ({ x: wr.x * side, y: wr.y, z: wr.z }),
+    wingRoot: (side) => ({ x: wr.x * shoulderW * side, y: wr.y + (model.wingRootOffset?.y ?? 0), z: wr.z + (model.wingRootOffset?.z ?? 0) }),
     headBase: hb,
     tailAnchor: { y: profile.tailAnchorY, z: profile.tailAnchorZ + tailShift },
     keelTopAt: (z) => TORSO_Y + keelTopFor(profile, z),
