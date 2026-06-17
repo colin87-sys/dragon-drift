@@ -258,16 +258,16 @@ export const DRAGONS = {
     // narrow swept blade. scallop = the fanned webs; tips = the trailing fingers.
     wingForms: [
       { tips: [[4.20, 0.10], [3.35, -0.78], [2.10, -1.06]],
-        lead: [2.85, 0.40], scallop: 0.22, flame: false,
+        lead: [2.85, 0.40], scallop: 0.22, rootChord: 0.50, flame: false,
         arc: { bow: 0.55, hump: 0.0, humpAt: 0.6, hook: 0.08 } },
       { tips: [[4.70, 0.12], [3.85, -0.86], [2.55, -1.24], [1.45, -1.18]],
-        lead: [3.20, 0.46], scallop: 0.28, flame: false,
+        lead: [3.20, 0.46], scallop: 0.28, rootChord: 0.62, flame: false,
         arc: { bow: 0.65, hump: 0.24, humpAt: 0.56, hook: 0.12 } },
       { tips: [[5.05, 0.16], [4.20, -0.92], [3.05, -1.34], [1.95, -1.34], [1.05, -1.18]],
-        lead: [3.50, 0.54], scallop: 0.34, flame: false,
+        lead: [3.50, 0.54], scallop: 0.34, rootChord: 0.74, flame: false,
         arc: { bow: 0.75, hump: 0.38, humpAt: 0.58, hook: 0.18 } },
       { tips: [[5.50, 0.22], [4.70, -0.92], [3.55, -1.42], [2.45, -1.48], [1.45, -1.40], [0.80, -1.18]],
-        lead: [3.85, 0.64], scallop: 0.40, flame: false,
+        lead: [3.85, 0.64], scallop: 0.40, rootChord: 0.85, flame: false,
         arc: { bow: 0.92, hump: 0.52, humpAt: 0.60, hook: 0.30 } },
     ],
     forms: [
