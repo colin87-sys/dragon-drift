@@ -10,6 +10,7 @@ import './dragonSideFins.js';       // 'sideFins' wings (lateral astral vanes)
 import './dragonCometWake.js';      // 'cometWake' tail (streaming comet glow-trail)
 import './dragonCelestialHead.js';  // 'celestialMask' head (regal faceplate)
 import './dragonDraconicHead.js';   // 'draconic' head (modular house-style dragon head)
+import { shingle } from './dragonShingle.js'; // reusable overlapping scale/plate cards
 import { applyFresnelRim } from './surface.js';
 import { flapWing, formStrength, formSpeed } from './dragonWingFlap.js';
 import { composeSurface, fresnelRimPatch, buildSurfacePatches } from './dragonSurfaceShader.js';
@@ -28,6 +29,52 @@ import { setActiveDetail, seg } from './modelDetail.js';
 //   parts.head, parts.tailSegs                   — head/tail animation
 //   materials.bodyMat, .wingMat, .eyeMat         — runtime-animated materials
 //   auraSprite                                    — fever/idle aura
+
+// Resolve ONE declarative shingle spec (from def.parts.shingle) into a built run.
+// A spec is a flank-style band laid on the body sides:
+//   { count, zRange:[z0,z1], len, wid, cup, tilt, yLift, inset, cardRows/Cols, edge, emissive }
+// `count` may be a per-form array indexed by model.formLevel (0..3) so density
+// ramps with ascension; it is then seg()-scaled so it tracks the device tier. The
+// run material is dark (def.scales) with a faint apex-seam emissive; when `edge`
+// is set it carries the Surge userData tags + is returned with flare:true so the
+// orchestrator pushes it into spineMats (rim light + Surge flare, like the
+// chevrons). Returns null when this form/torso has no run (byte-identical skip).
+function buildShingleRun(spec, def, model, attach, giM) {
+  if (!spec || !attach.halfWidthAt) return null;          // torso has no flank contract
+  const lvl = Math.min(model.formLevel ?? 0, 3);
+  const baseCount = Array.isArray(spec.count) ? (spec.count[lvl] ?? 0) : (spec.count ?? 0);
+  if (baseCount <= 0) return null;                         // this form carries no scales
+  const count = seg(baseCount);                            // detail-scaled density
+  const [z0, z1] = spec.zRange ?? [-1.5, 1.1];
+  const yLift = spec.yLift ?? 0.35;                        // 0 = body mid-line → 1 = keel top
+  const inset = spec.inset ?? 0.92;                        // tuck just inside the silhouette
+  const midY = attach.bodyMidY ?? 0.2;
+  const edge = !!spec.edge;
+  const seam = def.apexSeam ?? def.wingEmissive ?? def.eye;
+  const baseEmis = (spec.emissive ?? 0.14) * (edge ? Math.min(giM, 1.3) : 1);
+  const mat = new THREE.MeshStandardMaterial({
+    color: def.scales, emissive: seam, emissiveIntensity: baseEmis,
+    roughness: 0.42, metalness: 0.5, side: THREE.DoubleSide,
+  });
+  mat.userData.shingle = true;                            // marker (tests + future code)
+  if (edge) { mat.userData.baseEmissive = seam; mat.userData.baseIntensity = baseEmis; }
+  const built = shingle({
+    count, rows: 2,                                        // row 0 = left flank, row 1 = right
+    length: spec.len ?? 0.32, width: spec.wid ?? 0.2,
+    cup: spec.cup ?? 0.3, tilt: spec.tilt ?? 0.4,
+    cardRows: spec.cardRows ?? 1, cardCols: spec.cardCols ?? 1,
+    material: mat,
+    at: (t, row) => {
+      const side = row === 0 ? -1 : 1;
+      const z = z0 + (z1 - z0) * t;
+      const y = midY + (attach.keelTopAt(z) - midY) * yLift;
+      return { x: side * attach.halfWidthAt(z) * inset, y, z };
+    },
+    normalAt: (t, row) => new THREE.Vector3(row === 0 ? -0.96 : 0.96, 0.28, 0),
+    tangentAt: () => new THREE.Vector3(0, 0, 1),           // length runs head→tail
+  });
+  return { mesh: built.mesh, material: mat, flare: edge };
+}
 
 // Build the full dragon mesh from a resolved def (post-ascendedDef).
 export function buildDragonModel(def, opts = {}) {
@@ -283,6 +330,22 @@ export function buildDragonModel(def, opts = {}) {
       blade.rotation.z = ang;
       blade.rotation.x = -0.15;
       group.add(blade);
+    }
+  }
+
+  // Shingle scale/plate relief (opt-in via def.parts.shingle) — overlapping cupped
+  // cards merged to ONE mesh per run (one draw call). Placement-agnostic: a dragon
+  // declares one or more flank-style runs; dragons that don't are byte-identical
+  // (resolveRecipe ignores parts.shingle). An edge run joins spineMats so it picks
+  // up the rim light + flares on Surge, like the chevrons/seams.
+  const shingleSpec = def.parts && def.parts.shingle;
+  if (shingleSpec) {
+    for (const spec of [].concat(shingleSpec)) {
+      const run = buildShingleRun(spec, def, model, attach, giM);
+      if (run) {
+        group.add(run.mesh);
+        if (run.flare) spineMats.push(run.material);
+      }
     }
   }
 
