@@ -10,8 +10,8 @@ import { initReticle, updateReticle } from './reticle.js';
 import { initSplash, showSplash, hideSplash, splashVisible, launchFlash, igniteSplash, splashArmed } from './splash.js';
 import { player, applyDragonStats } from './player.js';
 import { cameraCtl } from './cameraController.js';
-import { initRings, addRing, updateRings, resetRings } from './rings.js';
-import { initObstacles, addObstacle, updateObstacles, resetObstacles } from './obstacles.js';
+import { initRings, addRing, updateRings, resetRings, setRingsVisible } from './rings.js';
+import { initObstacles, addObstacle, updateObstacles, resetObstacles, setObstaclesVisible } from './obstacles.js';
 import { initPowerups, addOrb, updatePowerups, resetPowerups } from './powerups.js';
 import { initParticles, updateParticles, resetParticles, setParticleQuality } from './particles.js';
 import { setDragonQuality } from './dragon.js';
@@ -822,7 +822,11 @@ function tick() {
   // completion while frozen (self-gates; first flight only).
   updateGestureTutorial(player);
 
-  if (game.state !== 'paused') {
+  // The SHOP is a clean menu showcase over WHATEVER state we came from (ready, paused
+  // mid-run, or game-over): render + animate the live scene even while 'paused', so the
+  // dragon flaps in the astral biome instead of a frozen, cluttered run frame.
+  const menuMode = ui.atShop();
+  if (game.state !== 'paused' || menuMode) {
     // Cull old set-pieces
     for (let i = setpieceMeshes.length - 1; i >= 0; i--) {
       if (setpieceMeshes[i].dist < player.dist - CONFIG.cullBehind - 200) {
@@ -836,15 +840,16 @@ function tick() {
     updateParticles(dt, camera);
     const obstacleSpeedNorm = (player.speed - CONFIG.baseSpeed) / (CONFIG.orbSpeed - CONFIG.baseSpeed);
     updateObstacles(dt, t, player.dist, obstacleSpeedNorm);
-    cameraCtl.update(dt, player, game.state === 'ready');
+    cameraCtl.update(dt, player, game.state === 'ready' || menuMode);
     if (introPlaying && !cameraCtl.introPlaying) introPlaying = false;
-    updateReticle(player, game.state === 'playing');
-    // In the SHOP the live world is the backdrop, so park it in ASTRAL SHALLOWS (the
-    // dark cosmos biome: violet sky, pale moon, stars, aurora, reflective water) by
-    // feeding the environment a distance mid-way through biome 5 (5.5 × biomeLength).
-    // The start screen and gameplay keep their real biome (player.dist).
-    const inShopMenu = game.state === 'ready' && ui.atShop();
-    const envDist = inShopMenu ? CONFIG.biomeLength * 5.5 : player.dist;
+    updateReticle(player, game.state === 'playing' && !menuMode);
+    // In the shop the live world is the backdrop: park it in ASTRAL SHALLOWS (violet
+    // sky, pale moon, stars, aurora, reflective water) and HIDE the course clutter
+    // (rings, obstacles, set-pieces) so the menu shows a clean biome, not the level.
+    const envDist = menuMode ? CONFIG.biomeLength * 5.5 : player.dist;
+    setRingsVisible(!menuMode);
+    setObstaclesVisible(!menuMode);
+    for (const sp of setpieceMeshes) if (sp.object) sp.object.visible = !menuMode;
     updateEnvironment(dt, camera, t, envDist, game.feverActive, player.speed);
     updateWater(dt, envDist, t, scene.fog);
     updateContactShadow(dt, player);
