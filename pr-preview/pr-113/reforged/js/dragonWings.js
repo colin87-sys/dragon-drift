@@ -6,6 +6,7 @@ import {
 } from './dragonParts.js';
 import { registerWings } from './dragonRecipe.js';
 import { seg } from './modelDetail.js';
+import { composeSurface, membraneSSSPatch } from './dragonSurfaceShader.js';
 
 // Wings modules — the second part extracted behind the recipe registry. A wings
 // build owns its own materials (the runtime-animated membrane `wingMat`, the
@@ -55,6 +56,13 @@ function buildMembraneWings(def, model, attach, giM, opts = {}) {
     // stealth apex sets it to a dark navy so cyan stays on the edges, not the fill.
     emissive: def.wingMembraneEmissive ?? def.wingEmissive, emissiveIntensity: model.wingPanelGlow ?? 0.28,
   });
+  // Bat-wing SUBSURFACE: the thin black membrane glows faintly at the silhouette
+  // when backlit (the Night Fury "wings against the sky" read) — a cool desaturated
+  // edge, no hue. Additive + nullable: only a dragon that opts in (model.wingSSS)
+  // pays the patch; every other dragon's wingMat is byte-identical.
+  if (model.wingSSS) {
+    composeSurface(wingMat, [membraneSSSPatch({ color: def.wingMembraneSSS ?? 0x2a3a52, strength: 0.22, power: 1.5 })]);
+  }
 
   const ws = model.wingScale;
   const featherShape = model.wingShape === 'feather';
@@ -300,8 +308,10 @@ function buildMembraneWings(def, model, attach, giM, opts = {}) {
     // at the mount origin (=wing root). Non-skinned positions the pivot directly.
     if (!skinned) pivot.position.set(wr.x, wr.y, wr.z);
 
-    // Shoulder joint — a small mass anchoring the wing to the body.
-    const shoulder = new THREE.Mesh(new THREE.SphereGeometry(0.16, seg(9), seg(7)), armMat);
+    // Shoulder joint — a mass anchoring the wing to the body. wingRootScale thickens
+    // it so the wing swells into the thorax (Night Fury); additive, default unchanged.
+    const rootScale = model.wingRootScale ?? 1;
+    const shoulder = new THREE.Mesh(new THREE.SphereGeometry(0.16 * rootScale, seg(9), seg(7)), armMat);
     shoulder.scale.set(1.1, 0.9, 1.2);
     pivot.add(shoulder);
 
@@ -437,7 +447,7 @@ function buildMembraneWings(def, model, attach, giM, opts = {}) {
   let wingPivot2R = null;
   if (model.secondWingPair) {
     const ws2 = ws * 0.48;
-    const miniGeo = new THREE.ShapeGeometry(buildWingShape(DEFAULT_WING));
+    const miniGeo = new THREE.ShapeGeometry(buildWingShape(wingSpec));   // mini fins echo the main Night-Fury wing silhouette
     miniGeo.rotateX(-Math.PI / 2);
     miniGeo.scale(ws2, ws2, 1);
     applyWingGradient(miniGeo, def, 0.3, 0.9);

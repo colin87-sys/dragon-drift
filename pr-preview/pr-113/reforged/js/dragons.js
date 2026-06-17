@@ -244,31 +244,35 @@ export const DRAGONS = {
     model: {
       scale: 0.86, wingScale: 1.07, tailSegments: 9, neckSegments: 5,
       ridgeCount: 0, // smooth back (cyan chevrons via dorsalGlowCount, not ridges)
+      wingRootScale: 1.5, wingSSS: true, // thick Night-Fury wing root + backlit-membrane subsurface
       // Soft Stealth draconic head — large catlike eyes, compact, cyan-lit ear-fins.
       headArchetype: 'softStealth', headScale: 1.18, eyeScale: 1.32, rearGlowIntensity: 0.4,
       flapBias: 1.08, flapAmp: 0.82, // quick, agile, low-profile beat
     },
     // Narrow, swept-back, low-arc wings (vs Solar's wide flared flame wings); the
     // span/chord grow via wingSpan/wingChord per form, not just the finger count.
+    // Night Fury wings: BROAD rounded bat-paddles with a deeply-scalloped, fanned
+    // trailing edge (pronounced finger-points) and a softened elbow — not the old
+    // narrow swept blade. scallop = the fanned webs; tips = the trailing fingers.
     wingForms: [
-      { tips: [[4.20, 0.10], [3.35, -0.72], [2.10, -1.02]],
-        lead: [2.85, 0.32], scallop: 0.12, flame: false,
-        arc: { bow: 0.55, hump: 0.0, humpAt: 0.6, hook: 0.1 } },
-      { tips: [[4.70, 0.12], [3.85, -0.80], [2.55, -1.18], [1.45, -1.12]],
-        lead: [3.20, 0.36], scallop: 0.16, flame: false,
-        arc: { bow: 0.65, hump: 0.35, humpAt: 0.56, hook: 0.16 } },
-      { tips: [[5.05, 0.16], [4.20, -0.86], [2.90, -1.28], [1.60, -1.22]],
-        lead: [3.50, 0.42], scallop: 0.18, flame: false,
-        arc: { bow: 0.75, hump: 0.55, humpAt: 0.58, hook: 0.28 } },
-      { tips: [[5.50, 0.22], [4.70, -0.84], [3.40, -1.34], [2.05, -1.36], [1.05, -1.14]],
-        lead: [3.85, 0.52], scallop: 0.20, flame: false,
-        arc: { bow: 0.92, hump: 0.82, humpAt: 0.60, hook: 0.50 } },
+      { tips: [[4.20, 0.10], [3.35, -0.78], [2.10, -1.06]],
+        lead: [2.85, 0.40], scallop: 0.22, flame: false,
+        arc: { bow: 0.55, hump: 0.0, humpAt: 0.6, hook: 0.08 } },
+      { tips: [[4.70, 0.12], [3.85, -0.86], [2.55, -1.24], [1.45, -1.18]],
+        lead: [3.20, 0.46], scallop: 0.28, flame: false,
+        arc: { bow: 0.65, hump: 0.24, humpAt: 0.56, hook: 0.12 } },
+      { tips: [[5.05, 0.16], [4.20, -0.92], [3.05, -1.34], [1.95, -1.34], [1.05, -1.18]],
+        lead: [3.50, 0.54], scallop: 0.34, flame: false,
+        arc: { bow: 0.75, hump: 0.38, humpAt: 0.58, hook: 0.18 } },
+      { tips: [[5.50, 0.22], [4.70, -0.92], [3.55, -1.42], [2.45, -1.48], [1.45, -1.40], [0.80, -1.18]],
+        lead: [3.85, 0.64], scallop: 0.40, flame: false,
+        arc: { bow: 0.92, hump: 0.52, humpAt: 0.60, hook: 0.30 } },
     ],
     forms: [
       // ── HATCHLING (T0) ── tiny smooth night dart, plasma dormant. No chevrons,
       // a tapered stem + small dark spade tip, stubby wings, dim grey-cyan. ~25%.
       { wingForm: 0, tailStyle: 'nightfury',
-        bodyScale: 0.65, wingSpan: 0.85, wingChord: 0.92, tailLength: 0.80,
+        bodyScale: 0.65, wingSpan: 0.85, wingChord: 1.00, tailLength: 0.80,
         tailFinScale: 0.5, tailFinSpread: 0, dorsalGlowCount: 0, tailGlowSegs: 0,
         spineGlow: 0, glowIntensity: 0.25, particleRate: 0.30,
         wingOpacity: 0.93, wingPanelGlow: 0.10, previewScale: 0.75,
@@ -280,7 +284,7 @@ export const DRAGONS = {
       // chevron line continuing onto the tail, and the first SPLIT tail-fin
       // identity (two flared finlets + side-fin hints). Drama ≈ 45%.
       { wingForm: 1, tailStyle: 'nightfury', earTendrils: true,
-        bodyScale: 0.82, wingSpan: 0.95, wingChord: 0.96, tailLength: 0.90,
+        bodyScale: 0.82, wingSpan: 0.95, wingChord: 1.06, tailLength: 0.90,
         tailFinScale: 0.62, tailFinSpread: 0, dorsalGlowCount: 0, tailGlowSegs: 0,
         spineGlow: 0.45, glowIntensity: 0.55, particleRate: 0.55,
         wingOpacity: 0.87, wingPanelGlow: 0.12, previewScale: 0.88,
@@ -292,8 +296,8 @@ export const DRAGONS = {
       // (two swept layered fins + central rudder), an 8-chevron body line + 6 tail
       // segments, cyan-edged wings, plasma veins + glow seams. Looks good — but the
       // Eternal must read as obviously beyond it. Drama 70%.
-      { wingForm: 2, tailStyle: 'nightfury', earTendrils: true,
-        bodyScale: 1.00, wingSpan: 1.00, wingChord: 1.00, tailLength: 1.00,
+      { wingForm: 2, tailStyle: 'nightfury', earTendrils: true, secondWingPair: true,
+        bodyScale: 1.00, wingSpan: 1.00, wingChord: 1.12, tailLength: 1.00,
         tailFinScale: 1.00, tailFinSpread: 1.00, dorsalGlowCount: 0, tailGlowSegs: 0,
         spineGlow: 0.75, glowIntensity: 1.00, particleRate: 1.00,
         wingOpacity: 0.82, wingPanelGlow: 0.14, previewScale: 1.00,
@@ -306,8 +310,8 @@ export const DRAGONS = {
       // flowing into 10 tail segments, subtle hip fins, and the signature apex
       // stealth-tail ASSEMBLY — two large swept layered stabilizers (anhedral) +
       // micro support fins + a tall central rudder on a long stem. Drama 100%.
-      { wingForm: 3, tailStyle: 'nightfury', earTendrils: true,
-        bodyScale: 1.12, bodyStretch: 1.18, wingSpan: 1.10, wingChord: 1.15, tailLength: 1.06,
+      { wingForm: 3, tailStyle: 'nightfury', earTendrils: true, secondWingPair: true,
+        bodyScale: 1.12, bodyStretch: 1.18, wingSpan: 1.10, wingChord: 1.22, tailLength: 1.06,
         tailFinScale: 1.08, tailFinSpread: 1.2, dorsalGlowCount: 0, tailGlowSegs: 0,
         tailRootCollar: true, tailDorsalLink: false,
         spineGlow: 1.00, glowIntensity: 1.30, particleRate: 1.80,
