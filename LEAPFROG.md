@@ -490,3 +490,30 @@ The next concrete win is the **torso-loft spline resample** (round the 8-sided b
 a **posed/ULTRA `tiershots`** so we can finally diff "smoother on high-end" headlessly instead
 of waiting on the human. This is the rung that makes "more creature on capable hardware" a
 declarative knob, not a rebuild.
+
+### L12 — Reskin only what's WIRED; a pivot leaves dead code that lies to you
+**Did / learned:** Phase 3 was warming the leftover **cool-blue 2D UI chrome** (Pilot, shop
+2D chrome, quests) to the shipped warm ember system (`--rf-*` tokens + the `.gx-card`
+gilded-glass language + `.btn-*`/`.seg-btn` already on master). Settings turned out to be
+**already 100% warm** (don't re-skin what's done — grep the tokens first). The trap: I
+swept `style.css` for cool-blue selectors and warmed *all* of them — including the entire
+`.inspect-*` / `.form-btn` / `.ins-*` / `.form-scrub` / `.stat-bar` blocks. But the
+biome-pivot (L10) had **deleted the inspect showcase's entry point**: `openInspect()` is
+still ~200 lines in `ui.js` but is **never called**, and `.inspect-btn` is no longer
+rendered — so that CSS is **dead**. I'd spent a dozen edits styling code that never paints.
+Caught only because the human asked "wasn't inspect removed?". Fix: `git checkout` the file
+and re-apply **only the live edits** (the diff dropped from ~38 churned lines to a clean 19,
+all live). **A grep of a stylesheet tells you what *exists*, not what's *reachable*.**
+**→ Systematize:** before reskinning a class, confirm it's live — `grep -rn "class-name"
+js/` and check the creator isn't itself dead (here: the classes existed only inside the
+never-called `openInspect`). Verify against the *freshly-synced master* (this branch's old
+shop-stage PR #103 was obsoleted by the pivot and hard-reset away first). Ship per-screen
+commits, each with a headless screenshot over the **real biome backdrop** (warm chrome must
+stay legible on the cool astral scene), re-stamping the SW each time. And **keep rarity/brand
+accents** (`--haccent`/`--hrar`/`--accent`/`data-rarity`) — only neutralize *generic* cool
+chrome; the rarity ladder (R green / SR blue / SSR purple / SSSR gold) is intentional.
+**→ Leapfrog:** the warm system is now the single source for ALL chrome — new screens
+inherit `--rf-*` + `.gx-card` + `.btn-*`/`.seg-btn` and are warm by default. **Open debt:**
+the dead inspect showcase (`openInspect` + `.inspect-*`/`.form-btn`/`.ins-*`/`.form-scrub`/
+`.stat-bar` CSS) should be deleted in a dedicated dead-code-removal pass — left in place this
+session by choice, recorded here so a future session removes it deliberately.
