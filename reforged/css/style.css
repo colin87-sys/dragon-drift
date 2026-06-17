@@ -1794,6 +1794,39 @@ canvas.skin-preview[data-kind="dragon"] { cursor: pointer; }
 .inspect-dots i.on { background: var(--accent); transform: scale(1.25);
   box-shadow: 0 0 10px color-mix(in srgb, var(--accent) 70%, transparent); }
 
+/* ===== Full-screen, frameless inspect showcase =====
+   The dragon is centred in a real 3D biome (preview.js DragonShowcase) that fills the
+   whole screen — no card frame. The 3D stage is a fixed full-screen background; the
+   name / form ladder / stats / CTA overlay the bottom over a readability scrim. */
+.inspect-overlay { padding: 0; }
+.inspect-modal {
+  width: 100%; height: 100%; max-width: none; max-height: none;
+  padding: 0; border: 0; border-radius: 0; background: none;
+  box-shadow: none; overflow: hidden; justify-content: flex-end;
+}
+/* drop the entry scale so position:fixed children stay glued to the viewport */
+.inspect-overlay.open .inspect-modal, .inspect-modal { transform: none; }
+/* bottom scrim so the overlaid controls stay legible over a bright biome */
+.inspect-modal::after {
+  content: ''; position: fixed; left: 0; right: 0; bottom: 0; height: 46%;
+  background: linear-gradient(to top, rgba(4, 6, 14, 0.94), rgba(4, 6, 14, 0.5) 55%, transparent);
+  z-index: 1; pointer-events: none;
+}
+.inspect-stage {
+  position: fixed; inset: 0; width: 100%; height: 100%;
+  aspect-ratio: auto; margin: 0; z-index: 0;
+}
+.inspect-canvas { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; filter: none; }
+.inspect-glow, .inspect-pedestal { display: none; }   /* the 3D biome replaces them */
+.inspect-viewport { position: relative; z-index: 3; padding-top: 0; }
+.inspect-name { text-shadow: 0 2px 18px rgba(0, 0, 0, 0.85); }
+.inspect-lower { position: relative; z-index: 3; padding-bottom: calc(10px + env(safe-area-inset-bottom, 0px)); }
+.inspect-dots { position: relative; z-index: 3; padding-bottom: calc(8px + env(safe-area-inset-bottom, 0px)); }
+.inspect-nav { position: fixed; top: 50%; z-index: 6; }
+.inspect-close { position: fixed; top: calc(10px + env(safe-area-inset-top, 0px)); right: 14px; z-index: 12; }
+.inspect-modal .inspect-gem { position: fixed; top: calc(12px + env(safe-area-inset-top, 0px)); left: 14px; z-index: 12; }
+@media (max-width: 600px) { .inspect-stage { width: 100%; } }   /* override the 440px square cap */
+
 /* ===== Paused gesture tutorial — premium restyle (run 1) ===== */
 .gesture-overlay { position: absolute; inset: 0; z-index: 6; display: none;
   align-items: center; justify-content: center; pointer-events: none;
