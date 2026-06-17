@@ -1,7 +1,11 @@
 import * as THREE from 'three';
 import { buildDragonModel, makePreviewTick } from './dragonModel.js';
 import { buildRiderFigure, riderMaterials } from './riderParts.js';
-import { makeGlowTexture } from './util.js';
+import { buildShowcaseBackdrop } from './showcaseBackdrop.js';
+import { EffectComposer } from '../lib/postprocessing/EffectComposer.js';
+import { RenderPass } from '../lib/postprocessing/RenderPass.js';
+import { UnrealBloomPass } from '../lib/postprocessing/UnrealBloomPass.js';
+import { OutputPass } from '../lib/postprocessing/OutputPass.js';
 
 // Live 3D shop previews: every dragon/rider card gets a little turntable —
 // the real dragon model (same mesh as in-game, tier-aware) rendered into the
@@ -30,6 +34,10 @@ function ensureRenderer() {
   camera = new THREE.PerspectiveCamera(40, 1, 0.1, 60);
   camera.position.set(0, 1.25, 7.9);
   camera.lookAt(0, 0.25, 0);
+  // Render the SPRITE GLOW layer (1) — in gameplay it holds the dragon's plasma
+  // (core glow, aura, halos) kept out of the water reflection. The shop has no
+  // water, so without this enable the cards lose all their glow and read flat.
+  camera.layers.enable(1);
   scene.add(new THREE.HemisphereLight(0xbfdcff, 0x2e3448, 1.0));
   const key = new THREE.DirectionalLight(0xffe0b0, 1.7);
   key.position.set(2.5, 3, 4);
@@ -199,7 +207,7 @@ export function attachPreviewCanvas(canvas, kind, def) {
 // renderer / scene / premium lighting, with a gentle showcase orbit layered on
 // top of the live flap. One showcase at a time; opened/closed by ui.js.
 let scRenderer = null, scScene = null, scCamera = null, scItem = null, scRaf = 0;
-let scFloor = null;
+let scComposer = null, scBackdrop = null;
 const SC_SIZE = 640;
 // User-controlled 360° turntable yaw. Drag accumulates `scYaw`; on release the
 // `scYawVel` carries it with inertia; after it settles + a short idle, a slow
@@ -256,10 +264,30 @@ function ensureShowcase() {
   scCamera = new THREE.PerspectiveCamera(40, 1, 0.1, 100);
   scCamera.position.set(0, 1.3, 8.6);
   scCamera.lookAt(0, 0.3, 0);
+  scCamera.layers.enable(1);   // show the plasma glow layer (see ensureRenderer)
   scScene.add(new THREE.HemisphereLight(0xbfdcff, 0x2e3448, 1.05));
-  const key = new THREE.DirectionalLight(0xffe8c0, 2.0); key.position.set(3, 4.5, 5); scScene.add(key);
-  const rim = new THREE.DirectionalLight(0x88b8ff, 1.05); rim.position.set(-4, 2, -3); scScene.add(rim);
-  const fill = new THREE.DirectionalLight(0xd0f0ff, 0.4); fill.position.set(0, -2, 3); scScene.add(fill);
+  const key = new THREE.DirectionalLight(0xffe8c0, 2.1); key.position.set(3, 4.5, 5); scScene.add(key);
+  const rim = new THREE.DirectionalLight(0x88b8ff, 1.1); rim.position.set(-4, 2, -3); scScene.add(rim);
+  const fill = new THREE.DirectionalLight(0xd0f0ff, 0.42); fill.position.set(0, -2, 3); scScene.add(fill);
+  // Cool back-rim raking the silhouette from behind, so the matte-black dragon
+  // separates cleanly from the dark backdrop (a crisp edge, then a touch of bloom).
+  const backRim = new THREE.DirectionalLight(0x59d8ff, 0.7); backRim.position.set(0, 1.2, -6); scScene.add(backRim);
+
+  // Gentle HDR bloom — a soft halo on the bright plasma/eyes only (high threshold),
+  // restrained so it lifts the dragon against the dark stage without washing it out.
+  // Guarded behind the float-buffer support the HDR target needs; raw-render fallback.
+  const gl = scRenderer.getContext();
+  const canBloom = scRenderer.capabilities.isWebGL2 &&
+    (gl.getExtension('EXT_color_buffer_float') || gl.getExtension('EXT_color_buffer_half_float'));
+  if (canBloom) {
+    const rt = new THREE.WebGLRenderTarget(SC_SIZE, SC_SIZE, { type: THREE.HalfFloatType, samples: 4 });
+    scComposer = new EffectComposer(scRenderer, rt);
+    scComposer.addPass(new RenderPass(scScene, scCamera));
+    scComposer.addPass(new UnrealBloomPass(new THREE.Vector2(SC_SIZE, SC_SIZE), 0.2, 0.45, 1.0));
+    scComposer.addPass(new OutputPass());
+    scComposer.setPixelRatio(scRenderer.getPixelRatio());
+    scComposer.setSize(SC_SIZE, SC_SIZE);
+  }
 }
 
 // Build (or rebuild, for form cycling) the showcased dragon into `canvas`.
@@ -292,20 +320,11 @@ export function setShowcaseDef(canvas, def) {
     scBaseDist = fit * (1.22 / ps) + 0.6;
   }
 
-  // Soft aura-tinted floor glow / backlight behind the dragon — a gentle showcase
-  // spotlight, recoloured per dragon so Obsidian stays cyan.
-  const auraRgb = def.fx?.auraColor || '150,200,255';
-  if (!scFloor) {
-    scFloor = new THREE.Sprite(new THREE.SpriteMaterial({
-      transparent: true, opacity: 0.5, blending: THREE.AdditiveBlending, depthWrite: false,
-    }));
-    scScene.add(scFloor);
-  }
-  if (scFloor.material.map) scFloor.material.map.dispose();
-  scFloor.material.map = makeGlowTexture(auraRgb);
-  scFloor.material.needsUpdate = true;
-  scFloor.scale.set(scBaseDist * 0.95, scBaseDist * 0.8, 1);
-  scFloor.position.set(0, scLookY - 0.2, -scBaseDist * 0.42); // behind + slightly below
+  // Character-select backdrop: a pretty atmospheric sky themed to the dragon's aura
+  // (a night cloudscape we fly through), drifting motes + vignette. Rebuilt per
+  // dragon so the theme colour follows it (Obsidian = cool cyan night).
+  if (scBackdrop) scBackdrop.dispose();
+  scBackdrop = buildShowcaseBackdrop(scScene, def.fx?.auraColor || '150,200,255');
 
   if (!scRaf) scRaf = requestAnimationFrame(scLoop);
 }
@@ -315,6 +334,7 @@ function scLoop(now = performance.now()) {
   scRaf = requestAnimationFrame(scLoop);
   const t = now / 1000;
   scItem.tick(t);
+  if (scBackdrop) scBackdrop.tick(t);
   // 360° turntable: the user drags to spin; on release inertia carries it, then a
   // slow idle auto-rotate resumes so the stage stays alive.
   if (!scDragging) {
@@ -328,7 +348,8 @@ function scLoop(now = performance.now()) {
   const dist = scBaseDist / scZoom;
   scCamera.position.set(0, scLookY + dist * 0.16, dist); // rear, gently raised (top-rear)
   scCamera.lookAt(0, scLookY, 0);
-  scRenderer.render(scScene, scCamera);
+  if (scComposer) scComposer.render();
+  else scRenderer.render(scScene, scCamera);
   const c = scItem.canvas;
   scItem.ctx.clearRect(0, 0, c.width, c.height);
   scItem.ctx.drawImage(scRenderer.domElement, 0, 0, c.width, c.height);
@@ -337,5 +358,6 @@ function scLoop(now = performance.now()) {
 export function closeShowcase() {
   if (scRaf) { cancelAnimationFrame(scRaf); scRaf = 0; }
   if (scItem) { scScene.remove(scItem.group); disposeGroup(scItem.group); scItem = null; }
+  if (scBackdrop) { scBackdrop.dispose(); scBackdrop = null; }
   scZoom = scZoomTarget = 1; // reset framing for the next time the showcase opens
 }
