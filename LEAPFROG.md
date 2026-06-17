@@ -20,7 +20,7 @@ lessons for the one after. That is the whole studio: we rapidly improve the game
 
 You are a fresh session continuing **Dragon Drift** (the `reforged/` rewrite). Read this
 file top-to-bottom: **this HANDOFF** (where we are) → the **Active roadmap** (the next big
-build) → **THE RULE** + the **lessons ledger L1–L17** (how we work + everything learned so
+build) → **THE RULE** + the **lessons ledger L1–L18** (how we work + everything learned so
 far). Then continue — and **append a lesson after every meaningful change**.
 
 ### Where we are (state of the world)
@@ -703,3 +703,33 @@ are near-free — a matte/plasma/frost Obsidian is a `colors` swap + a few flags
 geometry passes (`sweptLoft`/`sweptTail`/wings), an entire creature identity is declarative data over
 shared builders — the L14 "declarative layers over one hull" thesis now extends to PALETTE. Next on the
 Night Fury: the wing reshape (broad rounded bat-wings) + compact cat proportions complete the read.
+
+### L18 — Reshaping a creature is mostly DATA + dormant features; texture-pop is light, not hue
+**Did / learned:** Night Fury pass 3 (wings + horizontal tail-fins + texture). Reusable findings: (1)
+**the wing silhouette is pure DATA** — `wingForms[]` (`tips` = trailing finger-points, `scallop` = the
+fanned webs between them, `arc.hump` = elbow peakiness, `lead` = leading-edge roundness) feeds
+`buildWingShape`→`buildCurvedPatch`, so a broad fanned bat-wing is a per-form data edit, zero geometry
+code. (2) **fin orientation is ONE rotation** — `buildLayeredFin` builds upright (face +Y, span +Y);
+`rotation.x = π/2` lays it FLAT/horizontal (aircraft stabilizer) vs the vertical-V splay (`rotation.z`);
+the existing `'twinfin'` already pre-rotated its geometry flat — check sibling code before deriving. (3)
+**a dormant built-in was waiting** — `model.secondWingPair` (the "Obsidian/Toothless" mini-wings near
+the tail base) already existed UNUSED; grepping the system found it, so "add the mini wings" was a flag
+flip + pointing it at the dragon's own `wingForm` silhouette (not `DEFAULT_WING`). Search for an existing
+feature before building. (4) **gotcha:** `wingSpan` in the def is **dead** (unused by geometry) —
+proportions ride `wingScale`/`wingChord`; don't tune a no-op field. Coexist held via **additive +
+nullable** model flags (`wingRootScale`, `wingSSS`) defaulting to the shipped value → roster
+byte-identical (verified: only Obsidian's tris moved; 0 over budget).
+**→ Systematize:** "reshape a creature" is now a recipe — silhouette = `wingForms` data; fin/limb
+orientation = the one flat-vs-upright rotation; secondary parts = existing flags
+(`secondWingPair`/`hipFins`/`wingtipFins`); size = `wingScale`/`wingChord` (never `wingSpan`); all
+per-dragon + additive-nullable so the roster never moves. **Texture-pop WITHOUT colour = light
+interaction:** `membraneSSSPatch` on `wingMat` (via `composeSurface`, gated by `model.wingSSS`) makes the
+thin black membrane glow faintly at the silhouette when backlit (the Toothless-against-sky read),
+layered with the body's `fresnelRim` (edge catch) + `cellularScales` (scale micro-relief) + `iridescence`
+(raven oil-slick sheen). Hue stays black; FORM comes from rim/SSS/sheen/relief — bank this patch stack as
+the reusable "matte-creature definition" kit.
+**→ Leapfrog (innovate):** wings, tail, body, palette, and now LIGHT-RESPONSE are all declarative layers
+over shared builders (L14's thesis, complete) — a new creature is data + flags, and "make the black pop"
+is a fixed shader kit. The membrane-SSS + rim combo is the default finish for ANY dark/stealth creature.
+Next: compact cat-like BODY proportions (the last Night-Fury pass); then this recipe (silhouette data +
+flat-fin + secondary flags + SSS kit) is the template for the roster migration and non-dragon creatures.

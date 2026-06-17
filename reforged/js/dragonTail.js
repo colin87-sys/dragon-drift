@@ -406,10 +406,10 @@ export function buildCleanTail(def, model, bodyMat, swept = false) {
     point.position.set(0, 0, 0.34);
     tip.add(point);
   } else if (style === 'nightfury') {
-    // Toothless-style TWIN tail-fins: two broad rounded membrane fans splayed in a
-    // shallow up-and-out V at the tip of the smooth swept stem — the Night Fury
-    // signature. Built from the layered-fin primitive with a strong curve for the
-    // rounded paddle look; sizes with tailFinScale so the fins grow across forms.
+    // Toothless-style TWIN tail-fins: two broad rounded membrane fans lying FLAT &
+    // HORIZONTAL (aircraft horizontal stabilizers), swept out to the sides at the tip
+    // of the smooth swept stem — the Night Fury signature. Built from the layered-fin
+    // primitive with a strong curve; sizes with tailFinScale so the fins grow per form.
     const fs = model.tailFinScale ?? 1;
     const em = ensureEdgeMat();
     const fill = ensureFinFill();
@@ -418,10 +418,10 @@ export function buildCleanTail(def, model, bodyMat, swept = false) {
       fin.scale.x = sx;
       const p = new THREE.Group();
       p.add(fin);
-      p.rotation.z = sx * 0.66;     // splay up-and-out into the twin-fin V
-      p.rotation.y = sx * 0.32;     // fan outward (broad paddle)
-      p.rotation.x = 0.28;          // slight rearward sweep
-      p.position.set(sx * 0.06, 0.05, 0.0);
+      p.rotation.x = Math.PI / 2;   // lay the blade FLAT — a horizontal stabilizer (face +Y)
+      p.rotation.y = sx * 0.22;     // sweep each fin OUT to its side (shallow horizontal V)
+      p.rotation.z = 0;             // no vertical splay
+      p.position.set(sx * 0.12, 0.02, 0.0);
       tip.add(p);
     }
     const point = new THREE.Mesh(new THREE.ConeGeometry(tipR + 0.02, 0.3, lod(6)), bodyMat);
