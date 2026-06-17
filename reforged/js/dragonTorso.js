@@ -4,6 +4,7 @@ import { makeGlowTexture } from './util.js';
 import { applyFresnelRim } from './surface.js';
 import { featherGeo, hexRgb } from './dragonParts.js';
 import { seg } from './modelDetail.js';
+import { sweepProfile } from './dragonSweep.js';
 
 // Torso modules — the dragon's BODY PLAN, the first part extracted behind the
 // recipe registry (dragonRecipe.js). A body plan is now DATA: a profile object
@@ -62,6 +63,14 @@ function buildTorsoGeometry(profile, stretch = 1) {
   return g;
 }
 
+// sweptLoft geometry: the SAME loft, but the cross-section is a resampled closed
+// Catmull-Rom (rounder at ULTRA, byte-identical at HIGH). Drop-in for the `geoFn`
+// arg of buildTorso below — see dragonSweep.js#sweepProfile. (ARROW/SERPENT omit
+// `ring`, so resolve the shared bladeRing default here.)
+function buildSweptTorsoGeometry(profile, stretch = 1) {
+  return sweepProfile({ ...profile, ring: profile.ring || bladeRing }, stretch);
+}
+
 // Top-of-keel height at a body z, interpolated over the profile's keel line.
 function keelTopFor(profile, z) {
   const pts = profile.keel;
@@ -95,13 +104,13 @@ function halfWidthFor(profile, z) {
 // Assemble torso mesh + wing-root fairings + neck chain into one group, and
 // publish the attach contract. bodyMat is the dragon's shared body material;
 // the torso clones it DoubleSide so the closed loft is robust to face winding.
-function buildTorso(profile, def, model, bodyMat) {
+function buildTorso(profile, def, model, bodyMat, geoFn = buildTorsoGeometry) {
   const group = new THREE.Group();
   const stretch = model.bodyStretch ?? 1;
 
   const torsoMat = bodyMat.clone();
   torsoMat.side = THREE.DoubleSide;
-  const torso = new THREE.Mesh(buildTorsoGeometry(profile, stretch), torsoMat);
+  const torso = new THREE.Mesh(geoFn(profile, stretch), torsoMat);
   torso.position.y = TORSO_Y;
   group.add(torso);
 
@@ -210,6 +219,11 @@ const SERPENT_PROFILE = {
 
 registerTorso('arrow', (def, model, bodyMat) => buildTorso(ARROW_PROFILE, def, model, bodyMat));
 registerTorso('serpent', (def, model, bodyMat) => buildTorso(SERPENT_PROFILE, def, model, bodyMat));
+// sweptLoft — the arrow body plan rebuilt through sweepProfile() so its cross-
+// section ROUNDS on capable devices (ULTRA) while staying byte-identical at HIGH.
+// Opt-in per dragon via parts.torso:'sweptLoft' (proving on the hero, Obsidian, first).
+registerTorso('sweptLoft', (def, model, bodyMat) =>
+  buildTorso(ARROW_PROFILE, def, model, bodyMat, buildSweptTorsoGeometry));
 
 export { ARROW_PROFILE, SERPENT_PROFILE, buildTorso };
 

@@ -20,7 +20,7 @@ lessons for the one after. That is the whole studio: we rapidly improve the game
 
 You are a fresh session continuing **Dragon Drift** (the `reforged/` rewrite). Read this
 file top-to-bottom: **this HANDOFF** (where we are) → the **Active roadmap** (the next big
-build) → **THE RULE** + the **lessons ledger L1–L14** (how we work + everything learned so
+build) → **THE RULE** + the **lessons ledger L1–L15** (how we work + everything learned so
 far). Then continue — and **append a lesson after every meaningful change**.
 
 ### Where we are (state of the world)
@@ -73,7 +73,9 @@ far). Then continue — and **append a lesson after every meaningful change**.
    (L13, PR #110 — merged) — Obsidian flank plates + Eternal shoulder mantle, one draw call/run,
    HIGH 5816 ≤6000. **Synthesis:** **L14** ties #3 + #2 into the layered-hull architecture (one
    skinned hull + declarative, detail-scaled, draw-call-merged layers over the surface contract).
-   **Next:** #4 `sweepProfile`, then #1 migrate the roster.
+   **In progress:** roadmap **#4a `sweepProfile` cross-section resample** (L15, NEW PR) — `sweptLoft`
+   rounds Obsidian's body octagon→13-gon at ULTRA (5816→**12050 ≤13000**), **byte-identical at HIGH**.
+   **Next:** #4b spline-centreline BENDING (necks/tails), then #1 migrate the roster.
 
 ### The one law that took ~20 rounds to learn (don't relearn it)
 **A menu is the real game world, reframed + frozen — never a mutated or reinvented one.**
@@ -139,10 +141,15 @@ the run / obstacles / player), not **RENDERING**; touch only the *subject* (the 
    small additive `attach.halfWidthAt(z)` + `bodyMidY` on the ARROW torso for flank placement.
    Verified: HIGH Eternal 5696→**5816 ≤6000**, ULTRA →**11980 ≤13000**, roster +160 tris;
    `tests/shingle.mjs` green. See **L13**. The human judges the relief/material on the preview.
-4. **`sweepProfile()` (spline-swept bodies/necks/tails/horns) — NOT built.** Generalizes the
-   torso loft so future creatures animate by *bending a curve*, not rotating segments — the
-   path to many non-dragon creatures from one technique. (Also the clean way to make the torso
-   loft detail-aware — resample the swept profile at `seg()` resolution.)
+4. **`sweepProfile()` (spline-swept bodies/necks/tails/horns) — ✅ 4a BUILT (cross-section resample,
+   proven on Obsidian; L15), 4b (spline-centreline BENDING) remains.** Generalizes the torso loft so
+   future creatures animate by *bending a curve*, not rotating segments — the path to many non-dragon
+   creatures from one technique. **4a** (`dragonSweep.js#sweepProfile`) already makes the body loft
+   detail-aware: it resamples the cross-section as a closed Catmull-Rom at `seg()` (octagon→13-gon at
+   ULTRA, byte-identical at HIGH), discharging L11's deferred torso-resample debt. Coexists as the
+   `sweptLoft` torso (additive `geoFn` default on `buildTorso` + opt-in `parts.torso`), so only the
+   hero rounds; the roster is untouched until migration. **4b** swaps the straight z-axis centreline
+   for a Catmull-Rom curve + `computeFrenetFrames` so the section sweeps along a bendable spine.
 1. **Migrate the roster (LAST — the L8 "perfect-hero → mechanize" payoff).** Only Obsidian is on
    `skinnedMembrane` + surface shaders; the other membrane dragons (azure/ember/jade/pearl/solar)
    still default to the flat `'membrane'` (`dragonRecipe.js:64`). Roll each onto `curvedMembrane`/
@@ -601,3 +608,42 @@ each dragon gets wings + surface + shingle + sweep blueprints at ~zero new code,
 detail tier for free. The process cadence that produced this is itself the reusable system:
 **perfect the hero → pin taste-forks with the human up front → extract a written migration
 checklist → mechanize the spread.**
+
+### L15 — sweepProfile: round a section by resampling the CURVE, not subdividing the polygon
+**Did / learned:** built roadmap **#4a** — the `sweepProfile()` primitive (`dragonSweep.js`) + a
+coexisting **`sweptLoft`** torso, proven on Obsidian. The body loft was a hard OCTAGON (an 8-pt ring
+connected by flat quads) that no number of extra stations could smooth, because the facets are
+AROUND the section, not along it. `sweepProfile` treats each cross-section as a **closed centripetal
+Catmull-Rom** and **resamples it at `seg()`** — a resample of the smooth curve, NOT a linear
+subdivide of the polygon (the exact distinction L11 named when it deferred this). The
+identity-default discipline held the no-regression line: `resampleRing` returns the control polygon
+UNCHANGED when `m === controlCount` (HIGH), so HIGH is byte-identical (`tricount` total **89620**
+unchanged, Obsidian Eternal **5816 == 5816**); ULTRA rounds octagon→**13-gon** (+70 tris, **12050 ≤
+13000**); LOW coarsens to a pentagon. Coexist used the L13/L14 **additive + nullable** move: a
+`geoFn = buildTorsoGeometry` default param on `buildTorso` (shipped path unchanged) + a new
+registered `sweptLoft` builder; only Obsidian opts in via `parts.torso`, the rest of the roster is
+byte-identical at every tier. Gotchas: **(1) byte-identical is a Float32 claim, not Float64** — a
+test comparing stored positions (`Float32BufferAttribute`) to control points recomputed in JS
+(Float64) at a 1e-12 tol FAILS on ~1e-7 representation noise; compare within float32 (or against the
+legacy geometry), and lean on the **tri-count baseline** as the real contract (`tricount` +
+full-model `sweptLoft == arrow` at HIGH). **(2)** a closed `CatmullRomCurve3` puts control point *i*
+at `t = i/N`, so sample at `i/m` for `i ∈ [0, m)` to walk the loop once — `getPoints(m)` returns
+`m+1` points incl. a duplicated seam. **(3)** the loft is cheap (~112 tris HIGH); rounding it is a
+tiny spend — the payoff is silhouette smoothness on the idle GPU, not triangles.
+**→ Systematize:** the reusable law is **"to add resolution to a curved form, resample the
+underlying CURVE at `seg()` with an identity passthrough at the control count — never subdivide the
+sampled polygon."** Same shape fits the keel/spine line, horn/tail profiles, any control-polygon
+geometry; promote `resampleRing(polygon, m)` into the shared toolkit beside `seg()`. The coexist
+recipe is now boilerplate worth naming: **additive nullable param (defaulting to the shipped
+builder) + a new registered variant + a per-dragon opt-in key** → the roster is provably untouched
+and the hero proves the new path; verify with the tri-count baseline, not vertex equality.
+**→ Leapfrog (innovate):** the straight z-axis centreline is the degenerate case. Swap the
+per-station z for a **`CatmullRomCurve3` centreline + `computeFrenetFrames`** (both already in
+three) and the SAME primitive sweeps the section along a BENT, animatable spine — **#4b**:
+necks/tails/horns that animate by *bending a curve*, and the road to non-dragon creatures (a manta /
+serpent / insect = a different profile + a different centreline). Then longitudinal resampling (more
+rings along the curve at ULTRA) rounds the body lengthwise too. And the roster migration (#1) can
+flip every `arrow`/`serpent` dragon to `sweptLoft` for a free ULTRA round-up (HIGH unchanged) — the
+hero→roster mechanization L8 prescribes. **Watch in 4b:** `computeFrenetFrames` picks an arbitrary
+initial normal, so a straight centreline could rotate/swap the section's axes vs today — pin the
+initial frame (binormal=+x, normal=+y) to keep the straight case byte-identical.
