@@ -114,9 +114,13 @@ function buildTorso(profile, def, model, bodyMat, geoFn = buildTorsoGeometry) {
   torso.position.y = TORSO_Y;
   group.add(torso);
 
-  // Smooth fairings where the wings attach, so they never look bolted on.
+  // Smooth fairings where the wings attach, so they never look bolted on. The
+  // skinned shoulder BRIDGE (dragonWings.js) replaces this STATIC blob with a
+  // continuous body-deltoid that follows the wing — so a bridged dragon skips the
+  // fairing; leaving it in is the very "bolted-on knob" the bridge exists to remove.
+  const bridged = def.parts && def.parts.wings === 'skinnedMembraneBridge';
   const fr = profile.fairing;
-  for (const s of [-1, 1]) {
+  if (!bridged) for (const s of [-1, 1]) {
     const root = new THREE.Mesh(new THREE.SphereGeometry(fr.r, seg(9), seg(7)), bodyMat);
     root.scale.set(fr.scale[0], fr.scale[1], fr.scale[2]);
     root.position.set(s * fr.pos[0], fr.pos[1], fr.pos[2]);
