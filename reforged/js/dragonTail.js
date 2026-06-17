@@ -4,6 +4,7 @@ import {
   featherGeo, featherGradient,
 } from './dragonParts.js';
 import { registerTail } from './dragonRecipe.js';
+import { skinnedTube } from './dragonSweep.js';
 import { seg as lod } from './modelDetail.js'; // aliased: this file has a local `seg` mesh var
 
 // Tail modules — the fourth part behind the recipe registry. A tail builder takes
@@ -78,7 +79,7 @@ function buildLegacyTail(def, model, mats) {
   return { group: root, segs, tailFins: null, accentMats: null };
 }
 
-export function buildCleanTail(def, model, bodyMat) {
+export function buildCleanTail(def, model, bodyMat, swept = false) {
   const root = new THREE.Group();
   const segs = [];
   const tailFins = [];   // deployable fin groups (apex only) — the rig opens these on boost/Surge
@@ -86,7 +87,7 @@ export function buildCleanTail(def, model, bodyMat) {
   // Obsidian's stealth-tail styles: a SMOOTH stem (no spike plates) lit by a
   // continuous cyan dorsal-segment line, ending in a layered fin assembly.
   const smoothStem = style === 'spade' || style === 'splitfin'
-    || style === 'stealthrudder' || style === 'apexstealth';
+    || style === 'stealthrudder' || style === 'apexstealth' || style === 'nightfury';
   const g = model.spineGlow || 0;
   const gi = model.glowIntensity ?? 1;     // emissive multiplier (can exceed 1 at the apex)
   // Emissive-intensity clamp: the apex carries its extra "charge" through MORE
@@ -164,11 +165,17 @@ export function buildCleanTail(def, model, bodyMat) {
   for (let i = 0; i < N; i++) {
     const r0 = baseR + (tipR - baseR) * (i / (N - 1));
     const r1 = baseR + (tipR - baseR) * ((i + 1) / (N - 1));
-    const seg = new THREE.Group();
+    // sweptTail: the shaft segments become BONES of a skeleton, and ONE continuous
+    // skinned tube (built after the loop) replaces the rigid frustums — the rig's
+    // existing coil writes the same .position/.rotation on these handles, now bending
+    // a seamless surface. Default (Group + per-segment frustum) is byte-identical.
+    const seg = swept ? new THREE.Bone() : new THREE.Group();
     seg.position.set(0, 0, i * spacing);
-    const frustum = new THREE.Mesh(new THREE.CylinderGeometry(r1, r0, segLen, lod(8)), bodyMat);
-    frustum.rotation.x = Math.PI / 2;
-    seg.add(frustum);
+    if (!swept) {
+      const frustum = new THREE.Mesh(new THREE.CylinderGeometry(r1, r0, segLen, lod(8)), bodyMat);
+      frustum.rotation.x = Math.PI / 2;
+      seg.add(frustum);
+    }
     if (!smoothStem) seg.add(spinePlate(r0));
     root.add(seg);
     segs.push(seg);
@@ -398,6 +405,29 @@ export function buildCleanTail(def, model, bodyMat) {
     point.rotation.x = Math.PI / 2;
     point.position.set(0, 0, 0.34);
     tip.add(point);
+  } else if (style === 'nightfury') {
+    // Toothless-style TWIN tail-fins: two broad rounded membrane fans splayed in a
+    // shallow up-and-out V at the tip of the smooth swept stem — the Night Fury
+    // signature. Built from the layered-fin primitive with a strong curve for the
+    // rounded paddle look; sizes with tailFinScale so the fins grow across forms.
+    const fs = model.tailFinScale ?? 1;
+    const em = ensureEdgeMat();
+    const fill = ensureFinFill();
+    for (const sx of [-1, 1]) {
+      const fin = buildLayeredFin(0.46 * fs, 1.05 * fs, fill, em, { curve: 0.3, tipPinch: 0.62 });
+      fin.scale.x = sx;
+      const p = new THREE.Group();
+      p.add(fin);
+      p.rotation.z = sx * 0.66;     // splay up-and-out into the twin-fin V
+      p.rotation.y = sx * 0.32;     // fan outward (broad paddle)
+      p.rotation.x = 0.28;          // slight rearward sweep
+      p.position.set(sx * 0.06, 0.05, 0.0);
+      tip.add(p);
+    }
+    const point = new THREE.Mesh(new THREE.ConeGeometry(tipR + 0.02, 0.3, lod(6)), bodyMat);
+    point.rotation.x = Math.PI / 2;
+    point.position.set(0, 0, 0.14);
+    tip.add(point);
   } else if (style === 'shard') {
     // Obsidian crystal shards: a cluster of sharp, faceted obsidian-crystal
     // spikes radiating from the tip — shattered, severe and brutal (not a soft
@@ -440,6 +470,28 @@ export function buildCleanTail(def, model, bodyMat) {
   root.add(tip);
   segs.push(tip);
 
+  // sweptTail: skin ONE continuous tapered tube to the 7 shaft bones, replacing the
+  // rigid frustums with a seamless surface that bends with the rig's coil (the slim
+  // Night Fury tail). Fins/plates/tip stay parented to the bones and ride the bend.
+  // Bind in local space — root is still at origin here; the recipe positions it (L2).
+  if (swept) {
+    const bones = segs.slice(0, N);                  // the 7 shaft bones (tip excluded)
+    const M = (N - 1) * 2 + 1;                       // longitudinal stations (smooth bend)
+    const centre = [], radii = [], skin = [];
+    for (let s = 0; s < M; s++) {
+      const z = (s / (M - 1)) * len;
+      centre.push({ x: 0, y: 0, z });
+      radii.push(baseR + (tipR - baseR) * (z / len));
+      const t = z / spacing, i0 = Math.min(N - 1, Math.floor(t)), i1 = Math.min(N - 1, i0 + 1), f = t - i0;
+      skin.push({ si: [i0, i1, 0, 0], sw: [1 - f, f, 0, 0] });
+    }
+    const tube = skinnedTube(centre, radii, lod(8), (s) => skin[s], bodyMat);
+    tube.name = 'sweptTailTube';
+    root.add(tube);
+    root.updateMatrixWorld(true);
+    tube.bind(new THREE.Skeleton(bones));
+  }
+
   return { group: root, segs, plateMat, accentMats, tailFins: tailFins.length ? tailFins : null };
 }
 
@@ -447,6 +499,14 @@ export function buildCleanTail(def, model, bodyMat) {
 // 'clean' positions the returned tail at the torso's published tail anchor.
 registerTail('clean', (def, model, mats, anchor) => {
   const { group, segs, accentMats, tailFins } = buildCleanTail(def, model, mats.bodyMat);
+  group.position.set(0, anchor.y, anchor.z);
+  return { group, segs, accentMats, tailFins };
+});
+// 'sweptTail' — same builder, but the shaft is ONE skinned continuous tube bound to
+// the 7 shaft bones (the rig's coil bends a seamless Night-Fury tail; fins/plates/tip
+// ride the bones). Opt-in via parts.tail; 'clean' stays the byte-identical default.
+registerTail('sweptTail', (def, model, mats, anchor) => {
+  const { group, segs, accentMats, tailFins } = buildCleanTail(def, model, mats.bodyMat, true);
   group.position.set(0, anchor.y, anchor.z);
   return { group, segs, accentMats, tailFins };
 });
