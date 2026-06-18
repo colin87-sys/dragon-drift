@@ -1542,3 +1542,17 @@ don't drive it off the raw value (that bleeds into steady state) or raw per-fram
 headless curve/transient sims (bankHard ramp, vertJerk spike-then-decay) — numbers, not vibes. 10 gates green,
 tri 4442, tiershots compiles; cruise-straight + other dragons unchanged (every new term gated by bankHard or
 vertJerk, both 0 at rest).
+
+### L43 — Toothless proportions: short THICK neck + muscular thorax, eyes on the SIDE, horns up+back
+**Did / learned:** the human's red-outlined reference showed the model read "funny" because the neck was long +
+thin and the thorax slim — Toothless is short-necked and barrel-chested. Reshaped `NIGHTFURY_PROFILE`: removed
+the 0.115 neck pinch (now a short thick 0.34 neck) and fattened the ribcage ~25-30% (chest peak 0.51→0.665),
+so the head sits on a muscular body. Two head-feature fixes: **eyes were on TOP** (`y=HEAD_Y+0.04`, `x=0.185`,
+inboard/high) → moved to the SIDE of the head (`x=0.275` out to the cheek, `y=HEAD_Y−0.05` to mid-head,
+`rotation.y` more sideways); **ear-horns pointed FORWARD** because `rotation.x=−1.30` sends a +y cone-apex to
+(y=0.27, z=−0.96)=forward in this −z-nose frame → flipped to `rotation.x=+0.52` so the apex goes (+y,+z) = up +
+back (toward the tail), the swept-back Night-Fury horns. **Gotcha banked: when orienting a built primitive,
+WORK OUT which world axis its local axis maps to under the rotation — a cone apex at +y under `rot.x=θ` lands
+at (cosθ, sinθ) in (y,z); the sign of θ decides forward vs back, and the model's nose-at−z frame flips the
+intuition.** Loft reshape — weld/rest-parity/all 10 gates auto-survive (membrane copies whatever verts the
+loft emits), tri 4442, 0-over, tiershots compiles.
