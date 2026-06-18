@@ -14,11 +14,21 @@
     .row button{background:#16223c;color:#cfe;border:1px solid #2a3a5a;border-radius:8px;
       padding:8px 12px;font-size:14px;cursor:pointer}
     .row button.on{background:#2a5; color:#04140a}
+    #err{position:fixed;left:12px;right:12px;top:64px;color:#ff9a9a;font-size:13px;
+      line-height:1.5;white-space:pre-wrap;background:rgba(40,8,8,.6);padding:10px;
+      border-radius:8px;display:none;max-height:50vh;overflow:auto}
   </style>
   <script type="importmap">{ "imports": { "three": "../lib/three.module.js" } }</script>
+  <script>
+    // Self-report any load/runtime error on-page (so a blank canvas is never a mystery).
+    window.__nferr = (m) => { const e = document.getElementById('err'); if (e) { e.style.display = 'block'; e.textContent = 'Viewer error:\n' + m; } };
+    window.addEventListener('error', (ev) => window.__nferr((ev.error && ev.error.stack) || ev.message || String(ev)));
+    window.addEventListener('unhandledrejection', (ev) => window.__nferr('Promise: ' + ((ev.reason && ev.reason.stack) || ev.reason)));
+  </script>
 </head>
 <body>
   <canvas id="gl"></canvas>
+  <div id="err"></div>
   <div id="hud">Night Fury — <b id="lbl">toothless · Eternal</b><br>drag to rotate · scroll/pinch to zoom</div>
   <div class="row">
     <button id="bflap" class="on">Flap: ON</button>
@@ -136,10 +146,12 @@
     };
     window.resumeLive = () => { if (mode !== 'live') { mode = 'live'; clock.getDelta(); frame(); } };
 
-    resize();
-    load(key, tier);
-    frame();
-    window.__ready = true;
+    try {
+      resize();
+      load(key, tier);
+      frame();
+      window.__ready = true;
+    } catch (e) { window.__nferr((e && e.stack) || String(e)); throw e; }
   </script>
 </body>
 </html>
