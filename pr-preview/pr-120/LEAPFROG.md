@@ -1472,3 +1472,21 @@ in the drive, so feel is tuned without restructuring. Runtime-only (no bind/gate
 **→ Systematize:** "make a rig feel alive" = drive each part as a tagged system with phase OFFSETS (root→tip,
 downstroke→lift→hips→tail-tip, head counters), and gate every stylistic layer behind a blend (`surge01`) +
 input magnitude so the base motion is never regressed. Add a mode by BLENDING params, not branching animation.
+
+### L40b — Full flight-state matrix as overlapping BLENDS (boost · decel · dive · climb), not hard-switched clips
+**Did / learned:** expanded L40's layered system to the full state set the human enumerated — distinct
+`boost01` (held boost, separate from `surge01` fever), `decel01` (boost-RELEASE air-brake: spikes on the
+falling edge `prevSpeedActive && !speedActive`, then eases), and `diveAmount`/`climbAmount` from vertical
+velocity. Collapsed them into two POSTURE drivers — `aero01` = streamline/tuck/sweep (max of boost·0.7,
+surge, dive·0.85) and `spread01` = open/air-brake (climb + decel) — so each animated part reads ONE pair of
+opposing scalars instead of branching per mode: wings sweep+sharpen+fold under `aero`, open+lift+unfold under
+`spread`; flap FREQ slows in a dive (glide) / eases on decel, AMPLITUDE shrinks in a dive and grows on
+climb+decel (catch air); a `posturePitch` leans the whole body nose-down (dive/boost/surge) or nose-up
+(climb); the spine drops the head into a spear or lifts it to soar and the hips drop as a climb counterweight;
+the tail tightens (aero) / loosens (decel) / straightens (dive). **States OVERLAP for free because they're
+additive scalar blends** (boost+bank, surge+dive, dive+bank all just sum) — no combinatorial animation clips,
+no snapping, and everything still vanishes at 0 so cruise + non-skinned dragons are unchanged. **Rule banked:
+model a mode MATRIX as a few orthogonal 0→1 blend scalars feeding shared part-drivers; adding a state = adding
+a scalar + its contribution, never a new branch.** Body-pitch posture is on the group so ALL dragons get
+dive/climb lean; the wing/spine/tail richness rides the skinned (toothless) rig. Browser test `badges.mjs`
+times out (pre-existing Chromium-blocked), unrelated. 10 gates green, tri 4442, tiershots compiles.
