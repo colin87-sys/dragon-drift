@@ -1490,3 +1490,21 @@ model a mode MATRIX as a few orthogonal 0→1 blend scalars feeding shared part-
 a scalar + its contribution, never a new branch.** Body-pitch posture is on the group so ALL dragons get
 dive/climb lean; the wing/spine/tail richness rides the skinned (toothless) rig. Browser test `badges.mjs`
 times out (pre-existing Chromium-blocked), unrelated. 10 gates green, tri 4442, tiershots compiles.
+
+### L41 — Variable frequency ⇒ INTEGRATE the phase; never `time × varying_freq` (the decel/dive wing spasm)
+**Did / learned:** the human reported the wings "spasm — beat wildly fast" during deceleration (boost release /
+letting go of accelerate) and when pressing DOWN to dive. Root cause: the beat clock was `phase = time *
+flapSpeed`, and L40b made `flapSpeed` vary CONTINUOUSLY each frame (the `(1−0.55·diveAmount)(1−0.18·decel01)`
+blends). With `time` = large accumulated seconds, any frame-to-frame Δfreq jumps the phase by `time·Δ` — a
+headless sim showed **49.98 rad/frame** during a decel ramp (≈8 wingbeats in ONE frame → the spasm). It only
+showed on decel/dive because that's when the frequency changes every frame; a one-off boost toggle was a single
+pop, easy to miss. Fix = the standard variable-frequency oscillator: **accumulate** the phase
+(`flapPhase = (flapPhase + dt·flapSpeed) % 2π`) so changing the frequency only changes the RATE, never the
+absolute phase → Δphase stays `dt·flapSpeed` (≤0.19 rad/frame, proven). Base cruise is unchanged (∫const = the
+old formula up to an invisible offset), and it also kills the latent one-frame pop on every boost/fever toggle.
+Same defect + fix applied to the rider-scarf sway (`time·(1.6+speedNorm·1.9)`). **Rule banked: any oscillator
+whose frequency can change MUST integrate `dt·freq`; `Math.sin(time × variableFreq)` is a latent phase-jump bug
+— grep for `time *` with a non-constant multiplier whenever motion glitches on a speed/state change.** Verified
+headlessly with a ramp sim (old jumps, new doesn't) — the runtime analogue of the L36 motion probe / L39c gap
+probe: prove timing/spatial fixes with a NUMBER, not a thumbnail. Runtime-only; 10 gates green, tri 4442,
+tiershots compiles.
