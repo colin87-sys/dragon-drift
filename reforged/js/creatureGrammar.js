@@ -60,6 +60,12 @@ export const CREATURE_GRAMMAR = Object.freeze([
   { path: 'model.wingFingerSplay', group: 'wing', kind: 'number', min: 0, max: 1, desc: 'Finger fan splay.' },
   { path: 'model.wingFingerBulge', group: 'wing', kind: 'number', min: 0, max: 0.5, desc: 'Strut ridge bulge amplitude.' },
   { path: 'model.wingFingerRadius', group: 'wing', kind: 'number', min: 0, max: 0.3, desc: 'Finger-strut tube radius.' },
+  { path: 'model.wingWristSpan', group: 'wing', kind: 'number', min: 0, max: 6, desc: 'Wrist span override (default auto-aligns to the innermost scallop).' },
+  { path: 'model.wingArmRadius', group: 'wing', kind: 'number', min: 0, max: 0.4, desc: 'Humerus (upper-arm spar) tube radius.' },
+  { path: 'model.wingForearmRadius', group: 'wing', kind: 'number', min: 0, max: 0.4, desc: 'Forearm/wrist spar tube radius.' },
+  { path: 'model.wingFrameTipRadius', group: 'wing', kind: 'number', min: 0, max: 0.3, desc: 'Leading-frame spar tip radius.' },
+  { path: 'model.wingSpan', group: 'wing', kind: 'number', min: 0.4, max: 2.2, forms: true, desc: 'Wing span (width) multiplier vs the Radiant baseline.' },
+  { path: 'model.wingChord', group: 'wing', kind: 'number', min: 0.5, max: 2.5, forms: true, desc: 'Wing chord (front-to-back depth) multiplier.' },
 
   // --- motion / feel (model.*) ------------------------------------------------
   { path: 'model.flapBias', group: 'motion', kind: 'number', min: 0.4, max: 1.6, desc: 'Wingbeat phase drift.' },
@@ -70,13 +76,17 @@ export const CREATURE_GRAMMAR = Object.freeze([
   { path: 'model.flapProfile.elbowAmp', group: 'motion', kind: 'number', min: 0, max: 1.5, desc: 'Elbow swing amplitude.' },
   { path: 'model.flapProfile.foldAmp', group: 'motion', kind: 'number', min: 0, max: 1.5, desc: 'Wrist counter-fold amplitude.' },
 
-  // --- material finish (model.*) ----------------------------------------------
-  { path: 'model.bodyMetalness', group: 'material', kind: 'number', min: 0, max: 1, desc: 'Body metalness (0 = matte organic hide).' },
-  { path: 'model.bodyRoughness', group: 'material', kind: 'number', min: 0, max: 1, desc: 'Body roughness.' },
-  { path: 'model.bodyEnvIntensity', group: 'material', kind: 'number', min: 0, max: 3, desc: 'Environment-map reflection intensity.' },
-  { path: 'model.rimBodyMul', group: 'material', kind: 'number', min: 0, max: 3, desc: 'Per-dragon fresnel-rim multiplier (0 suppresses glare on dark bodies).' },
-  { path: 'model.scaleSize', group: 'material', kind: 'number', min: 0.5, max: 12, desc: 'Procedural scale cell size (lower = bigger cells).' },
-  { path: 'model.scaleRelief', group: 'material', kind: 'number', min: 0, max: 2, desc: 'Scale normal-relief depth.' },
+  // --- material finish (TOP-LEVEL def.* — NOT under model) --------------------
+  // These are read at the def top level by dragonModel.js / dragon.js /
+  // dragonSurfaceShader.js / dragonTail.js (e.g. `def.bodyRoughness`), and the
+  // roster declares them top-level — so the grammar paths must be top-level too,
+  // or the validator silently skips them.
+  { path: 'bodyMetalness', group: 'material', kind: 'number', min: 0, max: 1, desc: 'Body metalness (0 = matte organic hide).' },
+  { path: 'bodyRoughness', group: 'material', kind: 'number', min: 0, max: 1, desc: 'Body roughness.' },
+  { path: 'bodyEnvIntensity', group: 'material', kind: 'number', min: 0, max: 3, desc: 'Environment-map reflection intensity.' },
+  { path: 'rimBodyMul', group: 'material', kind: 'number', min: 0, max: 3, desc: 'Per-dragon fresnel-rim multiplier (0 suppresses glare on dark bodies).' },
+  { path: 'scaleSize', group: 'material', kind: 'number', min: 0.5, max: 12, desc: 'Procedural scale cell size (lower = bigger cells).' },
+  { path: 'scaleRelief', group: 'material', kind: 'number', min: 0, max: 2, desc: 'Scale normal-relief depth.' },
 
   // --- legacy decoration flags (model/forms.*) — INFERRED into surfaceLayers ---
   // These drive the imperative→declarative surfaceLayers registry. Listed here so

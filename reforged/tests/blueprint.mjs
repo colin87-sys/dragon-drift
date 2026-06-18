@@ -68,6 +68,26 @@ assert(outOfRange.ok, 'an out-of-range number does NOT block (roster ground-trut
 assert(outOfRange.warnings.some((w) => w.includes('maximum')), 'an out-of-range number warns');
 ok('validator flags bad builders/shaders/layers/shingle/types as errors, ranges as warnings');
 
+// --- 2b. v1.1 hardening: material paths, paired builders, closed-namespace typos
+// Material knobs are validated at TOP LEVEL (def.bodyRoughness), not under model.
+const badMaterialType = validateCreatureBlueprint(clone({ bodyRoughness: 'x' }));
+assert(!badMaterialType.ok && badMaterialType.errors.some((e) => e.includes('bodyRoughness')), 'a non-number top-level bodyRoughness is an error (path is top-level, not model.*)');
+
+// A single-edit typo of a finish knob is flagged (the headline review scenario).
+const materialTypo = validateCreatureBlueprint(clone({ bodyRoughnes: 0.88 }));
+assert(materialTypo.warnings.some((w) => w.includes('bodyRoughnes') && w.includes('bodyRoughness')), 'a top-level finish-knob typo (bodyRoughnes) warns');
+
+// A hull wing paired with the wrong torso is an author-time error (was build-time).
+const badPair = validateCreatureBlueprint(clone({ parts: { wings: 'nightFuryWings', torso: 'arrow' } }));
+assert(!badPair.ok && badPair.errors.some((e) => e.includes('nightFuryTorso')), 'nightFuryWings + arrow torso errors, naming the required torso');
+const goodPair = validateCreatureBlueprint(clone({ parts: { wings: 'nightFuryWings', torso: 'nightFuryTorso', head: 'none', tail: 'none' } }));
+assert(goodPair.ok, 'nightFuryWings + nightFuryTorso validates');
+
+// An unknown key in the CLOSED parts namespace warns with a suggestion.
+const partsTypo = validateCreatureBlueprint(clone({ parts: { wings: 'membrane', wngs: 'x' } }));
+assert(partsTypo.warnings.some((w) => w.includes('wngs') && w.includes('did you mean')), 'an unknown parts key (wngs) warns with a suggestion');
+ok('v1.1: top-level material validation + finish-knob typo + paired-builder + closed-namespace typo');
+
 // --- 3. surfaceLayers inference is byte-identical to the legacy flag order ---
 const stubAttach = {};                       // no segmentAnchors, no flank contract
 const recipe = { torso: 'arrow' };

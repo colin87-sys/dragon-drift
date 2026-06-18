@@ -1701,3 +1701,34 @@ weld+seam gates per creature — the seam-index math under longitudinal resample
 **blueprint→geometry round-trip generator** (emit a creature from grammar values alone, e.g. a `manta` = flatter
 wider section + no horns, proving non-dragon creatures); (3) widen the grammar from the ~40 curated knobs to the
 full ~130 the generator exposes, with per-knob defaults, so `CREATURES.md` and an authoring UI both render from it.
+
+### L49 — A validator is only as good as its PATHS: an external review caught material knobs validated at the wrong namespace (the "0 warnings" was partially hollow)
+**Did / learned:** an outside review of the merged Blueprint Layer (L48) found that `creatureGrammar.js` declared the six
+finish knobs (`bodyMetalness/bodyRoughness/bodyEnvIntensity/rimBodyMul/scaleSize/scaleRelief`) under `model.*`, but the code
+reads them at the **def TOP LEVEL** (`dragonModel.js` `def.bodyRoughness`, `dragon.js` `def.rimBodyMul`,
+`dragonSurfaceShader.js` `def.scaleSize/scaleRelief`, `dragonTail.js`) and the roster declares them top-level. So the
+validator's `getPath(def,'model.bodyRoughness')` returned undefined → **silently skipped all six** → my proud "roster
+validates, 0 warnings" was partly meaningless (those fields were never inspected, and a top-level `bodyRoughnes` typo sailed
+through). I VERIFIED the claim by grep before agreeing (THE RULE), found it true, and shipped a v1.1 hardening (validator +
+grammar + tests only, geometry untouched, tri byte-identical via stash/diff): (1) moved the six paths to top-level so they're
+actually checked; (2) added the four+ missing `model.wing*` knobs the night-fury builder reads (`wingWristSpan`,
+`wingArmRadius`, `wingForearmRadius`, `wingFrameTipRadius`, +`wingSpan/wingChord`); (3) **paired-builder validation at AUTHOR
+time** — a `WING_REQUIRES_TORSO` table mirrors the runtime guards (`nightFuryWings`→`nightFuryTorso`,
+`organismWings`→`organismTorso`, `unifiedHull`→`unifiedHullTorso`) so a mismatch errors in the validator, not mid-build; (4)
+**unknown-key warnings scoped to CLOSED namespaces only** (`parts`, `parts.surface`) + a conservative single-edit near-miss
+check on the top-level finish keys (so `bodyRoughnes` warns) — deliberately NOT scanning the OPEN `model`/top-level (~130 legit
+keys) to avoid false positives.
+**→ Systematize:** bank two rules. **(1) For any data-driven validator, the schema PATH must be proven against where the code
+actually READS the value — a path test that passes because the field is `undefined` is a false pass.** The fix is a "validator
+coverage" discipline: at least one negative test per knob-group that a *wrong value at the real path* is caught (the new
+`badMaterialType` test would have failed the original `model.*` paths). **(2) Validate OPEN vs CLOSED namespaces differently:**
+closed namespaces (small, fully enumerable → `parts`, `parts.surface`) get unknown-key typo warnings; open namespaces (`model`
+with ~130 knobs, the def top level with palette/fx/stats) get range-checks on KNOWN keys + a conservative edit-distance≤1
+near-miss against a curated high-value key list — never a blanket unknown-key scan, which would drown the signal.
+**→ Leapfrog (innovate):** the deeper lesson is that **an external adversarial review is a cheap, high-yield oracle for the
+class of bug our own tests are blind to** (a test written by the same author who mis-set the path will assert against that same
+wrong path). Bank "adversarial review pass" as a standard step after shipping a system, BEFORE building the next layer on top of
+it. And this de-risks the v2 round-trip generator: the now-authoritative grammar (every used/documented knob validated at the
+right path, paired builders enforced) is the trustworthy contract a prompt→blueprint emitter must target — you can't generate
+against a schema that lies about itself. Next stays: close the remaining v1.x coverage gap (audit the rest of the ~130 knobs the
+same way), then the v2 "manta from JSON" profile-as-data leap.
