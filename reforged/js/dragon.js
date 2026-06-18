@@ -353,6 +353,14 @@ export function triggerDeathBurst(position, lethal = false) {
   }
 }
 
+// Downbeat SURGE envelope for the body/tail whip: a 2π-periodic wave SHARPENED toward a
+// snap (so it reads as a thrust impulse, not a lazy sine), with the POWER (down) stroke
+// dominant and a gentler recovery — replaces sin() in the spine/tail drive.
+function flapSurge(x) {
+  const s = Math.sin(x);
+  return s >= 0 ? Math.pow(s, 0.5) : -0.55 * Math.pow(-s, 0.85);
+}
+
 export function updateDragon(dt, player, time) {
   // Follow flight position with hover bob
   group.position.set(
@@ -463,10 +471,11 @@ export function updateDragon(dt, player, time) {
   // wingbeat — a travelling pitch wave (rotation.x) locked to the flap `phase`, the chest
   // anchored, the head bobbing and the rear heaving. Each bone carries its own gain+phase.
   if (spineSegs.length) {
-    const amp = 0.65 + 0.35 * speedNorm;
+    const amp = 0.7 + 0.3 * speedNorm;
     for (const b of spineSegs) {
       const w = b.userData.whip || { gain: 0, phase: 0 };
-      b.rotation.x = damp(b.rotation.x, w.gain * amp * Math.sin(phase + w.phase), 7, dt);
+      // SURGE (not sine): the body snaps on the wing downbeat then eases → reads as thrust.
+      b.rotation.x = damp(b.rotation.x, w.gain * amp * flapSurge(phase + w.phase), 9, dt);
     }
   }
 
@@ -483,7 +492,7 @@ export function updateDragon(dt, player, time) {
     for (let i = 0; i < nTail; i++) {
       const lock = (i + 1) / nTail;                       // root subtle → tip full
       const ph = phase - 1.6 - i * 0.6;                   // trail the wingbeat aft
-      const pitch = Math.sin(ph) * 0.17 * lock * cruise * sp;   // VERTICAL undulation
+      const pitch = flapSurge(ph) * 0.19 * lock * cruise * sp;  // VERTICAL surge (thrust)
       const rudder = turnBias * 1.4 * lock * bankAmt;           // HORIZONTAL rudder (turns)
       tailSegs[i].rotation.x = damp(tailSegs[i].rotation.x, pitch, 8, dt);
       tailSegs[i].rotation.y = damp(tailSegs[i].rotation.y, rudder, 8, dt);

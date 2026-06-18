@@ -225,10 +225,11 @@ function buildNightFury(def, model, attach) {
   const worldMaxX = (wingSpec.tips[0][0] || 5.7) * 1.34 * ws;
 
   // arm datums (mirror the shipped skinned wing so the bones land sensibly).
-  // The wrist defaults to the INNERMOST scallop tip's span (wingSpec.tips[last][0]*1.34)
-  // so it sits directly in line with the first scallop point — the innermost finger then
-  // runs straight back from the wrist (same x), the rest fan outward to the other scallops.
-  const wristXGeo = (model.wingWristSpan ?? (wingSpec.tips[wingSpec.tips.length - 1][0] * 1.34)) * ws;
+  // The wrist defaults to the INNERMOST scallop tip's span, then pulled further inboard by
+  // wingWristMedial (<1) so it sits medial OF the first scallop — forcing the fingers to fan
+  // / curve harder toward the outer wing.
+  const wristXGeo = (model.wingWristSpan ?? (wingSpec.tips[wingSpec.tips.length - 1][0] * 1.34))
+    * ws * (model.wingWristMedial ?? 1);
   const elbowXGeo = wristXGeo * 0.52;
   const foldBand = 0.7 * ws;
   const rootBand = elbowXGeo * 0.55;
@@ -442,8 +443,10 @@ function buildNightFury(def, model, attach) {
   const ARM_VFLAT = 0.55;
   function buildArmFrame(arm) {
     const { wr, side } = arm;
-    const r0 = 0.10 * (model.wingRootScale ?? 1);
-    const rWrist = 0.035;
+    // anatomical taper: HUMERUS (shoulder) thickest → FOREARM (wrist) thinner, but still
+    // thicker than the fingers (the frame finger ≈0.085, struts ≈0.058). Reads as a real arm.
+    const r0 = (model.wingArmRadius ?? 0.115) * (model.wingRootScale ?? 1);
+    const rWrist = model.wingForearmRadius ?? 0.10;
     const N = 7;
     const pSh = new THREE.Vector3(wr.x, wr.y, wr.z);
     const pEl = new THREE.Vector3(wr.x + elbowXGeo * side, wr.y + elbowLift, wr.z + armLeadZ * 0.5);
@@ -607,8 +610,11 @@ function buildNightFury(def, model, attach) {
       const stations = seg(6);
       // chord-direction sign: tips fan toward the trailing edge (−chord → +z here).
       const bowMag = (model.wingFingerCurve ?? 0.0) * fanT;     // 0 for the top spoke
-      const rBase = frame ? r0 * (model.wingFrameRadius ?? 1.55) : r0;
-      const topLift = frame ? lift * (model.wingFrameLift ?? 2.4) : lift;
+      // FRAME finger (the leading spar): an ABSOLUTE radius < the forearm (so arm > finger),
+      // and lift≈0 so the tube CENTRE sits on the membrane leading edge → half-sunk / embedded
+      // (a thickened matte edge bonded to the membrane, not a floating bar).
+      const rBase = frame ? (model.wingFrameRadius ?? 0.085) : r0;
+      const topLift = frame ? lift * (model.wingFrameLift ?? 0.0) : lift;
       const centre = [], radii = [], skin = [];
       for (let s = 0; s < stations; s++) {
         const t = s / (stations - 1);
@@ -803,8 +809,10 @@ function buildNightFury(def, model, attach) {
   // FLAT bat-fan (near-zero arc/billow so it lies in the horizontal plane); 4 tips →
   // 3 scallop notches → 3 outboard finger spokes flaring ~45° from the long axis.
   const finSpec = {
-    tips: [[0.98, 0.10], [0.72, -0.34], [0.44, -0.58], [0.16, -0.60]],
-    lead: [0.60, 0.16], scallop: 0.12, rootChord: 0.20, flame: false,
+    // FULLER outline (bigger spans + deeper chords) + DEEPER scallops (the web cusps far up
+    // between the 3 finger tips) so the fan reads lobed like the reference, not triangular.
+    tips: [[1.06, 0.18], [0.82, -0.46], [0.50, -0.78], [0.18, -0.78]],
+    lead: [0.68, 0.26], scallop: 0.26, rootChord: 0.24, flame: false,
     arc: { bow: 0.05, hump: 0.0, humpAt: 0.6, hook: 0.0 },
   };
   function buildTailFin(side) {
