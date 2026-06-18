@@ -102,15 +102,15 @@ const NIGHTFURY_PROFILE = {
      [0.05, 0.420, 0.360, 0.340,  0.00], // thorax
      [0.45, 0.330, 0.290, 0.280, -0.01], // WAIST pinch
      [0.85, 0.270, 0.240, 0.230, -0.03], // mid-body
-     [1.20, 0.210, 0.190, 0.160, -0.05], // haunches
-     [1.50, 0.160, 0.160, 0.120, -0.08], // hip taper
-    // ── TAIL: long slim taper → fin zone → point, gently drooping ──
-     [1.85, 0.135, 0.130, 0.105, -0.11],
-     [2.40, 0.100, 0.100, 0.085, -0.15],
-     [2.95, 0.075, 0.075, 0.062, -0.18],
-     [3.50, 0.056, 0.056, 0.048, -0.20], // tail-fin attach zone
-     [4.10, 0.034, 0.034, 0.029, -0.21],
-     [4.75, 0.010, 0.010, 0.010, -0.20], // tail tip (near-point)
+     [1.20, 0.250, 0.230, 0.195, -0.05], // haunches (powerful)
+     [1.50, 0.225, 0.212, 0.178, -0.08], // tail base — THICK + muscular
+    // ── TAIL: THICK + powerful, SHORTER (was long/thin) → fin zone at the END → point ──
+     [1.85, 0.195, 0.186, 0.156, -0.11],
+     [2.25, 0.165, 0.158, 0.132, -0.15],
+     [2.70, 0.132, 0.127, 0.106, -0.18],
+     [3.15, 0.098, 0.095, 0.080, -0.20], // tail-fin attach zone (near the end now)
+     [3.60, 0.058, 0.058, 0.050, -0.21],
+     [3.95, 0.014, 0.014, 0.014, -0.20], // tail tip (near-point) — tail ends here
   ],
   keel: [[-4.34, 0.278], [-3.74, 0.185], [-3.05, 0.095], [-0.65, 0.44], [-0.30, 0.42], [0.05, 0.36], [0.45, 0.29], [0.85, 0.24], [1.20, 0.19], [1.70, 0.13], [3.50, 0.056]],
   wingRoot: { x: 0.45, y: 0.48, z: -0.45 }, // high on the back over the shoulder
@@ -575,29 +575,43 @@ function buildNightFury(def, model, attach) {
       features.push(eye);
     }
   }
-  // EAR-HORNS — the two LARGE back-swept head horns (the "ears"), rounder + longer
-  // than blades so they read as horns from the side + rear.
+  // EAR-HORNS — the two LARGE back-swept head horns (the "ears"). The cone BASE is
+  // baked to the origin (translate +len/2) so the WIDE end connects to the head and
+  // the NARROW apex projects up + back (the correct taper — not wide-at-tip).
   {
-    const hornLen = model.earHornLen ?? 0.78;
-    const earGeo = new THREE.ConeGeometry(0.10, hornLen, seg(7), 1, false);
+    const hornLen = model.earHornLen ?? 0.82;
+    const earGeo = new THREE.ConeGeometry(0.13, hornLen, seg(7), 1, false);
+    earGeo.translate(0, hornLen / 2, 0);          // base at origin → wide end at the head
     for (const side of [1, -1]) {
       const ear = new THREE.Mesh(earGeo, hullMat);
-      ear.scale.set(1.0, 1.0, 0.66);              // only mildly flattened → horn, not blade
-      ear.position.set(side * 0.15, HEAD_Y + 0.24, -3.88);
-      ear.rotation.x = -2.35;                     // sweep BACK (apex toward +z), tipped up
+      ear.scale.set(1.0, 1.0, 0.7);               // only mildly flattened → horn, not blade
+      ear.position.set(side * 0.15, HEAD_Y + 0.20, -3.92);
+      ear.rotation.x = -1.30;                      // sweep up + BACK (apex toward +z, raised)
       ear.rotation.z = side * 0.30;               // splay outward
       features.push(ear);
     }
   }
-  // DORSAL NUB-HORNS — a short row of small subtle nubs along the cranium midline
-  // (between the eyes and the ear-horns), the Night-Fury head ridge.
+  // DORSAL RIDGE — a row of small nubs running the WHOLE spine from the head crown to
+  // the tail, sampled directly off the loft's apex line (so they sit exactly on the
+  // back). Wide base at the skin, narrow tip up. Subtle; a touch taller over the back.
   {
-    const nubZ = [-4.18, -3.98, -3.78, -3.60];
-    const nubH = [0.10, 0.13, 0.12, 0.10];
-    for (let i = 0; i < nubZ.length; i++) {
-      const nub = new THREE.Mesh(new THREE.ConeGeometry(0.045, nubH[i], seg(5), 1, false), hullMat);
-      nub.position.set(0, HEAD_Y + 0.20 - i * 0.012, nubZ[i]);
-      nub.rotation.x = -0.5;                       // lean back along the crown
+    const lr = loftGeo.userData.loftRings;
+    const m0 = lr.section;
+    const lp = loftGeo.attributes.position;
+    let prevZ = -Infinity;
+    for (let r = 0; r < lr.count; r++) {
+      const z = lr.ringZ[r];
+      if (z < -4.05 || z > 3.55) continue;        // head crown → tail (skip snout + very tip)
+      if (z - prevZ < 0.28) continue;             // space them out evenly
+      prevZ = z;
+      const apex = r * m0 + 0;                     // column 0 = top keel apex
+      const ax = lp.getX(apex), ay = lp.getY(apex), az = lp.getZ(apex);
+      const mid = Math.max(0, 1 - Math.abs(z + 0.3) / 3.2);  // tallest over the back
+      const h = 0.05 + 0.06 * mid;
+      const nub = new THREE.Mesh(new THREE.ConeGeometry(0.034 + 0.012 * mid, h, seg(5), 1, false), hullMat);
+      nub.geometry.translate(0, h / 2, 0);        // base on the skin, tip up
+      nub.position.set(ax, ay, az);
+      nub.rotation.x = -0.4;                       // lean back along the spine
       features.push(nub);
     }
   }
@@ -651,8 +665,10 @@ function buildNightFury(def, model, attach) {
   };
   function buildTailFin(side) {
     const pivot = new THREE.Group();
-    pivot.position.set(side * 0.03, TAILFIN_Y, 3.30);
-    const fws = ws * (model.tailFinScale ?? 0.72);
+    // sit at the fin-attach zone so the membrane fans BACK to the tail tip (≈3.95) —
+    // the fin ENDS in line with the end of the tail (was starting too early at 3.30).
+    pivot.position.set(side * 0.03, TAILFIN_Y, 3.18);
+    const fws = ws * (model.tailFinScale ?? 0.92);
     const sZ = (model.wingChord ?? 1) * 0.58;
     const span = finSpec.tips[0][0] * 1.34 * fws;
     const g = buildCurvedPatch(finSpec, {
@@ -681,9 +697,9 @@ function buildNightFury(def, model, attach) {
       for (let s = 0; s < st; s++) {
         const t = s / (st - 1);
         const p = new THREE.Vector3(0, 0, 0).lerp(target, t);
-        p.y += 0.02 * Math.sin(Math.PI * Math.min(t, 0.85));
+        p.y += 0.035 * Math.sin(Math.PI * Math.min(t, 0.85));   // top bulge (raised ridges)
         centre.push(p);
-        radii.push(0.028 + (0.004 - 0.028) * (t * t * (3 - 2 * t)));
+        radii.push(0.044 + (0.005 - 0.044) * (t * t * (3 - 2 * t)));
       }
       const tube = skinnedTube(centre, radii, seg(3), () => ({ si: [0, 0, 0, 0], sw: [1, 0, 0, 0] }), fingerMat);
       pivot.add(new THREE.Mesh(tube.geometry, fingerMat));

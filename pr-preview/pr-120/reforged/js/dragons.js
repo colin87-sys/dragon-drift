@@ -507,13 +507,15 @@ export const DRAGONS = {
       shoulderWidthScale: 1.2, wingRootOffset: { y: 0.06, z: -0.1 },
       riderSocket: { x: 0, y: 0.92, z: -0.45 },
       flapBias: 1.08, flapAmp: 0.82,
-      // Night-Fury wing anatomy (dragonNightFury knobs): the arm sweeps FORWARD to the
-      // leading edge (wingArmLeadChord), 5 fingers fan from that wrist, the top spoke
-      // straight and lower spokes bowing more (wingFingerCurve), and the struts bulge
-      // as raised ridges from the top (wingFingerBulge/Radius).
-      wingArmLeadChord: 0.5, wingFingerCurve: 0.18, wingFingerBulge: 0.05, wingFingerRadius: 0.072,
-      // mini-wing stabilizers + bat-tail steering (built below).
-      miniWingStabilizer: true, tailSteer: true,
+      // Night-Fury wing anatomy (dragonNightFury knobs): the wrist sits MEDIAL (short
+      // bat arm, wingWristSpan) so the 5 fingers fan from close to the body out to the
+      // wing edge; the arm also sweeps FORWARD to the leading edge (wingArmLeadChord);
+      // top spoke straight, lower spokes bow more (wingFingerCurve); struts bulge as
+      // raised top-view ridges (wingFingerBulge/Radius).
+      wingArmLeadChord: 0.5, wingWristSpan: 2.5,
+      wingFingerCurve: 0.20, wingFingerBulge: 0.085, wingFingerRadius: 0.095,
+      // bat-tail steering. (Mini-wings removed — they didn't read well.)
+      tailSteer: true,
     },
     // TOOTHLESS WING OUTLINE — a broad bat wing with FIVE finger struts (a finger to
     // every tip via dragonNightFury#buildFingers). tips: [x span, y chord], far tip
