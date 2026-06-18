@@ -82,14 +82,14 @@ const NIGHTFURY_PROFILE = {
   // channel, default 0): the head rides UP on a curved neck and the tail droops, so
   // the side silhouette reads as a posed dragon, not a flat horizontal plank.
   stations: [
-    // ── HEAD: blunt snout → wide cranium (big cheeks, no horns), lifted ──
-    [-5.02, 0.030, 0.030, 0.030,  0.30], // nose cap (near-point, blunt)
-    [-4.86, 0.120, 0.100, 0.120,  0.33], // snout / muzzle (rounded blunt)
-    [-4.62, 0.195, 0.165, 0.180,  0.35], // upper jaw
-    [-4.34, 0.300, 0.278, 0.250,  0.37], // cranium — widest head
-    [-4.06, 0.300, 0.286, 0.250,  0.35], // cranium back / cheeks
-    [-3.74, 0.200, 0.185, 0.175,  0.28], // skull base
-    [-3.42, 0.150, 0.135, 0.130,  0.18], // head→neck
+    // ── HEAD: BLUNT snout → big-cheeked wide cranium (larger, rounder), lifted ──
+    [-5.05, 0.046, 0.044, 0.046,  0.30], // nose cap (blunt, not a point)
+    [-4.86, 0.150, 0.128, 0.150,  0.33], // snout / muzzle (rounded blunt)
+    [-4.60, 0.245, 0.212, 0.222,  0.35], // upper jaw (fuller)
+    [-4.32, 0.345, 0.320, 0.288,  0.37], // cranium — widest, BIG cheeks
+    [-4.02, 0.340, 0.326, 0.286,  0.35], // cranium back / cheeks
+    [-3.70, 0.230, 0.214, 0.198,  0.28], // skull base
+    [-3.40, 0.158, 0.142, 0.136,  0.18], // head→neck
     // ── NECK: a slim pinch curving down to the shoulder ──
     [-3.05, 0.115, 0.095, 0.105,  0.09], // neck (slimmest)
     [-2.55, 0.200, 0.160, 0.170,  0.03], // neck base
