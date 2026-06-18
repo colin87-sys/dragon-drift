@@ -215,12 +215,13 @@ save compat for the detail setting (`modelDetail` deep-merge default, no migrati
 ## THE RULE (do this every time)
 
 1. **Read this file first.** It is the accumulated state of the art for this repo.
-2. **After every meaningful change, append a ledger entry — and don't stop at the
-   lesson. Interrogate it.** A recorded lesson is dead weight; the leapfrog only
-   happens when you *brainstorm what it means for the future*. Every entry MUST answer:
-   what did we learn → **how do we systematize the problem and the solution** → **what
-   does this unlock / what's the next innovation it points to.** No forward-looking
-   reflection = no leapfrog. (See the entry template below.)
+2. **Draft the lesson FIRST, then interrogate it.** As you START a meaningful change,
+   write its ledger entry up front (Did/learned → Systematize → Leapfrog) and refine it
+   as you go — don't reconstruct it as an afterthought at the end. A recorded lesson is
+   dead weight; the leapfrog only happens when you *brainstorm what it means for the
+   future*. Every entry MUST answer: what did we learn → **how do we systematize the
+   problem and the solution** → **what does this unlock / what's the next innovation it
+   points to.** No forward-looking reflection = no leapfrog. (See the entry template below.)
 3. **Build systems, not one-offs.** If a fix can become a reusable, tested,
    documented system, make it one. The next creature/feature should be *cheaper and
    better* than the last. If it can't be expressed as a system, it isn't done.

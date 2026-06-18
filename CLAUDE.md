@@ -8,8 +8,9 @@ this repo, written so each session starts from everything the last one learned a
 Then follow THE RULE in that file:
 
 1. **Read `LEAPFROG.md` first.**
-2. **After every meaningful change, append a lesson** to its ledger (what we did, what
-   we learned, the gotcha, the reusable pattern).
+2. **Draft the lesson FIRST, then append it** to the ledger — write the entry (what we
+   did, what we learned, the gotcha, the reusable pattern) as/before you make a
+   meaningful change, not as an afterthought at the end.
 3. **Build systems, not one-offs.** Coexist → prove on a hero → migrate; never break
    the shipped roster.
 4. **Verify before claiming** (headless tests + `tricount` + `tiershots`); the human
