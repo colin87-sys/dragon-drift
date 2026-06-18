@@ -1046,3 +1046,36 @@ hull.** A purpose-built parametric generator that emits body + fleshy arm + memb
 reversible, the shipped parts kept registered. The kernel (`growSkinnedExtension`), the fleshy arm, the
 seam-coincidence gate, and the re-seat logic ALL carry over; only the legacy-profile coupling is thrown away.
 That is the truer L23/L24 endgame (one generated organism) and the cleaner base for non-dragon creatures.
+
+### L26 — Clean-sheet organism hull: COPY the body's vertices, don't sample them — zero gap by construction
+**Did / learned:** the L25 fork fired. The human judged v1 on the preview and called it: the weld onto Obsidian's
+*legacy* arrow body could never connect (fat manta-arm + the ~0.43 analytic-flank gap + detach-on-bank), because the
+body was designed as a separate part — "we're flogging a dead horse." Directive: build a NEW creature on the new
+architecture so body/wings/arms (and later neck/head/tail) are generated TOGETHER and connect with no legacy coupling.
+Built **Increment 2a** (`dragonOrganism.js` + new creature **`obsidian2`** "Obsidian Shade II", a clone of Obsidian's
+identity on `organismTorso`/`organismWings`). The load-bearing realization that finally killed the gap: **don't SAMPLE
+the body surface to place the membrane root — COPY the body's actual vertices.** `findSeam` identifies the exact
+upper-flank loft verts across the shoulder stations (sweepProfile lays verts as `station*m + ringPos`, so a seam
+vert's index is deterministic); `seamPointAt` copies them VERBATIM into the membrane's root column; both the copy and
+the original are weighted 100% to the same static `bodyRoot`. Result: **zero gap (gate measures max 0.000 < 1e-6, vs
+v1's 0.43) and it holds in motion** (rotate a shoulder → seam stays welded, outboard wing flies). The arm is now a
+**slim frame** (0.14→0.05, not v1's 0.55 manta tube) + **3 finger struts** for the scalloped read. Existing roster
+**byte-identical** (obsidian still 3378–3662; obsidian2 adds 3594–3878 HIGH, ≤6000); `obsidian` + `dragonUnifiedHull.js`
+(v1) **byte-untouched** (rollback intact); `tiershots obsidian2` compiles, no PAGEERROR. Honest limits: body + membrane
+are still SEPARATE meshes (opaque/translucent) so the seam is positionally welded but NOT normal-smoothed across the
+material boundary (a possible shading edge, not a gap); the seam chain is only ~7 verts/side at HIGH (coarse root edge);
+the rear/¾-rear banking-in-motion read is the human's call.
+**→ Systematize:** the reusable law — **"to weld a sub-surface to a body so it can never separate, COPY the body's
+boundary vertices as the sub-surface's seam ring (don't sample/approximate them) and weight both to the same static
+frame."** Sampling = approximation = gap; copying = zero gap by construction. `findSeam`/`seamPointAt` is the reusable
+primitive and it generalizes to EVERY appendage (neck/tail/head/fins): grab the hull's boundary-ring verts, copy them
+as the appendage root ring, share the weight. And the meta-discipline: **design the body FOR the connection — a fresh
+creature on the new architecture beats retrofitting a legacy one** (the L25 dead-horse, paid off).
+**→ Leapfrog (innovate):** the zero-gap weld is proven on body↔wing — the SAME copy-the-boundary mechanism now grows
+**2b** (neck + head: copy the hull's FRONT ring → neck-tube root, retiring the sphere chain) and **2c** (tail: copy the
+hull's REAR ring → tail-tube root) → ONE skinned hull nose-to-tail on one skeleton. **Banked for 2c (human reference,
+Toothless): the tail fins must be BAT-MEMBRANE PROJECTIONS — a thin frame + membrane + finger struts (the wing kernel
+verbatim), NEVER the old flat "lilypad" spade.** A tail fin IS a small wing, so `growSkinnedExtension` + membrane +
+fingers applies directly. Two refinements queued: (a) merge body+membrane into ONE mesh (or share seam normals) so the
+junction is shading-continuous, not just position-continuous; (b) a denser body seam for a smoother root edge. The
+body-on-a-`bodyRoot`-bone still unlocks the Phase-2 vertical body-whip (split it into a phase-lagged spine chain).
