@@ -489,6 +489,9 @@ export const DRAGONS = {
     // Bigger scales + strong relief so the micro-relief resolves at chase-cam
     // distance. Additive/nullable → roster-safe.
     bodyMetalness: 0.0, bodyRoughness: 0.85, bodyEnvIntensity: 0.16, scaleSize: 3.0, scaleRelief: 0.9,
+    // matte BLACK hide: kill most of the warm fresnel rim (the global 0.5 rim washed the
+    // dorsal/shoulders into a white glare against the bright sky). Wings/spine keep theirs.
+    rimBodyMul: 0.15,
     rarity: 'SSR',
     maxRarity: 'SSSR',
     cost: 2600,

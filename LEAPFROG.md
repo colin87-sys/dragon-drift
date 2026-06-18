@@ -1572,3 +1572,17 @@ hard-bank exaggeration (neck/head turn-lead 0.26/0.40→0.18/0.28, hip drift 0.5
 that worked for the OLD apex direction can invert for the new one — re-derive the sign.** And: layered "calm"
 factors want PER-PART strength (the head needs more damping than the body under streamline). 10 gates green,
 tri 4442, 0-over, tiershots compiles; feel is human-judged on the preview.
+
+### L45 — The "white glare" on the matte body was the global FRESNEL RIM, not a glow sprite; make it per-dragon
+**Did / learned:** the human saw a white glare washing the front/dorsal half of the body and guessed the "aim
+core glow" — but `toothless` has no `coreGlow` sprite. The culprit was the GLOBAL fresnel rim (`rimLight.js`,
+applied to every hero's bodyMat at strength ≈0.5 in cruise): an additive warm-white at grazing angles that, on
+a matte-BLACK Night Fury against a bright sky, lit the rounded shoulders/back into a glare (high contrast on
+black). Fix: gave `applyRim` a per-material `mul` that `updateRim` folds into the strength, and a per-def
+`rimBodyMul` (default 1 → roster byte-identical) set to **0.15** for toothless so its body rim is mostly off
+while wings/spine keep theirs (the membrane still needs the edge to read against the sky). **Rule banked: a
+"glow" on a hero can be a SPRITE, an EMISSIVE, an ENV reflection, OR an additive shader RIM — check which by
+elimination (no coreGlow → look at the rim/SSS/env), and prefer a per-dragon multiplier over a global tweak so
+one creature's matte read doesn't regress the colourful roster.** Material-only: 10 gates green, roster tri
+byte-identical, tiershots compiles the rim shader. Lit result is human-judged; env-intensity is the fallback
+lever if any sky-sheen remains.
