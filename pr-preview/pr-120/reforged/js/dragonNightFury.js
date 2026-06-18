@@ -88,20 +88,19 @@ const NIGHTFURY_PROFILE = {
     [-4.60, 0.245, 0.212, 0.222,  0.35], // upper jaw (fuller)
     [-4.32, 0.345, 0.320, 0.288,  0.37], // cranium — widest, BIG cheeks
     [-4.02, 0.340, 0.326, 0.286,  0.35], // cranium back / cheeks
-    [-3.70, 0.230, 0.214, 0.198,  0.28], // skull base
-    [-3.40, 0.158, 0.142, 0.136,  0.18], // head→neck
-    // ── NECK: a slim pinch curving down to the shoulder ──
-    [-3.05, 0.115, 0.095, 0.105,  0.09], // neck (slimmest)
-    [-2.55, 0.200, 0.160, 0.170,  0.03], // neck base
-    [-1.95, 0.320, 0.260, 0.250,  0.00], // lower neck → shoulder lead-in
-    // ── BODY: shoulder/chest swell → waist → haunch (level) ──
-    [-1.45, 0.420, 0.360, 0.320,  0.00], // fore-shoulder (wing-root chord front)
-    [-1.05, 0.480, 0.420, 0.370,  0.00], // shoulder rise
-    [-0.65, 0.510, 0.440, 0.390,  0.00], // shoulder/chest peak — sleek
-    [-0.30, 0.490, 0.420, 0.380,  0.00], // chest (wing-root centre)
-     [0.05, 0.440, 0.380, 0.350,  0.00], // thorax (fuller)
-     [0.45, 0.380, 0.335, 0.310, -0.01], // waist — muscular, LESS pinch
-     [0.85, 0.330, 0.295, 0.275, -0.03], // mid-body (fuller)
+    [-3.70, 0.245, 0.226, 0.205,  0.27], // skull base (thicker)
+    // ── NECK: SHORT + THICK + muscular (no thin pinch) flowing into a big ribcage ──
+    [-3.40, 0.255, 0.235, 0.210,  0.17], // head→neck — THICK
+    [-3.00, 0.345, 0.315, 0.282,  0.08], // neck — short + thick (was a 0.115 pinch)
+    [-2.52, 0.470, 0.410, 0.366,  0.02], // neck → shoulder (ramps up fast)
+    // ── BODY: THICK muscular ribcage/thorax → waist → haunch ──
+    [-2.02, 0.585, 0.510, 0.452,  0.00], // fore-shoulder — THICK
+    [-1.52, 0.645, 0.560, 0.496,  0.00], // shoulder rise — muscular ribcage
+    [-1.02, 0.665, 0.578, 0.510,  0.00], // CHEST PEAK — short + thick
+    [-0.50, 0.620, 0.540, 0.482,  0.00], // chest (wing-root centre)
+     [0.05, 0.530, 0.462, 0.420,  0.00], // thorax (thick)
+     [0.45, 0.410, 0.360, 0.332, -0.01], // waist — muscular (eased from the big chest)
+     [0.85, 0.345, 0.306, 0.286, -0.03], // mid-body
      [1.20, 0.300, 0.275, 0.235, -0.05], // haunches (powerful)
      [1.50, 0.275, 0.258, 0.218, -0.08], // tail base — THICK + muscular
     // ── TAIL: THICK/robust, holds its mass then necks down LATE near the fins ──
@@ -758,12 +757,12 @@ function buildNightFury(def, model, attach) {
     const eyeGeo = new THREE.SphereGeometry(0.115, seg(10), seg(8));
     for (const side of [1, -1]) {
       const eye = new THREE.Mesh(eyeGeo, eyeMat);
-      // sat back on the wide cranium/cheek station (−4.32) + pulled inboard so the
-      // ball sinks into the hide; only the forward cap shows (the "inside the head" read).
-      eye.position.set(side * 0.185, HEAD_Y + 0.04, -4.32);
-      eye.scale.set(0.78, 1.16, 0.66);            // shallow (sunk) + tall → almond socket
-      eye.rotation.y = side * 0.42;               // face forward-outward
-      eye.rotation.z = side * -0.22;
+      // on the SIDE of the head (not on top): pushed OUT toward the cheek surface and
+      // DROPPED to mid-head height, set into the hide so only the side cap shows.
+      eye.position.set(side * 0.275, HEAD_Y - 0.05, -4.30);
+      eye.scale.set(0.74, 1.12, 0.70);            // shallow (sunk) + tall → almond socket
+      eye.rotation.y = side * 0.55;               // face SIDEWAYS-forward
+      eye.rotation.z = side * -0.12;
       features.push(eye);
     }
   }
@@ -778,7 +777,9 @@ function buildNightFury(def, model, attach) {
       const ear = new THREE.Mesh(earGeo, hullMat);
       ear.scale.set(1.0, 1.0, 0.7);               // only mildly flattened → horn, not blade
       ear.position.set(side * 0.15, HEAD_Y + 0.20, -3.92);
-      ear.rotation.x = -1.30;                      // sweep up + BACK (apex toward +z, raised)
+      // point VERTICALLY but swept BACK: apex up (+y) and toward the tail (+z). The old
+      // −1.30 sent the apex toward −z (forward) — the "pointing forward" bug.
+      ear.rotation.x = 0.52;                       // up + back (apex +y/+z)
       ear.rotation.z = side * 0.30;               // splay outward
       features.push(ear);
     }
