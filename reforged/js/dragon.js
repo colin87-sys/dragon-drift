@@ -27,7 +27,10 @@ let wingRigR = null;
 let head = null;
 let tailSegs = [];
 let spineSegs = [];       // night-fury body-spine whip bones (empty for every other dragon)
-let surge01 = 0;          // Dragon-Surge blend (0 cruise → 1 high-speed attack flight)
+let surge01 = 0;          // Dragon-Surge (fever) blend
+let boost01 = 0;          // held speed-boost blend (distinct from surge)
+let decel01 = 0;          // boost-RELEASE air-brake spike, eases out
+let prevSpeedActive = false;
 let tailFins = [];        // apex deployable tail-fin groups (empty for every other dragon)
 let tailDeploy = 0.82;    // deploy factor: cruise 0.82 · boost 1.0 · Surge 1.08
 let bodySegs = null;      // segmented-wyrm body plates (lead-first travelling wave)
@@ -374,10 +377,26 @@ export function updateDragon(dt, player, time) {
   // Bank is tracked separately so the barrel-roll spin can stack on top
   // without fighting the damper.
   const speedNorm = Math.min(Math.max((player.speed - 35) / 45, 0), 1);
-  // Surge banks DEEPER + SNAPPIER (carves like a fighter jet). surge01 is last frame's
-  // value here (updated below) — a 1-frame lag that's visually irrelevant.
-  const bankFactor = 0.035 + speedNorm * 0.015 + surge01 * 0.022;
-  bankZ = damp(bankZ, -player.velocity.x * bankFactor, 9 + 5 * surge01, dt);
+
+  // ── LAYERED FLIGHT BLEND STATE (overlapping, smoothed — no hard switches) ──
+  //   surge01 fever · boost01 held boost · decel01 boost-release air-brake spike
+  //   diveAmount/climbAmount from vertical velocity · aero01 tuck/sweep · spread01 open/brake
+  const vy = player.velocity.y;
+  const diveAmount = Math.min(Math.max(-vy * 0.05, 0), 1);
+  const climbAmount = Math.min(Math.max(vy * 0.05, 0), 1);
+  surge01 = damp(surge01, player.feverActive ? 1 : 0, 3.5, dt);
+  boost01 = damp(boost01, player.speedActive ? 1 : 0, 5, dt);
+  if (prevSpeedActive && !player.speedActive) decel01 = 1;      // RELEASE → air-brake spike
+  prevSpeedActive = !!player.speedActive;
+  decel01 = damp(decel01, 0, 2.2, dt);                          // …eased out smoothly
+  const aero01 = Math.min(1, Math.max(boost01 * 0.7, surge01, diveAmount * 0.85));   // tuck/sweep
+  const spread01 = Math.min(1, climbAmount * 0.9 + decel01);                          // open/brake
+  // POSTURE pitch: nose-DOWN in dive/boost/surge, nose-UP in climb, relax on decel.
+  const posturePitch = climbAmount * 0.42 - diveAmount * 0.5 - boost01 * 0.12 - surge01 * 0.14 + decel01 * 0.05;
+
+  // Surge/boost bank DEEPER + SNAPPIER (carves like a fighter jet).
+  const bankFactor = 0.035 + speedNorm * 0.015 + aero01 * 0.022;
+  bankZ = damp(bankZ, -player.velocity.x * bankFactor, 9 + 5 * aero01, dt);
   let rollSpin = 0;
   let rollFold = 0;
   if (player.roll) {
@@ -390,7 +409,7 @@ export function updateDragon(dt, player, time) {
   // than banking like a plane — so soften the whole-body roll for the wyrm, or the
   // barrel-bank would hide the snake-bend.
   group.rotation.z = bankZ * (bodySegs ? 0.4 : 1) + rollSpin;
-  group.rotation.x = damp(group.rotation.x, player.velocity.y * 0.022, 9, dt);
+  group.rotation.x = damp(group.rotation.x, player.velocity.y * 0.022 + posturePitch, 9, dt);
   // Slight yaw toward lateral movement
   group.rotation.y = damp(group.rotation.y, player.velocity.x * 0.008, 6, dt);
   head.rotation.y = damp(head.rotation.y, -player.velocity.x * 0.014, 8, dt);
@@ -417,17 +436,14 @@ export function updateDragon(dt, player, time) {
     o.mesh.rotation.y = time * 1.5;
   }
 
-  // Wing flap: 2-segment articulation with speed/turn-driven asymmetry.
-  // flapBias gives each dragon its own wingbeat character.
-  // Dragon SURGE blend: fever = full surge (attack flight), boost = half, cruise = 0.
-  // Smoothed so the posture morphs in/out instead of snapping.
-  surge01 = damp(surge01, player.feverActive ? 1 : (player.speedActive ? 0.5 : 0), 3.5, dt);
+  // Wing flap: articulated cascade with speed/turn asymmetry + the blend layers (above).
   const feverBoost = player.feverActive ? 1.3 : 1;
-  const flapSpeed = (player.speedActive ? 11 : 6) * feverBoost * activeDef.model.flapBias * formSpeed(activeDef.model);
-  // flapAmp: per-dragon wingbeat size. Premium gliders (Solar) beat smaller so
-  // the bowed elbow silhouette stays readable from behind instead of washing
-  // out into a flat strip at the extremes of a big flap.
-  const flapAmp = (player.speedActive ? 0.7 : 0.52) * (activeDef.model.flapAmp ?? 1);
+  // FREQUENCY: boost/surge faster, a DIVE glides (slower/paused), decel eases back to normal.
+  const flapSpeed = (player.speedActive ? 11 : 6) * feverBoost * activeDef.model.flapBias
+    * formSpeed(activeDef.model) * (1 - 0.55 * diveAmount) * (1 - 0.18 * decel01);
+  // AMPLITUDE: dive tucks to a glide (small), climb + decel open broad to catch air.
+  const flapAmp = (player.speedActive ? 0.7 : 0.52) * (activeDef.model.flapAmp ?? 1)
+    * (1 - 0.7 * diveAmount) * (1 + 0.3 * climbAmount) * (1 + 0.25 * decel01);
   const turnBias = Math.max(-0.28, Math.min(0.28, player.velocity.x * 0.018));
   const climbBias = Math.max(-0.18, Math.min(0.18, player.velocity.y * 0.015));
   const phase = time * flapSpeed;
@@ -437,7 +453,7 @@ export function updateDragon(dt, player, time) {
   if (wingRigL) {
     // Skinned wings: the shared animator drives the shoulder→elbow→wrist cascade
     // (lagged whip + anatomical limits). Same flight state, organic motion.
-    const flapState = { phase, flapAmp, turnBias, climbBias, rollFold, feather, surge01, strength: formStrength(activeDef.model) };
+    const flapState = { phase, flapAmp, turnBias, climbBias, rollFold, feather, aero01, spread01, surge01, strength: formStrength(activeDef.model) };
     flapWing(wingRigL, flapState, dt);
     flapWing(wingRigR, flapState, dt);
   } else {
@@ -481,26 +497,30 @@ export function updateDragon(dt, player, time) {
   // object. SURGE streamlines it: less bob, straighter spine, head lowers into a spear.
   if (spineSegs.length) {
     const sp = 0.7 + 0.3 * speedNorm;
-    const calm = 1 - 0.55 * surge01;                     // surge damps the loose bob
+    const calm = 1 - 0.5 * aero01;                       // streamline (boost/surge/dive) damps the bob
+    const noseDown = diveAmount * 0.5 + boost01 * 0.10 + surge01 * 0.16;   // spear/dive pitch
+    const noseUp = climbAmount * 0.34;                                     // soar pitch
     for (const b of spineSegs) {
       const role = b.userData.role;
       if (role === 'hip') {
-        // body LIFT wave — peaks a beat AFTER the power downstroke; tighter in surge.
-        b.rotation.x = damp(b.rotation.x, 0.15 * sp * calm * flapSurge(phase - 0.6), 9 + 4 * surge01, dt);
+        // body LIFT wave — peaks a beat AFTER the power downstroke; calmer when streamlined.
+        // CLIMB drops the hips/tail (counterweight that levers the nose up).
+        const wave = 0.15 * sp * calm * flapSurge(phase - 0.6);
+        b.rotation.x = damp(b.rotation.x, wave + climbAmount * 0.16, 9 + 4 * aero01, dt);
         b.rotation.y = damp(b.rotation.y, turnBias * 0.4, 6, dt);   // hips drift into the turn
       } else if (role === 'neck') {
-        // ABSORB the chest bob (small, lagged) + a slow breathe; lead the turn a touch;
-        // surge STRETCHES the neck forward (nose-down pitch).
+        // ABSORB the chest bob + slow breathe; lead the turn; stretch forward (down) in
+        // boost/surge/dive, arc up in climb.
         const bob = 0.06 * sp * calm * flapSurge(phase - 0.3);
-        const breathe = Math.sin(time * 1.1) * 0.014 * (1 - 0.6 * surge01);
-        b.rotation.x = damp(b.rotation.x, bob + breathe - 0.10 * surge01, 8, dt);
-        b.rotation.y = damp(b.rotation.y, -turnBias * 0.45 * (1 + 0.6 * surge01), 7, dt);
+        const breathe = Math.sin(time * 1.1) * 0.014 * calm;
+        b.rotation.x = damp(b.rotation.x, bob + breathe - noseDown * 0.55 + noseUp * 0.5, 8, dt);
+        b.rotation.y = damp(b.rotation.y, -turnBias * 0.45 * (1 + 0.6 * aero01), 7, dt);
       } else if (role === 'head') {
-        // STABILISE the gaze: counter the neck bob so the head barely moves vertically;
-        // lead the turn (yaw) more decisively; surge drops the nose into a predatory spear.
+        // STABILISE the gaze (counter the neck bob); lead the turn decisively; drop the nose
+        // into a predatory spear when diving/boosting/surging, lift it when climbing.
         const counter = -0.045 * sp * calm * flapSurge(phase - 0.3);
-        b.rotation.x = damp(b.rotation.x, counter - 0.14 * surge01, 9, dt);
-        b.rotation.y = damp(b.rotation.y, -turnBias * 0.7 * (1 + 0.7 * surge01), 9, dt);
+        b.rotation.x = damp(b.rotation.x, counter - noseDown + noseUp, 9, dt);
+        b.rotation.y = damp(b.rotation.y, -turnBias * 0.7 * (1 + 0.7 * aero01), 9, dt);
       } else {
         const w = b.userData.whip || { gain: 0, phase: 0 };
         b.rotation.x = damp(b.rotation.x, w.gain * sp * flapSurge(phase + w.phase), 9, dt);
@@ -518,17 +538,18 @@ export function updateDragon(dt, player, time) {
     const bankAmt = Math.min(1, Math.abs(turnBias) / 0.16);
     const cruise = 1 - bankAmt * 0.7;
     const sp = 0.6 + 0.4 * speedNorm;
-    // SURGE = a tighter, faster rudder: less loose vertical wave, stronger into-turn sweep,
-    // snappier follow-through (higher damp λ). The per-segment lag still gives the tail tip
-    // the most delayed motion (organic follow-through / counter-sweep on a turn).
-    const loose = 1 - 0.45 * surge01;
-    const lam = 8 + 5 * surge01;
+    // tailStiffness: boost/surge/dive TIGHTEN the tail into a high-speed rudder (less loose
+    // wave, snappier follow-through); boost-release decel LOOSENS it (soft S-curve, lagging
+    // tip catching air); a DIVE also straightens it behind the body. The per-segment lag
+    // keeps the tail TIP the most delayed (organic follow-through / counter-sweep on turns).
+    const loose = Math.max(0.2, 1 - 0.45 * aero01) * (1 + 0.4 * decel01) * (1 - 0.5 * diveAmount);
+    const lam = Math.max(4, 8 + 5 * aero01 - 3 * decel01);
     for (let i = 0; i < nTail; i++) {
       const lock = (i + 1) / nTail;                       // root subtle → tip full
       const ph = phase - 1.6 - i * 0.6;                   // trail the wingbeat aft
-      const pitch = flapSurge(ph) * 0.19 * lock * cruise * sp * loose;  // VERTICAL surge (thrust)
-      const rudder = turnBias * (1.4 + 0.9 * surge01) * lock * bankAmt;  // HORIZONTAL rudder
-      tailSegs[i].rotation.x = damp(tailSegs[i].rotation.x, pitch, lam, dt);
+      const pitch = flapSurge(ph) * 0.19 * lock * cruise * sp * loose;  // VERTICAL wave (thrust)
+      const rudder = turnBias * (1.4 + 0.9 * aero01) * lock * bankAmt;  // HORIZONTAL rudder
+      tailSegs[i].rotation.x = damp(tailSegs[i].rotation.x, pitch + climbAmount * 0.10 * lock, lam, dt);
       tailSegs[i].rotation.y = damp(tailSegs[i].rotation.y, rudder, lam, dt);
       tailSegs[i].rotation.z = damp(tailSegs[i].rotation.z, 0, 9, dt);
     }
