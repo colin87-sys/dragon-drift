@@ -1,67 +1,104 @@
 import * as THREE from 'three';
 import { mergeGeometries } from '../lib/utils/BufferGeometryUtils.js';
 import {
-  wingSpecFor, buildCurvedPatch, applyWingGradient, archLift,
+  wingSpecFor, buildCurvedPatch, buildWingShape, applyWingGradient, archLift,
 } from './dragonParts.js';
 import { registerWings, registerTorso } from './dragonRecipe.js';
 import { seg } from './modelDetail.js';
 import { skinnedTube } from './dragonSweep.js';
-import { buildTorso, bladeRing } from './dragonTorso.js';
+import { buildTorso } from './dragonTorso.js';
 import { sweepProfile } from './dragonSweep.js';
 import { composeSurface, membraneSSSPatch } from './dragonSurfaceShader.js';
 
 // ── CLEAN-SHEET ORGANISM HULL ───────────────────────────────────────────────
-// Increment 2a (LEAPFROG L25 FORK): a NEW creature whose body + wings (and later
-// neck/head/tail) are generated TOGETHER as one continuous skinned hull, with NO
-// legacy-body coupling. This SUPERSEDES dragonUnifiedHull.js (v1), which welded
-// the new wing onto Obsidian's legacy arrow-loft and left a ~0.43 rest-pose gap
-// (the analytic flank point ≠ the real loft vertex) that detached on the bank.
+// Increment 2a (LEAPFROG L25 FORK) → 2a-v2 (L27, this pass): a NEW creature whose
+// body + wings (and later neck/head/tail) are generated TOGETHER as one continuous
+// skinned hull, with NO legacy-body coupling. This SUPERSEDES dragonUnifiedHull.js
+// (v1), which welded the new wing onto Obsidian's legacy arrow-loft and left a ~0.43
+// rest-pose gap that detached on the bank.
 //
 // THE KEY IDEA — SHARED VERTICES, NOT SAMPLING.
-// v1's membrane root was placed at an ANALYTIC flank point. Here the membrane
-// root-column verts are EXACT COPIES of the body loft's OWN wing-seam vertices —
-// the wing literally grows out of the body surface, so there is ZERO gap by
-// construction. Both the seam verts and their body originals are weighted 100%
-// to the same static `bodyRoot` bone, so they stay coincident in ANY motion (the
+// The membrane root-column verts are EXACT COPIES of the body loft's OWN wing-seam
+// vertices — the wing literally grows out of the body surface, so there is ZERO gap
+// by construction. Both the seam verts and their body originals are weighted 100% to
+// the same static `bodyRoot` bone, so they stay coincident in ANY motion (the
 // relationship is frozen — L25's "shared-static-frame is the actual invariant").
 //
+// THIS PASS (the human's rear-cam feedback on obsidian2):
+//   A. ORGANIC BODY — the body had ARROW's 8-pt bladeRing → a faceted octagonal
+//      loft (robotic). Now it has its OWN smooth 16-point super-ellipse drake
+//      section (round at HIGH, not faceted) + ~13 fleshy stations (tapered neck,
+//      chest swell, belly, haunches, smooth tail taper) so it reads as muscle.
+//   B. SLIM ARM — the deltoid swell is gone; the arm is a thin VERTICALLY-FLATTENED
+//      blade spar (≈0.10 socket → 0.035 wrist, vertical axis squashed ~0.55).
+//   C. FINGERS RADIATE — each finger is a strut from the WRIST out to a wing scallop
+//      TIP (wingSpec.tips[i]), lying along the membrane toward the scallop points.
+//   D. CONTIGUOUS SEAM — findSeam walks ONE upper-flank ring index across the
+//      shoulder stations inside the wing-root z-window, front→back, no zig-zag, so
+//      the WHOLE root chord (front, MIDDLE, back) maps onto a connected path of real
+//      body verts and the middle no longer lifts off.
+//
 // Topology, on ONE 7-bone skeleton [bodyRoot, shL,elL,wrL, shR,elR,wrR]:
-//   · opaque HULL  = body loft (→ bodyRoot) MERGED with two thin fleshy ARM
-//                    frames (slim leading-edge tubes, deltoid swell at the root
-//                    only) → ONE body-material draw call.
-//   · membrane     = both wings' curved patches, root column = the EXACT body
-//                    seam verts, inner columns smoothstep-blended out to the
-//                    natural wing shape, root band → bodyRoot, outboard →
-//                    shoulder/elbow/wrist. ONE translucent draw call.
-//   · fingers      = slim struts radiating from the wrist through the membrane to
-//                    the trailing tips (skinned to wrist/elbow) → the scalloped
-//                    dragon-wing read. MERGED into the membrane mesh.
+//   · opaque HULL  = body loft (→ bodyRoot) MERGED with two slim flattened ARM
+//                    spars → ONE body-material draw call.
+//   · membrane     = both wings' curved patches, root column = the EXACT body seam
+//                    verts, inner columns smoothstep-blended out to the natural wing
+//                    shape, root band → bodyRoot, outboard → shoulder/elbow/wrist.
+//   · fingers      = slim struts from the wrist to the scallop tips (skinned to
+//                    wrist/elbow) → the scalloped dragon-wing read.
 
 const BONE = { BODY: 0, SH_L: 1, EL_L: 2, WR_L: 3, SH_R: 4, EL_R: 5, WR_R: 6 };
 const sstep = (x) => { x = Math.min(Math.max(x, 0), 1); return x * x * (3 - 2 * x); };
 
+// ── ORGANIC DRAKE SECTION (A) ────────────────────────────────────────────────
+// A smooth 16-point super-ellipse drake belly/keel section — its OWN section, NOT
+// ARROW's 8-pt bladeRing. Ordered CCW looking toward -z (keel apex on top), so
+// face winding points outward. Super-ellipse exponent >2 gives a fuller, rounder
+// belly + flanks than a circle and far rounder than the octagon — the body reads
+// ROUND at HIGH instead of faceted. sweepProfile resamples it as a closed
+// Catmull-Rom at seg(): 16 control pts → 16-gon at HIGH (smooth), denser at ULTRA.
+const SECTION_N = 16;
+function drakeSection(w, top, bot) {
+  const pts = [];
+  const ex = 2.3;                                   // >2 = fuller belly + flanks
+  const shape = (c) => Math.sign(c) * Math.pow(Math.abs(c), 2 / ex);
+  for (let i = 0; i < SECTION_N; i++) {
+    const a = (i / SECTION_N) * Math.PI * 2 + Math.PI / 2; // i=0 → top (+y), CCW
+    const sx = shape(Math.cos(a)), sy = shape(Math.sin(a));
+    pts.push([sx * w, sy * (sy >= 0 ? top : bot)]);
+  }
+  return pts;
+}
+
 // ── A clean SLEEK DRAKE profile, decoupled from the shipped roster ───────────
-// Started from ARROW_PROFILE but defined as OUR OWN copy so this creature owns
-// its body plan — it cannot drift the roster, and a future neck/tail/head can
-// reshape it freely. Slightly slimmer + a touch longer than the arrow drake for
-// a sleeker organism read. Reuses the shared bladeRing cross-section.
+// OUR OWN body plan — it owns its section + stations, cannot drift the roster, and
+// a future neck/tail/head can reshape it freely. ~13 stations (NOT ARROW's 8) shape
+// a creature silhouette with no longitudinal facets: a tapered neck → fore-shoulder
+// → a chest/shoulder SWELL (broadest+tallest, clustered for a dense wing-root seam)
+// → thorax → belly → haunches → a smooth taper into the slim tail root.
 const DRAKE_PROFILE = {
   zHold: 0,
   tailShiftRefZ: 1.70,
   tailAnchorY: 0.27,
   tailAnchorZ: 1.18,
+  ring: drakeSection,
   stations: [
-    [-3.05, 0.14, 0.10, 0.12], // neck cap
-    [-2.45, 0.28, 0.21, 0.23], // neck base
-    [-1.65, 0.50, 0.41, 0.37], // fore-shoulder
-    [-0.85, 0.64, 0.53, 0.45], // shoulder peak — broadest, tallest keel
-    [-0.10, 0.53, 0.44, 0.39], // thorax
-    [ 0.60, 0.37, 0.32, 0.28], // waist
-    [ 1.15, 0.27, 0.24, 0.19], // hips
-    [ 1.70, 0.16, 0.16, 0.10], // slim tail root
+    [-3.05, 0.13, 0.10, 0.11], // neck cap (meets the neck chain)
+    [-2.55, 0.26, 0.20, 0.22], // neck base
+    [-1.95, 0.41, 0.33, 0.31], // lower neck → shoulder lead-in
+    [-1.45, 0.54, 0.45, 0.39], // fore-shoulder (wing-root chord front)
+    [-1.05, 0.62, 0.52, 0.44], // shoulder rise
+    [-0.65, 0.64, 0.54, 0.46], // shoulder peak — broadest, tallest keel
+    [-0.30, 0.62, 0.52, 0.45], // chest swell (wing-root centre)
+     [0.05, 0.56, 0.46, 0.42], // thorax
+     [0.45, 0.46, 0.39, 0.36], // forward belly
+     [0.85, 0.36, 0.31, 0.29], // belly
+     [1.20, 0.28, 0.25, 0.21], // haunches
+     [1.50, 0.21, 0.20, 0.15], // hip taper
+     [1.70, 0.16, 0.16, 0.10], // slim tail root
   ],
-  keel: [[-2.45, 0.21], [-0.85, 0.53], [-0.10, 0.44], [0.60, 0.32], [1.15, 0.24], [1.70, 0.16]],
-  wingRoot: { x: 0.5, y: 0.55, z: -0.45 }, // high on the back, over the shoulder peak
+  keel: [[-2.55, 0.20], [-0.65, 0.54], [-0.30, 0.52], [0.05, 0.46], [0.45, 0.39], [0.85, 0.31], [1.20, 0.25], [1.70, 0.16]],
+  wingRoot: { x: 0.5, y: 0.55, z: -0.45 }, // high on the back, over the shoulder/chest swell
   fairing: { r: 0.3, scale: [0.86, 0.78, 1.2], pos: [0.46, 0.54, -0.4] },
   neck: {
     rBase: 0.44, rStep: 0.045, rMin: 0.19, scale: [0.8, 0.66, 1.3],
@@ -70,15 +107,15 @@ const DRAKE_PROFILE = {
   headBase: (neckSegs) => ({ x: 0, y: 0.5 + (neckSegs - 4) * 0.09, z: -3.08 - (neckSegs - 4) * 0.34 }),
 };
 
-// organismTorso — the body-less peer (like unifiedHullTorso) for the clean-sheet
-// hull. Builds the neck + publishes the full attach contract (incl. attach.loft,
-// the body-loft GENERATOR, + attach.bodyMatDouble), but adds NO body mesh + NO
-// fairings: organismWings grows the body surface itself from attach.loft and welds
-// the membrane to it as one continuous skin. Uses sweepProfile so the body rounds
-// on ULTRA (byte-identical at HIGH). Registered as a wings-slot peer.
+// organismTorso — the body-less peer for the clean-sheet hull. Builds the neck +
+// publishes the full attach contract (incl. attach.loft, the body-loft GENERATOR, +
+// attach.bodyMatDouble), but adds NO body mesh + NO fairings: organismWings grows
+// the body surface itself from attach.loft and welds the membrane to it as one
+// continuous skin. Uses sweepProfile so the body rounds on ULTRA (passes the OWN
+// drakeSection as the ring). Registered as a wings-slot peer.
 registerTorso('organismTorso', (def, model, bodyMat) =>
   buildTorso(DRAKE_PROFILE, def, model, bodyMat,
-    (profile, stretch) => sweepProfile({ ...profile, ring: profile.ring || bladeRing }, stretch),
+    (profile, stretch) => sweepProfile({ ...profile, ring: profile.ring || drakeSection }, stretch),
     { bodyMesh: false }));
 
 // Ensure a geometry carries the four hull attributes (position, normal, skinIndex,
@@ -105,8 +142,8 @@ function ensureSkinAttrs(geo, bodyIndex = BONE.BODY) {
 
 // growSkinnedExtension — merge a base loft geometry with one or more skinned
 // extension grids/tubes into ONE skinned BufferGeometry with a continuous weight
-// field (each part already carries its own skinIndex/skinWeight). Carried over
-// from v1; a future neck/tail/head caller reuses it verbatim.
+// field (each part already carries its own skinIndex/skinWeight). A future neck/
+// tail/head caller reuses it verbatim.
 function growSkinnedExtension(loftGeo, extensions) {
   const parts = [ensureSkinAttrs(loftGeo)];
   for (const e of extensions) parts.push(ensureSkinAttrs(e));
@@ -115,48 +152,61 @@ function growSkinnedExtension(loftGeo, extensions) {
   return merged;
 }
 
-// ── seam-copy weld helper (the SHARED-VERTEX mechanism) ──────────────────────
-// Identify the body loft's WING-SEAM vertices: a contiguous arc of the UPPER-FLANK
-// ring positions across the SHOULDER stations, on one side, and return them as an
-// ORDERED CHAIN running front→back along the wing root chord. sweepProfile lays the
-// loft as `station*m + ringPos`, so a seam vertex's index is fully determined by
-// (station, ringPos). bladeRing is ordered CCW: ring 0 = keel apex (top), 2/6 =
-// widest left/right, 4 = belly, 7/1 = upper-right/upper-left shoulders. The wing
-// roots on the UPPER flank — ring 7 (upper-right) for the right, ring 1 (upper-left)
-// for the left — across the fore-shoulder→thorax stations.
+// ── CONTIGUOUS seam-copy weld (D — the SHARED-VERTEX mechanism) ───────────────
+// Identify the body loft's WING-SEAM vertices as a CONTIGUOUS arc of ONE upper-flank
+// ring index, walked across the SHOULDER stations whose z lies in the wing-root
+// chord window — front→back along z, NO duplicates, NO zig-zag (the v1 weave sorted
+// two rings by z, which fanned the root edge in y and over-wide in z, lifting the
+// middle off the body). sweepProfile lays the loft as `station*m + ringPos`, so a
+// seam vertex's index is fully determined by (station, ringPos).
 //
-// The chain is the EXACT loft verts (index + group-space position); the membrane's
-// root column copies entries of this chain VERBATIM, so each root vert IS a body
-// loft vert (zero gap by construction) and both are weighted to the same static
-// bodyRoot bone (frozen relationship under any motion). Resolution-independent: at
-// any detail the chain is whatever the loft emits, and the membrane snaps onto it.
+// drakeSection is ordered CCW from the keel apex (i=0 = top): walking up toward the
+// apex, the UPPER-RIGHT flank is the high indices (≈N-3 = N*13/16), the UPPER-LEFT
+// flank the low indices (≈N*3/16). At HIGH m===SECTION_N so the control ring index
+// IS the stored column; at LOW/ULTRA the ring is resampled (closed Catmull-Rom:
+// control c → column round(c/N * m)) — map onto the nearest resampled column so the
+// chain still lands on actual loft verts.
+//
+// The chain is the EXACT loft verts (index + group-space position), ordered front→
+// back; the membrane root column copies entries VERBATIM, so each root vert IS a
+// body loft vert (zero gap by construction) and both are weighted to the same static
+// bodyRoot bone (frozen relationship under any motion).
 function findSeam(loftGeo, profile, side, m) {
-  // upper-flank ring for this side (just below the keel — where a wing roots).
-  const upperRing = side > 0 ? 7 : 1;       // ring 7 = upper-right, ring 1 = upper-left
-  const wideRing = side > 0 ? 6 : 2;        // ring 6/2 = widest (a touch lower)
-  // wing-bearing stations: fore-shoulder (idx 2) → thorax (idx 4).
-  const stA = 2, stB = 4;
+  // upper-flank ring index for this side (just below the keel — where a wing roots).
+  const ctrlFlank = side > 0 ? Math.round(SECTION_N * 13 / 16) : Math.round(SECTION_N * 3 / 16);
+  // For HIGH m===SECTION_N, so the control index IS the column. Else map control →
+  // nearest resampled column (closed loop).
+  const colFor = (ctrl) => (m === SECTION_N ? ctrl : (((Math.round((ctrl / SECTION_N) * m) % m) + m) % m));
+  const col = colFor(ctrlFlank);
   const pos = loftGeo.attributes.position;
-  // For HIGH m===8 (the control count), so the ring index IS the stored column. For
-  // LOW/ULTRA the ring is resampled (closed Catmull-Rom: control c → column
-  // round(c/8 * m)); map onto the nearest resampled column so the chain still lands
-  // on actual loft verts.
-  const colFor = (ctrlRing) => (m === 8 ? ctrlRing : ((Math.round((ctrlRing / 8) * m) % m) + m) % m);
-  // loftGeo is passed ALREADY translated to y=TORSO_Y, so read its verts verbatim
-  // (group space) — no extra offset, or the seam copy floats off the body (the v1
-  // double-offset bug, made impossible here by copying the real translated vert).
-  const vertAt = (s, ring) => {
-    const idx = s * m + colFor(ring);
-    return { idx, p: new THREE.Vector3(pos.getX(idx), pos.getY(idx), pos.getZ(idx)) };
-  };
-  // The chain: a contiguous arc of EXACT loft verts. We weave the upper + wide rings
-  // across the stations so the chord direction (front→back along z) is densely
-  // sampled by REAL verts. Order by z (front first), interleaving the two rings.
+
+  // wing-root chord window centred on wingRoot.z, half-width ≈ the rootChord so the
+  // chain spans (and only spans) the actual root chord — the middle no longer reaches
+  // into far-off z. Find the stations whose z falls in [zLo, zHi], plus the immediate
+  // neighbours so the chain fully covers the chord end-to-end.
+  const wr = profile.wingRoot;
+  const half = 0.62;                                  // ≈ widest rootChord (Eternal 0.85·0.5) + margin
+  const zLo = wr.z - half, zHi = wr.z + half;
+  const stations = profile.stations;
+  // station indices whose z is inside the window, in profile order (already front→back).
+  let first = -1, last = -1;
+  for (let s = 0; s < stations.length; s++) {
+    if (stations[s][0] >= zLo && stations[s][0] <= zHi) { if (first < 0) first = s; last = s; }
+  }
+  // widen by one station each side so the chord is fully bracketed (covers the very
+  // front + back of the membrane root chord, never short of it).
+  if (first > 0) first--;
+  if (last < stations.length - 1) last++;
+
+  // loftGeo is passed ALREADY translated to y=TORSO_Y, so read verts verbatim (group
+  // space) — no extra offset (the v1 double-offset bug, impossible here).
   const chain = [];
-  for (let s = stA; s <= stB; s++) { chain.push(vertAt(s, upperRing)); chain.push(vertAt(s, wideRing)); }
-  // sort front→back by z (the root chord runs front→back); stable on equal z.
-  chain.sort((a, b) => a.p.z - b.p.z);
-  return { chain, upperRing, wideRing, stA, stB };
+  for (let s = first; s <= last; s++) {
+    const idx = s * m + col;
+    chain.push({ idx, p: new THREE.Vector3(pos.getX(idx), pos.getY(idx), pos.getZ(idx)) });
+  }
+  // chain is already front→back (stations ordered by z) — a clean contiguous arc.
+  return { chain, col, first, last };
 }
 
 function buildOrganism(def, model, attach, giM) {
@@ -242,15 +292,15 @@ function buildOrganism(def, model, attach, giM) {
   const profile = loft.profile;
   const loftGeo = loft.makeGeo();
   loftGeo.translate(0, TY, 0);                          // body sits at y=TORSO_Y
-  const m = seg(8);                                      // loft ring resolution
+  const m = seg(SECTION_N);                              // loft ring resolution
   const seamR = findSeam(loftGeo, profile, 1, m);
   const seamL = findSeam(loftGeo, profile, -1, m);
 
-  // The membrane root chord copies the body seam chain VERBATIM. v∈[0,1] runs
-  // front→back along the wing root chord; map it onto a chain entry and return that
-  // EXACT loft vertex (position + index). No interpolation — each returned point IS
-  // a real loft vert, so a membrane root vert set to it is coincident (zero gap) and,
-  // welded to the same static bodyRoot, frozen relative to it under any motion.
+  // The membrane root chord copies the body seam chain VERBATIM. v∈[0,1] runs front→
+  // back along the wing root chord; map it onto a chain entry and return that EXACT
+  // loft vertex (position + index). No interpolation — each returned point IS a real
+  // loft vert, so a membrane root vert set to it is coincident (zero gap) and, welded
+  // to the same static bodyRoot, frozen relative to it under any motion.
   function seamPointAt(seam, v) {
     const chain = seam.chain;
     const k = Math.round(v * (chain.length - 1));
@@ -258,15 +308,17 @@ function buildOrganism(def, model, attach, giM) {
     return { p: e.p.clone(), idx: e.idx };
   }
 
-  // ── thin fleshy ARM FRAME (leading edge), merged into the OPAQUE hull ──────
-  // A SLIM leading-edge tube shoulder→elbow→wrist (NOT a fat manta tube): a tiny
-  // deltoid swell at the very root ring so it fuses to the body, tapering to a
-  // narrow wrist. Its root ring sits on the body seam (weighted bodyRoot); outboard
-  // → shoulder/elbow/wrist via spanSkin.
+  // ── SLIM, VERTICALLY-FLATTENED ARM SPAR (B), merged into the OPAQUE hull ───
+  // A thin wing-bone blade shoulder→elbow→wrist — NOT a fat deltoid tube. A tiny
+  // fuse-to-body bump at the very root ring so it merges into the hull, tapering to
+  // a narrow wrist. The cross-section is FLATTENED vertically (the tube's up-axis
+  // squashed ~0.55) so it reads as a blade-like spar (thinner top-to-bottom than
+  // front-to-back), not a round tube. Root ring → bodyRoot; outboard → span gradient.
+  const ARM_VFLAT = 0.55;                               // squash the vertical axis
   function buildArmFrame(arm) {
     const { wr, side } = arm;
-    const r0 = 0.14 * (model.wingRootScale ?? 1);        // deltoid swell at the socket
-    const rWrist = 0.05;
+    const r0 = 0.10 * (model.wingRootScale ?? 1);        // slim socket (no deltoid swell)
+    const rWrist = 0.035;
     const N = 7;
     const pSh = new THREE.Vector3(wr.x, wr.y, wr.z);
     const pEl = new THREE.Vector3(wr.x + elbowXGeo * side, wr.y + elbowLift, wr.z);
@@ -278,17 +330,31 @@ function buildOrganism(def, model, attach, giM) {
       if (t <= 0.5) p = pSh.clone().lerp(pEl, t / 0.5);
       else p = pEl.clone().lerp(pWr, (t - 0.5) / 0.5);
       centre.push(p);
-      // a tiny deltoid swell ONLY at the root ring (s=0), else a slim leading edge.
+      // a tiny fuse-to-body bump ONLY at the root ring (s=0), else a slim spar.
       const taper = r0 + (rWrist - r0) * sstep(t);
-      const swell = s === 0 ? r0 * 0.55 : 0;
-      radii.push(taper + swell);
+      const bump = s === 0 ? r0 * 0.28 : 0;
+      radii.push(taper + bump);
       const ax = t * wristXGeo;
       skin.push(spanSkin(side, ax));
     }
     // root ring weighted fully to bodyRoot so the arm emerges FROM the body.
     skin[0] = { si: [BONE.BODY, SH(side), 0, 0], sw: [1, 0, 0, 0] };
     const tube = skinnedTube(centre, radii, seg(7), (s) => skin[s], hullMat);
-    return tube.geometry;
+    // FLATTEN the spar vertically: squash the y extent about each ring's centreline.
+    // skinnedTube lays rings as centre + (side·cos + up·sin)·r; for this near-planar
+    // arm `up` ≈ +y, so scaling y toward the centreline thins it top-to-bottom.
+    const g = tube.geometry;
+    const gp = g.attributes.position;
+    for (let s = 0; s < N; s++) {
+      const cy = centre[s].y;
+      for (let j = 0; j < seg(7); j++) {
+        const k = s * seg(7) + j;
+        gp.setY(k, cy + (gp.getY(k) - cy) * ARM_VFLAT);
+      }
+    }
+    gp.needsUpdate = true;
+    g.computeVertexNormals();
+    return g;
   }
 
   const hullGeo = growSkinnedExtension(loftGeo, [buildArmFrame(armR), buildArmFrame(armL)]);
@@ -375,52 +441,65 @@ function buildOrganism(def, model, attach, giM) {
     return g;
   }
 
-  // ── FINGER struts — slim tubes from the wrist through the membrane to the tips ─
-  // Sample the membrane surface (the buildSkinnedRibs pattern), lift along the
-  // normal, weight to wrist/elbow so they articulate. They give the scalloped
-  // dragon-wing read. Merged into the membrane mesh (so they share its skeleton).
-  function buildFingers(memGeo, side) {
-    const pos = memGeo.attributes.position, nrm = memGeo.attributes.normal;
-    const lift = 0.03 * ws;
-    const sample = (i, j) => {
-      const k = i * (SEG_V + 1) + j;
-      const n = new THREE.Vector3(nrm.getX(k), nrm.getY(k), nrm.getZ(k)).normalize();
-      const p = new THREE.Vector3(pos.getX(k), pos.getY(k), pos.getZ(k)).addScaledVector(n, lift);
-      // articulate to wrist/elbow by span position along the arm.
-      const ax = Math.abs(p.x - attach.wingRoot(side).x);
-      return { p, n, sk: spanSkin(side, ax) };
+  // ── FINGER struts — slim tubes from the WRIST out to the wing SCALLOP TIPS (C) ─
+  // The human's spec: the finger struts must RADIATE from the wrist to the wing's
+  // scallop TIPS (the pointy trailing-edge points that define the wing outline), in
+  // line with the long axis of the body — not run as constant chord ROWS. Each
+  // finger is a strut from the wrist datum out to a wingSpec.tips[i] target, sampled
+  // along that line and lifted just above the membrane surface, weighted to wrist/
+  // elbow so it articulates. They align with the membrane's scallop notches.
+  function buildFingers(arm) {
+    const { wr, side } = arm;
+    const lift = 0.04 * ws;
+    // wrist datum in group space (where the fingers fan from).
+    const wristP = new THREE.Vector3(wr.x + wristXGeo * side, wr.y + wristLift, wr.z);
+    // map a wing-shape point [sx, sy] (buildWingShape space) → group space, matching
+    // the membrane's transform: world x = sx·scaleX·side + wr.x, world z = -sy·scaleZ
+    // + wr.z, world y = arc lift at that span (+ wr.y).
+    const scaleX = 1.34 * ws, scaleZ = model.wingChord ?? 1;
+    const tipToGroup = (sx, sy) => {
+      const wx = sx * scaleX;                               // wing-local span (world units)
+      const liftY = archLift(wx, worldMaxX, arc, ws);
+      return new THREE.Vector3(wx * side + wr.x, liftY + wr.y, -sy * scaleZ + wr.z);
     };
-    // a finger = a downsampled centreline from a wrist-side column out to the tip.
-    const wristCol = Math.max(1, Math.round(SEG_U * (wristXGeo / worldMaxX)));
+    const tips = wingSpec.tips;                             // [ [x span, y chord], ... ]
     const geos = [];
-    const finger = (jRow, i0) => {
+    const finger = (tip) => {
+      const target = tipToGroup(tip[0], tip[1]);
       const stations = seg(6);
       const centre = [], radii = [], skin = [];
       for (let s = 0; s < stations; s++) {
-        const i = Math.round(i0 + (SEG_U - i0) * s / (stations - 1));
-        const smp = sample(i, jRow);
-        centre.push(smp.p);
-        radii.push(0.028 + (0.008 - 0.028) * (s / (stations - 1)));   // ≈0.02 average, taper to tip
-        skin.push(smp.sk);
+        const t = s / (stations - 1);
+        const p = wristP.clone().lerp(target, t);
+        // lift the strut just above the membrane (toward +y) so it rides the surface.
+        p.y += lift * Math.sin(Math.PI * Math.min(t, 0.85));
+        centre.push(p);
+        radii.push(0.030 + (0.008 - 0.030) * t);            // taper wrist → fine tip
+        // articulate by span position along the arm.
+        const ax = Math.abs(p.x - wr.x);
+        skin.push(spanSkin(side, ax));
       }
       const tube = skinnedTube(centre, radii, seg(4), (s) => skin[s], fingerMat);
       return tube.geometry;
     };
-    // 3-4 fingers radiating to the trailing tips (interior chord rows).
-    const rows = SEG_V >= 4 ? [Math.round(SEG_V * 0.34), Math.round(SEG_V * 0.62), Math.round(SEG_V * 0.86)] : [Math.round(SEG_V * 0.5)];
-    for (const j of rows) geos.push(finger(j, wristCol));
+    // 3-4 fingers radiating to the trailing scallop tips. tips[0] is the far leading
+    // tip (the wing's outer point); the scallop tips are tips[1..] (the pointy
+    // trailing-edge points). Take up to the inner tips so each finger lines up with a
+    // scallop notch. Always include the outer leading tip for the long leading finger.
+    const targets = [tips[0]];
+    for (let i = 1; i < tips.length && targets.length < 4; i++) targets.push(tips[i]);
+    for (const t of targets) geos.push(finger(t));
     return geos;
   }
 
   const memR = buildMembraneSide(armR, seamR);
   const memL = buildMembraneSide(armL, seamL);
-  const fingersR = buildFingers(memR, 1);
-  const fingersL = buildFingers(memL, -1);
-  // merge L+R membrane + all fingers into ONE skinned mesh (membrane material).
-  // Fingers wear fingerMat, but a single mesh has ONE material — so the fingers
-  // ride the membrane geometry's vertex colours; to keep the scalloped strut read
-  // crisp we DON'T merge fingers into the translucent membrane. Instead we build a
-  // SEPARATE opaque finger mesh on the same skeleton (one extra draw call).
+  const fingersR = buildFingers(armR);
+  const fingersL = buildFingers(armL);
+  // merge L+R membrane into ONE translucent skinned mesh (membrane material). The
+  // fingers wear an opaque bone material, so they CANNOT share the translucent
+  // membrane mesh (one mesh = one material); they build a SEPARATE opaque finger mesh
+  // on the SAME skeleton (one extra draw call) so the scalloped strut read stays crisp.
   const memGeo = mergeGeometries([ensureSkinAttrs(memR), ensureSkinAttrs(memL)], false);
   if (!memGeo) throw new Error('buildOrganism: membrane mergeGeometries returned null');
   memGeo.computeVertexNormals();
@@ -479,4 +558,4 @@ function buildOrganism(def, model, attach, giM) {
 
 registerWings('organismWings', (def, model, attach, giM) => buildOrganism(def, model, attach, giM));
 
-export { buildOrganism, DRAKE_PROFILE };
+export { buildOrganism, DRAKE_PROFILE, drakeSection };

@@ -1079,3 +1079,54 @@ verbatim), NEVER the old flat "lilypad" spade.** A tail fin IS a small wing, so 
 fingers applies directly. Two refinements queued: (a) merge body+membrane into ONE mesh (or share seam normals) so the
 junction is shading-continuous, not just position-continuous; (b) a denser body seam for a smoother root edge. The
 body-on-a-`bodyRoot`-bone still unlocks the Phase-2 vertical body-whip (split it into a phase-lagged spine chain).
+
+### L27 — Organic body = OWN smooth section (not a copied octagon) + clustered stations; the seam is ONE ring walked across stations, not two rings woven
+**Did / learned:** the human flew obsidian2 on the preview and gave four precise reads: the body "reads almost robotic"
+(organic wings on a faceted body), the arm is "too thick vertically," the finger struts "appear horizontal" instead of
+"in line with the long axis… lined up with the pointy parts of the scallops," and "the middle isn't connected." All four
+traced to the v1 organism still leaning on roster shapes. **A. ORGANIC BODY** — `DRAKE_PROFILE` was a near-copy of ARROW
+using the shared 8-pt `bladeRing`, so the loft was a hard OCTAGON at HIGH (the L15 "facets are AROUND the section" trap,
+this time un-rounded because HIGH `seg(8)===8` is identity). Gave the organism its OWN 16-point super-ellipse drake
+section (exponent 2.3 → fuller belly/flanks; max edge-turn 29° vs the octagon's 45°) passed as the profile's `ring`, so
+`sweepProfile` lays a 16-gon at HIGH (round) and resamples denser at ULTRA. Re-shaped the longitudinal form to 13
+fleshy stations (tapered neck → fore-shoulder → chest/shoulder swell → thorax → belly → haunches → smooth tail taper),
+OWN numbers, not ARROW's. **B. SLIM ARM** — killed the deltoid swell (0.14→0.10 socket, 0.05→0.035 wrist, bump 0.55→0.28)
+and FLATTENED it vertically: after `skinnedTube` builds the spar, squash each ring's y about its centreline ×0.55 (the
+arm is near-planar so the tube's `up`≈+y, making a y-squash a clean blade thin top-to-bottom, wide front-to-back).
+**C. FINGERS RADIATE** — rebuilt `buildFingers` to fan struts from the WRIST datum to each `wingSpec.tips[i]` SCALLOP TIP
+(mapped tip→group space with the membrane's exact transform: `wx=sx·scaleX`, `z=-sy·scaleZ`, `y=archLift`), lifted just
+above the membrane — so each finger lies along the wing toward a scallop point (verified: leading finger tip lands at
+x9.28/z-0.97 == the computed tip target). **D. MIDDLE SEAM** — replaced the two-ring weave (upper 7/1 + wide 6/2 across
+3 stations, sorted by z → a y-fanning, over-wide-in-z root that lifted the middle) with ONE upper-flank ring index
+(`round(N·13/16)`/`round(N·3/16)`) walked across the stations inside the wing-root z-window (`wingRoot.z ± ~rootChord`),
+already front→back because stations are z-ordered → a contiguous arc, no zig-zag, the WHOLE chord (front, MIDDLE, back)
+on real body verts. Clustered the shoulder stations on `wingRoot.z` so the chain has 6 verts/side (denser root edge).
+Verified: HIGH obsidian2 3594/3726/3766/3878 → **3866/4078/4118/4230 (≤6000)**, ULTRA **8566/8980/9236/9696 (≤13000)**;
+the existing roster is **byte-identical** (obsidian 3378/3510/3550/3662 unchanged, all others unchanged — only obsidian2
+moved, +1328 HIGH total); `obsidian` + `dragonUnifiedHull.js` + `dragons.js` byte-untouched; `tiershots obsidian2`
+compiles clean (no PAGEERROR). Strengthened gate "MIDDLE CONNECTED": every membrane root-column vert (not just front/back)
+is exact-vert welded (Δ<1e-6), the chord is a real z-span (>0.2), and the root edge does not fan in y (Δy ≤ Δz). All 8
+organism gates green; full headless suite green (the only red — badges/stamina/save-purchases — are pre-existing
+browser-Playwright tests blocked by the CI Chromium policy, red on the clean tree too).
+**→ Systematize:** bank two reusable laws. **(1) For an ORGANIC body, give the creature its OWN smooth section
+function (≥~14 control points, super-ellipse-ish) passed as the profile's `ring` — never reuse a low-poly roster ring,
+because at HIGH `seg()` is identity so a shared octagon stays an octagon.** The section is now a first-class blueprint
+knob (exponent = belly fullness, point count = roundness floor), and longitudinal stations are OWNED per creature
+(cluster them where a part attaches so the seam has dense real verts to copy). **(2) A boundary seam for the
+copy-the-verts weld (L26) must be ONE ring index walked across the part's stations, NOT multiple rings woven + sorted**
+— the single-ring walk is contiguous and monotone by construction (stations are ordered), so the whole attachment chord
+maps to a connected body arc with no fan/zig-zag; if the native vert density is too coarse, ADD stations (never
+re-introduce analytic sampling — that was the v1 gap). And the **vertical-flatten-a-skinnedTube** trick (squash each
+ring's y about its centreline) turns the round-tube primitive into a blade spar for free — reusable for any flattened
+limb/fin frame.
+**→ Leapfrog (innovate):** the organism now has a genuinely OWN body — round section + fleshy stations + slim flattened
+arm + scallop-radiating fingers — so it is the clean base the L26 roadmap wanted: **2b** (copy the loft's FRONT ring →
+neck-tube root) and **2c** (copy the REAR ring → `sweptTail`, tail fins as bat-membrane projections = the wing kernel
+verbatim) drop onto the SAME copy-the-boundary + single-ring-seam mechanism, converging on ONE skinned hull nose-to-tail.
+The section function being a blueprint knob is the on-ramp to **non-dragon creatures** (manta = a flatter wider section
++ a near-zero-chord wing-IS-the-edge; serpent = a near-circular section on a long bent centreline). The remaining
+preview-judged tunes (human, rear/¾-rear chase cam in motion): does the rounder body now read as fleshy muscle, is the
+slim flattened arm right (or too thin), do the fingers visually align with the scallop notches, and is the wide root
+chord (the membrane attaches ALONG ~1.8 units of back) welded with no float — plus the standing 2a debts (merge
+body+membrane to one mesh or share seam normals for shading-continuity; the matte black is hard to judge head-on in
+`tiershots` — the chase cam is the real oracle).
