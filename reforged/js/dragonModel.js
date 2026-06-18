@@ -473,6 +473,19 @@ export function buildDragonModel(def, opts = {}) {
 
   group.scale.setScalar(model.scale);
 
+  // Pass 2 — bind the torso's shoulder skin to the wing shoulder bones (they live in
+  // the wing mounts, a different subtree, so this is a WORLD-rest cross-hierarchy bind
+  // done once both exist). A static root bone holds every non-shoulder vertex in place;
+  // attached bind mode self-corrects for the later model placement. Obsidian-only.
+  if (attach.shoulderSkin && wingRigL && wingRigR) {
+    const rootBone = new THREE.Bone();
+    torsoGroup.add(rootBone);
+    group.updateMatrixWorld(true);
+    attach.shoulderSkin.bind(
+      new THREE.Skeleton([rootBone, wingRigL.shoulder, wingRigR.shoulder]),
+      attach.shoulderSkin.matrixWorld);
+  }
+
   // Shop preview: a clean flying showcase (no turntable / no pedestal). Downscale
   // so the widest apex wings fit the small card, and float a soft rarity-tinted
   // corona behind the dragon instead of a spinning rune disc.

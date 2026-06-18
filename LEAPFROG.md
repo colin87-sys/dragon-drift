@@ -20,7 +20,7 @@ lessons for the one after. That is the whole studio: we rapidly improve the game
 
 You are a fresh session continuing **Dragon Drift** (the `reforged/` rewrite). Read this
 file top-to-bottom: **this HANDOFF** (where we are) → the **Active roadmap** (the next big
-build) → **THE RULE** + the **lessons ledger L1–L20** (how we work + everything learned so
+build) → **THE RULE** + the **lessons ledger L1–L23** (how we work + everything learned so
 far). Then continue — and **append a lesson after every meaningful change**.
 
 ### Where we are (state of the world)
@@ -51,6 +51,17 @@ far). Then continue — and **append a lesson after every meaningful change**.
   (see L10 — reuse the real engine, don't reinvent it).
 
 ### Open items / next steps (in priority order)
+0. **▶ THE FRONTIER — UNIFY THE CREATURE INTO ONE GENERATED SKINNED HULL (do this next).** The shoulder
+   bridge (L20) + body-skin (L21) + root-weld (L22) all FAILED on the preview — the broad wing still
+   gaps off the body on the up-beat and collides on the down-beat, because the wing and body are two
+   SEPARATE surfaces with no shared vertex. Human-confirmed fix: **generate Obsidian's body+wings as ONE
+   continuous skinned hull** (the wing grows out of the loft, one weight field, no seam), then extend the
+   same kernel to neck/tail/head → the L1/L14 "one hull, no bolted parts" end state. **Read
+   `UNIFIED_HULL_PLAN.md` (repo root) + L23 below — the full design + the first concrete increment.** It
+   MUST stay PROCEDURAL (generated from the blueprint, never hand-sculpted) so AI-prompted diversity
+   survives — this is the original "declarative organism" thesis realized in geometry. Scaffolding it
+   supersedes: PR **#115** (bridge) merged, PR **#116** (Pass-2 body-flex) open — both kept registered for
+   rollback; retire from Obsidian only after the hull is preview-approved.
 1. **Confirm the walls hold** on the latest build (pause→shop→swap→resume; crash→shop→
    restart) — that was the last thing the user was verifying.
 2. **Astral biome for the shop (DEFERRED, do carefully):** the user likes the cosmos/astral
@@ -809,3 +820,109 @@ seals to the body for free. **Watch on the preview (headless can't):** the bridg
 wear a `composeSurface` (cellularScales+iridescence) material — confirm the GLSL compiles under the skinning
 path (`tiershots obsidian` / the live preview, no `PAGEERROR`), and judge the deltoid's reach/bulge in motion
 (the `inboard 0.30 / radii 0.18→0.10` constants are conservative starting points, tuned by eye).
+
+### L21 — Pass 2: skin the BODY to the wing's bones across the scene graph (the cross-hierarchy bind), gated by rest-parity
+**Did / learned:** completed the "go all the way" shoulder: made Obsidian's torso a `SkinnedMesh` whose
+shoulder-zone verts are weighted to the WING's existing shoulder bones, so the BODY SURFACE ITSELF bulges
+with the beat (not just the bridge). The bones live in the wing `mount` (a DIFFERENT subtree from the torso),
+so unlike the membrane/bridge (bound in local space, bones in the same group), this is a **cross-hierarchy
+WORLD-rest bind**: build the whole model to rest → `group.updateMatrixWorld(true)` → `torso.bind(skeleton,
+torso.matrixWorld)` once both torso and wings exist (orchestrated in `dragonModel.js` AFTER `group.scale`).
+**Three.js attached bind mode handles this for free** — its per-frame `bindMatrixInverse` recompute from the
+mesh's live `matrixWorld` self-corrects for the later model placement/scale, so no `DetachedBindMode` was
+needed. A **static root bone** (added to the torso group, never rotated) holds every non-shoulder vertex via
+the `[1-wS, wS]` split (index 0 = root). Weights are authored in `buildTorso` (it owns the geometry + the
+`wingRoot` incl. PR-113's `shoulderWidthScale`/`wingRootOffset`); the bind is in the orchestrator (only it has
+the wing bones) — a clean **author-weights-here / bind-there** split. Pass 2 adds **ZERO triangles** (skin
+attributes only; tri-count identical). Safety levers that made it land first try: **(1) cap the weight** (MAXW
+0.34) + **smoothstep falloff** (R 0.95) → a bulge, never a tear; **(2) side-gate at the midline** (`_sstep(0.04,
+0.22, |x|)`) so the belly/keel is never dragged sideways by one wing; **(3) a rest-parity test is the bind's
+correctness oracle** — `applyBoneTransform(i, rest_i) ≈ rest_i` at rest (max Δ < 1e-4) catches a wrong
+bind/double-offset INSTANTLY (headless), the thing the eye can't verify. Coexist: a new `sweptLoftSkinned`
+torso variant + an additive `opts.skinShoulders` on `buildTorso` (default = the shipped static `Mesh`), so the
+roster is byte-identical; only Obsidian opts in. Gotcha (L16 again): the new 3-bone `torsoShoulderSkin` mesh
+falls into `skinnedwing.mjs`'s wing-piece scan unless excluded — extended the `wingPiece()` name filter.
+**→ Systematize:** the reusable law — **to deform a SHARED mesh by a limb that lives elsewhere in the graph,
+bind it in WORLD rest (build → updateMatrixWorld → bind with the live world matrix) to a skeleton of the
+existing limb bones + a static root bone; cap + smoothstep + side-gate the weights; prove it with a
+rest-parity assertion.** This is the general "make ANY body region follow ANY limb" tool (neck↔jaw, hip↔leg,
+body↔tail) without re-rigging — the L20 joint-bridge's heavier sibling for when the body itself must move, not
+just a patch over it. Bank the **author-weights-in-the-part / bind-in-the-orchestrator** split and the
+**rest-parity oracle** as standing patterns for every cross-hierarchy skin. With L20 (bridge) + L21 (body
+skin), the shoulder is now ONE continuous surface that deforms as a unit — the L1/L14 "no bolted parts" ideal
+reached at the hardest joint.
+**→ Leapfrog (innovate):** the cross-hierarchy bind retires the last reason a creature needed separate rigid
+chunks — ANY part can now drive ANY surface, so the **segmented neck/head** (next) becomes a skinned tube the
+body flows into, the whole creature trending to ONE hull on a shared skeleton driven by the existing rig (zero
+new animation). The author-weights/orchestrator-bind split + rest-parity oracle make each such conversion a
+mechanical, provably-safe step. **Judge on the preview (headless can't):** the body's bulge is deliberately
+subtle (MAXW 0.34) — confirm it reads as breathing muscle in motion, and tune MAXW/R up if the shoulder should
+heave more; confirm the skinned torso (now wearing the `composeSurface` body shader) compiles under skinning
+with no `PAGEERROR`.
+
+### L22 — A broad wing swings off the body unless its ROOT BAND is welded to a static anchor (not the flap pivot)
+**Did / learned:** after the bridge (L20) + body-skin (L21), the human reported the wings STILL "aren't
+connected to the body" — worse on the up-beat (gap) and down-beat (collision). Root cause: PR-113's wings are
+now BROAD (deep chord + long `rootChord`), and the whole membrane was weighted at the root to the **shoulder
+pivot** (`spanSkin` band 0 = the flap bone), so the entire broad root edge SWINGS with the flap — pivoting off
+the body on the up-stroke, into it on the down-stroke. The bridge (a thin tube at one point) can't hold a broad
+root edge, and the body-bulge (L21, capped 0.34) is far too subtle to chase a big wing. Fix: make the membrane
+a **4-bone chain anchor(0)→shoulder(1)→elbow(2)→wrist(3)** and weld the INNER span band (`rootBand =
+elbowXGeo*0.55`) to a **STATIC body anchor** (the bone the bridge already created, never rotated), easing into
+the shoulder by the forearm. Now the inner wing stays welded to the body (grows FROM it) while the OUTER wing
+keeps the full shoulder→elbow→wrist whip — the motion the human liked is preserved, the swing-gap is gone.
+**Key insight:** the root POINT (x=0) is AT the pivot so it never moves regardless of weighting — it's the
+membrane just OUTBOARD of the root that swings; anchoring the *band* (not the point) is what holds the broad
+edge down. Rest pose is byte-identical (weights only — geometry + tri-count unchanged); the ribs ride the same
+`spanSkin` so they weld too. Gotcha: the wing skeleton is now **4-bone** → `skinnedwing.mjs`'s "every wing
+piece is 3-bone" + "skinIndex ≤ 2" invariants flip to 4 / ≤3 (the L16 over-broad-invariant tax, paid again).
+**→ Systematize:** the law — **a limb's attachment band must be weighted to a STATIC body anchor, not to the
+limb's moving root joint, or a wide attachment swings free.** This generalises to any broad-rooted appendage
+(fins, frills, a manta's whole body-to-wing patagium): the inner attachment band welds to the body anchor,
+easing into the limb's drive bones outboard. Banks alongside L20/L21 as the third shoulder primitive — bridge
+(fill the gap) + body-skin (the body follows) + **root-weld (the wing stays rooted)** — and the static "body
+anchor at the mount origin" is now the shared hinge all three hang off. The `rootBand` fraction is the one
+tuning knob (bigger = more of the wing welded flat to the body).
+**→ Leapfrog (innovate):** with the root-weld, "attach a wide membrane to a body" is a solved, declarative
+move — the path to manta/ray/flying-squirrel bodies where the wing IS the body edge. Combined with the
+cross-hierarchy bind (L21), an entire creature can be ONE skinned hull whose every appendage welds at the root
+and drives from shared bones, no bolted parts anywhere. **Judge on the preview (headless can't):** confirm the
+up-beat no longer gaps and the down-beat no longer collides; if a broad wing still peels at the very root,
+raise `rootBand` (weld more of the inner span flat) — a one-number tune.
+
+### L23 — You can't PATCH two surfaces into one organism; the body and wings must be ONE generated skin (the frontier)
+**Did / learned:** L20 (shoulder bridge) + L21 (body-shoulder skin) + L22 (membrane root-weld) were three
+attempts to make the broad Night-Fury wing read as CONNECTED to the body — and the human judged ALL THREE
+insufficient on the preview: the wing still gaps off the body on the up-beat and collides into it on the
+down-beat. The reason, confirmed in code: the wing (a flat translucent membrane mesh) and the body (a round
+opaque loft mesh) are **two separate surfaces with no shared vertex**, so nothing FORCES them to stay
+coincident — and the patches even fought (L21's body bulge capped 0.34 vs L22's membrane root 1.0 on the *same*
+shoulder bone, moving at different rates → pulling the seam apart). **The lesson is a hard law: you cannot patch
+two surfaces into one organism. They must BE one surface** — exactly how the wing's separate flapping PANELS
+were earlier unified into one skinned membrane (L1). The wing↔body seam is that same problem one level up. The
+human reached this independently ("can't we do the joined-skin thing with the wing and the body?"), and crucially
+connected it back to the project's FIRST analysis: the "declarative organism blueprint" thesis was right about
+the **load-bearing pillar — continuous GEOMETRY**, which the recipe/shader *authoring* layer (rightly built) does
+not supply. We had to hit the seam to feel why the continuous-geometry half is the part that matters most.
+**→ Systematize:** the fix is a reusable kernel **`growSkinnedExtension(loftBoundaryLoop, patchGrid, boneChain,
+junctionSkin)`** — weld a sub-surface's edge to a loft boundary loop into ONE merged skinned geometry with ONE
+continuous weight field, where `junctionSkin(t)` is applied to **BOTH sides of the seam** so paired verts get
+IDENTICAL weights and can never separate (the regression test: rotate a shoulder, the paired body-edge & wing-root
+verts must move to the *same* position — the gate the patches could never pass). Reuse `sweepProfile` (loft) +
+`buildCurvedPatch` (wing grid) + `spanSkin` (the wing gradient) + `skinnedTube`; coexist via new recipe variants
+(`unifiedHull` wings + a body-less `unifiedHullTorso`), Obsidian-only opt-in, roster byte-identical, fully
+reversible by two strings in `dragons.js`. **The non-negotiable discipline: generate the hull PROCEDURALLY from
+the blueprint (the `profile` + `wingSpec` data that already vary per dragon), NEVER hand-sculpt it** — hand-
+sculpting one mesh per dragon would kill AI-prompted diversity; a generated hull is *more* promptable (describe the
+organism's shape, the engine emits a fluid creature). The full design + the first concrete increment (re-seat the
+wing root column onto the loft flank, tangential blend, 7-bone `[bodyRoot, shL,elL,wrL, shR,elR,wrR]` skin, vertex
+material blend, verification gates, risks) is in **`UNIFIED_HULL_PLAN.md`** at repo root — read it next.
+**→ Leapfrog (innovate):** this IS the declarative-organism vision realized in geometry, and it's THE next major
+frontier (the roadmap's #1 now). The same `growSkinnedExtension` kernel then retires every remaining bolted/
+segmented part: the **neck** (the sphere chain → a forward continuation of the loft skinned to a neck bone chain),
+the **tail** (weld the hull's last ring to the `sweptTail` tube), the **head** — converging on the L1/L14 end
+state: ONE skinned hull nose-to-tail, every appendage grown from shared seam verts, all driven by the existing rig
+(zero new animation). And because it's blueprint-driven, the AI-promptable roster + non-dragon creatures (manta/
+serpent where the wing IS the body edge) come along for free. Build it the studio way: prove the body+wing hull on
+Obsidian, sign off on the preview, then mechanize the kernel across neck/tail/head and migrate. Retire the L20/L21/
+L22 scaffolding from Obsidian only *after* the hull is preview-approved (keep it registered for rollback).

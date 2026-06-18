@@ -166,13 +166,15 @@ function buildMembraneWings(def, model, attach, giM, opts = {}) {
     return g2;
   }
 
-  // Skin weights along span |x|: shoulder(0) → elbow(1) → wrist(2), smooth-stepped
-  // across bands at the elbow and the wrist. Shared by the membrane AND the surface
-  // ribs so they deform identically. The animator rotates the three bones in a
-  // LAGGED CASCADE (shoulder leads, elbow + wrist follow) for a whip-like organic
-  // flap — the membrane bends through the whole arm, not just one hinge.
+  // Skin weights along span |x|: a 4-bone chain anchor(0) → shoulder(1) → elbow(2) →
+  // wrist(3), smooth-stepped across bands. The ROOT BAND (innermost span) blends from
+  // a STATIC body anchor into the shoulder, so the broad wing's root stays WELDED to
+  // the body while the outer wing flaps — it grows from the body instead of pivoting
+  // off it (the swing-gap fix). Shared by the membrane AND the surface ribs so they
+  // deform identically; the animator still drives the shoulder→elbow→wrist whip.
   const foldBand = 0.7 * ws;
   const elbowXGeo = wristXGeo * 0.52;                // mid-forearm joint
+  const rootBand = elbowXGeo * 0.55;                 // inner span welded to the body anchor
   // Spanwise × chordwise resolution of the continuous skinned membrane — the
   // single biggest tessellation knob on the hero. Detail-scaled: HIGH = 24×6
   // (today), ULTRA densifies the fold curve + billow for a smooth wing on idle
@@ -182,11 +184,13 @@ function buildMembraneWings(def, model, attach, giM, opts = {}) {
   // Two active bones (a→b blended by t) for a span position; padded to 4 wide.
   function spanSkin(ax) {
     const e = elbowXGeo, w = wristXGeo, b = foldBand;
-    let a = 2, bb = 2, t = 0;
-    if (ax <= e - b) { a = 0; bb = 0; }
-    else if (ax < e + b) { a = 0; bb = 1; t = sstep((ax - (e - b)) / (2 * b)); }
-    else if (ax <= w - b) { a = 1; bb = 1; }
-    else if (ax < w + b) { a = 1; bb = 2; t = sstep((ax - (w - b)) / (2 * b)); }
+    let a, bb, t = 0;
+    if (ax < rootBand) { a = 0; bb = 1; t = sstep(ax / rootBand); }                // body anchor → shoulder
+    else if (ax <= e - b) { a = 1; bb = 1; }                                       // shoulder
+    else if (ax < e + b) { a = 1; bb = 2; t = sstep((ax - (e - b)) / (2 * b)); }   // shoulder → elbow
+    else if (ax <= w - b) { a = 2; bb = 2; }                                       // elbow
+    else if (ax < w + b) { a = 2; bb = 3; t = sstep((ax - (w - b)) / (2 * b)); }   // elbow → wrist
+    else { a = 3; bb = 3; }                                                        // wrist
     return { si: [a, bb, 0, 0], sw: [1 - t, t, 0, 0] };
   }
   function writeSpanWeights(geo) {
@@ -460,20 +464,19 @@ function buildMembraneWings(def, model, attach, giM, opts = {}) {
       mount.add(pivot);
       mount.add(skinnedMem);
       for (const rib of ribs) mount.add(rib);
-      // Shoulder bridge: a STATIC anchor bone at the mount origin + a body-material
-      // deltoid skinned anchor→shoulder, bound in the same local frame BEFORE the
-      // mount is moved onto the body (L2). It shares the shoulder bone with the
-      // membrane so the joint deforms as ONE surface; the anchor never rotates,
-      // planting the body end. (Replaces the metallic shoulder sphere skipped above.)
-      let bridgeMesh = null, anchorBone = null;
+      // STATIC body anchor at the wing root (never rotated). The membrane + ribs bind
+      // to a 4-bone skeleton [anchor, shoulder, elbow, wrist]; spanSkin welds the ROOT
+      // BAND to this anchor so the broad wing grows FROM the body and its root never
+      // swings off it during the flap. The shoulder BRIDGE reuses the same anchor.
+      const anchorBone = new THREE.Bone();
+      mount.add(anchorBone);
+      let bridgeMesh = null;
       if (wantBridge) {
-        anchorBone = new THREE.Bone();
-        mount.add(anchorBone);
         bridgeMesh = buildShoulderBridge(skinnedMem.geometry, side);
         mount.add(bridgeMesh);
       }
       mount.updateMatrixWorld(true);
-      const skeleton = new THREE.Skeleton([pivot, elbow, wingTip]);
+      const skeleton = new THREE.Skeleton([anchorBone, pivot, elbow, wingTip]);
       skinnedMem.bind(skeleton);
       for (const rib of ribs) rib.bind(skeleton);
       if (bridgeMesh) bridgeMesh.bind(new THREE.Skeleton([anchorBone, pivot]));

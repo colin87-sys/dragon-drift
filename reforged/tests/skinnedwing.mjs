@@ -29,13 +29,13 @@ let skinnedMeshes = 0, boneCounts = new Set();
 // Wing skinned pieces only — the swept tail (7-bone tube) and the shoulder bridge
 // (2-bone deltoid) add their own skinned meshes, verified separately (sweptail.mjs /
 // shoulderbridge.mjs); exclude them from the wing-contract checks.
-const wingPiece = (o) => o.isSkinnedMesh && o.name !== 'sweptTailTube' && !o.name.startsWith('shoulderBridge');
+const wingPiece = (o) => o.isSkinnedMesh && o.name !== 'sweptTailTube' && o.name !== 'torsoShoulderSkin' && !o.name.startsWith('shoulderBridge');
 ob.group.traverse((o) => { if (wingPiece(o)) { skinnedMeshes++; boneCounts.add(o.skeleton.bones.length); } });
 // Each wing = 1 membrane + surface ribs (leading edge + finger veins), all
 // skinned to the same skeleton → > 2 skinned meshes total. Guards the rib fix.
 assert(skinnedMeshes >= 6, `obsidian has skinned membrane + rib meshes (found ${skinnedMeshes})`);
-assertEq([...boneCounts].join(','), '3', 'every skinned piece shares the 3-bone skeleton (shoulder→elbow→wrist)');
-ok('skinnedMembrane builds continuous membrane + surface ribs on one shared 3-bone skeleton');
+assertEq([...boneCounts].join(','), '4', 'every skinned piece shares the 4-bone skeleton (anchor→shoulder→elbow→wrist)');
+ok('skinnedMembrane builds continuous membrane + surface ribs on one shared 4-bone skeleton');
 
 assert(ob.parts.wingPivotL?.isBone && ob.parts.wingPivotR?.isBone, 'wingPivot handles are Bones');
 assert(ob.parts.wingTipL?.isBone && ob.parts.wingTipR?.isBone, 'wingTip handles are Bones');
@@ -64,13 +64,13 @@ ob.group.traverse((o) => {
   const sw = o.geometry.attributes.skinWeight, si = o.geometry.attributes.skinIndex, p = o.geometry.attributes.position;
   for (let i = 0; i < sw.count; i++) {
     if (Math.abs(sw.getX(i) + sw.getY(i) + sw.getZ(i) + sw.getW(i) - 1) > 1e-3) badW++;
-    if (si.getX(i) > 2 || si.getY(i) > 2) badI++;   // 3-bone skeleton: indices 0..2
+    if (si.getX(i) > 3 || si.getY(i) > 3) badI++;   // 4-bone skeleton: indices 0..3
     if (!Number.isFinite(p.getX(i)) || !Number.isFinite(p.getY(i)) || !Number.isFinite(p.getZ(i))) badP++;
   }
 });
 assert(checked >= 2, 'inspected the skinned wing meshes');
 assertEq(badW, 0, 'every vertex skinWeight sums to 1');
-assertEq(badI, 0, 'every skinIndex references one of the 3 bones');
+assertEq(badI, 0, 'every skinIndex references one of the 4 bones');
 assertEq(badP, 0, 'no non-finite vertex positions');
 ok('skin weights well-formed (sum=1, indices in range, finite positions)');
 
