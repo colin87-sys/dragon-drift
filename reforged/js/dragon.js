@@ -458,7 +458,25 @@ export function updateDragon(dt, player, time) {
   // travelling wave while staying anchored — it never detaches into a spear.
   // Heavy segment overlap (built in dragonParts) hides the joints as it bends.
   const nTail = tailSegs.length;
-  for (let i = 0; i < nTail; i++) {
+  if (nTail && activeDef.model.tailWhip) {
+    // Night-Fury tail = a SKINNED bone chain (not free segments), so drive it by
+    // ROTATION only (position would tear the chain). CROSS-FADE: in cruise a gentle
+    // phase-lagged travelling-wave sway (the live tail); as the player banks, fade the
+    // sway down and curve the whole tail INTO the turn like a rudder.
+    const bankAmt = Math.min(1, Math.abs(turnBias) / 0.16);
+    const cruise = 1 - bankAmt * 0.8;
+    const sp = 0.55 + 0.45 * speedNorm;
+    const climb = Math.max(-0.5, Math.min(0.5, player.velocity.y * 0.012));
+    for (let i = 0; i < nTail; i++) {
+      const lock = (i + 1) / nTail;                       // root subtle → tip full
+      const ph = time * 3.0 - i * 0.7;
+      const sway = Math.sin(ph) * 0.17 * lock * cruise * sp;
+      const rudder = turnBias * 1.4 * lock * bankAmt;
+      tailSegs[i].rotation.y = damp(tailSegs[i].rotation.y, sway + rudder, 8, dt);
+      tailSegs[i].rotation.z = damp(tailSegs[i].rotation.z, Math.cos(ph) * 0.05 * lock * cruise, 9, dt);
+      tailSegs[i].rotation.x = damp(tailSegs[i].rotation.x, -climb * lock, 8, dt);
+    }
+  } else for (let i = 0; i < nTail; i++) {
     const lock = nTail > 1 ? i / (nTail - 1) : 0;
     const lock2 = lock * lock;
     const tphase = time * 4.0 - i * 0.6;

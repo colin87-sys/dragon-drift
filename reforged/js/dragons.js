@@ -514,8 +514,10 @@ export const DRAGONS = {
       // raised top-view ridges (wingFingerBulge/Radius).
       wingArmLeadChord: 0.5, wingWristSpan: 2.5,
       wingFingerCurve: 0.20, wingFingerBulge: 0.085, wingFingerRadius: 0.095,
-      // bat-tail steering. (Mini-wings removed — they didn't read well.)
-      tailSteer: true,
+      // bat-tail steering + tail-whip: the tail sways in cruise and curves into a
+      // bank as a rudder (a tail-bone chain reweights the rear loft). (Mini-wings
+      // removed — they didn't read well.)
+      tailSteer: true, tailWhip: true,
     },
     // TOOTHLESS WING OUTLINE — a broad bat wing with FIVE finger struts (a finger to
     // every tip via dragonNightFury#buildFingers). tips: [x span, y chord], far tip

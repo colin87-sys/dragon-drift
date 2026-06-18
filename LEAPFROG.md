@@ -1316,3 +1316,35 @@ needs the skeleton** — non-skeletal motion (pivots, fin rotation, sail luff) s
 handles immediately; skeletal motion (whip, body-bend) is a gated, gate-updating increment. Next: grow a short
 tail-bone chain (reweight the rear loft verts off the static bodyRoot, expose as `tailSegs`, update the
 nightfury gates to the new bone count), then cross-fade cruise-whip ↔ bank-rudder per the user's call.
+
+### L36 — Tail-whip = the first SKELETON GROWTH on the hull: reweight rear loft → bone chain, ROTATION-only drive, gate the new bone count
+**Did / learned:** the human flagged the tail/body as "stiff" and signed off the cross-fade design, so I grew
+the FIRST articulated appendage on the night-fury hull: a 4-bone tail chain (`model.tailWhip`) appended at
+skeleton indices 7–10 (the 7 body/wing bones keep their frozen indices/contract). The rear loft verts are
+**reweighted** off the static `bodyRoot` onto the chain by a 2-bone z-proximity blend (everything fore of
+`TAIL_Z0=1.45` — incl. the wing seam — stays 100% bodyRoot, so the weld gates are untouched). Three gotchas,
+all banked: **(1) a skinned bone chain must be driven by ROTATION, never POSITION** — the shipped `tailSegs`
+coil sets `.position` (fine for free overlapping cones) but that TEARS a chain, so dragon.js branches on
+`model.tailWhip` to a rotation-only travelling-wave sway that cross-fades to a bank rudder, and the shop
+preview tick detects `tailSegs[0].isBone` to do the same (no flag needed there). **(2) Static add-ons that sit
+on a moving part must be PARENTED to its bone** — the twin tail fins now mount on the LAST tail bone (position
+made local to it) so they ride the whip instead of detaching on a hard bank; their `bankGain` is halved since
+the tail itself now curves. **(3) The frozen gates encode the OLD contract** — `nightfury.mjs` hard-pinned "7
+bones / tailSegs===0 / skinIndex≤6", so growing the skeleton REQUIRES updating those asserts in the same
+commit (now 11 bones, tailSegs===4 all-Bones, skinIndex≤bones-1). Verified beyond the gates with a functional
+**motion probe** (rotate the chain → the TIP vert moves 1.36, a near-root vert ~0, a body vert frozen) — the
+headless proof that the whip deforms the right verts and nothing else. Roster byte-identical, tri count
+UNCHANGED (4149 — reweighting adds no geometry), tiershots compiles.
+**→ Systematize:** the reusable recipe for "articulate part X of a one-piece hull": append bones at the end of
+the skeleton (never renumber the frozen ones) → reweight only X's verts by proximity (a clamped control-z list
++ sstep blend) → drive by ROTATION → parent X's static decorations to X's last bone → update the contract gates
+to the new counts → prove with a tip-moves / root-frozen / body-frozen motion probe. This is the template for
+the next appendages (neck bob, the full body-spine whip = split `bodyRoot` into a chain the SAME way). The
+`isBone`-detection trick lets shared drive code (preview tick) handle both free-segment and bone-chain tails
+without a creature flag.
+**→ Leapfrog (innovate):** with the tail proven, the deferred Phase-2 **vertical body-whip** is now a known
+quantity — split `bodyRoot` into a short spine chain (shoulder→hip), reweight the mid-body, drive `cy`-style as
+a travelling wave with the tail in counter-phase. The hull is now a genuine posable skeleton, not a static
+loft + flapping wings; every "it feels stiff" note maps to "grow another short chain + reweight + rotation
+drive + gate bump." Next loop targets (human-judged on the preview): tune the whip feel (amp/lag/speed), then
+the body-spine flex if the tail-only motion still reads stiff, and continue silhouette convergence vs the refs.

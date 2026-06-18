@@ -585,15 +585,23 @@ export function makePreviewTick(def, result) {
         wingTipL.rotation.x = -0.06 - feather;
       }
     }
-    // Root-locked snake coil (x + y) so the tail stays attached and alive.
+    // Root-locked snake coil (x + y) so the tail stays attached and alive. A SKINNED
+    // bone-chain tail (Night-Fury whip) must be driven by ROTATION only (position would
+    // tear the chain), so detect bones and sway them in place.
     const nT = tailSegs.length;
+    const boneTail = nT > 0 && tailSegs[0].isBone;
     for (let i = 0; i < nT; i++) {
       const lock = nT > 1 ? i / (nT - 1) : 0;
       const l2 = lock * lock;
       const tp = t * 3.6 - i * 0.6;
-      tailSegs[i].position.x = Math.sin(tp) * 0.3 * l2;
-      tailSegs[i].position.y = Math.cos(tp * 0.8) * 0.16 * l2;
-      tailSegs[i].rotation.z = -Math.sin(tp) * 0.16 * l2;
+      if (boneTail) {
+        tailSegs[i].rotation.y = Math.sin(tp) * 0.16 * ((i + 1) / nT);
+        tailSegs[i].rotation.z = Math.cos(tp) * 0.04 * ((i + 1) / nT);
+      } else {
+        tailSegs[i].position.x = Math.sin(tp) * 0.3 * l2;
+        tailSegs[i].position.y = Math.cos(tp * 0.8) * 0.16 * l2;
+        tailSegs[i].rotation.z = -Math.sin(tp) * 0.16 * l2;
+      }
     }
     head.rotation.y = Math.sin(t * 0.9) * 0.1;
     // Segmented-wyrm body: a lead-first travelling wave (each plate trails the
