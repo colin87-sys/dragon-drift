@@ -393,15 +393,25 @@ function buildNightFury(def, model, attach) {
   const tail = growChain(TAIL_BONE_Z, aftParent, aftPrev);
   const tailBones = tail.arr.map((e) => e.bone);
 
-  // Spine-whip handles (vertical undulation): neck/head (forward) + hip (aft). Each
-  // carries userData.whip = {gain, phase} so dragon.js drives rotation.x as a travelling
-  // pitch wave locked to the wingbeat. Forward bones bob the head; the hip drives the rear.
+  // Spine handles for the layered flight system: forward = neck then head, aft = hip. Each
+  // is TAGGED with userData.role so dragon.js can drive them as distinct body systems
+  // (hip = body-lift wave, neck = absorb + lead, head = stabilised gaze). userData.whip
+  // {gain, phase} is kept for the simpler shop-preview idle.
   let spineSegs = null;
   if (bodyWhip) {
     spineSegs = [];
-    const fwdGain = [0.12, 0.08];                        // neck, head
-    fwd.arr.forEach((e, k) => { e.bone.userData.whip = { gain: fwdGain[k] ?? 0.07, phase: -1.0 - k * 0.5 }; spineSegs.push(e.bone); });
-    if (hipEntry) { hipEntry.bone.userData.whip = { gain: 0.14, phase: Math.PI - 0.4 }; spineSegs.push(hipEntry.bone); }
+    const fwdRole = ['neck', 'head'];
+    const fwdGain = [0.12, 0.08];
+    fwd.arr.forEach((e, k) => {
+      e.bone.userData.role = fwdRole[k] ?? 'neck';
+      e.bone.userData.whip = { gain: fwdGain[k] ?? 0.07, phase: -1.0 - k * 0.5 };
+      spineSegs.push(e.bone);
+    });
+    if (hipEntry) {
+      hipEntry.bone.userData.role = 'hip';
+      hipEntry.bone.userData.whip = { gain: 0.14, phase: Math.PI - 0.4 };
+      spineSegs.push(hipEntry.bone);
+    }
   }
 
   // ── REWEIGHT the loft off the static chest onto the spine + tail chains ────
@@ -511,16 +521,26 @@ function buildNightFury(def, model, attach) {
   function buildThumbKnob(arm) {
     const { wr, side } = arm;
     const wristP = leadEdgePt(wr, side, wristXGeo);       // on the leading edge (no gap)
-    const tip = wristP.clone().add(new THREE.Vector3(0.05 * side, 0.17 * ws, -0.11));
-    const st = seg(4), centre = [], radii = [], skin = [];
+    // a SHORT FLAT thumb-claw extension off the wrist pointing FORWARD (−z) + OUTWARD (+x),
+    // nearly in-plane (not a vertical spike) — bigger so it reads as an accent.
+    const tip = wristP.clone().add(new THREE.Vector3(0.22 * side, 0.03 * ws, -0.26));
+    const st = seg(5), rad = seg(5), centre = [], radii = [], skin = [];
     const wb = WR(side);
     for (let s = 0; s < st; s++) {
       const t = s / (st - 1);
       centre.push(wristP.clone().lerp(tip, t));
-      radii.push(0.058 * (1 - 0.94 * t));               // taper to a clawed point
+      radii.push(0.078 * (1 - 0.93 * t));               // fatter base → clawed point
       skin.push({ si: [wb, 0, 0, 0], sw: [1, 0, 0, 0] });
     }
-    return skinnedTube(centre, radii, seg(4), (s) => skin[s], fingerMat).geometry;
+    const g = skinnedTube(centre, radii, rad, (s) => skin[s], fingerMat).geometry;
+    const gp = g.attributes.position;                    // flatten vertically → a flat claw
+    for (let s = 0; s < st; s++) {
+      const cy = centre[s].y;
+      for (let j = 0; j < rad; j++) { const k = s * rad + j; gp.setY(k, cy + (gp.getY(k) - cy) * 0.5); }
+    }
+    gp.needsUpdate = true;
+    g.computeVertexNormals();
+    return g;
   }
 
   // The continuous leading-edge FRAME spar (buildArmFrame, root→tip on the membrane edge) +

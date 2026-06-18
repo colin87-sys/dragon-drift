@@ -1452,3 +1452,23 @@ banked: (1) never claim a spatial fix from a thumbnail — write the probe and r
 oracle for geometry, like the L36 motion probe). (2) To bond a part to a curved procedural boundary, sample
 that boundary along the part's WHOLE length; matching only the endpoints (a straight lerp) gaps wherever the
 boundary curves between them.** 10 gates green, tri 4410 HIGH (the longer seg(18) spar), 0-over.
+
+### L40 — Layered procedural flight system: surge blend + role-driven spine + bank asymmetry, all additive over the existing rig
+**Did / learned:** turned the wingbeat into a LAYERED body system per a detailed brief, reusing the rig we'd
+already built (shoulder/elbow/wrist `flapWing` cascade, neck/head/hip spine bones, tail chain) rather than
+rewriting. New axes: **(1) `surge01`** — a damped 0→1 Dragon-Surge blend (fever=1, boost=0.5) that MORPHS the
+posture (not just glow): swept-back + sharper-downstroke wings, lowered spear head, streamlined less-bobbing
+body, tighter faster tail rudder, deeper snappier bank. **(2) Role-tagged spine** — each spine bone carries
+`userData.role` ('neck'|'head'|'hip') so `dragon.js` drives them as DISTINCT systems with timing offsets: the
+hip lifts a beat AFTER the power downstroke (`flapSurge(phase-0.6)`), the neck absorbs the bob + breathes, the
+head COUNTERS the neck (`-0.045·flapSurge`) so the gaze stays composed (no goofy bounce) and leads turns in
+yaw. **(3) Bank asymmetry in `flapWing`** — the INSIDE wing of a turn tucks+dips, the OUTSIDE opens+braces
+(`turnBias·side` sign test), so it banks like an aircraft instead of rotating rigidly. **Key discipline: every
+new term VANISHES at surge=0 AND steer=0** (multiplied by `surge01` or `steerMag`), so cruise-straight flight
+— and every non-surging/non-skinned dragon — is byte-identical in feel; the layer is purely additive over the
+shipped wingbeat. All knobs live in `flapWing` DEFAULTS (per-creature via `model.flapProfile`) + named consts
+in the drive, so feel is tuned without restructuring. Runtime-only (no bind/gate impact); 10 gates green, tri
+4442, compiles. The HUMAN judges feel on the preview — headless can't.
+**→ Systematize:** "make a rig feel alive" = drive each part as a tagged system with phase OFFSETS (root→tip,
+downstroke→lift→hips→tail-tip, head counters), and gate every stylistic layer behind a blend (`surge01`) +
+input magnitude so the base motion is never regressed. Add a mode by BLENDING params, not branching animation.
