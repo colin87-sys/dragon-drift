@@ -44,6 +44,11 @@ byte-identical.
 | `parts.head` | builder (head) | e.g. `horned`, `draconic`, `beaked`, `none` |
 | `parts.tail` | builder (tail) | e.g. `clean`, `legacy`, `none` |
 
+**Paired builders:** the one-continuous-hull wing builders require their matching
+body-less torso (they read the loft it publishes) — the validator enforces this at
+author time: `nightFuryWings`→`nightFuryTorso`, `organismWings`→`organismTorso`,
+`unifiedHull`→`unifiedHullTorso`.
+
 ### `surface` — shaders + scale/plate relief
 | Knob | Kind | Notes |
 |---|---|---|
@@ -75,8 +80,10 @@ layers: `spineGlowLine`, `dorsalChevrons`, `backCrest`, `scaleRidge`, `dorsalSai
 may also appear per-form in `forms[]`.
 
 ### `wing` — shape + membrane (`model.*`)
-`wingOpacity`, `wingPanelGlow`, `wingBillow`, `wingArmLeadChord`, `wingWristMedial`,
-`wingFingerCurve`, `wingFingerSplay`, `wingFingerBulge`, `wingFingerRadius`.
+`wingOpacity`, `wingPanelGlow`, `wingBillow`, `wingSpan`, `wingChord`,
+`wingArmLeadChord`, `wingWristMedial`, `wingWristSpan`, `wingFingerCurve`,
+`wingFingerSplay`, `wingFingerBulge`, `wingFingerRadius`, `wingArmRadius`,
+`wingForearmRadius`, `wingFrameTipRadius`.
 
 ### `motion` — feel (`model.*`)
 `flapBias`, `flapAmp`, and `flapProfile` (per-creature wingbeat character:
@@ -84,9 +91,11 @@ may also appear per-form in `forms[]`.
 [`js/dragonWingFlap.js`](./js/dragonWingFlap.js)). Per-form strength/speed scale by
 `formLevel` (Hatchling → Eternal).
 
-### `material` — finish (`model.*`)
+### `material` — finish (**top-level `def.*`, NOT under `model`**)
 `bodyMetalness`, `bodyRoughness`, `bodyEnvIntensity`, `rimBodyMul`, `scaleSize`,
-`scaleRelief`. (Defaults = the semi-gloss roster look; opt into matte organic hide.)
+`scaleRelief`. These are declared at the def top level (the code reads
+`def.bodyRoughness`, etc.) — not inside `model`. (Defaults = the semi-gloss roster
+look; opt into matte organic hide.)
 
 ## Worked example — `toothless` (the Night Fury hero)
 

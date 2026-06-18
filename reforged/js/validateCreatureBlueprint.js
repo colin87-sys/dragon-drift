@@ -14,7 +14,7 @@
 // warnings are advisory (e.g. a value just outside the documented range).
 
 import { CREATURE_GRAMMAR } from './creatureGrammar.js';
-import { hasTorso, hasWings, hasHead, hasTail, listTorsos, listWings, listHeads, listTails } from './dragonRecipe.js';
+import { hasTorso, hasWings, hasHead, hasTail, listTorsos, listWings, listHeads, listTails, resolveRecipe } from './dragonRecipe.js';
 import { SURFACE_PATCH_NAMES } from './dragonSurfaceShader.js';
 import { hasSurfaceLayer, listSurfaceLayers } from './dragonSurfaceLayers.js';
 
@@ -24,6 +24,26 @@ const REGISTRY = {
   head: { has: hasHead, list: listHeads },
   tail: { has: hasTail, list: listTails },
 };
+
+// Some wing builders are one continuous skinned hull with a specific body-less
+// torso (they read attach.loft / attach.bodyMatDouble it publishes). Mismatching
+// them throws at BUILD time inside the builder; this table lets the validator
+// catch it at AUTHOR time. Mirrors the runtime guards in
+// dragon{NightFury,Organism,UnifiedHull}.js.
+const WING_REQUIRES_TORSO = {
+  nightFuryWings: 'nightFuryTorso',
+  organismWings: 'organismTorso',
+  unifiedHull: 'unifiedHullTorso',
+};
+
+// CLOSED namespaces: every legal key is known, so an unknown key is a typo.
+// (model / top-level are OPEN — ~130 legit knobs — so they are NOT scanned;
+//  only their known knobs are range-checked + a material near-miss check below.)
+const ALLOWED_PARTS_KEYS = ['torso', 'wings', 'head', 'tail', 'surface', 'shingle', 'surfaceLayers'];
+const ALLOWED_SURFACE_KEYS = ['shader'];
+// Top-level finish knobs — used for a conservative single-edit near-miss check so
+// a `bodyRoughnes` typo is flagged even though top-level is otherwise open.
+const MATERIAL_KEYS = ['bodyMetalness', 'bodyRoughness', 'bodyEnvIntensity', 'rimBodyMul', 'scaleSize', 'scaleRelief'];
 
 function getPath(obj, path) {
   let cur = obj;
@@ -136,6 +156,38 @@ export function validateCreatureBlueprint(def, name = def && def.name) {
       if (val != null && typeof val !== 'boolean') warnings.push(`${where} = ${JSON.stringify(val)} is usually a boolean.`);
     }
     // 'object' / 'color' / 'fx' are descriptive-only (documented, not enforced).
+  }
+
+  // Paired-builder requirement — a hull wing needs its matching body-less torso.
+  // Resolve the recipe so an INFERRED torso is compared too (not just explicit).
+  const wings = def.parts && def.parts.wings;
+  if (wings && WING_REQUIRES_TORSO[wings]) {
+    const need = WING_REQUIRES_TORSO[wings];
+    const torso = resolveRecipe(def).torso;
+    if (torso !== need) {
+      errors.push(`${tag}.parts.wings '${wings}' requires parts.torso '${need}' (got '${torso}') — it reads the loft that torso publishes.`);
+    }
+  }
+
+  // Unknown-key warnings in the CLOSED namespaces only (typo catch).
+  if (def.parts && typeof def.parts === 'object') {
+    for (const k of Object.keys(def.parts)) {
+      if (!ALLOWED_PARTS_KEYS.includes(k)) warnings.push(`${tag}.parts.${k} is not a known parts key${suggest(k, ALLOWED_PARTS_KEYS)}.`);
+    }
+    if (def.parts.surface && typeof def.parts.surface === 'object') {
+      for (const k of Object.keys(def.parts.surface)) {
+        if (!ALLOWED_SURFACE_KEYS.includes(k)) warnings.push(`${tag}.parts.surface.${k} is not a known surface key${suggest(k, ALLOWED_SURFACE_KEYS)}.`);
+      }
+    }
+  }
+
+  // Top-level material near-miss — top-level is OPEN, so only flag a key that is a
+  // SINGLE edit away from a finish knob (e.g. `bodyRoughnes` → `bodyRoughness`),
+  // which is almost certainly a typo of that knob, not an unrelated field.
+  for (const k of Object.keys(def)) {
+    if (MATERIAL_KEYS.includes(k)) continue;
+    const hit = MATERIAL_KEYS.find((m) => editDistance(k, m) === 1);
+    if (hit) warnings.push(`${tag}.${k} looks like a typo of the finish knob '${hit}'.`);
   }
 
   return { ok: errors.length === 0, errors, warnings };
