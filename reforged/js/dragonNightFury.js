@@ -463,25 +463,30 @@ function buildNightFury(def, model, attach) {
     return { p: e.p.clone(), idx: e.idx };
   }
 
-  // ── SLIM, VERTICALLY-FLATTENED ARM SPAR, merged into the OPAQUE hull ───────
-  const ARM_VFLAT = 0.55;
+  // ── LEADING-EDGE FRAME SPAR (root → wingtip), merged into the OPAQUE hull ───
+  // ONE continuous tube laid EXACTLY on the membrane leading-edge curve for the WHOLE
+  // span (arm + the leading finger as one piece) so it can never gap from the membrane —
+  // the earlier straight wrist→tip lerp diverged from the arced edge by the hump (~0.4).
+  // Radii: HUMERUS thickest → forearm/wrist → tapering to a thin finger at the tip.
+  const ARM_VFLAT = 0.6;
   function buildArmFrame(arm) {
     const { wr, side } = arm;
-    // anatomical taper: HUMERUS (shoulder) thickest → FOREARM (wrist) thinner, but still
-    // thicker than the fingers (the frame finger ≈0.085, struts ≈0.058). Reads as a real arm.
-    const r0 = (model.wingArmRadius ?? 0.115) * (model.wingRootScale ?? 1);
-    const rWrist = model.wingForearmRadius ?? 0.10;
-    const N = seg(8);
+    const rArm = (model.wingArmRadius ?? 0.115) * (model.wingRootScale ?? 1);
+    const rWrist = model.wingForearmRadius ?? 0.085;
+    // past the wrist the frame is the leading FINGER → taper to ≈ the strut-spoke thinness
+    // (wingFingerRadius ≈0.058 → a thin tip) so it doesn't read abnormally thick at the tip.
+    const rTip = model.wingFrameTipRadius ?? 0.013;
+    const N = seg(18);
     const centre = [], radii = [], skin = [];
     for (let s = 0; s < N; s++) {
       const t = s / (N - 1);
-      const ax = t * wristXGeo;                   // span root → wrist
-      // lay each station EXACTLY on the membrane leading edge → no gap (the spar curves
-      // WITH the membrane front edge instead of cutting a straight chord across it).
-      centre.push(leadEdgePt(wr, side, ax));
-      const taper = r0 + (rWrist - r0) * sstep(t);
-      const bump = s === 0 ? r0 * 0.28 : 0;
-      radii.push(taper + bump);
+      const ax = t * worldMaxX;                   // FULL leading edge: root → leading tip
+      centre.push(leadEdgePt(wr, side, ax));      // exactly ON the membrane front edge
+      const r = ax <= wristXGeo
+        ? rArm + (rWrist - rArm) * sstep(ax / wristXGeo)                              // arm → wrist
+        : rWrist + (rTip - rWrist) * sstep((ax - wristXGeo) / (worldMaxX - wristXGeo)); // wrist → tip
+      const bump = s === 0 ? rArm * 0.28 : 0;
+      radii.push(r + bump);
       skin.push(spanSkin(side, ax));
     }
     skin[0] = { si: [BONE.BODY, SH(side), 0, 0], sw: [1, 0, 0, 0] };
@@ -518,13 +523,13 @@ function buildNightFury(def, model, attach) {
     return skinnedTube(centre, radii, seg(4), (s) => skin[s], fingerMat).geometry;
   }
 
-  // The leading-edge FRAME spar (tips[0] finger) merges into the HULL so it renders in the
-  // body-matte material on TOP of the membrane (visible from the chase cam); the inner
-  // scallop struts stay in their own fingerMat mesh below.
+  // The continuous leading-edge FRAME spar (buildArmFrame, root→tip on the membrane edge) +
+  // the wrist thumb-knob merge into the HULL → body-matte. The inner scallop struts stay in
+  // their own fingerMat mesh below.
   const fingersR = buildFingers(armR);
   const fingersL = buildFingers(armL);
   const hullGeo = growSkinnedExtension(loftGeo, [
-    buildArmFrame(armR), buildArmFrame(armL), ...fingersR.frame, ...fingersL.frame,
+    buildArmFrame(armR), buildArmFrame(armL),
     buildThumbKnob(armR), buildThumbKnob(armL),
   ]);
   hullGeo.computeVertexNormals();
@@ -653,15 +658,14 @@ function buildNightFury(def, model, attach) {
       const tube = skinnedTube(centre, radii, seg(4), (s) => skin[s], fingerMat);
       return tube.geometry;
     };
-    // tips[0] is the leading spar → the body-matte FRAME (into the hull); tips[1..] are the
-    // scallop struts (fingerMat). fanT ramps 0→1 so lower spokes curve more.
-    const frame = [finger(tips[0], 0, true)];
+    // tips[0] (the leading spar) is now the continuous hull LEADING-EDGE FRAME (buildArmFrame);
+    // here we build only the inner scallop STRUTS (tips[1..]) in fingerMat. fanT ramps 0→1.
     const struts = [];
     for (let i = 1; i < tips.length; i++) {
       const fanT = tips.length > 1 ? i / (tips.length - 1) : 0;
       struts.push(finger(tips[i], fanT, false));
     }
-    return { frame, struts };
+    return struts;
   }
 
   const memR = buildMembraneSide(armR, seamR);
@@ -707,7 +711,7 @@ function buildNightFury(def, model, attach) {
   memMesh.frustumCulled = false;
   memMesh.name = 'nightFuryMembrane';
 
-  const fingerGeo = mergeGeometries([...fingersR.struts, ...fingersL.struts].map((g) => ensureSkinAttrs(g)), false);
+  const fingerGeo = mergeGeometries([...fingersR, ...fingersL].map((g) => ensureSkinAttrs(g)), false);
   let fingerMesh = null;
   if (fingerGeo) {
     fingerGeo.computeVertexNormals();

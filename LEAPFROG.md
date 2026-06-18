@@ -1437,3 +1437,18 @@ thumb-knob ON it. Now the matte frame and the translucent membrane share the sam
 construction, and it deforms identically (same `spanSkin` bones). **Rule: to bond decoration to a procedural
 surface, SAMPLE that surface's boundary for the decoration's path — never approximate it with a straight line
 or a constant offset; they only coincide at the endpoints.** 10 gates green, tri 4210, 0-over.
+
+### L39c — VERIFY geometry claims by MEASURING, not by eyeballing a thumbnail; a straight chord ≠ an arced edge
+**Did / learned:** I claimed L39b closed the frame↔membrane gap from a tiny clay thumbnail — the human (rightly)
+pushed back: the gap was still there. Wrote a **measurement probe** (bin spar verts by span-x, nearest-membrane
+distance, subtract the expected tube radius) which proved a real 0.42 gap at the OUTER wing (x≈4–5) while the
+arm region was just tube thickness. Root cause: L39b fixed the ARM onto the leading-edge curve but left the
+leading FINGER as a straight `wristP→tip` lerp — and the membrane leading edge ARCS up (the `arc.hump` at
+humpAt≈0.6), so a straight chord dives below it by the hump height. Fix: made `buildArmFrame` ONE continuous
+tube sampled on `leadEdgePt` for the WHOLE span (root→wingtip), radii tapering humerus→forearm→thin finger
+tip (matching the struts so it doesn't read thick at the tip, per the human), and deleted the separate frame
+finger. Re-measured: outer-wing gap 0.42→~0.10 (= tube radius across the whole span, uniform). **Two rules
+banked: (1) never claim a spatial fix from a thumbnail — write the probe and read the number (the headless
+oracle for geometry, like the L36 motion probe). (2) To bond a part to a curved procedural boundary, sample
+that boundary along the part's WHOLE length; matching only the endpoints (a straight lerp) gaps wherever the
+boundary curves between them.** 10 gates green, tri 4410 HIGH (the longer seg(18) spar), 0-over.
