@@ -26,6 +26,26 @@ hand-sculpted. Hand-sculpting one mesh per dragon would kill AI-prompted diversi
 shape; the engine emits a fluid creature) — it is the declarative-organism vision finally realized
 in geometry.
 
+## The missing ingredient — the wing needs a FLESHY ARM, not a wire (why the tail already works)
+
+The human's diagnostic question: the **tail** connects to the body smoothly — why not the wing? The
+geometry answers it. The tail is a fleshy round **tube** (`baseR 0.27`, `dragonTail.js`) emerging from a
+body rear of `~0.17–0.29` half-width — **same form, matching radius** — and its base is *locked* (only the
+tip coils), so it reads as a continuation of the body. The wing has **no fleshy arm**: its only "arm" is a
+**0.11→0.02-radius WIRE** rib (`dragonWings.js#buildSkinnedRibs`, the leading edge) plus a flat membrane,
+hung off a shoulder of `~0.66–0.8` half-width. A thin wire + a flat sheet dangling off a fat round mass
+never reads as one creature — there is no limb bridging the forms.
+
+**Design requirement (part of Increment 1, NOT a later step):** build the wing as a **fleshy arm + a
+membrane spanned from it**, not a bare sheet pinned at a point.
+- Add a `skinnedTube` upper-arm/forearm whose **radius matches the shoulder mass** (taper from ~the body
+  flank radius at the shoulder down toward the wrist — *not* the 0.11 wire), emerging continuously from the
+  loft on the shoulder→elbow→wrist bones (the exact primitive the tail uses, `dragonSweep.js#skinnedTube`).
+- Span the **membrane FROM that arm and along the body flank** (the patagium), all welded into the one hull.
+- The tail "cheats" (matching round form + a non-rotating base); the wing is the hard case (form-mismatch +
+  a rotating joint), so the fleshy arm is what gives the continuous-skin shoulder something organic to blend
+  into. Without the arm, the body→membrane weld is still flat-sheet-onto-round-body and won't read right.
+
 ## Increment 1 — Obsidian torso+wings as ONE continuous skinned hull (coexist, reversible)
 
 ### Wiring

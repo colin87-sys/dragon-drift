@@ -926,3 +926,18 @@ state: ONE skinned hull nose-to-tail, every appendage grown from shared seam ver
 serpent where the wing IS the body edge) come along for free. Build it the studio way: prove the body+wing hull on
 Obsidian, sign off on the preview, then mechanize the kernel across neck/tail/head and migrate. Retire the L20/L21/
 L22 scaffolding from Obsidian only *after* the hull is preview-approved (keep it registered for rollback).
+**→ The MISSING ingredient — a FLESHY ARM, not a wire (why the tail already reads continuous and the wing doesn't):**
+the human asked the key question — the TAIL connects smoothly to the body, so why not the wing? The numbers answer
+it: the tail is a fleshy round TUBE (`baseR 0.27`, `dragonTail.js`) emerging from a body whose rear half-width is
+`~0.17–0.29` — **same form, matching radius** — and its base is *locked* (only the tip coils), so it flows out of the
+body like a continuation of it. The wing has neither: its only "arm" is a **0.11→0.02-radius WIRE** rib
+(`dragonWings.js#buildSkinnedRibs`, the leading edge) and the rest is a flat membrane, hung off a shoulder whose body
+half-width is `~0.66–0.8` — so a thin wire + a flat sheet dangle off a fat round mass, with **no fleshy limb bridging
+the two forms**. That is *why* welding a flat sheet to a round body never reads as one creature: there's no arm in
+between. **So the unified hull must give the wing a FLESHY ARM** — a `skinnedTube` upper-arm/forearm at a radius that
+MATCHES the shoulder mass (the exact trick the tail uses), emerging continuously from the body on the
+shoulder→elbow→wrist bones, with the **membrane spanned FROM that arm** (and along the body flank), not a bare sheet
+pinned at a point. The tail "cheats" (matching fat round form + a non-rotating base); the wing is the hard case
+(form-mismatch + a rotating joint), and the fleshy arm is what closes the form gap so the continuous-skin shoulder has
+something organic to blend. **Bake into the build: wing = fleshy arm tube (body-matching radius) + membrane spanned
+from it, all one skin — a real wing (and like the tail), not a kite frame on a sheet.**
