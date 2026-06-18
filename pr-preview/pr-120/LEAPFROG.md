@@ -1399,3 +1399,29 @@ frame+thumbs), 0-over, roster byte-identical, tiershots compiles.
 **→ Systematize:** "make part X read as the body" = build it skinned (to the right bone), lift it proud, and
 merge it into the HULL mesh; "make it a separate translucent/colored thing" = merge into that mesh instead.
 Material = merge target. The frame/thumb knobs are `model`-knobbed (`wingFrameRadius/Lift`) for preview tuning.
+
+### L39 — Anatomical proportion pass: arm>forearm>finger taper, embed the frame, downbeat-SURGE whip, deeper tail scallops
+**Did / learned:** five targeted refinements from a chase-cam critique, all geometry/drive-only (no bones, weld
+untouched → 10 gates auto-green, roster byte-identical, tri 4182). **(1) Wrist even more medial** — added a
+`wingWristMedial` (0.84) factor on top of the innermost-scallop auto-align so the wrist pulls inboard OF the
+first scallop and the fingers fan harder outward. **(2) Frame taper** — the leading-edge spar was FATTER than
+the arm (the `wingFrameRadius` multiplier made the finger ≈0.078 vs the arm's 0.035 wrist), which reads as an
+anatomy error. Re-set the hierarchy with absolute radii: arm `r0` 0.115·rootScale (humerus, +shoulder bump) →
+forearm/wrist 0.10 → leading frame spar 0.085 → inner struts 0.058 → tip. Rule: **a limb must taper
+proximal→distal (arm > forearm > fingers); a fat decoration finger breaks the read.** **(3) Embed the frame**
+— the "detached, only-visible-backlit, wrist-sticks-out" complaint was the frame floating ABOVE/forward of the
+membrane (`wingFrameLift` 2.4 + `armLeadZ` -0.5). Set frame lift→0 (tube CENTRE on the membrane leading-edge
+surface = half-sunk/embedded, no gap) and pulled the arm sweep back (`wingArmLeadChord` 0.5→0.38). **On-top vs
+embedded is a lift choice: center-on-surface = bonded edge; center+radius = floating bar.** **(4) Deeper tail
+scallops** — `finSpec.scallop` 0.12→0.26 + fuller tips/chords; the quadratic web control in `buildWingShape`
+cusps the trailing edge far up between the 3 tips so the fan reads lobed, not triangular (this was for the
+TAIL fins only — the main wings were signed off). **(5) Downbeat-SURGE whip** — "weak power" was the smooth
+`sin` undulation; replaced with `flapSurge(x)` = a SHARPENED, asymmetric envelope (power/down lobe `pow(s,0.5)`
+full, recovery lobe `-0.55·pow(-s,0.85)` gentler) driving the spine + tail `rotation.x`, still flap-phase-locked
++ head→tail lagged. Same plane (vertical) + handles; only the TIME envelope changed → reads as a thrust pump,
+not a lazy wave. **Knob, don't hardcode:** every value here is a `model.*` knob so the human tunes feel on the
+lit preview. Headless can't judge "power" or "matte vs translucent" — those are preview calls; clay only
+confirms the silhouette/embed.
+**→ Systematize:** proportion realism = proximal-thicker taper across a limb's whole chain incl. its frame
+spar; "embedded vs proud" decals = set the tube centre relative to the host surface ± its radius; "more power"
+in a cyclic motion = sharpen/bias the drive ENVELOPE (asymmetric power/recovery), not raise amplitude.

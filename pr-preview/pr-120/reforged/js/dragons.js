@@ -512,8 +512,11 @@ export const DRAGONS = {
       // first scallop out to the wing edge; the arm sweeps FORWARD to the leading edge
       // (wingArmLeadChord); the spokes CURVE outward as they fan (wingFingerSplay) with a
       // small chord bow (wingFingerCurve); struts bulge as raised top-view ridges.
-      wingArmLeadChord: 0.5,
-      wingFingerCurve: 0.14, wingFingerSplay: 0.16, wingFingerBulge: 0.085, wingFingerRadius: 0.095,
+      // wrist pulled medial OF the innermost scallop (wingWristMedial) → fingers fan harder.
+      // Frame hierarchy: arm(0.115) > forearm(0.10) > leading frame spar(0.085) > struts(0.058).
+      wingArmLeadChord: 0.38, wingWristMedial: 0.84,
+      wingArmRadius: 0.115, wingForearmRadius: 0.10, wingFrameRadius: 0.085, wingFrameLift: 0.0,
+      wingFingerCurve: 0.14, wingFingerSplay: 0.18, wingFingerBulge: 0.06, wingFingerRadius: 0.058,
       // tail-whip + body-whip: the WHOLE body undulates VERTICALLY with the wingbeat and
       // the tail trails in a vertical wave; the tail curves sideways only when banking
       // (rudder). Bone chains reweight the loft; gated + nullable (roster byte-identical).
