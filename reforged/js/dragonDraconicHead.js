@@ -228,6 +228,27 @@ function regalCrownHorns(c) {
     c.head.add(tip);
   }
 }
+function crucibleCrownHorns(c) {
+  // Cindervale's forge-crown: two low crescent rails plus short rear prongs.
+  // It reads wide from the chase camera, not tall, so it stays out of the aim
+  // lane and does not reuse Solar's upright royal crown language.
+  const hs = c.cfg.hornScale;
+  for (const s of [-1, 1]) {
+    c.head.add(rakedHorn(c.mats.hornMat, {
+      baseR: 0.12 * hs, len: 1.05 * hs,
+      x: s * c.hx * 0.44, y: c.hy * 0.46, z: c.hz * 0.40,
+      rake: 1.18, splay: s * -0.72, segments: 5, flatZ: 0.42,
+    }));
+    c.head.add(rakedHorn(c.mats.hornMat, {
+      baseR: 0.075 * hs, len: 0.62 * hs,
+      x: s * c.hx * 0.22, y: c.hy * 0.60, z: c.hz * 0.62,
+      rake: 1.02, splay: s * -0.28, segments: 4, flatZ: 0.5,
+    }));
+    const ember = new THREE.Mesh(new THREE.OctahedronGeometry(0.05 * hs, 0), c.glowMat);
+    ember.position.set(s * c.hx * 0.54, c.hy * 0.58, c.hz * 0.82);
+    c.head.add(ember);
+  }
+}
 
 // ── REAR CREST (a back-of-head/nape glow into the neck — rear identity) ────────
 function noRearCrest() {}
@@ -277,7 +298,7 @@ const SKULLS = { roundWedgeSkull: buildSkull, nobleWedgeSkull: buildSkull, preda
 const SNOUTS = { shortBluntSnout, mediumBluntSnout, taperedPredatorSnout };
 const EYES   = { largeSoftEyeZone, mediumAlertEyeZone, narrowRegalEyeZone };
 const BROWS  = { softBrow, alertBrow, commandingBrow };
-const HORNS  = { smallSweptBackEarFins, longSweptBackEarFins, smoothDualHorns, bladeRearHorns, regalCrownHorns };
+const HORNS  = { smallSweptBackEarFins, longSweptBackEarFins, smoothDualHorns, bladeRearHorns, regalCrownHorns, crucibleCrownHorns };
 const JAWS   = { compactSmoothJaw, angularPredatorJaw, refinedNobleJaw };
 const CRESTS = { noRearCrest, smallRearCrest, glowSpineCrest, crownRearCrest };
 
@@ -287,6 +308,7 @@ const ARCHETYPES = {
   elegantLuminous: { skullType: 'nobleWedgeSkull',    snoutType: 'mediumBluntSnout',     eyeZoneType: 'largeSoftEyeZone',   browType: 'softBrow',       hornType: 'smoothDualHorns',       jawType: 'refinedNobleJaw',    rearCrestType: 'glowSpineCrest' },
   feralPredator:   { skullType: 'predatorWedgeSkull', snoutType: 'taperedPredatorSnout', eyeZoneType: 'mediumAlertEyeZone', browType: 'alertBrow',      hornType: 'bladeRearHorns',        jawType: 'angularPredatorJaw', rearCrestType: 'smallRearCrest' },
   ancientArcane:   { skullType: 'nobleWedgeSkull',    snoutType: 'mediumBluntSnout',     eyeZoneType: 'narrowRegalEyeZone', browType: 'commandingBrow', hornType: 'smoothDualHorns',       jawType: 'refinedNobleJaw',    rearCrestType: 'glowSpineCrest' },
+  crucibleCrowned: { skullType: 'predatorWedgeSkull', snoutType: 'mediumBluntSnout',     eyeZoneType: 'narrowRegalEyeZone', browType: 'commandingBrow', hornType: 'crucibleCrownHorns',    jawType: 'angularPredatorJaw', rearCrestType: 'crownRearCrest' },
 };
 
 const DEFAULTS = {

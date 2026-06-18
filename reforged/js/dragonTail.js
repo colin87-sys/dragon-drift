@@ -88,7 +88,8 @@ export function buildCleanTail(def, model, bodyMat, swept = false) {
   // Obsidian's stealth-tail styles: a SMOOTH stem (no spike plates) lit by a
   // continuous cyan dorsal-segment line, ending in a layered fin assembly.
   const smoothStem = style === 'spade' || style === 'splitfin'
-    || style === 'stealthrudder' || style === 'apexstealth' || style === 'nightfury';
+    || style === 'stealthrudder' || style === 'apexstealth' || style === 'nightfury'
+    || style === 'crucible';
   const g = model.spineGlow || 0;
   const gi = model.glowIntensity ?? 1;     // emissive multiplier (can exceed 1 at the apex)
   // Emissive-intensity clamp: the apex carries its extra "charge" through MORE
@@ -406,6 +407,52 @@ export function buildCleanTail(def, model, bodyMat, swept = false) {
     point.rotation.x = Math.PI / 2;
     point.position.set(0, 0, 0.34);
     tip.add(point);
+  } else if (style === 'crucible') {
+    // Cindervale apex: a unique VOLCANIC RUDDER, not the Night-Fury twin tail.
+    // Two broad crescent stabilizers frame a central white-hot flame spear; the
+    // shape reads like a furnace nozzle from the chase camera and is reserved for
+    // the final fire starter form.
+    const fs = model.tailFinScale ?? 1.25;
+    const spread = model.tailFinSpread ?? 1.0;
+    const em = ensureEdgeMat();
+    const fill = ensureFinFill();
+    const reg = (grp) => {
+      grp.userData.restRotZ = grp.rotation.z;
+      grp.userData.restRotY = grp.rotation.y;
+      grp.userData.restScale = 1;
+      tailFins.push(grp);
+      return grp;
+    };
+    for (const sx of [-1, 1]) {
+      const fin = buildLayeredFin(0.24 * fs, 1.34 * fs, fill, em, { curve: 0.34, tipPinch: 0.62 });
+      fin.scale.x = sx;
+      const p = new THREE.Group();
+      p.add(fin);
+      p.rotation.z = sx * (0.72 + spread * 0.2);
+      p.rotation.y = sx * (0.36 + spread * 0.12);
+      p.rotation.x = 0.22;
+      p.position.set(sx * 0.12, 0.06, -0.02);
+      tip.add(reg(p));
+    }
+    const spearMat = new THREE.MeshStandardMaterial({
+      color: def.surgeHi || def.coreGlow || def.apexSeam,
+      emissive: def.coreGlow || def.apexSeam,
+      emissiveIntensity: 1.6 * giM,
+      roughness: 0.28,
+      metalness: 0.1,
+      transparent: true,
+      opacity: 0.92,
+    });
+    spearMat.userData.baseEmissive = def.coreGlow || def.apexSeam;
+    spearMat.userData.baseIntensity = 1.6 * giM;
+    accentMats.push(spearMat);
+    for (const [r, h, z, intMul] of [[0.18, 1.14, 0.54, 1], [0.09, 0.92, 0.72, 1.25]]) {
+      const flame = new THREE.Mesh(new THREE.ConeGeometry(r * fs, h * fs, lod(7)), spearMat);
+      flame.rotation.x = Math.PI / 2;
+      flame.position.set(0, 0.05, z * fs);
+      flame.scale.y = intMul;
+      tip.add(flame);
+    }
   } else if (style === 'nightfury') {
     // Toothless-style TWIN tail-fins: two broad rounded membrane fans lying FLAT &
     // HORIZONTAL (aircraft horizontal stabilizers), swept out to the sides at the tip
