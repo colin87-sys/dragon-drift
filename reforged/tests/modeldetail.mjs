@@ -87,15 +87,17 @@ assert(ul > hi, `ULTRA (${ul}) > HIGH (${hi})`);
 assertEq(def0, hi, 'a no-opts build inherits the active level (HIGH here) — the live rig sets HIGH, so it is unchanged');
 ok(`obsidian tris ramp LOW ${lo} < HIGH ${hi} < ULTRA ${ul} (≈${(ul / hi).toFixed(2)}× on the hero)`);
 
-// the skinned rig contract survives every detail level (bones, not Groups)
+// the skinned rig contract survives every detail level (bones, not Groups). Obsidian
+// now runs the UNIFIED HULL: wingPivot/wingTip are still bones, and the hull builds
+// skinned meshes (the opaque hull + the translucent membrane) at every tier.
 for (const d of ['low', 'high', 'ultra']) {
   const def = ascendedDef(DRAGONS.obsidian, 3, 0);
   const r = buildDragonModel(def, { detail: d });
   assert(r.parts.wingPivotL?.isBone && r.parts.wingTipL?.isBone, `skinned bones intact at ${d}`);
   let skinned = 0; r.group.traverse((o) => { if (o.isSkinnedMesh) skinned++; });
-  assert(skinned >= 6, `skinned membrane + ribs present at ${d} (found ${skinned})`);
+  assert(skinned >= 2, `unified hull skinned meshes present at ${d} (found ${skinned})`);
 }
-ok('the skinned-wing rig contract holds at LOW / HIGH / ULTRA');
+ok('the skinned rig contract holds at LOW / HIGH / ULTRA (unified hull)');
 
 setActiveDetail('high'); // leave the module at the safe default for any later importer
 console.log(`\n${n} modeldetail checks passed.`);

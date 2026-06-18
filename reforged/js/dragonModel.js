@@ -10,6 +10,8 @@ import './dragonSideFins.js';       // 'sideFins' wings (lateral astral vanes)
 import './dragonCometWake.js';      // 'cometWake' tail (streaming comet glow-trail)
 import './dragonCelestialHead.js';  // 'celestialMask' head (regal faceplate)
 import './dragonDraconicHead.js';   // 'draconic' head (modular house-style dragon head)
+import './dragonUnifiedHull.js';    // 'unifiedHull' wings + 'unifiedHullTorso' (one continuous skinned hull)
+import './dragonOrganism.js';       // 'organismWings' + 'organismTorso' (clean-sheet one-skin creature)
 import { shingle } from './dragonShingle.js'; // reusable overlapping scale/plate cards
 import { applyFresnelRim } from './surface.js';
 import { flapWing, formStrength, formSpeed } from './dragonWingFlap.js';
@@ -99,6 +101,16 @@ export function buildDragonModel(def, opts = {}) {
     color: def.body, roughness: 0.38, metalness: 0.12,
     emissive: def.body, emissiveIntensity: 0.12,
   });
+  // Per-dragon body FINISH override (additive + nullable — a creature whose hide
+  // should read as MATTE ORGANIC skin rather than the default semi-gloss opts in;
+  // default = unchanged, so the roster is byte-identical). Flows to the hull
+  // (attach.bodyMatDouble clone) AND the neck. Obsidian2 uses it to kill the
+  // "smooth metal" read so the v2 scale relief reads as living hide.
+  if (def.bodyRoughness != null) bodyMat.roughness = def.bodyRoughness;
+  if (def.bodyMetalness != null) bodyMat.metalness = def.bodyMetalness;
+  // envMapIntensity (default 1) — a dark SMOOTH body reflects the bright sky and
+  // reads as polished metal/wet even when matte; drop it low for a stealth hide.
+  if (def.bodyEnvIntensity != null) bodyMat.envMapIntensity = def.bodyEnvIntensity;
   // Surface detail: an on-brand fresnel rim defines the body's contour from the
   // rear camera so it stops reading as a flat dark mass. Set before the torso
   // clones bodyMat, so the DoubleSide torso + every body sphere/cone inherit it.
