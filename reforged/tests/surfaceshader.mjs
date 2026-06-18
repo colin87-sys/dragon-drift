@@ -9,7 +9,7 @@ import { assert, assertEq } from './shim.mjs';
 
 const {
   composeSurface, fresnelRimPatch, iridescencePatch, cellularScalesPatch,
-  membraneSSSPatch, buildSurfacePatches,
+  membraneSSSPatch, buildSurfacePatches, cellularScalesNormalPatch,
 } = await import('../js/dragonSurfaceShader.js');
 
 let n = 0;
@@ -61,6 +61,25 @@ ok('buildSurfacePatches maps blueprint shader names to patches');
 // membrane SSS exists and keys correctly
 assertEq(membraneSSSPatch().key, 'sss', 'membraneSSS patch key');
 ok('membrane subsurface patch available');
+
+// --- v2 normal-detail scales (cellularScalesNormal) -------------------------
+const matN = { needsUpdate: false };
+composeSurface(matN, [cellularScalesNormalPatch({ amp: 0.3 })]);
+assertEq(matN.customProgramCacheKey(), 'surf:scalesN', 'normal-scales cache key (distinct from v1 scales)');
+const shN = fakeShader();
+matN.onBeforeCompile(shN);
+assert('uScaleNrmAmp' in shN.uniforms && 'uScaleSize' in shN.uniforms, 'normal-scales registers amplitude + size uniforms');
+assert(shN.vertexShader.includes('vSurfPos'), 'normal-scales emits the object-space varying');
+assert(shN.fragmentShader.includes('_scPerturbNormal') && shN.fragmentShader.includes('dFdx'),
+  'normal-scales splices the derivative-bump helper');
+assert(/\bnormal\s*=/.test(shN.fragmentShader), 'normal-scales PERTURBS the lighting normal (assigns normal)');
+ok('cellularScalesNormal composes + perturbs the normal at the shared seam');
+
+// blueprint name maps + amplitude is tier-gated (scales with the active detail mul)
+const pN = buildSurfacePatches(['cellularScalesNormal'], { scales: 0x223044 });
+assert(pN.length === 1 && pN[0].key === 'scalesN', "name 'cellularScalesNormal' → scalesN patch");
+assert(pN[0].uniforms.uScaleNrmAmp > 0, 'tier-gated amplitude positive at HIGH');
+ok('buildSurfacePatches maps cellularScalesNormal (tier-gated amplitude)');
 
 // --- safety: empty compose is a no-op ---------------------------------------
 const mat3 = { needsUpdate: false };

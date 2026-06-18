@@ -10,6 +10,9 @@ import './dragonSideFins.js';       // 'sideFins' wings (lateral astral vanes)
 import './dragonCometWake.js';      // 'cometWake' tail (streaming comet glow-trail)
 import './dragonCelestialHead.js';  // 'celestialMask' head (regal faceplate)
 import './dragonDraconicHead.js';   // 'draconic' head (modular house-style dragon head)
+import './dragonUnifiedHull.js';    // 'unifiedHull' wings + 'unifiedHullTorso' (one continuous skinned hull)
+import './dragonOrganism.js';       // 'organismWings' + 'organismTorso' (clean-sheet one-skin creature)
+import './dragonNightFury.js';      // 'nightFuryWings' + 'nightFuryTorso' (smooth-loft Night Fury) + 'none' head/tail
 import { shingle } from './dragonShingle.js'; // reusable overlapping scale/plate cards
 import { applyFresnelRim } from './surface.js';
 import { flapWing, formStrength, formSpeed } from './dragonWingFlap.js';
@@ -99,6 +102,16 @@ export function buildDragonModel(def, opts = {}) {
     color: def.body, roughness: 0.38, metalness: 0.12,
     emissive: def.body, emissiveIntensity: 0.12,
   });
+  // Per-dragon body FINISH override (additive + nullable — a creature whose hide
+  // should read as MATTE ORGANIC skin rather than the default semi-gloss opts in;
+  // default = unchanged, so the roster is byte-identical). Flows to the hull
+  // (attach.bodyMatDouble clone) AND the neck. Obsidian2 uses it to kill the
+  // "smooth metal" read so the v2 scale relief reads as living hide.
+  if (def.bodyRoughness != null) bodyMat.roughness = def.bodyRoughness;
+  if (def.bodyMetalness != null) bodyMat.metalness = def.bodyMetalness;
+  // envMapIntensity (default 1) — a dark SMOOTH body reflects the bright sky and
+  // reads as polished metal/wet even when matte; drop it low for a stealth hide.
+  if (def.bodyEnvIntensity != null) bodyMat.envMapIntensity = def.bodyEnvIntensity;
   // Surface detail: an on-brand fresnel rim defines the body's contour from the
   // rear camera so it stops reading as a flat dark mass. Set before the torso
   // clones bodyMat, so the DoubleSide torso + every body sphere/cone inherit it.
@@ -406,8 +419,8 @@ export function buildDragonModel(def, opts = {}) {
   const tailResult = getTailBuilder(recipe.tail)(def, model, { bodyMat, scalesMat }, attach.tailAnchor);
   group.add(tailResult.group);
   if (tailResult.accentMats) for (const m of tailResult.accentMats) spineMats.push(m);
-  const tailFins = tailResult.tailFins;
-  const tailSegs = tailResult.segs;
+  let tailFins = tailResult.tailFins;
+  let tailSegs = tailResult.segs;
   // An orbit-style tail (the wyrm's shard relics) returns orbiters the rig spins.
   const tailOrbiters = tailResult.orbiters ?? null;
 
@@ -426,6 +439,13 @@ export function buildDragonModel(def, opts = {}) {
     tipMarkerL, tipMarkerR, wingPivot2L, wingPivot2R,
     wingRigL, wingRigR,
   } = wingsResult.parts;
+  // Night-Fury grows its bat-tail fins + tail-bone whip chain INSIDE the wings
+  // builder (the tail is part of the continuous hull, not a bolted tail module), so
+  // adopt those when present — additive + nullable (other wings builders return
+  // neither → the roster is byte-identical).
+  if (wingsResult.parts.tailFins) tailFins = wingsResult.parts.tailFins;
+  if (wingsResult.parts.tailSegs) tailSegs = wingsResult.parts.tailSegs;
+  const spineSegs = wingsResult.parts.spineSegs || null;   // night-fury body-spine whip (nullable)
 
   // Solar aura card (apex only): a tall narrow backlight behind the body — a
   // corona, not a ring that competes with the collectible rings.
@@ -498,7 +518,7 @@ export function buildDragonModel(def, opts = {}) {
 
     return {
       group: wrapper,
-      parts: { head, tailSegs, tailFins, bodySegs, tailOrbiters, riderSocket, wingPivotL, wingPivotR, wingTipL, wingTipR, wingPivot2L, wingPivot2R, tipMarkerL, tipMarkerR, wingRigL, wingRigR, coreGlow },
+      parts: { head, tailSegs, tailFins, spineSegs, bodySegs, tailOrbiters, riderSocket, wingPivotL, wingPivotR, wingTipL, wingTipR, wingPivot2L, wingPivot2R, tipMarkerL, tipMarkerR, wingRigL, wingRigR, coreGlow },
       materials: { bodyMat, wingMat, eyeMat, spineMats },
       auraSprite,
     };
@@ -507,7 +527,7 @@ export function buildDragonModel(def, opts = {}) {
   return {
     group,
     parts: {
-      head, tailSegs, tailFins, bodySegs, tailOrbiters, riderSocket,
+      head, tailSegs, tailFins, spineSegs, bodySegs, tailOrbiters, riderSocket,
       wingPivotL, wingPivotR,
       wingTipL, wingTipR,
       wingPivot2L, wingPivot2R,
@@ -566,15 +586,32 @@ export function makePreviewTick(def, result) {
         wingTipL.rotation.x = -0.06 - feather;
       }
     }
-    // Root-locked snake coil (x + y) so the tail stays attached and alive.
+    // Root-locked snake coil (x + y) so the tail stays attached and alive. A SKINNED
+    // bone-chain tail (Night-Fury whip) must be driven by ROTATION only (position would
+    // tear the chain), so detect bones and sway them in place.
     const nT = tailSegs.length;
+    const boneTail = nT > 0 && tailSegs[0].isBone;
     for (let i = 0; i < nT; i++) {
       const lock = nT > 1 ? i / (nT - 1) : 0;
       const l2 = lock * lock;
       const tp = t * 3.6 - i * 0.6;
-      tailSegs[i].position.x = Math.sin(tp) * 0.3 * l2;
-      tailSegs[i].position.y = Math.cos(tp * 0.8) * 0.16 * l2;
-      tailSegs[i].rotation.z = -Math.sin(tp) * 0.16 * l2;
+      if (boneTail) {
+        // VERTICAL undulation (rotation.x), matching the in-flight body-whip read.
+        tailSegs[i].rotation.x = Math.sin(tp) * 0.16 * ((i + 1) / nT);
+      } else {
+        tailSegs[i].position.x = Math.sin(tp) * 0.3 * l2;
+        tailSegs[i].position.y = Math.cos(tp * 0.8) * 0.16 * l2;
+        tailSegs[i].rotation.z = -Math.sin(tp) * 0.16 * l2;
+      }
+    }
+    // Night-Fury body-spine whip: a gentle VERTICAL idle undulation (rotation.x) so the
+    // shop pose breathes the same way it flies.
+    const spine = result.parts.spineSegs;
+    if (spine && spine.length) {
+      for (const b of spine) {
+        const w = b.userData.whip || { gain: 0, phase: 0 };
+        b.rotation.x = w.gain * Math.sin(t * 1.6 + w.phase);
+      }
     }
     head.rotation.y = Math.sin(t * 0.9) * 0.1;
     // Segmented-wyrm body: a lead-first travelling wave (each plate trails the

@@ -73,8 +73,16 @@ assert(!!g.index && g.index.count % 3 === 0, 'indexed, whole triangles');
 ok('swept geometry is clean (finite, indexed, normalled)');
 
 // --- 4. integration: Obsidian sweptLoft == arrow @HIGH, rounder @ULTRA -----
-const obs = ascendedDef(DRAGONS.obsidian, 3, 0);   // Eternal
-assertEq(obs.parts.torso, 'sweptLoft', 'Obsidian opts into sweptLoft');
+// Obsidian (the hero) has since migrated to the UNIFIED HULL; the sweptLoft torso
+// path is still proven on an obsidian CLONE forced onto it (the coexist-test
+// discipline). This also pins sweptLoft == arrow @HIGH for the whole roster.
+const base = ascendedDef(DRAGONS.obsidian, 3, 0);   // Eternal
+// Force the OLD wing recipe too — the unified-hull wings need a body-less hull torso
+// (attach.loft), so this torso-focused test pairs sweptLoft/arrow with the membrane
+// bridge wings (which mount on any torso). The wings cancel in the sweptLoft-vs-arrow
+// comparison; only the torso loft differs.
+const obs = { ...base, parts: { ...base.parts, torso: 'sweptLoft', wings: 'skinnedMembraneBridge' } };
+assertEq(obs.parts.torso, 'sweptLoft', 'the clone opts into sweptLoft');
 const obsArrow = { ...obs, parts: { ...obs.parts, torso: 'arrow' } };
 const hiSwept = modelTris(buildDragonModel(obs, { detail: 'high' }).group);
 const hiArrow = modelTris(buildDragonModel(obsArrow, { detail: 'high' }).group);

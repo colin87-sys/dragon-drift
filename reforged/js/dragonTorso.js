@@ -132,6 +132,11 @@ function writeShoulderWeights(geo, wrR, wrL) {
 function buildTorso(profile, def, model, bodyMat, geoFn = buildTorsoGeometry, opts = {}) {
   const group = new THREE.Group();
   const stretch = model.bodyStretch ?? 1;
+  // bodyMesh:false — the UNIFIED HULL build. The torso publishes the full attach
+  // contract (neck + mount points + materials + the loft RECIPE) but adds NO body
+  // loft mesh and NO wing fairings: the hull builder (dragonUnifiedHull.js) grows
+  // the body surface itself, welded to the wing membrane in one continuous skin.
+  const bodyMesh = opts.bodyMesh !== false;
 
   // Broaden the SHOULDER region (additive, default = unchanged) so the wing roots
   // feel anatomically supported. Scales only the shoulder-zone station half-widths
@@ -144,11 +149,11 @@ function buildTorso(profile, def, model, bodyMat, geoFn = buildTorsoGeometry, op
 
   const torsoMat = bodyMat.clone();
   torsoMat.side = THREE.DoubleSide;
-  const torsoGeo = geoFn(profile, stretch);
+  const torsoGeo = bodyMesh ? geoFn(profile, stretch) : null;
   // Pass 2 (opt-in): weight the body verts near each wing root to that side's
   // shoulder bone so the torso surface itself bulges with the wingbeat. The bones
   // live in the wing mounts → the orchestrator binds this mesh once both exist.
-  if (opts.skinShoulders) {
+  if (opts.skinShoulders && torsoGeo) {
     const wrFor = (side) => ({
       x: profile.wingRoot.x * shoulderW * side,
       y: profile.wingRoot.y + (model.wingRootOffset?.y ?? 0),
@@ -156,30 +161,38 @@ function buildTorso(profile, def, model, bodyMat, geoFn = buildTorsoGeometry, op
     });
     writeShoulderWeights(torsoGeo, wrFor(1), wrFor(-1));
   }
-  const torso = opts.skinShoulders ? new THREE.SkinnedMesh(torsoGeo, torsoMat) : new THREE.Mesh(torsoGeo, torsoMat);
-  if (opts.skinShoulders) { torso.frustumCulled = false; torso.name = 'torsoShoulderSkin'; }
-  torso.position.y = TORSO_Y;
-  group.add(torso);
+  let torso = null;
+  if (bodyMesh) {
+    torso = opts.skinShoulders ? new THREE.SkinnedMesh(torsoGeo, torsoMat) : new THREE.Mesh(torsoGeo, torsoMat);
+    if (opts.skinShoulders) { torso.frustumCulled = false; torso.name = 'torsoShoulderSkin'; }
+    torso.position.y = TORSO_Y;
+    group.add(torso);
+  }
 
   // Smooth fairings where the wings attach, so they never look bolted on. The skinned
   // shoulder BRIDGE (dragonWings.js) replaces this STATIC blob with a continuous
-  // body-deltoid that follows the wing — so a bridged dragon SKIPS the fairing.
+  // body-deltoid that follows the wing — so a bridged dragon SKIPS the fairing. The
+  // unified HULL subsumes the shoulder entirely (the fleshy arm grows from the loft),
+  // so a body-less hull torso SKIPS the fairing too.
   // Otherwise, when the shoulder is widened (shoulderWidthScale) the fairing rides OUT
   // with it (radius + x) so it stays a proud muscular shoulder mound, not buried.
   const bridged = def.parts && def.parts.wings === 'skinnedMembraneBridge';
   const fr = profile.fairing;
   const fScale = shoulderW;
-  if (!bridged) for (const s of [-1, 1]) {
+  if (bodyMesh && !bridged) for (const s of [-1, 1]) {
     const root = new THREE.Mesh(new THREE.SphereGeometry(fr.r * fScale, seg(9), seg(7)), bodyMat);
     root.scale.set(fr.scale[0], fr.scale[1], fr.scale[2]);
     root.position.set(s * fr.pos[0] * fScale, fr.pos[1], fr.pos[2]);
     group.add(root);
   }
 
-  // Neck chain — slim spheres bridging the torso's neck cap to the head.
+  // Neck chain — slim spheres bridging the torso's neck cap to the head. A
+  // hull-grown creature passes opts.neck:false to suppress it (the neck becomes a
+  // continuous hull extension instead); the `n &&` guard also makes a profile with
+  // no neck spec safe. Default unchanged → the roster stays byte-identical.
   const n = profile.neck;
   const neckSegs = model.neckSegments;
-  for (let i = 0; i < neckSegs; i++) {
+  if (n && opts.neck !== false) for (let i = 0; i < neckSegs; i++) {
     const neck = new THREE.Mesh(
       new THREE.SphereGeometry(Math.max(n.rBase - i * n.rStep, n.rMin), seg(9), seg(7)), bodyMat);
     neck.scale.set(n.scale[0], n.scale[1], n.scale[2]);
@@ -212,6 +225,21 @@ function buildTorso(profile, def, model, bodyMat, geoFn = buildTorsoGeometry, op
     // shoulder bones — null unless this torso opted into skinShoulders.
     shoulderSkin: opts.skinShoulders ? torso : null,
   };
+  // UNIFIED HULL contract (additive + nullable): a body-less torso publishes the
+  // loft RECIPE so the hull builder can generate the body surface ITSELF and weld
+  // the wing membrane to it as one continuous skin. Uses the FINAL profile (after
+  // the shoulderWidthScale munge) so the flank the wing welds to matches the body.
+  if (!bodyMesh) {
+    const finalProfile = profile;
+    attach.loft = {
+      makeGeo: () => geoFn(finalProfile, stretch),
+      profile: finalProfile,
+      stretch,
+      TORSO_Y,
+      keelTopFor: (z) => keelTopFor(finalProfile, z),
+      halfWidthFor: (z) => halfWidthFor(finalProfile, z),
+    };
+  }
   return { group, attach };
 }
 
@@ -287,8 +315,15 @@ registerTorso('sweptLoft', (def, model, bodyMat) =>
 // (bound to the wing shoulder bones by the orchestrator). Obsidian-only opt-in.
 registerTorso('sweptLoftSkinned', (def, model, bodyMat) =>
   buildTorso(ARROW_PROFILE, def, model, bodyMat, buildSweptTorsoGeometry, { skinShoulders: true }));
+// unifiedHullTorso — the BODY-LESS torso for the continuous skinned hull. It builds
+// the neck + publishes the full attach contract (incl. attach.loft, the body-loft
+// recipe), but adds NO body mesh and NO fairings: the hull (dragonUnifiedHull.js)
+// grows the body surface itself and welds the wing membrane to it as one skin.
+// Obsidian-only opt-in; the rest of the roster is byte-identical.
+registerTorso('unifiedHullTorso', (def, model, bodyMat) =>
+  buildTorso(ARROW_PROFILE, def, model, bodyMat, buildSweptTorsoGeometry, { bodyMesh: false }));
 
-export { ARROW_PROFILE, SERPENT_PROFILE, buildTorso };
+export { ARROW_PROFILE, SERPENT_PROFILE, buildTorso, bladeRing, keelTopFor, halfWidthFor, TORSO_Y };
 
 // ===========================================================================
 // AVIAN — a firebird body plan (the Phoenix, folded out of its bespoke builder).

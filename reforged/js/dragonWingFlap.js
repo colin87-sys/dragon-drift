@@ -21,6 +21,17 @@ const DEFAULTS = {
   foldAmp: 0.28,         // wrist counter-fold amplitude
   elbowLimit: [-0.55, 0.85],
   wristLimit: [-0.7, 0.7],
+  // ── Dragon-Surge + steering layer (all 0 in cruise/straight → cruise feel unchanged) ──
+  surgeSweep: 0.55,      // backward wing sweep (rad) at full surge — swept high-speed look
+  surgeFold: 0.38,       // extra upstroke fold at full surge — tighter recovery
+  surgeLevel: 0.12,      // surge lowers the shoulder a touch → streamlined
+  surgeSharp: 0.35,      // surge skews the beat → sharp power downstroke, slow recovery
+  bankTuck: 0.5,         // INSIDE wing tuck+dip per unit steer (banks like an aircraft)
+  bankOpen: 0.32,        // OUTSIDE wing open/brace per unit steer
+  // ── open / air-brake layer (climb + boost-release decel) — the COUNTER to the aero tuck ──
+  spreadLift: 0.16,      // shoulder raises → wings open wider to catch air (climb/brake)
+  spreadOpen: 0.28,      // wings swing forward/out of the swept pose
+  spreadFold: 0.30,      // un-folds the wrist → membrane opens broad
 };
 
 const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
@@ -37,25 +48,41 @@ export function flapWing(rig, state, dt) {
   const side = rig.side;
   const { phase, flapAmp, turnBias, climbBias, rollFold, feather } = state;
   const str = state.strength ?? 1;
-  const rootFlap = Math.sin(phase) * flapAmp * str + 0.1;
+  // aero  = streamline/tuck/sweep driver (boost + surge + dive)
+  // spread = open / air-brake driver (climb + boost-release decel) — the COUNTER to aero
+  const aero = state.aero01 ?? state.surge01 ?? 0;
+  const spread = state.spread01 ?? 0;
+  // Beat: under aero skew the sine toward a SHARP power downstroke + slower recovery (a
+  // boost pulse, not faster flapping). At aero 0 this is exactly Math.sin(phase).
+  const beat = Math.sin(phase);
+  const rootFlap = (aero > 0 ? Math.sign(beat) * Math.pow(Math.abs(beat), 1 - P.surgeSharp * aero) : beat)
+    * flapAmp * str + 0.1;
+  // Steering asymmetry: the INSIDE wing of the turn tucks + dips, the OUTSIDE wing opens
+  // + braces → banks like an aircraft. DEADZONED by bankHard so it only engages on a HARD
+  // bank, not on gentle steering (falls back to the linear ramp for non-night-fury callers).
+  const steerMag = state.bankHard ?? Math.min(Math.abs(turnBias) / 0.28, 1);
+  const tuck = steerMag * (turnBias * side > 0 ? P.bankTuck : -P.bankOpen) * (0.7 + 0.5 * aero);
 
-  // Shoulder — the main flap (reproduces the existing wingbeat).
+  // Shoulder — main flap (+ aero sweep-back/level − spread opening + bank dip).
   const sh = rig.shoulder;
-  sh.rotation.z = damp(sh.rotation.z, -side * rootFlap + turnBias + side * rollFold, 14, dt);
-  sh.rotation.x = damp(sh.rotation.x, 0.14 + side * feather * 0.18 + climbBias, 10, dt);
-  sh.rotation.y = damp(sh.rotation.y, -side * 0.18 + turnBias * 0.8, 9, dt);
+  sh.rotation.z = damp(sh.rotation.z, -side * rootFlap + turnBias + side * rollFold + side * tuck * 0.5, 14, dt);
+  sh.rotation.x = damp(sh.rotation.x, 0.14 + side * feather * 0.18 + climbBias - aero * P.surgeLevel + spread * P.spreadLift, 10, dt);
+  sh.rotation.y = damp(sh.rotation.y, -side * 0.18 + turnBias * 0.8 - side * P.surgeSweep * aero + side * P.spreadOpen * spread, 9, dt);
 
-  // Elbow — the new lagged mid-arm joint that gives the whip (continues the flap).
+  // Elbow — the lagged mid-arm joint that gives the whip (+ bank tuck).
   if (rig.elbow) {
     const eFlap = clamp(Math.sin(phase - P.lagElbow) * flapAmp * P.elbowAmp * str, P.elbowLimit[0], P.elbowLimit[1]);
-    rig.elbow.rotation.z = damp(rig.elbow.rotation.z, -side * eFlap, 12, dt);
+    rig.elbow.rotation.z = damp(rig.elbow.rotation.z, -side * eFlap - side * tuck * 0.5, 12, dt);
     rig.elbow.rotation.x = damp(rig.elbow.rotation.x, -side * feather * 0.08, 10, dt);
   }
 
-  // Wrist — the trailing counter-fold (folds on up-stroke, extends on down-stroke).
-  const fold = clamp(Math.sin(phase + P.lagWrist) * P.foldAmp * str, P.wristLimit[0], P.wristLimit[1]);
+  // Wrist — the trailing counter-fold (folds on up-stroke). aero tightens the upstroke fold
+  // (tucked recovery); spread OPENS it (wings catch air); the inside wing folds more.
+  const upFold = Math.max(0, Math.sin(phase + P.lagWrist));      // >0 only on the upstroke
+  const fold = clamp(Math.sin(phase + P.lagWrist) * P.foldAmp * str + upFold * P.surgeFold * aero - spread * P.spreadFold,
+    P.wristLimit[0], P.wristLimit[1]);
   const w = rig.wrist;
-  w.rotation.z = damp(w.rotation.z, side * fold + turnBias * 0.45, 12, dt);
+  w.rotation.z = damp(w.rotation.z, side * fold + turnBias * 0.45 + side * tuck, 12, dt);
   w.rotation.x = damp(w.rotation.x, -0.12 + side * feather * 0.16, 10, dt);
 }
 

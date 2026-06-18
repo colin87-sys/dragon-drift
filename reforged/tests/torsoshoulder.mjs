@@ -28,8 +28,12 @@ let n = 0;
 const ok = (m) => { n++; console.log(`  ✓ ${m}`); };
 
 setActiveDetail('high');
-const obs = ascendedDef(DRAGONS.obsidian, 3, 0);
-assertEq(obs.parts.torso, 'sweptLoftSkinned', 'Obsidian opts into the skinned-shoulder torso');
+// Obsidian (the hero) has since migrated to the UNIFIED HULL; the sweptLoftSkinned
+// Pass-2 body-skin path is kept registered as the rollback. Prove it on an obsidian
+// CLONE forced back onto the old recipe (the coexist-test discipline, LEAPFROG L173).
+const base = ascendedDef(DRAGONS.obsidian, 3, 0);
+const obs = { ...base, parts: { ...base.parts, torso: 'sweptLoftSkinned', wings: 'skinnedMembraneBridge' } };
+assertEq(obs.parts.torso, 'sweptLoftSkinned', 'the clone opts into the skinned-shoulder torso');
 const model = buildDragonModel(obs, { detail: 'high' });
 const torso = model.group.getObjectByName('torsoShoulderSkin');
 

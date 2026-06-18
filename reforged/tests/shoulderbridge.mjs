@@ -29,8 +29,12 @@ let n = 0;
 const ok = (m) => { n++; console.log(`  ✓ ${m}`); };
 
 setActiveDetail('high');
-const obs = ascendedDef(DRAGONS.obsidian, 3, 0);          // Eternal
-assertEq(obs.parts.wings, 'skinnedMembraneBridge', 'Obsidian opts into the shoulder bridge');
+// Obsidian (the hero) has since migrated to the UNIFIED HULL; the shoulder-bridge
+// path is kept registered as the rollback. Prove it on an obsidian CLONE FORCED back
+// onto the old recipe (the coexist-test discipline, LEAPFROG L173 / shoulderbridge note).
+const base = ascendedDef(DRAGONS.obsidian, 3, 0);         // Eternal
+const obs = { ...base, parts: { ...base.parts, torso: 'sweptLoftSkinned', wings: 'skinnedMembraneBridge' } };
+assertEq(obs.parts.wings, 'skinnedMembraneBridge', 'the clone opts into the shoulder bridge');
 const model = buildDragonModel(obs, { detail: 'high' });
 
 // --- 1. both bridges build as 2-bone skinned tubes sharing the wing shoulder ----
