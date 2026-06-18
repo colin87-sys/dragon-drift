@@ -409,11 +409,13 @@ export function updateDragon(dt, player, time) {
   const aero01 = Math.min(1, Math.max(boost01 * 0.7, surge01, diveAmount * 0.85));   // tuck/sweep
   const spread01 = Math.min(1, climbAmount * 0.9 + decel01);                          // open/brake
   // POSTURE pitch: nose-DOWN in dive/boost/surge, nose-UP in climb, relax on decel.
-  const posturePitch = climbAmount * 0.42 - diveAmount * 0.5 - boost01 * 0.12 - surge01 * 0.14 + decel01 * 0.05;
+  // boost/fever nose-down kept VERY subtle (was tilting too far → showing the belly); the
+  // big deliberate poses stay on DIVE/CLIMB.
+  const posturePitch = climbAmount * 0.42 - diveAmount * 0.5 - boost01 * 0.035 - surge01 * 0.045 + decel01 * 0.05;
 
   // Surge/boost bank DEEPER + SNAPPIER (carves like a fighter jet).
-  const bankFactor = 0.026 + speedNorm * 0.011 + aero01 * 0.016;   // eased (body roll was too strong)
-  bankZ = damp(bankZ, -player.velocity.x * bankFactor, 9 + 5 * aero01, dt);
+  const bankFactor = 0.035 + speedNorm * 0.015;   // RESET to the original body-roll (was over-banking)
+  bankZ = damp(bankZ, -player.velocity.x * bankFactor, 9, dt);
   let rollSpin = 0;
   let rollFold = 0;
   if (player.roll) {
@@ -523,9 +525,9 @@ export function updateDragon(dt, player, time) {
     const calm = 1 - 0.5 * aero01;                       // streamline (boost/surge/dive) damps the bob
     // head/neck are FIRMER under streamline too — fever was re-introducing the floppy bob.
     const calmHN = 1 - 0.85 * aero01;                    // near-still head/neck in surge/boost/dive
-    const noseDown = diveAmount * 0.5 + boost01 * 0.10 + surge01 * 0.16;   // spear/dive pitch
+    const noseDown = diveAmount * 0.5 + boost01 * 0.03 + surge01 * 0.04;   // DIVE spear; boost/fever subtle
     const noseUp = climbAmount * 0.34;                                     // soar pitch
-    const vWhip = -vertJerk * 0.019;          // vertical pitch-whip (chest leads → rear trails) — bolder
+    const vWhip = -vertJerk * 0.026;          // vertical pitch-whip (chest leads → rear trails) — bolder
     for (const b of spineSegs) {
       const role = b.userData.role;
       if (role === 'hip') {
@@ -564,7 +566,7 @@ export function updateDragon(dt, player, time) {
     // gentle steering barely sweeps the tail; a HARD bank drives the rudder + counter-sweep.
     const cruise = 1 - bankHard * 0.7;
     const sp = 0.6 + 0.4 * speedNorm;
-    const tWhip = -vertJerk * 0.030;          // vertical pitch-whip (tail trails the body) — bolder
+    const tWhip = -vertJerk * 0.040;          // vertical pitch-whip (tail trails the body) — bolder
     // tailStiffness: boost/surge/dive TIGHTEN the tail into a high-speed rudder (less loose
     // wave, snappier follow-through); boost-release decel LOOSENS it (soft S-curve, lagging
     // tip catching air); a DIVE also straightens it behind the body. The per-segment lag

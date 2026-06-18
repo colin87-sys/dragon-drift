@@ -82,16 +82,18 @@ const NIGHTFURY_PROFILE = {
   // channel, default 0): the head rides UP on a curved neck and the tail droops, so
   // the side silhouette reads as a posed dragon, not a flat horizontal plank.
   stations: [
-    // ── HEAD: shifted +0.40 toward the body → STOCKY, short-necked ──
-    [-4.65, 0.046, 0.044, 0.046,  0.30], // nose cap (blunt, not a point)
-    [-4.46, 0.150, 0.128, 0.150,  0.33], // snout / muzzle (rounded blunt)
-    [-4.20, 0.245, 0.212, 0.222,  0.35], // upper jaw (fuller)
-    [-3.92, 0.345, 0.320, 0.288,  0.37], // cranium — widest, BIG cheeks
-    [-3.62, 0.340, 0.326, 0.286,  0.35], // cranium back / cheeks
-    [-3.32, 0.250, 0.230, 0.208,  0.27], // skull base (thicker)
-    // ── NECK: SHORT + THICK (compressed → stocky) flowing into a big ribcage ──
-    [-3.00, 0.295, 0.272, 0.244,  0.15], // head→neck — THICK
-    [-2.58, 0.420, 0.372, 0.332,  0.05], // neck → shoulder (short, ramps fast)
+    // ── HEAD: COMPACT (shorter + a FLAT low crown) + pulled toward the body → stocky.
+    //    Width is carried by the SIDE channel (cheeks widen sideways) while the dorsal
+    //    (top) line stays low → the longitudinal apex climbs gently (no facet kink). ──
+    [-4.12, 0.072, 0.068, 0.072,  0.33], // nose cap (blunt; dorsal line starts high → flat snout)
+    [-3.96, 0.140, 0.160, 0.158,  0.32], // snout / muzzle (rounded; width carried by the SIDE → low dorsal)
+    [-3.76, 0.205, 0.255, 0.228,  0.31], // upper jaw (cheeks widen SIDEWAYS, dorsal stays low)
+    [-3.54, 0.245, 0.345, 0.290,  0.29], // cranium — widest cheeks, FLAT low crown (compact)
+    [-3.32, 0.245, 0.330, 0.276,  0.27], // cranium back / cheeks
+    [-3.11, 0.265, 0.300, 0.258,  0.225],// skull base (gentle, thick — no pinch here)
+    // ── NECK: SHORT + THICK (stocky) flowing into a big ribcage ──
+    [-2.85, 0.330, 0.310, 0.278,  0.13], // head→neck — THICK
+    [-2.55, 0.430, 0.388, 0.345,  0.05], // neck → shoulder (short, ramps fast)
     // ── BODY: THICK muscular ribcage/thorax → waist → haunch ──
     [-2.10, 0.575, 0.502, 0.445,  0.00], // fore-shoulder — THICK (pulled forward)
     [-1.55, 0.645, 0.560, 0.496,  0.00], // shoulder rise — muscular ribcage
@@ -747,9 +749,9 @@ function buildNightFury(def, model, attach) {
   const features = [];
   const tailFins = [];
   let miniL = null, miniR = null;
-  // The head rides UP the curved neck (cy≈+0.36 at the cranium) and the tail droops
-  // (cy≈-0.20 at the fin zone); the feature y-positions track those centreline lifts.
-  const HEAD_Y = TY + 0.36, TAILFIN_Y = TY - 0.18;
+  // The head rides UP the curved neck (cy≈+0.29 at the cranium — FLAT low crown) and the
+  // tail droops (cy≈-0.20 at the fin zone); the feature y-positions track those lifts.
+  const HEAD_Y = TY + 0.30, TAILFIN_Y = TY - 0.18;
   // EYES — large almond acid-green eyes INSET into the cheek (recessed so only the
   // front of the ball reads, nestled in the rounded cranium, not a floating sphere).
   {
@@ -758,7 +760,7 @@ function buildNightFury(def, model, attach) {
       const eye = new THREE.Mesh(eyeGeo, eyeMat);
       // on the SIDE of the head (not on top): pushed OUT toward the cheek surface and
       // DROPPED to mid-head height, set into the hide so only the side cap shows.
-      eye.position.set(side * 0.275, HEAD_Y - 0.05, -3.90);
+      eye.position.set(side * 0.275, HEAD_Y - 0.05, -3.52);
       eye.scale.set(0.74, 1.12, 0.70);            // shallow (sunk) + tall → almond socket
       eye.rotation.y = side * 0.55;               // face SIDEWAYS-forward
       eye.rotation.z = side * -0.12;
@@ -775,7 +777,7 @@ function buildNightFury(def, model, attach) {
     for (const side of [1, -1]) {
       const ear = new THREE.Mesh(earGeo, hullMat);
       ear.scale.set(1.0, 1.05, 0.78);             // stubby, mildly flattened → a rounded horn nub
-      ear.position.set(side * 0.17, HEAD_Y + 0.16, -3.55);   // wider apart (no crossing) + head shift
+      ear.position.set(side * 0.17, HEAD_Y + 0.16, -3.16);   // back of the compact head (no crossing)
       // swept BACK (mostly toward the tail, +z, with a little up). The old −1.30 pointed it
       // FORWARD; +0.30 splay sent the apex INWARD → the crossing — sign FLIPPED to splay OUT.
       ear.rotation.x = 0.85;                       // back + slightly up
