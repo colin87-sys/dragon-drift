@@ -360,7 +360,9 @@ export const DRAGONS = {
       // CLEAN-SHEET ORGANISM HULL — body+wings as ONE continuous procedural skin,
       // generated from the creature's OWN profile (decoupled from the roster).
       torso: 'organismTorso', head: 'draconic', wings: 'organismWings', tail: 'sweptTail',
-      surface: { shader: ['cellularScales', 'iridescence'] },
+      // v2 normal-detail scales: the black hide catches light + reveals form (was
+      // 'cellularScales'). Low amplitude (scaleRelief) keeps the stealth drake sleek.
+      surface: { shader: ['cellularScalesNormal', 'iridescence'] },
       shingle: [
         { count: [0, 0, 10, 14], zRange: [-1.55, 1.1], len: 0.34, wid: 0.2, cup: 0.3, tilt: 0.42, yLift: 0.42, edge: true },
         { count: [0, 0, 0, 8], zRange: [-1.1, -0.4], len: 0.4, wid: 0.26, cup: 0.36, tilt: 0.52, yLift: 0.6, cardRows: 2, edge: true },
