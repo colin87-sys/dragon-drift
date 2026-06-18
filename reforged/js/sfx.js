@@ -505,6 +505,8 @@ let radioChosen = false;
 let layers = {};       // keyed: bass, melody, high, arp, perc, fever, pad
 let events = [];       // flattened note events sorted by time-offset
 let musicActive = false;
+let bgSuspended = false;   // app backgrounded → audio context suspended (any game state)
+let wasActiveOnBg = false; // was music playing when we backgrounded? (restore on return)
 let loopOffset = 0;    // absolute audioCtx time when current loop started
 let nextEvtIdx = 0;
 let schedulerTimer = null;
@@ -1189,6 +1191,12 @@ export const music = {
   },
 
   pauseForBackground() {
+    // Idempotent: fired from BOTH the gameplay pause and the raw visibility
+    // handler, and possibly twice for one background event. Remember whether music
+    // was actually playing so resumeFromBackground only restarts it if it should.
+    if (bgSuspended) return;
+    bgSuspended = true;
+    wasActiveOnBg = musicActive;
     musicActive = false;
     stopScheduler();
     stopWindSource();
@@ -1207,6 +1215,15 @@ export const music = {
       }, 80);
     }
     if (silentMedia) silentMedia.pause();
+  },
+
+  // Counterpart to pauseForBackground: app returned to the foreground. Resume the
+  // suspended context and restart music only if it had been playing when we left.
+  resumeFromBackground() {
+    if (!bgSuspended) return;
+    bgSuspended = false;
+    if (ctx && ctx.state === 'suspended') { try { ctx.resume(); } catch {} }
+    if (wasActiveOnBg) this.start();   // start() restores buses + rebuilds the scheduler
   },
 
   // Called every frame from main.js to fade layers in/out.

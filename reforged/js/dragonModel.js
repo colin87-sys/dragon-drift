@@ -231,20 +231,16 @@ export function buildDragonModel(def, opts = {}) {
   // its always-on-top crystal becomes an ugly glowing nub stuck on the snout — so
   // the preview build omits it. The shop shows the dragon, not the targeting aid.
   if (!opts.preview) {
+    // A small, DIM aiming pip — just enough to read the dragon's centre against the
+    // rings, deliberately understated. (It used to be a near-white core + a big
+    // additive glow halo, which the always-on-top draw turned into a distracting
+    // white "glare" smeared over the front of the body from the chase cam.)
     const aimCore = new THREE.Mesh(
-      new THREE.OctahedronGeometry(0.12, 0),
-      new THREE.MeshBasicMaterial({ color: 0xe2f6ff, depthTest: false, depthWrite: false, transparent: true }));
+      new THREE.OctahedronGeometry(0.07, 0),
+      new THREE.MeshBasicMaterial({ color: 0x8fc4dd, opacity: 0.55, depthTest: false, depthWrite: false, transparent: true }));
     aimCore.renderOrder = 999;
     aimCore.position.set(0, 0.12, -1.18);
     head.add(aimCore);
-    const aimHalo = new THREE.Sprite(new THREE.SpriteMaterial({
-      map: makeGlowTexture('190,235,255'), transparent: true, opacity: 0.85,
-      blending: THREE.AdditiveBlending, depthTest: false, depthWrite: false,
-    }));
-    aimHalo.scale.setScalar(0.62);
-    aimHalo.position.copy(aimCore.position);
-    aimHalo.renderOrder = 998;
-    head.add(aimHalo);
   }
 
   // Pearl's luminous head aura: a soft opalescent glow (a body-level sprite, NOT

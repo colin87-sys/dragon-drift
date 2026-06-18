@@ -626,11 +626,21 @@ function resumeFromTutorial() {
 }
 initGestureTutorial({ onPause: pauseForTutorial, onResume: resumeFromTutorial });
 
+// Background/foreground handling. pauseForBackground() only shows the pause overlay
+// during an active run, so the audio suspend (music.pauseForBackground) MUST be called
+// directly too — otherwise backgrounding from the menu/shop leaves the music scheduler
+// running while the browser throttles it, garbling the track (esp. mobile Safari). On
+// return, resume audio unless a run is sitting paused behind its overlay (the Resume
+// tap restarts that one, and the tap gesture re-unlocks iOS audio).
+function onBackground() { pauseForBackground(); music.pauseForBackground(); }
+function onForeground() { if (game.state !== 'paused') music.resumeFromBackground(); }
 document.addEventListener('visibilitychange', () => {
-  if (document.hidden) pauseForBackground();
+  if (document.hidden) onBackground(); else onForeground();
 });
-window.addEventListener('pagehide', pauseForBackground);
-window.addEventListener('blur', pauseForBackground);
+window.addEventListener('pagehide', onBackground);
+window.addEventListener('pageshow', onForeground);
+window.addEventListener('blur', onBackground);
+window.addEventListener('focus', onForeground);
 
 // --- Main loop ---
 const clock = new THREE.Clock();
