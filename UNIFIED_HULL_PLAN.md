@@ -4,6 +4,41 @@
 > scaffolding this supersedes). This is the **next major frontier**: stop assembling the creature
 > from separate skinned meshes that seam, and **generate it as ONE continuous skinned hull**.
 
+## Northstar + the bigger arc (added 2026-06-18 — read with ledger L24)
+
+**The thesis (why hull BEFORE blueprint):** the hull is a **parametric GENERATOR**; the data it
+consumes (`profile`, `wingSpec`, arm radius, `junctionSkin`, section, centreline, `motionProfile`)
+**IS the blueprint**. Build the generator first and the AI-authoring vocabulary is just the
+formalized, validated, documented set of knobs it exposes. Designing a creature schema *before* the
+geometry that realizes it = formalizing a **Lego system** (the seam saga L20→L23 is the proof: the
+cleanest authoring schema still yields seamed Lego if the geometry assembles separate parts). So the
+arc is three sequenced phases:
+1. **Hull (this doc, Increment 1)** — Obsidian body+wing as ONE continuous procedural skinned surface.
+   Unblocks the *look*.
+2. **Generalize the generator + the motion whip** — extend the kernel nose-to-tail (neck/tail/head) on
+   ONE bendable spine; add the vertical body-whip motion (below). The per-dragon params + feel
+   crystallize → the vocabulary.
+3. **Blueprint layer** — registry-DERIVED grammar + loud actionable validation + the imperative
+   decoration "Lego residue" (`dragonModel.js:164–334`) promoted to declarative `surfaceLayers` over
+   the hull + `CREATURES.md` + roster migration so the **organism path is the DEFAULT, not opt-in**.
+
+**Visual northstar (reference imagery):** confirms the **FLESHY ARM** — upper-arm + forearm tubes of
+**body-matching radius** (gold claws at wrist+finger tips), with the **membrane spanned FROM the arm
+AND along the body flank to the hip** — *not* a wire-rib + flat sheet pinned at a point. Wing roots
+sit **high on the back**, rider on a central shoulder hump, and **decorations follow the surface**
+(pectoral/shoulder/tail plates → Phase-3 `surfaceLayers`, not floating blocks). **The acceptance view
+is the REAR / ¾-rear chase cam IN MOTION**, not a side rest pose.
+
+**Motion northstar (the ultimate target — a rear-cam wingbeat, ~0.7s):** the whole body **porpoises
+VERTICALLY as a whip**, the **tail whipping in counter-phase**, synced to and *powering* the beat
+("the weight behind the wings"). Beat read: wings level (glide) → up-sweep → up-beat peak (**body
+arched/compressed**) → down-sweep → power down-stroke (**body extended**). **This is only possible on
+ONE continuous hull on a bendable spine** — so the hull is what *unlocks* the motion, and the motion
+is *why* the hull matters beyond sealing the seam. Implement as a `driveChain` phase-lagged **vertical
+spine wave** (reuse the EXISTING rig transforms as bones, L16; **zero rig-contract change**),
+data-driven by a per-dragon `motionProfile` (amplitude, frequency=flap, lag body→tail, counter-phase
+gain; L5/L7 — *lag sells weight*). Built in Phase 2, exposed as blueprint vocabulary in Phase 3.
+
 ## Context — why
 
 Obsidian's creature is assembled from **separate skinned meshes that meet at seams**: the body
