@@ -20,7 +20,7 @@ lessons for the one after. That is the whole studio: we rapidly improve the game
 
 You are a fresh session continuing **Dragon Drift** (the `reforged/` rewrite). Read this
 file top-to-bottom: **this HANDOFF** (where we are) → the **Active roadmap** (the next big
-build) → **THE RULE** + the **lessons ledger L1–L21** (how we work + everything learned so
+build) → **THE RULE** + the **lessons ledger L1–L22** (how we work + everything learned so
 far). Then continue — and **append a lesson after every meaningful change**.
 
 ### Where we are (state of the world)
@@ -848,3 +848,33 @@ mechanical, provably-safe step. **Judge on the preview (headless can't):** the b
 subtle (MAXW 0.34) — confirm it reads as breathing muscle in motion, and tune MAXW/R up if the shoulder should
 heave more; confirm the skinned torso (now wearing the `composeSurface` body shader) compiles under skinning
 with no `PAGEERROR`.
+
+### L22 — A broad wing swings off the body unless its ROOT BAND is welded to a static anchor (not the flap pivot)
+**Did / learned:** after the bridge (L20) + body-skin (L21), the human reported the wings STILL "aren't
+connected to the body" — worse on the up-beat (gap) and down-beat (collision). Root cause: PR-113's wings are
+now BROAD (deep chord + long `rootChord`), and the whole membrane was weighted at the root to the **shoulder
+pivot** (`spanSkin` band 0 = the flap bone), so the entire broad root edge SWINGS with the flap — pivoting off
+the body on the up-stroke, into it on the down-stroke. The bridge (a thin tube at one point) can't hold a broad
+root edge, and the body-bulge (L21, capped 0.34) is far too subtle to chase a big wing. Fix: make the membrane
+a **4-bone chain anchor(0)→shoulder(1)→elbow(2)→wrist(3)** and weld the INNER span band (`rootBand =
+elbowXGeo*0.55`) to a **STATIC body anchor** (the bone the bridge already created, never rotated), easing into
+the shoulder by the forearm. Now the inner wing stays welded to the body (grows FROM it) while the OUTER wing
+keeps the full shoulder→elbow→wrist whip — the motion the human liked is preserved, the swing-gap is gone.
+**Key insight:** the root POINT (x=0) is AT the pivot so it never moves regardless of weighting — it's the
+membrane just OUTBOARD of the root that swings; anchoring the *band* (not the point) is what holds the broad
+edge down. Rest pose is byte-identical (weights only — geometry + tri-count unchanged); the ribs ride the same
+`spanSkin` so they weld too. Gotcha: the wing skeleton is now **4-bone** → `skinnedwing.mjs`'s "every wing
+piece is 3-bone" + "skinIndex ≤ 2" invariants flip to 4 / ≤3 (the L16 over-broad-invariant tax, paid again).
+**→ Systematize:** the law — **a limb's attachment band must be weighted to a STATIC body anchor, not to the
+limb's moving root joint, or a wide attachment swings free.** This generalises to any broad-rooted appendage
+(fins, frills, a manta's whole body-to-wing patagium): the inner attachment band welds to the body anchor,
+easing into the limb's drive bones outboard. Banks alongside L20/L21 as the third shoulder primitive — bridge
+(fill the gap) + body-skin (the body follows) + **root-weld (the wing stays rooted)** — and the static "body
+anchor at the mount origin" is now the shared hinge all three hang off. The `rootBand` fraction is the one
+tuning knob (bigger = more of the wing welded flat to the body).
+**→ Leapfrog (innovate):** with the root-weld, "attach a wide membrane to a body" is a solved, declarative
+move — the path to manta/ray/flying-squirrel bodies where the wing IS the body edge. Combined with the
+cross-hierarchy bind (L21), an entire creature can be ONE skinned hull whose every appendage welds at the root
+and drives from shared bones, no bolted parts anywhere. **Judge on the preview (headless can't):** confirm the
+up-beat no longer gaps and the down-beat no longer collides; if a broad wing still peels at the very root,
+raise `rootBand` (weld more of the inner span flat) — a one-number tune.
