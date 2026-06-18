@@ -135,6 +135,114 @@ export const DRAGONS = {
     eye: 0xffa347, trail: 0xffa347, boostTrail: 0xffc060,
   },
 
+  cindervale: {
+    name: 'Cindervale Wyvern',
+    title: 'volcanic starter',
+    rarity: 'R',
+    maxRarity: 'SSR',   // three-stage fire starter: cute → rebellious → iconic apex
+    cost: 0,
+    // Original fire-starter line built for the rear chase camera: a dark volcanic
+    // wyvern whose silhouette grows through 3→4→5 bat-wing finger rays instead of
+    // becoming a plain orange dragon. The palette stays obsidian/graphite so it
+    // separates from Dragon Drift's warm sky and lava-light environments.
+    bodyMetalness: 0.0, bodyRoughness: 0.72, bodyEnvIntensity: 0.16,
+    scaleSize: 3.8, scaleRelief: 0.65, rimBodyMul: 0.45,
+    parts: {
+      torso: 'cinderCrucible', head: 'draconic', wings: 'skinnedMembraneBridge', tail: 'sweptTail',
+      surface: { shader: ['cellularScalesNormal'] },
+    },
+    stats: { speed: 1.06, handling: 1.12, drain: 0.9, regen: 1.12 },
+    model: {
+      scale: 1.02, wingScale: 1.05, tailSegments: 8, neckSegments: 5,
+      ridgeCount: 0, hornLen: 0, hornPairs: 1,
+      shoulderWidthScale: 1.16, wingRootScale: 1.42,
+      wingRootOffset: { y: 0.04, z: -0.08 },
+      riderSocket: { x: 0, y: 0.88, z: -0.42 },
+      headArchetype: 'softStealth', headScale: 1.16, snoutScale: 0.9,
+      hornScale: 0.25, eyeScale: 1.38, browIntensity: 0.65,
+      rearGlowIntensity: 0.24,
+      wingSSS: true, wingBillow: 0.16, wingArmLeadChord: 0.36,
+      wingWristMedial: 0.66, wingFingerCurve: 0.16, wingFingerSplay: 0.2,
+      wingFingerBulge: 0.045, wingFingerRadius: 0.046,
+      bodyWhip: true, tailSteer: true, tailWhip: true, scaleTail: true,
+      flapBias: 1.0, flapAmp: 0.9,
+      flapProfile: { lagElbow: 0.72, lagWrist: 1.2, elbowAmp: 0.62, foldAmp: 0.54 },
+    },
+    // Cinderkip → Ashvein → Pyroclast Sovereign. Tips are authored as the visible
+    // finger anchors; count jumps 3→4→5 and the final spread is deliberately much
+    // wider/deeper for the "worth grinding for" M-shaped chase-cam silhouette.
+    wingForms: [
+      { tips: [[3.75, 0.22], [2.92, -0.38], [1.88, -0.66]],
+        lead: [2.42, 0.42], scallop: 0.16, rootChord: 0.42, flame: false,
+        arc: { bow: 0.42, hump: 0.05, humpAt: 0.55, hook: 0.10 } },
+      { tips: [[4.65, 0.30], [3.78, -0.48], [2.55, -0.94], [1.42, -0.98]],
+        lead: [3.08, 0.56], scallop: 0.38, rootChord: 0.62, flame: true,
+        arc: { bow: 0.58, hump: 0.72, humpAt: 0.56, hook: 0.32 } },
+      { tips: [[5.65, 0.42], [4.78, -0.50], [3.52, -1.08], [2.22, -1.34], [1.05, -1.18]],
+        lead: [3.92, 0.76], scallop: 0.58, rootChord: 0.88, flame: true,
+        arc: { bow: 0.72, hump: 1.55, humpAt: 0.60, hook: 0.9 } },
+    ],
+    forms: [
+      // Cinderkip — bare-bones hatchling: no dorsal spikes, no seams, no crest,
+      // no armor. Its distinct silhouette comes from the new furnace-chest torso
+      // scaled small plus a tiny plain tail-spade.
+      { wingForm: 0, tailStyle: 'spade',
+        bodyScale: 0.70, wingSpan: 0.82, wingChord: 1.22, tailLength: 0.78,
+        tailFinScale: 0.32, tailFinSpread: 0, tailGlowSegs: 0,
+        neckSegments: 4, ridgeCount: 0,
+        headArchetype: 'softStealth', headScale: 1.28, snoutScale: 0.78,
+        hornScale: 0.22, eyeScale: 1.48, browIntensity: 0.55,
+        spineGlow: 0.12, glowIntensity: 0.42, particleRate: 0.35,
+        wingOpacity: 0.9, wingPanelGlow: 0.18, previewScale: 0.78,
+        wingVeins: false, glowSeams: false, backCrest: false,
+        colors: { body: 0x24272b, belly: 0x34383d, wingInner: 0x7a321c, wingOuter: 0x241611,
+          wingEmissive: 0xe85b22, wingMembraneEmissive: 0x6a2a16, scales: 0x596067, horn: 0x08090b,
+          eye: 0xffb347, apexSeam: 0xff6a22, coreGlow: 0xff8a24 } },
+      // Ashvein — the feature-sprouting middle: first back ridge, first split
+      // rudder, predator head, and 4-finger flame-notched wings. Still no crown,
+      // shoulder armor, wingtip fins, or crucible tail flame.
+      { wingForm: 1, tailStyle: 'splitfin',
+        bodyScale: 0.88, wingSpan: 0.96, wingChord: 1.42, tailLength: 0.94,
+        tailFinScale: 0.58, tailFinSpread: 0.52, tailGlowSegs: 4,
+        neckSegments: 5, ridgeCount: 5,
+        headArchetype: 'feralPredator', headScale: 1.08, snoutScale: 0.96,
+        hornScale: 0.82, eyeScale: 1.15, browIntensity: 1.05,
+        spineGlow: 0.44, glowIntensity: 0.85, particleRate: 0.8,
+        wingOpacity: 0.88, wingPanelGlow: 0.38, previewScale: 0.92,
+        wingVeins: true, glowSeams: true, backCrest: false,
+        colors: { body: 0x171a1d, belly: 0x252a2f, wingInner: 0xdc4c1f, wingOuter: 0x3a1710,
+          wingEmissive: 0xff7a24, wingMembraneEmissive: 0x9a3518, scales: 0x4e555c, horn: 0x060708,
+          eye: 0xffd05a, apexSeam: 0xff7a24, coreGlow: 0xff9a2e } },
+      // Pyroclast Sovereign — final power spike: the full feature kit arrives at
+      // once: crown-horned noble head, 5-finger M wings, shoulder mantle/armor,
+      // back crest, hip/wingtip fins, and the unique crucible tail flame-rudder.
+      { wingForm: 2, tailStyle: 'crucible',
+        bodyScale: 1.12, bodyStretch: 1.14, wingSpan: 1.24, wingChord: 1.78, tailLength: 1.12,
+        tailFinScale: 1.08, tailFinSpread: 1.05, tailGlowSegs: 8,
+        tailRootCollar: true, tailDorsalLink: true,
+        neckSegments: 6, ridgeCount: 12,
+        headArchetype: 'nobleCrowned', headScale: 1.18, snoutScale: 1.02,
+        hornScale: 1.22, eyeScale: 1.0, browIntensity: 1.35,
+        spineGlow: 0.95, glowIntensity: 1.3, particleRate: 1.65,
+        wingOpacity: 0.88, wingPanelGlow: 0.62, previewScale: 1.12,
+        wingVeins: true, glowSeams: true, backCrest: true, armorPlates: true,
+        wingEdgeGlow: true, wingtipFins: true, hipFins: true,
+        surgeGlowMultiplier: 1.45, wingParticleRate: 0.7,
+        colors: { body: 0x0b0d10, belly: 0x1a1d20, wingInner: 0xff7a24, wingOuter: 0x2a100c,
+          wingEmissive: 0xffb347, wingMembraneEmissive: 0xff6a22, scales: 0x4e555c, horn: 0x040506,
+          eye: 0xfff0b8, apexSeam: 0xffc45a, coreGlow: 0xfff0c8 } },
+    ],
+    fx: { auraColor: '255,122,36', auraIdle: 0.05, sparkle: false },
+    previewAccent: 0xff7a24,
+    hasStyle: true, surgeMotes: true,
+    feverWing: 0xffd06a, feverEye: 0xffffff, feverWash: [0.09, 0.035, 0.01],
+    body: 0x0b0d10, belly: 0x1a1d20, scales: 0x4e555c, horn: 0x040506,
+    wingInner: 0xff7a24, wingOuter: 0x2a100c, wingEmissive: 0xffb347,
+    wingMembraneEmissive: 0xff6a22, dorsalHi: 0xffa13a,
+    apexEye: 0xffffff, apexSeam: 0xffc45a, coreGlow: 0xfff0c8, surgeHi: 0xffffff,
+    eye: 0xffd05a, trail: 0xff7a24, boostTrail: 0xffc45a,
+  },
+
   jade: {
     name: 'Jade Serpent',
     title: 'River-wind dancer',
