@@ -445,6 +445,7 @@ export function buildDragonModel(def, opts = {}) {
   // neither → the roster is byte-identical).
   if (wingsResult.parts.tailFins) tailFins = wingsResult.parts.tailFins;
   if (wingsResult.parts.tailSegs) tailSegs = wingsResult.parts.tailSegs;
+  const spineSegs = wingsResult.parts.spineSegs || null;   // night-fury body-spine whip (nullable)
 
   // Solar aura card (apex only): a tall narrow backlight behind the body — a
   // corona, not a ring that competes with the collectible rings.
@@ -517,7 +518,7 @@ export function buildDragonModel(def, opts = {}) {
 
     return {
       group: wrapper,
-      parts: { head, tailSegs, tailFins, bodySegs, tailOrbiters, riderSocket, wingPivotL, wingPivotR, wingTipL, wingTipR, wingPivot2L, wingPivot2R, tipMarkerL, tipMarkerR, wingRigL, wingRigR, coreGlow },
+      parts: { head, tailSegs, tailFins, spineSegs, bodySegs, tailOrbiters, riderSocket, wingPivotL, wingPivotR, wingTipL, wingTipR, wingPivot2L, wingPivot2R, tipMarkerL, tipMarkerR, wingRigL, wingRigR, coreGlow },
       materials: { bodyMat, wingMat, eyeMat, spineMats },
       auraSprite,
     };
@@ -526,7 +527,7 @@ export function buildDragonModel(def, opts = {}) {
   return {
     group,
     parts: {
-      head, tailSegs, tailFins, bodySegs, tailOrbiters, riderSocket,
+      head, tailSegs, tailFins, spineSegs, bodySegs, tailOrbiters, riderSocket,
       wingPivotL, wingPivotR,
       wingTipL, wingTipR,
       wingPivot2L, wingPivot2R,
@@ -595,12 +596,21 @@ export function makePreviewTick(def, result) {
       const l2 = lock * lock;
       const tp = t * 3.6 - i * 0.6;
       if (boneTail) {
-        tailSegs[i].rotation.y = Math.sin(tp) * 0.16 * ((i + 1) / nT);
-        tailSegs[i].rotation.z = Math.cos(tp) * 0.04 * ((i + 1) / nT);
+        // VERTICAL undulation (rotation.x), matching the in-flight body-whip read.
+        tailSegs[i].rotation.x = Math.sin(tp) * 0.16 * ((i + 1) / nT);
       } else {
         tailSegs[i].position.x = Math.sin(tp) * 0.3 * l2;
         tailSegs[i].position.y = Math.cos(tp * 0.8) * 0.16 * l2;
         tailSegs[i].rotation.z = -Math.sin(tp) * 0.16 * l2;
+      }
+    }
+    // Night-Fury body-spine whip: a gentle VERTICAL idle undulation (rotation.x) so the
+    // shop pose breathes the same way it flies.
+    const spine = result.parts.spineSegs;
+    if (spine && spine.length) {
+      for (const b of spine) {
+        const w = b.userData.whip || { gain: 0, phase: 0 };
+        b.rotation.x = w.gain * Math.sin(t * 1.6 + w.phase);
       }
     }
     head.rotation.y = Math.sin(t * 0.9) * 0.1;

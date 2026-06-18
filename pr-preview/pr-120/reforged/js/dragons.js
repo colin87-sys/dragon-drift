@@ -507,17 +507,17 @@ export const DRAGONS = {
       shoulderWidthScale: 1.2, wingRootOffset: { y: 0.06, z: -0.1 },
       riderSocket: { x: 0, y: 0.92, z: -0.45 },
       flapBias: 1.08, flapAmp: 0.82,
-      // Night-Fury wing anatomy (dragonNightFury knobs): the wrist sits MEDIAL (short
-      // bat arm, wingWristSpan) so the 5 fingers fan from close to the body out to the
-      // wing edge; the arm also sweeps FORWARD to the leading edge (wingArmLeadChord);
-      // top spoke straight, lower spokes bow more (wingFingerCurve); struts bulge as
-      // raised top-view ridges (wingFingerBulge/Radius).
-      wingArmLeadChord: 0.5, wingWristSpan: 2.5,
-      wingFingerCurve: 0.20, wingFingerBulge: 0.085, wingFingerRadius: 0.095,
-      // bat-tail steering + tail-whip: the tail sways in cruise and curves into a
-      // bank as a rudder (a tail-bone chain reweights the rear loft). (Mini-wings
-      // removed — they didn't read well.)
-      tailSteer: true, tailWhip: true,
+      // Night-Fury wing anatomy (dragonNightFury knobs): the wrist auto-aligns to the
+      // INNERMOST scallop tip (no wingWristSpan override) so the 5 fingers fan from the
+      // first scallop out to the wing edge; the arm sweeps FORWARD to the leading edge
+      // (wingArmLeadChord); the spokes CURVE outward as they fan (wingFingerSplay) with a
+      // small chord bow (wingFingerCurve); struts bulge as raised top-view ridges.
+      wingArmLeadChord: 0.5,
+      wingFingerCurve: 0.14, wingFingerSplay: 0.16, wingFingerBulge: 0.085, wingFingerRadius: 0.095,
+      // tail-whip + body-whip: the WHOLE body undulates VERTICALLY with the wingbeat and
+      // the tail trails in a vertical wave; the tail curves sideways only when banking
+      // (rudder). Bone chains reweight the loft; gated + nullable (roster byte-identical).
+      tailSteer: true, tailWhip: true, bodyWhip: true,
     },
     // TOOTHLESS WING OUTLINE — a broad bat wing with FIVE finger struts (a finger to
     // every tip via dragonNightFury#buildFingers). tips: [x span, y chord], far tip

@@ -1348,3 +1348,36 @@ a travelling wave with the tail in counter-phase. The hull is now a genuine posa
 loft + flapping wings; every "it feels stiff" note maps to "grow another short chain + reweight + rotation
 drive + gate bump." Next loop targets (human-judged on the preview): tune the whip feel (amp/lag/speed), then
 the body-spine flex if the tail-only motion still reads stiff, and continue silhouette convergence vs the refs.
+
+### L37 — Body-spine whip = split `bodyRoot` into a spine chain (the deferred Phase-2), + the motion PLANE matters, + two weld gotchas
+**Did / learned:** the human's flight reference (a thick dragon porpoising) exposed that the L36 tail-whip
+drove `rotation.y` → the tail swung **side-to-side, which is WRONG**. Correct flight motion is a **VERTICAL
+(dorsoventral) undulation coupled to the wingbeat**; lateral swing happens **only when banking** (the rudder).
+Two fixes shipped together: **(A) plane swap** — the tail cruise wave now drives **`rotation.x` (pitch)**
+locked to the flap `phase` (`ph = phase − 1.6 − i*0.6`, trailing aft), and the bank rudder stays on
+`rotation.y`; the shop-preview `boneTail` branch got the same y→x swap. **(B) the whole-body whip** — split
+the static `bodyRoot` into a **spine chain in the vertical plane** following the L36 recipe: keep `bodyRoot`
+as the **CHEST anchor** (holds the wing-seam band rigid), grow a FORWARD `neck→head` chain + an AFT `hip`
+node off it, re-parent the tail chain onto the hip so the whole rear rides one wave, and reweight the loft by
+z-band. Each spine bone carries `userData.whip = {gain, phase}`; `dragon.js` drives `rotation.x` as a
+travelling pitch wave (head bobs, rear heaves), exposed via a new nullable `spineSegs` handle (plumbed through
+`dragonModel.js` like `tailSegs`). Skeleton grew 11 → **14 bones** (gate updated in the same commit, per L36).
+**Two weld gotchas, both banked:** (1) **a rigid anchor band needs SINGLE-slot weights** — when both
+bracketing reweight controls are the same bone (the chest band, both `BONE.BODY`), the naive 2-slot blend
+writes `sw=[1−t, t]` with `si=[0,0]`; that's still 100% bone-0 mathematically, but the ZERO-GAP gate checks
+**slot-X weight === 1**, so it fails. Collapse to `si=[a]; sw=[1]` when `a===b`. (2) **the anchor band MUST
+fully contain the wing-root seam chord** — the seam spans z≈−1.10…0.28 (measured, not guessed), so a chest
+band starting at −1.0 leaked the front seam verts onto the neck (0.18 gap). Push the band front to −1.35 with
+margin. **Verify motion with a plane-aware probe**, not just "it moved": body-whip → head **Δy 1.26, Δx 0**
+(vertical) with chest **0.0000** (anchored); tail pitch → tip **Δy 1.36** (vertical); rudder → tip **Δx 1.21**
+(lateral). Geometry this round too: the wrist now **auto-derives from the innermost scallop tip**
+(`tips.at(-1)[0]*1.34`) so it sits in line with the first scallop across all tiers; fingers gained an
+**outward span bow** (`wingFingerSplay`) so they fan/curve (not straight); the tail fins are **FLAT bat-fans
+at the tip** (yaw-only rotation, near-zero arc/billow, 3 scallops, light bank flare); the tail is **thicker +
+muscular, tapering late**. All 10 gates green, roster byte-identical, tri 4134 (HIGH), high/ultra CI 0-over.
+**→ Systematize:** the L36 "articulate part X" recipe now extends to the SPINE — the reusable rule is
+**anchor the bone that owns a weld (the wing seam → chest), grow chains fore and aft of it, and the anchor
+band's z-extent must be MEASURED to contain the weld chord**. Drive plane is a first-class design choice:
+**pitch (rot.x) for swim/flight undulation, yaw (rot.y) for steering** — never default to yaw. `userData.whip`
+metadata on each bone keeps the drive code creature-agnostic. Next: tune the whip feel (amp/lag/phase coupling
+to the flap) and the wing-fan splay on the lit preview; the hull is now a full fore-aft posable spine.

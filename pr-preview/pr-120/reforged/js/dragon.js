@@ -26,6 +26,7 @@ let wingRigL = null;  // skinned-wing flap rigs (shoulder/elbow/wrist), null oth
 let wingRigR = null;
 let head = null;
 let tailSegs = [];
+let spineSegs = [];       // night-fury body-spine whip bones (empty for every other dragon)
 let tailFins = [];        // apex deployable tail-fin groups (empty for every other dragon)
 let tailDeploy = 0.82;    // deploy factor: cruise 0.82 · boost 1.0 · Surge 1.08
 let bodySegs = null;      // segmented-wyrm body plates (lead-first travelling wave)
@@ -122,6 +123,7 @@ export function createDragon(scene, def, riderDef) {
   wingRigL = result.parts.wingRigL || null;
   wingRigR = result.parts.wingRigR || null;
   tailFins = result.parts.tailFins || [];
+  spineSegs = result.parts.spineSegs || [];
   bodySegs = result.parts.bodySegs || null;
   tailOrbiters = result.parts.tailOrbiters || null;
   ({ bodyMat, wingMat, eyeMat } = result.materials);
@@ -457,24 +459,35 @@ export function updateDragon(dt, player, time) {
   // the sway ramps toward the tip (lock→1), so the whole tail coils with a
   // travelling wave while staying anchored — it never detaches into a spear.
   // Heavy segment overlap (built in dragonParts) hides the joints as it bends.
+  // Body-spine whip (model.bodyWhip): the WHOLE body undulates VERTICALLY with the
+  // wingbeat — a travelling pitch wave (rotation.x) locked to the flap `phase`, the chest
+  // anchored, the head bobbing and the rear heaving. Each bone carries its own gain+phase.
+  if (spineSegs.length) {
+    const amp = 0.65 + 0.35 * speedNorm;
+    for (const b of spineSegs) {
+      const w = b.userData.whip || { gain: 0, phase: 0 };
+      b.rotation.x = damp(b.rotation.x, w.gain * amp * Math.sin(phase + w.phase), 7, dt);
+    }
+  }
+
   const nTail = tailSegs.length;
   if (nTail && activeDef.model.tailWhip) {
     // Night-Fury tail = a SKINNED bone chain (not free segments), so drive it by
-    // ROTATION only (position would tear the chain). CROSS-FADE: in cruise a gentle
-    // phase-lagged travelling-wave sway (the live tail); as the player banks, fade the
-    // sway down and curve the whole tail INTO the turn like a rudder.
+    // ROTATION only (position would tear the chain). CRUISE = a VERTICAL (up/down)
+    // travelling wave on rotation.x, phase-locked to the wingbeat (`phase`) and trailing
+    // the body wave down the tail — NOT side-to-side. BANKING cross-fades IN a horizontal
+    // rudder (rotation.y) curving the tail INTO the turn; the vertical whip fades down.
     const bankAmt = Math.min(1, Math.abs(turnBias) / 0.16);
-    const cruise = 1 - bankAmt * 0.8;
-    const sp = 0.55 + 0.45 * speedNorm;
-    const climb = Math.max(-0.5, Math.min(0.5, player.velocity.y * 0.012));
+    const cruise = 1 - bankAmt * 0.7;
+    const sp = 0.6 + 0.4 * speedNorm;
     for (let i = 0; i < nTail; i++) {
       const lock = (i + 1) / nTail;                       // root subtle → tip full
-      const ph = time * 3.0 - i * 0.7;
-      const sway = Math.sin(ph) * 0.17 * lock * cruise * sp;
-      const rudder = turnBias * 1.4 * lock * bankAmt;
-      tailSegs[i].rotation.y = damp(tailSegs[i].rotation.y, sway + rudder, 8, dt);
-      tailSegs[i].rotation.z = damp(tailSegs[i].rotation.z, Math.cos(ph) * 0.05 * lock * cruise, 9, dt);
-      tailSegs[i].rotation.x = damp(tailSegs[i].rotation.x, -climb * lock, 8, dt);
+      const ph = phase - 1.6 - i * 0.6;                   // trail the wingbeat aft
+      const pitch = Math.sin(ph) * 0.17 * lock * cruise * sp;   // VERTICAL undulation
+      const rudder = turnBias * 1.4 * lock * bankAmt;           // HORIZONTAL rudder (turns)
+      tailSegs[i].rotation.x = damp(tailSegs[i].rotation.x, pitch, 8, dt);
+      tailSegs[i].rotation.y = damp(tailSegs[i].rotation.y, rudder, 8, dt);
+      tailSegs[i].rotation.z = damp(tailSegs[i].rotation.z, 0, 9, dt);
     }
   } else for (let i = 0; i < nTail; i++) {
     const lock = nTail > 1 ? i / (nTail - 1) : 0;

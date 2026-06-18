@@ -54,12 +54,12 @@ assertEq(model.parts.tailSegs.length, 4, 'tail-whip exposes a 4-bone tail chain 
 assert(model.parts.tailSegs.every((b) => b.isBone), 'tail segments are Bones (skinned whip, not free segments)');
 assert(!model.group.getObjectByName('organismHull'), 'no organism mesh (this is the night-fury build)');
 
-// --- 1. skinned meshes on ONE 7-bone skeleton + rig contract ------------------------
+// --- 1. skinned meshes on ONE skeleton (7 body/wing + spine + tail whip) + rig contract --
 assert(hull && hull.isSkinnedMesh, 'the opaque hull is a SkinnedMesh');
 assert(membrane && membrane.isSkinnedMesh, 'the translucent membrane is a SkinnedMesh');
 assert(fingers && fingers.isSkinnedMesh, 'the finger struts are a SkinnedMesh');
 assertEq(hull.frustumCulled, false, 'hull disables frustum culling');
-assertEq(hull.skeleton.bones.length, 11, 'hull bound to an 11-bone skeleton (7 body/wing + 4 tail-whip)');
+assertEq(hull.skeleton.bones.length, 14, 'hull bound to a 14-bone skeleton (7 body/wing + 3 spine + 4 tail-whip)');
 assert(hull.skeleton === membrane.skeleton && hull.skeleton === fingers.skeleton, 'hull + membrane + fingers SHARE one skeleton');
 const sk = hull.skeleton;
 const rigL = model.parts.wingRigL, rigR = model.parts.wingRigR;
@@ -67,7 +67,7 @@ assert(rigL.shoulder === sk.bones[1] && rigL.elbow === sk.bones[2] && rigL.wrist
 assert(rigR.shoulder === sk.bones[4] && rigR.elbow === sk.bones[5] && rigR.wrist === sk.bones[6], 'right rig = bones[4..6]');
 assert(model.parts.wingPivotL?.isBone && model.parts.wingTipR?.isBone, 'wingPivot/Tip handles are Bones');
 assert(!!model.parts.tipMarkerL && !!model.parts.tipMarkerR, 'tip markers present (trail spawn)');
-ok('one 7-bone skeleton carries hull + membrane + fingers; rig handles are the bones (contract intact)');
+ok('one skeleton carries hull + membrane + fingers; the 7 body/wing rig handles keep bones[0..6] (contract intact)');
 
 const { flapWing } = await import('../js/dragonWingFlap.js');
 const snap = (b) => ({ b, x: b.rotation.x, y: b.rotation.y, z: b.rotation.z });

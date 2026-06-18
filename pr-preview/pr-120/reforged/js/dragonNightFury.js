@@ -99,18 +99,18 @@ const NIGHTFURY_PROFILE = {
     [-1.05, 0.480, 0.420, 0.370,  0.00], // shoulder rise
     [-0.65, 0.510, 0.440, 0.390,  0.00], // shoulder/chest peak — sleek
     [-0.30, 0.490, 0.420, 0.380,  0.00], // chest (wing-root centre)
-     [0.05, 0.420, 0.360, 0.340,  0.00], // thorax
-     [0.45, 0.330, 0.290, 0.280, -0.01], // WAIST pinch
-     [0.85, 0.270, 0.240, 0.230, -0.03], // mid-body
-     [1.20, 0.250, 0.230, 0.195, -0.05], // haunches (powerful)
-     [1.50, 0.225, 0.212, 0.178, -0.08], // tail base — THICK + muscular
-    // ── TAIL: THICK + powerful, SHORTER (was long/thin) → fin zone at the END → point ──
-     [1.85, 0.195, 0.186, 0.156, -0.11],
-     [2.25, 0.165, 0.158, 0.132, -0.15],
-     [2.70, 0.132, 0.127, 0.106, -0.18],
-     [3.15, 0.098, 0.095, 0.080, -0.20], // tail-fin attach zone (near the end now)
-     [3.60, 0.058, 0.058, 0.050, -0.21],
-     [3.95, 0.014, 0.014, 0.014, -0.20], // tail tip (near-point) — tail ends here
+     [0.05, 0.440, 0.380, 0.350,  0.00], // thorax (fuller)
+     [0.45, 0.380, 0.335, 0.310, -0.01], // waist — muscular, LESS pinch
+     [0.85, 0.330, 0.295, 0.275, -0.03], // mid-body (fuller)
+     [1.20, 0.300, 0.275, 0.235, -0.05], // haunches (powerful)
+     [1.50, 0.275, 0.258, 0.218, -0.08], // tail base — THICK + muscular
+    // ── TAIL: THICK/robust, holds its mass then necks down LATE near the fins ──
+     [1.85, 0.250, 0.236, 0.198, -0.11], // still thick
+     [2.25, 0.225, 0.213, 0.178, -0.15], // hold the mass (muscular)
+     [2.70, 0.190, 0.181, 0.150, -0.18], // only now begins to taper
+     [3.15, 0.138, 0.132, 0.110, -0.20], // taper (fin zone)
+     [3.60, 0.074, 0.072, 0.060, -0.21], // necking to the tip
+     [3.95, 0.016, 0.016, 0.016, -0.20], // tail tip (near-point) — tail ends here
   ],
   keel: [[-4.34, 0.278], [-3.74, 0.185], [-3.05, 0.095], [-0.65, 0.44], [-0.30, 0.42], [0.05, 0.36], [0.45, 0.29], [0.85, 0.24], [1.20, 0.19], [1.70, 0.13], [3.50, 0.056]],
   wingRoot: { x: 0.45, y: 0.48, z: -0.45 }, // high on the back over the shoulder
@@ -224,8 +224,11 @@ function buildNightFury(def, model, attach) {
   const maxX = Math.abs(wingSpec.tips[0][0] * 1.34 * ws);
   const worldMaxX = (wingSpec.tips[0][0] || 5.7) * 1.34 * ws;
 
-  // arm datums (mirror the shipped skinned wing so the bones land sensibly)
-  const wristXGeo = (model.wingWristSpan ?? 3.3) * ws;
+  // arm datums (mirror the shipped skinned wing so the bones land sensibly).
+  // The wrist defaults to the INNERMOST scallop tip's span (wingSpec.tips[last][0]*1.34)
+  // so it sits directly in line with the first scallop point — the innermost finger then
+  // runs straight back from the wrist (same x), the rest fan outward to the other scallops.
+  const wristXGeo = (model.wingWristSpan ?? (wingSpec.tips[wingSpec.tips.length - 1][0] * 1.34)) * ws;
   const elbowXGeo = wristXGeo * 0.52;
   const foldBand = 0.7 * ws;
   const rootBand = elbowXGeo * 0.55;
@@ -325,38 +328,90 @@ function buildNightFury(def, model, attach) {
     }
     return st[st.length - 1][ci] ?? 0;
   };
-  const TAIL_BONE_Z = model.tailWhip ? (model.tailBoneZ ?? [1.70, 2.30, 2.90, 3.45]) : [];
-  const TAIL_Z0 = 1.45;                                   // bodyRoot influence ends here
-  const tailBones = [];
-  {
-    let parent = bodyRoot, prev = new THREE.Vector3(0, 0, 0);
-    for (let k = 0; k < TAIL_BONE_Z.length; k++) {
-      const z = TAIL_BONE_Z[k];
-      const wpos = new THREE.Vector3(0, TY + chAt(z, 4), z);   // on the drooped centreline
+  // helper: grow a centreline bone chain off `rootBone`, appending each to `bones` and
+  // returning {bone, z, idx} entries (idx = real skeleton index — never renumber 0-6).
+  const growChain = (zs, rootBone, rootPrev) => {
+    const arr = [];
+    let parent = rootBone, prev = rootPrev.clone();
+    for (const z of zs) {
+      const wpos = new THREE.Vector3(0, TY + chAt(z, 4), z);  // on the drooped centreline
       const bone = new THREE.Bone();
-      bone.position.copy(wpos.clone().sub(prev));         // local = world − parent world
+      bone.position.copy(wpos.clone().sub(prev));        // local = world − parent world
+      bone.userData.whipZ = z;
       parent.add(bone);
-      bones.push(bone);
-      tailBones.push(bone);
+      const idx = bones.length; bones.push(bone);
+      arr.push({ bone, z, idx });
       parent = bone; prev = wpos;
     }
+    return { arr, parent, prev };
+  };
+
+  const bodyWhip = !!model.bodyWhip;
+  // FORWARD spine (neck → head) leading off the CHEST (bodyRoot); the wing-seam band
+  // stays 100% on the chest so the weld is untouched.
+  const FWD_Z = bodyWhip ? (model.spineFwdZ ?? [-1.90, -3.80]) : [];
+  const fwd = growChain(FWD_Z, bodyRoot, new THREE.Vector3(0, 0, 0));
+  // AFT: a hip node off the chest; the tail chain then continues off the hip so the
+  // whole rear (hip → tail) rides one wave.
+  const HIP_Z = bodyWhip ? (model.spineHipZ ?? 1.10) : null;
+  let hipEntry = null, aftParent = bodyRoot, aftPrev = new THREE.Vector3(0, 0, 0);
+  if (HIP_Z != null) {
+    const wpos = new THREE.Vector3(0, TY + chAt(HIP_Z, 4), HIP_Z);
+    const bone = new THREE.Bone();
+    bone.position.copy(wpos.clone().sub(aftPrev));
+    bone.userData.whipZ = HIP_Z;
+    bodyRoot.add(bone);
+    hipEntry = { bone, z: HIP_Z, idx: bones.length }; bones.push(bone);
+    aftParent = bone; aftPrev = wpos;
   }
-  const TB = (k) => 7 + k;                                // tail-bone skeleton index
-  if (tailBones.length) {                                 // reweight loft TAIL verts (2-bone z blend)
+  const TAIL_BONE_Z = model.tailWhip ? (model.tailBoneZ ?? [1.70, 2.30, 2.90, 3.45]) : [];
+  const tail = growChain(TAIL_BONE_Z, aftParent, aftPrev);
+  const tailBones = tail.arr.map((e) => e.bone);
+
+  // Spine-whip handles (vertical undulation): neck/head (forward) + hip (aft). Each
+  // carries userData.whip = {gain, phase} so dragon.js drives rotation.x as a travelling
+  // pitch wave locked to the wingbeat. Forward bones bob the head; the hip drives the rear.
+  let spineSegs = null;
+  if (bodyWhip) {
+    spineSegs = [];
+    const fwdGain = [0.12, 0.08];                        // neck, head
+    fwd.arr.forEach((e, k) => { e.bone.userData.whip = { gain: fwdGain[k] ?? 0.07, phase: -1.0 - k * 0.5 }; spineSegs.push(e.bone); });
+    if (hipEntry) { hipEntry.bone.userData.whip = { gain: 0.14, phase: Math.PI - 0.4 }; spineSegs.push(hipEntry.bone); }
+  }
+
+  // ── REWEIGHT the loft off the static chest onto the spine + tail chains ────
+  // Piecewise z→bone control points (ascending z); a 2-bone sstep blend between adjacent
+  // controls. The chest band [-1.0, 0.9] is 100% bodyRoot (rigid — holds the wing seam).
+  const ctrl = [];
+  if (bodyWhip) {
+    ctrl.push({ z: FWD_Z[1], b: fwd.arr[1].idx });       // head
+    ctrl.push({ z: FWD_Z[0], b: fwd.arr[0].idx });       // neck
+    // chest band MUST fully contain the wing-root seam chord (≈ −1.10…0.28) so every
+    // seam vert stays 100% bodyRoot (the weld) — front pushed to −1.35 with margin.
+    ctrl.push({ z: -1.35, b: BONE.BODY });               // chest front (rigid)
+    ctrl.push({ z: 0.90, b: BONE.BODY });                // chest back  (rigid)
+    if (hipEntry) ctrl.push({ z: HIP_Z, b: hipEntry.idx });
+  } else if (TAIL_BONE_Z.length) {
+    ctrl.push({ z: 1.45, b: BONE.BODY });                // chest → tail handoff
+  }
+  tail.arr.forEach((e) => ctrl.push({ z: e.z, b: e.idx }));
+  if (ctrl.length) {
     const pos = loftGeo.attributes.position, n = pos.count;
     const si = new Uint16Array(n * 4), sw = new Float32Array(n * 4);
-    const ctrlZ = [TAIL_Z0, ...TAIL_BONE_Z];
-    const ctrlB = [BONE.BODY, ...TAIL_BONE_Z.map((_, k) => TB(k))];
     for (let i = 0; i < n; i++) {
       const z = pos.getZ(i);
-      let a = BONE.BODY, b = BONE.BODY, t = 0;
-      if (z > ctrlZ[ctrlZ.length - 1]) { a = b = ctrlB[ctrlB.length - 1]; }
-      else if (z > ctrlZ[0]) {
-        for (let j = 0; j < ctrlZ.length - 1; j++) {
-          if (z >= ctrlZ[j] && z <= ctrlZ[j + 1]) { a = ctrlB[j]; b = ctrlB[j + 1]; t = sstep((z - ctrlZ[j]) / (ctrlZ[j + 1] - ctrlZ[j])); break; }
+      let a = ctrl[0].b, b = ctrl[0].b, t = 0;
+      if (z >= ctrl[ctrl.length - 1].z) { a = b = ctrl[ctrl.length - 1].b; }
+      else if (z > ctrl[0].z) {
+        for (let j = 0; j < ctrl.length - 1; j++) {
+          if (z >= ctrl[j].z && z <= ctrl[j + 1].z) { a = ctrl[j].b; b = ctrl[j + 1].b; t = sstep((z - ctrl[j].z) / (ctrl[j + 1].z - ctrl[j].z)); break; }
         }
       }
-      si[i * 4] = a; si[i * 4 + 1] = b; sw[i * 4] = 1 - t; sw[i * 4 + 1] = t;
+      // collapse to a SINGLE slot when both bracketing controls are the same bone (e.g.
+      // the rigid chest band → 100% bodyRoot in slot X) so the wing-seam verts read as a
+      // clean bodyRoot weld (the ZERO-GAP gate checks slot-X weight === 1).
+      if (a === b) { si[i * 4] = a; sw[i * 4] = 1; }
+      else { si[i * 4] = a; si[i * 4 + 1] = b; sw[i * 4] = 1 - t; sw[i * 4 + 1] = t; }
     }
     loftGeo.setAttribute('skinIndex', new THREE.Uint16BufferAttribute(si, 4));
     loftGeo.setAttribute('skinWeight', new THREE.Float32BufferAttribute(sw, 4));
@@ -531,6 +586,9 @@ function buildNightFury(def, model, attach) {
         p.y += lift * Math.sin(Math.PI * Math.min(t, 0.85));
         // bow OUT (toward +z / trailing) at mid-span, zero at both ends.
         p.z += bowMag * Math.sin(Math.PI * t) * scaleZ;
+        // FAN OUTWARD: each spoke also curves convex toward the wingtip (+x) at mid-span,
+        // outer spokes (higher fanT) curving more — the hand-fan read from the markup.
+        p.x += (model.wingFingerSplay ?? 0) * fanT * Math.sin(Math.PI * t) * scaleX * side;
         centre.push(p);
         radii.push(r0 + (0.0035 - r0) * (t * t * (3 - 2 * t)));
         const ax = Math.abs(p.x - wr.x);
@@ -712,10 +770,12 @@ function buildNightFury(def, model, attach) {
   // billowed wing membrane + finger-like spar projections (the wing kernel in
   // miniature), fanning out + back. Mounted on pivots → dragon.js deploys them and
   // CURVES them into a bank (the rudder). userData.bankGain = curve INTO the turn.
+  // FLAT bat-fan (near-zero arc/billow so it lies in the horizontal plane); 4 tips →
+  // 3 scallop notches → 3 outboard finger spokes flaring ~45° from the long axis.
   const finSpec = {
-    tips: [[1.05, 0.36], [0.78, -0.30], [0.46, -0.54], [0.16, -0.44]],
-    lead: [0.64, 0.30], scallop: 0.10, rootChord: 0.20, flame: false,
-    arc: { bow: 0.30, hump: 0.0, humpAt: 0.6, hook: 0.06 },
+    tips: [[0.98, 0.10], [0.72, -0.34], [0.44, -0.58], [0.16, -0.60]],
+    lead: [0.60, 0.16], scallop: 0.12, rootChord: 0.20, flame: false,
+    arc: { bow: 0.05, hump: 0.0, humpAt: 0.6, hook: 0.0 },
   };
   function buildTailFin(side) {
     const pivot = new THREE.Group();
@@ -723,7 +783,7 @@ function buildNightFury(def, model, attach) {
     // the fin ENDS in line with the end of the tail (was starting too early at 3.30).
     // When the tail WHIPS, the fins must ride the last tail bone (else they detach on a
     // bank); position is then LOCAL to that bone so the deploy/bank rotation composes on top.
-    const finBaseW = new THREE.Vector3(side * 0.03, TAILFIN_Y, 3.18);
+    const finBaseW = new THREE.Vector3(side * 0.03, TAILFIN_Y, 3.55);
     if (tailBones.length) {
       const zL = TAIL_BONE_Z[TAIL_BONE_Z.length - 1];
       pivot.position.copy(finBaseW.clone().sub(new THREE.Vector3(0, TY + chAt(zL, 4), zL)));
@@ -735,7 +795,7 @@ function buildNightFury(def, model, attach) {
     const span = finSpec.tips[0][0] * 1.34 * fws;
     const g = buildCurvedPatch(finSpec, {
       scaleX: 1.34 * fws, scaleZ: sZ, arc: finSpec.arc, k: fws,
-      billow: model.tailFinBillow ?? 0.26, segU: seg(8), segV: seg(3),
+      billow: model.tailFinBillow ?? 0.04, segU: seg(8), segV: seg(3),
       spanStart: 0, spanEnd: span,
     });
     applyWingGradient(g, def, 0.30, 0.85);
@@ -766,15 +826,17 @@ function buildNightFury(def, model, attach) {
       const tube = skinnedTube(centre, radii, seg(3), () => ({ si: [0, 0, 0, 0], sw: [1, 0, 0, 0] }), fingerMat);
       pivot.add(new THREE.Mesh(tube.geometry, fingerMat));
     }
-    // rest pose: fan outward (open backward) with the outer edge raised (a flat-ish V).
-    pivot.rotation.set(-0.15, side * -0.52, side * 0.42);
-    pivot.userData.restRotZ = side * 0.42;
-    pivot.userData.restRotY = side * -0.52;
-    pivot.userData.restRotX = -0.15;
+    // rest pose: FLAT and in line with the tail (no up-V) — yaw only, so the fan lies
+    // horizontal and splays ~40° back-outward; the pair splays to both sides → a wide
+    // flat bat-tail at the tip.
+    pivot.rotation.set(0, side * -0.72, 0);
+    pivot.userData.restRotZ = 0;
+    pivot.userData.restRotY = side * -0.72;
+    pivot.userData.restRotX = 0;
     pivot.userData.restScale = 1;
-    // the tail bones already curve into the turn (rudder); the fins add a lighter
-    // airbrake tilt on top — modest bankGain so they don't over-rotate.
-    pivot.userData.bankGain = tailBones.length ? side * 0.35 : side * 0.7;
+    // stay flat in cruise; the tail-whip does the rudder. A small bankGain lets the fins
+    // flare lightly into a hard turn (airbrake) without lifting out of plane.
+    pivot.userData.bankGain = side * 0.3;
     pivot.frustumCulled = false;
     (tailBones.length ? tailBones[tailBones.length - 1] : group).add(pivot);  // ride the whip
     tailFins.push(pivot);
@@ -817,7 +879,7 @@ function buildNightFury(def, model, attach) {
       wingTipL: armL.wrist, wingTipR: armR.wrist,
       tipMarkerL, tipMarkerR,
       wingPivot2L: miniL, wingPivot2R: miniR,
-      tailFins, tailSegs: tailBones,
+      tailFins, tailSegs: tailBones, spineSegs,
       wingRigL: { shoulder: armL.shoulder, elbow: armL.elbow, wrist: armL.wrist, side: -1, profile: model.flapProfile || null },
       wingRigR: { shoulder: armR.shoulder, elbow: armR.elbow, wrist: armR.wrist, side: 1, profile: model.flapProfile || null },
     },
