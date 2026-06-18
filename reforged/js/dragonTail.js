@@ -6,6 +6,7 @@ import {
 import { registerTail } from './dragonRecipe.js';
 import { skinnedTube } from './dragonSweep.js';
 import { seg as lod } from './modelDetail.js'; // aliased: this file has a local `seg` mesh var
+import { composeSurface, fresnelRimPatch, buildSurfacePatches } from './dragonSurfaceShader.js';
 
 // Tail modules — the fourth part behind the recipe registry. A tail builder takes
 // (def, model, mats, anchor) and returns { group, segs, tailFins, accentMats }:
@@ -481,6 +482,21 @@ export function buildCleanTail(def, model, bodyMat, swept = false) {
     // Dark MATTE stem material so the tail integrates with the black body instead of
     // reading as a lit grey cylinder (no metallic sheen, high roughness).
     const stemMat = new THREE.MeshStandardMaterial({ color: def.body, roughness: 0.85, metalness: 0.04 });
+    // WHOLE-CREATURE SHADER SCALE (L31, obsidian2-only, gated): the swept tail's stem
+    // is a SEPARATE matte material with NO surface shader, so the body's pebbly relief
+    // stopped at the hips. When the creature opts in (model.scaleTail) AND declares a
+    // surface shader, compose the SAME relief (fresnel rim + the cellularScalesNormal
+    // patches) onto the stem + apply the matte body FINISH, so the scale reads nose-
+    // to-tail. The tube is UV-less + a SkinnedMesh (like the body hull, which already
+    // runs this shader) and the patch uses object-space vSurfPos, so it tiles fine.
+    // obsidian v1 does NOT set scaleTail → its stemMat is byte-identical/untouched.
+    const tailShader = def.parts && def.parts.surface && def.parts.surface.shader;
+    if (model.scaleTail && tailShader && tailShader.length) {
+      composeSurface(stemMat, [fresnelRimPatch(def.apexSeam || def.eye), ...buildSurfacePatches(tailShader, def)]);
+      if (def.bodyRoughness != null) stemMat.roughness = def.bodyRoughness;
+      if (def.bodyMetalness != null) stemMat.metalness = def.bodyMetalness;
+      if (def.bodyEnvIntensity != null) stemMat.envMapIntensity = def.bodyEnvIntensity;
+    }
     const centre = [], radii = [], skin = [];
     for (let s = 0; s < M; s++) {
       const z = (s / (M - 1)) * len;
