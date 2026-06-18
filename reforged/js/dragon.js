@@ -384,8 +384,14 @@ export function updateDragon(dt, player, time) {
   //   surge01 fever · boost01 held boost · decel01 boost-release air-brake spike
   //   diveAmount/climbAmount from vertical velocity · aero01 tuck/sweep · spread01 open/brake
   const vy = player.velocity.y;
-  const diveAmount = Math.min(Math.max(-vy * 0.05, 0), 1);
-  const climbAmount = Math.min(Math.max(vy * 0.05, 0), 1);
+  // Dive/climb are CINEMATIC postures — only a RAPID sustained drop/rise should trigger them,
+  // not the constant subtle up/down dodges of normal play (those were reading as a permanent
+  // head-down dive). Deadzone + smoothstep on the descent/ascent speed (verticalSpeed≈18 m/s,
+  // so a committed dive ≈ −18): ~0 below DIVE_ON, ramps to 1 by DIVE_FULL. The collision box
+  // is a fixed point+radius — this only changes the VISUAL posture, never clearance.
+  const ss = (a, b, x) => { const t = Math.min(Math.max((x - a) / (b - a), 0), 1); return t * t * (3 - 2 * t); };
+  const diveAmount = ss(9, 16, -vy);    // DIVE_ON 9 · DIVE_FULL 16 (raise DIVE_ON for a bigger deadzone)
+  const climbAmount = ss(8, 16, vy);    // CLIMB_ON 8 · CLIMB_FULL 16
   surge01 = damp(surge01, player.feverActive ? 1 : 0, 3.5, dt);
   boost01 = damp(boost01, player.speedActive ? 1 : 0, 5, dt);
   if (prevSpeedActive && !player.speedActive) decel01 = 1;      // RELEASE → air-brake spike
