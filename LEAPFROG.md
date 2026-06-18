@@ -1242,3 +1242,37 @@ behind the same coexist gates and is human-judged on the rear/¾-rear chase cam 
 `gameshots` are flat-lit, so they prove COMPILE + silhouette + that nothing idles bright, but the matte-relief
 read at gameplay distance + the motion are the chase-cam oracle's). Anatomy (body profile + wing outline) is
 authored to the Toothless reference imagery and verified on the preview, never guessed.
+
+### L34 — ONE loft nose-to-tail + a CENTRELINE-BEND channel: extend the stations, don't weld tubes; bend the spine or it reads as a flat manta
+**Did / learned:** the human directed a screenshot→compare→iterate loop against the Toothless reference, which
+needs the WHOLE creature (head+tail define the silhouette) — so I built them, but the cleanest realization beat
+the plan's "weld separate neck/tail tubes": **just extend the loft's own stations** forward (blunt snout → wide
+cranium → slim neck) and backward (long taper → near-point tail tip), so head+body+tail are ONE continuous
+`sweepProfileSmooth` surface — zero seams BY CONSTRUCTION (the L1/L32 ideal), no welding. The wing still welds at
+the shoulder (its z-window is untouched); the only add-ons are the green eyes, back-swept ear-flaps, and twin
+bat-membrane tail fins. Near-zero end stations close the nose/tail holes. The load-bearing fix the renders forced:
+a straight-spine loft reads as a **flat horizontal manta** — the head can't lift, the tail can't curve. So I added
+a **centreline-offset channel** to the generator: a station is now `[z, w, keelTop, belly, cy, cx]` where cy/cx
+bend the spine (default 0 → byte-identical straight loft). Lifting the head (cy≈+0.36 on a curved neck) + drooping
+the tail (cy≈-0.20) instantly made the side silhouette read as a posed dragon, and from the REAR the two acid-green
+eyes over spread wings read unmistakably as a Night Fury. This is the deferred "spline centreline bending"
+(`dragonSweep.js`'s own TODO), done as a simple per-station y/x offset (sections stay axis-aligned — fine for
+gentle bends; full Frenet framing is a later upgrade). The copy-the-boundary weld + all gates SURVIVED every
+reshape by construction (the seam copies whatever verts the loft emits — the L27/L30 property holds a 4th time).
+Built an interactive **drag-to-rotate viewer** (`tools/nfview.html` + `nfview.mjs`): orbit + zoom + live-flap
+toggle + tier buttons, building with `{preview:true}` to hide the gameplay aim-marker; it doubles as the clean
+multi-angle render source for the loop.
+**→ Systematize:** bank two laws. **(1) To make a lofted creature read as POSED (not a flat plank), BEND the
+centreline** — a per-station `cy`/`cx` offset interpolated alongside w/top/bot is the minimal additive way (the
+roster's straight loft is the cy=0 default). **(2) Prefer EXTENDING the loft's stations over WELDING separate
+tubes** for neck/head/tail whenever the appendage shares the body's cross-section family — one surface beats a
+welded seam; reserve the copy-the-boundary weld for parts that DON'T (the wing's flat membrane). The smoothness
+gate had to change: once the profile has INTENTIONAL curvature, "near-flat" is the wrong metric — assert the smooth
+loft turns strictly gentler than the station-only faceted loft (+ a loose absolute kink bound), so it still guards
+facet banding without false-failing on the posed curve.
+**→ Leapfrog (innovate):** the creature is now ONE continuous skinned surface nose-to-tail on a BENDABLE centreline
+— exactly the substrate the Phase-2 vertical body-WHIP needs (split the static `bodyRoot` into a phase-lagged spine
+chain + drive cy as a travelling wave, tail counter-phase; the cy channel is already the hook). Remaining,
+human-judged on the lit preview + the drag viewer (flat-lit headless can't judge matte-vs-metal or motion): the
+wing rest-droop (reads cape-like static — wants a more spread glide pose or membrane reshape), body depth,
+tail-fin prominence, and the finish. The loop continues from the user's direction, not blind guessing.

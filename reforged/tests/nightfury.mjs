@@ -254,10 +254,15 @@ const smoothTurn = topLineMaxTurn(sweepProfileSmooth(prof));  // smooth loft
 const smoothGeo = sweepProfileSmooth(prof);
 assert(smoothGeo.userData.loftRings.count > NIGHTFURY_PROFILE.stations.length,
   `smooth loft resamples to MORE rings than stations (${smoothGeo.userData.loftRings.count} > ${NIGHTFURY_PROFILE.stations.length})`);
-assert(smoothTurn < facetTurn * 0.6,
-  `smooth loft turns far more gently along z than the faceted loft (${smoothTurn.toFixed(1)}° vs ${facetTurn.toFixed(1)}°)`);
-assert(smoothTurn < 12,
-  `smooth loft max longitudinal turn is gentle (${smoothTurn.toFixed(1)}° < 12° → no "metallic rings")`);
+// The profile now has INTENTIONAL curvature (head-lift + tail-droop via the cy
+// channel), so the metric isn't "near-flat" but "the longitudinal resample DISTRIBUTES
+// the curvature" — the smooth loft must turn strictly more gently per segment than the
+// station-only faceted loft (remove the resample and they'd be equal → fail), and no
+// single segment may be a hard kink.
+assert(smoothTurn < facetTurn * 0.85,
+  `smooth loft distributes curvature (turns gentler than the faceted loft: ${smoothTurn.toFixed(1)}° vs ${facetTurn.toFixed(1)}°)`);
+assert(smoothTurn < 17,
+  `smooth loft max longitudinal turn is bounded — no hard facet kink (${smoothTurn.toFixed(1)}° < 17°)`);
 ok(`NO LONGITUDINAL FACET: smooth loft top-line turn ${smoothTurn.toFixed(1)}° (faceted ${facetTurn.toFixed(1)}°) — the rings are gone`);
 
 // --- 8. SEAM-NORMAL CONTINUITY (one-surface read) -----------------------------------

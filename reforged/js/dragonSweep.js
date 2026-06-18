@@ -72,8 +72,11 @@ function _cr(p0, p1, p2, p3, t) {
     + (-p0 + 3 * p1 - 3 * p2 + p3) * t3);
 }
 
-// Sample the station list at a fractional index f, Catmull-Rom over each of the four
-// channels [z, halfWidth, keelTop, belly] (ends clamped). Smooth in BETWEEN stations.
+// Sample the station list at a fractional index f, Catmull-Rom over each channel
+// [z, halfWidth, keelTop, belly, cy, cx] (ends clamped). Channels 4/5 are the
+// CENTRELINE offset (y then x) — they bend the spine so the head can lift and the
+// tail can curve (default 0 → the straight z-axis loft, byte-identical). Smooth in
+// BETWEEN stations.
 function sampleStations(stations, f) {
   const n = stations.length;
   const i1 = Math.min(Math.floor(f), n - 1);
@@ -81,8 +84,8 @@ function sampleStations(stations, f) {
   const i0 = Math.max(i1 - 1, 0);
   const i2 = Math.min(i1 + 1, n - 1);
   const i3 = Math.min(i1 + 2, n - 1);
-  const out = new Array(4);
-  for (let c = 0; c < 4; c++) out[c] = _cr(stations[i0][c], stations[i1][c], stations[i2][c], stations[i3][c], t);
+  const out = new Array(6);
+  for (let c = 0; c < 6; c++) out[c] = _cr(stations[i0][c], stations[i1][c], stations[i2][c], stations[i3][c], t);
   return out;
 }
 
@@ -97,21 +100,24 @@ function sampleStations(stations, f) {
 // can walk the resampled rings (NOT the original stations) for the wing-root weld.
 export function sweepProfileSmooth(profile, stretch = 1) {
   const { stations, zHold, ring } = profile;
+  // normalise every station to 6 channels so a profile may omit the centreline
+  // offset (cy, cx default 0 → the straight-spine loft).
+  const norm = stations.map((s) => [s[0], s[1], s[2], s[3], s[4] ?? 0, s[5] ?? 0]);
   const zAt = (z) => (z > zHold ? zHold + (z - zHold) * stretch : z);
   const longCount = Math.max(stations.length, seg(profile.longSamples ?? stations.length * 3));
 
   const rings = [];
   for (let r = 0; r < longCount; r++) {
     const f = (r / (longCount - 1)) * (stations.length - 1);
-    const [z, w, top, bot] = sampleStations(stations, f);
-    rings.push({ z: zAt(z), ctrl: ring(w, top, bot) });
+    const [z, w, top, bot, cy, cx] = sampleStations(norm, f);
+    rings.push({ z: zAt(z), cy, cx, ctrl: ring(w, top, bot) });
   }
   const m = seg(rings[0].ctrl.length);
 
   const verts = [], ringZ = [];
   for (const r of rings) {
     ringZ.push(r.z);
-    for (const [x, y] of resampleRing(r.ctrl, m)) verts.push(x, y, r.z);
+    for (const [x, y] of resampleRing(r.ctrl, m)) verts.push(x + r.cx, y + r.cy, r.z);
   }
   const idx = [];
   for (let s = 0; s < rings.length - 1; s++) {

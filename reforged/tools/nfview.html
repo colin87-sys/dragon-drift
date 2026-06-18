@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
+  <title>Night Fury viewer</title>
+  <style>
+    html,body{margin:0;height:100%;background:#0a0e1a;overflow:hidden;font-family:system-ui,sans-serif}
+    #gl{display:block;width:100vw;height:100vh;touch-action:none}
+    #hud{position:fixed;left:12px;top:12px;color:#bfe;font-size:13px;line-height:1.5;
+      background:rgba(8,12,24,.5);padding:8px 10px;border-radius:8px;pointer-events:none;user-select:none}
+    #hud b{color:#9fe06a}
+    .row{position:fixed;left:12px;bottom:12px;display:flex;gap:8px;flex-wrap:wrap}
+    .row button{background:#16223c;color:#cfe;border:1px solid #2a3a5a;border-radius:8px;
+      padding:8px 12px;font-size:14px;cursor:pointer}
+    .row button.on{background:#2a5; color:#04140a}
+  </style>
+  <script type="importmap">{ "imports": { "three": "/lib/three.module.js" } }</script>
+</head>
+<body>
+  <canvas id="gl"></canvas>
+  <div id="hud">Night Fury — <b id="lbl">toothless · Eternal</b><br>drag to rotate · scroll/pinch to zoom</div>
+  <div class="row">
+    <button id="bflap" class="on">Flap: ON</button>
+    <button id="breset">Reset view</button>
+    <button data-tier="0">Hatchling</button>
+    <button data-tier="1">Kindled</button>
+    <button data-tier="2">Radiant</button>
+    <button data-tier="3">Eternal</button>
+  </div>
+  <script type="module">
+    import * as THREE from 'three';
+    import { DRAGONS } from '/js/dragons.js';
+    import { ascendedDef } from '/js/ascension.js';
+    import { buildDragonModel } from '/js/dragonModel.js';
+    import { flapWing } from '/js/dragonWingFlap.js';
+
+    const params = new URLSearchParams(location.search);
+    let key = params.get('key') || 'toothless';
+    let tier = Number(params.get('tier') ?? 3);
+
+    const gl = document.getElementById('gl');
+    const renderer = new THREE.WebGLRenderer({ canvas: gl, alpha: true, antialias: true, preserveDrawingBuffer: true });
+    renderer.setPixelRatio(Math.min(devicePixelRatio || 1, 2));
+    renderer.toneMapping = THREE.ACESFilmicToneMapping;
+    const scene = new THREE.Scene();
+    const camera = new THREE.PerspectiveCamera(50, 1, 0.1, 200);
+    scene.add(new THREE.HemisphereLight(0xbfdcff, 0x2e3448, 1.0));
+    const keyL = new THREE.DirectionalLight(0xffe0b0, 1.7); keyL.position.set(2.5, 3, 4); scene.add(keyL);
+    const rimL = new THREE.DirectionalLight(0x7fb8ff, 1.0); rimL.position.set(-3, 1.5, -3); scene.add(rimL);
+    const fillL = new THREE.DirectionalLight(0xd0f0ff, 0.4); fillL.position.set(0, -2, 2); scene.add(fillL);
+
+    let model = null, current = null;
+    const center = new THREE.Vector3();
+    let baseDist = 8;
+    // orbit state: yaw 0 = behind (rear), 180 = front. pitch above.
+    const orbit = { yaw: 135, pitch: 0.28, dist: 8 };
+    let flapOn = true, mode = 'live';
+    const clock = new THREE.Clock();
+    let phase = 0;
+
+    function fit() {
+      current.updateMatrixWorld(true);
+      const box = new THREE.Box3().setFromObject(current);
+      box.getCenter(center);
+      const s = box.getSize(new THREE.Vector3());
+      const radius = 0.5 * Math.max(s.x, s.y, s.z);
+      baseDist = (radius / Math.tan(camera.fov * Math.PI / 360)) * 1.45;
+      orbit.dist = baseDist;
+    }
+    function load(k, t) {
+      if (current) { scene.remove(current); current.traverse(o => { if (o.geometry) o.geometry.dispose(); if (o.material && o.material.dispose) o.material.dispose(); }); }
+      key = k; tier = t;
+      const def = ascendedDef(DRAGONS[k], t, 0);
+      model = buildDragonModel(def, { preview: true });   // hide the gameplay aim marker
+      current = model.group;
+      scene.add(current);
+      fit();
+      document.getElementById('lbl').textContent = `${k} · ${['Hatchling','Kindled','Radiant','Eternal'][t] || t}`;
+    }
+
+    function placeCamera() {
+      const yaw = orbit.yaw * Math.PI / 180, p = orbit.pitch;
+      camera.position.set(
+        center.x + orbit.dist * Math.sin(yaw) * Math.cos(p),
+        center.y + orbit.dist * Math.sin(p),
+        center.z + orbit.dist * Math.cos(yaw) * Math.cos(p));
+      camera.near = orbit.dist / 100; camera.far = orbit.dist * 20;
+      camera.updateProjectionMatrix();
+      camera.lookAt(center);
+    }
+    function resize() {
+      const w = gl.clientWidth, h = gl.clientHeight;
+      renderer.setSize(w, h, false); camera.aspect = w / h; camera.updateProjectionMatrix();
+    }
+    window.addEventListener('resize', resize);
+
+    function frame() {
+      if (mode !== 'live') return;
+      requestAnimationFrame(frame);
+      const dt = Math.min(clock.getDelta(), 0.05);
+      if (flapOn && model && model.parts) {
+        phase += dt * 5.2;
+        const st = { phase, flapAmp: 0.5, turnBias: 0, climbBias: 0, rollFold: 0, feather: 0.3, strength: 1 };
+        try { flapWing(model.parts.wingRigL, st, dt); flapWing(model.parts.wingRigR, st, dt); } catch (e) {}
+      }
+      placeCamera();
+      renderer.render(scene, camera);
+    }
+
+    // ── drag to rotate + wheel/pinch zoom ──────────────────────────────────
+    let dragging = false, lx = 0, ly = 0;
+    gl.addEventListener('pointerdown', e => { dragging = true; lx = e.clientX; ly = e.clientY; gl.setPointerCapture(e.pointerId); });
+    gl.addEventListener('pointermove', e => {
+      if (!dragging) return;
+      orbit.yaw -= (e.clientX - lx) * 0.4;
+      orbit.pitch = Math.max(-1.2, Math.min(1.3, orbit.pitch + (e.clientY - ly) * 0.006));
+      lx = e.clientX; ly = e.clientY;
+    });
+    const stop = () => { dragging = false; };
+    gl.addEventListener('pointerup', stop); gl.addEventListener('pointercancel', stop);
+    gl.addEventListener('wheel', e => { e.preventDefault(); orbit.dist = Math.max(baseDist * 0.35, Math.min(baseDist * 2.5, orbit.dist * (1 + Math.sign(e.deltaY) * 0.08))); }, { passive: false });
+
+    document.getElementById('bflap').onclick = (e) => { flapOn = !flapOn; e.target.textContent = 'Flap: ' + (flapOn ? 'ON' : 'OFF'); e.target.classList.toggle('on', flapOn); };
+    document.getElementById('breset').onclick = () => { orbit.yaw = 135; orbit.pitch = 0.28; orbit.dist = baseDist; };
+    for (const b of document.querySelectorAll('button[data-tier]')) b.onclick = () => load(key, Number(b.dataset.tier));
+
+    // ── offscreen single render for the convergence loop (nfview.mjs) ──────
+    window.renderAngle = (k, t, yawDeg) => {
+      mode = 'static';
+      if (k !== key || t !== tier || !current) load(k, t);
+      orbit.yaw = yawDeg; orbit.pitch = 0.30; orbit.dist = baseDist;
+      placeCamera();
+      renderer.render(scene, camera);
+      return true;
+    };
+    window.resumeLive = () => { if (mode !== 'live') { mode = 'live'; clock.getDelta(); frame(); } };
+
+    resize();
+    load(key, tier);
+    frame();
+    window.__ready = true;
+  </script>
+</body>
+</html>
