@@ -473,6 +473,96 @@ export const DRAGONS = {
     eye: 0x96d62a, trail: 0x2a5a78, boostTrail: 0x4a90c0,
   },
 
+  // ── TOOTHLESS — Night Fury collab skin ──────────────────────────────────────
+  // The FRESH-take hull (LEAPFROG L32): a sleek matte-black Night Fury on the
+  // SMOOTH longitudinal-spline loft (no "metallic rings") + the one-surface
+  // body↔wing weld + a finger to every scallop. INCREMENT 1 = body + wings only;
+  // the neck/head/tail (head:'none', tail:'none') are switched OFF and arrive in
+  // I2/I3 as hull-grown continuous extensions — no legacy bolted parts are shown.
+  // Anatomy (body profile in dragonNightFury.js; wing outline below) is authored to
+  // the Toothless reference imagery, to be verified on the chase-cam preview.
+  toothless: {
+    name: 'Toothless',
+    title: 'Night Fury',
+    // Matte organic hide (the L29/L30 finish kit): metalness 0, very rough, LOW
+    // envMapIntensity (a smooth dark body mirrors the bright sky → reads metal).
+    // Bigger scales + strong relief so the micro-relief resolves at chase-cam
+    // distance. Additive/nullable → roster-safe.
+    bodyMetalness: 0.0, bodyRoughness: 0.85, bodyEnvIntensity: 0.16, scaleSize: 3.0, scaleRelief: 0.9,
+    rarity: 'SSR',
+    maxRarity: 'SSSR',
+    cost: 2600,
+    parts: {
+      // SMOOTH HULL — body+wings as ONE continuous procedural skin on the
+      // longitudinal-spline loft. head/tail OFF this increment (grown from the hull
+      // in I2/I3). One v2 normal-detail shader carries the living-hide scale.
+      torso: 'nightFuryTorso', head: 'none', wings: 'nightFuryWings', tail: 'none',
+      surface: { shader: ['cellularScalesNormal'] },
+    },
+    stats: { speed: 1.12, handling: 1.18, drain: 0.82, regen: 1.2 },
+    model: {
+      scale: 0.86, wingScale: 0.9, tailSegments: 9, neckSegments: 5,
+      ridgeCount: 0,
+      wingRootScale: 1.4, wingSSS: true,
+      shoulderWidthScale: 1.2, wingRootOffset: { y: 0.06, z: -0.1 },
+      riderSocket: { x: 0, y: 0.92, z: -0.45 },
+      flapBias: 1.08, flapAmp: 0.82,
+    },
+    // TOOTHLESS WING OUTLINE — a broad bat wing with ~4 finger struts (a finger to
+    // every tip via dragonNightFury#buildFingers). tips: [x span, y chord], far tip
+    // first; the trailing edge scallops between consecutive tips. Authored to the
+    // reference; tune the count/sweep on the preview if it reads off.
+    wingForms: [
+      { tips: [[3.60, 0.12], [2.85, -0.74], [1.85, -1.00]],
+        lead: [2.50, 0.40], scallop: 0.22, rootChord: 0.50, flame: false,
+        arc: { bow: 0.55, hump: 0.0, humpAt: 0.6, hook: 0.08 } },
+      { tips: [[3.95, 0.14], [3.25, -0.82], [2.30, -1.18], [1.30, -1.10]],
+        lead: [2.75, 0.46], scallop: 0.26, rootChord: 0.62, flame: false,
+        arc: { bow: 0.65, hump: 0.22, humpAt: 0.56, hook: 0.12 } },
+      { tips: [[4.20, 0.18], [3.50, -0.88], [2.55, -1.28], [1.55, -1.22]],
+        lead: [2.95, 0.54], scallop: 0.30, rootChord: 0.74, flame: false,
+        arc: { bow: 0.75, hump: 0.34, humpAt: 0.58, hook: 0.16 } },
+      { tips: [[4.45, 0.22], [3.75, -0.92], [2.80, -1.36], [1.80, -1.30]],
+        lead: [3.15, 0.62], scallop: 0.34, rootChord: 0.85, flame: false,
+        arc: { bow: 0.88, hump: 0.46, humpAt: 0.60, hook: 0.22 } },
+    ],
+    forms: [
+      // Sleek matte Night Fury: all idle glows OFF (spineGlow 0; no coreGlow). Dark
+      // midnight blue-black palette, acid-GREEN eyes; the cyan is held for Surge.
+      { wingForm: 0, bodyScale: 0.70, wingSpan: 0.85, wingChord: 1.35,
+        spineGlow: 0, glowIntensity: 0.25, particleRate: 0.30,
+        wingOpacity: 0.93, wingPanelGlow: 0.10, previewScale: 0.78, eyeScale: 1.35,
+        colors: { body: 0x0a0f1c, wingInner: 0x141c28, wingOuter: 0x0c1118,
+          wingEmissive: 0x0d1219, wingMembraneEmissive: 0x10161f, scales: 0x121a2e, horn: 0x101a2c,
+          eye: 0x6f9a28, apexSeam: 0x131a2c } },
+      { wingForm: 1, bodyScale: 0.85, wingSpan: 0.95, wingChord: 1.50,
+        spineGlow: 0, glowIntensity: 0.55, particleRate: 0.55,
+        wingOpacity: 0.92, wingPanelGlow: 0.12, previewScale: 0.9, eyeScale: 1.32,
+        colors: { body: 0x0b1020, wingInner: 0x182334, wingOuter: 0x0e1622,
+          wingEmissive: 0x0d1219, wingMembraneEmissive: 0x16202e, scales: 0x141e36, horn: 0x121c32,
+          eye: 0x96d62a, apexSeam: 0x131a2c } },
+      { wingForm: 2, bodyScale: 1.00, wingSpan: 1.00, wingChord: 1.65,
+        spineGlow: 0, glowIntensity: 1.00, particleRate: 1.00,
+        wingOpacity: 0.90, wingPanelGlow: 0.14, previewScale: 1.00,
+        colors: { body: 0x0c1222, wingInner: 0x182334, wingOuter: 0x0e1828,
+          wingEmissive: 0x0d1219, wingMembraneEmissive: 0x1a2636, scales: 0x16223c, horn: 0x141d30,
+          eye: 0x96d62a, apexSeam: 0x131a2c } },
+      { wingForm: 3, bodyScale: 1.10, bodyStretch: 1.15, wingSpan: 1.08, wingChord: 1.80,
+        spineGlow: 0, glowIntensity: 1.30, particleRate: 1.80,
+        wingOpacity: 0.90, wingPanelGlow: 0.16, previewScale: 1.12,
+        colors: { wingMembraneEmissive: 0x202b3c } },
+    ],
+    fx: { auraColor: '50,110,140', auraIdle: 0.0, sparkle: false },
+    previewAccent: 0x2e5a6a,
+    hasStyle: true, surgeMotes: true,
+    feverWing: 0x6ad8ff, feverEye: 0xb0f0ff, feverWash: [0.015, 0.05, 0.085],
+    body: 0x0a0f1c, belly: 0x0e1424, scales: 0x16223c, horn: 0x141d30,
+    wingInner: 0x182334, wingOuter: 0x0e1828, wingEmissive: 0x0d1219,
+    wingMembraneEmissive: 0x1a2636, dorsalHi: 0x1a2636,
+    apexEye: 0xb6e85a, apexSeam: 0x131a2c, surgeHi: 0x9fd8ff,
+    eye: 0x96d62a, trail: 0x2a5a78, boostTrail: 0x4a90c0,
+  },
+
   pearl: {
     name: 'Pearl Seraph',
     title: 'Dawn incarnate',

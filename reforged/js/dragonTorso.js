@@ -186,10 +186,13 @@ function buildTorso(profile, def, model, bodyMat, geoFn = buildTorsoGeometry, op
     group.add(root);
   }
 
-  // Neck chain — slim spheres bridging the torso's neck cap to the head.
+  // Neck chain — slim spheres bridging the torso's neck cap to the head. A
+  // hull-grown creature passes opts.neck:false to suppress it (the neck becomes a
+  // continuous hull extension instead); the `n &&` guard also makes a profile with
+  // no neck spec safe. Default unchanged → the roster stays byte-identical.
   const n = profile.neck;
   const neckSegs = model.neckSegments;
-  for (let i = 0; i < neckSegs; i++) {
+  if (n && opts.neck !== false) for (let i = 0; i < neckSegs; i++) {
     const neck = new THREE.Mesh(
       new THREE.SphereGeometry(Math.max(n.rBase - i * n.rStep, n.rMin), seg(9), seg(7)), bodyMat);
     neck.scale.set(n.scale[0], n.scale[1], n.scale[2]);

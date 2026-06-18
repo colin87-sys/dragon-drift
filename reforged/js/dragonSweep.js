@@ -64,6 +64,71 @@ export function sweepProfile(profile, stretch = 1) {
   return g;
 }
 
+// Uniform Catmull-Rom of one scalar channel through 4 control values (p1→p2 over t).
+function _cr(p0, p1, p2, p3, t) {
+  const t2 = t * t, t3 = t2 * t;
+  return 0.5 * ((2 * p1) + (-p0 + p2) * t
+    + (2 * p0 - 5 * p1 + 4 * p2 - p3) * t2
+    + (-p0 + 3 * p1 - 3 * p2 + p3) * t3);
+}
+
+// Sample the station list at a fractional index f, Catmull-Rom over each of the four
+// channels [z, halfWidth, keelTop, belly] (ends clamped). Smooth in BETWEEN stations.
+function sampleStations(stations, f) {
+  const n = stations.length;
+  const i1 = Math.min(Math.floor(f), n - 1);
+  const t = f - i1;
+  const i0 = Math.max(i1 - 1, 0);
+  const i2 = Math.min(i1 + 1, n - 1);
+  const i3 = Math.min(i1 + 2, n - 1);
+  const out = new Array(4);
+  for (let c = 0; c < 4; c++) out[c] = _cr(stations[i0][c], stations[i1][c], stations[i2][c], stations[i3][c], t);
+  return out;
+}
+
+// sweepProfileSmooth() — the LONGITUDINAL-spline loft (roadmap #4b). sweepProfile
+// rounds the cross-section (smooth AROUND) but joins the stations with FLAT quad
+// bands (faceted ALONG z) → the "metallic rings" that read as polished metal under
+// light (LEAPFROG L32: GEOMETRY, not material). This resamples the body LENGTHWISE
+// too: treat the station sequence as a Catmull-Rom centreline and emit many smooth
+// rings (count = seg(profile.longSamples)), so the surface is smooth in BOTH
+// directions → no rings. Cross-section density still follows seg() (identity at
+// HIGH). Stashes geo.userData.loftRings = { count, section, ringZ } so a seam-finder
+// can walk the resampled rings (NOT the original stations) for the wing-root weld.
+export function sweepProfileSmooth(profile, stretch = 1) {
+  const { stations, zHold, ring } = profile;
+  const zAt = (z) => (z > zHold ? zHold + (z - zHold) * stretch : z);
+  const longCount = Math.max(stations.length, seg(profile.longSamples ?? stations.length * 3));
+
+  const rings = [];
+  for (let r = 0; r < longCount; r++) {
+    const f = (r / (longCount - 1)) * (stations.length - 1);
+    const [z, w, top, bot] = sampleStations(stations, f);
+    rings.push({ z: zAt(z), ctrl: ring(w, top, bot) });
+  }
+  const m = seg(rings[0].ctrl.length);
+
+  const verts = [], ringZ = [];
+  for (const r of rings) {
+    ringZ.push(r.z);
+    for (const [x, y] of resampleRing(r.ctrl, m)) verts.push(x, y, r.z);
+  }
+  const idx = [];
+  for (let s = 0; s < rings.length - 1; s++) {
+    const a0 = s * m, b0 = (s + 1) * m;
+    for (let k = 0; k < m; k++) {
+      const n = (k + 1) % m;
+      idx.push(a0 + k, b0 + k, a0 + n, a0 + n, b0 + k, b0 + n);
+    }
+  }
+  const g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.Float32BufferAttribute(verts, 3));
+  g.setIndex(idx);
+  g.computeVertexNormals();
+  g.userData.loftRings = { count: rings.length, section: m, ringZ };
+  return g;
+}
+
 // A continuous tapered tube swept along a centreline and SKINNED to a bone chain,
 // so a rig that bends the bones bends ONE smooth surface (no segment joints) — the
 // "organism, not puppet" upgrade (L1), generalising the wing's internal skinnedTube.

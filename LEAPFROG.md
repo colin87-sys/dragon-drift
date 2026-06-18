@@ -1199,3 +1199,46 @@ BLUEPRINT LAYER** (the original L24 thesis, "after the hull" — the AI-promptab
 inferred from legacy flags → roster byte-identical); `CREATURES.md` (the closed grammar + the one rule: author the
 blueprint, never the builders); and MIGRATE the roster so the organism path is the default. That blueprint's
 vocabulary IS the hull generator's parameters — which is exactly why the hull comes first.
+
+### L33 — The fresh-take hull, Increment 1: a LONGITUDINAL-spline loft kills the "metallic rings" — geometry, not material (verbatim from the new creature `toothless`)
+**Did / learned:** started the L32 fresh take with a brand-new creature **`toothless`** ("Night Fury") on a NEW
+module `dragonNightFury.js` (FORKED from `dragonOrganism.js`, which stays byte-identical for obsidian2 rollback).
+The headline fix is GEOMETRY: the organism body read metallic because `dragonSweep.js#sweepProfile` rounds the
+cross-section (smooth AROUND) but joins the stations with **flat quad bands ALONG z** — longitudinal facets that
+catch light as rings (L32 #1). Built **`sweepProfileSmooth`**: treat the station sequence as a Catmull-Rom
+centreline and **resample to many smooth rings** (`seg(profile.longSamples)`, here 30 from 13 stations), so the
+surface is smooth in BOTH directions. A headless gate proves it — the smooth loft's max longitudinal turn along
+the top keel line is **3.2° vs the faceted loft's 6.5°** (and it resamples to >stations rings). The fork carried
+the proven kernel UNCHANGED (copy-the-boundary zero-gap weld, the 7-bone skeleton, the fleshy flattened arm, the
+translucent membrane, the matte-hide finish kit) and added two more L32 items: **(2) shared seam normals** —
+after the (already zero-gap) position weld, average the normal at each paired hull/membrane seam vert and write
+it into BOTH, so lighting is continuous across the opaque↔translucent boundary (gate: paired normals match
+<1e-4); **(4) a finger to EVERY scallop tip** (drop the `<4` cap). The big realization for the seam-finder: the
+smooth loft has `longCount` resampled rings, NOT one ring per station, so `findSeam` must walk
+`geo.userData.loftRings` (the ring zs the generator stashes), not `profile.stations` — and the denser rings give
+a smoother root edge for free. **Phasing the human chose (and a course-correction): NO legacy bolted parts are
+ever shown.** The neck/head/tail GROW from the hull boundary rings (copy the front ring → neck, the rear ring →
+tail), so the hull must exist first — until then `toothless` wires `head:'none'`/`tail:'none'` (new generic empty
+builders) + a new `buildTorso` `opts.neck:false` guard, rendering body+wings ONLY (no draconic head / lilypad
+tail). Verified: all 10 `nightfury.mjs` gates green (kernel weld + the 2 new gates) + the full geometry suite
+green; `tricount` shows ONLY `toothless` added (2152–2232 HIGH ≤6000, ≤5448 ULTRA ≤13000) — **every other dragon
+incl. obsidian/obsidian2 byte-identical**; `tiershots toothless/obsidian/obsidian2` all compile in real WebGL,
+no PAGEERROR. The only red headless test is the pre-existing CI-Chromium-blocked browser suite (badges etc.), red
+on the clean tree too.
+**→ Systematize:** bank the law — **a lofted-station body BANDS along z (smooth around, faceted lengthwise) and
+reads metallic; round it LONGITUDINALLY (resample the station centreline as a spline), not just per-section.**
+`sweepProfileSmooth` is additive beside `sweepProfile` (the roster keeps the faceted one, byte-identical), and it
+stashes `userData.loftRings` so any boundary-copy weld walks the resampled rings. The **"legacy parts OFF until
+grown from the hull"** discipline is reusable: generic `none` head/tail builders + an additive-nullable
+`opts.neck:false` torso guard let a hull-grown creature render cleanly with no bolted stand-ins, roster untouched.
+And **fork-don't-refactor** when the shipped sibling must stay byte-identical: duplicating the ~400-line kernel
+into `dragonNightFury.js` (vs. refactoring shared helpers out of `dragonOrganism.js`) keeps obsidian2's output
+provably unchanged — the gates confirm it.
+**→ Leapfrog (innovate):** the smooth hull is the base the whole L32/Phase-C arc needed — **I2** grows neck+head
+from the front ring (copy-the-boundary, the same `findSeam`/`seamPointAt` primitive), **I3** grows the tail from
+the rear ring + **twin bat-membrane tail fins** (the wing kernel verbatim — frame + `buildCurvedPatch` membrane +
+fingers, NOT the lilypad), and the static `bodyRoot` still unlocks the Phase-2 vertical body-whip. Each lands
+behind the same coexist gates and is human-judged on the rear/¾-rear chase cam (the headless `tiershots`/
+`gameshots` are flat-lit, so they prove COMPILE + silhouette + that nothing idles bright, but the matte-relief
+read at gameplay distance + the motion are the chase-cam oracle's). Anatomy (body profile + wing outline) is
+authored to the Toothless reference imagery and verified on the preview, never guessed.
