@@ -108,6 +108,9 @@ export function buildDragonModel(def, opts = {}) {
   // "smooth metal" read so the v2 scale relief reads as living hide.
   if (def.bodyRoughness != null) bodyMat.roughness = def.bodyRoughness;
   if (def.bodyMetalness != null) bodyMat.metalness = def.bodyMetalness;
+  // envMapIntensity (default 1) — a dark SMOOTH body reflects the bright sky and
+  // reads as polished metal/wet even when matte; drop it low for a stealth hide.
+  if (def.bodyEnvIntensity != null) bodyMat.envMapIntensity = def.bodyEnvIntensity;
   // Surface detail: an on-brand fresnel rim defines the body's contour from the
   // rear camera so it stops reading as a flat dark mass. Set before the torso
   // clones bodyMat, so the DoubleSide torso + every body sphere/cone inherit it.

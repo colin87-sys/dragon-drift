@@ -208,7 +208,7 @@ export function buildSurfacePatches(names, def) {
     // v2 normal-detail scales (real micro-relief). amp tier-gated by the active
     // detail level (LOW 0.62× → ULTRA 1.6×); per-dragon via `def.scaleRelief`
     // (default LOW so Obsidian stays sleek). Use INSTEAD of 'cellularScales'.
-    else if (n === 'cellularScalesNormal') out.push(cellularScalesNormalPatch({ tint: def.scales ?? 0xffffff, size: 5.0, sheen: 0.16, rough: 0.28, amp: (def.scaleRelief ?? 0.3) * getActiveDetail().mul }));
+    else if (n === 'cellularScalesNormal') out.push(cellularScalesNormalPatch({ tint: def.scales ?? 0xffffff, size: def.scaleSize ?? 5.0, sheen: 0.16, rough: 0.28, amp: (def.scaleRelief ?? 0.3) * getActiveDetail().mul }));
     else if (n === 'iridescence') out.push(iridescencePatch({ tint: def.apexSeam ?? def.wingEmissive ?? 0xffffff, strength: 0.32, power: 1.8 }));
     else if (n === 'subsurface' || n === 'membraneSSS') out.push(membraneSSSPatch({ color: def.wingEmissive ?? def.apexSeam ?? 0xff9a66 }));
   }

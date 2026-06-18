@@ -353,10 +353,12 @@ export const DRAGONS = {
   obsidian2: {
     name: 'Obsidian Shade II',
     title: 'one skin, nose to tail',
-    // Body FINISH (obsidian2-only): matte organic hide — kill the smooth-metal read
-    // (metalness 0 + rougher) so the v2 normal micro-relief (scaleRelief) reads as
-    // living scaled skin, not a polished shell. additive/nullable → roster-safe.
-    bodyMetalness: 0.0, bodyRoughness: 0.62, scaleRelief: 0.5,
+    // Body FINISH (obsidian2-only): matte organic hide. Kill the polished-metal read:
+    // metalness 0, very rough, and LOW envMapIntensity (the smooth dark body was
+    // mirroring the bright sky). Bigger scales (scaleSize) + strong relief so the
+    // micro-relief resolves at chase-cam distance, not just up close. additive/
+    // nullable → roster-safe.
+    bodyMetalness: 0.0, bodyRoughness: 0.82, bodyEnvIntensity: 0.18, scaleSize: 3.0, scaleRelief: 0.9,
     rarity: 'SSR',
     maxRarity: 'SSSR',
     cost: 2200,
@@ -364,9 +366,10 @@ export const DRAGONS = {
       // CLEAN-SHEET ORGANISM HULL — body+wings as ONE continuous procedural skin,
       // generated from the creature's OWN profile (decoupled from the roster).
       torso: 'organismTorso', head: 'draconic', wings: 'organismWings', tail: 'sweptTail',
-      // v2 normal-detail scales: the black hide catches light + reveals form (was
-      // 'cellularScales'). Low amplitude (scaleRelief) keeps the stealth drake sleek.
-      surface: { shader: ['cellularScalesNormal', 'iridescence'] },
+      // v2 normal-detail scales only — the relief reads as living hide. Iridescence
+      // dropped: its oily view-angle hue-sweep read as pearlescent/metallic on the
+      // dark stealth body (kept on the other dragons).
+      surface: { shader: ['cellularScalesNormal'] },
       shingle: [
         { count: [0, 0, 10, 14], zRange: [-1.55, 1.1], len: 0.34, wid: 0.2, cup: 0.3, tilt: 0.42, yLift: 0.42, edge: true },
         { count: [0, 0, 0, 8], zRange: [-1.1, -0.4], len: 0.4, wid: 0.26, cup: 0.36, tilt: 0.52, yLift: 0.6, cardRows: 2, edge: true },
