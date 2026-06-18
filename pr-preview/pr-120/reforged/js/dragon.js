@@ -33,6 +33,7 @@ let decel01 = 0;          // boost-RELEASE air-brake spike, eases out
 let prevSpeedActive = false;
 let flapPhase = 0;        // INTEGRATED wingbeat clock (advance by dt·flapSpeed, NOT time·freq)
 let scarfPhase = 0;       // integrated rider-scarf sway clock (same reason)
+let vySmooth = 0;         // lagged vertical velocity → vertJerk drives the spine pitch-whip
 let tailFins = [];        // apex deployable tail-fin groups (empty for every other dragon)
 let tailDeploy = 0.82;    // deploy factor: cruise 0.82 · boost 1.0 · Surge 1.08
 let bodySegs = null;      // segmented-wyrm body plates (lead-first travelling wave)
@@ -392,6 +393,14 @@ export function updateDragon(dt, player, time) {
   const ss = (a, b, x) => { const t = Math.min(Math.max((x - a) / (b - a), 0), 1); return t * t * (3 - 2 * t); };
   const diveAmount = ss(9, 16, -vy);    // DIVE_ON 9 · DIVE_FULL 16 (raise DIVE_ON for a bigger deadzone)
   const climbAmount = ss(8, 16, vy);    // CLIMB_ON 8 · CLIMB_FULL 16
+  // Banking DEADZONE: gentle steering = a subtle lean only; the dramatic wing-tuck / tail
+  // counter-sweep / head-lead engage only on a HARD bank. (turnBias saturates at 0.28.)
+  const bankHard = ss(0.12, 0.26, Math.min(Math.abs(player.velocity.x * 0.018), 0.28));
+  // Vertical spine pitch-WHIP: vertJerk spikes when the dragon CHANGES vertical direction
+  // (up→down / down→up) and decays when steady — drives a subtle chest-leads / tail-follows
+  // ripple so the body flexes through the turn instead of feeling stiff.
+  vySmooth = damp(vySmooth, vy, 5, dt);
+  const vertJerk = Math.max(-12, Math.min(12, vy - vySmooth));
   surge01 = damp(surge01, player.feverActive ? 1 : 0, 3.5, dt);
   boost01 = damp(boost01, player.speedActive ? 1 : 0, 5, dt);
   if (prevSpeedActive && !player.speedActive) decel01 = 1;      // RELEASE → air-brake spike
@@ -467,7 +476,7 @@ export function updateDragon(dt, player, time) {
   if (wingRigL) {
     // Skinned wings: the shared animator drives the shoulder→elbow→wrist cascade
     // (lagged whip + anatomical limits). Same flight state, organic motion.
-    const flapState = { phase, flapAmp, turnBias, climbBias, rollFold, feather, aero01, spread01, surge01, strength: formStrength(activeDef.model) };
+    const flapState = { phase, flapAmp, turnBias, climbBias, rollFold, feather, aero01, spread01, surge01, bankHard, strength: formStrength(activeDef.model) };
     flapWing(wingRigL, flapState, dt);
     flapWing(wingRigR, flapState, dt);
   } else {
@@ -514,27 +523,28 @@ export function updateDragon(dt, player, time) {
     const calm = 1 - 0.5 * aero01;                       // streamline (boost/surge/dive) damps the bob
     const noseDown = diveAmount * 0.5 + boost01 * 0.10 + surge01 * 0.16;   // spear/dive pitch
     const noseUp = climbAmount * 0.34;                                     // soar pitch
+    const vWhip = -vertJerk * 0.008;          // vertical pitch-whip (chest leads → rear trails)
     for (const b of spineSegs) {
       const role = b.userData.role;
       if (role === 'hip') {
-        // body LIFT wave — peaks a beat AFTER the power downstroke; calmer when streamlined.
-        // CLIMB drops the hips/tail (counterweight that levers the nose up).
+        // body LIFT wave (a beat AFTER the downstroke) + the vertical WHIP (the rear trails the
+        // chest when the body changes vertical direction). CLIMB drops the hips (counterweight).
         const wave = 0.15 * sp * calm * flapSurge(phase - 0.6);
-        b.rotation.x = damp(b.rotation.x, wave + climbAmount * 0.16, 9 + 4 * aero01, dt);
-        b.rotation.y = damp(b.rotation.y, turnBias * 0.4, 6, dt);   // hips drift into the turn
+        b.rotation.x = damp(b.rotation.x, wave + climbAmount * 0.16 + vWhip, 9 + 4 * aero01, dt);
+        b.rotation.y = damp(b.rotation.y, turnBias * 0.5 * bankHard, 6, dt);   // hips drift into a HARD turn
       } else if (role === 'neck') {
-        // ABSORB the chest bob + slow breathe; lead the turn; stretch forward (down) in
-        // boost/surge/dive, arc up in climb.
-        const bob = 0.06 * sp * calm * flapSurge(phase - 0.3);
-        const breathe = Math.sin(time * 1.1) * 0.014 * calm;
-        b.rotation.x = damp(b.rotation.x, bob + breathe - noseDown * 0.55 + noseUp * 0.5, 8, dt);
-        b.rotation.y = damp(b.rotation.y, -turnBias * 0.45 * (1 + 0.6 * aero01), 7, dt);
+        // FIRM neck: only a faint bob/breathe (was floppy). Leads the turn only on a hard bank;
+        // stretches forward (down) in boost/surge/dive, arcs up in climb.
+        const bob = 0.022 * sp * calm * flapSurge(phase - 0.3);
+        const breathe = Math.sin(time * 1.1) * 0.006 * calm;
+        b.rotation.x = damp(b.rotation.x, bob + breathe - noseDown * 0.48 + noseUp * 0.42, 9, dt);
+        b.rotation.y = damp(b.rotation.y, -turnBias * 0.26 * bankHard * (1 + 0.4 * aero01), 7, dt);
       } else if (role === 'head') {
-        // STABILISE the gaze (counter the neck bob); lead the turn decisively; drop the nose
-        // into a predatory spear when diving/boosting/surging, lift it when climbing.
-        const counter = -0.045 * sp * calm * flapSurge(phase - 0.3);
-        b.rotation.x = damp(b.rotation.x, counter - noseDown + noseUp, 9, dt);
-        b.rotation.y = damp(b.rotation.y, -turnBias * 0.7 * (1 + 0.7 * aero01), 9, dt);
+        // FIRM, composed gaze: a tiny counter to the neck (no bounce). Leads a hard turn; drops
+        // into the dive spear / lifts to soar (deliberate poses kept). Stays OUT of the whip.
+        const counter = -0.018 * sp * calm * flapSurge(phase - 0.3);
+        b.rotation.x = damp(b.rotation.x, counter - noseDown * 0.85 + noseUp, 9, dt);
+        b.rotation.y = damp(b.rotation.y, -turnBias * 0.4 * bankHard * (1 + 0.5 * aero01), 9, dt);
       } else {
         const w = b.userData.whip || { gain: 0, phase: 0 };
         b.rotation.x = damp(b.rotation.x, w.gain * sp * flapSurge(phase + w.phase), 9, dt);
@@ -549,9 +559,10 @@ export function updateDragon(dt, player, time) {
     // travelling wave on rotation.x, phase-locked to the wingbeat (`phase`) and trailing
     // the body wave down the tail — NOT side-to-side. BANKING cross-fades IN a horizontal
     // rudder (rotation.y) curving the tail INTO the turn; the vertical whip fades down.
-    const bankAmt = Math.min(1, Math.abs(turnBias) / 0.16);
-    const cruise = 1 - bankAmt * 0.7;
+    // gentle steering barely sweeps the tail; a HARD bank drives the rudder + counter-sweep.
+    const cruise = 1 - bankHard * 0.7;
     const sp = 0.6 + 0.4 * speedNorm;
+    const tWhip = -vertJerk * 0.011;          // vertical pitch-whip (tail trails the body)
     // tailStiffness: boost/surge/dive TIGHTEN the tail into a high-speed rudder (less loose
     // wave, snappier follow-through); boost-release decel LOOSENS it (soft S-curve, lagging
     // tip catching air); a DIVE also straightens it behind the body. The per-segment lag
@@ -562,8 +573,8 @@ export function updateDragon(dt, player, time) {
       const lock = (i + 1) / nTail;                       // root subtle → tip full
       const ph = phase - 1.6 - i * 0.6;                   // trail the wingbeat aft
       const pitch = flapSurge(ph) * 0.19 * lock * cruise * sp * loose;  // VERTICAL wave (thrust)
-      const rudder = turnBias * (1.4 + 0.9 * aero01) * lock * bankAmt;  // HORIZONTAL rudder
-      tailSegs[i].rotation.x = damp(tailSegs[i].rotation.x, pitch + climbAmount * 0.10 * lock, lam, dt);
+      const rudder = turnBias * (1.4 + 0.9 * aero01) * lock * bankHard;  // HORIZONTAL rudder (hard bank only)
+      tailSegs[i].rotation.x = damp(tailSegs[i].rotation.x, pitch + climbAmount * 0.10 * lock + tWhip * lock, lam, dt);
       tailSegs[i].rotation.y = damp(tailSegs[i].rotation.y, rudder, lam, dt);
       tailSegs[i].rotation.z = damp(tailSegs[i].rotation.z, 0, 9, dt);
     }

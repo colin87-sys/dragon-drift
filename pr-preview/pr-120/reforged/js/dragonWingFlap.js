@@ -58,8 +58,9 @@ export function flapWing(rig, state, dt) {
   const rootFlap = (aero > 0 ? Math.sign(beat) * Math.pow(Math.abs(beat), 1 - P.surgeSharp * aero) : beat)
     * flapAmp * str + 0.1;
   // Steering asymmetry: the INSIDE wing of the turn tucks + dips, the OUTSIDE wing opens
-  // + braces → the dragon banks like an aircraft instead of rotating rigidly.
-  const steerMag = Math.min(Math.abs(turnBias) / 0.28, 1);
+  // + braces → banks like an aircraft. DEADZONED by bankHard so it only engages on a HARD
+  // bank, not on gentle steering (falls back to the linear ramp for non-night-fury callers).
+  const steerMag = state.bankHard ?? Math.min(Math.abs(turnBias) / 0.28, 1);
   const tuck = steerMag * (turnBias * side > 0 ? P.bankTuck : -P.bankOpen) * (0.7 + 0.5 * aero);
 
   // Shoulder — main flap (+ aero sweep-back/level − spread opening + bank dip).

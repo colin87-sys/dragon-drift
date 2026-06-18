@@ -1522,3 +1522,23 @@ shouldn't cross into a film pose. (2) Also confirmed + documented that the body 
 a fixed `player.position` point + `CONFIG.playerRadius` (gate check `|p.y−gapY| < gapH−0.5`), with zero
 reference to `group.rotation.x`, so visual pitch never changes the hitbox/clearance.** Runtime-only; 10 gates
 green, tri 4442, tiershots compiles.
+
+### L43 — Flight feel pass: firm the head, deadzone banking, add a direction-change spine pitch-whip
+**Did / learned:** three feel notes, all runtime drive-only (dragon.js + dragonWingFlap.js). **(1) Floppy
+head/neck → FIRM:** the wingbeat-coupled bob/counter/breathe was the floppiness — cut hard (neck bob
+0.06→0.022, breathe 0.014→0.006, head counter 0.045→0.018); the deliberate dive-spear/soar `noseDown`/`noseUp`
+poses stay (trimmed ~15%). Lesson: a stable "intelligent" head = kill the procedural NOISE (bob/counter), keep
+the intentional POSE. **(2) Banking over-exaggerated on gentle steer → DEADZONE:** added
+`bankHard = smoothstep(0.12, 0.26, |turnBias|)` and gated the DRAMATIC terms by it (wing inside/outside tuck,
+tail rudder + counter-sweep, neck/head turn-lead, hip yaw) while leaving the BASE proportional bank (`bankZ`
+roll + the gentle `flapWing` turnBias lean) linear. So gentle = a subtle lean, hard = the full carve (sim: 0.13
+→0.01, 0.28→1.0). Same deadzone discipline as the dive layer (L42). **(3) Stiff vertical transitions → a
+spine pitch-WHIP:** derived `vertJerk = vy − damp(vySmooth, vy, 5)` — a signal that SPIKES on a vertical
+direction change and self-decays when steady (no raw per-frame accel noise, no sustained-state bleed). It
+drives a subtle additive pitch transient on the hip + tail (`-vertJerk·gain`, tail scaled by `lock` so the tip
+trails most), so the body ripples chest-leads/tail-follows through an up↔down reversal but is still in cruise.
+**Rule banked: a transient "response to a CHANGE" = `signal − lagged(signal)` (a high-pass), which auto-resets;
+don't drive it off the raw value (that bleeds into steady state) or raw per-frame Δ (noisy).** Verified with
+headless curve/transient sims (bankHard ramp, vertJerk spike-then-decay) — numbers, not vibes. 10 gates green,
+tri 4442, tiershots compiles; cruise-straight + other dragons unchanged (every new term gated by bankHard or
+vertJerk, both 0 at rest).
