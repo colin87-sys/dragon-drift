@@ -1608,3 +1608,37 @@ collides with a smoothness gate, re-route the volume to the channel the gate doe
 cheeks) instead of trading away the goal.** Verify spatial smoothness with a NUMBER: I iterated head candidates
 through a throwaway probe that printed the resampled apex turn, not by eyeballing renders. 10 gates green,
 tri 4442, 0-over, tiershots compiles; the compact read + subtle tilt + whip are human-judged on the preview.
+
+### L47 — HANDOFF: the hull-design roadmap (Inc 1–3 + body-whip) is SHIPPED; next is per-tier/lit sign-off then ROSTER MIGRATION
+**State of the art (read this first if you're picking up `toothless`).** The original 3-increment hull plan
+plus its deferred motion item are all merged (PR #120 → master):
+- **Inc 1** smooth body + one-surface wings — `sweepProfileSmooth` longitudinal-spline loft (no metallic rings),
+  shared seam normals, finger-to-every-scallop (L33).
+- **Inc 2** continuous neck+head — landed BETTER than the plan: not "grow a tube from the front boundary ring"
+  but **extend the loft STATIONS** so head/neck are part of the ONE surface (L34). `toothless` wires
+  `head:'none'` (no legacy bolted head); eyes/ear-horns are added FEATURES, not a module.
+- **Inc 3** continuous tail + twin bat fins — tail is loft stations; twin flat bat-tail fins w/ scallop spokes (L39).
+- *(deferred)* vertical body-whip — `bodyRoot` split into a spine chain, rotation-only drive, gated bone count (L37).
+Everything from L38→L46 is **anatomy/proportion/feel refinement**, not new hull structure. So the GEOMETRY
+roadmap is complete; `toothless` is a full continuous-hull Night Fury (4442 tris, 10 gates green).
+
+**What's genuinely next (in priority order):**
+1. **Close the Inc 1–3 sign-off (confirmation, not building).** (a) Lit finish read at gameplay distance — the
+   L45/L46 glare cut (`rimBodyMul`→0, `bodyEnvIntensity` 0.05) is human-judged on the merged preview; the last
+   fallback lever if any sky-sheen remains is `bodyEnvIntensity`/diffuse lighting. (b) **PER-TIER pass:** every
+   proportion/feel round (compact head, firm neck, flight blends) was judged on **Eternal** only — verify
+   Hatchling/Kindled/Radiant via `nfview.mjs toothless 0|1|2 clay` + `tiershots.mjs toothless`; form scaling
+   lives in `dragonWingFlap.js formStrength/formSpeed` and the form-level station scale.
+2. **The frontier — ROSTER MIGRATION (THE RULE's payoff).** The smooth loft + one-surface weld + spine-whip are
+   now PROVEN on a hero. THE RULE says *coexist → prove on a hero → migrate; never break the shipped roster*. The
+   next SYSTEM step is to lift willing roster members off the faceted `sweepProfile` onto `sweepProfileSmooth`
+   (retire longitudinal banding) **behind the byte-identical guard** (the coexistence gate must stay green for any
+   dragon NOT opted in). Risk to watch: the zero-gap weld seam-index math under the longitudinal resample —
+   `nightfury.mjs`'s MOTION-WELD + SEAM-NORMAL gates are the template to clone per migrated creature. Turning the
+   one-off into a roster-wide hull system is the leapfrog^leapfrog here.
+
+**Rule banked:** when a phased plan's increments collapse into a simpler mechanism than planned (here Inc 2/3's
+"grow from the boundary ring" became "just extend the stations"), UPDATE the roadmap to the mechanism that won —
+don't carry the superseded plan forward as if it's still pending. And: a roadmap is "done" when the GEOMETRY
+goal is met; "next" then shifts from BUILDING to (a) cross-tier/lit verification and (b) migrating the proven
+system to the roster — that hand-off is itself a lesson.
