@@ -135,11 +135,31 @@
     document.getElementById('breset').onclick = () => { orbit.yaw = 135; orbit.pitch = 0.28; orbit.dist = baseDist; };
     for (const b of document.querySelectorAll('button[data-tier]')) b.onclick = () => load(key, Number(b.dataset.tier));
 
+    // ── CLAY override: a neutral matte material so pure GEOMETRY/silhouette reads
+    // (the shipped matte-black hide is near-invisible on a dark stage — fine for the
+    // human's finish call, useless for judging spoke/flare shape). Inspection only.
+    const clayMat = new THREE.MeshStandardMaterial({ color: 0x9aa6b8, roughness: 0.62, metalness: 0.0 });
+    const clayEdge = new THREE.MeshStandardMaterial({ color: 0x6f7d92, roughness: 0.55, metalness: 0.0, side: THREE.DoubleSide });
+    let clayOn = false;
+    function applyClay(on) {
+      if (!current) return;
+      current.traverse(o => {
+        if (!o.isMesh && !o.isSkinnedMesh) return;
+        if (on) { if (!o.userData._mat0) o.userData._mat0 = o.material; o.material = o.material.transparent ? clayEdge : clayMat; }
+        else if (o.userData._mat0) { o.material = o.userData._mat0; }
+      });
+      clayOn = on;
+    }
+
     // ── offscreen single render for the convergence loop (nfview.mjs) ──────
-    window.renderAngle = (k, t, yawDeg) => {
+    // opts: { rest:true → rebuild at bind/rest (clean silhouette, no mid-flap droop),
+    //         clay:true → neutral clay material }.
+    window.renderAngle = (k, t, yawDeg, opts) => {
       mode = 'static';
-      if (k !== key || t !== tier || !current) load(k, t);
-      orbit.yaw = yawDeg; orbit.pitch = 0.30; orbit.dist = baseDist;
+      opts = opts || {};
+      if (k !== key || t !== tier || !current || opts.rest) load(k, t);  // load() = rest pose
+      applyClay(!!opts.clay);
+      orbit.yaw = yawDeg; orbit.pitch = (opts.pitch != null ? opts.pitch : 0.30); orbit.dist = baseDist;
       placeCamera();
       renderer.render(scene, camera);
       return true;

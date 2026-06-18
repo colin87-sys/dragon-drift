@@ -18,6 +18,9 @@ function loadPlaywright() {
 
 const key = process.argv[2] || 'toothless';
 const tier = Number(process.argv[3] ?? 3);
+// 4th arg: 'clay' → neutral clay render at REST pose (judge geometry); else lit/flapped.
+const clay = process.argv[4] === 'clay';
+const suffix = clay ? '-clay' : '';
 const { chromium } = loadPlaywright();
 const srv = await serve();
 const browser = await chromium.launch();
@@ -31,10 +34,10 @@ await page.waitForFunction(() => window.__ready, { timeout: 20000 });
 const angles = [['front', 180], ['q34', 135], ['side', 90], ['q34rear', 45], ['rear', 0]];
 const gl = await page.$('#gl');
 for (const [name, yaw] of angles) {
-  await page.evaluate(([k, t, y]) => window.renderAngle(k, t, y), [key, tier, yaw]);
+  await page.evaluate(([k, t, y, c]) => window.renderAngle(k, t, y, { rest: true, clay: c }), [key, tier, yaw, clay]);
   await page.waitForTimeout(120);
-  await gl.screenshot({ path: `/tmp/nfv-${key}-${name}.png` });
-  console.log(`wrote /tmp/nfv-${key}-${name}.png`);
+  await gl.screenshot({ path: `/tmp/nfv-${key}-${name}${suffix}.png` });
+  console.log(`wrote /tmp/nfv-${key}-${name}${suffix}.png`);
 }
 console.log(err ? 'HAD PAGEERROR' : 'no pageerror');
 await browser.close();
