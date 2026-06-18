@@ -107,6 +107,39 @@ const DRAKE_PROFILE = {
   headBase: (neckSegs) => ({ x: 0, y: 0.5 + (neckSegs - 4) * 0.09, z: -3.08 - (neckSegs - 4) * 0.34 }),
 };
 
+// CINDERVALE HULL PROFILE — a fresh whole-hull body for the fire starter, built
+// for organismWings' shared-vertex body↔wing weld. It is NOT the Night-Fury
+// drake profile and NOT the legacy arrow body: the chest is a short forward
+// crucible, the shoulders are high and wide, the waist pinches hard, and the
+// afterbody runs into a long rudder-tail boom. The membrane still uses the same
+// anatomical idea (root → wrist → fingers), but it grows from this hull's seam.
+const CINDER_HULL_PROFILE = {
+  zHold: -0.35,
+  tailShiftRefZ: 2.05,
+  tailAnchorY: 0.23,
+  tailAnchorZ: 1.42,
+  ring: drakeSection,
+  stations: [
+    [-3.18, 0.12, 0.08, 0.10],
+    [-2.55, 0.23, 0.17, 0.18],
+    [-1.78, 0.48, 0.42, 0.34],
+    [-1.18, 0.74, 0.66, 0.48],
+    [-0.62, 0.68, 0.58, 0.44],
+    [ 0.02, 0.40, 0.34, 0.30],
+    [ 0.70, 0.32, 0.27, 0.23],
+    [ 1.35, 0.29, 0.24, 0.19],
+    [ 2.05, 0.18, 0.16, 0.11],
+  ],
+  keel: [[-2.55, 0.17], [-1.18, 0.66], [-0.62, 0.58], [0.02, 0.34], [0.70, 0.27], [1.35, 0.24], [2.05, 0.16]],
+  wingRoot: { x: 0.56, y: 0.66, z: -0.62 },
+  fairing: { r: 0.34, scale: [1.0, 0.82, 1.34], pos: [0.54, 0.64, -0.7] },
+  neck: {
+    rBase: 0.42, rStep: 0.04, rMin: 0.19, scale: [0.82, 0.70, 1.18],
+    y0: 0.32, yStep: 0.078, z0: -2.1, zStep: -0.34, wobbleAmp: 0.06, wobbleFreq: 0.9,
+  },
+  headBase: (neckSegs) => ({ x: 0, y: 0.54 + (neckSegs - 4) * 0.085, z: -3.12 - (neckSegs - 4) * 0.33 }),
+};
+
 // organismTorso — the body-less peer for the clean-sheet hull. Builds the neck +
 // publishes the full attach contract (incl. attach.loft, the body-loft GENERATOR, +
 // attach.bodyMatDouble), but adds NO body mesh + NO fairings: organismWings grows
@@ -115,6 +148,10 @@ const DRAKE_PROFILE = {
 // drakeSection as the ring). Registered as a wings-slot peer.
 registerTorso('organismTorso', (def, model, bodyMat) =>
   buildTorso(DRAKE_PROFILE, def, model, bodyMat,
+    (profile, stretch) => sweepProfile({ ...profile, ring: profile.ring || drakeSection }, stretch),
+    { bodyMesh: false }));
+registerTorso('cinderHullTorso', (def, model, bodyMat) =>
+  buildTorso(CINDER_HULL_PROFILE, def, model, bodyMat,
     (profile, stretch) => sweepProfile({ ...profile, ring: profile.ring || drakeSection }, stretch),
     { bodyMesh: false }));
 
@@ -585,5 +622,6 @@ function buildOrganism(def, model, attach, giM) {
 }
 
 registerWings('organismWings', (def, model, attach, giM) => buildOrganism(def, model, attach, giM));
+registerWings('cinderHullWings', (def, model, attach, giM) => buildOrganism(def, model, attach, giM));
 
-export { buildOrganism, DRAKE_PROFILE, drakeSection };
+export { buildOrganism, DRAKE_PROFILE, CINDER_HULL_PROFILE, drakeSection };
