@@ -488,7 +488,11 @@ export const DRAGONS = {
     // envMapIntensity (a smooth dark body mirrors the bright sky → reads metal).
     // Bigger scales + strong relief so the micro-relief resolves at chase-cam
     // distance. Additive/nullable → roster-safe.
-    bodyMetalness: 0.0, bodyRoughness: 0.88, bodyEnvIntensity: 0.05, scaleSize: 3.0, scaleRelief: 0.9,
+    // env 0 (was 0.05) + rougher (0.95) kills the pale SKY-REFLECTION sheen the
+    // bright sky left on the smooth matte hull — the residual "white glare" on the
+    // front/upper body that the rim knobs never reached (the hull is bodyMatDouble,
+    // a clone; see L50). Fully matte, no sky shine.
+    bodyMetalness: 0.0, bodyRoughness: 0.95, bodyEnvIntensity: 0.0, scaleSize: 3.0, scaleRelief: 0.9,
     // matte BLACK hide: the white wash on the dorsal was the bright SKY reflecting (env) +
     // the warm fresnel rim. Env dropped 0.16→0.05 and the body rim fully OFF (0). Wings/spine
     // keep their rim so the membrane still reads against the sky.
