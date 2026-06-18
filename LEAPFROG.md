@@ -1701,3 +1701,33 @@ weld+seam gates per creature — the seam-index math under longitudinal resample
 **blueprint→geometry round-trip generator** (emit a creature from grammar values alone, e.g. a `manta` = flatter
 wider section + no horns, proving non-dragon creatures); (3) widen the grammar from the ~40 curated knobs to the
 full ~130 the generator exposes, with per-knob defaults, so `CREATURES.md` and an authoring UI both render from it.
+
+### L50 — A knob applied to the WRONG material is a silent no-op: toothless's body is the hull CLONE, so `rimBodyMul` never touched it — sky-tint the rim + matte the hull
+**Did / learned:** the human reshot a "white glare on the front/upper BODY" and said the earlier L45/L46 work "didn't fix
+it." Two compounding causes, both about white hitting an UNCONTROLLED material: **(1)** the `rimLight.js` ANIMATED rim is a
+hardcoded **warm-white `0xfff0d8`** at ~`(0.5 + boost + surge·0.7)·quality` strength, applied to `bodyMat` with
+`mul: def.rimBodyMul ?? 1`; L45/L46 set `rimBodyMul:0` only on **toothless**, so every OTHER dragon (e.g. the crystal
+serpent) kept the full white body rim. **(2) THE TWIST that broke the toothless fix:** a night-fury / organism / unifiedHull
+dragon's body is ONE skinned **hull** using `attach.bodyMatDouble` — a **CLONE** of `bodyMat` made at build time — but
+`dragon.js` applies the animated rim only to `bodyMat`, never the clone. So `rimBodyMul` **never reached toothless's visible
+body**; the prior setting was a NO-OP, and the white on its matte hull was never a custom rim at all (its `apexSeam`/`scales`
+tints are dark) — it was the bright **SKY reflecting off the smooth hull at grazing angles** (env + PBR Fresnel specular).
+Fix (human-chose the tradeoff on preview): **(a)** default the animated body rim OFF for all (`?? 0`); **(b) sky-TINT the rim
+globally** — `_rimCol` now copies `computeEnv(player.dist).sunGlow` instead of `0xfff0d8`, so the remaining wing/spine rim
+reads as soft sun-catch (never a white glare) in every biome; **(c) matte the toothless hull** — `bodyEnvIntensity 0.05→0` +
+`bodyRoughness 0.88→0.95` kills the sky-reflection sheen (these DO reach the clone, since they're set on `bodyMat` BEFORE it
+is cloned). Runtime + material only; geometry byte-identical (`tricount` diff); the lit result is human-judged on the preview.
+**→ Systematize:** bank the killer rule — **a per-instance override only works on the material the instance actually RENDERS
+with; when a builder CLONES the base material (the hull's `bodyMatDouble`), any tweak applied to the base AFTER the clone is a
+silent no-op on the clone.** Trace every "knob" to the `mesh.material` that's on screen, not the variable still named
+`bodyMat`. Two companions: **(i)** when an effect is bad IN GENERAL, change its DEFAULT (opt-in to keep), don't just add an
+opt-out knob one instance sets — "a default that reproduces the bug fixes nothing for the silent majority." **(ii)** a hero
+surface is a STACK of additive layers; identify the offender by its COLOUR (white = the hardcoded `0xfff0d8` rim; dark
+cyan/orange = the seam/scale tint; broad pale sheen = env/Fresnel sky-reflection) and tune THAT one, or you over-correct into
+a flat dark mass (the L45 trap in reverse).
+**→ Leapfrog (innovate):** the rim is now biome-tinted + body-off-by-default, and the matte kit reaches the hull (set
+pre-clone) — but the RIM kit still doesn't (applied post-build to `bodyMat`). The structural debt to clear during migration:
+**route the per-dragon rim control onto the ACTUAL body material (`bodyMatDouble` for hull dragons)** so `rimBodyMul` stops
+being a no-op on the organism path and the finish vocabulary is uniform across legacy + hull dragons. Bank "trace the knob to
+the on-screen material, then audit every always-on hero effect (rim / env / bloom) against each palette" as a standard pass —
+the same class of silent-no-op bug will recur every time a builder clones or swaps a material the global drive loop doesn't know about.

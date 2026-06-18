@@ -4,6 +4,7 @@ import { buildDragonModel } from './dragonModel.js';
 import { buildRiderFigure, riderMaterials } from './riderParts.js';
 import { setFeverTint } from './postfx.js';
 import { applyRim, updateRim, resetRim } from './rimLight.js';
+import { computeEnv } from './biomes.js';
 import { flapWing, formStrength, formSpeed } from './dragonWingFlap.js';
 import { setActiveDetail } from './modelDetail.js';
 
@@ -143,7 +144,15 @@ export function createDragon(scene, def, riderDef) {
   // Surge animation below). Cleared first so a shop rebuild doesn't leak the
   // old materials' uniform sets into the registry.
   resetRim();
-  applyRim(bodyMat, { strength: 0.0, power: 3.2, mul: def.rimBodyMul ?? 1 });
+  // The animated rim is a hardcoded WARM-WHITE (0xfff0d8) additive edge at ~0.5
+  // cruise strength. On the rounded front/upper BODY facing the rear camera it
+  // read as a distracting white glare on every dragon (see L50). So the body rim
+  // is OFF by default now (mul 0) — a dragon can opt back in via `rimBodyMul`.
+  // The wings + spine accents KEEP their rim (the membrane still needs the edge to
+  // read against a bright sky), and the static seam-COLOURED contour rim
+  // (fresnelRimPatch on bodyMat) stays, so the body still reads, just without the
+  // white wash.
+  applyRim(bodyMat, { strength: 0.0, power: 3.2, mul: def.rimBodyMul ?? 0 });
   applyRim(wingMat, { strength: 0.0, power: 2.4 });
   for (const m of spineMats) applyRim(m, { strength: 0.0, power: 3.0 });
   surgeMix = 0;
@@ -721,7 +730,10 @@ export function updateDragon(dt, player, time) {
   // toward the per-dragon Surge highlight during a surge. Strength scales with
   // the adaptive quality factor so the lowest tier softens it. (updateRim is a
   // no-op until the materials compile — registry fills on first render.)
-  _rimCol.setHex(0xfff0d8);
+  // Edge colour FOLLOWS THE BIOME SKY (sun glow) instead of a hardcoded warm-white
+  // (0xfff0d8) — a sky-matched rim reads as soft sun-catch, not a white "glare"
+  // washing the body/wings against a bright sky (L50). Surge still overrides it.
+  _rimCol.copy(computeEnv(player.dist || 0).sunGlow);
   if (surgeMix > 0.002) {
     _rimHi.setHex(activeDef.surgeHi || 0xff66cc);
     _rimCol.lerp(_rimHi, Math.min(1, surgeMix * 0.7));
