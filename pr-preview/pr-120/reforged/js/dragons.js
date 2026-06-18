@@ -515,7 +515,8 @@ export const DRAGONS = {
       // wrist pulled medial OF the innermost scallop (wingWristMedial) → fingers fan harder.
       // Frame hierarchy: arm(0.115) > forearm(0.10) > leading frame spar(0.085) > struts(0.058).
       wingArmLeadChord: 0.38, wingWristMedial: 0.84,
-      wingArmRadius: 0.115, wingForearmRadius: 0.10, wingFrameRadius: 0.085, wingFrameLift: 0.0,
+      // arm(0.115) > forearm/wrist(0.09) > leading finger tapers wrist→tip to ≈ strut(0.058)→thin.
+      wingArmRadius: 0.115, wingForearmRadius: 0.09, wingFrameTipRadius: 0.013,
       wingFingerCurve: 0.14, wingFingerSplay: 0.18, wingFingerBulge: 0.06, wingFingerRadius: 0.058,
       // tail-whip + body-whip: the WHOLE body undulates VERTICALLY with the wingbeat and
       // the tail trails in a vertical wave; the tail curves sideways only when banking
