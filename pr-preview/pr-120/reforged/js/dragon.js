@@ -143,7 +143,7 @@ export function createDragon(scene, def, riderDef) {
   // Surge animation below). Cleared first so a shop rebuild doesn't leak the
   // old materials' uniform sets into the registry.
   resetRim();
-  applyRim(bodyMat, { strength: 0.0, power: 3.2 });
+  applyRim(bodyMat, { strength: 0.0, power: 3.2, mul: def.rimBodyMul ?? 1 });
   applyRim(wingMat, { strength: 0.0, power: 2.4 });
   for (const m of spineMats) applyRim(m, { strength: 0.0, power: 3.0 });
   surgeMix = 0;
