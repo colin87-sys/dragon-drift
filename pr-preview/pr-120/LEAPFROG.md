@@ -1586,3 +1586,25 @@ elimination (no coreGlow → look at the rim/SSS/env), and prefer a per-dragon m
 one creature's matte read doesn't regress the colourful roster.** Material-only: 10 gates green, roster tri
 byte-identical, tiershots compiles the rim shader. Lit result is human-judged; env-intensity is the fallback
 lever if any sky-sheen remains.
+
+### L46 — A COMPACT head fights the no-facet gate; flatten the CROWN (side-channel cheeks), don't just squeeze z
+**Did:** the human wanted the head/neck "reduce by 30% — reads too long" plus a subtler boost/fever pitch,
+banking body-roll reset to the original, and a bolder vertical spine pitch-whip. The geometry trap: simply
+compressing the head stations in z (−4.65→−3.10 nose) steepened the dorsal (apex) line so the
+NO-LONGITUDINAL-FACET gate failed (max turn 24.8° > 17°). **Learned — the apex top-line the gate walks is
+`cy + widthTop` per station; a head that climbs from a thin nose to a tall cranium over a SHORT z is an
+unavoidably sharp longitudinal turn.** Fix wasn't "spread z back out" (that fights "compact"); it was to
+**carry the head's width in the SIDE channel (cheeks widen sideways) while keeping the TOP (dorsal) channel
+low and flat** — a low broad Night-Fury skull. Lowering `widthTop` 0.345→0.245 + flattening the `cy` crown
+(0.35→0.29) dropped the turn to **15.3°** (1.7° margin) at a head still ~24% shorter AND ~25% lower-profile,
+so it reads clearly more compact than a pure-z squeeze would. Dropped `HEAD_Y` TY+0.36→+0.30 so eyes/horns
+stay embedded in the lower crown. **Animation (dragon.js, model-free):** boost/fever ventral tilt made
+*very* subtle (`posturePitch` boost 0.035, surge 0.045; `noseDown` boost 0.03, surge 0.04 — was reading too
+much belly); banking body-roll `bankFactor` reset to the original `0.035 + speedNorm*0.015` (damp 9); vertical
+pitch-whip nudged bolder (`vWhip` 0.026, `tWhip` 0.040). Glare: dropped `bodyEnvIntensity` 0.16→0.05 +
+`rimBodyMul`→0 (the sky-env reflection on the smooth dorsal was the remaining sheen after L45's rim cut).
+**Rule banked: a procedural creature has FOUR width channels (top/side/bottom/cy) — when a silhouette goal
+collides with a smoothness gate, re-route the volume to the channel the gate doesn't sample (here: SIDE for
+cheeks) instead of trading away the goal.** Verify spatial smoothness with a NUMBER: I iterated head candidates
+through a throwaway probe that printed the resampled apex turn, not by eyeballing renders. 10 gates green,
+tri 4442, 0-over, tiershots compiles; the compact read + subtle tilt + whip are human-judged on the preview.
