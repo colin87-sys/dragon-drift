@@ -15,7 +15,7 @@
       padding:8px 12px;font-size:14px;cursor:pointer}
     .row button.on{background:#2a5; color:#04140a}
   </style>
-  <script type="importmap">{ "imports": { "three": "/lib/three.module.js" } }</script>
+  <script type="importmap">{ "imports": { "three": "../lib/three.module.js" } }</script>
 </head>
 <body>
   <canvas id="gl"></canvas>
@@ -30,10 +30,10 @@
   </div>
   <script type="module">
     import * as THREE from 'three';
-    import { DRAGONS } from '/js/dragons.js';
-    import { ascendedDef } from '/js/ascension.js';
-    import { buildDragonModel } from '/js/dragonModel.js';
-    import { flapWing } from '/js/dragonWingFlap.js';
+    import { DRAGONS } from '../js/dragons.js';
+    import { ascendedDef } from '../js/ascension.js';
+    import { buildDragonModel } from '../js/dragonModel.js';
+    import { flapWing } from '../js/dragonWingFlap.js';
 
     const params = new URLSearchParams(location.search);
     let key = params.get('key') || 'toothless';
