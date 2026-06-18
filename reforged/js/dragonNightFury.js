@@ -225,13 +225,20 @@ function buildNightFury(def, model, attach) {
   const worldMaxX = (wingSpec.tips[0][0] || 5.7) * 1.34 * ws;
 
   // arm datums (mirror the shipped skinned wing so the bones land sensibly)
-  const wristXGeo = 3.3 * ws;
+  const wristXGeo = (model.wingWristSpan ?? 3.3) * ws;
   const elbowXGeo = wristXGeo * 0.52;
   const foldBand = 0.7 * ws;
   const rootBand = elbowXGeo * 0.55;
   const SEG_U = seg(24), SEG_V = seg(6);
   const elbowLift = archLift(elbowXGeo, maxX, arc, ws);
   const wristLift = archLift(wristXGeo, maxX, arc, ws);
+  // LEADING-EDGE SWEEP: in a real bat wing the arm runs along the FRONT of the wing
+  // (shoulder at the body → wrist out at the leading edge near the tip), and the
+  // fingers fan BACK from that wrist across the chord to the scalloped trailing edge.
+  // The shoulder stays on the body seam; the elbow + wrist sweep FORWARD (−z) by
+  // wingArmLeadChord (chord units) so the spar + finger-convergence ride the outer
+  // front edge, not the middle of the membrane. Default 0 → the old mid-chord arm.
+  const armLeadZ = -(model.wingArmLeadChord ?? 0) * (model.wingChord ?? 1);
 
   // ── materials ──────────────────────────────────────────────────────────
   const wingMat = new THREE.MeshStandardMaterial({
@@ -285,11 +292,11 @@ function buildNightFury(def, model, attach) {
   function buildArmBones(side) {
     const wr = armRoot(side);
     const shoulder = new THREE.Bone();
-    shoulder.position.set(wr.x, wr.y, wr.z);
+    shoulder.position.set(wr.x, wr.y, wr.z);            // stays on the body seam
     const elbow = new THREE.Bone();
-    elbow.position.set(elbowXGeo * side, elbowLift, 0);
+    elbow.position.set(elbowXGeo * side, elbowLift, armLeadZ * 0.5);   // sweep half-forward
     const wrist = new THREE.Bone();
-    wrist.position.set((wristXGeo - elbowXGeo) * side, wristLift - elbowLift, 0);
+    wrist.position.set((wristXGeo - elbowXGeo) * side, wristLift - elbowLift, armLeadZ * 0.5);
     shoulder.add(elbow); elbow.add(wrist);
     return { wr, shoulder, elbow, wrist, side };
   }
@@ -330,8 +337,8 @@ function buildNightFury(def, model, attach) {
     const rWrist = 0.035;
     const N = 7;
     const pSh = new THREE.Vector3(wr.x, wr.y, wr.z);
-    const pEl = new THREE.Vector3(wr.x + elbowXGeo * side, wr.y + elbowLift, wr.z);
-    const pWr = new THREE.Vector3(wr.x + wristXGeo * side, wr.y + wristLift, wr.z);
+    const pEl = new THREE.Vector3(wr.x + elbowXGeo * side, wr.y + elbowLift, wr.z + armLeadZ * 0.5);
+    const pWr = new THREE.Vector3(wr.x + wristXGeo * side, wr.y + wristLift, wr.z + armLeadZ);
     const centre = [], radii = [], skin = [];
     for (let s = 0; s < N; s++) {
       const t = s / (N - 1);
@@ -441,8 +448,12 @@ function buildNightFury(def, model, attach) {
   // subset — so every scallop notch reads as a wing spar.
   function buildFingers(arm) {
     const { wr, side } = arm;
-    const lift = 0.018 * ws;
-    const wristP = new THREE.Vector3(wr.x + wristXGeo * side, wr.y + wristLift, wr.z);
+    // BULGE: a fatter base + a higher arch lift so the struts read as raised ridges
+    // from the top view (the chase-cam markup), not flat ribs sunk in the membrane.
+    const lift = (model.wingFingerBulge ?? 0.018) * ws;
+    const r0 = model.wingFingerRadius ?? 0.050;
+    // The fingers converge at the WRIST, swept FORWARD to the leading edge (armLeadZ).
+    const wristP = new THREE.Vector3(wr.x + wristXGeo * side, wr.y + wristLift, wr.z + armLeadZ);
     const scaleX = 1.34 * ws, scaleZ = model.wingChord ?? 1;
     const tipToGroup = (sx, sy) => {
       const wx = sx * scaleX;
@@ -451,24 +462,35 @@ function buildNightFury(def, model, attach) {
     };
     const tips = wingSpec.tips;
     const geos = [];
-    const finger = (tip) => {
+    // FAN CURVE: the topmost spoke (tips[0], along the outer/leading edge) is STRAIGHT;
+    // each spoke further down the fan bows MORE — a gentle chordwise (z) bow whose
+    // amount scales with the finger's fan index (the yellow markup). bowK in [0,1].
+    const finger = (tip, fanT) => {
       const target = tipToGroup(tip[0], tip[1]);
       const stations = seg(6);
+      // chord-direction sign: tips fan toward the trailing edge (−chord → +z here).
+      const bowMag = (model.wingFingerCurve ?? 0.0) * fanT;     // 0 for the top spoke
       const centre = [], radii = [], skin = [];
       for (let s = 0; s < stations; s++) {
         const t = s / (stations - 1);
         const p = wristP.clone().lerp(target, t);
         p.y += lift * Math.sin(Math.PI * Math.min(t, 0.85));
+        // bow OUT (toward +z / trailing) at mid-span, zero at both ends.
+        p.z += bowMag * Math.sin(Math.PI * t) * scaleZ;
         centre.push(p);
-        radii.push(0.050 + (0.0035 - 0.050) * (t * t * (3 - 2 * t)));
+        radii.push(r0 + (0.0035 - r0) * (t * t * (3 - 2 * t)));
         const ax = Math.abs(p.x - wr.x);
         skin.push(spanSkin(side, ax));
       }
       const tube = skinnedTube(centre, radii, seg(4), (s) => skin[s], fingerMat);
       return tube.geometry;
     };
-    // EVERY tip: tips[0] is the far leading point, tips[1..] are the scallop tips.
-    for (const t of tips) geos.push(finger(t));
+    // EVERY tip: tips[0] is the far leading point (straight), tips[1..] the scallop
+    // tips fanning back; fanT ramps 0→1 across the fan so lower spokes curve more.
+    for (let i = 0; i < tips.length; i++) {
+      const fanT = tips.length > 1 ? i / (tips.length - 1) : 0;
+      geos.push(finger(tips[i], fanT));
+    }
     return geos;
   }
 
@@ -528,56 +550,159 @@ function buildNightFury(def, model, attach) {
 
   // ── HEAD + TAIL features (static add-ons on the continuous hull) ───────────
   // The head/neck/tail VOLUME is the loft itself (one surface). These are the
-  // distinguishing Night-Fury features the loft can't express: acid-green eyes, the
-  // back-swept ear-flaps, and the twin bat-membrane tail fins. All authored to the
-  // Toothless reference; positions tuned on the chase-cam preview.
+  // distinguishing Night-Fury features the loft can't express: inset acid-green eyes,
+  // the two large back-swept ear-HORNS + subtle dorsal nub-horns, the stabilizer
+  // mini-wings, and the twin bat-membrane tail fins. All authored to the Toothless
+  // reference; positions tuned on the chase-cam preview.
   const features = [];
+  const tailFins = [];
+  let miniL = null, miniR = null;
   // The head rides UP the curved neck (cy≈+0.36 at the cranium) and the tail droops
   // (cy≈-0.20 at the fin zone); the feature y-positions track those centreline lifts.
   const HEAD_Y = TY + 0.36, TAILFIN_Y = TY - 0.18;
-  // EYES — large almond acid-green eyes on the upper-front of the cranium.
+  // EYES — large almond acid-green eyes INSET into the cheek (recessed so only the
+  // front of the ball reads, nestled in the rounded cranium, not a floating sphere).
   {
-    const eyeGeo = new THREE.SphereGeometry(0.11, seg(10), seg(8));
+    const eyeGeo = new THREE.SphereGeometry(0.115, seg(10), seg(8));
     for (const side of [1, -1]) {
       const eye = new THREE.Mesh(eyeGeo, eyeMat);
-      eye.position.set(side * 0.205, HEAD_Y + 0.10, -4.40);
-      eye.scale.set(0.92, 1.18, 0.78);            // shallow + tall → almond
-      eye.rotation.y = side * 0.55;               // face forward-outward
-      eye.rotation.z = side * -0.25;
+      // sat back on the wide cranium/cheek station (−4.32) + pulled inboard so the
+      // ball sinks into the hide; only the forward cap shows (the "inside the head" read).
+      eye.position.set(side * 0.185, HEAD_Y + 0.04, -4.32);
+      eye.scale.set(0.78, 1.16, 0.66);            // shallow (sunk) + tall → almond socket
+      eye.rotation.y = side * 0.42;               // face forward-outward
+      eye.rotation.z = side * -0.22;
       features.push(eye);
     }
   }
-  // EAR-FLAPS — two back-swept dark blades on the top-rear of the head (no horns).
+  // EAR-HORNS — the two LARGE back-swept head horns (the "ears"), rounder + longer
+  // than blades so they read as horns from the side + rear.
   {
-    const earGeo = new THREE.ConeGeometry(0.07, 0.52, seg(6), 1, false);
+    const hornLen = model.earHornLen ?? 0.78;
+    const earGeo = new THREE.ConeGeometry(0.10, hornLen, seg(7), 1, false);
     for (const side of [1, -1]) {
       const ear = new THREE.Mesh(earGeo, hullMat);
-      ear.scale.set(1.0, 1.0, 0.42);              // flatten front-back → blade
-      ear.position.set(side * 0.13, HEAD_Y + 0.22, -3.86);
-      ear.rotation.x = -2.5;                      // sweep BACK (apex toward +z), slight up
-      ear.rotation.z = side * 0.28;               // splay outward
+      ear.scale.set(1.0, 1.0, 0.66);              // only mildly flattened → horn, not blade
+      ear.position.set(side * 0.15, HEAD_Y + 0.24, -3.88);
+      ear.rotation.x = -2.35;                     // sweep BACK (apex toward +z), tipped up
+      ear.rotation.z = side * 0.30;               // splay outward
       features.push(ear);
     }
   }
-  // TWIN TAIL FINS — small bat-membrane fins near the tail tip (the iconic pair),
-  // a flattened leaf outline in the translucent wing material, fanning out + back.
+  // DORSAL NUB-HORNS — a short row of small subtle nubs along the cranium midline
+  // (between the eyes and the ear-horns), the Night-Fury head ridge.
   {
-    const fin = new THREE.Shape();
-    fin.moveTo(0, 0);
-    fin.quadraticCurveTo(0.18, 0.16, 0.54, 0.12);
-    fin.quadraticCurveTo(0.42, 0.00, 0.32, -0.16);
-    fin.quadraticCurveTo(0.18, -0.22, 0.06, -0.12);
-    fin.quadraticCurveTo(0.02, -0.06, 0, 0);
-    const finGeo = new THREE.ShapeGeometry(fin, seg(8));
-    for (const side of [1, -1]) {
-      const f = new THREE.Mesh(finGeo, wingMat);
-      f.position.set(side * 0.02, TAILFIN_Y, 3.55);
-      f.rotation.y = side * -0.6;                 // fan outward, opening backward
-      f.rotation.z = side * 0.5;                  // raise the outer edge (V)
-      f.rotation.x = -0.2;
-      features.push(f);
+    const nubZ = [-4.18, -3.98, -3.78, -3.60];
+    const nubH = [0.10, 0.13, 0.12, 0.10];
+    for (let i = 0; i < nubZ.length; i++) {
+      const nub = new THREE.Mesh(new THREE.ConeGeometry(0.045, nubH[i], seg(5), 1, false), hullMat);
+      nub.position.set(0, HEAD_Y + 0.20 - i * 0.012, nubZ[i]);
+      nub.rotation.x = -0.5;                       // lean back along the crown
+      features.push(nub);
     }
   }
+
+  // ── MINI-WINGS (stabilizer sails) — a small membrane pair just AFT of the main
+  // wing root, flaring then tapering to widen the body so it reads less long-and-thin.
+  // They DON'T flap (driven as stabilizers in dragon.js); the wingMat membrane billows
+  // like a sail. Mounted on the nullable wingPivot2L/R rig handles.
+  const miniSpec = {
+    tips: [[1.70, 0.34], [1.28, -0.40], [0.78, -0.66], [0.30, -0.58]],
+    lead: [1.05, 0.36], scallop: 0.12, rootChord: 0.26, flame: false,
+    arc: { bow: 0.36, hump: 0.0, humpAt: 0.6, hook: 0.10 },
+  };
+  function buildMiniWing(side) {
+    const pivot = new THREE.Group();
+    pivot.position.set(side * 0.40, TY + 0.24, 0.42);    // flank, behind the main wing root
+    const mws = ws * (model.miniWingScale ?? 0.62);
+    const g = buildCurvedPatch(miniSpec, {
+      scaleX: 1.34 * mws, scaleZ: (model.wingChord ?? 1) * 0.70, arc: miniSpec.arc, k: mws,
+      billow: model.miniWingBillow ?? 0.30, segU: seg(10), segV: seg(4),
+      spanStart: 0, spanEnd: miniSpec.tips[0][0] * 1.34 * mws,
+    });
+    applyWingGradient(g, def, 0.25, 0.85);
+    const pos = g.attributes.position;
+    for (let i = 0; i < pos.count; i++) pos.setX(i, pos.getX(i) * side);   // mirror span
+    if (side < 0) {
+      const idx = g.index;
+      for (let i = 0; i < idx.count; i += 3) { const b = idx.getX(i + 1), c = idx.getX(i + 2); idx.setX(i + 1, c); idx.setX(i + 2, b); }
+    }
+    g.computeVertexNormals();
+    const m = new THREE.Mesh(g, wingMat);
+    m.frustumCulled = false;
+    pivot.add(m);
+    // rest pose: splay down-outward + swept back like a trailing sail.
+    pivot.rotation.set(-0.12, side * 0.80, side * -0.50);
+    pivot.userData.rz = side * -0.50; pivot.userData.ry = side * 0.80; pivot.userData.rx = -0.12;
+    pivot.frustumCulled = false;
+    group.add(pivot);
+    return pivot;
+  }
+  if (model.miniWingStabilizer) { miniR = buildMiniWing(1); miniL = buildMiniWing(-1); }
+
+  // ── TWIN BAT-MEMBRANE TAIL FINS — the iconic pair near the tail tip: a small
+  // billowed wing membrane + finger-like spar projections (the wing kernel in
+  // miniature), fanning out + back. Mounted on pivots → dragon.js deploys them and
+  // CURVES them into a bank (the rudder). userData.bankGain = curve INTO the turn.
+  const finSpec = {
+    tips: [[1.05, 0.36], [0.78, -0.30], [0.46, -0.54], [0.16, -0.44]],
+    lead: [0.64, 0.30], scallop: 0.10, rootChord: 0.20, flame: false,
+    arc: { bow: 0.30, hump: 0.0, humpAt: 0.6, hook: 0.06 },
+  };
+  function buildTailFin(side) {
+    const pivot = new THREE.Group();
+    pivot.position.set(side * 0.03, TAILFIN_Y, 3.30);
+    const fws = ws * (model.tailFinScale ?? 0.72);
+    const sZ = (model.wingChord ?? 1) * 0.58;
+    const span = finSpec.tips[0][0] * 1.34 * fws;
+    const g = buildCurvedPatch(finSpec, {
+      scaleX: 1.34 * fws, scaleZ: sZ, arc: finSpec.arc, k: fws,
+      billow: model.tailFinBillow ?? 0.26, segU: seg(8), segV: seg(3),
+      spanStart: 0, spanEnd: span,
+    });
+    applyWingGradient(g, def, 0.30, 0.85);
+    const pos = g.attributes.position;
+    for (let i = 0; i < pos.count; i++) pos.setX(i, pos.getX(i) * side);
+    if (side < 0) {
+      const idx = g.index;
+      for (let i = 0; i < idx.count; i += 3) { const b = idx.getX(i + 1), c = idx.getX(i + 2); idx.setX(i + 1, c); idx.setX(i + 2, b); }
+    }
+    g.computeVertexNormals();
+    pivot.add(new THREE.Mesh(g, wingMat));
+    // finger-like spar projections, fanning from the fin root to every tip (subtle
+    // bulge from the top — same idea as the wing fingers, scaled down).
+    const tipTo = (sx, sy) => {
+      const wx = sx * 1.34 * fws;
+      return new THREE.Vector3(wx * side, archLift(wx, span, finSpec.arc, fws), -sy * sZ);
+    };
+    for (const tip of finSpec.tips) {
+      const target = tipTo(tip[0], tip[1]);
+      const st = seg(4), centre = [], radii = [];
+      for (let s = 0; s < st; s++) {
+        const t = s / (st - 1);
+        const p = new THREE.Vector3(0, 0, 0).lerp(target, t);
+        p.y += 0.02 * Math.sin(Math.PI * Math.min(t, 0.85));
+        centre.push(p);
+        radii.push(0.028 + (0.004 - 0.028) * (t * t * (3 - 2 * t)));
+      }
+      const tube = skinnedTube(centre, radii, seg(3), () => ({ si: [0, 0, 0, 0], sw: [1, 0, 0, 0] }), fingerMat);
+      pivot.add(new THREE.Mesh(tube.geometry, fingerMat));
+    }
+    // rest pose: fan outward (open backward) with the outer edge raised (a flat-ish V).
+    pivot.rotation.set(-0.15, side * -0.52, side * 0.42);
+    pivot.userData.restRotZ = side * 0.42;
+    pivot.userData.restRotY = side * -0.52;
+    pivot.userData.restRotX = -0.15;
+    pivot.userData.restScale = 1;
+    pivot.userData.bankGain = side * 0.7;       // curve INTO the turn (rudder)
+    pivot.frustumCulled = false;
+    group.add(pivot);
+    tailFins.push(pivot);
+    return pivot;
+  }
+  buildTailFin(1);
+  buildTailFin(-1);
+
   for (const f of features) { f.frustumCulled = false; group.add(f); }
 
   // ── tip markers (trail spawn) — children of the wrist bones ───────────────
@@ -611,7 +736,8 @@ function buildNightFury(def, model, attach) {
       wingPivotL: armL.shoulder, wingPivotR: armR.shoulder,
       wingTipL: armL.wrist, wingTipR: armR.wrist,
       tipMarkerL, tipMarkerR,
-      wingPivot2L: null, wingPivot2R: null,
+      wingPivot2L: miniL, wingPivot2R: miniR,
+      tailFins,
       wingRigL: { shoulder: armL.shoulder, elbow: armL.elbow, wrist: armL.wrist, side: -1, profile: model.flapProfile || null },
       wingRigR: { shoulder: armR.shoulder, elbow: armR.elbow, wrist: armR.wrist, side: 1, profile: model.flapProfile || null },
     },

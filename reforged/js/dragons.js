@@ -507,23 +507,32 @@ export const DRAGONS = {
       shoulderWidthScale: 1.2, wingRootOffset: { y: 0.06, z: -0.1 },
       riderSocket: { x: 0, y: 0.92, z: -0.45 },
       flapBias: 1.08, flapAmp: 0.82,
+      // Night-Fury wing anatomy (dragonNightFury knobs): the arm sweeps FORWARD to the
+      // leading edge (wingArmLeadChord), 5 fingers fan from that wrist, the top spoke
+      // straight and lower spokes bowing more (wingFingerCurve), and the struts bulge
+      // as raised ridges from the top (wingFingerBulge/Radius).
+      wingArmLeadChord: 0.5, wingFingerCurve: 0.18, wingFingerBulge: 0.05, wingFingerRadius: 0.072,
+      // mini-wing stabilizers + bat-tail steering (built below).
+      miniWingStabilizer: true, tailSteer: true,
     },
-    // TOOTHLESS WING OUTLINE — a broad bat wing with ~4 finger struts (a finger to
+    // TOOTHLESS WING OUTLINE — a broad bat wing with FIVE finger struts (a finger to
     // every tip via dragonNightFury#buildFingers). tips: [x span, y chord], far tip
-    // first; the trailing edge scallops between consecutive tips. Authored to the
-    // reference; tune the count/sweep on the preview if it reads off.
+    // first; the trailing edge scallops between consecutive tips. The outermost finger
+    // (tips[0]) rides the wing's outer/leading edge; the inner four fan back across the
+    // chord to the scalloped trailing edge. Authored to the reference (5 spokes, wrist
+    // forward); tune the sweep on the preview.
     wingForms: [
-      { tips: [[3.60, 0.12], [2.85, -0.74], [1.85, -1.00]],
-        lead: [2.50, 0.40], scallop: 0.22, rootChord: 0.50, flame: false,
+      { tips: [[3.70, 0.30], [3.20, -0.40], [2.55, -0.78], [1.85, -0.98], [1.10, -0.92]],
+        lead: [2.55, 0.46], scallop: 0.20, rootChord: 0.50, flame: false,
         arc: { bow: 0.55, hump: 0.0, humpAt: 0.6, hook: 0.08 } },
-      { tips: [[3.95, 0.14], [3.25, -0.82], [2.30, -1.18], [1.30, -1.10]],
-        lead: [2.75, 0.46], scallop: 0.26, rootChord: 0.62, flame: false,
+      { tips: [[4.05, 0.34], [3.50, -0.52], [2.80, -1.00], [2.00, -1.22], [1.15, -1.12]],
+        lead: [2.80, 0.52], scallop: 0.24, rootChord: 0.62, flame: false,
         arc: { bow: 0.65, hump: 0.22, humpAt: 0.56, hook: 0.12 } },
-      { tips: [[4.20, 0.18], [3.50, -0.88], [2.55, -1.28], [1.55, -1.22]],
-        lead: [2.95, 0.54], scallop: 0.30, rootChord: 0.74, flame: false,
+      { tips: [[4.35, 0.38], [3.78, -0.58], [3.02, -1.12], [2.15, -1.36], [1.25, -1.26]],
+        lead: [3.00, 0.58], scallop: 0.28, rootChord: 0.74, flame: false,
         arc: { bow: 0.75, hump: 0.34, humpAt: 0.58, hook: 0.16 } },
-      { tips: [[4.45, 0.22], [3.75, -0.92], [2.80, -1.36], [1.80, -1.30]],
-        lead: [3.15, 0.62], scallop: 0.34, rootChord: 0.85, flame: false,
+      { tips: [[4.65, 0.42], [4.05, -0.62], [3.25, -1.20], [2.32, -1.46], [1.35, -1.36]],
+        lead: [3.20, 0.66], scallop: 0.32, rootChord: 0.85, flame: false,
         arc: { bow: 0.88, hump: 0.46, humpAt: 0.60, hook: 0.22 } },
     ],
     forms: [

@@ -438,10 +438,19 @@ export function updateDragon(dt, player, time) {
     wingTipR.rotation.x = damp(wingTipR.rotation.x, -0.12 + feather * 0.16, 10, dt);
     wingTipL.rotation.x = damp(wingTipL.rotation.x, -0.12 - feather * 0.16, 10, dt);
   }
-  // Secondary wing pair (Obsidian T4): shadow flap at reduced amplitude.
+  // Secondary wing pair. Obsidian T4 = a shadow flap at reduced amplitude. The
+  // Night-Fury mini-wings are STABILIZERS (model.miniWingStabilizer): they DON'T
+  // flap — they hold their swept-back splay (userData.rz) and only lean with the turn
+  // + a gentle sail luff/billow, so they widen the body and steady the glide.
   if (wingPivot2L) {
-    wingPivot2L.rotation.z = damp(wingPivot2L.rotation.z,  rootFlap * 0.6 + turnBias, 14, dt);
-    wingPivot2R.rotation.z = damp(wingPivot2R.rotation.z, -rootFlap * 0.6 + turnBias, 14, dt);
+    if (activeDef.model.miniWingStabilizer) {
+      const luff = Math.sin(time * 2.0) * 0.05;
+      wingPivot2L.rotation.z = damp(wingPivot2L.rotation.z, (wingPivot2L.userData.rz ?? 0) + turnBias * 0.5 + luff, 6, dt);
+      wingPivot2R.rotation.z = damp(wingPivot2R.rotation.z, (wingPivot2R.userData.rz ?? 0) + turnBias * 0.5 - luff, 6, dt);
+    } else {
+      wingPivot2L.rotation.z = damp(wingPivot2L.rotation.z,  rootFlap * 0.6 + turnBias, 14, dt);
+      wingPivot2R.rotation.z = damp(wingPivot2R.rotation.z, -rootFlap * 0.6 + turnBias, 14, dt);
+    }
   }
 
   // Snake-like tail coil: the ROOT segment is locked to the body (lock=0) and
@@ -522,8 +531,12 @@ export function updateDragon(dt, player, time) {
     const deployTarget = player.feverActive ? 1.08 : player.boosting ? 1.0 : 0.82;
     tailDeploy = damp(tailDeploy, deployTarget, 5, dt);
     for (const f of tailFins) {
-      f.rotation.z = f.userData.restRotZ * tailDeploy;
-      f.rotation.y = f.userData.restRotY * tailDeploy;
+      // BANK STEER: the bat-tail fins curve INTO the turn like a rudder (bankGain is
+      // signed per side). Additive on rotation.y; no-op where bankGain is unset.
+      const bank = turnBias * (f.userData.bankGain ?? 0);
+      f.rotation.z = (f.userData.restRotZ ?? 0) * tailDeploy;
+      f.rotation.y = (f.userData.restRotY ?? 0) * tailDeploy + bank;
+      if (f.userData.restRotX != null) f.rotation.x = f.userData.restRotX;
       f.scale.setScalar((f.userData.restScale ?? 1) * (0.96 + 0.06 * tailDeploy));
     }
   }

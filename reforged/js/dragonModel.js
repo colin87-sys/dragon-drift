@@ -419,8 +419,8 @@ export function buildDragonModel(def, opts = {}) {
   const tailResult = getTailBuilder(recipe.tail)(def, model, { bodyMat, scalesMat }, attach.tailAnchor);
   group.add(tailResult.group);
   if (tailResult.accentMats) for (const m of tailResult.accentMats) spineMats.push(m);
-  const tailFins = tailResult.tailFins;
-  const tailSegs = tailResult.segs;
+  let tailFins = tailResult.tailFins;
+  let tailSegs = tailResult.segs;
   // An orbit-style tail (the wyrm's shard relics) returns orbiters the rig spins.
   const tailOrbiters = tailResult.orbiters ?? null;
 
@@ -439,6 +439,12 @@ export function buildDragonModel(def, opts = {}) {
     tipMarkerL, tipMarkerR, wingPivot2L, wingPivot2R,
     wingRigL, wingRigR,
   } = wingsResult.parts;
+  // Night-Fury grows its bat-tail fins + tail-bone whip chain INSIDE the wings
+  // builder (the tail is part of the continuous hull, not a bolted tail module), so
+  // adopt those when present — additive + nullable (other wings builders return
+  // neither → the roster is byte-identical).
+  if (wingsResult.parts.tailFins) tailFins = wingsResult.parts.tailFins;
+  if (wingsResult.parts.tailSegs) tailSegs = wingsResult.parts.tailSegs;
 
   // Solar aura card (apex only): a tall narrow backlight behind the body — a
   // corona, not a ring that competes with the collectible rings.

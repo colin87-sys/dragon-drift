@@ -1276,3 +1276,43 @@ chain + drive cy as a travelling wave, tail counter-phase; the cy channel is alr
 human-judged on the lit preview + the drag viewer (flat-lit headless can't judge matte-vs-metal or motion): the
 wing rest-droop (reads cape-like static — wants a more spread glide pose or membrane reshape), body depth,
 tail-fin prominence, and the finish. The loop continues from the user's direction, not blind guessing.
+
+### L35 — Reference-critique convergence: every note → ONE additive knob, and a CLAY render to actually see matte-black geometry
+**Did / learned:** the human ran a clinical, marked-up-screenshot critique of `toothless` (5 reference images,
+red/yellow/white annotations) and asked for it "clinically studied — don't assume." Banked the discipline of
+translating each note into ONE named, additive, nullable knob rather than a bespoke rewrite: **wings** — 5
+finger tips per `wingForms` tier (a finger fans to every tip; `tips[0]` rides the outer/leading edge) +
+`wingArmLeadChord` (the arm bones + finger-convergence sweep FORWARD to the leading edge, shoulder stays on the
+body seam — a real bat arm, not a mid-membrane spar) + `wingFingerCurve` (top spoke straight, lower spokes bow
+more, scaled by fan index) + `wingFingerBulge`/`Radius` (struts read as raised ridges from the top). **Head** —
+eyes recessed into the wide cheek station (the "eyes inside the head" read, not a floating ball), the small
+ear-flaps grown into two LARGE back-swept ear-HORNS + a subtle row of dorsal nub-horns. **Mini-wings** — a NEW
+non-flapping stabilizer sail pair just AFT of the main wing root (`buildCurvedPatch` membrane on the
+already-declared-but-null `wingPivot2L/R` handles) that flare→taper to widen a long/thin body, driven in
+`dragon.js` as stabilizers (hold their swept splay `userData.rz`, lean with the turn + a sail luff — NO flap)
+behind a `model.miniWingStabilizer` flag. **Bat tail** — the two flat `ShapeGeometry` leaves became billowed
+bat-membrane fins + finger spars (the wing kernel in miniature), exposed as `tailFins` and curved INTO a bank
+(`userData.bankGain`, additive on `rotation.y`) as a rudder. The load-bearing TOOLING insight: the shipped
+matte-black hide is **near-invisible on the dark stage** — useless for judging spoke/flare SHAPE — so I added a
+**CLAY render mode** to `nfview` (`nfview.mjs toothless 3 clay`: neutral grey material + rebuild at REST pose),
+which finally made the geometry legible without touching the shipped colour (the human even offered to recolour
+to white — the clay mode is the non-destructive version of exactly that). All gates green, `tricount --ci`
+0-over at high/low/ultra (toothless 3488→4054 HIGH), `tiershots` compiles, **roster byte-identical**.
+**→ Systematize:** two reusable moves. (1) **A finish-independent CLAY/REST inspection render** belongs in
+every creature's view tool — geometry convergence and material/finish convergence are SEPARATE oracles and must
+not share a render (matte-on-dark hides shape; clay-on-stage hides finish). Bank it as the default "judge the
+mesh" mode. (2) **Critique → knob table**: when a human gives N specific anatomical notes, resolve each to a
+single additive+nullable model/spec field (default = old behaviour) so the change is roster-safe BY
+CONSTRUCTION and the next creature inherits the vocabulary (wingArmLeadChord/wingFingerCurve/miniWingStabilizer/
+tailFin bankGain are now creature-grammar, not toothless one-offs). The two ALREADY-declared-but-null rig
+handles (`wingPivot2`, `tailFins`) absorbed the mini-wings + bat-tail with ZERO contract change — proof that
+"additive + nullable" handles laid down early pay off later.
+**→ Leapfrog (innovate):** the one thing that DIDN'T fit a non-skeletal knob is the cruise tail-WHIP: the
+gates hard-code "7 bones / tailSegs===0" (the body+wings-only increment), so a real articulated tail needs the
+skeleton to GROW + those asserts rewritten — i.e. the deferred Phase-2 vertical-whip substrate. So this pass
+delivered all geometry + the fin-based banking rudder + mini-wing billow (non-skeletal, gates untouched) and
+scoped the tail-bone whip as the next focused step. The pattern to bank: **sort a feature request by whether it
+needs the skeleton** — non-skeletal motion (pivots, fin rotation, sail luff) ships behind existing nullable
+handles immediately; skeletal motion (whip, body-bend) is a gated, gate-updating increment. Next: grow a short
+tail-bone chain (reweight the rear loft verts off the static bodyRoot, expose as `tailSegs`, update the
+nightfury gates to the new bone count), then cross-fade cruise-whip ↔ bank-rudder per the user's call.
