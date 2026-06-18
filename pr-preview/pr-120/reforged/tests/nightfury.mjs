@@ -48,8 +48,10 @@ const hull = model.group.getObjectByName('nightFuryHull');
 const membrane = model.group.getObjectByName('nightFuryMembrane');
 const fingers = model.group.getObjectByName('nightFuryFingers');
 
-// no legacy parts rendered: head group is empty, tail has no coil segs.
-assertEq(model.parts.tailSegs.length, 0, 'no legacy tail segments (tail OFF)');
+// no legacy bolted tail: the tail is the hull loft. The whip adds a 4-bone tail chain
+// (skinned to the rear loft verts), exposed as tailSegs for dragon.js to sway/rudder.
+assertEq(model.parts.tailSegs.length, 4, 'tail-whip exposes a 4-bone tail chain (tailSegs)');
+assert(model.parts.tailSegs.every((b) => b.isBone), 'tail segments are Bones (skinned whip, not free segments)');
 assert(!model.group.getObjectByName('organismHull'), 'no organism mesh (this is the night-fury build)');
 
 // --- 1. skinned meshes on ONE 7-bone skeleton + rig contract ------------------------
@@ -57,7 +59,7 @@ assert(hull && hull.isSkinnedMesh, 'the opaque hull is a SkinnedMesh');
 assert(membrane && membrane.isSkinnedMesh, 'the translucent membrane is a SkinnedMesh');
 assert(fingers && fingers.isSkinnedMesh, 'the finger struts are a SkinnedMesh');
 assertEq(hull.frustumCulled, false, 'hull disables frustum culling');
-assertEq(hull.skeleton.bones.length, 7, 'hull bound to a 7-bone skeleton');
+assertEq(hull.skeleton.bones.length, 11, 'hull bound to an 11-bone skeleton (7 body/wing + 4 tail-whip)');
 assert(hull.skeleton === membrane.skeleton && hull.skeleton === fingers.skeleton, 'hull + membrane + fingers SHARE one skeleton');
 const sk = hull.skeleton;
 const rigL = model.parts.wingRigL, rigR = model.parts.wingRigR;
@@ -84,12 +86,12 @@ function scanMesh(mesh, label) {
   let badW = 0, badI = 0, badP = 0, badN = 0;
   for (let i = 0; i < p.count; i++) {
     if (Math.abs(sw.getX(i) + sw.getY(i) + sw.getZ(i) + sw.getW(i) - 1) > 1e-4) badW++;
-    for (const v of [si.getX(i), si.getY(i), si.getZ(i), si.getW(i)]) if (v < 0 || v > 6) badI++;
+    for (const v of [si.getX(i), si.getY(i), si.getZ(i), si.getW(i)]) if (v < 0 || v > mesh.skeleton.bones.length - 1) badI++;
     if (!Number.isFinite(p.getX(i)) || !Number.isFinite(p.getY(i)) || !Number.isFinite(p.getZ(i))) badP++;
     if (!Number.isFinite(nr.getX(i)) || !Number.isFinite(nr.getY(i)) || !Number.isFinite(nr.getZ(i))) badN++;
   }
   assertEq(badW, 0, `${label}: every vertex skinWeight sums to 1`);
-  assertEq(badI, 0, `${label}: every skinIndex in [0,6]`);
+  assertEq(badI, 0, `${label}: every skinIndex in [0, bones-1]`);
   assertEq(badP, 0, `${label}: all positions finite`);
   assertEq(badN, 0, `${label}: all normals finite`);
   const idx = g.index;
@@ -107,7 +109,7 @@ function scanMesh(mesh, label) {
 scanMesh(hull, 'hull');
 scanMesh(membrane, 'membrane');
 scanMesh(fingers, 'fingers');
-ok('skin weights well-formed (sum=1, indices 0..6, finite pos/normals) + no degenerate tris');
+ok('skin weights well-formed (sum=1, valid bone indices, finite pos/normals) + no degenerate tris');
 
 // --- 3. rest-parity -----------------------------------------------------------------
 model.group.updateMatrixWorld(true);

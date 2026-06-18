@@ -308,6 +308,60 @@ function buildNightFury(def, model, attach) {
   const EL = (side) => side < 0 ? BONE.EL_L : BONE.EL_R;
   const WR = (side) => side < 0 ? BONE.WR_L : BONE.WR_R;
 
+  // ── TAIL-WHIP BONE CHAIN (model.tailWhip) ─────────────────────────────────
+  // The rear loft verts are reweighted off the STATIC bodyRoot onto a short bone
+  // chain so the tail SWAYS in cruise + curves as a rudder on a bank (driven in
+  // dragon.js). Body/neck/head verts stay 100% on bodyRoot (frozen). Additive:
+  // without tailWhip the loft is all-bodyRoot → byte-identical. Bones append at
+  // indices 7,8,… (the 7 wing bones keep their frozen indices/contract).
+  const chAt = (z, ci) => {                               // interp a station channel at z
+    const st = profile.stations;
+    if (z <= st[0][0]) return st[0][ci] ?? 0;
+    for (let i = 0; i < st.length - 1; i++) {
+      if (z >= st[i][0] && z <= st[i + 1][0]) {
+        const t = (z - st[i][0]) / (st[i + 1][0] - st[i][0]);
+        return (st[i][ci] ?? 0) + ((st[i + 1][ci] ?? 0) - (st[i][ci] ?? 0)) * t;
+      }
+    }
+    return st[st.length - 1][ci] ?? 0;
+  };
+  const TAIL_BONE_Z = model.tailWhip ? (model.tailBoneZ ?? [1.70, 2.30, 2.90, 3.45]) : [];
+  const TAIL_Z0 = 1.45;                                   // bodyRoot influence ends here
+  const tailBones = [];
+  {
+    let parent = bodyRoot, prev = new THREE.Vector3(0, 0, 0);
+    for (let k = 0; k < TAIL_BONE_Z.length; k++) {
+      const z = TAIL_BONE_Z[k];
+      const wpos = new THREE.Vector3(0, TY + chAt(z, 4), z);   // on the drooped centreline
+      const bone = new THREE.Bone();
+      bone.position.copy(wpos.clone().sub(prev));         // local = world − parent world
+      parent.add(bone);
+      bones.push(bone);
+      tailBones.push(bone);
+      parent = bone; prev = wpos;
+    }
+  }
+  const TB = (k) => 7 + k;                                // tail-bone skeleton index
+  if (tailBones.length) {                                 // reweight loft TAIL verts (2-bone z blend)
+    const pos = loftGeo.attributes.position, n = pos.count;
+    const si = new Uint16Array(n * 4), sw = new Float32Array(n * 4);
+    const ctrlZ = [TAIL_Z0, ...TAIL_BONE_Z];
+    const ctrlB = [BONE.BODY, ...TAIL_BONE_Z.map((_, k) => TB(k))];
+    for (let i = 0; i < n; i++) {
+      const z = pos.getZ(i);
+      let a = BONE.BODY, b = BONE.BODY, t = 0;
+      if (z > ctrlZ[ctrlZ.length - 1]) { a = b = ctrlB[ctrlB.length - 1]; }
+      else if (z > ctrlZ[0]) {
+        for (let j = 0; j < ctrlZ.length - 1; j++) {
+          if (z >= ctrlZ[j] && z <= ctrlZ[j + 1]) { a = ctrlB[j]; b = ctrlB[j + 1]; t = sstep((z - ctrlZ[j]) / (ctrlZ[j + 1] - ctrlZ[j])); break; }
+        }
+      }
+      si[i * 4] = a; si[i * 4 + 1] = b; sw[i * 4] = 1 - t; sw[i * 4 + 1] = t;
+    }
+    loftGeo.setAttribute('skinIndex', new THREE.Uint16BufferAttribute(si, 4));
+    loftGeo.setAttribute('skinWeight', new THREE.Float32BufferAttribute(sw, 4));
+  }
+
   // ── span skin (membrane / arm outboard gradient) ──────────────────────────
   function spanSkin(side, ax) {
     const e = elbowXGeo, w = wristXGeo, b = foldBand;
@@ -667,7 +721,15 @@ function buildNightFury(def, model, attach) {
     const pivot = new THREE.Group();
     // sit at the fin-attach zone so the membrane fans BACK to the tail tip (≈3.95) —
     // the fin ENDS in line with the end of the tail (was starting too early at 3.30).
-    pivot.position.set(side * 0.03, TAILFIN_Y, 3.18);
+    // When the tail WHIPS, the fins must ride the last tail bone (else they detach on a
+    // bank); position is then LOCAL to that bone so the deploy/bank rotation composes on top.
+    const finBaseW = new THREE.Vector3(side * 0.03, TAILFIN_Y, 3.18);
+    if (tailBones.length) {
+      const zL = TAIL_BONE_Z[TAIL_BONE_Z.length - 1];
+      pivot.position.copy(finBaseW.clone().sub(new THREE.Vector3(0, TY + chAt(zL, 4), zL)));
+    } else {
+      pivot.position.copy(finBaseW);
+    }
     const fws = ws * (model.tailFinScale ?? 0.92);
     const sZ = (model.wingChord ?? 1) * 0.58;
     const span = finSpec.tips[0][0] * 1.34 * fws;
@@ -710,9 +772,11 @@ function buildNightFury(def, model, attach) {
     pivot.userData.restRotY = side * -0.52;
     pivot.userData.restRotX = -0.15;
     pivot.userData.restScale = 1;
-    pivot.userData.bankGain = side * 0.7;       // curve INTO the turn (rudder)
+    // the tail bones already curve into the turn (rudder); the fins add a lighter
+    // airbrake tilt on top — modest bankGain so they don't over-rotate.
+    pivot.userData.bankGain = tailBones.length ? side * 0.35 : side * 0.7;
     pivot.frustumCulled = false;
-    group.add(pivot);
+    (tailBones.length ? tailBones[tailBones.length - 1] : group).add(pivot);  // ride the whip
     tailFins.push(pivot);
     return pivot;
   }
@@ -753,7 +817,7 @@ function buildNightFury(def, model, attach) {
       wingTipL: armL.wrist, wingTipR: armR.wrist,
       tipMarkerL, tipMarkerR,
       wingPivot2L: miniL, wingPivot2R: miniR,
-      tailFins,
+      tailFins, tailSegs: tailBones,
       wingRigL: { shoulder: armL.shoulder, elbow: armL.elbow, wrist: armL.wrist, side: -1, profile: model.flapProfile || null },
       wingRigR: { shoulder: armR.shoulder, elbow: armR.elbow, wrist: armR.wrist, side: 1, profile: model.flapProfile || null },
     },
