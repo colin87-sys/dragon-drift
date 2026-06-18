@@ -941,3 +941,38 @@ pinned at a point. The tail "cheats" (matching fat round form + a non-rotating b
 (form-mismatch + a rotating joint), and the fleshy arm is what closes the form gap so the continuous-skin shoulder has
 something organic to blend. **Bake into the build: wing = fleshy arm tube (body-matching radius) + membrane spanned
 from it, all one skin — a real wing (and like the tail), not a kite frame on a sheet.**
+
+### L24 — Hull and blueprint are ONE bet: the generator's parameters ARE the vocabulary; the motion northstar is a vertical body whip
+**Did / learned:** a planning session that re-opened the original "why are AI-prompted creatures still
+hard" analysis and reconciled it with our own **L23**. The resolution is a hard reframe: the analyst's
+"declarative organism blueprint" and our unified hull are **not competing** — **the hull is a PARAMETRIC
+GENERATOR, and the data it consumes (`profile`/`wingSpec`/arm-radius/`junctionSkin`/section/centreline/
+`motionProfile`) IS the blueprint.** So you build the generator FIRST and the authoring vocabulary is
+just the formalized, validated, documented set of knobs it exposes — sequencing inverts the naive
+"schema first": **geometry hull → generalize the generator (vocabulary crystallizes) → formalize the
+blueprint layer (grammar/validation/`surfaceLayers`/migration).** Designing a schema ahead of the
+geometry = formalizing a Lego system (the seam saga is the proof). The human supplied **reference
+imagery** that pinned three things headless tools can't see: **(1)** the wing is a **FLESHY ARM**
+continuous with the body (upper-arm+forearm tubes of body-matching radius, membrane spanned from the arm
+*and along the flank*), **not** a wire+sheet — confirming the L23 missing ingredient by eye; **(2)** the
+acceptance view is the **REAR/¾-rear chase cam IN MOTION**, never a side rest pose; **(3)** the **MOTION
+NORTHSTAR** — the whole body **porpoises VERTICALLY as a whip**, tail in counter-phase, synced to and
+*powering* the wingbeat ("the weight behind the wings"). The body is **not a rigid plank with hinged
+wings**. (The refined 3-phase plan + the reference read are folded into `UNIFIED_HULL_PLAN.md`.)
+**→ Systematize:** bank the reframe as a studio law — **"expose the generator's parameters and the
+blueprint writes itself; never design a creature schema ahead of the geometry that realizes it."** Every
+hull parameter becomes a named, validated, documented vocabulary word; the grammar is **DERIVED** from
+the registries + generator params, never hand-maintained (no drift). Bank the verification law too: a
+creature's true acceptance gate is the **rear/¾-rear chase cam through a full beat** — add a rear-cam
+flapping capture to the preview kit; rest-pose tools (`tricount`/`tiershots`) gate *engineering*, motion
+gates *feel*. And the L5 motion-as-data discipline **generalizes from the wing to the WHOLE SPINE**: one
+`driveChain` phase-lagged cascade in the *vertical* plane = the body whip, reusing existing rig
+transforms as bones (L16), **zero rig-contract change**.
+**→ Leapfrog (innovate):** the convergence is now total — **ONE continuous skinned hull on ONE bendable
+spine, decorated by declarative `surfaceLayers`, driven by ONE phase-lagged cascade that flaps the wings
+AND whips the body, all authored as ONE validated blueprint.** Because that blueprint is literally the
+generator's parameter surface, **non-dragon creatures (manta/serpent/insect) + AI-prompted diversity fall
+out as different parameter sets**, and the motion "weight" the references demand is a per-dragon
+`motionProfile`, not bespoke animation. The next session builds **Phase 1 (the hull on Obsidian)** knowing
+the arm must be **fleshy** and that the eventual payoff is the **vertical whip the continuous hull uniquely
+enables** — geometry and motion are the same bet.
