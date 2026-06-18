@@ -56,8 +56,8 @@ const sstep = (x) => { x = Math.min(Math.max(x, 0), 1); return x * x * (3 - 2 * 
 // face winding points outward. Super-ellipse exponent >2 gives a fuller, rounder
 // belly + flanks than a circle and far rounder than the octagon — the body reads
 // ROUND at HIGH instead of faceted. sweepProfile resamples it as a closed
-// Catmull-Rom at seg(): 16 control pts → 16-gon at HIGH (smooth), denser at ULTRA.
-const SECTION_N = 16;
+// Catmull-Rom at seg(): 22 control pts → 22-gon at HIGH (rounder), denser at ULTRA.
+const SECTION_N = 22;
 function drakeSection(w, top, bot) {
   const pts = [];
   const ex = 2.3;                                   // >2 = fuller belly + flanks
@@ -83,22 +83,22 @@ const DRAKE_PROFILE = {
   tailAnchorZ: 1.18,
   ring: drakeSection,
   stations: [
-    [-3.05, 0.13, 0.10, 0.11], // neck cap (meets the neck chain)
-    [-2.55, 0.26, 0.20, 0.22], // neck base
-    [-1.95, 0.41, 0.33, 0.31], // lower neck → shoulder lead-in
-    [-1.45, 0.54, 0.45, 0.39], // fore-shoulder (wing-root chord front)
-    [-1.05, 0.62, 0.52, 0.44], // shoulder rise
-    [-0.65, 0.64, 0.54, 0.46], // shoulder peak — broadest, tallest keel
-    [-0.30, 0.62, 0.52, 0.45], // chest swell (wing-root centre)
-     [0.05, 0.56, 0.46, 0.42], // thorax
-     [0.45, 0.46, 0.39, 0.36], // forward belly
-     [0.85, 0.36, 0.31, 0.29], // belly
-     [1.20, 0.28, 0.25, 0.21], // haunches
-     [1.50, 0.21, 0.20, 0.15], // hip taper
-     [1.70, 0.16, 0.16, 0.10], // slim tail root
+    [-3.05, 0.12, 0.09, 0.10], // neck cap (meets the neck chain)
+    [-2.55, 0.22, 0.17, 0.18], // neck base — slimmer
+    [-1.95, 0.34, 0.27, 0.26], // lower neck → shoulder lead-in
+    [-1.45, 0.44, 0.37, 0.33], // fore-shoulder (wing-root chord front)
+    [-1.05, 0.50, 0.43, 0.38], // shoulder rise
+    [-0.65, 0.53, 0.45, 0.40], // shoulder/chest peak — sleeker (was 0.64)
+    [-0.30, 0.51, 0.43, 0.39], // chest (wing-root centre)
+     [0.05, 0.44, 0.37, 0.35], // thorax
+     [0.45, 0.35, 0.30, 0.29], // WAIST pinch — a clear narrowing
+     [0.85, 0.29, 0.25, 0.24], // mid-body
+     [1.20, 0.23, 0.20, 0.17], // haunches
+     [1.50, 0.18, 0.17, 0.13], // hip taper
+     [1.70, 0.14, 0.14, 0.09], // slim tail root
   ],
-  keel: [[-2.55, 0.20], [-0.65, 0.54], [-0.30, 0.52], [0.05, 0.46], [0.45, 0.39], [0.85, 0.31], [1.20, 0.25], [1.70, 0.16]],
-  wingRoot: { x: 0.5, y: 0.55, z: -0.45 }, // high on the back, over the shoulder/chest swell
+  keel: [[-2.55, 0.17], [-0.65, 0.45], [-0.30, 0.43], [0.05, 0.37], [0.45, 0.30], [0.85, 0.25], [1.20, 0.20], [1.70, 0.14]],
+  wingRoot: { x: 0.46, y: 0.49, z: -0.45 }, // on the back over the (now slimmer) shoulder; lowered to track the reshape
   fairing: { r: 0.3, scale: [0.86, 0.78, 1.2], pos: [0.46, 0.54, -0.4] },
   neck: {
     rBase: 0.44, rStep: 0.045, rMin: 0.19, scale: [0.8, 0.66, 1.3],
