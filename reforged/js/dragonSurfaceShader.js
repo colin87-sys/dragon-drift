@@ -197,6 +197,13 @@ export function cellularScalesNormalPatch(opts = {}) {
   };
 }
 
+// The closed set of surface-shader names a blueprint may declare in
+// `parts.surface.shader`. Kept beside buildSurfacePatches (the only consumer) so
+// the creature grammar/validator can't drift from what's actually buildable.
+export const SURFACE_PATCH_NAMES = Object.freeze([
+  'cellularScales', 'cellularScalesNormal', 'iridescence', 'subsurface', 'membraneSSS',
+]);
+
 // Map blueprint shader NAMES → patch descriptors, tinted on-brand from the def.
 export function buildSurfacePatches(names, def) {
   const out = [];

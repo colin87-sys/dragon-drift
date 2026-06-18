@@ -1659,3 +1659,45 @@ realizes it*).
 don't carry the superseded plan forward as if it's still pending. AND: don't let "done with the geometry" shrink
 the handoff to just verification + migration — the *named* next phase is the **Blueprint Layer** (grammar →
 validation → `surfaceLayers` → CREATURES.md → migrate), which is the entire reason the hull was built first.
+
+### L48 — PHASE 3 part 1 shipped: the Blueprint Layer is grammar + validation + a declarative surfaceLayers registry — roster byte-identical, migration deferred
+**Did / learned:** built the first, roster-safe half of Phase 3 (L47) — the recipe SYSTEM, not the migration. Four
+pieces: **(1)** `creatureGrammar.js` — a HARVESTED (not invented) vocabulary of the ~40 highest-value generator
+knobs the roster already varies (recipe builders, surface shaders, hull/wing/motion/material numbers, the legacy
+decoration flags), grouped, with kinds + ranges; pure data, no Three import. Builder/shader/layer ENUMS are NOT
+frozen in it — they're resolved LIVE at validation time against the registries (`hasTorso/Wings/Head/Tail` +
+new `list*` accessors), `SURFACE_PATCH_NAMES` (new export), and `listSurfaceLayers()`, so the grammar can never
+drift from what's buildable. **(2)** `validateCreatureBlueprint.js` + `tests/blueprint.mjs` — actionable
+validation (a misspelled `'nightFuryWngs'` → "did you mean 'nightFuryWings'?" via edit-distance) wired into the
+suite; a runtime dev-guard in `buildDragonModel` behind `globalThis.DRAGON_DEBUG_BLUEPRINT` (off by default →
+zero shipped cost). **(3)** `dragonSurfaceLayers.js` — the nine imperative `if(model.flag){…}` decoration blocks
+(`dragonModel.js:177–347`) promoted VERBATIM into a registry (`registerSurfaceLayer`, mirroring `dragonRecipe`),
+dispatched by a single loop over `resolveSurfaceLayers(def, recipe, attach)` that infers the layer list from the
+legacy flags in the EXACT order/conditions (or takes an explicit `parts.surfaceLayers`). **(4)** `CREATURES.md`
+— the closed grammar + the one rule (*author the blueprint, never the builders*) + an annotated `toothless`.
+**The load-bearing discipline that worked: prove byte-identical by MEASURING, not by trusting "verbatim".** Did a
+`git stash --include-untracked` → `tricount` baseline → pop → `tricount` after → `diff` = IDENTICAL across all 37
+models (119006 tris). All geometry tests green (`nightfury` 10 gates incl. coexistence, +14 others); the new
+`blueprint.mjs` green (roster validates 0 errors/0 warnings + negative tests + layer-order parity); `tricount --ci`
+0-over at high/low/ultra. **Two gotchas banked: (a)** registry-derived enums need the part modules IMPORTED before
+validating (the registries populate at import) — the test imports `dragonModel.js` first; **(b)** the documented
+numeric ranges are harvested from the roster and necessarily approximate, so out-of-RANGE is a WARNING (advisory),
+only wrong-TYPE / bad-NAME / malformed-STRUCTURE is a blocking ERROR — else a valid shipped dragon (astralWyrm
+`flapAmp 0.28`) false-fails the suite. The CI-Chromium browser tests (`badges` etc.) are red on a clean HEAD too
+(no WebGL in this env) and `run-all` stops at the first — verify model tests DIRECTLY.
+**→ Systematize:** the reusable pattern is **"promote a god-builder's `if(flag)` blocks to a registry + an
+inference resolver, and PROVE the promotion byte-identical with a stash/tricount/diff"** — it generalises to the
+next residue (the still-inline shingle is already declarative; future per-creature FX/aura blocks are the next
+candidates). And **"a grammar HARVESTS knobs + resolves enums live; a validator splits TYPE/NAME/STRUCTURE errors
+(block) from RANGE (warn); the docs are generated against the grammar"** is the template for every future schema —
+never hand-maintain an enum that a registry already owns. The stash/diff byte-identical proof is now the standard
+gate for any "refactor that must not change output" (the structural sibling of the L36 motion / L39c gap probes:
+prove it with a number/diff, not a claim).
+**→ Leapfrog (innovate):** with creatures now *describable + validated*, the AI-promptability thesis (L24/L32) is
+one step from real — a prompt → a `creatureGrammar`-shaped JSON blueprint → `validateCreatureBlueprint` →
+`buildDragonModel`, no new code. The next moves: (1) the deferred **roster migration** (flip the faceted
+`sweepProfile` dragons onto `sweepProfileSmooth` so the organism path is the DEFAULT, cloning the `nightfury.mjs`
+weld+seam gates per creature — the seam-index math under longitudinal resample is the watch item); (2) a
+**blueprint→geometry round-trip generator** (emit a creature from grammar values alone, e.g. a `manta` = flatter
+wider section + no horns, proving non-dragon creatures); (3) widen the grammar from the ~40 curated knobs to the
+full ~130 the generator exposes, with per-knob defaults, so `CREATURES.md` and an authoring UI both render from it.

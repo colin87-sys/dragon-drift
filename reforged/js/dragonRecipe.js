@@ -43,6 +43,15 @@ export function registerTail(name, fn) { TAIL_BUILDERS[name] = fn; }
 export function getTailBuilder(name) { return TAIL_BUILDERS[name] || TAIL_BUILDERS.clean; }
 export function hasTail(name) { return !!TAIL_BUILDERS[name]; }
 
+// Live lists of every registered builder name (populated as the part modules
+// self-register at import). The creature grammar/validator reads these so the
+// vocabulary is DERIVED from what can actually be built, never hand-maintained.
+// Call AFTER the part modules are imported (e.g. via dragonModel.js).
+export function listTorsos() { return Object.keys(TORSO_BUILDERS); }
+export function listWings() { return Object.keys(WINGS_BUILDERS); }
+export function listHeads() { return Object.keys(HEAD_BUILDERS); }
+export function listTails() { return Object.keys(TAIL_BUILDERS); }
+
 // --- recipe resolution ------------------------------------------------------
 // Resolve a dragon def to an explicit { torso, wings, tail, head } recipe.
 // An explicit `def.parts` wins; otherwise infer from the legacy flag set so the
