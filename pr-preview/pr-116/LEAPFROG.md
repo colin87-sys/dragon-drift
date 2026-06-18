@@ -20,7 +20,7 @@ lessons for the one after. That is the whole studio: we rapidly improve the game
 
 You are a fresh session continuing **Dragon Drift** (the `reforged/` rewrite). Read this
 file top-to-bottom: **this HANDOFF** (where we are) → the **Active roadmap** (the next big
-build) → **THE RULE** + the **lessons ledger L1–L22** (how we work + everything learned so
+build) → **THE RULE** + the **lessons ledger L1–L23** (how we work + everything learned so
 far). Then continue — and **append a lesson after every meaningful change**.
 
 ### Where we are (state of the world)
@@ -51,6 +51,17 @@ far). Then continue — and **append a lesson after every meaningful change**.
   (see L10 — reuse the real engine, don't reinvent it).
 
 ### Open items / next steps (in priority order)
+0. **▶ THE FRONTIER — UNIFY THE CREATURE INTO ONE GENERATED SKINNED HULL (do this next).** The shoulder
+   bridge (L20) + body-skin (L21) + root-weld (L22) all FAILED on the preview — the broad wing still
+   gaps off the body on the up-beat and collides on the down-beat, because the wing and body are two
+   SEPARATE surfaces with no shared vertex. Human-confirmed fix: **generate Obsidian's body+wings as ONE
+   continuous skinned hull** (the wing grows out of the loft, one weight field, no seam), then extend the
+   same kernel to neck/tail/head → the L1/L14 "one hull, no bolted parts" end state. **Read
+   `UNIFIED_HULL_PLAN.md` (repo root) + L23 below — the full design + the first concrete increment.** It
+   MUST stay PROCEDURAL (generated from the blueprint, never hand-sculpted) so AI-prompted diversity
+   survives — this is the original "declarative organism" thesis realized in geometry. Scaffolding it
+   supersedes: PR **#115** (bridge) merged, PR **#116** (Pass-2 body-flex) open — both kept registered for
+   rollback; retire from Obsidian only after the hull is preview-approved.
 1. **Confirm the walls hold** on the latest build (pause→shop→swap→resume; crash→shop→
    restart) — that was the last thing the user was verifying.
 2. **Astral biome for the shop (DEFERRED, do carefully):** the user likes the cosmos/astral
@@ -878,3 +889,40 @@ cross-hierarchy bind (L21), an entire creature can be ONE skinned hull whose eve
 and drives from shared bones, no bolted parts anywhere. **Judge on the preview (headless can't):** confirm the
 up-beat no longer gaps and the down-beat no longer collides; if a broad wing still peels at the very root,
 raise `rootBand` (weld more of the inner span flat) — a one-number tune.
+
+### L23 — You can't PATCH two surfaces into one organism; the body and wings must be ONE generated skin (the frontier)
+**Did / learned:** L20 (shoulder bridge) + L21 (body-shoulder skin) + L22 (membrane root-weld) were three
+attempts to make the broad Night-Fury wing read as CONNECTED to the body — and the human judged ALL THREE
+insufficient on the preview: the wing still gaps off the body on the up-beat and collides into it on the
+down-beat. The reason, confirmed in code: the wing (a flat translucent membrane mesh) and the body (a round
+opaque loft mesh) are **two separate surfaces with no shared vertex**, so nothing FORCES them to stay
+coincident — and the patches even fought (L21's body bulge capped 0.34 vs L22's membrane root 1.0 on the *same*
+shoulder bone, moving at different rates → pulling the seam apart). **The lesson is a hard law: you cannot patch
+two surfaces into one organism. They must BE one surface** — exactly how the wing's separate flapping PANELS
+were earlier unified into one skinned membrane (L1). The wing↔body seam is that same problem one level up. The
+human reached this independently ("can't we do the joined-skin thing with the wing and the body?"), and crucially
+connected it back to the project's FIRST analysis: the "declarative organism blueprint" thesis was right about
+the **load-bearing pillar — continuous GEOMETRY**, which the recipe/shader *authoring* layer (rightly built) does
+not supply. We had to hit the seam to feel why the continuous-geometry half is the part that matters most.
+**→ Systematize:** the fix is a reusable kernel **`growSkinnedExtension(loftBoundaryLoop, patchGrid, boneChain,
+junctionSkin)`** — weld a sub-surface's edge to a loft boundary loop into ONE merged skinned geometry with ONE
+continuous weight field, where `junctionSkin(t)` is applied to **BOTH sides of the seam** so paired verts get
+IDENTICAL weights and can never separate (the regression test: rotate a shoulder, the paired body-edge & wing-root
+verts must move to the *same* position — the gate the patches could never pass). Reuse `sweepProfile` (loft) +
+`buildCurvedPatch` (wing grid) + `spanSkin` (the wing gradient) + `skinnedTube`; coexist via new recipe variants
+(`unifiedHull` wings + a body-less `unifiedHullTorso`), Obsidian-only opt-in, roster byte-identical, fully
+reversible by two strings in `dragons.js`. **The non-negotiable discipline: generate the hull PROCEDURALLY from
+the blueprint (the `profile` + `wingSpec` data that already vary per dragon), NEVER hand-sculpt it** — hand-
+sculpting one mesh per dragon would kill AI-prompted diversity; a generated hull is *more* promptable (describe the
+organism's shape, the engine emits a fluid creature). The full design + the first concrete increment (re-seat the
+wing root column onto the loft flank, tangential blend, 7-bone `[bodyRoot, shL,elL,wrL, shR,elR,wrR]` skin, vertex
+material blend, verification gates, risks) is in **`UNIFIED_HULL_PLAN.md`** at repo root — read it next.
+**→ Leapfrog (innovate):** this IS the declarative-organism vision realized in geometry, and it's THE next major
+frontier (the roadmap's #1 now). The same `growSkinnedExtension` kernel then retires every remaining bolted/
+segmented part: the **neck** (the sphere chain → a forward continuation of the loft skinned to a neck bone chain),
+the **tail** (weld the hull's last ring to the `sweptTail` tube), the **head** — converging on the L1/L14 end
+state: ONE skinned hull nose-to-tail, every appendage grown from shared seam verts, all driven by the existing rig
+(zero new animation). And because it's blueprint-driven, the AI-promptable roster + non-dragon creatures (manta/
+serpent where the wing IS the body edge) come along for free. Build it the studio way: prove the body+wing hull on
+Obsidian, sign off on the preview, then mechanize the kernel across neck/tail/head and migrate. Retire the L20/L21/
+L22 scaffolding from Obsidian only *after* the hull is preview-approved (keep it registered for rollback).
