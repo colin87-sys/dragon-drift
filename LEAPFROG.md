@@ -1701,3 +1701,32 @@ weld+seam gates per creature — the seam-index math under longitudinal resample
 **blueprint→geometry round-trip generator** (emit a creature from grammar values alone, e.g. a `manta` = flatter
 wider section + no horns, proving non-dragon creatures); (3) widen the grammar from the ~40 curated knobs to the
 full ~130 the generator exposes, with per-knob defaults, so `CREATURES.md` and an authoring UI both render from it.
+
+### L51 — Find out what the artifact IS before you tune the layer it's probably in: the "body glare" was a HUD aim pip drawn on top of the body, not a material
+**Did / learned:** chased a reported "white glare on the front half of the body" across THREE sessions and two PRs through
+the rim (L45/L46), then the sky-tint + matte hull (L50, #125) — each helped a *little* (the rim work genuinely cleaned up
+the wings) but never killed it, because the glare **was not a material effect at all.** It is the **aim core**: a near-white
+`MeshBasicMaterial` octahedron + a big **additive** glow-sprite halo, parented to the head and pushed forward, drawn with
+`depthTest:false` + `renderOrder 999` so it renders ON TOP of the body — from the chase cam it smears a bright icy blob over
+the dragon's front, identically on every dragon (`dragonModel.js:234`). Material knobs (env, roughness, rim mul) could never
+touch it. The user, who could SEE it, named it in one sentence ("it's the aim core, to know the centre for the rings"). Fix:
+drop the additive halo, shrink the core (`0.12→0.07`) and dim it (near-white `0xe2f6ff` → muted `0x8fc4dd` @ `opacity 0.55`),
+keeping `depthTest:false` so it still reads as an aiming pip. Also shipped a paired audio fix: `main.js pauseForBackground()`
+returns early unless `game.state==='playing'`, so backgrounding from the **menu** never suspended the audio — the
+`setInterval` note scheduler then throttles under mobile Safari while the silent-media loop keeps the session alive →
+garbled/slow music. Decoupled the audio suspend from game state (idempotent `pauseForBackground` + new `resumeFromBackground`,
+wired to `visibilitychange`/`pagehide`/`blur`/`pageshow`/`focus`).
+**→ Systematize:** bank the rule — **before tuning a shader/material to remove an on-screen artifact, IDENTIFY the object: is
+it lit geometry, or an unlit always-on-top HUD/marker mesh (`depthTest:false`, additive, high `renderOrder`)?** A
+`MeshBasicMaterial`/`Sprite` with `depthTest:false` ignores ALL lighting/rim/env/roughness — if a "glare" doesn't respond to
+material changes, it's almost certainly one of these overlay meshes (or post/bloom), not the PBR surface. Cheapest disambiguator
+is one question to the human who can see it, or a diagnostic toggle — both beat a third speculative material pass. Companion
+audio rule: **a global concern (suspend audio on background) gated behind a feature-specific state (`game.state==='playing'`)
+silently leaks in every other state** — gate cross-cutting handlers on the cross-cutting condition (`document.hidden`), not on
+one mode.
+**→ Leapfrog (innovate):** the aim pip is now a candidate for the same per-dragon/assist treatment as the reticle — it could
+honour `saveData.settings.reticle` (fully off for assist-off runs) and/or tint to the dragon's accent so it never reads as a
+foreign white dot. Bank a broader sweep: **audit every `depthTest:false` / bloom-layer / additive overlay mesh** (aim core,
+rider glow `dragon.js:276`, halos) against the bright-sky chase cam — these always-on-top elements are the real source of
+"washed out" reads, far more than the lit hull. And fold "what layer is this actually in?" into the triage checklist so the
+next visual report starts by classifying the artifact, not guessing at shaders.
