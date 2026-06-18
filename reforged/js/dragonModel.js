@@ -101,6 +101,13 @@ export function buildDragonModel(def, opts = {}) {
     color: def.body, roughness: 0.38, metalness: 0.12,
     emissive: def.body, emissiveIntensity: 0.12,
   });
+  // Per-dragon body FINISH override (additive + nullable — a creature whose hide
+  // should read as MATTE ORGANIC skin rather than the default semi-gloss opts in;
+  // default = unchanged, so the roster is byte-identical). Flows to the hull
+  // (attach.bodyMatDouble clone) AND the neck. Obsidian2 uses it to kill the
+  // "smooth metal" read so the v2 scale relief reads as living hide.
+  if (def.bodyRoughness != null) bodyMat.roughness = def.bodyRoughness;
+  if (def.bodyMetalness != null) bodyMat.metalness = def.bodyMetalness;
   // Surface detail: an on-brand fresnel rim defines the body's contour from the
   // rear camera so it stops reading as a flat dark mass. Set before the torso
   // clones bodyMat, so the DoubleSide torso + every body sphere/cone inherit it.

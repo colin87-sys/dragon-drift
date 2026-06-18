@@ -353,6 +353,10 @@ export const DRAGONS = {
   obsidian2: {
     name: 'Obsidian Shade II',
     title: 'one skin, nose to tail',
+    // Body FINISH (obsidian2-only): matte organic hide — kill the smooth-metal read
+    // (metalness 0 + rougher) so the v2 normal micro-relief (scaleRelief) reads as
+    // living scaled skin, not a polished shell. additive/nullable → roster-safe.
+    bodyMetalness: 0.0, bodyRoughness: 0.62, scaleRelief: 0.5,
     rarity: 'SSR',
     maxRarity: 'SSSR',
     cost: 2200,
