@@ -1556,3 +1556,19 @@ WORK OUT which world axis its local axis maps to under the rotation — a cone a
 at (cosθ, sinθ) in (y,z); the sign of θ decides forward vs back, and the model's nose-at−z frame flips the
 intuition.** Loft reshape — weld/rest-parity/all 10 gates auto-survive (membrane copies whatever verts the
 loft emits), tri 4442, 0-over, tiershots compiles.
+
+### L44 — Feel/proportion tuning round: stocky neck, stubby back-horns (splay-sign bug), fever-firm head, bolder vertical whip
+**Did / learned:** a batch of human-judged dials. **Geometry:** shifted the head block +0.40 toward the body +
+compressed the neck → stocky/short-necked; horns shrunk to short stubby nubs (`hornLen` 0.82→0.44, wider base
+→ rounded) and **the splay sign bug fixed** — once the apex pointed UP (`rot.x` +0.85) instead of forward,
+`rot.z = side*+0.30` rotated a +y vector toward −x → the two horns crossed over the centreline; flipping to
+`side*−0.28` splays them OUT (no crossing). Bat-tail fins: deeper `scallop` 0.26→0.38, 25% smaller
+(`tailFinScale` 0.92→0.69), less outward yaw (−0.72→−0.52). **Animation (all `model`-free constants in
+dragon.js):** fever was re-floppifying the head/neck because `calm = 1−0.5·aero01` only halved the bob — added
+a stronger `calmHN = 1−0.85·aero01` for the neck/head so they go near-still under surge/boost/dive; eased the
+hard-bank exaggeration (neck/head turn-lead 0.26/0.40→0.18/0.28, hip drift 0.5→0.35, body-roll `bankFactor`
+−25%); and made the vertical direction-change whip BOLDER (`vWhip`/`tWhip` ≈2.5×, `vertJerk` clamp ±12→±16,
++ a little whip shared into the neck). **Rule reinforced (L43): when you re-orient a primitive, the splay/twist
+that worked for the OLD apex direction can invert for the new one — re-derive the sign.** And: layered "calm"
+factors want PER-PART strength (the head needs more damping than the body under streamline). 10 gates green,
+tri 4442, 0-over, tiershots compiles; feel is human-judged on the preview.

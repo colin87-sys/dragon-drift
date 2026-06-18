@@ -82,21 +82,20 @@ const NIGHTFURY_PROFILE = {
   // channel, default 0): the head rides UP on a curved neck and the tail droops, so
   // the side silhouette reads as a posed dragon, not a flat horizontal plank.
   stations: [
-    // ── HEAD: BLUNT snout → big-cheeked wide cranium (larger, rounder), lifted ──
-    [-5.05, 0.046, 0.044, 0.046,  0.30], // nose cap (blunt, not a point)
-    [-4.86, 0.150, 0.128, 0.150,  0.33], // snout / muzzle (rounded blunt)
-    [-4.60, 0.245, 0.212, 0.222,  0.35], // upper jaw (fuller)
-    [-4.32, 0.345, 0.320, 0.288,  0.37], // cranium — widest, BIG cheeks
-    [-4.02, 0.340, 0.326, 0.286,  0.35], // cranium back / cheeks
-    [-3.70, 0.245, 0.226, 0.205,  0.27], // skull base (thicker)
-    // ── NECK: SHORT + THICK + muscular (no thin pinch) flowing into a big ribcage ──
-    [-3.40, 0.255, 0.235, 0.210,  0.17], // head→neck — THICK
-    [-3.00, 0.345, 0.315, 0.282,  0.08], // neck — short + thick (was a 0.115 pinch)
-    [-2.52, 0.470, 0.410, 0.366,  0.02], // neck → shoulder (ramps up fast)
+    // ── HEAD: shifted +0.40 toward the body → STOCKY, short-necked ──
+    [-4.65, 0.046, 0.044, 0.046,  0.30], // nose cap (blunt, not a point)
+    [-4.46, 0.150, 0.128, 0.150,  0.33], // snout / muzzle (rounded blunt)
+    [-4.20, 0.245, 0.212, 0.222,  0.35], // upper jaw (fuller)
+    [-3.92, 0.345, 0.320, 0.288,  0.37], // cranium — widest, BIG cheeks
+    [-3.62, 0.340, 0.326, 0.286,  0.35], // cranium back / cheeks
+    [-3.32, 0.250, 0.230, 0.208,  0.27], // skull base (thicker)
+    // ── NECK: SHORT + THICK (compressed → stocky) flowing into a big ribcage ──
+    [-3.00, 0.295, 0.272, 0.244,  0.15], // head→neck — THICK
+    [-2.58, 0.420, 0.372, 0.332,  0.05], // neck → shoulder (short, ramps fast)
     // ── BODY: THICK muscular ribcage/thorax → waist → haunch ──
-    [-2.02, 0.585, 0.510, 0.452,  0.00], // fore-shoulder — THICK
-    [-1.52, 0.645, 0.560, 0.496,  0.00], // shoulder rise — muscular ribcage
-    [-1.02, 0.665, 0.578, 0.510,  0.00], // CHEST PEAK — short + thick
+    [-2.10, 0.575, 0.502, 0.445,  0.00], // fore-shoulder — THICK (pulled forward)
+    [-1.55, 0.645, 0.560, 0.496,  0.00], // shoulder rise — muscular ribcage
+    [-1.05, 0.665, 0.578, 0.510,  0.00], // CHEST PEAK — short + thick
     [-0.50, 0.620, 0.540, 0.482,  0.00], // chest (wing-root centre)
      [0.05, 0.530, 0.462, 0.420,  0.00], // thorax (thick)
      [0.45, 0.410, 0.360, 0.332, -0.01], // waist — muscular (eased from the big chest)
@@ -759,7 +758,7 @@ function buildNightFury(def, model, attach) {
       const eye = new THREE.Mesh(eyeGeo, eyeMat);
       // on the SIDE of the head (not on top): pushed OUT toward the cheek surface and
       // DROPPED to mid-head height, set into the hide so only the side cap shows.
-      eye.position.set(side * 0.275, HEAD_Y - 0.05, -4.30);
+      eye.position.set(side * 0.275, HEAD_Y - 0.05, -3.90);
       eye.scale.set(0.74, 1.12, 0.70);            // shallow (sunk) + tall → almond socket
       eye.rotation.y = side * 0.55;               // face SIDEWAYS-forward
       eye.rotation.z = side * -0.12;
@@ -770,17 +769,17 @@ function buildNightFury(def, model, attach) {
   // baked to the origin (translate +len/2) so the WIDE end connects to the head and
   // the NARROW apex projects up + back (the correct taper — not wide-at-tip).
   {
-    const hornLen = model.earHornLen ?? 0.82;
-    const earGeo = new THREE.ConeGeometry(0.13, hornLen, seg(7), 1, false);
+    const hornLen = model.earHornLen ?? 0.44;     // SHORT stubby nub (was a long 0.82 spike)
+    const earGeo = new THREE.ConeGeometry(0.16, hornLen, seg(7), 1, false);  // wide base → rounded
     earGeo.translate(0, hornLen / 2, 0);          // base at origin → wide end at the head
     for (const side of [1, -1]) {
       const ear = new THREE.Mesh(earGeo, hullMat);
-      ear.scale.set(1.0, 1.0, 0.7);               // only mildly flattened → horn, not blade
-      ear.position.set(side * 0.15, HEAD_Y + 0.20, -3.92);
-      // point VERTICALLY but swept BACK: apex up (+y) and toward the tail (+z). The old
-      // −1.30 sent the apex toward −z (forward) — the "pointing forward" bug.
-      ear.rotation.x = 0.52;                       // up + back (apex +y/+z)
-      ear.rotation.z = side * 0.30;               // splay outward
+      ear.scale.set(1.0, 1.05, 0.78);             // stubby, mildly flattened → a rounded horn nub
+      ear.position.set(side * 0.17, HEAD_Y + 0.16, -3.55);   // wider apart (no crossing) + head shift
+      // swept BACK (mostly toward the tail, +z, with a little up). The old −1.30 pointed it
+      // FORWARD; +0.30 splay sent the apex INWARD → the crossing — sign FLIPPED to splay OUT.
+      ear.rotation.x = 0.85;                       // back + slightly up
+      ear.rotation.z = side * -0.28;              // splay OUTWARD (no crossing)
       features.push(ear);
     }
   }
@@ -856,8 +855,8 @@ function buildNightFury(def, model, attach) {
   const finSpec = {
     // FULLER outline (bigger spans + deeper chords) + DEEPER scallops (the web cusps far up
     // between the 3 finger tips) so the fan reads lobed like the reference, not triangular.
-    tips: [[1.06, 0.18], [0.82, -0.46], [0.50, -0.78], [0.18, -0.78]],
-    lead: [0.68, 0.26], scallop: 0.26, rootChord: 0.24, flame: false,
+    tips: [[1.06, 0.18], [0.82, -0.48], [0.50, -0.82], [0.18, -0.82]],
+    lead: [0.68, 0.26], scallop: 0.38, rootChord: 0.24, flame: false,   // DEEPER scallops
     arc: { bow: 0.05, hump: 0.0, humpAt: 0.6, hook: 0.0 },
   };
   function buildTailFin(side) {
@@ -873,7 +872,7 @@ function buildNightFury(def, model, attach) {
     } else {
       pivot.position.copy(finBaseW);
     }
-    const fws = ws * (model.tailFinScale ?? 0.92);
+    const fws = ws * (model.tailFinScale ?? 0.69);     // ~25% smaller fins
     const sZ = (model.wingChord ?? 1) * 0.58;
     const span = finSpec.tips[0][0] * 1.34 * fws;
     const g = buildCurvedPatch(finSpec, {
@@ -909,12 +908,11 @@ function buildNightFury(def, model, attach) {
       const tube = skinnedTube(centre, radii, seg(3), () => ({ si: [0, 0, 0, 0], sw: [1, 0, 0, 0] }), fingerMat);
       pivot.add(new THREE.Mesh(tube.geometry, fingerMat));
     }
-    // rest pose: FLAT and in line with the tail (no up-V) — yaw only, so the fan lies
-    // horizontal and splays ~40° back-outward; the pair splays to both sides → a wide
-    // flat bat-tail at the tip.
-    pivot.rotation.set(0, side * -0.72, 0);
+    // rest pose: FLAT and in line with the tail (no up-V) — yaw only. LESS outward fan
+    // (≈30°, was ~40°) so the pair sits tighter behind the tail tip.
+    pivot.rotation.set(0, side * -0.52, 0);
     pivot.userData.restRotZ = 0;
-    pivot.userData.restRotY = side * -0.72;
+    pivot.userData.restRotY = side * -0.52;
     pivot.userData.restRotX = 0;
     pivot.userData.restScale = 1;
     // stay flat in cruise; the tail-whip does the rudder. A small bankGain lets the fins

@@ -400,7 +400,7 @@ export function updateDragon(dt, player, time) {
   // (up→down / down→up) and decays when steady — drives a subtle chest-leads / tail-follows
   // ripple so the body flexes through the turn instead of feeling stiff.
   vySmooth = damp(vySmooth, vy, 5, dt);
-  const vertJerk = Math.max(-12, Math.min(12, vy - vySmooth));
+  const vertJerk = Math.max(-16, Math.min(16, vy - vySmooth));
   surge01 = damp(surge01, player.feverActive ? 1 : 0, 3.5, dt);
   boost01 = damp(boost01, player.speedActive ? 1 : 0, 5, dt);
   if (prevSpeedActive && !player.speedActive) decel01 = 1;      // RELEASE → air-brake spike
@@ -412,7 +412,7 @@ export function updateDragon(dt, player, time) {
   const posturePitch = climbAmount * 0.42 - diveAmount * 0.5 - boost01 * 0.12 - surge01 * 0.14 + decel01 * 0.05;
 
   // Surge/boost bank DEEPER + SNAPPIER (carves like a fighter jet).
-  const bankFactor = 0.035 + speedNorm * 0.015 + aero01 * 0.022;
+  const bankFactor = 0.026 + speedNorm * 0.011 + aero01 * 0.016;   // eased (body roll was too strong)
   bankZ = damp(bankZ, -player.velocity.x * bankFactor, 9 + 5 * aero01, dt);
   let rollSpin = 0;
   let rollFold = 0;
@@ -521,9 +521,11 @@ export function updateDragon(dt, player, time) {
   if (spineSegs.length) {
     const sp = 0.7 + 0.3 * speedNorm;
     const calm = 1 - 0.5 * aero01;                       // streamline (boost/surge/dive) damps the bob
+    // head/neck are FIRMER under streamline too — fever was re-introducing the floppy bob.
+    const calmHN = 1 - 0.85 * aero01;                    // near-still head/neck in surge/boost/dive
     const noseDown = diveAmount * 0.5 + boost01 * 0.10 + surge01 * 0.16;   // spear/dive pitch
     const noseUp = climbAmount * 0.34;                                     // soar pitch
-    const vWhip = -vertJerk * 0.008;          // vertical pitch-whip (chest leads → rear trails)
+    const vWhip = -vertJerk * 0.019;          // vertical pitch-whip (chest leads → rear trails) — bolder
     for (const b of spineSegs) {
       const role = b.userData.role;
       if (role === 'hip') {
@@ -531,20 +533,20 @@ export function updateDragon(dt, player, time) {
         // chest when the body changes vertical direction). CLIMB drops the hips (counterweight).
         const wave = 0.15 * sp * calm * flapSurge(phase - 0.6);
         b.rotation.x = damp(b.rotation.x, wave + climbAmount * 0.16 + vWhip, 9 + 4 * aero01, dt);
-        b.rotation.y = damp(b.rotation.y, turnBias * 0.5 * bankHard, 6, dt);   // hips drift into a HARD turn
+        b.rotation.y = damp(b.rotation.y, turnBias * 0.35 * bankHard, 6, dt);   // hips drift into a HARD turn (eased)
       } else if (role === 'neck') {
-        // FIRM neck: only a faint bob/breathe (was floppy). Leads the turn only on a hard bank;
-        // stretches forward (down) in boost/surge/dive, arcs up in climb.
-        const bob = 0.022 * sp * calm * flapSurge(phase - 0.3);
-        const breathe = Math.sin(time * 1.1) * 0.006 * calm;
-        b.rotation.x = damp(b.rotation.x, bob + breathe - noseDown * 0.48 + noseUp * 0.42, 9, dt);
-        b.rotation.y = damp(b.rotation.y, -turnBias * 0.26 * bankHard * (1 + 0.4 * aero01), 7, dt);
+        // FIRM neck: faint bob/breathe, near-STILL under streamline/fever (calmHN). Leads the
+        // turn only on a hard bank (eased); shares a little of the vertical body-whip.
+        const bob = 0.022 * sp * calmHN * flapSurge(phase - 0.3);
+        const breathe = Math.sin(time * 1.1) * 0.006 * calmHN;
+        b.rotation.x = damp(b.rotation.x, bob + breathe - noseDown * 0.48 + noseUp * 0.42 + vWhip * 0.45, 9, dt);
+        b.rotation.y = damp(b.rotation.y, -turnBias * 0.18 * bankHard * (1 + 0.4 * aero01), 7, dt);
       } else if (role === 'head') {
-        // FIRM, composed gaze: a tiny counter to the neck (no bounce). Leads a hard turn; drops
-        // into the dive spear / lifts to soar (deliberate poses kept). Stays OUT of the whip.
-        const counter = -0.018 * sp * calm * flapSurge(phase - 0.3);
+        // FIRM, composed gaze: a tiny counter to the neck, near-STILL under fever (calmHN).
+        // Leads a hard turn (eased); dives/soars (deliberate poses). Stays OUT of the whip.
+        const counter = -0.018 * sp * calmHN * flapSurge(phase - 0.3);
         b.rotation.x = damp(b.rotation.x, counter - noseDown * 0.85 + noseUp, 9, dt);
-        b.rotation.y = damp(b.rotation.y, -turnBias * 0.4 * bankHard * (1 + 0.5 * aero01), 9, dt);
+        b.rotation.y = damp(b.rotation.y, -turnBias * 0.28 * bankHard * (1 + 0.5 * aero01), 9, dt);
       } else {
         const w = b.userData.whip || { gain: 0, phase: 0 };
         b.rotation.x = damp(b.rotation.x, w.gain * sp * flapSurge(phase + w.phase), 9, dt);
@@ -562,7 +564,7 @@ export function updateDragon(dt, player, time) {
     // gentle steering barely sweeps the tail; a HARD bank drives the rudder + counter-sweep.
     const cruise = 1 - bankHard * 0.7;
     const sp = 0.6 + 0.4 * speedNorm;
-    const tWhip = -vertJerk * 0.011;          // vertical pitch-whip (tail trails the body)
+    const tWhip = -vertJerk * 0.030;          // vertical pitch-whip (tail trails the body) — bolder
     // tailStiffness: boost/surge/dive TIGHTEN the tail into a high-speed rudder (less loose
     // wave, snappier follow-through); boost-release decel LOOSENS it (soft S-curve, lagging
     // tip catching air); a DIVE also straightens it behind the body. The per-segment lag
