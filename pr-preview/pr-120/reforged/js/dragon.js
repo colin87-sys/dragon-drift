@@ -31,6 +31,8 @@ let surge01 = 0;          // Dragon-Surge (fever) blend
 let boost01 = 0;          // held speed-boost blend (distinct from surge)
 let decel01 = 0;          // boost-RELEASE air-brake spike, eases out
 let prevSpeedActive = false;
+let flapPhase = 0;        // INTEGRATED wingbeat clock (advance by dt·flapSpeed, NOT time·freq)
+let scarfPhase = 0;       // integrated rider-scarf sway clock (same reason)
 let tailFins = [];        // apex deployable tail-fin groups (empty for every other dragon)
 let tailDeploy = 0.82;    // deploy factor: cruise 0.82 · boost 1.0 · Surge 1.08
 let bodySegs = null;      // segmented-wyrm body plates (lead-first travelling wave)
@@ -421,7 +423,8 @@ export function updateDragon(dt, player, time) {
   // The sway is SLOW + damped (was a raw ~1.9 Hz sine that whipped the Void
   // Oracle's big robe into a glitchy oscillation) so it reads as a flowing drift.
   scarfMesh.rotation.x = damp(scarfMesh.rotation.x, -0.08 - speedNorm * 0.5, 10, dt);
-  const swayTarget = Math.sin(time * (1.6 + speedNorm * 1.9)) * (0.08 + speedNorm * 0.12);
+  scarfPhase = (scarfPhase + dt * (1.6 + speedNorm * 1.9)) % (Math.PI * 2);   // integrated (varying freq)
+  const swayTarget = Math.sin(scarfPhase) * (0.08 + speedNorm * 0.12);
   scarfMesh.rotation.z = damp(scarfMesh.rotation.z, swayTarget, 6, dt);
 
   // Rider effects: glow breathes with speed; oracle's shards orbit the head.
@@ -446,7 +449,12 @@ export function updateDragon(dt, player, time) {
     * (1 - 0.7 * diveAmount) * (1 + 0.3 * climbAmount) * (1 + 0.25 * decel01);
   const turnBias = Math.max(-0.28, Math.min(0.28, player.velocity.x * 0.018));
   const climbBias = Math.max(-0.18, Math.min(0.18, player.velocity.y * 0.015));
-  const phase = time * flapSpeed;
+  // INTEGRATE the beat clock — `flapSpeed` varies every frame (dive/decel/boost blends), so
+  // `time * flapSpeed` would jump the phase by `time·Δfreq` (tens of radians) and the wings
+  // would spasm. Accumulating dt·flapSpeed keeps the phase continuous: changing the frequency
+  // only changes the RATE. Wrapped mod 2π for float precision over long sessions.
+  flapPhase = (flapPhase + dt * flapSpeed) % (Math.PI * 2);
+  const phase = flapPhase;
   const rootFlap = Math.sin(phase) * flapAmp + 0.1;
   const feather = Math.sin(phase + Math.PI * 0.55);
   const tipLag = Math.sin(phase + 0.95);
