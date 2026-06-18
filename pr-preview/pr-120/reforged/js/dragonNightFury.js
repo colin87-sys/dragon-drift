@@ -66,27 +66,53 @@ function nfSection(w, top, bot) {
 // untouched — this profile owns its own section + stations.
 const NIGHTFURY_PROFILE = {
   zHold: 0,
-  longSamples: 30,                                  // smooth lengthwise (no facets)
+  longSamples: 54,                                  // smooth lengthwise (no facets), nose-to-tail
   tailShiftRefZ: 1.70,
   tailAnchorY: 0.27,
   tailAnchorZ: 1.18,
   ring: nfSection,
+  // ONE continuous loft NOSE-TO-TAIL (the L1/L32 ideal): the head (blunt snout →
+  // cranium), neck, body, and tail are all stations of the SAME surface — zero seams
+  // by construction (no welded tubes). Near-zero end stations close the nose + tail
+  // tip. The wing welds onto the shoulder stations (z≈-0.45); eyes/ear-flaps/tail-fins
+  // are the only add-ons. Stations authored to the Toothless reference (verify on the
+  // chase-cam preview): big-cheeked rounded head, slim neck pinch, chest swell, waist,
+  // long slim tail.
+  // station = [z, halfWidth, keelTop, belly, cy] — cy is the CENTRELINE lift (5th
+  // channel, default 0): the head rides UP on a curved neck and the tail droops, so
+  // the side silhouette reads as a posed dragon, not a flat horizontal plank.
   stations: [
-    [-3.05, 0.11, 0.09, 0.10], // neck cap (meets the neck chain)
-    [-2.55, 0.20, 0.16, 0.17], // neck base — slim
-    [-1.95, 0.32, 0.26, 0.25], // lower neck → shoulder lead-in
-    [-1.45, 0.42, 0.36, 0.32], // fore-shoulder (wing-root chord front)
-    [-1.05, 0.48, 0.42, 0.37], // shoulder rise
-    [-0.65, 0.51, 0.44, 0.39], // shoulder/chest peak — sleek
-    [-0.30, 0.49, 0.42, 0.38], // chest (wing-root centre)
-     [0.05, 0.42, 0.36, 0.34], // thorax
-     [0.45, 0.33, 0.29, 0.28], // WAIST pinch — a clear narrowing
-     [0.85, 0.27, 0.24, 0.23], // mid-body
-     [1.20, 0.21, 0.19, 0.16], // haunches
-     [1.50, 0.16, 0.16, 0.12], // hip taper
-     [1.70, 0.13, 0.13, 0.08], // slim tail root
+    // ── HEAD: blunt snout → wide cranium (big cheeks, no horns), lifted ──
+    [-5.02, 0.030, 0.030, 0.030,  0.30], // nose cap (near-point, blunt)
+    [-4.86, 0.120, 0.100, 0.120,  0.33], // snout / muzzle (rounded blunt)
+    [-4.62, 0.195, 0.165, 0.180,  0.35], // upper jaw
+    [-4.34, 0.300, 0.278, 0.250,  0.37], // cranium — widest head
+    [-4.06, 0.300, 0.286, 0.250,  0.35], // cranium back / cheeks
+    [-3.74, 0.200, 0.185, 0.175,  0.28], // skull base
+    [-3.42, 0.150, 0.135, 0.130,  0.18], // head→neck
+    // ── NECK: a slim pinch curving down to the shoulder ──
+    [-3.05, 0.115, 0.095, 0.105,  0.09], // neck (slimmest)
+    [-2.55, 0.200, 0.160, 0.170,  0.03], // neck base
+    [-1.95, 0.320, 0.260, 0.250,  0.00], // lower neck → shoulder lead-in
+    // ── BODY: shoulder/chest swell → waist → haunch (level) ──
+    [-1.45, 0.420, 0.360, 0.320,  0.00], // fore-shoulder (wing-root chord front)
+    [-1.05, 0.480, 0.420, 0.370,  0.00], // shoulder rise
+    [-0.65, 0.510, 0.440, 0.390,  0.00], // shoulder/chest peak — sleek
+    [-0.30, 0.490, 0.420, 0.380,  0.00], // chest (wing-root centre)
+     [0.05, 0.420, 0.360, 0.340,  0.00], // thorax
+     [0.45, 0.330, 0.290, 0.280, -0.01], // WAIST pinch
+     [0.85, 0.270, 0.240, 0.230, -0.03], // mid-body
+     [1.20, 0.210, 0.190, 0.160, -0.05], // haunches
+     [1.50, 0.160, 0.160, 0.120, -0.08], // hip taper
+    // ── TAIL: long slim taper → fin zone → point, gently drooping ──
+     [1.85, 0.135, 0.130, 0.105, -0.11],
+     [2.40, 0.100, 0.100, 0.085, -0.15],
+     [2.95, 0.075, 0.075, 0.062, -0.18],
+     [3.50, 0.056, 0.056, 0.048, -0.20], // tail-fin attach zone
+     [4.10, 0.034, 0.034, 0.029, -0.21],
+     [4.75, 0.010, 0.010, 0.010, -0.20], // tail tip (near-point)
   ],
-  keel: [[-2.55, 0.16], [-0.65, 0.44], [-0.30, 0.42], [0.05, 0.36], [0.45, 0.29], [0.85, 0.24], [1.20, 0.19], [1.70, 0.13]],
+  keel: [[-4.34, 0.278], [-3.74, 0.185], [-3.05, 0.095], [-0.65, 0.44], [-0.30, 0.42], [0.05, 0.36], [0.45, 0.29], [0.85, 0.24], [1.20, 0.19], [1.70, 0.13], [3.50, 0.056]],
   wingRoot: { x: 0.45, y: 0.48, z: -0.45 }, // high on the back over the shoulder
   fairing: { r: 0.3, scale: [0.86, 0.78, 1.2], pos: [0.46, 0.54, -0.4] },
   neck: {
@@ -222,6 +248,11 @@ function buildNightFury(def, model, attach) {
   const fingerMat = new THREE.MeshStandardMaterial({
     color: fingerCol, emissive: fingerCol, emissiveIntensity: 0.04,
     roughness: 0.85, metalness: 0.0, side: THREE.DoubleSide,
+  });
+  // Night-Fury acid-GREEN eyes (the one bright accent on the matte-black hide).
+  const eyeCol = def.eye ?? 0x96d62a;
+  const eyeMat = new THREE.MeshStandardMaterial({
+    color: eyeCol, emissive: eyeCol, emissiveIntensity: 0.7, roughness: 0.3, metalness: 0.0,
   });
 
   // ── build the body loft + record the wing-seam verts (the shared-vert source) ─
@@ -494,6 +525,60 @@ function buildNightFury(def, model, attach) {
     fingerMesh.frustumCulled = false;
     fingerMesh.name = 'nightFuryFingers';
   }
+
+  // ── HEAD + TAIL features (static add-ons on the continuous hull) ───────────
+  // The head/neck/tail VOLUME is the loft itself (one surface). These are the
+  // distinguishing Night-Fury features the loft can't express: acid-green eyes, the
+  // back-swept ear-flaps, and the twin bat-membrane tail fins. All authored to the
+  // Toothless reference; positions tuned on the chase-cam preview.
+  const features = [];
+  // The head rides UP the curved neck (cy≈+0.36 at the cranium) and the tail droops
+  // (cy≈-0.20 at the fin zone); the feature y-positions track those centreline lifts.
+  const HEAD_Y = TY + 0.36, TAILFIN_Y = TY - 0.18;
+  // EYES — large almond acid-green eyes on the upper-front of the cranium.
+  {
+    const eyeGeo = new THREE.SphereGeometry(0.11, seg(10), seg(8));
+    for (const side of [1, -1]) {
+      const eye = new THREE.Mesh(eyeGeo, eyeMat);
+      eye.position.set(side * 0.205, HEAD_Y + 0.10, -4.40);
+      eye.scale.set(0.92, 1.18, 0.78);            // shallow + tall → almond
+      eye.rotation.y = side * 0.55;               // face forward-outward
+      eye.rotation.z = side * -0.25;
+      features.push(eye);
+    }
+  }
+  // EAR-FLAPS — two back-swept dark blades on the top-rear of the head (no horns).
+  {
+    const earGeo = new THREE.ConeGeometry(0.07, 0.52, seg(6), 1, false);
+    for (const side of [1, -1]) {
+      const ear = new THREE.Mesh(earGeo, hullMat);
+      ear.scale.set(1.0, 1.0, 0.42);              // flatten front-back → blade
+      ear.position.set(side * 0.13, HEAD_Y + 0.22, -3.86);
+      ear.rotation.x = -2.5;                      // sweep BACK (apex toward +z), slight up
+      ear.rotation.z = side * 0.28;               // splay outward
+      features.push(ear);
+    }
+  }
+  // TWIN TAIL FINS — small bat-membrane fins near the tail tip (the iconic pair),
+  // a flattened leaf outline in the translucent wing material, fanning out + back.
+  {
+    const fin = new THREE.Shape();
+    fin.moveTo(0, 0);
+    fin.quadraticCurveTo(0.18, 0.16, 0.54, 0.12);
+    fin.quadraticCurveTo(0.42, 0.00, 0.32, -0.16);
+    fin.quadraticCurveTo(0.18, -0.22, 0.06, -0.12);
+    fin.quadraticCurveTo(0.02, -0.06, 0, 0);
+    const finGeo = new THREE.ShapeGeometry(fin, seg(8));
+    for (const side of [1, -1]) {
+      const f = new THREE.Mesh(finGeo, wingMat);
+      f.position.set(side * 0.02, TAILFIN_Y, 3.55);
+      f.rotation.y = side * -0.6;                 // fan outward, opening backward
+      f.rotation.z = side * 0.5;                  // raise the outer edge (V)
+      f.rotation.x = -0.2;
+      features.push(f);
+    }
+  }
+  for (const f of features) { f.frustumCulled = false; group.add(f); }
 
   // ── tip markers (trail spawn) — children of the wrist bones ───────────────
   const mkMarker = (arm) => {
