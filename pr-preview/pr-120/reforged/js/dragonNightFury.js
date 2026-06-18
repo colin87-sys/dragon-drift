@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { mergeGeometries } from '../lib/utils/BufferGeometryUtils.js';
 import {
-  wingSpecFor, buildCurvedPatch, applyWingGradient, archLift,
+  wingSpecFor, buildCurvedPatch, buildWingShape, applyWingGradient, archLift,
 } from './dragonParts.js';
 import { registerWings, registerTorso, registerHead, registerTail } from './dragonRecipe.js';
 import { seg } from './modelDetail.js';
@@ -244,6 +244,30 @@ function buildNightFury(def, model, attach) {
   // front edge, not the middle of the membrane. Default 0 → the old mid-chord arm.
   const armLeadZ = -(model.wingArmLeadChord ?? 0) * (model.wingChord ?? 1);
 
+  // Membrane LEADING-EDGE sampler — the exact v=0 boundary of the wing patch, so the arm
+  // spar + leading finger can be laid ON it (no gap between the matte frame and the
+  // translucent membrane). Mirrors buildCurvedPatch's leading-edge interpolation.
+  const _lePts = buildWingShape(wingSpec).getPoints(48);
+  let _leMaxI = 0;
+  for (let i = 1; i < _lePts.length; i++) if (_lePts[i].x > _lePts[_leMaxI].x) _leMaxI = i;
+  const _lead = _lePts.slice(0, _leMaxI + 1);            // x increasing along the leading edge
+  const yAtLead = (x) => {
+    if (x <= _lead[0].x) return _lead[0].y;
+    for (let i = 1; i < _lead.length; i++) {
+      if (x <= _lead[i].x) {
+        const t = (x - _lead[i - 1].x) / Math.max(_lead[i].x - _lead[i - 1].x, 1e-6);
+        return _lead[i - 1].y + (_lead[i].y - _lead[i - 1].y) * t;
+      }
+    }
+    return _lead[_lead.length - 1].y;
+  };
+  // world point ON the membrane leading edge at span x (world units), for arm `wr`/`side`.
+  const leadEdgePt = (wr, side, x) => new THREE.Vector3(
+    x * side + wr.x,
+    archLift(x, worldMaxX, arc, ws) + wr.y,
+    -yAtLead(x / (1.34 * ws)) * (model.wingChord ?? 1) + wr.z,
+  );
+
   // ── materials ──────────────────────────────────────────────────────────
   const wingMat = new THREE.MeshStandardMaterial({
     color: 0xffffff, vertexColors: true, roughness: 0.55, side: THREE.DoubleSide,
@@ -447,21 +471,17 @@ function buildNightFury(def, model, attach) {
     // thicker than the fingers (the frame finger ≈0.085, struts ≈0.058). Reads as a real arm.
     const r0 = (model.wingArmRadius ?? 0.115) * (model.wingRootScale ?? 1);
     const rWrist = model.wingForearmRadius ?? 0.10;
-    const N = 7;
-    const pSh = new THREE.Vector3(wr.x, wr.y, wr.z);
-    const pEl = new THREE.Vector3(wr.x + elbowXGeo * side, wr.y + elbowLift, wr.z + armLeadZ * 0.5);
-    const pWr = new THREE.Vector3(wr.x + wristXGeo * side, wr.y + wristLift, wr.z + armLeadZ);
+    const N = seg(8);
     const centre = [], radii = [], skin = [];
     for (let s = 0; s < N; s++) {
       const t = s / (N - 1);
-      let p;
-      if (t <= 0.5) p = pSh.clone().lerp(pEl, t / 0.5);
-      else p = pEl.clone().lerp(pWr, (t - 0.5) / 0.5);
-      centre.push(p);
+      const ax = t * wristXGeo;                   // span root → wrist
+      // lay each station EXACTLY on the membrane leading edge → no gap (the spar curves
+      // WITH the membrane front edge instead of cutting a straight chord across it).
+      centre.push(leadEdgePt(wr, side, ax));
       const taper = r0 + (rWrist - r0) * sstep(t);
       const bump = s === 0 ? r0 * 0.28 : 0;
       radii.push(taper + bump);
-      const ax = t * wristXGeo;
       skin.push(spanSkin(side, ax));
     }
     skin[0] = { si: [BONE.BODY, SH(side), 0, 0], sw: [1, 0, 0, 0] };
@@ -485,7 +505,7 @@ function buildNightFury(def, model, attach) {
   // it rides the flap; merged into the HULL so it's body-matte like the frame.
   function buildThumbKnob(arm) {
     const { wr, side } = arm;
-    const wristP = new THREE.Vector3(wr.x + wristXGeo * side, wr.y + wristLift, wr.z + armLeadZ);
+    const wristP = leadEdgePt(wr, side, wristXGeo);       // on the leading edge (no gap)
     const tip = wristP.clone().add(new THREE.Vector3(0.05 * side, 0.17 * ws, -0.11));
     const st = seg(4), centre = [], radii = [], skin = [];
     const wb = WR(side);
@@ -590,8 +610,8 @@ function buildNightFury(def, model, attach) {
     // from the top view (the chase-cam markup), not flat ribs sunk in the membrane.
     const lift = (model.wingFingerBulge ?? 0.018) * ws;
     const r0 = model.wingFingerRadius ?? 0.050;
-    // The fingers converge at the WRIST, swept FORWARD to the leading edge (armLeadZ).
-    const wristP = new THREE.Vector3(wr.x + wristXGeo * side, wr.y + wristLift, wr.z + armLeadZ);
+    // The fingers converge at the WRIST — placed ON the membrane leading edge (no gap).
+    const wristP = leadEdgePt(wr, side, wristXGeo);
     const scaleX = 1.34 * ws, scaleZ = model.wingChord ?? 1;
     const tipToGroup = (sx, sy) => {
       const wx = sx * scaleX;
