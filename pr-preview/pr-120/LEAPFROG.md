@@ -1508,3 +1508,17 @@ whose frequency can change MUST integrate `dt·freq`; `Math.sin(time × variable
 headlessly with a ramp sim (old jumps, new doesn't) — the runtime analogue of the L36 motion probe / L39c gap
 probe: prove timing/spatial fixes with a NUMBER, not a thumbnail. Runtime-only; 10 gates green, tri 4442,
 tiershots compiles.
+
+### L42 — Drive cinematic posture layers off a DEADZONED signal, not a raw linear reading
+**Did / learned:** the human found the dive posture too trigger-happy — normal play's constant subtle
+down-dodges read as a permanent head-down dive. Cause: `diveAmount = clamp(-vy*0.05, 0, 1)` is LINEAR from
+zero, so a gentle −5 m/s descent already gave 0.25 dive. Fix: a deadzone + smoothstep on the descent speed,
+`diveAmount = smoothstep(9, 16, -vy)` (verticalSpeed≈18, so a committed dive ≈ −18 crosses it; the
+`velocity.y` damping keeps brief taps under the deadzone) — subtle ≤−6 → 0, real dive ≤−16 → 1; matching
+deadzone on climb. Proved with a headless curve sweep (old vs new per vy) — the same "verify with a number"
+discipline as the L41 phase sim / L36 motion probe. **Two rules banked: (1) a CINEMATIC posture (dive spear,
+soar, etc.) must engage off a thresholded/deadzoned input, never a raw linear one — gameplay micro-input
+shouldn't cross into a film pose. (2) Also confirmed + documented that the body tilt is COSMETIC: collision is
+a fixed `player.position` point + `CONFIG.playerRadius` (gate check `|p.y−gapY| < gapH−0.5`), with zero
+reference to `group.rotation.x`, so visual pitch never changes the hitbox/clearance.** Runtime-only; 10 gates
+green, tri 4442, tiershots compiles.
