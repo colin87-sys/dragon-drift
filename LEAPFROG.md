@@ -1609,7 +1609,7 @@ cheeks) instead of trading away the goal.** Verify spatial smoothness with a NUM
 through a throwaway probe that printed the resampled apex turn, not by eyeballing renders. 10 gates green,
 tri 4442, 0-over, tiershots compiles; the compact read + subtle tilt + whip are human-judged on the preview.
 
-### L47 — HANDOFF: the hull-design roadmap (Inc 1–3 + body-whip) is SHIPPED; next is per-tier/lit sign-off then ROSTER MIGRATION
+### L47 — HANDOFF: the hull roadmap (Phases 1–2) is SHIPPED; the named next frontier is PHASE 3 — the BLUEPRINT LAYER (L24 thesis)
 **State of the art (read this first if you're picking up `toothless`).** The original 3-increment hull plan
 plus its deferred motion item are all merged (PR #120 → master):
 - **Inc 1** smooth body + one-surface wings — `sweepProfileSmooth` longitudinal-spline loft (no metallic rings),
@@ -1622,23 +1622,40 @@ plus its deferred motion item are all merged (PR #120 → master):
 Everything from L38→L46 is **anatomy/proportion/feel refinement**, not new hull structure. So the GEOMETRY
 roadmap is complete; `toothless` is a full continuous-hull Night Fury (4442 tris, 10 gates green).
 
+**Position in the 3-phase arc (`UNIFIED_HULL_PLAN.md` + L24 — the "hull BEFORE blueprint" thesis):**
+Phase 1 **Hull** (one continuous procedural body+wing surface) ✅ · Phase 2 **Generalize the generator + the
+motion whip** (kernel nose-to-tail on a bendable spine + the vertical body-whip — that's `toothless`'s continuous
+loft + L37) ✅ · **Phase 3 = the BLUEPRINT LAYER ← the named next frontier.** The whole point of doing the hull
+FIRST: the hull is a parametric GENERATOR and the data it consumes (`profile`/`wingSpec`/section/centreline/
+`motionProfile`) IS the blueprint, so now the AI-authoring vocabulary is just the formalized, validated,
+documented set of knobs it already exposes (L24: *never design a creature schema ahead of the geometry that
+realizes it*).
+
 **What's genuinely next (in priority order):**
-1. **Close the Inc 1–3 sign-off (confirmation, not building).** (a) Lit finish read at gameplay distance — the
-   L45/L46 glare cut (`rimBodyMul`→0, `bodyEnvIntensity` 0.05) is human-judged on the merged preview; the last
-   fallback lever if any sky-sheen remains is `bodyEnvIntensity`/diffuse lighting. (b) **PER-TIER pass:** every
+1. **Close the Phase-1/2 sign-off first (confirmation, not building).** (a) Lit finish read at gameplay distance
+   — the L45/L46 glare cut (`rimBodyMul`→0, `bodyEnvIntensity` 0.05) is human-judged on the merged preview;
+   `bodyEnvIntensity`/diffuse lighting is the last lever if any sky-sheen remains. (b) **PER-TIER pass:** every
    proportion/feel round (compact head, firm neck, flight blends) was judged on **Eternal** only — verify
    Hatchling/Kindled/Radiant via `nfview.mjs toothless 0|1|2 clay` + `tiershots.mjs toothless`; form scaling
    lives in `dragonWingFlap.js formStrength/formSpeed` and the form-level station scale.
-2. **The frontier — ROSTER MIGRATION (THE RULE's payoff).** The smooth loft + one-surface weld + spine-whip are
-   now PROVEN on a hero. THE RULE says *coexist → prove on a hero → migrate; never break the shipped roster*. The
-   next SYSTEM step is to lift willing roster members off the faceted `sweepProfile` onto `sweepProfileSmooth`
-   (retire longitudinal banding) **behind the byte-identical guard** (the coexistence gate must stay green for any
-   dragon NOT opted in). Risk to watch: the zero-gap weld seam-index math under the longitudinal resample —
-   `nightfury.mjs`'s MOTION-WELD + SEAM-NORMAL gates are the template to clone per migrated creature. Turning the
-   one-off into a roster-wide hull system is the leapfrog^leapfrog here.
+2. **PHASE 3 — the BLUEPRINT LAYER (the L24/L32 payoff — AI-promptability).** Four concrete pieces, in order:
+   - **`creatureGrammar.js`** — a registry-DERIVED grammar: the closed vocabulary of the hull/wing/surface/motion
+     knobs the generator already reads (don't invent a schema — harvest the params that already vary per dragon).
+   - **`validateCreatureBlueprint()`** — loud, ACTIONABLE validation wired into `run-all` (a malformed creature
+     fails at author time with a clear message, not as a silent bad render).
+   - **`surfaceLayers`** — promote the imperative "Lego residue" decoration blocks (`dragonModel.js:164–334`) to a
+     DECLARATIVE registry (the shingle run×card pattern, L-ledger), **inferred from the legacy flags so the roster
+     stays byte-identical**; decorations then follow the hull surface instead of floating.
+   - **`CREATURES.md` + ROSTER MIGRATION** — document the closed grammar with the one rule (*author the blueprint,
+     never the builders*), then migrate the roster off the faceted `sweepProfile` onto `sweepProfileSmooth` so the
+     **organism path is the DEFAULT, not opt-in** — behind the byte-identical coexistence guard, cloning
+     `nightfury.mjs`'s MOTION-WELD + SEAM-NORMAL gates per migrated creature (the weld seam-index math under the
+     longitudinal resample is the risk to watch).
+   The migration is the TAIL of Phase 3, not the whole of it — the grammar + validation + `surfaceLayers` come
+   first (they're what makes a migrated/new creature describable).
 
 **Rule banked:** when a phased plan's increments collapse into a simpler mechanism than planned (here Inc 2/3's
 "grow from the boundary ring" became "just extend the stations"), UPDATE the roadmap to the mechanism that won —
-don't carry the superseded plan forward as if it's still pending. And: a roadmap is "done" when the GEOMETRY
-goal is met; "next" then shifts from BUILDING to (a) cross-tier/lit verification and (b) migrating the proven
-system to the roster — that hand-off is itself a lesson.
+don't carry the superseded plan forward as if it's still pending. AND: don't let "done with the geometry" shrink
+the handoff to just verification + migration — the *named* next phase is the **Blueprint Layer** (grammar →
+validation → `surfaceLayers` → CREATURES.md → migrate), which is the entire reason the hull was built first.
