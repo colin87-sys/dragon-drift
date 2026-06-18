@@ -244,18 +244,51 @@ function buildOrganism(def, model, attach, giM) {
     composeSurface(wingMat, [membraneSSSPatch({ color: def.wingMembraneSSS ?? 0x2a3a52, strength: 0.22, power: 1.5 })]);
   }
   const hullMat = attach.bodyMatDouble;                 // body fresnel + cellular + iridescence
-  // Finger struts wear a darker bone/horn material so they read as scalloped wing
-  // fingers, not a glowing skeleton.
+  // Finger struts read as SUBTLE DARK STRUCTURE (L31): a near-black matte material
+  // just above the body tone (no horn-tan, no glow, no metallic sheen) so the spars
+  // disappear into the sleek matte-black wing instead of reading as a lit/metallic
+  // skeleton. emissive ~0, metalness 0, high roughness.
+  const fingerCol = def.body ?? 0x0a0f1c;
   const fingerMat = new THREE.MeshStandardMaterial({
-    color: def.horn ?? 0x3a5a78, emissive: def.wingEmissive ?? 0x0d1219,
-    emissiveIntensity: 0.25, roughness: 0.4, metalness: 0.35, side: THREE.DoubleSide,
+    color: fingerCol, emissive: fingerCol, emissiveIntensity: 0.04,
+    roughness: 0.85, metalness: 0.0, side: THREE.DoubleSide,
   });
+
+  // ── build the body loft + record the wing-seam verts (the shared-vert source) ─
+  // Computed BEFORE the bones so the arm can ROOT ON the membrane seam line (B3).
+  const loft = attach.loft;
+  const TY = loft.TORSO_Y;
+  const profile = loft.profile;
+  const loftGeo = loft.makeGeo();
+  loftGeo.translate(0, TY, 0);                          // body sits at y=TORSO_Y
+  const m = seg(SECTION_N);                              // loft ring resolution
+  const seamR = findSeam(loftGeo, profile, 1, m);
+  const seamL = findSeam(loftGeo, profile, -1, m);
+
+  // B3 — ARM + MEMBRANE FROM ONE LINE: the membrane roots ON the seam chain (the
+  // upper-flank loft verts at the wing-root chord). Root the arm's first ring on the
+  // SAME line by anchoring the shoulder bone's y/z to the seam chain CENTROID, so the
+  // arm spar and the membrane grow from one seam, not from two different heights.
+  // (x stays profile.wingRoot.x so the arm still emerges from the flank, not the
+  // keel.) The zero-gap membrane↔body weld is unaffected — it copies the same verts.
+  function seamCentroid(seam) {
+    const c = new THREE.Vector3();
+    for (const e of seam.chain) c.add(e.p);
+    return c.multiplyScalar(1 / seam.chain.length);
+  }
+  const seamMidR = seamCentroid(seamR);
+  const seamMidL = seamCentroid(seamL);
+  const armRoot = (side) => {
+    const wr = attach.wingRoot(side);
+    const mid = side < 0 ? seamMidL : seamMidR;
+    return { x: wr.x, y: mid.y, z: mid.z };             // y/z onto the seam line
+  };
 
   // ── bones ───────────────────────────────────────────────────────────────
   const bodyRoot = new THREE.Bone();                    // static — holds every body vert
   const bones = [bodyRoot, null, null, null, null, null, null];
   function buildArmBones(side) {
-    const wr = attach.wingRoot(side);
+    const wr = armRoot(side);
     const shoulder = new THREE.Bone();
     shoulder.position.set(wr.x, wr.y, wr.z);
     const elbow = new THREE.Bone();
@@ -285,16 +318,6 @@ function buildOrganism(def, model, attach, giM) {
     else { aBone = WR(side); bBone = WR(side); }
     return { si: [aBone, bBone, 0, 0], sw: [1 - t, t, 0, 0] };
   }
-
-  // ── build the body loft + record the wing-seam verts (the shared-vert source) ─
-  const loft = attach.loft;
-  const TY = loft.TORSO_Y;
-  const profile = loft.profile;
-  const loftGeo = loft.makeGeo();
-  loftGeo.translate(0, TY, 0);                          // body sits at y=TORSO_Y
-  const m = seg(SECTION_N);                              // loft ring resolution
-  const seamR = findSeam(loftGeo, profile, 1, m);
-  const seamL = findSeam(loftGeo, profile, -1, m);
 
   // The membrane root chord copies the body seam chain VERBATIM. v∈[0,1] runs front→
   // back along the wing root chord; map it onto a chain entry and return that EXACT
@@ -450,7 +473,9 @@ function buildOrganism(def, model, attach, giM) {
   // elbow so it articulates. They align with the membrane's scallop notches.
   function buildFingers(arm) {
     const { wr, side } = arm;
-    const lift = 0.04 * ws;
+    // B3 (L31): LESS lift — the spars ride closer to the membrane, not floating over
+    // it, so they read as wing FINGERS embedded in the web, not a hovering frame.
+    const lift = 0.018 * ws;
     // wrist datum in group space (where the fingers fan from).
     const wristP = new THREE.Vector3(wr.x + wristXGeo * side, wr.y + wristLift, wr.z);
     // map a wing-shape point [sx, sy] (buildWingShape space) → group space, matching
@@ -474,7 +499,10 @@ function buildOrganism(def, model, attach, giM) {
         // lift the strut just above the membrane (toward +y) so it rides the surface.
         p.y += lift * Math.sin(Math.PI * Math.min(t, 0.85));
         centre.push(p);
-        radii.push(0.030 + (0.008 - 0.030) * t);            // taper wrist → fine tip
+        // B3 (L31): THICKER at the wrist base, tapering to a FINE point at the scallop
+        // tip (cubic falloff so most of the spar stays slim but the root reads solid),
+        // so each finger reads as a wing spar fanning from the wrist to a scallop point.
+        radii.push(0.050 + (0.0035 - 0.050) * (t * t * (3 - 2 * t)));
         // articulate by span position along the arm.
         const ax = Math.abs(p.x - wr.x);
         skin.push(spanSkin(side, ax));

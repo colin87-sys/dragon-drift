@@ -369,69 +369,88 @@ export const DRAGONS = {
       // v2 normal-detail scales only — the relief reads as living hide. Iridescence
       // dropped: its oily view-angle hue-sweep read as pearlescent/metallic on the
       // dark stealth body (kept on the other dragons).
+      // NIGHT FURY (L31): NO shingle — the chunky cupped flank plates read as the
+      // metallic bolt-on attachments the human wants gone; the scale now comes from
+      // the WHOLE-creature shader (cellularScalesNormal) reaching body/neck/head/
+      // arms AND the tail (model.scaleTail). Removing them also DROPS tris.
       surface: { shader: ['cellularScalesNormal'] },
-      shingle: [
-        { count: [0, 0, 10, 14], zRange: [-1.55, 1.1], len: 0.34, wid: 0.2, cup: 0.3, tilt: 0.42, yLift: 0.42, edge: true },
-        { count: [0, 0, 0, 8], zRange: [-1.1, -0.4], len: 0.4, wid: 0.26, cup: 0.36, tilt: 0.52, yLift: 0.6, cardRows: 2, edge: true },
-      ],
     },
     stats: { speed: 1.1, handling: 1.16, drain: 0.84, regen: 1.18 },
     model: {
-      scale: 0.86, wingScale: 1.07, tailSegments: 9, neckSegments: 5,
+      // B3 (L31): wingScale 1.07→0.9 so the wingspan reads ~2-2.5× body length, not
+      // a huge sail (the Eternal per-form tips are tightened below to match).
+      scale: 0.86, wingScale: 0.9, tailSegments: 9, neckSegments: 5,
       ridgeCount: 0,
       wingRootScale: 1.5, wingSSS: true,
       shoulderWidthScale: 1.2, wingRootOffset: { y: 0.06, z: -0.1 },
       riderSocket: { x: 0, y: 0.92, z: -0.45 },
       headArchetype: 'softStealth', headScale: 1.18, eyeScale: 1.32, rearGlowIntensity: 0.4,
       flapBias: 1.08, flapAmp: 0.82,
+      // WHOLE-CREATURE SHADER SCALE (L31): the swept tail's stemMat is a SEPARATE
+      // matte material with no surface shader → the pebbly relief stopped at the
+      // hips. scaleTail opts the tail tube into the SAME cellularScalesNormal relief
+      // + matte finish as the body, so the scale reads nose-to-tail. obsidian v1 does
+      // NOT set this → its tail is byte-identical/untouched.
+      scaleTail: true,
     },
+    // B3 (L31): the wing OUTLINE tips, tightened so the wingspan reads ~2-2.5× body
+    // length, not a huge sail — most aggressively on the apex (Eternal, was span 5.50
+    // → 4.55). Paired with model.wingScale 1.07→0.9. scallop tips (the pointy
+    // trailing-edge points the finger spars now fan to) kept so the fanned web read
+    // survives.
     wingForms: [
-      { tips: [[4.20, 0.10], [3.35, -0.78], [2.10, -1.06]],
-        lead: [2.85, 0.40], scallop: 0.22, rootChord: 0.50, flame: false,
+      { tips: [[3.70, 0.10], [2.95, -0.78], [1.90, -1.06]],
+        lead: [2.55, 0.40], scallop: 0.22, rootChord: 0.50, flame: false,
         arc: { bow: 0.55, hump: 0.0, humpAt: 0.6, hook: 0.08 } },
-      { tips: [[4.70, 0.12], [3.85, -0.86], [2.55, -1.24], [1.45, -1.18]],
-        lead: [3.20, 0.46], scallop: 0.28, rootChord: 0.62, flame: false,
+      { tips: [[4.05, 0.12], [3.35, -0.86], [2.25, -1.24], [1.30, -1.18]],
+        lead: [2.80, 0.46], scallop: 0.28, rootChord: 0.62, flame: false,
         arc: { bow: 0.65, hump: 0.24, humpAt: 0.56, hook: 0.12 } },
-      { tips: [[5.05, 0.16], [4.20, -0.92], [3.05, -1.34], [1.95, -1.34], [1.05, -1.18]],
-        lead: [3.50, 0.54], scallop: 0.34, rootChord: 0.74, flame: false,
+      { tips: [[4.30, 0.16], [3.60, -0.92], [2.60, -1.34], [1.70, -1.34], [0.95, -1.18]],
+        lead: [3.00, 0.54], scallop: 0.34, rootChord: 0.74, flame: false,
         arc: { bow: 0.75, hump: 0.38, humpAt: 0.58, hook: 0.18 } },
-      { tips: [[5.50, 0.22], [4.70, -0.92], [3.55, -1.42], [2.45, -1.48], [1.45, -1.40], [0.80, -1.18]],
-        lead: [3.85, 0.64], scallop: 0.40, rootChord: 0.85, flame: false,
+      { tips: [[4.55, 0.22], [3.85, -0.92], [2.95, -1.42], [2.05, -1.48], [1.25, -1.40], [0.70, -1.18]],
+        lead: [3.20, 0.64], scallop: 0.40, rootChord: 0.85, flame: false,
         arc: { bow: 0.92, hump: 0.52, humpAt: 0.60, hook: 0.30 } },
     ],
     forms: [
+      // L31 — SLEEK MATTE NIGHT FURY: all idle glows OFF (spineGlow:0 every form →
+      // no dorsal glow cones; coreGlow dropped → no idle core sprite; the cyan is
+      // held back for Night Surge via feverWing/feverEye only). Palette re-hued to a
+      // desaturated dark MIDNIGHT BLUE-BLACK (body/belly/scales/horn in 0x0a0f1c–
+      // 0x16223c) so horns + finger struts read as subtle dark structure, not lighter
+      // attachments. Eyes stay acid-GREEN; wing-membrane colours unchanged.
       { wingForm: 0, tailStyle: 'nightfury',
         bodyScale: 0.65, wingSpan: 0.85, wingChord: 1.40, tailLength: 0.80,
         tailFinScale: 0.5, tailFinSpread: 0, dorsalGlowCount: 0, tailGlowSegs: 0,
         spineGlow: 0, glowIntensity: 0.25, particleRate: 0.30,
         wingOpacity: 0.93, wingPanelGlow: 0.10, previewScale: 0.75,
         eyeScale: 1.35, neckSegments: 5,
-        colors: { body: 0x0a0d12, wingInner: 0x141c28, wingOuter: 0x0c1118,
-          wingEmissive: 0x0d1219, wingMembraneEmissive: 0x10161f, scales: 0x18202c, horn: 0x2a3848,
-          eye: 0x6f9a28, apexSeam: 0x161e28, coreGlow: 0x1a2c3c } },
+        colors: { body: 0x0a0f1c, wingInner: 0x141c28, wingOuter: 0x0c1118,
+          wingEmissive: 0x0d1219, wingMembraneEmissive: 0x10161f, scales: 0x121a2e, horn: 0x101a2c,
+          eye: 0x6f9a28, apexSeam: 0x131a2c } },
       { wingForm: 1, tailStyle: 'nightfury', earTendrils: true,
         bodyScale: 0.82, wingSpan: 0.95, wingChord: 1.55, tailLength: 0.90,
         tailFinScale: 0.62, tailFinSpread: 0, dorsalGlowCount: 0, tailGlowSegs: 0,
-        spineGlow: 0.45, glowIntensity: 0.55, particleRate: 0.55,
+        spineGlow: 0, glowIntensity: 0.55, particleRate: 0.55,
         wingOpacity: 0.92, wingPanelGlow: 0.12, previewScale: 0.88,
         eyeScale: 1.32,
-        colors: { body: 0x0a0d12, wingInner: 0x182334, wingOuter: 0x0e1622,
-          wingEmissive: 0x0d1219, wingMembraneEmissive: 0x16202e, scales: 0x223044, horn: 0x33506a,
-          eye: 0x96d62a, apexSeam: 0x161e28, coreGlow: 0x1d3548 } },
+        colors: { body: 0x0b1020, wingInner: 0x182334, wingOuter: 0x0e1622,
+          wingEmissive: 0x0d1219, wingMembraneEmissive: 0x16202e, scales: 0x141e36, horn: 0x121c32,
+          eye: 0x96d62a, apexSeam: 0x131a2c } },
       { wingForm: 2, tailStyle: 'nightfury', earTendrils: true, hipFins: true,
         bodyScale: 1.00, wingSpan: 1.00, wingChord: 1.70, tailLength: 1.00,
         tailFinScale: 1.00, tailFinSpread: 1.00, dorsalGlowCount: 0, tailGlowSegs: 0,
-        spineGlow: 0.75, glowIntensity: 1.00, particleRate: 1.00,
+        spineGlow: 0, glowIntensity: 1.00, particleRate: 1.00,
         wingOpacity: 0.90, wingPanelGlow: 0.14, previewScale: 1.00,
         wingVeins: false, glowSeams: false, wingEdgeGlow: false,
-        colors: { body: 0x0a0d12, wingInner: 0x182334, wingOuter: 0x0e1828,
-          wingEmissive: 0x0d1219, wingMembraneEmissive: 0x1a2636, scales: 0x273052, horn: 0x3a5a78,
-          eye: 0x96d62a, apexSeam: 0x161e28, coreGlow: 0x1d3548 } },
+        colors: { body: 0x0c1222, wingInner: 0x182334, wingOuter: 0x0e1828,
+          wingEmissive: 0x0d1219, wingMembraneEmissive: 0x1a2636, scales: 0x16223c, horn: 0x141d30,
+          eye: 0x96d62a, apexSeam: 0x131a2c } },
       { wingForm: 3, tailStyle: 'nightfury', earTendrils: true,
         bodyScale: 1.12, bodyStretch: 1.18, wingSpan: 1.10, wingChord: 1.90, tailLength: 1.06,
         tailFinScale: 1.08, tailFinSpread: 1.2, dorsalGlowCount: 0, tailGlowSegs: 0,
         tailRootCollar: true, tailDorsalLink: false,
-        spineGlow: 1.00, glowIntensity: 1.30, particleRate: 1.80,
+        spineGlow: 0, glowIntensity: 1.30, particleRate: 1.80,
         wingOpacity: 0.90, wingPanelGlow: 0.16, previewScale: 1.12,
         surgeGlowMultiplier: 1.3, wingParticleRate: 0.6,
         wingVeins: false, glowSeams: false, wingEdgeGlow: false,
@@ -442,10 +461,15 @@ export const DRAGONS = {
     previewAccent: 0x2e5a6a,
     hasStyle: true, surgeMotes: true,
     feverWing: 0x6ad8ff, feverEye: 0xb0f0ff, feverWash: [0.015, 0.05, 0.085],
-    body: 0x0a0d12, belly: 0x111827, scales: 0x273052, horn: 0x3a5a78,
+    // L31 dark MIDNIGHT BLUE-BLACK base palette (desaturated, matte). body/belly/
+    // scales/horn live in 0x0a0f1c–0x16223c so the whole creature reads sleek black-
+    // blue, horns + finger struts subtle dark structure. coreGlow DROPPED (no idle
+    // core sprite — `if (!coreGlow && def.coreGlow)` in dragonModel.js is now false);
+    // the cyan is held for Night Surge via feverWing/feverEye. Eyes stay acid-GREEN.
+    body: 0x0a0f1c, belly: 0x0e1424, scales: 0x16223c, horn: 0x141d30,
     wingInner: 0x182334, wingOuter: 0x0e1828, wingEmissive: 0x0d1219,
-    wingMembraneEmissive: 0x1a2636, dorsalHi: 0x2c3a44,
-    apexEye: 0xb6e85a, apexSeam: 0x161e28, coreGlow: 0x1d3548, surgeHi: 0x9fd8ff,
+    wingMembraneEmissive: 0x1a2636, dorsalHi: 0x1a2636,
+    apexEye: 0xb6e85a, apexSeam: 0x131a2c, surgeHi: 0x9fd8ff,
     eye: 0x96d62a, trail: 0x2a5a78, boostTrail: 0x4a90c0,
   },
 
