@@ -158,6 +158,47 @@ assert(rootCount > 0, 'membrane has root-column verts welded 100% to bodyRoot');
 assert(maxGap < 1e-6, `ZERO-GAP: every membrane root vert is within Δ<1e-6 of a body-loft vert (max gap ${maxGap.toExponential(1)})`);
 ok(`ZERO-GAP CONNECTION: all ${rootCount} membrane root verts are EXACT COPIES of body-loft verts (the v1 ~0.43 gap is GONE)`);
 
+// --- 4b. MIDDLE CONNECTED (strengthened): the WHOLE root chord — front, MIDDLE,
+// back — sits on the body, not just the end columns. The v1 bug lifted the MIDDLE
+// of the root chord off the body (the seam zig-zagged in y + spanned too wide a z).
+// Sort each membrane's root-column verts front→back by z and assert: (1) it is a
+// CONTIGUOUS chord (a real z-span, so it's a chord not a point); (2) EVERY interior
+// (middle) vert — not only the front/back endpoints — is exact-vert welded; (3) the
+// chord is MONOTONE in z with no zig-zag back-and-forth, and the y-range across the
+// chord is small (a smooth root edge that hugs the body, not a fanned weave).
+function rootColumn(mSi2, mSw2, mPos2) {
+  const cols = [];
+  for (let i = 0; i < mPos2.count; i++) {
+    if (!isBodyRoot(mSi2, mSw2, i)) continue;
+    cols.push({ i, x: mPos2.getX(i), y: mPos2.getY(i), z: mPos2.getZ(i) });
+  }
+  return cols;
+}
+const rootVerts = rootColumn(mSi, mSw, mPos);
+assert(rootVerts.length >= 6, `root chord has enough verts for a front/middle/back read (${rootVerts.length} ≥ 6)`);
+// group by side (x sign) so each wing's root chord is checked on its own.
+for (const side of [1, -1]) {
+  const col = rootVerts.filter((c) => Math.sign(c.x) === side).sort((a, b) => a.z - b.z);
+  assert(col.length >= 3, `side ${side}: root chord has a front/middle/back (${col.length} ≥ 3)`);
+  const zSpan = col[col.length - 1].z - col[0].z;
+  assert(zSpan > 0.2, `side ${side}: root is a real CHORD spanning z (Δz ${zSpan.toFixed(3)} > 0.2), not a point`);
+  // every interior (MIDDLE) vert is exact-vert welded — the v1 lift-off check.
+  let midMax = 0;
+  for (let q = 1; q < col.length - 1; q++) {
+    const v = new THREE.Vector3(col[q].x, col[q].y, col[q].z);
+    let best = Infinity;
+    for (const b of bodyVerts) { const d = b.distanceTo(v); if (d < best) best = d; }
+    midMax = Math.max(midMax, best);
+  }
+  assert(midMax < 1e-6, `side ${side}: every MIDDLE root vert is exact-vert welded (max gap ${midMax.toExponential(1)} < 1e-6)`);
+  // the y-range across the chord stays tight (a smooth root edge hugging the body, no
+  // fanning weave) — relative to the z-span it must not balloon.
+  let yMin = Infinity, yMax = -Infinity;
+  for (const c of col) { yMin = Math.min(yMin, c.y); yMax = Math.max(yMax, c.y); }
+  assert((yMax - yMin) < zSpan + 1e-6, `side ${side}: root edge does not fan in y (Δy ${(yMax - yMin).toFixed(3)} ≤ Δz)`);
+}
+ok('MIDDLE CONNECTED: the whole root chord (front, MIDDLE, back) is exact-vert welded on a contiguous, non-fanning body arc');
+
 // --- 5. CONNECTION HOLDS IN MOTION --------------------------------------------------
 // Pick a membrane seam vert (bodyRoot=1) + its paired body vert; both static → a
 // 0.5-rad shoulder beat keeps them coincident. AND an outboard vert must MOVE.
