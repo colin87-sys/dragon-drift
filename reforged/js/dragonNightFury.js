@@ -477,7 +477,33 @@ function buildNightFury(def, model, attach) {
     return g;
   }
 
-  const hullGeo = growSkinnedExtension(loftGeo, [buildArmFrame(armR), buildArmFrame(armL)]);
+  // THUMB KNOB — a small clawed nub at the WRIST joint pointing up + slightly forward (the
+  // accent on the leading-edge bend, per the reference). Skinned 100% to the wrist bone so
+  // it rides the flap; merged into the HULL so it's body-matte like the frame.
+  function buildThumbKnob(arm) {
+    const { wr, side } = arm;
+    const wristP = new THREE.Vector3(wr.x + wristXGeo * side, wr.y + wristLift, wr.z + armLeadZ);
+    const tip = wristP.clone().add(new THREE.Vector3(0.05 * side, 0.17 * ws, -0.11));
+    const st = seg(4), centre = [], radii = [], skin = [];
+    const wb = WR(side);
+    for (let s = 0; s < st; s++) {
+      const t = s / (st - 1);
+      centre.push(wristP.clone().lerp(tip, t));
+      radii.push(0.058 * (1 - 0.94 * t));               // taper to a clawed point
+      skin.push({ si: [wb, 0, 0, 0], sw: [1, 0, 0, 0] });
+    }
+    return skinnedTube(centre, radii, seg(4), (s) => skin[s], fingerMat).geometry;
+  }
+
+  // The leading-edge FRAME spar (tips[0] finger) merges into the HULL so it renders in the
+  // body-matte material on TOP of the membrane (visible from the chase cam); the inner
+  // scallop struts stay in their own fingerMat mesh below.
+  const fingersR = buildFingers(armR);
+  const fingersL = buildFingers(armL);
+  const hullGeo = growSkinnedExtension(loftGeo, [
+    buildArmFrame(armR), buildArmFrame(armL), ...fingersR.frame, ...fingersL.frame,
+    buildThumbKnob(armR), buildThumbKnob(armL),
+  ]);
   hullGeo.computeVertexNormals();
   const hullMesh = new THREE.SkinnedMesh(hullGeo, hullMat);
   hullMesh.frustumCulled = false;
@@ -570,47 +596,51 @@ function buildNightFury(def, model, attach) {
       return new THREE.Vector3(wx * side + wr.x, liftY + wr.y, -sy * scaleZ + wr.z);
     };
     const tips = wingSpec.tips;
-    const geos = [];
     // FAN CURVE: the topmost spoke (tips[0], along the outer/leading edge) is STRAIGHT;
     // each spoke further down the fan bows MORE — a gentle chordwise (z) bow whose
     // amount scales with the finger's fan index (the yellow markup). bowK in [0,1].
-    const finger = (tip, fanT) => {
+    // `frame` = the leading-edge spar (tips[0]): FATTER + lifted higher so it rides ON TOP
+    // of the membrane and reads as a body-matte bone framing the wing (merged into the
+    // HULL, not the struts mesh) — the chase-cam "outline" from the reference.
+    const finger = (tip, fanT, frame) => {
       const target = tipToGroup(tip[0], tip[1]);
       const stations = seg(6);
       // chord-direction sign: tips fan toward the trailing edge (−chord → +z here).
       const bowMag = (model.wingFingerCurve ?? 0.0) * fanT;     // 0 for the top spoke
+      const rBase = frame ? r0 * (model.wingFrameRadius ?? 1.55) : r0;
+      const topLift = frame ? lift * (model.wingFrameLift ?? 2.4) : lift;
       const centre = [], radii = [], skin = [];
       for (let s = 0; s < stations; s++) {
         const t = s / (stations - 1);
         const p = wristP.clone().lerp(target, t);
-        p.y += lift * Math.sin(Math.PI * Math.min(t, 0.85));
+        p.y += topLift * Math.sin(Math.PI * Math.min(t, 0.92));  // ride proud on top
         // bow OUT (toward +z / trailing) at mid-span, zero at both ends.
         p.z += bowMag * Math.sin(Math.PI * t) * scaleZ;
         // FAN OUTWARD: each spoke also curves convex toward the wingtip (+x) at mid-span,
         // outer spokes (higher fanT) curving more — the hand-fan read from the markup.
         p.x += (model.wingFingerSplay ?? 0) * fanT * Math.sin(Math.PI * t) * scaleX * side;
         centre.push(p);
-        radii.push(r0 + (0.0035 - r0) * (t * t * (3 - 2 * t)));
+        radii.push(rBase + (0.0035 - rBase) * (t * t * (3 - 2 * t)));
         const ax = Math.abs(p.x - wr.x);
         skin.push(spanSkin(side, ax));
       }
       const tube = skinnedTube(centre, radii, seg(4), (s) => skin[s], fingerMat);
       return tube.geometry;
     };
-    // EVERY tip: tips[0] is the far leading point (straight), tips[1..] the scallop
-    // tips fanning back; fanT ramps 0→1 across the fan so lower spokes curve more.
-    for (let i = 0; i < tips.length; i++) {
+    // tips[0] is the leading spar → the body-matte FRAME (into the hull); tips[1..] are the
+    // scallop struts (fingerMat). fanT ramps 0→1 so lower spokes curve more.
+    const frame = [finger(tips[0], 0, true)];
+    const struts = [];
+    for (let i = 1; i < tips.length; i++) {
       const fanT = tips.length > 1 ? i / (tips.length - 1) : 0;
-      geos.push(finger(tips[i], fanT));
+      struts.push(finger(tips[i], fanT, false));
     }
-    return geos;
+    return { frame, struts };
   }
 
   const memR = buildMembraneSide(armR, seamR);
   const memL = buildMembraneSide(armL, seamL);
   const memRCount = memR.attributes.position.count;
-  const fingersR = buildFingers(armR);
-  const fingersL = buildFingers(armL);
   const memGeo = mergeGeometries([ensureSkinAttrs(memR), ensureSkinAttrs(memL)], false);
   if (!memGeo) throw new Error('buildNightFury: membrane mergeGeometries returned null');
   memGeo.computeVertexNormals();
@@ -651,7 +681,7 @@ function buildNightFury(def, model, attach) {
   memMesh.frustumCulled = false;
   memMesh.name = 'nightFuryMembrane';
 
-  const fingerGeo = mergeGeometries([...fingersR, ...fingersL].map((g) => ensureSkinAttrs(g)), false);
+  const fingerGeo = mergeGeometries([...fingersR.struts, ...fingersL.struts].map((g) => ensureSkinAttrs(g)), false);
   let fingerMesh = null;
   if (fingerGeo) {
     fingerGeo.computeVertexNormals();

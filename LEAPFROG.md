@@ -1381,3 +1381,21 @@ band's z-extent must be MEASURED to contain the weld chord**. Drive plane is a f
 **pitch (rot.x) for swim/flight undulation, yaw (rot.y) for steering** — never default to yaw. `userData.whip`
 metadata on each bone keeps the drive code creature-agnostic. Next: tune the whip feel (amp/lag/phase coupling
 to the flap) and the wing-fan splay on the lit preview; the hull is now a full fore-aft posable spine.
+
+### L38 — Material framing: route the leading spar + a wrist thumb-knob into the HULL so the wing reads as ONE animal
+**Did / learned:** the human flagged that the translucent membrane made the wing look like "a different animal"
+from the matte body. Fix = give the wing a **body-matte leading-edge FRAME**: the arm spar was already hullMat,
+so I split `buildFingers` to return `{ frame, struts }` — the leading finger (`tips[0]`, the outer/leading
+spar) is now built FATTER (`wingFrameRadius`) and lifted higher (`wingFrameLift`) so it rides ON TOP of the
+membrane, and crucially it's **merged into the HULL geometry** (not the `fingerMat` struts mesh) so it renders
+in the body material. Together arm→wrist→leading-finger trace the chase-cam "outline" the human drew. Added a
+small **thumb-knob** (clawed nub) at the wrist, skinned 100% to the wrist bone so it rides the flap, also
+merged into the hull. Gotcha banked: **which MESH a geometry merges into decides its MATERIAL** — the per-tube
+`mat` arg to `skinnedTube` is irrelevant after merge; to recolor a part you move its geo between the hull merge
+(`growSkinnedExtension`) and the struts merge. Also: `buildFingers`/`buildThumbKnob` are called BEFORE the hull
+merge but defined after — fine because they're hoisted function declarations and all their closure deps
+(`wristXGeo`, `spanSkin`, `wingSpec`…) are initialized by call time. 10 gates green, tri 4182 HIGH (+48 for
+frame+thumbs), 0-over, roster byte-identical, tiershots compiles.
+**→ Systematize:** "make part X read as the body" = build it skinned (to the right bone), lift it proud, and
+merge it into the HULL mesh; "make it a separate translucent/colored thing" = merge into that mesh instead.
+Material = merge target. The frame/thumb knobs are `model`-knobbed (`wingFrameRadius/Lift`) for preview tuning.
