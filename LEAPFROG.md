@@ -1425,3 +1425,15 @@ confirms the silhouette/embed.
 **→ Systematize:** proportion realism = proximal-thicker taper across a limb's whole chain incl. its frame
 spar; "embedded vs proud" decals = set the tube centre relative to the host surface ± its radius; "more power"
 in a cyclic motion = sharpen/bias the drive ENVELOPE (asymmetric power/recovery), not raise amplitude.
+
+### L39b — Gap fix: a frame "on" a curved surface must FOLLOW that surface's curve, not a straight chord
+**Did / learned:** after L39 embedded the frame (lift→0), the human still saw a GAP between the arm spar and
+the membrane — worst near the root. Cause: the arm ran a STRAIGHT shoulder→wrist chord at a fixed forward
+`armLeadZ`, while the membrane's leading edge is a CURVE (the `buildWingShape` lead bezier); the two diverged
+by up to a chord-depth near the root. Fix: added a `leadEdgePt(wr, side, x)` sampler that returns the EXACT
+membrane leading-edge world point at span x (mirrors `buildCurvedPatch`'s `yAtLead` interp on
+`buildWingShape(spec).getPoints()`), and laid the arm spar's stations + the finger-convergence `wristP` + the
+thumb-knob ON it. Now the matte frame and the translucent membrane share the same v=0 boundary → zero gap by
+construction, and it deforms identically (same `spanSkin` bones). **Rule: to bond decoration to a procedural
+surface, SAMPLE that surface's boundary for the decoration's path — never approximate it with a straight line
+or a constant offset; they only coincide at the endpoints.** 10 gates green, tri 4210, 0-over.
