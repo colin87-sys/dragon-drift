@@ -10,6 +10,7 @@ import './dragonSideFins.js';       // 'sideFins' wings (lateral astral vanes)
 import './dragonCometWake.js';      // 'cometWake' tail (streaming comet glow-trail)
 import './dragonCelestialHead.js';  // 'celestialMask' head (regal faceplate)
 import './dragonDraconicHead.js';   // 'draconic' head (modular house-style dragon head)
+import './dragonUnifiedHull.js';    // 'unifiedHull' wings + 'unifiedHullTorso' (one continuous skinned hull)
 import { shingle } from './dragonShingle.js'; // reusable overlapping scale/plate cards
 import { applyFresnelRim } from './surface.js';
 import { flapWing, formStrength, formSpeed } from './dragonWingFlap.js';

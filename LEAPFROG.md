@@ -976,3 +976,73 @@ out as different parameter sets**, and the motion "weight" the references demand
 `motionProfile`, not bespoke animation. The next session builds **Phase 1 (the hull on Obsidian)** knowing
 the arm must be **fleshy** and that the eventual payoff is the **vertical whip the continuous hull uniquely
 enables** — geometry and motion are the same bet.
+
+### L25 — Unified hull Increment 1: weld the seam with SHARED-bone weighting, not coincident geometry — the relationship is what must freeze
+**Did / learned:** built Increment 1 of the unified hull (`dragonUnifiedHull.js` + a body-less
+`unifiedHullTorso`) — Obsidian's body+wings as ONE continuous procedural skinned organism: TWO skinned
+meshes (an opaque body-loft+two-fleshy-arms hull, and the translucent membrane) on ONE shared **7-bone**
+skeleton `[bodyRoot, shL,elL,wrL, shR,elR,wrR]`, with the membrane root column re-seated analytically onto
+the loft flank + inner columns smoothstep-blended, the root band weighted 100% to a STATIC `bodyRoot`. The
+load-bearing realization: **the seam gate is not "make the verts coincident", it is "freeze their
+RELATIONSHIP under deformation".** Because BOTH the membrane root verts and the body-loft verts are weighted
+to the same static `bodyRoot` bone, NEITHER moves under a shoulder/elbow/wrist rotation — so whatever gap
+they have at rest is exactly the gap they have at full beat (gate: `|pairGap − restGap| < 1e-5`, PASSES —
+the regression L20/L21/L22 could never pass). They don't need to be at distance 0; they need to be welded to
+the same *non-moving* frame. The L23 "fleshy arm" is now real: each arm is a `skinnedTube` tapering from
+~the body flank half-width (0.6) at the shoulder to ~0.12 at the wrist, MERGED into the opaque hull, so the
+limb bridges the round-body↔flat-membrane form gap. Net tri WIN (one hull replaces torso + 2 bridges + 2
+fairings + 2 separate membranes): Obsidian Eternal **3930→3662 HIGH** (≤6000), **8438 ULTRA** (≤13000); the
+**rest of the roster is byte-identical** (non-obsidian total 70826 == baseline; `tricount --detail=high`
+unchanged for azure/ember/jade/pearl/solar/phoenix/astralWyrm). Real-WebGL compiles clean (`tiershots
+obsidian`, no PAGEERROR — the skinned hull + composeSurface body/membrane shaders work under the skinning
+path). Gotchas paid: **(1)** rest-parity is the bind oracle AGAIN (L2/L21) — a test that calls `flapWing`
+before the rest-parity check must restore ALL THREE driven rotations (shoulder/elbow/wrist x,y,z), not just
+the one it asserted, or the un-restored bones displace arm verts by ~2.5 and the gate screams; **(2)**
+`buildCurvedPatch` inherently collapses the chord to a POINT at the wingtip → ~6 zero-area tris/wing with two
+COINCIDENT verts — benign + pre-existing (the shipped `skinnedMembrane` has them; `curvedpatch.mjs` already
+only zero-checks NON-tip panels and finite-normal-checks the tip), so the degenerate scan must flag only
+tris whose 3 verts are all DISTINCT yet zero-area (the real L3 fold), never the tip fan; **(3)**
+`mergeGeometries` returns null on mismatched attribute SETS (L13) — an `ensureSkinAttrs` that adds
+position+normal+skinIndex+skinWeight AND strips stray attrs (color/uv) before merge is the guard;
+**(4)** migrating the hero off the old recipes BREAKS every test that built `DRAGONS.obsidian` directly and
+asserted the old structure (`skinnedwing`/`torsoshoulder`/`shoulderbridge`/`modeldetail`/`sweptprofile`) —
+the L173 discipline is the fix: repoint each to build an obsidian CLONE with `parts` FORCED back onto the old
+recipe, keeping the rollback path proven without depending on the live recipe. (Found en route:
+`sweptprofile.mjs` was ALREADY red on HEAD — it asserted `torso==='sweptLoft'` while Obsidian shipped
+`sweptLoftSkinned`; fixed it the same clone way.) Reversible by two strings in `dragons.js` (old values left
+in a rollback comment); L20/L21/L22 builders + tests all still registered + green.
+**→ Systematize:** bank the reusable kernel **`growSkinnedExtension(loftGeo, [skinnedExtensions])`** = merge a
+base loft with any number of pre-skinned grids/tubes into ONE skinned geometry with a continuous weight field
+(each part carries its own skinIndex/skinWeight; `ensureSkinAttrs` makes the merge null-proof). The seam law
+generalizes: **to attach a deforming sub-surface to a body so it can never separate, weight BOTH sides of the
+junction to the SAME static body bone — coincidence is sufficient but not necessary; shared-static-frame is
+the actual invariant, and it's testable headlessly (`|pairGap−restGap|<1e-5` under a bone beat).** The
+body-less-torso pattern (`bodyMesh:false` → publish `attach.loft` = the loft recipe `{makeGeo, profile,
+stretch, TORSO_Y, keelTopFor, halfWidthFor}` so the hull GROWS the body itself) is the additive-nullable
+contract extension (L13/L20) one level deeper: the torso now hands over its *generator*, not just anchor
+points. Loud-validate the pairing (`unifiedHull` wings throw an actionable error without a hull torso) so a
+mis-wired recipe fails at build, not as an undefined read. And the migrate-the-hero → fix-the-hero-tests
+move is now standard: **every "prove the old path" test must build a forced clone, never the live hero**, so
+the hero is free to advance.
+**→ Leapfrog (innovate):** the kernel is the on-ramp to the rest of the L23/L24 arc — the SAME
+`growSkinnedExtension` + shared-static-bone weld now retires the neck (weld the loft's front ring to a neck
+bone chain), the tail (weld the hull's last ring to the `sweptTail` first ring), the head → ONE skinned hull
+nose-to-tail. And because the body now lives on a `bodyRoot` bone, **Phase 2's vertical body-whip (L24) is
+unlocked**: split `bodyRoot` into a short phase-lagged spine chain and `driveChain` (L5) it in the vertical
+plane, in counter-phase with the tail — the porpoising "weight behind the wings" the references demand, zero
+rig-contract change. The seam-coincidence gate is now the standing regression net for every future weld. The
+one thing headless CANNOT judge and the human MUST, on the **rear/¾-rear chase cam through a full beat**: does
+the membrane FLOW out of the fleshy arm (not hinge off it), does the root stay welded with no up-beat gap /
+down-beat collision, and is the rest-pose flank-weld tight enough (the analytic re-seat leaves a ~0.08–0.43
+unit root gap vs the actual loft mesh verts — visually a slight float that may want tightening by snapping
+seam verts to nearest loft verts, a preview-judged tune deferred from this increment).
+**→ The explicit FORK banked for the next session (human directive):** this increment WELDS the new wing
+onto Obsidian's *legacy* arrow-loft body, and the ~0.08–0.43 root gap is the symptom of exactly that — the
+analytic flank ≠ the real `bladeRing` loft ring, because the body was designed as a separate part. The
+human's standing call (echoing how the wing-segment clash was only ever fixed by a *redesign*, not a patch):
+**if the rear-cam preview shows the membrane float/hinge, do NOT keep tuning the weld — pivot to a CLEAN-SHEET
+hull.** A purpose-built parametric generator that emits body + fleshy arm + membrane as ONE surface from its
+*own* profile (the membrane root verts ARE loft verts → zero gap by construction), Obsidian-opt-in +
+reversible, the shipped parts kept registered. The kernel (`growSkinnedExtension`), the fleshy arm, the
+seam-coincidence gate, and the re-seat logic ALL carry over; only the legacy-profile coupling is thrown away.
+That is the truer L23/L24 endgame (one generated organism) and the cleaner base for non-dragon creatures.

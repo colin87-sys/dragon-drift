@@ -24,7 +24,11 @@ let n = 0;
 const ok = (m) => { n++; console.log(`  ✓ ${m}`); };
 
 // --- obsidian: skinnedMembrane ----------------------------------------------
-const ob = buildDragonModel(ascendedDef(DRAGONS.obsidian, 3, 0), {});
+// Obsidian (the hero) has since migrated to the UNIFIED HULL; the skinnedMembrane(+
+// bridge) path is kept registered as the rollback. Prove it on an obsidian CLONE
+// forced back onto the old recipe (the coexist-test discipline, LEAPFROG L173).
+const obBase = ascendedDef(DRAGONS.obsidian, 3, 0);
+const ob = buildDragonModel({ ...obBase, parts: { ...obBase.parts, torso: 'sweptLoftSkinned', wings: 'skinnedMembraneBridge' } }, {});
 let skinnedMeshes = 0, boneCounts = new Set();
 // Wing skinned pieces only — the swept tail (7-bone tube) and the shoulder bridge
 // (2-bone deltoid) add their own skinned meshes, verified separately (sweptail.mjs /

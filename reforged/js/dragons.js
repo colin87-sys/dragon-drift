@@ -206,7 +206,10 @@ export const DRAGONS = {
     // short blunt snout, large intelligent catlike eyes, swept-back ear-fins, cyan
     // rear glow. Intelligent, stealthy, fast (NOT regal or spiky).
     parts: {
-      torso: 'sweptLoftSkinned', head: 'draconic', wings: 'skinnedMembraneBridge', tail: 'sweptTail',
+      // UNIFIED SKINNED HULL — body+wings as ONE continuous procedural skin (L23/L24).
+      // Rollback: torso:'sweptLoftSkinned', wings:'skinnedMembraneBridge' (both kept
+      // registered + tested for a two-string revert).
+      torso: 'unifiedHullTorso', head: 'draconic', wings: 'unifiedHull', tail: 'sweptTail',
       surface: { shader: ['cellularScales', 'iridescence'] },
       // Apex-dramatic SCALE RELIEF (the shingle system): overlapping dark cupped
       // plates on the FLANKS (arriving at Radiant, fuller at Eternal) + a denser
