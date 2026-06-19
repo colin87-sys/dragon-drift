@@ -258,16 +258,20 @@ function buildFuryHull(def, model, attach, giM) {
 
   const ws = model.wingScale ?? 1;
   const span = (model.furyWingSpan ?? 4.4) * ws;            // wingtip x-reach
-  const elbowFrac = 0.46, wristFrac = 1.0;
+  // The WRIST sits at ~1/3 of the span (the hand/knuckle); the long finger struts +
+  // the leading frame fan out from there to the wingtip (the bat-wing anatomy). With
+  // the wrist inboard, the outer ~2/3 of the wing folds at the wrist (weighted to WR).
+  const elbowFrac = 0.15, wristFrac = model.furyWristFrac ?? 0.32;
+  const archV = model.furyWingArch ?? 0.6;
   function buildArm(side) {
     const wr = attach.wingRoot(side);
     const rootX = side * loft.halfWidthFor(wr.z) * 0.96;
     const shoulder = new THREE.Bone();
     shoulder.position.set(rootX, wr.y, wr.z);
     const elbow = new THREE.Bone();
-    elbow.position.set(side * span * elbowFrac, (model.furyWingArch ?? 0.55) * 0.5, -0.15);
+    elbow.position.set(side * span * elbowFrac, archV * 0.4, -0.1);
     const wrist = new THREE.Bone();
-    wrist.position.set(side * span * (wristFrac - elbowFrac), (model.furyWingArch ?? 0.55) * 0.5, 0.35);
+    wrist.position.set(side * span * (wristFrac - elbowFrac), archV * 0.3, -0.05);
     shoulder.add(elbow); elbow.add(wrist);
     return { wr, rootX, shoulder, elbow, wrist, side };
   }
@@ -299,27 +303,10 @@ function buildFuryHull(def, model, attach, giM) {
     return { si: [a, b, 0, 0], sw: [1 - t, t, 0, 0] };
   }
 
-  // ── fleshy arm tube (shoulder→elbow→wrist), body-matching radius ───────────
-  function buildArmTube(arm) {
-    const { wr, rootX, side } = arm;
-    const r0 = Math.max(loft.halfWidthFor(wr.z) * 0.5, 0.18) * (model.wingRootScale ?? 1);
-    const r1 = 0.06 * (model.wingRootScale ?? 1) + 0.03;
-    const pSh = new THREE.Vector3(rootX, wr.y, wr.z);
-    const pEl = new THREE.Vector3(rootX + side * elbowX, wr.y + (model.furyWingArch ?? 0.55) * 0.5, wr.z - 0.15);
-    const pWr = new THREE.Vector3(rootX + side * wristX, wr.y + (model.furyWingArch ?? 0.55) * 0.5, wr.z + 0.35);
-    const N = 7, centre = [], radii = [], skin = [];
-    for (let s = 0; s < N; s++) {
-      const t = s / (N - 1);
-      const p = t <= 0.5 ? pSh.clone().lerp(pEl, t / 0.5) : pEl.clone().lerp(pWr, (t - 0.5) / 0.5);
-      centre.push(p); radii.push(r0 + (r1 - r0) * sstep(t));
-      skin.push(spanSkin(side, t * wristX));
-    }
-    return skinnedTube(centre, radii, seg(7), (s) => skin[s], hullMat).geometry;
-  }
-
-  // ── opaque hull = loft ⊕ arms ⊕ dorsal nubs ────────────────────────────────
+  // ── opaque hull = loft ⊕ dorsal nubs (the arm is the leading-edge FRAME built
+  //    per-wing below, laid ON the membrane edge so it can never gap — into struts) ─
   const nubGeos = buildDorsalNubs(model, loft, hullMat, loftSkinAtZ);
-  const hullGeo = growSkinnedExtension(loftGeo, [buildArmTube(armR), buildArmTube(armL), ...nubGeos]);
+  const hullGeo = growSkinnedExtension(loftGeo, [...nubGeos]);
   hullGeo.computeVertexNormals();
   const hullNrm = hullGeo.attributes.normal, hullPos = hullGeo.attributes.position;
   const hullSI = hullGeo.attributes.skinIndex, hullSW = hullGeo.attributes.skinWeight;
@@ -479,19 +466,48 @@ function buildFuryHull(def, model, attach, giM) {
     }
     gN.needsUpdate = true;
 
-    // finger struts: thin raised ribs lying ON the membrane, fanning from near the
-    // wrist out to each trailing finger tip (a finger to every scallop). They follow
-    // the sheet (memXYZ) so they can never overshoot it.
-    for (let f = 1; f <= fingers; f++) {
+    // LEADING-EDGE FRAME (the arm): one tapering tube laid EXACTLY on the membrane's
+    // leading edge (memXYZ(u,0)) for the whole span — humerus thick at the body, through
+    // the wrist, tapering to a thin finger at the wingtip. Because it shares the
+    // membrane's own v=0 points it can never gap from the sheet (the join the user
+    // flagged). Vertically flattened so it reads as a bone bonded to the edge, not a rod.
+    {
+      const rArm = (model.furyArmRadius ?? 0.12) * (model.wingRootScale ?? 1);
+      const rWrist = model.furyForearmRadius ?? 0.055;
+      const rTip = model.furyFrameTipRadius ?? 0.016;
+      const N = seg(18), pts = [], radii = [], sk = [];
+      for (let s = 0; s < N; s++) {
+        const u = s / (N - 1);
+        const p = memXYZ(u, 0);
+        pts.push(new THREE.Vector3(p[0], p[1], p[2]));
+        radii.push(u <= wristFrac
+          ? rArm + (rWrist - rArm) * sstep(u / wristFrac)                  // humerus → wrist
+          : rWrist + (rTip - rWrist) * sstep((u - wristFrac) / (1 - wristFrac))); // wrist → tip finger
+        sk.push(spanSkin(side, u * wristX));
+      }
+      sk[0] = hullSkinAt(rootHull[0]);                                     // root rides the body
+      const frame = skinnedTube(pts, radii, seg(7), (s) => sk[s], strutMat).geometry;
+      const fp = frame.attributes.position, rings = seg(7);
+      for (let s = 0; s < N; s++) { const cy = pts[s].y; for (let j = 0; j < rings; j++) { const k = s * rings + j; fp.setY(k, cy + (fp.getY(k) - cy) * 0.6); } }
+      fp.needsUpdate = true; frame.computeVertexNormals();
+      strutGeos.push(frame);
+    }
+
+    // FINGER struts: thin tubes fanning from the WRIST to every trailing scallop tip
+    // (the scallop joins). The OUTER finger reaches near the wingtip → longest + most
+    // curved (it follows the bulged trailing edge); inner fingers are short + straight
+    // (the medial-most is the straightest) — the anatomy the user described.
+    const wristC = 0.14;                                                  // wrist sits just aft of the leading edge
+    for (let f = 1; f < fingers; f++) {            // inner scallop tips; the leading frame is the outer finger
       const uTip = f / fingers;
       const N = seg(6), pts = [], radii = [], sk = [];
       for (let j = 0; j < N; j++) {
         const t = j / (N - 1);
-        const u = lerp(0.12, uTip, t);
-        const c = Math.pow(t, 1.25);                 // fan: leading-root → trailing tip
+        const u = lerp(wristFrac, uTip, t);
+        const c = lerp(wristC, 1, Math.pow(t, 1.15));     // wrist (near leading) → scallop tip (trailing)
         const p = memXYZ(u, c);
-        pts.push(new THREE.Vector3(p[0], p[1] + 0.02, p[2]));   // sit just proud of the sheet
-        radii.push(lerp(0.04, 0.013, t));
+        pts.push(new THREE.Vector3(p[0], p[1] + 0.018, p[2]));            // ride just proud of the sheet
+        radii.push(lerp(0.034, 0.011, t));
         sk.push(spanSkin(side, u * wristX));
       }
       strutGeos.push(skinnedTube(pts, radii, seg(4), (s) => sk[s], strutMat).geometry);
@@ -528,18 +544,24 @@ function buildFuryHull(def, model, attach, giM) {
     const axis = new THREE.Vector3(side * Math.sin(splay), -0.12, Math.cos(splay)).normalize();
     const Wdir = new THREE.Vector3().crossVectors(axis, new THREE.Vector3(0, 1, 0)).normalize();
     const tip = rootMid.clone().addScaledVector(axis, finLen);
-    const SEG_U = seg(9);
+    const toes = Math.max(2, Math.round(model.furyTailFinToes ?? 3));
+    const finScallop = model.furyTailFinScallop ?? 0.34;
+    // a point on the fin blade at span u∈[0,1] (root→tip) and chord c∈[0,1]; the outer
+    // silhouette is SCALLOPED — deep notches between `toes` toe-tips, like the wing webs.
+    const finPoint = (u, c) => {
+      const notch = 1 - finScallop * (0.5 - 0.5 * Math.cos(2 * Math.PI * toes * u));   // dips between toes
+      const width = finWid * Math.sin(Math.PI * Math.pow(u, 0.62)) * notch;            // leaf bulge × scallop
+      return rootMid.clone().lerp(tip, u).addScaledVector(Wdir, width * (c - 0.5) * 2);
+    };
+    const SEG_U = seg(12);
     const verts = [], idx = [], skin = [];
     for (let i = 0; i <= SEG_U; i++) {
       const u = i / SEG_U;
-      const width = finWid * Math.sin(Math.PI * Math.pow(u, 0.62));   // leaf bulge (0 at root + tip)
-      const center = rootMid.clone().lerp(tip, u);
       for (let v = 0; v <= V; v++) {
         const c = V > 0 ? v / V : 0;
         if (i === 0) { const h = rootHull[v]; verts.push(hullPos.getX(h), hullPos.getY(h), hullPos.getZ(h)); }
         else {
-          const leaf = center.clone().addScaledVector(Wdir, width * (c - 0.5) * 2);
-          const p = rv(rootHull[v]).lerp(leaf, sstep(Math.min(u / 0.22, 1)));   // blend off the welded root
+          const p = rv(rootHull[v]).lerp(finPoint(u, c), sstep(Math.min(u / 0.22, 1)));   // blend off the welded root
           verts.push(p.x, p.y, p.z);
         }
         skin.push(i === 0 ? hullSkinAt(rootHull[v]) : { si: [BONE.T3, 0, 0, 0], sw: [1, 0, 0, 0] });
@@ -557,6 +579,20 @@ function buildFuryHull(def, model, attach, giM) {
     const gN = g.attributes.normal;
     for (let v = 0; v <= V; v++) { const h = rootHull[v]; gN.setXYZ(v, hullNrm.getX(h), hullNrm.getY(h), hullNrm.getZ(h)); }
     gN.needsUpdate = true;
+
+    // toe struts: very thin tubes from the fin root out to each scalloped toe-tip (the
+    // notch peaks), one per toe — the subtle finger-spar read the user asked for.
+    for (let j = 0; j < toes; j++) {
+      const uPeak = (2 * j + 1) / (2 * toes);            // scallop peak along the span
+      const N = seg(4), pts = [], radii = [];
+      for (let s = 0; s < N; s++) {
+        const t = s / (N - 1);
+        const p = finPoint(uPeak * t, 0.92);             // root → toe tip on the trailing side
+        pts.push(new THREE.Vector3(p.x, p.y + 0.012, p.z));
+        radii.push(lerp(0.022, 0.008, t));
+      }
+      strutGeos.push(skinnedTube(pts, radii, seg(3), () => ({ si: [BONE.T3, 0, 0, 0], sw: [1, 0, 0, 0] }), strutMat).geometry);
+    }
     return { mem: g };
   }
 
@@ -591,7 +627,7 @@ function buildFuryHull(def, model, attach, giM) {
   }
 
   // ── tip markers (trail spawn) — children of the wrist bones ────────────────
-  const mkMarker = (arm) => { const m = new THREE.Object3D(); m.position.set(arm.side * span * (wristFrac - elbowFrac), 0, 0.4); arm.wrist.add(m); return m; };
+  const mkMarker = (arm) => { const m = new THREE.Object3D(); m.position.set(arm.side * span * (1 - wristFrac), archV, 0.2); arm.wrist.add(m); return m; };
   const tipMarkerR = mkMarker(armR), tipMarkerL = mkMarker(armL);
 
   // ── assemble + bind (L2 local-space order) ─────────────────────────────────
@@ -620,26 +656,31 @@ function buildFuryHull(def, model, attach, giM) {
   };
 }
 
-// Dorsal nubs: small curved bumps along the back ridge (shoulder → tail-root).
+// Dorsal nubs: a row of small BACK-SWEPT pointed knobs running the spine from the
+// mid-back down the tail (the reference's little dorsal spines). Each is a curved,
+// rearward-leaning spike — a wide base on the skin tapering to a fine tip — that
+// rides the loft's own apex line, taller over the back and finer/spikier on the tail.
 function buildDorsalNubs(model, loft, mat, loftSkinAtZ) {
   const count = Math.max(0, Math.round(model.furyDorsalNubCount ?? 0));
   if (!count) return [];
-  const h = model.furyDorsalNubHeight ?? 0.07;
+  const h = model.furyDorsalNubHeight ?? 0.09;
+  const topHAt = (z) => { const s = loft.stations; if (z <= s[0][0]) return s[0][2]; for (let j = 0; j < s.length - 1; j++) if (z <= s[j + 1][0]) return lerp(s[j][2], s[j + 1][2], (z - s[j][0]) / (s[j + 1][0] - s[j][0])); return s[s.length - 1][2]; };
   const geos = [];
   for (let i = 0; i < count; i++) {
-    const z = lerp(-0.6, 2.3, i / Math.max(1, count - 1));
-    const y = loft.spineYAt(z) + loft.profile.stations.find(() => true)[2] * 0 + 0;   // ride the keel
-    const topH = (() => { const s = loft.stations; if (z <= s[0][0]) return s[0][2]; for (let j = 0; j < s.length - 1; j++) if (z <= s[j + 1][0]) return lerp(s[j][2], s[j + 1][2], (z - s[j][0]) / (s[j + 1][0] - s[j][0])); return s[s.length - 1][2]; })();
-    const baseY = loft.spineYAt(z) + topH * 1.0;
-    const c0 = new THREE.Vector3(0, baseY, z - 0.06);
-    const c1 = new THREE.Vector3(0, baseY + h, z);
-    const c2 = new THREE.Vector3(0, baseY + h * 0.4, z + 0.08);
+    const z = lerp(-1.2, 3.5, i / Math.max(1, count - 1));
+    const back = Math.max(0, 1 - Math.abs(z + 0.2) / 3.2);   // tallest over the back
+    const hz = h * (0.55 + 0.45 * back);                     // back knobs taller, tail spikes shorter
+    const baseY = loft.spineYAt(z) + topHAt(z);              // on the dorsal apex line
+    // a rearward-leaning spike: base on the skin → tip up AND back (+z), curved.
+    const c0 = new THREE.Vector3(0, baseY - 0.01, z - 0.05);
+    const c1 = new THREE.Vector3(0, baseY + hz * 0.7, z + 0.03);
+    const c2 = new THREE.Vector3(0, baseY + hz, z + 0.12);    // tip swept back
     const curve = new THREE.CatmullRomCurve3([c0, c1, c2], false, 'centripetal');
-    const pts = curve.getPoints(seg(4));
-    const radii = pts.map((_, j) => 0.035 * Math.sin((j / (pts.length - 1)) * Math.PI) + 0.012);
+    const pts = curve.getPoints(seg(5));
+    const r0 = 0.05 * (0.7 + 0.3 * back);                    // wide base
+    const radii = pts.map((_, j) => lerp(r0, 0.004, Math.pow(j / (pts.length - 1), 0.8)));  // taper to a fine point
     const sk = loftSkinAtZ(z);
-    const g = skinnedTube(pts, radii, seg(4), () => sk, mat).geometry;
-    geos.push(g);
+    geos.push(skinnedTube(pts, radii, seg(4), () => sk, mat).geometry);
   }
   return geos;
 }
