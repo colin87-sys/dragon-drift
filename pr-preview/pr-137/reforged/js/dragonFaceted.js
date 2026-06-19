@@ -29,13 +29,14 @@ import { seg } from './modelDetail.js';
 // emitted as flat-shaded facets. We reuse buildTorso (so the full attach contract,
 // neck chain and wing fairings come for free) and only swap the geometry function.
 
-// A hard, angular cross-section: a flat top deck, sharp upper chines, a wide
-// mid-line and a beveled belly — the wedge of a low supercar. CCW toward -z so
-// face winding points outward (matches dragonTorso's bladeRing convention).
+// A BOXY, mecha cross-section: a flat top DECK, near-vertical chamfered sides and
+// a flat wide BOTTOM (the diffuser face) — a Lamborghini rear trapezoid, not a
+// pointed diamond. CCW around the perimeter; the torso material is DoubleSide so
+// winding is robust. This single ring change is what makes the rear read boxy.
 function wedgeRing(w, top, bot) {
   return [
-    [0, top], [-w * 0.58, top * 0.5], [-w, top * 0.04], [-w * 0.74, -bot * 0.55],
-    [0, -bot], [w * 0.74, -bot * 0.55], [w, top * 0.04], [w * 0.58, top * 0.5],
+    [-w * 0.5, top], [-w, top * 0.45], [-w, -bot * 0.5], [-w * 0.55, -bot],
+    [w * 0.55, -bot], [w, -bot * 0.5], [w, top * 0.45], [w * 0.5, top],
   ];
 }
 
@@ -114,6 +115,18 @@ function flatTriMesh(triList, mat) {
   return new THREE.Mesh(g, mat);
 }
 
+// A box strut spanning two 3D points a→b (a wing frame bar). `th` = [width,height]
+// of the bar cross-section. Oriented like the legacy spar math.
+function frameBar(a, b, th, mat) {
+  const dx = b[0] - a[0], dy = b[1] - a[1], dz = b[2] - a[2];
+  const len = Math.hypot(dx, dy, dz);
+  const bar = new THREE.Mesh(new THREE.BoxGeometry(len, th[1], th[0]), mat);
+  bar.position.set((a[0] + b[0]) / 2, (a[1] + b[1]) / 2, (a[2] + b[2]) / 2);
+  bar.rotation.z = Math.atan2(dy, dx);
+  bar.rotation.y = -Math.atan2(dz, Math.hypot(dx, dy));
+  return bar;
+}
+
 function buildHexMembraneWings(def, model, attach, giM) {
   const group = new THREE.Group();
   const spineMats = [];
@@ -155,16 +168,13 @@ function buildHexMembraneWings(def, model, attach, giM) {
     const C = [side * (WX - 0.45), WY, 0.95], D = [side * 0.12, 0, 0.72];
     pivot.add(flatTriMesh([[A, B, C], [A, C, D]], wingMat));
 
-    // Carbon leading-edge spar along A→B (the body line).
-    const dx = B[0] - A[0], dy = B[1] - A[1], dz = B[2] - A[2];
-    const len = Math.hypot(dx, dy, dz);
-    const spar = new THREE.Mesh(new THREE.BoxGeometry(len, 0.06, 0.1), boneMat);
-    spar.position.set((A[0] + B[0]) / 2, (A[1] + B[1]) / 2, (A[2] + B[2]) / 2);
-    spar.rotation.z = Math.atan2(dy, dx);
-    spar.rotation.y = -Math.atan2(dz, Math.hypot(dx, dy));
-    pivot.add(spar);
+    // CARBON FRAME — a thick leading bar A→B (the body line) + a thin trailing rail
+    // D→C, so the membrane reads as a framed mecha panel, not a bare sheet.
+    pivot.add(frameBar(A, B, [0.11, 0.07], boneMat));   // leading-edge bar (thick)
+    pivot.add(frameBar(D, C, [0.05, 0.04], boneMat));   // trailing rail (thin)
 
     // Amber light-seam strips on the inner panel (the tail-light read).
+    const dx = B[0] - A[0], dy = B[1] - A[1];
     for (const t of [0.34, 0.62]) {
       const seam = new THREE.Mesh(new THREE.BoxGeometry(0.045, 0.045, 1.0), seamMat);
       seam.position.set(A[0] + dx * t, A[1] + dy * t + 0.03, 0.2);
@@ -178,6 +188,7 @@ function buildHexMembraneWings(def, model, attach, giM) {
     const Bp = [0, 0, -0.18], T = [side * TX, 0.16, TZ];
     const N = [side * NX, 0.05, NZ], Cp = [side * -0.45, 0, 0.95];
     wingTip.add(flatTriMesh([[Bp, T, N], [Bp, N, Cp]], wingMat));
+    wingTip.add(frameBar(Bp, T, [0.09, 0.06], boneMat));   // outer leading-edge bar (the sharp tip rail)
     const marker = new THREE.Object3D();
     marker.position.set(side * TX, 0.16, TZ);
     wingTip.add(marker);
@@ -318,6 +329,116 @@ function buildBladeJetTail(def, model, mats, anchor) {
 }
 
 registerTail('bladeJet', buildBladeJetTail);
+
+// ── TAIL: 'svjRear' ─────────────────────────────────────────────────────────────
+// The Aventador-SVJ rear, as a RIGID structural tail (segs:[] → the rig never
+// coils it). A boxy transom panel carries the wraparound tail-light bar + central
+// exhausts + a vertical-finned diffuser, and TWO articulating stabilizer flaps ride
+// the `tailFins` hook (deploy on boost + deflect into turns + a gated up/down pitch
+// flutter — see dragon.js / makePreviewTick) so the spoiler's flaps "support flight"
+// like aircraft tail stabilizers.
+function buildSvjRearTail(def, model, mats, anchor) {
+  const { bodyMat } = mats;
+  const root = new THREE.Group();
+  root.position.set(0, anchor.y, anchor.z);
+  const accentMats = [];
+
+  const carbon = new THREE.MeshStandardMaterial({
+    color: def.belly ?? def.horn ?? 0x0e0e12, flatShading: true, roughness: 0.42, metalness: 0.6,
+  });
+  const panelMat = bodyMat.clone(); panelMat.flatShading = true;   // body-gold transom panel
+  const lightCol = def.apexSeam ?? 0xff3b2f;                       // tail-light red
+  const lightMat = new THREE.MeshStandardMaterial({
+    color: lightCol, emissive: lightCol, emissiveIntensity: 1.7, roughness: 0.3,
+  });
+  lightMat.userData.baseEmissive = lightCol;
+  lightMat.userData.baseIntensity = 1.7;
+  accentMats.push(lightMat);
+  const exhaustCol = def.boostTrail ?? def.coreGlow ?? 0xff8a1f;
+  const coreMat = new THREE.MeshStandardMaterial({
+    color: exhaustCol, emissive: exhaustCol, emissiveIntensity: 1.8, roughness: 0.3,
+  });
+  coreMat.userData.baseEmissive = exhaustCol;
+  coreMat.userData.baseIntensity = 1.8;
+  accentMats.push(coreMat);
+
+  const zBack = 0.25;            // the transom face sits just behind the body tail root
+  const HW = 0.5;               // transom half-width
+  const topY = 0.28, botY = -0.34;
+
+  // Rear transom — a wide flat boxy back panel (the Lambo rear face).
+  const transom = new THREE.Mesh(new THREE.BoxGeometry(HW * 2, topY - botY, 0.14), panelMat);
+  transom.position.set(0, (topY + botY) / 2, zBack);
+  root.add(transom);
+
+  // SVJ tail-light bar: a straight TOP frame, two Y/chevron light clusters wrapping
+  // down each side, and a thin RUNNER across the middle linking them.
+  const topFrame = new THREE.Mesh(new THREE.BoxGeometry(HW * 1.9, 0.05, 0.06), lightMat);
+  topFrame.position.set(0, topY - 0.02, zBack + 0.08);
+  root.add(topFrame);
+  const runner = new THREE.Mesh(new THREE.BoxGeometry(HW * 1.95, 0.035, 0.05), lightMat);
+  runner.position.set(0, (topY + botY) / 2 + 0.02, zBack + 0.08);
+  root.add(runner);
+  for (const s of [-1, 1]) {
+    // a wrapping chevron (the Y-shaped light) per side
+    for (const [oy, ang] of [[0.12, 0.5], [-0.02, -0.5]]) {
+      const bar = new THREE.Mesh(new THREE.BoxGeometry(0.04, 0.18, 0.05), lightMat);
+      bar.position.set(s * HW * 0.62, topY - 0.16 + oy, zBack + 0.08);
+      bar.rotation.z = s * ang;
+      root.add(bar);
+    }
+  }
+
+  // Central exhausts — twin pairs stacked high-center.
+  const nozzleMat = carbon;
+  for (const [ox, oy] of [[-0.09, -0.04], [0.09, -0.04]]) {
+    const noz = new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.12, 0.22, seg(6)), nozzleMat);
+    noz.rotation.x = Math.PI / 2;
+    noz.position.set(ox, oy, zBack + 0.1);
+    root.add(noz);
+    const core = new THREE.Mesh(new THREE.CylinderGeometry(0.066, 0.066, 0.12, seg(6)), coreMat);
+    core.rotation.x = Math.PI / 2;
+    core.position.set(ox, oy, zBack + 0.2);
+    root.add(core);
+  }
+
+  // Diffuser — vertical carbon fins along the bottom of the transom.
+  for (let i = -2; i <= 2; i++) {
+    const fin = new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.2, 0.3), carbon);
+    fin.position.set(i * 0.14, botY + 0.06, zBack + 0.12);
+    fin.rotation.x = 0.22;
+    root.add(fin);
+  }
+
+  // Two STABILIZER FLAPS on the upper corners — flat angular winglets returned in
+  // tailFins. They deploy on boost, deflect into turns (signed bankGain), and pitch
+  // up/down via the gated flapFlutter (dragon.js). restRotX = slight up-angle.
+  const tailFins = [];
+  const flapMat = panelMat;
+  for (const s of [-1, 1]) {
+    const flap = new THREE.Group();
+    flap.position.set(s * (HW - 0.04), topY - 0.04, zBack - 0.02);
+    const blade = new THREE.Mesh(new THREE.BoxGeometry(0.55, 0.05, 0.34), flapMat);
+    blade.position.set(s * 0.26, 0, 0.02);
+    flap.add(blade);
+    const edge = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.03, 0.05), lightMat);
+    edge.position.set(s * 0.26, 0.015, 0.18);
+    flap.add(edge);
+    flap.userData.restRotX = -0.18;          // slight up-angle (elevator)
+    flap.userData.restRotY = 0;
+    flap.userData.restRotZ = s * 0.16;        // outward droop
+    flap.userData.restScale = 1;
+    flap.userData.bankGain = s * 0.5;         // deflect INTO the turn (rudder)
+    flap.userData.flapFlutter = 0.22;         // gated up/down pitch amplitude
+    flap.userData.phase = s * 1.6;            // L/R out of phase → aileron read
+    root.add(flap);
+    tailFins.push(flap);
+  }
+
+  return { group: root, segs: [], tailFins, accentMats };
+}
+
+registerTail('svjRear', buildSvjRearTail);
 
 // ── SURFACE LAYERS — reusable angular "aero" decoration ─────────────────────────
 // Declarative layers (ctx → { meshes, flareMats }), reusable by any hard-surface

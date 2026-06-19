@@ -1849,3 +1849,33 @@ splitter / vents) any hard-surface creature can compose.
 faceted vs smooth builder axis means a new creature's whole stance is two data choices (profile + part family). Next:
 promote the profile choice into a grammar knob (`hull.profile: 'bull'|'arrow'|…`) so stance is describable, and add a
 mid-weight profile between arrow and bull to cover "athletic" creatures without a new constant each time.
+
+### L58 — A tail needn't coil: a RIGID structural rear + control-surface flaps on the `tailFins` hook (the "car/mecha" tail); and the cross-section RING is the boxy-vs-organic knob
+**Did / learned:** the player wanted Aurum Toro's rear to read like a Lamborghini SVJ (boxy, with a spoiler) and the
+movement to come from spoiler flaps "like a plane's tail stabilizers." Three moves. **(1)** The cross-section RING is
+the silhouette knob: swapped the faceted torso's pointed-diamond `wedgeRing` for a BOXY trapezoid (flat top deck,
+near-vertical chamfered sides, flat wide bottom) → the whole body, especially the narrow rear, lofts as a box (the
+mecha/car read) with zero other changes. **(2)** A tail builder needn't be a coiling chain: `svjRear` returns
+`segs: []` (the verified `none`/`cometWake` rigid-tail path) — a static transom carrying the SVJ wraparound tail-light
+bar (straight top frame + Y-chevron clusters + a thin middle runner; one emissive mat tagged `baseEmissive/
+baseIntensity` → `accentMats` so it Surge-flares), central exhausts and a vertical-finned diffuser. **(3)** The MOTION
+comes from two stabilizer flaps returned in **`tailFins`** — the EXISTING hook that already deploys on boost
+(`tailDeploy` 0.82→1.08) and deflects into turns (`bankGain·turnBias`); I added ONE additive, GATED line in the
+`tailFins` loop (dragon.js) + `makePreviewTick` (dragonModel.js) that adds an up/down pitch flutter ONLY when
+`userData.flapFlutter` is set — so the flaps act like aircraft elevators while every other `tailFins` dragon (Obsidian,
+Night Fury) stays byte-identical. Also framed the delta wings with carbon leading/trailing/tip BARS (a `frameBar(a,b,
+th,mat)` helper) for the mecha-panel read. Verified: blueprint 0 warnings, tricount 1536/form 0-over, tiershots no
+PAGEERROR; the rear montage now reads as a boxy car-tail with a horizontal light bar + diffuser, not a pointed blob.
+**Gotcha:** `makePreviewTick` does NOT animate `tailFins` at all (only `tailSegs`/spine/head/body), so shop-preview
+motion for a new fin needs its own gated line there — and gating on the same `flapFlutter` flag keeps every existing
+dragon's preview untouched.
+**→ Systematize:** the part-authoring vocabulary now has THREE orthogonal stance knobs — **profile** (arrow/serpent/
+panther/bull), **cross-section ring** (organic wedge vs boxy/mecha), and **tail kind** (coiling chain / rigid structure
+/ control-surface flaps) — each a small data/recipe choice. And the **gated-`userData`-flag** pattern (flutter only
+fires where flagged) is the safe, byte-identical way to add NEW rig motion without a contract change — reusable for any
+future driven appendage (thrusters, antennae, landing gear).
+**→ Leapfrog (innovate):** with a rigid-structure tail + control-surface flaps proven, a whole **vehicle/mecha creature
+class** is in reach (jets, walkers, drones) where "limbs" are aero/mechanical surfaces driven by flight state. Next:
+expose ring-shape + tail-kind as grammar knobs (describable mecha), a panel-line surface shader for the boxy plating,
+and drive the exhaust/flutter from the SAME flight-state signals the wings read so the whole creature animates as one
+aircraft.
