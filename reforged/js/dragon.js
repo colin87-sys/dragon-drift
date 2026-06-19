@@ -558,29 +558,23 @@ export function updateDragon(dt, player, time) {
 
   const nTail = tailSegs.length;
   if (nTail && activeDef.model.tailWhip) {
-    // Night-Fury tail = a SKINNED bone chain (not free segments), so drive it by ROTATION
-    // only (position would tear the chain). A flying creature's tail TRAILS like a rudder —
-    // a lazy LATERAL (side-to-side) streaming swish is the dominant idle motion (NOT a
-    // dolphin up/down pump, which read awkward), with only a SUBTLE vertical follow-through
-    // lag. BANKING adds the horizontal rudder curving the tail INTO the turn.
+    // Night-Fury tail = a SKINNED bone chain (driven by ROTATION only — position tears it). It
+    // moves like the ORIGINAL dragons (azure): a LATERAL travelling COIL — a side-to-side wave
+    // running aft down the tail (azure's non-skinned tail is `sin(time*4.0 − i*0.6)·0.3·lock²`
+    // on position; reproduced here on rotation.y), with only a SUBTLE vertical follow-through.
+    // BANKING adds the horizontal rudder curving the tail INTO the turn.
     const cruise = 1 - bankHard * 0.7;
-    const sp = 0.6 + 0.4 * speedNorm;
-    const tWhip = -vertJerk * 0.016;          // SUBTLE vertical follow-through (was a 0.040 pump)
-    const loose = Math.max(0.2, 1 - 0.45 * aero01) * (1 + 0.4 * decel01) * (1 - 0.5 * diveAmount);
+    const tWhip = -vertJerk * 0.014;          // subtle vertical follow-through (not a pump)
     const lam = Math.max(4, 8 + 5 * aero01 - 3 * decel01);
-    // lazy lateral STREAMING sway — a slow sine running aft down the tail (a real trailing
-    // tail), faded out as the rudder takes over on a hard bank. This is the dominant motion.
-    const swayAmp = (0.14 + 0.05 * speedNorm) * cruise;
+    const coilRate = 4.0;                                  // azure's tail rate
+    const coilAmp = (0.17 + 0.06 * speedNorm) * cruise;    // grows with speed; faded out on a hard bank
     for (let i = 0; i < nTail; i++) {
-      const lock = (i + 1) / nTail;                       // root subtle → tip full
-      const ph = phase - 1.6 - i * 0.6;                   // trail the wingbeat aft
-      // VERTICAL: only a small follow-through lag now (was a 0.19 dolphin pump → 0.05).
-      const pitch = flapSurge(ph) * 0.05 * lock * cruise * sp * loose;
-      const sway = Math.sin(time * 1.5 - i * 0.7) * swayAmp * lock;     // lazy lateral swish
-      const rudder = turnBias * (1.4 + 0.9 * aero01) * lock * bankHard;  // hard-bank rudder
-      tailSegs[i].rotation.x = damp(tailSegs[i].rotation.x, pitch + climbAmount * 0.10 * lock + tWhip * lock, lam, dt);
-      tailSegs[i].rotation.y = damp(tailSegs[i].rotation.y, rudder + sway, lam, dt);
-      tailSegs[i].rotation.z = damp(tailSegs[i].rotation.z, 0, 9, dt);
+      const lock = (i + 1) / nTail;                        // root subtle → tip full (per-segment)
+      const coil = Math.sin(time * coilRate - i * 0.6) * coilAmp * lock;  // azure-style lateral coil
+      const rudder = turnBias * (1.4 + 0.9 * aero01) * lock * bankHard;    // hard-bank rudder
+      tailSegs[i].rotation.x = damp(tailSegs[i].rotation.x, climbAmount * 0.08 * lock + tWhip * lock, lam, dt);
+      tailSegs[i].rotation.y = damp(tailSegs[i].rotation.y, rudder + coil, lam, dt);
+      tailSegs[i].rotation.z = damp(tailSegs[i].rotation.z, -coil * 0.4, 10, dt);   // slight bank into the coil (like azure)
     }
   } else for (let i = 0; i < nTail; i++) {
     const lock = nTail > 1 ? i / (nTail - 1) : 0;

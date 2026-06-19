@@ -48,7 +48,7 @@ const sstep = (x) => { x = Math.min(Math.max(x, 0), 1); return x * x * (3 - 2 * 
 const SECTION_N = 20;
 function nfSection(w, top, bot) {
   const pts = [];
-  const ex = 2.15;                                   // >2 = fuller, rounder flanks
+  const ex = 2.6;                                    // >2 = fuller, rounder flanks (a chunky barrel, not an oval)
   const shape = (c) => Math.sign(c) * Math.pow(Math.abs(c), 2 / ex);
   for (let i = 0; i < SECTION_N; i++) {
     const a = (i / SECTION_N) * Math.PI * 2 + Math.PI / 2; // i=0 → top (+y), CCW
@@ -93,18 +93,21 @@ const NIGHTFURY_PROFILE = {
     [-2.06, 0.310, 0.250, 0.295,  0.06], // skull base
     // ── NECK: SHORT + THICK (head sits right at the shoulders, no long neck) ──
     [-1.85, 0.380, 0.300, 0.370,  0.08], // neck (short, thick, ramps fast)
-    // ── BODY: DEEP muscular chest — belly > keelTop (the body HANGS DOWN = mass), broad
-    //    shoulders. This vertical depth is the "muscular vs thin-drake" lever. ──
-    [-1.55, 0.510, 0.420, 0.520,  0.10], // fore-shoulder — deep belly begins
-    [-1.15, 0.640, 0.500, 0.660,  0.11], // shoulder/ribcage — broad + DEEP (back hump)
-    [-0.70, 0.685, 0.520, 0.710,  0.10], // CHEST PEAK — deepest belly, wing area
-    [-0.30, 0.660, 0.500, 0.685,  0.08], // chest (wing-root centre) — deep
-    [ 0.10, 0.570, 0.440, 0.590,  0.03], // thorax (still deep)
-    [ 0.48, 0.455, 0.380, 0.460, -0.02], // belly → waist
-    [ 0.85, 0.355, 0.320, 0.350, -0.07], // waist
-    [ 1.20, 0.288, 0.272, 0.270, -0.12], // haunch
-    // ── TAIL: long, thin, tapering, sweeping DOWN then the TIP KICKS UP (the S flourish) ──
-    [ 1.55, 0.232, 0.222, 0.212, -0.17],
+    // ── BODY: a CHUNKY muscular BARREL (panther/cat mass) — broad WIDE flanks + a DEEP belly
+    //    (belly > keelTop → the body hangs down) through a COMPACT chest, then a pinched WAIST,
+    //    then a muscular HAUNCH bulge, then the long thin tail. Girth lives in halfWidth(side) +
+    //    belly(bottom) so the top-line stays smooth (no-facet gate untouched). ──
+    [-1.55, 0.560, 0.430, 0.600,  0.10], // fore-shoulder — barrel begins
+    [-1.15, 0.740, 0.500, 0.760,  0.11], // shoulder/ribcage — BROAD + DEEP barrel
+    [-0.70, 0.800, 0.510, 0.820,  0.10], // CHEST PEAK — widest + deepest (the barrel)
+    [-0.30, 0.760, 0.490, 0.800,  0.08], // chest (wing-root centre) — broad + deep
+    [ 0.10, 0.620, 0.430, 0.660,  0.03], // thorax (still chunky)
+    [ 0.48, 0.420, 0.360, 0.440, -0.02], // belly easing toward the waist
+    [ 0.78, 0.320, 0.300, 0.320, -0.06], // WAIST — pinched (cat tuck) so the chest reads broad
+    [ 1.05, 0.420, 0.330, 0.420, -0.09], // HAUNCH — muscular thigh bulge (girth back UP)
+    [ 1.32, 0.380, 0.310, 0.370, -0.13], // haunch back
+    // ── TAIL: necks down off the haunch into a long, thin tail, sweeping DOWN then TIP KICKS UP ──
+    [ 1.58, 0.250, 0.232, 0.224, -0.17],
     [ 1.95, 0.188, 0.182, 0.170, -0.22],
     [ 2.35, 0.148, 0.144, 0.133, -0.26], // sweeping down
     [ 2.75, 0.113, 0.110, 0.100, -0.27], // lowest point of the tail sweep

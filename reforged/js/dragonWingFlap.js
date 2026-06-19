@@ -63,17 +63,20 @@ export function flapWing(rig, state, dt) {
   const steerMag = state.bankHard ?? Math.min(Math.abs(turnBias) / 0.28, 1);
   const tuck = steerMag * (turnBias * side > 0 ? P.bankTuck : -P.bankOpen) * (0.7 + 0.5 * aero);
 
-  // Shoulder — main flap (+ aero sweep-back/level − spread opening + bank dip).
+  // Shoulder — main flap (+ aero sweep-back/level − spread opening + bank dip). The main flap
+  // (rotation.z, −side) is mirror-symmetric; the FEATHER pitch (rotation.x) must be SYMMETRIC too
+  // (NO side) so both wings pitch leading-edge up/down TOGETHER — a true mirror beat, not the old
+  // anti-symmetric roll that read as the wings flapping at slightly different times.
   const sh = rig.shoulder;
   sh.rotation.z = damp(sh.rotation.z, -side * rootFlap + turnBias + side * rollFold + side * tuck * 0.5, 14, dt);
-  sh.rotation.x = damp(sh.rotation.x, 0.14 + side * feather * 0.18 + climbBias - aero * P.surgeLevel + spread * P.spreadLift, 10, dt);
+  sh.rotation.x = damp(sh.rotation.x, 0.14 + feather * 0.18 + climbBias - aero * P.surgeLevel + spread * P.spreadLift, 10, dt);
   sh.rotation.y = damp(sh.rotation.y, -side * 0.18 + turnBias * 0.8 - side * P.surgeSweep * aero + side * P.spreadOpen * spread, 9, dt);
 
   // Elbow — the lagged mid-arm joint that gives the whip (+ bank tuck).
   if (rig.elbow) {
     const eFlap = clamp(Math.sin(phase - P.lagElbow) * flapAmp * P.elbowAmp * str, P.elbowLimit[0], P.elbowLimit[1]);
     rig.elbow.rotation.z = damp(rig.elbow.rotation.z, -side * eFlap - side * tuck * 0.5, 12, dt);
-    rig.elbow.rotation.x = damp(rig.elbow.rotation.x, -side * feather * 0.08, 10, dt);
+    rig.elbow.rotation.x = damp(rig.elbow.rotation.x, -feather * 0.08, 10, dt);
   }
 
   // Wrist — the trailing counter-fold (folds on up-stroke). aero tightens the upstroke fold
@@ -83,7 +86,7 @@ export function flapWing(rig, state, dt) {
     P.wristLimit[0], P.wristLimit[1]);
   const w = rig.wrist;
   w.rotation.z = damp(w.rotation.z, side * fold + turnBias * 0.45 + side * tuck, 12, dt);
-  w.rotation.x = damp(w.rotation.x, -0.12 + side * feather * 0.16, 10, dt);
+  w.rotation.x = damp(w.rotation.x, -0.12 + feather * 0.16, 10, dt);
 }
 
 // Per-form wingbeat character from the stamped form index (0..3). The gap is
