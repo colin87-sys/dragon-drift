@@ -1097,9 +1097,11 @@ export const DRAGONS = {
 
   // AURUM TORO — a Lamborghini-Aventador-as-dragon, and the HERO that proves the
   // new FACETED ("hard-edge / automotive") part family (dragonFaceted.js): a
-  // chiseled flat-shaded wedge body, scissor-door wings, forward-swept bull horns,
-  // a blade tail with a quad-exhaust jet cluster, and aero layers (scissor hinges,
-  // a front splitter, flank vents). The deliberate opposite of the matte-organic
+  // COMPACT, thick, muscular bull-barrel body (BULL_PROFILE) with sharp short
+  // swept-delta wings, forward-swept bull horns, a short jet-stub tail with a high
+  // central quad-exhaust, and the SVJ REAR — a fixed rear wing on uprights + a
+  // vertical-finned diffuser, plus scissor hinges, a front splitter, flank vents.
+  // The deliberate opposite of the matte-organic
   // roster default — it opts BACK INTO mirror gloss (the per-dragon bodyRoughness/
   // bodyMetalness/bodyEnvIntensity finish override) for a giallo clearcoat. Faithful accents: xenon-
   // blue eyes + amber/red tail-light seams. Quick-look prototype — the PARTS are
@@ -1113,14 +1115,17 @@ export const DRAGONS = {
     cost: 5000,
     parts: {
       torso: 'faceted', wings: 'hexMembrane', head: 'bullCrown', tail: 'bladeJet',
-      surfaceLayers: ['backCrest', 'scissorHinge', 'splitterJaw', 'aeroVents', 'glowSeams'],
+      surfaceLayers: ['svjWing', 'diffuser', 'scissorHinge', 'splitterJaw', 'aeroVents', 'glowSeams'],
     },
     // Fast, sharp-handling, thirsty — a supercar (drain>1 = burns boost fast).
     stats: { speed: 1.16, handling: 1.22, drain: 1.04, regen: 0.95 },
     model: {
-      scale: 1.04, wingScale: 1.06, tailSegments: 7, neckSegments: 4,
+      // Compact + thick: bigger scale for mass, SHORT wings (geometry shortens too),
+      // a short tail stub, broad bull shoulders.
+      scale: 1.15, wingScale: 0.8, tailSegments: 4, neckSegments: 4,
+      shoulderWidthScale: 1.15,
       hornLen: 1.5, hornPairs: 2, ridgeCount: 0, eyeScale: 1.1,
-      flapBias: 1.2, flapAmp: 0.85, // quick, snappy beat
+      flapBias: 1.0, flapAmp: 0.95, // heavier, more powerful beat
     },
     // Giallo clearcoat: glossy + reflective in the shop hero scene (no env in-game).
     bodyRoughness: 0.18, bodyMetalness: 0.55, bodyEnvIntensity: 0.8,

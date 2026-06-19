@@ -1822,3 +1822,30 @@ two-string `parts` swap (the L8 hero→mechanize path); (2) promote the bull=wed
 knobs (`hull.section: 'wedge'|'blade'`, `tail.tip: 'jet'`) so a faceted creature is fully DESCRIBABLE (the L24/L48
 promptability thesis); (3) wire the `bladeJet` exhaust cores to the live boost-trail emitter so the trail visibly
 fires FROM the pipes — motion that reads the part, not just decorates it.
+
+### L57 — "Long & skinny" is a PROFILE bug, not a decoration bug: fix the silhouette in the body stations + tail budget, not by bolting on parts
+**Did / learned:** the first Aurum Toro read "long and skinny" because the faceted torso reused `ARROW_PROFILE` (a
+deliberately long, slim courier body with a long thin after-body) and `bladeJet` built ~7 long tail segments. The fix
+was NOT more decoration — it was a new compact body PROFILE + a shorter tail budget. Authored `BULL_PROFILE`
+(dragonFaceted.js): ~27% shorter z-span, a hard-compressed after-body (tail root 1.70→1.10), much wider half-widths
+(deep barrel chest 0.66→0.86), a tall muscular shoulder hump, a pinched-waist→haunch bulge (reusing the L55 panther
+recipe), and a short neck — and the `faceted` torso now lofts from it (one-line swap; the attach contract is unchanged
+because `buildTorso` reads the profile, so wings/head/tail still mount correctly). Also: SHORTENED the wings into a
+sharp swept DELTA by pulling the span constants in hard (`WX 2.7→1.5`, `TX 2.0→1.0`) while keeping the chord — span,
+not chord, was the "skinny"; and stubbed the tail (segLen 0.7→0.42, n 7→4, faster taper). Added two reusable SVJ aero
+layers — `svjWing` (a fixed aerofoil blade on two uprights, raked, amber-edged) + `diffuser` (vertical carbon fins) —
+swapped in for `backCrest`, and pulled the quad-exhaust tight + high-central (the SVJ stacked-pipe read). Verified:
+blueprint 0 warnings (the two new layers register live), tricount 1516/form 0-over, tiershots no PAGEERROR; the rear
+montage confirmed a compact broad mass replacing the thin sliver.
+**Gotcha:** the wing read "skinny" because of SPAN (the `WX`/`TX` reach), not chord — shortening reach while keeping
+chord turns a thin paddle into a broad delta. Diagnose silhouette complaints by which AXIS is wrong (length vs girth
+vs span), not by reaching for more geometry.
+**→ Systematize:** `BULL_PROFILE` is now a reusable **compact "muscular/vehicular" body macro** sitting next to the
+L55 panther macro — a creature picks a profile the way it picks a builder. And the rule **"silhouette = proportion
+(stations + segment budget), decoration = surface layers; fix the read at the right layer"** generalises every
+"looks wrong-shaped" note. The SVJ `svjWing`+`diffuser` pair joins the automotive aero-layer kit (scissorHinge /
+splitter / vents) any hard-surface creature can compose.
+**→ Leapfrog (innovate):** a small **library of named body profiles** (courier/arrow, serpent, panther, bull) + the
+faceted vs smooth builder axis means a new creature's whole stance is two data choices (profile + part family). Next:
+promote the profile choice into a grammar knob (`hull.profile: 'bull'|'arrow'|…`) so stance is describable, and add a
+mid-weight profile between arrow and bull to cover "athletic" creatures without a new constant each time.
