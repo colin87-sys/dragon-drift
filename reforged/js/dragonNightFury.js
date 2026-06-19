@@ -48,7 +48,7 @@ const sstep = (x) => { x = Math.min(Math.max(x, 0), 1); return x * x * (3 - 2 * 
 const SECTION_N = 20;
 function nfSection(w, top, bot) {
   const pts = [];
-  const ex = 2.15;                                   // >2 = fuller, rounder flanks
+  const ex = 2.6;                                    // >2 = fuller, rounder flanks (a chunky barrel, not an oval)
   const shape = (c) => Math.sign(c) * Math.pow(Math.abs(c), 2 / ex);
   for (let i = 0; i < SECTION_N; i++) {
     const a = (i / SECTION_N) * Math.PI * 2 + Math.PI / 2; // i=0 → top (+y), CCW
@@ -82,44 +82,48 @@ const NIGHTFURY_PROFILE = {
   // channel, default 0): the head rides UP on a curved neck and the tail droops, so
   // the side silhouette reads as a posed dragon, not a flat horizontal plank.
   stations: [
-    // ── HEAD: COMPACT (shorter + a FLAT low crown) + pulled toward the body → stocky.
-    //    Width is carried by the SIDE channel (cheeks widen sideways) while the dorsal
-    //    (top) line stays low → the longitudinal apex climbs gently (no facet kink). ──
-    [-4.12, 0.072, 0.068, 0.072,  0.33], // nose cap (blunt; dorsal line starts high → flat snout)
-    [-3.96, 0.140, 0.160, 0.158,  0.32], // snout / muzzle (rounded; width carried by the SIDE → low dorsal)
-    [-3.76, 0.205, 0.255, 0.228,  0.31], // upper jaw (cheeks widen SIDEWAYS, dorsal stays low)
-    [-3.54, 0.245, 0.345, 0.290,  0.29], // cranium — widest cheeks, FLAT low crown (compact)
-    [-3.32, 0.245, 0.330, 0.276,  0.27], // cranium back / cheeks
-    [-3.11, 0.265, 0.300, 0.258,  0.225],// skull base (gentle, thick — no pinch here)
-    // ── NECK: SHORT + THICK (stocky) flowing into a big ribcage ──
-    [-2.85, 0.330, 0.310, 0.278,  0.13], // head→neck — THICK
-    [-2.55, 0.430, 0.388, 0.345,  0.05], // neck → shoulder (short, ramps fast)
-    // ── BODY: THICK muscular ribcage/thorax → waist → haunch ──
-    [-2.10, 0.575, 0.502, 0.445,  0.00], // fore-shoulder — THICK (pulled forward)
-    [-1.55, 0.645, 0.560, 0.496,  0.00], // shoulder rise — muscular ribcage
-    [-1.05, 0.665, 0.578, 0.510,  0.00], // CHEST PEAK — short + thick
-    [-0.50, 0.620, 0.540, 0.482,  0.00], // chest (wing-root centre)
-     [0.05, 0.530, 0.462, 0.420,  0.00], // thorax (thick)
-     [0.45, 0.410, 0.360, 0.332, -0.01], // waist — muscular (eased from the big chest)
-     [0.85, 0.345, 0.306, 0.286, -0.03], // mid-body
-     [1.20, 0.300, 0.275, 0.235, -0.05], // haunches (powerful)
-     [1.50, 0.275, 0.258, 0.218, -0.08], // tail base — THICK + muscular
-    // ── TAIL: THICK/robust, holds its mass then necks down LATE near the fins ──
-     [1.85, 0.250, 0.236, 0.198, -0.11], // still thick
-     [2.25, 0.225, 0.213, 0.178, -0.15], // hold the mass (muscular)
-     [2.70, 0.190, 0.181, 0.150, -0.18], // only now begins to taper
-     [3.15, 0.138, 0.132, 0.110, -0.20], // taper (fin zone)
-     [3.60, 0.074, 0.072, 0.060, -0.21], // necking to the tip
-     [3.95, 0.016, 0.016, 0.016, -0.20], // tail tip (near-point) — tail ends here
+    // ── HEAD: COMPACT + pulled BACK toward the body (SHORT neck). Width carried by the
+    //    SIDE channel (broad cheeks); the dorsal (top) line stays LOW + FLAT (L46) so the
+    //    longitudinal apex climbs gently. Held forward + LOW (cy near 0, not nose-up). ──
+    [-3.00, 0.085, 0.060, 0.080, -0.02], // nose (blunt, low)
+    [-2.82, 0.180, 0.120, 0.165,  0.00], // snout (width via SIDE, low dorsal)
+    [-2.62, 0.265, 0.175, 0.245,  0.02], // upper jaw (wide cheeks)
+    [-2.42, 0.305, 0.205, 0.280,  0.04], // CRANIUM — widest cheeks, FLAT low crown
+    [-2.24, 0.300, 0.215, 0.275,  0.05], // cranium back
+    [-2.06, 0.310, 0.250, 0.295,  0.06], // skull base
+    // ── NECK: SHORT + THICK (head sits right at the shoulders, no long neck) ──
+    [-1.85, 0.380, 0.300, 0.370,  0.08], // neck (short, thick, ramps fast)
+    // ── BODY: a CHUNKY muscular BARREL (panther/cat mass) — broad WIDE flanks + a DEEP belly
+    //    (belly > keelTop → the body hangs down) through a COMPACT chest, then a pinched WAIST,
+    //    then a muscular HAUNCH bulge, then the long thin tail. Girth lives in halfWidth(side) +
+    //    belly(bottom) so the top-line stays smooth (no-facet gate untouched). ──
+    [-1.55, 0.560, 0.430, 0.600,  0.10], // fore-shoulder — barrel begins
+    [-1.15, 0.740, 0.500, 0.760,  0.11], // shoulder/ribcage — BROAD + DEEP barrel
+    [-0.70, 0.800, 0.510, 0.820,  0.10], // CHEST PEAK — widest + deepest (the barrel)
+    [-0.30, 0.760, 0.490, 0.800,  0.08], // chest (wing-root centre) — broad + deep
+    [ 0.10, 0.620, 0.430, 0.660,  0.03], // thorax (still chunky)
+    [ 0.48, 0.420, 0.360, 0.440, -0.02], // belly easing toward the waist
+    [ 0.78, 0.320, 0.300, 0.320, -0.06], // WAIST — pinched (cat tuck) so the chest reads broad
+    [ 1.05, 0.420, 0.330, 0.420, -0.09], // HAUNCH — muscular thigh bulge (girth back UP)
+    [ 1.32, 0.380, 0.310, 0.370, -0.13], // haunch back
+    // ── TAIL: necks down off the haunch into a long, thin tail, sweeping DOWN then TIP KICKS UP ──
+    [ 1.58, 0.250, 0.232, 0.224, -0.17],
+    [ 1.95, 0.188, 0.182, 0.170, -0.22],
+    [ 2.35, 0.148, 0.144, 0.133, -0.26], // sweeping down
+    [ 2.75, 0.113, 0.110, 0.100, -0.27], // lowest point of the tail sweep
+    [ 3.15, 0.080, 0.078, 0.070, -0.24], // curling back up
+    [ 3.55, 0.050, 0.049, 0.044, -0.16],
+    [ 3.90, 0.027, 0.027, 0.024, -0.07], // tip kicking up
+    [ 4.20, 0.013, 0.013, 0.013,  0.01], // tail tip (level — the line-of-beauty flourish)
   ],
-  keel: [[-4.34, 0.278], [-3.74, 0.185], [-3.05, 0.095], [-0.65, 0.44], [-0.30, 0.42], [0.05, 0.36], [0.45, 0.29], [0.85, 0.24], [1.20, 0.19], [1.70, 0.13], [3.50, 0.056]],
-  wingRoot: { x: 0.45, y: 0.48, z: -0.45 }, // high on the back over the shoulder
+  keel: [[-3.00, 0.05], [-2.42, 0.26], [-1.15, 0.62], [-0.30, 0.60], [0.48, 0.40], [1.20, 0.22], [2.75, 0.10], [4.20, 0.02]],
+  wingRoot: { x: 0.45, y: 0.55, z: -0.45 }, // high on the back over the (forward) shoulder
   fairing: { r: 0.3, scale: [0.86, 0.78, 1.2], pos: [0.46, 0.54, -0.4] },
   neck: {
     rBase: 0.42, rStep: 0.045, rMin: 0.18, scale: [0.8, 0.66, 1.3],
     y0: 0.3, yStep: 0.085, z0: -2.0, zStep: -0.36, wobbleAmp: 0.1, wobbleFreq: 0.8,
   },
-  headBase: (neckSegs) => ({ x: 0, y: 0.5 + (neckSegs - 4) * 0.09, z: -3.08 - (neckSegs - 4) * 0.34 }),
+  headBase: (neckSegs) => ({ x: 0, y: 0.5, z: -2.4 }),
 };
 
 // nightFuryTorso — the body-less peer for the smooth hull. Builds the (legacy, this
@@ -187,7 +191,8 @@ function findSeam(loftGeo, profile, side) {
   // from the apex (i=0 = top): upper-right flank = high indices (≈N*13/16), upper-left
   // = low indices (≈N*3/16). At HIGH m===SECTION_N (the control index IS the column);
   // at LOW/ULTRA the ring is resampled → map onto the nearest resampled column.
-  const ctrlFlank = side > 0 ? Math.round(SECTION_N * 13 / 16) : Math.round(SECTION_N * 3 / 16);
+  // wings sit DORSAL (upper third of the back, per the reference), not mid-flank: 0.87 ≈ col 17/20.
+  const ctrlFlank = side > 0 ? Math.round(SECTION_N * 0.87) : Math.round(SECTION_N * 0.13);
   const col = (m === SECTION_N) ? ctrlFlank : (((Math.round((ctrlFlank / SECTION_N) * m) % m) + m) % m);
   const pos = loftGeo.attributes.position;
 
@@ -751,7 +756,7 @@ function buildNightFury(def, model, attach) {
   let miniL = null, miniR = null;
   // The head rides UP the curved neck (cy≈+0.29 at the cranium — FLAT low crown) and the
   // tail droops (cy≈-0.20 at the fin zone); the feature y-positions track those lifts.
-  const HEAD_Y = TY + 0.30, TAILFIN_Y = TY - 0.18;
+  const HEAD_Y = TY + 0.20, TAILFIN_Y = TY - 0.20;
   // EYES — large almond acid-green eyes INSET into the cheek (recessed so only the
   // front of the ball reads, nestled in the rounded cranium, not a floating sphere).
   {
@@ -760,7 +765,7 @@ function buildNightFury(def, model, attach) {
       const eye = new THREE.Mesh(eyeGeo, eyeMat);
       // on the SIDE of the head (not on top): pushed OUT toward the cheek surface and
       // DROPPED to mid-head height, set into the hide so only the side cap shows.
-      eye.position.set(side * 0.275, HEAD_Y - 0.05, -3.52);
+      eye.position.set(side * 0.265, HEAD_Y - 0.05, -2.55);
       eye.scale.set(0.74, 1.12, 0.70);            // shallow (sunk) + tall → almond socket
       eye.rotation.y = side * 0.55;               // face SIDEWAYS-forward
       eye.rotation.z = side * -0.12;
@@ -777,7 +782,7 @@ function buildNightFury(def, model, attach) {
     for (const side of [1, -1]) {
       const ear = new THREE.Mesh(earGeo, hullMat);
       ear.scale.set(1.0, 1.05, 0.78);             // stubby, mildly flattened → a rounded horn nub
-      ear.position.set(side * 0.17, HEAD_Y + 0.16, -3.16);   // back of the compact head (no crossing)
+      ear.position.set(side * 0.16, HEAD_Y + 0.16, -2.26);   // back of the compact head (no crossing)
       // swept BACK (mostly toward the tail, +z, with a little up). The old −1.30 pointed it
       // FORWARD; +0.30 splay sent the apex INWARD → the crossing — sign FLIPPED to splay OUT.
       ear.rotation.x = 0.85;                       // back + slightly up
@@ -795,7 +800,7 @@ function buildNightFury(def, model, attach) {
     let prevZ = -Infinity;
     for (let r = 0; r < lr.count; r++) {
       const z = lr.ringZ[r];
-      if (z < -4.05 || z > 3.55) continue;        // head crown → tail (skip snout + very tip)
+      if (z < -2.9 || z > 3.95) continue;         // head crown → tail (skip snout + very tip)
       if (z - prevZ < 0.28) continue;             // space them out evenly
       prevZ = z;
       const apex = r * m0 + 0;                     // column 0 = top keel apex
@@ -867,7 +872,7 @@ function buildNightFury(def, model, attach) {
     // the fin ENDS in line with the end of the tail (was starting too early at 3.30).
     // When the tail WHIPS, the fins must ride the last tail bone (else they detach on a
     // bank); position is then LOCAL to that bone so the deploy/bank rotation composes on top.
-    const finBaseW = new THREE.Vector3(side * 0.03, TAILFIN_Y, 3.55);
+    const finBaseW = new THREE.Vector3(side * 0.03, TAILFIN_Y, 3.62);
     if (tailBones.length) {
       const zL = TAIL_BONE_Z[TAIL_BONE_Z.length - 1];
       pivot.position.copy(finBaseW.clone().sub(new THREE.Vector3(0, TY + chAt(zL, 4), zL)));
