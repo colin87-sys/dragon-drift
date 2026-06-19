@@ -859,8 +859,8 @@ export const DRAGONS = {
     },
     hull: {
       profile: FIRE_PROFILE, section: { ex: 2.0 }, sectionN: 20,
-      knobs: { eyes: true, eyeZ: -3.5, eyeX: 0.26, dorsalZRange: [-2.9, 3.2], chestBand: [-1.35, 0.90] },
-      tailBulb: { r: 0.16, z: 4.0, color: 0xff7a22, emissiveIntensity: 1.2, yLift: 0.04 },
+      knobs: { eyes: true, eyeZ: -2.42, eyeX: 0.24, dorsalZRange: [-2.6, 4.0], chestBand: [-1.30, 0.90] },
+      tailBulb: { r: 0.16, z: 4.2, color: 0xff6a1e, innerColor: 0xffd24a, emissiveIntensity: 1.2, yLift: 0.02 },
     },
     stats: { speed: 1.05, handling: 1.04, drain: 1.0, regen: 1.0 },
     // Base wing knobs: anatomical taper arm > forearm > finger (L39). The GRACE levers
@@ -874,7 +874,8 @@ export const DRAGONS = {
       wingArmLeadChord: 0.40,
       wingArmRadius: 0.105, wingForearmRadius: 0.072, wingFrameTipRadius: 0.011, wingFingerRadius: 0.05,
       tailWhip: true, bodyWhip: true, tailSteer: true,
-      tailBoneZ: [1.50, 2.40, 3.20, 3.90],
+      spineFwdZ: [-1.5, -2.4], spineHipZ: 1.10,
+      tailBoneZ: [1.55, 2.45, 3.30, 4.05],
     },
     // BROAD FANNED dragon wing (not a thin delta): moderate SPAN (narrower than Toothless)
     // but DEEP chord + 5 fanned fingers with real scalloped webs, a strong elbow (arc.hump)
@@ -900,7 +901,7 @@ export const DRAGONS = {
       { wingForm: 0, bodyScale: 0.60, wingSpan: 0.74, wingChord: 1.20,
         hullSection: { ex: 2.7, flatTop: 1.05 }, headBulge: 1.30, spineArch: 0.70,
         eyeScale: 1.55, eyeYOffset: -0.05, eyePupil: true,
-        wingWristMedial: 0.92, wingFingerSplay: 0.10, wingFingerCurve: 0.06, wingFingerBulge: 0.03,
+        wingWristMedial: 0.78, wingFingerSplay: 0.12, wingFingerCurve: 0.08, wingFingerBulge: 0.03,
         spineGlow: 0, glowIntensity: 0.3, particleRate: 0.22,
         wingOpacity: 0.92, wingPanelGlow: 0.08, previewScale: 0.78,
         hullDorsalNubs: false, tailBulbGlow: 0.12, tailBulbScale: 0.50,
@@ -911,19 +912,19 @@ export const DRAGONS = {
       { wingForm: 1, bodyScale: 0.82, wingSpan: 0.92, wingChord: 1.40,
         hullSection: { ex: 2.2 }, headBulge: 1.12, spineArch: 0.92,
         eyeScale: 1.25, eyeYOffset: -0.02, eyePupil: true,
-        wingWristMedial: 0.80, wingFingerSplay: 0.18, wingFingerCurve: 0.13, wingFingerBulge: 0.05,
+        wingWristMedial: 0.66, wingFingerSplay: 0.24, wingFingerCurve: 0.17, wingFingerBulge: 0.05,
         spineGlow: 0.14, glowIntensity: 0.55, particleRate: 0.55,
         wingOpacity: 0.9, wingPanelGlow: 0.12, previewScale: 0.92,
         hullDorsalNubs: false, tailBulbGlow: 0.6, tailBulbScale: 0.82,
         colors: { body: 0x331212, belly: 0x4a1c18, scales: 0x6a2a1c, horn: 0x4a2018,
           wingInner: 0x702a16, wingOuter: 0x30120a, wingEmissive: 0xa8421a,
           wingMembraneEmissive: 0x4e1f10, eye: 0xffc860, apexSeam: 0x9a3818 } },
-      // F2 RADIANT — sleek lean raptor: strong MEDIAL-wrist fan (0.74), deep chord, posed
-      // S-curve (spineArch 1.15). Beauty from LINE; glow kept restrained (below Eternals).
+      // F2 RADIANT — SHORT ARM / very MEDIAL wrist (0.56) so the fingers + leading frame FLARE
+      // OUT in a big convex curve (the human's ideal). Deep chord, posed S-curve (spineArch 1.15).
       { wingForm: 2, bodyScale: 1.0, wingSpan: 1.0, wingChord: 1.55,
         hullSection: { ex: 1.9, flatTop: 0.95 }, headBulge: 1.0, spineArch: 1.15,
         eyeScale: 1.0, eyeYOffset: 0.0, eyePupil: true,
-        wingWristMedial: 0.74, wingFingerSplay: 0.24, wingFingerCurve: 0.18, wingFingerBulge: 0.06,
+        wingWristMedial: 0.56, wingFingerSplay: 0.32, wingFingerCurve: 0.24, wingFingerBulge: 0.06,
         spineGlow: 0.30, glowIntensity: 0.95, particleRate: 0.9,
         wingOpacity: 0.9, wingPanelGlow: 0.16, previewScale: 1.0,
         hullDorsalNubs: false, tailBulbGlow: 1.15, tailBulbScale: 1.0,
