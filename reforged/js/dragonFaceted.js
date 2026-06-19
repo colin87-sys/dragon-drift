@@ -616,7 +616,10 @@ const SVJ_ENGINE_PROFILE = {
   ],
   keel: [[-1.80, 0.40], [-0.60, 0.70], [-0.05, 0.62], [0.42, 0.54], [0.80, 0.58], [1.10, 0.38]],
   wingRoot: { x: 0.72, y: 0.66, z: -0.5 },
-  fairing: { r: 0.4, scale: [0.94, 0.84, 1.12], pos: [0.58, 0.64, -0.48] },
+  // Tiny fairing — the smooth sphere blows out to white and clashes with the faceted
+  // skin, and the scissorHinge carbon blocks + wing hinges already fill the shoulder.
+  // Shrunk so it tucks under the wing root instead of reading as a bulbous gold ball.
+  fairing: { r: 0.14, scale: [0.9, 0.8, 1.1], pos: [0.6, 0.6, -0.46] },
   neck: {
     rBase: 0.46, rStep: 0.055, rMin: 0.22, scale: [0.86, 0.74, 1.12],
     y0: 0.38, yStep: 0.075, z0: -1.7, zStep: -0.32, wobbleAmp: 0.05, wobbleFreq: 0.8,
@@ -971,12 +974,15 @@ registerSurfaceLayer('twinThrusters', ({ def, attach }) => {
   });
   coreMat.userData.baseEmissive = coreCol; coreMat.userData.baseIntensity = 2.0;
   flareMats.push(coreMat);
+  // Mount on the NARROW rear corners (just behind the haunch, where the body necks
+  // down to the tail) so the pods protrude clear of the bulk and flank the tail root
+  // — the first thing the chase cam sees, not buried inside the engine block.
   const anchor = attach.tailAnchor ?? { y: 0.3, z: 0.8 };
-  const my = (attach.bodyMidY ?? 0.2) + 0.08;
-  const z = anchor.z - 0.05;
+  const my = (attach.bodyMidY ?? 0.2) + 0.04;
+  const z = anchor.z + 0.34;
   for (const s of [-1, 1]) {
-    const { group } = thrusterPod({ rOuter: 0.2, rCore: 0.12, depth: 0.22, housingMat, frameMat, coreMat });
-    group.position.set(s * 0.36, my, z);
+    const { group } = thrusterPod({ rOuter: 0.27, rCore: 0.17, depth: 0.26, housingMat, frameMat, coreMat });
+    group.position.set(s * 0.42, my, z);
     meshes.push(group);
   }
   return { meshes, flareMats };
