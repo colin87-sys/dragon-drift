@@ -1730,3 +1730,40 @@ foreign white dot. Bank a broader sweep: **audit every `depthTest:false` / bloom
 rider glow `dragon.js:276`, halos) against the bright-sky chase cam — these always-on-top elements are the real source of
 "washed out" reads, far more than the lit hull. And fold "what layer is this actually in?" into the triage checklist so the
 next visual report starts by classifying the artifact, not guessing at shaders.
+
+### L52 — Three new STARTER hull dragons by GENERALIZING the Night-Fury kernel into a data-driven `hullTorso`/`hullWings` (the L24 thesis, shipped on creatures)
+**Did / learned:** added three brand-new starters — **Water "Tidewing"** (flat-wide MANTA: huge triangular fin-wings,
+thin whip tail ending in a flat horizontal FLUKE, teal bio-glow), **Fire "Cinderwing"** (lean ARCHED raptor: clean swept
+DELTA wings, long whip tail tipped with a glowing FLAME BULB — the Charizard read), **Earth "Cragmaw"** (heavy tank: tall
+plated back via the shingle run, short broad leather wings, a stone CLUB tail grown from the loft). Each is **3 forms,
+`maxRarity:'SSR'`** (caps at Radiant). The key move: the Night-Fury build (`dragonNightFury.js`) was already ~90% data-driven
+(body from `NIGHTFURY_PROFILE`, wing silhouette from `def.wingForms` via `wingSpecFor`); only the PROFILE, `nfSection`, and
+~12 feature literals were hard-wired. So I **forked the kernel verbatim into `dragonHull.js`** (generic `hullTorso`/`hullWings`)
+that reads `def.hull = { profile, section, sectionN, knobs }` — `makeSuperEllipseSection({ex,flatTop,flatBot,n})` generalizes
+`nfSection` (flat lens for manta `ex1.6/flatTop0.55`, oval for raptor `ex2.0`, boxy for cragback `ex2.6`), and every Toothless
+feature literal (eyes/ear-horns/dorsal-nubs/tail-fins + seam half-window + chest band) became a nullable knob defaulting to the
+old value. Three body PROFILES (`dragonHullProfiles.js`) on the SAME z-layout as Toothless (so the weld/feature defaults hold)
+but with distinct widths/keel/cy → three silhouettes that share no read. The whole roster + Toothless stay byte-identical
+(`nightfury.mjs` coexistence gate green); a new `hull.mjs` proves the zero-gap weld + motion-hold + seam-normal continuity for
+all three. tricount: 3.7k–4.7k tris/form (under the 6000 ceiling).
+**Gotcha:** `ascendedDef()` deep-clones the def via `JSON.parse(JSON.stringify())` → it **silently drops any FUNCTION on the
+profile** (here `headBase`). The head is hull-grown (`parts.head:'none'`) so the value is irrelevant, but `buildTorso` still
+calls `profile.headBase(neckSegs)` → `TypeError`. Fix: re-attach a no-op `headBase` in the `hullTorso` registration when it's
+missing. **Rule: any data that flows through `ascendedDef` must be JSON-safe — keep functions OUT of `def`, or restore them
+after the clone.** Second gotcha: decorations live in `def.hull.knobs` (constant across forms), so a back-spike would appear on
+the HATCHLING too; gate each decorative feature by a per-form `model.*` flag first (`model.hullDorsalNubs ?? hk.dorsalNubs`,
+`model.tailBulbGlow`) so the baby stays clean and the detail/glow RAMPS into Radiant — the grind payoff.
+**→ Systematize:** the pattern for "a new creature class on proven tech" is now mechanical: (1) fork the kernel into a sibling
+module that reads shape from `def.hull` (coexist — never edit the hero's module, its test imports its constants by name);
+(2) author a PROFILE (stations `[z,halfWidth,keelTop,belly,cy]`) + a section-factory call + per-form `wingForms`; (3) gate
+add-on features by per-form `model` flags so they accrete; (4) prove the weld with a `hull.mjs` clone of the hero's gate.
+Silhouette uniqueness = **body MASS (section flat/oval/boxy + station widths) × wing PLANFORM (`tips`/`scallop`/`arc`/rootChord)
+× TAIL (loft swell for a club, a whip for a fluke/bulb feature)** — three independent axes, so "not a reskin" is a data choice,
+not new geometry code. Embellishment for the rear cam keys to three zones: (A) dorsal back-line, (B) wing trailing-edge/membrane,
+(C) tail/hindquarters — give each creature a distinct treatment in each.
+**→ Leapfrog (innovate):** `hullTorso`/`hullWings` is now THE reusable creature chassis — the next creature is a `dragons.js`
+data entry + a profile, zero geometry code. Toothless itself can later migrate onto it (author `NIGHTFURY` as a `def.hull`
+profile + section, delete the forked module) once the generic builder is the proven default — collapsing the duplication this
+coexist step deliberately accepted. Open follow-ups (human-judged on the chase-cam preview): the flame-bulb/fluke/club want a
+motion pass (they ride the last tail bone — verify they trail right on a hard bank), and the per-form decoration ramps want a
+feel tune so the intermediate→Radiant JUMP reads bigger than hatchling→intermediate.

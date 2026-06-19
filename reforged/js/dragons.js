@@ -12,6 +12,8 @@
 // apexEye/apexSeam: premium palette that switches in from form 2
 //
 // Rarity by price: R (free) · SR (600-1200) · SSR (2200-3400) · SSSR (5000)
+import { FIRE_PROFILE, WATER_PROFILE, EARTH_PROFILE } from './dragonHullProfiles.js';
+
 export const DRAGONS = {
   azure: {
     name: 'Azure Drake',
@@ -838,6 +840,230 @@ export const DRAGONS = {
     wingInner: 0x273078, wingOuter: 0x090d24, wingEmissive: 0x7ee8ff,
     eye: 0xcff8ff, apexEye: 0xffffff, apexSeam: 0x9d7cff, coreGlow: 0x7ee8ff,
     surgeHi: 0xf4fbff, trail: 0x7e9cff, boostTrail: 0x9df4ff,
+  },
+
+  // ── STARTER: FIRE — "Cinderwing", the flame-tailed raptor ─────────────────
+  // Hull dragon (data-driven Night-Fury kernel). Lean ARCHED body + clean swept
+  // DELTA wings (scallop≈0, flame:false → NOT Ember's jagged flame wing) + a long
+  // whip tail tipped with a glowing FLAME BULB (the Charizard read). 3 forms, SSR
+  // cap. Radiant restrained (glow ≤1.0, no glowSeams) so it stays below Eternals.
+  fire: {
+    name: 'Cinderwing',
+    title: 'The Flame-Tailed Raptor',
+    bodyMetalness: 0.0, bodyRoughness: 0.82, bodyEnvIntensity: 0.06, scaleSize: 3.2, scaleRelief: 0.7,
+    rimBodyMul: 0.6,
+    rarity: 'SR', maxRarity: 'SSR', cost: 800,
+    parts: {
+      torso: 'hullTorso', head: 'none', wings: 'hullWings', tail: 'none',
+      surface: { shader: ['cellularScalesNormal'] },
+    },
+    hull: {
+      profile: FIRE_PROFILE, section: { ex: 2.0 }, sectionN: 20,
+      knobs: { eyes: true, eyeZ: -3.5, dorsalZRange: [-3.0, 3.4], chestBand: [-1.35, 0.90] },
+      tailBulb: { r: 0.17, z: 4.0, color: 0xff7a22, emissiveIntensity: 1.2, yLift: 0.04 },
+    },
+    stats: { speed: 1.05, handling: 1.04, drain: 1.0, regen: 1.0 },
+    model: {
+      scale: 0.92, wingScale: 0.95, tailSegments: 0, neckSegments: 0, ridgeCount: 0,
+      wingRootScale: 1.2, shoulderWidthScale: 1.1, wingRootOffset: { y: 0.04, z: -0.08 },
+      riderSocket: { x: 0, y: 0.8, z: -0.4 },
+      flapBias: 1.05, flapAmp: 0.95,
+      wingArmLeadChord: 0.42, wingWristMedial: 0.9,
+      wingArmRadius: 0.10, wingForearmRadius: 0.08, wingFrameTipRadius: 0.012,
+      wingFingerCurve: 0.06, wingFingerSplay: 0.10, wingFingerBulge: 0.04, wingFingerRadius: 0.045,
+      tailWhip: true, bodyWhip: true, tailSteer: true,
+      tailBoneZ: [1.50, 2.40, 3.20, 3.90],
+    },
+    wingForms: [
+      { tips: [[3.30, 0.28], [2.40, -0.30], [1.45, -0.50]],
+        lead: [2.20, 0.42], scallop: 0.06, rootChord: 0.30, flame: false,
+        arc: { bow: 0.5, hump: 0.0, humpAt: 0.6, hook: 0.10 } },
+      { tips: [[4.45, 0.34], [3.40, -0.42], [2.10, -0.66]],
+        lead: [3.10, 0.52], scallop: 0.06, rootChord: 0.34, flame: false,
+        arc: { bow: 0.6, hump: 0.5, humpAt: 0.56, hook: 0.5 } },
+      { tips: [[5.20, 0.40], [4.05, -0.50], [2.55, -0.78]],
+        lead: [3.60, 0.60], scallop: 0.05, rootChord: 0.38, flame: false,
+        arc: { bow: 0.7, hump: 0.9, humpAt: 0.6, hook: 1.0 } },
+    ],
+    forms: [
+      { wingForm: 0, bodyScale: 0.72, wingSpan: 0.85, wingChord: 1.0,
+        spineGlow: 0, glowIntensity: 0.3, particleRate: 0.3,
+        wingOpacity: 0.9, wingPanelGlow: 0.1, previewScale: 0.8, eyeScale: 1.25,
+        hullDorsalNubs: false, tailBulbGlow: 0.18, tailBulbScale: 0.55,
+        colors: { body: 0x241014, belly: 0x3a1a18, scales: 0x55241c, horn: 0x3a1c18,
+          wingInner: 0x5a2418, wingOuter: 0x2a0f0c, wingEmissive: 0x6e2a12,
+          wingMembraneEmissive: 0x3a1810, eye: 0xffb24a, apexSeam: 0x7a2e16 } },
+      { wingForm: 1, bodyScale: 0.88, wingSpan: 0.95, wingChord: 1.05,
+        spineGlow: 0.16, glowIntensity: 0.6, particleRate: 0.6,
+        wingOpacity: 0.9, wingPanelGlow: 0.14, previewScale: 0.92, eyeScale: 1.2,
+        hullDorsalNubs: false, tailBulbGlow: 0.6, tailBulbScale: 0.8,
+        colors: { body: 0x301014, belly: 0x4a1c18, scales: 0x6e2c1e, horn: 0x4a2018,
+          wingInner: 0x7a2e18, wingOuter: 0x35120c, wingEmissive: 0xb84a1a,
+          wingMembraneEmissive: 0x5a2212, eye: 0xffc14a, apexSeam: 0xa83a18 } },
+      { wingForm: 2, bodyScale: 1.0, wingSpan: 1.0, wingChord: 1.1,
+        spineGlow: 0.3, glowIntensity: 1.0, particleRate: 1.0,
+        wingOpacity: 0.9, wingPanelGlow: 0.18, previewScale: 1.0,
+        hullDorsalNubs: true, tailBulbGlow: 1.2, tailBulbScale: 1.0,
+        colors: { body: 0x3a1216, belly: 0x5a201a, scales: 0x8a3420, horn: 0x5a2418,
+          wingInner: 0x9a3618, wingOuter: 0x3e140c, wingEmissive: 0xff6a20,
+          wingMembraneEmissive: 0x7a2a12, eye: 0xffd05a, apexSeam: 0xd6521e } },
+    ],
+    fx: { auraColor: '200,90,40', auraIdle: 0.0, sparkle: false },
+    previewAccent: 0xff6a20,
+    body: 0x3a1216, belly: 0x5a201a, scales: 0x8a3420, horn: 0x5a2418,
+    wingInner: 0x9a3618, wingOuter: 0x3e140c, wingEmissive: 0xff6a20,
+    wingMembraneEmissive: 0x7a2a12, apexSeam: 0xd6521e,
+    eye: 0xffd05a, trail: 0xff6a20, boostTrail: 0xffb24a,
+  },
+
+  // ── STARTER: WATER — "Tidewing", the manta ────────────────────────────────
+  // Hull dragon. FLAT + WIDE manta body, huge TRIANGULAR pectoral fin-wings
+  // (scallop≈0, flat plane — not a bat elbow), a thin whip tail ending in a flat
+  // HORIZONTAL fluke. Soft teal bio-luminescence: rounded dorsal fin-bumps, a
+  // translucent glowing membrane edge (wingSSS), teal spine-line. Enriched so its
+  // Radiant is not plain, but kept SOFT + low-saturation (below future Eternals).
+  water: {
+    name: 'Tidewing',
+    title: 'The Deepwater Manta',
+    bodyMetalness: 0.0, bodyRoughness: 0.74, bodyEnvIntensity: 0.08, scaleSize: 3.4, scaleRelief: 0.55,
+    rimBodyMul: 0.5,
+    rarity: 'R', maxRarity: 'SSR', cost: 0,
+    parts: {
+      torso: 'hullTorso', head: 'none', wings: 'hullWings', tail: 'none',
+      surface: { shader: ['cellularScalesNormal'] },
+    },
+    hull: {
+      profile: WATER_PROFILE, section: { ex: 1.6, flatTop: 0.55, flatBot: 0.6 }, sectionN: 20,
+      knobs: { eyes: true, eyeZ: -3.2, chestBand: [-1.30, 0.80], seamHalf: 0.7,
+        dorsalRound: 1, dorsalZRange: [-2.6, 3.0] },
+      tailFluke: { z: 4.0, scale: 1.0, yLift: 0.02 },
+    },
+    stats: { speed: 1.0, handling: 1.06, drain: 1.0, regen: 1.06 },
+    model: {
+      scale: 0.96, wingScale: 1.12, tailSegments: 0, neckSegments: 0, ridgeCount: 0,
+      wingRootScale: 1.3, shoulderWidthScale: 1.15, wingRootOffset: { y: 0.0, z: -0.05 },
+      riderSocket: { x: 0, y: 0.66, z: -0.35 },
+      flapBias: 0.78, flapAmp: 1.05,
+      wingArmLeadChord: 0.18, wingWristMedial: 1.0,
+      wingArmRadius: 0.10, wingForearmRadius: 0.08, wingFrameTipRadius: 0.012,
+      wingFingerCurve: 0.0, wingFingerSplay: 0.05, wingFingerBulge: 0.02, wingFingerRadius: 0.04,
+      wingSSS: true, wingBillow: 0.16,
+      tailWhip: true, bodyWhip: true, tailSteer: true,
+      tailBoneZ: [1.45, 2.30, 3.10, 3.85],
+    },
+    wingForms: [
+      { tips: [[3.80, 0.34], [2.55, -0.74], [1.30, -0.86]],
+        lead: [2.50, 0.48], scallop: 0.02, rootChord: 0.55, flame: false,
+        arc: { bow: 0.32, hump: 0.0, humpAt: 0.6, hook: 0.0 } },
+      { tips: [[4.90, 0.40], [3.30, -0.92], [1.65, -1.05]],
+        lead: [3.20, 0.56], scallop: 0.02, rootChord: 0.66, flame: false,
+        arc: { bow: 0.38, hump: 0.0, humpAt: 0.6, hook: 0.0 } },
+      { tips: [[5.70, 0.46], [3.85, -1.06], [1.95, -1.22]],
+        lead: [3.70, 0.62], scallop: 0.02, rootChord: 0.76, flame: false,
+        arc: { bow: 0.42, hump: 0.0, humpAt: 0.6, hook: 0.0 } },
+    ],
+    forms: [
+      { wingForm: 0, bodyScale: 0.74, wingSpan: 0.9, wingChord: 1.15,
+        spineGlow: 0, glowIntensity: 0.35, particleRate: 0.3,
+        wingOpacity: 0.9, wingPanelGlow: 0.1, previewScale: 0.82, eyeScale: 1.3,
+        hullDorsalNubs: false,
+        colors: { body: 0x10303a, belly: 0x163e46, scales: 0x174450, horn: 0x123440,
+          wingInner: 0x1d5566, wingOuter: 0x0e2630, wingEmissive: 0x16424f,
+          wingMembraneEmissive: 0x103040, eye: 0x6fd8d0, apexSeam: 0x1a4a55 } },
+      { wingForm: 1, bodyScale: 0.9, wingSpan: 0.96, wingChord: 1.2,
+        spineGlow: 0.12, glowIntensity: 0.6, particleRate: 0.6,
+        wingOpacity: 0.9, wingPanelGlow: 0.14, previewScale: 0.94, eyeScale: 1.25,
+        hullDorsalNubs: true,
+        colors: { body: 0x113844, belly: 0x184650, scales: 0x1a5160, horn: 0x143c4a,
+          wingInner: 0x256476, wingOuter: 0x102b36, wingEmissive: 0x1f5e6e,
+          wingMembraneEmissive: 0x165060, eye: 0x86e6dd, apexSeam: 0x2a6878 } },
+      { wingForm: 2, bodyScale: 1.0, wingSpan: 1.0, wingChord: 1.25,
+        spineGlow: 0.25, glowIntensity: 1.0, particleRate: 1.0,
+        wingOpacity: 0.88, wingPanelGlow: 0.2, previewScale: 1.0,
+        hullDorsalNubs: true, wingMembraneSSS: 0x2a8a92,
+        colors: { body: 0x123e4c, belly: 0x1b505c, scales: 0x1d5e70, horn: 0x16424f,
+          wingInner: 0x2c7488, wingOuter: 0x113040, wingEmissive: 0x2f8a98,
+          wingMembraneEmissive: 0x1d6a78, eye: 0x9ff0e6, apexSeam: 0x34809a } },
+    ],
+    fx: { auraColor: '79,232,223', auraIdle: 0.0, sparkle: false },
+    previewAccent: 0x2f8a98,
+    body: 0x123e4c, belly: 0x1b505c, scales: 0x1d5e70, horn: 0x16424f,
+    wingInner: 0x2c7488, wingOuter: 0x113040, wingEmissive: 0x2f8a98,
+    wingMembraneEmissive: 0x1d6a78, apexSeam: 0x34809a, wingMembraneSSS: 0x2a8a92,
+    eye: 0x9ff0e6, trail: 0x2f8a98, boostTrail: 0x7fe8df,
+  },
+
+  // ── STARTER: EARTH — "Cragmaw", the plated cragback ───────────────────────
+  // Hull dragon. HEAVY broad tank body with a tall plated back (stone shingle run),
+  // short broad leathery wings, and a stone CLUB tail (grown from the loft — the
+  // rear stations swell back up). Opaque rough rock, warm amber crack-glow at
+  // Radiant. Grounded mineral read; nothing else on the roster is a heavy club-tail.
+  earth: {
+    name: 'Cragmaw',
+    title: 'The Plated Cragback',
+    bodyMetalness: 0.0, bodyRoughness: 0.95, bodyEnvIntensity: 0.04, scaleSize: 2.6, scaleRelief: 1.0,
+    rimBodyMul: 0.4,
+    rarity: 'SR', maxRarity: 'SSR', cost: 1200,
+    parts: {
+      torso: 'hullTorso', head: 'none', wings: 'hullWings', tail: 'none',
+      surface: { shader: ['cellularScalesNormal'] },
+      shingle: [
+        { count: [0, 4, 9], zRange: [-1.7, 1.5], len: 0.42, wid: 0.3, cup: 0.34, tilt: 0.4, yLift: 0.5, edge: true },
+      ],
+    },
+    hull: {
+      profile: EARTH_PROFILE, section: { ex: 2.6, flatTop: 1.0 }, sectionN: 20,
+      knobs: { eyes: true, eyeZ: -3.25, chestBand: [-1.35, 0.85] },
+    },
+    stats: { speed: 1.0, handling: 1.0, drain: 1.04, regen: 1.02 },
+    model: {
+      scale: 1.02, wingScale: 0.82, tailSegments: 0, neckSegments: 0, ridgeCount: 0,
+      wingRootScale: 1.3, shoulderWidthScale: 1.2, wingRootOffset: { y: 0.05, z: -0.06 },
+      riderSocket: { x: 0, y: 0.92, z: -0.4 },
+      flapBias: 1.1, flapAmp: 0.78,
+      wingArmLeadChord: 0.3, wingWristMedial: 0.95,
+      wingArmRadius: 0.13, wingForearmRadius: 0.1, wingFrameTipRadius: 0.018,
+      wingFingerCurve: 0.08, wingFingerSplay: 0.12, wingFingerBulge: 0.07, wingFingerRadius: 0.07,
+      tailWhip: true, bodyWhip: true, tailSteer: true,
+      tailBoneZ: [1.40, 2.20, 3.00, 3.70],
+    },
+    wingForms: [
+      { tips: [[3.10, 0.32], [2.35, -0.46], [1.55, -0.64], [0.85, -0.6]],
+        lead: [2.05, 0.5], scallop: 0.14, rootChord: 0.5, flame: false,
+        arc: { bow: 0.4, hump: 0.0, humpAt: 0.6, hook: 0.05 } },
+      { tips: [[3.70, 0.36], [2.85, -0.54], [1.9, -0.78], [1.0, -0.74]],
+        lead: [2.45, 0.56], scallop: 0.16, rootChord: 0.58, flame: false,
+        arc: { bow: 0.45, hump: 0.15, humpAt: 0.55, hook: 0.08 } },
+      { tips: [[4.20, 0.4], [3.25, -0.6], [2.2, -0.9], [1.15, -0.86]],
+        lead: [2.75, 0.62], scallop: 0.18, rootChord: 0.66, flame: false,
+        arc: { bow: 0.5, hump: 0.3, humpAt: 0.56, hook: 0.12 } },
+    ],
+    forms: [
+      { wingForm: 0, bodyScale: 0.76, wingSpan: 0.85, wingChord: 1.0,
+        spineGlow: 0, glowIntensity: 0.3, particleRate: 0.25,
+        wingOpacity: 0.96, wingPanelGlow: 0.04, previewScale: 0.84, eyeScale: 1.2,
+        colors: { body: 0x2c2820, belly: 0x353024, scales: 0x423a2a, horn: 0x4a4030,
+          wingInner: 0x3a3326, wingOuter: 0x231f18, wingEmissive: 0x2a2418,
+          wingMembraneEmissive: 0x241f16, eye: 0xc8a850, apexSeam: 0x6e5a2a } },
+      { wingForm: 1, bodyScale: 0.9, wingSpan: 0.93, wingChord: 1.05,
+        spineGlow: 0.12, glowIntensity: 0.55, particleRate: 0.5,
+        wingOpacity: 0.96, wingPanelGlow: 0.06, previewScale: 0.95, eyeScale: 1.15,
+        colors: { body: 0x322c22, belly: 0x3e3628, scales: 0x4e4430, horn: 0x564a36,
+          wingInner: 0x443a2a, wingOuter: 0x29241b, wingEmissive: 0x6e4a1e,
+          wingMembraneEmissive: 0x2c2519, eye: 0xd8b058, apexSeam: 0xc8861e } },
+      { wingForm: 2, bodyScale: 1.0, wingSpan: 1.0, wingChord: 1.1,
+        spineGlow: 0.26, glowIntensity: 0.95, particleRate: 0.9,
+        wingOpacity: 0.96, wingPanelGlow: 0.08, previewScale: 1.0,
+        colors: { body: 0x383024, belly: 0x463c2c, scales: 0x5a4e36, horn: 0x60543e,
+          wingInner: 0x4e4230, wingOuter: 0x2c261c, wingEmissive: 0xc8861e,
+          wingMembraneEmissive: 0x302819, eye: 0xe6c068, apexSeam: 0xe09a26 } },
+    ],
+    fx: { auraColor: '200,150,60', auraIdle: 0.0, sparkle: false },
+    previewAccent: 0xc8861e,
+    body: 0x383024, belly: 0x463c2c, scales: 0x5a4e36, horn: 0x60543e,
+    wingInner: 0x4e4230, wingOuter: 0x2c261c, wingEmissive: 0xc8861e,
+    wingMembraneEmissive: 0x302819, apexSeam: 0xe09a26,
+    eye: 0xe6c068, trail: 0xc8861e, boostTrail: 0xe6c068,
   },
 };
 
