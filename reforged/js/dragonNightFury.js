@@ -188,7 +188,8 @@ function findSeam(loftGeo, profile, side) {
   // from the apex (i=0 = top): upper-right flank = high indices (≈N*13/16), upper-left
   // = low indices (≈N*3/16). At HIGH m===SECTION_N (the control index IS the column);
   // at LOW/ULTRA the ring is resampled → map onto the nearest resampled column.
-  const ctrlFlank = side > 0 ? Math.round(SECTION_N * 13 / 16) : Math.round(SECTION_N * 3 / 16);
+  // wings sit DORSAL (upper third of the back, per the reference), not mid-flank: 0.87 ≈ col 17/20.
+  const ctrlFlank = side > 0 ? Math.round(SECTION_N * 0.87) : Math.round(SECTION_N * 0.13);
   const col = (m === SECTION_N) ? ctrlFlank : (((Math.round((ctrlFlank / SECTION_N) * m) % m) + m) % m);
   const pos = loftGeo.attributes.position;
 
