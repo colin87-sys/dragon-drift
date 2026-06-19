@@ -1094,6 +1094,64 @@ export const DRAGONS = {
     wingMembraneEmissive: 0x302819, apexSeam: 0xe09a26,
     eye: 0xe6c068, trail: 0xc8861e, boostTrail: 0xe6c068,
   },
+
+  // AURUM TORO — a Lamborghini-Aventador-as-dragon, and the HERO that proves the
+  // new FACETED ("hard-edge / automotive") part family (dragonFaceted.js): a
+  // chiseled flat-shaded wedge body, scissor-door wings, forward-swept bull horns,
+  // a blade tail with a quad-exhaust jet cluster, and aero layers (scissor hinges,
+  // a front splitter, flank vents). The deliberate opposite of the matte-organic
+  // roster default — it opts BACK INTO mirror gloss (the per-dragon bodyRoughness/
+  // bodyMetalness/bodyEnvIntensity finish override) for a giallo clearcoat. Faithful accents: xenon-
+  // blue eyes + amber/red tail-light seams. Quick-look prototype — the PARTS are
+  // the deliverable, so the 4 forms share one palette/silhouette and only ramp the
+  // gloss + light (carbon "primer" → full giallo clearcoat, exhaust ablaze).
+  aurumToro: {
+    name: 'Aurum Toro',
+    title: 'The raging bull',
+    rarity: 'SSSR',
+    maxRarity: 'SSSR',
+    cost: 5000,
+    parts: {
+      torso: 'faceted', wings: 'hexMembrane', head: 'bullCrown', tail: 'bladeJet',
+      surfaceLayers: ['backCrest', 'scissorHinge', 'splitterJaw', 'aeroVents', 'glowSeams'],
+    },
+    // Fast, sharp-handling, thirsty — a supercar (drain>1 = burns boost fast).
+    stats: { speed: 1.16, handling: 1.22, drain: 1.04, regen: 0.95 },
+    model: {
+      scale: 1.04, wingScale: 1.06, tailSegments: 7, neckSegments: 4,
+      hornLen: 1.5, hornPairs: 2, ridgeCount: 0, eyeScale: 1.1,
+      flapBias: 1.2, flapAmp: 0.85, // quick, snappy beat
+    },
+    // Giallo clearcoat: glossy + reflective in the shop hero scene (no env in-game).
+    bodyRoughness: 0.18, bodyMetalness: 0.55, bodyEnvIntensity: 0.8,
+    forms: [
+      // Primer — matte carbon, lights stowed.
+      { spineGlow: 0,
+        colors: { bodyRoughness: 0.6, bodyMetalness: 0.28,
+          body: 0x6b5a16, wingInner: 0x6b5a16, wingEmissive: 0x7a3412,
+          apexSeam: 0x7a3412, eye: 0x2a90c0, coreGlow: 0x7a3412 } },
+      // Primed gold, lights warming.
+      { spineGlow: 0,
+        colors: { bodyRoughness: 0.34, bodyMetalness: 0.45,
+          body: 0xc79a0c, wingInner: 0xc79a0c, wingEmissive: 0xd06a18,
+          apexSeam: 0xd0431f, eye: 0x3fb8f0, coreGlow: 0xd06a18 } },
+      // Giallo gloss, full tail-lights (xenon eyes switch in at this tier).
+      { spineGlow: 0.3, glowIntensity: 1.05,
+        colors: { bodyRoughness: 0.2, bodyMetalness: 0.55,
+          body: 0xf2c20e, wingInner: 0xf2c20e, wingEmissive: 0xff8a1f,
+          apexSeam: 0xff3b2f, eye: 0x3fc6ff, coreGlow: 0xff8a1f } },
+      // Apex — brightest clearcoat, exhaust ablaze.
+      { spineGlow: 0.5, glowIntensity: 1.2,
+        colors: { bodyRoughness: 0.15, bodyMetalness: 0.6,
+          body: 0xffd21a, wingInner: 0xffd21a, wingEmissive: 0xffa52a,
+          apexSeam: 0xff3b2f, eye: 0x6fd6ff, coreGlow: 0xffa52a } },
+    ],
+    fx: { auraColor: '255,138,31', auraIdle: 0.06, sparkle: false },
+    body: 0xf2c20e, belly: 0x0e0e12, scales: 0x141418, horn: 0x0e0e12,
+    wingInner: 0xf2c20e, wingOuter: 0x6e5408, wingEmissive: 0xff8a1f,
+    apexEye: 0x3fc6ff, apexSeam: 0xff3b2f, coreGlow: 0xff8a1f, surgeHi: 0xfff3d0,
+    eye: 0x3fc6ff, trail: 0xff8a1f, boostTrail: 0xff3b2f,
+  },
 };
 
 // Highest multipliers in the roster (for shop stat-bar normalisation).

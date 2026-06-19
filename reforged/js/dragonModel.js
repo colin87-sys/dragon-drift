@@ -14,6 +14,7 @@ import './dragonUnifiedHull.js';    // 'unifiedHull' wings + 'unifiedHullTorso' 
 import './dragonOrganism.js';       // 'organismWings' + 'organismTorso' (clean-sheet one-skin creature)
 import './dragonNightFury.js';      // 'nightFuryWings' + 'nightFuryTorso' (smooth-loft Night Fury) + 'none' head/tail
 import './dragonHull.js';           // 'hullWings' + 'hullTorso' (data-driven Night-Fury kernel for the new starters)
+import './dragonFaceted.js';        // 'faceted' torso + 'hexMembrane' wings + 'bullCrown' head + 'bladeJet' tail + aero layers (hard-edge/automotive family)
 import { shingle } from './dragonShingle.js'; // reusable overlapping scale/plate cards
 import { resolveSurfaceLayers, getSurfaceLayer } from './dragonSurfaceLayers.js'; // declarative dorsal/flank decoration
 import { validateCreatureBlueprint } from './validateCreatureBlueprint.js';

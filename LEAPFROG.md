@@ -1785,3 +1785,40 @@ feel tune so the intermediate→Radiant JUMP reads bigger than hatchling→inter
 **Gotcha:** a mirror-symmetry sign depends on the BONE's local frame. `rotation.z` needs `−side` (wings point opposite ±x, so opposite z spins both tips the same way); `rotation.x` (pitch) needs NO side (same world axis for both) — using `side` on BOTH was the bug. **Rule: derive each rotation channel's mirror sign from the bone axis + the limb's world direction, don't blanket-apply `side`.** And: a skinned bone chain is driven by ROTATION only (position tears the weld) — to port a position-based legacy motion (azure's coil) onto it, re-express the same wave on rotation.
 **→ Systematize:** motion verification needs the right tool too — a headless flap-symmetry probe (build mirrored rigs, step `flapWing`, assert L/R channel equality/mirror) catches asymmetry that a static render can't; bank it alongside the weld/no-facet gates. Body girth = `halfWidth`(side) + `belly`(bottom) + section `ex`; the top-line gate only sees `cy+keelTop`, so girth is free of it.
 **→ Leapfrog (innovate):** the proportion recipe is now a reusable cat/panther body macro (broad-deep chest → waist pinch → haunch bulge → thin tail); apply to Earth (heavier) + the Sea Drake (sinuous) once the human signs off on Toothless+Fire in motion. The hull head is still a smooth snout — the open charm frontier.
+
+### L56 — A new FACETED part family: the modular system IS the tool for hard-edged creatures (the hull system is for smooth ones)
+**Did / learned:** authored a brand-new "hard-edge / automotive" part family — `dragonFaceted.js` — and proved it on a
+hero, **Aurum Toro** (a Lamborghini-Aventador-as-dragon). Four registered builders + three surface layers, all
+flat-shaded + low-poly: **`faceted` torso** (the shipped `ARROW_PROFILE` lofted through a chiseled `wedgeRing` and
+emitted `toNonIndexed()` so every triangle owns its verts → `computeVertexNormals()` gives per-FACE normals = crisp
+panel creases — reusing `buildTorso` so the whole attach contract/neck/fairings come free); **`hexMembrane` wings**
+(sharp swept flat panels, an inner panel on the pivot + a pointed chevron-notched outer panel on the wingTip, the
+scissor-door UP dihedral BAKED INTO GEOMETRY so it survives the rig's flap writes — honors the frozen rig contract
+verbatim); **`bullCrown` head** (chiseled wedge skull + forward-swept bull horns + xenon-blue octahedron eyes);
+**`bladeJet` tail** (faceted taper ending in a QUAD-EXHAUST cluster whose glowing cores are pushed into `segs` so the
+rig coils them with the tip). Plus reusable layers `scissorHinge`/`splitterJaw`/`aeroVents`. **The key realisation
+(answering the player's "Lego vs hull?"): the new hull builders (`unifiedHull`/`organism`/`nightFury`) exist to MELT
+parts into one seamless smooth loft — they are the WRONG tool for crease-heavy subjects. Hard edges are GEOMETRY, not
+a shader: low segment counts + flat shading (non-indexed loft / `material.flatShading`), NOT a smoothing kernel.** The
+whole creature was added as DATA + one new module: the live registry (L48) meant zero enum edits — `registerTorso/
+Wings/Head/Tail` + `registerSurfaceLayer` + one import line in `dragonModel.js`, and blueprint/tricount/tiershots
+auto-discovered it. Aurum Toro is also the first dragon to OPT BACK INTO mirror gloss (`bodyRoughness 0.18`/
+`bodyMetalness 0.55`/`bodyEnvIntensity 0.8`) — the deliberate inverse of the matte-roster default (L45 finish work) —
+proving gloss is a usable design AXIS, not just a bug to matte away. Verified: blueprint 0 warnings, `tricount --ci`
+**1492 tris/form** (0 over budget, rest of roster byte-identical), `tiershots aurumToro` renders with no `PAGEERROR`
+(real-WebGL). (`badges.mjs` red as always in this no-WebGL env — L48.) Gotcha banked: per-form **gloss** must ride a
+form's `colors` block, because `ascendedDef` `Object.assign(d, colors)` writes TOP-LEVEL `d` and `dragonModel` reads
+`def.bodyRoughness` at top level — model-key form fields land on `d.model` instead and never reach the material.
+**→ Systematize:** the reusable method is a **"real-object → reusable parts" translation table** (car feature →
+dragon expression → `def`/builder mechanism) + the **flat-shading-by-geometry recipe** (non-indexed loft, baked
+dihedral so rig writes don't erase rest pose, glowing tips pushed into `segs` so they ride the coil). The codebase now
+has TWO complementary part catalogs — SMOOTH (hull/organism) and FACETED (this) — and the choice is a documented axis:
+pick by whether the subject's language is seamless skin or origami creases. Every faceted builder/layer here is
+generic, so the cost of the NEXT hard-surface creature is near-zero.
+**→ Leapfrog (innovate):** this opens a whole **"vehicular / mechanical / insectoid / crystalline" hard-surface
+creature line** from one family (a jet = `faceted` + `hexMembrane` + no horns; a beetle = `faceted` + carapace
+layers). Next moves: (1) a faceted COUNTERPART to each smooth builder so any dragon can be re-skinned sharp via a
+two-string `parts` swap (the L8 hero→mechanize path); (2) promote the bull=wedge/jet=cluster geometry into grammar
+knobs (`hull.section: 'wedge'|'blade'`, `tail.tip: 'jet'`) so a faceted creature is fully DESCRIBABLE (the L24/L48
+promptability thesis); (3) wire the `bladeJet` exhaust cores to the live boost-trail emitter so the trail visibly
+fires FROM the pipes — motion that reads the part, not just decorates it.
