@@ -872,8 +872,8 @@ export const DRAGONS = {
       furySpineArch: 1.0, furyTailDrop: 0.0, furyTailLength: 1.0,
       furyBellyRound: 1.0, furyBackCrest: 1.0, furyFlankFlatten: 0.0,
       furyWingSpan: 4.4, furyWingSweep: 0.5, furyWingChord: 2.2, furyWingArch: 0.6, furyWingHump: 0.3, furyWingBillow: 0.18,
-      furyWingFingers: 4, furyScallopDepth: 0.55, furyWingRootChord: 0.7, furyWingOpacity: 0.92,
-      furyTailFinSpan: 1.5, furyTailFinWidth: 0.72, furyTailFinSplay: 0.62,
+      furyWingFingers: 4, furyScallopDepth: 0.55, furyWingRootChord: 0.7, furyWingOpacity: 0.97,
+      furyTailFinSpan: 1.3, furyTailFinSplay: 0.62, furyTailFinSpread: 1.05, furyTailFinToes: 3, furyTailFinScallop: 0.3,
       furyDorsalNubCount: 9, furyDorsalNubHeight: 0.07, furyEarFrillSpan: 0.0,
     },
     forms: [
