@@ -377,10 +377,10 @@ function buildFuryHull(def, model, attach, giM) {
     const V = rootHull.length - 1;
     if (V < 2) throw new Error('furyHull: wing root window too thin (raise furyWingRootChord)');
 
-    // 2. leading + scalloped trailing edges as Catmull-Rom curves over span u∈[0,1].
-    //    The wing is a BROAD FAN: the leading edge sweeps gently forward to the tip;
-    //    the trailing edge BULGES far aft (long fingers) and is scalloped (a finger to
-    //    every web), converging to the wingtip at u=1.
+    // 2. LEADING edge (the arm continuing to the wingtip) + a CLEAN SCALLOPED trailing
+    //    edge. The trailing edge is a chain of CUSPS — one sharp point per finger — with
+    //    a concave web dipping forward between each pair (a parabola), so every scallop
+    //    comes to a clean point exactly where its finger strut ends (no wavy mush).
     const tipFrontZ = wr.z + (model.furyWingSweep ?? 0.5);     // wingtip (front), modest aft sweep
     const chordReach = model.furyWingChord ?? 2.2;             // how far the trailing fingers bulge aft
     const leadCtrl = [
@@ -391,30 +391,44 @@ function buildFuryHull(def, model, attach, giM) {
     ];
     const leadCurve = new THREE.CatmullRomCurve3(leadCtrl, false, 'centripetal');
     const LEz = (u) => leadCurve.getPoint(Math.min(u, 1)).z;
-    const aftBase = (u) => lerp(zB, tipFrontZ, u) + chordReach * Math.sin(Math.PI * Math.pow(u, 0.82));
-    const teCtrl = [];
-    for (let f = 0; f <= fingers; f++) {
-      const uf = f / fingers;
-      teCtrl.push(new THREE.Vector3(uf, 0, aftBase(uf)));      // finger tip (juts aft)
-      if (f < fingers) {
-        const um = (f + 0.5) / fingers;
-        teCtrl.push(new THREE.Vector3(um, 0, aftBase(um) - scallop * (0.6 + 0.4 * Math.sin(Math.PI * um))));  // concave web
-      }
+    // CUSPS along the trailing edge, body root (u=0) → wingtip (u=1). The interior
+    // cusps are the finger tips; the trailing reach bulges aft mid-wing and converges
+    // to the wingtip. uInner = just outboard of the wrist so the fingers fan from it.
+    const uInner = wristFrac + 0.05;
+    const aftAt = (u) => lerp(zB, tipFrontZ, u) + chordReach * Math.sin(Math.PI * u) * (1 - 0.12 * u);
+    const cusps = [{ u: 0, aft: zB }];
+    for (let f = 0; f < fingers; f++) {
+      const u = lerp(uInner, 1, fingers > 1 ? f / (fingers - 1) : 1);
+      cusps.push({ u, aft: f === fingers - 1 ? tipFrontZ : aftAt(u) });   // last = wingtip point
     }
-    const teCurve = new THREE.CatmullRomCurve3(teCtrl, false, 'centripetal');
-    const TEz = (u) => teCurve.getPoint(Math.min(u, 1)).z;
+    // piecewise trailing-edge z(u): linear between cusp aft values, MINUS a parabolic
+    // forward dip (the scallop web). At a cusp the dip is 0 → a sharp point.
+    function TEz(u) {
+      u = Math.min(Math.max(u, 0), 1);
+      for (let i = 0; i < cusps.length - 1; i++) {
+        const a = cusps[i], b = cusps[i + 1];
+        if (u >= a.u && u <= b.u) {
+          const t = (u - a.u) / Math.max(b.u - a.u, 1e-6);
+          const base = lerp(a.aft, b.aft, t);
+          const chord = base - LEz(u);
+          return base - scallop * chord * 0.34 * (4 * t * (1 - t));   // moderate concave web, 0 at the cusps
+        }
+      }
+      return cusps[cusps.length - 1].aft;
+    }
 
-    // 3. build the (SEG_U+1)×(V+1) grid. u=0 column = EXACT hull flank verts; the
-    //    membrane EMERGES from the flank into a thin arched sheet over the first ~18%.
-    const SEG_U = seg(18);
-    const kBlend = Math.max(1, Math.round(SEG_U * 0.14));
+    // 3. build the grid. COLUMNS land exactly on the cusps (so the points stay sharp):
+    //    each cusp interval is subdivided into K steps. u=0 column = EXACT hull verts;
+    //    the membrane emerges from the flank into a thin arched sheet over the first ~18%.
+    const K = Math.max(2, seg(3));
+    const uCols = [0];
+    for (let i = 0; i < cusps.length - 1; i++) for (let s = 1; s <= K; s++) uCols.push(lerp(cusps[i].u, cusps[i + 1].u, s / K));
+    const NCOL = uCols.length - 1;
+    const kBlend = Math.max(1, Math.round(NCOL * 0.12));
     const arch = model.furyWingArch ?? 0.6, hump = model.furyWingHump ?? 0.3;
     const billow = model.furyWingBillow ?? 0.18;
     const rootY0 = hullPos.getY(rootHull[0]), rootYV = hullPos.getY(rootHull[V]);
     const planeY = wr.y;                                       // the wing-sheet attach height
-    // A point on the membrane SHEET at span u∈(0,1], chord c∈[0,1]: a thin arched
-    // surface (gentle spanwise lift + a wrist hump + chordwise cup) that EMERGES from
-    // the flank over the first ~18% of span. Reused by the grid AND the finger ribs.
     function memXYZ(u, c) {
       const liftU = arch * u + hump * Math.exp(-Math.pow((u - 0.5) / 0.30, 2)) * u;
       const z = LEz(u) + (TEz(u) - LEz(u)) * c;
@@ -424,8 +438,8 @@ function buildFuryHull(def, model, attach, giM) {
       return [rootX + side * span * u, lerp(yRoot, yFlat, sstep(Math.min(u / 0.18, 1))), z];
     }
     const verts = [], idx = [], skin = [];
-    for (let i = 0; i <= SEG_U; i++) {
-      const u = i / SEG_U;
+    for (let i = 0; i <= NCOL; i++) {
+      const u = uCols[i];
       for (let v = 0; v <= V; v++) {
         const c = V > 0 ? v / V : 0;
         if (i === 0) {
@@ -435,8 +449,6 @@ function buildFuryHull(def, model, attach, giM) {
           const p = memXYZ(u, c);
           verts.push(p[0], p[1], p[2]);
         }
-        // skin: root column COPIES the welded hull vert's bone field (so the seam
-        // can never separate); inner columns ease into the span gradient.
         const ax = u * wristX;
         let s;
         if (i === 0) s = hullSkinAt(rootHull[v]);
@@ -449,7 +461,7 @@ function buildFuryHull(def, model, attach, giM) {
         skin.push(s);
       }
     }
-    for (let i = 0; i < SEG_U; i++) for (let v = 0; v < V; v++) {
+    for (let i = 0; i < NCOL; i++) for (let v = 0; v < V; v++) {
       const a = i * (V + 1) + v, b = a + 1, c = a + (V + 1), d = c + 1;
       if (side > 0) idx.push(a, c, b, b, c, d); else idx.push(a, b, c, b, d, c);
     }
@@ -458,34 +470,32 @@ function buildFuryHull(def, model, attach, giM) {
     g.setIndex(idx); g.computeVertexNormals();
     applyWingGradient(g, def, 0, 1);
     writeSkin(g, (i) => skin[i]);
-    // share the body normal on the welded root column (one-surface read, no crease)
     const gN = g.attributes.normal;
     for (let v = 0; v <= V; v++) {
       const h = rootHull[v];
-      gN.setXYZ(v, hullNrm.getX(h), hullNrm.getY(h), hullNrm.getZ(h));
+      gN.setXYZ(v, hullNrm.getX(h), hullNrm.getY(h), hullNrm.getZ(h));   // shared seam normals (no crease)
     }
     gN.needsUpdate = true;
 
-    // LEADING-EDGE FRAME (the arm): one tapering tube laid EXACTLY on the membrane's
-    // leading edge (memXYZ(u,0)) for the whole span — humerus thick at the body, through
-    // the wrist, tapering to a thin finger at the wingtip. Because it shares the
-    // membrane's own v=0 points it can never gap from the sheet (the join the user
-    // flagged). Vertically flattened so it reads as a bone bonded to the edge, not a rod.
+    // LEADING-EDGE FRAME (the arm): ONE continuously-tapering tube laid EXACTLY on the
+    // membrane leading edge (memXYZ(u,0)) for the whole span — thickest at the shoulder,
+    // thinning through the wrist, then continuing as the outer finger tapering to a fine
+    // point at the wingtip. Shares the membrane's v=0 points → it can never gap.
     {
-      const rArm = (model.furyArmRadius ?? 0.12) * (model.wingRootScale ?? 1);
-      const rWrist = model.furyForearmRadius ?? 0.055;
-      const rTip = model.furyFrameTipRadius ?? 0.016;
-      const N = seg(18), pts = [], radii = [], sk = [];
+      const rArm = (model.furyArmRadius ?? 0.13) * (model.wingRootScale ?? 1);
+      const rWrist = model.furyForearmRadius ?? 0.05;
+      const rTip = model.furyFrameTipRadius ?? 0.011;
+      const N = seg(20), pts = [], radii = [], sk = [];
       for (let s = 0; s < N; s++) {
         const u = s / (N - 1);
         const p = memXYZ(u, 0);
         pts.push(new THREE.Vector3(p[0], p[1], p[2]));
         radii.push(u <= wristFrac
-          ? rArm + (rWrist - rArm) * sstep(u / wristFrac)                  // humerus → wrist
-          : rWrist + (rTip - rWrist) * sstep((u - wristFrac) / (1 - wristFrac))); // wrist → tip finger
+          ? rArm + (rWrist - rArm) * sstep(u / wristFrac)                          // shoulder → wrist
+          : rWrist + (rTip - rWrist) * sstep((u - wristFrac) / (1 - wristFrac)));   // wrist → wingtip point
         sk.push(spanSkin(side, u * wristX));
       }
-      sk[0] = hullSkinAt(rootHull[0]);                                     // root rides the body
+      sk[0] = hullSkinAt(rootHull[0]);
       const frame = skinnedTube(pts, radii, seg(7), (s) => sk[s], strutMat).geometry;
       const fp = frame.attributes.position, rings = seg(7);
       for (let s = 0; s < N; s++) { const cy = pts[s].y; for (let j = 0; j < rings; j++) { const k = s * rings + j; fp.setY(k, cy + (fp.getY(k) - cy) * 0.6); } }
@@ -493,23 +503,23 @@ function buildFuryHull(def, model, attach, giM) {
       strutGeos.push(frame);
     }
 
-    // FINGER struts: thin tubes fanning from the WRIST to every trailing scallop tip
-    // (the scallop joins). The OUTER finger reaches near the wingtip → longest + most
-    // curved (it follows the bulged trailing edge); inner fingers are short + straight
-    // (the medial-most is the straightest) — the anatomy the user described.
-    const wristC = 0.14;                                                  // wrist sits just aft of the leading edge
-    for (let f = 1; f < fingers; f++) {            // inner scallop tips; the leading frame is the outer finger
-      const uTip = f / fingers;
+    // FINGER struts: one per INTERIOR cusp, fanning from the WRIST to that exact scallop
+    // point. Thickest at the wrist (matching the forearm) → tapering to a fine point at
+    // the cusp, so each scallop reads as a clean spar (the user's "clean" note).
+    const wristPt = memXYZ(wristFrac, 0.12);                                  // the knuckle on the leading edge
+    for (let f = 1; f < cusps.length - 1; f++) {                              // skip body root (0) + wingtip (handled by frame)
+      const cu = cusps[f].u;
       const N = seg(6), pts = [], radii = [], sk = [];
       for (let j = 0; j < N; j++) {
         const t = j / (N - 1);
-        const u = lerp(wristFrac, uTip, t);
-        const c = lerp(wristC, 1, Math.pow(t, 1.15));     // wrist (near leading) → scallop tip (trailing)
+        const u = lerp(wristFrac, cu, t);
+        const c = lerp(0.12, 1, Math.pow(t, 1.1));                            // wrist (near leading) → cusp (trailing)
         const p = memXYZ(u, c);
-        pts.push(new THREE.Vector3(p[0], p[1] + 0.018, p[2]));            // ride just proud of the sheet
-        radii.push(lerp(0.034, 0.011, t));
+        pts.push(new THREE.Vector3(p[0], p[1] + 0.016, p[2]));               // ride just proud of the sheet
+        radii.push(lerp(model.furyForearmRadius ?? 0.05, 0.006, sstep(t)));   // thick at wrist → fine point
         sk.push(spanSkin(side, u * wristX));
       }
+      pts[0].set(wristPt[0], wristPt[1] + 0.016, wristPt[2]);                 // all fingers share the wrist knuckle
       strutGeos.push(skinnedTube(pts, radii, seg(4), (s) => sk[s], strutMat).geometry);
     }
     return { mem: g };
