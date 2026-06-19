@@ -859,7 +859,7 @@ export const DRAGONS = {
     },
     hull: {
       profile: FIRE_PROFILE, section: { ex: 2.0 }, sectionN: 20,
-      knobs: { eyes: true, eyeZ: -2.42, eyeX: 0.24, dorsalZRange: [-2.6, 4.0], chestBand: [-1.30, 0.90] },
+      knobs: { eyes: true, eyeZ: -2.42, eyeX: 0.24, dorsalZRange: [-2.6, 4.0], chestBand: [-1.30, 0.90], seamDorsal: 0.87 },
       tailBulb: { r: 0.16, z: 4.2, color: 0xff6a1e, innerColor: 0xffd24a, emissiveIntensity: 1.2, yLift: 0.02 },
     },
     stats: { speed: 1.05, handling: 1.04, drain: 1.0, regen: 1.0 },

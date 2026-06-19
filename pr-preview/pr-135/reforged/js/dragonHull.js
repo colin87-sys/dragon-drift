@@ -99,11 +99,13 @@ registerTorso('hullTorso', (def, model, bodyMat) => {
 // section count `SECTION_N` comes from the profile (def.hull.sectionN) so any
 // section resolution welds correctly. Walks ONE upper-flank ring column across the
 // resampled rings whose z lies in the wing-root chord window (front→back, no zig).
-function findSeam(loftGeo, profile, side, SECTION_N, seamHalf) {
+function findSeam(loftGeo, profile, side, SECTION_N, seamHalf, seamDorsal = 0.8125) {
   const lr = loftGeo.userData.loftRings;
   if (!lr) throw new Error('hullWings require a sweepProfileSmooth loft (userData.loftRings)');
   const m = lr.section;
-  const ctrlFlank = side > 0 ? Math.round(SECTION_N * 13 / 16) : Math.round(SECTION_N * 3 / 16);
+  // seamDorsal = how high up the body the wing attaches (fraction of the section, top=1).
+  // 0.8125 (=13/16) is mid-upper flank; higher → the wing sits more DORSAL (toward the spine).
+  const ctrlFlank = side > 0 ? Math.round(SECTION_N * seamDorsal) : Math.round(SECTION_N * (1 - seamDorsal));
   const col = (m === SECTION_N) ? ctrlFlank : (((Math.round((ctrlFlank / SECTION_N) * m) % m) + m) % m);
   const pos = loftGeo.attributes.position;
   const wr = profile.wingRoot;
@@ -222,8 +224,9 @@ function buildHull(def, model, attach) {
   const profile = loft.profile;
   const loftGeo = loft.makeGeo();
   loftGeo.translate(0, TY, 0);
-  const seamR = findSeam(loftGeo, profile, 1, SECTION_N, seamHalf);
-  const seamL = findSeam(loftGeo, profile, -1, SECTION_N, seamHalf);
+  const seamDorsal = hk.seamDorsal ?? 0.8125;
+  const seamR = findSeam(loftGeo, profile, 1, SECTION_N, seamHalf, seamDorsal);
+  const seamL = findSeam(loftGeo, profile, -1, SECTION_N, seamHalf, seamDorsal);
 
   function seamCentroid(seam) {
     const c = new THREE.Vector3();
