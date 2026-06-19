@@ -1730,3 +1730,40 @@ foreign white dot. Bank a broader sweep: **audit every `depthTest:false` / bloom
 rider glow `dragon.js:276`, halos) against the bright-sky chase cam — these always-on-top elements are the real source of
 "washed out" reads, far more than the lit hull. And fold "what layer is this actually in?" into the triage checklist so the
 next visual report starts by classifying the artifact, not guessing at shaders.
+
+### L52 — A FRESH welded hull from generic plumbing + a clay-render loop that gates "identical, not close"
+**Did / learned:** built a brand-new Night-Fury creature (`furyDrake` / `dragonFuryHull.js`) as ONE continuous welded
+skinned hull — body + bat-wings + down-swept tail with twin split fins — WITHOUT reusing any prior hull's geometry
+(the human flagged `unifiedHull`/`organism`/`nightFury` as stale). The leverage was separating **generic plumbing**
+(reuse) from **silhouette geometry** (author fresh): we reused `growSkinnedExtension`/`ensureSkinAttrs` (skinned merge),
+`skinnedTube`, `sweepProfileSmooth` (longitudinal-spline loft with the `cy` spine channel), the `seg()` detail gate, the
+surface-shader/matte kit, and the frozen rig contract — and wrote 100% new control-point curves for the cross-section
+(closed centripetal Catmull-Rom through 10 morphing control points, **sampled DENSE so it's a real curve at HIGH** — the
+gotcha: `resampleRing` is a passthrough when `m===ctrl.length`, so returning 10 control points yields a 10-GON, not a
+curve), the wing planform (a bulging scalloped trailing edge `aftBase(u)+chordReach·sin(πu^0.82)` with a concave web
+between every finger), and the tail-fin leaf blade. Welds are zero-gap **by construction**: a membrane/fin root vert is an
+EXACT copy of a hull vert's position **AND its skinIndex/skinWeight** (`hullSkinAt(h)`), so the pair shares one bone field
+and can never separate — a tail-fin bug proved why copying *weights* (not just position, not a hardwired `T3=1`) matters:
+the hull tail verts carry a T2/T3 blend, so forcing the fin root to pure T3 drifted under a tail beat until it copied the
+blend. Three concrete bugs the **clay-render loop** caught that no headless gate could: (1) wings were thin swept darts —
+the trailing edge didn't bulge aft (`chordReach`); (2) the membrane was given the full flank HEIGHT (a tall ribbon)
+instead of emerging into a thin arched sheet — fixed with `lerp(flankY, sheetY, smoothstep(u/0.18))`; (3) the tail-fin
+flare factor was computed then multiplied by `0.0` (a dead term), so fins stayed thin tines. All three are invisible to
+tri-count/weight/seam gates and obvious in one render.
+**→ Systematize:** (1) the reusable split is now explicit — **"hull = generic skinned-merge/tube/loft kernel + a creature's
+own curve recipe"**; a new creature is a new `dragon<Name>Hull.js` that imports the kernel, authors `profile`/`section`/
+`wing`/`fin` curves, and self-registers `torso`+`wings`+`tail` (the tail a no-op so the hull owns it) — body/tail as ONE
+loft means there is NO body↔tail seam to gap. (2) **The exact-copy weld kernel** (`hullSkinAt`) is the general zero-gap
+primitive: copy position+normal+skinWeights from the surface you grow out of, for ANY appendage (wing, fin, frill, future
+limb). (3) **The clay-compare harness is a new permanent verification rung** (`tools/claycompare.{mjs,html}`): a flat matte
+grey material + neutral light + SIDE/TOP/¾ views, rendered headless (Chromium lives at `/opt/pw-browsers` in the web
+session — set `PLAYWRIGHT_BROWSERS_PATH`), then read back and diffed curve-by-curve against the reference. It closes the L6
+gap (tools see geometry, not shape-fidelity) for SILHOUETTE — the agent can now self-correct proportions before the human
+ever looks. (4) "must be curved complex lines, not primitives" is enforced by construction: every ring/edge is a
+Catmull-Rom through ≥4 morphing points; densify the section yourself or the loft's passthrough hands you a polygon.
+**→ Leapfrog (innovate):** with a fresh hull provable from the kernel in one file + a clay loop that converges shape
+headlessly, **new creatures (not just dragons) become a curve-authoring exercise**, and the clay harness can grow a
+reference-image diff (SSIM/edge-overlay) to score "identical" numerically and even auto-tune knobs (gradient-free search
+over `fury*` params to minimise silhouette error) — the L6 "automated posed-render regression net" realized for shape.
+Next: migrate the matte-hide + exact-copy weld onto the roster's other hull candidates, grow the head/neck from the same
+loft (retire the bolted `draconic` head), and wire the clay harness into a `--ref <image>` scoring mode.

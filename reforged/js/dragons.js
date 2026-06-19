@@ -839,6 +839,79 @@ export const DRAGONS = {
     eye: 0xcff8ff, apexEye: 0xffffff, apexSeam: 0x9d7cff, coreGlow: 0x7ee8ff,
     surgeHi: 0xf4fbff, trail: 0x7e9cff, boostTrail: 0x9df4ff,
   },
+
+  // ── NIGHT DRIFTER — a FRESH clean-sheet welded skinned hull (dragonFuryHull.js).
+  // Body + bat-wings + down-swept tail (twin split fins) grown as ONE continuous
+  // surface; every silhouette is a complex Catmull-Rom curve. Head from the shared
+  // 'draconic' builder. Matte organic hide (no idle glow), authored to the Night-Fury
+  // reference imagery and tuned on the clay-render comparison + chase-cam preview.
+  furyDrake: {
+    name: 'Night Drifter',
+    title: 'Hull-born Fury',
+    // matte black hide (the L29/L30 finish kit): metalness 0, very rough, low env,
+    // body rim off so the dark hull never picks up the bright sky as a metal sheen.
+    bodyMetalness: 0.0, bodyRoughness: 0.86, bodyEnvIntensity: 0.06, scaleSize: 3.0, scaleRelief: 0.9, rimBodyMul: 0.0,
+    rarity: 'SSR',
+    maxRarity: 'SSSR',
+    cost: 2800,
+    parts: {
+      torso: 'furyHullTorso', head: 'draconic', wings: 'furyHull', tail: 'furyHullTail',
+      surface: { shader: ['cellularScalesNormal', 'membraneSSS'] },
+    },
+    stats: { speed: 1.13, handling: 1.2, drain: 0.8, regen: 1.22 },
+    model: {
+      scale: 0.9, wingScale: 1.0, neckSegments: 5, tailSegments: 9, ridgeCount: 0,
+      wingSSS: true, wingRootScale: 1.3,
+      riderSocket: { x: 0, y: 0.95, z: -0.5 },
+      headArchetype: 'softStealth', headScale: 1.16, eyeScale: 1.3, hornLen: 0.4, hornPairs: 1,
+      flapBias: 1.06, flapAmp: 0.8,
+      // tail whip ON (skinned bone chain, driven by rotation in dragon.js).
+      tailWhip: true, bodyWhip: true,
+      // ── FRESH HULL KNOBS (all consumed by dragonFuryHull.js) ──
+      furyWingRootZ: -0.85,
+      furySpineArch: 1.0, furyTailDrop: 0.0, furyTailLength: 1.0,
+      furyBellyRound: 1.0, furyBackCrest: 1.0, furyFlankFlatten: 0.0,
+      furyWingSpan: 4.4, furyWingSweep: 0.5, furyWingChord: 2.2, furyWingArch: 0.6, furyWingHump: 0.3, furyWingBillow: 0.18,
+      furyWingFingers: 4, furyScallopDepth: 0.55, furyWingRootChord: 0.7, furyWingOpacity: 0.92,
+      furyTailFinSpan: 1.5, furyTailFinWidth: 0.72, furyTailFinSplay: 0.62,
+      furyDorsalNubCount: 9, furyDorsalNubHeight: 0.07, furyEarFrillSpan: 0.0,
+    },
+    forms: [
+      // Sleek matte Night Fury: all idle glows OFF; dark midnight blue-black hide,
+      // acid-green eyes; cool cyan held for Surge. Size ramps via bodyScale/wingSpan.
+      { bodyScale: 0.72, wingSpan: 0.86, glowIntensity: 0.25, particleRate: 0.3,
+        wingPanelGlow: 0.1, previewScale: 0.8,
+        furyWingFingers: 3, furyScallopDepth: 0.42, furyTailLength: 0.85, furyDorsalNubCount: 6, furyBackCrest: 0.8,
+        colors: { body: 0x0a0f1c, wingInner: 0x141c28, wingOuter: 0x0c1118,
+          wingEmissive: 0x0d1219, wingMembraneEmissive: 0x10161f, scales: 0x121a2e, horn: 0x101a2c,
+          eye: 0x6f9a28, apexSeam: 0x131a2c, dorsalHi: 0x1a2636 } },
+      { bodyScale: 0.86, wingSpan: 0.95, glowIntensity: 0.55, particleRate: 0.55,
+        wingPanelGlow: 0.12, previewScale: 0.92,
+        furyWingFingers: 4, furyScallopDepth: 0.5, furyTailLength: 0.95, furyDorsalNubCount: 8, furyBackCrest: 0.9,
+        colors: { body: 0x0b1020, wingInner: 0x182334, wingOuter: 0x0e1622,
+          wingEmissive: 0x0d1219, wingMembraneEmissive: 0x16202e, scales: 0x141e36, horn: 0x121c32,
+          eye: 0x96d62a, apexSeam: 0x131a2c } },
+      { bodyScale: 1.0, wingSpan: 1.0, glowIntensity: 1.0, particleRate: 1.0,
+        wingPanelGlow: 0.14, previewScale: 1.0,
+        furyWingFingers: 4, furyScallopDepth: 0.55, furyTailLength: 1.0, furyDorsalNubCount: 9, furyBackCrest: 1.0,
+        colors: { body: 0x0c1222, wingInner: 0x182334, wingOuter: 0x0e1828,
+          wingEmissive: 0x0d1219, wingMembraneEmissive: 0x1a2636, scales: 0x16223c, horn: 0x141d30,
+          eye: 0x96d62a, apexSeam: 0x131a2c } },
+      { bodyScale: 1.1, wingSpan: 1.08, glowIntensity: 1.3, particleRate: 1.6,
+        wingPanelGlow: 0.16, previewScale: 1.12,
+        furyWingFingers: 5, furyScallopDepth: 0.6, furyTailLength: 1.12, furyTailDrop: 0.04, furyDorsalNubCount: 11, furyBackCrest: 1.12,
+        colors: { wingMembraneEmissive: 0x202b3c } },
+    ],
+    fx: { auraColor: '50,110,140', auraIdle: 0.0, sparkle: false },
+    previewAccent: 0x2e5a6a,
+    hasStyle: true, surgeMotes: true,
+    feverWing: 0x6ad8ff, feverEye: 0xb0f0ff, feverWash: [0.015, 0.05, 0.085],
+    body: 0x0a0f1c, belly: 0x0e1424, scales: 0x16223c, horn: 0x141d30,
+    wingInner: 0x182334, wingOuter: 0x0e1828, wingEmissive: 0x0d1219,
+    wingMembraneEmissive: 0x1a2636, dorsalHi: 0x1a2636,
+    apexEye: 0xb6e85a, apexSeam: 0x131a2c, surgeHi: 0x9fd8ff,
+    eye: 0x96d62a, trail: 0x2a5a78, boostTrail: 0x4a90c0,
+  },
 };
 
 // Highest multipliers in the roster (for shop stat-bar normalisation).
