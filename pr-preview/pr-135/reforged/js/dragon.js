@@ -408,10 +408,10 @@ export function updateDragon(dt, player, time) {
   decel01 = damp(decel01, 0, 2.2, dt);                          // …eased out smoothly
   const aero01 = Math.min(1, Math.max(boost01 * 0.7, surge01, diveAmount * 0.85));   // tuck/sweep
   const spread01 = Math.min(1, climbAmount * 0.9 + decel01);                          // open/brake
-  // POSTURE pitch: nose-DOWN in dive/boost/surge, nose-UP in climb, relax on decel.
-  // boost/fever nose-down kept VERY subtle (was tilting too far → showing the belly); the
-  // big deliberate poses stay on DIVE/CLIMB.
-  const posturePitch = climbAmount * 0.42 - diveAmount * 0.5 - boost01 * 0.035 - surge01 * 0.045 + decel01 * 0.05;
+  // POSTURE pitch: nose-DOWN in dive, nose-UP in climb, relax on decel. Surge no longer
+  // pitches the nose down — it was flashing the ventral (belly) of the body+wings from the
+  // chase cam during Dragon Surge (user note). The big deliberate poses stay on DIVE/CLIMB.
+  const posturePitch = climbAmount * 0.42 - diveAmount * 0.5 - boost01 * 0.02 + decel01 * 0.05;
 
   // Surge/boost bank DEEPER + SNAPPIER (carves like a fighter jet).
   const bankFactor = 0.035 + speedNorm * 0.015;   // RESET to the original body-roll (was over-banking)
