@@ -59,17 +59,38 @@ export function makeSuperEllipseSection({ ex = 2.15, flatTop = 1, flatBot = 1, n
 // welds the membrane to it as one skin. The section + profile come from def.hull.
 registerTorso('hullTorso', (def, model, bodyMat) => {
   const hull = def.hull || {};
-  const profile = hull.profile;
-  if (!profile) throw new Error("hullTorso requires def.hull.profile");
+  const baseProfile = hull.profile;
+  if (!baseProfile) throw new Error("hullTorso requires def.hull.profile");
   const n = hull.sectionN ?? 20;
-  const section = profile.ring || makeSuperEllipseSection({ ...(hull.section || {}), n });
-  // ascendedDef() deep-clones the def via JSON → any FUNCTION on the profile (headBase)
-  // is dropped. The head is hull-grown ('none') so its value is irrelevant; re-attach a
-  // no-op headBase to satisfy buildTorso's attach contract.
-  const safeProfile = typeof profile.headBase === 'function'
-    ? profile
-    : { ...profile, headBase: () => ({ x: 0, y: 0.5, z: (profile.stations?.[0]?.[0] ?? -4) + 1 }) };
-  return buildTorso(safeProfile, def, model, bodyMat,
+  // PER-FORM SECTION morph (round chubby baby → sleek adult): model.hullSection (merged
+  // from forms[].hullSection) overrides the base section's ex/flatTop/flatBot.
+  const section = baseProfile.ring || makeSuperEllipseSection({ ...(hull.section || {}), ...(model.hullSection || {}), n });
+  // PER-FORM SPINE-ARCH (line-of-beauty S-curve ramp) + cute baby HEAD-BULGE: transform the
+  // stations. cy×spineArch bends the whole spine more on the adult; headBulge fattens the
+  // FRONT (head) stations so the baby reads big-domed. Both default ×1 → byte-identical unset.
+  // The wing-seam zone (z≈wingRoot.z) is untouched: cy≈0 there (arch scales 0→0) and the head
+  // window is far forward of it (weld preserved).
+  const archK = model.spineArch ?? 1;
+  const bulge = model.headBulge ?? 1;
+  const headZ = hull.headBulgeZ ?? -2.85;       // stations forward of this are the "head"
+  const blend = hull.headBulgeBlend ?? 0.7;
+  let stations = baseProfile.stations;
+  if (archK !== 1 || bulge !== 1) {
+    stations = baseProfile.stations.map((st) => {
+      const z = st[0]; let hw = st[1], kt = st[2], be = st[3]; const cy = st[4] ?? 0;
+      if (bulge !== 1 && z < headZ + blend) {
+        const u = z <= headZ ? 1 : 1 - (z - headZ) / blend;   // 1 at head → 0 at blend end
+        const f = 1 + (bulge - 1) * (u * u * (3 - 2 * u));    // smoothstep falloff
+        hw *= f; kt *= f; be *= f;
+      }
+      return [z, hw, kt, be, cy * archK];
+    });
+  }
+  const profile = { ...baseProfile, stations,
+    headBase: typeof baseProfile.headBase === 'function'
+      ? baseProfile.headBase
+      : () => ({ x: 0, y: 0.5, z: (baseProfile.stations?.[0]?.[0] ?? -4) + 1 }) };
+  return buildTorso(profile, def, model, bodyMat,
     (p, stretch) => sweepProfileSmooth({ ...p, ring: section }, stretch),
     { bodyMesh: false, neck: false });
 });
@@ -584,15 +605,29 @@ function buildHull(def, model, attach) {
   const HEAD_Y = TY + (hk.headY ?? 0.30), TAILFIN_Y = TY + (hk.tailFinY ?? -0.18);
 
   if (model.hullEyes ?? hk.eyes ?? true) {
-    const eyeGeo = new THREE.SphereGeometry(0.115, seg(10), seg(8));
+    // eyeScale grows the eye (cute baby reads bigger-eyed); eyeYOffset drops it lower-set
+    // (Kindchenschema). A pupil sphere gives a readable eye in the shop/¾ view (the chase
+    // cam barely sees the face, so this is a front-view bonus, not the cuteness driver).
+    const es = model.eyeScale ?? 1;
+    const eyeGeo = new THREE.SphereGeometry(0.115 * es, seg(10), seg(8));
     const eyeZ = hk.eyeZ ?? -3.52;
+    const eyeY = HEAD_Y - 0.05 + (model.eyeYOffset ?? 0);
+    const eyeX = (hk.eyeX ?? 0.275);
+    const pupilOn = model.eyePupil ?? hk.pupil;
+    const pupilMat = pupilOn ? new THREE.MeshStandardMaterial({ color: def.eyePupil ?? 0x0a0a0a, roughness: 0.35, metalness: 0.0 }) : null;
     for (const side of [1, -1]) {
       const eye = new THREE.Mesh(eyeGeo, eyeMat);
-      eye.position.set(side * 0.275, HEAD_Y - 0.05, eyeZ);
+      eye.position.set(side * eyeX, eyeY, eyeZ);
       eye.scale.set(0.74, 1.12, 0.70);
       eye.rotation.y = side * 0.55;
       eye.rotation.z = side * -0.12;
       features.push(eye);
+      if (pupilMat) {
+        const pupil = new THREE.Mesh(new THREE.SphereGeometry(0.052 * es, seg(8), seg(6)), pupilMat);
+        // sit on the FRONT outer face of the almond eye (forward −z, outward ±x).
+        pupil.position.set(side * (eyeX + 0.05 * es), eyeY, eyeZ - 0.075 * es);
+        features.push(pupil);
+      }
     }
   }
   if (model.hullEarHorns ?? hk.earHorns) {
