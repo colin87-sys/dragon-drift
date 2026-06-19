@@ -1879,3 +1879,33 @@ class** is in reach (jets, walkers, drones) where "limbs" are aero/mechanical su
 expose ring-shape + tail-kind as grammar knobs (describable mecha), a panel-line surface shader for the boxy plating,
 and drive the exhaust/flutter from the SAME flight-state signals the wings read so the whole creature animates as one
 aircraft.
+
+### L59 — A full creature can be a reusable hard-surface KIT (`mechaKit.js`): pure, material-injected, socket-bearing modules the registered parts merely COMPOSE; and a body part the pipeline lacks (legs, thrusters) lives as a surface layer reading `attach.*`
+**Did / learned:** rebuilt Aurum Toro from scratch as an SVJ mecha-dragon, but the real win is the **factoring**.
+Extracted `mechaKit.js` — a library of PURE, `seg()`-wrapped, **material-injected** (zero palette coupling) hard-surface
+primitives with **named sockets**: `hexPrism`, `spineSegment`(core+armor+fore/aft/dorsal sockets), `wedgePanel`,
+`ventPlateRow` (the 3-slash vent), `hexGrille`, `chevronLight` (taillight), `diffuserArray`, `thrusterPod` (housing+frame+
+glowing core), `mechaLeg`, `frameBar`, `wedgeRing`. The four registered builders (`svjEngineBay` torso, `bladeWing`
+wings, `svjDragonHead`, `segmentedAeroTail`) and five surface layers (`engineBay`/`ventSlashes`/`twinThrusters`/
+`rearDiffuser`/`mechaLegs`) are now just **assembly graphs** over the kit — geometry in the kit, palette + Surge-flare
+tagging in the builders. Because the registry + attach-contract + `tailFins`/`segs` hooks already ARE the assembly graph,
+this needed **zero engine changes** (no `dragon.js`/`dragonModel.js`/registry edits) and the whole shipped roster stayed
+byte-identical (tricount unchanged, blueprint 0 warnings, aurumToro 2658 tris/form). Two reusable patterns fell out:
+**(1)** a limb the model pipeline has no slot for (legs, thrusters) is a **surface layer reading `attach.halfWidthAt(z)`/
+`bodyMidY`/`tailAnchor`** — body-mounted hardware without a rig hook; **(2)** a part that should stay tucked in flight
+bakes its **folded pose into the group transform** (static rotation, never rig-driven). Also confirmed the THREE dominant
+chase-cam shapes (huge cropped blade wings → bulky twin-thruster engine block → long armored coiling tail w/ big
+stabilizer blades) are what carry the read; the cheap greeble (vents/chevrons/grilles) is **medium**-priority precisely
+because it's REAR-facing and fills the chase view. Built deliberately OVERSIZED to judge proportion first, then shrink
+via `model.scale`.
+**Gotcha:** the engine's forward axis is **−Z** (head at `−z`, tail at `+z`); a spec written `+Z`-forward must be
+mapped, not pasted, or the creature builds backwards. And the non-skinned tail rig writes each seg's `position.x/y`
+ABSOLUTELY from a damped wave (only `z` is the build-time chain) — so armor/fins/taillights must be **children of their
+seg** to ride the coil, and a stabilizer mounted near the tip rides the coil AND deploys (compound motion) when it's both
+a child of a rear seg and in `tailFins`.
+**→ Systematize:** `mechaKit` joins profile / cross-section-ring / tail-kind as the reusable **hard-surface vocabulary**;
+"material-injected pure module + named sockets" is the template for the next part family, and "body-mounted limb via a
+surface layer reading `attach.*`" is the escape hatch for any part the four-slot pipeline lacks.
+**→ Leapfrog (innovate):** the kit unlocks composable mecha/vehicle creatures from a parts bin — next, a socket-driven
+**auto-greeble** pass (scatter vents/grilles/lights along a part's sockets by rule) and a panel-line surface shader so the
+plating reads as paneled metal without extra tris.

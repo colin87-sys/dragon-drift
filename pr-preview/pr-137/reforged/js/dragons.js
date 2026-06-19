@@ -1115,18 +1115,19 @@ export const DRAGONS = {
     maxRarity: 'SSSR',
     cost: 5000,
     parts: {
-      torso: 'faceted', wings: 'hexMembrane', head: 'bullCrown', tail: 'svjRear',
-      surfaceLayers: ['svjWing', 'scissorHinge', 'splitterJaw', 'aeroVents', 'glowSeams'],
+      torso: 'svjEngineBay', wings: 'bladeWing', head: 'svjDragonHead', tail: 'segmentedAeroTail',
+      surfaceLayers: ['engineBay', 'ventSlashes', 'twinThrusters', 'rearDiffuser', 'mechaLegs', 'scissorHinge'],
     },
     // Fast, sharp-handling, thirsty — a supercar (drain>1 = burns boost fast).
     stats: { speed: 1.16, handling: 1.22, drain: 1.04, regen: 0.95 },
     model: {
-      // Compact + thick: bigger scale for mass, SHORT wings (geometry shortens too),
-      // a short tail stub, broad bull shoulders.
-      scale: 1.15, wingScale: 0.8, tailSegments: 4, neckSegments: 4,
-      shoulderWidthScale: 1.15,
-      hornLen: 1.5, hornPairs: 2, ridgeCount: 0, eyeScale: 1.1,
-      flapBias: 1.0, flapAmp: 0.95, // heavier, more powerful beat
+      // SVJ mecha rebuild — built BIG (huge cropped wings, long armored tail) so the
+      // silhouette is easy to judge; shrink via `scale` later once the read is right.
+      // Broad GLIDE wings (low flapAmp keeps them wide), short neck, bulky engine block.
+      scale: 1.0, wingScale: 1.0, tailSegments: 9, neckSegments: 3,
+      shoulderWidthScale: 1.25,
+      hornLen: 0.9, hornPairs: 1, ridgeCount: 0, eyeScale: 1.15,
+      flapBias: 0.85, flapAmp: 0.7,
     },
     // Giallo clearcoat: glossy + reflective in the shop hero scene (no env in-game).
     bodyRoughness: 0.18, bodyMetalness: 0.55, bodyEnvIntensity: 0.8,
