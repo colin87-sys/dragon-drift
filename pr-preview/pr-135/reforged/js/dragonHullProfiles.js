@@ -33,16 +33,18 @@ export const FIRE_PROFILE = {
     [-2.02, 0.258, 0.225, 0.252,  0.07], // skull base
     // NECK — short, thick
     [-1.82, 0.305, 0.270, 0.320,  0.09], // neck
-    // BODY — lean but DEEP raptor chest (belly drop), pinched waist
-    [-1.52, 0.395, 0.380, 0.460,  0.11], // fore-shoulder — deep belly begins
-    [-1.12, 0.470, 0.450, 0.560,  0.12], // ribcage — deep keel + belly (back hump)
-    [-0.68, 0.495, 0.470, 0.580,  0.11], // CHEST PEAK — deep (lean but muscular)
-    [-0.30, 0.470, 0.450, 0.550,  0.08], // chest (wing-root centre)
-    [ 0.10, 0.385, 0.380, 0.460,  0.03], // thorax
-    [ 0.48, 0.295, 0.305, 0.350, -0.03], // WAIST — pinched (lean)
-    [ 0.85, 0.238, 0.252, 0.268, -0.09], // mid
-    [ 1.20, 0.192, 0.208, 0.205, -0.15], // haunch
-    // TAIL — long thin whip, sweeping DOWN then the tip KICKS UP (flame on the kicked tip)
+    // BODY — a lean RAPTOR but with a CHUNKY deep chest (belly drop, not a thin tube), a pinched
+    // cat WAIST, then a muscular HAUNCH bulge, then the long thin tail.
+    [-1.52, 0.430, 0.390, 0.510,  0.11], // fore-shoulder — deep belly begins
+    [-1.12, 0.530, 0.450, 0.620,  0.12], // ribcage — deep raptor chest
+    [-0.68, 0.560, 0.460, 0.650,  0.11], // CHEST PEAK — deep + broad (muscular, still lean)
+    [-0.30, 0.530, 0.440, 0.620,  0.08], // chest (wing-root centre)
+    [ 0.10, 0.420, 0.380, 0.490,  0.03], // thorax (chunky)
+    [ 0.46, 0.300, 0.305, 0.350, -0.03], // WAIST — pinched (lean cat tuck)
+    [ 0.80, 0.330, 0.285, 0.350, -0.08], // HAUNCH — muscular thigh bulge (girth back UP)
+    [ 1.10, 0.270, 0.258, 0.270, -0.13], // haunch back
+    // TAIL — necks off the haunch into a long thin whip, sweeping DOWN then the tip KICKS UP
+    [ 1.45, 0.180, 0.190, 0.180, -0.18],
     [ 1.55, 0.156, 0.168, 0.158, -0.21],
     [ 1.95, 0.124, 0.134, 0.124, -0.27],
     [ 2.35, 0.097, 0.105, 0.096, -0.32], // sweeping down
