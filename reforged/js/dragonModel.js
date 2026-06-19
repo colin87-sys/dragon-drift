@@ -13,6 +13,7 @@ import './dragonDraconicHead.js';   // 'draconic' head (modular house-style drag
 import './dragonUnifiedHull.js';    // 'unifiedHull' wings + 'unifiedHullTorso' (one continuous skinned hull)
 import './dragonOrganism.js';       // 'organismWings' + 'organismTorso' (clean-sheet one-skin creature)
 import './dragonNightFury.js';      // 'nightFuryWings' + 'nightFuryTorso' (smooth-loft Night Fury) + 'none' head/tail
+import './dragonHull.js';           // 'hullWings' + 'hullTorso' (data-driven Night-Fury kernel for the new starters)
 import './dragonFuryHull.js';       // 'furyHull' wings + 'furyHullTorso' + 'furyHullTail' (fresh clean-sheet welded Night-Fury hull)
 import { shingle } from './dragonShingle.js'; // reusable overlapping scale/plate cards
 import { resolveSurfaceLayers, getSurfaceLayer } from './dragonSurfaceLayers.js'; // declarative dorsal/flank decoration
