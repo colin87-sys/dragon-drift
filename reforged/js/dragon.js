@@ -558,28 +558,28 @@ export function updateDragon(dt, player, time) {
 
   const nTail = tailSegs.length;
   if (nTail && activeDef.model.tailWhip) {
-    // Night-Fury tail = a SKINNED bone chain (not free segments), so drive it by
-    // ROTATION only (position would tear the chain). CRUISE = a VERTICAL (up/down)
-    // travelling wave on rotation.x, phase-locked to the wingbeat (`phase`) and trailing
-    // the body wave down the tail — NOT side-to-side. BANKING cross-fades IN a horizontal
-    // rudder (rotation.y) curving the tail INTO the turn; the vertical whip fades down.
-    // gentle steering barely sweeps the tail; a HARD bank drives the rudder + counter-sweep.
+    // Night-Fury tail = a SKINNED bone chain (not free segments), so drive it by ROTATION
+    // only (position would tear the chain). A flying creature's tail TRAILS like a rudder —
+    // a lazy LATERAL (side-to-side) streaming swish is the dominant idle motion (NOT a
+    // dolphin up/down pump, which read awkward), with only a SUBTLE vertical follow-through
+    // lag. BANKING adds the horizontal rudder curving the tail INTO the turn.
     const cruise = 1 - bankHard * 0.7;
     const sp = 0.6 + 0.4 * speedNorm;
-    const tWhip = -vertJerk * 0.040;          // vertical pitch-whip (tail trails the body) — bolder
-    // tailStiffness: boost/surge/dive TIGHTEN the tail into a high-speed rudder (less loose
-    // wave, snappier follow-through); boost-release decel LOOSENS it (soft S-curve, lagging
-    // tip catching air); a DIVE also straightens it behind the body. The per-segment lag
-    // keeps the tail TIP the most delayed (organic follow-through / counter-sweep on turns).
+    const tWhip = -vertJerk * 0.016;          // SUBTLE vertical follow-through (was a 0.040 pump)
     const loose = Math.max(0.2, 1 - 0.45 * aero01) * (1 + 0.4 * decel01) * (1 - 0.5 * diveAmount);
     const lam = Math.max(4, 8 + 5 * aero01 - 3 * decel01);
+    // lazy lateral STREAMING sway — a slow sine running aft down the tail (a real trailing
+    // tail), faded out as the rudder takes over on a hard bank. This is the dominant motion.
+    const swayAmp = (0.14 + 0.05 * speedNorm) * cruise;
     for (let i = 0; i < nTail; i++) {
       const lock = (i + 1) / nTail;                       // root subtle → tip full
       const ph = phase - 1.6 - i * 0.6;                   // trail the wingbeat aft
-      const pitch = flapSurge(ph) * 0.19 * lock * cruise * sp * loose;  // VERTICAL wave (thrust)
-      const rudder = turnBias * (1.4 + 0.9 * aero01) * lock * bankHard;  // HORIZONTAL rudder (hard bank only)
+      // VERTICAL: only a small follow-through lag now (was a 0.19 dolphin pump → 0.05).
+      const pitch = flapSurge(ph) * 0.05 * lock * cruise * sp * loose;
+      const sway = Math.sin(time * 1.5 - i * 0.7) * swayAmp * lock;     // lazy lateral swish
+      const rudder = turnBias * (1.4 + 0.9 * aero01) * lock * bankHard;  // hard-bank rudder
       tailSegs[i].rotation.x = damp(tailSegs[i].rotation.x, pitch + climbAmount * 0.10 * lock + tWhip * lock, lam, dt);
-      tailSegs[i].rotation.y = damp(tailSegs[i].rotation.y, rudder, lam, dt);
+      tailSegs[i].rotation.y = damp(tailSegs[i].rotation.y, rudder + sway, lam, dt);
       tailSegs[i].rotation.z = damp(tailSegs[i].rotation.z, 0, 9, dt);
     }
   } else for (let i = 0; i < nTail; i++) {
