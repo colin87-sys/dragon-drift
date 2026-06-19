@@ -1097,11 +1097,12 @@ export const DRAGONS = {
 
   // AURUM TORO — a Lamborghini-Aventador-as-dragon, and the HERO that proves the
   // new FACETED ("hard-edge / automotive") part family (dragonFaceted.js): a
-  // COMPACT, thick, muscular bull-barrel body (BULL_PROFILE) with sharp short
-  // swept-delta wings, forward-swept bull horns, a short jet-stub tail with a high
-  // central quad-exhaust, and the SVJ REAR — a fixed rear wing on uprights + a
-  // vertical-finned diffuser, plus scissor hinges, a front splitter, flank vents.
-  // The deliberate opposite of the matte-organic
+  // COMPACT, thick, muscular bull-barrel body on a BOXY mecha cross-section, with
+  // sharp framed swept-delta wings, forward-swept bull horns, and the SVJ REAR as a
+  // RIGID spoiler tail (svjRear) — a boxy transom with the wraparound tail-light bar,
+  // central exhausts, a vertical-finned diffuser, and two articulating stabilizer
+  // flaps that pitch like aircraft elevators; plus a fixed rear wing on uprights,
+  // scissor hinges, a front splitter and flank vents. The deliberate opposite of the matte-organic
   // roster default — it opts BACK INTO mirror gloss (the per-dragon bodyRoughness/
   // bodyMetalness/bodyEnvIntensity finish override) for a giallo clearcoat. Faithful accents: xenon-
   // blue eyes + amber/red tail-light seams. Quick-look prototype — the PARTS are
@@ -1114,8 +1115,8 @@ export const DRAGONS = {
     maxRarity: 'SSSR',
     cost: 5000,
     parts: {
-      torso: 'faceted', wings: 'hexMembrane', head: 'bullCrown', tail: 'bladeJet',
-      surfaceLayers: ['svjWing', 'diffuser', 'scissorHinge', 'splitterJaw', 'aeroVents', 'glowSeams'],
+      torso: 'faceted', wings: 'hexMembrane', head: 'bullCrown', tail: 'svjRear',
+      surfaceLayers: ['svjWing', 'scissorHinge', 'splitterJaw', 'aeroVents', 'glowSeams'],
     },
     // Fast, sharp-handling, thirsty — a supercar (drain>1 = burns boost fast).
     stats: { speed: 1.16, handling: 1.22, drain: 1.04, regen: 0.95 },

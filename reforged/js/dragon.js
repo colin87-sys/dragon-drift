@@ -654,7 +654,14 @@ export function updateDragon(dt, player, time) {
       const bank = turnBias * (f.userData.bankGain ?? 0);
       f.rotation.z = (f.userData.restRotZ ?? 0) * tailDeploy;
       f.rotation.y = (f.userData.restRotY ?? 0) * tailDeploy + bank;
-      if (f.userData.restRotX != null) f.rotation.x = f.userData.restRotX;
+      if (f.userData.restRotX != null) {
+        // STABILIZER-FLAP pitch (gated by flapFlutter; no-op for every other tailFins
+        // dragon): a gentle up/down cruise flutter that swells as the dragon climbs —
+        // the spoiler flaps "supporting flight" like aircraft elevators.
+        const fl = f.userData.flapFlutter || 0;
+        const flutter = fl ? Math.sin(time * 3.2 + (f.userData.phase || 0)) * fl * (1 + climbAmount * 1.6) : 0;
+        f.rotation.x = f.userData.restRotX + flutter;
+      }
       f.scale.setScalar((f.userData.restScale ?? 1) * (0.96 + 0.06 * tailDeploy));
     }
   }
