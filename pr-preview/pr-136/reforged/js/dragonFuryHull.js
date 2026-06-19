@@ -323,7 +323,7 @@ function buildFuryHull(def, model, attach, giM) {
     emissive: def.wingMembraneEmissive ?? def.wingEmissive ?? 0x10161f,
     emissiveIntensity: model.wingPanelGlow ?? 0.12,
   });
-  if (model.wingSSS) composeSurface(wingMat, [membraneSSSPatch({ color: def.wingMembraneEmissive ?? 0x223044, strength: 0.2, power: 1.5 })]);
+  if (model.wingSSS) composeSurface(wingMat, [membraneSSSPatch({ color: def.wingMembraneEmissive ?? 0x223044, strength: 0.1, power: 1.6 })]);
 
   const strutMat = hullMat;
   const strutGeos = [];
@@ -525,14 +525,16 @@ function buildFuryHull(def, model, attach, giM) {
     return { mem: g };
   }
 
-  // ── TAIL-FIN: a BROAD leaf blade welded to the rear loft, splayed aft + out ──
-  // The two fins fan from the narrow tail tip into wide rounded flukes (the Night-
-  // Fury read). The root edge copies the tail's own verts (zero-gap weld); the blade
-  // then flares along a fin axis with a leaf-bulge width.
+  // ── TAIL-FIN: a clean splayed FAN fluke (the wing recipe in miniature) ───────
+  // A ruled surface from the welded tail root-chord out to a CLEAN SCALLOPED arc:
+  // `toes` sharp toe-tips with a concave web between (cusps, like the wing), and one
+  // straight tapering toe-strut to each tip. Both fins mirror → symmetric.
   function buildTailFin(side) {
-    const finLen = model.furyTailFinSpan ?? 1.2;
-    const finWid = model.furyTailFinWidth ?? 0.55;
-    const splay = model.furyTailFinSplay ?? 0.6;
+    const finLen = model.furyTailFinSpan ?? 1.25;
+    const splay = model.furyTailFinSplay ?? 0.6;             // whole-fin yaw off the tail axis
+    const spread = model.furyTailFinSpread ?? 1.05;          // fan opening angle
+    const toes = Math.max(2, Math.round(model.furyTailFinToes ?? 3));
+    const finScallop = model.furyTailFinScallop ?? 0.3;
     const zWF = 4.1, zWB = 5.25;
     const rootHull = [];
     for (let r = 0; r < RINGS; r++) {
@@ -545,40 +547,42 @@ function buildFuryHull(def, model, attach, giM) {
     rootHull.sort((a, b) => hullPos.getZ(a) - hullPos.getZ(b));
     const V = rootHull.length - 1;
     if (V < 1) return { mem: null };
-    const rootMid = new THREE.Vector3();
     const rv = (h) => new THREE.Vector3(hullPos.getX(h), hullPos.getY(h), hullPos.getZ(h));
+    const rootMid = new THREE.Vector3();
     for (const h of rootHull) rootMid.add(rv(h));
     rootMid.multiplyScalar(1 / rootHull.length);
-    // fin axis: out to the side + aft + a touch down; width perpendicular in the
-    // near-horizontal plane → the classic splayed twin flukes.
+    // fan axis (out + aft + a touch down) and the spread direction (perp, horizontal).
     const axis = new THREE.Vector3(side * Math.sin(splay), -0.12, Math.cos(splay)).normalize();
     const Wdir = new THREE.Vector3().crossVectors(axis, new THREE.Vector3(0, 1, 0)).normalize();
-    const tip = rootMid.clone().addScaledVector(axis, finLen);
-    const toes = Math.max(2, Math.round(model.furyTailFinToes ?? 3));
-    const finScallop = model.furyTailFinScallop ?? 0.34;
-    // a point on the fin blade at span u∈[0,1] (root→tip) and chord c∈[0,1]; the outer
-    // silhouette is SCALLOPED — deep notches between `toes` toe-tips, like the wing webs.
-    const finPoint = (u, c) => {
-      const notch = 1 - finScallop * (0.5 - 0.5 * Math.cos(2 * Math.PI * toes * u));   // dips between toes
-      const width = finWid * Math.sin(Math.PI * Math.pow(u, 0.62)) * notch;            // leaf bulge × scallop
-      return rootMid.clone().lerp(tip, u).addScaledVector(Wdir, width * (c - 0.5) * 2);
+    // a fan direction at chord param v∈[0,1] (one edge → other edge of the fluke).
+    const dirAt = (v) => { const th = (v - 0.5) * spread; return axis.clone().multiplyScalar(Math.cos(th)).addScaledVector(Wdir, Math.sin(th)).normalize(); };
+    // CUSPS across v: `toes` sharp tips at full length; rounded-short corners at the
+    // edges; a parabolic forward dip (concave web) between → clean scallops, sharp toes.
+    const cusps = [{ v: 0, len: 0.5 }];
+    for (let j = 0; j < toes; j++) cusps.push({ v: lerp(0.16, 0.84, toes > 1 ? j / (toes - 1) : 0.5), len: 1 });
+    cusps.push({ v: 1, len: 0.5 });
+    const lenAt = (v) => {
+      for (let i = 0; i < cusps.length - 1; i++) {
+        const a = cusps[i], b = cusps[i + 1];
+        if (v >= a.v && v <= b.v) { const t = (v - a.v) / Math.max(b.v - a.v, 1e-6); return lerp(a.len, b.len, t) - finScallop * (4 * t * (1 - t)); }
+      }
+      return cusps[cusps.length - 1].len;
     };
-    const SEG_U = seg(12);
+    const outerAt = (v) => rootMid.clone().addScaledVector(dirAt(v), finLen * lenAt(v));
+
+    const SEG_U = seg(8);
     const verts = [], idx = [], skin = [];
     for (let i = 0; i <= SEG_U; i++) {
       const u = i / SEG_U;
-      for (let v = 0; v <= V; v++) {
-        const c = V > 0 ? v / V : 0;
-        if (i === 0) { const h = rootHull[v]; verts.push(hullPos.getX(h), hullPos.getY(h), hullPos.getZ(h)); }
-        else {
-          const p = rv(rootHull[v]).lerp(finPoint(u, c), sstep(Math.min(u / 0.22, 1)));   // blend off the welded root
-          verts.push(p.x, p.y, p.z);
-        }
-        skin.push(i === 0 ? hullSkinAt(rootHull[v]) : { si: [BONE.T3, 0, 0, 0], sw: [1, 0, 0, 0] });
+      for (let vv = 0; vv <= V; vv++) {
+        const v = V > 0 ? vv / V : 0;
+        if (i === 0) { const h = rootHull[vv]; verts.push(hullPos.getX(h), hullPos.getY(h), hullPos.getZ(h)); }
+        else { const p = rv(rootHull[vv]).lerp(outerAt(v), sstep(u)); verts.push(p.x, p.y, p.z); }  // ruled root→arc
+        skin.push(i === 0 ? hullSkinAt(rootHull[vv]) : { si: [BONE.T3, 0, 0, 0], sw: [1, 0, 0, 0] });
       }
     }
-    for (let i = 0; i < SEG_U; i++) for (let v = 0; v < V; v++) {
-      const a = i * (V + 1) + v, b = a + 1, c = a + (V + 1), d = c + 1;
+    for (let i = 0; i < SEG_U; i++) for (let vv = 0; vv < V; vv++) {
+      const a = i * (V + 1) + vv, b = a + 1, c = a + (V + 1), d = c + 1;
       if (side > 0) idx.push(a, c, b, b, c, d); else idx.push(a, b, c, b, d, c);
     }
     const g = new THREE.BufferGeometry();
@@ -590,16 +594,17 @@ function buildFuryHull(def, model, attach, giM) {
     for (let v = 0; v <= V; v++) { const h = rootHull[v]; gN.setXYZ(v, hullNrm.getX(h), hullNrm.getY(h), hullNrm.getZ(h)); }
     gN.needsUpdate = true;
 
-    // toe struts: very thin tubes from the fin root out to each scalloped toe-tip (the
-    // notch peaks), one per toe — the subtle finger-spar read the user asked for.
+    // toe struts: one STRAIGHT (faintly arched) tapering spar from the fin root to each
+    // toe-tip — clean, thick at the base → fine at the point.
     for (let j = 0; j < toes; j++) {
-      const uPeak = (2 * j + 1) / (2 * toes);            // scallop peak along the span
+      const tipPt = outerAt(cusps[j + 1].v);
       const N = seg(4), pts = [], radii = [];
       for (let s = 0; s < N; s++) {
         const t = s / (N - 1);
-        const p = finPoint(uPeak * t, 0.92);             // root → toe tip on the trailing side
-        pts.push(new THREE.Vector3(p.x, p.y + 0.012, p.z));
-        radii.push(lerp(0.022, 0.008, t));
+        const p = rootMid.clone().lerp(tipPt, t);
+        p.y += 0.02 * Math.sin(Math.PI * t);             // a faint arch (otherwise straight)
+        pts.push(p);
+        radii.push(lerp(0.03, 0.006, sstep(t)));
       }
       strutGeos.push(skinnedTube(pts, radii, seg(3), () => ({ si: [BONE.T3, 0, 0, 0], sw: [1, 0, 0, 0] }), strutMat).geometry);
     }

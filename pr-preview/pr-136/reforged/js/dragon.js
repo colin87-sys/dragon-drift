@@ -408,10 +408,10 @@ export function updateDragon(dt, player, time) {
   decel01 = damp(decel01, 0, 2.2, dt);                          // …eased out smoothly
   const aero01 = Math.min(1, Math.max(boost01 * 0.7, surge01, diveAmount * 0.85));   // tuck/sweep
   const spread01 = Math.min(1, climbAmount * 0.9 + decel01);                          // open/brake
-  // POSTURE pitch: nose-DOWN in dive/boost/surge, nose-UP in climb, relax on decel.
-  // boost/fever nose-down kept VERY subtle (was tilting too far → showing the belly); the
-  // big deliberate poses stay on DIVE/CLIMB.
-  const posturePitch = climbAmount * 0.42 - diveAmount * 0.5 - boost01 * 0.035 - surge01 * 0.045 + decel01 * 0.05;
+  // POSTURE pitch: nose-DOWN in dive, nose-UP in climb, relax on decel. Surge no longer
+  // pitches the nose down — it was flashing the ventral (belly) of the body+wings from the
+  // chase cam during Dragon Surge (user note). The big deliberate poses stay on DIVE/CLIMB.
+  const posturePitch = climbAmount * 0.42 - diveAmount * 0.5 - boost01 * 0.02 + decel01 * 0.05;
 
   // Surge/boost bank DEEPER + SNAPPIER (carves like a fighter jet).
   const bankFactor = 0.035 + speedNorm * 0.015;   // RESET to the original body-roll (was over-banking)
@@ -558,29 +558,23 @@ export function updateDragon(dt, player, time) {
 
   const nTail = tailSegs.length;
   if (nTail && activeDef.model.tailWhip) {
-    // Night-Fury tail = a SKINNED bone chain (not free segments), so drive it by
-    // ROTATION only (position would tear the chain). CRUISE = a VERTICAL (up/down)
-    // travelling wave on rotation.x, phase-locked to the wingbeat (`phase`) and trailing
-    // the body wave down the tail — NOT side-to-side. BANKING cross-fades IN a horizontal
-    // rudder (rotation.y) curving the tail INTO the turn; the vertical whip fades down.
-    // gentle steering barely sweeps the tail; a HARD bank drives the rudder + counter-sweep.
+    // Night-Fury tail = a SKINNED bone chain (driven by ROTATION only — position tears it). It
+    // moves like the ORIGINAL dragons (azure): a LATERAL travelling COIL — a side-to-side wave
+    // running aft down the tail (azure's non-skinned tail is `sin(time*4.0 − i*0.6)·0.3·lock²`
+    // on position; reproduced here on rotation.y), with only a SUBTLE vertical follow-through.
+    // BANKING adds the horizontal rudder curving the tail INTO the turn.
     const cruise = 1 - bankHard * 0.7;
-    const sp = 0.6 + 0.4 * speedNorm;
-    const tWhip = -vertJerk * 0.040;          // vertical pitch-whip (tail trails the body) — bolder
-    // tailStiffness: boost/surge/dive TIGHTEN the tail into a high-speed rudder (less loose
-    // wave, snappier follow-through); boost-release decel LOOSENS it (soft S-curve, lagging
-    // tip catching air); a DIVE also straightens it behind the body. The per-segment lag
-    // keeps the tail TIP the most delayed (organic follow-through / counter-sweep on turns).
-    const loose = Math.max(0.2, 1 - 0.45 * aero01) * (1 + 0.4 * decel01) * (1 - 0.5 * diveAmount);
+    const tWhip = -vertJerk * 0.014;          // subtle vertical follow-through (not a pump)
     const lam = Math.max(4, 8 + 5 * aero01 - 3 * decel01);
+    const coilRate = 4.0;                                  // azure's tail rate
+    const coilAmp = (0.17 + 0.06 * speedNorm) * cruise;    // grows with speed; faded out on a hard bank
     for (let i = 0; i < nTail; i++) {
-      const lock = (i + 1) / nTail;                       // root subtle → tip full
-      const ph = phase - 1.6 - i * 0.6;                   // trail the wingbeat aft
-      const pitch = flapSurge(ph) * 0.19 * lock * cruise * sp * loose;  // VERTICAL wave (thrust)
-      const rudder = turnBias * (1.4 + 0.9 * aero01) * lock * bankHard;  // HORIZONTAL rudder (hard bank only)
-      tailSegs[i].rotation.x = damp(tailSegs[i].rotation.x, pitch + climbAmount * 0.10 * lock + tWhip * lock, lam, dt);
-      tailSegs[i].rotation.y = damp(tailSegs[i].rotation.y, rudder, lam, dt);
-      tailSegs[i].rotation.z = damp(tailSegs[i].rotation.z, 0, 9, dt);
+      const lock = (i + 1) / nTail;                        // root subtle → tip full (per-segment)
+      const coil = Math.sin(time * coilRate - i * 0.6) * coilAmp * lock;  // azure-style lateral coil
+      const rudder = turnBias * (1.4 + 0.9 * aero01) * lock * bankHard;    // hard-bank rudder
+      tailSegs[i].rotation.x = damp(tailSegs[i].rotation.x, climbAmount * 0.08 * lock + tWhip * lock, lam, dt);
+      tailSegs[i].rotation.y = damp(tailSegs[i].rotation.y, rudder + coil, lam, dt);
+      tailSegs[i].rotation.z = damp(tailSegs[i].rotation.z, -coil * 0.4, 10, dt);   // slight bank into the coil (like azure)
     }
   } else for (let i = 0; i < nTail; i++) {
     const lock = nTail > 1 ? i / (nTail - 1) : 0;

@@ -22,7 +22,7 @@ await page.goto(srv.url + '/tools/tiershots.html');
 await page.waitForFunction(() => window.__ready, { timeout: 15000 });
 
 // Render one dragon if a key is given (node tiershots.mjs <key>), else the roster.
-const ALL = ['azure', 'ember', 'jade', 'obsidian', 'pearl', 'solar', 'phoenix', 'astralWyrm'];
+const ALL = ['azure', 'ember', 'jade', 'obsidian', 'pearl', 'solar', 'phoenix', 'astralWyrm', 'water', 'fire', 'earth'];
 const dragons = process.argv[2] ? [process.argv[2]] : ALL;
 for (const key of dragons) {
   await page.evaluate(k => window.renderDragon(k), key);
