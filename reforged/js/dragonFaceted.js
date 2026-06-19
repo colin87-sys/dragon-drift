@@ -3,6 +3,10 @@ import { registerTorso, registerWings, registerHead, registerTail } from './drag
 import { registerSurfaceLayer } from './dragonSurfaceLayers.js';
 import { buildTorso } from './dragonTorso.js';
 import { seg } from './modelDetail.js';
+import {
+  wedgePanel, hexPrism, spineSegment, ventPlateRow, hexGrille,
+  chevronLight, diffuserArray, thrusterPod, mechaLeg, socket,
+} from './mechaKit.js';
 
 // FACETED — a hard-edged, low-poly "automotive" part family. The angular
 // counterpart to the smooth-organic hull catalog (unifiedHull / organism /
@@ -574,6 +578,444 @@ registerSurfaceLayer('diffuser', ({ def, attach }) => {
     fin.position.set(i * 0.13, baseY, z);
     fin.rotation.x = 0.25;                               // rake down/back
     meshes.push(fin);
+  }
+  return { meshes, flareMats: [] };
+});
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// SVJ MECHA-DRAGON v2 — the rebuilt Aurum Toro, composed from mechaKit modules.
+// Three dominant chase-cam shapes drive every choice: (1) huge angular blade WINGS,
+// (2) a bulky rear-engine TORSO with twin red thrusters, (3) a long segmented
+// armored TAIL with big stabilizer blades + a spear tip. Coexists with the v1
+// faceted builders above (kept registered for one-string rollback).
+//
+// REAR-VIEW PRIORITY: the camera chases from behind, so red taillight chevrons,
+// vent slashes, hex grilles and tail armor + thrusters (all rear-facing) get real
+// attention — they fill the screen — while forward/under greeble stays cheap.
+// Built BIG on purpose (judge the silhouette first; shrink via model.scale later).
+// ═══════════════════════════════════════════════════════════════════════════════
+
+// SVJ_ENGINE_PROFILE — BULL_PROFILE widened into a rear-ENGINE BLOCK: broad chest, a
+// thick NON-pinched waist and a fat haunch so the body reads as a powerful engine
+// bay, not an organic ribcage. Same fields buildTorso reads (attach contract + neck
+// chain come free); lofted through the boxy wedgeRing (faceted geometry).
+const SVJ_ENGINE_PROFILE = {
+  zHold: -0.3,
+  tailShiftRefZ: 1.10,
+  tailAnchorY: 0.32,
+  tailAnchorZ: 0.82,
+  stations: [
+    [-2.30, 0.22, 0.16, 0.18], // short neck cap
+    [-1.80, 0.54, 0.40, 0.42], // chest start
+    [-1.20, 0.82, 0.60, 0.62], // deep chest
+    [-0.60, 0.95, 0.70, 0.66], // shoulder/chest peak — broadest
+    [-0.05, 0.92, 0.62, 0.64], // barrel thorax (stays thick)
+    [ 0.42, 0.82, 0.54, 0.58], // waist — NOT pinched (engine mass)
+    [ 0.80, 0.88, 0.58, 0.62], // HAUNCH / engine-bay bulge (rear-wide)
+    [ 1.10, 0.46, 0.38, 0.30], // bulky tail root
+  ],
+  keel: [[-1.80, 0.40], [-0.60, 0.70], [-0.05, 0.62], [0.42, 0.54], [0.80, 0.58], [1.10, 0.38]],
+  wingRoot: { x: 0.72, y: 0.66, z: -0.5 },
+  fairing: { r: 0.4, scale: [0.94, 0.84, 1.12], pos: [0.58, 0.64, -0.48] },
+  neck: {
+    rBase: 0.46, rStep: 0.055, rMin: 0.22, scale: [0.86, 0.74, 1.12],
+    y0: 0.38, yStep: 0.075, z0: -1.7, zStep: -0.32, wobbleAmp: 0.05, wobbleFreq: 0.8,
+  },
+  headBase: (neckSegs) => ({ x: 0, y: 0.54 + (neckSegs - 4) * 0.08, z: -2.5 - (neckSegs - 4) * 0.3 }),
+};
+registerTorso('svjEngineBay', (def, model, bodyMat) =>
+  buildTorso(SVJ_ENGINE_PROFILE, def, model, bodyMat, buildFacetedTorsoGeometry));
+
+// ── WINGS: 'bladeWing' — the dominant chase-cam feature ──────────────────────────
+// Huge angular blade wings on the frozen rig. Yellow armor = the outer silhouette; a
+// black hex/vent panel sits INSIDE the wing; red chevron taillights run the trailing
+// edge (rear-facing, so they read in the chase view). Built big (~10.6u span) in a
+// broad GLIDE pose (a low flapAmp keeps it wide, not a deep beat). Honors the frozen
+// rig contract verbatim (inner panel on wingPivot, outer blade on wingTip).
+function buildBladeWing(def, model, attach, giM) {
+  const group = new THREE.Group();
+  const spineMats = [];
+  const ws = model.wingScale ?? 1;
+  const gi = Math.min(giM ?? 1, 1.3);
+
+  const wingMat = new THREE.MeshStandardMaterial({
+    color: def.wingInner ?? def.body, flatShading: true, side: THREE.DoubleSide,
+    roughness: def.bodyRoughness ?? 0.24, metalness: def.bodyMetalness ?? 0.55,
+    emissive: def.wingEmissive ?? 0x000000, emissiveIntensity: model.wingPanelGlow ?? 0.16,
+  });
+  const boneMat = new THREE.MeshStandardMaterial({
+    color: def.horn ?? 0x0e0e12, flatShading: true, roughness: 0.35, metalness: 0.62,
+  });
+  const carbonMat = new THREE.MeshStandardMaterial({
+    color: def.belly ?? def.horn ?? 0x0e0e12, flatShading: true, side: THREE.DoubleSide,
+    roughness: 0.42, metalness: 0.6,
+  });
+  const redCol = def.apexSeam ?? def.wingEmissive ?? 0xff3b2f;
+  const redMat = new THREE.MeshStandardMaterial({
+    color: redCol, emissive: redCol, emissiveIntensity: 1.7 * gi, roughness: 0.3,
+  });
+  redMat.userData.baseEmissive = redCol;
+  redMat.userData.baseIntensity = 1.7 * gi;
+  spineMats.push(redMat);
+
+  // Reaches (engine-local × wingScale). Inner wrist out+up (dihedral), outer blade
+  // sweeps back hard (toward +z = tail). Per-side reach ≈ IX+OX → 2× ≈ huge/cropped.
+  const IX = 1.95 * ws, IY = 0.5;             // wrist x out, y up (dihedral)
+  const OX = 2.7 * ws, OY = 0.16;             // outer tip extra x + slight rise
+  const ISW = 0.34, OSW = 1.05;               // sweep-back
+  const rootC = 1.05, midC = 0.82, tipC = 0.32;
+
+  function buildSide(side) {
+    const pivot = new THREE.Group();
+    const wr = attach.wingRoot(side);
+    pivot.position.set(wr.x, wr.y, wr.z);
+
+    // shoulder hinge block (carbon) at the root
+    const hinge = new THREE.Mesh(new THREE.BoxGeometry(0.32, 0.34, 0.42), carbonMat);
+    hinge.rotation.z = side * 0.32;
+    pivot.add(hinge);
+
+    // INNER PANEL (yellow armor) root→wrist; dihedral baked into y.
+    const A = [side * 0.16, 0, -rootC * 0.5];                 // root leading
+    const D = [side * 0.16, 0,  rootC * 0.5];                 // root trailing
+    const B = [side * IX, IY, -midC * 0.5 + ISW];             // wrist leading
+    const C = [side * (IX - 0.34), IY, midC * 0.5 + ISW];     // wrist trailing
+    pivot.add(flatTriMesh([[A, B, C], [A, C, D]], wingMat));
+    pivot.add(frameBar(A, B, [0.17, 0.1], boneMat));          // carbon leading boom (body line)
+    pivot.add(frameBar(D, C, [0.06, 0.05], boneMat));         // thin trailing rail
+
+    // BLACK HEX/VENT PANEL inside the wing (not on the silhouette)
+    const vent = hexGrille({ w: 0.74, h: 0.5, mat: carbonMat, barMat: boneMat });
+    vent.position.set(side * IX * 0.52, IY * 0.5 + 0.02, ISW * 0.4 + 0.12);
+    vent.rotation.y = side * 0.22; vent.rotation.x = -0.18;
+    pivot.add(vent);
+    // 3 diagonal vent slashes on the inner armor (rear-facing greeble)
+    const slashes = ventPlateRow(3, { w: 0.5, h: 0.32, plateMat: wingMat, slitMat: carbonMat });
+    slashes.position.set(side * IX * 0.46, IY * 0.5 + 0.08, -0.08);
+    slashes.rotation.y = side * 0.32;
+    pivot.add(slashes);
+
+    // RED chevron taillights along the inner trailing rail (D→C)
+    for (const t of [0.5, 0.78]) {
+      const cl = chevronLight({ len: 0.42, w: 0.05, mat: redMat });
+      cl.position.set(D[0] + (C[0] - D[0]) * t, D[1] + (C[1] - D[1]) * t + 0.03, D[2] + (C[2] - D[2]) * t);
+      cl.rotation.y = side * 0.2;
+      pivot.add(cl);
+    }
+
+    // wingTip (wrist) — the rig folds this; the outer blade rides it.
+    const wingTip = new THREE.Group();
+    wingTip.position.set(side * IX, IY, ISW);
+    const Bp = [0, 0, -midC * 0.5];
+    const Cp = [side * -0.34, 0, midC * 0.5];
+    const T  = [side * OX, OY, -tipC * 0.5 + OSW];           // outer tip leading
+    const Tt = [side * (OX - 0.55), OY, tipC * 0.5 + OSW];   // outer tip trailing
+    wingTip.add(flatTriMesh([[Bp, T, Tt], [Bp, Tt, Cp]], wingMat));
+    wingTip.add(frameBar(Bp, T, [0.13, 0.08], boneMat));     // outer leading bar (sharp rail)
+    // trailing flap blade (thin, behind the trailing edge)
+    const flapTip = [side * (OX - 0.78), OY - 0.04, midC * 0.5 + OSW + 0.24];
+    wingTip.add(flatTriMesh([[Cp, Tt, flapTip]], wingMat));
+    // wingtip endplate (vertical fin)
+    const ep = new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.3, 0.48), carbonMat);
+    ep.position.set(side * OX, OY + 0.1, -tipC * 0.5 + OSW);
+    wingTip.add(ep);
+    // RED chevron taillights along the outer trailing edge (Cp→Tt)
+    for (const t of [0.45, 0.72]) {
+      const cl = chevronLight({ len: 0.38, w: 0.05, mat: redMat });
+      cl.position.set(Cp[0] + (Tt[0] - Cp[0]) * t, Cp[1] + (Tt[1] - Cp[1]) * t + 0.02, Cp[2] + (Tt[2] - Cp[2]) * t);
+      cl.rotation.y = side * 0.25;
+      wingTip.add(cl);
+    }
+    const marker = new THREE.Object3D();
+    marker.position.set(side * OX, OY, -tipC * 0.5 + OSW);
+    wingTip.add(marker);
+    pivot.add(wingTip);
+
+    group.add(pivot);
+    return { pivot, wingTip, marker };
+  }
+
+  const R = buildSide(1), L = buildSide(-1);
+  return {
+    group,
+    parts: {
+      wingPivotL: L.pivot, wingPivotR: R.pivot,
+      wingTipL: L.wingTip, wingTipR: R.wingTip,
+      tipMarkerL: L.marker, tipMarkerR: R.marker,
+      wingPivot2L: null, wingPivot2R: null, wingRigL: null, wingRigR: null,
+    },
+    wingMat, spineMats,
+  };
+}
+registerWings('bladeWing', buildBladeWing);
+
+// ── HEAD: 'svjDragonHead' — low angular wedge skull ──────────────────────────────
+// A low, wide, aggressive car-nose skull (no round animal head): a pointed wedge
+// snout, recessed RED eyes, backward-swept horn fins, a lower-jaw blade and diagonal
+// brow vents. Uses the shared body material (cloned flat-shaded → gold panels).
+function buildSvjDragonHead(def, model, mats) {
+  const { bodyMat } = mats;
+  const head = new THREE.Group();
+  const gold = bodyMat.clone(); gold.flatShading = true;
+  const carbon = new THREE.MeshStandardMaterial({
+    color: def.belly ?? def.horn ?? 0x0e0e12, flatShading: true, roughness: 0.42, metalness: 0.6,
+  });
+  const facetHorn = new THREE.MeshStandardMaterial({
+    color: def.horn ?? 0x0e0e12, flatShading: true, roughness: 0.35, metalness: 0.6,
+  });
+  const eyeCol = def.apexSeam ?? 0xff3b2f;     // RED eyes (match the render)
+  const eyeMat = new THREE.MeshStandardMaterial({
+    color: eyeCol, emissive: eyeCol, emissiveIntensity: 2.0, roughness: 0.3,
+  });
+  eyeMat.userData.baseEmissive = eyeCol; eyeMat.userData.baseIntensity = 2.0;
+
+  const skull = new THREE.Mesh(new THREE.BoxGeometry(0.72, 0.34, 0.9), gold);
+  skull.position.set(0, 0.02, 0);
+  head.add(skull);
+  const snout = new THREE.Mesh(new THREE.ConeGeometry(0.28, 0.95, seg(4)), gold);
+  snout.rotation.x = -Math.PI / 2; snout.rotation.z = Math.PI / 4;
+  snout.scale.set(1.15, 0.5, 1); snout.position.set(0, -0.04, -0.7);
+  head.add(snout);
+  const jaw = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.1, 0.6), carbon);
+  jaw.position.set(0, -0.2, -0.5);
+  head.add(jaw);
+  for (const s of [-1, 1]) {
+    const sock = new THREE.Mesh(new THREE.BoxGeometry(0.22, 0.12, 0.18), carbon);
+    sock.position.set(s * 0.28, 0.06, -0.2); sock.rotation.y = s * 0.3;
+    head.add(sock);
+    const eye = new THREE.Mesh(new THREE.OctahedronGeometry(0.07 * (model.eyeScale || 1)), eyeMat);
+    eye.scale.set(1.7, 0.7, 1); eye.position.set(s * 0.3, 0.06, -0.27);
+    head.add(eye);
+  }
+  const hl = Math.max(0.4, model.hornLen ?? 0.9);
+  for (const s of [-1, 1]) {
+    const horn = new THREE.Mesh(new THREE.ConeGeometry(0.1, hl, seg(4)), facetHorn);
+    horn.position.set(s * 0.3, 0.18, 0.28);
+    horn.rotation.x = 0.85;           // sweep back (+z) and up
+    horn.rotation.z = s * 0.4;        // outward splay
+    head.add(horn);
+  }
+  const brow = ventPlateRow(3, { w: 0.4, h: 0.13, plateMat: gold, slitMat: carbon });
+  brow.position.set(0, 0.2, -0.04); brow.rotation.x = -0.5;
+  head.add(brow);
+
+  return { group: head, spineMats: [eyeMat] };
+}
+registerHead('svjDragonHead', buildSvjDragonHead);
+
+// ── TAIL: 'segmentedAeroTail' — long armored coiling tail ─────────────────────────
+// ~9 chunky hex spine segments (black core + yellow armor shell), thick base
+// tapering LATE, smooth coil (non-empty segs → the rig coils it). Big sharp yellow
+// stabilizer blades near the tip (tailFins: deploy on boost + flutter, riding a rear
+// segment so they also follow the coil), small blade fins on the rear segments, red
+// taillight slits, and a spear tip.
+function buildSegmentedAeroTail(def, model, mats, anchor) {
+  const { bodyMat } = mats;
+  const root = new THREE.Group();
+  root.position.set(0, anchor.y, anchor.z);
+  const gold = bodyMat.clone(); gold.flatShading = true;
+  const carbon = new THREE.MeshStandardMaterial({
+    color: def.belly ?? def.horn ?? 0x0e0e12, flatShading: true, roughness: 0.42, metalness: 0.6,
+  });
+  const redCol = def.apexSeam ?? 0xff3b2f;
+  const redMat = new THREE.MeshStandardMaterial({
+    color: redCol, emissive: redCol, emissiveIntensity: 1.7, roughness: 0.3,
+  });
+  redMat.userData.baseEmissive = redCol; redMat.userData.baseIntensity = 1.7;
+  const accentMats = [redMat];
+  const segs = [], tailFins = [];
+
+  const n = Math.min(model.tailSegments ?? 9, 12);
+  let z = 0.12, r = 0.34;
+  const taper = 0.87, segLen = 0.46;
+  let rearSeg = null;
+  for (let i = 0; i < n; i++) {
+    const rTop = Math.max(r * taper, 0.07);
+    const ss = spineSegment({ rTop, rBot: r, len: segLen, coreMat: carbon, armorMat: gold });
+    ss.group.position.set(0, 0, z);
+    root.add(ss.group);
+    segs.push(ss.group);
+    // red taillight slit on mid segments (rear-facing read)
+    if (i >= 2 && i <= 5) {
+      const slit = chevronLight({ len: r * 1.3, w: 0.045, mat: redMat });
+      slit.position.set(0, r * 0.5, segLen * 0.3);
+      ss.group.add(slit);
+    }
+    // small blade fins on the rear segments (static, ride the seg)
+    if (i >= n - 3) {
+      for (const s of [-1, 1]) {
+        const fin = new THREE.Mesh(new THREE.BoxGeometry(0.42, 0.06, 0.2), gold);
+        fin.position.set(s * (r + 0.18), r * 0.4, 0);
+        fin.rotation.z = s * 0.3;
+        ss.group.add(fin);
+      }
+    }
+    if (i === n - 2) rearSeg = ss.group;   // mount big stabilizers here (near the tip)
+    z += segLen * 0.82;
+    r = Math.max(r * taper, 0.07);
+  }
+
+  // BIG sharp yellow stabilizer blades (tailFins) near the tip — children of a rear
+  // segment so they ride the coil, AND in tailFins so the rig deploys/flutters them.
+  const host = rearSeg ?? root;
+  for (const s of [-1, 1]) {
+    const flap = new THREE.Group();
+    flap.position.set(s * 0.12, 0.14, 0);
+    const blade = new THREE.Mesh(new THREE.BoxGeometry(0.82, 0.06, 0.36), gold);
+    blade.position.set(s * 0.38, 0, 0);
+    flap.add(blade);
+    const edge = new THREE.Mesh(new THREE.BoxGeometry(0.7, 0.04, 0.05), redMat);
+    edge.position.set(s * 0.38, 0.02, 0.18);
+    flap.add(edge);
+    flap.userData.restRotX = -0.16;
+    flap.userData.restRotY = 0;
+    flap.userData.restRotZ = s * 0.2;
+    flap.userData.restScale = 1;
+    flap.userData.bankGain = s * 0.5;
+    flap.userData.flapFlutter = 0.2;
+    flap.userData.phase = s * 1.6;
+    host.add(flap);
+    tailFins.push(flap);
+  }
+
+  // spear tip on the final segment (rides the tip of the coil)
+  const tip = segs[segs.length - 1];
+  const spear = new THREE.Mesh(new THREE.ConeGeometry(0.1, 0.5, seg(4)), gold);
+  spear.rotation.x = Math.PI / 2;   // point +z (back)
+  spear.position.set(0, 0, segLen * 0.5 + 0.2);
+  tip.add(spear);
+
+  return { group: root, segs, tailFins, accentMats };
+}
+registerTail('segmentedAeroTail', buildSegmentedAeroTail);
+
+// ── SURFACE LAYERS (v2) ──────────────────────────────────────────────────────────
+
+// engineBay — rear-engine detail riding the body: black engine-core overlays + top
+// vent slashes on the back deck, and triangular side intakes with hex grilles on the
+// flanks. Clamped to the body via the attach contract (keelTopAt/halfWidthAt/bodyMidY).
+registerSurfaceLayer('engineBay', ({ def, attach }) => {
+  const meshes = [], flareMats = [];
+  const carbon = new THREE.MeshStandardMaterial({
+    color: def.belly ?? def.horn ?? 0x0e0e12, flatShading: true, side: THREE.DoubleSide,
+    roughness: 0.42, metalness: 0.6,
+  });
+  const boneMat = new THREE.MeshStandardMaterial({
+    color: def.horn ?? 0x0e0e12, flatShading: true, roughness: 0.4, metalness: 0.55,
+  });
+  const my = attach.bodyMidY ?? 0.2;
+  for (const z of [0.1, 0.5]) {
+    const top = attach.keelTopAt ? attach.keelTopAt(z) : 0.6;
+    const core = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.12, 0.4), carbon);
+    core.position.set(0, top - 0.04, z);
+    meshes.push(core);
+    const vents = ventPlateRow(3, { w: 0.44, h: 0.16, plateMat: carbon, slitMat: boneMat });
+    vents.position.set(0, top + 0.04, z);
+    vents.rotation.x = -Math.PI / 2 + 0.2;
+    meshes.push(vents);
+  }
+  for (const s of [-1, 1]) {
+    for (const z of [-0.2, 0.5]) {
+      const hw = attach.halfWidthAt ? attach.halfWidthAt(z) : 0.7;
+      const intake = wedgePanel([[-0.24, -0.16], [0.28, -0.04], [0.1, 0.2]], carbon);
+      intake.position.set(s * hw, my + 0.04, z);
+      intake.rotation.y = s * Math.PI / 2;
+      meshes.push(intake);
+      const grille = hexGrille({ w: 0.28, h: 0.18, mat: carbon, barMat: boneMat });
+      grille.position.set(s * hw * 1.02, my + 0.04, z);
+      grille.rotation.y = s * Math.PI / 2;
+      meshes.push(grille);
+    }
+  }
+  return { meshes, flareMats };
+});
+
+// ventSlashes — yellow vent-slash plates on each flank/shoulder (medium-priority
+// greeble), riding the body half-width.
+registerSurfaceLayer('ventSlashes', ({ def, attach }) => {
+  const meshes = [];
+  const gold = new THREE.MeshStandardMaterial({
+    color: def.body ?? 0xf2c20e, flatShading: true,
+    roughness: def.bodyRoughness ?? 0.24, metalness: def.bodyMetalness ?? 0.55,
+  });
+  const carbon = new THREE.MeshStandardMaterial({
+    color: def.belly ?? def.horn ?? 0x0e0e12, flatShading: true, roughness: 0.42, metalness: 0.6,
+  });
+  const my = attach.bodyMidY ?? 0.2;
+  for (const s of [-1, 1]) {
+    for (const z of [-0.5, 0.3]) {
+      const hw = attach.halfWidthAt ? attach.halfWidthAt(z) : 0.7;
+      const row = ventPlateRow(3, { w: 0.4, h: 0.26, plateMat: gold, slitMat: carbon });
+      row.position.set(s * hw, my + 0.14, z);
+      row.rotation.y = s * 0.6;
+      meshes.push(row);
+    }
+  }
+  return { meshes, flareMats: [] };
+});
+
+// twinThrusters — the prominent rear read: two big red-cored thruster pods facing the
+// chase cam (+z), mounted on the rear of the engine block. Cores → flareMats (Surge).
+registerSurfaceLayer('twinThrusters', ({ def, attach }) => {
+  const meshes = [], flareMats = [];
+  const housingMat = new THREE.MeshStandardMaterial({
+    color: def.belly ?? def.horn ?? 0x0e0e12, flatShading: true, roughness: 0.4, metalness: 0.62,
+  });
+  const frameMat = new THREE.MeshStandardMaterial({
+    color: def.body ?? 0xf2c20e, flatShading: true,
+    roughness: def.bodyRoughness ?? 0.24, metalness: def.bodyMetalness ?? 0.55,
+  });
+  const coreCol = def.boostTrail ?? def.coreGlow ?? def.apexSeam ?? 0xff3b2f;
+  const coreMat = new THREE.MeshStandardMaterial({
+    color: coreCol, emissive: coreCol, emissiveIntensity: 2.0, roughness: 0.3,
+  });
+  coreMat.userData.baseEmissive = coreCol; coreMat.userData.baseIntensity = 2.0;
+  flareMats.push(coreMat);
+  const anchor = attach.tailAnchor ?? { y: 0.3, z: 0.8 };
+  const my = (attach.bodyMidY ?? 0.2) + 0.08;
+  const z = anchor.z - 0.05;
+  for (const s of [-1, 1]) {
+    const { group } = thrusterPod({ rOuter: 0.2, rCore: 0.12, depth: 0.22, housingMat, frameMat, coreMat });
+    group.position.set(s * 0.36, my, z);
+    meshes.push(group);
+  }
+  return { meshes, flareMats };
+});
+
+// rearDiffuser — COMPACT 5-fin diffuser tucked low UNDER the thruster block (subtle).
+registerSurfaceLayer('rearDiffuser', ({ def, attach }) => {
+  const carbon = new THREE.MeshStandardMaterial({
+    color: def.belly ?? def.horn ?? 0x0e0e12, flatShading: true, roughness: 0.45, metalness: 0.5,
+  });
+  const anchor = attach.tailAnchor ?? { y: 0.3, z: 0.8 };
+  const arr = diffuserArray(5, { centerH: 0.34, sideH: 0.2, mat: carbon, rake: 0.32, spacing: 0.14, depth: 0.3 });
+  arr.position.set(0, (attach.bodyMidY ?? 0.2) - 0.3, anchor.z + 0.05);
+  return { meshes: [arr], flareMats: [] };
+});
+
+// mechaLegs — two SMALL folded claw legs tucked under the belly (static, no rig touch)
+// so they don't clutter the chase silhouette.
+registerSurfaceLayer('mechaLegs', ({ def, attach }) => {
+  const meshes = [];
+  const pistonMat = new THREE.MeshStandardMaterial({
+    color: def.belly ?? def.horn ?? 0x0e0e12, flatShading: true, roughness: 0.4, metalness: 0.62,
+  });
+  const bladeMat = new THREE.MeshStandardMaterial({
+    color: def.body ?? 0xf2c20e, flatShading: true,
+    roughness: def.bodyRoughness ?? 0.28, metalness: def.bodyMetalness ?? 0.5,
+  });
+  const clawMat = new THREE.MeshStandardMaterial({
+    color: def.horn ?? 0x0e0e12, flatShading: true, roughness: 0.35, metalness: 0.6,
+  });
+  const my = attach.bodyMidY ?? 0.2;
+  for (const s of [-1, 1]) {
+    const { group } = mechaLeg({ side: s, pistonMat, bladeMat, clawMat });
+    const hw = attach.halfWidthAt ? attach.halfWidthAt(0.1) : 0.7;
+    group.position.set(s * hw * 0.8, my - 0.12, 0.2);
+    group.rotation.x = -0.7;          // tuck up/back under the belly
+    group.rotation.z = s * 0.2;
+    group.scale.setScalar(0.85);
+    meshes.push(group);
   }
   return { meshes, flareMats: [] };
 });
