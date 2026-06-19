@@ -108,18 +108,21 @@ export function buildDragonModel(def, opts = {}) {
   // avian/firebird torso returns its own body + eye materials so the head shares
   // them and the rig pulses body + head together).
   let bodyMat = new THREE.MeshStandardMaterial({
-    color: def.body, roughness: 0.38, metalness: 0.12,
+    color: def.body, roughness: 0.8, metalness: 0.04,
     emissive: def.body, emissiveIntensity: 0.12,
   });
-  // Per-dragon body FINISH override (additive + nullable — a creature whose hide
-  // should read as MATTE ORGANIC skin rather than the default semi-gloss opts in;
-  // default = unchanged, so the roster is byte-identical). Flows to the hull
-  // (attach.bodyMatDouble clone) AND the neck. Obsidian2 uses it to kill the
-  // "smooth metal" read so the v2 scale relief reads as living hide.
+  // Per-dragon body FINISH override (additive + nullable). The roster default is
+  // now MATTE organic hide (roughness 0.8, near-zero metal): the old semi-gloss
+  // (0.38) mirrored the bright sun + sky-blue hemisphere light into a pale
+  // specular "glare" on the upper back/neck from the chase cam. There is NO env
+  // map in the gameplay scene, so this is direct-light specular, not a reflection
+  // (envMapIntensity is inert in-game — see L52). A glossy/wet/metal creature opts
+  // BACK IN with a LOWER bodyRoughness / higher bodyMetalness. Flows to the hull
+  // (attach.bodyMatDouble clone) AND the neck.
   if (def.bodyRoughness != null) bodyMat.roughness = def.bodyRoughness;
   if (def.bodyMetalness != null) bodyMat.metalness = def.bodyMetalness;
-  // envMapIntensity (default 1) — a dark SMOOTH body reflects the bright sky and
-  // reads as polished metal/wet even when matte; drop it low for a stealth hide.
+  // envMapIntensity is inert in-game (no scene env map) but kept for the shop
+  // preview lighting / future use; honoured when a blueprint sets it.
   if (def.bodyEnvIntensity != null) bodyMat.envMapIntensity = def.bodyEnvIntensity;
   // Surface detail: an on-brand fresnel rim defines the body's contour from the
   // rear camera so it stops reading as a flat dark mass. Set before the torso

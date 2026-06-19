@@ -1730,3 +1730,28 @@ foreign white dot. Bank a broader sweep: **audit every `depthTest:false` / bloom
 rider glow `dragon.js:276`, halos) against the bright-sky chase cam — these always-on-top elements are the real source of
 "washed out" reads, far more than the lit hull. And fold "what layer is this actually in?" into the triage checklist so the
 next visual report starts by classifying the artifact, not guessing at shaders.
+
+### L52 — There is NO env map in the gameplay scene: the "sky sheen on the back" is direct-light specular, killed by ROUGHNESS, not `envMapIntensity`
+**Did / learned:** with the aim-pip glare gone (L51, #129), the human pinned the remaining complaint precisely — a **pale sheen
+on the neck/upper back, the skin reflecting the bright sky** — and asked to extend Toothless's matte finish to the WHOLE roster.
+Before tuning, grepped the scene setup and found the load-bearing fact: **there is no `scene.environment` / `.envMap` / PMREM
+anywhere in `reforged/js`** (only lights: a warm `DirectionalLight` sun + a sky-blue `0xbfdcff` `HemisphereLight`). So
+`bodyEnvIntensity` — the knob we'd been dropping to "kill the sky reflection" on stealth hides (L50) and Toothless — is **inert
+in gameplay**; it does nothing without an env map. Toothless's matte came entirely from its high **roughness** (0.95 vs the
+roster's glossy `0.38` base). The "sheen" is a broad **specular highlight** of the sun + sky-hemisphere on the semi-gloss
+curved back — pure direct-light BRDF, no reflection involved. Fix: raised the **roster-default** body finish in `dragonModel.js`
+from `roughness 0.38 / metalness 0.12` to **`0.8 / 0.04`** (matte organic hide), so every standard-body dragon loses the glare;
+the per-dragon `bodyRoughness`/`bodyMetalness` overrides are unchanged, now used to opt BACK IN to gloss/wet/metal rather than
+opt into matte. Special-module bodies (crystal serpent et al. build their own materials) are untouched.
+**→ Systematize:** **verify the rendering MECHANISM exists before you reach for its knob.** `envMapIntensity` only does
+something when a material has an `envMap` (set directly or via `scene.environment` + a PMREM); with neither, it is a silent
+no-op and any "reflection" you see is direct-light specular (controlled by `roughness`/`metalness`/light intensity) — not a
+reflection at all. One grep for `scene.environment|envMap|PMREM` settles which world you're in. Corollary to L51's "classify the
+artifact": also **classify the LIGHTING model** — reflection (needs env) vs. direct specular (needs roughness) vs. diffuse
+tint (needs light intensity) — they look similar on a dark curved body but have three different fixes.
+**→ Leapfrog (innovate):** if the matte default still leaves a faint *diffuse* blue tint on the upper back (the hemisphere
+SKY colour lighting up-facing normals), that's the next distinct lever — trim `hemi` intensity (`environment.js:340`, 0.8) or
+cool→neutral its sky colour, NOT roughness. Bigger swing: the roster has been carrying a "semi-gloss" default that nothing in
+the lit scene could justify (no env to gloss against) — consider giving the game a cheap baked/PMREM environment so gloss
+becomes a *usable* design axis (wet leviathans, chrome drakes) instead of an inert knob, then re-derive per-dragon finishes
+against a world that actually reflects.
