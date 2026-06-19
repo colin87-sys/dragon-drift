@@ -19,34 +19,42 @@ const headBase = (frontZ) => (neckSegs) => ({ x: 0, y: 0.5 + (neckSegs - 4) * 0.
 export const FIRE_PROFILE = {
   zHold: 0, longSamples: 54,
   tailShiftRefZ: 1.70, tailAnchorY: 0.20, tailAnchorZ: 1.18,
+  // Lean RAPTOR but properly proportioned (Rev3): SHORT neck (head back near the
+  // shoulders), DEEP belly (belly > keelTop in the chest = muscular, not a thin tube),
+  // pinched waist, a real S-curve cy (head low → shoulder hump → tail sweeps DOWN → tip
+  // KICKS UP), and a long thin tail whose up-kicked tip carries the flame.
   stations: [
-    [-4.20, 0.052, 0.066, 0.064,  0.50], // nose (lifted → arched)
-    [-4.00, 0.100, 0.150, 0.140,  0.48], // snout
-    [-3.78, 0.150, 0.235, 0.205,  0.46], // upper jaw
-    [-3.54, 0.180, 0.320, 0.255,  0.43], // cranium — narrow, tall (raptor)
-    [-3.30, 0.180, 0.300, 0.245,  0.40], // cranium back
-    [-3.08, 0.195, 0.270, 0.225,  0.33], // skull base
-    [-2.82, 0.240, 0.290, 0.250,  0.20], // neck — thin
-    [-2.50, 0.310, 0.360, 0.315,  0.10], // neck → shoulder
-    [-2.05, 0.420, 0.500, 0.430,  0.02], // fore-shoulder — deep keel
-    [-1.50, 0.470, 0.560, 0.470,  0.00], // ribcage
-    [-1.00, 0.480, 0.575, 0.475,  0.00], // CHEST PEAK — narrow + deep
-    [-0.48, 0.450, 0.535, 0.450,  0.00], // chest (wing-root centre)
-    [ 0.05, 0.380, 0.450, 0.385, -0.02], // thorax
-    [ 0.45, 0.290, 0.350, 0.300, -0.05], // WAIST pinch (lean)
-    [ 0.85, 0.235, 0.290, 0.245, -0.09], // mid-body
-    [ 1.20, 0.195, 0.250, 0.205, -0.14], // haunch
-    [ 1.50, 0.168, 0.220, 0.180, -0.19], // tail base
-    [ 1.85, 0.142, 0.190, 0.150, -0.25], // tail droops (arch)
-    [ 2.25, 0.116, 0.156, 0.122, -0.32],
-    [ 2.70, 0.090, 0.120, 0.092, -0.39],
-    [ 3.20, 0.062, 0.084, 0.064, -0.45],
-    [ 3.70, 0.034, 0.046, 0.035, -0.50],
-    [ 4.15, 0.012, 0.014, 0.012, -0.52], // long thin whip tip (flame bulb sits here)
+    // HEAD — compact, low flat crown, held forward + low (short neck)
+    [-2.95, 0.075, 0.055, 0.072, -0.02], // nose
+    [-2.78, 0.155, 0.105, 0.150,  0.00], // snout (width via SIDE)
+    [-2.58, 0.220, 0.160, 0.210,  0.03], // jaw
+    [-2.38, 0.250, 0.190, 0.240,  0.05], // CRANIUM — broad cheeks, low crown
+    [-2.20, 0.245, 0.195, 0.235,  0.06], // cranium back
+    [-2.02, 0.258, 0.225, 0.252,  0.07], // skull base
+    // NECK — short, thick
+    [-1.82, 0.305, 0.270, 0.320,  0.09], // neck
+    // BODY — lean but DEEP raptor chest (belly drop), pinched waist
+    [-1.52, 0.395, 0.380, 0.460,  0.11], // fore-shoulder — deep belly begins
+    [-1.12, 0.470, 0.450, 0.560,  0.12], // ribcage — deep keel + belly (back hump)
+    [-0.68, 0.495, 0.470, 0.580,  0.11], // CHEST PEAK — deep (lean but muscular)
+    [-0.30, 0.470, 0.450, 0.550,  0.08], // chest (wing-root centre)
+    [ 0.10, 0.385, 0.380, 0.460,  0.03], // thorax
+    [ 0.48, 0.295, 0.305, 0.350, -0.03], // WAIST — pinched (lean)
+    [ 0.85, 0.238, 0.252, 0.268, -0.09], // mid
+    [ 1.20, 0.192, 0.208, 0.205, -0.15], // haunch
+    // TAIL — long thin whip, sweeping DOWN then the tip KICKS UP (flame on the kicked tip)
+    [ 1.55, 0.156, 0.168, 0.158, -0.21],
+    [ 1.95, 0.124, 0.134, 0.124, -0.27],
+    [ 2.35, 0.097, 0.105, 0.096, -0.32], // sweeping down
+    [ 2.78, 0.071, 0.077, 0.069, -0.34], // lowest
+    [ 3.20, 0.049, 0.053, 0.047, -0.30], // curling up
+    [ 3.62, 0.031, 0.033, 0.029, -0.20],
+    [ 4.00, 0.018, 0.019, 0.017, -0.08], // tip kicks up
+    [ 4.35, 0.010, 0.010, 0.010,  0.02], // tail tip — flame sits here
   ],
-  keel: [[-4.30, 0.30], [-3.54, 0.40], [-2.05, 0.46], [-1.00, 0.50], [-0.48, 0.46], [0.45, 0.34], [1.50, 0.20], [2.70, 0.10], [4.15, 0.02]],
-  wingRoot: { x: 0.42, y: 0.46, z: -0.45 },
-  headBase: headBase(-3.08),
+  keel: [[-2.95, 0.04], [-2.38, 0.20], [-1.12, 0.46], [-0.30, 0.46], [0.48, 0.30], [1.20, 0.14], [2.78, 0.06], [4.35, 0.03]],
+  wingRoot: { x: 0.42, y: 0.50, z: -0.42 },
+  headBase: headBase(-2.4),
 };
 
 export const WATER_PROFILE = {

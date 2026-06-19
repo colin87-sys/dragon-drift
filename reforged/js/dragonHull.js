@@ -769,30 +769,43 @@ function buildHull(def, model, attach) {
   }
   if (model.hullTailFins ?? hk.tailFins) { buildTailFin(1); buildTailFin(-1); }
 
-  // ── TAIL BULB (fire) — a glowing emissive sphere on the last tail bone (the
-  // Charizard flame read). Rides the tail-whip; emissive intensity per def. ──
+  // ── TAIL FLAME (fire) — a real layered TEARDROP flame (not an egg): nested cones
+  // tapering to a POINT, pointing up + raked back, with a hotter inner lick. Rides the
+  // last tail bone on the up-kicked tail tip so the flame licks upward (Charizard read). ──
   if (def.hull && def.hull.tailBulb) {
     const tb = def.hull.tailBulb;
-    const bulbCol = tb.color ?? def.wingEmissive ?? def.eye ?? 0xff7a22;
-    const bulbMat = new THREE.MeshStandardMaterial({
-      color: bulbCol, emissive: bulbCol,
-      emissiveIntensity: (tb.emissiveIntensity ?? 1.1) * (model.tailBulbGlow ?? 1),
-      roughness: 0.4, metalness: 0.0,
-    });
-    spineMats.push(bulbMat);
-    const bulbZ = tb.z ?? (TAIL_BONE_Z.length ? TAIL_BONE_Z[TAIL_BONE_Z.length - 1] + 0.12 : 3.6);
-    const bulb = new THREE.Mesh(new THREE.SphereGeometry((tb.r ?? 0.18) * (model.tailBulbScale ?? 1), seg(10), seg(8)), bulbMat);
-    bulb.scale.set(0.9, 1.25, 0.9);   // teardrop flame
-    const bulbBaseW = new THREE.Vector3(0, TY + chAt(bulbZ, 4) + (tb.yLift ?? 0.06), bulbZ);
+    const glow = model.tailBulbGlow ?? 1;
+    const scl = (tb.r ?? 0.18) * (model.tailBulbScale ?? 1) / 0.18;   // overall flame scale
+    const outerCol = tb.color ?? def.wingEmissive ?? 0xff6a1e;
+    const innerCol = tb.innerColor ?? 0xffd24a;                       // hotter core
+    const flameMat = (col, gMul) => {
+      const m = new THREE.MeshStandardMaterial({ color: col, emissive: col,
+        emissiveIntensity: (tb.emissiveIntensity ?? 1.2) * glow * gMul, roughness: 0.5, metalness: 0.0,
+        transparent: true, opacity: 0.96 });
+      spineMats.push(m); return m;
+    };
+    // a teardrop = a cone (apex up) with the base tucked into the tail; lean back to trail.
+    const flame = new THREE.Group();
+    const mkLick = (r, h, yBase, lean, mat) => {
+      const c = new THREE.Mesh(new THREE.ConeGeometry(r, h, seg(8), 1, false), mat);
+      c.geometry.translate(0, h / 2, 0);          // base at origin → apex up
+      c.position.set(0, yBase, 0);
+      c.rotation.x = lean;                          // rake BACK (+x rot tips the apex toward +z/back)
+      c.frustumCulled = false;
+      return c;
+    };
+    flame.add(mkLick(0.20 * scl, 0.62 * scl, 0, 0.5, flameMat(outerCol, 1.0)));     // outer flame
+    flame.add(mkLick(0.115 * scl, 0.46 * scl, 0.05 * scl, 0.5, flameMat(innerCol, 1.5))); // inner lick (hotter)
+    const flameZ = tb.z ?? (TAIL_BONE_Z.length ? TAIL_BONE_Z[TAIL_BONE_Z.length - 1] + 0.12 : 3.6);
+    const baseW = new THREE.Vector3(0, TY + chAt(flameZ, 4) + (tb.yLift ?? 0.02), flameZ);
     if (tailBones.length) {
       const zL = TAIL_BONE_Z[TAIL_BONE_Z.length - 1];
-      bulb.position.copy(bulbBaseW.clone().sub(new THREE.Vector3(0, TY + chAt(zL, 4), zL)));
-      tailBones[tailBones.length - 1].add(bulb);
+      flame.position.copy(baseW.clone().sub(new THREE.Vector3(0, TY + chAt(zL, 4), zL)));
+      tailBones[tailBones.length - 1].add(flame);
     } else {
-      bulb.position.copy(bulbBaseW);
-      group.add(bulb);
+      flame.position.copy(baseW);
+      group.add(flame);
     }
-    bulb.frustumCulled = false;
   }
 
   // ── TAIL FLUKE (water) — a flat HORIZONTAL tail fin pair at the whip tip (the
