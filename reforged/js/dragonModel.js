@@ -404,7 +404,7 @@ export function makePreviewTick(def, result) {
   return (t) => {
     // Float + gentle bank/pitch — the in-flight read, no spin.
     group.position.y = 0.15 + Math.sin(t * 1.5) * 0.09;
-    group.rotation.y = 0;
+    group.rotation.y = def.model.previewYaw ?? 0;
     group.rotation.z = Math.sin(t * 0.7) * 0.13;        // lazy bank left/right
     group.rotation.x = -0.05 + Math.sin(t * 1.5 + 1) * 0.03;
     // Wingbeat — same shape as the live rig (root flap + feather pitch).
