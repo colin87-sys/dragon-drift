@@ -535,19 +535,22 @@ export const DRAGONS = {
     // (tips[0]) rides the wing's outer/leading edge; the inner four fan back across the
     // chord to the scalloped trailing edge. Authored to the reference (5 spokes, wrist
     // forward); tune the sweep on the preview.
+    // FLATTER arc (low bow + small hook) so the spread wing reads EDGE-ON from the chase cam
+    // (a clean wide silhouette), not a raised V showing its top surface. Chord depth is kept
+    // (deep membrane = not a ribbon); the arc only controls the vertical dihedral.
     wingForms: [
       { tips: [[3.70, 0.30], [3.20, -0.40], [2.55, -0.78], [1.85, -0.98], [1.10, -0.92]],
         lead: [2.55, 0.46], scallop: 0.20, rootChord: 0.50, flame: false,
-        arc: { bow: 0.55, hump: 0.0, humpAt: 0.6, hook: 0.08 } },
+        arc: { bow: 0.22, hump: 0.0, humpAt: 0.6, hook: 0.04 } },
       { tips: [[4.05, 0.34], [3.50, -0.52], [2.80, -1.00], [2.00, -1.22], [1.15, -1.12]],
         lead: [2.80, 0.52], scallop: 0.24, rootChord: 0.62, flame: false,
-        arc: { bow: 0.65, hump: 0.22, humpAt: 0.56, hook: 0.12 } },
+        arc: { bow: 0.26, hump: 0.16, humpAt: 0.56, hook: 0.05 } },
       { tips: [[4.35, 0.38], [3.78, -0.58], [3.02, -1.12], [2.15, -1.36], [1.25, -1.26]],
         lead: [3.00, 0.58], scallop: 0.28, rootChord: 0.74, flame: false,
-        arc: { bow: 0.75, hump: 0.34, humpAt: 0.58, hook: 0.16 } },
+        arc: { bow: 0.30, hump: 0.22, humpAt: 0.58, hook: 0.06 } },
       { tips: [[4.65, 0.42], [4.05, -0.62], [3.25, -1.20], [2.32, -1.46], [1.35, -1.36]],
         lead: [3.20, 0.66], scallop: 0.32, rootChord: 0.85, flame: false,
-        arc: { bow: 0.88, hump: 0.46, humpAt: 0.60, hook: 0.22 } },
+        arc: { bow: 0.34, hump: 0.28, humpAt: 0.60, hook: 0.08 } },
     ],
     forms: [
       // Sleek matte Night Fury: all idle glows OFF (spineGlow 0; no coreGlow). Dark
@@ -882,18 +885,20 @@ export const DRAGONS = {
     // and a fire-raked hook. Fuller + more elegant than Toothless, not wider. The trailing
     // finger carries the back edge; the medial wrist (per form) fans the fingers convex.
     wingForms: [
+      // FLATTER arc (low bow + small hook) so the spread wing reads EDGE-ON from the chase
+      // cam, not a raised V showing its top surface. Deep chord kept (not a ribbon).
       // F0 hatchling — small but ROUNDED baby wing (4 short fingers, soft trailing fan).
       { tips: [[2.40, 0.26], [1.90, -0.50], [1.25, -0.70], [0.70, -0.60]],
         lead: [1.70, 0.42], scallop: 0.14, rootChord: 0.40, flame: false,
-        arc: { bow: 0.40, hump: 0.05, humpAt: 0.58, hook: 0.0 } },
+        arc: { bow: 0.18, hump: 0.05, humpAt: 0.58, hook: 0.0 } },
       // F1 kindled — a real fanned wing emerges, elbow appears, 5 fingers.
       { tips: [[3.40, 0.34], [2.85, -0.55], [2.10, -1.00], [1.30, -1.15], [0.70, -0.95]],
         lead: [2.40, 0.56], scallop: 0.20, rootChord: 0.56, flame: false,
-        arc: { bow: 0.55, hump: 0.32, humpAt: 0.58, hook: 0.35 } },
-      // F2 radiant — full broad fanned wing: deep chord, strong elbow, raked fire hook.
+        arc: { bow: 0.24, hump: 0.22, humpAt: 0.58, hook: 0.12 } },
+      // F2 radiant — full broad fanned wing: deep chord, modest elbow, slight fire hook.
       { tips: [[4.00, 0.42], [3.40, -0.55], [2.60, -1.05], [1.75, -1.30], [0.95, -1.12]],
         lead: [2.90, 0.66], scallop: 0.26, rootChord: 0.70, flame: false,
-        arc: { bow: 0.70, hump: 0.50, humpAt: 0.60, hook: 0.70 } },
+        arc: { bow: 0.30, hump: 0.32, humpAt: 0.60, hook: 0.18 } },
     ],
     forms: [
       // F0 HATCHLING — chibi: big round head-DOME (headBulge) + chubby round body (hullSection
