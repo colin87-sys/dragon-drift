@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { registerTorso, registerWings, registerHead, registerTail } from './dragonRecipe.js';
 import { registerSurfaceLayer } from './dragonSurfaceLayers.js';
-import { buildTorso, ARROW_PROFILE } from './dragonTorso.js';
+import { buildTorso } from './dragonTorso.js';
 import { seg } from './modelDetail.js';
 
 // FACETED — a hard-edged, low-poly "automotive" part family. The angular
@@ -65,8 +65,38 @@ function buildFacetedTorsoGeometry(profile, stretch = 1) {
   return flat;
 }
 
+// BULL_PROFILE — a COMPACT, thick, muscular body plan (the opposite of ARROW's
+// long slim courier). Short z-span, deep barrel chest, a tall muscular shoulder
+// hump, a pinched waist → haunch bulge (the L55 panther recipe), a short neck and
+// a short tail root — a stocky fighter-jet/bull fuselage. Publishes the same
+// profile fields buildTorso reads, so the attach contract is unchanged.
+const BULL_PROFILE = {
+  zHold: -0.3,
+  tailShiftRefZ: 1.10,
+  tailAnchorY: 0.34,
+  tailAnchorZ: 0.80,
+  stations: [
+    [-2.30, 0.18, 0.14, 0.16], // short neck cap
+    [-1.80, 0.46, 0.34, 0.36], // chest start
+    [-1.20, 0.72, 0.56, 0.56], // deep chest
+    [-0.60, 0.86, 0.66, 0.62], // shoulder/chest peak — broadest, muscular hump
+    [-0.05, 0.76, 0.54, 0.58], // barrel thorax
+    [ 0.42, 0.54, 0.42, 0.44], // waist pinch (still thick)
+    [ 0.80, 0.62, 0.44, 0.48], // HAUNCH bulge (muscle)
+    [ 1.10, 0.30, 0.28, 0.22], // short tail root
+  ],
+  keel: [[-1.80, 0.34], [-0.60, 0.66], [-0.05, 0.54], [0.42, 0.42], [0.80, 0.44], [1.10, 0.28]],
+  wingRoot: { x: 0.64, y: 0.62, z: -0.55 }, // high on the back + forward (jet mount)
+  fairing: { r: 0.36, scale: [0.92, 0.82, 1.1], pos: [0.52, 0.6, -0.5] },
+  neck: {
+    rBase: 0.44, rStep: 0.05, rMin: 0.2, scale: [0.84, 0.72, 1.15],
+    y0: 0.36, yStep: 0.07, z0: -1.7, zStep: -0.3, wobbleAmp: 0.06, wobbleFreq: 0.8,
+  },
+  headBase: (neckSegs) => ({ x: 0, y: 0.52 + (neckSegs - 4) * 0.08, z: -2.5 - (neckSegs - 4) * 0.3 }),
+};
+
 registerTorso('faceted', (def, model, bodyMat) =>
-  buildTorso(ARROW_PROFILE, def, model, bodyMat, buildFacetedTorsoGeometry));
+  buildTorso(BULL_PROFILE, def, model, bodyMat, buildFacetedTorsoGeometry));
 
 // ── WINGS: 'hexMembrane' ───────────────────────────────────────────────────────
 // Sharp, swept, flat-shaded wings that hinge UP from the shoulder like scissor
@@ -109,9 +139,11 @@ function buildHexMembraneWings(def, model, attach, giM) {
   seamMat.userData.baseIntensity = 1.6 * gi;
   spineMats.push(seamMat);
 
-  const WX = 2.7 * ws, WY = 0.62 * ws;       // wrist offset: out + UP = scissor dihedral
-  const TX = 2.0 * ws, TZ = 0.1;             // sharp tip (beyond the wrist)
-  const NX = 0.95 * ws, NZ = 1.25;           // trailing chevron notch
+  // SHORT, BROAD, sharp swept DELTA (a jet wing) — span pulled in hard, chord
+  // kept full, tip swept back to a hard point, steep baked-in dihedral.
+  const WX = 1.5 * ws, WY = 0.72 * ws;       // wrist: close in + high (steep dihedral)
+  const TX = 1.0 * ws, TZ = 0.55;            // tip: short reach, swept hard back
+  const NX = 0.5 * ws, NZ = 1.35;            // trailing chevron notch
 
   function buildSide(side) {
     const pivot = new THREE.Group();
@@ -237,18 +269,19 @@ function buildBladeJetTail(def, model, mats, anchor) {
   const facet = bodyMat.clone(); facet.flatShading = true;
   const segs = [];
 
-  const n = Math.min(model.tailSegments ?? 7, 9);
-  let z = 0.2, r = 0.34;
+  // SHORT muscular STUB (not a whip): few short segments, fast taper.
+  const n = Math.min(model.tailSegments ?? 4, 6);
+  let z = 0.15, r = 0.38;
   for (let i = 0; i < n; i++) {
-    const segLen = 0.7;
-    const segMesh = new THREE.Mesh(new THREE.CylinderGeometry(r * 0.72, r, segLen, seg(4)), facet);
+    const segLen = 0.42;
+    const segMesh = new THREE.Mesh(new THREE.CylinderGeometry(r * 0.66, r, segLen, seg(4)), facet);
     segMesh.rotation.x = Math.PI / 2;   // long axis along z
     segMesh.rotation.z = Math.PI / 4;   // diamond facet orientation
     segMesh.position.set(0, 0.05, z);
     root.add(segMesh);
     segs.push(segMesh);
-    z += segLen * 0.82;
-    r = Math.max(r * 0.82, 0.1);
+    z += segLen * 0.8;
+    r = Math.max(r * 0.7, 0.09);
   }
 
   // Quad-exhaust jet cluster — its own group so it rides the tip of the coil.
@@ -264,16 +297,18 @@ function buildBladeJetTail(def, model, mats, anchor) {
     color: def.horn ?? 0x0e0e12, flatShading: true, roughness: 0.4, metalness: 0.6,
   });
 
+  // Tight, high, CENTRAL quad-exhaust cluster (the SVJ stacked-pipe read) — pulled
+  // in close behind the stub and raised so it sits between the rear wing + diffuser.
   const jet = new THREE.Group();
-  jet.position.set(0, 0.05, z + 0.05);
-  for (const [ox, oy] of [[-0.12, 0.1], [0.12, 0.1], [-0.12, -0.06], [0.12, -0.06]]) {
-    const noz = new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.12, 0.3, seg(6)), nozzleMat);
+  jet.position.set(0, 0.12, z - 0.02);
+  for (const [ox, oy] of [[-0.09, 0.12], [0.09, 0.12], [-0.09, 0.0], [0.09, 0.0]]) {
+    const noz = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.1, 0.24, seg(6)), nozzleMat);
     noz.rotation.x = Math.PI / 2;
     noz.position.set(ox, oy, 0);
     jet.add(noz);
-    const core = new THREE.Mesh(new THREE.CylinderGeometry(0.07, 0.07, 0.14, seg(6)), coreMat);
+    const core = new THREE.Mesh(new THREE.CylinderGeometry(0.055, 0.055, 0.12, seg(6)), coreMat);
     core.rotation.x = Math.PI / 2;
-    core.position.set(ox, oy, 0.12);
+    core.position.set(ox, oy, 0.1);
     jet.add(core);
   }
   root.add(jet);
@@ -355,6 +390,69 @@ registerSurfaceLayer('aeroVents', ({ def, attach }) => {
       louver.rotation.x = 0.3;
       meshes.push(louver);
     }
+  }
+  return { meshes, flareMats: [] };
+});
+
+// SVJ rear wing — a wide, thin, fixed AEROFOIL blade raised on two uprights high
+// over the hips, slightly raked, with carbon end-plates and an amber trailing-edge
+// seam (joins flareMats → rim light + Surge flare). The Aventador SVJ rear read.
+registerSurfaceLayer('svjWing', ({ def, attach }) => {
+  const meshes = [], flareMats = [];
+  const carbon = new THREE.MeshStandardMaterial({
+    color: def.belly ?? def.horn ?? 0x0e0e12, flatShading: true, roughness: 0.4, metalness: 0.6,
+    side: THREE.DoubleSide,
+  });
+  const seamCol = def.apexSeam ?? def.eye ?? 0xff6a1f;
+  const seamMat = new THREE.MeshStandardMaterial({
+    color: seamCol, emissive: seamCol, emissiveIntensity: 1.4, roughness: 0.3,
+  });
+  seamMat.userData.baseEmissive = seamCol;
+  seamMat.userData.baseIntensity = 1.4;
+  flareMats.push(seamMat);
+
+  const zMount = 0.7;                                    // high over the hips/haunch
+  const base = attach.keelTopAt ? attach.keelTopAt(zMount) : 0.6;
+  const postH = 0.55;
+  const deckY = base + postH;
+  for (const s of [-1, 1]) {                             // two uprights
+    const post = new THREE.Mesh(new THREE.BoxGeometry(0.07, postH, 0.12), carbon);
+    post.position.set(s * 0.42, base + postH / 2, zMount);
+    post.rotation.x = 0.12;
+    meshes.push(post);
+  }
+  const wing = new THREE.Mesh(new THREE.BoxGeometry(1.7, 0.07, 0.42), carbon);
+  wing.position.set(0, deckY, zMount + 0.04);
+  wing.rotation.x = -0.18;                               // raked, leading edge down
+  meshes.push(wing);
+  const seam = new THREE.Mesh(new THREE.BoxGeometry(1.66, 0.04, 0.05), seamMat);
+  seam.position.set(0, deckY - 0.02, zMount + 0.22);
+  seam.rotation.x = -0.18;
+  meshes.push(seam);
+  for (const s of [-1, 1]) {                             // wing end-plates
+    const ep = new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.16, 0.42), carbon);
+    ep.position.set(s * 0.84, deckY, zMount + 0.04);
+    ep.rotation.x = -0.18;
+    meshes.push(ep);
+  }
+  return { meshes, flareMats };
+});
+
+// Diffuser — a row of short vertical carbon fins low at the rear underside (the
+// SVJ diffuser), placed off the tail anchor.
+registerSurfaceLayer('diffuser', ({ def, attach }) => {
+  const meshes = [];
+  const carbon = new THREE.MeshStandardMaterial({
+    color: def.belly ?? def.horn ?? 0x0e0e12, flatShading: true, roughness: 0.45, metalness: 0.5,
+  });
+  const anchor = attach.tailAnchor ?? { y: 0.3, z: 0.9 };
+  const z = anchor.z + 0.12;
+  const baseY = (attach.bodyMidY ?? 0.2) - 0.16;         // low, underside rear
+  for (let i = -2; i <= 2; i++) {
+    const fin = new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.26, 0.34), carbon);
+    fin.position.set(i * 0.13, baseY, z);
+    fin.rotation.x = 0.25;                               // rake down/back
+    meshes.push(fin);
   }
   return { meshes, flareMats: [] };
 });
