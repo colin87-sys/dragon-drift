@@ -985,10 +985,13 @@ function buildSvjWedgeHead(def, model, mats) {
     eye.scale.set(1.7, 0.7, 1); eye.position.set(s * 0.3, 0.06, -0.27 * hls);
     head.add(eye);
   }
-  // Multi-blade backswept horn CREST (the reference's spiky head fan) + cheek plates.
+  // Multi-blade backswept horn CREST — grows with the form's hornLevel: 0 none/bare
+  // (Hatchling baby) · 1 a single small bud · 2 a pair · 3 the full 3-blade crest +
+  // crown (Eternal). cheek plates stay on all forms.
   const hl = Math.max(0.5, model.hornLen ?? 1.0);
+  const hlvl = model.hornLevel ?? 3;
   for (const s of [-1, 1]) {
-    for (let i = 0; i < 3; i++) {
+    for (let i = 0; i < hlvl; i++) {
       const len = hl * (0.7 + 0.32 * (1 - Math.abs(i - 1)));   // middle blade longest
       const blade = new THREE.Mesh(new THREE.ConeGeometry(0.07, len, seg(4)), gold);
       blade.position.set(s * (0.18 + i * 0.1), 0.2 + i * 0.04, 0.2 + i * 0.12);
@@ -1000,13 +1003,17 @@ function buildSvjWedgeHead(def, model, mats) {
     cheek.position.set(s * 0.32, -0.05, -0.25); cheek.rotation.y = s * 0.2;
     head.add(cheek);
   }
-  const crown = new THREE.Mesh(new THREE.ConeGeometry(0.08, hl * 1.15, seg(4)), gold);
-  crown.position.set(0, 0.24, 0.32); crown.rotation.x = 1.05;
-  head.add(crown);
+  if (hlvl >= 2) {
+    const crown = new THREE.Mesh(new THREE.ConeGeometry(0.08, hl * 1.15, seg(4)), gold);
+    crown.position.set(0, 0.24, 0.32); crown.rotation.x = 1.05;
+    head.add(crown);
+  }
   const brow = ventPlateRow(3, { w: 0.4, h: 0.13, plateMat: gold, slitMat: carbon });
   brow.position.set(0, 0.2, -0.04); brow.rotation.x = -0.5;
   head.add(brow);
 
+  // Per-form overall head size (baby = oversized, relative to the body scale).
+  head.scale.setScalar(model.headScale ?? 1);
   return { group: head, spineMats: [eyeMat] };
 }
 registerHead('svjWedgeHead', buildSvjWedgeHead);
@@ -1164,8 +1171,17 @@ registerSurfaceLayer('ventSlashes', ({ def, attach }) => {
 
 // twinThrusters — the prominent rear read: two big red-cored thruster pods facing the
 // chase cam (+z), mounted on the rear of the engine block. Cores → flareMats (Surge).
-registerSurfaceLayer('twinThrusters', ({ def, attach }) => {
+registerSurfaceLayer('twinThrusters', ({ def, model, attach }) => {
   const meshes = [], flareMats = [];
+  // Per-FORM thruster level (Mk II): 0 none (Hatchling) · 1 dim vent-core (Kindled) ·
+  // 2 adult pod w/ hot core (Radiant) · 3 full layered pod + frame + fire-emitter (Eternal).
+  const tlvl = model.thrusterLevel ?? 3;
+  if (tlvl <= 0) return { meshes, flareMats };
+  const lsz = tlvl >= 3 ? 1 : tlvl === 2 ? 0.82 : 0.6;
+  // The layered SVJ read (frame / hot core / hotspot / fire-emitter) is opt-in via
+  // def.thruster.frame (Mk II only) — aurumToro has none → plain pods, byte-identical.
+  const layered = !!(def.thruster && def.thruster.frame);
+  const showFrame = layered && tlvl >= 3, showHot = layered && tlvl >= 2, showEmit = layered && tlvl >= 3;
   const housingMat = new THREE.MeshStandardMaterial({
     color: def.belly ?? def.horn ?? 0x0e0e12, flatShading: true, roughness: 0.4, metalness: 0.62,
   });
@@ -1176,8 +1192,8 @@ registerSurfaceLayer('twinThrusters', ({ def, attach }) => {
   // Optional thruster knobs (default ⇒ today's pods): a recipe can make the twin
   // thrusters bigger/brighter and re-space them to dominate the rear engine read.
   const t = def.thruster ?? {};
-  const rOuter = t.rOuter ?? 0.27, rCore = t.rCore ?? 0.17, depth = t.depth ?? 0.26;
-  const spread = t.spread ?? 0.42, zoff = t.z ?? 0.34, intensity = t.intensity ?? 2.0;
+  const rOuter = (t.rOuter ?? 0.27) * lsz, rCore = (t.rCore ?? 0.17) * lsz, depth = (t.depth ?? 0.26) * lsz;
+  const spread = t.spread ?? 0.42, zoff = t.z ?? 0.34, intensity = (t.intensity ?? 2.0) * (tlvl >= 3 ? 1 : 0.7);
   // The pod's inner disc = the saturated-RED turbine ring. (Layered SVJ read for Mk II
   // overlays a brighter ORANGE core + warm-WHITE hotspot below — the real UnrealBloom
   // pass blooms the high emissive, so the cores out-glow the dimmer wing chevrons.)
@@ -1197,9 +1213,10 @@ registerSurfaceLayer('twinThrusters', ({ def, attach }) => {
     const { group } = thrusterPod({ rOuter, rCore, depth, housingMat, frameMat, coreMat });
     group.position.set(s * spread, my, z);
     meshes.push(group);
-    // Optional layered SVJ read (Mk II): yellow armor frame + bright orange hot core +
-    // tiny warm-white hotspot. Off by default → aurumToro pods unchanged.
-    if (t.frame) {
+    // Layered SVJ read scales with the form: armor frame (Eternal), bright orange hot
+    // core + warm-white hotspot (Radiant+), and the fire-trail emitter (Eternal).
+    const mouthZ = z + depth * 0.26;
+    if (showFrame) {
       const r = rOuter;
       const frame = flatTriMesh([
         [[-r * 1.35, -r * 1.35, 0], [r * 1.35, -r * 1.35, 0], [r * 1.5, 0, 0]],
@@ -1209,18 +1226,18 @@ registerSurfaceLayer('twinThrusters', ({ def, attach }) => {
       ], frameMat);
       frame.position.set(s * spread, my, z - depth * 0.34);
       meshes.push(frame);
-      const mouthZ = z + depth * 0.26;
+    }
+    if (showHot) {
       // bright orange hot core (the brightest red-orange element on the dragon)
       const coreCol = t.coreColor ?? def.coreGlow ?? 0xff7a1a;
-      const coreInt = t.coreIntensity ?? 4.2;
+      const coreInt = (t.coreIntensity ?? 4.2) * (tlvl >= 3 ? 1 : 0.82);
       const coreGlowMat = new THREE.MeshStandardMaterial({ color: coreCol, emissive: coreCol, emissiveIntensity: coreInt, roughness: 0.25 });
       coreGlowMat.userData.baseEmissive = coreCol; coreGlowMat.userData.baseIntensity = coreInt;
       flareMats.push(coreGlowMat);
-      const rcg = t.rCoreGlow ?? rCore * 0.64;
+      const rcg = (t.rCoreGlow ?? 0.17 * 0.64) * lsz;
       const cg = new THREE.Mesh(new THREE.CylinderGeometry(rcg, rcg, depth * 0.32, seg(12)), coreGlowMat);
       cg.rotation.x = Math.PI / 2; cg.position.set(s * spread, my, mouthZ);
       meshes.push(cg);
-      // tiny warm-white center hotspot
       const hotCol = t.hotColor ?? def.surgeHi ?? 0xfff0b8;
       const hotInt = t.hotIntensity ?? 3.6;
       const hotMat = new THREE.MeshStandardMaterial({ color: hotCol, emissive: hotCol, emissiveIntensity: hotInt, roughness: 0.2 });
@@ -1228,6 +1245,8 @@ registerSurfaceLayer('twinThrusters', ({ def, attach }) => {
       const hs = new THREE.Mesh(new THREE.CylinderGeometry(rh, rh, depth * 0.22, seg(8)), hotMat);
       hs.rotation.x = Math.PI / 2; hs.position.set(s * spread, my, mouthZ + depth * 0.05);
       meshes.push(hs);
+    }
+    if (showEmit) {
       // Emitter marker at the pod mouth — the dragon VFX loop spawns a jet fire trail
       // from these during Surge on the Eternal form. Invisible; tagged for collection.
       const emit = new THREE.Object3D();
@@ -1242,8 +1261,12 @@ registerSurfaceLayer('twinThrusters', ({ def, attach }) => {
 // svjShoulderNacelles — angular YELLOW shoulder engine pods + black recessed intakes
 // at each wing root, so the wings read as plugged into an SVJ engine bay rather than
 // stuck to a thin spine. Reads attach.wingRoot(side). Rear-/shop-facing identity.
-registerSurfaceLayer('svjShoulderNacelles', ({ def, attach }) => {
+registerSurfaceLayer('svjShoulderNacelles', ({ def, model, attach }) => {
   const meshes = [];
+  // Per-FORM: 0 absent (Hatchling) · 1 light · 2 full · 3 strongest (Eternal).
+  const nlvl = model.nacelleLevel ?? 3;
+  if (nlvl <= 0) return { meshes, flareMats: [] };
+  const nsz = nlvl >= 3 ? 1 : nlvl === 2 ? 0.85 : 0.62;
   const gold = new THREE.MeshStandardMaterial({
     color: def.body ?? 0xf2c20e, flatShading: true,
     roughness: def.bodyRoughness ?? 0.24, metalness: def.bodyMetalness ?? 0.55,
@@ -1254,12 +1277,12 @@ registerSurfaceLayer('svjShoulderNacelles', ({ def, attach }) => {
   for (const s of [-1, 1]) {
     const wr = attach.wingRoot ? attach.wingRoot(s) : { x: s * 0.85, y: 0.7, z: -0.3 };
     // angular yellow pod just inboard/below the wing root
-    const pod = new THREE.Mesh(new THREE.BoxGeometry(0.34, 0.30, 0.62), gold);
+    const pod = new THREE.Mesh(new THREE.BoxGeometry(0.34 * nsz, 0.30 * nsz, 0.62 * nsz), gold);
     pod.position.set(wr.x - s * 0.05, wr.y - 0.13, wr.z - 0.06);
     pod.rotation.y = s * 0.14; pod.rotation.z = s * -0.12;
     meshes.push(pod);
     // black recessed underside intake
-    const intake = new THREE.Mesh(new THREE.BoxGeometry(0.18, 0.10, 0.46), carbon);
+    const intake = new THREE.Mesh(new THREE.BoxGeometry(0.18 * nsz, 0.10, 0.46 * nsz), carbon);
     intake.position.set(wr.x, wr.y - 0.25, wr.z - 0.02);
     intake.rotation.y = s * 0.14;
     meshes.push(intake);
@@ -1270,8 +1293,11 @@ registerSurfaceLayer('svjShoulderNacelles', ({ def, attach }) => {
 // svjSpineArmorCaps — a row of low YELLOW wedge armor plates with black base gaps along
 // the keel crest (attach.keelTopAt) for a segmented mechanical "vertebrae" rhythm — the
 // SVJ read the thin spike line lacked. (Mk II uses this INSTEAD of svjDorsalSpine.)
-registerSurfaceLayer('svjSpineArmorCaps', ({ def, attach, giM }) => {
+registerSurfaceLayer('svjSpineArmorCaps', ({ def, model, attach, giM }) => {
   const meshes = [], flareMats = [];
+  // Per-FORM: 0 bare spine (Hatchling) · 1 sparse caps · 2 more · 3 full + red seams (Eternal).
+  const slvl = model.spineCapLevel ?? 3;
+  if (slvl <= 0) return { meshes, flareMats };
   const gold = new THREE.MeshStandardMaterial({
     color: def.body ?? 0xf2c20e, flatShading: true,
     roughness: def.bodyRoughness ?? 0.22, metalness: def.bodyMetalness ?? 0.6,
@@ -1284,7 +1310,7 @@ registerSurfaceLayer('svjSpineArmorCaps', ({ def, attach, giM }) => {
   const red = new THREE.MeshStandardMaterial({ color: redCol, emissive: redCol, emissiveIntensity: intensity, roughness: 0.3 });
   red.userData.baseEmissive = redCol; red.userData.baseIntensity = intensity;
   flareMats.push(red);
-  const n = 11, z0 = -1.8, z1 = 1.0;
+  const n = slvl >= 3 ? 11 : slvl === 2 ? 9 : 6, z0 = -1.8, z1 = 1.0;
   for (let i = 0; i < n; i++) {
     const t = i / (n - 1);
     const z = z0 + (z1 - z0) * t;
@@ -1294,7 +1320,7 @@ registerSurfaceLayer('svjSpineArmorCaps', ({ def, attach, giM }) => {
     base.position.set(0, top + 0.01, z); meshes.push(base);
     const cap = new THREE.Mesh(new THREE.BoxGeometry(w, 0.05, 0.20), gold);
     cap.position.set(0, top + 0.055, z); cap.rotation.x = -0.12; meshes.push(cap);
-    if (i % 2 === 1) {
+    if (slvl >= 3 && i % 2 === 1) {
       const seam = new THREE.Mesh(new THREE.BoxGeometry(w * 0.7, 0.02, 0.04), red);
       seam.position.set(0, top + 0.085, z + 0.06); meshes.push(seam);
     }
@@ -1854,73 +1880,102 @@ function buildSvjJetWing(def, model, attach, giM) {
       plate.position.set(side * 0.03, yOff + 0.03, -0.06); grp.add(plate);
     };
 
-    // station breaks — player spec: inner 0–0.36, mid 0.36–0.73, tip 0.73–1.0;
-    // chords root 1.08 → innerJoint 0.72 → midJoint 0.42 → tip 0.26.
+    // station breaks — full wing chords root 1.08 → 0.72 → 0.42 → tip 0.26.
     const S0 = xsec(0.00, 1.08), Sa = xsec(0.20, 0.88), S1 = xsec(0.36, 0.72);
     const Sb = xsec(0.55, 0.56), S2 = xsec(0.73, 0.42), S3 = xsec(1.00, 0.26);
     const ZERO = { x: 0, y: 0, z: 0 };
-    const midO = stationPoint(0.36), tipO = stationPoint(0.73);
+    const parts = model.wingParts ?? 3;   // per-form wing segment count: 1 / 2 / 3
 
-    // Nested articulation hierarchy: wingRoot(pivot) → wingMid → wingTip. A small
-    // anti-clip Y lift at each joint (hidden by the hinge cover) stops the segments
-    // intersecting during the flap.
-    const wingMid = new THREE.Group();
-    wingMid.position.set(midO.x, midO.y + 0.025, midO.z);
-    const wingTip = new THREE.Group();
-    wingTip.position.set(tipO.x - midO.x, (tipO.y - midO.y) + 0.018, tipO.z - midO.z);
-    wingMid.add(wingTip);
-    pivot.add(wingMid);
-
-    // ── PART A — inner powered blade (pivot): hinge + strong black root + boom + blade 0–0.36 ──
+    // shoulder hinge (all forms)
     const hinge = new THREE.Mesh(new THREE.BoxGeometry(0.30, 0.40, 0.50), grey);
     hinge.position.set(side * 0.06, 0, 0.02); hinge.rotation.z = side * 0.18; pivot.add(hinge);
-    pivot.add(frameBar(arr(offN(S0.leading, yOff)), arr(offN(S1.leading, yOff)), [0.20, 0.17], yellow));
-    quadG(pivot, ZERO, S0.leading, Sa.leading, Sa.trailing, S0.trailing, yellow, yOff);
-    quadG(pivot, ZERO, Sa.leading, S1.leading, S1.trailing, Sa.trailing, yellow, yOff);
-    panelG(pivot, ZERO, xsec(0.12, 0.74), xsec(0.32, 0.66), black);
-    chevronG(pivot, ZERO, 0.26, 0.78);
-    flapG(pivot, ZERO, 0.20);
 
-    // ── PART B — mid / outer aero blade (wingMid): the long swept yellow silhouette ──
-    hingeCover(wingMid, 0.22);
-    wingMid.add(frameBar(arr(offN(O(S1.leading, midO), yOff)), arr(offN(O(S2.leading, midO), yOff)), [0.15, 0.12], yellow));
-    quadG(wingMid, midO, S1.leading, Sb.leading, Sb.trailing, S1.trailing, yellow, yOff);
-    quadG(wingMid, midO, Sb.leading, S2.leading, S2.trailing, Sb.trailing, yellow, yOff);
-    panelG(wingMid, midO, xsec(0.40, 0.66), xsec(0.70, 0.46), black);
-    {
-      const hg = hexGrille({ w: 0.7, h: 0.42, mat: black, barMat: grey });
-      const c = O(xsec(0.55, 0.56).c, midO); hg.position.set(c.x, c.y + bOff + yOff + 0.004, c.z); wingMid.add(hg);
-    }
-    chevronG(wingMid, midO, 0.48, 0.56);
-    chevronG(wingMid, midO, 0.62, 0.48);
-    flapG(wingMid, midO, 0.42);
-    flapG(wingMid, midO, 0.58);
-    {
-      // secondary top blade rides the mid segment (stacked aero-blade)
-      const T0 = xsec(0.40, 0.44), T1 = xsec(0.72, 0.22);
-      const up = (p, dy, dz) => O({ x: p.x, y: p.y + dy, z: p.z + dz }, midO);
-      wingMid.add(flatTriMesh([
-        [arr(up(T0.leading, 0.16, -0.06)), arr(up(T1.leading, 0.16, -0.06)), arr(up(T1.trailing, 0.16, -0.02))],
-        [arr(up(T0.leading, 0.16, -0.06)), arr(up(T1.trailing, 0.16, -0.02)), arr(up(T0.trailing, 0.16, -0.02))],
+    if (parts >= 3) {
+      // ══ 3-SEGMENT wing (Radiant / Eternal): pivot → wingMid → wingTip ══════════════
+      const midO = stationPoint(0.36), tipO = stationPoint(0.73);
+      const wingMid = new THREE.Group();
+      wingMid.position.set(midO.x, midO.y + 0.025, midO.z);
+      const wingTip = new THREE.Group();
+      wingTip.position.set(tipO.x - midO.x, (tipO.y - midO.y) + 0.018, tipO.z - midO.z);
+      wingMid.add(wingTip); pivot.add(wingMid);
+      // PART A — inner powered blade (pivot, 0–0.36)
+      pivot.add(frameBar(arr(offN(S0.leading, yOff)), arr(offN(S1.leading, yOff)), [0.20, 0.17], yellow));
+      quadG(pivot, ZERO, S0.leading, Sa.leading, Sa.trailing, S0.trailing, yellow, yOff);
+      quadG(pivot, ZERO, Sa.leading, S1.leading, S1.trailing, Sa.trailing, yellow, yOff);
+      panelG(pivot, ZERO, xsec(0.12, 0.74), xsec(0.32, 0.66), black);
+      chevronG(pivot, ZERO, 0.26, 0.78);
+      flapG(pivot, ZERO, 0.20);
+      // PART B — mid / outer aero blade (wingMid, 0.36–0.73)
+      hingeCover(wingMid, 0.22);
+      wingMid.add(frameBar(arr(offN(O(S1.leading, midO), yOff)), arr(offN(O(S2.leading, midO), yOff)), [0.15, 0.12], yellow));
+      quadG(wingMid, midO, S1.leading, Sb.leading, Sb.trailing, S1.trailing, yellow, yOff);
+      quadG(wingMid, midO, Sb.leading, S2.leading, S2.trailing, Sb.trailing, yellow, yOff);
+      panelG(wingMid, midO, xsec(0.40, 0.66), xsec(0.70, 0.46), black);
+      {
+        const hg = hexGrille({ w: 0.7, h: 0.42, mat: black, barMat: grey });
+        const c = O(xsec(0.55, 0.56).c, midO); hg.position.set(c.x, c.y + bOff + yOff + 0.004, c.z); wingMid.add(hg);
+      }
+      chevronG(wingMid, midO, 0.48, 0.56);
+      chevronG(wingMid, midO, 0.62, 0.48);
+      flapG(wingMid, midO, 0.42);
+      flapG(wingMid, midO, 0.58);
+      {
+        const T0 = xsec(0.40, 0.44), T1 = xsec(0.72, 0.22);
+        const up = (p, dy, dz) => O({ x: p.x, y: p.y + dy, z: p.z + dz }, midO);
+        wingMid.add(flatTriMesh([
+          [arr(up(T0.leading, 0.16, -0.06)), arr(up(T1.leading, 0.16, -0.06)), arr(up(T1.trailing, 0.16, -0.02))],
+          [arr(up(T0.leading, 0.16, -0.06)), arr(up(T1.trailing, 0.16, -0.02)), arr(up(T0.trailing, 0.16, -0.02))],
+        ], yellow));
+      }
+      // PART C — tip / aero control surface (wingTip, 0.73–1.0) + endplate + marker
+      hingeCover(wingTip, 0.16);
+      quadG(wingTip, tipO, S2.leading, S3.leading, S3.trailing, S2.trailing, yellow, yOff);
+      chevronG(wingTip, tipO, 0.86, 0.30);
+      const tc = O(S3.c, tipO);
+      wingTip.add(flatTriMesh([
+        [[tc.x, tc.y - 0.06, tc.z - 0.09], [tc.x + side * 0.50, tc.y + 0.02, tc.z + 0.04], [tc.x + side * 0.44, tc.y + 0.32, tc.z + 0.19]],
+        [[tc.x, tc.y - 0.06, tc.z - 0.09], [tc.x + side * 0.44, tc.y + 0.32, tc.z + 0.19], [tc.x + side * 0.02, tc.y + 0.20, tc.z + 0.06]],
       ], yellow));
+      const marker = new THREE.Object3D(); marker.position.set(tc.x, tc.y, tc.z); wingTip.add(marker);
+      group.add(pivot);
+      return { pivot, wingMid, wingTip, marker };
     }
 
-    // ── PART C — tip / aero control surface (wingTip): short blade + endplate + marker ──
-    hingeCover(wingTip, 0.16);
-    quadG(wingTip, tipO, S2.leading, S3.leading, S3.trailing, S2.trailing, yellow, yOff);
-    chevronG(wingTip, tipO, 0.86, 0.30);
-    const tc = O(S3.c, tipO);
-    // wingtip endplate / spoiler fin — sharp stiffened outer silhouette.
-    wingTip.add(flatTriMesh([
-      [[tc.x, tc.y - 0.06, tc.z - 0.09], [tc.x + side * 0.50, tc.y + 0.02, tc.z + 0.04], [tc.x + side * 0.44, tc.y + 0.32, tc.z + 0.19]],
-      [[tc.x, tc.y - 0.06, tc.z - 0.09], [tc.x + side * 0.44, tc.y + 0.32, tc.z + 0.19], [tc.x + side * 0.02, tc.y + 0.20, tc.z + 0.06]],
-    ], yellow));
-    const marker = new THREE.Object3D();
-    marker.position.set(tc.x, tc.y, tc.z);
-    wingTip.add(marker);
+    if (parts === 2) {
+      // ══ 2-SEGMENT wing (Kindled): pivot (inner+mid merged, 0–0.62) → wingTip (0.62–1.0) ══
+      const Sj = xsec(0.62, 0.50), tipO = stationPoint(0.62);
+      const wingTip = new THREE.Group();
+      wingTip.position.set(tipO.x, tipO.y + 0.02, tipO.z);
+      pivot.add(wingTip);
+      pivot.add(frameBar(arr(offN(S0.leading, yOff)), arr(offN(Sj.leading, yOff)), [0.18, 0.14], yellow));
+      quadG(pivot, ZERO, S0.leading, S1.leading, S1.trailing, S0.trailing, yellow, yOff);
+      quadG(pivot, ZERO, S1.leading, Sj.leading, Sj.trailing, S1.trailing, yellow, yOff);
+      panelG(pivot, ZERO, xsec(0.16, 0.66), xsec(0.55, 0.54), black);
+      chevronG(pivot, ZERO, 0.40, 0.62);
+      flapG(pivot, ZERO, 0.30);
+      hingeCover(wingTip, 0.18);
+      quadG(wingTip, tipO, Sj.leading, S3.leading, S3.trailing, Sj.trailing, yellow, yOff);
+      const tc = O(S3.c, tipO);
+      wingTip.add(flatTriMesh([
+        [[tc.x, tc.y - 0.05, tc.z - 0.07], [tc.x + side * 0.38, tc.y + 0.02, tc.z + 0.03], [tc.x + side * 0.32, tc.y + 0.24, tc.z + 0.15]],
+        [[tc.x, tc.y - 0.05, tc.z - 0.07], [tc.x + side * 0.32, tc.y + 0.24, tc.z + 0.15], [tc.x + side * 0.02, tc.y + 0.15, tc.z + 0.05]],
+      ], yellow));
+      const marker = new THREE.Object3D(); marker.position.set(tc.x, tc.y, tc.z); wingTip.add(marker);
+      group.add(pivot);
+      return { pivot, wingMid: null, wingTip, marker };
+    }
 
+    // ══ 1-SEGMENT wing (Hatchling): a small simple paddle/mini-blade on pivot only ══════
+    const Sm = xsec(0.50, 0.62), St = xsec(1.00, 0.34);
+    pivot.add(frameBar(arr(offN(S0.leading, yOff)), arr(offN(St.leading, yOff)), [0.15, 0.11], yellow));
+    quadG(pivot, ZERO, S0.leading, Sm.leading, Sm.trailing, S0.trailing, yellow, yOff);
+    quadG(pivot, ZERO, Sm.leading, St.leading, St.trailing, Sm.trailing, yellow, yOff);
+    panelG(pivot, ZERO, xsec(0.22, 0.50), xsec(0.72, 0.42), black);
+    chevronG(pivot, ZERO, 0.55, 0.48);
+    const tc1 = St.c;
+    const marker = new THREE.Object3D(); marker.position.set(tc1.x, tc1.y, tc1.z); pivot.add(marker);
     group.add(pivot);
-    return { pivot, wingMid, wingTip, marker };
+    return { pivot, wingMid: null, wingTip: null, marker };
   }
 
   const R = buildSide(1), Lf = buildSide(-1);
@@ -1992,20 +2047,22 @@ function buildSvjAeroTridentTail(def, model, mats, anchor) {
   const tip = new THREE.Group();
   tip.position.set(0, 0, SEG[n - 1][0] * 0.5);
   last.add(tip);
-  // central dark spear (long, sharp point) + thin gold cap edge
+  // central dark spear (long, sharp point) + thin gold cap edge — the spear is the
+  // ALWAYS-present tip; the side prongs grow with the form's tailTip level:
+  // 0 simple spear (Hatchling) · 1 fork (bare prongs) · 2 light trident (+inset) ·
+  // 3 full aero-trident (+black inset + red slash) (Eternal).
+  const ttip = model.tailTip ?? 3;
   const spear = blade(0.58, 0.17, 0.035, 0.12, carbon); spear.position.set(0, 0, 0.18); tip.add(spear);
   const cap = blade(0.56, 0.11, 0.028, 0.08, gold); cap.position.set(0, 0.01, 0.2); tip.add(cap);
-  // two swept side stabilizer fins (gold + black inset + red slash) — taller/broader
-  // and flared harder (32°) so the trident's outer prongs read as a clear 3-point
-  // aero silhouette from rear + rear-3/4.
-  for (const sign of [-1, 1]) {
+  if (ttip >= 1) for (const sign of [-1, 1]) {
     const bg = new THREE.Group();
     bg.position.set(sign * 0.12, 0.02, 0.10);
-    const b = blade(0.48, 0.14, 0.035, 0.26, gold);
+    const bsz = ttip >= 3 ? 1 : ttip === 2 ? 0.85 : 0.7;
+    const b = blade(0.48 * bsz, 0.14 * bsz, 0.035, 0.26 * bsz, gold);
     b.rotation.set(-4 * D2R, sign * 32 * D2R, sign * -8 * D2R);   // up-tilt, flare out, slight bank
     bg.add(b);
-    const inset = blade(0.30, 0.08, 0.022, 0.07, carbon); inset.position.set(sign * 0.005, 0.02, 0.12); inset.rotation.copy(b.rotation); bg.add(inset);
-    const slash = chevronLight({ len: 0.26, w: 0.025, mat: red }); slash.position.set(sign * 0.012, 0.04, 0.13); slash.rotation.copy(b.rotation); bg.add(slash);
+    if (ttip >= 2) { const inset = blade(0.30 * bsz, 0.08, 0.022, 0.07, carbon); inset.position.set(sign * 0.005, 0.02, 0.12); inset.rotation.copy(b.rotation); bg.add(inset); }
+    if (ttip >= 3) { const slash = chevronLight({ len: 0.26, w: 0.025, mat: red }); slash.position.set(sign * 0.012, 0.04, 0.13); slash.rotation.copy(b.rotation); bg.add(slash); }
     tip.add(bg);
   }
 
