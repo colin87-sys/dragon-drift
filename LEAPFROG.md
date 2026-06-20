@@ -1974,3 +1974,24 @@ silently blocks scrolling unless it (a) declares `touch-action:pan-y/pan-x` AND 
 direction-disambiguating move threshold. Verify touch behaviour on the live preview — headless can't drive it.
 **→ Systematize:** any new drag/rotate canvas in a scrollable screen needs the **pan-axis + move-threshold** pair; bake it
 into the shared `onTap`/drag helper so the trap can't recur.
+
+### L63 — Never (re)start Web-Audio scheduling from a `visibilitychange`/non-gesture event; resume the context, but only schedule once it's genuinely `running`
+**Did / learned:** the player reported that on mobile, switching apps and returning made the music play "at a slow rate"
+(pitched-down / garbled) — "not professional, turn it off." The synth (`sfx.js`) already had a background path
+(`pauseForBackground`/`resumeFromBackground`, wired to `visibilitychange`/`pagehide`/`blur`/`focus`), but it
+**force-restarted the music from `resumeFromBackground`** — which fires on a NON-gesture event. On iOS,
+`AudioContext.resume()` needs a user gesture, so the context is still effectively suspended and its `currentTime` has
+**jumped forward** while hidden; rebuilding the scheduler (`loopOffset = currentTime + 0.05`) then emits notes against an
+incoherent clock → the slow/garbled playback. A second bug: `pauseForBackground` suspended the context on an **80ms
+`setTimeout`**, leaving a window where the throttled background audio thread rendered a slow burst on the way out. Fix
+(all in `sfx.js`): (1) on background, zero both buses with `setValueAtTime(0)` and `ctx.suspend()` **immediately** (no
+timer); (2) `resumeFromBackground` no longer calls `start()` — it sets `resumeMusicPending` and tries `ctx.resume()`; (3)
+a new `tryResumeMusic()` restarts the music **only when `ctx.state === 'running'`**, invoked from the resume promise
+(desktop/Android resume instantly) AND from the existing gesture handler `unlockAudio()` (iOS resumes on the next tap).
+Net: background = instant silence; foreground = clean restart from a running clock, never garbled.
+**Gotcha:** `AudioContext.resume()` is **async** and **gesture-gated on iOS** — calling it from `visibilitychange` returns
+a promise that may never resolve until a tap, and reading `currentTime` right after resume gives a stale/jumped value.
+Treat "context is running" as the only safe precondition for scheduling, and drive resume from real user gestures.
+**→ Systematize:** route ALL "(re)start audio" through a single `tryResumeMusic()`-style guard that checks
+`ctx.state === 'running'` and is fed by both the resume promise and the gesture unlock — never schedule speculatively from
+a lifecycle event. **Caveat:** iOS background-audio timing can't be reproduced headlessly — this one needs on-device QA.

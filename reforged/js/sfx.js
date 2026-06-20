@@ -173,14 +173,20 @@ function ensureSilentMedia() {
 function unlockAudio() {
   ensureSilentMedia();
   const a = getCtx();
-  if (!a || a.state === 'running') return;
-  a.resume();
-  try {
-    const src = a.createBufferSource();
-    src.buffer = a.createBuffer(1, 1, 22050);
-    src.connect(a.destination);
-    src.start(0);
-  } catch { /* ignore */ }
+  if (!a) return;
+  if (a.state !== 'running') {
+    const p = a.resume();
+    if (p && p.then) p.then(tryResumeMusic, () => {});   // resume is async → restart music once it lands
+    try {
+      const src = a.createBufferSource();
+      src.buffer = a.createBuffer(1, 1, 22050);
+      src.connect(a.destination);
+      src.start(0);
+    } catch { /* ignore */ }
+  }
+  // If we just came back from the background, this real gesture is what lets the
+  // music restart cleanly. No-op during normal play (the flag is only set on resume).
+  tryResumeMusic();
 }
 for (const evt of ['touchend', 'pointerup', 'click', 'keydown']) {
   window.addEventListener(evt, unlockAudio, { passive: true });
@@ -198,6 +204,17 @@ function stopScheduler() {
   if (!schedulerTimer) return;
   clearInterval(schedulerTimer);
   schedulerTimer = null;
+}
+
+// Returning from background: restart the music ONLY once the AudioContext is
+// genuinely RUNNING (which on iOS means after a user gesture). Rebuilding the
+// scheduler against a suspended / just-resumed context — whose currentTime has
+// jumped forward while hidden — is exactly what produced the slow/garbled playback.
+function tryResumeMusic() {
+  if (!resumeMusicPending) return;
+  if (!ctx || ctx.state !== 'running') return;   // wait for a gesture to truly resume
+  resumeMusicPending = false;
+  if (!musicActive) music.start();
 }
 
 function stopWindSource() {
@@ -507,6 +524,7 @@ let events = [];       // flattened note events sorted by time-offset
 let musicActive = false;
 let bgSuspended = false;   // app backgrounded → audio context suspended (any game state)
 let wasActiveOnBg = false; // was music playing when we backgrounded? (restore on return)
+let resumeMusicPending = false; // returned from background w/ music → restart on the next running-ctx gesture
 let loopOffset = 0;    // absolute audioCtx time when current loop started
 let nextEvtIdx = 0;
 let schedulerTimer = null;
@@ -1025,6 +1043,7 @@ export const music = {
   start() {
     const a = getCtx();
     if (!a || musicActive) return;
+    resumeMusicPending = false;
     restoreBuses(a, true);
     musicActive = true;
     loopCount = 0;
@@ -1202,28 +1221,33 @@ export const music = {
     stopWindSource();
     if (ctx) {
       const now = ctx.currentTime;
-      if (musicBus) {
-        musicBus.gain.cancelScheduledValues(now);
-        musicBus.gain.setTargetAtTime(0, now, 0.015);
-      }
-      if (sfxBus) {
-        sfxBus.gain.cancelScheduledValues(now);
-        sfxBus.gain.setTargetAtTime(0, now, 0.015);
-      }
-      window.setTimeout(() => {
-        try { if (ctx && ctx.state === 'running') ctx.suspend(); } catch {}
-      }, 80);
+      // Hard-silence both buses INSTANTLY, then suspend the context IMMEDIATELY (no
+      // setTimeout): the old 80ms delay left a window where the throttled background
+      // audio thread rendered a slow/garbled burst on the way out.
+      if (musicBus) { musicBus.gain.cancelScheduledValues(now); musicBus.gain.setValueAtTime(0, now); }
+      if (sfxBus) { sfxBus.gain.cancelScheduledValues(now); sfxBus.gain.setValueAtTime(0, now); }
+      try { if (ctx.state === 'running') ctx.suspend(); } catch {}
     }
     if (silentMedia) silentMedia.pause();
   },
 
-  // Counterpart to pauseForBackground: app returned to the foreground. Resume the
-  // suspended context and restart music only if it had been playing when we left.
+  // Counterpart to pauseForBackground: app returned to the foreground. Do NOT
+  // restart music here — this runs from visibilitychange/focus (a NON-gesture
+  // context), where iOS can't truly resume the AudioContext and its currentTime has
+  // jumped; rebuilding the scheduler then plays slow/garbled. Just flag the intent
+  // and let tryResumeMusic() restart it once the context is genuinely running
+  // (immediately on desktop/Android via the resume promise; on the next tap on iOS).
   resumeFromBackground() {
     if (!bgSuspended) return;
     bgSuspended = false;
-    if (ctx && ctx.state === 'suspended') { try { ctx.resume(); } catch {} }
-    if (wasActiveOnBg) this.start();   // start() restores buses + rebuilds the scheduler
+    resumeMusicPending = wasActiveOnBg;
+    if (!ctx) { tryResumeMusic(); return; }
+    if (ctx.state === 'suspended') {
+      const p = ctx.resume();
+      if (p && p.then) p.then(tryResumeMusic, () => {}); else tryResumeMusic();
+    } else {
+      tryResumeMusic();
+    }
   },
 
   // Called every frame from main.js to fade layers in/out.
