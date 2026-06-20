@@ -1115,7 +1115,7 @@ export const DRAGONS = {
     maxRarity: 'SSSR',
     cost: 5000,
     parts: {
-      torso: 'svjHull', wings: 'svjFanWing', head: 'svjWedgeHead', tail: 'svjArmorTail',
+      torso: 'svjHull', wings: 'svjBladeWing', head: 'svjWedgeHead', tail: 'svjArmorTail',
       surface: { shader: ['cellularScalesNormal'] },  // subtle carbon-hex micro-relief on the gold hull
       surfaceLayers: ['svjScaleArmor', 'engineBay', 'ventSlashes', 'twinThrusters',
         'rearDiffuser', 'svjDorsalSpine', 'scissorHinge'],
