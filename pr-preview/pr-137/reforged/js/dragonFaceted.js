@@ -7,6 +7,7 @@ import {
   wedgePanel, hexPrism, spineSegment, ventPlateRow, hexGrille,
   chevronLight, diffuserArray, thrusterPod, mechaLeg, socket,
 } from './mechaKit.js';
+import { shingle } from './dragonShingle.js';
 
 // FACETED — a hard-edged, low-poly "automotive" part family. The angular
 // counterpart to the smooth-organic hull catalog (unifiedHull / organism /
@@ -610,17 +611,19 @@ function svjRing(w, top, bot) {
     [ w * 0.52, -bot], [ w, -bot * 0.62], [ w, top * 0.72], [ w * 0.58, top],
   ];
 }
-// Fresh stations [z, halfWidth, top, bottom] (engine −z forward): collar → chest →
-// ENGINE BAY peak (broadest/tallest) → haunch → tail root. Bulky, non-pinched.
+// Fresh stations [z, halfWidth, top, bottom] (engine −z forward). Authored from the
+// SIDE reference: a quadruped topline — deep brisket → rising SHOULDER hump → mid
+// dip with a TUCKED-UP belly → rising rear HAUNCH → tail root. `top` = dorsal rise,
+// `bottom` = ventral depth; the mid `bottom` shrinks (0.30) = the belly tuck.
 const SVJ_STATIONS = [
-  [-2.30, 0.16, 0.14, 0.14],
-  [-1.85, 0.34, 0.30, 0.26],
-  [-1.30, 0.58, 0.46, 0.42],
-  [-0.70, 0.78, 0.56, 0.52],
-  [-0.10, 0.86, 0.60, 0.56],
-  [ 0.45, 0.76, 0.52, 0.52],
-  [ 0.85, 0.60, 0.44, 0.42],
-  [ 1.15, 0.40, 0.34, 0.28],
+  [-2.30, 0.16, 0.18, 0.12], // collar
+  [-1.85, 0.34, 0.36, 0.26], // neck base
+  [-1.30, 0.56, 0.52, 0.50], // deep chest / brisket (ventral deep)
+  [-0.70, 0.74, 0.64, 0.40], // SHOULDER hump (dorsal high, belly tucking up)
+  [-0.10, 0.82, 0.58, 0.30], // mid back — BELLY TUCK (ventral shallow)
+  [ 0.45, 0.78, 0.60, 0.38], // rear HAUNCH rise
+  [ 0.85, 0.58, 0.46, 0.32], // rear
+  [ 1.15, 0.40, 0.34, 0.24], // tail root
 ];
 // Piecewise-linear lookup over a station column (1=halfWidth, 2=top, 3=bottom).
 function svjInterp(z, col) {
@@ -773,6 +776,22 @@ function buildSvjBladeWing(def, model, attach, giM) {
       pivot.add(cl);
     }
 
+    // red glowing HEX CELLS scattered on the inner panel (the reference's red-hex
+    // membrane nod — flat cells on the wing, not vertical spikes)
+    const bil = (u, v) => lerp3(lerp3(R0, W0, u), lerp3(R1, W1, u), v);
+    const hexCell = () => {
+      const r = 0.07, pts = [];
+      for (let k = 0; k < 6; k++) pts.push([Math.cos((k / 6) * Math.PI * 2) * r, Math.sin((k / 6) * Math.PI * 2) * r]);
+      return wedgePanel(pts, redMat);
+    };
+    for (const [u, v] of [[0.32, 0.45], [0.46, 0.62], [0.56, 0.34], [0.66, 0.55], [0.4, 0.25]]) {
+      const p = bil(u, v);
+      const hx = hexCell();
+      hx.position.set(p[0], p[1] + 0.03, p[2]);
+      hx.rotation.x = -Math.PI / 2 + 0.25;   // lie roughly flat on the wing, facing up
+      pivot.add(hx);
+    }
+
     // OUTER blade (rides wingTip): broad swept blade + vertical endplate.
     const wingTip = new THREE.Group();
     wingTip.position.set(side * 1.80 * ws, 0.50, 0.10);
@@ -813,6 +832,109 @@ function buildSvjBladeWing(def, model, attach, giM) {
 }
 registerWings('svjBladeWing', buildSvjBladeWing);
 
+// ── WINGS: 'svjFanWing' — a FAN of gold blade-quills + glowing red HEX membrane ───
+// Matches the side reference: each wing is a spread of separate gold blades sweeping
+// up-and-back, with a dark membrane between them carrying red-emissive hexagon cells.
+// On the frozen rig: the whole fan + membrane ride the pivot (flap as a unit); a tip
+// extension + tipMarker ride the wingTip so the fold articulates the fan tips.
+function buildSvjFanWing(def, model, attach, giM) {
+  const group = new THREE.Group();
+  const spineMats = [];
+  const ws = model.wingScale ?? 1;
+  const gi = Math.min(giM ?? 1, 1.3);
+
+  const gold = new THREE.MeshStandardMaterial({
+    color: def.body ?? 0xf2c20e, flatShading: true, side: THREE.DoubleSide,
+    roughness: def.bodyRoughness ?? 0.24, metalness: def.bodyMetalness ?? 0.55,
+  });
+  const carbon = new THREE.MeshStandardMaterial({
+    color: def.belly ?? def.horn ?? 0x0e0e12, flatShading: true, side: THREE.DoubleSide,
+    roughness: 0.45, metalness: 0.55,
+  });
+  const memCol = def.apexSeam ?? 0xff3b2f;
+  const memMat = new THREE.MeshStandardMaterial({
+    color: 0x180405, emissive: memCol, emissiveIntensity: 0.5, side: THREE.DoubleSide,
+    roughness: 0.5, metalness: 0.2,
+  });
+  const hexMat = new THREE.MeshStandardMaterial({
+    color: memCol, emissive: memCol, emissiveIntensity: 1.9 * gi, roughness: 0.3, side: THREE.DoubleSide,
+  });
+  hexMat.userData.baseEmissive = memCol;
+  hexMat.userData.baseIntensity = 1.9 * gi;
+  spineMats.push(hexMat);
+
+  // blade fan specs: [reachX, tipY, tipZ, rootY] — sweeps up-and-back (flight spread).
+  const FAN = [
+    [2.9, 0.25, 0.35, 0.0],
+    [3.0, 0.85, 0.65, 0.12],
+    [2.7, 1.45, 1.0, 0.22],
+    [2.1, 1.95, 1.35, 0.3],
+    [1.3, 2.3, 1.7, 0.36],
+  ];
+  const hexCard = () => {
+    const r = 0.09, pts = [];
+    for (let k = 0; k < 6; k++) pts.push([Math.cos((k / 6) * Math.PI * 2) * r, Math.sin((k / 6) * Math.PI * 2) * r]);
+    return wedgePanel(pts, hexMat);
+  };
+
+  function buildSide(side) {
+    const pivot = new THREE.Group();
+    const wr = attach.wingRoot(side);
+    pivot.position.set(wr.x, wr.y, wr.z);
+
+    const hub = new THREE.Mesh(new THREE.BoxGeometry(0.32, 0.36, 0.5), carbon);
+    hub.rotation.z = side * 0.3; pivot.add(hub);
+
+    // dark membrane fanning between the blade mid-points + the shoulder hub
+    const rootHub = [side * 0.12, 0.1, 0.0];
+    const mids = FAN.map(([rx, ty, tz]) => [side * rx * 0.5 * ws, ty * 0.5, tz * 0.5]);
+    for (let i = 0; i < mids.length - 1; i++)
+      pivot.add(flatTriMesh([[rootHub, mids[i], mids[i + 1]]], memMat));
+    // red glowing hex cells on the membrane (two per gap, in/out)
+    for (let i = 0; i < mids.length - 1; i++) {
+      const c = [(rootHub[0] + mids[i][0] + mids[i + 1][0]) / 3, (rootHub[1] + mids[i][1] + mids[i + 1][1]) / 3, (rootHub[2] + mids[i][2] + mids[i + 1][2]) / 3];
+      const hx = hexCard(); hx.position.set(c[0], c[1], c[2] + 0.02); hx.rotation.y = side * 0.4; pivot.add(hx);
+      const hx2 = hexCard(); hx2.position.set(c[0] * 1.45, c[1] * 1.45, c[2] + 0.02); hx2.scale.setScalar(0.7); hx2.rotation.y = side * 0.4; pivot.add(hx2);
+    }
+
+    // 5 solid gold blade quills (leaf-shaped: narrow root → wide middle → point)
+    FAN.forEach(([rx, ty, tz, ry]) => {
+      const R = [side * 0.06, ry, 0];
+      const T = [side * rx * ws, ty, tz];
+      const mx = R[0] + (T[0] - R[0]) * 0.38, myv = R[1] + (T[1] - R[1]) * 0.38, mz = R[2] + (T[2] - R[2]) * 0.38;
+      const p2 = [mx + side * 0.06, myv, mz + 0.30];   // back/outer edge bulge
+      const p4 = [mx - side * 0.06, myv, mz - 0.18];   // front/inner edge
+      pivot.add(flatTriMesh([[R, p2, T], [R, T, p4]], gold));
+    });
+
+    // wingTip at the long blade's tip → rig fold articulates the fan tips
+    const wingTip = new THREE.Group();
+    const a = FAN[2];
+    wingTip.position.set(side * a[0] * ws, a[1], a[2]);
+    const ext = new THREE.Mesh(new THREE.ConeGeometry(0.05, 0.5, seg(4)), gold);
+    ext.rotation.x = -1.2; ext.position.set(0, 0.2, 0.1); wingTip.add(ext);
+    const marker = new THREE.Object3D();
+    marker.position.set(0, 0.25, 0.15); wingTip.add(marker);
+    pivot.add(wingTip);
+
+    group.add(pivot);
+    return { pivot, wingTip, marker };
+  }
+
+  const R = buildSide(1), L = buildSide(-1);
+  return {
+    group,
+    parts: {
+      wingPivotL: L.pivot, wingPivotR: R.pivot,
+      wingTipL: L.wingTip, wingTipR: R.wingTip,
+      tipMarkerL: L.marker, tipMarkerR: R.marker,
+      wingPivot2L: null, wingPivot2R: null, wingRigL: null, wingRigR: null,
+    },
+    wingMat: gold, spineMats,
+  };
+}
+registerWings('svjFanWing', buildSvjFanWing);
+
 // ── HEAD: 'svjWedgeHead' — clean-room low angular wedge skull ─────────────────────
 // A low, wide, aggressive car-nose skull (no round animal head): a pointed wedge
 // snout, recessed RED eyes, backward-swept horn fins, a lower-jaw blade and diagonal
@@ -851,14 +973,24 @@ function buildSvjWedgeHead(def, model, mats) {
     eye.scale.set(1.7, 0.7, 1); eye.position.set(s * 0.3, 0.06, -0.27);
     head.add(eye);
   }
-  const hl = Math.max(0.4, model.hornLen ?? 0.9);
+  // Multi-blade backswept horn CREST (the reference's spiky head fan) + cheek plates.
+  const hl = Math.max(0.5, model.hornLen ?? 1.0);
   for (const s of [-1, 1]) {
-    const horn = new THREE.Mesh(new THREE.ConeGeometry(0.1, hl, seg(4)), facetHorn);
-    horn.position.set(s * 0.3, 0.18, 0.28);
-    horn.rotation.x = 0.85;           // sweep back (+z) and up
-    horn.rotation.z = s * 0.4;        // outward splay
-    head.add(horn);
+    for (let i = 0; i < 3; i++) {
+      const len = hl * (0.7 + 0.32 * (1 - Math.abs(i - 1)));   // middle blade longest
+      const blade = new THREE.Mesh(new THREE.ConeGeometry(0.07, len, seg(4)), gold);
+      blade.position.set(s * (0.18 + i * 0.1), 0.2 + i * 0.04, 0.2 + i * 0.12);
+      blade.rotation.x = 0.95 + i * 0.06;        // sweep back/up
+      blade.rotation.z = s * (0.25 + i * 0.18);   // fan outward
+      head.add(blade);
+    }
+    const cheek = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.2, 0.4), carbon);
+    cheek.position.set(s * 0.32, -0.05, -0.25); cheek.rotation.y = s * 0.2;
+    head.add(cheek);
   }
+  const crown = new THREE.Mesh(new THREE.ConeGeometry(0.08, hl * 1.15, seg(4)), gold);
+  crown.position.set(0, 0.24, 0.32); crown.rotation.x = 1.05;
+  head.add(crown);
   const brow = ventPlateRow(3, { w: 0.4, h: 0.13, plateMat: gold, slitMat: carbon });
   brow.position.set(0, 0.2, -0.04); brow.rotation.x = -0.5;
   head.add(brow);
@@ -1084,5 +1216,114 @@ registerSurfaceLayer('mechaLegs', ({ def, attach }) => {
     group.scale.setScalar(0.85);
     meshes.push(group);
   }
+  return { meshes, flareMats: [] };
+});
+
+// ── SURFACE LAYERS (v3 side-profile match) ───────────────────────────────────────
+
+// svjScaleArmor — the carbon-hex underbody + gold armor plates from the reference.
+// Two merged shingle() runs (one draw call each): black cupped CARBON scales over the
+// lower flanks/belly, and larger GOLD plate scutes over the shoulders/back. Rides the
+// body via attach.halfWidthAt/keelTopAt/bodyMidY. Carries the bulk of the tri budget.
+registerSurfaceLayer('svjScaleArmor', ({ def, attach }) => {
+  const meshes = [];
+  const my = attach.bodyMidY ?? 0.2;
+  const hwAt = attach.halfWidthAt ? attach.halfWidthAt : () => 0.7;
+  const topAt = attach.keelTopAt ? attach.keelTopAt : () => 0.6;
+  const z0 = -1.6, z1 = 0.95;
+  const zAt = (t) => z0 + (z1 - z0) * t;
+  const carbonMat = new THREE.MeshStandardMaterial({
+    color: def.belly ?? 0x0e0e12, roughness: 0.5, metalness: 0.5,
+  });
+  const goldMat = new THREE.MeshStandardMaterial({
+    color: def.body ?? 0xf2c20e, flatShading: true,
+    roughness: def.bodyRoughness ?? 0.24, metalness: def.bodyMetalness ?? 0.6,
+  });
+  // CARBON hex scales — 4 bands (2 per side: belly-low + mid-flank).
+  const carbon = shingle({
+    count: 92, rows: 4, material: carbonMat, cup: 0.3, tilt: 0.5,
+    cardRows: 2, cardCols: 2, length: 0.3, width: 0.26,
+    at: (t, row) => {
+      const z = zAt(t); const side = row < 2 ? -1 : 1; const band = row % 2;
+      return { x: side * hwAt(z) * (0.55 + band * 0.42), y: my - 0.16 + band * 0.22, z };
+    },
+    normalAt: (t, row) => {
+      const side = row < 2 ? -1 : 1; const band = row % 2;
+      return new THREE.Vector3(side * (0.5 + band * 0.45), band === 0 ? -0.5 : 0.12, 0);
+    },
+    tangentAt: () => new THREE.Vector3(0, 0, 1),
+  });
+  meshes.push(carbon.mesh);
+  // GOLD armor plates — 2 bands (1 per side) over the shoulders/back.
+  const goldPlates = shingle({
+    count: 16, rows: 2, material: goldMat, cup: 0.18, tilt: 0.34,
+    cardRows: 1, cardCols: 2, length: 0.42, width: 0.36,
+    at: (t, row) => {
+      const z = zAt(t * 0.85 - 0.05); const side = row === 0 ? -1 : 1;
+      return { x: side * hwAt(z) * 0.7, y: my + (topAt(z) - my) * 0.7, z };
+    },
+    normalAt: (t, row) => new THREE.Vector3((row === 0 ? -1 : 1) * 0.7, 0.6, 0),
+    tangentAt: () => new THREE.Vector3(0, 0, 1),
+  });
+  meshes.push(goldPlates.mesh);
+  return { meshes, flareMats: [] };
+});
+
+// svjDorsalSpine — a continuous row of raked-back GOLD spikes head→tail along the
+// keel crest (attach.keelTopAt), tallest mid-back, with red-emissive base seams.
+registerSurfaceLayer('svjDorsalSpine', ({ def, attach, giM }) => {
+  const meshes = [], flareMats = [];
+  const gold = new THREE.MeshStandardMaterial({
+    color: def.body ?? 0xf2c20e, flatShading: true,
+    roughness: def.bodyRoughness ?? 0.22, metalness: def.bodyMetalness ?? 0.6,
+  });
+  const redCol = def.apexSeam ?? 0xff3b2f;
+  const intensity = 1.3 * Math.min(giM ?? 1, 1.3);
+  const edgeMat = new THREE.MeshStandardMaterial({
+    color: redCol, emissive: redCol, emissiveIntensity: intensity, roughness: 0.3,
+  });
+  edgeMat.userData.baseEmissive = redCol; edgeMat.userData.baseIntensity = intensity;
+  flareMats.push(edgeMat);
+  const n = 20, z0 = -2.0, z1 = 1.0;
+  for (let i = 0; i < n; i++) {
+    const t = i / (n - 1);
+    const z = z0 + (z1 - z0) * t;
+    const top = attach.keelTopAt ? attach.keelTopAt(z) : 0.6;
+    const h = 0.16 + 0.18 * Math.sin(t * Math.PI);
+    const spike = new THREE.Mesh(new THREE.ConeGeometry(0.05, h, seg(4)), gold);
+    spike.rotation.x = -1.2;
+    spike.position.set(0, top + h * 0.4, z);
+    meshes.push(spike);
+    if (i % 2 === 0) {
+      const seam = new THREE.Mesh(new THREE.BoxGeometry(0.16, 0.03, 0.05), edgeMat);
+      seam.position.set(0, top + 0.01, z);
+      meshes.push(seam);
+    }
+  }
+  return { meshes, flareMats };
+});
+
+// svjQuadLegs — FOUR armored legs (front pair + bigger rear haunches), tucked under
+// the body for flight. Reuses mechaLeg() with extra thigh/knee armor plates. Static.
+registerSurfaceLayer('svjQuadLegs', ({ def, attach }) => {
+  const meshes = [];
+  const piston = new THREE.MeshStandardMaterial({ color: def.belly ?? def.horn ?? 0x0e0e12, flatShading: true, roughness: 0.4, metalness: 0.62 });
+  const blade = new THREE.MeshStandardMaterial({ color: def.body ?? 0xf2c20e, flatShading: true, roughness: def.bodyRoughness ?? 0.26, metalness: def.bodyMetalness ?? 0.55 });
+  const claw = new THREE.MeshStandardMaterial({ color: def.horn ?? 0x0e0e12, flatShading: true, roughness: 0.35, metalness: 0.6 });
+  const my = attach.bodyMidY ?? 0.2;
+  const mkLeg = (s, z, scale, splay) => {
+    const { group } = mechaLeg({ side: s, pistonMat: piston, bladeMat: blade, clawMat: claw });
+    const hw = attach.halfWidthAt ? attach.halfWidthAt(z) : 0.7;
+    group.position.set(s * hw * 0.96, my - 0.18, z);
+    group.rotation.x = -0.3; group.rotation.z = s * splay;   // hangs down-and-back (visible, not buried)
+    group.scale.setScalar(scale);
+    const thigh = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.3, 0.2), blade);
+    thigh.position.set(0, -0.13, 0); group.add(thigh);
+    const knee = new THREE.Mesh(new THREE.BoxGeometry(0.17, 0.15, 0.17), blade);
+    knee.position.set(0, -0.32, 0.02); group.add(knee);
+    return group;
+  };
+  for (const s of [-1, 1]) meshes.push(mkLeg(s, -0.75, 1.35, 0.2));   // front pair
+  for (const s of [-1, 1]) meshes.push(mkLeg(s, 0.5, 1.7, 0.3));      // rear haunches (bigger)
   return { meshes, flareMats: [] };
 });

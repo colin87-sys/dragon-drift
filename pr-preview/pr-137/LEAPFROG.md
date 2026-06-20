@@ -1931,3 +1931,24 @@ model bug. And `buildDragonModel(def, {})` (no `preview`) includes it, so isolat
 profile-loft for organic bodies, bespoke-assembly for hard-surface ones. **→ Leapfrog:** for genuinely boxy mecha bodies,
 add a `boxFuselage` primitive (chained slab sections with hard side plates) so the side silhouette is as chiseled as the
 rear.
+
+### L61 — Matching a SIDE reference is mostly additive layers, not body reshaping; reuse the shingle/shader/spine systems and spend the tri budget on scales; flat blade-wings read as thin spikes edge-on
+**Did / learned:** the player gave a true side-profile render (a grounded gold quadruped: carbon-hex underbody + gold
+plates, dorsal spike crest, blade-fan wings with a glowing red-hex membrane, four legs, crested head). My lofted body was
+~30–40% there. The fix was **almost entirely additive surface layers**, not torso geometry: (1) `cellularScalesNormal`
+**surface shader** (`def.parts.surface.shader`, 0 tris) for the carbon-hex micro-relief — `bodyMat.clone()` in a
+hand-authored torso inherits the patch; (2) a `svjScaleArmor` layer calling **`shingle()`** (`dragonShingle.js`) twice —
+a black carbon scale run on the lower flanks + a gold plate-scute run on the back — reading `attach.halfWidthAt/keelTopAt/
+bodyMidY`, which is also the cheapest way to **spend the tri budget** (each cupped card ~2 tris merged into one draw call;
+this carried ~2,300 of the ~3,200 I added, 2128→5320); (3) a `svjDorsalSpine` layer running raked cones along
+`attach.keelTopAt(z)`; (4) a head crest = a fan of cones on the existing head. Only a light **station reshape** (arched
+topline via the `top` column, tucked mid-belly via the `bottom` column) was needed on the body itself. Net: a strong side
+match with zero engine edits, HIGH 5320 / ULTRA 9698 (both in budget). Confirmed the surface-layer pipeline adds meshes in
+**body-local model space** so layers reading `attach.*` just work.
+**Gotcha:** **flat (single-/double-tri) blade geometry reads as a thin SPIKE when viewed edge-on** — a fan of up-swept
+blades looks solid in ¾ but becomes thin radiating rays from the dead-rear chase cam (and a gold edge catching the cool
+rim light desaturates to a stray **greenish** sliver, easily mistaken for unwanted cyan). Give silhouette-critical blades
+real width/thickness, or accept the "spiky fan" rear read as the style. Also: `shingle()` `cardRows/cardCols` go through
+`seg()`, so they **4× at ULTRA** — keep card counts modest or check `tricount --detail=ultra` (not just the HIGH `--ci`).
+**→ Systematize:** the reference-match playbook = shader (free texture) + `shingle` (budgeted scale geometry) + dorsal
+`attach.keelTopAt` cones + a station reshape — reusable for any "armor up this body to a reference" task.

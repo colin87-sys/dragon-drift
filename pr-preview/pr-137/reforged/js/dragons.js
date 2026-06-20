@@ -1115,9 +1115,13 @@ export const DRAGONS = {
     maxRarity: 'SSSR',
     cost: 5000,
     parts: {
-      torso: 'svjHull', wings: 'svjBladeWing', head: 'svjWedgeHead', tail: 'svjArmorTail',
-      surfaceLayers: ['engineBay', 'ventSlashes', 'twinThrusters', 'rearDiffuser', 'mechaLegs', 'scissorHinge'],
+      torso: 'svjHull', wings: 'svjFanWing', head: 'svjWedgeHead', tail: 'svjArmorTail',
+      surface: { shader: ['cellularScalesNormal'] },  // subtle carbon-hex micro-relief on the gold hull
+      surfaceLayers: ['svjScaleArmor', 'engineBay', 'ventSlashes', 'twinThrusters',
+        'rearDiffuser', 'svjDorsalSpine', 'scissorHinge'],
     },
+    // Mecha hex-scale: low relief (crisp armor, not squishy organic), medium cell size.
+    scaleSize: 4.5, scaleRelief: 0.28,
     // Fast, sharp-handling, thirsty — a supercar (drain>1 = burns boost fast).
     stats: { speed: 1.16, handling: 1.22, drain: 1.04, regen: 0.95 },
     model: {
