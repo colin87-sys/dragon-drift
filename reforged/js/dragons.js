@@ -1115,7 +1115,7 @@ export const DRAGONS = {
     maxRarity: 'SSSR',
     cost: 5000,
     parts: {
-      torso: 'svjEngineBay', wings: 'bladeWing', head: 'svjDragonHead', tail: 'segmentedAeroTail',
+      torso: 'svjHull', wings: 'svjBladeWing', head: 'svjWedgeHead', tail: 'svjArmorTail',
       surfaceLayers: ['engineBay', 'ventSlashes', 'twinThrusters', 'rearDiffuser', 'mechaLegs', 'scissorHinge'],
     },
     // Fast, sharp-handling, thirsty — a supercar (drain>1 = burns boost fast).
