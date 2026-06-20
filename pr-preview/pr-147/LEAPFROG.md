@@ -2307,3 +2307,22 @@ deploy/flutter/bank, `accentMats` (glow mats with `userData.baseEmissive/baseInt
 vocabulary: smooth tapered pearl vertebrae + a gilded dorsal ridge + dawn-blue glow seams, finishing in a COMET
 BLOOM (glow core + gilded blade-fan streaming +z) — the chase-cam rear hero. Verify: `tricount` (budget) +
 `tiershots` (front) + `gameshots` (live chase-cam boot/fly across tiers); the human judges feel on the preview.
+
+### L81 — "Sawtooth wings" = a feather plate that narrows to ONE sharp apex; fix the PLATE shape, not the rig
+Review feedback "wings read as sawtooth cards, not feather-scale armor" traced to the ATOMIC plate, not the rig or
+the row layout: `featherScale` was a 4-pt KITE that tapered to a single apex point (widest at 42% len) → a fanned
+row of those apexes IS a row of teeth. Fix = reshape the plate to a **6-pt convex LEAF/SHIELD** (base point, a WIDE
+low pair, a shoulder pair, and a SHORT BLUNT tip edge `w·tipSharpness`, never a point) + a `tipSharpness` knob per
+segment (low=rounded covert plume, high=long primary blade-scute), then HEAVIER overlap + a GENTLER fan in
+`scaleRow` so rows scallop instead of comb. The rig/contract/animator never changed. Cost: ~4→10 tris/plate, still
+far under budget (Eternal 3160 HIGH / 5228 ULTRA). Reshape the module vocabulary; never restart the creature.
+
+### L82 — Premium "gilded" rims need a REAL metallic gold, not the near-white `def.horn`
+"Reads as white geometry + dark separators, not pearl-rimmed-in-gold" was a MATERIAL miss: the wing/tail gild
+sampled `def.horn`, which on the Seraph's top form is `0xfff0b0` (≈white) → rims vanished into the white pearl.
+Fix = dedicated surface-language constants in the builder (`SERAPH_GOLD 0xD6AF4A` true metallic gild,
+`SERAPH_PEARL 0xF2F0EA` matte off-white not plastic `0xffffff`, `SERAPH_DAWN 0x88DFFF` seam, `SERAPH_HOLY 0xFFF3C8`
+comet core), plumbed as `def.wingGild ?? SERAPH_GOLD` etc. so per-form colours still tint but the DEFAULT is right.
+Also: a created-but-never-used `shadowMat` was dead code (deleted), and tail vertebrae moved off `def.body` onto
+`SERAPH_PEARL` + a faint emissive floor to lift the underside out of navy. Material language is foundational — fix
+it before judging shape; a gild that matches the body isn't a gild.
