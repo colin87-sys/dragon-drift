@@ -664,10 +664,14 @@ function buildSvjHull(def, model, bodyMat) {
   const carbon = new THREE.MeshStandardMaterial({
     color: def.belly ?? def.horn ?? 0x0e0e12, flatShading: true, roughness: 0.42, metalness: 0.6,
   });
-  // Optional massing knobs (default 1 ⇒ identical hull). A recipe can broaden /
-  // heighten the torso and bulk the rear engine-bay (rear = z ≥ -0.15) per-dragon.
+  // Optional massing knobs (default 1 ⇒ identical hull). A recipe can broaden the
+  // torso + bulk the rear engine-bay (rear = z ≥ -0.15), and COMPRESS the central
+  // belly vertically (`bellyFlatten` on the mid station) for a wide+low engine-bay
+  // read instead of a round/pear oval.
   const txs = model.torsoWidthScale ?? 1, tys = model.torsoHeightScale ?? 1, rbs = model.rearBulkScale ?? 1;
-  const STN = SVJ_STATIONS.map(([z, w, t, b]) => [z, w * txs * (z >= -0.15 ? rbs : 1), t * tys, b * tys]);
+  const bfl = model.bellyFlatten ?? 1;
+  const vy = (z) => tys * ((z > -0.45 && z < 0.30) ? bfl : 1);   // squash the central belly only
+  const STN = SVJ_STATIONS.map(([z, w, t, b]) => [z, w * txs * (z >= -0.15 ? rbs : 1), t * vy(z), b * vy(z)]);
   const topAt = (z) => SVJ_HULL_Y + svjInterp(STN, z, 2);
   const hwAt = (z) => svjInterp(STN, z, 1);
 
@@ -1174,11 +1178,14 @@ registerSurfaceLayer('twinThrusters', ({ def, attach }) => {
   const t = def.thruster ?? {};
   const rOuter = t.rOuter ?? 0.27, rCore = t.rCore ?? 0.17, depth = t.depth ?? 0.26;
   const spread = t.spread ?? 0.42, zoff = t.z ?? 0.34, intensity = t.intensity ?? 2.0;
-  const coreCol = def.boostTrail ?? def.coreGlow ?? def.apexSeam ?? 0xff3b2f;
+  // The pod's inner disc = the saturated-RED turbine ring. (Layered SVJ read for Mk II
+  // overlays a brighter ORANGE core + warm-WHITE hotspot below — the real UnrealBloom
+  // pass blooms the high emissive, so the cores out-glow the dimmer wing chevrons.)
+  const ringCol = t.ringColor ?? def.boostTrail ?? def.coreGlow ?? def.apexSeam ?? 0xff3b2f;
   const coreMat = new THREE.MeshStandardMaterial({
-    color: coreCol, emissive: coreCol, emissiveIntensity: intensity, roughness: 0.3,
+    color: ringCol, emissive: ringCol, emissiveIntensity: intensity, roughness: 0.3,
   });
-  coreMat.userData.baseEmissive = coreCol; coreMat.userData.baseIntensity = intensity;
+  coreMat.userData.baseEmissive = ringCol; coreMat.userData.baseIntensity = intensity;
   flareMats.push(coreMat);
   // Mount on the NARROW rear corners (just behind the haunch, where the body necks
   // down to the tail) so the pods protrude clear of the bulk and flank the tail root
@@ -1190,6 +1197,101 @@ registerSurfaceLayer('twinThrusters', ({ def, attach }) => {
     const { group } = thrusterPod({ rOuter, rCore, depth, housingMat, frameMat, coreMat });
     group.position.set(s * spread, my, z);
     meshes.push(group);
+    // Optional layered SVJ read (Mk II): yellow armor frame + bright orange hot core +
+    // tiny warm-white hotspot. Off by default → aurumToro pods unchanged.
+    if (t.frame) {
+      const r = rOuter;
+      const frame = flatTriMesh([
+        [[-r * 1.35, -r * 1.35, 0], [r * 1.35, -r * 1.35, 0], [r * 1.5, 0, 0]],
+        [[r * 1.5, 0, 0], [r * 1.35, r * 1.35, 0], [0, r * 1.55, 0]],
+        [[0, r * 1.55, 0], [-r * 1.35, r * 1.35, 0], [-r * 1.5, 0, 0]],
+        [[-r * 1.5, 0, 0], [-r * 1.35, -r * 1.35, 0], [0, -r * 1.6, 0]],
+      ], frameMat);
+      frame.position.set(s * spread, my, z - depth * 0.34);
+      meshes.push(frame);
+      const mouthZ = z + depth * 0.26;
+      // bright orange hot core (the brightest red-orange element on the dragon)
+      const coreCol = t.coreColor ?? def.coreGlow ?? 0xff7a1a;
+      const coreInt = t.coreIntensity ?? 4.2;
+      const coreGlowMat = new THREE.MeshStandardMaterial({ color: coreCol, emissive: coreCol, emissiveIntensity: coreInt, roughness: 0.25 });
+      coreGlowMat.userData.baseEmissive = coreCol; coreGlowMat.userData.baseIntensity = coreInt;
+      flareMats.push(coreGlowMat);
+      const rcg = t.rCoreGlow ?? rCore * 0.64;
+      const cg = new THREE.Mesh(new THREE.CylinderGeometry(rcg, rcg, depth * 0.32, seg(12)), coreGlowMat);
+      cg.rotation.x = Math.PI / 2; cg.position.set(s * spread, my, mouthZ);
+      meshes.push(cg);
+      // tiny warm-white center hotspot
+      const hotCol = t.hotColor ?? def.surgeHi ?? 0xfff0b8;
+      const hotInt = t.hotIntensity ?? 3.6;
+      const hotMat = new THREE.MeshStandardMaterial({ color: hotCol, emissive: hotCol, emissiveIntensity: hotInt, roughness: 0.2 });
+      const rh = rcg * 0.46;
+      const hs = new THREE.Mesh(new THREE.CylinderGeometry(rh, rh, depth * 0.22, seg(8)), hotMat);
+      hs.rotation.x = Math.PI / 2; hs.position.set(s * spread, my, mouthZ + depth * 0.05);
+      meshes.push(hs);
+    }
+  }
+  return { meshes, flareMats };
+});
+
+// svjShoulderNacelles — angular YELLOW shoulder engine pods + black recessed intakes
+// at each wing root, so the wings read as plugged into an SVJ engine bay rather than
+// stuck to a thin spine. Reads attach.wingRoot(side). Rear-/shop-facing identity.
+registerSurfaceLayer('svjShoulderNacelles', ({ def, attach }) => {
+  const meshes = [];
+  const gold = new THREE.MeshStandardMaterial({
+    color: def.body ?? 0xf2c20e, flatShading: true,
+    roughness: def.bodyRoughness ?? 0.24, metalness: def.bodyMetalness ?? 0.55,
+  });
+  const carbon = new THREE.MeshStandardMaterial({
+    color: def.belly ?? def.horn ?? 0x0e0e12, flatShading: true, roughness: 0.42, metalness: 0.6,
+  });
+  for (const s of [-1, 1]) {
+    const wr = attach.wingRoot ? attach.wingRoot(s) : { x: s * 0.85, y: 0.7, z: -0.3 };
+    // angular yellow pod just inboard/below the wing root
+    const pod = new THREE.Mesh(new THREE.BoxGeometry(0.34, 0.30, 0.62), gold);
+    pod.position.set(wr.x - s * 0.05, wr.y - 0.13, wr.z - 0.06);
+    pod.rotation.y = s * 0.14; pod.rotation.z = s * -0.12;
+    meshes.push(pod);
+    // black recessed underside intake
+    const intake = new THREE.Mesh(new THREE.BoxGeometry(0.18, 0.10, 0.46), carbon);
+    intake.position.set(wr.x, wr.y - 0.25, wr.z - 0.02);
+    intake.rotation.y = s * 0.14;
+    meshes.push(intake);
+  }
+  return { meshes, flareMats: [] };
+});
+
+// svjSpineArmorCaps — a row of low YELLOW wedge armor plates with black base gaps along
+// the keel crest (attach.keelTopAt) for a segmented mechanical "vertebrae" rhythm — the
+// SVJ read the thin spike line lacked. (Mk II uses this INSTEAD of svjDorsalSpine.)
+registerSurfaceLayer('svjSpineArmorCaps', ({ def, attach, giM }) => {
+  const meshes = [], flareMats = [];
+  const gold = new THREE.MeshStandardMaterial({
+    color: def.body ?? 0xf2c20e, flatShading: true,
+    roughness: def.bodyRoughness ?? 0.22, metalness: def.bodyMetalness ?? 0.6,
+  });
+  const carbon = new THREE.MeshStandardMaterial({
+    color: def.belly ?? def.horn ?? 0x0e0e12, flatShading: true, roughness: 0.42, metalness: 0.6,
+  });
+  const redCol = def.apexSeam ?? 0xff3b2f;
+  const intensity = 1.2 * Math.min(giM ?? 1, 1.3);
+  const red = new THREE.MeshStandardMaterial({ color: redCol, emissive: redCol, emissiveIntensity: intensity, roughness: 0.3 });
+  red.userData.baseEmissive = redCol; red.userData.baseIntensity = intensity;
+  flareMats.push(red);
+  const n = 11, z0 = -1.8, z1 = 1.0;
+  for (let i = 0; i < n; i++) {
+    const t = i / (n - 1);
+    const z = z0 + (z1 - z0) * t;
+    const top = attach.keelTopAt ? attach.keelTopAt(z) : 0.6;
+    const w = 0.16 - 0.06 * t;                          // taper toward the tail
+    const base = new THREE.Mesh(new THREE.BoxGeometry(w * 1.3, 0.04, 0.10), carbon);
+    base.position.set(0, top + 0.01, z); meshes.push(base);
+    const cap = new THREE.Mesh(new THREE.BoxGeometry(w, 0.05, 0.20), gold);
+    cap.position.set(0, top + 0.055, z); cap.rotation.x = -0.12; meshes.push(cap);
+    if (i % 2 === 1) {
+      const seam = new THREE.Mesh(new THREE.BoxGeometry(w * 0.7, 0.02, 0.04), red);
+      seam.position.set(0, top + 0.085, z + 0.06); meshes.push(seam);
+    }
   }
   return { meshes, flareMats };
 });
@@ -1677,6 +1779,8 @@ function buildSvjJetWing(def, model, attach, giM) {
     color: def.horn ?? 0x141418, flatShading: true, roughness: 0.4, metalness: 0.6,
   });
   const redCol = def.apexSeam ?? 0xff3b2f;
+  // Wing chevrons stay deliberately dimmer than the rear thruster cores so the twin
+  // thrusters read as the brightest red-orange elements from the chase cam.
   const red = new THREE.MeshStandardMaterial({ color: redCol, emissive: redCol, emissiveIntensity: 1.8 * gi, roughness: 0.3 });
   red.userData.baseEmissive = redCol; red.userData.baseIntensity = 1.8 * gi;
   spineMats.push(red);
@@ -1713,8 +1817,9 @@ function buildSvjJetWing(def, model, attach, giM) {
 
     const S0 = xsec(0.00, 1.05), S1 = xsec(0.30, 0.92), S2 = xsec(0.62, 0.62), S3 = xsec(1.00, 0.28);
 
-    // MODULE 2 — upper yellow boom (leading spar)
-    pivot.add(frameBar(arr(offN(S0.leading, yOff)), arr(offN(S2.leading, yOff)), [0.17, 0.1], yellow));
+    // MODULE 2 — upper yellow boom (leading spar) — thicker so the wing has real
+    // leading-edge VOLUME and stops reading as a paper-flat board.
+    pivot.add(frameBar(arr(offN(S0.leading, yOff)), arr(offN(S2.leading, yOff)), [0.20, 0.17], yellow));
     // MODULE 3 (inner) — main yellow blade t0→t0.62 (the silhouette)
     pivot.add(quad(S0.leading, S1.leading, S1.trailing, S0.trailing, yellow, yOff));
     pivot.add(quad(S1.leading, S2.leading, S2.trailing, S1.trailing, yellow, yOff));
@@ -1778,9 +1883,11 @@ function buildSvjJetWing(def, model, attach, giM) {
     ], yellow));
     wingTip.add(frameBar(arr(offN(rel(S2.leading), yOff)), arr(offN(rel(S3.leading), yOff)), [0.13, 0.08], yellow));
     const tc = rel(S3.c);
+    // wingtip endplate / spoiler fin — enlarged (~×1.18) for a sharper stiffened
+    // outer silhouette.
     wingTip.add(flatTriMesh([
-      [[tc.x, tc.y - 0.05, tc.z - 0.08], [tc.x + side * 0.48, tc.y + 0.02, tc.z + 0.03], [tc.x + side * 0.42, tc.y + 0.30, tc.z + 0.18]],
-      [[tc.x, tc.y - 0.05, tc.z - 0.08], [tc.x + side * 0.42, tc.y + 0.30, tc.z + 0.18], [tc.x + side * 0.02, tc.y + 0.18, tc.z + 0.05]],
+      [[tc.x, tc.y - 0.06, tc.z - 0.09], [tc.x + side * 0.57, tc.y + 0.02, tc.z + 0.04], [tc.x + side * 0.50, tc.y + 0.36, tc.z + 0.21]],
+      [[tc.x, tc.y - 0.06, tc.z - 0.09], [tc.x + side * 0.50, tc.y + 0.36, tc.z + 0.21], [tc.x + side * 0.02, tc.y + 0.22, tc.z + 0.06]],
     ], yellow));
     const marker = new THREE.Object3D();
     marker.position.set(tc.x, tc.y, tc.z);
@@ -1839,6 +1946,11 @@ function buildSvjAeroTridentTail(def, model, mats, anchor) {
     root.add(ss.group); segs.push(ss.group); last = ss.group;
     if (i >= 2 && i <= 5) { const slit = chevronLight({ len: r * 1.2, w: 0.04, mat: red }); slit.position.set(0, r * 0.5, len * 0.3); ss.group.add(slit); }
     if (i >= 6) for (const s of [-1, 1]) { const fin = new THREE.Mesh(new THREE.BoxGeometry(0.14, 0.06, 0.22), gold); fin.position.set(s * (r + 0.1), r * 0.3, 0); fin.rotation.z = s * 0.3; ss.group.add(fin); }
+    // yellow dorsal armor cap on each segment (the spine "vertebrae" rhythm continued
+    // down the tail; rides the seg so it coils).
+    const scap = new THREE.Mesh(new THREE.BoxGeometry(Math.max(0.08, r * 0.95), 0.05, len * 0.52), gold);
+    scap.position.set(0, r + 0.02, 0); scap.rotation.x = -0.1;
+    ss.group.add(scap);
     z += len * 0.82;
   }
 
@@ -1854,19 +1966,20 @@ function buildSvjAeroTridentTail(def, model, mats, anchor) {
   const tip = new THREE.Group();
   tip.position.set(0, 0, SEG[n - 1][0] * 0.5);
   last.add(tip);
-  // central dark spear (longer, sharper point) + thin gold cap edge
-  const spear = blade(0.60, 0.16, 0.028, 0.12, carbon); spear.position.set(0, 0, 0.18); tip.add(spear);
-  const cap = blade(0.58, 0.1, 0.024, 0.08, gold); cap.position.set(0, 0.01, 0.2); tip.add(cap);
+  // central dark spear (long, sharp point) + thin gold cap edge
+  const spear = blade(0.58, 0.17, 0.035, 0.12, carbon); spear.position.set(0, 0, 0.18); tip.add(spear);
+  const cap = blade(0.56, 0.11, 0.028, 0.08, gold); cap.position.set(0, 0.01, 0.2); tip.add(cap);
   // two swept side stabilizer fins (gold + black inset + red slash) — taller/broader
-  // so the trident's outer prongs read clearly from rear + rear-3/4.
+  // and flared harder (32°) so the trident's outer prongs read as a clear 3-point
+  // aero silhouette from rear + rear-3/4.
   for (const sign of [-1, 1]) {
     const bg = new THREE.Group();
-    bg.position.set(sign * 0.11, 0.02, 0.10);
-    const b = blade(0.46, 0.13, 0.035, 0.30, gold);
-    b.rotation.set(-4 * D2R, sign * 28 * D2R, sign * -8 * D2R);   // up-tilt, flare out, slight bank
+    bg.position.set(sign * 0.12, 0.02, 0.10);
+    const b = blade(0.48, 0.14, 0.035, 0.26, gold);
+    b.rotation.set(-4 * D2R, sign * 32 * D2R, sign * -8 * D2R);   // up-tilt, flare out, slight bank
     bg.add(b);
-    const inset = blade(0.28, 0.075, 0.022, 0.06, carbon); inset.position.set(sign * 0.005, 0.02, 0.12); inset.rotation.copy(b.rotation); bg.add(inset);
-    const slash = chevronLight({ len: 0.24, w: 0.025, mat: red }); slash.position.set(sign * 0.012, 0.04, 0.13); slash.rotation.copy(b.rotation); bg.add(slash);
+    const inset = blade(0.30, 0.08, 0.022, 0.07, carbon); inset.position.set(sign * 0.005, 0.02, 0.12); inset.rotation.copy(b.rotation); bg.add(inset);
+    const slash = chevronLight({ len: 0.26, w: 0.025, mat: red }); slash.position.set(sign * 0.012, 0.04, 0.13); slash.rotation.copy(b.rotation); bg.add(slash);
     tip.add(bg);
   }
 

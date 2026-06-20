@@ -648,10 +648,12 @@ body.app-loaded > canvas { opacity: 1; }
   background: rgba(24,16,12,0.6); border: 1px solid var(--rf-stroke);
   display: block; }
 /* Shop preview canvases must let touch-scroll pass through — the global
-   `canvas { touch-action: none }` (for in-game steering) otherwise traps it.
-   Includes the small hero-rail tier/dragon thumbnails (tap-to-select, so a
-   vertical swipe over them should still scroll, not be eaten). */
-.skin-preview, .trail-preview, .hero-thumb canvas { touch-action: pan-y; }
+   `canvas { touch-action: none }` (for in-game steering) otherwise traps it. */
+.skin-preview, .trail-preview { touch-action: pan-y; }
+/* The dragon-rail card canvas fills the 58px card, so it (not just the card
+   border) must declare HORIZONTAL pan — otherwise a swipe landing on the canvas
+   gets pan-y and is eaten by the vertical scroller, and only the gaps scroll. */
+.hero-thumb canvas { touch-action: pan-x; }
 /* Live 3D turntable preview (canvas blitted from a shared renderer) */
 .skin-preview { width: 104px; height: 104px; border-radius: 14px;
   background: radial-gradient(circle at 50% 38%, rgba(120, 88, 56, 0.32), rgba(16, 11, 11, 0.68) 78%);

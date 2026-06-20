@@ -2063,3 +2063,28 @@ And a tap-vs-drag system only stays consistent if every handler on the element s
 **→ Systematize:** any custom-styled horizontal carousel = `touch-action: pan-x` on container **and** items +
 a non-touch drag-to-scroll; never ship a hidden-scrollbar `overflow-x` rail as the only scroll path (desktop
 can't drag it). **Caveat:** drag/touch-pan can't be driven headlessly — verify on the live PR preview.
+
+### L67 — "Reads like a glider, not an SVJ mecha" = a few named hard-surface MODULES (as Mk II-only layers) + a wide-LOW torso + a bloom-lit emissive hierarchy, not micro-detail
+**Did / learned:** Mk II was better but still read as a "gold low-poly glider wyvern." The player's fix was
+explicit: *don't add random detail — add specific silhouette/hard-surface modules.* Implemented as a 5-module
+identity pass, all scoped to Mk II so the shipped `aurumToro` stayed byte-identical (5516 tris, unchanged):
+**(1)** a wide-but-LOW torso — the prior pass's uniform `torsoHeightScale: 1.10` had inflated the loft into a
+round/pear abdomen; the fix was to drop it to 1.0 and add a `bellyFlatten` knob that squashes ONLY the central
+station (`z∈(-0.45,0.30)`) while keeping shoulders + rear engine-bay broad — lateral width + a per-zone
+vertical squash, never a global Y bump. **(2)** `svjShoulderNacelles` (NEW layer) — yellow pods + black
+intakes at `attach.wingRoot(side)` so the wings plug into an engine bay. **(3)** `svjSpineArmorCaps` (NEW
+layer, swapped in for the thin `svjDorsalSpine` spikes on Mk II) — yellow wedge caps + black base gaps along
+`keelTopAt` for a "vertebrae" rhythm, continued per-segment down the tail. **(4)** wing depth — thicker
+leading boom + enlarged wingtip endplate so the blade stops reading paper-flat. **(5)** sharper aero-trident
+tail tip. Plus a **layered thruster** (black housing → yellow armor frame → saturated-red turbine ring
+[2.6] → bright orange hot core [4.2] → warm-white hotspot): the emissive intensities form a deliberate
+HIERARCHY (core 4.2 > ring 2.6 > wing chevron 1.8) so the twin cores are the brightest red-orange and read
+first — and since the pipeline already runs `UnrealBloomPass` (`postfx.js`/`preview.js`), the high emissive
+blooms for free, so **no fake additive halo disc is needed** (it would fight the real bloom). Landed at 5852
+tris (≤6000). **Gotcha:** the player's "outerDiameter 0.50" etc. are DIAMETERS — the `thrusterPod` knobs are
+RADII; passing the diameter (0.46) as `rOuter` doubles the pod. Always reconcile diameter-vs-radius. And the
+angle-render harness has no bloom pass, so emissive brightness/glow can only be judged on the live preview.
+**→ Systematize:** identity work = a small set of *named, on-budget hard-surface modules* added as recipe-only
+layers (coexist, sibling byte-identical), not scattered greeble; and brightness reads come from an emissive
+intensity hierarchy under the existing bloom pass, not new geometry. **Caveat:** silhouette/glow are feel
+calls — judge on the live preview, iterate the knobs.

@@ -1177,24 +1177,35 @@ export const DRAGONS = {
     parts: {
       torso: 'svjHull', wings: 'svjJetWing', head: 'svjWedgeHead', tail: 'svjAeroTridentTail',
       surface: { shader: ['cellularScalesNormal'] },
-      surfaceLayers: ['svjScaleArmor', 'engineBay', 'ventSlashes', 'twinThrusters',
-        'rearDiffuser', 'svjDorsalSpine', 'scissorHinge'],
+      // Identity pass: shoulder nacelles (wings plug into the engine bay) + armored
+      // spine "vertebrae" caps INSTEAD of the thin dorsal spikes.
+      surfaceLayers: ['svjScaleArmor', 'engineBay', 'ventSlashes', 'svjShoulderNacelles',
+        'twinThrusters', 'rearDiffuser', 'svjSpineArmorCaps', 'scissorHinge'],
     },
     scaleSize: 4.5, scaleRelief: 0.28,
     stats: { speed: 1.16, handling: 1.22, drain: 1.04, regen: 0.95 },
     model: {
       scale: 1.0, wingScale: 1.0, tailSegments: 9, neckSegments: 3,
       shoulderWidthScale: 1.25,
-      // Mk II second-pass massing (shared builders read these; default-1 keeps the
-      // sibling Aurum Toro byte-identical): broader/taller torso with a bulkier rear
-      // engine-bay, and a longer/lower wedge skull.
-      torsoWidthScale: 1.18, torsoHeightScale: 1.1, rearBulkScale: 1.28,
-      headLenScale: 1.18, headHeightScale: 0.82,
+      // Mk II massing (shared builders read these; default-1 keeps the sibling Aurum
+      // Toro byte-identical). WIDE but LOW: keep shoulders + rear engine-bay broad,
+      // but DROP the global height inflation and COMPRESS the central belly so it reads
+      // as a low SVJ engine bay, not a round/pear abdomen. Longer/lower wedge skull.
+      torsoWidthScale: 1.18, torsoHeightScale: 1.0, rearBulkScale: 1.28, bellyFlatten: 0.86,
+      headLenScale: 1.22, headHeightScale: 0.8,
       hornLen: 0.9, hornPairs: 1, ridgeCount: 0, eyeScale: 1.15,
       flapBias: 0.85, flapAmp: 0.7,
     },
-    // Bigger, brighter twin thrusters that dominate the rear engine read.
-    thruster: { rOuter: 0.34, rCore: 0.22, spread: 0.36, intensity: 2.4 },
+    // Dominant twin thrusters with layered contrast (black housing → yellow frame →
+    // saturated-red turbine ring → bright orange hot core → warm-white hotspot). The
+    // cores are the brightest red-orange elements on the dragon (bloom-lit), reading
+    // before the dimmer wing chevrons. Diameters → radii (outer 0.52 ⇒ rOuter 0.26).
+    thruster: {
+      rOuter: 0.26, rCore: 0.17, spread: 0.4, frame: true,
+      intensity: 2.6,                 // saturated-red turbine ring
+      ringColor: 0xff2a18, coreColor: 0xff7a1a, coreIntensity: 4.2,
+      hotColor: 0xfff0b8, hotIntensity: 3.6,
+    },
     bodyRoughness: 0.18, bodyMetalness: 0.55, bodyEnvIntensity: 0.8,
     forms: [
       { spineGlow: 0,
