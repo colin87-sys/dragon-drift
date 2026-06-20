@@ -1952,3 +1952,25 @@ real width/thickness, or accept the "spiky fan" rear read as the style. Also: `s
 `seg()`, so they **4× at ULTRA** — keep card counts modest or check `tricount --detail=ultra` (not just the HIGH `--ci`).
 **→ Systematize:** the reference-match playbook = shader (free texture) + `shingle` (budgeted scale geometry) + dorsal
 `attach.keelTopAt` cones + a station reshape — reusable for any "armor up this body to a reference" task.
+
+### L62 — A scrapped design is one git-restore away when its builders stay registered; and `setPointerCapture` on `pointerdown` without a direction threshold silently eats page scroll
+**Did / learned:** TWO small things. **(1) A/B comparison via a parallel roster entry.** The player wanted to compare the
+scrapped "lambo bull" Aurum Toro against the SVJ rebuild *live in the shop*. Because the coexist-rollback rule kept the v1
+bull builders (`faceted`/`hexMembrane`/`bullCrown`/`svjRear` + layers) REGISTERED even after `aurumToro` stopped using
+them, restoring the whole design was just re-adding a `DRAGONS` entry (`aurumToroBull`, recipe lifted verbatim from
+`git show 408abc9:…/dragons.js`) — zero builder work, and the shop auto-lists `Object.keys(DRAGONS)` so it appeared with
+no shop/ascension wiring (blueprint.mjs is the integration gate; it passed). So "keep the old builders registered" pays off
+not just as rollback but as **free side-by-side comparison of two whole designs**. **(2) The flaky shop-scroll bug.** The
+DRAGONS-tab turntable (`.hero-canvas`) called `setPointerCapture()` in `pointerdown` and had `touch-action:none`, so a
+VERTICAL swipe that happened to start on the turntable was captured for rotate and stolen from the `.shop-scroll`
+container → "I have to try in different spots; sometimes it scrolls, sometimes not" (it worked only when the swipe started
+off the canvas). Fix = **defer the capture/rotate until the gesture is confirmed HORIZONTAL** (`|dx|>12 && |dx|>|dy|`;
+vertical intent drops the drag so the browser scrolls) + set the canvas `touch-action:pan-y` (mirroring the already-correct
+`.skin-preview` shop cards) so the browser routes vertical natively. Also gave the small `.hero-thumb canvas` thumbnails
+`pan-y`.
+**Gotcha:** an interactive `<canvas>` inside a scroll container is a scroll TRAP by default — the global
+`canvas{touch-action:none}` (right for in-game steering) plus any pointer-capture-on-down means every drag-rotate surface
+silently blocks scrolling unless it (a) declares `touch-action:pan-y/pan-x` AND (b) only captures after a
+direction-disambiguating move threshold. Verify touch behaviour on the live preview — headless can't drive it.
+**→ Systematize:** any new drag/rotate canvas in a scrollable screen needs the **pan-axis + move-threshold** pair; bake it
+into the shared `onTap`/drag helper so the trap can't recur.

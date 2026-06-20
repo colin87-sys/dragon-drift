@@ -1163,6 +1163,53 @@ export const DRAGONS = {
     apexEye: 0x3fc6ff, apexSeam: 0xff3b2f, coreGlow: 0xff8a1f, surgeHi: 0xfff3d0,
     eye: 0x3fc6ff, trail: 0xff8a1f, boostTrail: 0xff3b2f,
   },
+
+  // Aurum Toro Mk I — the SCRAPPED "lambo bull" design, kept as a parallel roster
+  // entry for side-by-side comparison with the SVJ rebuild above. Uses the original
+  // v1 faceted bull builders (faceted/hexMembrane/bullCrown/svjRear), which are still
+  // registered in dragonFaceted.js. Recipe reconstructed verbatim from git 408abc9.
+  aurumToroBull: {
+    name: 'Aurum Toro Mk I',
+    title: 'The raging bull',
+    rarity: 'SSSR',
+    maxRarity: 'SSSR',
+    cost: 5000,
+    parts: {
+      torso: 'faceted', wings: 'hexMembrane', head: 'bullCrown', tail: 'svjRear',
+      surfaceLayers: ['svjWing', 'scissorHinge', 'splitterJaw', 'aeroVents', 'glowSeams'],
+    },
+    stats: { speed: 1.16, handling: 1.22, drain: 1.04, regen: 0.95 },
+    model: {
+      scale: 1.15, wingScale: 0.8, tailSegments: 4, neckSegments: 4,
+      shoulderWidthScale: 1.15,
+      hornLen: 1.5, hornPairs: 2, ridgeCount: 0, eyeScale: 1.1,
+      flapBias: 1.0, flapAmp: 0.95,
+    },
+    bodyRoughness: 0.18, bodyMetalness: 0.55, bodyEnvIntensity: 0.8,
+    forms: [
+      { spineGlow: 0,
+        colors: { bodyRoughness: 0.6, bodyMetalness: 0.28,
+          body: 0x6b5a16, wingInner: 0x6b5a16, wingEmissive: 0x7a3412,
+          apexSeam: 0x7a3412, eye: 0x2a90c0, coreGlow: 0x7a3412 } },
+      { spineGlow: 0,
+        colors: { bodyRoughness: 0.34, bodyMetalness: 0.45,
+          body: 0xc79a0c, wingInner: 0xc79a0c, wingEmissive: 0xd06a18,
+          apexSeam: 0xd0431f, eye: 0x3fb8f0, coreGlow: 0xd06a18 } },
+      { spineGlow: 0.3, glowIntensity: 1.05,
+        colors: { bodyRoughness: 0.2, bodyMetalness: 0.55,
+          body: 0xf2c20e, wingInner: 0xf2c20e, wingEmissive: 0xff8a1f,
+          apexSeam: 0xff3b2f, eye: 0x3fc6ff, coreGlow: 0xff8a1f } },
+      { spineGlow: 0.5, glowIntensity: 1.2,
+        colors: { bodyRoughness: 0.15, bodyMetalness: 0.6,
+          body: 0xffd21a, wingInner: 0xffd21a, wingEmissive: 0xffa52a,
+          apexSeam: 0xff3b2f, eye: 0x6fd6ff, coreGlow: 0xffa52a } },
+    ],
+    fx: { auraColor: '255,138,31', auraIdle: 0.06, sparkle: false },
+    body: 0xf2c20e, belly: 0x0e0e12, scales: 0x141418, horn: 0x0e0e12,
+    wingInner: 0xf2c20e, wingOuter: 0x6e5408, wingEmissive: 0xff8a1f,
+    apexEye: 0x3fc6ff, apexSeam: 0xff3b2f, coreGlow: 0xff8a1f, surgeHi: 0xfff3d0,
+    eye: 0x3fc6ff, trail: 0xff8a1f, boostTrail: 0xff3b2f,
+  },
 };
 
 // Highest multipliers in the roster (for shop stat-bar normalisation).
