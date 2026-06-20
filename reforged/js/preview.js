@@ -27,6 +27,7 @@ function ensureRenderer() {
   renderer = new THREE.WebGLRenderer({ alpha: true, antialias: true });
   renderer.setSize(SIZE, SIZE);
   renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+  renderer.autoClear = true;   // each card blits ONE dragon — never accumulate the prior render
   renderer.toneMapping = THREE.ACESFilmicToneMapping;
   scene = new THREE.Scene();
   // Chase-cam framing: behind and slightly above, so the card shows the same
@@ -130,9 +131,16 @@ function loop(now = performance.now()) {
   const t = now / 1000;
   for (const item of items) {
     scene.add(item.group);
-    item.tick(t + item.phase);
-    renderer.render(scene, camera);
-    scene.remove(item.group);
+    // render this ONE dragon in isolation: clear first, and ALWAYS remove the group
+    // afterward (even if tick throws) so a single bad item can never leave its model in
+    // the scene to superimpose on every later card.
+    try {
+      item.tick(t + item.phase);
+      renderer.clear();
+      renderer.render(scene, camera);
+    } finally {
+      scene.remove(item.group);
+    }
     item.ctx.clearRect(0, 0, item.canvas.width, item.canvas.height);
     item.ctx.drawImage(renderer.domElement, 0, 0, item.canvas.width, item.canvas.height);
   }

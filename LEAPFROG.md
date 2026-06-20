@@ -2288,3 +2288,67 @@ Reuse the SAME skeleton (hinge rig + cascade animator + attach contract); swap o
 - surface = matte + **gilded emissive edges** + glow-seams vs metal clearcoat (one hard accent allowed: gem nodes);
 - L/R symmetry = build the RIGHT master + a `scale.x=-1` MIRROR CLONE for the left (drive each rig with the same
   logical pose + its own banking bias). See lessons L72–L78 for the tactical mechanics.
+
+### L79 — Banking is POSE BIAS, never a L/R phase delay
+Both wings share the ONE flap phase + identical internal root→mid→tip lag; banking asymmetry is pose only. Per
+wing, an inside-ness `ins` (+1 inside the turn → brake/tuck, −1 outside → power/open) drives amplitude (inside
+↓ arc, outside ↑), baseline (inside drops lower, outside opens higher), mid fold-in vs spread, and the tip
+(smaller arc + feathered back + canted up). `|bank|` is the soft→hard continuum. The body roll, spine C-curve
+cascade (chest→hips→tail with `bankHard`), and tail rudder-into-turn already existed — the missing piece was the
+inside/outside WING articulation so the wings read as limbs (shoulder drives → forearm follows → tip trails), not
+planks. Phase-delaying a whole wing against the other looks broken; resist it. (`dragon.js` Mk II wing branch.)
+
+### L80 — `seraphTail` comet/banner tail: a 4th module on the shared armature
+The Seraph now lands a dedicated TAIL (`registerTail('seraphTail', …)`) alongside its wing — hull/head still
+inferred, roster byte-identical. Tail contract: `(def, model, {bodyMat, scalesMat}, anchor) → {group, segs,
+tailFins, accentMats}` — `segs` are FLAT siblings of root along +z (the per-segment rudder/coil animator drives
+them; do NOT nest them), `tailFins` carry `userData.{restRotX/Y/Z, restScale, bankGain, flapFlutter, phase}` for
+deploy/flutter/bank, `accentMats` (glow mats with `userData.baseEmissive/baseIntensity`) flare on Surge. Organic
+vocabulary: smooth tapered pearl vertebrae + a gilded dorsal ridge + dawn-blue glow seams, finishing in a COMET
+BLOOM (glow core + gilded blade-fan streaming +z) — the chase-cam rear hero. Verify: `tricount` (budget) +
+`tiershots` (front) + `gameshots` (live chase-cam boot/fly across tiers); the human judges feel on the preview.
+
+### L81 — "Sawtooth wings" = a feather plate that narrows to ONE sharp apex; fix the PLATE shape, not the rig
+Review feedback "wings read as sawtooth cards, not feather-scale armor" traced to the ATOMIC plate, not the rig or
+the row layout: `featherScale` was a 4-pt KITE that tapered to a single apex point (widest at 42% len) → a fanned
+row of those apexes IS a row of teeth. Fix = reshape the plate to a **6-pt convex LEAF/SHIELD** (base point, a WIDE
+low pair, a shoulder pair, and a SHORT BLUNT tip edge `w·tipSharpness`, never a point) + a `tipSharpness` knob per
+segment (low=rounded covert plume, high=long primary blade-scute), then HEAVIER overlap + a GENTLER fan in
+`scaleRow` so rows scallop instead of comb. The rig/contract/animator never changed. Cost: ~4→10 tris/plate, still
+far under budget (Eternal 3160 HIGH / 5228 ULTRA). Reshape the module vocabulary; never restart the creature.
+
+### L82 — Premium "gilded" rims need a REAL metallic gold, not the near-white `def.horn`
+"Reads as white geometry + dark separators, not pearl-rimmed-in-gold" was a MATERIAL miss: the wing/tail gild
+sampled `def.horn`, which on the Seraph's top form is `0xfff0b0` (≈white) → rims vanished into the white pearl.
+Fix = dedicated surface-language constants in the builder (`SERAPH_GOLD 0xD6AF4A` true metallic gild,
+`SERAPH_PEARL 0xF2F0EA` matte off-white not plastic `0xffffff`, `SERAPH_DAWN 0x88DFFF` seam, `SERAPH_HOLY 0xFFF3C8`
+comet core), plumbed as `def.wingGild ?? SERAPH_GOLD` etc. so per-form colours still tint but the DEFAULT is right.
+Also: a created-but-never-used `shadowMat` was dead code (deleted), and tail vertebrae moved off `def.body` onto
+`SERAPH_PEARL` + a faint emissive floor to lift the underside out of navy. Material language is foundational — fix
+it before judging shape; a gild that matches the body isn't a gild.
+
+### L83 — A multi-blit preview loop must CLEAR per item AND remove-in-`finally`, or dragons superimpose
+The shop card previews render every dragon into ONE shared offscreen scene+canvas sequentially, blitting each
+to its card (`preview.js` `loop`). Bug: "all dragons render superimposed on top of each other." Two ways it
+happens and both must be closed: (a) the loop trusted `renderer.autoClear` (default true, but anything can flip
+it) → set `renderer.autoClear = true` at init AND `renderer.clear()` before each `render`; (b) `scene.add(group)`
+… `render` … `scene.remove(group)` with NO guard → if `item.tick()` throws, the group is never removed and
+superimposes on every later card → wrap `tick`+`render` in `try { … } finally { scene.remove(group); }`. Rule:
+any loop that reuses one scene/renderer across N blits must clear the framebuffer per item and guarantee teardown.
+
+### L84 — A gold rim must be big enough to FRAME the plate, or the dark gaps read as "black outlines"
+Review: feather plates "look like black-outlined paper cards." There was no black-outline mesh — the gild rim
+behind each plate was only 1.05× (a hairline), so the dark flat-shaded GAPS/backfaces between overlapping plates
+dominated the read. Fix = grow the rim to ~1.12× + drop it further behind so a clean gold edge frames every
+plate, AND add a faint emissive FLOOR to the pearl (intensity ~0.05) so flat-shaded edges/undersides stop
+crushing to black. "Reduce black outlines" on flat-shaded shingles = bigger rim + emissive floor + more overlap,
+not an outline-opacity knob.
+
+### L85 — Accent feathers parented to `wingTip` animate for FREE; index-hash jitter breaks the sawtooth
+Two cheap wins to make a feather fan read premium without touching the animator: (1) long "streamer-primary"
+blade-feathers parented UNDER `wingTip` inherit the tip's flap automatically → trailing streamer motion with
+zero `dragon.js`/`dragonModel.js` change (the rig only drives pivot/mid/tip; children ride along). (2) A stable
+per-plate jitter (deterministic `sin(i*k)` hash, NOT `Math.random` which would reshuffle every build) of ±8%
+length / ±4° rotation makes the trailing edge scallop irregularly instead of forming a hard uniform sawtooth
+staircase. Per-row ripple (a finer feather-by-feather wave) DOES need row-groups exposed + animator iteration in
+both files — deferred until the free tip-driven motion proves too stiff.
