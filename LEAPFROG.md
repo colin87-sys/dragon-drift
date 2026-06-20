@@ -2180,3 +2180,20 @@ flightmark is equipped), else the personalised fallback; otherwise every dragon 
 default. **→ Systematize:** new emitter-based VFX = one more pool fed by an existing marker + a per-form intensity
 LUT; colour-personalised effects key off the equipped-cosmetic flag, not the base def. **Caveat:** trails/bank
 vapor only show in motion — verify on the live preview.
+
+### L74 — On a sign-mirrored wing: FLAP(.z)/SWEEP(.y) want mirror-opposite signs to move "together," but PITCH/TWIST(.x) must be the SAME on both wings
+**Did / learned:** player reported the Mk II Eternal wings "not beating at the same time" and the "left wing looks
+wrong/broken." Geometry was a clean mirror (every offset `side *`) and the flap shared ONE phase — so it *looked*
+symmetric in code. The bug was axis-dependent symmetry: the wing rig sets three axes, and "together" means the
+opposite thing per axis. `.z` (flap up/down) and `.y` (sweep back) are mirror-opposite (`+`/`−`) because the wings
+point opposite directions — that's correct, they rise/sweep together. But `.x` (pitch/twist) rotates about the
+SHARED world X axis, so mirror-opposite `.x` tilts the right wing's leading edge UP while the left tilts DOWN —
+the two stiff jet-wings twist in opposite directions, reading as "out of sync / left wing broken." It was masked
+until Phase B made Eternal glide-dominant (root flap 0.52→0.19): the alternating twist (`±featR`/`±twMid`/`±twTip`,
+each ~0.16) then dominated the tiny flap. Fix: make every `.x` assignment SHARED (same value on L and R) in the
+Mk II flap drive AND the preview animator; keep `.z`/`.y` mirror-opposite. The static AoA was already shared
+(both `0.14`/`-0.05`) — only the dynamic twist alternated, so sharing it too is consistent. Rear render now shows
+both wings at identical pitch/height.
+**→ Systematize:** sign-mirror rule is per-AXIS — flap/sweep = mirror-opposite, pitch/twist about the shared body
+axis = identical. **Caveat:** symmetric *code* (one phase, all `side*`) is not symmetric *motion* if a twist axis
+is mirrored; verify with a straight rear render, and twist asymmetry is worst when the flap amplitude is small.

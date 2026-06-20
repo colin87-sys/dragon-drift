@@ -548,17 +548,22 @@ export function updateDragon(dt, player, time) {
     const insR = bank, insL = -bank;
     const ampR = 1 - 0.30 * insR, ampL = 1 - 0.30 * insL;
     const biaR = 0.13 * insR, biaL = 0.13 * insL;
-    // ROOT / shoulder (always present)
+    // ROOT / shoulder (always present). NOTE: flap (.z) + sweep (.y) are mirror-opposite
+    // so the wings beat/sweep TOGETHER; but pitch/twist (.x) rotates about the shared
+    // world X axis, so it must be the SAME on both wings — mirror-opposite .x would tilt
+    // one wing's leading edge up and the other's down (reads as "left wing broken / out of
+    // sync"), worst at the glide-dominant low flap amplitude.
     wingPivotR.rotation.z = -(rootF * ampR) - 0.10 - biaR + rollFold;
     wingPivotL.rotation.z =  (rootF * ampL) + 0.10 + biaL - rollFold;
-    wingPivotR.rotation.x = 0.14 + featR * 0.16 + climbBias;
-    wingPivotL.rotation.x = 0.14 - featR * 0.16 + climbBias;
+    const pivotPitch = 0.14 + featR * 0.16 + climbBias;   // shared AoA + feather (both wings together)
+    wingPivotR.rotation.x = pivotPitch;
+    wingPivotL.rotation.x = pivotPitch;
     wingPivotR.rotation.y = -0.18;
     wingPivotL.rotation.y =  0.18;
     if (wingMidL) {
       const upMid = Math.max(0, Math.sin(phase - midLag));
       wingMidR.rotation.z = -(midF * ampR); wingMidL.rotation.z =  (midF * ampL);
-      wingMidR.rotation.x =  twMid; wingMidL.rotation.x = -twMid;
+      wingMidR.rotation.x =  twMid; wingMidL.rotation.x =  twMid;   // shared twist
       wingMidR.rotation.y =  upMid * 0.08; wingMidL.rotation.y = -upMid * 0.08;
     }
     if (wingTipL) {
@@ -566,7 +571,7 @@ export function updateDragon(dt, player, time) {
       // 2-segment wing has no mid group → its outer carries the mid follow-through.
       const tF = wingMidL ? tipF : (midF + tipF);
       wingTipR.rotation.z = -(tF * ampR); wingTipL.rotation.z =  (tF * ampL);
-      wingTipR.rotation.x = -0.05 + twTip; wingTipL.rotation.x = -0.05 - twTip;
+      wingTipR.rotation.x = -0.05 + twTip; wingTipL.rotation.x = -0.05 + twTip;   // shared twist
       wingTipR.rotation.y =  upTip * 0.14; wingTipL.rotation.y = -upTip * 0.14;
     }
   } else {
