@@ -546,25 +546,27 @@ export function updateDragon(dt, player, time) {
     const twTip = Math.cos(phase - tipLag) * 0.18;
     const upMid = Math.max(0, Math.sin(phase - midLag));
     const upTip = Math.max(0, Math.sin(phase - tipLag));
-    // Banking via POSE BIAS, never phase delay: inside wing tucks (less amp + bias),
-    // outside opens (more amp). insR=bank, insL=-bank (right is inside on a right turn).
+    // ── BANKING via POSE BIAS ONLY — never a L/R phase delay. Both wings share the ONE
+    // flap phase + identical internal root→mid→tip lag; the asymmetry is pose only, and
+    // |bank| drives the SOFT→HARD continuum. `ins` = a wing's inside-ness (+1 fully inside
+    // the turn → brake/tuck, −1 fully outside → power/open). Right wing is inside on a right
+    // turn (bank>0); the left is its scale.x=-1 mirror, so the SAME logical pose flips correctly.
     const bank = Math.max(-1, Math.min(1, turnBias / 0.28));
-    const ampR = 1 - 0.30 * bank, biaR = 0.13 * bank;
-    const ampL = 1 + 0.30 * bank, biaL = -0.13 * bank;
-    // Outer-tip backward SWEEP by stroke: ~3° on the power downstroke → ~6° cruise/glide →
-    // ~12° on the recovery upstroke, so the (now-shorter) tip trails the mid and finishes
-    // the silhouette instead of locking out as a straight rod.
-    const tipSweep = 0.07 + 0.16 * upTip;
-    // The LEFT wing is a scale.x = -1 MIRROR CLONE of the right; apply the SAME logical
-    // pose to each rig (with that wing's banking amp/bias) and the wrapper flips the left →
-    // guaranteed-symmetric in straight flight, correct inside/outside tuck while banking.
-    const poseWing = (pv, md, tp, amp, bias) => {
-      pv.rotation.set(0.14 + featR * 0.16 + climbBias, -0.18, -(rootF * amp) - 0.10 - bias + rollFold);
-      if (md) md.rotation.set(twMid, upMid * 0.08, -(midF * amp));
-      if (tp) { const tF = md ? tipF : (midF + tipF); tp.rotation.set(-0.05 + twTip, tipSweep, -(tF * amp)); }
+    const tipSweepBase = 0.07 + 0.16 * upTip;        // stroke-driven tip trail (both wings)
+    const poseWing = (pv, md, tp, ins) => {
+      const inside = Math.max(0, ins), outside = Math.max(0, -ins);
+      const amp = 1 - 0.34 * ins;                    // INSIDE brakes (↓ arc), OUTSIDE powers (↑ arc)
+      const baseZ = -0.10 - 0.20 * inside + 0.12 * outside;   // inside drops LOWER, outside opens HIGHER
+      // shoulder/root: main flap (×amp) + dihedral rest + bank baseline + climb pitch
+      pv.rotation.set(0.14 + featR * 0.16 + climbBias, -0.18, -(rootF * amp) + baseZ + rollFold);
+      // forearm/mid: lagged flap + folds INWARD on the inside wing, SPREADS on the outside
+      if (md) md.rotation.set(twMid + 0.05 * inside, upMid * 0.08 + 0.05 * outside, -(midF * amp) + 0.10 * inside);
+      // tip: smaller arc + feathers BACK (.y) + UP (.x) + folds up on the inside (catching air)
+      if (tp) { const tF = md ? tipF : (midF + tipF);
+        tp.rotation.set(-0.05 + twTip + 0.12 * inside, tipSweepBase + 0.22 * inside, -(tF * amp) + 0.16 * inside); }
     };
-    poseWing(wingPivotR, wingMidR, wingTipR, ampR, biaR);
-    poseWing(wingPivotL, wingMidL, wingTipL, ampL, biaL);
+    poseWing(wingPivotR, wingMidR, wingTipR, bank);
+    poseWing(wingPivotL, wingMidL, wingTipL, -bank);
   } else {
     wingPivotR.rotation.z = damp(wingPivotR.rotation.z, -rootFlap + turnBias + rollFold, 14, dt);
     wingPivotL.rotation.z = damp(wingPivotL.rotation.z,  rootFlap + turnBias - rollFold, 14, dt);
