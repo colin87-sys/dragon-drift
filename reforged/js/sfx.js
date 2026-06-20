@@ -141,7 +141,13 @@ function getCtx() {
       reverbConvolver.connect(reverbReturn);
       reverbReturn.connect(musicBus);
     }
-    if (ctx.state === 'suspended') ctx.resume();
+    // Don't auto-resume while we're deliberately backgrounded: pauseForBackground()
+    // suspends the context, but SFX / music.update() during the throttled background
+    // tab also call getCtx(), and an unconditional resume here silently un-suspends it
+    // → the tab renders the slow/garbled music. Stay suspended until an explicit
+    // foreground resume (resumeFromBackground / music.start / a real gesture) clears
+    // the latch.
+    if (ctx.state === 'suspended' && !bgSuspended) ctx.resume();
     return ctx;
   } catch { return null; }
 }
@@ -171,6 +177,9 @@ function ensureSilentMedia() {
 // the game's pointerdown handlers alone are not enough. Resume the context on
 // any finished gesture, and kick output with a silent buffer for older iOS.
 function unlockAudio() {
+  // A completed gesture means we're foreground: clear the background latch so getCtx()
+  // (and the explicit resume below) can bring the context back.
+  bgSuspended = false;
   ensureSilentMedia();
   const a = getCtx();
   if (!a) return;
@@ -1026,21 +1035,30 @@ function retuneTo(idx) {
   const a = getCtx();
   if (!a) return;
   if (!musicActive) { music.start(); return; }
-  musicBus.gain.setTargetAtTime(0, a.currentTime, 0.04);
+  // Click-free retune: ramp the music bus to TRUE silence before swapping. A
+  // setTargetAtTime(0, …, 0.04) only ASYMPTOTES toward zero — after the old 140ms it
+  // was still ~3% open, so the new track's full downbeat collided with the residual
+  // and the master limiter clamped the transient into a burst of static. Ramp linearly
+  // to a hard 0, rebuild while genuinely silent, then fade back in.
+  const FADE = 0.1;
+  musicBus.gain.cancelScheduledValues(a.currentTime);
+  musicBus.gain.setValueAtTime(musicBus.gain.value, a.currentTime);
+  musicBus.gain.linearRampToValueAtTime(0, a.currentTime + FADE);
   setTimeout(() => {
     if (!musicActive) return;
     loopCount = 0;
     events = buildEvents();            // recomputes E8/LOOP_LEN for the new track
     if (echoDelay) echoDelay.delayTime.value = E8 * 1.5;
     if (echoDelayR) echoDelayR.delayTime.value = E8 * 1.5;
-    loopOffset = ctx.currentTime + 0.06;
+    loopOffset = ctx.currentTime + 0.08;
     nextEvtIdx = 0;
-    restoreBuses(ctx);
-  }, 140);
+    restoreBuses(ctx);                 // ramped fade-in (0.08), so the new downbeat eases in
+  }, FADE * 1000 + 30);
 }
 
 export const music = {
   start() {
+    bgSuspended = false;          // explicit foreground start → let getCtx() resume the ctx
     const a = getCtx();
     if (!a || musicActive) return;
     resumeMusicPending = false;

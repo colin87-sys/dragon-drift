@@ -1995,3 +1995,28 @@ Treat "context is running" as the only safe precondition for scheduling, and dri
 **→ Systematize:** route ALL "(re)start audio" through a single `tryResumeMusic()`-style guard that checks
 `ctx.state === 'running'` and is fed by both the resume promise and the gesture unlock — never schedule speculatively from
 a lifecycle event. **Caveat:** iOS background-audio timing can't be reproduced headlessly — this one needs on-device QA.
+
+### L68 — A backgrounded AudioContext stays slow/garbled if ANY code path auto-resumes it; and a track swap must fade to TRUE silence before the new downbeat
+**Did / learned:** after the L63 background-audio fix (suspend on background, restart only from a running ctx),
+the player still got slow/garbled music when switching tabs **while actively playing** (it was fine when paused),
+plus occasional **static crackle** from the music — notably when changing the song on the pause-menu "dragon
+radio." Two root causes:
+1. **Auto-resume leak:** `getCtx()` ran `if (ctx.state === 'suspended') ctx.resume()` *unconditionally*. While
+   paused, `music.update()` early-returns (music inactive) so nothing re-touches the ctx → it stays suspended
+   (silence). While **playing**, the throttled background tab keeps firing SFX / `music.update()`, each calling
+   `getCtx()`, which silently **un-suspended** the context `pauseForBackground()` had just suspended → the tab
+   rendered the slow/garbled music against a throttled clock. Fix: gate the auto-resume with the existing
+   `bgSuspended` latch (`… && !bgSuspended`), and clear that latch only on an **explicit foreground resume**
+   (`music.start()`, `unlockAudio()` on a real gesture, `resumeFromBackground()`). Now nothing can sneak the
+   context back on until the user truly returns — regardless of game state.
+2. **Click on retune:** the track swap faded the music bus with `setTargetAtTime(0, …, 0.04)` then rebuilt after
+   a fixed 140 ms. `setTargetAtTime` only **asymptotes** toward zero (~3 % still open at 140 ms), so the new
+   track's full downbeat collided with the residual and the master tanh-limiter clamped the transient into a
+   burst of static. Fix: `linearRampToValueAtTime(0, now+0.1)` to a **hard** zero, rebuild while genuinely
+   silent, then ramp back in — the swap now happens at true silence, no transient.
+**Gotcha:** `setTargetAtTime` never reaches its target — never use it as a "fade to silence before a hard
+cut"; use `linearRampToValueAtTime`. And any single `getCtx()`-style accessor that resumes on demand will fight
+an intentional suspend unless it respects a "we are backgrounded" latch — centralize the resume policy there.
+**→ Systematize:** one `bgSuspended` latch gates BOTH "don't auto-resume" (in the ctx accessor) and "restart
+music only when foreground"; explicit foreground entry points are the only places that clear it. **Caveat:**
+audio timing/crackle is device-specific — verify on real hardware/headphones, not headlessly.
