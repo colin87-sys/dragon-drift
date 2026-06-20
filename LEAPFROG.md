@@ -2352,3 +2352,26 @@ per-plate jitter (deterministic `sin(i*k)` hash, NOT `Math.random` which would r
 length / ±4° rotation makes the trailing edge scallop irregularly instead of forming a hard uniform sawtooth
 staircase. Per-row ripple (a finer feather-by-feather wave) DOES need row-groups exposed + animator iteration in
 both files — deferred until the free tip-driven motion proves too stiff.
+
+### L86 — More modules ≠ better: when feedback says "busy/ugly", SUBTRACT, don't decorate
+The L84/L85 pass (bigger rims, per-plate jitter, a 4th row + extra covert row, and streamer-primary
+ribbons) was meant to add premium richness but the player read it as "tile-mosaic / black-outlined
+stickers / 4 long weird nails / too busy." The corrective pass REVERSED all of it: deleted the streamers,
+removed the jitter, dropped to EXACTLY 3 rows on the 3 hinges (15 plates/wing, fixed not seg()-scaled),
+made each plate a larger rounder BASE-WIDEST leaf, shrank the gold rim back to a THIN clean edge (1.07×),
+and added one clean monotonic outer taper instead of a jittered edge. Result read cleaner AND cost fewer
+tris (Eternal 3220→3000). Lesson: an elegant silhouette comes from FEWER, larger, well-shaped parts; when
+a detailing experiment makes a hero "busier," the fix is subtraction, not another layer. Prototype an
+appendage (streamers) in isolation before committing it across a hero.
+
+### L87 — Returning from background must ARM the music-resume intent even while paused (iOS)
+iOS bug: backgrounding played one sound then killed music; returning never restored it. Two causes:
+(1) `main.js onForeground()` only called `music.resumeFromBackground()` when `game.state !== 'paused'`, so
+backgrounding DURING a run (which sits paused behind its overlay) never armed `resumeMusicPending` — then
+the Resume-tap's `unlockAudio()`→`tryResumeMusic()` bailed (flag false) and music stayed dead. (2)
+`resumeFromBackground()` never re-kicked the silent loop clip that `pauseForBackground()` paused, so iOS
+dropped the audio session and `ctx.resume()` couldn't land. Fix: ALWAYS call `resumeFromBackground()` on
+foreground (it only ARMS intent + resumes the ctx — it never rebuilds the scheduler unless the ctx is
+truly `running`, so no iOS garble), and `ensureSilentMedia()` inside it to restore the playback session.
+Web Audio lifecycle: separate "arm the intent" (safe anywhere) from "rebuild the graph" (gesture/running
+only), and a paused HTMLAudioElement silent-unlock clip must be re-played on every foreground.

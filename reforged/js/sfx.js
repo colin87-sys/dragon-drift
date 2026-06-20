@@ -1241,6 +1241,9 @@ export const music = {
     if (!bgSuspended) return;
     bgSuspended = false;
     resumeMusicPending = wasActiveOnBg;
+    // Re-kick the looping silent clip that pauseForBackground() paused — iOS needs a playing
+    // HTMLAudioElement to keep the audio session in "playback", or the context won't resume.
+    ensureSilentMedia();
     if (!ctx) { tryResumeMusic(); return; }
     if (ctx.state === 'suspended') {
       const p = ctx.resume();
