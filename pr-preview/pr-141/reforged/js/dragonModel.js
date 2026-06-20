@@ -425,21 +425,18 @@ export function makePreviewTick(def, result) {
       const mLag = m.midLag ?? 0, tLag = m.tipLag ?? 0;
       const feather = Math.sin(phase + Math.PI * 0.55) * 0.16;
       const rootF = shape(phase) * rootA;
-      // flap (.z) mirror-opposite = beat together; pitch/twist (.x) SHARED = both wings
-      // twist the same way (mirror-opposite .x reads as "left wing broken / out of sync").
-      wingPivotR.rotation.z = -rootF - 0.1; wingPivotL.rotation.z = rootF + 0.1;
-      wingPivotR.rotation.x = 0.12 + feather; wingPivotL.rotation.x = 0.12 + feather;
-      if (wingMidL) {
-        const midF = shape(phase - mLag) * midA, twMid = Math.cos(phase - mLag) * 0.10;
-        wingMidR.rotation.z = -midF; wingMidL.rotation.z = midF;
-        wingMidR.rotation.x = twMid; wingMidL.rotation.x = twMid;
-      }
-      if (wingTipR) {
-        const tipF = wingMidL ? shape(phase - tLag) * tipA : (shape(phase - mLag) * midA + shape(phase - tLag) * tipA);
-        const twTip = Math.cos(phase - tLag) * 0.18;
-        wingTipR.rotation.z = -tipF; wingTipL.rotation.z = tipF;
-        wingTipR.rotation.x = -0.05 + twTip; wingTipL.rotation.x = -0.05 + twTip;
-      }
+      const upMid = Math.max(0, Math.sin(phase - mLag));
+      const upTip = Math.max(0, Math.sin(phase - tLag));
+      const tipSweep = 0.05 + 0.16 * upTip;   // outer-tip backward sweep by stroke
+      // The LEFT wing is a scale.x=-1 mirror clone, so we apply the SAME logical pose to
+      // both rigs (no banking in the preview → identical → perfectly symmetric mirror).
+      const poseW = (pv, md, tp) => {
+        pv.rotation.set(0.12 + feather, -0.18, -rootF - 0.1);
+        if (md) md.rotation.set(Math.cos(phase - mLag) * 0.10, upMid * 0.08, -shape(phase - mLag) * midA);
+        if (tp) { const tipF = md ? shape(phase - tLag) * tipA : (shape(phase - mLag) * midA + shape(phase - tLag) * tipA); tp.rotation.set(-0.05 + Math.cos(phase - tLag) * 0.18, tipSweep, -tipF); }
+      };
+      poseW(wingPivotR, wingMidR, wingTipR);
+      poseW(wingPivotL, wingMidL, wingTipL);
     } else {
       const flap = Math.sin(phase) * 0.52 * flapAmp + 0.12;
       const feather = Math.sin(phase + Math.PI * 0.55) * 0.16;

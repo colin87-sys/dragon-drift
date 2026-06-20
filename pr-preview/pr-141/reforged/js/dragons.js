@@ -1251,7 +1251,7 @@ export const DRAGONS = {
         torsoWidthScale: 1.18, bellyFlatten: 0.86, rearBulkScale: 1.28,
         headScale: 0.94, headLenScale: 1.22, headHeightScale: 0.8, eyeScale: 1.15, hornLevel: 3,
         thrusterLevel: 3, nacelleLevel: 3, spineCapLevel: 3, tailTip: 3, tailSegments: 9,
-        flapFreqScale: 0.88, rootAmp: 0.19, midAmp: 0.26, tipAmp: 0.36, midLag: 0.5, tipLag: 1.0,
+        flapFreqScale: 0.88, rootAmp: 0.19, midAmp: 0.26, tipAmp: 0.33, midLag: 0.5, tipLag: 1.0,
         glidePow: 2.6, bodyBobScale: 0.35, headWobbleScale: 0.0, tailLagScale: 0.07,
         colors: { bodyRoughness: 0.15, bodyMetalness: 0.6,
           body: 0xffd21a, wingInner: 0xffd21a, wingEmissive: 0xffa52a,

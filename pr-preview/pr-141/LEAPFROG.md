@@ -2197,3 +2197,27 @@ both wings at identical pitch/height.
 **→ Systematize:** sign-mirror rule is per-AXIS — flap/sweep = mirror-opposite, pitch/twist about the shared body
 axis = identical. **Caveat:** symmetric *code* (one phase, all `side*`) is not symmetric *motion* if a twist axis
 is mirrored; verify with a straight rear render, and twist asymmetry is worst when the flap amplitude is small.
+
+### L75 — Guarantee L/R wing identity with a scale.x=-1 MIRROR CLONE of the master wing; drive each rig with the SAME logical pose + per-wing banking bias (the wrapper flips the left)
+**Did / learned:** player still found the independently-built left wing "weird" (even after the L74 twist fix) and
+asked to literally mirror the right onto the left. Implemented in `buildSvjJetWing`: build the RIGHT wing as the
+master, tag its `pivot`/`wingMid`/`wingTip`/`marker` with `userData.wingRole`, then `pivot.clone(true)` (userData
+is deep-copied) into a `new THREE.Group()` with `scale.x = -1`, and re-extract the cloned rig nodes by role. The
+left geometry is now provably identical to the right. **Animation:** do NOT blind-`copy()` the right's rotation to
+the left — that kills banking. Instead apply the SAME logical pose formula to BOTH rigs, each with its own banking
+amp/bias (`ampR=1-0.3·bank`, `ampL=1+0.3·bank`; right is inside on a right turn). The `scale.x=-1` wrapper flips
+the left automatically → identical in straight flight (perfectly symmetric), correct inside-tuck / outside-open
+while banking, all from ONE shared phase. **Gotcha:** a mirrored (negative-scale) child renders inside-out with
+single-side materials — the wing mats must be `THREE.DoubleSide` (yellow/black already were; had to add it to the
+grey hinge + red chevrons). getWorldPosition on the cloned tip markers still resolves correctly (the −1 scale is
+in the world matrix), so the VFX emitters keep working.
+
+### L76 — "Long thin straight" outer wing third reads as a rod; fix by SHORTENING + sweeping it back, not by scaling the whole wing
+**Did / learned:** Eternal's wingspan felt too wide because the outer third was too long/thin/straight (rod-like).
+Per the brief: keep inner+mid mass, only shorten the OUTER third ~15% (outer station `xsec(1.0)→xsec(0.96)`),
+sweep its outer edge backward (+z), sharpen the taper, and widen the hinge cover for a clearer joint — never a
+flat horizontal line. In motion the tip gets a stroke-driven backward sweep (~3° power → ~6° glide → ~12°
+recovery, via `0.05 + 0.16·upTip` on the tip's `.y`) so it trails the mid and finishes the silhouette. Because the
+tip is shorter, DROP its flap amplitude a touch (tipAmp 0.36→0.33) so the follow-through stays dense, not floppy.
+**→ Systematize:** silhouette problems in a segmented wing are per-SEGMENT proportion edits (move one station,
+add sweep), not a global scale; and when you shorten a segment, reduce its animation amplitude to match.
