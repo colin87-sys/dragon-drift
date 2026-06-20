@@ -1164,26 +1164,26 @@ export const DRAGONS = {
     eye: 0x3fc6ff, trail: 0xff8a1f, boostTrail: 0xff3b2f,
   },
 
-  // Aurum Toro Mk I — the SCRAPPED "lambo bull" design, kept as a parallel roster
-  // entry for side-by-side comparison with the SVJ rebuild above. Uses the original
-  // v1 faceted bull builders (faceted/hexMembrane/bullCrown/svjRear), which are still
-  // registered in dragonFaceted.js. Recipe reconstructed verbatim from git 408abc9.
-  aurumToroBull: {
+  // Aurum Toro Mk I — the v2 RESKIN (first SVJ pass): the bull-derived body/wings
+  // (svjEngineBay/bladeWing/svjDragonHead) + the new long segmented armored tail
+  // (segmentedAeroTail). Kept as a parallel roster entry to compare against the
+  // current clean-room SVJ 'aurumToro' above. Builders restored from git 7c8ebf5.
+  aurumToroV2: {
     name: 'Aurum Toro Mk I',
     title: 'The raging bull',
     rarity: 'SSSR',
     maxRarity: 'SSSR',
     cost: 5000,
     parts: {
-      torso: 'faceted', wings: 'hexMembrane', head: 'bullCrown', tail: 'svjRear',
-      surfaceLayers: ['svjWing', 'scissorHinge', 'splitterJaw', 'aeroVents', 'glowSeams'],
+      torso: 'svjEngineBay', wings: 'bladeWing', head: 'svjDragonHead', tail: 'segmentedAeroTail',
+      surfaceLayers: ['engineBay', 'ventSlashes', 'twinThrusters', 'rearDiffuser', 'mechaLegs', 'scissorHinge'],
     },
     stats: { speed: 1.16, handling: 1.22, drain: 1.04, regen: 0.95 },
     model: {
-      scale: 1.15, wingScale: 0.8, tailSegments: 4, neckSegments: 4,
-      shoulderWidthScale: 1.15,
-      hornLen: 1.5, hornPairs: 2, ridgeCount: 0, eyeScale: 1.1,
-      flapBias: 1.0, flapAmp: 0.95,
+      scale: 1.0, wingScale: 1.0, tailSegments: 9, neckSegments: 3,
+      shoulderWidthScale: 1.25,
+      hornLen: 0.9, hornPairs: 1, ridgeCount: 0, eyeScale: 1.15,
+      flapBias: 0.85, flapAmp: 0.7,
     },
     bodyRoughness: 0.18, bodyMetalness: 0.55, bodyEnvIntensity: 0.8,
     forms: [
