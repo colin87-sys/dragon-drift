@@ -554,7 +554,7 @@ export function updateDragon(dt, player, time) {
     // Outer-tip backward SWEEP by stroke: ~3° on the power downstroke → ~6° cruise/glide →
     // ~12° on the recovery upstroke, so the (now-shorter) tip trails the mid and finishes
     // the silhouette instead of locking out as a straight rod.
-    const tipSweep = 0.05 + 0.16 * upTip;
+    const tipSweep = 0.07 + 0.16 * upTip;
     // The LEFT wing is a scale.x = -1 MIRROR CLONE of the right; apply the SAME logical
     // pose to each rig (with that wing's banking amp/bias) and the wrapper flips the left →
     // guaranteed-symmetric in straight flight, correct inside/outside tuck while banking.
