@@ -507,6 +507,50 @@ export function updateDragon(dt, player, time) {
     const flapState = { phase, flapAmp, turnBias, climbBias, rollFold, feather, aero01, spread01, surge01, bankHard, strength: formStrength(activeDef.model) };
     flapWing(wingRigL, flapState, dt);
     flapWing(wingRigR, flapState, dt);
+  } else if (wingMidL) {
+    // ── Mk II 3-part articulated wing ───────────────────────────────────────────────
+    // ONE shared flap phase; the three segments form a root→mid→tip WAVE via explicit
+    // phase LAGS (not damping). L/R are a pure sign-mirror — identical timing, NEVER
+    // offset, so the wings flap perfectly together in forward flight. Banking changes
+    // amplitude + a static pose bias ONLY, never the phase. Everything is direct-set
+    // from the continuous phase (no per-wing easing state) so the sides can't drift.
+    const MID_LAG = 0.62, TIP_LAG = 1.25;            // ≈0.10 / ≈0.20 of the 2π cycle
+    const stiff = 1 - 0.25 * aero01;                 // wings tighten (less follow-through) on boost
+    const rootF = Math.sin(phase) * flapAmp;         // root: the main medium flap
+    const midF  = Math.sin(phase - MID_LAG) * 0.26 * stiff;   // mid follows the root
+    const tipF  = Math.sin(phase - TIP_LAG) * 0.34 * stiff;   // tip whips (largest + latest)
+    const featR = Math.sin(phase + Math.PI * 0.55);  // pitch/twist driver (90° off the flap)
+    const twMid = Math.cos(phase - MID_LAG) * 0.10;  // segment twist — pitches to catch air
+    const twTip = Math.cos(phase - TIP_LAG) * 0.18;
+    const upMid = Math.max(0, Math.sin(phase - MID_LAG));  // 0 downstroke .. 1 upstroke
+    const upTip = Math.max(0, Math.sin(phase - TIP_LAG));
+    const bank = Math.max(-1, Math.min(1, turnBias / 0.28));   // signed bank, ±1
+    // per-wing banking — amplitude + static z bias ONLY (no timing change). inside-ness
+    // = side·bank (R side=+1, L side=−1): inside wing smaller/tucked, outside larger/spread.
+    const insR = bank, insL = -bank;
+    const ampR = 1 - 0.30 * insR, ampL = 1 - 0.30 * insL;
+    const biaR = 0.13 * insR, biaL = 0.13 * insL;
+    // ROOT / shoulder — main flap (mirror) + dihedral rest + climb pitch + roll fold
+    wingPivotR.rotation.z = -(rootF * ampR) - 0.10 - biaR + rollFold;
+    wingPivotL.rotation.z =  (rootF * ampL) + 0.10 + biaL - rollFold;
+    wingPivotR.rotation.x = 0.14 + featR * 0.16 + climbBias;
+    wingPivotL.rotation.x = 0.14 - featR * 0.16 + climbBias;
+    wingPivotR.rotation.y = -0.18;
+    wingPivotL.rotation.y =  0.18;
+    // MID — relative lagged flap + fold-in on the upstroke + twist
+    wingMidR.rotation.z = -(midF * ampR);
+    wingMidL.rotation.z =  (midF * ampL);
+    wingMidR.rotation.x =  twMid;
+    wingMidL.rotation.x = -twMid;
+    wingMidR.rotation.y =  upMid * 0.08;
+    wingMidL.rotation.y = -upMid * 0.08;
+    // TIP — largest, latest flap (the whip) + most twist + a bigger upstroke fold
+    wingTipR.rotation.z = -(tipF * ampR);
+    wingTipL.rotation.z =  (tipF * ampL);
+    wingTipR.rotation.x = -0.05 + twTip;
+    wingTipL.rotation.x = -0.05 - twTip;
+    wingTipR.rotation.y =  upTip * 0.14;
+    wingTipL.rotation.y = -upTip * 0.14;
   } else {
     wingPivotR.rotation.z = damp(wingPivotR.rotation.z, -rootFlap + turnBias + rollFold, 14, dt);
     wingPivotL.rotation.z = damp(wingPivotL.rotation.z,  rootFlap + turnBias - rollFold, 14, dt);
@@ -514,29 +558,12 @@ export function updateDragon(dt, player, time) {
     wingPivotL.rotation.x = damp(wingPivotL.rotation.x, 0.14 - feather * 0.18 + climbBias, 10, dt);
     wingPivotR.rotation.y = damp(wingPivotR.rotation.y, -0.18 + turnBias * 0.8, 9, dt);
     wingPivotL.rotation.y = damp(wingPivotL.rotation.y,  0.18 + turnBias * 0.8, 9, dt);
-    if (wingMidL) {
-      // 3-part articulated wing (Mk II): inner = pivot (main flap above); MID + TIP
-      // lag WITHIN each wing (root→mid→tip follow-through), with L/R sharing the SAME
-      // phase (mirror by sign only) so both wings flap TOGETHER — never alternating.
-      // Clamped + boost-stiffened so the segments never inter-clip and tighten on boost.
-      const stiffen = 1 - 0.30 * aero01;
-      const cl = (v, lim) => (v < -lim ? -lim : v > lim ? lim : v);
-      const midFlap = cl(Math.sin(phase - 0.22) * 0.17 * stiffen, 0.244);   // mid relative ≤14°
-      const tipFlap = cl(Math.sin(phase - 0.38) * 0.087 * stiffen, 0.14);   // tip relative ≤8°
-      wingMidR.rotation.z = damp(wingMidR.rotation.z, -midFlap + turnBias * 0.30, 12, dt);
-      wingMidL.rotation.z = damp(wingMidL.rotation.z,  midFlap + turnBias * 0.30, 12, dt);
-      wingTipR.rotation.z = damp(wingTipR.rotation.z, -tipFlap + turnBias * 0.40, 12, dt);
-      wingTipL.rotation.z = damp(wingTipL.rotation.z,  tipFlap + turnBias * 0.40, 12, dt);
-      wingTipR.rotation.x = damp(wingTipR.rotation.x, -0.05 + feather * 0.10, 10, dt);
-      wingTipL.rotation.x = damp(wingTipL.rotation.x, -0.05 - feather * 0.10, 10, dt);
-    } else {
-      // Tip fold (2-bone wings): folds on up-stroke, extends on down-stroke, with a
-      // small delay between wings so the silhouette feels less mechanical.
-      wingTipR.rotation.z = damp(wingTipR.rotation.z, tipLag * 0.28 + turnBias * 0.45, 12, dt);
-      wingTipL.rotation.z = damp(wingTipL.rotation.z, -Math.sin(phase + 1.18) * 0.28 + turnBias * 0.45, 12, dt);
-      wingTipR.rotation.x = damp(wingTipR.rotation.x, -0.12 + feather * 0.16, 10, dt);
-      wingTipL.rotation.x = damp(wingTipL.rotation.x, -0.12 - feather * 0.16, 10, dt);
-    }
+    // Tip fold (2-bone wings): folds on up-stroke, extends on down-stroke, with a
+    // small delay between wings so the silhouette feels less mechanical.
+    wingTipR.rotation.z = damp(wingTipR.rotation.z, tipLag * 0.28 + turnBias * 0.45, 12, dt);
+    wingTipL.rotation.z = damp(wingTipL.rotation.z, -Math.sin(phase + 1.18) * 0.28 + turnBias * 0.45, 12, dt);
+    wingTipR.rotation.x = damp(wingTipR.rotation.x, -0.12 + feather * 0.16, 10, dt);
+    wingTipL.rotation.x = damp(wingTipL.rotation.x, -0.12 - feather * 0.16, 10, dt);
   }
   // Secondary wing pair. Obsidian T4 = a shadow flap at reduced amplitude. The
   // Night-Fury mini-wings are STABILIZERS (model.miniWingStabilizer): they DON'T

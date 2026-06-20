@@ -424,12 +424,16 @@ export function makePreviewTick(def, result) {
       wingPivotL.rotation.x = 0.12 - feather;
       if (wingPivot2L) { wingPivot2L.rotation.z = flap * 0.65; wingPivot2R.rotation.z = -flap * 0.65; }
       if (wingMidL) {
-        // 3-part wing (Mk II): mid + tip lag the inner flap, L/R synced (mirror by sign).
-        const midFlap = Math.sin(phase - 0.22) * 0.17;
-        const tipFlap = Math.sin(phase - 0.38) * 0.087;
-        wingMidR.rotation.z = -midFlap; wingMidL.rotation.z = midFlap;
-        wingTipR.rotation.z = -tipFlap; wingTipL.rotation.z = tipFlap;
-        wingTipR.rotation.x = -0.05 + feather * 0.6; wingTipL.rotation.x = -0.05 - feather * 0.6;
+        // 3-part wing (Mk II): root→mid→tip WAVE via shared-phase LAGS; L/R a pure
+        // sign-mirror (same timing). Matches the in-game rig so the showcase reads true.
+        const midF = Math.sin(phase - 0.62) * 0.26;
+        const tipF = Math.sin(phase - 1.25) * 0.34;
+        const twMid = Math.cos(phase - 0.62) * 0.10;
+        const twTip = Math.cos(phase - 1.25) * 0.18;
+        wingMidR.rotation.z = -midF; wingMidL.rotation.z = midF;
+        wingMidR.rotation.x = twMid; wingMidL.rotation.x = -twMid;
+        wingTipR.rotation.z = -tipF; wingTipL.rotation.z = tipF;
+        wingTipR.rotation.x = -0.05 + twTip; wingTipL.rotation.x = -0.05 - twTip;
       } else if (wingTipR) {
         // Wrist fold — the outer membrane lags the root flap so the wing breaks at
         // the wrist (matches the in-game rig; needs the split outer panel to be felt).

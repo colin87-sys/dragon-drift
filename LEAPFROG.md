@@ -2116,3 +2116,27 @@ single plate + dropping a root block + the tip boom got it back under. And the r
 MOTION or bloom — silhouette/structure is verifiable headlessly, but timing/glow is a live-preview call.
 **→ Systematize:** add an articulated segment to the frozen rig by returning a new nested joint group + a
 presence-gated animation branch; keep multi-limb symmetry as same-phase/sign-mirror, never offset phases.
+
+### L71 — A flap "wave" needs BIG phase lags + per-wing direct-set from ONE shared phase; per-wing damp() and same-sign turn terms are what make it stiff + desync L/R
+**Did / learned:** the first 3-part wing (L70) still read as "three stiff rods rotating together" and the L/R
+sides looked ~1 frame out of phase. Two root causes: (1) my segment lags were tiny — `sin(phase−0.22)` /
+`sin(phase−0.38)` ≈ 0.035 / 0.06 of the 2π cycle — so the thirds moved almost in lockstep (no visible
+root→mid→tip travel); (2) each segment was driven through `damp(current, target, …)` (a per-wing easing
+FILTER) and the flap target added `turnBias` with the SAME sign to both wings — so any lateral velocity made
+L and R asymmetric, and the per-wing filters were independent easing states that could drift. Fix: drive the
+Mk II wing **directly from the one shared, continuously-integrated `flapPhase`** (no per-wing damp), with REAL
+lags — `MID_LAG 0.62`, `TIP_LAG 1.25` rad (≈0.10 / 0.20 of the cycle) — and bigger relative amplitudes
+(mid 0.26, tip 0.34) so the tip whips. L/R became a **pure sign-mirror**: compute each segment's pose scalar
+once, assign `R = −pose`, `L = +pose`; the turn/bank term was removed from the flap entirely and re-expressed
+as amplitude scale (`1 − 0.30·side·bank`) + a static z bias (inside wing tucked, outside spread) — pose only,
+never phase. Added segment twist (`cos(phase−lag)`, pitch to catch air) and an upstroke fold
+(`max(0,sin)·rotation.y`). Gated to `else if (wingMidL)` so every other dragon keeps its damped path
+byte-identical (`aurumToro` 5516, unchanged).
+**Gotcha:** the user's rule "no separate timers/accumulators/easing states per wing" specifically rules out
+per-wing `damp()` — ONE shared phase is fine (and required), but the two wings must be a stateless sign-mirror
+of it. And any additive turn/bias term on the oscillation must be a pure mirror (`±side`) or it desyncs L/R;
+keep banking on amplitude + static bias, never on phase. Flap MOTION still isn't headless-verifiable — silhouette
+builds + boot are, but timing/feel is a live-preview call.
+**→ Systematize:** articulated flap = one integrated phase → per-segment `sin(phase − lag_i)` with lags that are
+a real fraction of the cycle, direct-set, L/R sign-mirror; reserve damping for noisy INPUTS (shared), never as
+the per-wing motion itself.
