@@ -95,6 +95,9 @@ function getCtx() {
   try {
     if (!ctx) {
       ctx = new (window.AudioContext || window.webkitAudioContext)();
+      // Track health: once it's genuinely running, a later non-running state is a real
+      // interruption (iOS hands audio focus to another app) — not just "not unlocked yet".
+      ctx.onstatechange = () => { if (ctx && ctx.state === 'running') { audioEverRan = true; audioWedged = false; } };
       masterGain = ctx.createGain();
       masterGain.gain.value = 1;
       // Soft master compressor: lets the stacked layers run hot without clipping
@@ -173,6 +176,29 @@ function ensureSilentMedia() {
   }
 }
 
+// Last-resort recovery from a WEDGED AudioContext. iOS can leave the context stuck so
+// that resume() never returns it to 'running' (another app grabbed audio focus / an
+// interruption) — the symptom is the whole game going permanently mute until a page
+// refresh. The only cure is a fresh context: tear the graph down, null every node ref
+// so getCtx() rebuilds it clean, and restart the music if it was playing. MUST run
+// inside a user gesture so the new context can resume immediately.
+function rebuildContext() {
+  const wasActive = musicActive || resumeMusicPending || wasActiveOnBg;
+  stopScheduler();
+  stopWindSource();
+  try { if (ctx) { ctx.onstatechange = null; ctx.close(); } } catch { /* ignore */ }
+  ctx = masterGain = musicBus = sfxBus = slowFilter = null;
+  reverbConvolver = reverbReturn = null;
+  pumpGain = echoDelay = echoDelayR = null;
+  layers = {};
+  musicActive = false; bgSuspended = false; resumeMusicPending = false;
+  audioWedged = false; audioEverRan = false;
+  loopOffset = 0; nextEvtIdx = 0; loopCount = 0;
+  const a = getCtx();                          // rebuilds the master graph on a fresh ctx
+  if (a && a.state !== 'running') { const p = a.resume(); if (p && p.catch) p.catch(() => {}); }
+  if (a && wasActive) music.start();
+}
+
 // iOS/WebKit only unlocks audio from a *completed* gesture (touchend/click);
 // the game's pointerdown handlers alone are not enough. Resume the context on
 // any finished gesture, and kick output with a silent buffer for older iOS.
@@ -181,9 +207,14 @@ function unlockAudio() {
   // (and the explicit resume below) can bring the context back.
   bgSuspended = false;
   ensureSilentMedia();
-  const a = getCtx();
+  let a = getCtx();
   if (!a) return;
   if (a.state !== 'running') {
+    // If a context that HAD been running won't revive across a second foreground
+    // gesture, it's wedged (iOS interruption) → recreate it now, inside this gesture,
+    // instead of leaving the game permanently muted until a refresh.
+    if (audioEverRan && audioWedged) { rebuildContext(); a = getCtx(); if (!a) return; }
+    else audioWedged = true;
     const p = a.resume();
     if (p && p.then) p.then(tryResumeMusic, () => {});   // resume is async → restart music once it lands
     try {
@@ -192,6 +223,8 @@ function unlockAudio() {
       src.connect(a.destination);
       src.start(0);
     } catch { /* ignore */ }
+  } else {
+    audioWedged = false;
   }
   // If we just came back from the background, this real gesture is what lets the
   // music restart cleanly. No-op during normal play (the flag is only set on resume).
@@ -534,6 +567,8 @@ let musicActive = false;
 let bgSuspended = false;   // app backgrounded → audio context suspended (any game state)
 let wasActiveOnBg = false; // was music playing when we backgrounded? (restore on return)
 let resumeMusicPending = false; // returned from background w/ music → restart on the next running-ctx gesture
+let audioEverRan = false;  // the ctx reached 'running' at least once (so a later stall = a real interruption)
+let audioWedged = false;   // a foreground gesture tried to resume and the ctx stayed stuck (iOS interruption)
 let loopOffset = 0;    // absolute audioCtx time when current loop started
 let nextEvtIdx = 0;
 let schedulerTimer = null;
