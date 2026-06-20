@@ -1185,9 +1185,16 @@ export const DRAGONS = {
     model: {
       scale: 1.0, wingScale: 1.0, tailSegments: 9, neckSegments: 3,
       shoulderWidthScale: 1.25,
+      // Mk II second-pass massing (shared builders read these; default-1 keeps the
+      // sibling Aurum Toro byte-identical): broader/taller torso with a bulkier rear
+      // engine-bay, and a longer/lower wedge skull.
+      torsoWidthScale: 1.18, torsoHeightScale: 1.1, rearBulkScale: 1.28,
+      headLenScale: 1.18, headHeightScale: 0.82,
       hornLen: 0.9, hornPairs: 1, ridgeCount: 0, eyeScale: 1.15,
       flapBias: 0.85, flapAmp: 0.7,
     },
+    // Bigger, brighter twin thrusters that dominate the rear engine read.
+    thruster: { rOuter: 0.34, rCore: 0.22, spread: 0.36, intensity: 2.4 },
     bodyRoughness: 0.18, bodyMetalness: 0.55, bodyEnvIntensity: 0.8,
     forms: [
       { spineGlow: 0,
