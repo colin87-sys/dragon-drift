@@ -1228,6 +1228,12 @@ registerSurfaceLayer('twinThrusters', ({ def, attach }) => {
       const hs = new THREE.Mesh(new THREE.CylinderGeometry(rh, rh, depth * 0.22, seg(8)), hotMat);
       hs.rotation.x = Math.PI / 2; hs.position.set(s * spread, my, mouthZ + depth * 0.05);
       meshes.push(hs);
+      // Emitter marker at the pod mouth — the dragon VFX loop spawns a jet fire trail
+      // from these during Surge on the Eternal form. Invisible; tagged for collection.
+      const emit = new THREE.Object3D();
+      emit.position.set(s * spread, my, mouthZ + depth * 0.1);
+      emit.userData.svjThrusterEmitter = true;
+      meshes.push(emit);
     }
   }
   return { meshes, flareMats };
@@ -1805,97 +1811,116 @@ function buildSvjJetWing(def, model, attach, giM) {
     const fwd = { x: 0, y: 0, z: -1 }, rear = { x: 0, y: 0, z: 1 };
     const stationPoint = (t) => mul(spanDir, L * t);
     const xsec = (t, chord) => { const c = stationPoint(t); return { c, leading: add(c, mul(fwd, chord * 0.38)), trailing: add(c, mul(rear, chord * 0.62)) }; };
-    const quad = (a, b, c, d, mat, o) => flatTriMesh([
-      [arr(offN(a, o)), arr(offN(b, o)), arr(offN(c, o))],
-      [arr(offN(a, o)), arr(offN(c, o)), arr(offN(d, o))],
-    ], mat);
-
-    // MODULE 1 — shoulder hinge (the only "joint")
-    const hinge = new THREE.Mesh(new THREE.BoxGeometry(0.28, 0.36, 0.40), grey);
-    hinge.position.set(side * 0.06, 0, 0.02); hinge.rotation.z = side * 0.18;
-    pivot.add(hinge);
-
-    const S0 = xsec(0.00, 1.05), S1 = xsec(0.30, 0.92), S2 = xsec(0.62, 0.62), S3 = xsec(1.00, 0.28);
-
-    // MODULE 2 — upper yellow boom (leading spar) — thicker so the wing has real
-    // leading-edge VOLUME and stops reading as a paper-flat board.
-    pivot.add(frameBar(arr(offN(S0.leading, yOff)), arr(offN(S2.leading, yOff)), [0.20, 0.17], yellow));
-    // MODULE 3 (inner) — main yellow blade t0→t0.62 (the silhouette)
-    pivot.add(quad(S0.leading, S1.leading, S1.trailing, S0.trailing, yellow, yOff));
-    pivot.add(quad(S1.leading, S2.leading, S2.trailing, S1.trailing, yellow, yOff));
-
-    // MODULE 4 — black recessed vent panel (inset t0.12→0.62) + hex grille
-    const V0 = xsec(0.12, 0.78), V1 = xsec(0.34, 0.68), V2 = xsec(0.62, 0.46);
-    // Bigger black inset: pull the panel edges closer to the blade border (0.18, was
-    // 0.24) so carbon fills ~65% of the wing interior without touching the yellow rim.
-    const bl = (s) => lerp(s.leading, s.c, 0.18), tr = (s) => lerp(s.trailing, s.c, 0.18);
-    pivot.add(flatTriMesh([
-      [arr(offN(bl(V0), bOff + yOff)), arr(offN(bl(V1), bOff + yOff)), arr(offN(tr(V1), bOff + yOff))],
-      [arr(offN(bl(V0), bOff + yOff)), arr(offN(tr(V1), bOff + yOff)), arr(offN(tr(V0), bOff + yOff))],
-      [arr(offN(bl(V1), bOff + yOff)), arr(offN(bl(V2), bOff + yOff)), arr(offN(tr(V2), bOff + yOff))],
-      [arr(offN(bl(V1), bOff + yOff)), arr(offN(tr(V2), bOff + yOff)), arr(offN(tr(V1), bOff + yOff))],
-    ], black));
-    const hg = hexGrille({ w: 0.82, h: 0.5, mat: black, barMat: grey });
-    hg.position.set(V1.c.x, V1.c.y + bOff + yOff + 0.004, V1.c.z);
-    pivot.add(hg);
-
-    // MODULE 5 — 3 red chevron taillights ("<") on the black panel near trailing edge
-    for (const t of [0.30, 0.50, 0.68]) {
-      const s = xsec(t, 0.78 + (0.34 - 0.78) * t);
+    // Origin-aware builders: each mesh lives in its OWN segment group (inner=pivot,
+    // mid=wingMid, tip=wingTip) expressed relative to that group's origin `o`, so a
+    // child rotation pivots cleanly at the joint instead of around the mesh centre.
+    const O = (p, o) => ({ x: p.x - o.x, y: p.y - o.y, z: p.z - o.z });
+    const quadG = (grp, o, a, b, c, d, mat, off) => grp.add(flatTriMesh([
+      [arr(offN(O(a, o), off)), arr(offN(O(b, o), off)), arr(offN(O(c, o), off))],
+      [arr(offN(O(a, o), off)), arr(offN(O(c, o), off)), arr(offN(O(d, o), off))],
+    ], mat));
+    const panelG = (grp, o, sLo, sHi, mat) => {
+      const bl = (s) => lerp(s.leading, s.c, 0.18), tr = (s) => lerp(s.trailing, s.c, 0.18);
+      const oo = bOff + yOff;
+      grp.add(flatTriMesh([
+        [arr(offN(O(bl(sLo), o), oo)), arr(offN(O(bl(sHi), o), oo)), arr(offN(O(tr(sHi), o), oo))],
+        [arr(offN(O(bl(sLo), o), oo)), arr(offN(O(tr(sHi), o), oo)), arr(offN(O(tr(sLo), o), oo))],
+      ], mat));
+    };
+    const chevronG = (grp, o, t, chord) => {
+      const s = xsec(t, chord);
       const ctr = lerp(s.c, s.trailing, 0.48);
-      for (const [dx, dz, ang, ln] of [[0, 0, -28, 0.34], [side * 0.08, 0.06, 22, 0.28]]) {
-        const bar = chevronLight({ len: ln, w: 0.035, mat: red });
-        bar.position.set(ctr.x + dx, ctr.y + rOff + yOff, ctr.z + dz);
-        bar.rotation.y = side * ang * D2R;
-        pivot.add(bar);
+      for (const [dx, dz, ang, ln] of [[0, 0, -28, 0.30], [side * 0.08, 0.06, 22, 0.26]]) {
+        const bar = chevronLight({ len: ln, w: 0.032, mat: red });
+        const p = O({ x: ctr.x + dx, y: ctr.y + rOff + yOff, z: ctr.z + dz }, o);
+        bar.position.set(p.x, p.y, p.z); bar.rotation.y = side * ang * D2R;
+        grp.add(bar);
       }
-    }
-
-    // MODULE 6 — 4 controlled trailing flaps (small overlapping plates, extend +Z)
-    for (const t0 of [0.18, 0.36, 0.54, 0.72]) {
-      const t1 = Math.min(t0 + 0.14, 0.92);
-      const s0 = xsec(t0, 1.05 + (0.28 - 1.05) * t0), s1 = xsec(t1, 1.05 + (0.28 - 1.05) * t1);
+    };
+    const flapG = (grp, o, t0) => {
+      const t1 = Math.min(t0 + 0.14, 0.98);
+      const cAt = (t) => 1.08 + (0.26 - 1.08) * t;
+      const s0 = xsec(t0, cAt(t0)), s1 = xsec(t1, cAt(t1));
       const iA = add(s0.trailing, { x: 0, y: -0.025, z: 0.02 }), iB = add(s1.trailing, { x: 0, y: -0.025, z: 0.02 });
-      const oA = add(iA, { x: 0, y: -0.015, z: 0.24 }), oB = add(iB, { x: 0, y: -0.015, z: 0.18 });
-      pivot.add(flatTriMesh([[arr(iA), arr(iB), arr(oB)], [arr(iA), arr(oB), arr(oA)]], yellow));
+      const oA = add(iA, { x: 0, y: -0.015, z: 0.22 }), oB = add(iB, { x: 0, y: -0.015, z: 0.17 });
+      grp.add(flatTriMesh([[arr(O(iA, o)), arr(O(iB, o)), arr(O(oB, o))], [arr(O(iA, o)), arr(O(oB, o)), arr(O(oA, o))]], yellow));
       const g = (p) => ({ x: p.x, y: p.y - 0.02, z: p.z });
-      pivot.add(flatTriMesh([[arr(g(iA)), arr(g(iB)), arr(g(oB))], [arr(g(iA)), arr(g(oB)), arr(g(oA))]], black));
+      grp.add(flatTriMesh([[arr(O(g(iA), o)), arr(O(g(iB), o)), arr(O(g(oB), o))], [arr(O(g(iA), o)), arr(O(g(oB), o)), arr(O(g(oA), o))]], black));
+    };
+    // hinge cover at a child group's local origin (the joint): a yellow overlap plate
+    // that reaches back over the seam (so the small anti-clip gap never shows mid-flap).
+    const hingeCover = (grp, len) => {
+      const plate = new THREE.Mesh(new THREE.BoxGeometry(0.16, 0.045, len), yellow);
+      plate.position.set(side * 0.03, yOff + 0.03, -0.06); grp.add(plate);
+    };
+
+    // station breaks — player spec: inner 0–0.36, mid 0.36–0.73, tip 0.73–1.0;
+    // chords root 1.08 → innerJoint 0.72 → midJoint 0.42 → tip 0.26.
+    const S0 = xsec(0.00, 1.08), Sa = xsec(0.20, 0.88), S1 = xsec(0.36, 0.72);
+    const Sb = xsec(0.55, 0.56), S2 = xsec(0.73, 0.42), S3 = xsec(1.00, 0.26);
+    const ZERO = { x: 0, y: 0, z: 0 };
+    const midO = stationPoint(0.36), tipO = stationPoint(0.73);
+
+    // Nested articulation hierarchy: wingRoot(pivot) → wingMid → wingTip. A small
+    // anti-clip Y lift at each joint (hidden by the hinge cover) stops the segments
+    // intersecting during the flap.
+    const wingMid = new THREE.Group();
+    wingMid.position.set(midO.x, midO.y + 0.025, midO.z);
+    const wingTip = new THREE.Group();
+    wingTip.position.set(tipO.x - midO.x, (tipO.y - midO.y) + 0.018, tipO.z - midO.z);
+    wingMid.add(wingTip);
+    pivot.add(wingMid);
+
+    // ── PART A — inner powered blade (pivot): hinge + strong black root + boom + blade 0–0.36 ──
+    const hinge = new THREE.Mesh(new THREE.BoxGeometry(0.30, 0.40, 0.50), grey);
+    hinge.position.set(side * 0.06, 0, 0.02); hinge.rotation.z = side * 0.18; pivot.add(hinge);
+    pivot.add(frameBar(arr(offN(S0.leading, yOff)), arr(offN(S1.leading, yOff)), [0.20, 0.17], yellow));
+    quadG(pivot, ZERO, S0.leading, Sa.leading, Sa.trailing, S0.trailing, yellow, yOff);
+    quadG(pivot, ZERO, Sa.leading, S1.leading, S1.trailing, Sa.trailing, yellow, yOff);
+    panelG(pivot, ZERO, xsec(0.12, 0.74), xsec(0.32, 0.66), black);
+    chevronG(pivot, ZERO, 0.26, 0.78);
+    flapG(pivot, ZERO, 0.20);
+
+    // ── PART B — mid / outer aero blade (wingMid): the long swept yellow silhouette ──
+    hingeCover(wingMid, 0.22);
+    wingMid.add(frameBar(arr(offN(O(S1.leading, midO), yOff)), arr(offN(O(S2.leading, midO), yOff)), [0.15, 0.12], yellow));
+    quadG(wingMid, midO, S1.leading, Sb.leading, Sb.trailing, S1.trailing, yellow, yOff);
+    quadG(wingMid, midO, Sb.leading, S2.leading, S2.trailing, Sb.trailing, yellow, yOff);
+    panelG(wingMid, midO, xsec(0.40, 0.66), xsec(0.70, 0.46), black);
+    {
+      const hg = hexGrille({ w: 0.7, h: 0.42, mat: black, barMat: grey });
+      const c = O(xsec(0.55, 0.56).c, midO); hg.position.set(c.x, c.y + bOff + yOff + 0.004, c.z); wingMid.add(hg);
+    }
+    chevronG(wingMid, midO, 0.48, 0.56);
+    chevronG(wingMid, midO, 0.62, 0.48);
+    flapG(wingMid, midO, 0.42);
+    flapG(wingMid, midO, 0.58);
+    {
+      // secondary top blade rides the mid segment (stacked aero-blade)
+      const T0 = xsec(0.40, 0.44), T1 = xsec(0.72, 0.22);
+      const up = (p, dy, dz) => O({ x: p.x, y: p.y + dy, z: p.z + dz }, midO);
+      wingMid.add(flatTriMesh([
+        [arr(up(T0.leading, 0.16, -0.06)), arr(up(T1.leading, 0.16, -0.06)), arr(up(T1.trailing, 0.16, -0.02))],
+        [arr(up(T0.leading, 0.16, -0.06)), arr(up(T1.trailing, 0.16, -0.02)), arr(up(T0.trailing, 0.16, -0.02))],
+      ], yellow));
     }
 
-    // MODULE 7 (top blade) — one secondary top blade, raked back/up. Sits LOWER
-    // (0.16, was 0.22) so it reads as a tight stacked aero-blade and its flat top
-    // facet catches far less of the cool rim light (the white/blue blowout).
-    const T0 = xsec(0.18, 0.46), T1 = xsec(0.92, 0.18);
-    const up = (p, dy, dz) => ({ x: p.x, y: p.y + dy, z: p.z + dz });
-    pivot.add(flatTriMesh([
-      [arr(up(T0.leading, 0.16, -0.06)), arr(up(T1.leading, 0.16, -0.06)), arr(up(T1.trailing, 0.16, -0.02))],
-      [arr(up(T0.leading, 0.16, -0.06)), arr(up(T1.trailing, 0.16, -0.02)), arr(up(T0.trailing, 0.16, -0.02))],
-    ], yellow));
-
-    // ── wingTip (rig fold): OUTER blade t0.62→1.0 + endplate + marker ──
-    const wingTip = new THREE.Group();
-    const wp = stationPoint(0.62);
-    wingTip.position.set(wp.x, wp.y, wp.z);
-    const rel = (p) => ({ x: p.x - wp.x, y: p.y - wp.y, z: p.z - wp.z });
+    // ── PART C — tip / aero control surface (wingTip): short blade + endplate + marker ──
+    hingeCover(wingTip, 0.16);
+    quadG(wingTip, tipO, S2.leading, S3.leading, S3.trailing, S2.trailing, yellow, yOff);
+    chevronG(wingTip, tipO, 0.86, 0.30);
+    const tc = O(S3.c, tipO);
+    // wingtip endplate / spoiler fin — sharp stiffened outer silhouette.
     wingTip.add(flatTriMesh([
-      [arr(offN(rel(S2.leading), yOff)), arr(offN(rel(S3.leading), yOff)), arr(offN(rel(S3.trailing), yOff))],
-      [arr(offN(rel(S2.leading), yOff)), arr(offN(rel(S3.trailing), yOff)), arr(offN(rel(S2.trailing), yOff))],
-    ], yellow));
-    wingTip.add(frameBar(arr(offN(rel(S2.leading), yOff)), arr(offN(rel(S3.leading), yOff)), [0.13, 0.08], yellow));
-    const tc = rel(S3.c);
-    // wingtip endplate / spoiler fin — enlarged (~×1.18) for a sharper stiffened
-    // outer silhouette.
-    wingTip.add(flatTriMesh([
-      [[tc.x, tc.y - 0.06, tc.z - 0.09], [tc.x + side * 0.57, tc.y + 0.02, tc.z + 0.04], [tc.x + side * 0.50, tc.y + 0.36, tc.z + 0.21]],
-      [[tc.x, tc.y - 0.06, tc.z - 0.09], [tc.x + side * 0.50, tc.y + 0.36, tc.z + 0.21], [tc.x + side * 0.02, tc.y + 0.22, tc.z + 0.06]],
+      [[tc.x, tc.y - 0.06, tc.z - 0.09], [tc.x + side * 0.50, tc.y + 0.02, tc.z + 0.04], [tc.x + side * 0.44, tc.y + 0.32, tc.z + 0.19]],
+      [[tc.x, tc.y - 0.06, tc.z - 0.09], [tc.x + side * 0.44, tc.y + 0.32, tc.z + 0.19], [tc.x + side * 0.02, tc.y + 0.20, tc.z + 0.06]],
     ], yellow));
     const marker = new THREE.Object3D();
     marker.position.set(tc.x, tc.y, tc.z);
     wingTip.add(marker);
-    pivot.add(wingTip);
 
     group.add(pivot);
-    return { pivot, wingTip, marker };
+    return { pivot, wingMid, wingTip, marker };
   }
 
   const R = buildSide(1), Lf = buildSide(-1);
@@ -1903,6 +1928,7 @@ function buildSvjJetWing(def, model, attach, giM) {
     group,
     parts: {
       wingPivotL: Lf.pivot, wingPivotR: R.pivot,
+      wingMidL: Lf.wingMid, wingMidR: R.wingMid,
       wingTipL: Lf.wingTip, wingTipR: R.wingTip,
       tipMarkerL: Lf.marker, tipMarkerR: R.marker,
       wingPivot2L: null, wingPivot2R: null, wingRigL: null, wingRigR: null,

@@ -18,6 +18,8 @@ let activeRider = null;
 let group = null;
 let wingPivotL = null;
 let wingPivotR = null;
+let wingMidL = null;  // middle joint of the 3-segment articulated wing (Mk II), null otherwise
+let wingMidR = null;
 let wingTipL = null;  // secondary fold joint for 2-segment wing
 let wingTipR = null;
 let wingPivot2L = null;
@@ -94,6 +96,9 @@ let trailTimer = 0;
 let boostTrailTimer = 0;
 let contrailTimer = 0;
 let trailPaletteIdx = 0;
+let thrusterFireSprites = [];   // jet fire trail from the rear thrusters (Eternal + Surge)
+let thrusterFireTimer = 0;
+let thrusterEmitters = [];      // emitter markers collected from the twinThrusters layer
 
 // Trail color for a freshly-spawned sprite: cycles the equipped flightmark's
 // trailPalette (aurora/goldleaf) when present, else the flat per-dragon color.
@@ -127,6 +132,8 @@ export function createDragon(scene, def, riderDef) {
   group = result.group;
   ({ head, tailSegs, wingPivotL, wingPivotR, wingTipL, wingTipR,
      wingPivot2L, wingPivot2R, tipMarkerL, tipMarkerR } = result.parts);
+  wingMidL = result.parts.wingMidL || null;
+  wingMidR = result.parts.wingMidR || null;
   wingRigL = result.parts.wingRigL || null;
   wingRigR = result.parts.wingRigR || null;
   tailFins = result.parts.tailFins || [];
@@ -196,6 +203,23 @@ export function createDragon(scene, def, riderDef) {
     scene.add(s);
     boostTrailSprites.push(s);
   }
+  // Thruster jet-fire pool: a stream behind each rear thruster, emitted only on the
+  // Eternal form during Surge, tinted per-spawn to the Surge highlight. Emitter markers
+  // (from the twinThrusters layer) are collected so the pods are the source.
+  const fireTex = makeGlowTexture('255,255,255');
+  thrusterFireSprites = [];
+  for (let i = 0; i < 80; i++) {
+    const s = new THREE.Sprite(new THREE.SpriteMaterial({
+      map: fireTex, transparent: true, opacity: 0,
+      blending: THREE.AdditiveBlending, depthWrite: false,
+    }));
+    s.visible = false; s.userData.life = 0;
+    s.layers.set(1);
+    scene.add(s);
+    thrusterFireSprites.push(s);
+  }
+  thrusterEmitters = [];
+  group.traverse((o) => { if (o.userData && o.userData.svjThrusterEmitter) thrusterEmitters.push(o); });
 
   // Glowing motes: the Phoenix sheds warm ember-feathers continuously; dragons
   // with def.surgeMotes (the Sovereign) breathe cool arcane motes during Surge.
@@ -310,6 +334,8 @@ export function disposeDragon() {
   group = null;
   wingPivot2L = null;
   wingPivot2R = null;
+  wingMidL = null;
+  wingMidR = null;
   bodySegs = null;
   tailOrbiters = null;
   ponyMeshes = [];
@@ -488,12 +514,29 @@ export function updateDragon(dt, player, time) {
     wingPivotL.rotation.x = damp(wingPivotL.rotation.x, 0.14 - feather * 0.18 + climbBias, 10, dt);
     wingPivotR.rotation.y = damp(wingPivotR.rotation.y, -0.18 + turnBias * 0.8, 9, dt);
     wingPivotL.rotation.y = damp(wingPivotL.rotation.y,  0.18 + turnBias * 0.8, 9, dt);
-    // Tip fold: folds on up-stroke, extends on down-stroke, with a small delay
-    // between wings so the silhouette feels less mechanical.
-    wingTipR.rotation.z = damp(wingTipR.rotation.z, tipLag * 0.28 + turnBias * 0.45, 12, dt);
-    wingTipL.rotation.z = damp(wingTipL.rotation.z, -Math.sin(phase + 1.18) * 0.28 + turnBias * 0.45, 12, dt);
-    wingTipR.rotation.x = damp(wingTipR.rotation.x, -0.12 + feather * 0.16, 10, dt);
-    wingTipL.rotation.x = damp(wingTipL.rotation.x, -0.12 - feather * 0.16, 10, dt);
+    if (wingMidL) {
+      // 3-part articulated wing (Mk II): inner = pivot (main flap above); MID + TIP
+      // lag WITHIN each wing (root→mid→tip follow-through), with L/R sharing the SAME
+      // phase (mirror by sign only) so both wings flap TOGETHER — never alternating.
+      // Clamped + boost-stiffened so the segments never inter-clip and tighten on boost.
+      const stiffen = 1 - 0.30 * aero01;
+      const cl = (v, lim) => (v < -lim ? -lim : v > lim ? lim : v);
+      const midFlap = cl(Math.sin(phase - 0.22) * 0.17 * stiffen, 0.244);   // mid relative ≤14°
+      const tipFlap = cl(Math.sin(phase - 0.38) * 0.087 * stiffen, 0.14);   // tip relative ≤8°
+      wingMidR.rotation.z = damp(wingMidR.rotation.z, -midFlap + turnBias * 0.30, 12, dt);
+      wingMidL.rotation.z = damp(wingMidL.rotation.z,  midFlap + turnBias * 0.30, 12, dt);
+      wingTipR.rotation.z = damp(wingTipR.rotation.z, -tipFlap + turnBias * 0.40, 12, dt);
+      wingTipL.rotation.z = damp(wingTipL.rotation.z,  tipFlap + turnBias * 0.40, 12, dt);
+      wingTipR.rotation.x = damp(wingTipR.rotation.x, -0.05 + feather * 0.10, 10, dt);
+      wingTipL.rotation.x = damp(wingTipL.rotation.x, -0.05 - feather * 0.10, 10, dt);
+    } else {
+      // Tip fold (2-bone wings): folds on up-stroke, extends on down-stroke, with a
+      // small delay between wings so the silhouette feels less mechanical.
+      wingTipR.rotation.z = damp(wingTipR.rotation.z, tipLag * 0.28 + turnBias * 0.45, 12, dt);
+      wingTipL.rotation.z = damp(wingTipL.rotation.z, -Math.sin(phase + 1.18) * 0.28 + turnBias * 0.45, 12, dt);
+      wingTipR.rotation.x = damp(wingTipR.rotation.x, -0.12 + feather * 0.16, 10, dt);
+      wingTipL.rotation.x = damp(wingTipL.rotation.x, -0.12 - feather * 0.16, 10, dt);
+    }
   }
   // Secondary wing pair. Obsidian T4 = a shadow flap at reduced amplitude. The
   // Night-Fury mini-wings are STABILIZERS (model.miniWingStabilizer): they DON'T
@@ -835,6 +878,41 @@ export function updateDragon(dt, player, time) {
     else {
       s.material.opacity = s.userData.life * 0.8;
       const sz = 1.2 + (1 - s.userData.life) * 3.5;
+      s.scale.set(sz, sz, 1);
+    }
+  }
+
+  // Thruster jet-fire — ETERNAL form only, during Surge: a tight flame stream from each
+  // rear thruster mouth in the Surge-highlight colour (the colour Surge flares the
+  // wings), like a jet afterburner. Emits only when the collected pod emitters exist
+  // (Mk II), the form is Eternal (formLevel ≥ 3) and Surge is active.
+  if (thrusterEmitters.length && (activeDef.model.formLevel ?? 0) >= 3 && player.feverActive) {
+    thrusterFireTimer -= dt;
+    if (thrusterFireTimer <= 0) {
+      thrusterFireTimer = 0.011 / quality;
+      const fireHex = activeDef.surgeHi || 0xfff3d0;
+      for (const em of thrusterEmitters) {
+        const s = thrusterFireSprites.find(s => !s.visible);
+        if (!s) break;
+        em.getWorldPosition(tmpV);
+        s.visible = true;
+        s.userData.life = 1;
+        s.material.color.setHex(fireHex);
+        s.position.set(
+          tmpV.x + (Math.random() - 0.5) * 0.18,
+          tmpV.y + (Math.random() - 0.5) * 0.14,
+          tmpV.z + Math.random() * 1.4
+        );
+      }
+    }
+  }
+  for (const s of thrusterFireSprites) {
+    if (!s.visible) continue;
+    s.userData.life -= dt * 3.0;   // short + fast → a tight afterburner jet, not smoke
+    if (s.userData.life <= 0) { s.visible = false; s.material.opacity = 0; }
+    else {
+      s.material.opacity = s.userData.life * 0.9;
+      const sz = 0.5 + (1 - s.userData.life) * 1.6;
       s.scale.set(sz, sz, 1);
     }
   }

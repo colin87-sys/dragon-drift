@@ -283,7 +283,7 @@ export function buildDragonModel(def, opts = {}) {
   const {
     wingPivotL, wingPivotR, wingTipL, wingTipR,
     tipMarkerL, tipMarkerR, wingPivot2L, wingPivot2R,
-    wingRigL, wingRigR,
+    wingRigL, wingRigR, wingMidL, wingMidR,
   } = wingsResult.parts;
   // Night-Fury grows its bat-tail fins + tail-bone whip chain INSIDE the wings
   // builder (the tail is part of the continuous hull, not a bolted tail module), so
@@ -364,7 +364,7 @@ export function buildDragonModel(def, opts = {}) {
 
     return {
       group: wrapper,
-      parts: { head, tailSegs, tailFins, spineSegs, bodySegs, tailOrbiters, riderSocket, wingPivotL, wingPivotR, wingTipL, wingTipR, wingPivot2L, wingPivot2R, tipMarkerL, tipMarkerR, wingRigL, wingRigR, coreGlow },
+      parts: { head, tailSegs, tailFins, spineSegs, bodySegs, tailOrbiters, riderSocket, wingPivotL, wingPivotR, wingMidL, wingMidR, wingTipL, wingTipR, wingPivot2L, wingPivot2R, tipMarkerL, tipMarkerR, wingRigL, wingRigR, coreGlow },
       materials: { bodyMat, wingMat, eyeMat, spineMats },
       auraSprite,
     };
@@ -375,6 +375,7 @@ export function buildDragonModel(def, opts = {}) {
     parts: {
       head, tailSegs, tailFins, spineSegs, bodySegs, tailOrbiters, riderSocket,
       wingPivotL, wingPivotR,
+      wingMidL, wingMidR,
       wingTipL, wingTipR,
       wingPivot2L, wingPivot2R,
       tipMarkerL, tipMarkerR,
@@ -422,9 +423,16 @@ export function makePreviewTick(def, result) {
       wingPivotR.rotation.x = 0.12 + feather;
       wingPivotL.rotation.x = 0.12 - feather;
       if (wingPivot2L) { wingPivot2L.rotation.z = flap * 0.65; wingPivot2R.rotation.z = -flap * 0.65; }
-      // Wrist fold — the outer membrane lags the root flap so the wing breaks at
-      // the wrist (matches the in-game rig; needs the split outer panel to be felt).
-      if (wingTipR) {
+      if (wingMidL) {
+        // 3-part wing (Mk II): mid + tip lag the inner flap, L/R synced (mirror by sign).
+        const midFlap = Math.sin(phase - 0.22) * 0.17;
+        const tipFlap = Math.sin(phase - 0.38) * 0.087;
+        wingMidR.rotation.z = -midFlap; wingMidL.rotation.z = midFlap;
+        wingTipR.rotation.z = -tipFlap; wingTipL.rotation.z = tipFlap;
+        wingTipR.rotation.x = -0.05 + feather * 0.6; wingTipL.rotation.x = -0.05 - feather * 0.6;
+      } else if (wingTipR) {
+        // Wrist fold — the outer membrane lags the root flap so the wing breaks at
+        // the wrist (matches the in-game rig; needs the split outer panel to be felt).
         const tipLag = Math.sin(phase + 0.95) * 0.34;
         wingTipR.rotation.z = tipLag;
         wingTipL.rotation.z = -Math.sin(phase + 1.18) * 0.34;
