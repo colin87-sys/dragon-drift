@@ -648,10 +648,12 @@ body.app-loaded > canvas { opacity: 1; }
   background: rgba(24,16,12,0.6); border: 1px solid var(--rf-stroke);
   display: block; }
 /* Shop preview canvases must let touch-scroll pass through — the global
-   `canvas { touch-action: none }` (for in-game steering) otherwise traps it.
-   Includes the small hero-rail tier/dragon thumbnails (tap-to-select, so a
-   vertical swipe over them should still scroll, not be eaten). */
-.skin-preview, .trail-preview, .hero-thumb canvas { touch-action: pan-y; }
+   `canvas { touch-action: none }` (for in-game steering) otherwise traps it. */
+.skin-preview, .trail-preview { touch-action: pan-y; }
+/* The dragon-rail card canvas fills the 58px card, so it (not just the card
+   border) must declare HORIZONTAL pan — otherwise a swipe landing on the canvas
+   gets pan-y and is eaten by the vertical scroller, and only the gaps scroll. */
+.hero-thumb canvas { touch-action: pan-x; }
 /* Live 3D turntable preview (canvas blitted from a shared renderer) */
 .skin-preview { width: 104px; height: 104px; border-radius: 14px;
   background: radial-gradient(circle at 50% 38%, rgba(120, 88, 56, 0.32), rgba(16, 11, 11, 0.68) 78%);
@@ -763,11 +765,15 @@ body.app-loaded > canvas { opacity: 1; }
   display: flex; flex-direction: column; align-items: stretch; }
 /* The stage is a square sized by whichever is smaller — width OR a slice of the
    viewport height — so the whole layout (stats / CTA / rail) always fits a phone. */
-.hero-stage { position: relative; width: min(100%, 42vh); aspect-ratio: 1; margin: 0 auto; border-radius: 22px; overflow: hidden;
+.hero-stage { position: relative; width: min(100%, 34svh); aspect-ratio: 1; margin: 0 auto; border-radius: 22px; overflow: hidden;
   background: radial-gradient(80% 64% at 50% 40%, color-mix(in srgb, var(--haccent) 22%, transparent), transparent 72%),
     linear-gradient(180deg, rgba(20,30,56,0.5), rgba(8,12,26,0.62));
   border: 1px solid rgba(150,200,255,0.16);
   box-shadow: inset 0 1px 0 rgba(255,255,255,0.06), 0 14px 40px rgba(0,0,0,0.45); }
+/* Installed as a PWA (no URL bar stealing height) → restore the roomy turntable.
+   Browser mode keeps the compact 34svh above so the DRAGONS screen fits without a
+   page-scroll that fought the swipe-to-rotate gesture. */
+html.standalone .hero-stage { width: min(100%, 42svh); }
 .hero-canvas { position: relative; z-index: 1; width: 100%; height: 100%; display: block;
   /* pan-y (not none): let the browser scroll the shop vertically when a swipe starts
      on the turntable; horizontal drag is left to the JS rotate handler (which now
@@ -835,9 +841,15 @@ body.app-loaded > canvas { opacity: 1; }
 .dpick-cta button.ascend { color: #160d22; background: linear-gradient(135deg, #ffd86a, #ff9a3c); }
 .dpick-cta button.dim { opacity: 0.5; }
 .dpick-rail { display: flex; flex-wrap: nowrap; gap: 7px; margin: 8px 0 4px; overflow-x: auto; overflow-y: hidden;
-  padding: 4px 2px 8px; scrollbar-width: none; -webkit-overflow-scrolling: touch; }
+  padding: 4px 2px 8px; scrollbar-width: none; -webkit-overflow-scrolling: touch;
+  /* pan-x declares horizontal-scroll intent so iOS reliably scrolls the rail (a swipe
+     starting on a card pans it instead of losing to the vertical shop scroller); a
+     non-touch pointer drag-to-scroll (ui.js) gives desktop the missing click-drag. */
+  touch-action: pan-x; cursor: grab; }
+.dpick-rail.dragging { cursor: grabbing; }
 .dpick-rail::-webkit-scrollbar { display: none; }
 .hero-thumb { position: relative; flex: 0 0 58px; width: 58px; height: 58px; border-radius: 12px; overflow: hidden; cursor: pointer;
+  touch-action: pan-x;
   background: radial-gradient(circle at 50% 36%, rgba(120,88,56,0.3), rgba(14,10,9,0.7) 80%);
   border: 1px solid var(--rf-stroke); box-shadow: inset 0 1px 0 rgba(255,255,255,0.05);
   transition: border-color 0.15s, box-shadow 0.15s, transform 0.12s; }

@@ -1164,42 +1164,95 @@ export const DRAGONS = {
     eye: 0x3fc6ff, trail: 0xff8a1f, boostTrail: 0xff3b2f,
   },
 
-  // Aurum Toro Mk I — the v2 RESKIN (first SVJ pass): the bull-derived body/wings
-  // (svjEngineBay/bladeWing/svjDragonHead) + the new long segmented armored tail
-  // (segmentedAeroTail). Kept as a parallel roster entry to compare against the
-  // current clean-room SVJ 'aurumToro' above. Builders restored from git 7c8ebf5.
-  aurumToroV2: {
-    name: 'Aurum Toro Mk I',
+  // Aurum Toro Mk II — a NEW selectable dragon: the current SVJ body (svjHull + scales
+  // + spine + thrusters) wearing a BRAND-NEW layered SVJ jet-blade WING (svjJetWing)
+  // and an aero-trident stabilizer TAIL (svjAeroTridentTail), both authored to the
+  // player's hard-surface spec. Distinct wings + tail vs the current 'aurumToro'.
+  aurumToroMk2: {
+    name: 'Aurum Toro Mk II',
     title: 'The raging bull',
     rarity: 'SSSR',
     maxRarity: 'SSSR',
     cost: 5000,
     parts: {
-      torso: 'svjEngineBay', wings: 'bladeWing', head: 'svjDragonHead', tail: 'segmentedAeroTail',
-      surfaceLayers: ['engineBay', 'ventSlashes', 'twinThrusters', 'rearDiffuser', 'mechaLegs', 'scissorHinge'],
+      torso: 'svjHull', wings: 'svjJetWing', head: 'svjWedgeHead', tail: 'svjAeroTridentTail',
+      surface: { shader: ['cellularScalesNormal'] },
+      // Identity pass: shoulder nacelles (wings plug into the engine bay) + armored
+      // spine "vertebrae" caps INSTEAD of the thin dorsal spikes.
+      surfaceLayers: ['svjScaleArmor', 'engineBay', 'ventSlashes', 'svjShoulderNacelles',
+        'twinThrusters', 'rearDiffuser', 'svjSpineArmorCaps', 'scissorHinge'],
     },
+    scaleSize: 4.5, scaleRelief: 0.28,
     stats: { speed: 1.16, handling: 1.22, drain: 1.04, regen: 0.95 },
     model: {
       scale: 1.0, wingScale: 1.0, tailSegments: 9, neckSegments: 3,
       shoulderWidthScale: 1.25,
+      // Mk II massing (shared builders read these; default-1 keeps the sibling Aurum
+      // Toro byte-identical). WIDE but LOW: keep shoulders + rear engine-bay broad,
+      // but DROP the global height inflation and COMPRESS the central belly so it reads
+      // as a low SVJ engine bay, not a round/pear abdomen. Longer/lower wedge skull.
+      torsoWidthScale: 1.18, torsoHeightScale: 1.0, rearBulkScale: 1.28, bellyFlatten: 0.86,
+      headLenScale: 1.22, headHeightScale: 0.8,
       hornLen: 0.9, hornPairs: 1, ridgeCount: 0, eyeScale: 1.15,
       flapBias: 0.85, flapAmp: 0.7,
     },
+    // Dominant twin thrusters with layered contrast (black housing → yellow frame →
+    // saturated-red turbine ring → bright orange hot core → warm-white hotspot). The
+    // cores are the brightest red-orange elements on the dragon (bloom-lit), reading
+    // before the dimmer wing chevrons. Diameters → radii (outer 0.52 ⇒ rOuter 0.26).
+    thruster: {
+      rOuter: 0.26, rCore: 0.17, spread: 0.4, frame: true,
+      intensity: 2.6,                 // saturated-red turbine ring
+      ringColor: 0xff2a18, coreColor: 0xff7a1a, coreIntensity: 4.2,
+      hotColor: 0xfff0b8, hotIntensity: 3.6,
+    },
     bodyRoughness: 0.18, bodyMetalness: 0.55, bodyEnvIntensity: 0.8,
     forms: [
+      // ── HATCHLING (baby): tiny weak 1-segment wings, oversized soft head, no
+      //    thrusters/nacelles/trident/horns, short simple tail. Frantic flapper. ──
       { spineGlow: 0,
+        bodyScale: 0.46, wingSpan: 0.42, wingParts: 1,
+        torsoWidthScale: 0.85, bellyFlatten: 1.0, rearBulkScale: 1.0,
+        headScale: 1.3, headLenScale: 0.9, headHeightScale: 1.05, eyeScale: 1.45, hornLevel: 0,
+        thrusterLevel: 0, nacelleLevel: 0, spineCapLevel: 0, tailTip: 0, tailSegments: 5,
+        flapFreqScale: 2.15, rootAmp: 0.52, midAmp: 0, tipAmp: 0, midLag: 0, tipLag: 0,
+        glidePow: 0.8, bodyBobScale: 1.18, headWobbleScale: 0.18, tailLagScale: 0.2,
         colors: { bodyRoughness: 0.6, bodyMetalness: 0.28,
           body: 0x6b5a16, wingInner: 0x6b5a16, wingEmissive: 0x7a3412,
           apexSeam: 0x7a3412, eye: 0x2a90c0, coreGlow: 0x7a3412 } },
+      // ── KINDLED (teen): 2-segment wings, early angular traits, proto vent-cores,
+      //    light nacelles, fork tail. Energetic, a bit awkward. ──
       { spineGlow: 0,
+        bodyScale: 0.68, wingSpan: 0.66, wingParts: 2,
+        torsoWidthScale: 0.98, bellyFlatten: 0.95, rearBulkScale: 1.1,
+        headScale: 1.08, headLenScale: 1.05, headHeightScale: 0.95, eyeScale: 1.25, hornLevel: 1,
+        thrusterLevel: 1, nacelleLevel: 1, spineCapLevel: 1, tailTip: 1, tailSegments: 7,
+        flapFreqScale: 1.7, rootAmp: 0.38, midAmp: 0.26, tipAmp: 0, midLag: 0.5, tipLag: 0,
+        glidePow: 1.1, bodyBobScale: 1.0, headWobbleScale: 0.08, tailLagScale: 0.16,
         colors: { bodyRoughness: 0.34, bodyMetalness: 0.45,
           body: 0xc79a0c, wingInner: 0xc79a0c, wingEmissive: 0xd06a18,
           apexSeam: 0xd0431f, eye: 0x3fb8f0, coreGlow: 0xd06a18 } },
+      // ── RADIANT (adult): full 3-segment wing, adult engine-bay, full nacelles,
+      //    adult dual thrusters, light trident. Controlled, premium. ──
       { spineGlow: 0.3, glowIntensity: 1.05,
+        bodyScale: 0.85, wingSpan: 0.85, wingParts: 3,
+        torsoWidthScale: 1.08, bellyFlatten: 0.9, rearBulkScale: 1.2,
+        headScale: 0.98, headLenScale: 1.15, headHeightScale: 0.85, eyeScale: 1.18, hornLevel: 2,
+        thrusterLevel: 2, nacelleLevel: 2, spineCapLevel: 2, tailTip: 2, tailSegments: 8,
+        flapFreqScale: 1.35, rootAmp: 0.26, midAmp: 0.3, tipAmp: 0.4, midLag: 0.5, tipLag: 1.0,
+        glidePow: 1.6, bodyBobScale: 0.78, headWobbleScale: 0.03, tailLagScale: 0.12,
         colors: { bodyRoughness: 0.2, bodyMetalness: 0.55,
           body: 0xf2c20e, wingInner: 0xf2c20e, wingEmissive: 0xff8a1f,
           apexSeam: 0xff3b2f, eye: 0x3fc6ff, coreGlow: 0xff8a1f } },
+      // ── ETERNAL (overlord): the current finished design — biggest, fullest layered
+      //    wings, dominant thrusters, full aero-trident, severe wedge + crown. ──
       { spineGlow: 0.5, glowIntensity: 1.2,
+        bodyScale: 1.0, wingSpan: 1.0, wingParts: 3,
+        torsoWidthScale: 1.18, bellyFlatten: 0.86, rearBulkScale: 1.28,
+        headScale: 0.94, headLenScale: 1.22, headHeightScale: 0.8, eyeScale: 1.15, hornLevel: 3,
+        thrusterLevel: 3, nacelleLevel: 3, spineCapLevel: 3, tailTip: 3, tailSegments: 9,
+        flapFreqScale: 0.88, rootAmp: 0.19, midAmp: 0.26, tipAmp: 0.36, midLag: 0.5, tipLag: 1.0,
+        glidePow: 2.6, bodyBobScale: 0.35, headWobbleScale: 0.0, tailLagScale: 0.07,
         colors: { bodyRoughness: 0.15, bodyMetalness: 0.6,
           body: 0xffd21a, wingInner: 0xffd21a, wingEmissive: 0xffa52a,
           apexSeam: 0xff3b2f, eye: 0x6fd6ff, coreGlow: 0xffa52a } },

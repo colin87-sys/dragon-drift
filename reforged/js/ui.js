@@ -1842,6 +1842,35 @@ function wireScreenButtons(type) {
         hTier = ownedOf(heroKey) ? getFormPref(heroKey) : maxTierFor(heroKey);
         refresh();
       });
+      // Drag-to-scroll the dragon rail for NON-touch pointers (mouse/pen): a native
+      // overflow-x scroller with a hidden scrollbar has no click-drag, so desktop
+      // users couldn't move Azure → Bull at all. Touch keeps its native pan-x momentum
+      // (no double-scroll). The 10px gate matches onTap, so a gesture is either a tap
+      // (< 10px → selects) or a drag (≥ 10px → scrolls), never both.
+      let rId = null, rStartX = 0, rStartScroll = 0, rDrag = false;
+      railEl.addEventListener('pointerdown', (e) => {
+        if (e.pointerType === 'touch') return;
+        rId = e.pointerId; rStartX = e.clientX; rStartScroll = railEl.scrollLeft; rDrag = false;
+      });
+      railEl.addEventListener('pointermove', (e) => {
+        if (e.pointerId !== rId) return;
+        const dx = e.clientX - rStartX;
+        if (!rDrag) {
+          if (Math.abs(dx) < 10) return;
+          rDrag = true;
+          try { railEl.setPointerCapture(e.pointerId); } catch { /* ok */ }
+          railEl.classList.add('dragging');
+        }
+        railEl.scrollLeft = rStartScroll - dx;
+      });
+      const rEnd = (e) => {
+        if (e.pointerId !== rId) return;
+        rId = null; rDrag = false;
+        try { railEl.releasePointerCapture(e.pointerId); } catch { /* ok */ }
+        railEl.classList.remove('dragging');
+      };
+      railEl.addEventListener('pointerup', rEnd);
+      railEl.addEventListener('pointercancel', rEnd);
       onTap(segEl, (e) => {
         const seg = e.target.closest('.hero-seg'); if (!seg) return;
         const t = Number(seg.dataset.form);

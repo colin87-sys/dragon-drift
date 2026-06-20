@@ -1995,3 +1995,188 @@ Treat "context is running" as the only safe precondition for scheduling, and dri
 **→ Systematize:** route ALL "(re)start audio" through a single `tryResumeMusic()`-style guard that checks
 `ctx.state === 'running'` and is fed by both the resume promise and the gesture unlock — never schedule speculatively from
 a lifecycle event. **Caveat:** iOS background-audio timing can't be reproduced headlessly — this one needs on-device QA.
+
+### L64 — A "different dragon" = different WING + TAIL builders on the SAME body, not a reshaped torso; and `svh` + an installed-PWA class beats `vh` for "fit in browser, roomy in app"
+**Did / learned:** the player compared two SVJ dragons and said we'd "reused too many assets — the wings and tail look quite
+similar, only the body shape changed." The fix that actually reads as a new dragon was to keep the recognizable SVJ body
+verbatim (`svjHull` torso, `svjWedgeHead`, the `svjScaleArmor`/`svjDorsalSpine`/engine layers, the cellular-scale shader,
+gold/carbon/red palette) and author **two brand-new part builders**: `svjJetWing` (a *layered* jet-blade wing — shoulder
+hinge + upper boom + main swept yellow blade + black vent panel/hex grille + 3 red chevrons + 4 controlled trailing flaps +
+endplate + secondary top blade, mapped onto the FROZEN rig: inner modules ride `wingPivot`, outer blade + endplate ride
+`wingTip`) and `svjAeroTridentTail` (9 armored segments returned as `segs` so the rig coils them, ending in a 3-prong tip:
+central dark spear + two swept side aero-stabilizer fins with red taillight slashes). New dragon `aurumToroMk2` registered;
+the old "Mk I" reskin (`aurumToroV2`, "ugly — get rid of it") deleted from the roster, its builders left registered-but-dormant
+for rollback. 5564 tris (≤6000). The silhouettes now genuinely differ (single broad blade + spear → stacked multi-blade
+jet-wing + trident) instead of just a body reshape. **Separately**, the shop's DRAGONS turntable used `.hero-stage { width:
+min(100%, 42vh) }` — `vh` *overshoots* in a mobile browser (the URL bar steals height that `vh` still counts), so the screen
+overran the viewport and forced a page-scroll that fought the swipe-to-rotate gesture. Fix: switch to `svh` (small viewport
+height, excludes the URL bar) at a smaller 34svh for browser, and toggle `html.standalone` from `main.js`
+(`matchMedia('(display-mode: standalone)')` for Android + `navigator.standalone` for iOS) to restore the roomy `42svh` only
+when installed as a PWA (no URL bar to fight).
+**Gotcha:** mapping a richly-specced wing onto the frozen 2-bone rig means deciding *per module* whether it rides the
+flapping root (`wingPivot`) or the lagged wrist (`wingTip`) — get that split right and the engine needs zero edits. Flat
+upward-facing top faces (e.g. a secondary top blade) catch a cool rim light as a white/blue blowout in the render harness;
+it's largely a harness-lighting artifact, so the player judges it under real game lighting on the live preview.
+**→ Systematize:** "new selectable dragon" should default to *new wing + tail builders on the shared body kit*, not a torso
+profile edit — it's cheaper, stays on-budget, and is what reads as a different creature. For any full-viewport mobile screen,
+prefer `svh`/`dvh` over `vh` and gate the roomy layout behind an installed-PWA class. **Caveat:** shop-height fit and the
+wing's white-flat blowout are visual/feel calls — verify on-device / on the live PR preview, not headlessly.
+
+### L65 — Re-mass ONE sibling without touching the other: parametrize the SHARED builder with default-1 knobs, set values on the one recipe; the "reads thin/flat" fix is massing + shape hierarchy, not more greeble
+**Did / learned:** the player's second pass on Aurum Toro Mk II said it still reads as a "flat gold glider / skinny stick
+body," and the fix is **stronger massing + shape hierarchy + SVJ aero language**, not more detail. But Mk II shares its torso
+(`svjHull`), head (`svjWedgeHead`) and thruster layer (`twinThrusters`) with the shipped `aurumToro`, which must stay
+byte-identical (the A/B compare). The clean pattern: **add optional knobs to the shared builder that default to today's exact
+values** — `svjHull` reads `model.{torsoWidthScale,torsoHeightScale,rearBulkScale}` and builds a scaled copy of its
+`SVJ_STATIONS` (rear-only bulk via `z >= -0.15 ? rbs : 1`) before lofting, scaling `attach.wingRoot(side).x` so the wings ride
+the new shoulder edge; `svjWedgeHead` reads `model.{headLenScale,headHeightScale}` to stretch the skull longer/lower;
+`twinThrusters` reads `def.thruster.{rOuter,rCore,spread,z,intensity}` for a bigger/brighter pod. Each knob is `?? <current>`
+so the default path is provably inert — `tricount` showed `aurumToro` **unchanged at 5516 tris** and its render pixel-identical,
+while Mk II got a broader engine-bay torso, thicker proximal tail (first-half segs ×≈1.22→1.06), longer wedge head, and dominant
+thrusters — all set on the **one recipe**. Wing/tail builders unique to Mk II (`svjJetWing`/`svjAeroTridentTail`) were edited
+freely (bigger black vent inset, lower secondary blade, sharper trident). All re-massing was scaling existing geometry → tri
+count held (5564, ≤6000), no new draw calls.
+**Gotcha:** when a builder was restored from git for rollback (here a dormant duplicate head `svjDragonHead`), the SHARED
+geometry lines are **identical** in two functions — an Edit on the live builder fails "2 matches"; anchor the edit on the unique
+function-signature block, not the shared body. Also `svjHull` is a *custom* builder (not `buildTorso`), so the engine's
+`model.shoulderWidthScale` (handled in `dragonTorso.js`) is a **no-op** for it — the torso must read its own width knobs.
+**→ Systematize:** "make this one bulkier/longer but don't change its sibling" = parametrize the shared builder with
+default-current knobs + set them on the single recipe; never fork the builder or edit shared geometry in place. **Caveat:**
+final massing/aero read is a feel call — tune the knob values to the render and let the player judge the live preview.
+
+### L66 — A hidden-scrollbar `overflow-x:auto` rail has NO desktop drag and a flaky iOS pan: fix with `touch-action: pan-x` on the rail AND its cards + a non-touch pointer drag-to-scroll
+**Did / learned:** the player couldn't move through the shop's bottom dragon-select rail (`#hero-rail` /
+`.dpick-rail`) — "drag to go Azure → Bull doesn't respond." Two distinct causes for one symptom: (1) the rail
+scrolls only via native `overflow-x:auto` with the scrollbar hidden (`scrollbar-width:none`), and a native
+overflow scroller with no visible scrollbar has **no click-drag** — desktop mouse users literally cannot drag
+it (only shift-wheel/trackpad); (2) the rail and its `.hero-thumb` cards declared **no `touch-action`**, so
+inside the vertical `.shop-scroll` parent iOS WebKit favored the vertical scroller and a horizontal swipe that
+*started on a card* got eaten — only swipes landing in the gaps scrolled ("find the right place for the
+finger"). Fix: add `touch-action: pan-x` to **both** the rail and the cards (declare horizontal intent so the
+swipe pans the rail, not the parent), plus a JS pointer drag-to-scroll on the rail **gated to non-touch
+pointers** (`e.pointerType !== 'touch'` → `setPointerCapture` + `scrollLeft = start - dx`); touch keeps its
+native momentum so there's no double-scroll. The drag threshold (10px) is set to the **same** value as the
+existing `onTap` tap/scroll guard, so a gesture is unambiguously either a tap (selects) or a drag (scrolls).
+**Gotcha:** `touch-action` is resolved at the element the touch lands on — putting `pan-x` only on the scroll
+*container* isn't enough when the touch starts on an interactive child (the card); the **child** needs it too.
+And a tap-vs-drag system only stays consistent if every handler on the element shares one movement threshold.
+**→ Systematize:** any custom-styled horizontal carousel = `touch-action: pan-x` on container **and** items +
+a non-touch drag-to-scroll; never ship a hidden-scrollbar `overflow-x` rail as the only scroll path (desktop
+can't drag it). **Caveat:** drag/touch-pan can't be driven headlessly — verify on the live PR preview.
+
+### L67 — "Reads like a glider, not an SVJ mecha" = a few named hard-surface MODULES (as Mk II-only layers) + a wide-LOW torso + a bloom-lit emissive hierarchy, not micro-detail
+**Did / learned:** Mk II was better but still read as a "gold low-poly glider wyvern." The player's fix was
+explicit: *don't add random detail — add specific silhouette/hard-surface modules.* Implemented as a 5-module
+identity pass, all scoped to Mk II so the shipped `aurumToro` stayed byte-identical (5516 tris, unchanged):
+**(1)** a wide-but-LOW torso — the prior pass's uniform `torsoHeightScale: 1.10` had inflated the loft into a
+round/pear abdomen; the fix was to drop it to 1.0 and add a `bellyFlatten` knob that squashes ONLY the central
+station (`z∈(-0.45,0.30)`) while keeping shoulders + rear engine-bay broad — lateral width + a per-zone
+vertical squash, never a global Y bump. **(2)** `svjShoulderNacelles` (NEW layer) — yellow pods + black
+intakes at `attach.wingRoot(side)` so the wings plug into an engine bay. **(3)** `svjSpineArmorCaps` (NEW
+layer, swapped in for the thin `svjDorsalSpine` spikes on Mk II) — yellow wedge caps + black base gaps along
+`keelTopAt` for a "vertebrae" rhythm, continued per-segment down the tail. **(4)** wing depth — thicker
+leading boom + enlarged wingtip endplate so the blade stops reading paper-flat. **(5)** sharper aero-trident
+tail tip. Plus a **layered thruster** (black housing → yellow armor frame → saturated-red turbine ring
+[2.6] → bright orange hot core [4.2] → warm-white hotspot): the emissive intensities form a deliberate
+HIERARCHY (core 4.2 > ring 2.6 > wing chevron 1.8) so the twin cores are the brightest red-orange and read
+first — and since the pipeline already runs `UnrealBloomPass` (`postfx.js`/`preview.js`), the high emissive
+blooms for free, so **no fake additive halo disc is needed** (it would fight the real bloom). Landed at 5852
+tris (≤6000). **Gotcha:** the player's "outerDiameter 0.50" etc. are DIAMETERS — the `thrusterPod` knobs are
+RADII; passing the diameter (0.46) as `rOuter` doubles the pod. Always reconcile diameter-vs-radius. And the
+angle-render harness has no bloom pass, so emissive brightness/glow can only be judged on the live preview.
+**→ Systematize:** identity work = a small set of *named, on-budget hard-surface modules* added as recipe-only
+layers (coexist, sibling byte-identical), not scattered greeble; and brightness reads come from an emissive
+intensity hierarchy under the existing bloom pass, not new geometry. **Caveat:** silhouette/glow are feel
+calls — judge on the live preview, iterate the knobs.
+
+### L70 — A 3-segment articulated wing on the frozen 2-bone rig = a nested wingMid group + a null-gated animation branch; L/R stay synced (mirror by sign, never phase-offset)
+**Did / learned:** the player wanted Mk II's wing to move like a mechanical 3-part aero blade (inner→mid→tip
+follow-through) instead of one board on a single hinge — and crucially, the LEFT and RIGHT wings must flap
+TOGETHER (any lag is WITHIN a wing, root→mid→tip, never BETWEEN wings). The engine's frozen wing rig already
+drives L/R synchronized (opposite amplitude SIGN, same integrated `flapPhase` clock — not an offset phase), and
+already supports extra joint slots (`wingPivot2`, skinned `wingRig`). Cleanest path without touching any other
+dragon: in `buildSvjJetWing`, nest a **`wingMid` group** between `wingPivot` (inner) and `wingTip` (tip) —
+`pivot → wingMid → wingTip` — split the geometry at 36%/73% of span with each segment built in its OWN local
+frame (subtract the joint origin so a child rotation pivots at the joint, not the mesh centre), add a yellow
+hinge-cover plate + a tiny anti-clip Y lift at each joint, and return `wingMidL/R`. Thread `wingMid` through
+`dragonModel.js` (both return paths + the preview animator), and in `dragon.js` add a **`wingMidL`-gated branch**
+in the frozen-rig path: inner = the existing pivot flap; mid/tip get `sin(phase−0.22)`/`sin(phase−0.38)` RELATIVE
+lag at small amplitudes, **clamped** (≤14°/≤8°) and boost-stiffened, with L/R using the SAME phase (mirror by
+sign only) — and I removed the old per-wing tip phase asymmetry (0.95 vs 1.18) for this dragon so any lag is
+purely within each wing. Every other dragon hits the `else` (wingMid null) → byte-identical (`aurumToro` 5516,
+unchanged). **Separately**, a Surge-only "jet afterburner" trail: tag invisible emitter `Object3D`s at the
+thruster mouths in the `twinThrusters` layer (gated behind the Mk II `def.thruster.frame` flag), collect them
+once at `createDragon` via `group.traverse`, and emit a short additive sprite stream from their world positions
+when `model.formLevel ≥ 3` (Eternal) AND `player.feverActive` (Surge), tinted to `def.surgeHi` (the colour Surge
+flares the wing). Reused the existing trail-sprite pool pattern; bloom lights it.
+**Gotcha:** when re-splitting a wing into nested joint groups, geometry built in the PIVOT frame must be
+re-expressed relative to each child's origin (a `sub(p, origin)` on every vertex) or the child rotates around the
+wrong point. Watch the tri budget — extra hinge covers/booms pushed it 44 over 6000; trimming the cover to a
+single plate + dropping a root block + the tip boom got it back under. And the render harness can't show flap
+MOTION or bloom — silhouette/structure is verifiable headlessly, but timing/glow is a live-preview call.
+**→ Systematize:** add an articulated segment to the frozen rig by returning a new nested joint group + a
+presence-gated animation branch; keep multi-limb symmetry as same-phase/sign-mirror, never offset phases.
+
+### L71 — A flap "wave" needs BIG phase lags + per-wing direct-set from ONE shared phase; per-wing damp() and same-sign turn terms are what make it stiff + desync L/R
+**Did / learned:** the first 3-part wing (L70) still read as "three stiff rods rotating together" and the L/R
+sides looked ~1 frame out of phase. Two root causes: (1) my segment lags were tiny — `sin(phase−0.22)` /
+`sin(phase−0.38)` ≈ 0.035 / 0.06 of the 2π cycle — so the thirds moved almost in lockstep (no visible
+root→mid→tip travel); (2) each segment was driven through `damp(current, target, …)` (a per-wing easing
+FILTER) and the flap target added `turnBias` with the SAME sign to both wings — so any lateral velocity made
+L and R asymmetric, and the per-wing filters were independent easing states that could drift. Fix: drive the
+Mk II wing **directly from the one shared, continuously-integrated `flapPhase`** (no per-wing damp), with REAL
+lags — `MID_LAG 0.62`, `TIP_LAG 1.25` rad (≈0.10 / 0.20 of the cycle) — and bigger relative amplitudes
+(mid 0.26, tip 0.34) so the tip whips. L/R became a **pure sign-mirror**: compute each segment's pose scalar
+once, assign `R = −pose`, `L = +pose`; the turn/bank term was removed from the flap entirely and re-expressed
+as amplitude scale (`1 − 0.30·side·bank`) + a static z bias (inside wing tucked, outside spread) — pose only,
+never phase. Added segment twist (`cos(phase−lag)`, pitch to catch air) and an upstroke fold
+(`max(0,sin)·rotation.y`). Gated to `else if (wingMidL)` so every other dragon keeps its damped path
+byte-identical (`aurumToro` 5516, unchanged).
+**Gotcha:** the user's rule "no separate timers/accumulators/easing states per wing" specifically rules out
+per-wing `damp()` — ONE shared phase is fine (and required), but the two wings must be a stateless sign-mirror
+of it. And any additive turn/bias term on the oscillation must be a pure mirror (`±side`) or it desyncs L/R;
+keep banking on amplitude + static bias, never on phase. Flap MOTION still isn't headless-verifiable — silhouette
+builds + boot are, but timing/feel is a live-preview call.
+**→ Systematize:** articulated flap = one integrated phase → per-segment `sin(phase − lag_i)` with lags that are
+a real fraction of the cycle, direct-set, L/R sign-mirror; reserve damping for noisy INPUTS (shared), never as
+the per-wing motion itself.
+
+### L72 — Per-FORM evolution = per-form knobs in forms[] (accrete onto model) + builders branching on level knobs + a flap-shaping `glidePow`; gate the layered read on the opt-in flag, not the form level
+**Did / learned:** made Aurum Toro Mk II's four ascension tiers read as one dragon's evolution (Hatchling baby →
+Kindled teen → Radiant adult → Eternal overlord), working backwards from the current = Eternal. `ascendedDef`
+already Object.assigns each `forms[t]`'s non-`colors` keys onto `model` (later forms win), so per-form GEOMETRY
+is just per-form knobs in `aurumToroMk2.forms`: proportion scalars (`bodyScale`/`wingSpan` drive the size ramp;
+`torsoWidthScale`/`bellyFlatten`/`headScale`/`eyeScale`) + FEATURE LEVELS (`wingParts` 1/2/3, `thrusterLevel`,
+`nacelleLevel`, `spineCapLevel`, `tailTip`, `hornLevel`). The builders/layers read those and branch — the wing
+builder returns 1 / 2 / 3 nested segment groups; the thruster/nacelle/spine layers self-gate (level 0 →
+`return {meshes:[],flareMats:[]}`) and scale by level; the tail tip grows spear→fork→trident; the head scales +
+drops horns. Per-FORM ANIMATION rode the same channel: `flapFreqScale`, `rootAmp/midAmp/tipAmp`, `midLag/tipLag`,
+`bodyBobScale`/`headWobbleScale`/`tailLagScale`, and the key knob **`glidePow`** — the flap waveform is
+`sign(sin)·|sin|^glidePow`, so high `glidePow` (Eternal 2.6) HOLDS the broad glide pose and pulses through
+rarely ("commands the air"), low (Hatchling 0.8) flaps frantically. One unified `else if (model.wingParts)` drive
+handles 1/2/3 segments via null-checks, keeping the L71 shared-phase sign-mirror. Tris dropped for younger forms
+(Hatchling 4424 → Eternal 5948 ≤6000); `aurumToro` + roster byte-identical.
+**Gotcha:** the layered thruster (frame/hot-core/emitter) had been gated on `if (t.frame)`; when I re-gated it on
+`thrusterLevel>=3` I dropped the `t.frame` check and `aurumToro` (which sets `thrusterLevel` via the default `??3`
+but has NO `def.thruster.frame`) suddenly grew the frame (+168 tris). Always keep the opt-in flag in the gate
+(`layered = !!def.thruster?.frame`) so a shared layer's new per-form path can't leak into other dragons. And the
+default `?? <eternal>` on every knob is what keeps non-Mk-II dragons untouched.
+**→ Systematize:** an evolution line = data-driven per-form knobs + level-branching builders; "glide vs frantic"
+is one `|sin|^p` shaping knob, not a state machine. **Caveat:** the render harness auto-frames each form (hiding
+the absolute-scale ramp) and can't show MOTION — verify the size/feel progression on-device.
+
+### L73 — Universal wing VFX (edge trails + hard-bank aero-shear) reuse the sprite pool from the wingtip markers; Surge emission inherits the equipped flightmark colour
+**Did / learned:** added three Surge/aero VFX to Mk II by reusing the existing THREE.Sprite additive-pool pattern,
+all emitting from the `tipMarkerL/R` wing-tip markers. (1) Wing-edge tip trails — thin streaks, WHITE at cruise/
+boost, and the **player's custom trail colour during Surge** (`activeDef.hasStyle ? pickTrailHex(activeDef.trail)
+: 0xff4fd8` magenta-pink fallback), intensity ramped per form (`[0.05,0.18,0.45,1.0][formLevel]`). (2) Hard-bank
+aero-shear / wingtip vortex — WHITE vapor only when `speedNorm>0.58 && bankHard>0.5`, with the OUTSIDE wing
+(opposite the turn: `side === -sign(turnBias)`) getting the stronger streak (×1.0 vs inside ×0.45). (3) The
+thruster afterburner now also inherits the custom trail colour. All gated behind `isMk2 = !!model.wingParts` for
+now (the rest of the roster byte-identical) — generalising to every dragon is a one-line gate change once
+approved. Pools are small (36 / 28) and `quality`-scaled so weak mobile stays cheap.
+**Gotcha:** "custom trail colour" ≠ "the dragon's default trail" — only use it when `activeDef.hasStyle` (a
+flightmark is equipped), else the personalised fallback; otherwise every dragon would surge in its own boring
+default. **→ Systematize:** new emitter-based VFX = one more pool fed by an existing marker + a per-form intensity
+LUT; colour-personalised effects key off the equipped-cosmetic flag, not the base def. **Caveat:** trails/bank
+vapor only show in motion — verify on the live preview.

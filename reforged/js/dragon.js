@@ -18,6 +18,8 @@ let activeRider = null;
 let group = null;
 let wingPivotL = null;
 let wingPivotR = null;
+let wingMidL = null;  // middle joint of the 3-segment articulated wing (Mk II), null otherwise
+let wingMidR = null;
 let wingTipL = null;  // secondary fold joint for 2-segment wing
 let wingTipR = null;
 let wingPivot2L = null;
@@ -94,6 +96,13 @@ let trailTimer = 0;
 let boostTrailTimer = 0;
 let contrailTimer = 0;
 let trailPaletteIdx = 0;
+let thrusterFireSprites = [];   // jet fire trail from the rear thrusters (Eternal + Surge)
+let thrusterFireTimer = 0;
+let thrusterEmitters = [];      // emitter markers collected from the twinThrusters layer
+let wingtipTrailSprites = [];   // thin wing-edge trails (boost/surge, custom colour on surge)
+let wingtipTrailTimer = 0;
+let aeroShearSprites = [];      // hard-bank wingtip vortex / aero-shear (white vapor)
+let aeroShearTimer = 0;
 
 // Trail color for a freshly-spawned sprite: cycles the equipped flightmark's
 // trailPalette (aurora/goldleaf) when present, else the flat per-dragon color.
@@ -127,6 +136,8 @@ export function createDragon(scene, def, riderDef) {
   group = result.group;
   ({ head, tailSegs, wingPivotL, wingPivotR, wingTipL, wingTipR,
      wingPivot2L, wingPivot2R, tipMarkerL, tipMarkerR } = result.parts);
+  wingMidL = result.parts.wingMidL || null;
+  wingMidR = result.parts.wingMidR || null;
   wingRigL = result.parts.wingRigL || null;
   wingRigR = result.parts.wingRigR || null;
   tailFins = result.parts.tailFins || [];
@@ -195,6 +206,35 @@ export function createDragon(scene, def, riderDef) {
     s.layers.set(1);
     scene.add(s);
     boostTrailSprites.push(s);
+  }
+  // Thruster jet-fire pool: a stream behind each rear thruster, emitted only on the
+  // Eternal form during Surge, tinted per-spawn to the Surge highlight. Emitter markers
+  // (from the twinThrusters layer) are collected so the pods are the source.
+  const fireTex = makeGlowTexture('255,255,255');
+  thrusterFireSprites = [];
+  for (let i = 0; i < 80; i++) {
+    const s = new THREE.Sprite(new THREE.SpriteMaterial({
+      map: fireTex, transparent: true, opacity: 0,
+      blending: THREE.AdditiveBlending, depthWrite: false,
+    }));
+    s.visible = false; s.userData.life = 0;
+    s.layers.set(1);
+    scene.add(s);
+    thrusterFireSprites.push(s);
+  }
+  thrusterEmitters = [];
+  group.traverse((o) => { if (o.userData && o.userData.svjThrusterEmitter) thrusterEmitters.push(o); });
+  // Wing-edge trails + hard-bank aero-shear vortex (both emit from the wingtip markers,
+  // reuse the white glow texture; tinted per spawn).
+  wingtipTrailSprites = [];
+  for (let i = 0; i < 36; i++) {
+    const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: fireTex, transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false }));
+    s.visible = false; s.userData.life = 0; s.layers.set(1); scene.add(s); wingtipTrailSprites.push(s);
+  }
+  aeroShearSprites = [];
+  for (let i = 0; i < 28; i++) {
+    const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: fireTex, transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false }));
+    s.visible = false; s.userData.life = 0; s.layers.set(1); scene.add(s); aeroShearSprites.push(s);
   }
 
   // Glowing motes: the Phoenix sheds warm ember-feathers continuously; dragons
@@ -310,6 +350,8 @@ export function disposeDragon() {
   group = null;
   wingPivot2L = null;
   wingPivot2R = null;
+  wingMidL = null;
+  wingMidR = null;
   bodySegs = null;
   tailOrbiters = null;
   ponyMeshes = [];
@@ -460,7 +502,8 @@ export function updateDragon(dt, player, time) {
   const feverBoost = player.feverActive ? 1.3 : 1;
   // FREQUENCY: boost/surge faster, a DIVE glides (slower/paused), decel eases back to normal.
   const flapSpeed = (player.speedActive ? 11 : 6) * feverBoost * activeDef.model.flapBias
-    * formSpeed(activeDef.model) * (1 - 0.55 * diveAmount) * (1 - 0.18 * decel01);
+    * formSpeed(activeDef.model) * (activeDef.model.flapFreqScale ?? 1)
+    * (1 - 0.55 * diveAmount) * (1 - 0.18 * decel01);
   // AMPLITUDE: dive tucks to a glide (small), climb + decel open broad to catch air.
   const flapAmp = (player.speedActive ? 0.7 : 0.52) * (activeDef.model.flapAmp ?? 1)
     * (1 - 0.7 * diveAmount) * (1 + 0.3 * climbAmount) * (1 + 0.25 * decel01);
@@ -481,6 +524,51 @@ export function updateDragon(dt, player, time) {
     const flapState = { phase, flapAmp, turnBias, climbBias, rollFold, feather, aero01, spread01, surge01, bankHard, strength: formStrength(activeDef.model) };
     flapWing(wingRigL, flapState, dt);
     flapWing(wingRigR, flapState, dt);
+  } else if (activeDef.model.wingParts) {
+    // ── Mk II per-FORM articulated wing (1 / 2 / 3 segments) ─────────────────────────
+    // ONE shared flap phase; L/R a pure sign-mirror (identical timing, never offset);
+    // the only delay is WITHIN each wing root→mid→tip. A GLIDE-HOLD waveform
+    // (|sin|^glidePow) holds the broad glide pose and pulses through — high glidePow =
+    // rare heavy pulses (Eternal "commands the air"); low = frantic flapping (baby).
+    // Banking = amplitude + static bias only (no phase offset). Direct-set (no per-wing
+    // easing). Handles missing mid/tip segments (Hatchling=1, Kindled=2).
+    const m = activeDef.model;
+    const glidePow = m.glidePow ?? 1;
+    const aoStiff = 1 - 0.25 * aero01;               // tighten follow-through on boost
+    const rootA = (m.rootAmp ?? flapAmp), midA = (m.midAmp ?? 0) * aoStiff, tipA = (m.tipAmp ?? 0) * aoStiff;
+    const midLag = m.midLag ?? 0, tipLag = m.tipLag ?? 0;
+    const shape = (ph) => { const s = Math.sin(ph); return Math.sign(s) * Math.pow(Math.abs(s), glidePow); };
+    const rootF = shape(phase) * rootA;
+    const midF  = shape(phase - midLag) * midA;
+    const tipF  = shape(phase - tipLag) * tipA;
+    const featR = Math.sin(phase + Math.PI * 0.55);
+    const twMid = Math.cos(phase - midLag) * 0.10;
+    const twTip = Math.cos(phase - tipLag) * 0.18;
+    const bank = Math.max(-1, Math.min(1, turnBias / 0.28));
+    const insR = bank, insL = -bank;
+    const ampR = 1 - 0.30 * insR, ampL = 1 - 0.30 * insL;
+    const biaR = 0.13 * insR, biaL = 0.13 * insL;
+    // ROOT / shoulder (always present)
+    wingPivotR.rotation.z = -(rootF * ampR) - 0.10 - biaR + rollFold;
+    wingPivotL.rotation.z =  (rootF * ampL) + 0.10 + biaL - rollFold;
+    wingPivotR.rotation.x = 0.14 + featR * 0.16 + climbBias;
+    wingPivotL.rotation.x = 0.14 - featR * 0.16 + climbBias;
+    wingPivotR.rotation.y = -0.18;
+    wingPivotL.rotation.y =  0.18;
+    if (wingMidL) {
+      const upMid = Math.max(0, Math.sin(phase - midLag));
+      wingMidR.rotation.z = -(midF * ampR); wingMidL.rotation.z =  (midF * ampL);
+      wingMidR.rotation.x =  twMid; wingMidL.rotation.x = -twMid;
+      wingMidR.rotation.y =  upMid * 0.08; wingMidL.rotation.y = -upMid * 0.08;
+    }
+    if (wingTipL) {
+      const upTip = Math.max(0, Math.sin(phase - tipLag));
+      // 2-segment wing has no mid group → its outer carries the mid follow-through.
+      const tF = wingMidL ? tipF : (midF + tipF);
+      wingTipR.rotation.z = -(tF * ampR); wingTipL.rotation.z =  (tF * ampL);
+      wingTipR.rotation.x = -0.05 + twTip; wingTipL.rotation.x = -0.05 - twTip;
+      wingTipR.rotation.y =  upTip * 0.14; wingTipL.rotation.y = -upTip * 0.14;
+    }
   } else {
     wingPivotR.rotation.z = damp(wingPivotR.rotation.z, -rootFlap + turnBias + rollFold, 14, dt);
     wingPivotL.rotation.z = damp(wingPivotL.rotation.z,  rootFlap + turnBias - rollFold, 14, dt);
@@ -488,12 +576,17 @@ export function updateDragon(dt, player, time) {
     wingPivotL.rotation.x = damp(wingPivotL.rotation.x, 0.14 - feather * 0.18 + climbBias, 10, dt);
     wingPivotR.rotation.y = damp(wingPivotR.rotation.y, -0.18 + turnBias * 0.8, 9, dt);
     wingPivotL.rotation.y = damp(wingPivotL.rotation.y,  0.18 + turnBias * 0.8, 9, dt);
-    // Tip fold: folds on up-stroke, extends on down-stroke, with a small delay
-    // between wings so the silhouette feels less mechanical.
+    // Tip fold (2-bone wings): folds on up-stroke, extends on down-stroke, with a
+    // small delay between wings so the silhouette feels less mechanical.
     wingTipR.rotation.z = damp(wingTipR.rotation.z, tipLag * 0.28 + turnBias * 0.45, 12, dt);
     wingTipL.rotation.z = damp(wingTipL.rotation.z, -Math.sin(phase + 1.18) * 0.28 + turnBias * 0.45, 12, dt);
     wingTipR.rotation.x = damp(wingTipR.rotation.x, -0.12 + feather * 0.16, 10, dt);
     wingTipL.rotation.x = damp(wingTipL.rotation.x, -0.12 - feather * 0.16, 10, dt);
+  }
+  // Per-form head wobble (Mk II): the baby's head bobbles with the frantic flap; the
+  // Eternal's is dead-still (headWobbleScale 0). Mk II-only (undefined elsewhere).
+  if (activeDef.model.headWobbleScale != null) {
+    head.rotation.z = activeDef.model.headWobbleScale * Math.sin(phase * 0.6 + 0.8);
   }
   // Secondary wing pair. Obsidian T4 = a shadow flap at reduced amplitude. The
   // Night-Fury mini-wings are STABILIZERS (model.miniWingStabilizer): they DON'T
@@ -539,14 +632,14 @@ export function updateDragon(dt, player, time) {
       } else if (role === 'neck') {
         // FIRM neck: faint bob/breathe, near-STILL under streamline/fever (calmHN). Leads the
         // turn only on a hard bank (eased); shares a little of the vertical body-whip.
-        const bob = 0.022 * sp * calmHN * flapSurge(phase - 0.3);
+        const bob = 0.022 * sp * calmHN * flapSurge(phase - 0.3) * (activeDef.model.bodyBobScale ?? 1);
         const breathe = Math.sin(time * 1.1) * 0.006 * calmHN;
         b.rotation.x = damp(b.rotation.x, bob + breathe - noseDown * 0.48 + noseUp * 0.42 + vWhip * 0.45, 9, dt);
         b.rotation.y = damp(b.rotation.y, -turnBias * 0.18 * bankHard * (1 + 0.4 * aero01), 7, dt);
       } else if (role === 'head') {
         // FIRM, composed gaze: a tiny counter to the neck, near-STILL under fever (calmHN).
         // Leads a hard turn (eased); dives/soars (deliberate poses). Stays OUT of the whip.
-        const counter = -0.018 * sp * calmHN * flapSurge(phase - 0.3);
+        const counter = -0.018 * sp * calmHN * flapSurge(phase - 0.3) * (activeDef.model.bodyBobScale ?? 1);
         b.rotation.x = damp(b.rotation.x, counter - noseDown * 0.85 + noseUp, 9, dt);
         b.rotation.y = damp(b.rotation.y, -turnBias * 0.28 * bankHard * (1 + 0.5 * aero01), 9, dt);
       } else {
@@ -567,7 +660,10 @@ export function updateDragon(dt, player, time) {
     const tWhip = -vertJerk * 0.014;          // subtle vertical follow-through (not a pump)
     const lam = Math.max(4, 8 + 5 * aero01 - 3 * decel01);
     const coilRate = 4.0;                                  // azure's tail rate
-    const coilAmp = (0.17 + 0.06 * speedNorm) * cruise;    // grows with speed; faded out on a hard bank
+    // Per-form tail looseness (Mk II): Hatchling coils loosely/uncontrolled, Eternal is
+    // tight/authoritative. tailLagScale 0.12 ≈ current → multiplier; undefined ⇒ ×1.
+    const tailLag = activeDef.model.tailLagScale != null ? activeDef.model.tailLagScale / 0.12 : 1;
+    const coilAmp = (0.17 + 0.06 * speedNorm) * cruise * tailLag;   // grows with speed; faded out on a hard bank
     for (let i = 0; i < nTail; i++) {
       const lock = (i + 1) / nTail;                        // root subtle → tip full (per-segment)
       const coil = Math.sin(time * coilRate - i * 0.6) * coilAmp * lock;  // azure-style lateral coil
@@ -837,6 +933,108 @@ export function updateDragon(dt, player, time) {
       const sz = 1.2 + (1 - s.userData.life) * 3.5;
       s.scale.set(sz, sz, 1);
     }
+  }
+
+  // Thruster jet-fire — ETERNAL form only, during Surge: a tight flame stream from each
+  // rear thruster mouth in the Surge-highlight colour (the colour Surge flares the
+  // wings), like a jet afterburner. Emits only when the collected pod emitters exist
+  // (Mk II), the form is Eternal (formLevel ≥ 3) and Surge is active.
+  if (thrusterEmitters.length && (activeDef.model.formLevel ?? 0) >= 3 && player.feverActive) {
+    thrusterFireTimer -= dt;
+    if (thrusterFireTimer <= 0) {
+      thrusterFireTimer = 0.011 / quality;
+      // Surge emission inherits the player's equipped TRAIL colour (magenta-pink fallback
+      // when no custom trail is set) — personalises the afterburner without repainting the body.
+      const fireHex = activeDef.hasStyle ? pickTrailHex(activeDef.trail) : 0xff4fd8;
+      for (const em of thrusterEmitters) {
+        const s = thrusterFireSprites.find(s => !s.visible);
+        if (!s) break;
+        em.getWorldPosition(tmpV);
+        s.visible = true;
+        s.userData.life = 1;
+        s.material.color.setHex(fireHex);
+        s.position.set(
+          tmpV.x + (Math.random() - 0.5) * 0.18,
+          tmpV.y + (Math.random() - 0.5) * 0.14,
+          tmpV.z + Math.random() * 1.4
+        );
+      }
+    }
+  }
+  for (const s of thrusterFireSprites) {
+    if (!s.visible) continue;
+    s.userData.life -= dt * 3.0;   // short + fast → a tight afterburner jet, not smoke
+    if (s.userData.life <= 0) { s.visible = false; s.material.opacity = 0; }
+    else {
+      s.material.opacity = s.userData.life * 0.9;
+      const sz = 0.5 + (1 - s.userData.life) * 1.6;
+      s.scale.set(sz, sz, 1);
+    }
+  }
+
+  // ── Mk II universal wing FX (gated to Mk II for now; generalise later) ──────────────
+  const isMk2 = !!activeDef.model.wingParts;
+  // (1) Wing-edge tip trails — thin streaks off the wingtip markers, scaling with boost/
+  // surge + the form's maturity. WHITE at cruise/boost; the player's custom trail colour
+  // during Surge (magenta-pink fallback). Per-form intensity (baby minimal → Eternal best).
+  if (isMk2) {
+    const wtFx = [0.05, 0.18, 0.45, 1.0][activeDef.model.formLevel ?? 3] ?? 1;
+    const surging = player.feverActive;
+    if (wtFx > 0 && (player.boosting || surging) && (tipMarkerL || tipMarkerR)) {
+      wingtipTrailTimer -= dt;
+      if (wingtipTrailTimer <= 0) {
+        wingtipTrailTimer = (surging ? 0.02 : 0.034) / (quality * wtFx);
+        const hex = surging ? (activeDef.hasStyle ? pickTrailHex(activeDef.trail) : 0xff4fd8) : 0xffffff;
+        for (const marker of [tipMarkerL, tipMarkerR]) {
+          if (!marker) continue;
+          const s = wingtipTrailSprites.find(s => !s.visible);
+          if (!s) break;
+          marker.getWorldPosition(tmpV);
+          s.visible = true;
+          s.userData.life = surging ? 0.9 : player.boosting ? 0.6 : 0.4;
+          s.userData.fx = wtFx;
+          s.material.color.setHex(hex);
+          s.position.copy(tmpV);
+        }
+      }
+    }
+    for (const s of wingtipTrailSprites) {
+      if (!s.visible) continue;
+      s.userData.life -= dt * 2.6;
+      if (s.userData.life <= 0) { s.visible = false; s.material.opacity = 0; }
+      else { s.material.opacity = s.userData.life * 0.5 * (s.userData.fx ?? 1); const sz = 0.22 + (1 - s.userData.life) * 0.85; s.scale.set(sz, sz, 1); }
+    }
+  }
+  // (2) Hard-bank aero-shear / wingtip vortex — thin WHITE vapor off the wingtips at high
+  // speed + hard bank; the OUTSIDE wing (opposite the turn) shows the stronger/longer streak.
+  if (isMk2 && speedNorm > 0.58 && bankHard > 0.5 && (tipMarkerL || tipMarkerR)) {
+    const asFx = [0.2, 0.45, 0.7, 1.0][activeDef.model.formLevel ?? 3] ?? 1;
+    aeroShearTimer -= dt;
+    if (aeroShearTimer <= 0) {
+      aeroShearTimer = 0.016 / quality;
+      const load = Math.min(1, (speedNorm - 0.58) * 2 + (bankHard - 0.5));
+      const turnSign = Math.sign(turnBias) || 1;     // >0 turning right
+      for (const [marker, side] of [[tipMarkerL, -1], [tipMarkerR, 1]]) {
+        if (!marker) continue;
+        const outside = side === -turnSign;          // outside of the turn = stronger
+        const strength = (outside ? 1.0 : 0.45) * asFx * load;
+        if (strength < 0.06) continue;
+        const s = aeroShearSprites.find(s => !s.visible);
+        if (!s) break;
+        marker.getWorldPosition(tmpV);
+        s.visible = true;
+        s.userData.life = 0.4 + strength * 0.5;
+        s.userData.str = strength;
+        s.material.color.setHex(0xffffff);
+        s.position.set(tmpV.x, tmpV.y, tmpV.z + Math.random() * 0.3);
+      }
+    }
+  }
+  for (const s of aeroShearSprites) {
+    if (!s.visible) continue;
+    s.userData.life -= dt * 2.2;
+    if (s.userData.life <= 0) { s.visible = false; s.material.opacity = 0; }
+    else { s.material.opacity = s.userData.life * 0.45 * (s.userData.str ?? 1); const sz = 0.3 + (1 - s.userData.life) * 1.3; s.scale.set(sz, sz, 1); }
   }
 
   // Glowing motes drift UP + BACK (toward the camera, away from the centre lane).
