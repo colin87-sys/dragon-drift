@@ -2164,3 +2164,19 @@ default `?? <eternal>` on every knob is what keeps non-Mk-II dragons untouched.
 **→ Systematize:** an evolution line = data-driven per-form knobs + level-branching builders; "glide vs frantic"
 is one `|sin|^p` shaping knob, not a state machine. **Caveat:** the render harness auto-frames each form (hiding
 the absolute-scale ramp) and can't show MOTION — verify the size/feel progression on-device.
+
+### L73 — Universal wing VFX (edge trails + hard-bank aero-shear) reuse the sprite pool from the wingtip markers; Surge emission inherits the equipped flightmark colour
+**Did / learned:** added three Surge/aero VFX to Mk II by reusing the existing THREE.Sprite additive-pool pattern,
+all emitting from the `tipMarkerL/R` wing-tip markers. (1) Wing-edge tip trails — thin streaks, WHITE at cruise/
+boost, and the **player's custom trail colour during Surge** (`activeDef.hasStyle ? pickTrailHex(activeDef.trail)
+: 0xff4fd8` magenta-pink fallback), intensity ramped per form (`[0.05,0.18,0.45,1.0][formLevel]`). (2) Hard-bank
+aero-shear / wingtip vortex — WHITE vapor only when `speedNorm>0.58 && bankHard>0.5`, with the OUTSIDE wing
+(opposite the turn: `side === -sign(turnBias)`) getting the stronger streak (×1.0 vs inside ×0.45). (3) The
+thruster afterburner now also inherits the custom trail colour. All gated behind `isMk2 = !!model.wingParts` for
+now (the rest of the roster byte-identical) — generalising to every dragon is a one-line gate change once
+approved. Pools are small (36 / 28) and `quality`-scaled so weak mobile stays cheap.
+**Gotcha:** "custom trail colour" ≠ "the dragon's default trail" — only use it when `activeDef.hasStyle` (a
+flightmark is equipped), else the personalised fallback; otherwise every dragon would surge in its own boring
+default. **→ Systematize:** new emitter-based VFX = one more pool fed by an existing marker + a per-form intensity
+LUT; colour-personalised effects key off the equipped-cosmetic flag, not the base def. **Caveat:** trails/bank
+vapor only show in motion — verify on the live preview.

@@ -99,6 +99,10 @@ let trailPaletteIdx = 0;
 let thrusterFireSprites = [];   // jet fire trail from the rear thrusters (Eternal + Surge)
 let thrusterFireTimer = 0;
 let thrusterEmitters = [];      // emitter markers collected from the twinThrusters layer
+let wingtipTrailSprites = [];   // thin wing-edge trails (boost/surge, custom colour on surge)
+let wingtipTrailTimer = 0;
+let aeroShearSprites = [];      // hard-bank wingtip vortex / aero-shear (white vapor)
+let aeroShearTimer = 0;
 
 // Trail color for a freshly-spawned sprite: cycles the equipped flightmark's
 // trailPalette (aurora/goldleaf) when present, else the flat per-dragon color.
@@ -220,6 +224,18 @@ export function createDragon(scene, def, riderDef) {
   }
   thrusterEmitters = [];
   group.traverse((o) => { if (o.userData && o.userData.svjThrusterEmitter) thrusterEmitters.push(o); });
+  // Wing-edge trails + hard-bank aero-shear vortex (both emit from the wingtip markers,
+  // reuse the white glow texture; tinted per spawn).
+  wingtipTrailSprites = [];
+  for (let i = 0; i < 36; i++) {
+    const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: fireTex, transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false }));
+    s.visible = false; s.userData.life = 0; s.layers.set(1); scene.add(s); wingtipTrailSprites.push(s);
+  }
+  aeroShearSprites = [];
+  for (let i = 0; i < 28; i++) {
+    const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: fireTex, transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false }));
+    s.visible = false; s.userData.life = 0; s.layers.set(1); scene.add(s); aeroShearSprites.push(s);
+  }
 
   // Glowing motes: the Phoenix sheds warm ember-feathers continuously; dragons
   // with def.surgeMotes (the Sovereign) breathe cool arcane motes during Surge.
@@ -927,7 +943,9 @@ export function updateDragon(dt, player, time) {
     thrusterFireTimer -= dt;
     if (thrusterFireTimer <= 0) {
       thrusterFireTimer = 0.011 / quality;
-      const fireHex = activeDef.surgeHi || 0xfff3d0;
+      // Surge emission inherits the player's equipped TRAIL colour (magenta-pink fallback
+      // when no custom trail is set) — personalises the afterburner without repainting the body.
+      const fireHex = activeDef.hasStyle ? pickTrailHex(activeDef.trail) : 0xff4fd8;
       for (const em of thrusterEmitters) {
         const s = thrusterFireSprites.find(s => !s.visible);
         if (!s) break;
@@ -952,6 +970,71 @@ export function updateDragon(dt, player, time) {
       const sz = 0.5 + (1 - s.userData.life) * 1.6;
       s.scale.set(sz, sz, 1);
     }
+  }
+
+  // ── Mk II universal wing FX (gated to Mk II for now; generalise later) ──────────────
+  const isMk2 = !!activeDef.model.wingParts;
+  // (1) Wing-edge tip trails — thin streaks off the wingtip markers, scaling with boost/
+  // surge + the form's maturity. WHITE at cruise/boost; the player's custom trail colour
+  // during Surge (magenta-pink fallback). Per-form intensity (baby minimal → Eternal best).
+  if (isMk2) {
+    const wtFx = [0.05, 0.18, 0.45, 1.0][activeDef.model.formLevel ?? 3] ?? 1;
+    const surging = player.feverActive;
+    if (wtFx > 0 && (player.boosting || surging) && (tipMarkerL || tipMarkerR)) {
+      wingtipTrailTimer -= dt;
+      if (wingtipTrailTimer <= 0) {
+        wingtipTrailTimer = (surging ? 0.02 : 0.034) / (quality * wtFx);
+        const hex = surging ? (activeDef.hasStyle ? pickTrailHex(activeDef.trail) : 0xff4fd8) : 0xffffff;
+        for (const marker of [tipMarkerL, tipMarkerR]) {
+          if (!marker) continue;
+          const s = wingtipTrailSprites.find(s => !s.visible);
+          if (!s) break;
+          marker.getWorldPosition(tmpV);
+          s.visible = true;
+          s.userData.life = surging ? 0.9 : player.boosting ? 0.6 : 0.4;
+          s.userData.fx = wtFx;
+          s.material.color.setHex(hex);
+          s.position.copy(tmpV);
+        }
+      }
+    }
+    for (const s of wingtipTrailSprites) {
+      if (!s.visible) continue;
+      s.userData.life -= dt * 2.6;
+      if (s.userData.life <= 0) { s.visible = false; s.material.opacity = 0; }
+      else { s.material.opacity = s.userData.life * 0.5 * (s.userData.fx ?? 1); const sz = 0.22 + (1 - s.userData.life) * 0.85; s.scale.set(sz, sz, 1); }
+    }
+  }
+  // (2) Hard-bank aero-shear / wingtip vortex — thin WHITE vapor off the wingtips at high
+  // speed + hard bank; the OUTSIDE wing (opposite the turn) shows the stronger/longer streak.
+  if (isMk2 && speedNorm > 0.58 && bankHard > 0.5 && (tipMarkerL || tipMarkerR)) {
+    const asFx = [0.2, 0.45, 0.7, 1.0][activeDef.model.formLevel ?? 3] ?? 1;
+    aeroShearTimer -= dt;
+    if (aeroShearTimer <= 0) {
+      aeroShearTimer = 0.016 / quality;
+      const load = Math.min(1, (speedNorm - 0.58) * 2 + (bankHard - 0.5));
+      const turnSign = Math.sign(turnBias) || 1;     // >0 turning right
+      for (const [marker, side] of [[tipMarkerL, -1], [tipMarkerR, 1]]) {
+        if (!marker) continue;
+        const outside = side === -turnSign;          // outside of the turn = stronger
+        const strength = (outside ? 1.0 : 0.45) * asFx * load;
+        if (strength < 0.06) continue;
+        const s = aeroShearSprites.find(s => !s.visible);
+        if (!s) break;
+        marker.getWorldPosition(tmpV);
+        s.visible = true;
+        s.userData.life = 0.4 + strength * 0.5;
+        s.userData.str = strength;
+        s.material.color.setHex(0xffffff);
+        s.position.set(tmpV.x, tmpV.y, tmpV.z + Math.random() * 0.3);
+      }
+    }
+  }
+  for (const s of aeroShearSprites) {
+    if (!s.visible) continue;
+    s.userData.life -= dt * 2.2;
+    if (s.userData.life <= 0) { s.visible = false; s.material.opacity = 0; }
+    else { s.material.opacity = s.userData.life * 0.45 * (s.userData.str ?? 1); const sz = 0.3 + (1 - s.userData.life) * 1.3; s.scale.set(sz, sz, 1); }
   }
 
   // Glowing motes drift UP + BACK (toward the camera, away from the centre lane).
