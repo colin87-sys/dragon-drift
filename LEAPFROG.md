@@ -2088,3 +2088,31 @@ angle-render harness has no bloom pass, so emissive brightness/glow can only be 
 layers (coexist, sibling byte-identical), not scattered greeble; and brightness reads come from an emissive
 intensity hierarchy under the existing bloom pass, not new geometry. **Caveat:** silhouette/glow are feel
 calls — judge on the live preview, iterate the knobs.
+
+### L70 — A 3-segment articulated wing on the frozen 2-bone rig = a nested wingMid group + a null-gated animation branch; L/R stay synced (mirror by sign, never phase-offset)
+**Did / learned:** the player wanted Mk II's wing to move like a mechanical 3-part aero blade (inner→mid→tip
+follow-through) instead of one board on a single hinge — and crucially, the LEFT and RIGHT wings must flap
+TOGETHER (any lag is WITHIN a wing, root→mid→tip, never BETWEEN wings). The engine's frozen wing rig already
+drives L/R synchronized (opposite amplitude SIGN, same integrated `flapPhase` clock — not an offset phase), and
+already supports extra joint slots (`wingPivot2`, skinned `wingRig`). Cleanest path without touching any other
+dragon: in `buildSvjJetWing`, nest a **`wingMid` group** between `wingPivot` (inner) and `wingTip` (tip) —
+`pivot → wingMid → wingTip` — split the geometry at 36%/73% of span with each segment built in its OWN local
+frame (subtract the joint origin so a child rotation pivots at the joint, not the mesh centre), add a yellow
+hinge-cover plate + a tiny anti-clip Y lift at each joint, and return `wingMidL/R`. Thread `wingMid` through
+`dragonModel.js` (both return paths + the preview animator), and in `dragon.js` add a **`wingMidL`-gated branch**
+in the frozen-rig path: inner = the existing pivot flap; mid/tip get `sin(phase−0.22)`/`sin(phase−0.38)` RELATIVE
+lag at small amplitudes, **clamped** (≤14°/≤8°) and boost-stiffened, with L/R using the SAME phase (mirror by
+sign only) — and I removed the old per-wing tip phase asymmetry (0.95 vs 1.18) for this dragon so any lag is
+purely within each wing. Every other dragon hits the `else` (wingMid null) → byte-identical (`aurumToro` 5516,
+unchanged). **Separately**, a Surge-only "jet afterburner" trail: tag invisible emitter `Object3D`s at the
+thruster mouths in the `twinThrusters` layer (gated behind the Mk II `def.thruster.frame` flag), collect them
+once at `createDragon` via `group.traverse`, and emit a short additive sprite stream from their world positions
+when `model.formLevel ≥ 3` (Eternal) AND `player.feverActive` (Surge), tinted to `def.surgeHi` (the colour Surge
+flares the wing). Reused the existing trail-sprite pool pattern; bloom lights it.
+**Gotcha:** when re-splitting a wing into nested joint groups, geometry built in the PIVOT frame must be
+re-expressed relative to each child's origin (a `sub(p, origin)` on every vertex) or the child rotates around the
+wrong point. Watch the tri budget — extra hinge covers/booms pushed it 44 over 6000; trimming the cover to a
+single plate + dropping a root block + the tip boom got it back under. And the render harness can't show flap
+MOTION or bloom — silhouette/structure is verifiable headlessly, but timing/glow is a live-preview call.
+**→ Systematize:** add an articulated segment to the frozen rig by returning a new nested joint group + a
+presence-gated animation branch; keep multi-limb symmetry as same-phase/sign-mirror, never offset phases.
