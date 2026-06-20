@@ -952,3 +952,10 @@ tick();
 
 // Boot complete: cross-fade the loading screen out, the canvas in (CSS-driven).
 document.body.classList.add('app-loaded');
+
+// Flag installed-PWA (standalone) so the DRAGONS shop can use a roomier layout
+// when run as an app, but stay compact enough to fit a browser viewport (URL bar
+// eats height) without forcing a page-scroll. Android: display-mode media query;
+// iOS Safari: navigator.standalone.
+document.documentElement.classList.toggle('standalone',
+  !!(window.matchMedia?.('(display-mode: standalone)').matches || window.navigator.standalone));

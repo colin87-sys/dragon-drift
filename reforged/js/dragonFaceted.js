@@ -1631,3 +1631,225 @@ function buildSegmentedAeroTail(def, model, mats, anchor) {
   return { group: root, segs, tailFins, accentMats };
 }
 registerTail('segmentedAeroTail', buildSegmentedAeroTail);
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// SVJ MECHA-DRAGON Mk II — a NEW selectable dragon: the current SVJ body with a
+// brand-new WING and TAIL built to the player's detailed hard-surface spec. Axis:
+// head/forward = −Z, tail/rear = +Z, right = +X, up = +Y (matches the engine).
+// ═══════════════════════════════════════════════════════════════════════════════
+
+// ── WINGS: 'svjJetWing' — layered SVJ jet-blade wing (player spec, 7 modules) ─────
+// A clean swept-back supercar/jet aero blade (NOT a membrane/fan): yellow outer
+// silhouette, black recessed vent panel + hex grille inside, 3 red chevron taillights
+// near the trailing edge, 4 small overlapping trailing flaps, a sharp wingtip endplate
+// + one secondary top blade. Sweeps back toward +Z. Honors the FROZEN rig: the hinge +
+// inner blade ride the pivot (flap); the outer blade + endplate ride the wingTip
+// (lagged fold) → "shoulder rotates first, outer blade follows with delay".
+function buildSvjJetWing(def, model, attach, giM) {
+  const group = new THREE.Group();
+  const spineMats = [];
+  const ws = model.wingScale ?? 1;
+  const gi = Math.min(giM ?? 1, 1.3);
+  const D2R = Math.PI / 180;
+
+  const yellow = new THREE.MeshStandardMaterial({
+    color: def.body ?? 0xf2c20e, flatShading: true, side: THREE.DoubleSide,
+    roughness: def.bodyRoughness ?? 0.24, metalness: def.bodyMetalness ?? 0.55,
+  });
+  const black = new THREE.MeshStandardMaterial({
+    color: def.belly ?? def.horn ?? 0x0e0e12, flatShading: true, side: THREE.DoubleSide,
+    roughness: 0.45, metalness: 0.55,
+  });
+  const grey = new THREE.MeshStandardMaterial({
+    color: def.horn ?? 0x141418, flatShading: true, roughness: 0.4, metalness: 0.6,
+  });
+  const redCol = def.apexSeam ?? 0xff3b2f;
+  const red = new THREE.MeshStandardMaterial({ color: redCol, emissive: redCol, emissiveIntensity: 1.8 * gi, roughness: 0.3 });
+  red.userData.baseEmissive = redCol; red.userData.baseIntensity = 1.8 * gi;
+  spineMats.push(red);
+
+  const add = (a, b) => ({ x: a.x + b.x, y: a.y + b.y, z: a.z + b.z });
+  const mul = (a, s) => ({ x: a.x * s, y: a.y * s, z: a.z * s });
+  const lerp = (a, b, t) => ({ x: a.x + (b.x - a.x) * t, y: a.y + (b.y - a.y) * t, z: a.z + (b.z - a.z) * t });
+  const norm = (a) => { const m = Math.hypot(a.x, a.y, a.z) || 1; return { x: a.x / m, y: a.y / m, z: a.z / m }; };
+  const arr = (p) => [p.x, p.y, p.z];
+  const offN = (p, d) => ({ x: p.x, y: p.y + d, z: p.z });   // surface offset ≈ +Y (layer separation)
+
+  const L = 4.35 * ws;
+  const sweep = 24 * D2R, dih = 6 * D2R;
+  const yOff = 0.020, bOff = 0.008, rOff = 0.016;
+
+  function buildSide(side) {
+    const pivot = new THREE.Group();
+    const wr = attach.wingRoot(side);
+    pivot.position.set(wr.x, wr.y, wr.z);
+
+    const spanDir = norm({ x: side * Math.cos(sweep) * Math.cos(dih), y: Math.sin(dih), z: Math.sin(sweep) * Math.cos(dih) });
+    const fwd = { x: 0, y: 0, z: -1 }, rear = { x: 0, y: 0, z: 1 };
+    const stationPoint = (t) => mul(spanDir, L * t);
+    const xsec = (t, chord) => { const c = stationPoint(t); return { c, leading: add(c, mul(fwd, chord * 0.38)), trailing: add(c, mul(rear, chord * 0.62)) }; };
+    const quad = (a, b, c, d, mat, o) => flatTriMesh([
+      [arr(offN(a, o)), arr(offN(b, o)), arr(offN(c, o))],
+      [arr(offN(a, o)), arr(offN(c, o)), arr(offN(d, o))],
+    ], mat);
+
+    // MODULE 1 — shoulder hinge (the only "joint")
+    const hinge = new THREE.Mesh(new THREE.BoxGeometry(0.28, 0.36, 0.40), grey);
+    hinge.position.set(side * 0.06, 0, 0.02); hinge.rotation.z = side * 0.18;
+    pivot.add(hinge);
+
+    const S0 = xsec(0.00, 1.05), S1 = xsec(0.30, 0.92), S2 = xsec(0.62, 0.62), S3 = xsec(1.00, 0.28);
+
+    // MODULE 2 — upper yellow boom (leading spar)
+    pivot.add(frameBar(arr(offN(S0.leading, yOff)), arr(offN(S2.leading, yOff)), [0.17, 0.1], yellow));
+    // MODULE 3 (inner) — main yellow blade t0→t0.62 (the silhouette)
+    pivot.add(quad(S0.leading, S1.leading, S1.trailing, S0.trailing, yellow, yOff));
+    pivot.add(quad(S1.leading, S2.leading, S2.trailing, S1.trailing, yellow, yOff));
+
+    // MODULE 4 — black recessed vent panel (inset t0.12→0.62) + hex grille
+    const V0 = xsec(0.12, 0.78), V1 = xsec(0.34, 0.68), V2 = xsec(0.62, 0.46);
+    const bl = (s) => lerp(s.leading, s.c, 0.24), tr = (s) => lerp(s.trailing, s.c, 0.24);
+    pivot.add(flatTriMesh([
+      [arr(offN(bl(V0), bOff + yOff)), arr(offN(bl(V1), bOff + yOff)), arr(offN(tr(V1), bOff + yOff))],
+      [arr(offN(bl(V0), bOff + yOff)), arr(offN(tr(V1), bOff + yOff)), arr(offN(tr(V0), bOff + yOff))],
+      [arr(offN(bl(V1), bOff + yOff)), arr(offN(bl(V2), bOff + yOff)), arr(offN(tr(V2), bOff + yOff))],
+      [arr(offN(bl(V1), bOff + yOff)), arr(offN(tr(V2), bOff + yOff)), arr(offN(tr(V1), bOff + yOff))],
+    ], black));
+    const hg = hexGrille({ w: 0.66, h: 0.4, mat: black, barMat: grey });
+    hg.position.set(V1.c.x, V1.c.y + bOff + yOff + 0.004, V1.c.z);
+    pivot.add(hg);
+
+    // MODULE 5 — 3 red chevron taillights ("<") on the black panel near trailing edge
+    for (const t of [0.30, 0.50, 0.68]) {
+      const s = xsec(t, 0.78 + (0.34 - 0.78) * t);
+      const ctr = lerp(s.c, s.trailing, 0.48);
+      for (const [dx, dz, ang, ln] of [[0, 0, -28, 0.34], [side * 0.08, 0.06, 22, 0.28]]) {
+        const bar = chevronLight({ len: ln, w: 0.035, mat: red });
+        bar.position.set(ctr.x + dx, ctr.y + rOff + yOff, ctr.z + dz);
+        bar.rotation.y = side * ang * D2R;
+        pivot.add(bar);
+      }
+    }
+
+    // MODULE 6 — 4 controlled trailing flaps (small overlapping plates, extend +Z)
+    for (const t0 of [0.18, 0.36, 0.54, 0.72]) {
+      const t1 = Math.min(t0 + 0.14, 0.92);
+      const s0 = xsec(t0, 1.05 + (0.28 - 1.05) * t0), s1 = xsec(t1, 1.05 + (0.28 - 1.05) * t1);
+      const iA = add(s0.trailing, { x: 0, y: -0.025, z: 0.02 }), iB = add(s1.trailing, { x: 0, y: -0.025, z: 0.02 });
+      const oA = add(iA, { x: 0, y: -0.015, z: 0.24 }), oB = add(iB, { x: 0, y: -0.015, z: 0.18 });
+      pivot.add(flatTriMesh([[arr(iA), arr(iB), arr(oB)], [arr(iA), arr(oB), arr(oA)]], yellow));
+      const g = (p) => ({ x: p.x, y: p.y - 0.02, z: p.z });
+      pivot.add(flatTriMesh([[arr(g(iA)), arr(g(iB)), arr(g(oB))], [arr(g(iA)), arr(g(oB)), arr(g(oA))]], black));
+    }
+
+    // MODULE 7 (top blade) — one secondary top blade, raked back/up
+    const T0 = xsec(0.18, 0.46), T1 = xsec(0.92, 0.18);
+    const up = (p, dy, dz) => ({ x: p.x, y: p.y + dy, z: p.z + dz });
+    pivot.add(flatTriMesh([
+      [arr(up(T0.leading, 0.22, -0.06)), arr(up(T1.leading, 0.22, -0.06)), arr(up(T1.trailing, 0.22, -0.02))],
+      [arr(up(T0.leading, 0.22, -0.06)), arr(up(T1.trailing, 0.22, -0.02)), arr(up(T0.trailing, 0.22, -0.02))],
+    ], yellow));
+
+    // ── wingTip (rig fold): OUTER blade t0.62→1.0 + endplate + marker ──
+    const wingTip = new THREE.Group();
+    const wp = stationPoint(0.62);
+    wingTip.position.set(wp.x, wp.y, wp.z);
+    const rel = (p) => ({ x: p.x - wp.x, y: p.y - wp.y, z: p.z - wp.z });
+    wingTip.add(flatTriMesh([
+      [arr(offN(rel(S2.leading), yOff)), arr(offN(rel(S3.leading), yOff)), arr(offN(rel(S3.trailing), yOff))],
+      [arr(offN(rel(S2.leading), yOff)), arr(offN(rel(S3.trailing), yOff)), arr(offN(rel(S2.trailing), yOff))],
+    ], yellow));
+    wingTip.add(frameBar(arr(offN(rel(S2.leading), yOff)), arr(offN(rel(S3.leading), yOff)), [0.13, 0.08], yellow));
+    const tc = rel(S3.c);
+    wingTip.add(flatTriMesh([
+      [[tc.x, tc.y - 0.05, tc.z - 0.08], [tc.x + side * 0.48, tc.y + 0.02, tc.z + 0.03], [tc.x + side * 0.42, tc.y + 0.30, tc.z + 0.18]],
+      [[tc.x, tc.y - 0.05, tc.z - 0.08], [tc.x + side * 0.42, tc.y + 0.30, tc.z + 0.18], [tc.x + side * 0.02, tc.y + 0.18, tc.z + 0.05]],
+    ], yellow));
+    const marker = new THREE.Object3D();
+    marker.position.set(tc.x, tc.y, tc.z);
+    wingTip.add(marker);
+    pivot.add(wingTip);
+
+    group.add(pivot);
+    return { pivot, wingTip, marker };
+  }
+
+  const R = buildSide(1), Lf = buildSide(-1);
+  return {
+    group,
+    parts: {
+      wingPivotL: Lf.pivot, wingPivotR: R.pivot,
+      wingTipL: Lf.wingTip, wingTipR: R.wingTip,
+      tipMarkerL: Lf.marker, tipMarkerR: R.marker,
+      wingPivot2L: null, wingPivot2R: null, wingRigL: null, wingRigR: null,
+    },
+    wingMat: yellow, spineMats,
+  };
+}
+registerWings('svjJetWing', buildSvjJetWing);
+
+// ── TAIL: 'svjAeroTridentTail' — segmented armored tail + aero-trident tip (spec) ─
+// A 9-segment armored tail (thick base, tapering late; coils via `segs`) ending in an
+// AERO-TRIDENT tip: a central dark spear (longest/narrowest) flanked by two shorter,
+// broader swept Lamborghini-style side stabilizer fins (yellow armor + black inset +
+// red taillight slash), flared outward (±X) and back (+Z). A hypercar diffuser/aero
+// stabilizer system as a dragon tail tip — not a fantasy trident / shark fin / fork.
+function buildSvjAeroTridentTail(def, model, mats, anchor) {
+  const { bodyMat } = mats;
+  const root = new THREE.Group();
+  root.position.set(0, anchor.y, anchor.z);
+  const gold = bodyMat.clone(); gold.flatShading = true;
+  const carbon = new THREE.MeshStandardMaterial({ color: def.belly ?? def.horn ?? 0x0e0e12, flatShading: true, roughness: 0.42, metalness: 0.6 });
+  const redCol = def.apexSeam ?? 0xff3b2f;
+  const red = new THREE.MeshStandardMaterial({ color: redCol, emissive: redCol, emissiveIntensity: 1.7, roughness: 0.3 });
+  red.userData.baseEmissive = redCol; red.userData.baseIntensity = 1.7;
+  const accentMats = [red];
+  const segs = [], tailFins = [];
+  const D2R = Math.PI / 180;
+
+  // [length, width, height] per segment (player spec) — width→radius.
+  const SEG = [[0.58, 0.65, 0.44], [0.60, 0.60, 0.40], [0.62, 0.54, 0.36], [0.60, 0.48, 0.32],
+    [0.58, 0.41, 0.28], [0.55, 0.34, 0.24], [0.50, 0.28, 0.20], [0.44, 0.22, 0.16], [0.36, 0.17, 0.12]];
+  const n = Math.min(model.tailSegments ?? 9, SEG.length);
+  let z = 0.1, last = null;
+  for (let i = 0; i < n; i++) {
+    const [len, w] = SEG[i];
+    const r = w * 0.5, rTop = SEG[Math.min(i + 1, n - 1)][1] * 0.5;
+    const ss = spineSegment({ rTop, rBot: r, len, coreMat: carbon, armorMat: gold });
+    ss.group.position.set(0, 0, z);
+    root.add(ss.group); segs.push(ss.group); last = ss.group;
+    if (i >= 2 && i <= 5) { const slit = chevronLight({ len: r * 1.2, w: 0.04, mat: red }); slit.position.set(0, r * 0.5, len * 0.3); ss.group.add(slit); }
+    if (i >= 6) for (const s of [-1, 1]) { const fin = new THREE.Mesh(new THREE.BoxGeometry(0.14, 0.06, 0.22), gold); fin.position.set(s * (r + 0.1), r * 0.3, 0); fin.rotation.z = s * 0.3; ss.group.add(fin); }
+    z += len * 0.82;
+  }
+
+  // tapered blade (a 6-face wedge box extending +Z)
+  const blade = (length, baseW, tipW, height, mat) => {
+    const a = baseW * 0.5, b = tipW * 0.5, h = height * 0.5;
+    const v = [[-a, -h, 0], [a, -h, 0], [a, h, 0], [-a, h, 0], [-b, -h * 0.3, length], [b, -h * 0.3, length], [b, h * 0.3, length], [-b, h * 0.3, length]];
+    const idx = [[0, 1, 2], [0, 2, 3], [4, 6, 5], [4, 7, 6], [0, 4, 5], [0, 5, 1], [1, 5, 6], [1, 6, 2], [2, 6, 7], [2, 7, 3], [3, 7, 4], [3, 4, 0]];
+    return flatTriMesh(idx.map((t) => t.map((k) => v[k])), mat);
+  };
+
+  // ── aero-trident tip (rigid, rides the last segment's coil) ──
+  const tip = new THREE.Group();
+  tip.position.set(0, 0, SEG[n - 1][0] * 0.5);
+  last.add(tip);
+  // central dark spear (longest, narrowest) + thin gold cap edge
+  const spear = blade(0.52, 0.16, 0.035, 0.12, carbon); spear.position.set(0, 0, 0.18); tip.add(spear);
+  const cap = blade(0.5, 0.1, 0.03, 0.08, gold); cap.position.set(0, 0.01, 0.2); tip.add(cap);
+  // two swept side stabilizer fins (gold + black inset + red slash)
+  for (const sign of [-1, 1]) {
+    const bg = new THREE.Group();
+    bg.position.set(sign * 0.10, 0.02, 0.10);
+    const b = blade(0.42, 0.12, 0.035, 0.24, gold);
+    b.rotation.set(-4 * D2R, sign * 28 * D2R, sign * -8 * D2R);   // up-tilt, flare out, slight bank
+    bg.add(b);
+    const inset = blade(0.28, 0.075, 0.022, 0.06, carbon); inset.position.set(sign * 0.005, 0.02, 0.12); inset.rotation.copy(b.rotation); bg.add(inset);
+    const slash = chevronLight({ len: 0.24, w: 0.025, mat: red }); slash.position.set(sign * 0.012, 0.04, 0.13); slash.rotation.copy(b.rotation); bg.add(slash);
+    tip.add(bg);
+  }
+
+  return { group: root, segs, tailFins, accentMats };
+}
+registerTail('svjAeroTridentTail', buildSvjAeroTridentTail);

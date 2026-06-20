@@ -1164,20 +1164,23 @@ export const DRAGONS = {
     eye: 0x3fc6ff, trail: 0xff8a1f, boostTrail: 0xff3b2f,
   },
 
-  // Aurum Toro Mk I — the v2 RESKIN (first SVJ pass): the bull-derived body/wings
-  // (svjEngineBay/bladeWing/svjDragonHead) + the new long segmented armored tail
-  // (segmentedAeroTail). Kept as a parallel roster entry to compare against the
-  // current clean-room SVJ 'aurumToro' above. Builders restored from git 7c8ebf5.
-  aurumToroV2: {
-    name: 'Aurum Toro Mk I',
+  // Aurum Toro Mk II — a NEW selectable dragon: the current SVJ body (svjHull + scales
+  // + spine + thrusters) wearing a BRAND-NEW layered SVJ jet-blade WING (svjJetWing)
+  // and an aero-trident stabilizer TAIL (svjAeroTridentTail), both authored to the
+  // player's hard-surface spec. Distinct wings + tail vs the current 'aurumToro'.
+  aurumToroMk2: {
+    name: 'Aurum Toro Mk II',
     title: 'The raging bull',
     rarity: 'SSSR',
     maxRarity: 'SSSR',
     cost: 5000,
     parts: {
-      torso: 'svjEngineBay', wings: 'bladeWing', head: 'svjDragonHead', tail: 'segmentedAeroTail',
-      surfaceLayers: ['engineBay', 'ventSlashes', 'twinThrusters', 'rearDiffuser', 'mechaLegs', 'scissorHinge'],
+      torso: 'svjHull', wings: 'svjJetWing', head: 'svjWedgeHead', tail: 'svjAeroTridentTail',
+      surface: { shader: ['cellularScalesNormal'] },
+      surfaceLayers: ['svjScaleArmor', 'engineBay', 'ventSlashes', 'twinThrusters',
+        'rearDiffuser', 'svjDorsalSpine', 'scissorHinge'],
     },
+    scaleSize: 4.5, scaleRelief: 0.28,
     stats: { speed: 1.16, handling: 1.22, drain: 1.04, regen: 0.95 },
     model: {
       scale: 1.0, wingScale: 1.0, tailSegments: 9, neckSegments: 3,

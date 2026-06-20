@@ -1995,3 +1995,29 @@ Treat "context is running" as the only safe precondition for scheduling, and dri
 **→ Systematize:** route ALL "(re)start audio" through a single `tryResumeMusic()`-style guard that checks
 `ctx.state === 'running'` and is fed by both the resume promise and the gesture unlock — never schedule speculatively from
 a lifecycle event. **Caveat:** iOS background-audio timing can't be reproduced headlessly — this one needs on-device QA.
+
+### L64 — A "different dragon" = different WING + TAIL builders on the SAME body, not a reshaped torso; and `svh` + an installed-PWA class beats `vh` for "fit in browser, roomy in app"
+**Did / learned:** the player compared two SVJ dragons and said we'd "reused too many assets — the wings and tail look quite
+similar, only the body shape changed." The fix that actually reads as a new dragon was to keep the recognizable SVJ body
+verbatim (`svjHull` torso, `svjWedgeHead`, the `svjScaleArmor`/`svjDorsalSpine`/engine layers, the cellular-scale shader,
+gold/carbon/red palette) and author **two brand-new part builders**: `svjJetWing` (a *layered* jet-blade wing — shoulder
+hinge + upper boom + main swept yellow blade + black vent panel/hex grille + 3 red chevrons + 4 controlled trailing flaps +
+endplate + secondary top blade, mapped onto the FROZEN rig: inner modules ride `wingPivot`, outer blade + endplate ride
+`wingTip`) and `svjAeroTridentTail` (9 armored segments returned as `segs` so the rig coils them, ending in a 3-prong tip:
+central dark spear + two swept side aero-stabilizer fins with red taillight slashes). New dragon `aurumToroMk2` registered;
+the old "Mk I" reskin (`aurumToroV2`, "ugly — get rid of it") deleted from the roster, its builders left registered-but-dormant
+for rollback. 5564 tris (≤6000). The silhouettes now genuinely differ (single broad blade + spear → stacked multi-blade
+jet-wing + trident) instead of just a body reshape. **Separately**, the shop's DRAGONS turntable used `.hero-stage { width:
+min(100%, 42vh) }` — `vh` *overshoots* in a mobile browser (the URL bar steals height that `vh` still counts), so the screen
+overran the viewport and forced a page-scroll that fought the swipe-to-rotate gesture. Fix: switch to `svh` (small viewport
+height, excludes the URL bar) at a smaller 34svh for browser, and toggle `html.standalone` from `main.js`
+(`matchMedia('(display-mode: standalone)')` for Android + `navigator.standalone` for iOS) to restore the roomy `42svh` only
+when installed as a PWA (no URL bar to fight).
+**Gotcha:** mapping a richly-specced wing onto the frozen 2-bone rig means deciding *per module* whether it rides the
+flapping root (`wingPivot`) or the lagged wrist (`wingTip`) — get that split right and the engine needs zero edits. Flat
+upward-facing top faces (e.g. a secondary top blade) catch a cool rim light as a white/blue blowout in the render harness;
+it's largely a harness-lighting artifact, so the player judges it under real game lighting on the live preview.
+**→ Systematize:** "new selectable dragon" should default to *new wing + tail builders on the shared body kit*, not a torso
+profile edit — it's cheaper, stays on-budget, and is what reads as a different creature. For any full-viewport mobile screen,
+prefer `svh`/`dvh` over `vh` and gate the roomy layout behind an installed-PWA class. **Caveat:** shop-height fit and the
+wing's white-flat blowout are visual/feel calls — verify on-device / on the live PR preview, not headlessly.

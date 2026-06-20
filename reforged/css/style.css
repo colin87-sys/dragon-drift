@@ -763,11 +763,15 @@ body.app-loaded > canvas { opacity: 1; }
   display: flex; flex-direction: column; align-items: stretch; }
 /* The stage is a square sized by whichever is smaller — width OR a slice of the
    viewport height — so the whole layout (stats / CTA / rail) always fits a phone. */
-.hero-stage { position: relative; width: min(100%, 42vh); aspect-ratio: 1; margin: 0 auto; border-radius: 22px; overflow: hidden;
+.hero-stage { position: relative; width: min(100%, 34svh); aspect-ratio: 1; margin: 0 auto; border-radius: 22px; overflow: hidden;
   background: radial-gradient(80% 64% at 50% 40%, color-mix(in srgb, var(--haccent) 22%, transparent), transparent 72%),
     linear-gradient(180deg, rgba(20,30,56,0.5), rgba(8,12,26,0.62));
   border: 1px solid rgba(150,200,255,0.16);
   box-shadow: inset 0 1px 0 rgba(255,255,255,0.06), 0 14px 40px rgba(0,0,0,0.45); }
+/* Installed as a PWA (no URL bar stealing height) → restore the roomy turntable.
+   Browser mode keeps the compact 34svh above so the DRAGONS screen fits without a
+   page-scroll that fought the swipe-to-rotate gesture. */
+html.standalone .hero-stage { width: min(100%, 42svh); }
 .hero-canvas { position: relative; z-index: 1; width: 100%; height: 100%; display: block;
   /* pan-y (not none): let the browser scroll the shop vertically when a swipe starts
      on the turntable; horizontal drag is left to the JS rotate handler (which now
