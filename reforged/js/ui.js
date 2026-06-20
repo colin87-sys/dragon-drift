@@ -1045,7 +1045,7 @@ export const ui = {
       }
 
       const sub = cold
-        ? (touch ? 'Drag to steer · hold to boost' : 'WASD to steer · SPACE to boost')
+        ? 'Thread rings. Chase the surge.'
         : (touch ? 'Drag to steer · hold a second finger to boost · swipe it sideways to barrel roll'
                  : 'WASD/Arrows to steer · SPACE to boost · double-tap a direction to barrel roll');
 
@@ -1059,7 +1059,6 @@ export const ui = {
           <h1 class="wordmark hero-wordmark">DRAGON DRIFT</h1>
           <button class="btn-primary hero-cta breathe" id="btn-start"><span class="cta-glyph" aria-hidden="true">➤</span>TAKE OFF</button>
           <p class="hero-sub">${sub}</p>
-          ${cold ? '<p class="hero-goal">Fly as far as you can — chain rings to ignite the sky.</p>' : ''}
           <p class="action-key">${touch ? 'or tap anywhere to fly' : 'or press ENTER to fly'}</p>
         </div>
         ${rail}
