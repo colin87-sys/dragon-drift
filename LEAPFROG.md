@@ -2326,3 +2326,29 @@ comet core), plumbed as `def.wingGild ?? SERAPH_GOLD` etc. so per-form colours s
 Also: a created-but-never-used `shadowMat` was dead code (deleted), and tail vertebrae moved off `def.body` onto
 `SERAPH_PEARL` + a faint emissive floor to lift the underside out of navy. Material language is foundational — fix
 it before judging shape; a gild that matches the body isn't a gild.
+
+### L83 — A multi-blit preview loop must CLEAR per item AND remove-in-`finally`, or dragons superimpose
+The shop card previews render every dragon into ONE shared offscreen scene+canvas sequentially, blitting each
+to its card (`preview.js` `loop`). Bug: "all dragons render superimposed on top of each other." Two ways it
+happens and both must be closed: (a) the loop trusted `renderer.autoClear` (default true, but anything can flip
+it) → set `renderer.autoClear = true` at init AND `renderer.clear()` before each `render`; (b) `scene.add(group)`
+… `render` … `scene.remove(group)` with NO guard → if `item.tick()` throws, the group is never removed and
+superimposes on every later card → wrap `tick`+`render` in `try { … } finally { scene.remove(group); }`. Rule:
+any loop that reuses one scene/renderer across N blits must clear the framebuffer per item and guarantee teardown.
+
+### L84 — A gold rim must be big enough to FRAME the plate, or the dark gaps read as "black outlines"
+Review: feather plates "look like black-outlined paper cards." There was no black-outline mesh — the gild rim
+behind each plate was only 1.05× (a hairline), so the dark flat-shaded GAPS/backfaces between overlapping plates
+dominated the read. Fix = grow the rim to ~1.12× + drop it further behind so a clean gold edge frames every
+plate, AND add a faint emissive FLOOR to the pearl (intensity ~0.05) so flat-shaded edges/undersides stop
+crushing to black. "Reduce black outlines" on flat-shaded shingles = bigger rim + emissive floor + more overlap,
+not an outline-opacity knob.
+
+### L85 — Accent feathers parented to `wingTip` animate for FREE; index-hash jitter breaks the sawtooth
+Two cheap wins to make a feather fan read premium without touching the animator: (1) long "streamer-primary"
+blade-feathers parented UNDER `wingTip` inherit the tip's flap automatically → trailing streamer motion with
+zero `dragon.js`/`dragonModel.js` change (the rig only drives pivot/mid/tip; children ride along). (2) A stable
+per-plate jitter (deterministic `sin(i*k)` hash, NOT `Math.random` which would reshuffle every build) of ±8%
+length / ±4° rotation makes the trailing edge scallop irregularly instead of forming a hard uniform sawtooth
+staircase. Per-row ripple (a finer feather-by-feather wave) DOES need row-groups exposed + animator iteration in
+both files — deferred until the free tip-driven motion proves too stiff.
