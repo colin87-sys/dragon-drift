@@ -1909,3 +1909,25 @@ surface layer reading `attach.*`" is the escape hatch for any part the four-slot
 **→ Leapfrog (innovate):** the kit unlocks composable mecha/vehicle creatures from a parts bin — next, a socket-driven
 **auto-greeble** pass (scatter vents/grilles/lights along a part's sockets by rule) and a panel-line surface shader so the
 plating reads as paneled metal without extra tris.
+
+### L60 — "Start fresh" means clean-room, not reskin: a torso can publish the attach contract WITHOUT `buildTorso`/a profile; and a lofted body always reads rounded in side-profile (boxiness is a harder problem than the cross-section ring)
+**Did / learned:** the first SVJ rebuild was honestly a **reskin on the bull's bones** — `SVJ_ENGINE_PROFILE` was
+`BULL_PROFILE` widened, the wings were the `hexMembrane` vertex layout scaled, the tail fins were `svjRear`'s values
+copied. When the player asked "fresh or reusing the old design?", the honest answer was *reusing* — so they chose a
+**clean-room rebuild**. Key realization: the **attach contract is just a return shape**, not something only `buildTorso`
+can produce. A torso builder can hand-assemble a bespoke hull (a fresh angular loft + bolt-on plates + its own neck) and
+publish `{group, attach}` with `wingRoot/headBase/tailAnchor/keelTopAt/halfWidthAt/bodyMidY` computed directly from its
+own geometry — zero profile/loft inheritance, full control of the mecha silhouette, and wings/tail/head/layers mount to it
+unchanged. So "reuse only the engine contracts" is literally achievable: registry + the contract SHAPE + the frozen rig +
+`{segs,tailFins}` + Surge-flare, nothing of the donor's design data. Result: a far better-defined wedge **head** and a
+coherent creature; the rear/¾ (the gameplay angles) read as a chiseled twin-thruster engine block.
+**Gotcha:** a lofted body **reads rounded from a pure side view no matter how angular the cross-section ring is** — chines
+help the rear/¾ read but the side stays teardrop, because the silhouette there is the station taper, not the ring. True
+slab-sided boxiness needs a different construction (literal box-section fuselage / flat side plates), not just a sharper
+ring. Also: that stray light-blue diamond on the snout in static renders is the engine's **aiming pip**
+(`dragonModel.js`, `OctahedronGeometry` + `depthTest:false`, omitted only when `opts.preview`) — a gameplay HUD aid, not a
+model bug. And `buildDragonModel(def, {})` (no `preview`) includes it, so isolated render harnesses will always show it.
+**→ Systematize:** "hand-authored attach contract" joins `buildTorso`-via-profile as a torso construction option — pick
+profile-loft for organic bodies, bespoke-assembly for hard-surface ones. **→ Leapfrog:** for genuinely boxy mecha bodies,
+add a `boxFuselage` primitive (chained slab sections with hard side plates) so the side silhouette is as chiseled as the
+rear.
