@@ -427,7 +427,7 @@ export function makePreviewTick(def, result) {
       const rootF = shape(phase) * rootA;
       const upMid = Math.max(0, Math.sin(phase - mLag));
       const upTip = Math.max(0, Math.sin(phase - tLag));
-      const tipSweep = 0.05 + 0.16 * upTip;   // outer-tip backward sweep by stroke
+      const tipSweep = 0.07 + 0.16 * upTip;   // outer-tip backward sweep by stroke
       // The LEFT wing is a scale.x=-1 mirror clone, so we apply the SAME logical pose to
       // both rigs (no banking in the preview → identical → perfectly symmetric mirror).
       const poseW = (pv, md, tp) => {

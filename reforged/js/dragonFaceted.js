@@ -1836,7 +1836,17 @@ function buildSvjJetWing(def, model, attach, giM) {
 
     const spanDir = norm({ x: side * Math.cos(sweep) * Math.cos(dih), y: Math.sin(dih), z: Math.sin(sweep) * Math.cos(dih) });
     const fwd = { x: 0, y: 0, z: -1 }, rear = { x: 0, y: 0, z: 1 };
-    const stationPoint = (t) => mul(spanDir, L * t);
+    // Eternal/Radiant (3-segment) span REDISTRIBUTION: shorten the total wingspan ~20%
+    // but NOT evenly — keep the root + middle mass strong and shorten the OUTER third the
+    // most, so the wing reads broad/segmented/god-tier instead of a long straight rod.
+    // Per-segment length scales root 0.90 · mid 0.82 · outer 0.68 (old joints 0.36/0.73)
+    // remap into new joints 0.324/0.627/0.811. Plain aurumToro (no wingParts) is untouched.
+    const remap3 = model.wingParts === 3;
+    const stationT = (t) => !remap3 ? t
+      : t <= 0.36 ? t * 0.90
+      : t <= 0.73 ? 0.324 + (t - 0.36) * 0.819
+      :             0.627 + (t - 0.73) * 0.681;
+    const stationPoint = (t) => mul(spanDir, L * stationT(t));
     const xsec = (t, chord) => { const c = stationPoint(t); return { c, leading: add(c, mul(fwd, chord * 0.38)), trailing: add(c, mul(rear, chord * 0.62)) }; };
     // Origin-aware builders: each mesh lives in its OWN segment group (inner=pivot,
     // mid=wingMid, tip=wingTip) expressed relative to that group's origin `o`, so a
@@ -1934,7 +1944,7 @@ function buildSvjJetWing(def, model, attach, giM) {
       // to the mid blade clearer. Keeps the black/red blade identity (chevron taillight).
       hingeCover(wingTip, 0.20);
       const swB = { x: 0, y: 0, z: 0.12 };              // rearward sweep of the outer edge
-      const S3raw = xsec(0.96, 0.24);                   // shorter + a touch sharper than 0.26
+      const S3raw = xsec(1.00, 0.24);                   // span shortening is handled by stationT; sharper chord
       const S3t = { c: add(S3raw.c, swB), leading: add(S3raw.leading, swB), trailing: add(S3raw.trailing, swB) };
       quadG(wingTip, tipO, S2.leading, S3t.leading, S3t.trailing, S2.trailing, yellow, yOff);
       chevronG(wingTip, tipO, 0.84, 0.30);

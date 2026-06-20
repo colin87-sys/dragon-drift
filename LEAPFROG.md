@@ -2221,3 +2221,23 @@ recovery, via `0.05 + 0.16·upTip` on the tip's `.y`) so it trails the mid and f
 tip is shorter, DROP its flap amplitude a touch (tipAmp 0.36→0.33) so the follow-through stays dense, not floppy.
 **→ Systematize:** silhouette problems in a segmented wing are per-SEGMENT proportion edits (move one station,
 add sweep), not a global scale; and when you shorten a segment, reduce its animation amplitude to match.
+
+### L77 — Shorten a segmented wing's span by REDISTRIBUTING station fractions (a `stationT` remap), not by scaling L — keeps detail modules placed and lets you shorten one segment more than the others
+**Did / learned:** Eternal's wingspan felt too wide / rod-like in the outer third. Needed ~20% shorter total but
+NOT evenly — keep root+mid mass, shorten the outer most (per-segment scales root 0.90 · mid 0.82 · outer 0.68).
+The wing is built from `xsec(t)`/`stationPoint(t)` where t is a fraction of the span; every detail (chevrons,
+flaps, panels, the wingMid/wingTip joint origins) is placed by t. So a single piecewise-linear remap
+`stationT(t)` wrapping `stationPoint` (old joints 0/0.36/0.73 → new 0.324/0.627/0.811) compresses each segment by
+its own scale and AUTOMATICALLY drags every module + joint into place — no per-call-site edits. Gated on
+`model.wingParts === 3` so it only touches the 3-segment Radiant/Eternal wing; the 2/1-part forms and the plain
+aurumToro sibling (no wingParts) are untouched. Chords stay the same → the shorter wing reads broader/chunkier,
+which is exactly the "powerful, not a rod" goal. Pair it with the existing stroke-driven outer-tip sweep-back.
+**→ Systematize:** parametric-span geometry should expose ONE t→t remap seam; segment-proportion changes are a
+remap, never a hunt-and-replace of hardcoded station numbers.
+
+### L78 — A geometry/build "regression" report must be reproduced headlessly before fixing — render the suspect IN ISOLATION
+**Did / learned:** player reported "every dragon in the shop rail shows the bull's body." Before touching code I
+rendered `azure` and `ember` standalone via the harness — both built as themselves, and `dragonModel.js` has no
+module-level cache/shared state, and the rail code builds each thumbnail's own `DRAGONS[k]`. So the build path is
+correct and the bug is UI/runtime-level (shared preview renderer / selection state), NOT the per-form geometry
+work — saving a pointless geometry "fix." Always isolate-render the suspect before assuming a builder regression.
