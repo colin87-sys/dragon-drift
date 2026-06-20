@@ -544,31 +544,27 @@ export function updateDragon(dt, player, time) {
     const featR = Math.sin(phase + Math.PI * 0.55);
     const twMid = Math.cos(phase - midLag) * 0.10;
     const twTip = Math.cos(phase - tipLag) * 0.18;
+    const upMid = Math.max(0, Math.sin(phase - midLag));
+    const upTip = Math.max(0, Math.sin(phase - tipLag));
+    // Banking via POSE BIAS, never phase delay: inside wing tucks (less amp + bias),
+    // outside opens (more amp). insR=bank, insL=-bank (right is inside on a right turn).
     const bank = Math.max(-1, Math.min(1, turnBias / 0.28));
-    const insR = bank, insL = -bank;
-    const ampR = 1 - 0.30 * insR, ampL = 1 - 0.30 * insL;
-    const biaR = 0.13 * insR, biaL = 0.13 * insL;
-    // ROOT / shoulder (always present)
-    wingPivotR.rotation.z = -(rootF * ampR) - 0.10 - biaR + rollFold;
-    wingPivotL.rotation.z =  (rootF * ampL) + 0.10 + biaL - rollFold;
-    wingPivotR.rotation.x = 0.14 + featR * 0.16 + climbBias;
-    wingPivotL.rotation.x = 0.14 - featR * 0.16 + climbBias;
-    wingPivotR.rotation.y = -0.18;
-    wingPivotL.rotation.y =  0.18;
-    if (wingMidL) {
-      const upMid = Math.max(0, Math.sin(phase - midLag));
-      wingMidR.rotation.z = -(midF * ampR); wingMidL.rotation.z =  (midF * ampL);
-      wingMidR.rotation.x =  twMid; wingMidL.rotation.x = -twMid;
-      wingMidR.rotation.y =  upMid * 0.08; wingMidL.rotation.y = -upMid * 0.08;
-    }
-    if (wingTipL) {
-      const upTip = Math.max(0, Math.sin(phase - tipLag));
-      // 2-segment wing has no mid group → its outer carries the mid follow-through.
-      const tF = wingMidL ? tipF : (midF + tipF);
-      wingTipR.rotation.z = -(tF * ampR); wingTipL.rotation.z =  (tF * ampL);
-      wingTipR.rotation.x = -0.05 + twTip; wingTipL.rotation.x = -0.05 - twTip;
-      wingTipR.rotation.y =  upTip * 0.14; wingTipL.rotation.y = -upTip * 0.14;
-    }
+    const ampR = 1 - 0.30 * bank, biaR = 0.13 * bank;
+    const ampL = 1 + 0.30 * bank, biaL = -0.13 * bank;
+    // Outer-tip backward SWEEP by stroke: ~3° on the power downstroke → ~6° cruise/glide →
+    // ~12° on the recovery upstroke, so the (now-shorter) tip trails the mid and finishes
+    // the silhouette instead of locking out as a straight rod.
+    const tipSweep = 0.05 + 0.16 * upTip;
+    // The LEFT wing is a scale.x = -1 MIRROR CLONE of the right; apply the SAME logical
+    // pose to each rig (with that wing's banking amp/bias) and the wrapper flips the left →
+    // guaranteed-symmetric in straight flight, correct inside/outside tuck while banking.
+    const poseWing = (pv, md, tp, amp, bias) => {
+      pv.rotation.set(0.14 + featR * 0.16 + climbBias, -0.18, -(rootF * amp) - 0.10 - bias + rollFold);
+      if (md) md.rotation.set(twMid, upMid * 0.08, -(midF * amp));
+      if (tp) { const tF = md ? tipF : (midF + tipF); tp.rotation.set(-0.05 + twTip, tipSweep, -(tF * amp)); }
+    };
+    poseWing(wingPivotR, wingMidR, wingTipR, ampR, biaR);
+    poseWing(wingPivotL, wingMidL, wingTipL, ampL, biaL);
   } else {
     wingPivotR.rotation.z = damp(wingPivotR.rotation.z, -rootFlap + turnBias + rollFold, 14, dt);
     wingPivotL.rotation.z = damp(wingPivotL.rotation.z,  rootFlap + turnBias - rollFold, 14, dt);

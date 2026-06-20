@@ -1808,12 +1808,13 @@ function buildSvjJetWing(def, model, attach, giM) {
     roughness: 0.45, metalness: 0.55,
   });
   const grey = new THREE.MeshStandardMaterial({
-    color: def.horn ?? 0x141418, flatShading: true, roughness: 0.4, metalness: 0.6,
+    color: def.horn ?? 0x141418, flatShading: true, side: THREE.DoubleSide, roughness: 0.4, metalness: 0.6,
   });
   const redCol = def.apexSeam ?? 0xff3b2f;
   // Wing chevrons stay deliberately dimmer than the rear thruster cores so the twin
-  // thrusters read as the brightest red-orange elements from the chase cam.
-  const red = new THREE.MeshStandardMaterial({ color: redCol, emissive: redCol, emissiveIntensity: 1.8 * gi, roughness: 0.3 });
+  // thrusters read as the brightest red-orange elements from the chase cam. DoubleSide so
+  // the LEFT wing (a scale.x=-1 mirror clone of the right) never renders inside-out.
+  const red = new THREE.MeshStandardMaterial({ color: redCol, emissive: redCol, emissiveIntensity: 1.8 * gi, roughness: 0.3, side: THREE.DoubleSide });
   red.userData.baseEmissive = redCol; red.userData.baseIntensity = 1.8 * gi;
   spineMats.push(red);
 
@@ -1927,14 +1928,20 @@ function buildSvjJetWing(def, model, attach, giM) {
           [arr(up(T0.leading, 0.16, -0.06)), arr(up(T1.trailing, 0.16, -0.02)), arr(up(T0.trailing, 0.16, -0.02))],
         ], yellow));
       }
-      // PART C — tip / aero control surface (wingTip, 0.73–1.0) + endplate + marker
-      hingeCover(wingTip, 0.16);
-      quadG(wingTip, tipO, S2.leading, S3.leading, S3.trailing, S2.trailing, yellow, yOff);
-      chevronG(wingTip, tipO, 0.86, 0.30);
-      const tc = O(S3.c, tipO);
+      // PART C — tip / aero control surface (wingTip, 0.73–~0.96). The outer third is
+      // SHORTER (0.96 vs the old 1.0 ≈ −15%) and swept BACKWARD (+z) so it reads as a sharp
+      // finishing blade rather than a long straight rod; a wider hinge cover makes the joint
+      // to the mid blade clearer. Keeps the black/red blade identity (chevron taillight).
+      hingeCover(wingTip, 0.20);
+      const swB = { x: 0, y: 0, z: 0.12 };              // rearward sweep of the outer edge
+      const S3raw = xsec(0.96, 0.24);                   // shorter + a touch sharper than 0.26
+      const S3t = { c: add(S3raw.c, swB), leading: add(S3raw.leading, swB), trailing: add(S3raw.trailing, swB) };
+      quadG(wingTip, tipO, S2.leading, S3t.leading, S3t.trailing, S2.trailing, yellow, yOff);
+      chevronG(wingTip, tipO, 0.84, 0.30);
+      const tc = O(S3t.c, tipO);
       wingTip.add(flatTriMesh([
-        [[tc.x, tc.y - 0.06, tc.z - 0.09], [tc.x + side * 0.50, tc.y + 0.02, tc.z + 0.04], [tc.x + side * 0.44, tc.y + 0.32, tc.z + 0.19]],
-        [[tc.x, tc.y - 0.06, tc.z - 0.09], [tc.x + side * 0.44, tc.y + 0.32, tc.z + 0.19], [tc.x + side * 0.02, tc.y + 0.20, tc.z + 0.06]],
+        [[tc.x, tc.y - 0.06, tc.z - 0.09], [tc.x + side * 0.44, tc.y + 0.02, tc.z + 0.05], [tc.x + side * 0.38, tc.y + 0.30, tc.z + 0.20]],
+        [[tc.x, tc.y - 0.06, tc.z - 0.09], [tc.x + side * 0.38, tc.y + 0.30, tc.z + 0.20], [tc.x + side * 0.02, tc.y + 0.18, tc.z + 0.07]],
       ], yellow));
       const marker = new THREE.Object3D(); marker.position.set(tc.x, tc.y, tc.z); wingTip.add(marker);
       group.add(pivot);
@@ -1978,7 +1985,20 @@ function buildSvjJetWing(def, model, attach, giM) {
     return { pivot, wingMid: null, wingTip: null, marker };
   }
 
-  const R = buildSide(1), Lf = buildSide(-1);
+  // RIGHT wing is the authored master; the LEFT is an exact MIRROR CLONE of it (deep
+  // clone under a scale.x = -1 wrapper) so the two wings can never differ. The animation
+  // drives the right rig and the left simply COPIES the right's pose (the mirror wrapper
+  // flips it), guaranteeing a perfectly symmetric beat.
+  const R = buildSide(1);
+  R.pivot.userData.wingRole = 'pivot';
+  if (R.wingMid) R.wingMid.userData.wingRole = 'mid';
+  if (R.wingTip) R.wingTip.userData.wingRole = 'tip';
+  if (R.marker) R.marker.userData.wingRole = 'marker';
+  const lpivot = R.pivot.clone(true);                 // userData (roles) is deep-copied
+  const lmirror = new THREE.Group(); lmirror.scale.x = -1;
+  lmirror.add(lpivot); group.add(lmirror);
+  const byRole = (root, role) => { let f = null; root.traverse((o) => { if (!f && o.userData && o.userData.wingRole === role) f = o; }); return f; };
+  const Lf = { pivot: lpivot, wingMid: byRole(lpivot, 'mid'), wingTip: byRole(lpivot, 'tip'), marker: byRole(lpivot, 'marker') };
   return {
     group,
     parts: {
