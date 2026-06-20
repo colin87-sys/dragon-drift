@@ -15,6 +15,7 @@ import './dragonOrganism.js';       // 'organismWings' + 'organismTorso' (clean-
 import './dragonNightFury.js';      // 'nightFuryWings' + 'nightFuryTorso' (smooth-loft Night Fury) + 'none' head/tail
 import './dragonHull.js';           // 'hullWings' + 'hullTorso' (data-driven Night-Fury kernel for the new starters)
 import './dragonFaceted.js';        // 'faceted' torso + 'hexMembrane' wings + 'bullCrown' head + 'bladeJet' tail + aero layers (hard-edge/automotive family)
+import './dragonSeraph.js';         // Pearl Seraph: feather-scale wings / crown-halo head / comet tail (celestial multi-module family)
 import { shingle } from './dragonShingle.js'; // reusable overlapping scale/plate cards
 import { resolveSurfaceLayers, getSurfaceLayer } from './dragonSurfaceLayers.js'; // declarative dorsal/flank decoration
 import { validateCreatureBlueprint } from './validateCreatureBlueprint.js';
