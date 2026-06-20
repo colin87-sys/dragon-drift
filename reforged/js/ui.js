@@ -1264,33 +1264,37 @@ export const ui = {
           <div class="seg-row">${seg(null, 'AUTO')}${seg(0, 'HIGH')}${seg(1, 'MEDIUM')}${seg(2, 'LOW')}</div>
         </div>
         <div class="settings-group">
-          <div class="settings-label">MODEL DETAIL — dragon geometry density; ULTRA spends more triangles on high-end devices (AUTO matches your graphics tier)</div>
+          <div class="settings-label">MODEL DETAIL</div>
+          <p class="sub">Dragon geometry density. AUTO matches your graphics tier.</p>
           <div class="seg-row">${mdSeg(null, 'AUTO')}${mdSeg('high', 'HIGH')}${mdSeg('ultra', 'ULTRA')}</div>
         </div>
         <div class="settings-group">
-          <div class="settings-label">TARGET RETICLE — the tracking square on the next ring</div>
+          <div class="settings-label">TARGET RETICLE</div>
           ${assistSeg('reticle', saveData.settings.reticle, Math.round(CONFIG.reticleOffBonus * 100))}
         </div>
         <div class="settings-group">
-          <div class="settings-label">LAST-CHANCE SLOW-MO — time dilation before a lethal hit</div>
+          <div class="settings-label">LAST-CHANCE SLOW-MO</div>
           ${assistSeg('slowMo', saveData.settings.slowMo, Math.round(CONFIG.slowMoOffBonus * 100))}
         </div>
         <div class="settings-group">
-          <div class="settings-label">GLIDE ASSIST — auto-flies to each ring &amp; collects embers; just steer toward the next one. Great for learning.</div>
+          <div class="settings-label">GLIDE ASSIST</div>
+          <p class="sub">Auto-flies to each ring and collects embers.</p>
           <div class="seg-row">
             <button class="seg-btn${saveData.settings.glideAssist ? ' sel' : ''}" data-assist="glideAssist" data-val="1">ON — SCORE −${Math.round((1 - CONFIG.glideAssistScoreMult) * 100)}%</button>
             <button class="seg-btn${saveData.settings.glideAssist ? '' : ' sel'}" data-assist="glideAssist" data-val="0">OFF</button>
           </div>
         </div>
         ${isTouch() ? '' : `<div class="settings-group">
-          <div class="settings-label">MOUSE STEERING — hold LEFT-click to steer, RIGHT-click to boost (Space still boosts)</div>
+          <div class="settings-label">MOUSE STEERING</div>
+          <p class="sub">Hold left-click to steer; right-click or Space boosts.</p>
           <div class="seg-row">
             <button class="seg-btn${saveData.settings.mouseSteer ? ' sel' : ''}" data-assist="mouseSteer" data-val="1">ON</button>
             <button class="seg-btn${saveData.settings.mouseSteer ? '' : ' sel'}" data-assist="mouseSteer" data-val="0">OFF</button>
           </div>
         </div>`}
         <div class="settings-group">
-          <div class="settings-label">DRAGON RADIO ${isTouch() ? '' : '(N to cycle in flight)'} — buy more stations in the shop</div>
+          <div class="settings-label">DRAGON RADIO</div>
+          <p class="sub">${isTouch() ? 'Buy more stations in the shop.' : 'Press N in flight to cycle stations. Buy more in the shop.'}</p>
           <div class="seg-row radio-segs">${TRACKS.map((t, i) => trackUnlocked(i)
             ? `<button class="seg-btn${music.trackIndex === i ? ' sel' : ''}" data-track="${i}">${t.name.toUpperCase()}</button>`
             : `<button class="seg-btn locked" disabled title="Buy in the shop">🔒 ${t.name.toUpperCase()}</button>`).join('')}</div>
@@ -1300,7 +1304,8 @@ export const ui = {
           <p class="sub" style="font-size:13px; opacity:0.75">Music &amp; sound volume live in the pause menu (Esc during flight).</p>
         </div>
         <div class="settings-group">
-          <div class="settings-label">DEV MODE — unlock every dragon, rider &amp; style at max form for testing. Your real save is untouched; turn it off to restore.</div>
+          <div class="settings-label">DEV MODE</div>
+          <p class="sub">Unlock every dragon, rider, and style at max form for testing. Turn off to restore your real save.</p>
           <div class="seg-row">
             <button class="seg-btn${saveData.settings.dev ? ' sel' : ''}" data-dev="1">ON</button>
             <button class="seg-btn${saveData.settings.dev ? '' : ' sel'}" data-dev="0">OFF</button>
