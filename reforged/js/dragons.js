@@ -599,10 +599,18 @@ export const DRAGONS = {
     // notches), a luminous white-gold body, a head halo and blade-fins. Holy
     // white, set apart from Phoenix's flame-feather gold.
     stats: { speed: 1.13, handling: 1.22, drain: 0.78, regen: 1.25 },
+    // MULTI-MODULE upgrade (Radiant Paladin): feather-scale wings on the shared 3-hinge
+    // rig + cascade animator. Other parts still inferred until seraphHull/Head/Tail land.
+    parts: { wings: 'seraphWing' },
     model: {
       scale: 1.12, wingScale: 1.2, tailSegments: 9, neckSegments: 5,
       hornLen: 1.3, hornPairs: 1, ridgeCount: 12,
       flapBias: 0.9, flapAmp: 0.88, // graceful, lofty beat — already near the Phoenix feel
+      // Feather-scale wing: 3-segment hinge cascade, GRACEFUL/lofty (amps in radians;
+      // L/R flap together, lag is internal root→mid→tip). Dihedral = chase-cam knob.
+      wingParts: 3, wingDihedralDeg: 14,
+      flapFreqScale: 0.80, rootAmp: 0.16, midAmp: 0.22, tipAmp: 0.30, midLag: 0.5, tipLag: 1.0,
+      glidePow: 2.2, bodyBobScale: 0.30, headWobbleScale: 0, tailLagScale: 0.10,
     },
     // Broad, smooth, strongly UP-RAISED wings (an angel spreading) — clean
     // edges, no flame.

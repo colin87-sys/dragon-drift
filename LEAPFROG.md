@@ -2241,3 +2241,50 @@ rendered `azure` and `ember` standalone via the harness — both built as themse
 module-level cache/shared state, and the rail code builds each thumbnail's own `DRAGONS[k]`. So the build path is
 correct and the bug is UI/runtime-level (shared preview renderer / selection state), NOT the per-form geometry
 work — saving a pointless geometry "fix." Always isolate-render the suspect before assuming a builder regression.
+
+---
+
+## ★ DOCTRINE — A PART IS A MULTI-MODULE ARTICULATED ASSEMBLY, NOT A MESH
+*(Extracted from the Aurum Toro Mk II "bull" — the studio's reference exemplar for premium dragons.)*
+
+The difference between a flat dragon and a PREMIUM one is not material or polish — it is **decomposition**. A
+membrane dragon builds a wing as ~1–2 meshes; the bull builds a wing as **~25 small modules across 3 nested
+HINGED groups** (root `pivot` → `wingMid` → `wingTip`): hinge + boom + stacked blade panels + black vents + hex
+grille + red chevron taillights + trailing flaps + a secondary top blade + the wingtip endplate. **A wing is not
+a module — it is an assembly of modules joined by articulated joints and dressed with surface layers.**
+
+### The build formula (apply to EVERY part — torso, wings, head, tail)
+1. **DECOMPOSE** — many small modules, not one mesh. Reuse the `mechaKit.js` primitive bin (flatTriMesh,
+   wedgePanel, frameBar, hexGrille, spineSegment, chevronLight, thrusterPod…) — generic, palette-agnostic; the
+   builder injects materials.
+2. **ARTICULATE** — express the part as nested HINGED sub-groups the shared animator drives. Wings return
+   `parts:{ wingPivotL/R, wingMidL/R, wingTipL/R, tipMarkerL/R }`; the rig drives root→mid→tip as ONE shared-phase
+   cascade with per-segment LAG (`dragon.js` `else if (model.wingParts)`). The hinges that read mechanical ARE the
+   joints that animate — detail and motion are the same system.
+3. **DRESS** — bolt on self-gating SURFACE LAYERS (`registerSurfaceLayer` → `{meshes, flareMats}`, ctx
+   `{def,model,attach,…}`) that read the torso's ATTACH CONTRACT (`wingRoot(side)`, `headBase`, `tailAnchor`,
+   `keelTopAt(z)`, `halfWidthAt(z)`, `bodyMidY`) and `return {meshes:[],flareMats:[]}` when their level is 0.
+4. **SCALE PER FORM** — ascension forms add/grow modules via `forms[]` knob accretion + builder level-branching
+   (`wingParts` 1/2/3, `thrusterLevel`/`hornLevel`/…). Hard-surface = bolt on new machines; organic = grow/multiply
+   the same parts (maturation). Mature LOWER forms DOWN, don't under-build the top.
+5. **BUDGET-GATE** — every segment count in `seg()`; ≤6 materials; **chase-cam FIRST** (spend tris on what reads
+   from BEHIND — wing trailing edges, the trailing tail, rear body/spine; keep the face/belly lean); top form
+   **~5800–6000 tris** (use the budget, ≤6000 ceiling; `tools/tricount.mjs`).
+6. **SURGE-TAG** — accent/emissive mats carry `userData.baseEmissive/baseIntensity`, collected into
+   `spineMats`/`flareMats` so the rig pulses them on Surge.
+
+### Registry plumbing (zero-touch integration)
+`registerTorso/Wings/Head/Tail(name, fn)` self-register at import; a dragon names them in `def.parts`. Adding
+`def.parts` to ONE dragon (or a new `DRAGONS` key) touches no other dragon — the inferred membrane/arrow/horned/
+clean builders keep the shipped roster byte-identical. Torso returns `{group, attach}`; wings `{group, parts,
+wingMat, spineMats}`; head `{group, spineMats}`; tail `{group, segs, tailFins, accentMats}`.
+
+### Organic vs hard-surface — the ARMATURE is universal, the VOCABULARY is the variable
+Reuse the SAME skeleton (hinge rig + cascade animator + attach contract); swap only the module language:
+- modules **OVERLAP/shingle** (feathers/scales) to HIDE the seam, vs hard-surface modules that CELEBRATE it
+  (hinge covers) — overlap is also the fix for the wing↔body gap that killed `obsidian2`;
+- detail = parametric **REPETITION** of one card along a gradient, vs a zoo of bespoke parts;
+- articulation = a feather-by-feather **RIPPLE** (intra-segment phase offset) vs a mechanical snap;
+- surface = matte + **gilded emissive edges** + glow-seams vs metal clearcoat (one hard accent allowed: gem nodes);
+- L/R symmetry = build the RIGHT master + a `scale.x=-1` MIRROR CLONE for the left (drive each rig with the same
+  logical pose + its own banking bias). See lessons L72–L78 for the tactical mechanics.
