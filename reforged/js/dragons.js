@@ -1094,6 +1094,122 @@ export const DRAGONS = {
     wingMembraneEmissive: 0x302819, apexSeam: 0xe09a26,
     eye: 0xe6c068, trail: 0xc8861e, boostTrail: 0xe6c068,
   },
+
+  // AURUM TORO — a Lamborghini-Aventador-as-dragon, and the HERO that proves the
+  // new FACETED ("hard-edge / automotive") part family (dragonFaceted.js): a
+  // COMPACT, thick, muscular bull-barrel body on a BOXY mecha cross-section, with
+  // sharp framed swept-delta wings, forward-swept bull horns, and the SVJ REAR as a
+  // RIGID spoiler tail (svjRear) — a boxy transom with the wraparound tail-light bar,
+  // central exhausts, a vertical-finned diffuser, and two articulating stabilizer
+  // flaps that pitch like aircraft elevators; plus a fixed rear wing on uprights,
+  // scissor hinges, a front splitter and flank vents. The deliberate opposite of the matte-organic
+  // roster default — it opts BACK INTO mirror gloss (the per-dragon bodyRoughness/
+  // bodyMetalness/bodyEnvIntensity finish override) for a giallo clearcoat. Faithful accents: xenon-
+  // blue eyes + amber/red tail-light seams. Quick-look prototype — the PARTS are
+  // the deliverable, so the 4 forms share one palette/silhouette and only ramp the
+  // gloss + light (carbon "primer" → full giallo clearcoat, exhaust ablaze).
+  aurumToro: {
+    name: 'Aurum Toro',
+    title: 'The raging bull',
+    rarity: 'SSSR',
+    maxRarity: 'SSSR',
+    cost: 5000,
+    parts: {
+      torso: 'svjHull', wings: 'svjBladeWing', head: 'svjWedgeHead', tail: 'svjArmorTail',
+      surface: { shader: ['cellularScalesNormal'] },  // subtle carbon-hex micro-relief on the gold hull
+      surfaceLayers: ['svjScaleArmor', 'engineBay', 'ventSlashes', 'twinThrusters',
+        'rearDiffuser', 'svjDorsalSpine', 'scissorHinge'],
+    },
+    // Mecha hex-scale: low relief (crisp armor, not squishy organic), medium cell size.
+    scaleSize: 4.5, scaleRelief: 0.28,
+    // Fast, sharp-handling, thirsty — a supercar (drain>1 = burns boost fast).
+    stats: { speed: 1.16, handling: 1.22, drain: 1.04, regen: 0.95 },
+    model: {
+      // SVJ mecha rebuild — built BIG (huge cropped wings, long armored tail) so the
+      // silhouette is easy to judge; shrink via `scale` later once the read is right.
+      // Broad GLIDE wings (low flapAmp keeps them wide), short neck, bulky engine block.
+      scale: 1.0, wingScale: 1.0, tailSegments: 9, neckSegments: 3,
+      shoulderWidthScale: 1.25,
+      hornLen: 0.9, hornPairs: 1, ridgeCount: 0, eyeScale: 1.15,
+      flapBias: 0.85, flapAmp: 0.7,
+    },
+    // Giallo clearcoat: glossy + reflective in the shop hero scene (no env in-game).
+    bodyRoughness: 0.18, bodyMetalness: 0.55, bodyEnvIntensity: 0.8,
+    forms: [
+      // Primer — matte carbon, lights stowed.
+      { spineGlow: 0,
+        colors: { bodyRoughness: 0.6, bodyMetalness: 0.28,
+          body: 0x6b5a16, wingInner: 0x6b5a16, wingEmissive: 0x7a3412,
+          apexSeam: 0x7a3412, eye: 0x2a90c0, coreGlow: 0x7a3412 } },
+      // Primed gold, lights warming.
+      { spineGlow: 0,
+        colors: { bodyRoughness: 0.34, bodyMetalness: 0.45,
+          body: 0xc79a0c, wingInner: 0xc79a0c, wingEmissive: 0xd06a18,
+          apexSeam: 0xd0431f, eye: 0x3fb8f0, coreGlow: 0xd06a18 } },
+      // Giallo gloss, full tail-lights (xenon eyes switch in at this tier).
+      { spineGlow: 0.3, glowIntensity: 1.05,
+        colors: { bodyRoughness: 0.2, bodyMetalness: 0.55,
+          body: 0xf2c20e, wingInner: 0xf2c20e, wingEmissive: 0xff8a1f,
+          apexSeam: 0xff3b2f, eye: 0x3fc6ff, coreGlow: 0xff8a1f } },
+      // Apex — brightest clearcoat, exhaust ablaze.
+      { spineGlow: 0.5, glowIntensity: 1.2,
+        colors: { bodyRoughness: 0.15, bodyMetalness: 0.6,
+          body: 0xffd21a, wingInner: 0xffd21a, wingEmissive: 0xffa52a,
+          apexSeam: 0xff3b2f, eye: 0x6fd6ff, coreGlow: 0xffa52a } },
+    ],
+    fx: { auraColor: '255,138,31', auraIdle: 0.06, sparkle: false },
+    body: 0xf2c20e, belly: 0x0e0e12, scales: 0x141418, horn: 0x0e0e12,
+    wingInner: 0xf2c20e, wingOuter: 0x6e5408, wingEmissive: 0xff8a1f,
+    apexEye: 0x3fc6ff, apexSeam: 0xff3b2f, coreGlow: 0xff8a1f, surgeHi: 0xfff3d0,
+    eye: 0x3fc6ff, trail: 0xff8a1f, boostTrail: 0xff3b2f,
+  },
+
+  // Aurum Toro Mk I — the v2 RESKIN (first SVJ pass): the bull-derived body/wings
+  // (svjEngineBay/bladeWing/svjDragonHead) + the new long segmented armored tail
+  // (segmentedAeroTail). Kept as a parallel roster entry to compare against the
+  // current clean-room SVJ 'aurumToro' above. Builders restored from git 7c8ebf5.
+  aurumToroV2: {
+    name: 'Aurum Toro Mk I',
+    title: 'The raging bull',
+    rarity: 'SSSR',
+    maxRarity: 'SSSR',
+    cost: 5000,
+    parts: {
+      torso: 'svjEngineBay', wings: 'bladeWing', head: 'svjDragonHead', tail: 'segmentedAeroTail',
+      surfaceLayers: ['engineBay', 'ventSlashes', 'twinThrusters', 'rearDiffuser', 'mechaLegs', 'scissorHinge'],
+    },
+    stats: { speed: 1.16, handling: 1.22, drain: 1.04, regen: 0.95 },
+    model: {
+      scale: 1.0, wingScale: 1.0, tailSegments: 9, neckSegments: 3,
+      shoulderWidthScale: 1.25,
+      hornLen: 0.9, hornPairs: 1, ridgeCount: 0, eyeScale: 1.15,
+      flapBias: 0.85, flapAmp: 0.7,
+    },
+    bodyRoughness: 0.18, bodyMetalness: 0.55, bodyEnvIntensity: 0.8,
+    forms: [
+      { spineGlow: 0,
+        colors: { bodyRoughness: 0.6, bodyMetalness: 0.28,
+          body: 0x6b5a16, wingInner: 0x6b5a16, wingEmissive: 0x7a3412,
+          apexSeam: 0x7a3412, eye: 0x2a90c0, coreGlow: 0x7a3412 } },
+      { spineGlow: 0,
+        colors: { bodyRoughness: 0.34, bodyMetalness: 0.45,
+          body: 0xc79a0c, wingInner: 0xc79a0c, wingEmissive: 0xd06a18,
+          apexSeam: 0xd0431f, eye: 0x3fb8f0, coreGlow: 0xd06a18 } },
+      { spineGlow: 0.3, glowIntensity: 1.05,
+        colors: { bodyRoughness: 0.2, bodyMetalness: 0.55,
+          body: 0xf2c20e, wingInner: 0xf2c20e, wingEmissive: 0xff8a1f,
+          apexSeam: 0xff3b2f, eye: 0x3fc6ff, coreGlow: 0xff8a1f } },
+      { spineGlow: 0.5, glowIntensity: 1.2,
+        colors: { bodyRoughness: 0.15, bodyMetalness: 0.6,
+          body: 0xffd21a, wingInner: 0xffd21a, wingEmissive: 0xffa52a,
+          apexSeam: 0xff3b2f, eye: 0x6fd6ff, coreGlow: 0xffa52a } },
+    ],
+    fx: { auraColor: '255,138,31', auraIdle: 0.06, sparkle: false },
+    body: 0xf2c20e, belly: 0x0e0e12, scales: 0x141418, horn: 0x0e0e12,
+    wingInner: 0xf2c20e, wingOuter: 0x6e5408, wingEmissive: 0xff8a1f,
+    apexEye: 0x3fc6ff, apexSeam: 0xff3b2f, coreGlow: 0xff8a1f, surgeHi: 0xfff3d0,
+    eye: 0x3fc6ff, trail: 0xff8a1f, boostTrail: 0xff3b2f,
+  },
 };
 
 // Highest multipliers in the roster (for shop stat-bar normalisation).

@@ -14,6 +14,7 @@ import './dragonUnifiedHull.js';    // 'unifiedHull' wings + 'unifiedHullTorso' 
 import './dragonOrganism.js';       // 'organismWings' + 'organismTorso' (clean-sheet one-skin creature)
 import './dragonNightFury.js';      // 'nightFuryWings' + 'nightFuryTorso' (smooth-loft Night Fury) + 'none' head/tail
 import './dragonHull.js';           // 'hullWings' + 'hullTorso' (data-driven Night-Fury kernel for the new starters)
+import './dragonFaceted.js';        // 'faceted' torso + 'hexMembrane' wings + 'bullCrown' head + 'bladeJet' tail + aero layers (hard-edge/automotive family)
 import { shingle } from './dragonShingle.js'; // reusable overlapping scale/plate cards
 import { resolveSurfaceLayers, getSurfaceLayer } from './dragonSurfaceLayers.js'; // declarative dorsal/flank decoration
 import { validateCreatureBlueprint } from './validateCreatureBlueprint.js';
@@ -448,6 +449,16 @@ export function makePreviewTick(def, result) {
         tailSegs[i].position.y = Math.cos(tp * 0.8) * 0.16 * l2;
         tailSegs[i].rotation.z = -Math.sin(tp) * 0.16 * l2;
       }
+    }
+    // Stabilizer-flap idle (gated by flapFlutter → ONLY the SVJ spoiler flaps; every
+    // other dragon's tailFins are untouched in the preview): pitch the flaps up/down
+    // so the shop pose shows the control surfaces moving like the in-game rig.
+    const finsP = result.parts.tailFins;
+    if (finsP && finsP.length) for (const f of finsP) {
+      const fl = f.userData.flapFlutter || 0;
+      if (!fl) continue;
+      f.rotation.x = (f.userData.restRotX ?? 0) + Math.sin(t * 3.2 + (f.userData.phase || 0)) * fl;
+      f.rotation.z = f.userData.restRotZ ?? 0;
     }
     // Night-Fury body-spine whip: a gentle VERTICAL idle undulation (rotation.x) so the
     // shop pose breathes the same way it flies.

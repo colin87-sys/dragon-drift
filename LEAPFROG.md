@@ -1785,3 +1785,192 @@ feel tune so the intermediate→Radiant JUMP reads bigger than hatchling→inter
 **Gotcha:** a mirror-symmetry sign depends on the BONE's local frame. `rotation.z` needs `−side` (wings point opposite ±x, so opposite z spins both tips the same way); `rotation.x` (pitch) needs NO side (same world axis for both) — using `side` on BOTH was the bug. **Rule: derive each rotation channel's mirror sign from the bone axis + the limb's world direction, don't blanket-apply `side`.** And: a skinned bone chain is driven by ROTATION only (position tears the weld) — to port a position-based legacy motion (azure's coil) onto it, re-express the same wave on rotation.
 **→ Systematize:** motion verification needs the right tool too — a headless flap-symmetry probe (build mirrored rigs, step `flapWing`, assert L/R channel equality/mirror) catches asymmetry that a static render can't; bank it alongside the weld/no-facet gates. Body girth = `halfWidth`(side) + `belly`(bottom) + section `ex`; the top-line gate only sees `cy+keelTop`, so girth is free of it.
 **→ Leapfrog (innovate):** the proportion recipe is now a reusable cat/panther body macro (broad-deep chest → waist pinch → haunch bulge → thin tail); apply to Earth (heavier) + the Sea Drake (sinuous) once the human signs off on Toothless+Fire in motion. The hull head is still a smooth snout — the open charm frontier.
+
+### L56 — A new FACETED part family: the modular system IS the tool for hard-edged creatures (the hull system is for smooth ones)
+**Did / learned:** authored a brand-new "hard-edge / automotive" part family — `dragonFaceted.js` — and proved it on a
+hero, **Aurum Toro** (a Lamborghini-Aventador-as-dragon). Four registered builders + three surface layers, all
+flat-shaded + low-poly: **`faceted` torso** (the shipped `ARROW_PROFILE` lofted through a chiseled `wedgeRing` and
+emitted `toNonIndexed()` so every triangle owns its verts → `computeVertexNormals()` gives per-FACE normals = crisp
+panel creases — reusing `buildTorso` so the whole attach contract/neck/fairings come free); **`hexMembrane` wings**
+(sharp swept flat panels, an inner panel on the pivot + a pointed chevron-notched outer panel on the wingTip, the
+scissor-door UP dihedral BAKED INTO GEOMETRY so it survives the rig's flap writes — honors the frozen rig contract
+verbatim); **`bullCrown` head** (chiseled wedge skull + forward-swept bull horns + xenon-blue octahedron eyes);
+**`bladeJet` tail** (faceted taper ending in a QUAD-EXHAUST cluster whose glowing cores are pushed into `segs` so the
+rig coils them with the tip). Plus reusable layers `scissorHinge`/`splitterJaw`/`aeroVents`. **The key realisation
+(answering the player's "Lego vs hull?"): the new hull builders (`unifiedHull`/`organism`/`nightFury`) exist to MELT
+parts into one seamless smooth loft — they are the WRONG tool for crease-heavy subjects. Hard edges are GEOMETRY, not
+a shader: low segment counts + flat shading (non-indexed loft / `material.flatShading`), NOT a smoothing kernel.** The
+whole creature was added as DATA + one new module: the live registry (L48) meant zero enum edits — `registerTorso/
+Wings/Head/Tail` + `registerSurfaceLayer` + one import line in `dragonModel.js`, and blueprint/tricount/tiershots
+auto-discovered it. Aurum Toro is also the first dragon to OPT BACK INTO mirror gloss (`bodyRoughness 0.18`/
+`bodyMetalness 0.55`/`bodyEnvIntensity 0.8`) — the deliberate inverse of the matte-roster default (L45 finish work) —
+proving gloss is a usable design AXIS, not just a bug to matte away. Verified: blueprint 0 warnings, `tricount --ci`
+**1492 tris/form** (0 over budget, rest of roster byte-identical), `tiershots aurumToro` renders with no `PAGEERROR`
+(real-WebGL). (`badges.mjs` red as always in this no-WebGL env — L48.) Gotcha banked: per-form **gloss** must ride a
+form's `colors` block, because `ascendedDef` `Object.assign(d, colors)` writes TOP-LEVEL `d` and `dragonModel` reads
+`def.bodyRoughness` at top level — model-key form fields land on `d.model` instead and never reach the material.
+**→ Systematize:** the reusable method is a **"real-object → reusable parts" translation table** (car feature →
+dragon expression → `def`/builder mechanism) + the **flat-shading-by-geometry recipe** (non-indexed loft, baked
+dihedral so rig writes don't erase rest pose, glowing tips pushed into `segs` so they ride the coil). The codebase now
+has TWO complementary part catalogs — SMOOTH (hull/organism) and FACETED (this) — and the choice is a documented axis:
+pick by whether the subject's language is seamless skin or origami creases. Every faceted builder/layer here is
+generic, so the cost of the NEXT hard-surface creature is near-zero.
+**→ Leapfrog (innovate):** this opens a whole **"vehicular / mechanical / insectoid / crystalline" hard-surface
+creature line** from one family (a jet = `faceted` + `hexMembrane` + no horns; a beetle = `faceted` + carapace
+layers). Next moves: (1) a faceted COUNTERPART to each smooth builder so any dragon can be re-skinned sharp via a
+two-string `parts` swap (the L8 hero→mechanize path); (2) promote the bull=wedge/jet=cluster geometry into grammar
+knobs (`hull.section: 'wedge'|'blade'`, `tail.tip: 'jet'`) so a faceted creature is fully DESCRIBABLE (the L24/L48
+promptability thesis); (3) wire the `bladeJet` exhaust cores to the live boost-trail emitter so the trail visibly
+fires FROM the pipes — motion that reads the part, not just decorates it.
+
+### L57 — "Long & skinny" is a PROFILE bug, not a decoration bug: fix the silhouette in the body stations + tail budget, not by bolting on parts
+**Did / learned:** the first Aurum Toro read "long and skinny" because the faceted torso reused `ARROW_PROFILE` (a
+deliberately long, slim courier body with a long thin after-body) and `bladeJet` built ~7 long tail segments. The fix
+was NOT more decoration — it was a new compact body PROFILE + a shorter tail budget. Authored `BULL_PROFILE`
+(dragonFaceted.js): ~27% shorter z-span, a hard-compressed after-body (tail root 1.70→1.10), much wider half-widths
+(deep barrel chest 0.66→0.86), a tall muscular shoulder hump, a pinched-waist→haunch bulge (reusing the L55 panther
+recipe), and a short neck — and the `faceted` torso now lofts from it (one-line swap; the attach contract is unchanged
+because `buildTorso` reads the profile, so wings/head/tail still mount correctly). Also: SHORTENED the wings into a
+sharp swept DELTA by pulling the span constants in hard (`WX 2.7→1.5`, `TX 2.0→1.0`) while keeping the chord — span,
+not chord, was the "skinny"; and stubbed the tail (segLen 0.7→0.42, n 7→4, faster taper). Added two reusable SVJ aero
+layers — `svjWing` (a fixed aerofoil blade on two uprights, raked, amber-edged) + `diffuser` (vertical carbon fins) —
+swapped in for `backCrest`, and pulled the quad-exhaust tight + high-central (the SVJ stacked-pipe read). Verified:
+blueprint 0 warnings (the two new layers register live), tricount 1516/form 0-over, tiershots no PAGEERROR; the rear
+montage confirmed a compact broad mass replacing the thin sliver.
+**Gotcha:** the wing read "skinny" because of SPAN (the `WX`/`TX` reach), not chord — shortening reach while keeping
+chord turns a thin paddle into a broad delta. Diagnose silhouette complaints by which AXIS is wrong (length vs girth
+vs span), not by reaching for more geometry.
+**→ Systematize:** `BULL_PROFILE` is now a reusable **compact "muscular/vehicular" body macro** sitting next to the
+L55 panther macro — a creature picks a profile the way it picks a builder. And the rule **"silhouette = proportion
+(stations + segment budget), decoration = surface layers; fix the read at the right layer"** generalises every
+"looks wrong-shaped" note. The SVJ `svjWing`+`diffuser` pair joins the automotive aero-layer kit (scissorHinge /
+splitter / vents) any hard-surface creature can compose.
+**→ Leapfrog (innovate):** a small **library of named body profiles** (courier/arrow, serpent, panther, bull) + the
+faceted vs smooth builder axis means a new creature's whole stance is two data choices (profile + part family). Next:
+promote the profile choice into a grammar knob (`hull.profile: 'bull'|'arrow'|…`) so stance is describable, and add a
+mid-weight profile between arrow and bull to cover "athletic" creatures without a new constant each time.
+
+### L58 — A tail needn't coil: a RIGID structural rear + control-surface flaps on the `tailFins` hook (the "car/mecha" tail); and the cross-section RING is the boxy-vs-organic knob
+**Did / learned:** the player wanted Aurum Toro's rear to read like a Lamborghini SVJ (boxy, with a spoiler) and the
+movement to come from spoiler flaps "like a plane's tail stabilizers." Three moves. **(1)** The cross-section RING is
+the silhouette knob: swapped the faceted torso's pointed-diamond `wedgeRing` for a BOXY trapezoid (flat top deck,
+near-vertical chamfered sides, flat wide bottom) → the whole body, especially the narrow rear, lofts as a box (the
+mecha/car read) with zero other changes. **(2)** A tail builder needn't be a coiling chain: `svjRear` returns
+`segs: []` (the verified `none`/`cometWake` rigid-tail path) — a static transom carrying the SVJ wraparound tail-light
+bar (straight top frame + Y-chevron clusters + a thin middle runner; one emissive mat tagged `baseEmissive/
+baseIntensity` → `accentMats` so it Surge-flares), central exhausts and a vertical-finned diffuser. **(3)** The MOTION
+comes from two stabilizer flaps returned in **`tailFins`** — the EXISTING hook that already deploys on boost
+(`tailDeploy` 0.82→1.08) and deflects into turns (`bankGain·turnBias`); I added ONE additive, GATED line in the
+`tailFins` loop (dragon.js) + `makePreviewTick` (dragonModel.js) that adds an up/down pitch flutter ONLY when
+`userData.flapFlutter` is set — so the flaps act like aircraft elevators while every other `tailFins` dragon (Obsidian,
+Night Fury) stays byte-identical. Also framed the delta wings with carbon leading/trailing/tip BARS (a `frameBar(a,b,
+th,mat)` helper) for the mecha-panel read. Verified: blueprint 0 warnings, tricount 1536/form 0-over, tiershots no
+PAGEERROR; the rear montage now reads as a boxy car-tail with a horizontal light bar + diffuser, not a pointed blob.
+**Gotcha:** `makePreviewTick` does NOT animate `tailFins` at all (only `tailSegs`/spine/head/body), so shop-preview
+motion for a new fin needs its own gated line there — and gating on the same `flapFlutter` flag keeps every existing
+dragon's preview untouched.
+**→ Systematize:** the part-authoring vocabulary now has THREE orthogonal stance knobs — **profile** (arrow/serpent/
+panther/bull), **cross-section ring** (organic wedge vs boxy/mecha), and **tail kind** (coiling chain / rigid structure
+/ control-surface flaps) — each a small data/recipe choice. And the **gated-`userData`-flag** pattern (flutter only
+fires where flagged) is the safe, byte-identical way to add NEW rig motion without a contract change — reusable for any
+future driven appendage (thrusters, antennae, landing gear).
+**→ Leapfrog (innovate):** with a rigid-structure tail + control-surface flaps proven, a whole **vehicle/mecha creature
+class** is in reach (jets, walkers, drones) where "limbs" are aero/mechanical surfaces driven by flight state. Next:
+expose ring-shape + tail-kind as grammar knobs (describable mecha), a panel-line surface shader for the boxy plating,
+and drive the exhaust/flutter from the SAME flight-state signals the wings read so the whole creature animates as one
+aircraft.
+
+### L59 — A full creature can be a reusable hard-surface KIT (`mechaKit.js`): pure, material-injected, socket-bearing modules the registered parts merely COMPOSE; and a body part the pipeline lacks (legs, thrusters) lives as a surface layer reading `attach.*`
+**Did / learned:** rebuilt Aurum Toro from scratch as an SVJ mecha-dragon, but the real win is the **factoring**.
+Extracted `mechaKit.js` — a library of PURE, `seg()`-wrapped, **material-injected** (zero palette coupling) hard-surface
+primitives with **named sockets**: `hexPrism`, `spineSegment`(core+armor+fore/aft/dorsal sockets), `wedgePanel`,
+`ventPlateRow` (the 3-slash vent), `hexGrille`, `chevronLight` (taillight), `diffuserArray`, `thrusterPod` (housing+frame+
+glowing core), `mechaLeg`, `frameBar`, `wedgeRing`. The four registered builders (`svjEngineBay` torso, `bladeWing`
+wings, `svjDragonHead`, `segmentedAeroTail`) and five surface layers (`engineBay`/`ventSlashes`/`twinThrusters`/
+`rearDiffuser`/`mechaLegs`) are now just **assembly graphs** over the kit — geometry in the kit, palette + Surge-flare
+tagging in the builders. Because the registry + attach-contract + `tailFins`/`segs` hooks already ARE the assembly graph,
+this needed **zero engine changes** (no `dragon.js`/`dragonModel.js`/registry edits) and the whole shipped roster stayed
+byte-identical (tricount unchanged, blueprint 0 warnings, aurumToro 2658 tris/form). Two reusable patterns fell out:
+**(1)** a limb the model pipeline has no slot for (legs, thrusters) is a **surface layer reading `attach.halfWidthAt(z)`/
+`bodyMidY`/`tailAnchor`** — body-mounted hardware without a rig hook; **(2)** a part that should stay tucked in flight
+bakes its **folded pose into the group transform** (static rotation, never rig-driven). Also confirmed the THREE dominant
+chase-cam shapes (huge cropped blade wings → bulky twin-thruster engine block → long armored coiling tail w/ big
+stabilizer blades) are what carry the read; the cheap greeble (vents/chevrons/grilles) is **medium**-priority precisely
+because it's REAR-facing and fills the chase view. Built deliberately OVERSIZED to judge proportion first, then shrink
+via `model.scale`.
+**Gotcha:** the engine's forward axis is **−Z** (head at `−z`, tail at `+z`); a spec written `+Z`-forward must be
+mapped, not pasted, or the creature builds backwards. And the non-skinned tail rig writes each seg's `position.x/y`
+ABSOLUTELY from a damped wave (only `z` is the build-time chain) — so armor/fins/taillights must be **children of their
+seg** to ride the coil, and a stabilizer mounted near the tip rides the coil AND deploys (compound motion) when it's both
+a child of a rear seg and in `tailFins`.
+**→ Systematize:** `mechaKit` joins profile / cross-section-ring / tail-kind as the reusable **hard-surface vocabulary**;
+"material-injected pure module + named sockets" is the template for the next part family, and "body-mounted limb via a
+surface layer reading `attach.*`" is the escape hatch for any part the four-slot pipeline lacks.
+**→ Leapfrog (innovate):** the kit unlocks composable mecha/vehicle creatures from a parts bin — next, a socket-driven
+**auto-greeble** pass (scatter vents/grilles/lights along a part's sockets by rule) and a panel-line surface shader so the
+plating reads as paneled metal without extra tris.
+
+### L60 — "Start fresh" means clean-room, not reskin: a torso can publish the attach contract WITHOUT `buildTorso`/a profile; and a lofted body always reads rounded in side-profile (boxiness is a harder problem than the cross-section ring)
+**Did / learned:** the first SVJ rebuild was honestly a **reskin on the bull's bones** — `SVJ_ENGINE_PROFILE` was
+`BULL_PROFILE` widened, the wings were the `hexMembrane` vertex layout scaled, the tail fins were `svjRear`'s values
+copied. When the player asked "fresh or reusing the old design?", the honest answer was *reusing* — so they chose a
+**clean-room rebuild**. Key realization: the **attach contract is just a return shape**, not something only `buildTorso`
+can produce. A torso builder can hand-assemble a bespoke hull (a fresh angular loft + bolt-on plates + its own neck) and
+publish `{group, attach}` with `wingRoot/headBase/tailAnchor/keelTopAt/halfWidthAt/bodyMidY` computed directly from its
+own geometry — zero profile/loft inheritance, full control of the mecha silhouette, and wings/tail/head/layers mount to it
+unchanged. So "reuse only the engine contracts" is literally achievable: registry + the contract SHAPE + the frozen rig +
+`{segs,tailFins}` + Surge-flare, nothing of the donor's design data. Result: a far better-defined wedge **head** and a
+coherent creature; the rear/¾ (the gameplay angles) read as a chiseled twin-thruster engine block.
+**Gotcha:** a lofted body **reads rounded from a pure side view no matter how angular the cross-section ring is** — chines
+help the rear/¾ read but the side stays teardrop, because the silhouette there is the station taper, not the ring. True
+slab-sided boxiness needs a different construction (literal box-section fuselage / flat side plates), not just a sharper
+ring. Also: that stray light-blue diamond on the snout in static renders is the engine's **aiming pip**
+(`dragonModel.js`, `OctahedronGeometry` + `depthTest:false`, omitted only when `opts.preview`) — a gameplay HUD aid, not a
+model bug. And `buildDragonModel(def, {})` (no `preview`) includes it, so isolated render harnesses will always show it.
+**→ Systematize:** "hand-authored attach contract" joins `buildTorso`-via-profile as a torso construction option — pick
+profile-loft for organic bodies, bespoke-assembly for hard-surface ones. **→ Leapfrog:** for genuinely boxy mecha bodies,
+add a `boxFuselage` primitive (chained slab sections with hard side plates) so the side silhouette is as chiseled as the
+rear.
+
+### L61 — Matching a SIDE reference is mostly additive layers, not body reshaping; reuse the shingle/shader/spine systems and spend the tri budget on scales; flat blade-wings read as thin spikes edge-on
+**Did / learned:** the player gave a true side-profile render (a grounded gold quadruped: carbon-hex underbody + gold
+plates, dorsal spike crest, blade-fan wings with a glowing red-hex membrane, four legs, crested head). My lofted body was
+~30–40% there. The fix was **almost entirely additive surface layers**, not torso geometry: (1) `cellularScalesNormal`
+**surface shader** (`def.parts.surface.shader`, 0 tris) for the carbon-hex micro-relief — `bodyMat.clone()` in a
+hand-authored torso inherits the patch; (2) a `svjScaleArmor` layer calling **`shingle()`** (`dragonShingle.js`) twice —
+a black carbon scale run on the lower flanks + a gold plate-scute run on the back — reading `attach.halfWidthAt/keelTopAt/
+bodyMidY`, which is also the cheapest way to **spend the tri budget** (each cupped card ~2 tris merged into one draw call;
+this carried ~2,300 of the ~3,200 I added, 2128→5320); (3) a `svjDorsalSpine` layer running raked cones along
+`attach.keelTopAt(z)`; (4) a head crest = a fan of cones on the existing head. Only a light **station reshape** (arched
+topline via the `top` column, tucked mid-belly via the `bottom` column) was needed on the body itself. Net: a strong side
+match with zero engine edits, HIGH 5320 / ULTRA 9698 (both in budget). Confirmed the surface-layer pipeline adds meshes in
+**body-local model space** so layers reading `attach.*` just work.
+**Gotcha:** **flat (single-/double-tri) blade geometry reads as a thin SPIKE when viewed edge-on** — a fan of up-swept
+blades looks solid in ¾ but becomes thin radiating rays from the dead-rear chase cam (and a gold edge catching the cool
+rim light desaturates to a stray **greenish** sliver, easily mistaken for unwanted cyan). Give silhouette-critical blades
+real width/thickness, or accept the "spiky fan" rear read as the style. Also: `shingle()` `cardRows/cardCols` go through
+`seg()`, so they **4× at ULTRA** — keep card counts modest or check `tricount --detail=ultra` (not just the HIGH `--ci`).
+**→ Systematize:** the reference-match playbook = shader (free texture) + `shingle` (budgeted scale geometry) + dorsal
+`attach.keelTopAt` cones + a station reshape — reusable for any "armor up this body to a reference" task.
+
+### L62 — A scrapped design is one git-restore away when its builders stay registered; and `setPointerCapture` on `pointerdown` without a direction threshold silently eats page scroll
+**Did / learned:** TWO small things. **(1) A/B comparison via a parallel roster entry.** The player wanted to compare the
+scrapped "lambo bull" Aurum Toro against the SVJ rebuild *live in the shop*. Because the coexist-rollback rule kept the v1
+bull builders (`faceted`/`hexMembrane`/`bullCrown`/`svjRear` + layers) REGISTERED even after `aurumToro` stopped using
+them, restoring the whole design was just re-adding a `DRAGONS` entry (`aurumToroBull`, recipe lifted verbatim from
+`git show 408abc9:…/dragons.js`) — zero builder work, and the shop auto-lists `Object.keys(DRAGONS)` so it appeared with
+no shop/ascension wiring (blueprint.mjs is the integration gate; it passed). So "keep the old builders registered" pays off
+not just as rollback but as **free side-by-side comparison of two whole designs**. **(2) The flaky shop-scroll bug.** The
+DRAGONS-tab turntable (`.hero-canvas`) called `setPointerCapture()` in `pointerdown` and had `touch-action:none`, so a
+VERTICAL swipe that happened to start on the turntable was captured for rotate and stolen from the `.shop-scroll`
+container → "I have to try in different spots; sometimes it scrolls, sometimes not" (it worked only when the swipe started
+off the canvas). Fix = **defer the capture/rotate until the gesture is confirmed HORIZONTAL** (`|dx|>12 && |dx|>|dy|`;
+vertical intent drops the drag so the browser scrolls) + set the canvas `touch-action:pan-y` (mirroring the already-correct
+`.skin-preview` shop cards) so the browser routes vertical natively. Also gave the small `.hero-thumb canvas` thumbnails
+`pan-y`.
+**Gotcha:** an interactive `<canvas>` inside a scroll container is a scroll TRAP by default — the global
+`canvas{touch-action:none}` (right for in-game steering) plus any pointer-capture-on-down means every drag-rotate surface
+silently blocks scrolling unless it (a) declares `touch-action:pan-y/pan-x` AND (b) only captures after a
+direction-disambiguating move threshold. Verify touch behaviour on the live preview — headless can't drive it.
+**→ Systematize:** any new drag/rotate canvas in a scrollable screen needs the **pan-axis + move-threshold** pair; bake it
+into the shared `onTap`/drag helper so the trap can't recur.

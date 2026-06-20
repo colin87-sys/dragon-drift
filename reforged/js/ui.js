@@ -1853,21 +1853,39 @@ function wireScreenButtons(type) {
         }
         refresh();
       });
-      // Drag the stage → rotate the hero, and only that.
-      let dragId = null, lastX = 0;
+      // Drag the stage → rotate the hero, and only that. The rotate is DEFERRED until
+      // the gesture is confirmed HORIZONTAL: capturing the pointer on pointerdown (as
+      // it used to) stole vertical swipes that START on the turntable from the shop
+      // scroll container, so the dragon list felt unscrollable in spots. Now a vertical
+      // intent bails out and the browser scrolls natively (the canvas is touch-action:
+      // pan-y), while a horizontal intent captures + rotates as before.
+      let dragId = null, lastX = 0, startX = 0, startY = 0, dragging = false;
       heroCanvas.addEventListener('pointerdown', (e) => {
-        dragId = e.pointerId; lastX = e.clientX;
-        try { heroCanvas.setPointerCapture(e.pointerId); } catch { /* ok */ }
-        showcaseDragStart(); stage.classList.add('rotated');
+        dragId = e.pointerId; startX = lastX = e.clientX; startY = e.clientY; dragging = false;
       });
       heroCanvas.addEventListener('pointermove', (e) => {
         if (e.pointerId !== dragId) return;
+        if (!dragging) {
+          const dx = e.clientX - startX, dy = e.clientY - startY;
+          if (Math.abs(dx) > 12 && Math.abs(dx) > Math.abs(dy)) {
+            dragging = true; lastX = e.clientX;
+            try { heroCanvas.setPointerCapture(e.pointerId); } catch { /* ok */ }
+            showcaseDragStart(); stage.classList.add('rotated');
+          } else if (Math.abs(dy) > 12) {
+            dragId = null; return;   // vertical → let the shop scroll, don't rotate
+          } else {
+            return;                  // not enough movement to decide yet
+          }
+        }
         const step = e.clientX - lastX; lastX = e.clientX; showcaseDragMove(step);
       });
       const endDrag = (e) => {
         if (e.pointerId !== dragId) return;
-        dragId = null; showcaseDragEnd();
-        try { heroCanvas.releasePointerCapture(e.pointerId); } catch { /* ok */ }
+        dragId = null;
+        if (dragging) {
+          dragging = false; showcaseDragEnd();
+          try { heroCanvas.releasePointerCapture(e.pointerId); } catch { /* ok */ }
+        }
       };
       heroCanvas.addEventListener('pointerup', endDrag);
       heroCanvas.addEventListener('pointercancel', endDrag);
