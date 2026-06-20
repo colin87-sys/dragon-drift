@@ -568,6 +568,8 @@ body.app-loaded > canvas { opacity: 1; }
   font-weight: 800; text-shadow: 0 0 10px rgba(255, 120, 60, 0.55);
   transition: opacity 1s ease; }
 .assist-chip.faded { opacity: 0; }
+.best, .ff-chip { opacity: 0; transition: opacity 0.45s ease; }
+.best.hud-reveal, .ff-chip.hud-reveal { opacity: 1; }
 .hc-line { color: #ff9a5a; font-size: 14px; letter-spacing: 2px; font-weight: 700; margin: 4px 0;
   text-shadow: 0 0 12px rgba(255, 120, 60, 0.5); }
 

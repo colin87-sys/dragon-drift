@@ -78,6 +78,10 @@ let lastSpeedlines = -1;
 let celebrateShownAt = 0;
 let assistFadeTimer = null;
 let lastAssistText = '';
+let bestRevealTimer = null;
+let lastBestReveal = '';
+let ffRevealTimer = null;
+let lastFFActive = false;
 let lastEmbersRun = 0;
 let emberDimTimer = null;
 
@@ -623,9 +627,25 @@ export const ui = {
 
     els.dist.textContent = `${Math.floor(player.dist)} m`;
 
-    // C1: BEST chip — only surface when closing in on the record (≥70%)
-    els.best.textContent = game.highScore > 0 && game.score >= 0.7 * game.highScore
-      ? `BEST ${game.highScore}` : '';
+    // C1: BEST is a brief encouragement reveal near the record, not a
+    // persistent HUD stat. Full record context belongs in recap.
+    const nearBest = game.highScore > 0 && game.score >= 0.7 * game.highScore;
+    const bestText = nearBest ? '★ PB' : '';
+    if (bestText && bestText !== lastBestReveal) {
+      els.best.textContent = bestText;
+      els.best.classList.add('hud-reveal');
+      clearTimeout(bestRevealTimer);
+      bestRevealTimer = setTimeout(() => {
+        els.best.classList.remove('hud-reveal');
+        els.best.textContent = '';
+      }, 3000);
+      lastBestReveal = bestText;
+    } else if (!nearBest) {
+      clearTimeout(bestRevealTimer);
+      els.best.classList.remove('hud-reveal');
+      els.best.textContent = '';
+      lastBestReveal = '';
+    }
 
     // C3: Ember HUD — pop bright on pickup, dim after 2.5s idle
     const curEmbers = game.embersRun;
@@ -638,19 +658,19 @@ export const ui = {
     }
     lastEmbersRun = curEmbers;
 
-    // C2: Assist chip — fades after 4s when value hasn't changed
+    // C2: Assist chip — short icon/value reveal only; pause/recap explain scoring.
     const hcBonus = Math.round((game.scoreMult - 1) * 100);
     let newAssistText = '';
     if (saveData.settings.glideAssist) {
-      newAssistText = `🪶 GLIDE ASSIST −${Math.round((1 - CONFIG.glideAssistScoreMult) * 100)}%`;
+      newAssistText = `🪶 −${Math.round((1 - CONFIG.glideAssistScoreMult) * 100)}%`;
     } else if (hcBonus > 0) {
-      newAssistText = `⚔ ASSISTS OFF +${hcBonus}%`;
+      newAssistText = `⚔ +${hcBonus}%`;
     }
     if (newAssistText !== lastAssistText) {
       els.assistChip.textContent = newAssistText;
       els.assistChip.classList.remove('faded');
       clearTimeout(assistFadeTimer);
-      if (newAssistText) assistFadeTimer = setTimeout(() => els.assistChip.classList.add('faded'), 4000);
+      if (newAssistText) assistFadeTimer = setTimeout(() => els.assistChip.classList.add('faded'), 3000);
       lastAssistText = newAssistText;
     }
 
@@ -670,10 +690,22 @@ export const ui = {
       }
     }
 
-    // First flight of the day: the ×1.5 chip shows until the bonus banks.
-    els.ffChip.textContent =
-      saveData.firstFlightDay !== todayUTC()
-        ? `☀ FIRST FLIGHT ◆×${CONFIG.firstFlightMult}` : '';
+    // First flight of the day: one short reveal; recap ledger explains/banks it.
+    const ffActive = saveData.firstFlightDay !== todayUTC();
+    if (ffActive && !lastFFActive) {
+      els.ffChip.textContent = `☀ ×${CONFIG.firstFlightMult}`;
+      els.ffChip.classList.add('hud-reveal');
+      clearTimeout(ffRevealTimer);
+      ffRevealTimer = setTimeout(() => {
+        els.ffChip.classList.remove('hud-reveal');
+        els.ffChip.textContent = '';
+      }, 3500);
+    } else if (!ffActive) {
+      clearTimeout(ffRevealTimer);
+      els.ffChip.classList.remove('hud-reveal');
+      els.ffChip.textContent = '';
+    }
+    lastFFActive = ffActive;
 
     // Fever overlay pulse
     els.feverOverlay.classList.toggle('active', game.feverActive);
@@ -767,9 +799,9 @@ export const ui = {
     this._popup(`⟡ PAST YOUR BEST FLIGHT +◆${bonus} ⟡`, 'gold');
   },
 
-  // Feat toast: its own element so gameplay popups are never eaten.
+  // Feat toast: short in-flight unlock; Pilot and recap carry the details.
   featToast(name, reward) {
-    els.featToast.innerHTML = `${ICONS.feat} FEAT — ${name} <b>◆${reward} ▸ claim in Pilot</b>`;
+    els.featToast.innerHTML = `${ICONS.feat} FEAT UNLOCKED <b>◆${reward}</b>`;
     restartAnim(els.featToast, 'feat-toast-anim');
   },
 
