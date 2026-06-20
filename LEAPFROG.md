@@ -2020,3 +2020,25 @@ an intentional suspend unless it respects a "we are backgrounded" latch — cent
 **→ Systematize:** one `bgSuspended` latch gates BOTH "don't auto-resume" (in the ctx accessor) and "restart
 music only when foreground"; explicit foreground entry points are the only places that clear it. **Caveat:**
 audio timing/crackle is device-specific — verify on real hardware/headphones, not headlessly.
+
+### L69 — A WEDGED iOS AudioContext (permanent mute until refresh) only recovers by RECREATING the context — from inside a gesture
+**Did / learned:** beyond the slow-audio/crackle fixes (L68), the player hit the worst case: switching to
+another (audio) app and back sometimes left the **whole game permanently muted until a page refresh**. The
+gesture-unlock path already did everything reasonable — replays the silent media element, clears the bg latch,
+calls `ctx.resume()`, kicks a silent buffer — yet a refresh was still needed. That's the known iOS Safari bug:
+after another app grabs audio focus, the `AudioContext` gets stuck so `resume()` never returns it to `'running'`,
+and *no* amount of resuming revives it. The only cure is a **fresh context**. Added `rebuildContext()` —
+`ctx.close()`, null every graph ref (`ctx/masterGain/musicBus/sfxBus/slowFilter/reverb*/pumpGain/echo*/layers`)
+so the lazy `getCtx()` rebuilds the master chain clean, reset the flags, and `music.start()` if it was playing.
+It's triggered **only** from a real gesture in `unlockAudio()` and **only** when the context had genuinely run
+before (`audioEverRan`) and a prior foreground gesture already failed to revive it (`audioWedged`) — so it never
+fires during normal play, initial unlock, or intended background silence; it recovers on the *second* tap. Key
+safety property: if the rebuild somehow fails it's no worse than the status quo (the user refreshes), and if it
+works the manual refresh disappears.
+**Gotcha:** a recreated `AudioContext` starts `'suspended'` and needs a gesture to resume — so the rebuild MUST
+happen synchronously inside the gesture handler, never from a `setTimeout`/visibility callback (that fresh ctx
+would just sit suspended). Distinguish "not unlocked yet" from "wedged" via an `everRan` flag, or you'll rebuild
+on the very first startup tap.
+**→ Systematize:** treat the AudioContext as fallible hardware — track its health via `onstatechange`, and keep
+a gesture-driven `rebuildContext()` as the escape hatch for any stuck state. **Caveat:** iOS interruption timing
+is unreproducible headlessly — verify on-device.
