@@ -600,8 +600,9 @@ export const DRAGONS = {
     // white, set apart from Phoenix's flame-feather gold.
     stats: { speed: 1.13, handling: 1.22, drain: 0.78, regen: 1.25 },
     // MULTI-MODULE upgrade (Radiant Paladin): feather-scale wings on the shared 3-hinge
-    // rig + cascade animator. Other parts still inferred until seraphHull/Head/Tail land.
-    parts: { wings: 'seraphWing' },
+    // rig + cascade animator + a comet/banner TAIL (chase-cam rear hero). Hull/Head
+    // still inferred until seraphHull/Head land.
+    parts: { wings: 'seraphWing', tail: 'seraphTail' },
     model: {
       scale: 1.12, wingScale: 1.2, tailSegments: 9, neckSegments: 5,
       hornLen: 1.3, hornPairs: 1, ridgeCount: 12,

@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { seg } from './modelDetail.js';
-import { registerWings } from './dragonRecipe.js';
+import { registerWings, registerTail } from './dragonRecipe.js';
 import { flatTriMesh, frameBar, chevronLight } from './mechaKit.js';
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -177,3 +177,86 @@ function buildSeraphWing(def, model, attach, giM) {
   };
 }
 registerWings('seraphWing', buildSeraphWing);
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// SERAPH TAIL — 'seraphTail' — the CHASE-CAM REAR HERO: a luminous comet/banner tail,
+// NOT a mecha spine. Smooth tapering pearl vertebrae + a gilded dorsal ridge running
+// the length + dawn-blue glow seams, finishing in a COMET BLOOM (a glowing core + a
+// gilded blade-fan streaming back) with two gilded BANNER fins that bank into turns.
+// Contract (dragonModel L266): (def, model, { bodyMat, scalesMat }, anchor) →
+//   { group, segs, tailFins, accentMats }. `segs` ride the coil/rudder/bob animator;
+//   `tailFins` get deployed/fluttered/banked; `accentMats` flare on Surge.
+// ═══════════════════════════════════════════════════════════════════════════════
+function buildSeraphTail(def, model, mats, anchor) {
+  const root = new THREE.Group();
+  root.position.set(0, anchor.y, anchor.z);
+
+  const pearlMat = new THREE.MeshStandardMaterial({
+    color: def.body ?? 0xffffff, flatShading: true, roughness: 0.5, metalness: 0.1,
+  });
+  const goldMat = new THREE.MeshStandardMaterial({
+    color: def.horn ?? 0xffd86a, flatShading: true, side: THREE.DoubleSide, roughness: 0.3, metalness: 0.7,
+  });
+  const glowCol = def.wingEmissive ?? def.apexSeam ?? 0xc0e0ff;
+  const glowMat = new THREE.MeshStandardMaterial({ color: glowCol, emissive: glowCol, emissiveIntensity: 1.5, roughness: 0.3, side: THREE.DoubleSide });
+  glowMat.userData.baseEmissive = glowCol; glowMat.userData.baseIntensity = 1.5;
+  const accentMats = [glowMat];
+  const segs = [], tailFins = [];
+
+  // CHAIN of smooth pearl vertebrae along +z (flat siblings of root, like the aero tail,
+  // so the established per-segment rudder/coil animator drives them identically).
+  const n = Math.min(model.tailSegments ?? 9, 12);
+  let z = 0.10, r = 0.34;
+  const taper = 0.86, segLen = 0.46;
+  let rearSeg = null;
+  for (let i = 0; i < n; i++) {
+    const f = n > 1 ? i / (n - 1) : 0;
+    const rTop = Math.max(r * taper, 0.05);              // rear (thinner) radius
+    const g = new THREE.Group(); g.position.set(0, 0, z);
+    // smooth tapered vertebra: rTop = rear, r = front (toward body) → CylinderGeometry +z
+    const body = new THREE.Mesh(new THREE.CylinderGeometry(rTop, r, segLen, seg(6)), pearlMat);
+    body.rotation.x = Math.PI / 2;
+    g.add(body);
+    // gilded dorsal ridge blade (grows toward the root, tapers to the tip)
+    const ridgeH = 0.24 * (1 - 0.55 * f) + 0.05;
+    g.add(flatTriMesh([[[0, r, -segLen * 0.4], [0, r + ridgeH, 0], [0, rTop, segLen * 0.4]]], goldMat));
+    // dawn-blue glow seam on the interior segments (rear-facing read for the chase cam)
+    if (i >= 1 && i < n - 1) {
+      const slit = chevronLight({ len: r * 1.4, w: 0.04, mat: glowMat });
+      slit.position.set(0, r * 0.55, -segLen * 0.3); g.add(slit);
+    }
+    root.add(g); segs.push(g);
+    if (i === n - 2) rearSeg = g;
+    z += segLen * 0.82; r = rTop;
+  }
+
+  // COMET BLOOM at the tip — a glowing core + a gilded blade-fan streaming back (+z).
+  const tip = segs[segs.length - 1];
+  const core = new THREE.Mesh(new THREE.SphereGeometry(0.15, seg(8), seg(6)), glowMat);
+  core.position.set(0, 0, segLen * 0.5 + 0.10); tip.add(core);
+  for (const a of [-0.55, -0.2, 0.2, 0.55]) {
+    const bl = 0.62, bw = 0.13;
+    const blade = flatTriMesh([[[0, 0, 0], [bw, 0, bl * 0.4], [0, 0, bl]], [[0, 0, 0], [0, 0, bl], [-bw, 0, bl * 0.4]]], goldMat);
+    blade.position.set(0, 0, segLen * 0.5 + 0.10);
+    blade.rotation.z = a;                                // fan the streak radially
+    tip.add(blade);
+  }
+
+  // BANNER FINS (tailFins) near the tip — gilded tapered banners that the rig banks into
+  // turns (bankGain) + flutters; a glow trailing edge keeps them on the chase-cam read.
+  const host = rearSeg ?? root;
+  for (const s of [-1, 1]) {
+    const flap = new THREE.Group(); flap.position.set(s * 0.10, 0.10, 0);
+    flap.add(flatTriMesh([
+      [[0, 0, -0.18], [s * 0.78, 0.02, 0.06], [s * 0.30, 0, 0.40]],
+      [[0, 0, -0.18], [s * 0.30, 0, 0.40], [0, 0, 0.30]],
+    ], goldMat));
+    flap.add(flatTriMesh([[[s * 0.30, 0, 0.40], [s * 0.78, 0.02, 0.06], [s * 0.62, 0.01, 0.30]]], glowMat));
+    flap.userData.restRotX = -0.12; flap.userData.restRotY = 0; flap.userData.restRotZ = s * 0.18;
+    flap.userData.restScale = 1; flap.userData.bankGain = s * 0.5; flap.userData.flapFlutter = 0.18; flap.userData.phase = s * 1.6;
+    host.add(flap); tailFins.push(flap);
+  }
+
+  return { group: root, segs, tailFins, accentMats };
+}
+registerTail('seraphTail', buildSeraphTail);

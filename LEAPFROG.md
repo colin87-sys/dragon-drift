@@ -2288,3 +2288,22 @@ Reuse the SAME skeleton (hinge rig + cascade animator + attach contract); swap o
 - surface = matte + **gilded emissive edges** + glow-seams vs metal clearcoat (one hard accent allowed: gem nodes);
 - L/R symmetry = build the RIGHT master + a `scale.x=-1` MIRROR CLONE for the left (drive each rig with the same
   logical pose + its own banking bias). See lessons L72–L78 for the tactical mechanics.
+
+### L79 — Banking is POSE BIAS, never a L/R phase delay
+Both wings share the ONE flap phase + identical internal root→mid→tip lag; banking asymmetry is pose only. Per
+wing, an inside-ness `ins` (+1 inside the turn → brake/tuck, −1 outside → power/open) drives amplitude (inside
+↓ arc, outside ↑), baseline (inside drops lower, outside opens higher), mid fold-in vs spread, and the tip
+(smaller arc + feathered back + canted up). `|bank|` is the soft→hard continuum. The body roll, spine C-curve
+cascade (chest→hips→tail with `bankHard`), and tail rudder-into-turn already existed — the missing piece was the
+inside/outside WING articulation so the wings read as limbs (shoulder drives → forearm follows → tip trails), not
+planks. Phase-delaying a whole wing against the other looks broken; resist it. (`dragon.js` Mk II wing branch.)
+
+### L80 — `seraphTail` comet/banner tail: a 4th module on the shared armature
+The Seraph now lands a dedicated TAIL (`registerTail('seraphTail', …)`) alongside its wing — hull/head still
+inferred, roster byte-identical. Tail contract: `(def, model, {bodyMat, scalesMat}, anchor) → {group, segs,
+tailFins, accentMats}` — `segs` are FLAT siblings of root along +z (the per-segment rudder/coil animator drives
+them; do NOT nest them), `tailFins` carry `userData.{restRotX/Y/Z, restScale, bankGain, flapFlutter, phase}` for
+deploy/flutter/bank, `accentMats` (glow mats with `userData.baseEmissive/baseIntensity`) flare on Surge. Organic
+vocabulary: smooth tapered pearl vertebrae + a gilded dorsal ridge + dawn-blue glow seams, finishing in a COMET
+BLOOM (glow core + gilded blade-fan streaming +z) — the chase-cam rear hero. Verify: `tricount` (budget) +
+`tiershots` (front) + `gameshots` (live chase-cam boot/fly across tiers); the human judges feel on the preview.
