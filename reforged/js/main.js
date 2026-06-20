@@ -633,7 +633,11 @@ initGestureTutorial({ onPause: pauseForTutorial, onResume: resumeFromTutorial })
 // return, resume audio unless a run is sitting paused behind its overlay (the Resume
 // tap restarts that one, and the tap gesture re-unlocks iOS audio).
 function onBackground() { pauseForBackground(); music.pauseForBackground(); }
-function onForeground() { if (game.state !== 'paused') music.resumeFromBackground(); }
+// ALWAYS resume audio on return — even if a run is sitting paused behind its overlay.
+// resumeFromBackground() only ARMS the intent + resumes the context; it never rebuilds the
+// scheduler unless the context is genuinely running (so no iOS garble). Skipping it while
+// paused left resumeMusicPending un-armed, so the later Resume tap could never restart music.
+function onForeground() { music.resumeFromBackground(); }
 document.addEventListener('visibilitychange', () => {
   if (document.hidden) onBackground(); else onForeground();
 });
