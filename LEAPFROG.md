@@ -2043,3 +2043,23 @@ function-signature block, not the shared body. Also `svjHull` is a *custom* buil
 **→ Systematize:** "make this one bulkier/longer but don't change its sibling" = parametrize the shared builder with
 default-current knobs + set them on the single recipe; never fork the builder or edit shared geometry in place. **Caveat:**
 final massing/aero read is a feel call — tune the knob values to the render and let the player judge the live preview.
+
+### L66 — A hidden-scrollbar `overflow-x:auto` rail has NO desktop drag and a flaky iOS pan: fix with `touch-action: pan-x` on the rail AND its cards + a non-touch pointer drag-to-scroll
+**Did / learned:** the player couldn't move through the shop's bottom dragon-select rail (`#hero-rail` /
+`.dpick-rail`) — "drag to go Azure → Bull doesn't respond." Two distinct causes for one symptom: (1) the rail
+scrolls only via native `overflow-x:auto` with the scrollbar hidden (`scrollbar-width:none`), and a native
+overflow scroller with no visible scrollbar has **no click-drag** — desktop mouse users literally cannot drag
+it (only shift-wheel/trackpad); (2) the rail and its `.hero-thumb` cards declared **no `touch-action`**, so
+inside the vertical `.shop-scroll` parent iOS WebKit favored the vertical scroller and a horizontal swipe that
+*started on a card* got eaten — only swipes landing in the gaps scrolled ("find the right place for the
+finger"). Fix: add `touch-action: pan-x` to **both** the rail and the cards (declare horizontal intent so the
+swipe pans the rail, not the parent), plus a JS pointer drag-to-scroll on the rail **gated to non-touch
+pointers** (`e.pointerType !== 'touch'` → `setPointerCapture` + `scrollLeft = start - dx`); touch keeps its
+native momentum so there's no double-scroll. The drag threshold (10px) is set to the **same** value as the
+existing `onTap` tap/scroll guard, so a gesture is unambiguously either a tap (selects) or a drag (scrolls).
+**Gotcha:** `touch-action` is resolved at the element the touch lands on — putting `pan-x` only on the scroll
+*container* isn't enough when the touch starts on an interactive child (the card); the **child** needs it too.
+And a tap-vs-drag system only stays consistent if every handler on the element shares one movement threshold.
+**→ Systematize:** any custom-styled horizontal carousel = `touch-action: pan-x` on container **and** items +
+a non-touch drag-to-scroll; never ship a hidden-scrollbar `overflow-x` rail as the only scroll path (desktop
+can't drag it). **Caveat:** drag/touch-pan can't be driven headlessly — verify on the live PR preview.

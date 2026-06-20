@@ -839,9 +839,15 @@ html.standalone .hero-stage { width: min(100%, 42svh); }
 .dpick-cta button.ascend { color: #160d22; background: linear-gradient(135deg, #ffd86a, #ff9a3c); }
 .dpick-cta button.dim { opacity: 0.5; }
 .dpick-rail { display: flex; flex-wrap: nowrap; gap: 7px; margin: 8px 0 4px; overflow-x: auto; overflow-y: hidden;
-  padding: 4px 2px 8px; scrollbar-width: none; -webkit-overflow-scrolling: touch; }
+  padding: 4px 2px 8px; scrollbar-width: none; -webkit-overflow-scrolling: touch;
+  /* pan-x declares horizontal-scroll intent so iOS reliably scrolls the rail (a swipe
+     starting on a card pans it instead of losing to the vertical shop scroller); a
+     non-touch pointer drag-to-scroll (ui.js) gives desktop the missing click-drag. */
+  touch-action: pan-x; cursor: grab; }
+.dpick-rail.dragging { cursor: grabbing; }
 .dpick-rail::-webkit-scrollbar { display: none; }
 .hero-thumb { position: relative; flex: 0 0 58px; width: 58px; height: 58px; border-radius: 12px; overflow: hidden; cursor: pointer;
+  touch-action: pan-x;
   background: radial-gradient(circle at 50% 36%, rgba(120,88,56,0.3), rgba(14,10,9,0.7) 80%);
   border: 1px solid var(--rf-stroke); box-shadow: inset 0 1px 0 rgba(255,255,255,0.05);
   transition: border-color 0.15s, box-shadow 0.15s, transform 0.12s; }
