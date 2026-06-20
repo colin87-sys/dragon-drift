@@ -2021,3 +2021,25 @@ it's largely a harness-lighting artifact, so the player judges it under real gam
 profile edit — it's cheaper, stays on-budget, and is what reads as a different creature. For any full-viewport mobile screen,
 prefer `svh`/`dvh` over `vh` and gate the roomy layout behind an installed-PWA class. **Caveat:** shop-height fit and the
 wing's white-flat blowout are visual/feel calls — verify on-device / on the live PR preview, not headlessly.
+
+### L65 — Re-mass ONE sibling without touching the other: parametrize the SHARED builder with default-1 knobs, set values on the one recipe; the "reads thin/flat" fix is massing + shape hierarchy, not more greeble
+**Did / learned:** the player's second pass on Aurum Toro Mk II said it still reads as a "flat gold glider / skinny stick
+body," and the fix is **stronger massing + shape hierarchy + SVJ aero language**, not more detail. But Mk II shares its torso
+(`svjHull`), head (`svjWedgeHead`) and thruster layer (`twinThrusters`) with the shipped `aurumToro`, which must stay
+byte-identical (the A/B compare). The clean pattern: **add optional knobs to the shared builder that default to today's exact
+values** — `svjHull` reads `model.{torsoWidthScale,torsoHeightScale,rearBulkScale}` and builds a scaled copy of its
+`SVJ_STATIONS` (rear-only bulk via `z >= -0.15 ? rbs : 1`) before lofting, scaling `attach.wingRoot(side).x` so the wings ride
+the new shoulder edge; `svjWedgeHead` reads `model.{headLenScale,headHeightScale}` to stretch the skull longer/lower;
+`twinThrusters` reads `def.thruster.{rOuter,rCore,spread,z,intensity}` for a bigger/brighter pod. Each knob is `?? <current>`
+so the default path is provably inert — `tricount` showed `aurumToro` **unchanged at 5516 tris** and its render pixel-identical,
+while Mk II got a broader engine-bay torso, thicker proximal tail (first-half segs ×≈1.22→1.06), longer wedge head, and dominant
+thrusters — all set on the **one recipe**. Wing/tail builders unique to Mk II (`svjJetWing`/`svjAeroTridentTail`) were edited
+freely (bigger black vent inset, lower secondary blade, sharper trident). All re-massing was scaling existing geometry → tri
+count held (5564, ≤6000), no new draw calls.
+**Gotcha:** when a builder was restored from git for rollback (here a dormant duplicate head `svjDragonHead`), the SHARED
+geometry lines are **identical** in two functions — an Edit on the live builder fails "2 matches"; anchor the edit on the unique
+function-signature block, not the shared body. Also `svjHull` is a *custom* builder (not `buildTorso`), so the engine's
+`model.shoulderWidthScale` (handled in `dragonTorso.js`) is a **no-op** for it — the torso must read its own width knobs.
+**→ Systematize:** "make this one bulkier/longer but don't change its sibling" = parametrize the shared builder with
+default-current knobs + set them on the single recipe; never fork the builder or edit shared geometry in place. **Caveat:**
+final massing/aero read is a feel call — tune the knob values to the render and let the player judge the live preview.
