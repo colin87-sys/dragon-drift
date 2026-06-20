@@ -2140,3 +2140,27 @@ builds + boot are, but timing/feel is a live-preview call.
 **→ Systematize:** articulated flap = one integrated phase → per-segment `sin(phase − lag_i)` with lags that are
 a real fraction of the cycle, direct-set, L/R sign-mirror; reserve damping for noisy INPUTS (shared), never as
 the per-wing motion itself.
+
+### L72 — Per-FORM evolution = per-form knobs in forms[] (accrete onto model) + builders branching on level knobs + a flap-shaping `glidePow`; gate the layered read on the opt-in flag, not the form level
+**Did / learned:** made Aurum Toro Mk II's four ascension tiers read as one dragon's evolution (Hatchling baby →
+Kindled teen → Radiant adult → Eternal overlord), working backwards from the current = Eternal. `ascendedDef`
+already Object.assigns each `forms[t]`'s non-`colors` keys onto `model` (later forms win), so per-form GEOMETRY
+is just per-form knobs in `aurumToroMk2.forms`: proportion scalars (`bodyScale`/`wingSpan` drive the size ramp;
+`torsoWidthScale`/`bellyFlatten`/`headScale`/`eyeScale`) + FEATURE LEVELS (`wingParts` 1/2/3, `thrusterLevel`,
+`nacelleLevel`, `spineCapLevel`, `tailTip`, `hornLevel`). The builders/layers read those and branch — the wing
+builder returns 1 / 2 / 3 nested segment groups; the thruster/nacelle/spine layers self-gate (level 0 →
+`return {meshes:[],flareMats:[]}`) and scale by level; the tail tip grows spear→fork→trident; the head scales +
+drops horns. Per-FORM ANIMATION rode the same channel: `flapFreqScale`, `rootAmp/midAmp/tipAmp`, `midLag/tipLag`,
+`bodyBobScale`/`headWobbleScale`/`tailLagScale`, and the key knob **`glidePow`** — the flap waveform is
+`sign(sin)·|sin|^glidePow`, so high `glidePow` (Eternal 2.6) HOLDS the broad glide pose and pulses through
+rarely ("commands the air"), low (Hatchling 0.8) flaps frantically. One unified `else if (model.wingParts)` drive
+handles 1/2/3 segments via null-checks, keeping the L71 shared-phase sign-mirror. Tris dropped for younger forms
+(Hatchling 4424 → Eternal 5948 ≤6000); `aurumToro` + roster byte-identical.
+**Gotcha:** the layered thruster (frame/hot-core/emitter) had been gated on `if (t.frame)`; when I re-gated it on
+`thrusterLevel>=3` I dropped the `t.frame` check and `aurumToro` (which sets `thrusterLevel` via the default `??3`
+but has NO `def.thruster.frame`) suddenly grew the frame (+168 tris). Always keep the opt-in flag in the gate
+(`layered = !!def.thruster?.frame`) so a shared layer's new per-form path can't leak into other dragons. And the
+default `?? <eternal>` on every knob is what keeps non-Mk-II dragons untouched.
+**→ Systematize:** an evolution line = data-driven per-form knobs + level-branching builders; "glide vs frantic"
+is one `|sin|^p` shaping knob, not a state machine. **Caveat:** the render harness auto-frames each form (hiding
+the absolute-scale ramp) and can't show MOTION — verify the size/feel progression on-device.

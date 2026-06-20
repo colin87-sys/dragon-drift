@@ -486,7 +486,8 @@ export function updateDragon(dt, player, time) {
   const feverBoost = player.feverActive ? 1.3 : 1;
   // FREQUENCY: boost/surge faster, a DIVE glides (slower/paused), decel eases back to normal.
   const flapSpeed = (player.speedActive ? 11 : 6) * feverBoost * activeDef.model.flapBias
-    * formSpeed(activeDef.model) * (1 - 0.55 * diveAmount) * (1 - 0.18 * decel01);
+    * formSpeed(activeDef.model) * (activeDef.model.flapFreqScale ?? 1)
+    * (1 - 0.55 * diveAmount) * (1 - 0.18 * decel01);
   // AMPLITUDE: dive tucks to a glide (small), climb + decel open broad to catch air.
   const flapAmp = (player.speedActive ? 0.7 : 0.52) * (activeDef.model.flapAmp ?? 1)
     * (1 - 0.7 * diveAmount) * (1 + 0.3 * climbAmount) * (1 + 0.25 * decel01);
@@ -507,50 +508,51 @@ export function updateDragon(dt, player, time) {
     const flapState = { phase, flapAmp, turnBias, climbBias, rollFold, feather, aero01, spread01, surge01, bankHard, strength: formStrength(activeDef.model) };
     flapWing(wingRigL, flapState, dt);
     flapWing(wingRigR, flapState, dt);
-  } else if (wingMidL) {
-    // ── Mk II 3-part articulated wing ───────────────────────────────────────────────
-    // ONE shared flap phase; the three segments form a root→mid→tip WAVE via explicit
-    // phase LAGS (not damping). L/R are a pure sign-mirror — identical timing, NEVER
-    // offset, so the wings flap perfectly together in forward flight. Banking changes
-    // amplitude + a static pose bias ONLY, never the phase. Everything is direct-set
-    // from the continuous phase (no per-wing easing state) so the sides can't drift.
-    const MID_LAG = 0.62, TIP_LAG = 1.25;            // ≈0.10 / ≈0.20 of the 2π cycle
-    const stiff = 1 - 0.25 * aero01;                 // wings tighten (less follow-through) on boost
-    const rootF = Math.sin(phase) * flapAmp;         // root: the main medium flap
-    const midF  = Math.sin(phase - MID_LAG) * 0.26 * stiff;   // mid follows the root
-    const tipF  = Math.sin(phase - TIP_LAG) * 0.34 * stiff;   // tip whips (largest + latest)
-    const featR = Math.sin(phase + Math.PI * 0.55);  // pitch/twist driver (90° off the flap)
-    const twMid = Math.cos(phase - MID_LAG) * 0.10;  // segment twist — pitches to catch air
-    const twTip = Math.cos(phase - TIP_LAG) * 0.18;
-    const upMid = Math.max(0, Math.sin(phase - MID_LAG));  // 0 downstroke .. 1 upstroke
-    const upTip = Math.max(0, Math.sin(phase - TIP_LAG));
-    const bank = Math.max(-1, Math.min(1, turnBias / 0.28));   // signed bank, ±1
-    // per-wing banking — amplitude + static z bias ONLY (no timing change). inside-ness
-    // = side·bank (R side=+1, L side=−1): inside wing smaller/tucked, outside larger/spread.
+  } else if (activeDef.model.wingParts) {
+    // ── Mk II per-FORM articulated wing (1 / 2 / 3 segments) ─────────────────────────
+    // ONE shared flap phase; L/R a pure sign-mirror (identical timing, never offset);
+    // the only delay is WITHIN each wing root→mid→tip. A GLIDE-HOLD waveform
+    // (|sin|^glidePow) holds the broad glide pose and pulses through — high glidePow =
+    // rare heavy pulses (Eternal "commands the air"); low = frantic flapping (baby).
+    // Banking = amplitude + static bias only (no phase offset). Direct-set (no per-wing
+    // easing). Handles missing mid/tip segments (Hatchling=1, Kindled=2).
+    const m = activeDef.model;
+    const glidePow = m.glidePow ?? 1;
+    const aoStiff = 1 - 0.25 * aero01;               // tighten follow-through on boost
+    const rootA = (m.rootAmp ?? flapAmp), midA = (m.midAmp ?? 0) * aoStiff, tipA = (m.tipAmp ?? 0) * aoStiff;
+    const midLag = m.midLag ?? 0, tipLag = m.tipLag ?? 0;
+    const shape = (ph) => { const s = Math.sin(ph); return Math.sign(s) * Math.pow(Math.abs(s), glidePow); };
+    const rootF = shape(phase) * rootA;
+    const midF  = shape(phase - midLag) * midA;
+    const tipF  = shape(phase - tipLag) * tipA;
+    const featR = Math.sin(phase + Math.PI * 0.55);
+    const twMid = Math.cos(phase - midLag) * 0.10;
+    const twTip = Math.cos(phase - tipLag) * 0.18;
+    const bank = Math.max(-1, Math.min(1, turnBias / 0.28));
     const insR = bank, insL = -bank;
     const ampR = 1 - 0.30 * insR, ampL = 1 - 0.30 * insL;
     const biaR = 0.13 * insR, biaL = 0.13 * insL;
-    // ROOT / shoulder — main flap (mirror) + dihedral rest + climb pitch + roll fold
+    // ROOT / shoulder (always present)
     wingPivotR.rotation.z = -(rootF * ampR) - 0.10 - biaR + rollFold;
     wingPivotL.rotation.z =  (rootF * ampL) + 0.10 + biaL - rollFold;
     wingPivotR.rotation.x = 0.14 + featR * 0.16 + climbBias;
     wingPivotL.rotation.x = 0.14 - featR * 0.16 + climbBias;
     wingPivotR.rotation.y = -0.18;
     wingPivotL.rotation.y =  0.18;
-    // MID — relative lagged flap + fold-in on the upstroke + twist
-    wingMidR.rotation.z = -(midF * ampR);
-    wingMidL.rotation.z =  (midF * ampL);
-    wingMidR.rotation.x =  twMid;
-    wingMidL.rotation.x = -twMid;
-    wingMidR.rotation.y =  upMid * 0.08;
-    wingMidL.rotation.y = -upMid * 0.08;
-    // TIP — largest, latest flap (the whip) + most twist + a bigger upstroke fold
-    wingTipR.rotation.z = -(tipF * ampR);
-    wingTipL.rotation.z =  (tipF * ampL);
-    wingTipR.rotation.x = -0.05 + twTip;
-    wingTipL.rotation.x = -0.05 - twTip;
-    wingTipR.rotation.y =  upTip * 0.14;
-    wingTipL.rotation.y = -upTip * 0.14;
+    if (wingMidL) {
+      const upMid = Math.max(0, Math.sin(phase - midLag));
+      wingMidR.rotation.z = -(midF * ampR); wingMidL.rotation.z =  (midF * ampL);
+      wingMidR.rotation.x =  twMid; wingMidL.rotation.x = -twMid;
+      wingMidR.rotation.y =  upMid * 0.08; wingMidL.rotation.y = -upMid * 0.08;
+    }
+    if (wingTipL) {
+      const upTip = Math.max(0, Math.sin(phase - tipLag));
+      // 2-segment wing has no mid group → its outer carries the mid follow-through.
+      const tF = wingMidL ? tipF : (midF + tipF);
+      wingTipR.rotation.z = -(tF * ampR); wingTipL.rotation.z =  (tF * ampL);
+      wingTipR.rotation.x = -0.05 + twTip; wingTipL.rotation.x = -0.05 - twTip;
+      wingTipR.rotation.y =  upTip * 0.14; wingTipL.rotation.y = -upTip * 0.14;
+    }
   } else {
     wingPivotR.rotation.z = damp(wingPivotR.rotation.z, -rootFlap + turnBias + rollFold, 14, dt);
     wingPivotL.rotation.z = damp(wingPivotL.rotation.z,  rootFlap + turnBias - rollFold, 14, dt);
@@ -564,6 +566,11 @@ export function updateDragon(dt, player, time) {
     wingTipL.rotation.z = damp(wingTipL.rotation.z, -Math.sin(phase + 1.18) * 0.28 + turnBias * 0.45, 12, dt);
     wingTipR.rotation.x = damp(wingTipR.rotation.x, -0.12 + feather * 0.16, 10, dt);
     wingTipL.rotation.x = damp(wingTipL.rotation.x, -0.12 - feather * 0.16, 10, dt);
+  }
+  // Per-form head wobble (Mk II): the baby's head bobbles with the frantic flap; the
+  // Eternal's is dead-still (headWobbleScale 0). Mk II-only (undefined elsewhere).
+  if (activeDef.model.headWobbleScale != null) {
+    head.rotation.z = activeDef.model.headWobbleScale * Math.sin(phase * 0.6 + 0.8);
   }
   // Secondary wing pair. Obsidian T4 = a shadow flap at reduced amplitude. The
   // Night-Fury mini-wings are STABILIZERS (model.miniWingStabilizer): they DON'T
@@ -609,14 +616,14 @@ export function updateDragon(dt, player, time) {
       } else if (role === 'neck') {
         // FIRM neck: faint bob/breathe, near-STILL under streamline/fever (calmHN). Leads the
         // turn only on a hard bank (eased); shares a little of the vertical body-whip.
-        const bob = 0.022 * sp * calmHN * flapSurge(phase - 0.3);
+        const bob = 0.022 * sp * calmHN * flapSurge(phase - 0.3) * (activeDef.model.bodyBobScale ?? 1);
         const breathe = Math.sin(time * 1.1) * 0.006 * calmHN;
         b.rotation.x = damp(b.rotation.x, bob + breathe - noseDown * 0.48 + noseUp * 0.42 + vWhip * 0.45, 9, dt);
         b.rotation.y = damp(b.rotation.y, -turnBias * 0.18 * bankHard * (1 + 0.4 * aero01), 7, dt);
       } else if (role === 'head') {
         // FIRM, composed gaze: a tiny counter to the neck, near-STILL under fever (calmHN).
         // Leads a hard turn (eased); dives/soars (deliberate poses). Stays OUT of the whip.
-        const counter = -0.018 * sp * calmHN * flapSurge(phase - 0.3);
+        const counter = -0.018 * sp * calmHN * flapSurge(phase - 0.3) * (activeDef.model.bodyBobScale ?? 1);
         b.rotation.x = damp(b.rotation.x, counter - noseDown * 0.85 + noseUp, 9, dt);
         b.rotation.y = damp(b.rotation.y, -turnBias * 0.28 * bankHard * (1 + 0.5 * aero01), 9, dt);
       } else {
@@ -637,7 +644,10 @@ export function updateDragon(dt, player, time) {
     const tWhip = -vertJerk * 0.014;          // subtle vertical follow-through (not a pump)
     const lam = Math.max(4, 8 + 5 * aero01 - 3 * decel01);
     const coilRate = 4.0;                                  // azure's tail rate
-    const coilAmp = (0.17 + 0.06 * speedNorm) * cruise;    // grows with speed; faded out on a hard bank
+    // Per-form tail looseness (Mk II): Hatchling coils loosely/uncontrolled, Eternal is
+    // tight/authoritative. tailLagScale 0.12 ≈ current → multiplier; undefined ⇒ ×1.
+    const tailLag = activeDef.model.tailLagScale != null ? activeDef.model.tailLagScale / 0.12 : 1;
+    const coilAmp = (0.17 + 0.06 * speedNorm) * cruise * tailLag;   // grows with speed; faded out on a hard bank
     for (let i = 0; i < nTail; i++) {
       const lock = (i + 1) / nTail;                        // root subtle → tip full (per-segment)
       const coil = Math.sin(time * coilRate - i * 0.6) * coilAmp * lock;  // azure-style lateral coil
