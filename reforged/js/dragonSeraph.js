@@ -111,9 +111,14 @@ function buildSeraphWing(def, model, attach, giM) {
   const rows = FEATHER_ROWS[Math.min(model.formLevel ?? 3, 3)];
 
   function buildSide(side) {
-    const pivot = new THREE.Group();
+    // Chain: torso → YOKE (shoulder carrier — the new root stage that leads the chain into the
+    // V) → pivot (inner-wing geometry) → mid → tip. The yoke sits at the wing-root socket; the
+    // pivot is its child at local origin so the yoke's elevation lifts the whole wing from the root.
+    const yoke = new THREE.Group();
     const wr = attach.wingRoot(side);
-    pivot.position.set(wr.x, wr.y, wr.z);
+    yoke.position.set(wr.x, wr.y, wr.z);
+    const pivot = new THREE.Group();
+    yoke.add(pivot);
 
     const spanDir = norm({ x: side * Math.cos(sweep) * Math.cos(dih), y: Math.sin(dih), z: Math.sin(sweep) * Math.cos(dih) });
     const fwd = { x: 0, y: 0, z: -1 }, rear = { x: 0, y: 0, z: 1 };
@@ -175,23 +180,24 @@ function buildSeraphWing(def, model, attach, giM) {
     ], goldMat));
     const marker = new THREE.Object3D(); marker.position.set(tc.x, tc.y, tc.z); wingTip.add(marker);
 
-    group.add(pivot);
-    return { pivot, wingMid, wingTip, marker };
+    group.add(yoke);
+    return { yoke, pivot, wingMid, wingTip, marker };
   }
 
   // RIGHT master + scale.x = -1 MIRROR CLONE for the left (L75): identical geometry,
   // animator drives each rig with the same logical pose + its own banking bias.
   const R = buildSide(1);
-  R.pivot.userData.wingRole = 'pivot';
+  R.yoke.userData.wingRole = 'yoke'; R.pivot.userData.wingRole = 'pivot';
   R.wingMid.userData.wingRole = 'mid'; R.wingTip.userData.wingRole = 'tip'; R.marker.userData.wingRole = 'marker';
-  const lpivot = R.pivot.clone(true);
-  const lmirror = new THREE.Group(); lmirror.scale.x = -1; lmirror.add(lpivot); group.add(lmirror);
+  const lyoke = R.yoke.clone(true);
+  const lmirror = new THREE.Group(); lmirror.scale.x = -1; lmirror.add(lyoke); group.add(lmirror);
   const byRole = (root, role) => { let f = null; root.traverse((o) => { if (!f && o.userData && o.userData.wingRole === role) f = o; }); return f; };
-  const Lf = { pivot: lpivot, wingMid: byRole(lpivot, 'mid'), wingTip: byRole(lpivot, 'tip'), marker: byRole(lpivot, 'marker') };
+  const Lf = { yoke: lyoke, pivot: byRole(lyoke, 'pivot'), wingMid: byRole(lyoke, 'mid'), wingTip: byRole(lyoke, 'tip'), marker: byRole(lyoke, 'marker') };
 
   return {
     group,
     parts: {
+      wingYokeL: Lf.yoke, wingYokeR: R.yoke,
       wingPivotL: Lf.pivot, wingPivotR: R.pivot,
       wingMidL: Lf.wingMid, wingMidR: R.wingMid,
       wingTipL: Lf.wingTip, wingTipR: R.wingTip,

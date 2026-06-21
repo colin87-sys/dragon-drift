@@ -5,6 +5,7 @@ import { buildRiderFigure, riderMaterials } from './riderParts.js';
 import { setFeverTint } from './postfx.js';
 import { applyRim, updateRim, resetRim } from './rimLight.js';
 import { flapWing, formStrength, formSpeed } from './dragonWingFlap.js';
+import { solveWing, flapEnv } from './wingFlapSolver.js';
 import { setActiveDetail } from './modelDetail.js';
 
 // Procedural dragon + rider. Built from a dragon def (dragons.js: palette,
@@ -16,6 +17,8 @@ let activeDef = null;
 let activeRider = null;
 
 let group = null;
+let wingYokeL = null;  // root shoulder-carrier stage (Mk II yoke wings), null otherwise
+let wingYokeR = null;
 let wingPivotL = null;
 let wingPivotR = null;
 let wingMidL = null;  // middle joint of the 3-segment articulated wing (Mk II), null otherwise
@@ -138,6 +141,8 @@ export function createDragon(scene, def, riderDef) {
      wingPivot2L, wingPivot2R, tipMarkerL, tipMarkerR } = result.parts);
   wingMidL = result.parts.wingMidL || null;
   wingMidR = result.parts.wingMidR || null;
+  wingYokeL = result.parts.wingYokeL || null;
+  wingYokeR = result.parts.wingYokeR || null;
   wingRigL = result.parts.wingRigL || null;
   wingRigR = result.parts.wingRigR || null;
   tailFins = result.parts.tailFins || [];
@@ -350,6 +355,8 @@ export function disposeDragon() {
   group = null;
   wingPivot2L = null;
   wingPivot2R = null;
+  wingYokeL = null;
+  wingYokeR = null;
   wingMidL = null;
   wingMidR = null;
   bodySegs = null;
@@ -524,6 +531,29 @@ export function updateDragon(dt, player, time) {
     const flapState = { phase, flapAmp, turnBias, climbBias, rollFold, feather, aero01, spread01, surge01, bankHard, strength: formStrength(activeDef.model) };
     flapWing(wingRigL, flapState, dt);
     flapWing(wingRigR, flapState, dt);
+  } else if (activeDef.model.flap && wingYokeL) {
+    // ── Mk II YOKE wing: the shared 5-PHASE solver (wingFlapSolver.js). Chain
+    // yoke→inner(pivot)→mid→tip lifts into a HELD high-V apex; the YOKE (shoulder carrier)
+    // LEADS and creates the base of the V — the root visibly drives, not just the tip. ONE
+    // shared L/R phase (sign-mirror, never a whole-wing L/R lag); banking = pose bias only.
+    const m = activeDef.model;
+    const s = solveWing(phase, m.flap);
+    const featR = Math.sin(phase + Math.PI * 0.55);
+    const bank = Math.max(-1, Math.min(1, turnBias / 0.28));
+    const poseY = (yk, pv, md, tp, ins) => {
+      const inside = Math.max(0, ins), outside = Math.max(0, -ins);
+      const ampE = 1 - 0.30 * ins;                 // INSIDE brakes the arc, OUTSIDE powers it
+      // YOKE (shoulder carrier): leads with elevation (+rz=up) + sweep-back + twist + bank baseline
+      yk.rotation.set(s.yoke.twist, -0.12 - s.yoke.sweep - 0.10 * inside + turnBias * 0.5, s.yoke.elev * ampE + rollFold + 0.05 * outside);
+      // INNER (pivot): feather pitch + inner elevation + inside fold
+      pv.rotation.set(0.10 + featR * 0.12 + climbBias, -0.12, s.inner.elev * ampE + 0.06 * inside);
+      // MID: lagged elevation + sweep-back + inside fold / outside spread
+      if (md) md.rotation.set(0.02, 0.05 * outside - s.mid.sweep, s.mid.elev * ampE + 0.10 * inside);
+      // TIP: trailing elevation (highest) + sweep-back + inside fold
+      if (tp) tp.rotation.set(-0.04, 0.07 + 0.18 * inside - s.tip.sweep, s.tip.elev * ampE + 0.14 * inside);
+    };
+    poseY(wingYokeR, wingPivotR, wingMidR, wingTipR, bank);
+    poseY(wingYokeL, wingPivotL, wingMidL, wingTipL, -bank);
   } else if (activeDef.model.wingParts) {
     // ── Mk II per-FORM articulated wing (1 / 2 / 3 segments) ─────────────────────────
     // ONE shared flap phase; L/R a pure sign-mirror (identical timing, never offset);
@@ -681,21 +711,29 @@ export function updateDragon(dt, player, time) {
       tailSegs[i].rotation.y = damp(tailSegs[i].rotation.y, rudder + coil, lam, dt);
       tailSegs[i].rotation.z = damp(tailSegs[i].rotation.z, -coil * 0.4, 10, dt);   // slight bank into the coil (like azure)
     }
-  } else for (let i = 0; i < nTail; i++) {
-    const lock = nTail > 1 ? i / (nTail - 1) : 0;
-    const lock2 = lock * lock;
-    const tphase = time * 4.0 - i * 0.6;
-    const amp = 0.3 * lock2;
-    const motionTrailX = -player.velocity.x * 0.05 * lock2;
-    const motionTrailY = -player.velocity.y * 0.04 * lock2;
-    const speedWhip = speedNorm * Math.sin(time * 8 - i * 0.7) * 0.12 * lock2;
-    const waveX = Math.sin(tphase) * amp + motionTrailX + speedWhip;
-    const waveY = Math.cos(tphase * 0.8) * amp * 0.55 + motionTrailY;
-    tailSegs[i].position.x = damp(tailSegs[i].position.x, waveX, 10, dt);
-    tailSegs[i].position.y = damp(tailSegs[i].position.y, waveY, 10, dt);
-    // Rotation follows the wave direction so segments bank into the coil.
-    tailSegs[i].rotation.z = damp(tailSegs[i].rotation.z, -waveX * 0.5, 12, dt);
-    tailSegs[i].rotation.y = damp(tailSegs[i].rotation.y, waveX * 0.5, 12, dt);
+  } else {
+    // FLAP-COUPLED tail (yoke dragons): the tail DROPS a few degrees at the wing apex as a
+    // counterbalance (and lifts back on the downstroke), driven by the same 5-phase envelope
+    // + a small lag. Gated by model.flap.body → no effect on dragons without yoke flap config.
+    const fb = activeDef.model.flap && activeDef.model.flap.body;
+    const apexTail = fb ? Math.max(0, flapEnv(phase - 2 * Math.PI * (fb.tailLag ?? 0.08), activeDef.model.flap)) * (fb.tailDropDeg ?? 0) * (Math.PI / 180) : 0;
+    for (let i = 0; i < nTail; i++) {
+      const lock = nTail > 1 ? i / (nTail - 1) : 0;
+      const lock2 = lock * lock;
+      const tphase = time * 4.0 - i * 0.6;
+      const amp = 0.3 * lock2;
+      const motionTrailX = -player.velocity.x * 0.05 * lock2;
+      const motionTrailY = -player.velocity.y * 0.04 * lock2;
+      const speedWhip = speedNorm * Math.sin(time * 8 - i * 0.7) * 0.12 * lock2;
+      const waveX = Math.sin(tphase) * amp + motionTrailX + speedWhip;
+      const waveY = Math.cos(tphase * 0.8) * amp * 0.55 + motionTrailY;
+      tailSegs[i].position.x = damp(tailSegs[i].position.x, waveX, 10, dt);
+      tailSegs[i].position.y = damp(tailSegs[i].position.y, waveY, 10, dt);
+      // Rotation follows the wave direction so segments bank into the coil.
+      tailSegs[i].rotation.z = damp(tailSegs[i].rotation.z, -waveX * 0.5, 12, dt);
+      tailSegs[i].rotation.y = damp(tailSegs[i].rotation.y, waveX * 0.5, 12, dt);
+      tailSegs[i].rotation.x = damp(tailSegs[i].rotation.x, -apexTail * (0.4 + 0.6 * lock), 10, dt);
+    }
   }
 
   // Segmented-wyrm body: a lead-first travelling wave. The lead plate leads; each

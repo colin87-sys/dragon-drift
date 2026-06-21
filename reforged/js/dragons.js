@@ -610,12 +610,20 @@ export const DRAGONS = {
       // Feather-scale wing: 3-segment hinge cascade, GRACEFUL/lofty (amps in radians;
       // L/R flap together, lag is internal root→mid→tip). Dihedral = chase-cam knob.
       wingParts: 3, wingDihedralDeg: 14,
-      flapFreqScale: 0.80, rootAmp: 0.16, midAmp: 0.22, tipAmp: 0.30, midLag: 0.5, tipLag: 1.0,
+      flapFreqScale: 0.92, midLag: 0.5, tipLag: 1.0,
       glidePow: 2.2, bodyBobScale: 0.30, headWobbleScale: 0, tailLagScale: 0.10,
-      // Angelic CATHEDRAL high-V apex: glide rests in a gentle V (restLift), the top of the
-      // stroke lifts root→mid→tip into a graceful raised V (higher than Toro). Cumulative across
-      // the 3 nested segments, so per-segment values stay moderate.
-      apexRoot: 0.18, apexMid: 0.24, apexTip: 0.22, apexPitch: 0.10, restLift: 0.09,
+      // ANGELIC CATHEDRAL flap (5-phase YOKE solver, wingFlapSolver.js): the whole wing chain
+      // rises from the SHOULDER into a held high-V — higher + smoother than Bull. elevDeg are
+      // per-stage maxes that CUMULATE (yoke→inner→mid→tip) to the apex silhouette.
+      flap: {
+        glide: 0.24, recovery: 0.25, apexHold: 0.16, power: 0.23, settle: 0.12,
+        glideLevel: 0.20, downDepth: 0.30,
+        lag: { inner: 0.05, mid: 0.06, tip: 0.07 },
+        elevDeg: { yoke: 16, inner: 12, mid: 18, tip: 14 },
+        sweepDeg: { yoke: 4, mid: 10, tip: 20 },
+        foldDeg: { inner: 5, mid: 12, tip: 18 }, twistDeg: 4,
+        body: { tailDropDeg: 5, tailLag: 0.08 },
+      },
     },
     // Broad, smooth, strongly UP-RAISED wings (an angel spreading) — clean
     // edges, no flame.
@@ -1264,12 +1272,20 @@ export const DRAGONS = {
         torsoWidthScale: 1.18, bellyFlatten: 0.86, rearBulkScale: 1.28,
         headScale: 0.94, headLenScale: 1.22, headHeightScale: 0.8, eyeScale: 1.15, hornLevel: 3,
         thrusterLevel: 3, nacelleLevel: 3, spineCapLevel: 3, tailTip: 3, tailSegments: 9,
-        flapFreqScale: 0.88, rootAmp: 0.19, midAmp: 0.26, tipAmp: 0.33, midLag: 0.5, tipLag: 1.0,
+        flapFreqScale: 0.82, midLag: 0.5, tipLag: 1.0,
         glidePow: 2.6, bodyBobScale: 0.35, headWobbleScale: 0.0, tailLagScale: 0.07,
-        // Mechanical OVERLORD high-V apex: a heavy, controlled V loaded before the power
-        // downstroke — strong but lower/tighter than the Seraph's angelic arch. Cumulative
-        // across the 3 nested segments, so per-segment values stay moderate.
-        apexRoot: 0.14, apexMid: 0.20, apexTip: 0.18, apexPitch: 0.08, restLift: 0.06,
+        // HEAVY MECHANICAL OVERLORD flap (5-phase YOKE solver): the shoulder yoke loads a
+        // controlled high-V before the power downstroke — lower + tighter than the Seraph,
+        // more aft sweep. elevDeg are per-stage maxes that CUMULATE yoke→inner→mid→tip.
+        flap: {
+          glide: 0.28, recovery: 0.24, apexHold: 0.12, power: 0.24, settle: 0.12,
+          glideLevel: 0.16, downDepth: 0.35,
+          lag: { inner: 0.06, mid: 0.06, tip: 0.08 },
+          elevDeg: { yoke: 18, inner: 8, mid: 16, tip: 10 },
+          sweepDeg: { yoke: 8, mid: 16, tip: 28 },
+          foldDeg: { inner: 5, mid: 12, tip: 18 }, twistDeg: 5,
+          body: { tailDropDeg: 4, tailLag: 0.08 },
+        },
         colors: { bodyRoughness: 0.15, bodyMetalness: 0.6,
           body: 0xffd21a, wingInner: 0xffd21a, wingEmissive: 0xffa52a,
           apexSeam: 0xff3b2f, eye: 0x6fd6ff, coreGlow: 0xffa52a } },

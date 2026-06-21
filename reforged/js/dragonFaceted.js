@@ -1830,9 +1830,14 @@ function buildSvjJetWing(def, model, attach, giM) {
   const yOff = 0.020, bOff = 0.008, rOff = 0.016;
 
   function buildSide(side) {
-    const pivot = new THREE.Group();
+    // Chain: torso → YOKE (shoulder carrier — the new root stage that leads the chain into the
+    // V) → pivot (inner-wing geometry) → mid → tip. The yoke sits at the wing-root socket; the
+    // pivot is its child at local origin so the yoke's elevation lifts the whole wing from the root.
+    const yoke = new THREE.Group();
     const wr = attach.wingRoot(side);
-    pivot.position.set(wr.x, wr.y, wr.z);
+    yoke.position.set(wr.x, wr.y, wr.z);
+    const pivot = new THREE.Group();
+    yoke.add(pivot);
 
     const spanDir = norm({ x: side * Math.cos(sweep) * Math.cos(dih), y: Math.sin(dih), z: Math.sin(sweep) * Math.cos(dih) });
     const fwd = { x: 0, y: 0, z: -1 }, rear = { x: 0, y: 0, z: 1 };
@@ -1954,8 +1959,8 @@ function buildSvjJetWing(def, model, attach, giM) {
         [[tc.x, tc.y - 0.06, tc.z - 0.09], [tc.x + side * 0.38, tc.y + 0.30, tc.z + 0.20], [tc.x + side * 0.02, tc.y + 0.18, tc.z + 0.07]],
       ], yellow));
       const marker = new THREE.Object3D(); marker.position.set(tc.x, tc.y, tc.z); wingTip.add(marker);
-      group.add(pivot);
-      return { pivot, wingMid, wingTip, marker };
+      group.add(yoke);
+      return { yoke, pivot, wingMid, wingTip, marker };
     }
 
     if (parts === 2) {
@@ -1978,8 +1983,8 @@ function buildSvjJetWing(def, model, attach, giM) {
         [[tc.x, tc.y - 0.05, tc.z - 0.07], [tc.x + side * 0.32, tc.y + 0.24, tc.z + 0.15], [tc.x + side * 0.02, tc.y + 0.15, tc.z + 0.05]],
       ], yellow));
       const marker = new THREE.Object3D(); marker.position.set(tc.x, tc.y, tc.z); wingTip.add(marker);
-      group.add(pivot);
-      return { pivot, wingMid: null, wingTip, marker };
+      group.add(yoke);
+      return { yoke, pivot, wingMid: null, wingTip, marker };
     }
 
     // ══ 1-SEGMENT wing (Hatchling): a small simple paddle/mini-blade on pivot only ══════
@@ -1991,8 +1996,8 @@ function buildSvjJetWing(def, model, attach, giM) {
     chevronG(pivot, ZERO, 0.55, 0.48);
     const tc1 = St.c;
     const marker = new THREE.Object3D(); marker.position.set(tc1.x, tc1.y, tc1.z); pivot.add(marker);
-    group.add(pivot);
-    return { pivot, wingMid: null, wingTip: null, marker };
+    group.add(yoke);
+    return { yoke, pivot, wingMid: null, wingTip: null, marker };
   }
 
   // RIGHT wing is the authored master; the LEFT is an exact MIRROR CLONE of it (deep
@@ -2000,18 +2005,19 @@ function buildSvjJetWing(def, model, attach, giM) {
   // drives the right rig and the left simply COPIES the right's pose (the mirror wrapper
   // flips it), guaranteeing a perfectly symmetric beat.
   const R = buildSide(1);
-  R.pivot.userData.wingRole = 'pivot';
+  R.yoke.userData.wingRole = 'yoke'; R.pivot.userData.wingRole = 'pivot';
   if (R.wingMid) R.wingMid.userData.wingRole = 'mid';
   if (R.wingTip) R.wingTip.userData.wingRole = 'tip';
   if (R.marker) R.marker.userData.wingRole = 'marker';
-  const lpivot = R.pivot.clone(true);                 // userData (roles) is deep-copied
+  const lyoke = R.yoke.clone(true);                   // userData (roles) is deep-copied
   const lmirror = new THREE.Group(); lmirror.scale.x = -1;
-  lmirror.add(lpivot); group.add(lmirror);
+  lmirror.add(lyoke); group.add(lmirror);
   const byRole = (root, role) => { let f = null; root.traverse((o) => { if (!f && o.userData && o.userData.wingRole === role) f = o; }); return f; };
-  const Lf = { pivot: lpivot, wingMid: byRole(lpivot, 'mid'), wingTip: byRole(lpivot, 'tip'), marker: byRole(lpivot, 'marker') };
+  const Lf = { yoke: lyoke, pivot: byRole(lyoke, 'pivot'), wingMid: byRole(lyoke, 'mid'), wingTip: byRole(lyoke, 'tip'), marker: byRole(lyoke, 'marker') };
   return {
     group,
     parts: {
+      wingYokeL: Lf.yoke, wingYokeR: R.yoke,
       wingPivotL: Lf.pivot, wingPivotR: R.pivot,
       wingMidL: Lf.wingMid, wingMidR: R.wingMid,
       wingTipL: Lf.wingTip, wingTipR: R.wingTip,

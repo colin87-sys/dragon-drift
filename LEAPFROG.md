@@ -2485,3 +2485,38 @@ for any flap/pose change, render at the POSE phase you're changing, not the rest
 apexRoot/Mid/Tip 0.18/0.24/0.22 + restLift 0.09; Toro Eternal 0.14/0.20/0.18 + restLift 0.06 — Pearl's arch
 rides higher). Magnitudes are eyeball-tuned on the apex render + live preview; the engine can't predict the
 world-space angle analytically (segment offsets, sweep, Euler coupling).
+
+---
+
+## Lesson — Wing flap ARCHITECTURE: a root YOKE + a 5-phase envelope with an APEX HOLD is what makes a flap read as a power cycle (shared solver for both posers)
+
+**Why the earlier apex fixes weren't enough.** The high-V apex render LOOKED right, but in MOTION the flap still
+read hinge-like: a plain sinusoid whips THROUGH the top so the V never dwells/reads, and a 3-stage
+pivot→mid→tip chain makes the V look tip-driven (the root doesn't visibly lead). Tuning pose values can't fix
+either — both are architectural.
+
+**The refactor (now the base for future dragons).** (1) NEW `reforged/js/wingFlapSolver.js` — a PURE-MATH
+shared solver: `flapEnv(phase,cfg)` is a 5-phase envelope (glide-hold → recovery → **APEX HOLD plateau** →
+power-downstroke that dips below flat → settle) ranged [−downDepth..1]; `solveWing` returns per-STAGE
+elev/sweep/twist/fold from the envelope with intra-wing lag yoke→inner→mid→tip. Because it's THREE-free, BOTH
+posers call it and stay in sync — gameplay `dragon.js` AND shop-preview `dragonModel.js makePreviewTick`. (2) A
+root **YOKE** group inserted in BOTH wing builders (`buildSeraphWing`, `buildSvjJetWing`): `yoke` at the
+wing-root socket, the existing `pivot` (inner-wing geometry) becomes its child at local origin, mirror by cloning
+the YOKE. The yoke is a transform-only shoulder carrier that does the big root elevation and LEADS the chain, so
+the V is built from yoke+inner+mid (not just the tip). (3) Per-dragon `model.flap` config (degrees → solver):
+Seraph = taller angelic cathedral V; Bull = lower/tighter heavy mechanical V, more aft sweep.
+
+**Scope was tiny + safe:** only Pearl Seraph + Aurum Toro Mk II use the `wingParts`→`poseWing` path (`grep
+wingParts`), so evolving it touched no other dragon. The yoke is an empty transform → tricount UNCHANGED
+(203073). Gate the new path on `m.flap && wingYokeL` so the old sinusoid stays as fallback; lower Bull forms (no
+`flap`) keep the old path with the yoke sitting at identity (a harmless passthrough).
+
+**Gotchas.** (1) `dragonModel.makePreviewTick` is a SECOND poser (shop preview) that duplicates the flap math —
+forgetting it makes the showcase diverge from gameplay; it was ALSO missing `wingMidL/R` in its destructure (a
+latent gap) — added. (2) Bull/Seraph have NO spine rig (`spineSegs` is Night-Fury only), so the brief's "chest
+lift / body rise" has no bone to drive — implemented the achievable **tail-drop-at-apex** (in the position-wave
+`else` tail loop, gated by `flap.body`) and left full chest/body whip as a documented follow-up needing spine
+bones. (3) Verify with a CYCLE render (drive the real `solveWing` across 5 phases), never a single frame — the
+apex HOLD and the root-led V only read across the cycle. Pearl's first pass went near-vertical (clamshell);
+dialed `elevDeg` down ~20% for a clean open cathedral V. elevation is cumulative across the 4 nested stages, so
+per-stage degrees stay modest and are eyeball-tuned on the render, not predicted.
