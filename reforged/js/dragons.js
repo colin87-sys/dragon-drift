@@ -612,20 +612,18 @@ export const DRAGONS = {
       wingParts: 3, wingDihedralDeg: 14,
       flapFreqScale: 0.92, midLag: 0.5, tipLag: 1.0,
       glidePow: 2.2, bodyBobScale: 0.30, headWobbleScale: 0, tailLagScale: 0.10,
-      // ANGELIC CATHEDRAL flap (5-phase YOKE solver, wingFlapSolver.js): the whole wing chain
-      // rises from the SHOULDER into a held high-V — higher + smoother than Bull. elevDeg are
-      // per-stage maxes that CUMULATE (yoke→inner→mid→tip) to the apex silhouette.
-      // Raised glideLevel keeps a gentle cathedral V even mid-cycle (never dead-flat for the
-      // rear camera); longer apexHold makes the held high-V readable. elevDeg cumulate
-      // yoke→inner→mid→tip → ~24/36/58/70° at apex (taller than Bull's mechanical V).
+      // ANGELIC CATHEDRAL flap (two-channel YOKE solver). Taller + rounder + smoother than Bull.
+      // Channel 1 = yoke whole-wing elevation (high at apex, pressing on the downstroke). Channel 2
+      // = inner/mid/tip CURL (straight at glide+downstroke, rounded V at apex), lagged → dome on the
+      // upstroke then a rounded cathedral V. Gentler rowing/sweep than Bull (graceful, not mechanical).
       flap: {
-        glide: 0.24, recovery: 0.24, apexHold: 0.17, power: 0.23, settle: 0.12,
-        glideLevel: 0.34, downDepth: 0.26,
-        lag: { inner: 0.05, mid: 0.06, tip: 0.07 },
-        elevDeg: { yoke: 24, inner: 12, mid: 22, tip: 12 },
-        sweepDeg: { yoke: 4, mid: 10, tip: 20 },
-        foldDeg: { inner: 5, mid: 12, tip: 18 }, twistDeg: 4,
-        body: { tailDropDeg: 5, tailLag: 0.08 },
+        glide: 0.22, recovery: 0.24, apexHold: 0.16, power: 0.24, settle: 0.14,
+        glideLevel: 0.24, downDepth: 1.1,
+        lag: { inner: 0.05, mid: 0.06, tip: 0.10 },
+        yokeElevDeg: 26, curlDeg: { inner: 14, mid: 22, tip: 12 },
+        sweepDeg: { mid: 6, tip: 14 }, rowFwdDeg: 10, rowBackDeg: 5,
+        tipTrailDeg: 7, twistDeg: 4, glideCurl: 0, loadBowDeg: 0,
+        body: { liftAmt: 0.06, tailDropDeg: 5, tailLag: 0.08 },
       },
     },
     // Broad, smooth, strongly UP-RAISED wings (an angel spreading) — clean
@@ -1219,19 +1217,19 @@ export const DRAGONS = {
       headLenScale: 1.22, headHeightScale: 0.8,
       hornLen: 0.9, hornPairs: 1, ridgeCount: 0, eyeScale: 1.15,
       flapBias: 0.85, flapAmp: 0.7,
-      // HEAVY MECHANICAL OVERLORD flap (5-phase YOKE solver). ON THE BASE MODEL so EVERY tier
-      // uses the yoke solver — not just Eternal (a per-form-only flap silently falls back to the
-      // old flat sinusoid on lower tiers). Raised glideLevel keeps a gentle V even mid-cycle so
-      // the rear camera never catches dead-flat wings; the apex holds a controlled high V.
-      // elevDeg are per-stage maxes that CUMULATE yoke→inner→mid→tip → ~18/28/44/54° at apex.
+      // HEAVY MECHANICAL OVERLORD flap (two-channel YOKE solver, on the BASE model so all tiers
+      // share it). Channel 1 = yoke whole-wing elevation (UP at apex, deep DOWN/pressing on the
+      // power stroke). Channel 2 = inner/mid/tip CURL (0 at glide+downstroke = straight, 1 at apex
+      // = rounded V), lagged so the upstroke domes (tip flat) and the apex rounds (tip catches up).
+      // + fore-aft ROWING sweep (reach forward on downstroke, back at apex) + tip trail at extension.
       flap: {
-        glide: 0.26, recovery: 0.24, apexHold: 0.14, power: 0.24, settle: 0.12,
-        glideLevel: 0.32, downDepth: 0.30,
-        lag: { inner: 0.06, mid: 0.06, tip: 0.08 },
-        elevDeg: { yoke: 18, inner: 10, mid: 16, tip: 10 },
-        sweepDeg: { yoke: 8, mid: 16, tip: 28 },
-        foldDeg: { inner: 5, mid: 12, tip: 18 }, twistDeg: 5,
-        body: { tailDropDeg: 4, tailLag: 0.08 },
+        glide: 0.22, recovery: 0.24, apexHold: 0.14, power: 0.26, settle: 0.14,
+        glideLevel: 0.20, downDepth: 1.2,
+        lag: { inner: 0.05, mid: 0.06, tip: 0.11 },
+        yokeElevDeg: 22, curlDeg: { inner: 12, mid: 18, tip: 10 },
+        sweepDeg: { mid: 8, tip: 16 }, rowFwdDeg: 14, rowBackDeg: 8,
+        tipTrailDeg: 6, twistDeg: 5, glideCurl: 0, loadBowDeg: 0,
+        body: { liftAmt: 0.05, tailDropDeg: 4, tailLag: 0.08 },
       },
     },
     // Dominant twin thrusters with layered contrast (black housing → yellow frame →

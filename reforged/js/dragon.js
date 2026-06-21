@@ -22,6 +22,7 @@ let activeRider = null;
 const WING_DEBUG = (typeof location !== 'undefined' && location.search)
   ? new URLSearchParams(location.search).get('wingDebug') : null;
 let wingDebugLogged = false;
+let bodyFlapLift = 0;   // flap-coupled body pitch (chest lift at apex / compress on downstroke); set by the yoke solver
 
 let group = null;
 let wingYokeL = null;  // root shoulder-carrier stage (Mk II yoke wings), null otherwise
@@ -484,7 +485,10 @@ export function updateDragon(dt, player, time) {
   // than banking like a plane — so soften the whole-body roll for the wyrm, or the
   // barrel-bank would hide the snake-bend.
   group.rotation.z = bankZ * (bodySegs ? 0.4 : 1) + rollSpin;
-  group.rotation.x = damp(group.rotation.x, player.velocity.y * 0.022 + posturePitch, 9, dt);
+  // Body coupling: the flap lifts the chest at apex / compresses (nose-down) on the downstroke.
+  // bodyFlapLift is set by the yoke solver below (1-frame lag = natural inertia, "suspended under
+  // the wings"); only applies to yoke dragons (else 0). The damp(…,9) adds the trailing response.
+  group.rotation.x = damp(group.rotation.x, player.velocity.y * 0.022 + posturePitch + (activeDef.model.flap ? bodyFlapLift : 0), 9, dt);
   // Slight yaw toward lateral movement
   group.rotation.y = damp(group.rotation.y, player.velocity.x * 0.008, 6, dt);
   head.rotation.y = damp(head.rotation.y, -player.velocity.x * 0.014, 8, dt);
@@ -549,19 +553,21 @@ export function updateDragon(dt, player, time) {
     const usePhase = WING_DEBUG ? phaseCenter(WING_DEBUG, m.flap) : phase;
     const tB = WING_DEBUG ? 0 : turnBias, rF = WING_DEBUG ? 0 : rollFold, cB = WING_DEBUG ? 0 : climbBias;
     const s = solveWing(usePhase, m.flap);
+    bodyFlapLift = (m.flap.body && m.flap.body.liftAmt) ? m.flap.body.liftAmt * s.yoke.env : 0;
     const featR = Math.sin(usePhase + Math.PI * 0.55);
     const bank = WING_DEBUG ? 0 : Math.max(-1, Math.min(1, turnBias / 0.28));
     const poseY = (yk, pv, md, tp, ins) => {
       const inside = Math.max(0, ins), outside = Math.max(0, -ins);
       const ampE = 1 - 0.30 * ins;                 // INSIDE brakes the arc, OUTSIDE powers it
-      // YOKE (shoulder carrier): leads with elevation (+rz=up) + sweep-back + twist + bank baseline
+      // YOKE (shoulder carrier): whole-wing ELEVATION (+rz=up, −rz=press down) + fore-aft ROWING
+      // sweep (.y) + twist + bank baseline
       yk.rotation.set(s.yoke.twist, -0.12 - s.yoke.sweep - 0.10 * inside + tB * 0.5, s.yoke.elev * ampE + rF + 0.05 * outside);
-      // INNER (pivot): feather pitch + inner elevation + inside fold
-      pv.rotation.set(0.10 + featR * 0.12 + cB, -0.12, s.inner.elev * ampE + 0.06 * inside);
-      // MID: lagged elevation + sweep-back + inside fold / outside spread
-      if (md) md.rotation.set(0.02, 0.05 * outside - s.mid.sweep, s.mid.elev * ampE + 0.10 * inside);
-      // TIP: trailing elevation (highest) + sweep-back + inside fold
-      if (tp) tp.rotation.set(-0.04, 0.07 + 0.18 * inside - s.tip.sweep, s.tip.elev * ampE + 0.14 * inside);
+      // INNER (pivot): CURL (bend up at apex, straight on downstroke) + feather pitch + inside fold
+      pv.rotation.set(0.10 + featR * 0.12 + cB, -0.12, s.inner.curl * ampE + 0.06 * inside);
+      // MID: lagged curl + aft trail + inside fold / outside spread
+      if (md) md.rotation.set(0.02, 0.05 * outside - s.mid.sweep, s.mid.curl * ampE + 0.10 * inside);
+      // TIP: trailing curl (finishes the rounded V) + aft trail + inside fold
+      if (tp) tp.rotation.set(-0.04, 0.07 + 0.18 * inside - s.tip.sweep, s.tip.curl * ampE + 0.14 * inside);
     };
     poseY(wingYokeR, wingPivotR, wingMidR, wingTipR, bank);
     poseY(wingYokeL, wingPivotL, wingMidL, wingTipL, -bank);
@@ -578,7 +584,7 @@ export function updateDragon(dt, player, time) {
         const tipElevDeg = Math.atan2(tL.y - yL.y, Math.hypot(tL.x - yL.x, tL.z - yL.z)) * 180 / Math.PI;
         console.log('[wingDebug] ' + JSON.stringify({
           dragon: activeDef.name, form: activeDef.model.formLevel, phaseName: WING_DEBUG,
-          phase: +usePhase.toFixed(3), apexHold: m.flap.apexHold, elevDeg: m.flap.elevDeg,
+          phase: +usePhase.toFixed(3), apexHold: m.flap.apexHold, yokeElevDeg: m.flap.yokeElevDeg, curlDeg: m.flap.curlDeg,
           yokeRzDeg: +(wingYokeR.rotation.z * 180 / Math.PI).toFixed(1),
           tipElevDeg: +tipElevDeg.toFixed(1),
         }));

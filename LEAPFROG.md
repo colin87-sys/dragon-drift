@@ -2573,3 +2573,38 @@ classic split in this repo), any new rig handle must be added to ALL of them —
 `parts: {` / `return {` before assuming one edit is enough. A "works in preview, broken in game" (or vice
 versa) report points straight at this duplication. Cheap guard: the two `parts` objects should list the same
 wing keys — they drifted here by one key (`wingYokeL/R`).
+
+---
+
+## Lesson — Wing flap reads as a SHAPE PROGRESSION only when elevation and curl are SEPARATE channels
+
+**Brief.** Reference flight footage shows the flap is not "flat→V→flat" — it's a shape cycle: extended → rounded
+DOME / soft-M on the upstroke → rounded V at apex → STRAIGHTER load-bearing downstroke → settle. The single
+elevation envelope (one `flapEnv` scaled per stage) couldn't express it: on the downstroke it curled every
+segment DOWN together instead of straightening.
+
+**The two-channel model (`wingFlapSolver.js`).** Split the solve:
+1. **Yoke = whole-wing ELEVATION** via `flapEnv` (−downDepth..1): up at apex, deep DOWN/pressing on the power
+   stroke. This is the "arm angle."
+2. **inner/mid/tip = CURL** via a new `curlEnv` (0..1): ~0 at glide AND downstroke (segments STRAIGHT), 1 at
+   apex (curled into the rounded V). Lagged inner→mid→tip.
+The magic is in the combination: lag on the curl makes the upstroke a DOME (inner curled, tip still flat) and
+the apex a rounded V (tip catches up); curl→0 while the yoke drives down makes a STRAIGHT load-bearing
+downstroke (the old model couldn't — it curled down). Cumulative across the nested rig: apex tip ≈ yoke +
+inner+mid+tip curl (~62-74°); downstroke ≈ straight at the yoke's down-angle.
+
+**From the reference, two things a pure up/down model misses** (added as channels, NOT new geometry — the
+yoke→inner→mid→tip rig already has the DOF): (a) **fore-aft ROWING sweep** — wings reach FORWARD on the power
+stroke, back at apex (`rowFwdDeg`/`rowBackDeg`, driven off the elevation sign); (b) **tip trail/droop at
+extension** (`tipTrailDeg`, gated to the un-curled phase) for membrane flex. No 4th segment needed (the
+3-segment + yoke arc reads smooth); only add one if a render shows facets.
+
+**Body coupling without a spine rig.** Bull/Seraph have no spine bones, so couple the body via the EXISTING
+`posturePitch`→`group.rotation.x` damp: a module accumulator `bodyFlapLift = liftAmt * yoke.env` (set by the
+yoke solver, applied next frame) lifts the chest at apex / compresses nose-down on the downstroke; the
+`damp(…,9)` 1-frame lag IS the inertia (reads as "suspended under the wings"). Tail keeps the apex-gated drop.
+
+**Verification gotcha.** `phaseCenter('downstroke')` at the power-phase CENTRE catches the wing near-level
+(mid-transition gull), not the press — the deep straight press is ~70% through the power phase. Sample there so
+both the cyclecheck render AND `?wingDebug=downstroke` show the real load-bearing pose. As always, the silhouette
+(not the numbers) is the judge — render the 5 phases on the rear chase-cam and compare to the reference frames.

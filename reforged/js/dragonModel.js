@@ -427,9 +427,9 @@ export function makePreviewTick(def, result) {
       const feather = Math.sin(phase + Math.PI * 0.55) * 0.10;
       const poseY = (yk, pv, md, tp) => {
         yk.rotation.set(s.yoke.twist, -0.14 - s.yoke.sweep, s.yoke.elev);
-        pv.rotation.set(0.10 + feather, -0.12, s.inner.elev);
-        if (md) md.rotation.set(0, -s.mid.sweep, s.mid.elev);
-        if (tp) tp.rotation.set(-0.04, 0.07 - s.tip.sweep, s.tip.elev);
+        pv.rotation.set(0.10 + feather, -0.12, s.inner.curl);
+        if (md) md.rotation.set(0, -s.mid.sweep, s.mid.curl);
+        if (tp) tp.rotation.set(-0.04, 0.07 - s.tip.sweep, s.tip.curl);
       };
       poseY(wingYokeR, wingPivotR, wingMidR, wingTipR);
       poseY(wingYokeL, wingPivotL, wingMidL, wingTipL);
