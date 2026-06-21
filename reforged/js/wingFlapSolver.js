@@ -30,6 +30,16 @@ export function flapEnv(ph, c) {
   return -dd + (gl + dd) * smooth((t - b4) / Math.max(1e-4, 1 - b4));   // settle → glide
 }
 
+// Phase (radians) at the CENTRE of a named cycle point — for the `?wingDebug=<name>` freeze
+// mode, so gameplay can hold the dragon at exactly glide/recovery/apex/downstroke/settle.
+export function phaseCenter(name, c) {
+  const g = c.glide ?? 0.24, r = c.recovery ?? 0.24, a = c.apexHold ?? 0.14, p = c.power ?? 0.24;
+  const s = Math.max(0, 1 - (g + r + a + p));
+  const t = { glide: g / 2, recovery: g + r / 2, apex: g + r + a / 2,
+    downstroke: g + r + a + p / 2, settle: g + r + a + p + s / 2 }[name];
+  return (t == null ? 0 : t) * Math.PI * 2;
+}
+
 // Per-STAGE pose (radians) from the cycle, with intra-wing lag yoke→inner→mid→tip. Fold
 // adds extra up-curl to mid/tip on the upstroke; sweep/twist scale with the upstroke. The
 // caller maps elev→flap axis, sweep→sweep axis, twist→twist axis and adds its own banking.

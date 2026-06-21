@@ -615,11 +615,14 @@ export const DRAGONS = {
       // ANGELIC CATHEDRAL flap (5-phase YOKE solver, wingFlapSolver.js): the whole wing chain
       // rises from the SHOULDER into a held high-V — higher + smoother than Bull. elevDeg are
       // per-stage maxes that CUMULATE (yoke→inner→mid→tip) to the apex silhouette.
+      // Raised glideLevel keeps a gentle cathedral V even mid-cycle (never dead-flat for the
+      // rear camera); longer apexHold makes the held high-V readable. elevDeg cumulate
+      // yoke→inner→mid→tip → ~24/36/58/70° at apex (taller than Bull's mechanical V).
       flap: {
-        glide: 0.24, recovery: 0.25, apexHold: 0.16, power: 0.23, settle: 0.12,
-        glideLevel: 0.20, downDepth: 0.30,
+        glide: 0.24, recovery: 0.24, apexHold: 0.17, power: 0.23, settle: 0.12,
+        glideLevel: 0.34, downDepth: 0.26,
         lag: { inner: 0.05, mid: 0.06, tip: 0.07 },
-        elevDeg: { yoke: 16, inner: 12, mid: 18, tip: 14 },
+        elevDeg: { yoke: 24, inner: 12, mid: 22, tip: 12 },
         sweepDeg: { yoke: 4, mid: 10, tip: 20 },
         foldDeg: { inner: 5, mid: 12, tip: 18 }, twistDeg: 4,
         body: { tailDropDeg: 5, tailLag: 0.08 },
@@ -1216,6 +1219,20 @@ export const DRAGONS = {
       headLenScale: 1.22, headHeightScale: 0.8,
       hornLen: 0.9, hornPairs: 1, ridgeCount: 0, eyeScale: 1.15,
       flapBias: 0.85, flapAmp: 0.7,
+      // HEAVY MECHANICAL OVERLORD flap (5-phase YOKE solver). ON THE BASE MODEL so EVERY tier
+      // uses the yoke solver — not just Eternal (a per-form-only flap silently falls back to the
+      // old flat sinusoid on lower tiers). Raised glideLevel keeps a gentle V even mid-cycle so
+      // the rear camera never catches dead-flat wings; the apex holds a controlled high V.
+      // elevDeg are per-stage maxes that CUMULATE yoke→inner→mid→tip → ~18/28/44/54° at apex.
+      flap: {
+        glide: 0.26, recovery: 0.24, apexHold: 0.14, power: 0.24, settle: 0.12,
+        glideLevel: 0.32, downDepth: 0.30,
+        lag: { inner: 0.06, mid: 0.06, tip: 0.08 },
+        elevDeg: { yoke: 18, inner: 10, mid: 16, tip: 10 },
+        sweepDeg: { yoke: 8, mid: 16, tip: 28 },
+        foldDeg: { inner: 5, mid: 12, tip: 18 }, twistDeg: 5,
+        body: { tailDropDeg: 4, tailLag: 0.08 },
+      },
     },
     // Dominant twin thrusters with layered contrast (black housing → yellow frame →
     // saturated-red turbine ring → bright orange hot core → warm-white hotspot). The
@@ -1274,18 +1291,7 @@ export const DRAGONS = {
         thrusterLevel: 3, nacelleLevel: 3, spineCapLevel: 3, tailTip: 3, tailSegments: 9,
         flapFreqScale: 0.82, midLag: 0.5, tipLag: 1.0,
         glidePow: 2.6, bodyBobScale: 0.35, headWobbleScale: 0.0, tailLagScale: 0.07,
-        // HEAVY MECHANICAL OVERLORD flap (5-phase YOKE solver): the shoulder yoke loads a
-        // controlled high-V before the power downstroke — lower + tighter than the Seraph,
-        // more aft sweep. elevDeg are per-stage maxes that CUMULATE yoke→inner→mid→tip.
-        flap: {
-          glide: 0.28, recovery: 0.24, apexHold: 0.12, power: 0.24, settle: 0.12,
-          glideLevel: 0.16, downDepth: 0.35,
-          lag: { inner: 0.06, mid: 0.06, tip: 0.08 },
-          elevDeg: { yoke: 18, inner: 8, mid: 16, tip: 10 },
-          sweepDeg: { yoke: 8, mid: 16, tip: 28 },
-          foldDeg: { inner: 5, mid: 12, tip: 18 }, twistDeg: 5,
-          body: { tailDropDeg: 4, tailLag: 0.08 },
-        },
+        // (flap config lives on the BASE model so all tiers share the yoke solver.)
         colors: { bodyRoughness: 0.15, bodyMetalness: 0.6,
           body: 0xffd21a, wingInner: 0xffd21a, wingEmissive: 0xffa52a,
           apexSeam: 0xff3b2f, eye: 0x6fd6ff, coreGlow: 0xffa52a } },
