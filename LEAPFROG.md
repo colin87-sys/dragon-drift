@@ -2375,3 +2375,16 @@ foreground (it only ARMS intent + resumes the ctx — it never rebuilds the sche
 truly `running`, so no iOS garble), and `ensureSilentMedia()` inside it to restore the playback session.
 Web Audio lifecycle: separate "arm the intent" (safe anywhere) from "rebuild the graph" (gesture/running
 only), and a paused HTMLAudioElement silent-unlock clip must be re-played on every foreground.
+
+### L88 — Greenfield torso/head land via the registry + the attach contract; a real halo replaces the sprite
+The Seraph got its OWN `seraphHull` torso + `seraphCrownHead` head (new `dragonSeraphBody.js`, self-registers
+via `registerTorso`/`registerHead`, imported once from `dragonModel.js`, named in `pearl.parts`). The torso
+PUBLISHES the same `attach` contract the proven wings/tail mount through (`wingRoot(side)`, `headBase`,
+`tailAnchor`, `keelTopAt`, `halfWidthAt`, `bodyMidY`, `bodyMatDouble`) — so "the body defines new mounts" just
+means returning new anchor values; the wings/tail integrate with ZERO wing/tail code change. Building a custom
+torso (vs reusing `buildTorso`) avoids its sphere fairings/neck so the pauldrons + custom neck read clean.
+Both `torsoResult.spineMats` and `headResult.spineMats` are collected by the model → tag glow mats there for
+Surge flare. The crown-halo is REAL geometry (TorusGeometry + cone shards + octahedron gems) built INSIDE the
+head (so it tracks head sway) and gated by `model.halo` per form; the generic body-level halo SPRITE in
+`dragonModel.js` is suppressed for this head (`recipe.head !== 'seraphCrownHead'`) so they don't double up.
+Octahedron = the faceted gem-eye/gem-node primitive; partial TorusGeometry = cheap gorget collar arcs.

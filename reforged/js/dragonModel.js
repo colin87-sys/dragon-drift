@@ -16,6 +16,7 @@ import './dragonNightFury.js';      // 'nightFuryWings' + 'nightFuryTorso' (smoo
 import './dragonHull.js';           // 'hullWings' + 'hullTorso' (data-driven Night-Fury kernel for the new starters)
 import './dragonFaceted.js';        // 'faceted' torso + 'hexMembrane' wings + 'bullCrown' head + 'bladeJet' tail + aero layers (hard-edge/automotive family)
 import './dragonSeraph.js';         // Pearl Seraph: feather-scale wings / crown-halo head / comet tail (celestial multi-module family)
+import './dragonSeraphBody.js';     // Pearl Seraph: pearl hull torso + crowned head + real-geometry crown-halo
 import { shingle } from './dragonShingle.js'; // reusable overlapping scale/plate cards
 import { resolveSurfaceLayers, getSurfaceLayer } from './dragonSurfaceLayers.js'; // declarative dorsal/flank decoration
 import { validateCreatureBlueprint } from './validateCreatureBlueprint.js';
@@ -248,7 +249,8 @@ export function buildDragonModel(def, opts = {}) {
 
   // Pearl's luminous head aura: a soft opalescent glow (a body-level sprite, NOT
   // part of the head group), elegant and pristine — never a hard torus ring.
-  if (model.halo) {
+  // The seraphCrownHead builds its OWN real-geometry crown-halo, so skip the sprite there.
+  if (model.halo && recipe.head !== 'seraphCrownHead') {
     const haloRgb = `${(def.eye >> 16) & 255},${(def.eye >> 8) & 255},${def.eye & 255}`;
     const glow = new THREE.Sprite(new THREE.SpriteMaterial({
       map: makeGlowTexture(haloRgb), transparent: true, opacity: 0.34,

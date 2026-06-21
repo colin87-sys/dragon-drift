@@ -26,11 +26,10 @@ const lerp = (a, b, t) => ({ x: a.x + (b.x - a.x) * t, y: a.y + (b.y - a.y) * t,
 const norm = (a) => { const m = Math.hypot(a.x, a.y, a.z) || 1; return { x: a.x / m, y: a.y / m, z: a.z / m }; };
 const arr = (p) => [p.x, p.y, p.z];
 
-// Per-form feather-scale row counts (maturation, not assembly). EXACTLY 3 rows per wing —
-// [inner coverts, main, outer primaries] — kept FEW and large for a clean, elegant fan
-// (the over-shingled / jittered / 4-row version read as a busy tile mosaic). Fixed counts
-// (NOT seg()-gated) so the silhouette stays consistent + never balloons.
-const FEATHER_ROWS = [[3, 5, 4], [3, 5, 4], [4, 6, 5], [4, 6, 5]];
+// Per-form feather-scale row counts (maturation, not assembly): the same parts GROW
+// — Dawn(0) sparse → Ascendant(3) full plumage. [pivot, mid, tip] cards per wing. The
+// counts are seg()-gated at build → HIGH≈gameplay LOD, ULTRA(×1.6)≈hero/shop LOD.
+const FEATHER_ROWS = [[4, 5, 4], [5, 6, 4], [6, 7, 5], [7, 8, 6]];
 
 // ── SERAPH SURFACE LANGUAGE — matte pearl + TRUE gilding + dawn-blue seam glow + rare gem.
 // The gild MUST be a real metallic gold: `def.horn` is near-white at Eternal (0xfff0b0) →
@@ -41,25 +40,25 @@ const SERAPH_DAWN  = 0x88DFFF;   // dawn-blue seam emissive
 const SERAPH_HOLY  = 0xFFF3C8;   // warm holy-white (comet core; halo later)
 const SERAPH_GEM   = 0x8FEAFF;   // rare crystal node (reserved for joint/brow accents)
 
-// FEATHER-SCALE PLATE — a rounded BASE-WIDEST leaf/shield: broadest at the base, narrowing
-// through soft shoulders to a gentle point, with a slight CONVEX Y-cup (peaks mid-length) so
-// it catches light. A THIN gold rim sits just behind so gold is the EDGE read (a too-big rim
-// read as a heavy frame; a too-small one let the dark gaps read as "black outlines").
+// FEATHER-SCALE PLATE — a gilded holy scute, built as a WIDE CONVEX LEAF/SHIELD (not a
+// kite that narrows to one sharp apex — that was the "sawtooth" read). 6-point silhouette:
+// base point, a WIDE low pair (the leaf is broadest near the root), a shoulder pair, and a
+// SHORT BLUNT tip edge (width = w·tipSharpness, never a single point). A marginally larger
+// gold RIM sits just behind so every plate reads gold-edged. CUPped so the row catches
+// dawn-light. Fanned + overlapped by scaleRow, these tile into scalloped shingled plumage.
 function featherScale(len, w, cup, tipSharpness, plate, gild) {
   const g = new THREE.Group();
-  const tipHW = w * 0.5 * Math.max(tipSharpness, 0.08);   // half-width of the soft tip edge
-  const leaf = (k, dy, dz) => {                            // k = scale (1 = pearl face, >1 = gold rim)
-    const yAt = (zf) => cup * Math.sin(Math.PI * zf) + dy;  // convex bow, 0 at base+tip, max mid
-    const X = (frac) => w * 0.5 * frac * k;
-    const L = len * (dz ? 1.03 : 1);
-    const B0L = [-X(1), dy, dz],            B0R = [X(1), dy, dz];               // base (widest)
-    const SL  = [-X(0.83), yAt(0.28), L * 0.28], SR = [X(0.83), yAt(0.28), L * 0.28]; // shoulders
-    const ML  = [-X(0.39), yAt(0.72), L * 0.72], MR = [X(0.39), yAt(0.72), L * 0.72]; // upper body
-    const TL  = [-tipHW * k, yAt(0.96), L * 0.96], TR = [tipHW * k, yAt(0.96), L * 0.96]; // soft tip
-    return [[B0L, B0R, SR], [B0L, SR, MR], [B0L, MR, TR], [B0L, TR, TL], [B0L, TL, ML], [B0L, ML, SL]];
+  const tw = w * 0.5 * Math.max(tipSharpness, 0.12);   // half-width of the blunt tip edge
+  const leaf = (k, dy, dz) => {                          // k = scale (1 = plate, >1 = rim)
+    const hw = w * 0.5 * k, mw = w * 0.42 * k, tk = tw * k, L = len * (dz ? 1.03 : 1);
+    const B  = [0, dy, dz];
+    const BR = [ hw, dy,            L * 0.30], BL = [-hw, dy,            L * 0.30];
+    const MR = [ mw, cup * 0.5 + dy, L * 0.70], ML = [-mw, cup * 0.5 + dy, L * 0.70];
+    const TR = [ tk, cup + dy,       L * 0.96], TL = [-tk, cup + dy,       L * 0.96];
+    return [[B, BR, MR], [B, MR, TR], [B, TR, TL], [B, TL, ML], [B, ML, BL]];
   };
-  g.add(flatTriMesh(leaf(1.07, -0.014, -0.045), gild));   // THIN clean gold rim, dropped just behind
-  g.add(flatTriMesh(leaf(1, 0, 0), plate));               // pearl face on top
+  g.add(flatTriMesh(leaf(1, 0, 0), plate));
+  g.add(flatTriMesh(leaf(1.05, -0.012, -0.04), gild));   // thin gold edge, dropped just behind
   return g;
 }
 
@@ -73,22 +72,14 @@ function scaleRow(parent, t0, t1, n, lenScale, tipSharp, plate, gild, xsec, side
     const t = t0 + (t1 - t0) * f;
     const s = xsec(t);
     const chord = Math.hypot(s.trailing.z - s.leading.z, s.trailing.x - s.leading.x);
-    let len = chord * lenScale * (1 - 0.08 * f);
-    // WIDE plates → heavy overlap hides the dark web/gaps → a clean continuous fan (no jitter)
-    let w = (t1 - t0) * 6.4 / Math.max(n, 1) * 3.0 * (1 - 0.18 * f);
-    let sweepEx = 0;
-    // CLEAN OUTER TAPER: the last ~4 plates get progressively longer, narrower + more swept
-    // → one tidy tapering tip silhouette (replaces the fussy jittered edge).
-    const fromEnd = n - 1 - i;
-    if (fromEnd < 4) {
-      const k = (4 - fromEnd) / 4;       // 0..1 toward the very tip
-      len *= 1 + 0.18 * k; w *= 1 - 0.16 * k; sweepEx = 0.16 * k;
-    }
-    const fs = featherScale(len, w, 0.05 + 0.04 * f, tipSharp, plate, gild);
+    const len = chord * lenScale * (1 - 0.10 * f);      // reach past trailing edge; gentle taper
+    // WIDE cards (shield-like) → heavy overlap → shingled rows, not separable teeth; narrower tipward
+    const w = (t1 - t0) * 5.6 / Math.max(n, 1) * 3.0 * (1 - 0.22 * f);
+    const fs = featherScale(len, w, 0.06 + 0.05 * f, tipSharp, plate, gild);
     // shingled like roof tiles: each lifted slightly above the previous, laid mostly FLAT
-    fs.position.set(s.leading.x, s.leading.y + 0.03 + 0.02 * i, s.leading.z - 0.04);
-    fs.rotation.y = side * (0.05 + 0.16 * f + sweepEx);   // gentle fan + clean tip sweep
-    fs.rotation.x = -0.15 - 0.045 * f;                    // small even upward cant (plumage)
+    fs.position.set(s.leading.x, s.leading.y + 0.035 + 0.022 * i, s.leading.z - 0.04);
+    fs.rotation.y = side * (0.06 + 0.20 * f);            // GENTLE fan toward the tip (was a hard splay)
+    fs.rotation.x = -0.16 - 0.05 * f;                    // small upward cant (plumage, not a comb)
     parent.add(fs);
   }
 }
@@ -102,7 +93,6 @@ function buildSeraphWing(def, model, attach, giM) {
   const pearlMat = new THREE.MeshStandardMaterial({
     color: def.wingInner ?? SERAPH_PEARL, flatShading: true, side: THREE.DoubleSide,
     roughness: 0.52, metalness: 0.08,
-    emissive: SERAPH_PEARL, emissiveIntensity: 0.12,   // lift flat-shaded edges out of hard black
   });
   // TRUE metallic gild (def.wingGild), NOT the near-white def.horn — this is the key fix
   // for "pearl plates rimmed in gold" instead of undifferentiated white.
@@ -165,22 +155,23 @@ function buildSeraphWing(def, model, attach, giM) {
       const bar = chevronLight({ len: 0.32, w: 0.03, mat: seamGlowMat });
       bar.position.set(m.x, m.y + 0.03, m.z); bar.rotation.y = side * 0.5; grp.add(bar);
     };
-    const rowFor = (grp, ta, tb, n, o, lenScale, tipSharp) => scaleRow(grp, ta, tb, n, lenScale, tipSharp, pearlMat, goldMat, (t) => xsecL(t, o), side);
+    const rowFor = (grp, ta, tb, n, o, lenScale, tipSharp) => scaleRow(grp, ta, tb, seg(n), lenScale, tipSharp, pearlMat, goldMat, (t) => xsecL(t, o), side);
 
-    // EXACTLY 3 rows, each on its own hinge → they already ripple root→mid→tip for free.
-    // ROW 1 — inner coverts (subtle, rounded, near the body).
+    // PART A — root/pivot (0–0.34): broad coverts (low tipSharp = rounded plumes) + a short
+    // extra inner covert row so the wing reads FULL near the body.
     webQuad(pivot, 0.0, J0, ZERO); spar(pivot, 0.0, J0, ZERO); seam(pivot, 0.20, ZERO);
-    rowFor(pivot, 0.10, 0.36, rows[0], ZERO, 0.92, 0.28);
-    // ROW 2 — MAIN row (does most of the visual work).
+    rowFor(pivot, 0.18, J0, Math.max(2, rows[0] - 2), ZERO, 0.80, 0.28);   // short inner covert row (fullness)
+    rowFor(pivot, 0.04, J0, rows[0], ZERO, 1.06, 0.35);
+    // PART B — mid (0.34–0.66): primary plumage
     webQuad(wingMid, J0, J1, midO); spar(wingMid, J0, J1, midO); seam(wingMid, 0.50, midO);
-    rowFor(wingMid, 0.28, J1, rows[1], midO, 1.04, 0.38);
-    // ROW 3 — outer primaries (longer, cleaner, with the outer taper for a tidy wing tip).
+    rowFor(wingMid, J0, J1, rows[1], midO, 1.20, 0.42);
+    // PART C — tip (0.66–1.0): LONG narrow primary blade-scutes (high tipSharp) + gilded endplate
     webQuad(wingTip, J1, 1.0, tipO); spar(wingTip, J1, 1.0, tipO); seam(wingTip, 0.84, tipO);
-    rowFor(wingTip, 0.58, 0.99, rows[2], tipO, 1.16, 0.58);
+    rowFor(wingTip, J1, 0.99, rows[2], tipO, 1.42, 0.62);
     const tc = xsecL(1.0, tipO).c;
-    // small gilded endplate finishing the silhouette
+    // gilded endplate fin (a small blade finishing the silhouette)
     wingTip.add(flatTriMesh([
-      [[tc.x, tc.y - 0.04, tc.z - 0.10], [tc.x + side * 0.18, tc.y + 0.16, tc.z + 0.04], [tc.x + side * 0.05, tc.y + 0.03, tc.z + 0.13]],
+      [[tc.x, tc.y - 0.04, tc.z - 0.10], [tc.x + side * 0.20, tc.y + 0.20, tc.z + 0.04], [tc.x + side * 0.06, tc.y + 0.04, tc.z + 0.14]],
     ], goldMat));
     const marker = new THREE.Object3D(); marker.position.set(tc.x, tc.y, tc.z); wingTip.add(marker);
 
