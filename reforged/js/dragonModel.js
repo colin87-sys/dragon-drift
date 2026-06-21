@@ -378,6 +378,7 @@ export function buildDragonModel(def, opts = {}) {
     group,
     parts: {
       head, tailSegs, tailFins, spineSegs, bodySegs, tailOrbiters, riderSocket,
+      wingYokeL, wingYokeR,
       wingPivotL, wingPivotR,
       wingMidL, wingMidR,
       wingTipL, wingTipR,
