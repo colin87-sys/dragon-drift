@@ -604,25 +604,25 @@ export const DRAGONS = {
     // still inferred until seraphHull/Head land.
     parts: { torso: 'seraphHull', wings: 'seraphWing', head: 'seraphCrownHead', tail: 'seraphTail' },
     model: {
-      scale: 1.12, wingScale: 1.2, tailSegments: 9, neckSegments: 5,
+      scale: 1.12, wingScale: 0.9, tailSegments: 9, neckSegments: 5,  // wingScale trimmed 1.2→0.9 so the span no longer dwarfs the body
       hornLen: 1.3, hornPairs: 1, ridgeCount: 12,
-      flapBias: 0.9, flapAmp: 0.88, // graceful, lofty beat — already near the Phoenix feel
+      flapBias: 0.9, flapAmp: 0.88, // slow, heavy, eternal beat — a touch more loft than the Bull
       // Feather-scale wing: 3-segment hinge cascade, GRACEFUL/lofty (amps in radians;
       // L/R flap together, lag is internal root→mid→tip). Dihedral = chase-cam knob.
       wingParts: 3, wingDihedralDeg: 14,
-      flapFreqScale: 0.92, midLag: 0.5, tipLag: 1.0,
+      // flapBias×flapFreqScale = 0.9×0.85 = 0.765 → ~10% slower than now, just above the Bull's heavy 0.70 (more POWER).
+      flapFreqScale: 0.85, midLag: 0.5, tipLag: 1.0,
       glidePow: 2.2, bodyBobScale: 0.30, headWobbleScale: 0, tailLagScale: 0.10,
       // ANGELIC CATHEDRAL flap (two-channel YOKE solver). Taller + rounder + smoother than Bull.
       // Channel 1 = yoke whole-wing elevation (high at apex, pressing on the downstroke). Channel 2
       // = inner/mid/tip CURL (straight at glide+downstroke, rounded V at apex), lagged → dome on the
       // upstroke then a rounded cathedral V. Gentler rowing/sweep than Bull (graceful, not mechanical).
       flap: {
-        glide: 0.13, recovery: 0.28, apexHold: 0.10, power: 0.33, settle: 0.16,
-        glideLevel: 0.08, downDepth: 1.7,
-        lag: { inner: 0.04, mid: 0.06, tip: 0.18 },
+        downFrac: 0.56, downDepth: 1.9,                 // smooth beat; heavier downstroke; bottom ≈ −46°
+        lag: { inner: 0.04, mid: 0.07, tip: 0.20 },     // tip trails most → dome + follow-through
         yokeElevDeg: 24, curlDeg: { inner: 16, mid: 20, tip: 12 },
-        sweepDeg: { mid: 6, tip: 14 }, rowFwdDeg: 10, rowBackDeg: 5,
-        tipTrailDeg: 14, twistDeg: 4, glideCurl: 0, loadBowDeg: 0,
+        sweepDeg: { mid: 6, tip: 14 }, rowDeg: 9,
+        tipTrailDeg: 18, twistDeg: 4, loadBowDeg: 0,    // strong tip trail → domed upstroke
         body: { liftAmt: 0.06, tailDropDeg: 5, tailLag: 0.08 },
       },
     },
@@ -1223,12 +1223,11 @@ export const DRAGONS = {
       // = rounded V), lagged so the upstroke domes (tip flat) and the apex rounds (tip catches up).
       // + fore-aft ROWING sweep (reach forward on downstroke, back at apex) + tip trail at extension.
       flap: {
-        glide: 0.13, recovery: 0.26, apexHold: 0.10, power: 0.35, settle: 0.16,
-        glideLevel: 0.08, downDepth: 1.9,
-        lag: { inner: 0.05, mid: 0.06, tip: 0.18 },
+        downFrac: 0.56, downDepth: 2.2,                 // smooth beat; heavier downstroke; bottom ≈ −44°
+        lag: { inner: 0.05, mid: 0.07, tip: 0.20 },     // tip trails most → dome + follow-through
         yokeElevDeg: 20, curlDeg: { inner: 14, mid: 18, tip: 10 },
-        sweepDeg: { mid: 6, tip: 12 }, rowFwdDeg: 12, rowBackDeg: 6,
-        tipTrailDeg: 12, twistDeg: 5, glideCurl: 0, loadBowDeg: 0,
+        sweepDeg: { mid: 6, tip: 12 }, rowDeg: 11,
+        tipTrailDeg: 16, twistDeg: 5, loadBowDeg: 0,    // strong tip trail → domed upstroke
         body: { liftAmt: 0.05, tailDropDeg: 4, tailLag: 0.08 },
       },
     },

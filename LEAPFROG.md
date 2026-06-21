@@ -2635,3 +2635,103 @@ reads as a freeze. FIX: build the verification harness with the EXACT chase-cam 
 **Takeaway:** an animation reads ENTIRELY differently from a near-level rear cam vs an elevated 3/4 — always
 tune from the shipping camera's exact position/lookAt. Up-motion over-reads and down-motion under-reads from
 directly behind, so a power flap needs an asymmetrically DEEPER downstroke to look balanced in play.
+
+---
+
+## Lesson — A flap reads as continuous only if elevation crosses HORIZONTAL at max velocity (never hold mid-stroke)
+
+**Symptom.** Player: "from the bottom, on the way UP, the wing weirdly pauses around horizontal then continues."
+
+**Cause.** The 5-phase envelope had a GLIDE-HOLD plateau at `glideLevel` (≈horizontal) AND `smooth()`
+(smoothstep) has ZERO derivative at every phase boundary. So between `settle` (ending at glideLevel) and
+`recovery` (starting at glideLevel) the wing sat at horizontal with ~zero velocity twice over → a visible freeze
+at the mid-stroke. The cycle was hold→snap→hold.
+
+**Fix — a continuous up-down BEAT (`wingFlapSolver.js`).** Dropped the glide hold. `flapEnv` is now ONE
+smoothstep UP from −downDepth (bottom) → +1 (apex), an APEX HOLD, ONE smoothstep DOWN to the bottom, a brief
+bottom hold. The trick: a single smoothstep from bottom→apex crosses horizontal (env=0) near its MIDDLE where
+velocity is ~max — so the wing sweeps THROUGH horizontal fast. Verified numerically: |d(env)/dt| at the
+horizontal crossings is ~10–13 (high), and the only near-zero-velocity points are the apex (the held V, wanted)
+and the bottom turnaround. Never put a hold — or a smoothstep boundary — at a mid-stroke value you want the wing
+to pass through; reserve the zero-velocity dwell points for the true extremes (apex + bottom).
+
+**Other knobs that finally landed it:** `downDepth` ≈ 1.9–2.2 so the BOTTOM presses ~45° below horizontal
+(matching the reference deep-press pose), and a strong `tipTrailDeg` (16–18) + big tip `lag` so the tips trail
+LOW while the inner/mid arch up through the now-full bottom→apex upstroke = a real domed canopy. As always:
+tuned + verified from the EXACT gameplay chase-cam transform, not an elevated 3/4.
+
+---
+
+## Lesson — "Robotic / pauses around horizontal" = HOLDS. A natural flap is a continuous oscillation.
+
+Even after removing the glide-hold, the flap still read robotic and "paused on the way up." Two causes, same
+root: HOLDS. (1) The piecewise envelope still had a flat APEX hold + a flat BOTTOM hold (the bottom hold, right
+before the upstroke, was the pause the player felt). (2) `smoothstep` has ZERO velocity at BOTH ends of every
+segment, so the wing decelerated to a dead stop at each phase boundary → stop-hold-go = mechanical.
+
+FIX: drop ALL holds and drive the beat with a SMOOTH CONTINUOUS oscillation — a time-warped COSINE. A cosine
+has zero velocity ONLY at its two extremes (apex + bottom), where the wing naturally REVERSES like a pendulum,
+and MAX velocity through the middle (horizontal) — so it never freezes mid-stroke and never holds. `downFrac`
+time-warps the cosine so the DOWNstroke takes more of the cycle (heavier/slower power stroke) than the quicker
+upstroke. Verified numerically: |d(env)/dt| at the horizontal crossings is ~8–11 (high), and near-zero-velocity
+runs exist ONLY at the 2 turnarounds (~2% of the cycle each — a natural slow-down, NOT a plateau). Also smoothed
+the rowing sweep to be LINEAR in elevation (no kink at horizontal — a kink there reads as a hitch).
+
+Rule of thumb: holds and smoothstep-boundaries are for POSED/snappy UI motion; organic creature motion wants a
+continuous oscillator (sine/cosine) with dwell only at the true extremes. Reach for a hold only when you
+explicitly want a "pose-and-stick," never for a flowing cyclic action.
+
+---
+
+## Lesson — Perceived flap POWER is dominated by RATE, not per-beat shape; tune wing-to-body via `wingScale`.
+
+Player: "Bull's wing animation feels slower and more powerful than Seraph — why? Do it for Seraph too. Also
+Seraph flaps waaay too quickly, and its wingspan is way too big relative to its body." Two clean, isolated knobs
+in `pearl.model` answered all of it — NO solver/builder rewrite (the smooth-cosine beat from #155 stayed intact).
+
+(1) POWER = RATE. The flap rate is `flapSpeed = base·flapBias·formSpeed·flapFreqScale·…` (`dragon.js`). Bull
+Eternal `flapBias 0.85 × flapFreqScale 0.82 = 0.697`; Seraph was `0.9 × 0.92 = 0.828` → Seraph beat ~19% FASTER.
+The per-beat SHAPE was already near-identical (both `downFrac 0.56`, bottoms ≈ −45°), so the heavier/more-powerful
+read is ALMOST ENTIRELY the slower rate. To make a dragon feel heavier, match the heavier sibling's
+`flapBias × flapFreqScale` PRODUCT — don't reach for shape/amplitude changes first. (Seraph → `flapFreqScale 0.85`,
+product 0.765: slower/heavier, a touch more loft than the Bull.)
+
+(2) WINGSPAN-to-body = `wingScale`, NOT `model.scale`. `model.scale` scales the whole group uniformly, so it can
+NEVER change the wing-to-body RATIO. The span knob is `wingScale` (feeds `L = 4.6 × wingScale` in `buildSeraphWing`)
+— it scales only the wing geometry, so the ratio IS scale-invariant and tuned there. Seraph `1.2 → 0.9` (−25% span)
+fixed "wings dwarf the body" with the body untouched. Note: a LITERAL golden ratio (wingspan = 1.618× torso core)
+yielded implausibly tiny wings — treat such "0.618" asks as a direction/vibe, pick a measured trim, and let the
+human judge the proportion on the preview. Tri count is unaffected (feather rows are fixed counts, not span-driven).
+
+---
+
+## Lesson — Motion bugs hide from static renders; gate the BEAT's velocity profile, and grep tools/ before building a "throwaway" harness.
+
+Across Bull + Seraph the modeling was never the hard part — the architecture is already a reusable kit
+(registry + attach contract + frozen wing rig + shared `wingFlapSolver` + `seg()`/tri gates). The cost was
+VERIFICATION: (1) tuning motion from the wrong camera (an elevated 3/4) when gameplay is a near-level chase cam
+that over-reads up-motion and under-reads down-motion — a flap that looked great from above read flat in-game;
+(2) STATIC frames can't show a "pause at horizontal / robotic" bug — that failure lives in the VELOCITY profile
+of the beat, not any single frame; (3) repeatedly rebuilding a throwaway chase-cam harness in `/tmp` — when
+`tools/readability.mjs` ALREADY renders headlessly from the exact transform `cam.position(0,3.6,12.3)/
+lookAt(0,1,−16)`, and `tools/gameshots.mjs` already shoots the live chase cam. Grep `tools/` first.
+
+FIX (built this session): a committed **flap-cycle gate** `tests/flapcheck.mjs` — pure-math, auto-discovered by
+`run-all`, runs for every dragon with `model.flap`. It samples the REAL solver across the beat and asserts the
+continuity invariants numerically: apex reaches +1 / bottom −downDepth; exactly ONE up + ONE down stroke
+(velocity sign-changes === 2); BOTH horizontal crossings happen at high velocity (no flat spot = the old pause);
+near-zero velocity ONLY at the apex+bottom turnarounds (no interior hold); curl ≈1 at apex / ≈0 at bottom.
+Verified it has TEETH: it passes the shipped smooth-cosine beats (peakVel ~10–11, matching the hand-derived
+~8–11) AND fails a reconstructed old glide-hold beat (425 interior-hold offenders at horizontal, sign-changes 0).
+Plus `tools/flapstrip.mjs` — montages the 5 `?wingDebug` freeze poses from the live chase cam so a human reads
+the whole cycle on demand (the permanent version of the scratch harness; resolves the long-deferred L6
+"posedshot"). Rule: when motion quality is the deliverable, encode the MOTION INVARIANT (velocity/continuity) as
+a CI gate — a static screenshot can't regression-test feel.
+
+**→ Systematize:** any cyclic/animated quality (flap, tail coil, scarf sway, body bob) should ship with a
+numerical invariant gate next to it, not just a render. The reusable harness kernel is `readability.mjs`'s
+headless block (three-resolver + DOM shim + the exact chase cam) — clone it, don't reinvent it.
+**→ Leapfrog:** with a velocity-profile gate per motion channel, the solver can be refactored fearlessly; next
+is a tiny per-dragon `flap{}` PRESET library (heavy-overlord / graceful-eternal) so a new dragon picks a beat +
+tweaks 2-3 knobs, and a wiring guardrail in `blueprint.mjs` for the silent old-path fallbacks (flap not on the
+base model / missing `wingYokeL/R` / the two `dragonModel.js` parts returns out of sync).
