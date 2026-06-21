@@ -546,16 +546,17 @@ export function updateDragon(dt, player, time) {
     const twTip = Math.cos(phase - tipLag) * 0.18;
     const upMid = Math.max(0, Math.sin(phase - midLag));
     const upTip = Math.max(0, Math.sin(phase - tipLag));
-    // APEX HIGH-V LIFT (opt-in via model.apex*): on the UPSTROKE only, raise each segment
-    // into a stronger V — tips highest, lagged root→mid→tip — so the TOP of the stroke reads
-    // as a high V silhouette instead of flat/horizontal. `apexHold` (pow 0.7) widens the dwell
-    // near the top for a brief held apex. Zero for any dragon without apex config (roster
-    // unchanged). apexPitch tilts the wing plane up at the apex for a cathedral-arch read.
-    const apexHold = (ph) => Math.pow(Math.max(0, Math.sin(ph)), 0.7);
-    const apexRootF = (m.apexRoot ?? 0) * apexHold(phase);
-    const apexMidF  = (m.apexMid  ?? 0) * apexHold(phase - midLag);
-    const apexTipF  = (m.apexTip  ?? 0) * apexHold(phase - tipLag);
+    // APEX HIGH-V LIFT (opt-in via model.apex*): raise each segment into a strong V at the TOP
+    // of the stroke. The wing's UP extreme is where sin(phase)<0, so `apexUp` peaks at −sin (the
+    // apex) and the lift is ADDED to the flap (+rz = up); tips highest, lagged root→mid→tip, with
+    // ^0.7 widening the dwell for a brief held apex. `restLift` raises the glide pose off flat so
+    // it reads as a gentle V. Zero for any dragon without apex config (roster unchanged).
+    const apexUp = (ph) => Math.pow(Math.max(0, -Math.sin(ph)), 0.7);
+    const apexRootF = (m.apexRoot ?? 0) * apexUp(phase);
+    const apexMidF  = (m.apexMid  ?? 0) * apexUp(phase - midLag);
+    const apexTipF  = (m.apexTip  ?? 0) * apexUp(phase - tipLag);
     const apexPitch = m.apexPitch ?? 0;
+    const restLift  = m.restLift ?? 0;
     // ── BANKING via POSE BIAS ONLY — never a L/R phase delay. Both wings share the ONE
     // flap phase + identical internal root→mid→tip lag; the asymmetry is pose only, and
     // |bank| drives the SOFT→HARD continuum. `ins` = a wing's inside-ness (+1 fully inside
@@ -567,13 +568,13 @@ export function updateDragon(dt, player, time) {
       const inside = Math.max(0, ins), outside = Math.max(0, -ins);
       const amp = 1 - 0.34 * ins;                    // INSIDE brakes (↓ arc), OUTSIDE powers (↑ arc)
       const baseZ = -0.10 - 0.20 * inside + 0.12 * outside;   // inside drops LOWER, outside opens HIGHER
-      // shoulder/root: main flap (×amp) + apex V-lift + dihedral rest + bank baseline + climb pitch
-      pv.rotation.set(0.14 + featR * 0.16 + climbBias + apexPitch * apexRootF * 0.5, -0.18, -(rootF * amp) - apexRootF * amp + baseZ + rollFold);
-      // forearm/mid: lagged flap + apex lift + folds INWARD on the inside wing, SPREADS on the outside
-      if (md) md.rotation.set(twMid + 0.05 * inside + apexPitch * apexMidF * 0.8, upMid * 0.08 + 0.05 * outside, -(midF * amp) - apexMidF * amp + 0.10 * inside);
+      // shoulder/root: main flap (×amp) + APEX V-LIFT (+rz = up) + rest dihedral lift + bank baseline + climb pitch
+      pv.rotation.set(0.14 + featR * 0.16 + climbBias - apexPitch * apexRootF, -0.18, -(rootF * amp) + apexRootF * amp + restLift + baseZ + rollFold);
+      // forearm/mid: lagged flap + apex lift (more) + folds INWARD on the inside wing, SPREADS on the outside
+      if (md) md.rotation.set(twMid + 0.05 * inside - apexPitch * apexMidF, upMid * 0.08 + 0.05 * outside, -(midF * amp) + apexMidF * amp + 0.10 * inside);
       // tip: smaller arc + apex lift (highest → forms the V) + feathers BACK (.y) + UP (.x) + folds up inside
       if (tp) { const tF = md ? tipF : (midF + tipF), aT = md ? apexTipF : (apexMidF + apexTipF);
-        tp.rotation.set(-0.05 + twTip + 0.12 * inside + apexPitch * aT, tipSweepBase + 0.22 * inside, -(tF * amp) - aT * amp + 0.16 * inside); }
+        tp.rotation.set(-0.05 + twTip + 0.12 * inside - apexPitch * aT, tipSweepBase + 0.22 * inside, -(tF * amp) + aT * amp + 0.16 * inside); }
     };
     poseWing(wingPivotR, wingMidR, wingTipR, bank);
     poseWing(wingPivotL, wingMidL, wingTipL, -bank);
