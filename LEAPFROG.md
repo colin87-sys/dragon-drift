@@ -2608,3 +2608,30 @@ yoke solver, applied next frame) lifts the chest at apex / compresses nose-down 
 (mid-transition gull), not the press — the deep straight press is ~70% through the power phase. Sample there so
 both the cyclecheck render AND `?wingDebug=downstroke` show the real load-bearing pose. As always, the silhouette
 (not the numbers) is the judge — render the 5 phases on the rear chase-cam and compare to the reference frames.
+
+---
+
+## Lesson — Tune the flap from the EXACT gameplay chase cam, not an elevated 3/4 — and "wings gone" was stale cache
+
+**False alarm first.** A "wings don't show at all in game + shop" report was a STALE SERVICE-WORKER CACHE on the
+device (refresh fixed it). I burned a lot of effort failing to reproduce it: tiershots (rest pose), the isolated
+`makePreviewTick`, all detail tiers, and a live-game scene inspection (`__dd` + injected save) ALL showed the
+wings present, visible, finite, and spread. When every faithful harness shows the feature working, suspect the
+device/cache (sw.js precaches by content-hashed VERSION) before more code spelunking.
+
+**The real tuning bug — camera angle changes everything.** The flap looked great in my cycle harness but the
+player saw "never flaps below horizontal / no dome / freezes at horizontal." Cause: my harness camera was
+slightly ELEVATED and looked AT the dragon, so it read the shape generously. The real gameplay chase cam
+(`cameraController.js`: camera at dragon +(0, 3.6, 12.3), lookAt +(0, 1, −16)) is NEARLY LEVEL behind, ~5°
+down. From that near-level rear view: (a) a steep up-V reads dramatically, but (b) a shallow downstroke (−18°)
+reads as ~FLAT (you can't tell 0° from −18° from directly behind), and (c) the wing dwelling near horizontal
+reads as a freeze. FIX: build the verification harness with the EXACT chase-cam transform, then retune —
+- deepen the down-beat a LOT (`downDepth` ~1.6–1.9 → −30°..−40°) so it visibly drops below horizontal;
+- shorten the glide + apex HOLDS and lengthen the power phase so the motion flows (a heavy continuous beat,
+  not hold→snap→hold);
+- make the DOME with `tipTrailDeg` (tips droop/trail while inner+mid arch up) + a big tip `lag`, not just lag
+  alone (the chain raises the tip with the yoke, so you need the trail to counter it).
+
+**Takeaway:** an animation reads ENTIRELY differently from a near-level rear cam vs an elevated 3/4 — always
+tune from the shipping camera's exact position/lookAt. Up-motion over-reads and down-motion under-reads from
+directly behind, so a power flap needs an asymmetrically DEEPER downstroke to look balanced in play.
