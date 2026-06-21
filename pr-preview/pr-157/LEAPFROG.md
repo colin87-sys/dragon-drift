@@ -2856,3 +2856,26 @@ bank/crash/shop views made body shape matter more than the rear-cam-only assumpt
 **→ Leapfrog:** promote this to reusable `chestScale`/`waistScale`/`hipScale` knobs (the wingChordScale
 pattern) so every dragon dials an hourglass from dragons.js without editing a builder — the real systemic
 unlock behind "give the body more shape".
+
+---
+
+## Lesson — Wrote the model-creation guide (the deferred "authoring guide" pillar), aimed at an LLM author.
+
+`reforged/MODEL-CREATION.md`: a concrete, code-harvested guide to the whole creation system — axis/units
++ chase-cam cheat sheet, the build pipeline (dragons.js → ascension → recipe registries → buildDragonModel
+→ grammar), the blueprint anatomy, the full MODULE menu (every registered torso/wings/head/tail builder),
+the full DIAL vocabulary with ranges (straight from creatureGrammar.js), HOW shapes are made (body = loft
+through cross-section rings — the key idea — plus the attach contract, wings, the mechaKit primitives,
+surfaceLayers, forms), the silhouette-first verification loop (silhouette.mjs / overlay / gates), the honest
+LIMITATIONS (procedural-only, bespoke bodies, discrete parts/forms, flap-rig assumes a flyer, no legRoot,
+shape-only headless render, wing occlusion), what could be PUSHED (reusable chest/waist/hip dials, legRoot,
+rigid wing-fan, spline profiles, humanoid archetype, headless lit preview), and crucially a §10 OUTPUT FORMAT
+the LLM must emit (parts + dials + cross-section ring list + colors + forms + reuse-vs-NEW-MODULE) so its
+specs map 1:1 onto what the engine consumes and are actually recreatable. §11 works the flying-Gundam example
+end to end (≈70–80% feasible; reuse thrusterPod/mechaLeg/kit, NEW humanoidTorso + legRoot + dense rigid fan).
+
+Reusable insight: the engine's grammar (creatureGrammar.js) + registries ARE the authoring vocabulary —
+the guide HARVESTS them rather than inventing a schema, so it can't drift. The format that makes a model
+"recreatable" by an LLM is the cross-section ring list + module names + grammar dials, NOT prose.
+**→ Leapfrog:** keep MODEL-CREATION.md current as builders/dials are added; when the reusable body-profile
+dials + legRoot land, update §5/§6 so the Gundam (and any humanoid) becomes a pure-data spec.
