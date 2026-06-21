@@ -617,12 +617,12 @@ export const DRAGONS = {
       // = inner/mid/tip CURL (straight at glide+downstroke, rounded V at apex), lagged → dome on the
       // upstroke then a rounded cathedral V. Gentler rowing/sweep than Bull (graceful, not mechanical).
       flap: {
-        glide: 0.22, recovery: 0.24, apexHold: 0.16, power: 0.24, settle: 0.14,
-        glideLevel: 0.24, downDepth: 1.1,
-        lag: { inner: 0.05, mid: 0.06, tip: 0.10 },
-        yokeElevDeg: 26, curlDeg: { inner: 14, mid: 22, tip: 12 },
+        glide: 0.13, recovery: 0.28, apexHold: 0.10, power: 0.33, settle: 0.16,
+        glideLevel: 0.08, downDepth: 1.7,
+        lag: { inner: 0.04, mid: 0.06, tip: 0.18 },
+        yokeElevDeg: 24, curlDeg: { inner: 16, mid: 20, tip: 12 },
         sweepDeg: { mid: 6, tip: 14 }, rowFwdDeg: 10, rowBackDeg: 5,
-        tipTrailDeg: 7, twistDeg: 4, glideCurl: 0, loadBowDeg: 0,
+        tipTrailDeg: 14, twistDeg: 4, glideCurl: 0, loadBowDeg: 0,
         body: { liftAmt: 0.06, tailDropDeg: 5, tailLag: 0.08 },
       },
     },
@@ -1223,12 +1223,12 @@ export const DRAGONS = {
       // = rounded V), lagged so the upstroke domes (tip flat) and the apex rounds (tip catches up).
       // + fore-aft ROWING sweep (reach forward on downstroke, back at apex) + tip trail at extension.
       flap: {
-        glide: 0.22, recovery: 0.24, apexHold: 0.14, power: 0.26, settle: 0.14,
-        glideLevel: 0.20, downDepth: 1.2,
-        lag: { inner: 0.05, mid: 0.06, tip: 0.11 },
-        yokeElevDeg: 22, curlDeg: { inner: 12, mid: 18, tip: 10 },
-        sweepDeg: { mid: 8, tip: 16 }, rowFwdDeg: 14, rowBackDeg: 8,
-        tipTrailDeg: 6, twistDeg: 5, glideCurl: 0, loadBowDeg: 0,
+        glide: 0.13, recovery: 0.26, apexHold: 0.10, power: 0.35, settle: 0.16,
+        glideLevel: 0.08, downDepth: 1.9,
+        lag: { inner: 0.05, mid: 0.06, tip: 0.18 },
+        yokeElevDeg: 20, curlDeg: { inner: 14, mid: 18, tip: 10 },
+        sweepDeg: { mid: 6, tip: 12 }, rowFwdDeg: 12, rowBackDeg: 6,
+        tipTrailDeg: 12, twistDeg: 5, glideCurl: 0, loadBowDeg: 0,
         body: { liftAmt: 0.05, tailDropDeg: 4, tailLag: 0.08 },
       },
     },

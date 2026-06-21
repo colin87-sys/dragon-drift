@@ -53,8 +53,8 @@ export function curlEnv(ph, c) {
 export function phaseCenter(name, c) {
   const g = c.glide ?? 0.24, r = c.recovery ?? 0.24, a = c.apexHold ?? 0.14, p = c.power ?? 0.24;
   const s = Math.max(0, 1 - (g + r + a + p));
-  const t = { glide: g / 2, recovery: g + r / 2, apex: g + r + a / 2,
-    downstroke: g + r + a + p * 0.72, settle: g + r + a + p + s / 2 }[name];   // deeper into the press
+  const t = { glide: g / 2, recovery: g + r * 0.72, apex: g + r + a / 2,
+    downstroke: g + r + a + p * 0.82, settle: g + r + a + p + s / 2 }[name];   // deep into the press
   return (t == null ? 0 : t) * Math.PI * 2;
 }
 
