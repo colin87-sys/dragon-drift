@@ -30,30 +30,59 @@ export function flapEnv(ph, c) {
   return -dd + (gl + dd) * smooth((t - b4) / Math.max(1e-4, 1 - b4));   // settle → glide
 }
 
+// SHAPE channel — segment CURL over the cycle, range 0..1, SEPARATE from the whole-wing
+// elevation above. ~0 at glide (segments extended/straight), ramps up through recovery, =1 at
+// the apex (segments curled up into the rounded V), then DECAYS BACK TO 0 across the downstroke
+// (the wing STRAIGHTENS under load) + settle. Read per-segment as `curlEnv(phase − lag)` with
+// inner→mid→tip lag: that lag makes the upstroke a DOME (inner curled, tip still flat) and the
+// apex a rounded V (tip caught up). `ph` = the (lagged) phase in radians.
+export function curlEnv(ph, c) {
+  const t = (((ph % TAU) + TAU) % TAU) / TAU;
+  const g = c.glide ?? 0.24, r = c.recovery ?? 0.24, a = c.apexHold ?? 0.14, p = c.power ?? 0.24;
+  const cg = c.glideCurl ?? 0;                                 // curl at glide (≈0 = extended)
+  const b1 = g, b2 = g + r, b3 = g + r + a, b4 = g + r + a + p;
+  if (t < b1) return cg;                                       // glide: extended / straight
+  if (t < b2) return cg + (1 - cg) * smooth((t - b1) / r);     // recovery: gather → curl up (dome via lag)
+  if (t < b3) return 1;                                        // apex: full rounded-V curl
+  if (t < b4) return 1 - smooth((t - b3) / p);                 // downstroke: STRAIGHTEN → 0 (load-bearing)
+  return cg * smooth((t - b4) / Math.max(1e-4, 1 - b4));       // settle → glide curl
+}
+
 // Phase (radians) at the CENTRE of a named cycle point — for the `?wingDebug=<name>` freeze
 // mode, so gameplay can hold the dragon at exactly glide/recovery/apex/downstroke/settle.
 export function phaseCenter(name, c) {
   const g = c.glide ?? 0.24, r = c.recovery ?? 0.24, a = c.apexHold ?? 0.14, p = c.power ?? 0.24;
   const s = Math.max(0, 1 - (g + r + a + p));
   const t = { glide: g / 2, recovery: g + r / 2, apex: g + r + a / 2,
-    downstroke: g + r + a + p / 2, settle: g + r + a + p + s / 2 }[name];
+    downstroke: g + r + a + p * 0.72, settle: g + r + a + p + s / 2 }[name];   // deeper into the press
   return (t == null ? 0 : t) * Math.PI * 2;
 }
 
-// Per-STAGE pose (radians) from the cycle, with intra-wing lag yoke→inner→mid→tip. Fold
-// adds extra up-curl to mid/tip on the upstroke; sweep/twist scale with the upstroke. The
-// caller maps elev→flap axis, sweep→sweep axis, twist→twist axis and adds its own banking.
+// Per-STAGE pose (radians) from the TWO channels:
+//   • YOKE carries whole-wing ELEVATION (flapEnv, −downDepth..1): up at apex, DOWN/pressing on
+//     the power stroke — plus the fore-aft ROWING sweep (reach FORWARD on the downstroke, back
+//     at the apex) that reads as a power cycle, not a hinge.
+//   • inner/mid/tip carry CURL (curlEnv, 0..1, lagged): the SHAPE — dome on the upstroke (tip
+//     lags flat), rounded V at apex, STRAIGHT on the downstroke. + a small aft trail + tip
+//     droop at extension (membrane flex). loadBow gives a subtle downward camber under load.
+// The caller maps yoke.elev/inner.curl/mid.curl/tip.curl → flap axis (rotation.z), sweep → the
+// sweep axis (rotation.y), twist → rotation.x, and adds its own banking bias.
 export function solveWing(phase, cfg) {
-  const lag = cfg.lag || {}, el = cfg.elevDeg || {}, sw = cfg.sweepDeg || {}, fo = cfg.foldDeg || {};
-  const li = lag.inner ?? 0.06, lm = li + (lag.mid ?? 0.06), lt = lm + (lag.tip ?? 0.08);
-  const E = (frac) => flapEnv(phase - TAU * frac, cfg);
-  const eY = E(0), eI = E(li), eM = E(lm), eT = E(lt);
-  const up = (e) => (e > 0 ? e : 0);                           // upstroke-only gate (fold/sweep)
-  const tw = (cfg.twistDeg ?? 0) * D2R;
+  const lag = cfg.lag || {}, cu = cfg.curlDeg || {}, sw = cfg.sweepDeg || {};
+  const li = lag.inner ?? 0.05, lm = li + (lag.mid ?? 0.06), lt = lm + (lag.tip ?? 0.10);
+  const eY = flapEnv(phase, cfg);                              // whole-wing elevation
+  const cI = curlEnv(phase - TAU * li, cfg);
+  const cM = curlEnv(phase - TAU * lm, cfg);
+  const cT = curlEnv(phase - TAU * lt, cfg);
+  const up = eY > 0 ? eY : 0, dn = eY < 0 ? -eY : 0;           // elevated / pressing amounts
+  const tw = (cfg.twistDeg ?? 0) * D2R, loadBow = (cfg.loadBowDeg ?? 0) * D2R * dn;
+  // ROWING fore-aft sweep on the whole wing: +back when elevated, −forward when pressing down.
+  const row = ((cfg.rowBackDeg ?? 0) * up - (cfg.rowFwdDeg ?? 0) * dn) * D2R;
+  const tipTrail = (cfg.tipTrailDeg ?? 0) * D2R * (1 - cT);    // tip droops when NOT curled (extended)
   return {
-    yoke:  { elev: (el.yoke  ?? 0) * D2R * eY,  sweep: (sw.yoke ?? 0) * D2R * up(eY), twist: tw * eY,  env: eY },
-    inner: { elev: ((el.inner ?? 0) * eI + (fo.inner ?? 0) * up(eI)) * D2R, env: eI },
-    mid:   { elev: ((el.mid   ?? 0) * eM + (fo.mid   ?? 0) * up(eM)) * D2R, sweep: (sw.mid ?? 0) * D2R * up(eM), env: eM },
-    tip:   { elev: ((el.tip   ?? 0) * eT + (fo.tip   ?? 0) * up(eT)) * D2R, sweep: (sw.tip ?? 0) * D2R * up(eT), env: eT },
+    yoke:  { elev: (cfg.yokeElevDeg ?? 0) * D2R * eY, sweep: row, twist: tw * up, env: eY },
+    inner: { curl: (cu.inner ?? 0) * D2R * cI - loadBow, env: cI },
+    mid:   { curl: (cu.mid   ?? 0) * D2R * cM - loadBow, sweep: (sw.mid ?? 0) * D2R * cM, env: cM },
+    tip:   { curl: (cu.tip   ?? 0) * D2R * cT - loadBow - tipTrail, sweep: (sw.tip ?? 0) * D2R * cT, env: cT },
   };
 }
