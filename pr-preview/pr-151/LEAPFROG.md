@@ -2417,3 +2417,36 @@ Haunch fairings must stay LOW + LONG (scale y small, z large) or they read as bu
 explicitly forbids. (4) `tests/badges.mjs` needs a running dev server and times out on `.shop-grid` in the
 headless sandbox — it fails on a clean tree too, so it's environmental, not a regression; rely on
 blueprint + tricount + tiershots here and let the human judge motion on the PR preview.
+
+---
+
+## Lesson — Wing high-V APEX: an opt-in upstroke lift, not a keyframe-pose rewrite
+
+**Problem.** Toro Mk II Eternal + Pearl Seraph wings read too FLAT at the top of the flap — no strong raised "V"
+silhouette before the downstroke. The player's brief specified a 5-phase keyframe cycle (glide → upstroke →
+high-V apex hold → power downstroke → settle) with per-segment elevation/sweep/fold/twist target angles.
+
+**Why we did NOT port the keyframe spec literally.** The Mk II wing engine (`dragon.js` ~527-569) is a
+CONTINUOUS sinusoid, not a keyframe poser: `shape(ph)=sign(sin)·|sin|^glidePow` drives each segment's flap on
+`rotation.z`, scaled by per-form `rootAmp/midAmp/tipAmp` with internal `midLag/tipLag` (L/R already share ONE
+phase — pure sign-mirror, no left/right delay, which is exactly what the brief wanted). Rewriting it into a
+phase-ratio state machine would touch every Mk II dragon and risk the shipped feel. The flatness has ONE cause:
+the sinusoid is SYMMETRIC about the rest dihedral, so the "up" extreme is modest and never reads as a held V.
+
+**The fix (system, opt-in, roster-safe).** Added an APEX LIFT term gated to the UPSTROKE only:
+`apexHold(ph)=max(0,sin ph)^0.7` (the 0.7 power WIDENS the dwell near the top → a brief held apex), times new
+per-form knobs `apexRoot/apexMid/apexTip` (extra radians of raise, tip highest → forms the V, lagged
+root→mid→tip via the existing `midLag/tipLag`) subtracted from each segment's flap `z` (same sign as the
+existing up-swing, so it deepens the raise without touching the downstroke). `apexPitch` tilts the wing plane
+up at apex for a cathedral-arch read. All knobs `?? 0`, so EVERY dragon without apex config is byte-identical —
+proved by rendering: at the preview's phase-0 rest pose `apexHold(0)=0`, so the glide silhouette is unchanged.
+Pearl gets a higher/softer angelic arch (`apexTip 0.54, apexPitch 0.22`); Toro a lower/tighter mechanical V
+(`apexTip 0.42, apexPitch 0.14`) — same system, per-dragon character.
+
+**Gotchas.** (1) Mk II flap amplitude is FIXED per-form (`rootA = m.rootAmp`), NOT modulated by the dive/climb
+`flapAmp` — only the FREQUENCY varies with flight state — so the apex lift is constant-amplitude too, matching
+shipped behavior (don't scale it by `flapAmp`). (2) `tiershots` renders a STATIC frame at the rest phase, so it
+proves "no breakage / rest pose intact" but CANNOT show the apex — the high-V is a motion read, judged by the
+human on the live PR preview. (3) Sign matters: more-negative `rotation.z` = more raised, so apex lift is
+`- apexF*amp` (subtract), aligned with the existing `-(rootF*amp)` up-swing. (4) Body-lift/tail-drop at apex
+(also in the brief) was deferred to keep this pass to the wings — the headline fix — pending the player's read.
