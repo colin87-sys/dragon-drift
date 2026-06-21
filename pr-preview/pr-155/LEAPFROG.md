@@ -2659,3 +2659,24 @@ to pass through; reserve the zero-velocity dwell points for the true extremes (a
 (matching the reference deep-press pose), and a strong `tipTrailDeg` (16–18) + big tip `lag` so the tips trail
 LOW while the inner/mid arch up through the now-full bottom→apex upstroke = a real domed canopy. As always:
 tuned + verified from the EXACT gameplay chase-cam transform, not an elevated 3/4.
+
+---
+
+## Lesson — "Robotic / pauses around horizontal" = HOLDS. A natural flap is a continuous oscillation.
+
+Even after removing the glide-hold, the flap still read robotic and "paused on the way up." Two causes, same
+root: HOLDS. (1) The piecewise envelope still had a flat APEX hold + a flat BOTTOM hold (the bottom hold, right
+before the upstroke, was the pause the player felt). (2) `smoothstep` has ZERO velocity at BOTH ends of every
+segment, so the wing decelerated to a dead stop at each phase boundary → stop-hold-go = mechanical.
+
+FIX: drop ALL holds and drive the beat with a SMOOTH CONTINUOUS oscillation — a time-warped COSINE. A cosine
+has zero velocity ONLY at its two extremes (apex + bottom), where the wing naturally REVERSES like a pendulum,
+and MAX velocity through the middle (horizontal) — so it never freezes mid-stroke and never holds. `downFrac`
+time-warps the cosine so the DOWNstroke takes more of the cycle (heavier/slower power stroke) than the quicker
+upstroke. Verified numerically: |d(env)/dt| at the horizontal crossings is ~8–11 (high), and near-zero-velocity
+runs exist ONLY at the 2 turnarounds (~2% of the cycle each — a natural slow-down, NOT a plateau). Also smoothed
+the rowing sweep to be LINEAR in elevation (no kink at horizontal — a kink there reads as a hitch).
+
+Rule of thumb: holds and smoothstep-boundaries are for POSED/snappy UI motion; organic creature motion wants a
+continuous oscillator (sine/cosine) with dwell only at the true extremes. Reach for a hold only when you
+explicitly want a "pose-and-stick," never for a flowing cyclic action.
