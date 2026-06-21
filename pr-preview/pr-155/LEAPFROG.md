@@ -2680,3 +2680,25 @@ the rowing sweep to be LINEAR in elevation (no kink at horizontal — a kink the
 Rule of thumb: holds and smoothstep-boundaries are for POSED/snappy UI motion; organic creature motion wants a
 continuous oscillator (sine/cosine) with dwell only at the true extremes. Reach for a hold only when you
 explicitly want a "pose-and-stick," never for a flowing cyclic action.
+
+---
+
+## Lesson — Perceived flap POWER is dominated by RATE, not per-beat shape; tune wing-to-body via `wingScale`.
+
+Player: "Bull's wing animation feels slower and more powerful than Seraph — why? Do it for Seraph too. Also
+Seraph flaps waaay too quickly, and its wingspan is way too big relative to its body." Two clean, isolated knobs
+in `pearl.model` answered all of it — NO solver/builder rewrite (the smooth-cosine beat from #155 stayed intact).
+
+(1) POWER = RATE. The flap rate is `flapSpeed = base·flapBias·formSpeed·flapFreqScale·…` (`dragon.js`). Bull
+Eternal `flapBias 0.85 × flapFreqScale 0.82 = 0.697`; Seraph was `0.9 × 0.92 = 0.828` → Seraph beat ~19% FASTER.
+The per-beat SHAPE was already near-identical (both `downFrac 0.56`, bottoms ≈ −45°), so the heavier/more-powerful
+read is ALMOST ENTIRELY the slower rate. To make a dragon feel heavier, match the heavier sibling's
+`flapBias × flapFreqScale` PRODUCT — don't reach for shape/amplitude changes first. (Seraph → `flapFreqScale 0.85`,
+product 0.765: slower/heavier, a touch more loft than the Bull.)
+
+(2) WINGSPAN-to-body = `wingScale`, NOT `model.scale`. `model.scale` scales the whole group uniformly, so it can
+NEVER change the wing-to-body RATIO. The span knob is `wingScale` (feeds `L = 4.6 × wingScale` in `buildSeraphWing`)
+— it scales only the wing geometry, so the ratio IS scale-invariant and tuned there. Seraph `1.2 → 0.9` (−25% span)
+fixed "wings dwarf the body" with the body untouched. Note: a LITERAL golden ratio (wingspan = 1.618× torso core)
+yielded implausibly tiny wings — treat such "0.618" asks as a direction/vibe, pick a measured trim, and let the
+human judge the proportion on the preview. Tri count is unaffected (feather rows are fixed counts, not span-driven).

@@ -604,13 +604,14 @@ export const DRAGONS = {
     // still inferred until seraphHull/Head land.
     parts: { torso: 'seraphHull', wings: 'seraphWing', head: 'seraphCrownHead', tail: 'seraphTail' },
     model: {
-      scale: 1.12, wingScale: 1.2, tailSegments: 9, neckSegments: 5,
+      scale: 1.12, wingScale: 0.9, tailSegments: 9, neckSegments: 5,  // wingScale trimmed 1.2→0.9 so the span no longer dwarfs the body
       hornLen: 1.3, hornPairs: 1, ridgeCount: 12,
-      flapBias: 0.9, flapAmp: 0.88, // graceful, lofty beat — already near the Phoenix feel
+      flapBias: 0.9, flapAmp: 0.88, // slow, heavy, eternal beat — a touch more loft than the Bull
       // Feather-scale wing: 3-segment hinge cascade, GRACEFUL/lofty (amps in radians;
       // L/R flap together, lag is internal root→mid→tip). Dihedral = chase-cam knob.
       wingParts: 3, wingDihedralDeg: 14,
-      flapFreqScale: 0.92, midLag: 0.5, tipLag: 1.0,
+      // flapBias×flapFreqScale = 0.9×0.85 = 0.765 → ~10% slower than now, just above the Bull's heavy 0.70 (more POWER).
+      flapFreqScale: 0.85, midLag: 0.5, tipLag: 1.0,
       glidePow: 2.2, bodyBobScale: 0.30, headWobbleScale: 0, tailLagScale: 0.10,
       // ANGELIC CATHEDRAL flap (two-channel YOKE solver). Taller + rounder + smoother than Bull.
       // Channel 1 = yoke whole-wing elevation (high at apex, pressing on the downstroke). Channel 2
