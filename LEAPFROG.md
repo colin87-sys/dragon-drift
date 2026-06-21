@@ -2635,3 +2635,27 @@ reads as a freeze. FIX: build the verification harness with the EXACT chase-cam 
 **Takeaway:** an animation reads ENTIRELY differently from a near-level rear cam vs an elevated 3/4 — always
 tune from the shipping camera's exact position/lookAt. Up-motion over-reads and down-motion under-reads from
 directly behind, so a power flap needs an asymmetrically DEEPER downstroke to look balanced in play.
+
+---
+
+## Lesson — A flap reads as continuous only if elevation crosses HORIZONTAL at max velocity (never hold mid-stroke)
+
+**Symptom.** Player: "from the bottom, on the way UP, the wing weirdly pauses around horizontal then continues."
+
+**Cause.** The 5-phase envelope had a GLIDE-HOLD plateau at `glideLevel` (≈horizontal) AND `smooth()`
+(smoothstep) has ZERO derivative at every phase boundary. So between `settle` (ending at glideLevel) and
+`recovery` (starting at glideLevel) the wing sat at horizontal with ~zero velocity twice over → a visible freeze
+at the mid-stroke. The cycle was hold→snap→hold.
+
+**Fix — a continuous up-down BEAT (`wingFlapSolver.js`).** Dropped the glide hold. `flapEnv` is now ONE
+smoothstep UP from −downDepth (bottom) → +1 (apex), an APEX HOLD, ONE smoothstep DOWN to the bottom, a brief
+bottom hold. The trick: a single smoothstep from bottom→apex crosses horizontal (env=0) near its MIDDLE where
+velocity is ~max — so the wing sweeps THROUGH horizontal fast. Verified numerically: |d(env)/dt| at the
+horizontal crossings is ~10–13 (high), and the only near-zero-velocity points are the apex (the held V, wanted)
+and the bottom turnaround. Never put a hold — or a smoothstep boundary — at a mid-stroke value you want the wing
+to pass through; reserve the zero-velocity dwell points for the true extremes (apex + bottom).
+
+**Other knobs that finally landed it:** `downDepth` ≈ 1.9–2.2 so the BOTTOM presses ~45° below horizontal
+(matching the reference deep-press pose), and a strong `tipTrailDeg` (16–18) + big tip `lag` so the tips trail
+LOW while the inner/mid arch up through the now-full bottom→apex upstroke = a real domed canopy. As always:
+tuned + verified from the EXACT gameplay chase-cam transform, not an elevated 3/4.

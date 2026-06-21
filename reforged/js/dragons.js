@@ -617,12 +617,12 @@ export const DRAGONS = {
       // = inner/mid/tip CURL (straight at glide+downstroke, rounded V at apex), lagged → dome on the
       // upstroke then a rounded cathedral V. Gentler rowing/sweep than Bull (graceful, not mechanical).
       flap: {
-        glide: 0.13, recovery: 0.28, apexHold: 0.10, power: 0.33, settle: 0.16,
-        glideLevel: 0.08, downDepth: 1.7,
+        recovery: 0.34, apexHold: 0.10, power: 0.42,   // continuous beat; bottom = 0.14 (no glide hold)
+        downDepth: 1.9,                                  // bottom ≈ 24°·1.9 ≈ −46° (reference deep press)
         lag: { inner: 0.04, mid: 0.06, tip: 0.18 },
         yokeElevDeg: 24, curlDeg: { inner: 16, mid: 20, tip: 12 },
         sweepDeg: { mid: 6, tip: 14 }, rowFwdDeg: 10, rowBackDeg: 5,
-        tipTrailDeg: 14, twistDeg: 4, glideCurl: 0, loadBowDeg: 0,
+        tipTrailDeg: 18, twistDeg: 4, loadBowDeg: 0,    // strong tip trail → domed upstroke
         body: { liftAmt: 0.06, tailDropDeg: 5, tailLag: 0.08 },
       },
     },
@@ -1223,12 +1223,12 @@ export const DRAGONS = {
       // = rounded V), lagged so the upstroke domes (tip flat) and the apex rounds (tip catches up).
       // + fore-aft ROWING sweep (reach forward on downstroke, back at apex) + tip trail at extension.
       flap: {
-        glide: 0.13, recovery: 0.26, apexHold: 0.10, power: 0.35, settle: 0.16,
-        glideLevel: 0.08, downDepth: 1.9,
+        recovery: 0.34, apexHold: 0.10, power: 0.42,   // continuous beat; bottom = 0.14 (no glide hold)
+        downDepth: 2.2,                                  // bottom ≈ 20°·2.2 ≈ −44° (reference deep press)
         lag: { inner: 0.05, mid: 0.06, tip: 0.18 },
         yokeElevDeg: 20, curlDeg: { inner: 14, mid: 18, tip: 10 },
         sweepDeg: { mid: 6, tip: 12 }, rowFwdDeg: 12, rowBackDeg: 6,
-        tipTrailDeg: 12, twistDeg: 5, glideCurl: 0, loadBowDeg: 0,
+        tipTrailDeg: 16, twistDeg: 5, loadBowDeg: 0,    // strong tip trail → domed upstroke
         body: { liftAmt: 0.05, tailDropDeg: 4, tailLag: 0.08 },
       },
     },

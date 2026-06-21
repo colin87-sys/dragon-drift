@@ -14,47 +14,44 @@
 const D2R = Math.PI / 180, TAU = Math.PI * 2;
 const smooth = (x) => { const t = x < 0 ? 0 : x > 1 ? 1 : x; return t * t * (3 - 2 * t); };
 
-// 5-phase elevation envelope over ONE cycle, range [−downDepth .. 1]:
-//   glide-hold (gentle V = glideLevel) → recovery (→1) → APEX HOLD (=1, the held V) →
-//   power downstroke (→ −downDepth, drives below flat) → settle (→ glideLevel).
-// `ph` = the (lagged) phase in radians.
+// CONTINUOUS up-down BEAT, range [−downDepth .. 1]. No glide/horizontal hold — the wing sweeps
+// THROUGH horizontal at full speed and dwells ONLY at the apex (the held V) + a brief bottom
+// turnaround. One smoothstep UP (bottom→apex) crosses horizontal near its middle where velocity is
+// ~max; one smoothstep DOWN (apex→bottom). That is what removes the "pause at horizontal on the
+// way up" (a glide-hold plateau froze it there). `ph` = the (lagged) phase in radians.
 export function flapEnv(ph, c) {
   const t = (((ph % TAU) + TAU) % TAU) / TAU;                 // 0..1 within the cycle
-  const g = c.glide ?? 0.24, r = c.recovery ?? 0.24, a = c.apexHold ?? 0.14, p = c.power ?? 0.24;
-  const gl = c.glideLevel ?? 0.18, dd = c.downDepth ?? 0.35;
-  const b1 = g, b2 = g + r, b3 = g + r + a, b4 = g + r + a + p;
-  if (t < b1) return gl;                                       // glide hold
-  if (t < b2) return gl + (1 - gl) * smooth((t - b1) / r);     // recovery / upstroke
-  if (t < b3) return 1;                                        // APEX HOLD (held V)
-  if (t < b4) return 1 + (-dd - 1) * smooth((t - b3) / p);     // power downstroke
-  return -dd + (gl + dd) * smooth((t - b4) / Math.max(1e-4, 1 - b4));   // settle → glide
+  const r = c.recovery ?? 0.34, a = c.apexHold ?? 0.10, p = c.power ?? 0.42;
+  const dd = c.downDepth ?? 1.0;
+  const b1 = r, b2 = r + a, b3 = r + a + p;                   // upstroke · apex hold · downstroke · bottom
+  if (t < b1) return -dd + (1 + dd) * smooth(t / r);          // UPSTROKE: bottom → apex (fast through horizontal)
+  if (t < b2) return 1;                                       // APEX HOLD (held V)
+  if (t < b3) return 1 - (1 + dd) * smooth((t - b2) / p);     // DOWNSTROKE: apex → bottom (heavy)
+  return -dd;                                                 // brief BOTTOM hold (the ~45° deep press reads)
 }
 
-// SHAPE channel — segment CURL over the cycle, range 0..1, SEPARATE from the whole-wing
-// elevation above. ~0 at glide (segments extended/straight), ramps up through recovery, =1 at
-// the apex (segments curled up into the rounded V), then DECAYS BACK TO 0 across the downstroke
-// (the wing STRAIGHTENS under load) + settle. Read per-segment as `curlEnv(phase − lag)` with
-// inner→mid→tip lag: that lag makes the upstroke a DOME (inner curled, tip still flat) and the
-// apex a rounded V (tip caught up). `ph` = the (lagged) phase in radians.
+// SHAPE channel — segment CURL 0..1, SEPARATE from the elevation above. 0 at the bottom
+// (segments straight/pressed), smoothstep up to 1 at the apex (curled into the rounded V),
+// straighten back to 0 on the downstroke, 0 at the bottom. Read per-segment as `curlEnv(phase −
+// lag)` with inner→mid→tip lag: that lag makes the upstroke a DOME (inner curled, tip still low)
+// and the apex a rounded V (tip caught up). `ph` = the (lagged) phase in radians.
 export function curlEnv(ph, c) {
   const t = (((ph % TAU) + TAU) % TAU) / TAU;
-  const g = c.glide ?? 0.24, r = c.recovery ?? 0.24, a = c.apexHold ?? 0.14, p = c.power ?? 0.24;
-  const cg = c.glideCurl ?? 0;                                 // curl at glide (≈0 = extended)
-  const b1 = g, b2 = g + r, b3 = g + r + a, b4 = g + r + a + p;
-  if (t < b1) return cg;                                       // glide: extended / straight
-  if (t < b2) return cg + (1 - cg) * smooth((t - b1) / r);     // recovery: gather → curl up (dome via lag)
-  if (t < b3) return 1;                                        // apex: full rounded-V curl
-  if (t < b4) return 1 - smooth((t - b3) / p);                 // downstroke: STRAIGHTEN → 0 (load-bearing)
-  return cg * smooth((t - b4) / Math.max(1e-4, 1 - b4));       // settle → glide curl
+  const r = c.recovery ?? 0.34, a = c.apexHold ?? 0.10, p = c.power ?? 0.42;
+  const b1 = r, b2 = r + a, b3 = r + a + p;
+  if (t < b1) return smooth(t / r);                           // upstroke: straight → curled (dome via lag)
+  if (t < b2) return 1;                                       // apex: full rounded-V curl
+  if (t < b3) return 1 - smooth((t - b2) / p);                // downstroke: STRAIGHTEN → 0 (load-bearing)
+  return 0;                                                   // bottom: straight
 }
 
 // Phase (radians) at the CENTRE of a named cycle point — for the `?wingDebug=<name>` freeze
 // mode, so gameplay can hold the dragon at exactly glide/recovery/apex/downstroke/settle.
 export function phaseCenter(name, c) {
-  const g = c.glide ?? 0.24, r = c.recovery ?? 0.24, a = c.apexHold ?? 0.14, p = c.power ?? 0.24;
-  const s = Math.max(0, 1 - (g + r + a + p));
-  const t = { glide: g / 2, recovery: g + r * 0.72, apex: g + r + a / 2,
-    downstroke: g + r + a + p * 0.82, settle: g + r + a + p + s / 2 }[name];   // deep into the press
+  const r = c.recovery ?? 0.34, a = c.apexHold ?? 0.10, p = c.power ?? 0.42;
+  const b2 = r + a, b3 = r + a + p, bot = Math.max(0, 1 - b3);
+  const t = { glide: r * 0.35, recovery: r * 0.62, apex: r + a / 2,
+    downstroke: b2 + p * 0.6, settle: b3 + bot / 2 }[name];   // up-low · dome · held-V · press · deep-bottom
   return (t == null ? 0 : t) * Math.PI * 2;
 }
 
