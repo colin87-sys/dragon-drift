@@ -2735,3 +2735,36 @@ headless block (three-resolver + DOM shim + the exact chase cam) — clone it, d
 is a tiny per-dragon `flap{}` PRESET library (heavy-overlord / graceful-eternal) so a new dragon picks a beat +
 tweaks 2-3 knobs, and a wiring guardrail in `blueprint.mjs` for the silent old-path fallbacks (flap not on the
 base model / missing `wingYokeL/R` / the two `dragonModel.js` parts returns out of sync).
+
+---
+
+## Lesson — The real bottleneck is the STATIC-shape feedback loop, not motion. Build a headless silhouette mirror (no browser, no deps) by reusing the projection we already had.
+
+The human named the actual pain: "concept image → in-game REAR silhouette" is the slow, lossy, iterative
+step — and you can't tell whether a miss is *understanding* (wrong proportions, fixable by tuning knobs) or a
+*module wall* (the shape literally can't be expressed). Mapping the pipeline confirmed WHY the loop is slow:
+shape is specified as declarative knobs in `dragons.js` (`model` + `wingForms[4]` + `forms[4]` + `parts`),
+WING silhouette is continuously parameterized (tips/lead/scallop/arc) — but the TORSO/body plan is bespoke
+per-builder CODE (arrow/serpent/avian/seraphHull/…), not dial-able; and the ONLY way to SEE a shape was
+Playwright booting Chromium for a full *textured* render (rider+lighting+HUD that HIDE the shape, ~10s, and
+WebGL is unavailable in CI/sandbox). There was no pure-shape view and no reference comparison anywhere.
+
+KEY REUSE: `tools/readability.mjs` already projects the mesh through the real chase camera (no browser) — it
+just threw the pixels away and kept 2 scalars. So a clean SILHOUETTE is ~40 lines on top of that.
+
+FIX (built): `tools/silhouette.mjs` — rasterizes the union of every mesh triangle projected through a camera
+into a filled PNG, HEADLESS, ZERO deps (hand-rolled grayscale PNG via built-in `zlib` + a CRC32 table; a
+barycentric triangle fill), ~100ms. `rear` = the exact chase cam (the gameplay-faithful view the human
+iterates on); `side`/`front` auto-fit to the model bbox by the dims PERPENDICULAR to the view axis (fitting by
+wingspan made the profile tiny — the gotcha). Verified by eye: Pearl's rear reads as a crisp dragon (wings,
+crown-halo, tail); side shows the spine ridges + taper. Runs where Chromium/WebGL can't.
+
+Rules: (1) when "does it match the vision" is the deliverable, render the ISOLATED quality (flat silhouette),
+not a busy full render. (2) Pixels can be made headlessly from the projection we ALREADY compute — a browser
+is not required to SEE shape. (3) PNG out of pure Node is cheap (zlib + CRC32 chunking); no native canvas/gl.
+
+**→ Leapfrog (next):** turn the mirror into a CLOSED LOOP — accept a concept PNG, scale-align, overlay
+(target vs built) + an IoU/coverage number, so iteration becomes *measure→fix* and the
+understanding-vs-module-wall ambiguity becomes a curve (IoU climbs then plateaus = wall, time to add a knob).
+Then the deferred body-shape unlock: give the torso builders continuous profile knobs (the one part that's
+still bespoke code) so proportions are dial-able like the wings already are.
