@@ -2768,3 +2768,33 @@ is not required to SEE shape. (3) PNG out of pure Node is cheap (zlib + CRC32 ch
 understanding-vs-module-wall ambiguity becomes a curve (IoU climbs then plateaus = wall, time to add a knob).
 Then the deferred body-shape unlock: give the torso builders continuous profile knobs (the one part that's
 still bespoke code) so proportions are dial-able like the wings already are.
+
+---
+
+## Lesson — Closed the silhouette loop: mask the concept, overlay the build, MEASURE the gap. It surfaced a real contradiction between two human asks.
+
+Extended the silhouette mirror into the loop promised last lesson. `tools/silhouetteCore.mjs` now holds the
+shared render (shim + three-resolver + project/raster) plus a minimal PNG **encode AND decode** (built-in
+zlib inflate + Paeth un-filter; no deps), so we can read a concept image too. `tools/silhouette-overlay.mjs`
+takes a ChatGPT concept PNG, crude-masks the dragon (luminance floor in the lower frame — the pearl reads far
+brighter than the sunset water/skyline, so it extracted a near-perfect target silhouette; `--debug` dumps the
+mask to eyeball it), scale-aligns MY built silhouette's bbox onto the target, composites a cyan ghost, and
+prints an APPROX bbox-aligned IoU. Added a portrait `climb` view (model pitched ~53° nose-up) to match the
+"flying up" gameplay frame the human's concept was drawn from.
+
+WHAT IT MEASURED (Pearl, climb): IoU ~27%. The mask/overlay made the gap unambiguous and SPLIT it into causes
+we previously couldn't tell apart: (1) POSE — my render is the flat rest pose; the concept wings sweep steeply
+DOWN into a deep V (much of the area gap is pose, not geometry → next: render a SPREAD/downstroke pose for a
+fair shape compare); (2) SHAPE knobs — concept wings have far more CHORD/feather-fullness and a much LONGER
+trailing tail than the build (continuous knobs: wing `arc`/`scallop`/tip coords, `tailSegments`); (3) a real
+CONTRADICTION — the concept wants BIG, lush wings, but PR #155 just trimmed Pearl's span −25% on the human's
+own earlier "wingspan too big" note. The overlay is what surfaced that two of the human's asks fight each
+other (span vs. chord/area). That's the highest-value thing a measure-the-gap loop does: convert "Claude
+didn't get it" into a specific, located, sometimes-self-contradictory delta.
+
+Rules: (1) a textured concept can be masked cheaply when the subject out-glows its background — try a
+luminance floor + region gate before reaching for anything heavier, and always dump the mask to verify. (2)
+Compare like-for-like POSE or the IoU lies — pose before you measure shape. (3) When the gap encodes a
+contradiction between two prior requests, STOP and surface it; don't silently pick one.
+**→ Leapfrog:** add a posed (spread-wing) render option to the core, resolve span-vs-chord with the human,
+then this same overlay regression-guards every future shape tweak against the concept.
