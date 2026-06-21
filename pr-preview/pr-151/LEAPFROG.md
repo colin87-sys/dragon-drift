@@ -2450,3 +2450,38 @@ proves "no breakage / rest pose intact" but CANNOT show the apex — the high-V 
 human on the live PR preview. (3) Sign matters: more-negative `rotation.z` = more raised, so apex lift is
 `- apexF*amp` (subtract), aligned with the existing `-(rootF*amp)` up-swing. (4) Body-lift/tail-drop at apex
 (also in the brief) was deferred to keep this pass to the wings — the headline fix — pending the player's read.
+
+---
+
+## Lesson — Wing high-V apex: the rig was capable; the bug was a mis-phased, wrong-signed flap (verify at the APEX phase, never a static frame)
+
+**Symptom.** Player: both Mk II dragons' wings read flat/lateral at the top of the flap — no raised V — and
+suspected a structural root-hinge limit (asked whether a new proximal shoulder/yoke module was needed).
+
+**Diagnosis (decision: NO new module).** Traced the rig: both wings (`buildSeraphWing` in dragonSeraph.js,
+`buildSvjJetWing` in dragonFaceted.js) put a bare `pivot` Group at the `attach.wingRoot` socket (NO base
+rotation); the visible wing extends along `spanDir` ≈ mostly **+X (lateral)**. The animator (`dragon.js`
+`poseWing`) flaps on `pivot.rotation.z`. For a wing along +X, **rotation.z rotates the tip up/down in Y — it
+IS the elevation/V axis.** (Two Explore subagents both concluded "z sweeps laterally" — WRONG; don't trust a
+subagent's axis call without working the math.) So the structure can make a V; no carrier needed.
+
+**The real bug — my own previous apex pass was backwards.** The flap is `rz = -(rootF*amp)+baseZ`, with
+`rootF=sin(phase)*rootA` and `baseZ=-0.10`. The wing's UP extreme is at **phase=3π/2** (where sin<0). My first
+"apex hold" used `max(0,sin(phase))^0.7` (peaks at phase=π/2, the DOWNstroke) and SUBTRACTED it — so it
+deepened the downstroke and did nothing at the top. Fix: gate on the up half `apexUp=max(0,-sin(ph))^0.7`
+(peaks at the apex, ^0.7 widens the dwell) and ADD it as positive elevation, cascading root→mid→tip via the
+existing `midLag/tipLag`; plus a per-form `restLift` to raise the glide pose off flat. All knobs `?? 0` →
+every other Mk II dragon is byte-identical (tricount roster total unchanged).
+
+**The verification gotcha that hid it.** `tiershots`/`renderDragon` build the model and render the STATIC rest
+pose — they NEVER run the gameplay `poseWing` tick — so they cannot show the apex and made the broken apex look
+fine. To verify motion you MUST drive the wing groups to the actual apex phase. I wrote a throwaway
+`tools/apexcheck.html` that builds the model, finds the wing groups by `userData.wingRole` ('pivot'/'mid'/
+'tip'), and applies the real poseWing math at `phase=3π/2` (straight flight) before rendering the rear chase
+cam — that screenshot is what proved the V forms (and that +rz lifts UP, not sideways). Deleted after. Rule:
+for any flap/pose change, render at the POSE phase you're changing, not the rest frame.
+
+**Tuning.** Cumulative across 3 nested segments, so per-segment apex values stay MODERATE (Pearl
+apexRoot/Mid/Tip 0.18/0.24/0.22 + restLift 0.09; Toro Eternal 0.14/0.20/0.18 + restLift 0.06 — Pearl's arch
+rides higher). Magnitudes are eyeball-tuned on the apex render + live preview; the engine can't predict the
+world-space angle analytically (segment offsets, sweep, Euler coupling).
