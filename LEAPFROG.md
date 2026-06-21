@@ -2388,3 +2388,32 @@ Surge flare. The crown-halo is REAL geometry (TorusGeometry + cone shards + octa
 head (so it tracks head sway) and gated by `model.halo` per form; the generic body-level halo SPRITE in
 `dragonModel.js` is suppressed for this head (`recipe.head !== 'seraphCrownHead'`) so they don't double up.
 Octahedron = the faceted gem-eye/gem-node primitive; partial TorusGeometry = cheap gorget collar arcs.
+
+---
+
+## Lesson — Pearl Seraph torso SCULPTING pass: fund big armor by cutting where the chase cam can't see
+
+**What we did.** Refined (not rebuilt) the Seraph torso so it reads as matte-pearl PALADIN armor, not a
+white oval: slimmed the hull's shape hierarchy (shoulder ring ×1.04 carries width; abdomen/tail-root ×0.90–
+0.94 stay elegant), enlarged the gorget collar arcs with a clearly-proud GOLD backing arc, grew + reseated
+the shoulder pauldrons, swapped the cylinder sternum keel for a triangular-section gold ridge (`flatTriMesh`),
+and added NEW `seraphHaunchFairing` low pearl domes + gold rim at the tail root so the long tail flows out of
+a sculpted body. Also reoriented the CROWN-HALO to a horizontal floating saint's halo (ring `rotation.x=π/2`,
+raised `y 0.34→0.62`, shards/gems ringed in the XZ plane via `cos a→x, sin a→z`).
+
+**The reusable win — segment counts are the budget, not part count.** Eternal was 5444/6000 and we were ADDING
+modules. Instead of trimming the design we cut TorusGeometry segment counts where the rear chase cam never
+looks: the 8 gorget tori went `seg(6)/seg(18)`→`seg(5)/seg(12)` (−672 tris alone), plus skull loft seg(10)→
+seg(8), neck cylinders/collars down, halo ring seg(8)/seg(28)→seg(6)/seg(20). Net result: bigger armor + new
+haunch fairings AND the count DROPPED to 4458 (−986). Lesson: the torus tubular/radial segments dominate the
+budget; spend triangles on what reads from BEHIND and shave the head/neck/halo freely — they're nearly
+invisible in the gameplay camera.
+
+**Gotchas.** (1) The earlier brief's `getObjectByName("pearlTorsoHull"/"abdomenCore"/...)` refine approach
+doesn't apply here — this builder names nothing, so bake the per-zone scales straight into the loft ring
+rx/ry instead. (2) A horizontal halo needs the SHARDS moved to the XZ plane too (`shard.rotation.z=-π/2;
+rotation.y=-a`), not just the ring — otherwise the ring lies flat but the spikes still stand vertical. (3)
+Haunch fairings must stay LOW + LONG (scale y small, z large) or they read as bulky hips, which the brief
+explicitly forbids. (4) `tests/badges.mjs` needs a running dev server and times out on `.shop-grid` in the
+headless sandbox — it fails on a clean tree too, so it's environmental, not a regression; rely on
+blueprint + tricount + tiershots here and let the human judge motion on the PR preview.
