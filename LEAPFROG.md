@@ -2635,3 +2635,31 @@ reads as a freeze. FIX: build the verification harness with the EXACT chase-cam 
 **Takeaway:** an animation reads ENTIRELY differently from a near-level rear cam vs an elevated 3/4 — always
 tune from the shipping camera's exact position/lookAt. Up-motion over-reads and down-motion under-reads from
 directly behind, so a power flap needs an asymmetrically DEEPER downstroke to look balanced in play.
+
+---
+
+## Lesson — Surge popups overlapped because a % gap collapses to nothing on short screens
+
+**What we did.** Killed the "two stacked/overlapping texts" glitch users saw during Dragon Surge. The HUD
+has TWO popup channels, each a single reused `<div>` (`reforged/js/ui.js` `_popup`/`_popup2`, ~969-979):
+`#popup` (big banner, `top:30%`) and `#popup2` (small line, `top:38%`). Every praise call routes through these
+two (`ringPopup`/`phasePopup`/`nearMissPopup`/`rollPopup`/`gatePopup`/`feverStart`…). During surge both
+channels fire concurrently, and the channels were only **8% of the viewport apart**. Fix was **CSS-only** —
+no JS, no call-site changes: gave the secondary a **pixel floor** `top: max(38%, calc(30% + 76px))` (and the
+mobile override `max(30%, calc(22% + 76px))`), plus `white-space:nowrap` on both so a long string can't wrap
+into the gap. `style.css:268-269,891`.
+
+**The gotcha.** A percentage gap is a LIE on short/landscape phones: 8% of an 800px screen is 64px, but 8% of
+a 380px landscape screen is ~30px — and a fever/phase banner is ~46px tall, so the primary's bottom literally
+covers the secondary. The animation was NOT the culprit (both lines climb up ~equally, so the gap actually
+grows during the pop); the base layout gap was. Diagnosis tip: single reused elements + `restartAnim` only
+REPLACE text (no ghosting), so any visible "two overlapping texts" is two DIFFERENT channels colliding, never
+one channel doubling.
+
+**Reusable pattern.** When two absolutely-positioned HUD elements must never touch, don't tune a magic `%` —
+floor the separation in pixels with `top: max(<pct>, calc(<anchor-pct> + <min-px>))`. It reads natural on tall
+screens and is structurally collision-proof on short ones. (We deliberately kept the two-channel design and
+instant feedback — "push them apart", per the chosen scope — rather than rebuilding into a stacking manager.)
+Verification is human-only on the PR preview: trigger a surge and force a perfect-phase + perfect-ring/near-miss
+together on a SHORT LANDSCAPE viewport (the original failure case). No WebGL/Chromium in CI, so the browser
+tests (`badges.mjs` etc.) can't exercise it; `tricount` + the pure-node suite stay green (CSS doesn't touch them).

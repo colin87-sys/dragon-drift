@@ -265,8 +265,12 @@ body.app-loaded > canvas { opacity: 1; }
 .mute-btn.off { color: #5a7a96; opacity: 0.7; }
 
 /* ============ POPUPS / FLASHES ============ */
-.popup  { position: absolute; top: 30%; left: 50%; transform: translateX(-50%); font-size: 30px; font-weight: 800; letter-spacing: 2px; opacity: 0; text-shadow: 0 2px 8px rgba(0,0,0,0.6); }
-.popup2 { position: absolute; top: 38%; left: 50%; transform: translateX(-50%); font-size: 22px; font-weight: 700; letter-spacing: 2px; opacity: 0; text-shadow: 0 2px 8px rgba(0,0,0,0.6); }
+.popup  { position: absolute; top: 30%; left: 50%; transform: translateX(-50%); font-size: 30px; font-weight: 800; letter-spacing: 2px; opacity: 0; text-shadow: 0 2px 8px rgba(0,0,0,0.6); white-space: nowrap; }
+/* Secondary line sits at 38% on tall screens, but never closer than 76px below the
+   primary banner. A bare 8% gap collapses on short/landscape phones and the two
+   channels overlap (the surge "stacked text" glitch); the pixel floor guarantees
+   separation at any height, and nowrap stops a long string wrapping into the gap. */
+.popup2 { position: absolute; top: max(38%, calc(30% + 76px)); left: 50%; transform: translateX(-50%); font-size: 22px; font-weight: 700; letter-spacing: 2px; opacity: 0; text-shadow: 0 2px 8px rgba(0,0,0,0.6); white-space: nowrap; }
 .popup[data-color="cyan"]   { color: #7fe0ff; }
 .popup[data-color="green"]  { color: #58ffa0; }
 .popup[data-color="gold"]   { color: #ffd86a; }
@@ -888,7 +892,7 @@ html.standalone .hero-stage { width: min(100%, 42svh); }
   .embers-hud    { font-size: 14px; }
   #reticle       { width: 64px; height: 64px; margin: -32px 0 0 -32px; }
   .popup         { font-size: 20px; top: 22%; }
-  .popup2        { font-size: 16px; top: 30%; }
+  .popup2        { font-size: 16px; top: max(30%, calc(22% + 76px)); }
   .audio-btns    { top: calc(10px + env(safe-area-inset-top, 0px)); right: 10px; gap: 6px; }
   .mute-btn      { width: 32px; height: 32px; }
   .screen h1     { font-size: 32px; letter-spacing: 4px; padding: 0 10px; }
