@@ -602,7 +602,7 @@ export const DRAGONS = {
     // MULTI-MODULE upgrade (Radiant Paladin): feather-scale wings on the shared 3-hinge
     // rig + cascade animator + a comet/banner TAIL (chase-cam rear hero). Hull/Head
     // still inferred until seraphHull/Head land.
-    parts: { wings: 'seraphWing', tail: 'seraphTail' },
+    parts: { torso: 'seraphHull', wings: 'seraphWing', head: 'seraphCrownHead', tail: 'seraphTail' },
     model: {
       scale: 1.12, wingScale: 1.2, tailSegments: 9, neckSegments: 5,
       hornLen: 1.3, hornPairs: 1, ridgeCount: 12,
