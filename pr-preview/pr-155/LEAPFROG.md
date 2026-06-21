@@ -2702,3 +2702,36 @@ NEVER change the wing-to-body RATIO. The span knob is `wingScale` (feeds `L = 4.
 fixed "wings dwarf the body" with the body untouched. Note: a LITERAL golden ratio (wingspan = 1.618× torso core)
 yielded implausibly tiny wings — treat such "0.618" asks as a direction/vibe, pick a measured trim, and let the
 human judge the proportion on the preview. Tri count is unaffected (feather rows are fixed counts, not span-driven).
+
+---
+
+## Lesson — Motion bugs hide from static renders; gate the BEAT's velocity profile, and grep tools/ before building a "throwaway" harness.
+
+Across Bull + Seraph the modeling was never the hard part — the architecture is already a reusable kit
+(registry + attach contract + frozen wing rig + shared `wingFlapSolver` + `seg()`/tri gates). The cost was
+VERIFICATION: (1) tuning motion from the wrong camera (an elevated 3/4) when gameplay is a near-level chase cam
+that over-reads up-motion and under-reads down-motion — a flap that looked great from above read flat in-game;
+(2) STATIC frames can't show a "pause at horizontal / robotic" bug — that failure lives in the VELOCITY profile
+of the beat, not any single frame; (3) repeatedly rebuilding a throwaway chase-cam harness in `/tmp` — when
+`tools/readability.mjs` ALREADY renders headlessly from the exact transform `cam.position(0,3.6,12.3)/
+lookAt(0,1,−16)`, and `tools/gameshots.mjs` already shoots the live chase cam. Grep `tools/` first.
+
+FIX (built this session): a committed **flap-cycle gate** `tests/flapcheck.mjs` — pure-math, auto-discovered by
+`run-all`, runs for every dragon with `model.flap`. It samples the REAL solver across the beat and asserts the
+continuity invariants numerically: apex reaches +1 / bottom −downDepth; exactly ONE up + ONE down stroke
+(velocity sign-changes === 2); BOTH horizontal crossings happen at high velocity (no flat spot = the old pause);
+near-zero velocity ONLY at the apex+bottom turnarounds (no interior hold); curl ≈1 at apex / ≈0 at bottom.
+Verified it has TEETH: it passes the shipped smooth-cosine beats (peakVel ~10–11, matching the hand-derived
+~8–11) AND fails a reconstructed old glide-hold beat (425 interior-hold offenders at horizontal, sign-changes 0).
+Plus `tools/flapstrip.mjs` — montages the 5 `?wingDebug` freeze poses from the live chase cam so a human reads
+the whole cycle on demand (the permanent version of the scratch harness; resolves the long-deferred L6
+"posedshot"). Rule: when motion quality is the deliverable, encode the MOTION INVARIANT (velocity/continuity) as
+a CI gate — a static screenshot can't regression-test feel.
+
+**→ Systematize:** any cyclic/animated quality (flap, tail coil, scarf sway, body bob) should ship with a
+numerical invariant gate next to it, not just a render. The reusable harness kernel is `readability.mjs`'s
+headless block (three-resolver + DOM shim + the exact chase cam) — clone it, don't reinvent it.
+**→ Leapfrog:** with a velocity-profile gate per motion channel, the solver can be refactored fearlessly; next
+is a tiny per-dragon `flap{}` PRESET library (heavy-overlord / graceful-eternal) so a new dragon picks a beat +
+tweaks 2-3 knobs, and a wiring guardrail in `blueprint.mjs` for the silent old-path fallbacks (flap not on the
+base model / missing `wingYokeL/R` / the two `dragonModel.js` parts returns out of sync).
