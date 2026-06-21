@@ -2520,3 +2520,36 @@ bones. (3) Verify with a CYCLE render (drive the real `solveWing` across 5 phase
 apex HOLD and the root-led V only read across the cycle. Pearl's first pass went near-vertical (clamshell);
 dialed `elevDeg` down ~20% for a clean open cathedral V. elevation is cumulative across the 4 nested stages, so
 per-stage degrees stay modest and are eyeball-tuned on the render, not predicted.
+
+---
+
+## Lesson — Wing solver gameplay INTEGRATION: per-form-only config silently falls back on lower tiers; brief apex + flat glide reads flat in motion
+
+**Symptom.** The yoke/5-phase solver looked perfect in the standalone cycle harness, but in GAMEPLAY Bull read
+DEAD-flat and Seraph's V was shallow/brief. The player suspected an overwrite / axis / hierarchy bug.
+
+**Root causes (NOT a bad solver, NOT an overwrite — confirmed nothing rewrites yoke/pivot/mid/tip after poseY).**
+- **BUG A — config never reached gameplay below the top tier.** Bull's `flap` config lived ONLY on the Eternal
+  FORM override. `ascendedDef` (ascension.js) accretes each form's keys onto `model` up to the current tier, so
+  any tier below Eternal merged to `model.flap = undefined` → the gameplay branch `else if (model.flap &&
+  wingYokeL)` failed → Bull fell through to the OLD flat sinusoid. Pearl always worked because its `flap` is on
+  the BASE model. FIX: put shared flap config on the BASE `model`, never only on the top form. Proved at every
+  tier with a 6-line node script calling the real `ascendedDef` (flap=YES tiers 0-3).
+- **BUG B — the math was right but the MOTION read flat.** The apex hold was ~12% of the cycle (~0.18s) and
+  `glideLevel 0.16` left the dominant glide/settle phases nearly flat, so the rear camera mostly sampled flat
+  frames. FIX: raise `glideLevel` (~0.32-0.34) so the wing rides a gentle V the WHOLE cycle (never dead-flat) +
+  lengthen `apexHold` so the high-V is held long enough to read. The peak pose was always correct; it just
+  wasn't reached/held visibly.
+
+**Shipped a `?wingDebug=<glide|recovery|apex|downstroke|settle>` FREEZE mode** (dragon.js): holds the wings at
+one cycle point with steering/boost/bank/climb NEUTRALISED (pure solver output), and logs the resolved config +
+the wing-chain elevation measured in the DRAGON'S OWN frame (`group.matrixWorld.invert()` applied to yoke/tip
+world positions → `atan2(dy,horiz)`) — body bank/pitch independent, so `tipElevDeg` is a true "does the wing
+rise" readout. This is both the diagnostic the player asked for and a permanent debug tool.
+
+**Verification gotchas.** (1) `tiershots`/`cyclecheck` render STATIC poses and `dragonModel.makePreviewTick` is a
+SEPARATE preview poser — none is the gameplay tick, so to prove gameplay you must either freeze the real game
+(`?wingDebug`) or assert the resolved `model.flap` via `ascendedDef` directly. (2) Importing `dragons.js` in a
+bare node script throws `window is not defined` (save.js touches window) — stub `globalThis.window/document`
+first. (3) The rear-chase-cam `cyclecheck` `_dir (0.06,0.20,0.95)` IS the gameplay camera, so it's a faithful
+pose proof even though it sets rotations directly.

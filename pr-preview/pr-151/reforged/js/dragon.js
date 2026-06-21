@@ -5,7 +5,7 @@ import { buildRiderFigure, riderMaterials } from './riderParts.js';
 import { setFeverTint } from './postfx.js';
 import { applyRim, updateRim, resetRim } from './rimLight.js';
 import { flapWing, formStrength, formSpeed } from './dragonWingFlap.js';
-import { solveWing, flapEnv } from './wingFlapSolver.js';
+import { solveWing, flapEnv, phaseCenter } from './wingFlapSolver.js';
 import { setActiveDetail } from './modelDetail.js';
 
 // Procedural dragon + rider. Built from a dragon def (dragons.js: palette,
@@ -15,6 +15,13 @@ import { setActiveDetail } from './modelDetail.js';
 let sceneRef = null;
 let activeDef = null;
 let activeRider = null;
+
+// `?wingDebug=<glide|recovery|apex|downstroke|settle>` FREEZE mode: holds the wings at one
+// cycle point with steering/boost/bank neutralised, and logs the resolved flap config + the
+// wing's WORLD-frame elevation — to prove gameplay reproduces the harness apex.
+const WING_DEBUG = (typeof location !== 'undefined' && location.search)
+  ? new URLSearchParams(location.search).get('wingDebug') : null;
+let wingDebugLogged = false;
 
 let group = null;
 let wingYokeL = null;  // root shoulder-carrier stage (Mk II yoke wings), null otherwise
@@ -537,16 +544,20 @@ export function updateDragon(dt, player, time) {
     // LEADS and creates the base of the V — the root visibly drives, not just the tip. ONE
     // shared L/R phase (sign-mirror, never a whole-wing L/R lag); banking = pose bias only.
     const m = activeDef.model;
-    const s = solveWing(phase, m.flap);
-    const featR = Math.sin(phase + Math.PI * 0.55);
-    const bank = Math.max(-1, Math.min(1, turnBias / 0.28));
+    // FREEZE/NEUTRALISE for `?wingDebug`: hold one cycle point, zero steering/boost/bank/climb
+    // so the wing pose is PURE solver output (the test the player asked for).
+    const usePhase = WING_DEBUG ? phaseCenter(WING_DEBUG, m.flap) : phase;
+    const tB = WING_DEBUG ? 0 : turnBias, rF = WING_DEBUG ? 0 : rollFold, cB = WING_DEBUG ? 0 : climbBias;
+    const s = solveWing(usePhase, m.flap);
+    const featR = Math.sin(usePhase + Math.PI * 0.55);
+    const bank = WING_DEBUG ? 0 : Math.max(-1, Math.min(1, turnBias / 0.28));
     const poseY = (yk, pv, md, tp, ins) => {
       const inside = Math.max(0, ins), outside = Math.max(0, -ins);
       const ampE = 1 - 0.30 * ins;                 // INSIDE brakes the arc, OUTSIDE powers it
       // YOKE (shoulder carrier): leads with elevation (+rz=up) + sweep-back + twist + bank baseline
-      yk.rotation.set(s.yoke.twist, -0.12 - s.yoke.sweep - 0.10 * inside + turnBias * 0.5, s.yoke.elev * ampE + rollFold + 0.05 * outside);
+      yk.rotation.set(s.yoke.twist, -0.12 - s.yoke.sweep - 0.10 * inside + tB * 0.5, s.yoke.elev * ampE + rF + 0.05 * outside);
       // INNER (pivot): feather pitch + inner elevation + inside fold
-      pv.rotation.set(0.10 + featR * 0.12 + climbBias, -0.12, s.inner.elev * ampE + 0.06 * inside);
+      pv.rotation.set(0.10 + featR * 0.12 + cB, -0.12, s.inner.elev * ampE + 0.06 * inside);
       // MID: lagged elevation + sweep-back + inside fold / outside spread
       if (md) md.rotation.set(0.02, 0.05 * outside - s.mid.sweep, s.mid.elev * ampE + 0.10 * inside);
       // TIP: trailing elevation (highest) + sweep-back + inside fold
@@ -554,6 +565,25 @@ export function updateDragon(dt, player, time) {
     };
     poseY(wingYokeR, wingPivotR, wingMidR, wingTipR, bank);
     poseY(wingYokeL, wingPivotL, wingMidL, wingTipL, -bank);
+    if (WING_DEBUG && !wingDebugLogged) {
+      // Prove gameplay reaches the harness pose: log the resolved config + the wing chain's
+      // elevation in the DRAGON'S OWN frame (independent of body bank/pitch). tipElevDeg should
+      // read strongly positive at apex (a high V), ~flat at glide.
+      try {
+        wingDebugLogged = true;
+        group.updateWorldMatrix(true, true);
+        const inv = group.matrixWorld.clone().invert();
+        const yL = wingYokeR.getWorldPosition(new THREE.Vector3()).applyMatrix4(inv);
+        const tL = wingTipR.getWorldPosition(new THREE.Vector3()).applyMatrix4(inv);
+        const tipElevDeg = Math.atan2(tL.y - yL.y, Math.hypot(tL.x - yL.x, tL.z - yL.z)) * 180 / Math.PI;
+        console.log('[wingDebug] ' + JSON.stringify({
+          dragon: activeDef.name, form: activeDef.model.formLevel, phaseName: WING_DEBUG,
+          phase: +usePhase.toFixed(3), apexHold: m.flap.apexHold, elevDeg: m.flap.elevDeg,
+          yokeRzDeg: +(wingYokeR.rotation.z * 180 / Math.PI).toFixed(1),
+          tipElevDeg: +tipElevDeg.toFixed(1),
+        }));
+      } catch (e) { console.log('[wingDebug] log failed', String(e)); }
+    }
   } else if (activeDef.model.wingParts) {
     // ── Mk II per-FORM articulated wing (1 / 2 / 3 segments) ─────────────────────────
     // ONE shared flap phase; L/R a pure sign-mirror (identical timing, never offset);
