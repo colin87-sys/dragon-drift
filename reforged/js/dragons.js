@@ -612,6 +612,9 @@ export const DRAGONS = {
       wingParts: 3, wingDihedralDeg: 14,
       flapFreqScale: 0.80, rootAmp: 0.16, midAmp: 0.22, tipAmp: 0.30, midLag: 0.5, tipLag: 1.0,
       glidePow: 2.2, bodyBobScale: 0.30, headWobbleScale: 0, tailLagScale: 0.10,
+      // Angelic CATHEDRAL high-V apex: tips sweep highest into a graceful raised V at the
+      // top of the stroke (rises higher than Toro), with an upward wing-plane tilt.
+      apexRoot: 0.20, apexMid: 0.36, apexTip: 0.54, apexPitch: 0.22,
     },
     // Broad, smooth, strongly UP-RAISED wings (an angel spreading) — clean
     // edges, no flame.
@@ -1262,6 +1265,9 @@ export const DRAGONS = {
         thrusterLevel: 3, nacelleLevel: 3, spineCapLevel: 3, tailTip: 3, tailSegments: 9,
         flapFreqScale: 0.88, rootAmp: 0.19, midAmp: 0.26, tipAmp: 0.33, midLag: 0.5, tipLag: 1.0,
         glidePow: 2.6, bodyBobScale: 0.35, headWobbleScale: 0.0, tailLagScale: 0.07,
+        // Mechanical OVERLORD high-V apex: a heavy, controlled V loaded before the power
+        // downstroke — strong but lower/tighter than the Seraph's angelic arch.
+        apexRoot: 0.16, apexMid: 0.28, apexTip: 0.42, apexPitch: 0.14,
         colors: { bodyRoughness: 0.15, bodyMetalness: 0.6,
           body: 0xffd21a, wingInner: 0xffd21a, wingEmissive: 0xffa52a,
           apexSeam: 0xff3b2f, eye: 0x6fd6ff, coreGlow: 0xffa52a } },
