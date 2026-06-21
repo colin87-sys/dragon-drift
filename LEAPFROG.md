@@ -2553,3 +2553,23 @@ SEPARATE preview poser — none is the gameplay tick, so to prove gameplay you m
 bare node script throws `window is not defined` (save.js touches window) — stub `globalThis.window/document`
 first. (3) The rear-chase-cam `cyclecheck` `_dir (0.06,0.20,0.95)` IS the gameplay camera, so it's a faithful
 pose proof even though it sets rotations directly.
+
+---
+
+## Lesson — Preview works but gameplay doesn't? Check for a SECOND parts/return object in the model builder
+
+**Symptom.** After the wing refactor, the SHOP PREVIEW showed the new yoke flap but IN-GAME showed the OLD
+flap — the inverse of a config bug, and a dead giveaway that the two paths receive DIFFERENT data.
+
+**Cause.** `dragonModel.js buildDragonModel` has TWO returns: an `opts.preview` return AND a main return, each
+with its OWN hand-maintained `parts: { ... }` object. The architecture commit added `wingYokeL/R` to the
+preview return + the destructures but MISSED the main `parts` object. So gameplay (`buildDragonModel(def)`, no
+`opts.preview`) got `parts.wingYokeL === undefined` → `wingYokeL = null` in dragon.js → the
+`activeDef.model.flap && wingYokeL` branch was false → fell back to the OLD sinusoid. The yoke groups existed in
+the scene; they just weren't handed to the gameplay animator.
+
+**Rule.** When a builder exposes hookpoints through MULTIPLE return/parts objects (preview vs gameplay is the
+classic split in this repo), any new rig handle must be added to ALL of them — grep the file for every
+`parts: {` / `return {` before assuming one edit is enough. A "works in preview, broken in game" (or vice
+versa) report points straight at this duplication. Cheap guard: the two `parts` objects should list the same
+wing keys — they drifted here by one key (`wingYokeL/R`).
