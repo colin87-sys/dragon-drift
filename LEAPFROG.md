@@ -2735,3 +2735,147 @@ headless block (three-resolver + DOM shim + the exact chase cam) — clone it, d
 is a tiny per-dragon `flap{}` PRESET library (heavy-overlord / graceful-eternal) so a new dragon picks a beat +
 tweaks 2-3 knobs, and a wiring guardrail in `blueprint.mjs` for the silent old-path fallbacks (flap not on the
 base model / missing `wingYokeL/R` / the two `dragonModel.js` parts returns out of sync).
+
+---
+
+## Lesson — The real bottleneck is the STATIC-shape feedback loop, not motion. Build a headless silhouette mirror (no browser, no deps) by reusing the projection we already had.
+
+The human named the actual pain: "concept image → in-game REAR silhouette" is the slow, lossy, iterative
+step — and you can't tell whether a miss is *understanding* (wrong proportions, fixable by tuning knobs) or a
+*module wall* (the shape literally can't be expressed). Mapping the pipeline confirmed WHY the loop is slow:
+shape is specified as declarative knobs in `dragons.js` (`model` + `wingForms[4]` + `forms[4]` + `parts`),
+WING silhouette is continuously parameterized (tips/lead/scallop/arc) — but the TORSO/body plan is bespoke
+per-builder CODE (arrow/serpent/avian/seraphHull/…), not dial-able; and the ONLY way to SEE a shape was
+Playwright booting Chromium for a full *textured* render (rider+lighting+HUD that HIDE the shape, ~10s, and
+WebGL is unavailable in CI/sandbox). There was no pure-shape view and no reference comparison anywhere.
+
+KEY REUSE: `tools/readability.mjs` already projects the mesh through the real chase camera (no browser) — it
+just threw the pixels away and kept 2 scalars. So a clean SILHOUETTE is ~40 lines on top of that.
+
+FIX (built): `tools/silhouette.mjs` — rasterizes the union of every mesh triangle projected through a camera
+into a filled PNG, HEADLESS, ZERO deps (hand-rolled grayscale PNG via built-in `zlib` + a CRC32 table; a
+barycentric triangle fill), ~100ms. `rear` = the exact chase cam (the gameplay-faithful view the human
+iterates on); `side`/`front` auto-fit to the model bbox by the dims PERPENDICULAR to the view axis (fitting by
+wingspan made the profile tiny — the gotcha). Verified by eye: Pearl's rear reads as a crisp dragon (wings,
+crown-halo, tail); side shows the spine ridges + taper. Runs where Chromium/WebGL can't.
+
+Rules: (1) when "does it match the vision" is the deliverable, render the ISOLATED quality (flat silhouette),
+not a busy full render. (2) Pixels can be made headlessly from the projection we ALREADY compute — a browser
+is not required to SEE shape. (3) PNG out of pure Node is cheap (zlib + CRC32 chunking); no native canvas/gl.
+
+**→ Leapfrog (next):** turn the mirror into a CLOSED LOOP — accept a concept PNG, scale-align, overlay
+(target vs built) + an IoU/coverage number, so iteration becomes *measure→fix* and the
+understanding-vs-module-wall ambiguity becomes a curve (IoU climbs then plateaus = wall, time to add a knob).
+Then the deferred body-shape unlock: give the torso builders continuous profile knobs (the one part that's
+still bespoke code) so proportions are dial-able like the wings already are.
+
+---
+
+## Lesson — Closed the silhouette loop: mask the concept, overlay the build, MEASURE the gap. It surfaced a real contradiction between two human asks.
+
+Extended the silhouette mirror into the loop promised last lesson. `tools/silhouetteCore.mjs` now holds the
+shared render (shim + three-resolver + project/raster) plus a minimal PNG **encode AND decode** (built-in
+zlib inflate + Paeth un-filter; no deps), so we can read a concept image too. `tools/silhouette-overlay.mjs`
+takes a ChatGPT concept PNG, crude-masks the dragon (luminance floor in the lower frame — the pearl reads far
+brighter than the sunset water/skyline, so it extracted a near-perfect target silhouette; `--debug` dumps the
+mask to eyeball it), scale-aligns MY built silhouette's bbox onto the target, composites a cyan ghost, and
+prints an APPROX bbox-aligned IoU. Added a portrait `climb` view (model pitched ~53° nose-up) to match the
+"flying up" gameplay frame the human's concept was drawn from.
+
+WHAT IT MEASURED (Pearl, climb): IoU ~27%. The mask/overlay made the gap unambiguous and SPLIT it into causes
+we previously couldn't tell apart: (1) POSE — my render is the flat rest pose; the concept wings sweep steeply
+DOWN into a deep V (much of the area gap is pose, not geometry → next: render a SPREAD/downstroke pose for a
+fair shape compare); (2) SHAPE knobs — concept wings have far more CHORD/feather-fullness and a much LONGER
+trailing tail than the build (continuous knobs: wing `arc`/`scallop`/tip coords, `tailSegments`); (3) a real
+CONTRADICTION — the concept wants BIG, lush wings, but PR #155 just trimmed Pearl's span −25% on the human's
+own earlier "wingspan too big" note. The overlay is what surfaced that two of the human's asks fight each
+other (span vs. chord/area). That's the highest-value thing a measure-the-gap loop does: convert "Claude
+didn't get it" into a specific, located, sometimes-self-contradictory delta.
+
+Rules: (1) a textured concept can be masked cheaply when the subject out-glows its background — try a
+luminance floor + region gate before reaching for anything heavier, and always dump the mask to verify. (2)
+Compare like-for-like POSE or the IoU lies — pose before you measure shape. (3) When the gap encodes a
+contradiction between two prior requests, STOP and surface it; don't silently pick one.
+**→ Leapfrog:** add a posed (spread-wing) render option to the core, resolve span-vs-chord with the human,
+then this same overlay regression-guards every future shape tweak against the concept.
+
+---
+
+## Lesson — Used the loop to act: added a wing-CHORD knob (shallow module wall) + a headless POSE; the metric then said the real gap is PROPORTION, not chord.
+
+Drove the silhouette loop end-to-end on Pearl. (1) POSE: the core can now hold the Mk II yoke wing at any flap
+phase headlessly — a neutralised copy of dragon.js's `poseY` (`renderSilhouette({pose:'downstroke'})`), so we
+compare a posed concept against a posed build, not the flat rest pose. Sweeping all 5 phases barely moved the
+bbox-aligned IoU (20→27%) → the gap is NOT pose. (2) The human's "concept wants lush wings but I trimmed the
+span" was resolved as "add depth, keep span": Pearl's wing is the bespoke `buildSeraphWing` and chord lived in
+a hardcoded `chordAt` — a SHALLOW module wall. Added `model.wingChordScale` (default 1 = byte-identical for
+every other dragon; registered in `creatureGrammar.js`), multiplying chord only; it deepens the feather fan
+AND the feathers (len = chord·lenScale) WITHOUT span, and is TRI-NEUTRAL (203073 unchanged — same feather
+count, just deeper). Pearl set to 1.4 → visibly fuller wings. blueprint 3/3, flapcheck 16/16.
+
+THE MEASUREMENT EARNED ITS KEEP by being humbling: a chordScale sweep 1.0→2.2 moved IoU only 27→29%, because
+the IoU is bbox-NORMALISED — it measures fill-pattern/proportion, and the concept is TALLER-than-wide (0.89
+aspect: long trailing tail + steep wing downsweep) while the build is WIDE-and-short (1.67). So the dominant
+remaining gap is PROPORTION — tail length + vertical wing droop — not chord. Without the overlay I'd have kept
+dialing the wrong knob and called it "close enough". Caveat noted for next time: a bbox-aligned IoU hides
+overall-proportion error (it's normalised away) and is too crude to optimise a single shape knob — trust the
+VISUAL overlay for fine work and use the number only for gross "are we even close" reads.
+
+**→ Leapfrog (next levers, measured-as-needed):** lengthen the `seraphTail` trail + push the wing downsweep
+(deeper flap `downDepth`/dihedral, or a steeper climb pose) to buy the concept's vertical drama; then the
+overlay regression-guards the whole proportion, not just the wingspan number. Bigger structural unlock still
+open: continuous TORSO profile knobs (the body plan remains the one bespoke-code part).
+
+---
+
+## Lesson — The body WAS always sculptable; "can't shape it" was a discoverability gap, not an engine limit. Proved + shipped an hourglass on Pearl.
+
+The human's long-standing frustration ("I want a barrel chest, pinched waist, a bit of hip — an hourglass —
+and I can't make it") turned out NOT to be an engine wall. `seraphHull` (and the generic `dragonTorso`) build
+the body as a LOFT THROUGH ELLIPTICAL CROSS-SECTIONS — `loftEllipse([{z, rx, ry}])`, rx = half-WIDTH (what the
+rear/3-4 cam sees), ry = half-HEIGHT. An hourglass is just those numbers: broaden the chest rings, pinch the
+waist ring, add a hip ring. The reason it felt impossible: the widths are hardcoded constants with no dial, AND
+the shipped profile was one shoulder bulge tapering both ways, never sculpted into chest/waist/hip.
+
+To PROVE it I added two tool capabilities (committed): a top-down view and `--no-wings` / `renderSilhouette
+({hideWings})`, because spread wings OCCLUDE the torso from rear/top (true in the chase cam too) — you can't
+inspect a body silhouette without dropping the wings. With wings hidden, current Pearl read as a uniform
+spindle; an edited loft read as a clear barrel-chest/waist/hip hourglass. KEY VIEWING FACT the human supplied:
+the body is NOT only seen in the rear chase cam — a hard bank L/R, a wall crash, and the SHOP all show a 3/4
+angle where the CHEST + flank are wide open (added a `threeq` view for it). So body shaping pays off; the
+chest is just hidden specifically in straight rear flight, while waist/hip/tail read even there.
+
+SHIPPED: a tasteful hourglass on Pearl's `seraphHull` loft (rounder barrel chest kept ≤ the gorget radius 0.53
+so the gold collar still reads proud; pinched waist; hip flare). +192 tris (2 extra rings), 203265 total, 0
+over budget; blueprint 3/3, flapcheck 16/16. Human judges the textured result on the preview (3/4 bank).
+
+Rules: (1) before declaring a shape "impossible", find HOW the part is generated — a loft-through-sections body
+is fully sculptable by its section list, even with zero new code. (2) To inspect a BODY, hide the wings (they
+occlude every overhead/rear angle). (3) Ask WHICH cameras reveal a feature before deprioritising it — the 3/4
+bank/crash/shop views made body shape matter more than the rear-cam-only assumption implied.
+**→ Leapfrog:** promote this to reusable `chestScale`/`waistScale`/`hipScale` knobs (the wingChordScale
+pattern) so every dragon dials an hourglass from dragons.js without editing a builder — the real systemic
+unlock behind "give the body more shape".
+
+---
+
+## Lesson — Wrote the model-creation guide (the deferred "authoring guide" pillar), aimed at an LLM author.
+
+`reforged/MODEL-CREATION.md`: a concrete, code-harvested guide to the whole creation system — axis/units
++ chase-cam cheat sheet, the build pipeline (dragons.js → ascension → recipe registries → buildDragonModel
+→ grammar), the blueprint anatomy, the full MODULE menu (every registered torso/wings/head/tail builder),
+the full DIAL vocabulary with ranges (straight from creatureGrammar.js), HOW shapes are made (body = loft
+through cross-section rings — the key idea — plus the attach contract, wings, the mechaKit primitives,
+surfaceLayers, forms), the silhouette-first verification loop (silhouette.mjs / overlay / gates), the honest
+LIMITATIONS (procedural-only, bespoke bodies, discrete parts/forms, flap-rig assumes a flyer, no legRoot,
+shape-only headless render, wing occlusion), what could be PUSHED (reusable chest/waist/hip dials, legRoot,
+rigid wing-fan, spline profiles, humanoid archetype, headless lit preview), and crucially a §10 OUTPUT FORMAT
+the LLM must emit (parts + dials + cross-section ring list + colors + forms + reuse-vs-NEW-MODULE) so its
+specs map 1:1 onto what the engine consumes and are actually recreatable. §11 works the flying-Gundam example
+end to end (≈70–80% feasible; reuse thrusterPod/mechaLeg/kit, NEW humanoidTorso + legRoot + dense rigid fan).
+
+Reusable insight: the engine's grammar (creatureGrammar.js) + registries ARE the authoring vocabulary —
+the guide HARVESTS them rather than inventing a schema, so it can't drift. The format that makes a model
+"recreatable" by an LLM is the cross-section ring list + module names + grammar dials, NOT prose.
+**→ Leapfrog:** keep MODEL-CREATION.md current as builders/dials are added; when the reusable body-profile
+dials + legRoot land, update §5/§6 so the Gundam (and any humanoid) becomes a pure-data spec.

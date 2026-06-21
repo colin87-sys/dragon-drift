@@ -610,6 +610,9 @@ export const DRAGONS = {
       // Feather-scale wing: 3-segment hinge cascade, GRACEFUL/lofty (amps in radians;
       // L/R flap together, lag is internal root→mid→tip). Dihedral = chase-cam knob.
       wingParts: 3, wingDihedralDeg: 14,
+      // Deeper feathered fan (front-to-back) to read "lush", WITHOUT widening span (wingScale stays 0.9
+      // per the earlier "wingspan too big vs body" trim) — tri-neutral; see buildSeraphWing.chordAt.
+      wingChordScale: 1.4,
       // flapBias×flapFreqScale = 0.9×0.85 = 0.765 → ~10% slower than now, just above the Bull's heavy 0.70 (more POWER).
       flapFreqScale: 0.85, midLag: 0.5, tipLag: 1.0,
       glidePow: 2.2, bodyBobScale: 0.30, headWobbleScale: 0, tailLagScale: 0.10,
