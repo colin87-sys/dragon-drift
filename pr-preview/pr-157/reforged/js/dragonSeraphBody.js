@@ -75,15 +75,18 @@ function buildSeraphHull(def, model, bodyMat) {
   // 1 — PEARL HULL: a slim regal loft (broadest at the shoulder, tapering both ways),
   // capped at both ends. Centred near y = TORSO_Y so it anchors the wings without bulk.
   const cy = TORSO_Y;
-  // Shape hierarchy (less blob): SHOULDER carries width (×1.04), central/abdomen/tail-root
-  // slim (×0.90–0.94), +2% length — so the pauldrons read broad and the belly stays elegant.
+  // HOURGLASS profile (anatomy, read in the 3/4 bank / crash / shop view): a rounder BARREL chest,
+  // a pinched WAIST, then a slight HIP flare before the tail — instead of one shoulder bulge tapering
+  // both ways. Chest half-width kept ≤ the gorget radius (0.53) so the gold collar still reads proud.
   const hull = loftEllipse([
     { z: -1.00, rx: 0.06, ry: 0.07, cy },                  // front cap
-    { z: -0.84, rx: 0.32, ry: 0.44, cy },                  // front chest (slimmer)
-    { z: -0.43, rx: 0.47, ry: 0.58, cy },                  // upper gorget
-    { z: -0.06, rx: 0.62, ry: 0.70, cy },                  // shoulder mass (broadest — carries width)
-    { z:  0.49, rx: 0.37, ry: 0.48, cy },                  // abdomen (slimmer, elegant)
-    { z:  0.94, rx: 0.225, ry: 0.30, cy },                 // tail root (cleaner taper)
+    { z: -0.82, rx: 0.40, ry: 0.50, cy },                  // chest front (fuller, rounder)
+    { z: -0.43, rx: 0.56, ry: 0.66, cy },                  // BARREL CHEST (round, ≤ gorget so collar reads)
+    { z: -0.06, rx: 0.60, ry: 0.66, cy },                  // shoulder (carries the wings)
+    { z:  0.24, rx: 0.33, ry: 0.46, cy },                  // waist transition (drawing in)
+    { z:  0.50, rx: 0.24, ry: 0.38, cy },                  // PINCHED WAIST (narrow abdomen)
+    { z:  0.74, rx: 0.37, ry: 0.37, cy },                  // HIP flare (haunch)
+    { z:  0.94, rx: 0.22, ry: 0.28, cy },                  // tail root taper
     { z:  1.08, rx: 0.05, ry: 0.06, cy },                  // rear cap
   ], mats.pearl, seg(12));
   group.add(hull);

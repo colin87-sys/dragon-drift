@@ -2825,3 +2825,34 @@ VISUAL overlay for fine work and use the number only for gross "are we even clos
 (deeper flap `downDepth`/dihedral, or a steeper climb pose) to buy the concept's vertical drama; then the
 overlay regression-guards the whole proportion, not just the wingspan number. Bigger structural unlock still
 open: continuous TORSO profile knobs (the body plan remains the one bespoke-code part).
+
+---
+
+## Lesson — The body WAS always sculptable; "can't shape it" was a discoverability gap, not an engine limit. Proved + shipped an hourglass on Pearl.
+
+The human's long-standing frustration ("I want a barrel chest, pinched waist, a bit of hip — an hourglass —
+and I can't make it") turned out NOT to be an engine wall. `seraphHull` (and the generic `dragonTorso`) build
+the body as a LOFT THROUGH ELLIPTICAL CROSS-SECTIONS — `loftEllipse([{z, rx, ry}])`, rx = half-WIDTH (what the
+rear/3-4 cam sees), ry = half-HEIGHT. An hourglass is just those numbers: broaden the chest rings, pinch the
+waist ring, add a hip ring. The reason it felt impossible: the widths are hardcoded constants with no dial, AND
+the shipped profile was one shoulder bulge tapering both ways, never sculpted into chest/waist/hip.
+
+To PROVE it I added two tool capabilities (committed): a top-down view and `--no-wings` / `renderSilhouette
+({hideWings})`, because spread wings OCCLUDE the torso from rear/top (true in the chase cam too) — you can't
+inspect a body silhouette without dropping the wings. With wings hidden, current Pearl read as a uniform
+spindle; an edited loft read as a clear barrel-chest/waist/hip hourglass. KEY VIEWING FACT the human supplied:
+the body is NOT only seen in the rear chase cam — a hard bank L/R, a wall crash, and the SHOP all show a 3/4
+angle where the CHEST + flank are wide open (added a `threeq` view for it). So body shaping pays off; the
+chest is just hidden specifically in straight rear flight, while waist/hip/tail read even there.
+
+SHIPPED: a tasteful hourglass on Pearl's `seraphHull` loft (rounder barrel chest kept ≤ the gorget radius 0.53
+so the gold collar still reads proud; pinched waist; hip flare). +192 tris (2 extra rings), 203265 total, 0
+over budget; blueprint 3/3, flapcheck 16/16. Human judges the textured result on the preview (3/4 bank).
+
+Rules: (1) before declaring a shape "impossible", find HOW the part is generated — a loft-through-sections body
+is fully sculptable by its section list, even with zero new code. (2) To inspect a BODY, hide the wings (they
+occlude every overhead/rear angle). (3) Ask WHICH cameras reveal a feature before deprioritising it — the 3/4
+bank/crash/shop views made body shape matter more than the rear-cam-only assumption implied.
+**→ Leapfrog:** promote this to reusable `chestScale`/`waistScale`/`hipScale` knobs (the wingChordScale
+pattern) so every dragon dials an hourglass from dragons.js without editing a builder — the real systemic
+unlock behind "give the body more shape".

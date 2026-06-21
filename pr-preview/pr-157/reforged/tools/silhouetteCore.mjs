@@ -83,6 +83,7 @@ export function renderSilhouette({ key, view = 'rear', tier, W, H, pose, hideWin
       let dir, perpW, perpH;
       if (view === 'front') { dir = new THREE.Vector3(0, 0.25, -1); perpW = sz.x; perpH = sz.y; }
       else if (view === 'top') { dir = new THREE.Vector3(0, 1, 0.0001); perpW = sz.x; perpH = sz.z; cam.up.set(0, 0, -1); }
+      else if (view === 'threeq') { dir = new THREE.Vector3(0.85, 0.5, 1); perpW = Math.max(sz.x, sz.z); perpH = sz.y; } // REAR-¾-above (tail nearest lens, like the chase cam in a hard bank); +z = tail
       else { dir = new THREE.Vector3(1, 0.18, 0); perpW = sz.z; perpH = sz.y; }   // side; -z = head
       const fit = Math.max(perpH * 0.5 / Math.tan(vfov / 2), perpW * 0.5 / Math.tan(hfov / 2));
       cam.position.copy(ctr).addScaledVector(dir.normalize(), fit * 1.25); cam.lookAt(ctr);
