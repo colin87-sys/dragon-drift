@@ -53,7 +53,7 @@ function applyPose(parts, flap, pose) {
 }
 
 // Render the filled silhouette of one dragon/form/view into an 8-bit coverage buffer (0 bg, 255 fill).
-export function renderSilhouette({ key, view = 'rear', tier, W, H, pose }) {
+export function renderSilhouette({ key, view = 'rear', tier, W, H, pose, hideWings = false }) {
   const maxTier = maxTierFor(key);
   const t = tier != null ? tier : maxTier;
   const cam = new THREE.PerspectiveCamera(60, W / H, 0.1, 200);
@@ -61,6 +61,10 @@ export function renderSilhouette({ key, view = 'rear', tier, W, H, pose }) {
   const built = buildDragonModel(def, {});
   const group = built.group;
   if (pose) applyPose(built.parts || {}, def.model.flap, pose);
+  // hideWings: drop the wing subtrees so the BODY silhouette can be inspected un-occluded.
+  const skip = new Set();
+  if (hideWings && built.parts) for (const k of ['wingYokeL', 'wingYokeR', 'wingRigL', 'wingRigR'])
+    if (built.parts[k]) built.parts[k].traverse((o) => skip.add(o));
   if (view === 'climb') group.rotation.x = 0.92;          // ~53° nose-up: dorsal back, tail toward the lens
   group.updateMatrixWorld(true);
 
@@ -74,9 +78,13 @@ export function renderSilhouette({ key, view = 'rear', tier, W, H, pose }) {
       cam.position.set(ctr.x, ctr.y - fit * 0.42, ctr.z + fit * 1.5);
       cam.lookAt(ctr.x, ctr.y + sz.y * 0.18, ctr.z);
     } else {
-      const dir = view === 'front' ? new THREE.Vector3(0, 0.25, -1) : new THREE.Vector3(1, 0.18, 0); // -z = head
-      const perpW = view === 'front' ? sz.x : sz.z;
-      const fit = Math.max(sz.y * 0.5 / Math.tan(vfov / 2), perpW * 0.5 / Math.tan(hfov / 2));
+      // dir = view axis; perpW/perpH = the dims that fill screen-horizontal/vertical (so we fit by what's
+      // actually facing the lens). "top" looks straight down → body WIDTH (x) across, LENGTH (z) up-screen.
+      let dir, perpW, perpH;
+      if (view === 'front') { dir = new THREE.Vector3(0, 0.25, -1); perpW = sz.x; perpH = sz.y; }
+      else if (view === 'top') { dir = new THREE.Vector3(0, 1, 0.0001); perpW = sz.x; perpH = sz.z; cam.up.set(0, 0, -1); }
+      else { dir = new THREE.Vector3(1, 0.18, 0); perpW = sz.z; perpH = sz.y; }   // side; -z = head
+      const fit = Math.max(perpH * 0.5 / Math.tan(vfov / 2), perpW * 0.5 / Math.tan(hfov / 2));
       cam.position.copy(ctr).addScaledVector(dir.normalize(), fit * 1.25); cam.lookAt(ctr);
     }
   }
@@ -110,7 +118,7 @@ export function renderSilhouette({ key, view = 'rear', tier, W, H, pose }) {
     }
   };
   group.traverse((o) => {
-    if (!o.isMesh || !o.geometry || !o.geometry.attributes.position) return;
+    if (!o.isMesh || !o.geometry || !o.geometry.attributes.position || skip.has(o)) return;
     const pos = o.geometry.attributes.position, idx = o.geometry.index, mw = o.matrixWorld;
     const tri = (i0, i1, i2) => { fillTri(project(i0, pos, mw), project(i1, pos, mw), project(i2, pos, mw)); tris++; };
     if (idx) for (let i = 0; i < idx.count; i += 3) tri(idx.getX(i), idx.getX(i + 1), idx.getX(i + 2));
