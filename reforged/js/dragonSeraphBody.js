@@ -75,56 +75,91 @@ function buildSeraphHull(def, model, bodyMat) {
   // 1 — PEARL HULL: a slim regal loft (broadest at the shoulder, tapering both ways),
   // capped at both ends. Centred near y = TORSO_Y so it anchors the wings without bulk.
   const cy = TORSO_Y;
+  // Shape hierarchy (less blob): SHOULDER carries width (×1.04), central/abdomen/tail-root
+  // slim (×0.90–0.94), +2% length — so the pauldrons read broad and the belly stays elegant.
   const hull = loftEllipse([
-    { z: -0.98, rx: 0.06, ry: 0.07, cy },                  // front cap
-    { z: -0.82, rx: 0.34, ry: 0.46, cy },                  // front chest
-    { z: -0.42, rx: 0.50, ry: 0.60, cy },                  // upper gorget
-    { z: -0.06, rx: 0.60, ry: 0.70, cy },                  // shoulder mass (broadest)
-    { z:  0.48, rx: 0.40, ry: 0.50, cy },                  // abdomen
-    { z:  0.92, rx: 0.25, ry: 0.32, cy },                  // tail root
-    { z:  1.06, rx: 0.05, ry: 0.06, cy },                  // rear cap
+    { z: -1.00, rx: 0.06, ry: 0.07, cy },                  // front cap
+    { z: -0.84, rx: 0.32, ry: 0.44, cy },                  // front chest (slimmer)
+    { z: -0.43, rx: 0.47, ry: 0.58, cy },                  // upper gorget
+    { z: -0.06, rx: 0.62, ry: 0.70, cy },                  // shoulder mass (broadest — carries width)
+    { z:  0.49, rx: 0.37, ry: 0.48, cy },                  // abdomen (slimmer, elegant)
+    { z:  0.94, rx: 0.225, ry: 0.30, cy },                 // tail root (cleaner taper)
+    { z:  1.08, rx: 0.05, ry: 0.06, cy },                  // rear cap
   ], mats.pearl, seg(12));
   group.add(hull);
 
-  // 2 — GORGET STACK: 4 layered gold-rimmed pearl collar arcs across the upper chest
-  // (partial tori → a clean paladin breastplate read without bulk).
+  // 2 — GORGET STACK: 4 layered collar arcs across the upper chest — the key paladin-armor
+  // module. The GOLD backing arc sits proud of a smaller pearl inset so a warm gold rim
+  // always reads (shop + rear ¾); nudged up/out so the rider can't hide it. Low torus
+  // segments (the cheapest way to keep this readable arc-stack under budget).
   for (let i = 0; i < 4; i++) {
     const widthScale = 1 - 0.16 * (i / 3);
-    const z = -0.60 + i * 0.16, y = cy + 0.20 - i * 0.07;
-    const rad = 0.50 * widthScale;
+    const z = -0.60 + i * 0.15, y = cy + 0.24 - i * 0.06;
+    const rad = 0.53 * widthScale;
     const arc = Math.PI * (118 / 180);
-    const goldArc = new THREE.Mesh(new THREE.TorusGeometry(rad, 0.034, seg(6), seg(18), arc), mats.gold);
+    const goldArc = new THREE.Mesh(new THREE.TorusGeometry(rad, 0.046, seg(5), seg(12), arc), mats.gold);
     goldArc.rotation.y = Math.PI / 2; goldArc.position.set(0, y, z); goldArc.rotation.z = Math.PI - arc / 2;
-    const pearlArc = new THREE.Mesh(new THREE.TorusGeometry(rad * 0.95, 0.024, seg(6), seg(16), arc * 0.95), mats.pearl);
-    pearlArc.rotation.copy(goldArc.rotation); pearlArc.position.set(0, y + 0.006, z);
+    const pearlArc = new THREE.Mesh(new THREE.TorusGeometry(rad * 0.88, 0.024, seg(5), seg(12), arc * 0.92), mats.pearl);
+    pearlArc.rotation.copy(goldArc.rotation); pearlArc.position.set(0, y + 0.010, z);
     group.add(goldArc, pearlArc);
   }
 
   // 3 — SHOULDER PAULDRONS at the wing roots (a smooth pearl dome + gold rim + gem node)
   // so the wings plug into holy shoulder armor, not bare flank.
-  const wrBase = { x: 0.74, y: cy + 0.02, z: -0.30 };
+  const wrBase = { x: 0.78, y: cy + 0.03, z: -0.30 };
   for (const s of [-1, 1]) {
-    const dome = new THREE.Mesh(new THREE.SphereGeometry(0.27, seg(10), seg(8), 0, Math.PI * 2, 0, Math.PI * 0.6), mats.pearl);
-    dome.scale.set(0.85, 0.55, 1.0);
+    const dome = new THREE.Mesh(new THREE.SphereGeometry(0.31, seg(8), seg(6), 0, Math.PI * 2, 0, Math.PI * 0.6), mats.pearl);
+    dome.scale.set(0.90, 0.60, 1.05);
     dome.position.set(s * wrBase.x, wrBase.y, wrBase.z);
     dome.rotation.z = s * -5 * D2R; dome.rotation.y = s * 8 * D2R;
     group.add(dome);
-    const rim = new THREE.Mesh(new THREE.TorusGeometry(0.24, 0.022, seg(6), seg(16), Math.PI), mats.gold);
+    const rim = new THREE.Mesh(new THREE.TorusGeometry(0.28, 0.030, seg(5), seg(14), Math.PI), mats.gold);
     rim.position.copy(dome.position); rim.rotation.x = Math.PI / 2; rim.rotation.z = s * -5 * D2R;
     group.add(rim);
-    const gem = gemNode(0.05, mats.gem);
+    const gem = gemNode(0.055, mats.gem);
     gem.position.set(s * (wrBase.x + 0.04), wrBase.y + 0.10, wrBase.z - 0.04);
     group.add(gem);
   }
 
-  // 4 — gilded STERNUM KEEL (thin gold ridge down the lower chest) + dawn-blue FLANK
-  // FILIGREE (subtle glow strips), the holy detailing that lifts it off "plain white".
-  const keel = new THREE.Mesh(new THREE.CylinderGeometry(0.02, 0.05, 1.05, seg(5)), mats.gold);
-  keel.rotation.x = Math.PI / 2; keel.position.set(0, cy - 0.40, -0.10); group.add(keel);
+  // 4 — gilded STERNUM KEEL: a thin TAPERED gold ridge (triangular cross-section, apex up)
+  // running the chest centerline — a designed central armor line, elegant, not a spike.
+  const keelY = cy - 0.34;
+  const keelStations = [                                   // {z, halfWidth, height}
+    { z: -0.62, w: 0.030, h: 0.030 }, { z: -0.30, w: 0.042, h: 0.050 },
+    { z:  0.05, w: 0.038, h: 0.046 }, { z:  0.30, w: 0.026, h: 0.032 },
+    { z:  0.46, w: 0.014, h: 0.016 },
+  ];
+  const keelTris = [];
+  for (let i = 0; i < keelStations.length - 1; i++) {
+    const a = keelStations[i], b = keelStations[i + 1];
+    const aT = [0, keelY + a.h, a.z], aL = [-a.w, keelY, a.z], aR = [a.w, keelY, a.z];
+    const bT = [0, keelY + b.h, b.z], bL = [-b.w, keelY, b.z], bR = [b.w, keelY, b.z];
+    keelTris.push([aT, bT, aR], [aR, bT, bR]);            // right face
+    keelTris.push([aT, aL, bT], [aL, bL, bT]);            // left face
+    keelTris.push([aL, aR, bL], [aR, bR, bL]);            // underside
+  }
+  group.add(flatTriMesh(keelTris, mats.gold));
+
+  // dawn-blue FLANK FILIGREE — subtle glow seams (kept light; not a substitute for shape).
   if (formLevel >= 2) for (const s of [-1, 1]) for (let i = 0; i < 3; i++) {
     const fil = new THREE.Mesh(new THREE.BoxGeometry(0.012, 0.05, 0.5), mats.dawn);
     fil.position.set(s * (0.40 - i * 0.04), cy + 0.04, -0.18 + i * 0.22);
     fil.rotation.y = s * 0.3; group.add(fil);
+  }
+
+  // 4b — HAUNCH FAIRINGS: small smooth pearl side fairings + a thin gold rim at the tail
+  // root, so the long tail flows out of a sculpted body — NOT a tube stuck on an oval.
+  // Subtle (low domes), swept back ~10°; sit just proud of the slimmed tail-root flank.
+  for (const s of [-1, 1]) {
+    const fair = new THREE.Mesh(new THREE.SphereGeometry(0.20, seg(8), seg(6), 0, Math.PI * 2, 0, Math.PI * 0.62), mats.pearl);
+    fair.scale.set(0.66, 0.55, 1.40);                      // low + long: a fairing, not a hip
+    fair.position.set(s * 0.30, cy - 0.05, 0.60);
+    fair.rotation.y = s * 10 * D2R;                        // sweep back toward the tail
+    group.add(fair);
+    const rim = new THREE.Mesh(new THREE.TorusGeometry(0.15, 0.015, seg(4), seg(12), Math.PI), mats.gold);
+    rim.position.set(s * 0.30, cy - 0.05, 0.60);
+    rim.rotation.x = Math.PI / 2; rim.rotation.z = s * 10 * D2R;
+    group.add(rim);
   }
 
   // 5 — NECK: 3 tapered pearl segments in a gentle S-curve toward the head (−Z), each
@@ -136,15 +171,17 @@ function buildSeraphHull(def, model, bodyMat) {
   ];
   for (let i = 0; i < neckSpecs.length; i++) {
     const sg= neckSpecs[i];
-    const v = new THREE.Mesh(new THREE.CylinderGeometry(sg.w * 0.84, sg.w, sg.len, seg(8)), mats.pearl);
+    const v = new THREE.Mesh(new THREE.CylinderGeometry(sg.w * 0.84, sg.w, sg.len, seg(6)), mats.pearl);
     v.rotation.x = Math.PI / 2; v.scale.y = sg.h / sg.w; v.position.set(0, sg.y, sg.z);
     v.rotation.z = 0; group.add(v);
-    const collar = new THREE.Mesh(new THREE.TorusGeometry(sg.w * 0.6, 0.018, seg(5), seg(14)), mats.gold);
+    const collar = new THREE.Mesh(new THREE.TorusGeometry(sg.w * 0.6, 0.018, seg(4), seg(10)), mats.gold);
     collar.position.set(0, sg.y + 0.02, sg.z - sg.len * 0.42); group.add(collar);
   }
 
   // ── ATTACH CONTRACT (the body defines the new mounts; wings/tail integrate here) ──
-  const wr = { x: wrBase.x + 0.10, y: wrBase.y, z: wrBase.z };
+  // Wing root sits OUTBOARD/below/behind the pauldron (±0.86, 0.18, −0.34) so the wing
+  // emerges from under the holy shoulder armor rather than from bare flank.
+  const wr = { x: 0.86, y: cy - 0.02, z: -0.34 };
   const attach = {
     wingRoot: (side) => ({ x: side * wr.x, y: wr.y, z: wr.z }),
     headBase: { x: 0, y: cy + 0.40, z: -1.78 },            // where the crowned head sits
@@ -175,7 +212,7 @@ function buildSeraphCrownHead(def, model, mats0) {
     { z: -0.02, rx: 0.22, ry: 0.16 },                      // brow
     { z:  0.22, rx: 0.21, ry: 0.16 },                      // cranium
     { z:  0.34, rx: 0.10, ry: 0.10 },                      // rear cap
-  ], mats.pearl, seg(10));
+  ], mats.pearl, seg(8));
   skull.rotation.x = -4 * D2R;
   headGroup.add(skull);
 
@@ -196,7 +233,7 @@ function buildSeraphCrownHead(def, model, mats0) {
 
   // 3 — SWEPT HORNS (elegant, gold, rear-swept — not aggressive bull spikes).
   for (const s of [-1, 1]) {
-    const horn = new THREE.Mesh(new THREE.ConeGeometry(0.05, 0.30, seg(5)), mats.gold);
+    const horn = new THREE.Mesh(new THREE.ConeGeometry(0.05, 0.30, seg(4)), mats.gold);
     horn.position.set(s * 0.15, 0.18, 0.10);
     horn.rotation.set(50 * D2R, 0, s * -10 * D2R);     // sweep back + slightly out
     headGroup.add(horn);
@@ -208,26 +245,30 @@ function buildSeraphCrownHead(def, model, mats0) {
     eye.position.set(s * 0.15, 0.04, -0.16); headGroup.add(eye);
   }
 
-  // 5 — CROWN-HALO (real geometry, gated to the haloed forms): a slightly elliptical,
-  // tilted holy ring CLOSE to the crown + 8 gold crown shards + 4 gem nodes. Reads as a
-  // crown, never a collectible course-ring. Tagged for the serene bob + Surge flare.
+  // 5 — CROWN-HALO (real geometry, gated to the haloed forms): a classic saint's halo —
+  // a holy ring lying FLAT (horizontal, in the XZ plane) FLOATING well above the crown,
+  // with gold crown shards + gem nodes ringing the flat disc. Tagged for the serene bob +
+  // Surge flare. Low torus segments (chase-cam barely reads the head — spend budget aft).
   let halo = null;
   if (model.halo) {
     halo = new THREE.Group();
-    halo.position.set(0, 0.34, 0.06);
-    const ring = new THREE.Mesh(new THREE.TorusGeometry(0.40, 0.038, seg(8), seg(28)), mats.holy);
-    ring.scale.y = 0.90; ring.rotation.x = 8 * D2R; halo.add(ring);
-    const shards = formLevel >= 3 ? 8 : 6;
+    halo.position.set(0, 0.62, 0.02);                      // float clearly above the crown points
+    const R = 0.34;
+    const ring = new THREE.Mesh(new THREE.TorusGeometry(R, 0.034, seg(6), seg(20)), mats.holy);
+    ring.rotation.x = Math.PI / 2;                          // lie flat (disc parallel to the ground)
+    halo.add(ring);
+    const shards = formLevel >= 3 ? 6 : 5;
     for (let i = 0; i < shards; i++) {
       const a = (i / shards) * Math.PI * 2;
-      const shard = new THREE.Mesh(new THREE.ConeGeometry(0.016, 0.10, seg(4)), mats.gold);
-      shard.position.set(Math.cos(a) * 0.40, Math.sin(a) * 0.40 * 0.90, 0);
-      shard.rotation.z = a - Math.PI / 2; halo.add(shard);
+      const shard = new THREE.Mesh(new THREE.ConeGeometry(0.015, 0.09, seg(4)), mats.gold);
+      shard.position.set(Math.cos(a) * R, 0, Math.sin(a) * R);   // ring the flat disc
+      shard.rotation.z = -Math.PI / 2; shard.rotation.y = -a;    // point outward, lying flat
+      halo.add(shard);
     }
     for (let i = 0; i < 4; i++) {
       const a = (i / 4) * Math.PI * 2 + Math.PI / 4;
-      const gem = gemNode(0.026, mats.gem);
-      gem.position.set(Math.cos(a) * 0.40, Math.sin(a) * 0.40 * 0.90, 0); halo.add(gem);
+      const gem = gemNode(0.024, mats.gem);
+      gem.position.set(Math.cos(a) * R, 0, Math.sin(a) * R); halo.add(gem);
     }
     halo.userData.haloBob = true;     // dragon.js / preview tick: serene bob + Surge glow
     headGroup.add(halo);

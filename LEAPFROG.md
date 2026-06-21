@@ -2388,3 +2388,168 @@ Surge flare. The crown-halo is REAL geometry (TorusGeometry + cone shards + octa
 head (so it tracks head sway) and gated by `model.halo` per form; the generic body-level halo SPRITE in
 `dragonModel.js` is suppressed for this head (`recipe.head !== 'seraphCrownHead'`) so they don't double up.
 Octahedron = the faceted gem-eye/gem-node primitive; partial TorusGeometry = cheap gorget collar arcs.
+
+---
+
+## Lesson — Pearl Seraph torso SCULPTING pass: fund big armor by cutting where the chase cam can't see
+
+**What we did.** Refined (not rebuilt) the Seraph torso so it reads as matte-pearl PALADIN armor, not a
+white oval: slimmed the hull's shape hierarchy (shoulder ring ×1.04 carries width; abdomen/tail-root ×0.90–
+0.94 stay elegant), enlarged the gorget collar arcs with a clearly-proud GOLD backing arc, grew + reseated
+the shoulder pauldrons, swapped the cylinder sternum keel for a triangular-section gold ridge (`flatTriMesh`),
+and added NEW `seraphHaunchFairing` low pearl domes + gold rim at the tail root so the long tail flows out of
+a sculpted body. Also reoriented the CROWN-HALO to a horizontal floating saint's halo (ring `rotation.x=π/2`,
+raised `y 0.34→0.62`, shards/gems ringed in the XZ plane via `cos a→x, sin a→z`).
+
+**The reusable win — segment counts are the budget, not part count.** Eternal was 5444/6000 and we were ADDING
+modules. Instead of trimming the design we cut TorusGeometry segment counts where the rear chase cam never
+looks: the 8 gorget tori went `seg(6)/seg(18)`→`seg(5)/seg(12)` (−672 tris alone), plus skull loft seg(10)→
+seg(8), neck cylinders/collars down, halo ring seg(8)/seg(28)→seg(6)/seg(20). Net result: bigger armor + new
+haunch fairings AND the count DROPPED to 4458 (−986). Lesson: the torus tubular/radial segments dominate the
+budget; spend triangles on what reads from BEHIND and shave the head/neck/halo freely — they're nearly
+invisible in the gameplay camera.
+
+**Gotchas.** (1) The earlier brief's `getObjectByName("pearlTorsoHull"/"abdomenCore"/...)` refine approach
+doesn't apply here — this builder names nothing, so bake the per-zone scales straight into the loft ring
+rx/ry instead. (2) A horizontal halo needs the SHARDS moved to the XZ plane too (`shard.rotation.z=-π/2;
+rotation.y=-a`), not just the ring — otherwise the ring lies flat but the spikes still stand vertical. (3)
+Haunch fairings must stay LOW + LONG (scale y small, z large) or they read as bulky hips, which the brief
+explicitly forbids. (4) `tests/badges.mjs` needs a running dev server and times out on `.shop-grid` in the
+headless sandbox — it fails on a clean tree too, so it's environmental, not a regression; rely on
+blueprint + tricount + tiershots here and let the human judge motion on the PR preview.
+
+---
+
+## Lesson — Wing high-V APEX: an opt-in upstroke lift, not a keyframe-pose rewrite
+
+**Problem.** Toro Mk II Eternal + Pearl Seraph wings read too FLAT at the top of the flap — no strong raised "V"
+silhouette before the downstroke. The player's brief specified a 5-phase keyframe cycle (glide → upstroke →
+high-V apex hold → power downstroke → settle) with per-segment elevation/sweep/fold/twist target angles.
+
+**Why we did NOT port the keyframe spec literally.** The Mk II wing engine (`dragon.js` ~527-569) is a
+CONTINUOUS sinusoid, not a keyframe poser: `shape(ph)=sign(sin)·|sin|^glidePow` drives each segment's flap on
+`rotation.z`, scaled by per-form `rootAmp/midAmp/tipAmp` with internal `midLag/tipLag` (L/R already share ONE
+phase — pure sign-mirror, no left/right delay, which is exactly what the brief wanted). Rewriting it into a
+phase-ratio state machine would touch every Mk II dragon and risk the shipped feel. The flatness has ONE cause:
+the sinusoid is SYMMETRIC about the rest dihedral, so the "up" extreme is modest and never reads as a held V.
+
+**The fix (system, opt-in, roster-safe).** Added an APEX LIFT term gated to the UPSTROKE only:
+`apexHold(ph)=max(0,sin ph)^0.7` (the 0.7 power WIDENS the dwell near the top → a brief held apex), times new
+per-form knobs `apexRoot/apexMid/apexTip` (extra radians of raise, tip highest → forms the V, lagged
+root→mid→tip via the existing `midLag/tipLag`) subtracted from each segment's flap `z` (same sign as the
+existing up-swing, so it deepens the raise without touching the downstroke). `apexPitch` tilts the wing plane
+up at apex for a cathedral-arch read. All knobs `?? 0`, so EVERY dragon without apex config is byte-identical —
+proved by rendering: at the preview's phase-0 rest pose `apexHold(0)=0`, so the glide silhouette is unchanged.
+Pearl gets a higher/softer angelic arch (`apexTip 0.54, apexPitch 0.22`); Toro a lower/tighter mechanical V
+(`apexTip 0.42, apexPitch 0.14`) — same system, per-dragon character.
+
+**Gotchas.** (1) Mk II flap amplitude is FIXED per-form (`rootA = m.rootAmp`), NOT modulated by the dive/climb
+`flapAmp` — only the FREQUENCY varies with flight state — so the apex lift is constant-amplitude too, matching
+shipped behavior (don't scale it by `flapAmp`). (2) `tiershots` renders a STATIC frame at the rest phase, so it
+proves "no breakage / rest pose intact" but CANNOT show the apex — the high-V is a motion read, judged by the
+human on the live PR preview. (3) Sign matters: more-negative `rotation.z` = more raised, so apex lift is
+`- apexF*amp` (subtract), aligned with the existing `-(rootF*amp)` up-swing. (4) Body-lift/tail-drop at apex
+(also in the brief) was deferred to keep this pass to the wings — the headline fix — pending the player's read.
+
+---
+
+## Lesson — Wing high-V apex: the rig was capable; the bug was a mis-phased, wrong-signed flap (verify at the APEX phase, never a static frame)
+
+**Symptom.** Player: both Mk II dragons' wings read flat/lateral at the top of the flap — no raised V — and
+suspected a structural root-hinge limit (asked whether a new proximal shoulder/yoke module was needed).
+
+**Diagnosis (decision: NO new module).** Traced the rig: both wings (`buildSeraphWing` in dragonSeraph.js,
+`buildSvjJetWing` in dragonFaceted.js) put a bare `pivot` Group at the `attach.wingRoot` socket (NO base
+rotation); the visible wing extends along `spanDir` ≈ mostly **+X (lateral)**. The animator (`dragon.js`
+`poseWing`) flaps on `pivot.rotation.z`. For a wing along +X, **rotation.z rotates the tip up/down in Y — it
+IS the elevation/V axis.** (Two Explore subagents both concluded "z sweeps laterally" — WRONG; don't trust a
+subagent's axis call without working the math.) So the structure can make a V; no carrier needed.
+
+**The real bug — my own previous apex pass was backwards.** The flap is `rz = -(rootF*amp)+baseZ`, with
+`rootF=sin(phase)*rootA` and `baseZ=-0.10`. The wing's UP extreme is at **phase=3π/2** (where sin<0). My first
+"apex hold" used `max(0,sin(phase))^0.7` (peaks at phase=π/2, the DOWNstroke) and SUBTRACTED it — so it
+deepened the downstroke and did nothing at the top. Fix: gate on the up half `apexUp=max(0,-sin(ph))^0.7`
+(peaks at the apex, ^0.7 widens the dwell) and ADD it as positive elevation, cascading root→mid→tip via the
+existing `midLag/tipLag`; plus a per-form `restLift` to raise the glide pose off flat. All knobs `?? 0` →
+every other Mk II dragon is byte-identical (tricount roster total unchanged).
+
+**The verification gotcha that hid it.** `tiershots`/`renderDragon` build the model and render the STATIC rest
+pose — they NEVER run the gameplay `poseWing` tick — so they cannot show the apex and made the broken apex look
+fine. To verify motion you MUST drive the wing groups to the actual apex phase. I wrote a throwaway
+`tools/apexcheck.html` that builds the model, finds the wing groups by `userData.wingRole` ('pivot'/'mid'/
+'tip'), and applies the real poseWing math at `phase=3π/2` (straight flight) before rendering the rear chase
+cam — that screenshot is what proved the V forms (and that +rz lifts UP, not sideways). Deleted after. Rule:
+for any flap/pose change, render at the POSE phase you're changing, not the rest frame.
+
+**Tuning.** Cumulative across 3 nested segments, so per-segment apex values stay MODERATE (Pearl
+apexRoot/Mid/Tip 0.18/0.24/0.22 + restLift 0.09; Toro Eternal 0.14/0.20/0.18 + restLift 0.06 — Pearl's arch
+rides higher). Magnitudes are eyeball-tuned on the apex render + live preview; the engine can't predict the
+world-space angle analytically (segment offsets, sweep, Euler coupling).
+
+---
+
+## Lesson — Wing flap ARCHITECTURE: a root YOKE + a 5-phase envelope with an APEX HOLD is what makes a flap read as a power cycle (shared solver for both posers)
+
+**Why the earlier apex fixes weren't enough.** The high-V apex render LOOKED right, but in MOTION the flap still
+read hinge-like: a plain sinusoid whips THROUGH the top so the V never dwells/reads, and a 3-stage
+pivot→mid→tip chain makes the V look tip-driven (the root doesn't visibly lead). Tuning pose values can't fix
+either — both are architectural.
+
+**The refactor (now the base for future dragons).** (1) NEW `reforged/js/wingFlapSolver.js` — a PURE-MATH
+shared solver: `flapEnv(phase,cfg)` is a 5-phase envelope (glide-hold → recovery → **APEX HOLD plateau** →
+power-downstroke that dips below flat → settle) ranged [−downDepth..1]; `solveWing` returns per-STAGE
+elev/sweep/twist/fold from the envelope with intra-wing lag yoke→inner→mid→tip. Because it's THREE-free, BOTH
+posers call it and stay in sync — gameplay `dragon.js` AND shop-preview `dragonModel.js makePreviewTick`. (2) A
+root **YOKE** group inserted in BOTH wing builders (`buildSeraphWing`, `buildSvjJetWing`): `yoke` at the
+wing-root socket, the existing `pivot` (inner-wing geometry) becomes its child at local origin, mirror by cloning
+the YOKE. The yoke is a transform-only shoulder carrier that does the big root elevation and LEADS the chain, so
+the V is built from yoke+inner+mid (not just the tip). (3) Per-dragon `model.flap` config (degrees → solver):
+Seraph = taller angelic cathedral V; Bull = lower/tighter heavy mechanical V, more aft sweep.
+
+**Scope was tiny + safe:** only Pearl Seraph + Aurum Toro Mk II use the `wingParts`→`poseWing` path (`grep
+wingParts`), so evolving it touched no other dragon. The yoke is an empty transform → tricount UNCHANGED
+(203073). Gate the new path on `m.flap && wingYokeL` so the old sinusoid stays as fallback; lower Bull forms (no
+`flap`) keep the old path with the yoke sitting at identity (a harmless passthrough).
+
+**Gotchas.** (1) `dragonModel.makePreviewTick` is a SECOND poser (shop preview) that duplicates the flap math —
+forgetting it makes the showcase diverge from gameplay; it was ALSO missing `wingMidL/R` in its destructure (a
+latent gap) — added. (2) Bull/Seraph have NO spine rig (`spineSegs` is Night-Fury only), so the brief's "chest
+lift / body rise" has no bone to drive — implemented the achievable **tail-drop-at-apex** (in the position-wave
+`else` tail loop, gated by `flap.body`) and left full chest/body whip as a documented follow-up needing spine
+bones. (3) Verify with a CYCLE render (drive the real `solveWing` across 5 phases), never a single frame — the
+apex HOLD and the root-led V only read across the cycle. Pearl's first pass went near-vertical (clamshell);
+dialed `elevDeg` down ~20% for a clean open cathedral V. elevation is cumulative across the 4 nested stages, so
+per-stage degrees stay modest and are eyeball-tuned on the render, not predicted.
+
+---
+
+## Lesson — Wing solver gameplay INTEGRATION: per-form-only config silently falls back on lower tiers; brief apex + flat glide reads flat in motion
+
+**Symptom.** The yoke/5-phase solver looked perfect in the standalone cycle harness, but in GAMEPLAY Bull read
+DEAD-flat and Seraph's V was shallow/brief. The player suspected an overwrite / axis / hierarchy bug.
+
+**Root causes (NOT a bad solver, NOT an overwrite — confirmed nothing rewrites yoke/pivot/mid/tip after poseY).**
+- **BUG A — config never reached gameplay below the top tier.** Bull's `flap` config lived ONLY on the Eternal
+  FORM override. `ascendedDef` (ascension.js) accretes each form's keys onto `model` up to the current tier, so
+  any tier below Eternal merged to `model.flap = undefined` → the gameplay branch `else if (model.flap &&
+  wingYokeL)` failed → Bull fell through to the OLD flat sinusoid. Pearl always worked because its `flap` is on
+  the BASE model. FIX: put shared flap config on the BASE `model`, never only on the top form. Proved at every
+  tier with a 6-line node script calling the real `ascendedDef` (flap=YES tiers 0-3).
+- **BUG B — the math was right but the MOTION read flat.** The apex hold was ~12% of the cycle (~0.18s) and
+  `glideLevel 0.16` left the dominant glide/settle phases nearly flat, so the rear camera mostly sampled flat
+  frames. FIX: raise `glideLevel` (~0.32-0.34) so the wing rides a gentle V the WHOLE cycle (never dead-flat) +
+  lengthen `apexHold` so the high-V is held long enough to read. The peak pose was always correct; it just
+  wasn't reached/held visibly.
+
+**Shipped a `?wingDebug=<glide|recovery|apex|downstroke|settle>` FREEZE mode** (dragon.js): holds the wings at
+one cycle point with steering/boost/bank/climb NEUTRALISED (pure solver output), and logs the resolved config +
+the wing-chain elevation measured in the DRAGON'S OWN frame (`group.matrixWorld.invert()` applied to yoke/tip
+world positions → `atan2(dy,horiz)`) — body bank/pitch independent, so `tipElevDeg` is a true "does the wing
+rise" readout. This is both the diagnostic the player asked for and a permanent debug tool.
+
+**Verification gotchas.** (1) `tiershots`/`cyclecheck` render STATIC poses and `dragonModel.makePreviewTick` is a
+SEPARATE preview poser — none is the gameplay tick, so to prove gameplay you must either freeze the real game
+(`?wingDebug`) or assert the resolved `model.flap` via `ascendedDef` directly. (2) Importing `dragons.js` in a
+bare node script throws `window is not defined` (save.js touches window) — stub `globalThis.window/document`
+first. (3) The rear-chase-cam `cyclecheck` `_dir (0.06,0.20,0.95)` IS the gameplay camera, so it's a faithful
+pose proof even though it sets rotations directly.
