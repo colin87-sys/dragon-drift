@@ -2798,3 +2798,30 @@ Compare like-for-like POSE or the IoU lies — pose before you measure shape. (3
 contradiction between two prior requests, STOP and surface it; don't silently pick one.
 **→ Leapfrog:** add a posed (spread-wing) render option to the core, resolve span-vs-chord with the human,
 then this same overlay regression-guards every future shape tweak against the concept.
+
+---
+
+## Lesson — Used the loop to act: added a wing-CHORD knob (shallow module wall) + a headless POSE; the metric then said the real gap is PROPORTION, not chord.
+
+Drove the silhouette loop end-to-end on Pearl. (1) POSE: the core can now hold the Mk II yoke wing at any flap
+phase headlessly — a neutralised copy of dragon.js's `poseY` (`renderSilhouette({pose:'downstroke'})`), so we
+compare a posed concept against a posed build, not the flat rest pose. Sweeping all 5 phases barely moved the
+bbox-aligned IoU (20→27%) → the gap is NOT pose. (2) The human's "concept wants lush wings but I trimmed the
+span" was resolved as "add depth, keep span": Pearl's wing is the bespoke `buildSeraphWing` and chord lived in
+a hardcoded `chordAt` — a SHALLOW module wall. Added `model.wingChordScale` (default 1 = byte-identical for
+every other dragon; registered in `creatureGrammar.js`), multiplying chord only; it deepens the feather fan
+AND the feathers (len = chord·lenScale) WITHOUT span, and is TRI-NEUTRAL (203073 unchanged — same feather
+count, just deeper). Pearl set to 1.4 → visibly fuller wings. blueprint 3/3, flapcheck 16/16.
+
+THE MEASUREMENT EARNED ITS KEEP by being humbling: a chordScale sweep 1.0→2.2 moved IoU only 27→29%, because
+the IoU is bbox-NORMALISED — it measures fill-pattern/proportion, and the concept is TALLER-than-wide (0.89
+aspect: long trailing tail + steep wing downsweep) while the build is WIDE-and-short (1.67). So the dominant
+remaining gap is PROPORTION — tail length + vertical wing droop — not chord. Without the overlay I'd have kept
+dialing the wrong knob and called it "close enough". Caveat noted for next time: a bbox-aligned IoU hides
+overall-proportion error (it's normalised away) and is too crude to optimise a single shape knob — trust the
+VISUAL overlay for fine work and use the number only for gross "are we even close" reads.
+
+**→ Leapfrog (next levers, measured-as-needed):** lengthen the `seraphTail` trail + push the wing downsweep
+(deeper flap `downDepth`/dihedral, or a steeper climb pose) to buy the concept's vertical drama; then the
+overlay regression-guards the whole proportion, not just the wingspan number. Bigger structural unlock still
+open: continuous TORSO profile knobs (the body plan remains the one bespoke-code part).

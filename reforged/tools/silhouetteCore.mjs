@@ -30,15 +30,37 @@ export const THREE = await import('three');
 export const { DRAGONS } = await import('../js/dragons.js');
 export const { ascendedDef, maxTierFor } = await import('../js/ascension.js');
 const { buildDragonModel } = await import('../js/dragonModel.js');
+const { solveWing, phaseCenter } = await import('../js/wingFlapSolver.js');
 
 export const FORM = ['Hatchling', 'Kindled', 'Radiant', 'Eternal'];
 
+// Hold the Mk II yoke wing at one flap phase, headless — the SAME chain dragon.js drives (poseY,
+// dragon.js:559-571) but NEUTRALISED (no bank/steer/boost), so a static silhouette can match a posed
+// concept instead of the flat rest pose. `pose` is a phase name: glide|recovery|apex|downstroke|settle.
+function applyPose(parts, flap, pose) {
+  if (!flap || !parts || !parts.wingYokeL) return false;
+  const ph = phaseCenter(pose, flap), s = solveWing(ph, flap), featR = Math.sin(ph + Math.PI * 0.55);
+  const set = (yk, pv, md, tp) => {
+    if (!yk) return;
+    yk.rotation.set(s.yoke.twist, -0.12 - s.yoke.sweep, s.yoke.elev);          // yoke: elevation + rowing sweep
+    if (pv) pv.rotation.set(0.10 + featR * 0.12, -0.12, s.inner.curl);          // inner: curl
+    if (md) md.rotation.set(0.02, -s.mid.sweep, s.mid.curl);                    // mid: lagged curl + aft trail
+    if (tp) tp.rotation.set(-0.04, 0.07 - s.tip.sweep, s.tip.curl);             // tip: trailing curl
+  };
+  set(parts.wingYokeR, parts.wingPivotR, parts.wingMidR, parts.wingTipR);
+  set(parts.wingYokeL, parts.wingPivotL, parts.wingMidL, parts.wingTipL);
+  return true;
+}
+
 // Render the filled silhouette of one dragon/form/view into an 8-bit coverage buffer (0 bg, 255 fill).
-export function renderSilhouette({ key, view = 'rear', tier, W, H }) {
+export function renderSilhouette({ key, view = 'rear', tier, W, H, pose }) {
   const maxTier = maxTierFor(key);
   const t = tier != null ? tier : maxTier;
   const cam = new THREE.PerspectiveCamera(60, W / H, 0.1, 200);
-  const { group } = buildDragonModel(ascendedDef(DRAGONS[key], t, 0), {});
+  const def = ascendedDef(DRAGONS[key], t, 0);
+  const built = buildDragonModel(def, {});
+  const group = built.group;
+  if (pose) applyPose(built.parts || {}, def.model.flap, pose);
   if (view === 'climb') group.rotation.x = 0.92;          // ~53° nose-up: dorsal back, tail toward the lens
   group.updateMatrixWorld(true);
 

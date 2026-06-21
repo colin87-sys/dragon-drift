@@ -124,11 +124,14 @@ function buildSeraphWing(def, model, attach, giM) {
     const fwd = { x: 0, y: 0, z: -1 }, rear = { x: 0, y: 0, z: 1 };
     const stationPoint = (t) => mul(spanDir, L * t);
     // chord tapers root→tip — BROAD angel wing (wide root fanning to a tip), with the inner
-    // 35% made ~+12% fuller so the wing reads layered near the body, not linear.
+    // 35% made ~+12% fuller so the wing reads layered near the body, not linear. `wingChordScale`
+    // deepens the fan front-to-back (and the feathers, which reach past the trailing edge) WITHOUT
+    // touching span (that's `wingScale`/L) or tri count — the "lush feathered fan" knob, default 1.
+    const chordScale = model.wingChordScale ?? 1;
     const chordAt = (t) => {
       const base = 1.9 + (0.42 - 1.9) * Math.min(t, 1);            // fuller root (was 1.7)
       const inner = t < 0.35 ? 1 + 0.12 * (1 - t / 0.35) : 1;      // +12% fullness across inner 35%
-      return base * inner;
+      return base * inner * chordScale;
     };
     const xsec = (t) => { const c = stationPoint(t); const ch = chordAt(t); return { c, leading: add(c, mul(fwd, ch * 0.40)), trailing: add(c, mul(rear, ch * 0.60)) }; };
 

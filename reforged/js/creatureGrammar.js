@@ -40,6 +40,7 @@ export const CREATURE_GRAMMAR = Object.freeze([
   // --- hull / proportions (model.*) -------------------------------------------
   { path: 'model.scale', group: 'hull', kind: 'number', min: 0.3, max: 2.5, desc: 'Overall body size multiplier.' },
   { path: 'model.wingScale', group: 'hull', kind: 'number', min: 0.4, max: 2.2, desc: 'Wing span multiplier (independent of body).' },
+  { path: 'model.wingChordScale', group: 'hull', kind: 'number', min: 0.5, max: 2.2, desc: 'Wing front-to-back depth/fullness, independent of span (seraphWing).' },
   { path: 'model.tailSegments', group: 'hull', kind: 'int', min: 0, max: 16, forms: true, desc: 'Segmented-tail count (0 for hull-grown tails).' },
   { path: 'model.neckSegments', group: 'hull', kind: 'int', min: 0, max: 12, forms: true, desc: 'Neck-chain segment count.' },
   { path: 'model.ridgeCount', group: 'hull', kind: 'int', min: 0, max: 28, forms: true, desc: 'Dorsal scale-ridge count (0 = smooth back).' },
