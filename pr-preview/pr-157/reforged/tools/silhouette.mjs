@@ -12,13 +12,17 @@
 import { writeFileSync } from 'node:fs';
 import { renderSilhouette, pngGray, DRAGONS } from './silhouetteCore.mjs';
 
-const key = process.argv[2] || 'pearl';
-const view = process.argv[3] || 'rear';
+const args = process.argv.slice(2);
+const poseArg = args.find((a) => a.startsWith('--pose='));
+const pose = poseArg ? poseArg.split('=')[1] : undefined;   // glide|recovery|apex|downstroke|settle
+const pos = args.filter((a) => !a.startsWith('--'));
+const key = pos[0] || 'pearl';
+const view = pos[1] || 'rear';
 if (!DRAGONS[key]) { console.log(`unknown dragon: ${key}`); process.exit(1); }
-const tier = process.argv[4] != null ? Number(process.argv[4]) : undefined;
+const tier = pos[2] != null ? Number(pos[2]) : undefined;
 const W = view === 'climb' ? 400 : 560, H = view === 'climb' ? 620 : 440;
 
-const { buf, bounds, tris, name, formName } = renderSilhouette({ key, view, tier, W, H });
+const { buf, bounds, tris, name, formName } = renderSilhouette({ key, view, tier, W, H, pose });
 
 const gray = new Uint8Array(W * H);          // lift the background off pure black so the frame reads
 for (let i = 0; i < buf.length; i++) gray[i] = buf[i] ? 245 : 18;
@@ -28,5 +32,5 @@ writeFileSync(path, pngGray(W, H, gray));
 const cov = bounds
   ? `${(((bounds.maxX - bounds.minX) / W) * 100).toFixed(0)}% wide · ${(((bounds.maxY - bounds.minY) / H) * 100).toFixed(0)}% tall`
   : 'EMPTY';
-console.log(`${name} · ${formName} · ${view} — ${tris} tris → ${cov}`);
+console.log(`${name} · ${formName} · ${view}${pose ? ' · pose:' + pose : ''} — ${tris} tris → ${cov}`);
 console.log(`wrote ${path}`);

@@ -13,11 +13,15 @@
 import { writeFileSync, readFileSync } from 'node:fs';
 import { renderSilhouette, decodePNG, pngRGBA, pngGray } from './silhouetteCore.mjs';
 
-const refPath = process.argv[2];
-const key = process.argv[3] || 'pearl';
-const view = process.argv[4] || 'climb';
-const debug = process.argv.includes('--debug');
-if (!refPath) { console.log('usage: node tools/silhouette-overlay.mjs <concept.png> <key> [view] [--debug]'); process.exit(1); }
+const args = process.argv.slice(2);
+const debug = args.includes('--debug');
+const poseArg = args.find((a) => a.startsWith('--pose='));
+const pose = poseArg ? poseArg.split('=')[1] : undefined;
+const pos = args.filter((a) => !a.startsWith('--'));
+const refPath = pos[0];
+const key = pos[1] || 'pearl';
+const view = pos[2] || 'climb';
+if (!refPath) { console.log('usage: node tools/silhouette-overlay.mjs <concept.png> <key> [view] [--pose=downstroke] [--debug]'); process.exit(1); }
 
 const { w, h, rgba } = decodePNG(readFileSync(refPath));
 
@@ -32,7 +36,7 @@ for (let y = Math.floor(h * 0.36); y < h; y++) for (let x = 0; x < w; x++) {
 }
 
 // 2) Render my silhouette at the concept resolution, then map MY bbox onto the concept-dragon bbox.
-const { buf, bounds } = renderSilhouette({ key, view, W: w, H: h });
+const { buf, bounds } = renderSilhouette({ key, view, W: w, H: h, pose });
 if (!bounds || mCount < 50) { console.log('could not isolate a shape (empty render or mask)'); process.exit(1); }
 const myW = bounds.maxX - bounds.minX || 1, myH = bounds.maxY - bounds.minY || 1;
 const mW = mMaxX - mMinX || 1, mH = mMaxY - mMinY || 1;
