@@ -22,6 +22,7 @@ import { resolveSurfaceLayers, getSurfaceLayer } from './dragonSurfaceLayers.js'
 import { validateCreatureBlueprint } from './validateCreatureBlueprint.js';
 import { applyFresnelRim } from './surface.js';
 import { flapWing, formStrength, formSpeed } from './dragonWingFlap.js';
+import { solveWing } from './wingFlapSolver.js';
 import { composeSurface, fresnelRimPatch, buildSurfacePatches } from './dragonSurfaceShader.js';
 import { setActiveDetail, seg } from './modelDetail.js';
 
@@ -286,7 +287,7 @@ export function buildDragonModel(def, opts = {}) {
   const {
     wingPivotL, wingPivotR, wingTipL, wingTipR,
     tipMarkerL, tipMarkerR, wingPivot2L, wingPivot2R,
-    wingRigL, wingRigR, wingMidL, wingMidR,
+    wingRigL, wingRigR, wingMidL, wingMidR, wingYokeL, wingYokeR,
   } = wingsResult.parts;
   // Night-Fury grows its bat-tail fins + tail-bone whip chain INSIDE the wings
   // builder (the tail is part of the continuous hull, not a bolted tail module), so
@@ -367,7 +368,7 @@ export function buildDragonModel(def, opts = {}) {
 
     return {
       group: wrapper,
-      parts: { head, tailSegs, tailFins, spineSegs, bodySegs, tailOrbiters, riderSocket, wingPivotL, wingPivotR, wingMidL, wingMidR, wingTipL, wingTipR, wingPivot2L, wingPivot2R, tipMarkerL, tipMarkerR, wingRigL, wingRigR, coreGlow },
+      parts: { head, tailSegs, tailFins, spineSegs, bodySegs, tailOrbiters, riderSocket, wingYokeL, wingYokeR, wingPivotL, wingPivotR, wingMidL, wingMidR, wingTipL, wingTipR, wingPivot2L, wingPivot2R, tipMarkerL, tipMarkerR, wingRigL, wingRigR, coreGlow },
       materials: { bodyMat, wingMat, eyeMat, spineMats },
       auraSprite,
     };
@@ -396,7 +397,7 @@ export function buildDragonModel(def, opts = {}) {
 // spinning model.
 export function makePreviewTick(def, result) {
   const { group, parts, auraSprite } = result;
-  const { head, tailSegs, wingPivotL, wingPivotR, wingPivot2L, wingPivot2R, wingTipL, wingTipR, wingRigL, wingRigR } = parts;
+  const { head, tailSegs, wingPivotL, wingPivotR, wingPivot2L, wingPivot2R, wingTipL, wingTipR, wingRigL, wingRigR, wingMidL, wingMidR, wingYokeL, wingYokeR } = parts;
   const { bodySegs, tailOrbiters } = parts;
   const flapBias = def.model.flapBias || 1;
   const flapAmp = def.model.flapAmp ?? 1;
@@ -418,6 +419,19 @@ export function makePreviewTick(def, result) {
       flapWing(wingRigL, st, 1);
       flapWing(wingRigR, st, 1);
       if (wingPivot2L) { const f = Math.sin(phase) * 0.52 * flapAmp + 0.12; wingPivot2L.rotation.z = f * 0.65; wingPivot2R.rotation.z = -f * 0.65; }
+    } else if (def.model.flap && wingYokeL) {
+      // Mk II YOKE wing (preview): the shared 5-phase solver drives yoke→inner→mid→tip into a
+      // HELD high-V apex (matches the gameplay rig so the showcase reads true). No banking here.
+      const s = solveWing(phase, def.model.flap);
+      const feather = Math.sin(phase + Math.PI * 0.55) * 0.10;
+      const poseY = (yk, pv, md, tp) => {
+        yk.rotation.set(s.yoke.twist, -0.14 - s.yoke.sweep, s.yoke.elev);
+        pv.rotation.set(0.10 + feather, -0.12, s.inner.elev);
+        if (md) md.rotation.set(0, -s.mid.sweep, s.mid.elev);
+        if (tp) tp.rotation.set(-0.04, 0.07 - s.tip.sweep, s.tip.elev);
+      };
+      poseY(wingYokeR, wingPivotR, wingMidR, wingTipR);
+      poseY(wingYokeL, wingPivotL, wingMidL, wingTipL);
     } else if (def.model.wingParts) {
       // Mk II per-FORM wing (preview): glide-hold waveform + shared-phase root→mid→tip
       // lag, L/R sign-mirror, 1/2/3 segments — matches the in-game rig so the showcase
