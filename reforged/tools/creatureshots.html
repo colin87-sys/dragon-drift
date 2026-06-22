@@ -43,6 +43,9 @@
     function frame(angle, group, W, H) {
       group.rotation.x = (angle === 'climb') ? 0.92 : 0;
       group.updateMatrixWorld(true);
+      // rear matches the live chase cam (FOV 72, main.js:59) so its foreshortening equals a gameplay
+      // screenshot; framed views use 60 (framing only).
+      camera.fov = (angle === 'rear') ? 72 : 60;
       const box = new THREE.Box3().setFromObject(group);
       const ctr = box.getCenter(new THREE.Vector3()), sz = box.getSize(new THREE.Vector3());
       const vfov = camera.fov * Math.PI / 180, hfov = 2 * Math.atan(Math.tan(vfov / 2) * (W / H));
@@ -75,7 +78,9 @@
       scene.add(current);
       const out = {};
       for (const a of angles) {
-        const portrait = (a === 'climb');
+        // rear + climb render PORTRAIT to match the phone's gameplay aspect (the rear read is the
+        // player's actual view); side/threeq/front stay landscape to show the long body profile.
+        const portrait = (a === 'climb' || a === 'rear');
         const W = portrait ? 540 : 720, H = portrait ? 720 : 560;
         gl.width = W; gl.height = H;
         camera.aspect = W / H;
