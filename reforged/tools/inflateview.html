@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
+  <title>Silhouette → 3D (inflate) — Dragon Drift</title>
+  <style>
+    html,body{margin:0;height:100%;background:#0a0e1a;overflow:hidden;font-family:system-ui,sans-serif}
+    #gl{display:block;width:100vw;height:100vh;touch-action:none}
+    #hud{position:fixed;left:12px;top:12px;color:#bfe;font-size:13px;line-height:1.5;
+      background:rgba(8,12,24,.5);padding:8px 10px;border-radius:8px;pointer-events:none;user-select:none}
+    #hud b{color:#9fe06a}
+    .row{position:fixed;left:12px;bottom:12px;display:flex;gap:8px;flex-wrap:wrap}
+    .row button{background:#16223c;color:#cfe;border:1px solid #2a3a5a;border-radius:8px;padding:8px 12px;font-size:14px;cursor:pointer}
+    .row button.on{background:#2a5;color:#04140a}
+    #err{position:fixed;left:12px;right:12px;top:64px;color:#ff9a9a;font-size:13px;line-height:1.5;white-space:pre-wrap;
+      background:rgba(40,8,8,.6);padding:10px;border-radius:8px;display:none;max-height:50vh;overflow:auto}
+  </style>
+  <script type="importmap">{ "imports": { "three": "../lib/three.module.js" } }</script>
+  <script>
+    window.__e=(m)=>{const e=document.getElementById('err');if(e){e.style.display='block';e.textContent='Error:\n'+m;}};
+    window.addEventListener('error',ev=>window.__e((ev.error&&ev.error.stack)||ev.message||String(ev)));
+    window.addEventListener('unhandledrejection',ev=>window.__e('Promise: '+((ev.reason&&ev.reason.stack)||ev.reason)));
+  </script>
+</head>
+<body>
+  <canvas id="gl"></canvas>
+  <div id="err"></div>
+  <div id="hud">Silhouette → 3D — <b id="lbl">inflating…</b><br>your side image, puffed into 3D<br>drag to rotate · pinch zoom</div>
+  <div class="row">
+    <button id="bspin" class="on">Spin: ON</button>
+    <button id="bside">Snap to side</button>
+    <button id="breset">Reset view</button>
+  </div>
+  <script type="module">
+    import * as THREE from 'three';
+
+    // ── load the side silhouette and read its pixels ─────────────────────────
+    const img = new Image();
+    img.crossOrigin = 'anonymous';
+    img.src = './ref-toothless-side.png';
+    await img.decode();
+    const DS = 360;                                   // downsample width for speed
+    const ar = img.naturalHeight / img.naturalWidth;
+    const iw = DS, ih = Math.max(1, Math.round(DS * ar));
+    const cv = document.createElement('canvas'); cv.width = iw; cv.height = ih;
+    const ctx = cv.getContext('2d'); ctx.drawImage(img, 0, 0, iw, ih);
+    const px = ctx.getImageData(0, 0, iw, ih).data;
+    const sub = new Uint8Array(iw * ih);
+    for (let i = 0; i < iw * ih; i++) {
+      const a = px[i*4+3], lum = 0.3*px[i*4]+0.59*px[i*4+1]+0.11*px[i*4+2];
+      sub[i] = (a > 128 && lum < 128) ? 1 : 0;        // dark dragon on light bg
+    }
+
+    // ── distance transform (two-pass chamfer) → thickness per pixel ──────────
+    const INF = 1e9, d = new Float32Array(iw * ih);
+    for (let i = 0; i < iw*ih; i++) d[i] = sub[i] ? INF : 0;
+    const at = (x,y) => (x<0||y<0||x>=iw||y>=ih) ? 0 : d[y*iw+x];
+    for (let y = 0; y < ih; y++) for (let x = 0; x < iw; x++) { if (!sub[y*iw+x]) continue;
+      let b = d[y*iw+x];
+      b = Math.min(b, at(x-1,y)+1, at(x,y-1)+1, at(x-1,y-1)+1.414, at(x+1,y-1)+1.414); d[y*iw+x] = b; }
+    for (let y = ih-1; y >= 0; y--) for (let x = iw-1; x >= 0; x--) { if (!sub[y*iw+x]) continue;
+      let b = d[y*iw+x];
+      b = Math.min(b, at(x+1,y)+1, at(x,y+1)+1, at(x+1,y+1)+1.414, at(x-1,y+1)+1.414); d[y*iw+x] = b; }
+    let maxd = 0; for (let i = 0; i < iw*ih; i++) if (d[i] > maxd) maxd = d[i];
+
+    // bbox of the subject
+    let mnx=iw,mxx=0,mny=ih,mxy=0;
+    for (let y=0;y<ih;y++) for (let x=0;x<iw;x++) if (sub[y*iw+x]) { if(x<mnx)mnx=x;if(x>mxx)mxx=x;if(y<mny)mny=y;if(y>mxy)mxy=y; }
+    const bw = mxx-mnx+1, bh = mxy-mny+1;
+
+    // ── build the inflated shell geometry ────────────────────────────────────
+    const Lz = 5.0, Ly = Lz * (bh/bw), capW = 0.34;
+    const cellD = (x,y)=> (x<0||y<0||x>=iw||y>=ih) ? 0 : d[y*iw+x];
+    const cellS = (x,y)=> (x<0||y<0||x>=iw||y>=ih) ? 0 : sub[y*iw+x];
+    const thick = (x,y)=> Math.min(cellD(x,y)/maxd*1.1, 1) * capW;
+    // head is on the RIGHT in the image → map image-right to -Z (forward).
+    const pos = (x,y,s)=> [ s*thick(x,y), (1-(y-mny)/(bh-1))*Ly - Ly*0.5, 2.5 - ((x-mnx)/(bw-1))*Lz ];
+    const verts = [];
+    const tri = (A,B,C)=> verts.push(A[0],A[1],A[2], B[0],B[1],B[2], C[0],C[1],C[2]);
+    for (let y=mny; y<mxy; y++) for (let x=mnx; x<mxx; x++) {
+      if (cellS(x,y)&&cellS(x+1,y)&&cellS(x,y+1)&&cellS(x+1,y+1)) {
+        for (const s of [1,-1]) { const A=pos(x,y,s),B=pos(x+1,y,s),C=pos(x,y+1,s),E=pos(x+1,y+1,s);
+          if (s>0){ tri(A,B,C); tri(B,E,C); } else { tri(A,C,B); tri(B,C,E); } }
+      }
+    }
+    for (let y=mny; y<=mxy; y++) for (let x=mnx; x<=mxx; x++) { if(!cellS(x,y))continue;
+      for (const [dx,dy] of [[1,0],[-1,0],[0,1],[0,-1]]) if(!cellS(x+dx,y+dy)){
+        const nx=x+(dy!==0?1:0), ny=y+(dx!==0?1:0);
+        const f=pos(x,y,1),b=pos(x,y,-1),f2=pos(nx,ny,1),b2=pos(nx,ny,-1);
+        tri(f,b,f2); tri(b,b2,f2);
+      }
+    }
+    const geo = new THREE.BufferGeometry();
+    geo.setAttribute('position', new THREE.Float32BufferAttribute(verts, 3));
+    geo.computeVertexNormals();
+    geo.center();
+    document.getElementById('lbl').textContent = `Toothless · ${(verts.length/9)|0} tris`;
+
+    // ── scene / turntable (same lighting as the genome viewer) ───────────────
+    const gl = document.getElementById('gl');
+    const renderer = new THREE.WebGLRenderer({ canvas: gl, antialias: true, alpha: true });
+    renderer.setPixelRatio(Math.min(devicePixelRatio||1, 2));
+    renderer.toneMapping = THREE.ACESFilmicToneMapping;
+    const scene = new THREE.Scene();
+    const camera = new THREE.PerspectiveCamera(50, 1, 0.1, 200);
+    scene.add(new THREE.HemisphereLight(0xbfdcff, 0x2e3448, 1.0));
+    const k=new THREE.DirectionalLight(0xffe0b0,1.7); k.position.set(2.5,3,4); scene.add(k);
+    const r=new THREE.DirectionalLight(0x7fb8ff,1.0); r.position.set(-3,1.5,-3); scene.add(r);
+    const f=new THREE.DirectionalLight(0xd0f0ff,0.4); f.position.set(0,-2,2); scene.add(f);
+    const mesh = new THREE.Mesh(geo, new THREE.MeshStandardMaterial({ color:0x2a2e36, roughness:0.7, metalness:0.05, side:THREE.DoubleSide }));
+    scene.add(mesh);
+
+    geo.computeBoundingSphere();
+    const baseDist = geo.boundingSphere.radius / Math.tan(camera.fov*Math.PI/360) * 1.5;
+    const orbit = { yaw: 90, pitch: 0.18, dist: baseDist };
+    let spin = true, dragging = false, lx=0, ly=0;
+    function place(){ const a=orbit.yaw*Math.PI/180,p=orbit.pitch;
+      camera.position.set(orbit.dist*Math.sin(a)*Math.cos(p), orbit.dist*Math.sin(p), orbit.dist*Math.cos(a)*Math.cos(p));
+      camera.lookAt(0,0,0); }
+    function resize(){ const w=gl.clientWidth,h=gl.clientHeight; renderer.setSize(w,h,false); camera.aspect=w/h; camera.updateProjectionMatrix(); }
+    window.addEventListener('resize', resize);
+    function frame(){ requestAnimationFrame(frame); if(spin&&!dragging) orbit.yaw+=0.3; place(); renderer.render(scene,camera); }
+    gl.addEventListener('pointerdown',e=>{dragging=true;lx=e.clientX;ly=e.clientY;gl.setPointerCapture(e.pointerId);});
+    gl.addEventListener('pointermove',e=>{ if(!dragging)return; orbit.yaw-=(e.clientX-lx)*0.4; orbit.pitch=Math.max(-1.2,Math.min(1.3,orbit.pitch+(e.clientY-ly)*0.006)); lx=e.clientX;ly=e.clientY; });
+    const stop=()=>{dragging=false;}; gl.addEventListener('pointerup',stop); gl.addEventListener('pointercancel',stop);
+    gl.addEventListener('wheel',e=>{e.preventDefault(); orbit.dist=Math.max(baseDist*0.4,Math.min(baseDist*2.5,orbit.dist*(1+Math.sign(e.deltaY)*0.08)));},{passive:false});
+    document.getElementById('bspin').onclick=e=>{spin=!spin;e.target.textContent='Spin: '+(spin?'ON':'OFF');e.target.classList.toggle('on',spin);};
+    document.getElementById('bside').onclick=()=>{orbit.yaw=90;orbit.pitch=0.0;};
+    document.getElementById('breset').onclick=()=>{orbit.yaw=90;orbit.pitch=0.18;orbit.dist=baseDist;};
+    resize(); frame(); window.__ready = true;
+  </script>
+</body>
+</html>
