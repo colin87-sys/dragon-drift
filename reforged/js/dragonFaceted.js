@@ -1121,6 +1121,7 @@ function buildSvjLayeredBladeWing(def, model, attach, giM) {
   const group = new THREE.Group();
   const spineMats = [];
   const ws = model.wingScale ?? 1;
+  const gi = Math.min(giM ?? 1, 1.3);
 
   const gold = new THREE.MeshStandardMaterial({
     color: def.body ?? 0xf2c20e, emissive: 0x2a1f05, emissiveIntensity: 0.32,
@@ -1130,59 +1131,88 @@ function buildSvjLayeredBladeWing(def, model, attach, giM) {
     color: def.belly ?? 0x0e0e12, flatShading: true, side: THREE.DoubleSide,
     roughness: 0.5, metalness: 0.5,
   });
+  const redCol = 0xf0182a;
+  const redMat = new THREE.MeshStandardMaterial({
+    color: redCol, emissive: redCol, emissiveIntensity: 0.9 * gi, roughness: 0.35, side: THREE.DoubleSide,
+  });
+  redMat.userData.baseEmissive = redCol; redMat.userData.baseIntensity = 0.9 * gi;
+  spineMats.push(redMat);
 
-  // A CURVED scimitar blade in the side (Y-Z) plane: a tapered ribbon swept along a quadratic
-  // bezier whose spine RISES then CURVES back toward the tail (+Z) - the tip points tailward.
-  // Built flat at depth x=root[0]. root=[x,y,z]; ctrl/tip = [dy,dz] offsets from the root.
-  const curvedBlade = (root, ctrl, tip, baseHalf, mat) => {
-    const N = seg(8);
-    const P0 = [root[1], root[2]], P1 = [root[1] + ctrl[0], root[2] + ctrl[1]], P2 = [root[1] + tip[0], root[2] + tip[1]];
-    const bez = (t) => { const u = 1 - t; return [u * u * P0[0] + 2 * u * t * P1[0] + t * t * P2[0], u * u * P0[1] + 2 * u * t * P1[1] + t * t * P2[1]]; };
-    const tris = []; let pa = null, pb = null; const xd = root[0];
-    for (let i = 0; i <= N; i++) {
-      const t = i / N, c = bez(t);
-      const a = bez(Math.max(0, t - 0.02)), b = bez(Math.min(1, t + 0.02));
-      let ty = b[0] - a[0], tz = b[1] - a[1]; const tl = Math.hypot(ty, tz) || 1; ty /= tl; tz /= tl;
-      const py = -tz, pz = ty;
-      const w = baseHalf * Math.pow(1 - t, 0.72);   // broad base -> fine sharp tip
-      const A = [xd, c[0] + py * w, c[1] + pz * w], B = [xd, c[0] - py * w, c[1] - pz * w];
-      if (pa) { tris.push([pa, pb, B], [pa, B, A]); }
+  const cr = (pts, N) => {
+    const g = (i) => pts[Math.max(0, Math.min(pts.length - 1, i))];
+    const res = [];
+    for (let s = 0; s < N; s++) {
+      const t = (s / (N - 1)) * (pts.length - 1), i = Math.floor(t), f = t - i;
+      const p0 = g(i - 1), p1 = g(i), p2 = g(i + 1), p3 = g(i + 2);
+      const a = (j) => 0.5 * (2 * p1[j] + (-p0[j] + p2[j]) * f + (2 * p0[j] - 5 * p1[j] + 4 * p2[j] - p3[j]) * f * f + (-p0[j] + 3 * p1[j] - 3 * p2[j] + p3[j]) * f * f * f);
+      res.push([a(0), a(1)]);
+    }
+    return res;
+  };
+  const P = (zy, x) => [x, zy[1] * ws, zy[0] * ws];
+  // a tapering gold blade rail along a [z,y] centreline polyline: width baseHalf -> 0 (SHARP tip).
+  const ribbon = (poly, baseHalf, x, mat) => {
+    const tris = []; let pa = null, pb = null;
+    for (let i = 0; i < poly.length; i++) {
+      const t = i / (poly.length - 1), c = poly[i];
+      const p = poly[Math.max(0, i - 1)], n = poly[Math.min(poly.length - 1, i + 1)];
+      let tz = n[0] - p[0], ty = n[1] - p[1]; const tl = Math.hypot(tz, ty) || 1; tz /= tl; ty /= tl;
+      const pz = -ty, py = tz, w = baseHalf * Math.pow(1 - t, 0.7);
+      const A = [x, (c[1] + py * w) * ws, (c[0] + pz * w) * ws], B = [x, (c[1] - py * w) * ws, (c[0] - pz * w) * ws];
+      if (pa) tris.push([pa, pb, B], [pa, B, A]);
       pa = A; pb = B;
     }
-    return { mesh: flatTriMesh(tris, mat), tip: [xd, P2[0], P2[1]] };
+    return flatTriMesh(tris, mat);
   };
+  const fillStrip = (U, L, x, mat) => {
+    const tris = [];
+    for (let i = 0; i < U.length - 1; i++) {
+      const u0 = P(U[i], x), u1 = P(U[i + 1], x), l0 = P(L[i], x), l1 = P(L[i + 1], x);
+      tris.push([u0, u1, l1], [u0, l1, l0]);
+    }
+    return flatTriMesh(tris, mat);
+  };
+  const hexCard = (r, mat) => {
+    const pts = [];
+    for (let k = 0; k < 6; k++) pts.push([Math.cos((k / 6 + 1 / 12) * Math.PI * 2) * r, Math.sin((k / 6 + 1 / 12) * Math.PI * 2) * r]);
+    return wedgePanel(pts, mat);
+  };
+  const _x = new THREE.Vector3(), _y = new THREE.Vector3(), _z = new THREE.Vector3(), _m = new THREE.Matrix4();
+  const faceX = (mesh) => { _m.makeBasis(_x.set(0, 0, 1), _y.set(0, 1, 0), _z.set(1, 0, 0)); mesh.quaternion.setFromRotationMatrix(_m); return mesh; };
 
-  // THREE curved blades in DECREASING size. The LEADING blade is the biggest/tallest - it rises
-  // high and sweeps back toward the tail (the main blade you see). The MIDDLE is smaller, tucked
-  // behind it; the THIRD is the smallest, underneath. All curve up-and-back (+Y then +Z).
-  // Layered by depth toward the side cam (+X): leading in FRONT, then middle, then smallest behind.
-  // { root:[x,y,z], ctrl:[dy,dz], tip:[dy,dz], baseHalf }. Head=-Z (forward), tail=+Z (back).
-  // TRACED from the reference outline (/tmp/ref-wing-trace.png) via the grid + bezier-midpoint
-  // fit, then mapped to world (181 px/unit; image-right=+Z tail, image-up=+Y). The blades are
-  // LONG + SHALLOW: each rises ~49deg then flattens to ~12deg, sweeping back toward the tail.
-  const BLADES = [
-    { root: [0.05, 0.05, 0.00], ctrl: [0.905, 0.785], tip: [1.19, 2.07], baseHalf: 0.26 }, // LEADING: biggest, highest tip
-    { root: [0.01, 0.05, 0.00], ctrl: [0.585, 0.820], tip: [0.91, 1.80], baseHalf: 0.21 },  // middle: smaller
-    { root: [-0.03, 0.05, 0.00], ctrl: [0.210, 0.650], tip: [0.58, 1.46], baseHalf: 0.17 }, // smallest: lowest, underneath
-  ];
+  // FULL-LENGTH traced edges (reference IMG_7002, wide crop, 181 px/unit; [z,y], head=-Z tail=+Z).
+  // Two long gold rails sweeping up-back to SHARP tips (z~3.0-3.25) + an inner black/red membrane.
+  const UPPER = [[0.00, 0.01], [0.27, 0.18], [0.93, 0.54], [1.59, 0.79], [2.25, 0.95], [2.92, 1.06], [3.25, 1.12]];
+  const LOWER = [[0.00, -0.13], [0.27, -0.04], [0.93, 0.18], [1.59, 0.37], [2.25, 0.54], [2.70, 0.65], [3.03, 0.67]];
+  const N = 18;
+  const US = cr(UPPER, N), LS = cr(LOWER, N);
+  const INNER = Math.round(N * 0.5);   // membrane fills only the inner half (outer = open thin rails)
 
   function buildWing() {
     const pivot = new THREE.Group();
-    // root hinge block - gold mass with a carbon core, tying the wing into the shoulder.
     const block = new THREE.Mesh(new THREE.BoxGeometry(0.34, 0.40, 0.42), gold);
-    block.position.set(0.02, 0.03, -0.02); pivot.add(block);
+    block.position.set(0.02, 0.02, -0.04); pivot.add(block);
     const core = new THREE.Mesh(new THREE.BoxGeometry(0.22, 0.26, 0.30), carbon);
-    core.position.set(0.02, 0.03, 0.04); pivot.add(core);
+    core.position.set(0.02, 0.02, 0.02); pivot.add(core);
 
-    let tipPos = null;
-    BLADES.forEach((b, i) => {
-      const blade = curvedBlade(b.root, b.ctrl, b.tip, b.baseHalf * ws, gold);
-      pivot.add(blade.mesh);
-      if (i === 0) tipPos = blade.tip;   // rig handle on the biggest (leading) blade tip
-    });
+    // inner black membrane between the rails (so the red hex reads on black).
+    pivot.add(fillStrip(US.slice(0, INNER), LS.slice(0, INNER), -0.02, carbon));
+    // red hex honeycomb on the membrane (two rows).
+    for (let i = 2; i < INNER - 1; i += 2) {
+      const z = (US[i][0] + LS[i][0]) / 2, yc = (US[i][1] + LS[i][1]) / 2;
+      const hc = Math.max(0.05, (US[i][1] - LS[i][1]) / 2 - 0.04);
+      for (const dy of [-hc * 0.5, hc * 0.5]) {
+        const hex = faceX(hexCard(hc * 0.55 * ws, redMat));
+        hex.position.set(0.04, (yc + dy) * ws, z * ws); pivot.add(hex);
+      }
+    }
+    // the two gold rails, tapering to SHARP tips (full length).
+    pivot.add(ribbon(US, 0.13, 0.02, gold));   // upper / leading rail
+    pivot.add(ribbon(LS, 0.11, 0.02, gold));   // lower rail
 
+    const tip = P(US[N - 1], 0.02);
     const wingTip = new THREE.Group(); wingTip.userData.handle = 'tip';
-    wingTip.position.set(tipPos[0], tipPos[1], tipPos[2]);
+    wingTip.position.set(tip[0], tip[1], tip[2]);
     const marker = new THREE.Object3D(); marker.userData.handle = 'marker'; wingTip.add(marker);
     pivot.add(wingTip);
     return { pivot, wingTip, marker };
