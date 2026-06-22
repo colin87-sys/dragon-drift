@@ -2910,3 +2910,33 @@ MODEL-CREATION.md §10's: module families + per-module dimensions + material slo
 back into the main wing/skin kit so the shipped roster can opt into a "feather-scale" wing and a glow pass.
 The next step the human will judge on the preview is MOTION — wire one Radiant hero into the live flight so
 the wings beat on the real chase cam (static stills can't prove feel).
+
+## Lesson — Pivoted from the Radiant Paladin (human "didn't love it") to an SVJ mecha dragon, built as a reusable HARD-SURFACE MODULE KIT with named sockets.
+
+The human rejected the holy Paladin aesthetic and gave a definitive brief for a Lamborghini-SVJ-inspired
+mecha dragon — "a dragon skeleton wearing aggressive supercar armor." Built standalone in `reforged/mecha/`
+(svjDragon.js kit+assembly, proof.mjs montage via the seraph glow renderer, check.mjs module audit, live.html
+animated chase cam). 4346 tris, 34 module roles, check.mjs PASS. The build read RIGHT on the first render and
+only needed a wing-size bump — because the brief was written as a module/socket spec, which maps 1:1 to code.
+
+What made it work: (1) **A constrained module vocabulary is a feature, not a limit.** The brief mandated every
+part be one of {wedge panel, vent, aero blade, diffuser fin, taillight slash, carbon insert, mechanical joint}
+— so the kit is ~10 small reusable functions (spineSegment, headWedge, engineBay, ventPlate/ventTriple,
+chevron, wingSystem, thrusterPod, diffuser, clawLeg, hexGrille) each returning a tagged THREE.Group with
+`userData.sockets`. Assembly is just placing modules at named socket positions. Hard-surface = boxes / hex
+prisms / swept flat blades, which are cheap and crisp (no lofting needed). (2) **Tag every mesh with a
+`role`** so a headless `check.mjs` can assert the brief's module families are all present + counts (exactly 2
+thruster cores, 2 mirrored wings) — turns "did I build what was asked" into a gate. (3) **Axis discipline for
+the chase cam:** head=-Z/tail=+Z, twin thrusters on the rear torso FLANKING the centerline tail (sockets at
+x=±0.52) so from behind you read tail-spine-center + two red thruster circles + wide gold blade wings + diffuser
+below — exactly the priority order the brief asked for. (4) **Rigid hinged wings animate via nested groups**
+(root[scale.x=side] → hinge[flap leads] → pose[static dihedral/sweep] → outer[blade follows with phase delay]);
+the inner vent panel lives on `pose` so it stays rigid — matches "flap through hinged panels, not cloth."
+
+Reusable insight: the seraph **proof.mjs glow renderer + the check.mjs role-audit pattern are creature-agnostic**
+— a one-line sed retargeted proof.mjs from Paladin to SVJ. The fastest way to satisfy a big visual brief is to
+make the brief's own module list the literal function list and the literal test assertions.
+**→ Leapfrog:** promote the mecha kit's socket/role/mirror conventions into a shared `kit/` so cars, aircraft,
+and boss variants reuse spineSegment/ventPlate/thrusterPod/wingSystem directly (the brief explicitly wants
+this). Next human-judged step is MOTION on the preview (mecha/live.html) — rigid flap + thruster jets + tail
+follow-through; if the silhouette reads, fold the kit into the real roster.
