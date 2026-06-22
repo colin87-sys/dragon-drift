@@ -17,6 +17,7 @@ const args = process.argv.slice(2);
 const poseArg = args.find((a) => a.startsWith('--pose='));
 const pose = poseArg ? poseArg.split('=')[1] : undefined;
 const hideWings = args.includes('--no-wings');
+const showProfile = args.includes('--profile');     // body cross-section width/height along Z
 const pos = args.filter((a) => !a.startsWith('--'));
 const key = pos[0] || 'pearl';
 const view = pos[1] || 'rear';
@@ -24,7 +25,7 @@ if (!DRAGONS[key]) { console.log(`unknown dragon: ${key}`); process.exit(1); }
 const tier = pos[2] != null ? Number(pos[2]) : undefined;
 const W = view === 'climb' ? 400 : 560, H = view === 'climb' ? 620 : 440;
 
-const r = renderSilhouette({ key, view, tier, W, H, pose, hideWings, colorParts: true });
+const r = renderSilhouette({ key, view, tier, W, H, pose, hideWings, colorParts: true, profile: showProfile });
 
 // Composite the part-map onto a near-black background (untouched pixels = bg).
 const out = Buffer.alloc(W * H * 4);
@@ -50,4 +51,13 @@ console.log(`  body width ${fmt(m.bodyWidth)} × height ${fmt(m.bodyHeight)}  (d
 if (m.headBox) console.log(`  head ${fmt(m.headBox.x)}×${fmt(m.headBox.y)}×${fmt(m.headBox.z)}  head/body ${fmt(m.headToBodyRatio)}`);
 if (m.tailLength != null) console.log(`  tailLength ${fmt(m.tailLength)}`);
 if (m.legLength != null) console.log(`  legLength ${fmt(m.legLength)}  leg/body ${fmt(m.legToBodyRatio)}`);
+// Body cross-section profile (chest→waist→hip): a width bar per Z-station so the pinch is visible.
+if (r.torsoProfile && r.torsoProfile.length) {
+  const wmax = Math.max(...r.torsoProfile.map((s) => s.width)) || 1;
+  console.log(`  torso profile (head −Z → tail +Z) — width [×height]:`);
+  for (const s of r.torsoProfile) {
+    const bar = '█'.repeat(Math.max(0, Math.round((s.width / wmax) * 24)));
+    console.log(`    z ${String(s.z).padStart(6)}  w ${String(s.width).padEnd(6)} ${bar}  h ${s.height}`);
+  }
+}
 console.log(`  → wrote ${png}  (+ ${jsonPath})`);

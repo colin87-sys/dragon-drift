@@ -2943,6 +2943,17 @@ wings whose mesh isn't a child of the bone may still misclassify — fine for th
 
 **Reusable rule.** The sighted loop is now: `creatureshots` (see color) → `partsil` (measure) →
 `parts-overlay` (signed ratio error vs reference) → tune → repeat; human signs off only on motion/feel.
+
+**Audit follow-up (tools now deliver what the multi-view method claimed).** Added: (1) the `top` color
+angle in Tool A (planform — body bulge/pinch + wing chord/sweep), which was silently falling back; (2)
+the dimensions a REAR silhouette is blind to — wing chord×thickness+aspect ("thin sheet vs thick blade")
+and body width×height+depth ("chest deep, not flat"); (3) a 12-station **body cross-section profile**
+(width/height per Z slice) so a chest→waist→hip pinch is a NUMBER + a width bar chart. KEY design choice:
+world AABB + profile now accumulate BEFORE the near-plane cull → **measurements are camera-independent**
+(identical from any render view; only screen boxes/color depend on the camera). Honest residual: AABB
+thickness is a gross proxy (dihedral/sweep inflates the y-extent) and interior pockets / fine surface
+relief stay a color-render + preview call — silhouette/AABB can't see inside the outline, by nature.
+
 **→ Leapfrog (Phase 2):** author real `targets.json` sidecars for the bull's rear + side references and
 converge proportions numerically before touching the Gundam's new archetype. **→ Leapfrog:** add a draw-call / material-count column to
 tricount.mjs (the budget that truly limits a WebGL game), and render every convergence pass at BOTH tiers
