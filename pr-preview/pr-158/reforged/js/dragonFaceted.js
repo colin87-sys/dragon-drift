@@ -1107,6 +1107,133 @@ function buildAuricWing(def, model, attach, giM) {
 }
 registerWings('auricWing', buildAuricWing);
 
+// ── WINGS: 'svjLayeredBladeWing' — REAR-READABLE filled Lamborghini-SVJ blade wing ─
+// The curved-fin wing read as edge-on prongs from the rear chase cam because its blades
+// had almost no vertical (Y) chord. This module builds each wing as a BROAD FILLED panel
+// in the X-Y plane (tall vertical chord) with a small Z depth + 3D gold rails, so it reads
+// broad from behind, tall-bladed from the side, and with fore/aft chord from the top. Per
+// side: a root hinge block (mass into the shoulder), a gold backing panel, a black carbon
+// inset (the Lamborghini mass), gold leading/trailing/root/tip rails, 3 red chevron slashes
+// (SVJ taillight language) inside the inset, ONE secondary lower blade (not a quill cluster),
+// and a gold tip endplate. MIRROR-EXACT: build the RIGHT wing once, clone(true)+scale.x=-1
+// for the left (the svjJetWing pattern). All coords are PIVOT-LOCAL (pivot at the wing root).
+function buildSvjLayeredBladeWing(def, model, attach, giM) {
+  const group = new THREE.Group();
+  const spineMats = [];
+  const ws = model.wingScale ?? 1;
+  const cs = model.wingChordScale ?? 1;          // vertical-chord scale (the rear-read knob)
+  const gi = Math.min(giM ?? 1, 1.3);
+
+  // Gold reads gold from EVERY angle: diffuse (low metalness) + a low warm emissive, so the
+  // big panels never render near-black facing away from the lights (no env map in the rig).
+  const gold = new THREE.MeshStandardMaterial({
+    color: def.body ?? 0xf2c20e, emissive: 0x2a1f05, emissiveIntensity: 0.32,
+    flatShading: true, side: THREE.DoubleSide, roughness: 0.42, metalness: 0.28,
+  });
+  const carbon = new THREE.MeshStandardMaterial({
+    color: def.belly ?? 0x0e0e12, flatShading: true, side: THREE.DoubleSide,
+    roughness: 0.5, metalness: 0.5,
+  });
+  const redCol = def.apexSeam ?? 0xff3b2f;
+  const redMat = new THREE.MeshStandardMaterial({
+    color: redCol, emissive: redCol, emissiveIntensity: 2.4 * gi, roughness: 0.3, side: THREE.DoubleSide,
+  });
+  redMat.userData.baseEmissive = redCol;
+  redMat.userData.baseIntensity = 2.4 * gi;
+  spineMats.push(redMat);
+
+  // span-scale X, chord-scale Y, then SWEEP the wing back (z += SWEEP*x) and lift it on a
+  // DIHEDRAL (y += DIH*x) so it gains a fore/aft blade profile from the side + rises above the
+  // body — without losing the broad X-Y projection the rear chase cam needs.
+  const SWEEP = 0.30, DIH = 0.11;
+  const sc = (p) => { const x = p[0] * ws; return [x, p[1] * cs + DIH * x, p[2] + SWEEP * x]; };
+  // a filled blade panel from an UPPER edge [root,mid,tip] and a LOWER edge [root,mid,tip].
+  const panel = (U, L, mat) => flatTriMesh([
+    [U[0], U[1], L[1]], [U[0], L[1], L[0]],
+    [U[1], U[2], L[2]], [U[1], L[2], L[1]],
+  ], mat);
+  // a thin red chevron slash in the panel plane, raked back ~-22deg, centred on c, sat proud.
+  const RAKE = -0.384, dr = [Math.cos(RAKE), Math.sin(RAKE)], pr = [-dr[1], dr[0]];
+  const slash = (c, hl, hw, mat) => {
+    const A = [c[0] - dr[0] * hl, c[1] - dr[1] * hl, c[2]], B = [c[0] + dr[0] * hl, c[1] + dr[1] * hl, c[2]];
+    const ox = pr[0] * hw, oy = pr[1] * hw;
+    const p1 = [A[0] - ox, A[1] - oy, A[2]], p2 = [B[0] - ox, B[1] - oy, B[2]];
+    const p3 = [B[0] + ox, B[1] + oy, B[2]], p4 = [A[0] + ox, A[1] + oy, A[2]];
+    return flatTriMesh([[p1, p2, p3], [p1, p3, p4]], mat);
+  };
+
+  // MAIN outer silhouette (pivot-local). Broad + filled: tall Y-chord at root/mid, fine tip;
+  // gentle sweep-back + dihedral via small Z. Upper edge then lower edge, each root->mid->tip.
+  const MU = [sc([0.10, 0.50, -0.16]), sc([1.55, 0.64, -0.06]), sc([3.15, 0.62, -0.20])];
+  const ML = [sc([0.08, -0.24, 0.06]), sc([1.45, -0.18, 0.16]), sc([2.95, 0.28, 0.12])];
+  // BLACK inset (~58% coverage), inset from the edges + raised toward the rear camera (+Z).
+  const IU = [sc([0.45, 0.38, -0.11]), sc([1.55, 0.50, -0.01]), sc([2.70, 0.48, -0.15])];
+  const IL = [sc([0.45, -0.10, 0.11]), sc([1.45, -0.04, 0.19]), sc([2.55, 0.18, 0.15])];
+
+  function buildWing() {
+    const pivot = new THREE.Group();
+
+    // root hinge block — gold mass with a carbon core, tying the wing into the shoulder.
+    const block = new THREE.Mesh(new THREE.BoxGeometry(0.34, 0.42, 0.42), gold);
+    block.position.set(0.02, 0.06, -0.04); pivot.add(block);
+    const core = new THREE.Mesh(new THREE.BoxGeometry(0.22, 0.28, 0.30), carbon);
+    core.position.set(0.02, 0.06, 0.02); pivot.add(core);
+
+    pivot.add(panel(MU, ML, gold));                 // gold backing panel
+    pivot.add(panel(IU, IL, carbon));               // black carbon inset (proud toward camera)
+
+    // gold rails: leading (upper), trailing (lower), root, tip.
+    const rail = (a, b, t) => pivot.add(frameBar(a, b, [t, t], gold));
+    rail(MU[0], MU[1], 0.055); rail(MU[1], MU[2], 0.05);    // leading edge
+    rail(ML[0], ML[1], 0.05);  rail(ML[1], ML[2], 0.045);   // trailing edge
+    rail(MU[0], ML[0], 0.06);  rail(MU[2], ML[2], 0.04);    // root + tip rails
+
+    // 3 BOLD red chevron slashes along the inset (span fractions ~0.32/0.52/0.72), sat clearly
+    // proud (+Z) so they read as the SVJ taillight signature from the rear chase cam.
+    slashesFor([[0.95, 0.16, 0.13], [1.55, 0.20, 0.15], [2.10, 0.24, 0.11]], pivot);
+
+    // ONE secondary lower blade (gold + a small red slash), below the main — layered, not clutter.
+    const SU = [sc([0.25, -0.20, 0.10]), sc([1.60, -0.36, 0.18]), sc([2.70, -0.12, 0.10])];
+    const SL = [sc([0.25, -0.42, 0.10]), sc([1.60, -0.58, 0.18]), sc([2.70, -0.30, 0.10])];
+    pivot.add(panel(SU, SL, gold));
+    pivot.add(slash(sc([1.45, -0.34, 0.22]), 0.26 * cs, 0.035, redMat));
+
+    // gold tip endplate + rig handles (fold + VFX marker), at the main tip.
+    const tip = [(MU[2][0] + ML[2][0]) / 2, (MU[2][1] + ML[2][1]) / 2, (MU[2][2] + ML[2][2]) / 2];
+    const endplate = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.34, 0.18), gold);
+    endplate.position.set(tip[0], tip[1], tip[2]);
+    const wingTip = new THREE.Group(); wingTip.userData.handle = 'tip';
+    wingTip.position.set(tip[0], tip[1], tip[2]);
+    const marker = new THREE.Object3D(); marker.userData.handle = 'marker'; wingTip.add(marker);
+    pivot.add(endplate); pivot.add(wingTip);
+    return { pivot, wingTip, marker };
+  }
+  function slashesFor(centres, pivot) {
+    for (const c of centres) pivot.add(slash(sc(c), 0.34 * cs, 0.045, redMat));
+  }
+
+  const Rb = buildWing();
+  const wrR = attach.wingRoot(1); Rb.pivot.position.set(wrR.x, wrR.y, wrR.z);
+  const pivotL = Rb.pivot.clone(true);
+  const wrL = attach.wingRoot(-1); pivotL.position.set(wrL.x, wrL.y, wrL.z); pivotL.scale.x = -1;
+  let tipL = null, markerL = null;
+  pivotL.traverse((o) => { if (o.userData.handle === 'tip') tipL = o; else if (o.userData.handle === 'marker') markerL = o; });
+  group.add(Rb.pivot); group.add(pivotL);
+
+  return {
+    group,
+    parts: {
+      wingPivotL: pivotL, wingPivotR: Rb.pivot,
+      wingTipL: tipL, wingTipR: Rb.wingTip,
+      tipMarkerL: markerL, tipMarkerR: Rb.marker,
+      wingMidL: null, wingMidR: null,
+      wingPivot2L: null, wingPivot2R: null, wingRigL: null, wingRigR: null,
+    },
+    wingMat: gold, spineMats,
+  };
+}
+registerWings('svjLayeredBladeWing', buildSvjLayeredBladeWing);
+
 // ── HEAD: 'svjWedgeHead' — clean-room low angular wedge skull ─────────────────────
 // A low, wide, aggressive car-nose skull (no round animal head): a pointed wedge
 // snout, recessed RED eyes, backward-swept horn fins, a lower-jaw blade and diagonal

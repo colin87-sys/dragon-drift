@@ -2957,6 +2957,23 @@ relief stay a color-render + preview call — silhouette/AABB can't see inside t
 **→ Leapfrog (Phase 2):** author real `targets.json` sidecars for the bull's rear + side references and
 converge proportions numerically before touching the Gundam's new archetype.
 
+**Lesson L?? — REAR-READABLE wings need vertical Y-chord, not X-span (svjLayeredBladeWing).** The curved-fin
+wing (Phase 2.5) looked good from side/3-quarter but read as edge-on PRONGS from the rear chase cam — and
+the silhouette tool's wide X-span HID the failure. Root cause: a wing built as thin sheets with almost no
+vertical (Y) chord is edge-on to a camera looking down -Z. The fix is a different planform: build the wing
+as a BROAD FILLED panel in the X-Y plane (tall Y-chord ~0.74 at root) with a small Z depth — `svjLayeredBladeWing`:
+per side a root hinge block (mass into the shoulder, not floating blades) + a gold backing `flatTriMesh`
+panel + a black carbon INSET (~58%, raised toward the camera so gold rails frame it — without it the wing is
+a flat gold blob) + gold leading/trailing/root/tip `frameBar` rails + 3 BOLD red chevron slashes (SVJ
+taillight language — tiny ones vanish at gameplay distance) + ONE secondary lower blade (NOT 4-5 quills) +
+a gold tip endplate. GOTCHA: a pure X-Y panel is invisible from the SIDE (edge-on); apply real SWEEP-back
+(z += 0.30·x) + DIHEDRAL (y += 0.11·x) in the point transform so it gains a side blade-profile + rises above
+the body, while the rear keeps its broad X-Y read — one cheap transform reconciles all four views. The sweep
+also turned the flat red bars into proper angled chevrons. Mirror via clone+scale.x=-1 (svjJetWing pattern).
+Dial check first: `panelPitchDeg`/`dihedralDeg` are IMAGINARY (nothing reads them) — bake as constants;
+`wingChordScale` is real (the Y-chord knob). 5436 tris HIGH. **Reusable rule:** judge a wing from the camera
+it ships under (rear chase), and let VERTICAL projected area — not silhouette span — be the acceptance test.
+
 **Lesson L?? — CURVED scimitar wing (auricWing v2) + the lighting trap.** Three wing passes: thin quills
 ("spiky sticks"), 3 straight broad blades ("not aesthetic, needs CURVED"), then CURVED blades. Curved
 blades reuse `buildLayeredFin`/`buildStealthFinShape` (dragonParts.js — bezier swept fin) with a camber

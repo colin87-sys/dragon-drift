@@ -1315,7 +1315,7 @@ export const DRAGONS = {
     maxRarity: 'SSSR',
     cost: 5000,
     parts: {
-      torso: 'svjHull', wings: 'auricWing', head: 'svjWedgeHead', tail: 'svjArmorTail',
+      torso: 'svjHull', wings: 'svjLayeredBladeWing', head: 'svjWedgeHead', tail: 'svjArmorTail',
       surface: { shader: ['cellularScalesNormal'] },
       surfaceLayers: ['svjScaleArmor', 'engineBay', 'ventSlashes', 'twinThrusters',
         'rearDiffuser', 'svjDorsalSpine', 'scissorHinge'],
@@ -1323,10 +1323,10 @@ export const DRAGONS = {
     scaleSize: 4.5, scaleRelief: 0.28,
     stats: { speed: 1.16, handling: 1.22, drain: 1.04, regen: 0.95 },
     model: {
-      scale: 1.0, wingScale: 1.0, tailSegments: 9, neckSegments: 3,
+      scale: 1.0, wingScale: 1.0, wingChordScale: 1.0, tailSegments: 9, neckSegments: 3,
       shoulderWidthScale: 1.25,
       hornLen: 0.9, hornPairs: 1, ridgeCount: 0, eyeScale: 1.15,
-      flapBias: 0.85, flapAmp: 0.7,
+      flapBias: 0.85, flapAmp: 0.3, // stiff aero blades: a near-glide hold, not big flaps
     },
     bodyRoughness: 0.18, bodyMetalness: 0.55, bodyEnvIntensity: 0.8,
     forms: [
