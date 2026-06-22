@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import { registerTorso, registerWings, registerHead, registerTail } from './dragonRecipe.js';
 import { registerSurfaceLayer } from './dragonSurfaceLayers.js';
 import { buildTorso } from './dragonTorso.js';
-import { seg } from './modelDetail.js';
+import { seg, isUltra } from './modelDetail.js';
 import {
   wedgePanel, hexPrism, spineSegment, ventPlateRow, hexGrille,
   chevronLight, diffuserArray, thrusterPod, mechaLeg, socket,
@@ -942,6 +942,128 @@ function buildSvjFanWing(def, model, attach, giM) {
   };
 }
 registerWings('svjFanWing', buildSvjFanWing);
+
+// ── WINGS: 'auricWing' — broad gold blade-quills + a DENSE red-hex membrane ───────
+// Authored fresh to the gold-bull reference (neither svjBladeWing nor svjJetWing fit):
+// a fan of 5 long gold quills sweeping up-and-back from the shoulder, a dark membrane
+// filling the inner fan, and a DENSE field of red-emissive hexagons across it (the
+// reference's signature glow — far more cells than svjFanWing). MIRROR-EXACT by
+// construction: both sides read the SAME `QUILL` data through emitSide(side), with
+// `side` on every lateral term, so L and R are guaranteed identical in shape+outline.
+// Rides the frozen rig: fan+membrane on the pivot (flaps as a unit), tip + marker on
+// the wingTip (fold). ULTRA adds extra hex rows (detail-gated; HIGH stays lean).
+function buildAuricWing(def, model, attach, giM) {
+  const group = new THREE.Group();
+  const spineMats = [];
+  const ws = model.wingScale ?? 1;
+  const gi = Math.min(giM ?? 1, 1.3);
+
+  const gold = new THREE.MeshStandardMaterial({
+    color: def.body ?? 0xf2c20e, flatShading: true, side: THREE.DoubleSide,
+    roughness: def.bodyRoughness ?? 0.22, metalness: def.bodyMetalness ?? 0.55,
+  });
+  const carbon = new THREE.MeshStandardMaterial({
+    color: def.belly ?? 0x0e0e12, flatShading: true, side: THREE.DoubleSide,
+    roughness: 0.5, metalness: 0.5,
+  });
+  const memCol = def.apexSeam ?? 0xff3b2f;
+  // Dark recessed membrane (almost black) so the red hexes POP against it.
+  const memMat = new THREE.MeshStandardMaterial({
+    color: 0x140304, emissive: memCol, emissiveIntensity: 0.35, side: THREE.DoubleSide,
+    roughness: 0.55, metalness: 0.2,
+  });
+  const hexMat = new THREE.MeshStandardMaterial({
+    color: memCol, emissive: memCol, emissiveIntensity: 2.2 * gi, roughness: 0.3, side: THREE.DoubleSide,
+  });
+  hexMat.userData.baseEmissive = memCol;
+  hexMat.userData.baseIntensity = 2.2 * gi;
+  spineMats.push(hexMat);
+
+  // Gold quill fan — [reachX, tipY, tipZ, rootY]; index 0 = low/front leading quill,
+  // last = tall/back trailing quill (the dramatic raked tips of the reference).
+  const QUILL = [
+    [2.7, 0.20, 0.35, 0.00],
+    [3.1, 0.85, 0.80, 0.10],
+    [3.3, 1.55, 1.30, 0.20],
+    [3.2, 2.25, 1.85, 0.28],
+    [2.6, 2.85, 2.35, 0.34],
+  ];
+  // a small flat hexagon (pointy-top) in XY; caller positions/orients it.
+  const hexCard = (r) => {
+    const pts = [];
+    for (let k = 0; k < 6; k++) pts.push([Math.cos((k / 6 + 1 / 12) * Math.PI * 2) * r, Math.sin((k / 6 + 1 / 12) * Math.PI * 2) * r]);
+    return wedgePanel(pts, hexMat);
+  };
+
+  function emitSide(side) {
+    const pivot = new THREE.Group();
+    const wr = attach.wingRoot(side);
+    pivot.position.set(wr.x, wr.y, wr.z);
+
+    const hub = new THREE.Mesh(new THREE.BoxGeometry(0.34, 0.4, 0.52), carbon);
+    hub.rotation.z = side * 0.28; pivot.add(hub);
+
+    const root = [side * 0.10, 0.06, 0.0];
+    const tip = QUILL.map(([rx, ty, tz]) => [side * rx * ws, ty, tz]);
+
+    // Dark membrane fanning between consecutive quill INNER edges + the hub.
+    const innerFrac = 0.62;
+    const inner = tip.map((T) => [root[0] + (T[0] - root[0]) * innerFrac, root[1] + (T[1] - root[1]) * innerFrac, root[2] + (T[2] - root[2]) * innerFrac]);
+    for (let i = 0; i < inner.length - 1; i++)
+      pivot.add(flatTriMesh([[root, inner[i], inner[i + 1]]], memMat));
+
+    // DENSE red hex field: a row of hexes per fan gap, from near the hub out to the
+    // inner edge. HIGH = 3 per gap (12 total); ULTRA = 5 per gap (20). Detail-gated.
+    const perGap = isUltra() ? 5 : 3;
+    for (let i = 0; i < inner.length - 1; i++) {
+      const A = inner[i], B = inner[i + 1];
+      for (let s = 1; s <= perGap; s++) {
+        const f = s / (perGap + 1);
+        const ea = [root[0] + (A[0] - root[0]) * f, root[1] + (A[1] - root[1]) * f, root[2] + (A[2] - root[2]) * f];
+        const eb = [root[0] + (B[0] - root[0]) * f, root[1] + (B[1] - root[1]) * f, root[2] + (B[2] - root[2]) * f];
+        const c = [(ea[0] + eb[0]) / 2, (ea[1] + eb[1]) / 2, (ea[2] + eb[2]) / 2 + 0.03];
+        const hx = hexCard(0.10 * (1 - f * 0.35));
+        hx.position.set(c[0], c[1], c[2]); hx.rotation.y = side * 0.45;
+        pivot.add(hx);
+      }
+    }
+
+    // Gold quills — leaf blades: narrow root → wide mid → point.
+    QUILL.forEach(([, , , ry], i) => {
+      const R = [side * 0.06, ry, 0], T = tip[i];
+      const mx = R[0] + (T[0] - R[0]) * 0.4, my = R[1] + (T[1] - R[1]) * 0.4, mz = R[2] + (T[2] - R[2]) * 0.4;
+      const p2 = [mx + side * 0.07, my, mz + 0.32];   // back/outer edge bulge
+      const p4 = [mx - side * 0.05, my, mz - 0.20];   // front/inner edge
+      pivot.add(flatTriMesh([[R, p2, T], [R, T, p4]], gold));
+    });
+
+    // wingTip at the tall trailing quill → rig fold articulates the fan tips.
+    const wingTip = new THREE.Group();
+    const a = tip[3];
+    wingTip.position.set(a[0], a[1], a[2]);
+    const ext = new THREE.Mesh(new THREE.ConeGeometry(0.06, 0.6, seg(4)), gold);
+    ext.rotation.x = -1.2; ext.position.set(0, 0.25, 0.12); wingTip.add(ext);
+    const marker = new THREE.Object3D();
+    marker.position.set(0, 0.3, 0.18); wingTip.add(marker);
+    pivot.add(wingTip);
+
+    group.add(pivot);
+    return { pivot, wingTip, marker };
+  }
+
+  const R = emitSide(1), L = emitSide(-1);
+  return {
+    group,
+    parts: {
+      wingPivotL: L.pivot, wingPivotR: R.pivot,
+      wingTipL: L.wingTip, wingTipR: R.wingTip,
+      tipMarkerL: L.marker, tipMarkerR: R.marker,
+      wingPivot2L: null, wingPivot2R: null, wingRigL: null, wingRigR: null,
+    },
+    wingMat: gold, spineMats,
+  };
+}
+registerWings('auricWing', buildAuricWing);
 
 // ── HEAD: 'svjWedgeHead' — clean-room low angular wedge skull ─────────────────────
 // A low, wide, aggressive car-nose skull (no round animal head): a pointed wedge
