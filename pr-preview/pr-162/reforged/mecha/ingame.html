@@ -15,6 +15,7 @@
     font:600 13px/1 'Rajdhani',sans-serif;letter-spacing:.12em;cursor:pointer;user-select:none}
   #boost{border-color:#ff6a18aa;color:#ff9a4a}
   #boost:active{background:linear-gradient(#ffd11a,#ff6a18);color:#240a00}
+  #zin,#zout{font-size:20px;padding:10px 16px;min-width:46px}
   .on{outline:2px solid #ffd11a}
   .hint{position:fixed;left:14px;bottom:12px;font-size:11px;opacity:.5;letter-spacing:.05em}
 </style>
@@ -23,8 +24,8 @@
 <body>
 <canvas id="c"></canvas>
 <div class="hud"><h1>SVJ MECHA DRAGON</h1><p>frozen · real in-game lighting + HDR bloom + ACES</p></div>
-<div class="hint">drag to orbit · scroll to zoom</div>
-<div class="btns"><button id="spin">TURNTABLE</button><button id="boost">BOOST</button></div>
+<div class="hint">drag to orbit · pinch / scroll / ± to zoom</div>
+<div class="btns"><button id="zout">−</button><button id="zin">+</button><button id="spin">TURNTABLE</button><button id="boost">BOOST</button></div>
 <script type="module">
 import * as THREE from 'three';
 import { EffectComposer } from '../lib/postprocessing/EffectComposer.js';
@@ -38,14 +39,16 @@ const canvas = document.getElementById('c');
 const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
 renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
 renderer.toneMapping = THREE.ACESFilmicToneMapping;            // same as the game
-renderer.toneMappingExposure = 1.0;
+renderer.toneMappingExposure = 1.18;
 renderer.outputColorSpace = THREE.SRGBColorSpace;
 
 const scene = new THREE.Scene();
 
-// ── the game's real lighting rig (values lifted from environment.js) ──────────
-const sun = new THREE.DirectionalLight(0xffe0b0, 1.85); sun.position.set(-60, 45, -150); scene.add(sun);
-scene.add(new THREE.HemisphereLight(0xbfdcff, 0x2e5448, 0.85));
+// ── lighting: the game's key sun + extra fill so it's never dark at an angle ──
+const sun = new THREE.DirectionalLight(0xffe0b0, 1.7); sun.position.set(-60, 45, -150); scene.add(sun);
+scene.add(new THREE.HemisphereLight(0xd2e2ff, 0x4a4636, 1.2));  // brighter sky/ground ambient
+const fill = new THREE.DirectionalLight(0xcfe0ff, 0.75); fill.position.set(60, 18, 120); scene.add(fill);  // cool counter-fill
+const headlight = new THREE.DirectionalLight(0xffffff, 0.85); scene.add(headlight);  // follows the camera (see loop)
 
 // ── the game's sky gradient as a dome (top blue → warm horizon) ───────────────
 const sky = new THREE.Mesh(
@@ -83,11 +86,27 @@ function place() {
   camera.position.set(target.x + dist * Math.cos(el) * Math.sin(az), target.y + dist * Math.sin(el), target.z + dist * Math.cos(el) * Math.cos(az));
   camera.lookAt(target);
 }
-let drag = null;
-canvas.addEventListener('pointerdown', (e) => drag = { x: e.clientX, y: e.clientY });
-addEventListener('pointerup', () => drag = null);
-addEventListener('pointermove', (e) => { if (!drag) return; az -= (e.clientX - drag.x) * 0.006; el = clamp(el + (e.clientY - drag.y) * 0.006, -0.15, 1.1); drag.x = e.clientX; drag.y = e.clientY; });
-addEventListener('wheel', (e) => dist = clamp(dist + e.deltaY * 0.01, 5, 40), { passive: true });
+// one-finger drag = orbit · two-finger pinch = zoom · wheel = zoom · ± buttons
+const ptrs = new Map();
+const pdist = () => { const a = [...ptrs.values()]; return a.length < 2 ? 0 : Math.hypot(a[0].x - a[1].x, a[0].y - a[1].y); };
+let pinch = 0;
+const zoom = (f) => { dist = clamp(dist * f, 4, 40); };
+canvas.addEventListener('pointerdown', (e) => { ptrs.set(e.pointerId, { x: e.clientX, y: e.clientY }); if (ptrs.size === 2) pinch = pdist(); });
+const drop = (e) => { ptrs.delete(e.pointerId); if (ptrs.size < 2) pinch = 0; };
+addEventListener('pointerup', drop); addEventListener('pointercancel', drop);
+addEventListener('pointermove', (e) => {
+  const p = ptrs.get(e.pointerId); if (!p) return;
+  if (ptrs.size >= 2) {                                        // pinch-to-zoom
+    p.x = e.clientX; p.y = e.clientY; const d = pdist();
+    if (pinch && d) zoom(pinch / d); pinch = d;
+  } else {                                                     // orbit
+    az -= (e.clientX - p.x) * 0.006; el = clamp(el + (e.clientY - p.y) * 0.006, -0.15, 1.1);
+    p.x = e.clientX; p.y = e.clientY;
+  }
+});
+addEventListener('wheel', (e) => zoom(e.deltaY > 0 ? 1.08 : 0.93), { passive: true });
+document.getElementById('zin').addEventListener('click', (e) => { e.stopPropagation(); zoom(0.85); });
+document.getElementById('zout').addEventListener('click', (e) => { e.stopPropagation(); zoom(1.18); });
 
 // ── HDR bloom composer — the SAME passes the game's shop preview uses ─────────
 let composer = null;
@@ -128,6 +147,7 @@ function frame() {
   for (const m of A.glowMats) m.emissiveIntensity = baseEmi.get(m) * (1 + 1.4 * boost);
   A.thrusters.forEach((th) => th.userData.flame.scale.setScalar(0.01 + boost * 1.0));
   place();
+  headlight.position.copy(camera.position);                   // light whatever the camera sees
   if (composer) composer.render(); else renderer.render(scene, camera);
   requestAnimationFrame(frame);
 }

@@ -12,7 +12,7 @@ const THREE = await import('three');
 const { buildSVJDragon } = await import('./svjDragon.js');
 
 // ── camera, auto-fit to the model, framed for each view ──────────────────────
-function setupCamera(group, view, W, H) {
+function setupCamera(group, view, W, H, fitMul = 1.28) {
   const cam = new THREE.PerspectiveCamera(46, W / H, 0.1, 400);
   const box = new THREE.Box3();
   group.traverse((o) => { if (o.isMesh) box.expandByObject(o); });
@@ -23,7 +23,7 @@ function setupCamera(group, view, W, H) {
   else if (view === 'side') { dir = new THREE.Vector3(1, 0.10, 0.04); pw = sz.z; ph = sz.y; }
   else { dir = new THREE.Vector3(0, 0.22, 1); pw = sz.x; ph = sz.y; }        // rear chase, slightly above
   const fit = Math.max(ph * 0.5 / Math.tan(vfov / 2), pw * 0.5 / Math.tan(hfov / 2));
-  cam.position.copy(ctr).addScaledVector(dir.normalize(), fit * 1.28);
+  cam.position.copy(ctr).addScaledVector(dir.normalize(), fit * fitMul);
   cam.lookAt(ctr); cam.updateMatrixWorld(true);
   cam.matrixWorldInverse.copy(cam.matrixWorld).invert(); cam.updateProjectionMatrix();
   return cam;
@@ -34,17 +34,19 @@ const proj = (cam, W, H, v) => {
 };
 
 // ── render one view → {rgba,W,H} ─────────────────────────────────────────────
-function render(group, view, W = 460, H = 460) {
-  const cam = setupCamera(group, view, W, H);
+function render(group, view, W = 460, H = 460, fitMul = 1.28) {
+  const cam = setupCamera(group, view, W, H, fitMul);
   const col = new Float32Array(W * H * 3);                    // linear-ish colour
   const emi = new Float32Array(W * H * 3);                    // emissive for bloom
   const depth = new Float32Array(W * H).fill(-Infinity);
   const id = new Int32Array(W * H).fill(-1);
-  for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {   // dawn-sky gradient
+  for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {   // brighter studio gradient (better visibility)
     const t = y / H, i = (y * W + x) * 3;
-    col[i] = 16 * (1.4 - t * 0.7); col[i + 1] = 20 * (1.3 - t * 0.6); col[i + 2] = 32 * (1.5 - t * 0.7);
+    col[i] = 40 * (1.3 - t * 0.5); col[i + 1] = 46 * (1.25 - t * 0.45); col[i + 2] = 60 * (1.3 - t * 0.5);
   }
-  const light = new THREE.Vector3(-0.35, 0.8, 0.55).normalize();
+  // KEY + FILL + ambient floor so no face reads pure black at any angle.
+  const key = new THREE.Vector3(-0.35, 0.8, 0.55).normalize();
+  const fill = new THREE.Vector3(0.6, 0.25, -0.5).normalize();
   const fa = new THREE.Vector3(), fb = new THREE.Vector3(), fc = new THREE.Vector3(), e1 = new THREE.Vector3(), e2 = new THREE.Vector3(), nrm = new THREE.Vector3();
   let mid = 0;
   group.traverse((o) => {
@@ -55,8 +57,8 @@ function render(group, view, W = 460, H = 460) {
     const tri = (i0, i1, i2) => {
       fa.fromBufferAttribute(pos, i0).applyMatrix4(mw); fb.fromBufferAttribute(pos, i1).applyMatrix4(mw); fc.fromBufferAttribute(pos, i2).applyMatrix4(mw);
       e1.subVectors(fb, fa); e2.subVectors(fc, fa); nrm.crossVectors(e1, e2).normalize();
-      const ndl = Math.abs(nrm.dot(light));
-      const shade = 0.45 + 0.55 * (ndl > 0.6 ? 1 : ndl > 0.28 ? 0.8 : 0.62);  // soft 2-tone
+      const kd = Math.abs(nrm.dot(key)), fd = Math.abs(nrm.dot(fill));
+      const shade = Math.min(1.35, 0.5 + 0.62 * kd + 0.32 * fd);             // ambient floor + key + fill
       const A = proj(cam, W, H, fa), B = proj(cam, W, H, fb), C = proj(cam, W, H, fc);
       if (A.ez > -0.05 || B.ez > -0.05 || C.ez > -0.05) return;
       const loX = Math.max(0, Math.floor(Math.min(A.x, B.x, C.x))), hiX = Math.min(W - 1, Math.ceil(Math.max(A.x, B.x, C.x)));
@@ -133,6 +135,11 @@ const { group } = buildSVJDragon();
 const tris = triCount(group);
 const montage = strip([render(group, 'rear'), render(group, 'threeq'), render(group, 'side')]);
 writeFileSync(out, png(montage.W, montage.H, montage.rgba));
+// also write each view as its own large, tightly-framed image (for close inspection)
+const base = out.replace(/\.png$/, '');
+for (const view of ['rear', 'threeq', 'side']) {
+  const r = render(group, view, 920, 920, 1.06);                 // big + tight zoom
+  writeFileSync(`${base}-${view}.png`, png(r.W, r.H, r.rgba));
+}
 console.log(`SVJ Mecha Dragon — ${tris} tris`);
-console.log(`  rear chase · 3/4 shop · side profile`);
-console.log(`wrote ${out}  (${montage.W}x${montage.H})`);
+console.log(`wrote ${out} (montage) + ${base}-{rear,threeq,side}.png (920²)`);
