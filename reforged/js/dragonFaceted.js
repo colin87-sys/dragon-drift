@@ -1151,7 +1151,7 @@ function buildSvjLayeredBladeWing(def, model, attach, giM) {
   };
   // WSCALE shrinks the wing to ~40% of the torso length (the reference wing is a compact unit on
   // the front-mid back; the earlier wing was ~2x too long and overshot onto the tail).
-  const WSCALE = 0.52;
+  const WSCALE = 0.45;
   const P = (zy, x) => [x, zy[1] * ws * WSCALE, zy[0] * ws * WSCALE];
   const fillStrip = (U, L, x, mat) => {
     const tris = [];
@@ -1232,10 +1232,13 @@ function buildSvjLayeredBladeWing(def, model, attach, giM) {
     return { pivot, wingTip, marker };
   }
 
+  // FWD slides the wing root forward (toward the head, -Z) to the SHOULDER (above the front legs)
+  // - the reference attaches at ~31% of the torso; the raw wingRoot sits ~20% too far back.
+  const FWD = 0.78;
   const Rb = buildWing();
-  const wrR = attach.wingRoot(1); Rb.pivot.position.set(wrR.x, wrR.y, wrR.z);
+  const wrR = attach.wingRoot(1); Rb.pivot.position.set(wrR.x, wrR.y, wrR.z - FWD);
   const pivotL = Rb.pivot.clone(true);
-  const wrL = attach.wingRoot(-1); pivotL.position.set(wrL.x, wrL.y, wrL.z); pivotL.scale.x = -1;
+  const wrL = attach.wingRoot(-1); pivotL.position.set(wrL.x, wrL.y, wrL.z - FWD); pivotL.scale.x = -1;
   let tipL = null, markerL = null;
   pivotL.traverse((o) => { if (o.userData.handle === 'tip') tipL = o; else if (o.userData.handle === 'marker') markerL = o; });
   group.add(Rb.pivot); group.add(pivotL);
