@@ -25,7 +25,7 @@ const { genomeToProfile } = await import('../js/creatureGenome.js');
 const W = 100, H = 64;
 
 // TARGET = the wyvern's real silhouette (stand-in for "the outline you drew").
-const target = genomeMask(SAMPLE_WYVERN, W, H);
+const target = genomeMask(SAMPLE_WYVERN, 'side', W, H);
 
 // START = the SAME creature flattened to a featureless tube — every cross-section
 // the wrong height. This is the "no matter how I prompt, the shape is off" state.
