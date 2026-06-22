@@ -943,15 +943,17 @@ function buildSvjFanWing(def, model, attach, giM) {
 }
 registerWings('svjFanWing', buildSvjFanWing);
 
-// ── WINGS: 'auricWing' — broad gold blade-quills + a DENSE red-hex membrane ───────
-// Authored fresh to the gold-bull reference (neither svjBladeWing nor svjJetWing fit):
-// a fan of 5 long gold quills sweeping up-and-back from the shoulder, a dark membrane
-// filling the inner fan, and a DENSE field of red-emissive hexagons across it (the
-// reference's signature glow — far more cells than svjFanWing). MIRROR-EXACT by
-// construction: both sides read the SAME `QUILL` data through emitSide(side), with
-// `side` on every lateral term, so L and R are guaranteed identical in shape+outline.
-// Rides the frozen rig: fan+membrane on the pivot (flaps as a unit), tip + marker on
-// the wingTip (fold). ULTRA adds extra hex rows (detail-gated; HIGH stays lean).
+// ── WINGS: 'auricWing' — 3 OVERLAPPING broad gold blade modules + red-hex membrane ─
+// Authored to the gold-bull reference (IMG_7002): the wing is NOT thin quills but a
+// stack of BROAD gold blades — each sharp at the tip yet thickening into a wide blade
+// body toward the root — fanned up-and-back and OVERLAPPING like armored feathers, with
+// a dark membrane carrying glowing RED hexagons showing through the gaps between them.
+// Each module reuses the svjBladeWing thick-blade recipe: a faceted top split along a
+// raised CENTER RIDGE + a tapering leading spar + a thin trailing rail. MIRROR-EXACT:
+// both sides read the SAME `MODULE` data via emitSide(side) with `side` on every lateral
+// term, so L/R are guaranteed identical in shape+outline. Rides the frozen rig: all
+// blades + membrane + hexes on the pivot (flap as a unit, glide); the longest blade's
+// tip + marker on the wingTip (fold). ULTRA adds a 4th blade + denser hexes (gated).
 function buildAuricWing(def, model, attach, giM) {
   const group = new THREE.Group();
   const spineMats = [];
@@ -979,15 +981,22 @@ function buildAuricWing(def, model, attach, giM) {
   hexMat.userData.baseIntensity = 2.2 * gi;
   spineMats.push(hexMat);
 
-  // Gold quill fan — [reachX, tipY, tipZ, rootY]; index 0 = low/front leading quill,
-  // last = tall/back trailing quill (the dramatic raked tips of the reference).
-  const QUILL = [
-    [2.7, 0.20, 0.35, 0.00],
-    [3.1, 0.85, 0.80, 0.10],
-    [3.3, 1.55, 1.30, 0.20],
-    [3.2, 2.25, 1.85, 0.28],
-    [2.6, 2.85, 2.35, 0.34],
+  // Broad blade modules — { rootY, chord, reachX, tipY, tipZ, layer }. index 0 = low/
+  // front (leading) blade, last = high/most-swept (trailing). Each climbs in rootY+tipY
+  // and sweeps further aft (tipZ), sitting just above+behind the previous so the broad
+  // bodies OVERLAP like layered armor. `layer` drives the +Y anti-z-fight stagger.
+  // BROAD chords (1.2–1.55, stay wide then taper to a sharp tip — NOT spikes) lifted on a
+  // strong DIHEDRAL (V): the chase cam looks nearly level, so the tips must rise for the
+  // broad faces to angle up toward it (the in-game V-wing read). Fan spreads in X (span) +
+  // Z (sweep) so the 3 blades overlap like layered cards.
+  const MODULE = [
+    { rootY: 0.04, chord: 1.55, reachX: 3.5, tipY: 1.15, tipZ: 0.05, layer: 0 },  // leading, forward
+    { rootY: 0.12, chord: 1.50, reachX: 3.9, tipY: 1.80, tipZ: 0.85, layer: 1 },  // middle, longest
+    { rootY: 0.20, chord: 1.25, reachX: 3.6, tipY: 2.45, tipZ: 1.75, layer: 2 },  // trailing, swept back+up
   ];
+  if (isUltra()) MODULE.push({ rootY: 0.26, chord: 1.0, reachX: 3.1, tipY: 3.00, tipZ: 2.45, layer: 3 });
+
+  const lerp3 = (a, b, t) => [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t, a[2] + (b[2] - a[2]) * t];
   // a small flat hexagon (pointy-top) in XY; caller positions/orients it.
   const hexCard = (r) => {
     const pts = [];
@@ -1000,51 +1009,61 @@ function buildAuricWing(def, model, attach, giM) {
     const wr = attach.wingRoot(side);
     pivot.position.set(wr.x, wr.y, wr.z);
 
-    const hub = new THREE.Mesh(new THREE.BoxGeometry(0.34, 0.4, 0.52), carbon);
-    hub.rotation.z = side * 0.28; pivot.add(hub);
+    const hub = new THREE.Mesh(new THREE.BoxGeometry(0.36, 0.42, 0.56), carbon);
+    hub.rotation.z = side * 0.26; pivot.add(hub);
 
-    const root = [side * 0.10, 0.06, 0.0];
-    const tip = QUILL.map(([rx, ty, tz]) => [side * rx * ws, ty, tz]);
+    // Each module: a BROAD blade — wide root + a wide belly pushed OUT to ~55%, then a
+    // short taper to a SHARP TIP EDGE (not a needle). Chord half-width is in Z (fore-aft).
+    MODULE.forEach((m) => {
+      const yOff = m.layer * 0.022;                     // +Y stagger so overlaps don't z-fight
+      const x0 = side * 0.08, y0 = m.rootY + yOff;
+      const xt = side * m.reachX * ws, yt = m.tipY + yOff, zt = m.tipZ;
+      const wr = m.chord * 0.44, wm = m.chord * 0.54, wt = m.chord * 0.12;  // root / belly / tip half-chord
+      const xm = x0 + (xt - x0) * 0.55, ym = y0 + (yt - y0) * 0.55 + 0.03, zm = zt * 0.55;
+      const RL = [x0, y0, -wr], RT = [x0, y0, wr];            // root leading / trailing
+      const ML = [xm, ym, zm - wm], MT = [xm, ym, zm + wm];   // belly leading / trailing (broad)
+      const TL = [xt, yt, zt - wt], TR = [xt, yt, zt + wt];   // short sharp tip EDGE
 
-    // Dark membrane fanning between consecutive quill INNER edges + the hub.
-    const innerFrac = 0.62;
-    const inner = tip.map((T) => [root[0] + (T[0] - root[0]) * innerFrac, root[1] + (T[1] - root[1]) * innerFrac, root[2] + (T[2] - root[2]) * innerFrac]);
-    for (let i = 0; i < inner.length - 1; i++)
-      pivot.add(flatTriMesh([[root, inner[i], inner[i + 1]]], memMat));
+      // broad top surface (4 tris): root quad (stays wide) + tip quad (short sharp taper).
+      pivot.add(flatTriMesh([[RL, ML, MT], [RL, MT, RT], [ML, TL, TR], [ML, TR, MT]], gold));
+      // one crisp leading-edge spar on the BROAD root only — no thin bar past the belly.
+      pivot.add(frameBar(RL, ML, [0.12, 0.10], gold));
+    });
 
-    // DENSE red hex field: a row of hexes per fan gap, from near the hub out to the
-    // inner edge. HIGH = 3 per gap (12 total); ULTRA = 5 per gap (20). Detail-gated.
-    const perGap = isUltra() ? 5 : 3;
-    for (let i = 0; i < inner.length - 1; i++) {
-      const A = inner[i], B = inner[i + 1];
+    // Dark membrane recessed BELOW the blades, fanning between adjacent module roots so it
+    // fills the inter-blade gaps; the red hexes ride it, visible through the overlaps.
+    const memY = -0.03, hub3 = [side * 0.10, memY, 0.04];
+    const memInner = MODULE.map((m) => {
+      const R0 = [side * 0.06, memY, -m.chord * 0.38];
+      const T = [side * m.reachX * ws, m.tipY, m.tipZ];
+      return lerp3(R0, T, 0.6);        // inner ~60% of each blade, at membrane depth
+    });
+    for (let i = 0; i < memInner.length - 1; i++)
+      pivot.add(flatTriMesh([[hub3, memInner[i], memInner[i + 1]]], memMat));
+
+    // Red hex cells along each inter-blade gap, sat just ABOVE the membrane and facing
+    // up-and-back so they read through the gaps from the down-and-behind chase cam.
+    const perGap = isUltra() ? 4 : 3;
+    for (let i = 0; i < memInner.length - 1; i++) {
+      const A = memInner[i], B = memInner[i + 1];
       for (let s = 1; s <= perGap; s++) {
         const f = s / (perGap + 1);
-        const ea = [root[0] + (A[0] - root[0]) * f, root[1] + (A[1] - root[1]) * f, root[2] + (A[2] - root[2]) * f];
-        const eb = [root[0] + (B[0] - root[0]) * f, root[1] + (B[1] - root[1]) * f, root[2] + (B[2] - root[2]) * f];
-        const c = [(ea[0] + eb[0]) / 2, (ea[1] + eb[1]) / 2, (ea[2] + eb[2]) / 2 + 0.03];
-        const hx = hexCard(0.10 * (1 - f * 0.35));
-        hx.position.set(c[0], c[1], c[2]); hx.rotation.y = side * 0.45;
+        const a = lerp3(hub3, A, f), b = lerp3(hub3, B, f);
+        const cc = [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2 + 0.04, (a[2] + b[2]) / 2];
+        const hx = hexCard(0.12 * (1 - f * 0.3));
+        hx.position.set(cc[0], cc[1], cc[2]); hx.rotation.x = -1.05; hx.rotation.z = side * 0.15;
         pivot.add(hx);
       }
     }
 
-    // Gold quills — leaf blades: narrow root → wide mid → point.
-    QUILL.forEach(([, , , ry], i) => {
-      const R = [side * 0.06, ry, 0], T = tip[i];
-      const mx = R[0] + (T[0] - R[0]) * 0.4, my = R[1] + (T[1] - R[1]) * 0.4, mz = R[2] + (T[2] - R[2]) * 0.4;
-      const p2 = [mx + side * 0.07, my, mz + 0.32];   // back/outer edge bulge
-      const p4 = [mx - side * 0.05, my, mz - 0.20];   // front/inner edge
-      pivot.add(flatTriMesh([[R, p2, T], [R, T, p4]], gold));
-    });
-
-    // wingTip at the tall trailing quill → rig fold articulates the fan tips.
+    // wingTip at the longest (last) blade's tip → rig fold articulates the raked tip.
+    const a = MODULE[MODULE.length - 1];
     const wingTip = new THREE.Group();
-    const a = tip[3];
-    wingTip.position.set(a[0], a[1], a[2]);
-    const ext = new THREE.Mesh(new THREE.ConeGeometry(0.06, 0.6, seg(4)), gold);
-    ext.rotation.x = -1.2; ext.position.set(0, 0.25, 0.12); wingTip.add(ext);
+    wingTip.position.set(side * a.reachX * ws, a.tipY + a.layer * 0.022, a.tipZ);
+    const ext = new THREE.Mesh(new THREE.ConeGeometry(0.06, 0.55, seg(4)), gold);
+    ext.rotation.x = -1.15; ext.position.set(0, 0.22, 0.12); wingTip.add(ext);
     const marker = new THREE.Object3D();
-    marker.position.set(0, 0.3, 0.18); wingTip.add(marker);
+    marker.position.set(0, 0.28, 0.16); wingTip.add(marker);
     pivot.add(wingTip);
 
     group.add(pivot);
@@ -1058,6 +1077,7 @@ function buildAuricWing(def, model, attach, giM) {
       wingPivotL: L.pivot, wingPivotR: R.pivot,
       wingTipL: L.wingTip, wingTipR: R.wingTip,
       tipMarkerL: L.marker, tipMarkerR: R.marker,
+      wingMidL: null, wingMidR: null,
       wingPivot2L: null, wingPivot2R: null, wingRigL: null, wingRigR: null,
     },
     wingMat: gold, spineMats,
