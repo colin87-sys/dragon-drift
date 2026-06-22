@@ -72,23 +72,31 @@ const detail = detailArg ? detailArg.slice(9) : 'high';
 // the idle-GPU-only DESIGN tier — the model is authored here and downscaled per
 // device, so it gets a much larger ceiling (smoother curves via seg() + extra
 // detail-gated modules are the whole point of designing rich and scaling down).
-// (Interim ULTRA ceiling. An A19-class GPU can hold 60fps far above this; the real
-// mobile limit is draw calls/materials, not tris. Hero-creature design target TBD
-// on-device. Override anytime with --max=.)
-const defaultBudget = detail === 'ultra' ? 24000 : 6000;
+// ULTRA is the idle-GPU-only DESIGN tier — hero creatures are authored here at ~48k
+// (an A19-class GPU holds 60fps far above this; the real mobile limit is draw calls/
+// materials, tracked in the columns below, not tris). HIGH keeps the 6000 mobile floor.
+const defaultBudget = detail === 'ultra' ? 48000 : 6000;
 const BUDGET = maxArg ? Number(maxArg.slice(6)) : defaultBudget;
 
 // --- counting --------------------------------------------------------------
-function countTris(obj) {
-  let tris = 0;
+// For a WebGL/Three.js game the per-frame cost is dominated by DRAW CALLS and the
+// number of distinct MATERIALS (state changes), NOT the triangle count — a flagship
+// GPU pushes millions of tris but stalls on hundreds of draw calls. So we report
+// three numbers: tris (geometry), draws (≈ one per mesh), and mats (unique materials).
+function countStats(obj) {
+  let tris = 0, draws = 0;
+  const mats = new Set();
   obj.traverse((o) => {
-    if (o.isMesh && o.geometry) {
-      const g = o.geometry;
-      if (g.index) tris += g.index.count / 3;
-      else if (g.attributes && g.attributes.position) tris += g.attributes.position.count / 3;
-    }
+    if (!o.isMesh || !o.geometry) return;
+    const g = o.geometry;
+    if (g.index) tris += g.index.count / 3;
+    else if (g.attributes && g.attributes.position) tris += g.attributes.position.count / 3;
+    draws++;                                    // each mesh is roughly one draw call
+    const m = o.material;
+    if (Array.isArray(m)) m.forEach((x) => x && mats.add(x.uuid));
+    else if (m) mats.add(m.uuid);
   });
-  return tris;
+  return { tris: Math.round(tris), draws, mats: mats.size };
 }
 function dispose(obj) {
   obj.traverse((o) => {
@@ -103,34 +111,38 @@ const FORM_NAMES = ['Hatchling', 'Kindled', 'Radiant', 'Eternal'];
 const rows = [];
 let rosterTotal = 0;
 let over = 0;
+let maxDraws = 0, maxMats = 0;
 
 for (const key of Object.keys(DRAGONS)) {
   const maxTier = maxTierFor(key);
   for (let tier = 0; tier <= maxTier; tier++) {
     const def = ascendedDef(DRAGONS[key], tier, 0);
     const { group } = buildDragonModel(def, { detail });
-    const tris = Math.round(countTris(group));
+    const { tris, draws, mats } = countStats(group);
     dispose(group);
     rosterTotal += tris;
     const ok = tris <= BUDGET;
     if (!ok) over++;
-    rows.push({ key, name: FORM_NAMES[tier] || `F${tier}`, tris, ok });
+    if (draws > maxDraws) maxDraws = draws;
+    if (mats > maxMats) maxMats = mats;
+    rows.push({ key, name: FORM_NAMES[tier] || `F${tier}`, tris, draws, mats, ok });
   }
 }
 
 // --- report ----------------------------------------------------------------
 const padR = (s, n) => String(s).padEnd(n);
 const padL = (s, n) => String(s).padStart(n);
-console.log(`\nDragon Drift — model triangle budget (detail: ${detail.toUpperCase()} · per-form ceiling: ${BUDGET})\n`);
-console.log(padR('Dragon', 12) + padR('Form', 11) + padL('Tris', 8) + '  Status');
-console.log('-'.repeat(41));
+console.log(`\nDragon Drift — model budget (detail: ${detail.toUpperCase()} · tri ceiling: ${BUDGET})\n`);
+console.log(padR('Dragon', 12) + padR('Form', 11) + padL('Tris', 8) + padL('Draws', 7) + padL('Mats', 6) + '  Status');
+console.log('-'.repeat(54));
 let lastKey = null;
 for (const r of rows) {
   const keyCol = r.key === lastKey ? '' : r.key;
   lastKey = r.key;
-  console.log(padR(keyCol, 12) + padR(r.name, 11) + padL(r.tris, 8) + '  ' + (r.ok ? 'OK' : 'OVER'));
+  console.log(padR(keyCol, 12) + padR(r.name, 11) + padL(r.tris, 8) + padL(r.draws, 7) + padL(r.mats, 6) + '  ' + (r.ok ? 'OK' : 'OVER'));
 }
-console.log('-'.repeat(41));
-console.log(`${rows.length} models · roster total ${rosterTotal} tris · ${over} over budget\n`);
+console.log('-'.repeat(54));
+console.log(`${rows.length} models · roster total ${rosterTotal} tris · ${over} over budget`);
+console.log(`peak per form: ${maxDraws} draw calls · ${maxMats} materials  (the real mobile/WebGL limit — keep these lean)\n`);
 
 if (ci && over > 0) process.exitCode = 1;
