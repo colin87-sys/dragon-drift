@@ -205,7 +205,7 @@ export function buildSpadeShape(halfW, length) {
 // that bows out then sweeps to a fine hooked tip, and a trailing edge (-x) with a
 // subtle concave inner notch — an aerodynamic control surface, not a flat diamond.
 // Mirror via scale.x to put the leading edge on either side.
-function buildStealthFinShape(halfW, length) {
+export function buildStealthFinShape(halfW, length) {
   const s = new THREE.Shape();
   s.moveTo(0, 0);
   // leading edge: bow outward, then sweep up and in toward the tip

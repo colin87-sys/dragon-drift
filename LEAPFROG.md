@@ -2955,7 +2955,23 @@ thickness is a gross proxy (dihedral/sweep inflates the y-extent) and interior p
 relief stay a color-render + preview call — silhouette/AABB can't see inside the outline, by nature.
 
 **→ Leapfrog (Phase 2):** author real `targets.json` sidecars for the bull's rear + side references and
-converge proportions numerically before touching the Gundam's new archetype. **→ Leapfrog:** add a draw-call / material-count column to
+converge proportions numerically before touching the Gundam's new archetype.
+
+**Lesson L?? — CURVED scimitar wing (auricWing v2) + the lighting trap.** Three wing passes: thin quills
+("spiky sticks"), 3 straight broad blades ("not aesthetic, needs CURVED"), then CURVED blades. Curved
+blades reuse `buildLayeredFin`/`buildStealthFinShape` (dragonParts.js — bezier swept fin) with a camber
+(vertex-z dish) → a 3D sabre; oriented by a `makeBasis` frame from a span direction (elevation + sweep).
+GOTCHAS, each diagnosed with the COLOR tool (creatureshots), not by asking the human: (1) **metal fins go
+black** — a `metalness 0.55` gold facing away from the lights renders near-black with no env map (flat
+planks caught light; big curved faces don't). Fix: diffuse blade gold (metalness ~0.28) + a low gold
+EMISSIVE (~0.32) so shadowed faces still read gold. (2) **upright fins are under-lit** — high dihedral
+points faces away from the overhead rig; flattening them (low elevation, more sweep-back) both lights them
+AND matches the reference's swept wing. (3) **span/body** is the convergence knob: high sweep trades X-span
+for Z-length; lengthen blades + ease sweep to hit ~2.3 (measured 1.95 → 2.27 via partsil). MIRROR: build
+the RIGHT wing once, `clone(true)` + `scale.x=-1` for the left (the svjJetWing pattern) → L/R exact, kills
+the "weird bits on the left wing" (DoubleSide makes the flipped normals a non-issue; flapcheck passes).
+**Reusable rule:** when a render looks wrong, diagnose the CAUSE from the tool (material/lighting/proportion)
+and fix it — never hand the human a render to judge. ULTRA-gated extra blade + inner panels; 5712 tris HIGH. **→ Leapfrog:** add a draw-call / material-count column to
 tricount.mjs (the budget that truly limits a WebGL game), and render every convergence pass at BOTH tiers
 (ULTRA = design target, HIGH = mobile-read sanity check).
 
