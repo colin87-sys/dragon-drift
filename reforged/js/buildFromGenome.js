@@ -110,38 +110,40 @@ function membrane(rootWorld, chain, chord, mat) {
 // elevation/pose, finger count, scallop). `side` (+1 right / −1 left) mirrors it.
 // Built as real 3D geometry (spreads in X, sweeps in Z, raised in Y by elevation),
 // so it reads as a wing from any angle AND projects broadly into the side view.
-function batWing(root, side, p, mat) {
-  const fingers = Math.max(2, Math.round(seg(p.fingers ?? 4)));
-  const armLen = p.armLen ?? 0.55, span = p.span ?? 1.6;
-  const elev = p.elevation ?? 0.7;              // 0 flat → ~1.4 vertical (upstroke)
-  const leadAng = p.leadAng ?? 0.5;             // forward fan of the leading finger (rad)
-  const trailAng = p.trailAng ?? 1.5;           // back sweep of the trailing finger (rad)
-  const scallop = p.scallop ?? 0.3;             // trailing-edge notch depth
-  const R = new THREE.Vector3(root[0], root[1], root[2]);
-  // raised arm: out in X (by side), up in Y by elevation.
+function batWing(frontRoot, side, p, mat) {
+  const fingers = Math.max(3, Math.round(seg(p.fingers ?? 4)));
+  const armLen = p.armLen ?? 0.55, span = p.span ?? 1.2;
+  const elev = p.elevation ?? 0.35;             // 0 = wings out flat … ~1.2 = upstroke
+  const scallop = p.scallop ?? 0.3;
+  const backChord = p.backChord ?? 1.0;         // length of the root chord ALONG the body
+  // ROOT CHORD — the wing welds to the body along a line, not a point: a front
+  // anchor (shoulder) and a back anchor further down the back. Both sit on the
+  // body's upper flank so the membrane is connected, not floating.
+  const R = new THREE.Vector3(frontRoot[0], frontRoot[1], frontRoot[2]);
+  const B = new THREE.Vector3(frontRoot[0] * 0.82, frontRoot[1] - 0.05, frontRoot[2] + backChord);
+  // arm out to the wrist (out in X by side, raised in Y by elevation).
   const out = new THREE.Vector3(side * Math.cos(elev), Math.sin(elev), 0);
   const Wr = R.clone().addScaledVector(out, armLen);
-  // finger tips: sweep the raised-out vector about Y from leading(−) to trailing(+).
+  // fingers fan from the wrist: leading finger continues the arm (up/out), trailing
+  // fingers sweep back (+Z) toward the back anchor — a real bat-wing fan.
+  const backOut = new THREE.Vector3(out.x * 0.45, out.y * 0.5, 1).normalize();
   const tips = [];
   for (let i = 0; i < fingers; i++) {
     const f = i / (fingers - 1);
-    const A = -leadAng + (leadAng + trailAng) * f;       // sweep angle about Y
-    const cx = Math.cos(A), sz = Math.sin(A);
-    const dir = new THREE.Vector3(out.x * cx, out.y, -out.x * sz); // rotate out about Y
-    dir.normalize();
-    tips.push(Wr.clone().addScaledVector(dir, span * (1 - 0.22 * f)));
+    const dir = out.clone().lerp(backOut, f).normalize();
+    tips.push(Wr.clone().addScaledVector(dir, span * (1 - 0.15 * f)));
   }
   const verts = [], idx = [];
   const push = (a, b, c) => { const base = verts.length / 3; verts.push(a.x, a.y, a.z, b.x, b.y, b.z, c.x, c.y, c.z); idx.push(base, base + 1, base + 2); };
-  // webbing between adjacent fingers, with a scalloped (pulled-in) mid trailing edge.
-  for (let i = 0; i < fingers - 1; i++) {
+  // membrane polygon: frontRoot → wrist → tip0..tipN → backRoot → frontRoot.
+  push(R, Wr, tips[0]);                                   // leading membrane (arm → 1st finger)
+  for (let i = 0; i < fingers - 1; i++) {                 // webbing between fingers, scalloped
     const t0 = tips[i], t1 = tips[i + 1];
     const mid = t0.clone().lerp(t1, 0.5).lerp(Wr, scallop * 0.5);
     push(Wr, t0, mid); push(Wr, mid, t1);
   }
-  // leading membrane (arm → first finger) + trailing sail (last finger → shoulder).
-  push(R, Wr, tips[0]);
-  push(R, tips[fingers - 1], Wr);
+  push(Wr, tips[fingers - 1], B);                         // trailing finger → back anchor
+  push(R, B, Wr);                                         // inner sail along the root chord
   const gmt = new THREE.BufferGeometry();
   gmt.setIndex(idx);
   gmt.setAttribute('position', new THREE.Float32BufferAttribute(verts, 3));
@@ -190,7 +192,7 @@ export function buildFromGenome(rawGenome, opts = {}) {
     } else if (ap.kind === 'wing') {
       // root = shoulder offset to the side; side from the limb chain's x sign.
       const side = Math.sign((ap._chain && ap._chain[0] && ap._chain[0][0]) || 1) || 1;
-      const root = [side * (ap.rootX ?? 0.24), (ap._from?.[1] ?? 0.4) + (ap.rootLift ?? 0.12), (ap._from?.[2] ?? -0.4)];
+      const root = [side * (ap.rootX ?? 0.30), (ap._from?.[1] ?? 0.4) + (ap.rootLift ?? 0.18), (ap._from?.[2] ?? -0.4)];
       tally('wing', batWing(root, side, ap, membMat));
     } else if (ap.kind === 'leg') {
       const chain = [V(ap._from), ...ap._chain.map(V)];
