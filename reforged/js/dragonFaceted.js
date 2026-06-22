@@ -1157,10 +1157,13 @@ function buildSvjLayeredBladeWing(def, model, attach, giM) {
   // behind it; the THIRD is the smallest, underneath. All curve up-and-back (+Y then +Z).
   // Layered by depth toward the side cam (+X): leading in FRONT, then middle, then smallest behind.
   // { root:[x,y,z], ctrl:[dy,dz], tip:[dy,dz], baseHalf }. Head=-Z (forward), tail=+Z (back).
+  // TRACED from the reference outline (/tmp/ref-wing-trace.png) via the grid + bezier-midpoint
+  // fit, then mapped to world (181 px/unit; image-right=+Z tail, image-up=+Y). The blades are
+  // LONG + SHALLOW: each rises ~49deg then flattens to ~12deg, sweeping back toward the tail.
   const BLADES = [
-    { root: [0.03, 0.06, 0.02], ctrl: [1.45, 0.65], tip: [2.05, 1.78], baseHalf: 0.38 }, // LEADING: biggest, sweeps up-back (the main blade)
-    { root: [0.01, 0.06, 0.00], ctrl: [1.42, 0.18], tip: [1.86, 0.82], baseHalf: 0.28 }, // middle: smaller, more vertical
-    { root: [-0.01, 0.05, -0.04], ctrl: [0.98, -0.40], tip: [1.40, -0.62], baseHalf: 0.24 }, // smallest: clearly fans forward (the 3rd blade, underneath)
+    { root: [0.05, 0.05, 0.00], ctrl: [0.905, 0.785], tip: [1.19, 2.07], baseHalf: 0.26 }, // LEADING: biggest, highest tip
+    { root: [0.01, 0.05, 0.00], ctrl: [0.585, 0.820], tip: [0.91, 1.80], baseHalf: 0.21 },  // middle: smaller
+    { root: [-0.03, 0.05, 0.00], ctrl: [0.210, 0.650], tip: [0.58, 1.46], baseHalf: 0.17 }, // smallest: lowest, underneath
   ];
 
   function buildWing() {
