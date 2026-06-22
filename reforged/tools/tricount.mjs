@@ -68,9 +68,14 @@ const maxArg = args.find((a) => a.startsWith('--max='));
 // undercut it, and ULTRA must densify but stay inside its (larger) ceiling.
 const detailArg = args.find((a) => a.startsWith('--detail='));
 const detail = detailArg ? detailArg.slice(9) : 'high';
-// HIGH keeps the shipped 6000 mobile ceiling; ULTRA is an idle-GPU-only level so
-// it gets a larger default ceiling (more tris on high-end is the whole point).
-const defaultBudget = detail === 'ultra' ? 13000 : 6000;
+// HIGH keeps the shipped 6000 mobile ceiling (the 60fps mobile identity). ULTRA is
+// the idle-GPU-only DESIGN tier — the model is authored here and downscaled per
+// device, so it gets a much larger ceiling (smoother curves via seg() + extra
+// detail-gated modules are the whole point of designing rich and scaling down).
+// (Interim ULTRA ceiling. An A19-class GPU can hold 60fps far above this; the real
+// mobile limit is draw calls/materials, not tris. Hero-creature design target TBD
+// on-device. Override anytime with --max=.)
+const defaultBudget = detail === 'ultra' ? 24000 : 6000;
 const BUDGET = maxArg ? Number(maxArg.slice(6)) : defaultBudget;
 
 // --- counting --------------------------------------------------------------
