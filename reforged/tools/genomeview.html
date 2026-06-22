@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
+  <title>Genome viewer — Dragon Drift</title>
+  <style>
+    html,body{margin:0;height:100%;background:#0a0e1a;overflow:hidden;font-family:system-ui,sans-serif}
+    #gl{display:block;width:100vw;height:100vh;touch-action:none}
+    #hud{position:fixed;left:12px;top:12px;color:#bfe;font-size:13px;line-height:1.5;
+      background:rgba(8,12,24,.5);padding:8px 10px;border-radius:8px;pointer-events:none;user-select:none}
+    #hud b{color:#9fe06a}
+    #hud .stat{color:#7fd0ff}
+    .row{position:fixed;left:12px;bottom:12px;right:12px;display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end}
+    .row button{background:#16223c;color:#cfe;border:1px solid #2a3a5a;border-radius:8px;
+      padding:8px 12px;font-size:14px;cursor:pointer}
+    .row button.on{background:#2a5;color:#04140a}
+    #editor{position:fixed;right:12px;top:12px;width:320px;max-width:46vw;display:flex;flex-direction:column;gap:6px}
+    #gjson{width:100%;height:42vh;background:rgba(8,12,24,.7);color:#bfe;border:1px solid #2a3a5a;
+      border-radius:8px;font-family:ui-monospace,Menlo,monospace;font-size:11px;line-height:1.4;padding:8px;resize:vertical}
+    #editor button{background:#16223c;color:#cfe;border:1px solid #2a3a5a;border-radius:8px;padding:8px 12px;font-size:14px;cursor:pointer}
+    #editor.hidden{display:none}
+    #err{position:fixed;left:12px;right:12px;top:64px;color:#ff9a9a;font-size:13px;
+      line-height:1.5;white-space:pre-wrap;background:rgba(40,8,8,.6);padding:10px;
+      border-radius:8px;display:none;max-height:50vh;overflow:auto}
+  </style>
+  <script type="importmap">{ "imports": { "three": "../lib/three.module.js" } }</script>
+  <script>
+    window.__gerr = (m) => { const e = document.getElementById('err'); if (e) { e.style.display = 'block'; e.textContent = 'Viewer error:\n' + m; } };
+    window.addEventListener('error', (ev) => window.__gerr((ev.error && ev.error.stack) || ev.message || String(ev)));
+    window.addEventListener('unhandledrejection', (ev) => window.__gerr('Promise: ' + ((ev.reason && ev.reason.stack) || ev.reason)));
+  </script>
+</head>
+<body>
+  <canvas id="gl"></canvas>
+  <div id="err"></div>
+  <div id="hud">Genome viewer — <b id="lbl">…</b><br>
+    <span class="stat" id="stats"></span><br>drag to rotate · scroll/pinch zoom</div>
+  <div id="editor">
+    <textarea id="gjson" spellcheck="false"></textarea>
+    <button id="brender">Render this genome ▶</button>
+  </div>
+  <div class="row">
+    <button data-sample="wyvern" class="on">Wyvern</button>
+    <button data-sample="hexapod">Hexapod (6 legs)</button>
+    <button data-sample="seaSerpent">Sea-serpent (neck+tail fin)</button>
+    <button id="bultra">Ultra: OFF</button>
+    <button id="bspin" class="on">Spin: ON</button>
+    <button id="bedit" class="on">Editor</button>
+    <button id="breset">Reset view</button>
+  </div>
+  <script type="module">
+    import * as THREE from 'three';
+    import { buildFromGenome } from '../js/buildFromGenome.js';
+    import { SAMPLE_WYVERN } from '../js/creatureGenome.js';
+    import { setActiveDetail } from '../js/modelDetail.js';
+
+    // ── sample genomes — pure DATA, all built by the ONE generator ───────────
+    const HEXAPOD = {
+      name: 'Ref-Hexapod',
+      spine: [
+        { id: 'head', p: [0, 0.3, -1.0], w: 0.20, h: 0.22, sq: 0.4 },
+        { id: 'thorax', p: [0, 0.3, -0.2], w: 0.50, h: 0.40, sq: 0.5 },
+        { id: 'abdomen', p: [0, 0.28, 0.6], w: 0.44, h: 0.46, sq: 0.5 },
+        { id: 'tail', p: [0, 0.2, 1.2], w: 0.10, h: 0.12, sq: 0.4 },
+      ],
+      limbs: [
+        { id: 'l1L', from: 'thorax', chain: [[0.3, 0, -0.2], [0.6, -0.5, -0.2]], r: [0.07, 0.03] }, { id: 'l1R', mirror: 'l1L' },
+        { id: 'l2L', from: 'thorax', chain: [[0.3, 0, 0.1], [0.6, -0.5, 0.1]], r: [0.07, 0.03] }, { id: 'l2R', mirror: 'l2L' },
+        { id: 'l3L', from: 'abdomen', chain: [[0.3, 0, 0.5], [0.6, -0.5, 0.5]], r: [0.07, 0.03] }, { id: 'l3R', mirror: 'l3L' },
+      ],
+      appendages: [
+        { on: 'l1L', kind: 'leg' }, { on: 'l1R', kind: 'leg' },
+        { on: 'l2L', kind: 'leg' }, { on: 'l2R', kind: 'leg' },
+        { on: 'l3L', kind: 'leg' }, { on: 'l3R', kind: 'leg' },
+      ],
+      palette: { body: '#3A5F3A', accent: '#9fe06a' },
+    };
+    // a long-necked, finned-tail serpent — head/neck/tail are the SPINE itself,
+    // the tail fin is a membrane appendage (same primitive as a wing).
+    const SEA_SERPENT = {
+      name: 'Ref-SeaSerpent',
+      spine: [
+        { id: 'snout', p: [0, 0.95, -3.0], w: 0.05, h: 0.06, sq: 0.2 },
+        { id: 'head', p: [0, 1.05, -2.6], w: 0.18, h: 0.20, sq: 0.3 },
+        { id: 'neck1', p: [0, 0.80, -2.1], w: 0.16, h: 0.18, sq: 0.2 },
+        { id: 'neck2', p: [0, 0.45, -1.5], w: 0.20, h: 0.22, sq: 0.2 },
+        { id: 'chest', p: [0, 0.25, -0.8], w: 0.34, h: 0.36, sq: 0.25 },
+        { id: 'mid', p: [0, 0.22, 0.2], w: 0.30, h: 0.32, sq: 0.25 },
+        { id: 'aft', p: [0, 0.28, 1.2], w: 0.20, h: 0.22, sq: 0.2 },
+        { id: 'tail', p: [0, 0.45, 2.2], w: 0.08, h: 0.10, sq: 0.2 },
+        { id: 'tailtip', p: [0, 0.70, 2.9], w: 0.03, h: 0.04, sq: 0.2 },
+      ],
+      limbs: [
+        { id: 'finL', from: 'tail', chain: [[0.15, 0.5, 2.4], [0.05, 0.9, 2.7]], r: [0.03, 0.01] },
+        { id: 'finR', mirror: 'finL' },
+      ],
+      appendages: [
+        { id: 'fL', on: 'finL', kind: 'membrane', chord: 0.5 }, { id: 'fR', mirror: 'fL' },
+        { on: 'head', kind: 'horns', pairs: 1, len: 0.4, splay: 0.6 },
+        { on: 'spine', kind: 'ridge', from: 'neck2', to: 'aft', count: 16, height: 0.13 },
+      ],
+      palette: { body: '#1E4A5A', belly: '#2E6A74', membrane: '#7fe0d0', eye: '#bfffe8', accent: '#7fe0d0' },
+    };
+    const SAMPLES = { wyvern: SAMPLE_WYVERN, hexapod: HEXAPOD, seaSerpent: SEA_SERPENT };
+
+    const gl = document.getElementById('gl');
+    const renderer = new THREE.WebGLRenderer({ canvas: gl, alpha: true, antialias: true, preserveDrawingBuffer: true });
+    renderer.setPixelRatio(Math.min(devicePixelRatio || 1, 2));
+    renderer.toneMapping = THREE.ACESFilmicToneMapping;
+    const scene = new THREE.Scene();
+    const camera = new THREE.PerspectiveCamera(50, 1, 0.1, 200);
+    scene.add(new THREE.HemisphereLight(0xbfdcff, 0x2e3448, 1.0));
+    const keyL = new THREE.DirectionalLight(0xffe0b0, 1.7); keyL.position.set(2.5, 3, 4); scene.add(keyL);
+    const rimL = new THREE.DirectionalLight(0x7fb8ff, 1.0); rimL.position.set(-3, 1.5, -3); scene.add(rimL);
+    const fillL = new THREE.DirectionalLight(0xd0f0ff, 0.4); fillL.position.set(0, -2, 2); scene.add(fillL);
+
+    // a faint ground disc so the creature reads as grounded, not floating.
+    const ground = new THREE.Mesh(
+      new THREE.CircleGeometry(6, 48).rotateX(-Math.PI / 2),
+      new THREE.MeshStandardMaterial({ color: 0x0c1424, roughness: 1, metalness: 0 }));
+    ground.position.y = -1.2; scene.add(ground);
+
+    let current = null, ultra = false, spin = true;
+    const center = new THREE.Vector3();
+    let baseDist = 8;
+    const orbit = { yaw: 135, pitch: 0.26, dist: 8 };
+    let curKey = 'wyvern', curGenome = SAMPLE_WYVERN;
+
+    function fit() {
+      current.updateMatrixWorld(true);
+      const box = new THREE.Box3().setFromObject(current);
+      box.getCenter(center);
+      const s = box.getSize(new THREE.Vector3());
+      const radius = 0.5 * Math.max(s.x, s.y, s.z);
+      baseDist = (radius / Math.tan(camera.fov * Math.PI / 360)) * 1.6;
+      orbit.dist = baseDist;
+      ground.position.y = box.min.y - 0.05;
+    }
+    function build(genome) {
+      if (current) { scene.remove(current); current.traverse(o => { if (o.geometry) o.geometry.dispose(); if (o.material && o.material.dispose) o.material.dispose(); }); }
+      setActiveDetail(ultra ? 'ultra' : 'high');
+      const built = buildFromGenome(genome);
+      current = built.group;
+      scene.add(current);
+      fit();
+      curGenome = genome;
+      const k = Object.entries(built.stats.byKind).map(([a, b]) => `${b} ${a}`).join(' · ');
+      document.getElementById('lbl').textContent = `${genome.name || 'genome'}${ultra ? ' · ULTRA' : ''}`;
+      document.getElementById('stats').textContent = `${built.stats.vertices.toLocaleString()} verts · ${k}`;
+      document.getElementById('gjson').value = JSON.stringify(genome, null, 1);
+    }
+
+    function placeCamera() {
+      const yaw = orbit.yaw * Math.PI / 180, p = orbit.pitch;
+      camera.position.set(
+        center.x + orbit.dist * Math.sin(yaw) * Math.cos(p),
+        center.y + orbit.dist * Math.sin(p),
+        center.z + orbit.dist * Math.cos(yaw) * Math.cos(p));
+      camera.near = orbit.dist / 100; camera.far = orbit.dist * 20;
+      camera.updateProjectionMatrix();
+      camera.lookAt(center);
+    }
+    function resize() {
+      const w = gl.clientWidth, h = gl.clientHeight;
+      renderer.setSize(w, h, false); camera.aspect = w / h; camera.updateProjectionMatrix();
+    }
+    window.addEventListener('resize', resize);
+
+    function frame() {
+      requestAnimationFrame(frame);
+      if (spin && !dragging) orbit.yaw += 0.25;
+      placeCamera();
+      renderer.render(scene, camera);
+    }
+
+    let dragging = false, lx = 0, ly = 0;
+    gl.addEventListener('pointerdown', e => { dragging = true; lx = e.clientX; ly = e.clientY; gl.setPointerCapture(e.pointerId); });
+    gl.addEventListener('pointermove', e => {
+      if (!dragging) return;
+      orbit.yaw -= (e.clientX - lx) * 0.4;
+      orbit.pitch = Math.max(-1.2, Math.min(1.3, orbit.pitch + (e.clientY - ly) * 0.006));
+      lx = e.clientX; ly = e.clientY;
+    });
+    const stopDrag = () => { dragging = false; };
+    gl.addEventListener('pointerup', stopDrag); gl.addEventListener('pointercancel', stopDrag);
+    gl.addEventListener('wheel', e => { e.preventDefault(); orbit.dist = Math.max(baseDist * 0.35, Math.min(baseDist * 2.5, orbit.dist * (1 + Math.sign(e.deltaY) * 0.08))); }, { passive: false });
+
+    for (const b of document.querySelectorAll('button[data-sample]')) b.onclick = () => {
+      for (const o of document.querySelectorAll('button[data-sample]')) o.classList.toggle('on', o === b);
+      curKey = b.dataset.sample; build(SAMPLES[curKey]);
+    };
+    document.getElementById('bultra').onclick = (e) => { ultra = !ultra; e.target.textContent = 'Ultra: ' + (ultra ? 'ON' : 'OFF'); e.target.classList.toggle('on', ultra); build(curGenome); };
+    document.getElementById('bspin').onclick = (e) => { spin = !spin; e.target.textContent = 'Spin: ' + (spin ? 'ON' : 'OFF'); e.target.classList.toggle('on', spin); };
+    document.getElementById('bedit').onclick = (e) => { const ed = document.getElementById('editor'); ed.classList.toggle('hidden'); e.target.classList.toggle('on', !ed.classList.contains('hidden')); };
+    document.getElementById('breset').onclick = () => { orbit.yaw = 135; orbit.pitch = 0.26; orbit.dist = baseDist; };
+    document.getElementById('brender').onclick = () => {
+      try { document.getElementById('err').style.display = 'none'; build(JSON.parse(document.getElementById('gjson').value)); }
+      catch (e) { window.__gerr('Bad genome JSON: ' + e.message); }
+    };
+
+    try { resize(); build(SAMPLE_WYVERN); frame(); window.__ready = true; }
+    catch (e) { window.__gerr((e && e.stack) || String(e)); throw e; }
+  </script>
+</body>
+</html>
