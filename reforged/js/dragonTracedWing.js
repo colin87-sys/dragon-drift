@@ -177,17 +177,19 @@ function buildTracedWings(def, model, attach) {
     const pivot = new THREE.Group();
     const wr = attach.wingRoot(s);
     pivot.position.set(wr.x, wr.y, wr.z);
-    pivot.rotation.order = 'ZYX';
-    pivot.rotation.y = -s * (model.wingSweepBack ?? 0.0);
-    pivot.rotation.x = model.wingPitch ?? 0.0;
-    // BROAD ROOT: the wing meets the body along its whole root chord (arm root → innermost
-    // finger corner), not a point. Hinge the wing UP about that root-edge axis so the entire
-    // chord stays flush on the back while the membrane raises (instead of pivoting off a point).
+    // BROAD ROOT: the wing's root chord (arm root → innermost-finger corner) must run
+    // FORE-AFT along the body flank so the whole chord meets the body (not a point). Two
+    // rotations: (1) align the local root-edge direction with the body's back line; (2)
+    // dihedral the membrane UP about that aligned root edge. The whole chord stays on the
+    // back; the membrane raises like the reference.
     const wing = makeWing(s, ws, membraneMat, boneMat);
     const L = buildLocalWing(); const SC = 1.28 * ws;
     const tr = L.P(TRACED_WING.outline[33]);            // trailing root corner (bottom-left)
-    const axis = new THREE.Vector3(tr[0] * SC * s, L.yAt(tr) * SC, -tr[1] * SC).normalize();
-    wing.quaternion.setFromAxisAngle(axis, s * (model.wingDihedral ?? 0.85));
+    const T3 = new THREE.Vector3(tr[0] * SC * s, L.yAt(tr) * SC, -tr[1] * SC);
+    const backDir = new THREE.Vector3(0, -(model.wingRootSlope ?? 0.15), 1).normalize(); // aft + slight down
+    const q1 = new THREE.Quaternion().setFromUnitVectors(T3.clone().normalize(), backDir);
+    const q2 = new THREE.Quaternion().setFromAxisAngle(backDir, s * (model.wingDihedral ?? 0.95));
+    wing.quaternion.copy(q2).multiply(q1);
     pivot.add(wing);
     // wingTip handle at the wrist (carries the trail marker); folding is left to a fresh flap.
     const wingTip = new THREE.Group();
