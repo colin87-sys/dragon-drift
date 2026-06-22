@@ -2879,3 +2879,35 @@ the guide HARVESTS them rather than inventing a schema, so it can't drift. The f
 "recreatable" by an LLM is the cross-section ring list + module names + grammar dials, NOT prose.
 **→ Leapfrog:** keep MODEL-CREATION.md current as builders/dials are added; when the reusable body-profile
 dials + legRoot land, update §5/§6 so the Gundam (and any humanoid) becomes a pure-data spec.
+
+---
+
+## Lesson — A green-screen reference keys out by GREENNESS, not luminance — the existing concept-mask floor is exactly backwards for a black dragon.
+
+The human dropped a green-screen Night Fury (Toothless) and asked for a silhouette trace / "inverse of the
+green background". The reflex was to reuse `silhouette-overlay.mjs`'s concept masker — but that masks by a
+LUMINANCE FLOOR (keep the bright dragon, drop the dark water). On a BLACK creature against a GREEN screen the
+dragon is the *darkest* thing in frame, so a luminance floor would key out the subject and keep the
+background — exactly inverted. The right separator is **greenness = `G − max(R, B)`**: high on the screen,
+`≤ 0` on the black body. The image histogram is sharply bimodal (huge cluster `g>160`, huge cluster `g≤0`,
+a near-empty valley between) → the threshold is not delicate, and the result is a near-perfect mask.
+
+Two gotchas that a naive `greenness > T` mask gets wrong, both fixed in `mockups/silhouette/extract.py`:
+(1) **interior green = the EYES.** A Night Fury's eyes are bright green, so a plain threshold punches holes in
+the face. Fix: background is only the green **connected to the image border** (label + border-touch test); any
+green island NOT reaching the border is kept as body. Equivalent to fill-holes but principled. (2) **green
+spill** fringes the antialiased edge — suppress it by clamping `G ≤ max(R, B)` on kept pixels before compositing
+the cutout, else the silhouette wears a green halo.
+
+Deliverables live in `mockups/silhouette/` (reference artifacts, not runtime): solid filled silhouette
+(black/white PNG), a 384-vert SVG trace (marching squares + Douglas–Peucker via skimage), the spill-suppressed
+cutout, and a magenta-boundary overlay as the accuracy proof. Done with a one-off pillow/numpy/scipy/skimage
+script — fine for offline reference extraction; it is NOT shipped to the game (the engine stays 100% procedural,
+no asset files). Coverage came out ~30% of frame; eyes correctly solid; trailing-edge scallops, dorsal spine
+ridges, and tail-fin all preserved.
+
+Reusable insight: pick the chroma channel the SUBJECT is separable on, not the one a previous tool happened to
+use — a masker is only as good as the contrast it keys on, and "reuse the existing path" is wrong when the
+contrast inverts. **→ Leapfrog:** give `silhouette-overlay.mjs` a `--chroma green` mode (or auto-pick
+greenness-vs-luminance by which is more bimodal) so green-screen references feed the compare-against-the-build
+loop directly, no Python detour.
