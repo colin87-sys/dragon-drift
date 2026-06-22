@@ -2879,3 +2879,37 @@ the guide HARVESTS them rather than inventing a schema, so it can't drift. The f
 "recreatable" by an LLM is the cross-section ring list + module names + grammar dials, NOT prose.
 **→ Leapfrog:** keep MODEL-CREATION.md current as builders/dials are added; when the reusable body-profile
 dials + legRoot land, update §5/§6 so the Gundam (and any humanoid) becomes a pure-data spec.
+
+---
+
+## Lesson — Phase 0 of "max-fidelity from a reference": ULTRA is the DESIGN tier; raise it + add a detail-tier MODULE gate (not just smoother curves).
+
+**Context.** Goal = build creatures that match a reference image as closely as the engine allows (bull first,
+then a Strike Freedom Gundam). The real blocker was never modeling skill — it was BLIND ITERATION: the
+headless toolchain is shape-only + whole-blob (one fused white silhouette, a single outer-outline IoU, no
+per-part measurement, no agent-consumable COLOR render), so a human had to judge every pass. Two things changed
+the calculus: (1) the agent can now SEE reference images directly (vision) → no longer blind to the target;
+(2) chosen plan = build sighted-iteration tooling FIRST, prove it on the bull (the engine's native horizontal
+archetype, already shipped — a pure convergence task), THEN attempt the Gundam (new humanoid archetype).
+
+**Did / learned.** Phase 0 = detail-tier foundations. The engine ALREADY does LOD (modelDetail.js `seg()`
+multiplier, device-tier auto-select, never raised under low FPS) — designing rich + downscaling per device is
+standard practice, already half-built. Two edits: (1) ULTRA segment multiplier 1.6→2.0 (hero now ramps ~3.5×
+tris at ULTRA vs HIGH); (2) NEW detail-tier MODULE GATE (`detailRank`/`detailAtLeast`/`isUltra`) so a builder
+can bolt on extra MODULES/surface layers only at a high enough tier — the real richness lever (hex cells, tail
+blades, panel lines), since `seg()` only buys SMOOTHNESS not new parts. Raised the ULTRA tricount CI ceiling
+13000→24000 (interim). KEY: HIGH stays the 6000 mobile floor (the 60fps identity) and is byte-identical — the
+gate fires only at ULTRA, `seg()` HIGH is an exact passthrough. Gates green: modeldetail, blueprint, tricount
+--detail=high 0-over, --detail=ultra 0-over.
+
+**Hardware reality (researched).** iPhone 17 Pro Max = A19 Pro, ~M2-class GPU. For a WebGL/Three.js browser
+game the triangle count is NOT the constraint — DRAW CALLS + single-threaded JS + materials are. The A19 Pro
+would hold 60fps at ~100k+ tris on the hero subject; the current ULTRA ceiling is trivial for it. So the
+discipline that actually matters on mobile is the doctrine's "≤6 materials, FEWER well-shaped parts," not the
+tri ceiling.
+
+**Reusable rule.** "Design at the top tier, scale down" is the correct mental model AND already the engine's
+LOD design — keep HIGH as the no-regression mobile floor, push ULTRA as the design tier, and add richness via
+DETAIL-GATED MODULES + materials, not raw triangles. **→ Leapfrog:** add a draw-call / material-count column to
+tricount.mjs (the budget that truly limits a WebGL game), and render every convergence pass at BOTH tiers
+(ULTRA = design target, HIGH = mobile-read sanity check).
