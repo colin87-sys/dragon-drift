@@ -2940,3 +2940,23 @@ make the brief's own module list the literal function list and the literal test 
 and boss variants reuse spineSegment/ventPlate/thrusterPod/wingSystem directly (the brief explicitly wants
 this). Next human-judged step is MOTION on the preview (mecha/live.html) — rigid flap + thruster jets + tail
 follow-through; if the silhouette reads, fold the kit into the real roster.
+
+## Lesson — "In-game lighting" frozen preview = reuse the game's REAL pipeline (ACES + UnrealBloomPass + the environment.js light values), not a hand-rolled renderer.
+
+The human wanted to see the SVJ mecha dragon "in-game with lighting etc." — the standalone live.html fakes bloom
+with additive sprites, which misreads metalness/emissive. The right move was NOT to boot the whole game (gameState/
+biomes/water/ambient deps + a running loop) but to LIFT the pieces that define the look: (1) the renderer config
+(ACESFilmicToneMapping + SRGB output), (2) the exact lights from environment.js — sun DirectionalLight(0xffe0b0,
+~1.85) at (-60,45,-150) + HemisphereLight(0xbfdcff, 0x2e5448, 0.85), (3) the sky gradient colors (top 0x3f7ec8,
+mid 0xe0a070, horizon 0xffe2a8) as a BackSide dome, and (4) the SAME post chain the shop preview.js uses:
+EffectComposer over a HalfFloat RT → RenderPass → UnrealBloomPass → OutputPass. With a real HDR bloom + high
+threshold, emissive materials (thruster cores ei~2.7, taillights ei~2.3) bloom for real instead of being faked.
+New `reforged/mecha/ingame.html`: frozen pose, orbit/zoom to inspect, TURNTABLE + BOOST toggles.
+
+Key facts for reuse: the postprocessing libs live in `reforged/lib/postprocessing/` and only import bare 'three',
+so any standalone page under `reforged/<dir>/` can import them via `../lib/postprocessing/X.js` and the document
+importmap (`{"three":"../lib/three.module.js"}`) — exactly how js/preview.js does it. Bloom needs WebGL2 + a
+float/half-float color buffer; guard it and fall back to renderer.render. Showcase glow wants more than gameplay:
+preview uses UnrealBloom(res, 0.2, 0.45, 1.0); for a hero still I bumped to (0.55, 0.55, 0.85).
+**→ Leapfrog:** factor this lighting+bloom rig into a tiny shared `previewStage.js` so every from-scratch creature
+(seraph, mecha, future kits) gets the real in-game look in one import instead of re-deriving the values.
