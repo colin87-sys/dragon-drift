@@ -3,6 +3,7 @@ import { registerTorso } from './dragonRecipe.js';
 import { buildTorso } from './dragonTorso.js';
 import { sweepProfileSmooth } from './dragonSweep.js';
 import { DRIFT_STATIONS, DRIFT_KEEL } from './driftBodyStations.js';
+import { TAIL_FIN } from './driftFinData.js';
 
 // ── DRIFT BODY ───────────────────────────────────────────────────────────────
 // A self-bodied, sleek Night-Fury torso authored to the green-screen reference
@@ -46,8 +47,48 @@ const DRIFT_PROFILE = {
   headBase: (neckSegs) => ({ x: 0, y: 0.5, z: -2.4 }),
 };
 
-registerTorso('driftBody', (def, model, bodyMat) =>
-  buildTorso(DRIFT_PROFILE, def, model, bodyMat,
-    (profile, stretch) => sweepProfileSmooth({ ...profile, ring: profile.ring || driftSection }, stretch)));
+// ── TAIL FINS ────────────────────────────────────────────────────────────────
+// The iconic twin bat-membrane tail fan, traced from the master (driftFinData.js).
+// Built as a flat ear-clipped membrane in the y-z plane at the tail tip, mirrored
+// into a shallow V so the SIDE silhouette = the traced fan.
+function earClip(poly) {
+  const idx = poly.map((_, i) => i), out = [];
+  const area = (a, b, c) => (b[0] - a[0]) * (c[1] - a[1]) - (b[1] - a[1]) * (c[0] - a[0]);
+  let s = 0; for (let i = 0; i < poly.length; i++) { const a = poly[i], b = poly[(i + 1) % poly.length]; s += a[0] * b[1] - b[0] * a[1]; }
+  if (s < 0) idx.reverse();
+  const inT = (p, a, b, c) => { const d1 = area(p, a, b), d2 = area(p, b, c), d3 = area(p, c, a); return !(((d1 < 0) || (d2 < 0) || (d3 < 0)) && ((d1 > 0) || (d2 > 0) || (d3 > 0))); };
+  let g = 0;
+  while (idx.length > 3 && g++ < 9000) { let clip = false;
+    for (let i = 0; i < idx.length; i++) { const ip = idx[(i - 1 + idx.length) % idx.length], ic = idx[i], inx = idx[(i + 1) % idx.length]; const a = poly[ip], b = poly[ic], c = poly[inx];
+      if (area(a, b, c) <= 0) continue; let ear = true; for (const j of idx) { if (j === ip || j === ic || j === inx) continue; if (inT(poly[j], a, b, c)) { ear = false; break; } }
+      if (ear) { out.push([ip, ic, inx]); idx.splice(i, 1); clip = true; break; } } if (!clip) break; }
+  if (idx.length === 3) out.push([idx[0], idx[1], idx[2]]);
+  return out;
+}
+function buildTailFins(attach, finMat) {
+  const last = DRIFT_STATIONS[DRIFT_STATIONS.length - 1];
+  const z0 = last[0], y0 = attach.bodyMidY + last[4];          // tail-tip centreline
+  const tris = earClip(TAIL_FIN);
+  const g = new THREE.Group();
+  for (const yaw of [0.32, -0.32]) {                          // twin fins splay into a V
+    const pos = new Float32Array(tris.length * 9);
+    for (let t = 0; t < tris.length; t++) { const o = t * 9;
+      for (let k = 0; k < 3; k++) { const p = TAIL_FIN[tris[t][k]]; pos[o + k * 3] = 0; pos[o + k * 3 + 1] = y0 + p[1]; pos[o + k * 3 + 2] = z0 + p[0]; } }
+    const fg = new THREE.BufferGeometry(); fg.setAttribute('position', new THREE.BufferAttribute(pos, 3)); fg.computeVertexNormals();
+    const fin = new THREE.Mesh(fg, finMat); fin.frustumCulled = false;
+    // splay about the tail (z) axis through the tip
+    fin.position.set(0, y0, z0); fin.rotation.z = yaw; fin.geometry.translate(0, -y0, -z0);
+    g.add(fin);
+  }
+  return g;
+}
+
+registerTorso('driftBody', (def, model, bodyMat) => {
+  const res = buildTorso(DRIFT_PROFILE, def, model, bodyMat,
+    (profile, stretch) => sweepProfileSmooth({ ...profile, ring: profile.ring || driftSection }, stretch));
+  const finMat = (res.attach.bodyMatDouble || bodyMat).clone(); finMat.side = THREE.DoubleSide;
+  res.group.add(buildTailFins(res.attach, finMat));
+  return res;
+});
 
 export { DRIFT_PROFILE, driftSection };
