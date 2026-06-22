@@ -2879,3 +2879,69 @@ the guide HARVESTS them rather than inventing a schema, so it can't drift. The f
 "recreatable" by an LLM is the cross-section ring list + module names + grammar dials, NOT prose.
 **→ Leapfrog:** keep MODEL-CREATION.md current as builders/dials are added; when the reusable body-profile
 dials + legRoot land, update §5/§6 so the Gundam (and any humanoid) becomes a pure-data spec.
+
+---
+
+### L89 — Trace a concept photo → finger tips → a data-only wing: scallops are planform, the leading-edge "arc" is 3D curl
+Built `reforged/tools/outline-trace.mjs` (HEADLESS, no deps beyond silhouetteCore's PNG codec): luminance
+threshold (subject = `lum < N`; `--bright` inverts) → 8-connected flood fill keeping ONE blob (largest, or
+under `--seed=x,y`, which rejects the dark skyline/rocks a global threshold also catches) → Moore-neighbour
+boundary trace → Douglas–Peucker simplify (`--simplify`). Emits a viz PNG (source dimmed, blob tinted, polygon
+magenta + vertex dots) AND a JSON of points in 3 frames (raw px, crop [0..1], and a centred WING frame). A
+GREEN-SCREEN reference is night-and-day easier than a busy scene (wing≈16 vs green≈158 → trivial threshold,
+one blob, no crop needed). JPEGs aren't decodable by the repo's PNG-only codec — convert once (jpeg-js in /tmp,
+encode with `pngRGBA`) and keep PNG refs in `reforged/refs/`.
+
+Turning the trace into ENGINE geometry is pure DATA (the "author the blueprint, not the builder" rule):
+`nightFuryWings` reads `wingSpecFor(def,model)` → a per-form `wingForms[]` of `{tips, lead, scallop, arc}`,
+where `tips:[span x, chord y]` ARE the finger anchors. Detect the finger tips as centroid-distance local maxima,
+fix the shoulder/root (the bottom-corner where the wing shears off the body) and the outer tip, then PROJECT each
+tip onto span (root→tip) and chord (perpendicular, leading-edge +) axes and scale the outer tip to the roster's
+~4.65. Dropped straight into a NEW coexisting creature `onyx` (cloned from toothless's nightFuryTorso+Wings
+kernel, its OWN traced `wingForms`) — validates, in tri-budget, zero roster change.
+
+**The gotcha that matters:** overlaying my trace (cyan) on `buildWingShape(my tips)` (magenta) in the SAME
+(span,chord) space showed the **trailing-edge scallops match faithfully**, but the trace's tall **leading-edge
+arc does NOT** — because the green photo shows the wing RAISED/CURVED, so its high leading edge is the wing's 3D
+**vertical curl** (raised wrist), which this engine represents with `arc.{bow,hump,hook}`, NOT the flat planform
+`tips`. A flat projection of a curved wing bakes that curl into the chord coordinate and overstates it. **→
+Leapfrog:** trace a SPREAD/FLAT wing for the planform; recover the curl separately as `arc.hump`/`bow` and verify
+on the REAR chase cam (where toothless uses NEGATIVE bow so the tips droop and the wing isn't edge-on). Next:
+dial onyx's `arc` to the raised-wing read, then build the body/head/tail from the same reference.
+
+---
+
+### L90 — A loft's SIDE silhouette is `cy±keel`/`cy∓belly` — trace back+belly, set cy=midline EXACTLY; verify with a fixed-mapping overlay
+Built the `driftBody` torso (a self-bodied Night-Fury loft so the clean-sheet `tracedWing` has a real shoulder to
+attach to, unlike body-less `nightFuryTorso`). Drove its stations from the user's clean full-dragon trace
+(`refs/master-silhouette.png` → `refs/master-trace-tb.json`, the top/bot envelope) via
+`tools/gen-drift-stations.mjs`: belly = `bot[x]` (reliable — the wing is up top, the belly is the lower envelope),
+the dorsal BACK is a hand-read arch (the back is occluded by the wing mid-body, so anchor it at the readable
+head + tail and arch through the shoulder), and the loft channels are `keelTop=(mid−back)`, `belly=(belly−mid)`,
+**`cy=(BASEMID−mid)`** all over `PXPU`. The identity that matters: the loft's side projection has top edge
+`cy+keelTop` and bottom edge `cy−belly`, which telescope to **exactly `back` and `belly`** — so cy MUST be the
+full midline. A "fudge" `cy×0.45` (added while flailing) BREAKS that identity and sags the body; removing it is
+the fix, not a tuning knob.
+
+Two more traps cost the most time:
+1. **The generic neck is a separate POSE.** `buildTorso` builds `profile.neck` as a sphere-chain that climbs in Y
+   on its own — it fought the traced side profile at the head. Pass `{ neck:false }` and let the traced stations
+   carry the head/neck bulk all the way to the snout (`dragonDriftBody.js`). Continuous head-to-tail loft, no
+   pose-on-pose conflict.
+2. **The overlay tool was lying — again.** bbox/perspective auto-fit rescales when any part's extent changes
+   (adding tail-fins or fattening the body DROPPED the score as the shape IMPROVED). Worse, my first ortho
+   overlay pinned the vertical by a single min-z VERTEX (`snoutY`), which sat ~70px above the snout's true
+   centreline and dragged the whole body down — reading 16% when the body was actually ~85% right.
+   `tools/body-overlay.mjs` fixes this: ORTHOGRAPHIC projection, LENGTH calibrated by two fixed landmarks
+   (snout→x1362, fin→x44, ONE uniform scale), then fit ONLY a vertical offset for best **coverage**
+   (body∩master / bodyArea) — the fair "is the body inside/on the dragon" metric. Coverage 16%→**84%** once the
+   tool stopped lying; IoU stays ~20% by construction (the master includes the whole wing the body can't cover),
+   so IoU is the WRONG number to chase here.
+
+**The reusable lesson:** when an overlay score moves OPPOSITE to your eyes, suspect the MEASUREMENT, not the
+model — lock the calibration to fixed landmarks with the fewest free degrees of freedom, and report a metric
+whose denominator you actually control (coverage), not one polluted by parts you're not testing (IoU vs the
+full silhouette). **→ Leapfrog:** body gestalt now matches the master at upstroke; next refine belly depth in
+the mid-body, de-pinch the tail before the fins, lengthen the snout, then anchor the wing's upstroke-peak pose
+to the master keyframe for the full-creature read. Then build the real head/legs/dorsal-nubs as their own
+traced modules.

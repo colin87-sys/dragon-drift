@@ -63,7 +63,7 @@ export function renderSilhouette({ key, view = 'rear', tier, W, H, pose, hideWin
   if (pose) applyPose(built.parts || {}, def.model.flap, pose);
   // hideWings: drop the wing subtrees so the BODY silhouette can be inspected un-occluded.
   const skip = new Set();
-  if (hideWings && built.parts) for (const k of ['wingYokeL', 'wingYokeR', 'wingRigL', 'wingRigR'])
+  if (hideWings && built.parts) for (const k of ['wingYokeL', 'wingYokeR', 'wingRigL', 'wingRigR', 'wingPivotL', 'wingPivotR'])
     if (built.parts[k]) built.parts[k].traverse((o) => skip.add(o));
   if (view === 'climb') group.rotation.x = 0.92;          // ~53° nose-up: dorsal back, tail toward the lens
   group.updateMatrixWorld(true);
@@ -71,7 +71,11 @@ export function renderSilhouette({ key, view = 'rear', tier, W, H, pose, hideWin
   if (view === 'rear') {                                  // the REAL chase cam (cameraController.js)
     cam.position.set(0, 3.6, 12.3); cam.lookAt(0, 1.0, -16);
   } else {                                                // framed views: auto-fit to the model bounds
-    const box = new THREE.Box3().setFromObject(group), ctr = box.getCenter(new THREE.Vector3()), sz = box.getSize(new THREE.Vector3());
+    // Fit to the VISIBLE meshes only (skip set = hidden wings), so --no-wings frames the body.
+    const box = new THREE.Box3();
+    group.traverse((o) => { if (o.isMesh && o.geometry && !skip.has(o)) box.expandByObject(o); });
+    if (box.isEmpty()) box.setFromObject(group);
+    const ctr = box.getCenter(new THREE.Vector3()), sz = box.getSize(new THREE.Vector3());
     const vfov = cam.fov * Math.PI / 180, hfov = 2 * Math.atan(Math.tan(vfov / 2) * (W / H));
     if (view === 'climb') {
       const fit = Math.max(sz.y * 0.5 / Math.tan(vfov / 2), sz.x * 0.5 / Math.tan(hfov / 2));
