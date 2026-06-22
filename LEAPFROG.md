@@ -3034,3 +3034,17 @@ symmetric tips** (3D dist between two mirror tips = 2·|x| = the projected x-ext
 projected 85-95" can't both hold on a symmetric raised pose — projected is the one that matters and it's 91.
 Reusable: drive sizes off ONE body-relative unit + a headless measure gate, and when targets conflict, optimise
 the one tied to the experiential goal and say so. LEAN/LP/angC are now the dials.
+
+## Lesson — Visibility + inspection ergonomics: two-light proof shading, per-view zoomed exports, and a camera-follow headlight + pinch-zoom in the in-game preview.
+
+Human (on mobile) reported the dragon goes black at many orbit angles and asked for individual zoomed views +
+a working zoom. Fixes: (1) proof.mjs shading was a single-light 2-tone that left back-facing tris near-black —
+swapped to KEY + FILL + an ambient floor (`0.5 + 0.62·|n·key| + 0.32·|n·fill|`, abs = two-sided) so every face
+reads; also brightened the studio bg. (2) proof.mjs now also writes each view as its own 920² tightly-framed PNG
+(fitMul 1.06) for close inspection, not just the 3-tile montage. (3) ingame.html: the single key sun left wing
+blades as black silhouettes against the bright sky — added a hemisphere bump + a cool counter-FILL + a
+**camera-follow HEADLIGHT** (`headlight.position.copy(camera.position)` each frame) so whatever the camera faces
+is always lit; raised exposure to 1.18. (4) Mobile has no scroll wheel — added two-finger PINCH zoom (track
+pointers in a Map, scale dist by the pinch ratio) + on-screen ± buttons, keeping wheel for desktop.
+Reusable: a camera-attached headlight is the cheapest cure for "dark at some angles" in an orbit previewer; and
+always give a headless renderer a fill+ambient floor so shape review isn't fooled by self-shadowing.
