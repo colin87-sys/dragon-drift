@@ -1121,7 +1121,6 @@ function buildSvjLayeredBladeWing(def, model, attach, giM) {
   const group = new THREE.Group();
   const spineMats = [];
   const ws = model.wingScale ?? 1;
-  const gi = Math.min(giM ?? 1, 1.3);
 
   const gold = new THREE.MeshStandardMaterial({
     color: def.body ?? 0xf2c20e, emissive: 0x2a1f05, emissiveIntensity: 0.32,
@@ -1131,40 +1130,10 @@ function buildSvjLayeredBladeWing(def, model, attach, giM) {
     color: def.belly ?? 0x0e0e12, flatShading: true, side: THREE.DoubleSide,
     roughness: 0.5, metalness: 0.5,
   });
-  const redCol = 0xf0182a;   // deep crimson (the reference hex grid is red, not orange/pink)
-  // a moderate emissive so the hex GRID lines read deep red, not blown-out toward pink/white.
-  const redMat = new THREE.MeshStandardMaterial({
-    color: redCol, emissive: redCol, emissiveIntensity: 0.9 * gi, roughness: 0.35, side: THREE.DoubleSide,
-  });
-  redMat.userData.baseEmissive = redCol;
-  redMat.userData.baseIntensity = 1.4 * gi;
-  spineMats.push(redMat);
-
-  const _x = new THREE.Vector3(), _y = new THREE.Vector3(), _z = new THREE.Vector3(), _m = new THREE.Matrix4();
-  const orientYZ = (mesh, dir) => {
-    _y.set(dir[0], dir[1], dir[2]).normalize(); _z.set(1, 0, 0);
-    _x.crossVectors(_y, _z); if (_x.lengthSq() < 1e-5) _x.set(0, 0, 1); _x.normalize();
-    _z.crossVectors(_x, _y).normalize();
-    _m.makeBasis(_x, _y, _z); mesh.quaternion.setFromRotationMatrix(_m);
-    return mesh;
-  };
-  const hexShape = (r, mat) => {
-    const pts = [];
-    for (let k = 0; k < 6; k++) pts.push([Math.cos((k / 6 + 1 / 12) * Math.PI * 2) * r, Math.sin((k / 6 + 1 / 12) * Math.PI * 2) * r]);
-    return wedgePanel(pts, mat);
-  };
-  // a hex OUTLINE cell: a red hex with a smaller carbon hex sat in FRONT (toward +X cam) so only
-  // the red RIM shows -> a glowing honeycomb edge on black, like the reference (not a solid blob).
-  const hexRing = (y, z, r) => {
-    const g = new THREE.Group();
-    const red = orientYZ(hexShape(r, redMat), [0, 1, 0.12]); red.position.set(0.04, y, z); g.add(red);
-    const blk = orientYZ(hexShape(r * 0.7, carbon), [0, 1, 0.12]); blk.position.set(0.06, y, z); g.add(blk);
-    return g;
-  };
 
   // A CURVED scimitar blade in the side (Y-Z) plane: a tapered ribbon swept along a quadratic
-  // bezier whose spine RISES vertically then CURVES back toward the tail (+Z) - tip points
-  // tailward. Built flat at depth x=root[0]. root=[x,y,z]; ctrl/tip = [dy,dz] offsets from root.
+  // bezier whose spine RISES then CURVES back toward the tail (+Z) - the tip points tailward.
+  // Built flat at depth x=root[0]. root=[x,y,z]; ctrl/tip = [dy,dz] offsets from the root.
   const curvedBlade = (root, ctrl, tip, baseHalf, mat) => {
     const N = seg(8);
     const P0 = [root[1], root[2]], P1 = [root[1] + ctrl[0], root[2] + ctrl[1]], P2 = [root[1] + tip[0], root[2] + tip[1]];
@@ -1183,37 +1152,30 @@ function buildSvjLayeredBladeWing(def, model, attach, giM) {
     return { mesh: flatTriMesh(tris, mat), tip: [xd, P2[0], P2[1]] };
   };
 
-  // GOLD BLADE FAN (side Y-Z), thinner + longer + sweeping toward the tail. DEPTH layering toward
-  // the side cam (+X): fan spikes BEHIND, hex membrane MIDDLE, broad LEADING blade in FRONT.
-  // { root:[x,y,z], ctrl:[dy,dz], tip:[dy,dz], baseHalf }. Head=-Z, tail=+Z; rear blade most swept.
+  // THREE curved blades in DECREASING size. The LEADING blade is the biggest/tallest - it rises
+  // high and sweeps back toward the tail (the main blade you see). The MIDDLE is smaller, tucked
+  // behind it; the THIRD is the smallest, underneath. All curve up-and-back (+Y then +Z).
+  // Layered by depth toward the side cam (+X): leading in FRONT, then middle, then smallest behind.
+  // { root:[x,y,z], ctrl:[dy,dz], tip:[dy,dz], baseHalf }. Head=-Z (forward), tail=+Z (back).
   const BLADES = [
-    { root: [0.15, 0.00, -0.18], ctrl: [0.72, -0.12], tip: [1.25, -0.34], baseHalf: 0.32 }, // broad leading (front)
-    { root: [-0.05, 0.14, -0.02], ctrl: [1.20, 0.10], tip: [1.70, 0.95], baseHalf: 0.20 },   // front spike
-    { root: [-0.05, 0.16, 0.06], ctrl: [1.55, 0.30], tip: [1.95, 1.65], baseHalf: 0.22 },    // tallest, curves back
-    { root: [-0.05, 0.13, 0.16], ctrl: [0.90, 0.75], tip: [1.20, 2.10], baseHalf: 0.19 },    // long rear, swept back
+    { root: [0.03, 0.06, 0.02], ctrl: [1.45, 0.65], tip: [2.05, 1.78], baseHalf: 0.38 }, // LEADING: biggest, sweeps up-back (the main blade)
+    { root: [0.01, 0.06, 0.00], ctrl: [1.42, 0.18], tip: [1.86, 0.82], baseHalf: 0.28 }, // middle: smaller, more vertical
+    { root: [-0.01, 0.05, -0.04], ctrl: [0.98, -0.40], tip: [1.40, -0.62], baseHalf: 0.24 }, // smallest: clearly fans forward (the 3rd blade, underneath)
   ];
-  // RED HEX honeycomb grid filling the membrane pocket - [y, z, r].
-  const HEXES = [[0.30, -0.06, 0.17], [0.30, 0.26, 0.17], [0.46, 0.10, 0.17], [0.46, 0.42, 0.16],
-    [0.62, -0.04, 0.17], [0.62, 0.28, 0.16], [0.62, 0.58, 0.15], [0.80, 0.14, 0.16], [0.80, 0.46, 0.15]];
 
   function buildWing() {
     const pivot = new THREE.Group();
+    // root hinge block - gold mass with a carbon core, tying the wing into the shoulder.
     const block = new THREE.Mesh(new THREE.BoxGeometry(0.34, 0.40, 0.42), gold);
     block.position.set(0.02, 0.03, -0.02); pivot.add(block);
     const core = new THREE.Mesh(new THREE.BoxGeometry(0.22, 0.26, 0.30), carbon);
     core.position.set(0.02, 0.03, 0.04); pivot.add(core);
 
-    // black carbon membrane backing the hex honeycomb.
-    const back = orientYZ(new THREE.Mesh(new THREE.PlaneGeometry(1.05 * ws, 0.95), carbon), [0, 1, 0.18]);
-    back.position.set(0.0, 0.55, 0.24); pivot.add(back);
-    for (const h of HEXES) pivot.add(hexRing(h[0], h[1], h[2]));
-
-    // the curved gold blade fan.
     let tipPos = null;
     BLADES.forEach((b, i) => {
       const blade = curvedBlade(b.root, b.ctrl, b.tip, b.baseHalf * ws, gold);
       pivot.add(blade.mesh);
-      if (i === 2) tipPos = blade.tip;
+      if (i === 0) tipPos = blade.tip;   // rig handle on the biggest (leading) blade tip
     });
 
     const wingTip = new THREE.Group(); wingTip.userData.handle = 'tip';
