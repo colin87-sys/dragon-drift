@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+  <title>Dragon Drift</title>
+  <meta name="description" content="Dragon Drift — an endless dragon-flight arcade game. Thread rings, ride the surge, chase the sky." />
+  <meta name="theme-color" content="#0f192d" />
+  <link rel="icon" href="./assets/icon.svg" type="image/svg+xml" />
+  <link rel="apple-touch-icon" href="./assets/icon-180.png" />
+  <link rel="manifest" href="./manifest.json" />
+  <!-- Open Graph: challenge links unfurl with art in chats (og:image must be absolute) -->
+  <meta property="og:title" content="Dragon Drift" />
+  <meta property="og:type" content="website" />
+  <meta property="og:description" content="An endless dragon-flight arcade game. Thread rings, ride the surge, chase the sky." />
+  <meta property="og:image" content="https://colin87-sys.github.io/dragon-drift/assets/og.png" />
+  <meta name="twitter:card" content="summary_large_image" />
+  <link rel="preload" href="./lib/fonts/russo-one-latin-400.woff2" as="font" type="font/woff2" crossorigin />
+  <link rel="preload" href="./lib/fonts/rajdhani-latin-500.ttf" as="font" type="font/ttf" crossorigin />
+  <link rel="stylesheet" href="./css/style.css" />
+  <script type="importmap">
+    { "imports": { "three": "./lib/three.module.js" } }
+  </script>
+</head>
+<body>
+  <div class="load-hint">
+    <h1 class="wordmark">DRAGON DRIFT</h1>
+    <div class="load-bar"><span></span></div>
+    <p class="load-tip"></p>
+    <p class="load-fallback">Loading stalled? This game needs a web server — open <code>http://localhost:8002</code> instead of the file directly.</p>
+  </div>
+  <script>
+    // Picked before the 1.3MB module parse so the tip shows during load.
+    (function () {
+      var tips = [
+        'Thread the gates — windows pay like rings.',
+        'Perfect centers chain a melody. Keep it going.',
+        'Hold a second finger to boost. Swipe it sideways to roll.',
+        'Chain rings to light the Dragon Surge.',
+        'Golden embers are worth ◆25 — chase the comets.',
+        'First flight each day banks ×1.5 embers.',
+        'Assists off = a permanent score bonus.',
+        'Barrel roll through trouble — the i-frames are real.',
+      ];
+      var el = document.querySelector('.load-tip');
+      if (el) el.textContent = tips[Math.floor(Math.random() * tips.length)];
+    })();
+  </script>
+  <script>
+    // Installable + offline replay. Network-first SW: online behavior is
+    // identical to no-SW, so deploys always take effect immediately.
+    if ('serviceWorker' in navigator && location.protocol !== 'file:') {
+      addEventListener('load', function () {
+        navigator.serviceWorker.register('./sw.js', { updateViaCache: 'none' }).catch(function () {});
+      });
+    }
+  </script>
+  <script type="module" src="./js/main.js"></script>
+</body>
+</html>
