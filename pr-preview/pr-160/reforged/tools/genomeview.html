@@ -41,7 +41,8 @@
     <button id="brender">Render this genome ▶</button>
   </div>
   <div class="row">
-    <button data-sample="wyvern" class="on">Wyvern</button>
+    <button data-sample="nightfury" class="on">Toothless (body)</button>
+    <button data-sample="wyvern">Wyvern</button>
     <button data-sample="hexapod">Hexapod (6 legs)</button>
     <button data-sample="seaSerpent">Sea-serpent (neck+tail fin)</button>
     <button id="bultra">Ultra: OFF</button>
@@ -52,7 +53,7 @@
   <script type="module">
     import * as THREE from 'three';
     import { buildFromGenome } from '../js/buildFromGenome.js';
-    import { SAMPLE_WYVERN } from '../js/creatureGenome.js';
+    import { SAMPLE_WYVERN, SAMPLE_NIGHTFURY_BODY } from '../js/creatureGenome.js';
     import { setActiveDetail } from '../js/modelDetail.js';
 
     // ── sample genomes — pure DATA, all built by the ONE generator ───────────
@@ -102,7 +103,7 @@
       ],
       palette: { body: '#1E4A5A', belly: '#2E6A74', membrane: '#7fe0d0', eye: '#bfffe8', accent: '#7fe0d0' },
     };
-    const SAMPLES = { wyvern: SAMPLE_WYVERN, hexapod: HEXAPOD, seaSerpent: SEA_SERPENT };
+    const SAMPLES = { nightfury: SAMPLE_NIGHTFURY_BODY, wyvern: SAMPLE_WYVERN, hexapod: HEXAPOD, seaSerpent: SEA_SERPENT };
 
     const gl = document.getElementById('gl');
     const renderer = new THREE.WebGLRenderer({ canvas: gl, alpha: true, antialias: true, preserveDrawingBuffer: true });
@@ -125,7 +126,7 @@
     const center = new THREE.Vector3();
     let baseDist = 8;
     const orbit = { yaw: 135, pitch: 0.26, dist: 8 };
-    let curKey = 'wyvern', curGenome = SAMPLE_WYVERN;
+    let curKey = 'nightfury', curGenome = SAMPLE_NIGHTFURY_BODY;
 
     function fit() {
       current.updateMatrixWorld(true);
@@ -199,7 +200,7 @@
       catch (e) { window.__gerr('Bad genome JSON: ' + e.message); }
     };
 
-    try { resize(); build(SAMPLE_WYVERN); frame(); window.__ready = true; }
+    try { resize(); build(SAMPLE_NIGHTFURY_BODY); frame(); window.__ready = true; }
     catch (e) { window.__gerr((e && e.stack) || String(e)); throw e; }
   </script>
 </body>
