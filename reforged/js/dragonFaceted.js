@@ -1149,7 +1149,10 @@ function buildSvjLayeredBladeWing(def, model, attach, giM) {
     }
     return res;
   };
-  const P = (zy, x) => [x, zy[1] * ws, zy[0] * ws];
+  // WSCALE shrinks the wing to ~40% of the torso length (the reference wing is a compact unit on
+  // the front-mid back; the earlier wing was ~2x too long and overshot onto the tail).
+  const WSCALE = 0.52;
+  const P = (zy, x) => [x, zy[1] * ws * WSCALE, zy[0] * ws * WSCALE];
   const fillStrip = (U, L, x, mat) => {
     const tris = [];
     for (let i = 0; i < U.length - 1; i++) {
@@ -1213,11 +1216,11 @@ function buildSvjLayeredBladeWing(def, model, attach, giM) {
 
     // RED hex honeycomb membrane in FRONT of the inner blades (so it is never occluded) - a
     // connected grid of outline cells filling the inner black-inset band, the SVJ taillight read.
-    const r = 0.135 * ws, dz = r * Math.sqrt(3), dy = r * 1.5, x0 = 0.13;
+    const r = 0.135 * ws * WSCALE, dz = r * Math.sqrt(3), dy = r * 1.5, x0 = 0.13;
     for (let row = 0; row < 3; row++) {
-      const y = (0.24 - row * dy) ;
+      const y = (0.24 * WSCALE - row * dy);
       for (let col = 0; col < 4; col++) {
-        const z = (0.45 + col * dz + (row % 2) * dz * 0.5);
+        const z = (0.45 * WSCALE + col * dz + (row % 2) * dz * 0.5);
         pivot.add(hexRing(x0, y, z, r));
       }
     }
