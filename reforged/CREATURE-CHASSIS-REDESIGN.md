@@ -1,309 +1,286 @@
-# Creature creation, fresh eyes: the Archetype-Chassis + Hero-Silhouette system
+# Creature creation, fresh eyes (v2): vary the body, not the trim
 
 > Written as a model/creature-pipeline specialist, deliberately **ignoring** the
 > `LEAPFROG.md` reuse doctrine and **not** re-proposing the PR #160 genome /
-> auto-fit-optimizer route (which collapses to a blob and doesn't follow the
-> prompt). This is a different design with a different root cause in mind.
+> auto-fit-optimizer route.
 >
-> No engine code is changed by this document. It's the plan; §7 is the first
-> hero to build.
+> **v2 correction.** The real complaint isn't "dragons don't resemble each
+> other" — it's the opposite: **they resemble each other too much.** They came
+> out as *reskins* — one body, swapped horns / spines / colour. So the whole
+> design inverts: variation must live in the **silhouette of the body itself**,
+> and decoration must be **demoted**. v1 of this doc did the wrong thing (a fixed
+> shared chassis to *guarantee* resemblance) — that machine *manufactures*
+> reskins. This version tears that out.
+>
+> No engine code is changed by this document. §7 is the first hero to build.
 
 ---
 
 ## 0. TL;DR
 
-Stop authoring a *surface*. Author a **chassis + a handful of bold silhouette
-landmarks**, designed for the one camera that matters (rear chase), and let the
-AI prompt fill a small, **named, bounded gene sheet** — deterministically, with
-no optimizer loop.
+The reskin problem has one cause: **the variation budget was spent on the parts
+the silhouette barely notices** (horns, spines, scales, colour) while the part
+that owns the silhouette — the **body plan: skeleton + proportions + posture** —
+stayed constant. Fix = a hard **priority inversion**:
 
-- **Family resemblance** ("dragons should look like dragons") comes from a
-  shared **archetype chassis**: fixed topology + a fixed proportion template
-  every member inherits. It is *not* emergent — it's structural and guaranteed.
-- **Variety** ("each design has its own silhouette") comes from perturbing
-  ~12 named genes within tight ranges, with 4 of them flagged as **hero genes**
-  that dominate the rear silhouette. Two creatures are *required* to differ on a
-  hero gene, so they can't look the same.
-- **Charm** comes from bold, separate, exaggerated primitives unified by a
-  **toon outline + contact AO** pass — not from blending everything into one
-  organic hull.
-- **The prompt maps top-down**: classify → archetype, then fill genes, then
-  palette. Classification and bounded slot-filling are things an LLM is reliable
-  at. Numeric silhouette optimization is not.
+- **Hero variation = the body plan.** A *library of silhouette skeletons*
+  (western drake, wyvern, eastern serpent, leviathan, wingless drake, …) plus
+  **wide** proportion ranges (a fat stocky drake vs a whip-thin one). Topology
+  itself is allowed to vary (leg count, wing count, even wingless). This is the
+  biggest silhouette lever and it's where almost all the budget goes.
+- **"Dragon-ness" = a tiny feature checklist, not a fixed body.** A wedge
+  reptilian head, leathery membrane (if winged), a scaled spine line, clawed
+  digits. These read "dragon" across *any* body plan — the way a chihuahua and a
+  wolfhound are unmistakably both dogs while sharing almost no proportions.
+- **Decoration is the last, least layer.** Horns/spines/scale-relief are
+  incidental trim, explicitly forbidden from being the thing that distinguishes
+  two creatures.
+- **The anti-reskin lock:** the variety CI gate measures the **decoration-
+  stripped, single-colour, naked-body silhouette** from the chase cam. Two
+  creatures must differ *there* — so swapping horns or recolouring can never make
+  the gate pass. If two bodies are the same shape, it fails, full stop.
 
----
-
-## 1. Why both previous routes failed (same root cause)
-
-The current `reforged/` roster has been chasing **one continuous body+wings
-hull** (`dragonUnifiedHull.js`, `dragonOrganism.js`, `dragonHull.js`), and
-PR #160 proposed going further — a **topology-free genome** fitted to a
-reference by a silhouette optimizer.
-
-Both share one fatal property for a *stylised, prompt-driven, varied* roster:
-
-> **They make the silhouette an _emergent_ property of a high-dimensional
-> surface.** When the only quality signal is "match this outline," every
-> generator — hand-tuned or optimized — slides toward the average blob that
-> minimizes error. That is *exactly* why your dragons stopped resembling each
-> other while also not resembling the prompt: a smooth hull has no bold,
-> nameable landmarks to vary, and an optimizer has no reason to keep a feature
-> the prompt named if smoothing it lowers the pixel gap.
-
-The original Dragon Drift (repo root `js/`) didn't have this problem. It built
-creatures from **separate, legible primitives** (skull-sphere + cone-snout +
-box-jaw; a *chain* of cones for the tail; flat membrane sheets for wings) and
-varied creatures by **proportion data**, not surface smoothing. The Jade Serpent
-read as a river-dragon because its neck had more segments and its wings were
-smaller — a *structural* difference you could name. That legibility is the thing
-the hull route threw away. We take it back, and fix the two things the original
-*didn't* have: (a) an enforced family resemblance, and (b) a charm/stylization
-layer so "separate primitives" stop looking like a modelling exercise.
+Kept from v1 because they were right: **chase-cam-first**, **bold separate
+primitives + a toon-outline skin pass for charm**, and a **deterministic
+prompt → genes pipeline** (classify + slot-fill, no optimizer).
 
 ---
 
-## 2. The core reframe: design for the rear chase cam
+## 1. Root cause of the reskins
 
-This is the #1 constraint and it changes everything. From a rear/￫ 3-4 chase
-camera, **you barely see the body**. The belly, the snout, the chest — occluded
-or tiny. What fills the frame and what the player actually reads is:
+The original Dragon Drift (repo-root `js/`) and the current `reforged/` roster
+both vary creatures primarily through **flag-driven decoration on a shared
+body**: `hornLen`, `ridgeCount`, `crest`, `spineGlow`, a swapped tail tip, a new
+palette. Look at any dragon def — the bulk of the per-creature data is *trim and
+colour*. The torso is one of two or three shared lofts, lightly scaled.
 
-| Rank | What the chase cam sees | Silhouette weight |
-|------|-------------------------|-------------------|
-| 1 | **Wing planform** (span, sweep, how they beat) | ~40% |
-| 2 | **Dorsal line** — spine ridge / sail / crest along the back | ~20% |
-| 3 | **Tail** — trailing straight at the lens, its shape & motion | ~15% |
-| 4 | **Head + neck** bobbing *above* the back line | ~15% |
-| 5 | **Overall mass / posture** (hunched, serpentine, soaring) | ~10% |
+That is a **reskin generator by construction.** Decoration sits in the
+low-silhouette-impact band; from the chase cam at speed you cannot tell two
+dragons apart by their horns. The body — which you *can* tell apart — barely
+moves between creatures. So everything looks like the same animal in a different
+costume.
 
-So we spend the **entire variation budget on those five landmarks** and keep the
-body a simple, cheap, mostly-hidden volume. This single decision is why the
-seam-gap problem that justified the unified hull is a **non-problem here**: the
-chase cam never sees the wing-root underside seam. We hide seams with a shoulder
-fairing/pauldron and move on.
+PR #160 tried to fix this by making the body a continuous optimized surface; that
+collapses to a blob and ignores the prompt (different failure, same family of
+mistake — letting a numeric process own the shape). We instead make the body
+**discrete, bold, authored, and the primary axis of variation**, and we *measure*
+that the bodies actually differ.
 
 ---
 
-## 3. The architecture: Chassis → Genes → Charms → Skin
+## 2. Still true: design for the rear chase cam
 
-A creature is built in four passes. Each pass is a separate, swappable concern.
+Unchanged from v1, because it's the governing constraint. From a rear / ¾ chase
+cam the body is mostly **occluded**; the read is dominated by a few bold shapes:
+
+| Rank | What the chase cam reads | Silhouette weight |
+|------|--------------------------|-------------------|
+| 1 | **Body plan & posture** — bulk, spine curve, how it sits in the air | ~35% |
+| 2 | **Wing planform** — span, sweep, count (or absence) | ~30% |
+| 3 | **Tail** — length, taper, how far it trails toward the lens | ~15% |
+| 4 | **Head + neck** riding above the back line | ~12% |
+| 5 | decoration (spines/horns/scales) | **~8%** |
+
+Decoration is *last*. v1's mistake was making decoration enums the "hero genes."
+The hero is the **body plan** — ranks 1–4.
+
+---
+
+## 3. The architecture: Body-plan → Proportions → Dragon-cues → Skin
 
 ```
-ARCHETYPE  ──►  CHASSIS        (fixed topology + proportion template; the "is-a-dragon")
-   │            ├─ landmark rig: shoulders, hips, neck-base, tail-base, head socket
-   │            └─ body volume  (one cheap tapered tube; mostly occluded)
+BODY PLAN   ──►  pick a silhouette skeleton from the library   (the hero choice)
+   │             ├─ topology: #legs, #wings (0/2/4), tail type, neck type
+   │             └─ a posed spine curve + limb skeleton, authored to read boldly
    │
-GENES      ──►  apply to chassis (bounded per-archetype; 4 are "hero genes")
-   │            ├─ neckLen, bodyMass, tailLen/taper, stance angle …
-   │            └─ HERO: wingPlan, dorsalStyle, tailTip, hornStyle
+PROPORTIONS ──►  WIDE genes warp that skeleton                 (the second lever)
+   │             ├─ overall mass, neck len, tail len/taper, limb bulk, wing aspect
+   │             └─ volume profile: where mass sits (barrel chest? snake tube?)
    │
-CHARMS     ──►  silhouette furniture hung on landmarks
-   │            (spines / sail / horns / frills / tail-fin — enum-selected, not free-form)
+DRAGON CUES ──►  apply the "is-a-dragon" checklist             (cheap resemblance)
+   │             reptilian wedge head · membrane/leather · scaled spine · claws
    │
-SKIN       ──►  one stylization pass over the whole assembly
-                (toon ramp + rim, contact AO at joints, outline, palette roles)
+DECORATION  ──►  incidental trim (horns/spines/scale relief)   (least; capped)
+   │
+SKIN        ──►  toon ramp + rim · contact AO · outline · 5 palette roles  (charm)
 ```
 
-### 3.1 The chassis = family resemblance, by construction
+### 3.1 The body-plan library = real silhouette variety
 
-An **archetype** is a hard-coded chassis module. It owns:
+Instead of one chassis everyone inherits, there's a **library of named silhouette
+skeletons**, each a genuinely different animal-shape, all still legibly dragons:
 
-1. **Topology** — how many of each limb and where they attach. A `dragon` has
-   4 legs + 2 bat wings + 1 long tail + horned head on an arching neck. A
-   `phoenix` has 0 forelegs + 2 feathered wings + plume tail + beaked head,
-   upright. Topology is **fixed per archetype** — this is what makes every
-   dragon unmistakably a dragon and impossible to confuse with a phoenix.
-2. **A proportion template** — the default landmark positions and sizes (neck
-   rises at this angle, wings root at the shoulder this wide, tail is this long).
-   Defaults alone produce a complete, on-model "type specimen" of the family.
-3. **A landmark rig** — named anchors (`shoulderL/R`, `hipL/R`, `neckBase`,
-   `tailBase`, `headSocket`, `dorsalCurve(t)`) that charms and the head/wings/
-   tail builders mount to. This is the *attach contract* the original already
-   had — we keep it; it's the good idea in there.
+| Body plan | Silhouette signature (from behind) |
+|-----------|-------------------------------------|
+| **Western drake** | bulky, 4 legs, big bat wings high on the shoulder, heavy tail |
+| **Wyvern** | 2 legs, the wings *are* the arms — tall, kite-like, narrow body |
+| **Eastern / lung** | long serpentine tube, tiny limbs, small or no wings, mane |
+| **Leviathan** | low, broad, heavy-bellied, short wings, slow-massive read |
+| **Wingless drake** | no wings at all — pure body+tail; runner/swimmer silhouette |
+| **Amphithere** | winged serpent — long body + one big wing pair, no legs |
 
-> **Why this isn't the LEAPFROG "reuse" trap.** The doctrine that's failing you
-> reuses *one builder across unrelated creatures to save triangles*, which drags
-> everything toward the roster mean. Here, reuse is **scoped to a family on
-> purpose** (all dragons share the dragon chassis) and is the *source of*
-> resemblance, while genes guarantee divergence. Different families share
-> **nothing** but the rig contract.
+These differ in **topology**, not just scale — which is the only way to escape
+reskins. The library is small, hand-authored, and bold (each is *designed* to
+read at 40 m). Adding a body plan is a deliberate art act, not an optimizer knob.
 
-### 3.2 Genes = variety, bounded and deterministic
+> **Whether topology is allowed to vary is your call** (see §9). Allowing it
+> (wyvern, wingless, serpent) is *by far* the biggest anti-reskin lever. If you'd
+> rather keep every dragon a classic 4-leg/2-wing western, the same system still
+> works — the variety then comes entirely from §3.2's wide proportions — but the
+> ceiling on how different two dragons can look is much lower.
 
-Each archetype declares a **gene sheet**: a fixed list of named knobs, each with
-a type, a range or enum, and a default. Partial prompts are fine — unmentioned
-genes keep defaults, so output is always complete and on-archetype.
+### 3.2 Proportions = wide, bold genes (not the timid ranges of v1)
 
-Example — the **Dragon** gene sheet:
+On top of a body plan, a small gene sheet **warps the skeleton hard**. The
+ranges are deliberately wide — sameness comes from timid ranges.
 
 ```js
-DRAGON_GENES = {
-  // ── proportion genes (continuous, tight ranges keep it a dragon) ──
-  neckLen:        { range: [0.8, 1.4],  def: 1.0 },   // multiples of template
-  neckArch:       { range: [0.2, 0.9],  def: 0.55 },  // how high the head rides
-  bodyMass:       { range: [0.7, 1.3],  def: 1.0 },   // girth (rear cam: shoulders)
-  tailLen:        { range: [0.8, 1.6],  def: 1.1 },
-  tailTaper:      { range: [0.15, 0.6], def: 0.35 },  // whippy ↔ heavy
-  stance:         { range: [-0.2, 0.4], def: 0.1 },   // hunch ↔ soar pitch
-  legBulk:        { range: [0.6, 1.2],  def: 0.9 },   // mostly hidden; cheap
-
-  // ── HERO genes (dominate the rear silhouette; novelty enforced here) ──
-  wingPlan:   { enum: ['bat','falcon','galleon','tattered','webbed'], def: 'bat' },
-  wingAspect: { range: [1.4, 3.2], def: 2.1 },        // span ÷ chord — the ribbon dial
-  dorsalStyle:{ enum: ['none','spines','sail','plates','crystals'], def: 'spines' },
-  tailTip:    { enum: ['arrow','fork','spade','fin','clubbed','frond'], def: 'arrow' },
-  hornStyle:  { enum: ['swept','ram','crown','antler','none'], def: 'swept' },
+DRAGON_PROPORTIONS = {
+  mass:        { range: [0.55, 1.8] },   // skeletal hatchling ↔ tank   (was 0.7–1.3)
+  neckLen:     { range: [0.5, 2.4] },    // stub ↔ swan                  (was 0.8–1.4)
+  neckArch:    { range: [-0.3, 1.1] },   // lowered/stalking ↔ rearing high
+  tailLen:     { range: [0.6, 2.6] },    // docked ↔ kite-tail
+  tailTaper:   { range: [0.1, 0.8] },    // whip ↔ heavy club
+  limbBulk:    { range: [0.4, 1.6] },
+  wingAspect:  { range: [1.2, 3.6] },    // broad galleon ↔ long falcon
+  wingSpan:    { range: [0.7, 1.7] },
+  bellyDepth:  { range: [0.3, 1.4] },    // sleek ↔ pot-bellied
+  posturePitch:{ range: [-0.3, 0.5] },   // hunched ↔ soaring
 };
 ```
 
-~12 numbers + enums. A person can read a creature's whole shape from its gene
-row. **No optimizer, no fitting loop.** Same genes → same creature, every build.
-Iteration becomes "bump `wingAspect` to 2.6," not "re-run the fit and hope."
+The "volume profile" (`mass`, `bellyDepth`, where girth sits along the spine) is
+what makes one western drake a barrel-chested bruiser and another a sleek racer —
+**same plan, unmistakably different animals.** That's the variety the reskin
+system never had.
 
-### 3.3 Charms = the silhouette furniture
+### 3.3 Dragon-cues = cheap, portable resemblance
 
-Charms are the enum-selected decorations hung on the rig (`dorsalStyle: 'sail'`
-builds a membrane sail along `dorsalCurve(t)`; `hornStyle: 'crown'` mounts a
-horn cluster at `headSocket`). They are **bold and separate** — exactly the
-original's approach — because boldness is what reads from 40 m behind at speed.
-Each charm is a tiny builder keyed by enum value, merged to one draw call.
+Resemblance is the *easy* problem and gets a *small* budget: a short checklist of
+features applied regardless of body plan — a reptilian wedge head, leathery
+membrane on whatever wings exist, a scaled dorsal line following the spine,
+clawed digits. These say "dragon" without dictating a body, so a wyvern, a
+serpent and a drake all read as dragons while looking nothing alike. (This is the
+inverse of v1, where a shared *body* carried resemblance and killed variety.)
 
-### 3.4 Skin = the charm unlock (this is the part the original lacked)
+### 3.4 Decoration = capped trim
 
-Separate primitives look like a modelling exercise **until** you put a unifying
-skin over them. Three cheap passes turn "spheres and cones" into one designed,
-charming character:
+Horns / spines / scale relief / crest are the **last** layer and are **capped**:
+no creature may rely on decoration as its distinguishing feature (the §5 gate
+enforces this by stripping decoration before measuring). Trim is for flavour and
+charm, never for identity.
 
-1. **Toon/gradient ramp + fresnel rim** — 2–3 lighting bands instead of smooth
-   PBR. Instantly stylised, hides primitive seams, mobile-cheap. (The codebase
-   already has `fresnelRimPatch` / shader-patch composition to build on.)
-2. **Contact AO at joints** — darken vertices near where two parts meet (cheap
-   baked vertex term, or a contact shadow decal). This is what makes a neck-
-   sphere-chain read as *one neck* instead of beads.
-3. **Outline** — a dark silhouette edge. Mobile: inverted-hull backface shell on
-   the merged body (one extra draw). Ultra: a proper post-process edge pass.
-   **This is the single biggest charm lever for a chase-cam game** — it gives
-   every creature a clean, confident, cartoon contour regardless of how blocky
-   the underlying primitives are.
-4. **Palette roles** — every creature resolves exactly five named colors:
-   `base`, `accent`, `membrane`, `glow`, `eye`. The prompt (or a reference
-   image's sampled palette) fills these five roles and nothing else, so color
-   is as controllable and legible as shape.
+### 3.5 Skin = charm (kept from v1)
+
+Bold separate primitives look like a modelling exercise until a unifying skin
+pass goes over the whole assembly: **toon/gradient ramp + fresnel rim** (the
+codebase already has `fresnelRimPatch`), **contact AO at joints** so parts read
+as one creature, an **outline** (inverted-hull backface shell on mobile, post
+pass on Ultra — the single biggest charm lever for a chase-cam game), and exactly
+**five palette roles** (`base`, `accent`, `membrane`, `glow`, `eye`).
 
 ---
 
-## 4. The prompt → creature pipeline (reliable, no optimizer)
+## 4. The prompt → creature pipeline (deterministic, no optimizer)
 
 ```
-prompt ─►  ① CLASSIFY ─►  archetype ∈ {dragon, phoenix, serpent, wyvern, …}
-       │
-       ├─►  ② FILL GENES  (bounded slot-filling against the archetype's sheet;
-       │                    unmentioned genes keep defaults)
-       │
-       ├─►  ③ PALETTE      (map prompt adjectives → 5 color roles;
-       │                    or sample a reference image into the same 5 roles)
-       │
-       └─►  ④ BUILD        buildFromArchetype(archetype, genes, palette)  — deterministic
+prompt ─►  ① CLASSIFY BODY PLAN  → wyvern | western | serpent | leviathan | …
+       │     (the single most important decision; LLMs are strong at this)
+       ├─►  ② FILL PROPORTIONS    (wide bounded slot-fill; unmentioned = default)
+       ├─►  ③ DRAGON-CUES + DECOR (checklist on; pick capped trim enums)
+       ├─►  ④ PALETTE             (prompt adjectives / reference image → 5 roles)
+       └─►  ⑤ BUILD               buildFromBodyPlan(plan, props, cues, palette)  — deterministic
 ```
 
-Why this follows the prompt when the optimizer didn't: an LLM is **reliable at
-(1) classification and (2) filling a small named schema with enums and bounded
-numbers**. It is *unreliable* at producing a continuous surface that survives a
-numeric silhouette fit. We only ever ask it to do the former. "Spiky black
-dragon, long neck, cyan wings" deterministically becomes:
-
-```
-archetype = dragon
-genes = { neckLen: 1.3, dorsalStyle: 'spines', wingPlan: 'bat', wingAspect: 2.4 }
-palette = { base:#0a0d12, accent:#16202c, membrane:#0c1118, glow:#42c8ff, eye:#42c8ff }
-```
-
-— and looks like that, every time. Reference *images* are supported the same
-way: a vision pass estimates the gene sheet (proportions → numbers, wing/tail
-shape → enums) and samples the 5 palette roles. We capture the **readable**
-features a person would name, which is what "faithful to the reference" means
-for a stylised game — not pixel-exact contours.
+"A long serpentine green river-dragon with tiny wings" →
+`plan: eastern, neckLen: 2.1, tailLen: 2.4, wingSpan: 0.7, mass: 0.7` →
+a genuinely serpent-shaped body, not the western drake with a green reskin. The
+prompt now moves the **silhouette**, because the silhouette is what the genes
+control. Reference *images* map the same way: vision estimates the body plan +
+proportions and samples the 5 palette roles — capturing the readable shape, which
+is what "faithful" means for a stylised game.
 
 ---
 
-## 5. Variety guarantee (the anti-sameness mechanism)
+## 5. The anti-reskin lock (the centrepiece of v2)
 
-Because all variation lives in a named, bounded gene vector, novelty is
-**measurable and enforceable** — the thing neither the hull nor the optimizer
-could give you:
+Variety is enforced by CI, and the gate is specifically built so **decoration and
+colour cannot satisfy it**:
 
-- Define a distance over the **4 hero genes** (the ones that own the rear
-  silhouette). When authoring/generating a new family member, **reject** a gene
-  vector that lands within ε of an existing roster member on hero genes, and
-  re-roll the nearest hero gene. Two dragons are *guaranteed* to differ where
-  the camera looks.
-- A headless test (`tests/silhouette-spacing.mjs`) renders each family from the
-  chase cam and asserts pairwise silhouette IoU **below** a ceiling — a CI gate
-  that *fails when two creatures look too alike*. (Today's silhouette tool
-  measures the opposite — overlap *with a target*; we add the inverse check.)
+1. Render each creature from the chase cam **stripped to a single flat colour
+   with all decoration removed** — the naked body silhouette.
+2. Assert pairwise silhouette IoU is **below a ceiling**. Two creatures whose
+   *bodies* are the same shape **fail**, even if their horns and palettes differ.
+3. A second, looser pass on the *dressed* creature ensures decoration didn't
+   accidentally erase a real body difference.
 
-So you get both: a CI gate for "every dragon still reads as a dragon" (topology
-is fixed, so this is free) **and** a CI gate for "no two dragons look the same."
+`tests/silhouette-spacing.mjs` (new). Today's silhouette tool measures overlap
+*with a target*; this is the inverse — it fails when two of our own creatures
+look too alike, with decoration taken off the table so it can't cheat. This gate
+is what makes "no more reskins" a guarantee instead of a hope.
 
 ---
 
-## 6. Ultra mode = same chassis, richer (iPhone 17 Pro Max / desktop NVIDIA ceiling)
+## 6. Ultra mode = same body, richer (iPhone 17 Pro Max / desktop NVIDIA ceiling)
 
-Ultra is **not a different model** and not a separate code path — it's the same
-chassis + genes with the detail dial turned up. Budget at the ceiling is huge
-(~150–300k tris, multiple full-screen passes), so:
-
-- **Geometry**: higher segment counts on the same primitives (the existing
-  `seg()` LOD scalar already does this); rounder joints; the outline becomes a
-  post-process instead of a backface shell.
-- **Ultra-only charm shells** (opt-in, mounted on the same rig):
-  - **Feather/fur shells** — a few stacked alpha-card layers along wings/back/
-    tail for phoenix plumage and dragon mane fuzz.
-  - **Per-scale instanced relief** on the body (instanced cards, one draw).
-  - **Membrane SSS / iridescence** + a second rim pass on wings (patches the
-    codebase already has).
-- **Mobile authoring stays the floor**: the chassis is authored at the 60-fps
-  mobile budget; Ultra only *adds* layers. No creature is designed Ultra-first,
-  so weak mobile is never an afterthought.
+Unchanged in spirit from v1. Ultra is the same body plan + proportions with the
+detail dial up: higher `seg()` counts, rounder joints, the outline as a post
+pass, plus opt-in shells mounted on the same skeleton — feather/fur shells
+(phoenix plumage, dragon mane), instanced per-scale relief, membrane SSS +
+iridescence. Mobile authoring stays the floor; Ultra only *adds*.
 
 ---
 
-## 7. First hero: prove it on one dragon, coexisting
+## 7. First hero: prove the inversion on three dragons
 
-Don't touch the shipped roster. Stand the system up beside it and prove it on one
-hero, mirroring the existing "coexist → prove → migrate" safety without adopting
-the reuse doctrine.
+Coexist with the shipped roster; don't touch it.
 
-1. **`creatureArchetypes.js`** — register the `dragon` chassis: topology, the
-   proportion template, the landmark rig, and the `DRAGON_GENES` sheet (§3.2).
-2. **`buildFromArchetype(archetype, genes, palette, opts)`** — a peer to
-   `buildDragonModel()`. Internally: build cheap body tube → place landmarks from
-   genes → mount head/wings/tail builders (reuse the *good* part-builders, e.g.
-   the membrane wing, parameterized by `wingPlan`/`wingAspect`) → hang charms →
-   apply the skin pass.
-3. **`skinPass.js`** — toon ramp + contact AO + outline + 5-role palette, applied
-   to the merged assembly.
-4. **Author 3 dragons by genes only** (e.g. a heavy galleon-winged drake, a
-   whip-thin spined serpent-dragon, a crowned soaring royal) and run:
-   - `tools/tricount.mjs` — stay ≤6000 tris HIGH / ≤13000 ULTRA.
-   - `tools/silhouette.mjs` chase-cam shots — eyeball charm + read.
-   - new `tests/silhouette-spacing.mjs` — assert the three are pairwise distinct.
-5. **Human judges motion/feel** on the PR preview from the chase cam. If the
-   three dragons clearly read as a family *and* clearly differ, the system works
-   — then migrate the roster onto archetypes one family at a time.
+1. **`creatureBodyPlans.js`** — register **3 body plans** that are obviously
+   different silhouettes: e.g. `western` (bulky 4-leg drake), `wyvern` (2-leg,
+   wing-arms), `eastern` (serpentine, tiny limbs). Each = a posed spine + limb
+   skeleton + topology.
+2. **`buildFromBodyPlan(plan, props, cues, palette, opts)`** — peer to
+   `buildDragonModel()`. Build skeleton from the plan → warp by proportions →
+   hang cheap body volume + cues → cap decoration → skin pass.
+3. **`skinPass.js`** — toon + contact AO + outline + 5-role palette.
+4. **Author one creature per plan, by genes only**, then run:
+   - `tools/silhouette.mjs` chase-cam shots — eyeball that they read as three
+     *different animals* that are still clearly dragons.
+   - new `tests/silhouette-spacing.mjs` — assert the three pass the
+     **decoration-stripped** distinctness gate.
+   - `tools/tricount.mjs` — ≤6000 HIGH / ≤13000 ULTRA.
+5. **Human judges** on the chase-cam preview: do these look like three distinct
+   dragons or three reskins? If distinct, the inversion works — migrate the
+   roster onto body plans, retiring the shared-loft + decoration-flag pattern.
 
 ---
 
-## 8. What's different from PR #160 and the hull route — at a glance
+## 8. v1 → v2: what changed and why
 
-| | Hull route (current) | PR #160 (genome + optimizer) | **This (archetype chassis)** |
-|---|---|---|---|
-| Silhouette is… | emergent from a surface | emergent, then numerically fitted | **authored as bold landmarks** |
-| Family resemblance | hoped-for | not addressed | **structural & guaranteed** (fixed topology) |
-| Variety | collapses to mean | optimizer smooths features away | **bounded genes + enforced hero-gene spacing** |
-| Prompt mapping | pick prefab + scale | continuous fit (LLM-unreliable) | **classify + fill named schema (LLM-reliable)** |
-| Iteration | re-tune dials | re-run the fit | **edit one named gene; deterministic** |
-| Charm source | organic blend | — | **bold primitives + toon outline + contact AO** |
-| Built for | side/3-4 reference match | reference IoU | **the rear chase cam, explicitly** |
-```
+| | v1 (wrong) | **v2 (this)** |
+|---|---|---|
+| Diagnosed problem | dragons don't resemble each other | **dragons are reskins of one body** |
+| Resemblance | guaranteed by a **fixed shared chassis** | a small portable **cue checklist** |
+| Hero variation | decoration enums (horns/dorsal/tail) | **body plan + topology + wide proportions** |
+| Gene ranges | tight ("keep it a dragon") | **wide** ("sameness comes from timid ranges") |
+| Variety gate | hero-gene spacing | **decoration-stripped naked-silhouette spacing** |
+| Decoration | promoted to hero | **demoted, capped, gate-excluded** |
 
+Kept: chase-cam-first, bold primitives + toon-outline skin, deterministic
+classify-then-fill prompt pipeline, Ultra-as-detail-dial.
+
+---
+
+## 9. The one open decision for you
+
+**How far may a dragon's silhouette vary?**
+
+- **A — Allow topology variety** (wyverns, serpents, wingless drakes share the
+  roster): biggest escape from reskins; recommended. Risk: a casual player might
+  not call a wingless serpent a "dragon."
+- **B — Keep all dragons the classic 4-leg/2-wing western**, and get variety
+  purely from §3.2's wide proportions: safer "reads as a dragon," lower variety
+  ceiling, still far better than today.
+
+The system is the same either way — B just disables the topology axis. Pick one
+and the first-hero set in §7 adjusts (three western proportions vs three plans).
