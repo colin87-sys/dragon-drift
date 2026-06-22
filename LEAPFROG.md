@@ -2879,3 +2879,34 @@ the guide HARVESTS them rather than inventing a schema, so it can't drift. The f
 "recreatable" by an LLM is the cross-section ring list + module names + grammar dials, NOT prose.
 **→ Leapfrog:** keep MODEL-CREATION.md current as builders/dials are added; when the reusable body-profile
 dials + legRoot land, update §5/§6 so the Gundam (and any humanoid) becomes a pure-data spec.
+
+## Lesson — Built a creature 100% from scratch (no body-plan/chassis system) to prove the "prompt → procedural dragon → code in the game" loop: The Radiant Paladin.
+
+The human asked, as a capability demo, to take a long structured creature brief (a holy pearl/gold paladin
+dragon, rear-chase-cam first) and build it WITHOUT the existing build system, its methods, or its renderer —
+everything fresh — to show the ceiling of the prompt-to-procedural pipeline. New self-contained dir
+`reforged/seraph/`: `radiantPaladin.js` (own materials, own module builders, own hierarchy; engine axis
+head=-Z/tail=+Z/right=+X/up=+Y per the brief), `proof.mjs` (a fresh CPU rasteriser with z-buffer + 2-tone
+shading + **emissive bloom** so halo/seams/comet glow + montage PNG — does NOT import chassisRenderCore), and
+`check.mjs` (asserts every chase-cam-critical module role exists + tri budget). 3815 tris, 24 module roles,
+all green; no dependency on buildFromBodyPlan/genes/grammar.
+
+What carried the read (verified on the 3-view montage): (1) **A pearl MEMBRANE webbing lofted under the
+gilded scale-plates is what makes a feather-scale wing read as ONE wing** — plates alone rendered as a broken
+"popcorn chain" with gaps to the body; the solid sheet underneath gives a clean silhouette and the shingled
+gold-rimmed plates become surface texture on top. (2) **The brief's 7° dihedral reads EDGE-ON (a thin sliver)
+from a dead-rear chase cam** — the same lesson as the body-plan wings. A gull ARCH (lift midspan with
+`0.95*sin(s*π)` plus ~15° dihedral, behind a `chaseCamWingRead` knob) turns the fan into a tall, wide
+silhouette without abandoning the swept planform. (3) **Gilded-rim feather look on a flat per-mesh renderer =
+a slightly larger gold shield set just behind each pearl shield** (rim peeks around the edge); cheap and reads
+at distance. (4) Glow modules (seam/halo/comet/tail-slit) only pop if the renderer has a bloom pass — a plain
+flat raster makes "emissive" look like flat paint.
+
+Reusable insight: a from-scratch creature is genuinely viable here precisely because the game is procedural
++ asset-free — the dragon IS code, so the whole loop (read brief → write builder → headless proof → gate →
+commit) round-trips with no import/export. The brief format that maps cleanly to code is exactly
+MODEL-CREATION.md §10's: module families + per-module dimensions + material slots + Z-layout + knobs.
+**→ Leapfrog:** the membrane-under-plates + gull-arch + behind-rim-plate + bloom tricks are general; fold them
+back into the main wing/skin kit so the shipped roster can opt into a "feather-scale" wing and a glow pass.
+The next step the human will judge on the preview is MOTION — wire one Radiant hero into the live flight so
+the wings beat on the real chase cam (static stills can't prove feel).
