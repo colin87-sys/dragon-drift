@@ -22,8 +22,8 @@ const required = [
   'torsoCore', 'torsoArmor', 'sideIntake',       // 3 engine bay
   'ventPlate', 'ventSlit',                       // 4 angled vent plate
   'chevron',                                     // 5 chevron taillight
-  'wingMount', 'shoulderHinge', 'jointCore', 'wingInnerStruct', 'wingStrut',     // 6a blade-wing root
-  'outerWingBlade', 'secondaryBlade', 'tertiaryBlade', 'energyChannel',          // 6b layered blades + glow
+  'wingMount', 'shoulderHinge', 'jointCore', 'wingInnerStruct',                  // 6a blade-wing root pylon
+  'outerWingBlade', 'secondaryBlade', 'energyChannel',                           // 6b primary + secondary + Y-glow
   'thrusterHousing', 'thrusterCore', 'thrusterFlame',  // 7 twin thruster pod
   'diffuserFin',                                 // 8 diffuser
   'tailBladeFin', 'tailSpear',                   // 9 segmented tail

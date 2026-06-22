@@ -2982,3 +2982,26 @@ amber shading UNDERSELLS gold+red; the mecha/ingame.html (real ACES + UnrealBloo
 reference — always send the human there for material/glow judgement, not the montage.
 **→ Leapfrog:** bladeGeo2 + the fanned-stack pattern + glowing-hex lattice are reusable for any mech fin array
 (tail stabilisers, dorsal crest, boss variants) — promote into the shared kit alongside spineSegment/thrusterPod.
+
+## Lesson — Reworked the blade-wing AGAIN (human: "ugly") to a precise 2-blade spec: kinked SOLID aerofoil primary + subordinate secondary on a thick faceted pylon.
+
+The fanned 4-blade stack read as thin spikes. The human's re-spec was exact: exactly TWO blades (a dominant
+primary that is long + KINKED + needle-tipped, and a clearly smaller secondary tucked below/inboard), each a
+SOLID object with aerofoil volume (not a flat triangle), grown from a thick faceted root PYLON, raised into a
+tall rear V. New geometry primitives in mecha/svjDragon.js: `bladePath` (steep thick root-rise → hard angular
+kink at ~1/4 length → long straight lean-back run to tip), `aeroBlade` (sweeps a 6-vert aerofoil cross-section
+— flat-ish outer/inner faces + sharp leading/trailing — along that path, tapering width AND thickness to a
+needle), and `wedgeBlock` (a tapered 8-vert frustum pylon, broad base → narrow top, NOT cylindrical).
+
+Keys: (1) **Sweeping a real cross-section along a path is what gives "volume"** — the prior flat/ridged sheets
+read 2D; a 6-vert aerofoil ring swept down a kinked centreline reads as a machined solid from any angle, for
+~110 tris. (2) **The kink is just two path segments at different angles** (angA 62° steep, angC 48° leaning
+back) — a piecewise polyline, trivially gives the "hard-surface design kink, not a soft bird bend." (3) **Pose
+the V with the lean OUTSIDE the mirror group:** root.rotation.z = -side*lean on an outer node, scale.x=side on
+an inner node — otherwise the mirror cancels the lean and both wings tilt the same world way. (4) **Subordinate
+the secondary by the numbers** (length 62%, width 64%, thinner) and offset it inboard/below/behind so 3/4 and
+rear angles read top-blade / lower-blade / dark gap. (5) The single recessed red **Y-channel** = three thin
+emissive boxes (stem + two branches) on the dark inner face — "structured glow, not random."
+**→ Leapfrog:** aeroBlade + bladePath (swept aerofoil along a kinked spline) is the reusable hard-surface
+primitive this kit was missing — use it for tail stabiliser fins, dorsal crests, and any mech blade going
+forward, and expose wRoot/wMid/wTip + angA/angC/kink as the dials.
