@@ -2911,3 +2911,36 @@ use — a masker is only as good as the contrast it keys on, and "reuse the exis
 contrast inverts. **→ Leapfrog:** give `silhouette-overlay.mjs` a `--chroma green` mode (or auto-pick
 greenness-vs-luminance by which is more bimodal) so green-screen references feed the compare-against-the-build
 loop directly, no Python detour.
+
+---
+
+## Lesson — A BUSY in-game frame has no separable background — thresholds/GrabCut all fail; a neural saliency matte (rembg/isnet) is the only thing that works.
+
+Follow-up to the green-screen trace: the human then dropped an in-game REAR-VIEW screenshot (dragon over the
+golden cosmos floor) and asked for "the same". There is no clean key here, and I burned four attempts proving
+it before reaching for the right tool — log the ladder so the next session skips straight to the answer:
+(1) **luminance floor** (the existing overlay's method) — the dragon's lit back (lum 63) is as bright as the
+floor (lum 69), so it both misses the body AND grabs every dark shadow/pillar/letterbox bar; (2) **warmth**
+`R−B` is the *best single* cue (floor warm≈45, neutral dragon≈0–16) but the dragon is connected to a sea of
+dark, neutral background (shadow gaps, vignette, the right letterbox bar) so largest-component/border-drop
+either deletes the dragon or keeps half the frame; (3) **GrabCut with a rect** kept 57% (dark floor reads as
+fg); (4) **GrabCut with warmth/luminance seeds** fragmented the body (0.5%). The debug bg-mask made the
+verdict visual: the dragon's dark mass is one blob with the dark scenery — *not separable by any global rule*.
+
+WHAT WORKED: a **neural saliency / background-removal model** — `rembg` with **`isnet-general-use`** (NOT the
+default `u2net`, which called the whole bright scene-centre salient at 60% coverage; isnet = 19.5%, crisp wing
+scallops + head frills + tail-to-fin). It finds the foreground *object* regardless of background contrast,
+which is exactly what a busy frame needs. The network policy DID allow the ~170MB model download (good to
+know: pip + model CDNs are reachable in this sandbox even though Chromium/WebGL isn't). Pipeline after the
+matte is identical to the green-screen one (largest comp → fill holes → light close/open → marching-squares
+SVG). Saved as `mockups/silhouette/ingame-extract.py` + `ingame-*` outputs; experiment intermediates deleted.
+
+Rules: (1) **match the matte method to the background, not to the last tool** — flat colour ⇒ chroma key;
+busy scene ⇒ neural saliency; a global threshold only works when fg/bg are globally separable, and "dark
+subject on a partly-dark scene" never is. (2) When 2–3 classical attempts fail on the SAME cause (subject
+fused to background), stop tuning thresholds and switch tool class — don't grind. (3) `isnet-general-use` >
+`u2net` for a tight object boundary. (4) Verify the rembg/onnxruntime path is offline-only reference tooling —
+it is NOT shipped to the game (engine stays 100% procedural).
+**→ Leapfrog:** a `silhouette-overlay.mjs --matte neural` would need onnx in Node (heavy); simpler to keep
+neural matting as this offline Python pre-step that *produces* the clean concept PNG, then feed that PNG to the
+existing JS overlay. The reusable asset is the two-method `mockups/silhouette/` extractor pair, not a new JS dep.
