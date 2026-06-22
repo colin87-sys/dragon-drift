@@ -84,8 +84,12 @@ function buildTailFins(attach, finMat) {
 }
 
 registerTorso('driftBody', (def, model, bodyMat) => {
+  // neck:false — the traced stations already carry the head/neck bulk all the way
+  // to the snout, so we suppress the generic sphere-chain neck (which climbs in Y
+  // on a pose of its own and fights the traced side silhouette).
   const res = buildTorso(DRIFT_PROFILE, def, model, bodyMat,
-    (profile, stretch) => sweepProfileSmooth({ ...profile, ring: profile.ring || driftSection }, stretch));
+    (profile, stretch) => sweepProfileSmooth({ ...profile, ring: profile.ring || driftSection }, stretch),
+    { neck: false });
   const finMat = (res.attach.bodyMatDouble || bodyMat).clone(); finMat.side = THREE.DoubleSide;
   res.group.add(buildTailFins(res.attach, finMat));
   return res;
