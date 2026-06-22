@@ -1121,11 +1121,8 @@ function buildSvjLayeredBladeWing(def, model, attach, giM) {
   const group = new THREE.Group();
   const spineMats = [];
   const ws = model.wingScale ?? 1;
-  const cs = model.wingChordScale ?? 1;          // vertical-chord scale (the rear-read knob)
   const gi = Math.min(giM ?? 1, 1.3);
 
-  // Gold reads gold from EVERY angle: diffuse (low metalness) + a low warm emissive, so the
-  // big panels never render near-black facing away from the lights (no env map in the rig).
   const gold = new THREE.MeshStandardMaterial({
     color: def.body ?? 0xf2c20e, emissive: 0x2a1f05, emissiveIntensity: 0.32,
     flatShading: true, side: THREE.DoubleSide, roughness: 0.42, metalness: 0.28,
@@ -1134,82 +1131,96 @@ function buildSvjLayeredBladeWing(def, model, attach, giM) {
     color: def.belly ?? 0x0e0e12, flatShading: true, side: THREE.DoubleSide,
     roughness: 0.5, metalness: 0.5,
   });
-  const redCol = def.apexSeam ?? 0xff3b2f;
+  const redCol = 0xf0182a;   // deep crimson (the reference hex grid is red, not orange/pink)
+  // a moderate emissive so the hex GRID lines read deep red, not blown-out toward pink/white.
   const redMat = new THREE.MeshStandardMaterial({
-    color: redCol, emissive: redCol, emissiveIntensity: 2.4 * gi, roughness: 0.3, side: THREE.DoubleSide,
+    color: redCol, emissive: redCol, emissiveIntensity: 0.9 * gi, roughness: 0.35, side: THREE.DoubleSide,
   });
   redMat.userData.baseEmissive = redCol;
-  redMat.userData.baseIntensity = 2.4 * gi;
+  redMat.userData.baseIntensity = 1.4 * gi;
   spineMats.push(redMat);
 
-  // span-scale X, chord-scale Y, then SWEEP the wing back (z += SWEEP*x) and lift it on a
-  // DIHEDRAL (y += DIH*x) so it gains a fore/aft blade profile from the side + rises above the
-  // body — without losing the broad X-Y projection the rear chase cam needs.
-  const SWEEP = 0.30, DIH = 0.11;
-  const sc = (p) => { const x = p[0] * ws; return [x, p[1] * cs + DIH * x, p[2] + SWEEP * x]; };
-  // a filled blade panel from an UPPER edge [root,mid,tip] and a LOWER edge [root,mid,tip].
-  const panel = (U, L, mat) => flatTriMesh([
-    [U[0], U[1], L[1]], [U[0], L[1], L[0]],
-    [U[1], U[2], L[2]], [U[1], L[2], L[1]],
-  ], mat);
-  // a thin red chevron slash in the panel plane, raked back ~-22deg, centred on c, sat proud.
-  const RAKE = -0.384, dr = [Math.cos(RAKE), Math.sin(RAKE)], pr = [-dr[1], dr[0]];
-  const slash = (c, hl, hw, mat) => {
-    const A = [c[0] - dr[0] * hl, c[1] - dr[1] * hl, c[2]], B = [c[0] + dr[0] * hl, c[1] + dr[1] * hl, c[2]];
-    const ox = pr[0] * hw, oy = pr[1] * hw;
-    const p1 = [A[0] - ox, A[1] - oy, A[2]], p2 = [B[0] - ox, B[1] - oy, B[2]];
-    const p3 = [B[0] + ox, B[1] + oy, B[2]], p4 = [A[0] + ox, A[1] + oy, A[2]];
-    return flatTriMesh([[p1, p2, p3], [p1, p3, p4]], mat);
+  const _x = new THREE.Vector3(), _y = new THREE.Vector3(), _z = new THREE.Vector3(), _m = new THREE.Matrix4();
+  const orientYZ = (mesh, dir) => {
+    _y.set(dir[0], dir[1], dir[2]).normalize(); _z.set(1, 0, 0);
+    _x.crossVectors(_y, _z); if (_x.lengthSq() < 1e-5) _x.set(0, 0, 1); _x.normalize();
+    _z.crossVectors(_x, _y).normalize();
+    _m.makeBasis(_x, _y, _z); mesh.quaternion.setFromRotationMatrix(_m);
+    return mesh;
+  };
+  const hexShape = (r, mat) => {
+    const pts = [];
+    for (let k = 0; k < 6; k++) pts.push([Math.cos((k / 6 + 1 / 12) * Math.PI * 2) * r, Math.sin((k / 6 + 1 / 12) * Math.PI * 2) * r]);
+    return wedgePanel(pts, mat);
+  };
+  // a hex OUTLINE cell: a red hex with a smaller carbon hex sat in FRONT (toward +X cam) so only
+  // the red RIM shows -> a glowing honeycomb edge on black, like the reference (not a solid blob).
+  const hexRing = (y, z, r) => {
+    const g = new THREE.Group();
+    const red = orientYZ(hexShape(r, redMat), [0, 1, 0.12]); red.position.set(0.04, y, z); g.add(red);
+    const blk = orientYZ(hexShape(r * 0.7, carbon), [0, 1, 0.12]); blk.position.set(0.06, y, z); g.add(blk);
+    return g;
   };
 
-  // MAIN outer silhouette (pivot-local). Broad + filled: tall Y-chord at root/mid, fine tip;
-  // gentle sweep-back + dihedral via small Z. Upper edge then lower edge, each root->mid->tip.
-  const MU = [sc([0.10, 0.50, -0.16]), sc([1.55, 0.64, -0.06]), sc([3.15, 0.62, -0.20])];
-  const ML = [sc([0.08, -0.24, 0.06]), sc([1.45, -0.18, 0.16]), sc([2.95, 0.28, 0.12])];
-  // BLACK inset (~58% coverage), inset from the edges + raised toward the rear camera (+Z).
-  const IU = [sc([0.45, 0.38, -0.11]), sc([1.55, 0.50, -0.01]), sc([2.70, 0.48, -0.15])];
-  const IL = [sc([0.45, -0.10, 0.11]), sc([1.45, -0.04, 0.19]), sc([2.55, 0.18, 0.15])];
+  // A CURVED scimitar blade in the side (Y-Z) plane: a tapered ribbon swept along a quadratic
+  // bezier whose spine RISES vertically then CURVES back toward the tail (+Z) - tip points
+  // tailward. Built flat at depth x=root[0]. root=[x,y,z]; ctrl/tip = [dy,dz] offsets from root.
+  const curvedBlade = (root, ctrl, tip, baseHalf, mat) => {
+    const N = seg(8);
+    const P0 = [root[1], root[2]], P1 = [root[1] + ctrl[0], root[2] + ctrl[1]], P2 = [root[1] + tip[0], root[2] + tip[1]];
+    const bez = (t) => { const u = 1 - t; return [u * u * P0[0] + 2 * u * t * P1[0] + t * t * P2[0], u * u * P0[1] + 2 * u * t * P1[1] + t * t * P2[1]]; };
+    const tris = []; let pa = null, pb = null; const xd = root[0];
+    for (let i = 0; i <= N; i++) {
+      const t = i / N, c = bez(t);
+      const a = bez(Math.max(0, t - 0.02)), b = bez(Math.min(1, t + 0.02));
+      let ty = b[0] - a[0], tz = b[1] - a[1]; const tl = Math.hypot(ty, tz) || 1; ty /= tl; tz /= tl;
+      const py = -tz, pz = ty;
+      const w = baseHalf * Math.pow(1 - t, 0.72);   // broad base -> fine sharp tip
+      const A = [xd, c[0] + py * w, c[1] + pz * w], B = [xd, c[0] - py * w, c[1] - pz * w];
+      if (pa) { tris.push([pa, pb, B], [pa, B, A]); }
+      pa = A; pb = B;
+    }
+    return { mesh: flatTriMesh(tris, mat), tip: [xd, P2[0], P2[1]] };
+  };
+
+  // GOLD BLADE FAN (side Y-Z), thinner + longer + sweeping toward the tail. DEPTH layering toward
+  // the side cam (+X): fan spikes BEHIND, hex membrane MIDDLE, broad LEADING blade in FRONT.
+  // { root:[x,y,z], ctrl:[dy,dz], tip:[dy,dz], baseHalf }. Head=-Z, tail=+Z; rear blade most swept.
+  const BLADES = [
+    { root: [0.15, 0.00, -0.18], ctrl: [0.72, -0.12], tip: [1.25, -0.34], baseHalf: 0.32 }, // broad leading (front)
+    { root: [-0.05, 0.14, -0.02], ctrl: [1.20, 0.10], tip: [1.70, 0.95], baseHalf: 0.20 },   // front spike
+    { root: [-0.05, 0.16, 0.06], ctrl: [1.55, 0.30], tip: [1.95, 1.65], baseHalf: 0.22 },    // tallest, curves back
+    { root: [-0.05, 0.13, 0.16], ctrl: [0.90, 0.75], tip: [1.20, 2.10], baseHalf: 0.19 },    // long rear, swept back
+  ];
+  // RED HEX honeycomb grid filling the membrane pocket - [y, z, r].
+  const HEXES = [[0.30, -0.06, 0.17], [0.30, 0.26, 0.17], [0.46, 0.10, 0.17], [0.46, 0.42, 0.16],
+    [0.62, -0.04, 0.17], [0.62, 0.28, 0.16], [0.62, 0.58, 0.15], [0.80, 0.14, 0.16], [0.80, 0.46, 0.15]];
 
   function buildWing() {
     const pivot = new THREE.Group();
+    const block = new THREE.Mesh(new THREE.BoxGeometry(0.34, 0.40, 0.42), gold);
+    block.position.set(0.02, 0.03, -0.02); pivot.add(block);
+    const core = new THREE.Mesh(new THREE.BoxGeometry(0.22, 0.26, 0.30), carbon);
+    core.position.set(0.02, 0.03, 0.04); pivot.add(core);
 
-    // root hinge block — gold mass with a carbon core, tying the wing into the shoulder.
-    const block = new THREE.Mesh(new THREE.BoxGeometry(0.34, 0.42, 0.42), gold);
-    block.position.set(0.02, 0.06, -0.04); pivot.add(block);
-    const core = new THREE.Mesh(new THREE.BoxGeometry(0.22, 0.28, 0.30), carbon);
-    core.position.set(0.02, 0.06, 0.02); pivot.add(core);
+    // black carbon membrane backing the hex honeycomb.
+    const back = orientYZ(new THREE.Mesh(new THREE.PlaneGeometry(1.05 * ws, 0.95), carbon), [0, 1, 0.18]);
+    back.position.set(0.0, 0.55, 0.24); pivot.add(back);
+    for (const h of HEXES) pivot.add(hexRing(h[0], h[1], h[2]));
 
-    pivot.add(panel(MU, ML, gold));                 // gold backing panel
-    pivot.add(panel(IU, IL, carbon));               // black carbon inset (proud toward camera)
+    // the curved gold blade fan.
+    let tipPos = null;
+    BLADES.forEach((b, i) => {
+      const blade = curvedBlade(b.root, b.ctrl, b.tip, b.baseHalf * ws, gold);
+      pivot.add(blade.mesh);
+      if (i === 2) tipPos = blade.tip;
+    });
 
-    // gold rails: leading (upper), trailing (lower), root, tip.
-    const rail = (a, b, t) => pivot.add(frameBar(a, b, [t, t], gold));
-    rail(MU[0], MU[1], 0.055); rail(MU[1], MU[2], 0.05);    // leading edge
-    rail(ML[0], ML[1], 0.05);  rail(ML[1], ML[2], 0.045);   // trailing edge
-    rail(MU[0], ML[0], 0.06);  rail(MU[2], ML[2], 0.04);    // root + tip rails
-
-    // 3 BOLD red chevron slashes along the inset (span fractions ~0.32/0.52/0.72), sat clearly
-    // proud (+Z) so they read as the SVJ taillight signature from the rear chase cam.
-    slashesFor([[0.95, 0.16, 0.13], [1.55, 0.20, 0.15], [2.10, 0.24, 0.11]], pivot);
-
-    // ONE secondary lower blade (gold + a small red slash), below the main — layered, not clutter.
-    const SU = [sc([0.25, -0.20, 0.10]), sc([1.60, -0.36, 0.18]), sc([2.70, -0.12, 0.10])];
-    const SL = [sc([0.25, -0.42, 0.10]), sc([1.60, -0.58, 0.18]), sc([2.70, -0.30, 0.10])];
-    pivot.add(panel(SU, SL, gold));
-    pivot.add(slash(sc([1.45, -0.34, 0.22]), 0.26 * cs, 0.035, redMat));
-
-    // gold tip endplate + rig handles (fold + VFX marker), at the main tip.
-    const tip = [(MU[2][0] + ML[2][0]) / 2, (MU[2][1] + ML[2][1]) / 2, (MU[2][2] + ML[2][2]) / 2];
-    const endplate = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.34, 0.18), gold);
-    endplate.position.set(tip[0], tip[1], tip[2]);
     const wingTip = new THREE.Group(); wingTip.userData.handle = 'tip';
-    wingTip.position.set(tip[0], tip[1], tip[2]);
+    wingTip.position.set(tipPos[0], tipPos[1], tipPos[2]);
     const marker = new THREE.Object3D(); marker.userData.handle = 'marker'; wingTip.add(marker);
-    pivot.add(endplate); pivot.add(wingTip);
+    pivot.add(wingTip);
     return { pivot, wingTip, marker };
-  }
-  function slashesFor(centres, pivot) {
-    for (const c of centres) pivot.add(slash(sc(c), 0.34 * cs, 0.045, redMat));
   }
 
   const Rb = buildWing();
