@@ -103,6 +103,54 @@ function membrane(rootWorld, chain, chord, mat) {
   return m;
 }
 
+// Primitive C2 — a BAT WING: an arm spar to a wrist, a fan of finger spars swept
+// from leading (forward, −Z) to trailing (back, +Z), and a scalloped membrane
+// webbed between the fingers + a trailing sail down to the shoulder. Parameterised
+// so the whole shape is continuous data an optimizer can drive (span, sweep,
+// elevation/pose, finger count, scallop). `side` (+1 right / −1 left) mirrors it.
+// Built as real 3D geometry (spreads in X, sweeps in Z, raised in Y by elevation),
+// so it reads as a wing from any angle AND projects broadly into the side view.
+function batWing(root, side, p, mat) {
+  const fingers = Math.max(2, Math.round(seg(p.fingers ?? 4)));
+  const armLen = p.armLen ?? 0.55, span = p.span ?? 1.6;
+  const elev = p.elevation ?? 0.7;              // 0 flat → ~1.4 vertical (upstroke)
+  const leadAng = p.leadAng ?? 0.5;             // forward fan of the leading finger (rad)
+  const trailAng = p.trailAng ?? 1.5;           // back sweep of the trailing finger (rad)
+  const scallop = p.scallop ?? 0.3;             // trailing-edge notch depth
+  const R = new THREE.Vector3(root[0], root[1], root[2]);
+  // raised arm: out in X (by side), up in Y by elevation.
+  const out = new THREE.Vector3(side * Math.cos(elev), Math.sin(elev), 0);
+  const Wr = R.clone().addScaledVector(out, armLen);
+  // finger tips: sweep the raised-out vector about Y from leading(−) to trailing(+).
+  const tips = [];
+  for (let i = 0; i < fingers; i++) {
+    const f = i / (fingers - 1);
+    const A = -leadAng + (leadAng + trailAng) * f;       // sweep angle about Y
+    const cx = Math.cos(A), sz = Math.sin(A);
+    const dir = new THREE.Vector3(out.x * cx, out.y, -out.x * sz); // rotate out about Y
+    dir.normalize();
+    tips.push(Wr.clone().addScaledVector(dir, span * (1 - 0.22 * f)));
+  }
+  const verts = [], idx = [];
+  const push = (a, b, c) => { const base = verts.length / 3; verts.push(a.x, a.y, a.z, b.x, b.y, b.z, c.x, c.y, c.z); idx.push(base, base + 1, base + 2); };
+  // webbing between adjacent fingers, with a scalloped (pulled-in) mid trailing edge.
+  for (let i = 0; i < fingers - 1; i++) {
+    const t0 = tips[i], t1 = tips[i + 1];
+    const mid = t0.clone().lerp(t1, 0.5).lerp(Wr, scallop * 0.5);
+    push(Wr, t0, mid); push(Wr, mid, t1);
+  }
+  // leading membrane (arm → first finger) + trailing sail (last finger → shoulder).
+  push(R, Wr, tips[0]);
+  push(R, tips[fingers - 1], Wr);
+  const gmt = new THREE.BufferGeometry();
+  gmt.setIndex(idx);
+  gmt.setAttribute('position', new THREE.Float32BufferAttribute(verts, 3));
+  gmt.computeVertexNormals();
+  const m = new THREE.Mesh(gmt, mat);
+  m.userData.wing = true;
+  return m;
+}
+
 // Build one creature from a genome. opts.detail (e.g. 'ultra') is applied by the
 // caller via setActiveDetail; the primitives read it through seg().
 export function buildFromGenome(rawGenome, opts = {}) {
@@ -139,6 +187,11 @@ export function buildFromGenome(rawGenome, opts = {}) {
   for (const ap of g.appendages) {
     if (ap.kind === 'membrane') {
       tally('membrane', membrane(ap._from, ap._chain, ap.chord ?? 0.8, membMat));
+    } else if (ap.kind === 'wing') {
+      // root = shoulder offset to the side; side from the limb chain's x sign.
+      const side = Math.sign((ap._chain && ap._chain[0] && ap._chain[0][0]) || 1) || 1;
+      const root = [side * (ap.rootX ?? 0.24), (ap._from?.[1] ?? 0.4) + (ap.rootLift ?? 0.12), (ap._from?.[2] ?? -0.4)];
+      tally('wing', batWing(root, side, ap, membMat));
     } else if (ap.kind === 'leg') {
       const chain = [V(ap._from), ...ap._chain.map(V)];
       const radii = ap._radii || chain.map(() => 0.08);
