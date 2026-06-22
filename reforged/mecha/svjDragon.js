@@ -258,7 +258,8 @@ function wedgeBlock(w0, d0, w1, d1, h, mat, role) {
 
 function wingSystem(side, M) {
   const root = new THREE.Group();
-  root.rotation.z = -side * rad(20);                                             // outward lean → tall rear V
+  const LEAN = rad(40);                                                          // outward lean → wide rear V (trades height↔width)
+  root.rotation.z = -side * LEAN;
   const mir = new THREE.Group(); mir.scale.x = side; root.add(mir);              // mirror geometry for the left
 
   // ── thick faceted root PYLON (the bulkiest zone), leaning back ──────────────
@@ -281,14 +282,15 @@ function wingSystem(side, M) {
   const pose = hinge, outer = new THREE.Group(); hinge.add(outer);
 
   // PRIMARY blade — broad delta root chord (≈80% torso) sweeping fast to a long
-  // kinked needle. Chord biased aft so the wide base lies back along the spine.
-  const prim = aeroBlade(2.7, ROOT_CHORD, 0.5, 0.06, 0.22, 0.10, 0.035, 0.22, rad(62), rad(48), M.gold, 'outerWingBlade');
+  // kinked needle. Length set against the head-to-tail master scale (see measure.mjs).
+  const LP = 6.7;                                                                // primary root→tip length (model u)
+  const prim = aeroBlade(LP, ROOT_CHORD, 0.5, 0.06, 0.22, 0.10, 0.035, 0.22, rad(62), rad(58), M.gold, 'outerWingBlade');
   prim.position.set(0, 0, -0.45); outer.add(prim);
   // dark recessed inner face panel hugging the blade (thin, inboard)
-  const primInner = aeroBlade(2.4, ROOT_CHORD * 0.7, 0.34, 0.05, 0.05, 0.03, 0.02, 0.22, rad(62), rad(48), M.carbon, 'wingInnerStruct');
+  const primInner = aeroBlade(LP * 0.9, ROOT_CHORD * 0.7, 0.34, 0.05, 0.05, 0.03, 0.02, 0.22, rad(62), rad(58), M.carbon, 'wingInnerStruct');
   primInner.position.set(-0.11, 0.02, -0.43); outer.add(primInner);
   // SECONDARY blade — clearly smaller (≈62% len / 60% chord), tucked below+inboard
-  const sec = aeroBlade(1.7, ROOT_CHORD * 0.6, 0.3, 0.05, 0.14, 0.07, 0.03, 0.24, rad(57), rad(45), M.gold, 'secondaryBlade');
+  const sec = aeroBlade(LP * 0.62, ROOT_CHORD * 0.6, 0.3, 0.05, 0.14, 0.07, 0.03, 0.24, rad(57), rad(52), M.gold, 'secondaryBlade');
   sec.position.set(-0.14, -0.16, -0.1); outer.add(sec);
 
   // ONE inset red Y-channel on each blade's dark inner face (structured, recessed)
