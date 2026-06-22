@@ -18,6 +18,7 @@ import './dragonFaceted.js';        // 'faceted' torso + 'hexMembrane' wings + '
 import './dragonSeraph.js';         // Pearl Seraph: feather-scale wings / crown-halo head / comet tail (celestial multi-module family)
 import './dragonSeraphBody.js';     // Pearl Seraph: pearl hull torso + crowned head + real-geometry crown-halo
 import './dragonTracedWing.js';     // 'tracedWing' — clean-sheet membrane wing traced from a reference photo
+import './dragonDriftBody.js';      // 'driftBody' — self-bodied sleek Night-Fury torso traced from the reference
 import { shingle } from './dragonShingle.js'; // reusable overlapping scale/plate cards
 import { resolveSurfaceLayers, getSurfaceLayer } from './dragonSurfaceLayers.js'; // declarative dorsal/flank decoration
 import { validateCreatureBlueprint } from './validateCreatureBlueprint.js';

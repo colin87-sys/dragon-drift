@@ -608,7 +608,7 @@ export const DRAGONS = {
     // generic modules for now (placeholder) while we build the wing; animation is a
     // fresh flap (not Toothless's cascade).
     parts: {
-      torso: 'arrow', head: 'horned', wings: 'tracedWing', tail: 'clean',
+      torso: 'driftBody', head: 'none', wings: 'tracedWing', tail: 'none',
     },
     stats: { speed: 1.12, handling: 1.18, drain: 0.82, regen: 1.2 },
     model: {
