@@ -351,14 +351,25 @@ export function buildRadiantPaladin(knobs = {}) {
   const root = new THREE.Group();
   root.name = 'RadiantPaladin';
   root.add(buildBody(k, mats));
-  root.add(buildHead(k, mats));
-  root.add(buildTail(k, mats));
+  const head = buildHead(k, mats); root.add(head);
+  const tail = buildTail(k, mats); root.add(tail);
+  const wings = [];
   for (const side of [-1, 1]) {
     const wing = buildWing(side, k, mats);
     wing.position.set(side * 0.5, 0.30, -2.7);                              // wing-root sockets (shoulders)
-    root.add(wing);
+    wing.userData.side = side; wing.userData.restZ = 0;
+    root.add(wing); wings.push(wing);
   }
   root.updateMatrixWorld(true);
+  // animation handles + the live emissive materials, so a driver can beat the
+  // wings, bob the halo, and pulse the seams/comet without re-traversing.
+  root.userData.anim = {
+    wings, head, tail,
+    halo: head.children.find((c) => c.userData.role === 'halo'),
+    comet: tail.children.find((c) => c.userData.role === 'comet'),
+    glowMats: [mats.seam, mats.halo, mats.comet, mats.holy, mats.gem, mats.eye],
+    materials: mats,
+  };
   return { group: root, materials: mats, knobs: k };
 }
 
