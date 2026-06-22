@@ -262,30 +262,34 @@ function wingSystem(side, M) {
   const mir = new THREE.Group(); mir.scale.x = side; root.add(mir);              // mirror geometry for the left
 
   // ── thick faceted root PYLON (the bulkiest zone), leaning back ──────────────
-  const pylon = wedgeBlock(0.5, 0.96, 0.34, 0.52, 0.62, M.gold, 'wingMount');
+  // root chord runs front-to-back ~80% of the torso (≈1.6u) so the wing INTEGRATES
+  // into the back along most of the spine, then tapers fast up into the blades.
+  const ROOT_CHORD = 1.6;
+  const pylon = wedgeBlock(0.5, ROOT_CHORD, 0.34, 0.5, 0.62, M.gold, 'wingMount');
   pylon.rotation.x = rad(-12); mir.add(pylon);
-  const pylonEdge = wedgeBlock(0.18, 0.9, 0.14, 0.46, 0.6, M.goldDark, 'wingMount');
+  const pylonEdge = wedgeBlock(0.18, ROOT_CHORD * 0.92, 0.14, 0.46, 0.6, M.goldDark, 'wingMount');
   pylonEdge.position.set(0.28, 0, 0); pylonEdge.rotation.x = rad(-12); mir.add(pylonEdge);
   const hingeJ = tag(new THREE.CylinderGeometry(0.2, 0.2, 0.5, 14), M.steel, 'shoulderHinge');
   hingeJ.rotation.z = Math.PI / 2; hingeJ.position.set(0.05, 0.16, 0.05); mir.add(hingeJ);
   const jcore = tag(new THREE.CylinderGeometry(0.1, 0.1, 0.52, 10), M.red, 'jointCore');
   jcore.rotation.z = Math.PI / 2; jcore.position.set(0.05, 0.16, 0.05); mir.add(jcore);
-  const innerBox = tag(new THREE.BoxGeometry(0.26, 0.36, 0.5), M.carbon, 'wingInnerStruct');  // dark internal mass
-  innerBox.position.set(-0.12, 0.18, 0.06); mir.add(innerBox);
+  const innerBox = tag(new THREE.BoxGeometry(0.26, 0.36, ROOT_CHORD * 0.62), M.carbon, 'wingInnerStruct');  // dark internal mass
+  innerBox.position.set(-0.12, 0.16, 0.06); mir.add(innerBox);
 
   // ── the rigid blade cluster pivoting at the pylon top ───────────────────────
-  const hinge = new THREE.Group(); hinge.position.set(0.0, 0.46, 0.04); mir.add(hinge);
+  const hinge = new THREE.Group(); hinge.position.set(0.0, 0.44, 0.0); mir.add(hinge);
   const pose = hinge, outer = new THREE.Group(); hinge.add(outer);
 
-  // PRIMARY blade — long, kinked, needle tip (the dominant silhouette)
-  const prim = aeroBlade(2.5, 0.44, 0.30, 0.06, 0.22, 0.10, 0.035, 0.24, rad(62), rad(48), M.gold, 'outerWingBlade');
-  outer.add(prim);
+  // PRIMARY blade — broad delta root chord (≈80% torso) sweeping fast to a long
+  // kinked needle. Chord biased aft so the wide base lies back along the spine.
+  const prim = aeroBlade(2.7, ROOT_CHORD, 0.5, 0.06, 0.22, 0.10, 0.035, 0.22, rad(62), rad(48), M.gold, 'outerWingBlade');
+  prim.position.set(0, 0, -0.45); outer.add(prim);
   // dark recessed inner face panel hugging the blade (thin, inboard)
-  const primInner = aeroBlade(2.2, 0.30, 0.2, 0.05, 0.05, 0.03, 0.02, 0.24, rad(62), rad(48), M.carbon, 'wingInnerStruct');
-  primInner.position.set(-0.11, 0.02, 0.02); outer.add(primInner);
-  // SECONDARY blade — clearly smaller, tucked below + inboard + slightly behind
-  const sec = aeroBlade(1.55, 0.28, 0.18, 0.05, 0.14, 0.07, 0.03, 0.26, rad(57), rad(45), M.gold, 'secondaryBlade');
-  sec.position.set(-0.14, -0.16, 0.2); outer.add(sec);
+  const primInner = aeroBlade(2.4, ROOT_CHORD * 0.7, 0.34, 0.05, 0.05, 0.03, 0.02, 0.22, rad(62), rad(48), M.carbon, 'wingInnerStruct');
+  primInner.position.set(-0.11, 0.02, -0.43); outer.add(primInner);
+  // SECONDARY blade — clearly smaller (≈62% len / 60% chord), tucked below+inboard
+  const sec = aeroBlade(1.7, ROOT_CHORD * 0.6, 0.3, 0.05, 0.14, 0.07, 0.03, 0.24, rad(57), rad(45), M.gold, 'secondaryBlade');
+  sec.position.set(-0.14, -0.16, -0.1); outer.add(sec);
 
   // ONE inset red Y-channel on each blade's dark inner face (structured, recessed)
   const yChan = (host, x, y, z, scl) => {
