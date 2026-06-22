@@ -297,6 +297,24 @@ export function buildDragonModel(def, opts = {}) {
   if (wingsResult.parts.tailSegs) tailSegs = wingsResult.parts.tailSegs;
   const spineSegs = wingsResult.parts.spineSegs || null;   // night-fury body-spine whip (nullable)
 
+  // Part tags for the headless per-part measurement tool (tools/silhouetteCore.mjs):
+  // pure metadata stamped on the part ROOT objects and walked up by the classifier.
+  // Additive + NULLABLE — no geometry/material/runtime effect, and any reader that
+  // doesn't ask for it never sees it, so the shipped roster is byte-identical. The
+  // body loft / neck / undecorated surface layers fall to the 'torso' bucket; a torso
+  // that mounts legs tags them 'legs' inside its own builder.
+  // (wingRigL/R are plain rig-descriptor objects, not Object3Ds — guard on isObject3D.)
+  const tagPart = (o, part) => { if (o && o.isObject3D) o.userData.part = part; };
+  tagPart(torsoGroup, 'torso');
+  tagPart(head, 'head');
+  tagPart(tailResult.group, 'tail');
+  // Per-side wing roots: builders expose different handles (yoke for the Mk II jet
+  // wing, pivot for blade/membrane wings, rig bones for skinned hulls) — tag every
+  // one that exists so the wing meshes classify regardless of which builder is in
+  // play. Nearest-ancestor wins in the classifier, and they all map to the same side.
+  for (const o of [wingYokeL, wingPivotL, wingRigL]) tagPart(o, 'wingL');
+  for (const o of [wingYokeR, wingPivotR, wingRigR]) tagPart(o, 'wingR');
+
   // Solar aura card (apex only): a tall narrow backlight behind the body — a
   // corona, not a ring that competes with the collectible rings.
   if (model.auraHalo) {
