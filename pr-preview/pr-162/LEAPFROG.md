@@ -3016,3 +3016,21 @@ wide base lies BACK along the spine instead of poking forward into the neck. Now
 fin grown out of the back over most of the torso length, then a long kinked needle — not a blade on a stalk.
 Reusable: parameterise proportions off ONE body-relative constant (ROOT_CHORD = 0.8·torso) so a single number
 restyles the whole root; the aeroBlade wRoot/wMid/wTip taper keeps the tip sharp regardless of how broad the root.
+
+## Lesson — Set wing proportions off the head-to-tail MASTER SCALE with a measure.mjs gate; documented the geometric conflict in the spec.
+
+Human spec: head-to-tail = 100 units; targets — each wing root→tip 50–58, projected rear width 85–95, height
+above back 45–60, true span 110–125. Built `mecha/measure.mjs`: derives 1 spec unit = (model head-to-tail)/100,
+then reports each metric vs its range by finding each wing's TIP = its highest world-space vertex. Tuned LP
+(primary length), LEAN (outward roll), and angC (backsweep) against it.
+
+TWO geometry facts worth keeping: (1) **For a raised wing, projected width and height TRADE OFF for a fixed wing
+length** — hitting width 90 AND height 50 AND length ≤58 is over-constrained (needs ~67-long wings). The
+backsweep z eats the budget too (length that goes backward contributes nothing to projected width/height), so
+reducing angC sweep buys some width+height per unit length. I prioritised the CAMERA targets (width 91, height
+48 — both in range) and let length land at 70 (over the "compact" guide), since the user's stated goal was
+"iconic and readable from the chase camera." (2) **"True span" vs "projected width" are the SAME number for
+symmetric tips** (3D dist between two mirror tips = 2·|x| = the projected x-extent), so the spec's "true 115 /
+projected 85-95" can't both hold on a symmetric raised pose — projected is the one that matters and it's 91.
+Reusable: drive sizes off ONE body-relative unit + a headless measure gate, and when targets conflict, optimise
+the one tied to the experiential goal and say so. LEAN/LP/angC are now the dials.
