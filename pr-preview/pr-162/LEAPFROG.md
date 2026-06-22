@@ -3069,3 +3069,22 @@ reads as armour, a box reads as a slab. (4) Lengthening the body kept the wing s
 tail 9.8→10.2, wing projected width stayed 85), so the measure.mjs gate confirmed the earlier wing work held.
 **→ Leapfrog:** promote the RINGS-table body into the shared kit as the standard creature-massing primitive;
 every future mech/dragon defines its silhouette as a profile table, not hand-placed parts.
+
+## Lesson — Refinement pass (no restart) on the mecha dragon: deeper chest, thicker integrated wing root + scapular fairing, more-visible secondary blade, bulkier hip chassis, curved tapering tail, tamed thruster bloom.
+
+Human approved the direction and asked for proportion/silhouette refinement, not new detail. All param-level
+edits on the existing kit: (1) RINGS table — chest hh +~20% / shoulder hw +~15% (deeper, wider load-bearing
+mass), tighter waist pinch for contrast, hip +~20% bulk, thicker tail base, and a gentle tail cy curve (sag then
+slight tip lift) so the tail isn't ruler-straight. (2) Wing root made chunky — primary aeroBlade root thickness
+0.22→0.34, beefier `wedgeBlock` pylon, and a NEW scapular FAIRING (a gold wedge at the mount that blends the
+shoulder mass into the wing root so there's no hard body-block→blade jump). (3) Secondary blade dropped lower +
+behind (offset y −0.16→−0.30) with a clear negative-space gap so it reads as a distinct support fin. (4) Hip:
+bigger haunch wedges + a gold rear COWL wrapping the thruster mounts (tail grows from a real chassis). (5) Head
+scaled 1.15→~1.5. (6) Bloom blowout tamed: UnrealBloom strength 0.55→0.38 / threshold 0.85→0.95 + thruster
+emissive 2.7→2.2, so the glow lifts without erasing the silhouette.
+
+Key process note: **bumping head/chest size lengthened head-to-tail, which shrank the wing/body RATIO** (measure
+gate caught width 85→82); restored with LP 6.7→7.05 back to width 85.6. Lesson: when you change body length,
+re-run the measure gate and re-pin the wing length — proportions are coupled through the master scale.
+**→ Leapfrog:** the refinement knobs (RINGS depths, root thickness, fairing, cowl, bloom) are all isolated;
+silhouette tuning on this kit is now pure parameter work with a measure gate, no structural edits.

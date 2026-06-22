@@ -117,7 +117,7 @@ function buildComposer() {
   const rt = new THREE.WebGLRenderTarget(innerWidth, innerHeight, { type: THREE.HalfFloatType, samples: 4 });
   composer = new EffectComposer(renderer, rt);
   composer.addPass(new RenderPass(scene, camera));
-  composer.addPass(new UnrealBloomPass(new THREE.Vector2(innerWidth, innerHeight), 0.55, 0.55, 0.85));  // showcase-strength glow
+  composer.addPass(new UnrealBloomPass(new THREE.Vector2(innerWidth, innerHeight), 0.38, 0.5, 0.95));  // glow that lifts, not blows out
   composer.addPass(new OutputPass());
   composer.setPixelRatio(Math.min(devicePixelRatio, 2));
   composer.setSize(innerWidth, innerHeight);
