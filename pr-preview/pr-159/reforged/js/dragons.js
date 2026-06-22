@@ -603,22 +603,24 @@ export const DRAGONS = {
     bodyMetalness: 0.0, bodyRoughness: 0.88, bodyEnvIntensity: 0.05, scaleSize: 3.0, scaleRelief: 0.9,
     rimBodyMul: 0.0,
     rarity: 'SSR', maxRarity: 'SSSR', cost: 2600,
+    // FRESH wing: the traced-from-photo membrane module (dragonTracedWing) on a
+    // self-bodied drake torso. NOT the Night-Fury kernel — body/head/tail are the
+    // generic modules for now (placeholder) while we build the wing; animation is a
+    // fresh flap (not Toothless's cascade).
     parts: {
-      torso: 'nightFuryTorso', head: 'none', wings: 'nightFuryWings', tail: 'none',
-      surface: { shader: ['cellularScalesNormal'] },
+      torso: 'arrow', head: 'horned', wings: 'tracedWing', tail: 'clean',
     },
     stats: { speed: 1.12, handling: 1.18, drain: 0.82, regen: 1.2 },
     model: {
-      scale: 0.86, wingScale: 0.9, tailSegments: 9, neckSegments: 5,
-      ridgeCount: 0,
-      wingRootScale: 1.4, wingSSS: true,
-      shoulderWidthScale: 1.2, wingRootOffset: { y: 0.06, z: -0.1 },
+      scale: 0.86, wingScale: 1.0, tailSegments: 9, neckSegments: 5,
+      ridgeCount: 0, tailStyle: 'blade',
+      shoulderWidthScale: 1.2,
+      // mount the wing high on the back so its diagonal root cut meets the body slope
+      wingRootOffset: { y: 0.34, z: -0.05 },
+      // rest orientation: raised like the reference, swept back to sit flush (not forward)
+      wingDihedral: 0.85, wingSweepBack: 0.35, wingPitch: 0.05,
       riderSocket: { x: 0, y: 0.92, z: -0.45 },
-      flapBias: 1.08, flapAmp: 0.82,
-      wingArmLeadChord: 0.38, wingWristMedial: 0.84,
-      wingArmRadius: 0.115, wingForearmRadius: 0.09, wingFrameTipRadius: 0.013,
-      wingFingerCurve: 0.14, wingFingerSplay: 0.18, wingFingerBulge: 0.06, wingFingerRadius: 0.058,
-      tailSteer: true, tailWhip: true, bodyWhip: true,
+      flapBias: 1.0, flapAmp: 0.8,
     },
     // TRACED WING OUTLINE — finger tips read off refs/wing-green.png. tips:[x span, y chord],
     // far tip first; the four inner fingers fan back to the scalloped trailing edge. Scaled
