@@ -2960,3 +2960,25 @@ float/half-float color buffer; guard it and fall back to renderer.render. Showca
 preview uses UnrealBloom(res, 0.2, 0.45, 1.0); for a hero still I bumped to (0.55, 0.55, 0.85).
 **→ Leapfrog:** factor this lighting+bloom rig into a tiny shared `previewStage.js` so every from-scratch creature
 (seraph, mecha, future kits) gets the real in-game look in one import instead of re-deriving the values.
+
+## Lesson — Reworked the mecha wing from a broad spread aero-blade to a layered swept-back BLADE-WING stack, matching a human reference (yellow/black/red mech dragon).
+
+The human gave a detailed wing-only brief + a reference image: NOT a membrane/feather wing — a tall, narrow,
+sharply swept-back stack of rigid gold blade panels (primary longest → secondary → tertiary, fanned and nested),
+folded/raised over the back, on a THICK armored shoulder/back mount, with a dark gunmetal inner shell and
+RECESSED red energy channels — the signature being a bright red honeycomb lattice at the wing root. Reworked
+`wingSystem` in mecha/svjDragon.js to a fanned blade stack + new faceted `bladeGeo2` (a beveled knife panel:
+top ridge, thick base, fine tip — reads as machined armor from any angle, unlike the old flat sheet). 5438 tris.
+
+Keys: (1) **A faceted blade with a Y-ridge cross-section** (leading / top-ridge / trailing / bottom verts per
+station) gives a hard-surface knife that isn't edge-on-thin like a flat plane — the right primitive for "armored
+fin," and cheap (~66 tris). (2) **Fan, don't just stack:** offsetting each blade in Y/Z AND rolling it a few
+degrees about its length axis splays the panels into the reference's open fan instead of parallel spikes. (3)
+**The red "honeycomb" is the hex-grille module with a glowing cell material** — generalised hexGrille to take a
+cellMat so M.red cells make the root energy lattice; same brick that fills the black intakes. (4) **Pose by
+mapping the blade's +X length axis to an up-and-back unit vector** (setFromUnitVectors) then a small roll —
+gives the raised folded-over-the-back silhouette without per-part Euler fiddling. (5) The proof renderer's flat
+amber shading UNDERSELLS gold+red; the mecha/ingame.html (real ACES + UnrealBloom) is where it reads like the
+reference — always send the human there for material/glow judgement, not the montage.
+**→ Leapfrog:** bladeGeo2 + the fanned-stack pattern + glowing-hex lattice are reusable for any mech fin array
+(tail stabilisers, dorsal crest, boss variants) — promote into the shared kit alongside spineSegment/thrusterPod.

@@ -47,14 +47,14 @@ function strut(from, to, w, h, mat, role) {
 }
 
 // ── MODULE: hex grille carbon insert (stamped inside every black recess) ──────
-function hexGrille(w, h, M, role = 'hexGrille') {
+// cellMat lets the cells glow (pass M.red for the wing-root energy honeycomb).
+function hexGrille(w, h, M, role = 'hexGrille', cellMat = null, nx = 3, ny = 2) {
   const g = new THREE.Group();
   g.add(tag(new THREE.BoxGeometry(w, h, 0.02), M.carbon, role));
-  const nx = 3, ny = 2;
   for (let i = 0; i < nx; i++) for (let j = 0; j < ny; j++) {
-    const cell = tag(new THREE.CylinderGeometry(w * 0.12, w * 0.12, 0.03, 6), M.hex, role);
+    const cell = tag(new THREE.CylinderGeometry(w * 0.12, w * 0.12, 0.035, 6), cellMat || M.hex, role);
     cell.rotation.x = Math.PI / 2; cell.rotation.z = Math.PI / 6;
-    cell.position.set((i - (nx - 1) / 2) * w * 0.3, (j - (ny - 1) / 2) * h * 0.45, 0.01);
+    cell.position.set((i - (nx - 1) / 2) * w * 0.62 / nx, (j - (ny - 1) / 2) * h * 0.9 / ny, 0.012);
     g.add(cell);
   }
   return g;
@@ -210,36 +210,84 @@ function clawLeg(side, M) {
   g.scale.x = 1; return g;
 }
 
-// ── MODULE: hard-surface wing system (rigid hinged blades) ────────────────────
-// Built for the RIGHT side extending +X / swept aft +Z / cant up; mirror with
-// scale.x = side. Hierarchy: root → hinge(flap) → pose(dihedral) → [blade parts]
-// with an inner outerBlade group that follows the hinge with a slight delay.
+// ── MODULE: hard-surface blade-wing assembly ─────────────────────────────────
+// NOT a membrane. A thick armored shoulder/back mount carrying a stacked stack of
+// swept-back gold blade panels (primary longest → secondary → tertiary), over a
+// dark gunmetal inner structure with recessed red energy channels. Folded/raised:
+// the blades rise up-and-back over the spine in a tall, narrow, knife silhouette.
+// Built for the RIGHT side; mirror with scale.x = side.
 function wingSystem(M) {
   const root = new THREE.Group();
-  const hinge = new THREE.Group(); root.add(hinge);                              // shoulder hinge (animated)
-  hinge.add(tag(new THREE.CylinderGeometry(0.16, 0.16, 0.34, 12), M.steel, 'shoulderHinge'));
-  const pose = new THREE.Group(); pose.rotation.z = rad(19); pose.rotation.y = rad(-12); hinge.add(pose);  // dihedral + sweep
-  // upper wing boom — yellow angular spar
-  const boomTip = V(2.4, 0.12, 1.0);
-  pose.add(strut(V(0.1, 0, 0), boomTip, 0.18, 0.24, M.gold, 'upperWingBoom'));
-  // inner vent panel — black hex mesh between boom and blade
-  const vent = hexGrille(1.1, 0.8, M); vent.position.set(1.0, 0.0, 0.5); vent.rotation.set(rad(-70), 0, 0.2);
-  pose.add(vent);
-  // outer wing blade — long swept yellow aero blade (follows with delay)
-  const outer = new THREE.Group(); outer.position.copy(boomTip); pose.add(outer);
-  outer.add(tag(bladeGeo(3.0, 1.25, 0.4, 1.25), M.gold, 'outerWingBlade'));
-  // trailing flap blade — jagged edge offset BEHIND the main blade (+Z)
-  const flap = tag(bladeGeo(2.7, 0.6, 0.18, 1.0), M.goldDark, 'trailingFlapBlade');
-  flap.position.set(0.05, -0.03, 1.05); outer.add(flap);
-  // red taillight strips embedded in the rear black wing panel
-  for (let i = 0; i < 3; i++) { const c = chevron(M, 1.1); c.position.set(0.6 + i * 0.85, 0.02, 1.15); outer.add(c); }
-  // wingtip endplate — sharp vertical fin
-  const tip = tag(bladeGeo(0.85, 0.6, 0.22, 0.25, 0.0), M.gold, 'wingtipEndplate');
-  tip.position.set(2.9, 0, 0.25); tip.rotation.x = rad(82); outer.add(tip);
-  // wing-root vent accents
-  const rootVent = ventTriple(M, 0.9); rootVent.position.set(0.4, 0.18, 0); pose.add(rootVent);
+
+  // ── thick, load-bearing shoulder/back mount (sits high on the dorsal line) ──
+  const mount = new THREE.Group(); root.add(mount);
+  const scap = tag(new THREE.BoxGeometry(0.66, 0.56, 0.92), M.gold, 'wingMount');
+  scap.position.set(0.08, 0.06, 0.08); scap.rotation.z = 0.18; mount.add(scap);
+  const scapEdge = tag(new THREE.BoxGeometry(0.22, 0.5, 0.86), M.goldDark, 'wingMount');
+  scapEdge.position.set(0.34, 0.05, 0.08); scapEdge.rotation.z = 0.18; mount.add(scapEdge);
+  const hingeJ = tag(new THREE.CylinderGeometry(0.26, 0.26, 0.62, 14), M.steel, 'shoulderHinge');
+  hingeJ.rotation.z = Math.PI / 2; hingeJ.position.set(0.16, 0.2, 0.05); mount.add(hingeJ);
+  for (const s of [-1, 1]) {                                                     // bolt end-caps
+    const cap = tag(new THREE.CylinderGeometry(0.28, 0.28, 0.07, 12), M.carbon, 'hingeCap');
+    cap.rotation.z = Math.PI / 2; cap.position.set(0.16 + s * 0.32, 0.2, 0.05); mount.add(cap);
+  }
+  const jcore = tag(new THREE.CylinderGeometry(0.12, 0.12, 0.64, 10), M.red, 'jointCore');  // glowing pivot core
+  jcore.rotation.z = Math.PI / 2; jcore.position.set(0.16, 0.2, 0.05); mount.add(jcore);
+  const brace = tag(new THREE.BoxGeometry(0.46, 0.28, 0.26), M.steel, 'rootBrace');
+  brace.position.set(-0.05, -0.02, 0.42); mount.add(brace);
+
+  // ── the rotatable blade assembly, posed raised + swept back ─────────────────
+  const hinge = new THREE.Group(); hinge.position.set(0.18, 0.22, 0.05); root.add(hinge);
+  const pose = new THREE.Group(); hinge.add(pose);
+  pose.quaternion.setFromUnitVectors(V(1, 0, 0), V(0.34, 0.78, 0.52).normalize());  // length axis → up-and-back
+  pose.rotateX(rad(8));                                                          // roll so blade faces read outward
+
+  // dark inner mechanical shell the gold blades mount onto (slightly larger/behind)
+  pose.add(tag(bladeGeo2(2.4, 0.6, 0.12, 0.22, 0.2), M.carbon, 'wingInnerStruct'));
+  // structural struts / braces under the armor
+  for (const z of [0.04, 0.28]) pose.add(strut(V(0.1, 0, z), V(1.5, 0.02, z + 0.08), 0.05, 0.18, M.steel, 'wingStrut'));
+  // THE SIGNATURE: a bright red honeycomb energy lattice recessed at the wing root
+  const lattice = hexGrille(0.6, 0.5, M, 'energyChannel', M.red, 3, 4);
+  lattice.position.set(0.42, 0.06, 0.16); lattice.rotation.set(rad(8), 0, rad(70)); pose.add(lattice);
+
+  // stacked, fanned blade panels — primary longest on top, splaying down-and-back
+  const outer = new THREE.Group(); pose.add(outer);
+  const fan = [
+    { len: 2.7, w: 0.46, tip: 0.04, sw: 0.30, th: 0.14, off: [0, 0, 0], rot: 0, mat: M.gold, role: 'outerWingBlade' },
+    { len: 2.25, w: 0.40, tip: 0.04, sw: 0.27, th: 0.12, off: [0.03, -0.10, 0.16], rot: -8, mat: M.gold, role: 'secondaryBlade' },
+    { len: 1.85, w: 0.33, tip: 0.03, sw: 0.24, th: 0.10, off: [0.06, -0.20, 0.32], rot: -16, mat: M.gold, role: 'secondaryBlade' },
+    { len: 1.45, w: 0.27, tip: 0.03, sw: 0.21, th: 0.08, off: [0.09, -0.30, 0.5], rot: -24, mat: M.goldDark, role: 'tertiaryBlade' },
+  ];
+  for (const b of fan) {
+    const blade = tag(bladeGeo2(b.len, b.w, b.tip, b.sw, b.th), b.mat, b.role);
+    blade.position.set(...b.off); blade.rotation.z = rad(b.rot);                 // splay into a fan
+    outer.add(blade);
+  }
+  // red glow channels recessed BETWEEN the fanned panels (inset, structured lines)
+  for (let i = 0; i < 5; i++) { const c = tag(new THREE.BoxGeometry(0.05, 0.045, 0.55), M.red, 'energyChannel'); c.position.set(0.4 + i * 0.45, -0.06, 0.18); c.rotation.z = rad(-i * 4); outer.add(c); }
+
   root.userData.hinge = hinge; root.userData.pose = pose; root.userData.outer = outer;
   return root;
+}
+// faceted hard-surface blade: a beveled knife panel with a top ridge — thick at
+// the base, tapering to a fine point. Length along +X, chord +Z, ridge in +Y.
+function bladeGeo2(length, rootChord, tipChord, sweep, thick) {
+  const N = 8, pos = [], idx = [];
+  for (let i = 0; i <= N; i++) {
+    const s = i / N, ease = Math.pow(s, 0.85);
+    const x = length * s, c = lerp(rootChord, tipChord, ease);
+    const lead = -Math.sin(s * Math.PI * 0.5) * sweep;                          // convex leading sweep
+    const t = thick * (1 - ease * 0.85) * (0.45 + 0.55 * Math.sin(s * Math.PI)); // fat base, knife tip
+    pos.push(x, 0, lead);                          // 0 leading
+    pos.push(x, t, lead + c * 0.42);               // 1 top ridge
+    pos.push(x, 0, lead + c);                      // 2 trailing
+    pos.push(x, -t * 0.55, lead + c * 0.42);       // 3 bottom ridge
+  }
+  for (let i = 0; i < N; i++) { const a = i * 4, b = a + 4; for (let k = 0; k < 4; k++) { const k2 = (k + 1) % 4; idx.push(a + k, b + k, b + k2, a + k, b + k2, a + k2); } }
+  idx.push(0, 2, 1, 0, 3, 2);                                                    // base cap
+  const g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.setIndex(idx); g.computeVertexNormals();
+  return g;
 }
 // flat swept aero blade in the X(span)-Z(chord) plane
 function bladeGeo(span, rootC, tipC, sweep, camber = 0.05) {
