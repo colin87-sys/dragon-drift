@@ -2908,9 +2908,43 @@ would hold 60fps at ~100k+ tris on the hero subject; the current ULTRA ceiling i
 discipline that actually matters on mobile is the doctrine's "≤6 materials, FEWER well-shaped parts," not the
 tri ceiling.
 
-**Reusable rule.** "Design at the top tier, scale down" is the correct mental model AND already the engine's
-LOD design — keep HIGH as the no-regression mobile floor, push ULTRA as the design tier, and add richness via
-DETAIL-GATED MODULES + materials, not raw triangles. **→ Leapfrog:** add a draw-call / material-count column to
+**Reusable rule (Phase 0).** "Design at the top tier, scale down" is the correct mental model AND already the
+engine's LOD design — keep HIGH as the no-regression mobile floor, push ULTRA as the design tier, and add
+richness via DETAIL-GATED MODULES + materials, not raw triangles.
+
+---
+
+## Lesson — Phase 1: the SIGHTED-ITERATION toolkit (color render + per-part measurement + per-part overlay) — three tools that end blind iteration.
+
+**Context.** The bull was a slog because the agent was BLIND: headless render was shape-only (one fused white
+silhouette), so a human judged every pass for color + proportion. Built three tools so the agent self-checks.
+
+**Did / learned.**
+- **Tool A — `creatureshots.{html,mjs}`** (color render): renders ONE creature in full color + lighting at
+  named angles (rear chase cam / threeq / side / climb) via Playwright+WebGL → `/tmp/color-<key>-<angle>.png`
+  the agent opens with VISION. Reuses the tiershots light rig + ACES; angles mirror silhouetteCore framings.
+  GOTCHA proven wrong: WebGL is NOT always absent in the sandbox — it ran here, so the agent CAN see its own
+  color output headlessly now (the single biggest unblock).
+- **Tool B — `renderSilhouette({perPart,colorParts})` + `partsil.mjs`**: labels every mesh by part (nearest
+  `userData.part` ancestor, else 'torso'), accumulates per-part SCREEN + WORLD aabbs, paints a per-part color
+  map, and derives WORLD-space proportions (wingSpan, bodyLength, span/body ratio, head box, tail/leg length).
+  World measurements are VIEW-INDEPENDENT → ratios are trustworthy from any angle.
+- **Tool C — `parts-overlay.mjs`**: compares a build vs a reference PER PART from a `<ref>.targets.json`
+  sidecar (authored by LOOKING: per-part pixel boxes + scale-independent target RATIOS). Prints signed errors
+  ("span/body built 2.31 vs target 2.50 → −7.7%, wings short") + per-part box IoU; composites target (dashed)
+  vs built (solid palette) on the ref. RATIOS are primary (framing-immune); pixel boxes secondary.
+
+**Gotchas banked.** (1) Different wing builders expose different handles — `svjBladeWing` returns
+`wingPivotL/R` but NOT `wingYokeL/R`; tag EVERY per-side handle (yoke+pivot+rig) or a builder's wings fall
+into the torso bucket. (2) `wingRigL/R` are PLAIN rig-descriptor objects (`.shoulder`), not Object3Ds — guard
+part-tagging on `isObject3D` or it throws. (3) Part tags live in ONE place (dragonModel.js, on the part roots)
+as additive+nullable userData → shipped roster byte-identical, default-off readers never see them. (4) Skinned
+wings whose mesh isn't a child of the bone may still misclassify — fine for the hard-surface bull/Gundam targets.
+
+**Reusable rule.** The sighted loop is now: `creatureshots` (see color) → `partsil` (measure) →
+`parts-overlay` (signed ratio error vs reference) → tune → repeat; human signs off only on motion/feel.
+**→ Leapfrog (Phase 2):** author real `targets.json` sidecars for the bull's rear + side references and
+converge proportions numerically before touching the Gundam's new archetype. **→ Leapfrog:** add a draw-call / material-count column to
 tricount.mjs (the budget that truly limits a WebGL game), and render every convergence pass at BOTH tiers
 (ULTRA = design target, HIGH = mobile-read sanity check).
 
