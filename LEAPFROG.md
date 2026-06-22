@@ -2913,3 +2913,13 @@ LOD design — keep HIGH as the no-regression mobile floor, push ULTRA as the de
 DETAIL-GATED MODULES + materials, not raw triangles. **→ Leapfrog:** add a draw-call / material-count column to
 tricount.mjs (the budget that truly limits a WebGL game), and render every convergence pass at BOTH tiers
 (ULTRA = design target, HIGH = mobile-read sanity check).
+
+**Update — draw-call/material tracker LANDED.** tricount.mjs now reports tris + DRAWS (≈one per mesh) + MATS
+(unique materials) per form, plus the roster peak. Why it matters: in a single-threaded-JS WebGL game the
+per-frame cost is the CPU issuing draw calls + GPU state changes (materials), NOT triangles — a flagship GPU
+sits idle while the JS thread stalls on hundreds of meshes. KEY gotcha: draw calls DON'T auto-downscale like
+`seg()` triangles do — a 12-panel leg is 12 draw calls at EVERY tier, so any ULTRA-only richness must be
+detail-GATED or it taxes mobile too. Baseline at first measure: roster peaks ~357 draws / 34 mats per form;
+HIGH creatures ~48–80 draws / 11–12 mats. ULTRA hero design ceiling set to 48k tris (A19/M2-class holds 60fps
+far above; draws/mats are the real cap). Discipline for the bull/Gundam convergence: SHARE materials (all gold
+panels → one material so the GPU batches them) and prefer FEWER well-shaped meshes over many small ones.
