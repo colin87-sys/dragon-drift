@@ -194,10 +194,27 @@ export function renderSilhouette({ key, view = 'rear', tier, W, H, pose, hideWin
     else if (wr) wingSpan = 2 * Math.max(Math.abs(wr.x[0]), Math.abs(wr.x[1]));
     else if (wl) wingSpan = 2 * Math.max(Math.abs(wl.x[0]), Math.abs(wl.x[1]));
     const bodyLength = body ? body.z[1] - body.z[0] : null;
+    // The dimensions a REAR silhouette is blind to (wing edge-on, body cross-section):
+    // chord = wing fore-aft depth (z), thickness = wing height (y) → "thin sheet vs thick
+    // blade"; bodyWidth/Height = the torso cross-section → "chest deep, not flat". These
+    // come from the world AABB so they're correct regardless of the render view (read them
+    // off a side/top render in practice, where they're not foreshortened).
+    const mx = (a, b, f) => (a || b ? Math.max(a ? f(a) : -Infinity, b ? f(b) : -Infinity) : null);
+    const wingChord = mx(wl, wr, (w) => w.size.z);
+    const wingThickness = mx(wl, wr, (w) => w.size.y);
+    const bodyWidth = body ? body.size.x : null, bodyHeight = body ? body.size.y : null;
     measurements = {
       wingSpan: round(wingSpan),
       bodyLength: round(bodyLength),
       wingSpanToBodyRatio: wingSpan && bodyLength ? round(wingSpan / bodyLength) : null,
+      wingChord: round(wingChord),
+      wingThickness: round(wingThickness),
+      // high = thin sheet/membrane, low = thick blade — the "how thick is the wing" answer.
+      wingAspect: wingChord && wingThickness ? round(wingChord / wingThickness) : null,
+      bodyWidth: round(bodyWidth),
+      bodyHeight: round(bodyHeight),
+      // >1 = deep/tall chest, <1 = wide/flat — the "chest deep, not flat" answer.
+      bodyDepthRatio: bodyHeight && bodyWidth ? round(bodyHeight / bodyWidth) : null,
       headBox: head ? { x: round(head.size.x), y: round(head.size.y), z: round(head.size.z) } : null,
       headToBodyRatio: head && bodyLength ? round(head.size.z / bodyLength) : null,
       tailLength: tail ? round(tail.z[1] - tail.z[0]) : null,
