@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
+<title>SVJ Mecha Dragon — live chase cam</title>
+<style>
+  html,body{margin:0;height:100%;overflow:hidden;background:#07090f;font-family:'Rajdhani',system-ui,sans-serif;color:#ffe9b0;-webkit-tap-highlight-color:transparent}
+  #c{display:block;width:100vw;height:100vh;touch-action:none}
+  .hud{position:fixed;left:14px;top:12px;pointer-events:none;text-shadow:0 1px 4px #000}
+  .hud h1{margin:0;font-size:18px;letter-spacing:.16em;font-weight:600;color:#ffd11a}
+  .hud p{margin:3px 0 0;font-size:12px;opacity:.65;letter-spacing:.04em;color:#ffe9b0}
+  #boost{position:fixed;right:16px;bottom:18px;padding:14px 26px;border-radius:10px;border:1px solid #ff6a18aa;
+    background:linear-gradient(#241208,#140a05);color:#ff9a4a;font:700 15px/1 'Rajdhani',sans-serif;letter-spacing:.16em;
+    cursor:pointer;user-select:none;box-shadow:0 0 20px #ff6a1833}
+  #boost:active{background:linear-gradient(#ffd11a,#ff6a18);color:#240a00;box-shadow:0 0 40px #ff6a18cc}
+  .hint{position:fixed;left:14px;bottom:12px;font-size:11px;opacity:.5;letter-spacing:.05em}
+</style>
+<script type="importmap">{ "imports": { "three": "../lib/three.module.js" } }</script>
+</head>
+<body>
+<canvas id="c"></canvas>
+<div class="hud"><h1>SVJ MECHA DRAGON</h1><p>hard-surface module kit · rear chase cam · 100% procedural</p></div>
+<div class="hint">drag to orbit · scroll to zoom · hold BOOST</div>
+<button id="boost">BOOST</button>
+<script type="module">
+import * as THREE from 'three';
+import { buildSVJDragon } from './svjDragon.js';
+
+const rad = THREE.MathUtils.degToRad, clamp = THREE.MathUtils.clamp, lerp = THREE.MathUtils.lerp;
+const canvas = document.getElementById('c');
+const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
+renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+renderer.toneMapping = THREE.ACESFilmicToneMapping; renderer.toneMappingExposure = 1.1;
+renderer.outputColorSpace = THREE.SRGBColorSpace;
+
+const scene = new THREE.Scene();
+(() => {                                                    // dusk-track gradient sky
+  const cv = document.createElement('canvas'); cv.width = 2; cv.height = 256;
+  const ctx = cv.getContext('2d'), g = ctx.createLinearGradient(0, 0, 0, 256);
+  g.addColorStop(0, '#0b0e18'); g.addColorStop(0.6, '#241a2e'); g.addColorStop(0.85, '#5a3a3a'); g.addColorStop(1, '#1a1418');
+  ctx.fillStyle = g; ctx.fillRect(0, 0, 2, 256);
+  const tex = new THREE.CanvasTexture(cv); tex.colorSpace = THREE.SRGBColorSpace; scene.background = tex;
+  scene.fog = new THREE.Fog(0x241a2e, 20, 52);
+})();
+scene.add(new THREE.HemisphereLight(0xbcd0ff, 0x1a140e, 0.85));
+const key = new THREE.DirectionalLight(0xfff0d0, 1.35); key.position.set(-5, 6, 4); scene.add(key);
+const warm = new THREE.DirectionalLight(0xff7a30, 0.5); warm.position.set(2, -1, 8); scene.add(warm);  // thruster-side warm rim
+
+const { group: dragon } = buildSVJDragon();
+const A = dragon.userData.anim;
+scene.add(dragon);
+
+// additive glow (no post-bloom in the bundled three) ──────────────────────────
+function glowTex() {
+  const cv = document.createElement('canvas'); cv.width = cv.height = 64;
+  const x = cv.getContext('2d'), g = x.createRadialGradient(32, 32, 0, 32, 32, 32);
+  g.addColorStop(0, 'rgba(255,255,255,1)'); g.addColorStop(0.4, 'rgba(255,255,255,.5)'); g.addColorStop(1, 'rgba(255,255,255,0)');
+  x.fillStyle = g; x.fillRect(0, 0, 64, 64); return new THREE.CanvasTexture(cv);
+}
+const GT = glowTex();
+function glow(color, size, parent, pos) {
+  const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: GT, color, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false }));
+  s.scale.setScalar(size); s.position.copy(pos); parent.add(s); return s;
+}
+const thrusterGlows = A.thrusters.map((t) => glow(0xff6a18, 1.1, t, new THREE.Vector3(0, 0, 0.32)));
+
+// orange spark motes streaming back past the camera ───────────────────────────
+const MOTE = 80, mpos = new Float32Array(MOTE * 3), mcol = new Float32Array(MOTE * 3);
+const c1 = new THREE.Color(0xffb14a), c2 = new THREE.Color(0xff3a1a);
+function resetMote(i, any) {
+  mpos[i * 3] = (Math.random() - 0.5) * 14; mpos[i * 3 + 1] = (Math.random() - 0.1) * 8;
+  mpos[i * 3 + 2] = any ? Math.random() * 24 - 8 : -10 - Math.random() * 6;
+  const c = Math.random() < 0.5 ? c1 : c2; mcol[i * 3] = c.r; mcol[i * 3 + 1] = c.g; mcol[i * 3 + 2] = c.b;
+}
+for (let i = 0; i < MOTE; i++) resetMote(i, true);
+const mgeo = new THREE.BufferGeometry();
+mgeo.setAttribute('position', new THREE.BufferAttribute(mpos, 3));
+mgeo.setAttribute('color', new THREE.BufferAttribute(mcol, 3));
+const motes = new THREE.Points(mgeo, new THREE.PointsMaterial({ size: 0.12, vertexColors: true, map: GT, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false }));
+scene.add(motes);
+
+// orbit camera (default behind the dragon, on its glowing rear) ────────────────
+const camera = new THREE.PerspectiveCamera(50, innerWidth / innerHeight, 0.1, 200);
+const target = new THREE.Vector3(0, 0.5, 1.6);
+let az = 0, el = 0.14, dist = 13;
+function place() {
+  camera.position.set(target.x + dist * Math.cos(el) * Math.sin(az), target.y + dist * Math.sin(el), target.z + dist * Math.cos(el) * Math.cos(az));
+  camera.lookAt(target);
+}
+let drag = null;
+canvas.addEventListener('pointerdown', (e) => drag = { x: e.clientX, y: e.clientY });
+addEventListener('pointerup', () => drag = null);
+addEventListener('pointermove', (e) => { if (!drag) return; az -= (e.clientX - drag.x) * 0.006; el = clamp(el + (e.clientY - drag.y) * 0.006, -0.2, 1.0); drag.x = e.clientX; drag.y = e.clientY; });
+addEventListener('wheel', (e) => dist = clamp(dist + e.deltaY * 0.01, 6, 30), { passive: true });
+
+let boostHold = 0, boost = 0;
+document.getElementById('boost').addEventListener('pointerdown', (e) => { e.stopPropagation(); boostHold = 1; });
+addEventListener('pointerup', () => boostHold = 0);
+const baseEmi = new Map(A.glowMats.map((m) => [m, m.emissiveIntensity]));
+
+addEventListener('resize', () => { camera.aspect = innerWidth / innerHeight; camera.updateProjectionMatrix(); renderer.setSize(innerWidth, innerHeight); });
+renderer.setSize(innerWidth, innerHeight);
+
+// ── animation: rigid hinged flap (hinge leads, blade follows), thruster jets,
+//    tail follow-through, banking — all keeping a clean readable silhouette ─────
+const clock = new THREE.Clock();
+function frame() {
+  const t = clock.getElapsedTime();
+  boost = lerp(boost, Math.max(boostHold, 0.12 + 0.12 * Math.sin(t * 0.5)), 0.07);
+  const beat = 2 * Math.PI * lerp(0.7, 0.95, boost);
+  const phase = Math.sin(t * beat), bank = 0.18 * Math.sin(t * 0.33);
+
+  for (const w of A.wings) {
+    const s = w.userData.side;
+    w.userData.hinge.rotation.z = rad(17 + 6 * boost) * phase + s * bank;       // shoulder hinge leads + banking
+    w.userData.outer.rotation.z = rad(11) * Math.sin(t * beat - 0.5);           // outer blade follows with delay
+  }
+  // tail side-to-side follow-through (phase lags down the chain)
+  A.tailSegs.forEach((seg, i) => { seg.rotation.y = 0.12 * Math.sin(t * 1.4 - i * 0.4) * (0.4 + i * 0.1); });
+  // body bob + lazy weave
+  dragon.position.y = 0.12 * Math.sin(t * beat - 0.6);
+  dragon.rotation.z = 0.07 * Math.sin(t * 0.33);
+  dragon.rotation.y = 0.10 * Math.sin(t * 0.23);
+
+  // thrusters: glow + flame cones grow on boost; red seams brighten
+  for (const m of A.glowMats) m.emissiveIntensity = baseEmi.get(m) * (1 + 0.15 * Math.sin(t * 3) + 1.6 * boost);
+  A.thrusters.forEach((th, i) => {
+    th.userData.flame.scale.setScalar(0.01 + boost * (1 + 0.2 * Math.sin(t * 20 + i)));
+    thrusterGlows[i].scale.setScalar(0.9 + 1.7 * boost + 0.06 * Math.sin(t * 6));
+    thrusterGlows[i].material.opacity = 0.7 + 0.3 * boost;
+  });
+
+  const speed = (8 + 30 * boost) / 60;
+  for (let i = 0; i < MOTE; i++) { mpos[i * 3 + 2] += speed; if (mpos[i * 3 + 2] > 13) resetMote(i, false); }
+  mgeo.attributes.position.needsUpdate = true; motes.material.size = 0.1 + 0.1 * boost;
+
+  place(); renderer.render(scene, camera); requestAnimationFrame(frame);
+}
+place(); frame();
+</script>
+</body>
+</html>
