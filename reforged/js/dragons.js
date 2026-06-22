@@ -589,6 +589,89 @@ export const DRAGONS = {
     eye: 0x96d62a, trail: 0x2a5a78, boostTrail: 0x4a90c0,
   },
 
+  // ── ONYX (working name) — clean-sheet Night Fury whose WING OUTLINE is TRACED from
+  // a green-screen reference photo (tools/outline-trace.mjs → finger tips projected into
+  // engine span/chord space; see refs/wing-green-trace.json + LEAPFROG L89). It COEXISTS
+  // with toothless (additive, roster-safe): same proven nightFuryTorso + nightFuryWings
+  // kernel, but its OWN per-form wingForms come straight from the trace. The body/forms/
+  // colors are cloned from toothless as a starting point; we iterate the wing first, then
+  // build the rest from the reference. arc kept near-FLAT so the planform matches the trace
+  // (the 3D gull-droop is a later tuning pass on the chase cam).
+  onyx: {
+    name: 'Onyx',
+    title: 'Night Fury (traced)',
+    bodyMetalness: 0.0, bodyRoughness: 0.88, bodyEnvIntensity: 0.05, scaleSize: 3.0, scaleRelief: 0.9,
+    rimBodyMul: 0.0,
+    rarity: 'SSR', maxRarity: 'SSSR', cost: 2600,
+    parts: {
+      torso: 'nightFuryTorso', head: 'none', wings: 'nightFuryWings', tail: 'none',
+      surface: { shader: ['cellularScalesNormal'] },
+    },
+    stats: { speed: 1.12, handling: 1.18, drain: 0.82, regen: 1.2 },
+    model: {
+      scale: 0.86, wingScale: 0.9, tailSegments: 9, neckSegments: 5,
+      ridgeCount: 0,
+      wingRootScale: 1.4, wingSSS: true,
+      shoulderWidthScale: 1.2, wingRootOffset: { y: 0.06, z: -0.1 },
+      riderSocket: { x: 0, y: 0.92, z: -0.45 },
+      flapBias: 1.08, flapAmp: 0.82,
+      wingArmLeadChord: 0.38, wingWristMedial: 0.84,
+      wingArmRadius: 0.115, wingForearmRadius: 0.09, wingFrameTipRadius: 0.013,
+      wingFingerCurve: 0.14, wingFingerSplay: 0.18, wingFingerBulge: 0.06, wingFingerRadius: 0.058,
+      tailSteer: true, tailWhip: true, bodyWhip: true,
+    },
+    // TRACED WING OUTLINE — finger tips read off refs/wing-green.png. tips:[x span, y chord],
+    // far tip first; the four inner fingers fan back to the scalloped trailing edge. Scaled
+    // per form for the 4-tier growth; arc near-flat so the silhouette matches the trace.
+    wingForms: [
+      { tips: [[3.72, 0], [3.08, -0.45], [2.53, -0.66], [2.0, -0.87], [1.06, -0.89]],
+        lead: [2.56, 0.4], scallop: 0.3, rootChord: 0.55, flame: false,
+        arc: { bow: 0, hump: 0.06, humpAt: 0.55, hook: 0 } },
+      { tips: [[4.05, 0], [3.35, -0.49], [2.75, -0.71], [2.17, -0.95], [1.15, -0.97]],
+        lead: [2.78, 0.43], scallop: 0.34, rootChord: 0.62, flame: false,
+        arc: { bow: 0, hump: 0.14, humpAt: 0.55, hook: 0 } },
+      { tips: [[4.32, 0], [3.58, -0.52], [2.94, -0.76], [2.33, -1.01], [1.23, -1.03]],
+        lead: [2.98, 0.47], scallop: 0.38, rootChord: 0.68, flame: false,
+        arc: { bow: 0, hump: 0.2, humpAt: 0.55, hook: 0 } },
+      { tips: [[4.65, 0], [3.85, -0.56], [3.16, -0.82], [2.5, -1.09], [1.32, -1.11]],
+        lead: [3.2, 0.5], scallop: 0.42, rootChord: 0.74, flame: false,
+        arc: { bow: 0, hump: 0.26, humpAt: 0.55, hook: 0 } },
+    ],
+    forms: [
+      { wingForm: 0, bodyScale: 0.70, wingSpan: 0.85, wingChord: 1.35,
+        spineGlow: 0, glowIntensity: 0.25, particleRate: 0.30,
+        wingOpacity: 0.93, wingPanelGlow: 0.10, previewScale: 0.78, eyeScale: 1.35,
+        colors: { body: 0x0a0f1c, wingInner: 0x141c28, wingOuter: 0x0c1118,
+          wingEmissive: 0x0d1219, wingMembraneEmissive: 0x10161f, scales: 0x121a2e, horn: 0x101a2c,
+          eye: 0x6f9a28, apexSeam: 0x131a2c } },
+      { wingForm: 1, bodyScale: 0.85, wingSpan: 0.95, wingChord: 1.50,
+        spineGlow: 0, glowIntensity: 0.55, particleRate: 0.55,
+        wingOpacity: 0.92, wingPanelGlow: 0.12, previewScale: 0.9, eyeScale: 1.32,
+        colors: { body: 0x0b1020, wingInner: 0x182334, wingOuter: 0x0e1622,
+          wingEmissive: 0x0d1219, wingMembraneEmissive: 0x16202e, scales: 0x141e36, horn: 0x121c32,
+          eye: 0x96d62a, apexSeam: 0x131a2c } },
+      { wingForm: 2, bodyScale: 1.00, wingSpan: 1.00, wingChord: 1.65,
+        spineGlow: 0, glowIntensity: 1.00, particleRate: 1.00,
+        wingOpacity: 0.90, wingPanelGlow: 0.14, previewScale: 1.00,
+        colors: { body: 0x0c1222, wingInner: 0x182334, wingOuter: 0x0e1828,
+          wingEmissive: 0x0d1219, wingMembraneEmissive: 0x1a2636, scales: 0x16223c, horn: 0x141d30,
+          eye: 0x96d62a, apexSeam: 0x131a2c } },
+      { wingForm: 3, bodyScale: 1.10, bodyStretch: 1.15, wingSpan: 1.08, wingChord: 1.80,
+        spineGlow: 0, glowIntensity: 1.30, particleRate: 1.80,
+        wingOpacity: 0.90, wingPanelGlow: 0.16, previewScale: 1.12,
+        colors: { wingMembraneEmissive: 0x202b3c } },
+    ],
+    fx: { auraColor: '50,110,140', auraIdle: 0.0, sparkle: false },
+    previewAccent: 0x2e5a6a,
+    hasStyle: true, surgeMotes: true,
+    feverWing: 0x6ad8ff, feverEye: 0xb0f0ff, feverWash: [0.015, 0.05, 0.085],
+    body: 0x0a0f1c, belly: 0x0e1424, scales: 0x16223c, horn: 0x141d30,
+    wingInner: 0x182334, wingOuter: 0x0e1828, wingEmissive: 0x0d1219,
+    wingMembraneEmissive: 0x1a2636, dorsalHi: 0x1a2636,
+    apexEye: 0xb6e85a, apexSeam: 0x131a2c, surgeHi: 0x9fd8ff,
+    eye: 0x96d62a, trail: 0x2a5a78, boostTrail: 0x4a90c0,
+  },
+
   pearl: {
     name: 'Pearl Seraph',
     title: 'Dawn incarnate',

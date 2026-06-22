@@ -2879,3 +2879,32 @@ the guide HARVESTS them rather than inventing a schema, so it can't drift. The f
 "recreatable" by an LLM is the cross-section ring list + module names + grammar dials, NOT prose.
 **→ Leapfrog:** keep MODEL-CREATION.md current as builders/dials are added; when the reusable body-profile
 dials + legRoot land, update §5/§6 so the Gundam (and any humanoid) becomes a pure-data spec.
+
+---
+
+### L89 — Trace a concept photo → finger tips → a data-only wing: scallops are planform, the leading-edge "arc" is 3D curl
+Built `reforged/tools/outline-trace.mjs` (HEADLESS, no deps beyond silhouetteCore's PNG codec): luminance
+threshold (subject = `lum < N`; `--bright` inverts) → 8-connected flood fill keeping ONE blob (largest, or
+under `--seed=x,y`, which rejects the dark skyline/rocks a global threshold also catches) → Moore-neighbour
+boundary trace → Douglas–Peucker simplify (`--simplify`). Emits a viz PNG (source dimmed, blob tinted, polygon
+magenta + vertex dots) AND a JSON of points in 3 frames (raw px, crop [0..1], and a centred WING frame). A
+GREEN-SCREEN reference is night-and-day easier than a busy scene (wing≈16 vs green≈158 → trivial threshold,
+one blob, no crop needed). JPEGs aren't decodable by the repo's PNG-only codec — convert once (jpeg-js in /tmp,
+encode with `pngRGBA`) and keep PNG refs in `reforged/refs/`.
+
+Turning the trace into ENGINE geometry is pure DATA (the "author the blueprint, not the builder" rule):
+`nightFuryWings` reads `wingSpecFor(def,model)` → a per-form `wingForms[]` of `{tips, lead, scallop, arc}`,
+where `tips:[span x, chord y]` ARE the finger anchors. Detect the finger tips as centroid-distance local maxima,
+fix the shoulder/root (the bottom-corner where the wing shears off the body) and the outer tip, then PROJECT each
+tip onto span (root→tip) and chord (perpendicular, leading-edge +) axes and scale the outer tip to the roster's
+~4.65. Dropped straight into a NEW coexisting creature `onyx` (cloned from toothless's nightFuryTorso+Wings
+kernel, its OWN traced `wingForms`) — validates, in tri-budget, zero roster change.
+
+**The gotcha that matters:** overlaying my trace (cyan) on `buildWingShape(my tips)` (magenta) in the SAME
+(span,chord) space showed the **trailing-edge scallops match faithfully**, but the trace's tall **leading-edge
+arc does NOT** — because the green photo shows the wing RAISED/CURVED, so its high leading edge is the wing's 3D
+**vertical curl** (raised wrist), which this engine represents with `arc.{bow,hump,hook}`, NOT the flat planform
+`tips`. A flat projection of a curved wing bakes that curl into the chord coordinate and overstates it. **→
+Leapfrog:** trace a SPREAD/FLAT wing for the planform; recover the curl separately as `arc.hump`/`bow` and verify
+on the REAR chase cam (where toothless uses NEGATIVE bow so the tips droop and the wing isn't edge-on). Next:
+dial onyx's `arc` to the raised-wing read, then build the body/head/tail from the same reference.
