@@ -70,19 +70,31 @@ that the bodies actually differ.
 
 ## 2. Still true: design for the rear chase cam
 
-Unchanged from v1, because it's the governing constraint. From a rear / ¾ chase
-cam the body is mostly **occluded**; the read is dominated by a few bold shapes:
+The governing constraint. From a rear / ¾ chase cam, what the player's eye lands
+on, in order (your ranking, and it's right):
 
-| Rank | What the chase cam reads | Silhouette weight |
-|------|--------------------------|-------------------|
-| 1 | **Body plan & posture** — bulk, spine curve, how it sits in the air | ~35% |
-| 2 | **Wing planform** — span, sweep, count (or absence) | ~30% |
-| 3 | **Tail** — length, taper, how far it trails toward the lens | ~15% |
-| 4 | **Head + neck** riding above the back line | ~12% |
-| 5 | decoration (spines/horns/scales) | **~8%** |
+| Rank | What the chase cam reads | Notes |
+|------|--------------------------|-------|
+| 1 | **Wings** — span, sweep, count (or absence), and how they beat | biggest, most animated thing on screen |
+| 2 | **Tail** — length, taper, how far it trails toward the lens | points straight at the camera |
+| 3 | **Body shape & posture** — back length, mass, spine curve, shoulder/hip width, belly depth, how it sits in the air | **fully visible from behind, and a top driver of identity** |
+| 4 | **Head + neck** riding above the back line | small but expressive |
+| 5 | decoration (spines/horns/scales) | trim, *last* |
 
-Decoration is *last*. v1's mistake was making decoration enums the "hero genes."
-The hero is the **body plan** — ranks 1–4.
+**Correction to my earlier framing.** I previously called the body "mostly
+occluded" and said to keep it a cheap tube — that was wrong, and it's exactly the
+thinking that produces reskins. What's actually hidden from behind is the
+*underside and the face*, not the **body shape**. The dorsal line, back length,
+overall mass, spine curve, shoulder and hip width, and belly depth are all in
+full view from the chase cam and change a dragon's read enormously — a
+barrel-chested bruiser vs a long sleek racer are obviously different animals from
+behind even before you look at the wings. So body shape is a **hero lever**, not
+a cheap afterthought.
+
+Note the split between *what draws the eye* (wings/tail, above) and *what the
+variation budget buys*: wings, tail **and** body shape are all part of the
+silhouette and all get bold variation. Decoration is what does **not** — it's
+last because you can't tell two dragons apart by their horns at 40 m.
 
 ---
 
@@ -241,7 +253,9 @@ Coexist with the shipped roster; don't touch it.
    skeleton + topology.
 2. **`buildFromBodyPlan(plan, props, cues, palette, opts)`** — peer to
    `buildDragonModel()`. Build skeleton from the plan → warp by proportions →
-   hang cheap body volume + cues → cap decoration → skin pass.
+   skin the body volume onto the warped skeleton (the body shape *is* a hero
+   read — give its profile real attention) → apply cues → cap decoration →
+   skin pass.
 3. **`skinPass.js`** — toon + contact AO + outline + 5-role palette.
 4. **Author one creature per plan, by genes only**, then run:
    - `tools/silhouette.mjs` chase-cam shots — eyeball that they read as three
@@ -271,16 +285,15 @@ classify-then-fill prompt pipeline, Ultra-as-detail-dial.
 
 ---
 
-## 9. The one open decision for you
+## 9. Decided: topology variety is allowed
 
-**How far may a dragon's silhouette vary?**
+**Topology variety is in.** The roster may mix wyverns (2-leg, wing-arms),
+eastern serpents (long tube, tiny/no limbs), wingless drakes, amphitheres, and
+classic western drakes. This is the biggest single escape from reskins, because
+two creatures can now differ in *limb and wing count*, not just in scale.
 
-- **A — Allow topology variety** (wyverns, serpents, wingless drakes share the
-  roster): biggest escape from reskins; recommended. Risk: a casual player might
-  not call a wingless serpent a "dragon."
-- **B — Keep all dragons the classic 4-leg/2-wing western**, and get variety
-  purely from §3.2's wide proportions: safer "reads as a dragon," lower variety
-  ceiling, still far better than today.
-
-The system is the same either way — B just disables the topology axis. Pick one
-and the first-hero set in §7 adjusts (three western proportions vs three plans).
+The only guard-rail this adds: the **dragon-cue checklist (§3.3)** must hold on
+every plan so even the exotic ones still read as dragons — a wingless serpent
+keeps the reptilian wedge head, scaled spine line and clawed digits, so it reads
+as "eastern dragon," not "snake." The first-hero set in §7 therefore deliberately
+spans three different topologies (western / wyvern / eastern) to prove the range.
