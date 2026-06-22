@@ -1149,7 +1149,10 @@ function buildSvjLayeredBladeWing(def, model, attach, giM) {
     }
     return res;
   };
-  const P = (zy, x) => [x, zy[1] * ws, zy[0] * ws];
+  // WSCALE shrinks the wing to ~40% of the torso length (the reference wing is a compact unit on
+  // the front-mid back; the earlier wing was ~2x too long and overshot onto the tail).
+  const WSCALE = 0.52;
+  const P = (zy, x) => [x, zy[1] * ws * WSCALE, zy[0] * ws * WSCALE];
   const fillStrip = (U, L, x, mat) => {
     const tris = [];
     for (let i = 0; i < U.length - 1; i++) {
@@ -1171,18 +1174,20 @@ function buildSvjLayeredBladeWing(def, model, attach, giM) {
   // (tapering to a SHARP tip) + an inner black inset + red hex slashes. Upper biggest, then
   // middle, then lower; roughly parallel, fanning up-back. Depth-layered toward the side cam.
   const N = 14;
+  // re-traced: each leading (upper) edge RISES at ~45deg out of the root, THEN curves back toward
+  // the tail (flattening). The earlier trace skipped the steep root rise -> read as ~13deg.
   const BLADES = [
-    { // UPPER (biggest, highest)
-      U: [[0.12, 0.36], [0.76, 0.53], [1.65, 0.65], [2.59, 0.73], [3.35, 0.79]],
-      L: [[0.18, 0.19], [0.94, 0.32], [1.82, 0.46], [2.71, 0.58], [3.35, 0.75]], x: 0.05,
+    { // UPPER (biggest, highest) - leading edge 45deg at root
+      U: [[0.00, 0.00], [0.40, 0.42], [0.95, 0.74], [1.70, 0.98], [2.60, 1.12], [3.30, 1.20]],
+      L: [[0.10, -0.16], [0.46, 0.20], [1.00, 0.52], [1.75, 0.76], [2.60, 0.95], [3.30, 1.15]], x: 0.05,
     },
     { // MIDDLE
-      U: [[0.09, 0.09], [0.82, 0.19], [1.65, 0.32], [2.47, 0.44], [3.18, 0.56]],
-      L: [[0.12, -0.09], [0.88, 0.00], [1.71, 0.15], [2.53, 0.29], [3.18, 0.52]], x: 0.0,
+      U: [[0.00, -0.07], [0.36, 0.28], [0.88, 0.55], [1.58, 0.76], [2.38, 0.88], [3.00, 0.95]],
+      L: [[0.08, -0.24], [0.42, 0.08], [0.93, 0.34], [1.62, 0.55], [2.38, 0.72], [3.00, 0.90]], x: 0.0,
     },
     { // LOWER
-      U: [[0.06, -0.21], [0.76, -0.16], [1.59, -0.03], [2.35, 0.12], [3.00, 0.26]],
-      L: [[0.09, -0.41], [0.82, -0.35], [1.65, -0.21], [2.41, -0.06], [3.00, 0.22]], x: -0.05,
+      U: [[0.00, -0.24], [0.33, 0.06], [0.83, 0.30], [1.48, 0.48], [2.18, 0.60], [2.72, 0.66]],
+      L: [[0.06, -0.42], [0.40, -0.14], [0.90, 0.10], [1.55, 0.30], [2.18, 0.44], [2.72, 0.62]], x: -0.05,
     },
   ];
 
@@ -1211,11 +1216,11 @@ function buildSvjLayeredBladeWing(def, model, attach, giM) {
 
     // RED hex honeycomb membrane in FRONT of the inner blades (so it is never occluded) - a
     // connected grid of outline cells filling the inner black-inset band, the SVJ taillight read.
-    const r = 0.135 * ws, dz = r * Math.sqrt(3), dy = r * 1.5, x0 = 0.13;
+    const r = 0.135 * ws * WSCALE, dz = r * Math.sqrt(3), dy = r * 1.5, x0 = 0.13;
     for (let row = 0; row < 3; row++) {
-      const y = (0.24 - row * dy) ;
+      const y = (0.24 * WSCALE - row * dy);
       for (let col = 0; col < 4; col++) {
-        const z = (0.45 + col * dz + (row % 2) * dz * 0.5);
+        const z = (0.45 * WSCALE + col * dz + (row % 2) * dz * 0.5);
         pivot.add(hexRing(x0, y, z, r));
       }
     }
