@@ -73,11 +73,15 @@ function applyPose(parts, flap, pose) {
 // perPart   → also accumulate per-part screen + world bounding boxes and derived proportion
 //             measurements (wing span, body length, span/body ratio, head box, leg length).
 // colorParts→ additionally paint an RGBA part-map (each part its PART_PALETTE hue); implies perPart.
-export function renderSilhouette({ key, view = 'rear', tier, W, H, pose, hideWings = false, perPart = false, colorParts = false }) {
+// fov       → override the camera FOV. The 'rear' view defaults to 72 to MATCH the live chase cam
+//             (main.js:59 / cameraController.js) so its foreshortening == a real gameplay screenshot
+//             (pass 82/86/90 to match a speed/boost/fever shot). Framed views default to 60 (framing only).
+export function renderSilhouette({ key, view = 'rear', tier, W, H, pose, hideWings = false, perPart = false, colorParts = false, fov }) {
   perPart = perPart || colorParts;
   const maxTier = maxTierFor(key);
   const t = tier != null ? tier : maxTier;
-  const cam = new THREE.PerspectiveCamera(60, W / H, 0.1, 200);
+  const camFov = view === 'rear' ? (fov ?? 72) : (fov ?? 60);
+  const cam = new THREE.PerspectiveCamera(camFov, W / H, 0.1, 200);
   const def = ascendedDef(DRAGONS[key], t, 0);
   const built = buildDragonModel(def, {});
   const group = built.group;
