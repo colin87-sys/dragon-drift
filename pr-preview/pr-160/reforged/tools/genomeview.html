@@ -74,11 +74,13 @@
         { id: 'tailtip', p: [0, 0.43, 2.5], w: 0.03, h: 0.04, sq: 0.2 },
       ],
       limbs: [
+        { id: 'wingArmL', from: 'shoulder', chain: [[0.30, 0.50, -0.45]], r: [0.05] }, { id: 'wingArmR', mirror: 'wingArmL' },
         { id: 'flegL', from: 'shoulder', chain: [[0.16, -0.04, -0.5], [0.20, -0.15, -0.28]], r: [0.06, 0.035] }, { id: 'flegR', mirror: 'flegL' },
         { id: 'hlegL', from: 'hips', chain: [[0.18, -0.04, 0.7], [0.24, -0.16, 0.95]], r: [0.07, 0.04] }, { id: 'hlegR', mirror: 'hlegL' },
         { id: 'finL', from: 'tail2', chain: [[0.08, 0.40, 2.1], [0.04, 0.78, 2.35]], r: [0.025, 0.008] }, { id: 'finR', mirror: 'finL' },
       ],
       appendages: [
+        { id: 'wgL', on: 'wingArmL', kind: 'wing', fingers: 4, armLen: 0.5, span: 1.7, elevation: 0.7, leadAng: 0.5, trailAng: 1.7, scallop: 0.35 }, { id: 'wgR', mirror: 'wgL' },
         { on: 'flegL', kind: 'leg' }, { on: 'flegR', kind: 'leg' },
         { on: 'hlegL', kind: 'leg' }, { on: 'hlegR', kind: 'leg' },
         { id: 'tfL', on: 'finL', kind: 'membrane', chord: 0.35 }, { id: 'tfR', mirror: 'tfL' },
