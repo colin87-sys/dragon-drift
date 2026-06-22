@@ -76,8 +76,8 @@ function applyPose(parts, flap, pose) {
 // fov       → override the camera FOV. The 'rear' view defaults to 72 to MATCH the live chase cam
 //             (main.js:59 / cameraController.js) so its foreshortening == a real gameplay screenshot
 //             (pass 82/86/90 to match a speed/boost/fever shot). Framed views default to 60 (framing only).
-export function renderSilhouette({ key, view = 'rear', tier, W, H, pose, hideWings = false, perPart = false, colorParts = false, fov }) {
-  perPart = perPart || colorParts;
+export function renderSilhouette({ key, view = 'rear', tier, W, H, pose, hideWings = false, perPart = false, colorParts = false, profile = false, fov }) {
+  perPart = perPart || colorParts || profile;
   const maxTier = maxTierFor(key);
   const t = tier != null ? tier : maxTier;
   const camFov = view === 'rear' ? (fov ?? 72) : (fov ?? 60);
@@ -137,14 +137,25 @@ export function renderSilhouette({ key, view = 'rear', tier, W, H, pose, hideWin
     _n.copy(_w).project(cam);
     return { ez: _e.z, x: (_n.x * 0.5 + 0.5) * W, y: (1 - (_n.y * 0.5 + 0.5)) * H, wx: _w.x, wy: _w.y, wz: _w.z };
   };
-  const fillTri = (a, b, c, rec, col) => {
-    if (a.ez > -0.05 || b.ez > -0.05 || c.ez > -0.05) return;
-    // world aabb for this part (scale-honest measurements) — from the triangle's verts.
+  const fillTri = (a, b, c, rec, col, accProf) => {
+    // World aabb + the z-slice profile are GEOMETRY properties (camera-independent), so
+    // accumulate them BEFORE the near-plane cull → measurements/profile are identical from
+    // any render view (the camera only governs the screen rasterization below).
     if (rec) for (const v of [a, b, c]) {
       if (v.wx < rec.wMinX) rec.wMinX = v.wx; if (v.wx > rec.wMaxX) rec.wMaxX = v.wx;
       if (v.wy < rec.wMinY) rec.wMinY = v.wy; if (v.wy > rec.wMaxY) rec.wMaxY = v.wy;
       if (v.wz < rec.wMinZ) rec.wMinZ = v.wz; if (v.wz > rec.wMaxZ) rec.wMaxZ = v.wz;
     }
+    // Body cross-section profile: bin the torso's verts by world Z (0.1u slices) and track
+    // the width (x) + height (y) of each slice → shows WHERE the body bulges/pinches.
+    if (accProf) for (const v of [a, b, c]) {
+      const k = Math.round(v.wz / 0.1);
+      let p = accProf.get(k);
+      if (!p) { p = { minX: Infinity, maxX: -Infinity, minY: Infinity, maxY: -Infinity }; accProf.set(k, p); }
+      if (v.wx < p.minX) p.minX = v.wx; if (v.wx > p.maxX) p.maxX = v.wx;
+      if (v.wy < p.minY) p.minY = v.wy; if (v.wy > p.maxY) p.maxY = v.wy;
+    }
+    if (a.ez > -0.05 || b.ez > -0.05 || c.ez > -0.05) return;   // screen raster: in-front tris only
     const loX = Math.max(0, Math.floor(Math.min(a.x, b.x, c.x))), hiX = Math.min(W - 1, Math.ceil(Math.max(a.x, b.x, c.x)));
     const loY = Math.max(0, Math.floor(Math.min(a.y, b.y, c.y))), hiY = Math.min(H - 1, Math.ceil(Math.max(a.y, b.y, c.y)));
     const d = (b.y - c.y) * (a.x - c.x) + (c.x - b.x) * (a.y - c.y);
@@ -161,13 +172,15 @@ export function renderSilhouette({ key, view = 'rear', tier, W, H, pose, hideWin
       }
     }
   };
+  const torsoProf = profile ? new Map() : null;
   group.traverse((o) => {
     if (!o.isMesh || !o.geometry || !o.geometry.attributes.position || skip.has(o)) return;
     const pos = o.geometry.attributes.position, idx = o.geometry.index, mw = o.matrixWorld;
     const label = perPart ? partOf(o) : null;
     const rec = perPart ? partRec(label) : null;
     const col = colorParts ? (PART_PALETTE[label] || PART_PALETTE.torso) : null;
-    const tri = (i0, i1, i2) => { fillTri(project(i0, pos, mw), project(i1, pos, mw), project(i2, pos, mw), rec, col); tris++; };
+    const accProf = (torsoProf && label === 'torso') ? torsoProf : null;
+    const tri = (i0, i1, i2) => { fillTri(project(i0, pos, mw), project(i1, pos, mw), project(i2, pos, mw), rec, col, accProf); tris++; };
     if (idx) for (let i = 0; i < idx.count; i += 3) tri(idx.getX(i), idx.getX(i + 1), idx.getX(i + 2));
     else for (let i = 0; i < pos.count; i += 3) tri(i, i + 1, i + 2);
   });
@@ -223,7 +236,27 @@ export function renderSilhouette({ key, view = 'rear', tier, W, H, pose, hideWin
     };
   }
 
-  return { buf, rgba, W, H, bounds, tris, parts: perPartBoxes, measurements,
+  // Body cross-section profile resampled to ~12 even stations head(−Z) → tail(+Z): each is
+  // { z, width, height } so a chest→waist→hip pinch is a NUMBER, not just a top-view picture.
+  let torsoProfile = null;
+  if (torsoProf && torsoProf.size) {
+    const round = (n) => (n == null || !isFinite(n) ? null : Math.round(n * 1000) / 1000);
+    const bins = [...torsoProf.entries()]
+      .map(([k, p]) => ({ z: k * 0.1, width: p.maxX - p.minX, height: p.maxY - p.minY }))
+      .filter((b) => isFinite(b.width)).sort((a, b) => a.z - b.z);
+    if (bins.length) {
+      const N = 12, z0 = bins[0].z, z1 = bins[bins.length - 1].z;
+      torsoProfile = [];
+      for (let i = 0; i < N; i++) {
+        const zt = z0 + (z1 - z0) * (i / (N - 1));
+        let best = bins[0], bd = Infinity;
+        for (const b of bins) { const dd = Math.abs(b.z - zt); if (dd < bd) { bd = dd; best = b; } }
+        torsoProfile.push({ z: round(best.z), width: round(best.width), height: round(best.height) });
+      }
+    }
+  }
+
+  return { buf, rgba, W, H, bounds, tris, parts: perPartBoxes, measurements, torsoProfile,
     name: DRAGONS[key].name || key, formName: FORM[t] || `T${t}` };
 }
 
