@@ -3005,3 +3005,14 @@ emissive boxes (stem + two branches) on the dark inner face — "structured glow
 **→ Leapfrog:** aeroBlade + bladePath (swept aerofoil along a kinked spline) is the reusable hard-surface
 primitive this kit was missing — use it for tail stabiliser fins, dorsal crests, and any mech blade going
 forward, and expose wRoot/wMid/wTip + angA/angC/kink as the dials.
+
+## Lesson — Wing root chord widened to ~80% of torso so the wing INTEGRATES into the back (delta root → needle tip).
+
+Human note: "the whole wing root chord should be about 80% of the dragon torso." The blade-wing root was a narrow
+base; widened it to a broad delta. Made `ROOT_CHORD = 1.6` (≈80% of the ~2.0u torso) and drove the pylon depth,
+the carbon inner mass, and the primary/secondary blade ROOT widths from it (primary chord = ROOT_CHORD tapering
+fast through wMid to a needle; secondary = 0.6×). Biased the blade chord aft (`prim.position.z -0.45`) so the
+wide base lies BACK along the spine instead of poking forward into the neck. Now the wing reads as a swept dorsal
+fin grown out of the back over most of the torso length, then a long kinked needle — not a blade on a stalk.
+Reusable: parameterise proportions off ONE body-relative constant (ROOT_CHORD = 0.8·torso) so a single number
+restyles the whole root; the aeroBlade wRoot/wMid/wTip taper keeps the tip sharp regardless of how broad the root.
