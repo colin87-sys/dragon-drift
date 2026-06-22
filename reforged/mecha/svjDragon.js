@@ -31,7 +31,7 @@ export function svjMaterials() {
     steel: M('#3b424c', { r: 0.4, m: 0.95 }),
     hex: M('#20252e', { r: 0.62, m: 0.55 }),
     red: M('#220604', { e: '#ff2a14', ei: 2.3 }),
-    thruster: M('#240d04', { e: '#ff6a18', ei: 2.7 }),
+    thruster: M('#240d04', { e: '#ff6a18', ei: 2.2 }),
     eye: M('#06141a', { e: '#2ce6ff', ei: 2.2 }),
   };
 }
@@ -266,10 +266,10 @@ function wingSystem(side, M) {
   // root chord runs front-to-back ~80% of the torso (≈1.6u) so the wing INTEGRATES
   // into the back along most of the spine, then tapers fast up into the blades.
   const ROOT_CHORD = 1.6;
-  const pylon = wedgeBlock(0.5, ROOT_CHORD, 0.34, 0.5, 0.62, M.gold, 'wingMount');
+  const pylon = wedgeBlock(0.66, ROOT_CHORD, 0.44, 0.58, 0.74, M.gold, 'wingMount');   // chunkier shoulder pylon
   pylon.rotation.x = rad(-12); mir.add(pylon);
-  const pylonEdge = wedgeBlock(0.18, ROOT_CHORD * 0.92, 0.14, 0.46, 0.6, M.goldDark, 'wingMount');
-  pylonEdge.position.set(0.28, 0, 0); pylonEdge.rotation.x = rad(-12); mir.add(pylonEdge);
+  const pylonEdge = wedgeBlock(0.24, ROOT_CHORD * 0.92, 0.18, 0.5, 0.7, M.goldDark, 'wingMount');
+  pylonEdge.position.set(0.34, 0, 0); pylonEdge.rotation.x = rad(-12); mir.add(pylonEdge);
   const hingeJ = tag(new THREE.CylinderGeometry(0.2, 0.2, 0.5, 14), M.steel, 'shoulderHinge');
   hingeJ.rotation.z = Math.PI / 2; hingeJ.position.set(0.05, 0.16, 0.05); mir.add(hingeJ);
   const jcore = tag(new THREE.CylinderGeometry(0.1, 0.1, 0.52, 10), M.red, 'jointCore');
@@ -283,15 +283,17 @@ function wingSystem(side, M) {
 
   // PRIMARY blade — broad delta root chord (≈80% torso) sweeping fast to a long
   // kinked needle. Length set against the head-to-tail master scale (see measure.mjs).
-  const LP = 6.7;                                                                // primary root→tip length (model u)
-  const prim = aeroBlade(LP, ROOT_CHORD, 0.5, 0.06, 0.22, 0.10, 0.035, 0.22, rad(62), rad(58), M.gold, 'outerWingBlade');
+  const LP = 7.05;                                                                // primary root→tip length (model u)
+  // root thickness ~0.34 → a chunky armoured root that tapers to a thin tip (not a paper fin)
+  const prim = aeroBlade(LP, ROOT_CHORD, 0.5, 0.06, 0.34, 0.10, 0.035, 0.22, rad(62), rad(58), M.gold, 'outerWingBlade');
   prim.position.set(0, 0, -0.45); outer.add(prim);
   // dark recessed inner face panel hugging the blade (thin, inboard)
-  const primInner = aeroBlade(LP * 0.9, ROOT_CHORD * 0.7, 0.34, 0.05, 0.05, 0.03, 0.02, 0.22, rad(62), rad(58), M.carbon, 'wingInnerStruct');
-  primInner.position.set(-0.11, 0.02, -0.43); outer.add(primInner);
-  // SECONDARY blade — clearly smaller (≈62% len / 60% chord), tucked below+inboard
-  const sec = aeroBlade(LP * 0.62, ROOT_CHORD * 0.6, 0.3, 0.05, 0.14, 0.07, 0.03, 0.24, rad(57), rad(52), M.gold, 'secondaryBlade');
-  sec.position.set(-0.14, -0.16, -0.1); outer.add(sec);
+  const primInner = aeroBlade(LP * 0.9, ROOT_CHORD * 0.7, 0.34, 0.05, 0.06, 0.03, 0.02, 0.22, rad(62), rad(58), M.carbon, 'wingInnerStruct');
+  primInner.position.set(-0.13, 0.02, -0.43); outer.add(primInner);
+  // SECONDARY blade — clearly smaller (≈64% len), dropped lower + behind with a
+  // clear negative-space gap so it reads as a distinct support fin under the main.
+  const sec = aeroBlade(LP * 0.64, ROOT_CHORD * 0.6, 0.3, 0.05, 0.16, 0.07, 0.03, 0.24, rad(56), rad(50), M.gold, 'secondaryBlade');
+  sec.position.set(-0.18, -0.3, 0.05); outer.add(sec);
 
   // ONE inset red Y-channel on each blade's dark inner face (structured, recessed)
   const yChan = (host, x, y, z, scl) => {
@@ -327,21 +329,21 @@ function bladeGeo(span, rootC, tipC, sweep, camber = 0.05) {
 // silhouette reads as a mechanical dragon, not a straight dragonfly fuselage.
 // rings: [role, z, cy(centreline height), hw(half-width), hh(half-height/depth)]
 const RINGS = [
-  ['neck', -3.30, 0.40, 0.22, 0.26],
-  ['neck', -2.85, 0.46, 0.30, 0.34],
-  ['shoulder', -2.30, 0.45, 0.50, 0.50],
-  ['chest', -1.75, 0.40, 0.64, 0.62],     // deepest + tallest mass
-  ['chest', -1.20, 0.35, 0.56, 0.54],
-  ['waist', -0.55, 0.27, 0.40, 0.42],     // pinch
-  ['hip', 0.15, 0.24, 0.58, 0.54],        // hip = second mass
-  ['hip', 0.72, 0.19, 0.50, 0.48],
-  ['tailbase', 1.28, 0.12, 0.42, 0.44],   // thick tail base
-  ['tail', 1.82, 0.07, 0.33, 0.35],
-  ['tail', 2.36, 0.03, 0.26, 0.27],
-  ['tail', 2.90, 0.00, 0.20, 0.21],
-  ['tail', 3.44, -0.03, 0.15, 0.16],
-  ['tail', 3.98, -0.05, 0.10, 0.11],
-  ['tail', 4.52, -0.06, 0.06, 0.06],
+  ['neck', -3.35, 0.42, 0.22, 0.26],
+  ['neck', -2.88, 0.48, 0.32, 0.36],
+  ['shoulder', -2.32, 0.46, 0.58, 0.56],  // wider/deeper shoulder mass
+  ['chest', -1.75, 0.40, 0.72, 0.74],     // deepest + tallest mass (peak of the back arch)
+  ['chest', -1.18, 0.34, 0.64, 0.66],
+  ['waist', -0.52, 0.26, 0.38, 0.40],     // tighter pinch for contrast
+  ['hip', 0.18, 0.22, 0.68, 0.64],        // bulkier hip / engine mass
+  ['hip', 0.76, 0.16, 0.58, 0.56],
+  ['tailbase', 1.32, 0.08, 0.50, 0.52],   // thicker tail base
+  ['tail', 1.86, 0.01, 0.38, 0.40],
+  ['tail', 2.40, -0.05, 0.30, 0.31],
+  ['tail', 2.94, -0.09, 0.22, 0.23],      // gentle downward curve through the tail…
+  ['tail', 3.48, -0.11, 0.16, 0.17],
+  ['tail', 4.02, -0.10, 0.10, 0.11],
+  ['tail', 4.56, -0.06, 0.06, 0.06],      // …with a slight tip lift (a living line, not a ruler)
 ];
 
 export function buildSVJDragon(knobs = {}) {
@@ -367,8 +369,8 @@ export function buildSVJDragon(knobs = {}) {
 
   // HEAD at the front of the neck, dropped slightly + tilted down (head leads low)
   const n0 = RINGS[0];
-  const head = headWedge(M); head.scale.setScalar(1.15);
-  head.position.set(0, n0[2] - 0.06, n0[1] - 0.55); head.rotation.x = rad(8); root.add(head);
+  const head = headWedge(M); head.scale.set(1.5, 1.45, 1.55);                   // bigger, clearer dragon head
+  head.position.set(0, n0[2] - 0.04, n0[1] - 0.62); head.rotation.x = rad(8); root.add(head);
 
   // CHEST / SHOULDER armour — the main load-bearing block carrying head + wings.
   const ch = ring('chest'), sh = ring('shoulder');
@@ -388,8 +390,13 @@ export function buildSVJDragon(knobs = {}) {
   // WINGS — mounted high on the shoulder mass, anchored into the chest/upper back.
   const wings = [];
   for (const side of [-1, 1]) {
+    // scapular fairing: a gold mass that BLENDS the shoulder into the wing root
+    // (no hard jump from body block to blade).
+    const fair = wedgeBlock(0.55, 0.95, 0.34, 0.5, sh[4] * 0.85, M.gold, 'wingMount');
+    fair.position.set(side * sh[3] * 0.62, sh[2] + sh[4] * 0.18, sh[1] + 0.05);
+    fair.rotation.set(0, 0, -side * 0.4); root.add(fair);
     const w = wingSystem(side, M); w.userData.side = side;
-    w.position.set(side * sh[3] * 0.78, sh[2] + sh[4] * 0.5, sh[1] + 0.05);
+    w.position.set(side * sh[3] * 0.74, sh[2] + sh[4] * 0.55, sh[1] + 0.05);
     root.add(w); wings.push(w);
   }
 
@@ -398,14 +405,17 @@ export function buildSVJDragon(knobs = {}) {
   const hipCore = tag(new THREE.BoxGeometry(hp[3] * 1.0, hp[4] * 1.0, 1.1), M.carbon, 'hipChassis');  // internal
   hipCore.position.set(0, hp[2] - 0.02, hp[1] + 0.2); root.add(hipCore);
   for (const s of [-1, 1]) {                                                     // tapered gold haunch wedges
-    const haunch = wedgeBlock(0.8, hp[4] * 1.3, 0.4, hp[4] * 0.8, 0.34, M.gold, 'hipArmor');
+    const haunch = wedgeBlock(0.9, hp[4] * 1.5, 0.44, hp[4] * 0.9, 0.4, M.gold, 'hipArmor');
     haunch.position.set(s * hp[3] * 0.55, hp[2] + hp[4] * 0.15, hp[1] + 0.2);
     haunch.rotation.set(Math.PI / 2, 0, s * 0.45); root.add(haunch);
   }
+  // gold rear cowl wrapping the thruster mounts → the tail grows from a real chassis
+  const cowl = tag(new THREE.BoxGeometry(hp[3] * 1.5, hp[4] * 1.1, 0.55), M.gold, 'hipArmor');
+  cowl.position.set(0, hp[2], hpBack[1] + 0.16); root.add(cowl);
   // twin thrusters set into the hip rear, flanking the tail base
   const thrusters = [];
   for (const s of [-1, 1]) {
-    const t = thrusterPod(M); t.position.set(s * hp[3] * 0.5, hp[2] - 0.02, hpBack[1] + 0.32); root.add(t); thrusters.push(t);
+    const t = thrusterPod(M); t.position.set(s * hp[3] * 0.5, hp[2] - 0.02, hpBack[1] + 0.36); root.add(t); thrusters.push(t);
   }
   // rear diffuser under the hip mass
   const diff = diffuser(M); diff.position.set(0, hp[2] - hp[4] * 0.95, hpBack[1] + 0.1); root.add(diff);
