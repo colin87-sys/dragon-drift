@@ -133,13 +133,18 @@ export function renderToon(group, { view = 'rear', W = 420, H = 420, bg = [14, 1
     if (idx) for (let i = 0; i < idx.count; i += 3) tri(idx.getX(i), idx.getX(i + 1), idx.getX(i + 2));
     else for (let i = 0; i < pos.count; i += 3) tri(i, i + 1, i + 2);
   });
-  // screen-space outline: dark any pixel whose neighbour is a different mesh / background
+  // edge pass: a hard dark OUTLINE where the creature meets the background, and a
+  // softer CONTACT-SHADOW crease where two different parts meet (cheap joint AO,
+  // so separate primitives read as one connected creature).
   const out = Buffer.from(rgba);
   for (let y = 1; y < H - 1; y++) for (let x = 1; x < W - 1; x++) {
     const k = y * W + x, me = id[k];
     if (me < 0) continue;
-    if (id[k - 1] !== me || id[k + 1] !== me || id[k - W] !== me || id[k + W] !== me) {
+    const nb = [id[k - 1], id[k + 1], id[k - W], id[k + W]];
+    if (nb.some((v) => v < 0)) {                          // silhouette edge → full outline
       const i = k * 4; out[i] = 8; out[i + 1] = 10; out[i + 2] = 14;
+    } else if (nb.some((v) => v !== me)) {                // internal seam → darken (contact shadow)
+      const i = k * 4; out[i] = rgba[i] * 0.55; out[i + 1] = rgba[i + 1] * 0.55; out[i + 2] = rgba[i + 2] * 0.6;
     }
   }
   return { rgba: out, W, H };

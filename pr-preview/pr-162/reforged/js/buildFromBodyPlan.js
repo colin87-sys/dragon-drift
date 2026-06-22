@@ -117,50 +117,60 @@ function loftSpine(spine, radial) {
   return { geometry: geo, curve, sample, frames };
 }
 
-// A bold, stylised dragon wing: a membrane fan over 3 finger struts. Built in a
-// local frame (x = outboard span, +z = aft) then oriented at the shoulder.
+// A bold, stylised dragon wing: a CAMBERED membrane surface (cupped, so it
+// catches the light and reads as a wing even from dead-behind, not as an edge-on
+// sliver) over bat-finger struts. Built in a local frame (x = outboard span,
+// +z = aft) then posed in a glide and oriented at the shoulder.
 function buildWing(plan, g, mat, strutMat, side) {
   const grp = new THREE.Group();
   const span = plan.wings.span * g.wingSpan;
-  const chord = span / Math.max(1.2, plan.wings.aspect);
-  // finger tips outboard, fanning aft (z+). Root at origin.
-  const tips = [
-    V(span * 0.45, 0.10, -chord * 0.35),
-    V(span * 0.82, -0.05, chord * 0.15),
-    V(span * 1.0, -0.12, chord * 0.85),
-    V(span * 0.62, -0.18, chord * 1.25),
-  ];
-  const root = V(0, 0, chord * 0.1);
-  // membrane: scalloped fan root → consecutive tips
-  const mpos = [], midx = [];
-  const add = (v) => { mpos.push(v.x, v.y, v.z); return mpos.length / 3 - 1; };
-  const ri = add(root), tIdx = tips.map(add);
-  // a couple of trailing mid-points so the web dips between fingers (scallop)
-  for (let k = 0; k < tips.length - 1; k++) {
-    const midV = tips[k].clone().lerp(tips[k + 1], 0.5).addScaledVector(V(0, -0.05, 0.18 * chord), 1);
-    const mi = add(midV);
-    midx.push(ri, tIdx[k], mi, ri, mi, tIdx[k + 1]);
+  const aspect = Math.max(1.2, plan.wings.aspect);
+  const rootChord = span / aspect;
+  const camber = 0.22 * rootChord;                 // cup depth (downward bow)
+  const sSeg = seg(9), cSeg = seg(5);
+  const leadZ = (s) => -rootChord * 0.55 * Math.sin(s * Math.PI * 0.72) - 0.04;  // forward-swept leading edge
+  const chordAt = (s) => rootChord * (1 - 0.72 * s) * (1 + 0.12 * Math.sin(s * Math.PI * 3));  // taper + finger scallops
+  const dipY = (s) => -0.16 * span * s * s;        // wingtip droops in the glide
+  // membrane grid
+  const pos = [], idx = [];
+  const cols = cSeg + 1;
+  for (let i = 0; i <= sSeg; i++) {
+    const s = i / sSeg, x = span * s, lz = leadZ(s), ch = chordAt(s);
+    for (let j = 0; j <= cSeg; j++) {
+      const c = j / cSeg;
+      const y = dipY(s) - camber * Math.sin(c * Math.PI) - 0.05 * span * s * (1 - s);
+      pos.push(x, y, lz + ch * c);
+    }
   }
+  for (let i = 0; i < sSeg; i++)
+    for (let j = 0; j < cSeg; j++) {
+      const a = i * cols + j, b = a + 1, d = a + cols, e = d + 1;
+      idx.push(a, b, e, a, e, d);
+    }
   const mgeo = new THREE.BufferGeometry();
-  mgeo.setAttribute('position', new THREE.Float32BufferAttribute(mpos, 3));
-  mgeo.setIndex(midx); mgeo.computeVertexNormals();
+  mgeo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+  mgeo.setIndex(idx); mgeo.computeVertexNormals();
   grp.add(tagged(mgeo, mat, 'membrane'));
-  // leading-edge + finger struts (the "arm"); arm-wings get a thicker spar
-  const sr = plan.wings.type === 'arm' ? 0.06 : 0.04;
+  // bat-finger struts: leading-edge spar + a few ribs fanning to the trailing edge
+  const sr = plan.wings.type === 'arm' ? 0.055 : 0.035;
   const strut = (from, to, r) => {
     const dir = to.clone().sub(from), len = dir.length();
-    const cyl = new THREE.CylinderGeometry(r * 0.5, r, len, seg(5));
-    const m = tagged(cyl, strutMat, 'limb');
-    m.position.copy(from.clone().add(to).multiplyScalar(0.5));
+    if (len < 1e-3) return null;
+    const m = tagged(new THREE.CylinderGeometry(r * 0.5, r, len, seg(5)), strutMat, 'limb');
+    m.position.copy(from).add(to).multiplyScalar(0.5);
     m.quaternion.setFromUnitVectors(V(0, 1, 0), dir.normalize());
     return m;
   };
-  grp.add(strut(root, tips[2], sr));                 // main spar to the long finger
-  for (const tp of tips) grp.add(strut(root, tp, sr * 0.55));
-  // orient: dihedral up, sweep aft, mirror for the left side
+  const at = (s, c) => V(span * s, dipY(s) - camber * Math.sin(c * Math.PI) - 0.05 * span * s * (1 - s), leadZ(s) + chordAt(s) * c);
+  const root = at(0, 0.15);
+  const leTip = at(1, 0.0);
+  grp.add(strut(root, leTip, sr));                          // leading-edge arm spar
+  for (const s of [0.45, 0.7, 0.92]) { const st = strut(root, at(s, 0.96), sr * 0.5); if (st) grp.add(st); }
+  // pose: raise into a glide V, sweep aft, tilt the membrane to face back-and-down
+  grp.scale.x = side;                                       // mirror
   grp.rotation.z = side * plan.wings.dihedral;
-  grp.rotation.y = side * -plan.wings.sweep * 0.4;
-  grp.scale.x = side;                                // mirror
+  grp.rotation.y = side * -plan.wings.sweep * 0.5;
+  grp.rotation.x = -0.22;
   return grp;
 }
 
@@ -198,9 +208,17 @@ function buildHead(plan, g, mats) {
   brow.position.set(0, 0.18 * h.brow, -0.16); brow.rotation.x = 0.3;
   grp.add(skull, snout, jaw, brow);
   for (const s of [-1, 1]) {
-    const eye = tagged(new THREE.SphereGeometry(0.075, seg(8), seg(6)), mats.eye, 'eye');
-    eye.position.set(s * 0.18 * w / 0.6, 0.12, -0.24);
+    const eye = tagged(new THREE.SphereGeometry(0.095, seg(8), seg(7)), mats.eye, 'eye');
+    eye.position.set(s * 0.19 * w / 0.6, 0.13, -0.22); eye.scale.set(1, 1.15, 1);
     grp.add(eye);
+    const ridge = tagged(new THREE.ConeGeometry(0.05, 0.16, seg(4)), mats.accent, 'head');  // brow ridge over the eye
+    ridge.position.set(s * 0.2 * w / 0.6, 0.24, -0.18); ridge.rotation.set(0.5, 0, s * 0.3);
+    grp.add(ridge);
+    if (!plan.whiskers) {                                   // swept cheek frill (not on the maned eastern)
+      const cheek = tagged(new THREE.ConeGeometry(0.06, 0.34, seg(4)), mats.accent, 'head');
+      cheek.position.set(s * 0.28 * w / 0.6, 0.02, 0.04); cheek.scale.set(0.5, 1, 1); cheek.rotation.z = s * -1.25;
+      grp.add(cheek);
+    }
   }
   if (plan.whiskers) for (const s of [-1, 1]) {
     const wh = tagged(new THREE.CylinderGeometry(0.006, 0.02, 1.1, seg(4)), mats.accent, 'mane');
@@ -304,23 +322,32 @@ export function buildCreature(genes = {}, opts = {}) {
   const body = loftSpine(plan.spine, radial);
   group.add(tagged(body.geometry, mats.body, 'body'));
 
-  // 2) HEAD — at the front spine frame, aimed forward.
+  // a smooth blend sphere so an appendage reads as GROWING from the body, not
+  // bolted on (the cheap "one creature" trick the original game used).
+  const fairing = (pos, r) => {
+    const f = tagged(new THREE.SphereGeometry(r, seg(8), seg(6)), mats.body, 'body');
+    f.position.copy(pos); f.scale.set(1.25, 1.0, 1.25);
+    group.add(f);
+  };
+
+  // 2) HEAD — at the front spine frame, aimed forward, with a neck-collar fairing.
   const headFr = body.sample(0);
   const headGroup = buildHead(plan, g, mats);
   headGroup.position.copy(headFr.pos).addScaledVector(headFr.tan, -0.18);
   headGroup.quaternion.setFromUnitVectors(V(0, 0, -1), headFr.tan.clone().multiplyScalar(-1).normalize());
   group.add(headGroup);
   group.userData.headGroup = headGroup;
+  fairing(headFr.pos.clone().addScaledVector(headFr.tan, -0.02), headFr.rx * 1.15);
 
   // 3) WINGS — at the shoulders (skip for the wingless eastern plan).
   if (plan.wings.type !== 'none') {
     const fr = body.sample(plan.shoulderU);
     for (const side of [-1, 1]) {
+      const root = fr.pos.clone().addScaledVector(fr.right, side * fr.rx * 0.7).addScaledVector(fr.up, fr.ry * plan.wings.rootLift);
       const wing = buildWing(plan, g, mats.membrane, mats.accent, side);
-      wing.position.copy(fr.pos)
-        .addScaledVector(fr.right, side * fr.rx * 0.7)
-        .addScaledVector(fr.up, fr.ry * plan.wings.rootLift);
+      wing.position.copy(root);
       group.add(wing);
+      fairing(root.clone().addScaledVector(fr.up, -fr.ry * 0.18), fr.rx * 0.5);    // shoulder muscle
     }
   }
 
@@ -329,9 +356,11 @@ export function buildCreature(genes = {}, opts = {}) {
   const mount = (u, splay) => {
     const fr = body.sample(u);
     for (const side of [-1, 1]) {
+      const root = fr.pos.clone().addScaledVector(fr.right, side * fr.rx * 0.8).addScaledVector(fr.up, -fr.ry * 0.5);
       const leg = buildLeg(mats.body, mats.horn, plan.legs.bulk, legLen, splay, side);
-      leg.position.copy(fr.pos).addScaledVector(fr.right, side * fr.rx * 0.8).addScaledVector(fr.up, -fr.ry * 0.5);
+      leg.position.copy(root);
       group.add(leg);
+      fairing(root.clone().addScaledVector(fr.up, fr.ry * 0.25), fr.rx * 0.42 * plan.legs.bulk);  // haunch
     }
   };
   if (plan.legs.fore) mount(plan.shoulderU + 0.02, 0.25);
