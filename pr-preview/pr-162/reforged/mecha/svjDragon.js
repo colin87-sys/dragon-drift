@@ -322,68 +322,115 @@ function bladeGeo(span, rootC, tipC, sweep, camber = 0.05) {
 }
 
 // ── ASSEMBLY ──────────────────────────────────────────────────────────────────
+// The body is a CURVED centreline with a vertebrate mass rhythm — neck → deep
+// chest/shoulder → pinched waist → strong hips → thick tail base → taper — so the
+// silhouette reads as a mechanical dragon, not a straight dragonfly fuselage.
+// rings: [role, z, cy(centreline height), hw(half-width), hh(half-height/depth)]
+const RINGS = [
+  ['neck', -3.30, 0.40, 0.22, 0.26],
+  ['neck', -2.85, 0.46, 0.30, 0.34],
+  ['shoulder', -2.30, 0.45, 0.50, 0.50],
+  ['chest', -1.75, 0.40, 0.64, 0.62],     // deepest + tallest mass
+  ['chest', -1.20, 0.35, 0.56, 0.54],
+  ['waist', -0.55, 0.27, 0.40, 0.42],     // pinch
+  ['hip', 0.15, 0.24, 0.58, 0.54],        // hip = second mass
+  ['hip', 0.72, 0.19, 0.50, 0.48],
+  ['tailbase', 1.28, 0.12, 0.42, 0.44],   // thick tail base
+  ['tail', 1.82, 0.07, 0.33, 0.35],
+  ['tail', 2.36, 0.03, 0.26, 0.27],
+  ['tail', 2.90, 0.00, 0.20, 0.21],
+  ['tail', 3.44, -0.03, 0.15, 0.16],
+  ['tail', 3.98, -0.05, 0.10, 0.11],
+  ['tail', 4.52, -0.06, 0.06, 0.06],
+];
+
 export function buildSVJDragon(knobs = {}) {
   const M = svjMaterials();
   const root = new THREE.Group(); root.name = 'SVJMechaDragon';
-  const torso = engineBay(M); root.add(torso);
-  const S = torso.userData.sockets;
-  const spineSeams = []; const tailSegs = [];
+  const tailSegs = [];
+  const ring = (role) => RINGS.find((r) => r[0] === role);
+  const lastTail = RINGS[RINGS.length - 1];
 
-  // neck: 3 segments forward (-Z) + wedge head
-  let z = S.front_neck_socket.z, r = 0.3;
-  for (let i = 0; i < 3; i++) {
-    const len = 0.4; const seg = spineSegment(len, r, 0.96, M);
-    z -= len / 2; seg.position.set(0, 0.06, z); z -= len / 2; r *= 0.95;
-    root.add(seg); spineSeams.push(seg);
+  // build the segmented spine along the curved centreline, scaling each segment
+  // to the local width/height so the mass hierarchy reads.
+  for (let i = 0; i < RINGS.length - 1; i++) {
+    const [r0, z0, cy0, hw0, hh0] = RINGS[i], [r1, z1, cy1, hw1, hh1] = RINGS[i + 1];
+    const mz = (z0 + z1) / 2, mcy = (cy0 + cy1) / 2, len = Math.hypot(z1 - z0, cy1 - cy0);
+    const hw = (hw0 + hw1) / 2, hh = (hh0 + hh1) / 2;
+    const seg = spineSegment(len * 0.97, 0.5, 0.94, M, { vent: r0 === 'chest' || r0 === 'hip' });
+    seg.scale.set(hw / 0.5, hh / 0.5, 1);
+    seg.position.set(0, mcy, mz);
+    seg.quaternion.setFromUnitVectors(V(0, 0, 1), V(0, cy1 - cy0, z1 - z0).normalize());
+    root.add(seg);
+    if (r0 === 'tail' || r0 === 'tailbase') tailSegs.push(seg);
   }
-  const head = headWedge(M); head.position.set(0, 0.08, z - 0.1); root.add(head);
 
-  // body: 4 spine segments behind torso (+Z)
-  z = S.rear_spine_socket.z; r = 0.34;
-  for (let i = 0; i < 4; i++) {
-    const len = 0.48; const seg = spineSegment(len, r, 0.97, M, { vent: i % 2 === 0 });
-    z += len / 2; seg.position.set(0, 0.05, z); z += len / 2; r *= 0.97;
-    root.add(seg); spineSeams.push(seg);
-  }
-  // tail: 7 segments tapering gradually (base stays muscular)
-  for (let i = 0; i < 7; i++) {
-    const len = 0.5 * Math.pow(0.95, i); const taper = 0.92;
-    const seg = spineSegment(len, r, taper, M, { vent: i < 2 });
-    z += len / 2; seg.position.set(0, 0.02 - i * 0.012, z);
-    const base = z; z += len / 2; r *= (i < 2 ? 0.96 : 0.86);                    // keep base muscular, taper later
-    root.add(seg); spineSeams.push(seg); tailSegs.push(seg);
-    // tail blade fins (aero stabilisers) on the last 3 segments
-    if (i >= 4) for (const s of [-1, 1]) {
-      const fin = tag(bladeGeo(0.6 + (6 - i) * 0.1, 0.4, 0.12, 0.3), M.goldDark, 'tailBladeFin');
-      fin.position.set(s * r * 1.1, 0.05, base); fin.rotation.set(rad(20), 0, s * rad(60)); fin.scale.x = s;
-      root.add(fin);
-      const tl = chevron(M, 0.7); tl.position.set(s * r * 1.3, 0.05, base + len * 0.3); root.add(tl);
-    }
-  }
-  // tail spear tip
-  const spear = tag(new THREE.ConeGeometry(r * 1.1, 0.7, 6), M.gold, 'tailSpear');
-  spear.rotation.x = Math.PI / 2; spear.position.set(0, 0.0, z + 0.3); root.add(spear);
-  const tailTipZ = z + 0.6;
+  // HEAD at the front of the neck, dropped slightly + tilted down (head leads low)
+  const n0 = RINGS[0];
+  const head = headWedge(M); head.scale.setScalar(1.15);
+  head.position.set(0, n0[2] - 0.06, n0[1] - 0.55); head.rotation.x = rad(8); root.add(head);
 
-  // twin thruster pods at the rear torso, flanking the tail base
-  const thrusters = [];
-  for (const sock of ['rear_thruster_socket_left', 'rear_thruster_socket_right']) {
-    const t = thrusterPod(M); t.position.copy(S[sock]); root.add(t); thrusters.push(t);
+  // CHEST / SHOULDER armour — the main load-bearing block carrying head + wings.
+  const ch = ring('chest'), sh = ring('shoulder');
+  const chestCore = tag(new THREE.BoxGeometry(ch[3] * 0.95, ch[4] * 0.95, 1.2), M.carbon, 'torsoCore');  // internal dark recess
+  chestCore.position.set(0, ch[2] - 0.02, ch[1] + 0.1); root.add(chestCore);
+  for (const s of [-1, 1]) {
+    // angular gold shoulder plate hugging the chest (tapered wedge, not a slab)
+    const plate = wedgeBlock(0.9, ch[4] * 1.2, 0.5, ch[4] * 0.7, 0.3, M.gold, 'torsoArmor');
+    plate.position.set(s * ch[3] * 0.6, ch[2] + ch[4] * 0.25, ch[1] + 0.1);
+    plate.rotation.set(Math.PI / 2, 0, s * 0.5); root.add(plate);
+    const intake = tag(new THREE.BoxGeometry(0.05, ch[4] * 0.6, 0.7), M.carbon, 'sideIntake');
+    intake.position.set(s * ch[3] * 1.02, ch[2] - 0.04, ch[1]); intake.rotation.z = s * 0.2; root.add(intake);
+    const grille = hexGrille(0.5, 0.36, M); grille.position.set(s * ch[3] * 1.06, ch[2] - 0.04, ch[1]);
+    grille.rotation.set(0, s * Math.PI / 2, s * 0.2); root.add(grille);
   }
-  // rear diffuser fin array
-  const diff = diffuser(M); diff.position.copy(S.bottom_diffuser_socket); root.add(diff);
-  // tucked mecha legs
-  for (const [sock, side] of [['left_leg_socket', -1], ['right_leg_socket', 1]]) {
-    const leg = clawLeg(side, M); leg.position.copy(S[sock]); root.add(leg);
-  }
-  // mirrored wing systems
+
+  // WINGS — mounted high on the shoulder mass, anchored into the chest/upper back.
   const wings = [];
-  for (const [sock, side] of [['left_wing_shoulder_socket', -1], ['right_wing_shoulder_socket', 1]]) {
-    const w = wingSystem(side, M); w.position.copy(S[sock]); w.userData.side = side;
+  for (const side of [-1, 1]) {
+    const w = wingSystem(side, M); w.userData.side = side;
+    w.position.set(side * sh[3] * 0.78, sh[2] + sh[4] * 0.5, sh[1] + 0.05);
     root.add(w); wings.push(w);
   }
-  // top-spine vent accents along the back
-  for (const sz of [-0.6, 1.3, 1.9]) { const v = ventTriple(M, 1.0); v.position.set(0, 0.5, sz); root.add(v); }
+
+  // HIP CHASSIS — a stronger armoured rear-body mass the thrusters + tail grow from.
+  const hp = ring('hip'), hpBack = RINGS[7], tb = ring('tailbase');
+  const hipCore = tag(new THREE.BoxGeometry(hp[3] * 1.0, hp[4] * 1.0, 1.1), M.carbon, 'hipChassis');  // internal
+  hipCore.position.set(0, hp[2] - 0.02, hp[1] + 0.2); root.add(hipCore);
+  for (const s of [-1, 1]) {                                                     // tapered gold haunch wedges
+    const haunch = wedgeBlock(0.8, hp[4] * 1.3, 0.4, hp[4] * 0.8, 0.34, M.gold, 'hipArmor');
+    haunch.position.set(s * hp[3] * 0.55, hp[2] + hp[4] * 0.15, hp[1] + 0.2);
+    haunch.rotation.set(Math.PI / 2, 0, s * 0.45); root.add(haunch);
+  }
+  // twin thrusters set into the hip rear, flanking the tail base
+  const thrusters = [];
+  for (const s of [-1, 1]) {
+    const t = thrusterPod(M); t.position.set(s * hp[3] * 0.5, hp[2] - 0.02, hpBack[1] + 0.32); root.add(t); thrusters.push(t);
+  }
+  // rear diffuser under the hip mass
+  const diff = diffuser(M); diff.position.set(0, hp[2] - hp[4] * 0.95, hpBack[1] + 0.1); root.add(diff);
+
+  // TUCKED LEGS — fore under the chest, hind under the hips (quadruped read).
+  for (const [zc, hwc, hhc, cyc] of [[ch[1] + 0.25, ch[3], ch[4], ch[2]], [hp[1] + 0.05, hp[3], hp[4], hp[2]]])
+    for (const s of [-1, 1]) {
+      const leg = clawLeg(s, M); leg.position.set(s * hwc * 0.75, cyc - hhc * 0.82, zc); root.add(leg);
+    }
+
+  // TAIL fins + spear on the tapering tail rings.
+  for (let i = 9; i < RINGS.length; i++) {
+    const [, z, cy, hw] = RINGS[i];
+    if (i >= 11) for (const s of [-1, 1]) {
+      const fin = tag(bladeGeo(0.55 + (RINGS.length - i) * 0.08, 0.36, 0.1, 0.28), M.goldDark, 'tailBladeFin');
+      fin.position.set(s * hw * 1.1, cy + 0.04, z); fin.rotation.set(rad(18), 0, s * rad(62)); fin.scale.x = s; root.add(fin);
+      const tl = chevron(M, 0.6); tl.position.set(s * hw * 1.25, cy + 0.04, z + 0.15); root.add(tl);
+    }
+  }
+  const spear = tag(new THREE.ConeGeometry(lastTail[3] * 1.3, 0.7, 6), M.gold, 'tailSpear');
+  spear.rotation.x = Math.PI / 2; spear.position.set(0, lastTail[2], lastTail[1] + 0.42); root.add(spear);
+  const tailTipZ = lastTail[1] + 0.7;
+
+  // dorsal back-ridge vents following the curve (chest + hip crowns)
+  for (const [, z, cy, , hh] of [ch, hp]) { const v = ventTriple(M, 1.1); v.position.set(0, cy + hh + 0.04, z); root.add(v); }
 
   root.updateMatrixWorld(true);
   root.userData.anim = {

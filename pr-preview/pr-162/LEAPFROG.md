@@ -3048,3 +3048,24 @@ is always lit; raised exposure to 1.18. (4) Mobile has no scroll wheel — added
 pointers in a Map, scale dist by the pinch ratio) + on-screen ± buttons, keeping wheel for desktop.
 Reusable: a camera-attached headlight is the cheapest cure for "dark at some angles" in an orbit previewer; and
 always give a headless renderer a fill+ambient floor so shape review isn't fooled by self-shadowing.
+
+## Lesson — Killed the "dragonfly fuselage" read by rebuilding the mecha body as a CURVED centreline with a vertebrate mass rhythm (data-driven RINGS table).
+
+Human brief: the body read as a straight insect tube; wanted head→arched neck→deep chest→pinched waist→strong
+hips→thick tail base→taper, with thrusters integrated into a hip chassis. Replaced the old uniform straight
+spine loop with a `RINGS` table — `[role, z, cy(centreline height), hw, hh]` — and walked it placing one
+spineSegment per gap, scaled to the local hw/hh and oriented to the local tangent (`setFromUnitVectors((0,0,1),
+(0,Δcy,Δz))`). The centreline cy arches (neck rises) and the hw/hh encode the mass hierarchy (chest deepest, a
+waist pinch, a second hip mass, a thick tail base then taper). Wings now mount on the shoulder ring high on the
+chest; the thrusters sit in a hip chassis flanking the tail base; legs are fore(chest)+hind(hip) for a quadruped
+read; tail fins ride the tapering tail rings.
+
+Keys: (1) **A rings/profile table is the right abstraction for creature massing** — one editable array controls
+the whole silhouette (lengths, arch, thickness rhythm); far better than hand-placing segments. (2) **Scale a
+unit-built module per station + orient to the path tangent** to get a curved, mass-varying body from one Lego
+brick. (3) **Big plain core boxes read as crates** — when the scaled spine already provides the bulk, shrink
+the carbon cores to INTERNAL recesses and let tapered `wedgeBlock` gold plates hug the form; a frustum wedge
+reads as armour, a box reads as a slab. (4) Lengthening the body kept the wing span/body RATIO intact (head-to-
+tail 9.8→10.2, wing projected width stayed 85), so the measure.mjs gate confirmed the earlier wing work held.
+**→ Leapfrog:** promote the RINGS-table body into the shared kit as the standard creature-massing primitive;
+every future mech/dragon defines its silhouette as a profile table, not hand-placed parts.
