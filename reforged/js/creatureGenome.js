@@ -155,3 +155,40 @@ export const SAMPLE_WYVERN = Object.freeze({
   surface: { material: { metalness: 0.0, roughness: 0.85 } },
   palette: { body: '#2A2D33', belly: '#3A3F47', membrane: '#20242B', eye: '#8FEAFF', accent: '#5BC8FF' },
 });
+
+// ── Toothless (Night Fury) — BODY ONLY ───────────────────────────────────────
+// Authored by reading the reference: sleek smooth body, rounded head with small
+// swept ear-nubs, a long row of soft dorsal ridge spines, four tucked legs, and the
+// signature tail fins (a small membrane). The big bat WINGS are intentionally
+// omitted — they need the scalloped-membrane + flap-pose builder (next step). Body
+// colour is darkened-charcoal (not true near-black) so the FORM reads on the dark
+// stage. Demonstrates that head/neck/tail/ridge/legs are all just spine + appendage
+// data — no per-creature builder.
+export const SAMPLE_NIGHTFURY_BODY = Object.freeze({
+  name: 'Toothless (body)',
+  spine: [
+    { id: 'snout', p: [0, 0.42, -2.0], w: 0.10, h: 0.10, sq: 0.25 },
+    { id: 'head', p: [0, 0.45, -1.6], w: 0.30, h: 0.30, sq: 0.3 },
+    { id: 'neck', p: [0, 0.40, -1.2], w: 0.32, h: 0.30, sq: 0.25 },
+    { id: 'shoulder', p: [0, 0.34, -0.7], w: 0.50, h: 0.46, sq: 0.25 },
+    { id: 'chest', p: [0, 0.32, -0.3], w: 0.52, h: 0.48, sq: 0.25 },
+    { id: 'belly', p: [0, 0.30, 0.2], w: 0.44, h: 0.44, sq: 0.25 },
+    { id: 'hips', p: [0, 0.32, 0.7], w: 0.40, h: 0.40, sq: 0.25 },
+    { id: 'tail1', p: [0, 0.34, 1.3], w: 0.24, h: 0.26, sq: 0.2 },
+    { id: 'tail2', p: [0, 0.40, 1.9], w: 0.13, h: 0.15, sq: 0.2 },
+    { id: 'tailtip', p: [0, 0.48, 2.5], w: 0.05, h: 0.07, sq: 0.2 },
+  ],
+  limbs: [
+    { id: 'flegL', from: 'shoulder', chain: [[0.22, 0.05, -0.55], [0.30, -0.35, -0.45]], r: [0.09, 0.05] }, { id: 'flegR', mirror: 'flegL' },
+    { id: 'hlegL', from: 'hips', chain: [[0.24, 0.05, 0.7], [0.34, -0.40, 0.78]], r: [0.11, 0.06] }, { id: 'hlegR', mirror: 'hlegL' },
+    { id: 'finL', from: 'tail2', chain: [[0.10, 0.45, 2.1], [0.05, 0.85, 2.35]], r: [0.03, 0.01] }, { id: 'finR', mirror: 'finL' },
+  ],
+  appendages: [
+    { on: 'flegL', kind: 'leg' }, { on: 'flegR', kind: 'leg' },
+    { on: 'hlegL', kind: 'leg' }, { on: 'hlegR', kind: 'leg' },
+    { id: 'tfL', on: 'finL', kind: 'membrane', chord: 0.4 }, { id: 'tfR', mirror: 'tfL' },
+    { on: 'head', kind: 'horns', pairs: 1, len: 0.22, splay: 0.8 },
+    { on: 'spine', kind: 'ridge', from: 'neck', to: 'tail2', count: 22, height: 0.07 },
+  ],
+  palette: { body: '#23262E', belly: '#30343E', membrane: '#2A2D36', eye: '#9BE04A', accent: '#9BE04A' },
+});
