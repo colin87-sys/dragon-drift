@@ -44,6 +44,9 @@ console.log(`${r.name} · ${r.formName} · ${view}${pose ? ' · pose:' + pose : 
 const fmt = (v) => (v == null ? '—' : v);
 console.log(`  parts: ${Object.keys(r.parts || {}).join(', ') || 'none'}`);
 console.log(`  wingSpan ${fmt(m.wingSpan)}  bodyLength ${fmt(m.bodyLength)}  span/body ${fmt(m.wingSpanToBodyRatio)}`);
+// Dimensions the rear view is blind to (read these off a side/top render):
+console.log(`  wing chord ${fmt(m.wingChord)} × thick ${fmt(m.wingThickness)}  (aspect ${fmt(m.wingAspect)}: high=thin sheet, low=thick blade)`);
+console.log(`  body width ${fmt(m.bodyWidth)} × height ${fmt(m.bodyHeight)}  (depth ${fmt(m.bodyDepthRatio)}: >1 deep/tall, <1 wide/flat)`);
 if (m.headBox) console.log(`  head ${fmt(m.headBox.x)}×${fmt(m.headBox.y)}×${fmt(m.headBox.z)}  head/body ${fmt(m.headToBodyRatio)}`);
 if (m.tailLength != null) console.log(`  tailLength ${fmt(m.tailLength)}`);
 if (m.legLength != null) console.log(`  legLength ${fmt(m.legLength)}  leg/body ${fmt(m.legToBodyRatio)}`);
