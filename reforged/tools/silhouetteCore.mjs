@@ -34,6 +34,23 @@ const { solveWing, phaseCenter } = await import('../js/wingFlapSolver.js');
 
 export const FORM = ['Hatchling', 'Kindled', 'Radiant', 'Eternal'];
 
+// Per-part palette for the colored part-map (Tool B `colorParts`). A distinct flat
+// hue per part so the agent can read, by eye, where each module sits and whether
+// it's the right size — torso grey, wings cyan/blue, head yellow, tail magenta,
+// legs green, surfaceLayers orange. Background stays black.
+export const PART_PALETTE = {
+  torso: [150, 150, 160], wingL: [60, 220, 255], wingR: [60, 120, 255],
+  head: [255, 215, 80], tail: [230, 80, 220], legs: [90, 220, 120],
+  surfaceLayers: [255, 150, 60],
+};
+// Classify a mesh to its part by walking up to the nearest ancestor carrying a
+// `userData.part` tag (set centrally in dragonModel.js). Untagged → 'torso', which
+// keeps the body loft / neck / any unlabelled decoration in the torso bucket.
+function partOf(o) {
+  for (let n = o; n; n = n.parent) if (n.userData && n.userData.part) return n.userData.part;
+  return 'torso';
+}
+
 // Hold the Mk II yoke wing at one flap phase, headless — the SAME chain dragon.js drives (poseY,
 // dragon.js:559-571) but NEUTRALISED (no bank/steer/boost), so a static silhouette can match a posed
 // concept instead of the flat rest pose. `pose` is a phase name: glide|recovery|apex|downstroke|settle.
@@ -53,10 +70,18 @@ function applyPose(parts, flap, pose) {
 }
 
 // Render the filled silhouette of one dragon/form/view into an 8-bit coverage buffer (0 bg, 255 fill).
-export function renderSilhouette({ key, view = 'rear', tier, W, H, pose, hideWings = false }) {
+// perPart   → also accumulate per-part screen + world bounding boxes and derived proportion
+//             measurements (wing span, body length, span/body ratio, head box, leg length).
+// colorParts→ additionally paint an RGBA part-map (each part its PART_PALETTE hue); implies perPart.
+// fov       → override the camera FOV. The 'rear' view defaults to 72 to MATCH the live chase cam
+//             (main.js:59 / cameraController.js) so its foreshortening == a real gameplay screenshot
+//             (pass 82/86/90 to match a speed/boost/fever shot). Framed views default to 60 (framing only).
+export function renderSilhouette({ key, view = 'rear', tier, W, H, pose, hideWings = false, perPart = false, colorParts = false, profile = false, fov }) {
+  perPart = perPart || colorParts || profile;
   const maxTier = maxTierFor(key);
   const t = tier != null ? tier : maxTier;
-  const cam = new THREE.PerspectiveCamera(60, W / H, 0.1, 200);
+  const camFov = view === 'rear' ? (fov ?? 72) : (fov ?? 60);
+  const cam = new THREE.PerspectiveCamera(camFov, W / H, 0.1, 200);
   const def = ascendedDef(DRAGONS[key], t, 0);
   const built = buildDragonModel(def, {});
   const group = built.group;
@@ -94,16 +119,43 @@ export function renderSilhouette({ key, view = 'rear', tier, W, H, pose, hideWin
   cam.updateProjectionMatrix();
 
   const buf = new Uint8Array(W * H);
+  const rgba = colorParts ? new Uint8Array(W * H * 4) : null;
   const _w = new THREE.Vector3(), _e = new THREE.Vector3(), _n = new THREE.Vector3();
   let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity, tris = 0;
+  // Per-part accumulators: label → { screen bbox px, pixel count, world aabb }.
+  const parts = new Map();
+  const partRec = (label) => {
+    let r = parts.get(label);
+    if (!r) { r = { minX: Infinity, maxX: -Infinity, minY: Infinity, maxY: -Infinity, px: 0,
+      wMinX: Infinity, wMaxX: -Infinity, wMinY: Infinity, wMaxY: -Infinity, wMinZ: Infinity, wMaxZ: -Infinity };
+      parts.set(label, r); }
+    return r;
+  };
   const project = (i, attr, mw) => {
     _w.fromBufferAttribute(attr, i).applyMatrix4(mw);
     _e.copy(_w).applyMatrix4(cam.matrixWorldInverse);
     _n.copy(_w).project(cam);
-    return { ez: _e.z, x: (_n.x * 0.5 + 0.5) * W, y: (1 - (_n.y * 0.5 + 0.5)) * H };
+    return { ez: _e.z, x: (_n.x * 0.5 + 0.5) * W, y: (1 - (_n.y * 0.5 + 0.5)) * H, wx: _w.x, wy: _w.y, wz: _w.z };
   };
-  const fillTri = (a, b, c) => {
-    if (a.ez > -0.05 || b.ez > -0.05 || c.ez > -0.05) return;
+  const fillTri = (a, b, c, rec, col, accProf) => {
+    // World aabb + the z-slice profile are GEOMETRY properties (camera-independent), so
+    // accumulate them BEFORE the near-plane cull → measurements/profile are identical from
+    // any render view (the camera only governs the screen rasterization below).
+    if (rec) for (const v of [a, b, c]) {
+      if (v.wx < rec.wMinX) rec.wMinX = v.wx; if (v.wx > rec.wMaxX) rec.wMaxX = v.wx;
+      if (v.wy < rec.wMinY) rec.wMinY = v.wy; if (v.wy > rec.wMaxY) rec.wMaxY = v.wy;
+      if (v.wz < rec.wMinZ) rec.wMinZ = v.wz; if (v.wz > rec.wMaxZ) rec.wMaxZ = v.wz;
+    }
+    // Body cross-section profile: bin the torso's verts by world Z (0.1u slices) and track
+    // the width (x) + height (y) of each slice → shows WHERE the body bulges/pinches.
+    if (accProf) for (const v of [a, b, c]) {
+      const k = Math.round(v.wz / 0.1);
+      let p = accProf.get(k);
+      if (!p) { p = { minX: Infinity, maxX: -Infinity, minY: Infinity, maxY: -Infinity }; accProf.set(k, p); }
+      if (v.wx < p.minX) p.minX = v.wx; if (v.wx > p.maxX) p.maxX = v.wx;
+      if (v.wy < p.minY) p.minY = v.wy; if (v.wy > p.maxY) p.maxY = v.wy;
+    }
+    if (a.ez > -0.05 || b.ez > -0.05 || c.ez > -0.05) return;   // screen raster: in-front tris only
     const loX = Math.max(0, Math.floor(Math.min(a.x, b.x, c.x))), hiX = Math.min(W - 1, Math.ceil(Math.max(a.x, b.x, c.x)));
     const loY = Math.max(0, Math.floor(Math.min(a.y, b.y, c.y))), hiY = Math.min(H - 1, Math.ceil(Math.max(a.y, b.y, c.y)));
     const d = (b.y - c.y) * (a.x - c.x) + (c.x - b.x) * (a.y - c.y);
@@ -115,18 +167,97 @@ export function renderSilhouette({ key, view = 'rear', tier, W, H, pose, hideWin
       if (w0 >= 0 && w1 >= 0 && w0 + w1 <= 1) {
         buf[y * W + x] = 255;
         if (x < minX) minX = x; if (x > maxX) maxX = x; if (y < minY) minY = y; if (y > maxY) maxY = y;
+        if (rgba && col) { const d4 = (y * W + x) * 4; rgba[d4] = col[0]; rgba[d4 + 1] = col[1]; rgba[d4 + 2] = col[2]; rgba[d4 + 3] = 255; }
+        if (rec) { rec.px++; if (x < rec.minX) rec.minX = x; if (x > rec.maxX) rec.maxX = x; if (y < rec.minY) rec.minY = y; if (y > rec.maxY) rec.maxY = y; }
       }
     }
   };
+  const torsoProf = profile ? new Map() : null;
   group.traverse((o) => {
     if (!o.isMesh || !o.geometry || !o.geometry.attributes.position || skip.has(o)) return;
     const pos = o.geometry.attributes.position, idx = o.geometry.index, mw = o.matrixWorld;
-    const tri = (i0, i1, i2) => { fillTri(project(i0, pos, mw), project(i1, pos, mw), project(i2, pos, mw)); tris++; };
+    const label = perPart ? partOf(o) : null;
+    const rec = perPart ? partRec(label) : null;
+    const col = colorParts ? (PART_PALETTE[label] || PART_PALETTE.torso) : null;
+    const accProf = (torsoProf && label === 'torso') ? torsoProf : null;
+    const tri = (i0, i1, i2) => { fillTri(project(i0, pos, mw), project(i1, pos, mw), project(i2, pos, mw), rec, col, accProf); tris++; };
     if (idx) for (let i = 0; i < idx.count; i += 3) tri(idx.getX(i), idx.getX(i + 1), idx.getX(i + 2));
     else for (let i = 0; i < pos.count; i += 3) tri(i, i + 1, i + 2);
   });
   const bounds = maxX >= minX ? { minX, maxX, minY, maxY } : null;
-  return { buf, W, H, bounds, tris, name: DRAGONS[key].name || key, formName: FORM[t] || `T${t}` };
+
+  // Roll the per-part accumulators up into clean boxes + derived proportions.
+  let perPartBoxes = null, measurements = null;
+  if (perPart) {
+    perPartBoxes = {};
+    for (const [label, r] of parts) {
+      if (r.px === 0) continue;
+      perPartBoxes[label] = {
+        screen: { x0: r.minX, y0: r.minY, x1: r.maxX, y1: r.maxY, px: r.px },
+        world: { x: [r.wMinX, r.wMaxX], y: [r.wMinY, r.wMaxY], z: [r.wMinZ, r.wMaxZ],
+          size: { x: r.wMaxX - r.wMinX, y: r.wMaxY - r.wMinY, z: r.wMaxZ - r.wMinZ } },
+      };
+    }
+    const wl = perPartBoxes.wingL?.world, wr = perPartBoxes.wingR?.world, body = perPartBoxes.torso?.world;
+    const head = perPartBoxes.head?.world, legs = perPartBoxes.legs?.world, tail = perPartBoxes.tail?.world;
+    const round = (n) => (n == null || !isFinite(n) ? null : Math.round(n * 1000) / 1000);
+    // wing span = full tip-to-tip in world X (both sides if present, else the one side doubled about x=0).
+    let wingSpan = null;
+    if (wl && wr) wingSpan = Math.max(wr.x[1], wl.x[1]) - Math.min(wr.x[0], wl.x[0]);
+    else if (wr) wingSpan = 2 * Math.max(Math.abs(wr.x[0]), Math.abs(wr.x[1]));
+    else if (wl) wingSpan = 2 * Math.max(Math.abs(wl.x[0]), Math.abs(wl.x[1]));
+    const bodyLength = body ? body.z[1] - body.z[0] : null;
+    // The dimensions a REAR silhouette is blind to (wing edge-on, body cross-section):
+    // chord = wing fore-aft depth (z), thickness = wing height (y) → "thin sheet vs thick
+    // blade"; bodyWidth/Height = the torso cross-section → "chest deep, not flat". These
+    // come from the world AABB so they're correct regardless of the render view (read them
+    // off a side/top render in practice, where they're not foreshortened).
+    const mx = (a, b, f) => (a || b ? Math.max(a ? f(a) : -Infinity, b ? f(b) : -Infinity) : null);
+    const wingChord = mx(wl, wr, (w) => w.size.z);
+    const wingThickness = mx(wl, wr, (w) => w.size.y);
+    const bodyWidth = body ? body.size.x : null, bodyHeight = body ? body.size.y : null;
+    measurements = {
+      wingSpan: round(wingSpan),
+      bodyLength: round(bodyLength),
+      wingSpanToBodyRatio: wingSpan && bodyLength ? round(wingSpan / bodyLength) : null,
+      wingChord: round(wingChord),
+      wingThickness: round(wingThickness),
+      // high = thin sheet/membrane, low = thick blade — the "how thick is the wing" answer.
+      wingAspect: wingChord && wingThickness ? round(wingChord / wingThickness) : null,
+      bodyWidth: round(bodyWidth),
+      bodyHeight: round(bodyHeight),
+      // >1 = deep/tall chest, <1 = wide/flat — the "chest deep, not flat" answer.
+      bodyDepthRatio: bodyHeight && bodyWidth ? round(bodyHeight / bodyWidth) : null,
+      headBox: head ? { x: round(head.size.x), y: round(head.size.y), z: round(head.size.z) } : null,
+      headToBodyRatio: head && bodyLength ? round(head.size.z / bodyLength) : null,
+      tailLength: tail ? round(tail.z[1] - tail.z[0]) : null,
+      legLength: legs ? round(legs.y[1] - legs.y[0]) : null,
+      legToBodyRatio: legs && bodyLength ? round((legs.y[1] - legs.y[0]) / bodyLength) : null,
+    };
+  }
+
+  // Body cross-section profile resampled to ~12 even stations head(−Z) → tail(+Z): each is
+  // { z, width, height } so a chest→waist→hip pinch is a NUMBER, not just a top-view picture.
+  let torsoProfile = null;
+  if (torsoProf && torsoProf.size) {
+    const round = (n) => (n == null || !isFinite(n) ? null : Math.round(n * 1000) / 1000);
+    const bins = [...torsoProf.entries()]
+      .map(([k, p]) => ({ z: k * 0.1, width: p.maxX - p.minX, height: p.maxY - p.minY }))
+      .filter((b) => isFinite(b.width)).sort((a, b) => a.z - b.z);
+    if (bins.length) {
+      const N = 12, z0 = bins[0].z, z1 = bins[bins.length - 1].z;
+      torsoProfile = [];
+      for (let i = 0; i < N; i++) {
+        const zt = z0 + (z1 - z0) * (i / (N - 1));
+        let best = bins[0], bd = Infinity;
+        for (const b of bins) { const dd = Math.abs(b.z - zt); if (dd < bd) { bd = dd; best = b; } }
+        torsoProfile.push({ z: round(best.z), width: round(best.width), height: round(best.height) });
+      }
+    }
+  }
+
+  return { buf, rgba, W, H, bounds, tris, parts: perPartBoxes, measurements, torsoProfile,
+    name: DRAGONS[key].name || key, formName: FORM[t] || `T${t}` };
 }
 
 // --- PNG: CRC32 + chunk framing ----------------------------------------------

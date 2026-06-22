@@ -27,8 +27,11 @@ export const DETAIL_LEVELS = {
   // mul: segment multiplier · floor: never drop a segment count below this
   low:   { key: 'low',   mul: 0.62 },
   high:  { key: 'high',  mul: 1.0  },   // == today (no regression)
-  ultra: { key: 'ultra', mul: 1.6  },   // ~2× tris on the skinned hero, idle-GPU only
+  ultra: { key: 'ultra', mul: 2.0  },   // the DESIGN tier — model authored here, idle-GPU only
 };
+
+// Rank for "at least this detail" gates (module-level branching, below).
+const DETAIL_RANK = { low: 0, high: 1, ultra: 2 };
 
 // Process-wide active level (boot default = HIGH so anything that builds before a
 // tier is resolved gets exactly today's geometry).
@@ -47,6 +50,22 @@ export function setActiveDetail(level) {
 }
 export function getActiveDetail() { return active; }
 export function activeDetailKey() { return active.key; }
+
+// --- detail-tier MODULE GATE -------------------------------------------------
+// `seg()` scales SMOOTHNESS (segment counts). This gate scales DETAIL DENSITY:
+// a builder can bolt on extra MODULES/surface layers only at a high enough tier
+// (more hex cells, extra tail blades, finer panel lines) so the ULTRA design tier
+// carries richness the HIGH/mobile read can't afford. Additive + gated → HIGH and
+// LOW geometry stay byte-identical (the no-regression contract), because a builder
+// guards the extra modules behind `if (detailAtLeast('ultra')) …`.
+export function detailRank(level) {
+  const L = levelOf(level) || active;
+  return DETAIL_RANK[L.key] ?? 1;
+}
+export function detailAtLeast(key) {
+  return detailRank() >= (DETAIL_RANK[key] ?? 1);
+}
+export function isUltra() { return active.key === 'ultra'; }
 
 // Scale a base segment count by the active (or an explicit) detail level.
 // HIGH returns the base EXACTLY (the no-regression contract); other levels round

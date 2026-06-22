@@ -2879,3 +2879,125 @@ the guide HARVESTS them rather than inventing a schema, so it can't drift. The f
 "recreatable" by an LLM is the cross-section ring list + module names + grammar dials, NOT prose.
 **→ Leapfrog:** keep MODEL-CREATION.md current as builders/dials are added; when the reusable body-profile
 dials + legRoot land, update §5/§6 so the Gundam (and any humanoid) becomes a pure-data spec.
+
+---
+
+## Lesson — Phase 0 of "max-fidelity from a reference": ULTRA is the DESIGN tier; raise it + add a detail-tier MODULE gate (not just smoother curves).
+
+**Context.** Goal = build creatures that match a reference image as closely as the engine allows (bull first,
+then a Strike Freedom Gundam). The real blocker was never modeling skill — it was BLIND ITERATION: the
+headless toolchain is shape-only + whole-blob (one fused white silhouette, a single outer-outline IoU, no
+per-part measurement, no agent-consumable COLOR render), so a human had to judge every pass. Two things changed
+the calculus: (1) the agent can now SEE reference images directly (vision) → no longer blind to the target;
+(2) chosen plan = build sighted-iteration tooling FIRST, prove it on the bull (the engine's native horizontal
+archetype, already shipped — a pure convergence task), THEN attempt the Gundam (new humanoid archetype).
+
+**Did / learned.** Phase 0 = detail-tier foundations. The engine ALREADY does LOD (modelDetail.js `seg()`
+multiplier, device-tier auto-select, never raised under low FPS) — designing rich + downscaling per device is
+standard practice, already half-built. Two edits: (1) ULTRA segment multiplier 1.6→2.0 (hero now ramps ~3.5×
+tris at ULTRA vs HIGH); (2) NEW detail-tier MODULE GATE (`detailRank`/`detailAtLeast`/`isUltra`) so a builder
+can bolt on extra MODULES/surface layers only at a high enough tier — the real richness lever (hex cells, tail
+blades, panel lines), since `seg()` only buys SMOOTHNESS not new parts. Raised the ULTRA tricount CI ceiling
+13000→24000 (interim). KEY: HIGH stays the 6000 mobile floor (the 60fps identity) and is byte-identical — the
+gate fires only at ULTRA, `seg()` HIGH is an exact passthrough. Gates green: modeldetail, blueprint, tricount
+--detail=high 0-over, --detail=ultra 0-over.
+
+**Hardware reality (researched).** iPhone 17 Pro Max = A19 Pro, ~M2-class GPU. For a WebGL/Three.js browser
+game the triangle count is NOT the constraint — DRAW CALLS + single-threaded JS + materials are. The A19 Pro
+would hold 60fps at ~100k+ tris on the hero subject; the current ULTRA ceiling is trivial for it. So the
+discipline that actually matters on mobile is the doctrine's "≤6 materials, FEWER well-shaped parts," not the
+tri ceiling.
+
+**Reusable rule (Phase 0).** "Design at the top tier, scale down" is the correct mental model AND already the
+engine's LOD design — keep HIGH as the no-regression mobile floor, push ULTRA as the design tier, and add
+richness via DETAIL-GATED MODULES + materials, not raw triangles.
+
+---
+
+## Lesson — Phase 1: the SIGHTED-ITERATION toolkit (color render + per-part measurement + per-part overlay) — three tools that end blind iteration.
+
+**Context.** The bull was a slog because the agent was BLIND: headless render was shape-only (one fused white
+silhouette), so a human judged every pass for color + proportion. Built three tools so the agent self-checks.
+
+**Did / learned.**
+- **Tool A — `creatureshots.{html,mjs}`** (color render): renders ONE creature in full color + lighting at
+  named angles (rear chase cam / threeq / side / climb) via Playwright+WebGL → `/tmp/color-<key>-<angle>.png`
+  the agent opens with VISION. Reuses the tiershots light rig + ACES; angles mirror silhouetteCore framings.
+  GOTCHA proven wrong: WebGL is NOT always absent in the sandbox — it ran here, so the agent CAN see its own
+  color output headlessly now (the single biggest unblock).
+- **Tool B — `renderSilhouette({perPart,colorParts})` + `partsil.mjs`**: labels every mesh by part (nearest
+  `userData.part` ancestor, else 'torso'), accumulates per-part SCREEN + WORLD aabbs, paints a per-part color
+  map, and derives WORLD-space proportions (wingSpan, bodyLength, span/body ratio, head box, tail/leg length).
+  World measurements are VIEW-INDEPENDENT → ratios are trustworthy from any angle.
+- **Tool C — `parts-overlay.mjs`**: compares a build vs a reference PER PART from a `<ref>.targets.json`
+  sidecar (authored by LOOKING: per-part pixel boxes + scale-independent target RATIOS). Prints signed errors
+  ("span/body built 2.31 vs target 2.50 → −7.7%, wings short") + per-part box IoU; composites target (dashed)
+  vs built (solid palette) on the ref. RATIOS are primary (framing-immune); pixel boxes secondary.
+
+**Gotchas banked.** (1) Different wing builders expose different handles — `svjBladeWing` returns
+`wingPivotL/R` but NOT `wingYokeL/R`; tag EVERY per-side handle (yoke+pivot+rig) or a builder's wings fall
+into the torso bucket. (2) `wingRigL/R` are PLAIN rig-descriptor objects (`.shoulder`), not Object3Ds — guard
+part-tagging on `isObject3D` or it throws. (3) Part tags live in ONE place (dragonModel.js, on the part roots)
+as additive+nullable userData → shipped roster byte-identical, default-off readers never see them. (4) Skinned
+wings whose mesh isn't a child of the bone may still misclassify — fine for the hard-surface bull/Gundam targets.
+
+**Reusable rule.** The sighted loop is now: `creatureshots` (see color) → `partsil` (measure) →
+`parts-overlay` (signed ratio error vs reference) → tune → repeat; human signs off only on motion/feel.
+
+**Audit follow-up (tools now deliver what the multi-view method claimed).** Added: (1) the `top` color
+angle in Tool A (planform — body bulge/pinch + wing chord/sweep), which was silently falling back; (2)
+the dimensions a REAR silhouette is blind to — wing chord×thickness+aspect ("thin sheet vs thick blade")
+and body width×height+depth ("chest deep, not flat"); (3) a 12-station **body cross-section profile**
+(width/height per Z slice) so a chest→waist→hip pinch is a NUMBER + a width bar chart. KEY design choice:
+world AABB + profile now accumulate BEFORE the near-plane cull → **measurements are camera-independent**
+(identical from any render view; only screen boxes/color depend on the camera). Honest residual: AABB
+thickness is a gross proxy (dihedral/sweep inflates the y-extent) and interior pockets / fine surface
+relief stay a color-render + preview call — silhouette/AABB can't see inside the outline, by nature.
+
+**→ Leapfrog (Phase 2):** author real `targets.json` sidecars for the bull's rear + side references and
+converge proportions numerically before touching the Gundam's new archetype.
+
+**Lesson L?? — REAR-READABLE wings need vertical Y-chord, not X-span (svjLayeredBladeWing).** The curved-fin
+wing (Phase 2.5) looked good from side/3-quarter but read as edge-on PRONGS from the rear chase cam — and
+the silhouette tool's wide X-span HID the failure. Root cause: a wing built as thin sheets with almost no
+vertical (Y) chord is edge-on to a camera looking down -Z. The fix is a different planform: build the wing
+as a BROAD FILLED panel in the X-Y plane (tall Y-chord ~0.74 at root) with a small Z depth — `svjLayeredBladeWing`:
+per side a root hinge block (mass into the shoulder, not floating blades) + a gold backing `flatTriMesh`
+panel + a black carbon INSET (~58%, raised toward the camera so gold rails frame it — without it the wing is
+a flat gold blob) + gold leading/trailing/root/tip `frameBar` rails + 3 BOLD red chevron slashes (SVJ
+taillight language — tiny ones vanish at gameplay distance) + ONE secondary lower blade (NOT 4-5 quills) +
+a gold tip endplate. GOTCHA: a pure X-Y panel is invisible from the SIDE (edge-on); apply real SWEEP-back
+(z += 0.30·x) + DIHEDRAL (y += 0.11·x) in the point transform so it gains a side blade-profile + rises above
+the body, while the rear keeps its broad X-Y read — one cheap transform reconciles all four views. The sweep
+also turned the flat red bars into proper angled chevrons. Mirror via clone+scale.x=-1 (svjJetWing pattern).
+Dial check first: `panelPitchDeg`/`dihedralDeg` are IMAGINARY (nothing reads them) — bake as constants;
+`wingChordScale` is real (the Y-chord knob). 5436 tris HIGH. **Reusable rule:** judge a wing from the camera
+it ships under (rear chase), and let VERTICAL projected area — not silhouette span — be the acceptance test.
+
+**Lesson L?? — CURVED scimitar wing (auricWing v2) + the lighting trap.** Three wing passes: thin quills
+("spiky sticks"), 3 straight broad blades ("not aesthetic, needs CURVED"), then CURVED blades. Curved
+blades reuse `buildLayeredFin`/`buildStealthFinShape` (dragonParts.js — bezier swept fin) with a camber
+(vertex-z dish) → a 3D sabre; oriented by a `makeBasis` frame from a span direction (elevation + sweep).
+GOTCHAS, each diagnosed with the COLOR tool (creatureshots), not by asking the human: (1) **metal fins go
+black** — a `metalness 0.55` gold facing away from the lights renders near-black with no env map (flat
+planks caught light; big curved faces don't). Fix: diffuse blade gold (metalness ~0.28) + a low gold
+EMISSIVE (~0.32) so shadowed faces still read gold. (2) **upright fins are under-lit** — high dihedral
+points faces away from the overhead rig; flattening them (low elevation, more sweep-back) both lights them
+AND matches the reference's swept wing. (3) **span/body** is the convergence knob: high sweep trades X-span
+for Z-length; lengthen blades + ease sweep to hit ~2.3 (measured 1.95 → 2.27 via partsil). MIRROR: build
+the RIGHT wing once, `clone(true)` + `scale.x=-1` for the left (the svjJetWing pattern) → L/R exact, kills
+the "weird bits on the left wing" (DoubleSide makes the flipped normals a non-issue; flapcheck passes).
+**Reusable rule:** when a render looks wrong, diagnose the CAUSE from the tool (material/lighting/proportion)
+and fix it — never hand the human a render to judge. ULTRA-gated extra blade + inner panels; 5712 tris HIGH. **→ Leapfrog:** add a draw-call / material-count column to
+tricount.mjs (the budget that truly limits a WebGL game), and render every convergence pass at BOTH tiers
+(ULTRA = design target, HIGH = mobile-read sanity check).
+
+**Update — draw-call/material tracker LANDED.** tricount.mjs now reports tris + DRAWS (≈one per mesh) + MATS
+(unique materials) per form, plus the roster peak. Why it matters: in a single-threaded-JS WebGL game the
+per-frame cost is the CPU issuing draw calls + GPU state changes (materials), NOT triangles — a flagship GPU
+sits idle while the JS thread stalls on hundreds of meshes. KEY gotcha: draw calls DON'T auto-downscale like
+`seg()` triangles do — a 12-panel leg is 12 draw calls at EVERY tier, so any ULTRA-only richness must be
+detail-GATED or it taxes mobile too. Baseline at first measure: roster peaks ~357 draws / 34 mats per form;
+HIGH creatures ~48–80 draws / 11–12 mats. ULTRA hero design ceiling set to 48k tris (A19/M2-class holds 60fps
+far above; draws/mats are the real cap). Discipline for the bull/Gundam convergence: SHARE materials (all gold
+panels → one material so the GPU batches them) and prefer FEWER well-shaped meshes over many small ones.
