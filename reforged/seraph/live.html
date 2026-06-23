@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
+<title>Radiant Paladin — live chase cam</title>
+<style>
+  html,body{margin:0;height:100%;overflow:hidden;background:#0b1020;font-family:'Rajdhani',system-ui,sans-serif;color:#eaf2ff;-webkit-tap-highlight-color:transparent}
+  #c{display:block;width:100vw;height:100vh;touch-action:none}
+  .hud{position:fixed;left:14px;top:12px;pointer-events:none;text-shadow:0 1px 4px #000}
+  .hud h1{margin:0;font-size:18px;letter-spacing:.14em;font-weight:600;color:#fff6d2}
+  .hud p{margin:3px 0 0;font-size:12px;opacity:.7;letter-spacing:.04em}
+  #surge{position:fixed;right:16px;bottom:18px;padding:14px 22px;border-radius:30px;border:1px solid #86dfff66;
+    background:linear-gradient(#1a2a40,#0e1828);color:#bdefff;font:600 15px/1 'Rajdhani',sans-serif;letter-spacing:.12em;
+    cursor:pointer;user-select:none;box-shadow:0 0 20px #86dfff22}
+  #surge:active{background:linear-gradient(#fff6d2,#e9c45a);color:#3a2a00;box-shadow:0 0 34px #fff6d2aa}
+  .hint{position:fixed;left:14px;bottom:12px;font-size:11px;opacity:.5;letter-spacing:.05em}
+</style>
+<script type="importmap">{ "imports": { "three": "../lib/three.module.js" } }</script>
+</head>
+<body>
+<canvas id="c"></canvas>
+<div class="hud"><h1>RADIANT PALADIN</h1><p>holy war-dragon · rear chase cam · 100% procedural</p></div>
+<div class="hint">drag to orbit · scroll to zoom · hold SURGE</div>
+<button id="surge">SURGE</button>
+<script type="module">
+import * as THREE from 'three';
+import { buildRadiantPaladin } from './radiantPaladin.js';
+
+const rad = THREE.MathUtils.degToRad, clamp = THREE.MathUtils.clamp, lerp = THREE.MathUtils.lerp;
+const canvas = document.getElementById('c');
+const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
+renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 1.15;
+renderer.outputColorSpace = THREE.SRGBColorSpace;
+
+const scene = new THREE.Scene();
+// dawn-sky gradient background
+(() => {
+  const cv = document.createElement('canvas'); cv.width = 2; cv.height = 256;
+  const g = cv.getContext('2d').createLinearGradient(0, 0, 0, 256);
+  g.addColorStop(0, '#1a2447'); g.addColorStop(0.55, '#3a4a78'); g.addColorStop(0.82, '#9fb0d8'); g.addColorStop(1, '#f5e6c0');
+  const ctx = cv.getContext('2d'); ctx.fillStyle = g; ctx.fillRect(0, 0, 2, 256);
+  const tex = new THREE.CanvasTexture(cv); tex.colorSpace = THREE.SRGBColorSpace; scene.background = tex;
+  scene.fog = new THREE.Fog(0x9fb0d8, 18, 46);
+})();
+scene.add(new THREE.HemisphereLight(0xcfe0ff, 0x2a2438, 1.0));
+const sun = new THREE.DirectionalLight(0xfff2d0, 1.25); sun.position.set(-4, 7, 5); scene.add(sun);
+scene.add(new THREE.DirectionalLight(0x86dfff, 0.35).translateZ(6));        // cool rim from behind
+
+// ── the dragon ───────────────────────────────────────────────────────────────
+const { group: dragon } = buildRadiantPaladin();
+const A = dragon.userData.anim;
+scene.add(dragon);
+
+// additive glow sprites (no post-bloom in the bundled three, so fake the bloom) ─
+function glowTex() {
+  const cv = document.createElement('canvas'); cv.width = cv.height = 64;
+  const x = cv.getContext('2d'), g = x.createRadialGradient(32, 32, 0, 32, 32, 32);
+  g.addColorStop(0, 'rgba(255,255,255,1)'); g.addColorStop(0.4, 'rgba(255,255,255,.5)'); g.addColorStop(1, 'rgba(255,255,255,0)');
+  x.fillStyle = g; x.fillRect(0, 0, 64, 64); return new THREE.CanvasTexture(cv);
+}
+const GT = glowTex();
+function glow(color, size, parent, pos) {
+  const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: GT, color, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false }));
+  s.scale.setScalar(size); s.position.copy(pos); (parent || scene).add(s); return s;
+}
+const haloGlow = glow(0xfff6d2, 1.4, A.head, A.halo.position);
+const cometGlow = glow(0xfff1a8, 1.9, A.tail, A.comet.position.clone().add(new THREE.Vector3(0, 0, 0.4)));
+const tipGlows = A.wings.map((w) => glow(0xeaf6ff, 0.9, w, w.userData.wingtip || new THREE.Vector3()));
+
+// drifting holy motes streaming past the camera (sense of speed) ───────────────
+const MOTE = 90, mpos = new Float32Array(MOTE * 3), mcol = new Float32Array(MOTE * 3);
+const goldC = new THREE.Color(0xffd66b), blueC = new THREE.Color(0x86dfff);
+for (let i = 0; i < MOTE; i++) resetMote(i, true);
+function resetMote(i, anywhere) {
+  mpos[i * 3] = (Math.random() - 0.5) * 16;
+  mpos[i * 3 + 1] = (Math.random() - 0.2) * 9;
+  mpos[i * 3 + 2] = anywhere ? (Math.random() * 26 - 12) : -12 - Math.random() * 6;
+  const c = Math.random() < 0.6 ? goldC : blueC;
+  mcol[i * 3] = c.r; mcol[i * 3 + 1] = c.g; mcol[i * 3 + 2] = c.b;
+}
+const mgeo = new THREE.BufferGeometry();
+mgeo.setAttribute('position', new THREE.BufferAttribute(mpos, 3));
+mgeo.setAttribute('color', new THREE.BufferAttribute(mcol, 3));
+const motes = new THREE.Points(mgeo, new THREE.PointsMaterial({ size: 0.13, vertexColors: true, map: GT, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, opacity: 0.9 }));
+scene.add(motes);
+
+// ── orbit camera (default behind the dragon) ──────────────────────────────────
+const camera = new THREE.PerspectiveCamera(50, innerWidth / innerHeight, 0.1, 200);
+const target = new THREE.Vector3(0, 0.5, -0.8);
+let az = 0, el = 0.16, dist = 11.5;
+function place() {
+  camera.position.set(
+    target.x + dist * Math.cos(el) * Math.sin(az),
+    target.y + dist * Math.sin(el),
+    target.z + dist * Math.cos(el) * Math.cos(az));
+  camera.lookAt(target);
+}
+let drag = null;
+canvas.addEventListener('pointerdown', (e) => drag = { x: e.clientX, y: e.clientY });
+addEventListener('pointerup', () => drag = null);
+addEventListener('pointermove', (e) => {
+  if (!drag) return;
+  az -= (e.clientX - drag.x) * 0.006; el = clamp(el + (e.clientY - drag.y) * 0.006, -0.25, 1.0);
+  drag.x = e.clientX; drag.y = e.clientY;
+});
+addEventListener('wheel', (e) => { dist = clamp(dist + e.deltaY * 0.01, 5, 26); }, { passive: true });
+
+// surge control (button hold + a gentle auto-pulse so it's lively hands-free) ──
+let surgeHold = 0, surge = 0;
+const sb = document.getElementById('surge');
+sb.addEventListener('pointerdown', (e) => { e.stopPropagation(); surgeHold = 1; });
+addEventListener('pointerup', () => surgeHold = 0);
+
+// remember base emissive so surge can scale it
+const baseEmi = new Map(A.glowMats.map((m) => [m, m.emissiveIntensity]));
+
+addEventListener('resize', () => {
+  camera.aspect = innerWidth / innerHeight; camera.updateProjectionMatrix();
+  renderer.setSize(innerWidth, innerHeight);
+});
+renderer.setSize(innerWidth, innerHeight);
+
+// ── animation: synced wing beat, body bob, halo bob, glow pulse, banking ───────
+const clock = new THREE.Clock();
+function frame() {
+  const t = clock.getElapsedTime();
+  // surge eases toward hold, with a slow auto shimmer when idle
+  const want = Math.max(surgeHold, 0.18 + 0.18 * Math.sin(t * 0.5));
+  surge = lerp(surge, want, 0.06);
+  const beat = 2 * Math.PI * lerp(0.9, 0.66, surge);                        // slower, more powerful on surge
+  const phase = Math.sin(t * beat);
+
+  // wings beat together; lift on the downbeat
+  for (const w of A.wings) {
+    w.rotation.z = w.userData.side * rad(16 + 10 * surge) * phase;          // synced up/down beat
+    w.rotation.x = 0.07 * phase;                                            // slight fore/aft sweep
+  }
+  // body bob + lazy weave/bank
+  dragon.position.y = 0.18 * Math.sin(t * beat - 0.6);
+  dragon.rotation.z = 0.10 * Math.sin(t * 0.45);
+  dragon.rotation.y = 0.13 * Math.sin(t * 0.31);
+  // halo serene bob
+  A.halo.position.y = A.halo.userData.y0 ?? (A.halo.userData.y0 = A.halo.position.y);
+  A.halo.position.y = A.halo.userData.y0 + 0.04 * Math.sin(t * 0.65);
+  haloGlow.position.y = A.halo.position.y;
+  // glow pulse: seams/halo/comet brighten with surge
+  for (const m of A.glowMats) m.emissiveIntensity = baseEmi.get(m) * (1 + 0.2 * Math.sin(t * 2.2) + 1.7 * surge);
+  haloGlow.scale.setScalar(1.4 + 0.5 * surge + 0.06 * Math.sin(t * 3));
+  haloGlow.material.opacity = 0.7 + 0.3 * surge;
+  // comet streams longer toward the camera on surge
+  A.comet.scale.set(1, 1 + 1.1 * surge, 1);
+  cometGlow.scale.set(1.6 + 2.2 * surge, 1.6 + 1.0 * surge, 1);
+  cometGlow.material.opacity = 0.6 + 0.4 * surge;
+  for (const g of tipGlows) { g.scale.setScalar(0.7 + 0.6 * surge); g.material.opacity = 0.3 + 0.5 * surge; }
+
+  // motes stream past
+  const speed = (10 + 26 * surge) * (1 / 60);
+  for (let i = 0; i < MOTE; i++) { mpos[i * 3 + 2] += speed; if (mpos[i * 3 + 2] > 14) resetMote(i, false); }
+  mgeo.attributes.position.needsUpdate = true;
+  motes.material.size = 0.12 + 0.08 * surge;
+
+  place();
+  renderer.render(scene, camera);
+  requestAnimationFrame(frame);
+}
+place();
+frame();
+</script>
+</body>
+</html>

@@ -2879,3 +2879,503 @@ the guide HARVESTS them rather than inventing a schema, so it can't drift. The f
 "recreatable" by an LLM is the cross-section ring list + module names + grammar dials, NOT prose.
 **→ Leapfrog:** keep MODEL-CREATION.md current as builders/dials are added; when the reusable body-profile
 dials + legRoot land, update §5/§6 so the Gundam (and any humanoid) becomes a pure-data spec.
+
+## Lesson — Built a creature 100% from scratch (no body-plan/chassis system) to prove the "prompt → procedural dragon → code in the game" loop: The Radiant Paladin.
+
+The human asked, as a capability demo, to take a long structured creature brief (a holy pearl/gold paladin
+dragon, rear-chase-cam first) and build it WITHOUT the existing build system, its methods, or its renderer —
+everything fresh — to show the ceiling of the prompt-to-procedural pipeline. New self-contained dir
+`reforged/seraph/`: `radiantPaladin.js` (own materials, own module builders, own hierarchy; engine axis
+head=-Z/tail=+Z/right=+X/up=+Y per the brief), `proof.mjs` (a fresh CPU rasteriser with z-buffer + 2-tone
+shading + **emissive bloom** so halo/seams/comet glow + montage PNG — does NOT import chassisRenderCore), and
+`check.mjs` (asserts every chase-cam-critical module role exists + tri budget). 3815 tris, 24 module roles,
+all green; no dependency on buildFromBodyPlan/genes/grammar.
+
+What carried the read (verified on the 3-view montage): (1) **A pearl MEMBRANE webbing lofted under the
+gilded scale-plates is what makes a feather-scale wing read as ONE wing** — plates alone rendered as a broken
+"popcorn chain" with gaps to the body; the solid sheet underneath gives a clean silhouette and the shingled
+gold-rimmed plates become surface texture on top. (2) **The brief's 7° dihedral reads EDGE-ON (a thin sliver)
+from a dead-rear chase cam** — the same lesson as the body-plan wings. A gull ARCH (lift midspan with
+`0.95*sin(s*π)` plus ~15° dihedral, behind a `chaseCamWingRead` knob) turns the fan into a tall, wide
+silhouette without abandoning the swept planform. (3) **Gilded-rim feather look on a flat per-mesh renderer =
+a slightly larger gold shield set just behind each pearl shield** (rim peeks around the edge); cheap and reads
+at distance. (4) Glow modules (seam/halo/comet/tail-slit) only pop if the renderer has a bloom pass — a plain
+flat raster makes "emissive" look like flat paint.
+
+Reusable insight: a from-scratch creature is genuinely viable here precisely because the game is procedural
++ asset-free — the dragon IS code, so the whole loop (read brief → write builder → headless proof → gate →
+commit) round-trips with no import/export. The brief format that maps cleanly to code is exactly
+MODEL-CREATION.md §10's: module families + per-module dimensions + material slots + Z-layout + knobs.
+**→ Leapfrog:** the membrane-under-plates + gull-arch + behind-rim-plate + bloom tricks are general; fold them
+back into the main wing/skin kit so the shipped roster can opt into a "feather-scale" wing and a glow pass.
+The next step the human will judge on the preview is MOTION — wire one Radiant hero into the live flight so
+the wings beat on the real chase cam (static stills can't prove feel).
+
+## Lesson — Pivoted from the Radiant Paladin (human "didn't love it") to an SVJ mecha dragon, built as a reusable HARD-SURFACE MODULE KIT with named sockets.
+
+The human rejected the holy Paladin aesthetic and gave a definitive brief for a Lamborghini-SVJ-inspired
+mecha dragon — "a dragon skeleton wearing aggressive supercar armor." Built standalone in `reforged/mecha/`
+(svjDragon.js kit+assembly, proof.mjs montage via the seraph glow renderer, check.mjs module audit, live.html
+animated chase cam). 4346 tris, 34 module roles, check.mjs PASS. The build read RIGHT on the first render and
+only needed a wing-size bump — because the brief was written as a module/socket spec, which maps 1:1 to code.
+
+What made it work: (1) **A constrained module vocabulary is a feature, not a limit.** The brief mandated every
+part be one of {wedge panel, vent, aero blade, diffuser fin, taillight slash, carbon insert, mechanical joint}
+— so the kit is ~10 small reusable functions (spineSegment, headWedge, engineBay, ventPlate/ventTriple,
+chevron, wingSystem, thrusterPod, diffuser, clawLeg, hexGrille) each returning a tagged THREE.Group with
+`userData.sockets`. Assembly is just placing modules at named socket positions. Hard-surface = boxes / hex
+prisms / swept flat blades, which are cheap and crisp (no lofting needed). (2) **Tag every mesh with a
+`role`** so a headless `check.mjs` can assert the brief's module families are all present + counts (exactly 2
+thruster cores, 2 mirrored wings) — turns "did I build what was asked" into a gate. (3) **Axis discipline for
+the chase cam:** head=-Z/tail=+Z, twin thrusters on the rear torso FLANKING the centerline tail (sockets at
+x=±0.52) so from behind you read tail-spine-center + two red thruster circles + wide gold blade wings + diffuser
+below — exactly the priority order the brief asked for. (4) **Rigid hinged wings animate via nested groups**
+(root[scale.x=side] → hinge[flap leads] → pose[static dihedral/sweep] → outer[blade follows with phase delay]);
+the inner vent panel lives on `pose` so it stays rigid — matches "flap through hinged panels, not cloth."
+
+Reusable insight: the seraph **proof.mjs glow renderer + the check.mjs role-audit pattern are creature-agnostic**
+— a one-line sed retargeted proof.mjs from Paladin to SVJ. The fastest way to satisfy a big visual brief is to
+make the brief's own module list the literal function list and the literal test assertions.
+**→ Leapfrog:** promote the mecha kit's socket/role/mirror conventions into a shared `kit/` so cars, aircraft,
+and boss variants reuse spineSegment/ventPlate/thrusterPod/wingSystem directly (the brief explicitly wants
+this). Next human-judged step is MOTION on the preview (mecha/live.html) — rigid flap + thruster jets + tail
+follow-through; if the silhouette reads, fold the kit into the real roster.
+
+## Lesson — "In-game lighting" frozen preview = reuse the game's REAL pipeline (ACES + UnrealBloomPass + the environment.js light values), not a hand-rolled renderer.
+
+The human wanted to see the SVJ mecha dragon "in-game with lighting etc." — the standalone live.html fakes bloom
+with additive sprites, which misreads metalness/emissive. The right move was NOT to boot the whole game (gameState/
+biomes/water/ambient deps + a running loop) but to LIFT the pieces that define the look: (1) the renderer config
+(ACESFilmicToneMapping + SRGB output), (2) the exact lights from environment.js — sun DirectionalLight(0xffe0b0,
+~1.85) at (-60,45,-150) + HemisphereLight(0xbfdcff, 0x2e5448, 0.85), (3) the sky gradient colors (top 0x3f7ec8,
+mid 0xe0a070, horizon 0xffe2a8) as a BackSide dome, and (4) the SAME post chain the shop preview.js uses:
+EffectComposer over a HalfFloat RT → RenderPass → UnrealBloomPass → OutputPass. With a real HDR bloom + high
+threshold, emissive materials (thruster cores ei~2.7, taillights ei~2.3) bloom for real instead of being faked.
+New `reforged/mecha/ingame.html`: frozen pose, orbit/zoom to inspect, TURNTABLE + BOOST toggles.
+
+Key facts for reuse: the postprocessing libs live in `reforged/lib/postprocessing/` and only import bare 'three',
+so any standalone page under `reforged/<dir>/` can import them via `../lib/postprocessing/X.js` and the document
+importmap (`{"three":"../lib/three.module.js"}`) — exactly how js/preview.js does it. Bloom needs WebGL2 + a
+float/half-float color buffer; guard it and fall back to renderer.render. Showcase glow wants more than gameplay:
+preview uses UnrealBloom(res, 0.2, 0.45, 1.0); for a hero still I bumped to (0.55, 0.55, 0.85).
+**→ Leapfrog:** factor this lighting+bloom rig into a tiny shared `previewStage.js` so every from-scratch creature
+(seraph, mecha, future kits) gets the real in-game look in one import instead of re-deriving the values.
+
+## Lesson — Reworked the mecha wing from a broad spread aero-blade to a layered swept-back BLADE-WING stack, matching a human reference (yellow/black/red mech dragon).
+
+The human gave a detailed wing-only brief + a reference image: NOT a membrane/feather wing — a tall, narrow,
+sharply swept-back stack of rigid gold blade panels (primary longest → secondary → tertiary, fanned and nested),
+folded/raised over the back, on a THICK armored shoulder/back mount, with a dark gunmetal inner shell and
+RECESSED red energy channels — the signature being a bright red honeycomb lattice at the wing root. Reworked
+`wingSystem` in mecha/svjDragon.js to a fanned blade stack + new faceted `bladeGeo2` (a beveled knife panel:
+top ridge, thick base, fine tip — reads as machined armor from any angle, unlike the old flat sheet). 5438 tris.
+
+Keys: (1) **A faceted blade with a Y-ridge cross-section** (leading / top-ridge / trailing / bottom verts per
+station) gives a hard-surface knife that isn't edge-on-thin like a flat plane — the right primitive for "armored
+fin," and cheap (~66 tris). (2) **Fan, don't just stack:** offsetting each blade in Y/Z AND rolling it a few
+degrees about its length axis splays the panels into the reference's open fan instead of parallel spikes. (3)
+**The red "honeycomb" is the hex-grille module with a glowing cell material** — generalised hexGrille to take a
+cellMat so M.red cells make the root energy lattice; same brick that fills the black intakes. (4) **Pose by
+mapping the blade's +X length axis to an up-and-back unit vector** (setFromUnitVectors) then a small roll —
+gives the raised folded-over-the-back silhouette without per-part Euler fiddling. (5) The proof renderer's flat
+amber shading UNDERSELLS gold+red; the mecha/ingame.html (real ACES + UnrealBloom) is where it reads like the
+reference — always send the human there for material/glow judgement, not the montage.
+**→ Leapfrog:** bladeGeo2 + the fanned-stack pattern + glowing-hex lattice are reusable for any mech fin array
+(tail stabilisers, dorsal crest, boss variants) — promote into the shared kit alongside spineSegment/thrusterPod.
+
+## Lesson — Reworked the blade-wing AGAIN (human: "ugly") to a precise 2-blade spec: kinked SOLID aerofoil primary + subordinate secondary on a thick faceted pylon.
+
+The fanned 4-blade stack read as thin spikes. The human's re-spec was exact: exactly TWO blades (a dominant
+primary that is long + KINKED + needle-tipped, and a clearly smaller secondary tucked below/inboard), each a
+SOLID object with aerofoil volume (not a flat triangle), grown from a thick faceted root PYLON, raised into a
+tall rear V. New geometry primitives in mecha/svjDragon.js: `bladePath` (steep thick root-rise → hard angular
+kink at ~1/4 length → long straight lean-back run to tip), `aeroBlade` (sweeps a 6-vert aerofoil cross-section
+— flat-ish outer/inner faces + sharp leading/trailing — along that path, tapering width AND thickness to a
+needle), and `wedgeBlock` (a tapered 8-vert frustum pylon, broad base → narrow top, NOT cylindrical).
+
+Keys: (1) **Sweeping a real cross-section along a path is what gives "volume"** — the prior flat/ridged sheets
+read 2D; a 6-vert aerofoil ring swept down a kinked centreline reads as a machined solid from any angle, for
+~110 tris. (2) **The kink is just two path segments at different angles** (angA 62° steep, angC 48° leaning
+back) — a piecewise polyline, trivially gives the "hard-surface design kink, not a soft bird bend." (3) **Pose
+the V with the lean OUTSIDE the mirror group:** root.rotation.z = -side*lean on an outer node, scale.x=side on
+an inner node — otherwise the mirror cancels the lean and both wings tilt the same world way. (4) **Subordinate
+the secondary by the numbers** (length 62%, width 64%, thinner) and offset it inboard/below/behind so 3/4 and
+rear angles read top-blade / lower-blade / dark gap. (5) The single recessed red **Y-channel** = three thin
+emissive boxes (stem + two branches) on the dark inner face — "structured glow, not random."
+**→ Leapfrog:** aeroBlade + bladePath (swept aerofoil along a kinked spline) is the reusable hard-surface
+primitive this kit was missing — use it for tail stabiliser fins, dorsal crests, and any mech blade going
+forward, and expose wRoot/wMid/wTip + angA/angC/kink as the dials.
+
+## Lesson — Wing root chord widened to ~80% of torso so the wing INTEGRATES into the back (delta root → needle tip).
+
+Human note: "the whole wing root chord should be about 80% of the dragon torso." The blade-wing root was a narrow
+base; widened it to a broad delta. Made `ROOT_CHORD = 1.6` (≈80% of the ~2.0u torso) and drove the pylon depth,
+the carbon inner mass, and the primary/secondary blade ROOT widths from it (primary chord = ROOT_CHORD tapering
+fast through wMid to a needle; secondary = 0.6×). Biased the blade chord aft (`prim.position.z -0.45`) so the
+wide base lies BACK along the spine instead of poking forward into the neck. Now the wing reads as a swept dorsal
+fin grown out of the back over most of the torso length, then a long kinked needle — not a blade on a stalk.
+Reusable: parameterise proportions off ONE body-relative constant (ROOT_CHORD = 0.8·torso) so a single number
+restyles the whole root; the aeroBlade wRoot/wMid/wTip taper keeps the tip sharp regardless of how broad the root.
+
+## Lesson — Set wing proportions off the head-to-tail MASTER SCALE with a measure.mjs gate; documented the geometric conflict in the spec.
+
+Human spec: head-to-tail = 100 units; targets — each wing root→tip 50–58, projected rear width 85–95, height
+above back 45–60, true span 110–125. Built `mecha/measure.mjs`: derives 1 spec unit = (model head-to-tail)/100,
+then reports each metric vs its range by finding each wing's TIP = its highest world-space vertex. Tuned LP
+(primary length), LEAN (outward roll), and angC (backsweep) against it.
+
+TWO geometry facts worth keeping: (1) **For a raised wing, projected width and height TRADE OFF for a fixed wing
+length** — hitting width 90 AND height 50 AND length ≤58 is over-constrained (needs ~67-long wings). The
+backsweep z eats the budget too (length that goes backward contributes nothing to projected width/height), so
+reducing angC sweep buys some width+height per unit length. I prioritised the CAMERA targets (width 91, height
+48 — both in range) and let length land at 70 (over the "compact" guide), since the user's stated goal was
+"iconic and readable from the chase camera." (2) **"True span" vs "projected width" are the SAME number for
+symmetric tips** (3D dist between two mirror tips = 2·|x| = the projected x-extent), so the spec's "true 115 /
+projected 85-95" can't both hold on a symmetric raised pose — projected is the one that matters and it's 91.
+Reusable: drive sizes off ONE body-relative unit + a headless measure gate, and when targets conflict, optimise
+the one tied to the experiential goal and say so. LEAN/LP/angC are now the dials.
+
+## Lesson — Visibility + inspection ergonomics: two-light proof shading, per-view zoomed exports, and a camera-follow headlight + pinch-zoom in the in-game preview.
+
+Human (on mobile) reported the dragon goes black at many orbit angles and asked for individual zoomed views +
+a working zoom. Fixes: (1) proof.mjs shading was a single-light 2-tone that left back-facing tris near-black —
+swapped to KEY + FILL + an ambient floor (`0.5 + 0.62·|n·key| + 0.32·|n·fill|`, abs = two-sided) so every face
+reads; also brightened the studio bg. (2) proof.mjs now also writes each view as its own 920² tightly-framed PNG
+(fitMul 1.06) for close inspection, not just the 3-tile montage. (3) ingame.html: the single key sun left wing
+blades as black silhouettes against the bright sky — added a hemisphere bump + a cool counter-FILL + a
+**camera-follow HEADLIGHT** (`headlight.position.copy(camera.position)` each frame) so whatever the camera faces
+is always lit; raised exposure to 1.18. (4) Mobile has no scroll wheel — added two-finger PINCH zoom (track
+pointers in a Map, scale dist by the pinch ratio) + on-screen ± buttons, keeping wheel for desktop.
+Reusable: a camera-attached headlight is the cheapest cure for "dark at some angles" in an orbit previewer; and
+always give a headless renderer a fill+ambient floor so shape review isn't fooled by self-shadowing.
+
+## Lesson — Killed the "dragonfly fuselage" read by rebuilding the mecha body as a CURVED centreline with a vertebrate mass rhythm (data-driven RINGS table).
+
+Human brief: the body read as a straight insect tube; wanted head→arched neck→deep chest→pinched waist→strong
+hips→thick tail base→taper, with thrusters integrated into a hip chassis. Replaced the old uniform straight
+spine loop with a `RINGS` table — `[role, z, cy(centreline height), hw, hh]` — and walked it placing one
+spineSegment per gap, scaled to the local hw/hh and oriented to the local tangent (`setFromUnitVectors((0,0,1),
+(0,Δcy,Δz))`). The centreline cy arches (neck rises) and the hw/hh encode the mass hierarchy (chest deepest, a
+waist pinch, a second hip mass, a thick tail base then taper). Wings now mount on the shoulder ring high on the
+chest; the thrusters sit in a hip chassis flanking the tail base; legs are fore(chest)+hind(hip) for a quadruped
+read; tail fins ride the tapering tail rings.
+
+Keys: (1) **A rings/profile table is the right abstraction for creature massing** — one editable array controls
+the whole silhouette (lengths, arch, thickness rhythm); far better than hand-placing segments. (2) **Scale a
+unit-built module per station + orient to the path tangent** to get a curved, mass-varying body from one Lego
+brick. (3) **Big plain core boxes read as crates** — when the scaled spine already provides the bulk, shrink
+the carbon cores to INTERNAL recesses and let tapered `wedgeBlock` gold plates hug the form; a frustum wedge
+reads as armour, a box reads as a slab. (4) Lengthening the body kept the wing span/body RATIO intact (head-to-
+tail 9.8→10.2, wing projected width stayed 85), so the measure.mjs gate confirmed the earlier wing work held.
+**→ Leapfrog:** promote the RINGS-table body into the shared kit as the standard creature-massing primitive;
+every future mech/dragon defines its silhouette as a profile table, not hand-placed parts.
+
+## Lesson — Refinement pass (no restart) on the mecha dragon: deeper chest, thicker integrated wing root + scapular fairing, more-visible secondary blade, bulkier hip chassis, curved tapering tail, tamed thruster bloom.
+
+Human approved the direction and asked for proportion/silhouette refinement, not new detail. All param-level
+edits on the existing kit: (1) RINGS table — chest hh +~20% / shoulder hw +~15% (deeper, wider load-bearing
+mass), tighter waist pinch for contrast, hip +~20% bulk, thicker tail base, and a gentle tail cy curve (sag then
+slight tip lift) so the tail isn't ruler-straight. (2) Wing root made chunky — primary aeroBlade root thickness
+0.22→0.34, beefier `wedgeBlock` pylon, and a NEW scapular FAIRING (a gold wedge at the mount that blends the
+shoulder mass into the wing root so there's no hard body-block→blade jump). (3) Secondary blade dropped lower +
+behind (offset y −0.16→−0.30) with a clear negative-space gap so it reads as a distinct support fin. (4) Hip:
+bigger haunch wedges + a gold rear COWL wrapping the thruster mounts (tail grows from a real chassis). (5) Head
+scaled 1.15→~1.5. (6) Bloom blowout tamed: UnrealBloom strength 0.55→0.38 / threshold 0.85→0.95 + thruster
+emissive 2.7→2.2, so the glow lifts without erasing the silhouette.
+
+Key process note: **bumping head/chest size lengthened head-to-tail, which shrank the wing/body RATIO** (measure
+gate caught width 85→82); restored with LP 6.7→7.05 back to width 85.6. Lesson: when you change body length,
+re-run the measure gate and re-pin the wing length — proportions are coupled through the master scale.
+**→ Leapfrog:** the refinement knobs (RINGS depths, root thickness, fairing, cowl, bloom) are all isolated;
+silhouette tuning on this kit is now pure parameter work with a measure gate, no structural edits.
+
+## Lesson — Refinement pass 2: killed the "horn wing" + "prawn head" reads via a clearer wing kink, a real skull, and stronger mass rhythm.
+
+(1) **Horn→blade:** the primary wing read as a smooth banana because angA≈angC (no kink) + a convex bow. Fix:
+widen the kink (root angA 68° → outer angC 50°, a clear ~18° hard-surface direction change at 27% length),
+cut the convex coefficient 0.05→0.015 (clean straight outer, not a banana), bump root chord +20% and hold it
+broad longer (wMid 0.5→0.62), root thickness ~3× mid. Now reads thick root → kink → long clean taper.
+(2) **Prawn→skull:** the head was a single long pointed wedge. Rebuilt headWedge as a real skull: a TALL cranium
+box + sloped brow/forehead plane + a SHORTER snout wedge + a distinct lower-jaw wedge (hinged, slightly open) +
+cheek/jaw-hinge plates + a thick neck collar so it attaches to a neck, not a spike. Shorter snout + taller back
+= predator skull, not a shrimp. (3) **Lower blade:** dropped to 55% len and offset further below+behind (y −0.42)
+for real negative space → reads as a distinct support fin. (4) **Mass rhythm:** thicker neck base, deeper chest
+(hh→0.82) + tighter waist (hh→0.34) for a clear hourglass, bulkier hip, thicker tail base. (5) **Tail fins
+hierarchical:** scale shrinks toward the tip + skip alternate rings (no repetitive comb).
+Process: enlarging head/chest again grew head-to-tail, but the wing ratio held this time (width 87.6, no LP
+re-pin needed). Reusable: a "designed kink" = two path segments with a ≥15° angle delta AND near-zero convex;
+a convincing mech skull = cranium box + brow plane + short snout wedge + separate jaw + neck collar (5 boxes).
+
+## Lesson — Architecture pass: moved wing roots rearward onto a wide deep shoulder mass, widened the V stance, compact skull — fixed the "thin fuselage + giant blades" read.
+
+Human refs: a quadruped mecha dragon whose wings clearly mount on the shoulder/upper-back (behind the neck,
+over the front legs), supported by a deep chest. My wings were too forward/central/unsupported. Fixes (all
+param-level on the kit): (1) **Wing root moved ~10% of body length rearward** — off the shoulder ring (z=-2.32,
+~18% body) onto the shoulder-BACK over the chest mass (z=-1.4, ~31% body), so there's now a real neck+head in
+front of the wings. (2) **Wider stance** — wing x ±0.46→±~0.85 (ch hw·1.04) and a bigger scapular fairing, so
+the wings grow from a broad upper back. (3) **Deeper/wider shoulder+chest** in RINGS (chest hw 0.76→0.84, hh
+0.82→0.90; shoulder 0.62→0.74) to carry them. (4) **Wider shoulder-mounted V** — LEAN 40→tuned, then re-pinned
+to width. (5) compact skull (taller cranium 0.46→0.56, shorter snout −0.6→−0.46, head scale taller/shorter).
+
+Process note that bit twice this session: **stance width + lean + wing length all push projected rear width**,
+so after an architecture change re-run measure.mjs and re-pin: widening the stance + 48° lean blew width to 111;
+dropping lean to 42 and LP 7.05→6.4 landed it back at 95 (top of the 85–95 band) with height 47. The brief's
+"true span 110–125" and "projected 85–95" are the same number for symmetric tips, so I target the projected one.
+Reusable: wing ROOT placement (fraction of body length) + STANCE width are independent dials from the blade
+shape; fix architecture with those, then re-pin LP/LEAN against the measure gate.
+
+## Lesson — Wings further back onto a deeper chest + tail fins consolidated into a terminal tip cluster (clean shaft).
+
+Human refinement: wings still read too forward; tail read as a saw-blade. Fixes: (1) **Wing root moved further
+rearward + lowered + widened** — wz −1.4→−1.05 (~33% body), wy lowered (ch hh·0.55→0.38, embedded not perched),
+wx ±1.04→±1.12 of chest hw; a bigger scapular fairing. (2) **Deeper/wider chest+shoulder** (chest hw 0.84→0.94,
+hh 0.90→0.98; shoulder 0.74→0.82) so the new placement is supported. (3) **Tail fins consolidated**: deleted the
+staggered every-other-ring fin loop along the shaft; the shaft now tapers clean (its only red is the per-segment
+seam lights), and ALL fins live in a deliberate terminal CLUSTER at the last ~12% — a forward larger pair + a
+smaller tip pair + red accents = an arrowhead stabiliser, not a comb. (4) Re-pinned the pose to the gate after
+the stance/placement change: the wider stance pushed width to 99, so LP 6.4→6.05 and LEAN 42→38 landed width 89
+/ height 46. Reusable: the staggered-fin "saw-blade" read is a classic procedural trap — concentrate repeated
+decoration at a silhouette TERMINUS (tip/crown) and leave the shaft clean; it reads as design intent, not noise.
+
+## Lesson — Side-profile pass: slimmed the "sail" wing root + base, arched the back, taller skull, folded legs.
+
+Human: rear view is strong but the SIDE reads as a giant dorsal sail on a rectangular body. Fixes: (1) **Wing
+root de-bulked** — pylon height 0.74→0.54 + depth ×0.82, scapular fairing height ch hh·0.95→0.62 and lowered
+(wy ch hh·0.38→0.26) so it embeds rather than perches. (2) **Blade base slimmed −18%** (chord ROOT_CHORD·1.2→
+0.98, mid 0.62→0.50) so it reads as a sleek aero blade, not an inflated sail — tip/span/pose unchanged (measure
+held 90/46). (3) **Arched back:** lifted the front-of-body centreline cy (neck 0.50→0.56, shoulder 0.48→0.54,
+chest 0.42→0.46) so the spine humps at the shoulder then flows down to the tail, killing the ruler-straight read.
+(4) **Taller predatory skull** (cranium 0.56→0.64 tall, stronger 22° brow hood, shorter snout −0.46→−0.40).
+(5) **Folded legs:** rewrote clawLeg as a compact knee-bent limb (angular thigh + folded shin + forward talons)
+tucked to the body instead of a dangling block. Reusable: a "sail" read on a swept blade is driven by the BASE
+CHORD (the wide part you see edge-on from the side), not the span — slim the base chord + lower/shrink the root
+housing to fix it while keeping tip height and rear-view width (those are tip-driven, the gate confirms).
+
+## Lesson — Replaced the solid multi-blade wing with a SINGLE gold-frame + black-membrane DAGGER (Aventador aero-blade reference).
+
+Human ref: one sharp dagger wing = gold outer FRAME around a large BLACK inner panel + one red zig-zag circuit
++ a small lower strake — NOT a solid blade, twin, or fan. Rebuilt wingSystem from the solid `aeroBlade` cluster
+to a FLAT faceted panel: define the dagger as 4 anchor points [y,z] (leading A→K→T with a subtle kink, tip,
+trailing T→B, root B→A); `flatPanel()` extrudes that polygon ±x for the black carbon membrane (role
+wingInnerStruct); gold frame = `strut` rails along the edges (thick leading, thinner trailing/root) + a gold tip
+cone; the red zig-zag = a polyline of thin emissive struts sitting on the membrane front (x=+0.06); a small gold
+flatPanel = the subordinate lower strake. Slimmed the pylon ~30%. Result is lighter too (5122→3926 tris — a
+flat panel beats a swept solid).
+
+Two keys: (1) **A "gold frame + black panel" wing is frame struts around an extruded polygon membrane, not a
+solid** — far closer to the SVJ scissor-door/aero-blade look and cheaper. (2) **For a clean "one wing" SIDE
+shot, render near-ORTHOGRAPHIC and purely lateral** (proof side view: fov 46→16, dir (1,0.10,0.04)→(1,0.02,0)):
+the two outward-leaned wings differ only in x, so an x-axis orthographic projection collapses them onto the same
+y-z silhouette = one dagger. The earlier "second wing peeking" was pure perspective + camera y-tilt, not geometry.
+Measure held (width 94 / height 49) since tip y/z and lean were preserved.
+
+## Lesson — Wing silhouette: swept aero BLADE (raked tip + sculpted concave trailing edge), not an upright triangle.
+
+Human ref + note "less triangle, more blade / less sail, more Lamborghini aero". The single-dagger was right in
+construction but too UPRIGHT and too plainly triangular. Fixed purely by moving the polygon anchors: the tip T
+rakes well aft (z 1.65→3.15 vs root z 0 — the blade now lies back over the body), the leading edge keeps a steep
+compact root then KINKS into a long swept spear, and the trailing edge is now a 4-point sculpted/CONCAVE return
+(T→P1→P2(dip in)→P3(step out)→B) instead of one straight line — so the chord stays blade-like and the lower edge
+reads as a designed step, not a generic hypotenuse. Same flatPanel(frame+membrane) machinery, just a richer 7-
+point polygon. Reusable: the difference between "sail/fin" and "aero blade" is (1) AFT RAKE of the tip (tip z ≳
+0.6× tip y) and (2) a non-straight trailing edge — a triangle has neither. Measure held (width 91 / height 47)
+by nudging tip y after the rake lowered it.
+
+## Lesson — TRACED the wing shape from the reference PNG (pixel analysis) instead of eyeballing — found it's a hard-RAKED dagger, not an upright fin.
+
+Human: "trace the reference png, copy the wing, scale to fit; trace the whole dragon for ratio." Wrote
+`mecha/traceRef.mjs`: a tiny PNG decoder (IHDR + inflate IDAT + un-filter, colorType 2/6) → foreground mask by
+colour-distance from the corner background → keep the LARGEST connected component (drops stray specks that were
+poisoning the apex) → median top-profile = the back line → wing = columns whose top rises well above it →
+emit the leading-edge polyline + ratios + an ASCII overlay. The trace overturned my eyeballed shape: the
+reference wing is RAKED HARD — tip at ~0.90 of body length AFT and only ~0.32 body-length UP (a long shallow
+~35° leading edge), root chord ~0.19, front root ~0.42. My hand-made wing was far too upright. Rebuilt the
+flatPanel dagger from the traced [y,z] anchors (front root → 5 leading samples → tip → rear root); one `outer.
+scale` dial sizes it to fit.
+
+Two payoffs: (1) **pixel-tracing a reference beats eyeballing for silhouette** — the decoder+CC+median-backline
+recipe is reusable for any future reference. (2) **the raked wing reads BETTER from the rear chase cam**: because
+it rakes aft AND leans out, the black inner panels + red circuits now FACE the camera in the V (the old upright
+blades were edge-on slivers from behind). Caveat: a raked wing trades rear WIDTH for aft DEPTH, so the old
+measure width target (85–95) no longer applies — matched the reference proportion (width ~65 / height ~37)
+instead, which is the explicit ask. The measure gate now documents reference proportions, not the stale target.
+
+## Lesson — Moved the wing HINGE forward without moving the tip (pin the tip via a non-uniform z-stretch).
+
+Human: move the wing root/hinge forward ~10–15% of torso onto the front shoulder, but DON'T move the tip — keep
+it raked back. Trick: shift the mount forward (wz −1.05→−1.45) AND stretch only the wing's aft axis so the tip
+lands back where it was. The wing builds in the hinge frame with root at local z=0 and tip at z≈4.35; a uniform
+move would drag the tip forward too. Instead set `outer.scale.set(1.1, 1.1, 1.19)` — scaling z more than x/y
+keeps the root at 0 but pushes the tip aft by exactly the amount the mount moved forward (solve
+oldWz+tipZ·sUniform = newWz+tipZ·sZ). Result: root forward over the shoulder, tip pinned, leading edge just gets
+longer/shallower (more rake) — width/height unchanged (tip-driven), only root→tip length grows. Reusable: to
+slide a swept appendage's BASE while pinning its TIP, move the mount and compensate with an axis-aligned scale
+along the sweep direction, not a translation (translation moves both ends).
+
+## Lesson — Traced the WHOLE-BODY profile from the reference (back+belly contours) to fix proportions: torso was too short, tail too long, body too wide.
+
+Human: the model is ~70% there but proportions are off + "looks too thick"; trace the body, the head/neck/torso/
+tail length ratios, and the per-vertebra thickness + centreline flow. Extended traceRef.mjs to a BODY profile:
+belly contour = median-filtered bottom (a wide median removes the narrow LEG spurs), back contour = top profile
+with wing columns dropped and linearly interpolated across the wing root; thickness = belly−back, centreline =
+midpoint, sampled at 24 stations. Findings (vs my model): reference is head+neck ~15% / torso ~50% / tail ~35%;
+mine was ~21% / 33% / 46% — so **torso too short, tail too long**. Neck/tail thickness matched, so the "too
+thick" was WIDTH (a side image can't show it, but my hw≈hh made the 3D body chunky). Fixes: re-proportioned the
+RINGS z so torso ≈48% and tail ≈33% (tail starts later), and slimmed hw to ~0.8×hh. Bumped the wing wx factor to
+keep the V stance after the chest narrowed; made the tail-tip fin cluster z TIP-relative (it was hardcoded and
+would've stranded mid-shaft after the tail shortened).
+
+Two reusable bits: (1) **a side-on reference gives you the spine's thickness + centreline FOR FREE** via
+back/belly contour tracing — median-filter the belly to delete legs, interpolate the back under the wing. (2)
+**a side image cannot constrain WIDTH** — if it "looks too thick" but the traced (vertical) thickness matches,
+the culprit is hw; slim it independently. Don't pin decoration to absolute coords that a proportion change moves.
+
+## Lesson — Rear thrusters were occluded because they sat INSIDE the tail width; fixed by making the tail a narrow central spine flanked by outboard angled engine pods.
+
+Human: in rear / rear-3/4 the tail hides the twin thrusters; keep both + keep the tail, don't just bloat the
+hips. Root cause: thrusters were at ±(hip hw·0.5)=±0.30 but the tail BASE was ±0.44 wide — the tail was WIDER
+than the thruster separation, so it covered them. Fix (all per the brief): widened the hip ~13%, narrowed the
+tail base WIDTH 0.44→0.34 (kept its HEIGHT 0.50 so it still reads strong/tall in side profile), pushed the pods
+out to ±(hip hw·0.66)=±0.45 and yawed each outward 16° so the cores face out-and-back, and added a central gold
+tail SOCKET collar so the tail emerges from a clear central spine. Rear now reads "pod | tail spine | pod".
+Reusable: a centered tail will always occlude centered thrusters unless tail_halfwidth < thruster_offset — make
+the tail NARROW (in width, not height) and move the pods OUTSIDE it; a slight outward yaw keeps the cores lit
+from rear-3/4. Decoupling tail width from tail height is the trick (narrow but still tall = strong + readable).
+
+## Lesson — Rear refinement: canted engine pods, recessed central tail socket, sloped beveled engine-cover, stronger wing fairing.
+
+Human follow-up after the thrusters were unhidden: make them feel mounted in side engine PODS (not flat discs),
+recess the central tail socket, and de-block the top rear. Changes: (1) pods get yaw 13° + ROLL 11° (cant) so
+the disc faces out-and-tilted = reads as a side-mounted pod; a gold housing box wraps a slightly recessed
+thrusterPod. (2) central TAIL SOCKET = a dark carbon recess + a gold rim torus at the tail base, so the tail
+seats deliberately INTO the pelvis (rear reads pod | socket | pod). (3) the stacked-rectangle top rear is
+covered by a SLOPED beveled ENGINE COVER — two gold facets canted to a centre `goldDark` ridge (a Lambo
+engine-deck plane) instead of the boxy spine tops. (4) wing-root fairing bumped ~20% for visible support.
+Reusable: "cant" a circular emitter = yaw + a little ROLL (roll tilts the disc plane so it stops reading as a
+flat sticker); and a beveled cover plane (two facets → a ridge) is the cheapest way to kill a "stacked boxes"
+read on a segmented body.
+
+## Lesson — Pushed the rear thruster pods further outboard (factor 0.66→0.78) for clear negative space vs the tail.
+
+Human: thrusters visible but still crowded toward the centerline. Simple: podX hp[3]·0.66→0.78 (~±0.53, +16%),
+yaw/roll nudged to 15/13°, and the gold haunches moved out (0.6→0.7) so the side mass follows. The central tail
+is ±0.34, so the pods now clear it with a visible dark gap each side → reads "side pod | tail socket | pod". No
+hip widening. Reusable: "crowded toward centre" with parts already visible = a pure offset push, not more mass;
+keep the central element's halfwidth well under the flanking parts' offset so a dark gap reads as deliberate.
+
+## Lesson — Removed the thruster cant (read badly) and set spacing to a MEASURED fraction of shoulder width.
+
+Human: the cant looks bad; remove it and set the two-thruster span to ~80% of shoulder width. Measured the
+BODY shoulder full width with a quick traverse (exclude all wing-role meshes in the shoulder z-band) = 1.675;
+set podX = 0.8·halfWidth ≈ 0.67 (centre-to-centre = 80% shoulder), podYaw=podRoll=0, haunches moved out to
+follow. Cleaner: flat discs facing straight back read better than canted ones at this scale. Reusable: when a
+human gives a proportion target ("X% of shoulder"), MEASURE the reference dimension off the built model
+(traverse + role filter) rather than guessing — and a "cant" (roll) on a flat emitter only reads well at larger
+sizes; for small pods, straight-on is cleaner.
+
+## Lesson — Animated the SVJ as a JET (rigid aero-blades), with a shared driver + an interactive slider preview to sign off feel BEFORE touching the game.
+
+A mechanical, thruster-propelled dragon must move like a jet/hypercar, not a soft bird: the thrusters
+propel, the raked dagger wings STEER (aileron on bank, elevator on pitch) and never wing-beat for lift.
+Built `mecha/svjAnim.js` — `updateSVJ(group, dt, state)` reading only `group.userData.anim`, so the
+standalone preview and (later) the game call it identically with zero game deps. Feel tricks that sold
+"powered machine": (1) servo easing — frame-rate-independent exponential damp `a+(b-a)*(1-exp(-r*dt))`
+with DIFFERENT rates per input (boost spools slower at r=5, bank snaps at r=8) so joints have weight;
+(2) an always-on engine phase clock whose RPM rises with speed+boost, driving a constant micro-vibration
++ glow pulse so it never reads as coasting; (3) signature transform moves layered on the steering base —
+boost tucks the wings back (`root.rotation.x`), surge spreads a wider battle-mode V (`root.rotation.z`),
+pods thrust-vector toward turns (`thruster.rotation.y ∝ bank`).
+
+Mirror-awareness was the subtle bug-magnet: the L/R wings are mirrored by `mir.scale.x = side`, so a
+differential aileron needs NO `×sd` (the scale flip already makes +z opposite on the two sides), while a
+SYMMETRIC move (elevator, idle breathing) DOES need `×sd` to cancel the mirror. Get this backwards and
+bank looks symmetric / pitch looks like a barrel-roll.
+
+Lazy base-capture beats editing the model: the driver captures `_baseLean`/`_baseQuat`/`_baseEmi` on first
+frame and composes relative to them, so the carefully-posed static model is untouched and needs NO
+svjDragon.js change — also let me ship the tail as a traveling-wave (per-seg `quaternion.copy(base)` then
+`rotateY/rotateX`) instead of re-parenting the absolute-positioned segs into a kinematic chain (the
+lower-risk fallback from the plan; cumulative whip can come later if the wave reads too uniform).
+
+Process lesson (the real win): for MOTION, build the driver + a throwaway interactive preview
+(`mecha/anim.html` — real ACES+UnrealBloom, sliders for bank/pitch/boost/surge/speed + an auto-demo
+timeline + turntable) and get the human to sign off FEEL on real lighting before wiring anything into the
+game. Tuning amplitudes/rates on sliders is seconds; tuning them through a game build is minutes. Coexist
+first, integrate after sign-off — same "prove on a hero, then migrate" rule applies to animation, not just
+geometry.
+
+## Lesson — Built the SVJ a full active-aero STATE MACHINE (cruise/bank/pitch/boost/surge/airbrake) + boost/surge VFX, all on the existing rig with zero static-pose change.
+
+Took a long, prescriptive motion brief (jet/Lamborghini active-aero, NOT a flapper) and mapped its 3-part wing
+spec straight onto the built model: `root`=wing group (sweep-back/dihedral/spread), `mid`=`hinge` (aileron+AoA),
+`tip`=`outer` (speed-tuck, lagged follow). No new rig nodes needed — the names already existed. The whole thing
+is a priority blend (surge > boost > airbrake > pitch/bank > cruise) of additive offsets over the lazily-captured
+base pose, so cruise = the locked static model + tiny servo breathing, and every state eases in/out (no snapping).
+
+Key reusable techniques:
+- **Active-aero, not flap:** bank = differential aileron on the blade (`hinge.rotation.z`, NO ×sd so it's opposite
+  L/R through the `mir.scale.x` mirror); pitch/airbrake/AoA = symmetric blade tilt (`hinge.rotation.x`, ×sd to
+  CANCEL the mirror). Boost/dive/surge sweep the whole wing back on `root.rotation.x`; surge spreads a wider V on
+  `root.rotation.z`. The "inside wing of a turn opens its airbrake more" = `clamp(sd*bank,0,1)` gating per-side.
+- **Transform snaps without a timeline:** a decaying "kick" (`kick=1` on the rising edge of boost/surge, then
+  `kick*=exp(-dt/τ)`) gives a brief servo anticipation spike that settles — cheaper and frame-rate-independent vs
+  scripting an anticipation→burst→sustain keyframe sequence.
+- **Recolour shared emissive WITHOUT importing THREE in the driver:** the material's `.emissive`/`.color` are live
+  `Color` instances, so `mat.emissive.copy(base0).lerp(targetCol, t)` works — clone the base + target Colors once
+  from the materials themselves (`M.red.emissive.clone().set('#hex')`). Lets the engine-agnostic driver shift
+  thrusters red→white-hot→surge and tint the red slashes toward the surge colour with zero new deps.
+- **VFX the model lacked** (tail comet, thruster shock-ring pool, surge aura, wingtip air-slice): BUILD them in the
+  model file (it owns geometry/THREE), expose handles on `userData.anim.vfx`, and only SCALE/FADE/COLOUR them in the
+  driver. Critical: default them `visible=false` AND `scale≈0.001` so the static showcase + the CPU `proof.mjs`
+  rasterizer (which may ignore `.visible`) never render them — verified the montage is byte-identical in look.
+- **Smoke-test motion headlessly:** `mecha/smoke.mjs` runs `updateSVJ` ~2s/state through the three-resolver and
+  asserts no NaN leaks into any transform, emissive stays finite/≥0, and VFX appear on surge / vanish on cruise.
+  Catches driver runtime bugs (bad handle, NaN from a divide) without WebGL — the human still judges feel on the
+  preview, but CI can guard "it runs and doesn't explode."
+
+Gotcha: shared materials mean per-wing differential GLOW isn't possible (one `M.red` lights every seam/chevron/
+channel), so "inside wing brake-glow" became a global red-slash brighten on bank/brake — reads fine, but if we ever
+want true per-wing glow we'd have to split the red material per side. Noted for the next pass.
+
+## Lesson — Wired the SVJ into the live game roster as a CUSTOM dragon, isolated so the shipped 30 + shop/ascension can't break.
+
+The roster (`js/dragons.js`) entries are rich data consumed by many systems (shop cards, hero-select, ascension
+form-merge, `applyDragonStats`, the body-plan builder, the per-frame organic rig). A hard-surface dragon that
+uses NONE of the organic rig has to slot in without destabilising any of them. The clean seam was a single field
+`buildType: 'svj'` plus branches at exactly two chokepoints:
+
+- **Build:** the branch MUST live in `buildDragonModel()` (dragonModel.js), NOT `createDragon()` — because the shop
+  THUMBNAILS + showcase build via `buildDragonModel(def, {preview:true})` directly (preview.js), bypassing
+  createDragon entirely. Branch there and EVERY build path (gameplay, hero turntable, card thumbnails) is covered
+  by one line. It returns the standard `{ group, parts, materials, auraSprite }` shape with STUBS (a dummy head
+  Object3D so `resetDragon`'s `head.rotation.set` is valid, an invisible aura sprite so the aura write is valid,
+  real gold/carbon/eye materials so `applyRim` + emissive resets work, `tailSegs:[]`, a `riderSocket`). createDragon
+  then runs unchanged — rider, ponytail, trail pools, death shards all still get built.
+- **Per-frame:** an early `if (activeDef.buildType==='svj') { updateSVJDragon(...); return; }` at the top of
+  `updateDragon()` skips the entire flap/spine/tail rig. `updateSVJDragon` maps `player` → the driver's `state` and
+  calls the shared `updateSVJ()`, then applies the driver's reported `_bodyRoll/_bodyPitch/_bodyYaw/_vibration` to
+  the group (barrel-roll spin still stacks on top), and re-runs only the bits the SVJ still wants (hover bob, rider
+  lean, ponytail, death burst — duplicated, not refactored, so the 30 organic dragons are untouched).
+
+Input mapping that matters: normalise to the driver's −1..1 at the speeds the GAME already treats as a hard
+manoeuvre — `bank = velocity.x/16`, `pitch = velocity.y/14` (the game's own `turnBias=v.x*0.018` saturates at 0.28
+≈ v.x 16; `climbBias` ≈ v.14). So the blades reach full aileron exactly when the standard dragons reach their hard
+bank. `boost←speedActive`, `surge←feverActive`, `airbrake←the boost-release decel spike`, `speedNorm←(speed-35)/45`.
+
+Gotchas the harness caught:
+- `ascendedDef()` multiplies `model.scale *= SIZE_RAMP[tier]` (0.62–0.88) — a custom dragon shrinks at low tiers
+  unless you pin `model.bodyScale:1` + `model.wingSpan:1` (those OVERRIDE the ramp). Set them or it builds tiny.
+- `tests/defs.mjs` ENFORCES exactly 4 form objects for an SSSR (the shop expects 4 tier pips) — a single-form
+  custom still needs `forms:[{},{},{},{}]` (identical empties; full-size via the pinned scales).
+- Keep `stats` within `DRAGON_STAT_CAP` (speed 1.16 / handling 1.28 / drain 0.70 / regen 1.35) or the shop stat
+  bars overflow >100%.
+- ORIENTATION: the chase cam sits at `player.z + back` looking toward −Z, and the dragon flies toward −Z. The SVJ
+  was authored head=−Z / thrusters=+Z, so it faces correctly out of the box (thrusters toward the camera). Verify
+  the cam axis before assuming a custom model needs a 180° yaw — here it didn't.
+- Single THREE instance: svjDragon.js imports the BARE `three` specifier (importmap), same as the game, so
+  importing it from `js/dragonModel.js` dedups to one module — no `instanceof` breakage.
+
+Testing seam: `?dev` (main.js) already iterates `Object.keys(DRAGONS)` to own+max every dragon + 999999 embers, so
+a new roster entry is auto-included — the human can append `?dev`, open the shop, equip, and fly with zero extra
+plumbing. (No WebGL in CI — the browser shop test times out on Chromium regardless; verified that timeout is
+pre-existing by stashing the change. defs/economy/ascension/blueprint all green.)

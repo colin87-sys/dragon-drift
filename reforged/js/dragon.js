@@ -7,6 +7,7 @@ import { applyRim, updateRim, resetRim } from './rimLight.js';
 import { flapWing, formStrength, formSpeed } from './dragonWingFlap.js';
 import { solveWing, flapEnv, phaseCenter } from './wingFlapSolver.js';
 import { setActiveDetail } from './modelDetail.js';
+import { updateSVJ } from '../mecha/svjAnim.js';
 
 // Procedural dragon + rider. Built from a dragon def (dragons.js: palette,
 // model proportions, fx) and a rider def (riders.js: outfit, hair, accessory,
@@ -425,7 +426,101 @@ function flapSurge(x) {
   return s >= 0 ? Math.pow(s, 0.5) : -0.55 * Math.pow(-s, 0.85);
 }
 
+// ── CUSTOM SVJ MECHA driver bridge ───────────────────────────────────────────
+// Maps the live `player` flight state onto the shared updateSVJ() driver (mecha/
+// svjAnim.js), then applies the driver's reported body roll/pitch/yaw + engine
+// vibration. Keeps the bits of the standard rig the SVJ still wants (hover bob,
+// rider lean, ponytail, death burst); the wings/tail/glow are all the driver's.
+function updateSVJDragon(dt, player, time) {
+  group.position.set(
+    player.position.x,
+    player.position.y + Math.sin(time * 2.1) * 0.16,
+    player.position.z
+  );
+  const speedNorm = Math.min(Math.max((player.speed - 35) / 45, 0), 1);
+
+  // boost-release AIR-BRAKE spike → feeds the driver's airbrake (active-aero deploy)
+  boost01 = damp(boost01, player.speedActive ? 1 : 0, 5, dt);
+  if (prevSpeedActive && !player.speedActive) decel01 = 1;
+  prevSpeedActive = !!player.speedActive;
+  decel01 = damp(decel01, 0, 2.2, dt);
+
+  // barrel-roll spin stacks on top of the driver's banking roll
+  let rollSpin = 0;
+  if (player.roll) {
+    const k = Math.min(player.roll.t / player.roll.dur, 1);
+    const ease = k < 0.5 ? 4 * k * k * k : 1 - Math.pow(-2 * k + 2, 3) / 2;
+    rollSpin = -player.roll.dir * Math.PI * 2 * ease;
+  }
+
+  // Normalise to the driver's -1..1 inputs at the speeds the game treats as a HARD
+  // manoeuvre (matches turnBias/climbBias saturation: bank≈±16, pitch≈±14 m/s).
+  const state = {
+    speedNorm,
+    bank: Math.max(-1, Math.min(1, player.velocity.x / 16)),
+    pitch: Math.max(-1, Math.min(1, player.velocity.y / 14)),
+    boost: player.speedActive ? 1 : 0,
+    surge: player.feverActive ? 1 : 0,
+    airbrake: decel01,
+    surgeColor: activeDef.svjSurgeColor || undefined,
+  };
+  updateSVJ(group, dt, state);
+
+  const A = group.userData.anim;
+  group.rotation.z = (A._bodyRoll || 0) + rollSpin;
+  group.rotation.x = damp(group.rotation.x, A._bodyPitch || 0, 9, dt);
+  group.rotation.y = damp(group.rotation.y, A._bodyYaw || 0, 6, dt);
+  group.scale.setScalar(activeDef.model.scale);
+  group.position.y += (A._vibration || 0);
+
+  // rider lean (same as the standard path)
+  riderGroup.rotation.z = damp(riderGroup.rotation.z, -player.velocity.x * 0.035, 8, dt);
+  riderGroup.rotation.x = damp(riderGroup.rotation.x, -0.08 - speedNorm * 0.16 + player.velocity.y * 0.008, 8, dt);
+
+  group.updateMatrixWorld(true);
+
+  // Ponytail (world-space follow) — same chain solve as the standard path
+  if (ponySegs > 0) {
+    riderHead.getWorldPosition(tmpV);
+    tmpV.y += 0.1; tmpV.z += 0.14;
+    ponyPoints[0].copy(tmpV);
+    for (let i = 1; i < ponySegs; i++) {
+      const dir = tmpV2.copy(ponyPoints[i]).sub(ponyPoints[i - 1]);
+      dir.y -= 2.4 * dt;
+      dir.z += (player.speed / 35) * 2.8 * dt;
+      if (dir.lengthSq() < 1e-8) dir.set(0, 0, 1);
+      dir.setLength(PONY_LEN);
+      ponyPoints[i].copy(ponyPoints[i - 1]).add(dir);
+      ponyMeshes[i].position.copy(ponyPoints[i]);
+    }
+    ponyMeshes[0].position.copy(ponyPoints[0]);
+  }
+
+  // Death burst (shared)
+  if (burstActive) {
+    burstTimer -= dt;
+    const alive = burstTimer > 0;
+    for (const p of burstParticles) {
+      if (!p.visible) continue;
+      p.position.x += p.userData.vel.x * dt;
+      p.position.y += p.userData.vel.y * dt;
+      p.position.z += p.userData.vel.z * dt;
+      p.userData.vel.y -= 18 * dt;
+      p.rotation.x += p.userData.spin * dt;
+      p.rotation.z += p.userData.spin * 0.7 * dt;
+      const life = Math.max(burstTimer, 0);
+      p.material.opacity = life;
+      p.scale.setScalar(life * 1.5 + 0.1);
+      if (!alive) p.visible = false;
+    }
+    if (!alive) burstActive = false;
+  }
+}
+
 export function updateDragon(dt, player, time) {
+  // CUSTOM hard-surface dragons (SVJ mecha) run their own active-aero driver and
+  // skip the entire organic flap/spine/tail rig below.
+  if (activeDef.buildType === 'svj') { updateSVJDragon(dt, player, time); return; }
   // Follow flight position with hover bob
   group.position.set(
     player.position.x,

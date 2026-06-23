@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { makeGlowTexture } from './util.js';
+import { buildSVJDragon } from '../mecha/svjDragon.js';
 import { resolveRecipe, getTorsoBuilder, getWingsBuilder, getHeadBuilder, getTailBuilder } from './dragonRecipe.js';
 import './dragonTorso.js'; // self-registers the 'arrow' / 'serpent' / 'avian' torsos
 import './dragonWings.js'; // self-registers the 'membrane' / 'feather' / 'none' wings
@@ -86,8 +87,41 @@ function buildShingleRun(spec, def, model, attach, giM) {
   return { mesh: built.mesh, material: mat, flare: edge };
 }
 
+// CUSTOM hard-surface dragons (def.buildType) bypass the organic body-plan builder
+// entirely — they supply their own self-contained group + materials + animation
+// handles (group.userData.anim) and are driven by their own per-frame updater in
+// dragon.js. We still return the standard { group, parts, materials, auraSprite }
+// shape (with stubs) so createDragon + the shop preview consume them unchanged.
+function buildSVJModel(def, opts = {}) {
+  const model = def.model || {};
+  const { group, materials: M } = buildSVJDragon();
+  group.scale.setScalar(model.scale ?? 1);
+  // rider seat on the upper back (SVJ-local, pre-scale); a stub head node so the
+  // shared rig's resetDragon (head.rotation.set) is valid — the driver owns motion.
+  const riderSocket = { x: 0, y: 0.95, z: -1.0 };
+  const headStub = new THREE.Object3D(); group.add(headStub);
+  // invisible aura sprite so resetDragon's aura write is valid (driver never raises it)
+  const auraSprite = new THREE.Sprite(new THREE.SpriteMaterial({
+    map: makeGlowTexture((def.fx && def.fx.auraColor) || '255,255,255'), transparent: true,
+    opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false,
+  }));
+  auraSprite.scale.set(9, 9, 1); auraSprite.layers.set(1); group.add(auraSprite);
+  const parts = {
+    head: headStub, tailSegs: [], tailFins: [], spineSegs: [], bodySegs: null,
+    tailOrbiters: null, riderSocket, coreGlow: null,
+    wingYokeL: null, wingYokeR: null, wingPivotL: null, wingPivotR: null,
+    wingMidL: null, wingMidR: null, wingTipL: null, wingTipR: null,
+    wingPivot2L: null, wingPivot2R: null, tipMarkerL: null, tipMarkerR: null,
+    wingRigL: null, wingRigR: null,
+  };
+  const materials = { bodyMat: M.gold, wingMat: M.carbon, eyeMat: M.eye, spineMats: [] };
+  if (opts.preview) { const wrapper = new THREE.Group(); wrapper.add(group); return { group: wrapper, parts, materials, auraSprite }; }
+  return { group, parts, materials, auraSprite };
+}
+
 // Build the full dragon mesh from a resolved def (post-ascendedDef).
 export function buildDragonModel(def, opts = {}) {
+  if (def.buildType === 'svj') return buildSVJModel(def, opts);
   const model = def.model;
   // Dev guard (opt-in via globalThis.DRAGON_DEBUG_BLUEPRINT) — warn on a malformed
   // blueprint at build time. Off by default → zero cost in the shipped game; the

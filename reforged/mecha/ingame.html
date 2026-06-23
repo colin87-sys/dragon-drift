@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
+<title>SVJ Mecha Dragon — in-game lighting preview (frozen)</title>
+<style>
+  html,body{margin:0;height:100%;overflow:hidden;background:#0a0d16;font-family:'Rajdhani',system-ui,sans-serif;color:#ffe9b0;-webkit-tap-highlight-color:transparent}
+  #c{display:block;width:100vw;height:100vh;touch-action:none}
+  .hud{position:fixed;left:14px;top:12px;pointer-events:none;text-shadow:0 1px 5px #000}
+  .hud h1{margin:0;font-size:17px;letter-spacing:.16em;font-weight:600;color:#ffd11a}
+  .hud p{margin:3px 0 0;font-size:12px;opacity:.7;letter-spacing:.04em}
+  .btns{position:fixed;right:14px;bottom:16px;display:flex;gap:10px}
+  .btns button{padding:12px 18px;border-radius:9px;border:1px solid #ffffff22;background:#141a26cc;color:#ffe9b0;
+    font:600 13px/1 'Rajdhani',sans-serif;letter-spacing:.12em;cursor:pointer;user-select:none}
+  #boost{border-color:#ff6a18aa;color:#ff9a4a}
+  #boost:active{background:linear-gradient(#ffd11a,#ff6a18);color:#240a00}
+  #zin,#zout{font-size:20px;padding:10px 16px;min-width:46px}
+  .on{outline:2px solid #ffd11a}
+  .hint{position:fixed;left:14px;bottom:12px;font-size:11px;opacity:.5;letter-spacing:.05em}
+</style>
+<script type="importmap">{ "imports": { "three": "../lib/three.module.js" } }</script>
+</head>
+<body>
+<canvas id="c"></canvas>
+<div class="hud"><h1>SVJ MECHA DRAGON</h1><p>frozen · real in-game lighting + HDR bloom + ACES</p></div>
+<div class="hint">drag to orbit · pinch / scroll / ± to zoom</div>
+<div class="btns"><button id="zout">−</button><button id="zin">+</button><button id="spin">TURNTABLE</button><button id="boost">BOOST</button></div>
+<script type="module">
+import * as THREE from 'three';
+import { EffectComposer } from '../lib/postprocessing/EffectComposer.js';
+import { RenderPass } from '../lib/postprocessing/RenderPass.js';
+import { UnrealBloomPass } from '../lib/postprocessing/UnrealBloomPass.js';
+import { OutputPass } from '../lib/postprocessing/OutputPass.js';
+import { buildSVJDragon } from './svjDragon.js';
+
+const clamp = THREE.MathUtils.clamp;
+const canvas = document.getElementById('c');
+const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
+renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+renderer.toneMapping = THREE.ACESFilmicToneMapping;            // same as the game
+renderer.toneMappingExposure = 1.18;
+renderer.outputColorSpace = THREE.SRGBColorSpace;
+
+const scene = new THREE.Scene();
+
+// ── lighting: the game's key sun + extra fill so it's never dark at an angle ──
+const sun = new THREE.DirectionalLight(0xffe0b0, 1.7); sun.position.set(-60, 45, -150); scene.add(sun);
+scene.add(new THREE.HemisphereLight(0xd2e2ff, 0x4a4636, 1.2));  // brighter sky/ground ambient
+const fill = new THREE.DirectionalLight(0xcfe0ff, 0.75); fill.position.set(60, 18, 120); scene.add(fill);  // cool counter-fill
+const headlight = new THREE.DirectionalLight(0xffffff, 0.85); scene.add(headlight);  // follows the camera (see loop)
+
+// ── the game's sky gradient as a dome (top blue → warm horizon) ───────────────
+const sky = new THREE.Mesh(
+  new THREE.SphereGeometry(120, 32, 16),
+  new THREE.ShaderMaterial({
+    side: THREE.BackSide,
+    uniforms: {
+      top: { value: new THREE.Color(0x3f7ec8) }, mid: { value: new THREE.Color(0xe0a070) },
+      horizon: { value: new THREE.Color(0xffe2a8) },
+    },
+    vertexShader: 'varying vec3 vp; void main(){ vp = position; gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.0); }',
+    fragmentShader: `varying vec3 vp; uniform vec3 top,mid,horizon;
+      void main(){ float h = normalize(vp).y;
+        vec3 c = h>0.0 ? mix(mid, top, smoothstep(0.0,0.55,h)) : mix(horizon, mid, smoothstep(-0.25,0.0,h));
+        gl_FragColor = vec4(c,1.0); }`,
+  }),
+);
+scene.add(sky);
+scene.fog = new THREE.Fog(0xe0a070, 30, 110);
+// a soft ground so the lighting has something to sit on
+const ground = new THREE.Mesh(new THREE.PlaneGeometry(300, 300), new THREE.MeshStandardMaterial({ color: 0x223042, roughness: 1, metalness: 0 }));
+ground.rotation.x = -Math.PI / 2; ground.position.y = -3.2; scene.add(ground);
+
+// ── the dragon (frozen pose) ──────────────────────────────────────────────────
+const { group: dragon } = buildSVJDragon();
+const A = dragon.userData.anim;
+scene.add(dragon);
+const baseEmi = new Map(A.glowMats.map((m) => [m, m.emissiveIntensity]));
+
+// ── camera + orbit (default chase view behind the glowing rear) ───────────────
+const camera = new THREE.PerspectiveCamera(46, innerWidth / innerHeight, 0.1, 300);
+const target = new THREE.Vector3(0, 0.4, 1.4);
+let az = 0.0, el = 0.16, dist = 12.5, spin = false;
+function place() {
+  camera.position.set(target.x + dist * Math.cos(el) * Math.sin(az), target.y + dist * Math.sin(el), target.z + dist * Math.cos(el) * Math.cos(az));
+  camera.lookAt(target);
+}
+// one-finger drag = orbit · two-finger pinch = zoom · wheel = zoom · ± buttons
+const ptrs = new Map();
+const pdist = () => { const a = [...ptrs.values()]; return a.length < 2 ? 0 : Math.hypot(a[0].x - a[1].x, a[0].y - a[1].y); };
+let pinch = 0;
+const zoom = (f) => { dist = clamp(dist * f, 4, 40); };
+canvas.addEventListener('pointerdown', (e) => { ptrs.set(e.pointerId, { x: e.clientX, y: e.clientY }); if (ptrs.size === 2) pinch = pdist(); });
+const drop = (e) => { ptrs.delete(e.pointerId); if (ptrs.size < 2) pinch = 0; };
+addEventListener('pointerup', drop); addEventListener('pointercancel', drop);
+addEventListener('pointermove', (e) => {
+  const p = ptrs.get(e.pointerId); if (!p) return;
+  if (ptrs.size >= 2) {                                        // pinch-to-zoom
+    p.x = e.clientX; p.y = e.clientY; const d = pdist();
+    if (pinch && d) zoom(pinch / d); pinch = d;
+  } else {                                                     // orbit
+    az -= (e.clientX - p.x) * 0.006; el = clamp(el + (e.clientY - p.y) * 0.006, -0.15, 1.1);
+    p.x = e.clientX; p.y = e.clientY;
+  }
+});
+addEventListener('wheel', (e) => zoom(e.deltaY > 0 ? 1.08 : 0.93), { passive: true });
+document.getElementById('zin').addEventListener('click', (e) => { e.stopPropagation(); zoom(0.85); });
+document.getElementById('zout').addEventListener('click', (e) => { e.stopPropagation(); zoom(1.18); });
+
+// ── HDR bloom composer — the SAME passes the game's shop preview uses ─────────
+let composer = null;
+function buildComposer() {
+  const gl = renderer.getContext();
+  const ok = renderer.capabilities.isWebGL2 && (gl.getExtension('EXT_color_buffer_float') || gl.getExtension('EXT_color_buffer_half_float'));
+  if (!ok) return;
+  const rt = new THREE.WebGLRenderTarget(innerWidth, innerHeight, { type: THREE.HalfFloatType, samples: 4 });
+  composer = new EffectComposer(renderer, rt);
+  composer.addPass(new RenderPass(scene, camera));
+  composer.addPass(new UnrealBloomPass(new THREE.Vector2(innerWidth, innerHeight), 0.38, 0.5, 0.95));  // glow that lifts, not blows out
+  composer.addPass(new OutputPass());
+  composer.setPixelRatio(Math.min(devicePixelRatio, 2));
+  composer.setSize(innerWidth, innerHeight);
+}
+function resize() {
+  camera.aspect = innerWidth / innerHeight; camera.updateProjectionMatrix();
+  renderer.setSize(innerWidth, innerHeight);
+  if (composer) composer.setSize(innerWidth, innerHeight);
+}
+addEventListener('resize', resize);
+renderer.setSize(innerWidth, innerHeight);
+buildComposer();
+
+// controls
+let boostHold = false;
+const bb = document.getElementById('boost');
+bb.addEventListener('pointerdown', (e) => { e.stopPropagation(); boostHold = true; });
+addEventListener('pointerup', () => boostHold = false);
+document.getElementById('spin').addEventListener('click', (e) => { spin = !spin; e.target.classList.toggle('on', spin); });
+
+// ── render loop (model is FROZEN; only optional turntable + boost glow move) ───
+const clock = new THREE.Clock();
+function frame() {
+  const t = clock.getElapsedTime();
+  if (spin) az += 0.004;
+  const boost = boostHold ? 1 : 0;
+  for (const m of A.glowMats) m.emissiveIntensity = baseEmi.get(m) * (1 + 1.4 * boost);
+  A.thrusters.forEach((th) => th.userData.flame.scale.setScalar(0.01 + boost * 1.0));
+  place();
+  headlight.position.copy(camera.position);                   // light whatever the camera sees
+  if (composer) composer.render(); else renderer.render(scene, camera);
+  requestAnimationFrame(frame);
+}
+frame();
+</script>
+</body>
+</html>
