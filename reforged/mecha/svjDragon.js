@@ -272,7 +272,7 @@ function wedgeBlock(w0, d0, w1, d1, h, mat, role) {
 
 function wingSystem(side, M) {
   const root = new THREE.Group();
-  const LEAN = rad(42);                                                          // wider shoulder-mounted V (tuned to hold ~90 projected width)
+  const LEAN = rad(38);                                                          // wider shoulder-mounted V (tuned to hold ~90 projected width)
   root.rotation.z = -side * LEAN;
   const mir = new THREE.Group(); mir.scale.x = side; root.add(mir);              // mirror geometry for the left
 
@@ -297,7 +297,7 @@ function wingSystem(side, M) {
 
   // PRIMARY blade — broad delta root chord (≈80% torso) sweeping fast to a long
   // kinked needle. Length set against the head-to-tail master scale (see measure.mjs).
-  const LP = 6.4;                                                                // primary root→tip length (model u)
+  const LP = 6.05;                                                                // primary root→tip length (model u)
   // 3-stage designed blade: thick broad ROOT (held wide through the kink) → a hard
   // KINK at ~27% (steep root angA 68° → swept outer angC 50°) → long clean taper.
   // root chord +20%, root thickness ~3× the mid (a thick armour blade, not a horn).
@@ -346,20 +346,20 @@ function bladeGeo(span, rootC, tipC, sweep, camber = 0.05) {
 // rings: [role, z, cy(centreline height), hw(half-width), hh(half-height/depth)]
 const RINGS = [
   ['neck', -3.35, 0.44, 0.30, 0.32],      // thicker neck base (head attaches to a real neck)
-  ['neck', -2.88, 0.50, 0.44, 0.46],
-  ['shoulder', -2.32, 0.48, 0.74, 0.70],  // wider+deeper shoulder mass that carries the wings
-  ['chest', -1.75, 0.42, 0.84, 0.90],     // deepest + widest load-bearing mass
-  ['chest', -1.18, 0.36, 0.76, 0.82],     // shoulder-back (wings root just here)
-  ['waist', -0.52, 0.28, 0.40, 0.40],     // clear pinch behind the chest
-  ['hip', 0.18, 0.26, 0.78, 0.74],        // bulkier hip / engine mass
-  ['hip', 0.76, 0.18, 0.64, 0.62],
-  ['tailbase', 1.32, 0.10, 0.62, 0.66],   // thick tail base
+  ['neck', -2.88, 0.50, 0.46, 0.48],
+  ['shoulder', -2.32, 0.48, 0.82, 0.78],  // deeper+wider shoulder mass
+  ['chest', -1.75, 0.42, 0.94, 0.98],     // deepest + widest load-bearing mass
+  ['chest', -1.18, 0.36, 0.88, 0.92],     // shoulder-back, still deep (wings root just here)
+  ['waist', -0.52, 0.28, 0.42, 0.42],     // clear pinch behind the chest
+  ['hip', 0.18, 0.26, 0.82, 0.78],        // bulkier hip / engine mass
+  ['hip', 0.76, 0.18, 0.66, 0.64],
+  ['tailbase', 1.32, 0.10, 0.66, 0.70],   // thick tail base
   ['tail', 1.86, 0.02, 0.46, 0.48],
-  ['tail', 2.40, -0.04, 0.34, 0.35],
-  ['tail', 2.94, -0.08, 0.24, 0.25],      // gentle downward curve through the tail…
-  ['tail', 3.48, -0.10, 0.16, 0.17],
-  ['tail', 4.02, -0.10, 0.10, 0.11],
-  ['tail', 4.56, -0.06, 0.06, 0.06],      // …with a slight tip lift (a living line, not a ruler)
+  ['tail', 2.40, -0.04, 0.33, 0.34],
+  ['tail', 2.94, -0.08, 0.23, 0.24],      // clean tapered shaft (no fins along here)
+  ['tail', 3.48, -0.10, 0.15, 0.16],
+  ['tail', 4.02, -0.10, 0.09, 0.10],
+  ['tail', 4.56, -0.06, 0.05, 0.05],
 ];
 
 export function buildSVJDragon(knobs = {}) {
@@ -403,14 +403,14 @@ export function buildSVJDragon(knobs = {}) {
     grille.rotation.set(0, s * Math.PI / 2, s * 0.2); root.add(grille);
   }
 
-  // WINGS — mounted on the SHOULDER-BACK junction (well behind the neck, over the
-  // chest mass), with a WIDE stance and a strong scapular fairing so they read as
-  // growing from a powerful upper back, not bolted onto a thin central spine.
+  // WINGS — mounted on the SHOULDER-BACK junction (~33% of body length, well behind
+  // the head), lowered and embedded into the deep chest mass, with a WIDE stance so
+  // they read as growing from a real upper back, not a narrow central stalk.
   const wings = [];
-  const wz = -1.4, wy = ch[2] + ch[4] * 0.55, wx = ch[3] * 1.04;
+  const wz = -1.05, wy = ch[2] + ch[4] * 0.38, wx = ch[3] * 1.12;
   for (const side of [-1, 1]) {
-    const fair = wedgeBlock(0.72, 1.15, 0.44, 0.64, ch[4] * 0.9, M.gold, 'wingMount');
-    fair.position.set(side * ch[3] * 0.72, ch[2] + ch[4] * 0.2, wz);
+    const fair = wedgeBlock(0.82, 1.3, 0.46, 0.66, ch[4] * 0.95, M.gold, 'wingMount');
+    fair.position.set(side * ch[3] * 0.78, ch[2] + ch[4] * 0.12, wz);
     fair.rotation.set(0, 0, -side * 0.42); root.add(fair);
     const w = wingSystem(side, M); w.userData.side = side;
     w.position.set(side * wx, wy, wz);
@@ -443,15 +443,16 @@ export function buildSVJDragon(knobs = {}) {
       const leg = clawLeg(s, M); leg.position.set(s * hwc * 0.75, cyc - hhc * 0.82, zc); root.add(leg);
     }
 
-  // TAIL fins + spear — HIERARCHICAL: larger near the body, smaller + more spaced
-  // down the tail (skip alternate rings so they don't read as a repetitive comb).
-  for (let i = 9; i < RINGS.length; i++) {
-    const [, z, cy, hw] = RINGS[i];
-    if (i >= 10 && i % 2 === 0) for (const s of [-1, 1]) {
-      const sz = 0.9 - (i - 10) * 0.13;                                          // fin scale shrinks toward the tip
-      const fin = tag(bladeGeo(sz, 0.4, 0.1, 0.32), M.goldDark, 'tailBladeFin');
-      fin.position.set(s * hw * 1.05, cy + 0.04, z); fin.rotation.set(rad(18), 0, s * rad(60)); fin.scale.x = s; root.add(fin);
-      const tl = chevron(M, 0.55 * sz); tl.position.set(s * hw * 1.2, cy + 0.04, z + 0.15); root.add(tl);
+  // TAIL — the shaft stays CLEAN + tapered; all fins concentrate in a deliberate
+  // terminal stabiliser CLUSTER at the last ~12% (arrowhead, not a saw-blade shaft).
+  {
+    const et = lastTail, tipY = et[2] + 0.02;
+    for (const s of [-1, 1]) {
+      const big = tag(bladeGeo(1.05, 0.46, 0.1, 0.36), M.goldDark, 'tailBladeFin');   // forward pair (larger)
+      big.position.set(s * 0.13, tipY, 4.15); big.rotation.set(rad(15), 0, s * rad(56)); big.scale.x = s; root.add(big);
+      const small = tag(bladeGeo(0.62, 0.32, 0.08, 0.3), M.goldDark, 'tailBladeFin');  // tip pair (smaller)
+      small.position.set(s * 0.1, tipY, 4.62); small.rotation.set(rad(10), 0, s * rad(44)); small.scale.x = s; root.add(small);
+      const tl = chevron(M, 0.7); tl.position.set(s * 0.12, tipY, 4.3); root.add(tl);  // red accents on the cluster
     }
   }
   const spear = tag(new THREE.ConeGeometry(lastTail[3] * 1.3, 0.7, 6), M.gold, 'tailSpear');
