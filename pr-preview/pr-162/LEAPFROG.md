@@ -3150,3 +3150,21 @@ chest 0.42→0.46) so the spine humps at the shoulder then flows down to the tai
 tucked to the body instead of a dangling block. Reusable: a "sail" read on a swept blade is driven by the BASE
 CHORD (the wide part you see edge-on from the side), not the span — slim the base chord + lower/shrink the root
 housing to fix it while keeping tip height and rear-view width (those are tip-driven, the gate confirms).
+
+## Lesson — Replaced the solid multi-blade wing with a SINGLE gold-frame + black-membrane DAGGER (Aventador aero-blade reference).
+
+Human ref: one sharp dagger wing = gold outer FRAME around a large BLACK inner panel + one red zig-zag circuit
++ a small lower strake — NOT a solid blade, twin, or fan. Rebuilt wingSystem from the solid `aeroBlade` cluster
+to a FLAT faceted panel: define the dagger as 4 anchor points [y,z] (leading A→K→T with a subtle kink, tip,
+trailing T→B, root B→A); `flatPanel()` extrudes that polygon ±x for the black carbon membrane (role
+wingInnerStruct); gold frame = `strut` rails along the edges (thick leading, thinner trailing/root) + a gold tip
+cone; the red zig-zag = a polyline of thin emissive struts sitting on the membrane front (x=+0.06); a small gold
+flatPanel = the subordinate lower strake. Slimmed the pylon ~30%. Result is lighter too (5122→3926 tris — a
+flat panel beats a swept solid).
+
+Two keys: (1) **A "gold frame + black panel" wing is frame struts around an extruded polygon membrane, not a
+solid** — far closer to the SVJ scissor-door/aero-blade look and cheaper. (2) **For a clean "one wing" SIDE
+shot, render near-ORTHOGRAPHIC and purely lateral** (proof side view: fov 46→16, dir (1,0.10,0.04)→(1,0.02,0)):
+the two outward-leaned wings differ only in x, so an x-axis orthographic projection collapses them onto the same
+y-z silhouette = one dagger. The earlier "second wing peeking" was pure perspective + camera y-tilt, not geometry.
+Measure held (width 94 / height 49) since tip y/z and lean were preserved.
