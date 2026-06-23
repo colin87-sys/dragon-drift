@@ -13,14 +13,14 @@ const { buildSVJDragon } = await import('./svjDragon.js');
 
 // ── camera, auto-fit to the model, framed for each view ──────────────────────
 function setupCamera(group, view, W, H, fitMul = 1.28) {
-  const cam = new THREE.PerspectiveCamera(46, W / H, 0.1, 400);
+  const cam = new THREE.PerspectiveCamera(view === 'side' ? 16 : 46, W / H, 0.1, 400);  // near-ortho side → wings overlap as one
   const box = new THREE.Box3();
   group.traverse((o) => { if (o.isMesh) box.expandByObject(o); });
   const ctr = box.getCenter(new THREE.Vector3()), sz = box.getSize(new THREE.Vector3());
   const vfov = cam.fov * Math.PI / 180, hfov = 2 * Math.atan(Math.tan(vfov / 2) * (W / H));
   let dir, pw, ph;
   if (view === 'threeq') { dir = new THREE.Vector3(0.82, 0.40, 1); pw = Math.max(sz.x, sz.z); ph = sz.y; }
-  else if (view === 'side') { dir = new THREE.Vector3(1, 0.10, 0.04); pw = sz.z; ph = sz.y; }
+  else if (view === 'side') { dir = new THREE.Vector3(1, 0.02, 0); pw = sz.z; ph = sz.y; }   // pure lateral
   else { dir = new THREE.Vector3(0, 0.22, 1); pw = sz.x; ph = sz.y; }        // rear chase, slightly above
   const fit = Math.max(ph * 0.5 / Math.tan(vfov / 2), pw * 0.5 / Math.tan(hfov / 2));
   cam.position.copy(ctr).addScaledVector(dir.normalize(), fit * fitMul);
