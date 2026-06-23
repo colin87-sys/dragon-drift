@@ -371,10 +371,10 @@ const RINGS = [
   ['chest', -1.70, 0.42, 0.74, 0.94],     // deepest mass — tall, but not wide
   ['chest', -0.85, 0.35, 0.70, 0.86],     // torso extended further AFT (longer torso)
   ['waist', 0.00, 0.27, 0.42, 0.48],      // waist pinch
-  ['hip', 0.85, 0.24, 0.60, 0.70],        // hip / engine mass
-  ['hip', 1.55, 0.16, 0.50, 0.58],
-  ['tailbase', 2.10, 0.09, 0.44, 0.52],   // tail starts LATER → shorter tail
-  ['tail', 2.60, 0.03, 0.34, 0.40],
+  ['hip', 0.85, 0.24, 0.68, 0.70],        // hip / engine mass (widened ~13% for the pods)
+  ['hip', 1.55, 0.16, 0.58, 0.58],
+  ['tailbase', 2.10, 0.09, 0.34, 0.50],   // NARROW central tail spine (width) but still tall/strong
+  ['tail', 2.60, 0.03, 0.28, 0.38],
   ['tail', 3.10, -0.02, 0.26, 0.30],
   ['tail', 3.60, -0.06, 0.19, 0.22],      // clean tapered shaft (no fins along here)
   ['tail', 4.10, -0.08, 0.13, 0.15],
@@ -443,16 +443,20 @@ export function buildSVJDragon(knobs = {}) {
   hipCore.position.set(0, hp[2] - 0.02, hp[1] + 0.2); root.add(hipCore);
   for (const s of [-1, 1]) {                                                     // tapered gold haunch wedges
     const haunch = wedgeBlock(0.9, hp[4] * 1.5, 0.44, hp[4] * 0.9, 0.4, M.gold, 'hipArmor');
-    haunch.position.set(s * hp[3] * 0.55, hp[2] + hp[4] * 0.15, hp[1] + 0.2);
+    haunch.position.set(s * hp[3] * 0.6, hp[2] + hp[4] * 0.15, hp[1] + 0.2);
     haunch.rotation.set(Math.PI / 2, 0, s * 0.45); root.add(haunch);
   }
-  // gold rear cowl wrapping the thruster mounts → the tail grows from a real chassis
-  const cowl = tag(new THREE.BoxGeometry(hp[3] * 1.5, hp[4] * 1.1, 0.55), M.gold, 'hipArmor');
-  cowl.position.set(0, hp[2], hpBack[1] + 0.16); root.add(cowl);
-  // twin thrusters set into the hip rear, flanking the tail base
-  const thrusters = [];
+  // central TAIL SOCKET — a narrow gold collar so the tail emerges from a clear
+  // CENTRAL spine between the two engine pods (rear reads: pod | tail | pod).
+  const socket = tag(new THREE.CylinderGeometry(tb[3] * 1.2, tb[3] * 1.35, 0.45, 8), M.gold, 'hipArmor');
+  socket.rotation.x = Math.PI / 2; socket.position.set(0, tb[2] + 0.05, tb[1] - 0.25); root.add(socket);
+  // twin ENGINE PODS — moved OUTBOARD + angled OUTWARD so both thrusters stay
+  // readable in rear & rear-3/4 (clear of the now-narrower central tail).
+  const thrusters = []; const podX = hp[3] * 0.66, podZ = hpBack[1] + 0.36, podYaw = rad(16);
   for (const s of [-1, 1]) {
-    const t = thrusterPod(M); t.position.set(s * hp[3] * 0.5, hp[2] - 0.02, hpBack[1] + 0.36); root.add(t); thrusters.push(t);
+    const housing = tag(new THREE.BoxGeometry(0.42, hp[4] * 0.85, 0.66), M.gold, 'hipArmor');
+    housing.position.set(s * podX, hp[2], podZ - 0.08); housing.rotation.y = s * podYaw; root.add(housing);
+    const t = thrusterPod(M); t.position.set(s * podX, hp[2] - 0.02, podZ); t.rotation.y = s * podYaw; root.add(t); thrusters.push(t);
   }
   // rear diffuser under the hip mass
   const diff = diffuser(M); diff.position.set(0, hp[2] - hp[4] * 0.95, hpBack[1] + 0.1); root.add(diff);

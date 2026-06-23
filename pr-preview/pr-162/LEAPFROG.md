@@ -3229,3 +3229,15 @@ Two reusable bits: (1) **a side-on reference gives you the spine's thickness + c
 back/belly contour tracing — median-filter the belly to delete legs, interpolate the back under the wing. (2)
 **a side image cannot constrain WIDTH** — if it "looks too thick" but the traced (vertical) thickness matches,
 the culprit is hw; slim it independently. Don't pin decoration to absolute coords that a proportion change moves.
+
+## Lesson — Rear thrusters were occluded because they sat INSIDE the tail width; fixed by making the tail a narrow central spine flanked by outboard angled engine pods.
+
+Human: in rear / rear-3/4 the tail hides the twin thrusters; keep both + keep the tail, don't just bloat the
+hips. Root cause: thrusters were at ±(hip hw·0.5)=±0.30 but the tail BASE was ±0.44 wide — the tail was WIDER
+than the thruster separation, so it covered them. Fix (all per the brief): widened the hip ~13%, narrowed the
+tail base WIDTH 0.44→0.34 (kept its HEIGHT 0.50 so it still reads strong/tall in side profile), pushed the pods
+out to ±(hip hw·0.66)=±0.45 and yawed each outward 16° so the cores face out-and-back, and added a central gold
+tail SOCKET collar so the tail emerges from a clear central spine. Rear now reads "pod | tail spine | pod".
+Reusable: a centered tail will always occlude centered thrusters unless tail_halfwidth < thruster_offset — make
+the tail NARROW (in width, not height) and move the pods OUTSIDE it; a slight outward yaw keeps the cores lit
+from rear-3/4. Decoupling tail width from tail height is the trick (narrow but still tall = strong + readable).
