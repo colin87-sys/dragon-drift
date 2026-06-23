@@ -340,7 +340,19 @@ function wingSystem(side, M) {
   // small lower gold STRAKE under the rear root (subordinate support fin)
   outer.add(flatPanel([[0.0, 1.55], [-0.42, 2.15], [0.06, 2.25]], 0.04, M.gold, 'secondaryBlade'));
 
+  // wingtip AIR-SLICE streak (VFX) — a thin additive ribbon trailing aft from the
+  // tip; driven (opacity/scale) by the animator only on a hard bank. Zero-scaled +
+  // hidden by default so the static showcase never shows it.
+  const tipTrailMat = new THREE.MeshBasicMaterial({
+    color: new THREE.Color('#eaf7ff'), transparent: true, opacity: 0,
+    blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide,
+  });
+  const tipTrail = tag(new THREE.BoxGeometry(0.015, 0.05, 2.4), tipTrailMat, 'vfxTrail');
+  tipTrail.position.set(0, A[0] + (T[0] - A[0]), T[1] + 1.15);   // at the spear tip, extending aft
+  tipTrail.visible = false; tipTrail.scale.z = 0.001; outer.add(tipTrail);
+
   root.userData.hinge = hinge; root.userData.outer = outer;
+  root.userData.tipTrail = tipTrail; root.userData.tipTrailMat = tipTrailMat;
   return root;
 }
 // flat swept aero blade in the X(span)-Z(chord) plane
@@ -381,6 +393,35 @@ const RINGS = [
   ['tail', 4.55, -0.08, 0.08, 0.09],
   ['tail', 4.95, -0.05, 0.05, 0.05],
 ];
+
+// ── VFX RIG: additive boost/surge effects (tail comet, thruster shock rings, surge
+// aura). The animator (svjAnim.js) owns their scale/opacity/colour; everything is
+// zero-scaled + hidden here so the static showcase + proof renders are untouched.
+function buildVfx(M, tipY, tailTipZ, hipY) {
+  const grp = new THREE.Group(); grp.name = 'svjVfx';
+  const addMat = (c, back = false) => new THREE.MeshBasicMaterial({
+    color: new THREE.Color(c), transparent: true, opacity: 0,
+    blending: THREE.AdditiveBlending, depthWrite: false,
+    side: back ? THREE.BackSide : THREE.DoubleSide,
+  });
+  // tail comet trail — a cone streaming aft (+Z) from the tail tip
+  const tailMat = addMat('#ff2a14');
+  const tailTrail = tag(new THREE.ConeGeometry(0.16, 1.4, 10), tailMat, 'vfxTrail');
+  tailTrail.rotation.x = -Math.PI / 2; tailTrail.position.set(0, tipY, tailTipZ + 0.7);
+  tailTrail.visible = false; tailTrail.scale.setScalar(0.001); grp.add(tailTrail);
+  // shock-ring pool behind the thrusters
+  const rings = [], ringZ = 2.0;
+  for (let i = 0; i < 3; i++) {
+    const r = tag(new THREE.TorusGeometry(0.5, 0.045, 5, 18), addMat('#ffb060'), 'vfxRing');
+    r.position.set(0, hipY, ringZ); r.visible = false; r.scale.setScalar(0.001); r.userData._age = 1;
+    grp.add(r); rings.push(r);
+  }
+  // surge aura — an elongated back-lit shell around the body
+  const auraMat = addMat('#ff2bd0', true);
+  const aura = tag(new THREE.SphereGeometry(1.0, 16, 10), auraMat, 'vfxAura');
+  aura.position.set(0, 0.18, 0.4); aura.visible = false; aura.scale.setScalar(0.001); grp.add(aura);
+  return { group: grp, handles: { tailTrail, tailMat, rings, ringZ, aura, auraMat } };
+}
 
 export function buildSVJDragon(knobs = {}) {
   const M = svjMaterials();
@@ -499,11 +540,14 @@ export function buildSVJDragon(knobs = {}) {
   // dorsal back-ridge vents following the curve (chest + hip crowns)
   for (const [, z, cy, , hh] of [ch, hp]) { const v = ventTriple(M, 1.1); v.position.set(0, cy + hh + 0.04, z); root.add(v); }
 
+  // VFX rig (boost/surge effects) — hidden until the animator drives it
+  const vfx = buildVfx(M, lastTail[2], tailTipZ, hp[2]); root.add(vfx.group);
+
   root.updateMatrixWorld(true);
   root.userData.anim = {
     wings, thrusters, tailSegs,
     glowMats: [M.red, M.thruster, M.eye],
-    materials: M, tailTipZ,
+    materials: M, tailTipZ, vfx: vfx.handles,
   };
   return { group: root, materials: M };
 }

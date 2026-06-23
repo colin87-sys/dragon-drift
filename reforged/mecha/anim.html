@@ -26,13 +26,14 @@
 </head>
 <body>
 <canvas id="c"></canvas>
-<div class="hud"><h1>SVJ MECHA DRAGON</h1><p>motion test · jet-steer + transform · real bloom</p></div>
+<div class="hud"><h1>SVJ MECHA DRAGON</h1><p>active-aero · cruise / bank / pitch / boost / surge / brake · real bloom</p></div>
 <div class="hint">drag to orbit · pinch / scroll / ± to zoom</div>
 <div class="panel">
   <div class="row"><label>Bank</label><input id="bank" type="range" min="-1" max="1" step="0.01" value="0"><span class="v" id="bankv">0</span></div>
   <div class="row"><label>Pitch</label><input id="pitch" type="range" min="-1" max="1" step="0.01" value="0"><span class="v" id="pitchv">0</span></div>
   <div class="row"><label>Boost</label><input id="boost" type="range" min="0" max="1" step="0.01" value="0"><span class="v" id="boostv">0</span></div>
   <div class="row"><label>Surge</label><input id="surge" type="range" min="0" max="1" step="0.01" value="0"><span class="v" id="surgev">0</span></div>
+  <div class="row"><label>Brake</label><input id="airbrake" type="range" min="0" max="1" step="0.01" value="0"><span class="v" id="airbrakev">0</span></div>
   <div class="row"><label>Speed</label><input id="speed" type="range" min="0" max="1" step="0.01" value="0.35"><span class="v" id="speedv">.35</span></div>
   <div class="toggles"><button id="demo" class="on">AUTO-DEMO</button><button id="spin">TURNTABLE</button></div>
 </div>
@@ -107,21 +108,23 @@ addEventListener('resize', resize); renderer.setSize(innerWidth, innerHeight); b
 
 // ── controls ──────────────────────────────────────────────────────────────────
 let demo = true;
-const ids = ['bank', 'pitch', 'boost', 'surge', 'speed'];
+const ids = ['bank', 'pitch', 'boost', 'surge', 'airbrake', 'speed'];
 const el$ = Object.fromEntries(ids.map((k) => [k, document.getElementById(k)]));
 const v$ = Object.fromEntries(ids.map((k) => [k, document.getElementById(k + 'v')]));
 ids.forEach((k) => el$[k].addEventListener('input', () => { demo = false; document.getElementById('demo').classList.remove('on'); }));
 document.getElementById('demo').addEventListener('click', (e) => { demo = !demo; e.target.classList.toggle('on', demo); });
 document.getElementById('spin').addEventListener('click', (e) => { spin = !spin; e.target.classList.toggle('on', spin); });
 
-// scripted auto-demo timeline → showcases each motion in turn
+// scripted auto-demo timeline → showcases each motion / state in turn
 function demoState(t) {
-  const p = t % 20, w = Math.sin(t * 1.3);
-  if (p < 3)  return { bank: 0, pitch: 0, boost: 0, surge: 0, speed: 0.3 };          // cruise
-  if (p < 8)  return { bank: w, pitch: 0.2 * w, boost: 0, surge: 0, speed: 0.5 };     // weave / bank
-  if (p < 11) return { bank: 0, pitch: Math.sin(t * 0.9), boost: 0, surge: 0, speed: 0.5 }; // pitch
-  if (p < 15) return { bank: 0.4 * w, pitch: -0.15, boost: 1, surge: 0, speed: 1 };   // boost (tuck + flame)
-  return { bank: 0.6 * w, pitch: 0, boost: 1, surge: 1, speed: 1 };                   // surge battle-mode
+  const p = t % 24, w = Math.sin(t * 1.3);
+  const z = { bank: 0, pitch: 0, boost: 0, surge: 0, airbrake: 0, speed: 0.3 };
+  if (p < 3)  return { ...z };                                                                 // cruise
+  if (p < 8)  return { ...z, bank: w, pitch: 0.2 * w, speed: 0.5 };                            // weave / bank
+  if (p < 11) return { ...z, pitch: Math.sin(t * 0.9), speed: 0.5 };                           // pitch climb/dive
+  if (p < 15) return { ...z, bank: 0.4 * w, pitch: -0.15, boost: 1, speed: 1 };                // boost (tuck + flame)
+  if (p < 19) return { ...z, bank: 0.6 * w, boost: 1, surge: 1, speed: 1 };                    // surge battle-mode
+  return { ...z, airbrake: 1, pitch: 0.15, speed: 0.15 };                                      // airbrake / decel
 }
 
 let bodyRoll = 0, bodyBob = 0;
@@ -133,18 +136,22 @@ function frame() {
     st = demoState(t);
     ids.forEach((k) => { el$[k].value = st[k]; v$[k].textContent = (+st[k]).toFixed(2).replace(/^0/, '').replace(/^-0/, '-'); });
   } else {
-    st = { bank: +el$.bank.value, pitch: +el$.pitch.value, boost: +el$.boost.value, surge: +el$.surge.value, speedNorm: +el$.speed.value };
+    st = { bank: +el$.bank.value, pitch: +el$.pitch.value, boost: +el$.boost.value, surge: +el$.surge.value, airbrake: +el$.airbrake.value, speedNorm: +el$.speed.value };
     ids.forEach((k) => v$[k].textContent = (+el$[k].value).toFixed(2).replace(/^0/, '').replace(/^-0/, '-'));
   }
   if (st.speed !== undefined) st.speedNorm = st.speed;
 
   updateSVJ(dragon, dt, st);                                  // ← the shared driver
 
-  // host-side body motion (the game does this too): roll into the bank + bob/vibe
-  bodyRoll = lerp(bodyRoll, -st.bank * 0.5, 1 - Math.exp(-6 * dt));
-  bodyBob = lerp(bodyBob, st.pitch * 0.25, 1 - Math.exp(-5 * dt));
+  // host-side body motion (the game does this too): the driver reports the desired
+  // roll/pitch into the manoeuvre; the host eases the body there + adds engine vibe.
+  const A = dragon.userData.anim;
+  bodyRoll = lerp(bodyRoll, A._bodyRoll || 0, 1 - Math.exp(-7 * dt));
+  bodyBob = lerp(bodyBob, A._bodyPitch || 0, 1 - Math.exp(-6 * dt));
   pivot.rotation.z = bodyRoll;
-  pivot.position.y = bodyBob + (dragon.userData.anim._vibration || 0);
+  pivot.rotation.x = bodyBob;
+  pivot.rotation.y = A._bodyYaw || 0;
+  pivot.position.y = (A._vibration || 0);
   if (spin) az += 0.004;
 
   place(); headlight.position.copy(camera.position);
