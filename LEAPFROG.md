@@ -3379,3 +3379,31 @@ Testing seam: `?dev` (main.js) already iterates `Object.keys(DRAGONS)` to own+ma
 a new roster entry is auto-included — the human can append `?dev`, open the shop, equip, and fly with zero extra
 plumbing. (No WebGL in CI — the browser shop test times out on Chromium regardless; verified that timeout is
 pre-existing by stashing the change. defs/economy/ascension/blueprint all green.)
+
+## Lesson — We are NOT blind: headless Chromium + SwiftShader renders the REAL game in-session. Use `tools/shot.mjs`.
+
+The long-standing "no WebGL in CI" assumption is STALE. This container ships headless Chromium
+(`/opt/pw-browsers/chromium-1194`) + a Playwright bootstrap (`tests/browser.mjs`) + a static server
+(`tests/serve.mjs`). Launching with `--enable-unsafe-swiftshader --use-gl=angle --use-angle=swiftshader`
+gives **WebGL 2.0 via SwiftShader (no GPU)** — the FULL shaded pipeline renders: ACES, UnrealBloom, the rim
+light, emissive glow, everything. Verified by loading `mecha/ingame.html` headless and screenshotting the real
+SVJ with bloom. So a session can SEE the real render and judge it autonomously — no human paste, no GH Actions
+(which would bloat the repo with committed images), no env/network change.
+
+New reusable tool: **`tools/shot.mjs <dragonKey> [tier] [outDir] [views]`** + `tools/shot.html`. shot.html builds
+ANY roster dragon through the real `buildDragonModel` + `applyRim` + ACES + UnrealBloom and frames it
+(rear=chase-cam / threeq / side / top, auto-fit bounding sphere); shot.mjs drives headless Chromium, writes PNGs
+the agent Reads, and prints WORLD DIMENSIONS (height·width·length + aspect ratios). The dimensions are an
+objective readability gate: a normal apex (Solar) is **height/width ≈ 0.43** (wide + low), while the SVJ mecha is
+**1.00** (as tall as wide) — that single number explains why the SVJ "blocks vision" from the chase cam, with no
+human in the loop. Screenshots go to the scratchpad (throwaway); only the tiny tool is committed — zero repo bloat.
+
+Reusable rules:
+- For PROPORTIONS/silhouette you don't even need WebGL — the CPU rasterizer (`tools/chassisRenderCore.mjs`,
+  `mecha/proof.mjs`) already does coverage/IoU. Use shot.mjs when you also want the REAL shaded look (toon/rim/bloom)
+  or per-state poses.
+- Bank a chase-cam readability gate: target height/width ≈ 0.4–0.6 for a flyable dragon; ~1.0 means it towers and
+  occludes the lane (the SVJ's bug).
+- Process: this collapses the "human judges every micro-change" bottleneck for everything visual EXCEPT live 60fps
+  motion-feel on a weak device — that last mile still wants a human/phone. Proportions, framing, shaded look, and
+  boost/surge pose states are now agent-judgeable.

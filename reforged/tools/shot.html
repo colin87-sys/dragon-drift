@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>dragon shot harness</title>
+<style>html,body{margin:0;height:100%;background:#11161f;overflow:hidden}#c{display:block;width:100vw;height:100vh}</style>
+<script type="importmap">{ "imports": { "three": "../lib/three.module.js" } }</script>
+</head>
+<body>
+<canvas id="c"></canvas>
+<script type="module">
+// Headless render harness: builds ANY roster dragon through the REAL pipeline
+// (buildDragonModel + fresnel rim + ACES + UnrealBloom) and frames it from a chosen
+// view, so tools/shot.mjs can screenshot it. Params:
+//   ?dragon=<key>&tier=0..3&view=rear|side|threeq|top&surge=0|1
+import * as THREE from 'three';
+import { EffectComposer } from '../lib/postprocessing/EffectComposer.js';
+import { RenderPass } from '../lib/postprocessing/RenderPass.js';
+import { UnrealBloomPass } from '../lib/postprocessing/UnrealBloomPass.js';
+import { OutputPass } from '../lib/postprocessing/OutputPass.js';
+import { DRAGONS } from '../js/dragons.js';
+import { ascendedDef } from '../js/ascension.js';
+import { buildDragonModel } from '../js/dragonModel.js';
+import { applyRim, updateRim, resetRim } from '../js/rimLight.js';
+
+const P = new URLSearchParams(location.search);
+const key = P.get('dragon') || 'azure';
+const tier = Math.max(0, Math.min(3, +(P.get('tier') ?? 3)));
+const view = P.get('view') || 'rear';
+const surge = P.get('surge') === '1';
+
+const canvas = document.getElementById('c');
+const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
+renderer.setPixelRatio(1);
+renderer.toneMapping = THREE.ACESFilmicToneMapping; renderer.toneMappingExposure = 1.05;
+renderer.outputColorSpace = THREE.SRGBColorSpace;
+renderer.setSize(innerWidth, innerHeight);
+
+const scene = new THREE.Scene();
+// game-matched lighting (mirrors the in-game key/hemi/fill + a camera headlight)
+const sun = new THREE.DirectionalLight(0xffe0b0, 1.7); sun.position.set(-60, 45, -150); scene.add(sun);
+scene.add(new THREE.HemisphereLight(0xd2e2ff, 0x4a4636, 1.2));
+const fill = new THREE.DirectionalLight(0xcfe0ff, 0.75); fill.position.set(60, 18, 120); scene.add(fill);
+const headlight = new THREE.DirectionalLight(0xffffff, 0.85); scene.add(headlight);
+const sky = new THREE.Mesh(new THREE.SphereGeometry(120, 32, 16), new THREE.ShaderMaterial({
+  side: THREE.BackSide,
+  uniforms: { top: { value: new THREE.Color(0x3f7ec8) }, mid: { value: new THREE.Color(0xe0a070) }, horizon: { value: new THREE.Color(0xffe2a8) } },
+  vertexShader: 'varying vec3 vp; void main(){ vp = position; gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.0); }',
+  fragmentShader: `varying vec3 vp; uniform vec3 top,mid,horizon; void main(){ float h = normalize(vp).y;
+    vec3 c = h>0.0 ? mix(mid, top, smoothstep(0.0,0.55,h)) : mix(horizon, mid, smoothstep(-0.25,0.0,h)); gl_FragColor = vec4(c,1.0); }`,
+}));
+scene.add(sky);
+
+// build the dragon through the real pipeline
+const def = ascendedDef(DRAGONS[key], tier, 0);
+const result = buildDragonModel(def);
+const group = result.group;
+resetRim();
+const M = result.materials;
+if (M.bodyMat) applyRim(M.bodyMat, { strength: 0.5, power: 3.2, mul: def.rimBodyMul ?? 1 });
+if (M.wingMat) applyRim(M.wingMat, { strength: 0.5, power: 2.4 });
+for (const m of (M.spineMats || [])) applyRim(m, { strength: 0.5, power: 3.0 });
+updateRim(new THREE.Color(0xfff0d8), 0.6);
+if (surge && M.wingMat) { M.wingMat.emissiveIntensity = 1.2; }
+group.rotation.set(0, 0, 0);
+scene.add(group);
+
+// frame the dragon: fit its bounding sphere for the chosen view direction
+group.updateMatrixWorld(true);
+const box = new THREE.Box3().setFromObject(group);
+const sphere = box.getBoundingSphere(new THREE.Sphere());
+const ctr = sphere.center, R = sphere.radius;
+const fov = 42;
+const camera = new THREE.PerspectiveCamera(fov, innerWidth / innerHeight, 0.1, 400);
+const dist = R / Math.sin((fov * Math.PI / 180) / 2) * 1.08;
+// dragon faces -Z (head), tail +Z toward the chase cam
+const dirs = {
+  rear:   new THREE.Vector3(0.0,  0.32, 1.0),   // behind + slightly above = the chase cam
+  side:   new THREE.Vector3(1.0,  0.06, 0.02),
+  threeq: new THREE.Vector3(0.72, 0.30, 0.62),
+  top:    new THREE.Vector3(0.0,  1.0,  0.18),
+};
+const d = (dirs[view] || dirs.rear).clone().normalize();
+camera.position.copy(ctr).add(d.multiplyScalar(dist));
+camera.lookAt(ctr);
+
+const rt = new THREE.WebGLRenderTarget(innerWidth, innerHeight, { type: THREE.HalfFloatType, samples: 4 });
+const composer = new EffectComposer(renderer, rt);
+composer.addPass(new RenderPass(scene, camera));
+composer.addPass(new UnrealBloomPass(new THREE.Vector2(innerWidth, innerHeight), 0.38, 0.5, 0.95));
+composer.addPass(new OutputPass());
+
+let frames = 0;
+function frame() {
+  headlight.position.copy(camera.position);
+  composer.render();
+  if (++frames === 4) window.__shotReady = true;   // let materials/bloom settle
+  requestAnimationFrame(frame);
+}
+frame();
+window.__shotMeta = { key, tier, view, radius: +R.toFixed(2), height: +(box.max.y - box.min.y).toFixed(2), width: +(box.max.x - box.min.x).toFixed(2), length: +(box.max.z - box.min.z).toFixed(2) };
+</script>
+</body>
+</html>
