@@ -49,19 +49,22 @@ def render_voice(buf, events, kind, vol, eighth, stack=None):
                     buf[idx] += s*vol*env
         t += seglen
 
-def expand_arps(arps, eighth):
+def expand_arps(arps, eighth=None):
+    # Match the engine (sfx.js): each 8-note cycle plays TWICE per bar at
+    # 16th-note spacing (E8/2), so a bar holds 16 arp slots of half an eighth.
     ev = []
     for bar in range(8):
         cyc = arps[bar % len(arps)]
-        for note in cyc:
-            ev.append([note, 1])
+        for _cycle in range(2):
+            for note in cyc:
+                ev.append([note, 0.5])
     return ev
 
 def render_track(tr):
     bpm = tr["bpm"]
     eighth = (60.0/bpm)/2.0           # seconds per eighth note
     loop = 64 * eighth                # 8 bars * 8 eighths
-    total = int(loop*SR)+SR//4
+    total = int(loop*SR)              # exact loop length (matches documented seconds)
     buf = [0.0]*total
     v = tr["voices"]
     render_voice(buf, tr["melody"], v["melody"]["osc"], v["melody"]["vol"], eighth, v["melody"].get("stack"))
@@ -69,13 +72,7 @@ def render_track(tr):
     render_voice(buf, tr["high"],   v["high"]["osc"],   v["high"]["vol"],   eighth)
     if tr.get("arps"):
         render_voice(buf, expand_arps(tr["arps"], eighth), v["arp"]["osc"], v["arp"]["vol"], eighth)
-    # pad chords: each bar one chord held whole bar
-    if tr.get("pad") and tr.get("chords"):
-        for bar, chord in enumerate(tr["chords"][:8]):
-            for f in chord:
-                render_voice(buf, [[f, 8]], v["arp"]["osc"], 0.05, eighth)
-            # offset into the right bar
-        # (re-render with offset) -- simpler: build sequential rest+chord per bar
+    # pad chords are rendered (with correct per-bar offset) by add_pad() below.
     # kick: four-on-the-floor for groove
     kick = tr["drums"].get("kick", 0)
     if kick:
@@ -146,11 +143,13 @@ def midi_track(events, program, channel):
     return b'MTrk' + struct.pack('>I', len(data)) + bytes(data)
 
 def seq_events(rows, eighth_ticks):
+    # dur may be fractional (0.5-eighth arp slots) — keep ticks integral.
     ev = []; t = 0
     for freq, dur in rows:
+        d = int(round(dur*eighth_ticks))
         if freq and freq > 0:
-            ev.append((t, dur*eighth_ticks, freq_to_midi(freq), 96))
-        t += dur*eighth_ticks
+            ev.append((t, d, freq_to_midi(freq), 96))
+        t += d
     return ev
 
 def write_midi(path, tr):
