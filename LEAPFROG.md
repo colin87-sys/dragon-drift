@@ -2980,3 +2980,44 @@ dragon from a guessed wing rig + connection would have been the very "back-and-f
 human's next trace (wing rig + joint + body outline); extend `deriveWingForm` to estimate `scallop` from the
 mean finger-notch depth; add tail/head rig modes the same way; overlay the BUILT silhouette behind the trace
 so correction is one screen.
+
+### L89 — Clean-sheet creature path: a NAMED-ANCHOR rear-cam silhouette blueprint, solved as a 2D logo BEFORE any 3D
+The human's frustration with the roster's creature generation is structural: **bolting parts from other
+dragons cages every wing in an archetype** — certain bodies dictate how/where wings can attach, so "a new
+kind of wing" keeps collapsing back into the shipped silhouettes. The fix is not another part builder; it is
+a different *source of truth*. New coexisting system (zero roster touch), the **Celestial Storm / Prism
+Wyvern**:
+- **`js/celestialStormSpec.js`** — the creature is DEFINED by named anchor points in a normalized rear-cam
+  frame (X horizontal, Y up, Z subtle; origin at the wing root; symmetric across X=0). Body stations +
+  widths, wing `root→elbow→wrist→tip` leading bones + four trailing scallop anchors, dorsal-spine ramp,
+  tail-spear, horns, vein runs, style, and **`silhouetteRules`** (the invariants the read must keep). The
+  right wing is `mirrorWing(left)` — authored once, symmetric by construction.
+- **`js/celestialStormSilhouette.js`** — PURE (no three, no DOM): spec → named 2D paths (body hull lofted via
+  Catmull-Rom width profile, 3 membrane panels, finger-spoke bones, an **outward-bowed scalloped trailing
+  edge**, seeded-jitter lightning veins, tapering diamond spine plates, spear+fins, horn V). Same blueprint
+  feeds the renderer, the test, the 3D extrusion later.
+- **`tools/celestialSilhouette.mjs`** — headless software rasterizer (scanline fill + disk-stamped strokes,
+  src-over alpha) → a colour PNG with **no WebGL** (Chromium is blocked here). This is the Phase-1 verify
+  loop: render, look, tune the *numbers*, repeat. First render already read as the concept: wide shallow-V
+  wings dominate, narrow glowing central spine, scalloped membrane, spear tail, small horned head.
+- **`tests/celestial.mjs`** — pins the `silhouetteRules` (wings dominate, body narrow, tips sharp+high+outer,
+  trailing edge sags in ≥3 bays, spine centred+tapering, spear is the lowest centred point, mirror symmetry,
+  vein determinism). 10 checks, so a future numeric tune can't silently break the read.
+- **`tools/celestialTracer.html`** — Phase-4 QA overlay: load the concept image behind the live generated
+  silhouette, **drag anchors** (left+body; right mirrors), number-only sliders (wingspan/tip-height/scallop/
+  body/tail/spine), export the tuned spec. "Adjust coordinates until it matches; never redesign mid-tune."
+
+Gotchas: (1) **don't import `silhouetteCore.mjs` for its PNG encoder** — it `await import`s three + the whole
+roster at module load; inline a ~15-line `pngRGBA` and the Phase-1 tool stays dependency-free + instant.
+(2) Vein jitter MUST be a **seeded** PRNG (`mulberry32`), not `Math.random`, or renders/tests aren't stable.
+(3) Renderer framing: map y=0 to `H/2 + midY*scale` to vertically CENTRE, else an X-limited fit pins the
+creature to the top. (4) `badges.mjs`/other Playwright tests fail in this sandbox (no browser) — that is
+pre-existing/environmental, not a regression; the pure-node tests + tricount are the real gate here.
+
+Reusable principle: **design the creature, don't assemble it — from named coordinates, mirrored rules, and a
+rear-readable 2D logo first; depth, materials, glow, animation come AFTER the silhouette is beautiful.** This
+is the same "blueprint not builders" thesis as the hull arc, but starting one level earlier (the *shape spec*
+itself) so a wing is no longer hostage to a body's attach geometry. **→ Leapfrog:** Phase 2 = extrude this
+exact blueprint to 3D (thin membranes, medium bones, raised spine, lofted body) keeping rear-readability;
+Phase 3 = materials/outline/glow; Phase 4 = wire the tracer overlay against the human's concept and converge
+the numbers; then register `celestialStorm` as a real creature via the grammar (coexist → hero → migrate).
