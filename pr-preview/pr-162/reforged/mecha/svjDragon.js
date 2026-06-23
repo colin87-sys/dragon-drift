@@ -110,32 +110,46 @@ function spineSegment(len, r, taper, M, opts = {}) {
   return g;
 }
 
-// ── MODULE: SVJ wedge head (sports-car nose fused to a dragon skull) ──────────
-function headWedge(M) {
-  const g = new THREE.Group();
-  // low angular wedge: nose tip at -Z, wide low rear at +Z
-  const v = [[0, 0.0, -0.9], [-0.42, -0.13, 0.1], [0.42, -0.13, 0.1], [0.4, 0.2, 0.1], [-0.4, 0.2, 0.1]];
+// ── MODULE: mechanical dragon SKULL (tall cranium, short snout, distinct jaw) ──
+// a quick 5-vert wedge helper (pointed -Z nose, quad base at +Z)
+function wedgeMesh(noseZ, baseZ, hw, hb, ht, mat, role) {
+  const v = [[0, (hb - ht) * 0, noseZ], [-hw, hb, baseZ], [hw, hb, baseZ], [hw, ht, baseZ], [-hw, ht, baseZ]];
   const pos = [], idx = []; v.forEach((p) => pos.push(...p));
   idx.push(0, 1, 2, 0, 2, 3, 0, 3, 4, 0, 4, 1, 1, 4, 3, 1, 3, 2);
-  const geo = new THREE.BufferGeometry();
-  geo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); geo.setIndex(idx); geo.computeVertexNormals();
-  g.add(tag(geo, M.gold, 'headShell'));
-  // black recessed eye sockets + glowing cyan eyes
+  const g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.setIndex(idx); g.computeVertexNormals();
+  return tag(g, mat, role);
+}
+function headWedge(M) {
+  const g = new THREE.Group();
+  // CRANIUM — tall angular skull mass at the back (the "brain case")
+  const cran = tag(new THREE.BoxGeometry(0.5, 0.46, 0.5), M.gold, 'headShell');
+  cran.position.set(0, 0.08, 0.2); g.add(cran);
+  // forehead / brow plane sloping down toward the snout
+  const fore = tag(new THREE.BoxGeometry(0.46, 0.14, 0.46), M.goldDark, 'browVent');
+  fore.position.set(0, 0.3, -0.04); fore.rotation.x = rad(16); g.add(fore);
+  // SNOUT — short tapered upper jaw (shorter than the old long nose)
+  const snout = wedgeMesh(-0.6, -0.04, 0.24, 0.17, -0.13, M.gold, 'headShell');
+  snout.position.set(0, 0.0, 0); g.add(snout);
+  // LOWER JAW — a clearly distinct angular jaw, hinged at the back, slightly open
+  const jaw = wedgeMesh(-0.5, 0.06, 0.2, 0.08, -0.12, M.goldDark, 'jawBlade');
+  jaw.position.set(0, -0.2, -0.02); jaw.rotation.x = -rad(7); g.add(jaw);
   for (const s of [-1, 1]) {
-    const socket = tag(new THREE.BoxGeometry(0.16, 0.1, 0.16), M.carbon, 'eyeSocket');
-    socket.position.set(s * 0.26, 0.05, -0.18); socket.rotation.y = s * 0.3; g.add(socket);
-    const eye = tag(new THREE.BoxGeometry(0.09, 0.05, 0.09), M.eye, 'eye');
-    eye.position.set(s * 0.27, 0.06, -0.22); eye.rotation.y = s * 0.3; g.add(eye);
-    // backward-swept horn fin
-    g.add(strut(V(s * 0.32, 0.18, 0.05), V(s * 0.5, 0.5, 0.7), 0.05, 0.16, M.goldDark, 'hornFin'));
-    // diagonal brow vent
-    const brow = tag(new THREE.BoxGeometry(0.22, 0.04, 0.04), M.carbon, 'browVent');
-    brow.position.set(s * 0.2, 0.21, -0.18); brow.rotation.set(0, 0, s * 0.5); g.add(brow);
+    // cheek / jaw-hinge plate
+    const cheek = tag(new THREE.BoxGeometry(0.1, 0.24, 0.26), M.gold, 'headShell');
+    cheek.position.set(s * 0.26, -0.02, 0.06); cheek.rotation.y = s * 0.2; g.add(cheek);
+    // recessed eye socket + glowing cyan eye, set into the brow
+    const socket = tag(new THREE.BoxGeometry(0.15, 0.12, 0.14), M.carbon, 'eyeSocket');
+    socket.position.set(s * 0.24, 0.1, -0.13); socket.rotation.y = s * 0.3; g.add(socket);
+    const eye = tag(new THREE.BoxGeometry(0.08, 0.06, 0.08), M.eye, 'eye');
+    eye.position.set(s * 0.26, 0.11, -0.17); g.add(eye);
+    // backward-swept horn from the skull crown
+    g.add(strut(V(s * 0.24, 0.32, 0.18), V(s * 0.5, 0.7, 0.78), 0.06, 0.17, M.goldDark, 'hornFin'));
   }
-  // lower jaw blade panels
-  const jaw = tag(new THREE.BoxGeometry(0.5, 0.08, 0.5), M.goldDark, 'jawBlade');
-  jaw.position.set(0, -0.16, -0.1); jaw.rotation.x = 0.12; g.add(jaw);
-  g.userData.sockets = { neck_socket: V(0, 0.03, 0.1) };
+  // thick NECK COLLAR so the head reads as attached to a real neck, not a spike
+  const collar = tag(new THREE.CylinderGeometry(0.28, 0.34, 0.22, 8), M.carbon, 'headShell');
+  collar.rotation.x = Math.PI / 2; collar.position.set(0, 0.04, 0.38); g.add(collar);
+  g.userData.sockets = { neck_socket: V(0, 0.04, 0.4) };
   return g;
 }
 
@@ -223,7 +237,7 @@ function bladePath(s, L, segA, angA, angC) {
   const aLen = segA * L;
   if (s <= segA) { const d = s * L; return [Math.sin(angA) * d, Math.cos(angA) * d]; }
   const ky = Math.sin(angA) * aLen, kz = Math.cos(angA) * aLen, d = (s - segA) * L;
-  const convex = 0.05 * L * Math.sin((s - segA) / (1 - segA) * Math.PI);          // very subtle convex
+  const convex = 0.015 * L * Math.sin((s - segA) / (1 - segA) * Math.PI);         // barely-there bow → clean blade, not a banana
   return [ky + Math.sin(angC) * d, kz + Math.cos(angC) * d + convex];
 }
 const lerp3 = (s, a, b, c) => (s < 0.5 ? lerp(a, b, s / 0.5) : lerp(b, c, (s - 0.5) / 0.5));
@@ -284,16 +298,18 @@ function wingSystem(side, M) {
   // PRIMARY blade — broad delta root chord (≈80% torso) sweeping fast to a long
   // kinked needle. Length set against the head-to-tail master scale (see measure.mjs).
   const LP = 7.05;                                                                // primary root→tip length (model u)
-  // root thickness ~0.34 → a chunky armoured root that tapers to a thin tip (not a paper fin)
-  const prim = aeroBlade(LP, ROOT_CHORD, 0.5, 0.06, 0.34, 0.10, 0.035, 0.22, rad(62), rad(58), M.gold, 'outerWingBlade');
-  prim.position.set(0, 0, -0.45); outer.add(prim);
+  // 3-stage designed blade: thick broad ROOT (held wide through the kink) → a hard
+  // KINK at ~27% (steep root angA 68° → swept outer angC 50°) → long clean taper.
+  // root chord +20%, root thickness ~3× the mid (a thick armour blade, not a horn).
+  const prim = aeroBlade(LP, ROOT_CHORD * 1.2, 0.62, 0.05, 0.36, 0.12, 0.03, 0.27, rad(68), rad(50), M.gold, 'outerWingBlade');
+  prim.position.set(0, 0, -0.5); outer.add(prim);
   // dark recessed inner face panel hugging the blade (thin, inboard)
-  const primInner = aeroBlade(LP * 0.9, ROOT_CHORD * 0.7, 0.34, 0.05, 0.06, 0.03, 0.02, 0.22, rad(62), rad(58), M.carbon, 'wingInnerStruct');
-  primInner.position.set(-0.13, 0.02, -0.43); outer.add(primInner);
-  // SECONDARY blade — clearly smaller (≈64% len), dropped lower + behind with a
-  // clear negative-space gap so it reads as a distinct support fin under the main.
-  const sec = aeroBlade(LP * 0.64, ROOT_CHORD * 0.6, 0.3, 0.05, 0.16, 0.07, 0.03, 0.24, rad(56), rad(50), M.gold, 'secondaryBlade');
-  sec.position.set(-0.18, -0.3, 0.05); outer.add(sec);
+  const primInner = aeroBlade(LP * 0.9, ROOT_CHORD * 0.82, 0.42, 0.05, 0.06, 0.03, 0.02, 0.27, rad(68), rad(50), M.carbon, 'wingInnerStruct');
+  primInner.position.set(-0.14, 0.02, -0.48); outer.add(primInner);
+  // SECONDARY blade — ≈55% len, dropped well below + behind with a clear negative-
+  // space gap and a shallower sweep so it reads as a distinct support fin.
+  const sec = aeroBlade(LP * 0.55, ROOT_CHORD * 0.55, 0.26, 0.04, 0.16, 0.07, 0.03, 0.26, rad(52), rad(42), M.gold, 'secondaryBlade');
+  sec.position.set(-0.2, -0.42, 0.12); outer.add(sec);
 
   // ONE inset red Y-channel on each blade's dark inner face (structured, recessed)
   const yChan = (host, x, y, z, scl) => {
@@ -329,18 +345,18 @@ function bladeGeo(span, rootC, tipC, sweep, camber = 0.05) {
 // silhouette reads as a mechanical dragon, not a straight dragonfly fuselage.
 // rings: [role, z, cy(centreline height), hw(half-width), hh(half-height/depth)]
 const RINGS = [
-  ['neck', -3.35, 0.42, 0.22, 0.26],
-  ['neck', -2.88, 0.48, 0.32, 0.36],
-  ['shoulder', -2.32, 0.46, 0.58, 0.56],  // wider/deeper shoulder mass
-  ['chest', -1.75, 0.40, 0.72, 0.74],     // deepest + tallest mass (peak of the back arch)
-  ['chest', -1.18, 0.34, 0.64, 0.66],
-  ['waist', -0.52, 0.26, 0.38, 0.40],     // tighter pinch for contrast
-  ['hip', 0.18, 0.22, 0.68, 0.64],        // bulkier hip / engine mass
+  ['neck', -3.35, 0.44, 0.30, 0.32],      // thicker neck base (head attaches to a real neck)
+  ['neck', -2.88, 0.50, 0.40, 0.42],
+  ['shoulder', -2.32, 0.48, 0.62, 0.62],  // wider/deeper shoulder mass
+  ['chest', -1.75, 0.42, 0.76, 0.82],     // deepest + tallest mass (peak of the back arch)
+  ['chest', -1.18, 0.35, 0.68, 0.72],
+  ['waist', -0.52, 0.26, 0.36, 0.34],     // tighter pinch → clear hourglass contrast
+  ['hip', 0.18, 0.24, 0.70, 0.66],        // bulkier hip / engine mass (slight haunch rise)
   ['hip', 0.76, 0.16, 0.58, 0.56],
-  ['tailbase', 1.32, 0.08, 0.50, 0.52],   // thicker tail base
-  ['tail', 1.86, 0.01, 0.38, 0.40],
-  ['tail', 2.40, -0.05, 0.30, 0.31],
-  ['tail', 2.94, -0.09, 0.22, 0.23],      // gentle downward curve through the tail…
+  ['tailbase', 1.32, 0.08, 0.56, 0.60],   // thicker tail base
+  ['tail', 1.86, 0.01, 0.42, 0.44],
+  ['tail', 2.40, -0.05, 0.32, 0.33],
+  ['tail', 2.94, -0.09, 0.23, 0.24],      // gentle downward curve through the tail…
   ['tail', 3.48, -0.11, 0.16, 0.17],
   ['tail', 4.02, -0.10, 0.10, 0.11],
   ['tail', 4.56, -0.06, 0.06, 0.06],      // …with a slight tip lift (a living line, not a ruler)
@@ -369,8 +385,8 @@ export function buildSVJDragon(knobs = {}) {
 
   // HEAD at the front of the neck, dropped slightly + tilted down (head leads low)
   const n0 = RINGS[0];
-  const head = headWedge(M); head.scale.set(1.5, 1.45, 1.55);                   // bigger, clearer dragon head
-  head.position.set(0, n0[2] - 0.04, n0[1] - 0.62); head.rotation.x = rad(8); root.add(head);
+  const head = headWedge(M); head.scale.set(1.3, 1.35, 1.4);                    // mechanical skull
+  head.position.set(0, n0[2] - 0.02, n0[1] - 0.52); head.rotation.x = rad(7); root.add(head);
 
   // CHEST / SHOULDER armour — the main load-bearing block carrying head + wings.
   const ch = ring('chest'), sh = ring('shoulder');
@@ -426,13 +442,15 @@ export function buildSVJDragon(knobs = {}) {
       const leg = clawLeg(s, M); leg.position.set(s * hwc * 0.75, cyc - hhc * 0.82, zc); root.add(leg);
     }
 
-  // TAIL fins + spear on the tapering tail rings.
+  // TAIL fins + spear — HIERARCHICAL: larger near the body, smaller + more spaced
+  // down the tail (skip alternate rings so they don't read as a repetitive comb).
   for (let i = 9; i < RINGS.length; i++) {
     const [, z, cy, hw] = RINGS[i];
-    if (i >= 11) for (const s of [-1, 1]) {
-      const fin = tag(bladeGeo(0.55 + (RINGS.length - i) * 0.08, 0.36, 0.1, 0.28), M.goldDark, 'tailBladeFin');
-      fin.position.set(s * hw * 1.1, cy + 0.04, z); fin.rotation.set(rad(18), 0, s * rad(62)); fin.scale.x = s; root.add(fin);
-      const tl = chevron(M, 0.6); tl.position.set(s * hw * 1.25, cy + 0.04, z + 0.15); root.add(tl);
+    if (i >= 10 && i % 2 === 0) for (const s of [-1, 1]) {
+      const sz = 0.9 - (i - 10) * 0.13;                                          // fin scale shrinks toward the tip
+      const fin = tag(bladeGeo(sz, 0.4, 0.1, 0.32), M.goldDark, 'tailBladeFin');
+      fin.position.set(s * hw * 1.05, cy + 0.04, z); fin.rotation.set(rad(18), 0, s * rad(60)); fin.scale.x = s; root.add(fin);
+      const tl = chevron(M, 0.55 * sz); tl.position.set(s * hw * 1.2, cy + 0.04, z + 0.15); root.add(tl);
     }
   }
   const spear = tag(new THREE.ConeGeometry(lastTail[3] * 1.3, 0.7, 6), M.gold, 'tailSpear');
