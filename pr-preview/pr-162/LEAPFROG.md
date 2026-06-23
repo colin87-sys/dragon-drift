@@ -3241,3 +3241,16 @@ tail SOCKET collar so the tail emerges from a clear central spine. Rear now read
 Reusable: a centered tail will always occlude centered thrusters unless tail_halfwidth < thruster_offset — make
 the tail NARROW (in width, not height) and move the pods OUTSIDE it; a slight outward yaw keeps the cores lit
 from rear-3/4. Decoupling tail width from tail height is the trick (narrow but still tall = strong + readable).
+
+## Lesson — Rear refinement: canted engine pods, recessed central tail socket, sloped beveled engine-cover, stronger wing fairing.
+
+Human follow-up after the thrusters were unhidden: make them feel mounted in side engine PODS (not flat discs),
+recess the central tail socket, and de-block the top rear. Changes: (1) pods get yaw 13° + ROLL 11° (cant) so
+the disc faces out-and-tilted = reads as a side-mounted pod; a gold housing box wraps a slightly recessed
+thrusterPod. (2) central TAIL SOCKET = a dark carbon recess + a gold rim torus at the tail base, so the tail
+seats deliberately INTO the pelvis (rear reads pod | socket | pod). (3) the stacked-rectangle top rear is
+covered by a SLOPED beveled ENGINE COVER — two gold facets canted to a centre `goldDark` ridge (a Lambo
+engine-deck plane) instead of the boxy spine tops. (4) wing-root fairing bumped ~20% for visible support.
+Reusable: "cant" a circular emitter = yaw + a little ROLL (roll tilts the disc plane so it stops reading as a
+flat sticker); and a beveled cover plane (two facets → a ridge) is the cheapest way to kill a "stacked boxes"
+read on a segmented body.

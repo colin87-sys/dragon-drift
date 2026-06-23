@@ -429,8 +429,8 @@ export function buildSVJDragon(knobs = {}) {
   const wings = [];
   const wz = -1.45, wy = ch[2] + ch[4] * 0.26, wx = ch[3] * 1.35;               // hinge forward over the front shoulder; wider factor compensates the slimmer chest
   for (const side of [-1, 1]) {
-    const fair = wedgeBlock(0.6, 1.05, 0.4, 0.52, ch[4] * 0.62, M.gold, 'wingMount');  // sleeker scapular fairing
-    fair.position.set(side * ch[3] * 0.72, ch[2] - ch[4] * 0.02, wz);
+    const fair = wedgeBlock(0.72, 1.25, 0.46, 0.6, ch[4] * 0.74, M.gold, 'wingMount');  // stronger scapular support
+    fair.position.set(side * ch[3] * 0.72, ch[2] + ch[4] * 0.02, wz);
     fair.rotation.set(0, 0, -side * 0.42); root.add(fair);
     const w = wingSystem(side, M); w.userData.side = side;
     w.position.set(side * wx, wy, wz);
@@ -446,17 +446,28 @@ export function buildSVJDragon(knobs = {}) {
     haunch.position.set(s * hp[3] * 0.6, hp[2] + hp[4] * 0.15, hp[1] + 0.2);
     haunch.rotation.set(Math.PI / 2, 0, s * 0.45); root.add(haunch);
   }
-  // central TAIL SOCKET — a narrow gold collar so the tail emerges from a clear
-  // CENTRAL spine between the two engine pods (rear reads: pod | tail | pod).
-  const socket = tag(new THREE.CylinderGeometry(tb[3] * 1.2, tb[3] * 1.35, 0.45, 8), M.gold, 'hipArmor');
-  socket.rotation.x = Math.PI / 2; socket.position.set(0, tb[2] + 0.05, tb[1] - 0.25); root.add(socket);
-  // twin ENGINE PODS — moved OUTBOARD + angled OUTWARD so both thrusters stay
-  // readable in rear & rear-3/4 (clear of the now-narrower central tail).
-  const thrusters = []; const podX = hp[3] * 0.66, podZ = hpBack[1] + 0.36, podYaw = rad(16);
+  // SLOPED beveled ENGINE COVER over the rear deck — two facets to a centre ridge,
+  // replacing the stacked-rectangle read with a Lamborghini engine-cover plane.
+  const ecZ = (hp[1] + tb[1]) / 2, ecLen = (tb[1] - hp[1]) + 0.7;
   for (const s of [-1, 1]) {
-    const housing = tag(new THREE.BoxGeometry(0.42, hp[4] * 0.85, 0.66), M.gold, 'hipArmor');
-    housing.position.set(s * podX, hp[2], podZ - 0.08); housing.rotation.y = s * podYaw; root.add(housing);
-    const t = thrusterPod(M); t.position.set(s * podX, hp[2] - 0.02, podZ); t.rotation.y = s * podYaw; root.add(t); thrusters.push(t);
+    const facet = tag(new THREE.BoxGeometry(hp[3] * 0.98, 0.07, ecLen), M.gold, 'torsoArmor');
+    facet.position.set(s * hp[3] * 0.4, hp[2] + hp[4] * 0.66, ecZ); facet.rotation.set(rad(-5), 0, s * rad(28)); root.add(facet);
+  }
+  const ridge = tag(new THREE.BoxGeometry(0.09, hp[4] * 0.42, ecLen), M.goldDark, 'spineCap');
+  ridge.position.set(0, hp[2] + hp[4] * 0.82, ecZ); ridge.rotation.x = rad(-5); root.add(ridge);
+  // recessed central TAIL SOCKET — a dark recess + gold rim, the tail base seated
+  // deliberately INTO the pelvis (rear reads: pod | tail socket | pod).
+  const recess = tag(new THREE.BoxGeometry(tb[3] * 2.1, tb[4] * 1.5, 0.46), M.carbon, 'hipChassis');
+  recess.position.set(0, tb[2], tb[1] - 0.26); root.add(recess);
+  const rim = tag(new THREE.TorusGeometry(tb[3] * 1.25, 0.055, 6, 16), M.gold, 'hipArmor');
+  rim.position.set(0, tb[2] + 0.02, tb[1] - 0.02); rim.scale.set(1, tb[4] / tb[3], 1); root.add(rim);
+  // twin canted ENGINE PODS — a gold pod shell wrapping a recessed thruster, yawed
+  // AND rolled outward so each reads as a side-mounted engine pod, not a flat disc.
+  const thrusters = []; const podX = hp[3] * 0.66, podZ = hpBack[1] + 0.36, podYaw = rad(13), podRoll = rad(11);
+  for (const s of [-1, 1]) {
+    const housing = tag(new THREE.BoxGeometry(0.46, hp[4] * 0.92, 0.62), M.gold, 'hipArmor');
+    housing.position.set(s * podX, hp[2], podZ - 0.12); housing.rotation.set(0, s * podYaw, s * podRoll); root.add(housing);
+    const t = thrusterPod(M); t.position.set(s * podX, hp[2] - 0.01, podZ - 0.04); t.rotation.set(0, s * podYaw, s * podRoll); root.add(t); thrusters.push(t);
   }
   // rear diffuser under the hip mass
   const diff = diffuser(M); diff.position.set(0, hp[2] - hp[4] * 0.95, hpBack[1] + 0.1); root.add(diff);
