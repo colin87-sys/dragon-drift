@@ -123,17 +123,17 @@ function wedgeMesh(noseZ, baseZ, hw, hb, ht, mat, role) {
 function headWedge(M) {
   const g = new THREE.Group();
   // CRANIUM — tall, deep angular skull mass at the back (the "brain case")
-  const cran = tag(new THREE.BoxGeometry(0.54, 0.56, 0.54), M.gold, 'headShell');
-  cran.position.set(0, 0.1, 0.22); g.add(cran);
-  // forehead / brow plane sloping down toward the snout
-  const fore = tag(new THREE.BoxGeometry(0.5, 0.16, 0.42), M.goldDark, 'browVent');
-  fore.position.set(0, 0.34, -0.04); fore.rotation.x = rad(18); g.add(fore);
+  const cran = tag(new THREE.BoxGeometry(0.56, 0.64, 0.58), M.gold, 'headShell');
+  cran.position.set(0, 0.12, 0.24); g.add(cran);
+  // strong brow / forehead plane sloping down toward the snout (predatory hood)
+  const fore = tag(new THREE.BoxGeometry(0.52, 0.18, 0.4), M.goldDark, 'browVent');
+  fore.position.set(0, 0.4, -0.06); fore.rotation.x = rad(22); g.add(fore);
   // SNOUT — short, blunt tapered upper jaw (clearly shorter than the cranium)
-  const snout = wedgeMesh(-0.46, -0.04, 0.26, 0.16, -0.16, M.gold, 'headShell');
+  const snout = wedgeMesh(-0.4, -0.04, 0.27, 0.16, -0.18, M.gold, 'headShell');
   snout.position.set(0, 0.02, 0); g.add(snout);
   // LOWER JAW — a clearly distinct angular jaw, hinged at the back, slightly open
-  const jaw = wedgeMesh(-0.4, 0.08, 0.22, 0.08, -0.14, M.goldDark, 'jawBlade');
-  jaw.position.set(0, -0.22, -0.02); jaw.rotation.x = -rad(8); g.add(jaw);
+  const jaw = wedgeMesh(-0.36, 0.08, 0.23, 0.08, -0.15, M.goldDark, 'jawBlade');
+  jaw.position.set(0, -0.24, -0.02); jaw.rotation.x = -rad(9); g.add(jaw);
   for (const s of [-1, 1]) {
     // cheek / jaw-hinge plate
     const cheek = tag(new THREE.BoxGeometry(0.1, 0.24, 0.26), M.gold, 'headShell');
@@ -210,18 +210,23 @@ function diffuser(M) {
   return g;
 }
 
-// ── MODULE: mecha claw leg (tucked) ───────────────────────────────────────────
+// ── MODULE: mecha claw leg — a COMPACT FOLDED limb tucked against the body in
+// flight (angular thigh + knee-bent shin + forward talons), not a dangling block.
 function clawLeg(side, M) {
   const g = new THREE.Group();
-  g.add(strut(V(0, 0, 0), V(side * 0.18, -0.3, 0.05), 0.12, 0.12, M.steel, 'upperLegPiston'));
-  g.add(strut(V(side * 0.18, -0.3, 0.05), V(side * 0.12, -0.34, 0.35), 0.1, 0.14, M.goldDark, 'lowerLegBlade'));
+  // angular thigh, swept back-and-down
+  const thigh = tag(new THREE.BoxGeometry(0.13, 0.24, 0.16), M.gold, 'upperLegPiston');
+  thigh.position.set(side * 0.04, -0.1, 0.04); thigh.rotation.set(rad(34), 0, side * rad(8)); g.add(thigh);
+  // shin folded forward (knee bent up), gunmetal blade
+  g.add(strut(V(side * 0.05, -0.2, 0.1), V(side * 0.09, -0.27, -0.16), 0.09, 0.13, M.steel, 'lowerLegBlade'));
+  // three talons tucked under, hooking forward-down
   for (let c = -1; c <= 1; c++) {
-    const claw = tag(new THREE.ConeGeometry(0.035, 0.16, 5), M.steel, 'clawFoot');
-    claw.position.set(side * 0.12 + c * 0.06, -0.4, 0.45); claw.rotation.x = -1.4; g.add(claw);
+    const claw = tag(new THREE.ConeGeometry(0.028, 0.13, 5), M.goldDark, 'clawFoot');
+    claw.position.set(side * 0.09 + c * 0.045, -0.31, -0.2); claw.rotation.x = rad(62); g.add(claw);
   }
-  const heel = tag(new THREE.ConeGeometry(0.05, 0.14, 4), M.carbon, 'heelFin');
-  heel.position.set(side * 0.12, -0.3, -0.05); heel.rotation.x = 1.4; g.add(heel);
-  g.scale.x = 1; return g;
+  const heel = tag(new THREE.ConeGeometry(0.035, 0.11, 4), M.carbon, 'heelFin');
+  heel.position.set(side * 0.05, -0.14, 0.16); heel.rotation.x = rad(-52); g.add(heel);
+  return g;
 }
 
 // ── MODULE: hard-surface blade-wing assembly ─────────────────────────────────
@@ -280,10 +285,10 @@ function wingSystem(side, M) {
   // root chord runs front-to-back ~80% of the torso (≈1.6u) so the wing INTEGRATES
   // into the back along most of the spine, then tapers fast up into the blades.
   const ROOT_CHORD = 1.6;
-  const pylon = wedgeBlock(0.66, ROOT_CHORD, 0.44, 0.58, 0.74, M.gold, 'wingMount');   // chunkier shoulder pylon
+  const pylon = wedgeBlock(0.56, ROOT_CHORD * 0.82, 0.38, 0.46, 0.54, M.gold, 'wingMount');   // sleeker, lower shoulder pylon
   pylon.rotation.x = rad(-12); mir.add(pylon);
-  const pylonEdge = wedgeBlock(0.24, ROOT_CHORD * 0.92, 0.18, 0.5, 0.7, M.goldDark, 'wingMount');
-  pylonEdge.position.set(0.34, 0, 0); pylonEdge.rotation.x = rad(-12); mir.add(pylonEdge);
+  const pylonEdge = wedgeBlock(0.2, ROOT_CHORD * 0.76, 0.15, 0.42, 0.52, M.goldDark, 'wingMount');
+  pylonEdge.position.set(0.3, 0, 0); pylonEdge.rotation.x = rad(-12); mir.add(pylonEdge);
   const hingeJ = tag(new THREE.CylinderGeometry(0.2, 0.2, 0.5, 14), M.steel, 'shoulderHinge');
   hingeJ.rotation.z = Math.PI / 2; hingeJ.position.set(0.05, 0.16, 0.05); mir.add(hingeJ);
   const jcore = tag(new THREE.CylinderGeometry(0.1, 0.1, 0.52, 10), M.red, 'jointCore');
@@ -298,17 +303,16 @@ function wingSystem(side, M) {
   // PRIMARY blade — broad delta root chord (≈80% torso) sweeping fast to a long
   // kinked needle. Length set against the head-to-tail master scale (see measure.mjs).
   const LP = 6.05;                                                                // primary root→tip length (model u)
-  // 3-stage designed blade: thick broad ROOT (held wide through the kink) → a hard
-  // KINK at ~27% (steep root angA 68° → swept outer angC 50°) → long clean taper.
-  // root chord +20%, root thickness ~3× the mid (a thick armour blade, not a horn).
-  const prim = aeroBlade(LP, ROOT_CHORD * 1.2, 0.62, 0.05, 0.36, 0.12, 0.03, 0.27, rad(68), rad(50), M.gold, 'outerWingBlade');
-  prim.position.set(0, 0, -0.5); outer.add(prim);
+  // slimmer base chord (−18%) + slimmer mid so the blade reads as a sleek aero
+  // blade, not an inflated sail; thick root → kink at 27% → long clean taper.
+  const prim = aeroBlade(LP, ROOT_CHORD * 0.98, 0.50, 0.05, 0.32, 0.11, 0.03, 0.27, rad(68), rad(50), M.gold, 'outerWingBlade');
+  prim.position.set(0, 0, -0.42); outer.add(prim);
   // dark recessed inner face panel hugging the blade (thin, inboard)
-  const primInner = aeroBlade(LP * 0.9, ROOT_CHORD * 0.82, 0.42, 0.05, 0.06, 0.03, 0.02, 0.27, rad(68), rad(50), M.carbon, 'wingInnerStruct');
-  primInner.position.set(-0.14, 0.02, -0.48); outer.add(primInner);
+  const primInner = aeroBlade(LP * 0.9, ROOT_CHORD * 0.68, 0.36, 0.05, 0.06, 0.03, 0.02, 0.27, rad(68), rad(50), M.carbon, 'wingInnerStruct');
+  primInner.position.set(-0.13, 0.02, -0.4); outer.add(primInner);
   // SECONDARY blade — ≈55% len, dropped well below + behind with a clear negative-
   // space gap and a shallower sweep so it reads as a distinct support fin.
-  const sec = aeroBlade(LP * 0.55, ROOT_CHORD * 0.55, 0.26, 0.04, 0.16, 0.07, 0.03, 0.26, rad(52), rad(42), M.gold, 'secondaryBlade');
+  const sec = aeroBlade(LP * 0.55, ROOT_CHORD * 0.5, 0.24, 0.04, 0.14, 0.06, 0.03, 0.26, rad(52), rad(42), M.gold, 'secondaryBlade');
   sec.position.set(-0.2, -0.42, 0.12); outer.add(sec);
 
   // ONE inset red Y-channel on each blade's dark inner face (structured, recessed)
@@ -345,15 +349,15 @@ function bladeGeo(span, rootC, tipC, sweep, camber = 0.05) {
 // silhouette reads as a mechanical dragon, not a straight dragonfly fuselage.
 // rings: [role, z, cy(centreline height), hw(half-width), hh(half-height/depth)]
 const RINGS = [
-  ['neck', -3.35, 0.44, 0.30, 0.32],      // thicker neck base (head attaches to a real neck)
-  ['neck', -2.88, 0.50, 0.46, 0.48],
-  ['shoulder', -2.32, 0.48, 0.82, 0.78],  // deeper+wider shoulder mass
-  ['chest', -1.75, 0.42, 0.94, 0.98],     // deepest + widest load-bearing mass
-  ['chest', -1.18, 0.36, 0.88, 0.92],     // shoulder-back, still deep (wings root just here)
-  ['waist', -0.52, 0.28, 0.42, 0.42],     // clear pinch behind the chest
-  ['hip', 0.18, 0.26, 0.82, 0.78],        // bulkier hip / engine mass
-  ['hip', 0.76, 0.18, 0.66, 0.64],
-  ['tailbase', 1.32, 0.10, 0.66, 0.70],   // thick tail base
+  ['neck', -3.35, 0.46, 0.30, 0.32],      // thicker neck base (head attaches to a real neck)
+  ['neck', -2.88, 0.56, 0.46, 0.48],      // neck arches UP into the shoulder
+  ['shoulder', -2.32, 0.54, 0.82, 0.80],  // deeper+wider shoulder mass (back hump)
+  ['chest', -1.75, 0.46, 0.94, 1.00],     // deepest + widest load-bearing mass
+  ['chest', -1.18, 0.38, 0.88, 0.92],     // shoulder-back, still deep (wings root just here)
+  ['waist', -0.52, 0.28, 0.40, 0.42],     // clear pinch behind the chest
+  ['hip', 0.18, 0.26, 0.86, 0.82],        // bulkier hip / engine mass
+  ['hip', 0.76, 0.18, 0.68, 0.66],
+  ['tailbase', 1.32, 0.10, 0.68, 0.72],   // thick tail base
   ['tail', 1.86, 0.02, 0.46, 0.48],
   ['tail', 2.40, -0.04, 0.33, 0.34],
   ['tail', 2.94, -0.08, 0.23, 0.24],      // clean tapered shaft (no fins along here)
@@ -407,10 +411,10 @@ export function buildSVJDragon(knobs = {}) {
   // the head), lowered and embedded into the deep chest mass, with a WIDE stance so
   // they read as growing from a real upper back, not a narrow central stalk.
   const wings = [];
-  const wz = -1.05, wy = ch[2] + ch[4] * 0.38, wx = ch[3] * 1.12;
+  const wz = -1.05, wy = ch[2] + ch[4] * 0.26, wx = ch[3] * 1.12;               // lower root → embedded, not perched
   for (const side of [-1, 1]) {
-    const fair = wedgeBlock(0.82, 1.3, 0.46, 0.66, ch[4] * 0.95, M.gold, 'wingMount');
-    fair.position.set(side * ch[3] * 0.78, ch[2] + ch[4] * 0.12, wz);
+    const fair = wedgeBlock(0.6, 1.05, 0.4, 0.52, ch[4] * 0.62, M.gold, 'wingMount');  // sleeker scapular fairing
+    fair.position.set(side * ch[3] * 0.72, ch[2] - ch[4] * 0.02, wz);
     fair.rotation.set(0, 0, -side * 0.42); root.add(fair);
     const w = wingSystem(side, M); w.userData.side = side;
     w.position.set(side * wx, wy, wz);

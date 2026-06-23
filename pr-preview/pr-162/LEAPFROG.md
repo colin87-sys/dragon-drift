@@ -3136,3 +3136,17 @@ smaller tip pair + red accents = an arrowhead stabiliser, not a comb. (4) Re-pin
 the stance/placement change: the wider stance pushed width to 99, so LP 6.4→6.05 and LEAN 42→38 landed width 89
 / height 46. Reusable: the staggered-fin "saw-blade" read is a classic procedural trap — concentrate repeated
 decoration at a silhouette TERMINUS (tip/crown) and leave the shaft clean; it reads as design intent, not noise.
+
+## Lesson — Side-profile pass: slimmed the "sail" wing root + base, arched the back, taller skull, folded legs.
+
+Human: rear view is strong but the SIDE reads as a giant dorsal sail on a rectangular body. Fixes: (1) **Wing
+root de-bulked** — pylon height 0.74→0.54 + depth ×0.82, scapular fairing height ch hh·0.95→0.62 and lowered
+(wy ch hh·0.38→0.26) so it embeds rather than perches. (2) **Blade base slimmed −18%** (chord ROOT_CHORD·1.2→
+0.98, mid 0.62→0.50) so it reads as a sleek aero blade, not an inflated sail — tip/span/pose unchanged (measure
+held 90/46). (3) **Arched back:** lifted the front-of-body centreline cy (neck 0.50→0.56, shoulder 0.48→0.54,
+chest 0.42→0.46) so the spine humps at the shoulder then flows down to the tail, killing the ruler-straight read.
+(4) **Taller predatory skull** (cranium 0.56→0.64 tall, stronger 22° brow hood, shorter snout −0.46→−0.40).
+(5) **Folded legs:** rewrote clawLeg as a compact knee-bent limb (angular thigh + folded shin + forward talons)
+tucked to the body instead of a dangling block. Reusable: a "sail" read on a swept blade is driven by the BASE
+CHORD (the wide part you see edge-on from the side), not the span — slim the base chord + lower/shrink the root
+housing to fix it while keeping tip height and rear-view width (those are tip-driven, the gate confirms).
