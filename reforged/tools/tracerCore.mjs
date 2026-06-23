@@ -218,6 +218,28 @@ export function toLoftRings(sideProfile, topProfile, stations = 12) {
   return rings;
 }
 
+// ── 4b. CUT SAMPLING (partition the silhouette into parts along the body axis) ─
+// A "cut" is an ordered polyline (normalised coords) drawn roughly PERPENDICULAR to the body axis to split
+// the silhouette into parts (head | body | tail …). For axis 'x' (body runs left↔right) the cut is a
+// near-vertical line, so we treat it as value x = f(y) and sample the threshold x at a given y (and vice
+// versa for axis 'y'). Pixels on the wrong side of a part's bounding cuts get erased before tracing, so each
+// part traces in isolation; the cut itself is the SHARED SEAM where the two parts join (zero gap by
+// construction — it becomes a cross-section station / attach locus for the continuous hull). Clamps past the
+// endpoints so a short cut still partitions the whole height.
+export function cutAt(cutPts, q, axis = 'x') {
+  if (!cutPts || cutPts.length === 0) return null;
+  const P = axis === 'x' ? 1 : 0;     // param coord (y for an x-axis cut)
+  const V = axis === 'x' ? 0 : 1;     // value coord (the x threshold)
+  const pts = [...cutPts].sort((a, b) => a[P] - b[P]);
+  if (q <= pts[0][P]) return pts[0][V];
+  if (q >= pts[pts.length - 1][P]) return pts[pts.length - 1][V];
+  for (let i = 1; i < pts.length; i++) if (pts[i][P] >= q) {
+    const a = pts[i - 1], b = pts[i], f = (q - a[P]) / ((b[P] - a[P]) || 1e-9);
+    return a[V] + f * (b[V] - a[V]);
+  }
+  return pts[pts.length - 1][V];
+}
+
 // ── 5. WING-RIG DERIVATION (planform → engine wingForms) ─────────────────────
 // A traced wing RIG is a small set of handles in normalised image coords:
 //   root  — where the wing meets the body (the attach/joint locus)
