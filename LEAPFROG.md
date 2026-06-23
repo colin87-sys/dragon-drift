@@ -3254,3 +3254,11 @@ engine-deck plane) instead of the boxy spine tops. (4) wing-root fairing bumped 
 Reusable: "cant" a circular emitter = yaw + a little ROLL (roll tilts the disc plane so it stops reading as a
 flat sticker); and a beveled cover plane (two facets → a ridge) is the cheapest way to kill a "stacked boxes"
 read on a segmented body.
+
+## Lesson — Pushed the rear thruster pods further outboard (factor 0.66→0.78) for clear negative space vs the tail.
+
+Human: thrusters visible but still crowded toward the centerline. Simple: podX hp[3]·0.66→0.78 (~±0.53, +16%),
+yaw/roll nudged to 15/13°, and the gold haunches moved out (0.6→0.7) so the side mass follows. The central tail
+is ±0.34, so the pods now clear it with a visible dark gap each side → reads "side pod | tail socket | pod". No
+hip widening. Reusable: "crowded toward centre" with parts already visible = a pure offset push, not more mass;
+keep the central element's halfwidth well under the flanking parts' offset so a dark gap reads as deliberate.
