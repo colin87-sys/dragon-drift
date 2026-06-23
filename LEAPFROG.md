@@ -2879,3 +2879,27 @@ the guide HARVESTS them rather than inventing a schema, so it can't drift. The f
 "recreatable" by an LLM is the cross-section ring list + module names + grammar dials, NOT prose.
 **→ Leapfrog:** keep MODEL-CREATION.md current as builders/dials are added; when the reusable body-profile
 dials + legRoot land, update §5/§6 so the Gundam (and any humanoid) becomes a pure-data spec.
+
+## Lesson — Built a "station reference pack" (WAV + MIDI + production briefs) from tracks.js as the single source of truth.
+
+A request came in for, per Dragon Radio station: a doc (MIDI / WAV reference / name / description /
+real-instrument style / BPM / loop length / layer notes) **plus** a rendered WAV and a MIDI per song.
+All 35 stations in `reforged/js/tracks.js` were turned into deliverables under `station-reference/`
+(`STATIONS.md`, `wav/<id>.wav`, `midi/<id>.mid`, and reproducer scripts in `tools/`).
+
+What worked: **don't re-key the data by hand — harvest it.** `tracks.js` is dependency-free by design
+(its own comment says so, for node unit-checking), so a 6-line `dump.mjs` `import { TRACKS }` → JSON gives
+every resolved layer array. From that JSON, pure-stdlib Python rendered both formats: WAV via `wave`/`struct`
+(naive oscillators matching each voice's `osc`, four-on-floor kick, octave/detune stacks, per-track swing),
+MIDI via hand-written bytes (format-1, 480 TPQ, eighth=240 ticks, one MTrk per layer: melody/bass/high/arp/pad;
+freq→note via `69+12·log2(f/440)`). Timing fact worth keeping: **every station is 8 bars × 8 eighths in 4/4,
+so loop seconds = 1920 / BPM.** The "real-instrument style" field can't be harvested — it was authored per
+genre (mapped off each track's `desc` + `MIX` preset family).
+
+Gotchas: numpy isn't in this env (stdlib only); the pure-Python per-sample synth is slow (~1 min for all 35,
+fine for a one-shot); 35 mono 22050 WAVs ≈ 23 MB committed — acceptable for a reference artifact but keep WAVs
+out of any hot path. The reactive-layer semantics (arp on boost, high at combo ≥1.5×, percussion ≥2–3×, fever
+lead during Dragon Surge) live in the tracks.js header comment — quote them in the doc, don't reinvent them.
+**→ Leapfrog:** these stations are pure data; any "give me X per song" ask (stems, sheet music, a karaoke
+view) is a new emitter over the same `dump.mjs` JSON — add emitters under `station-reference/tools/`, never
+hand-transcribe note tables.
