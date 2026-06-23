@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Sky Emperor Dragon — Prompt Blueprint Render</title>
+  <style>
+    html, body { margin: 0; height: 100%; overflow: hidden; background: #070812; color: #f6e7bd; font-family: system-ui, -apple-system, Segoe UI, sans-serif; }
+    #stage { position: fixed; inset: 0; }
+    .hud { position: fixed; left: 20px; top: 18px; width: min(390px, calc(100vw - 40px)); padding: 16px 18px; border: 1px solid rgba(226, 185, 95, 0.35); border-radius: 18px; background: linear-gradient(145deg, rgba(11, 10, 24, 0.86), rgba(38, 20, 34, 0.68)); box-shadow: 0 18px 60px rgba(0,0,0,0.38); backdrop-filter: blur(12px); pointer-events: none; }
+    .hud h1 { margin: 0 0 6px; font-size: 20px; letter-spacing: 0.08em; text-transform: uppercase; color: #ffe0a4; }
+    .hud p { margin: 7px 0 0; line-height: 1.35; color: #d8c8b0; font-size: 13px; }
+    .pillrow { display: flex; gap: 7px; flex-wrap: wrap; margin-top: 12px; }
+    .pill { border: 1px solid rgba(209, 160, 73, 0.45); color: #ffcf79; border-radius: 999px; padding: 4px 8px; font-size: 11px; letter-spacing: 0.04em; background: rgba(132, 71, 34, 0.18); }
+    .controls { position: fixed; right: 20px; bottom: 18px; color: rgba(255, 235, 194, 0.75); font-size: 12px; text-align: right; pointer-events: none; }
+  </style>
+  <script type="importmap">{ "imports": { "three": "../lib/three.module.js" } }</script>
+</head>
+<body>
+  <canvas id="stage"></canvas>
+  <aside class="hud">
+    <h1>Sky Emperor Dragon</h1>
+    <p>Prompt-first render: regal Bahamut-like feeling without copying it. The rear/top-rear read prioritizes imperial wings, crown-like dorsal plates, a strong obsidian back, and a ceremonial blade tail.</p>
+    <div class="pillrow">
+      <span class="pill">Prompt-first</span><span class="pill">Chase-camera read</span><span class="pill">Crimson wings</span><span class="pill">Aged gold spine</span><span class="pill">Violet magic</span>
+    </div>
+  </aside>
+  <div class="controls">Drag to rotate · Wheel/pinch to zoom · Double-click to reset</div>
+  <script type="module">
+    import * as THREE from 'three';
+
+    const canvas = document.querySelector('#stage');
+    const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: false });
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+    renderer.outputColorSpace = THREE.SRGBColorSpace;
+    renderer.toneMapping = THREE.ACESFilmicToneMapping;
+    renderer.toneMappingExposure = 1.08;
+
+    const scene = new THREE.Scene();
+    scene.background = new THREE.Color(0x070812);
+    scene.fog = new THREE.Fog(0x070812, 11, 28);
+
+    const camera = new THREE.PerspectiveCamera(42, 1, 0.1, 80);
+    const target = new THREE.Vector3(0, 0.55, 0.05);
+    const orbit = { yaw: 0.02, pitch: 0.18, radius: 9.2 };
+
+    const hemi = new THREE.HemisphereLight(0xbfdcff, 0x241320, 1.05);
+    scene.add(hemi);
+    const key = new THREE.DirectionalLight(0xffdfaa, 2.1);
+    key.position.set(3.8, 4.8, 5.4);
+    scene.add(key);
+    const rim = new THREE.DirectionalLight(0x8a68ff, 1.35);
+    rim.position.set(-4.2, 2.2, -4.4);
+    scene.add(rim);
+    const fill = new THREE.DirectionalLight(0x6eb8ff, 0.46);
+    fill.position.set(0.0, -2.2, 3.2);
+    scene.add(fill);
+
+    const root = new THREE.Group();
+    scene.add(root);
+
+    const matBody = new THREE.MeshStandardMaterial({ color: 0x0b0710, roughness: 0.34, metalness: 0.24, emissive: 0x1b0824, emissiveIntensity: 0.26 });
+    const matBelly = new THREE.MeshStandardMaterial({ color: 0x241321, roughness: 0.42, metalness: 0.18 });
+    const matWing = new THREE.MeshStandardMaterial({ color: 0x3a0710, roughness: 0.39, metalness: 0.12, emissive: 0x260008, emissiveIntensity: 0.32, side: THREE.DoubleSide, transparent: true, opacity: 0.94 });
+    const matGold = new THREE.MeshStandardMaterial({ color: 0xb58637, roughness: 0.22, metalness: 0.72, emissive: 0x2d1904, emissiveIntensity: 0.22 });
+    const matPaleGold = new THREE.MeshStandardMaterial({ color: 0xffe1a3, roughness: 0.18, metalness: 0.65, emissive: 0x9a5e18, emissiveIntensity: 0.28 });
+    const matViolet = new THREE.MeshStandardMaterial({ color: 0x7d3cff, roughness: 0.25, metalness: 0.25, emissive: 0x7d3cff, emissiveIntensity: 1.45 });
+    const matStrut = new THREE.MeshStandardMaterial({ color: 0x120a12, roughness: 0.25, metalness: 0.42, emissive: 0x2a0b20, emissiveIntensity: 0.28 });
+
+    function ellipsoid(rx, ry, rz, material, pos) {
+      const mesh = new THREE.Mesh(new THREE.SphereGeometry(1, 32, 18), material);
+      mesh.scale.set(rx, ry, rz);
+      mesh.position.copy(pos);
+      root.add(mesh);
+      return mesh;
+    }
+
+    function cone(radius, height, material, pos, rot = new THREE.Euler()) {
+      const mesh = new THREE.Mesh(new THREE.ConeGeometry(radius, height, 5), material);
+      mesh.position.copy(pos);
+      mesh.rotation.copy(rot);
+      root.add(mesh);
+      return mesh;
+    }
+
+    function cylinderBetween(a, b, radius, material, radial = 10) {
+      const dir = new THREE.Vector3().subVectors(b, a);
+      const len = dir.length();
+      const mesh = new THREE.Mesh(new THREE.CylinderGeometry(radius, radius * 0.78, len, radial), material);
+      mesh.position.copy(a).addScaledVector(dir, 0.5);
+      mesh.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), dir.normalize());
+      root.add(mesh);
+      return mesh;
+    }
+
+    function wing(side) {
+      const s = side;
+      const rootP = new THREE.Vector3(s * 0.78, 1.04, -0.42);
+      const elbow = new THREE.Vector3(s * 2.9, 1.42, -0.72);
+      const tip = new THREE.Vector3(s * 5.15, 0.86, -0.06);
+      const inner1 = new THREE.Vector3(s * 3.7, 0.35, 0.55);
+      const inner2 = new THREE.Vector3(s * 2.05, 0.12, 0.88);
+      const hip = new THREE.Vector3(s * 0.54, 0.42, 1.05);
+      const pts = [rootP, elbow, tip, inner1, inner2, hip];
+      const shape = new THREE.Shape(pts.map(p => new THREE.Vector2(p.x, p.z)));
+      const geo = new THREE.ShapeGeometry(shape, 24);
+      const pos = geo.attributes.position;
+      for (let i = 0; i < pos.count; i++) {
+        const x = pos.getX(i); const z = pos.getY(i);
+        const span = Math.min(1, Math.abs(x) / 5.15);
+        const y = 0.42 + Math.sin(span * Math.PI) * 0.82 - Math.max(0, z - 0.28) * 0.34;
+        pos.setXYZ(i, x, y, z);
+      }
+      geo.computeVertexNormals();
+      const mesh = new THREE.Mesh(geo, matWing);
+      root.add(mesh);
+
+      const bones = [rootP, elbow, tip, inner1, inner2, hip];
+      cylinderBetween(rootP, elbow, 0.065, matStrut, 12);
+      cylinderBetween(elbow, tip, 0.05, matStrut, 12);
+      cylinderBetween(rootP, hip, 0.045, matGold, 10);
+      for (const p of [inner1, inner2, hip]) cylinderBetween(elbow, p, 0.025, matGold, 8);
+      for (const p of bones.slice(1, 5)) ellipsoid(0.07, 0.07, 0.07, matPaleGold, p);
+
+      const edgePts = [tip, inner1, inner2, hip];
+      for (let i = 0; i < edgePts.length - 1; i++) cylinderBetween(edgePts[i], edgePts[i + 1], 0.025, matGold, 8);
+    }
+
+    function tail() {
+      const pts = [
+        new THREE.Vector3(0, 0.44, 1.55), new THREE.Vector3(0, 0.28, 2.25), new THREE.Vector3(0, 0.1, 3.02),
+        new THREE.Vector3(0, -0.02, 3.82), new THREE.Vector3(0, 0.04, 4.55), new THREE.Vector3(0, 0.18, 5.15),
+      ];
+      for (let i = 0; i < pts.length - 1; i++) cylinderBetween(pts[i], pts[i + 1], 0.18 * (1 - i / pts.length) + 0.035, matBody, 18);
+      for (let i = 0; i < pts.length; i++) ellipsoid(0.21 * (1 - i / (pts.length + 2)), 0.16 * (1 - i / (pts.length + 2)), 0.21 * (1 - i / (pts.length + 2)), matBody, pts[i]);
+      const blade = cone(0.34, 0.9, matGold, new THREE.Vector3(0, 0.18, 5.62), new THREE.Euler(Math.PI / 2, 0, 0));
+      blade.scale.x = 0.48;
+      const forkL = cone(0.13, 0.55, matPaleGold, new THREE.Vector3(-0.18, 0.2, 5.38), new THREE.Euler(1.25, 0.25, 0.1));
+      const forkR = cone(0.13, 0.55, matPaleGold, new THREE.Vector3(0.18, 0.2, 5.38), new THREE.Euler(1.25, -0.25, -0.1));
+    }
+
+    ellipsoid(0.62, 0.55, 1.44, matBody, new THREE.Vector3(0, 0.68, -0.2));
+    ellipsoid(0.45, 0.42, 0.78, matBody, new THREE.Vector3(0, 0.78, -1.22));
+    ellipsoid(0.34, 0.27, 0.58, matBody, new THREE.Vector3(0, 1.1, -1.92));
+    ellipsoid(0.28, 0.24, 0.48, matBody, new THREE.Vector3(0, 1.28, -2.42));
+    ellipsoid(0.38, 0.16, 0.72, matBelly, new THREE.Vector3(0, 0.43, -0.56));
+
+    wing(-1); wing(1); tail();
+
+    for (let i = 0; i < 14; i++) {
+      const t = i / 13;
+      const z = -1.85 + t * 5.05;
+      const crown = Math.sin(t * Math.PI);
+      const h = 0.28 + crown * 0.36;
+      const y = 1.16 - Math.abs(z + 0.55) * 0.06 + crown * 0.2;
+      const plate = cone(0.09 + crown * 0.05, h, i % 3 === 0 ? matPaleGold : matGold, new THREE.Vector3(0, y + h * 0.42, z), new THREE.Euler(-Math.PI / 2.8, 0, 0));
+      plate.scale.x = 0.55;
+      if (i > 2 && i < 10) {
+        cone(0.045, h * 0.62, matGold, new THREE.Vector3(-0.18, y + h * 0.23, z + 0.02), new THREE.Euler(-Math.PI / 2.7, 0.18, -0.32));
+        cone(0.045, h * 0.62, matGold, new THREE.Vector3(0.18, y + h * 0.23, z + 0.02), new THREE.Euler(-Math.PI / 2.7, -0.18, 0.32));
+      }
+    }
+
+    const head = ellipsoid(0.32, 0.25, 0.42, matBody, new THREE.Vector3(0, 1.36, -2.88));
+    cone(0.075, 0.85, matGold, new THREE.Vector3(-0.22, 1.62, -2.76), new THREE.Euler(-1.25, -0.58, -0.32));
+    cone(0.075, 0.85, matGold, new THREE.Vector3(0.22, 1.62, -2.76), new THREE.Euler(-1.25, 0.58, 0.32));
+    cone(0.055, 0.46, matPaleGold, new THREE.Vector3(0, 1.67, -2.6), new THREE.Euler(-1.05, 0, 0));
+    ellipsoid(0.055, 0.055, 0.055, matViolet, new THREE.Vector3(-0.18, 1.36, -3.2));
+    ellipsoid(0.055, 0.055, 0.055, matViolet, new THREE.Vector3(0.18, 1.36, -3.2));
+
+    for (let i = 0; i < 7; i++) {
+      const z = -1.1 + i * 0.48;
+      const gem = ellipsoid(0.045, 0.025, 0.07, matViolet, new THREE.Vector3(0, 1.15 + Math.sin(i * 0.7) * 0.06, z));
+    }
+
+    const stars = new THREE.Group();
+    const starMat = new THREE.PointsMaterial({ color: 0x8f77ff, size: 0.018, transparent: true, opacity: 0.7 });
+    const starGeo = new THREE.BufferGeometry();
+    const verts = [];
+    for (let i = 0; i < 520; i++) verts.push((Math.random() - 0.5) * 34, Math.random() * 13 - 4, (Math.random() - 0.5) * 34);
+    starGeo.setAttribute('position', new THREE.Float32BufferAttribute(verts, 3));
+    stars.add(new THREE.Points(starGeo, starMat));
+    scene.add(stars);
+
+    function updateCamera() {
+      orbit.pitch = Math.max(-0.62, Math.min(0.82, orbit.pitch));
+      orbit.radius = Math.max(4.2, Math.min(16, orbit.radius));
+      const cp = Math.cos(orbit.pitch);
+      camera.position.set(Math.sin(orbit.yaw) * cp * orbit.radius, target.y + Math.sin(orbit.pitch) * orbit.radius, Math.cos(orbit.yaw) * cp * orbit.radius);
+      camera.lookAt(target);
+    }
+
+    function resize() {
+      const w = window.innerWidth; const h = window.innerHeight;
+      renderer.setSize(w, h, false);
+      camera.aspect = w / h;
+      camera.updateProjectionMatrix();
+    }
+
+    let dragging = false; let lastX = 0; let lastY = 0;
+    window.addEventListener('pointerdown', (e) => { dragging = true; lastX = e.clientX; lastY = e.clientY; canvas.setPointerCapture(e.pointerId); });
+    window.addEventListener('pointerup', () => { dragging = false; });
+    window.addEventListener('pointermove', (e) => {
+      if (!dragging) return;
+      const dx = e.clientX - lastX; const dy = e.clientY - lastY;
+      lastX = e.clientX; lastY = e.clientY;
+      orbit.yaw -= dx * 0.006;
+      orbit.pitch += dy * 0.005;
+      updateCamera();
+    });
+    window.addEventListener('wheel', (e) => { e.preventDefault(); orbit.radius *= 1 + Math.sign(e.deltaY) * 0.08; updateCamera(); }, { passive: false });
+    window.addEventListener('dblclick', () => { orbit.yaw = 0.02; orbit.pitch = 0.18; orbit.radius = 9.2; updateCamera(); });
+    window.addEventListener('resize', resize);
+
+    resize(); updateCamera();
+    const clock = new THREE.Clock();
+    function animate() {
+      const t = clock.getElapsedTime();
+      root.rotation.y = Math.sin(t * 0.25) * 0.035;
+      root.position.y = Math.sin(t * 1.1) * 0.025;
+      stars.rotation.y = t * 0.015;
+      renderer.render(scene, camera);
+      requestAnimationFrame(animate);
+    }
+    animate();
+  </script>
+</body>
+</html>
