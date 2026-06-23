@@ -2940,3 +2940,43 @@ they hand back a `loftEllipse` ring list + tagged outlines, and the build starts
 of a guess. Extend later: trace the WING outline → emit `wingForms[]` (`tips/lead/scallop`) directly;
 overlay the BUILT silhouette behind the trace so correction is one screen; let a path drive `profile.stations`
 (`[z, halfWidth, keelTop, belly]`) for the airfoil torsos, not just `loftEllipse`.
+
+---
+
+## Lesson — Tracer v2: wing-RIG + connection points + part tags (human steers the build, not just the shape).
+
+The human used the v1 tracer, traced a banking-pose dragon, and hit the wall the tool was built to expose:
+a 3⁄4 flight silhouette is mostly WING, so the body-of-revolution `loftEllipse` derivation (which assumes a
+clean side profile spun around its long axis) read the wingtip as "head" and produced a blob. Rendering the
+trace back to a PNG (reusing `silhouetteCore.pngGray`, pure node — `scratchpad/render-trace.mjs`) made this
+obvious at a glance and confirmed the round-trip is faithful. **Takeaway: always rasterize a received trace
+and show it back before building — "verify before claiming" applies to INPUT too.**
+
+The human then drove the tool forward with the right instincts (they've absorbed the unified-hull thesis):
+(1) don't build on LEGACY bolted-on wings — they gap off the body (L20–L32); use the continuous hull.
+(2) Let me trace the JOINING point so the build knows how a part connects. (3) Tag a trace as
+wing/torso/tail/head. Plus two UX bugs: adding dots drew "weird lines to a far dot", and there was no full
+reset. v2 (`tools/tracer.html` + `tools/tracerCore.mjs`):
+- **Wing-rig mode** — place root→wrist→lead→finger-struts (outer→inner); `deriveWingForm()` (pure, tested)
+  builds a wing-LOCAL frame at the root (x=span to the outer tip, y=chord toward the lead) and scales so the
+  outer tip sits at the engine's `targetSpan` → emits the `wingForms[]` planform DIRECTLY (tips x-descending,
+  lead +y, per `dragonParts.buildWingShape`). A flat trace can't measure the 3-D `scallop`/`arc{}` lift, so
+  those ship as tunable defaults. **The trace now hands over engine data, not pixels to guess from.**
+- **Connection points (⊕ joint)** — a per-path attach marker. For a wing it's the wing-root locus
+  (body-Z + radius) the continuous hull needs, so wings grow from the body skin, not bolted on.
+- **Part tags** (`part`: wing/body/tail/head/neck/leg/…) — the semantic label that says which BUILDER a
+  trace feeds, orthogonal to the view angle. Loft derivation now prefers the `body`-tagged outline.
+- **The add-dot bug** was the closed-loop closure line: new paths defaulted to `closed:true`+`smooth`, so
+  every new dot drew a curve wrapping back to dot #1 ("a far dot"). Fix: manual outline paths default
+  **open + straight** (dots connect in click order, literally); auto-trace still lands a fresh closed+smooth
+  path (and the Add tool refuses to append into a closed loop — it spawns a new path). Plus a **Reset all**.
+
+Reusable insight: **the right division of labour is human-tags-semantics, tool-does-math, engine-consumes-data.**
+The tracer shouldn't guess what a blob IS (auto-wand gives a shape, not a meaning); the human tags it
+(`part`, `joint`, wing rig) and the pure core converts geometry to the exact builder format. Sequencing
+lesson: when the build needs data the tool can't yet supply, **upgrade the tool first** — building the
+dragon from a guessed wing rig + connection would have been the very "back-and-forth" the human is killing.
+**→ Leapfrog:** next, build the new SSSR creature on the UNIFIED/continuous hull (NOT legacy) from the
+human's next trace (wing rig + joint + body outline); extend `deriveWingForm` to estimate `scallop` from the
+mean finger-notch depth; add tail/head rig modes the same way; overlay the BUILT silhouette behind the trace
+so correction is one screen.

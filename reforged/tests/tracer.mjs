@@ -4,7 +4,7 @@
 // list maps onto the engine's {z, rx, ry} format (MODEL-CREATION.md §6a).
 import { assert, assertEq } from './shim.mjs';
 import { floodMask, backgroundMask, alphaMask, largestComponent, traceContour,
-         simplify, simplifyToBudget, deriveProfile, toLoftRings } from '../tools/tracerCore.mjs';
+         simplify, simplifyToBudget, deriveProfile, toLoftRings, deriveWingForm } from '../tools/tracerCore.mjs';
 
 let n = 0; const ok = (m) => { n++; console.log(`  ✓ ${m}`); };
 
@@ -93,5 +93,29 @@ ok('toLoftRings produces an engine-ready loftEllipse list');
 const flipped = deriveProfile(norm, { axis: 'x', headEnd: 'max', stations: 9, aspect: W / H });
 assert(Math.abs(flipped.stations[0].half - prof.stations[8].half) < 1e-9, 'headEnd=max mirrors the profile (head↔tail swap)');
 ok('headEnd flips which end is the nose');
+
+// --- deriveWingForm: a traced wing rig → engine wingForms planform -----------
+// Rig in normalised coords: root near the body, outer tip far to the right, two inner
+// fingers, a lead point above the span line. Square image (aspect 1) for clean math.
+const rig = {
+  root: [0.20, 0.50],
+  wrist: [0.40, 0.46],
+  lead: [0.55, 0.36],                  // above the span line → +y (leading edge)
+  tips: [[0.85, 0.50], [0.70, 0.62], [0.50, 0.66]],   // outer→inner, fingers fan downward
+};
+const wf = deriveWingForm(rig, { aspect: 1, targetSpan: 5.5 });
+assert(wf && wf.tips.length === 3, 'deriveWingForm returns a tip per finger');
+assert(Math.abs(wf.tips[0][0] - 5.5) < 0.01, `outer tip lands at targetSpan x≈5.5 (got ${wf.tips[0][0]})`);
+assert(Math.abs(wf.tips[0][1]) < 0.4, 'outer tip sits ~on the span line (small chord)');
+assert(wf.tips[0][0] > wf.tips[1][0] && wf.tips[1][0] > wf.tips[2][0], 'tip x descends outer→inner (engine order)');
+assert(wf.lead[1] > 0, 'lead is on the +y leading-edge side');
+assert(wf.tips[2][1] < wf.lead[1], 'inner trailing finger sits below the leading edge');
+ok('deriveWingForm maps a traced wing rig onto engine wingForms (tips + lead)');
+
+// chord sign must follow the lead even if the wing is drawn mirrored (root on the right)
+const mirror = { root: [0.85, 0.50], lead: [0.50, 0.36], tips: [[0.20, 0.50], [0.35, 0.62]] };
+const wfm = deriveWingForm(mirror, { aspect: 1 });
+assert(wfm.lead[1] > 0, 'mirrored wing still puts the lead on +y (sign follows the lead, not screen x)');
+ok('deriveWingForm orients chord from the lead/wrist, not screen direction');
 
 console.log(`\ntracer core: ${n} checks passed.`);

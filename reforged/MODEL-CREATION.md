@@ -301,12 +301,22 @@ down" prompt ping-pong.
 - **Edit:** drag dots, click a line to insert a dot, `Del` to remove; straight or smooth (Catmull-Rom).
   Multiple **named paths** tagged by **view** (`side` / `top` / `front` / `free`) so body/wing/tail are
   separate shapes.
-- **Export → the engine format:** tag one path **side** (→ `ry` half-height) and one **top** (→ `rx`
-  half-width) and the tool derives a best-effort **`loftEllipse` ring list** (`{z, rx, ry}`, head −1 → tail
-  +1, body-length units) — drop it straight into a torso builder (§6a) and tune on the overlay. Raw
+- **Part tags:** every path carries a **`part`** tag (`wing` / `body` / `tail` / `head` / `neck` / `leg` /
+  `body+tail…`) — the semantic label that says which builder it feeds, independent of the view angle.
+- **Wing-rig mode (`+ Wing rig`):** instead of a freeform outline, place named handles — **root** (on the
+  body), **wrist**, **lead** (leading-edge control), and **finger struts** (outer→inner). The export
+  includes a derived **`wingForm`** in the engine's exact `wingForms[]` planform (tips x descending
+  outer→inner, `lead` +y; §6c) — no guesswork mapping a silhouette to finger tips. (scallop + `arc{}` are
+  3-D finish dials a flat trace can't measure → emitted as defaults to tune on the preview.)
+- **Connection points (⊕):** drop a **joint** marker on any path to mark *where it attaches to the body*.
+  For a wing that's the **wing-root locus** the continuous-hull build needs (body-Z + radius), so wings are
+  grown out of the body skin rather than bolted on (the gap-on-upbeat failure mode — see LEAPFROG L20–L32).
+- **Body loft export:** tag an outline **body** + view **side** (→ `ry` half-height) and another **top**
+  (→ `rx` half-width) and the tool derives a best-effort **`loftEllipse` ring list** (`{z, rx, ry}`, head
+  −1 → tail +1, body-length units) — drop it into a torso builder (§6a) and tune on the overlay. Raw
   normalised points are always exported too. "Copy for Claude" yields a paste-ready message.
-- The geometry core (`tools/tracerCore.mjs`) is pure/DOM-free and unit-tested headlessly
-  (`tests/tracer.mjs`).
+- The geometry core (`tools/tracerCore.mjs`: masks, contour, simplify, `deriveProfile`, `toLoftRings`,
+  `deriveWingForm`) is pure/DOM-free and unit-tested headlessly (`tests/tracer.mjs`).
 
 ---
 
