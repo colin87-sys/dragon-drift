@@ -296,9 +296,6 @@ function wingSystem(side, M) {
   const root = new THREE.Group();
   const LEAN = rad(32);
   root.rotation.z = -side * LEAN;
-  root.rotation.x = rad(42);   // jet-fighter RAKE: sweep the blades back/level so they read
-                               // like swept wings on a fuselage, not a vertical mast that
-                               // towers into the chase-cam lane (kept the dagger shape intact).
   const mir = new THREE.Group(); mir.scale.x = side; root.add(mir);
 
   // slim armoured shoulder pylon / hinge (root mass cut ~30%)
