@@ -297,7 +297,11 @@ down" prompt ping-pong.
 
 - **Auto-trace ("magic wand"):** click the subject → it flood-fills, isolates the largest blob, walks the
   outline (Moore tracing) and simplifies it (Douglas–Peucker) to a clean editable ring. Sources: click
-  subject · background-corners→invert · transparency (cut-out PNG). Tune *tolerance* and *point count*.
+  subject · background-corners→invert · transparency (cut-out PNG). It re-traces the **active** outline **in
+  place**, and dragging *tolerance / smoothness / max points* re-traces it **live** — so you dial in the
+  fidelity without piling up paths.
+- **Isolate / erase (airbrush):** paint over parts you *don't* want (e.g. the body) on a non-destructive
+  erase layer so auto-trace grabs only what's left (e.g. the wings). Brush size, erase/restore, reset.
 - **Edit:** drag dots, click a line to insert a dot, `Del` to remove; straight or smooth (Catmull-Rom).
   Multiple **named paths** tagged by **view** (`side` / `top` / `front` / `free`) so body/wing/tail are
   separate shapes.
@@ -308,9 +312,10 @@ down" prompt ping-pong.
   includes a derived **`wingForm`** in the engine's exact `wingForms[]` planform (tips x descending
   outer→inner, `lead` +y; §6c) — no guesswork mapping a silhouette to finger tips. (scallop + `arc{}` are
   3-D finish dials a flat trace can't measure → emitted as defaults to tune on the preview.)
-- **Connection points (⊕):** drop a **joint** marker on any path to mark *where it attaches to the body*.
-  For a wing that's the **wing-root locus** the continuous-hull build needs (body-Z + radius), so wings are
-  grown out of the body skin rather than bolted on (the gap-on-upbeat failure mode — see LEAPFROG L20–L32).
+- **Connection seam (⊕):** lay down a **joint** as an *ordered series of points* (a line or gentle curve)
+  marking *where the part meets the body* — because a wing roots along a **seam**, not a single point. For
+  the continuous hull that seam IS the shared body-flank vertices the wing grows from (zero gap by
+  construction), rather than a bolted-on wing that gaps on the upbeat (see LEAPFROG L20–L32).
 - **Body loft export:** tag an outline **body** + view **side** (→ `ry` half-height) and another **top**
   (→ `rx` half-width) and the tool derives a best-effort **`loftEllipse` ring list** (`{z, rx, ry}`, head
   −1 → tail +1, body-length units) — drop it into a torso builder (§6a) and tune on the overlay. Raw
