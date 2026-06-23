@@ -3262,3 +3262,13 @@ yaw/roll nudged to 15/13°, and the gold haunches moved out (0.6→0.7) so the s
 is ±0.34, so the pods now clear it with a visible dark gap each side → reads "side pod | tail socket | pod". No
 hip widening. Reusable: "crowded toward centre" with parts already visible = a pure offset push, not more mass;
 keep the central element's halfwidth well under the flanking parts' offset so a dark gap reads as deliberate.
+
+## Lesson — Removed the thruster cant (read badly) and set spacing to a MEASURED fraction of shoulder width.
+
+Human: the cant looks bad; remove it and set the two-thruster span to ~80% of shoulder width. Measured the
+BODY shoulder full width with a quick traverse (exclude all wing-role meshes in the shoulder z-band) = 1.675;
+set podX = 0.8·halfWidth ≈ 0.67 (centre-to-centre = 80% shoulder), podYaw=podRoll=0, haunches moved out to
+follow. Cleaner: flat discs facing straight back read better than canted ones at this scale. Reusable: when a
+human gives a proportion target ("X% of shoulder"), MEASURE the reference dimension off the built model
+(traverse + role filter) rather than guessing — and a "cant" (roll) on a flat emitter only reads well at larger
+sizes; for small pods, straight-on is cleaner.

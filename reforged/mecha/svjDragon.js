@@ -443,7 +443,7 @@ export function buildSVJDragon(knobs = {}) {
   hipCore.position.set(0, hp[2] - 0.02, hp[1] + 0.2); root.add(hipCore);
   for (const s of [-1, 1]) {                                                     // tapered gold haunch wedges
     const haunch = wedgeBlock(0.9, hp[4] * 1.5, 0.44, hp[4] * 0.9, 0.4, M.gold, 'hipArmor');
-    haunch.position.set(s * hp[3] * 0.7, hp[2] + hp[4] * 0.15, hp[1] + 0.2);
+    haunch.position.set(s * hp[3] * 0.82, hp[2] + hp[4] * 0.15, hp[1] + 0.2);
     haunch.rotation.set(Math.PI / 2, 0, s * 0.45); root.add(haunch);
   }
   // SLOPED beveled ENGINE COVER over the rear deck — two facets to a centre ridge,
@@ -463,7 +463,9 @@ export function buildSVJDragon(knobs = {}) {
   rim.position.set(0, tb[2] + 0.02, tb[1] - 0.02); rim.scale.set(1, tb[4] / tb[3], 1); root.add(rim);
   // twin canted ENGINE PODS — a gold pod shell wrapping a recessed thruster, yawed
   // AND rolled outward so each reads as a side-mounted engine pod, not a flat disc.
-  const thrusters = []; const podX = hp[3] * 0.78, podZ = hpBack[1] + 0.36, podYaw = rad(15), podRoll = rad(13);
+  // no cant (it read badly); thrusters straight-back, set so their centre-to-centre
+  // spacing ≈ 80% of the body shoulder width (≈1.675) → ±0.67.
+  const thrusters = []; const podX = 0.67, podZ = hpBack[1] + 0.36, podYaw = 0, podRoll = 0;
   for (const s of [-1, 1]) {
     const housing = tag(new THREE.BoxGeometry(0.46, hp[4] * 0.92, 0.62), M.gold, 'hipArmor');
     housing.position.set(s * podX, hp[2], podZ - 0.12); housing.rotation.set(0, s * podYaw, s * podRoll); root.add(housing);
