@@ -31,7 +31,7 @@ export function svjMaterials() {
     steel: M('#3b424c', { r: 0.4, m: 0.95 }),
     hex: M('#20252e', { r: 0.62, m: 0.55 }),
     red: M('#220604', { e: '#ff2a14', ei: 2.3 }),
-    thruster: M('#240d04', { e: '#ff6a18', ei: 2.2 }),
+    thruster: M('#240d04', { e: '#ff6a18', ei: 0.5 }),   // dim when parked; the driver ignites it on boost/surge
     eye: M('#06141a', { e: '#2ce6ff', ei: 2.2 }),
   };
 }

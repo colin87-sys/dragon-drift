@@ -132,14 +132,15 @@ export function updateSVJ(group, dt, state = {}) {
   // ── THRUSTERS — vector toward the turn; flame length/width + colour per mode ───
   // length: idle→boost→surge, longer on climb, narrower+shorter on dive.
   // surge keeps the boost-sized CONTAINED twin cones (just recoloured pink) — it must
-  // NOT bloom into a screen-filling plume toward the chase cam.
-  const flameLen = 0.05 + S.boost * 1.55 + S.surge * 0.45 + climb * 0.3 - dive * 0.18;
-  const flameW = 0.05 + S.boost * 0.85 + S.surge * 0.30 - dive * 0.18;
+  // NOT bloom into a screen-filling plume toward the chase cam. On surge the flames carry
+  // the whole effect now (aura/rings/comet are disabled to match the Aurum Toro afterburner).
+  const flameLen = 0.05 + S.boost * 1.55 + S.surge * 0.70 + climb * 0.3 - dive * 0.18;
+  const flameW = 0.05 + S.boost * 0.85 + S.surge * 0.45 - dive * 0.18;
   const lenPulse = 1 + 0.12 * Math.sin(S.eng * 2);
   for (const th of A.thrusters) {
     th.rotation.y = S.bank * rad(12);                               // thrust vectoring (flame is a child)
     th.userData.flame.scale.set(Math.max(0.02, flameW), Math.max(0.02, flameW), Math.max(0.02, flameLen * lenPulse));
-    th.userData.core.scale.setScalar(0.75 + S.boost * 0.5 + S.surge * 0.8);
+    th.userData.core.scale.setScalar(0.55 + S.boost * 0.65 + S.surge * 0.9);
   }
   // thruster colour: idle red-orange → white-hot on boost → custom surge colour
   M.thruster.emissive.copy(A._th0).lerp(A._thBoost, sat(S.boost - S.surge)).lerp(A._thSurge, S.surge);
@@ -164,7 +165,10 @@ export function updateSVJ(group, dt, state = {}) {
   const redPulse = 1 + 0.12 * Math.sin(S.eng) + 0.3 * spd + 0.5 * S.boost + 1.6 * S.surge + 0.8 * S.brake;
   M.red.emissiveIntensity = A._baseEmi.get(M.red) * redPulse;
   M.red.emissive.copy(A._red0).lerp(A._surgeCol, S.surge * 0.75);           // red slashes → surge tint
-  M.thruster.emissiveIntensity = A._baseEmi.get(M.thruster) * (1 + 0.15 * Math.sin(S.eng) + 0.6 * S.boost + 1.6 * S.surge);
+  // thrusters are fully COLD in normal flight — NO idle red glow ring at all. They ignite
+  // ONLY on boost/surge (the cores read as dark machined nozzles otherwise).
+  const heat = sat(0.85 * S.boost + S.surge);
+  M.thruster.emissiveIntensity = 4.6 * heat * (1 + 0.1 * Math.sin(S.eng) * heat);   // absolute: 0 = fully cold
   M.eye.emissiveIntensity = A._baseEmi.get(M.eye) * (1 + 0.3 * S.surge);
   M.eye.emissive.copy(A._eye0).lerp(A._surgeCol, S.surge * 0.4);
 
@@ -179,56 +183,15 @@ export function updateSVJ(group, dt, state = {}) {
   A._vibration = Math.sin(S.eng * 3) * 0.004 * (0.4 + spd + S.boost + S.surge);
 }
 
-// ── VFX driver (model owns the meshes; this scales/fades/colours them) ──────────
+// ── VFX driver — AURUM TORO match: the SVJ's boost/surge read comes from the thruster
+// FLAMES + glow only. The old aura shell, shock rings and tail comet are DISABLED (they
+// read different from the Aurum Toro afterburner and blocked the chase-cam view). The
+// meshes stay in the model (hidden) so they can be re-enabled if we ever want them back.
 function updateVfx(A, S, dt) {
   const vfx = A.vfx; if (!vfx) return;
-  const hot = Math.max(S.boost, S.surge);
-
-  // tail comet trail — kept SHORT (it streams +Z straight at the chase cam, so a long
-  // one blocks the view); a brief tinted stub, not a banner.
-  if (vfx.tailTrail) {
-    const len = S.boost * 0.6 + S.surge * 0.55;
-    const op = sat(S.boost * 0.45 + S.surge * 0.4);
-    vfx.tailTrail.visible = op > 0.01;
-    vfx.tailTrail.scale.set(0.6 + S.surge * 0.25, 0.6 + S.surge * 0.25, Math.max(0.001, len));
-    vfx.tailMat.opacity = op;
-    vfx.tailMat.color.copy(A._red0).lerp(A._surgeCol, S.surge);
-  }
-
-  // shock rings — periodic rings spawn behind the thrusters and expand+fade aft.
-  // pool reuse: advance every ring's age, recycle the oldest on the spawn interval.
-  if (vfx.rings && vfx.rings.length) {
-    const active = hot > 0.45;
-    const interval = S.surge > 0.3 ? 0.35 : 0.55;
-    S.ringT += dt;
-    if (active && S.ringT >= interval) {
-      S.ringT = 0;
-      let oldest = vfx.rings[0];
-      for (const r of vfx.rings) if (r.userData._age > oldest.userData._age) oldest = r;
-      oldest.userData._age = 0;
-    }
-    for (const r of vfx.rings) {
-      const age = (r.userData._age += dt * 1.8);
-      if (age >= 1) { r.visible = false; continue; }
-      r.visible = true;
-      const s = 0.5 + age * (1.0 + S.surge * 0.4);     // smaller rings, don't balloon on surge
-      r.scale.set(s, s, s);
-      r.position.z = vfx.ringZ + age * 0.85;            // travel less far toward the camera
-      r.material.opacity = (1 - age) * 0.32;            // fainter
-      r.material.color.copy(A._th0).lerp(A._surgeCol, S.surge);
-    }
-  }
-
-  // surge aura — a SUBTLE body rim, NOT a big aft halo (the old 3.6-long shell bloomed
-  // straight into the chase cam). Hugs the body, faint, no plume toward the camera.
-  if (vfx.aura) {
-    const op = S.surge * 0.12;
-    vfx.aura.visible = op > 0.01;
-    vfx.auraMat.opacity = op;
-    vfx.auraMat.color.copy(A._surgeCol);
-    const pulse = 1 + 0.05 * Math.sin(S.eng);
-    vfx.aura.scale.set(1.25 * pulse, 1.05 * pulse, 1.15 * pulse);
-  }
+  if (vfx.tailTrail) { vfx.tailTrail.visible = false; vfx.tailMat.opacity = 0; }
+  if (vfx.aura) { vfx.aura.visible = false; vfx.auraMat.opacity = 0; }
+  if (vfx.rings) for (const r of vfx.rings) { r.visible = false; }
 }
 
 export default updateSVJ;

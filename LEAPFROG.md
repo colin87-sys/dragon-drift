@@ -3439,3 +3439,22 @@ Tooling: tools/shot.html now optionally drives updateSVJ (?dsurge/?dboost/?dbank
 screenshot live boost/surge states headlessly, not just the static rest pose. mecha/measure.mjs targets are stale
 (they want a much taller/bigger wing than the current design) — it's a manual diagnostic, NOT a CI gate; don't
 chase its numbers against the current art direction.
+
+## Lesson — Match a sibling dragon's FX by SUBTRACTION; static renders lie about driver-controlled emissive.
+
+The standalone `svjMecha` (custom path) and the roster `aurumToroMk2` (standard pipeline, same svjHull body)
+are siblings. To make svjMecha's Dragon-Surge "copy" aurumToroMk2's, the move was SUBTRACTION, not addition:
+aurumToroMk2's surge is just a clean pink-magenta afterburner + glow — it has NO shock rings, NO big aura shell,
+NO tail comet. Those were exactly the SVJ-custom VFX that read different + blocked the chase cam. So updateVfx now
+DISABLES aura/rings/comet (kept in the model, hidden) and lets the contained pink thruster flames carry surge.
+Lesson: when a user says "make X look like Y," diff the two and remove what X has that Y doesn't, before adding.
+
+Idle-FX gotcha (cost me a render): the user wanted "no red radiating circle from the thrusters in normal flight."
+That circle was the thruster CORE emissive (material base ei 2.2) blooming. Two-part fix: (1) driver sets thruster
+emissive to an ABSOLUTE `4.6 * heat` where `heat = sat(0.85*boost + surge)` → exactly 0 at cruise (fully cold
+nozzles), and (2) lower the MATERIAL base ei 2.2→0.5 so the PARKED/static render (shop card, proof montage,
+showcase) is also dim. Critical realization: the shot harness only runs the driver when a drive param is present
+(`?dboost`/`?dsurge`), so a plain `?view=rear` cruise screenshot shows the STATIC material default (bright cores),
+NOT what the game shows (driver zeroes it). To judge driver-controlled state, drive it explicitly — even cruise
+needs `?dboost=0` to run the driver at the zero state. Don't trust a static render for anything the per-frame
+driver overrides (emissive, flame scale, poses).

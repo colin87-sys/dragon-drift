@@ -38,13 +38,16 @@ for (const { name, s } of states) {
 }
 
 // behavioural spot-checks
+for (let f = 0; f < 120; f++) updateSVJ(group, 1 / 60, { speedNorm: 0.3 });   // settle cruise
+const idleHeat = A.materials.thruster.emissiveIntensity;
 for (let f = 0; f < 90; f++) updateSVJ(group, 1 / 60, { boost: 1, speedNorm: 1 });
 line(A.thrusters[0].userData.flame.scale.z > 1.0, `boost extends thruster flame (z=${A.thrusters[0].userData.flame.scale.z.toFixed(2)})`);
+const boostHeat = A.materials.thruster.emissiveIntensity;
+line(boostHeat > idleHeat * 3, `thrusters COLD at cruise, ignite on boost (idle ${idleHeat.toFixed(2)} → boost ${boostHeat.toFixed(2)})`);
 for (let f = 0; f < 90; f++) updateSVJ(group, 1 / 60, { surge: 1, speedNorm: 1 });
-line(A.vfx.aura.visible && A.vfx.aura.scale.x > 0.1, `surge reveals aura (visible=${A.vfx.aura.visible})`);
 line(A.materials.red.emissive.b > A._red0.b + 0.05, `surge tints red slashes toward surge colour (b=${A.materials.red.emissive.b.toFixed(2)})`);
-for (let f = 0; f < 120; f++) updateSVJ(group, 1 / 60, { speedNorm: 0.3 });
-line(!A.vfx.aura.visible && A.vfx.tailTrail.scale.z < 0.05, `cruise hides surge VFX (aura ${A.vfx.aura.visible}, trail z ${A.vfx.tailTrail.scale.z.toFixed(3)})`);
+line(!A.vfx.aura.visible && !A.vfx.tailTrail.visible && A.vfx.rings.every((r) => !r.visible),
+  `Aurum-Toro match: aura/comet/rings stay disabled (flames carry surge)`);
 
 console.log(`\n${ok ? 'PASS' : 'FAIL'}`);
 process.exit(ok ? 0 : 1);
