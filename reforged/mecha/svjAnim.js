@@ -131,8 +131,10 @@ export function updateSVJ(group, dt, state = {}) {
 
   // ── THRUSTERS — vector toward the turn; flame length/width + colour per mode ───
   // length: idle→boost→surge, longer on climb, narrower+shorter on dive.
-  const flameLen = 0.05 + S.boost * 1.55 + S.surge * 1.9 + climb * 0.3 - dive * 0.18;
-  const flameW = 0.05 + S.boost * 0.85 + S.surge * 1.0 - dive * 0.18;
+  // surge keeps the boost-sized CONTAINED twin cones (just recoloured pink) — it must
+  // NOT bloom into a screen-filling plume toward the chase cam.
+  const flameLen = 0.05 + S.boost * 1.55 + S.surge * 0.45 + climb * 0.3 - dive * 0.18;
+  const flameW = 0.05 + S.boost * 0.85 + S.surge * 0.30 - dive * 0.18;
   const lenPulse = 1 + 0.12 * Math.sin(S.eng * 2);
   for (const th of A.thrusters) {
     th.rotation.y = S.bank * rad(12);                               // thrust vectoring (flame is a child)
@@ -182,12 +184,13 @@ function updateVfx(A, S, dt) {
   const vfx = A.vfx; if (!vfx) return;
   const hot = Math.max(S.boost, S.surge);
 
-  // tail comet trail — grows + colours toward the surge tint on overdrive
+  // tail comet trail — kept SHORT (it streams +Z straight at the chase cam, so a long
+  // one blocks the view); a brief tinted stub, not a banner.
   if (vfx.tailTrail) {
-    const len = S.boost * 0.75 + S.surge * 2.2;
-    const op = sat(S.boost * 0.5 + S.surge * 0.8);
+    const len = S.boost * 0.6 + S.surge * 0.55;
+    const op = sat(S.boost * 0.45 + S.surge * 0.4);
     vfx.tailTrail.visible = op > 0.01;
-    vfx.tailTrail.scale.set(0.7 + S.surge * 0.5, 0.7 + S.surge * 0.5, Math.max(0.001, len));
+    vfx.tailTrail.scale.set(0.6 + S.surge * 0.25, 0.6 + S.surge * 0.25, Math.max(0.001, len));
     vfx.tailMat.opacity = op;
     vfx.tailMat.color.copy(A._red0).lerp(A._surgeCol, S.surge);
   }
@@ -208,22 +211,23 @@ function updateVfx(A, S, dt) {
       const age = (r.userData._age += dt * 1.8);
       if (age >= 1) { r.visible = false; continue; }
       r.visible = true;
-      const s = 0.6 + age * (1.5 + S.surge * 1.0);
+      const s = 0.5 + age * (1.0 + S.surge * 0.4);     // smaller rings, don't balloon on surge
       r.scale.set(s, s, s);
-      r.position.z = vfx.ringZ + age * 1.4;
-      r.material.opacity = (1 - age) * (0.5 + S.surge * 0.5);
+      r.position.z = vfx.ringZ + age * 0.85;            // travel less far toward the camera
+      r.material.opacity = (1 - age) * 0.32;            // fainter
       r.material.color.copy(A._th0).lerp(A._surgeCol, S.surge);
     }
   }
 
-  // surge aura — an elongated back-lit shell; appears only on Dragon Surge
+  // surge aura — a SUBTLE body rim, NOT a big aft halo (the old 3.6-long shell bloomed
+  // straight into the chase cam). Hugs the body, faint, no plume toward the camera.
   if (vfx.aura) {
-    const op = S.surge * 0.35;
+    const op = S.surge * 0.12;
     vfx.aura.visible = op > 0.01;
     vfx.auraMat.opacity = op;
     vfx.auraMat.color.copy(A._surgeCol);
     const pulse = 1 + 0.05 * Math.sin(S.eng);
-    vfx.aura.scale.set(1.9 * pulse, 1.5 * pulse, 3.6 * pulse);
+    vfx.aura.scale.set(1.25 * pulse, 1.05 * pulse, 1.15 * pulse);
   }
 }
 

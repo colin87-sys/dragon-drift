@@ -22,6 +22,7 @@ import { DRAGONS } from '../js/dragons.js';
 import { ascendedDef } from '../js/ascension.js';
 import { buildDragonModel } from '../js/dragonModel.js';
 import { applyRim, updateRim, resetRim } from '../js/rimLight.js';
+import { updateSVJ } from '../mecha/svjAnim.js';
 
 const P = new URLSearchParams(location.search);
 const key = P.get('dragon') || 'azure';
@@ -101,11 +102,19 @@ composer.addPass(new RenderPass(scene, camera));
 composer.addPass(new UnrealBloomPass(new THREE.Vector2(innerWidth, innerHeight), 0.38, 0.5, 0.95));
 composer.addPass(new OutputPass());
 
+// optional LIVE animation drive (SVJ only): ?dsurge=1&dboost=1&dbank=..&dpitch=..
+const drive = (P.has('dsurge') || P.has('dboost') || P.has('dbank') || P.has('dpitch'))
+  ? { surge: +(P.get('dsurge') || 0), boost: +(P.get('dboost') || 0), bank: +(P.get('dbank') || 0), pitch: +(P.get('dpitch') || 0), speedNorm: 1 }
+  : null;
+const canDrive = drive && group.userData && group.userData.anim;
+
 let frames = 0;
 function frame() {
+  if (canDrive) updateSVJ(group, 1 / 60, drive);     // animate thrusters/wings/glow/VFX
   headlight.position.copy(camera.position);
   composer.render();
-  if (++frames === 4) window.__shotReady = true;   // let materials/bloom settle
+  // settle longer when driving so surge flames/rings/aura reach steady state
+  if (++frames === (canDrive ? 90 : 4)) window.__shotReady = true;
   requestAnimationFrame(frame);
 }
 frame();

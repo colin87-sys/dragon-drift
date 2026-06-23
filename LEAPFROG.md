@@ -3407,3 +3407,35 @@ Reusable rules:
 - Process: this collapses the "human judges every micro-change" bottleneck for everything visual EXCEPT live 60fps
   motion-feel on a weak device — that last mile still wants a human/phone. Proportions, framing, shaded look, and
   boost/surge pose states are now agent-judgeable.
+
+## Lesson — Chase-cam readability: VFX that extend +Z blast the camera; rake the wings, don't just scale.
+
+Two SVJ readability fixes, both judged on REAL renders via the new headless loop (tools/shot.mjs with live-
+animation drive ?dsurge/?dboost):
+
+1. **Dragon-Surge was blocking the view** — not the thrusters themselves (those read as clean twin pink cores,
+   like boost) but the surge VFX BULK: a 3.6-long additive aura shell + a 2.2-long tail comet + oversized flames,
+   all extending +Z. The chase cam sits at +Z, so every one of those fired straight INTO the camera and bloomed
+   over the screen. Fix: contain everything that streams aft — flame surge-term 1.9→0.45, comet 2.2→0.55, aura
+   opacity 0.35→0.12 + shrink the shell from (1.9,1.5,3.6) to (1.25,1.05,1.15) so it hugs the body instead of
+   pluming, rings smaller + travel less far. Rule: on a rear chase cam, any additive effect with +Z extent is a
+   view-blocker — size it by how much screen it eats from BEHIND, not how cool it looks from the side/preview
+   (the preview camera is farther than the real chase cam, so it always under-reads the blocking).
+
+2. **Wings towered into the lane** — the raked-dagger blades sat near-vertical (a mast), reading both "too tall"
+   AND "stiff". Fix was NOT scaling or body changes: a single `root.rotation.x = rad(42)` jet-fighter RAKE on the
+   wing mount sweeps the blades back/level into a wide low delta — keeps the exact dagger geometry (identity
+   intact) but lays it down like swept wings on a fuselage. The driver composes on top (it captures _baseRX, then
+   adds boost/dive sweepBack), so flight poses still work.
+
+Metric gotcha: the bounding-box height/width DIDN'T change (stayed 1.00) when raking the wing, because raking
+swings the tip DOWN — total y-span is preserved even though the UPPER extent (what occludes the lane) dropped a
+lot. So height/width is the wrong readability number for a wing that can rake below the body; judge the UPPER
+extent (bodyTopY / how high it rises above the flight line) or just look at the render. Likewise "absolute body
+height" split: the SVJ body's TOP sits at 1.47 (same as the flat arrow body), its extra bulk hangs BELOW the
+flight line — so the body was never the occluder; the wing was.
+
+Tooling: tools/shot.html now optionally drives updateSVJ (?dsurge/?dboost/?dbank/?dpitch) so the agent can
+screenshot live boost/surge states headlessly, not just the static rest pose. mecha/measure.mjs targets are stale
+(they want a much taller/bigger wing than the current design) — it's a manual diagnostic, NOT a CI gate; don't
+chase its numbers against the current art direction.
