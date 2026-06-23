@@ -3088,3 +3088,20 @@ gate caught width 85→82); restored with LP 6.7→7.05 back to width 85.6. Less
 re-run the measure gate and re-pin the wing length — proportions are coupled through the master scale.
 **→ Leapfrog:** the refinement knobs (RINGS depths, root thickness, fairing, cowl, bloom) are all isolated;
 silhouette tuning on this kit is now pure parameter work with a measure gate, no structural edits.
+
+## Lesson — Refinement pass 2: killed the "horn wing" + "prawn head" reads via a clearer wing kink, a real skull, and stronger mass rhythm.
+
+(1) **Horn→blade:** the primary wing read as a smooth banana because angA≈angC (no kink) + a convex bow. Fix:
+widen the kink (root angA 68° → outer angC 50°, a clear ~18° hard-surface direction change at 27% length),
+cut the convex coefficient 0.05→0.015 (clean straight outer, not a banana), bump root chord +20% and hold it
+broad longer (wMid 0.5→0.62), root thickness ~3× mid. Now reads thick root → kink → long clean taper.
+(2) **Prawn→skull:** the head was a single long pointed wedge. Rebuilt headWedge as a real skull: a TALL cranium
+box + sloped brow/forehead plane + a SHORTER snout wedge + a distinct lower-jaw wedge (hinged, slightly open) +
+cheek/jaw-hinge plates + a thick neck collar so it attaches to a neck, not a spike. Shorter snout + taller back
+= predator skull, not a shrimp. (3) **Lower blade:** dropped to 55% len and offset further below+behind (y −0.42)
+for real negative space → reads as a distinct support fin. (4) **Mass rhythm:** thicker neck base, deeper chest
+(hh→0.82) + tighter waist (hh→0.34) for a clear hourglass, bulkier hip, thicker tail base. (5) **Tail fins
+hierarchical:** scale shrinks toward the tip + skip alternate rings (no repetitive comb).
+Process: enlarging head/chest again grew head-to-tail, but the wing ratio held this time (width 87.6, no LP
+re-pin needed). Reusable: a "designed kink" = two path segments with a ≥15° angle delta AND near-zero convex;
+a convincing mech skull = cranium box + brow plane + short snout wedge + separate jaw + neck collar (5 boxes).
