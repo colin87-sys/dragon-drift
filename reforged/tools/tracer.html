@@ -90,6 +90,7 @@
         <button data-tool="add">✚ Add / place (A)</button>
         <button data-tool="edit">✥ Move / edit (E)</button>
         <button data-tool="joint">⊕ Connect seam (C)</button>
+        <button data-tool="cut">✂ Cut parts (K)</button>
         <button data-tool="pan">✋ Pan (P)</button>
       </div>
       <div id="roles" class="roles" style="display:none">
@@ -131,6 +132,16 @@
       <button id="ereset" class="mini full">Reset image edits</button>
     </div>
 
+    <div class="sec" id="cutsec">
+      <h2>Cut into parts</h2>
+      <div class="hint">Draw a cut across the body (e.g. between tail &amp; body). Then <b>Apply</b> splits the silhouette into bands — each traces in isolation and the cut becomes the shared <b>seam</b> (auto connection). Best for spine-axis parts (head/body/tail); wings use the wing rig.</div>
+      <div class="row" style="margin-top:7px">
+        <button id="newcut" class="mini">＋ New cut</button>
+        <button id="applycuts" class="mini">Apply cuts → bands</button>
+      </div>
+      <div class="row"><button id="clearcuts" class="mini full">Clear cuts</button></div>
+    </div>
+
     <div class="sec">
       <h2>Paths</h2>
       <div class="pathlist" id="paths"></div>
@@ -167,7 +178,7 @@
 
 <script type="module">
 import { floodMask, backgroundMask, alphaMask, largestComponent, traceContour,
-         simplifyToBudget, deriveProfile, toLoftRings, deriveWingForm } from './tracerCore.mjs';
+         simplifyToBudget, deriveProfile, toLoftRings, deriveWingForm, cutAt } from './tracerCore.mjs';
 
 const $ = (id) => document.getElementById(id);
 const cv = $('c'), ctx = cv.getContext('2d');
@@ -189,10 +200,12 @@ let hoverPos = null;                                         // for the brush ri
 let paths = [];     // outline:{kind:'outline',part,pts:[[x,y]],closed,smooth,auto,joint:[[x,y]]}
                     // wing:{kind:'wing',part,root,wrist,lead,tips:[[x,y]],joint:[[x,y]]}
 let active = -1, sel = null, undoStack = [];
+let cuts = [], activeCut = -1, cutSeq = 0;   // partition cuts: [{id,name,pts:[[x,y]…]}] — axis-perpendicular splits
 
 function newOutline() {
   return { name: `outline ${paths.length + 1}`, kind: 'outline', part: 'body', view: hasView('side') ? 'free' : 'side',
-           color: PALETTE[paths.length % PALETTE.length], closed: false, smooth: false, auto: false, visible: true, pts: [], joint: [] };
+           color: PALETTE[paths.length % PALETTE.length], closed: false, smooth: false, auto: false, visible: true, pts: [], joint: [],
+           band: { before: null, after: null } };
 }
 function newWing() {
   return { name: `wing ${paths.length + 1}`, kind: 'wing', part: 'wing', view: 'side',
@@ -200,8 +213,8 @@ function newWing() {
 }
 function hasView(v) { return paths.some(p => p.view === v); }
 function ensureActive() { if (active < 0 || !paths[active]) { paths.push(newOutline()); active = paths.length - 1; } return paths[active]; }
-function pushUndo() { undoStack.push(JSON.stringify({ paths, active })); if (undoStack.length > 80) undoStack.shift(); }
-function undo() { const s = undoStack.pop(); if (!s) return; const o = JSON.parse(s); paths = o.paths; active = o.active; sel = null; renderPaths(); refresh(); }
+function pushUndo() { undoStack.push(JSON.stringify({ paths, active, cuts })); if (undoStack.length > 80) undoStack.shift(); }
+function undo() { const s = undoStack.pop(); if (!s) return; const o = JSON.parse(s); paths = o.paths; active = o.active; cuts = o.cuts || []; sel = null; renderPaths(); refresh(); }
 
 // ── transforms ───────────────────────────────────────────────────────────────
 const toScreen = (nx, ny) => [nx * imgW * view.scale + view.tx, ny * imgH * view.scale + view.ty];
@@ -258,6 +271,26 @@ function applyErase(mask) {                 // zero out erased pixels in any mas
   for (let i = 0; i < mask.length; i++) if (ed[i * 4 + 3] > 12) mask[i] = 0;
   return mask;
 }
+// Limit a mask to the band between a path's bounding cuts (so the part traces in isolation).
+function cutAxis() { return $('axis').value === 'y' ? 'y' : 'x'; }
+function applyBand(mask, band) {
+  if (!band || (band.before == null && band.after == null)) return mask;
+  const ax = cutAxis();
+  const before = band.before != null ? cuts.find(c => c.id === band.before) : null;
+  const after  = band.after  != null ? cuts.find(c => c.id === band.after)  : null;
+  for (let y = 0; y < workH; y++) for (let x = 0; x < workW; x++) {
+    const i = y * workW + x; if (!mask[i]) continue;
+    const nx = x / workW, ny = y / workH;
+    if (ax === 'x') {
+      if (before && nx < cutAt(before.pts, ny, 'x')) { mask[i] = 0; continue; }
+      if (after  && nx > cutAt(after.pts,  ny, 'x')) mask[i] = 0;
+    } else {
+      if (before && ny < cutAt(before.pts, nx, 'y')) { mask[i] = 0; continue; }
+      if (after  && ny > cutAt(after.pts,  nx, 'y')) mask[i] = 0;
+    }
+  }
+  return mask;
+}
 
 // ── auto-trace (re-traces the ACTIVE outline in place; sliders refine live) ────
 function maskFromWand() {
@@ -269,6 +302,7 @@ function maskFromWand() {
 function runTrace(label, live) {
   if (!workData || !lastWand) return;
   let mask = applyErase(maskFromWand());
+  mask = applyBand(mask, paths[active] && paths[active].band);
   mask = largestComponent(mask, workW, workH);
   let contour = traceContour(mask, workW, workH);
   if (contour.length < 3) { if (!live) status('Auto-trace found nothing — adjust tolerance / erase, or pick another source.'); return; }
@@ -312,6 +346,13 @@ function setXY(p, h, xy) {
   if (h.type === 'jointpt') p.joint[h.i] = xy; else if (h.type === 'tip') p.tips[h.i] = xy;
   else if (h.type === 'pt') p.pts[h.i] = xy; else p[h.key] = xy;
 }
+function hitCut(sx, sy) {
+  for (let ci = 0; ci < cuts.length; ci++) for (let i = 0; i < cuts[ci].pts.length; i++) {
+    const [x, y] = toScreen(cuts[ci].pts[i][0], cuts[ci].pts[i][1]);
+    if (Math.hypot(x - sx, y - sy) < HIT) return { type: 'cutpt', ci, i };
+  }
+  return null;
+}
 function hitSegment(p, sx, sy) {
   if (p.kind !== 'outline' || p.pts.length < 2) return -1;
   const n = p.pts.length, last = p.closed ? n : n - 1; let best = -1, bestD = 8;
@@ -337,6 +378,14 @@ cv.addEventListener('pointerdown', e => {
 
   if (tool === 'joint') { const p = ensureActive(); pushUndo(); p.joint.push([nx, ny]); sel = { type: 'jointpt', i: p.joint.length - 1 }; status(`Seam point ${p.joint.length} on “${p.name}”.`); renderPaths(); refresh(); return; }
 
+  if (tool === 'cut') {
+    pushUndo();
+    if (activeCut < 0 || !cuts[activeCut]) { cuts.push({ id: ++cutSeq, name: 'cut ' + (cuts.length + 1), pts: [] }); activeCut = cuts.length - 1; }
+    cuts[activeCut].pts.push([nx, ny]); sel = { type: 'cutpt', ci: activeCut, i: cuts[activeCut].pts.length - 1 };
+    status(`Cut “${cuts[activeCut].name}”: ${cuts[activeCut].pts.length} pts. Draw across the body; ＋New cut for the next boundary; then Apply.`);
+    refresh(); return;
+  }
+
   if (tool === 'add') {
     let p = ensureActive();
     if (p.kind === 'wing') {
@@ -351,6 +400,8 @@ cv.addEventListener('pointerdown', e => {
 
   if (tool === 'edit') {
     const p = ensureActive();
+    const ch = hitCut(sx, sy);
+    if (ch) { sel = ch; activeCut = ch.ci; pushUndo(); drag = { cut: ch }; refresh(); return; }
     const h = hitHandle(p, sx, sy);
     if (h) { sel = h; pushUndo(); drag = { h }; refresh(); return; }
     const seg = hitSegment(p, sx, sy);
@@ -363,6 +414,7 @@ cv.addEventListener('pointermove', e => {
   if (!drag) return;
   if (drag.pan) { view.tx = drag.tx + (e.clientX - drag.x); view.ty = drag.ty + (e.clientY - drag.y); dirty = true; return; }
   if (drag.erase) { paintErase(e.offsetX, e.offsetY); return; }
+  if (drag.cut) { cuts[drag.cut.ci].pts[drag.cut.i] = toNorm(e.offsetX, e.offsetY); refresh(); return; }
   if (drag.h && paths[active]) { setXY(paths[active], drag.h, toNorm(e.offsetX, e.offsetY)); refresh(); }
 });
 cv.addEventListener('pointerleave', () => { hoverPos = null; dirty = true; });
@@ -381,10 +433,11 @@ window.addEventListener('keydown', e => {
     if (sel.type === 'pt') p.pts.splice(sel.i, 1);
     else if (sel.type === 'tip') p.tips.splice(sel.i, 1);
     else if (sel.type === 'jointpt') p.joint.splice(sel.i, 1);
+    else if (sel.type === 'cutpt') { cuts[sel.ci].pts.splice(sel.i, 1); if (!cuts[sel.ci].pts.length) { cuts.splice(sel.ci, 1); activeCut = -1; } }
     else if (sel.type === 'wing') p[sel.key] = null;
     sel = null; renderPaths(); refresh(); e.preventDefault(); return;
   }
-  const map = { w: 'autowand', x: 'erase', a: 'add', e: 'edit', c: 'joint', p: 'pan' };
+  const map = { w: 'autowand', x: 'erase', a: 'add', e: 'edit', c: 'joint', k: 'cut', p: 'pan' };
   if (map[e.key]) setTool(map[e.key]);
   if (e.key === 'f' || e.key === 'F') fit();
 });
@@ -397,6 +450,7 @@ const TOOLHINT = {
   add: 'Outline: click to drop dots in order. Wing: pick a role below, then click to place it.',
   edit: 'Drag any dot/handle. Click a line to insert a dot. Del removes the selected one.',
   joint: 'Click to lay down a SEAM (a line/curve) where the active part meets the body. Multiple points allowed.',
+  cut: 'Click across the body to draw a cut (a part boundary). ＋New cut for the next one, then Apply → bands.',
   pan: 'Drag to pan. Wheel = zoom.',
 };
 function setTool(t) {
@@ -404,6 +458,7 @@ function setTool(t) {
   document.querySelectorAll('[data-tool]').forEach(b => b.classList.toggle('on', b.dataset.tool === t));
   $('wandsec').style.opacity = t === 'autowand' ? 1 : 0.55;
   $('erasesec').style.opacity = t === 'erase' ? 1 : 0.55;
+  $('cutsec').style.opacity = t === 'cut' ? 1 : 0.7;
   cv.style.cursor = t === 'pan' ? 'grab' : 'crosshair';
   updateRoles(); $('toolhint').textContent = TOOLHINT[t] || '';
 }
@@ -413,6 +468,30 @@ document.querySelectorAll('[data-role]').forEach(b => b.onclick = () => { wingRo
 $('ebrush').onclick = () => { eraseMode = 'erase'; $('ebrush').classList.add('on'); $('erestore').classList.remove('on'); };
 $('erestore').onclick = () => { eraseMode = 'restore'; $('erestore').classList.add('on'); $('ebrush').classList.remove('on'); };
 $('ereset').onclick = () => { if (eraseCtx) { eraseCtx.clearRect(0, 0, workW, workH); dirty = true; status('Image edits reset.'); } };
+$('newcut').onclick = () => { activeCut = -1; setTool('cut'); status('New cut — click across the silhouette to draw the next boundary.'); };
+$('clearcuts').onclick = () => { pushUndo(); cuts = []; activeCut = -1; sel = null; refresh(); status('Cuts cleared (band paths keep their seams).'); };
+$('applycuts').onclick = applyCuts;
+const cutMean = (c) => { const idx = cutAxis() === 'x' ? 0 : 1; let s = 0; for (const p of c.pts) s += p[idx]; return c.pts.length ? s / c.pts.length : 0; };
+function applyCuts() {
+  const valid = cuts.filter(c => c.pts.length >= 2);
+  if (!valid.length) { status('Draw at least one cut (2+ points across the body) first.'); return; }
+  pushUndo();
+  const order = [...valid].sort((a, b) => cutMean(a) - cutMean(b));   // head→tail along the axis
+  paths = paths.filter(p => !p._fromCuts);                            // replace any prior band paths
+  const N = order.length;
+  const names = (N + 1 === 3) ? ['head', 'body', 'tail'] : (N + 1 === 2) ? ['body', 'tail'] : null;
+  for (let i = 0; i <= N; i++) {
+    const p = newOutline();
+    p._fromCuts = true;
+    p.band = { before: i > 0 ? order[i - 1].id : null, after: i < N ? order[i].id : null };
+    p.part = names ? names[i] : (i === 0 ? 'head' : i === N ? 'tail' : 'body');
+    p.name = p.part;
+    paths.push(p);
+  }
+  active = paths.length - 1; sel = null;
+  renderPaths(); refresh();
+  status(`Made ${N + 1} bands from ${N} cut(s). Pick a band, hit Auto-trace, click inside it — it traces only that band; the cuts are the shared seams.`);
+}
 
 // ── path sidebar ───────────────────────────────────────────────────────────────
 function renderPaths() {
@@ -520,6 +599,7 @@ function draw() {
     ctx.globalAlpha = 1;
     if (eraseCv) { ctx.globalAlpha = 0.5; ctx.drawImage(eraseCv, view.tx, view.ty, imgW * view.scale, imgH * view.scale); ctx.globalAlpha = 1; }   // red wash = removed
   }
+  drawCuts();
   paths.forEach((p, pi) => {
     if (!p.visible) return;
     const isA = pi === active;
@@ -538,6 +618,15 @@ function draw() {
     ctx.beginPath(); ctx.arc(hoverPos[0], hoverPos[1], r, 0, 7);
     ctx.strokeStyle = eraseMode === 'erase' ? '#ff6464' : '#64ff96'; ctx.lineWidth = 1.5; ctx.setLineDash([4, 3]); ctx.stroke(); ctx.setLineDash([]);
   }
+}
+function drawCuts() {
+  cuts.forEach((c, ci) => {
+    if (!c.pts.length) return;
+    const scr = c.pts.map(([x, y]) => toScreen(x, y));
+    if (scr.length > 1) { curveThrough(scr, { closed: false, smooth: false }); ctx.strokeStyle = '#7fd0ff'; ctx.lineWidth = 1.8; ctx.setLineDash([3, 5]); ctx.stroke(); ctx.setLineDash([]); }
+    c.pts.forEach((xy, i) => { const s = sel && sel.type === 'cutpt' && sel.ci === ci && sel.i === i; dot(xy, s ? 6 : 4, s ? '#fff' : '#7fd0ff', '#0a0e1a'); });
+    label(c.pts[0], '✂ ' + c.name, '#aee3ff');
+  });
 }
 function loop() { if (dirty) draw(); requestAnimationFrame(loop); }
 
@@ -562,9 +651,21 @@ function buildExport() {
         const wingForm = (p.root && p.tips.length) ? deriveWingForm({ root: p.root, wrist: p.wrist, lead: p.lead, tips: p.tips }, { aspect }) : null;
         return { name: p.name, kind: 'wing', part: p.part, view: p.view, joint: seam(p.joint), rig, wingForm };
       }
-      return { name: p.name, kind: 'outline', part: p.part, view: p.view, closed: p.closed, smooth: p.smooth, joint: seam(p.joint), points: p.pts.map(r4) };
+      const band = (p.band && (p.band.before != null || p.band.after != null)) ? p.band : undefined;
+      return { name: p.name, kind: 'outline', part: p.part, view: p.view, closed: p.closed, smooth: p.smooth, joint: seam(p.joint), band, points: p.pts.map(r4) };
     }),
   };
+  // cuts = the part-boundary seams; joins = the parts on each side (the auto-defined connection)
+  const validCuts = cuts.filter(c => c.pts.length >= 2);
+  if (validCuts.length) {
+    out.cuts = validCuts.map(c => {
+      const before = paths.find(p => p.band && p.band.after === c.id);   // part just before this cut
+      const after  = paths.find(p => p.band && p.band.before === c.id);  // part just after
+      return { id: c.id, name: c.name, axis: cutAxis(), points: c.pts.map(r4),
+               joins: [before ? before.part : null, after ? after.part : null].filter(Boolean) };
+    });
+    out.cutsNote = 'each cut is the SHARED SEAM between the parts in "joins" — a cross-section station for the continuous hull (the body ends and the next part begins at the same ring, zero gap).';
+  }
   const pick = (vw) => paths.find(p => p.kind === 'outline' && p.view === vw && p.closed && p.pts.length > 2 && p.part === 'body')
                     || paths.find(p => p.kind === 'outline' && p.view === vw && p.closed && p.pts.length > 2);
   const side = pick('side'), top = pick('top'), head = $('head').value, rc = +$('rc').value;

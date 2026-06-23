@@ -316,6 +316,12 @@ down" prompt ping-pong.
   marking *where the part meets the body* — because a wing roots along a **seam**, not a single point. For
   the continuous hull that seam IS the shared body-flank vertices the wing grows from (zero gap by
   construction), rather than a bolted-on wing that gaps on the upbeat (see LEAPFROG L20–L32).
+- **Cut into parts (✂):** draw cuts across the body axis (e.g. between tail & body), then **Apply → bands**.
+  Each band traces in isolation (the cut auto-erases the other side) and the cut becomes the **shared seam**
+  between the two parts — exported in `cuts[]` with `joins:[partA, partB]`. This maps 1:1 onto the loft: a
+  cut ⟂ the body axis IS a cross-section station, so the body's last ring and the next part's first ring are
+  the *same* ring → continuous hull by construction. Best for spine-axis parts (head/body/tail/neck); wings
+  root along a curved seam so they use the wing rig + ⊕ seam instead.
 - **Body loft export:** tag an outline **body** + view **side** (→ `ry` half-height) and another **top**
   (→ `rx` half-width) and the tool derives a best-effort **`loftEllipse` ring list** (`{z, rx, ry}`, head
   −1 → tail +1, body-length units) — drop it into a torso builder (§6a) and tune on the overlay. Raw

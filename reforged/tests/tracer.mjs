@@ -4,7 +4,7 @@
 // list maps onto the engine's {z, rx, ry} format (MODEL-CREATION.md §6a).
 import { assert, assertEq } from './shim.mjs';
 import { floodMask, backgroundMask, alphaMask, largestComponent, traceContour,
-         simplify, simplifyToBudget, deriveProfile, toLoftRings, deriveWingForm } from '../tools/tracerCore.mjs';
+         simplify, simplifyToBudget, deriveProfile, toLoftRings, deriveWingForm, cutAt } from '../tools/tracerCore.mjs';
 
 let n = 0; const ok = (m) => { n++; console.log(`  ✓ ${m}`); };
 
@@ -117,5 +117,15 @@ const mirror = { root: [0.85, 0.50], lead: [0.50, 0.36], tips: [[0.20, 0.50], [0
 const wfm = deriveWingForm(mirror, { aspect: 1 });
 assert(wfm.lead[1] > 0, 'mirrored wing still puts the lead on +y (sign follows the lead, not screen x)');
 ok('deriveWingForm orients chord from the lead/wrist, not screen direction');
+
+// --- cutAt: sample a cut polyline's threshold along the body axis -------------
+const cutLine = [[0.5, 0.1], [0.6, 0.5], [0.5, 0.9]];   // a gently bowed near-vertical cut (x≈0.5–0.6)
+assert(Math.abs(cutAt(cutLine, 0.5, 'x') - 0.6) < 1e-9, 'cutAt interpolates the threshold x at mid-height');
+assert(Math.abs(cutAt(cutLine, 0.3, 'x') - 0.55) < 1e-9, 'cutAt linearly interpolates between vertices');
+assertEq(cutAt(cutLine, -1, 'x'), 0.5, 'cutAt clamps below the first vertex');
+assertEq(cutAt(cutLine, 2, 'x'), 0.5, 'cutAt clamps above the last vertex');
+const cutY = [[0.1, 0.5], [0.5, 0.6], [0.9, 0.5]];  // axis 'y' → parametrise by x
+assert(Math.abs(cutAt(cutY, 0.5, 'y') - 0.6) < 1e-9, 'cutAt handles the y-axis orientation');
+ok('cutAt samples a cut threshold for axis-perpendicular partitioning');
 
 console.log(`\ntracer core: ${n} checks passed.`);

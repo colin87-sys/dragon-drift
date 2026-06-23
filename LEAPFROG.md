@@ -3011,3 +3011,33 @@ Rigging is mostly orthogonal (bones follow per-part chains: spine, wing yoke→p
 the cut stations can ALSO seed where a bone chain begins. Build plan: a `cut` tool (open polyline) → regions
 between cuts get a `part` tag → auto-trace clips the outline to a region → the cut becomes both adjacent
 parts' `joint` automatically. Confirm scope, then build as tracer v4 before the creature build.
+
+---
+
+## Lesson — Tracer v4: CUT the silhouette into parts; the cut IS the shared seam (built).
+
+Built the cut/partition idea (human chose: axis cuts for spine parts head/body/tail/neck; wings keep the
+rig). A **cut** is an open polyline drawn ⟂ the body axis. **Apply → bands** sorts cuts along the axis and
+makes one outline path per band (head/body/tail by order), each carrying `band:{before,after}` cut-ids.
+Auto-trace of a band ANDs a **band mask** into the flood result (`applyBand` zeroes pixels on the wrong side
+of the bounding cuts via the pure, tested `cutAt(cutPts,q,axis)` — linear-interp the cut as x=f(y) for an
+x-axis body), so each part traces in isolation with no extra erasing. Export adds `cuts[]` with
+`joins:[partA,partB]` computed from which bands border each cut — i.e. **the cut is exported once as the
+shared seam, with the two parts it connects.**
+
+Why this is the keystone: it collapses THREE manual steps (isolate the part, trace it, define its joint) into
+ONE line. And it's not a tracer convenience — it's the engine's own model: a cut ⟂ the axis is a cross-section
+**station**, so "crop body at the cut, grow tail from the same line" authors a SHARED boundary ring → the
+continuous hull's zero-gap weld by construction (L23/L24). The human re-derived the unified-hull thesis from
+the UI side without being told it. Rigging stays orthogonal (per-part bone chains), but cut stations can seed
+where a chain begins.
+
+Reusable patterns: (1) **layer the constraints, don't mutate the source** — flood mask → AND erase layer →
+AND band mask → largest-blob → trace; each filter is independent and reversible (same shape as v3's erase).
+(2) **the boundary belongs to BOTH neighbours** — store the cut once, derive the adjacency (`joins`) rather
+than copying a seam onto each part; that's literally how a shared loft ring works. (3) keep the cut MATH pure
+(`cutAt`) so it's headlessly tested while the canvas/UI stays untested.
+**→ Leapfrog:** the tracer can now express a whole creature as parts + shared seams + wing rig + body loft —
+enough to build the new SSSR dragon on the continuous hull from one trace. Next: extend bands to drive the
+loft `z`-stations directly (each cut → a ring `z`), and let a cut optionally emit the cross-section ring at
+its station (sample the outline width at the cut) so body↔tail share an exact ring, not just a plane.
