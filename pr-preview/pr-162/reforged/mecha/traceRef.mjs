@@ -91,14 +91,40 @@ console.log('  ', JSON.stringify(lead.map(norm)));
 console.log(`TRAILING upper tip→rear:`);
 console.log('  ', JSON.stringify(trailUpper.map(norm)));
 
-// ASCII preview (whole dragon, wing region marked)
-const cols = 90, rows = 34;
+// ── BODY PROFILE: back (top) + belly (bottom) contours, excluding the wing
+// (above the back) and the legs (narrow spurs below the belly, removed by a
+// median filter). thickness = belly−back ; centreline = midpoint. ─────────────
+const medianOf = (arr, x, win) => { const v = []; for (let i = -win; i <= win; i++) { const xx = x + i; if (xx >= x0 && xx <= x1 && arr[xx] >= 0) v.push(arr[xx]); } v.sort((a, b) => a - b); return v.length ? v[v.length >> 1] : -1; };
+const belly = new Int32Array(width).fill(-1);
+for (let x = x0; x <= x1; x++) belly[x] = medianOf(botY, x, 16);                // wide median kills narrow leg spurs
+const back = new Int32Array(width).fill(-1);
+for (let x = x0; x <= x1; x++) back[x] = (topY[x] >= 0 && topY[x] >= yBack - margin) ? topY[x] : -1;  // drop wing columns
+let lg = -1;                                                                     // linearly fill the back under the wing
+for (let x = x0; x <= x1; x++) { if (back[x] >= 0) { if (lg >= 0 && x - lg > 1) for (let xi = lg + 1; xi < x; xi++) back[xi] = Math.round(back[lg] + (back[x] - back[lg]) * (xi - lg) / (x - lg)); lg = x; } }
+// per-station table (head→tail), normalised by body length W
+const N = 24;
+console.log(`\nBODY PROFILE  ${N} stations head→tail  [aftFrac | centreUp | thickness] (×body len):`);
+const rows0 = [];
+for (let i = 0; i <= N; i++) {
+  const x = Math.round(x0 + (i / N) * W);
+  if (back[x] < 0 || belly[x] < 0) { rows0.push(null); continue; }
+  const thick = belly[x] - back[x], ctr = (belly[x] + back[x]) / 2;
+  rows0.push([+(i / N).toFixed(2), +(((y1 - ctr) / W)).toFixed(3), +((thick / W)).toFixed(3)]);
+}
+for (const r of rows0) if (r) console.log(`  ${r[0].toFixed(2)}  up ${r[1].toFixed(3)}  thick ${r[2].toFixed(3)}`);
+// crude zone split by thickness: find the peak (chest) and the tail taper
+const th = rows0.map((r) => r ? r[2] : 0); const peak = th.indexOf(Math.max(...th));
+console.log(`\n  thickest station @ aftFrac ${(peak / N).toFixed(2)} (chest)  ·  max thick ${Math.max(...th).toFixed(3)} body-len`);
+
+// ASCII preview: '#'=wing  'B'=back contour  'v'=belly contour  '.'=other fg
+const cols = 92, rows = 30;
 let s = '\n';
 for (let r = 0; r < rows; r++) {
   let line = '';
   for (let c = 0; c < cols; c++) {
     const x = Math.round(x0 + (c / cols) * W), y = Math.round(y0 + (r / rows) * H);
-    line += fg(x, y) ? (y < yBack - margin && x >= xWmin && x <= xWmax ? '#' : '.') : ' ';
+    const near = (v) => v >= 0 && Math.abs(y - v) <= H / rows / 2;
+    line += !fg(x, y) ? ' ' : near(back[x]) ? 'B' : near(belly[x]) ? 'v' : (y < yBack - margin && x >= xWmin && x <= xWmax) ? '#' : '.';
   }
   s += line + '\n';
 }

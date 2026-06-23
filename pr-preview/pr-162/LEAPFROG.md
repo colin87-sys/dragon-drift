@@ -3211,3 +3211,21 @@ oldWz+tipZ·sUniform = newWz+tipZ·sZ). Result: root forward over the shoulder, 
 longer/shallower (more rake) — width/height unchanged (tip-driven), only root→tip length grows. Reusable: to
 slide a swept appendage's BASE while pinning its TIP, move the mount and compensate with an axis-aligned scale
 along the sweep direction, not a translation (translation moves both ends).
+
+## Lesson — Traced the WHOLE-BODY profile from the reference (back+belly contours) to fix proportions: torso was too short, tail too long, body too wide.
+
+Human: the model is ~70% there but proportions are off + "looks too thick"; trace the body, the head/neck/torso/
+tail length ratios, and the per-vertebra thickness + centreline flow. Extended traceRef.mjs to a BODY profile:
+belly contour = median-filtered bottom (a wide median removes the narrow LEG spurs), back contour = top profile
+with wing columns dropped and linearly interpolated across the wing root; thickness = belly−back, centreline =
+midpoint, sampled at 24 stations. Findings (vs my model): reference is head+neck ~15% / torso ~50% / tail ~35%;
+mine was ~21% / 33% / 46% — so **torso too short, tail too long**. Neck/tail thickness matched, so the "too
+thick" was WIDTH (a side image can't show it, but my hw≈hh made the 3D body chunky). Fixes: re-proportioned the
+RINGS z so torso ≈48% and tail ≈33% (tail starts later), and slimmed hw to ~0.8×hh. Bumped the wing wx factor to
+keep the V stance after the chest narrowed; made the tail-tip fin cluster z TIP-relative (it was hardcoded and
+would've stranded mid-shaft after the tail shortened).
+
+Two reusable bits: (1) **a side-on reference gives you the spine's thickness + centreline FOR FREE** via
+back/belly contour tracing — median-filter the belly to delete legs, interpolate the back under the wing. (2)
+**a side image cannot constrain WIDTH** — if it "looks too thick" but the traced (vertical) thickness matches,
+the culprit is hw; slim it independently. Don't pin decoration to absolute coords that a proportion change moves.
