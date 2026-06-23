@@ -2903,3 +2903,40 @@ lead during Dragon Surge) live in the tracks.js header comment — quote them in
 **→ Leapfrog:** these stations are pure data; any "give me X per song" ask (stems, sheet music, a karaoke
 view) is a new emitter over the same `dump.mjs` JSON — add emitters under `station-reference/tools/`, never
 hand-transcribe note tables.
+
+---
+
+## Lesson — Built the TRACER: a human-in-the-loop "trace a concept → hand Claude the shape" tool.
+
+The pain: the human uploads a reference image and asks Claude to trace it; Claude guesses pixel coords
+badly, and it devolves into "move it left / up / down" prompt ping-pong. Fix = invert the loop. The
+silhouette-overlay tool is **machine→human** (we render, human judges); the new tracer is **human→machine**
+(human traces, we consume). `reforged/tools/tracer.html` (zero-dep, vanilla, no build — runs on every PR
+preview at `…/reforged/tools/tracer.html`): drop an image → **auto-trace** by clicking the subject
+(flood-fill → `largestComponent` → Moore boundary trace → Douglas–Peucker simplify → editable ring) →
+drag/insert/delete dots, straight or Catmull-Rom smooth → multiple **named paths tagged by view**
+(side/top/front/free) → export JSON. The payoff hook: a path tagged **side** gives `ry`, one tagged **top**
+gives `rx`, and the tool derives a best-effort **`loftEllipse` ring list** (`{z, rx, ry}`, head −1→tail +1,
+body-length units) — the EXACT format a torso builder consumes (MODEL-CREATION.md §6a). So the human's trace
+becomes a near-ready cross-section spec, not prose.
+
+What made it solid (the reusable patterns):
+- **Pure core, DOM-free, headlessly tested.** All the math lives in `tools/tracerCore.mjs` (masks, contour,
+  simplify, deriveProfile, toLoftRings) so `tests/tracer.mjs` runs in plain node (synthesize an RGBA ellipse,
+  assert each stage). Same split the silhouette tools use — geometry separate from canvas/UI. **Build the
+  testable kernel first; the HTML is just IO around it.** This is how you "verify before claiming" for a tool
+  that's otherwise browser-only (no Chromium in CI — L-handoff: WebGL/Playwright tests can't run here).
+- **The aspect-ratio trap (the test earned its keep).** Points exported normalised per-axis (`x/W, y/H`) are
+  ANISOTROPIC — deriving radii from them distorts every cross-section by the image's W/H. The headless test
+  caught a 0.389-vs-0.292 mismatch on the first run. Fix: `deriveProfile` takes `aspect = W/H` and pre-scales
+  x into image-height units before sampling. **Lesson: per-axis 0..1 normalisation is fine for *storing*
+  points but WRONG for any proportion/length math — restore isotropy first.**
+- **Auto-trace = flood + largest-blob + boundary-trace + simplify**, with tolerance/point-count dials and
+  three sources (click-subject / background-corners→invert / alpha cut-out). Always keep raw points in the
+  export too, so the trace is usable even when the loft derivation is only approximate.
+
+**→ Leapfrog:** next time the human wants a new creature from a reference, point them at the tracer first —
+they hand back a `loftEllipse` ring list + tagged outlines, and the build starts from real numbers instead
+of a guess. Extend later: trace the WING outline → emit `wingForms[]` (`tips/lead/scallop`) directly;
+overlay the BUILT silhouette behind the trace so correction is one screen; let a path drive `profile.stations`
+(`[z, halfWidth, keelTop, belly]`) for the airfoil torsos, not just `loftEllipse`.
