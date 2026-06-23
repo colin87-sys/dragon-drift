@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Sky Emperor Dragon — Prompt Blueprint Render</title>
   <style>
-    html, body { margin: 0; height: 100%; overflow: hidden; background: #070812; color: #f6e7bd; font-family: system-ui, -apple-system, Segoe UI, sans-serif; }
+    html, body { margin: 0; height: 100%; overflow: hidden; background: #dfefff; color: #f6e7bd; font-family: system-ui, -apple-system, Segoe UI, sans-serif; }
     #stage { position: fixed; inset: 0; }
     .hud { position: fixed; left: 20px; top: 18px; width: min(390px, calc(100vw - 40px)); padding: 16px 18px; border: 1px solid rgba(226, 185, 95, 0.35); border-radius: 18px; background: linear-gradient(145deg, rgba(11, 10, 24, 0.86), rgba(38, 20, 34, 0.68)); box-shadow: 0 18px 60px rgba(0,0,0,0.38); backdrop-filter: blur(12px); pointer-events: none; }
     .hud h1 { margin: 0 0 6px; font-size: 20px; letter-spacing: 0.08em; text-transform: uppercase; color: #ffe0a4; }
@@ -20,12 +20,12 @@
   <canvas id="stage"></canvas>
   <aside class="hud">
     <h1>Sky Emperor Dragon</h1>
-    <p>Prompt-first render: regal Bahamut-like feeling without copying it. The rear/top-rear read prioritizes imperial wings, crown-like dorsal plates, a strong obsidian back, and a ceremonial blade tail.</p>
+    <p>Prompt-first animated rig preview: regal Bahamut-like feeling without copying it. The rear/top-rear read prioritizes imperial wings, crown-like dorsal plates, a strong obsidian back, and a ceremonial blade tail.</p>
     <div class="pillrow">
-      <span class="pill">Prompt-first</span><span class="pill">Chase-camera read</span><span class="pill">Crimson wings</span><span class="pill">Aged gold spine</span><span class="pill">Violet magic</span>
+      <span class="pill">Prompt-first</span><span class="pill">Animated rig</span><span class="pill">Crimson wings</span><span class="pill">Aged gold spine</span><span class="pill">Violet magic</span>
     </div>
   </aside>
-  <div class="controls">Drag to rotate · Wheel/pinch to zoom · Double-click to reset</div>
+  <div class="controls">Animated wing rig + tail sway · Drag to rotate · Wheel/pinch to zoom · Double-click to reset</div>
   <script type="module">
     import * as THREE from 'three';
 
@@ -37,8 +37,8 @@
     renderer.toneMappingExposure = 1.08;
 
     const scene = new THREE.Scene();
-    scene.background = new THREE.Color(0x070812);
-    scene.fog = new THREE.Fog(0x070812, 11, 28);
+    scene.background = new THREE.Color(0xdcecff);
+    scene.fog = new THREE.Fog(0xdcecff, 12, 32);
 
     const camera = new THREE.PerspectiveCamera(42, 1, 0.1, 80);
     const target = new THREE.Vector3(0, 0.55, 0.05);
@@ -58,6 +58,9 @@
 
     const root = new THREE.Group();
     scene.add(root);
+    const wingRigs = [];
+    const tailRigs = [];
+    let headRig = null;
 
     const matBody = new THREE.MeshStandardMaterial({ color: 0x0b0710, roughness: 0.34, metalness: 0.24, emissive: 0x1b0824, emissiveIntensity: 0.26 });
     const matBelly = new THREE.MeshStandardMaterial({ color: 0x241321, roughness: 0.42, metalness: 0.18 });
@@ -96,34 +99,55 @@
     function wing(side) {
       const s = side;
       const rootP = new THREE.Vector3(s * 0.78, 1.04, -0.42);
-      const elbow = new THREE.Vector3(s * 2.9, 1.42, -0.72);
-      const tip = new THREE.Vector3(s * 5.15, 0.86, -0.06);
-      const inner1 = new THREE.Vector3(s * 3.7, 0.35, 0.55);
-      const inner2 = new THREE.Vector3(s * 2.05, 0.12, 0.88);
-      const hip = new THREE.Vector3(s * 0.54, 0.42, 1.05);
-      const pts = [rootP, elbow, tip, inner1, inner2, hip];
+      const world = {
+        rootP,
+        elbow: new THREE.Vector3(s * 2.9, 1.42, -0.72),
+        tip: new THREE.Vector3(s * 5.15, 0.86, -0.06),
+        inner1: new THREE.Vector3(s * 3.7, 0.35, 0.55),
+        inner2: new THREE.Vector3(s * 2.05, 0.12, 0.88),
+        hip: new THREE.Vector3(s * 0.54, 0.42, 1.05),
+      };
+      const rig = new THREE.Group();
+      rig.position.copy(rootP);
+      root.add(rig);
+      wingRigs.push({ group: rig, side: s, baseY: rig.rotation.y, baseZ: rig.rotation.z });
+
+      const local = (p) => p.clone().sub(rootP);
+      const pts = [world.rootP, world.elbow, world.tip, world.inner1, world.inner2, world.hip].map(local);
       const shape = new THREE.Shape(pts.map(p => new THREE.Vector2(p.x, p.z)));
       const geo = new THREE.ShapeGeometry(shape, 24);
       const pos = geo.attributes.position;
       for (let i = 0; i < pos.count; i++) {
         const x = pos.getX(i); const z = pos.getY(i);
-        const span = Math.min(1, Math.abs(x) / 5.15);
-        const y = 0.42 + Math.sin(span * Math.PI) * 0.82 - Math.max(0, z - 0.28) * 0.34;
+        const span = Math.min(1, Math.abs(x) / 4.4);
+        const y = Math.sin(span * Math.PI) * 0.82 - Math.max(0, z - 0.7) * 0.34;
         pos.setXYZ(i, x, y, z);
       }
       geo.computeVertexNormals();
-      const mesh = new THREE.Mesh(geo, matWing);
-      root.add(mesh);
+      rig.add(new THREE.Mesh(geo, matWing));
 
-      const bones = [rootP, elbow, tip, inner1, inner2, hip];
-      cylinderBetween(rootP, elbow, 0.065, matStrut, 12);
-      cylinderBetween(elbow, tip, 0.05, matStrut, 12);
-      cylinderBetween(rootP, hip, 0.045, matGold, 10);
-      for (const p of [inner1, inner2, hip]) cylinderBetween(elbow, p, 0.025, matGold, 8);
-      for (const p of bones.slice(1, 5)) ellipsoid(0.07, 0.07, 0.07, matPaleGold, p);
-
-      const edgePts = [tip, inner1, inner2, hip];
-      for (let i = 0; i < edgePts.length - 1; i++) cylinderBetween(edgePts[i], edgePts[i + 1], 0.025, matGold, 8);
+      function rigCylinder(a, b, radius, material, radial = 10) {
+        const la = local(a); const lb = local(b);
+        const dir = new THREE.Vector3().subVectors(lb, la);
+        const len = dir.length();
+        const mesh = new THREE.Mesh(new THREE.CylinderGeometry(radius, radius * 0.78, len, radial), material);
+        mesh.position.copy(la).addScaledVector(dir, 0.5);
+        mesh.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), dir.normalize());
+        rig.add(mesh);
+      }
+      function rigOrb(p, r, material) {
+        const mesh = new THREE.Mesh(new THREE.SphereGeometry(1, 16, 10), material);
+        mesh.scale.set(r, r, r);
+        mesh.position.copy(local(p));
+        rig.add(mesh);
+      }
+      rigCylinder(world.rootP, world.elbow, 0.065, matStrut, 12);
+      rigCylinder(world.elbow, world.tip, 0.05, matStrut, 12);
+      rigCylinder(world.rootP, world.hip, 0.045, matGold, 10);
+      for (const p of [world.inner1, world.inner2, world.hip]) rigCylinder(world.elbow, p, 0.025, matGold, 8);
+      for (const p of [world.elbow, world.tip, world.inner1, world.inner2]) rigOrb(p, 0.07, matPaleGold);
+      const edgePts = [world.tip, world.inner1, world.inner2, world.hip];
+      for (let i = 0; i < edgePts.length - 1; i++) rigCylinder(edgePts[i], edgePts[i + 1], 0.025, matGold, 8);
     }
 
     function tail() {
@@ -131,12 +155,39 @@
         new THREE.Vector3(0, 0.44, 1.55), new THREE.Vector3(0, 0.28, 2.25), new THREE.Vector3(0, 0.1, 3.02),
         new THREE.Vector3(0, -0.02, 3.82), new THREE.Vector3(0, 0.04, 4.55), new THREE.Vector3(0, 0.18, 5.15),
       ];
-      for (let i = 0; i < pts.length - 1; i++) cylinderBetween(pts[i], pts[i + 1], 0.18 * (1 - i / pts.length) + 0.035, matBody, 18);
-      for (let i = 0; i < pts.length; i++) ellipsoid(0.21 * (1 - i / (pts.length + 2)), 0.16 * (1 - i / (pts.length + 2)), 0.21 * (1 - i / (pts.length + 2)), matBody, pts[i]);
-      const blade = cone(0.34, 0.9, matGold, new THREE.Vector3(0, 0.18, 5.62), new THREE.Euler(Math.PI / 2, 0, 0));
+      for (let i = 0; i < pts.length - 1; i++) {
+        const base = pts[i];
+        const next = pts[i + 1];
+        const seg = new THREE.Group();
+        seg.position.copy(base);
+        root.add(seg);
+        tailRigs.push({ group: seg, index: i });
+        const dir = new THREE.Vector3().subVectors(next, base);
+        const len = dir.length();
+        const mesh = new THREE.Mesh(new THREE.CylinderGeometry(0.18 * (1 - i / pts.length) + 0.035, 0.14 * (1 - i / pts.length) + 0.03, len, 18), matBody);
+        mesh.position.copy(dir).multiplyScalar(0.5);
+        mesh.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), dir.clone().normalize());
+        seg.add(mesh);
+        const orb = new THREE.Mesh(new THREE.SphereGeometry(1, 18, 10), matBody);
+        const r = 0.21 * (1 - i / (pts.length + 2));
+        orb.scale.set(r, 0.16 * (1 - i / (pts.length + 2)), r);
+        seg.add(orb);
+      }
+      const tipRig = new THREE.Group();
+      tipRig.position.copy(pts.at(-1));
+      root.add(tipRig);
+      tailRigs.push({ group: tipRig, index: pts.length - 1 });
+      const blade = new THREE.Mesh(new THREE.ConeGeometry(0.34, 0.9, 5), matGold);
+      blade.position.set(0, 0, 0.47);
+      blade.rotation.x = Math.PI / 2;
       blade.scale.x = 0.48;
-      const forkL = cone(0.13, 0.55, matPaleGold, new THREE.Vector3(-0.18, 0.2, 5.38), new THREE.Euler(1.25, 0.25, 0.1));
-      const forkR = cone(0.13, 0.55, matPaleGold, new THREE.Vector3(0.18, 0.2, 5.38), new THREE.Euler(1.25, -0.25, -0.1));
+      tipRig.add(blade);
+      for (const [x, rz] of [[-0.18, 0.25], [0.18, -0.25]]) {
+        const fork = new THREE.Mesh(new THREE.ConeGeometry(0.13, 0.55, 5), matPaleGold);
+        fork.position.set(x, 0.02, 0.23);
+        fork.rotation.set(1.25, rz, x < 0 ? 0.1 : -0.1);
+        tipRig.add(fork);
+      }
     }
 
     ellipsoid(0.62, 0.55, 1.44, matBody, new THREE.Vector3(0, 0.68, -0.2));
@@ -161,12 +212,27 @@
       }
     }
 
-    const head = ellipsoid(0.32, 0.25, 0.42, matBody, new THREE.Vector3(0, 1.36, -2.88));
-    cone(0.075, 0.85, matGold, new THREE.Vector3(-0.22, 1.62, -2.76), new THREE.Euler(-1.25, -0.58, -0.32));
-    cone(0.075, 0.85, matGold, new THREE.Vector3(0.22, 1.62, -2.76), new THREE.Euler(-1.25, 0.58, 0.32));
-    cone(0.055, 0.46, matPaleGold, new THREE.Vector3(0, 1.67, -2.6), new THREE.Euler(-1.05, 0, 0));
-    ellipsoid(0.055, 0.055, 0.055, matViolet, new THREE.Vector3(-0.18, 1.36, -3.2));
-    ellipsoid(0.055, 0.055, 0.055, matViolet, new THREE.Vector3(0.18, 1.36, -3.2));
+    headRig = new THREE.Group();
+    headRig.position.set(0, 1.36, -2.88);
+    root.add(headRig);
+    const head = new THREE.Mesh(new THREE.SphereGeometry(1, 32, 18), matBody);
+    head.scale.set(0.32, 0.25, 0.42);
+    headRig.add(head);
+    for (const [x, ry, rz] of [[-0.22, -0.58, -0.32], [0.22, 0.58, 0.32]]) {
+      const horn = new THREE.Mesh(new THREE.ConeGeometry(0.075, 0.85, 5), matGold);
+      horn.position.set(x, 0.26, 0.12);
+      horn.rotation.set(-1.25, ry, rz);
+      headRig.add(horn);
+    }
+    const crown = new THREE.Mesh(new THREE.ConeGeometry(0.055, 0.46, 5), matPaleGold);
+    crown.position.set(0, 0.31, 0.28);
+    crown.rotation.x = -1.05;
+    headRig.add(crown);
+    for (const x of [-0.18, 0.18]) {
+      const eye = new THREE.Mesh(new THREE.SphereGeometry(0.055, 16, 10), matViolet);
+      eye.position.set(x, 0, -0.32);
+      headRig.add(eye);
+    }
 
     for (let i = 0; i < 7; i++) {
       const z = -1.1 + i * 0.48;
@@ -218,6 +284,21 @@
       const t = clock.getElapsedTime();
       root.rotation.y = Math.sin(t * 0.25) * 0.035;
       root.position.y = Math.sin(t * 1.1) * 0.025;
+      for (const rig of wingRigs) {
+        const beat = Math.sin(t * 2.15);
+        rig.group.rotation.z = rig.side * (0.08 + beat * 0.18);
+        rig.group.rotation.y = rig.side * (0.04 + beat * 0.06);
+        rig.group.rotation.x = -0.03 + Math.cos(t * 2.15) * 0.035;
+      }
+      for (const rig of tailRigs) {
+        const amp = 0.025 + rig.index * 0.018;
+        rig.group.rotation.y = Math.sin(t * 1.35 - rig.index * 0.55) * amp;
+        rig.group.rotation.x = Math.cos(t * 1.1 - rig.index * 0.42) * amp * 0.45;
+      }
+      if (headRig) {
+        headRig.rotation.y = Math.sin(t * 0.9) * 0.045;
+        headRig.rotation.x = Math.sin(t * 1.2) * 0.018;
+      }
       stars.rotation.y = t * 0.015;
       renderer.render(scene, camera);
       requestAnimationFrame(animate);
