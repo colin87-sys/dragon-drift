@@ -3199,3 +3199,15 @@ it rakes aft AND leans out, the black inner panels + red circuits now FACE the c
 blades were edge-on slivers from behind). Caveat: a raked wing trades rear WIDTH for aft DEPTH, so the old
 measure width target (85–95) no longer applies — matched the reference proportion (width ~65 / height ~37)
 instead, which is the explicit ask. The measure gate now documents reference proportions, not the stale target.
+
+## Lesson — Moved the wing HINGE forward without moving the tip (pin the tip via a non-uniform z-stretch).
+
+Human: move the wing root/hinge forward ~10–15% of torso onto the front shoulder, but DON'T move the tip — keep
+it raked back. Trick: shift the mount forward (wz −1.05→−1.45) AND stretch only the wing's aft axis so the tip
+lands back where it was. The wing builds in the hinge frame with root at local z=0 and tip at z≈4.35; a uniform
+move would drag the tip forward too. Instead set `outer.scale.set(1.1, 1.1, 1.19)` — scaling z more than x/y
+keeps the root at 0 but pushes the tip aft by exactly the amount the mount moved forward (solve
+oldWz+tipZ·sUniform = newWz+tipZ·sZ). Result: root forward over the shoulder, tip pinned, leading edge just gets
+longer/shallower (more rake) — width/height unchanged (tip-driven), only root→tip length grows. Reusable: to
+slide a swept appendage's BASE while pinning its TIP, move the mount and compensate with an axis-aligned scale
+along the sweep direction, not a translation (translation moves both ends).
