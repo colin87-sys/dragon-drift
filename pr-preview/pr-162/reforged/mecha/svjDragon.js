@@ -310,7 +310,7 @@ function wingSystem(side, M) {
 
   const hinge = new THREE.Group(); hinge.position.set(0, 0.4, 0); mir.add(hinge);
   const outer = new THREE.Group(); hinge.add(outer);
-  outer.scale.setScalar(1.1);                                                  // scale the traced dagger up to fit (one dial)
+  outer.scale.set(1.1, 1.1, 1.19);                                              // z stretched so the root moves forward but the TIP stays put
 
   // ── dagger TRACED from the reference PNG (scratchpad/trace.mjs): an asymmetric
   // raked blade — long shallow LEADING edge sweeping up+back to a tip at ~0.32 body
@@ -424,7 +424,7 @@ export function buildSVJDragon(knobs = {}) {
   // the head), lowered and embedded into the deep chest mass, with a WIDE stance so
   // they read as growing from a real upper back, not a narrow central stalk.
   const wings = [];
-  const wz = -1.05, wy = ch[2] + ch[4] * 0.26, wx = ch[3] * 1.12;               // lower root → embedded, not perched
+  const wz = -1.45, wy = ch[2] + ch[4] * 0.26, wx = ch[3] * 1.12;               // hinge forward over the front shoulder (tip pinned via outer.scale.z)
   for (const side of [-1, 1]) {
     const fair = wedgeBlock(0.6, 1.05, 0.4, 0.52, ch[4] * 0.62, M.gold, 'wingMount');  // sleeker scapular fairing
     fair.position.set(side * ch[3] * 0.72, ch[2] - ch[4] * 0.02, wz);
