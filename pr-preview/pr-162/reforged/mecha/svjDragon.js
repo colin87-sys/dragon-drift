@@ -122,18 +122,18 @@ function wedgeMesh(noseZ, baseZ, hw, hb, ht, mat, role) {
 }
 function headWedge(M) {
   const g = new THREE.Group();
-  // CRANIUM — tall angular skull mass at the back (the "brain case")
-  const cran = tag(new THREE.BoxGeometry(0.5, 0.46, 0.5), M.gold, 'headShell');
-  cran.position.set(0, 0.08, 0.2); g.add(cran);
+  // CRANIUM — tall, deep angular skull mass at the back (the "brain case")
+  const cran = tag(new THREE.BoxGeometry(0.54, 0.56, 0.54), M.gold, 'headShell');
+  cran.position.set(0, 0.1, 0.22); g.add(cran);
   // forehead / brow plane sloping down toward the snout
-  const fore = tag(new THREE.BoxGeometry(0.46, 0.14, 0.46), M.goldDark, 'browVent');
-  fore.position.set(0, 0.3, -0.04); fore.rotation.x = rad(16); g.add(fore);
-  // SNOUT — short tapered upper jaw (shorter than the old long nose)
-  const snout = wedgeMesh(-0.6, -0.04, 0.24, 0.17, -0.13, M.gold, 'headShell');
-  snout.position.set(0, 0.0, 0); g.add(snout);
+  const fore = tag(new THREE.BoxGeometry(0.5, 0.16, 0.42), M.goldDark, 'browVent');
+  fore.position.set(0, 0.34, -0.04); fore.rotation.x = rad(18); g.add(fore);
+  // SNOUT — short, blunt tapered upper jaw (clearly shorter than the cranium)
+  const snout = wedgeMesh(-0.46, -0.04, 0.26, 0.16, -0.16, M.gold, 'headShell');
+  snout.position.set(0, 0.02, 0); g.add(snout);
   // LOWER JAW — a clearly distinct angular jaw, hinged at the back, slightly open
-  const jaw = wedgeMesh(-0.5, 0.06, 0.2, 0.08, -0.12, M.goldDark, 'jawBlade');
-  jaw.position.set(0, -0.2, -0.02); jaw.rotation.x = -rad(7); g.add(jaw);
+  const jaw = wedgeMesh(-0.4, 0.08, 0.22, 0.08, -0.14, M.goldDark, 'jawBlade');
+  jaw.position.set(0, -0.22, -0.02); jaw.rotation.x = -rad(8); g.add(jaw);
   for (const s of [-1, 1]) {
     // cheek / jaw-hinge plate
     const cheek = tag(new THREE.BoxGeometry(0.1, 0.24, 0.26), M.gold, 'headShell');
@@ -272,7 +272,7 @@ function wedgeBlock(w0, d0, w1, d1, h, mat, role) {
 
 function wingSystem(side, M) {
   const root = new THREE.Group();
-  const LEAN = rad(40);                                                          // outward lean → wide rear V (trades height↔width)
+  const LEAN = rad(42);                                                          // wider shoulder-mounted V (tuned to hold ~90 projected width)
   root.rotation.z = -side * LEAN;
   const mir = new THREE.Group(); mir.scale.x = side; root.add(mir);              // mirror geometry for the left
 
@@ -297,7 +297,7 @@ function wingSystem(side, M) {
 
   // PRIMARY blade — broad delta root chord (≈80% torso) sweeping fast to a long
   // kinked needle. Length set against the head-to-tail master scale (see measure.mjs).
-  const LP = 7.05;                                                                // primary root→tip length (model u)
+  const LP = 6.4;                                                                // primary root→tip length (model u)
   // 3-stage designed blade: thick broad ROOT (held wide through the kink) → a hard
   // KINK at ~27% (steep root angA 68° → swept outer angC 50°) → long clean taper.
   // root chord +20%, root thickness ~3× the mid (a thick armour blade, not a horn).
@@ -346,18 +346,18 @@ function bladeGeo(span, rootC, tipC, sweep, camber = 0.05) {
 // rings: [role, z, cy(centreline height), hw(half-width), hh(half-height/depth)]
 const RINGS = [
   ['neck', -3.35, 0.44, 0.30, 0.32],      // thicker neck base (head attaches to a real neck)
-  ['neck', -2.88, 0.50, 0.40, 0.42],
-  ['shoulder', -2.32, 0.48, 0.62, 0.62],  // wider/deeper shoulder mass
-  ['chest', -1.75, 0.42, 0.76, 0.82],     // deepest + tallest mass (peak of the back arch)
-  ['chest', -1.18, 0.35, 0.68, 0.72],
-  ['waist', -0.52, 0.26, 0.36, 0.34],     // tighter pinch → clear hourglass contrast
-  ['hip', 0.18, 0.24, 0.70, 0.66],        // bulkier hip / engine mass (slight haunch rise)
-  ['hip', 0.76, 0.16, 0.58, 0.56],
-  ['tailbase', 1.32, 0.08, 0.56, 0.60],   // thicker tail base
-  ['tail', 1.86, 0.01, 0.42, 0.44],
-  ['tail', 2.40, -0.05, 0.32, 0.33],
-  ['tail', 2.94, -0.09, 0.23, 0.24],      // gentle downward curve through the tail…
-  ['tail', 3.48, -0.11, 0.16, 0.17],
+  ['neck', -2.88, 0.50, 0.44, 0.46],
+  ['shoulder', -2.32, 0.48, 0.74, 0.70],  // wider+deeper shoulder mass that carries the wings
+  ['chest', -1.75, 0.42, 0.84, 0.90],     // deepest + widest load-bearing mass
+  ['chest', -1.18, 0.36, 0.76, 0.82],     // shoulder-back (wings root just here)
+  ['waist', -0.52, 0.28, 0.40, 0.40],     // clear pinch behind the chest
+  ['hip', 0.18, 0.26, 0.78, 0.74],        // bulkier hip / engine mass
+  ['hip', 0.76, 0.18, 0.64, 0.62],
+  ['tailbase', 1.32, 0.10, 0.62, 0.66],   // thick tail base
+  ['tail', 1.86, 0.02, 0.46, 0.48],
+  ['tail', 2.40, -0.04, 0.34, 0.35],
+  ['tail', 2.94, -0.08, 0.24, 0.25],      // gentle downward curve through the tail…
+  ['tail', 3.48, -0.10, 0.16, 0.17],
   ['tail', 4.02, -0.10, 0.10, 0.11],
   ['tail', 4.56, -0.06, 0.06, 0.06],      // …with a slight tip lift (a living line, not a ruler)
 ];
@@ -385,8 +385,8 @@ export function buildSVJDragon(knobs = {}) {
 
   // HEAD at the front of the neck, dropped slightly + tilted down (head leads low)
   const n0 = RINGS[0];
-  const head = headWedge(M); head.scale.set(1.3, 1.35, 1.4);                    // mechanical skull
-  head.position.set(0, n0[2] - 0.02, n0[1] - 0.52); head.rotation.x = rad(7); root.add(head);
+  const head = headWedge(M); head.scale.set(1.32, 1.5, 1.28);                   // compact, tall mechanical skull
+  head.position.set(0, n0[2] - 0.02, n0[1] - 0.46); head.rotation.x = rad(7); root.add(head);
 
   // CHEST / SHOULDER armour — the main load-bearing block carrying head + wings.
   const ch = ring('chest'), sh = ring('shoulder');
@@ -403,16 +403,17 @@ export function buildSVJDragon(knobs = {}) {
     grille.rotation.set(0, s * Math.PI / 2, s * 0.2); root.add(grille);
   }
 
-  // WINGS — mounted high on the shoulder mass, anchored into the chest/upper back.
+  // WINGS — mounted on the SHOULDER-BACK junction (well behind the neck, over the
+  // chest mass), with a WIDE stance and a strong scapular fairing so they read as
+  // growing from a powerful upper back, not bolted onto a thin central spine.
   const wings = [];
+  const wz = -1.4, wy = ch[2] + ch[4] * 0.55, wx = ch[3] * 1.04;
   for (const side of [-1, 1]) {
-    // scapular fairing: a gold mass that BLENDS the shoulder into the wing root
-    // (no hard jump from body block to blade).
-    const fair = wedgeBlock(0.55, 0.95, 0.34, 0.5, sh[4] * 0.85, M.gold, 'wingMount');
-    fair.position.set(side * sh[3] * 0.62, sh[2] + sh[4] * 0.18, sh[1] + 0.05);
-    fair.rotation.set(0, 0, -side * 0.4); root.add(fair);
+    const fair = wedgeBlock(0.72, 1.15, 0.44, 0.64, ch[4] * 0.9, M.gold, 'wingMount');
+    fair.position.set(side * ch[3] * 0.72, ch[2] + ch[4] * 0.2, wz);
+    fair.rotation.set(0, 0, -side * 0.42); root.add(fair);
     const w = wingSystem(side, M); w.userData.side = side;
-    w.position.set(side * sh[3] * 0.74, sh[2] + sh[4] * 0.55, sh[1] + 0.05);
+    w.position.set(side * wx, wy, wz);
     root.add(w); wings.push(w);
   }
 

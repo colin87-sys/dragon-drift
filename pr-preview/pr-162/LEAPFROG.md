@@ -3105,3 +3105,21 @@ hierarchical:** scale shrinks toward the tip + skip alternate rings (no repetiti
 Process: enlarging head/chest again grew head-to-tail, but the wing ratio held this time (width 87.6, no LP
 re-pin needed). Reusable: a "designed kink" = two path segments with a ≥15° angle delta AND near-zero convex;
 a convincing mech skull = cranium box + brow plane + short snout wedge + separate jaw + neck collar (5 boxes).
+
+## Lesson — Architecture pass: moved wing roots rearward onto a wide deep shoulder mass, widened the V stance, compact skull — fixed the "thin fuselage + giant blades" read.
+
+Human refs: a quadruped mecha dragon whose wings clearly mount on the shoulder/upper-back (behind the neck,
+over the front legs), supported by a deep chest. My wings were too forward/central/unsupported. Fixes (all
+param-level on the kit): (1) **Wing root moved ~10% of body length rearward** — off the shoulder ring (z=-2.32,
+~18% body) onto the shoulder-BACK over the chest mass (z=-1.4, ~31% body), so there's now a real neck+head in
+front of the wings. (2) **Wider stance** — wing x ±0.46→±~0.85 (ch hw·1.04) and a bigger scapular fairing, so
+the wings grow from a broad upper back. (3) **Deeper/wider shoulder+chest** in RINGS (chest hw 0.76→0.84, hh
+0.82→0.90; shoulder 0.62→0.74) to carry them. (4) **Wider shoulder-mounted V** — LEAN 40→tuned, then re-pinned
+to width. (5) compact skull (taller cranium 0.46→0.56, shorter snout −0.6→−0.46, head scale taller/shorter).
+
+Process note that bit twice this session: **stance width + lean + wing length all push projected rear width**,
+so after an architecture change re-run measure.mjs and re-pin: widening the stance + 48° lean blew width to 111;
+dropping lean to 42 and LP 7.05→6.4 landed it back at 95 (top of the 85–95 band) with height 47. The brief's
+"true span 110–125" and "projected 85–95" are the same number for symmetric tips, so I target the projected one.
+Reusable: wing ROOT placement (fraction of body length) + STANCE width are independent dials from the blade
+shape; fix architecture with those, then re-pin LP/LEAN against the measure gate.
