@@ -2980,3 +2980,34 @@ dragon from a guessed wing rig + connection would have been the very "back-and-f
 human's next trace (wing rig + joint + body outline); extend `deriveWingForm` to estimate `scallop` from the
 mean finger-notch depth; add tail/head rig modes the same way; overlay the BUILT silhouette behind the trace
 so correction is one screen.
+
+---
+
+## Lesson — Tracer v3: isolate-by-erasing, live re-trace in place, and the joint as a SEAM.
+
+Real-use feedback after v2 shipped, three fixes that each restore "the human is in control, no guesswork":
+- **Auto-trace was piling up paths + lost the v1 refine loop.** v2 made every auto-trace spawn a NEW path,
+  so you couldn't tune *max points* and re-trace the same outline. Fix: auto-trace now re-traces the
+  **active** outline **in place** (reuses it if it's an `auto` path or empty), and the tol/smoothness/
+  maxpoints sliders call `reTrace()` to re-run **live** off a stored `lastWand` seed `{mode,wx,wy}`. The v1
+  "dial the fidelity" feel is back and better (live, not click-again). **Lesson: don't "improve" a working
+  manual loop into an automatic one that removes the human's dial — keep the in-place refine.**
+- **Isolate-by-erasing.** A 3⁄4 trace is many overlapping parts; flood-fill can't separate them. So: a
+  non-destructive **erase layer** (a work-res canvas; brush paints red = removed; `applyErase` zeroes those
+  px in ANY mask before `largestComponent`). Paint out the body → auto-trace grabs only the wings. Restore
+  (composite `destination-out`) + reset. **Reusable: keep the erase as a SEPARATE layer ANDed into the mask,
+  never mutate the source pixels — so it's reversible and source-agnostic (works for flood/bg/alpha alike).**
+- **The connection point is a SEAM, not a point.** A wing roots along a line, not a dot. `joint` is now an
+  ordered point array (a straight line or gentle curve), drawn dashed, draggable per-node. This is the right
+  shape for the continuous hull: the seam = the shared body-flank verts the wing grows from.
+
+**→ Leapfrog / OPEN DESIGN (the human's next idea — assessed, not yet built):** *cut lines that partition
+the silhouette into parts AND auto-define the shared seam.* This is the strongest direction yet and maps
+1:1 onto the engine: a cut perpendicular to the body axis at z=Z IS a cross-section station; the body's last
+ring at Z and the tail's first ring at Z are the SAME ring → continuous hull, zero gap by construction (the
+exact unified-hull thesis, L23/L24). So "draw a vertical cut between tail and body, crop the body there, grow
+the tail from the same line" = author the attach STATION (`tailAnchor`/`wingRoot`) as a shared boundary ring.
+Rigging is mostly orthogonal (bones follow per-part chains: spine, wing yoke→pivot→mid→tip, tail-whip), but
+the cut stations can ALSO seed where a bone chain begins. Build plan: a `cut` tool (open polyline) → regions
+between cuts get a `part` tag → auto-trace clips the outline to a region → the cut becomes both adjacent
+parts' `joint` automatically. Confirm scope, then build as tracer v4 before the creature build.
