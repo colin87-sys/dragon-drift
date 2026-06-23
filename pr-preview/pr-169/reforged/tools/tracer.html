@@ -1,0 +1,606 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Dragon Drift — Silhouette Tracer</title>
+<style>
+  :root{ --bg:#0a0e1a; --panel:#0f1526; --line:#243049; --ink:#cfe0ff; --dim:#7f8db0; --accent:#9fe06a; --hot:#ffb454; --joint:#ff5de0; --erase:#ff4646; }
+  *{box-sizing:border-box}
+  html,body{margin:0;height:100%;background:var(--bg);color:var(--ink);font:13px/1.5 system-ui,sans-serif;overflow:hidden}
+  #app{display:flex;height:100vh}
+  #stage{flex:1;position:relative;background:
+      linear-gradient(45deg,#0c1120 25%,transparent 25%) 0 0/24px 24px,
+      linear-gradient(-45deg,#0c1120 25%,transparent 25%) 0 0/24px 24px,
+      linear-gradient(45deg,transparent 75%,#0c1120 75%) 0 0/24px 24px,
+      linear-gradient(-45deg,transparent 75%,#0c1120 75%) 0 0/24px 24px,#0a0e1a}
+  #c{display:block;width:100%;height:100%;touch-action:none;cursor:crosshair}
+  #panel{width:320px;flex:0 0 320px;background:var(--panel);border-left:1px solid var(--line);
+    display:flex;flex-direction:column;overflow-y:auto}
+  .sec{padding:11px 13px;border-bottom:1px solid var(--line)}
+  .sec h2{margin:0 0 8px;font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--dim)}
+  h1{font-size:14px;margin:0;color:var(--accent)} h1 small{color:var(--dim);font-weight:400;font-size:11px}
+  button{background:#16223c;color:var(--ink);border:1px solid var(--line);border-radius:7px;
+    padding:7px 9px;font-size:12px;cursor:pointer}
+  button:hover{border-color:#3a4d72}
+  button.on{background:var(--accent);color:#04140a;border-color:var(--accent);font-weight:600}
+  button.warn{border-color:#5a2a33} button.warn:hover{background:#3a1820;border-color:#a04a55}
+  .tools{display:grid;grid-template-columns:1fr 1fr;gap:6px}
+  .roles{display:grid;grid-template-columns:1fr 1fr 1fr;gap:5px;margin-top:7px}
+  .roles button{padding:5px 4px;font-size:11px}
+  .roles button.on{background:var(--hot);color:#1a1004;border-color:var(--hot)}
+  .row{display:flex;gap:6px;align-items:center;margin:6px 0;flex-wrap:wrap}
+  .row.cols{justify-content:space-between}
+  label.sl{display:block;margin:7px 0 2px;color:var(--dim);font-size:11px}
+  input[type=range]{width:100%}
+  select,input[type=text]{background:#0b1322;color:var(--ink);border:1px solid var(--line);
+    border-radius:6px;padding:5px 6px;font-size:12px}
+  .pathlist{display:flex;flex-direction:column;gap:5px}
+  .pitem{border:1px solid var(--line);border-radius:7px;padding:6px 7px;background:#0c1322}
+  .pitem.active{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent) inset}
+  .pitem .top{display:flex;align-items:center;gap:6px}
+  .pitem .sw{width:13px;height:13px;border-radius:3px;flex:0 0 13px}
+  .pitem .kind{font-size:9px;letter-spacing:.06em;text-transform:uppercase;color:var(--dim);border:1px solid var(--line);border-radius:4px;padding:1px 4px}
+  .pitem input[type=text]{flex:1;min-width:0;padding:3px 5px}
+  .pitem .meta{display:flex;gap:6px;align-items:center;margin-top:5px;font-size:11px;color:var(--dim);flex-wrap:wrap}
+  .pitem select{flex:1;padding:3px 4px;font-size:11px}
+  .x{cursor:pointer;color:var(--dim);padding:0 3px} .x:hover{color:#ff8a8a}
+  .hint{color:var(--dim);font-size:11px}
+  #drop{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;text-align:center;color:var(--dim);pointer-events:none}
+  #drop.hot{background:rgba(159,224,106,.08);outline:2px dashed var(--accent);outline-offset:-12px}
+  #status{position:absolute;left:10px;bottom:10px;background:rgba(8,12,24,.72);border:1px solid var(--line);
+    padding:5px 9px;border-radius:7px;color:var(--dim);font-size:11px;pointer-events:none;max-width:62%}
+  #out{width:100%;height:130px;background:#0b1322;color:#bfe;border:1px solid var(--line);border-radius:7px;
+    font:11px/1.4 ui-monospace,Menlo,monospace;padding:7px;resize:vertical;white-space:pre}
+  .mini{font-size:11px;padding:5px 7px}
+  .full{width:100%}
+  kbd{background:#1a2540;border:1px solid var(--line);border-bottom-width:2px;border-radius:4px;padding:0 4px;font-size:10px}
+</style>
+</head>
+<body>
+<div id="app">
+  <div id="stage">
+    <canvas id="c"></canvas>
+    <div id="drop">Drop an image here, or use <b>&nbsp;Load image&nbsp;</b> →</div>
+    <div id="status">Load an image to begin.</div>
+  </div>
+
+  <div id="panel">
+    <div class="sec">
+      <h1>🐉 Silhouette Tracer <small>· Dragon Drift</small></h1>
+      <div class="hint" style="margin-top:6px">Isolate a part, trace it, mark how it connects, then hand the JSON to Claude.</div>
+    </div>
+
+    <div class="sec">
+      <h2>Image</h2>
+      <div class="row">
+        <button id="load" class="full">Load image…</button>
+        <input id="file" type="file" accept="image/*" hidden />
+      </div>
+      <label class="sl">Image opacity <span id="opv">100%</span></label>
+      <input id="op" type="range" min="0" max="100" value="100" />
+      <button id="fit" class="mini full">Fit to view (F)</button>
+    </div>
+
+    <div class="sec">
+      <h2>Tool</h2>
+      <div class="tools">
+        <button data-tool="autowand" class="on">✨ Auto-trace (W)</button>
+        <button data-tool="erase">🩹 Isolate / erase (X)</button>
+        <button data-tool="add">✚ Add / place (A)</button>
+        <button data-tool="edit">✥ Move / edit (E)</button>
+        <button data-tool="joint">⊕ Connect seam (C)</button>
+        <button data-tool="pan">✋ Pan (P)</button>
+      </div>
+      <div id="roles" class="roles" style="display:none">
+        <button data-role="root" class="on">Root</button>
+        <button data-role="wrist">Wrist</button>
+        <button data-role="lead">Lead edge</button>
+        <button data-role="finger" style="grid-column:span 3">＋ Finger strut (outer→inner)</button>
+      </div>
+      <div class="hint" id="toolhint" style="margin-top:7px"></div>
+    </div>
+
+    <div class="sec" id="wandsec">
+      <h2>Auto-trace source</h2>
+      <div class="row">
+        <select id="wandmode" class="full">
+          <option value="subject">Click subject (flood similar)</option>
+          <option value="background">Background (corners) → invert</option>
+          <option value="alpha">Transparency (cut-out PNG)</option>
+        </select>
+      </div>
+      <label class="sl">Colour tolerance <span id="tolv">32</span></label>
+      <input id="tol" type="range" min="2" max="160" value="32" />
+      <label class="sl">Smoothness <span id="epsv">20</span></label>
+      <input id="eps" type="range" min="2" max="120" value="20" />
+      <label class="sl">Max points <span id="mpv">60</span></label>
+      <input id="mp" type="range" min="8" max="240" value="60" />
+      <div class="hint" id="retracehint">Drag these to re-trace the active outline live.</div>
+    </div>
+
+    <div class="sec" id="erasesec">
+      <h2>Isolate / erase</h2>
+      <div class="hint">Paint over parts you DON'T want (e.g. the body) so auto-trace grabs only what's left (e.g. the wings). Non-destructive — restore or reset anytime.</div>
+      <div class="row" style="margin-top:7px">
+        <button id="ebrush" class="mini on">Erase</button>
+        <button id="erestore" class="mini">Restore</button>
+      </div>
+      <label class="sl">Brush size <span id="bsv">48</span></label>
+      <input id="bs" type="range" min="6" max="240" value="48" />
+      <button id="ereset" class="mini full">Reset image edits</button>
+    </div>
+
+    <div class="sec">
+      <h2>Paths</h2>
+      <div class="pathlist" id="paths"></div>
+      <div class="row" style="margin-top:8px">
+        <button id="addpath" class="mini">+ Outline</button>
+        <button id="addwing" class="mini">+ Wing rig</button>
+        <button id="clearpath" class="mini">Clear active</button>
+      </div>
+      <div class="row"><button id="resetall" class="mini full warn">🗑 Reset all paths</button></div>
+    </div>
+
+    <div class="sec">
+      <h2>Derive cross-sections (loft)</h2>
+      <div class="hint">Tag an outline <b>body</b> + view <b>side</b> (→ ry) and another <b>top</b> (→ rx); these become a <code>loftEllipse</code> ring list.</div>
+      <div class="row cols"><span>Body axis</span>
+        <select id="axis"><option value="auto">auto (longer side)</option><option value="x">left↔right (X)</option><option value="y">top↔bottom (Y)</option></select></div>
+      <div class="row cols"><span>Head end</span>
+        <select id="head"><option value="min">min (left / top)</option><option value="max">max (right / bottom)</option></select></div>
+      <label class="sl">Ring count <span id="rcv">12</span></label>
+      <input id="rc" type="range" min="3" max="24" value="12" />
+    </div>
+
+    <div class="sec">
+      <h2>Export</h2>
+      <div class="row">
+        <button id="copy" class="mini">Copy JSON</button>
+        <button id="dl" class="mini">Download .json</button>
+        <button id="forclaude" class="mini">Copy for Claude</button>
+      </div>
+      <textarea id="out" readonly spellcheck="false"></textarea>
+    </div>
+  </div>
+</div>
+
+<script type="module">
+import { floodMask, backgroundMask, alphaMask, largestComponent, traceContour,
+         simplifyToBudget, deriveProfile, toLoftRings, deriveWingForm } from './tracerCore.mjs';
+
+const $ = (id) => document.getElementById(id);
+const cv = $('c'), ctx = cv.getContext('2d');
+const stage = $('stage');
+
+// ── state ────────────────────────────────────────────────────────────────────
+const PALETTE = ['#9fe06a','#ffb454','#6ac8ff','#ff6ad5','#c08bff','#5af0c0','#ff8a8a','#e0d060'];
+const VIEWS = ['free','side','top','front'];
+const PARTS = ['body','wing','tail','head','neck','leg','body+tail','body+tail+head','other'];
+let img = null, imgW = 0, imgH = 0, imgName = '';
+let work = null, workW = 0, workH = 0, workData = null;        // capped-res image RGBA for masks
+let eraseCv = null, eraseCtx = null;                          // work-res erase layer (alpha = removed)
+let view = { scale: 1, tx: 0, ty: 0 };
+let tool = 'autowand', wingRole = 'root', eraseMode = 'erase';
+let imgOpacity = 1, dirty = true;
+let lastWand = null;                                          // {mode, wx, wy} → re-trace target
+let hoverPos = null;                                         // for the brush ring
+
+let paths = [];     // outline:{kind:'outline',part,pts:[[x,y]],closed,smooth,auto,joint:[[x,y]]}
+                    // wing:{kind:'wing',part,root,wrist,lead,tips:[[x,y]],joint:[[x,y]]}
+let active = -1, sel = null, undoStack = [];
+
+function newOutline() {
+  return { name: `outline ${paths.length + 1}`, kind: 'outline', part: 'body', view: hasView('side') ? 'free' : 'side',
+           color: PALETTE[paths.length % PALETTE.length], closed: false, smooth: false, auto: false, visible: true, pts: [], joint: [] };
+}
+function newWing() {
+  return { name: `wing ${paths.length + 1}`, kind: 'wing', part: 'wing', view: 'side',
+           color: PALETTE[paths.length % PALETTE.length], visible: true, root: null, wrist: null, lead: null, tips: [], joint: [] };
+}
+function hasView(v) { return paths.some(p => p.view === v); }
+function ensureActive() { if (active < 0 || !paths[active]) { paths.push(newOutline()); active = paths.length - 1; } return paths[active]; }
+function pushUndo() { undoStack.push(JSON.stringify({ paths, active })); if (undoStack.length > 80) undoStack.shift(); }
+function undo() { const s = undoStack.pop(); if (!s) return; const o = JSON.parse(s); paths = o.paths; active = o.active; sel = null; renderPaths(); refresh(); }
+
+// ── transforms ───────────────────────────────────────────────────────────────
+const toScreen = (nx, ny) => [nx * imgW * view.scale + view.tx, ny * imgH * view.scale + view.ty];
+const toNorm = (sx, sy) => [((sx - view.tx) / view.scale) / imgW, ((sy - view.ty) / view.scale) / imgH];
+const toWork = (sx, sy) => [((sx - view.tx) / view.scale) / imgW * workW, ((sy - view.ty) / view.scale) / imgH * workH];
+
+function fit() {
+  if (!img) return;
+  const w = stage.clientWidth, h = stage.clientHeight;
+  view.scale = Math.min(w / imgW, h / imgH) * 0.92;
+  view.tx = (w - imgW * view.scale) / 2; view.ty = (h - imgH * view.scale) / 2; dirty = true;
+}
+
+// ── image load ──────────────────────────────────────────────────────────────
+function loadImage(src, name) {
+  const im = new Image();
+  im.onload = () => {
+    img = im; imgW = im.naturalWidth; imgH = im.naturalHeight; imgName = name || 'image';
+    const cap = 1100, s = Math.min(1, cap / Math.max(imgW, imgH));
+    workW = Math.max(1, Math.round(imgW * s)); workH = Math.max(1, Math.round(imgH * s));
+    work = document.createElement('canvas'); work.width = workW; work.height = workH;
+    const wctx = work.getContext('2d', { willReadFrequently: true });
+    wctx.drawImage(im, 0, 0, workW, workH);
+    workData = wctx.getImageData(0, 0, workW, workH).data;
+    eraseCv = document.createElement('canvas'); eraseCv.width = workW; eraseCv.height = workH;
+    eraseCtx = eraseCv.getContext('2d', { willReadFrequently: true });
+    lastWand = null;
+    $('drop').style.display = 'none';
+    fit(); status(`Loaded ${imgName} (${imgW}×${imgH}). Auto-trace: click the subject.`); refresh();
+  };
+  im.onerror = () => status('Could not load that image.');
+  im.src = src;
+}
+$('load').onclick = () => $('file').click();
+$('file').onchange = (e) => { const f = e.target.files[0]; if (f) loadImage(URL.createObjectURL(f), f.name); };
+['dragenter','dragover'].forEach(t => stage.addEventListener(t, e => { e.preventDefault(); $('drop').classList.add('hot'); $('drop').style.display='flex'; }));
+['dragleave','drop'].forEach(t => stage.addEventListener(t, e => { e.preventDefault(); $('drop').classList.remove('hot'); if (img && t==='dragleave') $('drop').style.display='none'; }));
+stage.addEventListener('drop', e => { const f = e.dataTransfer.files[0]; if (f) loadImage(URL.createObjectURL(f), f.name); });
+
+// ── erase layer ───────────────────────────────────────────────────────────────
+function paintErase(sx, sy) {
+  if (!eraseCtx) return;
+  const [wx, wy] = toWork(sx, sy);
+  const r = Math.max(1, (+$('bs').value) / view.scale * (workW / imgW) / 2);
+  eraseCtx.globalCompositeOperation = eraseMode === 'erase' ? 'source-over' : 'destination-out';
+  eraseCtx.fillStyle = 'rgba(255,70,70,1)';
+  eraseCtx.beginPath(); eraseCtx.arc(wx, wy, r, 0, 7); eraseCtx.fill();
+  eraseCtx.globalCompositeOperation = 'source-over';
+  dirty = true;
+}
+function applyErase(mask) {                 // zero out erased pixels in any mask
+  if (!eraseCtx) return mask;
+  const ed = eraseCtx.getImageData(0, 0, workW, workH).data;
+  for (let i = 0; i < mask.length; i++) if (ed[i * 4 + 3] > 12) mask[i] = 0;
+  return mask;
+}
+
+// ── auto-trace (re-traces the ACTIVE outline in place; sliders refine live) ────
+function maskFromWand() {
+  const { mode, wx, wy } = lastWand, tol = +$('tol').value;
+  if (mode === 'alpha') return alphaMask(workData, workW, workH, 16);
+  if (mode === 'background') return backgroundMask(workData, workW, workH, tol);
+  return floodMask(workData, workW, workH, wx, wy, tol);
+}
+function runTrace(label, live) {
+  if (!workData || !lastWand) return;
+  let mask = applyErase(maskFromWand());
+  mask = largestComponent(mask, workW, workH);
+  let contour = traceContour(mask, workW, workH);
+  if (contour.length < 3) { if (!live) status('Auto-trace found nothing — adjust tolerance / erase, or pick another source.'); return; }
+  contour = simplifyToBudget(contour, +$('eps').value, +$('mp').value);
+  // target: reuse the active outline if it's an auto path (or empty); else a fresh one
+  let p = paths[active];
+  if (!p || p.kind !== 'outline' || (!p.auto && p.pts.length)) { if (!live) { p = newOutline(); p.name = `trace ${paths.length + 1}`; paths.push(p); active = paths.length - 1; } else return; }
+  if (!live) pushUndo();
+  p.auto = true; p.closed = true; p.smooth = true;
+  p.pts = contour.map(pt => [pt.x / workW, pt.y / workH]);
+  sel = null;
+  if (!live) status(`Auto-traced ${label}: ${p.pts.length} pts → “${p.name}”. Drag Max points / tolerance to refine in place.`);
+  renderPaths(); refresh();
+}
+function wandAt(sx, sy) {
+  const [wx, wy] = toWork(sx, sy);
+  lastWand = { mode: $('wandmode').value, wx: Math.round(wx), wy: Math.round(wy) };
+  runTrace(lastWand.mode, false);
+}
+function reTrace() { if (lastWand && paths[active] && paths[active].auto) runTrace(lastWand.mode, true); }
+
+// ── pointer interaction ────────────────────────────────────────────────────────
+let drag = null, spaceDown = false;
+const HIT = 10;
+function jointHandles(p) { return (p.joint || []).map((xy, i) => ({ type: 'jointpt', i, xy })); }
+function wingHandles(p) {
+  const out = [];
+  if (p.root) out.push({ type: 'wing', key: 'root', xy: p.root });
+  if (p.wrist) out.push({ type: 'wing', key: 'wrist', xy: p.wrist });
+  if (p.lead) out.push({ type: 'wing', key: 'lead', xy: p.lead });
+  p.tips.forEach((t, i) => out.push({ type: 'tip', i, xy: t }));
+  return out;
+}
+function hitHandle(p, sx, sy) {
+  const cand = [...jointHandles(p)];
+  if (p.kind === 'wing') cand.push(...wingHandles(p)); else p.pts.forEach((t, i) => cand.push({ type: 'pt', i, xy: t }));
+  for (const h of cand) { const [x, y] = toScreen(h.xy[0], h.xy[1]); if (Math.hypot(x - sx, y - sy) < HIT) return h; }
+  return null;
+}
+function setXY(p, h, xy) {
+  if (h.type === 'jointpt') p.joint[h.i] = xy; else if (h.type === 'tip') p.tips[h.i] = xy;
+  else if (h.type === 'pt') p.pts[h.i] = xy; else p[h.key] = xy;
+}
+function hitSegment(p, sx, sy) {
+  if (p.kind !== 'outline' || p.pts.length < 2) return -1;
+  const n = p.pts.length, last = p.closed ? n : n - 1; let best = -1, bestD = 8;
+  for (let i = 0; i < last; i++) {
+    const [ax, ay] = toScreen(p.pts[i][0], p.pts[i][1]);
+    const [bx, by] = toScreen(p.pts[(i + 1) % n][0], p.pts[(i + 1) % n][1]);
+    const dx = bx - ax, dy = by - ay, len2 = dx * dx + dy * dy || 1;
+    let t = ((sx - ax) * dx + (sy - ay) * dy) / len2; t = Math.max(0, Math.min(1, t));
+    const d = Math.hypot(sx - (ax + t * dx), sy - (ay + t * dy));
+    if (d < bestD) { bestD = d; best = i; }
+  }
+  return best;
+}
+
+cv.addEventListener('pointerdown', e => {
+  cv.setPointerCapture(e.pointerId);
+  const sx = e.offsetX, sy = e.offsetY;
+  if (tool === 'pan' || spaceDown || e.button === 1) { drag = { pan: true, x: e.clientX, y: e.clientY, tx: view.tx, ty: view.ty }; return; }
+  if (!img) return;
+  if (tool === 'erase') { drag = { erase: true }; paintErase(sx, sy); return; }
+  if (tool === 'autowand') { wandAt(sx, sy); return; }
+  const [nx, ny] = toNorm(sx, sy);
+
+  if (tool === 'joint') { const p = ensureActive(); pushUndo(); p.joint.push([nx, ny]); sel = { type: 'jointpt', i: p.joint.length - 1 }; status(`Seam point ${p.joint.length} on “${p.name}”.`); renderPaths(); refresh(); return; }
+
+  if (tool === 'add') {
+    let p = ensureActive();
+    if (p.kind === 'wing') {
+      pushUndo();
+      if (wingRole === 'finger') { p.tips.push([nx, ny]); sel = { type: 'tip', i: p.tips.length - 1 }; }
+      else { p[wingRole] = [nx, ny]; sel = { type: 'wing', key: wingRole }; }
+      status(`Wing ${wingRole} set. Fingers: ${p.tips.length}.`); renderPaths(); refresh(); return;
+    }
+    if ((p.closed || p.auto) && p.pts.length) { p = newOutline(); paths.push(p); active = paths.length - 1; }
+    pushUndo(); p.pts.push([nx, ny]); sel = { type: 'pt', i: p.pts.length - 1 }; renderPaths(); refresh(); return;
+  }
+
+  if (tool === 'edit') {
+    const p = ensureActive();
+    const h = hitHandle(p, sx, sy);
+    if (h) { sel = h; pushUndo(); drag = { h }; refresh(); return; }
+    const seg = hitSegment(p, sx, sy);
+    if (seg >= 0) { pushUndo(); p.pts.splice(seg + 1, 0, [nx, ny]); sel = { type: 'pt', i: seg + 1 }; drag = { h: sel }; renderPaths(); refresh(); return; }
+    sel = null; refresh();
+  }
+});
+cv.addEventListener('pointermove', e => {
+  hoverPos = [e.offsetX, e.offsetY]; if (tool === 'erase') dirty = true;
+  if (!drag) return;
+  if (drag.pan) { view.tx = drag.tx + (e.clientX - drag.x); view.ty = drag.ty + (e.clientY - drag.y); dirty = true; return; }
+  if (drag.erase) { paintErase(e.offsetX, e.offsetY); return; }
+  if (drag.h && paths[active]) { setXY(paths[active], drag.h, toNorm(e.offsetX, e.offsetY)); refresh(); }
+});
+cv.addEventListener('pointerleave', () => { hoverPos = null; dirty = true; });
+cv.addEventListener('pointerup', () => { drag = null; });
+cv.addEventListener('wheel', e => {
+  e.preventDefault(); const f = Math.exp(-Math.sign(e.deltaY) * 0.12), mx = e.offsetX, my = e.offsetY;
+  view.tx = mx - (mx - view.tx) * f; view.ty = my - (my - view.ty) * f; view.scale *= f; dirty = true;
+}, { passive: false });
+
+window.addEventListener('keydown', e => {
+  if (['INPUT','TEXTAREA','SELECT'].includes(e.target.tagName)) return;
+  if (e.code === 'Space') { spaceDown = true; cv.style.cursor = 'grab'; }
+  if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z') { e.preventDefault(); undo(); return; }
+  if ((e.key === 'Delete' || e.key === 'Backspace') && sel && paths[active]) {
+    pushUndo(); const p = paths[active];
+    if (sel.type === 'pt') p.pts.splice(sel.i, 1);
+    else if (sel.type === 'tip') p.tips.splice(sel.i, 1);
+    else if (sel.type === 'jointpt') p.joint.splice(sel.i, 1);
+    else if (sel.type === 'wing') p[sel.key] = null;
+    sel = null; renderPaths(); refresh(); e.preventDefault(); return;
+  }
+  const map = { w: 'autowand', x: 'erase', a: 'add', e: 'edit', c: 'joint', p: 'pan' };
+  if (map[e.key]) setTool(map[e.key]);
+  if (e.key === 'f' || e.key === 'F') fit();
+});
+window.addEventListener('keyup', e => { if (e.code === 'Space') { spaceDown = false; cv.style.cursor = ''; } });
+
+// ── tools / roles ────────────────────────────────────────────────────────────
+const TOOLHINT = {
+  autowand: 'Click the SUBJECT to outline it. Then drag Max points / tolerance to refine the SAME outline live.',
+  erase: 'Paint over parts you DON\'T want, so auto-trace grabs only what\'s left. Restore/Reset to undo.',
+  add: 'Outline: click to drop dots in order. Wing: pick a role below, then click to place it.',
+  edit: 'Drag any dot/handle. Click a line to insert a dot. Del removes the selected one.',
+  joint: 'Click to lay down a SEAM (a line/curve) where the active part meets the body. Multiple points allowed.',
+  pan: 'Drag to pan. Wheel = zoom.',
+};
+function setTool(t) {
+  tool = t;
+  document.querySelectorAll('[data-tool]').forEach(b => b.classList.toggle('on', b.dataset.tool === t));
+  $('wandsec').style.opacity = t === 'autowand' ? 1 : 0.55;
+  $('erasesec').style.opacity = t === 'erase' ? 1 : 0.55;
+  cv.style.cursor = t === 'pan' ? 'grab' : 'crosshair';
+  updateRoles(); $('toolhint').textContent = TOOLHINT[t] || '';
+}
+function updateRoles() { $('roles').style.display = (paths[active] && paths[active].kind === 'wing' && tool === 'add') ? 'grid' : 'none'; }
+document.querySelectorAll('[data-tool]').forEach(b => b.onclick = () => setTool(b.dataset.tool));
+document.querySelectorAll('[data-role]').forEach(b => b.onclick = () => { wingRole = b.dataset.role; document.querySelectorAll('[data-role]').forEach(x => x.classList.toggle('on', x === b)); });
+$('ebrush').onclick = () => { eraseMode = 'erase'; $('ebrush').classList.add('on'); $('erestore').classList.remove('on'); };
+$('erestore').onclick = () => { eraseMode = 'restore'; $('erestore').classList.add('on'); $('ebrush').classList.remove('on'); };
+$('ereset').onclick = () => { if (eraseCtx) { eraseCtx.clearRect(0, 0, workW, workH); dirty = true; status('Image edits reset.'); } };
+
+// ── path sidebar ───────────────────────────────────────────────────────────────
+function renderPaths() {
+  const host = $('paths'); host.innerHTML = '';
+  paths.forEach((p, i) => {
+    const el = document.createElement('div');
+    el.className = 'pitem' + (i === active ? ' active' : '');
+    const count = p.kind === 'wing' ? `${p.tips.length} fingers` : `${p.pts.length}pt`;
+    const jn = (p.joint && p.joint.length) ? ` <span style="color:var(--joint)">⊕ seam(${p.joint.length})</span>` : '';
+    el.innerHTML = `
+      <div class="top">
+        <span class="sw" style="background:${p.color}"></span>
+        <span class="kind">${p.kind === 'wing' ? 'WING' : 'OUTLINE'}</span>
+        <input type="text" value="${p.name.replace(/"/g,'&quot;')}" />
+        <span class="x" title="delete">✕</span>
+      </div>
+      <div class="meta">
+        <select class="pt" title="part">${PARTS.map(v => `<option ${v===p.part?'selected':''}>${v}</option>`).join('')}</select>
+        <select class="vw" title="view">${VIEWS.map(v => `<option ${v===p.view?'selected':''}>${v}</option>`).join('')}</select>
+        ${p.kind === 'outline' ? `<label><input type="checkbox" class="cl" ${p.closed?'checked':''}/> closed</label>
+        <label><input type="checkbox" class="sm" ${p.smooth?'checked':''}/> smooth</label>` : ''}
+        <label><input type="checkbox" class="vi" ${p.visible?'checked':''}/> show</label>
+        <span>${count}</span>${jn}
+      </div>`;
+    el.onclick = (ev) => { if (ev.target.closest('input,select,.x')) return; active = i; sel = null; renderPaths(); refresh(); };
+    el.querySelector('input[type=text]').onchange = (ev) => { p.name = ev.target.value || p.name; refresh(); };
+    el.querySelector('.pt').onchange = (ev) => { p.part = ev.target.value; refresh(); };
+    el.querySelector('.vw').onchange = (ev) => { p.view = ev.target.value; refresh(); };
+    el.querySelector('.vi').onchange = (ev) => { p.visible = ev.target.checked; refresh(); };
+    if (p.kind === 'outline') {
+      el.querySelector('.cl').onchange = (ev) => { p.closed = ev.target.checked; refresh(); };
+      el.querySelector('.sm').onchange = (ev) => { p.smooth = ev.target.checked; refresh(); };
+    }
+    el.querySelector('.x').onclick = (ev) => { ev.stopPropagation(); pushUndo(); paths.splice(i, 1); active = Math.min(active, paths.length - 1); sel = null; renderPaths(); refresh(); };
+    host.appendChild(el);
+  });
+  updateRoles();
+}
+$('addpath').onclick = () => { pushUndo(); paths.push(newOutline()); active = paths.length - 1; sel = null; setTool('add'); renderPaths(); refresh(); };
+$('addwing').onclick = () => { pushUndo(); paths.push(newWing()); active = paths.length - 1; sel = null; wingRole = 'root'; document.querySelectorAll('[data-role]').forEach(x => x.classList.toggle('on', x.dataset.role === 'root')); setTool('add'); renderPaths(); refresh(); status('Wing rig added — place Root (on the body), then Wrist, Lead, Finger struts (outer→inner).'); };
+$('clearpath').onclick = () => { const p = paths[active]; if (!p) return; pushUndo(); if (p.kind === 'wing') { p.root = p.wrist = p.lead = null; p.tips = []; } else { p.pts = []; p.auto = false; } p.joint = []; sel = null; refresh(); };
+$('resetall').onclick = () => { if (!confirm('Remove every path and dot? (image + erase edits stay)')) return; pushUndo(); paths = [newOutline()]; active = 0; sel = null; renderPaths(); refresh(); status('All paths cleared.'); };
+
+// ── render ───────────────────────────────────────────────────────────────────
+function resize() {
+  const dpr = Math.min(devicePixelRatio || 1, 2);
+  cv.width = stage.clientWidth * dpr; cv.height = stage.clientHeight * dpr;
+  cv.style.width = stage.clientWidth + 'px'; cv.style.height = stage.clientHeight + 'px';
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0); dirty = true;
+}
+window.addEventListener('resize', resize);
+
+function curveThrough(pts, { closed = false, smooth = false } = {}) {   // build a path (pts in screen space)
+  if (pts.length < 2) return;
+  ctx.beginPath(); ctx.moveTo(pts[0][0], pts[0][1]);
+  if (!smooth || pts.length < 3) {
+    for (let i = 1; i < pts.length; i++) ctx.lineTo(pts[i][0], pts[i][1]);
+    if (closed) ctx.closePath();
+    return;
+  }
+  const n = pts.length, last = closed ? n : n - 1;
+  for (let i = 0; i < last; i++) {
+    const p0 = pts[(i - 1 + n) % n], p1 = pts[i], p2 = pts[(i + 1) % n], p3 = pts[(i + 2) % n];
+    const a0 = (closed || i > 0) ? p0 : p1, a3 = (closed || i < n - 2) ? p3 : p2;
+    ctx.bezierCurveTo(p1[0] + (p2[0] - a0[0]) / 6, p1[1] + (p2[1] - a0[1]) / 6,
+      p2[0] - (a3[0] - p1[0]) / 6, p2[1] - (a3[1] - p1[1]) / 6, p2[0], p2[1]);
+  }
+  if (closed) ctx.closePath();
+}
+function dot(xy, r, fill, ring) { const [x, y] = toScreen(xy[0], xy[1]); ctx.beginPath(); ctx.arc(x, y, r, 0, 7); ctx.fillStyle = fill; ctx.fill(); if (ring) { ctx.lineWidth = 1.5; ctx.strokeStyle = ring; ctx.stroke(); } }
+function label(xy, txt, color) { const [x, y] = toScreen(xy[0], xy[1]); ctx.fillStyle = color; ctx.font = '10px system-ui'; ctx.fillText(txt, x + 7, y - 6); }
+function drawJoint(p, isA) {
+  const j = p.joint || []; if (!j.length) return;
+  const col = '#ff5de0';
+  if (j.length > 1) { curveThrough(j.map(([x, y]) => toScreen(x, y)), { closed: false, smooth: true }); ctx.strokeStyle = col; ctx.lineWidth = 2.4; ctx.setLineDash([6, 4]); ctx.stroke(); ctx.setLineDash([]); }
+  j.forEach((xy, i) => { const s = isA && sel && sel.type === 'jointpt' && sel.i === i; dot(xy, s ? 6 : 4.5, s ? '#fff' : col, '#0a0e1a'); });
+  label(j[0], 'attach seam', '#ff9ae8');
+}
+function drawWing(p, isA) {
+  const C = p.color;
+  if (p.root && p.tips.length) {
+    const R = toScreen(p.root[0], p.root[1]); ctx.beginPath(); ctx.moveTo(R[0], R[1]);
+    const o = toScreen(p.tips[0][0], p.tips[0][1]);
+    if (p.lead) { const L = toScreen(p.lead[0], p.lead[1]); ctx.quadraticCurveTo(L[0], L[1], o[0], o[1]); } else ctx.lineTo(o[0], o[1]);
+    for (let i = 1; i < p.tips.length; i++) { const t = toScreen(p.tips[i][0], p.tips[i][1]); ctx.lineTo(t[0], t[1]); }
+    ctx.closePath(); ctx.fillStyle = C + '22'; ctx.fill(); ctx.strokeStyle = C; ctx.lineWidth = isA ? 2 : 1.3; ctx.stroke();
+  }
+  const hub = p.wrist || p.root;
+  if (hub) {
+    const H = toScreen(hub[0], hub[1]); ctx.strokeStyle = C + 'aa'; ctx.lineWidth = 1.3;
+    if (p.root && p.wrist) { const Rt = toScreen(p.root[0], p.root[1]); ctx.beginPath(); ctx.moveTo(Rt[0], Rt[1]); ctx.lineTo(H[0], H[1]); ctx.stroke(); }
+    for (const t of p.tips) { const T = toScreen(t[0], t[1]); ctx.beginPath(); ctx.moveTo(H[0], H[1]); ctx.lineTo(T[0], T[1]); ctx.stroke(); }
+  }
+  if (p.root) { dot(p.root, isA ? 6 : 4, '#fff', '#0a0e1a'); if (isA) label(p.root, 'root', C); }
+  if (p.wrist) { dot(p.wrist, 5, '#cfe', '#0a0e1a'); if (isA) label(p.wrist, 'wrist', C); }
+  if (p.lead) { dot(p.lead, 5, '#ffd', '#0a0e1a'); if (isA) label(p.lead, 'lead', C); }
+  p.tips.forEach((t, i) => { const s = isA && sel && sel.type === 'tip' && sel.i === i; dot(t, s ? 6 : 4, s ? '#fff' : C, '#0a0e1a'); if (isA) label(t, 'f' + (i + 1), C); });
+}
+function draw() {
+  dirty = false;
+  ctx.clearRect(0, 0, cv.width, cv.height);
+  if (img) {
+    ctx.globalAlpha = imgOpacity; ctx.imageSmoothingEnabled = view.scale < 3;
+    ctx.drawImage(img, view.tx, view.ty, imgW * view.scale, imgH * view.scale);
+    ctx.globalAlpha = 1;
+    if (eraseCv) { ctx.globalAlpha = 0.5; ctx.drawImage(eraseCv, view.tx, view.ty, imgW * view.scale, imgH * view.scale); ctx.globalAlpha = 1; }   // red wash = removed
+  }
+  paths.forEach((p, pi) => {
+    if (!p.visible) return;
+    const isA = pi === active;
+    if (p.kind === 'wing') drawWing(p, isA);
+    else if (p.pts.length) {
+      curveThrough(p.pts.map(([x, y]) => toScreen(x, y)), { closed: p.closed, smooth: p.smooth });
+      if (p.closed && p.pts.length > 2) { ctx.fillStyle = p.color + '22'; ctx.fill(); }
+      ctx.strokeStyle = p.color; ctx.lineWidth = isA ? 2 : 1.3; ctx.stroke();
+      p.pts.forEach((xy, i) => { const s = isA && sel && sel.type === 'pt' && sel.i === i; dot(xy, s ? 6 : 4, s ? '#fff' : p.color, isA ? '#0a0e1a' : null); });
+    }
+    drawJoint(p, isA);
+  });
+  // brush ring
+  if (tool === 'erase' && hoverPos && img) {
+    const r = (+$('bs').value) / 2;
+    ctx.beginPath(); ctx.arc(hoverPos[0], hoverPos[1], r, 0, 7);
+    ctx.strokeStyle = eraseMode === 'erase' ? '#ff6464' : '#64ff96'; ctx.lineWidth = 1.5; ctx.setLineDash([4, 3]); ctx.stroke(); ctx.setLineDash([]);
+  }
+}
+function loop() { if (dirty) draw(); requestAnimationFrame(loop); }
+
+// ── export ───────────────────────────────────────────────────────────────────
+function chosenAxis(p) {
+  if ($('axis').value !== 'auto') return $('axis').value;
+  const aspect = imgW / imgH; let xMin = Infinity, xMax = -Infinity, yMin = Infinity, yMax = -Infinity;
+  for (const [x, y] of p.pts) { xMin = Math.min(xMin, x); xMax = Math.max(xMax, x); yMin = Math.min(yMin, y); yMax = Math.max(yMax, y); }
+  return (xMax - xMin) * aspect >= (yMax - yMin) ? 'x' : 'y';
+}
+const r4 = (v) => v == null ? null : [+v[0].toFixed(4), +v[1].toFixed(4)];
+const seam = (j) => (j && j.length) ? j.map(r4) : null;
+function buildExport() {
+  const aspect = imgW / imgH;
+  const out = {
+    tool: 'dragon-drift-tracer', version: 3,
+    image: { name: imgName, width: imgW, height: imgH },
+    note: 'points/handles normalized 0..1 of the image (origin top-left, x right, y down). joint = SEAM (ordered points) where the part attaches to the body.',
+    paths: paths.map(p => {
+      if (p.kind === 'wing') {
+        const rig = { root: r4(p.root), wrist: r4(p.wrist), lead: r4(p.lead), tips: p.tips.map(r4) };
+        const wingForm = (p.root && p.tips.length) ? deriveWingForm({ root: p.root, wrist: p.wrist, lead: p.lead, tips: p.tips }, { aspect }) : null;
+        return { name: p.name, kind: 'wing', part: p.part, view: p.view, joint: seam(p.joint), rig, wingForm };
+      }
+      return { name: p.name, kind: 'outline', part: p.part, view: p.view, closed: p.closed, smooth: p.smooth, joint: seam(p.joint), points: p.pts.map(r4) };
+    }),
+  };
+  const pick = (vw) => paths.find(p => p.kind === 'outline' && p.view === vw && p.closed && p.pts.length > 2 && p.part === 'body')
+                    || paths.find(p => p.kind === 'outline' && p.view === vw && p.closed && p.pts.length > 2);
+  const side = pick('side'), top = pick('top'), head = $('head').value, rc = +$('rc').value;
+  if (side || top) {
+    const sp = side ? deriveProfile(side.pts.map(([x, y]) => ({ x, y })), { axis: chosenAxis(side), headEnd: head, stations: rc, aspect }) : null;
+    const tp = top  ? deriveProfile(top.pts.map(([x, y]) => ({ x, y })),  { axis: chosenAxis(top),  headEnd: head, stations: rc, aspect }) : null;
+    out.derived = { note: 'best-effort loftEllipse ring list (z head −1 → tail +1; rx from TOP, ry from SIDE; body-length units). Tune on the overlay.',
+      haveSide: !!side, haveTop: !!top, loftEllipse: toLoftRings(sp, tp, rc) };
+  }
+  return out;
+}
+function refresh() { imgOpacity = +$('op').value / 100; dirty = true; updateRoles();
+  try { $('out').value = JSON.stringify(buildExport(), null, 1); } catch (e) { $('out').value = 'export error: ' + e.message; } }
+$('copy').onclick = () => { navigator.clipboard.writeText($('out').value); status('JSON copied.'); };
+$('dl').onclick = () => { const blob = new Blob([$('out').value], { type: 'application/json' }); const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = (imgName.replace(/\.[^.]+$/, '') || 'trace') + '.trace.json'; a.click(); status('Downloaded ' + a.download); };
+$('forclaude').onclick = () => {
+  const txt = `Here is a traced shape from the Dragon Drift tracer (see reforged/MODEL-CREATION.md §6/§7a). `
+    + `Each path has a "part" tag (wing/body/tail/head/…). Wing paths include a derived "wingForm" (engine wingForms planform: tips + lead). `
+    + `"joint" is the SEAM (ordered points) where the part attaches to the body — use it for the continuous-hull wing root. `
+    + `Outline "derived.loftEllipse" is a starting body cross-section list.\n\n\`\`\`json\n${$('out').value}\n\`\`\``;
+  navigator.clipboard.writeText(txt); status('Copied a Claude-ready message.');
+};
+
+// ── small UI wiring ─────────────────────────────────────────────────────────────
+function status(m) { $('status').textContent = m; }
+$('op').oninput = () => { $('opv').textContent = $('op').value + '%'; refresh(); };
+$('rc').oninput = () => { $('rcv').textContent = $('rc').value; refresh(); };
+$('bs').oninput = () => { $('bsv').textContent = $('bs').value; dirty = true; };
+$('tol').oninput = () => { $('tolv').textContent = $('tol').value; reTrace(); };
+$('eps').oninput = () => { $('epsv').textContent = $('eps').value; reTrace(); };
+$('mp').oninput  = () => { $('mpv').textContent = $('mp').value; reTrace(); };
+$('axis').onchange = refresh; $('head').onchange = refresh; $('fit').onclick = fit;
+
+// ── boot ─────────────────────────────────────────────────────────────────────
+resize(); paths.push(newOutline()); active = 0; setTool('autowand'); renderPaths(); refresh(); loop();
+status('Drop or load an image, then click the subject to auto-trace.');
+</script>
+</body>
+</html>
