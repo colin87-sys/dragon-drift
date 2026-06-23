@@ -65,6 +65,17 @@ if (surge && M.wingMat) { M.wingMat.emissiveIntensity = 1.2; }
 group.rotation.set(0, 0, 0);
 scene.add(group);
 
+// EXPERIMENT knobs: lay the wings back (wx, +deg about X = rake the blade aft/down)
+// and/or change the outward lean (wlean, +deg widens the V). Applied to the SVJ wing
+// roots before framing so the silhouette + metrics reflect the test pose.
+const wx = +(P.get('wx') || 0), wlean = +(P.get('wlean') || 0);
+const wings = group.userData && group.userData.anim && group.userData.anim.wings;
+if (wings && (wx || wlean)) {
+  for (const w of wings) { const sd = w.userData.side ?? 1;
+    w.rotation.x += THREE.MathUtils.degToRad(wx);
+    w.rotation.z += -sd * THREE.MathUtils.degToRad(wlean); }
+}
+
 // frame the dragon: fit its bounding sphere for the chosen view direction
 group.updateMatrixWorld(true);
 const box = new THREE.Box3().setFromObject(group);
@@ -98,7 +109,21 @@ function frame() {
   requestAnimationFrame(frame);
 }
 frame();
-window.__shotMeta = { key, tier, view, radius: +R.toFixed(2), height: +(box.max.y - box.min.y).toFixed(2), width: +(box.max.x - box.min.x).toFixed(2), length: +(box.max.z - box.min.z).toFixed(2) };
+// body-only height = vertical extent of the CENTRELINE column (exclude the
+// out-spread wings) so we can compare "how tall is the body" across dragons.
+const wband = (box.max.x - box.min.x) * 0.16;
+let bMinY = Infinity, bMaxY = -Infinity; const tmp = new THREE.Box3();
+group.traverse((o) => {
+  if (!o.isMesh || !o.geometry) return;
+  tmp.setFromObject(o);
+  if (Math.abs((tmp.min.x + tmp.max.x) / 2) < wband) { bMinY = Math.min(bMinY, tmp.min.y); bMaxY = Math.max(bMaxY, tmp.max.y); }
+});
+window.__group = group; window.__THREE = THREE;   // exposed for ad-hoc measurement
+window.__shotMeta = {
+  key, tier, view, radius: +R.toFixed(2),
+  height: +(box.max.y - box.min.y).toFixed(2), width: +(box.max.x - box.min.x).toFixed(2), length: +(box.max.z - box.min.z).toFixed(2),
+  bodyHeight: +(bMaxY - bMinY).toFixed(2), bodyTopY: +bMaxY.toFixed(2), bodyBotY: +bMinY.toFixed(2),
+};
 </script>
 </body>
 </html>
