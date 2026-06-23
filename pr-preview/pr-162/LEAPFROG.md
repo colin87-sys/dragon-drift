@@ -3123,3 +3123,16 @@ dropping lean to 42 and LP 7.05→6.4 landed it back at 95 (top of the 85–95 b
 "true span 110–125" and "projected 85–95" are the same number for symmetric tips, so I target the projected one.
 Reusable: wing ROOT placement (fraction of body length) + STANCE width are independent dials from the blade
 shape; fix architecture with those, then re-pin LP/LEAN against the measure gate.
+
+## Lesson — Wings further back onto a deeper chest + tail fins consolidated into a terminal tip cluster (clean shaft).
+
+Human refinement: wings still read too forward; tail read as a saw-blade. Fixes: (1) **Wing root moved further
+rearward + lowered + widened** — wz −1.4→−1.05 (~33% body), wy lowered (ch hh·0.55→0.38, embedded not perched),
+wx ±1.04→±1.12 of chest hw; a bigger scapular fairing. (2) **Deeper/wider chest+shoulder** (chest hw 0.84→0.94,
+hh 0.90→0.98; shoulder 0.74→0.82) so the new placement is supported. (3) **Tail fins consolidated**: deleted the
+staggered every-other-ring fin loop along the shaft; the shaft now tapers clean (its only red is the per-segment
+seam lights), and ALL fins live in a deliberate terminal CLUSTER at the last ~12% — a forward larger pair + a
+smaller tip pair + red accents = an arrowhead stabiliser, not a comb. (4) Re-pinned the pose to the gate after
+the stance/placement change: the wider stance pushed width to 99, so LP 6.4→6.05 and LEAN 42→38 landed width 89
+/ height 46. Reusable: the staggered-fin "saw-blade" read is a classic procedural trap — concentrate repeated
+decoration at a silhouette TERMINUS (tip/crown) and leave the shaft clean; it reads as design intent, not noise.
