@@ -3303,3 +3303,36 @@ timeline + turntable) and get the human to sign off FEEL on real lighting before
 game. Tuning amplitudes/rates on sliders is seconds; tuning them through a game build is minutes. Coexist
 first, integrate after sign-off — same "prove on a hero, then migrate" rule applies to animation, not just
 geometry.
+
+## Lesson — Built the SVJ a full active-aero STATE MACHINE (cruise/bank/pitch/boost/surge/airbrake) + boost/surge VFX, all on the existing rig with zero static-pose change.
+
+Took a long, prescriptive motion brief (jet/Lamborghini active-aero, NOT a flapper) and mapped its 3-part wing
+spec straight onto the built model: `root`=wing group (sweep-back/dihedral/spread), `mid`=`hinge` (aileron+AoA),
+`tip`=`outer` (speed-tuck, lagged follow). No new rig nodes needed — the names already existed. The whole thing
+is a priority blend (surge > boost > airbrake > pitch/bank > cruise) of additive offsets over the lazily-captured
+base pose, so cruise = the locked static model + tiny servo breathing, and every state eases in/out (no snapping).
+
+Key reusable techniques:
+- **Active-aero, not flap:** bank = differential aileron on the blade (`hinge.rotation.z`, NO ×sd so it's opposite
+  L/R through the `mir.scale.x` mirror); pitch/airbrake/AoA = symmetric blade tilt (`hinge.rotation.x`, ×sd to
+  CANCEL the mirror). Boost/dive/surge sweep the whole wing back on `root.rotation.x`; surge spreads a wider V on
+  `root.rotation.z`. The "inside wing of a turn opens its airbrake more" = `clamp(sd*bank,0,1)` gating per-side.
+- **Transform snaps without a timeline:** a decaying "kick" (`kick=1` on the rising edge of boost/surge, then
+  `kick*=exp(-dt/τ)`) gives a brief servo anticipation spike that settles — cheaper and frame-rate-independent vs
+  scripting an anticipation→burst→sustain keyframe sequence.
+- **Recolour shared emissive WITHOUT importing THREE in the driver:** the material's `.emissive`/`.color` are live
+  `Color` instances, so `mat.emissive.copy(base0).lerp(targetCol, t)` works — clone the base + target Colors once
+  from the materials themselves (`M.red.emissive.clone().set('#hex')`). Lets the engine-agnostic driver shift
+  thrusters red→white-hot→surge and tint the red slashes toward the surge colour with zero new deps.
+- **VFX the model lacked** (tail comet, thruster shock-ring pool, surge aura, wingtip air-slice): BUILD them in the
+  model file (it owns geometry/THREE), expose handles on `userData.anim.vfx`, and only SCALE/FADE/COLOUR them in the
+  driver. Critical: default them `visible=false` AND `scale≈0.001` so the static showcase + the CPU `proof.mjs`
+  rasterizer (which may ignore `.visible`) never render them — verified the montage is byte-identical in look.
+- **Smoke-test motion headlessly:** `mecha/smoke.mjs` runs `updateSVJ` ~2s/state through the three-resolver and
+  asserts no NaN leaks into any transform, emissive stays finite/≥0, and VFX appear on surge / vanish on cruise.
+  Catches driver runtime bugs (bad handle, NaN from a divide) without WebGL — the human still judges feel on the
+  preview, but CI can guard "it runs and doesn't explode."
+
+Gotcha: shared materials mean per-wing differential GLOW isn't possible (one `M.red` lights every seam/chevron/
+channel), so "inside wing brake-glow" became a global red-slash brighten on bank/brake — reads fine, but if we ever
+want true per-wing glow we'd have to split the red material per side. Noted for the next pass.
