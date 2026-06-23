@@ -3180,3 +3180,22 @@ reads as a designed step, not a generic hypotenuse. Same flatPanel(frame+membran
 point polygon. Reusable: the difference between "sail/fin" and "aero blade" is (1) AFT RAKE of the tip (tip z ≳
 0.6× tip y) and (2) a non-straight trailing edge — a triangle has neither. Measure held (width 91 / height 47)
 by nudging tip y after the rake lowered it.
+
+## Lesson — TRACED the wing shape from the reference PNG (pixel analysis) instead of eyeballing — found it's a hard-RAKED dagger, not an upright fin.
+
+Human: "trace the reference png, copy the wing, scale to fit; trace the whole dragon for ratio." Wrote
+`mecha/traceRef.mjs`: a tiny PNG decoder (IHDR + inflate IDAT + un-filter, colorType 2/6) → foreground mask by
+colour-distance from the corner background → keep the LARGEST connected component (drops stray specks that were
+poisoning the apex) → median top-profile = the back line → wing = columns whose top rises well above it →
+emit the leading-edge polyline + ratios + an ASCII overlay. The trace overturned my eyeballed shape: the
+reference wing is RAKED HARD — tip at ~0.90 of body length AFT and only ~0.32 body-length UP (a long shallow
+~35° leading edge), root chord ~0.19, front root ~0.42. My hand-made wing was far too upright. Rebuilt the
+flatPanel dagger from the traced [y,z] anchors (front root → 5 leading samples → tip → rear root); one `outer.
+scale` dial sizes it to fit.
+
+Two payoffs: (1) **pixel-tracing a reference beats eyeballing for silhouette** — the decoder+CC+median-backline
+recipe is reusable for any future reference. (2) **the raked wing reads BETTER from the rear chase cam**: because
+it rakes aft AND leans out, the black inner panels + red circuits now FACE the camera in the V (the old upright
+blades were edge-on slivers from behind). Caveat: a raked wing trades rear WIDTH for aft DEPTH, so the old
+measure width target (85–95) no longer applies — matched the reference proportion (width ~65 / height ~37)
+instead, which is the explicit ask. The measure gate now documents reference proportions, not the stale target.
