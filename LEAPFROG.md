@@ -3458,3 +3458,26 @@ showcase) is also dim. Critical realization: the shot harness only runs the driv
 NOT what the game shows (driver zeroes it). To judge driver-controlled state, drive it explicitly — even cruise
 needs `?dboost=0` to run the driver at the zero state. Don't trust a static render for anything the per-frame
 driver overrides (emissive, flame scale, poses).
+
+## Lesson — "Copy dragon X's FX" means SHARE X's FX CODE, not approximate it on a different path. + an in-game (particle) screenshot harness.
+
+The user said the SVJ surge "still looks the same / not copied like Aurum Toro" — correct, because the SVJ
+(custom buildType:'svj' path, updateSVJDragon) was faking surge with its own fat FLAME CONES, while Aurum Toro
+Mk II's surge is a tight magenta PARTICLE SPRITE afterburner (`thrusterFireSprites` in dragon.js, gated to
+formLevel≥3 + feverActive, emitted from `svjThrusterEmitter` markers the `twinThrusters` layer creates). Removing
+the SVJ's aura/rings/comet didn't help because the remaining cones were still a pink blob, nothing like the sprite
+stream. The real fix was MECHANISM PARITY, three parts: (1) EXTRACT the afterburner emission+update into a shared
+`updateThrusterFire(dt, player)` and call it from BOTH updateDragon AND updateSVJDragon; (2) tag the custom SVJ
+thruster pods with `userData.svjThrusterEmitter = true` (createDragon's `group.traverse` already collects them and
+builds the sprite pool — so the custom dragon gets the pool for free, it was just missing the markers); (3) shrink
+the SVJ's surge flame cone to ~0 so the shared sprite stream is the dominant read. Now both dragons stream the
+identical 0xff4fd8 afterburner. Lesson: when two dragons must share an effect, route them through ONE function;
+re-implementing "something similar" on a parallel path always reads as different.
+
+Verification gotcha: PARTICLE FX live in the game loop (pools in createDragon, emission in updateDragon), NOT in
+the model build — so the static `tools/shot.mjs` harness (which only runs updateSVJ) CANNOT show them. Built
+`tools/ingameShot.mjs`: boots the REAL game headless with `?dev&debug=fever`, equips a dragon via a new debug-only
+`__dd.equip(key)` seam, starts the run via `__dd.play()`, force-sets `game.feverActive` right before the shot
+(timing-robust), and screenshots the actual chase cam — so surge particle FX are captured and two dragons can be
+A/B'd in-engine. The `?debug=fever` flag + `__dd` seam were already there; added equip/play. Use ingameShot for
+anything driven by the game loop (particles, trails, post-fx, camera); use shot.mjs for static look/proportions.

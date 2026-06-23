@@ -426,6 +426,43 @@ function flapSurge(x) {
   return s >= 0 ? Math.pow(s, 0.5) : -0.55 * Math.pow(-s, 0.85);
 }
 
+// Thruster jet-fire afterburner — ETERNAL form (formLevel ≥ 3) during Surge: a tight
+// magenta-pink flame STREAM from each rear-thruster emitter (svjThrusterEmitter markers),
+// like a jet afterburner. Shared by the standard dragons (Aurum Toro Mk II) AND the custom
+// SVJ path, so the SVJ surge reads identically to Aurum Toro.
+function updateThrusterFire(dt, player) {
+  if (thrusterEmitters.length && (activeDef.model.formLevel ?? 0) >= 3 && player.feverActive) {
+    thrusterFireTimer -= dt;
+    if (thrusterFireTimer <= 0) {
+      thrusterFireTimer = 0.011 / quality;
+      const fireHex = activeDef.hasStyle ? pickTrailHex(activeDef.trail) : 0xff4fd8;
+      for (const em of thrusterEmitters) {
+        const s = thrusterFireSprites.find((s) => !s.visible);
+        if (!s) break;
+        em.getWorldPosition(tmpV);
+        s.visible = true;
+        s.userData.life = 1;
+        s.material.color.setHex(fireHex);
+        s.position.set(
+          tmpV.x + (Math.random() - 0.5) * 0.18,
+          tmpV.y + (Math.random() - 0.5) * 0.14,
+          tmpV.z + Math.random() * 1.4
+        );
+      }
+    }
+  }
+  for (const s of thrusterFireSprites) {
+    if (!s.visible) continue;
+    s.userData.life -= dt * 3.0;   // short + fast → a tight afterburner jet, not smoke
+    if (s.userData.life <= 0) { s.visible = false; s.material.opacity = 0; }
+    else {
+      s.material.opacity = s.userData.life * 0.9;
+      const sz = 0.5 + (1 - s.userData.life) * 1.6;
+      s.scale.set(sz, sz, 1);
+    }
+  }
+}
+
 // ── CUSTOM SVJ MECHA driver bridge ───────────────────────────────────────────
 // Maps the live `player` flight state onto the shared updateSVJ() driver (mecha/
 // svjAnim.js), then applies the driver's reported body roll/pitch/yaw + engine
@@ -478,6 +515,9 @@ function updateSVJDragon(dt, player, time) {
   riderGroup.rotation.x = damp(riderGroup.rotation.x, -0.08 - speedNorm * 0.16 + player.velocity.y * 0.008, 8, dt);
 
   group.updateMatrixWorld(true);
+
+  // Surge afterburner — the SAME thruster jet-fire stream Aurum Toro uses.
+  updateThrusterFire(dt, player);
 
   // Ponytail (world-space follow) — same chain solve as the standard path
   if (ponySegs > 0) {
@@ -1113,42 +1153,8 @@ export function updateDragon(dt, player, time) {
     }
   }
 
-  // Thruster jet-fire — ETERNAL form only, during Surge: a tight flame stream from each
-  // rear thruster mouth in the Surge-highlight colour (the colour Surge flares the
-  // wings), like a jet afterburner. Emits only when the collected pod emitters exist
-  // (Mk II), the form is Eternal (formLevel ≥ 3) and Surge is active.
-  if (thrusterEmitters.length && (activeDef.model.formLevel ?? 0) >= 3 && player.feverActive) {
-    thrusterFireTimer -= dt;
-    if (thrusterFireTimer <= 0) {
-      thrusterFireTimer = 0.011 / quality;
-      // Surge emission inherits the player's equipped TRAIL colour (magenta-pink fallback
-      // when no custom trail is set) — personalises the afterburner without repainting the body.
-      const fireHex = activeDef.hasStyle ? pickTrailHex(activeDef.trail) : 0xff4fd8;
-      for (const em of thrusterEmitters) {
-        const s = thrusterFireSprites.find(s => !s.visible);
-        if (!s) break;
-        em.getWorldPosition(tmpV);
-        s.visible = true;
-        s.userData.life = 1;
-        s.material.color.setHex(fireHex);
-        s.position.set(
-          tmpV.x + (Math.random() - 0.5) * 0.18,
-          tmpV.y + (Math.random() - 0.5) * 0.14,
-          tmpV.z + Math.random() * 1.4
-        );
-      }
-    }
-  }
-  for (const s of thrusterFireSprites) {
-    if (!s.visible) continue;
-    s.userData.life -= dt * 3.0;   // short + fast → a tight afterburner jet, not smoke
-    if (s.userData.life <= 0) { s.visible = false; s.material.opacity = 0; }
-    else {
-      s.material.opacity = s.userData.life * 0.9;
-      const sz = 0.5 + (1 - s.userData.life) * 1.6;
-      s.scale.set(sz, sz, 1);
-    }
-  }
+  // Thruster jet-fire — the surge afterburner (shared with the custom SVJ path).
+  updateThrusterFire(dt, player);
 
   // ── Mk II universal wing FX (gated to Mk II for now; generalise later) ──────────────
   const isMk2 = !!activeDef.model.wingParts;

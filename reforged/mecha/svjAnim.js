@@ -131,11 +131,10 @@ export function updateSVJ(group, dt, state = {}) {
 
   // ── THRUSTERS — vector toward the turn; flame length/width + colour per mode ───
   // length: idle→boost→surge, longer on climb, narrower+shorter on dive.
-  // surge keeps the boost-sized CONTAINED twin cones (just recoloured pink) — it must
-  // NOT bloom into a screen-filling plume toward the chase cam. On surge the flames carry
-  // the whole effect now (aura/rings/comet are disabled to match the Aurum Toro afterburner).
-  const flameLen = 0.05 + S.boost * 1.55 + S.surge * 0.70 + climb * 0.3 - dive * 0.18;
-  const flameW = 0.05 + S.boost * 0.85 + S.surge * 0.45 - dive * 0.18;
+  // On SURGE the afterburner is the shared sprite STREAM (updateThrusterFire, like Aurum
+  // Toro) — so the surge flame CONE stays small (no fat pink blob); boost keeps its cone.
+  const flameLen = 0.05 + S.boost * 1.55 + S.surge * 0.15 + climb * 0.3 - dive * 0.18;
+  const flameW = 0.05 + S.boost * 0.85 + S.surge * 0.10 - dive * 0.18;
   const lenPulse = 1 + 0.12 * Math.sin(S.eng * 2);
   for (const th of A.thrusters) {
     th.rotation.y = S.bank * rad(12);                               // thrust vectoring (flame is a child)

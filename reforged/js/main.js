@@ -161,6 +161,15 @@ if (urlParams.has('debug')) {
       cameraCtl.setSplash(false);
       ui.showScreen('start');
     },
+    // Test seam: equip a dragon by key (owns it if needed) and rebuild — for headless
+    // in-game FX verification.
+    equip: (key) => {
+      saveData.skins.equipped = key;
+      if (!saveData.skins.owned.includes(key)) saveData.skins.owned.push(key);
+      rebuildDragon(equippedDragon(), equippedRider(), player);
+      applyDragonStats(equippedDragon());
+    },
+    play: () => startGame('normal'),
   };
 }
 

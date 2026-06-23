@@ -194,6 +194,10 @@ function thrusterPod(M) {
   const flame = tag(new THREE.ConeGeometry(0.22, 1.4, 12), M.thruster, 'thrusterFlame');
   flame.rotation.x = -Math.PI / 2; flame.position.z = 1.0; flame.scale.setScalar(0.01); g.add(flame);
   g.userData.flame = flame; g.userData.core = core;
+  // emitter marker at the nozzle mouth → the shared surge afterburner (thrusterFireSprites,
+  // dragon.js) streams the same magenta jet from here as Aurum Toro Mk II.
+  const emit = new THREE.Object3D(); emit.position.set(0, 0, 0.35);
+  emit.userData.svjThrusterEmitter = true; g.add(emit);
   return g;
 }
 
