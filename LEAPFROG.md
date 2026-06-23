@@ -3272,3 +3272,34 @@ follow. Cleaner: flat discs facing straight back read better than canted ones at
 human gives a proportion target ("X% of shoulder"), MEASURE the reference dimension off the built model
 (traverse + role filter) rather than guessing — and a "cant" (roll) on a flat emitter only reads well at larger
 sizes; for small pods, straight-on is cleaner.
+
+## Lesson — Animated the SVJ as a JET (rigid aero-blades), with a shared driver + an interactive slider preview to sign off feel BEFORE touching the game.
+
+A mechanical, thruster-propelled dragon must move like a jet/hypercar, not a soft bird: the thrusters
+propel, the raked dagger wings STEER (aileron on bank, elevator on pitch) and never wing-beat for lift.
+Built `mecha/svjAnim.js` — `updateSVJ(group, dt, state)` reading only `group.userData.anim`, so the
+standalone preview and (later) the game call it identically with zero game deps. Feel tricks that sold
+"powered machine": (1) servo easing — frame-rate-independent exponential damp `a+(b-a)*(1-exp(-r*dt))`
+with DIFFERENT rates per input (boost spools slower at r=5, bank snaps at r=8) so joints have weight;
+(2) an always-on engine phase clock whose RPM rises with speed+boost, driving a constant micro-vibration
++ glow pulse so it never reads as coasting; (3) signature transform moves layered on the steering base —
+boost tucks the wings back (`root.rotation.x`), surge spreads a wider battle-mode V (`root.rotation.z`),
+pods thrust-vector toward turns (`thruster.rotation.y ∝ bank`).
+
+Mirror-awareness was the subtle bug-magnet: the L/R wings are mirrored by `mir.scale.x = side`, so a
+differential aileron needs NO `×sd` (the scale flip already makes +z opposite on the two sides), while a
+SYMMETRIC move (elevator, idle breathing) DOES need `×sd` to cancel the mirror. Get this backwards and
+bank looks symmetric / pitch looks like a barrel-roll.
+
+Lazy base-capture beats editing the model: the driver captures `_baseLean`/`_baseQuat`/`_baseEmi` on first
+frame and composes relative to them, so the carefully-posed static model is untouched and needs NO
+svjDragon.js change — also let me ship the tail as a traveling-wave (per-seg `quaternion.copy(base)` then
+`rotateY/rotateX`) instead of re-parenting the absolute-positioned segs into a kinematic chain (the
+lower-risk fallback from the plan; cumulative whip can come later if the wave reads too uniform).
+
+Process lesson (the real win): for MOTION, build the driver + a throwaway interactive preview
+(`mecha/anim.html` — real ACES+UnrealBloom, sliders for bank/pitch/boost/surge/speed + an auto-demo
+timeline + turntable) and get the human to sign off FEEL on real lighting before wiring anything into the
+game. Tuning amplitudes/rates on sliders is seconds; tuning them through a game build is minutes. Coexist
+first, integrate after sign-off — same "prove on a hero, then migrate" rule applies to animation, not just
+geometry.
