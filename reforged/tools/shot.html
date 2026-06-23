@@ -31,7 +31,7 @@ const view = P.get('view') || 'rear';
 const surge = P.get('surge') === '1';
 
 const canvas = document.getElementById('c');
-const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
+const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true, preserveDrawingBuffer: true });
 renderer.setPixelRatio(1);
 renderer.toneMapping = THREE.ACESFilmicToneMapping; renderer.toneMappingExposure = 1.05;
 renderer.outputColorSpace = THREE.SRGBColorSpace;
@@ -96,6 +96,19 @@ const d = (dirs[view] || dirs.rear).clone().normalize();
 camera.position.copy(ctr).add(d.multiplyScalar(dist));
 camera.lookAt(ctr);
 
+// CHASE mode: replicate the REAL game chase camera (cameraController.js) — dragon at
+// origin, camera behind+above, looking ~16 ahead, FOV 72. State sets the pull-in
+// (surge pulls in to 7.2/2.5, which is why surge occludes more). ?measure=1 then
+// computes the screen-space occlusion the player actually sees.
+const measure = P.get('measure') === '1';
+const cstate = P.get('state') || 'cruise';
+if (view === 'chase') {
+  const CH = ({ cruise: [12.3, 3.6], boost: [8.8, 3.0], surge: [7.2, 2.5] })[cstate] || [12.3, 3.6];
+  camera.fov = +(P.get('fov') || 72); camera.updateProjectionMatrix();
+  camera.position.set(0, CH[1], CH[0]);
+  camera.lookAt(0, 1.25, -16);
+}
+
 const rt = new THREE.WebGLRenderTarget(innerWidth, innerHeight, { type: THREE.HalfFloatType, samples: 4 });
 const composer = new EffectComposer(renderer, rt);
 composer.addPass(new RenderPass(scene, camera));
@@ -109,12 +122,28 @@ const drive = (P.has('dsurge') || P.has('dboost') || P.has('dbank') || P.has('dp
 const canDrive = drive && group.userData && group.userData.anim;
 
 let frames = 0;
+const ready = canDrive ? 90 : (measure ? 6 : 4);
 function frame() {
   if (canDrive) updateSVJ(group, 1 / 60, drive);     // animate thrusters/wings/glow/VFX
   headlight.position.copy(camera.position);
-  composer.render();
-  // settle longer when driving so surge flames/rings/aura reach steady state
-  if (++frames === (canDrive ? 90 : 4)) window.__shotReady = true;
+  if (measure) { sky.visible = false; renderer.setClearColor(0x000000, 0); renderer.clear(); renderer.render(scene, camera); }
+  else composer.render();
+  if (++frames === ready) {
+    if (measure) {
+      // screen-space occlusion: of the solid dragon silhouette, how high does it climb
+      // in the CENTRAL lane band (where oncoming obstacles appear)? Alpha = dragon mask.
+      const gl = renderer.getContext(), w = renderer.domElement.width, h = renderer.domElement.height;
+      const px = new Uint8Array(w * h * 4); gl.readPixels(0, 0, w, h, gl.RGBA, gl.UNSIGNED_BYTE, px);
+      const cx0 = Math.floor(w * 0.37), cx1 = Math.ceil(w * 0.63);   // central ~26% width
+      let topY = -1, filled = 0, total = 0;
+      for (let yy = 0; yy < h; yy++) for (let xx = cx0; xx < cx1; xx++) { const a = px[(yy * w + xx) * 4 + 3]; total++; if (a > 24) { filled++; if (yy > topY) topY = yy; } }
+      if (window.__shotMeta) {
+        window.__shotMeta.occTopFrac = +((topY + 1) / h).toFixed(3);    // 0=bottom .. 1=top of screen
+        window.__shotMeta.occCentralCover = +(filled / total).toFixed(3); // fraction of central band filled
+      }
+    }
+    window.__shotReady = true;
+  }
   requestAnimationFrame(frame);
 }
 frame();
