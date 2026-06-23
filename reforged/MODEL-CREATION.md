@@ -288,6 +288,26 @@ Because the camera is fixed behind the creature, we verify by **rendering the si
 **The loop:** spec → build → `silhouette.mjs` (rear + threeq) → `silhouette-overlay.mjs` vs concept →
 read the gap (proportion? chord? pose? a module wall?) → tune dials / ring list → repeat.
 
+### 7a. The TRACER — hand Claude the shape instead of describing it (`tools/tracer.html`)
+The overlay loop above is **machine → human** (we render, you judge). The **tracer** is the inverse —
+**human → machine**: open `tools/tracer.html` in a browser (it's deployed on every PR preview at
+`…/reforged/tools/tracer.html`), drop in a concept image, and turn it into editable points/curves you can
+verify by eye, then hand the resulting JSON to Claude as the silhouette spec. No more "move it left / up /
+down" prompt ping-pong.
+
+- **Auto-trace ("magic wand"):** click the subject → it flood-fills, isolates the largest blob, walks the
+  outline (Moore tracing) and simplifies it (Douglas–Peucker) to a clean editable ring. Sources: click
+  subject · background-corners→invert · transparency (cut-out PNG). Tune *tolerance* and *point count*.
+- **Edit:** drag dots, click a line to insert a dot, `Del` to remove; straight or smooth (Catmull-Rom).
+  Multiple **named paths** tagged by **view** (`side` / `top` / `front` / `free`) so body/wing/tail are
+  separate shapes.
+- **Export → the engine format:** tag one path **side** (→ `ry` half-height) and one **top** (→ `rx`
+  half-width) and the tool derives a best-effort **`loftEllipse` ring list** (`{z, rx, ry}`, head −1 → tail
+  +1, body-length units) — drop it straight into a torso builder (§6a) and tune on the overlay. Raw
+  normalised points are always exported too. "Copy for Claude" yields a paste-ready message.
+- The geometry core (`tools/tracerCore.mjs`) is pure/DOM-free and unit-tested headlessly
+  (`tests/tracer.mjs`).
+
 ---
 
 ## 8. LIMITATIONS (be honest with the model)
