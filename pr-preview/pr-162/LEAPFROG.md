@@ -3336,3 +3336,46 @@ Key reusable techniques:
 Gotcha: shared materials mean per-wing differential GLOW isn't possible (one `M.red` lights every seam/chevron/
 channel), so "inside wing brake-glow" became a global red-slash brighten on bank/brake — reads fine, but if we ever
 want true per-wing glow we'd have to split the red material per side. Noted for the next pass.
+
+## Lesson — Wired the SVJ into the live game roster as a CUSTOM dragon, isolated so the shipped 30 + shop/ascension can't break.
+
+The roster (`js/dragons.js`) entries are rich data consumed by many systems (shop cards, hero-select, ascension
+form-merge, `applyDragonStats`, the body-plan builder, the per-frame organic rig). A hard-surface dragon that
+uses NONE of the organic rig has to slot in without destabilising any of them. The clean seam was a single field
+`buildType: 'svj'` plus branches at exactly two chokepoints:
+
+- **Build:** the branch MUST live in `buildDragonModel()` (dragonModel.js), NOT `createDragon()` — because the shop
+  THUMBNAILS + showcase build via `buildDragonModel(def, {preview:true})` directly (preview.js), bypassing
+  createDragon entirely. Branch there and EVERY build path (gameplay, hero turntable, card thumbnails) is covered
+  by one line. It returns the standard `{ group, parts, materials, auraSprite }` shape with STUBS (a dummy head
+  Object3D so `resetDragon`'s `head.rotation.set` is valid, an invisible aura sprite so the aura write is valid,
+  real gold/carbon/eye materials so `applyRim` + emissive resets work, `tailSegs:[]`, a `riderSocket`). createDragon
+  then runs unchanged — rider, ponytail, trail pools, death shards all still get built.
+- **Per-frame:** an early `if (activeDef.buildType==='svj') { updateSVJDragon(...); return; }` at the top of
+  `updateDragon()` skips the entire flap/spine/tail rig. `updateSVJDragon` maps `player` → the driver's `state` and
+  calls the shared `updateSVJ()`, then applies the driver's reported `_bodyRoll/_bodyPitch/_bodyYaw/_vibration` to
+  the group (barrel-roll spin still stacks on top), and re-runs only the bits the SVJ still wants (hover bob, rider
+  lean, ponytail, death burst — duplicated, not refactored, so the 30 organic dragons are untouched).
+
+Input mapping that matters: normalise to the driver's −1..1 at the speeds the GAME already treats as a hard
+manoeuvre — `bank = velocity.x/16`, `pitch = velocity.y/14` (the game's own `turnBias=v.x*0.018` saturates at 0.28
+≈ v.x 16; `climbBias` ≈ v.14). So the blades reach full aileron exactly when the standard dragons reach their hard
+bank. `boost←speedActive`, `surge←feverActive`, `airbrake←the boost-release decel spike`, `speedNorm←(speed-35)/45`.
+
+Gotchas the harness caught:
+- `ascendedDef()` multiplies `model.scale *= SIZE_RAMP[tier]` (0.62–0.88) — a custom dragon shrinks at low tiers
+  unless you pin `model.bodyScale:1` + `model.wingSpan:1` (those OVERRIDE the ramp). Set them or it builds tiny.
+- `tests/defs.mjs` ENFORCES exactly 4 form objects for an SSSR (the shop expects 4 tier pips) — a single-form
+  custom still needs `forms:[{},{},{},{}]` (identical empties; full-size via the pinned scales).
+- Keep `stats` within `DRAGON_STAT_CAP` (speed 1.16 / handling 1.28 / drain 0.70 / regen 1.35) or the shop stat
+  bars overflow >100%.
+- ORIENTATION: the chase cam sits at `player.z + back` looking toward −Z, and the dragon flies toward −Z. The SVJ
+  was authored head=−Z / thrusters=+Z, so it faces correctly out of the box (thrusters toward the camera). Verify
+  the cam axis before assuming a custom model needs a 180° yaw — here it didn't.
+- Single THREE instance: svjDragon.js imports the BARE `three` specifier (importmap), same as the game, so
+  importing it from `js/dragonModel.js` dedups to one module — no `instanceof` breakage.
+
+Testing seam: `?dev` (main.js) already iterates `Object.keys(DRAGONS)` to own+max every dragon + 999999 embers, so
+a new roster entry is auto-included — the human can append `?dev`, open the shop, equip, and fly with zero extra
+plumbing. (No WebGL in CI — the browser shop test times out on Chromium regardless; verified that timeout is
+pre-existing by stashing the change. defs/economy/ascension/blueprint all green.)

@@ -1302,6 +1302,32 @@ export const DRAGONS = {
     apexEye: 0x3fc6ff, apexSeam: 0xff3b2f, coreGlow: 0xff8a1f, surgeHi: 0xfff3d0,
     eye: 0x3fc6ff, trail: 0xff8a1f, boostTrail: 0xff3b2f,
   },
+
+  // ── SVJ MECHA — a hard-surface, Aventador-SVJ-inspired jet dragon. NOT built by
+  // the organic body-plan rig: buildType 'svj' routes the build to buildSVJDragon()
+  // (mecha/svjDragon.js) and the per-frame motion to updateSVJ() (mecha/svjAnim.js),
+  // an active-aero state machine (steering blades + thrusters, never a flap). Single
+  // fixed form (no ascension); bodyScale/wingSpan pinned to 1 so it stays full size.
+  svjMecha: {
+    name: 'SVJ Mecha',
+    title: 'Aventador awakened',
+    rarity: 'SSSR',
+    maxRarity: 'SSSR',
+    cost: 7500,
+    buildType: 'svj',
+    svjSurgeColor: '#ff44cc',                       // Dragon-Surge overdrive tint (matches the game magenta)
+    stats: { speed: 1.16, handling: 1.28, drain: 0.70, regen: 1.35 },
+    model: { scale: 1.0, wingScale: 1.0, bodyScale: 1, wingSpan: 1 },
+    // Fixed hard-surface design — four identical forms (the roster requires 4 for an
+    // SSSR; bodyScale/wingSpan pinned to 1 keep every tier full-size, no ascension drama).
+    forms: [{}, {}, {}, {}],
+    fx: { auraColor: '255,42,20', auraIdle: 0.0, sparkle: false },
+    // palette (shop card accent + stat baseline): gold / carbon / red / cyan
+    body: 0xf5c518, belly: 0x13151b, scales: 0x3b424c, horn: 0xf5c518,
+    wingInner: 0xf5c518, wingOuter: 0xc89a12, wingEmissive: 0xff2a14,
+    apexEye: 0x2ce6ff, apexSeam: 0xff2a14, coreGlow: 0x2ce6ff, surgeHi: 0xff44cc,
+    eye: 0x2ce6ff, trail: 0x2ce6ff, boostTrail: 0xff6a18,
+  },
 };
 
 // Highest multipliers in the roster (for shop stat-bar normalisation).
