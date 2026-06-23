@@ -311,27 +311,38 @@ function wingSystem(side, M) {
   const hinge = new THREE.Group(); hinge.position.set(0, 0.4, 0); mir.add(hinge);
   const outer = new THREE.Group(); hinge.add(outer);
 
-  // dagger silhouette anchors [y(up), z(aft)]: leading edge A→K→T (one long line
-  // with a subtle kink), tip T (high+rear, sharp), trailing T→B, root B→A.
-  const A = [0.0, -0.18], K = [1.35, 0.18], T = [5.05, 1.65], B = [0.12, 1.2];
+  // dagger silhouette anchors [y(up), z(aft)] — a SWEPT aero blade, not an upright
+  // triangle: a compact root, a steep rise that KINKS into a long raked-back spear
+  // tip, and a sculpted/stepped CONCAVE trailing edge returning to the root.
+  const A = [0.0, 0.0];        // leading root
+  const K = [1.5, 0.42];       // leading kink (steep root rise ends here)
+  const T = [4.85, 3.15];       // long raked-back spear tip (well aft of the root)
+  const P1 = [2.75, 2.7];      // trailing: down from the tip…
+  const P2 = [2.0, 2.5];       // …concave dip inward…
+  const P3 = [1.85, 1.78];     // …step back out…
+  const B = [0.18, 1.3];       // trailing root
+  const poly = [A, K, T, P1, P2, P3, B];
   // large BLACK inner membrane panel (fills most of the wing)
-  outer.add(flatPanel([A, K, T, B], 0.05, M.carbon, 'wingInnerStruct'));
-  // GOLD outer frame: leading edge (thick), trailing + root rails (thinner/darker)
+  outer.add(flatPanel(poly, 0.05, M.carbon, 'wingInnerStruct'));
+  // GOLD outer frame: leading edge (thick) sweeping to the tip; sculpted trailing
   const edge = (p, q, w, h, mat) => outer.add(strut(V(0, p[0], p[1]), V(0, q[0], q[1]), w, h, mat, 'outerWingBlade'));
-  edge(A, K, 0.1, 0.15, M.gold);
-  edge(K, T, 0.07, 0.11, M.gold);
-  edge(T, B, 0.05, 0.07, M.goldDark);
-  edge(B, A, 0.06, 0.09, M.goldDark);
-  // sharp gold tip
-  const tip = tag(new THREE.ConeGeometry(0.085, 0.55, 6), M.gold, 'outerWingBlade');
+  edge(A, K, 0.11, 0.16, M.gold);
+  edge(K, T, 0.075, 0.12, M.gold);             // long swept leading blade
+  edge(T, P1, 0.05, 0.07, M.goldDark);
+  edge(P1, P2, 0.045, 0.06, M.goldDark);       // concave return
+  edge(P2, P3, 0.045, 0.06, M.goldDark);
+  edge(P3, B, 0.05, 0.07, M.goldDark);
+  edge(B, A, 0.06, 0.09, M.goldDark);          // root rail
+  // sharp gold spear tip
+  const tip = tag(new THREE.ConeGeometry(0.08, 0.6, 6), M.gold, 'outerWingBlade');
   tip.position.set(0, T[0], T[1]); tip.quaternion.setFromUnitVectors(V(0, 1, 0), V(0, T[0] - K[0], T[1] - K[1]).normalize());
   outer.add(tip);
   // one clean RED zig-zag circuit inset on the black panel (lower root → upper rear)
-  const zig = [[0.45, -0.02], [1.35, 0.42], [1.05, 0.78], [2.45, 0.72], [3.45, 1.02], [4.45, 1.35]];
+  const zig = [[0.5, 0.3], [1.4, 0.72], [1.1, 1.1], [2.6, 1.65], [3.5, 2.3], [4.2, 2.85]];
   for (let i = 0; i < zig.length - 1; i++)
     outer.add(strut(V(0.06, zig[i][0], zig[i][1]), V(0.06, zig[i + 1][0], zig[i + 1][1]), 0.035, 0.05, M.red, 'energyChannel'));
   // small lower gold STRAKE under the rear root (subordinate support fin)
-  outer.add(flatPanel([[0.0, 0.8], [-0.5, 1.45], [0.02, 1.45]], 0.04, M.gold, 'secondaryBlade'));
+  outer.add(flatPanel([[0.0, 1.0], [-0.46, 1.66], [0.06, 1.58]], 0.04, M.gold, 'secondaryBlade'));
 
   root.userData.hinge = hinge; root.userData.outer = outer;
   return root;

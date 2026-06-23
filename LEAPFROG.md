@@ -3168,3 +3168,15 @@ shot, render near-ORTHOGRAPHIC and purely lateral** (proof side view: fov 46→1
 the two outward-leaned wings differ only in x, so an x-axis orthographic projection collapses them onto the same
 y-z silhouette = one dagger. The earlier "second wing peeking" was pure perspective + camera y-tilt, not geometry.
 Measure held (width 94 / height 49) since tip y/z and lean were preserved.
+
+## Lesson — Wing silhouette: swept aero BLADE (raked tip + sculpted concave trailing edge), not an upright triangle.
+
+Human ref + note "less triangle, more blade / less sail, more Lamborghini aero". The single-dagger was right in
+construction but too UPRIGHT and too plainly triangular. Fixed purely by moving the polygon anchors: the tip T
+rakes well aft (z 1.65→3.15 vs root z 0 — the blade now lies back over the body), the leading edge keeps a steep
+compact root then KINKS into a long swept spear, and the trailing edge is now a 4-point sculpted/CONCAVE return
+(T→P1→P2(dip in)→P3(step out)→B) instead of one straight line — so the chord stays blade-like and the lower edge
+reads as a designed step, not a generic hypotenuse. Same flatPanel(frame+membrane) machinery, just a richer 7-
+point polygon. Reusable: the difference between "sail/fin" and "aero blade" is (1) AFT RAKE of the tip (tip z ≳
+0.6× tip y) and (2) a non-straight trailing edge — a triangle has neither. Measure held (width 91 / height 47)
+by nudging tip y after the rake lowered it.
