@@ -3527,3 +3527,13 @@ resample to the final point count. Keeps the shape + location (L115); only remov
 **ANY geometry traced from a pixel mask is staircased — smooth+resample the closed contour before extruding,
 exactly as we already do for open spines (L114). Thinner shapes expose jaggies that thickness was hiding, so
 smoothing becomes mandatory once you thin.**
+
+### L118 — A uniform erode KILLS thin features: keep the in-plane mask, thin via z only
+Regression caught by human: "you lost the bones closer to the leading edge." Cause: L116's `erode(grown,1)`
+trim. A 1px erode barely dents a fat bone but COLLAPSES the thinnest finger-struts (the delicate leading-edge
+ones) to slivers → they extruded into invisible threads in 3D, so the wing silently dropped bones even though
+the data still listed 7. Fix: trace the FULL `grown` mask (no erode) → every bone keeps its tagged in-plane
+width; thinness comes ONLY from z-thickness (`BONE_THICK`). Lesson: **never thin a shape-set by eroding the
+mask — erosion is feature-size-dependent and annihilates the smallest members while sparing the largest. To
+make extruded strokes read thinner, cut the EXTRUSION depth (uniform across all), not the in-plane footprint.
+And when a count is preserved in data, still eyeball the render — degenerate-but-present shapes vanish silently.**
