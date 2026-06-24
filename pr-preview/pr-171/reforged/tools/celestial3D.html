@@ -326,7 +326,10 @@ function buildWing(mirrored) {
   const off = (mesh) => { if (mesh) { mesh.position.sub(rv); pivot.add(mesh); } };
   off(panel(sil, zWing, matMembrane));
   // BONE SHAPES (human-tagged, EXACT 2D outline + location): extruded with thickness, ends tapered to points.
-  (D.wing.boneShapes || []).forEach((bs, i) => off(boneSolid(f(bs), zWing, i === D.wing.boneShapes.length - 1 ? BONE_THICK * 1.5 : BONE_THICK, matSpar)));
+  // Seat the bones in FRONT of the membrane's forward billow (amplitude 0.06) so the translucent violet sheet
+  // never passes over a strut and tints it — every strut reads as the same pale bone colour from any angle.
+  const zBone = (p) => zWing(p) + 0.08;
+  (D.wing.boneShapes || []).forEach((bs, i) => off(boneSolid(f(bs), zBone, i === D.wing.boneShapes.length - 1 ? BONE_THICK * 1.5 : BONE_THICK, matSpar)));
   // thin line-struts (auto fallback only): tubes
   D.wing.struts.forEach((s, i) => off(tube(f(s), (p) => zWing(p) + 0.04, i === D.wing.sparIndex ? 0.05 : 0.028, i === D.wing.sparIndex ? matSpar : matStrut)));
   wingGrp.add(pivot); wingPivots.push({ pivot, side: mirrored ? -1 : 1, restX: pivot.rotation.x });
