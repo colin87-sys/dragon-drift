@@ -3198,3 +3198,26 @@ Reusable: **to compare a trace to reference art, normalize scale by a length you
 (head-to-tail on the central axis), print the residuals, and fit a transform to them** — overlay + numbers
 beats eyeballing every time. **→ Leapfrog:** the wing is now art-accurate in span+sweep; 3D extrusion reads
 WING_ATTACH_Y (shoulder mount) and the fitted wing directly.
+
+### L96 — Phase 2: extrude the 2D definition to 3D (standalone previewer first), and label sub-parts BEFORE extruding
+With the 2D `celestialDef.js` matched to the reference (L92–L95), Phase 2 extrudes it to 3D — built as a
+STANDALONE previewer (`tools/celestial3D.html`), never touching the shipped roster (THE RULE #3). What worked:
+- **Label sub-parts in the definition first** (additive): `body.head {neckY, topY, outline, horns[2]}` (head =
+  body above the narrowest upper-third row; horns = highest silhouette point each side) and `wing.sparIndex`
+  (the strut reaching closest to the wing tip = the leading-edge arm bone). The 3D build reads these directly
+  (horns → cones at the tips; spar → a thicker emissive tube).
+- **Extrusion strategy that survived contact:** the BODY is a LOFT — scanline the silhouette per Y-row for its
+  outer span (`crossings()`), build an elliptical ring per row (depth ≈ 0.5×half-width), stitch into a tube +
+  end caps. Plates + star-flecks are projected ONTO the hull via `bodySurfaceZ()` (the ring's front-z at an
+  (x,y)), so they wrap the body instead of floating. WINGS use `THREE.ShapeUtils.triangulateShape` for the
+  membrane panel (handles the concave scalloped trailing edge that a centroid-fan would wreck) + `TubeGeometry`
+  struts, each wing on its own shoulder PIVOT group so it can flap.
+- **Coords:** canvas (x right, y DOWN) → world `((x-.5)·ASPX·S, (.5-y)·S, z·ASPX·S)`, ASPX=W/H — flip Y, scale
+  X by aspect so proportions hold; z in x-units so depth isn't stretched.
+- **Headless verify (no browser):** `tools/celestial3Dshot.mjs` drives it via Playwright + `tests/serve.mjs`,
+  exposing `window.__ready` + `window.__view(yaw,pitch,flap)` hooks; captures rear / high / ¾ / side and asserts
+  no pageerror. Rear view reads unmistakably as the creature; ¾ shows real volume.
+Gotchas / next: the LOFT bridges the TRIDENT tail prongs into a paddle (scanline outer-span ignores the gaps) —
+the tail needs per-prong handling. Membrane is flat (slight back-sweep only) — add billow later. **→ Leapfrog:**
+geometry pipeline proven on the hero in isolation; next refine tail/membrane, then migrate into the game's
+dragon model behind a flag — never break the shipped roster.
