@@ -99,19 +99,35 @@ const strutsRaw = allWingPolys
   .filter((p) => (p.reduce((s, q) => s + (sampleBand(q.x, q.y) ? 1 : 0), 0) / p.length) < 0.6)  // not an outline chain
   .map((p) => resampleOpen(smoothOpen(p, 1), clamp(Math.round(plen(p) / 8), 6, 32)).map(norm));
 
-// ── PLACE the wing onto the body ────────────────────────────────────────────
-// The stencils are NOT in a shared frame (the wings stencil is drawn higher/larger than the body's frame),
-// so cross-fitting layers distorts. Instead the body keeps its own frame and the wing is placed EXPLICITLY:
-// anchor the wing ROOT to a point on the body centreline, scale by span. These two numbers are the tuning
-// dials (matched to the reference) — nudge them to move the wings up/down or wider/narrower.
-const WING_SPAN = 0.94;       // full (both-wings) span as a fraction of canvas width
-const WING_ATTACH_Y = 0.18;   // wing-root height as a fraction down the body (0 = top of head) — shoulders, just below the neck
+// ── PLACE the wing onto the body, MATCHED to the colour reference ────────────
+// The stencils are NOT in the body's frame, so the wing is placed explicitly AND auto-fitted to the art:
+// anchor the ROOT at the shoulder (WING_ATTACH_Y down the body) and rotate+uniform-scale (about the root, so
+// no distortion) so the wing TIP lands on the REFERENCE wing tip — matching span AND sweep angle. The dials
+// below are manual nudges on top of that fit.
+const WING_ATTACH_Y = 0.18;   // wing-root height as a fraction down the body (shoulder, just below the neck)
+const WING_SCALE = 1.0;       // span multiplier on top of the reference fit (1 = match the art)
+const WING_SWEEP_ADJ = 0;     // sweep nudge in degrees (+ = more up & out)
+// reference wing tip: highest subject pixel in the outer-left column; central head/tail axis for scale
+const fr = load('full').rgba;
+const subj = new Uint8Array(W * H);
+for (let i = 0; i < W * H; i++) { const o = i * 4, r = fr[o], g = fr[o + 1], b = fr[o + 2]; const mx = Math.max(r, g, b), mn = Math.min(r, g, b); subj[i] = (mx - mn > 22 || mx < 230) ? 1 : 0; }
+const cbLo = Math.round(0.43 * W), cbHi = Math.round(0.57 * W);
+let rHeadY = H, rTailY = 0; for (let y = 0; y < H; y++) for (let x = cbLo; x <= cbHi; x++) if (subj[y * W + x]) { if (y < rHeadY) rHeadY = y; if (y > rTailY) rTailY = y; }
+let axSx = 0, axN = 0; for (let y = rHeadY; y <= rTailY; y++) for (let x = cbLo; x <= cbHi; x++) if (subj[y * W + x]) { axSx += x; axN++; }
+const axisX = axN ? axSx / axN : W / 2, refLen = rTailY - rHeadY;
+let rtx = 0, rty = H; for (let y = 0; y < H; y++) for (let x = 0; x < axisX - 0.10 * W; x++) if (subj[y * W + x] && y < rty) { rty = y; rtx = x; }
+const refTipOutF = (axisX - rtx) / refLen, refTipUpF = (rHeadY - rty) / refLen;
+// raw wing root (innermost) + tip (highest), and a rotate+scale that maps root→tip onto the reference target
 const bodyBox = bboxPts(bodySilhouetteRaw);
-const wingBox = bboxPts(wingSilhouetteRaw);
-let wingRoot = wingSilhouetteRaw[0]; for (const p of wingSilhouetteRaw) if (p.x < wingRoot.x) wingRoot = p;  // innermost point
-const wingScale = (WING_SPAN / 2) / (wingBox.w || 1e-6);
-const attachY = bodyBox.minY + WING_ATTACH_Y * bodyBox.h;
-const place = (p) => ({ x: 0.5 + (p.x - wingRoot.x) * wingScale, y: attachY + (p.y - wingRoot.y) * wingScale });
+let wingRoot = wingSilhouetteRaw[0]; for (const p of wingSilhouetteRaw) if (p.x < wingRoot.x) wingRoot = p;
+let wingTip = wingSilhouetteRaw[0]; for (const p of wingSilhouetteRaw) if (p.y < wingTip.y) wingTip = p;
+const bodyLenPx = bodyBox.h * H, rootNY = bodyBox.minY + WING_ATTACH_Y * bodyBox.h;
+const vx = (wingTip.x - wingRoot.x) * W, vy = (wingTip.y - wingRoot.y) * H;       // current root→tip (px)
+const tgtX = refTipOutF * bodyLenPx, tgtY = -(refTipUpF + WING_ATTACH_Y) * bodyLenPx;  // target root→tip (px)
+const fit = WING_SCALE * Math.hypot(tgtX, tgtY) / Math.hypot(vx, vy);
+const th = Math.atan2(tgtY, tgtX) - Math.atan2(vy, vx) + WING_SWEEP_ADJ * Math.PI / 180;
+const cs = Math.cos(th) * fit, sn = Math.sin(th) * fit;
+const place = (p) => { const rx = (p.x - wingRoot.x) * W, ry = (p.y - wingRoot.y) * H; return { x: (0.5 * W + rx * cs - ry * sn) / W, y: (rootNY * H + rx * sn + ry * cs) / H }; };
 
 const bodySilhouette = bodySilhouetteRaw;
 const wingSilhouette = wingSilhouetteRaw.map(place);
