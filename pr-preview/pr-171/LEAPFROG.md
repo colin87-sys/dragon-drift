@@ -3537,3 +3537,16 @@ width; thinness comes ONLY from z-thickness (`BONE_THICK`). Lesson: **never thin
 mask — erosion is feature-size-dependent and annihilates the smallest members while sparing the largest. To
 make extruded strokes read thinner, cut the EXTRUSION depth (uniform across all), not the in-plane footprint.
 And when a count is preserved in data, still eyeball the render — degenerate-but-present shapes vanish silently.**
+
+### L119 — Dorsal spine: stamp a diamond on each ARMOUR ROW (reuse existing cells), don't width-match a stencil
+Wanted a glowing dorsal follow-line. First instinct was to trace the spine STENCIL and width-match it to the
+body — but the overlay QA (`tools/spineOverlay.mjs`, scaled head→tail) proved it DOESN'T register: our traced
+body is wider (shoulder/hip bulges) with a different plate rhythm than the slender stencil. Human's better idea:
+"copy the diamond shape at each segment and line it up on our blue armour segments." So the spine is built FROM
+our own data — group the central-axis plates (|cx−mirror|<0.05) into cy ROWS, and stamp one raised cyan faceted
+rhombus per row, sized to that row's cell width (`rx≈0.4·w`, clamped). It lines up perfectly because it IS the
+armour row, and the head→tail width taper falls out of the cell sizes for free. Crown raised 0.02+ (above the
+0.011 plate domes) so it stands proud as a ridge; bright-cyan emissive `matSpine` + fresnel. New `spineGrp`
+toggle, leaves the armour scales intact. Lesson: **when an external stencil won't register on your traced
+geometry, don't force-fit it — DERIVE the feature from the geometry you already have. The repeated-motif-per-
+existing-cell pattern (diamond per armour row) guarantees alignment and inherits the body's proportions.**
