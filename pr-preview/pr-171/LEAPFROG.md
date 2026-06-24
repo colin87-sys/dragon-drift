@@ -3375,3 +3375,14 @@ Lesson: **an editor for art labeling needs (a) snapping to existing features (no
 (b) a live validity signal (sealed/green) so the human knows the result is usable before exporting, and (c)
 separate layers per semantic class (bone vs vein vs membrane).** Export: celestial-wing-bones-R.json {bones,
 veins, bridges}.
+
+### L107 — The struts are OUTLINED shapes → flood-tag bone regions (not just lines)
+Key model correction from the human: the struts are drawn as OUTLINED shapes (two edges with space between), so
+each bone has a floodable INTERIOR — every enclosed region is either a bone or a membrane cell. Added to
+celestialBoneEditor.html: **fill bone** (flood → cyan) alongside **fill membrane** (flood → magenta); a region
+can be tagged either class (mutually exclusive). Export adds `boneShapes` = the traced CONTOUR of each
+bone-fill (struts WITH width, ready to extrude as solid bones) plus `veins`. This is more faithful than
+medial-line bones because it preserves the drawn thickness. Workflow: bridge until green (sealed) → fill each
+bone region + each membrane region → tag veins → export. Lesson: **before extracting "lines," check whether the
+art draws structures as outlined AREAS — if so, the regions (and their contours) are the truth, and the
+medial line is a lossy approximation.**
