@@ -29,8 +29,13 @@ function fillPoly(poly) {
   return m;
 }
 // GROW a fill into its surrounding stroke: fill ∪ (dilate(fill,4) ∩ ink) → hugs the outer edge of the drawn line
+const shapes = (J.boneShapes || []).slice();
+// ARM: its origin at the body is open (can't be flooded). Build it from its two EDGE lines — the bone lines
+// that span from the wrist region (x>0.68) to the root region (x<0.61) — closed into a polygon = arm with width.
+const armEdges = (J.bones || []).filter(ln => { const xs = ln.map(p => p[0]); return Math.min(...xs) < 0.61 && Math.max(...xs) > 0.68 && ln.length > 40; }).sort((a, b) => b.length - a.length).slice(0, 2);
+if (armEdges.length === 2) { const orient = ln => (ln[0][0] > ln[ln.length - 1][0]) ? ln : ln.slice().reverse(); const A = orient(armEdges[0]), B = orient(armEdges[1]); shapes.push(A.concat(B.slice().reverse())); console.log('ARM: built a sealed shape from its 2 edge lines (wrist→root)'); }
 const grownShapes = [];
-for (const shape of (J.boneShapes || [])) {
+for (const shape of shapes) {
   const fill = fillPoly(shape); const ringInk = dilate(fill, 4);
   const grown = new Uint8Array(W * H); for (let i = 0; i < W * H; i++) grown[i] = (fill[i] || (ringInk[i] && ink[i])) ? 1 : 0;
   const c = traceContour(dilate(grown, 1), W, H).map(p => [+(p.x / W).toFixed(4), +(p.y / H).toFixed(4)]);
