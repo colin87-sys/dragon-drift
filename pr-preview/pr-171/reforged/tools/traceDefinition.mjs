@@ -135,6 +135,25 @@ const struts = strutsRaw.map((s) => s.map(place));
 const veins = [];   // DROPPED — the cyan trace produced stray horizontal fragments, not real veins. In 3D the
                     // veins become an emissive glow generated ALONG the struts (the original brief's intent).
 
+// ── labeled sub-parts for the 3D build ──────────────────────────────────────
+// HEAD + HORNS: the body above the NECK (narrowest row in the upper third). The head outline arc lets the 3D
+// build raise a snout; the two horn tips are the highest silhouette point on each side of the head.
+const rowW = new Float32Array(H); let bTop = H, bBot = 0;
+for (let y = 0; y < H; y++) { let mnx = W, mxx = -1; for (let x = 0; x < W; x++) if (bsolid[y * W + x]) { if (x < mnx) mnx = x; if (x > mxx) mxx = x; } if (mxx >= 0) { rowW[y] = mxx - mnx; if (y < bTop) bTop = y; if (y > bBot) bBot = y; } }
+const span = bBot - bTop;
+let neckY = bTop, neckW = 1e9; for (let y = Math.round(bTop + span * 0.06); y < bTop + span * 0.33; y++) if (rowW[y] > 0 && rowW[y] < neckW) { neckW = rowW[y]; neckY = y; }
+const neckYn = neckY / H;
+const headPts = bodySilhouette.filter((p) => p.y <= neckYn);
+const headTopY = Math.min(...headPts.map((p) => p.y));
+const lH = headPts.filter((p) => p.x < 0.5).reduce((a, p) => (p.y < a.y ? p : a), { x: 0.5, y: 1 });
+const rH = headPts.filter((p) => p.x >= 0.5).reduce((a, p) => (p.y < a.y ? p : a), { x: 0.5, y: 1 });
+const head = { neckY: neckYn, topY: headTopY, outline: headPts, horns: [lH, rH] };
+// WING ARM-SPAR: the strut whose far end reaches closest to the wing TIP = the leading-edge arm bone.
+const wTipP = wingSilhouette.reduce((a, p) => (p.y < a.y ? p : a), { x: 0.5, y: 1 });
+let sparIndex = -1, sparD = 1e9;
+struts.forEach((s, i) => { const e = s.reduce((a, p) => (p.y < a.y ? p : a), { x: 0.5, y: 1 }); const d = Math.hypot(e.x - wTipP.x, e.y - wTipP.y); if (d < sparD) { sparD = d; sparIndex = i; } });
+console.log(`HEAD  neck@${neckYn.toFixed(3)} · ${headPts.length}-pt outline · horns L(${lH.x.toFixed(2)},${lH.y.toFixed(2)}) R(${rH.x.toFixed(2)},${rH.y.toFixed(2)})   WING arm-spar = strut #${sparIndex}`);
+
 const totalBody = bodySilhouette.length + plates.reduce((s, p) => s + p.pts.length, 0);
 const totalWing = wingSilhouette.length + struts.reduce((s, p) => s + p.length, 0) + veins.reduce((s, p) => s + p.length, 0);
 console.log(`BODY  silhouette ${bodySilhouette.length} pts · ${plates.length} armour plates (incl. trident) · ${totalBody} verts`);
@@ -142,8 +161,8 @@ console.log(`WING  silhouette ${wingSilhouette.length} pts · ${struts.length} s
 
 const DEF = {
   canvas: [W, H], source: 'stencil+colour', mirror: 0.5,
-  body: { silhouette: bodySilhouette, plates: plates.map(p => p.pts) },
-  wing: { side: 'right', silhouette: wingSilhouette, struts, veins },
+  body: { silhouette: bodySilhouette, plates: plates.map(p => p.pts), head },
+  wing: { side: 'right', silhouette: wingSilhouette, struts, veins, sparIndex },
 };
 
 // ── render composite preview (cropped, hi-res) ──────────────────────────────
@@ -170,6 +189,10 @@ for (const st of [...DEF.wing.struts, ...DEF.wing.struts.map(mirX)]) stroke(st, 
 for (const vn of [...DEF.wing.veins, ...DEF.wing.veins.map(mirX)]) stroke(vn, [255, 110, 235], 1.4, 0.95);
 // plate centroid dots to show segment count
 dots(DEF.body.plates.map(p => p.reduce((a, q) => ({ x: a.x + q.x / p.length, y: a.y + q.y / p.length }), { x: 0, y: 0 })), [255, 220, 90], 3);
+// labeled parts: head outline (lime) + horn tips (red), wing arm-spar (bright cyan, thick) both sides
+stroke(DEF.body.head.outline, [120, 255, 140], 2, 0.95);
+dots(DEF.body.head.horns, [255, 70, 70], 5);
+if (DEF.wing.sparIndex >= 0) for (const sp of [DEF.wing.struts[DEF.wing.sparIndex], mirX(DEF.wing.struts[DEF.wing.sparIndex])]) stroke(sp, [150, 255, 255], 2.6, 1);
 
 // PNG
 const crcT = (() => { const t = new Uint32Array(256); for (let n = 0; n < 256; n++) { let c = n; for (let k = 0; k < 8; k++) c = (c & 1) ? (0xEDB88320 ^ (c >>> 1)) : (c >>> 1); t[n] = c >>> 0; } return t; })();
@@ -182,7 +205,9 @@ console.log('wrote /tmp/celestial-def.png');
 
 if (emit) {
   const r = (c) => c.map((p) => [+p.x.toFixed(4), +p.y.toFixed(4)]);
-  const data = { canvas: DEF.canvas, source: DEF.source, mirror: DEF.mirror, body: { silhouette: r(DEF.body.silhouette), plates: DEF.body.plates.map(r) }, wing: { side: DEF.wing.side, silhouette: r(DEF.wing.silhouette), struts: DEF.wing.struts.map(r), veins: DEF.wing.veins.map(r) } };
+  const H2 = DEF.body.head;
+  const head = { neckY: +H2.neckY.toFixed(4), topY: +H2.topY.toFixed(4), outline: r(H2.outline), horns: r(H2.horns) };
+  const data = { canvas: DEF.canvas, source: DEF.source, mirror: DEF.mirror, body: { silhouette: r(DEF.body.silhouette), plates: DEF.body.plates.map(r), head }, wing: { side: DEF.wing.side, silhouette: r(DEF.wing.silhouette), struts: DEF.wing.struts.map(r), veins: DEF.wing.veins.map(r), sparIndex: DEF.wing.sparIndex } };
   writeFileSync(new URL('../js/celestialDef.js', import.meta.url), `// AUTO-GENERATED by tools/traceDefinition.mjs — the full Celestial Storm trace definition.\n// Body: outer silhouette + armour-plate/spinal-segment cells (incl. trident). Wing: outer silhouette +\n// finger struts (stencil) + lightning veins (colour), traced on the RIGHT wing, mirror across x=${DEF.mirror}.\n// Normalized 0..1 on the shared ${W}×${H} canvas. Spine layer dropped (flagged wrong).\nexport const CELESTIAL_DEF = ${JSON.stringify(data)};\n`);
   console.log('wrote js/celestialDef.js');
 }
