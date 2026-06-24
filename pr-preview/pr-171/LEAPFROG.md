@@ -3238,3 +3238,18 @@ Reusable: headless screenshots catch crashes + gross layout, but **motion correc
 in) needs either an animated capture or the human** — add up/down POSE captures (`window.__flapPose(a)`) so the
 beat direction is reviewable in static stills. **→ Leapfrog:** previewer now beats correctly; tail/membrane
 refinement still pending before migrating into the game model.
+
+### L98 — Blockout lock: multi-span loft branches the trident tail; membrane billow
+Human chose "lock the blockout before surfacing" (right call — get bones exact, surface once). Two structural
+fixes to `tools/celestial3D.html`:
+- **Trident tail** was paddled because the loft took only the OUTER span per row (first/last crossing),
+  bridging the 3 prongs. Fix: the loft now reads ALL spans per row (`crossings` → consecutive pairs), builds a
+  ring per span, and matches rings between adjacent rows by centroid-x; an unmatched ring = a prong tip → cap
+  it. So 1 span → 3 spans branches into a real trident. `stations` (for plate/star surface projection) keeps
+  the WIDEST span per row = the main body. Reusable: **a scanline loft that takes only the outer span can't
+  represent a branching silhouette — key on every span + match by centroid to support splits/merges.**
+- **Membrane billow:** flat sheet → `zWing = -sweep·d - 0.06·sin(π·d/maxSpan)`, a backward cup peaking
+  mid-span (0 at root + tip) so the wing reads as a curved membrane, struts riding on top.
+Blockout now holds the anatomy (proportions, wing fit, dorsoventral beat, trident, billow). NEXT = the
+surfacing/sculpt pass (solid raised plates, translucent membrane+veins, material star-flecks, real horns) —
+then migrate into the game model behind a flag. Don't surface until the human signs off the bones.

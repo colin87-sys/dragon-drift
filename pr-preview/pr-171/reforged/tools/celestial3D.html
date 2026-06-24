@@ -79,36 +79,33 @@ function crossings(loop, ny) {
   }
   return xs.sort((m, n) => m - n);
 }
-// LOFT a closed silhouette into a 3D fuselage: per-row outer span → elliptical ring, stitched into a tube.
-function loftBody(loop, { rings = 150, seg = 18, depth = 0.5 } = {}) {
+// LOFT a closed silhouette into a 3D fuselage. Handles MULTIPLE spans per row (scanline can return several
+// segments) so the body can BRANCH — the trident tail splits into 3 prongs instead of being bridged into a
+// paddle. Rings are matched between rows by centroid; an unmatched ring is a prong tip and gets capped.
+function loftBody(loop, { rings = 200, seg = 16, depth = 0.5 } = {}) {
   let minY = 1, maxY = 0; for (const p of loop) { if (p[1] < minY) minY = p[1]; if (p[1] > maxY) maxY = p[1]; }
-  const stations = [];
+  const rows = [], stations = [];
   for (let i = 0; i <= rings; i++) {
-    const y = minY + (maxY - minY) * (i / rings);
-    const xs = crossings(loop, Math.min(maxY - 1e-5, Math.max(minY + 1e-5, y)));
-    if (xs.length < 2) continue;
-    const xL = xs[0], xR = xs[xs.length - 1], cx = (xL + xR) / 2, hw = Math.max(1e-4, (xR - xL) / 2);
-    stations.push({ y, cx, hw });
+    const yy = Math.min(maxY - 1e-5, Math.max(minY + 1e-5, minY + (maxY - minY) * (i / rings)));
+    const xs = crossings(loop, yy);
+    const spans = [];
+    for (let k = 0; k + 1 < xs.length; k += 2) { const xL = xs[k], xR = xs[k + 1]; if (xR - xL > 1e-4) spans.push({ cx: (xL + xR) / 2, hw: (xR - xL) / 2, y: yy }); }
+    if (!spans.length) continue;
+    rows.push(spans);
+    stations.push(spans.reduce((a, s) => s.hw > a.hw ? s : a, spans[0]));   // widest span = main body (for surface projection)
   }
   const pos = [], idx = [];
-  stations.forEach((st, ri) => {
-    for (let s = 0; s < seg; s++) {
-      const a = (s / seg) * Math.PI * 2;
-      const nx = st.cx + st.hw * Math.cos(a);
-      const nz = depth * st.hw * Math.sin(a);
-      const v = pt(nx, st.y, nz); pos.push(v.x, v.y, v.z);
-    }
-  });
-  for (let ri = 0; ri < stations.length - 1; ri++) for (let s = 0; s < seg; s++) {
-    const a = ri * seg + s, b = ri * seg + (s + 1) % seg, c = (ri + 1) * seg + s, d = (ri + 1) * seg + (s + 1) % seg;
-    idx.push(a, c, b, b, c, d);
+  const ring = (sp) => { const base = pos.length / 3; for (let s = 0; s < seg; s++) { const a = (s / seg) * Math.PI * 2; const v = pt(sp.cx + sp.hw * Math.cos(a), sp.y, depth * sp.hw * Math.sin(a)); pos.push(v.x, v.y, v.z); } return base; };
+  const band = (aB, bB) => { for (let s = 0; s < seg; s++) { const a = aB + s, a2 = aB + (s + 1) % seg, b = bB + s, b2 = bB + (s + 1) % seg; idx.push(a, b, a2, a2, b, b2); } };
+  const cap = (base, sp, up) => { const c = pos.length / 3; const v = pt(sp.cx, sp.y, 0); pos.push(v.x, v.y, v.z); for (let s = 0; s < seg; s++) { const s2 = (s + 1) % seg; up ? idx.push(c, base + s2, base + s) : idx.push(c, base + s, base + s2); } };
+  const rowRings = rows.map(spans => spans.map(sp => ({ sp, base: ring(sp) })));
+  for (let r = 0; r < rowRings.length - 1; r++) {
+    const A = rowRings[r], B = rowRings[r + 1], used = new Set();
+    for (const b of B) { let best = A[0], bi = 0, bd = 1e9; A.forEach((a, ai) => { const d = Math.abs(a.sp.cx - b.sp.cx); if (d < bd) { bd = d; best = a; bi = ai; } }); band(best.base, b.base); used.add(bi); }
+    A.forEach((a, ai) => { if (!used.has(ai)) cap(a.base, a.sp, false); });   // prong tip ends here
   }
-  // end caps (fan to centre)
-  const capStart = pos.length / 3;
-  const top = stations[0], bot = stations[stations.length - 1];
-  const vt = pt(top.cx, top.y, 0); pos.push(vt.x, vt.y, vt.z);
-  const vb = pt(bot.cx, bot.y, 0); pos.push(vb.x, vb.y, vb.z);
-  for (let s = 0; s < seg; s++) { idx.push(capStart, (s + 1) % seg, s); idx.push(capStart + 1, stations.length * seg - seg + s, stations.length * seg - seg + (s + 1) % seg); }
+  rowRings[0].forEach(a => cap(a.base, a.sp, true));
+  rowRings[rowRings.length - 1].forEach(a => cap(a.base, a.sp, false));
   const g = new THREE.BufferGeometry();
   g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.setIndex(idx); g.computeVertexNormals();
   return { mesh: new THREE.Mesh(g, matBody), stations };
@@ -183,7 +180,9 @@ function buildWing(mirrored) {
   const sil = f(D.wing.silhouette);
   // shoulder = innermost point of this wing (root)
   let root0 = sil[0]; for (const p of sil) if (Math.abs(p[0] - 0.5) < Math.abs(root0[0] - 0.5)) root0 = p;
-  const zWing = (p) => -sweep * Math.abs(p[0] - 0.5);
+  let maxAbs = 1e-4; for (const p of sil) maxAbs = Math.max(maxAbs, Math.abs(p[0] - 0.5));
+  // membrane: back-sweep with distance from spine + a billow that cups backward, peaking mid-span (0 at root/tip)
+  const zWing = (p) => { const d = Math.abs(p[0] - 0.5); return -sweep * d - 0.06 * Math.sin(Math.PI * Math.min(1, d / maxAbs)); };
   const pivot = new THREE.Group();
   const rv = pt(root0[0], root0[1], zWing(root0)); pivot.position.copy(rv);
   const off = (mesh) => { if (mesh) { mesh.position.sub(rv); pivot.add(mesh); } };
