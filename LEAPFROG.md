@@ -3386,3 +3386,15 @@ medial-line bones because it preserves the drawn thickness. Workflow: bridge unt
 bone region + each membrane region → tag veins → export. Lesson: **before extracting "lines," check whether the
 art draws structures as outlined AREAS — if so, the regions (and their contours) are the truth, and the
 medial line is a lossy approximation.**
+
+### L108 — GROW filled bone regions into their stroke (you can't flood a 1px line); detected≠tagged
+Human tagged bone regions by flooding but couldn't "fill the lines around them" and thought lines weren't
+identified. Two facts: (1) a flood fills the bone's INTERIOR and stops at the inner edge of the drawn stroke,
+so the bone shape sits inside the line; (2) thin single-stroke struts have NO interior to flood. Fix
+(`tools/traceWingMerge.mjs`): GROW each filled region into its surrounding ink — `fill ∪ (dilate(fill,4) ∩
+ink)` — then contour → the bone hugs the OUTER edge of the stroke and seals, no manual line-filling needed.
+Overlay (skeleton in orange vs grown bones in cyan) proved the "missing" lines are all either the membrane
+outline / trailing scallop edges (membrane by the human's rule, correctly excluded) or thin single-line struts
+(captured as line-bones, not fills). Lesson: **a line being DETECTED (in the skeleton) ≠ TAGGED — show both
+layers so "why isn't this identified" is answerable; and outlined-shape labels need a grow-into-stroke step
+because flood-fill can only reach interiors.**
