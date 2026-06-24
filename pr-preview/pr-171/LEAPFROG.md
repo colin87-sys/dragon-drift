@@ -3494,3 +3494,12 @@ needs a smoothed spine. (2) **Keep substance** — gentle end taper (×0.5 not �
 overshoot to "too little X" — aim for the middle and VERIFY against the reference. (b) ALWAYS critically
 compare your output to the previous good state + the target BEFORE presenting; a coverage/feature change can
 silently regress the overall read. (c) medial-axis spines are wiggly by nature — smooth them hard.**
+
+### L115 — Keep the EXACT identified 2D shape; add thickness + taper ends (don't re-derive the geometry)
+Human (after the wiggly-tube miss): "keep the exact bones we identified + location, define them on a 2D plane,
+just add thickness and taper the ends." The centerline/spine re-derivation kept CHANGING the shape (wiggle).
+Correct approach: `boneSolid()` triangulates the EXACT tagged contour (outline + location preserved verbatim)
+on the membrane plane, extrudes it with thickness, and tapers the thickness to 0 toward the two ENDS along the
+shape's PCA long-axis → pointed tips, full body. No medial axis. Lesson: **when the human has already
+identified the exact 2D shape, the 3D step is ONLY thicken + taper along the existing outline — never
+re-extract a centerline that drifts from what they approved. Preserve approved data; transform minimally.**

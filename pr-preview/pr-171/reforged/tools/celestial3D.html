@@ -138,6 +138,26 @@ function panel(loop, zFn, material) {
   const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.setIndex(idx); g.computeVertexNormals();
   return new THREE.Mesh(g, material);
 }
+// BONE SOLID: keep the EXACT 2D bone shape (its outline + location), give it thickness, and taper the thickness
+// to 0 at the two ENDS (along the shape's long/PCA axis) so the tips come to points. No centerline — the
+// silhouette stays exactly what we identified.
+function boneSolid(loop, zFn, thick, material) {
+  let cx = 0, cy = 0; for (const p of loop) { cx += p[0]; cy += p[1]; } cx /= loop.length; cy /= loop.length;
+  let sxx = 0, sxy = 0, syy = 0; for (const p of loop) { const dx = p[0] - cx, dy = p[1] - cy; sxx += dx * dx; sxy += dx * dy; syy += dy * dy; }
+  const th = 0.5 * Math.atan2(2 * sxy, sxx - syy), ax = Math.cos(th), ay = Math.sin(th);   // principal (long) axis
+  let tmin = 1e9, tmax = -1e9; const proj = loop.map(p => { const t = (p[0] - cx) * ax + (p[1] - cy) * ay; if (t < tmin) tmin = t; if (t > tmax) tmax = t; return t; });
+  const e = 0.16, taper = (t) => { const u = (t - tmin) / ((tmax - tmin) || 1); return Math.max(0, Math.min(1, Math.min(u, 1 - u) / e)); };   // 0 at ends, 1 in the middle
+  const v2 = loop.map(p => new THREE.Vector2(p[0], p[1]));
+  const tris = THREE.ShapeUtils.triangulateShape(v2, []);
+  const n = loop.length, pos = [], idx = [];
+  for (let i = 0; i < n; i++) { const p = loop[i], h = thick * taper(proj[i]); const v = pt(p[0], p[1], zFn(p) + h); pos.push(v.x, v.y, v.z); }          // top (raised)
+  for (let i = 0; i < n; i++) { const p = loop[i], h = thick * taper(proj[i]) * 0.5; const v = pt(p[0], p[1], zFn(p) - h); pos.push(v.x, v.y, v.z); }    // bottom (sits toward membrane)
+  for (const t of tris) idx.push(t[0], t[1], t[2]);
+  for (const t of tris) idx.push(t[0] + n, t[2] + n, t[1] + n);
+  for (let i = 0; i < n; i++) { const j = (i + 1) % n; idx.push(i, j, i + n, j, j + n, i + n); }
+  const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.setIndex(idx); g.computeVertexNormals();
+  return new THREE.Mesh(g, material);
+}
 // SLAB: extrude a closed contour into a solid raised bone (top + bottom faces + side walls)
 function slab(loop, zFn, thick, material) {
   const v2 = loop.map(p => new THREE.Vector2(p[0], p[1]));
@@ -223,7 +243,7 @@ plateGrp.add(new THREE.Mesh(plG, matPlate));
 // WINGS — membrane + struts, both sides. Each wing is its own pivot group at the shoulder for flapping.
 const wingPivots = [];
 const sweep = 0.16;                                   // wings angle backward (−z) with outward distance
-const BONE_RADIUS = 1.7;                              // global bone-thickness scale (substantial bones; arm ×1.5)
+const BONE_THICK = 0.03;                              // bone z-thickness (normalized); arm ×1.5
 function buildWing(mirrored) {
   const f = (c) => mirrored ? c.map(mir) : c;
   const sil = f(D.wing.silhouette);
@@ -236,8 +256,8 @@ function buildWing(mirrored) {
   const rv = pt(root0[0], root0[1], zWing(root0)); pivot.position.copy(rv);
   const off = (mesh) => { if (mesh) { mesh.position.sub(rv); pivot.add(mesh); } };
   off(panel(sil, zWing, matMembrane));
-  // BONE SPINES (human-tagged): smooth cylindrical tubes, tapering to points at the tips. Arm (last) a bit thicker.
-  (D.wing.bones || []).forEach((bn, i) => off(taperedTube(f(bn.pts), bn.radii, zWing, matSpar, 8, i === D.wing.bones.length - 1 ? BONE_RADIUS * 1.5 : BONE_RADIUS)));
+  // BONE SHAPES (human-tagged, EXACT 2D outline + location): extruded with thickness, ends tapered to points.
+  (D.wing.boneShapes || []).forEach((bs, i) => off(boneSolid(f(bs), zWing, i === D.wing.boneShapes.length - 1 ? BONE_THICK * 1.5 : BONE_THICK, matSpar)));
   // thin line-struts (auto fallback only): tubes
   D.wing.struts.forEach((s, i) => off(tube(f(s), (p) => zWing(p) + 0.04, i === D.wing.sparIndex ? 0.05 : 0.028, i === D.wing.sparIndex ? matSpar : matStrut)));
   wingGrp.add(pivot); wingPivots.push({ pivot, side: mirrored ? -1 : 1, restX: pivot.rotation.x });
