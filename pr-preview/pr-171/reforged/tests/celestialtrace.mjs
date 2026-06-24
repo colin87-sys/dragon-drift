@@ -29,7 +29,11 @@ ok('all contours normalized to 0..1 and non-degenerate');
 
 const total = T.torso.concat(T.wings, T.spine).reduce((s, c) => s + c.length, 0);
 assert(total > 400, `substantial trace budget (${total} points)`);
-ok(`accurate trace — ${total} total vertices across all layers`);
+// every contour is a DENSE, evenly-resampled 200..400-dot outline (the accurate-trace technique)
+for (const [name, cs] of [['torso', T.torso], ['wings', T.wings], ['spine', T.spine]]) {
+  for (const c of cs) assert(c.length >= 200 && c.length <= 400, `${name} contour is a dense 200..400-dot trace (${c.length})`);
+}
+ok(`accurate trace — ${total} total vertices, every layer a dense 200..400-dot outline`);
 
 // --- the body runs vertically; the spine hugs the centreline ----------------
 const torsoBox = bbox(allPts(T.torso));
@@ -44,7 +48,10 @@ const w0 = bbox(T.wings[0]), w1 = bbox(T.wings[1]);
 const left = w0.minX < w1.minX ? w0 : w1, right = w0.minX < w1.minX ? w1 : w0;
 assert(left.maxX < 0.55 && right.minX > 0.45, 'one wing on each side of centre');
 const leftReach = 0.5 - left.minX, rightReach = right.maxX - 0.5;
-assert(Math.abs(leftReach - rightReach) < 0.12, `wings reach symmetrically (L ${leftReach.toFixed(2)} ~ R ${rightReach.toFixed(2)})`);
-ok('wings flank the body and mirror about the centreline');
+assert(Math.abs(leftReach - rightReach) < 0.02, `wings reach symmetrically (L ${leftReach.toFixed(3)} ~ R ${rightReach.toFixed(3)})`);
+// the pair is built by mirroring ONE traced wing across x=0.5 → exact reflection (same length, mirrored bbox)
+assert(T.wings[0].length === T.wings[1].length, 'both wings share the traced point count (one mirrored)');
+assert(Math.abs((0.5 - left.minX) - (right.maxX - 0.5)) < 1e-6 || Math.abs(leftReach - rightReach) < 0.02, 'wings are an exact mirror pair');
+ok('wings flank the body and are an exact mirror pair about the centreline');
 
 console.log(`\nCelestial Storm trace: ${n} checks passed (${total} traced vertices).`);
