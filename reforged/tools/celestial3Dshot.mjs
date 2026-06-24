@@ -32,6 +32,13 @@ for (const [name, yaw, pitch] of angles) {
   await gl.screenshot({ path: `/tmp/c3d-${name}.png` });
   console.log(`wrote /tmp/c3d-${name}.png`);
 }
+// zoomed rear-body shot — judge the dorsal spine diamonds + plate alignment up close
+await page.evaluate(() => window.__view(0, 0.18, false));
+await page.evaluate(() => window.__zoom(0.45));
+await page.waitForTimeout(180);
+await gl.screenshot({ path: '/tmp/c3d-rear-zoom.png' });
+console.log('wrote /tmp/c3d-rear-zoom.png');
+
 // flap poses (wings raised / lowered) from rear-high, to verify the beat is dorsoventral (through depth)
 for (const [name, a] of [['flap-up', 0.6], ['flap-down', -0.6]]) {
   await page.evaluate(([y, p]) => window.__view(y * 180 / Math.PI, p, false), [0, 0.5]);

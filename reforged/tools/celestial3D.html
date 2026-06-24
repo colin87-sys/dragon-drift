@@ -29,6 +29,7 @@
   <button id="bStruts" class="on">struts</button>
   <button id="bPlates" class="on">plates</button>
   <button id="bSeams" class="on">plate seams</button>
+  <button id="bSpine" class="on">spine</button>
 </div>
 <script type="module">
 import * as THREE from 'three';
@@ -78,6 +79,7 @@ const matPlate = fresnelRim(new THREE.MeshStandardMaterial({ color: 0x2c2a66, ro
 const matSeam = new THREE.LineBasicMaterial({ color: 0xbfe8ff, transparent: true, opacity: 0.9 });                                                  // glowing seams
 const matMembrane = fresnelRim(new THREE.MeshStandardMaterial({ color: 0x2a1556, roughness: 0.6, metalness: 0.12, emissive: 0x35176a, emissiveIntensity: 0.75, side: THREE.DoubleSide, transparent: true, opacity: 0.74 }), 0x9a7bff, 2.0, 1.3);   // translucent violet, glowing edges
 const matStrut = new THREE.MeshStandardMaterial({ color: 0x8fd8ff, roughness: 0.35, metalness: 0.4, emissive: 0x2a6f9e, emissiveIntensity: 1.3 });
+const matSpine = fresnelRim(new THREE.MeshStandardMaterial({ color: 0x4fd6ff, roughness: 0.28, metalness: 0.45, emissive: 0x17a8da, emissiveIntensity: 1.7 }), 0xbff2ff, 2.3, 1.2);   // bright cyan dorsal follow-line
 const matSpar = fresnelRim(new THREE.MeshStandardMaterial({ color: 0xd6efff, roughness: 0.3, metalness: 0.45, emissive: 0x6ab2dc, emissiveIntensity: 1.1 }), 0xffffff, 3.2, 0.7);   // pale iridescent bone
 const matHorn = fresnelRim(new THREE.MeshStandardMaterial({ color: 0x8a78ff, roughness: 0.32, metalness: 0.55, emissive: 0x46329e, emissiveIntensity: 1.0 }), 0xb9a0ff, 2.6, 0.9);
 
@@ -200,8 +202,8 @@ function tube(poly, zFn, radius, material) {
 
 // ── assemble ────────────────────────────────────────────────────────────────
 const root = new THREE.Group(); scene.add(root);
-const bodyGrp = new THREE.Group(), plateGrp = new THREE.Group(), seamGrp = new THREE.Group(), wingGrp = new THREE.Group(), strutGrp = new THREE.Group();
-root.add(bodyGrp, plateGrp, seamGrp, wingGrp, strutGrp);
+const bodyGrp = new THREE.Group(), plateGrp = new THREE.Group(), seamGrp = new THREE.Group(), wingGrp = new THREE.Group(), strutGrp = new THREE.Group(), spineGrp = new THREE.Group();
+root.add(bodyGrp, plateGrp, seamGrp, wingGrp, strutGrp, spineGrp);
 
 // BODY
 const { mesh: bodyMesh, stations } = loftBody(D.body.silhouette);
@@ -239,6 +241,31 @@ for (const pl of D.body.plates) {
 }
 const plG = new THREE.BufferGeometry(); plG.setAttribute('position', new THREE.Float32BufferAttribute(plPos, 3)); plG.setIndex(plIdx); plG.computeVertexNormals();
 plateGrp.add(new THREE.Mesh(plG, matPlate));
+
+// DORSAL SPINE — a glowing cyan diamond stamped on each central armour ROW, sized to that row's cell so it
+// lines up cleanly on the blue armour and stands proud as the rear-cam follow-line (head crest → tail).
+// Each row of plates near the spine axis → one raised faceted rhombus (4 rim verts on the hull + a raised crown).
+{
+  const cen = D.body.plates.map(pl => { let cx = 0, cy = 0, mnx = 1, mxx = 0; for (const p of pl) { cx += p[0]; cy += p[1]; if (p[0] < mnx) mnx = p[0]; if (p[0] > mxx) mxx = p[0]; } return { cx: cx / pl.length, cy: cy / pl.length, w: mxx - mnx, d: Math.abs(cx / pl.length - D.mirror) }; })
+    .filter(p => p.d < 0.05).sort((a, b) => a.cy - b.cy);
+  const rows = [];                                            // group plates that share a cy band into one row
+  for (const p of cen) { const r = rows[rows.length - 1]; if (r && Math.abs(p.cy - r.cy0) < 0.02) { r.cys.push(p.cy); r.w = Math.max(r.w, p.w); } else rows.push({ cy0: p.cy, cys: [p.cy], w: p.w }); }
+  const Y = rows.map(r => r.cys.reduce((a, b) => a + b, 0) / r.cys.length);
+  const sPos = [], sIdx = [];
+  for (let i = 0; i < rows.length; i++) {
+    const cy = Y[i], gap = Math.min(i ? cy - Y[i - 1] : 1, i < rows.length - 1 ? Y[i + 1] - cy : 1);
+    const ry = Math.min(0.6 * gap, 0.05), rx = Math.max(0.012, Math.min(0.4 * rows[i].w, 0.03));   // size from the row's cell; taper falls out of w
+    const cxAxis = D.mirror, crown = 0.02 + rx * 0.5;          // stand proud of the hull (plates raise 0.011) → reads as a ridge
+    const rim = [[cxAxis, cy - ry], [cxAxis + rx, cy], [cxAxis, cy + ry], [cxAxis - rx, cy]];
+    const base = sPos.length / 3;
+    const cv = pt(cxAxis, cy, surfZ([cxAxis, cy]) + crown); sPos.push(cv.x, cv.y, cv.z);    // crown
+    for (const p of rim) { const v = pt(p[0], p[1], surfZ(p) + 0.006); sPos.push(v.x, v.y, v.z); }
+    for (let k = 0; k < 4; k++) sIdx.push(base, base + 1 + k, base + 1 + (k + 1) % 4);
+  }
+  const sG = new THREE.BufferGeometry(); sG.setAttribute('position', new THREE.Float32BufferAttribute(sPos, 3)); sG.setIndex(sIdx); sG.computeVertexNormals();
+  spineGrp.add(new THREE.Mesh(sG, matSpine));
+  console.log(`spine: ${rows.length} dorsal diamonds (rows ${Y[0].toFixed(2)}→${Y[Y.length - 1].toFixed(2)})`);
+}
 
 // WINGS — membrane + struts, both sides. Each wing is its own pivot group at the shoulder for flapping.
 const wingPivots = [];
@@ -292,6 +319,7 @@ toggle('bWire', v => { matBody.wireframe = v; matMembrane.wireframe = v; });
 toggle('bStruts', v => strutGrp.visible = wingGrp.children.forEach(p => p.children.forEach(c => { if (c.geometry && c.geometry.type === 'TubeGeometry') c.visible = v; })));
 toggle('bPlates', v => plateGrp.visible = v);
 toggle('bSeams', v => seamGrp.visible = v);
+toggle('bSpine', v => spineGrp.visible = v);
 
 function resize() { const w = innerWidth, h = innerHeight; renderer.setSize(w, h, false); camera.aspect = w / h; camera.updateProjectionMatrix(); }
 addEventListener('resize', resize); resize();
@@ -300,6 +328,7 @@ addEventListener('resize', resize); resize();
 window.__ready = true;
 window.__view = (yawDeg, pitchR, flapOn) => { orbit.yaw = yawDeg * Math.PI / 180; orbit.pitch = pitchR ?? 0.22; orbit.dist = baseDist; spin = false; flap = !!flapOn; };
 window.__flapPose = (a) => { flap = false; for (const w of wingPivots) { w.pivot.rotation.y = w.side * a; w.pivot.rotation.z = 0; w.pivot.rotation.x = 0; } };
+window.__zoom = (f) => { orbit.dist = baseDist * f; };
 
 const clock = new THREE.Clock(); let t = 0;
 function frame() {
