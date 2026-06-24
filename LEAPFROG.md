@@ -3089,3 +3089,37 @@ contour; line-art stencil → seal + fill-from-border + erode, THEN smooth + arc
 density. Corner-thinning (RDP) and density-resampling are opposite tools; for "trace it accurately with many
 dots", resample. **→ Leapfrog:** the trace is now accurate enough to EXTRUDE — Phase 2: each contour → a thin
 shelled 3D surface at its own Z (wings back, body mid, spine raised + emissive), wing mirrored in 3D too.
+
+### L92 — Internal structure needs TWO new tracers: skeleton→polylines (struts/veins) + interior-cell segmentation (armour plates)
+The outer-silhouette trace (L91) wasn't the whole creature — the human wants the **definition**: wing finger-
+STRUTS + lightning VEINS, and the body's individual ARMOUR SEGMENTS + trident. Outer-contour tracing can't
+get these (struts/veins are OPEN strokes; plates are INTERIOR regions), so two capabilities were built in
+`tools/lineTrace.mjs`:
+- **`thin` (Zhang-Suen) → `skeletonToPolylines`** — thin any line mask to a 1px skeleton, then walk the
+  skeleton graph (split at endpoints deg-1 + junctions deg-≥3; each degree-2 chain = one polyline; leftover
+  pure loops handled after). Drives **wing struts** (skeleton of the stencil ink, minus the boundary band we
+  already traced) and **lightning veins** (skeleton of a bright-cyan threshold of the COLOUR art).
+- **interior-cell segmentation** — label the components of NON-ink that DON'T touch the border; each is an
+  armour plate / spinal segment / trident prong. `dilate(ink,1)` first so hairline gaps don't merge cells;
+  `dilate(cell,1)` before contouring so the outline spans the ink to the true plate edge.
+`tools/traceDefinition.mjs` composes both → **`js/celestialDef.js`**: `body{ silhouette(360) + plates[59] }`,
+`wing{ silhouette(320) + struts[26] + veins[3], side:'right', mirror:0.5 }`. `tests/celestialdef.mjs` pins it
+(dense silhouettes, ≥20 interior plates, struts inside the membrane, single-sided wing). `celestialView.html`
+now renders the full definition with per-element toggles + art overlay.
+
+Gotchas/lessons: (1) **match tool to feature class** — silhouette=closed contour, strut/vein=skeleton
+polyline, plate=interior cell; three different extractions, one input. (2) Lightning veins are drawn as
+DASHED segments → thinning shatters them below any length filter; **dilate (≈3) to bridge the dashes, erode
+back, THEN thin**. Even so they stay sparse — and that's fine: the veins largely run ALONG the struts, so in
+3D they become an emissive glow on the strut bones (matches the original "veins follow the wing skeleton"
+brief) rather than a separately-traced layer. (3) cross-reference layers: struts read cleanest from the
+STENCIL, veins only exist in the COLOUR art — same registered canvas, so a right-wing region mask from the
+stencil cleanly selects the colour veins too. (4) Skeleton walking must mark UNDIRECTED edges
+(min·N+max key) or junctions double-emit. **→ Leapfrog:** `celestialDef.js` is now a complete 2D rig — Phase 2
+extrudes it: body silhouette → lofted hull, each plate → a raised shingle/relief card at its centroid, wing
+silhouette → thin shelled membrane, struts → tapered bone tubes, veins → emissive lines along the struts.
+
+ASIDE (image resolution): the TRACE always runs at the refs' native 941×1672 — no downscaling, full
+accuracy. Only the chat PREVIEW PNGs were shrunk (a render scale, now hi-res + cropped). Upscaling the source
+(e.g. MCP `upscale_image` to 2K/4K) would smooth edges for marginally finer sub-pixel sampling but adds no new
+detail; raise the render/export scale rather than the input when "it looks low-res".
