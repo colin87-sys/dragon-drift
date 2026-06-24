@@ -84,20 +84,31 @@ const wings2 = components(wsolidAll, 2, 4000);
 const rightSolid = centroidX(wings2[0]) > 0.5 ? wings2[0] : wings2[1];
 const region = dilate(rightSolid, 6);                          // selector for the right wing's internal lines
 const wingSilhouetteRaw = closed(rightSolid, 320);
-// STRUTS — from the FULL skeleton of the right wing so struts + outline share junctions (they line up by
-// construction and every strut reaches the membrane edge). Keep short branches (wrist/thumb horns). Drop only
-// the polylines that ARE the outline (mostly inside the boundary band); internal finger-spokes survive whole.
+// WING BONES as a radial framework matching the anatomy: the ARM reaches the WRIST HUB (where the skeleton
+// chains converge), which projects bones out to EVERY pointy tip of the membrane — the leading frame (wing
+// tip), the thumb + the long projection beside it, and each SCALLOP POINT on the trailing edge. (Replaces the
+// old band-filter, which dropped the leading frame and stopped short of the scallop tips.)
 const wskel = thin(wink, W, H);
 const rightSkel = new Uint8Array(W * H); for (let i = 0; i < W * H; i++) rightSkel[i] = (wskel[i] && region[i]) ? 1 : 0;
-const bE = erode(rightSolid, 4), bD = dilate(rightSolid, 2);
-const wband = new Uint8Array(W * H); for (let i = 0; i < W * H; i++) wband[i] = (bD[i] && !bE[i]) ? 1 : 0;  // ~6px ring straddling the outline
-const sampleBand = (x, y) => wband[Math.min(H - 1, Math.max(0, Math.round(y))) * W + Math.min(W - 1, Math.max(0, Math.round(x)))];
-const plen = (p) => { let s = 0; for (let i = 1; i < p.length; i++) s += Math.hypot(p[i].x - p[i - 1].x, p[i].y - p[i - 1].y); return s; };
-const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
-const allWingPolys = skeletonToPolylines(rightSkel, W, H, 10);
-const strutsRaw = allWingPolys
-  .filter((p) => (p.reduce((s, q) => s + (sampleBand(q.x, q.y) ? 1 : 0), 0) / p.length) < 0.6)  // not an outline chain
-  .map((p) => resampleOpen(smoothOpen(p, 1), clamp(Math.round(plen(p) / 8), 6, 32)).map(norm));
+const allWingPolys = skeletonToPolylines(rightSkel, W, H, 10);   // pixel-space skeleton chains
+const wingRoot = wingSilhouetteRaw.reduce((a, p) => Math.abs(p.x - 0.5) < Math.abs(a.x - 0.5) ? p : a, wingSilhouetteRaw[0]);
+// hub = densest cluster of skeleton-chain endpoints (the wrist, where the bones converge)
+const ends = []; for (const p of allWingPolys) { ends.push(p[0], p[p.length - 1]); }
+let hubPx = ends[0] || { x: 0.6 * W, y: 0.45 * H }, hubScore = -1;
+for (const e of ends) { let c = 0; for (const f of ends) if (Math.hypot(e.x - f.x, e.y - f.y) < 26) c++; if (c > hubScore) { hubScore = c; hubPx = e; } }
+const hub = { x: hubPx.x / W, y: hubPx.y / H };
+// membrane tips = prominent local maxima of distance-from-hub around the outline (scallops + wingtip + thumb + long proj)
+const sil = wingSilhouetteRaw, nS = sil.length;
+const distH = sil.map((p) => Math.hypot((p.x - hub.x) * W, (p.y - hub.y) * H));
+let tips = [];
+for (let i = 0; i < nS; i++) { let mx = true; for (let k = -7; k <= 7; k++) { if (k && distH[(i + k + nS) % nS] > distH[i] + 1e-6) { mx = false; break; } } if (mx && distH[i] > 45) tips.push(i); }
+tips = tips.filter((i, a) => !tips.some((j, b) => b !== a && Math.hypot((sil[i].x - sil[j].x) * W, (sil[i].y - sil[j].y) * H) < 30 && (distH[j] > distH[i] || (distH[j] === distH[i] && b < a))));
+let tipTop = tips[0]; for (const i of tips) if (sil[i].y < sil[tipTop].y) tipTop = i;   // wingtip = highest → end of the leading frame
+const lerpP = (a, b, m) => ({ x: a.x + (b.x - a.x) * m, y: a.y + (b.y - a.y) * m });
+const bone = (a, b, steps) => Array.from({ length: steps + 1 }, (_, k) => lerpP(a, b, k / steps));
+const sparBone = [...bone(wingRoot, hub, 4), ...bone(hub, sil[tipTop], 5).slice(1)];   // arm → wrist → leading frame
+const strutsRaw = [sparBone, ...tips.filter((i) => i !== tipTop).map((i) => bone(hub, sil[i], 6))];
+console.log(`WING bones: hub@(${hub.x.toFixed(2)},${hub.y.toFixed(2)}) · ${tips.length} tips → ${strutsRaw.length} bones (spar + ${strutsRaw.length - 1} fingers)`);
 
 // ── PLACE the wing onto the body, MATCHED to the colour reference ────────────
 // The stencils are NOT in the body's frame, so the wing is placed explicitly AND auto-fitted to the art:
@@ -119,7 +130,6 @@ let rtx = 0, rty = H; for (let y = 0; y < H; y++) for (let x = 0; x < axisX - 0.
 const refTipOutF = (axisX - rtx) / refLen, refTipUpF = (rHeadY - rty) / refLen;
 // raw wing root (innermost) + tip (highest), and a rotate+scale that maps root→tip onto the reference target
 const bodyBox = bboxPts(bodySilhouetteRaw);
-let wingRoot = wingSilhouetteRaw[0]; for (const p of wingSilhouetteRaw) if (p.x < wingRoot.x) wingRoot = p;
 let wingTip = wingSilhouetteRaw[0]; for (const p of wingSilhouetteRaw) if (p.y < wingTip.y) wingTip = p;
 const bodyLenPx = bodyBox.h * H, rootNY = bodyBox.minY + WING_ATTACH_Y * bodyBox.h;
 const vx = (wingTip.x - wingRoot.x) * W, vy = (wingTip.y - wingRoot.y) * H;       // current root→tip (px)
@@ -148,10 +158,8 @@ const headTopY = Math.min(...headPts.map((p) => p.y));
 const lH = headPts.filter((p) => p.x < 0.5).reduce((a, p) => (p.y < a.y ? p : a), { x: 0.5, y: 1 });
 const rH = headPts.filter((p) => p.x >= 0.5).reduce((a, p) => (p.y < a.y ? p : a), { x: 0.5, y: 1 });
 const head = { neckY: neckYn, topY: headTopY, outline: headPts, horns: [lH, rH] };
-// WING ARM-SPAR: the strut whose far end reaches closest to the wing TIP = the leading-edge arm bone.
-const wTipP = wingSilhouette.reduce((a, p) => (p.y < a.y ? p : a), { x: 0.5, y: 1 });
-let sparIndex = -1, sparD = 1e9;
-struts.forEach((s, i) => { const e = s.reduce((a, p) => (p.y < a.y ? p : a), { x: 0.5, y: 1 }); const d = Math.hypot(e.x - wTipP.x, e.y - wTipP.y); if (d < sparD) { sparD = d; sparIndex = i; } });
+// WING ARM-SPAR: strut #0 is the arm + leading frame by construction.
+const sparIndex = 0;
 console.log(`HEAD  neck@${neckYn.toFixed(3)} · ${headPts.length}-pt outline · horns L(${lH.x.toFixed(2)},${lH.y.toFixed(2)}) R(${rH.x.toFixed(2)},${rH.y.toFixed(2)})   WING arm-spar = strut #${sparIndex}`);
 
 const totalBody = bodySilhouette.length + plates.reduce((s, p) => s + p.pts.length, 0);
