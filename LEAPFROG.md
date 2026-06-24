@@ -3589,3 +3589,15 @@ shape progression is preserved while still lining up on our segments. Lesson: **
 the source (overlaps, anti-alias, ambiguous cells), the highest-leverage fix is often to ask for a cleaner
 SOURCE, not a cleverer algorithm. A clean input collapsed a multi-step heuristic (flood→label→filter slivers→
 pick leaf→symmetrize) into a clean 1:1 trace. Keep the tool; feed it better data.**
+
+### L123 — Iridescent cosmic body: object-space Y gradient + procedural star-flecks injected into the standard mat
+Veins + the diamond-shape iteration were dropped by the human ("forget this step … proceed with the next").
+Surfacing step: `cosmicBody()` injects, via onBeforeCompile, (1) a blue→violet→magenta vertical gradient driven
+by object-space `vMPos.y` mapped over the loft's head/tail Y (yHi 3.8 → yLo −4.8), replacing diffuseColor;
+(2) procedural star-flecks (per-cell hash → jittered point → smoothstep spark) added to emissive; (3) the
+existing fresnel rim. Applied to body + plates (plates share the gradient, fainter stars). GOTCHA noted honestly
+for next time: on a THIN near-vertical body the fresnel rim dominates at the grazing angles that cover most of
+the silhouette, so the gradient washes toward the rim colour in tight views — readable in the wider rear shot.
+If more saturation is wanted, drop rimStr or gate the rim by |n·up|. Lesson: **inject look (gradient/stars) in
+object space off a known axis range; but a strong fresnel rim competes with a base gradient on slender forms —
+balance rim vs diffuse, don't just stack them.**
