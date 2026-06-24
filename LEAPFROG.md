@@ -3058,3 +3058,34 @@ the human has reference, the job is faithful extraction (registered layers → p
 silhouette the artwork already specifies. **→ Leapfrog:** Phase 2 = extrude `CELESTIAL_TRACE` to 3D — each
 layer outline becomes a thin shelled membrane/body/spine at its own Z (wings back, body mid, spine raised +
 emissive), keeping the rear read; then materials/glow/outline; then register `celestialStorm` via the grammar.
+
+### L91 — Line-art STENCILS trace best via fill-from-border + de-staircase + arc-length RESAMPLE (200–400 even dots)
+The colour-layer trace (L90) was "not accurate enough"; the human supplied clean line-art **stencils** (body /
+wings / spine, same 941×1672 canvas) and asked for the *most accurate technique* with **200–400 dots**, wing
+traced once + mirrored. Stencils are not filled cut-outs — they're thin outlines WITH internal facet lines —
+so the technique differs (`tools/traceStencil.mjs`):
+1. **`inkMask`** = luminance < 200 (these are colortype-2 RGB, dark lines on white; check the histogram —
+   bulk <80, AA fringe to ~200).
+2. **Close stroke gaps** — `dilate` the ink by R=2 (8-neighbour) so the outline is watertight, else the next
+   step leaks.
+3. **`fillInside`** — flood the OUTSIDE from every border pixel through background; invert. Whatever the
+   outside can't reach (interior + ink) is the SOLID silhouette — **internal facet lines vanish** because
+   they're now interior. (Sanity gate: solid coverage ~5–11%; a leak reads as >40%.)
+4. **`erode` R** — undo the dilation fattening so the boundary sits back on the true outer stroke edge.
+5. **`topComponents`** (wings = 2 blobs) → **`traceContour`**.
+6. **Density the RIGHT way:** RDP/`simplifyToBudget` plateaus at ~175 pts because a staircased pixel ring has
+   no more *real corners* — raising the budget does nothing. For dense, even 200–400-dot accuracy you must
+   **de-staircase then arc-length RESAMPLE**: two moving-average passes recover the sub-pixel edge, then
+   `resampleClosed(n)` lays exactly n evenly-spaced points along it. Body 360 / wing 320 / spine 320 = 1320
+   verts, all hugging the art. **Even resampling, not corner-simplification, is what "a large amount of dots"
+   means.**
+7. **Wing = trace ONE, mirror across x=0.5** (`{x:1-x, y}`) → a perfectly symmetric pair from one trace, per
+   the human's instruction.
+
+`js/celestialTrace.js` is re-emitted from the stencils (now `source:'stencil'`); `tests/celestialtrace.mjs`
+tightened to require each layer be a dense 200–400-dot outline + the wings an exact mirror pair. Reusable
+principle: **match the extraction method to the input** — filled cut-out → alpha/colour threshold + direct
+contour; line-art stencil → seal + fill-from-border + erode, THEN smooth + arc-length resample for uniform
+density. Corner-thinning (RDP) and density-resampling are opposite tools; for "trace it accurately with many
+dots", resample. **→ Leapfrog:** the trace is now accurate enough to EXTRUDE — Phase 2: each contour → a thin
+shelled 3D surface at its own Z (wings back, body mid, spine raised + emissive), wing mirrored in 3D too.
