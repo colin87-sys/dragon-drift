@@ -3612,3 +3612,15 @@ guaranteed (corner vertex emitted verbatim), edge convexity still traced from th
 sharp feature through a trace→smooth pipeline, don't try to smooth-but-preserve — RECONSTRUCT from the feature
 points (corners) and re-add only the measured deviation. Smoothing near a pinned vertex always rounds it; a
 chord+bow rebuild doesn't. And sign-test billow/cup directions against the camera axis — easy to get backwards.**
+
+### L125 — Tail spear: the silhouette was right, the LOFT was wrong — render the spearhead FLAT, not voluminous
+Tail read as a blobby rounded bell + spike. Root cause: the traced silhouette tail IS a proper spearhead (shaft
+→ flare with two barbs at ny≈0.82 → sharp point at 0.97), but `loftBody` gave it the body's egg cross-section,
+so the flat blade became a fat bell. Fix: `clipPoly()` splits the silhouette at a horizontal line — the
+voluminous loft stops above the flare (y≤0.73), and the spearhead (y≥0.70, small overlap seals the seam) is
+rebuilt as a FLAT crystal blade via `boneSolid` (PCA taper → the bottom tip comes to a sharp point for free).
+Tail-flare armour plates (cy>clip) dropped since the blade replaces them; added a glowing cyan core tube down
+the blade centre. Lesson: **when a lofted region looks wrong, check whether the 2D source is actually fine and
+it's the EXTRUSION choice that's off. Blades/fins/membranes want FLAT extrusion (boneSolid/panel), not the
+volumetric body loft — match the extrusion method to the part's real cross-section, and clip the loft to hand
+each region to the right builder.**

@@ -99,6 +99,8 @@ const matStrut = new THREE.MeshStandardMaterial({ color: 0x8fd8ff, roughness: 0.
 const matSpine = fresnelRim(new THREE.MeshStandardMaterial({ color: 0x4fd6ff, roughness: 0.28, metalness: 0.45, emissive: 0x17a8da, emissiveIntensity: 1.7, side: THREE.DoubleSide }), 0xbff2ff, 2.3, 1.2);   // bright cyan dorsal follow-line
 const matSpar = fresnelRim(new THREE.MeshStandardMaterial({ color: 0xd6efff, roughness: 0.3, metalness: 0.45, emissive: 0x6ab2dc, emissiveIntensity: 1.1 }), 0xffffff, 3.2, 0.7);   // pale iridescent bone
 const matHorn = fresnelRim(new THREE.MeshStandardMaterial({ color: 0x8a78ff, roughness: 0.32, metalness: 0.55, emissive: 0x46329e, emissiveIntensity: 1.0 }), 0xb9a0ff, 2.6, 0.9);
+const matSpear = fresnelRim(new THREE.MeshStandardMaterial({ color: 0x3a1aa0, roughness: 0.5, metalness: 0.12, emissive: 0x33198f, emissiveIntensity: 0.9, side: THREE.DoubleSide }), 0x6fc4ff, 2.6, 0.6);   // crystalline tail spear (saturated violet, soft cyan rim)
+const matCore = new THREE.MeshStandardMaterial({ color: 0xbff2ff, roughness: 0.3, metalness: 0.3, emissive: 0x3fc8ff, emissiveIntensity: 1.8 });   // bright cyan spear core
 
 // ── helpers ───────────────────────────────────────────────────────────────
 // polygon scanline crossings at height ny → sorted list of x
@@ -222,10 +224,27 @@ const root = new THREE.Group(); scene.add(root);
 const bodyGrp = new THREE.Group(), plateGrp = new THREE.Group(), seamGrp = new THREE.Group(), wingGrp = new THREE.Group(), strutGrp = new THREE.Group(), spineGrp = new THREE.Group();
 root.add(bodyGrp, plateGrp, seamGrp, wingGrp, strutGrp, spineGrp);
 
-// BODY
-const { mesh: bodyMesh, stations } = loftBody(D.body.silhouette);
+// BODY — the lofted (voluminous) hull stops above the tail flare; the spearhead below is built as a FLAT
+// crystalline blade so it reads sleek (the painted spear is a flat blade, not a bell). clipPoly cuts the
+// traced silhouette at a horizontal line; keepBelow picks which side.
+const TAIL_BODY_CLIP = 0.73, TAIL_SPEAR_TOP = 0.70;   // body keeps y≤0.73; spear keeps y≥0.70 (small overlap seals the join)
+const clipPoly = (loop, clipY, keepBelow) => {
+  const inside = (p) => keepBelow ? p[1] >= clipY : p[1] <= clipY, out = [];
+  for (let i = 0; i < loop.length; i++) { const A = loop[i], B = loop[(i + 1) % loop.length], Ain = inside(A), Bin = inside(B); if (Ain) out.push(A); if (Ain !== Bin) { const t = (clipY - A[1]) / (B[1] - A[1]); out.push([A[0] + (B[0] - A[0]) * t, clipY]); } }
+  return out;
+};
+const { mesh: bodyMesh, stations } = loftBody(clipPoly(D.body.silhouette, TAIL_BODY_CLIP, false));
 bodyGrp.add(bodyMesh);
 const surfZ = (p) => bodySurfaceZ(stations, p[0], p[1]);
+// SPEAR — flat tapered crystal blade from the traced spearhead outline (shaft→barbs→sharp point), centred on z
+{
+  const spear = clipPoly(D.body.silhouette, TAIL_SPEAR_TOP, true);
+  bodyGrp.add(boneSolid(spear, () => 0.03, 0.07, matSpear));
+  // glowing cyan core line down the blade centre → the bright spine the painted spear has
+  let tipY = 0; for (const p of spear) if (p[1] > tipY) tipY = p[1];
+  const core = [[D.mirror, TAIL_SPEAR_TOP + 0.01], [D.mirror, (TAIL_SPEAR_TOP + tipY) / 2], [D.mirror, tipY - 0.005]];
+  const t = taperedTube(core, [0.004, 0.011, 0.002], () => 0.1, matCore, 7); if (t) bodyGrp.add(t);
+}
 
 // HEAD horns — curved tapered horns sweeping up & back from each horn tip
 function curvedHorn(h, side) {
@@ -248,6 +267,7 @@ D.body.head.horns.forEach((h, i) => bodyGrp.add(curvedHorn(h, h[0] < 0.5 ? -1 : 
 const plPos = [], plIdx = [];
 for (const pl of D.body.plates) {
   let cx = 0, cy = 0; for (const p of pl) { cx += p[0]; cy += p[1]; } cx /= pl.length; cy /= pl.length;
+  if (cy > TAIL_BODY_CLIP) continue;                                 // tail-flare plates are replaced by the spear blade
   const base = plPos.length / 3;
   const cv = pt(cx, cy, surfZ([cx, cy]) + 0.011);                    // raised plate centre (the scale's crown)
   plPos.push(cv.x, cv.y, cv.z);
