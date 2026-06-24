@@ -3322,3 +3322,17 @@ Exports `celestial-wing-struts-{R|L}.json` (traced bones preferred, else fill-de
 Lesson: **art-derived geometry that the algorithm keeps mis-reading is a cue to hand the human a direct
 labeling UI rather than iterating the heuristic — the human's clicks become the ground truth, and the tool
 just snaps/cleans.** Next: ingest the exported JSON into celestialDef as the wing struts.
+
+### L103 — Wing struts from membrane COMPARTMENTS (the human's insight), not from the skeleton
+The human's idea cracked it: the drawn struts TILE the wing into membrane cells; the line BETWEEN two cells IS
+a finger strut. `tools/traceWingCells.mjs` auto-fills every interior (enclosed, non-border) non-ink cell of the
+right wing, then marks a strut pixel as ink with TWO different cell-labels within radius R, thins → polylines.
+Overlaying on the stencil, the struts sit EXACTLY on the drawn lines, radiating wrist→scallop tips + leading
+edge. Ported into `traceDefinition.mjs` (13 cells → 26 struts). This beats every skeleton approach because it
+keys on the SPACES the artist enclosed, not the noisy medial axis.
+Also: the interactive painter (L102) exported 0 struts on first use — the strut detector required an ink pixel
+touching two fills within 1px, but the drawn lines are several px THICK so the cells never met through them.
+Fix (both tools): check a RADIUS (~7px) so a thick line between two cells still registers. **Lesson: adjacency
+tests across a drawn boundary must span the boundary's WIDTH — a 1px neighbour test silently returns nothing on
+thick strokes.** And: the human's segmentation framing ("fill the cell, the outline is the bone") was the right
+mental model — when an auto-trace keeps failing, adopt the human's framing literally.

@@ -110,10 +110,16 @@ function snapToInk(sx, sy, R = 18) {
   return best || { x: sx, y: sy };
 }
 
-// strut mask = ink pixels bordering ≥2 distinct region labels (the lines between compartments)
-function strutMask() {
+// strut mask = ink pixels with TWO different fills within radius R (the drawn line between compartments is
+// several px thick, so the two cells sit on either side of it — check a radius, not just 1px).
+function strutMask(R = 7) {
   const m = new Uint8Array(W * H);
-  for (let y = 1; y < H - 1; y++) for (let x = 1; x < W - 1; x++) { const i = y * W + x; if (!ink[i]) continue; let a = 0, b = 0; for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) { const l = labels[(y + dy) * W + (x + dx)]; if (l) { if (!a) a = l; else if (l !== a && !b) b = l; } } if (a && b) m[i] = 1; }
+  for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+    const i = y * W + x; if (!ink[i]) continue;
+    let a = 0, b = 0;
+    for (let dy = -R; dy <= R && !b; dy++) for (let dx = -R; dx <= R; dx++) { if (dx * dx + dy * dy > R * R) continue; const nx = x + dx, ny = y + dy; if (nx < 0 || ny < 0 || nx >= W || ny >= H) continue; const l = labels[ny * W + nx]; if (l) { if (!a) a = l; else if (l !== a) { b = l; break; } } }
+    if (a && b) m[i] = 1;
+  }
   return m;
 }
 
