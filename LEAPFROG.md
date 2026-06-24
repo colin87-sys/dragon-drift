@@ -25,7 +25,7 @@ to the relevant lessons instead of reading 3000+ lines. **When you add a lesson,
   - *2D trace → definition:* **L90, L92** (silhouette + armour plates + struts), **L95** (auto-fit the wing to the colour reference: scale/sweep), **L108** (grow tagged fills out to the stencil stroke)
   - *Wing BONES (long, hard sub-arc):* **L100** (radial-framework attempt — wrong), **L101** (extract from the stencil, never invent), **L103–L104** (membrane COMPARTMENTS; "uncoloured = bone"), **L109** (ingest the human-tagged bone shapes; render as solid slabs)
   - *Accuracy + labeling TOOLS:* **L93** (`traceCheck` overlay-on-art), **L94** (`traceAlign` registration), **L95** (`traceSuper` scale-matched overlay), **L102** (`celestialWingPaint`), **L105–L107** (`celestialBoneEditor`: delete/add/bridge/fill-bone/fill-membrane/vein + sealed-green check + zoom)
-  - *3D EXTRUSION / previewer (`tools/celestial3D.html`):* **L96** (loft body + extrude), **L97** (dorsoventral wingbeat, not in-plane), **L98** (trident branch loft + membrane billow), **L99** (surfacing v1: raised armour scales)
+  - *3D EXTRUSION / previewer (`tools/celestial3D.html`):* **L96** (loft body + extrude), **L97** (dorsoventral wingbeat), **L98** (trident branch + membrane billow), **L99** (surfacing v1: armour scales), **L112** (surfacing v2: fresnel rim-glow)
   - *TRACING ROBUSTNESS / gotchas:* **L110** (skeleton fragmentation + threshold fragility → the fix kit: `morphClose` close-before-thin, `weldChains`, region-based capture, numeric `skeletonStats` QA — all in `lineTrace.mjs`)
 - **Earlier arcs (read the HANDOFF + roadmap below for these):**
   - *Creature hull / "organism" tech* — body+wings as one skinned hull, weld kernel, shader relief: **L23–L32** + `UNIFIED_HULL_PLAN.md`
@@ -3460,3 +3460,13 @@ thinning and LOG a numeric fragmentation report (warn if fragments ≫ endpoints
 dragon won't shatter the way the wing did. Also added a **📂 LESSON INDEX (by topic)** near the top of this
 file so a fresh session reads only the relevant lessons (and must add its lesson number there). Reusable:
 **when a debug yields a fix kit, promote it to the shared module + index it, don't leave it in one tool.**
+
+### L112 — Surfacing v2: fresnel rim-glow for the cosmic look (no post-processing)
+Surfacing pass on `tools/celestial3D.html` toward the painted reference: a `fresnelRim(mat,color,pow,str)`
+helper injects an emissive term ∝ (1−n·v)^p into MeshStandardMaterial via `onBeforeCompile` (token
+`#include <emissivemap_fragment>`, using `vNormal`/`vViewPosition`) — the cosmic EDGE glow that defines the
+look, with zero post-processing (works in vanilla three, no build, mobile-cheap). Applied: deep-indigo body +
+cyan rim, translucent violet membrane (opacity 0.74) + bright violet rim, pale iridescent bones + white rim,
+violet horns. Lesson: **a fresnel rim via onBeforeCompile is the cheapest big win for an emissive/cosmic art
+style — no bloom pass needed.** Index: add under CELESTIAL STORM › 3D EXTRUSION. Remaining look polish: membrane
+lightning VEINS (await human tag), iridescent body gradient, star-fleck specks baked into the material.
