@@ -3684,3 +3684,25 @@ multi-span branching handles the trident barbs (each its own tapering prong). Pa
 a `material`. Lesson: **a "slab" is a constant-thickness extrusion; to make a blade/fin/spear read 3D, give it a
 cross-section whose depth varies across the width (lens) AND scales with the width so tips converge to points —
 an elliptical loft does both. Match the cross-section to the part, like the wing membrane (flat) vs the spear (lens).**
+
+### L131 — Extracted the dragon build into js/celestialModel.js (one build, shared previewer↔game)
+The whole procedural dragon (coord helpers `pt`/`mir`, all materials + `fresnelRim`/`cosmicBody` factories, every
+geometry helper `loftBody`/`boneSolid`/`slab`/`taperedTube`/`tube`/`panel`/`crossings`/`bodySurfaceZ`/`clipPoly`,
+the assembly, and the FLAP driver) lived INLINE in `tools/celestial3D.html`. Moved it verbatim into a new ES
+module `js/celestialModel.js` exporting `buildCelestialStorm()` → `{ group(=old `root`, NOT recentered),
+wingPivots, groups, materials, FLAP, flapDrive, updateFlap(t,amp) }`. Module-private `pt/mir/materials/helpers`
+stay at module scope; `D.canvas`/`D.mirror` still come from the imported `CELESTIAL_DEF`. The HTML now does
+`const M = buildCelestialStorm(); const root = M.group; scene.add(root);` and destructures the locals its KEPT
+runtime needs (`plateGrp/seamGrp/spineGrp/strutGrp/wingGrp`, `matBody/matMembrane`, `FLAP/flapDrive`,
+`wingPivots`); `TAU` is re-declared in the HTML (the hooks use it). Previewer-only code (renderer/scene/lights/
+**starfield**/camera-fit/interaction/headless hooks/frame loop) stays in the HTML by design.
+VERIFICATION GOTCHA: the headless render is NOT byte-deterministic across the refactor — `before` vs `after`
+diffed 0.45%. But that's a RED HERRING: the starfield uses unseeded `Math.random()`, so two runs of the
+*unmodified* HTML also differ 0.37% (scattered, whole-frame, maxd low). Proof it's the stars not the geometry:
+rendering the SAME png twice = 0.0000% (the renderer itself is deterministic; only page-load RNG varies). So to
+verify a "pixel-identical" refactor when a procedural background uses RNG, compare the **noise floor** (two runs
+of the baseline) against the change-diff — equal magnitude ⇒ no real change — and eyeball the subject region.
+Lesson: **when you can't get a clean pixel diff, establish the noise floor first (re-render the unchanged baseline
+twice) — an unseeded `Math.random()` decoration will mask a true-identical geometry change; equal diff magnitude
+to the floor is the pass, not zero. And: coexist-then-share — the game can now import the SAME build the
+previewer proves, instead of a fork.**
