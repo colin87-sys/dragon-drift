@@ -3123,3 +3123,28 @@ ASIDE (image resolution): the TRACE always runs at the refs' native 941×1672 �
 accuracy. Only the chat PREVIEW PNGs were shrunk (a render scale, now hi-res + cropped). Upscaling the source
 (e.g. MCP `upscale_image` to 2K/4K) would smooth edges for marginally finer sub-pixel sampling but adds no new
 detail; raise the render/export scale rather than the input when "it looks low-res".
+
+### L93 — A trace needs an ACCURACY-CHECK overlay; and struts must come from the SAME skeleton as the outline
+The human caught a real merge bug: the wing struts (perfect in isolation, L92 screenshot) didn't line up to
+the membrane outline once merged, and the wrist/thumb branches were missing. Two fixes:
+- **`tools/traceCheck.mjs`** — the QA tool the human asked for. Overlays the emitted `celestialDef.js` lines on
+  the ORIGINAL stencil ink (dim grey) at high res, per layer (`node tools/traceCheck.mjs wing|body`): traced
+  lines that leave the grey are wrong; red dots mark open-stroke ENDPOINTS (a strut end floating in the
+  membrane = it didn't reach the outline). This made the defect obvious instantly and must be run after every
+  trace change. **Always build the visual diff, don't eyeball the merged thumbnail (L39c restated).**
+- **Root cause:** the outline was traced from the FILLED silhouette while struts were a SEPARATE skeleton with
+  the boundary band SUBTRACTED — so struts were trimmed ~3px short and short branches were length-filtered out.
+  Fix: take struts from the FULL right-wing skeleton (`thin` → `skeletonToPolylines`, minLen 10 to keep
+  wrist/thumb), and instead of deleting band pixels, **classify whole polylines** — drop a polyline only if
+  >60% of it lies in the boundary band (it IS the outline); keep every internal finger-spoke WHOLE, so its tip
+  ends on the boundary junction and reaches the membrane edge by construction. Struts 26→47, and they hug the
+  ink. Lesson: **outline and its internal struts must be derived from one shared skeleton** (shared junctions =
+  aligned), never two independent passes.
+- **Sharp tips:** the body silhouette double-smooth (win4+win3) rounded the HORN tips and trident prongs;
+  one light pass (win2) + resample keeps them crisp while still de-staircasing. The head+horns are captured as
+  part of the body silhouette (the "shaded part") — present, just not yet a separately-labelled part.
+
+Reusable: when a feature is correct in isolation but wrong after a merge, the bug is in the MERGE
+(independent passes that don't share vertices / over-aggressive cleanup), and the cure is a shared-source
+extraction + an overlay diff to prove it. **→ Leapfrog:** Phase 2 can now extrude with confidence — outline +
+struts are co-registered; optionally promote the head/horn top-region to its own labelled segment for shaping.

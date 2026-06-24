@@ -53,7 +53,8 @@ function components(mask, keep, minPx) {
 }
 const centroidX = (m) => { let sx = 0, n = 0; for (let i = 0; i < W * H; i++) if (m[i]) { sx += i % W; n++; } return n ? sx / n / W : 0.5; };
 const norm = (p) => ({ x: p.x / W, y: p.y / H });
-const closed = (mask, n) => resampleClosed(smoothRing(smoothRing(traceContour(mask, W, H), 4), 3), n).map(norm);
+// single light smoothing pass keeps sharp tips (horns / wing tip / trident prongs) while de-staircasing
+const closed = (mask, n) => resampleClosed(smoothRing(traceContour(mask, W, H), 2), n).map(norm);
 
 // ── BODY: silhouette + armour-plate cells + trident ─────────────────────────
 const bink = inkMask(load('stencil-body').rgba);
@@ -80,13 +81,22 @@ const wink = inkMask(load('stencil-wings').rgba);
 const wsolidAll = erode(fillInside(dilate(wink, 2)), 2);
 const wings2 = components(wsolidAll, 2, 4000);
 const rightSolid = centroidX(wings2[0]) > 0.5 ? wings2[0] : wings2[1];
-const region = dilate(rightSolid, 5);                          // selector for the right wing's internal lines
+const region = dilate(rightSolid, 6);                          // selector for the right wing's internal lines
 const wingSilhouette = closed(rightSolid, 320);
-// struts: skeleton of the stencil ink within the right wing, minus the boundary band (we already have it)
+// STRUTS — from the FULL skeleton of the right wing so struts + outline share junctions (they line up by
+// construction and every strut reaches the membrane edge). Keep short branches (wrist/thumb horns). Drop only
+// the polylines that ARE the outline (mostly inside the boundary band); internal finger-spokes survive whole.
 const wskel = thin(wink, W, H);
-const band = (() => { const e = erode(rightSolid, 3), d = dilate(rightSolid, 3); const b = new Uint8Array(W * H); for (let i = 0; i < W * H; i++) b[i] = (d[i] && !e[i]) ? 1 : 0; return b; })();
-const strutSkel = new Uint8Array(W * H); for (let i = 0; i < W * H; i++) strutSkel[i] = (wskel[i] && region[i] && !band[i]) ? 1 : 0;
-const struts = skeletonToPolylines(strutSkel, W, H, 22).map((p) => resampleOpen(smoothOpen(p, 2), Math.max(6, Math.min(28, Math.round(p.length / 8)))).map(norm));
+const rightSkel = new Uint8Array(W * H); for (let i = 0; i < W * H; i++) rightSkel[i] = (wskel[i] && region[i]) ? 1 : 0;
+const bE = erode(rightSolid, 4), bD = dilate(rightSolid, 2);
+const wband = new Uint8Array(W * H); for (let i = 0; i < W * H; i++) wband[i] = (bD[i] && !bE[i]) ? 1 : 0;  // ~6px ring straddling the outline
+const sampleBand = (x, y) => wband[Math.min(H - 1, Math.max(0, Math.round(y))) * W + Math.min(W - 1, Math.max(0, Math.round(x)))];
+const plen = (p) => { let s = 0; for (let i = 1; i < p.length; i++) s += Math.hypot(p[i].x - p[i - 1].x, p[i].y - p[i - 1].y); return s; };
+const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
+const allWingPolys = skeletonToPolylines(rightSkel, W, H, 10);
+const struts = allWingPolys
+  .filter((p) => (p.reduce((s, q) => s + (sampleBand(q.x, q.y) ? 1 : 0), 0) / p.length) < 0.6)  // not an outline chain
+  .map((p) => resampleOpen(smoothOpen(p, 1), clamp(Math.round(plen(p) / 8), 6, 32)).map(norm));
 // veins: skeleton of the bright-cyan accents in the COLOUR wings, within the right wing
 const cyan = cyanMask(load('wings').rgba);
 const cyanRight = new Uint8Array(W * H); for (let i = 0; i < W * H; i++) cyanRight[i] = (cyan[i] && region[i]) ? 1 : 0;
