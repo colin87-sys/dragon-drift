@@ -3291,3 +3291,20 @@ Also this pass: body cross-section made a fuller egg (dorsal 0.95 / ventral 0.82
 half because the belly was shallow AND unlit) + a ventral fill light so the volume reads. Bone colour stays
 bright cyan for IDENTIFICATION during structural review; switch to the reference's dark tone once bones are
 signed off.
+
+### L101 — Wing bones MUST be traced from the stencil ink, not invented; verify by overlaying on the stencil
+Two wrong turns the human caught hard: (1) the band-filter dropped the leading frame; (2) my "radial hub→tip"
+rebuild was INVENTED straight lines with the wrist in the wrong place (0.60,0.41) — "you're making it up."
+Ground truth: `tools/traceWingBones.mjs` v2 — isolate one wing, skeletonize the ink, mark the graph (endpoints
+red, junctions blue, dominant junction lime). It showed the real wrist at ~(0.73,0.28) and, crucially, that
+the SCALLOP TIPS are junctions where fingers meet the outline (not free endpoints). The faithful extraction:
+**skeleton of the drawn ink MINUS a thin (~4px) outline ring = the internal struts, which lie exactly on the
+stencil's drawn lines** (medial axis). Verified by overlaying the extracted struts (orange) on the stencil ink
+— they sit on the drawn finger lines. Ported into `traceDefinition.mjs` (33 struts). Lessons:
+- **For art-derived geometry, the trace IS the source of truth — extract from it, never synthesize "clean"
+  geometry that you then hope matches. Always overlay the result on the source art to verify (the orange-on-
+  stencil check); if it doesn't follow the ink, it's wrong.**
+- A debug-draw bug to remember: a blend that writes only integer pixel offsets draws NOTHING when given a
+  fractional stroke radius (1.5) — use integer widths. (Cost a confusing "why is nothing orange" round.)
+Open: the stencil skeleton fragments at every crossing, so the struts come through as SEGMENTS — next step is
+welding collinear fragments across junctions into continuous bones (straightest-continuation walk).

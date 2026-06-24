@@ -84,31 +84,19 @@ const wings2 = components(wsolidAll, 2, 4000);
 const rightSolid = centroidX(wings2[0]) > 0.5 ? wings2[0] : wings2[1];
 const region = dilate(rightSolid, 6);                          // selector for the right wing's internal lines
 const wingSilhouetteRaw = closed(rightSolid, 320);
-// WING BONES as a radial framework matching the anatomy: the ARM reaches the WRIST HUB (where the skeleton
-// chains converge), which projects bones out to EVERY pointy tip of the membrane — the leading frame (wing
-// tip), the thumb + the long projection beside it, and each SCALLOP POINT on the trailing edge. (Replaces the
-// old band-filter, which dropped the leading frame and stopped short of the scallop tips.)
+// WING BONES traced from the ACTUAL stencil: skeletonize the drawn ink, then remove the thin OUTLINE ring so
+// only the INTERNAL drawn lines remain — the finger struts + inner arm/leading bone. These lie exactly on the
+// stencil's drawn lines (medial axis of the ink), verified by tools/traceWingBones.mjs. No invented geometry.
 const wskel = thin(wink, W, H);
 const rightSkel = new Uint8Array(W * H); for (let i = 0; i < W * H; i++) rightSkel[i] = (wskel[i] && region[i]) ? 1 : 0;
-const allWingPolys = skeletonToPolylines(rightSkel, W, H, 10);   // pixel-space skeleton chains
+const be = erode(rightSolid, 3), bd = dilate(rightSolid, 1);
+const oband = new Uint8Array(W * H); for (let i = 0; i < W * H; i++) oband[i] = (bd[i] && !be[i]) ? 1 : 0;     // ~4px outline ring
+const internal = new Uint8Array(W * H); for (let i = 0; i < W * H; i++) internal[i] = (rightSkel[i] && !oband[i]) ? 1 : 0;
+const plen = (p) => { let s = 0; for (let i = 1; i < p.length; i++) s += Math.hypot(p[i].x - p[i - 1].x, p[i].y - p[i - 1].y); return s; };
+const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
+const strutsRaw = skeletonToPolylines(internal, W, H, 14).map((p) => resampleOpen(smoothOpen(p, 1), clamp(Math.round(plen(p) / 7), 3, 30)).map(norm));
 const wingRoot = wingSilhouetteRaw.reduce((a, p) => Math.abs(p.x - 0.5) < Math.abs(a.x - 0.5) ? p : a, wingSilhouetteRaw[0]);
-// hub = densest cluster of skeleton-chain endpoints (the wrist, where the bones converge)
-const ends = []; for (const p of allWingPolys) { ends.push(p[0], p[p.length - 1]); }
-let hubPx = ends[0] || { x: 0.6 * W, y: 0.45 * H }, hubScore = -1;
-for (const e of ends) { let c = 0; for (const f of ends) if (Math.hypot(e.x - f.x, e.y - f.y) < 26) c++; if (c > hubScore) { hubScore = c; hubPx = e; } }
-const hub = { x: hubPx.x / W, y: hubPx.y / H };
-// membrane tips = prominent local maxima of distance-from-hub around the outline (scallops + wingtip + thumb + long proj)
-const sil = wingSilhouetteRaw, nS = sil.length;
-const distH = sil.map((p) => Math.hypot((p.x - hub.x) * W, (p.y - hub.y) * H));
-let tips = [];
-for (let i = 0; i < nS; i++) { let mx = true; for (let k = -7; k <= 7; k++) { if (k && distH[(i + k + nS) % nS] > distH[i] + 1e-6) { mx = false; break; } } if (mx && distH[i] > 45) tips.push(i); }
-tips = tips.filter((i, a) => !tips.some((j, b) => b !== a && Math.hypot((sil[i].x - sil[j].x) * W, (sil[i].y - sil[j].y) * H) < 30 && (distH[j] > distH[i] || (distH[j] === distH[i] && b < a))));
-let tipTop = tips[0]; for (const i of tips) if (sil[i].y < sil[tipTop].y) tipTop = i;   // wingtip = highest → end of the leading frame
-const lerpP = (a, b, m) => ({ x: a.x + (b.x - a.x) * m, y: a.y + (b.y - a.y) * m });
-const bone = (a, b, steps) => Array.from({ length: steps + 1 }, (_, k) => lerpP(a, b, k / steps));
-const sparBone = [...bone(wingRoot, hub, 4), ...bone(hub, sil[tipTop], 5).slice(1)];   // arm → wrist → leading frame
-const strutsRaw = [sparBone, ...tips.filter((i) => i !== tipTop).map((i) => bone(hub, sil[i], 6))];
-console.log(`WING bones: hub@(${hub.x.toFixed(2)},${hub.y.toFixed(2)}) · ${tips.length} tips → ${strutsRaw.length} bones (spar + ${strutsRaw.length - 1} fingers)`);
+console.log(`WING bones: ${strutsRaw.length} struts traced from the stencil ink (internal skeleton)`);
 
 // ── PLACE the wing onto the body, MATCHED to the colour reference ────────────
 // The stencils are NOT in the body's frame, so the wing is placed explicitly AND auto-fitted to the art:
@@ -158,8 +146,8 @@ const headTopY = Math.min(...headPts.map((p) => p.y));
 const lH = headPts.filter((p) => p.x < 0.5).reduce((a, p) => (p.y < a.y ? p : a), { x: 0.5, y: 1 });
 const rH = headPts.filter((p) => p.x >= 0.5).reduce((a, p) => (p.y < a.y ? p : a), { x: 0.5, y: 1 });
 const head = { neckY: neckYn, topY: headTopY, outline: headPts, horns: [lH, rH] };
-// WING ARM-SPAR: strut #0 is the arm + leading frame by construction.
-const sparIndex = 0;
+// WING ARM-SPAR: the longest strut = the arm / leading-frame bone.
+let sparIndex = 0, sparL = -1; struts.forEach((s, i) => { const l = plen(s); if (l > sparL) { sparL = l; sparIndex = i; } });
 console.log(`HEAD  neck@${neckYn.toFixed(3)} · ${headPts.length}-pt outline · horns L(${lH.x.toFixed(2)},${lH.y.toFixed(2)}) R(${rH.x.toFixed(2)},${rH.y.toFixed(2)})   WING arm-spar = strut #${sparIndex}`);
 
 const totalBody = bodySilhouette.length + plates.reduce((s, p) => s + p.pts.length, 0);
