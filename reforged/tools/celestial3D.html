@@ -29,7 +29,7 @@
   <button id="bStruts" class="on">struts</button>
   <button id="bPlates" class="on">plates</button>
   <button id="bSeams" class="on">plate seams</button>
-  <button id="bSpine" class="on">spine</button>
+  <button id="bSpine">spine</button>
 </div>
 <script type="module">
 import * as THREE from 'three';
@@ -285,7 +285,8 @@ plateGrp.add(new THREE.Mesh(plG, matPlate));
   }
   const sG = new THREE.BufferGeometry(); sG.setAttribute('position', new THREE.Float32BufferAttribute(sPos, 3)); sG.setIndex(sIdx); sG.computeVertexNormals();
   spineGrp.add(new THREE.Mesh(sG, matSpine));
-  console.log(`spine: ${rows.length} dorsal diamonds (rows ${Y[0].toFixed(2)}→${Y[Y.length - 1].toFixed(2)})`);
+  spineGrp.visible = false;   // diamonds parked for now (toggle "spine" to bring them back)
+  console.log(`spine: ${rows.length} dorsal diamonds (rows ${Y[0].toFixed(2)}→${Y[Y.length - 1].toFixed(2)}) — hidden by default`);
 }
 
 // WINGS — membrane + struts, both sides. Each wing is its own pivot group at the shoulder for flapping.
