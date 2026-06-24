@@ -3624,3 +3624,13 @@ the blade centre. Lesson: **when a lofted region looks wrong, check whether the 
 it's the EXTRUSION choice that's off. Blades/fins/membranes want FLAT extrusion (boneSolid/panel), not the
 volumetric body loft — match the extrusion method to the part's real cross-section, and clip the loft to hand
 each region to the right builder.**
+
+### L126 — "Struts are different colours now" = translucent membrane passing in front after the billow flip
+All wing bones use ONE material (matSpar), so the colour variance wasn't material — it was the billow flip (L124)
+moving the membrane to cup toward the camera (+z). In angled views the forward-billowed translucent VIOLET
+membrane then passed in front of some struts and tinted them lavender, while struts it didn't cover stayed white
+→ "different colours." Fix: seat the bones in front of the membrane's billow amplitude (`zBone = zWing + 0.08`,
+billow peak is 0.06) so the sheet never overlaps a strut from the front. Lesson: **a transparent overlay tints
+whatever opaque geometry sits BEHIND it; if a part must keep its own colour, push it clearly in front of every
+transparent surface that could screen-overlap it — and remember a depth/cup-direction change silently alters
+which things are in front of which. When colours look wrong but the material is shared, suspect transparency.**
