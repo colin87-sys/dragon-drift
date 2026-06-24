@@ -3516,3 +3516,14 @@ exact path/location (L115) — only trims the edge fat, never moves the bone.** 
 match the reference's delicate feel. Lesson: **"too thick" on an extruded 2D shape has TWO knobs — extrusion
 depth and the in-plane contour's stroke-halo padding. Erode toward the crisp core to thin in-plane without
 relocating; cut extrusion depth for the z-read. Always re-compare to the painted reference before presenting (L114).**
+
+### L117 — Smooth the bone CONTOUR, not just the spine: raw pixel-traced outlines are staircased → wobbly struts
+Human: "the strut lines read jaggy/irregular/wobbly, not clean smooth flowing lines." Root cause: `boneSolid()`
+extrudes the bone's closed contour verbatim, and that contour came straight from `traceContour()` on a pixel
+mask — a staircased 1px-step outline. Thinning (L116) made the jaggies MORE visible (less fat to hide them).
+Fix in `traceWingMerge.mjs` before storing the shape: `resampleClosed(ring,80)` → `smoothRing(ring,2)×6` →
+`resampleClosed(ring,64)`. Even-spacing resample first (so smoothing weights are uniform), smooth hard, then
+resample to the final point count. Keeps the shape + location (L115); only removes pixel staircase. Lesson:
+**ANY geometry traced from a pixel mask is staircased — smooth+resample the closed contour before extruding,
+exactly as we already do for open spines (L114). Thinner shapes expose jaggies that thickness was hiding, so
+smoothing becomes mandatory once you thin.**
