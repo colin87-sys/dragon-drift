@@ -243,7 +243,7 @@ plateGrp.add(new THREE.Mesh(plG, matPlate));
 // WINGS — membrane + struts, both sides. Each wing is its own pivot group at the shoulder for flapping.
 const wingPivots = [];
 const sweep = 0.16;                                   // wings angle backward (−z) with outward distance
-const BONE_THICK = 0.03;                              // bone z-thickness (normalized); arm ×1.5
+const BONE_THICK = 0.012;                             // bone z-thickness (normalized); arm ×1.5 — thin, delicate struts (matches ref)
 function buildWing(mirrored) {
   const f = (c) => mirrored ? c.map(mir) : c;
   const sil = f(D.wing.silhouette);
