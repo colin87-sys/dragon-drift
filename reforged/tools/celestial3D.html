@@ -28,7 +28,7 @@
   <button id="bWire">wireframe</button>
   <button id="bStruts" class="on">struts</button>
   <button id="bPlates" class="on">plates</button>
-  <button id="bStars" class="on">star-flecks</button>
+  <button id="bSeams" class="on">plate seams</button>
 </div>
 <script type="module">
 import * as THREE from 'three';
@@ -61,13 +61,13 @@ const fillL = new THREE.DirectionalLight(0x7fb8ff, 0.4); fillL.position.set(0, -
 })();
 
 // ── materials ───────────────────────────────────────────────────────────────
-const matBody = new THREE.MeshStandardMaterial({ color: 0x2a2350, roughness: 0.55, metalness: 0.35, emissive: 0x140e30, emissiveIntensity: 0.6, flatShading: false });
-const matMembrane = new THREE.MeshStandardMaterial({ color: 0x3a1f63, roughness: 0.6, metalness: 0.2, emissive: 0x24103f, emissiveIntensity: 0.5, side: THREE.DoubleSide, transparent: true, opacity: 0.93 });
+const matBody = new THREE.MeshStandardMaterial({ color: 0x231c46, roughness: 0.5, metalness: 0.45, emissive: 0x100a26, emissiveIntensity: 0.55 });
+const matPlate = new THREE.MeshStandardMaterial({ color: 0x3b3a7a, roughness: 0.4, metalness: 0.6, emissive: 0x1d2a55, emissiveIntensity: 0.5 });   // raised armour scales
+const matSeam = new THREE.LineBasicMaterial({ color: 0x9fd0ff, transparent: true, opacity: 0.85 });                                                  // glowing seams between plates
+const matMembrane = new THREE.MeshStandardMaterial({ color: 0x3a1f63, roughness: 0.62, metalness: 0.15, emissive: 0x2a1248, emissiveIntensity: 0.6, side: THREE.DoubleSide, transparent: true, opacity: 0.8 });
 const matStrut = new THREE.MeshStandardMaterial({ color: 0x8fd8ff, roughness: 0.35, metalness: 0.4, emissive: 0x2a6f9e, emissiveIntensity: 1.3 });
 const matSpar = new THREE.MeshStandardMaterial({ color: 0xbfeaff, roughness: 0.3, metalness: 0.5, emissive: 0x4a8fc0, emissiveIntensity: 1.5 });
-const matPlate = new THREE.LineBasicMaterial({ color: 0x9fc4ff, transparent: true, opacity: 0.8 });
-const matHorn = new THREE.MeshStandardMaterial({ color: 0x6e7cff, roughness: 0.4, metalness: 0.5, emissive: 0x3a2f8f, emissiveIntensity: 0.9 });
-const matStar = new THREE.MeshBasicMaterial({ color: 0xffe27a });
+const matHorn = new THREE.MeshStandardMaterial({ color: 0x7e6cff, roughness: 0.35, metalness: 0.55, emissive: 0x3a2f8f, emissiveIntensity: 1.0 });
 
 // ── helpers ───────────────────────────────────────────────────────────────
 // polygon scanline crossings at height ny → sorted list of x
@@ -136,41 +136,45 @@ function tube(poly, zFn, radius, material) {
 
 // ── assemble ────────────────────────────────────────────────────────────────
 const root = new THREE.Group(); scene.add(root);
-const bodyGrp = new THREE.Group(), plateGrp = new THREE.Group(), starGrp = new THREE.Group(), wingGrp = new THREE.Group(), strutGrp = new THREE.Group();
-root.add(bodyGrp, plateGrp, starGrp, wingGrp, strutGrp);
+const bodyGrp = new THREE.Group(), plateGrp = new THREE.Group(), seamGrp = new THREE.Group(), wingGrp = new THREE.Group(), strutGrp = new THREE.Group();
+root.add(bodyGrp, plateGrp, seamGrp, wingGrp, strutGrp);
 
 // BODY
 const { mesh: bodyMesh, stations } = loftBody(D.body.silhouette, { depth: 0.5 });
 bodyGrp.add(bodyMesh);
 const surfZ = (p) => bodySurfaceZ(stations, p[0], p[1]);
 
-// HEAD horns — small cones at the horn tips, angled up & back
-for (const h of D.body.head.horns) {
+// HEAD horns — curved tapered horns sweeping up & back from each horn tip
+function curvedHorn(h, side) {
   const base = pt(h[0], h[1], surfZ(h));
-  const len = 0.9, dir = new THREE.Vector3((h[0] - 0.5) * 0.6, 0.7, 0.5).normalize();
-  const g = new THREE.ConeGeometry(0.13, len, 10);
-  const m = new THREE.Mesh(g, matHorn);
-  m.position.copy(base).addScaledVector(dir, len * 0.5);
-  m.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), dir);
-  bodyGrp.add(m);
+  const N = 12, R = 8, len = 1.25, r0 = 0.14, pos = [], idx = [];
+  const up = new THREE.Vector3(side * 0.18, 1, 0.5).normalize();      // up + toward camera (dorsal) + slight out
+  const curl = new THREE.Vector3(side * 0.3, 0.1, -0.85);             // curl outward and back as it rises
+  for (let i = 0; i <= N; i++) {
+    const t = i / N, rad = r0 * Math.pow(1 - t, 1.4);
+    const c = base.clone().addScaledVector(up, len * t).addScaledVector(curl, len * t * t * 0.7);
+    for (let s = 0; s < R; s++) { const a = s / R * Math.PI * 2; pos.push(c.x + Math.cos(a) * rad, c.y, c.z + Math.sin(a) * rad); }
+  }
+  for (let i = 0; i < N; i++) for (let s = 0; s < R; s++) { const a = i * R + s, a2 = i * R + (s + 1) % R, b = (i + 1) * R + s, b2 = (i + 1) * R + (s + 1) % R; idx.push(a, b, a2, a2, b, b2); }
+  const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.setIndex(idx); g.computeVertexNormals();
+  return new THREE.Mesh(g, matHorn);
 }
+D.body.head.horns.forEach((h, i) => bodyGrp.add(curvedHorn(h, h[0] < 0.5 ? -1 : 1)));
 
-// PLATES — emissive line loops wrapped onto the hull surface
+// PLATES — raised armour SCALES (centroid-fan domes seated on the hull) + glowing seams between them
+const plPos = [], plIdx = [];
 for (const pl of D.body.plates) {
-  const pts = pl.map(p => pt(p[0], p[1], surfZ(p)));
-  pts.push(pts[0]);
-  plateGrp.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(pts), matPlate));
-}
-
-// STAR-FLECKS — tiny emissive spheres at each plate centroid, lifted off the hull
-const starGeo = new THREE.SphereGeometry(0.055, 8, 8);
-const stars = new THREE.InstancedMesh(starGeo, matStar, D.body.plates.length);
-D.body.plates.forEach((pl, i) => {
   let cx = 0, cy = 0; for (const p of pl) { cx += p[0]; cy += p[1]; } cx /= pl.length; cy /= pl.length;
-  const v = pt(cx, cy, surfZ([cx, cy]) + 0.015);   // seat the star-fleck just proud of the hull (a marking, not a float)
-  stars.setMatrixAt(i, new THREE.Matrix4().makeTranslation(v.x, v.y, v.z));
-});
-stars.instanceMatrix.needsUpdate = true; starGrp.add(stars);
+  const base = plPos.length / 3;
+  const cv = pt(cx, cy, surfZ([cx, cy]) + 0.011);                    // raised plate centre (the scale's crown)
+  plPos.push(cv.x, cv.y, cv.z);
+  for (const p of pl) { const v = pt(p[0], p[1], surfZ(p) + 0.002); plPos.push(v.x, v.y, v.z); }
+  for (let i = 0; i < pl.length; i++) plIdx.push(base, base + 1 + i, base + 1 + (i + 1) % pl.length);
+  const seam = pl.map(p => pt(p[0], p[1], surfZ(p) + 0.006)); seam.push(seam[0]);
+  seamGrp.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(seam), matSeam));
+}
+const plG = new THREE.BufferGeometry(); plG.setAttribute('position', new THREE.Float32BufferAttribute(plPos, 3)); plG.setIndex(plIdx); plG.computeVertexNormals();
+plateGrp.add(new THREE.Mesh(plG, matPlate));
 
 // WINGS — membrane + struts, both sides. Each wing is its own pivot group at the shoulder for flapping.
 const wingPivots = [];
@@ -222,7 +226,7 @@ toggle('bSpin', v => spin = v); toggle('bFlap', v => flap = v);
 toggle('bWire', v => { matBody.wireframe = v; matMembrane.wireframe = v; });
 toggle('bStruts', v => strutGrp.visible = wingGrp.children.forEach(p => p.children.forEach(c => { if (c.geometry && c.geometry.type === 'TubeGeometry') c.visible = v; })));
 toggle('bPlates', v => plateGrp.visible = v);
-toggle('bStars', v => starGrp.visible = v);
+toggle('bSeams', v => seamGrp.visible = v);
 
 function resize() { const w = innerWidth, h = innerHeight; renderer.setSize(w, h, false); camera.aspect = w / h; camera.updateProjectionMatrix(); }
 addEventListener('resize', resize); resize();
