@@ -3414,3 +3414,22 @@ authoritative wing bones (no auto-guess). Three fixes this round:
 Lesson: **flat panels for thin elongated shapes read as nothing edge-on — extrude to a slab; and any
 fill-based region capture needs a tip-spear step because fills never reach a tapering point.** The wing bones
 are now human-authored ground truth end-to-end (editor → merge → def → 3D).
+
+### L110 — DEBUG: why bone tracing "had gaps" — skeleton fragmentation + threshold fragility (not missing lines)
+Human asked to root-cause why bone extraction kept producing gaps despite QA. Measured on stencil-wings:
+242 raw skeleton polylines, **3023 junction pixels (deg≥3)**, only 26 real endpoints, and **23% of ink is
+"fragile" (lum 170–230, near the 200 threshold)**. Conclusion: lines were NOT missed — they were SHATTERED.
+- **Cause #1 — junction fragmentation:** `thin`+`skeletonToPolylines` cut every line at every crossing
+  (~3000 junctions → 242 fragments). Continuity lost, not coverage. Fix: **weldChains** (collinear-end join).
+- **Cause #2 — threshold fragility:** ~¼ of the ink is anti-aliased grey straddling the hard 200 cutoff →
+  micro-gaps inside lines → extra breaks + spurs (and "lines not identified"). Fix: **morphological CLOSE
+  (dilate→erode ~1–2px) BEFORE thinning** to bridge the micro-gaps; consider an adaptive threshold.
+- **Cause #3:** over-aggressive cleanup (band removal) trimmed tips; fills never reach a TAPERING point (spear
+  to skeleton endpoints).
+- **Why QA didn't pre-empt it:** a coverage overlay (result-on-stencil) looks fine because the FRAGMENTS still
+  lie on the lines — fragmentation only bites at render/fill time. **A coverage overlay can't see broken
+  continuity; add a quantitative QA assert (fragment count, junctions, %fragile pixels) to flag it up front.**
+Robust pipeline that won: region/compartment capture (keys on enclosed AREAS, not fragile medial lines) + human
+editor with the sealed/green check + weld + tip-spear. **Reusable: for hand-drawn line-art, skeletons are
+inherently shattered at junctions and fragile at the threshold — close-before-thin, weld-after, prefer regions,
+and QA with NUMBERS not just overlays.**
