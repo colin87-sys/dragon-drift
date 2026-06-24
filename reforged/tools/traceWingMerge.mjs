@@ -7,7 +7,7 @@ import { writeFileSync, readFileSync } from 'node:fs';
 import { deflateSync } from 'node:zlib';
 import { decodePNG } from './pngDecode.mjs';
 import { traceContour } from './tracerCore.mjs';
-import { thin, skeletonToPolylines, lum, morphClose, skeletonStats } from './lineTrace.mjs';
+import { thin, skeletonToPolylines, lum, morphClose, skeletonStats, weldChains } from './lineTrace.mjs';
 
 const W = 941, H = 1672;
 const DIR = new URL('./refs/celestial/', import.meta.url).pathname;
@@ -54,8 +54,30 @@ for (const shape of shapes) {
 }
 console.log(`grew ${grownShapes.length} bone shapes to hug the stencil; ${(J.bones || []).length} bone lines kept`);
 
+// ── SPINES: medial centerline + half-width radius per bone → smooth, cylindrical, pointed 3D tubes ──
+const splen = (p) => { let s = 0; for (let i = 1; i < p.length; i++) s += Math.hypot(p[i].x - p[i - 1].x, p[i].y - p[i - 1].y); return s; };
+function resampleWithR(poly, rad, n) {
+  const cum = [0]; for (let i = 1; i < poly.length; i++) cum.push(cum[i - 1] + Math.hypot(poly[i].x - poly[i - 1].x, poly[i].y - poly[i - 1].y));
+  const total = cum[cum.length - 1] || 1, pts = [], radii = [];
+  for (let i = 0; i < n; i++) { const t = total * i / (n - 1); let j = 1; while (j < cum.length && cum[j] < t) j++; j = Math.min(j, poly.length - 1); const f = (t - cum[j - 1]) / ((cum[j] - cum[j - 1]) || 1); pts.push({ x: poly[j - 1].x + (poly[j].x - poly[j - 1].x) * f, y: poly[j - 1].y + (poly[j].y - poly[j - 1].y) * f }); radii.push(rad[j - 1] + (rad[j] - rad[j - 1]) * f); }
+  return { pts, radii };
+}
+function boneSpine(mask) {
+  const sk = thin(mask, W, H);
+  const chains = weldChains(skeletonToPolylines(sk, W, H, 4), 14, 0.2).sort((a, b) => splen(b) - splen(a));
+  const c = chains[0]; if (!c || c.length < 2) return null;
+  const rad = c.map(p => { for (let r = 1; r <= 32; r++) { for (let k = 0; k < 12; k++) { const a = k / 12 * Math.PI * 2, x = Math.round(p.x + Math.cos(a) * r), y = Math.round(p.y + Math.sin(a) * r); if (x < 0 || y < 0 || x >= W || y >= H || !mask[y * W + x]) return r; } } return 32; });
+  const n = Math.max(6, Math.min(36, Math.round(splen(c) / 11)));
+  const rs = resampleWithR(c, rad, n);
+  const sm = rs.radii.map((_, i) => { let s = 0, m = 0; for (let k = -1; k <= 1; k++) { const j = i + k; if (j >= 0 && j < rs.radii.length) { s += rs.radii[j]; m++; } } return s / m; });
+  sm[0] *= 0.2; sm[sm.length - 1] *= 0.2;   // taper the ends to a point
+  return { pts: rs.pts.map(p => [+(p.x / W).toFixed(4), +(p.y / H).toFixed(4)]), radii: sm.map(r => +(r / H).toFixed(5)) };
+}
+const boneSpines = grownShapes.map(g => boneSpine(g.mask)).filter(Boolean);
+console.log(`bone spines: ${boneSpines.length} (centerline + radius profile)`);
+
 // merged output
-writeFileSync(DIR + 'wing-bones-merged-R.json', JSON.stringify({ canvas: [W, H], side: 'R', boneShapes: grownShapes.map(g => g.contour), bones: J.bones || [], veins: J.veins || [], bridges: J.bridges || [] }));
+writeFileSync(DIR + 'wing-bones-merged-R.json', JSON.stringify({ canvas: [W, H], side: 'R', boneShapes: grownShapes.map(g => g.contour), boneSpines, bones: J.bones || [], veins: J.veins || [], bridges: J.bridges || [] }));
 
 // ── overlay render (full right-wing crop) ──
 let mnX = W, mnY = H, mxX = 0, mxY = 0;

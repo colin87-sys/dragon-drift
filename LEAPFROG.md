@@ -3470,3 +3470,15 @@ cyan rim, translucent violet membrane (opacity 0.74) + bright violet rim, pale i
 violet horns. Lesson: **a fresnel rim via onBeforeCompile is the cheapest big win for an emissive/cosmic art
 style — no bloom pass needed.** Index: add under CELESTIAL STORM › 3D EXTRUSION. Remaining look polish: membrane
 lightning VEINS (await human tag), iridescent body gradient, star-fleck specks baked into the material.
+
+### L113 — Bones as SPINES (centerline + radius), rendered as tapered round tubes — not extruded slabs
+Human: the slab bones were "too thick, straight-edged, jagged tips" — bones should be cylindrical + pointed +
+smooth. Fix: don't extrude the contour. In `traceWingMerge.mjs` compute a SPINE per bone — medial centerline
+(thin→weld→longest chain) + a half-width RADIUS profile (ring-scan distance-to-background per centerline
+point), arc-length resampled, radii smoothed and tapered to ~0 at the ends. Export `boneSpines:[{pts,radii}]`.
+`traceDefinition` places the spine and scales radii by the same wing-fit factor. `celestial3D` builds a
+`taperedTube` (CatmullRom centripetal + computeFrenetFrames, per-point radius) → smooth round bone, pointed
+tips, no jagged contour. Radii come from the DRAWN width so finger spurs are thin and the arm (wider stroke,
+last shape) reads bigger (×1.5 nudge + 0.85 global scale). Lesson: **for an organic bone/limb, represent it as
+a centerline + radius profile and sweep a round tube — a slab from the silhouette contour is always too thick,
+flat-edged, and jagged at speared tips. Medial-axis + distance-transform is the right shape descriptor.**
