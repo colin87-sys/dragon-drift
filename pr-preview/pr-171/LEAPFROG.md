@@ -3361,3 +3361,17 @@ Exports `celestial-wing-bones-R.json` to ingest as the authoritative struts. Les
 algorithm mis-classifying art, the right move is a direct-manipulation editor seeded with the best auto result
 — the human's edits are ground truth, and welding/snap/bridge just make editing cheap.** Also: weldChains
 (greedy collinear-end join) turned 88 fragments → 31 continuous bones.
+
+### L106 — Bone editor UX: snap bridges to existing line-ends, sealed-region feedback, vein tagging
+Human-driven editor refinements (tools/celestialBoneEditor.html):
+- **Bridges snap to existing geometry**, not freehand: a bridge endpoint snaps to the nearest BONE vertex
+  (fallback nearest ink) so gaps close by joining real line-ends cleanly. Clicking an existing bridge deletes it.
+- **Sealed feedback**: flood the EXTERIOR from the image border over non-ink; the enclosed right-wing interior
+  (non-ink, not exterior) is tinted GREEN and recomputed on every ink change. The human watches the green grow
+  as they bridge gaps — a notch reaching in = an unsealed gap. Direct "is it watertight?" signal.
+- **Vein mode**: snap-trace lightning veins (stored + exported separately from bones).
+- Delete works on bones AND veins by proximity.
+Lesson: **an editor for art labeling needs (a) snapping to existing features (not freehand) for clean joins,
+(b) a live validity signal (sealed/green) so the human knows the result is usable before exporting, and (c)
+separate layers per semantic class (bone vs vein vs membrane).** Export: celestial-wing-bones-R.json {bones,
+veins, bridges}.
