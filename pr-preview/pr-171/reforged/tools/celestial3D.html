@@ -34,6 +34,7 @@
 <script type="module">
 import * as THREE from 'three';
 import { CELESTIAL_DEF as D } from '../js/celestialDef.js';
+import { SPINE_DIAMOND } from '../js/celestialSpine.js';
 
 // ── canvas coords → world. Canvas 941×1672; preserve aspect (x scaled by W/H). Y flips (image y is down).
 const W = D.canvas[0], H = D.canvas[1], ASPX = W / H, S = 10;
@@ -254,13 +255,14 @@ plateGrp.add(new THREE.Mesh(plG, matPlate));
   const sPos = [], sIdx = [];
   for (let i = 0; i < rows.length; i++) {
     const cy = Y[i], gap = Math.min(i ? cy - Y[i - 1] : 1, i < rows.length - 1 ? Y[i + 1] - cy : 1);
-    const ry = Math.min(0.6 * gap, 0.05), rx = Math.max(0.012, Math.min(0.4 * rows[i].w, 0.03));   // size from the row's cell; taper falls out of w
+    const ry = Math.min(0.62 * gap, 0.055), rx = Math.max(0.016, Math.min(0.5 * rows[i].w, 0.04));   // size from the row's cell; taper falls out of w
     const cxAxis = D.mirror, crown = 0.02 + rx * 0.5;          // stand proud of the hull (plates raise 0.011) → reads as a ridge
-    const rim = [[cxAxis, cy - ry], [cxAxis + rx, cy], [cxAxis, cy + ry], [cxAxis - rx, cy]];
+    // rim = the TRACED stencil diamond (unit half-extents) scaled to this row's cell, centred on the spine axis
+    const rim = SPINE_DIAMOND.map(([nx, ny]) => [cxAxis + nx * rx, cy + ny * ry]);
     const base = sPos.length / 3;
     const cv = pt(cxAxis, cy, surfZ([cxAxis, cy]) + crown); sPos.push(cv.x, cv.y, cv.z);    // crown
     for (const p of rim) { const v = pt(p[0], p[1], surfZ(p) + 0.006); sPos.push(v.x, v.y, v.z); }
-    for (let k = 0; k < 4; k++) sIdx.push(base, base + 1 + (k + 1) % 4, base + 1 + k);   // CCW from +z (rear cam) → faces the camera, not into the body
+    for (let k = 0; k < rim.length; k++) sIdx.push(base, base + 1 + (k + 1) % rim.length, base + 1 + k);   // CCW from +z (rear cam) → faces the camera
   }
   const sG = new THREE.BufferGeometry(); sG.setAttribute('position', new THREE.Float32BufferAttribute(sPos, 3)); sG.setIndex(sIdx); sG.computeVertexNormals();
   spineGrp.add(new THREE.Mesh(sG, matSpine));

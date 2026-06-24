@@ -3563,3 +3563,18 @@ screenshots the spine ALONE. Lessons: **(a) any fan/strip built from an ordered 
 on the VIEW axis — verify it faces the camera, or use DoubleSide for thin decorative gems. (b) To verify a NEW
 overlay feature, ISOLATE it (hide everything else) — never eyeball it against a busy scene where pre-existing
 elements of the same colour will fool you into a false positive. This is L114 again: compare the right thing.**
+
+### L121 — Trace the stencil's diamond, don't draw your own: extract cells → pick clean leaf → symmetrize → stamp
+Human: "yours are ugly, trace the shape of the individual diamonds on the stencil … don't draw ur own." My plain
+4-point rhombi looked cheap. Built `tools/spineDiamonds.mjs`: flood the stencil exterior, label the enclosed
+CELLS, trace+smooth each (resample→smoothRing→resample), keep only the CENTRAL column (|cx−axis|<0.02, drop
+side segments per the human's "spiral column only") and drop the tiny scale-overlap slivers. Key realisations
+from MAGNIFYING the stencil (always zoom the source before trusting an auto-trace): the dorsal pattern is an
+interleaved BRAID of pointed curved scales, so most enclosed cells are rounded scale-tops, NOT diamonds — only
+the mid-body interstitial cells are clean pointed leaves. So: filter candidates to the pointed-leaf band
+(aspect 1.6–2.0, cy 0.33–0.50), take the cleanest, and CANONICALISE it — polar radius sampling + left/right
+symmetric averaging (`(r(θ)+r(π−θ))/2`) + normalise to unit half-extents. That's CLEANING a traced edge, not
+inventing a shape. Emit `js/celestialSpine.js`; the 3D spine stamps that one diamond per armour row, scaled to
+the row's cell. Lessons: **(a) "trace it, don't draw it" → extract+clean the real contour; a symmetrised median
+of the traced shape is faithful AND pretty. (b) auto-cell-extraction on overlapping-scale art yields mostly
+junk cells — magnify the source, identify which cells are the real motif, filter HARD before trusting them.**
