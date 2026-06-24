@@ -3021,3 +3021,40 @@ itself) so a wing is no longer hostage to a body's attach geometry. **→ Leapfr
 exact blueprint to 3D (thin membranes, medium bones, raised spine, lofted body) keeping rear-readability;
 Phase 3 = materials/outline/glow; Phase 4 = wire the tracer overlay against the human's concept and converge
 the numbers; then register `celestialStorm` as a real creature via the grammar (coexist → hero → migrate).
+
+### L90 — Creature shape comes from AUTO-TRACING registered concept-art LAYERS, not hand-placed anchors
+Hard course-correction from the human: the L89 hand-authored anchor rig was **"trash"** — a procedural
+guess at the silhouette will never match the art. The human's actual workflow (and his own tool) is the
+**inverse auto-trace**: feed a cut-out image, get an accurate ~200-point outline back. The unlock he handed
+over: the concept art **separated into registered layers** — `full`/`wings`/`torso`/`spine`, every PNG the
+**same 941×1672 canvas**, so each layer's pixels are already in absolute position and their traces composite
+with **zero manual alignment**.
+- **`tools/traceLayers.mjs`** runs the tracer pipeline headlessly over the vendored layers
+  (`tools/refs/celestial/*.png`): `subjectMask` (not-near-white; these exports are colortype-2 RGB on a
+  flattened ~white bg, so **`alphaMask` is useless — there's no alpha channel**; flood/threshold off white
+  instead) → `topComponents` (a multi-blob extension of `tracerCore.largestComponent` — **wings are TWO
+  blobs**, take the two largest; torso/spine are one) → `traceContour` → `simplifyToBudget(eps, budget)`.
+  Output: 236-pt torso, 111+104-pt wings, 223-pt spine = **674 real vertices**. `--art` fills each traced
+  contour by sampling the source pixels (point-in-polygon) → a near-pixel-perfect reconstruction that PROVES
+  the boundary hugs the art; default = a clean cel-shaded vector fill; `--emit` writes the data.
+- **`js/celestialTrace.js`** (emitted) is the NEW source of truth — normalized 0..1 outlines on the shared
+  canvas. **`tests/celestialtrace.mjs`** pins it (canvas, torso1/wings2/spine≥1, normalized, >400 pts,
+  vertical body, centreline spine, wings mirror about x=0.5). 5 checks green.
+- **`tools/pngDecode.mjs`** — standalone 8-bit PNG decoder (colortype 2/6, unfilter + zlib), so the trace
+  tool doesn't drag in `silhouetteCore` (which `await import`s three + the whole roster at load).
+
+Gotchas: (1) **registered layers are the whole trick** — same canvas size ⇒ traces drop on top of each other;
+don't try to re-derive relative placement. (2) colortype-2 means **no alpha** — verify with the IHDR byte
+before reaching for `alphaMask`. (3) wings need a **2-component** trace; `largestComponent` alone silently
+drops the second wing. (4) `simplifyToBudget` only GROWS eps from your seed, so to get MORE scallop detail
+pass a SMALLER seed eps (0.4), not a bigger budget. (5) the source art is reference, not a runtime asset —
+it lives under `tools/refs/`, and only the derived **vector data** (`celestialTrace.js`) feeds the game, so
+the "100% procedural, no asset files" rule holds (coordinates, not bitmaps).
+
+This **supersedes L89's hand-anchor `celestialStormSpec`** as the silhouette source (the spec/tracer files
+stay only as a possible point-editor UI later). Reusable principle: **trace the art, don't guess it** — when
+the human has reference, the job is faithful extraction (registered layers → per-layer auto-trace → composite
+→ vector data), and procedural creativity belongs in the 3D extrusion + animation, NOT in re-inventing a
+silhouette the artwork already specifies. **→ Leapfrog:** Phase 2 = extrude `CELESTIAL_TRACE` to 3D — each
+layer outline becomes a thin shelled membrane/body/spine at its own Z (wings back, body mid, spine raised +
+emissive), keeping the rear read; then materials/glow/outline; then register `celestialStorm` via the grammar.
