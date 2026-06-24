@@ -15,7 +15,7 @@ import { writeFileSync, readFileSync, existsSync } from 'node:fs';
 import { deflateSync } from 'node:zlib';
 import { decodePNG } from './pngDecode.mjs';
 import { traceContour } from './tracerCore.mjs';
-import { thin, skeletonToPolylines, smoothOpen, resampleOpen, smoothRing, resampleClosed, lum } from './lineTrace.mjs';
+import { thin, skeletonToPolylines, smoothOpen, resampleOpen, smoothRing, resampleClosed, lum, morphClose, skeletonStats, weldChains } from './lineTrace.mjs';
 
 const DIR = new URL('./refs/celestial/', import.meta.url).pathname;
 const load = (n) => decodePNG(readFileSync(DIR + n + '.png'));
@@ -53,32 +53,7 @@ function components(mask, keep, minPx) {
 const centroidX = (m) => { let sx = 0, n = 0; for (let i = 0; i < W * H; i++) if (m[i]) { sx += i % W; n++; } return n ? sx / n / W : 0.5; };
 // bbox of a list of {x,y} points (normalized)
 function bboxPts(pts) { let minX = 1, minY = 1, maxX = 0, maxY = 0; for (const p of pts) { if (p.x < minX) minX = p.x; if (p.x > maxX) maxX = p.x; if (p.y < minY) minY = p.y; if (p.y > maxY) maxY = p.y; } return { minX, minY, maxX, maxY, w: maxX - minX, h: maxY - minY }; }
-// WELD fragmented skeleton chains into continuous bones: greedily join the pair of chain-ends that are close
-// AND collinear (straightest continuation), until none qualify. Pixel-space {x,y}. D = max gap, cosMin = how
-// straight the join must be.
-function weldChains(polys, D = 9, cosMin = 0.45) {
-  const chains = polys.map(p => p.slice());
-  const uv = (ax, ay, bx, by) => { const dx = ax - bx, dy = ay - by, m = Math.hypot(dx, dy) || 1; return { x: dx / m, y: dy / m }; };
-  const dirOut = (ch, end) => { const n = ch.length; return end === 'start' ? uv(ch[0].x, ch[0].y, ch[Math.min(1, n - 1)].x, ch[Math.min(1, n - 1)].y) : uv(ch[n - 1].x, ch[n - 1].y, ch[Math.max(0, n - 2)].x, ch[Math.max(0, n - 2)].y); };
-  for (;;) {
-    let best = null;
-    for (let i = 0; i < chains.length; i++) for (let j = i + 1; j < chains.length; j++) for (const [ei, ej] of [['start', 'start'], ['start', 'end'], ['end', 'start'], ['end', 'end']]) {
-      const pi = ei === 'start' ? chains[i][0] : chains[i][chains[i].length - 1];
-      const pj = ej === 'start' ? chains[j][0] : chains[j][chains[j].length - 1];
-      const gap = Math.hypot(pi.x - pj.x, pi.y - pj.y); if (gap > D) continue;
-      const di = dirOut(chains[i], ei), dj = dirOut(chains[j], ej); const dot = -(di.x * dj.x + di.y * dj.y);
-      if (dot < cosMin) continue; const score = dot - gap * 0.04;
-      if (!best || score > best.score) best = { i, j, ei, ej, score };
-    }
-    if (!best) break;
-    let ci = chains[best.i], cj = chains[best.j];
-    if (best.ei === 'start') ci = ci.slice().reverse();
-    if (best.ej === 'end') cj = cj.slice().reverse();
-    const joined = ci.concat(cj);
-    chains.splice(Math.max(best.i, best.j), 1); chains.splice(Math.min(best.i, best.j), 1); chains.push(joined);
-  }
-  return chains;
-}
+// (morphology, weldChains, skeletonStats now live in lineTrace.mjs — shared across tracing tools, see L110)
 const norm = (p) => ({ x: p.x / W, y: p.y / H });
 // single light smoothing pass keeps sharp tips (horns / wing tip / trident prongs) while de-staircasing
 const closed = (mask, n) => resampleClosed(smoothRing(traceContour(mask, W, H), 2), n).map(norm);
@@ -130,8 +105,11 @@ if (existsSync(boneFile)) {
   let cMinX = W, cMinY = H, cMaxX = 0, cMaxY = 0; for (let i = 0; i < W * H; i++) if (keepCell.has(cellLab[i])) { const x = i % W, y = (i / W) | 0; if (x < cMinX) cMinX = x; if (x > cMaxX) cMaxX = x; if (y < cMinY) cMinY = y; if (y > cMaxY) cMaxY = y; }
   const PAD = 26, wingInk = new Uint8Array(W * H);
   for (let y = Math.max(0, cMinY - PAD); y <= Math.min(H - 1, cMaxY + PAD); y++) for (let x = Math.max(0, cMinX - PAD); x <= Math.min(W - 1, cMaxX + PAD); x++) { const i = y * W + x; if (wink[i] && x > 0.45 * W) wingInk[i] = 1; }
-  strutsRaw = weldChains(skeletonToPolylines(thin(wingInk, W, H), W, H, 6), 9, 0.45).filter((c) => plen(c) > 14).map((c) => resampleOpen(smoothOpen(c, 1), clamp(Math.round(plen(c) / 7), 3, 40)).map(norm));
-  console.log(`WING bones (auto fallback): ${strutsRaw.length} bone polylines`);
+  const wskel = thin(morphClose(wingInk, W, H, 1), W, H);   // CLOSE micro-gaps before thinning (L110) so lines don't shatter
+  const st = skeletonStats(wskel, W, H);                    // numeric QA: flag pathological fragmentation up front
+  if (st.fragments > st.endpoints * 6) console.warn(`⚠ WING skeleton fragmentation: ${st.fragments} fragments vs ${st.endpoints} endpoints (${st.junctions} junctions) — weld will rejoin`);
+  strutsRaw = weldChains(skeletonToPolylines(wskel, W, H, 6), 9, 0.45).filter((c) => plen(c) > 14).map((c) => resampleOpen(smoothOpen(c, 1), clamp(Math.round(plen(c) / 7), 3, 40)).map(norm));
+  console.log(`WING bones (auto fallback): ${strutsRaw.length} bone polylines (skeleton ${st.fragments} frags→welded)`);
 }
 
 // ── PLACE the wing onto the body, MATCHED to the colour reference ────────────

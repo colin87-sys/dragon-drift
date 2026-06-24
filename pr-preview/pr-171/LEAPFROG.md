@@ -16,6 +16,25 @@ lessons for the one after. That is the whole studio: we rapidly improve the game
 
 ---
 
+## 📂 LESSON INDEX (by topic) — read only what's relevant to your task
+
+The ledger below is **append-only** (L1… plus older `## Lesson —` blocks). This map lets a fresh session jump
+to the relevant lessons instead of reading 3000+ lines. **When you add a lesson, also add its number here.**
+
+- **CELESTIAL STORM dragon — current arc (L90–L110)** — clean-sheet rear-cam (dorsal) creature traced from concept art:
+  - *2D trace → definition:* **L90, L92** (silhouette + armour plates + struts), **L95** (auto-fit the wing to the colour reference: scale/sweep), **L108** (grow tagged fills out to the stencil stroke)
+  - *Wing BONES (long, hard sub-arc):* **L100** (radial-framework attempt — wrong), **L101** (extract from the stencil, never invent), **L103–L104** (membrane COMPARTMENTS; "uncoloured = bone"), **L109** (ingest the human-tagged bone shapes; render as solid slabs)
+  - *Accuracy + labeling TOOLS:* **L93** (`traceCheck` overlay-on-art), **L94** (`traceAlign` registration), **L95** (`traceSuper` scale-matched overlay), **L102** (`celestialWingPaint`), **L105–L107** (`celestialBoneEditor`: delete/add/bridge/fill-bone/fill-membrane/vein + sealed-green check + zoom)
+  - *3D EXTRUSION / previewer (`tools/celestial3D.html`):* **L96** (loft body + extrude), **L97** (dorsoventral wingbeat, not in-plane), **L98** (trident branch loft + membrane billow), **L99** (surfacing v1: raised armour scales)
+  - *TRACING ROBUSTNESS / gotchas:* **L110** (skeleton fragmentation + threshold fragility → the fix kit: `morphClose` close-before-thin, `weldChains`, region-based capture, numeric `skeletonStats` QA — all in `lineTrace.mjs`)
+- **Earlier arcs (read the HANDOFF + roadmap below for these):**
+  - *Creature hull / "organism" tech* — body+wings as one skinned hull, weld kernel, shader relief: **L23–L32** + `UNIFIED_HULL_PLAN.md`
+  - *Wing FLAP / motion feel* — the `## Lesson — Wing flap…` blocks (search "Wing flap"); apex/yoke/5-phase envelope
+  - *Silhouette feedback loop & sculpting* — the `## Lesson —` blocks around the tracer/silhouette mirror
+  - *DOCTRINE* — "A PART IS A MULTI-MODULE ARTICULATED ASSEMBLY" (search that heading)
+
+---
+
 ## ▶ HANDOFF — read this FIRST to pick up where the last session left off
 
 You are a fresh session continuing **Dragon Drift** (the `reforged/` rewrite). Read this
@@ -3433,3 +3452,11 @@ Robust pipeline that won: region/compartment capture (keys on enclosed AREAS, no
 editor with the sealed/green check + weld + tip-spear. **Reusable: for hand-drawn line-art, skeletons are
 inherently shattered at junctions and fragile at the threshold — close-before-thin, weld-after, prefer regions,
 and QA with NUMBERS not just overlays.**
+
+### L111 — Prevention baked in + lesson index added
+Acted on L110: moved morphology + `morphClose` (close-before-thin) + `weldChains` + `skeletonStats` into
+`lineTrace.mjs` as shared, reusable tracing primitives; the bone extractors now CLOSE micro-gaps before
+thinning and LOG a numeric fragmentation report (warn if fragments ≫ endpoints) — so the body/veins/next
+dragon won't shatter the way the wing did. Also added a **📂 LESSON INDEX (by topic)** near the top of this
+file so a fresh session reads only the relevant lessons (and must add its lesson number there). Reusable:
+**when a debug yields a fix kit, promote it to the shared module + index it, don't leave it in one tool.**
