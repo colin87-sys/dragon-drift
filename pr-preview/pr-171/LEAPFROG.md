@@ -3148,3 +3148,27 @@ Reusable: when a feature is correct in isolation but wrong after a merge, the bu
 (independent passes that don't share vertices / over-aggressive cleanup), and the cure is a shared-source
 extraction + an overlay diff to prove it. **→ Leapfrog:** Phase 2 can now extrude with confidence — outline +
 struts are co-registered; optionally promote the head/horn top-region to its own labelled segment for shaping.
+
+### L94 — The stencil layers are NOT in a shared frame; place the wing EXPLICITLY (root anchor + span), and overlay-on-reference to prove it
+The human zoomed the QA overlay: "what are the weird horizontal lines?" (the cyan VEIN trace — stray
+horizontal fragments, not real veins → **dropped**; veins will be emissive glow along the struts in 3D) and
+"the wings are incorrectly lined up with the body — check the reference + overlay". Built
+**`tools/traceAlign.mjs`** (overlay the def on the full COLOUR reference) and measured layer bboxes — the key
+discovery: **the stencil set and the colour set are different artworks at different scales/positions.**
+stencil-wings centre-Y = 0.325 / 34.9% tall vs the colour `wings` layer 0.442 / 24.5%; the colour `torso`
+layer is 88% tall vs the `full` composite at 57%. So you CANNOT auto-register one layer onto another by
+bbox-fitting — it distorts and the attach height drifts (first attempt put the wings at 41% down the body).
+Fix (in `traceDefinition.mjs`): the body keeps its OWN frame; the wing is **placed explicitly** —
+anchor the wing ROOT (its innermost point) to the body centreline at a tunable height, uniform-scale by span:
+```
+const WING_SPAN = 0.94;       // both-wings span as a fraction of canvas width
+const WING_ATTACH_Y = 0.26;   // wing-root height as a fraction down the body (0 = top of head)
+```
+Two dials, matched to the reference, nudge for up/down + wider/narrower. Now the wings sweep up-and-out from
+the shoulders like the concept. Gotchas: (1) **don't trust "same canvas size ⇒ registered"** (L90) for a
+DIFFERENT art set — verify by bbox/centroid before compositing; same dimensions ≠ same frame. (2) When two
+sources can't be auto-registered, **expose the placement as explicit tunable constants** instead of forcing a
+fragile fit — controllable + reference-matchable beats clever-but-wrong. (3) anchor by a semantic POINT (the
+root), not bbox corners, so uniform scale preserves the wing's aspect. **→ Leapfrog:** `celestialDef.js` now
+assembles correctly (body frame + placed wings, veins dropped); Phase 2 extrusion can read WING_ATTACH_Y as
+the 3D shoulder mount height.

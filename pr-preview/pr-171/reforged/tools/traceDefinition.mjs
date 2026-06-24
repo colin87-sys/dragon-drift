@@ -26,7 +26,6 @@ const W = 941, H = 1672;
 
 // ── masks + morphology ──────────────────────────────────────────────────────
 const inkMask = (rgba, thr = 200) => { const m = new Uint8Array(W * H); for (let i = 0; i < W * H; i++) { const o = i * 4; m[i] = lum(rgba[o], rgba[o + 1], rgba[o + 2]) < thr ? 1 : 0; } return m; };
-const cyanMask = (rgba) => { const m = new Uint8Array(W * H); for (let i = 0; i < W * H; i++) { const o = i * 4, r = rgba[o], g = rgba[o + 1], b = rgba[o + 2]; m[i] = (b > 120 && g > 95 && b >= r - 10 && (g - r) > 4) ? 1 : 0; } return m; };
 function morph(mask, iters, grow) {
   let cur = mask;
   for (let it = 0; it < iters; it++) { const out = new Uint8Array(W * H);
@@ -52,6 +51,8 @@ function components(mask, keep, minPx) {
   return ids.map(({ id }) => { const out = new Uint8Array(W * H); for (let i = 0; i < W * H; i++) out[i] = lab[i] === id ? 1 : 0; return out; });
 }
 const centroidX = (m) => { let sx = 0, n = 0; for (let i = 0; i < W * H; i++) if (m[i]) { sx += i % W; n++; } return n ? sx / n / W : 0.5; };
+// bbox of a list of {x,y} points (normalized)
+function bboxPts(pts) { let minX = 1, minY = 1, maxX = 0, maxY = 0; for (const p of pts) { if (p.x < minX) minX = p.x; if (p.x > maxX) maxX = p.x; if (p.y < minY) minY = p.y; if (p.y > maxY) maxY = p.y; } return { minX, minY, maxX, maxY, w: maxX - minX, h: maxY - minY }; }
 const norm = (p) => ({ x: p.x / W, y: p.y / H });
 // single light smoothing pass keeps sharp tips (horns / wing tip / trident prongs) while de-staircasing
 const closed = (mask, n) => resampleClosed(smoothRing(traceContour(mask, W, H), 2), n).map(norm);
@@ -59,7 +60,7 @@ const closed = (mask, n) => resampleClosed(smoothRing(traceContour(mask, W, H), 
 // ── BODY: silhouette + armour-plate cells + trident ─────────────────────────
 const bink = inkMask(load('stencil-body').rgba);
 const bsolid = erode(fillInside(dilate(bink, 2)), 2);
-const bodySilhouette = closed(components(bsolid, 1, 5000)[0], 360);
+const bodySilhouetteRaw = closed(components(bsolid, 1, 5000)[0], 360);
 // interior cells: components of NON-(sealed ink) that don't touch the border
 const bsealed = dilate(bink, 1);
 const lab = new Int32Array(W * H), border = [false]; let cur = 0;
@@ -82,7 +83,7 @@ const wsolidAll = erode(fillInside(dilate(wink, 2)), 2);
 const wings2 = components(wsolidAll, 2, 4000);
 const rightSolid = centroidX(wings2[0]) > 0.5 ? wings2[0] : wings2[1];
 const region = dilate(rightSolid, 6);                          // selector for the right wing's internal lines
-const wingSilhouette = closed(rightSolid, 320);
+const wingSilhouetteRaw = closed(rightSolid, 320);
 // STRUTS — from the FULL skeleton of the right wing so struts + outline share junctions (they line up by
 // construction and every strut reaches the membrane edge). Keep short branches (wrist/thumb horns). Drop only
 // the polylines that ARE the outline (mostly inside the boundary band); internal finger-spokes survive whole.
@@ -94,14 +95,29 @@ const sampleBand = (x, y) => wband[Math.min(H - 1, Math.max(0, Math.round(y))) *
 const plen = (p) => { let s = 0; for (let i = 1; i < p.length; i++) s += Math.hypot(p[i].x - p[i - 1].x, p[i].y - p[i - 1].y); return s; };
 const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
 const allWingPolys = skeletonToPolylines(rightSkel, W, H, 10);
-const struts = allWingPolys
+const strutsRaw = allWingPolys
   .filter((p) => (p.reduce((s, q) => s + (sampleBand(q.x, q.y) ? 1 : 0), 0) / p.length) < 0.6)  // not an outline chain
   .map((p) => resampleOpen(smoothOpen(p, 1), clamp(Math.round(plen(p) / 8), 6, 32)).map(norm));
-// veins: skeleton of the bright-cyan accents in the COLOUR wings, within the right wing
-const cyan = cyanMask(load('wings').rgba);
-const cyanRight = new Uint8Array(W * H); for (let i = 0; i < W * H; i++) cyanRight[i] = (cyan[i] && region[i]) ? 1 : 0;
-const veinSkel = thin(erode(dilate(cyanRight, 3), 1), W, H);   // dilate to bridge the dashed "lightning" gaps, then thin
-const veins = skeletonToPolylines(veinSkel, W, H, 14).map((p) => resampleOpen(smoothOpen(p, 2), Math.max(5, Math.min(24, Math.round(p.length / 9)))).map(norm));
+
+// ── PLACE the wing onto the body ────────────────────────────────────────────
+// The stencils are NOT in a shared frame (the wings stencil is drawn higher/larger than the body's frame),
+// so cross-fitting layers distorts. Instead the body keeps its own frame and the wing is placed EXPLICITLY:
+// anchor the wing ROOT to a point on the body centreline, scale by span. These two numbers are the tuning
+// dials (matched to the reference) — nudge them to move the wings up/down or wider/narrower.
+const WING_SPAN = 0.94;       // full (both-wings) span as a fraction of canvas width
+const WING_ATTACH_Y = 0.26;   // wing-root height as a fraction down the body silhouette (0 = top of head)
+const bodyBox = bboxPts(bodySilhouetteRaw);
+const wingBox = bboxPts(wingSilhouetteRaw);
+let wingRoot = wingSilhouetteRaw[0]; for (const p of wingSilhouetteRaw) if (p.x < wingRoot.x) wingRoot = p;  // innermost point
+const wingScale = (WING_SPAN / 2) / (wingBox.w || 1e-6);
+const attachY = bodyBox.minY + WING_ATTACH_Y * bodyBox.h;
+const place = (p) => ({ x: 0.5 + (p.x - wingRoot.x) * wingScale, y: attachY + (p.y - wingRoot.y) * wingScale });
+
+const bodySilhouette = bodySilhouetteRaw;
+const wingSilhouette = wingSilhouetteRaw.map(place);
+const struts = strutsRaw.map((s) => s.map(place));
+const veins = [];   // DROPPED — the cyan trace produced stray horizontal fragments, not real veins. In 3D the
+                    // veins become an emissive glow generated ALONG the struts (the original brief's intent).
 
 const totalBody = bodySilhouette.length + plates.reduce((s, p) => s + p.pts.length, 0);
 const totalWing = wingSilhouette.length + struts.reduce((s, p) => s + p.length, 0) + veins.reduce((s, p) => s + p.length, 0);
