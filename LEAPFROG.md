@@ -3550,3 +3550,16 @@ armour row, and the head→tail width taper falls out of the cell sizes for free
 toggle, leaves the armour scales intact. Lesson: **when an external stencil won't register on your traced
 geometry, don't force-fit it — DERIVE the feature from the geometry you already have. The repeated-motif-per-
 existing-cell pattern (diamond per armour row) guarantees alignment and inherits the body's proportions.**
+
+### L120 — Backface winding culled the spine to ONE diamond — and I mis-verified by reading the plate lattice
+The dorsal spine built 19 diamonds (console confirmed) but only ONE showed near the neck. Cause: the diamond
+fan triangles wound CLOCKWISE as seen from the rear camera (+z), so their normals pointed INTO the body and
+`FrontSide` culled them; only where the neck curves did one face the camera. Fix: reverse the fan index order
+(`base, (k+1)%4, k`) so faces are CCW-from-+z, plus `side: DoubleSide` as insurance. SECOND failure, worse:
+I had earlier declared the spine "reads cleanly" off a rear-zoom screenshot — but what I saw was the existing
+cyan PLATE-SEAM lattice, not my diamonds (which were culled). I pattern-matched "cyan down the centerline =
+success" instead of ISOLATING the new feature. Fix: `tools/spineDebug.mjs` toggles plates/seams/struts OFF and
+screenshots the spine ALONE. Lessons: **(a) any fan/strip built from an ordered rim has a winding that depends
+on the VIEW axis — verify it faces the camera, or use DoubleSide for thin decorative gems. (b) To verify a NEW
+overlay feature, ISOLATE it (hide everything else) — never eyeball it against a busy scene where pre-existing
+elements of the same colour will fool you into a false positive. This is L114 again: compare the right thing.**
