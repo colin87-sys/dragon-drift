@@ -23,7 +23,7 @@ to the relevant lessons instead of reading 3000+ lines. **When you add a lesson,
 
 - **CELESTIAL STORM dragon — current arc (L90–L110)** — clean-sheet rear-cam (dorsal) creature traced from concept art:
   - *2D trace → definition:* **L90, L92** (silhouette + armour plates + struts), **L95** (auto-fit the wing to the colour reference: scale/sweep), **L108** (grow tagged fills out to the stencil stroke)
-  - *Wing BONES (long, hard sub-arc):* **L100** (radial-framework attempt — wrong), **L101** (extract from the stencil, never invent), **L103–L104** (membrane COMPARTMENTS; "uncoloured = bone"), **L109** (ingest the human-tagged bone shapes; render as solid slabs)
+  - *Wing BONES (long, hard sub-arc):* **L100** (radial-framework attempt — wrong), **L101** (extract from the stencil, never invent), **L103–L104** (membrane COMPARTMENTS; "uncoloured = bone"), **L109** (ingest the human-tagged bone shapes; render as solid slabs), **L114** (over-correction → wiggly threads; smooth the spine, always re-compare before presenting), **L115** (keep the EXACT tagged 2D shape — 3D step is only thicken+taper, never re-derive), **L116** ("reads thick" has TWO knobs: z-thickness + in-plane stroke-halo; erode toward the crisp core)
   - *Accuracy + labeling TOOLS:* **L93** (`traceCheck` overlay-on-art), **L94** (`traceAlign` registration), **L95** (`traceSuper` scale-matched overlay), **L102** (`celestialWingPaint`), **L105–L107** (`celestialBoneEditor`: delete/add/bridge/fill-bone/fill-membrane/vein + sealed-green check + zoom)
   - *3D EXTRUSION / previewer (`tools/celestial3D.html`):* **L96** (loft body + extrude), **L97** (dorsoventral wingbeat), **L98** (trident branch + membrane billow), **L99** (surfacing v1: armour scales), **L112** (surfacing v2: fresnel rim-glow)
   - *TRACING ROBUSTNESS / gotchas:* **L110** (skeleton fragmentation + threshold fragility → the fix kit: `morphClose` close-before-thin, `weldChains`, region-based capture, numeric `skeletonStats` QA — all in `lineTrace.mjs`)
@@ -3503,3 +3503,16 @@ on the membrane plane, extrudes it with thickness, and tapers the thickness to 0
 shape's PCA long-axis → pointed tips, full body. No medial axis. Lesson: **when the human has already
 identified the exact 2D shape, the 3D step is ONLY thicken + taper along the existing outline — never
 re-extract a centerline that drifts from what they approved. Preserve approved data; transform minimally.**
+
+### L116 — "Reads a bit thick": thin via z-thickness AND trim the in-plane stroke HALO (erode, don't dilate-pad)
+Human, comparing the thickened bones to the painted reference: "they read a bit thick." Confirmed honestly
+against `full.png` — the reference's finger-struts are fine, bright, delicate glowing lines; mine were chunky
+on both axes. Two independent fat sources, both cut: **(1) z-thickness** `BONE_THICK 0.03→0.012` (arm ×1.5) —
+the extrusion was puffing crisp lines into tubes. **(2) in-plane halo** — the grown bone mask was
+`fill ∪ (dilate(fill,4)∩ink)`, hugging the OUTER edge of the drawn stroke (incl. its anti-aliased halo), then
+the contour was traced from `dilate(grown,1)` adding +1px more. Switched that to `erode(grown,1)` so the
+contour hugs the CRISP core of the tagged line, not the fat outer edge → −2px width vs before. **Keeps the
+exact path/location (L115) — only trims the edge fat, never moves the bone.** Result: fine glowing struts that
+match the reference's delicate feel. Lesson: **"too thick" on an extruded 2D shape has TWO knobs — extrusion
+depth and the in-plane contour's stroke-halo padding. Erode toward the crisp core to thin in-plane without
+relocating; cut extrusion depth for the z-read. Always re-compare to the painted reference before presenting (L114).**

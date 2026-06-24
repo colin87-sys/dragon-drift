@@ -21,6 +21,7 @@ for (const [a, b] of (J.bridges || [])) rasterLine(a, b, ink);
 
 const morph = (m, n, grow) => { let cur = m; for (let it = 0; it < n; it++) { const o = new Uint8Array(W * H); for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) { let v = grow ? 0 : 1; for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) { const nx = x + dx, ny = y + dy, s = (nx >= 0 && ny >= 0 && nx < W && ny < H) ? cur[ny * W + nx] : 0; if (grow) { if (s) v = 1; } else if (!s) v = 0; } o[y * W + x] = v; } cur = o; } return cur; };
 const dilate = (m, n) => morph(m, n, true);
+const erode = (m, n) => morph(m, n, false);
 // rasterize a normalized closed contour to a filled mask (scanline)
 function fillPoly(poly) {
   const P = poly.map(p => [p[0] * W, p[1] * H]); const m = new Uint8Array(W * H);
@@ -49,7 +50,9 @@ for (const shape of shapes) {
     for (let dy = -46; dy <= 46; dy++) for (let dx = -46; dx <= 46; dx++) { const x = e.x + dx, y = e.y + dy; if (x < 0 || y < 0 || x >= W || y >= H) continue; if (grown[y * W + x]) { const d = dx * dx + dy * dy; if (d < bd) { bd = d; best = { x, y }; } } }
     if (best && lineInk(best, e)) rasterInto(best, e, grown);
   }
-  const c = traceContour(dilate(grown, 1), W, H).map(p => [+(p.x / W).toFixed(4), +(p.y / H).toFixed(4)]);
+  // erode (not dilate-pad) so the contour hugs the CRISP tagged line, not the outer stroke halo → thinner struts
+  // to match the reference's fine glowing finger-struts. Keeps the exact path/location; just trims the fat edge.
+  const c = traceContour(erode(grown, 1), W, H).map(p => [+(p.x / W).toFixed(4), +(p.y / H).toFixed(4)]);
   if (c.length > 3) grownShapes.push({ mask: grown, contour: c });
 }
 console.log(`grew ${grownShapes.length} bone shapes to hug the stencil; ${(J.bones || []).length} bone lines kept`);
