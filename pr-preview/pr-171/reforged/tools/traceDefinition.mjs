@@ -84,19 +84,28 @@ const wings2 = components(wsolidAll, 2, 4000);
 const rightSolid = centroidX(wings2[0]) > 0.5 ? wings2[0] : wings2[1];
 const region = dilate(rightSolid, 6);                          // selector for the right wing's internal lines
 const wingSilhouetteRaw = closed(rightSolid, 320);
-// WING BONES traced from the ACTUAL stencil: skeletonize the drawn ink, then remove the thin OUTLINE ring so
-// only the INTERNAL drawn lines remain — the finger struts + inner arm/leading bone. These lie exactly on the
-// stencil's drawn lines (medial axis of the ink), verified by tools/traceWingBones.mjs. No invented geometry.
-const wskel = thin(wink, W, H);
-const rightSkel = new Uint8Array(W * H); for (let i = 0; i < W * H; i++) rightSkel[i] = (wskel[i] && region[i]) ? 1 : 0;
-const be = erode(rightSolid, 3), bd = dilate(rightSolid, 1);
-const oband = new Uint8Array(W * H); for (let i = 0; i < W * H; i++) oband[i] = (bd[i] && !be[i]) ? 1 : 0;     // ~4px outline ring
-const internal = new Uint8Array(W * H); for (let i = 0; i < W * H; i++) internal[i] = (rightSkel[i] && !oband[i]) ? 1 : 0;
+// WING STRUTS via membrane COMPARTMENTS (verified in tools/traceWingCells.mjs): the drawn struts tile the wing
+// into cells; the lines BETWEEN two cells ARE the finger struts. Label the interior (enclosed) non-ink cells of
+// the right wing, then a strut pixel = ink with two different cell-labels within radius R. The result lies
+// exactly on the stencil's drawn lines — no invented geometry.
 const plen = (p) => { let s = 0; for (let i = 1; i < p.length; i++) s += Math.hypot(p[i].x - p[i - 1].x, p[i].y - p[i - 1].y); return s; };
 const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
-const strutsRaw = skeletonToPolylines(internal, W, H, 14).map((p) => resampleOpen(smoothOpen(p, 1), clamp(Math.round(plen(p) / 7), 3, 30)).map(norm));
+const cellLab = new Int32Array(W * H); let cid = 0; const keepCell = new Set();
+for (let s = 0; s < W * H; s++) {
+  if (wink[s] || cellLab[s]) continue;
+  cid++; const st = [s]; cellLab[s] = cid; let n = 0, border = false, sx = 0;
+  while (st.length) { const p = st.pop(); n++; const x = p % W, y = (p / W) | 0; sx += x; if (x === 0 || y === 0 || x === W - 1 || y === H - 1) border = true; const t = (q, ok) => { if (ok && !wink[q] && !cellLab[q]) { cellLab[q] = cid; st.push(q); } }; if (x) t(p - 1, 1); if (x < W - 1) t(p + 1, 1); if (y) t(p - W, 1); if (y < H - 1) t(p + W, 1); }
+  if (!border && n > 250 && sx / n / W > 0.5) keepCell.add(cid);   // interior compartment on the right wing
+}
+const R = 7, strutMask = new Uint8Array(W * H);
+for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+  const i = y * W + x; if (!wink[i]) continue; let a = 0, b = 0;
+  for (let dy = -R; dy <= R && !b; dy++) for (let dx = -R; dx <= R; dx++) { if (dx * dx + dy * dy > R * R) continue; const nx = x + dx, ny = y + dy; if (nx < 0 || ny < 0 || nx >= W || ny >= H) continue; const l = cellLab[ny * W + nx]; if (l && keepCell.has(l)) { if (!a) a = l; else if (l !== a) { b = l; break; } } }
+  if (a && b) strutMask[i] = 1;
+}
+const strutsRaw = skeletonToPolylines(thin(strutMask, W, H), W, H, 10).map((p) => resampleOpen(smoothOpen(p, 1), clamp(Math.round(plen(p) / 7), 3, 30)).map(norm));
 const wingRoot = wingSilhouetteRaw.reduce((a, p) => Math.abs(p.x - 0.5) < Math.abs(a.x - 0.5) ? p : a, wingSilhouetteRaw[0]);
-console.log(`WING bones: ${strutsRaw.length} struts traced from the stencil ink (internal skeleton)`);
+console.log(`WING bones: ${strutsRaw.length} struts from ${keepCell.size} membrane compartments (borders between cells)`);
 
 // ── PLACE the wing onto the body, MATCHED to the colour reference ────────────
 // The stencils are NOT in the body's frame, so the wing is placed explicitly AND auto-fitted to the art:
