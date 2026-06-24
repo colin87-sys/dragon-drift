@@ -3634,3 +3634,14 @@ billow peak is 0.06) so the sheet never overlaps a strut from the front. Lesson:
 whatever opaque geometry sits BEHIND it; if a part must keep its own colour, push it clearly in front of every
 transparent surface that could screen-overlap it — and remember a depth/cup-direction change silently alters
 which things are in front of which. When colours look wrong but the material is shared, suspect transparency.**
+
+### L127 — Horns: short/thick/rear-swept crystalline crown, seated on the head (not floating lavender antennae)
+Horns read as two long thin lavender antennae floating in a wide upward V above a gap. Reference: a short,
+thick-based, REAR-SWEPT crystalline crown (dark violet, cyan edge-glow) seated on the head. Fixes in
+`curvedHorn`: len 1.25→0.9, base radius 0.14→0.22 (thicker) with sharper taper (pow 1.7), up-vector x 0.18→0.10
+(tighter V), curl z −0.85→−1.15 + y −0.12 (sweep strongly back, slight backward hook). Seated the base into the
+crown (`y+0.025`, `surfZ+0.05`) so it emerges from the head instead of floating. Recoloured `matHorn` from pale
+lavender to dark crystalline violet (`0x2c2278`) with a strong cyan rim. Spear also saturated to vivid violet
+(rim cyan→violet, lower strength, so it stops whitening). Lesson: **horns/spikes read as "antennae" when too
+long+thin+upright+pale; the fix is shorter + thicker base + rear-sweep + seat-into-surface + a darker body with
+edge-glow. A thin appendage's silhouette and its anchoring sell it more than its length.**

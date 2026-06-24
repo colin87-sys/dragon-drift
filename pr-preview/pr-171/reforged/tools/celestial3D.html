@@ -98,7 +98,7 @@ const matMembrane = fresnelRim(new THREE.MeshStandardMaterial({ color: 0x2a1556,
 const matStrut = new THREE.MeshStandardMaterial({ color: 0x8fd8ff, roughness: 0.35, metalness: 0.4, emissive: 0x2a6f9e, emissiveIntensity: 1.3 });
 const matSpine = fresnelRim(new THREE.MeshStandardMaterial({ color: 0x4fd6ff, roughness: 0.28, metalness: 0.45, emissive: 0x17a8da, emissiveIntensity: 1.7, side: THREE.DoubleSide }), 0xbff2ff, 2.3, 1.2);   // bright cyan dorsal follow-line
 const matSpar = fresnelRim(new THREE.MeshStandardMaterial({ color: 0xd6efff, roughness: 0.3, metalness: 0.45, emissive: 0x6ab2dc, emissiveIntensity: 1.1 }), 0xffffff, 3.2, 0.7);   // pale iridescent bone
-const matHorn = fresnelRim(new THREE.MeshStandardMaterial({ color: 0x8a78ff, roughness: 0.32, metalness: 0.55, emissive: 0x46329e, emissiveIntensity: 1.0 }), 0xb9a0ff, 2.6, 0.9);
+const matHorn = fresnelRim(new THREE.MeshStandardMaterial({ color: 0x2c2278, roughness: 0.38, metalness: 0.55, emissive: 0x201a58, emissiveIntensity: 0.7 }), 0x7fd8ff, 2.4, 1.15);   // dark crystalline horn, cyan edge-glow
 const matSpear = fresnelRim(new THREE.MeshStandardMaterial({ color: 0x5a1fcc, roughness: 0.55, metalness: 0.1, emissive: 0x4416ac, emissiveIntensity: 0.95, side: THREE.DoubleSide }), 0x9a5cff, 2.6, 0.45);   // crystalline tail spear (saturated violet, violet rim)
 const matCore = new THREE.MeshStandardMaterial({ color: 0xbff2ff, roughness: 0.3, metalness: 0.3, emissive: 0x3fc8ff, emissiveIntensity: 1.8 });   // bright cyan spear core
 
@@ -248,12 +248,13 @@ const surfZ = (p) => bodySurfaceZ(stations, p[0], p[1]);
 
 // HEAD horns — curved tapered horns sweeping up & back from each horn tip
 function curvedHorn(h, side) {
-  const base = pt(h[0], h[1], surfZ(h));
-  const N = 12, R = 8, len = 1.25, r0 = 0.14, pos = [], idx = [];
-  const up = new THREE.Vector3(side * 0.18, 1, 0.5).normalize();      // up + toward camera (dorsal) + slight out
-  const curl = new THREE.Vector3(side * 0.3, 0.1, -0.85);             // curl outward and back as it rises
+  const seat = [h[0], h[1] + 0.025];                                  // seat the base into the head crown (no float)
+  const base = pt(seat[0], seat[1], surfZ(seat) + 0.05);
+  const N = 12, R = 8, len = 0.9, r0 = 0.22, pos = [], idx = [];      // shorter + thicker base than before
+  const up = new THREE.Vector3(side * 0.1, 1, 0.28).normalize();      // mostly up, slight forward — tighter V
+  const curl = new THREE.Vector3(side * 0.34, -0.12, -1.15);          // sweep outward a touch and strongly BACK (rear-swept crown)
   for (let i = 0; i <= N; i++) {
-    const t = i / N, rad = r0 * Math.pow(1 - t, 1.4);
+    const t = i / N, rad = r0 * Math.pow(1 - t, 1.7);
     const c = base.clone().addScaledVector(up, len * t).addScaledVector(curl, len * t * t * 0.7);
     for (let s = 0; s < R; s++) { const a = s / R * Math.PI * 2; pos.push(c.x + Math.cos(a) * rad, c.y, c.z + Math.sin(a) * rad); }
   }
