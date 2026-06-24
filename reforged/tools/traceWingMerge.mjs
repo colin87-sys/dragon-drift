@@ -7,7 +7,7 @@ import { writeFileSync, readFileSync } from 'node:fs';
 import { deflateSync } from 'node:zlib';
 import { decodePNG } from './pngDecode.mjs';
 import { traceContour } from './tracerCore.mjs';
-import { thin, skeletonToPolylines, lum } from './lineTrace.mjs';
+import { thin, skeletonToPolylines, lum, morphClose, skeletonStats } from './lineTrace.mjs';
 
 const W = 941, H = 1672;
 const DIR = new URL('./refs/celestial/', import.meta.url).pathname;
@@ -33,7 +33,8 @@ function fillPoly(poly) {
 //  the arm in the editor: bridge its open origin, then fill bone — so its real edges are chosen, not guessed.)
 const shapes = (J.boneShapes || []).slice();
 // skeleton endpoints (degree-1) = the SHARP tips of the drawn bones; we spear each grown bone out to its tip.
-const skel = thin(ink, W, H), endpoints = [];
+const skel = thin(morphClose(ink, W, H, 1), W, H), endpoints = [];   // close micro-gaps before thinning (L110)
+{ const st = skeletonStats(skel, W, H); console.log(`wing skeleton: ${st.fragments} fragments · ${st.junctions} junctions · ${st.endpoints} endpoints`); }
 for (let y = 1; y < H - 1; y++) for (let x = 1; x < W - 1; x++) { if (!skel[y * W + x]) continue; let dN = 0; for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) if (!(dx === 0 && dy === 0) && skel[(y + dy) * W + (x + dx)]) dN++; if (dN === 1) endpoints.push({ x, y }); }
 const lineInk = (a, b) => { const n = Math.max(1, Math.hypot(b.x - a.x, b.y - a.y) | 0); let hit = 0; for (let s = 0; s <= n; s++) { const x = Math.round(a.x + (b.x - a.x) * s / n), y = Math.round(a.y + (b.y - a.y) * s / n); let ok = false; for (let dy = -2; dy <= 2 && !ok; dy++) for (let dx = -2; dx <= 2; dx++) { const xx = x + dx, yy = y + dy; if (xx >= 0 && yy >= 0 && xx < W && yy < H && ink[yy * W + xx]) { ok = true; break; } } if (ok) hit++; } return hit / (n + 1) > 0.7; };
 const rasterInto = (a, b, m) => { const n = Math.max(1, Math.hypot(b.x - a.x, b.y - a.y) | 0); for (let s = 0; s <= n; s++) { const px = Math.round(a.x + (b.x - a.x) * s / n), py = Math.round(a.y + (b.y - a.y) * s / n); for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) { const x = px + dx, y = py + dy; if (x >= 0 && y >= 0 && x < W && y < H) m[y * W + x] = 1; } } };

@@ -9,6 +9,49 @@
 
 export const lum = (r, g, b) => r * 0.3 + g * 0.59 + b * 0.11;
 
+// ── morphology + tracing robustness (see LEAPFROG L110) ──────────────────────
+// Hand-drawn line-art is ~¼ anti-aliased grey straddling any hard threshold, so a raw mask has micro-gaps that
+// SHATTER the skeleton. CLOSE the mask (dilate→erode by r) BEFORE thinning to bridge those gaps. Pair with
+// skeletonStats() to flag pathological fragmentation with a NUMBER, not just an eyeball overlay.
+function morph(mask, w, h, iters, grow) {
+  let cur = mask;
+  for (let it = 0; it < iters; it++) {
+    const out = new Uint8Array(w * h);
+    for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) { let v = grow ? 0 : 1; for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) { const nx = x + dx, ny = y + dy, s = (nx >= 0 && ny >= 0 && nx < w && ny < h) ? cur[ny * w + nx] : 0; if (grow) { if (s) v = 1; } else if (!s) v = 0; } out[y * w + x] = v; }
+    cur = out;
+  }
+  return cur;
+}
+export const dilate = (m, w, h, r = 1) => morph(m, w, h, r, true);
+export const erode = (m, w, h, r = 1) => morph(m, w, h, r, false);
+export const morphClose = (m, w, h, r = 1) => erode(dilate(m, w, h, r), w, h, r);   // bridge threshold micro-gaps
+// fragmentation report for a skeleton mask: { fragments, junctions, endpoints } — a numeric QA signal
+export function skeletonStats(skel, w, h) {
+  let junctions = 0, endpoints = 0;
+  for (let y = 1; y < h - 1; y++) for (let x = 1; x < w - 1; x++) { if (!skel[y * w + x]) continue; let d = 0; for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) if (!(dx === 0 && dy === 0) && skel[(y + dy) * w + (x + dx)]) d++; if (d >= 3) junctions++; else if (d === 1) endpoints++; }
+  return { fragments: skeletonToPolylines(skel, w, h, 6).length, junctions, endpoints };
+}
+// WELD fragmented chains into continuous strokes: greedily join the pair of chain-ends that are close AND
+// collinear (straightest continuation), until none qualify. Pixel-space {x,y}. (See LEAPFROG L101/L110.)
+export function weldChains(polys, D = 9, cosMin = 0.45) {
+  const chains = polys.map(p => p.slice());
+  const uv = (ax, ay, bx, by) => { const dx = ax - bx, dy = ay - by, m = Math.hypot(dx, dy) || 1; return { x: dx / m, y: dy / m }; };
+  const dirOut = (c, e) => { const n = c.length; return e === 's' ? uv(c[0].x, c[0].y, c[Math.min(1, n - 1)].x, c[Math.min(1, n - 1)].y) : uv(c[n - 1].x, c[n - 1].y, c[Math.max(0, n - 2)].x, c[Math.max(0, n - 2)].y); };
+  for (; ;) {
+    let best = null;
+    for (let i = 0; i < chains.length; i++) for (let j = i + 1; j < chains.length; j++) for (const [ei, ej] of [['s', 's'], ['s', 'e'], ['e', 's'], ['e', 'e']]) {
+      const pi = ei === 's' ? chains[i][0] : chains[i][chains[i].length - 1], pj = ej === 's' ? chains[j][0] : chains[j][chains[j].length - 1];
+      const g = Math.hypot(pi.x - pj.x, pi.y - pj.y); if (g > D) continue;
+      const di = dirOut(chains[i], ei), dj = dirOut(chains[j], ej), dot = -(di.x * dj.x + di.y * dj.y); if (dot < cosMin) continue;
+      const sc = dot - g * 0.04; if (!best || sc > best.sc) best = { i, j, ei, ej, sc };
+    }
+    if (!best) break;
+    let ci = chains[best.i], cj = chains[best.j]; if (best.ei === 's') ci = ci.slice().reverse(); if (best.ej === 'e') cj = cj.slice().reverse();
+    chains.splice(Math.max(best.i, best.j), 1); chains.splice(Math.min(best.i, best.j), 1); chains.push(ci.concat(cj));
+  }
+  return chains;
+}
+
 // Zhang-Suen thinning. mask: Uint8Array(w*h) 1=line. Returns a 1px skeleton mask.
 export function thin(src, w, h) {
   const m = Uint8Array.from(src);
