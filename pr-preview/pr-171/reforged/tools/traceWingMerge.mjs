@@ -50,11 +50,12 @@ for (const shape of shapes) {
     for (let dy = -46; dy <= 46; dy++) for (let dx = -46; dx <= 46; dx++) { const x = e.x + dx, y = e.y + dy; if (x < 0 || y < 0 || x >= W || y >= H) continue; if (grown[y * W + x]) { const d = dx * dx + dy * dy; if (d < bd) { bd = d; best = { x, y }; } } }
     if (best && lineInk(best, e)) rasterInto(best, e, grown);
   }
-  // erode (not dilate-pad) so the contour hugs the CRISP tagged line, not the outer stroke halo → thinner struts
-  // to match the reference's fine glowing finger-struts. Keeps the exact path/location; just trims the fat edge.
+  // Trace the FULL grown mask (no erode!). A uniform erode barely dents fat bones but COLLAPSES the thinnest
+  // leading-edge finger-struts to slivers → they vanished in 3D. Thinness comes from z-thickness (BONE_THICK),
+  // never from shrinking the in-plane mask, which would lose the delicate bones.
   // Then SMOOTH the contour: a raw pixel-traced outline is staircased/jaggy (reads as wobbly struts in 3D).
   // resample to even spacing → smooth the ring hard → resample again → clean flowing edges that keep the shape.
-  let ring = traceContour(erode(grown, 1), W, H);
+  let ring = traceContour(grown, W, H);
   if (ring.length > 8) { ring = resampleClosed(ring, 80); for (let k = 0; k < 6; k++) ring = smoothRing(ring, 2); ring = resampleClosed(ring, 64); }
   const c = ring.map(p => [+(p.x / W).toFixed(4), +(p.y / H).toFixed(4)]);
   if (c.length > 3) grownShapes.push({ mask: grown, contour: c });
