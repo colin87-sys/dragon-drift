@@ -32,7 +32,9 @@ ok('body silhouette is a vertical fuselage');
 assert(D.wing.silhouette.length >= 200, `wing silhouette is dense (${D.wing.silhouette.length})`);
 assert(D.wing.struts.length >= 8, `wing has a real strut set (${D.wing.struts.length})`);
 for (const s of D.wing.struts) assert(s.length >= 2, 'strut is an open polyline');
-assert(norm([D.wing.silhouette, ...D.wing.struts, ...D.wing.veins]), 'all wing coords normalized 0..1');
+// wings extend BEYOND the body canvas (large wingspan, tips above the head) — bound to a sane envelope, not 0..1
+const wingEnv = [D.wing.silhouette, ...D.wing.struts].every((c) => c.every((p) => p[0] >= -0.8 && p[0] <= 1.8 && p[1] >= -0.8 && p[1] <= 1.1));
+assert(wingEnv, 'wing coords within a sane envelope (wings reach past the body canvas)');
 ok(`wing — ${D.wing.silhouette.length}-pt silhouette + ${D.wing.struts.length} struts + ${D.wing.veins.length} veins`);
 
 // the traced wing is on ONE side of the mirror axis (it gets reflected for the other)

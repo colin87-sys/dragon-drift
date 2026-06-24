@@ -3172,3 +3172,29 @@ fragile fit — controllable + reference-matchable beats clever-but-wrong. (3) a
 root), not bbox corners, so uniform scale preserves the wing's aspect. **→ Leapfrog:** `celestialDef.js` now
 assembles correctly (body frame + placed wings, veins dropped); Phase 2 extrusion can read WING_ATTACH_Y as
 the 3D shoulder mount height.
+
+### L95 — Compare at MATCHED SCALE (head-to-tail), then auto-fit the wing to the reference (span + sweep, not just position)
+The human: "superimpose the original with this, scale so head-to-tail lengths match (correct scale), then you
+can see where the wing is vs the long axis — and the wing ORIENTATION is off." Built **`tools/traceSuper.mjs`**:
+overlays `celestialDef.js` on the colour reference, scaled so the BODY head-to-tail length matches (the only
+honest scale), aligned on the long axis (head & tail found on the CENTRAL column so wing tips fanning off to
+the sides don't fool head detection). It prints metrics, which is what made the gap measurable instead of
+eyeballed:
+```
+DEF wing: tip -16% (above head) · 27% out · sweep 39°
+REF wing: tip -27%              · 59% out          (=> ~53°)
+```
+So the wing was ~HALF as wide and swept too shallow — position AND orientation wrong, exactly as flagged.
+Fix in `traceDefinition.mjs`: stop hand-tuning span; **auto-fit** the wing to the art. Measure the reference
+wing tip (highest subject pixel in the outer-left column) + the central head/tail axis, then place the wing by
+a pure **rotate + uniform-scale about the root** (no aspect distortion) so the root sits at WING_ATTACH_Y and
+the TIP lands on the reference tip. Result: DEF now equals REF (tip -27% / 59% out / 53°). WING_SCALE and
+WING_SWEEP_ADJ remain as manual nudges on top of the fit.
+Gotchas: (1) **a similarity transform (rotate+scale) needs ISOTROPIC px space** — do the math in `*W,*H`
+pixels, not normalized units (norm-x and norm-y have different px/unit since W≠H), or you shear the wing.
+(2) the wings legitimately reach ABOVE the head and PAST the canvas sides (big wingspan) — the old test
+assertion "all wing coords in 0..1" was wrong; bound wings to a sane envelope, keep the body strict.
+Reusable: **to compare a trace to reference art, normalize scale by a length you can measure in BOTH
+(head-to-tail on the central axis), print the residuals, and fit a transform to them** — overlay + numbers
+beats eyeballing every time. **→ Leapfrog:** the wing is now art-accurate in span+sweep; 3D extrusion reads
+WING_ATTACH_Y (shoulder mount) and the fitted wing directly.
