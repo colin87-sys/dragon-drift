@@ -38,7 +38,7 @@ for (const px of cells) {
   const m = new Uint8Array(W * H); for (const j of px) m[j] = 1;
   let ring = traceContour(dilate(m, W, H, 2), W, H);
   if (ring.length < 8) continue;
-  ring = resampleClosed(ring, 96); for (let k = 0; k < 5; k++) ring = smoothRing(ring, 2); ring = resampleClosed(ring, 48);
+  ring = resampleClosed(ring, 96); for (let k = 0; k < 2; k++) ring = smoothRing(ring, 1); ring = resampleClosed(ring, 64);   // light smoothing only — keep the sharp tips
   let cx = 0, cy = 0; for (const p of ring) { cx += p.x; cy += p.y; } cx /= ring.length; cy /= ring.length;
   diamonds.push({ cx: cx / W, cy: cy / H, w: (mxx - mnx) / W, h: (mxy - mny) / H, loop: ring.map(p => [+(p.x / W).toFixed(4), +(p.y / H).toFixed(4)]) });
 }
@@ -58,15 +58,28 @@ const chunk = (ty, d) => { const l = Buffer.alloc(4); l.writeUInt32BE(d.length, 
 // symmetric (polar radius averaged across the vertical axis = cleaning the traced edge, not inventing a shape),
 // and normalize to unit half-extents so it can be stamped + scaled onto each segment.
 const cand = central.filter(d => { const a = d.h / d.w; return a >= 1.6 && a <= 2.0 && d.cy > 0.33 && d.cy < 0.50; }).sort((a, b) => b.w * b.h - a.w * a.h)[0] || central[Math.floor(central.length / 2)];
+// CORNER-PRESERVING canonicalisation → POINTY diamonds, not round. The stencil diamond has 4 sharp tips
+// (top/bottom/left/right) joined by gently-convex edges. We find those 4 extremes, keep them as SHARP vertices,
+// and smooth ONLY the points along each edge (never across a corner) so the tips stay crisp. Then normalize.
 function canonicalize(d) {
-  const N = 72, pts = d.loop.map(p => ({ x: p[0] - d.cx, y: p[1] - d.cy }));
-  // polar samples (these plates are convex from centroid)
-  const ang = pts.map(p => ({ t: Math.atan2(p.y, p.x), r: Math.hypot(p.x, p.y) })).sort((a, b) => a.t - b.t);
-  const rAt = (t) => { while (t < -Math.PI) t += 2 * Math.PI; while (t > Math.PI) t -= 2 * Math.PI; let lo = ang[ang.length - 1], hi = ang[0]; for (let i = 0; i < ang.length; i++) { if (ang[i].t >= t) { hi = ang[i]; lo = ang[(i - 1 + ang.length) % ang.length]; break; } } let dt = hi.t - lo.t; if (dt <= 0) dt += 2 * Math.PI; let f = (t - lo.t); while (f < 0) f += 2 * Math.PI; f = dt ? f / dt : 0; return lo.r + (hi.r - lo.r) * f; };
-  const loop = [];
-  for (let i = 0; i < N; i++) { const t = -Math.PI + (2 * Math.PI) * i / N; const r = (rAt(t) + rAt(Math.PI - t)) / 2; loop.push([Math.cos(t) * r, Math.sin(t) * r]); }
-  let mx = 0, my = 0; for (const [x, y] of loop) { mx = Math.max(mx, Math.abs(x)); my = Math.max(my, Math.abs(y)); }
-  return loop.map(([x, y]) => [+(x / mx).toFixed(4), +(y / my).toFixed(4)]);   // unit half-extents
+  const loop = resampleClosed(d.loop.map(p => ({ x: p[0] - d.cx, y: p[1] - d.cy })), 200);
+  let iTop = 0, iBot = 0, iL = 0, iR = 0;
+  loop.forEach((p, i) => { if (p.y < loop[iTop].y) iTop = i; if (p.y > loop[iBot].y) iBot = i; if (p.x < loop[iL].x) iL = i; if (p.x > loop[iR].x) iR = i; });
+  const corners = [...new Set([iTop, iR, iBot, iL])].sort((a, b) => a - b);
+  const out = [];
+  for (let c = 0; c < corners.length; c++) {
+    const A = loop[corners[c]], B = loop[corners[(c + 1) % corners.length]];
+    // walk the traced arc A→B, measure its max OUTWARD bow off the chord → that's the edge convexity to reproduce
+    const arc = []; let i = corners[c]; for (; ;) { arc.push(loop[i]); if (i === corners[(c + 1) % corners.length]) break; i = (i + 1) % loop.length; }
+    const ex = B.x - A.x, ey = B.y - A.y, el = Math.hypot(ex, ey) || 1, nx = -ey / el, ny = ex / el;   // unit edge normal
+    const outward = (A.x + B.x) * nx + (A.y + B.y) * ny < 0 ? 1 : -1;                                   // point bow away from centre
+    let bow = 0; for (const p of arc) { const dv = ((p.x - A.x) * nx + (p.y - A.y) * ny) * outward; if (dv > bow) bow = dv; }
+    const M = 14;                                                                                       // rebuild edge: SHARP corner A + bowed straight edge
+    out.push({ x: A.x, y: A.y });
+    for (let j = 1; j < M; j++) { const t = j / M, bx = A.x + ex * t, by = A.y + ey * t, b = bow * Math.sin(Math.PI * t) * outward; out.push({ x: bx + nx * b, y: by + ny * b }); }
+  }
+  let mx = 0, my = 0; for (const p of out) { mx = Math.max(mx, Math.abs(p.x)); my = Math.max(my, Math.abs(p.y)); }
+  return out.map(p => [+(p.x / mx).toFixed(4), +(p.y / my).toFixed(4)]);   // unit half-extents
 }
 const canonical = canonicalize(cand);
 writeFileSync(new URL('./refs/celestial/spine-diamonds.json', import.meta.url).pathname, JSON.stringify({ axis, canonical, diamonds: central }));
