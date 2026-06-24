@@ -3336,3 +3336,13 @@ Fix (both tools): check a RADIUS (~7px) so a thick line between two cells still 
 tests across a drawn boundary must span the boundary's WIDTH — a 1px neighbour test silently returns nothing on
 thick strokes.** And: the human's segmentation framing ("fill the cell, the outline is the bone") was the right
 mental model — when an auto-trace keeps failing, adopt the human's framing literally.
+
+### L104 — "Uncolored = bone": the bones are ALL the drawn lines, not just inter-cell dividers
+The human painted the membrane cells and corrected the model: coloured = membrane, EVERY uncoloured line that
+joins up = bone. My L103 "border between two cells" extraction only caught dividers BETWEEN two membrane cells,
+so it missed every bone bordering a cell and the EXTERIOR — the leading frame, wingtip spikes, scallop edges.
+Fix: bones = the FULL skeleton of the wing ink (within the kept-cells' padded bbox so spikes/frame are
+included), not the inter-cell subset. `traceWingCells.mjs` overlays it: orange now covers every uncoloured line
+exactly. 13 cells → 88 bone polylines. Lesson: **don't over-filter art the human calls "all bones" — the
+membrane cells are only useful for LOCATING the wing; the bone set is the whole drawn line structure.** The
+compartment fill is the verification (what's membrane), the skeleton complement is the answer (what's bone).

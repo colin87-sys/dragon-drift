@@ -27,15 +27,17 @@ const comp = cells.filter(c => !c.border && c.n > 250 && c.cx > 0.5).sort((a, b)
 const keep = new Set(comp.map(c => c.id));
 console.log(`interior compartments (right wing): ${comp.length}  [sizes ${comp.slice(0, 12).map(c => c.n).join(', ')}]`);
 
-// strut mask = ink with TWO different KEPT cell-labels within radius R (the drawn line between two cells)
-const R = 7, strut = new Uint8Array(W * H);
-for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
-  const i = y * W + x; if (!ink[i]) continue; let a = 0, b = 0;
-  for (let dy = -R; dy <= R && !b; dy++) for (let dx = -R; dx <= R; dx++) { if (dx * dx + dy * dy > R * R) continue; const nx = x + dx, ny = y + dy; if (nx < 0 || ny < 0 || nx >= W || ny >= H) continue; const l = labels[ny * W + nx]; if (l && keep.has(l)) { if (!a) a = l; else if (l !== a) { b = l; break; } } }
-  if (a && b) strut[i] = 1;
-}
-const struts = skeletonToPolylines(thin(strut, W, H), W, H, 10);
-console.log(`strut polylines: ${struts.length}`);
+// BONES = ALL the drawn lines bounding the membrane (the human's rule: uncolored = bone). Take the ink within
+// a padded bbox of the kept cells (so we include the wingtip spikes + outer frame, not just inter-cell lines),
+// then skeletonize it → every bone line. R = how far a strut pixel can be from a cell (to drop stray ink).
+let cMinX = W, cMinY = H, cMaxX = 0, cMaxY = 0;
+for (let i = 0; i < W * H; i++) if (keep.has(labels[i])) { const x = i % W, y = (i / W) | 0; if (x < cMinX) cMinX = x; if (x > cMaxX) cMaxX = x; if (y < cMinY) cMinY = y; if (y > cMaxY) cMaxY = y; }
+const PAD = 26;
+const wingInk = new Uint8Array(W * H);
+for (let y = Math.max(0, cMinY - PAD); y <= Math.min(H - 1, cMaxY + PAD); y++) for (let x = Math.max(0, cMinX - PAD); x <= Math.min(W - 1, cMaxX + PAD); x++) { const i = y * W + x; if (ink[i] && x > 0.45 * W) wingInk[i] = 1; }
+const strut = thin(wingInk, W, H);
+const struts = skeletonToPolylines(strut, W, H, 10);
+console.log(`bone polylines (full wing skeleton): ${struts.length}`);
 
 // ── render: stencil ink (grey) + compartments (hued) + struts (orange) ──
 let minX = W, minY = H, maxX = 0, maxY = 0;
