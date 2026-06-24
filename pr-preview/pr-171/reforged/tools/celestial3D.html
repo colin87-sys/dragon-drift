@@ -82,7 +82,7 @@ function crossings(loop, ny) {
 // LOFT a closed silhouette into a 3D fuselage. Handles MULTIPLE spans per row (scanline can return several
 // segments) so the body can BRANCH — the trident tail splits into 3 prongs instead of being bridged into a
 // paddle. Rings are matched between rows by centroid; an unmatched ring is a prong tip and gets capped.
-function loftBody(loop, { rings = 200, seg = 16, depth = 0.5 } = {}) {
+function loftBody(loop, { rings = 200, seg = 16, dDorsal = 0.92, dVentral = 0.66 } = {}) {
   let minY = 1, maxY = 0; for (const p of loop) { if (p[1] < minY) minY = p[1]; if (p[1] > maxY) maxY = p[1]; }
   const rows = [], stations = [];
   for (let i = 0; i <= rings; i++) {
@@ -95,7 +95,8 @@ function loftBody(loop, { rings = 200, seg = 16, depth = 0.5 } = {}) {
     stations.push(spans.reduce((a, s) => s.hw > a.hw ? s : a, spans[0]));   // widest span = main body (for surface projection)
   }
   const pos = [], idx = [];
-  const ring = (sp) => { const base = pos.length / 3; for (let s = 0; s < seg; s++) { const a = (s / seg) * Math.PI * 2; const v = pt(sp.cx + sp.hw * Math.cos(a), sp.y, depth * sp.hw * Math.sin(a)); pos.push(v.x, v.y, v.z); } return base; };
+  // egg cross-section: rounded raised back (dorsal, +z toward camera), flatter belly (ventral, −z) → real mass
+  const ring = (sp) => { const base = pos.length / 3; for (let s = 0; s < seg; s++) { const a = (s / seg) * Math.PI * 2, sn = Math.sin(a); const v = pt(sp.cx + sp.hw * Math.cos(a), sp.y, (sn >= 0 ? dDorsal : dVentral) * sp.hw * sn); pos.push(v.x, v.y, v.z); } return base; };
   const band = (aB, bB) => { for (let s = 0; s < seg; s++) { const a = aB + s, a2 = aB + (s + 1) % seg, b = bB + s, b2 = bB + (s + 1) % seg; idx.push(a, b, a2, a2, b, b2); } };
   const cap = (base, sp, up) => { const c = pos.length / 3; const v = pt(sp.cx, sp.y, 0); pos.push(v.x, v.y, v.z); for (let s = 0; s < seg; s++) { const s2 = (s + 1) % seg; up ? idx.push(c, base + s2, base + s) : idx.push(c, base + s, base + s2); } };
   const rowRings = rows.map(spans => spans.map(sp => ({ sp, base: ring(sp) })));
@@ -114,7 +115,7 @@ function loftBody(loop, { rings = 200, seg = 16, depth = 0.5 } = {}) {
 function bodySurfaceZ(stations, x, y) {
   let best = stations[0], bd = 1e9; for (const st of stations) { const d = Math.abs(st.y - y); if (d < bd) { bd = d; best = st; } }
   const t = (x - best.cx) / best.hw; if (Math.abs(t) >= 1) return 0;
-  return 0.5 * best.hw * Math.sqrt(1 - t * t) + 0.004;   // depth=0.5 matches loft
+  return 0.92 * best.hw * Math.sqrt(1 - t * t) + 0.004;   // dorsal depth matches loft (dDorsal) so plates sit on the back
 }
 // triangulated flat-ish panel (wing membrane) with a z-function
 function panel(loop, zFn, material) {
@@ -140,7 +141,7 @@ const bodyGrp = new THREE.Group(), plateGrp = new THREE.Group(), seamGrp = new T
 root.add(bodyGrp, plateGrp, seamGrp, wingGrp, strutGrp);
 
 // BODY
-const { mesh: bodyMesh, stations } = loftBody(D.body.silhouette, { depth: 0.5 });
+const { mesh: bodyMesh, stations } = loftBody(D.body.silhouette);
 bodyGrp.add(bodyMesh);
 const surfZ = (p) => bodySurfaceZ(stations, p[0], p[1]);
 
