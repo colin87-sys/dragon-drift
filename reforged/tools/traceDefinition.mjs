@@ -84,10 +84,10 @@ const wings2 = components(wsolidAll, 2, 4000);
 const rightSolid = centroidX(wings2[0]) > 0.5 ? wings2[0] : wings2[1];
 const region = dilate(rightSolid, 6);                          // selector for the right wing's internal lines
 const wingSilhouetteRaw = closed(rightSolid, 320);
-// WING STRUTS via membrane COMPARTMENTS (verified in tools/traceWingCells.mjs): the drawn struts tile the wing
-// into cells; the lines BETWEEN two cells ARE the finger struts. Label the interior (enclosed) non-ink cells of
-// the right wing, then a strut pixel = ink with two different cell-labels within radius R. The result lies
-// exactly on the stencil's drawn lines — no invented geometry.
+// WING BONES = ALL the drawn lines (the human's rule: coloured cells = membrane, every uncoloured line = bone).
+// Verified in tools/traceWingCells.mjs: the membrane compartments are found only to locate the wing (their
+// padded bbox); the BONES are the full skeleton of the wing ink within it — leading frame, finger struts to
+// each scallop tip, thumb, long projection, wingtip spikes, and the trailing edge. Lies exactly on the stencil.
 const plen = (p) => { let s = 0; for (let i = 1; i < p.length; i++) s += Math.hypot(p[i].x - p[i - 1].x, p[i].y - p[i - 1].y); return s; };
 const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
 const cellLab = new Int32Array(W * H); let cid = 0; const keepCell = new Set();
@@ -97,15 +97,15 @@ for (let s = 0; s < W * H; s++) {
   while (st.length) { const p = st.pop(); n++; const x = p % W, y = (p / W) | 0; sx += x; if (x === 0 || y === 0 || x === W - 1 || y === H - 1) border = true; const t = (q, ok) => { if (ok && !wink[q] && !cellLab[q]) { cellLab[q] = cid; st.push(q); } }; if (x) t(p - 1, 1); if (x < W - 1) t(p + 1, 1); if (y) t(p - W, 1); if (y < H - 1) t(p + W, 1); }
   if (!border && n > 250 && sx / n / W > 0.5) keepCell.add(cid);   // interior compartment on the right wing
 }
-const R = 7, strutMask = new Uint8Array(W * H);
-for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
-  const i = y * W + x; if (!wink[i]) continue; let a = 0, b = 0;
-  for (let dy = -R; dy <= R && !b; dy++) for (let dx = -R; dx <= R; dx++) { if (dx * dx + dy * dy > R * R) continue; const nx = x + dx, ny = y + dy; if (nx < 0 || ny < 0 || nx >= W || ny >= H) continue; const l = cellLab[ny * W + nx]; if (l && keepCell.has(l)) { if (!a) a = l; else if (l !== a) { b = l; break; } } }
-  if (a && b) strutMask[i] = 1;
-}
-const strutsRaw = skeletonToPolylines(thin(strutMask, W, H), W, H, 10).map((p) => resampleOpen(smoothOpen(p, 1), clamp(Math.round(plen(p) / 7), 3, 30)).map(norm));
+// BONES = ALL drawn lines bounding the membrane (uncolored = bone): skeletonize the wing ink within the
+// kept-cells' padded bbox (so wingtip spikes + outer frame are included, not just inter-cell dividers).
+let cMinX = W, cMinY = H, cMaxX = 0, cMaxY = 0;
+for (let i = 0; i < W * H; i++) if (keepCell.has(cellLab[i])) { const x = i % W, y = (i / W) | 0; if (x < cMinX) cMinX = x; if (x > cMaxX) cMaxX = x; if (y < cMinY) cMinY = y; if (y > cMaxY) cMaxY = y; }
+const PAD = 26, wingInk = new Uint8Array(W * H);
+for (let y = Math.max(0, cMinY - PAD); y <= Math.min(H - 1, cMaxY + PAD); y++) for (let x = Math.max(0, cMinX - PAD); x <= Math.min(W - 1, cMaxX + PAD); x++) { const i = y * W + x; if (wink[i] && x > 0.45 * W) wingInk[i] = 1; }
+const strutsRaw = skeletonToPolylines(thin(wingInk, W, H), W, H, 10).map((p) => resampleOpen(smoothOpen(p, 1), clamp(Math.round(plen(p) / 7), 3, 30)).map(norm));
 const wingRoot = wingSilhouetteRaw.reduce((a, p) => Math.abs(p.x - 0.5) < Math.abs(a.x - 0.5) ? p : a, wingSilhouetteRaw[0]);
-console.log(`WING bones: ${strutsRaw.length} struts from ${keepCell.size} membrane compartments (borders between cells)`);
+console.log(`WING bones: ${strutsRaw.length} bone polylines (full wing skeleton; ${keepCell.size} membrane cells)`);
 
 // ── PLACE the wing onto the body, MATCHED to the colour reference ────────────
 // The stencils are NOT in the body's frame, so the wing is placed explicitly AND auto-fitted to the art:
