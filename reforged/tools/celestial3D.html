@@ -170,7 +170,7 @@ const starGeo = new THREE.SphereGeometry(0.055, 8, 8);
 const stars = new THREE.InstancedMesh(starGeo, matStar, D.body.plates.length);
 D.body.plates.forEach((pl, i) => {
   let cx = 0, cy = 0; for (const p of pl) { cx += p[0]; cy += p[1]; } cx /= pl.length; cy /= pl.length;
-  const v = pt(cx, cy, surfZ([cx, cy]) + 0.06);
+  const v = pt(cx, cy, surfZ([cx, cy]) + 0.015);   // seat the star-fleck just proud of the hull (a marking, not a float)
   stars.setMatrixAt(i, new THREE.Matrix4().makeTranslation(v.x, v.y, v.z));
 });
 stars.instanceMatrix.needsUpdate = true; starGrp.add(stars);
@@ -231,13 +231,16 @@ addEventListener('resize', resize); resize();
 // headless hooks (used by tools/celestial3Dshot.mjs)
 window.__ready = true;
 window.__view = (yawDeg, pitchR, flapOn) => { orbit.yaw = yawDeg * Math.PI / 180; orbit.pitch = pitchR ?? 0.22; orbit.dist = baseDist; spin = false; flap = !!flapOn; };
+window.__flapPose = (a) => { flap = false; for (const w of wingPivots) { w.pivot.rotation.y = w.side * a; w.pivot.rotation.z = 0; w.pivot.rotation.x = 0; } };
 
 const clock = new THREE.Clock(); let t = 0;
 function frame() {
   const dt = clock.getDelta(); t += dt;
   if (spin) orbit.yaw += dt * 0.5;
-  const fa = flap ? Math.sin(t * 1.6) * 0.32 : 0;
-  for (const w of wingPivots) w.pivot.rotation.z = w.side * fa * 0.5, w.pivot.rotation.x = -fa * 0.5;
+  // DORSOVENTRAL beat: rotate each wing about the body's FORWARD axis (Y) so the wings lift up off the back and
+  // press down (tips travel through depth), not sweeping within the flat rear-view plane.
+  const fa = flap ? Math.sin(t * 1.6) * 0.5 : 0;
+  for (const w of wingPivots) { w.pivot.rotation.y = w.side * fa; w.pivot.rotation.z = 0; w.pivot.rotation.x = 0; }
   root.position.y = -center.y + Math.sin(t * 1.6) * 0.12;   // gentle body bob synced to flap
   placeCamera();
   renderer.render(scene, camera);
