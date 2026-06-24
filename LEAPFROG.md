@@ -3601,3 +3601,14 @@ the silhouette, so the gradient washes toward the rim colour in tight views — 
 If more saturation is wanted, drop rimStr or gate the rim by |n·up|. Lesson: **inject look (gradient/stars) in
 object space off a known axis range; but a strong fresnel rim competes with a base gradient on slender forms —
 balance rim vs diffuse, don't just stack them.**
+
+### L124 — POINTY not round: reconstruct the diamond from its 4 corners + measured edge-bow; flip wing billow
+Two human notes: wings "billowed the wrong way" and diamonds must be "pointy, not round." (1) Wing billow: the
+membrane z had `−0.06·sin(...)` cupping AWAY from the camera; flipped the sign so it cups toward +z (dorsal/
+camera). (2) Pointy diamonds: corner-PINNED smoothing STILL rounded the tips because the pixel-traced cell
+(dilate+trace) is itself soft. Fix that actually works: find the 4 extreme corners, then REBUILD each edge as a
+straight chord between sharp corners plus the edge's MEASURED max outward bow (`bow·sin(πt)`). Sharp tips
+guaranteed (corner vertex emitted verbatim), edge convexity still traced from the source. Lesson: **to keep a
+sharp feature through a trace→smooth pipeline, don't try to smooth-but-preserve — RECONSTRUCT from the feature
+points (corners) and re-add only the measured deviation. Smoothing near a pinned vertex always rounds it; a
+chord+bow rebuild doesn't. And sign-test billow/cup directions against the camera axis — easy to get backwards.**
