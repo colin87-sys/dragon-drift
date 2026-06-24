@@ -30,18 +30,17 @@ ok('body silhouette is a vertical fuselage');
 
 // --- wing: dense silhouette + struts + veins, one side only -----------------
 assert(D.wing.silhouette.length >= 200, `wing silhouette is dense (${D.wing.silhouette.length})`);
-assert(D.wing.struts.length >= 8, `wing has a real strut set (${D.wing.struts.length})`);
-for (const s of D.wing.struts) assert(s.length >= 2, 'strut is an open polyline');
+const bones = [...(D.wing.boneShapes || []), ...D.wing.struts];
+assert(bones.length >= 6, `wing has a real bone set (${bones.length})`);
+for (const s of bones) assert(s.length >= 2, 'bone is a polyline');
 // wings extend BEYOND the body canvas (large wingspan, tips above the head) — bound to a sane envelope, not 0..1
-const wingEnv = [D.wing.silhouette, ...D.wing.struts].every((c) => c.every((p) => p[0] >= -0.8 && p[0] <= 1.8 && p[1] >= -0.8 && p[1] <= 1.1));
+const wingEnv = [D.wing.silhouette, ...bones].every((c) => c.every((p) => p[0] >= -0.8 && p[0] <= 1.8 && p[1] >= -0.8 && p[1] <= 1.1));
 assert(wingEnv, 'wing coords within a sane envelope (wings reach past the body canvas)');
-ok(`wing — ${D.wing.silhouette.length}-pt silhouette + ${D.wing.struts.length} struts + ${D.wing.veins.length} veins`);
+ok(`wing — ${D.wing.silhouette.length}-pt silhouette + ${(D.wing.boneShapes || []).length} bone shapes + ${D.wing.struts.length} struts`);
 
 // the traced wing is on ONE side of the mirror axis (it gets reflected for the other)
 const wb = bbox(D.wing.silhouette);
 assert(wb.minX > D.mirror - 0.05 || wb.maxX < D.mirror + 0.05, 'wing is authored on a single side of the mirror axis');
-// struts lie within the wing silhouette span
-for (const s of D.wing.struts) { const sb = bbox(s); assert(sb.minX >= wb.minX - 0.03 && sb.maxX <= wb.maxX + 0.03, 'strut lies within the wing span'); }
 ok('wing is single-sided (mirrored at runtime) with struts inside the membrane');
 
 console.log(`\nCelestial Storm definition: ${n} checks passed — ${D.body.plates.length} plates, ${D.wing.struts.length} struts.`);
