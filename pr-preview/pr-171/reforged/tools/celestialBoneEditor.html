@@ -38,6 +38,7 @@
     </section>
     <section>
       <div class="row"><button id="reextract">re-extract bones</button><button id="finish" style="display:none">finish bone</button></div>
+      <div class="row"><b style="color:var(--dim)">view</b><button id="zoomIn">zoom +</button><button id="zoomOut">zoom −</button><button id="zoomReset">reset</button><span class="hint">· wheel = zoom · shift/right-drag = pan</span></div>
       <div class="row"><label>ink threshold</label><input id="thr" type="range" min="120" max="240" value="200"><span id="thrv">200</span></div>
       <div class="row"><button id="undo">undo</button><button id="clearMem">clear membrane</button></div>
     </section>
@@ -133,15 +134,24 @@ function composite() {
   octx.strokeStyle = '#6ae6ff'; for (const [a, b] of bridges) { octx.beginPath(); octx.moveTo(a.x, a.y); octx.lineTo(b.x, b.y); octx.stroke(); }
   if (curBone.length) { octx.strokeStyle = '#fff'; octx.beginPath(); curBone.forEach((p, k) => k ? octx.lineTo(p.x, p.y) : octx.moveTo(p.x, p.y)); octx.stroke(); octx.fillStyle = '#ffd86a'; for (const p of curBone) { octx.beginPath(); octx.arc(p.x, p.y, 4, 0, 7); octx.fill(); } }
   if (bridgeA) { octx.fillStyle = '#6ae6ff'; octx.beginPath(); octx.arc(bridgeA.x, bridgeA.y, 6, 0, 7); octx.fill(); }
-  vctx.clearRect(0, 0, view.width, view.height); vctx.drawImage(off, 0, 0, view.width, view.height);
+  vctx.clearRect(0, 0, view.width, view.height); const vr = viewRect(); vctx.imageSmoothingEnabled = false; vctx.drawImage(off, vr.vx, vr.vy, vr.vw, vr.vh, 0, 0, view.width, view.height);
   let sn = 0; if (sealed) for (let i = 0; i < W * H; i++) sn += sealed[i];
   document.getElementById('counts').textContent = `${boneCells.length} bone-fills · ${memCells.length} membrane-fills · ${veins.length} veins · ${bridges.length} bridges · sealed ${(sn / 1000) | 0}k px`;
 }
 const setStatus = (t) => document.getElementById('status').textContent = t;
 
+// ── zoom / pan: show a sub-rectangle of the image scaled to fill the canvas ──
+let zoom = 1, ccx = W / 2, ccy = H / 2, panning = false, lastX = 0, lastY = 0;
+function viewRect() { const vw = W / zoom, vh = H / zoom; let vx = ccx - vw / 2, vy = ccy - vh / 2; vx = Math.max(0, Math.min(W - vw, vx)); vy = Math.max(0, Math.min(H - vh, vy)); ccx = vx + vw / 2; ccy = vy + vh / 2; return { vx, vy, vw, vh }; }
+function toImg(e) { const r = view.getBoundingClientRect(), fx = (e.clientX - r.left) / r.width, fy = (e.clientY - r.top) / r.height, v = viewRect(); return { x: Math.round(v.vx + fx * v.vw), y: Math.round(v.vy + fy * v.vh) }; }
+view.addEventListener('contextmenu', (e) => e.preventDefault());
+view.addEventListener('wheel', (e) => { e.preventDefault(); const r = view.getBoundingClientRect(), fx = (e.clientX - r.left) / r.width, fy = (e.clientY - r.top) / r.height, p = toImg(e); zoom = Math.max(1, Math.min(10, zoom * (e.deltaY < 0 ? 1.2 : 1 / 1.2))); ccx = p.x + (0.5 - fx) * (W / zoom); ccy = p.y + (0.5 - fy) * (H / zoom); composite(); }, { passive: false });
+addEventListener('pointerup', () => panning = false);
+addEventListener('pointermove', (e) => { if (!panning) return; const r = view.getBoundingClientRect(), v = viewRect(); ccx -= (e.clientX - lastX) / r.width * v.vw; ccy -= (e.clientY - lastY) / r.height * v.vh; lastX = e.clientX; lastY = e.clientY; composite(); });
 view.addEventListener('pointerdown', (e) => {
-  if (!img) return; const r = view.getBoundingClientRect();
-  const x = Math.round((e.clientX - r.left) / r.width * W), y = Math.round((e.clientY - r.top) / r.height * H);
+  if (!img) return;
+  if (e.button === 2 || e.shiftKey) { panning = true; lastX = e.clientX; lastY = e.clientY; return; }   // right-drag or Shift-drag = pan
+  const { x, y } = toImg(e);
   if (x < 0 || y < 0 || x >= W || y >= H) return;
   if (mode === 'delete') { const vi = nearestVein({ x, y }); const i = nearestBone({ x, y }); if (i >= 0) { bones.splice(i, 1); setStatus('bone deleted'); } else if (vi >= 0) { veins.splice(vi, 1); setStatus('vein deleted'); } }
   else if (mode === 'add') curBone.push(snap(x, y));
@@ -162,6 +172,9 @@ document.getElementById('mMem').onclick = () => setMode('mem');
 document.getElementById('mSealed').onclick = (e) => { showSealed = !showSealed; e.target.classList.toggle('go', showSealed); composite(); };
 document.getElementById('finish').onclick = () => { if (curBone.length >= 2) { if (mode === 'vein') veins.push(curBone); else bones.push({ pts: curBone }); } curBone = []; composite(); };
 document.getElementById('reextract').onclick = () => { extractBones(); composite(); };
+document.getElementById('zoomIn').onclick = () => { zoom = Math.min(10, zoom * 1.4); composite(); };
+document.getElementById('zoomOut').onclick = () => { zoom = Math.max(1, zoom / 1.4); composite(); };
+document.getElementById('zoomReset').onclick = () => { zoom = 1; ccx = W / 2; ccy = H / 2; composite(); };
 document.getElementById('thr').oninput = (e) => { thr = +e.target.value; document.getElementById('thrv').textContent = thr; computeInk(); composite(); };
 document.getElementById('undo').onclick = () => { if ((mode === 'add' || mode === 'vein') && curBone.length) curBone.pop(); else if (mode === 'vein' && veins.length) veins.pop(); else if (mode === 'add' && bones.length) bones.pop(); else if (mode === 'bridge' && bridges.length) { bridges.pop(); computeInk(); } else if (mode === 'bonefill' && boneCells.length) { const id = boneCells.pop(); for (let i = 0; i < W * H; i++) if (boneLabels[i] === id) boneLabels[i] = 0; } else if (mode === 'mem' && memCells.length) { const id = memCells.pop(); for (let i = 0; i < W * H; i++) if (memLabels[i] === id) memLabels[i] = 0; } composite(); };
 document.getElementById('clearMem').onclick = () => { memLabels = new Int32Array(W * H); boneLabels = new Int32Array(W * H); memCells.length = 0; boneCells.length = 0; composite(); };
