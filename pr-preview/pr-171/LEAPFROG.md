@@ -3221,3 +3221,20 @@ Gotchas / next: the LOFT bridges the TRIDENT tail prongs into a paddle (scanline
 the tail needs per-prong handling. Membrane is flat (slight back-sweep only) — add billow later. **→ Leapfrog:**
 geometry pipeline proven on the hero in isolation; next refine tail/membrane, then migrate into the game's
 dragon model behind a flag — never break the shipped roster.
+
+### L97 — Rear-cam wingbeat is DORSOVENTRAL (about the forward axis), not in-plane; and decorations must SEAT on the hull
+Human reviewed the 3D previewer (L96) and caught two things the headless shots didn't flag:
+- **Flap was in the wrong plane.** I had rotated each wing about Z/X, which sweeps the wing WITHIN the flat
+  rear-view plane (windshield-wiper). For a rear chase-cam the beat is DORSOVENTRAL — rotate each wing about
+  the body's FORWARD axis (here Y, since head→tail runs up the screen) so the wings lift up off the back and
+  press down, tips travelling through DEPTH (Z). Fix: `pivot.rotation.y = side * sin(t)·amp` (mirror per side
+  so both rise together), zero the others. Reads as a real beat from a slightly-high rear cam; note it
+  foreshortens from dead-rear (inherent — that's why chase-cams sit ABOVE and behind).
+- **Star-flecks looked like they encoded thickness.** They're decorative (the celestial theme's armour stars),
+  but I lifted them a uniform 0.06 off the hull, so in ¾ they floated and implied a dimensional meaning. Seat
+  decorations nearly flush (+0.015) so they read as MARKINGS, not floats. Lesson: any offset a viewer can see
+  will be read as encoding something — only offset when you mean it.
+Reusable: headless screenshots catch crashes + gross layout, but **motion correctness (which plane a beat is
+in) needs either an animated capture or the human** — add up/down POSE captures (`window.__flapPose(a)`) so the
+beat direction is reviewable in static stills. **→ Leapfrog:** previewer now beats correctly; tail/membrane
+refinement still pending before migrating into the game model.

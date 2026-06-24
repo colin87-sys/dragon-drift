@@ -24,11 +24,19 @@ page.on('console', m => { if (m.type() === 'error') console.error('CONSOLE', m.t
 await page.goto(srv.url + '/tools/celestial3D.html');
 await page.waitForFunction(() => window.__ready, { timeout: 20000 });
 
-const angles = [['rear', 0, 0.22], ['rear-high', 0, 0.6], ['q34', 0.7, 0.3], ['side', 1.571, 0.12]];
+const angles = [['rear', 0, 0.22], ['rear-high', 0, 0.5], ['q34', 0.7, 0.3], ['side', 1.571, 0.12]];
 const gl = await page.$('#gl');
 for (const [name, yaw, pitch] of angles) {
   await page.evaluate(([y, p]) => window.__view(y * 180 / Math.PI, p, false), [yaw, pitch]);
   await page.waitForTimeout(180);
+  await gl.screenshot({ path: `/tmp/c3d-${name}.png` });
+  console.log(`wrote /tmp/c3d-${name}.png`);
+}
+// flap poses (wings raised / lowered) from rear-high, to verify the beat is dorsoventral (through depth)
+for (const [name, a] of [['flap-up', 0.6], ['flap-down', -0.6]]) {
+  await page.evaluate(([y, p]) => window.__view(y * 180 / Math.PI, p, false), [0, 0.5]);
+  await page.evaluate((a) => window.__flapPose(a), a);
+  await page.waitForTimeout(120);
   await gl.screenshot({ path: `/tmp/c3d-${name}.png` });
   console.log(`wrote /tmp/c3d-${name}.png`);
 }
