@@ -3253,3 +3253,20 @@ fixes to `tools/celestial3D.html`:
 Blockout now holds the anatomy (proportions, wing fit, dorsoventral beat, trident, billow). NEXT = the
 surfacing/sculpt pass (solid raised plates, translucent membrane+veins, material star-flecks, real horns) —
 then migrate into the game model behind a flag. Don't surface until the human signs off the bones.
+
+### L99 — Surfacing pass v1: raised armour scales (centroid-fan domes) + glowing seams; drop placeholder star dots
+Human signed off the blockout ("looks good"), said the dot star-flecks "look bad" (placeholders → removed), and
+said proceed to surfacing. First surfacing increment on `tools/celestial3D.html`:
+- **Raised armour scales:** each plate polygon becomes a low DOME — centroid lifted off the hull
+  (`surfZ+0.011`), boundary seated (`surfZ+0.002`), fan-triangulated (centroid→edge). Plates are convex-ish
+  cells so a centroid fan is safe (unlike the concave wing, which needs `triangulateShape`). All domes merged
+  into ONE BufferGeometry (no mergeGeometries util in the repo — accumulate pos/idx by hand). Raise tuned to a
+  FRACTION of the local hull depth, not a constant — a constant raise spiked through the thin neck (body front
+  bulge is only ~0.14 world; an 0.05 raise = a 2× spike). Lesson: **offsets that read as relief must scale to
+  local thickness, not be absolute.**
+- **Glowing seams:** the old wireframe plate loops survive as emissive seam LINES at the raised edge
+  (`surfZ+0.006`), in their own `seamGrp` (toggle), so the armour reads as segmented cosmic plating.
+- **Curved horns:** cones → tapered rings along a curling centerline (up + dorsal + back), per-side mirrored.
+- **Membrane** opacity 0.93→0.8 (more translucent); body/plate materials nudged metallic+emissive.
+Reads as an armoured cosmic dragon from the rear now (not wireframe). NEXT polish candidates: more pronounced
+OVERLAPPING plates (scale lip), membrane veins, iridescent body shader. Then migrate into the game model.
