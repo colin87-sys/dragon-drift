@@ -151,6 +151,24 @@ function slab(loop, zFn, thick, material) {
   const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.setIndex(idx); g.computeVertexNormals();
   return new THREE.Mesh(g, material);
 }
+// TAPERED round tube along a spine (centerline pts + per-point radius) → smooth cylindrical bone, pointed ends
+function taperedTube(pts2, radii, zFn, material, seg = 8, rScale = 1) {
+  if (pts2.length < 2) return null;
+  const P = pts2.map(p => pt(p[0], p[1], zFn(p) + 0.045));
+  const curve = new THREE.CatmullRomCurve3(P, false, 'centripetal');
+  const steps = Math.max(12, pts2.length * 5);
+  const fr = curve.computeFrenetFrames(steps, false);
+  const R = radii.map(r => Math.max(0.003, r * S * rScale));
+  const pos = [], idx = [];
+  for (let i = 0; i <= steps; i++) {
+    const t = i / steps, p = curve.getPoint(t), fi = t * (R.length - 1), lo = Math.floor(fi), hi = Math.min(R.length - 1, lo + 1);
+    const r = R[lo] + (R[hi] - R[lo]) * (fi - lo), N = fr.normals[i], B = fr.binormals[i];
+    for (let s = 0; s < seg; s++) { const a = s / seg * Math.PI * 2, v = p.clone().addScaledVector(N, Math.cos(a) * r).addScaledVector(B, Math.sin(a) * r); pos.push(v.x, v.y, v.z); }
+  }
+  for (let i = 0; i < steps; i++) for (let s = 0; s < seg; s++) { const a = i * seg + s, b = i * seg + (s + 1) % seg, c = (i + 1) * seg + s, d = (i + 1) * seg + (s + 1) % seg; idx.push(a, c, b, b, c, d); }
+  const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.setIndex(idx); g.computeVertexNormals();
+  return new THREE.Mesh(g, material);
+}
 // tube along a polyline (struts / spar)
 function tube(poly, zFn, radius, material) {
   if (poly.length < 2) return null;
@@ -205,6 +223,7 @@ plateGrp.add(new THREE.Mesh(plG, matPlate));
 // WINGS — membrane + struts, both sides. Each wing is its own pivot group at the shoulder for flapping.
 const wingPivots = [];
 const sweep = 0.16;                                   // wings angle backward (−z) with outward distance
+const BONE_RADIUS = 0.85;                             // global bone-thickness scale (fingers read thin; arm ×1.5)
 function buildWing(mirrored) {
   const f = (c) => mirrored ? c.map(mir) : c;
   const sil = f(D.wing.silhouette);
@@ -217,8 +236,8 @@ function buildWing(mirrored) {
   const rv = pt(root0[0], root0[1], zWing(root0)); pivot.position.copy(rv);
   const off = (mesh) => { if (mesh) { mesh.position.sub(rv); pivot.add(mesh); } };
   off(panel(sil, zWing, matMembrane));
-  // BONE SHAPES (human-tagged, with width): solid raised bones (extruded slabs) proud of the membrane
-  for (const bs of (D.wing.boneShapes || [])) off(slab(f(bs), (p) => zWing(p) + 0.04, 0.06, matSpar));
+  // BONE SPINES (human-tagged): smooth cylindrical tubes, tapering to points at the tips. Arm (last) a bit thicker.
+  (D.wing.bones || []).forEach((bn, i) => off(taperedTube(f(bn.pts), bn.radii, zWing, matSpar, 8, i === D.wing.bones.length - 1 ? BONE_RADIUS * 1.5 : BONE_RADIUS)));
   // thin line-struts (auto fallback only): tubes
   D.wing.struts.forEach((s, i) => off(tube(f(s), (p) => zWing(p) + 0.04, i === D.wing.sparIndex ? 0.05 : 0.028, i === D.wing.sparIndex ? matSpar : matStrut)));
   wingGrp.add(pivot); wingPivots.push({ pivot, side: mirrored ? -1 : 1, restX: pivot.rotation.x });
