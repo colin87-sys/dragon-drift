@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Celestial Storm — Traced Silhouette Viewer</title>
+<style>
+  :root{ --bg:#0a0e1a; --panel:#0f1526; --line:#243049; --ink:#cfe0ff; --dim:#7f8db0; --cyan:#6ae6ff; }
+  *{box-sizing:border-box}
+  html,body{margin:0;min-height:100%;background:radial-gradient(120% 90% at 50% 0,#141a33,#0a0e1a);color:var(--ink);font:14px/1.5 system-ui,sans-serif}
+  header{padding:14px 16px;border-bottom:1px solid var(--line)}
+  h1{font-size:16px;margin:0;color:var(--cyan)} h1 small{color:var(--dim);font-weight:400;font-size:12px;margin-left:6px}
+  .wrap{display:flex;flex-direction:column;align-items:center;gap:14px;padding:16px}
+  #c{background:#080b14;border:1px solid var(--line);border-radius:12px;max-width:96vw;height:auto;box-shadow:0 8px 40px rgba(0,0,0,.5)}
+  .controls{display:flex;flex-wrap:wrap;gap:8px;justify-content:center;max-width:760px}
+  button{background:#16223c;color:var(--ink);border:1px solid var(--line);border-radius:9px;padding:9px 13px;font-size:13px;cursor:pointer}
+  button.on{background:var(--cyan);color:#04140a;border-color:var(--cyan);font-weight:600}
+  .info{color:var(--dim);font-size:12px;max-width:680px;text-align:center}
+  .seg{display:flex;border:1px solid var(--line);border-radius:9px;overflow:hidden}
+  .seg button{border:0;border-radius:0;border-right:1px solid var(--line)}
+  .seg button:last-child{border-right:0}
+</style>
+</head>
+<body>
+<header><h1>Celestial Storm <small id="sub">traced silhouette</small></h1></header>
+<div class="wrap">
+  <canvas id="c" width="941" height="1672"></canvas>
+  <div class="controls">
+    <button id="bTorso" class="on">body</button>
+    <button id="bWings" class="on">wings</button>
+    <button id="bSpine" class="on">spine</button>
+    <button id="bPoints">dots</button>
+    <div class="seg">
+      <button data-ref="none" class="on">no ref</button>
+      <button data-ref="full">art</button>
+      <button data-ref="stencil-body">stencils</button>
+    </div>
+  </div>
+  <div class="info" id="info">loading trace…</div>
+</div>
+
+<script type="module">
+import { CELESTIAL_TRACE as T } from '../js/celestialTrace.js';
+
+const c = document.getElementById('c'), ctx = c.getContext('2d');
+const [CW, CH] = T.canvas; c.width = CW; c.height = CH;
+const show = { torso:true, wings:true, spine:true, points:false };
+let ref = 'none', refImg = null;
+
+const refFiles = { full:'./refs/celestial/full.png', 'stencil-body':'./refs/celestial/stencil-body.png' };
+function loadRef(name){
+  if(name==='none'){ ref='none'; refImg=null; draw(); return; }
+  const im = new Image(); im.onload=()=>{ refImg=im; ref=name; draw(); }; im.src = refFiles[name]; ref=name;
+}
+
+function path(c2){ ctx.beginPath(); c2.forEach((p,i)=>{ const x=p[0]*CW, y=p[1]*CH; i?ctx.lineTo(x,y):ctx.moveTo(x,y); }); ctx.closePath(); }
+function dots(c2,col){ ctx.fillStyle=col; for(const p of c2){ ctx.beginPath(); ctx.arc(p[0]*CW,p[1]*CH,3.2,0,7); ctx.fill(); } }
+
+function draw(){
+  ctx.clearRect(0,0,CW,CH);
+  ctx.fillStyle='#080b14'; ctx.fillRect(0,0,CW,CH);
+  if(refImg){ ctx.globalAlpha=0.5; const ar=refImg.width/refImg.height; let w=CH*ar,h=CH; if(w>CW){w=CW;h=CW/ar;} ctx.drawImage(refImg,(CW-w)/2,(CH-h)/2,w,h); ctx.globalAlpha=1; }
+
+  if(show.torso) for(const c2 of T.torso){ path(c2); ctx.fillStyle='#2e2656'; ctx.fill(); ctx.lineWidth=4; ctx.strokeStyle='#0a0c14'; ctx.stroke(); }
+  if(show.wings) for(const c2 of T.wings){ path(c2); ctx.fillStyle='#46227a'; ctx.fill(); ctx.lineWidth=4; ctx.strokeStyle='#0a0c14'; ctx.stroke(); }
+  if(show.spine) for(const c2 of T.spine){ path(c2); ctx.save(); ctx.shadowColor='#6ae6ff'; ctx.shadowBlur=26; ctx.fillStyle='#78e2ff'; ctx.fill(); ctx.restore(); ctx.lineWidth=2; ctx.strokeStyle='#c8f5ff'; ctx.stroke(); }
+
+  if(show.points){
+    if(show.torso) T.torso.forEach(c2=>dots(c2,'#9fe06a'));
+    if(show.wings) T.wings.forEach(c2=>dots(c2,'#ffb454'));
+    if(show.spine) T.spine.forEach(c2=>dots(c2,'#ff5de0'));
+  }
+}
+
+const total = T.torso.concat(T.wings,T.spine).reduce((s,c2)=>s+c2.length,0);
+document.getElementById('info').textContent =
+  `${total} traced vertices · body ${T.torso[0].length} · wing ${T.wings[0].length} (×2 mirrored) · spine ${T.spine[0].length} · source: ${T.source||'layers'}`;
+document.getElementById('sub').textContent = `traced silhouette · ${T.canvas[0]}×${T.canvas[1]}`;
+
+const wire = (id,key)=>{ const b=document.getElementById(id); b.onclick=()=>{ show[key]=!show[key]; b.classList.toggle('on',show[key]); draw(); }; };
+wire('bTorso','torso'); wire('bWings','wings'); wire('bSpine','spine'); wire('bPoints','points');
+document.querySelectorAll('[data-ref]').forEach(b=>b.onclick=()=>{ document.querySelectorAll('[data-ref]').forEach(x=>x.classList.remove('on')); b.classList.add('on'); loadRef(b.dataset.ref); });
+
+draw();
+</script>
+</body>
+</html>
