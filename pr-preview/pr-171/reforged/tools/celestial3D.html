@@ -51,7 +51,8 @@ const camera = new THREE.PerspectiveCamera(42, 1, 0.1, 400);
 scene.add(new THREE.HemisphereLight(0x9fc4ff, 0x161a2e, 0.9));
 const keyL = new THREE.DirectionalLight(0xbfe0ff, 1.6); keyL.position.set(-3, 5, 7); scene.add(keyL);
 const rimL = new THREE.DirectionalLight(0x9b6bff, 1.1); rimL.position.set(4, 2, -6); scene.add(rimL);
-const fillL = new THREE.DirectionalLight(0x7fb8ff, 0.4); fillL.position.set(0, -4, 3); scene.add(fillL);
+const fillL = new THREE.DirectionalLight(0x7fb8ff, 0.45); fillL.position.set(0, -3, 3); scene.add(fillL);
+const ventL = new THREE.DirectionalLight(0x8aa6ff, 0.5); ventL.position.set(-1, -2, -5); scene.add(ventL);   // lights the belly (−z) so the volume reads
 // starfield backdrop
 (() => {
   const g = new THREE.BufferGeometry(), n = 1400, a = [];
@@ -82,7 +83,7 @@ function crossings(loop, ny) {
 // LOFT a closed silhouette into a 3D fuselage. Handles MULTIPLE spans per row (scanline can return several
 // segments) so the body can BRANCH — the trident tail splits into 3 prongs instead of being bridged into a
 // paddle. Rings are matched between rows by centroid; an unmatched ring is a prong tip and gets capped.
-function loftBody(loop, { rings = 200, seg = 16, dDorsal = 0.92, dVentral = 0.66 } = {}) {
+function loftBody(loop, { rings = 200, seg = 16, dDorsal = 0.95, dVentral = 0.82 } = {}) {
   let minY = 1, maxY = 0; for (const p of loop) { if (p[1] < minY) minY = p[1]; if (p[1] > maxY) maxY = p[1]; }
   const rows = [], stations = [];
   for (let i = 0; i <= rings; i++) {

@@ -3270,3 +3270,24 @@ said proceed to surfacing. First surfacing increment on `tools/celestial3D.html`
 - **Membrane** opacity 0.93→0.8 (more translucent); body/plate materials nudged metallic+emissive.
 Reads as an armoured cosmic dragon from the rear now (not wireframe). NEXT polish candidates: more pronounced
 OVERLAPPING plates (scale lip), membrane veins, iridescent body shader. Then migrate into the game model.
+
+### L100 — Wing bones were mis-EXTRACTED (skeleton was fine); rebuild as a radial framework hub→every tip
+Human (with an annotated reference) caught that the wing bones were wrong: finger struts didn't reach the
+scallop POINTS, and the leading frame + thumb + long projection weren't traced as bones at all. Built
+`tools/traceWingBones.mjs` (renders the raw right-wing ink SKELETON, each chain a distinct colour + endpoints)
+and verified: **the skeleton contains every bone** — leading frame, fingers to each scallop tip, thumb, long
+projection. So the defect was in the EXTRACTION, not the trace. The old code filtered skeleton polylines by
+"fraction in the boundary band" and dropped anything mostly-boundary — which threw away the LEADING FRAME
+(it runs along the top edge) and trimmed finger tips short of the scallops.
+Fix (in `traceDefinition.mjs`): stop filtering the messy fragmented skeleton; rebuild bones as the ANATOMY —
+(1) find the WRIST HUB = densest cluster of skeleton-chain endpoints; (2) find membrane TIPS = prominent local
+maxima of distance-from-hub around the silhouette (these ARE the scallop points + wingtip + thumb + long
+projection); (3) bones = arm(root→hub) + leading-frame(hub→wingtip) as one spar, plus hub→each remaining tip.
+Result: 8 clean bones that terminate exactly on the pointy tips, by construction. Lesson: **when a feature is
+present in the source skeleton but missing in the output, the bug is in the extraction filter — and "key on the
+boundary band" conflates two different boundaries (the leading frame IS a bone; the trailing scallop edge is
+not). Reconstruct from semantic anchors (hub + tips), don't filter the raw skeleton.**
+Also this pass: body cross-section made a fuller egg (dorsal 0.95 / ventral 0.82, was 0.66 — read as a flat
+half because the belly was shallow AND unlit) + a ventral fill light so the volume reads. Bone colour stays
+bright cyan for IDENTIFICATION during structural review; switch to the reference's dark tone once bones are
+signed off.
