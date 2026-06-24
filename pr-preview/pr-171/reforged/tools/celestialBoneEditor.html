@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Celestial Storm — Wing Bone Editor</title>
+<style>
+  :root{ --bg:#0a0e1a; --panel:#0f1526; --line:#243049; --ink:#cfe0ff; --dim:#7f8db0; --cyan:#6ae6ff; --bone:#7fe0ff; --mem:#c0f; }
+  *{box-sizing:border-box} html,body{margin:0;background:var(--bg);color:var(--ink);font:13px/1.5 system-ui,sans-serif}
+  header{padding:9px 14px;border-bottom:1px solid var(--line)} h1{font-size:15px;margin:0;color:var(--cyan)}
+  .wrap{display:flex;gap:14px;padding:12px;align-items:flex-start;flex-wrap:wrap}
+  #c{background:#080b14;border:1px solid var(--line);border-radius:10px;cursor:crosshair;touch-action:none;max-width:96vw;height:auto}
+  .panel{min-width:250px;max-width:340px;display:flex;flex-direction:column;gap:9px}
+  section{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:10px}
+  button{background:#16223c;color:var(--ink);border:1px solid var(--line);border-radius:8px;padding:8px 10px;font-size:12px;cursor:pointer;margin:2px}
+  button.go{background:var(--cyan);color:#04140a;border-color:var(--cyan);font-weight:700}
+  .row{display:flex;flex-wrap:wrap;gap:4px;align-items:center}
+  .hint{color:var(--dim);font-size:12px} b{color:#ffd86a} label{color:var(--dim)} input[type=range]{flex:1}
+</style>
+</head>
+<body>
+<header><h1>Celestial Storm — Wing Bone Editor <span class="hint" id="status">loading…</span></h1></header>
+<div class="wrap">
+  <canvas id="c"></canvas>
+  <div class="panel">
+    <section>
+      <div class="row"><b style="color:var(--cyan)">Mode</b></div>
+      <div class="row">
+        <button id="mDelete" class="go">delete bone</button>
+        <button id="mAdd">add bone</button>
+        <button id="mBridge">bridge gap</button>
+        <button id="mMem">tag membrane</button>
+      </div>
+      <div class="hint" id="help">DELETE: click a bone line to remove it (use this on the trailing scalloped edges — those are membrane, not bone).</div>
+    </section>
+    <section>
+      <div class="row"><button id="reextract">re-extract bones</button><button id="finish" style="display:none">finish bone</button></div>
+      <div class="row"><label>ink threshold</label><input id="thr" type="range" min="120" max="240" value="200"><span id="thrv">200</span></div>
+      <div class="row"><button id="undo">undo</button><button id="clearMem">clear membrane</button></div>
+    </section>
+    <section>
+      <div class="row"><button id="export" class="go">Export bones → JSON</button></div>
+      <div class="hint" id="counts"></div>
+    </section>
+  </div>
+</div>
+<script type="module">
+import { thin, skeletonToPolylines, lum } from './lineTrace.mjs';
+
+const W = 941, H = 1672, SIDE_MINX = 0.45;
+const view = document.getElementById('c');
+const off = document.createElement('canvas'); off.width = W; off.height = H;
+const octx = off.getContext('2d', { willReadFrequently: true });
+const vctx = view.getContext('2d');
+const DS = Math.min(0.62, (innerWidth - 380) / W); view.width = Math.round(W * DS); view.height = Math.round(H * DS);
+
+let img = null, ink = null, thr = 200, mode = 'delete';
+let bones = [];               // [{pts:[{x,y}..]}] in pixel space
+let curBone = [], bridgeA = null;
+const bridges = [];           // gap-closing segments
+const memCells = [];          // {id, mask-not-stored} we just store filled pixel sets as label ids
+let memLabels = new Int32Array(W * H), memId = 0;
+
+const stencil = new Image();
+stencil.onload = () => { octx.drawImage(stencil, 0, 0, W, H); img = octx.getImageData(0, 0, W, H).data; computeInk(); extractBones(); composite(); };
+stencil.src = './refs/celestial/stencil-wings.png';
+
+function computeInk() { ink = new Uint8Array(W * H); for (let i = 0; i < W * H; i++) { const o = i * 4; ink[i] = (img[o] * 0.3 + img[o + 1] * 0.59 + img[o + 2] * 0.11) < thr ? 1 : 0; } for (const [a, b] of bridges) raster(a, b); }
+function raster(a, b) { const n = Math.max(1, Math.hypot(b.x - a.x, b.y - a.y) | 0); for (let s = 0; s <= n; s++) { const px = Math.round(a.x + (b.x - a.x) * s / n), py = Math.round(a.y + (b.y - a.y) * s / n); for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) { const x = px + dx, y = py + dy; if (x >= 0 && y >= 0 && x < W && y < H) ink[y * W + x] = 1; } } }
+
+// auto-extract bones = welded full skeleton of the right wing ink (within the interior cells' padded bbox)
+function extractBones() {
+  // label non-ink cells; keep interior right-wing cells
+  const lab = new Int32Array(W * H); let id = 0; const keep = new Set();
+  for (let s = 0; s < W * H; s++) { if (ink[s] || lab[s]) continue; id++; const st = [s]; lab[s] = id; let n = 0, border = false, sx = 0; while (st.length) { const p = st.pop(); n++; const x = p % W, y = (p / W) | 0; sx += x; if (x === 0 || y === 0 || x === W - 1 || y === H - 1) border = true; const t = q => { if (!ink[q] && !lab[q]) { lab[q] = id; st.push(q); } }; if (x) t(p - 1); if (x < W - 1) t(p + 1); if (y) t(p - W); if (y < H - 1) t(p + W); } if (!border && n > 250 && sx / n / W > 0.5) keep.add(id); }
+  let mnX = W, mnY = H, mxX = 0, mxY = 0; for (let i = 0; i < W * H; i++) if (keep.has(lab[i])) { const x = i % W, y = (i / W) | 0; if (x < mnX) mnX = x; if (x > mxX) mxX = x; if (y < mnY) mnY = y; if (y > mxY) mxY = y; }
+  const PAD = 26, wingInk = new Uint8Array(W * H);
+  for (let y = Math.max(0, mnY - PAD); y <= Math.min(H - 1, mxY + PAD); y++) for (let x = Math.max(0, mnX - PAD); x <= Math.min(W - 1, mxX + PAD); x++) { const i = y * W + x; if (ink[i] && x > SIDE_MINX * W) wingInk[i] = 1; }
+  const polys = skeletonToPolylines(thin(wingInk, W, H), W, H, 6);
+  bones = weld(polys, 9, 0.45).filter(c => plen(c) > 14).map(pts => ({ pts }));
+  setStatus(`${bones.length} bones auto-extracted — edit them`);
+}
+const plen = (p) => { let s = 0; for (let i = 1; i < p.length; i++) s += Math.hypot(p[i].x - p[i - 1].x, p[i].y - p[i - 1].y); return s; };
+function weld(polys, D, cosMin) {
+  const ch = polys.map(p => p.slice());
+  const uv = (ax, ay, bx, by) => { const dx = ax - bx, dy = ay - by, m = Math.hypot(dx, dy) || 1; return { x: dx / m, y: dy / m }; };
+  const out = (c, e) => { const n = c.length; return e === 's' ? uv(c[0].x, c[0].y, c[Math.min(1, n - 1)].x, c[Math.min(1, n - 1)].y) : uv(c[n - 1].x, c[n - 1].y, c[Math.max(0, n - 2)].x, c[Math.max(0, n - 2)].y); };
+  for (; ;) { let best = null; for (let i = 0; i < ch.length; i++) for (let j = i + 1; j < ch.length; j++) for (const [ei, ej] of [['s', 's'], ['s', 'e'], ['e', 's'], ['e', 'e']]) { const pi = ei === 's' ? ch[i][0] : ch[i][ch[i].length - 1], pj = ej === 's' ? ch[j][0] : ch[j][ch[j].length - 1]; const g = Math.hypot(pi.x - pj.x, pi.y - pj.y); if (g > D) continue; const di = out(ch[i], ei), dj = out(ch[j], ej), dot = -(di.x * dj.x + di.y * dj.y); if (dot < cosMin) continue; const sc = dot - g * 0.04; if (!best || sc > best.sc) best = { i, j, ei, ej, sc }; } if (!best) break; let ci = ch[best.i], cj = ch[best.j]; if (best.ei === 's') ci = ci.slice().reverse(); if (best.ej === 'e') cj = cj.slice().reverse(); ch.splice(Math.max(best.i, best.j), 1); ch.splice(Math.min(best.i, best.j), 1); ch.push(ci.concat(cj)); }
+  return ch;
+}
+function snap(sx, sy, R = 16) { if (sx >= 0 && sy >= 0 && sx < W && sy < H && ink[sy * W + sx]) return { x: sx, y: sy }; let b = null, bd = R * R + 1; for (let dy = -R; dy <= R; dy++) for (let dx = -R; dx <= R; dx++) { const x = sx + dx, y = sy + dy; if (x < 0 || y < 0 || x >= W || y >= H || !ink[y * W + x]) continue; const d = dx * dx + dy * dy; if (d < bd) { bd = d; b = { x, y }; } } return b || { x: sx, y: sy }; }
+function dist2seg(p, a, b) { const dx = b.x - a.x, dy = b.y - a.y, L = dx * dx + dy * dy || 1; let t = ((p.x - a.x) * dx + (p.y - a.y) * dy) / L; t = Math.max(0, Math.min(1, t)); const cx = a.x + dx * t, cy = a.y + dy * t; return Math.hypot(p.x - cx, p.y - cy); }
+function nearestBone(p) { let bi = -1, bd = 14; bones.forEach((bn, i) => { for (let k = 0; k + 1 < bn.pts.length; k++) { const d = dist2seg(p, bn.pts[k], bn.pts[k + 1]); if (d < bd) { bd = d; bi = i; } } }); return bi; }
+function floodMem(sx, sy) { if (ink[sy * W + sx] || memLabels[sy * W + sx]) return; memId++; const st = [sy * W + sx]; memLabels[st[0]] = memId; let n = 0, border = false; while (st.length) { const p = st.pop(); n++; const x = p % W, y = (p / W) | 0; if (x === 0 || y === 0 || x === W - 1 || y === H - 1) border = true; const t = q => { if (!ink[q] && !memLabels[q]) { memLabels[q] = memId; st.push(q); } }; if (x) t(p - 1); if (x < W - 1) t(p + 1); if (y) t(p - W); if (y < H - 1) t(p + W); } if (n < 40 || border) { for (let i = 0; i < W * H; i++) if (memLabels[i] === memId) memLabels[i] = 0; memId--; if (border) setStatus('that was the exterior — click inside a membrane cell'); } else memCells.push(memId); }
+
+function composite() {
+  octx.putImageData(new ImageData(new Uint8ClampedArray(img), W, H), 0, 0);
+  const id = octx.getImageData(0, 0, W, H), d = id.data;
+  for (let i = 0; i < W * H; i++) { const o = i * 4; d[o] *= 0.45; d[o + 1] *= 0.45; d[o + 2] = d[o + 2] * 0.45 + 22; if (memLabels[i]) { d[o] = d[o] * 0.5 + 150 * 0.5; d[o + 1] = d[o + 1] * 0.5 + 40 * 0.5; d[o + 2] = d[o + 2] * 0.5 + 200 * 0.5; } }
+  octx.putImageData(id, 0, 0);
+  octx.lineWidth = 2.6; octx.lineJoin = 'round'; octx.strokeStyle = '#7fe0ff';
+  for (const bn of bones) { octx.beginPath(); bn.pts.forEach((p, k) => k ? octx.lineTo(p.x, p.y) : octx.moveTo(p.x, p.y)); octx.stroke(); }
+  octx.strokeStyle = '#6ae6ff'; for (const [a, b] of bridges) { octx.beginPath(); octx.moveTo(a.x, a.y); octx.lineTo(b.x, b.y); octx.stroke(); }
+  if (curBone.length) { octx.strokeStyle = '#fff'; octx.beginPath(); curBone.forEach((p, k) => k ? octx.lineTo(p.x, p.y) : octx.moveTo(p.x, p.y)); octx.stroke(); octx.fillStyle = '#ffd86a'; for (const p of curBone) { octx.beginPath(); octx.arc(p.x, p.y, 4, 0, 7); octx.fill(); } }
+  if (bridgeA) { octx.fillStyle = '#6ae6ff'; octx.beginPath(); octx.arc(bridgeA.x, bridgeA.y, 6, 0, 7); octx.fill(); }
+  vctx.clearRect(0, 0, view.width, view.height); vctx.drawImage(off, 0, 0, view.width, view.height);
+  document.getElementById('counts').textContent = `${bones.length} bones · ${memCells.length} membrane cells · ${bridges.length} bridges`;
+}
+const setStatus = (t) => document.getElementById('status').textContent = t;
+
+view.addEventListener('pointerdown', (e) => {
+  if (!img) return; const r = view.getBoundingClientRect();
+  const x = Math.round((e.clientX - r.left) / r.width * W), y = Math.round((e.clientY - r.top) / r.height * H);
+  if (x < 0 || y < 0 || x >= W || y >= H) return;
+  if (mode === 'delete') { const i = nearestBone({ x, y }); if (i >= 0) { bones.splice(i, 1); setStatus('bone deleted'); } }
+  else if (mode === 'add') curBone.push(snap(x, y));
+  else if (mode === 'bridge') { const s = snap(x, y); if (!bridgeA) bridgeA = s; else { bridges.push([bridgeA, s]); raster(bridgeA, s); bridgeA = null; } }
+  else if (mode === 'mem') floodMem(x, y);
+  composite();
+});
+const HELP = { delete: 'DELETE: click a bone line to remove it (use on the trailing scalloped edges — those are membrane).', add: 'ADD: click points along a bone; each snaps to the nearest drawn line. Finish bone to commit.', bridge: 'BRIDGE: click 2 points to close a gap in the drawing (seals leaks, joins lines).', mem: 'TAG MEMBRANE: click a cell to mark it membrane (reference only — tells us which areas are NOT bone).' };
+const setMode = (m) => { mode = m; for (const b of ['Delete', 'Add', 'Bridge', 'Mem']) document.getElementById('m' + b).classList.toggle('go', 'm' + b === 'm' + (m[0].toUpperCase() + m.slice(1))); document.getElementById('help').textContent = HELP[m]; document.getElementById('finish').style.display = m === 'add' ? '' : 'none'; bridgeA = null; composite(); };
+document.getElementById('mDelete').onclick = () => setMode('delete');
+document.getElementById('mAdd').onclick = () => setMode('add');
+document.getElementById('mBridge').onclick = () => setMode('bridge');
+document.getElementById('mMem').onclick = () => setMode('mem');
+document.getElementById('finish').onclick = () => { if (curBone.length >= 2) bones.push({ pts: curBone }); curBone = []; composite(); };
+document.getElementById('reextract').onclick = () => { extractBones(); composite(); };
+document.getElementById('thr').oninput = (e) => { thr = +e.target.value; document.getElementById('thrv').textContent = thr; computeInk(); composite(); };
+document.getElementById('undo').onclick = () => { if (mode === 'add' && curBone.length) curBone.pop(); else if (mode === 'bridge' && bridges.length) { bridges.pop(); computeInk(); } else if (mode === 'mem' && memCells.length) { const id = memCells.pop(); for (let i = 0; i < W * H; i++) if (memLabels[i] === id) memLabels[i] = 0; } composite(); };
+document.getElementById('clearMem').onclick = () => { memLabels = new Int32Array(W * H); memCells.length = 0; memId = 0; composite(); };
+const nrm = (p) => [+(p.x / W).toFixed(4), +(p.y / H).toFixed(4)];
+document.getElementById('export').onclick = () => {
+  const out = { canvas: [W, H], side: 'R', bones: bones.map(b => b.pts.map(nrm)), bridges: bridges.map(([a, b]) => [nrm(a), nrm(b)]), membraneCells: memCells.length };
+  const blob = new Blob([JSON.stringify(out)], { type: 'application/json' }); const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'celestial-wing-bones-R.json'; a.click();
+  setStatus(`exported ${bones.length} bones → celestial-wing-bones-R.json`);
+};
+</script>
+</body>
+</html>

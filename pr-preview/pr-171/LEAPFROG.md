@@ -3346,3 +3346,18 @@ included), not the inter-cell subset. `traceWingCells.mjs` overlays it: orange n
 exactly. 13 cells → 88 bone polylines. Lesson: **don't over-filter art the human calls "all bones" — the
 membrane cells are only useful for LOCATING the wing; the bone set is the whole drawn line structure.** The
 compartment fill is the verification (what's membrane), the skeleton complement is the answer (what's bone).
+
+### L105 — Ship the human a BONE EDITOR (auto-extract + correct), and: trailing scallop edges are membrane
+Human asked to weld + for an editor to fix/label it, and corrected the anatomy again: the back (trailing)
+scalloped edges are the MEMBRANE's edge that meets the struts — NOT bones. So a pure "all uncoloured = bone"
+(L104) over-includes the trailing edge. Resolution: stop heuristically guessing which lines are bone vs
+membrane-edge — give the human direct control. Built `tools/celestialBoneEditor.html`: on load it auto-extracts
+the welded bone skeleton (same pipeline as the node tool, in-browser), then the human edits:
+- **delete bone** — click a line to remove it (use on the trailing scallop edges).
+- **add bone** — click points snapping to the drawn ink.
+- **bridge gap** — 2 clicks burn a line into the ink to seal leaks.
+- **tag membrane** — flood a cell to mark what's NOT bone.
+Exports `celestial-wing-bones-R.json` to ingest as the authoritative struts. Lesson: **after 4 rounds of the
+algorithm mis-classifying art, the right move is a direct-manipulation editor seeded with the best auto result
+— the human's edits are ground truth, and welding/snap/bridge just make editing cheap.** Also: weldChains
+(greedy collinear-end join) turned 88 fragments → 31 continuous bones.
