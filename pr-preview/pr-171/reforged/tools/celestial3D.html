@@ -116,7 +116,7 @@ function crossings(loop, ny) {
 // LOFT a closed silhouette into a 3D fuselage. Handles MULTIPLE spans per row (scanline can return several
 // segments) so the body can BRANCH — the trident tail splits into 3 prongs instead of being bridged into a
 // paddle. Rings are matched between rows by centroid; an unmatched ring is a prong tip and gets capped.
-function loftBody(loop, { rings = 200, seg = 16, dDorsal = 0.95, dVentral = 0.82 } = {}) {
+function loftBody(loop, { rings = 200, seg = 16, dDorsal = 0.95, dVentral = 0.82, material = matBody } = {}) {
   let minY = 1, maxY = 0; for (const p of loop) { if (p[1] < minY) minY = p[1]; if (p[1] > maxY) maxY = p[1]; }
   const rows = [], stations = [];
   for (let i = 0; i <= rings; i++) {
@@ -143,7 +143,7 @@ function loftBody(loop, { rings = 200, seg = 16, dDorsal = 0.95, dVentral = 0.82
   rowRings[rowRings.length - 1].forEach(a => cap(a.base, a.sp, false));
   const g = new THREE.BufferGeometry();
   g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.setIndex(idx); g.computeVertexNormals();
-  return { mesh: new THREE.Mesh(g, matBody), stations };
+  return { mesh: new THREE.Mesh(g, material), stations };
 }
 // front-surface z of the lofted body at a normalized (x,y) — so plates/stars sit ON the hull
 function bodySurfaceZ(stations, x, y) {
@@ -237,14 +237,17 @@ const clipPoly = (loop, clipY, keepBelow) => {
 const { mesh: bodyMesh, stations } = loftBody(clipPoly(D.body.silhouette, TAIL_BODY_CLIP, false));
 bodyGrp.add(bodyMesh);
 const surfZ = (p) => bodySurfaceZ(stations, p[0], p[1]);
-// SPEAR — flat tapered crystal blade from the traced spearhead outline (shaft→barbs→sharp point), centred on z
+// SPEAR — LOFT the traced spearhead with a THIN lens cross-section (not a flat slab). The elliptical ring gives
+// a raised central ridge that thins to SHARP z=0 edges, and depth ∝ half-width → every prong + the tip taper to
+// a true 3D POINT (depth→0 as width→0). loftBody's branching handles the trident barbs. ~⅕ the slab thickness.
 {
   const spear = clipPoly(D.body.silhouette, TAIL_SPEAR_TOP, true);
-  bodyGrp.add(boneSolid(spear, () => 0.03, 0.07, matSpear));
-  // glowing cyan core line down the blade centre → the bright spine the painted spear has
+  const { mesh: spearMesh } = loftBody(spear, { rings: 90, seg: 14, dDorsal: 0.20, dVentral: 0.20, material: matSpear });
+  bodyGrp.add(spearMesh);
+  // glowing cyan core line riding the blade's front ridge → the bright spine the painted spear has
   let tipY = 0; for (const p of spear) if (p[1] > tipY) tipY = p[1];
   const core = [[D.mirror, TAIL_SPEAR_TOP + 0.01], [D.mirror, (TAIL_SPEAR_TOP + tipY) / 2], [D.mirror, tipY - 0.005]];
-  const t = taperedTube(core, [0.004, 0.011, 0.002], () => 0.1, matCore, 7); if (t) bodyGrp.add(t);
+  const t = taperedTube(core, [0.004, 0.010, 0.002], () => 0.035, matCore, 7); if (t) bodyGrp.add(t);
 }
 
 // HEAD horns — curved tapered horns sweeping up & back from each horn tip
