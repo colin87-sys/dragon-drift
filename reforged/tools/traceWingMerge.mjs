@@ -67,11 +67,15 @@ function boneSpine(mask) {
   const chains = weldChains(skeletonToPolylines(sk, W, H, 4), 14, 0.2).sort((a, b) => splen(b) - splen(a));
   const c = chains[0]; if (!c || c.length < 2) return null;
   const rad = c.map(p => { for (let r = 1; r <= 32; r++) { for (let k = 0; k < 12; k++) { const a = k / 12 * Math.PI * 2, x = Math.round(p.x + Math.cos(a) * r), y = Math.round(p.y + Math.sin(a) * r); if (x < 0 || y < 0 || x >= W || y >= H || !mask[y * W + x]) return r; } } return 32; });
-  const n = Math.max(6, Math.min(36, Math.round(splen(c) / 11)));
+  const n = Math.max(5, Math.min(16, Math.round(splen(c) / 18)));   // fewer control points → smoother curve
   const rs = resampleWithR(c, rad, n);
-  const sm = rs.radii.map((_, i) => { let s = 0, m = 0; for (let k = -1; k <= 1; k++) { const j = i + k; if (j >= 0 && j < rs.radii.length) { s += rs.radii[j]; m++; } } return s / m; });
-  sm[0] *= 0.2; sm[sm.length - 1] *= 0.2;   // taper the ends to a point
-  return { pts: rs.pts.map(p => [+(p.x / W).toFixed(4), +(p.y / H).toFixed(4)]), radii: sm.map(r => +(r / H).toFixed(5)) };
+  // HEAVILY smooth the centerline so the bone is clean & straight-ish (the medial axis is wiggly); keep ends
+  let sp = rs.pts;
+  for (let pass = 0; pass < 10; pass++) sp = sp.map((p, i) => (i === 0 || i === sp.length - 1) ? p : { x: (sp[i - 1].x + 2 * p.x + sp[i + 1].x) / 4, y: (sp[i - 1].y + 2 * p.y + sp[i + 1].y) / 4 });
+  let sm = rs.radii.slice();
+  for (let pass = 0; pass < 3; pass++) sm = sm.map((_, i) => { let s = 0, m = 0; for (let k = -1; k <= 1; k++) { const j = i + k; if (j >= 0 && j < sm.length) { s += sm[j]; m++; } } return s / m; });
+  sm[0] *= 0.5; sm[sm.length - 1] *= 0.5;   // taper the ends to a point (gentle — bones stay substantial)
+  return { pts: sp.map(p => [+(p.x / W).toFixed(4), +(p.y / H).toFixed(4)]), radii: sm.map(r => +(r / H).toFixed(5)) };
 }
 const boneSpines = grownShapes.map(g => boneSpine(g.mask)).filter(Boolean);
 console.log(`bone spines: ${boneSpines.length} (centerline + radius profile)`);

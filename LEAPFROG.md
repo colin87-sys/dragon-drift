@@ -3482,3 +3482,15 @@ tips, no jagged contour. Radii come from the DRAWN width so finger spurs are thi
 last shape) reads bigger (×1.5 nudge + 0.85 global scale). Lesson: **for an organic bone/limb, represent it as
 a centerline + radius profile and sweep a round tube — a slab from the silhouette contour is always too thick,
 flat-edged, and jagged at speared tips. Medial-axis + distance-transform is the right shape descriptor.**
+
+### L114 — Over-correction + failure to self-review: thin wiggly threads ≠ bones. SMOOTH the medial axis, keep substance
+Bad miss: told the slabs were "too thick", I swung to the opposite extreme — built bones from the RAW medial
+axis (wiggly) at 0.85× radius → thin glowing WORMS/threads; the wing lost its skeleton (dark membrane blob +
+faint squiggles). Worse than before, and I PRESENTED it as "fixed" without comparing to the prior render or the
+reference. The human (rightly) called it. Fix: (1) **heavily smooth the centerline** (Laplacian [1,2,1]/4 ×10,
+keep ends) + fewer control points — the medial axis of a hand-tagged region is always wiggly; a clean bone
+needs a smoothed spine. (2) **Keep substance** — gentle end taper (×0.5 not ×0.2) + global radius up (0.85→1.7);
+"thin fingers" must still read as solid bones, not threads. Lessons: **(a) when correcting "too much X", don't
+overshoot to "too little X" — aim for the middle and VERIFY against the reference. (b) ALWAYS critically
+compare your output to the previous good state + the target BEFORE presenting; a coverage/feature change can
+silently regress the overall read. (c) medial-axis spines are wiggly by nature — smooth them hard.**
