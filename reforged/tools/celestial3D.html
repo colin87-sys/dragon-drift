@@ -322,9 +322,9 @@ const FLAP = { freq: 0.55, downFrac: 0.62, downDepth: 0.9, yokeElevDeg: 40, rowD
 // returns the whole-wing channel for one side (Phase 1 uses the yoke only — single pivot per wing)
 function flapDrive(t, side) {
   const s = solveWing(t * FLAP.freq * TAU, FLAP);
-  // ALL three Euler components flip with side → a clean sagittal mirror (left wing = mirror of right). Mixing a
-  // mirrored axis with a shared one rotates the wings in-plane asymmetrically (one thrown higher than the other).
-  return { plunge: side * s.yoke.elev, sweep: side * s.yoke.sweep, twist: side * s.yoke.twist, env: s.yoke.env };
+  // Sagittal mirror = conjugate the rotation by reflection diag(-1,1,1): for XYZ Euler that leaves rotation.X
+  // UNCHANGED and negates Y & Z. So sweep (rotation.x) is SHARED by both wings; plunge (y) + twist (z) flip by side.
+  return { plunge: side * s.yoke.elev, sweep: s.yoke.sweep, twist: side * s.yoke.twist, env: s.yoke.env };
 }
 function buildWing(mirrored) {
   const f = (c) => mirrored ? c.map(mir) : c;

@@ -3659,3 +3659,16 @@ mirrored axis with a shared one yields an in-plane asymmetric rotation. Also: a 
 `__flapPose`/`__flapPhase` screenshots aren't overwritten by the running animation loop; `ampScale` eases on
 toggle. Lesson: **before authoring an oscillator, grep for an existing solver — this repo had a tuned one. And
 bilateral appendage symmetry = negate ALL Euler axes per side, not just the obvious one.**
+
+### L129 — CORRECTION to L128: sagittal mirror negates Y+Z only, NOT all three axes (sweep stays shared)
+L128 claimed "negate ALL Euler axes by side" — WRONG, and the human caught the still-asymmetric wings on the
+rear preview (I had to actually re-render + look to confirm, not assume). The real math: a sagittal mirror is
+the rotation conjugated by reflection `M = diag(-1,1,1)`; for XYZ-Euler, `M·Rx(a)Ry(b)Rz(c)·M = Rx(a)Ry(-b)Rz(-c)`
+→ **rotation.X is UNCHANGED, only Y and Z negate.** In our mapping (x=sweep, y=plunge, z=twist) that means the
+fore-aft **sweep is SHARED by both wings** (both reach forward together — also physically correct), while plunge
++ twist flip by `side`. Both wrong versions (twist-shared, then all-flipped) looked plausible at the apex but
+broke at mid-stroke. VERIFICATION GOTCHA: the numeric L/R-extent check was useless because at high amplitude the
+wings **clip the capture frame** (top-edge), corrupting extents — had to zoom OUT (`__zoom(1.45)`) and judge the
+mid-phase frames visually. Lesson: **mirroring a multi-axis Euler rotation is NOT "negate everything" — only the
+two axes in the mirror plane negate; the axis perpendicular to it stays. And verify symmetry at MID-stroke with
+the whole wing in frame, not just the extremes (extremes can look fine while intermediate phases skew).**
