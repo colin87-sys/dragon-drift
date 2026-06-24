@@ -105,7 +105,7 @@ const strutsRaw = allWingPolys
 // anchor the wing ROOT to a point on the body centreline, scale by span. These two numbers are the tuning
 // dials (matched to the reference) — nudge them to move the wings up/down or wider/narrower.
 const WING_SPAN = 0.94;       // full (both-wings) span as a fraction of canvas width
-const WING_ATTACH_Y = 0.26;   // wing-root height as a fraction down the body silhouette (0 = top of head)
+const WING_ATTACH_Y = 0.18;   // wing-root height as a fraction down the body (0 = top of head) — shoulders, just below the neck
 const bodyBox = bboxPts(bodySilhouetteRaw);
 const wingBox = bboxPts(wingSilhouetteRaw);
 let wingRoot = wingSilhouetteRaw[0]; for (const p of wingSilhouetteRaw) if (p.x < wingRoot.x) wingRoot = p;  // innermost point
