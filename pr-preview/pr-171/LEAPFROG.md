@@ -3578,3 +3578,14 @@ inventing a shape. Emit `js/celestialSpine.js`; the 3D spine stamps that one dia
 the row's cell. Lessons: **(a) "trace it, don't draw it" → extract+clean the real contour; a symmetrised median
 of the traced shape is faithful AND pretty. (b) auto-cell-extraction on overlapping-scale art yields mostly
 junk cells — magnify the source, identify which cells are the real motif, filter HARD before trusting them.**
+
+### L122 — Clean source beats clever extraction: a non-overlapping diamond column traced in 14 clean cells
+Human supplied a SECOND spine stencil — a clean, non-overlapping single column of 14 crisp diamonds (vs the
+first stencil's overlapping braid that yielded mostly junk cells). Ran the same `spineDiamonds.mjs` on it:
+14 cells found = 14 diamonds traced, 0 slivers, 0 side segments — the extraction that fought the braided art
+was trivial here. Emitted the full ordered `SPINE_DIAMONDS` column (each symmetrized + unit-normalized) plus a
+canonical; the 3D spine now maps each armour ROW proportionally onto that head→tail column so the artist's
+shape progression is preserved while still lining up on our segments. Lesson: **when an auto-trace is fighting
+the source (overlaps, anti-alias, ambiguous cells), the highest-leverage fix is often to ask for a cleaner
+SOURCE, not a cleverer algorithm. A clean input collapsed a multi-step heuristic (flood→label→filter slivers→
+pick leaf→symmetrize) into a clean 1:1 trace. Keep the tool; feed it better data.**
