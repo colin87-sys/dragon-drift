@@ -496,8 +496,8 @@ function updateSVJDragon(dt, player, time) {
     speedNorm,
     bank: Math.max(-1, Math.min(1, player.velocity.x / 16)),
     pitch: Math.max(-1, Math.min(1, player.velocity.y / 14)),
-    boost: player.speedActive ? 1 : 0,
-    surge: player.feverActive ? 1 : 0,
+    boost: player.boosting ? 1 : 0,                 // ACTUAL boost button — NOT speedActive
+    surge: player.feverActive ? 1 : 0,              // (which is ~always true in fast cruise → idle never went cold)
     airbrake: decel01,
     surgeColor: activeDef.svjSurgeColor || undefined,
   };

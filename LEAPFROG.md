@@ -3481,3 +3481,17 @@ the model build — so the static `tools/shot.mjs` harness (which only runs upda
 (timing-robust), and screenshots the actual chase cam — so surge particle FX are captured and two dragons can be
 A/B'd in-engine. The `?debug=fever` flag + `__dd` seam were already there; added equip/play. Use ingameShot for
 anything driven by the game loop (particles, trails, post-fx, camera); use shot.mjs for static look/proportions.
+
+## Lesson — `player.speedActive` ≠ "boosting". Mapping the SVJ thruster heat to it kept the thrusters lit in all normal fast flight.
+
+The user reported the SVJ thrusters still had a "radiating circle" at idle and a blob on surge — and correctly noticed
+"at idle the thruster isn't cold," meaning my cold-idle change wasn't taking. Root cause was NOT a stale deploy: in
+`updateSVJDragon` I'd set `boost: player.speedActive ? 1 : 0`. But `player.speedActive` is a getter = `speed >
+baseSpeed+8` — it is TRUE for almost all normal cruise once the run speeds up (and the harness at run-start has it
+FALSE, which is why my earlier in-game verification missed it). So the driver thought the dragon was permanently
+boosting → thruster cores stayed hot (the "idle red circle") AND surge stacked a full boost-flame CONE on top of the
+afterburner (the "blob"). Fix: `boost: player.boosting` (the actual boost button = held + stamina). Verified by
+FORCING the bug's condition headlessly — `__dd.player.speed = 110` so `speedActive=true` with `boosting=false` — and
+confirming the thrusters render cold. Lesson: when a per-frame visual gates on a player flag, check the flag's real
+definition and verify at the STATE THAT TRIGGERS IT (high speed), not just at run-start where the harness sits;
+`speedActive` (passive fast) and `boosting` (active input) are different and the SVJ wants the latter for FX ignition.
