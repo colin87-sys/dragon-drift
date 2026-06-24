@@ -1,0 +1,249 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Celestial Storm — 3D Previewer</title>
+<script type="importmap">{ "imports": { "three": "../lib/three.module.js" } }</script>
+<style>
+  :root{ --bg:#070a14; --line:#243049; --ink:#cfe0ff; --dim:#7f8db0; --cyan:#6ae6ff; }
+  *{box-sizing:border-box} html,body{margin:0;height:100%;background:var(--bg);color:var(--ink);font:13px/1.5 system-ui,sans-serif;overflow:hidden}
+  #gl{position:fixed;inset:0;width:100vw;height:100vh;display:block}
+  header{position:fixed;top:0;left:0;right:0;padding:10px 14px;display:flex;align-items:center;gap:10px;z-index:2;pointer-events:none}
+  h1{font-size:14px;margin:0;color:var(--cyan);text-shadow:0 2px 12px rgba(0,0,0,.6)} h1 small{color:var(--dim);font-weight:400;margin-left:6px}
+  .controls{position:fixed;bottom:12px;left:50%;transform:translateX(-50%);display:flex;flex-wrap:wrap;gap:7px;justify-content:center;z-index:2;max-width:96vw}
+  button{background:rgba(22,34,60,.85);color:var(--ink);border:1px solid var(--line);border-radius:9px;padding:8px 12px;font-size:12px;cursor:pointer;backdrop-filter:blur(6px)}
+  button.on{background:var(--cyan);color:#04140a;border-color:var(--cyan);font-weight:600}
+  .hint{position:fixed;top:34px;left:14px;color:var(--dim);font-size:11px;z-index:2;pointer-events:none}
+</style>
+</head>
+<body>
+<canvas id="gl"></canvas>
+<header><h1>Celestial Storm <small id="sub">3D preview · rear chase-cam</small></h1></header>
+<div class="hint">drag to orbit · scroll to zoom</div>
+<div class="controls">
+  <button id="bRear" class="on">rear cam</button>
+  <button id="bSpin">auto-spin</button>
+  <button id="bFlap" class="on">wing flap</button>
+  <button id="bWire">wireframe</button>
+  <button id="bStruts" class="on">struts</button>
+  <button id="bPlates" class="on">plates</button>
+  <button id="bStars" class="on">star-flecks</button>
+</div>
+<script type="module">
+import * as THREE from 'three';
+import { CELESTIAL_DEF as D } from '../js/celestialDef.js';
+
+// ── canvas coords → world. Canvas 941×1672; preserve aspect (x scaled by W/H). Y flips (image y is down).
+const W = D.canvas[0], H = D.canvas[1], ASPX = W / H, S = 10;
+const pt = (nx, ny, nz) => new THREE.Vector3((nx - 0.5) * ASPX * S, (0.5 - ny) * S, (nz || 0) * ASPX * S);
+const mir = (p) => [2 * D.mirror - p[0], p[1]];          // mirror a [x,y] across the spine axis
+
+const gl = document.getElementById('gl');
+const renderer = new THREE.WebGLRenderer({ canvas: gl, antialias: true, preserveDrawingBuffer: true });
+renderer.setPixelRatio(Math.min(devicePixelRatio || 1, 2));
+renderer.toneMapping = THREE.ACESFilmicToneMapping; renderer.toneMappingExposure = 1.15;
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x070a14);
+scene.fog = new THREE.FogExp2(0x070a14, 0.012);
+const camera = new THREE.PerspectiveCamera(42, 1, 0.1, 400);
+// lighting: cool cosmic key + warm rim + fill
+scene.add(new THREE.HemisphereLight(0x9fc4ff, 0x161a2e, 0.9));
+const keyL = new THREE.DirectionalLight(0xbfe0ff, 1.6); keyL.position.set(-3, 5, 7); scene.add(keyL);
+const rimL = new THREE.DirectionalLight(0x9b6bff, 1.1); rimL.position.set(4, 2, -6); scene.add(rimL);
+const fillL = new THREE.DirectionalLight(0x7fb8ff, 0.4); fillL.position.set(0, -4, 3); scene.add(fillL);
+// starfield backdrop
+(() => {
+  const g = new THREE.BufferGeometry(), n = 1400, a = [];
+  for (let i = 0; i < n; i++) { const r = 90 + Math.random() * 120, t = Math.random() * 6.283, p = Math.acos(2 * Math.random() - 1); a.push(r * Math.sin(p) * Math.cos(t), r * Math.cos(p), r * Math.sin(p) * Math.sin(t)); }
+  g.setAttribute('position', new THREE.Float32BufferAttribute(a, 3));
+  scene.add(new THREE.Points(g, new THREE.PointsMaterial({ color: 0x9fc0ff, size: 0.5, sizeAttenuation: true, transparent: true, opacity: 0.7 })));
+})();
+
+// ── materials ───────────────────────────────────────────────────────────────
+const matBody = new THREE.MeshStandardMaterial({ color: 0x2a2350, roughness: 0.55, metalness: 0.35, emissive: 0x140e30, emissiveIntensity: 0.6, flatShading: false });
+const matMembrane = new THREE.MeshStandardMaterial({ color: 0x3a1f63, roughness: 0.6, metalness: 0.2, emissive: 0x24103f, emissiveIntensity: 0.5, side: THREE.DoubleSide, transparent: true, opacity: 0.93 });
+const matStrut = new THREE.MeshStandardMaterial({ color: 0x8fd8ff, roughness: 0.35, metalness: 0.4, emissive: 0x2a6f9e, emissiveIntensity: 1.3 });
+const matSpar = new THREE.MeshStandardMaterial({ color: 0xbfeaff, roughness: 0.3, metalness: 0.5, emissive: 0x4a8fc0, emissiveIntensity: 1.5 });
+const matPlate = new THREE.LineBasicMaterial({ color: 0x9fc4ff, transparent: true, opacity: 0.8 });
+const matHorn = new THREE.MeshStandardMaterial({ color: 0x6e7cff, roughness: 0.4, metalness: 0.5, emissive: 0x3a2f8f, emissiveIntensity: 0.9 });
+const matStar = new THREE.MeshBasicMaterial({ color: 0xffe27a });
+
+// ── helpers ───────────────────────────────────────────────────────────────
+// polygon scanline crossings at height ny → sorted list of x
+function crossings(loop, ny) {
+  const xs = [];
+  for (let i = 0, j = loop.length - 1; i < loop.length; j = i++) {
+    const a = loop[i], b = loop[j];
+    if ((a[1] > ny) !== (b[1] > ny)) xs.push(a[0] + (ny - a[1]) / (b[1] - a[1]) * (b[0] - a[0]));
+  }
+  return xs.sort((m, n) => m - n);
+}
+// LOFT a closed silhouette into a 3D fuselage: per-row outer span → elliptical ring, stitched into a tube.
+function loftBody(loop, { rings = 150, seg = 18, depth = 0.5 } = {}) {
+  let minY = 1, maxY = 0; for (const p of loop) { if (p[1] < minY) minY = p[1]; if (p[1] > maxY) maxY = p[1]; }
+  const stations = [];
+  for (let i = 0; i <= rings; i++) {
+    const y = minY + (maxY - minY) * (i / rings);
+    const xs = crossings(loop, Math.min(maxY - 1e-5, Math.max(minY + 1e-5, y)));
+    if (xs.length < 2) continue;
+    const xL = xs[0], xR = xs[xs.length - 1], cx = (xL + xR) / 2, hw = Math.max(1e-4, (xR - xL) / 2);
+    stations.push({ y, cx, hw });
+  }
+  const pos = [], idx = [];
+  stations.forEach((st, ri) => {
+    for (let s = 0; s < seg; s++) {
+      const a = (s / seg) * Math.PI * 2;
+      const nx = st.cx + st.hw * Math.cos(a);
+      const nz = depth * st.hw * Math.sin(a);
+      const v = pt(nx, st.y, nz); pos.push(v.x, v.y, v.z);
+    }
+  });
+  for (let ri = 0; ri < stations.length - 1; ri++) for (let s = 0; s < seg; s++) {
+    const a = ri * seg + s, b = ri * seg + (s + 1) % seg, c = (ri + 1) * seg + s, d = (ri + 1) * seg + (s + 1) % seg;
+    idx.push(a, c, b, b, c, d);
+  }
+  // end caps (fan to centre)
+  const capStart = pos.length / 3;
+  const top = stations[0], bot = stations[stations.length - 1];
+  const vt = pt(top.cx, top.y, 0); pos.push(vt.x, vt.y, vt.z);
+  const vb = pt(bot.cx, bot.y, 0); pos.push(vb.x, vb.y, vb.z);
+  for (let s = 0; s < seg; s++) { idx.push(capStart, (s + 1) % seg, s); idx.push(capStart + 1, stations.length * seg - seg + s, stations.length * seg - seg + (s + 1) % seg); }
+  const g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.setIndex(idx); g.computeVertexNormals();
+  return { mesh: new THREE.Mesh(g, matBody), stations };
+}
+// front-surface z of the lofted body at a normalized (x,y) — so plates/stars sit ON the hull
+function bodySurfaceZ(stations, x, y) {
+  let best = stations[0], bd = 1e9; for (const st of stations) { const d = Math.abs(st.y - y); if (d < bd) { bd = d; best = st; } }
+  const t = (x - best.cx) / best.hw; if (Math.abs(t) >= 1) return 0;
+  return 0.5 * best.hw * Math.sqrt(1 - t * t) + 0.004;   // depth=0.5 matches loft
+}
+// triangulated flat-ish panel (wing membrane) with a z-function
+function panel(loop, zFn, material) {
+  const v2 = loop.map(p => new THREE.Vector2(p[0], p[1]));
+  const tris = THREE.ShapeUtils.triangulateShape(v2, []);
+  const pos = []; for (const p of loop) { const v = pt(p[0], p[1], zFn(p)); pos.push(v.x, v.y, v.z); }
+  const idx = []; for (const t of tris) idx.push(t[0], t[1], t[2]);
+  const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.setIndex(idx); g.computeVertexNormals();
+  return new THREE.Mesh(g, material);
+}
+// tube along a polyline (struts / spar)
+function tube(poly, zFn, radius, material) {
+  if (poly.length < 2) return null;
+  const pts = poly.map(p => pt(p[0], p[1], zFn(p)));
+  const curve = new THREE.CatmullRomCurve3(pts);
+  const g = new THREE.TubeGeometry(curve, Math.max(8, poly.length * 2), radius, 6, false);
+  return new THREE.Mesh(g, material);
+}
+
+// ── assemble ────────────────────────────────────────────────────────────────
+const root = new THREE.Group(); scene.add(root);
+const bodyGrp = new THREE.Group(), plateGrp = new THREE.Group(), starGrp = new THREE.Group(), wingGrp = new THREE.Group(), strutGrp = new THREE.Group();
+root.add(bodyGrp, plateGrp, starGrp, wingGrp, strutGrp);
+
+// BODY
+const { mesh: bodyMesh, stations } = loftBody(D.body.silhouette, { depth: 0.5 });
+bodyGrp.add(bodyMesh);
+const surfZ = (p) => bodySurfaceZ(stations, p[0], p[1]);
+
+// HEAD horns — small cones at the horn tips, angled up & back
+for (const h of D.body.head.horns) {
+  const base = pt(h[0], h[1], surfZ(h));
+  const len = 0.9, dir = new THREE.Vector3((h[0] - 0.5) * 0.6, 0.7, 0.5).normalize();
+  const g = new THREE.ConeGeometry(0.13, len, 10);
+  const m = new THREE.Mesh(g, matHorn);
+  m.position.copy(base).addScaledVector(dir, len * 0.5);
+  m.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), dir);
+  bodyGrp.add(m);
+}
+
+// PLATES — emissive line loops wrapped onto the hull surface
+for (const pl of D.body.plates) {
+  const pts = pl.map(p => pt(p[0], p[1], surfZ(p)));
+  pts.push(pts[0]);
+  plateGrp.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(pts), matPlate));
+}
+
+// STAR-FLECKS — tiny emissive spheres at each plate centroid, lifted off the hull
+const starGeo = new THREE.SphereGeometry(0.055, 8, 8);
+const stars = new THREE.InstancedMesh(starGeo, matStar, D.body.plates.length);
+D.body.plates.forEach((pl, i) => {
+  let cx = 0, cy = 0; for (const p of pl) { cx += p[0]; cy += p[1]; } cx /= pl.length; cy /= pl.length;
+  const v = pt(cx, cy, surfZ([cx, cy]) + 0.06);
+  stars.setMatrixAt(i, new THREE.Matrix4().makeTranslation(v.x, v.y, v.z));
+});
+stars.instanceMatrix.needsUpdate = true; starGrp.add(stars);
+
+// WINGS — membrane + struts, both sides. Each wing is its own pivot group at the shoulder for flapping.
+const wingPivots = [];
+const sweep = 0.16;                                   // wings angle backward (−z) with outward distance
+function buildWing(mirrored) {
+  const f = (c) => mirrored ? c.map(mir) : c;
+  const sil = f(D.wing.silhouette);
+  // shoulder = innermost point of this wing (root)
+  let root0 = sil[0]; for (const p of sil) if (Math.abs(p[0] - 0.5) < Math.abs(root0[0] - 0.5)) root0 = p;
+  const zWing = (p) => -sweep * Math.abs(p[0] - 0.5);
+  const pivot = new THREE.Group();
+  const rv = pt(root0[0], root0[1], zWing(root0)); pivot.position.copy(rv);
+  const off = (mesh) => { if (mesh) { mesh.position.sub(rv); pivot.add(mesh); } };
+  off(panel(sil, zWing, matMembrane));
+  D.wing.struts.forEach((s, i) => {
+    const isSpar = i === D.wing.sparIndex;
+    off(tube(f(s), (p) => zWing(p) + 0.03, isSpar ? 0.05 : 0.028, isSpar ? matSpar : matStrut));
+  });
+  wingGrp.add(pivot); wingPivots.push({ pivot, side: mirrored ? -1 : 1, restX: pivot.rotation.x });
+}
+buildWing(false); buildWing(true);
+
+// ── fit camera ───────────────────────────────────────────────────────────────
+root.updateMatrixWorld(true);
+const box = new THREE.Box3().setFromObject(root), center = box.getCenter(new THREE.Vector3()), size = box.getSize(new THREE.Vector3());
+root.position.sub(center);                            // recenter at origin
+const radius = 0.5 * Math.max(size.x, size.y, size.z);
+const baseDist = (radius / Math.tan(camera.fov * Math.PI / 360)) * 1.5;
+const orbit = { yaw: 0, pitch: 0.22, dist: baseDist };   // yaw 0 = rear/dorsal view
+function placeCamera() {
+  const y = orbit.yaw, p = orbit.pitch;
+  camera.position.set(orbit.dist * Math.sin(y) * Math.cos(p), orbit.dist * Math.sin(p), orbit.dist * Math.cos(y) * Math.cos(p));
+  camera.lookAt(0, 0, 0); camera.updateProjectionMatrix();
+}
+
+// ── interaction ───────────────────────────────────────────────────────────────
+let drag = false, lx = 0, ly = 0;
+gl.addEventListener('pointerdown', e => { drag = true; lx = e.clientX; ly = e.clientY; });
+addEventListener('pointerup', () => drag = false);
+addEventListener('pointermove', e => { if (!drag) return; orbit.yaw -= (e.clientX - lx) * 0.008; orbit.pitch = Math.max(-1.3, Math.min(1.3, orbit.pitch + (e.clientY - ly) * 0.006)); lx = e.clientX; ly = e.clientY; spin = false; document.getElementById('bSpin').classList.remove('on'); });
+gl.addEventListener('wheel', e => { e.preventDefault(); orbit.dist = Math.max(radius * 1.2, Math.min(baseDist * 3, orbit.dist * (1 + Math.sign(e.deltaY) * 0.08))); }, { passive: false });
+
+let spin = false, flap = true;
+const toggle = (id, fn) => { const b = document.getElementById(id); b.onclick = () => { b.classList.toggle('on'); fn(b.classList.contains('on')); }; };
+document.getElementById('bRear').onclick = () => { orbit.yaw = 0; orbit.pitch = 0.22; orbit.dist = baseDist; spin = false; document.getElementById('bSpin').classList.remove('on'); };
+toggle('bSpin', v => spin = v); toggle('bFlap', v => flap = v);
+toggle('bWire', v => { matBody.wireframe = v; matMembrane.wireframe = v; });
+toggle('bStruts', v => strutGrp.visible = wingGrp.children.forEach(p => p.children.forEach(c => { if (c.geometry && c.geometry.type === 'TubeGeometry') c.visible = v; })));
+toggle('bPlates', v => plateGrp.visible = v);
+toggle('bStars', v => starGrp.visible = v);
+
+function resize() { const w = innerWidth, h = innerHeight; renderer.setSize(w, h, false); camera.aspect = w / h; camera.updateProjectionMatrix(); }
+addEventListener('resize', resize); resize();
+
+// headless hooks (used by tools/celestial3Dshot.mjs)
+window.__ready = true;
+window.__view = (yawDeg, pitchR, flapOn) => { orbit.yaw = yawDeg * Math.PI / 180; orbit.pitch = pitchR ?? 0.22; orbit.dist = baseDist; spin = false; flap = !!flapOn; };
+
+const clock = new THREE.Clock(); let t = 0;
+function frame() {
+  const dt = clock.getDelta(); t += dt;
+  if (spin) orbit.yaw += dt * 0.5;
+  const fa = flap ? Math.sin(t * 1.6) * 0.32 : 0;
+  for (const w of wingPivots) w.pivot.rotation.z = w.side * fa * 0.5, w.pivot.rotation.x = -fa * 0.5;
+  root.position.y = -center.y + Math.sin(t * 1.6) * 0.12;   // gentle body bob synced to flap
+  placeCamera();
+  renderer.render(scene, camera);
+  requestAnimationFrame(frame);
+}
+frame();
+</script>
+</body>
+</html>
