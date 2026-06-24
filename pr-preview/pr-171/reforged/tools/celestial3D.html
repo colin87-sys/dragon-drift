@@ -79,7 +79,7 @@ const matPlate = fresnelRim(new THREE.MeshStandardMaterial({ color: 0x2c2a66, ro
 const matSeam = new THREE.LineBasicMaterial({ color: 0xbfe8ff, transparent: true, opacity: 0.9 });                                                  // glowing seams
 const matMembrane = fresnelRim(new THREE.MeshStandardMaterial({ color: 0x2a1556, roughness: 0.6, metalness: 0.12, emissive: 0x35176a, emissiveIntensity: 0.75, side: THREE.DoubleSide, transparent: true, opacity: 0.74 }), 0x9a7bff, 2.0, 1.3);   // translucent violet, glowing edges
 const matStrut = new THREE.MeshStandardMaterial({ color: 0x8fd8ff, roughness: 0.35, metalness: 0.4, emissive: 0x2a6f9e, emissiveIntensity: 1.3 });
-const matSpine = fresnelRim(new THREE.MeshStandardMaterial({ color: 0x4fd6ff, roughness: 0.28, metalness: 0.45, emissive: 0x17a8da, emissiveIntensity: 1.7 }), 0xbff2ff, 2.3, 1.2);   // bright cyan dorsal follow-line
+const matSpine = fresnelRim(new THREE.MeshStandardMaterial({ color: 0x4fd6ff, roughness: 0.28, metalness: 0.45, emissive: 0x17a8da, emissiveIntensity: 1.7, side: THREE.DoubleSide }), 0xbff2ff, 2.3, 1.2);   // bright cyan dorsal follow-line
 const matSpar = fresnelRim(new THREE.MeshStandardMaterial({ color: 0xd6efff, roughness: 0.3, metalness: 0.45, emissive: 0x6ab2dc, emissiveIntensity: 1.1 }), 0xffffff, 3.2, 0.7);   // pale iridescent bone
 const matHorn = fresnelRim(new THREE.MeshStandardMaterial({ color: 0x8a78ff, roughness: 0.32, metalness: 0.55, emissive: 0x46329e, emissiveIntensity: 1.0 }), 0xb9a0ff, 2.6, 0.9);
 
@@ -260,7 +260,7 @@ plateGrp.add(new THREE.Mesh(plG, matPlate));
     const base = sPos.length / 3;
     const cv = pt(cxAxis, cy, surfZ([cxAxis, cy]) + crown); sPos.push(cv.x, cv.y, cv.z);    // crown
     for (const p of rim) { const v = pt(p[0], p[1], surfZ(p) + 0.006); sPos.push(v.x, v.y, v.z); }
-    for (let k = 0; k < 4; k++) sIdx.push(base, base + 1 + k, base + 1 + (k + 1) % 4);
+    for (let k = 0; k < 4; k++) sIdx.push(base, base + 1 + (k + 1) % 4, base + 1 + k);   // CCW from +z (rear cam) → faces the camera, not into the body
   }
   const sG = new THREE.BufferGeometry(); sG.setAttribute('position', new THREE.Float32BufferAttribute(sPos, 3)); sG.setIndex(sIdx); sG.computeVertexNormals();
   spineGrp.add(new THREE.Mesh(sG, matSpine));
