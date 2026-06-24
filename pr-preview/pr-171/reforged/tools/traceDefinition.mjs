@@ -11,7 +11,7 @@
 //
 // Uses tools/lineTrace.mjs (thinning + skeleton→polylines + resampling). Pure node; standalone PNG encode.
 
-import { writeFileSync, readFileSync } from 'node:fs';
+import { writeFileSync, readFileSync, existsSync } from 'node:fs';
 import { deflateSync } from 'node:zlib';
 import { decodePNG } from './pngDecode.mjs';
 import { traceContour } from './tracerCore.mjs';
@@ -110,29 +110,29 @@ const wings2 = components(wsolidAll, 2, 4000);
 const rightSolid = centroidX(wings2[0]) > 0.5 ? wings2[0] : wings2[1];
 const region = dilate(rightSolid, 6);                          // selector for the right wing's internal lines
 const wingSilhouetteRaw = closed(rightSolid, 320);
-// WING BONES = ALL the drawn lines (the human's rule: coloured cells = membrane, every uncoloured line = bone).
-// Verified in tools/traceWingCells.mjs: the membrane compartments are found only to locate the wing (their
-// padded bbox); the BONES are the full skeleton of the wing ink within it — leading frame, finger struts to
-// each scallop tip, thumb, long projection, wingtip spikes, and the trailing edge. Lies exactly on the stencil.
+// WING BONES — AUTHORED by the human (tools/celestialBoneEditor.html → tools/traceWingMerge.mjs). Prefer the
+// tagged file: bone SHAPES (closed contours WITH width, grown to hug the stencil stroke) for leading frame +
+// finger struts + arm; membrane outline / trailing scallops are deliberately NOT bones. Fall back to the auto
+// skeleton only if the file is absent.
 const plen = (p) => { let s = 0; for (let i = 1; i < p.length; i++) s += Math.hypot(p[i].x - p[i - 1].x, p[i].y - p[i - 1].y); return s; };
 const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
-const cellLab = new Int32Array(W * H); let cid = 0; const keepCell = new Set();
-for (let s = 0; s < W * H; s++) {
-  if (wink[s] || cellLab[s]) continue;
-  cid++; const st = [s]; cellLab[s] = cid; let n = 0, border = false, sx = 0;
-  while (st.length) { const p = st.pop(); n++; const x = p % W, y = (p / W) | 0; sx += x; if (x === 0 || y === 0 || x === W - 1 || y === H - 1) border = true; const t = (q, ok) => { if (ok && !wink[q] && !cellLab[q]) { cellLab[q] = cid; st.push(q); } }; if (x) t(p - 1, 1); if (x < W - 1) t(p + 1, 1); if (y) t(p - W, 1); if (y < H - 1) t(p + W, 1); }
-  if (!border && n > 250 && sx / n / W > 0.5) keepCell.add(cid);   // interior compartment on the right wing
-}
-// BONES = ALL drawn lines bounding the membrane (uncolored = bone): skeletonize the wing ink within the
-// kept-cells' padded bbox (so wingtip spikes + outer frame are included, not just inter-cell dividers).
-let cMinX = W, cMinY = H, cMaxX = 0, cMaxY = 0;
-for (let i = 0; i < W * H; i++) if (keepCell.has(cellLab[i])) { const x = i % W, y = (i / W) | 0; if (x < cMinX) cMinX = x; if (x > cMaxX) cMaxX = x; if (y < cMinY) cMinY = y; if (y > cMaxY) cMaxY = y; }
-const PAD = 26, wingInk = new Uint8Array(W * H);
-for (let y = Math.max(0, cMinY - PAD); y <= Math.min(H - 1, cMaxY + PAD); y++) for (let x = Math.max(0, cMinX - PAD); x <= Math.min(W - 1, cMaxX + PAD); x++) { const i = y * W + x; if (wink[i] && x > 0.45 * W) wingInk[i] = 1; }
-const rawBones = weldChains(skeletonToPolylines(thin(wingInk, W, H), W, H, 6), 9, 0.45);   // fragments → continuous bones
-const strutsRaw = rawBones.filter((c) => plen(c) > 14).map((c) => resampleOpen(smoothOpen(c, 1), clamp(Math.round(plen(c) / 7), 3, 40)).map(norm));
 const wingRoot = wingSilhouetteRaw.reduce((a, p) => Math.abs(p.x - 0.5) < Math.abs(a.x - 0.5) ? p : a, wingSilhouetteRaw[0]);
-console.log(`WING bones: ${strutsRaw.length} bone polylines (full wing skeleton; ${keepCell.size} membrane cells)`);
+let boneShapesRaw = [], strutsRaw = [], veinsRaw = [];
+const boneFile = new URL('./refs/celestial/wing-bones-merged-R.json', import.meta.url).pathname;
+if (existsSync(boneFile)) {
+  const J = JSON.parse(readFileSync(boneFile, 'utf8'));
+  boneShapesRaw = (J.boneShapes || []).map((c) => c.map((p) => ({ x: p[0], y: p[1] })));   // keep dense → sharp tips
+  veinsRaw = (J.veins || []).map((v) => v.map((p) => ({ x: p[0], y: p[1] })));
+  console.log(`WING bones: ${boneShapesRaw.length} human-tagged bone shapes (refs/celestial/wing-bones-merged-R.json)`);
+} else {
+  const cellLab = new Int32Array(W * H); let cid = 0; const keepCell = new Set();
+  for (let s = 0; s < W * H; s++) { if (wink[s] || cellLab[s]) continue; cid++; const st = [s]; cellLab[s] = cid; let n = 0, border = false, sx = 0; while (st.length) { const p = st.pop(); n++; const x = p % W, y = (p / W) | 0; sx += x; if (x === 0 || y === 0 || x === W - 1 || y === H - 1) border = true; const t = (q, ok) => { if (ok && !wink[q] && !cellLab[q]) { cellLab[q] = cid; st.push(q); } }; if (x) t(p - 1, 1); if (x < W - 1) t(p + 1, 1); if (y) t(p - W, 1); if (y < H - 1) t(p + W, 1); } if (!border && n > 250 && sx / n / W > 0.5) keepCell.add(cid); }
+  let cMinX = W, cMinY = H, cMaxX = 0, cMaxY = 0; for (let i = 0; i < W * H; i++) if (keepCell.has(cellLab[i])) { const x = i % W, y = (i / W) | 0; if (x < cMinX) cMinX = x; if (x > cMaxX) cMaxX = x; if (y < cMinY) cMinY = y; if (y > cMaxY) cMaxY = y; }
+  const PAD = 26, wingInk = new Uint8Array(W * H);
+  for (let y = Math.max(0, cMinY - PAD); y <= Math.min(H - 1, cMaxY + PAD); y++) for (let x = Math.max(0, cMinX - PAD); x <= Math.min(W - 1, cMaxX + PAD); x++) { const i = y * W + x; if (wink[i] && x > 0.45 * W) wingInk[i] = 1; }
+  strutsRaw = weldChains(skeletonToPolylines(thin(wingInk, W, H), W, H, 6), 9, 0.45).filter((c) => plen(c) > 14).map((c) => resampleOpen(smoothOpen(c, 1), clamp(Math.round(plen(c) / 7), 3, 40)).map(norm));
+  console.log(`WING bones (auto fallback): ${strutsRaw.length} bone polylines`);
+}
 
 // ── PLACE the wing onto the body, MATCHED to the colour reference ────────────
 // The stencils are NOT in the body's frame, so the wing is placed explicitly AND auto-fitted to the art:
@@ -165,9 +165,9 @@ const place = (p) => { const rx = (p.x - wingRoot.x) * W, ry = (p.y - wingRoot.y
 
 const bodySilhouette = bodySilhouetteRaw;
 const wingSilhouette = wingSilhouetteRaw.map(place);
-const struts = strutsRaw.map((s) => s.map(place));
-const veins = [];   // DROPPED — the cyan trace produced stray horizontal fragments, not real veins. In 3D the
-                    // veins become an emissive glow generated ALONG the struts (the original brief's intent).
+const struts = strutsRaw.map((s) => s.map(place));               // thin line-bones (auto fallback)
+const boneShapes = boneShapesRaw.map((s) => s.map(place));       // human-tagged solid bones (with width)
+const veins = veinsRaw.map((v) => v.map(place));
 
 // ── labeled sub-parts for the 3D build ──────────────────────────────────────
 // HEAD + HORNS: the body above the NECK (narrowest row in the upper third). The head outline arc lets the 3D
@@ -183,7 +183,7 @@ const lH = headPts.filter((p) => p.x < 0.5).reduce((a, p) => (p.y < a.y ? p : a)
 const rH = headPts.filter((p) => p.x >= 0.5).reduce((a, p) => (p.y < a.y ? p : a), { x: 0.5, y: 1 });
 const head = { neckY: neckYn, topY: headTopY, outline: headPts, horns: [lH, rH] };
 // WING ARM-SPAR: the longest strut = the arm / leading-frame bone.
-let sparIndex = 0, sparL = -1; struts.forEach((s, i) => { const l = plen(s); if (l > sparL) { sparL = l; sparIndex = i; } });
+let sparIndex = -1, sparL = -1; struts.forEach((s, i) => { const l = plen(s); if (l > sparL) { sparL = l; sparIndex = i; } });
 console.log(`HEAD  neck@${neckYn.toFixed(3)} · ${headPts.length}-pt outline · horns L(${lH.x.toFixed(2)},${lH.y.toFixed(2)}) R(${rH.x.toFixed(2)},${rH.y.toFixed(2)})   WING arm-spar = strut #${sparIndex}`);
 
 const totalBody = bodySilhouette.length + plates.reduce((s, p) => s + p.pts.length, 0);
@@ -194,7 +194,7 @@ console.log(`WING  silhouette ${wingSilhouette.length} pts · ${struts.length} s
 const DEF = {
   canvas: [W, H], source: 'stencil+colour', mirror: 0.5,
   body: { silhouette: bodySilhouette, plates: plates.map(p => p.pts), head },
-  wing: { side: 'right', silhouette: wingSilhouette, struts, veins, sparIndex },
+  wing: { side: 'right', silhouette: wingSilhouette, struts, boneShapes, veins, sparIndex },
 };
 
 // ── render composite preview (cropped, hi-res) ──────────────────────────────
@@ -217,6 +217,7 @@ fill(DEF.body.silhouette, [40, 34, 74]); stroke(DEF.body.silhouette, [10, 12, 20
 for (const pl of DEF.body.plates) stroke(pl, [120, 150, 210], 1, 0.85, true);
 // wings (both): fill + outline, then struts (cyan) + veins (magenta)
 for (const sil of [DEF.wing.silhouette, mirX(DEF.wing.silhouette)]) { fill(sil, [58, 30, 96], 0.96); stroke(sil, [10, 12, 20], 2, 1, true); }
+for (const bs of [...DEF.wing.boneShapes, ...DEF.wing.boneShapes.map(mirX)]) { fill(bs, [150, 200, 240], 0.95); stroke(bs, [200, 240, 255], 1, 1, true); }   // solid bones (with width)
 for (const st of [...DEF.wing.struts, ...DEF.wing.struts.map(mirX)]) stroke(st, [120, 210, 255], 1.4, 0.95);
 for (const vn of [...DEF.wing.veins, ...DEF.wing.veins.map(mirX)]) stroke(vn, [255, 110, 235], 1.4, 0.95);
 // plate centroid dots to show segment count
@@ -239,7 +240,7 @@ if (emit) {
   const r = (c) => c.map((p) => [+p.x.toFixed(4), +p.y.toFixed(4)]);
   const H2 = DEF.body.head;
   const head = { neckY: +H2.neckY.toFixed(4), topY: +H2.topY.toFixed(4), outline: r(H2.outline), horns: r(H2.horns) };
-  const data = { canvas: DEF.canvas, source: DEF.source, mirror: DEF.mirror, body: { silhouette: r(DEF.body.silhouette), plates: DEF.body.plates.map(r), head }, wing: { side: DEF.wing.side, silhouette: r(DEF.wing.silhouette), struts: DEF.wing.struts.map(r), veins: DEF.wing.veins.map(r), sparIndex: DEF.wing.sparIndex } };
+  const data = { canvas: DEF.canvas, source: DEF.source, mirror: DEF.mirror, body: { silhouette: r(DEF.body.silhouette), plates: DEF.body.plates.map(r), head }, wing: { side: DEF.wing.side, silhouette: r(DEF.wing.silhouette), struts: DEF.wing.struts.map(r), boneShapes: DEF.wing.boneShapes.map(r), veins: DEF.wing.veins.map(r), sparIndex: DEF.wing.sparIndex } };
   writeFileSync(new URL('../js/celestialDef.js', import.meta.url), `// AUTO-GENERATED by tools/traceDefinition.mjs — the full Celestial Storm trace definition.\n// Body: outer silhouette + armour-plate/spinal-segment cells (incl. trident). Wing: outer silhouette +\n// finger struts (stencil) + lightning veins (colour), traced on the RIGHT wing, mirror across x=${DEF.mirror}.\n// Normalized 0..1 on the shared ${W}×${H} canvas. Spine layer dropped (flagged wrong).\nexport const CELESTIAL_DEF = ${JSON.stringify(data)};\n`);
   console.log('wrote js/celestialDef.js');
 }

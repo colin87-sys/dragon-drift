@@ -32,10 +32,22 @@ function fillPoly(poly) {
 // (The arm is NOT auto-built here — auto-picking its edges grabbed the leading-edge membrane by mistake. Tag
 //  the arm in the editor: bridge its open origin, then fill bone — so its real edges are chosen, not guessed.)
 const shapes = (J.boneShapes || []).slice();
+// skeleton endpoints (degree-1) = the SHARP tips of the drawn bones; we spear each grown bone out to its tip.
+const skel = thin(ink, W, H), endpoints = [];
+for (let y = 1; y < H - 1; y++) for (let x = 1; x < W - 1; x++) { if (!skel[y * W + x]) continue; let dN = 0; for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) if (!(dx === 0 && dy === 0) && skel[(y + dy) * W + (x + dx)]) dN++; if (dN === 1) endpoints.push({ x, y }); }
+const lineInk = (a, b) => { const n = Math.max(1, Math.hypot(b.x - a.x, b.y - a.y) | 0); let hit = 0; for (let s = 0; s <= n; s++) { const x = Math.round(a.x + (b.x - a.x) * s / n), y = Math.round(a.y + (b.y - a.y) * s / n); let ok = false; for (let dy = -2; dy <= 2 && !ok; dy++) for (let dx = -2; dx <= 2; dx++) { const xx = x + dx, yy = y + dy; if (xx >= 0 && yy >= 0 && xx < W && yy < H && ink[yy * W + xx]) { ok = true; break; } } if (ok) hit++; } return hit / (n + 1) > 0.7; };
+const rasterInto = (a, b, m) => { const n = Math.max(1, Math.hypot(b.x - a.x, b.y - a.y) | 0); for (let s = 0; s <= n; s++) { const px = Math.round(a.x + (b.x - a.x) * s / n), py = Math.round(a.y + (b.y - a.y) * s / n); for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) { const x = px + dx, y = py + dy; if (x >= 0 && y >= 0 && x < W && y < H) m[y * W + x] = 1; } } };
 const grownShapes = [];
 for (const shape of shapes) {
   const fill = fillPoly(shape); const ringInk = dilate(fill, 4);
   const grown = new Uint8Array(W * H); for (let i = 0; i < W * H; i++) grown[i] = (fill[i] || (ringInk[i] && ink[i])) ? 1 : 0;
+  // spear the bone out to each sharp skeleton endpoint that lies just beyond it along the ink (longer + sharper tips)
+  for (const e of endpoints) {
+    if (grown[e.y * W + e.x]) continue;
+    let best = null, bd = 46 * 46 + 1;
+    for (let dy = -46; dy <= 46; dy++) for (let dx = -46; dx <= 46; dx++) { const x = e.x + dx, y = e.y + dy; if (x < 0 || y < 0 || x >= W || y >= H) continue; if (grown[y * W + x]) { const d = dx * dx + dy * dy; if (d < bd) { bd = d; best = { x, y }; } } }
+    if (best && lineInk(best, e)) rasterInto(best, e, grown);
+  }
   const c = traceContour(dilate(grown, 1), W, H).map(p => [+(p.x / W).toFixed(4), +(p.y / H).toFixed(4)]);
   if (c.length > 3) grownShapes.push({ mask: grown, contour: c });
 }
@@ -46,12 +58,11 @@ writeFileSync(DIR + 'wing-bones-merged-R.json', JSON.stringify({ canvas: [W, H],
 
 // ── overlay render (full right-wing crop) ──
 let mnX = W, mnY = H, mxX = 0, mxY = 0;
-const allPts = [...grownShapes.flatMap(g => g.contour), ...(J.bones || []).flat()];
-for (const p of allPts) { const x = p[0] * W, y = p[1] * H; if (x < mnX) mnX = x; if (x > mxX) mxX = x; if (y < mnY) mnY = y; if (y > mxY) mxY = y; }
-const pad = 30; mnX = Math.max(0, mnX - pad) | 0; mnY = Math.max(0, mnY - pad) | 0; mxX = Math.min(W - 1, mxX + pad) | 0; mxY = Math.min(H - 1, mxY + pad) | 0;
+const argv = process.argv.slice(2).map(Number);
+if (argv.length === 4) { mnX = argv[0] * W | 0; mnY = argv[1] * H | 0; mxX = argv[2] * W | 0; mxY = argv[3] * H | 0; }   // optional normalized crop for zooming a tip
+else { const allPts = [...grownShapes.flatMap(g => g.contour), ...(J.bones || []).flat()]; for (const p of allPts) { const x = p[0] * W, y = p[1] * H; if (x < mnX) mnX = x; if (x > mxX) mxX = x; if (y < mnY) mnY = y; if (y > mxY) mxY = y; } const pad = 30; mnX = Math.max(0, mnX - pad) | 0; mnY = Math.max(0, mnY - pad) | 0; mxX = Math.min(W - 1, mxX + pad) | 0; mxY = Math.min(H - 1, mxY + pad) | 0; }
 const cw = mxX - mnX + 1, ch = mxY - mnY + 1, sc = Math.min(2.4, 1300 / ch), RW = Math.round(cw * sc), RH = Math.round(ch * sc);
-// full skeleton (faint) to reveal EVERY drawn line
-const skel = thin(ink, W, H);
+// full skeleton (faint) to reveal EVERY drawn line — reuse `skel` computed above
 const boneU = new Uint8Array(W * H); for (const g of grownShapes) for (let i = 0; i < W * H; i++) if (g.mask[i]) boneU[i] = 1;
 const buf = Buffer.alloc(RW * RH * 4);
 for (let ry = 0; ry < RH; ry++) for (let rx = 0; rx < RW; rx++) { const sx = mnX + (rx / sc | 0), sy = mnY + (ry / sc | 0), si = sy * W + sx, o = (ry * RW + rx) * 4; let r = ink[si] ? 70 : 16, g = ink[si] ? 74 : 20, b = ink[si] ? 84 : 30; if (skel[si]) { r = 235; g = 150; b = 60; } if (boneU[si]) { r = 90; g = 200; b = 255; } buf[o] = r; buf[o + 1] = g; buf[o + 2] = b; buf[o + 3] = 255; }

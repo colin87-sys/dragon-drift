@@ -127,6 +127,19 @@ function panel(loop, zFn, material) {
   const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.setIndex(idx); g.computeVertexNormals();
   return new THREE.Mesh(g, material);
 }
+// SLAB: extrude a closed contour into a solid raised bone (top + bottom faces + side walls)
+function slab(loop, zFn, thick, material) {
+  const v2 = loop.map(p => new THREE.Vector2(p[0], p[1]));
+  const tris = THREE.ShapeUtils.triangulateShape(v2, []);
+  const n = loop.length, pos = [], idx = [];
+  for (const p of loop) { const v = pt(p[0], p[1], zFn(p) + thick); pos.push(v.x, v.y, v.z); }   // top ring
+  for (const p of loop) { const v = pt(p[0], p[1], zFn(p)); pos.push(v.x, v.y, v.z); }            // bottom ring
+  for (const t of tris) idx.push(t[0], t[1], t[2]);                                                // top faces
+  for (const t of tris) idx.push(t[0] + n, t[2] + n, t[1] + n);                                    // bottom faces
+  for (let i = 0; i < n; i++) { const j = (i + 1) % n; idx.push(i, j, i + n, j, j + n, i + n); }    // side walls
+  const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.setIndex(idx); g.computeVertexNormals();
+  return new THREE.Mesh(g, material);
+}
 // tube along a polyline (struts / spar)
 function tube(poly, zFn, radius, material) {
   if (poly.length < 2) return null;
@@ -193,10 +206,10 @@ function buildWing(mirrored) {
   const rv = pt(root0[0], root0[1], zWing(root0)); pivot.position.copy(rv);
   const off = (mesh) => { if (mesh) { mesh.position.sub(rv); pivot.add(mesh); } };
   off(panel(sil, zWing, matMembrane));
-  D.wing.struts.forEach((s, i) => {
-    const isSpar = i === D.wing.sparIndex;
-    off(tube(f(s), (p) => zWing(p) + 0.03, isSpar ? 0.05 : 0.028, isSpar ? matSpar : matStrut));
-  });
+  // BONE SHAPES (human-tagged, with width): solid raised bones (extruded slabs) proud of the membrane
+  for (const bs of (D.wing.boneShapes || [])) off(slab(f(bs), (p) => zWing(p) + 0.04, 0.06, matSpar));
+  // thin line-struts (auto fallback only): tubes
+  D.wing.struts.forEach((s, i) => off(tube(f(s), (p) => zWing(p) + 0.04, i === D.wing.sparIndex ? 0.05 : 0.028, i === D.wing.sparIndex ? matSpar : matStrut)));
   wingGrp.add(pivot); wingPivots.push({ pivot, side: mirrored ? -1 : 1, restX: pivot.rotation.x });
 }
 buildWing(false); buildWing(true);

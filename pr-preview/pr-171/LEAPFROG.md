@@ -3398,3 +3398,19 @@ outline / trailing scallop edges (membrane by the human's rule, correctly exclud
 (captured as line-bones, not fills). Lesson: **a line being DETECTED (in the skeleton) ≠ TAGGED — show both
 layers so "why isn't this identified" is answerable; and outlined-shape labels need a grow-into-stroke step
 because flood-fill can only reach interiors.**
+
+### L109 — Ingest the human-tagged bone SHAPES; spear tips to sharp points; render as solid slabs
+Closed the wing-bone loop: the human tagged bone REGIONS in the editor; pipeline now ingests them as the
+authoritative wing bones (no auto-guess). Three fixes this round:
+- **Spear tips:** the filled body stops short of the bone's sharp point (the tip is a thin spike beyond the
+  fill). `traceWingMerge.mjs` now finds skeleton ENDPOINTS (degree-1) and spears each grown bone out to its
+  endpoint along the ink (`lineInk` check) — bones are now longer + sharper, matching the stencil. (Human
+  caught the short/rounded tips.)
+- **Ingest:** `traceDefinition.mjs` prefers `refs/celestial/wing-bones-merged-R.json` → `wing.boneShapes`
+  (closed contours WITH width), auto-skeleton only as fallback. Kept contours DENSE (no resample) so sharp
+  tips survive. `place` transform applies to bones same as the silhouette.
+- **3D:** `slab()` extrudes each bone contour into a solid raised bone (top+bottom+walls) — reads as a real
+  boned wing with membrane between, vs the flat panels that were edge-on-invisible.
+Lesson: **flat panels for thin elongated shapes read as nothing edge-on — extrude to a slab; and any
+fill-based region capture needs a tip-spear step because fills never reach a tapering point.** The wing bones
+are now human-authored ground truth end-to-end (editor → merge → def → 3D).
