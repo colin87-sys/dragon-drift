@@ -7,7 +7,7 @@ import { writeFileSync, readFileSync } from 'node:fs';
 import { deflateSync } from 'node:zlib';
 import { decodePNG } from './pngDecode.mjs';
 import { traceContour } from './tracerCore.mjs';
-import { thin, skeletonToPolylines, lum, morphClose, skeletonStats, weldChains } from './lineTrace.mjs';
+import { thin, skeletonToPolylines, lum, morphClose, skeletonStats, weldChains, smoothRing, resampleClosed } from './lineTrace.mjs';
 
 const W = 941, H = 1672;
 const DIR = new URL('./refs/celestial/', import.meta.url).pathname;
@@ -52,7 +52,11 @@ for (const shape of shapes) {
   }
   // erode (not dilate-pad) so the contour hugs the CRISP tagged line, not the outer stroke halo → thinner struts
   // to match the reference's fine glowing finger-struts. Keeps the exact path/location; just trims the fat edge.
-  const c = traceContour(erode(grown, 1), W, H).map(p => [+(p.x / W).toFixed(4), +(p.y / H).toFixed(4)]);
+  // Then SMOOTH the contour: a raw pixel-traced outline is staircased/jaggy (reads as wobbly struts in 3D).
+  // resample to even spacing → smooth the ring hard → resample again → clean flowing edges that keep the shape.
+  let ring = traceContour(erode(grown, 1), W, H);
+  if (ring.length > 8) { ring = resampleClosed(ring, 80); for (let k = 0; k < 6; k++) ring = smoothRing(ring, 2); ring = resampleClosed(ring, 64); }
+  const c = ring.map(p => [+(p.x / W).toFixed(4), +(p.y / H).toFixed(4)]);
   if (c.length > 3) grownShapes.push({ mask: grown, contour: c });
 }
 console.log(`grew ${grownShapes.length} bone shapes to hug the stencil; ${(J.bones || []).length} bone lines kept`);
