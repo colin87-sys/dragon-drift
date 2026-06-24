@@ -304,8 +304,41 @@ const SERPENT_PROFILE = {
   headBase: (neckSegs) => ({ x: 0, y: 0.42 + (neckSegs - 4) * 0.07, z: -3.45 - (neckSegs - 4) * 0.40 }),
 };
 
+// CINDERCRUCIBLE — a fire-starter wyvern body plan, intentionally NOT the shared
+// arrow silhouette: a forward "furnace" chest, extra-broad flight shoulders, a
+// hard wasp-waist pinch, and a long muscular tail-boom. This gives Cindervale a
+// rear read all its own before colour/FX are applied: big dark chest block +
+// high wing roots + long centreline rudder, rather than another arrow drake.
+const CINDERCRUCIBLE_PROFILE = {
+  zHold: -0.25,
+  tailShiftRefZ: 2.05,
+  tailAnchorY: 0.23,
+  tailAnchorZ: 1.42,
+  stations: [
+    [-3.18, 0.13, 0.09, 0.11], // compact neck cap
+    [-2.55, 0.24, 0.18, 0.19], // short thick neck base
+    [-1.78, 0.48, 0.44, 0.36], // rising furnace chest
+    [-1.18, 0.76, 0.68, 0.50], // broadest shoulder/chest block
+    [-0.62, 0.70, 0.60, 0.46], // wing-root shelf, still powerful
+    [ 0.02, 0.42, 0.36, 0.31], // dramatic waist pinch
+    [ 0.70, 0.34, 0.28, 0.24], // lean abdomen
+    [ 1.35, 0.30, 0.25, 0.20], // muscular tail base, not a needle
+    [ 2.05, 0.19, 0.17, 0.12], // long tail-boom root
+  ],
+  keel: [[-2.55, 0.18], [-1.18, 0.68], [-0.62, 0.60], [0.02, 0.36], [0.70, 0.28], [1.35, 0.25], [2.05, 0.17]],
+  wingRoot: { x: 0.58, y: 0.68, z: -0.62 }, // higher/forwarder than arrow; broad furnace shoulders
+  fairing: { r: 0.36, scale: [1.05, 0.82, 1.34], pos: [0.56, 0.66, -0.7] },
+  neck: {
+    rBase: 0.42, rStep: 0.04, rMin: 0.19, scale: [0.82, 0.70, 1.18],
+    y0: 0.32, yStep: 0.078, z0: -2.1, zStep: -0.34, wobbleAmp: 0.06, wobbleFreq: 0.9,
+  },
+  headBase: (neckSegs) => ({ x: 0, y: 0.54 + (neckSegs - 4) * 0.085, z: -3.12 - (neckSegs - 4) * 0.33 }),
+};
+
 registerTorso('arrow', (def, model, bodyMat) => buildTorso(ARROW_PROFILE, def, model, bodyMat));
 registerTorso('serpent', (def, model, bodyMat) => buildTorso(SERPENT_PROFILE, def, model, bodyMat));
+registerTorso('cinderCrucible', (def, model, bodyMat) =>
+  buildTorso(CINDERCRUCIBLE_PROFILE, def, model, bodyMat, buildSweptTorsoGeometry, { skinShoulders: true }));
 // sweptLoft — the arrow body plan rebuilt through sweepProfile() so its cross-
 // section ROUNDS on capable devices (ULTRA) while staying byte-identical at HIGH.
 // Opt-in per dragon via parts.torso:'sweptLoft' (proving on the hero, Obsidian, first).
