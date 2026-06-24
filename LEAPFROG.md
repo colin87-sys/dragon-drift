@@ -3308,3 +3308,17 @@ stencil's drawn lines** (medial axis). Verified by overlaying the extracted stru
   fractional stroke radius (1.5) — use integer widths. (Cost a confusing "why is nothing orange" round.)
 Open: the stencil skeleton fragments at every crossing, so the struts come through as SEGMENTS — next step is
 welding collinear fragments across junctions into continuous bones (straightest-continuation walk).
+
+### L102 — When auto-extraction keeps being wrong, build the human an INTERACTIVE labeler
+After repeated wrong auto-traces of the wing struts, the human asked for a tool to do it by hand. Built
+`tools/celestialWingPaint.html` (pure canvas, imports lineTrace). Three modes:
+- **FILL** — flood-fill each membrane compartment (bounded by the drawn ink); the borders shared between two
+  fills ARE the finger struts (extracted via "ink adjacent to ≥2 region labels" → thin → polylines). A fill
+  that reaches the image border is the exterior background → auto-reverted.
+- **TRACE** — click points that SNAP to the nearest drawn ink pixel → manual bone polylines on the lines.
+- **BRIDGE** — click 2 points to burn a line into the ink mask, closing gaps in the drawing so fills don't
+  leak and lines join (re-applied after threshold changes).
+Exports `celestial-wing-struts-{R|L}.json` (traced bones preferred, else fill-derived struts, plus bridges).
+Lesson: **art-derived geometry that the algorithm keeps mis-reading is a cue to hand the human a direct
+labeling UI rather than iterating the heuristic — the human's clicks become the ground truth, and the tool
+just snaps/cleans.** Next: ingest the exported JSON into celestialDef as the wing struts.
