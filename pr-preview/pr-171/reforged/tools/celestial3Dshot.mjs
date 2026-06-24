@@ -47,6 +47,16 @@ for (const [name, a] of [['flap-up', 0.6], ['flap-down', -0.6]]) {
   await gl.screenshot({ path: `/tmp/c3d-${name}.png` });
   console.log(`wrote /tmp/c3d-${name}.png`);
 }
+// QUARTER-PHASE sweep — side + rear-high — to verify the figure-eight tip path + stroke asymmetry
+for (const [view, yaw, pitch] of [['side', 1.571, 0.12], ['rearhi', 0, 0.5]]) {
+  for (const u of [0, 0.25, 0.5, 0.75]) {
+    await page.evaluate(([y, p]) => window.__view(y * 180 / Math.PI, p, false), [yaw, pitch]);
+    await page.evaluate((u) => window.__flapPhase(u), u);
+    await page.waitForTimeout(80);
+    await gl.screenshot({ path: `/tmp/c3d-flap-${view}-${Math.round(u * 100)}.png` });
+  }
+  console.log(`wrote /tmp/c3d-flap-${view}-{0,25,50,75}.png`);
+}
 console.log(err ? 'HAD PAGEERROR' : 'no pageerror');
 await browser.close();
 await srv.close();

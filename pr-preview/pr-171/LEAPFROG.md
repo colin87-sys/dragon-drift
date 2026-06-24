@@ -3645,3 +3645,17 @@ lavender to dark crystalline violet (`0x2c2278`) with a strong cyan rim. Spear a
 (rim cyan→violet, lower strength, so it stops whitening). Lesson: **horns/spikes read as "antennae" when too
 long+thin+upright+pale; the fix is shorter + thicker base + rear-sweep + seat-into-surface + a darker body with
 edge-glow. A thin appendage's silhouette and its anchoring sell it more than its length.**
+
+### L128 — Wing flap: reuse the shared solveWing biomechanics; mirror ALL Euler axes by side
+Replaced the metronome `rotation.y = side*sin(t*1.6)*0.5` with the repo's existing pure-math flapping solver
+`js/wingFlapSolver.js` (`solveWing(phase,cfg)`) — the SAME one the game animator + shop poser use, so the
+preview matches real motion (build systems, not one-offs). Phase-1 single-pivot driver maps the yoke channel:
+plunge→`rotation.y` (dominant dorsoventral, tips through depth), rowing sweep→`rotation.x`, feather→`rotation.z`,
++ env-based body bob/pitch. The solver gives asymmetric power/recovery (time-warped cosine, `downFrac`),
+fore-aft rowing → figure-eight tip path, and feather for free. GOTCHA that cost a render: I first mirrored only
+plunge+sweep by `side` and left twist shared — the apex came out lopsided (one wing flung higher). **For a clean
+sagittal mirror, the left wing must be the FULL negation of the right: every Euler component ×`side`.** Mixing a
+mirrored axis with a shared one yields an in-plane asymmetric rotation. Also: a frozen-pose flag (`posed`) so
+`__flapPose`/`__flapPhase` screenshots aren't overwritten by the running animation loop; `ampScale` eases on
+toggle. Lesson: **before authoring an oscillator, grep for an existing solver — this repo had a tuned one. And
+bilateral appendage symmetry = negate ALL Euler axes per side, not just the obvious one.**

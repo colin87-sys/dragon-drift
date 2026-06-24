@@ -35,6 +35,7 @@
 import * as THREE from 'three';
 import { CELESTIAL_DEF as D } from '../js/celestialDef.js';
 import { SPINE_DIAMOND, SPINE_DIAMONDS } from '../js/celestialSpine.js';
+import { solveWing, phaseCenter } from '../js/wingFlapSolver.js';   // shared flapping biomechanics (same as the game)
 
 // ── canvas coords → world. Canvas 941×1672; preserve aspect (x scaled by W/H). Y flips (image y is down).
 const W = D.canvas[0], H = D.canvas[1], ASPX = W / H, S = 10;
@@ -314,6 +315,17 @@ plateGrp.add(new THREE.Mesh(plG, matPlate));
 const wingPivots = [];
 const sweep = 0.16;                                   // wings angle backward (−z) with outward distance
 const BONE_THICK = 0.012;                             // bone z-thickness (normalized); arm ×1.5 — thin, delicate struts (matches ref)
+// FLAP — a slow, majestic soaring beat driven by the SHARED solver (research-grounded: asymmetric power/
+// recovery stroke, fore-aft rowing → figure-eight tip path, feather twist). One master phase, sign-mirrored.
+const TAU = Math.PI * 2;
+const FLAP = { freq: 0.55, downFrac: 0.62, downDepth: 0.9, yokeElevDeg: 40, rowDeg: 14, twistDeg: 16, tipTrailDeg: 0, loadBowDeg: 0 };
+// returns the whole-wing channel for one side (Phase 1 uses the yoke only — single pivot per wing)
+function flapDrive(t, side) {
+  const s = solveWing(t * FLAP.freq * TAU, FLAP);
+  // ALL three Euler components flip with side → a clean sagittal mirror (left wing = mirror of right). Mixing a
+  // mirrored axis with a shared one rotates the wings in-plane asymmetrically (one thrown higher than the other).
+  return { plunge: side * s.yoke.elev, sweep: side * s.yoke.sweep, twist: side * s.yoke.twist, env: s.yoke.env };
+}
 function buildWing(mirrored) {
   const f = (c) => mirrored ? c.map(mir) : c;
   const sil = f(D.wing.silhouette);
@@ -357,7 +369,7 @@ addEventListener('pointerup', () => drag = false);
 addEventListener('pointermove', e => { if (!drag) return; orbit.yaw -= (e.clientX - lx) * 0.008; orbit.pitch = Math.max(-1.3, Math.min(1.3, orbit.pitch + (e.clientY - ly) * 0.006)); lx = e.clientX; ly = e.clientY; spin = false; document.getElementById('bSpin').classList.remove('on'); });
 gl.addEventListener('wheel', e => { e.preventDefault(); orbit.dist = Math.max(radius * 1.2, Math.min(baseDist * 3, orbit.dist * (1 + Math.sign(e.deltaY) * 0.08))); }, { passive: false });
 
-let spin = false, flap = true;
+let spin = false, flap = true, posed = false;   // posed = a frozen static pose (headless screenshots), skips animation
 const toggle = (id, fn) => { const b = document.getElementById(id); b.onclick = () => { b.classList.toggle('on'); fn(b.classList.contains('on')); }; };
 document.getElementById('bRear').onclick = () => { orbit.yaw = 0; orbit.pitch = 0.22; orbit.dist = baseDist; spin = false; document.getElementById('bSpin').classList.remove('on'); };
 toggle('bSpin', v => spin = v); toggle('bFlap', v => flap = v);
@@ -372,19 +384,27 @@ addEventListener('resize', resize); resize();
 
 // headless hooks (used by tools/celestial3Dshot.mjs)
 window.__ready = true;
-window.__view = (yawDeg, pitchR, flapOn) => { orbit.yaw = yawDeg * Math.PI / 180; orbit.pitch = pitchR ?? 0.22; orbit.dist = baseDist; spin = false; flap = !!flapOn; };
-window.__flapPose = (a) => { flap = false; for (const w of wingPivots) { w.pivot.rotation.y = w.side * a; w.pivot.rotation.z = 0; w.pivot.rotation.x = 0; } };
+window.__view = (yawDeg, pitchR, flapOn) => { orbit.yaw = yawDeg * Math.PI / 180; orbit.pitch = pitchR ?? 0.22; orbit.dist = baseDist; spin = false; flap = !!flapOn; posed = false; };
+// freeze the full composite pose at a stroke phase. a≥0 → apex (wings up), a<0 → deep bottom (pressing).
+const poseAt = (phase) => { posed = true; const t0 = phase / (FLAP.freq * TAU); const e = solveWing(phase, FLAP).yoke.env; for (const w of wingPivots) { const d = flapDrive(t0, w.side); w.pivot.rotation.set(w.restX + d.sweep, d.plunge, d.twist); } root.position.y = -center.y + e * 0.12; root.rotation.x = -0.03 * e; };
+window.__flapPose = (a) => { flap = false; poseAt(phaseCenter(a >= 0 ? 'apex' : 'settle', FLAP)); };
+window.__flapPhase = (u) => { flap = false; poseAt(((u % 1) + 1) % 1 * TAU); };   // u∈[0,1] → any cycle fraction (tip-path QA)
 window.__zoom = (f) => { orbit.dist = baseDist * f; };
 
-const clock = new THREE.Clock(); let t = 0;
+const clock = new THREE.Clock(); let t = 0, flapAmp = 0;
 function frame() {
   const dt = clock.getDelta(); t += dt;
   if (spin) orbit.yaw += dt * 0.5;
-  // DORSOVENTRAL beat: rotate each wing about the body's FORWARD axis (Y) so the wings lift up off the back and
-  // press down (tips travel through depth), not sweeping within the flat rear-view plane.
-  const fa = flap ? Math.sin(t * 1.6) * 0.5 : 0;
-  for (const w of wingPivots) { w.pivot.rotation.y = w.side * fa; w.pivot.rotation.z = 0; w.pivot.rotation.x = 0; }
-  root.position.y = -center.y + Math.sin(t * 1.6) * 0.12;   // gentle body bob synced to flap
+  if (!posed) {
+    // ease amplitude in/out so toggling flap doesn't snap
+    flapAmp += ((flap ? 1 : 0) - flapAmp) * Math.min(1, dt * 3.3);
+    // DORSOVENTRAL plunge about the body's forward axis (Y), + fore-aft rowing sweep (X) → figure-eight tip
+    // path, + feather twist (Z). One shared phase, sign-mirrored L/R. See wingFlapSolver.js.
+    const d1 = flapDrive(t, 1);
+    for (const w of wingPivots) { const d = w.side === 1 ? d1 : flapDrive(t, w.side); w.pivot.rotation.x = w.restX + d.sweep * flapAmp; w.pivot.rotation.y = d.plunge * flapAmp; w.pivot.rotation.z = d.twist * flapAmp; }
+    root.position.y = -center.y + d1.env * flapAmp * 0.12;   // body rises on the upstroke apex, dips on the press
+    root.rotation.x = -0.03 * d1.env * flapAmp;              // tiny pitch coupling
+  }
   placeCamera();
   renderer.render(scene, camera);
   requestAnimationFrame(frame);
