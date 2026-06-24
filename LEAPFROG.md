@@ -3672,3 +3672,15 @@ wings **clip the capture frame** (top-edge), corrupting extents — had to zoom 
 mid-phase frames visually. Lesson: **mirroring a multi-axis Euler rotation is NOT "negate everything" — only the
 two axes in the mirror plane negate; the axis perpendicular to it stays. And verify symmetry at MID-stroke with
 the whole wing in frame, not just the extremes (extremes can look fine while intermediate phases skew).**
+
+### L130 — Tail spear was a SLAB; loft it with a thin lens cross-section so it tapers to a 3D point
+The spear used `boneSolid` = constant-thickness extrusion → flat front, flat back, vertical edge WALLS = a slab
+(no z-axis shape, edges not sharp, tip only tapered in 2D). A real trident/spear blade has a LENS cross-section
+(raised central ridge → sharp edges) and tapers to a true 3D point (width AND depth → 0). Fix: reuse `loftBody`
+on the clipped spearhead with a THIN profile (`dDorsal=dVentral=0.20` vs the body's 0.95). The elliptical ring
+gives the lens for free — depth = d·halfWidth, so z=0 at the left/right edges (sharp) and peaks at the centre
+ridge; and because depth ∝ width, every prong + the tip taper to a 3D point as width→0. loftBody's existing
+multi-span branching handles the trident barbs (each its own tapering prong). Parameterized `loftBody` to take
+a `material`. Lesson: **a "slab" is a constant-thickness extrusion; to make a blade/fin/spear read 3D, give it a
+cross-section whose depth varies across the width (lens) AND scales with the width so tips converge to points —
+an elliptical loft does both. Match the cross-section to the part, like the wing membrane (flat) vs the spear (lens).**
