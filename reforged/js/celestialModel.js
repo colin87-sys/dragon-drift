@@ -251,7 +251,7 @@ export function buildCelestialStorm() {
   // BODY — the lofted (voluminous) hull stops above the tail flare; the spearhead below is built as a FLAT
   // crystalline blade so it reads sleek (the painted spear is a flat blade, not a bell). clipPoly cuts the
   // traced silhouette at a horizontal line; keepBelow picks which side.
-  const TAIL_BODY_CLIP = 0.73, TAIL_SPEAR_TOP = 0.725;   // body keeps y≤0.73 (round tapering tail); spear keeps y≥0.725 — meet at the thin shaft tip with a tiny seal overlap, so the flat spearhead grows OUT of the tail end instead of a flat blade overlapping up inside the round body (the old "upper floating piece")
+  const TAIL_BODY_CLIP = 0.60;   // body (rigid loft) STOPS AT THE HIP — everything caudal of the hip is the segmented, animating tail chain (the human's definition: "after the hip forms the tail, that should animate"). Was 0.73, which left the whole post-hip region rigid.
   const NECK_BASE = 0.235;                              // body keeps y≥0.235 at the TOP — the head/neck region (the old flat neck-cap tab) is replaced by a real arched neck + sculpted head built below
   const clipPoly = (loop, clipY, keepBelow) => {
     const inside = (p) => keepBelow ? p[1] >= clipY : p[1] <= clipY, out = [];
@@ -269,26 +269,34 @@ export function buildCelestialStorm() {
     const u = best.hw ? (p[0] - best.cx) / best.hw : 0; if (Math.abs(u) >= 1) return 0;
     return dorsalZ(u, BODY_SCULPT.Dr(ny), BODY_SCULPT.Mu(ny), BODY_SCULPT.Cr ? BODY_SCULPT.Cr(ny) : 0);
   };
-  // TAIL — a SEGMENTED bone chain off the body's tail end, so it can travelling-wave WHIP like the roster dragons
-  // (azure's `sin(time·4 − i·0.6)·amp·lock²`: root locked to the body, the coil ramps to the tip). The old single
-  // rigid spear could only swing as one piece (no whip). Each segment is a nested pivot (child of the previous) →
-  // their rotations compound into an S-curve. matBody continues the cosmic gradient down the shaft; the barbed
-  // point is the crystalline spear material. Built downward in a LOCAL frame (−Y) seated at the tail/body junction.
+  // TAIL — the ENTIRE post-hip region is a SEGMENTED bone chain so the whole tail travelling-wave WHIPS like the
+  // roster dragons (azure's `sin(time·rate − k·lag)·amp·lock²`: root at the hip locked to the body, the coil ramps
+  // caudally to the tip → an S-curve, not a rigid swing). Each segment is a nested pivot (child of the previous) so
+  // their rotations COMPOUND. Sized to the body's hip cross-section at the clip → tapers to the barbed crystalline
+  // point, so it reads as one continuous body→tail form. A glowing dorsal ridge rides each segment (the spine
+  // follow-line continues down the tail). Built downward in a LOCAL −Y frame, seated at the hip.
   const tailSegPivots = [];
   {
-    const N_TAIL = 6, yTop = (0.5 - 0.70) * S, yTip = (0.5 - 0.985) * S, L = yTop - yTip, sl = L / N_TAIL;   // world: −2.0 → −4.85
-    const rAt = (u) => Math.max(0.02, 0.21 * (1 - u) + 0.11 * Math.exp(-(((u - 0.80) / 0.07) ** 2)));        // slender taper + a small barb bulge near the tip
+    // match the chain root to the body's actual half-width at the hip clip so there's no step at the junction
+    let hipSt = stations[0]; for (const st of stations) if (Math.abs(st.y - TAIL_BODY_CLIP) < Math.abs(hipSt.y - TAIL_BODY_CLIP)) hipSt = st;
+    const hipR = Math.max(0.30, hipSt.hw * ASPX * S * 0.92);
+    const N_TAIL = 9, yTop = (0.5 - (TAIL_BODY_CLIP - 0.03)) * S, yTip = (0.5 - 0.985) * S, L = yTop - yTip, sl = L / N_TAIL;   // root overlaps UP into the body clip → no gap at the hip seam
+    const rAt = (u) => Math.max(0.02, hipR * Math.pow(1 - u, 1.15) + 0.10 * Math.exp(-(((u - 0.86) / 0.06) ** 2)));   // hip → taper to a point + a small barb bulge near the tip
     const tailRoot = new THREE.Group(); tailRoot.position.set(0, yTop, 0); spearGrp.add(tailRoot);
     let parent = tailRoot;
     for (let k = 0; k < N_TAIL; k++) {
       const piv = new THREE.Group(); if (k > 0) piv.position.set(0, -sl, 0); parent.add(piv);
-      const u0 = k / N_TAIL, u1 = (k + 1) / N_TAIL, isTip = k === N_TAIL - 1;
-      const seg = new THREE.Mesh(new THREE.CylinderGeometry(rAt(u0), rAt(u1), sl, 12, 1, true), isTip ? matSpear : matBody);
+      const u0 = k / N_TAIL, u1 = (k + 1) / N_TAIL, isTip = k === N_TAIL - 1, rTop = rAt(u0), rBot = rAt(u1);
+      const seg = new THREE.Mesh(new THREE.CylinderGeometry(rTop, rBot, sl, 14, 1, true), isTip ? matSpear : matBody);
       seg.position.y = -sl / 2; piv.add(seg);                          // span pivot origin (0) → −sl
+      // dorsal ridge bump: a small glowing spine scute on the camera-facing (+z) side, continuing the back ridge
+      const ridge = new THREE.Mesh(new THREE.ConeGeometry(Math.max(0.03, rTop * 0.5), sl * 0.7, 6), matSpine);
+      ridge.position.set(0, -sl / 2, rTop * 0.92); ridge.rotation.x = Math.PI / 2;   // point +z (dorsal), lie along the segment
+      piv.add(ridge);
       tailSegPivots.push(piv); parent = piv;
     }
-    const point = new THREE.Mesh(new THREE.ConeGeometry(rAt(0.96), 0.55, 12), matSpear);   // sharp crystalline barb point
-    point.position.y = -sl - 0.275; point.rotation.x = Math.PI;        // cone points −Y (down the tail)
+    const point = new THREE.Mesh(new THREE.ConeGeometry(Math.max(0.03, rAt(0.97)), 0.6, 12), matSpear);   // sharp crystalline barb point
+    point.position.y = -sl - 0.3; point.rotation.x = Math.PI;          // cone points −Y (down the tail)
     parent.add(point);
   }
 
@@ -536,9 +544,9 @@ export function buildCelestialStorm() {
       // the swing ramps to the tip so it reads as an S-curve whip, not a rigid swing. Nested pivots → rotations compound.
       const nT = tailSegPivots.length;
       for (let k = 0; k < nT; k++) {
-        const lock = k / (nT - 1), w = Math.sin(t * 3.4 - k * 0.6);
-        tailSegPivots[k].rotation.z = (0.34 * w * lock * lock + 0.05 * env * lock) * amp;        // lateral S-whip
-        tailSegPivots[k].rotation.x = 0.12 * Math.sin(t * 3.4 - k * 0.6 - 0.5) * lock * lock * amp;   // slight fore-aft undulation
+        const lock = k / (nT - 1), w = Math.sin(t * 3.0 - k * 0.55);
+        tailSegPivots[k].rotation.z = (0.20 * w * lock * lock + 0.04 * env * lock) * amp;        // lateral S-whip (per-segment kept modest — 9 segments COMPOUND into a big tip swing)
+        tailSegPivots[k].rotation.x = 0.08 * Math.sin(t * 3.0 - k * 0.55 - 0.5) * lock * lock * amp;   // slight dorsoventral undulation
       }
       return env;
     },
