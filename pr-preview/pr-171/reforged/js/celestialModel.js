@@ -70,11 +70,13 @@ const BODY_SCULPT = {
   Dr: (ny) => 0.050 + 0.110 * gauss(ny, 0.33, 0.16) + 0.065 * gauss(ny, 0.60, 0.13),   // dorsal depth
   Be: (ny) => 0.030 + 0.120 * gauss(ny, 0.32, 0.085) + 0.060 * gauss(ny, 0.62, 0.10),  // deep CHEST -> tucked ABDOMEN (the gap) -> rounded HIPS
   Mu: (ny) => 0.095 * gauss(ny, 0.26, 0.095) + 0.040 * gauss(ny, 0.60, 0.11),          // back-muscle humps (stronger)
+  Cr: (ny) => 0.065 * gauss(ny, 0.25, 0.10) + 0.022 * gauss(ny, 0.60, 0.11),            // central spine CREST — the paired humps out-rise the cos() ridge at the withers (and faintly at the hips), carving a groove DOWN the spine (visible looking down the axis); this crest keeps the centerline the apex (convex across) at both muscle bands, ~0 across the mid-back where the ridge already wins
   wBoost: (ny) => 1 + 0.35 * gauss(ny, 0.25, 0.09),                                     // deltoid breadth (rear width stays our trace; fullness is depth)
   cz: (ny) => 0,   // centerline straight for now — the old neck-forward lift dipped the upper back into a concavity; a real neck bend comes with the head
 };
-// keeled muscled dorsal profile at lateral u∈[−1,1] (z toward camera): central spine ridge + paired muscle humps
-const dorsalZ = (u, Dr, Mu) => Dr * Math.pow(Math.cos(u * Math.PI / 2), 1.4) + Mu * Math.exp(-(((Math.abs(u) - 0.5) / 0.22) ** 2));
+// keeled muscled dorsal profile at lateral u∈[−1,1] (z toward camera): central spine ridge + paired muscle humps + a
+// narrow crest at u=0 (Cr) so the centerline stays the apex — without it the humps trough the spine at the withers.
+const dorsalZ = (u, Dr, Mu, Cr = 0) => Dr * Math.pow(Math.cos(u * Math.PI / 2), 1.4) + Mu * Math.exp(-(((Math.abs(u) - 0.5) / 0.22) ** 2)) + Cr * Math.exp(-((u / 0.18) ** 2));
 
 // LOFT a closed silhouette into a 3D fuselage. Handles MULTIPLE spans per row (scanline can return several
 // segments) so the body can BRANCH — the trident tail splits into 3 prongs instead of being bridged into a
@@ -111,10 +113,10 @@ function loftBody(loop, { rings = 200, seg = 16, dDorsal = 0.95, dVentral = 0.82
   const ring = (sp) => {
     const base = pos.length / 3;
     if (sculpt) {
-      const ny = sp.y, hw = sp.hw * sculpt.wBoost(ny), cz = sculpt.cz(ny), Dr = sculpt.Dr(ny), Be = sculpt.Be(ny), Mu = sculpt.Mu(ny);
+      const ny = sp.y, hw = sp.hw * sculpt.wBoost(ny), cz = sculpt.cz(ny), Dr = sculpt.Dr(ny), Be = sculpt.Be(ny), Mu = sculpt.Mu(ny), Cr = sculpt.Cr ? sculpt.Cr(ny) : 0;
       for (let s = 0; s < seg; s++) {
         const t = s / seg; let u, zl;
-        if (t < 0.5) { u = -1 + 4 * t; zl = dorsalZ(u, Dr, Mu); }            // dorsal arc (the camera-facing back)
+        if (t < 0.5) { u = -1 + 4 * t; zl = dorsalZ(u, Dr, Mu, Cr); }        // dorsal arc (the camera-facing back)
         else { u = 1 - 4 * (t - 0.5); zl = -Be * Math.sqrt(Math.max(0, 1 - u * u)); }   // belly arc
         const v = pt(sp.cx + u * hw, ny, zl + cz); pos.push(v.x, v.y, v.z);
       }
