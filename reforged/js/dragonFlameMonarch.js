@@ -427,9 +427,10 @@ function buildMonarchCrown(def, model, mats) {
 registerHead('monarchCrown', buildMonarchCrown);
 
 // ── TAIL — monarchTail ───────────────────────────────────────────────────────
-// Long, thick at the base, tapering EVENLY; molten dorsal spines continue down it
-// and resolve into small ember fins at the TIP ONLY. Sibling-seg chain so the
-// shared position-wave rig sways it (no tailWhip → no bone coil).
+// A SMOOTH muscular taper (heavily-overlapping z-elongated sections that merge into a
+// continuous tail — not spaced beads), molten dorsal SCUTES continuing the spine down
+// it, ending in a DISTINCT fanned FLAME-BLADE tip (a spray of molten-edged fins, per
+// the concept). Sibling-seg chain so the shared position-wave rig sways it.
 function buildMonarchTail(def, model, mats, anchor) {
   const root = new THREE.Group();
   root.position.set(0, anchor.y, anchor.z);
@@ -437,58 +438,74 @@ function buildMonarchTail(def, model, mats, anchor) {
   const accentMats = [];
   const F = model.formLevel ?? 0;
   const glow = model.spineGlow ?? (F / 3);
-  const len = (model.tailLength ?? 1) * 2.1;
+  const lenK = 1.5 * (model.tailLength ?? 1);
   const cMolten = def.coreGlow ?? def.wingEmissive ?? 0xff5a1e;
 
   const hideMat = mats.bodyMat;            // shared charcoal hide (already rimmed)
-  const spineMat = tagFlare(new THREE.MeshStandardMaterial({
-    color: def.scales ?? def.horn, emissive: cMolten, emissiveIntensity: 0.15 + glow * 0.35,
-    roughness: 0.5, metalness: 0.28, side: THREE.DoubleSide,
-  }), cMolten, 0.15 + glow * 0.35, accentMats);
-  const emberMat = tagFlare(new THREE.MeshStandardMaterial({
-    color: cMolten, emissive: cMolten, emissiveIntensity: 0.7 + glow * 0.9,
+  const scuteMat = tagFlare(new THREE.MeshStandardMaterial({
+    color: def.scales ?? def.horn, emissive: cMolten, emissiveIntensity: 0.18 + glow * 0.4,
+    roughness: 0.5, metalness: 0.3, side: THREE.DoubleSide,
+  }), cMolten, 0.18 + glow * 0.4, accentMats);
+  const finDarkMat = tagFlare(new THREE.MeshStandardMaterial({
+    color: def.scales ?? 0x33271f, emissive: cMolten, emissiveIntensity: 0.3 + glow * 0.5,
+    roughness: 0.45, metalness: 0.2, side: THREE.DoubleSide,
+  }), cMolten, 0.3 + glow * 0.5, accentMats);
+  const finHotMat = tagFlare(new THREE.MeshStandardMaterial({
+    color: cMolten, emissive: cMolten, emissiveIntensity: 0.9 + glow * 1.0,
     roughness: 0.4, metalness: 0.1, side: THREE.DoubleSide,
-  }), cMolten, 0.7 + glow * 0.9, accentMats);
+  }), cMolten, 0.9 + glow * 1.0, accentMats);
 
-  const n = seg(7);
-  const spacing = len / n;
+  // Heavily-overlapping z-elongated ellipsoids → a continuous smooth taper. One shared
+  // unit sphere, scaled per segment; z-step < the combined radii so sections MERGE.
+  const n = seg(12);
+  const radii = [];
+  for (let i = 0; i < n; i++) { const t = i / (n - 1); radii.push(lerp(0.21, 0.03, Math.pow(t, 0.85))); }
+  const unit = new THREE.SphereGeometry(1, seg(9), seg(7));
+  let z = 0;
   for (let i = 0; i < n; i++) {
-    const t = i / (n - 1);
+    const r = radii[i];
     const segG = new THREE.Group();
-    segG.position.set(0, 0, i * spacing);   // base z; the rig drives x/y sway
-    const r = lerp(0.26, 0.045, t);         // thick base → fine tip, tapering evenly
-    const m = new THREE.Mesh(new THREE.SphereGeometry(r, seg(8), seg(6)), hideMat);
-    m.scale.set(1, 1, 1.5);
+    segG.position.set(0, 0, z);
+    const m = new THREE.Mesh(unit, hideMat);
+    m.scale.set(r * 1.05, r * 0.95, r * 1.55);   // tube-like, blends with its neighbours
     segG.add(m);
-    // Tapering molten dorsal blade riding the top of each segment.
-    const h = lerp(0.16, 0.05, t);
-    const g = new THREE.BufferGeometry();
-    g.setAttribute('position', new THREE.Float32BufferAttribute([
-      0, r * 0.7, -0.05, 0, r * 0.7, 0.05, 0, r * 0.7 + h, 0.05,
-    ], 3));
-    g.setIndex([0, 1, 2]);
-    g.computeVertexNormals();
-    segG.add(new THREE.Mesh(g, spineMat));
-    root.add(segG);
-    segs.push(segG);
+    // Molten dorsal scute on top (the spine line continuing down the tail, tapering).
+    if (i < n - 2) {
+      const t = i / (n - 1);
+      const h = lerp(0.13, 0.03, t), w = r * 0.55;
+      const g = new THREE.BufferGeometry();
+      g.setAttribute('position', new THREE.Float32BufferAttribute([
+        0, r * 0.9, -w, 0, r * 0.9, w, 0, r * 0.9 + h, w * 0.5,
+      ], 3));
+      g.setIndex([0, 1, 2]); g.computeVertexNormals();
+      segG.add(new THREE.Mesh(g, scuteMat));
+    }
+    root.add(segG); segs.push(segG);
+    const rN = radii[i + 1] ?? r * 0.8;
+    z += (r + rN) * 0.5 * lenK;
   }
 
-  // EMBER TAIL FINS — small molten fins at the tip only (a fan of 3 ribbons),
-  // parented to the last seg so they ride the coil.
-  const tip = segs[segs.length - 1];
-  for (let k = -1; k <= 1; k++) {
-    const finLen = 0.34, finW = 0.05;
+  // FLAME-BLADE TIP — a fan of molten-edged blade fins spraying BACK + UP like a flame
+  // (the concept's tail terminus). Parented to the last seg so it rides the coil.
+  const tipSeg = segs[n - 1];
+  const bladeFin = (L, W) => {
     const g = new THREE.BufferGeometry();
     g.setAttribute('position', new THREE.Float32BufferAttribute([
-      0, 0, 0, finW, 0.02, 0.06, 0, 0, finLen,
+      0, 0, 0,  W, 0, L * 0.42,  0, 0, L,  -W, 0, L * 0.42,   // a slim leaf-blade pointing +Z
     ], 3));
-    g.setIndex([0, 1, 2]);
-    g.computeVertexNormals();
-    const fin = new THREE.Mesh(g, emberMat);
-    fin.position.set(0, 0.02, 0.08);
-    fin.rotation.z = k * 0.7;               // fan the three ribbons
-    fin.rotation.x = -0.2;
-    tip.add(fin);
+    g.setIndex([0, 1, 2, 0, 2, 3]); g.computeVertexNormals();
+    return g;
+  };
+  const fanN = seg(5);
+  for (let i = 0; i < fanN; i++) {
+    const a = fanN > 1 ? (i / (fanN - 1) - 0.5) : 0;     // −0.5 … +0.5 across the fan
+    const central = Math.max(0, 1 - Math.abs(a) * 1.5);  // longest in the middle
+    const L = lerp(0.30, 0.6, central) * (0.7 + 0.3 * (model.tailLength ?? 1));
+    const fin = new THREE.Mesh(bladeFin(L, 0.05 + 0.035 * central), i % 2 === 0 ? finHotMat : finDarkMat);
+    fin.position.set(0, 0.02, 0.04);
+    fin.rotation.y = a * 1.5;                              // spread in x
+    fin.rotation.x = -0.5 - Math.abs(a) * 0.35;           // rise up + back (flame lick)
+    tipSeg.add(fin);
   }
 
   return { group: root, segs, tailFins: null, accentMats };

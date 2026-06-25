@@ -3201,3 +3201,26 @@ active pointers in a Map — 1 = orbit, 2 = pinch-zoom (ratio of finger distance
 the camera's right/up vectors); `touch-action:none` + `maximum-scale=1` stop the browser hijacking the gesture.
 CSS: keep the control panel LEFT-anchored (not full-width) under `(pointer:coarse)` or it covers the model in
 landscape. Verified headlessly with Playwright at 390×844 (portrait) and 844×390 (landscape), screenshotting both.
+
+---
+
+### L97 — Flame Monarch armor + tail redo (from the human's concept art): shingle armor + smooth-overlap tail
+Human (with a concept image) said the lofted body read "weak/soft" and the bead-chain tail looked unaesthetic.
+Two fixes, both reusing proven kit:
+- **ARMOR = the `shingle` system** (`parts.shingle` in the blueprint, no new code). Overlapping dark cupped
+  scale-plates with a molten edge, laid on the flanks via `attach.halfWidthAt(z)` so they FOLLOW THE CONTOUR
+  (wide at the shoulders, pinched at the waist) — exactly what the human meant by "respect the body's contours."
+  Two runs: a broad flank run + a denser, larger SHOULDER/CHEST mantle (`cardRows:2`), counts per-form [H,K,R,E],
+  `edge:true` so the molten rim flares on Surge. ~+800 tris, one draw call per run. This is the go-to for "make
+  a body look armored/strong" on any torso that publishes the flank contract.
+- **SMOOTH TAIL = heavy overlap, not spacing.** The bead look came from sphere segments spaced ~one diameter
+  apart. Fix = z-elongated ellipsoids (`scale.z≈1.55`) on a chain whose z-step is `(r_i+r_{i+1})*0.5*lenK` with
+  lenK≈1.5 — i.e. the step is LESS than the combined radii, so consecutive sections MERGE into a continuous taper
+  (the crystalSerpent trick). Still a sibling-seg chain so the position-wave rig coils it. Tune length via lenK,
+  not segment count.
+- **DISTINCT TIP = a fanned FLAME-BLADE** (per the concept): a small fan of leaf-blade fins spraying back+up
+  (`rotation.y` spread + negative `rotation.x` lift), alternating hot-molten / dark-molten mats, longest in the
+  middle — a clear, character-fitting terminus parented to the last seg so it rides the coil.
+**Reusable:** when the human gives concept art, mine it for the exact features (here: layered shoulder plates +
+molten gap-glow + a fanned flame tail) and map each to existing systems before authoring new geometry. Judged the
+tail SHAPE on `silhouette.mjs side` (smooth vs beady reads instantly there); armor/molten is preview-judged.
