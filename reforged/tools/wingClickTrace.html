@@ -41,8 +41,9 @@
       <button id="mWrist">Set wrist (click)</button>
       <button id="clear">Clear selection</button>
       <button id="rerun">Re-trace</button>
+      <button id="zin">＋</button><button id="zout">－</button><button id="zreset">Reset view</button>
     </div>
-    <div class="hint">Grey = all traced interior lines. Click one → turns magenta = a BONE. The membrane trailing-edge / non-bone lines you simply leave grey. The wrist (pink dot) auto-sits on the convergence; if it's off, hit <b>Set wrist</b> and click the right spot.</div>
+    <div class="hint">Grey = all traced interior lines (full strokes, stitched through junctions). Click one → magenta = a BONE (click again to unmark). Leave the membrane/non-bone lines grey. Wrist = pink dot (auto on the convergence; <b>Set wrist</b> to move it). <b>Zoom:</b> mouse-wheel (at cursor) or ＋ / －. <b>Pan:</b> hold <b>Space</b> (or right-drag) and drag.</div>
   </div>
 
   <div class="panel" style="flex:1; min-width: 320px;">
@@ -55,9 +56,9 @@
 
 <script>
 const cv = document.getElementById('cv'), ctx = cv.getContext('2d'), $ = (id)=>document.getElementById(id);
-let img=null, W=0, H=0, data=null, view={s:1,ox:0,oy:0};
+let img=null, W=0, H=0, data=null, view={base:1,zoom:1,ox:0,oy:0};
 let outlineImg=[], frame=null, wrist=null, lines=[], selected=new Set(), mode='pick';
-let bbox=null;
+let bbox=null, panning=false, panStart=null, spaceHeld=false;
 
 function setMode(m){ mode=m; $('mPick').classList.toggle('on',m==='pick'); $('mWrist').classList.toggle('on',m==='wrist'); }
 $('mPick').onclick=()=>setMode('pick'); $('mWrist').onclick=()=>setMode('wrist');
@@ -70,10 +71,12 @@ $('file').onchange=(e)=>{ const f=e.target.files[0]; if(!f) return; const fr=new
   fr.onload=()=>{ const im=new Image(); im.onload=()=>{ img=im; loadPixels(); processImage(); }; im.src=fr.result; }; fr.readAsDataURL(f); };
 
 function loadPixels(){ W=img.naturalWidth; H=img.naturalHeight; const oc=document.createElement('canvas'); oc.width=W; oc.height=H;
-  oc.getContext('2d').drawImage(img,0,0); data=oc.getContext('2d').getImageData(0,0,W,H).data;
-  const s=Math.min(cv.width/W, cv.height/H); view={s, ox:(cv.width-W*s)/2, oy:(cv.height-H*s)/2}; }
-const toCanvas=(p)=>({x:p.x*view.s+view.ox, y:p.y*view.s+view.oy});
-const toImage=(cx,cy)=>({x:(cx-view.ox)/view.s, y:(cy-view.oy)/view.s});
+  oc.getContext('2d').drawImage(img,0,0); data=oc.getContext('2d').getImageData(0,0,W,H).data; resetView(); }
+function resetView(){ const s=Math.min(cv.width/W, cv.height/H); view={base:s, zoom:1, ox:(cv.width-W*s)/2, oy:(cv.height-H*s)/2}; }
+const eff=()=>view.base*view.zoom;
+const toCanvas=(p)=>({x:p.x*eff()+view.ox, y:p.y*eff()+view.oy});
+const toImage=(cx,cy)=>({x:(cx-view.ox)/eff(), y:(cy-view.oy)/eff()});
+function zoomAt(mx,my,f){ if(!img)return; const ip=toImage(mx,my); view.zoom=Math.max(0.2,Math.min(14,view.zoom*f)); view.ox=mx-ip.x*eff(); view.oy=my-ip.y*eff(); redraw(); }
 const lum=(i)=>0.299*data[i*4]+0.587*data[i*4+1]+0.114*data[i*4+2];
 
 function processImage(){
@@ -135,18 +138,46 @@ function extractLines(full, lineart){
   const pts=[]; for(let y=bbox.y0;y<=bbox.y1;y++)for(let x=bbox.x0;x<=bbox.x1;x++) if(skset[y*W+x]) pts.push(y*W+x);
   const isNode=(i)=>{const d=nbrs(i).length; return d===1||d>=3;};
   const px=(i)=>({x:i%W,y:(i/W)|0});
-  // walk every node→node segment once
-  const visEdge=new Set(); const segs=[];
+  // walk every node→node EDGE once, keeping the node ids at both ends
+  const visEdge=new Set(); const edges=[];
   const ekey=(a,b)=>a<b?a+'_'+b:b+'_'+a;
   for(const s of pts){ if(!isNode(s))continue;
     for(const n0 of nbrs(s)){ if(visEdge.has(ekey(s,n0)))continue;
       const path=[s]; let prev=s,cur=n0; visEdge.add(ekey(prev,cur)); path.push(cur);
       while(!isNode(cur)){ const ns=nbrs(cur).filter(n=>n!==prev); if(!ns.length)break; prev=cur; cur=ns[0]; visEdge.add(ekey(prev,cur)); path.push(cur);
         if(path.length>4000)break; }
-      segs.push(path.map(px)); } }
-  // also lone branches from endpoints whose other end is endpoint (no node passed) handled above since endpoints are nodes
+      edges.push({pts:path.map(px), a:s, b:cur}); } }
+  // STITCH edges into whole strokes through junctions (continue along the most-collinear edge)
   const minLen=parseFloat($('minlen').value)||14;
-  lines = segs.map(s=>rdp(s,2)).filter(s=>polyLen(s)>=minLen);
+  lines = stitchStrokes(edges).map(s=>rdp(s,2)).filter(s=>polyLen(s)>=minLen);
+}
+// Reconnect node→node edges into full strokes: at each junction continue along the edge
+// whose direction is most collinear with the incoming travel (so one click = the whole line).
+function stitchStrokes(edges){
+  const adj=new Map(); const add=(n,i)=>{ if(!adj.has(n))adj.set(n,[]); adj.get(n).push(i); };
+  edges.forEach((e,i)=>{ add(e.a,i); add(e.b,i); });
+  const deg=(n)=>(adj.get(n)||[]).length;
+  const norm=(x,y)=>{const l=Math.hypot(x,y)||1; return {x:x/l,y:y/l};};
+  const leaveDir=(e,n)=>{ const p=e.pts; if(e.a===n){const a=p[0],b=p[Math.min(3,p.length-1)]; return norm(b.x-a.x,b.y-a.y);} const a=p[p.length-1],b=p[Math.max(p.length-4,0)]; return norm(b.x-a.x,b.y-a.y); };
+  const orient=(e,n)=> e.a===n ? e.pts.slice() : e.pts.slice().reverse();   // points leaving n
+  const used=new Array(edges.length).fill(false), cos50=Math.cos(50*Math.PI/180);
+  const order=[...edges.keys()].sort((i,j)=> Math.min(deg(edges[i].a),deg(edges[i].b)) - Math.min(deg(edges[j].a),deg(edges[j].b)));
+  const strokes=[];
+  for(const i0 of order){ if(used[i0])continue;
+    let cur=i0, node = deg(edges[i0].a)===1? edges[i0].a : (deg(edges[i0].b)===1? edges[i0].b : edges[i0].a);
+    const stroke=[];
+    while(cur>=0 && !used[cur]){ used[cur]=true; const seg=orient(edges[cur],node); if(stroke.length) seg.shift(); stroke.push(...seg);
+      const far = edges[cur].a===node? edges[cur].b : edges[cur].a;
+      if(deg(far)<=1) break;
+      const back=leaveDir(edges[cur],far), into={x:-back.x,y:-back.y};   // travel direction INTO far
+      let best=-1,bestDot=-2;
+      for(const ej of (adj.get(far)||[])){ if(used[ej])continue; const d=leaveDir(edges[ej],far); const dot=d.x*into.x+d.y*into.y; if(dot>bestDot){bestDot=dot; best=ej;} }
+      if(best<0 || bestDot<cos50) break;
+      cur=best; node=far;
+    }
+    if(stroke.length>=2) strokes.push(stroke);
+  }
+  return strokes;
 }
 function polyLen(p){let L=0;for(let i=1;i<p.length;i++)L+=Math.hypot(p[i].x-p[i-1].x,p[i].y-p[i-1].y);return L;}
 function thin(src){ const m=Uint8Array.from(src),P=(x,y)=>m[y*W+x];
@@ -166,7 +197,20 @@ function autoWrist(){ // hub = node minimising total dist to all line endpoints
   wrist={x:best.x,y:best.y};
 }
 
-cv.addEventListener('pointerdown',(e)=>{ if(!img||!frame) return; const r=cv.getBoundingClientRect(); const p=toImage(e.clientX-r.left, e.clientY-r.top);
+// --- zoom / pan ---
+$('zin').onclick=()=>zoomAt(cv.width/2,cv.height/2,1.25);
+$('zout').onclick=()=>zoomAt(cv.width/2,cv.height/2,1/1.25);
+$('zreset').onclick=()=>{ if(img){ resetView(); redraw(); } };
+cv.addEventListener('wheel',(e)=>{ if(!img)return; e.preventDefault(); const r=cv.getBoundingClientRect(); zoomAt(e.clientX-r.left, e.clientY-r.top, e.deltaY<0?1.12:1/1.12); }, {passive:false});
+cv.addEventListener('contextmenu',(e)=>e.preventDefault());
+window.addEventListener('keydown',(e)=>{ if(e.code==='Space'){ spaceHeld=true; cv.style.cursor='grab'; } });
+window.addEventListener('keyup',(e)=>{ if(e.code==='Space'){ spaceHeld=false; cv.style.cursor='crosshair'; } });
+cv.addEventListener('pointermove',(e)=>{ if(!panning)return; const r=cv.getBoundingClientRect(); const mx=e.clientX-r.left, my=e.clientY-r.top; view.ox+=mx-panStart.x; view.oy+=my-panStart.y; panStart={x:mx,y:my}; redraw(); });
+window.addEventListener('pointerup',()=>{ panning=false; if(spaceHeld) cv.style.cursor='grab'; });
+
+cv.addEventListener('pointerdown',(e)=>{ if(!img) return; const r=cv.getBoundingClientRect(); const mx=e.clientX-r.left, my=e.clientY-r.top;
+  if(e.button===2 || spaceHeld){ panning=true; panStart={x:mx,y:my}; cv.style.cursor='grabbing'; return; }
+  if(!frame) return; const p=toImage(mx, my);
   if(mode==='wrist'){ wrist=p; buildOut(); redraw(); return; }
   // pick nearest line: min point-distance, tie-break toward LONGER lines (higher pixel count)
   let bi=-1, bs=Infinity;
@@ -190,7 +234,7 @@ function buildOut(){ if(!frame){$('out').value='';return;}
 }
 $('copy').onclick=()=>{ $('out').select(); document.execCommand('copy'); };
 
-function redraw(){ ctx.clearRect(0,0,cv.width,cv.height); if(img) ctx.drawImage(img,view.ox,view.oy,W*view.s,H*view.s);
+function redraw(){ ctx.clearRect(0,0,cv.width,cv.height); if(img) ctx.drawImage(img,view.ox,view.oy,W*eff(),H*eff());
   if(outlineImg.length){ ctx.strokeStyle='#39e6a0'; ctx.lineWidth=1.5; ctx.beginPath(); outlineImg.forEach((p,i)=>{const c=toCanvas(p); i?ctx.lineTo(c.x,c.y):ctx.moveTo(c.x,c.y);}); ctx.closePath(); ctx.stroke(); }
   // candidate lines
   for(let i=0;i<lines.length;i++){ const on=selected.has(i); ctx.strokeStyle= on?'#ff5ad0':'#5aa0c0'; ctx.lineWidth= on?3:1.4; ctx.beginPath();
