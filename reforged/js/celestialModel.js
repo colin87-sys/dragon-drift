@@ -104,8 +104,9 @@ function loftBody(loop, { rings = 200, seg = 16, dDorsal = 0.95, dVentral = 0.82
   // otherwise lofts into faint horizontal bands. Moving average (in place) on the widest span of each row.
   if (sculpt) {
     const main = rows.map(r => r.reduce((a, s) => s.hw > a.hw ? s : a, r[0]));
-    const sm = main.map((_, i) => { let a = 0, c = 0; for (let k = -5; k <= 5; k++) { const j = i + k; if (j >= 0 && j < main.length) { a += main[j].hw; c++; } } return a / c; });
-    main.forEach((s, i) => { s.hw = sm[i]; });
+    const W = 8, avg = (key, i) => { let a = 0, c = 0; for (let k = -W; k <= W; k++) { const j = i + k; if (j >= 0 && j < main.length) { a += main[j][key]; c++; } } return a / c; };
+    const smHw = main.map((_, i) => avg('hw', i)), smCx = main.map((_, i) => avg('cx', i));   // smooth WIDTH and CENTERLINE: row-to-row width AND center wander in the trace both loft into horizontal bands
+    main.forEach((s, i) => { s.hw = smHw[i]; s.cx = smCx[i]; });
   }
   const pos = [], idx = [];
   // CROSS-SECTION. Default: egg (dorsal depth ∝ width). With `sculpt`: a keeled MUSCLED creature section —
@@ -123,7 +124,7 @@ function loftBody(loop, { rings = 200, seg = 16, dDorsal = 0.95, dVentral = 0.82
       for (let s = 0; s < seg; s++) {
         const t = s / seg; let u, zl;
         if (t < 0.5) { u = -1 + 4 * t; zl = dorsalZ(u, Dr, Mu, Cr); }        // dorsal arc (the camera-facing back)
-        else { u = 1 - 4 * (t - 0.5); zl = -Be * Math.sqrt(Math.max(0, 1 - u * u)); }   // belly arc
+        else { u = 1 - 4 * (t - 0.5); zl = -Be * Math.pow(Math.cos(u * Math.PI / 2), 1.2); }   // belly arc — cos^1.2 (NOT sqrt): tangent →0 at the sides like the dorsal, so the two arcs meet SMOOTHLY at the lateral seam instead of the semicircle's vertical-tangent crease (the "straight edge" down the body)
         const v = pt(sp.cx + u * hw, ny, zl + cz); pos.push(v.x, v.y, v.z);
       }
     } else {
@@ -255,17 +256,15 @@ export function buildCelestialStorm() {
   const { mesh: bodyMesh, stations } = loftBody(bodyLoop, { seg: 30, sculpt: BODY_SCULPT });
   bodyGrp.add(bodyMesh);
   const surfZ = (p) => bodySurfaceZ(stations, p[0], p[1]);
-  // SPEAR — LOFT the traced spearhead with a THIN lens cross-section (not a flat slab). The elliptical ring gives
-  // a raised central ridge that thins to SHARP z=0 edges, and depth ∝ half-width → every prong + the tip taper to
-  // a true 3D POINT (depth→0 as width→0). loftBody's branching handles the trident barbs. ~⅕ the slab thickness.
+  // TAIL SPEAR — a continuous 3D tapering spike off the body's tail end. ROUND cross-section so it tapers to a
+  // true POINT from EVERY angle (the old flat-lens blade read as a thin slab edge-on from the side, and dangled
+  // off the body as a separate floating piece). matBody continues the cosmic gradient — the low-y tip goes magenta
+  // on its own, so the spear stays one continuous form with the body, not a tacked-on violet blade.
   {
-    const spear = clipPoly(D.body.silhouette, TAIL_SPEAR_TOP, true);
-    const { mesh: spearMesh } = loftBody(spear, { rings: 90, seg: 14, dDorsal: 0.20, dVentral: 0.20, material: matSpear });
-    spearGrp.add(spearMesh);
-    // glowing cyan core line riding the blade's front ridge → the bright spine the painted spear has
-    let tipY = 0; for (const p of spear) if (p[1] > tipY) tipY = p[1];
-    const core = [[D.mirror, TAIL_SPEAR_TOP + 0.01], [D.mirror, (TAIL_SPEAR_TOP + tipY) / 2], [D.mirror, tipY - 0.005]];
-    const t = taperedTube(core, [0.004, 0.010, 0.002], () => 0.035, matCore, 7); if (t) spearGrp.add(t);
+    const tip = 0.975, mid = (TAIL_BODY_CLIP + tip) / 2;
+    const spine = [[D.mirror, TAIL_BODY_CLIP - 0.015], [D.mirror, mid], [D.mirror, tip]];   // start just inside the body end → tip
+    const tail = taperedTube(spine, [0.072, 0.030, 0.004], () => 0, matBody, 12);           // base ≈ body half-width at the clip → sharp point
+    if (tail) spearGrp.add(tail);
   }
 
   // ── NECK + HEAD ────────────────────────────────────────────────────────────
