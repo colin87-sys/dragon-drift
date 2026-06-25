@@ -255,7 +255,13 @@ export function buildCelestialStorm() {
   const bodyLoop = clipPoly(clipPoly(D.body.silhouette, TAIL_BODY_CLIP, false), NECK_BASE, true);
   const { mesh: bodyMesh, stations } = loftBody(bodyLoop, { seg: 30, sculpt: BODY_SCULPT });
   bodyGrp.add(bodyMesh);
-  const surfZ = (p) => bodySurfaceZ(stations, p[0], p[1]);
+  // surface z at a normalized (x,y) — seat plates/spine on the ACTUAL sculpted dorsal hull (dorsalZ with the
+  // body's Dr/Mu/Cr), not the old egg approximation, so the armour sits ON the back instead of floating/sinking.
+  const surfZ = (p) => {
+    const ny = p[1]; let best = stations[0], bd = 1e9; for (const st of stations) { const d = Math.abs(st.y - ny); if (d < bd) { bd = d; best = st; } }
+    const u = best.hw ? (p[0] - best.cx) / best.hw : 0; if (Math.abs(u) >= 1) return 0;
+    return dorsalZ(u, BODY_SCULPT.Dr(ny), BODY_SCULPT.Mu(ny), BODY_SCULPT.Cr ? BODY_SCULPT.Cr(ny) : 0);
+  };
   // TAIL SPEAR — a continuous 3D tapering spike off the body's tail end. ROUND cross-section so it tapers to a
   // true POINT from EVERY angle (the old flat-lens blade read as a thin slab edge-on from the side, and dangled
   // off the body as a separate floating piece). matBody continues the cosmic gradient — the low-y tip goes magenta
@@ -377,16 +383,16 @@ export function buildCelestialStorm() {
     let cx = 0, cy = 0; for (const p of pl) { cx += p[0]; cy += p[1]; } cx /= pl.length; cy /= pl.length;
     if (cy > TAIL_BODY_CLIP) continue;                                 // tail-flare plates are replaced by the spear blade
     const base = plPos.length / 3;
-    const cv = pt(cx, cy, surfZ([cx, cy]) + 0.011);                    // raised plate centre (the scale's crown)
+    const cv = pt(cx, cy, surfZ([cx, cy]) + 0.030);                    // raised plate centre (the scale's crown) — proud enough to read as overlapping armour on the rear cam
     plPos.push(cv.x, cv.y, cv.z);
-    for (const p of pl) { const v = pt(p[0], p[1], surfZ(p) + 0.002); plPos.push(v.x, v.y, v.z); }
+    for (const p of pl) { const v = pt(p[0], p[1], surfZ(p) + 0.004); plPos.push(v.x, v.y, v.z); }
     for (let i = 0; i < pl.length; i++) plIdx.push(base, base + 1 + i, base + 1 + (i + 1) % pl.length);
     const seam = pl.map(p => pt(p[0], p[1], surfZ(p) + 0.006)); seam.push(seam[0]);
     seamGrp.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(seam), matSeam));
   }
   const plG = new THREE.BufferGeometry(); plG.setAttribute('position', new THREE.Float32BufferAttribute(plPos, 3)); plG.setIndex(plIdx); plG.computeVertexNormals();
   plateGrp.add(new THREE.Mesh(plG, matPlate));
-  plateGrp.visible = false; seamGrp.visible = false;   // Step 1 WIP: old flat plates off; scales re-seated on the sculpted hull in Step 2
+  plateGrp.visible = true; seamGrp.visible = true;   // armour scales + glowing seams ON — re-seated on the sculpted hull (surfZ now uses the real dorsalZ), so the body reads as an armoured dragon, not a bare tube
 
   // DORSAL SPINE — a glowing cyan diamond stamped on each central armour ROW, sized to that row's cell so it
   // lines up cleanly on the blue armour and stands proud as the rear-cam follow-line (head crest → tail).
@@ -414,7 +420,7 @@ export function buildCelestialStorm() {
     }
     const sG = new THREE.BufferGeometry(); sG.setAttribute('position', new THREE.Float32BufferAttribute(sPos, 3)); sG.setIndex(sIdx); sG.computeVertexNormals();
     spineGrp.add(new THREE.Mesh(sG, matSpine));
-    spineGrp.visible = false;   // diamonds parked for now (toggle "spine" to bring them back)
+    spineGrp.visible = true;   // glowing dorsal spine ridge ON — the rear-cam follow-line down the back into the spear
     console.log(`spine: ${rows.length} dorsal diamonds (rows ${Y[0].toFixed(2)}→${Y[Y.length - 1].toFixed(2)}) — hidden by default`);
   }
 

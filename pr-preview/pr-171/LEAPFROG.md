@@ -3953,3 +3953,19 @@ Lesson: **a surface is only as smooth as its WORST tangent — a C0-but-not-C1 j
 slopes) is a visible crease even when each arc is smooth; match tangents at seams. And loft banding has two
 sources, width AND centerline noise — smooth both. For a tapering appendage, build it as a round volume, never a
 flat lens, or it reads as a slab from the orthogonal view.** def 5/5, gates PASS, wingMetrics self-test PASS.
+
+### L144 — "It's a blob": the dragon had ALL surface detail (armour plates + spine ridge + seams) DISABLED — re-seat on the real hull and turn it ON
+Human, bluntly: "it's a blob, do you have any artistic judgement?" They were right. I'd spent many turns smoothing
+GEOMETRY (embed struts, smooth seams, taper tail) and missed the forest: the body was a BARE smooth tube because
+`plateGrp/seamGrp/spineGrp` were all `visible=false` (a "Step 1 WIP, re-seat in Step 2" that never happened), so
+there was zero surface detail — and then I'd smoothed away what little form remained. A dragon with no armour, no
+spine ridge, no scales IS a blob. Fix: (1) re-seat the armour on the ACTUAL sculpted hull — `surfZ`/`bodySurfaceZ`
+returned an old egg approximation (`0.92·hw·√`), so plates floated/sank; rewrote `surfZ` to return the real
+`dorsalZ(u, Dr,Mu,Cr)` so plates sit ON the back; (2) raise the plate crowns (0.011→0.030) so they read as
+overlapping armour, not flush decals; (3) enable plates + seams + the glowing dorsal spine-diamond ridge. The
+spine ridge running the whole back into the spear tail is the single biggest definition win — it gives a crisp
+focal line and turns the smooth tube into an armoured cosmic dragon. Gates still PASS (protrusion 4.7 / banding
+4.3; the intentional ridge isn't a shelf), def 5/5. Lesson: **when something reads as a "blob," step back from
+per-vertex geometry and ask what DETAIL is missing — and check what's toggled OFF. Surface detail (armour, ridge,
+scales) is what separates a creature from a smoothed primitive; don't ship with it disabled, and don't over-smooth
+the underlying form to nothing. Periodically judge the WHOLE silhouette, not just the bug you're chasing.**
