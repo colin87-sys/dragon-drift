@@ -275,16 +275,19 @@ function buildAmpithereWing(def, model, attach, giM) {
 
   // SHARP storm wing: short arm, medial wrist, 4 long curved fingers, SHALLOW crisp
   // scallops (geometric), the outer finger framing a hard leading edge.
+  // SHORT humerus, medial wrist (~25% span). 4 fingers; the LEADING finger is the long
+  // sharp convex frame (most curved) and each finger straightens toward the trailing
+  // edge, the innermost ≈ straight. Sharper/geometric: shallow scallops, pointier claws.
   const anatomy = {
-    rootFront: [0, 0.36], rootBack: [0, -0.66],
-    elbow: [1.0, 0.36], wrist: [1.85, 0.6],
+    rootFront: [0, 0.36], rootBack: [0, -0.64],
+    elbow: [0.6, 0.40], wrist: [1.45, 0.56],
     fingers: [
-      { tip: [5.6, 1.1], bow: 0.3 },     // long sharp leading frame
-      { tip: [5.0, -0.2], bow: 0.45 },
-      { tip: [3.95, -1.25], bow: 0.6 },
-      { tip: [2.7, -1.85], bow: 0.72 },  // trailing frame
+      { tip: [5.9, 0.85], bow: 0.70 },   // long sharp leading frame — most curved
+      { tip: [5.1, -0.35], bow: 0.38 },
+      { tip: [3.95, -1.30], bow: 0.16 },
+      { tip: [2.6, -1.85], bow: 0.04 },  // innermost/trailing — straight
     ],
-    scallop: 0.24, strutR: 0.04,
+    scallop: 0.26, strutR: 0.04, claw: 0.2,
   };
   const Rp = buildAnatomicalWing({ ws, membraneMat: wingMat, strutMat, jointMat, anatomy }).pivot;
   Rp.position.set(...Object.values(attach.wingRoot(1)));

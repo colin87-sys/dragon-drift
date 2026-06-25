@@ -302,17 +302,21 @@ function buildMonarchWing(def, model, attach, giM) {
 
   // Warm western-dragon bat wing: SHORT arm, wrist medial (~0.36 span), 5 long curved
   // fingers fanning to rounded scallops; the outer finger frames the wing.
+  // SHORT humerus, MEDIAL wrist (~26% of span). 5 fingers fanning from the wrist; the
+  // LEADING finger is the long, most-curved convex frame and each finger toward the
+  // trailing edge straightens, the innermost ≈ straight (curvature gradient). Swept,
+  // tapering planform with protruding claw tips over even scallops.
   const anatomy = {
-    rootFront: [0, 0.34], rootBack: [0, -0.60],
-    elbow: [0.95, 0.30], wrist: [1.78, 0.50],
+    rootFront: [0, 0.34], rootBack: [0, -0.58],
+    elbow: [0.55, 0.34], wrist: [1.40, 0.46],
     fingers: [
-      { tip: [5.05, 0.95], bow: 0.45 },   // leading frame (digit II) — longest
-      { tip: [4.75, 0.05], bow: 0.62 },
-      { tip: [4.10, -0.95], bow: 0.82 },
-      { tip: [3.20, -1.62], bow: 0.98 },
-      { tip: [2.35, -1.95], bow: 1.10 },  // trailing — frames the inner edge, curves most
+      { tip: [5.30, 0.62], bow: 0.95 },   // leading frame — longest, MOST curved
+      { tip: [4.75, -0.25], bow: 0.60 },
+      { tip: [3.95, -1.05], bow: 0.36 },
+      { tip: [3.00, -1.62], bow: 0.18 },
+      { tip: [2.05, -1.90], bow: 0.05 },  // innermost/trailing — nearly STRAIGHT
     ],
-    scallop: 0.4, strutR: 0.038,
+    scallop: 0.42, strutR: 0.038, claw: 0.16,
   };
   const Rp = buildAnatomicalWing({ ws, membraneMat: wingMat, strutMat, anatomy }).pivot;
   Rp.position.set(...Object.values(attach.wingRoot(1)));
