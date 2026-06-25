@@ -3862,3 +3862,17 @@ the base cross-section to the FULL opening so both edges meet the body's edges, 
 direction you need continuous (tapering the dorsal to "shrink the socket" curls the very line you're trying to keep
 smooth). Measure the body's dorsal/ventral edge z at the join and make the base ellipse hit both.** Gates PASS
 (protrusion 3.7–5.5 / banding 0.6–1.3), def 5/5.
+
+### L139 — Wing root belongs on the dorsolateral upper back, not the body's mid-depth
+Human: "where do the wings connect dorsoventrally?" Research + reference: a flyer's wing anchors at the shoulder
+girdle (scapula), high on the dorsolateral ribcage — upper third of the body depth, near the spine. The side ref
+shows wings springing from the top of the back at the withers. Measured our model: the wing root's LONGITUDINAL
+position (ny 0.273, the shoulder just behind the neck) was already right, but its DORSOVENTRAL attach was z=0 —
+exactly the body's mid-depth (45% up; body dorsal there +0.81, ventral −0.67). So the wings grew out of the
+body's equator/side, not the back. Fix: one constant — `WING_DORSAL=0.10` added into `zWing` (≈+0.56 world,
+~83% up the depth). Because the membrane + struts are seeded relative to the pivot (`off()` subtracts the pivot
+pos), lifting the root's base z translates the whole wing onto the back with its shape intact — a one-line lever.
+Lesson: **wing attach has two independent axes — longitudinal (which body station) and dorsoventral (how high on
+the cross-section); they're tuned separately, and the default "build it in the canvas plane → z=0" puts the root
+at mid-depth, which reads as wings-from-the-ribs. Push it dorsal.** Gates/def unaffected (wings excluded from
+torso gates): protrusion 5.0 / banding 3.6, def 5/5.
