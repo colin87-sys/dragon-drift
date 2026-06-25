@@ -834,6 +834,7 @@ export const DRAGONS = {
       scale: 1.12, wingScale: 1.18,
       bodyRoughness: 0.62, bodyMetalness: 0.12, rimBodyMul: 1.1,
       flapBias: 0.92, flapAmp: 0.88,   // broad, powerful, regal western-dragon beat
+      flapFreqScale: 0.7,              // −30% flap speed (slower, readable regal beat)
       // 3-segment ARTICULATED wing (shoulder→elbow→wrist): per-segment amplitude +
       // LAG make a travelling fold, not one rigid hinge; a glide-hold beat (glidePow)
       // with rare heavy pulses; a held apex V (restLift = rest dihedral, apex* lift
@@ -912,7 +913,7 @@ export const DRAGONS = {
       bodyRoughness: 0.5, bodyMetalness: 0.28, rimBodyMul: 1.0,
       // Ribbon undulation — a gentle lead-first slither (front calm, tail whips).
       segmentSway: 0.2, segmentBob: 0.06, segmentLag: 0.16,
-      flapBias: 1.0, flapAmp: 0.9,
+      flapBias: 1.0, flapAmp: 0.9, flapFreqScale: 0.7,   // −30% flap speed (assessment)
       // SHARP triangular wing on the 3-segment articulated chain.
       wingParts: true, glidePow: 1.15,
       rootAmp: 0.52, midAmp: 0.42, tipAmp: 0.36, midLag: 0.55, tipLag: 1.05,

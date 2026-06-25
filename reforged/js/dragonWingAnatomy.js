@@ -131,27 +131,48 @@ export function buildAnatomicalWing(opts) {
   //   trailing: smooth catenary SCALLOPS sagging toward the wrist between the web
   //             tips, so each fingertip reads as a point over an even sag.
   //   inner: last web tip → back to the wrist.
-  const outline = [wristV];
+  // LEADING frame (digit 0). With A.hook the tip curls BACK into a TALON (a sickle:
+  // a stylized "line of action" + hooked wingtip — the caricature signature). The
+  // membrane leading edge and the strut share the same curve so they read as one bone.
+  const hook = A.hook ?? 0;
+  const lfTip = tip(fingers[0]);
+  let leadPts, leadStrut, wingtipV;
   {
-    const a = wristV, b = webTip(fingers[0], 0);
-    const ctrl = a.clone().lerp(b, 0.5).add(leadingPerp(a, b).multiplyScalar(fingers[0].bow * ws));
-    outline.push(...bezier(a, ctrl, b, sampN).slice(1));
+    const a = wristV;
+    const conv = a.clone().lerp(lfTip, 0.45).add(leadingPerp(a, lfTip).multiplyScalar(fingers[0].bow * ws));
+    if (hook > 0) {
+      const hookTip = lfTip.clone().add(new THREE.Vector3(0.18 * hook * ws, 0, 0.6 * hook * ws));   // out + swept BACK
+      const ctrl2 = lfTip.clone().add(new THREE.Vector3(0, 0, -0.22 * hook * ws));                  // hold forward, then reverse to the talon
+      const curve = new THREE.CubicBezierCurve3(a, conv, ctrl2, hookTip);
+      leadPts = curve.getPoints(Math.max(8, sampN * 2));
+      leadStrut = new THREE.Mesh(new THREE.TubeGeometry(curve, Math.max(8, seg(14)), (A.strutR ?? 0.035) * ws, seg(4), false), strut);
+      wingtipV = hookTip;
+    } else {
+      leadPts = bezier(a, conv, lfTip, sampN);
+      leadStrut = curvedBone(a, lfTip, fingers[0].bow, ws, strut, A.strutR ?? 0.035);
+      wingtipV = lfTip;
+    }
   }
-  for (let i = 0; i < nF - 1; i++) {
-    const a = webTip(fingers[i], i), b = webTip(fingers[i + 1], i + 1);
-    const mid = a.clone().lerp(b, 0.5);
-    const ctrl = mid.lerp(wristV, A.scallop);                // even, smooth sag
+
+  // Membrane outline (wrist-local), fanned from the wrist: the leading frame, then
+  // smooth catenary scallops from the wingtip through the inner web tips, deep enough
+  // that each fingertip reads as a point.
+  const outline = [wristV, ...leadPts.slice(1)];
+  const scStarts = [wingtipV, ...fingers.slice(1).map((f, i) => webTip(f, i + 1))];
+  for (let i = 0; i < scStarts.length - 1; i++) {
+    const a = scStarts[i], b = scStarts[i + 1];
+    const ctrl = a.clone().lerp(b, 0.5).lerp(wristV, A.scallop);
     outline.push(...bezier(a, ctrl, b, sampN).slice(1));
   }
   wingTip.add(fanPanel(outline, mem));
 
-  // Curved finger struts (the spars) to the FULL tips, so the inner ones protrude past
-  // the web as points. The bow gradient (per-finger) makes the leading finger the most
-  // curved convex frame and the innermost ≈ straight (set by the caller).
-  for (const f of fingers) wingTip.add(curvedBone(wristV, tip(f), f.bow, ws, strut, A.strutR ?? 0.035));
+  // Finger struts to the FULL tips (inner ones protrude past the web as points); the
+  // leading strut is the hooked talon built above.
+  wingTip.add(leadStrut);
+  for (let i = 1; i < nF; i++) wingTip.add(curvedBone(wristV, tip(fingers[i]), fingers[i].bow, ws, strut, A.strutR ?? 0.035));
 
   const marker = new THREE.Object3D();
-  marker.position.copy(tip(fingers[0]));
+  marker.position.copy(wingtipV);
   marker.userData.wingRole = 'marker';
   wingTip.add(marker);
 
