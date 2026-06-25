@@ -879,6 +879,10 @@ export const DRAGONS = {
     // (mirrored per side), so the membrane silhouette IS the concept's elegant
     // deep-scalloped, sharp-fingered wing — not an approximation.
     wingOutline: [[0, -0.284], [0.058, -0.442], [0.094, -0.227], [0.223, -0.054], [0.576, 0.162], [0.784, 0.255], [0.928, 0.291], [1.122, 0.299], [1.273, 0.27], [1.403, 0.047], [1.345, 0.313], [1.54, 0.629], [1.755, 0.881], [1.993, 0.982], [2.237, 1.025], [2.532, 0.917], [2.288, 1.112], [2.209, 1.478], [2.396, 1.845], [2.561, 2.018], [2.647, 2.09], [3, 2.219], [2.698, 2.227], [2.489, 2.263], [2.604, 2.399], [2.806, 2.514], [2.619, 2.471], [2.173, 2.306], [1.741, 1.953], [1.309, 1.493], [1.525, 1.802], [1.827, 2.126], [1.655, 2.004], [1.453, 1.802], [1.137, 1.399], [1.165, 1.594], [1.065, 1.414], [1, 1.191], [0.662, 0.766], [0.511, 0.615], [0.194, 0.363], [0, 0.284]],
+    // Curved finger struts traced from THIS wing's internal VEINS (wingtrace.mjs) —
+    // quadratic beziers [root, control, tip] that follow the lightning veins, NOT
+    // copied from Toothless. crystalWing renders them as tapered emissive tubes.
+    wingStruts: [[[0, 0], [1.361, 1.304], [2.806, 2.514]], [[0, 0], [1.017, 0.975], [1.827, 2.126]], [[0, 0], [1.266, 0.459], [2.532, 0.917]], [[0, 0], [0.689, 0.719], [1.165, 1.594]], [[0, 0], [0.701, 0.023], [1.403, 0.047]], [[0, 0], [0.029, -0.221], [0.058, -0.442]]],
     forms: [
       // T0 Shardling — clean, narrow, modest swept wings, faint cyan spine.
       { wingForm: 0, tailStyle: 'spade', tailSegments: 6, ridgeCount: 8,

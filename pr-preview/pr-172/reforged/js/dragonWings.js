@@ -705,11 +705,28 @@ function buildCrystalWings(def, model, attach, giM) {
 
     if (outline) {
       dih.add(new THREE.Mesh(outlineGeo(), wingMat));
-      const { tips, far } = outlineFingers();
-      // leading-edge bone (root → far tip) + finger spokes to the sharp scallop tips.
-      dih.add(bone(0, 0, 0.03, far[0] * outScale, far[1] * outScale, 0.03, 0.05 * ws, 0.015 * ws, armMat));
-      for (const t of tips) dih.add(bone(0, 0, 0.04, t[0] * outScale, t[1] * outScale, 0.04, 0.03 * ws, 0.01 * ws, model.wingVeins ? veinMat : armMat));
-      if (model.wingVeins) dih.add(bone(0, 0, 0.05, far[0] * 0.9 * outScale, far[1] * 0.9 * outScale, 0.05, 0.016 * ws, 0.006 * ws, veinMat));
+      let far = outline[0]; for (const p of outline) if (p[0] > far[0]) far = p;
+      const strutMat = model.wingVeins ? veinMat : armMat;
+      if (def.wingStruts) {
+        // CURVED finger struts traced from THIS wing's veins (tools/wingtrace.mjs):
+        // each is a quadratic bezier [root, control, tip] → segmented tapered tubes.
+        const N = seg(6);
+        for (const st of def.wingStruts) {
+          const [a, c, b] = st;
+          const P = [];
+          for (let i = 0; i <= N; i++) { const t = i / N, mt = 1 - t;
+            P.push([(mt * mt * a[0] + 2 * mt * t * c[0] + t * t * b[0]) * outScale,
+                    (mt * mt * a[1] + 2 * mt * t * c[1] + t * t * b[1]) * outScale]); }
+          for (let i = 0; i < P.length - 1; i++) {
+            const r0 = (0.055 * (1 - i / P.length) + 0.012) * ws, r1 = (0.055 * (1 - (i + 1) / P.length) + 0.012) * ws;
+            dih.add(bone(P[i][0], P[i][1], 0.04, P[i + 1][0], P[i + 1][1], 0.04, r0, r1, strutMat));
+          }
+        }
+      } else {
+        const { tips } = outlineFingers();
+        dih.add(bone(0, 0, 0.03, far[0] * outScale, far[1] * outScale, 0.03, 0.05 * ws, 0.015 * ws, armMat));
+        for (const t of tips) dih.add(bone(0, 0, 0.04, t[0] * outScale, t[1] * outScale, 0.04, 0.03 * ws, 0.01 * ws, strutMat));
+      }
       wingTip.position.set(far[0] * outScale * 0.6, far[1] * outScale * 0.6, 0);
       dih.add(wingTip);
       tipMarker.position.set(far[0] * outScale, far[1] * outScale, 0);

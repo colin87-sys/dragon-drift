@@ -137,7 +137,47 @@ const sgn = side === 'right' ? -1 : 1;                 // outward direction in i
 const scale = Math.abs(origin.x - tipExtreme) / 3.0;  // ~3 engine units across the span
 const local = simp.map((p) => [ +(((origin.x - p.x) * sgn) / scale).toFixed(3), +(((origin.y - p.y)) / scale).toFixed(3) ]);
 
+// --- 9. trace THIS wing's STRUTS from the bright internal veins ---------------
+// The membrane's bright cyan vein lines radiate from the wing root toward the
+// finger tips. Detect them, then fit a CURVED bezier (root → control-on-veins →
+// tip) per finger so the struts FOLLOW the actual veins (not copied from Toothless).
+const bright = new Uint8Array(w * h);
+for (let i = 0; i < w * h; i++) { if (!full[i]) continue; const r = rgba[i * 4], g = rgba[i * 4 + 1], b = rgba[i * 4 + 2];
+  if (0.299 * r + 0.587 * g + 0.114 * b > 110) bright[i] = 1; }
+// finger tips = RDP outline points that are local maxima of radius from the root.
+const rootImg = origin;                                   // image-space wing root
+const rad = (p) => Math.hypot(p.x - rootImg.x, p.y - rootImg.y);
+const tips = [];
+for (let i = 1; i < simp.length - 1; i++) { if (rad(simp[i]) >= rad(simp[i - 1]) && rad(simp[i]) > rad(simp[i + 1]) && rad(simp[i]) > 40) tips.push(simp[i]); }
+// keep well-separated tips (drop near-duplicates), cap ~6
+tips.sort((a, b) => rad(b) - rad(a));
+const keptTips = [];
+for (const t0 of tips) { if (keptTips.every((k) => Math.hypot(k.x - t0.x, k.y - t0.y) > bw * 0.06) && keptTips.length < 6) keptTips.push(t0); }
+const struts = [];
+for (const tip of keptTips) {
+  const dx = tip.x - rootImg.x, dy = tip.y - rootImg.y, L = Math.hypot(dx, dy) || 1;
+  const ux = dx / L, uy = dy / L, nx = -uy, ny = ux;             // along + perp
+  // gather bright pixels in the corridor toward this tip; measure their mean perp offset.
+  let sumPerp = 0, nPx = 0;
+  for (let s = 0.2; s <= 0.8; s += 0.05) {
+    const bx = rootImg.x + ux * L * s, by = rootImg.y + uy * L * s;
+    for (let o = -L * 0.12; o <= L * 0.12; o += 2) { const px = (bx + nx * o) | 0, py = (by + ny * o) | 0;
+      if (px >= 0 && py >= 0 && px < w && py < h && bright[py * w + px]) { sumPerp += o; nPx++; } }
+  }
+  const perp = nPx > 8 ? sumPerp / nPx : 0;                      // bow toward the veins (0 if none found)
+  const ctrl = { x: rootImg.x + ux * L * 0.5 + nx * perp, y: rootImg.y + uy * L * 0.5 + ny * perp };
+  const toLocal = (p) => [+(((origin.x - p.x) * sgn) / scale).toFixed(3), +(((origin.y - p.y)) / scale).toFixed(3)];
+  struts.push([toLocal(rootImg), toLocal(ctrl), toLocal(tip)]);
+}
+// strut QA overlay (magenta struts over the cyan veins)
+for (let i = 0; i < w * h; i++) if (bright[i] && (i % w) < cx) plot(i % w, (i / w) | 0, 60, 200, 230, 0);
+for (const [a, c, b] of struts) { const A = { x: origin.x - a[0] * sgn * scale, y: origin.y - a[1] * scale }, C = { x: origin.x - c[0] * sgn * scale, y: origin.y - c[1] * scale }, B = { x: origin.x - b[0] * sgn * scale, y: origin.y - b[1] * scale };
+  for (let s = 0; s <= 1; s += 0.02) { const mt = 1 - s, px = mt * mt * A.x + 2 * mt * s * C.x + s * s * B.x, py = mt * mt * A.y + 2 * mt * s * C.y + s * s * B.y; plot(px, py, 255, 80, 230, 1); } }
+writeFileSync('/tmp/wingtrace-overlay.png', pngRGBA(w, h, out));
+
 console.log(`concept ${w}x${h} · wing-arc ${arc.length}px → RDP ${simp.length} pts (eps ${eps})`);
 console.log(`QA  max-dev ${maxDev.toFixed(2)}px · mean-dev ${meanDev.toFixed(2)}px · maxTurn ${(maxTurn * 180 / Math.PI).toFixed(0)}° · squiggle-reversals ${reversals}  → ${pass ? 'PASS' : 'FAIL'}`);
-console.log(`overlay /tmp/wingtrace-overlay.png  (grey=reference edge, cyan=trace, yellow=RDP pts, red=off-edge)`);
+console.log(`struts: traced ${struts.length} from veins`);
+console.log(`overlay /tmp/wingtrace-overlay.png  (grey=ref edge, cyan=trace+veins, yellow=RDP, red=off-edge, magenta=struts)`);
 console.log('wingOutline: ' + JSON.stringify(local));
+console.log('wingStruts: ' + JSON.stringify(struts));
