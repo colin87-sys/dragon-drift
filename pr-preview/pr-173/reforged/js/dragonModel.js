@@ -223,8 +223,15 @@ export function buildDragonModel(def, opts = {}) {
   const head = headResult.group;
   for (const m of headResult.spineMats) spineMats.push(m);
   const hb = attach.headBase;
-  head.position.set(hb.x, hb.y, hb.z);
-  group.add(head);
+  // A torso may expose an animated neck-chain TIP (attach.headMount, positioned at
+  // headBase at rest) — parent the head there so it rides the living neck instead of
+  // floating at a fixed anchor. Additive + nullable → every other torso is unchanged.
+  if (attach.headMount) {
+    attach.headMount.add(head);   // local origin = headBase rest pos
+  } else {
+    head.position.set(hb.x, hb.y, hb.z);
+    group.add(head);
+  }
 
   // AIM MARKER — a small always-on-top cyan-white crystal + halo at the head's
   // nose: the ring-alignment point. depthTest off + a high renderOrder so the
@@ -296,7 +303,7 @@ export function buildDragonModel(def, opts = {}) {
   // neither → the roster is byte-identical).
   if (wingsResult.parts.tailFins) tailFins = wingsResult.parts.tailFins;
   if (wingsResult.parts.tailSegs) tailSegs = wingsResult.parts.tailSegs;
-  const spineSegs = wingsResult.parts.spineSegs || null;   // night-fury body-spine whip (nullable)
+  const spineSegs = wingsResult.parts.spineSegs || torsoResult.spineSegs || null;   // body-spine whip / neck chain (nullable)
 
   // Solar aura card (apex only): a tall narrow backlight behind the body — a
   // corona, not a ring that competes with the collectible rings.

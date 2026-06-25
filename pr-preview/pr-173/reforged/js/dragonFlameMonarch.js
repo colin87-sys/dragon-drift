@@ -211,19 +211,31 @@ function buildMonarchHull(def, model, _bodyMat) {
   // LEGLESS — a sleek wyvern-style flyer (legs read weird tucked under the racing
   // body from the chase cam, per the human). The wings + tail carry the silhouette.
 
-  // S-NECK — a short, strong neck rising forward to the royal head. Not too long.
-  const neck = [
-    { z: -1.50, y: 0.84, r: 0.27 },
-    { z: -1.74, y: 0.98, r: 0.24 },
-    { z: -1.96, y: 1.10, r: 0.21 },
-    { z: -2.12, y: 1.14, r: 0.19 },
+  // S-NECK — a parented bone CHAIN (root→tip) so the front of the creature is ALIVE,
+  // not stiff: the rig's role animator bobs + BREATHES the 'neck' bones (continuous,
+  // even gliding) and composes the 'head'. Returned as `spineSegs`; the head module
+  // parents onto the tip (`attach.headMount`) so it rides the neck instead of floating
+  // at a fixed anchor. A small `userData.whip` gives the SHOP preview gentle life too.
+  const spineSegs = [];
+  const neckPts = [
+    { y: 0.84, z: -1.50, r: 0.26, role: 'neck' },
+    { y: 0.98, z: -1.74, r: 0.23, role: 'neck' },
+    { y: 1.10, z: -1.96, r: 0.20, role: 'neck' },
+    { y: 1.15, z: -2.18, r: 0.17, role: 'head' },   // tip = the head mount (= headBase)
   ];
-  for (const s of neck) {
-    const n = new THREE.Mesh(new THREE.SphereGeometry(s.r, seg(8), seg(6)), hideMat);
+  let parent = group, prevY = 0, prevZ = 0, headMount = null;
+  neckPts.forEach((p, i) => {
+    const bone = new THREE.Group();
+    bone.position.set(0, p.y - prevY, p.z - prevZ);   // local offset from the previous bone
+    bone.userData.role = p.role;
+    bone.userData.whip = { gain: p.role === 'head' ? 0.02 : 0.05, phase: i * 0.6 };
+    const n = new THREE.Mesh(new THREE.SphereGeometry(p.r, seg(8), seg(6)), hideMat);
     n.scale.set(0.92, 0.92, 1.15);
-    n.position.set(0, s.y, s.z);
-    group.add(n);
-  }
+    bone.add(n);
+    parent.add(bone);
+    spineSegs.push(bone);
+    parent = bone; prevY = p.y; prevZ = p.z; headMount = bone;
+  });
 
   // Molten THROAT heart-core — a glow nestled under the jaw that brightens on boost
   // and blazes on Surge (adopted by dragonModel as the creature's coreGlow).
@@ -253,20 +265,25 @@ function buildMonarchHull(def, model, _bodyMat) {
     // wings sit just BEHIND the shoulder mass, high on the back (rear-V root).
     wingRoot: (side) => ({ x: 0.44 * side, y: 1.02, z: -0.5 }),
     headBase: { x: 0, y: 1.15, z: -2.18 },
+    headMount,                      // the head parents to the animated neck tip
     tailAnchor: { y: 0.52, z: 1.1 },
     keelTopAt,
     halfWidthAt,
     bodyMidY: 0.58,
     tailShift: 0,
   };
-  return { group, attach, mats: { bodyMat: hideMat }, coreGlow, spineMats };
+  return { group, attach, mats: { bodyMat: hideMat }, coreGlow, spineMats, spineSegs };
 }
 registerTorso('monarchHull', buildMonarchHull);
 
 // ── WINGS — monarchWing ──────────────────────────────────────────────────────
-// Bat membrane: a leathery sheet on a leading-edge arm spar + 5 finger struts that
-// fan to a SCALLOPED outer edge, with ember-cracked struts. Built on the standard
-// pivot→wingTip→marker handles so the shared flap rig sweeps it into a rear V.
+// Bat membrane split into THREE articulated segments — shoulder→ELBOW (pivot),
+// elbow→WRIST (wingMid), wrist→FINGERS (wingTip) — each carrying its own membrane
+// panel so the wing FOLDS at both joints. The shared `wingParts` rig drives the
+// root→mid→tip cascade with per-segment LAG (a travelling fold, not one rigid
+// hinge) + a held apex V. 5 finger struts fan to a scalloped outer edge with
+// molten ember cracks. The left wing is a scale.x=-1 mirror clone of the right
+// master (driven by the identical pose → guaranteed symmetric beat).
 function buildMonarchWing(def, model, attach, giM) {
   const group = new THREE.Group();
   const spineMats = [];
@@ -287,79 +304,96 @@ function buildMonarchWing(def, model, attach, giM) {
     roughness: 0.4, metalness: 0.45,
   }), cMolten, strutInt, spineMats);
 
-  // Wing planform in (x = span outward, y = chord; +y = leading/forward). After
-  // rotateX(-90°) the shape lies flat (x = span, world -z = forward).
-  const wrist = [2.55, 0.45];
+  // Wing planform in 2D (x = span outward, y = chord; +y = leading). Two joints
+  // split it into the three articulated segments.
+  const ELBOW = [1.5, -0.04];
+  const WRIST = [2.6, 0.40];
+  const rootFront = [0, 0.34], rootBack = [0, -0.54];
+  const elbowFront = [1.55, 0.44], elbowBack = [1.42, -0.72];
   const fingers = [
-    [4.75, 0.32],   // f0 — longest, leading
-    [4.55, -0.18],
-    [4.05, -0.72],
-    [3.25, -1.18],
-    [2.35, -1.48],  // f4 — innermost, trailing
+    [4.80, 0.30],   // f0 — longest, leading
+    [4.60, -0.22],
+    [4.05, -0.76],
+    [3.20, -1.20],
+    [2.30, -1.46],  // f4 — innermost, trailing
   ];
   const scallop = 0.24;
-  const rootFront = [0, 0.34], rootBack = [0, -0.52];
 
-  // Resting upward dihedral so the glide pose reads as a strong rear V (the flap
-  // rig oscillates the pivot around this; the V holds in cruise). Baked on an inner
-  // group because the rig OVERWRITES pivot.rotation.z each frame.
-  const dihedral = 0.5;
+  // Map a 2D wing point to a 3D vertex in a joint-LOCAL frame (origin subtracted),
+  // flat in XZ: X = (x-ox)*ws (span), Z = -(y-oy)*ws (chord; +y → -z forward).
+  const at = (p, o) => new THREE.Vector3((p[0] - o[0]) * ws, 0, -(p[1] - o[1]) * ws);
+  // A filled membrane panel (triangle-fan from pts[0]) in a joint-local frame.
+  function panel(pts, o) {
+    const pos = [];
+    for (const p of pts) { const v = at(p, o); pos.push(v.x, v.y, v.z); }
+    const idx = [];
+    for (let i = 1; i < pts.length - 1; i++) idx.push(0, i, i + 1);
+    const g = new THREE.BufferGeometry();
+    g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+    g.setIndex(idx);
+    g.computeVertexNormals();
+    return new THREE.Mesh(g, wingMat);
+  }
 
-  function buildSide(side) {
+  // The RIGHT master: pivot → wingMid (elbow) → wingTip (wrist), each panel in its
+  // joint's local frame so a joint rotation folds everything outboard of it. Roles
+  // tag the joints for the mirror-clone lookup.
+  function buildMaster() {
+    const wr = attach.wingRoot(1);
     const pivot = new THREE.Group();
-    const wr = attach.wingRoot(side);
     pivot.position.set(wr.x, wr.y, wr.z);
-    const inner = new THREE.Group();
-    inner.rotation.z = side * dihedral;    // tip-up V at rest (both sides)
-    pivot.add(inner);
+    pivot.userData.wingRole = 'pivot';
+    // A — shoulder→elbow (origin = root).
+    pivot.add(panel([rootFront, elbowFront, elbowBack, rootBack], [0, 0]));
+    pivot.add(bar(at(rootFront, [0, 0]), at(ELBOW, [0, 0]), 0.06 * ws, strutMat));   // humerus spar
 
-    // Membrane outline (CCW): root-front → wrist → fingers (with scallop notches) →
-    // root-back. Earcut handles the concave scalloped trailing edge.
-    const shape = new THREE.Shape();
-    shape.moveTo(rootFront[0], rootFront[1]);
-    shape.lineTo(wrist[0], wrist[1]);
-    shape.lineTo(fingers[0][0], fingers[0][1]);
+    const wingMid = new THREE.Group();
+    wingMid.position.copy(at(ELBOW, [0, 0]));
+    wingMid.userData.wingRole = 'mid';
+    pivot.add(wingMid);
+    // B — elbow→wrist (origin = elbow).
+    wingMid.add(panel([elbowFront, WRIST, fingers[fingers.length - 1], elbowBack], ELBOW));
+    wingMid.add(bar(at(ELBOW, ELBOW), at(WRIST, ELBOW), 0.05 * ws, strutMat));       // forearm spar
+
+    const wingTip = new THREE.Group();
+    wingTip.position.copy(at(WRIST, ELBOW));
+    wingTip.userData.wingRole = 'tip';
+    wingMid.add(wingTip);
+    // C — the fingered fan with scallop notches (origin = wrist).
+    const outline = [WRIST, fingers[0]];
     for (let i = 0; i < fingers.length - 1; i++) {
       const a = fingers[i], b = fingers[i + 1];
       const mx = (a[0] + b[0]) / 2, my = (a[1] + b[1]) / 2;
-      shape.lineTo(mx + (wrist[0] - mx) * scallop, my + (wrist[1] - my) * scallop);  // notch
-      shape.lineTo(b[0], b[1]);
+      outline.push([mx + (WRIST[0] - mx) * scallop, my + (WRIST[1] - my) * scallop]);  // notch
+      outline.push(b);
     }
-    shape.lineTo(rootBack[0], rootBack[1]);
-    shape.closePath();
-    const geo = new THREE.ShapeGeometry(shape);
-    geo.rotateX(-Math.PI / 2);
-    geo.scale(side * ws, 1, ws);          // mirror for the left side via geometry
-    const membrane = new THREE.Mesh(geo, wingMat);
-    inner.add(membrane);
-
-    // Flat-plane point in world-ish local coords (y = 0 plane), span * side.
-    const flat = (p) => new THREE.Vector3(p[0] * ws * side, 0, -p[1] * ws);
-    // Leading-edge arm spar (root → wrist) — thicker, reads as bone + membrane.
-    inner.add(bar(flat(rootFront), flat(wrist), 0.06 * ws, strutMat));
-    // Finger struts (wrist → each tip) — the ember-cracked fan.
-    for (const f of fingers) inner.add(bar(flat(wrist), flat(f), 0.04 * ws, strutMat));
-
-    // wingTip + marker at the outer tip (contrail / wingtip-wisp anchor; the rig's
-    // wrist-fold rotation rides here harmlessly even with the single membrane panel).
-    const wingTip = new THREE.Group();
-    wingTip.position.copy(flat(wrist));
+    wingTip.add(panel(outline, WRIST));
+    for (const f of fingers) wingTip.add(bar(at(WRIST, WRIST), at(f, WRIST), 0.04 * ws, strutMat));
     const marker = new THREE.Object3D();
-    marker.position.copy(flat(fingers[0])).sub(flat(wrist));
+    marker.position.copy(at(fingers[0], WRIST));
+    marker.userData.wingRole = 'marker';
     wingTip.add(marker);
-    inner.add(wingTip);
-
-    group.add(pivot);
-    return { pivot, wingTip, marker };
+    return pivot;
   }
 
-  const R = buildSide(1), L = buildSide(-1);
+  const byRole = (root, role) => {
+    let f = null;
+    root.traverse((o) => { if (!f && o.userData && o.userData.wingRole === role) f = o; });
+    return f;
+  };
+  const Rp = buildMaster();
+  group.add(Rp);
+  const lmirror = new THREE.Group(); lmirror.scale.x = -1;   // the left is a mirror clone
+  const Lp = Rp.clone(true);
+  lmirror.add(Lp); group.add(lmirror);
+
   return {
     group,
     parts: {
-      wingPivotL: L.pivot, wingPivotR: R.pivot,
-      wingTipL: L.wingTip, wingTipR: R.wingTip,
-      tipMarkerL: L.marker, tipMarkerR: R.marker,
+      wingPivotL: byRole(Lp, 'pivot'), wingPivotR: Rp,
+      wingMidL: byRole(Lp, 'mid'), wingMidR: byRole(Rp, 'mid'),
+      wingTipL: byRole(Lp, 'tip'), wingTipR: byRole(Rp, 'tip'),
+      tipMarkerL: byRole(Lp, 'marker'), tipMarkerR: byRole(Rp, 'marker'),
       wingPivot2L: null, wingPivot2R: null,
     },
     wingMat,
