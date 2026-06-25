@@ -104,7 +104,7 @@ addEventListener('resize', resize); resize();
 window.__ready = true;
 window.__view = (yawDeg, pitchR, flapOn) => { orbit.yaw = yawDeg * Math.PI / 180; orbit.pitch = pitchR ?? 0.22; orbit.dist = baseDist; spin = false; flap = !!flapOn; posed = false; };
 // freeze the full composite pose at a stroke phase. a≥0 → apex (wings up), a<0 → deep bottom (pressing).
-const poseAt = (phase) => { posed = true; const t0 = phase / (FLAP.freq * TAU); const e = solveWing(phase, FLAP).yoke.env; for (const w of wingPivots) { const d = flapDrive(t0, w.side); w.pivot.rotation.set(w.restX + d.sweep, d.plunge, d.twist); } root.position.y = -center.y + e * 0.12; root.rotation.x = -0.03 * e; };
+const poseAt = (phase) => { posed = true; M.restBodyLife(); const t0 = phase / (FLAP.freq * TAU); const e = solveWing(phase, FLAP).yoke.env; for (const w of wingPivots) { const d = flapDrive(t0, w.side); w.pivot.rotation.set(w.restX + d.sweep, d.plunge, d.twist); } root.position.y = -center.y + e * 0.12; root.rotation.x = -0.03 * e; };
 window.__flapPose = (a) => { flap = false; poseAt(phaseCenter(a >= 0 ? 'apex' : 'settle', FLAP)); };
 window.__flapPhase = (u) => { flap = false; poseAt(((u % 1) + 1) % 1 * TAU); };   // u∈[0,1] → any cycle fraction (tip-path QA)
 window.__zoom = (f) => { orbit.dist = baseDist * f; };
@@ -113,7 +113,7 @@ window.__bodyOnly = (on) => { for (const g of [wingGrp, spineGrp, strutGrp, plat
 window.__head = (on) => { neckGrp.visible = headGrp.visible = on; };   // QA: toggle the neck+head
 window.__wingsOnly = (on) => { for (const g of [bodyGrp, spineGrp, strutGrp, plateGrp, seamGrp, hornGrp, spearGrp, neckGrp, headGrp]) g.visible = !on; wingGrp.visible = true; };   // QA: isolate the wings (wingMetrics.mjs) — hide everything but the wing group
 window.__transparent = (on) => { scene.background = on ? null : new THREE.Color(0x070a14); renderer.setClearAlpha(on ? 0 : 1); };   // QA: transparent bg for reference-overlay compositing
-window.__rest = () => { flap = false; flapAmp = 0; posed = false; for (const w of wingPivots) w.pivot.rotation.set(w.restX, 0, 0); root.position.y = -center.y; root.rotation.set(0, 0, 0); };   // QA: force the exact rest pose (no flap residual) so silhouette metrics are deterministic
+window.__rest = () => { flap = false; flapAmp = 0; posed = false; for (const w of wingPivots) w.pivot.rotation.set(w.restX, 0, 0); M.restBodyLife(); root.position.y = -center.y; root.rotation.set(0, 0, 0); };   // QA: force the exact rest pose (no flap residual + neck/head/tail at base) so silhouette metrics are deterministic
 
 const clock = new THREE.Clock(); let t = 0, flapAmp = 0;
 function frame() {
@@ -122,12 +122,11 @@ function frame() {
   if (!posed) {
     // ease amplitude in/out so toggling flap doesn't snap
     flapAmp += ((flap ? 1 : 0) - flapAmp) * Math.min(1, dt * 3.3);
-    // DORSOVENTRAL plunge about the body's forward axis (Y), + fore-aft rowing sweep (X) → figure-eight tip
-    // path, + feather twist (Z). One shared phase, sign-mirrored L/R. See wingFlapSolver.js.
-    const d1 = flapDrive(t, 1);
-    for (const w of wingPivots) { const d = w.side === 1 ? d1 : flapDrive(t, w.side); w.pivot.rotation.x = w.restX + d.sweep * flapAmp; w.pivot.rotation.y = d.plunge * flapAmp; w.pivot.rotation.z = d.twist * flapAmp; }
-    root.position.y = -center.y + d1.env * flapAmp * 0.12;   // body rises on the upstroke apex, dips on the press
-    root.rotation.x = -0.03 * d1.env * flapAmp;              // tiny pitch coupling
+    // ONE code path with the game: updateFlap drives wings + body-life (neck crane, head nod, tail flick). amp eases
+    // the wing flap; body-life rides the same amp so at rest (flapAmp→0) it freezes to the base pose.
+    const env = M.updateFlap(t, flapAmp);
+    root.position.y = -center.y + env * flapAmp * 0.12;   // body rises on the upstroke apex, dips on the press
+    root.rotation.x = -0.03 * env * flapAmp;              // tiny pitch coupling
   }
   placeCamera();
   renderer.render(scene, camera);

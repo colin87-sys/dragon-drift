@@ -3969,3 +3969,29 @@ focal line and turns the smooth tube into an armoured cosmic dragon. Gates still
 per-vertex geometry and ask what DETAIL is missing — and check what's toggled OFF. Surface detail (armour, ridge,
 scales) is what separates a creature from a smoothed primitive; don't ship with it disabled, and don't over-smooth
 the underlying form to nothing. Periodically judge the WHOLE silhouette, not just the bug you're chasing.**
+
+### L145 — A "stiff thing" comes alive by articulating the groups you ALREADY have — reparent for the joints, drive it all through ONE updateFlap
+Human: the Celestial "just looks like a stiff thing with the wings" — it needs to "move like all the other dragons
+with its tail and whatever subtle move it does." The roster dragons crane the neck, nod the head and flick the tail
+every frame; the Celestial only flapped. Honest constraint: a true travelling-wave tail-whip / multi-segment wing
+cascade needs a SKELETON, and the body+tail are one rigid loft — that's a bigger rig job. But you don't need a rig
+to kill "stiff": articulate the parts that are ALREADY separate `THREE.Group`s. (1) The neck+head and the tail
+SPEAR are their own groups → animate them. (2) For the neck to crane WITHOUT a gap at the nape, reparent `neckGrp`
++ `headGrp` under one `neckPivot` at the shoulder base N0 (offset their world-baked geometry by −N0 so it stays
+put), so they swing together; the head then nods on TOP via `headGrp.quaternion = qNod ⊛ headBaseQuat` about the
+atlas N3. (3) The spear flicks about the tail/spear junction with the rotate-about-pivot identity
+`pos = P − q·P` (group geometry in world coords, base position 0). Amplitudes are TINY (~2–9°) — subtle life, not
+semaphore. Crucial plumbing: drive wings + body-life through the SINGLE `updateFlap(t,amp)` and make the previewer
+call it too (it had a DUPLICATE inline wing loop) — one code path means the preview and the game animate
+identically, and `amp` lets the previewer ease it / the QA `__rest` + `poseAt` hooks zero it (call
+`restBodyLife()`) so the silhouette gates — which never call updateFlap — stay deterministic. Preallocate scratch
+Euler/Quaternion/Vector3 in the build scope (no per-frame allocation; 60fps mobile). Verified: def 5/5, gates PASS
+(protrusion 2.3 / banding 3.7 — body-life doesn't touch the torso silhouette), live frames show neck/head/tail
+moving with the nape staying connected and no tearing. Lesson: **before reaching for a skeleton, animate the
+groups you already have — reparent to create the ONE joint you need (crane), layer child rotations for the rest
+(nod), and use the rotate-about-pivot identity for world-baked groups (tail). Keep amplitudes subtle. Funnel ALL
+articulation through one update method and have every consumer (previewer + game) call it — a duplicate inline
+animation path WILL drift. Gate-determinism survives because the rest pose is identity and the gates never animate.**
+The wing-flap still reads as a single rigid pivot (barn-door) — a multi-segment cascade like the roster needs the
+wing membrane partitioned by span into nested pivots; flagged as the bigger NEXT step, pending human sign-off on
+the body-life in motion first.
