@@ -383,6 +383,31 @@ export function buildCelestialStorm() {
     headGrp.scale.setScalar(0.66);   // the head read ~1.6× too large vs the reference (head-bulk 22% of body length vs the ref's ~14%); scale the whole head (skull+horns+eyes) down about its nape attachment to match
   }
 
+  // ── BODY-LIFE RIG ───────────────────────────────────────────────────────────
+  // The Celestial was a "stiff thing" — only the wings moved. Other roster dragons crane the neck, nod the head and
+  // flick the tail every frame. We can't travelling-wave the lofted tail without a skeleton, but we CAN articulate
+  // the parts that ARE separate groups: the neck+head crane about the shoulder base (N0), the head nods about the
+  // atlas (N3), and the tail SPEAR flicks about the tail/spear junction. Reparent neck+head under one pivot so they
+  // crane together (no gap at the nape); the head then nods on top of that. All driven by updateFlap (one code path
+  // for previewer + game). Base state = identity sway, so the QA silhouette gates (which never call updateFlap) are
+  // unaffected.
+  const neckPivot = new THREE.Group();
+  neckPivot.position.copy(N0);
+  root.remove(neckGrp); root.remove(headGrp);
+  neckGrp.position.sub(N0);                       // neck geometry is in world coords → offset so it stays put under the pivot
+  headGrp.position.sub(N0);                       // head was seated at N3 → now N3−N0 within the pivot
+  neckPivot.add(neckGrp, headGrp);
+  root.add(neckPivot);
+  const headBaseQuat = headGrp.quaternion.clone();                       // the head's seated orientation; nod is layered over this
+  const tailBase = pt(D.mirror, TAIL_BODY_CLIP - 0.015, 0);              // tail/spear junction — the spear flicks about this point
+  const _e = new THREE.Euler(), _q = new THREE.Quaternion(), _v = new THREE.Vector3();   // per-frame scratch (no allocation in the hot loop)
+  // reset the body-life rig to its rest pose (used by the previewer's __rest hook so silhouette metrics are deterministic)
+  const restBodyLife = () => {
+    neckPivot.quaternion.identity();
+    headGrp.quaternion.copy(headBaseQuat);
+    spearGrp.quaternion.identity(); spearGrp.position.set(0, 0, 0);
+  };
+
   // PLATES — raised armour SCALES (centroid-fan domes seated on the hull) + glowing seams between them
   const plPos = [], plIdx = [];
   for (const pl of D.body.plates) {
@@ -470,13 +495,26 @@ export function buildCelestialStorm() {
     materials: { matBody, matPlate, matSeam, matMembrane, matStrut, matSpine, matSpar, matHorn, matSpear, matCore },
     FLAP,
     flapDrive,
+    restBodyLife,                          // exposed so the previewer's __rest hook can zero the body-life pose for deterministic gates
     updateFlap(t, amp = 1) {
       const d1 = this.flapDrive(t, 1);
       for (const w of this.wingPivots) {
         const d = w.side === 1 ? d1 : this.flapDrive(t, w.side);
         w.pivot.rotation.x = w.restX + d.sweep * amp; w.pivot.rotation.y = d.plunge * amp; w.pivot.rotation.z = d.twist * amp;
       }
-      return d1.env;
+      // ── BODY LIFE — subtle perpetual articulation so it doesn't read as a rigid mannequin between flaps ──
+      const env = d1.env;
+      // neck+head crane about the shoulder base: slow lateral sway + a gentle rise that couples to the flap apex
+      _e.set((0.022 * Math.sin(t * 0.9) + 0.018 * env) * amp, 0.05 * Math.sin(t * 0.55) * amp, 0, 'XYZ');
+      neckPivot.quaternion.setFromEuler(_e);
+      // head nods/looks on TOP of the crane (about the atlas N3), layered over its seated orientation
+      _e.set((0.05 * Math.sin(t * 1.1 + 0.6) + 0.035 * env) * amp, 0.06 * Math.sin(t * 0.7) * amp, 0, 'XYZ');
+      headGrp.quaternion.copy(headBaseQuat).premultiply(_q.setFromEuler(_e));
+      // tail-spear flick about the tail/spear junction: lateral whip + a small fore-aft kick on the downstroke
+      _e.set((0.05 * Math.sin(t * 1.5 - 0.5) - 0.04 * env) * amp, 0.16 * Math.sin(t * 1.5) * amp, 0, 'XYZ');
+      spearGrp.quaternion.setFromEuler(_e);
+      spearGrp.position.copy(tailBase).sub(_v.copy(tailBase).applyQuaternion(spearGrp.quaternion));
+      return env;
     },
   };
 }
