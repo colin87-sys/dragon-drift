@@ -3168,3 +3168,18 @@ rhythmic (accelerating) finger spacing, fewer/bolder shapes, root-mass→tip-thi
 (used in BOTH the gameplay phase, dragon.js ~526, and the preview) is the clean −X% flap-speed dial — set 0.7 on
 both new dragons for a slower, more readable beat (and so the human can assess wing shape mid-flap). Verify the
 hook on `silhouette.mjs <key> top`. Tri cost trivial (Monarch 2618→2730).
+
+---
+
+### L95 — A live orbit MODEL VIEWER (`tools/modelviewer.html`) — drag-to-rotate any dragon on the preview
+The human "can't visualize the dragon from different angles in-game." Built a standalone turntable: imports the
+real `buildDragonModel` + `makePreviewTick` (so it's the EXACT shipped mesh + animation), lights matched to the
+shop (ACES + hemi/key/rim/fill), `camera.layers.enable(1)` so core/edge GLOWS show, a lightweight custom orbit
+(pointer-drag → azimuth/polar, wheel → zoom, dblclick reset — no OrbitControls dependency), and a dropdown +
+H/K/R/E form buttons + auto-spin/animate toggles. Defaults: a game-like rear-3/4 angle, animate OFF (a clean
+static spread pose for inspection — toggle on to see the beat). **Gotcha that matters:** the deployed PR preview
+serves `reforged/` under a SUBPATH (`…/pr-preview/pr-N/reforged/`), so the other tools' root-absolute imports
+(`/lib/`, `/js/`) BREAK there — use paths relative to `tools/` (`../lib/three.module.js`, `../js/…`). Verified
+headlessly via `tests/serve.mjs` + Playwright (load, switch dragon, simulate a drag, screenshot, assert zero
+console errors) — the right way to smoke-test a browser tool in this sandbox. URL on a preview:
+`…/pr-preview/pr-N/reforged/tools/modelviewer.html`. Reusable for every future creature review.
