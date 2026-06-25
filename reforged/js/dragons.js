@@ -863,11 +863,12 @@ export const DRAGONS = {
     ],
     stats: { speed: 1.26, handling: 1.24, drain: 0.74, regen: 1.2 },
     model: {
-      scale: 1.14, wingScale: 1.16, tailSegments: 9, neckSegments: 5,
+      scale: 1.14, wingScale: 1.04, tailSegments: 9, neckSegments: 5,
       hornLen: 1.1, hornPairs: 2, ridgeCount: 14,
       flapBias: 0.92, flapAmp: 0.78, // graceful, wide glide
       // crystalWing — broad screen-plane membrane raised into the concept's V.
-      wingDihedral: 0.98, wingSpanScale: 0.56, wingChordScale: 1.9,
+      // (auto-tuned against the concept via tools/wingtune.mjs)
+      wingDihedral: 0.8, wingSpanScale: 0.67, wingChordScale: 1.25,
       bodyKnobs: { sectionPoints: 18, sectionExponent: 2.4 }, // rounder, sleeker section
       bodyMetalness: 0.18, bodyRoughness: 0.4, scaleSize: 5, scaleRelief: 0.35, // semi-gloss
       tailKnobs: { bladeHalfW: 0.22, bladeLength: 2.0, forkSpread: 0.3, forkLength: 1.9, forkNotch: 1.2 },
