@@ -808,6 +808,75 @@ export const DRAGONS = {
     aura: 0xfff0a8, eye: 0xfff0c0, trail: 0xffd76a, boostTrail: 0xfff0c8,
   },
 
+  // FLAME MONARCH — a classic European fire dragon evolved into a racing monarch.
+  // Brand-new everything (the "Phoenix technique"): its OWN torso / wings / head /
+  // tail builders (monarchHull / monarchWing / monarchCrown / monarchTail), so the
+  // silhouette is genuinely new — a four-legged western drake with a broad chest,
+  // pinched waist, long balancing tail, wide-but-narrow bat wings that throw a rear
+  // V, swept-back crown horns, and an unmistakable molten dorsal spine. Dark
+  // charcoal/obsidian hide, burnt-bronze belly, molten orange-red in the spine
+  // gaps / throat / wing-vein struts / tail-tip fins. Its Surge is a "magma
+  // overload" — the spine, struts and fins pulse hot pink-orange (def.surgeHi);
+  // def.boostSpine brightens the same accents on boost.
+  flameMonarch: {
+    name: 'Flame Monarch',
+    title: 'Crowned in molten fire',
+    rarity: 'SSSR',
+    maxRarity: 'SSSR',
+    cost: 6400,
+    parts: { torso: 'monarchHull', wings: 'monarchWing', head: 'monarchCrown', tail: 'monarchTail' },
+    stats: { speed: 1.16, handling: 1.20, drain: 0.74, regen: 1.22 },
+    boostSpine: true,   // brighten the molten spine + wing struts + tail fins on boost
+    // Magma-overload Surge: hot pink-orange flare + a warm low screen wash.
+    hasStyle: true, surgeMotes: true,
+    feverWing: 0xff6a78, feverEye: 0xffd2c0, feverWash: [0.06, 0.022, 0.03],
+    model: {
+      scale: 1.12, wingScale: 1.18,
+      bodyRoughness: 0.62, bodyMetalness: 0.12, rimBodyMul: 1.1,
+      flapBias: 0.92, flapAmp: 0.88,   // broad, powerful, regal western-dragon beat
+    },
+    // Four forms of one growing monarch — charcoal ember whelp → molten-crowned
+    // king. bodyScale/wingSpan author an explicit growth curve (Radiant = 1.0);
+    // spineGlow ramps the molten light; hornLen/tailLength grow the crown + tail.
+    forms: [
+      // FORM 1 — Ember Whelp: a small dark drake, faint molten spine, stubby horns.
+      { bodyScale: 0.60, wingSpan: 0.82, spineGlow: 0.15, hornLen: 0.7, tailLength: 0.82,
+        colors: { body: 0x1a1512, belly: 0x5a3015, scales: 0x33271f, horn: 0x2a221c,
+          coreGlow: 0xff7a2e, wingEmissive: 0xff6a22, wingMembraneEmissive: 0x3a1408,
+          wingInner: 0x231a16, apexSeam: 0xff7a2e, eye: 0xffb43c,
+          trail: 0xff7a2e, boostTrail: 0xffa850 } },
+      // FORM 2 — Cinder Drake: bigger, the spine brightens, the crown horns lengthen.
+      { bodyScale: 0.80, wingSpan: 0.92, spineGlow: 0.42, hornLen: 0.92, tailLength: 0.92,
+        colors: { body: 0x191310, belly: 0x6a3818, scales: 0x382a20, horn: 0x2c231d,
+          coreGlow: 0xff6a24, wingEmissive: 0xff5a1c, wingMembraneEmissive: 0x44160a,
+          wingInner: 0x251b17, apexSeam: 0xff6e26, eye: 0xffa432,
+          trail: 0xff6a26, boostTrail: 0xff9a48 } },
+      // FORM 3 — Ember Sovereign (Radiant = 1.0): full molten dorsal spine + throat.
+      { bodyScale: 1.00, wingSpan: 1.00, spineGlow: 0.72, hornLen: 1.1, tailLength: 1.0,
+        colors: { body: 0x171210, belly: 0x7a4420, scales: 0x3c2c20, horn: 0x2e241e,
+          coreGlow: 0xff5e1e, wingEmissive: 0xff5418, wingMembraneEmissive: 0x4e180a,
+          wingInner: 0x261c18, apexSeam: 0xff6a22, eye: 0xff9a2c,
+          trail: 0xff6222, boostTrail: 0xff9440 } },
+      // FORM 4 — FLAME MONARCH (apex): the obsidian king, molten spine/struts/fins
+      // blazing, the crown at full reach. Surge flares this hardest.
+      { bodyScale: 1.12, wingSpan: 1.12, spineGlow: 1.0, hornLen: 1.25, tailLength: 1.08,
+        surgeGlowMultiplier: 1.3,
+        colors: { body: 0x161210, belly: 0x844a22, scales: 0x40301f, horn: 0x322620,
+          coreGlow: 0xff5a1e, wingEmissive: 0xff5014, wingMembraneEmissive: 0x58200c,
+          wingInner: 0x281e18, apexSeam: 0xff6a20, eye: 0xff8f28, aura: 0xff7a3a,
+          trail: 0xff5e1e, boostTrail: 0xff9038 } },
+    ],
+    fx: { auraColor: '255,120,60', auraIdle: 0.05, sparkle: false },
+    previewAccent: 0xff6a2a,
+    surgeHi: 0xff5a78,   // hot pink-orange magma flare for the Surge pulse
+    // Top-level fallbacks (≈ the apex form, for any raw render).
+    body: 0x161210, belly: 0x844a22, scales: 0x40301f, horn: 0x322620,
+    wingInner: 0x281e18, wingOuter: 0x140e0c, wingEmissive: 0xff5014,
+    wingMembraneEmissive: 0x58200c, coreGlow: 0xff5a1e, apexSeam: 0xff6a20,
+    surgeHi2: 0xff8f6a, eye: 0xff8f28, aura: 0xff7a3a,
+    trail: 0xff5e1e, boostTrail: 0xff9038,
+  },
+
   // A sleek astral serpent: one continuous flowing crystal body wrapped in glowing
   // energy bands, lateral astral fin-vanes, a regal mask head + a celestial saddle,
   // that slithers HORIZONTALLY (low + readable, §0.5) and tapers into a streaming

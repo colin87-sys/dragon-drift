@@ -884,17 +884,21 @@ export function updateDragon(dt, player, time) {
   }
   // Spine/crest/seam/tail plates flare toward the per-dragon Surge highlight,
   // overshooting on the ignition.
+  // Opt-in (def.boostSpine): the molten-accent dragons (Flame Monarch) brighten
+  // their spine/struts/fins on boost too, not just Surge. Gated → every other
+  // dragon's spineMats are byte-identical (boostSpine === 0).
+  const boostSpine = (player.boosting && activeDef.boostSpine) ? 0.55 : 0;
   if (surgeMix > 0.002 || ignite > 0.002) {
     _surgeHi.setHex(activeDef.surgeHi || 0xfff8e8); // white-gold default; cool per dragon
     for (const m of spineMats) {
       _surgeBaseCol.setHex(m.userData.baseEmissive ?? 0xffffff);
       m.emissive.copy(_surgeBaseCol).lerp(_surgeHi, Math.min(1, surgeMix * 0.85 + ignite * 0.4));
-      m.emissiveIntensity = (m.userData.baseIntensity ?? 1) * (1 + (surgeMix * 0.9 + ignite * 1.6) * sgm);
+      m.emissiveIntensity = (m.userData.baseIntensity ?? 1) * (1 + (surgeMix * 0.9 + ignite * 1.6) * sgm + boostSpine);
     }
   } else {
     for (const m of spineMats) {
       m.emissive.setHex(m.userData.baseEmissive ?? 0xffffff);
-      m.emissiveIntensity = m.userData.baseIntensity ?? 1;
+      m.emissiveIntensity = (m.userData.baseIntensity ?? 1) * (1 + boostSpine);
     }
   }
   // Fresnel rim: a warm edge light in cruise that brightens on boost and flares

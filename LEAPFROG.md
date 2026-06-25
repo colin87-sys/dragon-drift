@@ -2980,3 +2980,51 @@ dragon from a guessed wing rig + connection would have been the very "back-and-f
 human's next trace (wing rig + joint + body outline); extend `deriveWingForm` to estimate `scallop` from the
 mean finger-notch depth; add tail/head rig modes the same way; overlay the BUILT silhouette behind the trace
 so correction is one screen.
+
+---
+
+### L89 — FLAME MONARCH: the "Phoenix technique" = a whole brand-new part FAMILY in one file, zero old parts
+The human asked, explicitly and twice, for a NEW dragon (Flame Monarch — a western fire-dragon racing monarch)
+built with the technique that made the Phoenix: **brand-new everything, no reused parts** (reuse re-skins).
+Identifying that technique was the prereq — the giveaway is the comment on `avian`/`feather`/`plume`/`beaked`:
+"the Phoenix, **folded out of its bespoke builder**". So: author a matched set of OWN builders, don't recompose
+the kit. Delivered `js/dragonFlameMonarch.js` registering **four** new builders (`monarchHull` torso,
+`monarchWing` wings, `monarchCrown` head, `monarchTail` tail), imported once in `dragonModel.js`, named in
+`flameMonarch.parts` in `dragons.js`. ~2170 tris/form (ceiling 6000); blueprint + tricount + defs gates green.
+
+**What made it land first try (reusable):**
+- **You only owe the CONTRACTS, never the parts.** Torso returns `{group, attach, mats?, coreGlow?, spineMats?}`
+  and `attach` publishes `wingRoot(side)/headBase/tailAnchor/keelTopAt(z)/halfWidthAt(z)/bodyMidY`. Wings return
+  the rig handles `{wingPivotL/R, wingTipL/R, tipMarkerL/R, wingPivot2L/R}` + `wingMat` + `spineMats`. Head →
+  `{group, spineMats}`. Tail → `{group, segs, tailFins, accentMats}`. Honour those and the shared rig + FX drive
+  bespoke geometry for free. (Mirror `buildNoneWings` for the minimal wing-rig skeleton.)
+- **The body silhouette IS a data ring-list.** Hand-rolled `loftHull(rings{z,rx,ry,y})` → one BufferGeometry,
+  and baked the charcoal-back→burnt-bronze-belly gradient as **vertex colors** (one mesh, no second material, no
+  seam) — `vertexColors:true` + white base. `sampleRing()` linear-interps the same rings for `keelTopAt`/
+  `halfWidthAt` so decoration sits on the real surface. Broad-chest→pinched-waist→hip is just the `rx` column.
+- **Resting wing dihedral must live on an INNER group, not the pivot** — the rig OVERWRITES `pivot.rotation.z`
+  every frame, so a baked V there is erased. Wrapping membrane+struts in `inner` (`rotation.z = side*dihedral`)
+  gave the "strong rear V in glide" the spec wanted: rear silhouette went 86%w·**20%h → 78%w·40%h**. The flap
+  then oscillates the pivot around the held V.
+- **Scalloped bat membrane for free via `THREE.Shape` earcut:** outline = root→wrist→fingers with a NOTCH vertex
+  between each finger pair (`mid + (wrist−mid)*scallop`), `ShapeGeometry`, `rotateX(-π/2)`, `geo.scale(side,1,1)`
+  to mirror the left. Finger struts = `bar(wrist→tip)` thin boxes; tag their molten mat into `spineMats`.
+- **One molten accent system, three FX behaviours.** Every emissive accent (dorsal ridge+blades, wing struts,
+  throat gorget, tail spines+ember fins, crown crest) is tagged `userData.baseEmissive/baseIntensity` and pushed
+  into `spineMats`/`accentMats`. Cruise = base molten; **Surge** lerps all toward `def.surgeHi` (set it to a hot
+  pink-orange `0xff5a78` for the "magma overload" pulse) + `feverWing`/`feverWash` tint the membrane/screen;
+  **boost** needed a NEW gated term — added `boostSpine` to the `dragon.js` spineMats loop (`+0.55` when
+  `player.boosting && def.boostSpine`), so the molten spine/struts brighten on boost too. Gated → the rest of the
+  roster is byte-identical (it was the only edit outside the new file + the blueprint).
+- **Dorsal spines read best as flat YZ-plane blades** (edge-on from the rear chase cam = a crisp serrated line),
+  tall-at-shoulder→short-at-rump; the torso owns shoulder→rump, the tail continues rump→tip on its sibling-seg
+  chain (no `tailWhip` → the position-wave rig sways it; `tailWhip` is the skinned-bone-coil opt-in, don't set it).
+
+**Gotchas / honesty.** The headless silhouette tool is SHAPE-ONLY — it verified the rear-V / crown / serrated
+spine, but the molten palette + glow + Surge pulse are HUMAN-judged on the PR preview (no lit headless render
+worked here: `heroshot`/`badges` need a served instance and fail identically on a clean tree, so they're not a
+regression). The wing is a single membrane panel on the pivot (no real wrist FOLD yet — `wingTip` only carries
+the contrail marker); a future pass can split inner/outer at the wrist for a 2-segment beat (see the membrane
+builder's seam trick). **→ Leapfrog:** judge molten/Surge on the preview, then (if liked) split the wrist and
+consider promoting `loftHull`'s vertex belly-gradient into a shared helper — every organic body wants a
+back→belly two-tone and it's currently inline.
