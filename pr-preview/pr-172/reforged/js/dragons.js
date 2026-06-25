@@ -867,22 +867,22 @@ export const DRAGONS = {
       hornLen: 1.1, hornPairs: 2, ridgeCount: 14,
       flapBias: 0.92, flapAmp: 0.78, // graceful, wide glide
       // crystalWing — broad screen-plane membrane raised into the concept's V.
-      // (auto-tuned against the concept via tools/wingtune.mjs)
+      // wingOutline (line-art trace) renders verbatim; scale it up so the wings read big.
+      wingOutlineScale: 1.5,
       wingDihedral: 0.8, wingSpanScale: 0.67, wingChordScale: 1.25,
       bodyKnobs: { sectionPoints: 18, sectionExponent: 2.4 }, // rounder, sleeker section
       bodyMetalness: 0.18, bodyRoughness: 0.4, scaleSize: 5, scaleRelief: 0.35, // semi-gloss
       tailKnobs: { bladeHalfW: 0.22, bladeLength: 2.0, forkSpread: 0.3, forkLength: 1.9, forkNotch: 1.2 },
     },
-    // Wing OUTLINE traced from the concept image (tools/wingtrace.mjs, eps 2.2, QA
-    // max-dev 2.4px — lies ON the reference edge). Wing-local: +x outward, +y up,
-    // origin at the wing root. crystalWing renders this verbatim in the screen plane
-    // (mirrored per side), so the membrane silhouette IS the concept's elegant
-    // deep-scalloped, sharp-fingered wing — not an approximation.
-    wingOutline: [[0, -0.284], [0.058, -0.442], [0.094, -0.227], [0.223, -0.054], [0.576, 0.162], [0.784, 0.255], [0.928, 0.291], [1.122, 0.299], [1.273, 0.27], [1.403, 0.047], [1.345, 0.313], [1.54, 0.629], [1.755, 0.881], [1.993, 0.982], [2.237, 1.025], [2.532, 0.917], [2.288, 1.112], [2.209, 1.478], [2.396, 1.845], [2.561, 2.018], [2.647, 2.09], [3, 2.219], [2.698, 2.227], [2.489, 2.263], [2.604, 2.399], [2.806, 2.514], [2.619, 2.471], [2.173, 2.306], [1.741, 1.953], [1.309, 1.493], [1.525, 1.802], [1.827, 2.126], [1.655, 2.004], [1.453, 1.802], [1.137, 1.399], [1.165, 1.594], [1.065, 1.414], [1, 1.191], [0.662, 0.766], [0.511, 0.615], [0.194, 0.363], [0, 0.284]],
-    // Bone struts DETECTED from THIS wing (wingtrace.mjs, wrist-convergence): 6 thin
-    // 2-edge bones fanning from the WRIST (a point partway out the leading edge — NOT
-    // the body root, which was my earlier wrong assumption) to each finger tip.
-    wingStruts: { wrist: [1.426, 1.683], tips: [[2.806, 2.514], [3, 2.219], [1.827, 2.126], [2.532, 0.917], [1.165, 1.594], [0.058, -0.442]] },
+    // Wing OUTLINE traced from the CLEAN LINE-ART reference (tools/wingtrace.mjs line-art
+    // mode, eps 2.4, QA max-dev 2.0px — lies ON the reference edge). Wing-local: +x outward,
+    // +y up, origin at the wrist-side root. crystalWing renders it verbatim in the screen
+    // plane (mirrored per side), so the membrane silhouette IS the reference wing.
+    wingOutline: [[2.648, 3.367], [2.465, 3.279], [2.002, 2.956], [1.276, 1.966], [1.628, 2.714], [1.614, 2.729], [1.342, 2.318], [1.027, 1.731], [1.012, 1.841], [1.034, 2.002], [0.932, 1.702], [0.888, 1.394], [0.667, 0.924], [0.271, 0.22], [0.161, 0.081], [0.125, 0.088], [0, 0], [0.147, 0], [0.147, -0.176], [0.293, 0.081], [0.704, 0.594], [0.939, 1.438], [0.976, 1.46], [0.756, 0.557], [0.381, 0.125], [0.117, -0.308], [0.117, -0.33], [0.205, -0.198], [0.191, -0.411], [0.308, -0.917], [0.308, -0.741], [0.447, -0.455], [0.704, -0.125], [0.895, 0.007], [1.1, 0.059], [1.386, 0.015], [1.489, -0.051], [1.672, -0.301], [1.555, 0.015], [1.562, 0.095], [1.702, 0.623], [1.87, 0.998], [2.046, 1.166], [2.318, 1.306], [2.421, 1.335], [2.692, 1.247], [2.435, 1.438], [2.267, 1.878], [2.34, 2.318], [2.494, 2.663], [2.611, 2.809], [3, 2.993], [2.604, 2.985], [2.399, 3.015], [2.501, 3.205], [2.648, 3.359]],
+    // Bone struts DETECTED from the LINE-ART (wingtrace.mjs wrist-convergence): 6 thin
+    // 2-edge bones fanning from the WRIST (a point partway out the leading edge), each
+    // riding the actual drawn bone lines.
+    wingStruts: { wrist: [0.9, 1.138], tips: [[1.614, 2.729], [1.034, 2.002], [0.976, 1.46], [1.672, -0.301], [0.308, -0.917], [0.117, -0.33]] },
     forms: [
       // T0 Shardling — clean, narrow, modest swept wings, faint cyan spine.
       { wingForm: 0, tailStyle: 'spade', tailSegments: 6, ridgeCount: 8,

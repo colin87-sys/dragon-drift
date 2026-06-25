@@ -47,7 +47,42 @@ function largest(m) {
     if (n > bestN) { bestN = n; best = cell; } }
   const out = new Uint8Array(w * h); if (best) for (const p of best) out[p] = 1; return out;
 }
-const full = largest(mask);
+// LINE-ART detection: thin dark lines on a near-white bg (a clean wing drawing) — the
+// outline AND the bones are explicit strokes. Flood the exterior white → the wing as a
+// FILLED region (interior + lines) for the outline; the DARK interior lines are the bones.
+const lum = (i) => 0.299 * rgba[i * 4] + 0.587 * rgba[i * 4 + 1] + 0.114 * rgba[i * 4 + 2];
+let subjFrac = 0; for (let i = 0; i < w * h; i++) if (mask[i]) subjFrac++; subjFrac /= w * h;
+const lineart = !hasAlpha && subjFrac < 0.16;
+function flood(passable) {
+  const seen = new Uint8Array(w * h); const st = [];
+  for (const s of [0, w - 1, (h - 1) * w, h * w - 1]) if (passable(s)) { seen[s] = 1; st.push(s); }
+  while (st.length) { const p = st.pop(), x = p % w, y = (p / w) | 0;
+    for (const q of [x > 0 ? p - 1 : -1, x < w - 1 ? p + 1 : -1, y > 0 ? p - w : -1, y < h - 1 ? p + w : -1])
+      if (q >= 0 && !seen[q] && passable(q)) { seen[q] = 1; st.push(q); } }
+  return seen;
+}
+function pickComponent(m) {
+  const seen = new Uint8Array(w * h); let chosen = null, score = side === 'right' ? -1 : 1e18; const st = [];
+  for (let s0 = 0; s0 < w * h; s0++) { if (!m[s0] || seen[s0]) continue; st.length = 0; st.push(s0); seen[s0] = 1; const cell = []; let sx = 0, n = 0;
+    while (st.length) { const p = st.pop(); cell.push(p); n++; sx += p % w; const x = p % w, y = (p / w) | 0;
+      if (x > 0 && m[p - 1] && !seen[p - 1]) { seen[p - 1] = 1; st.push(p - 1); }
+      if (x < w - 1 && m[p + 1] && !seen[p + 1]) { seen[p + 1] = 1; st.push(p + 1); }
+      if (y > 0 && m[p - w] && !seen[p - w]) { seen[p - w] = 1; st.push(p - w); }
+      if (y < h - 1 && m[p + w] && !seen[p + w]) { seen[p + w] = 1; st.push(p + w); } }
+    if (n < 400) continue; const cxc = sx / n;
+    if (side === 'right' ? cxc > score : cxc < score) { score = cxc; chosen = cell; } }
+  const out = new Uint8Array(w * h); if (chosen) for (const p of chosen) out[p] = 1; return out;
+}
+let full, boneMask = null;
+if (lineart) {
+  const ext = flood((i) => lum(i) > 200);                 // exterior near-white
+  const filled = new Uint8Array(w * h); for (let i = 0; i < w * h; i++) filled[i] = ext[i] ? 0 : 1;
+  full = pickComponent(filled);                            // the chosen-side wing, filled
+  boneMask = new Uint8Array(w * h);                        // dark interior lines = the bones
+  for (let i = 0; i < w * h; i++) if (full[i] && lum(i) < 120) boneMask[i] = 1;
+} else {
+  full = largest(mask);
+}
 
 // --- 2. full outline + bbox --------------------------------------------------
 const contour = traceContour(full, w, h);
@@ -58,12 +93,14 @@ const cx = (minX + maxX) / 2, bw = maxX - minX;
 const bodyMargin = bw * 0.05;
 
 // --- 3. slice the WING's contiguous boundary arc (on the real edge) ----------
-// A contour point belongs to the chosen wing if it sits lateral of the body column.
-const isWing = contour.map((p) => side === 'right' ? (p.x > cx + bodyMargin) : (p.x < cx - bodyMargin));
+// Colored concept: the wing is part of the whole creature → slice the arc lateral of
+// the body column. Line-art: the component IS the wing → use the whole contour.
+const isWing = contour.map((p) => lineart ? true : (side === 'right' ? (p.x > cx + bodyMargin) : (p.x < cx - bodyMargin)));
 // largest contiguous run (with wrap-around).
 function largestRun(flags) {
   const n = flags.length; let bestS = 0, bestL = 0, s = -1, l = 0;
   for (let i = 0; i < n * 2; i++) { if (flags[i % n]) { if (s < 0) { s = i; l = 0; } l++; if (l > bestL) { bestL = l; bestS = s; } } else { s = -1; l = 0; } }
+  bestL = Math.min(bestL, n);                       // a run can't exceed the full loop (all-true → n once, not 2n)
   const idx = []; for (let i = 0; i < bestL; i++) idx.push((bestS + i) % n);
   return idx;
 }
@@ -130,10 +167,20 @@ for (const p of simp) plot(p.x, p.y, 255, 235, 120, 2);                         
 writeFileSync('/tmp/wingtrace-overlay.png', pngRGBA(w, h, out));
 
 // --- 8. emit wing-local outline ---------------------------------------------
-// origin at the wing ROOT (the two arc endpoints' midpoint, near the body); +x outward, +y up.
-const e0 = simp[0], e1 = simp[simp.length - 1];
-const origin = { x: (e0.x + e1.x) / 2, y: (e0.y + e1.y) / 2 };
+// origin at the wing ROOT; +x outward, +y up. Colored: the arc endpoints' midpoint
+// (where the wing meets the body). Line-art (whole-loop contour): the INNERMOST point
+// (nearest the body centre line) at the lower-inner attachment.
 const sgn = side === 'right' ? -1 : 1;                 // outward direction in image x
+let origin;
+if (lineart) {
+  // innermost = max x (left wing) / min x (right wing); pick the lower-inner extreme.
+  let best = simp[0];
+  for (const p of simp) { const better = side === 'right' ? (p.x < best.x - 1e-6 || (Math.abs(p.x - best.x) < 12 && p.y > best.y)) : (p.x > best.x + 1e-6 || (Math.abs(p.x - best.x) < 12 && p.y > best.y)); if (better) best = p; }
+  origin = { x: best.x, y: best.y };
+} else {
+  const e0 = simp[0], e1 = simp[simp.length - 1];
+  origin = { x: (e0.x + e1.x) / 2, y: (e0.y + e1.y) / 2 };
+}
 const scale = Math.abs(origin.x - tipExtreme) / 3.0;  // ~3 engine units across the span
 const local = simp.map((p) => [ +(((origin.x - p.x) * sgn) / scale).toFixed(3), +(((origin.y - p.y)) / scale).toFixed(3) ]);
 
@@ -142,9 +189,11 @@ const local = simp.map((p) => [ +(((origin.x - p.x) * sgn) / scale).toFixed(3), 
 // points and pick the one whose straight lines to the finger tips best cover the
 // SOLID strut pixels. Solid bones fit straight wrist→tip lines; jagged lightning
 // veins do NOT, so straight-line fitting selects the bones and rejects the veins.
-const bright = new Uint8Array(w * h);
-for (let i = 0; i < w * h; i++) { if (!full[i]) continue; const r = rgba[i * 4], g = rgba[i * 4 + 1], b = rgba[i * 4 + 2];
-  if (0.299 * r + 0.587 * g + 0.114 * b > 110) bright[i] = 1; }
+// strut pixels: line-art → the DARK interior bone lines; colored → bright vein pixels.
+let bright;
+if (lineart) { bright = boneMask; }
+else { bright = new Uint8Array(w * h);
+  for (let i = 0; i < w * h; i++) { if (!full[i]) continue; if (lum(i) > 110) bright[i] = 1; } }
 // finger tips = outline convex extrema (radius maxima from the body-root origin).
 const rad = (p) => Math.hypot(p.x - origin.x, p.y - origin.y);
 let tipsAll = [];
