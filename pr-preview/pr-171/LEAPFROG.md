@@ -3876,3 +3876,24 @@ Lesson: **wing attach has two independent axes — longitudinal (which body stat
 the cross-section); they're tuned separately, and the default "build it in the canvas plane → z=0" puts the root
 at mid-depth, which reads as wings-from-the-ribs. Push it dorsal.** Gates/def unaffected (wings excluded from
 torso gates): protrusion 5.0 / banding 3.6, def 5/5.
+
+### L140 — Wing prominence is bright-AREA + HUE, not peak brightness; built a Q/A'd wingMetrics tool to prove it
+Human: wing bones still too thick/prominent + wrong colour ("should be darker than the membrane"), and demanded a
+DATA-grounded, self-Q/A'd tool — not eyeballing. Built `tools/wingMetrics.mjs`: measures, for the reference
+(`refs/celestial/wings.png`) and our wings-only render (new `__wingsOnly` previewer hook), the membrane vs
+bright-feature colour (hue/lum), the **bright-AREA fraction** (% of wing above a membrane-relative luminance
+threshold), the bright/membrane lum RATIO, and bright-line WIDTH. Crucially it has a `--selftest` that plants a
+SYNTHETIC wing (known membrane colour + N lines of known width/colour/area) and asserts the metrics recover them
+within tolerance — so a measurement bug can't silently mislead the tuning (the user's explicit worry). Self-test
+PASSes (hue ±8°, area ±2pts, width ±1px). Findings (validated): membrane already matched (hue 250 vs 254); the
+bones were the fault — bright **HUE 200° cyan vs ref 239° blue**, bright-**AREA 24% vs ref 15%**, width ~2× — but
+the bright/membrane lum RATIO matched (5.8 vs 5.9). So it was never "too bright per pixel," it was "too much of the
+wing is bright, in the wrong hue." Cause: all 7 `boneSolid` bones used `matSpar` = near-white pale glow. Fix:
+recoloured `matSpar`/`matStrut` to dark blue-violet (hue ~242, low emissive, faint rim) → bones read as structure.
+KEY follow-on the tool exposed: that dropped bright-area to 1.6% — because the reference's 15% bright is LIGHTNING
+ENERGY, a SEPARATE element from the (dark) bones; the old model faked lightning with bright bones. So "match the
+ref" = dark bones **+** add lightning veins (deferred to a creative call with the human). Lesson: **don't reason
+about "brightness" as one scalar — decompose it into per-pixel intensity (ratio), coverage (area), and hue; the
+reference can match on one and miss on another. And a reference's glow may be a distinct element from its
+structure — replicating it means TWO materials, not one bright one. Always Q/A a measurement tool on a synthetic
+known-answer input before trusting it to steer art.**

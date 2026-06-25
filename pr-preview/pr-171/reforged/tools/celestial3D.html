@@ -62,7 +62,7 @@ const ventL = new THREE.DirectionalLight(0x8aa6ff, 0.5); ventL.position.set(-1, 
 const M = buildCelestialStorm();
 const root = M.group; scene.add(root);
 const wingPivots = M.wingPivots;
-const { plateGrp, seamGrp, spineGrp, strutGrp, wingGrp, hornGrp, spearGrp, neckGrp, headGrp } = M.groups;
+const { bodyGrp, plateGrp, seamGrp, spineGrp, strutGrp, wingGrp, hornGrp, spearGrp, neckGrp, headGrp } = M.groups;
 const { matBody, matMembrane } = M.materials;
 const { FLAP, flapDrive } = M;
 const TAU = Math.PI * 2;
@@ -111,6 +111,7 @@ window.__zoom = (f) => { orbit.dist = baseDist * f; };
 window.__wings = (on) => { wingGrp.visible = on; };   // QA: hide wings to measure the bare body (celestialRefCompare.mjs)
 window.__bodyOnly = (on) => { for (const g of [wingGrp, spineGrp, strutGrp, plateGrp, seamGrp, hornGrp, spearGrp, neckGrp, headGrp]) g.visible = !on; };   // QA: isolate the bare torso mesh
 window.__head = (on) => { neckGrp.visible = headGrp.visible = on; };   // QA: toggle the neck+head
+window.__wingsOnly = (on) => { for (const g of [bodyGrp, spineGrp, strutGrp, plateGrp, seamGrp, hornGrp, spearGrp, neckGrp, headGrp]) g.visible = !on; wingGrp.visible = true; };   // QA: isolate the wings (wingMetrics.mjs) — hide everything but the wing group
 window.__transparent = (on) => { scene.background = on ? null : new THREE.Color(0x070a14); renderer.setClearAlpha(on ? 0 : 1); };   // QA: transparent bg for reference-overlay compositing
 window.__rest = () => { flap = false; flapAmp = 0; posed = false; for (const w of wingPivots) w.pivot.rotation.set(w.restX, 0, 0); root.position.y = -center.y; root.rotation.set(0, 0, 0); };   // QA: force the exact rest pose (no flap residual) so silhouette metrics are deterministic
 
