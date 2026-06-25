@@ -3183,3 +3183,21 @@ serves `reforged/` under a SUBPATH (`…/pr-preview/pr-N/reforged/`), so the oth
 headlessly via `tests/serve.mjs` + Playwright (load, switch dragon, simulate a drag, screenshot, assert zero
 console errors) — the right way to smoke-test a browser tool in this sandbox. URL on a preview:
 `…/pr-preview/pr-N/reforged/tools/modelviewer.html`. Reusable for every future creature review.
+
+---
+
+### L96 — Mobile-friendly model viewer: the look-at-CENTRE bug + sphere framing + multi-pointer touch
+Making `tools/modelviewer.html` phone-friendly surfaced a subtle camera bug worth remembering. Symptom: on a
+portrait phone the dragon rendered as a tiny sliver stuck at the BOTTOM of the screen, even though a projected
+`center.project(camera)` read `[0,0]` (apparently centred). Cause: I hard-coded the orbit look-at to
+`(0, midY, 0)` — but a long-tailed / back-swept-winged creature's mass centre in **Z is not 0**, and from a
+LOOKING-DOWN camera the screen-vertical axis ≈ world Z, so an off-centre-Z target shoves the model off-screen.
+Fix: `box.getCenter(center)` — look at the TRUE x/y/z centre, not an assumed-zero one. (The projected-centre
+check fooled me because it projected the *assumed* centre, not the model's.) Then framing: a wide-winged dragon
+is ~7× wider than tall, so fitting height over-zooms and fitting width under-zooms — different per orientation.
+**Bounding-SPHERE framing against the smaller FOV axis** (`R / sin(min(fovV,fovH)/2)`) fits the whole creature
+in BOTH portrait and landscape AND never clips as it rotates (sphere is rotation-invariant). Touch: track ALL
+active pointers in a Map — 1 = orbit, 2 = pinch-zoom (ratio of finger distance) + pan (midpoint delta, slid along
+the camera's right/up vectors); `touch-action:none` + `maximum-scale=1` stop the browser hijacking the gesture.
+CSS: keep the control panel LEFT-anchored (not full-width) under `(pointer:coarse)` or it covers the model in
+landscape. Verified headlessly with Playwright at 390×844 (portrait) and 844×390 (landscape), screenshotting both.
