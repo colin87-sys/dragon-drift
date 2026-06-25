@@ -18,6 +18,7 @@ import './dragonFaceted.js';        // 'faceted' torso + 'hexMembrane' wings + '
 import './dragonSeraph.js';         // Pearl Seraph: feather-scale wings / crown-halo head / comet tail (celestial multi-module family)
 import './dragonSeraphBody.js';     // Pearl Seraph: pearl hull torso + crowned head + real-geometry crown-halo
 import './dragonFlameMonarch.js';   // Flame Monarch: brand-new western fire-dragon family (monarchHull/Wing/Crown/Tail)
+import './dragonThundercoil.js';    // Thundercoil Amphithere: brand-new legless storm-serpent (ampithereTorso/Wing/Head)
 import { shingle } from './dragonShingle.js'; // reusable overlapping scale/plate cards
 import { resolveSurfaceLayers, getSurfaceLayer } from './dragonSurfaceLayers.js'; // declarative dorsal/flank decoration
 import { validateCreatureBlueprint } from './validateCreatureBlueprint.js';
@@ -394,6 +395,7 @@ export function buildDragonModel(def, opts = {}) {
       tipMarkerL, tipMarkerR,
       wingRigL, wingRigR,
       coreGlow,
+      storm: torsoResult.storm ?? null,   // Thundercoil's lightning bead/arcs/shock-ring (nullable)
     },
     materials: { bodyMat, wingMat, eyeMat, spineMats },
     auraSprite,

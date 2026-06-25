@@ -3067,3 +3067,37 @@ opting into (`wingParts`, the `spineSegs` role animator) — grep the rig for th
 bespoke part can ride shared body animation by returning the right handle (`spineSegs`) + one nullable attach
 hook (`headMount`); you don't need the whole creature on the unified hull to get a living neck. (3) Triangle-fan
 panels per joint are CHEAPER than one earcut sheet (2090→1814 tris) AND they articulate — win/win.
+
+---
+
+### L91 — THUNDERCOIL AMPHITHERE: a legless storm-serpent on `bodySegs` + a gated, geometry-only storm-FX system
+Third bespoke creature, same Phoenix technique (own `ampithereTorso`/`ampithereWing`/`ampithereHead` family,
+`tail:'none'`). The win was recognising the body plan maps onto an EXISTING rig system: a legless coiling
+serpent IS the segmented `bodySegs` travelling-wave (`dragon.js` ~778). The torso returns `bodySegs` (an array
+of sibling segment Groups, each at its base z with `userData.baseY`); the rig drives `position.x` (slither),
+`position.y` (bob), `rotation.y/z` (yaw/lean into the path) with a lead-first phase lag — so "undulates like a
+ribbon" + "tail trails on a bank with delayed follow-through" + "no legs / custom motion" all come FREE. Copy
+`dragonCrystalSerpent.js` for the structure: overlapping spheres (step `(r_i+r_{i+1})·0.5·0.9` → continuous
+tube), a procedural `radiusAt(t)` (chest bulge near the front third → fine tail), `headMount = bodySegs[0]` so
+the head rides the lead, `wingRoot` on the chest. The two `dragonModel.js` hooks from L90 (`headMount`,
+torso `spineSegs`) + the L90 `wingParts` 3-segment wing + the `scale.x=-1` mirror all REUSED verbatim — three
+creatures in, the contract surface is stable and new dragons are mostly data + palette.
+
+**Storm-FX = a gated, geometry-only effects bundle the torso returns and `dragon.js` drives (NOT particles).**
+The spec wanted lightning the existing spineMats/boost/Surge glow can't express (a current that RUNS head→tail,
+arcs that JUMP between points, an expanding shock RING). Pattern that worked: the torso builds the FX objects
+once (a glow-sprite **bead** with a `userData.path` of crest points; a few `THREE.Line` **arcs** with pinned
+`{a,b}` endpoints at the wing roots + tail fork; a `RingGeometry` **shock ring** behind the tail), all
+`visible=false`/opacity 0, bundled as one `storm` object → `parts.storm` (one nullable field, roster-safe). A
+single gated block in the tick (`if (storm && activeDef.stormFx)`) animates them from state already computed
+there: bead sweeps its path on `player.boosting||surgeMix>.25`; arcs strobe + re-jitter their midpoints (pinned
+ends) on `surgeMix`; the ring expands+fades over `surgeAnimT` (the ignition timer). Idle renders NOTHING.
+Reusable rules: (1) build FX geometry in the part builder (it knows the anchor positions), animate in the rig
+(it knows boost/Surge state) — bundle as ONE nullable `parts.*` field so the plumbing is a single line each in
+dragonModel + createDragon + the reset; (2) `RingGeometry` in the default XY plane faces the rear chase cam
+already → an instant shock ring; (3) a travelling glow bead along a stored point path reads as "current down the
+spine" far cheaper than per-node material animation (and dodges the shared-material problem — you can't phase a
+travelling pulse across meshes that share one mat). Gates green; nightfury/hull/organism/ascension unaffected.
+**Gotcha/honesty:** the bead/arcs ride the body's REST point path, not the live undulating positions (anchoring
+to moving segments each frame is the obvious upgrade if it reads loose on the preview); and all of it — like the
+molten/electric of L89 — is HUMAN-judged on the PR preview, the headless silhouette only proved the shape.
