@@ -873,22 +873,12 @@ export const DRAGONS = {
       bodyMetalness: 0.18, bodyRoughness: 0.4, scaleSize: 5, scaleRelief: 0.35, // semi-gloss
       tailKnobs: { bladeHalfW: 0.22, bladeLength: 2.0, forkSpread: 0.3, forkLength: 1.9, forkNotch: 1.2 },
     },
-    // Wing planform DERIVED from the concept's anchor rig (deriveWingForm). Same
-    // scalloped silhouette every form; span + upsweep arc ramp Whelp→Apex.
-    wingFormKnobs: [
-      { tips: [[5.6, 0], [4.54, -1.158], [3.157, -1.354], [1.616, -1.401], [0.252, -1.196]],
-        lead: [3.017, 0.215], span: 0.62, scallop: 0.34,
-        arc: { bow: 0.7, hump: 0.5, humpAt: 0.55, hook: 0.5 } },
-      { tips: [[5.6, 0], [4.54, -1.158], [3.157, -1.354], [1.616, -1.401], [0.252, -1.196]],
-        lead: [3.017, 0.215], span: 0.78, scallop: 0.42,
-        arc: { bow: 0.85, hump: 0.7, humpAt: 0.57, hook: 0.8 } },
-      { tips: [[5.6, 0], [4.54, -1.158], [3.157, -1.354], [1.616, -1.401], [0.252, -1.196]],
-        lead: [3.017, 0.215], span: 0.96, scallop: 0.46,
-        arc: { bow: 1.5, hump: 1.2, humpAt: 0.6, hook: 1.6 } },
-      { tips: [[5.6, 0], [4.54, -1.158], [3.157, -1.354], [1.616, -1.401], [0.252, -1.196]],
-        lead: [3.017, 0.215], span: 1.06, scallop: 0.5,
-        arc: { bow: 1.9, hump: 1.4, humpAt: 0.62, hook: 2.1 } },
-    ],
+    // Wing OUTLINE traced from the concept image (tools/wingtrace.mjs, eps 2.2, QA
+    // max-dev 2.4px — lies ON the reference edge). Wing-local: +x outward, +y up,
+    // origin at the wing root. crystalWing renders this verbatim in the screen plane
+    // (mirrored per side), so the membrane silhouette IS the concept's elegant
+    // deep-scalloped, sharp-fingered wing — not an approximation.
+    wingOutline: [[0, -0.284], [0.058, -0.442], [0.094, -0.227], [0.223, -0.054], [0.576, 0.162], [0.784, 0.255], [0.928, 0.291], [1.122, 0.299], [1.273, 0.27], [1.403, 0.047], [1.345, 0.313], [1.54, 0.629], [1.755, 0.881], [1.993, 0.982], [2.237, 1.025], [2.532, 0.917], [2.288, 1.112], [2.209, 1.478], [2.396, 1.845], [2.561, 2.018], [2.647, 2.09], [3, 2.219], [2.698, 2.227], [2.489, 2.263], [2.604, 2.399], [2.806, 2.514], [2.619, 2.471], [2.173, 2.306], [1.741, 1.953], [1.309, 1.493], [1.525, 1.802], [1.827, 2.126], [1.655, 2.004], [1.453, 1.802], [1.137, 1.399], [1.165, 1.594], [1.065, 1.414], [1, 1.191], [0.662, 0.766], [0.511, 0.615], [0.194, 0.363], [0, 0.284]],
     forms: [
       // T0 Shardling — clean, narrow, modest swept wings, faint cyan spine.
       { wingForm: 0, tailStyle: 'spade', tailSegments: 6, ridgeCount: 8,
