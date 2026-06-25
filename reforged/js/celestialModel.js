@@ -65,10 +65,12 @@ function crossings(loop, ny) {
 // shoulder breadth, cz = centerline lift (head juts toward camera). Body ny spans ~0.12 (head) .. 0.73 (clip).
 const gauss = (x, c, s) => Math.exp(-(((x - c) / s) ** 2));
 const BODY_SCULPT = {
-  Dr: (ny) => 0.035 + 0.120 * gauss(ny, 0.33, 0.13) + 0.050 * gauss(ny, 0.62, 0.10),   // deep chest + haunch
-  Be: (ny) => 0.030 + 0.090 * gauss(ny, 0.35, 0.14) + 0.040 * gauss(ny, 0.63, 0.10),   // rounded underbelly
-  Mu: (ny) => 0.080 * gauss(ny, 0.26, 0.085) + 0.030 * gauss(ny, 0.60, 0.10),          // back-muscle humps (shoulders)
-  wBoost: (ny) => 1 + 0.35 * gauss(ny, 0.25, 0.09),                                     // deltoid breadth at the wing root
+  // broader, overlapping gaussians → the torso stays SUBSTANTIAL from shoulders through the lower body (no razor
+  // waist), tapering only near the tail clip. Deep chest, full haunch.
+  Dr: (ny) => 0.050 + 0.110 * gauss(ny, 0.33, 0.16) + 0.065 * gauss(ny, 0.60, 0.13),   // dorsal depth
+  Be: (ny) => 0.040 + 0.085 * gauss(ny, 0.35, 0.16) + 0.050 * gauss(ny, 0.61, 0.13),   // belly depth
+  Mu: (ny) => 0.095 * gauss(ny, 0.26, 0.095) + 0.040 * gauss(ny, 0.60, 0.11),          // back-muscle humps (stronger)
+  wBoost: (ny) => 1 + 0.35 * gauss(ny, 0.25, 0.09),                                     // deltoid breadth (rear width stays our trace; fullness is depth)
   cz: (ny) => 0.13 * gauss(ny, 0.13, 0.11) - 0.04 * gauss(ny, 0.72, 0.09),             // head lifts toward camera; tail eases back
 };
 // keeled muscled dorsal profile at lateral u∈[−1,1] (z toward camera): central spine ridge + paired muscle humps
@@ -90,6 +92,13 @@ function loftBody(loop, { rings = 200, seg = 16, dDorsal = 0.95, dVentral = 0.82
     const st = spans.reduce((a, s) => s.hw > a.hw ? s : a, spans[0]);       // widest span = main body (for surface projection)
     if (sculpt) { st.dorsalC = sculpt.Dr(st.y) + sculpt.Mu(st.y) * 0.006; st.czC = sculpt.cz(st.y); st.hwB = st.hw * sculpt.wBoost(st.y); }
     stations.push(st);
+  }
+  // SMOOTH the per-row main-span half-width across rows — the traced silhouette has row-to-row width noise that
+  // otherwise lofts into faint horizontal bands. Moving average (in place) on the widest span of each row.
+  if (sculpt) {
+    const main = rows.map(r => r.reduce((a, s) => s.hw > a.hw ? s : a, r[0]));
+    const sm = main.map((_, i) => { let a = 0, c = 0; for (let k = -3; k <= 3; k++) { const j = i + k; if (j >= 0 && j < main.length) { a += main[j].hw; c++; } } return a / c; });
+    main.forEach((s, i) => { s.hw = sm[i]; });
   }
   const pos = [], idx = [];
   // CROSS-SECTION. Default: egg (dorsal depth ∝ width). With `sculpt`: a keeled MUSCLED creature section —
