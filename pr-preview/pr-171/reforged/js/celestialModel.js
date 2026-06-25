@@ -44,7 +44,7 @@ const matPlate = cosmicBody(new THREE.MeshStandardMaterial({ roughness: 0.38, me
 const matSeam = new THREE.LineBasicMaterial({ color: 0xbfe8ff, transparent: true, opacity: 0.9 });                                                  // glowing seams
 const matMembrane = fresnelRim(new THREE.MeshStandardMaterial({ color: 0x2a1556, roughness: 0.6, metalness: 0.12, emissive: 0x35176a, emissiveIntensity: 0.75, side: THREE.DoubleSide, transparent: true, opacity: 0.74 }), 0x9a7bff, 2.0, 1.3);   // translucent violet, glowing edges
 const matStrut = new THREE.MeshStandardMaterial({ color: 0x322f6c, roughness: 0.45, metalness: 0.4, emissive: 0x141233, emissiveIntensity: 0.25 });   // dark blue-violet structural strut (was bright cyan) — bones read as structure, not glow
-const matSpine = fresnelRim(new THREE.MeshStandardMaterial({ color: 0x4fd6ff, roughness: 0.28, metalness: 0.45, emissive: 0x17a8da, emissiveIntensity: 1.7, side: THREE.DoubleSide }), 0xbff2ff, 2.3, 1.2);   // bright cyan dorsal follow-line
+const matSpine = fresnelRim(new THREE.MeshStandardMaterial({ color: 0x3aa8d6, roughness: 0.32, metalness: 0.45, emissive: 0x0e5f7e, emissiveIntensity: 0.6, side: THREE.DoubleSide }), 0x9fe4ff, 2.6, 0.5);   // dorsal spine — SUBTLE glow (starry-night, not the sun): low emissive + gentle rim
 const matSpar = fresnelRim(new THREE.MeshStandardMaterial({ color: 0x32306f, roughness: 0.42, metalness: 0.4, emissive: 0x141233, emissiveIntensity: 0.25 }), 0x6a78d8, 3.0, 0.4);   // dark blue-violet structural bone (hue ~242°, near membrane) — was pale-white glowing; matches the reference where bones are dark and only lightning glows
 const matHorn = fresnelRim(new THREE.MeshStandardMaterial({ color: 0x2c2278, roughness: 0.38, metalness: 0.55, emissive: 0x201a58, emissiveIntensity: 0.7 }), 0x7fd8ff, 2.4, 1.15);   // dark crystalline horn, cyan edge-glow
 const matSpear = fresnelRim(new THREE.MeshStandardMaterial({ color: 0x5a1fcc, roughness: 0.55, metalness: 0.1, emissive: 0x4416ac, emissiveIntensity: 0.95, side: THREE.DoubleSide }), 0x9a5cff, 2.6, 0.45);   // crystalline tail spear (saturated violet, violet rim)
@@ -404,10 +404,14 @@ export function buildCelestialStorm() {
     for (const p of cen) { const r = rows[rows.length - 1]; if (r && Math.abs(p.cy - r.cy0) < 0.02) { r.cys.push(p.cy); r.w = Math.max(r.w, p.w); } else rows.push({ cy0: p.cy, cys: [p.cy], w: p.w }); }
     const Y = rows.map(r => r.cys.reduce((a, b) => a + b, 0) / r.cys.length);
     const sPos = [], sIdx = [];
+    const jit = (n) => { const x = Math.sin(n * 127.1 + 0.7) * 43758.5453; return x - Math.floor(x); };   // deterministic per-segment hash (no Math.random → keeps the build reproducible)
     for (let i = 0; i < rows.length; i++) {
       const cy = Y[i], gap = Math.min(i ? cy - Y[i - 1] : 1, i < rows.length - 1 ? Y[i + 1] - cy : 1);
-      const ry = Math.min(0.70 * gap, 0.060), rx = Math.max(0.007, Math.min(0.28 * rows[i].w, 0.016));   // SLIM laterally (≈⅓ the old width) + elongated → an armored spinous process, not a fat rhombus
-      const cxAxis = D.mirror, crown = 0.030 + rx * 0.6;          // stand proud + narrow → a serrated dorsal RIDGE (the bony spine), embellished by the matSpine glow
+      // INDIVIDUAL segments: ry < ½·gap leaves a clear gap between consecutive diamonds (was 0.70·gap → they merged).
+      // Squished vertically + slight per-segment jitter so they read as a row of distinct, slightly irregular scutes.
+      const jr = 0.82 + 0.34 * jit(i * 2.3), jh = 0.80 + 0.30 * jit(i * 3.7 + 1.1);
+      const ry = Math.min(0.40 * gap, 0.034) * jh, rx = Math.max(0.007, Math.min(0.28 * rows[i].w, 0.016)) * jr;
+      const cxAxis = D.mirror, crown = (0.026 + rx * 0.6) * (0.9 + 0.2 * jit(i * 5.1));   // proud + narrow + jittered height → a serrated bony ridge, embellished by the subtle glow
       // rim = the TRACED stencil diamond for this row (mapped proportionally along the artist's head→tail column),
       // unit half-extents scaled to this row's cell, centred on the spine axis
       const COL = (SPINE_DIAMONDS && SPINE_DIAMONDS.length) ? SPINE_DIAMONDS : [SPINE_DIAMOND];
