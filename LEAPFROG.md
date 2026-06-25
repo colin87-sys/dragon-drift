@@ -3739,3 +3739,26 @@ Lesson: **when a profile spline and a centerline-offset spline overlap, check th
 offset that fades out while the surface is still rising digs a hole; and for a creature judged from one camera,
 write the per-camera anatomy checklist (masses/shoulders/ridge/taper/convexity) as the review gate, eyeball it on
 an all-angles montage, and defer axis-curve changes to the same pass that builds the part they belong to.**
+
+### L134 — "Convex from the rear cam" ≠ "convex across the spine": paired-hump sections hide a centerline groove only the axial view exposes
+Right after L133 shipped (`cz=0` + the rear-cam anatomy checklist, all six rules PASS), the human orbited to the
+two **axial** views the review never captured — camera yaw 0, pitch at the clamp (±1.28): looking straight DOWN
+the spine, and UP the belly. Down the spine showed a **dark recessed channel running the length of the back** —
+a *different* concavity from L133's, and one structurally invisible to the rear cam. I had claimed "back convex,
+fixed." Wrong. Root cause, measured (not eyeballed): the dorsal section
+`dorsalZ(u)=Dr·cos(u·π/2)^1.4 + Mu·exp(−((|u|−0.5)/0.22)²)` places paired muscle humps at u=±0.5, and at the
+withers the humps **out-rise** the central cos() ridge — `dorsalZ(0.5)−dorsalZ(0) ≈ +0.040` at ny≈0.26 — so the
+spine sat in a valley *between* the humps. The rear cam sees the silhouette + the lit humps and reads "muscled
+back"; it cannot see that the centerline between them is a trough. (The diamond spine ridge that would crown it
+is parked, `spineGrp.visible=false`, so nothing filled it.) Fix: add a narrow central crest to `dorsalZ`,
+`+ Cr·exp(−(u/0.18)²)`, with `Cr(ny)=0.065·gauss(ny,0.25,0.10)+0.022·gauss(ny,0.60,0.11)` — lift the centerline
+ONLY at the two muscle bands (withers + hips), ~0 across the already-convex mid-back so it doesn't bloat. The
+cheap algebraic gate that would have caught it from day one: **sweep `dorsalZ(0) ≥ dorsalZ(u)` for u∈[0,1] at
+every station** (now apex@u=0 for ny 0.15→0.73). The belly hollow in the up-belly view is the intentional abdomen
+tuck (`Be` gap) — left alone. Gates: protrusion 6.7% / banding 5.8% PASS, def 5/5. Lesson: **a single judging
+camera defines a blind axis — for a back-facing chase cam that axis is "looking down the spine." Convexity has a
+direction; "convex in silhouette" says nothing about "convex across." When a cross-section is a SUM of a central
+ridge and off-center humps, the humps can beat the ridge and trough the middle — verify the apex stays on the
+centerline with a per-station `f(0) ≥ max f(u)` sweep, and always render the down-the-spine + up-the-belly axial
+views, not just the hero angle. And when the human says "I thought you weren't blind" — reproduce their EXACT
+camera before answering; don't generalize from the angles you happened to capture.**
