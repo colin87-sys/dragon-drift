@@ -62,6 +62,7 @@ let tipMarkerR = null;
 let auraSprite = null;
 let coreGlow = null;      // violet core energy sprite (pulses during Surge)
 let spineMats = [];       // spine/crest/seam/plate mats → white-gold in Surge
+let storm = null;         // Thundercoil storm FX { bead, arcs, ring } — boost/Surge only
 let surgeMix = 0;         // 0..1 damped Surge transition
 let prevFever = false;    // rising-edge detect for the Surge ignition flourish
 let surgeAnimT = 0;       // one-shot transformation timer (s)
@@ -161,6 +162,7 @@ export function createDragon(scene, def, riderDef) {
   auraSprite = result.auraSprite;
   coreGlow = result.parts.coreGlow;
   spineMats = result.materials.spineMats || [];
+  storm = result.parts.storm || null;   // Thundercoil storm FX (bead/arcs/shock-ring), null otherwise
 
   // Fresnel rim light on the hero's solid surfaces — lifts the silhouette off a
   // bright sky/water. Additive to outgoing light (independent of the emissive
@@ -369,6 +371,7 @@ export function disposeDragon() {
   wingMidR = null;
   bodySegs = null;
   tailOrbiters = null;
+  storm = null;
   ponyMeshes = [];
   trailSprites = [];
   boostTrailSprites = [];
@@ -899,6 +902,54 @@ export function updateDragon(dt, player, time) {
     for (const m of spineMats) {
       m.emissive.setHex(m.userData.baseEmissive ?? 0xffffff);
       m.emissiveIntensity = (m.userData.baseIntensity ?? 1) * (1 + boostSpine);
+    }
+  }
+  // STORM FX (Thundercoil only, gated by def.stormFx): a current BEAD that runs the
+  // crest head→tail on boost; ARCS that crackle between the wing roots + tail fork on
+  // Surge; a SHOCK RING that snaps out behind the serpent on the Surge ignition.
+  // Cheap, geometry-only, boost/Surge-gated (idle = nothing renders) — not particles.
+  if (storm && activeDef.stormFx) {
+    // Current bead: sweeps head→tail along the crest while boosting or surging.
+    const beadOn = player.boosting || surgeMix > 0.25;
+    storm.bead.visible = beadOn;
+    if (beadOn) {
+      const path = storm.bead.userData.path;
+      const u = (time * 1.6) % 1;                      // repeating head→tail run
+      const fi = u * (path.length - 1);
+      const i0 = Math.floor(fi), i1 = Math.min(path.length - 1, i0 + 1);
+      storm.bead.position.lerpVectors(path[i0], path[i1], fi - i0);
+      storm.bead.material.opacity = (player.feverActive ? 0.9 : 0.6) + Math.sin(time * 45) * 0.18;
+      storm.bead.scale.setScalar(0.42 + 0.12 * Math.sin(time * 32));
+    }
+    // Arcs: strobe + re-jitter between the wing roots and the tail fork on Surge.
+    const arcLvl = surgeMix;
+    const strobe = arcLvl > 0.2 && (Math.floor(time * 26) % 2 === 0);
+    for (const line of storm.arcs) {
+      if (!strobe) { if (line.visible) line.visible = false; continue; }
+      line.visible = true;
+      const { a, b } = line.userData;
+      const pos = line.geometry.attributes.position;
+      const n = pos.count;
+      for (let k = 0; k < n; k++) {
+        const t = k / (n - 1);
+        const end = (k === 0 || k === n - 1) ? 0 : 1;   // pin the endpoints
+        const j = 0.32 * end;
+        pos.setXYZ(k,
+          a.x + (b.x - a.x) * t + (Math.random() - 0.5) * j,
+          a.y + (b.y - a.y) * t + (Math.random() - 0.5) * j,
+          a.z + (b.z - a.z) * t + (Math.random() - 0.5) * j);
+      }
+      pos.needsUpdate = true;
+      line.material.opacity = 0.45 + 0.4 * arcLvl;
+    }
+    // Shock ring: expands + fades over the Surge ignition flourish (surgeAnimT).
+    if (surgeAnimT > 0) {
+      const p = 1 - surgeAnimT / 0.7;                  // 0 → 1 across the ignition
+      storm.ring.visible = true;
+      storm.ring.scale.setScalar(0.5 + p * 5.5);
+      storm.ring.material.opacity = (1 - p) * 0.7;
+    } else if (storm.ring.visible) {
+      storm.ring.visible = false;
     }
   }
   // Fresnel rim: a warm edge light in cruise that brightens on boost and flares

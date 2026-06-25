@@ -885,6 +885,75 @@ export const DRAGONS = {
     trail: 0xff5e1e, boostTrail: 0xff9038,
   },
 
+  // THUNDERCOIL AMPHITHERE — a legless storm-serpent (brand-new family, the Phoenix
+  // technique). A long coiling body undulating like a ribbon (the segmented bodySegs
+  // travelling-wave rig — no legs, custom motion), thick at the chest/wing-root and
+  // tapering to a thin forked-conductor tail. Large SHARP triangular wings mounted on
+  // the front third, a broad boxy wedge head with a flat crown, and a backward
+  // lightning crest (skull→neck) fading to low dorsal nodes. Storm-grey/navy hide,
+  // pale-silver belly, electric blue-white accents. Its Surge is a "storm overload":
+  // accents flare electric-white (surgeHi), arcs jump between the wing struts + tail
+  // fork, and a shock ring snaps out behind it (def.stormFx, driven in dragon.js);
+  // boost runs a current head→tail (def.boostSpine + the storm current).
+  thundercoil: {
+    name: 'Thundercoil Amphithere',
+    title: 'The storm given a spine',
+    rarity: 'SSSR',
+    maxRarity: 'SSSR',
+    cost: 6600,
+    parts: { torso: 'ampithereTorso', wings: 'ampithereWing', head: 'ampithereHead', tail: 'none' },
+    stats: { speed: 1.18, handling: 1.30, drain: 0.72, regen: 1.20 },
+    boostSpine: true,   // accents brighten on boost (the storm current adds the head→tail run)
+    stormFx: true,      // lightning arcs + shock ring (driven in dragon.js, boost/Surge only)
+    hasStyle: true, surgeMotes: true,
+    feverWing: 0x9ee6ff, feverEye: 0xeafbff, feverWash: [0.02, 0.05, 0.08],
+    model: {
+      scale: 1.04, wingScale: 1.14,
+      bodyRoughness: 0.5, bodyMetalness: 0.28, rimBodyMul: 1.0,
+      // Ribbon undulation — a gentle lead-first slither (front calm, tail whips).
+      segmentSway: 0.2, segmentBob: 0.06, segmentLag: 0.16,
+      flapBias: 1.0, flapAmp: 0.9,
+      // SHARP triangular wing on the 3-segment articulated chain.
+      wingParts: true, glidePow: 1.15,
+      rootAmp: 0.52, midAmp: 0.42, tipAmp: 0.36, midLag: 0.55, tipLag: 1.05,
+      restLift: 0.46, apexRoot: 0.14, apexMid: 0.28, apexTip: 0.44, apexPitch: 0.12,
+    },
+    // Four forms of one growing storm-serpent — the body lengthens (segmentCount),
+    // the wings widen, and the electric charge ramps from dim spark to full storm.
+    forms: [
+      // FORM 1 — Spark Eel: a short dim serpent, few segments, faint crest.
+      { segmentCount: 9, bodyScale: 0.7, wingSpan: 0.82, spineGlow: 0.15, glowIntensity: 0.5,
+        colors: { body: 0x222833, belly: 0x9aa6b8, coreGlow: 0x5ab0e0, wingEmissive: 0x5ab0e0,
+          wingMembraneEmissive: 0x121a28, wingInner: 0x182230, apexSeam: 0x6ec4f0, eye: 0x9fe4ff,
+          trail: 0x5ab0e0, boostTrail: 0x8fd4ff } },
+      // FORM 2 — Storm Coil: longer body, brighter crest, the fork sharpens.
+      { segmentCount: 11, bodyScale: 0.86, wingSpan: 0.92, spineGlow: 0.42, glowIntensity: 0.7,
+        colors: { body: 0x1e2530, belly: 0xaeb8c8, coreGlow: 0x66c4ff, wingEmissive: 0x66c4ff,
+          wingMembraneEmissive: 0x142030, wingInner: 0x192536, apexSeam: 0x86d6ff, eye: 0xc4f0ff,
+          trail: 0x66c4ff, boostTrail: 0x9fe0ff } },
+      // FORM 3 — Tempest Serpent (Radiant = 1.0): full body, vivid electric crest.
+      { segmentCount: 13, bodyScale: 1.0, wingSpan: 1.0, spineGlow: 0.72, glowIntensity: 1.0,
+        colors: { body: 0x1a212c, belly: 0xc2ccdc, coreGlow: 0x7ad2ff, wingEmissive: 0x7ad2ff,
+          wingMembraneEmissive: 0x18263a, wingInner: 0x1b2940, apexSeam: 0x9ee6ff, eye: 0xd8f6ff,
+          trail: 0x7ad2ff, boostTrail: 0xb6ecff } },
+      // FORM 4 — THUNDERCOIL (apex): the longest, charged white-blue, fork ablaze.
+      { segmentCount: 14, bodyScale: 1.1, wingSpan: 1.12, spineGlow: 1.0, glowIntensity: 1.3,
+        surgeGlowMultiplier: 1.3,
+        colors: { body: 0x171e29, belly: 0xd6e0ee, coreGlow: 0x8fdcff, wingEmissive: 0x8fdcff,
+          wingMembraneEmissive: 0x1d2c44, wingInner: 0x1d2c46, apexSeam: 0xb6ecff, eye: 0xeafbff,
+          aura: 0x9ee6ff, trail: 0x8fdcff, boostTrail: 0xcaf2ff } },
+    ],
+    fx: { auraColor: '120,200,255', auraIdle: 0.05, sparkle: true },
+    previewAccent: 0x7ad2ff,
+    surgeHi: 0xcfeaff,   // electric white-blue flare for the storm Surge
+    // Top-level fallbacks (≈ the apex form, for any raw render).
+    body: 0x171e29, belly: 0xd6e0ee, scales: 0x2a3340,
+    wingInner: 0x1d2c46, wingOuter: 0x10161f, wingEmissive: 0x8fdcff,
+    wingMembraneEmissive: 0x1d2c44, coreGlow: 0x8fdcff, apexSeam: 0xb6ecff,
+    eye: 0xeafbff, aura: 0x9ee6ff, horn: 0x2a3340,
+    trail: 0x8fdcff, boostTrail: 0xcaf2ff,
+  },
+
   // A sleek astral serpent: one continuous flowing crystal body wrapped in glowing
   // energy bands, lateral astral fin-vanes, a regal mask head + a celestial saddle,
   // that slithers HORIZONTALLY (low + readable, §0.5) and tapers into a streaming
