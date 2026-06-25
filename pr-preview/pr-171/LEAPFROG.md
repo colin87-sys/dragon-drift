@@ -3762,3 +3762,28 @@ ridge and off-center humps, the humps can beat the ridge and trough the middle �
 centerline with a per-station `f(0) ≥ max f(u)` sweep, and always render the down-the-spine + up-the-belly axial
 views, not just the hero angle. And when the human says "I thought you weren't blind" — reproduce their EXACT
 camera before answering; don't generalize from the angles you happened to capture.**
+
+### L135 — Neck + head pass: clip the body, arch a world-space neck, loft a sleek wedge head (the deferred cz neck-bend, now anchored)
+The body had ended in a flat "neck-cap tab" (the head region of the traced silhouette was just lofted as more
+tube rings) with horns stuck on the crown. L133 deferred the real neck bend "to the head pass, designed as one
+curve." This is that pass. Approach that worked: (1) **clip the body at BOTH ends** — `clipPoly(clipPoly(sil,
+TAIL_BODY_CLIP,false), NECK_BASE=0.235, true)` keeps 0.235≤ny≤0.73, removing the head region so a real neck/head
+replaces it (no seam-fighting with the old tube). (2) **Build the neck in WORLD space, not pt() canvas space** —
+the neck leaves the canvas plane (arches toward the dorsal +z), so a `CatmullRomCurve3` through 3 world points
+(seat-inside-body → bow up+forward → head base) lofted by a small variable-radius `worldTube` is the right tool;
+the in-plane `taperedTube`/`tube` helpers can't arch out of plane. Match the neck base radius to the *clipped
+shoulder width* (~0.40) or you get a step at the junction. (3) **Build the head in a LOCAL frame** (snout=+Z,
+dorsal=+Y, right=+X): loft elliptical rings with an egg cross-section (taller top `ht`, flatter belly `hb`),
+cheeks widest just ahead of the cranium (`+gauss(s,0.26,0.14)`), a drooping muzzle centerline (`cy=-0.22s²`), then
+**orient** by a right-handed basis from the neck's end tangent — `z=headDir; x=(0,0,1)×z; y=z×x; makeBasis(x,y,z)`
+— with the `(0,0,1)` up-hint so local +Y lands on world dorsal (+z), then seat at N2. Seat eyes/brows/horns/spikes
+off saved local ring centers (`ringAt(s)`). Gotchas: (a) the cosmic gradient is by world-Y (`yHi=3.8`), so the
+head at y>3.8 clamps to the bright head colour — good, free continuity. (b) first horn pass was stubby + too
+vertical; horns are the dominant rear-cam silhouette, so make them LONG, sweep up+OUT then strongly back
+(`curl≈(±0.42,−0.30,−1.55)`). (c) head looked like a vertical cone until I (i) blunted the snout tip
+(`hw` tip 0.05→0.09), (ii) tilted the head forward by pushing N2 +z so `headDir` leans ~30° off vertical. Gates
+after: protrusion 6.9% / banding 3.2% PASS, def 5/5 (clip didn't regress the torso). Lesson: **when a part bends
+OUT of the traced 2D plane (a neck, a reaching limb), stop working in canvas coords — build a world-space spine
+curve and orient sub-parts with an explicit basis from its tangent; clip the old stand-in geometry away rather
+than layering over it; and tune the feature that owns the silhouette FIRST (for a rear-cam dragon that's the horn
+crown, not the snout). Verify on the camera that ships (rear-high), not just the hero ¾.**
