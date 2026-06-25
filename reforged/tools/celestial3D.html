@@ -62,7 +62,7 @@ const ventL = new THREE.DirectionalLight(0x8aa6ff, 0.5); ventL.position.set(-1, 
 const M = buildCelestialStorm();
 const root = M.group; scene.add(root);
 const wingPivots = M.wingPivots;
-const { plateGrp, seamGrp, spineGrp, strutGrp, wingGrp, hornGrp, spearGrp } = M.groups;
+const { plateGrp, seamGrp, spineGrp, strutGrp, wingGrp, hornGrp, spearGrp, neckGrp, headGrp } = M.groups;
 const { matBody, matMembrane } = M.materials;
 const { FLAP, flapDrive } = M;
 const TAU = Math.PI * 2;
@@ -109,7 +109,8 @@ window.__flapPose = (a) => { flap = false; poseAt(phaseCenter(a >= 0 ? 'apex' : 
 window.__flapPhase = (u) => { flap = false; poseAt(((u % 1) + 1) % 1 * TAU); };   // u∈[0,1] → any cycle fraction (tip-path QA)
 window.__zoom = (f) => { orbit.dist = baseDist * f; };
 window.__wings = (on) => { wingGrp.visible = on; };   // QA: hide wings to measure the bare body (celestialRefCompare.mjs)
-window.__bodyOnly = (on) => { for (const g of [wingGrp, spineGrp, strutGrp, plateGrp, seamGrp, hornGrp, spearGrp]) g.visible = !on; };   // QA: isolate the bare torso mesh
+window.__bodyOnly = (on) => { for (const g of [wingGrp, spineGrp, strutGrp, plateGrp, seamGrp, hornGrp, spearGrp, neckGrp, headGrp]) g.visible = !on; };   // QA: isolate the bare torso mesh
+window.__head = (on) => { neckGrp.visible = headGrp.visible = on; };   // QA: toggle the neck+head
 
 const clock = new THREE.Clock(); let t = 0, flapAmp = 0;
 function frame() {

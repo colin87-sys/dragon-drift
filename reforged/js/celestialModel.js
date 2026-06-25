@@ -231,19 +231,22 @@ function flapDrive(t, side) {
 export function buildCelestialStorm() {
   // ── assemble ──────────────────────────────────────────────────────────────
   const root = new THREE.Group();
-  const bodyGrp = new THREE.Group(), plateGrp = new THREE.Group(), seamGrp = new THREE.Group(), wingGrp = new THREE.Group(), strutGrp = new THREE.Group(), spineGrp = new THREE.Group(), hornGrp = new THREE.Group(), spearGrp = new THREE.Group();
-  root.add(bodyGrp, plateGrp, seamGrp, wingGrp, strutGrp, spineGrp, hornGrp, spearGrp);
+  const bodyGrp = new THREE.Group(), plateGrp = new THREE.Group(), seamGrp = new THREE.Group(), wingGrp = new THREE.Group(), strutGrp = new THREE.Group(), spineGrp = new THREE.Group(), hornGrp = new THREE.Group(), spearGrp = new THREE.Group(), neckGrp = new THREE.Group(), headGrp = new THREE.Group();
+  root.add(bodyGrp, plateGrp, seamGrp, wingGrp, strutGrp, spineGrp, hornGrp, spearGrp, neckGrp, headGrp);
 
   // BODY — the lofted (voluminous) hull stops above the tail flare; the spearhead below is built as a FLAT
   // crystalline blade so it reads sleek (the painted spear is a flat blade, not a bell). clipPoly cuts the
   // traced silhouette at a horizontal line; keepBelow picks which side.
   const TAIL_BODY_CLIP = 0.73, TAIL_SPEAR_TOP = 0.70;   // body keeps y≤0.73; spear keeps y≥0.70 (small overlap seals the join)
+  const NECK_BASE = 0.235;                              // body keeps y≥0.235 at the TOP — the head/neck region (the old flat neck-cap tab) is replaced by a real arched neck + sculpted head built below
   const clipPoly = (loop, clipY, keepBelow) => {
     const inside = (p) => keepBelow ? p[1] >= clipY : p[1] <= clipY, out = [];
     for (let i = 0; i < loop.length; i++) { const A = loop[i], B = loop[(i + 1) % loop.length], Ain = inside(A), Bin = inside(B); if (Ain) out.push(A); if (Ain !== Bin) { const t = (clipY - A[1]) / (B[1] - A[1]); out.push([A[0] + (B[0] - A[0]) * t, clipY]); } }
     return out;
   };
-  const { mesh: bodyMesh, stations } = loftBody(clipPoly(D.body.silhouette, TAIL_BODY_CLIP, false), { seg: 30, sculpt: BODY_SCULPT });
+  // body = silhouette clipped at BOTH ends: head/neck off the top (NECK_BASE), tail-flare off the bottom (TAIL_BODY_CLIP)
+  const bodyLoop = clipPoly(clipPoly(D.body.silhouette, TAIL_BODY_CLIP, false), NECK_BASE, true);
+  const { mesh: bodyMesh, stations } = loftBody(bodyLoop, { seg: 30, sculpt: BODY_SCULPT });
   bodyGrp.add(bodyMesh);
   const surfZ = (p) => bodySurfaceZ(stations, p[0], p[1]);
   // SPEAR — LOFT the traced spearhead with a THIN lens cross-section (not a flat slab). The elliptical ring gives
@@ -259,23 +262,97 @@ export function buildCelestialStorm() {
     const t = taperedTube(core, [0.004, 0.010, 0.002], () => 0.035, matCore, 7); if (t) spearGrp.add(t);
   }
 
-  // HEAD horns — curved tapered horns sweeping up & back from each horn tip
-  function curvedHorn(h, side) {
-    const seat = [h[0], h[1] + 0.025];                                  // seat the base into the head crown (no float)
-    const base = pt(seat[0], seat[1], surfZ(seat) + 0.05);
-    const N = 12, R = 8, len = 0.9, r0 = 0.22, pos = [], idx = [];      // shorter + thicker base than before
-    const up = new THREE.Vector3(side * 0.1, 1, 0.28).normalize();      // mostly up, slight forward — tighter V
-    const curl = new THREE.Vector3(side * 0.34, -0.12, -1.15);          // sweep outward a touch and strongly BACK (rear-swept crown)
+  // ── NECK + HEAD ────────────────────────────────────────────────────────────
+  // The body now clips at NECK_BASE; a real arched neck carries a sculpted head forward of the shoulders.
+  // Reference: the side-view concept — a long graceful neck bowing up & slightly toward the dorsal (+z),
+  // a sleek elongated skull (tall cranium → tapering snout, brow ridges over glowing eyes, back-swept horns,
+  // a faint spiny topline continuing the spine). Built in world space (the neck leaves the canvas plane).
+
+  // world-space tapered tube along a centerline (radii interpolated head→tail), for the neck
+  function worldTube(pts, radii, material, seg = 16) {
+    const curve = new THREE.CatmullRomCurve3(pts, false, 'centripetal'), steps = 48;
+    const fr = curve.computeFrenetFrames(steps, false), pos = [], idx = [];
+    for (let i = 0; i <= steps; i++) {
+      const t = i / steps, p = curve.getPoint(t), fi = t * (radii.length - 1), lo = Math.floor(fi), hi = Math.min(radii.length - 1, lo + 1);
+      const r = radii[lo] + (radii[hi] - radii[lo]) * (fi - lo), N = fr.normals[i], B = fr.binormals[i];
+      for (let s = 0; s < seg; s++) { const a = s / seg * Math.PI * 2, v = p.clone().addScaledVector(N, Math.cos(a) * r).addScaledVector(B, Math.sin(a) * r); pos.push(v.x, v.y, v.z); }
+    }
+    for (let i = 0; i < steps; i++) for (let s = 0; s < seg; s++) { const a = i * seg + s, b = i * seg + (s + 1) % seg, c = (i + 1) * seg + s, d = (i + 1) * seg + (s + 1) % seg; idx.push(a, c, b, b, c, d); }
+    const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.setIndex(idx); g.computeVertexNormals();
+    return new THREE.Mesh(g, material);
+  }
+
+  // NECK centerline (world): seats inside the body at the shoulders, bows up + gently toward the dorsal (+z),
+  // levels off at the head base. Slender, elegant — radii taper shoulder→nape.
+  const N0 = new THREE.Vector3(0, 2.50, 0.98), N1 = new THREE.Vector3(0, 3.12, 1.30), N2 = new THREE.Vector3(0, 3.55, 1.62);
+  neckGrp.add(worldTube([N0, N1, N2], [0.40, 0.34, 0.27], matBody, 18));   // base matches the clipped shoulder width → no step at the junction
+
+  // HEAD — built in a LOCAL frame (snout = +Z, dorsal = +Y, right = +X), then oriented along the neck's end
+  // tangent and seated at N2. A single sleek wedge (closed mouth, calm/regal) + brow ridges + glowing eyes.
+  const headDir = N2.clone().sub(N1).normalize();                       // neck end tangent = snout direction
+  const HL = 1.40;                                                      // head length (world units)
+  const cyDroop = (s) => -0.22 * s * s;                                 // muzzle centerline droops toward the tip (local −Y)
+  const hwOf = (s) => 0.09 + 0.44 * Math.pow(1 - s, 0.62) + 0.13 * gauss(s, 0.26, 0.14);  // cheeks widest just ahead of the cranium, taper to a defined (not needle) snout
+  const htOf = (s) => 0.09 + 0.46 * Math.pow(1 - s, 0.58);              // tall cranium → shallow snout (top half-height)
+  const hbOf = (s) => 0.06 + 0.33 * Math.pow(1 - s, 0.70);             // jaw underside (bottom half-height) — egg section, flatter below
+  const headLocal = [];                                                 // collect local ring centers for seating eyes/brows/horns
+  {
+    const RINGS = 40, SEG = 22, pos = [], idx = [];
+    for (let i = 0; i <= RINGS; i++) {
+      const s = i / RINGS, z = s * HL, cy = cyDroop(s), hw = hwOf(s), ht = htOf(s), hb = hbOf(s);
+      headLocal.push({ s, z, cy, hw, ht, hb });
+      for (let k = 0; k < SEG; k++) {
+        const a = k / SEG * Math.PI * 2, ca = Math.cos(a), sa = Math.sin(a);
+        pos.push(hw * ca, cy + (sa >= 0 ? ht : hb) * sa, z);
+      }
+    }
+    for (let i = 0; i < RINGS; i++) for (let k = 0; k < SEG; k++) { const a = i * SEG + k, b = i * SEG + (k + 1) % SEG, c = (i + 1) * SEG + k, d = (i + 1) * SEG + (k + 1) % SEG; idx.push(a, c, b, b, c, d); }
+    // cap the snout tip + the cranium back (the neck tube covers the back seam)
+    const tipC = pos.length / 3; pos.push(0, cyDroop(1), HL); for (let k = 0; k < SEG; k++) idx.push(tipC, RINGS * SEG + (k + 1) % SEG, RINGS * SEG + k);
+    const backC = pos.length / 3; pos.push(0, 0, 0); for (let k = 0; k < SEG; k++) idx.push(backC, k, (k + 1) % SEG);
+    const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.setIndex(idx); g.computeVertexNormals();
+    headGrp.add(new THREE.Mesh(g, matBody));
+  }
+  // local→world helper for seating features on the head
+  const ringAt = (s) => headLocal.reduce((a, r) => Math.abs(r.s - s) < Math.abs(a.s - s) ? r : a, headLocal[0]);
+  // BROW ridges + glowing EYES at s≈0.30 (just ahead of the cranium), one per side
+  for (const side of [-1, 1]) {
+    const rb = ringAt(0.30);
+    const brow = new THREE.Mesh(new THREE.SphereGeometry(0.13, 12, 10), matBody);
+    brow.scale.set(0.9, 0.7, 1.7); brow.position.set(side * rb.hw * 0.72, rb.cy + rb.ht * 0.34, rb.z); headGrp.add(brow);
+    const re = ringAt(0.33);
+    const eye = new THREE.Mesh(new THREE.SphereGeometry(0.075, 12, 10), matCore);
+    eye.scale.set(1.0, 1.25, 1.5); eye.position.set(side * re.hw * 0.92, re.cy + re.ht * 0.05, re.z + 0.02); headGrp.add(eye);
+  }
+  // back-swept HORNS off the cranium crown (local frame: up=+Y, back=−Z), tapered crystalline cones
+  function localHorn(side) {
+    const rc = ringAt(0.05), N = 16, R = 9, len = 1.75, r0 = 0.21, pos = [], idx = [];
+    const base = new THREE.Vector3(side * rc.hw * 0.62, rc.cy + rc.ht * 0.80, rc.z);
+    const up = new THREE.Vector3(side * 0.48, 0.92, -0.20).normalize();   // rise up & well outward → a broad crown V
+    const curl = new THREE.Vector3(side * 0.42, -0.30, -1.55);            // sweep strongly BACK (and out) → long rear-swept horns
+    // round cross-section in the plane ⟂ the horn axis, tapering to a point
     for (let i = 0; i <= N; i++) {
-      const t = i / N, rad = r0 * Math.pow(1 - t, 1.7);
+      const t = i / N, rad = r0 * Math.pow(1 - t, 1.6);
       const c = base.clone().addScaledVector(up, len * t).addScaledVector(curl, len * t * t * 0.7);
-      for (let s = 0; s < R; s++) { const a = s / R * Math.PI * 2; pos.push(c.x + Math.cos(a) * rad, c.y, c.z + Math.sin(a) * rad); }
+      const tang = up.clone().addScaledVector(curl, 2 * t * 0.7).normalize();
+      const nrm = new THREE.Vector3(1, 0, 0).cross(tang).normalize(), bin = tang.clone().cross(nrm).normalize();
+      for (let s = 0; s < R; s++) { const a = s / R * Math.PI * 2, v = c.clone().addScaledVector(nrm, Math.cos(a) * rad).addScaledVector(bin, Math.sin(a) * rad); pos.push(v.x, v.y, v.z); }
     }
     for (let i = 0; i < N; i++) for (let s = 0; s < R; s++) { const a = i * R + s, a2 = i * R + (s + 1) % R, b = (i + 1) * R + s, b2 = (i + 1) * R + (s + 1) % R; idx.push(a, b, a2, a2, b, b2); }
     const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.setIndex(idx); g.computeVertexNormals();
     return new THREE.Mesh(g, matHorn);
   }
-  D.body.head.horns.forEach((h, i) => hornGrp.add(curvedHorn(h, h[0] < 0.5 ? -1 : 1)));
+  headGrp.add(localHorn(-1), localHorn(1));
+  // a few small dorsal SPIKES along the snout midline → the spiny topline the side-ref shows, continuing the spine
+  for (const s of [0.12, 0.26, 0.42, 0.60]) {
+    const r = ringAt(s), sp = new THREE.Mesh(new THREE.ConeGeometry(0.06 * (1 - s) + 0.02, 0.20 * (1 - s) + 0.06, 7), matHorn);
+    sp.position.set(0, r.cy + r.ht + 0.04, r.z); headGrp.add(sp);   // cone points +Y (dorsal) by default
+  }
+  // orient + seat the head: local +Z → headDir, local +Y → dorsal (+z world), via a right-handed basis
+  {
+    const z = headDir.clone(), x = new THREE.Vector3(0, 0, 1).cross(z).normalize(), y = z.clone().cross(x).normalize();
+    const m = new THREE.Matrix4().makeBasis(x, y, z); headGrp.quaternion.setFromRotationMatrix(m); headGrp.position.copy(N2);
+  }
 
   // PLATES — raised armour SCALES (centroid-fan domes seated on the hull) + glowing seams between them
   const plPos = [], plIdx = [];
@@ -354,7 +431,7 @@ export function buildCelestialStorm() {
   return {
     group: root,
     wingPivots,
-    groups: { bodyGrp, plateGrp, seamGrp, wingGrp, strutGrp, spineGrp, hornGrp, spearGrp },
+    groups: { bodyGrp, plateGrp, seamGrp, wingGrp, strutGrp, spineGrp, hornGrp, spearGrp, neckGrp, headGrp },
     materials: { matBody, matPlate, matSeam, matMembrane, matStrut, matSpine, matSpar, matHorn, matSpear, matCore },
     FLAP,
     flapDrive,
