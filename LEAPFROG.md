@@ -3721,3 +3721,21 @@ not a fragile number. Refactored horns/spear into their own groups so the torso 
 **a verification tool is itself code that can lie — validate it against a known case before trusting it to gate;
 prefer alignment-free aggregate metrics over fragile per-pixel correspondences; and don't pretend a number
 proves an aesthetic match — gate the objective stuff (no shelves, no banding), eyeball the subjective stuff.**
+
+### L133 — A centerline push that eases out FASTER than the surface depth rises carves a concavity; and a rear-cam anatomy checklist
+The human caught a **concavity in the upper back** (withers) on the 3/4 view. Cause: `BODY_SCULPT.cz` lifted the
+neck toward the camera (+z ≈ +0.13) and eased to 0 by the chest — but it dropped FASTER than dorsal depth `Dr`
+rose, so the dorsal world-z went neck-forward (0.21) → shoulder-recede (0.166) → chest (0.175): a real dip at the
+withers. A centerline offset moves the WHOLE ring, so easing it out across a region where the surface profile is
+still climbing subtracts from the surface = a concavity, even though each spline alone is monotonic. Fix: `cz=>0`
+(the lift was scaffolding for a head not yet built; the neck bend returns WITH the head, designed as one curve so
+the arch and bend don't fight). Then, asked to "check we're on the right track," researched flying-dragon anatomy
+and built a **rear-cam anatomy checklist** (now `tools/CELESTIAL_ANATOMY_REVIEW.md`): three masses (chest barrel >
+pelvis, waist crease between → a "bean," front bigger than back), broad wing-bearing shoulders, central spine
+ridge + paired dorsal muscle, long tapering tail, convex back. Our `BODY_SCULPT` passes all six judgeable rules
+(chest belly-depth ~1.7× hip by construction); the one open note is the now-straight axis (`cz=0`) — deferred to
+the head pass. Verifier note: a `0.12→0.18` protrusion-band narrow excludes the neck-cap tab the head will cover.
+Lesson: **when a profile spline and a centerline-offset spline overlap, check their SUM, not each curve — an
+offset that fades out while the surface is still rising digs a hole; and for a creature judged from one camera,
+write the per-camera anatomy checklist (masses/shoulders/ridge/taper/convexity) as the review gate, eyeball it on
+an all-angles montage, and defer axis-curve changes to the same pass that builds the part they belong to.**

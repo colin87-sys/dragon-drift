@@ -88,7 +88,8 @@ const spikePct = (prof, lo, hi) => {
 };
 // 3) NO-PROTRUSION: the bare TORSO rear width must be smooth — a slab/cantilever is a local spike. Measured on
 // the body-only render (clean framing; horns/spear excluded so they don't contaminate it).
-const cant = spikePct(torso, 0.12, 0.9);
+// (band starts at 0.18 to exclude the neck-cap tab where the head will seat — measuring the torso proper)
+const cant = spikePct(torso, 0.18, 0.9);
 // 4) NO-BANDING: bare-torso SIDE width must be smooth over the torso band (the reverted experiment's rings)
 const bandPct = spikePct(sideP, 0.15, 0.85);
 

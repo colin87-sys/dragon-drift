@@ -71,7 +71,7 @@ const BODY_SCULPT = {
   Be: (ny) => 0.030 + 0.120 * gauss(ny, 0.32, 0.085) + 0.060 * gauss(ny, 0.62, 0.10),  // deep CHEST -> tucked ABDOMEN (the gap) -> rounded HIPS
   Mu: (ny) => 0.095 * gauss(ny, 0.26, 0.095) + 0.040 * gauss(ny, 0.60, 0.11),          // back-muscle humps (stronger)
   wBoost: (ny) => 1 + 0.35 * gauss(ny, 0.25, 0.09),                                     // deltoid breadth (rear width stays our trace; fullness is depth)
-  cz: (ny) => 0.13 * gauss(ny, 0.13, 0.11) - 0.04 * gauss(ny, 0.72, 0.09),             // head lifts toward camera; tail eases back
+  cz: (ny) => 0,   // centerline straight for now — the old neck-forward lift dipped the upper back into a concavity; a real neck bend comes with the head
 };
 // keeled muscled dorsal profile at lateral u∈[−1,1] (z toward camera): central spine ridge + paired muscle humps
 const dorsalZ = (u, Dr, Mu) => Dr * Math.pow(Math.cos(u * Math.PI / 2), 1.4) + Mu * Math.exp(-(((Math.abs(u) - 0.5) / 0.22) ** 2));
