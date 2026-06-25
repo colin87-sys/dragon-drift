@@ -3096,3 +3096,41 @@ silhouette), don't rely on an arc to rotate an edge-on X-Z sheet into view — t
 (loft body via `profileStations`, segmented/blade tail via `tailKnobs`, horned head) DON'T have the edge-on problem —
 the overlay shows body/tail/head already align from rear — so they need DATA tuning, not a new "screen-plane" module.
 Next if finer fidelity is wanted: anchor-drive the tail trident + head horns, and add a `conceptmatch` per-form sweep.
+
+---
+
+## Lesson — Trace a wing from a reference FAITHFULLY: slice the real boundary arc + RDP (on-path by construction), QA with a distance-transform overlay, trace the struts from the wing's OWN veins.
+
+**Did / learned:** the human pushed back (correctly) that a reference wing CAN be traced + strutted (Toothless was)
+and that my hand-rolled shape was "ugly". The fix is a faithful, QA'd trace, to the human's exact correctness spec:
+**(1)** the trace must lie ON the reference outline (any deviation off the line = wrong); **(2)** smoothing must
+FOLLOW the outline (no drift); **(3)** squiggle = wrong; **(4)** this wing's struts differ from Toothless — trace
+them from THIS image. Built it in `tools/wingtrace.mjs`:
+- **On-path by construction:** trace the FULL silhouette (`tracerCore#traceContour`), slice the wing's CONTIGUOUS
+  boundary arc (the run of contour indices lateral of the body column — the REAL edge, no synthetic cut that caused
+  my earlier squiggle), then **RDP** (`tracerCore#simplify`, eps≈2.2). RDP keeps segments within eps of every
+  original edge point → it CANNOT drift off the outline and it removes the pixel staircase. My earlier bug was
+  free-smoothing (moving-average) BEFORE simplify — that cut concavities and drifted. RDP-first is the fix.
+- **QA = distance-transform of the reference edge:** a 2-pass chamfer DT gives px-distance to the nearest edge;
+  deviation = max/mean DT over a dense sampling of the trace; **gate on max-dev (≤~2.6px = on the line)**. Sharp
+  turns are the wing's REAL deep scallops, NOT squiggle, so smoothness is INFO not a gate (a true squiggle is an
+  OFF-edge jitter, which max-dev already catches). An **overlay PNG** (ref edge grey + trace cyan + off-edge red +
+  RDP pts yellow) makes it eyeball-verifiable. Result: 42-pt outline, max-dev 2.41px, PASS — visibly on the edge.
+- **Struts from the wing's OWN veins:** the membrane's bright cyan vein lines (luminance>110 within the subject)
+  are detectable; for each finger tip (RDP radius-maxima) fit a quadratic bezier root→(control fit to the bright-pixel
+  perp-offset)→tip, so the strut FOLLOWS the vein. QA-overlaid (magenta struts over cyan veins). NOT copied from
+  Toothless (its struts are clean bones; this wing's are lightning).
+- **Render:** `crystalWing` `wingOutline` mode renders the traced outline verbatim in the screen plane + `def.wingStruts`
+  as tapered emissive tubes (segmented bezier). Prism wired with the traced `wingOutline` + `wingStruts`.
+**Verified:** `conceptmatch` IoU **46%→58.5%** (the traced membrane silhouette lies on the reference); prism 3920–4303
+tris ≤6000; budget CI 0-over; parametric/blueprint/defs/flapcheck/skinnedwing green; roster byte-identical (only prism).
+**→ Systematize:** the reusable law — **to trace a part faithfully: trace the FULL silhouette, slice the part's
+contiguous boundary ARC (never a synthetic cut), RDP (on-path by construction), and QA with a distance-transform
+overlay gated on max-deviation. Smoothing-before-simplify is the drift trap. Trace internal detail (struts/veins)
+from the SAME image (bright-pixel ridges → bezier-fit), never copy another creature's.** `tools/wingtrace.mjs`
+(outline+strut trace+QA) + `tools/conceptmatch.mjs` (the on-reference overlay/IoU gate) are the standing
+reference-fidelity harness; `crystalWing.wingOutline`+`wingStruts` is the screen-plane render target.
+**→ Leapfrog (innovate):** this closes the concept-image → faithful in-game wing loop (trace → QA-on-edge → render →
+overlay). Next: the same trace→arc→RDP→DT-QA generalises to tracing the BODY profile + tail + head outline from a
+concept; and an auto-tuner can nudge `wingOutlineScale`/wing-root placement to maximise `conceptmatch` IoU. The
+literal cel-shade + hard-outline ART STYLE remains a separate renderer module (toon ramp + inverted-hull outline).
