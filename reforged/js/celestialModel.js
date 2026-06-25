@@ -81,7 +81,7 @@ const dorsalZ = (u, Dr, Mu) => Dr * Math.pow(Math.cos(u * Math.PI / 2), 1.4) + M
 // paddle. Rings are matched between rows by centroid; an unmatched ring is a prong tip and gets capped.
 function loftBody(loop, { rings = 200, seg = 16, dDorsal = 0.95, dVentral = 0.82, material = matBody, sculpt = null } = {}) {
   let minY = 1, maxY = 0; for (const p of loop) { if (p[1] < minY) minY = p[1]; if (p[1] > maxY) maxY = p[1]; }
-  const rows = [], stations = [];
+  let rows = []; const stations = [];
   for (let i = 0; i <= rings; i++) {
     const yy = Math.min(maxY - 1e-5, Math.max(minY + 1e-5, minY + (maxY - minY) * (i / rings)));
     const xs = crossings(loop, yy);
@@ -93,11 +93,15 @@ function loftBody(loop, { rings = 200, seg = 16, dDorsal = 0.95, dVentral = 0.82
     if (sculpt) { st.dorsalC = sculpt.Dr(st.y) + sculpt.Mu(st.y) * 0.006; st.czC = sculpt.cz(st.y); st.hwB = st.hw * sculpt.wBoost(st.y); }
     stations.push(st);
   }
+  // SCULPTED body = a single tube: keep only the MOST-CENTRAL span per row (nearest the spine axis). Spurious
+  // off-centre spans from notches in the traced outline would otherwise loft into capped flat SLABS poking out
+  // the torso (the "square cross-sections"). Central (not widest) avoids picking a spurious wide spur at the neck.
+  if (sculpt) rows = rows.map(r => [r.reduce((a, s) => Math.abs(s.cx - D.mirror) < Math.abs(a.cx - D.mirror) ? s : a, r[0])]);
   // SMOOTH the per-row main-span half-width across rows — the traced silhouette has row-to-row width noise that
   // otherwise lofts into faint horizontal bands. Moving average (in place) on the widest span of each row.
   if (sculpt) {
     const main = rows.map(r => r.reduce((a, s) => s.hw > a.hw ? s : a, r[0]));
-    const sm = main.map((_, i) => { let a = 0, c = 0; for (let k = -3; k <= 3; k++) { const j = i + k; if (j >= 0 && j < main.length) { a += main[j].hw; c++; } } return a / c; });
+    const sm = main.map((_, i) => { let a = 0, c = 0; for (let k = -5; k <= 5; k++) { const j = i + k; if (j >= 0 && j < main.length) { a += main[j].hw; c++; } } return a / c; });
     main.forEach((s, i) => { s.hw = sm[i]; });
   }
   const pos = [], idx = [];
