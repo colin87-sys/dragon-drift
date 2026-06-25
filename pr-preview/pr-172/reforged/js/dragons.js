@@ -879,10 +879,17 @@ export const DRAGONS = {
     // +y up, origin at the wrist-side root. crystalWing renders it verbatim in the screen
     // plane (mirrored per side), so the membrane silhouette IS the reference wing.
     wingOutline: [[2.648, 3.367], [2.465, 3.279], [2.002, 2.956], [1.276, 1.966], [1.628, 2.714], [1.614, 2.729], [1.342, 2.318], [1.027, 1.731], [1.012, 1.841], [1.034, 2.002], [0.932, 1.702], [0.888, 1.394], [0.667, 0.924], [0.271, 0.22], [0.161, 0.081], [0.125, 0.088], [0, 0], [0.147, 0], [0.147, -0.176], [0.293, 0.081], [0.704, 0.594], [0.939, 1.438], [0.976, 1.46], [0.756, 0.557], [0.381, 0.125], [0.117, -0.308], [0.117, -0.33], [0.205, -0.198], [0.191, -0.411], [0.308, -0.917], [0.308, -0.741], [0.447, -0.455], [0.704, -0.125], [0.895, 0.007], [1.1, 0.059], [1.386, 0.015], [1.489, -0.051], [1.672, -0.301], [1.555, 0.015], [1.562, 0.095], [1.702, 0.623], [1.87, 0.998], [2.046, 1.166], [2.318, 1.306], [2.421, 1.335], [2.692, 1.247], [2.435, 1.438], [2.267, 1.878], [2.34, 2.318], [2.494, 2.663], [2.611, 2.809], [3, 2.993], [2.604, 2.985], [2.399, 3.015], [2.501, 3.205], [2.648, 3.359]],
-    // Bone struts DETECTED from the LINE-ART (wingtrace.mjs wrist-convergence): 6 thin
-    // 2-edge bones fanning from the WRIST (a point partway out the leading edge), each
-    // riding the actual drawn bone lines.
-    wingStruts: { wrist: [0.9, 1.138], tips: [[1.614, 2.729], [1.034, 2.002], [0.976, 1.46], [1.672, -0.301], [0.308, -0.917], [0.117, -0.33]] },
+    // Bone struts TRACED from the line-art's drawn bone lines (wingtrace.mjs: skeletonize
+    // the interior lines → follow each centerline). Each bone is a POLYLINE wrist→tip (the
+    // real path, not a straight assumption); the wrist is the skeleton convergence hub.
+    wingStruts: { wrist: [1.262, 1.335], bones: [
+      [[1.262, 1.335], [2.538, 2.861], [2.721, 2.949]],
+      [[1.262, 1.335], [0.807, 0.653], [0.858, 0.418], [0.88, 0.037]],
+      [[1.262, 1.335], [1.57, 1.914], [1.782, 1.878], [2.083, 1.936], [2.222, 1.892]],
+      [[1.262, 1.335], [2.208, 1.445], [2.384, 1.364]],
+      [[1.262, 1.335], [1.005, 1.394], [1.115, 0.697]],
+      [[1.262, 1.335], [0.983, 1.702], [0.983, 1.746]],
+    ] },
     forms: [
       // T0 Shardling — clean, narrow, modest swept wings, faint cyan spine.
       { wingForm: 0, tailStyle: 'spade', tailSegments: 6, ridgeCount: 8,
