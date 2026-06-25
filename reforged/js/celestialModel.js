@@ -406,8 +406,8 @@ export function buildCelestialStorm() {
     const sPos = [], sIdx = [];
     for (let i = 0; i < rows.length; i++) {
       const cy = Y[i], gap = Math.min(i ? cy - Y[i - 1] : 1, i < rows.length - 1 ? Y[i + 1] - cy : 1);
-      const ry = Math.min(0.62 * gap, 0.055), rx = Math.max(0.016, Math.min(0.5 * rows[i].w, 0.04));   // size from the row's cell; taper falls out of w
-      const cxAxis = D.mirror, crown = 0.02 + rx * 0.5;          // stand proud of the hull (plates raise 0.011) → reads as a ridge
+      const ry = Math.min(0.70 * gap, 0.060), rx = Math.max(0.007, Math.min(0.28 * rows[i].w, 0.016));   // SLIM laterally (≈⅓ the old width) + elongated → an armored spinous process, not a fat rhombus
+      const cxAxis = D.mirror, crown = 0.030 + rx * 0.6;          // stand proud + narrow → a serrated dorsal RIDGE (the bony spine), embellished by the matSpine glow
       // rim = the TRACED stencil diamond for this row (mapped proportionally along the artist's head→tail column),
       // unit half-extents scaled to this row's cell, centred on the spine axis
       const COL = (SPINE_DIAMONDS && SPINE_DIAMONDS.length) ? SPINE_DIAMONDS : [SPINE_DIAMOND];
