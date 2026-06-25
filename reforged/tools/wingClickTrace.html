@@ -1,0 +1,214 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Wing Click-Trace — bones + wrist → wingStruts</title>
+<style>
+  :root { color-scheme: dark; }
+  body { margin: 0; background: #0c0e14; color: #cdd6e4; font: 14px/1.5 system-ui, sans-serif; }
+  header { padding: 10px 14px; background: #11141d; border-bottom: 1px solid #222b3b; }
+  h1 { font-size: 15px; margin: 0 0 2px; }
+  .sub { color: #7e8aa3; font-size: 12px; }
+  .wrap { display: flex; gap: 14px; padding: 14px; align-items: flex-start; flex-wrap: wrap; }
+  .panel { background: #11141d; border: 1px solid #222b3b; border-radius: 8px; padding: 12px; }
+  canvas { background: #0a0c12; border: 1px solid #2a3550; border-radius: 6px; cursor: crosshair; touch-action: none; }
+  button { background: #1b2233; color: #cdd6e4; border: 1px solid #2f3b56; border-radius: 6px; padding: 7px 11px; margin: 0 6px 6px 0; cursor: pointer; font-size: 13px; }
+  button:hover { background: #243049; }
+  button.on { background: #2b6cff; border-color: #2b6cff; color: #fff; }
+  label { margin-right: 10px; }
+  textarea { width: 100%; min-height: 150px; background: #0a0c12; color: #9fe0ff; border: 1px solid #2a3550; border-radius: 6px; font: 12px/1.4 ui-monospace, monospace; padding: 8px; box-sizing: border-box; }
+  .row { margin: 8px 0; }
+  .k { color: #ff7be0; } .hint { color: #7e8aa3; font-size: 12px; }
+  .pill { display:inline-block; padding:1px 7px; border-radius: 10px; background:#1b2233; border:1px solid #2f3b56; margin-right:6px; font-size:12px; }
+</style>
+</head>
+<body>
+<header>
+  <h1>Wing Click-Trace</h1>
+  <div class="sub">Load a wing image → the outline auto-traces → set the WRIST, then click each BONE wrist→tip → Copy for Claude.</div>
+</header>
+
+<div class="wrap">
+  <div class="panel">
+    <div class="row">
+      <input type="file" id="file" accept="image/*" />
+      <label>Side:
+        <select id="side"><option value="left">left</option><option value="right">right</option></select>
+      </label>
+      <label>Outline detail (eps): <input id="eps" type="number" value="2.4" step="0.2" style="width:56px"></label>
+    </div>
+    <canvas id="cv" width="560" height="780"></canvas>
+    <div class="row">
+      <button id="mWrist">① Set wrist</button>
+      <button id="mBone">② New bone</button>
+      <button id="undo">Undo point</button>
+      <button id="finBone">Finish bone</button>
+      <button id="delBone">Delete last bone</button>
+      <button id="reset">Reset bones</button>
+    </div>
+    <div class="hint">
+      Flow: click <b>Set wrist</b> → click the wrist once. Then <b>New bone</b> → click along a bone from the wrist out to its tip (as many points as the curve needs) → <b>Finish bone</b>. Repeat per bone (6–7). Each bone auto-starts at the wrist.
+    </div>
+  </div>
+
+  <div class="panel" style="flex:1; min-width: 320px;">
+    <div class="row"><span class="pill" id="stat">no image</span><span class="pill" id="bcount">0 bones</span><span class="pill" id="mode">mode: —</span></div>
+    <div class="row"><button id="copy">Copy for Claude</button> <span class="hint">paste this back into the chat</span></div>
+    <textarea id="out" readonly placeholder="wingOutline + wingStruts will appear here"></textarea>
+    <div class="row hint">Frame: wing-local, +x outward, +y up, origin at the wing root; scale so span≈3 (matches the engine's crystalWing wingOutline/wingStruts).</div>
+  </div>
+</div>
+
+<script>
+const cv = document.getElementById('cv'), ctx = cv.getContext('2d');
+let img = null, W = 0, H = 0, data = null;          // source image pixels
+let view = { s: 1, ox: 0, oy: 0 };                   // image→canvas transform
+let outlineImg = [];                                 // traced outline (image px)
+let frame = null;                                    // { origin, scale, sgn, tipExtreme }
+let wrist = null;                                    // image px
+let bones = [];                                      // array of arrays of {x,y} image px
+let curBone = null;                                  // in-progress bone
+let mode = 'wrist';
+
+const $ = (id) => document.getElementById(id);
+function setMode(m) { mode = m; $('mWrist').classList.toggle('on', m==='wrist'); $('mBone').classList.toggle('on', m==='bone'); $('mode').textContent = 'mode: ' + m; }
+$('mWrist').onclick = () => setMode('wrist');
+$('mBone').onclick = () => { curBone = wrist ? [{...wrist}] : []; bones.push(curBone); setMode('bone'); redraw(); };
+$('finBone').onclick = () => { curBone = null; redraw(); };
+$('undo').onclick = () => { if (curBone && curBone.length > 1) curBone.pop(); else if (curBone) { bones.pop(); curBone = null; } redraw(); };
+$('delBone').onclick = () => { bones.pop(); curBone = null; redraw(); };
+$('reset').onclick = () => { bones = []; curBone = null; wrist = null; redraw(); };
+$('side').onchange = () => { if (img) processImage(); };
+$('eps').onchange = () => { if (img) processImage(); };
+
+$('file').onchange = (e) => {
+  const f = e.target.files[0]; if (!f) return;
+  const fr = new FileReader();
+  fr.onload = () => { const im = new Image(); im.onload = () => { img = im; loadPixels(); processImage(); }; im.src = fr.result; };
+  fr.readAsDataURL(f);
+};
+
+function loadPixels() {
+  W = img.naturalWidth; H = img.naturalHeight;
+  const oc = document.createElement('canvas'); oc.width = W; oc.height = H;
+  const octx = oc.getContext('2d'); octx.drawImage(img, 0, 0);
+  data = octx.getImageData(0, 0, W, H).data;
+  // fit into the canvas
+  const s = Math.min(cv.width / W, cv.height / H);
+  view = { s, ox: (cv.width - W * s) / 2, oy: (cv.height - H * s) / 2 };
+}
+const toCanvas = (p) => ({ x: p.x * view.s + view.ox, y: p.y * view.s + view.oy });
+const toImage = (cx, cy) => ({ x: (cx - view.ox) / view.s, y: (cy - view.oy) / view.s });
+
+// ---- auto outline (port of wingtrace: flood exterior for line-art, threshold else) ----
+function lum(i) { return 0.299*data[i*4] + 0.587*data[i*4+1] + 0.114*data[i*4+2]; }
+function processImage() {
+  const side = $('side').value;
+  // subject mask
+  const cor = [[1,1],[W-2,1],[1,H-2],[W-2,H-2]].map(([x,y]) => [data[(y*W+x)*4],data[(y*W+x)*4+1],data[(y*W+x)*4+2],data[(y*W+x)*4+3]]);
+  const hasAlpha = cor.some(c => c[3] < 32);
+  const bg = cor.reduce((a,c)=>[a[0]+c[0]/4,a[1]+c[1]/4,a[2]+c[2]/4],[0,0,0]);
+  const mask = new Uint8Array(W*H);
+  let subj = 0;
+  for (let i=0;i<W*H;i++){ const r=data[i*4],g=data[i*4+1],b=data[i*4+2],a=data[i*4+3];
+    let m; if (hasAlpha) m = a>64; else m = (Math.abs(r-bg[0])+Math.abs(g-bg[1])+Math.abs(b-bg[2])>60) || (Math.max(r,g,b)-Math.min(r,g,b)>24);
+    mask[i]=m?1:0; if(m) subj++; }
+  const lineart = !hasAlpha && subj/(W*H) < 0.16;
+  let full;
+  if (lineart) {
+    const ext = new Uint8Array(W*H); const st=[];
+    for (const s of [0, W-1, (H-1)*W, W*H-1]) if (lum(s)>200){ ext[s]=1; st.push(s); }
+    while(st.length){ const p=st.pop(), x=p%W, y=(p/W)|0;
+      for (const q of [x>0?p-1:-1,x<W-1?p+1:-1,y>0?p-W:-1,y<H-1?p+W:-1]) if(q>=0 && !ext[q] && lum(q)>200){ ext[q]=1; st.push(q);} }
+    const filled = new Uint8Array(W*H); for(let i=0;i<W*H;i++) filled[i]=ext[i]?0:1;
+    full = pickComponent(filled, side);
+  } else full = pickComponent(mask, side);
+  outlineImg = traceOutline(full);
+  computeFrame(side);
+  buildOutput();
+  redraw();
+}
+function pickComponent(m, side) {
+  const seen=new Uint8Array(W*H); let chosen=null, score=side==='right'?-1:1e18; const st=[];
+  for(let s0=0;s0<W*H;s0++){ if(!m[s0]||seen[s0])continue; st.length=0; st.push(s0); seen[s0]=1; const cell=[]; let sx=0,n=0;
+    while(st.length){const p=st.pop(); cell.push(p); n++; sx+=p%W; const x=p%W,y=(p/W)|0;
+      if(x>0&&m[p-1]&&!seen[p-1]){seen[p-1]=1;st.push(p-1);}
+      if(x<W-1&&m[p+1]&&!seen[p+1]){seen[p+1]=1;st.push(p+1);}
+      if(y>0&&m[p-W]&&!seen[p-W]){seen[p-W]=1;st.push(p-W);}
+      if(y<H-1&&m[p+W]&&!seen[p+W]){seen[p+W]=1;st.push(p+W);} }
+    if(n<400)continue; const cxc=sx/n; if(side==='right'?cxc>score:cxc<score){score=cxc; chosen=cell;} }
+  const out=new Uint8Array(W*H); if(chosen) for(const p of chosen) out[p]=1; return out;
+}
+function traceOutline(full) {
+  // Moore boundary trace + RDP simplify
+  const at=(x,y)=>(x<0||y<0||x>=W||y>=H)?0:full[y*W+x];
+  let sx=-1,sy=-1; outer: for(let y=0;y<H;y++)for(let x=0;x<W;x++) if(full[y*W+x]){sx=x;sy=y;break outer;}
+  if(sx<0) return [];
+  const nb=[[-1,0],[-1,-1],[0,-1],[1,-1],[1,0],[1,1],[0,1],[-1,1]];
+  const c=[]; let cx=sx,cy=sy,bx=sx-1,by=sy,it=0;
+  do{ c.push({x:cx,y:cy}); let start=0; for(let i=0;i<8;i++) if(nb[i][0]===bx-cx&&nb[i][1]===by-cy){start=i;break;}
+    let found=false; for(let k=1;k<=8;k++){const i=(start+k)%8,nx=cx+nb[i][0],ny=cy+nb[i][1]; if(at(nx,ny)){const pi=(start+k-1)%8; bx=cx+nb[pi][0]; by=cy+nb[pi][1]; cx=nx; cy=ny; found=true; break;}}
+    if(!found) break; } while((cx!==sx||cy!==sy) && ++it < W*H*8);
+  return rdp(c, parseFloat($('eps').value)||2.4);
+}
+function rdp(pts, eps) {
+  if (pts.length<3) return pts.slice();
+  const keep=new Uint8Array(pts.length); keep[0]=keep[pts.length-1]=1; const stack=[[0,pts.length-1]];
+  const d=(p,a,b)=>{const dx=b.x-a.x,dy=b.y-a.y,l2=dx*dx+dy*dy; if(!l2)return Math.hypot(p.x-a.x,p.y-a.y); let t=((p.x-a.x)*dx+(p.y-a.y)*dy)/l2; t=Math.max(0,Math.min(1,t)); return Math.hypot(p.x-(a.x+t*dx),p.y-(a.y+t*dy));};
+  while(stack.length){const [lo,hi]=stack.pop(); let md=-1,idx=-1; for(let i=lo+1;i<hi;i++){const dd=d(pts[i],pts[lo],pts[hi]); if(dd>md){md=dd;idx=i;}} if(md>eps&&idx>0){keep[idx]=1; stack.push([lo,idx],[idx,hi]);}}
+  const o=[]; for(let i=0;i<pts.length;i++) if(keep[i]) o.push(pts[i]); return o;
+}
+function computeFrame(side) {
+  if (!outlineImg.length) { frame=null; return; }
+  const sgn = side==='right'?-1:1;
+  let origin = outlineImg[0], tip = outlineImg[0];
+  for (const p of outlineImg) { if (side==='right' ? p.x<origin.x : p.x>origin.x) origin=p; if (side==='right' ? p.x>tip.x : p.x<tip.x) tip=p; }
+  // lower-inner attachment: among near-innermost, take the lower one
+  for (const p of outlineImg) if (Math.abs(p.x-origin.x)<12 && p.y>origin.y) origin=p;
+  const scale = Math.abs(origin.x - tip.x)/3 || 1;
+  frame = { origin:{x:origin.x,y:origin.y}, scale, sgn, tip };
+}
+function toLocal(p) { return [ +(((frame.origin.x-p.x)*frame.sgn)/frame.scale).toFixed(3), +(((frame.origin.y-p.y))/frame.scale).toFixed(3) ]; }
+
+cv.addEventListener('pointerdown', (e) => {
+  if (!img || !frame) return;
+  const r = cv.getBoundingClientRect();
+  const p = toImage(e.clientX - r.left, e.clientY - r.top);
+  if (mode === 'wrist') { wrist = p; setMode('bone'); }   // after wrist, ready to add bones
+  else if (mode === 'bone') { if (!curBone) { curBone = wrist ? [{...wrist}] : [p]; bones.push(curBone); } curBone.push(p); }
+  buildOutput(); redraw();
+});
+
+function buildOutput() {
+  if (!frame) { $('out').value=''; return; }
+  const outline = outlineImg.map(toLocal);
+  const ws = wrist ? { wrist: toLocal(wrist), bones: bones.filter(b=>b.length>=2).map(b=>b.map(toLocal)) } : null;
+  let s = 'wingOutline: ' + JSON.stringify(outline) + '\n';
+  if (ws) s += 'wingStruts: ' + JSON.stringify(ws);
+  $('out').value = s;
+  $('stat').textContent = img ? (W+'×'+H+($('side').value==='right'?' · right':' · left')) : 'no image';
+  $('bcount').textContent = bones.filter(b=>b.length>=2).length + ' bones';
+}
+$('copy').onclick = () => { $('out').select(); document.execCommand('copy'); };
+
+function redraw() {
+  ctx.clearRect(0,0,cv.width,cv.height);
+  if (img) ctx.drawImage(img, view.ox, view.oy, W*view.s, H*view.s);
+  // outline
+  if (outlineImg.length) {
+    ctx.strokeStyle = '#39e6a0'; ctx.lineWidth = 1.5; ctx.beginPath();
+    outlineImg.forEach((p,i)=>{ const c=toCanvas(p); i?ctx.lineTo(c.x,c.y):ctx.moveTo(c.x,c.y); }); ctx.closePath(); ctx.stroke();
+  }
+  // bones
+  ctx.lineWidth = 2;
+  for (const b of bones) { if (b.length<1) continue; ctx.strokeStyle = '#ff5ad0'; ctx.beginPath();
+    b.forEach((p,i)=>{ const c=toCanvas(p); i?ctx.lineTo(c.x,c.y):ctx.moveTo(c.x,c.y); }); ctx.stroke();
+    ctx.fillStyle='#ffd86a'; for(const p of b){ const c=toCanvas(p); ctx.beginPath(); ctx.arc(c.x,c.y,2.5,0,7); ctx.fill(); } }
+  // wrist
+  if (wrist) { const c=toCanvas(wrist); ctx.fillStyle='#ff7be0'; ctx.beginPath(); ctx.arc(c.x,c.y,6,0,7); ctx.fill(); ctx.strokeStyle='#fff'; ctx.stroke(); }
+}
+setMode('wrist');
+</script>
+</body>
+</html>
