@@ -120,7 +120,10 @@ function loftBody(loop, { rings = 200, seg = 16, dDorsal = 0.95, dVentral = 0.82
       // size — the neck then seats into it continuously instead of a thin tube on a wide flat shelf. Width (hw) is
       // left alone so the shoulders stay broad on the rear cam; only the fore-aft depth narrows into the socket.
       const dt = sculpt.neckTaper ? sculpt.neckTaper(sp.y, ss) : 1;
-      const ny = sp.y, hw = sp.hw * sculpt.wBoost(ny), cz = sculpt.cz(ny), Dr = sculpt.Dr(ny) * dt, Be = sculpt.Be(ny) * dt, Mu = sculpt.Mu(ny) * dt, Cr = (sculpt.Cr ? sculpt.Cr(ny) : 0) * dt;
+      // TAIL taper: thin the tail toward the clip so it reads as a long slender tail (the reference tail is ~⅓ the
+      // chest), not a thick stub the fat spear sat on. Only below the haunch (ny>0.65) so the "ok" body is untouched.
+      const tt = sp.y > 0.65 ? 1 - 0.70 * ss(0.65, 0.73, sp.y) : 1;
+      const ny = sp.y, hw = sp.hw * sculpt.wBoost(ny) * tt, cz = sculpt.cz(ny), Dr = sculpt.Dr(ny) * dt * tt, Be = sculpt.Be(ny) * dt * tt, Mu = sculpt.Mu(ny) * dt * tt, Cr = (sculpt.Cr ? sculpt.Cr(ny) : 0) * dt * tt;
       for (let s = 0; s < seg; s++) {
         const t = s / seg; let u, zl;
         if (t < 0.5) { u = -1 + 4 * t; zl = dorsalZ(u, Dr, Mu, Cr); }        // dorsal arc (the camera-facing back)
@@ -267,9 +270,12 @@ export function buildCelestialStorm() {
   // off the body as a separate floating piece). matBody continues the cosmic gradient — the low-y tip goes magenta
   // on its own, so the spear stays one continuous form with the body, not a tacked-on violet blade.
   {
-    const tip = 0.975, mid = (TAIL_BODY_CLIP + tip) / 2;
-    const spine = [[D.mirror, TAIL_BODY_CLIP - 0.015], [D.mirror, mid], [D.mirror, tip]];   // start just inside the body end → tip
-    const tail = taperedTube(spine, [0.072, 0.030, 0.004], () => 0, matBody, 12);           // base ≈ body half-width at the clip → sharp point
+    // sized to the reference tail proportions (measured on side-a): a SLENDER shaft (~⅓ the old radius, matching the
+    // now-thinned body end) with a small BARB bulge, tapering to a sharp point — not the fat cone that was ~15% of
+    // body length (the ref barb is ~6%). 4 stations: shaft → narrow → barb → point.
+    const tip = 0.975;
+    const spine = [[D.mirror, TAIL_BODY_CLIP - 0.015], [D.mirror, 0.80], [D.mirror, 0.84], [D.mirror, tip]];
+    const tail = taperedTube(spine, [0.022, 0.012, 0.026, 0.003], () => 0, matBody, 12);   // shaft 0.022, pinch 0.012, barb 0.026, point
     if (tail) spearGrp.add(tail);
   }
 
