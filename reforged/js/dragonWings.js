@@ -707,25 +707,34 @@ function buildCrystalWings(def, model, attach, giM) {
       dih.add(new THREE.Mesh(outlineGeo(), wingMat));
       let far = outline[0]; for (const p of outline) if (p[0] > far[0]) far = p;
       const strutMat = model.wingVeins ? veinMat : armMat;
-      if (def.wingStruts && def.wingStruts.wrist) {
-        // BONE STRUTS detected from THIS wing (tools/wingtrace.mjs): a wrist-fan of
-        // thin 2-EDGE bones — a tapered flat quad per finger from the WRIST (a point
-        // partway out the leading edge, NOT the body root) to each finger tip.
-        const W = def.wingStruts.wrist;
-        // a leading-edge arm bone from the body root out to the wrist (anchors the hand)
-        const flatBone = (ax, ay, bx, by, wAh, wBh) => {
-          const dx = bx - ax, dy = by - ay, L = Math.hypot(dx, dy) || 1, nx = -dy / L, ny = dx / L;
-          const v = [ax + nx * wAh, ay + ny * wAh, 0.05, ax - nx * wAh, ay - ny * wAh, 0.05,
-                     bx - nx * wBh, by - ny * wBh, 0.05, bx + nx * wBh, by + ny * wBh, 0.05];
-          const g = new THREE.BufferGeometry();
-          g.setAttribute('position', new THREE.Float32BufferAttribute(v, 3));
-          g.setIndex([0, 1, 2, 0, 2, 3]); g.computeVertexNormals();
-          return new THREE.Mesh(g, strutMat);
-        };
-        dih.add(flatBone(0, 0, W[0] * outScale, W[1] * outScale, 0.07 * ws, 0.05 * ws));   // arm → wrist
-        for (const tp of def.wingStruts.tips) {                                            // wrist → each finger tip
-          dih.add(flatBone(W[0] * outScale, W[1] * outScale, tp[0] * outScale, tp[1] * outScale, 0.045 * ws, 0.012 * ws));
+      const flatBone = (ax, ay, bx, by, wAh, wBh) => {            // a tapered 2-edge bone segment
+        const dx = bx - ax, dy = by - ay, L = Math.hypot(dx, dy) || 1, nx = -dy / L, ny = dx / L;
+        const v = [ax + nx * wAh, ay + ny * wAh, 0.05, ax - nx * wAh, ay - ny * wAh, 0.05,
+                   bx - nx * wBh, by - ny * wBh, 0.05, bx + nx * wBh, by + ny * wBh, 0.05];
+        const g = new THREE.BufferGeometry();
+        g.setAttribute('position', new THREE.Float32BufferAttribute(v, 3));
+        g.setIndex([0, 1, 2, 0, 2, 3]); g.computeVertexNormals();
+        return new THREE.Mesh(g, strutMat);
+      };
+      if (def.wingStruts && def.wingStruts.bones) {
+        // BONE STRUTS traced from THIS wing's drawn lines (tools/wingtrace.mjs skeleton
+        // centerlines): each is a POLYLINE wrist→tip (the real, possibly-curved path);
+        // render it as a tapered 2-edge ribbon (thin to the tip).
+        for (const poly of def.wingStruts.bones) {
+          if (poly.length < 2) continue;
+          let tot = 0; const segL = [];
+          for (let i = 1; i < poly.length; i++) { const l = Math.hypot(poly[i][0] - poly[i - 1][0], poly[i][1] - poly[i - 1][1]); segL.push(l); tot += l; }
+          tot = tot || 1; let acc = 0;
+          const wAt = (f) => (0.06 * (1 - f) + 0.012) * ws;       // wrist-wide → tip-thin
+          for (let i = 1; i < poly.length; i++) {
+            const a = poly[i - 1], b = poly[i], wa = wAt(acc / tot); acc += segL[i - 1]; const wb = wAt(acc / tot);
+            dih.add(flatBone(a[0] * outScale, a[1] * outScale, b[0] * outScale, b[1] * outScale, wa, wb));
+          }
         }
+      } else if (def.wingStruts && def.wingStruts.wrist) {
+        const W = def.wingStruts.wrist;
+        dih.add(flatBone(0, 0, W[0] * outScale, W[1] * outScale, 0.07 * ws, 0.05 * ws));
+        for (const tp of def.wingStruts.tips) dih.add(flatBone(W[0] * outScale, W[1] * outScale, tp[0] * outScale, tp[1] * outScale, 0.045 * ws, 0.012 * ws));
       } else {
         const { tips } = outlineFingers();
         dih.add(bone(0, 0, 0.03, far[0] * outScale, far[1] * outScale, 0.03, 0.05 * ws, 0.015 * ws, armMat));

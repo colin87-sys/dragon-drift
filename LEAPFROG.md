@@ -3160,3 +3160,27 @@ invent it.**
 (wrist-convergence) from a concept, QA-overlaid + correctable — the faithful concept→wing pipeline. Same convergence
 detector can find a body's spine origin or a tail's fin roots from a concept. Remaining: a small manual-correct CLI
 flag to nudge the wrist/tips, and the cel-shade/outline render module (still separate).
+
+---
+
+## Lesson — To trace internal lines (bones), SKELETONIZE and follow the centerlines — don't assume straight wrist→tip. (Caught assuming again.)
+
+**Did / learned:** the wing OUTLINE trace was right, but for the bone struts I had detected a wrist by convergence
+and drawn STRAIGHT wrist→tip lines — I never traced the actual drawn bones. The human caught it (wrist slightly
+off + "you didn't trace the bones, you assumed straight"). Fixed `tools/wingtrace.mjs`: **(1)** isolate the
+interior bone pixels (dark/solid lines INSIDE the wing, dropped the outer-edge band via the edge distance-
+transform `dt>4`); **(2)** **Zhang–Suen thin** them to a 1-px skeleton (bounded to the wing bbox); **(3)** trace
+each skeleton ENDPOINT inward along the centerline until a junction → each branch IS a bone's real (curved) path;
+**(4)** the **wrist = the skeleton junction that best centers the fan** (min total distance to the bone tips) —
+derived, not assumed, and it moved onto the true convergence hub (the human's "too far right" fixed). Emits
+`wingStruts = { wrist, bones:[polyline…] }`; the overlay draws the skeleton + traced bone polylines + wrist for
+eyeball QA. `crystalWing` renders each bone polyline as a **tapered 2-edge ribbon** (thin to the tip) following
+the real path. Also added a LINE-ART input mode (flood the white exterior → filled wing for the outline; dark
+interior lines = the bones) since the human supplied a clean line-art that traces far better than the soft render.
+Verified on the line-art overlay (bones ride the drawn lines, wrist on the hub); prism 2280–2663 tris, budget OK,
+parametric/blueprint/defs/flapcheck/skinnedwing green, roster byte-identical.
+**→ Systematize:** **to extract drawn internal structure (bones/veins/ribs), SKELETONIZE the line pixels and
+follow the centerlines — never approximate them with straight segments from an assumed origin.** Derive the hub
+from where the skeleton converges (min-distance-to-tips junction), not a search-fit. For line-art sources, flood
+the exterior to get the filled shape (outline) and use the dark interior strokes (bones) — both QA-overlaid.
+The thrice-earned rule: **trace it from the source; don't invent it.**
