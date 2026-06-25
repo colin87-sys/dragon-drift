@@ -206,6 +206,7 @@ export function createDragon(scene, def, riderDef) {
     wrap.scale.setScalar(s);
     group.add(wrap);
     celestialModel = cel;
+    if (typeof window !== 'undefined') window.__celestial = cel;   // debug: lets headless tests confirm in-game body-life articulates
     console.log(`[celestial-preview] overlaid; fit scale ${s.toFixed(3)} (real ${nsz.y.toFixed(2)} / model ${csz.y.toFixed(2)})`);
   }
 
