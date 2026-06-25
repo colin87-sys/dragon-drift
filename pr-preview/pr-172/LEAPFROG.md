@@ -3032,3 +3032,36 @@ sway/bank vocabulary) still needs a NEW MODULE, which the AI flags via `MODEL-CR
 Next, in the same pattern: a `parametricHorned` head (snout/jaw/horn-rake knobs, so the head reshapes with the
 body), parametrize the remaining tail styles, and wire `blueprintBuild` + `silhouette-overlay` into a
 measure→fix loop (IoU plateau = add a knob).
+
+---
+
+## Lesson — Proved the shape system on a REAR-CAMERA CONCEPT (Prism Wyvern) from named anchors; honest module-walls found: membrane-plane orientation + toon/outline.
+
+**Did / learned:** the human gave a rear-chase-cam concept (Celestial Storm / Prism Wyvern — sleek body,
+huge swept crystalline scalloped bat wings, cyan/magenta veins, spear tail, small horned head) + a normalized
+ANCHOR spec (wing root/elbow/wrist/tip + 4 trailing scallops; body spline points; spine plates; spear tail) and
+asked: prove the system is customizable, or build the modules. Built **`prism` (Prism Wyvern)** ENTIRELY on the
+shape-from-data layer, NO new model code: own sleek `profileStations`, wings DERIVED from the anchor rig via the
+existing `tools/tracerCore.mjs#deriveWingForm` (leading-edge bone + scallop trailing edge → a `wingFormKnobs`
+planform on the folding `skinnedMembrane` — a real scalloped membrane, NOT a triangle wing), cyan dorsal spine
+(spineGlow/glowSeams/ridge layers), blade→spear tail (`tailKnobs.bladeLength 2.0`), small horned head, dark
+blue-violet body + cyan/magenta emissive. Headless `silhouette.mjs rear`/`climb` confirm the read: huge upswept
+wings + narrow body + spear tail + small horned head = the concept's GESTURE. 4 forms 3244–3627 tris (≤6000);
+roster byte-identical; key suites green. The whole thing is DATA in `dragons.js`.
+**→ Systematize:** the reference→creature pipeline now works end-to-end as DATA — **anchor rig →
+`deriveWingForm` → `wingFormKnobs`; concept body → `profileStations`; mounts auto-derive.** A rear concept becomes
+a creature by tracing anchors, not editing builders.
+**→ The HONEST module-walls (don't oversell — these are real, both surfaced by this concept):**
+**(1) Membrane-plane orientation.** The engine's membrane lays in the span×CHORD plane and presents vertically via
+the `arc` lift — great for a behind-AND-above chase cam (the `climb` view fills out broadly), but from PURE rear it
+reads thinner than the concept's flat heraldic membrane, and the trailing SCALLOPS live in depth (z) so they don't
+show in flat-rear. A faithful flat-facing scalloped wing wants a wing-PLANE knob (lay the membrane in span×vertical,
+scallops in the screen plane) — a small `dragonWings` variant, NOT yet built. Pushed the `arc` hard as the
+approximation (steep upsweep → surface faces the above-behind cam).
+**(2) Toon/outline rendering.** The concept's "cel-shaded bands + hard dark outline" is a different RENDERER than
+the game's PBR (`MeshStandardMaterial` + fresnel-rim + emissive). Matching the SHAPE + cyan/magenta emissive veins
++ dark-violet membrane is in-kit; a true toon ramp + inverted-hull/edge outline is a new opt-in module with
+roster-wide + mobile-perf implications — acknowledged, not jammed into the shared renderer this pass.
+**→ Leapfrog (innovate):** next, if the human wants the EXACT concept read: add a `wingPlane:'vertical'` knob to
+the membrane builder (scallops in-plane for flat-facing wings) and a per-dragon opt-in `toonOutline` material
+module (MeshToon ramp + cheap inverted-hull outline, detail-gated), proven on `prism` first, roster untouched.
