@@ -369,6 +369,7 @@ export function buildCelestialStorm() {
   {
     const z = headDir.clone(), x = new THREE.Vector3(0, 0, 1).cross(z).normalize(), y = z.clone().cross(x).normalize();
     const m = new THREE.Matrix4().makeBasis(x, y, z); headGrp.quaternion.setFromRotationMatrix(m); headGrp.position.copy(N3);
+    headGrp.scale.setScalar(0.66);   // the head read ~1.6× too large vs the reference (head-bulk 22% of body length vs the ref's ~14%); scale the whole head (skull+horns+eyes) down about its nape attachment to match
   }
 
   // PLATES — raised armour SCALES (centroid-fan domes seated on the hull) + glowing seams between them
