@@ -23,7 +23,7 @@
 </head>
 <body>
 <header>
-  <h1>Wing Click-Trace — pick the bones <span style="background:#2b6cff;color:#fff;border-radius:4px;padding:1px 7px;font-size:11px;vertical-align:middle">v4 · flood-cell bone select</span></h1>
+  <h1>Wing Click-Trace — pick the bones <span style="background:#2b6cff;color:#fff;border-radius:4px;padding:1px 7px;font-size:11px;vertical-align:middle">v5 · full-ink trace + flood</span></h1>
   <div class="sub">Load the wing image → it pre-traces ALL interior lines → click a line to mark it a BONE (click again to unmark). Set the wrist if the auto one is off → Copy for Claude. <b>If you don't see the blue “v2” badge above and the ＋/－ buttons below the canvas, you have an old cached copy — re-download this file.</b></div>
 </header>
 
@@ -125,17 +125,13 @@ function computeFrame(side){ if(!outlineImg.length){frame=null;return;} const sg
   for(const p of outlineImg) if(Math.abs(p.x-o.x)<12&&p.y>o.y)o=p; const scale=Math.abs(o.x-tip.x)/3||1; frame={origin:{x:o.x,y:o.y},scale,sgn}; }
 const toLocal=(p)=>[ +(((frame.origin.x-p.x)*frame.sgn)/frame.scale).toFixed(3), +(((frame.origin.y-p.y))/frame.scale).toFixed(3) ];
 
-// ---- extract ALL interior lines: erode the fill (drop the outline band), threshold dark/solid, thin, split into branches ----
+// ---- extract EVERY drawn line on the stencil: take the raw ink (no erosion — erosion erased
+// thin bones), thin it to centerlines, build a graph, stitch fragments into whole strokes. ----
 function extractLines(full, lineart){
-  // eroded fill (≈3px) so the outer outline isn't counted as a bone
-  let er=Uint8Array.from(full);
-  for(let pass=0;pass<3;pass++){ const nx=Uint8Array.from(er);
-    for(let y=bbox.y0;y<=bbox.y1;y++)for(let x=bbox.x0;x<=bbox.x1;x++){ const i=y*W+x; if(!er[i])continue;
-      if(!er[i-1]||!er[i+1]||!er[i-W]||!er[i+W]) nx[i]=0; } er=nx; }
-  const boneInt=new Uint8Array(W*H);
-  for(let y=bbox.y0;y<=bbox.y1;y++)for(let x=bbox.x0;x<=bbox.x1;x++){ const i=y*W+x; if(!er[i])continue;
-    const dark = lineart ? lum(i)<120 : lum(i)>110; if(dark) boneInt[i]=1; }
-  const skel=thin(boneInt);
+  const ink=new Uint8Array(W*H);
+  for(let y=bbox.y0;y<=bbox.y1;y++)for(let x=bbox.x0;x<=bbox.x1;x++){ const i=y*W+x; if(!full[i])continue;
+    const isL = lineart ? lum(i)<120 : lum(i)>110; if(isL) ink[i]=1; }
+  const skel=thin(ink);
   // graph
   const skset=skel;
   const nbrs=(i)=>{const x=i%W,y=(i/W)|0,r=[]; for(let dy=-1;dy<=1;dy++)for(let dx=-1;dx<=1;dx++){if(!dx&&!dy)continue; const nx2=x+dx,ny=y+dy; if(nx2>=0&&ny>=0&&nx2<W&&ny<H&&skset[ny*W+nx2])r.push(ny*W+nx2);} return r;};
@@ -154,19 +150,20 @@ function extractLines(full, lineart){
   // STITCH edges into whole strokes through junctions (continue along the most-collinear edge)
   const minLen=parseFloat($('minlen').value)||14;
   lines = stitchStrokes(edges).map(s=>rdp(s,2)).filter(s=>polyLen(s)>=minLen);
-  buildWalls(lines);   // interior strokes become flood walls (membrane cells are bounded by bones)
-  // ALSO add the wing OUTLINE itself as selectable candidates: some bones run along the
-  // membrane trailing edge, so split the contour at its corners (tips/notches) and offer
-  // each edge-run as a clickable line (densified so mid-edge clicks land).
-  for(const s of splitOutlineStrokes(outlineImg, minLen)) lines.push(densify(s,3));
+  // the outline ink is in the skeleton too (broken into arcs where bones join it), so the
+  // trailing-edge bones are already covered — no separate outline append (would duplicate).
+  buildWalls(full, lineart);   // walls = the RAW INK (bones + outline), so membrane cells are truly closed
   fullMask=full; wingArea=0; for(let i=0;i<W*H;i++) if(full[i]) wingArea++;
   resetFlood();
 }
-// rasterize interior strokes into a 3px-thick wall mask (flood is bounded by these + the wing edge)
-function buildWalls(strokes){ wallMask=new Uint8Array(W*H);
-  const plot=(x,y)=>{ for(let dy=-1;dy<=1;dy++)for(let dx=-1;dx<=1;dx++){const X=x+dx,Y=y+dy; if(X>=0&&Y>=0&&X<W&&Y<H) wallMask[Y*W+X]=1;} };
-  for(const L of strokes) for(let k=1;k<L.length;k++){ const a=L[k-1],b=L[k]; const n=Math.max(1,Math.ceil(Math.hypot(b.x-a.x,b.y-a.y)));
-    for(let s=0;s<=n;s++){ const t=s/n; plot(Math.round(a.x+(b.x-a.x)*t), Math.round(a.y+(b.y-a.y)*t)); } } }
+// Walls = the actual drawn ink (dark lines in line-art / bright lines in render), dilated.
+// Centerlines have gaps at tips; the raw ink is continuous, so cells between bones close properly.
+function buildWalls(full, lineart){ const ink=new Uint8Array(W*H);
+  for(let y=bbox.y0;y<=bbox.y1;y++)for(let x=bbox.x0;x<=bbox.x1;x++){ const i=y*W+x; if(!full[i])continue;
+    const isL = lineart ? lum(i)<120 : lum(i)>110; if(isL) ink[i]=1; }
+  wallMask=new Uint8Array(W*H);
+  for(let y=bbox.y0;y<=bbox.y1;y++)for(let x=bbox.x0;x<=bbox.x1;x++){ if(!ink[y*W+x])continue;
+    for(let dy=-1;dy<=1;dy++)for(let dx=-1;dx<=1;dx++){const X=x+dx,Y=y+dy; if(X>=0&&Y>=0&&X<W&&Y<H) wallMask[Y*W+X]=1;} } }
 // Click a membrane cell → flood it → select every line that borders the cell (those are bones).
 function floodCell(p){ if(!fullMask||!wallMask) return;
   let sx=Math.round(p.x), sy=Math.round(p.y); if(sx<0||sy<0||sx>=W||sy>=H) return; let start=sy*W+sx;
