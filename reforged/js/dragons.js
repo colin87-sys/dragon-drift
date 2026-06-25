@@ -834,6 +834,14 @@ export const DRAGONS = {
       scale: 1.12, wingScale: 1.18,
       bodyRoughness: 0.62, bodyMetalness: 0.12, rimBodyMul: 1.1,
       flapBias: 0.92, flapAmp: 0.88,   // broad, powerful, regal western-dragon beat
+      // 3-segment ARTICULATED wing (shoulder→elbow→wrist): per-segment amplitude +
+      // LAG make a travelling fold, not one rigid hinge; a glide-hold beat (glidePow)
+      // with rare heavy pulses; a held apex V (restLift = rest dihedral, apex* lift
+      // the tips highest at the top of the stroke).
+      wingParts: true, glidePow: 1.25,
+      rootAmp: 0.55, midAmp: 0.44, tipAmp: 0.36, midLag: 0.6, tipLag: 1.15,
+      restLift: 0.5, apexRoot: 0.16, apexMid: 0.3, apexTip: 0.46, apexPitch: 0.12,
+      bodyBobScale: 1.25,   // a touch more neck bob/breathe so the body reads alive
     },
     // Four forms of one growing monarch — charcoal ember whelp → molten-crowned
     // king. bodyScale/wingSpan author an explicit growth curve (Radiant = 1.0);

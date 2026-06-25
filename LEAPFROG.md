@@ -3028,3 +3028,42 @@ the contrail marker); a future pass can split inner/outer at the wrist for a 2-s
 builder's seam trick). **→ Leapfrog:** judge molten/Surge on the preview, then (if liked) split the wrist and
 consider promoting `loftHull`'s vertex belly-gradient into a shared helper — every organic body wants a
 back→belly two-tone and it's currently inline.
+
+---
+
+### L90 — Flame Monarch feedback pass: "1 flap" → 3-segment articulated wing; "stiff body" → driven neck chain
+Human on the preview: the wing was "literally just 1 flapping movement up and down" (it was — single membrane
+panel on the pivot, `wingTip` carried only the marker, so only the root hinge moved) and "the body seems
+lifeless and stiff". Also: "they should be legless or they look weird" (the tucked legs read wrong under the
+racing body — removed; it's a sleek wyvern now). Two real motion wins, both by plugging into rig systems that
+already exist rather than inventing animation:
+
+- **3-SEGMENT ARTICULATED WING = `model.wingParts` + a NESTED pivot→wingMid→wingTip chain.** The gameplay rig
+  (`dragon.js` ~593, gated by `model.wingParts`) drives a root→mid→tip cascade with per-segment **lag**
+  (`midLag`/`tipLag`), per-segment amplitude (`rootAmp`/`midAmp`/`tipAmp`), a glide-hold beat (`glidePow` — high
+  = rare heavy pulses), and a **held apex V** (`restLift` = rest dihedral, `apexRoot/Mid/Tip` lift the tips
+  highest at the top of the stroke, `apexPitch`). So the builder must split the membrane into THREE panels, each
+  built in its JOINT-LOCAL frame and parented pivot→wingMid→wingTip, so a joint rotation folds everything
+  outboard of it (a travelling fold, not a rigid hinge). This made `restLift` (a rig dial) the rest-V — DELETE
+  the hand-baked `inner`-group dihedral from the first pass; it's redundant and the rig owns the pose anyway.
+- **`wingParts` wings = LEFT is a `scale.x=-1` MIRROR CLONE of the right master** (NOT side-mirrored geometry +
+  opposite-sign rotations like the simple 2-bone path). Tag each joint `userData.wingRole='pivot'|'mid'|'tip'|
+  'marker'`, build the right, `right.clone(true)` under a `scale.x=-1` wrapper, then `traverse` the clone by role
+  to expose `wingMidL/wingTipL/...`. The rig applies the SAME pose to both; the wrapper flips the left.
+  (Pattern copied verbatim from `dragonFaceted.js`'s `svjJetWing`.)
+- **ALIVE BODY = a driven `spineSegs` neck CHAIN + the head riding its tip.** The rig has a role animator
+  (`dragon.js` ~691, `if (spineSegs.length)`) that bobs + **BREATHES** (`Math.sin(time*…)` — continuous, even
+  gliding) bones tagged `userData.role='neck'`, composes `'head'`, lifts `'hip'`. Built the neck as a PARENTED
+  group chain (local offsets summing to `headBase`), tagged the bones, returned it as `torsoResult.spineSegs`.
+  Two MINIMAL additive `dragonModel.js` hooks made it work roster-safe: (1) source spineSegs from the torso too
+  (`wingsResult.parts.spineSegs || torsoResult.spineSegs`); (2) if `attach.headMount` is set (the neck-chain tip,
+  positioned at `headBase` at rest), parent the head there instead of `group.add` at a fixed anchor — so the head
+  RIDES the living neck and never detaches. Also set a tiny `userData.whip` on the neck bones so the SHOP preview
+  (which uses the whip path, not the role logic) gets gentle life too. Both hooks are nullable → every other
+  dragon byte-identical (verified: nightfury/hull/organism/ascension/modeldetail/sweptail/shingle all PASS).
+
+**Reusable takeaways.** (1) When motion feels mechanical, the fix is usually an EXISTING rig path you're not
+opting into (`wingParts`, the `spineSegs` role animator) — grep the rig for the dials before hand-rolling. (2) A
+bespoke part can ride shared body animation by returning the right handle (`spineSegs`) + one nullable attach
+hook (`headMount`); you don't need the whole creature on the unified hull to get a living neck. (3) Triangle-fan
+panels per joint are CHEAPER than one earcut sheet (2090→1814 tris) AND they articulate — win/win.
