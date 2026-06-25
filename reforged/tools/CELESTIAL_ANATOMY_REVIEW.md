@@ -3,6 +3,13 @@
 **Date:** 2026-06-25 · **Scope:** review-only (no geometry changed beyond the `cz=0` concavity fix).
 **Body type judged:** legless winged flyer (wyvern/serpentine), seen from the rear chase-cam.
 **Render:** `tools/_montage.mjs` (7 body-only views, head/wings hidden) → `anatomy-montage.png`.
+
+**Update 2026-06-25 (depth + neck socket pass):** the dorsal sculpt was slimmed (`Dr` main .110→.070, `Cr`
+halved, `Mu` .095→.070) — depth/length dropped from ~0.40 to ~0.26 to match the side reference (the back was too
+deep dorso-centrally). The body now clips flat at the shoulders into a **socket**; a `neckTaper(ny)` shrinks the
+opening's depth to neck size and the neck seats into its CENTRE with an ELLIPTICAL base (wide+shallow → round
+nape), so the torso→neck join is continuous (no 45° dorsal spur, no flat shelf). Amplitude numbers in the table
+below predate this slim — the *ratios/PASS verdicts still hold*, the absolute depths are ~35% lower.
 **Required check angles (added 2026-06-25):** rear, rear-high, ¾, side **AND the two AXIAL views** — camera
 yaw 0 at pitch **+1.28** (looking down the spine) and **−1.28** (looking up the belly). The axial-down view
 is the only one that exposes a *transverse* groove down the centerline; judging convexity on the rear cam

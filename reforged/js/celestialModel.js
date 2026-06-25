@@ -67,12 +67,13 @@ const gauss = (x, c, s) => Math.exp(-(((x - c) / s) ** 2));
 const BODY_SCULPT = {
   // broader, overlapping gaussians → the torso stays SUBSTANTIAL from shoulders through the lower body (no razor
   // waist), tapering only near the tail clip. Deep chest, full haunch.
-  Dr: (ny) => 0.050 + 0.110 * gauss(ny, 0.33, 0.16) + 0.065 * gauss(ny, 0.60, 0.13),   // dorsal depth
+  Dr: (ny) => 0.050 + 0.070 * gauss(ny, 0.33, 0.16) + 0.050 * gauss(ny, 0.60, 0.13),   // dorsal depth — slimmed (was 0.110/0.065): the back was too deep dorso-centrally vs the side reference
   Be: (ny) => 0.030 + 0.120 * gauss(ny, 0.32, 0.085) + 0.060 * gauss(ny, 0.62, 0.10),  // deep CHEST -> tucked ABDOMEN (the gap) -> rounded HIPS
-  Mu: (ny) => 0.095 * gauss(ny, 0.26, 0.095) + 0.040 * gauss(ny, 0.60, 0.11),          // back-muscle humps (stronger)
-  Cr: (ny) => 0.065 * gauss(ny, 0.25, 0.10) + 0.022 * gauss(ny, 0.60, 0.11),            // central spine CREST — the paired humps out-rise the cos() ridge at the withers (and faintly at the hips), carving a groove DOWN the spine (visible looking down the axis); this crest keeps the centerline the apex (convex across) at both muscle bands, ~0 across the mid-back where the ridge already wins
+  Mu: (ny) => 0.070 * gauss(ny, 0.26, 0.095) + 0.032 * gauss(ny, 0.60, 0.11),          // back-muscle humps (trimmed with the slimmer ridge so they flank, not trough, the spine)
+  Cr: (ny) => 0.034 * gauss(ny, 0.25, 0.10) + 0.012 * gauss(ny, 0.60, 0.11),            // central spine CREST — keeps the centerline the apex over the (now smaller) muscle bands so no groove down the spine
   wBoost: (ny) => 1 + 0.35 * gauss(ny, 0.25, 0.09),                                     // deltoid breadth (rear width stays our trace; fullness is depth)
   cz: (ny) => 0,   // centerline straight for now — the old neck-forward lift dipped the upper back into a concavity; a real neck bend comes with the head
+  neckTaper: (ny, ss) => 0.4 + 0.6 * ss(0.235, 0.30, ny),   // depth shrinks to 40% at the top clip → a neck-sized socket the neck seats into (full chest depth resumes by ny 0.30)
 };
 // keeled muscled dorsal profile at lateral u∈[−1,1] (z toward camera): central spine ridge + paired muscle humps + a
 // narrow crest at u=0 (Cr) so the centerline stays the apex — without it the humps trough the spine at the withers.
@@ -110,10 +111,15 @@ function loftBody(loop, { rings = 200, seg = 16, dDorsal = 0.95, dVentral = 0.82
   // CROSS-SECTION. Default: egg (dorsal depth ∝ width). With `sculpt`: a keeled MUSCLED creature section —
   // authored dorsal/belly depth, a central spine ridge + paired back-muscle humps, shoulder breadth, and a
   // centerline lift (cz) so the back arches and the head juts toward the camera. The reference's back, not a tube.
+  const ss = (a, b, x) => { const t = Math.max(0, Math.min(1, (x - a) / (b - a))); return t * t * (3 - 2 * t); };
   const ring = (sp) => {
     const base = pos.length / 3;
     if (sculpt) {
-      const ny = sp.y, hw = sp.hw * sculpt.wBoost(ny), cz = sculpt.cz(ny), Dr = sculpt.Dr(ny), Be = sculpt.Be(ny), Mu = sculpt.Mu(ny), Cr = sculpt.Cr ? sculpt.Cr(ny) : 0;
+      // taper the DORSO-VENTRAL DEPTH toward the top clip (the neck socket) so the flat-top opening shrinks to ~neck
+      // size — the neck then seats into it continuously instead of a thin tube on a wide flat shelf. Width (hw) is
+      // left alone so the shoulders stay broad on the rear cam; only the fore-aft depth narrows into the socket.
+      const dt = sculpt.neckTaper ? sculpt.neckTaper(sp.y, ss) : 1;
+      const ny = sp.y, hw = sp.hw * sculpt.wBoost(ny), cz = sculpt.cz(ny), Dr = sculpt.Dr(ny) * dt, Be = sculpt.Be(ny) * dt, Mu = sculpt.Mu(ny) * dt, Cr = (sculpt.Cr ? sculpt.Cr(ny) : 0) * dt;
       for (let s = 0; s < seg; s++) {
         const t = s / seg; let u, zl;
         if (t < 0.5) { u = -1 + 4 * t; zl = dorsalZ(u, Dr, Mu, Cr); }        // dorsal arc (the camera-facing back)
@@ -268,24 +274,33 @@ export function buildCelestialStorm() {
   // a sleek elongated skull (tall cranium → tapering snout, brow ridges over glowing eyes, back-swept horns,
   // a faint spiny topline continuing the spine). Built in world space (the neck leaves the canvas plane).
 
-  // world-space tapered tube along a centerline (radii interpolated head→tail), for the neck
-  function worldTube(pts, radii, material, seg = 16) {
-    const curve = new THREE.CatmullRomCurve3(pts, false, 'centripetal'), steps = 48;
-    const fr = curve.computeFrenetFrames(steps, false), pos = [], idx = [];
+  // world-space tapered tube along a SAGITTAL-PLANE centerline (all pts have x=0). Cross-sections are ELLIPSES with
+  // independent half-WIDTH (lateral, ±x) and half-DEPTH (in-plane, ⟂ tangent within the y–z plane) per ring, so the
+  // base can be wide+shallow to seat flush into the torso's socket then round off up the nape. Analytic framing
+  // (lateral always = ±x) avoids Frenet twist. `sections` = [[halfW, halfD], …] interpolated base→tip.
+  function worldTube(pts, sections, material, seg = 18) {
+    const curve = new THREE.CatmullRomCurve3(pts, false, 'centripetal'), steps = 48, pos = [], idx = [];
     for (let i = 0; i <= steps; i++) {
-      const t = i / steps, p = curve.getPoint(t), fi = t * (radii.length - 1), lo = Math.floor(fi), hi = Math.min(radii.length - 1, lo + 1);
-      const r = radii[lo] + (radii[hi] - radii[lo]) * (fi - lo), N = fr.normals[i], B = fr.binormals[i];
-      for (let s = 0; s < seg; s++) { const a = s / seg * Math.PI * 2, v = p.clone().addScaledVector(N, Math.cos(a) * r).addScaledVector(B, Math.sin(a) * r); pos.push(v.x, v.y, v.z); }
+      const t = i / steps, p = curve.getPoint(t), T = curve.getTangent(t);
+      const N = new THREE.Vector3(0, -T.z, T.y).normalize();         // in-plane normal (depth axis) ⟂ tangent in y–z
+      const B = new THREE.Vector3(1, 0, 0);                          // lateral (width axis) = sagittal-plane normal
+      const fi = t * (sections.length - 1), lo = Math.floor(fi), hi = Math.min(sections.length - 1, lo + 1), f = fi - lo;
+      const hw = sections[lo][0] + (sections[hi][0] - sections[lo][0]) * f, hd = sections[lo][1] + (sections[hi][1] - sections[lo][1]) * f;
+      for (let s = 0; s < seg; s++) { const a = s / seg * Math.PI * 2, v = p.clone().addScaledVector(B, Math.cos(a) * hw).addScaledVector(N, Math.sin(a) * hd); pos.push(v.x, v.y, v.z); }
     }
     for (let i = 0; i < steps; i++) for (let s = 0; s < seg; s++) { const a = i * seg + s, b = i * seg + (s + 1) % seg, c = (i + 1) * seg + s, d = (i + 1) * seg + (s + 1) % seg; idx.push(a, c, b, b, c, d); }
     const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.setIndex(idx); g.computeVertexNormals();
     return new THREE.Mesh(g, material);
   }
 
-  // NECK centerline (world): seats inside the body at the shoulders, bows up + gently toward the dorsal (+z),
-  // levels off at the head base. Slender, elegant — radii taper shoulder→nape.
-  const N0 = new THREE.Vector3(0, 2.50, 0.98), N1 = new THREE.Vector3(0, 3.12, 1.30), N2 = new THREE.Vector3(0, 3.58, 1.50);
-  neckGrp.add(worldTube([N0, N1, N2], [0.40, 0.34, 0.27], matBody, 18));   // base matches the clipped shoulder width → no step at the junction
+  // NECK centerline (world): the body clips FLAT at the shoulders — that flat cap is the SOCKET. Seat the neck at
+  // the opening's CENTER (z≈0.17, not its dorsal rim) and leave it PERPENDICULAR to the cap (rise ≈ +y) before the
+  // forward S-curve, so it reads as inserted INTO the socket — not perched at 45° on the dorsal lip. Base flares to
+  // ~the opening width then tapers to the slender nape, so the torso→neck join is continuous (no thin-tube-on-shelf).
+  const N0 = new THREE.Vector3(0, 2.60, 0.07), N1 = new THREE.Vector3(0, 3.06, 0.26), N2 = new THREE.Vector3(0, 3.46, 0.82);
+  // elliptical sections [halfWidth, halfDepth]: base is WIDE+SHALLOW to seat flush in the socket (≈0.40w × 0.26d),
+  // rounding to a slender nape — so the torso→neck join is continuous instead of a round tube bulging fore-aft.
+  neckGrp.add(worldTube([N0, N1, N2], [[0.42, 0.27], [0.30, 0.30], [0.25, 0.25]], matBody, 20));
 
   // HEAD — built in a LOCAL frame (snout = +Z, dorsal = +Y, right = +X), then oriented and seated at N2.
   // FLEX: the head does NOT just follow the neck's end tangent (which still bows toward the dorsal +z); it flexes
