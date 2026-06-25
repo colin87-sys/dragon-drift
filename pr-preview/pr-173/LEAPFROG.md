@@ -3101,3 +3101,31 @@ travelling pulse across meshes that share one mat). Gates green; nightfury/hull/
 **Gotcha/honesty:** the bead/arcs ride the body's REST point path, not the live undulating positions (anchoring
 to moving segments each frame is the obvious upgrade if it reads loose on the preview); and all of it — like the
 molten/electric of L89 — is HUMAN-judged on the PR preview, the headless silhouette only proved the shape.
+
+---
+
+### L92 — Wings: stop drawing them by feel — RESEARCH the anatomy, then build from ratios (`dragonWingAnatomy.js`)
+Human (rightly) called the wings "weird/anaesthetic": straight finger struts + a too-long forearm pushing the
+wrist out, so the fingers looked stubby. The fix was to actually RESEARCH bat/dragon wing anatomy instead of
+guessing, and encode the ratios. Findings that matter for geometry:
+- **Short arm, LONG hand.** Humerus short/robust, forearm longer, but the DIGITS (metacarpals+phalanges) are the
+  most elongated bones — the hand-wing is the MAJORITY of the span, so the **wrist sits MEDIAL** (~⅓ out), not
+  far out. (My old wing had the elbow→wrist too long → the exact "weird" the human saw.)
+- Fingers **FAN from the wrist and are CURVED** (each digit bows; never straight). Digit II + base of III make a
+  **CONVEX leading-edge frame**; posterior (more lateral) digits curve MORE; the outermost finger frames the edge.
+- The membrane **SCALLOPS (curves inward toward the wrist) between fingertips**.
+Built `dragonWingAnatomy.js` (`buildAnatomicalWing` + `mirrorWing`): SHARED geometry MATH only — no look baked
+in. Each creature passes its own ratios/curvature/scallop/materials, so silhouettes stay distinct (Monarch =
+5 fingers, full rounded scallops, warm/molten; Thundercoil = 4 fingers, shallow crisp scallops, electric). It
+maps onto the existing 3-joint rig: pivot=humerus(short), wingMid=forearm, wingTip=the WHOLE hand-wing (the big
+fold, where the long fingers swing). Curved bones = `TubeGeometry` along a `QuadraticBezierCurve3`; the membrane
+edge is a sampled bezier (convex leading + scalloped trailing) fanned from the wrist. Key impl detail: bow the
+control point along the in-plane normal **flipped to always face −Z (leading)** so every finger curves convexly
+regardless of fan angle. Verified on the **`top` silhouette view** — that's the one that shows the wing PLANFORM
+(fan/curve/wrist), where `rear` only shows the flat span; the new wings read as real bat/dragon wings (curved
+fanning fingers, scalloped membrane, medial wrist) vs the old straight-strut triangles.
+**Reusable rules.** (1) When a shape "looks wrong," the move is RESEARCH + ratios, not another blind tweak — the
+human explicitly asked for this and it worked. (2) For wings, judge on `silhouette.mjs <key> top`, not `rear`.
+(3) Shared MATH with per-creature params is not a "reskin" — it's how you get N anatomically-correct wings that
+still look distinct (same principle as the shared loft/shingle/sweep helpers). Tri cost: curved tubes raised the
+Monarch 1814→2618 (still ≪6000). Applied to BOTH shipped wings (Monarch + Thundercoil).

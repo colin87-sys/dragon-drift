@@ -4,6 +4,7 @@ import { makeGlowTexture } from './util.js';
 import { hexRgb } from './dragonParts.js';
 import { applyFresnelRim } from './surface.js';
 import { seg } from './modelDetail.js';
+import { buildAnatomicalWing, mirrorWing } from './dragonWingAnatomy.js';
 
 // ===========================================================================
 // FLAME MONARCH — a brand-new, matched part FAMILY (the "Phoenix technique").
@@ -276,14 +277,11 @@ function buildMonarchHull(def, model, _bodyMat) {
 }
 registerTorso('monarchHull', buildMonarchHull);
 
-// ── WINGS — monarchWing ──────────────────────────────────────────────────────
-// Bat membrane split into THREE articulated segments — shoulder→ELBOW (pivot),
-// elbow→WRIST (wingMid), wrist→FINGERS (wingTip) — each carrying its own membrane
-// panel so the wing FOLDS at both joints. The shared `wingParts` rig drives the
-// root→mid→tip cascade with per-segment LAG (a travelling fold, not one rigid
-// hinge) + a held apex V. 5 finger struts fan to a scalloped outer edge with
-// molten ember cracks. The left wing is a scale.x=-1 mirror clone of the right
-// master (driven by the identical pose → guaranteed symmetric beat).
+// ── WINGS — monarchWing ──────────────────────────────────────
+// Anatomically-built bat wing (see dragonWingAnatomy.js): a SHORT arm + MEDIAL wrist,
+// then LONG CURVED fingers fanning to a convex leading frame + a scalloped trailing
+// edge — warm/rounded styling, molten ember-cracked struts. Three-segment articulated
+// (wingParts rig); the left is a scale.x=-1 mirror clone of the right master.
 function buildMonarchWing(def, model, attach, giM) {
   const group = new THREE.Group();
   const spineMats = [];
@@ -291,109 +289,46 @@ function buildMonarchWing(def, model, attach, giM) {
   const F = model.formLevel ?? 0;
   const cMolten = def.wingEmissive ?? def.coreGlow ?? 0xff5a1e;
 
-  // The runtime-animated membrane (dragon.js writes its emissive/opacity each frame).
   const wingMat = new THREE.MeshStandardMaterial({
     color: def.wingInner ?? 0x241a16, roughness: 0.62, metalness: 0.05, side: THREE.DoubleSide,
     transparent: true, opacity: model.wingOpacity ?? 0.9,
     emissive: def.wingMembraneEmissive ?? cMolten, emissiveIntensity: model.wingPanelGlow ?? 0.12,
   });
-  // Bone/strut material with molten ember cracks — flares on Surge + boost.
   const strutInt = 0.5 + giM * 0.4 + F * 0.12;
   const strutMat = tagFlare(new THREE.MeshStandardMaterial({
     color: def.horn ?? 0x2a221c, emissive: cMolten, emissiveIntensity: strutInt,
     roughness: 0.4, metalness: 0.45,
   }), cMolten, strutInt, spineMats);
 
-  // Wing planform in 2D (x = span outward, y = chord; +y = leading). Two joints
-  // split it into the three articulated segments.
-  const ELBOW = [1.5, -0.04];
-  const WRIST = [2.6, 0.40];
-  const rootFront = [0, 0.34], rootBack = [0, -0.54];
-  const elbowFront = [1.55, 0.44], elbowBack = [1.42, -0.72];
-  const fingers = [
-    [4.80, 0.30],   // f0 — longest, leading
-    [4.60, -0.22],
-    [4.05, -0.76],
-    [3.20, -1.20],
-    [2.30, -1.46],  // f4 — innermost, trailing
-  ];
-  const scallop = 0.24;
-
-  // Map a 2D wing point to a 3D vertex in a joint-LOCAL frame (origin subtracted),
-  // flat in XZ: X = (x-ox)*ws (span), Z = -(y-oy)*ws (chord; +y → -z forward).
-  const at = (p, o) => new THREE.Vector3((p[0] - o[0]) * ws, 0, -(p[1] - o[1]) * ws);
-  // A filled membrane panel (triangle-fan from pts[0]) in a joint-local frame.
-  function panel(pts, o) {
-    const pos = [];
-    for (const p of pts) { const v = at(p, o); pos.push(v.x, v.y, v.z); }
-    const idx = [];
-    for (let i = 1; i < pts.length - 1; i++) idx.push(0, i, i + 1);
-    const g = new THREE.BufferGeometry();
-    g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
-    g.setIndex(idx);
-    g.computeVertexNormals();
-    return new THREE.Mesh(g, wingMat);
-  }
-
-  // The RIGHT master: pivot → wingMid (elbow) → wingTip (wrist), each panel in its
-  // joint's local frame so a joint rotation folds everything outboard of it. Roles
-  // tag the joints for the mirror-clone lookup.
-  function buildMaster() {
-    const wr = attach.wingRoot(1);
-    const pivot = new THREE.Group();
-    pivot.position.set(wr.x, wr.y, wr.z);
-    pivot.userData.wingRole = 'pivot';
-    // A — shoulder→elbow (origin = root).
-    pivot.add(panel([rootFront, elbowFront, elbowBack, rootBack], [0, 0]));
-    pivot.add(bar(at(rootFront, [0, 0]), at(ELBOW, [0, 0]), 0.06 * ws, strutMat));   // humerus spar
-
-    const wingMid = new THREE.Group();
-    wingMid.position.copy(at(ELBOW, [0, 0]));
-    wingMid.userData.wingRole = 'mid';
-    pivot.add(wingMid);
-    // B — elbow→wrist (origin = elbow).
-    wingMid.add(panel([elbowFront, WRIST, fingers[fingers.length - 1], elbowBack], ELBOW));
-    wingMid.add(bar(at(ELBOW, ELBOW), at(WRIST, ELBOW), 0.05 * ws, strutMat));       // forearm spar
-
-    const wingTip = new THREE.Group();
-    wingTip.position.copy(at(WRIST, ELBOW));
-    wingTip.userData.wingRole = 'tip';
-    wingMid.add(wingTip);
-    // C — the fingered fan with scallop notches (origin = wrist).
-    const outline = [WRIST, fingers[0]];
-    for (let i = 0; i < fingers.length - 1; i++) {
-      const a = fingers[i], b = fingers[i + 1];
-      const mx = (a[0] + b[0]) / 2, my = (a[1] + b[1]) / 2;
-      outline.push([mx + (WRIST[0] - mx) * scallop, my + (WRIST[1] - my) * scallop]);  // notch
-      outline.push(b);
-    }
-    wingTip.add(panel(outline, WRIST));
-    for (const f of fingers) wingTip.add(bar(at(WRIST, WRIST), at(f, WRIST), 0.04 * ws, strutMat));
-    const marker = new THREE.Object3D();
-    marker.position.copy(at(fingers[0], WRIST));
-    marker.userData.wingRole = 'marker';
-    wingTip.add(marker);
-    return pivot;
-  }
-
-  const byRole = (root, role) => {
-    let f = null;
-    root.traverse((o) => { if (!f && o.userData && o.userData.wingRole === role) f = o; });
-    return f;
+  // Warm western-dragon bat wing: SHORT arm, wrist medial (~0.36 span), 5 long curved
+  // fingers fanning to rounded scallops; the outer finger frames the wing.
+  const anatomy = {
+    rootFront: [0, 0.34], rootBack: [0, -0.60],
+    elbow: [0.95, 0.30], wrist: [1.78, 0.50],
+    fingers: [
+      { tip: [5.05, 0.95], bow: 0.45 },   // leading frame (digit II) — longest
+      { tip: [4.75, 0.05], bow: 0.62 },
+      { tip: [4.10, -0.95], bow: 0.82 },
+      { tip: [3.20, -1.62], bow: 0.98 },
+      { tip: [2.35, -1.95], bow: 1.10 },  // trailing — frames the inner edge, curves most
+    ],
+    scallop: 0.4, strutR: 0.038,
   };
-  const Rp = buildMaster();
+  const Rp = buildAnatomicalWing({ ws, membraneMat: wingMat, strutMat, anatomy }).pivot;
+  Rp.position.set(...Object.values(attach.wingRoot(1)));
   group.add(Rp);
-  const lmirror = new THREE.Group(); lmirror.scale.x = -1;   // the left is a mirror clone
-  const Lp = Rp.clone(true);
-  lmirror.add(Lp); group.add(lmirror);
+  const L = mirrorWing(Rp);
+  L.pivot.position.set(...Object.values(attach.wingRoot(1)));   // (mirror wrapper flips x)
+  group.add(L.wrap);
+  const byRole = (root, role) => { let f = null; root.traverse((o) => { if (!f && o.userData && o.userData.wingRole === role) f = o; }); return f; };
 
   return {
     group,
     parts: {
-      wingPivotL: byRole(Lp, 'pivot'), wingPivotR: Rp,
-      wingMidL: byRole(Lp, 'mid'), wingMidR: byRole(Rp, 'mid'),
-      wingTipL: byRole(Lp, 'tip'), wingTipR: byRole(Rp, 'tip'),
-      tipMarkerL: byRole(Lp, 'marker'), tipMarkerR: byRole(Rp, 'marker'),
+      wingPivotL: L.pivot, wingPivotR: Rp,
+      wingMidL: L.wingMid, wingMidR: byRole(Rp, 'mid'),
+      wingTipL: L.wingTip, wingTipR: byRole(Rp, 'tip'),
+      tipMarkerL: L.marker, tipMarkerR: byRole(Rp, 'marker'),
       wingPivot2L: null, wingPivot2R: null,
     },
     wingMat,

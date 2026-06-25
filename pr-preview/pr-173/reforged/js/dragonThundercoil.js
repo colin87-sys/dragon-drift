@@ -4,6 +4,7 @@ import { makeGlowTexture } from './util.js';
 import { hexRgb } from './dragonParts.js';
 import { applyFresnelRim } from './surface.js';
 import { seg } from './modelDetail.js';
+import { buildAnatomicalWing, mirrorWing } from './dragonWingAnatomy.js';
 
 // ===========================================================================
 // THUNDERCOIL AMPITHERE — a LEGLESS storm-serpent (brand-new part FAMILY).
@@ -245,9 +246,11 @@ function buildAmpithereTorso(def, model, _bodyMat) {
 }
 registerTorso('ampithereTorso', buildAmpithereTorso);
 
-// ── WINGS — ampithereWing ────────────────────────────────────────────────────
-// A large, SHARP triangular bat membrane on a 3-segment articulated chain (4 main
-// struts). Geometric, minimal scallop. Left = scale.x=-1 mirror of the right master.
+// ── WINGS — ampithereWing ──────────────────────────────────────
+// Anatomically-built bat wing (dragonWingAnatomy.js) in a SHARP, geometric storm
+// style: a short arm + medial wrist, then 4 long curved fingers fanning to a CRISP,
+// shallow-scallop edge (sharper than the Monarch). Electric joints + struts. The
+// left is a scale.x=-1 mirror clone of the right master.
 function buildAmpithereWing(def, model, attach, giM) {
   const group = new THREE.Group();
   const spineMats = [];
@@ -265,95 +268,39 @@ function buildAmpithereWing(def, model, attach, giM) {
     color: def.horn ?? 0x2a3340, emissive: cElec, emissiveIntensity: strutInt,
     roughness: 0.35, metalness: 0.5,
   }), cElec, strutInt, spineMats);
-  // Bright electric NODES at the wing joints (elbow + wrist) — flare on Surge.
-  const jointInt = (0.9 + F * 0.3) * giM;
+  const jointInt = (0.9 + F * 0.3) * Math.min(model.glowIntensity ?? 1, 1.3);
   const jointMat = tagFlare(new THREE.MeshStandardMaterial({
     color: cElec, emissive: cElec, emissiveIntensity: jointInt, roughness: 0.3, metalness: 0.2,
   }), cElec, jointInt, spineMats);
 
-  // Large triangular planform (x = span, y = chord; +y = leading). Sharp + geometric:
-  // a long leading edge to a far tip, a straight raked trailing edge, minimal scallop.
-  const ELBOW = [1.8, 0.18];
-  const WRIST = [3.3, 0.55];
-  const rootFront = [0, 0.34], rootBack = [0, -0.62];
-  const elbowFront = [1.85, 0.5], elbowBack = [1.7, -0.86];
-  const fingers = [
-    [5.4, 0.46],    // far leading tip
-    [4.7, -0.5],
-    [3.6, -1.25],
-    [2.5, -1.62],   // inner trailing
-  ];
-  const scallop = 0.1;   // sharp, geometric
-
-  const at = (p, o) => new THREE.Vector3((p[0] - o[0]) * ws, 0, -(p[1] - o[1]) * ws);
-  function panel(pts, o) {
-    const pos = [];
-    for (const p of pts) { const v = at(p, o); pos.push(v.x, v.y, v.z); }
-    const idx = [];
-    for (let i = 1; i < pts.length - 1; i++) idx.push(0, i, i + 1);
-    const g = new THREE.BufferGeometry();
-    g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
-    g.setIndex(idx);
-    g.computeVertexNormals();
-    return new THREE.Mesh(g, wingMat);
-  }
-  const node = (p, o, parent) => {
-    const m = new THREE.Mesh(new THREE.OctahedronGeometry(0.1 * ws, 0), jointMat);
-    m.position.copy(at(p, o));
-    parent.add(m);
+  // SHARP storm wing: short arm, medial wrist, 4 long curved fingers, SHALLOW crisp
+  // scallops (geometric), the outer finger framing a hard leading edge.
+  const anatomy = {
+    rootFront: [0, 0.36], rootBack: [0, -0.66],
+    elbow: [1.0, 0.36], wrist: [1.85, 0.6],
+    fingers: [
+      { tip: [5.6, 1.1], bow: 0.3 },     // long sharp leading frame
+      { tip: [5.0, -0.2], bow: 0.45 },
+      { tip: [3.95, -1.25], bow: 0.6 },
+      { tip: [2.7, -1.85], bow: 0.72 },  // trailing frame
+    ],
+    scallop: 0.24, strutR: 0.04,
   };
-
-  function buildMaster() {
-    const wr = attach.wingRoot(1);
-    const pivot = new THREE.Group();
-    pivot.position.set(wr.x, wr.y, wr.z);
-    pivot.userData.wingRole = 'pivot';
-    pivot.add(panel([rootFront, elbowFront, elbowBack, rootBack], [0, 0]));
-    pivot.add(bar(at(rootFront, [0, 0]), at(ELBOW, [0, 0]), 0.07 * ws, strutMat));
-
-    const wingMid = new THREE.Group();
-    wingMid.position.copy(at(ELBOW, [0, 0]));
-    wingMid.userData.wingRole = 'mid';
-    pivot.add(wingMid);
-    node([0, 0], [0, 0], wingMid);                 // elbow joint glow
-    wingMid.add(panel([elbowFront, WRIST, fingers[fingers.length - 1], elbowBack], ELBOW));
-    wingMid.add(bar(at(ELBOW, ELBOW), at(WRIST, ELBOW), 0.06 * ws, strutMat));
-
-    const wingTip = new THREE.Group();
-    wingTip.position.copy(at(WRIST, ELBOW));
-    wingTip.userData.wingRole = 'tip';
-    wingMid.add(wingTip);
-    node([0, 0], [0, 0], wingTip);                 // wrist joint glow
-    const outline = [WRIST, fingers[0]];
-    for (let i = 0; i < fingers.length - 1; i++) {
-      const a = fingers[i], b = fingers[i + 1];
-      const mx = (a[0] + b[0]) / 2, my = (a[1] + b[1]) / 2;
-      outline.push([mx + (WRIST[0] - mx) * scallop, my + (WRIST[1] - my) * scallop]);
-      outline.push(b);
-    }
-    wingTip.add(panel(outline, WRIST));
-    for (const f of fingers) wingTip.add(bar(at(WRIST, WRIST), at(f, WRIST), 0.045 * ws, strutMat));
-    const marker = new THREE.Object3D();
-    marker.position.copy(at(fingers[0], WRIST));
-    marker.userData.wingRole = 'marker';
-    wingTip.add(marker);
-    return pivot;
-  }
-
-  const byRole = (root, role) => { let f = null; root.traverse((o) => { if (!f && o.userData && o.userData.wingRole === role) f = o; }); return f; };
-  const Rp = buildMaster();
+  const Rp = buildAnatomicalWing({ ws, membraneMat: wingMat, strutMat, jointMat, anatomy }).pivot;
+  Rp.position.set(...Object.values(attach.wingRoot(1)));
   group.add(Rp);
-  const lmirror = new THREE.Group(); lmirror.scale.x = -1;
-  const Lp = Rp.clone(true);
-  lmirror.add(Lp); group.add(lmirror);
+  const L = mirrorWing(Rp);
+  L.pivot.position.set(...Object.values(attach.wingRoot(1)));
+  group.add(L.wrap);
+  const byRole = (root, role) => { let f = null; root.traverse((o) => { if (!f && o.userData && o.userData.wingRole === role) f = o; }); return f; };
 
   return {
     group,
     parts: {
-      wingPivotL: byRole(Lp, 'pivot'), wingPivotR: Rp,
-      wingMidL: byRole(Lp, 'mid'), wingMidR: byRole(Rp, 'mid'),
-      wingTipL: byRole(Lp, 'tip'), wingTipR: byRole(Rp, 'tip'),
-      tipMarkerL: byRole(Lp, 'marker'), tipMarkerR: byRole(Rp, 'marker'),
+      wingPivotL: L.pivot, wingPivotR: Rp,
+      wingMidL: L.wingMid, wingMidR: byRole(Rp, 'mid'),
+      wingTipL: L.wingTip, wingTipR: byRole(Rp, 'tip'),
+      tipMarkerL: L.marker, tipMarkerR: byRole(Rp, 'marker'),
       wingPivot2L: null, wingPivot2R: null,
     },
     wingMat,
