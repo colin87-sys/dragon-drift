@@ -1,0 +1,165 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>Dragon Drift — Model Viewer</title>
+<script type="importmap">{ "imports": { "three": "../lib/three.module.js" } }</script>
+<style>
+  :root { color-scheme: dark; }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; overflow: hidden; background: #0b0e14;
+    font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif; color: #dfe6f2; }
+  #view { position: fixed; inset: 0; touch-action: none; cursor: grab; }
+  #view.drag { cursor: grabbing; }
+  .panel { position: fixed; z-index: 10; background: rgba(16,20,30,0.82); border: 1px solid #2a3346;
+    border-radius: 12px; padding: 12px 14px; backdrop-filter: blur(8px); }
+  #ui { top: 12px; left: 12px; display: flex; flex-direction: column; gap: 10px; min-width: 210px; }
+  #ui h1 { margin: 0 0 2px; font-size: 14px; font-weight: 650; letter-spacing: .02em; }
+  #ui .sub { font-size: 11px; color: #8b97ad; margin-top: -4px; }
+  label { font-size: 11px; color: #9aa6bd; display: block; margin-bottom: 3px; text-transform: uppercase; letter-spacing: .04em; }
+  select, .row { width: 100%; }
+  select { background: #1a2030; color: #e6edf8; border: 1px solid #313c52; border-radius: 8px;
+    padding: 7px 8px; font-size: 13px; }
+  .forms { display: flex; gap: 4px; }
+  .forms button { flex: 1; background: #1a2030; color: #c2cce0; border: 1px solid #313c52; border-radius: 7px;
+    padding: 6px 0; font-size: 11px; cursor: pointer; }
+  .forms button.on { background: #2d6cff; border-color: #2d6cff; color: #fff; }
+  .toggles { display: flex; gap: 14px; font-size: 12px; color: #b6c1d6; }
+  .toggles label { display: flex; align-items: center; gap: 6px; text-transform: none; letter-spacing: 0; margin: 0; cursor: pointer; }
+  #hint { bottom: 12px; left: 50%; transform: translateX(-50%); font-size: 12px; color: #8b97ad;
+    padding: 7px 14px; }
+  #name { bottom: 12px; right: 12px; text-align: right; font-size: 12px; }
+  #name b { font-size: 15px; color: #fff; } #name span { color: #8b97ad; }
+</style>
+</head>
+<body>
+<canvas id="view"></canvas>
+<div id="ui" class="panel">
+  <div><h1>Model Viewer</h1><div class="sub">drag to rotate · scroll to zoom</div></div>
+  <div class="row"><label>Dragon</label><select id="pick"></select></div>
+  <div class="row"><label>Form</label><div class="forms" id="forms"></div></div>
+  <div class="toggles">
+    <label><input type="checkbox" id="spin"> auto-spin</label>
+    <label><input type="checkbox" id="flap"> animate</label>
+  </div>
+</div>
+<div id="hint" class="panel">Drag to orbit • Scroll / pinch to zoom • Double-click to reset view</div>
+<div id="name" class="panel"><b id="nm">—</b><br><span id="fm">—</span></div>
+
+<script type="module">
+import * as THREE from 'three';
+import { DRAGONS } from '../js/dragons.js';
+import { ascendedDef } from '../js/ascension.js';
+import { buildDragonModel, makePreviewTick } from '../js/dragonModel.js';
+
+const FNAME = ['Hatchling', 'Kindled', 'Radiant', 'Eternal'];
+const canvas = document.getElementById('view');
+
+// Renderer + scene + lights (matched to the shop/hero look: ACES tonemap, warm key
+// + cool rim + soft fill, hemisphere ambient). Layer 1 enabled so core/edge GLOWS show.
+const gl = new THREE.WebGLRenderer({ canvas, antialias: true });
+gl.setPixelRatio(Math.min(devicePixelRatio, 2));
+gl.toneMapping = THREE.ACESFilmicToneMapping;
+gl.toneMappingExposure = 1.05;
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x0b0e14);
+const camera = new THREE.PerspectiveCamera(40, 1, 0.05, 200);
+camera.layers.enable(1);
+scene.add(new THREE.HemisphereLight(0xbfdcff, 0x2e3448, 1.05));
+const kL = new THREE.DirectionalLight(0xffe8c0, 2.0); kL.position.set(3, 4.5, 5); scene.add(kL);
+const rL = new THREE.DirectionalLight(0x88b8ff, 1.05); rL.position.set(-4, 2, -3); scene.add(rL);
+const fL = new THREE.DirectionalLight(0xd0f0ff, 0.4); fL.position.set(0, -2, 3); scene.add(fL);
+// A faint ground glow so the dark dragons read against the void.
+const glow = new THREE.Mesh(new THREE.CircleGeometry(6, 48),
+  new THREE.MeshBasicMaterial({ color: 0x16203a, transparent: true, opacity: 0.5 }));
+glow.rotation.x = -Math.PI / 2; glow.position.y = -1.6; scene.add(glow);
+
+// ── orbit state (camera around a fixed look-at center) ──
+let az = 0.5, pol = 1.4, dist = 10, center = new THREE.Vector3();   // game-like rear-3/4 default
+let baseDist = 10;
+function applyCam() {
+  const sp = Math.sin(pol), cp = Math.cos(pol);
+  camera.position.set(center.x + dist * sp * Math.sin(az), center.y + dist * cp, center.z + dist * sp * Math.cos(az));
+  camera.lookAt(center);
+}
+let dragging = false, px = 0, py = 0;
+canvas.addEventListener('pointerdown', (e) => { dragging = true; px = e.clientX; py = e.clientY; canvas.classList.add('drag'); canvas.setPointerCapture(e.pointerId); });
+canvas.addEventListener('pointerup', (e) => { dragging = false; canvas.classList.remove('drag'); });
+canvas.addEventListener('pointermove', (e) => {
+  if (!dragging) return;
+  az -= (e.clientX - px) * 0.01; pol = Math.max(0.15, Math.min(3.0, pol - (e.clientY - py) * 0.01));
+  px = e.clientX; py = e.clientY;
+});
+canvas.addEventListener('wheel', (e) => { e.preventDefault(); dist = Math.max(baseDist * 0.35, Math.min(baseDist * 2.6, dist * (1 + Math.sign(e.deltaY) * 0.09))); }, { passive: false });
+canvas.addEventListener('dblclick', () => { az = 0.5; pol = 1.4; dist = baseDist; });
+
+// ── model loading ──
+const _box = new THREE.Box3(), _b = new THREE.Box3();
+function bounds(root) {
+  _box.makeEmpty(); root.updateWorldMatrix(true, true);
+  root.traverse((o) => { if (o.isMesh && o.geometry) {
+    if (!o.geometry.boundingBox) o.geometry.computeBoundingBox();
+    _b.copy(o.geometry.boundingBox).applyMatrix4(o.matrixWorld); _box.union(_b);
+  } });
+  return _box;
+}
+let current = null, tick = null, t = 0;
+function load(key, tier) {
+  if (current) { scene.remove(current.group); current.group.traverse(o => { if (o.geometry) o.geometry.dispose(); }); }
+  const def = ascendedDef(DRAGONS[key], tier, 0);
+  const result = buildDragonModel(def, { preview: true });
+  // the preview build wraps the dragon in an extra group — unwrap for clean framing.
+  const group = result.group;
+  group.traverse(o => { if (o.renderOrder >= 998) o.visible = false; });   // hide the gameplay aim pip
+  scene.add(group);
+  tick = makePreviewTick(def, result);
+  current = { group, result };
+  // frame it
+  const box = bounds(group);
+  center.set(0, (box.min.y + box.max.y) / 2, 0);
+  const size = Math.max(box.max.x - box.min.x, box.max.y - box.min.y, box.max.z - box.min.z);
+  baseDist = dist = (size * 0.5) / Math.tan(camera.fov * Math.PI / 360) * 1.3 + 0.8;
+  document.getElementById('nm').textContent = DRAGONS[key].name || key;
+  document.getElementById('fm').textContent = FNAME[tier] + ' · ' + (DRAGONS[key].rarity || '');
+}
+
+// ── UI ──
+const pick = document.getElementById('pick');
+const keys = Object.keys(DRAGONS);
+pick.innerHTML = keys.map(k => `<option value="${k}">${DRAGONS[k].name || k}</option>`).join('');
+let curKey = keys.includes('thundercoil') ? 'thundercoil' : keys[0];
+let curTier = 3;
+pick.value = curKey;
+
+const formsEl = document.getElementById('forms');
+function renderForms() {
+  const n = (DRAGONS[curKey].forms || []).length || 4;
+  formsEl.innerHTML = Array.from({ length: n }, (_, i) =>
+    `<button data-t="${i}" class="${i === curTier ? 'on' : ''}">${['H','K','R','E'][i] || i}</button>`).join('');
+  [...formsEl.children].forEach(b => b.onclick = () => { curTier = +b.dataset.t; renderForms(); load(curKey, Math.min(curTier, n - 1)); });
+}
+pick.onchange = () => { curKey = pick.value; curTier = Math.min(curTier, ((DRAGONS[curKey].forms || []).length || 4) - 1); renderForms(); load(curKey, curTier); };
+
+const spin = document.getElementById('spin'), flap = document.getElementById('flap');
+
+renderForms();
+load(curKey, curTier);
+
+function resize() { const w = innerWidth, h = innerHeight; gl.setSize(w, h, false); camera.aspect = w / h; camera.updateProjectionMatrix(); }
+addEventListener('resize', resize); resize();
+
+let last = performance.now();
+function frame(now) {
+  const dt = Math.min(0.05, (now - last) / 1000); last = now; t += dt;
+  if (spin.checked && !dragging) az -= dt * 0.5;
+  if (tick && flap.checked) tick(t);
+  else if (tick) tick(0);   // hold a static spread pose when not animating
+  applyCam();
+  gl.render(scene, camera);
+  requestAnimationFrame(frame);
+}
+requestAnimationFrame(frame);
+</script>
+</body>
+</html>
