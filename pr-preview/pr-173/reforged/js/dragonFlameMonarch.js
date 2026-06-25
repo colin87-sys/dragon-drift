@@ -208,21 +208,8 @@ function buildMonarchHull(def, model, _bodyMat) {
     group.add(new THREE.Mesh(gBlade, bladeMat));
   }
 
-  // FOUR LEGS — compact racing tuck (thigh + clawed foot), at shoulder + hip. Read
-  // from dead astern (the chase cam reads the waist/hips/legs) without over-detail.
-  function buildLeg(side, z, s) {
-    const g = new THREE.Group();
-    const hx = side * (halfWidthAt(z) * 0.82);
-    const thigh = new THREE.Mesh(new THREE.SphereGeometry(0.17 * s, seg(6), seg(5)), hideMat);
-    thigh.scale.set(0.9, 1.15, 1.3); thigh.position.set(hx, 0.18, z);
-    g.add(thigh);
-    const foot = new THREE.Mesh(new THREE.SphereGeometry(0.11 * s, seg(6), seg(5)), hideMat);
-    foot.scale.set(1.0, 0.55, 1.7); foot.position.set(hx * 1.06, -0.08, z + 0.26);
-    g.add(foot);
-    return g;
-  }
-  group.add(buildLeg(-1, -0.5, 1.05), buildLeg(1, -0.5, 1.05));
-  group.add(buildLeg(-1, 0.55, 0.95), buildLeg(1, 0.55, 0.95));
+  // LEGLESS — a sleek wyvern-style flyer (legs read weird tucked under the racing
+  // body from the chase cam, per the human). The wings + tail carry the silhouette.
 
   // S-NECK — a short, strong neck rising forward to the royal head. Not too long.
   const neck = [
