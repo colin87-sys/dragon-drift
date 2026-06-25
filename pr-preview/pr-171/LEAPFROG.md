@@ -3933,3 +3933,23 @@ Lesson: **before adopting a heavy system (skinned meshes) to "generate normally"
 a placement bug — floating = a z-offset; disjoint = an overlap/clip seam. A flat blade lofted to overlap a round
 tube reads as a separate floating piece from the side even if it looks fine head-on; clip parts to MEET, not
 overlap, when their cross-sections differ.** def 5/5, gates PASS, wingMetrics self-test PASS.
+
+### L143 — Smooth organic body: kill the cross-section CREASE (smooth-tangent belly) + smooth the loft CENTERLINE, not just width; tail = 3D taper not a flat lens
+Human: tail reads as a "weird slab not tapered to the end" (flat); body "not one continuously smooth shape — straight
+edges in the middle dorso-ventrally." Three root causes + fixes:
+- TAIL was a flat thin-lens loft (dDorsal/dVentral=0.20). Edge-on from the SIDE a flat blade is a thin SLAB that
+  never tapers as a volume, and it dangled off the body as a separate piece. Replaced with a `taperedTube` ROUND
+  spike off the body end (base ≈ body half-width → sharp point), in `matBody` so the cosmic gradient carries it to
+  magenta at the low-y tip — one continuous form, tapers to a point from EVERY angle. (A flat blade only "tapers"
+  in the view that sees its face.)
+- BODY CREASE ("straight edge dorso-ventrally"): the cross-section joined the dorsal arc (`cos^1.4`, tangent→0 at
+  the sides) to a SEMICIRCLE belly (`sqrt(1-u²)`, VERTICAL tangent at the sides) → a 90° tangent mismatch = a hard
+  crease running down the lateral seam. Fix: belly `-Be·cos(u·π/2)^1.2` (exponent>1 ⇒ tangent→0 at u=±1, matching
+  the dorsal) → the two arcs meet smoothly, no lateral edge.
+- BODY BANDING: the loft smoothed the per-row half-WIDTH but not the CENTERLINE (cx). The traced silhouette's
+  center wanders row-to-row, so the tube wobbled side-to-side → horizontal shading bands. Fix: smooth cx too (and
+  widen the window ±5→±8). Banding gate 1.9%.
+Lesson: **a surface is only as smooth as its WORST tangent — a C0-but-not-C1 join (two arcs meeting at different
+slopes) is a visible crease even when each arc is smooth; match tangents at seams. And loft banding has two
+sources, width AND centerline noise — smooth both. For a tapering appendage, build it as a round volume, never a
+flat lens, or it reads as a slab from the orthogonal view.** def 5/5, gates PASS, wingMetrics self-test PASS.
