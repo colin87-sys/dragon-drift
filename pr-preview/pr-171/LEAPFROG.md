@@ -3823,3 +3823,25 @@ since flap eases over ~1.4s but shots waited 150ms); (b) cut the mask at a STEEP
 **a silhouette metric that reads a thresholded AA edge is only as stable as that threshold's position on the edge
 gradient — cut steep, settle the pose, and when a gate goes flaky, diff the inputs across runs before touching the
 subject. The dragon was never the problem.** PASS stable now: protrusion 1.7–5.8% / banding 1.2–2.4% / def 5/5.
+
+### L137 — Slim the torso depth + SOCKET the neck (elliptical base into the flat clip-top); a round tube can't seat in a wide-shallow opening
+Human side-by-side vs the side reference flagged: (1) torso too thick dorso-centrally — measured depth/length 0.40
+at the chest, ref ≈0.26; (2) the neck was a 45° SPUR off the dorsal — its base sat at 94% up the flat-top opening
+(the dorsal rim), not the centre; (3) the flat clip-top is the intended SOCKET the neck should insert into. Fixes:
+- **Depth:** cut the dorsal sculpt ~35% (`Dr` main 0.110→0.070, `Cr` halved, `Mu` 0.095→0.070 so the trimmed humps
+  still flank-not-trough the ridge — re-ran the L133 convexity check, centerline stays apex). depth/length → ~0.26.
+  The complaint was DORSAL depth, so left `Be`/width/`wBoost` alone (broad shoulders still read on the rear cam).
+- **Socket:** added a `neckTaper(ny)` that shrinks the cross-section's DEPTH (not width) to ~40% toward the top
+  clip, so the opening becomes neck-sized (the body converges INTO the neck) instead of a wide flat shelf with a
+  thin tube on it. Re-seated the neck at the opening's CENTRE (recompute it after every depth change — slimming
+  moved it from z=0.33 to 0.07) and rise ≈ perpendicular before the forward S-curve.
+- **The key geometry lesson:** a ROUND tube cannot seat flush into a wide-shallow socket — it bulges fore-aft and
+  the flat cap shows as a dark seam (clearly visible on the ¾, invisible on dead-side/rear, which is why it slipped
+  through last pass). Made `worldTube` build ELLIPTICAL rings ([halfWidth, halfDepth] per ring) with ANALYTIC
+  sagittal framing (lateral axis always ±x, depth axis = ⟂tangent in the y–z plane) — no Frenet twist because the
+  neck centerline is planar (all control pts x=0). Base = wide+shallow to fill the socket, rounding to a slender
+  nape. Join now continuous from every angle. Lesson: **match the cross-section SHAPE to the opening, not just its
+  size; and a junction that looks clean head-on/side can still be broken on the ¾ — always check the ¾.** Plus the
+  recurring one: **any socket/seat geometry derived from the body must be RECOMPUTED after a sculpt change** — the
+  z=0.33→0.07 socket-centre shift is exactly the kind of stale constant that reintroduces the bug. Gates stable
+  PASS (protrusion 2.2–3.7 / banding 1.7–4.3), def 5/5.
