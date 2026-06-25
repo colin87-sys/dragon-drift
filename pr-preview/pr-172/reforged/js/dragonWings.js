@@ -632,19 +632,59 @@ function buildCrystalWings(def, model, attach, giM) {
   veinMat.userData.baseIntensity = veinInt;
   spineMats.push(veinMat);
 
-  // One membrane panel in the X-Y plane, clipped to [clipMin,clipMax] and re-origined.
-  function panel(clipMin, clipMax, originX) {
-    const g = new THREE.ShapeGeometry(buildWingShape(spec), seg(16));
-    g.scale(spanS, chordS, 1);
-    applyWingGradient(g, def, 0, 1);
-    const pos = g.attributes.position;
-    for (let i = 0; i < pos.count; i++) {
-      let x = pos.getX(i);
-      x = x < clipMin ? clipMin : x > clipMax ? clipMax : x;
-      pos.setX(i, x - originX);
+  // An ELEGANT bat-wing membrane in the X-Y plane: a graceful swept leading edge to a
+  // sharp far tip, then DEEP CONCAVE scalloped webs between SHARP finger tips (the
+  // reference's artistry). Smooth bezier/quadratic curves — not the blobby default.
+  const t = spec.tips;
+  const X = (i) => t[i][0] * spanS, Y = (i) => t[i][1] * chordS;
+  const maxXa = X(0);
+  const deep = (model.wingScallopDeep ?? 0.62) * chordS;  // web concavity (the scoop)
+  const tipHook = (model.wingTipHook ?? 0.34) * chordS;   // sharp upward hook at the far tip
+  function elegantWingGeo() {
+    const s = new THREE.Shape();
+    const tipY = Y(0) + tipHook;
+    s.moveTo(0, 0);
+    // leading edge: a CONCAVE swept sweep (starts shallow, arcs up) to a sharp HOOKED tip
+    s.bezierCurveTo(maxXa * 0.36, 0.08 * chordS, maxXa * 0.82, 0.34 * chordS, X(0), tipY);
+    // a short sharp cusp from the hooked tip down to the first (outermost) finger
+    s.lineTo(X(0), Y(0));
+    // trailing edge: deep concave scallop into each sharp finger tip
+    for (let i = 0; i < t.length - 1; i++) {
+      const ax = X(i), ay = Y(i), bx = X(i + 1), by = Y(i + 1);
+      s.quadraticCurveTo((ax + bx) / 2, (ay + by) / 2 + deep, bx, by); // control pulled UP → concave web
     }
-    pos.needsUpdate = true; g.computeVertexNormals();
+    // inner trailing edge: last finger → root, a shallower scoop
+    s.quadraticCurveTo(X(t.length - 1) * 0.45, Y(t.length - 1) * 0.5 + deep * 0.6, 0, -0.06 * chordS);
+    s.closePath();
+    const g = new THREE.ShapeGeometry(s, seg(3));
+    applyWingGradient(g, def, 0, 1);
     return g;
+  }
+
+  // wingOutline mode: an EXPLICIT screen-plane polygon (e.g. traced from a concept via
+  // tools/wingtrace.mjs) rendered verbatim — the membrane silhouette IS the artful
+  // outline, with sharp finger tips + deep scallops the procedural shape can't match.
+  // Points are wing-local (+x outward, +y up); the outline already encodes the upsweep
+  // so no extra dihedral. Far tip = max x; finger tips = the local-y minima.
+  const outline = def.wingOutline;
+  const outScale = (model.wingOutlineScale ?? 1) * ws;
+  function outlineGeo() {
+    const shp = new THREE.Shape();
+    outline.forEach(([x, y], i) => (i ? shp.lineTo(x, y) : shp.moveTo(x, y)));
+    shp.closePath();
+    const g = new THREE.ShapeGeometry(shp, seg(2));
+    g.scale(outScale, outScale, 1);
+    applyWingGradient(g, def, 0, 1);
+    return g;
+  }
+  function outlineFingers() {
+    // struts to each downward "finger" tip (a local-y minimum along the outline)
+    const tips = [];
+    for (let i = 1; i < outline.length - 1; i++) {
+      if (outline[i][1] < outline[i - 1][1] && outline[i][1] <= outline[i + 1][1] && outline[i][1] < 0) tips.push(outline[i]);
+    }
+    let far = outline[0]; for (const p of outline) if (p[0] > far[0]) far = p;
+    return { tips, far };
   }
 
   const parts = {};
@@ -654,33 +694,40 @@ function buildCrystalWings(def, model, attach, giM) {
     pivot.position.set(wr.x, wr.y, wr.z);
     group.add(pivot);
     // rest dihedral + side mirror live on a static child so the rig's flap
-    // (pivot.rotation) adds on top of the raised V.
+    // (pivot.rotation) adds on top of the raised V. Outline mode bakes the angle in.
     const dih = new THREE.Group();
-    dih.rotation.z = s * dihedral;
+    dih.rotation.z = outline ? 0 : s * dihedral;
     dih.scale.x = s;                 // mirror the +x-built wing to the correct side
     pivot.add(dih);
 
-    const inner = new THREE.Mesh(panel(0, wristX, 0), wingMat);
-    dih.add(inner);
-
     const wingTip = new THREE.Group();
-    wingTip.position.set(wristX, 0, 0);   // at the wrist along the (tilted) span
-    dih.add(wingTip);
-    wingTip.add(new THREE.Mesh(panel(wristX, maxX, wristX), wingMat));
+    let tipMarker = new THREE.Object3D();
 
-    // Leading-edge ARM bone (root → far tip) so the wing reads as bone + membrane.
-    dih.add(bone(0, 0, 0.03, maxX, 0, 0.03, 0.06 * ws, 0.02 * ws, armMat));
-    // Crystalline FINGER struts: wrist → each trailing scallop tip (the spokes).
-    for (let i = 1; i < spec.tips.length; i++) {
-      const tx = spec.tips[i][0] * spanS, ty = spec.tips[i][1] * chordS;
-      dih.add(bone(0, 0, 0.04, tx, ty, 0.04, 0.035 * ws, 0.012 * ws, model.wingVeins ? veinMat : armMat));
+    if (outline) {
+      dih.add(new THREE.Mesh(outlineGeo(), wingMat));
+      const { tips, far } = outlineFingers();
+      // leading-edge bone (root → far tip) + finger spokes to the sharp scallop tips.
+      dih.add(bone(0, 0, 0.03, far[0] * outScale, far[1] * outScale, 0.03, 0.05 * ws, 0.015 * ws, armMat));
+      for (const t of tips) dih.add(bone(0, 0, 0.04, t[0] * outScale, t[1] * outScale, 0.04, 0.03 * ws, 0.01 * ws, model.wingVeins ? veinMat : armMat));
+      if (model.wingVeins) dih.add(bone(0, 0, 0.05, far[0] * 0.9 * outScale, far[1] * 0.9 * outScale, 0.05, 0.016 * ws, 0.006 * ws, veinMat));
+      wingTip.position.set(far[0] * outScale * 0.6, far[1] * outScale * 0.6, 0);
+      dih.add(wingTip);
+      tipMarker.position.set(far[0] * outScale, far[1] * outScale, 0);
+      wingTip.add(tipMarker);
+    } else {
+      dih.add(new THREE.Mesh(elegantWingGeo(), wingMat));
+      // Leading-edge ARM bone (root → sharp far tip) so the wing reads as bone + membrane.
+      dih.add(bone(0, 0, 0.03, X(0), Y(0), 0.03, 0.06 * ws, 0.02 * ws, armMat));
+      // Crystalline FINGER spokes: root → each sharp finger tip (the radiating struts).
+      for (let i = 1; i < t.length; i++) {
+        dih.add(bone(0, 0, 0.04, X(i), Y(i), 0.04, 0.032 * ws, 0.01 * ws, model.wingVeins ? veinMat : armMat));
+      }
+      if (model.wingVeins) dih.add(bone(0, 0, 0.05, X(0) * 0.92, Y(0) * 0.92 + 0.05, 0.05, 0.016 * ws, 0.006 * ws, veinMat));
+      wingTip.position.set(maxXa * 0.6, Y(0) * 0.6, 0);
+      dih.add(wingTip);
+      tipMarker.position.set(maxXa, Y(0), 0);
+      wingTip.add(tipMarker);
     }
-    // A faint vein up the leading edge for the crystal-energy read.
-    if (model.wingVeins) dih.add(bone(0, 0.02, 0.05, maxX * 0.96, 0.02, 0.05, 0.018 * ws, 0.006 * ws, veinMat));
-
-    const tipMarker = new THREE.Object3D();
-    tipMarker.position.set(maxX, 0, 0);
-    wingTip.add(tipMarker);
 
     if (s < 0) { parts.wingPivotL = pivot; parts.wingTipL = wingTip; parts.tipMarkerL = tipMarker; }
     else { parts.wingPivotR = pivot; parts.wingTipR = wingTip; parts.tipMarkerR = tipMarker; }

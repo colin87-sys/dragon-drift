@@ -49,9 +49,28 @@ const leftWing = new Uint8Array(cw * ch);
 for (let y = 0; y < ch; y++) for (let x = 0; x < cw; x++) if (full[y * cw + x] && x < cx - bodyHalf) leftWing[y * cw + x] = 1;
 const wing = largest(leftWing, cw, ch);
 // trace + simplify
-const contour = traceContour(wing, cw, ch);
+let contour = traceContour(wing, cw, ch);
 if (!contour || !contour.length) { console.log('trace failed'); process.exit(1); }
-const simp = simplifyToBudget(contour, 1.5, maxPoints);
+// Drop the artificial INNER edge introduced by the central-column cut (points hugging
+// the cut line) so we keep only the genuine wing outline (leading + scalloped trailing).
+const cutX = cx - bodyHalf;
+contour = contour.filter((p) => p.x < cutX - 2);
+// Smooth the boundary (wrap-around moving average) so the traced edge reads as elegant
+// curves, not pixel staircases — then simplify to a clean point budget.
+function smooth(poly, passes, win) {
+  let pts = poly;
+  for (let s = 0; s < passes; s++) {
+    const out = [];
+    for (let i = 0; i < pts.length; i++) {
+      let sx = 0, sy = 0, n = 0;
+      for (let k = -win; k <= win; k++) { const q = pts[(i + k + pts.length) % pts.length]; sx += q.x; sy += q.y; n++; }
+      out.push({ x: sx / n, y: sy / n });
+    }
+    pts = out;
+  }
+  return pts;
+}
+const simp = simplifyToBudget(smooth(contour, 3, 3), 1.2, maxPoints);
 // wing-local frame: origin at wing root (cx, rootY), +x outward (left → +), +y up.
 const rootY = minY + bh * 0.10;            // wings attach near the top
 const scale = (cx - minX) / 3.0;           // ~3 engine units across the wing span
