@@ -60,10 +60,24 @@ function crossings(loop, ny) {
   }
   return xs.sort((m, n) => m - n);
 }
+// ── BODY SCULPT — custom anatomy authored to OUR design (smooth gaussians → no banding; width still from the
+// traced silhouette). Dr/Be = dorsal/belly DEPTH (normalized z), Mu = paired back-muscle amplitude, wBoost =
+// shoulder breadth, cz = centerline lift (head juts toward camera). Body ny spans ~0.12 (head) .. 0.73 (clip).
+const gauss = (x, c, s) => Math.exp(-(((x - c) / s) ** 2));
+const BODY_SCULPT = {
+  Dr: (ny) => 0.035 + 0.120 * gauss(ny, 0.33, 0.13) + 0.050 * gauss(ny, 0.62, 0.10),   // deep chest + haunch
+  Be: (ny) => 0.030 + 0.090 * gauss(ny, 0.35, 0.14) + 0.040 * gauss(ny, 0.63, 0.10),   // rounded underbelly
+  Mu: (ny) => 0.080 * gauss(ny, 0.26, 0.085) + 0.030 * gauss(ny, 0.60, 0.10),          // back-muscle humps (shoulders)
+  wBoost: (ny) => 1 + 0.35 * gauss(ny, 0.25, 0.09),                                     // deltoid breadth at the wing root
+  cz: (ny) => 0.13 * gauss(ny, 0.13, 0.11) - 0.04 * gauss(ny, 0.72, 0.09),             // head lifts toward camera; tail eases back
+};
+// keeled muscled dorsal profile at lateral u∈[−1,1] (z toward camera): central spine ridge + paired muscle humps
+const dorsalZ = (u, Dr, Mu) => Dr * Math.pow(Math.cos(u * Math.PI / 2), 1.4) + Mu * Math.exp(-(((Math.abs(u) - 0.5) / 0.22) ** 2));
+
 // LOFT a closed silhouette into a 3D fuselage. Handles MULTIPLE spans per row (scanline can return several
 // segments) so the body can BRANCH — the trident tail splits into 3 prongs instead of being bridged into a
 // paddle. Rings are matched between rows by centroid; an unmatched ring is a prong tip and gets capped.
-function loftBody(loop, { rings = 200, seg = 16, dDorsal = 0.95, dVentral = 0.82, material = matBody } = {}) {
+function loftBody(loop, { rings = 200, seg = 16, dDorsal = 0.95, dVentral = 0.82, material = matBody, sculpt = null } = {}) {
   let minY = 1, maxY = 0; for (const p of loop) { if (p[1] < minY) minY = p[1]; if (p[1] > maxY) maxY = p[1]; }
   const rows = [], stations = [];
   for (let i = 0; i <= rings; i++) {
@@ -73,13 +87,31 @@ function loftBody(loop, { rings = 200, seg = 16, dDorsal = 0.95, dVentral = 0.82
     for (let k = 0; k + 1 < xs.length; k += 2) { const xL = xs[k], xR = xs[k + 1]; if (xR - xL > 1e-4) spans.push({ cx: (xL + xR) / 2, hw: (xR - xL) / 2, y: yy }); }
     if (!spans.length) continue;
     rows.push(spans);
-    stations.push(spans.reduce((a, s) => s.hw > a.hw ? s : a, spans[0]));   // widest span = main body (for surface projection)
+    const st = spans.reduce((a, s) => s.hw > a.hw ? s : a, spans[0]);       // widest span = main body (for surface projection)
+    if (sculpt) { st.dorsalC = sculpt.Dr(st.y) + sculpt.Mu(st.y) * 0.006; st.czC = sculpt.cz(st.y); st.hwB = st.hw * sculpt.wBoost(st.y); }
+    stations.push(st);
   }
   const pos = [], idx = [];
-  // egg cross-section: rounded raised back (dorsal, +z toward camera), flatter belly (ventral, −z) → real mass
-  const ring = (sp) => { const base = pos.length / 3; for (let s = 0; s < seg; s++) { const a = (s / seg) * Math.PI * 2, sn = Math.sin(a); const v = pt(sp.cx + sp.hw * Math.cos(a), sp.y, (sn >= 0 ? dDorsal : dVentral) * sp.hw * sn); pos.push(v.x, v.y, v.z); } return base; };
+  // CROSS-SECTION. Default: egg (dorsal depth ∝ width). With `sculpt`: a keeled MUSCLED creature section —
+  // authored dorsal/belly depth, a central spine ridge + paired back-muscle humps, shoulder breadth, and a
+  // centerline lift (cz) so the back arches and the head juts toward the camera. The reference's back, not a tube.
+  const ring = (sp) => {
+    const base = pos.length / 3;
+    if (sculpt) {
+      const ny = sp.y, hw = sp.hw * sculpt.wBoost(ny), cz = sculpt.cz(ny), Dr = sculpt.Dr(ny), Be = sculpt.Be(ny), Mu = sculpt.Mu(ny);
+      for (let s = 0; s < seg; s++) {
+        const t = s / seg; let u, zl;
+        if (t < 0.5) { u = -1 + 4 * t; zl = dorsalZ(u, Dr, Mu); }            // dorsal arc (the camera-facing back)
+        else { u = 1 - 4 * (t - 0.5); zl = -Be * Math.sqrt(Math.max(0, 1 - u * u)); }   // belly arc
+        const v = pt(sp.cx + u * hw, ny, zl + cz); pos.push(v.x, v.y, v.z);
+      }
+    } else {
+      for (let s = 0; s < seg; s++) { const a = (s / seg) * Math.PI * 2, sn = Math.sin(a); const v = pt(sp.cx + sp.hw * Math.cos(a), sp.y, (sn >= 0 ? dDorsal : dVentral) * sp.hw * sn); pos.push(v.x, v.y, v.z); }
+    }
+    return base;
+  };
   const band = (aB, bB) => { for (let s = 0; s < seg; s++) { const a = aB + s, a2 = aB + (s + 1) % seg, b = bB + s, b2 = bB + (s + 1) % seg; idx.push(a, b, a2, a2, b, b2); } };
-  const cap = (base, sp, up) => { const c = pos.length / 3; const v = pt(sp.cx, sp.y, 0); pos.push(v.x, v.y, v.z); for (let s = 0; s < seg; s++) { const s2 = (s + 1) % seg; up ? idx.push(c, base + s2, base + s) : idx.push(c, base + s, base + s2); } };
+  const cap = (base, sp, up) => { const cz = sculpt ? sculpt.cz(sp.y) : 0; const c = pos.length / 3; const v = pt(sp.cx, sp.y, cz); pos.push(v.x, v.y, v.z); for (let s = 0; s < seg; s++) { const s2 = (s + 1) % seg; up ? idx.push(c, base + s2, base + s) : idx.push(c, base + s, base + s2); } };
   const rowRings = rows.map(spans => spans.map(sp => ({ sp, base: ring(sp) })));
   for (let r = 0; r < rowRings.length - 1; r++) {
     const A = rowRings[r], B = rowRings[r + 1], used = new Set();
@@ -196,7 +228,7 @@ export function buildCelestialStorm() {
     for (let i = 0; i < loop.length; i++) { const A = loop[i], B = loop[(i + 1) % loop.length], Ain = inside(A), Bin = inside(B); if (Ain) out.push(A); if (Ain !== Bin) { const t = (clipY - A[1]) / (B[1] - A[1]); out.push([A[0] + (B[0] - A[0]) * t, clipY]); } }
     return out;
   };
-  const { mesh: bodyMesh, stations } = loftBody(clipPoly(D.body.silhouette, TAIL_BODY_CLIP, false));
+  const { mesh: bodyMesh, stations } = loftBody(clipPoly(D.body.silhouette, TAIL_BODY_CLIP, false), { seg: 30, sculpt: BODY_SCULPT });
   bodyGrp.add(bodyMesh);
   const surfZ = (p) => bodySurfaceZ(stations, p[0], p[1]);
   // SPEAR — LOFT the traced spearhead with a THIN lens cross-section (not a flat slab). The elliptical ring gives
@@ -245,6 +277,7 @@ export function buildCelestialStorm() {
   }
   const plG = new THREE.BufferGeometry(); plG.setAttribute('position', new THREE.Float32BufferAttribute(plPos, 3)); plG.setIndex(plIdx); plG.computeVertexNormals();
   plateGrp.add(new THREE.Mesh(plG, matPlate));
+  plateGrp.visible = false; seamGrp.visible = false;   // Step 1 WIP: old flat plates off; scales re-seated on the sculpted hull in Step 2
 
   // DORSAL SPINE — a glowing cyan diamond stamped on each central armour ROW, sized to that row's cell so it
   // lines up cleanly on the blue armour and stands proud as the rear-cam follow-line (head crest → tail).
