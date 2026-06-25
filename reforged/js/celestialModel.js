@@ -284,12 +284,14 @@ export function buildCelestialStorm() {
 
   // NECK centerline (world): seats inside the body at the shoulders, bows up + gently toward the dorsal (+z),
   // levels off at the head base. Slender, elegant — radii taper shoulder→nape.
-  const N0 = new THREE.Vector3(0, 2.50, 0.98), N1 = new THREE.Vector3(0, 3.12, 1.30), N2 = new THREE.Vector3(0, 3.55, 1.62);
+  const N0 = new THREE.Vector3(0, 2.50, 0.98), N1 = new THREE.Vector3(0, 3.12, 1.30), N2 = new THREE.Vector3(0, 3.58, 1.50);
   neckGrp.add(worldTube([N0, N1, N2], [0.40, 0.34, 0.27], matBody, 18));   // base matches the clipped shoulder width → no step at the junction
 
-  // HEAD — built in a LOCAL frame (snout = +Z, dorsal = +Y, right = +X), then oriented along the neck's end
-  // tangent and seated at N2. A single sleek wedge (closed mouth, calm/regal) + brow ridges + glowing eyes.
-  const headDir = N2.clone().sub(N1).normalize();                       // neck end tangent = snout direction
+  // HEAD — built in a LOCAL frame (snout = +Z, dorsal = +Y, right = +X), then oriented and seated at N2.
+  // FLEX: the head does NOT just follow the neck's end tangent (which still bows toward the dorsal +z); it flexes
+  // DOWN at the atlas so the skull's long axis is ~level with the body's forward axis (+y) — matching the side
+  // reference, where the neck arches up but the head is held forward/horizontal, not kicked skyward.
+  const headDir = new THREE.Vector3(0, 1, -0.06).normalize();           // forward (+y) + a touch ventral → level, slight nose-down
   const HL = 1.40;                                                      // head length (world units)
   const cyDroop = (s) => -0.22 * s * s;                                 // muzzle centerline droops toward the tip (local −Y)
   const hwOf = (s) => 0.09 + 0.44 * Math.pow(1 - s, 0.62) + 0.13 * gauss(s, 0.26, 0.14);  // cheeks widest just ahead of the cranium, taper to a defined (not needle) snout

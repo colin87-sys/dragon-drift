@@ -3787,3 +3787,39 @@ OUT of the traced 2D plane (a neck, a reaching limb), stop working in canvas coo
 curve and orient sub-parts with an explicit basis from its tangent; clip the old stand-in geometry away rather
 than layering over it; and tune the feature that owns the silhouette FIRST (for a rear-cam dragon that's the horn
 crown, not the snout). Verify on the camera that ships (rear-high), not just the hero ¾.**
+
+### L136 — Head FLEX to horizontal + a side-profile reference-overlay tool; and a flaky silhouette gate was render-AA noise, not the dragon
+The human, judging the head/neck against side-view art, said the head "needs to flex DOWN so the side profile is
+on a horizontal plane" and — crucially — asked whether I needed to build a tool to MAP the reference and check
+the contour, rather than eyeballing. Yes. Two durable wins came out of it:
+
+**(1) The flex.** The head had been oriented along the neck's end tangent, which bows toward the dorsal (+z) —
+so in flight (where +z reads as UP) the head kicked ~30° skyward. Fix: DECOUPLE head orientation from the neck
+tangent. The neck still arches up; the head flexes back to level at the atlas — `headDir=(0,1,−0.06)` (forward +
+a touch ventral), independent of N2−N1. A slight kink at the head/neck joint is correct anatomy (atlanto-occipital
+flex), not a defect. Lesson: **a head is not just "the end of the neck" — its orientation is its own DOF; drive it
+explicitly, don't inherit the spine tangent.**
+
+**(2) The tool** (`tools/celestialSideCompare.mjs`): renders our side profile (wings hidden, transparent bg via a
+new `__transparent` previewer hook), tints it a flat cyan silhouette, and composites it over the painted side
+reference (colour-masked off its opaque checker bg), centroid-anchored + nose→tail length-scaled, both oriented
+HEAD-UP. Gotchas learned: alpha-bbox fails on a ref with a baked opaque bg (mask by colour: dark/saturated =
+dragon); landmark auto-detect (nose=topmost row, shoulder=first wide row) is FRAGILE — it breaks when the head
+pose changes (a horizontal head's topmost pixel is the crown, not the snout) and the ref's "widest row" is its
+WINGSPAN, not its shoulder; **centroid anchor + total-length scale is the robust choice** when per-feature
+landmarks won't hold still. Compare in the orientation you fully understand (our neutral vertical) and rotate the
+REFERENCE to match, not vice-versa.
+
+**(3) The flaky gate.** After the flex, `celestialRefCompare`'s protrusion gate swung 4–13% run-to-run (FAIL/PASS
+at random) with zero code change. Root cause chain, each step ruled out by measurement: not the build (no
+`Math.random`); WITHIN a session renders are bit-identical (so deterministic given identical state); the variance
+is BETWEEN processes. It was the `bodyMask` rgba-sum threshold (`>60`) cutting through the faint ANTIALIASED edge
+fringe, where cross-process AA dithering flips ±1px per row — and the now-shorter (clipped) body amplifies each
+noisy row, and the far-from-centre head swings hard under any residual flap pitch. Three fixes, in order of
+impact: (a) a `__rest` previewer hook that force-settles the exact rest pose (the QA shots were firing mid-flap,
+since flap eases over ~1.4s but shots waited 150ms); (b) cut the mask at a STEEPER point of the edge gradient
+(`>100`) so the silhouette edge is stable across processes; (c) the protrusion gate measures the full creature
+(head/neck shown) which CAPS the body's clip seam — hiding the head exposed the seam and read worse. Lesson:
+**a silhouette metric that reads a thresholded AA edge is only as stable as that threshold's position on the edge
+gradient — cut steep, settle the pose, and when a gate goes flaky, diff the inputs across runs before touching the
+subject. The dragon was never the problem.** PASS stable now: protrusion 1.7–5.8% / banding 1.2–2.4% / def 5/5.

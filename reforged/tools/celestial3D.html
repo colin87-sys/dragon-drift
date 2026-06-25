@@ -37,7 +37,7 @@ import { solveWing, phaseCenter } from '../js/wingFlapSolver.js';   // shared fl
 import { buildCelestialStorm } from '../js/celestialModel.js';      // the ONE shared procedural build
 
 const gl = document.getElementById('gl');
-const renderer = new THREE.WebGLRenderer({ canvas: gl, antialias: true, preserveDrawingBuffer: true });
+const renderer = new THREE.WebGLRenderer({ canvas: gl, antialias: true, preserveDrawingBuffer: true, alpha: true });
 renderer.setPixelRatio(Math.min(devicePixelRatio || 1, 2));
 renderer.toneMapping = THREE.ACESFilmicToneMapping; renderer.toneMappingExposure = 1.15;
 const scene = new THREE.Scene();
@@ -111,6 +111,8 @@ window.__zoom = (f) => { orbit.dist = baseDist * f; };
 window.__wings = (on) => { wingGrp.visible = on; };   // QA: hide wings to measure the bare body (celestialRefCompare.mjs)
 window.__bodyOnly = (on) => { for (const g of [wingGrp, spineGrp, strutGrp, plateGrp, seamGrp, hornGrp, spearGrp, neckGrp, headGrp]) g.visible = !on; };   // QA: isolate the bare torso mesh
 window.__head = (on) => { neckGrp.visible = headGrp.visible = on; };   // QA: toggle the neck+head
+window.__transparent = (on) => { scene.background = on ? null : new THREE.Color(0x070a14); renderer.setClearAlpha(on ? 0 : 1); };   // QA: transparent bg for reference-overlay compositing
+window.__rest = () => { flap = false; flapAmp = 0; posed = false; for (const w of wingPivots) w.pivot.rotation.set(w.restX, 0, 0); root.position.y = -center.y; root.rotation.set(0, 0, 0); };   // QA: force the exact rest pose (no flap residual) so silhouette metrics are deterministic
 
 const clock = new THREE.Clock(); let t = 0, flapAmp = 0;
 function frame() {
