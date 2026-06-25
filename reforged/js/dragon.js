@@ -202,7 +202,7 @@ export function createDragon(scene, def, riderDef) {
     const wrap = new THREE.Group();
     wrap.add(cel.group);
     wrap.rotation.x = -Math.PI / 2;                                                                 // model +y(head)→−z(forward), +z(dorsal)→+y(up)
-    const s = 1.8 * (Math.max(nsz.x, nsz.y, nsz.z) || 1) / (Math.max(csz.x, csz.y, csz.z) || 1);     // fit to the real dragon's largest extent, ×1.8 so the Celestial reads at a hero scale in the chase cam
+    const s = 2.34 * (Math.max(nsz.x, nsz.y, nsz.z) || 1) / (Math.max(csz.x, csz.y, csz.z) || 1);     // fit to the real dragon's largest extent, ×2.34 (was ×1.8, +30% per request) so the Celestial reads at a hero scale in the chase cam
     wrap.scale.setScalar(s);
     group.add(wrap);
     celestialModel = cel;
