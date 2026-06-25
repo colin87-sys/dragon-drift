@@ -23,7 +23,7 @@
 </head>
 <body>
 <header>
-  <h1>Wing Click-Trace — pick the bones <span style="background:#2b6cff;color:#fff;border-radius:4px;padding:1px 7px;font-size:11px;vertical-align:middle">v2 · zoom + whole-stroke</span></h1>
+  <h1>Wing Click-Trace — pick the bones <span style="background:#2b6cff;color:#fff;border-radius:4px;padding:1px 7px;font-size:11px;vertical-align:middle">v3 · zoom + whole-stroke + outline bones</span></h1>
   <div class="sub">Load the wing image → it pre-traces ALL interior lines → click a line to mark it a BONE (click again to unmark). Set the wrist if the auto one is off → Copy for Claude. <b>If you don't see the blue “v2” badge above and the ＋/－ buttons below the canvas, you have an old cached copy — re-download this file.</b></div>
 </header>
 
@@ -150,7 +150,29 @@ function extractLines(full, lineart){
   // STITCH edges into whole strokes through junctions (continue along the most-collinear edge)
   const minLen=parseFloat($('minlen').value)||14;
   lines = stitchStrokes(edges).map(s=>rdp(s,2)).filter(s=>polyLen(s)>=minLen);
+  // ALSO add the wing OUTLINE itself as selectable candidates: some bones run along the
+  // membrane trailing edge, so split the contour at its corners (tips/notches) and offer
+  // each edge-run as a clickable line (densified so mid-edge clicks land).
+  for(const s of splitOutlineStrokes(outlineImg, minLen)) lines.push(densify(s,3));
 }
+// Split the closed outline contour into open strokes at sharp corners (finger tips / notches).
+function splitOutlineStrokes(contour, minLen){
+  const n=contour.length; if(n<3) return [];
+  const ang=(a,b,c)=>{ const v1x=b.x-a.x,v1y=b.y-a.y,v2x=c.x-b.x,v2y=c.y-b.y;
+    const d=(v1x*v2x+v1y*v2y)/((Math.hypot(v1x,v1y)||1)*(Math.hypot(v2x,v2y)||1)); return Math.acos(Math.max(-1,Math.min(1,d))); };
+  const TH=35*Math.PI/180, corners=[];
+  for(let i=0;i<n;i++){ const a=contour[(i-1+n)%n],b=contour[i],c=contour[(i+1)%n]; if(ang(a,b,c)>TH) corners.push(i); }
+  const strokes=[];
+  if(corners.length<2){ strokes.push(contour.slice()); }
+  else for(let k=0;k<corners.length;k++){ const s=corners[k], e=corners[(k+1)%corners.length]; const seg=[]; let i=s;
+    while(true){ seg.push(contour[i]); if(i===e)break; i=(i+1)%n; } strokes.push(seg); }
+  return strokes.filter(s=>polyLen(s)>=minLen);
+}
+function densify(pts, step){ if(pts.length<2) return pts.slice(); const out=[pts[0]];
+  for(let i=1;i<pts.length;i++){ const a=pts[i-1],b=pts[i],L=Math.hypot(b.x-a.x,b.y-a.y),k=Math.max(1,Math.round(L/step));
+    for(let j=1;j<=k;j++) out.push({x:a.x+(b.x-a.x)*j/k, y:a.y+(b.y-a.y)*j/k}); } return out; }
+function distSegPt(p,a,b){ const dx=b.x-a.x,dy=b.y-a.y,l2=dx*dx+dy*dy; if(!l2)return Math.hypot(p.x-a.x,p.y-a.y);
+  let t=((p.x-a.x)*dx+(p.y-a.y)*dy)/l2; t=Math.max(0,Math.min(1,t)); return Math.hypot(p.x-(a.x+t*dx),p.y-(a.y+t*dy)); }
 // Reconnect node→node edges into full strokes: at each junction continue along the edge
 // whose direction is most collinear with the incoming travel (so one click = the whole line).
 function stitchStrokes(edges){
@@ -212,10 +234,12 @@ cv.addEventListener('pointerdown',(e)=>{ if(!img) return; const r=cv.getBounding
   if(e.button===2 || spaceHeld){ panning=true; panStart={x:mx,y:my}; cv.style.cursor='grabbing'; return; }
   if(!frame) return; const p=toImage(mx, my);
   if(mode==='wrist'){ wrist=p; buildOut(); redraw(); return; }
-  // pick nearest line: min point-distance, tie-break toward LONGER lines (higher pixel count)
+  // pick nearest line: min point-to-SEGMENT distance, tie-break toward LONGER lines
   let bi=-1, bs=Infinity;
-  for(let i=0;i<lines.length;i++){ let dmin=Infinity; for(const q of lines[i]) dmin=Math.min(dmin, Math.hypot(q.x-p.x,q.y-p.y));
-    const sc = dmin - Math.min(polyLen(lines[i])*0.04, 12);   // prefer longer lines when close
+  for(let i=0;i<lines.length;i++){ const L=lines[i]; let dmin=Infinity;
+    for(let k=1;k<L.length;k++) dmin=Math.min(dmin, distSegPt(p,L[k-1],L[k]));
+    if(L.length===1) dmin=Math.hypot(L[0].x-p.x,L[0].y-p.y);
+    const sc = dmin - Math.min(polyLen(L)*0.04, 12);   // prefer longer lines when close
     if(sc<bs){bs=sc; bi=i;} }
   if(bi>=0 && bs<40){ if(selected.has(bi)) selected.delete(bi); else selected.add(bi); buildOut(); redraw(); }
 });
