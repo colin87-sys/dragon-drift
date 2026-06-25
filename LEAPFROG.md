@@ -3129,3 +3129,27 @@ human explicitly asked for this and it worked. (2) For wings, judge on `silhouet
 (3) Shared MATH with per-creature params is not a "reskin" — it's how you get N anatomically-correct wings that
 still look distinct (same principle as the shared loft/shingle/sweep helpers). Tri cost: curved tubes raised the
 Monarch 1814→2618 (still ≪6000). Applied to BOTH shipped wings (Monarch + Thundercoil).
+
+---
+
+### L93 — Wing aesthetics pass 2: curvature GRADIENT + claw points + one clean leading sweep
+First anatomy pass (L92) fixed the skeleton but the human still called the OUTLINE amateurish. More research +
+their direction pinned the three fixes that make a wing read as *stylized-good* rather than "a child drew it":
+1. **Finger curvature is a GRADIENT, and it runs leading→trailing, not the reverse.** The LEADING/outer finger
+   forms the stiff CONVEX leading frame and is the MOST curved; each finger toward the trailing/inner edge
+   straightens; the innermost ≈ STRAIGHT. (L92 had it backwards — trailing curved most — which bulged the wrong
+   edge.) Bow array now descends: e.g. Monarch `[0.95, 0.60, 0.36, 0.18, 0.05]` leading→trailing.
+2. **Protruding CLAW POINTS over even scallops.** The membrane WEB ends slightly short of each fingertip
+   (`webTip = lerp(wrist, tip, 1-claw)`, leading finger excepted — it reaches its tip as the frame) while the
+   bone strut runs to the FULL tip, so the fingertips poke out as points and the membrane sags between them in
+   even catenary scallops (`ctrl = mid.lerp(wrist, scallop)`, dropped the per-pair depth weighting). This single
+   change is most of the "dragon wing" read — without it the trailing edge is just a lumpy scalloped blob.
+3. **One continuous convex leading sweep + shorter humerus.** Shortened the humerus again (Monarch elbow x
+   0.95→0.55, wrist 1.78→1.40 ≈ 26% span) and placed the leading-edge joints (root→elbow→wrist→leading-tip) on a
+   smoothly rising line so there's no kink at the arm→hand join; the leading finger's high bow continues it into
+   one elegant arc. Swept, tapering tip placement (tips march from far-forward-out to back-in) gives the teardrop.
+**Reusable:** judge on `silhouette.mjs <key> top` (planform); the wing reads good when (a) the leading edge is ONE
+convex line shoulder→tip, (b) the fingers protrude as points over even sags, (c) curvature decreases leading→
+trailing. The bow direction is kept convex by flipping the in-plane normal toward −Z (leading) regardless of fan
+angle (`leadingPerp`). Tri cost unchanged (curve sampling, not more geo). The human's process note stands: when a
+shape "looks bad," RESEARCH the aesthetic + get the gradient/points right — don't blind-tweak.

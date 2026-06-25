@@ -117,31 +117,37 @@ export function buildAnatomicalWing(opts) {
 
   const wristV = at(A.wrist, A.wrist);                       // = (0,0,0)
   const tip = (f) => at(f.tip, A.wrist);
-  // Membrane outline (wrist-local), fan from the wrist:
-  //   leading: wrist → digit-0 tip along the CONVEX leading frame (curved)
-  //   trailing: scalloped curves between consecutive fingertips (deeper/curvier outboard)
-  //   inner: last fingertip → back to the wrist
+  // The membrane WEB ends slightly short of each fingertip so the bone pokes out as a
+  // protruding POINT/claw (the iconic dragon-wing silhouette). Leading finger reaches
+  // its tip (it IS the frame); inner fingers protrude most.
+  const claw = A.claw ?? 0.16;
+  const webTip = (f, i) => {
+    const t = tip(f);
+    const frac = i === 0 ? 1 : 1 - claw;                     // leading frame reaches tip
+    return wristV.clone().lerp(t, frac);
+  };
+  // Membrane outline (wrist-local), fanned from the wrist:
+  //   leading: wrist → leading-finger tip along the CONVEX, stiff leading frame.
+  //   trailing: smooth catenary SCALLOPS sagging toward the wrist between the web
+  //             tips, so each fingertip reads as a point over an even sag.
+  //   inner: last web tip → back to the wrist.
   const outline = [wristV];
-  // leading frame (digit 0 / II): a convex bow toward the leading edge.
   {
-    const a = wristV, b = tip(fingers[0]);
+    const a = wristV, b = webTip(fingers[0], 0);
     const ctrl = a.clone().lerp(b, 0.5).add(leadingPerp(a, b).multiplyScalar(fingers[0].bow * ws));
     outline.push(...bezier(a, ctrl, b, sampN).slice(1));
   }
-  // scalloped trailing edge between fingertips (curve dips toward the wrist; more
-  // lateral pair → deeper, curvier scallop).
   for (let i = 0; i < nF - 1; i++) {
-    const a = tip(fingers[i]), b = tip(fingers[i + 1]);
+    const a = webTip(fingers[i], i), b = webTip(fingers[i + 1], i + 1);
     const mid = a.clone().lerp(b, 0.5);
-    const lateral = 1 - i / Math.max(1, nF - 1);            // 1 outboard → 0 inboard
-    const ctrl = mid.lerp(wristV, A.scallop * (0.5 + 0.6 * lateral));
+    const ctrl = mid.lerp(wristV, A.scallop);                // even, smooth sag
     outline.push(...bezier(a, ctrl, b, sampN).slice(1));
   }
-  // close back to the wrist (the inner trailing edge of the hand-wing).
   wingTip.add(fanPanel(outline, mem));
 
-  // Curved finger struts (the spars). Digit 0 = the convex LEADING frame; posterior
-  // digits bow more. The last finger frames the trailing/outer edge.
+  // Curved finger struts (the spars) to the FULL tips, so the inner ones protrude past
+  // the web as points. The bow gradient (per-finger) makes the leading finger the most
+  // curved convex frame and the innermost ≈ straight (set by the caller).
   for (const f of fingers) wingTip.add(curvedBone(wristV, tip(f), f.bow, ws, strut, A.strutR ?? 0.035));
 
   const marker = new THREE.Object3D();
