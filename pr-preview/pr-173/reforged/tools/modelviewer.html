@@ -53,6 +53,12 @@
     <label><input type="checkbox" id="spin"> auto-spin</label>
     <label><input type="checkbox" id="flap"> animate</label>
   </div>
+  <div id="cmpbox"><div class="sub">Compare changes (toggle off = before):</div>
+    <div class="toggles">
+      <label><input type="checkbox" id="armor" checked> armor</label>
+      <label><input type="checkbox" id="ftail" checked> flame tail</label>
+    </div>
+  </div>
 </div>
 <div id="hint" class="panel">1 finger / drag = rotate • 2 fingers = pinch-zoom &amp; pan • double-tap = reset</div>
 <div id="name" class="panel"><b id="nm">—</b><br><span id="fm">—</span></div>
@@ -154,9 +160,22 @@ function bounds(root) {
   return _box;
 }
 let current = null, tick = null, t = 0;
+// Build the resolved def for a form, applying the "Compare changes" toggles so the
+// recent tweaks can be flipped off to see the BEFORE state (a deep-cloned blueprint,
+// so the roster data is untouched).
+function defFor(key, tier) {
+  const armor = document.getElementById('armor');
+  const ftail = document.getElementById('ftail');
+  const clone = JSON.parse(JSON.stringify(DRAGONS[key]));   // blueprints are pure data
+  if (clone.parts) {
+    if (armor && !armor.checked) delete clone.parts.shingle;                       // strip the armor plating
+    if (ftail && !ftail.checked && clone.parts.tail === 'monarchTail') clone.parts.tail = 'monarchTailBead';  // pre-redo bead tail
+  }
+  return ascendedDef(clone, tier, 0);
+}
 function load(key, tier) {
   if (current) { scene.remove(current.group); current.group.traverse(o => { if (o.geometry) o.geometry.dispose(); }); }
-  const def = ascendedDef(DRAGONS[key], tier, 0);
+  const def = defFor(key, tier);
   const result = buildDragonModel(def, { preview: true });
   // the preview build wraps the dragon in an extra group — unwrap for clean framing.
   const group = result.group;
@@ -185,7 +204,7 @@ function load(key, tier) {
 const pick = document.getElementById('pick');
 const keys = Object.keys(DRAGONS);
 pick.innerHTML = keys.map(k => `<option value="${k}">${DRAGONS[k].name || k}</option>`).join('');
-let curKey = keys.includes('thundercoil') ? 'thundercoil' : keys[0];
+let curKey = keys.includes('flameMonarch') ? 'flameMonarch' : keys[0];
 let curTier = 3;
 pick.value = curKey;
 
@@ -196,9 +215,17 @@ function renderForms() {
     `<button data-t="${i}" class="${i === curTier ? 'on' : ''}">${['H','K','R','E'][i] || i}</button>`).join('');
   [...formsEl.children].forEach(b => b.onclick = () => { curTier = +b.dataset.t; renderForms(); load(curKey, Math.min(curTier, n - 1)); });
 }
-pick.onchange = () => { curKey = pick.value; curTier = Math.min(curTier, ((DRAGONS[curKey].forms || []).length || 4) - 1); renderForms(); load(curKey, curTier); };
+pick.onchange = () => { curKey = pick.value; curTier = Math.min(curTier, ((DRAGONS[curKey].forms || []).length || 4) - 1); renderForms(); updateCmpVisibility(); load(curKey, curTier); };
 
 const spin = document.getElementById('spin'), flap = document.getElementById('flap');
+// Compare toggles + show the box only for dragons that have something to compare.
+const reload = () => load(curKey, Math.min(curTier, ((DRAGONS[curKey].forms || []).length || 4) - 1));
+['armor', 'ftail'].forEach(id => document.getElementById(id).addEventListener('change', reload));
+function updateCmpVisibility() {
+  const p = DRAGONS[curKey].parts || {};
+  const has = !!p.shingle || p.tail === 'monarchTail';
+  document.getElementById('cmpbox').style.display = has ? '' : 'none';
+}
 
 function resize() { const w = innerWidth, h = innerHeight; gl.setSize(w, h, false); camera.aspect = w / h; camera.updateProjectionMatrix(); }
 addEventListener('resize', resize);
@@ -206,6 +233,7 @@ addEventListener('orientationchange', () => setTimeout(() => { resize(); load(cu
 resize();   // set aspect BEFORE the first load so portrait framing is correct
 
 renderForms();
+updateCmpVisibility();
 load(curKey, curTier);
 
 let last = performance.now();
