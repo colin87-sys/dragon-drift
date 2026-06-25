@@ -3065,3 +3065,34 @@ roster-wide + mobile-perf implications — acknowledged, not jammed into the sha
 **→ Leapfrog (innovate):** next, if the human wants the EXACT concept read: add a `wingPlane:'vertical'` knob to
 the membrane builder (scallops in-plane for flat-facing wings) and a per-dragon opt-in `toonOutline` material
 module (MeshToon ramp + cheap inverted-hull outline, detail-gated), proven on `prism` first, roster untouched.
+
+---
+
+## Lesson — VERIFY don't eyeball: built conceptmatch (correct white-bg masking) + a screen-plane crystalWing; the "ribbon wing" was a membrane-ORIENTATION bug, not a knob.
+
+**Did / learned:** claimed a rear-concept (Prism Wyvern) "matched the gesture" by eyeballing a silhouette — WRONG. The
+human forced the actual check: overlay reference vs build. **(1) The existing `silhouette-overlay.mjs` masking was
+broken for this input** — it masks "luminance floor in the LOWER frame" (built for a dragon over sunset WATER), but a
+concept on a near-WHITE bg made it grab a giant black top-block → garbage IoU. Built **`tools/conceptmatch.mjs`**:
+white/transparent-bg-aware subject mask (differs-from-corner-bg OR colourful; alpha if present) → largest-component →
+aspect-preserving centred alignment of MY rear silhouette onto it → IoU + each shape's ASPECT ratio + a 3-panel PNG
+(reference | build | overlay). It immediately exposed the truth: **IoU 13%, my aspect 1.42 vs reference 0.97 — my
+wings were thin RIBBONS splayed wide; the reference is broad FILLED membranes held up in a compact V.** **(2) The
+ribbon was an ORIENTATION bug:** the shipped membrane lays in the span×CHORD (X-Z) plane and presents vertically only
+via the `arc` lift — so from the rear chase cam it's edge-on (a strip), and the trailing SCALLOPS live in depth
+(invisible). Built **`crystalWing`** (`registerWings('crystalWing')`): the membrane laid in the **X-Y screen plane**
+(faces the rear cam → the membrane AREA is the silhouette fill, scallops hang down + visible), a rest **dihedral on a
+static child group** (raises the wing into the V; the rig's flap `pivot.rotation.z` adds on top), wrist-fold panel,
+leading-edge bone + finger struts to each scallop tip + veins, mirrored, obeys the frozen rig contract. Knobs
+`wingDihedral`/`wingSpanScale`/`wingChordScale`. Result: **IoU 13%→34%, aspect 1.42→1.07**, and visually the wings
+are now broad crystalline scalloped membranes overlapping the reference (the overlay's white = match). Budget OK
+(prism 2732–3163), roster byte-identical, parametric/blueprint/defs/skinnedwing/flapcheck green.
+**→ Systematize:** **NEVER claim a shape matches from a single silhouette — OVERLAY it against the reference and read
+the IoU + aspect.** Bank two laws: **(a)** mask a concept by what the BACKGROUND is (sample the corners), not a
+hard-coded region/luminance assumption — `conceptmatch.mjs` is the reusable rear-QA harness. **(b)** A flat MEMBRANE
+must be built in the plane it's VIEWED in: for a rear-cam creature, lay the wing in the X-Y screen plane (area =
+silhouette), don't rely on an arc to rotate an edge-on X-Z sheet into view — that's the ribbon trap.
+**→ Leapfrog (innovate):** crystalWing is the reference-driven wing for any flat-concept creature. Volumetric parts
+(loft body via `profileStations`, segmented/blade tail via `tailKnobs`, horned head) DON'T have the edge-on problem —
+the overlay shows body/tail/head already align from rear — so they need DATA tuning, not a new "screen-plane" module.
+Next if finer fidelity is wanted: anchor-drive the tail trident + head horns, and add a `conceptmatch` per-form sweep.

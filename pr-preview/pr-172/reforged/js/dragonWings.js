@@ -593,6 +593,103 @@ registerWings('skinnedMembrane', (def, model, attach, giM) => buildMembraneWings
 registerWings('skinnedMembraneBridge', (def, model, attach, giM) => buildMembraneWings(def, model, attach, giM, { curved: true, skinned: true, bridge: true }));
 registerWings('none', buildNoneWings);
 
+// ── CRYSTAL (screen-plane membrane) ──────────────────────────────────────────
+// A broad, FILLED bat membrane laid in the X-Y plane (the wing FACES the rear
+// chase camera) instead of the default membrane's X-Z plane (which presents
+// edge-on from behind and reads as a thin ribbon). The membrane area is now the
+// vertical fill the rear silhouette actually sees; the scalloped trailing edge
+// hangs DOWN and is visible. A rest DIHEDRAL raises each wing into the concept's
+// "V"; the rig's flap (pivot.rotation.z roll) still beats it, and the wrist fold
+// (wingTip.rotation.z) folds the outer panel in-plane (no segment collision).
+// Built for reference-driven creatures (e.g. the Prism Wyvern) whose source of
+// truth is a flat rear/dorsal concept. Obeys the frozen rig contract.
+function buildCrystalWings(def, model, attach, giM) {
+  const group = new THREE.Group();
+  const spineMats = [];
+  const ws = model.wingScale ?? 1;
+  const spec = wingSpecFor(def, model);
+  const spanS = (model.wingSpanScale ?? 0.62) * ws;   // x scale (compact span → not a wide ribbon)
+  const chordS = (model.wingChordScale ?? 1.7) * ws;  // y scale (DEEP membrane fill, the vertical read)
+  const dihedral = model.wingDihedral ?? 0.72;        // rest raise into the V (rad)
+  const maxX = (spec.tips[0][0] || 5.6) * spanS;
+  const wristX = maxX * 0.42;
+
+  const wingMat = new THREE.MeshStandardMaterial({
+    color: 0xffffff, vertexColors: true, roughness: 0.5, side: THREE.DoubleSide,
+    transparent: true, opacity: model.wingOpacity ?? 0.9,
+    emissive: def.wingMembraneEmissive ?? def.wingEmissive, emissiveIntensity: model.wingPanelGlow ?? 0.3,
+  });
+  const armMat = new THREE.MeshStandardMaterial({
+    color: def.horn, emissive: def.apexSeam || def.wingEmissive, emissiveIntensity: 0.6,
+    roughness: 0.3, metalness: 0.55,
+  });
+  const veinInt = 1.6 * giM;
+  const veinMat = new THREE.MeshStandardMaterial({
+    color: def.apexSeam || def.wingEmissive, emissive: def.apexSeam || def.wingEmissive,
+    emissiveIntensity: veinInt, roughness: 0.3, metalness: 0.4,
+  });
+  veinMat.userData.baseEmissive = def.apexSeam || def.wingEmissive;
+  veinMat.userData.baseIntensity = veinInt;
+  spineMats.push(veinMat);
+
+  // One membrane panel in the X-Y plane, clipped to [clipMin,clipMax] and re-origined.
+  function panel(clipMin, clipMax, originX) {
+    const g = new THREE.ShapeGeometry(buildWingShape(spec), seg(16));
+    g.scale(spanS, chordS, 1);
+    applyWingGradient(g, def, 0, 1);
+    const pos = g.attributes.position;
+    for (let i = 0; i < pos.count; i++) {
+      let x = pos.getX(i);
+      x = x < clipMin ? clipMin : x > clipMax ? clipMax : x;
+      pos.setX(i, x - originX);
+    }
+    pos.needsUpdate = true; g.computeVertexNormals();
+    return g;
+  }
+
+  const parts = {};
+  for (const s of [-1, 1]) {
+    const wr = attach.wingRoot(s);
+    const pivot = new THREE.Group();
+    pivot.position.set(wr.x, wr.y, wr.z);
+    group.add(pivot);
+    // rest dihedral + side mirror live on a static child so the rig's flap
+    // (pivot.rotation) adds on top of the raised V.
+    const dih = new THREE.Group();
+    dih.rotation.z = s * dihedral;
+    dih.scale.x = s;                 // mirror the +x-built wing to the correct side
+    pivot.add(dih);
+
+    const inner = new THREE.Mesh(panel(0, wristX, 0), wingMat);
+    dih.add(inner);
+
+    const wingTip = new THREE.Group();
+    wingTip.position.set(wristX, 0, 0);   // at the wrist along the (tilted) span
+    dih.add(wingTip);
+    wingTip.add(new THREE.Mesh(panel(wristX, maxX, wristX), wingMat));
+
+    // Leading-edge ARM bone (root → far tip) so the wing reads as bone + membrane.
+    dih.add(bone(0, 0, 0.03, maxX, 0, 0.03, 0.06 * ws, 0.02 * ws, armMat));
+    // Crystalline FINGER struts: wrist → each trailing scallop tip (the spokes).
+    for (let i = 1; i < spec.tips.length; i++) {
+      const tx = spec.tips[i][0] * spanS, ty = spec.tips[i][1] * chordS;
+      dih.add(bone(0, 0, 0.04, tx, ty, 0.04, 0.035 * ws, 0.012 * ws, model.wingVeins ? veinMat : armMat));
+    }
+    // A faint vein up the leading edge for the crystal-energy read.
+    if (model.wingVeins) dih.add(bone(0, 0.02, 0.05, maxX * 0.96, 0.02, 0.05, 0.018 * ws, 0.006 * ws, veinMat));
+
+    const tipMarker = new THREE.Object3D();
+    tipMarker.position.set(maxX, 0, 0);
+    wingTip.add(tipMarker);
+
+    if (s < 0) { parts.wingPivotL = pivot; parts.wingTipL = wingTip; parts.tipMarkerL = tipMarker; }
+    else { parts.wingPivotR = pivot; parts.wingTipR = wingTip; parts.tipMarkerR = tipMarker; }
+  }
+  parts.wingPivot2L = null; parts.wingPivot2R = null;
+  return { group, parts, wingMat, spineMats };
+}
+registerWings('crystalWing', buildCrystalWings);
+
 // ── FEATHER ─────────────────────────────────────────────────────────────────
 // The firebird wing (the Phoenix, folded out of its bespoke builder): a bird
 // wing, not a membrane — a continuous translucent inner WEB (the secondaries)
