@@ -241,8 +241,12 @@ function flapDrive(t, side) {
 export function buildCelestialStorm() {
   // ── assemble ──────────────────────────────────────────────────────────────
   const root = new THREE.Group();
+  // coreGrp wraps the WHOLE creature so body-life can SWAY the entire torso as one (a swim/bank undulation) without
+  // touching root — the previewer fits/pitches root, the game flight-transforms it; coreGrp is ours to animate.
+  const coreGrp = new THREE.Group();
+  root.add(coreGrp);
   const bodyGrp = new THREE.Group(), plateGrp = new THREE.Group(), seamGrp = new THREE.Group(), wingGrp = new THREE.Group(), strutGrp = new THREE.Group(), spineGrp = new THREE.Group(), hornGrp = new THREE.Group(), spearGrp = new THREE.Group(), neckGrp = new THREE.Group(), headGrp = new THREE.Group();
-  root.add(bodyGrp, plateGrp, seamGrp, wingGrp, strutGrp, spineGrp, hornGrp, spearGrp, neckGrp, headGrp);
+  coreGrp.add(bodyGrp, plateGrp, seamGrp, wingGrp, strutGrp, spineGrp, hornGrp, spearGrp, neckGrp, headGrp);
 
   // BODY — the lofted (voluminous) hull stops above the tail flare; the spearhead below is built as a FLAT
   // crystalline blade so it reads sleek (the painted spear is a flat blade, not a bell). clipPoly cuts the
@@ -393,16 +397,17 @@ export function buildCelestialStorm() {
   // unaffected.
   const neckPivot = new THREE.Group();
   neckPivot.position.copy(N0);
-  root.remove(neckGrp); root.remove(headGrp);
+  coreGrp.remove(neckGrp); coreGrp.remove(headGrp);
   neckGrp.position.sub(N0);                       // neck geometry is in world coords → offset so it stays put under the pivot
   headGrp.position.sub(N0);                       // head was seated at N3 → now N3−N0 within the pivot
   neckPivot.add(neckGrp, headGrp);
-  root.add(neckPivot);
+  coreGrp.add(neckPivot);
   const headBaseQuat = headGrp.quaternion.clone();                       // the head's seated orientation; nod is layered over this
   const tailBase = pt(D.mirror, TAIL_BODY_CLIP - 0.015, 0);              // tail/spear junction — the spear flicks about this point
   const _e = new THREE.Euler(), _q = new THREE.Quaternion(), _v = new THREE.Vector3();   // per-frame scratch (no allocation in the hot loop)
   // reset the body-life rig to its rest pose (used by the previewer's __rest hook so silhouette metrics are deterministic)
   const restBodyLife = () => {
+    coreGrp.quaternion.identity(); coreGrp.position.set(0, 0, 0);
     neckPivot.quaternion.identity();
     headGrp.quaternion.copy(headBaseQuat);
     spearGrp.quaternion.identity(); spearGrp.position.set(0, 0, 0);
@@ -503,9 +508,16 @@ export function buildCelestialStorm() {
         w.pivot.rotation.x = w.restX + d.sweep * amp; w.pivot.rotation.y = d.plunge * amp; w.pivot.rotation.z = d.twist * amp;
       }
       // ── BODY LIFE — perpetual articulation so it doesn't read as a rigid mannequin between flaps. Amplitudes
-      // are tuned to READ in the rear chase cam (where the dragon is small + motion-blurred, so ~3° vanishes):
-      // the neck cranes side-to-side, the head nods/looks on top, and the tail spear whips like a rudder. ──
+      // are tuned to READ in the rear chase cam (where the dragon is small + motion-blurred, so ~3° vanishes). ──
       const env = d1.env;
+      // WHOLE-BODY SWIM — the single biggest "alive" cue: the torso itself is one rigid loft, so without a skeleton
+      // it can't undulate — but the WHOLE creature can bank/roll/yaw/heave as one, like it's swimming through air.
+      // This is what keeps the central body mass from reading as a stiff hanging column while only the wings move.
+      _e.set(0.06 * Math.sin(t * 0.8 + 0.4) * amp,            // pitch (nose up/down)
+             0.07 * Math.sin(t * 0.62) * amp,                 // yaw (weave left/right)
+             0.10 * Math.sin(t * 0.7 + 1.1) * amp, 'XYZ');    // roll (bank side to side) — the most legible torso motion in the rear cam
+      coreGrp.quaternion.setFromEuler(_e);
+      coreGrp.position.set(0, 0.18 * Math.sin(t * 0.9) * amp, 0);   // gentle vertical heave so the body rises/settles, not just rotates
       // neck+head crane about the shoulder base: lateral sway + a rise that couples to the flap apex
       _e.set((0.045 * Math.sin(t * 0.9) + 0.035 * env) * amp, 0.10 * Math.sin(t * 0.55) * amp, 0.03 * Math.sin(t * 0.7) * amp, 'XYZ');
       neckPivot.quaternion.setFromEuler(_e);
