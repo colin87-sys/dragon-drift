@@ -7,6 +7,13 @@ import { applyRim, updateRim, resetRim } from './rimLight.js';
 import { flapWing, formStrength, formSpeed } from './dragonWingFlap.js';
 import { solveWing, flapEnv, phaseCenter } from './wingFlapSolver.js';
 import { setActiveDetail } from './modelDetail.js';
+import { buildCelestialStorm } from './celestialModel.js';   // view-only in-game preview of the clean-sheet Celestial Storm (gated by ?celestial)
+
+// ?celestial in the URL → overlay the clean-sheet Celestial Storm as the player dragon for an in-game look.
+// Off by default: the shipped roster build path is byte-for-byte unchanged. View-only (physics/collision still
+// use the real equipped dragon underneath, which is built normally and just hidden).
+const CELESTIAL_PREVIEW = typeof location !== 'undefined' && /[?&]celestial\b/.test(location.search);
+let celestialModel = null;
 
 // Procedural dragon + rider. Built from a dragon def (dragons.js: palette,
 // model proportions, fx) and a rider def (riders.js: outfit, hair, accessory,
@@ -180,6 +187,27 @@ export function createDragon(scene, def, riderDef) {
 
   buildRider(riderDef, result.parts.riderSocket);
   scene.add(group);
+
+  // ── CELESTIAL PREVIEW (?celestial) ─────────────────────────────────────────
+  // Keep the real dragon fully built (so updateDragon's per-frame part writes never crash), but HIDE its visuals
+  // and overlay the Celestial Storm — parented to `group` so it inherits flight position/pitch/bank, auto-fitted
+  // to the real dragon's size, oriented head-forward (−z) dorsal-up (+y), and flapped by its own updateFlap.
+  celestialModel = null;
+  if (CELESTIAL_PREVIEW) {
+    const nbox = new THREE.Box3().setFromObject(group), nsz = nbox.getSize(new THREE.Vector3());   // real dragon size BEFORE hiding
+    for (const ch of group.children) ch.visible = false;                                            // hide the real dragon + rider
+    const cel = buildCelestialStorm();
+    const cbox = new THREE.Box3().setFromObject(cel.group), ccen = cbox.getCenter(new THREE.Vector3()), csz = cbox.getSize(new THREE.Vector3());
+    cel.group.position.sub(ccen);                                                                   // recenter the (un-centered) model on its own origin
+    const wrap = new THREE.Group();
+    wrap.add(cel.group);
+    wrap.rotation.x = -Math.PI / 2;                                                                 // model +y(head)→−z(forward), +z(dorsal)→+y(up)
+    const s = 1.8 * (Math.max(nsz.x, nsz.y, nsz.z) || 1) / (Math.max(csz.x, csz.y, csz.z) || 1);     // fit to the real dragon's largest extent, ×1.8 so the Celestial reads at a hero scale in the chase cam
+    wrap.scale.setScalar(s);
+    group.add(wrap);
+    celestialModel = cel;
+    console.log(`[celestial-preview] overlaid; fit scale ${s.toFixed(3)} (real ${nsz.y.toFixed(2)} / model ${csz.y.toFixed(2)})`);
+  }
 
   // Ponytail chain (world-space follow), length varies per rider
   const hairMat = new THREE.MeshStandardMaterial({ color: riderDef.hair, roughness: 0.9 });
@@ -432,6 +460,9 @@ export function updateDragon(dt, player, time) {
     player.position.y + Math.sin(time * 2.1) * 0.16,
     player.position.z
   );
+
+  // Celestial preview: drive its own wing flap (the real dragon below is hidden but still animates harmlessly)
+  if (celestialModel) celestialModel.updateFlap(time, 1);
 
   // Banking and pitch — banking deepens with speed for drama.
   // Bank is tracked separately so the barrel-roll spin can stack on top
@@ -1216,6 +1247,12 @@ export function updateDragon(dt, player, time) {
       if (!alive) p.visible = false;
     }
     if (!alive) burstActive = false;
+  }
+
+  // Celestial preview: the real (hidden) dragon still emits its trails/wisps from its animated tip-markers.
+  // Hide those FX pools each frame so they don't clutter the clean preview (emitted above, hidden here).
+  if (celestialModel) {
+    for (const s of [...trailSprites, ...boostTrailSprites, ...emberMotes, ...wingMotes, ...wingtipTrailSprites, ...thrusterFireSprites]) s.visible = false;
   }
 }
 

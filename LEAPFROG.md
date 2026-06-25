@@ -3897,3 +3897,19 @@ about "brightness" as one scalar — decompose it into per-pixel intensity (rati
 reference can match on one and miss on another. And a reference's glow may be a distinct element from its
 structure — replicating it means TWO materials, not one bright one. Always Q/A a measurement tool on a synthetic
 known-answer input before trusting it to steer art.**
+
+### L141 — In-game preview of an un-migrated model: hide the real dragon + overlay, don't stub 12 parts
+To let the human SEE the clean-sheet Celestial Storm in the actual game (lighting/scale/chase-cam/motion) before
+migrating it, the safe pattern is NOT to swap `buildCelestialStorm()` into `buildDragonModel`'s part contract
+(updateDragon writes to ~12 parts — head/tailSegs/wingPivots/tipMarkers/spineMats/auraSprite/rider — many
+UNGUARDED → crashes). Instead: build the REAL equipped dragon normally (every part valid, nothing crashes), then
+under a URL flag (`?celestial`) HIDE its visuals (`group.children.visible=false`) and OVERLAY the Celestial group
+parented to the player `group` (inherits position/pitch/bank), auto-fit by bbox to the real dragon's size (×1.8 for
+hero scale), oriented `rotation.x=-π/2` (model +y head→−z forward, +z dorsal→+y up), flapped by its own
+`updateFlap(time,1)`. Flag OFF = shipped roster byte-for-byte unchanged. Gotchas: the hidden dragon still ANIMATES,
+so its trail/mote sprite pools keep emitting — hide them each frame at the end of updateDragon; and some VFX
+(an ember/aura ring) are bound to the player independent of the mesh, so a clean in-game look needs the real
+migration, not a preview hack. FINDING the preview surfaced: against the bright sunset sky the now-dark (lightning-
+less) wings read as flat silhouette — the cost of the "no lightning" call shows up in-context, not in the previewer.
+Lesson: **to preview an un-migrated asset in a complex host, overlay-and-hide beats contract-stubbing; and viewing
+in the real environment surfaces lighting/scale/VFX truths the sterile previewer hides — do it before polishing.**
