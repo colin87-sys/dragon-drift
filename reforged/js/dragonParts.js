@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { seg } from './modelDetail.js';
+import { makeWingForm } from './dragonWingForms.js';
 
 // Dragon body components — the from-the-ground-up geometry for the redesigned
 // anatomy. dragonModel.js assembles these into the full rig; keeping the heavy
@@ -63,6 +64,8 @@ export const DEFAULT_WING = {
 // the flat legacy default.
 export function wingSpecFor(def, model) {
   const f = model.wingForm;
+  // Parametric planform (dial-able, dragonWingForms.js) wins when declared per-form.
+  if (def.wingFormKnobs && def.wingFormKnobs[f]) return makeWingForm(def.wingFormKnobs[f]);
   if (def.wingForms && def.wingForms[f]) return def.wingForms[f];
   return (f != null && WING_FORMS[f]) ? WING_FORMS[f] : DEFAULT_WING;
 }

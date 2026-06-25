@@ -2980,3 +2980,55 @@ dragon from a guessed wing rig + connection would have been the very "back-and-f
 human's next trace (wing rig + joint + body outline); extend `deriveWingForm` to estimate `scallop` from the
 mean finger-notch depth; add tail/head rig modes the same way; overlay the BUILT silhouette behind the trace
 so correction is one screen.
+
+---
+
+## Lesson — Shape-from-DATA: the bolted body became dial-able (own cross-sections + derived mounts), reuniting Solar's charm with Phoenix's "own geometry, shared rig" — and it's the AI-promptability the loop was missing.
+
+**Did / learned:** the human wanted Solar Sovereign's bolted-parts CHARM back, but customizable — and recalled
+Phoenix (the only dragon that ever "looked like a different animal" because it had its OWN geometry file)
+as the gold standard of "minimal iteration to a great result". Mapped both onto ONE missing capability the
+ledger had already named but never built: **the torso/body is the last part that's bespoke CODE, not dial-able
+DATA** (`ARROW_PROFILE.stations` hand-typed; mounts frozen constants; `WING_FORMS[0..3]` hand-placed). Built the
+parametric "shape-from-data" layer, all COEXIST + byte-identical-by-default:
+- **`dragonBodyProfile.js#makeArrowProfile(knobs)`** — emits the same `profile` object `buildTorso` consumes,
+  two modes: (A) DELTA knobs over the shipped table (`shoulderWidth/chestScale/waistPinch/hipFlare/bodyLength/
+  keelHeightCurve/sectionPoints…`, all identity-default), (B) a creature's OWN `profileStations` ring list (the
+  Phoenix move as data — own geometry, shared loft+rig, no new builder). Registered as torso `'parametricArrow'`.
+- **DERIVED + nudge-able mounts** — `wingRoot/fairing/headBase/tailAnchor` computed FROM the stations (wing root
+  rides the argmax-halfWidth shoulder peak; head/tail re-anchor off the end stations), with additive
+  `bodyKnobs.attach` nudges. Calibrated against the default table so default knobs reproduce the legacy
+  `{0.5,0.55,-0.25}` etc. EXACTLY → byte-identical; a reshaped body re-places its own connections.
+- **`dragonWingForms.js#makeWingForm(knobs)`** — parametric planform (`span/fingerCount/fingerSplay/chordTaper/
+  sweep/scallop/flame/arc` or explicit `tips`), wired at the single chokepoint `wingSpecFor` via
+  `def.wingFormKnobs`. Paired with `wings:'skinnedMembrane'` so segments FOLD without colliding (the human's
+  explicit wing ask).
+- **`model.tailKnobs`** — comet/blade/spade tip outlines as `?? literal` overrides at the dragonTail call sites.
+- **Grammar + validation + the AI loop** — new knobs in `creatureGrammar.js` (+ `stationList`/`wingFormList`
+  validator kinds), and **`tools/blueprintBuild.mjs`**: a headless prompt→blueprint→validate→build→budget
+  round-trip (the L48 "no new code" path). Proof creature **`tempest` (Tempest Tyrant)** authored ENTIRELY on
+  this path (own `profileStations` barrel-chested bruiser + parametric swept folding wings + dialed tail + rounder
+  section + matte storm hide) — its rear silhouette reads as a DIFFERENT animal from Solar (verified via
+  `silhouette.mjs`), 4 forms 2974–3507 tris (≤6000).
+**Verified:** `tests/parametric.mjs` (7 checks: `makeArrowProfile()` deep-equals `ARROW_PROFILE`; all 4
+`makeWingForm(WING_FORM_KNOBS[f])` deep-equal `WING_FORMS[f]`; derived mounts == legacy constants; mounts TRACK
+the shape; Mode-B stations; grammar accepts good / errors malformed / warns out-of-range; **`'arrow'` vs
+`'parametricArrow'` build byte-identical geometry by position-checksum across all of Solar's forms**). Existing
+roster **byte-identical** by the stash→`tricount`→diff oracle; `tricount --ci` 0-over; 16 geometry/model suites
+green (the only red — `recap` — is the pre-existing CI-Chromium browser block, red on a clean tree too).
+**→ Systematize:** the reusable law — **"to make a bespoke-code part dial-able without breaking the roster:
+emit the SAME data object a generator, default every knob to identity, CALIBRATE any derived value against the
+default fixture so default-knobs reproduce it to the bit, and prove it with deep-equal + a built-geometry
+checksum + stash/tricount/diff."** Mounts should be DERIVED from the shape (+ additive nudges), never frozen
+constants — connection points then track whatever silhouette the data describes. The float-parity trap: a
+derived value must be `LEGACY + (current − default)` (delta form), never recomputed from scratch
+(`-3.05 − 0.03 ≠ −3.08`).
+**→ Leapfrog (innovate):** this is the bolted-parts answer to the same thesis the hull arc reached from the
+other side — **own geometry as DATA, shared rig** — so an AI prompt now yields a genuinely different winged
+drake (silhouette, wing planform, tail, mounts, finish), NOT a reskin, validated + budget-checked headless
+before it touches `dragons.js`. The honest boundary (document it, don't oversell): it COMPOSES part TYPES and
+shapes them; a new STRUCTURE (legs/`legRoot`, insectoid, novel rig motion — `dragon.js`'s fixed flap/fold/coil/
+sway/bank vocabulary) still needs a NEW MODULE, which the AI flags via `MODEL-CREATION.md`'s `NEW MODULE NEEDED`.
+Next, in the same pattern: a `parametricHorned` head (snout/jaw/horn-rake knobs, so the head reshapes with the
+body), parametrize the remaining tail styles, and wire `blueprintBuild` + `silhouette-overlay` into a
+measure→fix loop (IoU plateau = add a knob).

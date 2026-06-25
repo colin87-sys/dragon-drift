@@ -743,6 +743,95 @@ export const DRAGONS = {
     eye: 0xe0bc78, trail: 0xb47cf0, boostTrail: 0xc8a8ff,
   },
 
+  // ===========================================================================
+  // TEMPEST TYRANT — the first creature authored entirely on the parametric
+  // "shape-from-DATA" path (LEAPFROG): a bolted-parts drake whose SILHOUETTE is
+  // its own, not the shared arrowhead. It declares its OWN body cross-sections
+  // (profileStations — a short-necked, barrel-CHESTED, broad-hipped bruiser),
+  // PARAMETRIC wing planforms (wingFormKnobs, not the canned WING_FORMS), dialed
+  // tail-tip outlines (tailKnobs), a rounder section + matte storm-hide finish,
+  // and a FOLDING skinnedMembrane wing (segments fold mid-beat without colliding).
+  // The wing roots / head / tail re-place themselves off these stations via the
+  // DERIVED attach contract — no hand-placed mount constants. Proof the system
+  // makes a genuinely different animal from data, not "Solar with more spikes".
+  tempest: {
+    name: 'Tempest Tyrant',
+    title: 'Storm given scale',
+    rarity: 'SSSR',
+    maxRarity: 'SSSR',
+    cost: 5200,
+    parts: { torso: 'parametricArrow', wings: 'skinnedMembrane', tail: 'clean', head: 'horned',
+      surface: { shader: ['cellularScales', 'iridescence'] } },
+    // OWN body silhouette — [z, halfWidth, keelTop, belly], head(-z) → tail(+z).
+    // Broad (halfWidth to 0.95 vs the arrow's 0.66), short-necked, clear barrel-chest
+    // → waist → broad-hip read; wider-than-tall so it stays a low-profile flyer.
+    profileStations: [
+      [-2.70, 0.20, 0.14, 0.16], // neck cap (short neck)
+      [-2.05, 0.40, 0.26, 0.30], // neck base
+      [-1.25, 0.74, 0.44, 0.52], // fore-shoulder (broad)
+      [-0.45, 0.95, 0.52, 0.62], // CHEST peak — barrel, deep belly
+      [ 0.35, 0.78, 0.44, 0.54], // thorax
+      [ 1.00, 0.52, 0.34, 0.38], // waist (sturdy pinch)
+      [ 1.55, 0.44, 0.28, 0.32], // broad hips
+      [ 2.05, 0.24, 0.20, 0.16], // thick tail root
+    ],
+    stats: { speed: 1.2, handling: 1.1, drain: 0.78, regen: 1.16 },
+    model: {
+      scale: 1.16, wingScale: 1.18, tailSegments: 8, neckSegments: 4,
+      hornLen: 1.4, hornPairs: 2, ridgeCount: 12,
+      flapBias: 0.8, flapAmp: 0.82, // heavy, powerful beat for a bruiser
+      // rounder section than the shipped 8-pt airfoil + matte storm hide.
+      bodyKnobs: { sectionPoints: 16, sectionExponent: 2.6, attach: { wingRoot: { z: -0.35 } } },
+      bodyMetalness: 0.12, bodyRoughness: 0.52, scaleSize: 4, scaleRelief: 0.55,
+      tailKnobs: { forkSpread: 0.62, forkLength: 1.7, bladeHalfW: 0.42, bladeLength: 1.5 },
+    },
+    // PARAMETRIC wing planforms — broad + swept, ramping per form (no canned shapes).
+    wingFormKnobs: [
+      { span: 0.82, fingerCount: 3, scallop: 0.2, lead: [2.3, 0.46],
+        arc: { bow: 0.5, hump: 0.3, humpAt: 0.55, hook: 0.16 } },
+      { span: 0.98, fingerCount: 4, scallop: 0.34, lead: [3.0, 0.56],
+        arc: { bow: 0.5, hump: 0.85, humpAt: 0.57, hook: 0.32 } },
+      { span: 1.12, fingerCount: 4, fingerSplay: 1.1, chordTaper: 1.08, scallop: 0.5, lead: [3.5, 0.66],
+        arc: { bow: 0.5, hump: 1.3, humpAt: 0.58, hook: 0.7 } },
+      { span: 1.26, fingerCount: 5, fingerSplay: 1.15, chordTaper: 1.15, scallop: 0.5, lead: [3.9, 0.74],
+        arc: { bow: 0.6, hump: 1.8, humpAt: 0.6, hook: 1.1 } },
+    ],
+    forms: [
+      // T0 Whelpling — clean, slate, stubby broad wings, no glow.
+      { wingForm: 0, tailStyle: 'spade', tailSegments: 5, ridgeCount: 6,
+        spineGlow: 0, crest: 0, hornPairs: 1, hornLen: 0.9, neckSegments: 4,
+        colors: { body: 0x1b222c, wingInner: 0x2a3f55, wingOuter: 0x161f29,
+          wingEmissive: 0x2c4f72, scales: 0x6f8298, horn: 0x9aa8bc,
+          apexSeam: 0x4a86b0, eye: 0x9fd0ef, coreGlow: 0x4a86b0 } },
+      // T1 Galeling — horns + ridges, broader wings, first cyan core.
+      { wingForm: 1, tailStyle: 'finned', tailSegments: 7, ridgeCount: 9,
+        spineGlow: 0.35, crest: 1, dorsal: true, hornLen: 1.15,
+        colors: { body: 0x1a2330, wingInner: 0x2e4a66, wingOuter: 0x14202e,
+          wingEmissive: 0x357bb4, scales: 0x8398b0, horn: 0xb6c4d6,
+          apexSeam: 0x6fd0ff, eye: 0xbfe6ff, coreGlow: 0x6fd0ff } },
+      // T2 Stormdrake — swept wings, blade tail, charged spine.
+      { wingForm: 2, tailStyle: 'blade', tailSegments: 8, ridgeCount: 11,
+        spineGlow: 0.7, glowSeams: true, crest: 2, hornPairs: 2, hornLen: 1.3, tusks: true,
+        colors: { body: 0x18222f, wingInner: 0x2e4a66, wingOuter: 0x122130,
+          wingEmissive: 0x3a86c8, scales: 0x9ab0c8, horn: 0xc8d4e4,
+          apexSeam: 0x6fd0ff, eye: 0xcdeeff, coreGlow: 0x6fd0ff } },
+      // T3 TEMPEST TYRANT — apex: widest swept wings, comet tail, full storm charge.
+      { wingForm: 3, tailStyle: 'comet', tailSegments: 8, ridgeCount: 12,
+        spineGlow: 1.0, glowSeams: true, wingVeins: true, backCrest: true, auraHalo: true,
+        crest: 3, hornLen: 1.4,
+        colors: { body: 0x141d29, wingInner: 0x2e4a66, wingOuter: 0x0f1a26,
+          wingEmissive: 0x3a86c8, scales: 0xaec2da, horn: 0xd8e4f2,
+          apexSeam: 0x6fd0ff, eye: 0xe2f6ff, coreGlow: 0x6fd0ff } },
+    ],
+    fx: { auraColor: '111,208,255', auraIdle: 0.0, sparkle: false },
+    hasStyle: true, surgeMotes: true,
+    feverWing: 0x6fd0ff, feverEye: 0xd8f4ff, feverWash: [0.03, 0.06, 0.10],
+    body: 0x141d29, belly: 0x223040, scales: 0xaec2da, horn: 0xd8e4f2,
+    wingInner: 0x2e4a66, wingOuter: 0x0f1a26, wingEmissive: 0x3a86c8,
+    apexEye: 0xe2f6ff, apexSeam: 0x6fd0ff, coreGlow: 0x6fd0ff, surgeHi: 0xbfeaff,
+    eye: 0x9fe0ff, trail: 0x7fc8ff, boostTrail: 0xafe0ff,
+  },
+
   phoenix: {
     name: 'Phoenix Ascendant',
     title: 'Reborn in fire',

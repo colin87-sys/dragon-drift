@@ -5,6 +5,7 @@ import { applyFresnelRim } from './surface.js';
 import { featherGeo, hexRgb } from './dragonParts.js';
 import { seg } from './modelDetail.js';
 import { sweepProfile } from './dragonSweep.js';
+import { makeArrowProfile } from './dragonBodyProfile.js';
 
 // Torso modules — the dragon's BODY PLAN, the first part extracted behind the
 // recipe registry (dragonRecipe.js). A body plan is now DATA: a profile object
@@ -306,6 +307,14 @@ const SERPENT_PROFILE = {
 
 registerTorso('arrow', (def, model, bodyMat) => buildTorso(ARROW_PROFILE, def, model, bodyMat));
 registerTorso('serpent', (def, model, bodyMat) => buildTorso(SERPENT_PROFILE, def, model, bodyMat));
+// parametricArrow — the arrowhead drake as DIAL-ABLE DATA (dragonBodyProfile.js).
+// `model.bodyKnobs` nudges the shipped table (shoulderWidth/waistPinch/…) and/or a
+// dragon supplies its OWN `def.profileStations` ring list ("own geometry, shared
+// rig"). Mounts are DERIVED from the stations so they track the shape. With neither
+// present the profile is deep-equal to ARROW_PROFILE → byte-identical to 'arrow'.
+registerTorso('parametricArrow', (def, model, bodyMat) =>
+  buildTorso(makeArrowProfile({ ...(model.bodyKnobs || {}),
+    stations: def.profileStations, keel: def.profileKeel }), def, model, bodyMat));
 // sweptLoft — the arrow body plan rebuilt through sweepProfile() so its cross-
 // section ROUNDS on capable devices (ULTRA) while staying byte-identical at HIGH.
 // Opt-in per dragon via parts.torso:'sweptLoft' (proving on the hero, Obsidian, first).

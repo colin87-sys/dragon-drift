@@ -85,6 +85,10 @@ export function buildCleanTail(def, model, bodyMat, swept = false) {
   const segs = [];
   const tailFins = [];   // deployable fin groups (apex only) — the rig opens these on boost/Surge
   const style = model.tailStyle || 'simple';
+  // tailKnobs — dial-able tip-outline shapes (default → the shipped constants, so a
+  // dragon that omits them is byte-identical). The layered-fin family is already
+  // dial-able via model.tailFinScale; these cover the comet/blade/spade tip outlines.
+  const tk = model.tailKnobs || {};
   // Obsidian's stealth-tail styles: a SMOOTH stem (no spike plates) lit by a
   // continuous cyan dorsal-segment line, ending in a layered fin assembly.
   const smoothStem = style === 'spade' || style === 'splitfin'
@@ -235,12 +239,13 @@ export function buildCleanTail(def, model, bodyMat, swept = false) {
   const tip = new THREE.Group();
   tip.position.set(0, 0, (N - 1) * spacing);
   if (style === 'comet') {
-    const forkGeo = new THREE.ShapeGeometry(buildForkShape(0.46, 1.5, 0.85));
+    const fSpread = tk.forkSpread ?? 0.46, fLen = tk.forkLength ?? 1.5, fNotch = tk.forkNotch ?? 0.85;
+    const forkGeo = new THREE.ShapeGeometry(buildForkShape(fSpread, fLen, fNotch));
     forkGeo.rotateX(Math.PI / 2);
     tip.add(new THREE.Mesh(forkGeo, membraneMat));
     for (const sx of [-1, 1]) {
       const a = new THREE.Vector3(sx * 0.05, 0, 0);
-      const b = new THREE.Vector3(sx * 0.46, 0, 1.5);
+      const b = new THREE.Vector3(sx * fSpread, 0, fLen);
       const dir = b.clone().sub(a);
       const edge = new THREE.Mesh(new THREE.CylinderGeometry(0.014, 0.045, dir.length(), lod(4)), plateMat);
       edge.position.copy(a).add(b).multiplyScalar(0.5);
@@ -261,12 +266,13 @@ export function buildCleanTail(def, model, bodyMat, swept = false) {
       tip.add(plume);
     }
   } else if (style === 'blade') {
-    const bladeGeo = new THREE.ShapeGeometry(buildBladeShape(0.3, 1.35));
+    const bHalf = tk.bladeHalfW ?? 0.3, bLen = tk.bladeLength ?? 1.35;
+    const bladeGeo = new THREE.ShapeGeometry(buildBladeShape(bHalf, bLen));
     bladeGeo.rotateX(Math.PI / 2);
     tip.add(new THREE.Mesh(bladeGeo, membraneMat));
-    const edge = new THREE.Mesh(new THREE.CylinderGeometry(0.016, 0.045, 1.35, lod(4)), plateMat);
+    const edge = new THREE.Mesh(new THREE.CylinderGeometry(0.016, 0.045, bLen, lod(4)), plateMat);
     edge.rotation.x = Math.PI / 2;
-    edge.position.set(0, 0, 0.67);
+    edge.position.set(0, 0, 0.67 * (bLen / 1.35)); // == 0.67 at the default length
     tip.add(edge);
   } else if (style === 'twinfin') {
     // Night-fury twin tail fins: two swept membrane fans flanking the tip, with
@@ -289,7 +295,7 @@ export function buildCleanTail(def, model, bodyMat, swept = false) {
   } else if (style === 'spade') {
     // HATCHLING: a clean tapered stem ending in a small dark spade / leaf tip —
     // a hint of the fin system to come, kept tiny and simple.
-    const spadeGeo = new THREE.ShapeGeometry(buildSpadeShape(0.17, 0.62));
+    const spadeGeo = new THREE.ShapeGeometry(buildSpadeShape(tk.spadeHalfW ?? 0.17, tk.spadeLength ?? 0.62));
     spadeGeo.rotateX(Math.PI / 2);            // lay flat: a horizontal leaf, tip back
     const spade = new THREE.Mesh(spadeGeo, membraneMat);
     spade.position.set(0, 0.03, 0.04);

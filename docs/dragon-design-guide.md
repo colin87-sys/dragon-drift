@@ -83,7 +83,7 @@ it and you get the default (the common drake).
 
 | slot | options | default | notes |
 |---|---|---|---|
-| `torso` | `arrow` · `serpent` · `avian` · `crystalSerpent` | `arrow` | body plan: arrowhead drake · long eastern serpent · firebird egg-body · **continuous astral-crystal serpent** (overlapping sections + glowing energy bands; the wyrm) |
+| `torso` | `arrow` · `parametricArrow` · `serpent` · `avian` · `crystalSerpent` | `arrow` | body plan: arrowhead drake · **dial-able arrowhead (shape from DATA — see §4.5)** · long eastern serpent · firebird egg-body · **continuous astral-crystal serpent** (overlapping sections + glowing energy bands; the wyrm) |
 | `wings` | `membrane` · `feather` · `sideFins` · `none` | `membrane` | bat membrane · bird feathers · **lateral astral vanes** · wingless |
 | `tail`  | *(set a `tailStyle`, see below)* · `plume` · `cometWake` · `legacy` | `clean` | `clean` auto-dispatches ~11 styles; `plume` = flame fan; **`cometWake` = a streaming comet glow-trail (sprites + lateral spark debris, low + behind)** |
 | `head`  | `horned` · `beaked` · `celestialMask` | `horned` | reptilian (horns/whiskers/tusks) · avian (hooked beak + crown) · **regal faceplate + crown/halo** |
@@ -183,6 +183,53 @@ Drake wings read by their **per-form outline**. Either reuse the shared
 distinct silhouette (each spec = `{ tips, lead, scallop, flame, arc }`; copy a
 neighbour from `dragons.js` and tweak). Premium apex flags: `wingVeins`,
 `wingEdgeGlow`, `wingtipFins`, `hipFins`.
+
+---
+
+## 4.5 Shape from DATA — make a genuinely different body (not a reskin)
+
+The shipped membrane drakes all share ONE hardcoded body (`arrow`), so they read
+the same from the chase cam. To give a NEW dragon its **own silhouette without
+writing a builder**, opt into the parametric body plan and dial it from `dragons.js`:
+
+```js
+parts: { torso: 'parametricArrow', wings: 'skinnedMembrane', /* … */ },
+```
+
+Then shape it two ways (both default to the shipped arrow body, so an empty set is
+byte-identical):
+
+- **Quick nudge — `model.bodyKnobs`** (all default 1 / identity):
+  `shoulderWidth`, `chestScale`, `waistPinch`, `hipFlare`, `bodyLength`,
+  `neckTaper`, `tailTaper`, `keelHeightCurve`, `shoulderZ`, plus per-dragon
+  roundness/crispness `sectionPoints` (8 = the faceted airfoil → up = rounder) and
+  `sectionExponent`. (`chestScale`/`waistPinch`/`hipFlare` = the barrel-chest /
+  pinched-waist / hip "hourglass" you couldn't get before.)
+- **Own silhouette — `profileStations`** (the "Phoenix move" as data): supply your
+  own cross-section ring list, head(−z) → tail(+z), each row
+  `[z, halfWidth, keelTop, belly]` (or `{ z, halfWidth, keelTop, belly }`). A short,
+  barrel-chested bruiser or a long lean blade is just different numbers. The
+  **connection points re-derive themselves** off your stations — the wing root rides
+  your actual shoulder peak, the head/tail re-anchor — so nothing is "premade".
+  Nudge any mount with `model.bodyKnobs.attach: { wingRoot:{x,y,z}, headBase:{y,z},
+  tailAnchor:{y,z} }`.
+
+Wings get the same treatment via **`wingFormKnobs: [ …4 knob objects… ]`** (an
+alternative to `wingForms[]`): `{ span, fingerCount, fingerSplay, chordTaper, sweep,
+scallop, flame, arc }` — or pass explicit `tips`. Pair with `wings:'skinnedMembrane'`
+so the membrane FOLDS as one continuous skin (segments never collide mid-beat).
+Tail tips dial via **`model.tailKnobs`** (`forkSpread/forkLength/forkNotch`,
+`bladeHalfW/bladeLength`, `spadeHalfW/spadeLength`); finish via the material knobs
+(`bodyMetalness`/`bodyRoughness`/`scaleSize`/`scaleRelief`).
+
+> Worked reference: **`tempest` (Tempest Tyrant)** in `dragons.js` — a broad,
+> barrel-chested storm drake authored entirely on this path (own `profileStations`,
+> parametric `wingFormKnobs`, `tailKnobs`, rounder section, folding wings). Diff its
+> rear silhouette against `solar` to see "different animal, same recipe family".
+
+**Verify it like any dragon** (§8) but also round-trip a stand-alone spec through
+`node tools/blueprintBuild.mjs <creature.json>` (validate + build + budget, headless)
+and compare the shape with `node tools/silhouette.mjs <key> rear`.
 
 ---
 
