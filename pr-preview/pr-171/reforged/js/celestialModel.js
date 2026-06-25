@@ -502,16 +502,18 @@ export function buildCelestialStorm() {
         const d = w.side === 1 ? d1 : this.flapDrive(t, w.side);
         w.pivot.rotation.x = w.restX + d.sweep * amp; w.pivot.rotation.y = d.plunge * amp; w.pivot.rotation.z = d.twist * amp;
       }
-      // ── BODY LIFE — subtle perpetual articulation so it doesn't read as a rigid mannequin between flaps ──
+      // ── BODY LIFE — perpetual articulation so it doesn't read as a rigid mannequin between flaps. Amplitudes
+      // are tuned to READ in the rear chase cam (where the dragon is small + motion-blurred, so ~3° vanishes):
+      // the neck cranes side-to-side, the head nods/looks on top, and the tail spear whips like a rudder. ──
       const env = d1.env;
-      // neck+head crane about the shoulder base: slow lateral sway + a gentle rise that couples to the flap apex
-      _e.set((0.022 * Math.sin(t * 0.9) + 0.018 * env) * amp, 0.05 * Math.sin(t * 0.55) * amp, 0, 'XYZ');
+      // neck+head crane about the shoulder base: lateral sway + a rise that couples to the flap apex
+      _e.set((0.045 * Math.sin(t * 0.9) + 0.035 * env) * amp, 0.10 * Math.sin(t * 0.55) * amp, 0.03 * Math.sin(t * 0.7) * amp, 'XYZ');
       neckPivot.quaternion.setFromEuler(_e);
       // head nods/looks on TOP of the crane (about the atlas N3), layered over its seated orientation
-      _e.set((0.05 * Math.sin(t * 1.1 + 0.6) + 0.035 * env) * amp, 0.06 * Math.sin(t * 0.7) * amp, 0, 'XYZ');
+      _e.set((0.10 * Math.sin(t * 1.1 + 0.6) + 0.06 * env) * amp, 0.11 * Math.sin(t * 0.7) * amp, 0, 'XYZ');
       headGrp.quaternion.copy(headBaseQuat).premultiply(_q.setFromEuler(_e));
-      // tail-spear flick about the tail/spear junction: lateral whip + a small fore-aft kick on the downstroke
-      _e.set((0.05 * Math.sin(t * 1.5 - 0.5) - 0.04 * env) * amp, 0.16 * Math.sin(t * 1.5) * amp, 0, 'XYZ');
+      // tail-spear whip about the tail/spear junction: a wide lateral rudder sweep + a fore-aft kick on the downstroke
+      _e.set((0.10 * Math.sin(t * 1.5 - 0.5) - 0.07 * env) * amp, 0.26 * Math.sin(t * 1.35) * amp, 0, 'XYZ');
       spearGrp.quaternion.setFromEuler(_e);
       spearGrp.position.copy(tailBase).sub(_v.copy(tailBase).applyQuaternion(spearGrp.quaternion));
       return env;
