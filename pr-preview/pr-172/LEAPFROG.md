@@ -3134,3 +3134,29 @@ reference-fidelity harness; `crystalWing.wingOutline`+`wingStruts` is the screen
 overlay). Next: the same trace→arc→RDP→DT-QA generalises to tracing the BODY profile + tail + head outline from a
 concept; and an auto-tuner can nudge `wingOutlineScale`/wing-root placement to maximise `conceptmatch` IoU. The
 literal cel-shade + hard-outline ART STYLE remains a separate renderer module (toon ramp + inverted-hull outline).
+
+---
+
+## Lesson — Don't ASSUME a part's internal structure — DETECT it from the source. (I fabricated the wing struts; the truth was a wrist-fan, not a root-fan.)
+
+**Did / learned:** I emitted the Prism wing's bone struts as root→tip beziers — ASSUMED, not verified. The human
+caught it: the struts are **6–7 thin 2-edge bones fanning from the WRIST** (a point partway out the leading edge,
+like a bat hand), NOT from the body root; and they are SOLID lines distinct from the (already-good) jagged lightning
+veins. Fixed `tools/wingtrace.mjs` to DETECT them: **find the wrist by CONVERGENCE** — search candidate points along
+root→far-tip (+ a perpendicular spread) and pick the one whose straight lines to the finger tips maximise coverage of
+the solid (bright) strut pixels. Solid bones fit straight wrist→tip lines; jagged veins don't, so straight-line
+fitting **selects the bones and rejects the veins** for free. Keep the tips whose wrist→tip coverage ≥0.3 → 6 bones
+(PASS, want 6–8). Emits `wingStruts = { wrist, tips }` (wing-local); the overlay marks the wrist + struts + tips +
+solid pixels for eyeball QA + manual correction. `crystalWing` renders each as a **thin tapered flat quad** (literally
+two edges = the "2 solid lines") from the wrist. Verified on the overlay (struts fan from the wrist onto the real
+bones), prism 2220–2603 tris, budget OK, parametric/blueprint/defs/flapcheck/skinnedwing green, roster byte-identical.
+**→ Systematize:** **NEVER assume a part's internal topology (where struts originate, how many, how composed) —
+detect it from the source pixels and QA-overlay before claiming.** The convergence-search-for-the-origin pattern
+(score candidate origin points by line-coverage of the feature pixels) generalises to any radiating structure (struts,
+spines, frills). And separate feature classes by their GEOMETRY (solid = fits a straight line; jagged = doesn't),
+not by one brightness threshold. The standing rule, twice-earned this session: **verify with the information; don't
+invent it.**
+**→ Leapfrog (innovate):** the wingtrace harness now extracts BOTH the outline (arc+RDP+DT-QA) and the strut topology
+(wrist-convergence) from a concept, QA-overlaid + correctable — the faithful concept→wing pipeline. Same convergence
+detector can find a body's spine origin or a tail's fin roots from a concept. Remaining: a small manual-correct CLI
+flag to nudge the wrist/tips, and the cel-shade/outline render module (still separate).
