@@ -707,20 +707,24 @@ function buildCrystalWings(def, model, attach, giM) {
       dih.add(new THREE.Mesh(outlineGeo(), wingMat));
       let far = outline[0]; for (const p of outline) if (p[0] > far[0]) far = p;
       const strutMat = model.wingVeins ? veinMat : armMat;
-      if (def.wingStruts) {
-        // CURVED finger struts traced from THIS wing's veins (tools/wingtrace.mjs):
-        // each is a quadratic bezier [root, control, tip] → segmented tapered tubes.
-        const N = seg(6);
-        for (const st of def.wingStruts) {
-          const [a, c, b] = st;
-          const P = [];
-          for (let i = 0; i <= N; i++) { const t = i / N, mt = 1 - t;
-            P.push([(mt * mt * a[0] + 2 * mt * t * c[0] + t * t * b[0]) * outScale,
-                    (mt * mt * a[1] + 2 * mt * t * c[1] + t * t * b[1]) * outScale]); }
-          for (let i = 0; i < P.length - 1; i++) {
-            const r0 = (0.055 * (1 - i / P.length) + 0.012) * ws, r1 = (0.055 * (1 - (i + 1) / P.length) + 0.012) * ws;
-            dih.add(bone(P[i][0], P[i][1], 0.04, P[i + 1][0], P[i + 1][1], 0.04, r0, r1, strutMat));
-          }
+      if (def.wingStruts && def.wingStruts.wrist) {
+        // BONE STRUTS detected from THIS wing (tools/wingtrace.mjs): a wrist-fan of
+        // thin 2-EDGE bones — a tapered flat quad per finger from the WRIST (a point
+        // partway out the leading edge, NOT the body root) to each finger tip.
+        const W = def.wingStruts.wrist;
+        // a leading-edge arm bone from the body root out to the wrist (anchors the hand)
+        const flatBone = (ax, ay, bx, by, wAh, wBh) => {
+          const dx = bx - ax, dy = by - ay, L = Math.hypot(dx, dy) || 1, nx = -dy / L, ny = dx / L;
+          const v = [ax + nx * wAh, ay + ny * wAh, 0.05, ax - nx * wAh, ay - ny * wAh, 0.05,
+                     bx - nx * wBh, by - ny * wBh, 0.05, bx + nx * wBh, by + ny * wBh, 0.05];
+          const g = new THREE.BufferGeometry();
+          g.setAttribute('position', new THREE.Float32BufferAttribute(v, 3));
+          g.setIndex([0, 1, 2, 0, 2, 3]); g.computeVertexNormals();
+          return new THREE.Mesh(g, strutMat);
+        };
+        dih.add(flatBone(0, 0, W[0] * outScale, W[1] * outScale, 0.07 * ws, 0.05 * ws));   // arm → wrist
+        for (const tp of def.wingStruts.tips) {                                            // wrist → each finger tip
+          dih.add(flatBone(W[0] * outScale, W[1] * outScale, tp[0] * outScale, tp[1] * outScale, 0.045 * ws, 0.012 * ws));
         }
       } else {
         const { tips } = outlineFingers();

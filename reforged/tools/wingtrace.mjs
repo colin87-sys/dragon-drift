@@ -137,47 +137,50 @@ const sgn = side === 'right' ? -1 : 1;                 // outward direction in i
 const scale = Math.abs(origin.x - tipExtreme) / 3.0;  // ~3 engine units across the span
 const local = simp.map((p) => [ +(((origin.x - p.x) * sgn) / scale).toFixed(3), +(((origin.y - p.y)) / scale).toFixed(3) ]);
 
-// --- 9. trace THIS wing's STRUTS from the bright internal veins ---------------
-// The membrane's bright cyan vein lines radiate from the wing root toward the
-// finger tips. Detect them, then fit a CURVED bezier (root → control-on-veins →
-// tip) per finger so the struts FOLLOW the actual veins (not copied from Toothless).
+// --- 9. DETECT the bone struts — they fan from the WRIST (a point partway out the
+// leading edge), NOT the body root. Find the wrist by CONVERGENCE: search candidate
+// points and pick the one whose straight lines to the finger tips best cover the
+// SOLID strut pixels. Solid bones fit straight wrist→tip lines; jagged lightning
+// veins do NOT, so straight-line fitting selects the bones and rejects the veins.
 const bright = new Uint8Array(w * h);
 for (let i = 0; i < w * h; i++) { if (!full[i]) continue; const r = rgba[i * 4], g = rgba[i * 4 + 1], b = rgba[i * 4 + 2];
   if (0.299 * r + 0.587 * g + 0.114 * b > 110) bright[i] = 1; }
-// finger tips = RDP outline points that are local maxima of radius from the root.
-const rootImg = origin;                                   // image-space wing root
-const rad = (p) => Math.hypot(p.x - rootImg.x, p.y - rootImg.y);
-const tips = [];
-for (let i = 1; i < simp.length - 1; i++) { if (rad(simp[i]) >= rad(simp[i - 1]) && rad(simp[i]) > rad(simp[i + 1]) && rad(simp[i]) > 40) tips.push(simp[i]); }
-// keep well-separated tips (drop near-duplicates), cap ~6
-tips.sort((a, b) => rad(b) - rad(a));
-const keptTips = [];
-for (const t0 of tips) { if (keptTips.every((k) => Math.hypot(k.x - t0.x, k.y - t0.y) > bw * 0.06) && keptTips.length < 6) keptTips.push(t0); }
-const struts = [];
-for (const tip of keptTips) {
-  const dx = tip.x - rootImg.x, dy = tip.y - rootImg.y, L = Math.hypot(dx, dy) || 1;
-  const ux = dx / L, uy = dy / L, nx = -uy, ny = ux;             // along + perp
-  // gather bright pixels in the corridor toward this tip; measure their mean perp offset.
-  let sumPerp = 0, nPx = 0;
-  for (let s = 0.2; s <= 0.8; s += 0.05) {
-    const bx = rootImg.x + ux * L * s, by = rootImg.y + uy * L * s;
-    for (let o = -L * 0.12; o <= L * 0.12; o += 2) { const px = (bx + nx * o) | 0, py = (by + ny * o) | 0;
-      if (px >= 0 && py >= 0 && px < w && py < h && bright[py * w + px]) { sumPerp += o; nPx++; } }
-  }
-  const perp = nPx > 8 ? sumPerp / nPx : 0;                      // bow toward the veins (0 if none found)
-  const ctrl = { x: rootImg.x + ux * L * 0.5 + nx * perp, y: rootImg.y + uy * L * 0.5 + ny * perp };
-  const toLocal = (p) => [+(((origin.x - p.x) * sgn) / scale).toFixed(3), +(((origin.y - p.y)) / scale).toFixed(3)];
-  struts.push([toLocal(rootImg), toLocal(ctrl), toLocal(tip)]);
+// finger tips = outline convex extrema (radius maxima from the body-root origin).
+const rad = (p) => Math.hypot(p.x - origin.x, p.y - origin.y);
+let tipsAll = [];
+for (let i = 1; i < simp.length - 1; i++) { if (rad(simp[i]) >= rad(simp[i - 1]) && rad(simp[i]) > rad(simp[i + 1]) && rad(simp[i]) > 40) tipsAll.push(simp[i]); }
+tipsAll.sort((a, b) => rad(b) - rad(a));
+const tipPts = [];
+for (const t0 of tipsAll) { if (tipPts.every((k) => Math.hypot(k.x - t0.x, k.y - t0.y) > bw * 0.035) && tipPts.length < 8) tipPts.push(t0); }
+// coverage of a straight line A→B over solid pixels (fraction of samples within 2px of bright).
+const nearBright = (x, y) => { for (let dy = -2; dy <= 2; dy++) for (let dx = -2; dx <= 2; dx++) { const xi = (x + dx) | 0, yi = (y + dy) | 0; if (xi >= 0 && yi >= 0 && xi < w && yi < h && bright[yi * w + xi]) return true; } return false; };
+const lineCov = (A, B) => { const L = Math.hypot(B.x - A.x, B.y - A.y) || 1, n = Math.max(4, L / 3 | 0); let hit = 0; for (let k = 0; k <= n; k++) { const t = k / n; if (nearBright(A.x + (B.x - A.x) * t, A.y + (B.y - A.y) * t)) hit++; } return hit / (n + 1); };
+// candidate wrists: along root→fartip (35%..78%) + a perpendicular spread; max total coverage.
+const farTip = tipPts.reduce((a, b) => rad(b) > rad(a) ? b : a, tipPts[0]);
+const ax = farTip.x - origin.x, ay = farTip.y - origin.y, aL = Math.hypot(ax, ay) || 1, ux = ax / aL, uy = ay / aL, nxw = -uy, nyw = ux;
+let wrist = null, bestScore = -1;
+for (let t = 0.3; t <= 0.8; t += 0.04) for (let o = -aL * 0.2; o <= aL * 0.2; o += aL * 0.04) {
+  const W = { x: origin.x + ux * aL * t + nxw * o, y: origin.y + uy * aL * t + nyw * o };
+  let sc = 0; for (const tp of tipPts) sc += lineCov(W, tp);
+  if (sc > bestScore) { bestScore = sc; wrist = W; }
 }
-// strut QA overlay (magenta struts over the cyan veins)
-for (let i = 0; i < w * h; i++) if (bright[i] && (i % w) < cx) plot(i % w, (i / w) | 0, 60, 200, 230, 0);
-for (const [a, c, b] of struts) { const A = { x: origin.x - a[0] * sgn * scale, y: origin.y - a[1] * scale }, C = { x: origin.x - c[0] * sgn * scale, y: origin.y - c[1] * scale }, B = { x: origin.x - b[0] * sgn * scale, y: origin.y - b[1] * scale };
-  for (let s = 0; s <= 1; s += 0.02) { const mt = 1 - s, px = mt * mt * A.x + 2 * mt * s * C.x + s * s * B.x, py = mt * mt * A.y + 2 * mt * s * C.y + s * s * B.y; plot(px, py, 255, 80, 230, 1); } }
+// keep the struts whose wrist→tip line actually rides solid pixels (the real bones).
+const strutTips = tipPts.filter((tp) => lineCov(wrist, tp) >= 0.3);
+const covs = strutTips.map((tp) => +lineCov(wrist, tp).toFixed(2));
+const strutPass = strutTips.length >= 6 && strutTips.length <= 8;
+const toLocal = (p) => [+(((origin.x - p.x) * sgn) / scale).toFixed(3), +(((origin.y - p.y)) / scale).toFixed(3)];
+const wingStruts = { wrist: toLocal(wrist), tips: strutTips.map(toLocal) };
+
+// overlay: solid pixels (dim cyan) · struts wrist→tip (magenta) · wrist (big magenta) · tips (yellow)
+for (let i = 0; i < w * h; i++) if (bright[i] && (i % w) < cx) plot(i % w, (i / w) | 0, 50, 150, 180, 0);
+for (const tp of strutTips) for (let s = 0; s <= 1; s += 0.01) plot(wrist.x + (tp.x - wrist.x) * s, wrist.y + (tp.y - wrist.y) * s, 255, 80, 230, 1);
+for (const tp of strutTips) plot(tp.x, tp.y, 255, 235, 120, 3);
+plot(wrist.x, wrist.y, 255, 120, 255, 5);
 writeFileSync('/tmp/wingtrace-overlay.png', pngRGBA(w, h, out));
 
 console.log(`concept ${w}x${h} · wing-arc ${arc.length}px → RDP ${simp.length} pts (eps ${eps})`);
-console.log(`QA  max-dev ${maxDev.toFixed(2)}px · mean-dev ${meanDev.toFixed(2)}px · maxTurn ${(maxTurn * 180 / Math.PI).toFixed(0)}° · squiggle-reversals ${reversals}  → ${pass ? 'PASS' : 'FAIL'}`);
-console.log(`struts: traced ${struts.length} from veins`);
-console.log(`overlay /tmp/wingtrace-overlay.png  (grey=ref edge, cyan=trace+veins, yellow=RDP, red=off-edge, magenta=struts)`);
+console.log(`outline QA  max-dev ${maxDev.toFixed(2)}px · mean-dev ${meanDev.toFixed(2)}px  → ${pass ? 'PASS' : 'FAIL'}`);
+console.log(`struts  wrist@(${wrist.x | 0},${wrist.y | 0}) · ${strutTips.length} bones · cov [${covs.join(',')}]  → ${strutPass ? 'PASS' : 'FAIL (want 6-8 — adjust threshold / tips)'}`);
+console.log(`overlay /tmp/wingtrace-overlay.png  (grey=ref edge, cyan=trace, yellow=tips, magenta=struts+wrist, red=off-edge)`);
 console.log('wingOutline: ' + JSON.stringify(local));
-console.log('wingStruts: ' + JSON.stringify(struts));
+console.log('wingStruts: ' + JSON.stringify(wingStruts));
