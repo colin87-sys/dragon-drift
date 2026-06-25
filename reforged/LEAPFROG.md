@@ -1,0 +1,13 @@
+
+### L133 — Ventral anatomy: deep chest + tucked abdomen (derived, since a rear view is blind to the belly)
+Human noted the belly read flat. A rear chase-cam shows ZERO ventral data, so per the no-guessing rule the belly
+is DERIVED (stated) from dragon anatomy + the existing dorsal: redesigned `BODY_SCULPT.Be(ny)` to two narrow
+gaussians — a deep CHEST bulge (ny~0.32) and rounded HIPS (ny~0.62) — so the GAP between them IS the abdominal
+tuck. Result on the side/below renders: prominent chest -> belly tucks in -> hips round, the classic deep-chest
+line; banding even improved (1.9%). Lesson: **model the belly profile as chest-bump + hip-bump with a gap, not
+one blob — the negative space between the masses is what reads as the abdomen.** Also: faint horizontal lines in
+the side render were the cosmic MATERIAL texture, not geometry banding — confirmed by the gate (verify the metric
+before "fixing" a non-bug).
+
+### L148 — "The body doesn't move": articulating APPENDAGES isn't enough when the TORSO is the dominant mass — sway the whole creature
+After wiring neck/head/tail articulation (L145) the human STILL said "the body doesn't move, bro." Rendering the REAL in-game rear chase cam at several times (not the close-up previewer) showed why they were right: the wings flapped, but the central BODY COLUMN — the biggest mass in frame — was dead rigid, and the head (small, occluded at the top behind the wings) + tail (tucked at the bottom) articulation was nearly invisible. The torso is ONE rigid loft; without a skeleton it can't undulate. The fix that actually reads: wrap the entire creature in a `coreGrp` and SWAY THE WHOLE THING — a slow roll (the most legible torso cue in the rear cam) + yaw weave + pitch + vertical heave, like it's swimming through air. Now the torso banks frame-to-frame instead of hanging stiff; wing-flap + neck/head/tail ride on top. Keep root free (the previewer fits/pitches it, the game flight-transforms it) and animate the inner `coreGrp` so neither fights the other; `restBodyLife()` zeroes coreGrp too so the silhouette gates stay deterministic. Lesson: **judge motion on the ACTUAL deployed view (in-game chase cam), not the flattering close-up previewer — the previewer over-shows small appendage moves that vanish in game. When the human says "the body doesn't move," they mean the BIG MASS; appendage wiggle won't fix it. For a rigid (un-skinned) body, a whole-creature bank/roll/heave is the cheapest, most convincing life — roll reads most in a rear cam. Verify by RENDERING the real view at multiple times and diffing the pose, not by asserting the math runs.** Gates PASS (5.2/2.8), def 5/5.

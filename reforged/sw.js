@@ -1,125 +1,27 @@
-// Dragon Drift (reforged) service worker — atomic, content-versioned precache.
+// Dragon Drift (reforged) service worker — NETWORK-FIRST with cache fallback.
 //
-// Why this shape:
-//   - VERSION + ASSETS below are STAMPED by tools/stamp-sw.mjs from a hash of
-//     every asset's contents. Any code change -> new VERSION -> sw.js bytes
-//     change -> the browser detects an SW update and reinstalls. No manual bump.
-//   - install precaches the WHOLE asset set into a version-named cache via
-//     addAll(), which is atomic: if any file fails (flaky network), install
-//     rejects and the previous, complete version keeps serving. A half-fetched
-//     mixed-version module graph can never reach the page.
-//   - fetch is cache-first within the current version (one consistent set),
-//     so offline/flaky loads always replay a single coherent build.
-//   - activate deletes every other dd-reforged-* cache, so stale versions
-//     can't linger and get mixed in.
-const VERSION = '1bcc9705513b';                          // STAMP:VERSION
-const ASSETS = [
-  './',
-  './css/style.css',
-  './index.html',
-  './js/ambient.js',
-  './js/analytics.js',
-  './js/ascension.js',
-  './js/biomes.js',
-  './js/cameraController.js',
-  './js/collision.js',
-  './js/config.js',
-  './js/contactShadow.js',
-  './js/daily.js',
-  './js/dragon.js',
-  './js/dragonCelestialHead.js',
-  './js/dragonCometWake.js',
-  './js/dragonCrystalSerpent.js',
-  './js/dragonDraconicHead.js',
-  './js/dragonHead.js',
-  './js/dragonModel.js',
-  './js/dragonParts.js',
-  './js/dragonRecipe.js',
-  './js/dragonSideFins.js',
-  './js/dragonSurfaceShader.js',
-  './js/dragonTail.js',
-  './js/dragonTorso.js',
-  './js/dragonWingFlap.js',
-  './js/dragonWings.js',
-  './js/dragons.js',
-  './js/embers.js',
-  './js/environment.js',
-  './js/events.js',
-  './js/feats.js',
-  './js/firstFlight.js',
-  './js/flightmarks.js',
-  './js/gameState.js',
-  './js/gestureTutorial.js',
-  './js/godrays.js',
-  './js/goldEmbers.js',
-  './js/hints.js',
-  './js/input.js',
-  './js/juice.js',
-  './js/level.js',
-  './js/main.js',
-  './js/milestones.js',
-  './js/missions.js',
-  './js/modelDetail.js',
-  './js/obstacles.js',
-  './js/particles.js',
-  './js/pbMarker.js',
-  './js/pilotScreen.js',
-  './js/player.js',
-  './js/postfx.js',
-  './js/powerups.js',
-  './js/preview.js',
-  './js/recap.js',
-  './js/records.js',
-  './js/reticle.js',
-  './js/riderParts.js',
-  './js/riders.js',
-  './js/rimLight.js',
-  './js/rings.js',
-  './js/save.js',
-  './js/setpieces.js',
-  './js/sfx.js',
-  './js/showcaseBackdrop.js',
-  './js/splash.js',
-  './js/surface.js',
-  './js/titles.js',
-  './js/tracks.js',
-  './js/trailPreview.js',
-  './js/ui.js',
-  './js/util.js',
-  './js/water.js',
-  './js/weekly.js',
-  './lib/fonts/rajdhani-latin-500.ttf',
-  './lib/fonts/rajdhani-latin-700.ttf',
-  './lib/fonts/russo-one-latin-400.woff2',
-  './lib/objects/Reflector.js',
-  './lib/postprocessing/EffectComposer.js',
-  './lib/postprocessing/MaskPass.js',
-  './lib/postprocessing/OutputPass.js',
-  './lib/postprocessing/Pass.js',
-  './lib/postprocessing/RenderPass.js',
-  './lib/postprocessing/ShaderPass.js',
-  './lib/postprocessing/UnrealBloomPass.js',
-  './lib/shaders/CopyShader.js',
-  './lib/shaders/LuminosityHighPassShader.js',
-  './lib/shaders/OutputShader.js',
-  './lib/three.module.js',
-  './lib/utils/BufferGeometryUtils.js',
-  './manifest.json',
-];                                              // STAMP:ASSETS_END
-const CACHE = 'dd-reforged-' + VERSION;
+// Strategy rationale (do not change casually):
+//   - ONLINE behavior is byte-identical to having no SW (always fetch) → a
+//     GitHub Pages / PR-preview deploy takes effect on the VERY NEXT load. No
+//     VERSION stamp to bump, no cache-first staleness, no "your change isn't
+//     showing" after a deploy. (This replaced the old content-versioned
+//     precache SW, which served a stale cached module graph until its VERSION
+//     changed AND the page was reloaded enough times for the new SW to take
+//     over — the cause of repeated "it's not updating" confusion.)
+//   - Every successful same-origin GET is still cached, so the LAST
+//     fully-fetched build plays OFFLINE (installed-app replay — the whole game
+//     is static assets).
+//   - Cache-first / stale-while-revalidate were rejected: with ~110 unhashed
+//     module files they can serve mixed-version module graphs after a deploy.
+// CACHE is an escape hatch: bumping it force-flushes old caches on activate.
+const CACHE = 'dd-reforged-v3';
 
-self.addEventListener('install', (e) => {
-  e.waitUntil((async () => {
-    const cache = await caches.open(CACHE);
-    await cache.addAll(ASSETS);   // atomic: all-or-nothing
-    await self.skipWaiting();
-  })());
-});
+self.addEventListener('install', () => self.skipWaiting());
 
 self.addEventListener('activate', (e) => {
   e.waitUntil((async () => {
     for (const key of await caches.keys()) {
-      if (key !== CACHE && key.startsWith('dd-reforged-')) await caches.delete(key);
+      if (key !== CACHE) await caches.delete(key);   // flush the old dd-reforged-<hash> precache caches too
     }
     await self.clients.claim();
   })());
@@ -129,18 +31,16 @@ self.addEventListener('fetch', (e) => {
   const url = new URL(e.request.url);
   if (e.request.method !== 'GET' || url.origin !== location.origin) return;
   e.respondWith((async () => {
-    const cache = await caches.open(CACHE);
-    const hit = await cache.match(e.request, { ignoreSearch: url.pathname.endsWith('/') });
-    if (hit) return hit;
     try {
       const res = await fetch(e.request);
-      if (res && res.ok) cache.put(e.request, res.clone());
+      if (res && res.ok) {
+        const cache = await caches.open(CACHE);
+        cache.put(e.request, res.clone());
+      }
       return res;
     } catch {
-      if (url.pathname.endsWith('/')) {
-        const idx = await cache.match('./');
-        if (idx) return idx;
-      }
+      const hit = await caches.match(e.request, { ignoreSearch: url.pathname.endsWith('/') });
+      if (hit) return hit;
       throw new Error('offline and uncached: ' + url.pathname);
     }
   })());

@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Celestial Storm — 3D Previewer</title>
+<script type="importmap">{ "imports": { "three": "../lib/three.module.js" } }</script>
+<style>
+  :root{ --bg:#070a14; --line:#243049; --ink:#cfe0ff; --dim:#7f8db0; --cyan:#6ae6ff; }
+  *{box-sizing:border-box} html,body{margin:0;height:100%;background:var(--bg);color:var(--ink);font:13px/1.5 system-ui,sans-serif;overflow:hidden}
+  #gl{position:fixed;inset:0;width:100vw;height:100vh;display:block}
+  header{position:fixed;top:0;left:0;right:0;padding:10px 14px;display:flex;align-items:center;gap:10px;z-index:2;pointer-events:none}
+  h1{font-size:14px;margin:0;color:var(--cyan);text-shadow:0 2px 12px rgba(0,0,0,.6)} h1 small{color:var(--dim);font-weight:400;margin-left:6px}
+  .controls{position:fixed;bottom:12px;left:50%;transform:translateX(-50%);display:flex;flex-wrap:wrap;gap:7px;justify-content:center;z-index:2;max-width:96vw}
+  button{background:rgba(22,34,60,.85);color:var(--ink);border:1px solid var(--line);border-radius:9px;padding:8px 12px;font-size:12px;cursor:pointer;backdrop-filter:blur(6px)}
+  button.on{background:var(--cyan);color:#04140a;border-color:var(--cyan);font-weight:600}
+  .hint{position:fixed;top:34px;left:14px;color:var(--dim);font-size:11px;z-index:2;pointer-events:none}
+</style>
+</head>
+<body>
+<canvas id="gl"></canvas>
+<header><h1>Celestial Storm <small id="sub">3D preview · rear chase-cam</small></h1></header>
+<div class="hint">drag to orbit · scroll to zoom</div>
+<div class="controls">
+  <button id="bRear" class="on">rear cam</button>
+  <button id="bSpin">auto-spin</button>
+  <button id="bFlap" class="on">wing flap</button>
+  <button id="bWire">wireframe</button>
+  <button id="bStruts" class="on">struts</button>
+  <button id="bPlates" class="on">plates</button>
+  <button id="bSeams" class="on">plate seams</button>
+  <button id="bSpine">spine</button>
+</div>
+<script type="module">
+import * as THREE from 'three';
+import { solveWing, phaseCenter } from '../js/wingFlapSolver.js';   // shared flapping biomechanics (same as the game)
+import { buildCelestialStorm } from '../js/celestialModel.js';      // the ONE shared procedural build
+
+const gl = document.getElementById('gl');
+const renderer = new THREE.WebGLRenderer({ canvas: gl, antialias: true, preserveDrawingBuffer: true, alpha: true });
+renderer.setPixelRatio(Math.min(devicePixelRatio || 1, 2));
+renderer.toneMapping = THREE.ACESFilmicToneMapping; renderer.toneMappingExposure = 1.15;
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x070a14);
+scene.fog = new THREE.FogExp2(0x070a14, 0.012);
+const camera = new THREE.PerspectiveCamera(42, 1, 0.1, 400);
+// lighting: cool cosmic key + warm rim + fill
+scene.add(new THREE.HemisphereLight(0x9fc4ff, 0x161a2e, 0.9));
+const keyL = new THREE.DirectionalLight(0xbfe0ff, 1.6); keyL.position.set(-3, 5, 7); scene.add(keyL);
+const rimL = new THREE.DirectionalLight(0x9b6bff, 1.1); rimL.position.set(4, 2, -6); scene.add(rimL);
+const fillL = new THREE.DirectionalLight(0x7fb8ff, 0.45); fillL.position.set(0, -3, 3); scene.add(fillL);
+const ventL = new THREE.DirectionalLight(0x8aa6ff, 0.5); ventL.position.set(-1, -2, -5); scene.add(ventL);   // lights the belly (−z) so the volume reads
+// starfield backdrop
+(() => {
+  const g = new THREE.BufferGeometry(), n = 1400, a = [];
+  for (let i = 0; i < n; i++) { const r = 90 + Math.random() * 120, t = Math.random() * 6.283, p = Math.acos(2 * Math.random() - 1); a.push(r * Math.sin(p) * Math.cos(t), r * Math.cos(p), r * Math.sin(p) * Math.sin(t)); }
+  g.setAttribute('position', new THREE.Float32BufferAttribute(a, 3));
+  scene.add(new THREE.Points(g, new THREE.PointsMaterial({ color: 0x9fc0ff, size: 0.5, sizeAttenuation: true, transparent: true, opacity: 0.7 })));
+})();
+
+// ── build the dragon from the shared module ──────────────────────────────────
+const M = buildCelestialStorm();
+const root = M.group; scene.add(root);
+const wingPivots = M.wingPivots;
+const { bodyGrp, plateGrp, seamGrp, spineGrp, strutGrp, wingGrp, hornGrp, spearGrp, neckGrp, headGrp } = M.groups;
+const { matBody, matMembrane } = M.materials;
+const { FLAP, flapDrive } = M;
+const TAU = Math.PI * 2;
+
+// ── fit camera ───────────────────────────────────────────────────────────────
+root.updateMatrixWorld(true);
+const box = new THREE.Box3().setFromObject(root), center = box.getCenter(new THREE.Vector3()), size = box.getSize(new THREE.Vector3());
+root.position.sub(center);                            // recenter at origin
+const radius = 0.5 * Math.max(size.x, size.y, size.z);
+const baseDist = (radius / Math.tan(camera.fov * Math.PI / 360)) * 1.5;
+const orbit = { yaw: 0, pitch: 0.22, dist: baseDist };   // yaw 0 = rear/dorsal view
+function placeCamera() {
+  const y = orbit.yaw, p = orbit.pitch;
+  camera.position.set(orbit.dist * Math.sin(y) * Math.cos(p), orbit.dist * Math.sin(p), orbit.dist * Math.cos(y) * Math.cos(p));
+  camera.lookAt(0, 0, 0); camera.updateProjectionMatrix();
+}
+
+// ── interaction ───────────────────────────────────────────────────────────────
+let drag = false, lx = 0, ly = 0;
+gl.addEventListener('pointerdown', e => { drag = true; lx = e.clientX; ly = e.clientY; });
+addEventListener('pointerup', () => drag = false);
+addEventListener('pointermove', e => { if (!drag) return; orbit.yaw -= (e.clientX - lx) * 0.008; orbit.pitch = Math.max(-1.3, Math.min(1.3, orbit.pitch + (e.clientY - ly) * 0.006)); lx = e.clientX; ly = e.clientY; spin = false; document.getElementById('bSpin').classList.remove('on'); });
+gl.addEventListener('wheel', e => { e.preventDefault(); orbit.dist = Math.max(radius * 1.2, Math.min(baseDist * 3, orbit.dist * (1 + Math.sign(e.deltaY) * 0.08))); }, { passive: false });
+
+let spin = false, flap = true, posed = false;   // posed = a frozen static pose (headless screenshots), skips animation
+const toggle = (id, fn) => { const b = document.getElementById(id); b.onclick = () => { b.classList.toggle('on'); fn(b.classList.contains('on')); }; };
+document.getElementById('bRear').onclick = () => { orbit.yaw = 0; orbit.pitch = 0.22; orbit.dist = baseDist; spin = false; document.getElementById('bSpin').classList.remove('on'); };
+toggle('bSpin', v => spin = v); toggle('bFlap', v => flap = v);
+toggle('bWire', v => { matBody.wireframe = v; matMembrane.wireframe = v; });
+toggle('bStruts', v => strutGrp.visible = wingGrp.children.forEach(p => p.children.forEach(c => { if (c.geometry && c.geometry.type === 'TubeGeometry') c.visible = v; })));
+toggle('bPlates', v => plateGrp.visible = v);
+toggle('bSeams', v => seamGrp.visible = v);
+toggle('bSpine', v => spineGrp.visible = v);
+
+function resize() { const w = innerWidth, h = innerHeight; renderer.setSize(w, h, false); camera.aspect = w / h; camera.updateProjectionMatrix(); }
+addEventListener('resize', resize); resize();
+
+// headless hooks (used by tools/celestial3Dshot.mjs)
+window.__ready = true;
+window.__view = (yawDeg, pitchR, flapOn) => { orbit.yaw = yawDeg * Math.PI / 180; orbit.pitch = pitchR ?? 0.22; orbit.dist = baseDist; spin = false; flap = !!flapOn; posed = false; };
+// freeze the full composite pose at a stroke phase. a≥0 → apex (wings up), a<0 → deep bottom (pressing).
+const poseAt = (phase) => { posed = true; M.restBodyLife(); const t0 = phase / (FLAP.freq * TAU); const e = solveWing(phase, FLAP).yoke.env; for (const w of wingPivots) { const d = flapDrive(t0, w.side); w.pivot.rotation.set(w.restX + d.sweep, d.plunge, d.twist); } root.position.y = -center.y + e * 0.12; root.rotation.x = -0.03 * e; };
+window.__flapPose = (a) => { flap = false; poseAt(phaseCenter(a >= 0 ? 'apex' : 'settle', FLAP)); };
+window.__flapPhase = (u) => { flap = false; poseAt(((u % 1) + 1) % 1 * TAU); };   // u∈[0,1] → any cycle fraction (tip-path QA)
+window.__zoom = (f) => { orbit.dist = baseDist * f; };
+window.__wings = (on) => { wingGrp.visible = on; };   // QA: hide wings to measure the bare body (celestialRefCompare.mjs)
+window.__bodyOnly = (on) => { for (const g of [wingGrp, spineGrp, strutGrp, plateGrp, seamGrp, hornGrp, spearGrp, neckGrp, headGrp]) g.visible = !on; };   // QA: isolate the bare torso mesh
+window.__head = (on) => { neckGrp.visible = headGrp.visible = on; };   // QA: toggle the neck+head
+window.__wingsOnly = (on) => { for (const g of [bodyGrp, spineGrp, strutGrp, plateGrp, seamGrp, hornGrp, spearGrp, neckGrp, headGrp]) g.visible = !on; wingGrp.visible = true; };   // QA: isolate the wings (wingMetrics.mjs) — hide everything but the wing group
+window.__transparent = (on) => { scene.background = on ? null : new THREE.Color(0x070a14); renderer.setClearAlpha(on ? 0 : 1); };   // QA: transparent bg for reference-overlay compositing
+window.__rest = () => { flap = false; flapAmp = 0; posed = false; for (const w of wingPivots) w.pivot.rotation.set(w.restX, 0, 0); M.restBodyLife(); root.position.y = -center.y; root.rotation.set(0, 0, 0); };   // QA: force the exact rest pose (no flap residual + neck/head/tail at base) so silhouette metrics are deterministic
+
+const clock = new THREE.Clock(); let t = 0, flapAmp = 0;
+function frame() {
+  const dt = clock.getDelta(); t += dt;
+  if (spin) orbit.yaw += dt * 0.5;
+  if (!posed) {
+    // ease amplitude in/out so toggling flap doesn't snap
+    flapAmp += ((flap ? 1 : 0) - flapAmp) * Math.min(1, dt * 3.3);
+    // ONE code path with the game: updateFlap drives wings + body-life (neck crane, head nod, tail flick). amp eases
+    // the wing flap; body-life rides the same amp so at rest (flapAmp→0) it freezes to the base pose.
+    const env = M.updateFlap(t, flapAmp);
+    root.position.y = -center.y + env * flapAmp * 0.12;   // body rises on the upstroke apex, dips on the press
+    root.rotation.x = -0.03 * env * flapAmp;              // tiny pitch coupling
+  }
+  placeCamera();
+  renderer.render(scene, camera);
+  requestAnimationFrame(frame);
+}
+frame();
+</script>
+</body>
+</html>

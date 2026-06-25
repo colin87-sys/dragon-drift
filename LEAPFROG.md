@@ -16,6 +16,25 @@ lessons for the one after. That is the whole studio: we rapidly improve the game
 
 ---
 
+## 📂 LESSON INDEX (by topic) — read only what's relevant to your task
+
+The ledger below is **append-only** (L1… plus older `## Lesson —` blocks). This map lets a fresh session jump
+to the relevant lessons instead of reading 3000+ lines. **When you add a lesson, also add its number here.**
+
+- **CELESTIAL STORM dragon — current arc (L90–L110)** — clean-sheet rear-cam (dorsal) creature traced from concept art:
+  - *2D trace → definition:* **L90, L92** (silhouette + armour plates + struts), **L95** (auto-fit the wing to the colour reference: scale/sweep), **L108** (grow tagged fills out to the stencil stroke)
+  - *Wing BONES (long, hard sub-arc):* **L100** (radial-framework attempt — wrong), **L101** (extract from the stencil, never invent), **L103–L104** (membrane COMPARTMENTS; "uncoloured = bone"), **L109** (ingest the human-tagged bone shapes; render as solid slabs), **L114** (over-correction → wiggly threads; smooth the spine, always re-compare before presenting), **L115** (keep the EXACT tagged 2D shape — 3D step is only thicken+taper, never re-derive), **L116** ("reads thick" has TWO knobs: z-thickness + in-plane stroke-halo; erode toward the crisp core)
+  - *Accuracy + labeling TOOLS:* **L93** (`traceCheck` overlay-on-art), **L94** (`traceAlign` registration), **L95** (`traceSuper` scale-matched overlay), **L102** (`celestialWingPaint`), **L105–L107** (`celestialBoneEditor`: delete/add/bridge/fill-bone/fill-membrane/vein + sealed-green check + zoom)
+  - *3D EXTRUSION / previewer (`tools/celestial3D.html`):* **L96** (loft body + extrude), **L97** (dorsoventral wingbeat), **L98** (trident branch + membrane billow), **L99** (surfacing v1: armour scales), **L112** (surfacing v2: fresnel rim-glow)
+  - *TRACING ROBUSTNESS / gotchas:* **L110** (skeleton fragmentation + threshold fragility → the fix kit: `morphClose` close-before-thin, `weldChains`, region-based capture, numeric `skeletonStats` QA — all in `lineTrace.mjs`)
+- **Earlier arcs (read the HANDOFF + roadmap below for these):**
+  - *Creature hull / "organism" tech* — body+wings as one skinned hull, weld kernel, shader relief: **L23–L32** + `UNIFIED_HULL_PLAN.md`
+  - *Wing FLAP / motion feel* — the `## Lesson — Wing flap…` blocks (search "Wing flap"); apex/yoke/5-phase envelope
+  - *Silhouette feedback loop & sculpting* — the `## Lesson —` blocks around the tracer/silhouette mirror
+  - *DOCTRINE* — "A PART IS A MULTI-MODULE ARTICULATED ASSEMBLY" (search that heading)
+
+---
+
 ## ▶ HANDOFF — read this FIRST to pick up where the last session left off
 
 You are a fresh session continuing **Dragon Drift** (the `reforged/` rewrite). Read this
@@ -2980,3 +2999,1011 @@ dragon from a guessed wing rig + connection would have been the very "back-and-f
 human's next trace (wing rig + joint + body outline); extend `deriveWingForm` to estimate `scallop` from the
 mean finger-notch depth; add tail/head rig modes the same way; overlay the BUILT silhouette behind the trace
 so correction is one screen.
+
+### L89 — Clean-sheet creature path: a NAMED-ANCHOR rear-cam silhouette blueprint, solved as a 2D logo BEFORE any 3D
+The human's frustration with the roster's creature generation is structural: **bolting parts from other
+dragons cages every wing in an archetype** — certain bodies dictate how/where wings can attach, so "a new
+kind of wing" keeps collapsing back into the shipped silhouettes. The fix is not another part builder; it is
+a different *source of truth*. New coexisting system (zero roster touch), the **Celestial Storm / Prism
+Wyvern**:
+- **`js/celestialStormSpec.js`** — the creature is DEFINED by named anchor points in a normalized rear-cam
+  frame (X horizontal, Y up, Z subtle; origin at the wing root; symmetric across X=0). Body stations +
+  widths, wing `root→elbow→wrist→tip` leading bones + four trailing scallop anchors, dorsal-spine ramp,
+  tail-spear, horns, vein runs, style, and **`silhouetteRules`** (the invariants the read must keep). The
+  right wing is `mirrorWing(left)` — authored once, symmetric by construction.
+- **`js/celestialStormSilhouette.js`** — PURE (no three, no DOM): spec → named 2D paths (body hull lofted via
+  Catmull-Rom width profile, 3 membrane panels, finger-spoke bones, an **outward-bowed scalloped trailing
+  edge**, seeded-jitter lightning veins, tapering diamond spine plates, spear+fins, horn V). Same blueprint
+  feeds the renderer, the test, the 3D extrusion later.
+- **`tools/celestialSilhouette.mjs`** — headless software rasterizer (scanline fill + disk-stamped strokes,
+  src-over alpha) → a colour PNG with **no WebGL** (Chromium is blocked here). This is the Phase-1 verify
+  loop: render, look, tune the *numbers*, repeat. First render already read as the concept: wide shallow-V
+  wings dominate, narrow glowing central spine, scalloped membrane, spear tail, small horned head.
+- **`tests/celestial.mjs`** — pins the `silhouetteRules` (wings dominate, body narrow, tips sharp+high+outer,
+  trailing edge sags in ≥3 bays, spine centred+tapering, spear is the lowest centred point, mirror symmetry,
+  vein determinism). 10 checks, so a future numeric tune can't silently break the read.
+- **`tools/celestialTracer.html`** — Phase-4 QA overlay: load the concept image behind the live generated
+  silhouette, **drag anchors** (left+body; right mirrors), number-only sliders (wingspan/tip-height/scallop/
+  body/tail/spine), export the tuned spec. "Adjust coordinates until it matches; never redesign mid-tune."
+
+Gotchas: (1) **don't import `silhouetteCore.mjs` for its PNG encoder** — it `await import`s three + the whole
+roster at module load; inline a ~15-line `pngRGBA` and the Phase-1 tool stays dependency-free + instant.
+(2) Vein jitter MUST be a **seeded** PRNG (`mulberry32`), not `Math.random`, or renders/tests aren't stable.
+(3) Renderer framing: map y=0 to `H/2 + midY*scale` to vertically CENTRE, else an X-limited fit pins the
+creature to the top. (4) `badges.mjs`/other Playwright tests fail in this sandbox (no browser) — that is
+pre-existing/environmental, not a regression; the pure-node tests + tricount are the real gate here.
+
+Reusable principle: **design the creature, don't assemble it — from named coordinates, mirrored rules, and a
+rear-readable 2D logo first; depth, materials, glow, animation come AFTER the silhouette is beautiful.** This
+is the same "blueprint not builders" thesis as the hull arc, but starting one level earlier (the *shape spec*
+itself) so a wing is no longer hostage to a body's attach geometry. **→ Leapfrog:** Phase 2 = extrude this
+exact blueprint to 3D (thin membranes, medium bones, raised spine, lofted body) keeping rear-readability;
+Phase 3 = materials/outline/glow; Phase 4 = wire the tracer overlay against the human's concept and converge
+the numbers; then register `celestialStorm` as a real creature via the grammar (coexist → hero → migrate).
+
+### L90 — Creature shape comes from AUTO-TRACING registered concept-art LAYERS, not hand-placed anchors
+Hard course-correction from the human: the L89 hand-authored anchor rig was **"trash"** — a procedural
+guess at the silhouette will never match the art. The human's actual workflow (and his own tool) is the
+**inverse auto-trace**: feed a cut-out image, get an accurate ~200-point outline back. The unlock he handed
+over: the concept art **separated into registered layers** — `full`/`wings`/`torso`/`spine`, every PNG the
+**same 941×1672 canvas**, so each layer's pixels are already in absolute position and their traces composite
+with **zero manual alignment**.
+- **`tools/traceLayers.mjs`** runs the tracer pipeline headlessly over the vendored layers
+  (`tools/refs/celestial/*.png`): `subjectMask` (not-near-white; these exports are colortype-2 RGB on a
+  flattened ~white bg, so **`alphaMask` is useless — there's no alpha channel**; flood/threshold off white
+  instead) → `topComponents` (a multi-blob extension of `tracerCore.largestComponent` — **wings are TWO
+  blobs**, take the two largest; torso/spine are one) → `traceContour` → `simplifyToBudget(eps, budget)`.
+  Output: 236-pt torso, 111+104-pt wings, 223-pt spine = **674 real vertices**. `--art` fills each traced
+  contour by sampling the source pixels (point-in-polygon) → a near-pixel-perfect reconstruction that PROVES
+  the boundary hugs the art; default = a clean cel-shaded vector fill; `--emit` writes the data.
+- **`js/celestialTrace.js`** (emitted) is the NEW source of truth — normalized 0..1 outlines on the shared
+  canvas. **`tests/celestialtrace.mjs`** pins it (canvas, torso1/wings2/spine≥1, normalized, >400 pts,
+  vertical body, centreline spine, wings mirror about x=0.5). 5 checks green.
+- **`tools/pngDecode.mjs`** — standalone 8-bit PNG decoder (colortype 2/6, unfilter + zlib), so the trace
+  tool doesn't drag in `silhouetteCore` (which `await import`s three + the whole roster at load).
+
+Gotchas: (1) **registered layers are the whole trick** — same canvas size ⇒ traces drop on top of each other;
+don't try to re-derive relative placement. (2) colortype-2 means **no alpha** — verify with the IHDR byte
+before reaching for `alphaMask`. (3) wings need a **2-component** trace; `largestComponent` alone silently
+drops the second wing. (4) `simplifyToBudget` only GROWS eps from your seed, so to get MORE scallop detail
+pass a SMALLER seed eps (0.4), not a bigger budget. (5) the source art is reference, not a runtime asset —
+it lives under `tools/refs/`, and only the derived **vector data** (`celestialTrace.js`) feeds the game, so
+the "100% procedural, no asset files" rule holds (coordinates, not bitmaps).
+
+This **supersedes L89's hand-anchor `celestialStormSpec`** as the silhouette source (the spec/tracer files
+stay only as a possible point-editor UI later). Reusable principle: **trace the art, don't guess it** — when
+the human has reference, the job is faithful extraction (registered layers → per-layer auto-trace → composite
+→ vector data), and procedural creativity belongs in the 3D extrusion + animation, NOT in re-inventing a
+silhouette the artwork already specifies. **→ Leapfrog:** Phase 2 = extrude `CELESTIAL_TRACE` to 3D — each
+layer outline becomes a thin shelled membrane/body/spine at its own Z (wings back, body mid, spine raised +
+emissive), keeping the rear read; then materials/glow/outline; then register `celestialStorm` via the grammar.
+
+### L91 — Line-art STENCILS trace best via fill-from-border + de-staircase + arc-length RESAMPLE (200–400 even dots)
+The colour-layer trace (L90) was "not accurate enough"; the human supplied clean line-art **stencils** (body /
+wings / spine, same 941×1672 canvas) and asked for the *most accurate technique* with **200–400 dots**, wing
+traced once + mirrored. Stencils are not filled cut-outs — they're thin outlines WITH internal facet lines —
+so the technique differs (`tools/traceStencil.mjs`):
+1. **`inkMask`** = luminance < 200 (these are colortype-2 RGB, dark lines on white; check the histogram —
+   bulk <80, AA fringe to ~200).
+2. **Close stroke gaps** — `dilate` the ink by R=2 (8-neighbour) so the outline is watertight, else the next
+   step leaks.
+3. **`fillInside`** — flood the OUTSIDE from every border pixel through background; invert. Whatever the
+   outside can't reach (interior + ink) is the SOLID silhouette — **internal facet lines vanish** because
+   they're now interior. (Sanity gate: solid coverage ~5–11%; a leak reads as >40%.)
+4. **`erode` R** — undo the dilation fattening so the boundary sits back on the true outer stroke edge.
+5. **`topComponents`** (wings = 2 blobs) → **`traceContour`**.
+6. **Density the RIGHT way:** RDP/`simplifyToBudget` plateaus at ~175 pts because a staircased pixel ring has
+   no more *real corners* — raising the budget does nothing. For dense, even 200–400-dot accuracy you must
+   **de-staircase then arc-length RESAMPLE**: two moving-average passes recover the sub-pixel edge, then
+   `resampleClosed(n)` lays exactly n evenly-spaced points along it. Body 360 / wing 320 / spine 320 = 1320
+   verts, all hugging the art. **Even resampling, not corner-simplification, is what "a large amount of dots"
+   means.**
+7. **Wing = trace ONE, mirror across x=0.5** (`{x:1-x, y}`) → a perfectly symmetric pair from one trace, per
+   the human's instruction.
+
+`js/celestialTrace.js` is re-emitted from the stencils (now `source:'stencil'`); `tests/celestialtrace.mjs`
+tightened to require each layer be a dense 200–400-dot outline + the wings an exact mirror pair. Reusable
+principle: **match the extraction method to the input** — filled cut-out → alpha/colour threshold + direct
+contour; line-art stencil → seal + fill-from-border + erode, THEN smooth + arc-length resample for uniform
+density. Corner-thinning (RDP) and density-resampling are opposite tools; for "trace it accurately with many
+dots", resample. **→ Leapfrog:** the trace is now accurate enough to EXTRUDE — Phase 2: each contour → a thin
+shelled 3D surface at its own Z (wings back, body mid, spine raised + emissive), wing mirrored in 3D too.
+
+### L92 — Internal structure needs TWO new tracers: skeleton→polylines (struts/veins) + interior-cell segmentation (armour plates)
+The outer-silhouette trace (L91) wasn't the whole creature — the human wants the **definition**: wing finger-
+STRUTS + lightning VEINS, and the body's individual ARMOUR SEGMENTS + trident. Outer-contour tracing can't
+get these (struts/veins are OPEN strokes; plates are INTERIOR regions), so two capabilities were built in
+`tools/lineTrace.mjs`:
+- **`thin` (Zhang-Suen) → `skeletonToPolylines`** — thin any line mask to a 1px skeleton, then walk the
+  skeleton graph (split at endpoints deg-1 + junctions deg-≥3; each degree-2 chain = one polyline; leftover
+  pure loops handled after). Drives **wing struts** (skeleton of the stencil ink, minus the boundary band we
+  already traced) and **lightning veins** (skeleton of a bright-cyan threshold of the COLOUR art).
+- **interior-cell segmentation** — label the components of NON-ink that DON'T touch the border; each is an
+  armour plate / spinal segment / trident prong. `dilate(ink,1)` first so hairline gaps don't merge cells;
+  `dilate(cell,1)` before contouring so the outline spans the ink to the true plate edge.
+`tools/traceDefinition.mjs` composes both → **`js/celestialDef.js`**: `body{ silhouette(360) + plates[59] }`,
+`wing{ silhouette(320) + struts[26] + veins[3], side:'right', mirror:0.5 }`. `tests/celestialdef.mjs` pins it
+(dense silhouettes, ≥20 interior plates, struts inside the membrane, single-sided wing). `celestialView.html`
+now renders the full definition with per-element toggles + art overlay.
+
+Gotchas/lessons: (1) **match tool to feature class** — silhouette=closed contour, strut/vein=skeleton
+polyline, plate=interior cell; three different extractions, one input. (2) Lightning veins are drawn as
+DASHED segments → thinning shatters them below any length filter; **dilate (≈3) to bridge the dashes, erode
+back, THEN thin**. Even so they stay sparse — and that's fine: the veins largely run ALONG the struts, so in
+3D they become an emissive glow on the strut bones (matches the original "veins follow the wing skeleton"
+brief) rather than a separately-traced layer. (3) cross-reference layers: struts read cleanest from the
+STENCIL, veins only exist in the COLOUR art — same registered canvas, so a right-wing region mask from the
+stencil cleanly selects the colour veins too. (4) Skeleton walking must mark UNDIRECTED edges
+(min·N+max key) or junctions double-emit. **→ Leapfrog:** `celestialDef.js` is now a complete 2D rig — Phase 2
+extrudes it: body silhouette → lofted hull, each plate → a raised shingle/relief card at its centroid, wing
+silhouette → thin shelled membrane, struts → tapered bone tubes, veins → emissive lines along the struts.
+
+ASIDE (image resolution): the TRACE always runs at the refs' native 941×1672 — no downscaling, full
+accuracy. Only the chat PREVIEW PNGs were shrunk (a render scale, now hi-res + cropped). Upscaling the source
+(e.g. MCP `upscale_image` to 2K/4K) would smooth edges for marginally finer sub-pixel sampling but adds no new
+detail; raise the render/export scale rather than the input when "it looks low-res".
+
+### L93 — A trace needs an ACCURACY-CHECK overlay; and struts must come from the SAME skeleton as the outline
+The human caught a real merge bug: the wing struts (perfect in isolation, L92 screenshot) didn't line up to
+the membrane outline once merged, and the wrist/thumb branches were missing. Two fixes:
+- **`tools/traceCheck.mjs`** — the QA tool the human asked for. Overlays the emitted `celestialDef.js` lines on
+  the ORIGINAL stencil ink (dim grey) at high res, per layer (`node tools/traceCheck.mjs wing|body`): traced
+  lines that leave the grey are wrong; red dots mark open-stroke ENDPOINTS (a strut end floating in the
+  membrane = it didn't reach the outline). This made the defect obvious instantly and must be run after every
+  trace change. **Always build the visual diff, don't eyeball the merged thumbnail (L39c restated).**
+- **Root cause:** the outline was traced from the FILLED silhouette while struts were a SEPARATE skeleton with
+  the boundary band SUBTRACTED — so struts were trimmed ~3px short and short branches were length-filtered out.
+  Fix: take struts from the FULL right-wing skeleton (`thin` → `skeletonToPolylines`, minLen 10 to keep
+  wrist/thumb), and instead of deleting band pixels, **classify whole polylines** — drop a polyline only if
+  >60% of it lies in the boundary band (it IS the outline); keep every internal finger-spoke WHOLE, so its tip
+  ends on the boundary junction and reaches the membrane edge by construction. Struts 26→47, and they hug the
+  ink. Lesson: **outline and its internal struts must be derived from one shared skeleton** (shared junctions =
+  aligned), never two independent passes.
+- **Sharp tips:** the body silhouette double-smooth (win4+win3) rounded the HORN tips and trident prongs;
+  one light pass (win2) + resample keeps them crisp while still de-staircasing. The head+horns are captured as
+  part of the body silhouette (the "shaded part") — present, just not yet a separately-labelled part.
+
+Reusable: when a feature is correct in isolation but wrong after a merge, the bug is in the MERGE
+(independent passes that don't share vertices / over-aggressive cleanup), and the cure is a shared-source
+extraction + an overlay diff to prove it. **→ Leapfrog:** Phase 2 can now extrude with confidence — outline +
+struts are co-registered; optionally promote the head/horn top-region to its own labelled segment for shaping.
+
+### L94 — The stencil layers are NOT in a shared frame; place the wing EXPLICITLY (root anchor + span), and overlay-on-reference to prove it
+The human zoomed the QA overlay: "what are the weird horizontal lines?" (the cyan VEIN trace — stray
+horizontal fragments, not real veins → **dropped**; veins will be emissive glow along the struts in 3D) and
+"the wings are incorrectly lined up with the body — check the reference + overlay". Built
+**`tools/traceAlign.mjs`** (overlay the def on the full COLOUR reference) and measured layer bboxes — the key
+discovery: **the stencil set and the colour set are different artworks at different scales/positions.**
+stencil-wings centre-Y = 0.325 / 34.9% tall vs the colour `wings` layer 0.442 / 24.5%; the colour `torso`
+layer is 88% tall vs the `full` composite at 57%. So you CANNOT auto-register one layer onto another by
+bbox-fitting — it distorts and the attach height drifts (first attempt put the wings at 41% down the body).
+Fix (in `traceDefinition.mjs`): the body keeps its OWN frame; the wing is **placed explicitly** —
+anchor the wing ROOT (its innermost point) to the body centreline at a tunable height, uniform-scale by span:
+```
+const WING_SPAN = 0.94;       // both-wings span as a fraction of canvas width
+const WING_ATTACH_Y = 0.26;   // wing-root height as a fraction down the body (0 = top of head)
+```
+Two dials, matched to the reference, nudge for up/down + wider/narrower. Now the wings sweep up-and-out from
+the shoulders like the concept. Gotchas: (1) **don't trust "same canvas size ⇒ registered"** (L90) for a
+DIFFERENT art set — verify by bbox/centroid before compositing; same dimensions ≠ same frame. (2) When two
+sources can't be auto-registered, **expose the placement as explicit tunable constants** instead of forcing a
+fragile fit — controllable + reference-matchable beats clever-but-wrong. (3) anchor by a semantic POINT (the
+root), not bbox corners, so uniform scale preserves the wing's aspect. **→ Leapfrog:** `celestialDef.js` now
+assembles correctly (body frame + placed wings, veins dropped); Phase 2 extrusion can read WING_ATTACH_Y as
+the 3D shoulder mount height.
+
+### L95 — Compare at MATCHED SCALE (head-to-tail), then auto-fit the wing to the reference (span + sweep, not just position)
+The human: "superimpose the original with this, scale so head-to-tail lengths match (correct scale), then you
+can see where the wing is vs the long axis — and the wing ORIENTATION is off." Built **`tools/traceSuper.mjs`**:
+overlays `celestialDef.js` on the colour reference, scaled so the BODY head-to-tail length matches (the only
+honest scale), aligned on the long axis (head & tail found on the CENTRAL column so wing tips fanning off to
+the sides don't fool head detection). It prints metrics, which is what made the gap measurable instead of
+eyeballed:
+```
+DEF wing: tip -16% (above head) · 27% out · sweep 39°
+REF wing: tip -27%              · 59% out          (=> ~53°)
+```
+So the wing was ~HALF as wide and swept too shallow — position AND orientation wrong, exactly as flagged.
+Fix in `traceDefinition.mjs`: stop hand-tuning span; **auto-fit** the wing to the art. Measure the reference
+wing tip (highest subject pixel in the outer-left column) + the central head/tail axis, then place the wing by
+a pure **rotate + uniform-scale about the root** (no aspect distortion) so the root sits at WING_ATTACH_Y and
+the TIP lands on the reference tip. Result: DEF now equals REF (tip -27% / 59% out / 53°). WING_SCALE and
+WING_SWEEP_ADJ remain as manual nudges on top of the fit.
+Gotchas: (1) **a similarity transform (rotate+scale) needs ISOTROPIC px space** — do the math in `*W,*H`
+pixels, not normalized units (norm-x and norm-y have different px/unit since W≠H), or you shear the wing.
+(2) the wings legitimately reach ABOVE the head and PAST the canvas sides (big wingspan) — the old test
+assertion "all wing coords in 0..1" was wrong; bound wings to a sane envelope, keep the body strict.
+Reusable: **to compare a trace to reference art, normalize scale by a length you can measure in BOTH
+(head-to-tail on the central axis), print the residuals, and fit a transform to them** — overlay + numbers
+beats eyeballing every time. **→ Leapfrog:** the wing is now art-accurate in span+sweep; 3D extrusion reads
+WING_ATTACH_Y (shoulder mount) and the fitted wing directly.
+
+### L96 — Phase 2: extrude the 2D definition to 3D (standalone previewer first), and label sub-parts BEFORE extruding
+With the 2D `celestialDef.js` matched to the reference (L92–L95), Phase 2 extrudes it to 3D — built as a
+STANDALONE previewer (`tools/celestial3D.html`), never touching the shipped roster (THE RULE #3). What worked:
+- **Label sub-parts in the definition first** (additive): `body.head {neckY, topY, outline, horns[2]}` (head =
+  body above the narrowest upper-third row; horns = highest silhouette point each side) and `wing.sparIndex`
+  (the strut reaching closest to the wing tip = the leading-edge arm bone). The 3D build reads these directly
+  (horns → cones at the tips; spar → a thicker emissive tube).
+- **Extrusion strategy that survived contact:** the BODY is a LOFT — scanline the silhouette per Y-row for its
+  outer span (`crossings()`), build an elliptical ring per row (depth ≈ 0.5×half-width), stitch into a tube +
+  end caps. Plates + star-flecks are projected ONTO the hull via `bodySurfaceZ()` (the ring's front-z at an
+  (x,y)), so they wrap the body instead of floating. WINGS use `THREE.ShapeUtils.triangulateShape` for the
+  membrane panel (handles the concave scalloped trailing edge that a centroid-fan would wreck) + `TubeGeometry`
+  struts, each wing on its own shoulder PIVOT group so it can flap.
+- **Coords:** canvas (x right, y DOWN) → world `((x-.5)·ASPX·S, (.5-y)·S, z·ASPX·S)`, ASPX=W/H — flip Y, scale
+  X by aspect so proportions hold; z in x-units so depth isn't stretched.
+- **Headless verify (no browser):** `tools/celestial3Dshot.mjs` drives it via Playwright + `tests/serve.mjs`,
+  exposing `window.__ready` + `window.__view(yaw,pitch,flap)` hooks; captures rear / high / ¾ / side and asserts
+  no pageerror. Rear view reads unmistakably as the creature; ¾ shows real volume.
+Gotchas / next: the LOFT bridges the TRIDENT tail prongs into a paddle (scanline outer-span ignores the gaps) —
+the tail needs per-prong handling. Membrane is flat (slight back-sweep only) — add billow later. **→ Leapfrog:**
+geometry pipeline proven on the hero in isolation; next refine tail/membrane, then migrate into the game's
+dragon model behind a flag — never break the shipped roster.
+
+### L97 — Rear-cam wingbeat is DORSOVENTRAL (about the forward axis), not in-plane; and decorations must SEAT on the hull
+Human reviewed the 3D previewer (L96) and caught two things the headless shots didn't flag:
+- **Flap was in the wrong plane.** I had rotated each wing about Z/X, which sweeps the wing WITHIN the flat
+  rear-view plane (windshield-wiper). For a rear chase-cam the beat is DORSOVENTRAL — rotate each wing about
+  the body's FORWARD axis (here Y, since head→tail runs up the screen) so the wings lift up off the back and
+  press down, tips travelling through DEPTH (Z). Fix: `pivot.rotation.y = side * sin(t)·amp` (mirror per side
+  so both rise together), zero the others. Reads as a real beat from a slightly-high rear cam; note it
+  foreshortens from dead-rear (inherent — that's why chase-cams sit ABOVE and behind).
+- **Star-flecks looked like they encoded thickness.** They're decorative (the celestial theme's armour stars),
+  but I lifted them a uniform 0.06 off the hull, so in ¾ they floated and implied a dimensional meaning. Seat
+  decorations nearly flush (+0.015) so they read as MARKINGS, not floats. Lesson: any offset a viewer can see
+  will be read as encoding something — only offset when you mean it.
+Reusable: headless screenshots catch crashes + gross layout, but **motion correctness (which plane a beat is
+in) needs either an animated capture or the human** — add up/down POSE captures (`window.__flapPose(a)`) so the
+beat direction is reviewable in static stills. **→ Leapfrog:** previewer now beats correctly; tail/membrane
+refinement still pending before migrating into the game model.
+
+### L98 — Blockout lock: multi-span loft branches the trident tail; membrane billow
+Human chose "lock the blockout before surfacing" (right call — get bones exact, surface once). Two structural
+fixes to `tools/celestial3D.html`:
+- **Trident tail** was paddled because the loft took only the OUTER span per row (first/last crossing),
+  bridging the 3 prongs. Fix: the loft now reads ALL spans per row (`crossings` → consecutive pairs), builds a
+  ring per span, and matches rings between adjacent rows by centroid-x; an unmatched ring = a prong tip → cap
+  it. So 1 span → 3 spans branches into a real trident. `stations` (for plate/star surface projection) keeps
+  the WIDEST span per row = the main body. Reusable: **a scanline loft that takes only the outer span can't
+  represent a branching silhouette — key on every span + match by centroid to support splits/merges.**
+- **Membrane billow:** flat sheet → `zWing = -sweep·d - 0.06·sin(π·d/maxSpan)`, a backward cup peaking
+  mid-span (0 at root + tip) so the wing reads as a curved membrane, struts riding on top.
+Blockout now holds the anatomy (proportions, wing fit, dorsoventral beat, trident, billow). NEXT = the
+surfacing/sculpt pass (solid raised plates, translucent membrane+veins, material star-flecks, real horns) —
+then migrate into the game model behind a flag. Don't surface until the human signs off the bones.
+
+### L99 — Surfacing pass v1: raised armour scales (centroid-fan domes) + glowing seams; drop placeholder star dots
+Human signed off the blockout ("looks good"), said the dot star-flecks "look bad" (placeholders → removed), and
+said proceed to surfacing. First surfacing increment on `tools/celestial3D.html`:
+- **Raised armour scales:** each plate polygon becomes a low DOME — centroid lifted off the hull
+  (`surfZ+0.011`), boundary seated (`surfZ+0.002`), fan-triangulated (centroid→edge). Plates are convex-ish
+  cells so a centroid fan is safe (unlike the concave wing, which needs `triangulateShape`). All domes merged
+  into ONE BufferGeometry (no mergeGeometries util in the repo — accumulate pos/idx by hand). Raise tuned to a
+  FRACTION of the local hull depth, not a constant — a constant raise spiked through the thin neck (body front
+  bulge is only ~0.14 world; an 0.05 raise = a 2× spike). Lesson: **offsets that read as relief must scale to
+  local thickness, not be absolute.**
+- **Glowing seams:** the old wireframe plate loops survive as emissive seam LINES at the raised edge
+  (`surfZ+0.006`), in their own `seamGrp` (toggle), so the armour reads as segmented cosmic plating.
+- **Curved horns:** cones → tapered rings along a curling centerline (up + dorsal + back), per-side mirrored.
+- **Membrane** opacity 0.93→0.8 (more translucent); body/plate materials nudged metallic+emissive.
+Reads as an armoured cosmic dragon from the rear now (not wireframe). NEXT polish candidates: more pronounced
+OVERLAPPING plates (scale lip), membrane veins, iridescent body shader. Then migrate into the game model.
+
+### L100 — Wing bones were mis-EXTRACTED (skeleton was fine); rebuild as a radial framework hub→every tip
+Human (with an annotated reference) caught that the wing bones were wrong: finger struts didn't reach the
+scallop POINTS, and the leading frame + thumb + long projection weren't traced as bones at all. Built
+`tools/traceWingBones.mjs` (renders the raw right-wing ink SKELETON, each chain a distinct colour + endpoints)
+and verified: **the skeleton contains every bone** — leading frame, fingers to each scallop tip, thumb, long
+projection. So the defect was in the EXTRACTION, not the trace. The old code filtered skeleton polylines by
+"fraction in the boundary band" and dropped anything mostly-boundary — which threw away the LEADING FRAME
+(it runs along the top edge) and trimmed finger tips short of the scallops.
+Fix (in `traceDefinition.mjs`): stop filtering the messy fragmented skeleton; rebuild bones as the ANATOMY —
+(1) find the WRIST HUB = densest cluster of skeleton-chain endpoints; (2) find membrane TIPS = prominent local
+maxima of distance-from-hub around the silhouette (these ARE the scallop points + wingtip + thumb + long
+projection); (3) bones = arm(root→hub) + leading-frame(hub→wingtip) as one spar, plus hub→each remaining tip.
+Result: 8 clean bones that terminate exactly on the pointy tips, by construction. Lesson: **when a feature is
+present in the source skeleton but missing in the output, the bug is in the extraction filter — and "key on the
+boundary band" conflates two different boundaries (the leading frame IS a bone; the trailing scallop edge is
+not). Reconstruct from semantic anchors (hub + tips), don't filter the raw skeleton.**
+Also this pass: body cross-section made a fuller egg (dorsal 0.95 / ventral 0.82, was 0.66 — read as a flat
+half because the belly was shallow AND unlit) + a ventral fill light so the volume reads. Bone colour stays
+bright cyan for IDENTIFICATION during structural review; switch to the reference's dark tone once bones are
+signed off.
+
+### L101 — Wing bones MUST be traced from the stencil ink, not invented; verify by overlaying on the stencil
+Two wrong turns the human caught hard: (1) the band-filter dropped the leading frame; (2) my "radial hub→tip"
+rebuild was INVENTED straight lines with the wrist in the wrong place (0.60,0.41) — "you're making it up."
+Ground truth: `tools/traceWingBones.mjs` v2 — isolate one wing, skeletonize the ink, mark the graph (endpoints
+red, junctions blue, dominant junction lime). It showed the real wrist at ~(0.73,0.28) and, crucially, that
+the SCALLOP TIPS are junctions where fingers meet the outline (not free endpoints). The faithful extraction:
+**skeleton of the drawn ink MINUS a thin (~4px) outline ring = the internal struts, which lie exactly on the
+stencil's drawn lines** (medial axis). Verified by overlaying the extracted struts (orange) on the stencil ink
+— they sit on the drawn finger lines. Ported into `traceDefinition.mjs` (33 struts). Lessons:
+- **For art-derived geometry, the trace IS the source of truth — extract from it, never synthesize "clean"
+  geometry that you then hope matches. Always overlay the result on the source art to verify (the orange-on-
+  stencil check); if it doesn't follow the ink, it's wrong.**
+- A debug-draw bug to remember: a blend that writes only integer pixel offsets draws NOTHING when given a
+  fractional stroke radius (1.5) — use integer widths. (Cost a confusing "why is nothing orange" round.)
+Open: the stencil skeleton fragments at every crossing, so the struts come through as SEGMENTS — next step is
+welding collinear fragments across junctions into continuous bones (straightest-continuation walk).
+
+### L102 — When auto-extraction keeps being wrong, build the human an INTERACTIVE labeler
+After repeated wrong auto-traces of the wing struts, the human asked for a tool to do it by hand. Built
+`tools/celestialWingPaint.html` (pure canvas, imports lineTrace). Three modes:
+- **FILL** — flood-fill each membrane compartment (bounded by the drawn ink); the borders shared between two
+  fills ARE the finger struts (extracted via "ink adjacent to ≥2 region labels" → thin → polylines). A fill
+  that reaches the image border is the exterior background → auto-reverted.
+- **TRACE** — click points that SNAP to the nearest drawn ink pixel → manual bone polylines on the lines.
+- **BRIDGE** — click 2 points to burn a line into the ink mask, closing gaps in the drawing so fills don't
+  leak and lines join (re-applied after threshold changes).
+Exports `celestial-wing-struts-{R|L}.json` (traced bones preferred, else fill-derived struts, plus bridges).
+Lesson: **art-derived geometry that the algorithm keeps mis-reading is a cue to hand the human a direct
+labeling UI rather than iterating the heuristic — the human's clicks become the ground truth, and the tool
+just snaps/cleans.** Next: ingest the exported JSON into celestialDef as the wing struts.
+
+### L103 — Wing struts from membrane COMPARTMENTS (the human's insight), not from the skeleton
+The human's idea cracked it: the drawn struts TILE the wing into membrane cells; the line BETWEEN two cells IS
+a finger strut. `tools/traceWingCells.mjs` auto-fills every interior (enclosed, non-border) non-ink cell of the
+right wing, then marks a strut pixel as ink with TWO different cell-labels within radius R, thins → polylines.
+Overlaying on the stencil, the struts sit EXACTLY on the drawn lines, radiating wrist→scallop tips + leading
+edge. Ported into `traceDefinition.mjs` (13 cells → 26 struts). This beats every skeleton approach because it
+keys on the SPACES the artist enclosed, not the noisy medial axis.
+Also: the interactive painter (L102) exported 0 struts on first use — the strut detector required an ink pixel
+touching two fills within 1px, but the drawn lines are several px THICK so the cells never met through them.
+Fix (both tools): check a RADIUS (~7px) so a thick line between two cells still registers. **Lesson: adjacency
+tests across a drawn boundary must span the boundary's WIDTH — a 1px neighbour test silently returns nothing on
+thick strokes.** And: the human's segmentation framing ("fill the cell, the outline is the bone") was the right
+mental model — when an auto-trace keeps failing, adopt the human's framing literally.
+
+### L104 — "Uncolored = bone": the bones are ALL the drawn lines, not just inter-cell dividers
+The human painted the membrane cells and corrected the model: coloured = membrane, EVERY uncoloured line that
+joins up = bone. My L103 "border between two cells" extraction only caught dividers BETWEEN two membrane cells,
+so it missed every bone bordering a cell and the EXTERIOR — the leading frame, wingtip spikes, scallop edges.
+Fix: bones = the FULL skeleton of the wing ink (within the kept-cells' padded bbox so spikes/frame are
+included), not the inter-cell subset. `traceWingCells.mjs` overlays it: orange now covers every uncoloured line
+exactly. 13 cells → 88 bone polylines. Lesson: **don't over-filter art the human calls "all bones" — the
+membrane cells are only useful for LOCATING the wing; the bone set is the whole drawn line structure.** The
+compartment fill is the verification (what's membrane), the skeleton complement is the answer (what's bone).
+
+### L105 — Ship the human a BONE EDITOR (auto-extract + correct), and: trailing scallop edges are membrane
+Human asked to weld + for an editor to fix/label it, and corrected the anatomy again: the back (trailing)
+scalloped edges are the MEMBRANE's edge that meets the struts — NOT bones. So a pure "all uncoloured = bone"
+(L104) over-includes the trailing edge. Resolution: stop heuristically guessing which lines are bone vs
+membrane-edge — give the human direct control. Built `tools/celestialBoneEditor.html`: on load it auto-extracts
+the welded bone skeleton (same pipeline as the node tool, in-browser), then the human edits:
+- **delete bone** — click a line to remove it (use on the trailing scallop edges).
+- **add bone** — click points snapping to the drawn ink.
+- **bridge gap** — 2 clicks burn a line into the ink to seal leaks.
+- **tag membrane** — flood a cell to mark what's NOT bone.
+Exports `celestial-wing-bones-R.json` to ingest as the authoritative struts. Lesson: **after 4 rounds of the
+algorithm mis-classifying art, the right move is a direct-manipulation editor seeded with the best auto result
+— the human's edits are ground truth, and welding/snap/bridge just make editing cheap.** Also: weldChains
+(greedy collinear-end join) turned 88 fragments → 31 continuous bones.
+
+### L106 — Bone editor UX: snap bridges to existing line-ends, sealed-region feedback, vein tagging
+Human-driven editor refinements (tools/celestialBoneEditor.html):
+- **Bridges snap to existing geometry**, not freehand: a bridge endpoint snaps to the nearest BONE vertex
+  (fallback nearest ink) so gaps close by joining real line-ends cleanly. Clicking an existing bridge deletes it.
+- **Sealed feedback**: flood the EXTERIOR from the image border over non-ink; the enclosed right-wing interior
+  (non-ink, not exterior) is tinted GREEN and recomputed on every ink change. The human watches the green grow
+  as they bridge gaps — a notch reaching in = an unsealed gap. Direct "is it watertight?" signal.
+- **Vein mode**: snap-trace lightning veins (stored + exported separately from bones).
+- Delete works on bones AND veins by proximity.
+Lesson: **an editor for art labeling needs (a) snapping to existing features (not freehand) for clean joins,
+(b) a live validity signal (sealed/green) so the human knows the result is usable before exporting, and (c)
+separate layers per semantic class (bone vs vein vs membrane).** Export: celestial-wing-bones-R.json {bones,
+veins, bridges}.
+
+### L107 — The struts are OUTLINED shapes → flood-tag bone regions (not just lines)
+Key model correction from the human: the struts are drawn as OUTLINED shapes (two edges with space between), so
+each bone has a floodable INTERIOR — every enclosed region is either a bone or a membrane cell. Added to
+celestialBoneEditor.html: **fill bone** (flood → cyan) alongside **fill membrane** (flood → magenta); a region
+can be tagged either class (mutually exclusive). Export adds `boneShapes` = the traced CONTOUR of each
+bone-fill (struts WITH width, ready to extrude as solid bones) plus `veins`. This is more faithful than
+medial-line bones because it preserves the drawn thickness. Workflow: bridge until green (sealed) → fill each
+bone region + each membrane region → tag veins → export. Lesson: **before extracting "lines," check whether the
+art draws structures as outlined AREAS — if so, the regions (and their contours) are the truth, and the
+medial line is a lossy approximation.**
+
+### L108 — GROW filled bone regions into their stroke (you can't flood a 1px line); detected≠tagged
+Human tagged bone regions by flooding but couldn't "fill the lines around them" and thought lines weren't
+identified. Two facts: (1) a flood fills the bone's INTERIOR and stops at the inner edge of the drawn stroke,
+so the bone shape sits inside the line; (2) thin single-stroke struts have NO interior to flood. Fix
+(`tools/traceWingMerge.mjs`): GROW each filled region into its surrounding ink — `fill ∪ (dilate(fill,4) ∩
+ink)` — then contour → the bone hugs the OUTER edge of the stroke and seals, no manual line-filling needed.
+Overlay (skeleton in orange vs grown bones in cyan) proved the "missing" lines are all either the membrane
+outline / trailing scallop edges (membrane by the human's rule, correctly excluded) or thin single-line struts
+(captured as line-bones, not fills). Lesson: **a line being DETECTED (in the skeleton) ≠ TAGGED — show both
+layers so "why isn't this identified" is answerable; and outlined-shape labels need a grow-into-stroke step
+because flood-fill can only reach interiors.**
+
+### L109 — Ingest the human-tagged bone SHAPES; spear tips to sharp points; render as solid slabs
+Closed the wing-bone loop: the human tagged bone REGIONS in the editor; pipeline now ingests them as the
+authoritative wing bones (no auto-guess). Three fixes this round:
+- **Spear tips:** the filled body stops short of the bone's sharp point (the tip is a thin spike beyond the
+  fill). `traceWingMerge.mjs` now finds skeleton ENDPOINTS (degree-1) and spears each grown bone out to its
+  endpoint along the ink (`lineInk` check) — bones are now longer + sharper, matching the stencil. (Human
+  caught the short/rounded tips.)
+- **Ingest:** `traceDefinition.mjs` prefers `refs/celestial/wing-bones-merged-R.json` → `wing.boneShapes`
+  (closed contours WITH width), auto-skeleton only as fallback. Kept contours DENSE (no resample) so sharp
+  tips survive. `place` transform applies to bones same as the silhouette.
+- **3D:** `slab()` extrudes each bone contour into a solid raised bone (top+bottom+walls) — reads as a real
+  boned wing with membrane between, vs the flat panels that were edge-on-invisible.
+Lesson: **flat panels for thin elongated shapes read as nothing edge-on — extrude to a slab; and any
+fill-based region capture needs a tip-spear step because fills never reach a tapering point.** The wing bones
+are now human-authored ground truth end-to-end (editor → merge → def → 3D).
+
+### L110 — DEBUG: why bone tracing "had gaps" — skeleton fragmentation + threshold fragility (not missing lines)
+Human asked to root-cause why bone extraction kept producing gaps despite QA. Measured on stencil-wings:
+242 raw skeleton polylines, **3023 junction pixels (deg≥3)**, only 26 real endpoints, and **23% of ink is
+"fragile" (lum 170–230, near the 200 threshold)**. Conclusion: lines were NOT missed — they were SHATTERED.
+- **Cause #1 — junction fragmentation:** `thin`+`skeletonToPolylines` cut every line at every crossing
+  (~3000 junctions → 242 fragments). Continuity lost, not coverage. Fix: **weldChains** (collinear-end join).
+- **Cause #2 — threshold fragility:** ~¼ of the ink is anti-aliased grey straddling the hard 200 cutoff →
+  micro-gaps inside lines → extra breaks + spurs (and "lines not identified"). Fix: **morphological CLOSE
+  (dilate→erode ~1–2px) BEFORE thinning** to bridge the micro-gaps; consider an adaptive threshold.
+- **Cause #3:** over-aggressive cleanup (band removal) trimmed tips; fills never reach a TAPERING point (spear
+  to skeleton endpoints).
+- **Why QA didn't pre-empt it:** a coverage overlay (result-on-stencil) looks fine because the FRAGMENTS still
+  lie on the lines — fragmentation only bites at render/fill time. **A coverage overlay can't see broken
+  continuity; add a quantitative QA assert (fragment count, junctions, %fragile pixels) to flag it up front.**
+Robust pipeline that won: region/compartment capture (keys on enclosed AREAS, not fragile medial lines) + human
+editor with the sealed/green check + weld + tip-spear. **Reusable: for hand-drawn line-art, skeletons are
+inherently shattered at junctions and fragile at the threshold — close-before-thin, weld-after, prefer regions,
+and QA with NUMBERS not just overlays.**
+
+### L111 — Prevention baked in + lesson index added
+Acted on L110: moved morphology + `morphClose` (close-before-thin) + `weldChains` + `skeletonStats` into
+`lineTrace.mjs` as shared, reusable tracing primitives; the bone extractors now CLOSE micro-gaps before
+thinning and LOG a numeric fragmentation report (warn if fragments ≫ endpoints) — so the body/veins/next
+dragon won't shatter the way the wing did. Also added a **📂 LESSON INDEX (by topic)** near the top of this
+file so a fresh session reads only the relevant lessons (and must add its lesson number there). Reusable:
+**when a debug yields a fix kit, promote it to the shared module + index it, don't leave it in one tool.**
+
+### L112 — Surfacing v2: fresnel rim-glow for the cosmic look (no post-processing)
+Surfacing pass on `tools/celestial3D.html` toward the painted reference: a `fresnelRim(mat,color,pow,str)`
+helper injects an emissive term ∝ (1−n·v)^p into MeshStandardMaterial via `onBeforeCompile` (token
+`#include <emissivemap_fragment>`, using `vNormal`/`vViewPosition`) — the cosmic EDGE glow that defines the
+look, with zero post-processing (works in vanilla three, no build, mobile-cheap). Applied: deep-indigo body +
+cyan rim, translucent violet membrane (opacity 0.74) + bright violet rim, pale iridescent bones + white rim,
+violet horns. Lesson: **a fresnel rim via onBeforeCompile is the cheapest big win for an emissive/cosmic art
+style — no bloom pass needed.** Index: add under CELESTIAL STORM › 3D EXTRUSION. Remaining look polish: membrane
+lightning VEINS (await human tag), iridescent body gradient, star-fleck specks baked into the material.
+
+### L113 — Bones as SPINES (centerline + radius), rendered as tapered round tubes — not extruded slabs
+Human: the slab bones were "too thick, straight-edged, jagged tips" — bones should be cylindrical + pointed +
+smooth. Fix: don't extrude the contour. In `traceWingMerge.mjs` compute a SPINE per bone — medial centerline
+(thin→weld→longest chain) + a half-width RADIUS profile (ring-scan distance-to-background per centerline
+point), arc-length resampled, radii smoothed and tapered to ~0 at the ends. Export `boneSpines:[{pts,radii}]`.
+`traceDefinition` places the spine and scales radii by the same wing-fit factor. `celestial3D` builds a
+`taperedTube` (CatmullRom centripetal + computeFrenetFrames, per-point radius) → smooth round bone, pointed
+tips, no jagged contour. Radii come from the DRAWN width so finger spurs are thin and the arm (wider stroke,
+last shape) reads bigger (×1.5 nudge + 0.85 global scale). Lesson: **for an organic bone/limb, represent it as
+a centerline + radius profile and sweep a round tube — a slab from the silhouette contour is always too thick,
+flat-edged, and jagged at speared tips. Medial-axis + distance-transform is the right shape descriptor.**
+
+### L114 — Over-correction + failure to self-review: thin wiggly threads ≠ bones. SMOOTH the medial axis, keep substance
+Bad miss: told the slabs were "too thick", I swung to the opposite extreme — built bones from the RAW medial
+axis (wiggly) at 0.85× radius → thin glowing WORMS/threads; the wing lost its skeleton (dark membrane blob +
+faint squiggles). Worse than before, and I PRESENTED it as "fixed" without comparing to the prior render or the
+reference. The human (rightly) called it. Fix: (1) **heavily smooth the centerline** (Laplacian [1,2,1]/4 ×10,
+keep ends) + fewer control points — the medial axis of a hand-tagged region is always wiggly; a clean bone
+needs a smoothed spine. (2) **Keep substance** — gentle end taper (×0.5 not ×0.2) + global radius up (0.85→1.7);
+"thin fingers" must still read as solid bones, not threads. Lessons: **(a) when correcting "too much X", don't
+overshoot to "too little X" — aim for the middle and VERIFY against the reference. (b) ALWAYS critically
+compare your output to the previous good state + the target BEFORE presenting; a coverage/feature change can
+silently regress the overall read. (c) medial-axis spines are wiggly by nature — smooth them hard.**
+
+### L115 — Keep the EXACT identified 2D shape; add thickness + taper ends (don't re-derive the geometry)
+Human (after the wiggly-tube miss): "keep the exact bones we identified + location, define them on a 2D plane,
+just add thickness and taper the ends." The centerline/spine re-derivation kept CHANGING the shape (wiggle).
+Correct approach: `boneSolid()` triangulates the EXACT tagged contour (outline + location preserved verbatim)
+on the membrane plane, extrudes it with thickness, and tapers the thickness to 0 toward the two ENDS along the
+shape's PCA long-axis → pointed tips, full body. No medial axis. Lesson: **when the human has already
+identified the exact 2D shape, the 3D step is ONLY thicken + taper along the existing outline — never
+re-extract a centerline that drifts from what they approved. Preserve approved data; transform minimally.**
+
+### L116 — "Reads a bit thick": thin via z-thickness AND trim the in-plane stroke HALO (erode, don't dilate-pad)
+Human, comparing the thickened bones to the painted reference: "they read a bit thick." Confirmed honestly
+against `full.png` — the reference's finger-struts are fine, bright, delicate glowing lines; mine were chunky
+on both axes. Two independent fat sources, both cut: **(1) z-thickness** `BONE_THICK 0.03→0.012` (arm ×1.5) —
+the extrusion was puffing crisp lines into tubes. **(2) in-plane halo** — the grown bone mask was
+`fill ∪ (dilate(fill,4)∩ink)`, hugging the OUTER edge of the drawn stroke (incl. its anti-aliased halo), then
+the contour was traced from `dilate(grown,1)` adding +1px more. Switched that to `erode(grown,1)` so the
+contour hugs the CRISP core of the tagged line, not the fat outer edge → −2px width vs before. **Keeps the
+exact path/location (L115) — only trims the edge fat, never moves the bone.** Result: fine glowing struts that
+match the reference's delicate feel. Lesson: **"too thick" on an extruded 2D shape has TWO knobs — extrusion
+depth and the in-plane contour's stroke-halo padding. Erode toward the crisp core to thin in-plane without
+relocating; cut extrusion depth for the z-read. Always re-compare to the painted reference before presenting (L114).**
+
+### L117 — Smooth the bone CONTOUR, not just the spine: raw pixel-traced outlines are staircased → wobbly struts
+Human: "the strut lines read jaggy/irregular/wobbly, not clean smooth flowing lines." Root cause: `boneSolid()`
+extrudes the bone's closed contour verbatim, and that contour came straight from `traceContour()` on a pixel
+mask — a staircased 1px-step outline. Thinning (L116) made the jaggies MORE visible (less fat to hide them).
+Fix in `traceWingMerge.mjs` before storing the shape: `resampleClosed(ring,80)` → `smoothRing(ring,2)×6` →
+`resampleClosed(ring,64)`. Even-spacing resample first (so smoothing weights are uniform), smooth hard, then
+resample to the final point count. Keeps the shape + location (L115); only removes pixel staircase. Lesson:
+**ANY geometry traced from a pixel mask is staircased — smooth+resample the closed contour before extruding,
+exactly as we already do for open spines (L114). Thinner shapes expose jaggies that thickness was hiding, so
+smoothing becomes mandatory once you thin.**
+
+### L118 — A uniform erode KILLS thin features: keep the in-plane mask, thin via z only
+Regression caught by human: "you lost the bones closer to the leading edge." Cause: L116's `erode(grown,1)`
+trim. A 1px erode barely dents a fat bone but COLLAPSES the thinnest finger-struts (the delicate leading-edge
+ones) to slivers → they extruded into invisible threads in 3D, so the wing silently dropped bones even though
+the data still listed 7. Fix: trace the FULL `grown` mask (no erode) → every bone keeps its tagged in-plane
+width; thinness comes ONLY from z-thickness (`BONE_THICK`). Lesson: **never thin a shape-set by eroding the
+mask — erosion is feature-size-dependent and annihilates the smallest members while sparing the largest. To
+make extruded strokes read thinner, cut the EXTRUSION depth (uniform across all), not the in-plane footprint.
+And when a count is preserved in data, still eyeball the render — degenerate-but-present shapes vanish silently.**
+
+### L119 — Dorsal spine: stamp a diamond on each ARMOUR ROW (reuse existing cells), don't width-match a stencil
+Wanted a glowing dorsal follow-line. First instinct was to trace the spine STENCIL and width-match it to the
+body — but the overlay QA (`tools/spineOverlay.mjs`, scaled head→tail) proved it DOESN'T register: our traced
+body is wider (shoulder/hip bulges) with a different plate rhythm than the slender stencil. Human's better idea:
+"copy the diamond shape at each segment and line it up on our blue armour segments." So the spine is built FROM
+our own data — group the central-axis plates (|cx−mirror|<0.05) into cy ROWS, and stamp one raised cyan faceted
+rhombus per row, sized to that row's cell width (`rx≈0.4·w`, clamped). It lines up perfectly because it IS the
+armour row, and the head→tail width taper falls out of the cell sizes for free. Crown raised 0.02+ (above the
+0.011 plate domes) so it stands proud as a ridge; bright-cyan emissive `matSpine` + fresnel. New `spineGrp`
+toggle, leaves the armour scales intact. Lesson: **when an external stencil won't register on your traced
+geometry, don't force-fit it — DERIVE the feature from the geometry you already have. The repeated-motif-per-
+existing-cell pattern (diamond per armour row) guarantees alignment and inherits the body's proportions.**
+
+### L120 — Backface winding culled the spine to ONE diamond — and I mis-verified by reading the plate lattice
+The dorsal spine built 19 diamonds (console confirmed) but only ONE showed near the neck. Cause: the diamond
+fan triangles wound CLOCKWISE as seen from the rear camera (+z), so their normals pointed INTO the body and
+`FrontSide` culled them; only where the neck curves did one face the camera. Fix: reverse the fan index order
+(`base, (k+1)%4, k`) so faces are CCW-from-+z, plus `side: DoubleSide` as insurance. SECOND failure, worse:
+I had earlier declared the spine "reads cleanly" off a rear-zoom screenshot — but what I saw was the existing
+cyan PLATE-SEAM lattice, not my diamonds (which were culled). I pattern-matched "cyan down the centerline =
+success" instead of ISOLATING the new feature. Fix: `tools/spineDebug.mjs` toggles plates/seams/struts OFF and
+screenshots the spine ALONE. Lessons: **(a) any fan/strip built from an ordered rim has a winding that depends
+on the VIEW axis — verify it faces the camera, or use DoubleSide for thin decorative gems. (b) To verify a NEW
+overlay feature, ISOLATE it (hide everything else) — never eyeball it against a busy scene where pre-existing
+elements of the same colour will fool you into a false positive. This is L114 again: compare the right thing.**
+
+### L121 — Trace the stencil's diamond, don't draw your own: extract cells → pick clean leaf → symmetrize → stamp
+Human: "yours are ugly, trace the shape of the individual diamonds on the stencil … don't draw ur own." My plain
+4-point rhombi looked cheap. Built `tools/spineDiamonds.mjs`: flood the stencil exterior, label the enclosed
+CELLS, trace+smooth each (resample→smoothRing→resample), keep only the CENTRAL column (|cx−axis|<0.02, drop
+side segments per the human's "spiral column only") and drop the tiny scale-overlap slivers. Key realisations
+from MAGNIFYING the stencil (always zoom the source before trusting an auto-trace): the dorsal pattern is an
+interleaved BRAID of pointed curved scales, so most enclosed cells are rounded scale-tops, NOT diamonds — only
+the mid-body interstitial cells are clean pointed leaves. So: filter candidates to the pointed-leaf band
+(aspect 1.6–2.0, cy 0.33–0.50), take the cleanest, and CANONICALISE it — polar radius sampling + left/right
+symmetric averaging (`(r(θ)+r(π−θ))/2`) + normalise to unit half-extents. That's CLEANING a traced edge, not
+inventing a shape. Emit `js/celestialSpine.js`; the 3D spine stamps that one diamond per armour row, scaled to
+the row's cell. Lessons: **(a) "trace it, don't draw it" → extract+clean the real contour; a symmetrised median
+of the traced shape is faithful AND pretty. (b) auto-cell-extraction on overlapping-scale art yields mostly
+junk cells — magnify the source, identify which cells are the real motif, filter HARD before trusting them.**
+
+### L122 — Clean source beats clever extraction: a non-overlapping diamond column traced in 14 clean cells
+Human supplied a SECOND spine stencil — a clean, non-overlapping single column of 14 crisp diamonds (vs the
+first stencil's overlapping braid that yielded mostly junk cells). Ran the same `spineDiamonds.mjs` on it:
+14 cells found = 14 diamonds traced, 0 slivers, 0 side segments — the extraction that fought the braided art
+was trivial here. Emitted the full ordered `SPINE_DIAMONDS` column (each symmetrized + unit-normalized) plus a
+canonical; the 3D spine now maps each armour ROW proportionally onto that head→tail column so the artist's
+shape progression is preserved while still lining up on our segments. Lesson: **when an auto-trace is fighting
+the source (overlaps, anti-alias, ambiguous cells), the highest-leverage fix is often to ask for a cleaner
+SOURCE, not a cleverer algorithm. A clean input collapsed a multi-step heuristic (flood→label→filter slivers→
+pick leaf→symmetrize) into a clean 1:1 trace. Keep the tool; feed it better data.**
+
+### L123 — Iridescent cosmic body: object-space Y gradient + procedural star-flecks injected into the standard mat
+Veins + the diamond-shape iteration were dropped by the human ("forget this step … proceed with the next").
+Surfacing step: `cosmicBody()` injects, via onBeforeCompile, (1) a blue→violet→magenta vertical gradient driven
+by object-space `vMPos.y` mapped over the loft's head/tail Y (yHi 3.8 → yLo −4.8), replacing diffuseColor;
+(2) procedural star-flecks (per-cell hash → jittered point → smoothstep spark) added to emissive; (3) the
+existing fresnel rim. Applied to body + plates (plates share the gradient, fainter stars). GOTCHA noted honestly
+for next time: on a THIN near-vertical body the fresnel rim dominates at the grazing angles that cover most of
+the silhouette, so the gradient washes toward the rim colour in tight views — readable in the wider rear shot.
+If more saturation is wanted, drop rimStr or gate the rim by |n·up|. Lesson: **inject look (gradient/stars) in
+object space off a known axis range; but a strong fresnel rim competes with a base gradient on slender forms —
+balance rim vs diffuse, don't just stack them.**
+
+### L124 — POINTY not round: reconstruct the diamond from its 4 corners + measured edge-bow; flip wing billow
+Two human notes: wings "billowed the wrong way" and diamonds must be "pointy, not round." (1) Wing billow: the
+membrane z had `−0.06·sin(...)` cupping AWAY from the camera; flipped the sign so it cups toward +z (dorsal/
+camera). (2) Pointy diamonds: corner-PINNED smoothing STILL rounded the tips because the pixel-traced cell
+(dilate+trace) is itself soft. Fix that actually works: find the 4 extreme corners, then REBUILD each edge as a
+straight chord between sharp corners plus the edge's MEASURED max outward bow (`bow·sin(πt)`). Sharp tips
+guaranteed (corner vertex emitted verbatim), edge convexity still traced from the source. Lesson: **to keep a
+sharp feature through a trace→smooth pipeline, don't try to smooth-but-preserve — RECONSTRUCT from the feature
+points (corners) and re-add only the measured deviation. Smoothing near a pinned vertex always rounds it; a
+chord+bow rebuild doesn't. And sign-test billow/cup directions against the camera axis — easy to get backwards.**
+
+### L125 — Tail spear: the silhouette was right, the LOFT was wrong — render the spearhead FLAT, not voluminous
+Tail read as a blobby rounded bell + spike. Root cause: the traced silhouette tail IS a proper spearhead (shaft
+→ flare with two barbs at ny≈0.82 → sharp point at 0.97), but `loftBody` gave it the body's egg cross-section,
+so the flat blade became a fat bell. Fix: `clipPoly()` splits the silhouette at a horizontal line — the
+voluminous loft stops above the flare (y≤0.73), and the spearhead (y≥0.70, small overlap seals the seam) is
+rebuilt as a FLAT crystal blade via `boneSolid` (PCA taper → the bottom tip comes to a sharp point for free).
+Tail-flare armour plates (cy>clip) dropped since the blade replaces them; added a glowing cyan core tube down
+the blade centre. Lesson: **when a lofted region looks wrong, check whether the 2D source is actually fine and
+it's the EXTRUSION choice that's off. Blades/fins/membranes want FLAT extrusion (boneSolid/panel), not the
+volumetric body loft — match the extrusion method to the part's real cross-section, and clip the loft to hand
+each region to the right builder.**
+
+### L126 — "Struts are different colours now" = translucent membrane passing in front after the billow flip
+All wing bones use ONE material (matSpar), so the colour variance wasn't material — it was the billow flip (L124)
+moving the membrane to cup toward the camera (+z). In angled views the forward-billowed translucent VIOLET
+membrane then passed in front of some struts and tinted them lavender, while struts it didn't cover stayed white
+→ "different colours." Fix: seat the bones in front of the membrane's billow amplitude (`zBone = zWing + 0.08`,
+billow peak is 0.06) so the sheet never overlaps a strut from the front. Lesson: **a transparent overlay tints
+whatever opaque geometry sits BEHIND it; if a part must keep its own colour, push it clearly in front of every
+transparent surface that could screen-overlap it — and remember a depth/cup-direction change silently alters
+which things are in front of which. When colours look wrong but the material is shared, suspect transparency.**
+
+### L127 — Horns: short/thick/rear-swept crystalline crown, seated on the head (not floating lavender antennae)
+Horns read as two long thin lavender antennae floating in a wide upward V above a gap. Reference: a short,
+thick-based, REAR-SWEPT crystalline crown (dark violet, cyan edge-glow) seated on the head. Fixes in
+`curvedHorn`: len 1.25→0.9, base radius 0.14→0.22 (thicker) with sharper taper (pow 1.7), up-vector x 0.18→0.10
+(tighter V), curl z −0.85→−1.15 + y −0.12 (sweep strongly back, slight backward hook). Seated the base into the
+crown (`y+0.025`, `surfZ+0.05`) so it emerges from the head instead of floating. Recoloured `matHorn` from pale
+lavender to dark crystalline violet (`0x2c2278`) with a strong cyan rim. Spear also saturated to vivid violet
+(rim cyan→violet, lower strength, so it stops whitening). Lesson: **horns/spikes read as "antennae" when too
+long+thin+upright+pale; the fix is shorter + thicker base + rear-sweep + seat-into-surface + a darker body with
+edge-glow. A thin appendage's silhouette and its anchoring sell it more than its length.**
+
+### L128 — Wing flap: reuse the shared solveWing biomechanics; mirror ALL Euler axes by side
+Replaced the metronome `rotation.y = side*sin(t*1.6)*0.5` with the repo's existing pure-math flapping solver
+`js/wingFlapSolver.js` (`solveWing(phase,cfg)`) — the SAME one the game animator + shop poser use, so the
+preview matches real motion (build systems, not one-offs). Phase-1 single-pivot driver maps the yoke channel:
+plunge→`rotation.y` (dominant dorsoventral, tips through depth), rowing sweep→`rotation.x`, feather→`rotation.z`,
++ env-based body bob/pitch. The solver gives asymmetric power/recovery (time-warped cosine, `downFrac`),
+fore-aft rowing → figure-eight tip path, and feather for free. GOTCHA that cost a render: I first mirrored only
+plunge+sweep by `side` and left twist shared — the apex came out lopsided (one wing flung higher). **For a clean
+sagittal mirror, the left wing must be the FULL negation of the right: every Euler component ×`side`.** Mixing a
+mirrored axis with a shared one yields an in-plane asymmetric rotation. Also: a frozen-pose flag (`posed`) so
+`__flapPose`/`__flapPhase` screenshots aren't overwritten by the running animation loop; `ampScale` eases on
+toggle. Lesson: **before authoring an oscillator, grep for an existing solver — this repo had a tuned one. And
+bilateral appendage symmetry = negate ALL Euler axes per side, not just the obvious one.**
+
+### L129 — CORRECTION to L128: sagittal mirror negates Y+Z only, NOT all three axes (sweep stays shared)
+L128 claimed "negate ALL Euler axes by side" — WRONG, and the human caught the still-asymmetric wings on the
+rear preview (I had to actually re-render + look to confirm, not assume). The real math: a sagittal mirror is
+the rotation conjugated by reflection `M = diag(-1,1,1)`; for XYZ-Euler, `M·Rx(a)Ry(b)Rz(c)·M = Rx(a)Ry(-b)Rz(-c)`
+→ **rotation.X is UNCHANGED, only Y and Z negate.** In our mapping (x=sweep, y=plunge, z=twist) that means the
+fore-aft **sweep is SHARED by both wings** (both reach forward together — also physically correct), while plunge
++ twist flip by `side`. Both wrong versions (twist-shared, then all-flipped) looked plausible at the apex but
+broke at mid-stroke. VERIFICATION GOTCHA: the numeric L/R-extent check was useless because at high amplitude the
+wings **clip the capture frame** (top-edge), corrupting extents — had to zoom OUT (`__zoom(1.45)`) and judge the
+mid-phase frames visually. Lesson: **mirroring a multi-axis Euler rotation is NOT "negate everything" — only the
+two axes in the mirror plane negate; the axis perpendicular to it stays. And verify symmetry at MID-stroke with
+the whole wing in frame, not just the extremes (extremes can look fine while intermediate phases skew).**
+
+### L130 — Tail spear was a SLAB; loft it with a thin lens cross-section so it tapers to a 3D point
+The spear used `boneSolid` = constant-thickness extrusion → flat front, flat back, vertical edge WALLS = a slab
+(no z-axis shape, edges not sharp, tip only tapered in 2D). A real trident/spear blade has a LENS cross-section
+(raised central ridge → sharp edges) and tapers to a true 3D point (width AND depth → 0). Fix: reuse `loftBody`
+on the clipped spearhead with a THIN profile (`dDorsal=dVentral=0.20` vs the body's 0.95). The elliptical ring
+gives the lens for free — depth = d·halfWidth, so z=0 at the left/right edges (sharp) and peaks at the centre
+ridge; and because depth ∝ width, every prong + the tip taper to a 3D point as width→0. loftBody's existing
+multi-span branching handles the trident barbs (each its own tapering prong). Parameterized `loftBody` to take
+a `material`. Lesson: **a "slab" is a constant-thickness extrusion; to make a blade/fin/spear read 3D, give it a
+cross-section whose depth varies across the width (lens) AND scales with the width so tips converge to points —
+an elliptical loft does both. Match the cross-section to the part, like the wing membrane (flat) vs the spear (lens).**
+
+### L131 — Extracted the dragon build into js/celestialModel.js (one build, shared previewer↔game)
+The whole procedural dragon (coord helpers `pt`/`mir`, all materials + `fresnelRim`/`cosmicBody` factories, every
+geometry helper `loftBody`/`boneSolid`/`slab`/`taperedTube`/`tube`/`panel`/`crossings`/`bodySurfaceZ`/`clipPoly`,
+the assembly, and the FLAP driver) lived INLINE in `tools/celestial3D.html`. Moved it verbatim into a new ES
+module `js/celestialModel.js` exporting `buildCelestialStorm()` → `{ group(=old `root`, NOT recentered),
+wingPivots, groups, materials, FLAP, flapDrive, updateFlap(t,amp) }`. Module-private `pt/mir/materials/helpers`
+stay at module scope; `D.canvas`/`D.mirror` still come from the imported `CELESTIAL_DEF`. The HTML now does
+`const M = buildCelestialStorm(); const root = M.group; scene.add(root);` and destructures the locals its KEPT
+runtime needs (`plateGrp/seamGrp/spineGrp/strutGrp/wingGrp`, `matBody/matMembrane`, `FLAP/flapDrive`,
+`wingPivots`); `TAU` is re-declared in the HTML (the hooks use it). Previewer-only code (renderer/scene/lights/
+**starfield**/camera-fit/interaction/headless hooks/frame loop) stays in the HTML by design.
+VERIFICATION GOTCHA: the headless render is NOT byte-deterministic across the refactor — `before` vs `after`
+diffed 0.45%. But that's a RED HERRING: the starfield uses unseeded `Math.random()`, so two runs of the
+*unmodified* HTML also differ 0.37% (scattered, whole-frame, maxd low). Proof it's the stars not the geometry:
+rendering the SAME png twice = 0.0000% (the renderer itself is deterministic; only page-load RNG varies). So to
+verify a "pixel-identical" refactor when a procedural background uses RNG, compare the **noise floor** (two runs
+of the baseline) against the change-diff — equal magnitude ⇒ no real change — and eyeball the subject region.
+Lesson: **when you can't get a clean pixel diff, establish the noise floor first (re-render the unchanged baseline
+twice) — an unseeded `Math.random()` decoration will mask a true-identical geometry change; equal diff magnitude
+to the floor is the pass, not zero. And: coexist-then-share — the game can now import the SAME build the
+previewer proves, instead of a fork.**
+
+### L132 — Build the QA verifier FIRST, and VALIDATE the verifier (Step 0 before sculpting)
+Before re-sculpting the Celestial body (which the human demanded be custom + reference-matched + data-verified
+at every step), built `tools/celestialRefCompare.mjs`: renders our rear chase-cam view (full + bare-torso via a
+new `__bodyOnly` hook + side) and emits a side-by-side OVERLAY vs `full.png` + numeric PASS/FAIL gates. Crucial
+lesson from VALIDATING the tool on the current model (the whole point of Step 0): two metrics were bogus and
+would have lied — (a) a dorsal "ridge = center brighter" check is INVERTED by fresnel rim-light (edges bright,
+center dark → −89); (b) per-landmark proportion ratios via pixel-row→silhouette-ny alignment blew up (waist
+970%) because render caps/antialiasing/framing misalign the rows. Kept only the ROBUST, alignment-free gates —
+single-render hi-frequency SPIKE metrics for protrusion (catches plate shelves) + banding (catches loft rings)
++ a coarse shape-RMS — and made proportions/muscled-read a VISUAL judgement on the overlay (shown to the human),
+not a fragile number. Refactored horns/spear into their own groups so the torso measures clean. Lesson:
+**a verification tool is itself code that can lie — validate it against a known case before trusting it to gate;
+prefer alignment-free aggregate metrics over fragile per-pixel correspondences; and don't pretend a number
+proves an aesthetic match — gate the objective stuff (no shelves, no banding), eyeball the subjective stuff.**
+
+### L133 — A centerline push that eases out FASTER than the surface depth rises carves a concavity; and a rear-cam anatomy checklist
+The human caught a **concavity in the upper back** (withers) on the 3/4 view. Cause: `BODY_SCULPT.cz` lifted the
+neck toward the camera (+z ≈ +0.13) and eased to 0 by the chest — but it dropped FASTER than dorsal depth `Dr`
+rose, so the dorsal world-z went neck-forward (0.21) → shoulder-recede (0.166) → chest (0.175): a real dip at the
+withers. A centerline offset moves the WHOLE ring, so easing it out across a region where the surface profile is
+still climbing subtracts from the surface = a concavity, even though each spline alone is monotonic. Fix: `cz=>0`
+(the lift was scaffolding for a head not yet built; the neck bend returns WITH the head, designed as one curve so
+the arch and bend don't fight). Then, asked to "check we're on the right track," researched flying-dragon anatomy
+and built a **rear-cam anatomy checklist** (now `tools/CELESTIAL_ANATOMY_REVIEW.md`): three masses (chest barrel >
+pelvis, waist crease between → a "bean," front bigger than back), broad wing-bearing shoulders, central spine
+ridge + paired dorsal muscle, long tapering tail, convex back. Our `BODY_SCULPT` passes all six judgeable rules
+(chest belly-depth ~1.7× hip by construction); the one open note is the now-straight axis (`cz=0`) — deferred to
+the head pass. Verifier note: a `0.12→0.18` protrusion-band narrow excludes the neck-cap tab the head will cover.
+Lesson: **when a profile spline and a centerline-offset spline overlap, check their SUM, not each curve — an
+offset that fades out while the surface is still rising digs a hole; and for a creature judged from one camera,
+write the per-camera anatomy checklist (masses/shoulders/ridge/taper/convexity) as the review gate, eyeball it on
+an all-angles montage, and defer axis-curve changes to the same pass that builds the part they belong to.**
+
+### L134 — "Convex from the rear cam" ≠ "convex across the spine": paired-hump sections hide a centerline groove only the axial view exposes
+Right after L133 shipped (`cz=0` + the rear-cam anatomy checklist, all six rules PASS), the human orbited to the
+two **axial** views the review never captured — camera yaw 0, pitch at the clamp (±1.28): looking straight DOWN
+the spine, and UP the belly. Down the spine showed a **dark recessed channel running the length of the back** —
+a *different* concavity from L133's, and one structurally invisible to the rear cam. I had claimed "back convex,
+fixed." Wrong. Root cause, measured (not eyeballed): the dorsal section
+`dorsalZ(u)=Dr·cos(u·π/2)^1.4 + Mu·exp(−((|u|−0.5)/0.22)²)` places paired muscle humps at u=±0.5, and at the
+withers the humps **out-rise** the central cos() ridge — `dorsalZ(0.5)−dorsalZ(0) ≈ +0.040` at ny≈0.26 — so the
+spine sat in a valley *between* the humps. The rear cam sees the silhouette + the lit humps and reads "muscled
+back"; it cannot see that the centerline between them is a trough. (The diamond spine ridge that would crown it
+is parked, `spineGrp.visible=false`, so nothing filled it.) Fix: add a narrow central crest to `dorsalZ`,
+`+ Cr·exp(−(u/0.18)²)`, with `Cr(ny)=0.065·gauss(ny,0.25,0.10)+0.022·gauss(ny,0.60,0.11)` — lift the centerline
+ONLY at the two muscle bands (withers + hips), ~0 across the already-convex mid-back so it doesn't bloat. The
+cheap algebraic gate that would have caught it from day one: **sweep `dorsalZ(0) ≥ dorsalZ(u)` for u∈[0,1] at
+every station** (now apex@u=0 for ny 0.15→0.73). The belly hollow in the up-belly view is the intentional abdomen
+tuck (`Be` gap) — left alone. Gates: protrusion 6.7% / banding 5.8% PASS, def 5/5. Lesson: **a single judging
+camera defines a blind axis — for a back-facing chase cam that axis is "looking down the spine." Convexity has a
+direction; "convex in silhouette" says nothing about "convex across." When a cross-section is a SUM of a central
+ridge and off-center humps, the humps can beat the ridge and trough the middle — verify the apex stays on the
+centerline with a per-station `f(0) ≥ max f(u)` sweep, and always render the down-the-spine + up-the-belly axial
+views, not just the hero angle. And when the human says "I thought you weren't blind" — reproduce their EXACT
+camera before answering; don't generalize from the angles you happened to capture.**
+
+### L135 — Neck + head pass: clip the body, arch a world-space neck, loft a sleek wedge head (the deferred cz neck-bend, now anchored)
+The body had ended in a flat "neck-cap tab" (the head region of the traced silhouette was just lofted as more
+tube rings) with horns stuck on the crown. L133 deferred the real neck bend "to the head pass, designed as one
+curve." This is that pass. Approach that worked: (1) **clip the body at BOTH ends** — `clipPoly(clipPoly(sil,
+TAIL_BODY_CLIP,false), NECK_BASE=0.235, true)` keeps 0.235≤ny≤0.73, removing the head region so a real neck/head
+replaces it (no seam-fighting with the old tube). (2) **Build the neck in WORLD space, not pt() canvas space** —
+the neck leaves the canvas plane (arches toward the dorsal +z), so a `CatmullRomCurve3` through 3 world points
+(seat-inside-body → bow up+forward → head base) lofted by a small variable-radius `worldTube` is the right tool;
+the in-plane `taperedTube`/`tube` helpers can't arch out of plane. Match the neck base radius to the *clipped
+shoulder width* (~0.40) or you get a step at the junction. (3) **Build the head in a LOCAL frame** (snout=+Z,
+dorsal=+Y, right=+X): loft elliptical rings with an egg cross-section (taller top `ht`, flatter belly `hb`),
+cheeks widest just ahead of the cranium (`+gauss(s,0.26,0.14)`), a drooping muzzle centerline (`cy=-0.22s²`), then
+**orient** by a right-handed basis from the neck's end tangent — `z=headDir; x=(0,0,1)×z; y=z×x; makeBasis(x,y,z)`
+— with the `(0,0,1)` up-hint so local +Y lands on world dorsal (+z), then seat at N2. Seat eyes/brows/horns/spikes
+off saved local ring centers (`ringAt(s)`). Gotchas: (a) the cosmic gradient is by world-Y (`yHi=3.8`), so the
+head at y>3.8 clamps to the bright head colour — good, free continuity. (b) first horn pass was stubby + too
+vertical; horns are the dominant rear-cam silhouette, so make them LONG, sweep up+OUT then strongly back
+(`curl≈(±0.42,−0.30,−1.55)`). (c) head looked like a vertical cone until I (i) blunted the snout tip
+(`hw` tip 0.05→0.09), (ii) tilted the head forward by pushing N2 +z so `headDir` leans ~30° off vertical. Gates
+after: protrusion 6.9% / banding 3.2% PASS, def 5/5 (clip didn't regress the torso). Lesson: **when a part bends
+OUT of the traced 2D plane (a neck, a reaching limb), stop working in canvas coords — build a world-space spine
+curve and orient sub-parts with an explicit basis from its tangent; clip the old stand-in geometry away rather
+than layering over it; and tune the feature that owns the silhouette FIRST (for a rear-cam dragon that's the horn
+crown, not the snout). Verify on the camera that ships (rear-high), not just the hero ¾.**
+
+### L136 — Head FLEX to horizontal + a side-profile reference-overlay tool; and a flaky silhouette gate was render-AA noise, not the dragon
+The human, judging the head/neck against side-view art, said the head "needs to flex DOWN so the side profile is
+on a horizontal plane" and — crucially — asked whether I needed to build a tool to MAP the reference and check
+the contour, rather than eyeballing. Yes. Two durable wins came out of it:
+
+**(1) The flex.** The head had been oriented along the neck's end tangent, which bows toward the dorsal (+z) —
+so in flight (where +z reads as UP) the head kicked ~30° skyward. Fix: DECOUPLE head orientation from the neck
+tangent. The neck still arches up; the head flexes back to level at the atlas — `headDir=(0,1,−0.06)` (forward +
+a touch ventral), independent of N2−N1. A slight kink at the head/neck joint is correct anatomy (atlanto-occipital
+flex), not a defect. Lesson: **a head is not just "the end of the neck" — its orientation is its own DOF; drive it
+explicitly, don't inherit the spine tangent.**
+
+**(2) The tool** (`tools/celestialSideCompare.mjs`): renders our side profile (wings hidden, transparent bg via a
+new `__transparent` previewer hook), tints it a flat cyan silhouette, and composites it over the painted side
+reference (colour-masked off its opaque checker bg), centroid-anchored + nose→tail length-scaled, both oriented
+HEAD-UP. Gotchas learned: alpha-bbox fails on a ref with a baked opaque bg (mask by colour: dark/saturated =
+dragon); landmark auto-detect (nose=topmost row, shoulder=first wide row) is FRAGILE — it breaks when the head
+pose changes (a horizontal head's topmost pixel is the crown, not the snout) and the ref's "widest row" is its
+WINGSPAN, not its shoulder; **centroid anchor + total-length scale is the robust choice** when per-feature
+landmarks won't hold still. Compare in the orientation you fully understand (our neutral vertical) and rotate the
+REFERENCE to match, not vice-versa.
+
+**(3) The flaky gate.** After the flex, `celestialRefCompare`'s protrusion gate swung 4–13% run-to-run (FAIL/PASS
+at random) with zero code change. Root cause chain, each step ruled out by measurement: not the build (no
+`Math.random`); WITHIN a session renders are bit-identical (so deterministic given identical state); the variance
+is BETWEEN processes. It was the `bodyMask` rgba-sum threshold (`>60`) cutting through the faint ANTIALIASED edge
+fringe, where cross-process AA dithering flips ±1px per row — and the now-shorter (clipped) body amplifies each
+noisy row, and the far-from-centre head swings hard under any residual flap pitch. Three fixes, in order of
+impact: (a) a `__rest` previewer hook that force-settles the exact rest pose (the QA shots were firing mid-flap,
+since flap eases over ~1.4s but shots waited 150ms); (b) cut the mask at a STEEPER point of the edge gradient
+(`>100`) so the silhouette edge is stable across processes; (c) the protrusion gate measures the full creature
+(head/neck shown) which CAPS the body's clip seam — hiding the head exposed the seam and read worse. Lesson:
+**a silhouette metric that reads a thresholded AA edge is only as stable as that threshold's position on the edge
+gradient — cut steep, settle the pose, and when a gate goes flaky, diff the inputs across runs before touching the
+subject. The dragon was never the problem.** PASS stable now: protrusion 1.7–5.8% / banding 1.2–2.4% / def 5/5.
+
+### L137 — Slim the torso depth + SOCKET the neck (elliptical base into the flat clip-top); a round tube can't seat in a wide-shallow opening
+Human side-by-side vs the side reference flagged: (1) torso too thick dorso-centrally — measured depth/length 0.40
+at the chest, ref ≈0.26; (2) the neck was a 45° SPUR off the dorsal — its base sat at 94% up the flat-top opening
+(the dorsal rim), not the centre; (3) the flat clip-top is the intended SOCKET the neck should insert into. Fixes:
+- **Depth:** cut the dorsal sculpt ~35% (`Dr` main 0.110→0.070, `Cr` halved, `Mu` 0.095→0.070 so the trimmed humps
+  still flank-not-trough the ridge — re-ran the L133 convexity check, centerline stays apex). depth/length → ~0.26.
+  The complaint was DORSAL depth, so left `Be`/width/`wBoost` alone (broad shoulders still read on the rear cam).
+- **Socket:** added a `neckTaper(ny)` that shrinks the cross-section's DEPTH (not width) to ~40% toward the top
+  clip, so the opening becomes neck-sized (the body converges INTO the neck) instead of a wide flat shelf with a
+  thin tube on it. Re-seated the neck at the opening's CENTRE (recompute it after every depth change — slimming
+  moved it from z=0.33 to 0.07) and rise ≈ perpendicular before the forward S-curve.
+- **The key geometry lesson:** a ROUND tube cannot seat flush into a wide-shallow socket — it bulges fore-aft and
+  the flat cap shows as a dark seam (clearly visible on the ¾, invisible on dead-side/rear, which is why it slipped
+  through last pass). Made `worldTube` build ELLIPTICAL rings ([halfWidth, halfDepth] per ring) with ANALYTIC
+  sagittal framing (lateral axis always ±x, depth axis = ⟂tangent in the y–z plane) — no Frenet twist because the
+  neck centerline is planar (all control pts x=0). Base = wide+shallow to fill the socket, rounding to a slender
+  nape. Join now continuous from every angle. Lesson: **match the cross-section SHAPE to the opening, not just its
+  size; and a junction that looks clean head-on/side can still be broken on the ¾ — always check the ¾.** Plus the
+  recurring one: **any socket/seat geometry derived from the body must be RECOMPUTED after a sculpt change** — the
+  z=0.33→0.07 socket-centre shift is exactly the kind of stale constant that reintroduces the bug. Gates stable
+  PASS (protrusion 2.2–3.7 / banding 1.7–4.3), def 5/5.
+
+### L138 — Continuous dorsal topline: fill the WHOLE socket + drop the depth-taper; "position was fine, the SLOPE was wrong"
+Human refined the neck note: the original (forward) neck POSITION was right — the fault was the connection SLOPE.
+The neck's dorsal (top) line must run CONTINUOUS with the torso's dorsal slope (the reference is one back→neck→head
+curve), not plug in as a separate angled tube. What was wrong in the socket pass (L137): the depth-`neckTaper`
+shrank the torso's dorsal depth toward the clip (0.75→0.30), curling the back inward right where the neck leaves —
+a slope kink — and the shallow neck base (half-depth 0.27) didn't reach the torso's dorsal edge (0.75), so the back
+stuck out past it = a dorsal shelf. Fix: (1) DROP the depth-taper (`neckTaper`→1) so the back stays full to the
+clip and the dorsal edge holds ~0.75–0.82 — a continuous line to hand off to the neck; (2) make the neck BASE a
+DEEP ellipse that fills the *whole* socket (half-depth 0.58 so dorsal edge meets 0.75 and ventral meets −0.42 —
+flush, no shelf); (3) a 4-pt centerline that rises briefly continuous with the back then sweeps FORWARD to carry
+the head ahead of the shoulders (the preferred position), narrowing to a slender nape. Lesson: **for a limb/neck
+that grows out of a body, continuity is a property of the EDGE LINES (dorsal/ventral), not the centerline — match
+the base cross-section to the FULL opening so both edges meet the body's edges, and never taper the body in the
+direction you need continuous (tapering the dorsal to "shrink the socket" curls the very line you're trying to keep
+smooth). Measure the body's dorsal/ventral edge z at the join and make the base ellipse hit both.** Gates PASS
+(protrusion 3.7–5.5 / banding 0.6–1.3), def 5/5.
+
+### L139 — Wing root belongs on the dorsolateral upper back, not the body's mid-depth
+Human: "where do the wings connect dorsoventrally?" Research + reference: a flyer's wing anchors at the shoulder
+girdle (scapula), high on the dorsolateral ribcage — upper third of the body depth, near the spine. The side ref
+shows wings springing from the top of the back at the withers. Measured our model: the wing root's LONGITUDINAL
+position (ny 0.273, the shoulder just behind the neck) was already right, but its DORSOVENTRAL attach was z=0 —
+exactly the body's mid-depth (45% up; body dorsal there +0.81, ventral −0.67). So the wings grew out of the
+body's equator/side, not the back. Fix: one constant — `WING_DORSAL=0.10` added into `zWing` (≈+0.56 world,
+~83% up the depth). Because the membrane + struts are seeded relative to the pivot (`off()` subtracts the pivot
+pos), lifting the root's base z translates the whole wing onto the back with its shape intact — a one-line lever.
+Lesson: **wing attach has two independent axes — longitudinal (which body station) and dorsoventral (how high on
+the cross-section); they're tuned separately, and the default "build it in the canvas plane → z=0" puts the root
+at mid-depth, which reads as wings-from-the-ribs. Push it dorsal.** Gates/def unaffected (wings excluded from
+torso gates): protrusion 5.0 / banding 3.6, def 5/5.
+
+### L140 — Wing prominence is bright-AREA + HUE, not peak brightness; built a Q/A'd wingMetrics tool to prove it
+Human: wing bones still too thick/prominent + wrong colour ("should be darker than the membrane"), and demanded a
+DATA-grounded, self-Q/A'd tool — not eyeballing. Built `tools/wingMetrics.mjs`: measures, for the reference
+(`refs/celestial/wings.png`) and our wings-only render (new `__wingsOnly` previewer hook), the membrane vs
+bright-feature colour (hue/lum), the **bright-AREA fraction** (% of wing above a membrane-relative luminance
+threshold), the bright/membrane lum RATIO, and bright-line WIDTH. Crucially it has a `--selftest` that plants a
+SYNTHETIC wing (known membrane colour + N lines of known width/colour/area) and asserts the metrics recover them
+within tolerance — so a measurement bug can't silently mislead the tuning (the user's explicit worry). Self-test
+PASSes (hue ±8°, area ±2pts, width ±1px). Findings (validated): membrane already matched (hue 250 vs 254); the
+bones were the fault — bright **HUE 200° cyan vs ref 239° blue**, bright-**AREA 24% vs ref 15%**, width ~2× — but
+the bright/membrane lum RATIO matched (5.8 vs 5.9). So it was never "too bright per pixel," it was "too much of the
+wing is bright, in the wrong hue." Cause: all 7 `boneSolid` bones used `matSpar` = near-white pale glow. Fix:
+recoloured `matSpar`/`matStrut` to dark blue-violet (hue ~242, low emissive, faint rim) → bones read as structure.
+KEY follow-on the tool exposed: that dropped bright-area to 1.6% — because the reference's 15% bright is LIGHTNING
+ENERGY, a SEPARATE element from the (dark) bones; the old model faked lightning with bright bones. So "match the
+ref" = dark bones **+** add lightning veins (deferred to a creative call with the human). Lesson: **don't reason
+about "brightness" as one scalar — decompose it into per-pixel intensity (ratio), coverage (area), and hue; the
+reference can match on one and miss on another. And a reference's glow may be a distinct element from its
+structure — replicating it means TWO materials, not one bright one. Always Q/A a measurement tool on a synthetic
+known-answer input before trusting it to steer art.**
+
+### L141 — In-game preview of an un-migrated model: hide the real dragon + overlay, don't stub 12 parts
+To let the human SEE the clean-sheet Celestial Storm in the actual game (lighting/scale/chase-cam/motion) before
+migrating it, the safe pattern is NOT to swap `buildCelestialStorm()` into `buildDragonModel`'s part contract
+(updateDragon writes to ~12 parts — head/tailSegs/wingPivots/tipMarkers/spineMats/auraSprite/rider — many
+UNGUARDED → crashes). Instead: build the REAL equipped dragon normally (every part valid, nothing crashes), then
+under a URL flag (`?celestial`) HIDE its visuals (`group.children.visible=false`) and OVERLAY the Celestial group
+parented to the player `group` (inherits position/pitch/bank), auto-fit by bbox to the real dragon's size (×1.8 for
+hero scale), oriented `rotation.x=-π/2` (model +y head→−z forward, +z dorsal→+y up), flapped by its own
+`updateFlap(time,1)`. Flag OFF = shipped roster byte-for-byte unchanged. Gotchas: the hidden dragon still ANIMATES,
+so its trail/mote sprite pools keep emitting — hide them each frame at the end of updateDragon; and some VFX
+(an ember/aura ring) are bound to the player independent of the mesh, so a clean in-game look needs the real
+migration, not a preview hack. FINDING the preview surfaced: against the bright sunset sky the now-dark (lightning-
+less) wings read as flat silhouette — the cost of the "no lightning" call shows up in-context, not in the previewer.
+Lesson: **to preview an un-migrated asset in a complex host, overlay-and-hide beats contract-stubbing; and viewing
+in the real environment surfaces lighting/scale/VFX truths the sterile previewer hides — do it before polishing.**
+
+### L142 — Wing struts: embed in the membrane plane (zBone=zWing), not floating in front; spear: kill the overlap into the body
+Human (seeing it in-game): wing membrane shape is great, but the struts FLOAT above it, and the spear tail has an
+"upper floating piece + lower one" + the tail reads weird. Direction: use the trace as a GUIDE but generate clean
+geometry like the roster (struts embedded, continuous tail). Studied dragonWings/dragonTail (skinnedTube + surface-
+sampled ribs) — but the Celestial flaps via simple pivot rotation (no skeleton), so the heavy skinned approach is
+overkill. The actual fixes were small + targeted:
+- WING STRUTS: the bones were seated at `zWing+0.08` (0.08 in FRONT of the membrane → floating plates). Seat them
+  AT the membrane plane (`zBone=zWing`): `boneSolid` straddles ±thick about zBone, so the (DoubleSide, translucent)
+  membrane cuts THROUGH each bone → it reads as a rib embedded in the wing, like a real finger-bone. One-line lever.
+- SPEAR/TAIL: the body (round muscled tube, sculpt central-span) clipped at y≤0.73; the spear (flat thin-lens blade,
+  no-sculpt so it branches the trident) lofted from y≥0.70 → the blade's flat shaft-portion (0.70–0.73) overlapped
+  UP INSIDE the round body = the "upper floating piece" (a flat violet strip visible through the body from the
+  side). Fix: raise the spear top to meet the body end (TAIL_SPEAR_TOP 0.70→0.725) so the flat spearhead grows OUT
+  of the thin tail tip instead of overlapping the body. (Body stays round tapering tail; spearhead is the tip
+  ornament — exactly the roster "tapered shaft + tip ornament" pattern, achieved by clip placement not a rewrite.)
+Lesson: **before adopting a heavy system (skinned meshes) to "generate normally", check whether the glitch is just
+a placement bug — floating = a z-offset; disjoint = an overlap/clip seam. A flat blade lofted to overlap a round
+tube reads as a separate floating piece from the side even if it looks fine head-on; clip parts to MEET, not
+overlap, when their cross-sections differ.** def 5/5, gates PASS, wingMetrics self-test PASS.
+
+### L143 — Smooth organic body: kill the cross-section CREASE (smooth-tangent belly) + smooth the loft CENTERLINE, not just width; tail = 3D taper not a flat lens
+Human: tail reads as a "weird slab not tapered to the end" (flat); body "not one continuously smooth shape — straight
+edges in the middle dorso-ventrally." Three root causes + fixes:
+- TAIL was a flat thin-lens loft (dDorsal/dVentral=0.20). Edge-on from the SIDE a flat blade is a thin SLAB that
+  never tapers as a volume, and it dangled off the body as a separate piece. Replaced with a `taperedTube` ROUND
+  spike off the body end (base ≈ body half-width → sharp point), in `matBody` so the cosmic gradient carries it to
+  magenta at the low-y tip — one continuous form, tapers to a point from EVERY angle. (A flat blade only "tapers"
+  in the view that sees its face.)
+- BODY CREASE ("straight edge dorso-ventrally"): the cross-section joined the dorsal arc (`cos^1.4`, tangent→0 at
+  the sides) to a SEMICIRCLE belly (`sqrt(1-u²)`, VERTICAL tangent at the sides) → a 90° tangent mismatch = a hard
+  crease running down the lateral seam. Fix: belly `-Be·cos(u·π/2)^1.2` (exponent>1 ⇒ tangent→0 at u=±1, matching
+  the dorsal) → the two arcs meet smoothly, no lateral edge.
+- BODY BANDING: the loft smoothed the per-row half-WIDTH but not the CENTERLINE (cx). The traced silhouette's
+  center wanders row-to-row, so the tube wobbled side-to-side → horizontal shading bands. Fix: smooth cx too (and
+  widen the window ±5→±8). Banding gate 1.9%.
+Lesson: **a surface is only as smooth as its WORST tangent — a C0-but-not-C1 join (two arcs meeting at different
+slopes) is a visible crease even when each arc is smooth; match tangents at seams. And loft banding has two
+sources, width AND centerline noise — smooth both. For a tapering appendage, build it as a round volume, never a
+flat lens, or it reads as a slab from the orthogonal view.** def 5/5, gates PASS, wingMetrics self-test PASS.
+
+### L144 — "It's a blob": the dragon had ALL surface detail (armour plates + spine ridge + seams) DISABLED — re-seat on the real hull and turn it ON
+Human, bluntly: "it's a blob, do you have any artistic judgement?" They were right. I'd spent many turns smoothing
+GEOMETRY (embed struts, smooth seams, taper tail) and missed the forest: the body was a BARE smooth tube because
+`plateGrp/seamGrp/spineGrp` were all `visible=false` (a "Step 1 WIP, re-seat in Step 2" that never happened), so
+there was zero surface detail — and then I'd smoothed away what little form remained. A dragon with no armour, no
+spine ridge, no scales IS a blob. Fix: (1) re-seat the armour on the ACTUAL sculpted hull — `surfZ`/`bodySurfaceZ`
+returned an old egg approximation (`0.92·hw·√`), so plates floated/sank; rewrote `surfZ` to return the real
+`dorsalZ(u, Dr,Mu,Cr)` so plates sit ON the back; (2) raise the plate crowns (0.011→0.030) so they read as
+overlapping armour, not flush decals; (3) enable plates + seams + the glowing dorsal spine-diamond ridge. The
+spine ridge running the whole back into the spear tail is the single biggest definition win — it gives a crisp
+focal line and turns the smooth tube into an armoured cosmic dragon. Gates still PASS (protrusion 4.7 / banding
+4.3; the intentional ridge isn't a shelf), def 5/5. Lesson: **when something reads as a "blob," step back from
+per-vertex geometry and ask what DETAIL is missing — and check what's toggled OFF. Surface detail (armour, ridge,
+scales) is what separates a creature from a smoothed primitive; don't ship with it disabled, and don't over-smooth
+the underlying form to nothing. Periodically judge the WHOLE silhouette, not just the bug you're chasing.**
+
+### L145 — A "stiff thing" comes alive by articulating the groups you ALREADY have — reparent for the joints, drive it all through ONE updateFlap
+Human: the Celestial "just looks like a stiff thing with the wings" — it needs to "move like all the other dragons
+with its tail and whatever subtle move it does." The roster dragons crane the neck, nod the head and flick the tail
+every frame; the Celestial only flapped. Honest constraint: a true travelling-wave tail-whip / multi-segment wing
+cascade needs a SKELETON, and the body+tail are one rigid loft — that's a bigger rig job. But you don't need a rig
+to kill "stiff": articulate the parts that are ALREADY separate `THREE.Group`s. (1) The neck+head and the tail
+SPEAR are their own groups → animate them. (2) For the neck to crane WITHOUT a gap at the nape, reparent `neckGrp`
++ `headGrp` under one `neckPivot` at the shoulder base N0 (offset their world-baked geometry by −N0 so it stays
+put), so they swing together; the head then nods on TOP via `headGrp.quaternion = qNod ⊛ headBaseQuat` about the
+atlas N3. (3) The spear flicks about the tail/spear junction with the rotate-about-pivot identity
+`pos = P − q·P` (group geometry in world coords, base position 0). Amplitudes are TINY (~2–9°) — subtle life, not
+semaphore. Crucial plumbing: drive wings + body-life through the SINGLE `updateFlap(t,amp)` and make the previewer
+call it too (it had a DUPLICATE inline wing loop) — one code path means the preview and the game animate
+identically, and `amp` lets the previewer ease it / the QA `__rest` + `poseAt` hooks zero it (call
+`restBodyLife()`) so the silhouette gates — which never call updateFlap — stay deterministic. Preallocate scratch
+Euler/Quaternion/Vector3 in the build scope (no per-frame allocation; 60fps mobile). Verified: def 5/5, gates PASS
+(protrusion 2.3 / banding 3.7 — body-life doesn't touch the torso silhouette), live frames show neck/head/tail
+moving with the nape staying connected and no tearing. Lesson: **before reaching for a skeleton, animate the
+groups you already have — reparent to create the ONE joint you need (crane), layer child rotations for the rest
+(nod), and use the rotate-about-pivot identity for world-baked groups (tail). Keep amplitudes subtle. Funnel ALL
+articulation through one update method and have every consumer (previewer + game) call it — a duplicate inline
+animation path WILL drift. Gate-determinism survives because the rest pose is identity and the gates never animate.**
+The wing-flap still reads as a single rigid pivot (barn-door) — a multi-segment cascade like the roster needs the
+wing membrane partitioned by span into nested pivots; flagged as the bigger NEXT step, pending human sign-off on
+the body-life in motion first.
+
+### L146 — If your change "doesn't show up" in the deployed preview, you forgot to RE-STAMP `sw.js` (PWA serves the OLD cached JS)
+Human, after a whole session of celestial work landing on the PR preview: "the body head tail isnt moving and wings still look fake." The animation code was correct and verified headless — but it was INVISIBLE on the deployed preview because the **service worker was serving a stale cached build**. `sw.js` is content-stamped (`const VERSION = '…'`, written by `tools/stamp-sw.mjs` from a hash of every asset). The SW only reinstalls when its OWN BYTES change — i.e. when VERSION changes — and VERSION only changes if you RE-RUN the stamper after editing assets. NONE of this session's many `celestialModel.js` commits re-stamped, so VERSION never moved, so every browser that had visited the PR-preview path kept replaying the old precache (`cache-first within version`). The human had been judging stale code for multiple iterations. Fix: `node tools/stamp-sw.mjs` (it must be the LAST step, after all asset edits, since it hashes their final bytes), then commit — VERSION bumps → SW detects an update → reinstalls → fresh JS. Lesson: **a PWA with a content-versioned precache is a CACHE — editing a JS/CSS/asset file is NOT enough; you MUST re-stamp `sw.js` as the final step of EVERY change or the deployed preview (and returning users) keep running the old bytes. When the human says "your change isn't showing," suspect the stale SW FIRST, before re-debugging code that's already verified headless. Wire the stamp into the commit habit the way `tricount`/gates are.** (Also bumped the body-life amplitudes — neck/head/tail ~6–15° — because the rear chase cam + motion blur swallow the ~3° that read fine in the close-up previewer.)
+
+### L147 — The REAL reason celestial changes "weren't showing": the reforged game shipped its OWN cache-first SW while the root was already network-first
+Human, increasingly blunt across several deploys: "still not moving… still stiff and rigid." The animation code was correct AND verified running IN-GAME (headless: booted the real `?celestial` game, read `window.__celestial.groups.headGrp/spearGrp` quaternions at two times — they changed). The deployed JS on `gh-pages` even contained the new code. So why did the human see nothing? Two service workers. The PR-preview root (`/pr-preview/pr-NNN/sw.js`) had already been migrated to **network-first** (online = always fetch → deploys land on the next load). But the actual game lives in `reforged/`, whose `index.html` registers **`./sw.js` = `reforged/sw.js`** — and THAT was still the old **content-versioned cache-first precache** SW. Cache-first means: once a returning visitor has any reforged SW installed, every load replays the OLD cached module graph until (a) the stamped VERSION changes AND (b) the page is reloaded enough times for the freshly-installed SW to take over (`skipWaiting`+`claim` only controls the NEXT navigation, not the in-flight one). I'd even re-stamped the VERSION (L146) — but a returning client still needs an extra reload to escape the old cache, so "it's still stale" persisted. Diagnosis that cracked it: fetch the DEPLOYED files straight off the `gh-pages` branch via the GitHub API (`get_file_contents` on `pr-preview/pr-NNN/reforged/...`) — proved the new code + new VERSION were live on the server, so the only remaining variable was the client SW strategy. Fix: replace `reforged/sw.js` with the SAME network-first strategy the root already uses (cache only as offline fallback; bump CACHE name to flush the old `dd-reforged-<hash>` precaches on activate). `index.html` already registered with `updateViaCache:'none'` and even had the network-first comment — the SW file had simply drifted. Immediate unblock for the human: open the link in a **private/incognito window** (no SW history → fresh network load) to see it NOW; normal browsers self-heal within a load or two after this deploy. Lesson: **a PWA can have MORE THAN ONE service worker by scope — verify which `sw.js` the ACTUAL entry page registers (here `reforged/`, not root), and that ITS strategy is network-first; a cache-first SW will mask every deploy from returning visitors no matter how correct the code or how diligently you re-stamp. When "my change isn't showing," (1) confirm the code is RIGHT (headless), (2) confirm it's DEPLOYED (read the file off the deploy branch via the API — curl to *.github.io may be proxy-blocked), then (3) suspect the controlling SW; reach for incognito as the instant ground-truth. Network-first is the default for a frequently-redeployed static game.** Also added a `window.__celestial` debug hook (preview-only) so the in-game model is inspectable headlessly.
+
+### L149 — A roster-style tail WHIP needs a real segmented bone chain — a single rigid spear can't travelling-wave
+Human, after the body-swim landed: "the body rolls but the tail doesn't have the usual animation other dragons have." The roster tails are SEGMENTED chains driven by a travelling wave — azure's `coil = sin(t·rate − i·lag)·amp·lock²`, root (i=0) locked to the body, the swing ramping to the tip → an S-curve whip. The Celestial tail was ONE rigid `taperedTube` (the spear), so the best it could do was swing as a board (the old single-pivot flick). Fix: rebuild the tail as N=6 NESTED pivots (each a child of the previous) seated at the body/tail junction, built downward in a local −Y frame as tapered `CylinderGeometry` segments (matBody gradient shaft → crystalline barbed `matSpear` point); the chain's top overlaps INTO the body loft's lower taper so there's no gap at the seam. Then drive the SAME roster wave per segment (`rotation.z = sin(t·3.4 − k·0.6)·0.34·lock²`, lock=k/(N−1)) — nested rotations compound into the S-whip; `lock²` keeps the root calm and the tip loose. `restBodyLife()` zeroes the segment rotations so the silhouette gates (which never animate) stay deterministic. Verified by RENDERING the previewer at successive phases: the lower tail visibly curves side-to-side, not a rigid swing. Also +30% in-game scale per request (×1.8 → ×2.34 fit factor). Gates PASS (5.0/2.3), def 5/5. Lesson: **"animate it like the other dragons" for a tail means MATCH THE MECHANISM, not approximate it — the roster whip is a segmented chain + travelling wave + lock² ramp; reproduce that structure (nested pivots, compounding rotations) rather than swinging a rigid part, which always reads as a board on a hinge. Reuse the exact roster coil formula so the feel matches.**
+
+### L150 — "Different definitions of tail": the human means EVERYTHING caudal of the HIP — flex the whole post-hip region, not just the spear tip
+Human, after the spear-chain whip: "I think we have different definitions of what a tail is. For me, pretty much after the hip forms the tail. That should be animating. Right now the whole creature reads stiff. Research how dragons move during flight and segment the whole thing up to animate correctly." They were right twice over: (1) my "tail" was only the spear END; the big rigid region between the hip and the spear never moved, so the silhouette read stiff; (2) the flight-animation convention (researched — therookies / escapestudios dragon-flight breakdowns) is exactly: drive the ROOT (translate + pitch per wingbeat), then offset each spine control progressively down the body — a travelling wave with FOLLOW-THROUGH, amplitude/lag growing toward the tip — and the flex lives from the pelvis/hip back (trunk stays comparatively rigid). Fix: raise the body loft's tail clip to the HIP (`TAIL_BODY_CLIP` 0.73→0.60) so the rigid trunk ENDS at the hip, and make the ENTIRE post-hip region the segmented chain — 9 nested pivots sized to the body's measured hip half-width (`stations` lookup at the clip × ASPX×S) tapering to the barbed point, root overlapping UP into the clip so there's no seam, with the glowing dorsal spine ridge continuing down each segment so it matches the body's detail. Drive the roster travelling wave (`sin(t·3 − k·0.55)·0.20·lock²`, lock=k/(N−1)); per-segment kept MODEST because 9 nested pivots COMPOUND into a big tip swing. Verified by rendering the previewer at 4 phases: the tail S-curves hip→tip, whipping side to side, ridge riding along. Gates PASS (4.6/1.8 — trunk-only body still clean), def 5/5. Lesson: **when the human names an anatomical region ("the tail"), pin down where it STARTS — here the hip, not the spear — before animating; flexing only the tip leaves the bulk rigid and still reads stiff. For flight, match the real convention: root pitch/heave per wingbeat + a caudally-ramped travelling wave with follow-through, flex concentrated aft of the hip. Segment the WHOLE region the human means, size the chain root to the body it leaves (measure it), and carry the surface detail (ridge) onto the chain so body and tail read as one form.**

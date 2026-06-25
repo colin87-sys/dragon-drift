@@ -1,0 +1,220 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Celestial Storm — Rear-Cam Anchor Tracer</title>
+<style>
+  :root{ --bg:#0a0e1a; --panel:#0f1526; --line:#243049; --ink:#cfe0ff; --dim:#7f8db0; --cyan:#6ae6ff; --mag:#ff7ae6; --hot:#ffb454; }
+  *{box-sizing:border-box}
+  html,body{margin:0;height:100%;background:var(--bg);color:var(--ink);font:13px/1.5 system-ui,sans-serif;overflow:hidden}
+  #app{display:flex;height:100vh}
+  #stage{flex:1;position:relative;background:radial-gradient(120% 100% at 50% 0,#141a33,#0a0e1a)}
+  #c{display:block;width:100%;height:100%;touch-action:none;cursor:crosshair}
+  #panel{width:320px;flex:0 0 320px;background:var(--panel);border-left:1px solid var(--line);display:flex;flex-direction:column;overflow-y:auto}
+  .sec{padding:11px 13px;border-bottom:1px solid var(--line)}
+  .sec h2{margin:0 0 8px;font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--dim)}
+  h1{font-size:14px;margin:0 0 2px;color:var(--cyan)} h1 small{color:var(--dim);font-weight:400;font-size:11px}
+  button{background:#16223c;color:var(--ink);border:1px solid var(--line);border-radius:7px;padding:7px 9px;font-size:12px;cursor:pointer}
+  button:hover{border-color:#3a4d72}
+  button.on{background:var(--cyan);color:#04140a;border-color:var(--cyan);font-weight:600}
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:6px}
+  label.sl{display:block;margin:9px 0 2px;color:var(--dim);font-size:11px}
+  label.sl b{color:var(--ink);float:right;font-weight:600}
+  input[type=range]{width:100%}
+  textarea{width:100%;height:150px;background:#0b1322;color:#bfe;border:1px solid var(--line);border-radius:7px;font:11px/1.4 ui-monospace,Menlo,monospace;padding:7px;resize:vertical;white-space:pre}
+  .hint{color:var(--dim);font-size:11px}
+  #status{position:absolute;left:10px;bottom:10px;background:rgba(8,12,24,.72);border:1px solid var(--line);padding:5px 9px;border-radius:7px;color:var(--dim);font-size:11px;pointer-events:none;max-width:70%}
+  .full{width:100%}
+</style>
+</head>
+<body>
+<div id="app">
+  <div id="stage">
+    <canvas id="c"></canvas>
+    <div id="status">Phase-4 QA overlay — drag anchors to match the concept. Adjust NUMBERS only; never redesign here.</div>
+  </div>
+  <div id="panel">
+    <div class="sec">
+      <h1>Celestial Storm <small>Prism Wyvern</small></h1>
+      <div class="hint">Rear chase-cam is the source of truth. Solve the logo, then go 3D.</div>
+    </div>
+    <div class="sec">
+      <h2>Concept overlay</h2>
+      <input id="img" type="file" accept="image/*" class="full" />
+      <label class="sl">overlay opacity <b id="opv">0.45</b></label>
+      <input id="op" type="range" min="0" max="1" step="0.01" value="0.45" />
+    </div>
+    <div class="sec">
+      <h2>Layers</h2>
+      <div class="grid2">
+        <button id="tAnchors" class="on">anchors</button>
+        <button id="tVeins" class="on">veins</button>
+        <button id="tSpine" class="on">spine</button>
+        <button id="tLabels">labels</button>
+      </div>
+    </div>
+    <div class="sec">
+      <h2>Tune (numbers only)</h2>
+      <label class="sl">wingspan ×<b id="wsv">1.00</b></label><input id="ws" type="range" min="0.6" max="1.5" step="0.01" value="1" />
+      <label class="sl">wing-tip height ×<b id="thv">1.00</b></label><input id="th" type="range" min="0.4" max="1.8" step="0.01" value="1" />
+      <label class="sl">scallop depth ×<b id="scv">1.00</b></label><input id="sc" type="range" min="0" max="2" step="0.01" value="1" />
+      <label class="sl">body width ×<b id="bwv">1.00</b></label><input id="bw" type="range" min="0.5" max="1.8" step="0.01" value="1" />
+      <label class="sl">tail length ×<b id="tlv">1.00</b></label><input id="tl" type="range" min="0.6" max="1.6" step="0.01" value="1" />
+      <label class="sl">spine plate size ×<b id="spv">1.00</b></label><input id="sp" type="range" min="0.4" max="2" step="0.01" value="1" />
+      <button id="reset" class="full" style="margin-top:8px">reset to spec</button>
+    </div>
+    <div class="sec">
+      <h2>Export tuned spec</h2>
+      <button id="exp" class="full">copy spec JSON ▸ textarea</button>
+      <textarea id="out" spellcheck="false" placeholder="drag anchors / tune, then export — paste the values back into celestialStormSpec.js"></textarea>
+    </div>
+  </div>
+</div>
+
+<script type="module">
+import { CELESTIAL_STORM_DRAGON_REAR_SPEC } from '../js/celestialStormSpec.js';
+import { buildRearSilhouette } from '../js/celestialStormSilhouette.js';
+
+const clone = (o) => JSON.parse(JSON.stringify(o));
+let spec = clone(CELESTIAL_STORM_DRAGON_REAR_SPEC);
+const tweak = { ws:1, th:1, sc:1, bw:1, tl:1, sp:1 };
+const layers = { anchors:true, veins:true, spine:true, labels:false };
+
+const cv = document.getElementById('c'), ctx = cv.getContext('2d');
+let overlay = null;
+let view = { scale:1, cx:0, cy:0 };
+let drag = null;   // { ref:[x,y,z] } anchor being dragged
+
+// apply the slider tweaks onto a fresh clone of the base spec (numbers only)
+function tunedSpec(){
+  const s = clone(spec);
+  for (const k of ['root','elbow','wrist','tip','outerScallop','midScallop','innerScallop','rootScallop']){
+    s.wingLeft[k][0] *= tweak.ws;
+  }
+  for (const k of ['elbow','wrist','tip']) s.wingLeft[k][1] *= tweak.th;
+  s.body.shoulderWidth *= tweak.bw; s.body.torsoWidth *= tweak.bw; s.body.hipWidth *= tweak.bw; s.body.headWidth *= tweak.bw;
+  s.body.tailTip[1] *= tweak.tl; s.tail.bladeTip[1] *= tweak.tl; s.tail.bladeTop *= tweak.tl; s.tail.finY *= tweak.tl;
+  s.spine.sizeTop *= tweak.sp; s.spine.sizeBottom *= tweak.sp;
+  s._scallop = tweak.sc;     // consumed below by the redraw (depth multiplier)
+  return s;
+}
+
+function resize(){ cv.width = stage.clientWidth; cv.height = stage.clientHeight; draw(); }
+const stage = document.getElementById('stage');
+addEventListener('resize', resize);
+
+function fit(b){
+  const W = cv.width, H = cv.height, margin = 60;
+  const spanX = Math.max(b.maxX-b.minX,0.1), spanY = Math.max(b.maxY-b.minY,0.1);
+  const scale = Math.min((W-2*margin)/spanX, (H-2*margin)/spanY);
+  view = { scale, cx:W/2, cy:H/2 + ((b.maxY+b.minY)/2)*scale };
+}
+const SX = (x)=>view.cx + x*view.scale, SY = (y)=>view.cy - y*view.scale;
+const toWorldX = (px)=>(px-view.cx)/view.scale, toWorldY = (py)=>(view.cy-py)/view.scale;
+
+function poly(pts, close){ ctx.beginPath(); pts.forEach((p,i)=>{ const x=SX(p[0]),y=SY(p[1]); i?ctx.lineTo(x,y):ctx.moveTo(x,y); }); if(close)ctx.closePath(); }
+
+function draw(){
+  const s = tunedSpec();
+  const sil = buildRearSilhouette(s);
+  fit(sil.bounds);
+  ctx.clearRect(0,0,cv.width,cv.height);
+
+  // concept image overlay (fit centred)
+  if (overlay && +op.value>0){
+    ctx.globalAlpha = +op.value;
+    const ar = overlay.width/overlay.height;
+    let w = cv.height*ar, h = cv.height; if (w>cv.width){ w=cv.width; h=cv.width/ar; }
+    ctx.drawImage(overlay, (cv.width-w)/2, (cv.height-h)/2, w, h);
+    ctx.globalAlpha = 1;
+  }
+
+  const ST = s.style, col = (c)=>`rgb(${c[0]},${c[1]},${c[2]})`;
+  const outlineW = Math.max(1.5, ST.outlineThickness*view.scale);
+
+  const drawWing = (w)=>{
+    poly([...w.membraneOutline, w.membraneOutline[0]]); ctx.lineWidth=outlineW*2.2; ctx.strokeStyle=col(ST.outlineColor); ctx.stroke();
+    w.panels.forEach((p,i)=>{ poly(p,true); ctx.globalAlpha=ST.membraneAlpha; ctx.fillStyle=col(ST.membraneColor.map(v=>v*(1-i*0.12))); ctx.fill(); ctx.globalAlpha=1; });
+    w.bones.forEach(bn=>{ poly(bn); ctx.lineWidth=outlineW*1.3; ctx.strokeStyle='#160e28'; ctx.stroke(); });
+    if (layers.veins) w.veins.forEach(v=>{ poly(v.points); ctx.lineWidth=outlineW*0.8; ctx.strokeStyle=col(v.color==='secondary'?ST.glowSecondary:ST.glowPrimary); ctx.shadowColor=ctx.strokeStyle; ctx.shadowBlur=8; ctx.stroke(); ctx.shadowBlur=0; });
+  };
+
+  // body
+  poly([...sil.bodyOutline, sil.bodyOutline[0]],true); ctx.lineWidth=outlineW*2.2; ctx.strokeStyle=col(ST.outlineColor); ctx.stroke(); ctx.fillStyle=col(ST.bodyColor); ctx.fill();
+  drawWing(sil.wings.left); drawWing(sil.wings.right);
+
+  // tail
+  sil.tail.fins.forEach(f=>{ poly([...f,f[0]],true); ctx.fillStyle=col(ST.membraneColor); ctx.fill(); ctx.lineWidth=outlineW*1.8; ctx.strokeStyle=col(ST.outlineColor); ctx.stroke(); });
+  poly([...sil.tail.spear, sil.tail.spear[0]],true); ctx.fillStyle='#4650a0'; ctx.fill(); ctx.globalAlpha=.4; ctx.fillStyle=col(ST.spineColor); ctx.fill(); ctx.globalAlpha=1; ctx.lineWidth=outlineW*2; ctx.strokeStyle=col(ST.outlineColor); ctx.stroke();
+
+  // spine
+  if (layers.spine) sil.spinePlates.forEach(pl=>{ poly([...pl.diamond,pl.diamond[0]],true); ctx.fillStyle=col(ST.spineColor); ctx.shadowColor=col(ST.spineColor); ctx.shadowBlur=10; ctx.fill(); ctx.shadowBlur=0; ctx.lineWidth=outlineW; ctx.strokeStyle=col(ST.outlineColor); ctx.stroke(); });
+
+  // horns
+  sil.head.horns.forEach(hn=>{ poly(hn); ctx.lineWidth=outlineW*1.8; ctx.strokeStyle=col(ST.outlineColor); ctx.stroke(); });
+
+  // anchors (draggable)
+  if (layers.anchors){
+    const colByGroup = { wingBone:'#ffb454', scallop:'#ff5de0', body:'#9fe06a', tail:'#78f0ff' };
+    for (const a of sil.anchors){
+      const x=SX(a.x), y=SY(a.y);
+      ctx.beginPath(); ctx.arc(x,y,5,0,7); ctx.fillStyle='#0a0c14'; ctx.fill();
+      ctx.beginPath(); ctx.arc(x,y,3.4,0,7); ctx.fillStyle=colByGroup[a.group]||'#fff'; ctx.fill();
+      if (layers.labels){ ctx.fillStyle='#cfe0ff'; ctx.font='10px ui-monospace,monospace'; ctx.fillText(a.name, x+7, y-6); }
+    }
+  }
+}
+
+// --- dragging the LEFT-wing + body anchors (right mirrors automatically) -----
+const HIT = 12;
+function anchorRefs(){
+  const refs = [];
+  for (const k of ['root','elbow','wrist','tip','outerScallop','midScallop','innerScallop','rootScallop']) refs.push({ p:spec.wingLeft[k], mirror:true });
+  for (const k of ['head','neck','chest','hips','tailMid','tailTip']) refs.push({ p:spec.body[k], mirror:false });
+  refs.push({ p:spec.tail.bladeTip, mirror:false });
+  return refs;
+}
+cv.addEventListener('pointerdown', e=>{
+  const mx=e.offsetX, my=e.offsetY;
+  for (const r of anchorRefs()){
+    const sx=SX(r.p[0]*(r.mirror?tweak.ws:1)), sy=SY(r.p[1]);
+    if (Math.hypot(mx-sx,my-sy) < HIT){ drag=r; cv.setPointerCapture(e.pointerId); return; }
+  }
+});
+cv.addEventListener('pointermove', e=>{
+  if (!drag) return;
+  // write back into the BASE spec, undoing the wingspan slider so export stays clean
+  drag.p[0] = toWorldX(e.offsetX) / (drag.mirror?tweak.ws:1);
+  drag.p[1] = toWorldY(e.offsetY);
+  draw();
+});
+cv.addEventListener('pointerup', ()=>{ drag=null; });
+
+// --- UI wiring --------------------------------------------------------------
+const $ = (id)=>document.getElementById(id);
+$('img').onchange = e=>{ const f=e.target.files[0]; if(!f)return; const im=new Image(); im.onload=()=>{ overlay=im; draw(); }; im.src=URL.createObjectURL(f); };
+const op = $('op'); op.oninput = ()=>{ $('opv').textContent=(+op.value).toFixed(2); draw(); };
+const sliders = { ws:'wsv', th:'thv', sc:'scv', bw:'bwv', tl:'tlv', sp:'spv' };
+for (const id in sliders){ const el=$(id); el.oninput=()=>{ tweak[id]=+el.value; $(sliders[id]).textContent=(+el.value).toFixed(2); draw(); }; }
+for (const [btn,key] of [['tAnchors','anchors'],['tVeins','veins'],['tSpine','spine'],['tLabels','labels']]){
+  $(btn).onclick = ()=>{ layers[key]=!layers[key]; $(btn).classList.toggle('on',layers[key]); draw(); };
+}
+$('reset').onclick = ()=>{ spec=clone(CELESTIAL_STORM_DRAGON_REAR_SPEC); for(const k in tweak)tweak[k]=1; for(const id in sliders){ $(id).value=1; $(sliders[id]).textContent='1.00'; } draw(); };
+$('exp').onclick = ()=>{
+  const s = tunedSpec(); delete s._scallop;
+  const fmt = (p)=>`[${p.map(v=>v.toFixed(3)).join(', ')}]`;
+  const wl = s.wingLeft;
+  $('out').value =
+`// paste back into celestialStormSpec.js → CELESTIAL_STORM_DRAGON_REAR_SPEC
+body: { head:${fmt(s.body.head)}, neck:${fmt(s.body.neck)}, chest:${fmt(s.body.chest)}, hips:${fmt(s.body.hips)}, tailMid:${fmt(s.body.tailMid)}, tailTip:${fmt(s.body.tailTip)},
+  headWidth:${s.body.headWidth.toFixed(3)}, shoulderWidth:${s.body.shoulderWidth.toFixed(3)}, torsoWidth:${s.body.torsoWidth.toFixed(3)}, hipWidth:${s.body.hipWidth.toFixed(3)} },
+wingLeft: { root:${fmt(wl.root)}, elbow:${fmt(wl.elbow)}, wrist:${fmt(wl.wrist)}, tip:${fmt(wl.tip)},
+  outerScallop:${fmt(wl.outerScallop)}, midScallop:${fmt(wl.midScallop)}, innerScallop:${fmt(wl.innerScallop)}, rootScallop:${fmt(wl.rootScallop)} },
+tail: { ...bladeTip:${fmt(s.tail.bladeTip)} }  // scallop ×${tweak.sc.toFixed(2)}, spine ×${tweak.sp.toFixed(2)}`;
+};
+
+resize();
+</script>
+</body>
+</html>
