@@ -73,7 +73,7 @@ const BODY_SCULPT = {
   Cr: (ny) => 0.034 * gauss(ny, 0.25, 0.10) + 0.012 * gauss(ny, 0.60, 0.11),            // central spine CREST — keeps the centerline the apex over the (now smaller) muscle bands so no groove down the spine
   wBoost: (ny) => 1 + 0.35 * gauss(ny, 0.25, 0.09),                                     // deltoid breadth (rear width stays our trace; fullness is depth)
   cz: (ny) => 0,   // centerline straight for now — the old neck-forward lift dipped the upper back into a concavity; a real neck bend comes with the head
-  neckTaper: (ny, ss) => 0.4 + 0.6 * ss(0.235, 0.30, ny),   // depth shrinks to 40% at the top clip → a neck-sized socket the neck seats into (full chest depth resumes by ny 0.30)
+  neckTaper: (ny, ss) => 1,   // no depth taper: the back stays full (dorsal edge ~0.75–0.82) right to the clip so the dorsal TOPLINE runs continuous into the neck; the neck's deep elliptical base fills the whole socket instead (tapering the dorsal here would curl the back inward → a slope kink at the junction)
 };
 // keeled muscled dorsal profile at lateral u∈[−1,1] (z toward camera): central spine ridge + paired muscle humps + a
 // narrow crest at u=0 (Cr) so the centerline stays the apex — without it the humps trough the spine at the withers.
@@ -293,16 +293,16 @@ export function buildCelestialStorm() {
     return new THREE.Mesh(g, material);
   }
 
-  // NECK centerline (world): the body clips FLAT at the shoulders — that flat cap is the SOCKET. Seat the neck at
-  // the opening's CENTER (z≈0.17, not its dorsal rim) and leave it PERPENDICULAR to the cap (rise ≈ +y) before the
-  // forward S-curve, so it reads as inserted INTO the socket — not perched at 45° on the dorsal lip. Base flares to
-  // ~the opening width then tapers to the slender nape, so the torso→neck join is continuous (no thin-tube-on-shelf).
-  const N0 = new THREE.Vector3(0, 2.60, 0.07), N1 = new THREE.Vector3(0, 3.06, 0.26), N2 = new THREE.Vector3(0, 3.46, 0.82);
-  // elliptical sections [halfWidth, halfDepth]: base is WIDE+SHALLOW to seat flush in the socket (≈0.40w × 0.26d),
-  // rounding to a slender nape — so the torso→neck join is continuous instead of a round tube bulging fore-aft.
-  neckGrp.add(worldTube([N0, N1, N2], [[0.42, 0.27], [0.30, 0.30], [0.25, 0.25]], matBody, 20));
+  // NECK centerline (world): the dorsal TOPLINE must run continuous from the torso's back into the neck (the
+  // reference is one back→neck→head curve). The torso's dorsal edge is ~z0.75 and ventral ~z−0.42 at the clip, so
+  // the neck BASE is a DEEP ellipse filling the whole socket (dorsal edge meets 0.75, ventral meets −0.42 → no
+  // shelf, no slope kink). It rises briefly continuous with the back, then sweeps FORWARD to carry the head ahead
+  // of the shoulders (the position the human preferred), narrowing to a slender nape.
+  const N0 = new THREE.Vector3(0, 2.55, 0.17), N1 = new THREE.Vector3(0, 3.00, 0.30), N2 = new THREE.Vector3(0, 3.40, 0.82), N3 = new THREE.Vector3(0, 3.74, 1.45);
+  // [halfWidth, halfDepth] base→tip: deep ellipse (0.40×0.58) flush to the socket → round slender nape (0.25).
+  neckGrp.add(worldTube([N0, N1, N2, N3], [[0.40, 0.58], [0.33, 0.42], [0.27, 0.30], [0.25, 0.25]], matBody, 20));
 
-  // HEAD — built in a LOCAL frame (snout = +Z, dorsal = +Y, right = +X), then oriented and seated at N2.
+  // HEAD — built in a LOCAL frame (snout = +Z, dorsal = +Y, right = +X), then oriented and seated at N3 (nape).
   // FLEX: the head does NOT just follow the neck's end tangent (which still bows toward the dorsal +z); it flexes
   // DOWN at the atlas so the skull's long axis is ~level with the body's forward axis (+y) — matching the side
   // reference, where the neck arches up but the head is held forward/horizontal, not kicked skyward.
@@ -368,7 +368,7 @@ export function buildCelestialStorm() {
   // orient + seat the head: local +Z → headDir, local +Y → dorsal (+z world), via a right-handed basis
   {
     const z = headDir.clone(), x = new THREE.Vector3(0, 0, 1).cross(z).normalize(), y = z.clone().cross(x).normalize();
-    const m = new THREE.Matrix4().makeBasis(x, y, z); headGrp.quaternion.setFromRotationMatrix(m); headGrp.position.copy(N2);
+    const m = new THREE.Matrix4().makeBasis(x, y, z); headGrp.quaternion.setFromRotationMatrix(m); headGrp.position.copy(N3);
   }
 
   // PLATES — raised armour SCALES (centroid-fan domes seated on the hull) + glowing seams between them
