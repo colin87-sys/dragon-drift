@@ -184,8 +184,8 @@ function flapDrive(t, side) {
 export function buildCelestialStorm() {
   // ── assemble ──────────────────────────────────────────────────────────────
   const root = new THREE.Group();
-  const bodyGrp = new THREE.Group(), plateGrp = new THREE.Group(), seamGrp = new THREE.Group(), wingGrp = new THREE.Group(), strutGrp = new THREE.Group(), spineGrp = new THREE.Group();
-  root.add(bodyGrp, plateGrp, seamGrp, wingGrp, strutGrp, spineGrp);
+  const bodyGrp = new THREE.Group(), plateGrp = new THREE.Group(), seamGrp = new THREE.Group(), wingGrp = new THREE.Group(), strutGrp = new THREE.Group(), spineGrp = new THREE.Group(), hornGrp = new THREE.Group(), spearGrp = new THREE.Group();
+  root.add(bodyGrp, plateGrp, seamGrp, wingGrp, strutGrp, spineGrp, hornGrp, spearGrp);
 
   // BODY — the lofted (voluminous) hull stops above the tail flare; the spearhead below is built as a FLAT
   // crystalline blade so it reads sleek (the painted spear is a flat blade, not a bell). clipPoly cuts the
@@ -205,11 +205,11 @@ export function buildCelestialStorm() {
   {
     const spear = clipPoly(D.body.silhouette, TAIL_SPEAR_TOP, true);
     const { mesh: spearMesh } = loftBody(spear, { rings: 90, seg: 14, dDorsal: 0.20, dVentral: 0.20, material: matSpear });
-    bodyGrp.add(spearMesh);
+    spearGrp.add(spearMesh);
     // glowing cyan core line riding the blade's front ridge → the bright spine the painted spear has
     let tipY = 0; for (const p of spear) if (p[1] > tipY) tipY = p[1];
     const core = [[D.mirror, TAIL_SPEAR_TOP + 0.01], [D.mirror, (TAIL_SPEAR_TOP + tipY) / 2], [D.mirror, tipY - 0.005]];
-    const t = taperedTube(core, [0.004, 0.010, 0.002], () => 0.035, matCore, 7); if (t) bodyGrp.add(t);
+    const t = taperedTube(core, [0.004, 0.010, 0.002], () => 0.035, matCore, 7); if (t) spearGrp.add(t);
   }
 
   // HEAD horns — curved tapered horns sweeping up & back from each horn tip
@@ -228,7 +228,7 @@ export function buildCelestialStorm() {
     const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.setIndex(idx); g.computeVertexNormals();
     return new THREE.Mesh(g, matHorn);
   }
-  D.body.head.horns.forEach((h, i) => bodyGrp.add(curvedHorn(h, h[0] < 0.5 ? -1 : 1)));
+  D.body.head.horns.forEach((h, i) => hornGrp.add(curvedHorn(h, h[0] < 0.5 ? -1 : 1)));
 
   // PLATES — raised armour SCALES (centroid-fan domes seated on the hull) + glowing seams between them
   const plPos = [], plIdx = [];
@@ -306,7 +306,7 @@ export function buildCelestialStorm() {
   return {
     group: root,
     wingPivots,
-    groups: { bodyGrp, plateGrp, seamGrp, wingGrp, strutGrp, spineGrp },
+    groups: { bodyGrp, plateGrp, seamGrp, wingGrp, strutGrp, spineGrp, hornGrp, spearGrp },
     materials: { matBody, matPlate, matSeam, matMembrane, matStrut, matSpine, matSpar, matHorn, matSpear, matCore },
     FLAP,
     flapDrive,
