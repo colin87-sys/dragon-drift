@@ -511,3 +511,50 @@ function buildMonarchTail(def, model, mats, anchor) {
   return { group: root, segs, tailFins: null, accentMats };
 }
 registerTail('monarchTail', buildMonarchTail);
+
+// ── monarchTailBead — the PRE-redo tail (spaced sphere "beads" + a 3-ribbon ember
+// fan). Kept ONLY so the model viewer can A/B the L97 tail redo; no shipped blueprint
+// uses it. (The point of comparison: this read as beads, the new one as a smooth taper.)
+function buildMonarchTailBead(def, model, mats, anchor) {
+  const root = new THREE.Group();
+  root.position.set(0, anchor.y, anchor.z);
+  const segs = [], accentMats = [];
+  const glow = model.spineGlow ?? ((model.formLevel ?? 0) / 3);
+  const len = (model.tailLength ?? 1) * 2.1;
+  const cMolten = def.coreGlow ?? def.wingEmissive ?? 0xff5a1e;
+  const hideMat = mats.bodyMat;
+  const spineMat = tagFlare(new THREE.MeshStandardMaterial({
+    color: def.scales ?? def.horn, emissive: cMolten, emissiveIntensity: 0.15 + glow * 0.35,
+    roughness: 0.5, metalness: 0.28, side: THREE.DoubleSide,
+  }), cMolten, 0.15 + glow * 0.35, accentMats);
+  const emberMat = tagFlare(new THREE.MeshStandardMaterial({
+    color: cMolten, emissive: cMolten, emissiveIntensity: 0.7 + glow * 0.9,
+    roughness: 0.4, metalness: 0.1, side: THREE.DoubleSide,
+  }), cMolten, 0.7 + glow * 0.9, accentMats);
+  const n = seg(7), spacing = len / n;
+  for (let i = 0; i < n; i++) {
+    const t = i / (n - 1);
+    const segG = new THREE.Group();
+    segG.position.set(0, 0, i * spacing);
+    const r = lerp(0.26, 0.045, t);
+    const m = new THREE.Mesh(new THREE.SphereGeometry(r, seg(8), seg(6)), hideMat);
+    m.scale.set(1, 1, 1.5); segG.add(m);
+    const h = lerp(0.16, 0.05, t);
+    const g = new THREE.BufferGeometry();
+    g.setAttribute('position', new THREE.Float32BufferAttribute([0, r * 0.7, -0.05, 0, r * 0.7, 0.05, 0, r * 0.7 + h, 0.05], 3));
+    g.setIndex([0, 1, 2]); g.computeVertexNormals();
+    segG.add(new THREE.Mesh(g, spineMat));
+    root.add(segG); segs.push(segG);
+  }
+  const tip = segs[segs.length - 1];
+  for (let k = -1; k <= 1; k++) {
+    const g = new THREE.BufferGeometry();
+    g.setAttribute('position', new THREE.Float32BufferAttribute([0, 0, 0, 0.05, 0.02, 0.06, 0, 0, 0.34], 3));
+    g.setIndex([0, 1, 2]); g.computeVertexNormals();
+    const fin = new THREE.Mesh(g, emberMat);
+    fin.position.set(0, 0.02, 0.08); fin.rotation.z = k * 0.7; fin.rotation.x = -0.2;
+    tip.add(fin);
+  }
+  return { group: root, segs, tailFins: null, accentMats };
+}
+registerTail('monarchTailBead', buildMonarchTailBead);

@@ -3224,3 +3224,16 @@ Two fixes, both reusing proven kit:
 **Reusable:** when the human gives concept art, mine it for the exact features (here: layered shoulder plates +
 molten gap-glow + a fanned flame tail) and map each to existing systems before authoring new geometry. Judged the
 tail SHAPE on `silhouette.mjs side` (smooth vs beady reads instantly there); armor/molten is preview-judged.
+
+---
+
+### L98 — Before/after compare in the model viewer: feature toggles via a cloned blueprint
+Human wanted to SEE the difference a change made (the L97 armor + tail). Added "Compare changes" toggles to
+`tools/modelviewer.html` (armor / flame tail) that rebuild the dragon with the recent tweaks flipped off, so you
+A/B them at the same camera. Implementation is clean because blueprints are pure DATA: deep-clone `DRAGONS[key]`,
+mutate the clone (`delete clone.parts.shingle` to drop the armor; swap `parts.tail` to a kept LEGACY builder for
+the old tail), then `ascendedDef(clone, tier)`. The legacy bead tail is re-registered as `monarchTailBead` —
+used by NO shipped blueprint, kept solely so the viewer can show the "before". The toggle box auto-hides for
+dragons with nothing to compare. Reusable pattern: to demo any data-driven change, clone the blueprint + toggle
+the field, rather than diffing renders across git revisions. (Generic `delete parts.shingle` already works as an
+"armor off" for any shingled dragon, e.g. obsidian.)
