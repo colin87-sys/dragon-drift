@@ -243,7 +243,7 @@ export function buildCelestialStorm() {
   // BODY — the lofted (voluminous) hull stops above the tail flare; the spearhead below is built as a FLAT
   // crystalline blade so it reads sleek (the painted spear is a flat blade, not a bell). clipPoly cuts the
   // traced silhouette at a horizontal line; keepBelow picks which side.
-  const TAIL_BODY_CLIP = 0.73, TAIL_SPEAR_TOP = 0.70;   // body keeps y≤0.73; spear keeps y≥0.70 (small overlap seals the join)
+  const TAIL_BODY_CLIP = 0.73, TAIL_SPEAR_TOP = 0.725;   // body keeps y≤0.73 (round tapering tail); spear keeps y≥0.725 — meet at the thin shaft tip with a tiny seal overlap, so the flat spearhead grows OUT of the tail end instead of a flat blade overlapping up inside the round body (the old "upper floating piece")
   const NECK_BASE = 0.235;                              // body keeps y≥0.235 at the TOP — the head/neck region (the old flat neck-cap tab) is replaced by a real arched neck + sculpted head built below
   const clipPoly = (loop, clipY, keepBelow) => {
     const inside = (p) => keepBelow ? p[1] >= clipY : p[1] <= clipY, out = [];
@@ -437,9 +437,10 @@ export function buildCelestialStorm() {
     const off = (mesh) => { if (mesh) { mesh.position.sub(rv); pivot.add(mesh); } };
     off(panel(sil, zWing, matMembrane));
     // BONE SHAPES (human-tagged, EXACT 2D outline + location): extruded with thickness, ends tapered to points.
-    // Seat the bones in FRONT of the membrane's forward billow (amplitude 0.06) so the translucent violet sheet
-    // never passes over a strut and tints it — every strut reads as the same pale bone colour from any angle.
-    const zBone = (p) => zWing(p) + 0.08;
+    // EMBED the bones IN the membrane plane (track zWing, no forward offset) so they straddle the sheet as ribs —
+    // not separate plates floating in front of it. boneSolid straddles ±thick about zBone, so the membrane cuts
+    // through each bone → it reads as a rib embedded in the wing, like a real dragon/bat finger-bone.
+    const zBone = (p) => zWing(p);
     (D.wing.boneShapes || []).forEach((bs, i) => off(boneSolid(f(bs), zBone, i === D.wing.boneShapes.length - 1 ? BONE_THICK * 1.5 : BONE_THICK, matSpar)));
     // thin line-struts (auto fallback only): tubes
     D.wing.struts.forEach((s, i) => off(tube(f(s), (p) => zWing(p) + 0.04, i === D.wing.sparIndex ? 0.05 : 0.028, i === D.wing.sparIndex ? matSpar : matStrut)));

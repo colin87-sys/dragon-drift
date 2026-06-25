@@ -3913,3 +3913,23 @@ migration, not a preview hack. FINDING the preview surfaced: against the bright 
 less) wings read as flat silhouette — the cost of the "no lightning" call shows up in-context, not in the previewer.
 Lesson: **to preview an un-migrated asset in a complex host, overlay-and-hide beats contract-stubbing; and viewing
 in the real environment surfaces lighting/scale/VFX truths the sterile previewer hides — do it before polishing.**
+
+### L142 — Wing struts: embed in the membrane plane (zBone=zWing), not floating in front; spear: kill the overlap into the body
+Human (seeing it in-game): wing membrane shape is great, but the struts FLOAT above it, and the spear tail has an
+"upper floating piece + lower one" + the tail reads weird. Direction: use the trace as a GUIDE but generate clean
+geometry like the roster (struts embedded, continuous tail). Studied dragonWings/dragonTail (skinnedTube + surface-
+sampled ribs) — but the Celestial flaps via simple pivot rotation (no skeleton), so the heavy skinned approach is
+overkill. The actual fixes were small + targeted:
+- WING STRUTS: the bones were seated at `zWing+0.08` (0.08 in FRONT of the membrane → floating plates). Seat them
+  AT the membrane plane (`zBone=zWing`): `boneSolid` straddles ±thick about zBone, so the (DoubleSide, translucent)
+  membrane cuts THROUGH each bone → it reads as a rib embedded in the wing, like a real finger-bone. One-line lever.
+- SPEAR/TAIL: the body (round muscled tube, sculpt central-span) clipped at y≤0.73; the spear (flat thin-lens blade,
+  no-sculpt so it branches the trident) lofted from y≥0.70 → the blade's flat shaft-portion (0.70–0.73) overlapped
+  UP INSIDE the round body = the "upper floating piece" (a flat violet strip visible through the body from the
+  side). Fix: raise the spear top to meet the body end (TAIL_SPEAR_TOP 0.70→0.725) so the flat spearhead grows OUT
+  of the thin tail tip instead of overlapping the body. (Body stays round tapering tail; spearhead is the tip
+  ornament — exactly the roster "tapered shaft + tip ornament" pattern, achieved by clip placement not a rewrite.)
+Lesson: **before adopting a heavy system (skinned meshes) to "generate normally", check whether the glitch is just
+a placement bug — floating = a z-offset; disjoint = an overlap/clip seam. A flat blade lofted to overlap a round
+tube reads as a separate floating piece from the side even if it looks fine head-on; clip parts to MEET, not
+overlap, when their cross-sections differ.** def 5/5, gates PASS, wingMetrics self-test PASS.
