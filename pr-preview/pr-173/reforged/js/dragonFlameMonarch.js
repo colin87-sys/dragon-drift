@@ -1,0 +1,536 @@
+import * as THREE from 'three';
+import { registerTorso, registerWings, registerHead, registerTail } from './dragonRecipe.js';
+import { makeGlowTexture } from './util.js';
+import { hexRgb } from './dragonParts.js';
+import { applyFresnelRim } from './surface.js';
+import { seg } from './modelDetail.js';
+
+// ===========================================================================
+// FLAME MONARCH — a brand-new, matched part FAMILY (the "Phoenix technique").
+// ===========================================================================
+// Like the Phoenix, this creature does NOT recompose the existing kit. It ships
+// its OWN torso / wings / head / tail builders so the silhouette is genuinely new
+// (a classic European fire-dragon evolved into a racing monarch), not a re-skin
+// of an existing dragon. Each builder honours the shared CONTRACTS only — the
+// torso publishes the attach points, the wings expose the pivot/tip rig handles,
+// the head/tail return their accent mats — so the rig + FX (boost/Surge) drive
+// them with zero changes elsewhere.
+//
+//   monarchHull   broad-chest → slim-waist → long-tail western body, four legs,
+//                 an S-neck, and the molten dorsal SPINE (shoulder → rump). It
+//                 owns the charcoal/bronze body material (vertex-graded belly) +
+//                 the molten throat heart-core.
+//   monarchWing   bat membrane, 4–5 finger struts, scalloped outer edge, ember-
+//                 cracked struts; strong rear-V dihedral on the up-beat.
+//   monarchCrown  angular wedge skull read as a small crown from behind — two
+//                 swept-back crown horns + two cheek-horn ridges (all raked back).
+//   monarchTail   long, thick-based tail tapering evenly, molten spines down to
+//                 ember tail-tip fins.
+//
+// Form level (model.formLevel 0..3) + model.spineGlow ramp the molten light; the
+// shared dragon.js Surge loop flares every tagged accent toward def.surgeHi (a hot
+// magma pink), and def.boostSpine brightens the spine/struts on boost.
+
+// --- tiny shared helpers -----------------------------------------------------
+const rgbArr = (h) => [((h >> 16) & 255) / 255, ((h >> 8) & 255) / 255, (h & 255) / 255];
+const lerp = (a, b, t) => a + (b - a) * t;
+
+// Tag an emissive accent material so the Surge loop flares it (and boost, via
+// def.boostSpine) — exactly how the chevrons/seams register.
+function tagFlare(mat, emissive, intensity, into) {
+  mat.userData.baseEmissive = emissive;
+  mat.userData.baseIntensity = intensity;
+  if (into) into.push(mat);
+  return mat;
+}
+
+// A smooth lofted hull through a list of elliptical rings { z, rx, ry, y }. A
+// per-vertex top→belly colour gradient bakes the charcoal back / burnt-bronze
+// belly into ONE mesh (no second material, no seam). Editing the ring list IS
+// sculpting the body (the §6a loft idea), so the silhouette lives in data.
+function loftHull(rings, radial, mat, cTop, cBelly) {
+  const rs = Math.max(6, seg(radial));
+  const rows = rings.length;
+  const pos = [], col = [], idx = [];
+  for (let i = 0; i < rows; i++) {
+    const r = rings[i];
+    for (let j = 0; j <= rs; j++) {
+      const a = (j / rs) * Math.PI * 2;
+      const ca = Math.cos(a), sa = Math.sin(a);
+      pos.push(ca * r.rx, r.y + sa * r.ry, r.z);
+      const t = (sa + 1) * 0.5;            // 0 = belly, 1 = back
+      const w = t * t * (3 - 2 * t);       // smoothstep
+      col.push(lerp(cBelly[0], cTop[0], w), lerp(cBelly[1], cTop[1], w), lerp(cBelly[2], cTop[2], w));
+    }
+  }
+  for (let i = 0; i < rows - 1; i++) {
+    for (let j = 0; j < rs; j++) {
+      const a = i * (rs + 1) + j, b = a + 1, c = a + (rs + 1), d = c + 1;
+      idx.push(a, c, b, b, c, d);
+    }
+  }
+  const g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+  g.setAttribute('color', new THREE.Float32BufferAttribute(col, 3));
+  g.setIndex(idx);
+  g.computeVertexNormals();
+  return new THREE.Mesh(g, mat);
+}
+
+// Linear-interpolate a ring property at an arbitrary z (for the attach contract).
+function sampleRing(rings, z, key) {
+  if (z <= rings[0].z) return rings[0][key];
+  const last = rings[rings.length - 1];
+  if (z >= last.z) return last[key];
+  for (let i = 0; i < rings.length - 1; i++) {
+    const a = rings[i], b = rings[i + 1];
+    if (z >= a.z && z <= b.z) return lerp(a[key], b[key], (z - a.z) / (b.z - a.z));
+  }
+  return last[key];
+}
+
+// A thin oriented box strut from a→b (finger bones, arm spar, tail/leg struts).
+function bar(a, b, th, mat) {
+  const len = a.distanceTo(b);
+  const m = new THREE.Mesh(new THREE.BoxGeometry(th, th, len), mat);
+  m.position.copy(a).add(b).multiplyScalar(0.5);
+  m.lookAt(b);
+  return m;
+}
+
+// A gently back-curving tapered horn along local +Y (chained bend segments).
+function makeHorn(len, baseR, mat, bend) {
+  const root = new THREE.Group();
+  const n = 3;
+  let cur = root, r = baseR;
+  for (let i = 0; i < n; i++) {
+    const tR = baseR * (1 - (i + 1) / n) * 0.85 + 0.012;
+    const h = len / n;
+    const m = new THREE.Mesh(new THREE.CylinderGeometry(tR, r, h, seg(6), 1, true), mat);
+    m.position.y = h / 2;
+    const node = new THREE.Group();
+    node.rotation.x = bend;            // curve backward a little each segment
+    node.add(m);
+    cur.add(node);
+    const top = new THREE.Group();
+    top.position.y = h;
+    node.add(top);
+    cur = top;
+    r = tR;
+  }
+  return root;
+}
+
+// ── TORSO — monarchHull ─────────────────────────────────────────────────────
+function buildMonarchHull(def, model, _bodyMat) {
+  const F = model.formLevel ?? 0;
+  const glow = model.spineGlow ?? (F / 3);
+  const group = new THREE.Group();
+  const spineMats = [];
+
+  const cBody = def.body, cBelly = def.belly;
+  const cMolten = def.coreGlow ?? def.wingEmissive ?? 0xff5a1e;
+  const cPlate = def.scales ?? def.horn ?? 0x2a221c;
+
+  // Charcoal/obsidian back → burnt-bronze belly, baked as a vertex gradient. A
+  // matte-ish organic hide (low metalness) so it never reads as polished metal.
+  const hullMat = new THREE.MeshStandardMaterial({
+    color: 0xffffff, vertexColors: true,
+    roughness: def.bodyRoughness ?? 0.62, metalness: def.bodyMetalness ?? 0.12,
+    emissive: cBody, emissiveIntensity: 0.05, side: THREE.DoubleSide,
+  });
+  applyFresnelRim(hullMat, def.apexSeam || cMolten);
+  // Plain charcoal hide for neck/legs (shared, no belly gradient); the head reuses
+  // the model's own bodyMat at its anchor.
+  const hideMat = new THREE.MeshStandardMaterial({
+    color: cBody, roughness: def.bodyRoughness ?? 0.6, metalness: def.bodyMetalness ?? 0.12,
+    emissive: cBody, emissiveIntensity: 0.06,
+  });
+  applyFresnelRim(hideMat, def.apexSeam || cMolten);
+  const plateMat = new THREE.MeshStandardMaterial({
+    color: cPlate, roughness: 0.5, metalness: 0.3, side: THREE.DoubleSide,
+  });
+
+  // BODY — broad chest/shoulders → pinched waist → hip flare → tail root. Width
+  // (rx, the X the rear cam reads) is the silhouette: shoulder 0.62 vs waist 0.32.
+  const rings = [
+    { z: -1.50, rx: 0.26, ry: 0.30, y: 0.80 },  // neck base / upper chest
+    { z: -1.12, rx: 0.50, ry: 0.50, y: 0.66 },  // BROAD CHEST
+    { z: -0.72, rx: 0.62, ry: 0.56, y: 0.62 },  // SHOULDER mass (widest) — wing roots
+    { z: -0.30, rx: 0.55, ry: 0.52, y: 0.60 },  // back of shoulders
+    { z:  0.16, rx: 0.32, ry: 0.42, y: 0.58 },  // PINCHED WAIST
+    { z:  0.58, rx: 0.40, ry: 0.45, y: 0.56 },  // HIP / haunches
+    { z:  0.98, rx: 0.28, ry: 0.32, y: 0.54 },  // rump
+    { z:  1.28, rx: 0.14, ry: 0.16, y: 0.52 },  // tail root cap
+  ];
+  group.add(loftHull(rings, 13, hullMat, rgbArr(cBody), rgbArr(cBelly)));
+
+  const keelTopAt = (z) => sampleRing(rings, z, 'y') + sampleRing(rings, z, 'ry');
+  const halfWidthAt = (z) => sampleRing(rings, z, 'rx');
+
+  // MOLTEN DORSAL SPINE (shoulder → rump). A continuous emissive keel ridge — the
+  // "magma in the gaps" read — with dark blades standing over it, TALL at the
+  // shoulders and tapering aft (never random spikes). Both register as flare mats
+  // so they pulse hot-pink on Surge and brighten on boost.
+  const ridgeMat = tagFlare(new THREE.MeshStandardMaterial({
+    color: cMolten, emissive: cMolten, emissiveIntensity: 0.5 + glow * 1.1,
+    roughness: 0.4, metalness: 0.1,
+  }), cMolten, 0.5 + glow * 1.1, spineMats);
+  const bladeMat = tagFlare(new THREE.MeshStandardMaterial({
+    color: cPlate, emissive: cMolten, emissiveIntensity: 0.1 + glow * 0.25,
+    roughness: 0.5, metalness: 0.28, side: THREE.DoubleSide,
+  }), cMolten, 0.1 + glow * 0.25, spineMats);
+
+  const spineZ0 = -0.85, spineZ1 = 1.05;
+  const nSpine = seg(9);
+  // Emissive keel ridge: a thin strip following the back between the blades.
+  for (let i = 0; i < nSpine; i++) {
+    const t = i / (nSpine - 1);
+    const z = lerp(spineZ0, spineZ1, t);
+    const r = new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.05, (spineZ1 - spineZ0) / nSpine + 0.02), ridgeMat);
+    r.position.set(0, keelTopAt(z) - 0.01, z);
+    group.add(r);
+  }
+  // Dark serrated blades over the ridge — height ramps shoulder→rump, raked back.
+  for (let i = 0; i < nSpine; i++) {
+    const t = i / (nSpine - 1);
+    const z = lerp(spineZ0, spineZ1, t);
+    const h = lerp(0.36, 0.10, t) * (0.7 + 0.3 * glow);   // tall at shoulders
+    const ky = keelTopAt(z);
+    const w = lerp(0.16, 0.06, t);
+    // A flat YZ-plane blade (edge-on from behind → a crisp serrated dorsal line).
+    const gBlade = new THREE.BufferGeometry();
+    gBlade.setAttribute('position', new THREE.Float32BufferAttribute([
+      0, ky, z - w, 0, ky, z + w, 0, ky + h, z + w * 0.4,   // base front, base back, raked apex
+    ], 3));
+    gBlade.setIndex([0, 1, 2]);
+    gBlade.computeVertexNormals();
+    group.add(new THREE.Mesh(gBlade, bladeMat));
+  }
+
+  // FOUR LEGS — compact racing tuck (thigh + clawed foot), at shoulder + hip. Read
+  // from dead astern (the chase cam reads the waist/hips/legs) without over-detail.
+  function buildLeg(side, z, s) {
+    const g = new THREE.Group();
+    const hx = side * (halfWidthAt(z) * 0.82);
+    const thigh = new THREE.Mesh(new THREE.SphereGeometry(0.17 * s, seg(6), seg(5)), hideMat);
+    thigh.scale.set(0.9, 1.15, 1.3); thigh.position.set(hx, 0.18, z);
+    g.add(thigh);
+    const foot = new THREE.Mesh(new THREE.SphereGeometry(0.11 * s, seg(6), seg(5)), hideMat);
+    foot.scale.set(1.0, 0.55, 1.7); foot.position.set(hx * 1.06, -0.08, z + 0.26);
+    g.add(foot);
+    return g;
+  }
+  group.add(buildLeg(-1, -0.5, 1.05), buildLeg(1, -0.5, 1.05));
+  group.add(buildLeg(-1, 0.55, 0.95), buildLeg(1, 0.55, 0.95));
+
+  // S-NECK — a short, strong neck rising forward to the royal head. Not too long.
+  const neck = [
+    { z: -1.50, y: 0.84, r: 0.27 },
+    { z: -1.74, y: 0.98, r: 0.24 },
+    { z: -1.96, y: 1.10, r: 0.21 },
+    { z: -2.12, y: 1.14, r: 0.19 },
+  ];
+  for (const s of neck) {
+    const n = new THREE.Mesh(new THREE.SphereGeometry(s.r, seg(8), seg(6)), hideMat);
+    n.scale.set(0.92, 0.92, 1.15);
+    n.position.set(0, s.y, s.z);
+    group.add(n);
+  }
+
+  // Molten THROAT heart-core — a glow nestled under the jaw that brightens on boost
+  // and blazes on Surge (adopted by dragonModel as the creature's coreGlow).
+  let coreGlow = null;
+  if (def.coreGlow) {
+    const lvl = 0.4 + glow * 0.5;
+    coreGlow = new THREE.Sprite(new THREE.SpriteMaterial({
+      map: makeGlowTexture(hexRgb(cMolten)), transparent: true, opacity: 0.16 + lvl * 0.22,
+      blending: THREE.AdditiveBlending, depthWrite: false,
+    }));
+    coreGlow.scale.setScalar(0.7 + lvl * 0.6);
+    coreGlow.position.set(0, 0.96, -1.74);
+    coreGlow.layers.set(1);
+    coreGlow.userData.base = coreGlow.material.opacity;
+    group.add(coreGlow);
+  }
+  // A small emissive throat-gorget mesh so the molten throat reads in 3/4/bank too.
+  const gorget = tagFlare(new THREE.MeshStandardMaterial({
+    color: cMolten, emissive: cMolten, emissiveIntensity: 0.4 + glow * 0.8, roughness: 0.4,
+  }), cMolten, 0.4 + glow * 0.8, spineMats);
+  const throat = new THREE.Mesh(new THREE.SphereGeometry(0.13, seg(7), seg(6)), gorget);
+  throat.scale.set(0.9, 0.7, 1.1);
+  throat.position.set(0, 0.86, -1.6);
+  group.add(throat);
+
+  const attach = {
+    // wings sit just BEHIND the shoulder mass, high on the back (rear-V root).
+    wingRoot: (side) => ({ x: 0.44 * side, y: 1.02, z: -0.5 }),
+    headBase: { x: 0, y: 1.15, z: -2.18 },
+    tailAnchor: { y: 0.52, z: 1.1 },
+    keelTopAt,
+    halfWidthAt,
+    bodyMidY: 0.58,
+    tailShift: 0,
+  };
+  return { group, attach, mats: { bodyMat: hideMat }, coreGlow, spineMats };
+}
+registerTorso('monarchHull', buildMonarchHull);
+
+// ── WINGS — monarchWing ──────────────────────────────────────────────────────
+// Bat membrane: a leathery sheet on a leading-edge arm spar + 5 finger struts that
+// fan to a SCALLOPED outer edge, with ember-cracked struts. Built on the standard
+// pivot→wingTip→marker handles so the shared flap rig sweeps it into a rear V.
+function buildMonarchWing(def, model, attach, giM) {
+  const group = new THREE.Group();
+  const spineMats = [];
+  const ws = model.wingScale ?? 1;
+  const F = model.formLevel ?? 0;
+  const cMolten = def.wingEmissive ?? def.coreGlow ?? 0xff5a1e;
+
+  // The runtime-animated membrane (dragon.js writes its emissive/opacity each frame).
+  const wingMat = new THREE.MeshStandardMaterial({
+    color: def.wingInner ?? 0x241a16, roughness: 0.62, metalness: 0.05, side: THREE.DoubleSide,
+    transparent: true, opacity: model.wingOpacity ?? 0.9,
+    emissive: def.wingMembraneEmissive ?? cMolten, emissiveIntensity: model.wingPanelGlow ?? 0.12,
+  });
+  // Bone/strut material with molten ember cracks — flares on Surge + boost.
+  const strutInt = 0.5 + giM * 0.4 + F * 0.12;
+  const strutMat = tagFlare(new THREE.MeshStandardMaterial({
+    color: def.horn ?? 0x2a221c, emissive: cMolten, emissiveIntensity: strutInt,
+    roughness: 0.4, metalness: 0.45,
+  }), cMolten, strutInt, spineMats);
+
+  // Wing planform in (x = span outward, y = chord; +y = leading/forward). After
+  // rotateX(-90°) the shape lies flat (x = span, world -z = forward).
+  const wrist = [2.55, 0.45];
+  const fingers = [
+    [4.75, 0.32],   // f0 — longest, leading
+    [4.55, -0.18],
+    [4.05, -0.72],
+    [3.25, -1.18],
+    [2.35, -1.48],  // f4 — innermost, trailing
+  ];
+  const scallop = 0.24;
+  const rootFront = [0, 0.34], rootBack = [0, -0.52];
+
+  // Resting upward dihedral so the glide pose reads as a strong rear V (the flap
+  // rig oscillates the pivot around this; the V holds in cruise). Baked on an inner
+  // group because the rig OVERWRITES pivot.rotation.z each frame.
+  const dihedral = 0.5;
+
+  function buildSide(side) {
+    const pivot = new THREE.Group();
+    const wr = attach.wingRoot(side);
+    pivot.position.set(wr.x, wr.y, wr.z);
+    const inner = new THREE.Group();
+    inner.rotation.z = side * dihedral;    // tip-up V at rest (both sides)
+    pivot.add(inner);
+
+    // Membrane outline (CCW): root-front → wrist → fingers (with scallop notches) →
+    // root-back. Earcut handles the concave scalloped trailing edge.
+    const shape = new THREE.Shape();
+    shape.moveTo(rootFront[0], rootFront[1]);
+    shape.lineTo(wrist[0], wrist[1]);
+    shape.lineTo(fingers[0][0], fingers[0][1]);
+    for (let i = 0; i < fingers.length - 1; i++) {
+      const a = fingers[i], b = fingers[i + 1];
+      const mx = (a[0] + b[0]) / 2, my = (a[1] + b[1]) / 2;
+      shape.lineTo(mx + (wrist[0] - mx) * scallop, my + (wrist[1] - my) * scallop);  // notch
+      shape.lineTo(b[0], b[1]);
+    }
+    shape.lineTo(rootBack[0], rootBack[1]);
+    shape.closePath();
+    const geo = new THREE.ShapeGeometry(shape);
+    geo.rotateX(-Math.PI / 2);
+    geo.scale(side * ws, 1, ws);          // mirror for the left side via geometry
+    const membrane = new THREE.Mesh(geo, wingMat);
+    inner.add(membrane);
+
+    // Flat-plane point in world-ish local coords (y = 0 plane), span * side.
+    const flat = (p) => new THREE.Vector3(p[0] * ws * side, 0, -p[1] * ws);
+    // Leading-edge arm spar (root → wrist) — thicker, reads as bone + membrane.
+    inner.add(bar(flat(rootFront), flat(wrist), 0.06 * ws, strutMat));
+    // Finger struts (wrist → each tip) — the ember-cracked fan.
+    for (const f of fingers) inner.add(bar(flat(wrist), flat(f), 0.04 * ws, strutMat));
+
+    // wingTip + marker at the outer tip (contrail / wingtip-wisp anchor; the rig's
+    // wrist-fold rotation rides here harmlessly even with the single membrane panel).
+    const wingTip = new THREE.Group();
+    wingTip.position.copy(flat(wrist));
+    const marker = new THREE.Object3D();
+    marker.position.copy(flat(fingers[0])).sub(flat(wrist));
+    wingTip.add(marker);
+    inner.add(wingTip);
+
+    group.add(pivot);
+    return { pivot, wingTip, marker };
+  }
+
+  const R = buildSide(1), L = buildSide(-1);
+  return {
+    group,
+    parts: {
+      wingPivotL: L.pivot, wingPivotR: R.pivot,
+      wingTipL: L.wingTip, wingTipR: R.wingTip,
+      tipMarkerL: L.marker, tipMarkerR: R.marker,
+      wingPivot2L: null, wingPivot2R: null,
+    },
+    wingMat,
+    spineMats,
+  };
+}
+registerWings('monarchWing', buildMonarchWing);
+
+// ── HEAD — monarchCrown ──────────────────────────────────────────────────────
+// An angular wedge skull read as a small CROWN from behind: two swept-back crown
+// horns + two cheek-horn ridges (all raked back to preserve speed/readability).
+// Deliberately low-detail in the face (barely visible in gameplay).
+function buildMonarchCrown(def, model, mats) {
+  const group = new THREE.Group();
+  const spineMats = [];
+  const F = model.formLevel ?? 0;
+  const hornLen = (model.hornLen ?? 1) * (0.9 + 0.1 * F);
+  const cMolten = def.coreGlow ?? def.wingEmissive ?? 0xff5a1e;
+
+  const skullMat = new THREE.MeshStandardMaterial({
+    color: def.body, roughness: 0.55, metalness: 0.14, flatShading: true,
+  });
+  const hornMat = mats.hornMat || new THREE.MeshStandardMaterial({ color: def.horn, roughness: 0.4, metalness: 0.4 });
+
+  // Cranium — an angular box (high brow), muzzle a 4-sided pyramid pointing -Z.
+  const cranium = new THREE.Mesh(new THREE.BoxGeometry(0.30, 0.24, 0.36), skullMat);
+  cranium.position.set(0, 0.02, 0.04);
+  group.add(cranium);
+  const brow = new THREE.Mesh(new THREE.BoxGeometry(0.32, 0.10, 0.16), skullMat);
+  brow.position.set(0, 0.12, -0.04);
+  group.add(brow);
+  const muzzle = new THREE.Mesh(new THREE.ConeGeometry(0.15, 0.46, 4), skullMat);
+  muzzle.rotation.x = -Math.PI / 2;        // point forward (-Z)
+  muzzle.rotation.y = Math.PI / 4;         // square the 4-gon to the view
+  muzzle.position.set(0, -0.03, -0.34);
+  group.add(muzzle);
+
+  // Cheek plates — angular side wedges (the "two side cheek horn ridges" base).
+  for (const s of [-1, 1]) {
+    const cheek = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.14, 0.22), skullMat);
+    cheek.position.set(s * 0.17, -0.02, -0.04);
+    cheek.rotation.z = s * 0.3;
+    group.add(cheek);
+  }
+
+  // Eyes — tiny molten pips (face is barely seen; keep cheap).
+  const eyeMat = mats.eyeMat || new THREE.MeshStandardMaterial({ color: 0x221100, emissive: def.eye, emissiveIntensity: 2.2 });
+  for (const s of [-1, 1]) {
+    const eye = new THREE.Mesh(new THREE.OctahedronGeometry(0.045, 0), eyeMat);
+    eye.position.set(s * 0.13, 0.04, -0.18);
+    group.add(eye);
+  }
+
+  // CROWN HORNS — two large backward-and-up horns: the dominant rear-crown read.
+  for (const s of [-1, 1]) {
+    const horn = makeHorn(0.62 * hornLen, 0.075, hornMat, 0.16);
+    horn.position.set(s * 0.13, 0.10, 0.12);
+    horn.rotation.set(0.7, -s * 0.25, s * 0.45);   // up + back + outward splay
+    group.add(horn);
+  }
+  // CHEEK HORNS — smaller swept-back ridges low on the jaw.
+  for (const s of [-1, 1]) {
+    const horn = makeHorn(0.34 * hornLen, 0.05, hornMat, 0.2);
+    horn.position.set(s * 0.18, -0.06, 0.0);
+    horn.rotation.set(1.0, -s * 0.2, s * 0.7);
+    group.add(horn);
+  }
+
+  // CROWN CREST — a couple of molten-edged blades on top, continuing the dorsal
+  // line onto the head (flares on Surge).
+  const crestMat = tagFlare(new THREE.MeshStandardMaterial({
+    color: def.scales ?? def.horn, emissive: cMolten, emissiveIntensity: 0.2 + 0.2 * F,
+    roughness: 0.45, metalness: 0.3, side: THREE.DoubleSide,
+  }), cMolten, 0.2 + 0.2 * F, spineMats);
+  for (let i = 0; i < 3; i++) {
+    const z = -0.02 + i * 0.10;
+    const h = 0.14 - i * 0.03;
+    const g = new THREE.BufferGeometry();
+    g.setAttribute('position', new THREE.Float32BufferAttribute([
+      0, 0.14, z - 0.04, 0, 0.14, z + 0.04, 0, 0.14 + h, z + 0.05,
+    ], 3));
+    g.setIndex([0, 1, 2]);
+    g.computeVertexNormals();
+    group.add(new THREE.Mesh(g, crestMat));
+  }
+
+  // Face the head forward (it's authored facing -Z already; the torso anchor sits
+  // it on the neck). A slight downward set so the crown reads from the chase cam.
+  group.rotation.x = 0.12;
+  return { group, spineMats };
+}
+registerHead('monarchCrown', buildMonarchCrown);
+
+// ── TAIL — monarchTail ───────────────────────────────────────────────────────
+// Long, thick at the base, tapering EVENLY; molten dorsal spines continue down it
+// and resolve into small ember fins at the TIP ONLY. Sibling-seg chain so the
+// shared position-wave rig sways it (no tailWhip → no bone coil).
+function buildMonarchTail(def, model, mats, anchor) {
+  const root = new THREE.Group();
+  root.position.set(0, anchor.y, anchor.z);
+  const segs = [];
+  const accentMats = [];
+  const F = model.formLevel ?? 0;
+  const glow = model.spineGlow ?? (F / 3);
+  const len = (model.tailLength ?? 1) * 2.1;
+  const cMolten = def.coreGlow ?? def.wingEmissive ?? 0xff5a1e;
+
+  const hideMat = mats.bodyMat;            // shared charcoal hide (already rimmed)
+  const spineMat = tagFlare(new THREE.MeshStandardMaterial({
+    color: def.scales ?? def.horn, emissive: cMolten, emissiveIntensity: 0.15 + glow * 0.35,
+    roughness: 0.5, metalness: 0.28, side: THREE.DoubleSide,
+  }), cMolten, 0.15 + glow * 0.35, accentMats);
+  const emberMat = tagFlare(new THREE.MeshStandardMaterial({
+    color: cMolten, emissive: cMolten, emissiveIntensity: 0.7 + glow * 0.9,
+    roughness: 0.4, metalness: 0.1, side: THREE.DoubleSide,
+  }), cMolten, 0.7 + glow * 0.9, accentMats);
+
+  const n = seg(7);
+  const spacing = len / n;
+  for (let i = 0; i < n; i++) {
+    const t = i / (n - 1);
+    const segG = new THREE.Group();
+    segG.position.set(0, 0, i * spacing);   // base z; the rig drives x/y sway
+    const r = lerp(0.26, 0.045, t);         // thick base → fine tip, tapering evenly
+    const m = new THREE.Mesh(new THREE.SphereGeometry(r, seg(8), seg(6)), hideMat);
+    m.scale.set(1, 1, 1.5);
+    segG.add(m);
+    // Tapering molten dorsal blade riding the top of each segment.
+    const h = lerp(0.16, 0.05, t);
+    const g = new THREE.BufferGeometry();
+    g.setAttribute('position', new THREE.Float32BufferAttribute([
+      0, r * 0.7, -0.05, 0, r * 0.7, 0.05, 0, r * 0.7 + h, 0.05,
+    ], 3));
+    g.setIndex([0, 1, 2]);
+    g.computeVertexNormals();
+    segG.add(new THREE.Mesh(g, spineMat));
+    root.add(segG);
+    segs.push(segG);
+  }
+
+  // EMBER TAIL FINS — small molten fins at the tip only (a fan of 3 ribbons),
+  // parented to the last seg so they ride the coil.
+  const tip = segs[segs.length - 1];
+  for (let k = -1; k <= 1; k++) {
+    const finLen = 0.34, finW = 0.05;
+    const g = new THREE.BufferGeometry();
+    g.setAttribute('position', new THREE.Float32BufferAttribute([
+      0, 0, 0, finW, 0.02, 0.06, 0, 0, finLen,
+    ], 3));
+    g.setIndex([0, 1, 2]);
+    g.computeVertexNormals();
+    const fin = new THREE.Mesh(g, emberMat);
+    fin.position.set(0, 0.02, 0.08);
+    fin.rotation.z = k * 0.7;               // fan the three ribbons
+    fin.rotation.x = -0.2;
+    tip.add(fin);
+  }
+
+  return { group: root, segs, tailFins: null, accentMats };
+}
+registerTail('monarchTail', buildMonarchTail);
