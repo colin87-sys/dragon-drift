@@ -422,6 +422,7 @@ export function buildCelestialStorm() {
   // WINGS — membrane + struts, both sides. Each wing is its own pivot group at the shoulder for flapping.
   const wingPivots = [];
   const sweep = 0.16;                                   // wings angle backward (−z) with outward distance
+  const WING_DORSAL = 0.10;                             // raise the wing ROOT onto the dorsolateral upper back (≈+0.56 world). The shoulder girdle rides high on the ribcage — the root belongs near the spine, not at the body's mid-depth (z=0) where it used to sit.
   const BONE_THICK = 0.012;                             // bone z-thickness (normalized); arm ×1.5 — thin, delicate struts (matches ref)
   function buildWing(mirrored) {
     const f = (c) => mirrored ? c.map(mir) : c;
@@ -430,7 +431,7 @@ export function buildCelestialStorm() {
     let root0 = sil[0]; for (const p of sil) if (Math.abs(p[0] - 0.5) < Math.abs(root0[0] - 0.5)) root0 = p;
     let maxAbs = 1e-4; for (const p of sil) maxAbs = Math.max(maxAbs, Math.abs(p[0] - 0.5));
     // membrane: back-sweep with distance from spine + a billow that cups backward, peaking mid-span (0 at root/tip)
-    const zWing = (p) => { const d = Math.abs(p[0] - 0.5); return -sweep * d + 0.06 * Math.sin(Math.PI * Math.min(1, d / maxAbs)); };   // billow cups toward the camera (+z), peaking mid-span
+    const zWing = (p) => { const d = Math.abs(p[0] - 0.5); return -sweep * d + 0.06 * Math.sin(Math.PI * Math.min(1, d / maxAbs)) + WING_DORSAL; };   // billow cups toward the camera (+z); +WING_DORSAL lifts the whole wing onto the dorsal back
     const pivot = new THREE.Group();
     const rv = pt(root0[0], root0[1], zWing(root0)); pivot.position.copy(rv);
     const off = (mesh) => { if (mesh) { mesh.position.sub(rv); pivot.add(mesh); } };
