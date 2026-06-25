@@ -287,7 +287,7 @@ function buildAmpithereWing(def, model, attach, giM) {
       { tip: [3.95, -1.30], bow: 0.16 },
       { tip: [2.6, -1.85], bow: 0.04 },  // innermost/trailing — straight
     ],
-    scallop: 0.26, strutR: 0.04, claw: 0.2,
+    scallop: 0.26, strutR: 0.04, claw: 0.14,
   };
   const Rp = buildAnatomicalWing({ ws, membraneMat: wingMat, strutMat, jointMat, anatomy }).pivot;
   Rp.position.set(...Object.values(attach.wingRoot(1)));
