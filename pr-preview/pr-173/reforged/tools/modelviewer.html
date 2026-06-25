@@ -31,6 +31,16 @@
     padding: 7px 14px; }
   #name { bottom: 12px; right: 12px; text-align: right; font-size: 12px; }
   #name b { font-size: 15px; color: #fff; } #name span { color: #8b97ad; }
+  /* ── mobile / narrow screens ── */
+  @media (max-width: 600px), (pointer: coarse) {
+    #ui { left: 8px; top: 8px; width: 200px; min-width: 0; padding: 9px 11px; gap: 8px; }   /* left-anchored, never covers the model */
+    #ui h1 { font-size: 13px; } #ui .sub { font-size: 10px; }
+    select { font-size: 14px; padding: 9px 8px; }            /* easier tap */
+    .forms button { padding: 10px 0; font-size: 12px; }      /* bigger tap targets */
+    .toggles { font-size: 13px; gap: 18px; } .toggles input { width: 17px; height: 17px; }
+    #hint { font-size: 11px; padding: 6px 10px; bottom: 8px; white-space: nowrap; }
+    #name { bottom: 8px; right: 8px; padding: 6px 9px; font-size: 11px; } #name b { font-size: 13px; }
+  }
 </style>
 </head>
 <body>
@@ -44,7 +54,7 @@
     <label><input type="checkbox" id="flap"> animate</label>
   </div>
 </div>
-<div id="hint" class="panel">Drag to orbit • Scroll / pinch to zoom • Double-click to reset view</div>
+<div id="hint" class="panel">1 finger / drag = rotate • 2 fingers = pinch-zoom &amp; pan • double-tap = reset</div>
 <div id="name" class="panel"><b id="nm">—</b><br><span id="fm">—</span></div>
 
 <script type="module">
@@ -61,38 +71,77 @@ const canvas = document.getElementById('view');
 const gl = new THREE.WebGLRenderer({ canvas, antialias: true });
 gl.setPixelRatio(Math.min(devicePixelRatio, 2));
 gl.toneMapping = THREE.ACESFilmicToneMapping;
-gl.toneMappingExposure = 1.05;
+gl.toneMappingExposure = 1.3;
 const scene = new THREE.Scene();
-scene.background = new THREE.Color(0x0b0e14);
+// Studio gradient backdrop (lighter centre → dark edges) so the dark-membrane dragons
+// read as a clear silhouette instead of vanishing into a flat void.
+(() => {
+  const c = document.createElement('canvas'); c.width = c.height = 512;
+  const g = c.getContext('2d').createRadialGradient(256, 230, 40, 256, 256, 360);
+  g.addColorStop(0, '#33415c'); g.addColorStop(0.5, '#222c40'); g.addColorStop(1, '#0c1019');
+  const ctx = c.getContext('2d'); ctx.fillStyle = g; ctx.fillRect(0, 0, 512, 512);
+  const tex = new THREE.CanvasTexture(c); tex.colorSpace = THREE.SRGBColorSpace;
+  scene.background = tex;
+})();
 const camera = new THREE.PerspectiveCamera(40, 1, 0.05, 200);
 camera.layers.enable(1);
 scene.add(new THREE.HemisphereLight(0xbfdcff, 0x2e3448, 1.05));
 const kL = new THREE.DirectionalLight(0xffe8c0, 2.0); kL.position.set(3, 4.5, 5); scene.add(kL);
 const rL = new THREE.DirectionalLight(0x88b8ff, 1.05); rL.position.set(-4, 2, -3); scene.add(rL);
-const fL = new THREE.DirectionalLight(0xd0f0ff, 0.4); fL.position.set(0, -2, 3); scene.add(fL);
+const fL = new THREE.DirectionalLight(0xd0f0ff, 0.7); fL.position.set(0, -2, 3); scene.add(fL);
+const bL = new THREE.DirectionalLight(0xffffff, 0.6); bL.position.set(0, 3, -6); scene.add(bL);   // back light lifts dark membranes
 // A faint ground glow so the dark dragons read against the void.
 const glow = new THREE.Mesh(new THREE.CircleGeometry(6, 48),
   new THREE.MeshBasicMaterial({ color: 0x16203a, transparent: true, opacity: 0.5 }));
 glow.rotation.x = -Math.PI / 2; glow.position.y = -1.6; scene.add(glow);
 
 // ── orbit state (camera around a fixed look-at center) ──
-let az = 0.5, pol = 1.4, dist = 10, center = new THREE.Vector3();   // game-like rear-3/4 default
+let az = 0.6, pol = 0.95, dist = 10, center = new THREE.Vector3(), homeCenter = new THREE.Vector3();   // near-level rear-3/4
 let baseDist = 10;
 function applyCam() {
   const sp = Math.sin(pol), cp = Math.cos(pol);
   camera.position.set(center.x + dist * sp * Math.sin(az), center.y + dist * cp, center.z + dist * sp * Math.cos(az));
   camera.lookAt(center);
 }
-let dragging = false, px = 0, py = 0;
-canvas.addEventListener('pointerdown', (e) => { dragging = true; px = e.clientX; py = e.clientY; canvas.classList.add('drag'); canvas.setPointerCapture(e.pointerId); });
-canvas.addEventListener('pointerup', (e) => { dragging = false; canvas.classList.remove('drag'); });
+const clampPol = (p) => Math.max(0.12, Math.min(3.02, p));
+const clampDist = (d) => Math.max(baseDist * 0.28, Math.min(baseDist * 3.2, d));
+function resetView() { az = 0.6; pol = 0.95; dist = baseDist; center.copy(homeCenter); }
+// PAN: slide the look-at point in the camera's screen plane (two-finger drag / right-drag).
+function pan(dx, dy) {
+  const right = new THREE.Vector3(1, 0, 0).applyQuaternion(camera.quaternion);
+  const up = new THREE.Vector3(0, 1, 0).applyQuaternion(camera.quaternion);
+  const k = dist * 0.0022;
+  center.addScaledVector(right, -dx * k).addScaledVector(up, dy * k);
+}
+
+// Unified multi-pointer input (mouse + touch): 1 pointer = ORBIT, 2 pointers =
+// PINCH-zoom + two-finger PAN. Tracks every active pointer so phones work.
+const ptrs = new Map();
+let gesture = {};   // { d, mid } baseline for the 2-finger pinch/pan
+canvas.addEventListener('pointerdown', (e) => { ptrs.set(e.pointerId, { x: e.clientX, y: e.clientY }); canvas.classList.add('drag'); canvas.setPointerCapture(e.pointerId); });
+function endPtr(e) { ptrs.delete(e.pointerId); if (ptrs.size < 2) gesture = {}; if (ptrs.size === 0) canvas.classList.remove('drag'); }
+canvas.addEventListener('pointerup', endPtr);
+canvas.addEventListener('pointercancel', endPtr);
 canvas.addEventListener('pointermove', (e) => {
-  if (!dragging) return;
-  az -= (e.clientX - px) * 0.01; pol = Math.max(0.15, Math.min(3.0, pol - (e.clientY - py) * 0.01));
-  px = e.clientX; py = e.clientY;
+  if (!ptrs.has(e.pointerId)) return;
+  const prev = ptrs.get(e.pointerId);
+  const dx = e.clientX - prev.x, dy = e.clientY - prev.y;
+  ptrs.set(e.pointerId, { x: e.clientX, y: e.clientY });
+  if (ptrs.size === 1) {
+    if (e.shiftKey || e.button === 2) pan(dx, dy);          // shift/right-drag = pan on desktop
+    else { az -= dx * 0.01; pol = clampPol(pol - dy * 0.01); }
+  } else if (ptrs.size >= 2) {
+    const [a, b] = [...ptrs.values()];
+    const d = Math.hypot(a.x - b.x, a.y - b.y);
+    const mid = { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 };
+    if (gesture.d) dist = clampDist(dist * gesture.d / d);   // fingers apart → zoom in
+    if (gesture.mid) pan(mid.x - gesture.mid.x, mid.y - gesture.mid.y);
+    gesture.d = d; gesture.mid = mid;
+  }
 });
-canvas.addEventListener('wheel', (e) => { e.preventDefault(); dist = Math.max(baseDist * 0.35, Math.min(baseDist * 2.6, dist * (1 + Math.sign(e.deltaY) * 0.09))); }, { passive: false });
-canvas.addEventListener('dblclick', () => { az = 0.5; pol = 1.4; dist = baseDist; });
+canvas.addEventListener('wheel', (e) => { e.preventDefault(); dist = clampDist(dist * (1 + Math.sign(e.deltaY) * 0.09)); }, { passive: false });
+canvas.addEventListener('dblclick', resetView);
+canvas.addEventListener('contextmenu', (e) => e.preventDefault());   // allow right-drag pan
 
 // ── model loading ──
 const _box = new THREE.Box3(), _b = new THREE.Box3();
@@ -115,11 +164,19 @@ function load(key, tier) {
   scene.add(group);
   tick = makePreviewTick(def, result);
   current = { group, result };
-  // frame it
+  // frame it — fit BOTH width and height to the viewport so wide wings don't spill
+  // off a narrow portrait phone (the vertical FOV alone under-frames in portrait).
   const box = bounds(group);
-  center.set(0, (box.min.y + box.max.y) / 2, 0);
-  const size = Math.max(box.max.x - box.min.x, box.max.y - box.min.y, box.max.z - box.min.z);
-  baseDist = dist = (size * 0.5) / Math.tan(camera.fov * Math.PI / 360) * 1.3 + 0.8;
+  box.getCenter(center);   // TRUE centre in x/y/z (a long tail skews z; looking down, a (0,y,0) look-at shoved it off-screen)
+  homeCenter.copy(center);
+  // BOUNDING-SPHERE framing against the SMALLER FOV axis: guarantees the whole creature
+  // fits in BOTH portrait and landscape AND never clips as it rotates (the sphere is
+  // rotation-invariant). A wide-winged dragon is just small on a narrow phone — the full
+  // span is one pinch-zoom away; pinch-IN to inspect detail.
+  const R = box.getSize(new THREE.Vector3()).length() / 2;
+  const fovV = camera.fov * Math.PI / 180;
+  const fovH = 2 * Math.atan(Math.tan(fovV / 2) * camera.aspect);
+  baseDist = dist = R / Math.sin(Math.min(fovV, fovH) / 2) * 1.04 + 0.3;
   document.getElementById('nm').textContent = DRAGONS[key].name || key;
   document.getElementById('fm').textContent = FNAME[tier] + ' · ' + (DRAGONS[key].rarity || '');
 }
@@ -143,16 +200,18 @@ pick.onchange = () => { curKey = pick.value; curTier = Math.min(curTier, ((DRAGO
 
 const spin = document.getElementById('spin'), flap = document.getElementById('flap');
 
+function resize() { const w = innerWidth, h = innerHeight; gl.setSize(w, h, false); camera.aspect = w / h; camera.updateProjectionMatrix(); }
+addEventListener('resize', resize);
+addEventListener('orientationchange', () => setTimeout(() => { resize(); load(curKey, Math.min(curTier, ((DRAGONS[curKey].forms || []).length || 4) - 1)); }, 200));
+resize();   // set aspect BEFORE the first load so portrait framing is correct
+
 renderForms();
 load(curKey, curTier);
-
-function resize() { const w = innerWidth, h = innerHeight; gl.setSize(w, h, false); camera.aspect = w / h; camera.updateProjectionMatrix(); }
-addEventListener('resize', resize); resize();
 
 let last = performance.now();
 function frame(now) {
   const dt = Math.min(0.05, (now - last) / 1000); last = now; t += dt;
-  if (spin.checked && !dragging) az -= dt * 0.5;
+  if (spin.checked && ptrs.size === 0) az -= dt * 0.5;
   if (tick && flap.checked) tick(t);
   else if (tick) tick(0);   // hold a static spread pose when not animating
   applyCam();
