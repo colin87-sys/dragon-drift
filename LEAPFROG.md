@@ -3706,3 +3706,18 @@ Lesson: **when you can't get a clean pixel diff, establish the noise floor first
 twice) — an unseeded `Math.random()` decoration will mask a true-identical geometry change; equal diff magnitude
 to the floor is the pass, not zero. And: coexist-then-share — the game can now import the SAME build the
 previewer proves, instead of a fork.**
+
+### L132 — Build the QA verifier FIRST, and VALIDATE the verifier (Step 0 before sculpting)
+Before re-sculpting the Celestial body (which the human demanded be custom + reference-matched + data-verified
+at every step), built `tools/celestialRefCompare.mjs`: renders our rear chase-cam view (full + bare-torso via a
+new `__bodyOnly` hook + side) and emits a side-by-side OVERLAY vs `full.png` + numeric PASS/FAIL gates. Crucial
+lesson from VALIDATING the tool on the current model (the whole point of Step 0): two metrics were bogus and
+would have lied — (a) a dorsal "ridge = center brighter" check is INVERTED by fresnel rim-light (edges bright,
+center dark → −89); (b) per-landmark proportion ratios via pixel-row→silhouette-ny alignment blew up (waist
+970%) because render caps/antialiasing/framing misalign the rows. Kept only the ROBUST, alignment-free gates —
+single-render hi-frequency SPIKE metrics for protrusion (catches plate shelves) + banding (catches loft rings)
++ a coarse shape-RMS — and made proportions/muscled-read a VISUAL judgement on the overlay (shown to the human),
+not a fragile number. Refactored horns/spear into their own groups so the torso measures clean. Lesson:
+**a verification tool is itself code that can lie — validate it against a known case before trusting it to gate;
+prefer alignment-free aggregate metrics over fragile per-pixel correspondences; and don't pretend a number
+proves an aesthetic match — gate the objective stuff (no shelves, no banding), eyeball the subjective stuff.**
