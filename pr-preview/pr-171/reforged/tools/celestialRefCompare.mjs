@@ -22,13 +22,15 @@ await page.goto(srv.url + '/tools/celestial3D.html');
 await page.waitForFunction(() => window.__ready, { timeout: 20000 });
 await page.evaluate(() => { for (const s of ['.controls', 'header', '.hint']) { const e = document.querySelector(s); if (e) e.style.display = 'none'; } });   // clean canvas for overlay
 const gl = await page.$('#gl');
-const shot = async (path, fn) => { await page.evaluate(fn); await page.waitForTimeout(150); await gl.screenshot({ path }); };
+// force the exact REST pose before each shot — the previewer eases flapAmp→0 over ~1.4s, so a 150ms shot would
+// catch the model mid-flap (residual body pitch swings the far-from-center head/neck → flaky silhouette metrics).
+const shot = async (path, fn) => { await page.evaluate(fn); await page.evaluate(() => window.__rest && window.__rest()); await page.waitForTimeout(450); await gl.screenshot({ path }); };
 // rc-rear-full: full creature (overlay vs full.png). rc-torso: bare torso mesh (proportions/shape, dead-rear).
 // rc-deco: torso + spine + scales + horns + spear, NO wings (cantilever check, SAME framing as rc-torso).
 // rc-side: bare torso from the side (banding).
 await shot('/tmp/rc-rear-full.png', () => { window.__bodyOnly(false); window.__wings(true); window.__view(0, 0.21, false); window.__zoom(1); });
 await shot('/tmp/rc-torso.png', () => { window.__bodyOnly(true); window.__view(0, 0.0, false); window.__zoom(0.5); });
-await shot('/tmp/rc-deco.png', () => { window.__bodyOnly(false); window.__wings(false); window.__view(0, 0.0, false); window.__zoom(0.5); });
+await shot('/tmp/rc-deco.png', () => { window.__bodyOnly(false); window.__wings(false); window.__view(0, 0.0, false); window.__zoom(0.5); });   // full creature minus wings — the neck caps the body's clip seam, as shipped
 await shot('/tmp/rc-side.png', () => { window.__bodyOnly(true); window.__view(90, 0.0, false); window.__zoom(0.5); });
 await page.evaluate(() => { window.__bodyOnly(false); window.__wings(true); window.__zoom(1); });
 await browser.close(); await srv.close();
@@ -38,7 +40,9 @@ if (err) { console.log('PAGEERROR', err); process.exit(1); }
 // content mask for a dark-bg render: pixel brighter than the bg (0x070a14)
 function bodyMask(png) {
   const { w, h, rgba } = png, m = new Uint8Array(w * h);
-  for (let i = 0; i < w * h; i++) { const o = i * 4; m[i] = (rgba[o] + rgba[o + 1] + rgba[o + 2] > 60) ? 1 : 0; }
+  // cut at a steeper point of the edge gradient (not the faint AA fringe at ~60) so the silhouette edge is stable
+  // across separate render processes — the fringe is where cross-process AA dithering flips pixels → metric noise.
+  for (let i = 0; i < w * h; i++) { const o = i * 4; m[i] = (rgba[o] + rgba[o + 1] + rgba[o + 2] > 100) ? 1 : 0; }
   return m;
 }
 // per-row [left,right] extent of the mask within its content bbox; returns {rows:[{cy,half,cx}], top,bot,cxImg}
