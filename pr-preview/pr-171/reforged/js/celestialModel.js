@@ -269,18 +269,27 @@ export function buildCelestialStorm() {
     const u = best.hw ? (p[0] - best.cx) / best.hw : 0; if (Math.abs(u) >= 1) return 0;
     return dorsalZ(u, BODY_SCULPT.Dr(ny), BODY_SCULPT.Mu(ny), BODY_SCULPT.Cr ? BODY_SCULPT.Cr(ny) : 0);
   };
-  // TAIL SPEAR — a continuous 3D tapering spike off the body's tail end. ROUND cross-section so it tapers to a
-  // true POINT from EVERY angle (the old flat-lens blade read as a thin slab edge-on from the side, and dangled
-  // off the body as a separate floating piece). matBody continues the cosmic gradient — the low-y tip goes magenta
-  // on its own, so the spear stays one continuous form with the body, not a tacked-on violet blade.
+  // TAIL — a SEGMENTED bone chain off the body's tail end, so it can travelling-wave WHIP like the roster dragons
+  // (azure's `sin(time·4 − i·0.6)·amp·lock²`: root locked to the body, the coil ramps to the tip). The old single
+  // rigid spear could only swing as one piece (no whip). Each segment is a nested pivot (child of the previous) →
+  // their rotations compound into an S-curve. matBody continues the cosmic gradient down the shaft; the barbed
+  // point is the crystalline spear material. Built downward in a LOCAL frame (−Y) seated at the tail/body junction.
+  const tailSegPivots = [];
   {
-    // sized to the reference tail proportions (measured on side-a): a SLENDER shaft (~⅓ the old radius, matching the
-    // now-thinned body end) with a small BARB bulge, tapering to a sharp point — not the fat cone that was ~15% of
-    // body length (the ref barb is ~6%). 4 stations: shaft → narrow → barb → point.
-    const tip = 0.975;
-    const spine = [[D.mirror, TAIL_BODY_CLIP - 0.015], [D.mirror, 0.80], [D.mirror, 0.84], [D.mirror, tip]];
-    const tail = taperedTube(spine, [0.022, 0.012, 0.026, 0.003], () => 0, matBody, 12);   // shaft 0.022, pinch 0.012, barb 0.026, point
-    if (tail) spearGrp.add(tail);
+    const N_TAIL = 6, yTop = (0.5 - 0.70) * S, yTip = (0.5 - 0.985) * S, L = yTop - yTip, sl = L / N_TAIL;   // world: −2.0 → −4.85
+    const rAt = (u) => Math.max(0.02, 0.21 * (1 - u) + 0.11 * Math.exp(-(((u - 0.80) / 0.07) ** 2)));        // slender taper + a small barb bulge near the tip
+    const tailRoot = new THREE.Group(); tailRoot.position.set(0, yTop, 0); spearGrp.add(tailRoot);
+    let parent = tailRoot;
+    for (let k = 0; k < N_TAIL; k++) {
+      const piv = new THREE.Group(); if (k > 0) piv.position.set(0, -sl, 0); parent.add(piv);
+      const u0 = k / N_TAIL, u1 = (k + 1) / N_TAIL, isTip = k === N_TAIL - 1;
+      const seg = new THREE.Mesh(new THREE.CylinderGeometry(rAt(u0), rAt(u1), sl, 12, 1, true), isTip ? matSpear : matBody);
+      seg.position.y = -sl / 2; piv.add(seg);                          // span pivot origin (0) → −sl
+      tailSegPivots.push(piv); parent = piv;
+    }
+    const point = new THREE.Mesh(new THREE.ConeGeometry(rAt(0.96), 0.55, 12), matSpear);   // sharp crystalline barb point
+    point.position.y = -sl - 0.275; point.rotation.x = Math.PI;        // cone points −Y (down the tail)
+    parent.add(point);
   }
 
   // ── NECK + HEAD ────────────────────────────────────────────────────────────
@@ -403,14 +412,13 @@ export function buildCelestialStorm() {
   neckPivot.add(neckGrp, headGrp);
   coreGrp.add(neckPivot);
   const headBaseQuat = headGrp.quaternion.clone();                       // the head's seated orientation; nod is layered over this
-  const tailBase = pt(D.mirror, TAIL_BODY_CLIP - 0.015, 0);              // tail/spear junction — the spear flicks about this point
-  const _e = new THREE.Euler(), _q = new THREE.Quaternion(), _v = new THREE.Vector3();   // per-frame scratch (no allocation in the hot loop)
+  const _e = new THREE.Euler(), _q = new THREE.Quaternion();   // per-frame scratch (no allocation in the hot loop)
   // reset the body-life rig to its rest pose (used by the previewer's __rest hook so silhouette metrics are deterministic)
   const restBodyLife = () => {
     coreGrp.quaternion.identity(); coreGrp.position.set(0, 0, 0);
     neckPivot.quaternion.identity();
     headGrp.quaternion.copy(headBaseQuat);
-    spearGrp.quaternion.identity(); spearGrp.position.set(0, 0, 0);
+    for (const p of tailSegPivots) p.rotation.set(0, 0, 0);
   };
 
   // PLATES — raised armour SCALES (centroid-fan domes seated on the hull) + glowing seams between them
@@ -524,10 +532,14 @@ export function buildCelestialStorm() {
       // head nods/looks on TOP of the crane (about the atlas N3), layered over its seated orientation
       _e.set((0.10 * Math.sin(t * 1.1 + 0.6) + 0.06 * env) * amp, 0.11 * Math.sin(t * 0.7) * amp, 0, 'XYZ');
       headGrp.quaternion.copy(headBaseQuat).premultiply(_q.setFromEuler(_e));
-      // tail-spear whip about the tail/spear junction: a wide lateral rudder sweep + a fore-aft kick on the downstroke
-      _e.set((0.10 * Math.sin(t * 1.5 - 0.5) - 0.07 * env) * amp, 0.26 * Math.sin(t * 1.35) * amp, 0, 'XYZ');
-      spearGrp.quaternion.setFromEuler(_e);
-      spearGrp.position.copy(tailBase).sub(_v.copy(tailBase).applyQuaternion(spearGrp.quaternion));
+      // TAIL WHIP — the roster travelling wave: coil = sin(t·rate − k·lag)·amp·lock², root (k=0) locked to the body,
+      // the swing ramps to the tip so it reads as an S-curve whip, not a rigid swing. Nested pivots → rotations compound.
+      const nT = tailSegPivots.length;
+      for (let k = 0; k < nT; k++) {
+        const lock = k / (nT - 1), w = Math.sin(t * 3.4 - k * 0.6);
+        tailSegPivots[k].rotation.z = (0.34 * w * lock * lock + 0.05 * env * lock) * amp;        // lateral S-whip
+        tailSegPivots[k].rotation.x = 0.12 * Math.sin(t * 3.4 - k * 0.6 - 0.5) * lock * lock * amp;   // slight fore-aft undulation
+      }
       return env;
     },
   };
