@@ -3153,3 +3153,18 @@ convex line shoulder→tip, (b) the fingers protrude as points over even sags, (
 trailing. The bow direction is kept convex by flipping the in-plane normal toward −Z (leading) regardless of fan
 angle (`leadingPerp`). Tri cost unchanged (curve sampling, not more geo). The human's process note stands: when a
 shape "looks bad," RESEARCH the aesthetic + get the gradient/points right — don't blind-tweak.
+
+---
+
+### L94 — Wing caricature: hooked-TALON wingtip (`hook` param) = the stylization signature
+Human asked to "exaggerate certain features like a cartoon artist." The single highest-leverage move was a
+**hooked talon at the leading wingtip**: the leading finger is built as a CUBIC bezier (`CubicBezierCurve3`) that
+bulges convex-forward then REVERSES at the tip to a point swept out + back (+X/+Z), so the wingtip curls into a
+sickle. Membrane edge + strut share the curve (one bone read); the talon endpoint becomes the wingtip marker.
+Added as one `anatomy.hook` knob in `dragonWingAnatomy.js` (0 = the plain convex tip; ~0.9 Monarch rounded, ~1.05
+Thundercoil sharp) so it's a dial, not a rewrite. This + the L93 curvature gradient is the "line of action" a
+cartoonist gives a shape — it reads dynamic even at rest. Other caricature levers offered but not yet pulled:
+rhythmic (accelerating) finger spacing, fewer/bolder shapes, root-mass→tip-thin taper. Also: `model.flapFreqScale`
+(used in BOTH the gameplay phase, dragon.js ~526, and the preview) is the clean −X% flap-speed dial — set 0.7 on
+both new dragons for a slower, more readable beat (and so the human can assess wing shape mid-flap). Verify the
+hook on `silhouette.mjs <key> top`. Tri cost trivial (Monarch 2618→2730).

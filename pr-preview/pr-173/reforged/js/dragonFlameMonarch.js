@@ -316,7 +316,7 @@ function buildMonarchWing(def, model, attach, giM) {
       { tip: [3.00, -1.62], bow: 0.18 },
       { tip: [2.05, -1.90], bow: 0.05 },  // innermost/trailing — nearly STRAIGHT
     ],
-    scallop: 0.42, strutR: 0.038, claw: 0.10,
+    scallop: 0.42, strutR: 0.038, claw: 0.10, hook: 0.9,
   };
   const Rp = buildAnatomicalWing({ ws, membraneMat: wingMat, strutMat, anatomy }).pivot;
   Rp.position.set(...Object.values(attach.wingRoot(1)));
