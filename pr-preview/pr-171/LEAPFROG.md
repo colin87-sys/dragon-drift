@@ -3845,3 +3845,20 @@ at the chest, ref ≈0.26; (2) the neck was a 45° SPUR off the dorsal — its b
   recurring one: **any socket/seat geometry derived from the body must be RECOMPUTED after a sculpt change** — the
   z=0.33→0.07 socket-centre shift is exactly the kind of stale constant that reintroduces the bug. Gates stable
   PASS (protrusion 2.2–3.7 / banding 1.7–4.3), def 5/5.
+
+### L138 — Continuous dorsal topline: fill the WHOLE socket + drop the depth-taper; "position was fine, the SLOPE was wrong"
+Human refined the neck note: the original (forward) neck POSITION was right — the fault was the connection SLOPE.
+The neck's dorsal (top) line must run CONTINUOUS with the torso's dorsal slope (the reference is one back→neck→head
+curve), not plug in as a separate angled tube. What was wrong in the socket pass (L137): the depth-`neckTaper`
+shrank the torso's dorsal depth toward the clip (0.75→0.30), curling the back inward right where the neck leaves —
+a slope kink — and the shallow neck base (half-depth 0.27) didn't reach the torso's dorsal edge (0.75), so the back
+stuck out past it = a dorsal shelf. Fix: (1) DROP the depth-taper (`neckTaper`→1) so the back stays full to the
+clip and the dorsal edge holds ~0.75–0.82 — a continuous line to hand off to the neck; (2) make the neck BASE a
+DEEP ellipse that fills the *whole* socket (half-depth 0.58 so dorsal edge meets 0.75 and ventral meets −0.42 —
+flush, no shelf); (3) a 4-pt centerline that rises briefly continuous with the back then sweeps FORWARD to carry
+the head ahead of the shoulders (the preferred position), narrowing to a slender nape. Lesson: **for a limb/neck
+that grows out of a body, continuity is a property of the EDGE LINES (dorsal/ventral), not the centerline — match
+the base cross-section to the FULL opening so both edges meet the body's edges, and never taper the body in the
+direction you need continuous (tapering the dorsal to "shrink the socket" curls the very line you're trying to keep
+smooth). Measure the body's dorsal/ventral edge z at the join and make the base ellipse hit both.** Gates PASS
+(protrusion 3.7–5.5 / banding 0.6–1.3), def 5/5.
