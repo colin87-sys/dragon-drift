@@ -23,7 +23,7 @@
 </head>
 <body>
 <header>
-  <h1>Wing Click-Trace — pick the bones <span style="background:#2b6cff;color:#fff;border-radius:4px;padding:1px 7px;font-size:11px;vertical-align:middle">v3 · zoom + whole-stroke + outline bones</span></h1>
+  <h1>Wing Click-Trace — pick the bones <span style="background:#2b6cff;color:#fff;border-radius:4px;padding:1px 7px;font-size:11px;vertical-align:middle">v4 · flood-cell bone select</span></h1>
   <div class="sub">Load the wing image → it pre-traces ALL interior lines → click a line to mark it a BONE (click again to unmark). Set the wrist if the auto one is off → Copy for Claude. <b>If you don't see the blue “v2” badge above and the ＋/－ buttons below the canvas, you have an old cached copy — re-download this file.</b></div>
 </header>
 
@@ -37,13 +37,14 @@
     </div>
     <canvas id="cv" width="600" height="820"></canvas>
     <div class="row">
-      <button id="mPick" class="on">Pick bones (click a line)</button>
+      <button id="mFlood" class="on">Flood cell → bones</button>
+      <button id="mPick">Pick bones (click a line)</button>
       <button id="mWrist">Set wrist (click)</button>
       <button id="clear">Clear selection</button>
       <button id="rerun">Re-trace</button>
       <button id="zin">＋</button><button id="zout">－</button><button id="zreset">Reset view</button>
     </div>
-    <div class="hint">Grey = all traced interior lines (full strokes, stitched through junctions). Click one → magenta = a BONE (click again to unmark). Leave the membrane/non-bone lines grey. Wrist = pink dot (auto on the convergence; <b>Set wrist</b> to move it). <b>Zoom:</b> mouse-wheel (at cursor) or ＋ / －. <b>Pan:</b> hold <b>Space</b> (or right-drag) and drag.</div>
+    <div class="hint"><b>Flood cell → bones (easiest):</b> click inside a membrane panel (the area between two bones); it fills cyan and every line bordering that panel turns magenta = BONES. Click each panel between the fingers to catch all 6–7 bones. <b>Pick bones</b> mode = click an individual line to toggle it (touch-ups). Wrist = pink dot (auto; <b>Set wrist</b> to move it). <b>Zoom:</b> wheel or ＋ / －. <b>Pan:</b> hold <b>Space</b> (or right-drag).</div>
   </div>
 
   <div class="panel" style="flex:1; min-width: 320px;">
@@ -57,12 +58,13 @@
 <script>
 const cv = document.getElementById('cv'), ctx = cv.getContext('2d'), $ = (id)=>document.getElementById(id);
 let img=null, W=0, H=0, data=null, view={base:1,zoom:1,ox:0,oy:0};
-let outlineImg=[], frame=null, wrist=null, lines=[], selected=new Set(), mode='pick';
+let outlineImg=[], frame=null, wrist=null, lines=[], selected=new Set(), mode='flood';
 let bbox=null, panning=false, panStart=null, spaceHeld=false;
+let fullMask=null, wallMask=null, wingArea=0, floodCv=null, fctx=null, floodAccum=null, haveFlood=false;
 
-function setMode(m){ mode=m; $('mPick').classList.toggle('on',m==='pick'); $('mWrist').classList.toggle('on',m==='wrist'); }
-$('mPick').onclick=()=>setMode('pick'); $('mWrist').onclick=()=>setMode('wrist');
-$('clear').onclick=()=>{ selected.clear(); buildOut(); redraw(); };
+function setMode(m){ mode=m; $('mFlood').classList.toggle('on',m==='flood'); $('mPick').classList.toggle('on',m==='pick'); $('mWrist').classList.toggle('on',m==='wrist'); }
+$('mFlood').onclick=()=>setMode('flood'); $('mPick').onclick=()=>setMode('pick'); $('mWrist').onclick=()=>setMode('wrist');
+$('clear').onclick=()=>{ selected.clear(); resetFlood(); buildOut(); redraw(); };
 $('rerun').onclick=()=>{ if(img) processImage(); };
 $('side').onchange=()=>{ if(img) processImage(); };
 $('eps').onchange=()=>{ if(img) processImage(); };
@@ -71,7 +73,9 @@ $('file').onchange=(e)=>{ const f=e.target.files[0]; if(!f) return; const fr=new
   fr.onload=()=>{ const im=new Image(); im.onload=()=>{ img=im; loadPixels(); processImage(); }; im.src=fr.result; }; fr.readAsDataURL(f); };
 
 function loadPixels(){ W=img.naturalWidth; H=img.naturalHeight; const oc=document.createElement('canvas'); oc.width=W; oc.height=H;
-  oc.getContext('2d').drawImage(img,0,0); data=oc.getContext('2d').getImageData(0,0,W,H).data; resetView(); }
+  oc.getContext('2d').drawImage(img,0,0); data=oc.getContext('2d').getImageData(0,0,W,H).data;
+  floodCv=document.createElement('canvas'); floodCv.width=W; floodCv.height=H; fctx=floodCv.getContext('2d'); resetView(); }
+function resetFlood(){ floodAccum=new Uint8Array(W*H); haveFlood=false; if(fctx) fctx.clearRect(0,0,W,H); }
 function resetView(){ const s=Math.min(cv.width/W, cv.height/H); view={base:s, zoom:1, ox:(cv.width-W*s)/2, oy:(cv.height-H*s)/2}; }
 const eff=()=>view.base*view.zoom;
 const toCanvas=(p)=>({x:p.x*eff()+view.ox, y:p.y*eff()+view.oy});
@@ -150,11 +154,39 @@ function extractLines(full, lineart){
   // STITCH edges into whole strokes through junctions (continue along the most-collinear edge)
   const minLen=parseFloat($('minlen').value)||14;
   lines = stitchStrokes(edges).map(s=>rdp(s,2)).filter(s=>polyLen(s)>=minLen);
+  buildWalls(lines);   // interior strokes become flood walls (membrane cells are bounded by bones)
   // ALSO add the wing OUTLINE itself as selectable candidates: some bones run along the
   // membrane trailing edge, so split the contour at its corners (tips/notches) and offer
   // each edge-run as a clickable line (densified so mid-edge clicks land).
   for(const s of splitOutlineStrokes(outlineImg, minLen)) lines.push(densify(s,3));
+  fullMask=full; wingArea=0; for(let i=0;i<W*H;i++) if(full[i]) wingArea++;
+  resetFlood();
 }
+// rasterize interior strokes into a 3px-thick wall mask (flood is bounded by these + the wing edge)
+function buildWalls(strokes){ wallMask=new Uint8Array(W*H);
+  const plot=(x,y)=>{ for(let dy=-1;dy<=1;dy++)for(let dx=-1;dx<=1;dx++){const X=x+dx,Y=y+dy; if(X>=0&&Y>=0&&X<W&&Y<H) wallMask[Y*W+X]=1;} };
+  for(const L of strokes) for(let k=1;k<L.length;k++){ const a=L[k-1],b=L[k]; const n=Math.max(1,Math.ceil(Math.hypot(b.x-a.x,b.y-a.y)));
+    for(let s=0;s<=n;s++){ const t=s/n; plot(Math.round(a.x+(b.x-a.x)*t), Math.round(a.y+(b.y-a.y)*t)); } } }
+// Click a membrane cell → flood it → select every line that borders the cell (those are bones).
+function floodCell(p){ if(!fullMask||!wallMask) return;
+  let sx=Math.round(p.x), sy=Math.round(p.y); if(sx<0||sy<0||sx>=W||sy>=H) return; let start=sy*W+sx;
+  if(!fullMask[start]||wallMask[start]){ let f=-1; for(let r=1;r<=5&&f<0;r++) for(let dy=-r;dy<=r&&f<0;dy++)for(let dx=-r;dx<=r;dx++){const X=sx+dx,Y=sy+dy,i=Y*W+X; if(X>=0&&Y>=0&&X<W&&Y<H&&fullMask[i]&&!wallMask[i]){f=i;break;}} if(f<0) return; start=f; }
+  const flood=new Uint8Array(W*H), st=[start]; flood[start]=1; let cnt=0;
+  while(st.length){ const q=st.pop(); cnt++; const x=q%W,y=(q/W)|0;
+    for(const r of [x>0?q-1:-1,x<W-1?q+1:-1,y>0?q-W:-1,y<H-1?q+W:-1]){ if(r<0||flood[r])continue; if(fullMask[r]&&!wallMask[r]){flood[r]=1; st.push(r);} } }
+  if(cnt > wingArea*0.6){ alert('That cell leaked (the bones around it have a gap). Zoom in and click a smaller enclosed area, or lower "eps" and Re-trace.'); return; }
+  // select every line bordering the flooded cell
+  let added=0;
+  for(let i=0;i<lines.length;i++){ if(selected.has(i)) continue; const D=densify(lines[i],2); let hit=0;
+    for(const pt of D){ const x=Math.round(pt.x),y=Math.round(pt.y); let near=false;
+      for(let dy=-3;dy<=3&&!near;dy++)for(let dx=-3;dx<=3;dx++){const X=x+dx,Y=y+dy; if(X>=0&&Y>=0&&X<W&&Y<H&&flood[Y*W+X]){near=true;break;}} if(near)hit++; }
+    if(D.length && hit/D.length>=0.25){ selected.add(i); added++; } }
+  for(let i=0;i<W*H;i++) if(flood[i]) floodAccum[i]=1; paintFlood();
+  buildOut(); redraw();
+}
+function paintFlood(){ if(!fctx) return; const id=fctx.createImageData(W,H);
+  for(let i=0;i<W*H;i++) if(floodAccum[i]){ id.data[i*4]=90; id.data[i*4+1]=220; id.data[i*4+2]=255; id.data[i*4+3]=70; }
+  fctx.putImageData(id,0,0); haveFlood=true; }
 // Split the closed outline contour into open strokes at sharp corners (finger tips / notches).
 function splitOutlineStrokes(contour, minLen){
   const n=contour.length; if(n<3) return [];
@@ -234,6 +266,7 @@ cv.addEventListener('pointerdown',(e)=>{ if(!img) return; const r=cv.getBounding
   if(e.button===2 || spaceHeld){ panning=true; panStart={x:mx,y:my}; cv.style.cursor='grabbing'; return; }
   if(!frame) return; const p=toImage(mx, my);
   if(mode==='wrist'){ wrist=p; buildOut(); redraw(); return; }
+  if(mode==='flood'){ floodCell(p); return; }
   // pick nearest line: min point-to-SEGMENT distance, tie-break toward LONGER lines
   let bi=-1, bs=Infinity;
   for(let i=0;i<lines.length;i++){ const L=lines[i]; let dmin=Infinity;
@@ -259,13 +292,14 @@ function buildOut(){ if(!frame){$('out').value='';return;}
 $('copy').onclick=()=>{ $('out').select(); document.execCommand('copy'); };
 
 function redraw(){ ctx.clearRect(0,0,cv.width,cv.height); if(img) ctx.drawImage(img,view.ox,view.oy,W*eff(),H*eff());
+  if(haveFlood && floodCv) ctx.drawImage(floodCv,view.ox,view.oy,W*eff(),H*eff());
   if(outlineImg.length){ ctx.strokeStyle='#39e6a0'; ctx.lineWidth=1.5; ctx.beginPath(); outlineImg.forEach((p,i)=>{const c=toCanvas(p); i?ctx.lineTo(c.x,c.y):ctx.moveTo(c.x,c.y);}); ctx.closePath(); ctx.stroke(); }
   // candidate lines
   for(let i=0;i<lines.length;i++){ const on=selected.has(i); ctx.strokeStyle= on?'#ff5ad0':'#5aa0c0'; ctx.lineWidth= on?3:1.4; ctx.beginPath();
     lines[i].forEach((p,k)=>{const c=toCanvas(p); k?ctx.lineTo(c.x,c.y):ctx.moveTo(c.x,c.y);}); ctx.stroke(); }
   if(wrist){ const c=toCanvas(wrist); ctx.fillStyle='#ff7be0'; ctx.beginPath(); ctx.arc(c.x,c.y,6,0,7); ctx.fill(); ctx.strokeStyle='#fff'; ctx.stroke(); }
 }
-setMode('pick');
+setMode('flood');
 </script>
 </body>
 </html>
