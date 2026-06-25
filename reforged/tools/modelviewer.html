@@ -173,7 +173,7 @@ function defFor(key, tier) {
   }
   return ascendedDef(clone, tier, 0);
 }
-function load(key, tier) {
+function load(key, tier, keepView = false) {
   if (current) { scene.remove(current.group); current.group.traverse(o => { if (o.geometry) o.geometry.dispose(); }); }
   const def = defFor(key, tier);
   const result = buildDragonModel(def, { preview: true });
@@ -183,19 +183,20 @@ function load(key, tier) {
   scene.add(group);
   tick = makePreviewTick(def, result);
   current = { group, result };
-  // frame it — fit BOTH width and height to the viewport so wide wings don't spill
-  // off a narrow portrait phone (the vertical FOV alone under-frames in portrait).
-  const box = bounds(group);
-  box.getCenter(center);   // TRUE centre in x/y/z (a long tail skews z; looking down, a (0,y,0) look-at shoved it off-screen)
-  homeCenter.copy(center);
   // BOUNDING-SPHERE framing against the SMALLER FOV axis: guarantees the whole creature
   // fits in BOTH portrait and landscape AND never clips as it rotates (the sphere is
-  // rotation-invariant). A wide-winged dragon is just small on a narrow phone — the full
-  // span is one pinch-zoom away; pinch-IN to inspect detail.
+  // rotation-invariant). keepView (a compare-toggle reload on the SAME dragon) PRESERVES
+  // the current camera (rotation/zoom/pan) — only refresh the clamp + reset target; a
+  // dragon/form change reframes from scratch.
+  const box = bounds(group);
+  const c = box.getCenter(new THREE.Vector3());
   const R = box.getSize(new THREE.Vector3()).length() / 2;
   const fovV = camera.fov * Math.PI / 180;
   const fovH = 2 * Math.atan(Math.tan(fovV / 2) * camera.aspect);
-  baseDist = dist = R / Math.sin(Math.min(fovV, fovH) / 2) * 1.04 + 0.3;
+  const fit = R / Math.sin(Math.min(fovV, fovH) / 2) * 1.04 + 0.3;
+  homeCenter.copy(c);            // reset target (double-tap) always tracks the model
+  baseDist = fit;                // refresh the zoom-clamp reference
+  if (!keepView) { center.copy(c); dist = fit; }   // reframe only on dragon/form change
   document.getElementById('nm').textContent = DRAGONS[key].name || key;
   document.getElementById('fm').textContent = FNAME[tier] + ' · ' + (DRAGONS[key].rarity || '');
 }
@@ -219,7 +220,8 @@ pick.onchange = () => { curKey = pick.value; curTier = Math.min(curTier, ((DRAGO
 
 const spin = document.getElementById('spin'), flap = document.getElementById('flap');
 // Compare toggles + show the box only for dragons that have something to compare.
-const reload = () => load(curKey, Math.min(curTier, ((DRAGONS[curKey].forms || []).length || 4) - 1));
+// Compare toggles keep the current camera (keepView=true) — only the geometry swaps.
+const reload = () => load(curKey, Math.min(curTier, ((DRAGONS[curKey].forms || []).length || 4) - 1), true);
 ['armor', 'ftail'].forEach(id => document.getElementById(id).addEventListener('change', reload));
 function updateCmpVisibility() {
   const p = DRAGONS[curKey].parts || {};
