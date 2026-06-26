@@ -3462,3 +3462,19 @@ builder and extract the concrete technique — that's faster and more reliable t
 "flat" is rarely the outline — it's the lack of cross-section CURVATURE (camber/billow) and edge ACCENT; a flat
 fill with a perfect silhouette still reads as cardboard; (3) a subdivided fan with a mid-span sag is the cheap way
 to camber any star-shaped membrane without a full grid rebuild.
+
+---
+
+### L112 — Trace a reference planform from PIXELS, not by eye — convert the envelope to anatomy dials
+The human handed a dorsal/planform reference image and said "trace these wings, keep the struts." Instead of
+eyeballing, MEASURED it: a throwaway Playwright script decoded the PNG to a canvas, classified warm wing pixels vs
+the dark bg, found the body symmetry axis (densest bright column), and traced per-column top (leading) + bottom
+(trailing) edges for one wing → the actual envelope in pixels. The read: a CONVEX leading edge peaking forward
+(chord ~+1.3) near 40% span then sweeping to the wingtip, a trailing edge dropping deepest (~−1.5) at the inner
+third, ~5 struts. Converted to the anatomy frame (scale = spanPx / target-span, chord origin at the root mid) and
+expressed as DIALS the builder already has: leading finger `bow` HIGH (1.32) makes the forward bulge; 5 finger
+tips placed along the traced trailing envelope (deepest at the inner third); short arm + medial wrist kept. So
+"trace this art" became "measure the envelope → set bow + 5 tip coords," not a new geometry path. 5264 tris.
+Lessons: (1) when given reference art, EXTRACT the curve numerically (decode → classify → per-column min/max y) —
+~30 lines and beats guessing; (2) a parametric wing means a traced shape collapses to a handful of dials (leading
+bow + fingertip coords), so matching reference art is cheap once the builder is parametric.
