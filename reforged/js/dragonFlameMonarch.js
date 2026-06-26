@@ -386,8 +386,10 @@ function buildMonarchWing(def, model, attach, giM) {
       // BOTH edges traced DENSELY from the reference (chord rel wing-centre, +=forward):
       // the leading arc (broad convex bulge holding forward through mid-span) AND the real
       // scalloped trailing edge (deep inner lobe → mid plateau → scallop rise → wingtip).
-      leadingCurve: [[0, 0.34], [0.4, 0.43], [0.8, 0.42], [1.2, 0.68], [1.6, 0.98], [2.0, 1.11], [2.4, 1.15], [2.8, 1.12], [3.2, 1.06], [3.6, 0.98], [4.0, 0.87], [4.4, 0.71], [4.8, 0.55], [5.2, 0.38], [5.4, 0.20]],
-      trailingCurve: [[0, -0.45], [0.4, -0.93], [0.8, -1.39], [1.2, -1.57], [1.6, -1.71], [2.0, -1.28], [2.4, -1.13], [2.8, -1.14], [3.2, -0.54], [3.6, -0.33], [4.0, -0.38], [4.4, 0.12], [4.8, 0.21], [5.2, 0.17], [5.4, 0.20]],
+      // both curves START at negative span (-0.45) → a compact root BURIED inside the body
+      // (world x≈0 at the spine), so the membrane EMERGES from the body surface with no gap.
+      leadingCurve: [[-0.45, 0.06], [0, 0.34], [0.4, 0.43], [0.8, 0.42], [1.2, 0.68], [1.6, 0.98], [2.0, 1.11], [2.4, 1.15], [2.8, 1.12], [3.2, 1.06], [3.6, 0.98], [4.0, 0.87], [4.4, 0.71], [4.8, 0.55], [5.2, 0.38], [5.4, 0.20]],
+      trailingCurve: [[-0.45, -0.06], [0, -0.45], [0.4, -0.93], [0.8, -1.39], [1.2, -1.57], [1.6, -1.71], [2.0, -1.28], [2.4, -1.13], [2.8, -1.14], [3.2, -0.54], [3.6, -0.33], [4.0, -0.38], [4.4, 0.12], [4.8, 0.21], [5.2, 0.17], [5.4, 0.20]],
       wrist: [0.85, 0.30],                                 // SHORT humerus → wrist medial
       rootBack: [0, -0.45],
       hub: [1.45, -0.55],                                  // membrane fan apex (interior, below the leading arc)
