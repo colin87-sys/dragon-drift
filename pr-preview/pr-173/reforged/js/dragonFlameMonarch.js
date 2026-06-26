@@ -301,57 +301,44 @@ function buildMonarchWing(def, model, attach, giM) {
   });
   applyFresnelRim(wingMat, def.apexSeam || cMolten);          // softly rim-lit membrane edge
 
-  // GLOW HIERARCHY — the leading spar + wrist/elbow joints are the brightest, thickest
-  // lines; the finger struts are thinner and DIMMER, so the wing reads premium (one
-  // confident leading edge) instead of a noisy bundle of equal glowing lines.
-  const baseInt = 0.6 + giM * 0.45 + F * 0.12;
-  const leadMat = tagFlare(new THREE.MeshStandardMaterial({
-    color: def.horn ?? 0x2a221c, emissive: cMolten, emissiveIntensity: baseInt * 1.15,
-    roughness: 0.36, metalness: 0.5,
-  }), cMolten, baseInt * 1.15, spineMats);
-  const fingerMat = tagFlare(new THREE.MeshStandardMaterial({
-    color: def.horn ?? 0x2a221c, emissive: cMolten, emissiveIntensity: baseInt * 0.5,
-    roughness: 0.46, metalness: 0.4,
-  }), cMolten, baseInt * 0.5, spineMats);
-  const jointMat = tagFlare(new THREE.MeshStandardMaterial({
-    color: def.horn ?? 0x2a221c, emissive: cMolten, emissiveIntensity: baseInt * 1.4,
-    roughness: 0.3, metalness: 0.5,
-  }), cMolten, baseInt * 1.4, spineMats);
-  // Shoulder socket — dark body-coloured mass (NOT glowing) so the wing grows from the back.
-  const socketMat = new THREE.MeshStandardMaterial({
-    color: def.scales ?? def.horn ?? 0x2a221c, roughness: 0.52, metalness: 0.32,
-  });
-  applyFresnelRim(socketMat, def.apexSeam || cMolten);
-
-  // GLIDER bat wing: a long ARM (shoulder→elbow→wrist) putting the wrist at the OUTER
-  // third (clear elbow + wrist bend), then 4 finger struts fanning back/down — varied
-  // length/angle, tapering to a swept sharp tip. Small angled inner triangle (short
-  // rootBack), scalloped trailing edge, dihedral + washout twist. Units scale by ws.
-  const anatomy = {
-    glider: true,
-    rootFront: [0, 0.55], rootBack: [0, -0.30],              // short trailing root → small inner triangle
-    elbow: [1.30, 0.95], wrist: [3.05, 1.05],               // long arm; wrist at outer ~60% span (clear bend)
-    hub: [2.35, -0.15],                                      // membrane fan apex (interior, near wrist)
-    fingers: [
-      { tip: [5.05, 0.35], bow: 0.30 },                     // LEADING — longest, continues the spar to the swept tip
-      { tip: [4.55, -0.55], bow: 0.34 },
-      { tip: [3.85, -1.40], bow: 0.30 },
-      { tip: [3.00, -2.05], bow: 0.20 },                    // innermost — shorter, steeper down
-    ],
-    scallop: 0.30, innerSag: 0.12, claw: 0.10,
-    leadR: 0.075, fingerR: 0.030,
-    dihedral: 0.17, twist: 0.13, socketR: 0.18,
-  };
-  // LEGACY wing (the pre-redesign "flat fan": medial wrist + 5 even fingers, one strut
-  // weight). Kept ONLY so the model viewer can toggle the wing redesign off to compare
-  // before/after — gated by model.legacyWing, never set on the live blueprint.
+  // DEFAULT — the warm western-dragon bat wing the human preferred: a SHORT arm, medial
+  // wrist (~26% span) and FIVE long curved fingers fanning to rounded scallops, the outer
+  // finger framing a fuller crescent. (The "glider" redesign read sparser/less aesthetic
+  // in review, so it's now OPT-IN via model.gliderWing — kept behind the flag, not the
+  // live look — and reachable in the viewer for a side-by-side.)
   let wingOpts;
-  if (model.legacyWing) {
+  if (model.gliderWing) {
+    // GLOW HIERARCHY — bright/thick leading spar + joints, dim/thin finger struts.
+    const baseInt = 0.6 + giM * 0.45 + F * 0.12;
+    const leadMat = tagFlare(new THREE.MeshStandardMaterial({
+      color: def.horn ?? 0x2a221c, emissive: cMolten, emissiveIntensity: baseInt * 1.15, roughness: 0.36, metalness: 0.5,
+    }), cMolten, baseInt * 1.15, spineMats);
+    const fingerMat = tagFlare(new THREE.MeshStandardMaterial({
+      color: def.horn ?? 0x2a221c, emissive: cMolten, emissiveIntensity: baseInt * 0.5, roughness: 0.46, metalness: 0.4,
+    }), cMolten, baseInt * 0.5, spineMats);
+    const jointMat = tagFlare(new THREE.MeshStandardMaterial({
+      color: def.horn ?? 0x2a221c, emissive: cMolten, emissiveIntensity: baseInt * 1.4, roughness: 0.3, metalness: 0.5,
+    }), cMolten, baseInt * 1.4, spineMats);
+    const socketMat = new THREE.MeshStandardMaterial({ color: def.scales ?? def.horn ?? 0x2a221c, roughness: 0.52, metalness: 0.32 });
+    applyFresnelRim(socketMat, def.apexSeam || cMolten);
+    const anatomy = {
+      glider: true,
+      rootFront: [0, 0.55], rootBack: [0, -0.30],
+      elbow: [1.30, 0.95], wrist: [3.05, 1.05],
+      hub: [2.35, -0.15],
+      fingers: [
+        { tip: [5.05, 0.35], bow: 0.30 }, { tip: [4.55, -0.55], bow: 0.34 },
+        { tip: [3.85, -1.40], bow: 0.30 }, { tip: [3.00, -2.05], bow: 0.20 },
+      ],
+      scallop: 0.30, innerSag: 0.12, claw: 0.10, leadR: 0.075, fingerR: 0.030, dihedral: 0.17, twist: 0.13, socketR: 0.18,
+    };
+    wingOpts = { ws, membraneMat: wingMat, leadMat, fingerMat, jointMat, socketMat, anatomy };
+  } else {
     const strutInt = 0.5 + giM * 0.4 + F * 0.12;
     const strutMat = tagFlare(new THREE.MeshStandardMaterial({
       color: def.horn ?? 0x2a221c, emissive: cMolten, emissiveIntensity: strutInt, roughness: 0.4, metalness: 0.45,
     }), cMolten, strutInt, spineMats);
-    const legacyAnatomy = {
+    const anatomy = {
       rootFront: [0, 0.34], rootBack: [0, -0.58],
       elbow: [0.55, 0.34], wrist: [1.40, 0.46],
       fingers: [
@@ -360,9 +347,7 @@ function buildMonarchWing(def, model, attach, giM) {
       ],
       scallop: 0.42, strutR: 0.038, claw: 0.10, hook: 0.9,
     };
-    wingOpts = { ws, membraneMat: wingMat, strutMat, anatomy: legacyAnatomy };
-  } else {
-    wingOpts = { ws, membraneMat: wingMat, leadMat, fingerMat, jointMat, socketMat, anatomy };
+    wingOpts = { ws, membraneMat: wingMat, strutMat, anatomy };
   }
   const Rp = buildAnatomicalWing(wingOpts).pivot;
   Rp.position.set(...Object.values(attach.wingRoot(1)));
