@@ -875,6 +875,8 @@ export const DRAGONS = {
       // cruising-glide angle; soaring birds hold only a few degrees of positive V — a steep
       // raised V reads as braking) with ~26° back-sweep toward the tail.
       wingPlaneTiltX: 0.6, wingPlaneSweepY: 0.5, wingPlaneRollZ: -0.6,
+      // skinned 3-segment fold (shoulder→elbow→wrist) driven by dragonWingFlap.js
+      wingSkinned: true,
       bodyKnobs: { sectionPoints: 18, sectionExponent: 2.4 }, // rounder, sleeker section
       bodyMetalness: 0.18, bodyRoughness: 0.4, scaleSize: 5, scaleRelief: 0.35, // semi-gloss
       tailKnobs: { bladeHalfW: 0.22, bladeLength: 2.0, forkSpread: 0.3, forkLength: 1.9, forkNotch: 1.2 },

@@ -3225,3 +3225,26 @@ centerlines in `.bones`. Switched the scaffold to harvest `boneShapes`, register
 with the same affine, and added a `wingStruts.boneShapes` path to `crystalWing` that fills each closed polygon as
 a flat screen-plane bone (matching the branch's `boneSolid`). **To find the FINAL form of a traced asset, follow
 what the consumer actually renders (grep the builder for the field it reads), not the most obvious-looking field.**
+
+---
+
+### Lesson — Skinned 3-segment fold for a TRACED-outline wing (reuse the rig contract)
+**Did / learned:** animated the prism scaffold wing by giving `crystalWing` a `model.wingSkinned` path: bind the
+flat traced membrane + filled bone-shapes to a 4-bone skeleton **[anchor, shoulder, elbow, wrist]** (the static
+anchor welds the root to the body; the three live bones are the cascade), span-weighted by |x| with smooth-step
+transition bands — the SAME `spanSkin` scheme the shipped `skinnedMembrane` uses. The arbitrary outline polygon is
+made skinnable by **midpoint-subdividing** its `ShapeGeometry` 2× (exact silhouette preserved — boundary midpoints
+stay on the straight edges — but enough interior verts to bend smoothly); bone-shapes subdivided 1×. Mirror per
+side by negating x + reversing winding (NOT scale.x, which breaks skinning normals); the glide-pose orientation
+(tiltX/sweepY/rollZ) goes on the MOUNT, applied AFTER bind so it rigidly reorients while the bones fold on top.
+Expose `wingRigL/R = {shoulder, elbow, wrist, side, profile}` → `dragon.js` auto-drives it via `flapWing()` (the
+shared shoulder→elbow→wrist lagged animator with anatomical limits — no new animation code). Biology check (3 not
+4): bats fold at the elbow + wrist on the upstroke; finger joints stay ~fixed, so 3 segments is the believable
+minimum AND the engine's native target. Verified headlessly: shoulder.z 0.68→−0.88, elbow 0.21→−0.21 (lagged),
+wrist −0.16→0.16 (counter-fold); the membrane SKIN deforms ΔY≈−6.8 and the span **pulls in on the upstroke**
+(real retraction). prism 4064 tris, 0-over; defs/parametric/flapcheck/skinnedwing green.
+**→ Gotchas banked:** (1) headless `silhouetteCore` renders the **bind pose** (no GPU skinning) — verify skin via
+`applyBoneTransform` CPU sampling or the live `gameshots`, not the silhouette. (2) When probing a two-sided rig,
+match the mesh to the driven side (`skeleton.bones.includes(rig.wrist)`) — grabbing "the largest skinned mesh"
+silently samples the wrong wing and reads ΔY=0 (a false "skin doesn't deform"). (3) Subdivide BEFORE
+`applyWingGradient`/weights so midpoints get colour + skin attributes.
