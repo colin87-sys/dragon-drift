@@ -3392,3 +3392,18 @@ call — when they prefer the BEFORE, revert fast and without ego; the build wor
 flag; (2) the L101 redesign's smaller, surgical wins (glow hierarchy, rim-lit membrane, slight dihedral) might
 still improve the OLD shape — a "blend" is the likely next ask, so keep the glider materials/anatomy intact for
 harvest; (3) don't over-commit a big silhouette change as the default until the human has A/B'd it live.
+
+---
+
+### L108 — A junk URL param blanked the viewer — validate at the boundary AND at the crash site
+The human's viewer was blank again, but this time the cause was in the URL they pasted: my chat message text had
+been copied onto the end, so `?tier=3 If you want…` → `+tier` = NaN. NaN SURVIVES `Math.max(0, Math.min(NaN, n))`
+(both return NaN), reaches `STAT_RAMP[NaN]` = undefined, and `.speed` throws — blanking the whole viewer with a
+single TypeError. Fixed in two places (defence in depth): (1) the BOUNDARY — modelviewer.html parses every numeric
+param through `numParam(k, fallback)` (finite-check, else keep current) and clamps tier to the dragon's form range;
+(2) the CRASH SITE — `ascendedDef` coerces a non-finite tier to 0 so NO caller can ever crash on it. Lessons:
+(a) `Math.min/max` are NOT NaN guards — `Math.min(NaN, x) === NaN`; use `Number.isFinite` before clamping; (b) when
+a bad input reaches a lookup table, the undefined row throws one level LATER than where the bad value entered —
+validate where it enters AND harden the consumer; (c) user-pasted URLs carry junk — treat every query param as
+hostile. Reusable: any `+param`/`parseFloat(param)` that feeds geometry or an array index needs a finite-check + a
+sane fallback, never the raw NaN.
