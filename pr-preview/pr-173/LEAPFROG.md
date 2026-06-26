@@ -3325,3 +3325,23 @@ wing-root band (≈ -0.85..-0.40) so the armor can never collide with the wings 
 `surfaceLayers` (it only knew about `parts.shingle` before). Reusable pattern: contour-following decoration wants
 the torso to publish a cross-section sampler, and "bands that skip a z-range" is the clean way to coexist with
 appendages rooted in that range.
+
+---
+
+### L104 — Wing aesthetics live in the bone HIERARCHY, not the polygon count ("glider" wing, opt-in)
+The human's critique of the welded wing: it read as "flat glowing fans" — equal-weight lines all radiating from
+one point, a circular umbrella edge, blocky vertical inner panels. The fix is structural, not more detail. New
+`buildGliderWing` path (opt-in via `anatomy.glider`, so Thundercoil's existing wing stays byte-identical —
+coexist→prove-on-hero). Five moves that made it read as a living wing: (1) ONE dominant leading-edge SPAR — a
+single tapered tube (thick root → sharp tip) swept shoulder→elbow→wrist→tip via CatmullRom, the brightest/
+thickest line; the finger struts are thinner AND dimmer (glow HIERARCHY = premium, not noisy). (2) Long arm so
+the WRIST sits at the outer ~60% span → a clear elbow+wrist BEND in the silhouette instead of a hand-fan. (3)
+Membrane as a radial FAN from a hub near the wrist → each inter-finger bay is a taut triangular sail stretched to
+a scalloped trailing edge (tension), and a SHORT rootBack makes the inner membrane a small angled triangle, not a
+curtain. (4) DIHEDRAL + washout TWIST baked into the 2D→3D map (`depthY = DIH·spanN^1.15 + TWIST·chord`) so tips
+sit higher than the root and the trailing edge lower — kills the flat-cardboard read; the membrane fan is then a
+subtly curved aerofoil for free. (5) A dark (non-glowing) shoulder SOCKET sphere at the root so the wing grows
+from the back. Same one-frame-on-pivot rule as L101, so still seam-free (the membrane is a single fan mesh —
+gap-free by construction). 3882 tris/form. Lesson: when a wing "looks wrong," audit the ANATOMY (one strong
+leading edge? clear wrist bend? varied non-radial fingers? stretched bays? slight 3D?) before adding geometry —
+and gate a redesign behind an anatomy flag so the other creature sharing the builder is untouched.
