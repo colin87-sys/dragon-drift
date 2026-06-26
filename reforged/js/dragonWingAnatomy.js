@@ -69,7 +69,136 @@ function curvedBone(a, b, bow, ws, mat, rad) {
   return new THREE.Mesh(geo, mat);
 }
 
+// A TAPERED tube swept along a 3D curve: radius lerps r0→r1 so a bone can be thick at
+// the root and taper to a sharp tip (TubeGeometry is constant-radius). Used for the
+// dominant leading-edge spar (thick→sharp wingtip).
+function taperedTube(curve, r0, r1, mat, lenSegs, radial) {
+  const N = lenSegs, R = radial;
+  const pts = curve.getPoints(N);
+  const fr = curve.computeFrenetFrames(N, false);
+  const pos = [], idx = [];
+  for (let i = 0; i <= N; i++) {
+    const r = r0 + (r1 - r0) * (i / N);
+    const c = pts[i], n = fr.normals[i], b = fr.binormals[i];
+    for (let j = 0; j <= R; j++) {
+      const a = (j / R) * Math.PI * 2, dx = Math.cos(a), dy = Math.sin(a);
+      pos.push(c.x + r * (dx * n.x + dy * b.x), c.y + r * (dx * n.y + dy * b.y), c.z + r * (dx * n.z + dy * b.z));
+    }
+  }
+  for (let i = 0; i < N; i++) for (let j = 0; j < R; j++) {
+    const p = i * (R + 1) + j, q = p + R + 1;
+    idx.push(p, q, p + 1, q, q + 1, p + 1);
+  }
+  const g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+  g.setIndex(idx); g.computeVertexNormals();
+  return new THREE.Mesh(g, mat);
+}
+
+// A membrane filled as a RADIAL FAN from an interior HUB point (near the wrist) out to
+// the boundary loop. Each bay between two fingers becomes a taut triangular sail panel
+// stretched from the hub to the scalloped trailing edge — reads as a membrane under
+// TENSION between bones, not a flat hanging panel. `P` maps 2D (span,chord) → 3D with
+// the wing's dihedral/twist baked in, so the sheet is a subtly curved aerofoil.
+function membraneFan(hub2D, boundary2D, P, mat) {
+  const pos = [], idx = [];
+  const hub = P(hub2D); pos.push(hub.x, hub.y, hub.z);
+  for (const p of boundary2D) { const v = P(p); pos.push(v.x, v.y, v.z); }
+  const m = boundary2D.length;
+  for (let i = 0; i < m; i++) idx.push(0, 1 + i, 1 + ((i + 1) % m));
+  const g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+  g.setIndex(idx); g.computeVertexNormals();
+  return new THREE.Mesh(g, mat);
+}
+
+// Sample a quadratic bezier a→(ctrl)→b into 2D [x,y] points (k=1..n), pushing onto out.
+function pushQuad2D(out, a, ctrl, b, n) {
+  for (let k = 1; k <= n; k++) { const t = k / n, u = 1 - t; out.push([u * u * a[0] + 2 * u * t * ctrl[0] + t * t * b[0], u * u * a[1] + 2 * u * t * ctrl[1] + t * t * b[1]]); }
+}
+// A scallop control point: perpendicular sag off the a→b chord, toward `toward`, by
+// `depth`×|a−b| — the smooth inward dip of the membrane edge between two fingertips.
+function sagCtrl(a, b, toward, depth) {
+  const mx = (a[0] + b[0]) / 2, my = (a[1] + b[1]) / 2;
+  let px = -(b[1] - a[1]), py = b[0] - a[0]; const pl = Math.hypot(px, py) || 1; px /= pl; py /= pl;
+  if (px * (toward[0] - mx) + py * (toward[1] - my) < 0) { px = -px; py = -py; }
+  const d = depth * Math.hypot(b[0] - a[0], b[1] - a[1]);
+  return [mx + px * d, my + py * d];
+}
+
+// ── GLIDER WING (opt-in via anatomy.glider) ─────────────────────────────────────────
+// A redesigned dragon/wyvern wing with a true bone HIERARCHY and an aerofoil read:
+//   • Wing root grows from a shoulder SOCKET mass (not a flat side point).
+//   • A single DOMINANT leading-edge spar sweeps shoulder → elbow → wrist → swept tip
+//     (thick→sharp taper, brightest glow). The wrist sits at the OUTER third, so the
+//     silhouette has a clear elbow + wrist BEND, not a circular umbrella.
+//   • From the wrist, a few FINGER struts fan back/down into the membrane — thinner and
+//     DIMMER than the spar (glow hierarchy), varied in length/angle (not an even fan).
+//   • The membrane is a radial fan from a hub near the wrist → taut stretched bays with
+//     scalloped trailing edges; a SMALL angled inner triangle at the body, not a curtain.
+//   • Dihedral + washout twist (tips higher than root, trailing edge lower) so it never
+//     reads as flat cardboard. Built in ONE frame on `pivot` → still seam-free in any pose.
+function buildGliderWing(opts) {
+  const ws = opts.ws ?? 1;
+  const mem = opts.membraneMat;
+  const leadMat = opts.leadMat || opts.strutMat;
+  const fingerMat = opts.fingerMat || opts.strutMat;
+  const jointMat = opts.jointMat || leadMat;
+  const socketMat = opts.socketMat || jointMat;
+  const A = opts.anatomy;
+  const fingers = A.fingers, nF = fingers.length;
+  const f0 = fingers[0].tip;                                  // leading finger tip = the wingtip
+  const maxSpan = Math.max(A.wrist[0], ...fingers.map((f) => f.tip[0]));
+  const DIH = (A.dihedral ?? 0.16) * maxSpan * ws;            // tip lift above the root
+  const TWIST = (A.twist ?? 0.12) * ws;                       // leading up / trailing down (washout)
+  const depthY = (x, y) => DIH * Math.pow(Math.min(1, Math.max(0, x) / maxSpan), 1.15) + TWIST * y;
+  const P = (p) => new THREE.Vector3(p[0] * ws, depthY(p[0], p[1]), -p[1] * ws);
+
+  const pivot = new THREE.Group();
+  pivot.userData.wingRole = 'pivot';
+
+  // ── membrane boundary (2D span,chord), CCW: leading edge → trailing scallops → inner ──
+  const boundary = [];
+  const leadCurve = new THREE.CatmullRomCurve3([A.rootFront, A.elbow, A.wrist, f0].map((p) => new THREE.Vector3(p[0], p[1], 0)), false, 'catmullrom', 0.5);
+  for (const v of leadCurve.getPoints(seg(11))) boundary.push([v.x, v.y]);
+  const claw = A.claw ?? 0.08;
+  // web tips sit slightly short of the bone tip (except the leading frame) so the strut
+  // pokes out as a claw point; the membrane scallops run between these web tips.
+  const webTip = (f, i) => (i === 0 ? f.tip : [A.wrist[0] + (f.tip[0] - A.wrist[0]) * (1 - claw), A.wrist[1] + (f.tip[1] - A.wrist[1]) * (1 - claw)]);
+  const tips = fingers.map(webTip);
+  for (let i = 0; i < nF - 1; i++) pushQuad2D(boundary, tips[i], sagCtrl(tips[i], tips[i + 1], A.wrist, A.scallop ?? 0.3), tips[i + 1], seg(5));
+  // inner trailing edge: innermost finger → short rootBack, gently concave (stretched, not a curtain)
+  pushQuad2D(boundary, tips[nF - 1], sagCtrl(tips[nF - 1], A.rootBack, A.wrist, A.innerSag ?? 0.12), A.rootBack, seg(6));
+  // (the loop auto-closes rootBack → rootFront — the short body attachment edge)
+  const hub = A.hub ?? [A.wrist[0] * 0.72, A.wrist[1] * 0.2];
+  pivot.add(membraneFan(hub, boundary, P, mem));
+
+  // ── bones ──
+  // DOMINANT leading spar: thick→sharp tapered tube along shoulder→elbow→wrist→tip.
+  const spar = new THREE.CatmullRomCurve3([A.rootFront, A.elbow, A.wrist, f0].map((p) => P(p)), false, 'catmullrom', 0.5);
+  pivot.add(taperedTube(spar, (A.leadR ?? 0.07) * ws, (A.leadR ?? 0.07) * ws * 0.3, leadMat, Math.max(10, seg(18)), seg(5)));
+  // finger struts (dim, thin, varied) from the wrist to each trailing tip.
+  for (let i = 1; i < nF; i++) pivot.add(curvedBone(P(A.wrist), P(fingers[i].tip), fingers[i].bow ?? 0.25, ws, fingerMat, A.fingerR ?? 0.032));
+  // joints — wrist is the brightest/biggest (the visual bend), elbow secondary.
+  const eN = new THREE.Mesh(new THREE.OctahedronGeometry(0.065 * ws, 0), jointMat); eN.position.copy(P(A.elbow)); pivot.add(eN);
+  const wN = new THREE.Mesh(new THREE.OctahedronGeometry(0.10 * ws, 0), jointMat); wN.position.copy(P(A.wrist)); pivot.add(wN);
+  // shoulder SOCKET mass at the root so the wing grows from the back, not a flat point.
+  if (A.socket !== false) {
+    const s = new THREE.Mesh(new THREE.SphereGeometry((A.socketR ?? 0.17) * ws, seg(8), seg(6)), socketMat);
+    s.scale.set(1.15, 0.8, 1.0);
+    s.position.copy(P([(A.rootFront[0] + A.rootBack[0]) / 2 + 0.04, (A.rootFront[1] + A.rootBack[1]) / 2]));
+    pivot.add(s);
+  }
+
+  // empty rig handles (engine pose code + FX role lookups) — geometry stays one welded sheet.
+  const wingMid = new THREE.Group(); wingMid.position.copy(P(A.elbow)); wingMid.userData.wingRole = 'mid'; pivot.add(wingMid);
+  const wingTip = new THREE.Group(); wingTip.position.copy(P(A.wrist).sub(P(A.elbow))); wingTip.userData.wingRole = 'tip'; wingMid.add(wingTip);
+  const marker = new THREE.Object3D(); marker.position.copy(P(f0)); marker.userData.wingRole = 'marker'; pivot.add(marker);
+  return { pivot, wingMid, wingTip, marker };
+}
+
 export function buildAnatomicalWing(opts) {
+  if (opts.anatomy && opts.anatomy.glider) return buildGliderWing(opts);
   const ws = opts.ws ?? 1;
   const mem = opts.membraneMat;
   const strut = opts.strutMat;
