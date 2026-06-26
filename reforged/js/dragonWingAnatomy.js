@@ -330,10 +330,28 @@ export function buildAnatomicalWing(opts) {
   outline.push(P(wristTrail));
   pivot.add(fanPanel(outline, mem));
 
-  // Finger struts to the FULL tips (inner ones protrude past the web as points); the
-  // leading strut is the hooked talon built above.
   pivot.add(leadStrut);
-  for (let i = 1; i < nF; i++) pivot.add(curvedBone(wristV, tip(fingers[i]), fingers[i].bow, ws, fingerM, (A.strutR ?? 0.035) * (A.fingerRMul ?? 1)));
+  if (A.taperedClaws) {
+    // Finger struts as real BONES — THICK at the wrist, TAPERING to a bony CLAW point
+    // that ends just SLIGHTLY past where the two membrane scallops join (the web tip),
+    // NOT a long straight rod to the full anatomical fingertip. (Opt-in: the default
+    // path below is unchanged so other creatures sharing this builder are byte-identical.)
+    const clawLen = (A.clawLen ?? 0.09) * ws;
+    const r0 = (A.strutR ?? 0.035) * (A.fingerRMul ?? 1) * 1.35;
+    for (let i = 1; i < nF; i++) {
+      const f = fingers[i];
+      const wtP = webTip(f, i);                        // the scallop-join point (web ends here)
+      const dir = tip(f).clone().sub(wristV);
+      if (dir.lengthSq() > 1e-9) dir.normalize();
+      const clawEnd = wtP.clone().addScaledVector(dir, clawLen);   // bony point just past the join
+      const ctrl = wristV.clone().lerp(clawEnd, 0.5).add(leadingPerp(wristV, clawEnd).multiplyScalar(f.bow * ws));
+      const curve = new THREE.QuadraticBezierCurve3(wristV, ctrl, clawEnd);
+      pivot.add(taperedTube(curve, r0, 0.004 * ws, fingerM, Math.max(5, seg(9)), seg(4)));
+    }
+  } else {
+    // Default: finger struts to the FULL tips (inner ones protrude past the web as points).
+    for (let i = 1; i < nF; i++) pivot.add(curvedBone(wristV, tip(fingers[i]), fingers[i].bow, ws, fingerM, (A.strutR ?? 0.035) * (A.fingerRMul ?? 1)));
+  }
 
   const marker = new THREE.Object3D();
   marker.position.copy(wingtipV);

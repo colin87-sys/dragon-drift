@@ -382,6 +382,7 @@ function buildMonarchWing(def, model, attach, giM) {
         { tip: [2.25, -2.05], bow: 0.05 },                 // innermost — nearly STRAIGHT (curvature gradient)
       ],
       scallop: 0.30, strutR: 0.060, fingerRMul: 0.62, claw: 0.13, hook: 1.0,
+      taperedClaws: true, clawLen: 0.10,                   // short bony claw points (thick→point), just past the scallop join
       dihedral: 0.18, twist: 0.12,                         // raised root + sagging washout
     };
     wingOpts = { ws, membraneMat: wingMat, strutMat: leadMat, leadMat, fingerMat, jointMat, anatomy };

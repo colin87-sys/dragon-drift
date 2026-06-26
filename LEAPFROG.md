@@ -3430,3 +3430,16 @@ already dark-charcoal; the "too orange" was the emissive accents + fresnel rim d
 making the BODY bigger/longer so the dark mass wins and orange stays an accent. 4260 tris. Lesson: when a creature
 "reads wrong," audit PROPORTION (torso ring profile, part scale ratios, the dark-vs-glow balance) before adding
 geometry — and gate every shared-builder upgrade behind defaulted dials so the roster never moves.
+
+---
+
+### L110 — Wing CLAWS: short tapered bone points at the scallop join, not long constant rods
+Human note on the Monarch wing: the finger struts ran as long straight constant-radius rods all the way to the
+full anatomical fingertip, poking far past the membrane. Correct dragon-claw read = a BONE that is thick at the
+wrist and TAPERS to a bony point ending just slightly past where the two membrane scallops join (the web tip).
+Fix (opt-in `taperedClaws`, so Thundercoil's shared legacy path stays byte-identical): each inner finger strut is
+now a `taperedTube` (r0 thick → ~0 point) along the bowed curve from the wrist to `webTip + clawLen·dir` — i.e. it
+stops a hair past the scallop join instead of at `tip(f)`. Key distinction baked into the anatomy: the membrane
+`webTip` (1−claw of the way out) is the SCALLOP JOIN; the bony claw should poke only `clawLen` past THAT, not run
+to the full digit length the curvature math uses. Lesson: a "claw too long" note is about where the strut ENDS
+(web-join + a hair) and its RADIUS PROFILE (taper to a point), not the finger anatomy — keep the two decoupled.
