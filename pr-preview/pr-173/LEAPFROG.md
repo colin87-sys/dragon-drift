@@ -3275,3 +3275,24 @@ even and shallow → a full membrane with a neat scalloped edge. Lesson: a "gap/
 causes (seam not welded · bad triangulation · edge geometry too deep); enumerate and rule each out with data
 (shared-verts count, triangle winding, a straight-on render) rather than fixing the first plausible one and
 declaring victory. Applies to both anatomical wings (Monarch + Thundercoil).
+
+---
+
+### L101 — A shared seam VERTEX is not a weld once the joints FOLD — build the membrane in ONE frame
+After L99/L100 the human STILL saw seams. The missing insight: the three membrane panels lived on three
+SEPARATE rig groups (pivot / wingMid@elbow / wingTip@wrist) that the engine FOLDS and SWEEPS independently —
+even the static viewer pose folds them (dumped `tick(0)`: `wingMid.rot.z≈0.22`, `wingTip.rot.z≈0.32`,
+`wingTip.rot.y≈0.07`). Two panels can share a seam *point* in 2D, but once their parent groups rotate relative
+to each other, that point maps to two DIFFERENT world positions and the seam opens. A weld at flat rest is not
+a weld in any posed state. The clean fix: stop splitting the membrane across folding joints. Build the WHOLE
+membrane + bones in a SINGLE pivot-local frame (`P = p => (p.x, 0, -p.y)`) and parent it all to `pivot`, so it
+is one rigid welded sheet that can never separate. `wingMid`/`wingTip` stay as EMPTY positioned groups so the
+engine pose code + FX role-lookups (`byRole`) still resolve; the wing now articulates from the SHOULDER (+ the
+apexRoot / restLift dials), which still reads alive. Verified headless: `meshes on wingMid/wingTip handle: 0,0`
+and arm+hand panels share `wrist`+`wristTrail` at identical coords on ONE group → gap-free in EVERY pose.
+Tradeoff: lost the per-segment elbow/wrist membrane fold; the next leapfrog is a SKINNED membrane (one mesh,
+vertices weighted to 3 bones) to bend smoothly without separating. Also: `modelviewer.html bounds()` was
+framing to INVISIBLE meshes (the hidden aim-pip, renderOrder≥998) — added `o.visible && o.renderOrder<998`.
+And a charcoal/obsidian dragon on the dark studio backdrop reads as "off-center / only one wing" because the
+far wing + the dark body vanish into the background — confirmed via projection math that the model IS centered
+(box center x=0.00, projected box centered). Don't chase a "framing bug" that is really a contrast problem.

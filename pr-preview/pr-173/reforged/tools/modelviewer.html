@@ -153,7 +153,7 @@ canvas.addEventListener('contextmenu', (e) => e.preventDefault());   // allow ri
 const _box = new THREE.Box3(), _b = new THREE.Box3();
 function bounds(root) {
   _box.makeEmpty(); root.updateWorldMatrix(true, true);
-  root.traverse((o) => { if (o.isMesh && o.geometry) {
+  root.traverse((o) => { if (o.isMesh && o.geometry && o.visible && o.renderOrder < 998) {
     if (!o.geometry.boundingBox) o.geometry.computeBoundingBox();
     _b.copy(o.geometry.boundingBox).applyMatrix4(o.matrixWorld); _box.union(_b);
   } });
