@@ -668,6 +668,9 @@ function buildCrystalWings(def, model, attach, giM) {
   // so no extra dihedral. Far tip = max x; finger tips = the local-y minima.
   const outline = def.wingOutline;
   const outScale = (model.wingOutlineScale ?? 1) * ws;
+  // model.wingSkinned: bind the traced outline + bone-shapes to a 3-bone skeleton
+  // (shoulder→elbow→wrist) so the shared flap animator folds the wing as smooth skin.
+  const skinnedOutline = !!model.wingSkinned && !!outline;
   function outlineGeo() {
     const shp = new THREE.Shape();
     outline.forEach(([x, y], i) => (i ? shp.lineTo(x, y) : shp.moveTo(x, y)));
@@ -685,6 +688,86 @@ function buildCrystalWings(def, model, attach, giM) {
     }
     let far = outline[0]; for (const p of outline) if (p[0] > far[0]) far = p;
     return { tips, far };
+  }
+
+  // ── SKINNED outline wing ──────────────────────────────────────────────────
+  // Bind the flat traced membrane + filled bone-shapes to a shoulder→elbow→wrist
+  // bone chain (+ a static body anchor) and let the shared dragonWingFlap animator
+  // fold it as smooth skin. Span weights by |x|: anchor(0)→shoulder(1)→elbow(2)→
+  // wrist(3), so the root welds to the body and the outer wing folds at the wrist.
+  if (skinnedOutline) {
+    const sgroup = new THREE.Group();
+    const strutMat = model.wingVeins ? veinMat : armMat;
+    const wristX = (def.wingStruts && def.wingStruts.wrist ? def.wingStruts.wrist[0] : 1.26) * outScale;
+    const wristY = (def.wingStruts && def.wingStruts.wrist ? def.wingStruts.wrist[1] : 1.07) * outScale;
+    const elbowF = 0.55, elbowX = wristX * elbowF, elbowY = wristY * elbowF;
+    const rootBand = elbowX * 0.5, foldBand = Math.max(0.35 * outScale, 0.25);
+    const sstep = (x) => { x = Math.min(Math.max(x, 0), 1); return x * x * (3 - 2 * x); };
+    const spanSkin = (ax) => { const e = elbowX, w = wristX, b = foldBand; let a, bb, t = 0;
+      if (ax < rootBand) { a = 0; bb = 1; t = sstep(ax / rootBand); }
+      else if (ax <= e - b) { a = 1; bb = 1; }
+      else if (ax < e + b) { a = 1; bb = 2; t = sstep((ax - (e - b)) / (2 * b)); }
+      else if (ax <= w - b) { a = 2; bb = 2; }
+      else if (ax < w + b) { a = 2; bb = 3; t = sstep((ax - (w - b)) / (2 * b)); }
+      else { a = 3; bb = 3; }
+      return { si: [a, bb], sw: [1 - t, t] }; };
+    const writeWeights = (geo) => { const pos = geo.attributes.position;
+      const si = new Uint16Array(pos.count * 4), sw = new Float32Array(pos.count * 4);
+      for (let i = 0; i < pos.count; i++) { const sk = spanSkin(Math.abs(pos.getX(i))); si[i * 4] = sk.si[0]; si[i * 4 + 1] = sk.si[1]; sw[i * 4] = sk.sw[0]; sw[i * 4 + 1] = sk.sw[1]; }
+      geo.setAttribute('skinIndex', new THREE.Uint16BufferAttribute(si, 4));
+      geo.setAttribute('skinWeight', new THREE.Float32BufferAttribute(sw, 4)); };
+    const subdivide = (geo) => { const pos = geo.attributes.position, idx = geo.index;
+      const v = []; for (let i = 0; i < pos.count; i++) v.push([pos.getX(i), pos.getY(i), pos.getZ(i)]);
+      const mid = new Map(), getMid = (a, b) => { const k = a < b ? a + '_' + b : b + '_' + a; if (mid.has(k)) return mid.get(k);
+        const va = v[a], vb = v[b]; v.push([(va[0] + vb[0]) / 2, (va[1] + vb[1]) / 2, (va[2] + vb[2]) / 2]); const id = v.length - 1; mid.set(k, id); return id; };
+      const ni = []; for (let t = 0; t < idx.count; t += 3) { const a = idx.getX(t), b = idx.getX(t + 1), c = idx.getX(t + 2);
+        const ab = getMid(a, b), bc = getMid(b, c), ca = getMid(c, a); ni.push(a, ab, ca, ab, b, bc, ca, bc, c, ab, bc, ca); }
+      const g = new THREE.BufferGeometry(), fp = new Float32Array(v.length * 3);
+      for (let i = 0; i < v.length; i++) { fp[i * 3] = v[i][0]; fp[i * 3 + 1] = v[i][1]; fp[i * 3 + 2] = v[i][2]; }
+      g.setAttribute('position', new THREE.Float32BufferAttribute(fp, 3)); g.setIndex(ni); return g; };
+    const mirror = (geo, s) => { if (s > 0) return geo; const pos = geo.attributes.position;
+      for (let i = 0; i < pos.count; i++) pos.setX(i, -pos.getX(i)); pos.needsUpdate = true;
+      const idx = geo.index; if (idx) for (let i = 0; i < idx.count; i += 3) { const b = idx.getX(i + 1), c = idx.getX(i + 2); idx.setX(i + 1, c); idx.setX(i + 2, b); } return geo; };
+    const shapeGeo = (pts, passes) => { const shp = new THREE.Shape();
+      pts.forEach(([x, y], i) => (i ? shp.lineTo(x, y) : shp.moveTo(x, y))); shp.closePath();
+      let g = new THREE.ShapeGeometry(shp, seg(2)); g.scale(outScale, outScale, 1);
+      for (let p = 0; p < passes; p++) g = subdivide(g); return g; };
+    let farTip = outline[0]; for (const p of outline) if (p[0] > farTip[0]) farTip = p;
+    const rigs = {};
+    for (const s of [-1, 1]) {
+      const mount = new THREE.Group();
+      const anchor = new THREE.Bone();
+      const shoulder = new THREE.Bone();
+      const elbow = new THREE.Bone(); elbow.position.set(elbowX * s, elbowY, 0);
+      const wrist = new THREE.Bone(); wrist.position.set((wristX - elbowX) * s, wristY - elbowY, 0);
+      shoulder.add(elbow); elbow.add(wrist);
+      let mg = shapeGeo(outline, 2); mirror(mg, s); applyWingGradient(mg, def, 0, 1); mg.computeVertexNormals(); writeWeights(mg);
+      const mem = new THREE.SkinnedMesh(mg, wingMat); mem.frustumCulled = false;
+      const struts = [];
+      for (const poly of (def.wingStruts && def.wingStruts.boneShapes ? def.wingStruts.boneShapes : [])) {
+        if (poly.length < 3) continue;
+        let bg = shapeGeo(poly, 1); mirror(bg, s); bg.translate(0, 0, 0.05); bg.computeVertexNormals(); writeWeights(bg);
+        const sm = new THREE.SkinnedMesh(bg, strutMat); sm.frustumCulled = false; struts.push(sm);
+      }
+      mount.add(anchor); mount.add(shoulder); mount.add(mem); for (const sm of struts) mount.add(sm);
+      const marker = new THREE.Object3D(); marker.position.set((farTip[0] * outScale - wristX) * s, farTip[1] * outScale - wristY, 0); wrist.add(marker);
+      mount.updateMatrixWorld(true);
+      const skel = new THREE.Skeleton([anchor, shoulder, elbow, wrist]);
+      mem.bind(skel); for (const sm of struts) sm.bind(skel);
+      const wr = attach.wingRoot(s);
+      mount.position.set(wr.x, wr.y, wr.z);
+      mount.rotation.set(model.wingPlaneTiltX ?? 0, s * (model.wingPlaneSweepY ?? 0), s * (model.wingPlaneRollZ ?? 0));
+      sgroup.add(mount);
+      const rig = { shoulder, elbow, wrist, side: s, profile: model.flapProfile || null };
+      if (s < 0) rigs.L = { shoulder, wrist, marker, rig }; else rigs.R = { shoulder, wrist, marker, rig };
+    }
+    return { group: sgroup, parts: {
+      wingPivotL: rigs.L.shoulder, wingPivotR: rigs.R.shoulder,
+      wingTipL: rigs.L.wrist, wingTipR: rigs.R.wrist,
+      tipMarkerL: rigs.L.marker, tipMarkerR: rigs.R.marker,
+      wingPivot2L: null, wingPivot2R: null,
+      wingRigL: rigs.L.rig, wingRigR: rigs.R.rig,
+    }, wingMat, spineMats };
   }
 
   const parts = {};
