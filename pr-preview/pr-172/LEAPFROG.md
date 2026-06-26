@@ -3184,3 +3184,27 @@ follow the centerlines — never approximate them with straight segments from an
 from where the skeleton converges (min-distance-to-tips junction), not a search-fit. For line-art sources, flood
 the exterior to get the filled shape (outline) and use the dark interior strokes (bones) — both QA-overlaid.
 The thrice-earned rule: **trace it from the source; don't invent it.**
+
+---
+
+### Lesson — Geometry is portable; design is not (harvest a scaffold across branches)
+**Did / learned:** the human had traced a *beautiful* wing (membrane outline + bone struts) in a SEPARATE branch
+(`claude/celestial-storm-dragon-gen-23lphf`) but its rendered WING DESIGN was "too far gone — no iteration can
+fix it." The ask: copy ONLY the traced outline + bones, discard that branch's design, and build our own wing on
+them as a scaffold. Found the data via read-only `git show <branch>:<path>`: `reforged/js/celestialTrace.js`
+→ `CELESTIAL_TRACE.wings[1]` (320-pt right-wing membrane, 0..1 on a 941×1672 canvas, **+y DOWN**) and
+`reforged/tools/refs/celestial/wing-bones-merged-R.json` → `boneSpines` (7 clean `{pts,radii}` centerlines = the
+6–7 main struts). Copied those two artifacts (+ `stencil-wings.png`) into this branch as committed reference data,
+then wrote `tools/celestialScaffold.mjs` to convert canvas→wing-local **through ONE documented convention**
+(`origin = outline min-x root`, `+x outward`, `+y up` (flip), `scale = 3/(tipX−rootX)` so span≈3; **wrist =
+iterative inner-endpoint centroid of the bone spines**), RDP the outline to ~50 pts, orient each spine wrist→tip
+and force-start at the wrist (a clean fan). QA'd TWO ways: (1) overlay the harvested outline+spines back on the
+stencil PNG (they ride the drawn lines), (2) a wing-local plot of exactly what `crystalWing` consumes. Wired the
+converted `wingOutline`+`wingStruts` into `prism`; the rear silhouette renders a clean symmetric bat-wing with
+the scaffold's sharp finger tips + scallops. tricount 0-over, defs/parametric/flapcheck/skinnedwing/blueprint
+green, roster byte-identical (only `prism` changed).
+**→ Systematize:** **harvest proven traced scaffolds (outline + bones) as reusable DATA in their own files,
+convert through ONE documented coordinate convention, QA on the source image — THEN skin freely.** Don't drag a
+bad render along with good geometry: separate the scaffold (shape) from the design (how it's skinned). Pull
+cross-branch source with read-only `git show <branch>:<path>` and commit the artifacts so the conversion is
+reproducible.
