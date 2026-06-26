@@ -25,7 +25,9 @@
   .forms button { flex: 1; background: #1a2030; color: #c2cce0; border: 1px solid #313c52; border-radius: 7px;
     padding: 6px 0; font-size: 11px; cursor: pointer; }
   .forms button.on { background: #2d6cff; border-color: #2d6cff; color: #fff; }
-  .toggles { display: flex; gap: 14px; font-size: 12px; color: #b6c1d6; }
+  .toggles { display: flex; flex-wrap: wrap; gap: 8px 14px; font-size: 12px; color: #b6c1d6; }
+  #cmpbox .sub { margin-top: 4px; }
+  #cmpbox .chg-all label { color: #e6edf8; }
   .toggles label { display: flex; align-items: center; gap: 6px; text-transform: none; letter-spacing: 0; margin: 0; cursor: pointer; }
   #hint { bottom: 12px; left: 50%; transform: translateX(-50%); font-size: 12px; color: #8b97ad;
     padding: 7px 14px; }
@@ -53,12 +55,7 @@
     <label><input type="checkbox" id="spin"> auto-spin</label>
     <label><input type="checkbox" id="flap"> animate</label>
   </div>
-  <div id="cmpbox"><div class="sub">Compare changes (toggle off = before):</div>
-    <div class="toggles">
-      <label><input type="checkbox" id="armor" checked> armor</label>
-      <label><input type="checkbox" id="ftail" checked> flame tail</label>
-    </div>
-  </div>
+  <div id="cmpbox"></div>
 </div>
 <div id="hint" class="panel">1 finger / drag = rotate • 2 fingers = pinch-zoom &amp; pan • double-tap = reset</div>
 <div id="name" class="panel"><b id="nm">—</b><br><span id="fm">—</span></div>
@@ -160,22 +157,36 @@ function bounds(root) {
   return _box;
 }
 let current = null, tick = null, t = 0;
-// Build the resolved def for a form, applying the "Compare changes" toggles so the
-// recent tweaks can be flipped off to see the BEFORE state (a deep-cloned blueprint,
-// so the roster data is untouched).
+// ── CHANGE REGISTRY ────────────────────────────────────────────────────────────────
+// Every design change we make gets ONE entry here: a label + a `revert(def)` that undoes
+// it on a throwaway resolved def, so the viewer can show the BEFORE state. The compare
+// toggles + the "all changes" master switch are generated from this list, so adding a
+// future change is a one-liner — the UI scales itself. `dragons: '*'` = applies to all.
+// NEWEST FIRST (top of the list = most recent change).
+const CHANGES = [
+  { id: 'wings', label: 'glider wings', dragons: ['flameMonarch'],
+    revert(def) { def.model.legacyWing = true; } },                                 // → old flat-fan wings
+  { id: 'armor', label: 'banded armor', dragons: ['flameMonarch'],
+    revert(def) {
+      if (!def.parts) return;
+      delete def.parts.shingle;
+      if (Array.isArray(def.parts.surfaceLayers))
+        def.parts.surfaceLayers = def.parts.surfaceLayers.filter(l => (typeof l === 'string' ? l : l.type) !== 'monarchArmor');
+    } },
+  { id: 'tail', label: 'flame tail', dragons: ['flameMonarch'],
+    revert(def) { if (def.parts && def.parts.tail === 'monarchTail') def.parts.tail = 'monarchTailBead'; } },
+];
+const changesFor = (key) => CHANGES.filter((ch) => ch.dragons === '*' || ch.dragons.includes(key));
+
+// Build the resolved def for a form, then REVERT every change whose toggle is OFF, so the
+// roster data stays untouched (we mutate only the deep-cloned + resolved def).
 function defFor(key, tier) {
-  const armor = document.getElementById('armor');
-  const ftail = document.getElementById('ftail');
-  const clone = JSON.parse(JSON.stringify(DRAGONS[key]));   // blueprints are pure data
-  if (clone.parts) {
-    if (armor && !armor.checked) {
-      delete clone.parts.shingle;                                                   // legacy shingle armor
-      if (Array.isArray(clone.parts.surfaceLayers))                                 // new banded armor
-        clone.parts.surfaceLayers = clone.parts.surfaceLayers.filter(l => (typeof l === 'string' ? l : l.type) !== 'monarchArmor');
-    }
-    if (ftail && !ftail.checked && clone.parts.tail === 'monarchTail') clone.parts.tail = 'monarchTailBead';  // pre-redo bead tail
+  const def = ascendedDef(JSON.parse(JSON.stringify(DRAGONS[key])), tier, 0);
+  for (const ch of changesFor(key)) {
+    const cb = document.getElementById('chg-' + ch.id);
+    if (cb && !cb.checked) ch.revert(def);
   }
-  return ascendedDef(clone, tier, 0);
+  return def;
 }
 function load(key, tier, keepView = false) {
   if (current) { scene.remove(current.group); current.group.traverse(o => { if (o.geometry) o.geometry.dispose(); }); }
@@ -211,15 +222,17 @@ const keys = Object.keys(DRAGONS);
 pick.innerHTML = keys.map(k => `<option value="${k}">${DRAGONS[k].name || k}</option>`).join('');
 let curKey = keys.includes('flameMonarch') ? 'flameMonarch' : keys[0];
 let curTier = 3;
-// URL params (shareable / diagnostic views): ?dragon=&tier=&az=&pol=&zoom=&armor=0&ftail=0
+// URL params (shareable / diagnostic views): ?dragon=&tier=&az=&pol=&zoom=&off=wings,armor
+// `off` (and the legacy armor=0 / ftail=0) start with those changes REVERTED.
 const Q = new URLSearchParams(location.search);
 if (Q.get('dragon') && DRAGONS[Q.get('dragon')]) curKey = Q.get('dragon');
 if (Q.get('tier') != null && Q.get('tier') !== '') curTier = +Q.get('tier');
 if (Q.get('az') != null) az = +Q.get('az');
 if (Q.get('pol') != null) pol = +Q.get('pol');
 const qZoom = Q.get('zoom') != null ? +Q.get('zoom') : null;
-if (Q.get('armor') === '0') document.getElementById('armor').checked = false;
-if (Q.get('ftail') === '0') document.getElementById('ftail').checked = false;
+const offIds = new Set((Q.get('off') || '').split(',').map(s => s.trim()).filter(Boolean));
+if (Q.get('armor') === '0') offIds.add('armor');
+if (Q.get('ftail') === '0') offIds.add('tail');
 pick.value = curKey;
 
 const formsEl = document.getElementById('forms');
@@ -229,18 +242,38 @@ function renderForms() {
     `<button data-t="${i}" class="${i === curTier ? 'on' : ''}">${['H','K','R','E'][i] || i}</button>`).join('');
   [...formsEl.children].forEach(b => b.onclick = () => { curTier = +b.dataset.t; renderForms(); load(curKey, Math.min(curTier, n - 1)); });
 }
-pick.onchange = () => { curKey = pick.value; curTier = Math.min(curTier, ((DRAGONS[curKey].forms || []).length || 4) - 1); renderForms(); updateCmpVisibility(); load(curKey, curTier); };
 
 const spin = document.getElementById('spin'), flap = document.getElementById('flap');
-// Compare toggles + show the box only for dragons that have something to compare.
-// Compare toggles keep the current camera (keepView=true) — only the geometry swaps.
+// Compare reloads KEEP the current camera (keepView=true) — only the geometry swaps.
 const reload = () => load(curKey, Math.min(curTier, ((DRAGONS[curKey].forms || []).length || 4) - 1), true);
-['armor', 'ftail'].forEach(id => document.getElementById(id).addEventListener('change', reload));
-function updateCmpVisibility() {
-  const p = DRAGONS[curKey].parts || {};
-  const has = !!p.shingle || p.tail === 'monarchTail';
-  document.getElementById('cmpbox').style.display = has ? '' : 'none';
+
+// ── COMPARE TOGGLES (generated from the CHANGES registry) ───────────────────────────
+// One checkbox per change for the current dragon (checked = newest / change applied),
+// plus a MASTER "all changes" switch: flip the whole stack original ⇄ everything in one
+// tap. Master shows indeterminate when the individual toggles are mixed.
+function syncMaster(master, boxes) {
+  const on = boxes.filter(b => b.checked).length;
+  master.checked = on === boxes.length;
+  master.indeterminate = on > 0 && on < boxes.length;
 }
+function renderChanges() {
+  const box = document.getElementById('cmpbox');
+  const list = changesFor(curKey);
+  if (!list.length) { box.style.display = 'none'; box.innerHTML = ''; return; }
+  box.style.display = '';
+  box.innerHTML =
+    '<div class="sub">Compare changes (toggle off = before):</div>'
+    + '<div class="toggles chg-all"><label><input type="checkbox" id="chg-all"> <b>all changes</b></label></div>'
+    + '<div class="toggles">'
+    + list.map(ch => `<label><input type="checkbox" id="chg-${ch.id}" ${offIds.has(ch.id) ? '' : 'checked'}> ${ch.label}</label>`).join('')
+    + '</div>';
+  const master = document.getElementById('chg-all');
+  const boxes = list.map(ch => document.getElementById('chg-' + ch.id));
+  master.onchange = () => { boxes.forEach(b => { b.checked = master.checked; }); reload(); };
+  boxes.forEach(b => { b.onchange = () => { syncMaster(master, boxes); reload(); }; });
+  syncMaster(master, boxes);
+}
+pick.onchange = () => { curKey = pick.value; curTier = Math.min(curTier, ((DRAGONS[curKey].forms || []).length || 4) - 1); renderForms(); renderChanges(); load(curKey, curTier); };
 
 // NOTE: setSize must update the canvas STYLE (no `false`): on a high-DPR phone the
 // drawing buffer is innerWidth×pixelRatio, and without an explicit CSS size that 2×
@@ -251,7 +284,7 @@ addEventListener('orientationchange', () => setTimeout(() => { resize(); load(cu
 resize();   // set aspect BEFORE the first load so portrait framing is correct
 
 renderForms();
-updateCmpVisibility();
+renderChanges();
 load(curKey, curTier);
 if (qZoom != null) dist = baseDist * qZoom;   // diagnostic close-up via ?zoom=
 

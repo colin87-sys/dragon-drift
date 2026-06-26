@@ -342,7 +342,29 @@ function buildMonarchWing(def, model, attach, giM) {
     leadR: 0.075, fingerR: 0.030,
     dihedral: 0.17, twist: 0.13, socketR: 0.18,
   };
-  const Rp = buildAnatomicalWing({ ws, membraneMat: wingMat, leadMat, fingerMat, jointMat, socketMat, anatomy }).pivot;
+  // LEGACY wing (the pre-redesign "flat fan": medial wrist + 5 even fingers, one strut
+  // weight). Kept ONLY so the model viewer can toggle the wing redesign off to compare
+  // before/after — gated by model.legacyWing, never set on the live blueprint.
+  let wingOpts;
+  if (model.legacyWing) {
+    const strutInt = 0.5 + giM * 0.4 + F * 0.12;
+    const strutMat = tagFlare(new THREE.MeshStandardMaterial({
+      color: def.horn ?? 0x2a221c, emissive: cMolten, emissiveIntensity: strutInt, roughness: 0.4, metalness: 0.45,
+    }), cMolten, strutInt, spineMats);
+    const legacyAnatomy = {
+      rootFront: [0, 0.34], rootBack: [0, -0.58],
+      elbow: [0.55, 0.34], wrist: [1.40, 0.46],
+      fingers: [
+        { tip: [5.30, 0.62], bow: 0.95 }, { tip: [4.75, -0.25], bow: 0.60 }, { tip: [3.95, -1.05], bow: 0.36 },
+        { tip: [3.00, -1.62], bow: 0.18 }, { tip: [2.05, -1.90], bow: 0.05 },
+      ],
+      scallop: 0.42, strutR: 0.038, claw: 0.10, hook: 0.9,
+    };
+    wingOpts = { ws, membraneMat: wingMat, strutMat, anatomy: legacyAnatomy };
+  } else {
+    wingOpts = { ws, membraneMat: wingMat, leadMat, fingerMat, jointMat, socketMat, anatomy };
+  }
+  const Rp = buildAnatomicalWing(wingOpts).pivot;
   Rp.position.set(...Object.values(attach.wingRoot(1)));
   group.add(Rp);
   const L = mirrorWing(Rp);
