@@ -716,7 +716,19 @@ function buildCrystalWings(def, model, attach, giM) {
         g.setIndex([0, 1, 2, 0, 2, 3]); g.computeVertexNormals();
         return new THREE.Mesh(g, strutMat);
       };
-      if (def.wingStruts && def.wingStruts.bones) {
+      if (def.wingStruts && def.wingStruts.boneShapes) {
+        // FILLED bone shapes (e.g. human-tagged finger bones traced as closed 2-edge outlines):
+        // render each polygon verbatim as a flat shape in the screen plane, just above the membrane.
+        for (const poly of def.wingStruts.boneShapes) {
+          if (poly.length < 3) continue;
+          const shp = new THREE.Shape();
+          poly.forEach(([x, y], i) => (i ? shp.lineTo(x * outScale, y * outScale) : shp.moveTo(x * outScale, y * outScale)));
+          shp.closePath();
+          const g = new THREE.ShapeGeometry(shp, seg(1));
+          g.translate(0, 0, 0.05);
+          dih.add(new THREE.Mesh(g, strutMat));
+        }
+      } else if (def.wingStruts && def.wingStruts.bones) {
         // BONE STRUTS traced from THIS wing's drawn lines (tools/wingtrace.mjs skeleton
         // centerlines): each is a POLYLINE wrist→tip (the real, possibly-curved path);
         // render it as a tapered 2-edge ribbon (thin to the tip).

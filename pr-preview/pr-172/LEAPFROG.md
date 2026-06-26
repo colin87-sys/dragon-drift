@@ -3218,3 +3218,10 @@ same shape) → residual 3.9px → map bones def→canvas→wing-local. **When a
 asset, use the one its final render consumes (`*Def.js`), not a mid-pipeline `refs/*.json`; and register
 cross-frame data by fitting a transform on a SHARED feature (the silhouette), trying winding/offset, not by
 assuming index alignment.**
+
+**Correction 2 (same lesson):** even `CELESTIAL_DEF.wing.bones` was the wrong field — the branch's own renderer
+(`celestialModel.js:505`) draws `D.wing.boneShapes` (the human-TAGGED filled bone outlines), not the auto
+centerlines in `.bones`. Switched the scaffold to harvest `boneShapes`, registered them onto the approved outline
+with the same affine, and added a `wingStruts.boneShapes` path to `crystalWing` that fills each closed polygon as
+a flat screen-plane bone (matching the branch's `boneSolid`). **To find the FINAL form of a traced asset, follow
+what the consumer actually renders (grep the builder for the field it reads), not the most obvious-looking field.**
