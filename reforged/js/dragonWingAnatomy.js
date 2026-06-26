@@ -50,6 +50,48 @@ function fanPanel(pts, mat) {
   return new THREE.Mesh(g, mat);
 }
 
+// A CAMBERED fan: same star-shaped polygon as fanPanel (apex `pts[0]` → boundary), but
+// subdivided into concentric RINGS so interior vertices exist, then each interior ring
+// is SAGGED below the apex→edge chord (a smooth chordwise billow). This is what lifts a
+// membrane out of "flat moth wing" into a taut, stretched, slightly-concave sail — the
+// premium read on the Seraph/Sovereign wings. `sag` = max dip (world units); the dip is
+// 0 at the apex and the boundary, peaks mid-span (sin), so the bones stay crisp and only
+// the free membrane bellies. A faint per-vertex emissive lift (vertexColors) is NOT done
+// here (kept to the material) so this works with any membrane material.
+function billowedFan(pts, mat, rings, sag) {
+  const apex = pts[0], boundary = pts.slice(1), m = boundary.length;
+  const R = Math.max(2, rings);
+  const pos = [apex.x, apex.y, apex.z];
+  const idxOf = (r, j) => (r === 0 ? 0 : 1 + (r - 1) * m + j);
+  for (let r = 1; r <= R; r++) {
+    const fr = r / R, dip = Math.sin(Math.PI * fr) * sag;   // belly the middle, pin the edges
+    for (let j = 0; j < m; j++) {
+      const b = boundary[j];
+      pos.push(apex.x + (b.x - apex.x) * fr, apex.y + (b.y - apex.y) * fr - dip, apex.z + (b.z - apex.z) * fr);
+    }
+  }
+  const idx = [];
+  for (let j = 0; j < m - 1; j++) idx.push(0, idxOf(1, j), idxOf(1, j + 1));   // apex → first ring
+  for (let r = 1; r < R; r++) for (let j = 0; j < m - 1; j++) {
+    const a = idxOf(r, j), b = idxOf(r, j + 1), c = idxOf(r + 1, j), d = idxOf(r + 1, j + 1);
+    idx.push(a, c, b, b, c, d);
+  }
+  const g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+  g.setIndex(idx); g.computeVertexNormals();
+  return new THREE.Mesh(g, mat);
+}
+
+// A bright TRAILING-EDGE RIM: a thin tube run along an ordered list of edge points (the
+// scalloped trailing edge). A crisp emissive line on the silhouette edge is the cheap
+// premium accent the Sovereign's cyan rim and the Seraph's gold rim both use.
+function edgeRim(edgePts, mat, rad, ws) {
+  if (edgePts.length < 2) return null;
+  const curve = new THREE.CatmullRomCurve3(edgePts, false, 'catmullrom', 0.5);
+  const geo = new THREE.TubeGeometry(curve, Math.max(12, seg(20)), rad * ws, seg(4), false);
+  return new THREE.Mesh(geo, mat);
+}
+
 // In-plane normal of a→b, flipped to always point toward the LEADING edge (−Z), so
 // fingers/leading frame bow CONVEXLY (the classic dragon-wing sweep) regardless of
 // each finger's fan angle.
@@ -246,7 +288,10 @@ export function buildAnatomicalWing(opts) {
 
   // ARM membrane: one fan from rootFront covering rootFront→elbow→wrist (leading) and
   // wrist→wristTrail→rootBack (trailing) — the whole inner wing up to the wrist line.
-  pivot.add(fanPanel([P(A.rootFront), P(A.elbow), P(A.wrist), P(wristTrail), P(A.rootBack)], mem));
+  // billow it lightly (cambered, not flat) when the creature opts in.
+  const billow = (A.billow ?? 0) * ws;
+  const armPts = [P(A.rootFront), P(A.elbow), P(A.wrist), P(wristTrail), P(A.rootBack)];
+  pivot.add(billow > 0 ? billowedFan(armPts, mem, seg(3), billow * 0.6) : fanPanel(armPts, mem));
   // arm bones (humerus + forearm) + joint nodes, same frame.
   pivot.add(curvedBone(P(A.rootFront), P(A.elbow), 0.12, ws, leadM, (A.strutR ?? 0.04) * 1.5));   // humerus (short)
   pivot.add(curvedBone(P(A.elbow), P(A.wrist), 0.16, ws, leadM, (A.strutR ?? 0.04) * 1.3));        // forearm
@@ -313,6 +358,7 @@ export function buildAnatomicalWing(opts) {
   // smooth catenary scallops from the wingtip through the inner web tips, deep enough
   // that each fingertip reads as a point.
   const outline = [wristV, ...leadPts.slice(1)];
+  const trailPts = [wingtipV.clone()];                       // for the bright trailing-edge rim
   const scStarts = [wingtipV, ...fingers.slice(1).map((f, i) => webTip(f, i + 1))];
   for (let i = 0; i < scStarts.length - 1; i++) {
     const a = scStarts[i], b = scStarts[i + 1];
@@ -323,12 +369,18 @@ export function buildAnatomicalWing(opts) {
     const perp = new THREE.Vector3(-(b.z - a.z), 0, b.x - a.x).normalize();
     if (perp.dot(wristV.clone().sub(mid)) < 0) perp.negate();
     const ctrl = mid.add(perp.multiplyScalar(A.scallop * a.distanceTo(b)));
-    outline.push(...bezier(a, ctrl, b, sampN).slice(1));
+    const seg2 = bezier(a, ctrl, b, sampN).slice(1);
+    outline.push(...seg2);
+    trailPts.push(...seg2);
   }
   // close via the shared wrist→wristTrail edge so the hand-wing welds to the arm membrane
   // along the full wrist line (same frame → a true weld, gap-free in every pose).
   outline.push(P(wristTrail));
-  pivot.add(fanPanel(outline, mem));
+  // CAMBERED (billowed) membrane when opted in — a taut, slightly-concave sail instead of
+  // a flat sheet; the single biggest "not a flat moth wing" win.
+  pivot.add(billow > 0 ? billowedFan(outline, mem, seg(4), billow) : fanPanel(outline, mem));
+  // bright molten TRAILING-EDGE RIM along the scallops (premium silhouette accent).
+  if (opts.rimMat) { const rim = edgeRim(trailPts, opts.rimMat, A.rimR ?? 0.022, ws); if (rim) pivot.add(rim); }
 
   pivot.add(leadStrut);
   if (A.taperedClaws) {

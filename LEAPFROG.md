@@ -3443,3 +3443,22 @@ stops a hair past the scallop join instead of at `tip(f)`. Key distinction baked
 `webTip` (1−claw of the way out) is the SCALLOP JOIN; the bony claw should poke only `clawLen` past THAT, not run
 to the full digit length the curvature math uses. Lesson: a "claw too long" note is about where the strut ENDS
 (web-join + a hair) and its RADIUS PROFILE (taper to a point), not the finger anatomy — keep the two decoupled.
+
+---
+
+### L111 — "Flat moth wings" = a FLAT membrane — steal the Sovereign/Seraph billow + edge rim, don't keep tuning the fan
+The human kept saying the Monarch wing "looks off / like flat glider moth wings" and pointed at the Phoenix &
+Sovereign wings' aesthetic. Instead of tuning the fan again, READ the wings they admire (dispatched an Explore
+agent over `dragonSeraph.js buildSeraphWing` + `dragonWings.js buildMembraneWings`/`buildCurvedPatch`). The
+finding: those wings read premium for THREE reasons my flat anatomical fan lacked — (1) CHORDWISE BILLOW /
+camber (the membrane is a taut, slightly-concave SAIL via a curved grid, not a planar `ShapeGeometry`), (2) a
+bright CONTRASTING EDGE RIM on the silhouette (Sovereign cyan / Seraph gold), (3) material layering + a root→tip
+gradient. Dihedral alone (L109) wasn't enough — the *panel between the struts was still flat*. Fix: added
+`billowedFan` (subdivide the star-fan into concentric RINGS and sag the interior rings below the apex→edge chord
+— `dip = sin(π·fr)·sag`, 0 at apex+edge so bones stay crisp, max mid-span) and `edgeRim` (a bright emissive tube
+run along the scalloped trailing edge). Both opt-in (`A.billow`/`opts.rimMat`) so Thundercoil's shared path is
+byte-identical. +728 tris (4308→5036). Lessons: (1) when a human references EXISTING art they like, go read its
+builder and extract the concrete technique — that's faster and more reliable than another blind tuning pass; (2)
+"flat" is rarely the outline — it's the lack of cross-section CURVATURE (camber/billow) and edge ACCENT; a flat
+fill with a perfect silhouette still reads as cardboard; (3) a subdivided fan with a mid-span sag is the cheap way
+to camber any star-shaped membrane without a full grid rebuild.

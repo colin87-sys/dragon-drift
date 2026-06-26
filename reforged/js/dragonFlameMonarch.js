@@ -372,6 +372,11 @@ function buildMonarchWing(def, model, attach, giM) {
     const jointMat = tagFlare(new THREE.MeshStandardMaterial({
       color: def.horn ?? 0x2a221c, emissive: cMolten, emissiveIntensity: baseInt * 1.35, roughness: 0.3, metalness: 0.5,
     }), cMolten, baseInt * 1.35, spineMats);
+    // bright molten TRAILING-EDGE RIM — the premium silhouette accent (Sovereign/Seraph
+    // both rim the wing edge); flares on Surge with the rest of the molten kit.
+    const rimMat = tagFlare(new THREE.MeshStandardMaterial({
+      color: cMolten, emissive: cMolten, emissiveIntensity: baseInt * 1.5, roughness: 0.35, metalness: 0.2,
+    }), cMolten, baseInt * 1.5, spineMats);
     const anatomy = {
       rootFront: [0, 0.42], rootBack: [0, -0.66],
       elbow: [0.60, 0.42], wrist: [1.55, 0.56],            // short arm, medial wrist (~28% span)
@@ -384,8 +389,9 @@ function buildMonarchWing(def, model, attach, giM) {
       scallop: 0.30, strutR: 0.060, fingerRMul: 0.62, claw: 0.13, hook: 1.0,
       taperedClaws: true, clawLen: 0.10,                   // short bony claw points (thick→point), just past the scallop join
       dihedral: 0.18, twist: 0.12,                         // raised root + sagging washout
+      billow: 0.34, rimR: 0.024,                           // CAMBERED sail (not a flat moth wing) + a molten edge rim
     };
-    wingOpts = { ws, membraneMat: wingMat, strutMat: leadMat, leadMat, fingerMat, jointMat, anatomy };
+    wingOpts = { ws, membraneMat: wingMat, strutMat: leadMat, leadMat, fingerMat, jointMat, rimMat, anatomy };
   }
   const Rp = buildAnatomicalWing(wingOpts).pivot;
   Rp.position.set(...Object.values(attach.wingRoot(1)));
