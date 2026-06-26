@@ -878,12 +878,13 @@ export const DRAGONS = {
     // mode, eps 2.4, QA max-dev 2.0px — lies ON the reference edge). Wing-local: +x outward,
     // +y up, origin at the wrist-side root. crystalWing renders it verbatim in the screen
     // plane (mirrored per side), so the membrane silhouette IS the reference wing.
-    // SCAFFOLD harvested from the celestial-storm branch's traced wing (membrane outline +
-    // 7 bone spines), converted to wing-local via tools/celestialScaffold.mjs (canvas→local:
-    // origin=root, +x outward, +y up, span≈3). We reuse the proven SHAPE; the skin/struts/
-    // finish below are our own design — geometry is portable, the old branch's design is not.
+    // SCAFFOLD harvested from the celestial-storm branch (tools/celestialScaffold.mjs):
+    // OUTLINE = the approved canvas-traced membrane silhouette; STRUTS = that branch's FINAL
+    // bones (CELESTIAL_DEF.wing.bones), registered from their frame onto the outline via an
+    // affine fit between the two silhouette traces (3.9px). Converted to wing-local (origin=
+    // root, +x outward, +y up, span≈3). Geometry is portable; the old branch's design is not.
     wingOutline: [[2.651,1.914],[2.026,1.69],[1.375,1.213],[1.364,1.236],[1.622,1.545],[1.592,1.534],[1.337,1.314],[1.049,1.014],[1.011,1.019],[1.032,1.123],[1.014,1.122],[0.928,0.971],[0.875,0.791],[0.678,0.553],[0.271,0.138],[0.157,0.055],[0,0],[0.123,-0.011],[0.144,-0.137],[0.109,-0.182],[0.15,-0.169],[0.177,-0.186],[0.175,-0.238],[0.292,-0.52],[0.316,-0.391],[0.475,-0.23],[0.713,-0.068],[0.908,0.003],[1.136,0.029],[1.365,0.006],[1.484,-0.034],[1.648,-0.163],[1.666,-0.156],[1.569,-0.008],[1.574,0.071],[1.693,0.325],[1.882,0.566],[2.126,0.687],[2.383,0.749],[2.693,0.715],[2.444,0.831],[2.284,1.078],[2.367,1.336],[2.524,1.526],[2.648,1.604],[3,1.712],[2.444,1.719],[2.437,1.744],[2.48,1.791],[2.625,1.893]],
-    wingStruts: {"wrist":[1.225,1.066],"bones":[[[1.225,1.066],[2.027,1.669]],[[1.225,1.066],[1.072,0.922],[1.789,0.906]],[[1.225,1.066],[0.969,0.83],[1.17,0.335]],[[1.225,1.066],[0.887,0.801],[0.782,0.436]],[[1.225,1.066],[1.594,1.157],[1.758,1.242]],[[1.225,1.066],[1.028,1.141],[0.939,0.939]],[[1.225,1.066],[1.088,1.011],[0.894,0.826]]]},
+    wingStruts: {"wrist":[1.259,1.073],"bones":[[[1.259,1.073],[2.036,1.674]],[[1.259,1.073],[1.112,0.93],[1.82,0.916]],[[1.259,1.073],[1.011,0.838],[1.224,0.348]],[[1.259,1.073],[0.931,0.809],[0.837,0.447]],[[1.259,1.073],[1.621,1.165],[1.781,1.249]],[[1.259,1.073],[1.062,1.146],[0.978,0.946]],[[1.259,1.073],[1.124,1.018],[0.937,0.834]]]},
     forms: [
       // T0 Shardling — clean, narrow, modest swept wings, faint cyan spine.
       { wingForm: 0, tailStyle: 'spade', tailSegments: 6, ridgeCount: 8,

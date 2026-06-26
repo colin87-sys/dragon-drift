@@ -3208,3 +3208,13 @@ convert through ONE documented coordinate convention, QA on the source image —
 bad render along with good geometry: separate the scaffold (shape) from the design (how it's skinned). Pull
 cross-branch source with read-only `git show <branch>:<path>` and commit the artifacts so the conversion is
 reproducible.
+
+**Correction (same lesson):** first pass grabbed the wrong bone source — `wing-bones-merged-R.json`'s
+`boneSpines` (an INTERMEDIATE artifact) — and the struts read wrong. The branch's FINAL, correct bones live in
+`celestialDef.js` → `CELESTIAL_DEF.wing.bones` (7 `{pts,radii}` centerlines) in the def's OWN rotated/scaled
+frame. Kept the human-approved canvas OUTLINE and registered the final bones onto it: fit a 6-DOF affine between
+the two 320-pt silhouette traces, **searching winding direction + cyclic start offset** (they were reversed,
+same shape) → residual 3.9px → map bones def→canvas→wing-local. **When a branch has several versions of a traced
+asset, use the one its final render consumes (`*Def.js`), not a mid-pipeline `refs/*.json`; and register
+cross-frame data by fitting a transform on a SHARED feature (the silhouette), trying winding/offset, not by
+assuming index alignment.**
