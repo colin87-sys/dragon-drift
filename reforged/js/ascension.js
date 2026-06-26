@@ -111,6 +111,9 @@ export function ascendEmberBonus() {
 // latest form's value). Size comes from SIZE_RAMP; the final form lights up.
 export function ascendedDef(def, tier, radiance) {
   radiance = radiance || 0;
+  // Coerce a non-finite tier (NaN from a junk ?tier= param, undefined, etc.) to 0 — a
+  // NaN tier would otherwise survive the clamp and crash on STAT_RAMP[NaN].speed.
+  tier = Number.isFinite(+tier) ? +tier : 0;
   tier = Math.max(0, Math.min(tier, ASCENSION_TIERS.length));
   const d = JSON.parse(JSON.stringify(def));
 
