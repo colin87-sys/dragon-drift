@@ -3296,3 +3296,32 @@ framing to INVISIBLE meshes (the hidden aim-pip, renderOrder≥998) — added `o
 And a charcoal/obsidian dragon on the dark studio backdrop reads as "off-center / only one wing" because the
 far wing + the dark body vanish into the background — confirmed via projection math that the model IS centered
 (box center x=0.00, projected box centered). Don't chase a "framing bug" that is really a contrast problem.
+
+---
+
+### L102 — The viewer's REAL framing bug was high-DPR canvas overflow (read the GL buffer, not the screenshot)
+Continuing L101's framing puzzle: even a brightly-lit neutral-background render still showed the dragon jammed
+bottom-right. But reading the actual WebGL drawing buffer (`gl.getContext().readPixels` → non-bg pixel centroid)
+returned `[0.52, 0.46]` — DEAD CENTRE. The render was always centred; the *screenshot* was lying. Root cause:
+`gl.setSize(w, h, false)` — the `false` is `updateStyle`, so Three sizes the drawing buffer to `w*pixelRatio`
+but never sets `canvas.style.width/height`. On a DPR-2/3 phone the 2–3× buffer overflows the viewport and you
+only see the top-left slab, so the centred model lands in the bottom-right corner. This shipped to MOBILE (the
+viewer's whole point). Fix: drop the `false` → `gl.setSize(w, h)` so the canvas CSS size matches the viewport.
+Verified DPR-3 portrait now centres. Lessons: (1) when a screenshot and the geometry math disagree, the buffer
+is ground truth — `readPixels` a pixel centroid, don't keep re-reading the PNG; (2) `updateStyle=false` is only
+safe when CSS already pins the canvas size — here `#view{inset:0}` was NOT enough for a replaced element.
+
+### L103 — Flame Monarch armor: banded segmented plates (approach a) — contour-wrapped, wing-root-skipped
+The shingle flank-scales (L97/L99) collided with the wing roots + read as scattered scabs, so the human chose
+approach (a): bold TRANSVERSE armor BANDS. Built as a new `monarchArmor` surface layer (registered in the
+family file, declared via `parts.surfaceLayers: ['monarchArmor']`, which ALSO suppresses the inferred spine
+line). Each band = TWO curved shell plates (L/R) generated as a parametric grid over the body cross-section —
+needed a new attach hook `ringAt(z) → {cy, rx, ry}` (the full ellipse, not just `keelTopAt`) so the plates HUG
+the real contour, inflated outward by a tapered thickness so every edge rounds off (never flat cards). A DORSAL
+CHANNEL (arc starts at a0≈0.36 rad off the crest) is left open so the molten spine shows BETWEEN the L/R plates,
+and a flare-tagged MOLTEN GAP-LINE glows in each transverse gap. The 5 band z-ranges deliberately SKIP the
+wing-root band (≈ -0.85..-0.40) so the armor can never collide with the wings (the original failure). +644 tris
+(3342→3986, ceiling 6000). The viewer's armor compare-toggle was updated to filter `monarchArmor` out of
+`surfaceLayers` (it only knew about `parts.shingle` before). Reusable pattern: contour-following decoration wants
+the torso to publish a cross-section sampler, and "bands that skip a z-range" is the clean way to coexist with
+appendages rooted in that range.

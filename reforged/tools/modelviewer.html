@@ -168,7 +168,11 @@ function defFor(key, tier) {
   const ftail = document.getElementById('ftail');
   const clone = JSON.parse(JSON.stringify(DRAGONS[key]));   // blueprints are pure data
   if (clone.parts) {
-    if (armor && !armor.checked) delete clone.parts.shingle;                       // strip the armor plating
+    if (armor && !armor.checked) {
+      delete clone.parts.shingle;                                                   // legacy shingle armor
+      if (Array.isArray(clone.parts.surfaceLayers))                                 // new banded armor
+        clone.parts.surfaceLayers = clone.parts.surfaceLayers.filter(l => (typeof l === 'string' ? l : l.type) !== 'monarchArmor');
+    }
     if (ftail && !ftail.checked && clone.parts.tail === 'monarchTail') clone.parts.tail = 'monarchTailBead';  // pre-redo bead tail
   }
   return ascendedDef(clone, tier, 0);
@@ -238,7 +242,10 @@ function updateCmpVisibility() {
   document.getElementById('cmpbox').style.display = has ? '' : 'none';
 }
 
-function resize() { const w = innerWidth, h = innerHeight; gl.setSize(w, h, false); camera.aspect = w / h; camera.updateProjectionMatrix(); }
+// NOTE: setSize must update the canvas STYLE (no `false`): on a high-DPR phone the
+// drawing buffer is innerWidth×pixelRatio, and without an explicit CSS size that 2×
+// buffer overflows the viewport so the centred model lands in the bottom-right corner.
+function resize() { const w = innerWidth, h = innerHeight; gl.setSize(w, h); camera.aspect = w / h; camera.updateProjectionMatrix(); }
 addEventListener('resize', resize);
 addEventListener('orientationchange', () => setTimeout(() => { resize(); load(curKey, Math.min(curTier, ((DRAGONS[curKey].forms || []).length || 4) - 1)); }, 200));
 resize();   // set aspect BEFORE the first load so portrait framing is correct

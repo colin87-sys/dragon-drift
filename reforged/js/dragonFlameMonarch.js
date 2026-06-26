@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { registerTorso, registerWings, registerHead, registerTail } from './dragonRecipe.js';
+import { registerSurfaceLayer } from './dragonSurfaceLayers.js';
 import { makeGlowTexture } from './util.js';
 import { hexRgb } from './dragonParts.js';
 import { applyFresnelRim } from './surface.js';
@@ -271,6 +272,10 @@ function buildMonarchHull(def, model, _bodyMat) {
     keelTopAt,
     halfWidthAt,
     bodyMidY: 0.58,
+    // Full cross-section ellipse at z (center-y, half-width rx, half-height ry) so
+    // contour-following decoration (the banded armor) can wrap the actual body, not
+    // guess from the keel-top alone.
+    ringAt: (z) => ({ cy: sampleRing(rings, z, 'y'), rx: sampleRing(rings, z, 'rx'), ry: sampleRing(rings, z, 'ry') }),
     tailShift: 0,
   };
   return { group, attach, mats: { bodyMat: hideMat }, coreGlow, spineMats, spineSegs };
@@ -558,3 +563,96 @@ function buildMonarchTailBead(def, model, mats, anchor) {
   return { group: root, segs, tailFins: null, accentMats };
 }
 registerTail('monarchTailBead', buildMonarchTailBead);
+
+// ── ARMOR — monarchArmor (banded segmented plates) ──────────────────────────
+// Approach (a): bold TRANSVERSE armor bands wrapping the back + upper flanks at
+// intervals down the body. Each band is TWO curved shell plates (left + right)
+// hugging the actual body cross-section (via attach.ringAt), raised proud of the
+// hide and rounded at every edge — never flat cards stuck on the surface. A
+// DORSAL CHANNEL is left open between the L/R plates so the molten spine shows
+// through (magma between the plates), and a thin MOLTEN GAP-LINE glows in each
+// transverse gap between consecutive bands. The wing-root z-band is skipped so
+// the armor never collides with the wings (the earlier failure mode). Plate
+// edges all taper, so the silhouette reads as segmented regal armor, not scabs.
+function shellPlate(sx, z0, z1, a0, a1, ringAt, tBase, mat, nz, na) {
+  const pos = [], idx = [];
+  for (let iz = 0; iz <= nz; iz++) {
+    const zf = iz / nz, z = lerp(z0, z1, zf);
+    const { cy, rx, ry } = ringAt(z);
+    const tz = Math.pow(Math.sin(Math.PI * zf), 0.4);          // rounded front/back edge
+    for (let ia = 0; ia <= na; ia++) {
+      const af = ia / na, a = lerp(a0, a1, af);
+      const taperOuter = Math.min(1, (a1 - a) / 0.34);          // taper the lower-flank edge
+      const taperInner = Math.min(1, (a - a0) / 0.18);          // soften the dorsal-channel edge
+      const t = tBase * tz * Math.max(0.1, Math.min(taperOuter, taperInner));
+      const rxx = rx + t, ryy = ry + t;
+      pos.push(sx * Math.sin(a) * rxx, cy + Math.cos(a) * ryy, z);
+    }
+  }
+  const stride = na + 1;
+  for (let iz = 0; iz < nz; iz++) for (let ia = 0; ia < na; ia++) {
+    const p = iz * stride + ia;
+    idx.push(p, p + 1, p + stride, p + 1, p + stride + 1, p + stride);
+  }
+  const g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+  g.setIndex(idx); g.computeVertexNormals();
+  return new THREE.Mesh(g, mat);
+}
+function gapLineSide(sx, zc, a0, a1, ringAt, mat, na) {
+  const pos = [], idx = [], hw = 0.02, lift = 0.02;
+  for (let iz = 0; iz <= 1; iz++) {
+    const z = zc + (iz ? hw : -hw);
+    const { cy, rx, ry } = ringAt(z);
+    for (let ia = 0; ia <= na; ia++) {
+      const a = lerp(a0, a1, ia / na);
+      pos.push(sx * Math.sin(a) * (rx + lift), cy + Math.cos(a) * (ry + lift), z);
+    }
+  }
+  const stride = na + 1;
+  for (let ia = 0; ia < na; ia++) { const p = ia; idx.push(p, p + 1, p + stride, p + 1, p + stride + 1, p + stride); }
+  const g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+  g.setIndex(idx); g.computeVertexNormals();
+  return new THREE.Mesh(g, mat);
+}
+registerSurfaceLayer('monarchArmor', ({ def, model, attach, gi }) => {
+  const meshes = [], flareMats = [];
+  if (!attach.ringAt) return { meshes, flareMats };           // only fits the monarch hull
+  const F = model.formLevel ?? 0;
+  const glow = model.spineGlow ?? (F / 3);
+  const cPlate = def.scales ?? def.horn ?? 0x2a221c;
+  const cMolten = def.coreGlow ?? def.wingEmissive ?? 0xff5a1e;
+  // Obsidian plate — a touch metallic so it reads as armour, not the matte hide,
+  // with a molten fresnel rim so the edges catch the fire light.
+  const armorMat = new THREE.MeshStandardMaterial({
+    color: cPlate, roughness: 0.42, metalness: 0.46,
+    emissive: cMolten, emissiveIntensity: 0.05 + glow * 0.08, side: THREE.DoubleSide,
+  });
+  applyFresnelRim(armorMat, def.apexSeam || cMolten);
+  const lineMat = tagFlare(new THREE.MeshStandardMaterial({
+    color: cMolten, emissive: cMolten, emissiveIntensity: (0.7 + glow * 1.5) * gi,
+    roughness: 0.4, metalness: 0.1, side: THREE.DoubleSide,
+  }), cMolten, (0.7 + glow * 1.5) * gi, flareMats);
+
+  const a0 = 0.36, a1 = 1.86;                                  // dorsal channel → lower flank
+  const tBase = 0.052 + glow * 0.022;
+  const nz = seg(4), na = seg(7);
+  // Bands down the body, SKIPPING the wing-root band (≈ -0.85..-0.40).
+  const bands = [
+    [-1.18, -0.90],   // chest collar
+    [-0.34, -0.06],   // mid-back
+    [ 0.04,  0.30],   // waist
+    [ 0.40,  0.66],   // hip
+    [ 0.74,  0.98],   // rump
+  ];
+  for (const [z0, z1] of bands) {
+    for (const sx of [1, -1]) meshes.push(shellPlate(sx, z0, z1, a0, a1, attach.ringAt, tBase, armorMat, nz, na));
+  }
+  // Molten gap-lines in the transverse gaps between consecutive bands (skip the
+  // chest→mid-back gap — that is the wing root, already busy).
+  const gapZ = [ (bands[1][1] + bands[2][0]) / 2, (bands[2][1] + bands[3][0]) / 2, (bands[3][1] + bands[4][0]) / 2 ];
+  for (const zc of gapZ) for (const sx of [1, -1]) meshes.push(gapLineSide(sx, zc, a0 + 0.04, a1 - 0.04, attach.ringAt, lineMat, na));
+
+  return { meshes, flareMats };
+});
