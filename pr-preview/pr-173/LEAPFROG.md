@@ -3478,3 +3478,23 @@ tips placed along the traced trailing envelope (deepest at the inner third); sho
 Lessons: (1) when given reference art, EXTRACT the curve numerically (decode → classify → per-column min/max y) —
 ~30 lines and beats guessing; (2) a parametric wing means a traced shape collapses to a handful of dials (leading
 bow + fingertip coords), so matching reference art is cheap once the builder is parametric.
+
+---
+
+### L113 — Trace BOTH edges densely + a QA OVERLAY tool that reports numbers — close the loop on "is it accurate?"
+The human pushed for real accuracy: gap at the wing-root/body join, struts not crowning with the convex membrane,
+leading edge "not convex enough," and "not enough trace points for the trailing edge." Built the QA tool they
+asked for: `tools/wingoverlay.mjs` re-extracts the REFERENCE's own leading+trailing edges from the image, overlays
+OUR wing anatomy on it, and prints a per-span LEADING-CHORD table (ref vs ours, both relative to the wing chord-
+centre) so the match is a NUMBER, not a vibe. First pass showed a constant −0.40 offset → my LEADING shape was
+right but my trailing was guessed from 4 hand-placed fingers that smoothed away the scallops. Fix: trace the
+trailing edge DENSELY (every 0.2 span, LIGHT smoothing to keep scallops) and drive the membrane's trailing
+boundary from an explicit `trailingCurve` polyline (new opt-in in `buildTracedWing`), exactly like the leading
+edge — the deep inner lobe + mid plateau + scallop rise now reproduce. Result: leading edge within ±0.03 of the
+reference across the whole span. Also: (a) the root/body GAP was a long flat root-chord edge floating off the
+rounded body — fixed by a compact root + tucking; (b) struts were flat under the crowned membrane — added a
+`strutCrown` that bows each finger strut UP (+Y) to follow the dome (bone + skin curve together). Lessons: (1)
+build the QA tool that emits NUMBERS (per-span deltas) — a constant offset vs a varying one tells you instantly
+whether it's a shape error or a centring artifact; (2) a scalloped edge needs DENSE sampling + light smoothing,
+then drive geometry from the polyline directly — peak-detection alone under-counts rounded scallops; (3) any bone
+that lies under a cambered membrane must crown WITH it or it reads as flat struts under a dome.

@@ -383,20 +383,24 @@ function buildMonarchWing(def, model, attach, giM) {
     // bow, so the silhouette matches the art. Four struts fan from a medial wrist to a
     // scalloped trailing edge that drops deepest at the inner third. Convex billow + rim.
     const anatomy = {
-      leadingCurve: [[0, 0.50], [0.9, 0.50], [1.8, 1.06], [2.25, 1.16], [3.15, 1.08], [4.05, 0.86], [4.95, 0.52], [5.40, 0.22]],
-      wrist: [1.25, 0.66],                                 // strut hub (medial, on the leading arc)
-      rootBack: [0, -0.95],
-      hub: [1.85, -0.18],                                  // membrane fan apex (interior)
+      // BOTH edges traced DENSELY from the reference (chord rel wing-centre, +=forward):
+      // the leading arc (broad convex bulge holding forward through mid-span) AND the real
+      // scalloped trailing edge (deep inner lobe → mid plateau → scallop rise → wingtip).
+      leadingCurve: [[0, 0.34], [0.4, 0.43], [0.8, 0.42], [1.2, 0.68], [1.6, 0.98], [2.0, 1.11], [2.4, 1.15], [2.8, 1.12], [3.2, 1.06], [3.6, 0.98], [4.0, 0.87], [4.4, 0.71], [4.8, 0.55], [5.2, 0.38], [5.4, 0.20]],
+      trailingCurve: [[0, -0.45], [0.4, -0.93], [0.8, -1.39], [1.2, -1.57], [1.6, -1.71], [2.0, -1.28], [2.4, -1.13], [2.8, -1.14], [3.2, -0.54], [3.6, -0.33], [4.0, -0.38], [4.4, 0.12], [4.8, 0.21], [5.2, 0.17], [5.4, 0.20]],
+      wrist: [0.85, 0.30],                                 // SHORT humerus → wrist medial
+      rootBack: [0, -0.45],
+      hub: [1.45, -0.55],                                  // membrane fan apex (interior, below the leading arc)
       fingers: [
-        { tip: [4.50, 0.14], bow: 0.34 },
-        { tip: [3.60, -0.34], bow: 0.26 },
-        { tip: [2.70, -1.08], bow: 0.18 },
-        { tip: [1.60, -1.58], bow: 0.05 },                 // innermost — deepest-back at the inner third
+        { tip: [1.60, -1.71], bow: 0.05 },                 // struts to the DETECTED trailing fingertips
+        { tip: [2.55, -1.13], bow: 0.12 },
+        { tip: [3.45, -0.40], bow: 0.18 },
+        { tip: [4.40, 0.10], bow: 0.22 },
       ],
       scallop: 0.24, strutR: 0.058, fingerRMul: 0.66, claw: 0.12, clawLen: 0.09,
       leadR: 0.072,
       dihedral: 0.18, twist: 0.12,                         // raised root + sagging washout
-      billow: 0.34, rimR: 0.024,                           // convex cambered sail + a molten edge rim
+      billow: 0.34, rimR: 0.024, strutCrown: 0.42,         // convex sail + struts that crown WITH it + molten rim
     };
     wingOpts = { ws, membraneMat: wingMat, strutMat: leadMat, leadMat, fingerMat, jointMat, rimMat, anatomy };
   }
