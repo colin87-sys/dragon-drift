@@ -164,8 +164,9 @@ let current = null, tick = null, t = 0;
 // future change is a one-liner — the UI scales itself. `dragons: '*'` = applies to all.
 // NEWEST FIRST (top of the list = most recent change).
 const CHANGES = [
-  { id: 'wings', label: 'glider wings', dragons: ['flameMonarch'],
-    revert(def) { def.model.legacyWing = true; } },                                 // → old flat-fan wings
+  // (The "glider wings" redesign was reverted — the original fan wings read more
+  //  aesthetic in review, so they are the live default again. The glider build is kept
+  //  behind model.gliderWing; flip it on here if we ever want the side-by-side back.)
   { id: 'armor', label: 'banded armor', dragons: ['flameMonarch'],
     revert(def) {
       if (!def.parts) return;

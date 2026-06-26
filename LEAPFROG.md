@@ -3378,3 +3378,17 @@ deploy-pages.yml) so it can never drift again. Lessons: (1) when a change "doesn
 locally, suspect the CACHE/SW before the code — verify which file is stale, don't re-debug working logic; (2) a
 manual pre-deploy stamp WILL be forgotten — move it into CI; (3) `?param` URLs bypass nothing here, but they DID
 prove the code path was right, which is what localised the bug to delivery, not logic.
+
+---
+
+### L107 — The human judged the glider wings WORSE than the old fan — reverted; kept behind a flag, not deleted
+Once the stale-cache fix (L106) let the toggle actually work, the human compared and chose the PREVIOUS wings:
+"previous was way more aesthetic." A detailed brief does not guarantee the execution wins — the glider read
+sparser/less appealing than the fuller 5-finger fan. Acted on the clear preference: made the OLD fan wing the
+LIVE default again (monarchWing default branch), moved the glider behind `model.gliderWing` (opt-in, kept — NOT
+deleted, so a future "blend" attempt or re-enable is one flag), and dropped the `wings` entry from the viewer's
+change registry (no wing change ships now, so no toggle). Budget back to 3986. Lessons: (1) taste is the human's
+call — when they prefer the BEFORE, revert fast and without ego; the build work isn't wasted, it's parked behind a
+flag; (2) the L101 redesign's smaller, surgical wins (glow hierarchy, rim-lit membrane, slight dihedral) might
+still improve the OLD shape — a "blend" is the likely next ask, so keep the glider materials/anatomy intact for
+harvest; (3) don't over-commit a big silhouette change as the default until the human has A/B'd it live.
