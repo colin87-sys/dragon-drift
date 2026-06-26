@@ -377,19 +377,24 @@ function buildMonarchWing(def, model, attach, giM) {
     const rimMat = tagFlare(new THREE.MeshStandardMaterial({
       color: cMolten, emissive: cMolten, emissiveIntensity: baseInt * 1.5, roughness: 0.35, metalness: 0.2,
     }), cMolten, baseInt * 1.5, spineMats);
+    // Planform TRACED from the reference (dorsal view): a CONVEX leading edge bulging
+    // forward to a peak near 40% span, sweeping to the wingtip; FIVE struts fanning to a
+    // scalloped trailing edge that drops deepest (~-1.5) at the inner third. Short arm,
+    // medial wrist (our researched anatomy) preserved.
     const anatomy = {
-      rootFront: [0, 0.42], rootBack: [0, -0.66],
-      elbow: [0.60, 0.42], wrist: [1.55, 0.56],            // short arm, medial wrist (~28% span)
+      rootFront: [0, 0.50], rootBack: [0, -0.55],
+      elbow: [0.55, 0.55], wrist: [1.50, 0.62],            // short arm, medial wrist (~27% span)
       fingers: [
-        { tip: [5.45, 0.66], bow: 0.98 },                  // leading frame — longest, MOST curved
-        { tip: [4.45, -0.55], bow: 0.50 },
-        { tip: [3.35, -1.55], bow: 0.24 },
-        { tip: [2.25, -2.05], bow: 0.05 },                 // innermost — nearly STRAIGHT (curvature gradient)
+        { tip: [5.40, 0.28], bow: 1.32 },                  // LEADING — strong convex forward bulge → the wingtip
+        { tip: [4.55, -0.35], bow: 0.62 },
+        { tip: [3.70, -0.95], bow: 0.40 },
+        { tip: [2.75, -1.40], bow: 0.22 },
+        { tip: [1.70, -1.48], bow: 0.06 },                 // innermost — deepest-back at the inner third
       ],
-      scallop: 0.30, strutR: 0.060, fingerRMul: 0.62, claw: 0.13, hook: 1.0,
-      taperedClaws: true, clawLen: 0.10,                   // short bony claw points (thick→point), just past the scallop join
+      scallop: 0.26, strutR: 0.058, fingerRMul: 0.66, claw: 0.12, hook: 0.25,
+      taperedClaws: true, clawLen: 0.09,                   // short bony claw points just past the scallop join
       dihedral: 0.18, twist: 0.12,                         // raised root + sagging washout
-      billow: 0.34, rimR: 0.024,                           // CAMBERED sail (not a flat moth wing) + a molten edge rim
+      billow: 0.34, rimR: 0.024,                           // convex cambered sail + a molten edge rim
     };
     wingOpts = { ws, membraneMat: wingMat, strutMat: leadMat, leadMat, fingerMat, jointMat, rimMat, anatomy };
   }
