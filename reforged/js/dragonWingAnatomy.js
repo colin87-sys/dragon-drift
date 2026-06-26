@@ -265,19 +265,27 @@ function buildTracedWing(opts) {
   const leadPts = leadCurve.getPoints(seg(16));
   const wristV = P(wrist2);
   const webTip = (f) => wristV.clone().lerp(P(f.tip), 1 - claw);
-  // membrane OUTLINE: leading curve, then trailing scallops tip → finger web tips → rootBack.
+  // membrane OUTLINE: leading curve (root→tip), then the trailing edge back to the root.
   const outline = [...leadPts], trailPts = [];
-  const scStarts = [leadPts[leadPts.length - 1], ...fingers.map(webTip), P(A.rootBack)];
   const hub2D = A.hub ?? [wrist2[0] * 0.9, (wrist2[1] + A.rootBack[1]) * 0.5];
-  for (let i = 0; i < scStarts.length - 1; i++) {
-    const a = scStarts[i], b = scStarts[i + 1];
-    const mid = a.clone().lerp(b, 0.5);
-    const perp = new THREE.Vector3(-(b.z - a.z), 0, b.x - a.x).normalize();
-    if (perp.dot(P(hub2D).clone().sub(mid)) < 0) perp.negate();
-    const ctrl = mid.add(perp.multiplyScalar((A.scallop ?? 0.25) * a.distanceTo(b)));
-    const sgs = bezier(a, ctrl, b, seg(5)).slice(1);
-    outline.push(...sgs);
-    if (i < scStarts.length - 2) trailPts.push(a, ...sgs);   // rim along the scallops, not the body edge
+  if (A.trailingCurve) {
+    // TRAILING edge follows an explicit DENSE traced polyline (root→tip order) — the real
+    // scalloped silhouette, not a few guessed scallops. Walk it tip→root to close the loop.
+    const tc = A.trailingCurve.map((p) => P(p));
+    for (let i = tc.length - 2; i >= 1; i--) { outline.push(tc[i]); }   // skip dup tip + the root point (fan closes it)
+    for (let i = tc.length - 1; i >= 0; i--) trailPts.push(tc[i]);      // rim along the full trailing curve
+  } else {
+    const scStarts = [leadPts[leadPts.length - 1], ...fingers.map(webTip), P(A.rootBack)];
+    for (let i = 0; i < scStarts.length - 1; i++) {
+      const a = scStarts[i], b = scStarts[i + 1];
+      const mid = a.clone().lerp(b, 0.5);
+      const perp = new THREE.Vector3(-(b.z - a.z), 0, b.x - a.x).normalize();
+      if (perp.dot(P(hub2D).clone().sub(mid)) < 0) perp.negate();
+      const ctrl = mid.add(perp.multiplyScalar((A.scallop ?? 0.25) * a.distanceTo(b)));
+      const sgs = bezier(a, ctrl, b, seg(5)).slice(1);
+      outline.push(...sgs);
+      if (i < scStarts.length - 2) trailPts.push(a, ...sgs);
+    }
   }
   // membrane: convex-billowed fan from the hub.
   const billow = (A.billow ?? 0) * ws;
@@ -292,6 +300,9 @@ function buildTracedWing(opts) {
     if (dir.lengthSq() > 1e-9) dir.normalize();
     const clawEnd = webTip(f).addScaledVector(dir, (A.clawLen ?? 0.09) * ws);
     const ctrl = wristV.clone().lerp(clawEnd, 0.5).add(leadingPerp(wristV, clawEnd).multiplyScalar((f.bow ?? 0.2) * ws));
+    // bow the strut UP (+Y) so it follows the CONVEX membrane dome instead of cutting flat
+    // across it; matched to the membrane billow so bone + skin curve together.
+    ctrl.y += (A.strutCrown ?? (A.billow ?? 0) * 1.25) * ws;
     const curve = new THREE.QuadraticBezierCurve3(wristV, ctrl, clawEnd);
     pivot.add(taperedTube(curve, (A.strutR ?? 0.04) * (A.fingerRMul ?? 1) * 1.35 * ws, 0.004 * ws, fingerM, Math.max(5, seg(9)), seg(4)));
   }
