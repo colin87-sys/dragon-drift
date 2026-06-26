@@ -3237,3 +3237,26 @@ used by NO shipped blueprint, kept solely so the viewer can show the "before". T
 dragons with nothing to compare. Reusable pattern: to demo any data-driven change, clone the blueprint + toggle
 the field, rather than diffing renders across git revisions. (Generic `delete parts.shingle` already works as an
 "armor off" for any shingled dragon, e.g. obsidian.)
+
+---
+
+### L99 — Verify with DATA before fixing: 3 Flame Monarch bugs found by dumping geometry, not guessing
+Human gave on-device screenshots + "don't assume, check visually with data before applying fixes." Built throwaway
+node inspectors (tricount's headless three setup: `register('./three-resolver.mjs')` + the DOM/canvas shim, then
+`buildDragonModel`) that dumped each mesh's world-AABB / vertices. Findings:
+1. **Armor collided with the wings** — the two shingle runs' merged-mesh z-ranges ([-1.59,1.7], [-1.55,-0.06])
+   both span the wing-root z (≈-0.56). Confirmed by data, not eyeballing.
+2. **"2 rows of dorsal spines"** = the engine INFERS a `spineGlowLine` surfaceLayer from `model.spineGlow`, which
+   drew an 11-mesh glow spine OVER the torso's hand-built one. Proof: `resolveSurfaceLayers(def,…)` returned
+   `['spineGlowLine']`, and building with `parts.surfaceLayers = []` dropped exactly those 11 meshes. **Lesson: if
+   your torso builds its own dorsal spine, declare `parts.surfaceLayers: []` to suppress the legacy-flag inference
+   — otherwise spineGlow/dorsalGlowCount/etc. silently add a second one.**
+3. **Wing membrane gap** = the 3 articulated panels shared only POINTS, not EDGES. Dumped each panel's world verts:
+   pivot↔mid shared only the elbow point + rootBack (an uncovered wedge between them). Fix: derive SHARED SEAM
+   points (`elbowTrail`/`wristTrail` on the rootBack→inner-fingertip line) so pivot|mid and mid|tip each share a
+   full EDGE (2 verts). Re-ran the dump → `shared verts pivot<->mid: 2`, `mid<->tip: 2` (a welded edge). The seam
+   welds at rest because the joint transforms telescope: a panel built at the parent origin and one at the child
+   origin map the same 2D seam point to the same world point.
+Also added `?dragon=&tier=&az=&pol=&zoom=&armor=0&ftail=0` URL params to `modelviewer.html` for deterministic
+diagnostic close-ups. Reusable: a 30-line node geometry-dumper beats squinting at renders for "is it overlapping
+/ gapping / duplicated" questions — get the numbers.
