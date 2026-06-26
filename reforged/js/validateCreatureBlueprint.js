@@ -124,6 +124,23 @@ export function validateCreatureBlueprint(def, name = def && def.name) {
         if (!hasSurfaceLayer(type)) errors.push(`${where}[${i}] = '${type}' is not a registered surface layer${suggest(type, listSurfaceLayers())}.`);
       });
 
+    } else if (d.kind === 'stationList') {
+      if (val == null) continue;
+      if (!Array.isArray(val) || val.length < 2) { errors.push(`${where} must be an array of ≥2 cross-section stations.`); continue; }
+      val.forEach((st, i) => {
+        const z = Array.isArray(st) ? st[0] : (st && st.z);
+        if (typeof z !== 'number' || !Number.isFinite(z)) {
+          errors.push(`${where}[${i}] needs a numeric z ([z, halfWidth, keelTop, belly] or { z, halfWidth, keelTop, belly }).`);
+        }
+      });
+
+    } else if (d.kind === 'wingFormList') {
+      if (val == null) continue;
+      if (!Array.isArray(val)) { errors.push(`${where} must be an array of per-form wing-knob objects.`); continue; }
+      val.forEach((w, i) => {
+        if (w != null && (typeof w !== 'object' || Array.isArray(w))) errors.push(`${where}[${i}] must be a wing-knob object.`);
+      });
+
     } else if (d.kind === 'number' || d.kind === 'int') {
       // Range-check the knob wherever it appears: on model AND per-form.
       if (val != null) checkNumber(val, d, where, errors, warnings);

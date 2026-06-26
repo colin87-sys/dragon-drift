@@ -126,6 +126,7 @@ Pick one builder per slot. `none` = omit that part. Build a new module only when
 | Name | Style | Notes |
 |---|---|---|
 | `arrow` | organic | the default lofted drake body (wedge cross-section); data-profile driven |
+| `parametricArrow` | organic | **the arrow body as DIAL-ABLE DATA — give the creature its OWN silhouette without a new builder** (see "Shape from data" below). Default = byte-identical to `arrow`. |
 | `serpent` | organic | long continuous body, same loft engine as arrow |
 | `avian` | organic | firebird body |
 | `crystalSerpent` | organic | astral serpent |
@@ -233,8 +234,18 @@ list IS sculpting the body.** Two flavors:
   cross-section: sharp keel on top, rounded belly). `profile.stations` is the editable silhouette.
 
 > **To get ANY body silhouette** (barrel chest, hourglass, hump, pot-belly, slim eel): add/space the
-> rings and set their widths/heights. More rings = crisper transitions. This needs **zero new code** if
-> you're editing an existing builder's ring list; a brand-new body shape may want its own builder.
+> rings and set their widths/heights. More rings = crisper transitions.
+
+> **DATA-ONLY for the drake family (no new builder):** set `parts.torso:'parametricArrow'` and give the
+> creature its **own `profileStations`** ring list (`[z, halfWidth, keelTop, belly]` rows, or `{z,
+> halfWidth, keelTop, belly}` objects) right in `dragons.js` — or just nudge the shipped body with
+> `model.bodyKnobs` (`shoulderWidth`/`chestScale`/`waistPinch`/`hipFlare`/`bodyLength`/`keelHeightCurve`
+> /`sectionPoints`…). The **mounts re-derive off your stations** (wing root rides the shoulder peak;
+> head/tail re-anchor), nudge-able via `bodyKnobs.attach`. Default knobs = byte-identical to `arrow`.
+> Wings: `wingFormKnobs:[…4…]` (`span/fingerCount/fingerSplay/chordTaper/sweep/scallop/flame/arc`) +
+> `wings:'skinnedMembrane'` (folds without self-collision). Tail: `model.tailKnobs`. Worked example:
+> `tempest` in `dragons.js`. A brand-new *structure* (legs, bug, novel rig motion) still needs a NEW
+> MODULE — flag it per §10.
 
 ### 6b. The attach contract (how parts mount)
 The torso publishes mount points; wings/head/tail attach through them — they don't know which body
@@ -388,9 +399,15 @@ PARTS (pick from §4, or flag NEW MODULE NEEDED):
 
 BODY CROSS-SECTIONS (head −Z → tail +Z; this IS the silhouette):
   [ { z, rx (half-width), ry (half-height), note:"chest/waist/hip/…" }, … ]
+  # For torso:'parametricArrow' emit `profileStations` instead, as
+  #   [ { z, halfWidth, keelTop, belly, note:"chest/waist/hip/…" }, … ]  (mounts re-derive off these)
 
 DIALS (model.* — only §5 knobs, values within range):
   scale, wingScale, wingChordScale, shoulderWidthScale, bodyMetalness, bodyRoughness, scaleSize, … 
+  # parametricArrow shape: model.bodyKnobs { shoulderWidth, chestScale, waistPinch, hipFlare,
+  #   bodyLength, neckTaper, tailTaper, keelHeightCurve, sectionPoints, sectionExponent, attach{…} }
+  # wing planform: wingFormKnobs:[…4…] { span, fingerCount, fingerSplay, chordTaper, sweep, scallop, flame, arc }
+  # tail tips: model.tailKnobs { forkSpread, forkLength, forkNotch, bladeHalfW, bladeLength, spadeHalfW, spadeLength }
 
 MOTION: flapBias, flapAmp (or "rigid wings, flapAmp ~0.1"), flapProfile{…} if organic.
 

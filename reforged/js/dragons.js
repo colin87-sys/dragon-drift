@@ -743,6 +743,195 @@ export const DRAGONS = {
     eye: 0xe0bc78, trail: 0xb47cf0, boostTrail: 0xc8a8ff,
   },
 
+  // ===========================================================================
+  // TEMPEST TYRANT — the first creature authored entirely on the parametric
+  // "shape-from-DATA" path (LEAPFROG): a bolted-parts drake whose SILHOUETTE is
+  // its own, not the shared arrowhead. It declares its OWN body cross-sections
+  // (profileStations — a short-necked, barrel-CHESTED, broad-hipped bruiser),
+  // PARAMETRIC wing planforms (wingFormKnobs, not the canned WING_FORMS), dialed
+  // tail-tip outlines (tailKnobs), a rounder section + matte storm-hide finish,
+  // and a FOLDING skinnedMembrane wing (segments fold mid-beat without colliding).
+  // The wing roots / head / tail re-place themselves off these stations via the
+  // DERIVED attach contract — no hand-placed mount constants. Proof the system
+  // makes a genuinely different animal from data, not "Solar with more spikes".
+  tempest: {
+    name: 'Tempest Tyrant',
+    title: 'Storm given scale',
+    rarity: 'SSSR',
+    maxRarity: 'SSSR',
+    cost: 5200,
+    parts: { torso: 'parametricArrow', wings: 'skinnedMembrane', tail: 'clean', head: 'horned',
+      surface: { shader: ['cellularScales', 'iridescence'] } },
+    // OWN body silhouette — [z, halfWidth, keelTop, belly], head(-z) → tail(+z).
+    // Broad (halfWidth to 0.95 vs the arrow's 0.66), short-necked, clear barrel-chest
+    // → waist → broad-hip read; wider-than-tall so it stays a low-profile flyer.
+    profileStations: [
+      [-2.70, 0.20, 0.14, 0.16], // neck cap (short neck)
+      [-2.05, 0.40, 0.26, 0.30], // neck base
+      [-1.25, 0.74, 0.44, 0.52], // fore-shoulder (broad)
+      [-0.45, 0.95, 0.52, 0.62], // CHEST peak — barrel, deep belly
+      [ 0.35, 0.78, 0.44, 0.54], // thorax
+      [ 1.00, 0.52, 0.34, 0.38], // waist (sturdy pinch)
+      [ 1.55, 0.44, 0.28, 0.32], // broad hips
+      [ 2.05, 0.24, 0.20, 0.16], // thick tail root
+    ],
+    stats: { speed: 1.2, handling: 1.1, drain: 0.78, regen: 1.16 },
+    model: {
+      scale: 1.16, wingScale: 1.18, tailSegments: 8, neckSegments: 4,
+      hornLen: 1.4, hornPairs: 2, ridgeCount: 12,
+      flapBias: 0.8, flapAmp: 0.82, // heavy, powerful beat for a bruiser
+      // rounder section than the shipped 8-pt airfoil + matte storm hide.
+      bodyKnobs: { sectionPoints: 16, sectionExponent: 2.6, attach: { wingRoot: { z: -0.35 } } },
+      bodyMetalness: 0.12, bodyRoughness: 0.52, scaleSize: 4, scaleRelief: 0.55,
+      tailKnobs: { forkSpread: 0.62, forkLength: 1.7, bladeHalfW: 0.42, bladeLength: 1.5 },
+    },
+    // PARAMETRIC wing planforms — broad + swept, ramping per form (no canned shapes).
+    wingFormKnobs: [
+      { span: 0.82, fingerCount: 3, scallop: 0.2, lead: [2.3, 0.46],
+        arc: { bow: 0.5, hump: 0.3, humpAt: 0.55, hook: 0.16 } },
+      { span: 0.98, fingerCount: 4, scallop: 0.34, lead: [3.0, 0.56],
+        arc: { bow: 0.5, hump: 0.85, humpAt: 0.57, hook: 0.32 } },
+      { span: 1.12, fingerCount: 4, fingerSplay: 1.1, chordTaper: 1.08, scallop: 0.5, lead: [3.5, 0.66],
+        arc: { bow: 0.5, hump: 1.3, humpAt: 0.58, hook: 0.7 } },
+      { span: 1.26, fingerCount: 5, fingerSplay: 1.15, chordTaper: 1.15, scallop: 0.5, lead: [3.9, 0.74],
+        arc: { bow: 0.6, hump: 1.8, humpAt: 0.6, hook: 1.1 } },
+    ],
+    forms: [
+      // T0 Whelpling — clean, slate, stubby broad wings, no glow.
+      { wingForm: 0, tailStyle: 'spade', tailSegments: 5, ridgeCount: 6,
+        spineGlow: 0, crest: 0, hornPairs: 1, hornLen: 0.9, neckSegments: 4,
+        colors: { body: 0x1b222c, wingInner: 0x2a3f55, wingOuter: 0x161f29,
+          wingEmissive: 0x2c4f72, scales: 0x6f8298, horn: 0x9aa8bc,
+          apexSeam: 0x4a86b0, eye: 0x9fd0ef, coreGlow: 0x4a86b0 } },
+      // T1 Galeling — horns + ridges, broader wings, first cyan core.
+      { wingForm: 1, tailStyle: 'finned', tailSegments: 7, ridgeCount: 9,
+        spineGlow: 0.35, crest: 1, dorsal: true, hornLen: 1.15,
+        colors: { body: 0x1a2330, wingInner: 0x2e4a66, wingOuter: 0x14202e,
+          wingEmissive: 0x357bb4, scales: 0x8398b0, horn: 0xb6c4d6,
+          apexSeam: 0x6fd0ff, eye: 0xbfe6ff, coreGlow: 0x6fd0ff } },
+      // T2 Stormdrake — swept wings, blade tail, charged spine.
+      { wingForm: 2, tailStyle: 'blade', tailSegments: 8, ridgeCount: 11,
+        spineGlow: 0.7, glowSeams: true, crest: 2, hornPairs: 2, hornLen: 1.3, tusks: true,
+        colors: { body: 0x18222f, wingInner: 0x2e4a66, wingOuter: 0x122130,
+          wingEmissive: 0x3a86c8, scales: 0x9ab0c8, horn: 0xc8d4e4,
+          apexSeam: 0x6fd0ff, eye: 0xcdeeff, coreGlow: 0x6fd0ff } },
+      // T3 TEMPEST TYRANT — apex: widest swept wings, comet tail, full storm charge.
+      { wingForm: 3, tailStyle: 'comet', tailSegments: 8, ridgeCount: 12,
+        spineGlow: 1.0, glowSeams: true, wingVeins: true, backCrest: true, auraHalo: true,
+        crest: 3, hornLen: 1.4,
+        colors: { body: 0x141d29, wingInner: 0x2e4a66, wingOuter: 0x0f1a26,
+          wingEmissive: 0x3a86c8, scales: 0xaec2da, horn: 0xd8e4f2,
+          apexSeam: 0x6fd0ff, eye: 0xe2f6ff, coreGlow: 0x6fd0ff } },
+    ],
+    fx: { auraColor: '111,208,255', auraIdle: 0.0, sparkle: false },
+    hasStyle: true, surgeMotes: true,
+    feverWing: 0x6fd0ff, feverEye: 0xd8f4ff, feverWash: [0.03, 0.06, 0.10],
+    body: 0x141d29, belly: 0x223040, scales: 0xaec2da, horn: 0xd8e4f2,
+    wingInner: 0x2e4a66, wingOuter: 0x0f1a26, wingEmissive: 0x3a86c8,
+    apexEye: 0xe2f6ff, apexSeam: 0x6fd0ff, coreGlow: 0x6fd0ff, surgeHi: 0xbfeaff,
+    eye: 0x9fe0ff, trail: 0x7fc8ff, boostTrail: 0xafe0ff,
+  },
+
+  // ===========================================================================
+  // PRISM WYVERN (Celestial Storm) — authored from a REAR-CHASE-CAMERA concept via
+  // named anchor points, NOT guessed. The wing planform was derived from the
+  // concept's leading-edge bones (root→elbow→wrist→tip) + trailing scallop anchors
+  // through tools/tracerCore.mjs#deriveWingForm, then dropped in as wingFormKnobs.
+  // Sleek narrow lofted body (own profileStations — no sphere primitives), huge
+  // swept SCALLOPED MEMBRANE wings on the folding skinnedMembrane (leading-edge
+  // bone + scallop trailing edge + finger struts — never triangle wings), a cyan
+  // dorsal spine, a long tapering body to a glowing spear tail, and a small
+  // rear-visible horned head. Dark blue-violet body, cyan/magenta emissive.
+  prism: {
+    name: 'Prism Wyvern',
+    title: 'Celestial storm',
+    rarity: 'SSSR',
+    maxRarity: 'SSSR',
+    cost: 5600,
+    parts: { torso: 'parametricArrow', wings: 'crystalWing', tail: 'clean', head: 'horned',
+      surface: { shader: ['cellularScales', 'iridescence'] } },
+    // Sleek narrow wyvern — head(-z)→tail(+z); long tapering boom toward the spear.
+    profileStations: [
+      [-3.00, 0.12, 0.10, 0.11], // head/neck base (narrow)
+      [-2.25, 0.17, 0.14, 0.14], // neck
+      [-1.45, 0.25, 0.20, 0.19], // fore-shoulder
+      [-0.70, 0.30, 0.24, 0.22], // shoulder peak (wing root) — slim
+      [ 0.10, 0.23, 0.18, 0.17], // thorax
+      [ 0.95, 0.15, 0.13, 0.11], // waist
+      [ 1.85, 0.09, 0.09, 0.06], // tail
+      [ 2.90, 0.035, 0.05, 0.025], // long taper → spear root
+    ],
+    stats: { speed: 1.26, handling: 1.24, drain: 0.74, regen: 1.2 },
+    model: {
+      scale: 1.14, wingScale: 1.04, tailSegments: 9, neckSegments: 5,
+      hornLen: 1.1, hornPairs: 2, ridgeCount: 14,
+      flapBias: 0.92, flapAmp: 0.78, // graceful, wide glide
+      // crystalWing — broad screen-plane membrane raised into the concept's V.
+      // wingOutline (line-art trace) renders verbatim; scale it up so the wings read big.
+      wingOutlineScale: 1.5,
+      wingDihedral: 0.8, wingSpanScale: 0.67, wingChordScale: 1.25,
+      // the scaffold outline is a flat 2-D shape; orient that plane in 3-D so it isn't a
+      // poster facing the lens. Roll the tips DOWN to a shallow ~11° dihedral (a real
+      // cruising-glide angle; soaring birds hold only a few degrees of positive V — a steep
+      // raised V reads as braking) with ~26° back-sweep toward the tail.
+      // tilt/sweep kept SMALL so the flap axis stays ~vertical (a clean beat, not a row);
+      // the flat-glide dihedral comes from rollZ (rotates about the beat axis, no skew) and
+      // the 3-D volume from wingBillow — not from laying the whole plane back.
+      wingPlaneTiltX: 0.12, wingPlaneSweepY: 0.22, wingPlaneRollZ: -0.55,
+      wingBillow: 0.6,
+      // skinned 3-segment fold (shoulder→elbow→wrist) driven by dragonWingFlap.js
+      wingSkinned: true,
+      bodyKnobs: { sectionPoints: 18, sectionExponent: 2.4 }, // rounder, sleeker section
+      bodyMetalness: 0.18, bodyRoughness: 0.4, scaleSize: 5, scaleRelief: 0.35, // semi-gloss
+      tailKnobs: { bladeHalfW: 0.22, bladeLength: 2.0, forkSpread: 0.3, forkLength: 1.9, forkNotch: 1.2 },
+    },
+    // Wing OUTLINE traced from the CLEAN LINE-ART reference (tools/wingtrace.mjs line-art
+    // mode, eps 2.4, QA max-dev 2.0px — lies ON the reference edge). Wing-local: +x outward,
+    // +y up, origin at the wrist-side root. crystalWing renders it verbatim in the screen
+    // plane (mirrored per side), so the membrane silhouette IS the reference wing.
+    // SCAFFOLD harvested from the celestial-storm branch (tools/celestialScaffold.mjs):
+    // OUTLINE = the approved canvas-traced membrane silhouette; STRUTS = that branch's FINAL
+    // bones (CELESTIAL_DEF.wing.bones), registered from their frame onto the outline via an
+    // affine fit between the two silhouette traces (3.9px). Converted to wing-local (origin=
+    // root, +x outward, +y up, span≈3). Geometry is portable; the old branch's design is not.
+    wingOutline: [[2.651,1.914],[2.026,1.69],[1.375,1.213],[1.364,1.236],[1.622,1.545],[1.592,1.534],[1.337,1.314],[1.049,1.014],[1.011,1.019],[1.032,1.123],[1.014,1.122],[0.928,0.971],[0.875,0.791],[0.678,0.553],[0.271,0.138],[0.157,0.055],[0,0],[0.123,-0.011],[0.144,-0.137],[0.109,-0.182],[0.15,-0.169],[0.177,-0.186],[0.175,-0.238],[0.292,-0.52],[0.316,-0.391],[0.475,-0.23],[0.713,-0.068],[0.908,0.003],[1.136,0.029],[1.365,0.006],[1.484,-0.034],[1.648,-0.163],[1.666,-0.156],[1.569,-0.008],[1.574,0.071],[1.693,0.325],[1.882,0.566],[2.126,0.687],[2.383,0.749],[2.693,0.715],[2.444,0.831],[2.284,1.078],[2.367,1.336],[2.524,1.526],[2.648,1.604],[3,1.712],[2.444,1.719],[2.437,1.744],[2.48,1.791],[2.625,1.893]],
+    wingStruts: {"wrist":[1.259,1.073],"boneShapes":[[[2.537,1.879],[2.467,1.83],[2.06,1.636],[1.453,1.184],[1.334,1.109],[1.287,1.099],[1.409,1.213],[2.011,1.668],[2.233,1.778],[2.482,1.869]],[[1.569,1.507],[1.118,0.908],[1.032,0.859],[0.967,0.879],[0.988,0.945],[1.38,1.355],[1.54,1.49]],[[2.835,1.699],[2.827,1.675],[2.774,1.653],[2.127,1.409],[1.459,1.061],[1.233,0.992],[1.245,1.022],[1.29,1.048],[2.003,1.422],[2.481,1.612],[2.772,1.692]],[[1.334,0.942],[1.708,0.945],[2.03,0.914],[2.381,0.84],[2.615,0.753],[2.538,0.754],[1.922,0.88],[1.27,0.9],[1.2,0.922],[1.288,0.939]],[[1.062,0.799],[1.105,0.744],[1.176,0.535],[1.236,0.419],[1.607,0.013],[1.662,-0.072],[1.644,-0.088],[1.492,0.037],[1.174,0.389],[1.09,0.565],[1.041,0.775]],[[1.057,1.136],[1.009,0.965],[0.957,0.939],[0.971,1.011],[1.051,1.13]],[[0.962,0.796],[0.98,0.77],[0.961,0.706],[0.836,0.421],[0.776,0.33],[0.24,-0.093],[0.199,-0.116],[0.175,-0.098],[0.243,-0.008],[0.583,0.254],[0.699,0.366],[0.934,0.768]]]},
+    forms: [
+      // T0 Shardling — clean, narrow, modest swept wings, faint cyan spine.
+      { wingForm: 0, tailStyle: 'spade', tailSegments: 6, ridgeCount: 8,
+        spineGlow: 0.2, crest: 0, hornPairs: 1, hornLen: 0.8, neckSegments: 5,
+        colors: { body: 0x1a1438, wingInner: 0x2e1a55, wingOuter: 0x150d2a,
+          wingEmissive: 0x18a0c8, scales: 0x7a64c8, horn: 0xa090e0,
+          apexSeam: 0x36c8ff, eye: 0x8fe0ff, coreGlow: 0x36c8ff } },
+      // T1 Galecrystal — wings broaden, dorsal spine lights, first magenta core.
+      { wingForm: 1, tailStyle: 'finned', tailSegments: 7, ridgeCount: 11,
+        spineGlow: 0.5, crest: 1, dorsal: true, hornLen: 1.0, glowSeams: true,
+        colors: { body: 0x190f3a, wingInner: 0x381f6e, wingOuter: 0x150c2c,
+          wingEmissive: 0x00d0ff, scales: 0x8f74f0, horn: 0xb6a4f4,
+          apexSeam: 0x00e5ff, eye: 0xb6e8ff, coreGlow: 0xff5af0 } },
+      // T2 Stormprism — swept crystalline wings with veins, blade-spear tail.
+      { wingForm: 2, tailStyle: 'blade', tailSegments: 8, ridgeCount: 13,
+        spineGlow: 0.78, wingVeins: true, glowSeams: true, crest: 2, hornPairs: 2, hornLen: 1.05, tusks: true,
+        colors: { body: 0x18103c, wingInner: 0x3a1f6e, wingOuter: 0x140b2c,
+          wingEmissive: 0x00e5ff, scales: 0x9a7cff, horn: 0xc8b8ff,
+          apexSeam: 0x00e5ff, eye: 0xcdeeff, coreGlow: 0xff3df0 } },
+      // T3 PRISM WYVERN — apex: widest swept wings, cyan/magenta veins, spear tail.
+      { wingForm: 3, tailStyle: 'blade', tailSegments: 9, ridgeCount: 14,
+        spineGlow: 1.0, wingVeins: true, glowSeams: true, backCrest: true, auraHalo: true,
+        crest: 3, hornLen: 1.1,
+        colors: { body: 0x160e38, wingInner: 0x3a1f6e, wingOuter: 0x120a28,
+          wingEmissive: 0x00e5ff, scales: 0xa78cff, horn: 0xd0c0ff,
+          apexSeam: 0x00e5ff, eye: 0xe2f6ff, coreGlow: 0xff3df0 } },
+    ],
+    fx: { auraColor: '120,150,255', auraIdle: 0.05, sparkle: true },
+    hasStyle: true, surgeMotes: true,
+    feverWing: 0x00e5ff, feverEye: 0xe2f6ff, feverWash: [0.05, 0.04, 0.10],
+    body: 0x160e38, belly: 0x241a4a, scales: 0xa78cff, horn: 0xd0c0ff,
+    wingInner: 0x3a1f6e, wingOuter: 0x120a28, wingEmissive: 0x00e5ff,
+    apexEye: 0xe2f6ff, apexSeam: 0x00e5ff, coreGlow: 0xff3df0, surgeHi: 0xbf6fff,
+    eye: 0x8fe0ff, trail: 0xff4df0, boostTrail: 0x6fe0ff,
+  },
+
   phoenix: {
     name: 'Phoenix Ascendant',
     title: 'Reborn in fire',

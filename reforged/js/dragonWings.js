@@ -593,6 +593,296 @@ registerWings('skinnedMembrane', (def, model, attach, giM) => buildMembraneWings
 registerWings('skinnedMembraneBridge', (def, model, attach, giM) => buildMembraneWings(def, model, attach, giM, { curved: true, skinned: true, bridge: true }));
 registerWings('none', buildNoneWings);
 
+// ── CRYSTAL (screen-plane membrane) ──────────────────────────────────────────
+// A broad, FILLED bat membrane laid in the X-Y plane (the wing FACES the rear
+// chase camera) instead of the default membrane's X-Z plane (which presents
+// edge-on from behind and reads as a thin ribbon). The membrane area is now the
+// vertical fill the rear silhouette actually sees; the scalloped trailing edge
+// hangs DOWN and is visible. A rest DIHEDRAL raises each wing into the concept's
+// "V"; the rig's flap (pivot.rotation.z roll) still beats it, and the wrist fold
+// (wingTip.rotation.z) folds the outer panel in-plane (no segment collision).
+// Built for reference-driven creatures (e.g. the Prism Wyvern) whose source of
+// truth is a flat rear/dorsal concept. Obeys the frozen rig contract.
+function buildCrystalWings(def, model, attach, giM) {
+  const group = new THREE.Group();
+  const spineMats = [];
+  const ws = model.wingScale ?? 1;
+  const spec = wingSpecFor(def, model);
+  const spanS = (model.wingSpanScale ?? 0.62) * ws;   // x scale (compact span → not a wide ribbon)
+  const chordS = (model.wingChordScale ?? 1.7) * ws;  // y scale (DEEP membrane fill, the vertical read)
+  const dihedral = model.wingDihedral ?? 0.72;        // rest raise into the V (rad)
+  const maxX = (spec.tips[0][0] || 5.6) * spanS;
+  const wristX = maxX * 0.42;
+
+  const wingMat = new THREE.MeshStandardMaterial({
+    color: 0xffffff, vertexColors: true, roughness: 0.5, side: THREE.DoubleSide,
+    transparent: true, opacity: model.wingOpacity ?? 0.9,
+    emissive: def.wingMembraneEmissive ?? def.wingEmissive, emissiveIntensity: model.wingPanelGlow ?? 0.3,
+  });
+  const armMat = new THREE.MeshStandardMaterial({
+    color: def.horn, emissive: def.apexSeam || def.wingEmissive, emissiveIntensity: 0.6,
+    roughness: 0.3, metalness: 0.55,
+  });
+  const veinInt = 1.6 * giM;
+  const veinMat = new THREE.MeshStandardMaterial({
+    color: def.apexSeam || def.wingEmissive, emissive: def.apexSeam || def.wingEmissive,
+    emissiveIntensity: veinInt, roughness: 0.3, metalness: 0.4,
+  });
+  veinMat.userData.baseEmissive = def.apexSeam || def.wingEmissive;
+  veinMat.userData.baseIntensity = veinInt;
+  spineMats.push(veinMat);
+
+  // An ELEGANT bat-wing membrane in the X-Y plane: a graceful swept leading edge to a
+  // sharp far tip, then DEEP CONCAVE scalloped webs between SHARP finger tips (the
+  // reference's artistry). Smooth bezier/quadratic curves — not the blobby default.
+  const t = spec.tips;
+  const X = (i) => t[i][0] * spanS, Y = (i) => t[i][1] * chordS;
+  const maxXa = X(0);
+  const deep = (model.wingScallopDeep ?? 0.62) * chordS;  // web concavity (the scoop)
+  const tipHook = (model.wingTipHook ?? 0.34) * chordS;   // sharp upward hook at the far tip
+  function elegantWingGeo() {
+    const s = new THREE.Shape();
+    const tipY = Y(0) + tipHook;
+    s.moveTo(0, 0);
+    // leading edge: a CONCAVE swept sweep (starts shallow, arcs up) to a sharp HOOKED tip
+    s.bezierCurveTo(maxXa * 0.36, 0.08 * chordS, maxXa * 0.82, 0.34 * chordS, X(0), tipY);
+    // a short sharp cusp from the hooked tip down to the first (outermost) finger
+    s.lineTo(X(0), Y(0));
+    // trailing edge: deep concave scallop into each sharp finger tip
+    for (let i = 0; i < t.length - 1; i++) {
+      const ax = X(i), ay = Y(i), bx = X(i + 1), by = Y(i + 1);
+      s.quadraticCurveTo((ax + bx) / 2, (ay + by) / 2 + deep, bx, by); // control pulled UP → concave web
+    }
+    // inner trailing edge: last finger → root, a shallower scoop
+    s.quadraticCurveTo(X(t.length - 1) * 0.45, Y(t.length - 1) * 0.5 + deep * 0.6, 0, -0.06 * chordS);
+    s.closePath();
+    const g = new THREE.ShapeGeometry(s, seg(3));
+    applyWingGradient(g, def, 0, 1);
+    return g;
+  }
+
+  // wingOutline mode: an EXPLICIT screen-plane polygon (e.g. traced from a concept via
+  // tools/wingtrace.mjs) rendered verbatim — the membrane silhouette IS the artful
+  // outline, with sharp finger tips + deep scallops the procedural shape can't match.
+  // Points are wing-local (+x outward, +y up); the outline already encodes the upsweep
+  // so no extra dihedral. Far tip = max x; finger tips = the local-y minima.
+  const outline = def.wingOutline;
+  const outScale = (model.wingOutlineScale ?? 1) * ws;
+  // model.wingSkinned: bind the traced outline + bone-shapes to a 3-bone skeleton
+  // (shoulder→elbow→wrist) so the shared flap animator folds the wing as smooth skin.
+  const skinnedOutline = !!model.wingSkinned && !!outline;
+  function outlineGeo() {
+    const shp = new THREE.Shape();
+    outline.forEach(([x, y], i) => (i ? shp.lineTo(x, y) : shp.moveTo(x, y)));
+    shp.closePath();
+    const g = new THREE.ShapeGeometry(shp, seg(2));
+    g.scale(outScale, outScale, 1);
+    applyWingGradient(g, def, 0, 1);
+    return g;
+  }
+  function outlineFingers() {
+    // struts to each downward "finger" tip (a local-y minimum along the outline)
+    const tips = [];
+    for (let i = 1; i < outline.length - 1; i++) {
+      if (outline[i][1] < outline[i - 1][1] && outline[i][1] <= outline[i + 1][1] && outline[i][1] < 0) tips.push(outline[i]);
+    }
+    let far = outline[0]; for (const p of outline) if (p[0] > far[0]) far = p;
+    return { tips, far };
+  }
+
+  // ── SKINNED outline wing ──────────────────────────────────────────────────
+  // Bind the flat traced membrane + filled bone-shapes to a shoulder→elbow→wrist
+  // bone chain (+ a static body anchor) and let the shared dragonWingFlap animator
+  // fold it as smooth skin. Span weights by |x|: anchor(0)→shoulder(1)→elbow(2)→
+  // wrist(3), so the root welds to the body and the outer wing folds at the wrist.
+  if (skinnedOutline) {
+    const sgroup = new THREE.Group();
+    const strutMat = model.wingVeins ? veinMat : armMat;
+    const wristX = (def.wingStruts && def.wingStruts.wrist ? def.wingStruts.wrist[0] : 1.26) * outScale;
+    const wristY = (def.wingStruts && def.wingStruts.wrist ? def.wingStruts.wrist[1] : 1.07) * outScale;
+    const elbowF = 0.55, elbowX = wristX * elbowF, elbowY = wristY * elbowF;
+    const rootBand = elbowX * 0.5, foldBand = Math.max(0.35 * outScale, 0.25);
+    const sstep = (x) => { x = Math.min(Math.max(x, 0), 1); return x * x * (3 - 2 * x); };
+    const spanSkin = (ax) => { const e = elbowX, w = wristX, b = foldBand; let a, bb, t = 0;
+      if (ax < rootBand) { a = 0; bb = 1; t = sstep(ax / rootBand); }
+      else if (ax <= e - b) { a = 1; bb = 1; }
+      else if (ax < e + b) { a = 1; bb = 2; t = sstep((ax - (e - b)) / (2 * b)); }
+      else if (ax <= w - b) { a = 2; bb = 2; }
+      else if (ax < w + b) { a = 2; bb = 3; t = sstep((ax - (w - b)) / (2 * b)); }
+      else { a = 3; bb = 3; }
+      return { si: [a, bb], sw: [1 - t, t] }; };
+    const writeWeights = (geo) => { const pos = geo.attributes.position;
+      const si = new Uint16Array(pos.count * 4), sw = new Float32Array(pos.count * 4);
+      for (let i = 0; i < pos.count; i++) { const sk = spanSkin(Math.abs(pos.getX(i))); si[i * 4] = sk.si[0]; si[i * 4 + 1] = sk.si[1]; sw[i * 4] = sk.sw[0]; sw[i * 4 + 1] = sk.sw[1]; }
+      geo.setAttribute('skinIndex', new THREE.Uint16BufferAttribute(si, 4));
+      geo.setAttribute('skinWeight', new THREE.Float32BufferAttribute(sw, 4)); };
+    const subdivide = (geo) => { const pos = geo.attributes.position, idx = geo.index;
+      const v = []; for (let i = 0; i < pos.count; i++) v.push([pos.getX(i), pos.getY(i), pos.getZ(i)]);
+      const mid = new Map(), getMid = (a, b) => { const k = a < b ? a + '_' + b : b + '_' + a; if (mid.has(k)) return mid.get(k);
+        const va = v[a], vb = v[b]; v.push([(va[0] + vb[0]) / 2, (va[1] + vb[1]) / 2, (va[2] + vb[2]) / 2]); const id = v.length - 1; mid.set(k, id); return id; };
+      const ni = []; for (let t = 0; t < idx.count; t += 3) { const a = idx.getX(t), b = idx.getX(t + 1), c = idx.getX(t + 2);
+        const ab = getMid(a, b), bc = getMid(b, c), ca = getMid(c, a); ni.push(a, ab, ca, ab, b, bc, ca, bc, c, ab, bc, ca); }
+      const g = new THREE.BufferGeometry(), fp = new Float32Array(v.length * 3);
+      for (let i = 0; i < v.length; i++) { fp[i * 3] = v[i][0]; fp[i * 3 + 1] = v[i][1]; fp[i * 3 + 2] = v[i][2]; }
+      g.setAttribute('position', new THREE.Float32BufferAttribute(fp, 3)); g.setIndex(ni); return g; };
+    const mirror = (geo, s) => { if (s > 0) return geo; const pos = geo.attributes.position;
+      for (let i = 0; i < pos.count; i++) pos.setX(i, -pos.getX(i)); pos.needsUpdate = true;
+      const idx = geo.index; if (idx) for (let i = 0; i < idx.count; i += 3) { const b = idx.getX(i + 1), c = idx.getX(i + 2); idx.setX(i + 1, c); idx.setX(i + 2, b); } return geo; };
+    const shapeGeo = (pts, passes) => { const shp = new THREE.Shape();
+      pts.forEach(([x, y], i) => (i ? shp.lineTo(x, y) : shp.moveTo(x, y))); shp.closePath();
+      let g = new THREE.ShapeGeometry(shp, seg(2)); g.scale(outScale, outScale, 1);
+      for (let p = 0; p < passes; p++) g = subdivide(g); return g; };
+    let farTip = outline[0]; for (const p of outline) if (p[0] > farTip[0]) farTip = p;
+    // Chordwise BILLOW: bow the flat sheet out in Z (depth) so it reads as a 3-D membrane
+    // catching air, not paper. Zero at the leading/trailing edges (top/bottom of the outline)
+    // and at the welded root; full across the mid-chord + outer span. (model.wingBillow)
+    const billowAmt = (model.wingBillow ?? 0) * outScale;
+    let oyMin = Infinity, oyMax = -Infinity, oxMax = 0;
+    for (const p of outline) { if (p[1] < oyMin) oyMin = p[1]; if (p[1] > oyMax) oyMax = p[1]; if (Math.abs(p[0]) > oxMax) oxMax = Math.abs(p[0]); }
+    const yMinS = oyMin * outScale, yMaxS = oyMax * outScale, maxXS = (oxMax || 3) * outScale;
+    const billow = (geo) => { if (!billowAmt) return; const pos = geo.attributes.position;
+      for (let i = 0; i < pos.count; i++) { const x = pos.getX(i), y = pos.getY(i);
+        const ty = Math.min(Math.max((y - yMinS) / ((yMaxS - yMinS) || 1), 0), 1);
+        const taper = sstep(Math.min(Math.abs(x) / (0.32 * maxXS), 1));   // 0 at root → full by ~⅓ span
+        pos.setZ(i, pos.getZ(i) + billowAmt * Math.sin(Math.PI * ty) * taper); }
+      pos.needsUpdate = true; };
+    const rigs = {};
+    for (const s of [-1, 1]) {
+      const mount = new THREE.Group();
+      const anchor = new THREE.Bone();
+      const shoulder = new THREE.Bone();
+      const elbow = new THREE.Bone(); elbow.position.set(elbowX * s, elbowY, 0);
+      const wrist = new THREE.Bone(); wrist.position.set((wristX - elbowX) * s, wristY - elbowY, 0);
+      shoulder.add(elbow); elbow.add(wrist);
+      let mg = shapeGeo(outline, 2); mirror(mg, s); billow(mg); applyWingGradient(mg, def, 0, 1); mg.computeVertexNormals(); writeWeights(mg);
+      const mem = new THREE.SkinnedMesh(mg, wingMat); mem.frustumCulled = false;
+      const struts = [];
+      for (const poly of (def.wingStruts && def.wingStruts.boneShapes ? def.wingStruts.boneShapes : [])) {
+        if (poly.length < 3) continue;
+        let bg = shapeGeo(poly, 1); mirror(bg, s); bg.translate(0, 0, 0.05); billow(bg); bg.computeVertexNormals(); writeWeights(bg);
+        const sm = new THREE.SkinnedMesh(bg, strutMat); sm.frustumCulled = false; struts.push(sm);
+      }
+      mount.add(anchor); mount.add(shoulder); mount.add(mem); for (const sm of struts) mount.add(sm);
+      const marker = new THREE.Object3D(); marker.position.set((farTip[0] * outScale - wristX) * s, farTip[1] * outScale - wristY, 0); wrist.add(marker);
+      mount.updateMatrixWorld(true);
+      const skel = new THREE.Skeleton([anchor, shoulder, elbow, wrist]);
+      mem.bind(skel); for (const sm of struts) sm.bind(skel);
+      const wr = attach.wingRoot(s);
+      mount.position.set(wr.x, wr.y, wr.z);
+      mount.rotation.set(model.wingPlaneTiltX ?? 0, s * (model.wingPlaneSweepY ?? 0), s * (model.wingPlaneRollZ ?? 0));
+      sgroup.add(mount);
+      const rig = { shoulder, elbow, wrist, side: s, profile: model.flapProfile || null };
+      if (s < 0) rigs.L = { shoulder, wrist, marker, rig }; else rigs.R = { shoulder, wrist, marker, rig };
+    }
+    return { group: sgroup, parts: {
+      wingPivotL: rigs.L.shoulder, wingPivotR: rigs.R.shoulder,
+      wingTipL: rigs.L.wrist, wingTipR: rigs.R.wrist,
+      tipMarkerL: rigs.L.marker, tipMarkerR: rigs.R.marker,
+      wingPivot2L: null, wingPivot2R: null,
+      wingRigL: rigs.L.rig, wingRigR: rigs.R.rig,
+    }, wingMat, spineMats };
+  }
+
+  const parts = {};
+  for (const s of [-1, 1]) {
+    const wr = attach.wingRoot(s);
+    const pivot = new THREE.Group();
+    pivot.position.set(wr.x, wr.y, wr.z);
+    group.add(pivot);
+    // rest dihedral + side mirror live on a static child so the rig's flap
+    // (pivot.rotation) adds on top of the raised V.
+    // For an outline traced as a FLAT 2-D shape, the plane would otherwise sit dead-on to the
+    // lens (a poster). Orient that flat plane in 3-D from knobs: tilt up (dihedral, X), sweep
+    // back (Y) and roll in-plane (Z) — mirrored per side. Defaults 0 = unchanged for everyone else.
+    const orient = new THREE.Group();
+    if (outline) {
+      orient.rotation.set(model.wingPlaneTiltX ?? 0, s * (model.wingPlaneSweepY ?? 0), s * (model.wingPlaneRollZ ?? 0));
+    }
+    pivot.add(orient);
+    const dih = new THREE.Group();
+    dih.rotation.z = outline ? 0 : s * dihedral;
+    dih.scale.x = s;                 // mirror the +x-built wing to the correct side
+    orient.add(dih);
+
+    const wingTip = new THREE.Group();
+    let tipMarker = new THREE.Object3D();
+
+    if (outline) {
+      dih.add(new THREE.Mesh(outlineGeo(), wingMat));
+      let far = outline[0]; for (const p of outline) if (p[0] > far[0]) far = p;
+      const strutMat = model.wingVeins ? veinMat : armMat;
+      const flatBone = (ax, ay, bx, by, wAh, wBh) => {            // a tapered 2-edge bone segment
+        const dx = bx - ax, dy = by - ay, L = Math.hypot(dx, dy) || 1, nx = -dy / L, ny = dx / L;
+        const v = [ax + nx * wAh, ay + ny * wAh, 0.05, ax - nx * wAh, ay - ny * wAh, 0.05,
+                   bx - nx * wBh, by - ny * wBh, 0.05, bx + nx * wBh, by + ny * wBh, 0.05];
+        const g = new THREE.BufferGeometry();
+        g.setAttribute('position', new THREE.Float32BufferAttribute(v, 3));
+        g.setIndex([0, 1, 2, 0, 2, 3]); g.computeVertexNormals();
+        return new THREE.Mesh(g, strutMat);
+      };
+      if (def.wingStruts && def.wingStruts.boneShapes) {
+        // FILLED bone shapes (e.g. human-tagged finger bones traced as closed 2-edge outlines):
+        // render each polygon verbatim as a flat shape in the screen plane, just above the membrane.
+        for (const poly of def.wingStruts.boneShapes) {
+          if (poly.length < 3) continue;
+          const shp = new THREE.Shape();
+          poly.forEach(([x, y], i) => (i ? shp.lineTo(x * outScale, y * outScale) : shp.moveTo(x * outScale, y * outScale)));
+          shp.closePath();
+          const g = new THREE.ShapeGeometry(shp, seg(1));
+          g.translate(0, 0, 0.05);
+          dih.add(new THREE.Mesh(g, strutMat));
+        }
+      } else if (def.wingStruts && def.wingStruts.bones) {
+        // BONE STRUTS traced from THIS wing's drawn lines (tools/wingtrace.mjs skeleton
+        // centerlines): each is a POLYLINE wrist→tip (the real, possibly-curved path);
+        // render it as a tapered 2-edge ribbon (thin to the tip).
+        for (const poly of def.wingStruts.bones) {
+          if (poly.length < 2) continue;
+          let tot = 0; const segL = [];
+          for (let i = 1; i < poly.length; i++) { const l = Math.hypot(poly[i][0] - poly[i - 1][0], poly[i][1] - poly[i - 1][1]); segL.push(l); tot += l; }
+          tot = tot || 1; let acc = 0;
+          const wAt = (f) => (0.06 * (1 - f) + 0.012) * ws;       // wrist-wide → tip-thin
+          for (let i = 1; i < poly.length; i++) {
+            const a = poly[i - 1], b = poly[i], wa = wAt(acc / tot); acc += segL[i - 1]; const wb = wAt(acc / tot);
+            dih.add(flatBone(a[0] * outScale, a[1] * outScale, b[0] * outScale, b[1] * outScale, wa, wb));
+          }
+        }
+      } else if (def.wingStruts && def.wingStruts.wrist) {
+        const W = def.wingStruts.wrist;
+        dih.add(flatBone(0, 0, W[0] * outScale, W[1] * outScale, 0.07 * ws, 0.05 * ws));
+        for (const tp of def.wingStruts.tips) dih.add(flatBone(W[0] * outScale, W[1] * outScale, tp[0] * outScale, tp[1] * outScale, 0.045 * ws, 0.012 * ws));
+      } else {
+        const { tips } = outlineFingers();
+        dih.add(bone(0, 0, 0.03, far[0] * outScale, far[1] * outScale, 0.03, 0.05 * ws, 0.015 * ws, armMat));
+        for (const t of tips) dih.add(bone(0, 0, 0.04, t[0] * outScale, t[1] * outScale, 0.04, 0.03 * ws, 0.01 * ws, strutMat));
+      }
+      wingTip.position.set(far[0] * outScale * 0.6, far[1] * outScale * 0.6, 0);
+      dih.add(wingTip);
+      tipMarker.position.set(far[0] * outScale, far[1] * outScale, 0);
+      wingTip.add(tipMarker);
+    } else {
+      dih.add(new THREE.Mesh(elegantWingGeo(), wingMat));
+      // Leading-edge ARM bone (root → sharp far tip) so the wing reads as bone + membrane.
+      dih.add(bone(0, 0, 0.03, X(0), Y(0), 0.03, 0.06 * ws, 0.02 * ws, armMat));
+      // Crystalline FINGER spokes: root → each sharp finger tip (the radiating struts).
+      for (let i = 1; i < t.length; i++) {
+        dih.add(bone(0, 0, 0.04, X(i), Y(i), 0.04, 0.032 * ws, 0.01 * ws, model.wingVeins ? veinMat : armMat));
+      }
+      if (model.wingVeins) dih.add(bone(0, 0, 0.05, X(0) * 0.92, Y(0) * 0.92 + 0.05, 0.05, 0.016 * ws, 0.006 * ws, veinMat));
+      wingTip.position.set(maxXa * 0.6, Y(0) * 0.6, 0);
+      dih.add(wingTip);
+      tipMarker.position.set(maxXa, Y(0), 0);
+      wingTip.add(tipMarker);
+    }
+
+    if (s < 0) { parts.wingPivotL = pivot; parts.wingTipL = wingTip; parts.tipMarkerL = tipMarker; }
+    else { parts.wingPivotR = pivot; parts.wingTipR = wingTip; parts.tipMarkerR = tipMarker; }
+  }
+  parts.wingPivot2L = null; parts.wingPivot2R = null;
+  return { group, parts, wingMat, spineMats };
+}
+registerWings('crystalWing', buildCrystalWings);
+
 // ── FEATHER ─────────────────────────────────────────────────────────────────
 // The firebird wing (the Phoenix, folded out of its bespoke builder): a bird
 // wing, not a membrane — a continuous translucent inner WEB (the secondaries)

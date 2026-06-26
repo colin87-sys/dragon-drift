@@ -74,9 +74,22 @@ layers: `spineGlowLine`, `dorsalChevrons`, `backCrest`, `scaleRidge`, `dorsalSai
 `hornPairs`, `shoulderWidthScale`, `wingRootScale`, `headScale`, `eyeScale`. Several
 may also appear per-form in `forms[]`.
 
+**Shape-from-data (`parts.torso:'parametricArrow'`).** Give a drake its OWN silhouette
+from `dragons.js` instead of the shared body — all default to byte-identical `arrow`:
+- `model.bodyKnobs`: `bodyLength`, `shoulderWidth`, `shoulderZ`, `chestScale`,
+  `waistPinch`, `hipFlare`, `bellyFullness`, `neckTaper`, `tailTaper`,
+  `keelHeightCurve`, `sectionPoints` (roundness), `sectionExponent`, and
+  `attach:{ wingRoot, headBase, tailAnchor }` (additive mount nudges).
+- `profileStations`: the creature's own cross-section ring list (`[z, halfWidth,
+  keelTop, belly]` rows, head −z → tail +z); mount points re-derive off it.
+- `model.tailKnobs`: `forkSpread`/`forkLength`/`forkNotch`, `bladeHalfW`/`bladeLength`,
+  `spadeHalfW`/`spadeLength` (comet/blade/spade tip outlines).
+
 ### `wing` — shape + membrane (`model.*`)
 `wingOpacity`, `wingPanelGlow`, `wingBillow`, `wingArmLeadChord`, `wingWristMedial`,
-`wingFingerCurve`, `wingFingerSplay`, `wingFingerBulge`, `wingFingerRadius`.
+`wingFingerCurve`, `wingFingerSplay`, `wingFingerBulge`, `wingFingerRadius`. Parametric
+PLANFORM (alt. to `wingForms[]`): `wingFormKnobs:[…4…]` =
+`{ span, fingerCount, fingerSplay, chordTaper, sweep, scallop, flame, arc }`.
 
 ### `motion` — feel (`model.*`)
 `flapBias`, `flapAmp`, and `flapProfile` (per-creature wingbeat character:

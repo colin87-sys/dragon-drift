@@ -132,7 +132,7 @@ recap, save-migration) pass.
 
 | slot | options |
 |---|---|
-| `torso` | `arrow` (drake) · `serpent` (eastern) · `avian` (firebird) |
+| `torso` | `arrow` (drake) · `parametricArrow` (drake, **shape-from-data**: own `profileStations` / `model.bodyKnobs`, mounts re-derived) · `serpent` (eastern) · `avian` (firebird) |
 | `wings` | `membrane` (per-form elbow) · `feather` (bird) · `none` (wingless) |
 | `tail`  | `clean` + any `tailStyle` (simple/finned/blade/comet/twinfin/shard/spade/splitfin/stealthrudder/apexstealth/firefan) · `plume` (flame fan) · `legacy` |
 | `head`  | `horned` (+ whisker/tusk/frill flags) · `beaked` (feather crown) |

@@ -20,6 +20,8 @@ export const GROUPS = Object.freeze([
 //   'shaderList'— an array of registered surface-shader names
 //   'shingleList'— an array (or single) of shingle-run specs
 //   'layerList' — an array of declarative surfaceLayers specs (the new path)
+//   'stationList'— a body cross-section ring list (parametricArrow's own-shape mode)
+//   'wingFormList'— a per-form array of parametric wing-planform knob objects
 //   'number'/'int'/'bool'/'color' — primitives ('int' = whole number)
 //   'object'    — a sub-blueprint whose children are described by their own paths
 // A descriptor with min/max is RANGE-CHECKED when the value is present + numeric.
@@ -51,6 +53,36 @@ export const CREATURE_GRAMMAR = Object.freeze([
   { path: 'model.headScale', group: 'hull', kind: 'number', min: 0.4, max: 2.2, desc: 'Head proportion.' },
   { path: 'model.eyeScale', group: 'hull', kind: 'number', min: 0.3, max: 2.2, desc: 'Eye proportion.' },
 
+  // --- parametricArrow body shape (model.bodyKnobs.* — dragonBodyProfile.js) -----
+  // Dial-able silhouette over the shipped arrowhead table; every knob defaults to
+  // identity → byte-identical to the 'arrow' torso. Needs parts.torso:'parametricArrow'.
+  { path: 'model.bodyKnobs', group: 'hull', kind: 'object', desc: 'Parametric body-shape knobs (parts.torso:parametricArrow). Children below; default identity = the shipped arrow body.' },
+  { path: 'model.bodyKnobs.bodyLength', group: 'hull', kind: 'number', min: 0.6, max: 1.8, desc: 'After-body length multiplier.' },
+  { path: 'model.bodyKnobs.shoulderWidth', group: 'hull', kind: 'number', min: 0.5, max: 2.0, desc: 'Shoulder/fore-body breadth.' },
+  { path: 'model.bodyKnobs.shoulderZ', group: 'hull', kind: 'number', min: -0.6, max: 0.6, desc: 'Slide the shoulder rows fore/aft.' },
+  { path: 'model.bodyKnobs.chestScale', group: 'hull', kind: 'number', min: 0.5, max: 1.6, desc: 'Chest (shoulder-peak/thorax) breadth.' },
+  { path: 'model.bodyKnobs.waistPinch', group: 'hull', kind: 'number', min: 0.4, max: 1.3, desc: 'Waist+hip breadth (<1 deepens the pinch).' },
+  { path: 'model.bodyKnobs.hipFlare', group: 'hull', kind: 'number', min: 0.5, max: 1.8, desc: 'Hip breadth.' },
+  { path: 'model.bodyKnobs.bellyFullness', group: 'hull', kind: 'number', min: 0.6, max: 1.6, desc: 'Belly depth of the mid rows.' },
+  { path: 'model.bodyKnobs.neckTaper', group: 'hull', kind: 'number', min: 0.5, max: 1.6, desc: 'Neck-row breadth.' },
+  { path: 'model.bodyKnobs.tailTaper', group: 'hull', kind: 'number', min: 0.4, max: 1.6, desc: 'Tail-root breadth.' },
+  { path: 'model.bodyKnobs.keelHeightCurve', group: 'hull', kind: 'number', min: 0.6, max: 1.6, desc: 'Dorsal keel-crest height.' },
+  { path: 'model.bodyKnobs.sectionPoints', group: 'hull', kind: 'int', min: 6, max: 24, desc: 'Cross-section roundness (control points; 8 = the shipped faceted airfoil).' },
+  { path: 'model.bodyKnobs.sectionExponent', group: 'hull', kind: 'number', min: 1.5, max: 4, desc: 'Super-ellipse fullness (higher = boxier; only when a custom section is emitted).' },
+  // Own cross-section ring list (the "Phoenix move" as data): [z, halfWidth, keelTop,
+  // belly] tuples or { z, halfWidth, keelTop, belly } objects, head(-z) → tail(+z).
+  { path: 'profileStations', group: 'hull', kind: 'stationList', desc: 'Own body cross-section ring list (parts.torso:parametricArrow) — head(-z)→tail(+z).' },
+
+  // --- parametric tail tip outlines (model.tailKnobs.* — dragonTail.js) ----------
+  { path: 'model.tailKnobs', group: 'hull', kind: 'object', desc: 'Dial-able comet/blade/spade tail-tip outlines; default identity = the shipped shapes.' },
+  { path: 'model.tailKnobs.forkSpread', group: 'hull', kind: 'number', min: 0.1, max: 1.2, desc: 'Comet fork tine spread.' },
+  { path: 'model.tailKnobs.forkLength', group: 'hull', kind: 'number', min: 0.6, max: 3, desc: 'Comet fork length.' },
+  { path: 'model.tailKnobs.forkNotch', group: 'hull', kind: 'number', min: 0.2, max: 2, desc: 'Comet fork inner-V notch depth.' },
+  { path: 'model.tailKnobs.bladeHalfW', group: 'hull', kind: 'number', min: 0.1, max: 1, desc: 'Blade-tail half-width.' },
+  { path: 'model.tailKnobs.bladeLength', group: 'hull', kind: 'number', min: 0.6, max: 3, desc: 'Blade-tail length.' },
+  { path: 'model.tailKnobs.spadeHalfW', group: 'hull', kind: 'number', min: 0.05, max: 0.6, desc: 'Spade-tip half-width.' },
+  { path: 'model.tailKnobs.spadeLength', group: 'hull', kind: 'number', min: 0.2, max: 1.6, desc: 'Spade-tip length.' },
+
   // --- wing shape + surface (model.*) -----------------------------------------
   { path: 'model.wingOpacity', group: 'wing', kind: 'number', min: 0, max: 1, forms: true, desc: 'Membrane translucency.' },
   { path: 'model.wingPanelGlow', group: 'wing', kind: 'number', min: 0, max: 1.5, forms: true, desc: 'Emissive glow on the membrane panel.' },
@@ -61,6 +93,11 @@ export const CREATURE_GRAMMAR = Object.freeze([
   { path: 'model.wingFingerSplay', group: 'wing', kind: 'number', min: 0, max: 1, desc: 'Finger fan splay.' },
   { path: 'model.wingFingerBulge', group: 'wing', kind: 'number', min: 0, max: 0.5, desc: 'Strut ridge bulge amplitude.' },
   { path: 'model.wingFingerRadius', group: 'wing', kind: 'number', min: 0, max: 0.3, desc: 'Finger-strut tube radius.' },
+  // Parametric wing PLANFORM per form (dragonWingForms.js) — an alternative to the
+  // hand-placed wingForms[] tip arrays. Each entry: { span?, fingerCount?, fingerSplay?,
+  // chordTaper?, sweep?, scallop?, flame?, arc?, tips? }. Pairs with a folding
+  // skinnedMembrane wing so the planform reshapes without colliding mid-beat.
+  { path: 'wingFormKnobs', group: 'wing', kind: 'wingFormList', forms: true, desc: 'Per-form parametric wing-planform knob objects (alt. to wingForms[]).' },
 
   // --- motion / feel (model.*) ------------------------------------------------
   { path: 'model.flapBias', group: 'motion', kind: 'number', min: 0.4, max: 1.6, desc: 'Wingbeat phase drift.' },

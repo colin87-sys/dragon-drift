@@ -1,0 +1,302 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Wing Click-Trace — pick the bones</title>
+<style>
+  :root { color-scheme: dark; }
+  body { margin: 0; background: #0c0e14; color: #cdd6e4; font: 14px/1.5 system-ui, sans-serif; }
+  header { padding: 10px 14px; background: #11141d; border-bottom: 1px solid #222b3b; }
+  h1 { font-size: 15px; margin: 0 0 2px; }
+  .sub { color: #7e8aa3; font-size: 12px; }
+  .wrap { display: flex; gap: 14px; padding: 14px; align-items: flex-start; flex-wrap: wrap; }
+  .panel { background: #11141d; border: 1px solid #222b3b; border-radius: 8px; padding: 12px; }
+  canvas { background: #0a0c12; border: 1px solid #2a3550; border-radius: 6px; cursor: crosshair; touch-action: none; }
+  button { background: #1b2233; color: #cdd6e4; border: 1px solid #2f3b56; border-radius: 6px; padding: 7px 11px; margin: 0 6px 6px 0; cursor: pointer; font-size: 13px; }
+  button:hover { background: #243049; } button.on { background: #2b6cff; border-color: #2b6cff; color: #fff; }
+  label { margin-right: 10px; }
+  textarea { width: 100%; min-height: 150px; background: #0a0c12; color: #9fe0ff; border: 1px solid #2a3550; border-radius: 6px; font: 12px/1.4 ui-monospace, monospace; padding: 8px; box-sizing: border-box; }
+  .row { margin: 8px 0; } .hint { color: #7e8aa3; font-size: 12px; }
+  .pill { display:inline-block; padding:1px 7px; border-radius:10px; background:#1b2233; border:1px solid #2f3b56; margin-right:6px; font-size:12px; }
+</style>
+</head>
+<body>
+<header>
+  <h1>Wing Click-Trace — pick the bones <span style="background:#2b6cff;color:#fff;border-radius:4px;padding:1px 7px;font-size:11px;vertical-align:middle">v5 · full-ink trace + flood</span></h1>
+  <div class="sub">Load the wing image → it pre-traces ALL interior lines → click a line to mark it a BONE (click again to unmark). Set the wrist if the auto one is off → Copy for Claude. <b>If you don't see the blue “v2” badge above and the ＋/－ buttons below the canvas, you have an old cached copy — re-download this file.</b></div>
+</header>
+
+<div class="wrap">
+  <div class="panel">
+    <div class="row">
+      <input type="file" id="file" accept="image/*" />
+      <label>Side: <select id="side"><option value="left">left</option><option value="right">right</option></select></label>
+      <label>eps: <input id="eps" type="number" value="2.4" step="0.2" style="width:52px"></label>
+      <label>min line len: <input id="minlen" type="number" value="14" step="2" style="width:56px"></label>
+    </div>
+    <canvas id="cv" width="600" height="820"></canvas>
+    <div class="row">
+      <button id="mFlood" class="on">Flood cell → bones</button>
+      <button id="mPick">Pick bones (click a line)</button>
+      <button id="mWrist">Set wrist (click)</button>
+      <button id="clear">Clear selection</button>
+      <button id="rerun">Re-trace</button>
+      <button id="zin">＋</button><button id="zout">－</button><button id="zreset">Reset view</button>
+    </div>
+    <div class="hint"><b>Flood cell → bones (easiest):</b> click inside a membrane panel (the area between two bones); it fills cyan and every line bordering that panel turns magenta = BONES. Click each panel between the fingers to catch all 6–7 bones. <b>Pick bones</b> mode = click an individual line to toggle it (touch-ups). Wrist = pink dot (auto; <b>Set wrist</b> to move it). <b>Zoom:</b> wheel or ＋ / －. <b>Pan:</b> hold <b>Space</b> (or right-drag).</div>
+  </div>
+
+  <div class="panel" style="flex:1; min-width: 320px;">
+    <div class="row"><span class="pill" id="stat">no image</span><span class="pill" id="cand">0 lines</span><span class="pill" id="sel">0 bones</span></div>
+    <div class="row"><button id="copy">Copy for Claude</button> <span class="hint">paste this back in chat</span></div>
+    <textarea id="out" readonly placeholder="wingOutline + wingStruts appear here"></textarea>
+    <div class="row hint">Output is wing-local (+x outward, +y up, origin at root, span≈3) — drops straight into the engine.</div>
+  </div>
+</div>
+
+<script>
+const cv = document.getElementById('cv'), ctx = cv.getContext('2d'), $ = (id)=>document.getElementById(id);
+let img=null, W=0, H=0, data=null, view={base:1,zoom:1,ox:0,oy:0};
+let outlineImg=[], frame=null, wrist=null, lines=[], selected=new Set(), mode='flood';
+let bbox=null, panning=false, panStart=null, spaceHeld=false;
+let fullMask=null, wallMask=null, wingArea=0, floodCv=null, fctx=null, floodAccum=null, haveFlood=false;
+
+function setMode(m){ mode=m; $('mFlood').classList.toggle('on',m==='flood'); $('mPick').classList.toggle('on',m==='pick'); $('mWrist').classList.toggle('on',m==='wrist'); }
+$('mFlood').onclick=()=>setMode('flood'); $('mPick').onclick=()=>setMode('pick'); $('mWrist').onclick=()=>setMode('wrist');
+$('clear').onclick=()=>{ selected.clear(); resetFlood(); buildOut(); redraw(); };
+$('rerun').onclick=()=>{ if(img) processImage(); };
+$('side').onchange=()=>{ if(img) processImage(); };
+$('eps').onchange=()=>{ if(img) processImage(); };
+$('minlen').onchange=()=>{ if(img) processImage(); };
+$('file').onchange=(e)=>{ const f=e.target.files[0]; if(!f) return; const fr=new FileReader();
+  fr.onload=()=>{ const im=new Image(); im.onload=()=>{ img=im; loadPixels(); processImage(); }; im.src=fr.result; }; fr.readAsDataURL(f); };
+
+function loadPixels(){ W=img.naturalWidth; H=img.naturalHeight; const oc=document.createElement('canvas'); oc.width=W; oc.height=H;
+  oc.getContext('2d').drawImage(img,0,0); data=oc.getContext('2d').getImageData(0,0,W,H).data;
+  floodCv=document.createElement('canvas'); floodCv.width=W; floodCv.height=H; fctx=floodCv.getContext('2d'); resetView(); }
+function resetFlood(){ floodAccum=new Uint8Array(W*H); haveFlood=false; if(fctx) fctx.clearRect(0,0,W,H); }
+function resetView(){ const s=Math.min(cv.width/W, cv.height/H); view={base:s, zoom:1, ox:(cv.width-W*s)/2, oy:(cv.height-H*s)/2}; }
+const eff=()=>view.base*view.zoom;
+const toCanvas=(p)=>({x:p.x*eff()+view.ox, y:p.y*eff()+view.oy});
+const toImage=(cx,cy)=>({x:(cx-view.ox)/eff(), y:(cy-view.oy)/eff()});
+function zoomAt(mx,my,f){ if(!img)return; const ip=toImage(mx,my); view.zoom=Math.max(0.2,Math.min(14,view.zoom*f)); view.ox=mx-ip.x*eff(); view.oy=my-ip.y*eff(); redraw(); }
+const lum=(i)=>0.299*data[i*4]+0.587*data[i*4+1]+0.114*data[i*4+2];
+
+function processImage(){
+  const side=$('side').value;
+  const cor=[[1,1],[W-2,1],[1,H-2],[W-2,H-2]].map(([x,y])=>[data[(y*W+x)*4],data[(y*W+x)*4+1],data[(y*W+x)*4+2],data[(y*W+x)*4+3]]);
+  const hasAlpha=cor.some(c=>c[3]<32);
+  const bg=cor.reduce((a,c)=>[a[0]+c[0]/4,a[1]+c[1]/4,a[2]+c[2]/4],[0,0,0]);
+  const mask=new Uint8Array(W*H); let subj=0;
+  for(let i=0;i<W*H;i++){ const r=data[i*4],g=data[i*4+1],b=data[i*4+2],a=data[i*4+3];
+    let m=hasAlpha? a>64 : ((Math.abs(r-bg[0])+Math.abs(g-bg[1])+Math.abs(b-bg[2])>60)||(Math.max(r,g,b)-Math.min(r,g,b)>24));
+    mask[i]=m?1:0; if(m) subj++; }
+  const lineart=!hasAlpha && subj/(W*H)<0.16;
+  let full;
+  if(lineart){ const ext=new Uint8Array(W*H), st=[]; for(const s of [0,W-1,(H-1)*W,W*H-1]) if(lum(s)>200){ext[s]=1;st.push(s);}
+    while(st.length){const p=st.pop(),x=p%W,y=(p/W)|0; for(const q of [x>0?p-1:-1,x<W-1?p+1:-1,y>0?p-W:-1,y<H-1?p+W:-1]) if(q>=0&&!ext[q]&&lum(q)>200){ext[q]=1;st.push(q);}}
+    const filled=new Uint8Array(W*H); for(let i=0;i<W*H;i++) filled[i]=ext[i]?0:1; full=pickComponent(filled,side); }
+  else full=pickComponent(mask,side);
+  outlineImg=traceOutline(full); computeFrame(side); computeBbox();
+  extractLines(full, lineart);
+  selected.clear(); autoWrist(); buildOut(); redraw();
+}
+function pickComponent(m,side){ const seen=new Uint8Array(W*H); let chosen=null,score=side==='right'?-1:1e18,st=[];
+  for(let s0=0;s0<W*H;s0++){ if(!m[s0]||seen[s0])continue; st.length=0; st.push(s0); seen[s0]=1; const cell=[]; let sx=0,n=0;
+    while(st.length){const p=st.pop(); cell.push(p); n++; sx+=p%W; const x=p%W,y=(p/W)|0;
+      if(x>0&&m[p-1]&&!seen[p-1]){seen[p-1]=1;st.push(p-1);} if(x<W-1&&m[p+1]&&!seen[p+1]){seen[p+1]=1;st.push(p+1);}
+      if(y>0&&m[p-W]&&!seen[p-W]){seen[p-W]=1;st.push(p-W);} if(y<H-1&&m[p+W]&&!seen[p+W]){seen[p+W]=1;st.push(p+W);} }
+    if(n<400)continue; const cxc=sx/n; if(side==='right'?cxc>score:cxc<score){score=cxc; chosen=cell;} }
+  const out=new Uint8Array(W*H); if(chosen) for(const p of chosen) out[p]=1; return out; }
+function traceOutline(full){ const at=(x,y)=>(x<0||y<0||x>=W||y>=H)?0:full[y*W+x]; let sx=-1,sy=-1;
+  outer: for(let y=0;y<H;y++)for(let x=0;x<W;x++) if(full[y*W+x]){sx=x;sy=y;break outer;} if(sx<0)return [];
+  const nb=[[-1,0],[-1,-1],[0,-1],[1,-1],[1,0],[1,1],[0,1],[-1,1]]; const c=[]; let cx=sx,cy=sy,bx=sx-1,by=sy,it=0;
+  do{ c.push({x:cx,y:cy}); let start=0; for(let i=0;i<8;i++) if(nb[i][0]===bx-cx&&nb[i][1]===by-cy){start=i;break;}
+    let found=false; for(let k=1;k<=8;k++){const i=(start+k)%8,nx=cx+nb[i][0],ny=cy+nb[i][1]; if(at(nx,ny)){const pi=(start+k-1)%8; bx=cx+nb[pi][0]; by=cy+nb[pi][1]; cx=nx; cy=ny; found=true; break;}} if(!found)break;
+  } while((cx!==sx||cy!==sy)&&++it<W*H*8); return rdp(c, parseFloat($('eps').value)||2.4); }
+function rdp(pts,eps){ if(pts.length<3)return pts.slice(); const keep=new Uint8Array(pts.length); keep[0]=keep[pts.length-1]=1; const stack=[[0,pts.length-1]];
+  const d=(p,a,b)=>{const dx=b.x-a.x,dy=b.y-a.y,l2=dx*dx+dy*dy; if(!l2)return Math.hypot(p.x-a.x,p.y-a.y); let t=((p.x-a.x)*dx+(p.y-a.y)*dy)/l2; t=Math.max(0,Math.min(1,t)); return Math.hypot(p.x-(a.x+t*dx),p.y-(a.y+t*dy));};
+  while(stack.length){const [lo,hi]=stack.pop(); let md=-1,idx=-1; for(let i=lo+1;i<hi;i++){const dd=d(pts[i],pts[lo],pts[hi]); if(dd>md){md=dd;idx=i;}} if(md>eps&&idx>0){keep[idx]=1; stack.push([lo,idx],[idx,hi]);}}
+  const o=[]; for(let i=0;i<pts.length;i++) if(keep[i]) o.push(pts[i]); return o; }
+function computeBbox(){ let a=1e9,b=-1e9,c=1e9,d=-1e9; for(const p of outlineImg){if(p.x<a)a=p.x;if(p.x>b)b=p.x;if(p.y<c)c=p.y;if(p.y>d)d=p.y;} bbox={x0:a,x1:b,y0:c,y1:d}; }
+function computeFrame(side){ if(!outlineImg.length){frame=null;return;} const sgn=side==='right'?-1:1; let o=outlineImg[0],tip=outlineImg[0];
+  for(const p of outlineImg){ if(side==='right'?p.x<o.x:p.x>o.x)o=p; if(side==='right'?p.x>tip.x:p.x<tip.x)tip=p; }
+  for(const p of outlineImg) if(Math.abs(p.x-o.x)<12&&p.y>o.y)o=p; const scale=Math.abs(o.x-tip.x)/3||1; frame={origin:{x:o.x,y:o.y},scale,sgn}; }
+const toLocal=(p)=>[ +(((frame.origin.x-p.x)*frame.sgn)/frame.scale).toFixed(3), +(((frame.origin.y-p.y))/frame.scale).toFixed(3) ];
+
+// ---- extract EVERY drawn line on the stencil: take the raw ink (no erosion — erosion erased
+// thin bones), thin it to centerlines, build a graph, stitch fragments into whole strokes. ----
+function extractLines(full, lineart){
+  const ink=new Uint8Array(W*H);
+  for(let y=bbox.y0;y<=bbox.y1;y++)for(let x=bbox.x0;x<=bbox.x1;x++){ const i=y*W+x; if(!full[i])continue;
+    const isL = lineart ? lum(i)<120 : lum(i)>110; if(isL) ink[i]=1; }
+  const skel=thin(ink);
+  // graph
+  const skset=skel;
+  const nbrs=(i)=>{const x=i%W,y=(i/W)|0,r=[]; for(let dy=-1;dy<=1;dy++)for(let dx=-1;dx<=1;dx++){if(!dx&&!dy)continue; const nx2=x+dx,ny=y+dy; if(nx2>=0&&ny>=0&&nx2<W&&ny<H&&skset[ny*W+nx2])r.push(ny*W+nx2);} return r;};
+  const pts=[]; for(let y=bbox.y0;y<=bbox.y1;y++)for(let x=bbox.x0;x<=bbox.x1;x++) if(skset[y*W+x]) pts.push(y*W+x);
+  const isNode=(i)=>{const d=nbrs(i).length; return d===1||d>=3;};
+  const px=(i)=>({x:i%W,y:(i/W)|0});
+  // walk every node→node EDGE once, keeping the node ids at both ends
+  const visEdge=new Set(); const edges=[];
+  const ekey=(a,b)=>a<b?a+'_'+b:b+'_'+a;
+  for(const s of pts){ if(!isNode(s))continue;
+    for(const n0 of nbrs(s)){ if(visEdge.has(ekey(s,n0)))continue;
+      const path=[s]; let prev=s,cur=n0; visEdge.add(ekey(prev,cur)); path.push(cur);
+      while(!isNode(cur)){ const ns=nbrs(cur).filter(n=>n!==prev); if(!ns.length)break; prev=cur; cur=ns[0]; visEdge.add(ekey(prev,cur)); path.push(cur);
+        if(path.length>4000)break; }
+      edges.push({pts:path.map(px), a:s, b:cur}); } }
+  // STITCH edges into whole strokes through junctions (continue along the most-collinear edge)
+  const minLen=parseFloat($('minlen').value)||14;
+  lines = stitchStrokes(edges).map(s=>rdp(s,2)).filter(s=>polyLen(s)>=minLen);
+  // the outline ink is in the skeleton too (broken into arcs where bones join it), so the
+  // trailing-edge bones are already covered — no separate outline append (would duplicate).
+  buildWalls(full, lineart);   // walls = the RAW INK (bones + outline), so membrane cells are truly closed
+  fullMask=full; wingArea=0; for(let i=0;i<W*H;i++) if(full[i]) wingArea++;
+  resetFlood();
+}
+// Walls = the actual drawn ink (dark lines in line-art / bright lines in render), dilated.
+// Centerlines have gaps at tips; the raw ink is continuous, so cells between bones close properly.
+function buildWalls(full, lineart){ const ink=new Uint8Array(W*H);
+  for(let y=bbox.y0;y<=bbox.y1;y++)for(let x=bbox.x0;x<=bbox.x1;x++){ const i=y*W+x; if(!full[i])continue;
+    const isL = lineart ? lum(i)<120 : lum(i)>110; if(isL) ink[i]=1; }
+  wallMask=new Uint8Array(W*H);
+  for(let y=bbox.y0;y<=bbox.y1;y++)for(let x=bbox.x0;x<=bbox.x1;x++){ if(!ink[y*W+x])continue;
+    for(let dy=-1;dy<=1;dy++)for(let dx=-1;dx<=1;dx++){const X=x+dx,Y=y+dy; if(X>=0&&Y>=0&&X<W&&Y<H) wallMask[Y*W+X]=1;} } }
+// Click a membrane cell → flood it → select every line that borders the cell (those are bones).
+function floodCell(p){ if(!fullMask||!wallMask) return;
+  let sx=Math.round(p.x), sy=Math.round(p.y); if(sx<0||sy<0||sx>=W||sy>=H) return; let start=sy*W+sx;
+  if(!fullMask[start]||wallMask[start]){ let f=-1; for(let r=1;r<=5&&f<0;r++) for(let dy=-r;dy<=r&&f<0;dy++)for(let dx=-r;dx<=r;dx++){const X=sx+dx,Y=sy+dy,i=Y*W+X; if(X>=0&&Y>=0&&X<W&&Y<H&&fullMask[i]&&!wallMask[i]){f=i;break;}} if(f<0) return; start=f; }
+  const flood=new Uint8Array(W*H), st=[start]; flood[start]=1; let cnt=0;
+  while(st.length){ const q=st.pop(); cnt++; const x=q%W,y=(q/W)|0;
+    for(const r of [x>0?q-1:-1,x<W-1?q+1:-1,y>0?q-W:-1,y<H-1?q+W:-1]){ if(r<0||flood[r])continue; if(fullMask[r]&&!wallMask[r]){flood[r]=1; st.push(r);} } }
+  if(cnt > wingArea*0.6){ alert('That cell leaked (the bones around it have a gap). Zoom in and click a smaller enclosed area, or lower "eps" and Re-trace.'); return; }
+  // select every line bordering the flooded cell
+  let added=0;
+  for(let i=0;i<lines.length;i++){ if(selected.has(i)) continue; const D=densify(lines[i],2); let hit=0;
+    for(const pt of D){ const x=Math.round(pt.x),y=Math.round(pt.y); let near=false;
+      for(let dy=-3;dy<=3&&!near;dy++)for(let dx=-3;dx<=3;dx++){const X=x+dx,Y=y+dy; if(X>=0&&Y>=0&&X<W&&Y<H&&flood[Y*W+X]){near=true;break;}} if(near)hit++; }
+    if(D.length && hit/D.length>=0.25){ selected.add(i); added++; } }
+  for(let i=0;i<W*H;i++) if(flood[i]) floodAccum[i]=1; paintFlood();
+  buildOut(); redraw();
+}
+function paintFlood(){ if(!fctx) return; const id=fctx.createImageData(W,H);
+  for(let i=0;i<W*H;i++) if(floodAccum[i]){ id.data[i*4]=90; id.data[i*4+1]=220; id.data[i*4+2]=255; id.data[i*4+3]=70; }
+  fctx.putImageData(id,0,0); haveFlood=true; }
+// Split the closed outline contour into open strokes at sharp corners (finger tips / notches).
+function splitOutlineStrokes(contour, minLen){
+  const n=contour.length; if(n<3) return [];
+  const ang=(a,b,c)=>{ const v1x=b.x-a.x,v1y=b.y-a.y,v2x=c.x-b.x,v2y=c.y-b.y;
+    const d=(v1x*v2x+v1y*v2y)/((Math.hypot(v1x,v1y)||1)*(Math.hypot(v2x,v2y)||1)); return Math.acos(Math.max(-1,Math.min(1,d))); };
+  const TH=35*Math.PI/180, corners=[];
+  for(let i=0;i<n;i++){ const a=contour[(i-1+n)%n],b=contour[i],c=contour[(i+1)%n]; if(ang(a,b,c)>TH) corners.push(i); }
+  const strokes=[];
+  if(corners.length<2){ strokes.push(contour.slice()); }
+  else for(let k=0;k<corners.length;k++){ const s=corners[k], e=corners[(k+1)%corners.length]; const seg=[]; let i=s;
+    while(true){ seg.push(contour[i]); if(i===e)break; i=(i+1)%n; } strokes.push(seg); }
+  return strokes.filter(s=>polyLen(s)>=minLen);
+}
+function densify(pts, step){ if(pts.length<2) return pts.slice(); const out=[pts[0]];
+  for(let i=1;i<pts.length;i++){ const a=pts[i-1],b=pts[i],L=Math.hypot(b.x-a.x,b.y-a.y),k=Math.max(1,Math.round(L/step));
+    for(let j=1;j<=k;j++) out.push({x:a.x+(b.x-a.x)*j/k, y:a.y+(b.y-a.y)*j/k}); } return out; }
+function distSegPt(p,a,b){ const dx=b.x-a.x,dy=b.y-a.y,l2=dx*dx+dy*dy; if(!l2)return Math.hypot(p.x-a.x,p.y-a.y);
+  let t=((p.x-a.x)*dx+(p.y-a.y)*dy)/l2; t=Math.max(0,Math.min(1,t)); return Math.hypot(p.x-(a.x+t*dx),p.y-(a.y+t*dy)); }
+// Reconnect node→node edges into full strokes: at each junction continue along the edge
+// whose direction is most collinear with the incoming travel (so one click = the whole line).
+function stitchStrokes(edges){
+  const adj=new Map(); const add=(n,i)=>{ if(!adj.has(n))adj.set(n,[]); adj.get(n).push(i); };
+  edges.forEach((e,i)=>{ add(e.a,i); add(e.b,i); });
+  const deg=(n)=>(adj.get(n)||[]).length;
+  const norm=(x,y)=>{const l=Math.hypot(x,y)||1; return {x:x/l,y:y/l};};
+  const leaveDir=(e,n)=>{ const p=e.pts; if(e.a===n){const a=p[0],b=p[Math.min(3,p.length-1)]; return norm(b.x-a.x,b.y-a.y);} const a=p[p.length-1],b=p[Math.max(p.length-4,0)]; return norm(b.x-a.x,b.y-a.y); };
+  const orient=(e,n)=> e.a===n ? e.pts.slice() : e.pts.slice().reverse();   // points leaving n
+  const used=new Array(edges.length).fill(false), cos50=Math.cos(50*Math.PI/180);
+  const order=[...edges.keys()].sort((i,j)=> Math.min(deg(edges[i].a),deg(edges[i].b)) - Math.min(deg(edges[j].a),deg(edges[j].b)));
+  const strokes=[];
+  for(const i0 of order){ if(used[i0])continue;
+    let cur=i0, node = deg(edges[i0].a)===1? edges[i0].a : (deg(edges[i0].b)===1? edges[i0].b : edges[i0].a);
+    const stroke=[];
+    while(cur>=0 && !used[cur]){ used[cur]=true; const seg=orient(edges[cur],node); if(stroke.length) seg.shift(); stroke.push(...seg);
+      const far = edges[cur].a===node? edges[cur].b : edges[cur].a;
+      if(deg(far)<=1) break;
+      const back=leaveDir(edges[cur],far), into={x:-back.x,y:-back.y};   // travel direction INTO far
+      let best=-1,bestDot=-2;
+      for(const ej of (adj.get(far)||[])){ if(used[ej])continue; const d=leaveDir(edges[ej],far); const dot=d.x*into.x+d.y*into.y; if(dot>bestDot){bestDot=dot; best=ej;} }
+      if(best<0 || bestDot<cos50) break;
+      cur=best; node=far;
+    }
+    if(stroke.length>=2) strokes.push(stroke);
+  }
+  return strokes;
+}
+function polyLen(p){let L=0;for(let i=1;i<p.length;i++)L+=Math.hypot(p[i].x-p[i-1].x,p[i].y-p[i-1].y);return L;}
+function thin(src){ const m=Uint8Array.from(src),P=(x,y)=>m[y*W+x];
+  const x0=Math.max(1,bbox.x0-2),x1=Math.min(W-2,bbox.x1+2),y0=Math.max(1,bbox.y0-2),y1=Math.min(H-2,bbox.y1+2);
+  let ch=true,g=0; while(ch&&g++<250){ ch=false; for(const step of [0,1]){ const del=[];
+    for(let y=y0;y<=y1;y++)for(let x=x0;x<=x1;x++){ if(!m[y*W+x])continue;
+      const p2=P(x,y-1),p3=P(x+1,y-1),p4=P(x+1,y),p5=P(x+1,y+1),p6=P(x,y+1),p7=P(x-1,y+1),p8=P(x-1,y),p9=P(x-1,y-1);
+      const B=p2+p3+p4+p5+p6+p7+p8+p9; if(B<2||B>6)continue; const sq=[p2,p3,p4,p5,p6,p7,p8,p9,p2]; let A=0; for(let k=0;k<8;k++) if(!sq[k]&&sq[k+1])A++; if(A!==1)continue;
+      if(step===0){if(p2&&p4&&p6)continue; if(p4&&p6&&p8)continue;} else {if(p2&&p4&&p8)continue; if(p2&&p6&&p8)continue;} del.push(y*W+x); }
+    if(del.length){ch=true; for(const i of del) m[i]=0;} } } return m; }
+
+function autoWrist(){ // hub = node minimising total dist to all line endpoints
+  if(!lines.length){ wrist=frame?frame.origin:null; return; }
+  const ends=[]; for(const L of lines){ ends.push(L[0], L[L.length-1]); }
+  let best=ends[0],bd=Infinity; const cands=[]; for(const L of lines){ cands.push(L[0],L[L.length-1]); }
+  for(const c of cands){ let d=0; for(const e of ends) d+=Math.hypot(c.x-e.x,c.y-e.y); if(d<bd){bd=d; best=c;} }
+  wrist={x:best.x,y:best.y};
+}
+
+// --- zoom / pan ---
+$('zin').onclick=()=>zoomAt(cv.width/2,cv.height/2,1.25);
+$('zout').onclick=()=>zoomAt(cv.width/2,cv.height/2,1/1.25);
+$('zreset').onclick=()=>{ if(img){ resetView(); redraw(); } };
+cv.addEventListener('wheel',(e)=>{ if(!img)return; e.preventDefault(); const r=cv.getBoundingClientRect(); zoomAt(e.clientX-r.left, e.clientY-r.top, e.deltaY<0?1.12:1/1.12); }, {passive:false});
+cv.addEventListener('contextmenu',(e)=>e.preventDefault());
+window.addEventListener('keydown',(e)=>{ if(e.code==='Space'){ spaceHeld=true; cv.style.cursor='grab'; } });
+window.addEventListener('keyup',(e)=>{ if(e.code==='Space'){ spaceHeld=false; cv.style.cursor='crosshair'; } });
+cv.addEventListener('pointermove',(e)=>{ if(!panning)return; const r=cv.getBoundingClientRect(); const mx=e.clientX-r.left, my=e.clientY-r.top; view.ox+=mx-panStart.x; view.oy+=my-panStart.y; panStart={x:mx,y:my}; redraw(); });
+window.addEventListener('pointerup',()=>{ panning=false; if(spaceHeld) cv.style.cursor='grab'; });
+
+cv.addEventListener('pointerdown',(e)=>{ if(!img) return; const r=cv.getBoundingClientRect(); const mx=e.clientX-r.left, my=e.clientY-r.top;
+  if(e.button===2 || spaceHeld){ panning=true; panStart={x:mx,y:my}; cv.style.cursor='grabbing'; return; }
+  if(!frame) return; const p=toImage(mx, my);
+  if(mode==='wrist'){ wrist=p; buildOut(); redraw(); return; }
+  if(mode==='flood'){ floodCell(p); return; }
+  // pick nearest line: min point-to-SEGMENT distance, tie-break toward LONGER lines
+  let bi=-1, bs=Infinity;
+  for(let i=0;i<lines.length;i++){ const L=lines[i]; let dmin=Infinity;
+    for(let k=1;k<L.length;k++) dmin=Math.min(dmin, distSegPt(p,L[k-1],L[k]));
+    if(L.length===1) dmin=Math.hypot(L[0].x-p.x,L[0].y-p.y);
+    const sc = dmin - Math.min(polyLen(L)*0.04, 12);   // prefer longer lines when close
+    if(sc<bs){bs=sc; bi=i;} }
+  if(bi>=0 && bs<40){ if(selected.has(bi)) selected.delete(bi); else selected.add(bi); buildOut(); redraw(); }
+});
+
+function selectedBones(){ // orient each selected line wrist→tip, snap inner end to wrist
+  const out=[]; for(const i of selected){ let L=lines[i].slice();
+    if(Math.hypot(L[0].x-wrist.x,L[0].y-wrist.y) > Math.hypot(L[L.length-1].x-wrist.x,L[L.length-1].y-wrist.y)) L=L.reverse();
+    L[0]={x:wrist.x,y:wrist.y}; out.push(L); } return out; }
+function buildOut(){ if(!frame){$('out').value='';return;}
+  const outline=outlineImg.map(toLocal);
+  let s='wingOutline: '+JSON.stringify(outline)+'\n';
+  if(wrist){ const bones=selectedBones().map(L=>L.map(toLocal)); s+='wingStruts: '+JSON.stringify({wrist:toLocal(wrist),bones}); }
+  $('out').value=s;
+  $('stat').textContent = img?(W+'×'+H+' · '+$('side').value):'no image';
+  $('cand').textContent = lines.length+' lines'; $('sel').textContent = selected.size+' bones';
+}
+$('copy').onclick=()=>{ $('out').select(); document.execCommand('copy'); };
+
+function redraw(){ ctx.clearRect(0,0,cv.width,cv.height); if(img) ctx.drawImage(img,view.ox,view.oy,W*eff(),H*eff());
+  if(haveFlood && floodCv) ctx.drawImage(floodCv,view.ox,view.oy,W*eff(),H*eff());
+  if(outlineImg.length){ ctx.strokeStyle='#39e6a0'; ctx.lineWidth=1.5; ctx.beginPath(); outlineImg.forEach((p,i)=>{const c=toCanvas(p); i?ctx.lineTo(c.x,c.y):ctx.moveTo(c.x,c.y);}); ctx.closePath(); ctx.stroke(); }
+  // candidate lines
+  for(let i=0;i<lines.length;i++){ const on=selected.has(i); ctx.strokeStyle= on?'#ff5ad0':'#5aa0c0'; ctx.lineWidth= on?3:1.4; ctx.beginPath();
+    lines[i].forEach((p,k)=>{const c=toCanvas(p); k?ctx.lineTo(c.x,c.y):ctx.moveTo(c.x,c.y);}); ctx.stroke(); }
+  if(wrist){ const c=toCanvas(wrist); ctx.fillStyle='#ff7be0'; ctx.beginPath(); ctx.arc(c.x,c.y,6,0,7); ctx.fill(); ctx.strokeStyle='#fff'; ctx.stroke(); }
+}
+setMode('flood');
+</script>
+</body>
+</html>

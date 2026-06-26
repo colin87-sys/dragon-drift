@@ -2980,3 +2980,280 @@ dragon from a guessed wing rig + connection would have been the very "back-and-f
 human's next trace (wing rig + joint + body outline); extend `deriveWingForm` to estimate `scallop` from the
 mean finger-notch depth; add tail/head rig modes the same way; overlay the BUILT silhouette behind the trace
 so correction is one screen.
+
+---
+
+## Lesson — Shape-from-DATA: the bolted body became dial-able (own cross-sections + derived mounts), reuniting Solar's charm with Phoenix's "own geometry, shared rig" — and it's the AI-promptability the loop was missing.
+
+**Did / learned:** the human wanted Solar Sovereign's bolted-parts CHARM back, but customizable — and recalled
+Phoenix (the only dragon that ever "looked like a different animal" because it had its OWN geometry file)
+as the gold standard of "minimal iteration to a great result". Mapped both onto ONE missing capability the
+ledger had already named but never built: **the torso/body is the last part that's bespoke CODE, not dial-able
+DATA** (`ARROW_PROFILE.stations` hand-typed; mounts frozen constants; `WING_FORMS[0..3]` hand-placed). Built the
+parametric "shape-from-data" layer, all COEXIST + byte-identical-by-default:
+- **`dragonBodyProfile.js#makeArrowProfile(knobs)`** — emits the same `profile` object `buildTorso` consumes,
+  two modes: (A) DELTA knobs over the shipped table (`shoulderWidth/chestScale/waistPinch/hipFlare/bodyLength/
+  keelHeightCurve/sectionPoints…`, all identity-default), (B) a creature's OWN `profileStations` ring list (the
+  Phoenix move as data — own geometry, shared loft+rig, no new builder). Registered as torso `'parametricArrow'`.
+- **DERIVED + nudge-able mounts** — `wingRoot/fairing/headBase/tailAnchor` computed FROM the stations (wing root
+  rides the argmax-halfWidth shoulder peak; head/tail re-anchor off the end stations), with additive
+  `bodyKnobs.attach` nudges. Calibrated against the default table so default knobs reproduce the legacy
+  `{0.5,0.55,-0.25}` etc. EXACTLY → byte-identical; a reshaped body re-places its own connections.
+- **`dragonWingForms.js#makeWingForm(knobs)`** — parametric planform (`span/fingerCount/fingerSplay/chordTaper/
+  sweep/scallop/flame/arc` or explicit `tips`), wired at the single chokepoint `wingSpecFor` via
+  `def.wingFormKnobs`. Paired with `wings:'skinnedMembrane'` so segments FOLD without colliding (the human's
+  explicit wing ask).
+- **`model.tailKnobs`** — comet/blade/spade tip outlines as `?? literal` overrides at the dragonTail call sites.
+- **Grammar + validation + the AI loop** — new knobs in `creatureGrammar.js` (+ `stationList`/`wingFormList`
+  validator kinds), and **`tools/blueprintBuild.mjs`**: a headless prompt→blueprint→validate→build→budget
+  round-trip (the L48 "no new code" path). Proof creature **`tempest` (Tempest Tyrant)** authored ENTIRELY on
+  this path (own `profileStations` barrel-chested bruiser + parametric swept folding wings + dialed tail + rounder
+  section + matte storm hide) — its rear silhouette reads as a DIFFERENT animal from Solar (verified via
+  `silhouette.mjs`), 4 forms 2974–3507 tris (≤6000).
+**Verified:** `tests/parametric.mjs` (7 checks: `makeArrowProfile()` deep-equals `ARROW_PROFILE`; all 4
+`makeWingForm(WING_FORM_KNOBS[f])` deep-equal `WING_FORMS[f]`; derived mounts == legacy constants; mounts TRACK
+the shape; Mode-B stations; grammar accepts good / errors malformed / warns out-of-range; **`'arrow'` vs
+`'parametricArrow'` build byte-identical geometry by position-checksum across all of Solar's forms**). Existing
+roster **byte-identical** by the stash→`tricount`→diff oracle; `tricount --ci` 0-over; 16 geometry/model suites
+green (the only red — `recap` — is the pre-existing CI-Chromium browser block, red on a clean tree too).
+**→ Systematize:** the reusable law — **"to make a bespoke-code part dial-able without breaking the roster:
+emit the SAME data object a generator, default every knob to identity, CALIBRATE any derived value against the
+default fixture so default-knobs reproduce it to the bit, and prove it with deep-equal + a built-geometry
+checksum + stash/tricount/diff."** Mounts should be DERIVED from the shape (+ additive nudges), never frozen
+constants — connection points then track whatever silhouette the data describes. The float-parity trap: a
+derived value must be `LEGACY + (current − default)` (delta form), never recomputed from scratch
+(`-3.05 − 0.03 ≠ −3.08`).
+**→ Leapfrog (innovate):** this is the bolted-parts answer to the same thesis the hull arc reached from the
+other side — **own geometry as DATA, shared rig** — so an AI prompt now yields a genuinely different winged
+drake (silhouette, wing planform, tail, mounts, finish), NOT a reskin, validated + budget-checked headless
+before it touches `dragons.js`. The honest boundary (document it, don't oversell): it COMPOSES part TYPES and
+shapes them; a new STRUCTURE (legs/`legRoot`, insectoid, novel rig motion — `dragon.js`'s fixed flap/fold/coil/
+sway/bank vocabulary) still needs a NEW MODULE, which the AI flags via `MODEL-CREATION.md`'s `NEW MODULE NEEDED`.
+Next, in the same pattern: a `parametricHorned` head (snout/jaw/horn-rake knobs, so the head reshapes with the
+body), parametrize the remaining tail styles, and wire `blueprintBuild` + `silhouette-overlay` into a
+measure→fix loop (IoU plateau = add a knob).
+
+---
+
+## Lesson — Proved the shape system on a REAR-CAMERA CONCEPT (Prism Wyvern) from named anchors; honest module-walls found: membrane-plane orientation + toon/outline.
+
+**Did / learned:** the human gave a rear-chase-cam concept (Celestial Storm / Prism Wyvern — sleek body,
+huge swept crystalline scalloped bat wings, cyan/magenta veins, spear tail, small horned head) + a normalized
+ANCHOR spec (wing root/elbow/wrist/tip + 4 trailing scallops; body spline points; spine plates; spear tail) and
+asked: prove the system is customizable, or build the modules. Built **`prism` (Prism Wyvern)** ENTIRELY on the
+shape-from-data layer, NO new model code: own sleek `profileStations`, wings DERIVED from the anchor rig via the
+existing `tools/tracerCore.mjs#deriveWingForm` (leading-edge bone + scallop trailing edge → a `wingFormKnobs`
+planform on the folding `skinnedMembrane` — a real scalloped membrane, NOT a triangle wing), cyan dorsal spine
+(spineGlow/glowSeams/ridge layers), blade→spear tail (`tailKnobs.bladeLength 2.0`), small horned head, dark
+blue-violet body + cyan/magenta emissive. Headless `silhouette.mjs rear`/`climb` confirm the read: huge upswept
+wings + narrow body + spear tail + small horned head = the concept's GESTURE. 4 forms 3244–3627 tris (≤6000);
+roster byte-identical; key suites green. The whole thing is DATA in `dragons.js`.
+**→ Systematize:** the reference→creature pipeline now works end-to-end as DATA — **anchor rig →
+`deriveWingForm` → `wingFormKnobs`; concept body → `profileStations`; mounts auto-derive.** A rear concept becomes
+a creature by tracing anchors, not editing builders.
+**→ The HONEST module-walls (don't oversell — these are real, both surfaced by this concept):**
+**(1) Membrane-plane orientation.** The engine's membrane lays in the span×CHORD plane and presents vertically via
+the `arc` lift — great for a behind-AND-above chase cam (the `climb` view fills out broadly), but from PURE rear it
+reads thinner than the concept's flat heraldic membrane, and the trailing SCALLOPS live in depth (z) so they don't
+show in flat-rear. A faithful flat-facing scalloped wing wants a wing-PLANE knob (lay the membrane in span×vertical,
+scallops in the screen plane) — a small `dragonWings` variant, NOT yet built. Pushed the `arc` hard as the
+approximation (steep upsweep → surface faces the above-behind cam).
+**(2) Toon/outline rendering.** The concept's "cel-shaded bands + hard dark outline" is a different RENDERER than
+the game's PBR (`MeshStandardMaterial` + fresnel-rim + emissive). Matching the SHAPE + cyan/magenta emissive veins
++ dark-violet membrane is in-kit; a true toon ramp + inverted-hull/edge outline is a new opt-in module with
+roster-wide + mobile-perf implications — acknowledged, not jammed into the shared renderer this pass.
+**→ Leapfrog (innovate):** next, if the human wants the EXACT concept read: add a `wingPlane:'vertical'` knob to
+the membrane builder (scallops in-plane for flat-facing wings) and a per-dragon opt-in `toonOutline` material
+module (MeshToon ramp + cheap inverted-hull outline, detail-gated), proven on `prism` first, roster untouched.
+
+---
+
+## Lesson — VERIFY don't eyeball: built conceptmatch (correct white-bg masking) + a screen-plane crystalWing; the "ribbon wing" was a membrane-ORIENTATION bug, not a knob.
+
+**Did / learned:** claimed a rear-concept (Prism Wyvern) "matched the gesture" by eyeballing a silhouette — WRONG. The
+human forced the actual check: overlay reference vs build. **(1) The existing `silhouette-overlay.mjs` masking was
+broken for this input** — it masks "luminance floor in the LOWER frame" (built for a dragon over sunset WATER), but a
+concept on a near-WHITE bg made it grab a giant black top-block → garbage IoU. Built **`tools/conceptmatch.mjs`**:
+white/transparent-bg-aware subject mask (differs-from-corner-bg OR colourful; alpha if present) → largest-component →
+aspect-preserving centred alignment of MY rear silhouette onto it → IoU + each shape's ASPECT ratio + a 3-panel PNG
+(reference | build | overlay). It immediately exposed the truth: **IoU 13%, my aspect 1.42 vs reference 0.97 — my
+wings were thin RIBBONS splayed wide; the reference is broad FILLED membranes held up in a compact V.** **(2) The
+ribbon was an ORIENTATION bug:** the shipped membrane lays in the span×CHORD (X-Z) plane and presents vertically only
+via the `arc` lift — so from the rear chase cam it's edge-on (a strip), and the trailing SCALLOPS live in depth
+(invisible). Built **`crystalWing`** (`registerWings('crystalWing')`): the membrane laid in the **X-Y screen plane**
+(faces the rear cam → the membrane AREA is the silhouette fill, scallops hang down + visible), a rest **dihedral on a
+static child group** (raises the wing into the V; the rig's flap `pivot.rotation.z` adds on top), wrist-fold panel,
+leading-edge bone + finger struts to each scallop tip + veins, mirrored, obeys the frozen rig contract. Knobs
+`wingDihedral`/`wingSpanScale`/`wingChordScale`. Result: **IoU 13%→34%, aspect 1.42→1.07**, and visually the wings
+are now broad crystalline scalloped membranes overlapping the reference (the overlay's white = match). Budget OK
+(prism 2732–3163), roster byte-identical, parametric/blueprint/defs/skinnedwing/flapcheck green.
+**→ Systematize:** **NEVER claim a shape matches from a single silhouette — OVERLAY it against the reference and read
+the IoU + aspect.** Bank two laws: **(a)** mask a concept by what the BACKGROUND is (sample the corners), not a
+hard-coded region/luminance assumption — `conceptmatch.mjs` is the reusable rear-QA harness. **(b)** A flat MEMBRANE
+must be built in the plane it's VIEWED in: for a rear-cam creature, lay the wing in the X-Y screen plane (area =
+silhouette), don't rely on an arc to rotate an edge-on X-Z sheet into view — that's the ribbon trap.
+**→ Leapfrog (innovate):** crystalWing is the reference-driven wing for any flat-concept creature. Volumetric parts
+(loft body via `profileStations`, segmented/blade tail via `tailKnobs`, horned head) DON'T have the edge-on problem —
+the overlay shows body/tail/head already align from rear — so they need DATA tuning, not a new "screen-plane" module.
+Next if finer fidelity is wanted: anchor-drive the tail trident + head horns, and add a `conceptmatch` per-form sweep.
+
+---
+
+## Lesson — Trace a wing from a reference FAITHFULLY: slice the real boundary arc + RDP (on-path by construction), QA with a distance-transform overlay, trace the struts from the wing's OWN veins.
+
+**Did / learned:** the human pushed back (correctly) that a reference wing CAN be traced + strutted (Toothless was)
+and that my hand-rolled shape was "ugly". The fix is a faithful, QA'd trace, to the human's exact correctness spec:
+**(1)** the trace must lie ON the reference outline (any deviation off the line = wrong); **(2)** smoothing must
+FOLLOW the outline (no drift); **(3)** squiggle = wrong; **(4)** this wing's struts differ from Toothless — trace
+them from THIS image. Built it in `tools/wingtrace.mjs`:
+- **On-path by construction:** trace the FULL silhouette (`tracerCore#traceContour`), slice the wing's CONTIGUOUS
+  boundary arc (the run of contour indices lateral of the body column — the REAL edge, no synthetic cut that caused
+  my earlier squiggle), then **RDP** (`tracerCore#simplify`, eps≈2.2). RDP keeps segments within eps of every
+  original edge point → it CANNOT drift off the outline and it removes the pixel staircase. My earlier bug was
+  free-smoothing (moving-average) BEFORE simplify — that cut concavities and drifted. RDP-first is the fix.
+- **QA = distance-transform of the reference edge:** a 2-pass chamfer DT gives px-distance to the nearest edge;
+  deviation = max/mean DT over a dense sampling of the trace; **gate on max-dev (≤~2.6px = on the line)**. Sharp
+  turns are the wing's REAL deep scallops, NOT squiggle, so smoothness is INFO not a gate (a true squiggle is an
+  OFF-edge jitter, which max-dev already catches). An **overlay PNG** (ref edge grey + trace cyan + off-edge red +
+  RDP pts yellow) makes it eyeball-verifiable. Result: 42-pt outline, max-dev 2.41px, PASS — visibly on the edge.
+- **Struts from the wing's OWN veins:** the membrane's bright cyan vein lines (luminance>110 within the subject)
+  are detectable; for each finger tip (RDP radius-maxima) fit a quadratic bezier root→(control fit to the bright-pixel
+  perp-offset)→tip, so the strut FOLLOWS the vein. QA-overlaid (magenta struts over cyan veins). NOT copied from
+  Toothless (its struts are clean bones; this wing's are lightning).
+- **Render:** `crystalWing` `wingOutline` mode renders the traced outline verbatim in the screen plane + `def.wingStruts`
+  as tapered emissive tubes (segmented bezier). Prism wired with the traced `wingOutline` + `wingStruts`.
+**Verified:** `conceptmatch` IoU **46%→58.5%** (the traced membrane silhouette lies on the reference); prism 3920–4303
+tris ≤6000; budget CI 0-over; parametric/blueprint/defs/flapcheck/skinnedwing green; roster byte-identical (only prism).
+**→ Systematize:** the reusable law — **to trace a part faithfully: trace the FULL silhouette, slice the part's
+contiguous boundary ARC (never a synthetic cut), RDP (on-path by construction), and QA with a distance-transform
+overlay gated on max-deviation. Smoothing-before-simplify is the drift trap. Trace internal detail (struts/veins)
+from the SAME image (bright-pixel ridges → bezier-fit), never copy another creature's.** `tools/wingtrace.mjs`
+(outline+strut trace+QA) + `tools/conceptmatch.mjs` (the on-reference overlay/IoU gate) are the standing
+reference-fidelity harness; `crystalWing.wingOutline`+`wingStruts` is the screen-plane render target.
+**→ Leapfrog (innovate):** this closes the concept-image → faithful in-game wing loop (trace → QA-on-edge → render →
+overlay). Next: the same trace→arc→RDP→DT-QA generalises to tracing the BODY profile + tail + head outline from a
+concept; and an auto-tuner can nudge `wingOutlineScale`/wing-root placement to maximise `conceptmatch` IoU. The
+literal cel-shade + hard-outline ART STYLE remains a separate renderer module (toon ramp + inverted-hull outline).
+
+---
+
+## Lesson — Don't ASSUME a part's internal structure — DETECT it from the source. (I fabricated the wing struts; the truth was a wrist-fan, not a root-fan.)
+
+**Did / learned:** I emitted the Prism wing's bone struts as root→tip beziers — ASSUMED, not verified. The human
+caught it: the struts are **6–7 thin 2-edge bones fanning from the WRIST** (a point partway out the leading edge,
+like a bat hand), NOT from the body root; and they are SOLID lines distinct from the (already-good) jagged lightning
+veins. Fixed `tools/wingtrace.mjs` to DETECT them: **find the wrist by CONVERGENCE** — search candidate points along
+root→far-tip (+ a perpendicular spread) and pick the one whose straight lines to the finger tips maximise coverage of
+the solid (bright) strut pixels. Solid bones fit straight wrist→tip lines; jagged veins don't, so straight-line
+fitting **selects the bones and rejects the veins** for free. Keep the tips whose wrist→tip coverage ≥0.3 → 6 bones
+(PASS, want 6–8). Emits `wingStruts = { wrist, tips }` (wing-local); the overlay marks the wrist + struts + tips +
+solid pixels for eyeball QA + manual correction. `crystalWing` renders each as a **thin tapered flat quad** (literally
+two edges = the "2 solid lines") from the wrist. Verified on the overlay (struts fan from the wrist onto the real
+bones), prism 2220–2603 tris, budget OK, parametric/blueprint/defs/flapcheck/skinnedwing green, roster byte-identical.
+**→ Systematize:** **NEVER assume a part's internal topology (where struts originate, how many, how composed) —
+detect it from the source pixels and QA-overlay before claiming.** The convergence-search-for-the-origin pattern
+(score candidate origin points by line-coverage of the feature pixels) generalises to any radiating structure (struts,
+spines, frills). And separate feature classes by their GEOMETRY (solid = fits a straight line; jagged = doesn't),
+not by one brightness threshold. The standing rule, twice-earned this session: **verify with the information; don't
+invent it.**
+**→ Leapfrog (innovate):** the wingtrace harness now extracts BOTH the outline (arc+RDP+DT-QA) and the strut topology
+(wrist-convergence) from a concept, QA-overlaid + correctable — the faithful concept→wing pipeline. Same convergence
+detector can find a body's spine origin or a tail's fin roots from a concept. Remaining: a small manual-correct CLI
+flag to nudge the wrist/tips, and the cel-shade/outline render module (still separate).
+
+---
+
+## Lesson — To trace internal lines (bones), SKELETONIZE and follow the centerlines — don't assume straight wrist→tip. (Caught assuming again.)
+
+**Did / learned:** the wing OUTLINE trace was right, but for the bone struts I had detected a wrist by convergence
+and drawn STRAIGHT wrist→tip lines — I never traced the actual drawn bones. The human caught it (wrist slightly
+off + "you didn't trace the bones, you assumed straight"). Fixed `tools/wingtrace.mjs`: **(1)** isolate the
+interior bone pixels (dark/solid lines INSIDE the wing, dropped the outer-edge band via the edge distance-
+transform `dt>4`); **(2)** **Zhang–Suen thin** them to a 1-px skeleton (bounded to the wing bbox); **(3)** trace
+each skeleton ENDPOINT inward along the centerline until a junction → each branch IS a bone's real (curved) path;
+**(4)** the **wrist = the skeleton junction that best centers the fan** (min total distance to the bone tips) —
+derived, not assumed, and it moved onto the true convergence hub (the human's "too far right" fixed). Emits
+`wingStruts = { wrist, bones:[polyline…] }`; the overlay draws the skeleton + traced bone polylines + wrist for
+eyeball QA. `crystalWing` renders each bone polyline as a **tapered 2-edge ribbon** (thin to the tip) following
+the real path. Also added a LINE-ART input mode (flood the white exterior → filled wing for the outline; dark
+interior lines = the bones) since the human supplied a clean line-art that traces far better than the soft render.
+Verified on the line-art overlay (bones ride the drawn lines, wrist on the hub); prism 2280–2663 tris, budget OK,
+parametric/blueprint/defs/flapcheck/skinnedwing green, roster byte-identical.
+**→ Systematize:** **to extract drawn internal structure (bones/veins/ribs), SKELETONIZE the line pixels and
+follow the centerlines — never approximate them with straight segments from an assumed origin.** Derive the hub
+from where the skeleton converges (min-distance-to-tips junction), not a search-fit. For line-art sources, flood
+the exterior to get the filled shape (outline) and use the dark interior strokes (bones) — both QA-overlaid.
+The thrice-earned rule: **trace it from the source; don't invent it.**
+
+---
+
+### Lesson — Geometry is portable; design is not (harvest a scaffold across branches)
+**Did / learned:** the human had traced a *beautiful* wing (membrane outline + bone struts) in a SEPARATE branch
+(`claude/celestial-storm-dragon-gen-23lphf`) but its rendered WING DESIGN was "too far gone — no iteration can
+fix it." The ask: copy ONLY the traced outline + bones, discard that branch's design, and build our own wing on
+them as a scaffold. Found the data via read-only `git show <branch>:<path>`: `reforged/js/celestialTrace.js`
+→ `CELESTIAL_TRACE.wings[1]` (320-pt right-wing membrane, 0..1 on a 941×1672 canvas, **+y DOWN**) and
+`reforged/tools/refs/celestial/wing-bones-merged-R.json` → `boneSpines` (7 clean `{pts,radii}` centerlines = the
+6–7 main struts). Copied those two artifacts (+ `stencil-wings.png`) into this branch as committed reference data,
+then wrote `tools/celestialScaffold.mjs` to convert canvas→wing-local **through ONE documented convention**
+(`origin = outline min-x root`, `+x outward`, `+y up` (flip), `scale = 3/(tipX−rootX)` so span≈3; **wrist =
+iterative inner-endpoint centroid of the bone spines**), RDP the outline to ~50 pts, orient each spine wrist→tip
+and force-start at the wrist (a clean fan). QA'd TWO ways: (1) overlay the harvested outline+spines back on the
+stencil PNG (they ride the drawn lines), (2) a wing-local plot of exactly what `crystalWing` consumes. Wired the
+converted `wingOutline`+`wingStruts` into `prism`; the rear silhouette renders a clean symmetric bat-wing with
+the scaffold's sharp finger tips + scallops. tricount 0-over, defs/parametric/flapcheck/skinnedwing/blueprint
+green, roster byte-identical (only `prism` changed).
+**→ Systematize:** **harvest proven traced scaffolds (outline + bones) as reusable DATA in their own files,
+convert through ONE documented coordinate convention, QA on the source image — THEN skin freely.** Don't drag a
+bad render along with good geometry: separate the scaffold (shape) from the design (how it's skinned). Pull
+cross-branch source with read-only `git show <branch>:<path>` and commit the artifacts so the conversion is
+reproducible.
+
+**Correction (same lesson):** first pass grabbed the wrong bone source — `wing-bones-merged-R.json`'s
+`boneSpines` (an INTERMEDIATE artifact) — and the struts read wrong. The branch's FINAL, correct bones live in
+`celestialDef.js` → `CELESTIAL_DEF.wing.bones` (7 `{pts,radii}` centerlines) in the def's OWN rotated/scaled
+frame. Kept the human-approved canvas OUTLINE and registered the final bones onto it: fit a 6-DOF affine between
+the two 320-pt silhouette traces, **searching winding direction + cyclic start offset** (they were reversed,
+same shape) → residual 3.9px → map bones def→canvas→wing-local. **When a branch has several versions of a traced
+asset, use the one its final render consumes (`*Def.js`), not a mid-pipeline `refs/*.json`; and register
+cross-frame data by fitting a transform on a SHARED feature (the silhouette), trying winding/offset, not by
+assuming index alignment.**
+
+**Correction 2 (same lesson):** even `CELESTIAL_DEF.wing.bones` was the wrong field — the branch's own renderer
+(`celestialModel.js:505`) draws `D.wing.boneShapes` (the human-TAGGED filled bone outlines), not the auto
+centerlines in `.bones`. Switched the scaffold to harvest `boneShapes`, registered them onto the approved outline
+with the same affine, and added a `wingStruts.boneShapes` path to `crystalWing` that fills each closed polygon as
+a flat screen-plane bone (matching the branch's `boneSolid`). **To find the FINAL form of a traced asset, follow
+what the consumer actually renders (grep the builder for the field it reads), not the most obvious-looking field.**
+
+---
+
+### Lesson — Skinned 3-segment fold for a TRACED-outline wing (reuse the rig contract)
+**Did / learned:** animated the prism scaffold wing by giving `crystalWing` a `model.wingSkinned` path: bind the
+flat traced membrane + filled bone-shapes to a 4-bone skeleton **[anchor, shoulder, elbow, wrist]** (the static
+anchor welds the root to the body; the three live bones are the cascade), span-weighted by |x| with smooth-step
+transition bands — the SAME `spanSkin` scheme the shipped `skinnedMembrane` uses. The arbitrary outline polygon is
+made skinnable by **midpoint-subdividing** its `ShapeGeometry` 2× (exact silhouette preserved — boundary midpoints
+stay on the straight edges — but enough interior verts to bend smoothly); bone-shapes subdivided 1×. Mirror per
+side by negating x + reversing winding (NOT scale.x, which breaks skinning normals); the glide-pose orientation
+(tiltX/sweepY/rollZ) goes on the MOUNT, applied AFTER bind so it rigidly reorients while the bones fold on top.
+Expose `wingRigL/R = {shoulder, elbow, wrist, side, profile}` → `dragon.js` auto-drives it via `flapWing()` (the
+shared shoulder→elbow→wrist lagged animator with anatomical limits — no new animation code). Biology check (3 not
+4): bats fold at the elbow + wrist on the upstroke; finger joints stay ~fixed, so 3 segments is the believable
+minimum AND the engine's native target. Verified headlessly: shoulder.z 0.68→−0.88, elbow 0.21→−0.21 (lagged),
+wrist −0.16→0.16 (counter-fold); the membrane SKIN deforms ΔY≈−6.8 and the span **pulls in on the upstroke**
+(real retraction). prism 4064 tris, 0-over; defs/parametric/flapcheck/skinnedwing green.
+**→ Gotchas banked:** (1) headless `silhouetteCore` renders the **bind pose** (no GPU skinning) — verify skin via
+`applyBoneTransform` CPU sampling or the live `gameshots`, not the silhouette. (2) When probing a two-sided rig,
+match the mesh to the driven side (`skeleton.bones.includes(rig.wrist)`) — grabbing "the largest skinned mesh"
+silently samples the wrong wing and reads ΔY=0 (a false "skin doesn't deform"). (3) Subdivide BEFORE
+`applyWingGradient`/weights so midpoints get colour + skin attributes.
+
+**Follow-up (prism wing parity):** the wing looked/felt off vs the roster because it was the only FLAT wing
+(no chordwise volume) flapped on a SKEWED axis. Two fixes, both in the `crystalWing` skinned path: (1) added a
+`wingBillow` that bows the membrane out in Z (sin across the chord × span taper, 0 at edges/root) so it reads as
+a 3-D membrane, not paper; struts ride the same billow. (2) De-skewed the beat: the flap is `shoulder.rotation.z`
+in the mount frame, so `wingPlaneTiltX`/`SweepY` (which tilt that frame) were rowing the beat — cut them small and
+let `wingPlaneRollZ` carry the flat-glide dihedral (roll is ABOUT the beat axis → no skew). Flap-axis tilt dropped
+43.6°→14.3° off vertical. **Rule: the flap axis is the wing-mount's local Z; keep mount tilt/sweep small or the
+shared beat reads as a row. Dihedral via roll (about the beat axis) is free.**
