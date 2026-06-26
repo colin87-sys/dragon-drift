@@ -870,6 +870,9 @@ export const DRAGONS = {
       // wingOutline (line-art trace) renders verbatim; scale it up so the wings read big.
       wingOutlineScale: 1.5,
       wingDihedral: 0.8, wingSpanScale: 0.67, wingChordScale: 1.25,
+      // the scaffold outline is a flat 2-D shape; orient that plane in 3-D so it isn't a
+      // poster facing the lens — tilt up (dihedral) + sweep the tips back toward the tail.
+      wingPlaneTiltX: 0.4, wingPlaneSweepY: 0.6, wingPlaneRollZ: 0,
       bodyKnobs: { sectionPoints: 18, sectionExponent: 2.4 }, // rounder, sleeker section
       bodyMetalness: 0.18, bodyRoughness: 0.4, scaleSize: 5, scaleRelief: 0.35, // semi-gloss
       tailKnobs: { bladeHalfW: 0.22, bladeLength: 2.0, forkSpread: 0.3, forkLength: 1.9, forkNotch: 1.2 },
