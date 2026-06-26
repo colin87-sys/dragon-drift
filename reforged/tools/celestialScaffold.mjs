@@ -20,6 +20,7 @@ const outlineSrc = JSON.parse(readFileSync(new URL('wing-outline-R.json', REF)))
 const def = JSON.parse(readFileSync(new URL('wing-def-R.json', REF)));                              // def-frame silhouette + FINAL bones
 const defSil = def.silhouette;
 const defBones = def.bones.map((b) => b.pts);
+const defBoneShapes = def.boneShapes;                                                               // the human-tagged FILLED bone shapes (what the branch renders)
 
 // ---- helpers ----
 const dist = (a, b) => Math.hypot(a[0] - b[0], a[1] - b[1]);
@@ -79,7 +80,13 @@ const bones = bonesLocal.map((p) => {
   if (dist(loc[0], W) < 0.12) loc[0] = W; else loc.unshift(W);
   return rdp(loc, 0.02).map(round);
 }).filter((b) => polyLen(b) > 0.15).sort((a, b) => polyLen(b) - polyLen(a));
-const wingStruts = { wrist: wristLocal, bones };
+// FINAL bone SHAPES (human-tagged filled outlines = what the celestial branch renders): def→canvas→local,
+// closed polygons, lightly simplified to keep the sharp tips.
+const boneShapes = defBoneShapes.map((poly) => {
+  const loc = poly.map((q) => toLocal(def2canvas(q)));
+  return rdp(loc, 0.012).map(round);
+});
+const wingStruts = { wrist: wristLocal, boneShapes, bones };
 
 // ---- emit ----
 const fmt = (a) => JSON.stringify(a);
@@ -97,7 +104,7 @@ for (let i = 0; i < cw * ch; i++) { const v = rgba[i * 4] * 0.35 + 28; img[i * 4
 const plotPx = (x, y, col, r = 1) => { const px = Math.round(x * cw), py = Math.round(y * ch); for (let dy = -r; dy <= r; dy++) for (let dx = -r; dx <= r; dx++) { const X = px + dx, Y = py + dy; if (X >= 0 && Y >= 0 && X < cw && Y < ch) { const i = (Y * cw + X) * 4; img[i] = col[0]; img[i + 1] = col[1]; img[i + 2] = col[2]; } } };
 const drawPoly = (pts, col, r = 1) => { for (let i = 1; i < pts.length; i++) { const a = pts[i - 1], b = pts[i], n = Math.ceil(dist(a, b) * Math.max(cw, ch)); for (let k = 0; k <= n; k++) { const t = k / n; plotPx(a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t, col, r); } } };
 drawPoly([...outlineSrc, outlineSrc[0]], [80, 240, 140], 1);                          // approved membrane outline
-for (const bn of defBones) drawPoly(bn.map(def2canvas), [255, 80, 210], 2);           // FINAL bones registered to canvas
+for (const bs of defBoneShapes) drawPoly([...bs, bs[0]].map(def2canvas), [255, 80, 210], 1);   // FINAL human-tagged bone shapes
 const Wc = def2canvas(centroid(defBones.flatMap((p) => [p[0], p[p.length - 1]])));
 plotPx(Wc[0], Wc[1], [120, 200, 255], 5);
 writeFileSync(`${OUT_SCRATCH}/celestial-scaffold-overlay.png`, pngRGBA(cw, ch, Buffer.from(img)));
@@ -112,7 +119,7 @@ const L2P = (p) => [(p[0] - lx0) * sc + ox, LH - ((p[1] - ly0) * sc + oy)];
 const lplot = (P, col, r) => { for (let dy = -r; dy <= r; dy++) for (let dx = -r; dx <= r; dx++) { const X = Math.round(P[0]) + dx, Y = Math.round(P[1]) + dy; if (X >= 0 && Y >= 0 && X < LW && Y < LH) { const i = (Y * LW + X) * 4; limg[i] = col[0]; limg[i + 1] = col[1]; limg[i + 2] = col[2]; } } };
 const lpoly = (pts, col, r) => { for (let i = 1; i < pts.length; i++) { const a = L2P(pts[i - 1]), b = L2P(pts[i]), n = Math.ceil(Math.hypot(b[0] - a[0], b[1] - a[1])); for (let k = 0; k <= n; k++) { const t = k / n; lplot([a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t], col, r); } } };
 lpoly([...wingOutline, wingOutline[0]], [120, 220, 255], 1);
-for (const b of bones) lpoly(b, [255, 90, 210], 2);
+for (const b of boneShapes) lpoly([...b, b[0]], [255, 90, 210], 1);   // filled bone shapes (the human-tagged finals)
 lplot(L2P(wristLocal), [255, 255, 120], 4); lplot(L2P([0, 0]), [120, 255, 160], 4);
 writeFileSync(`${OUT_SCRATCH}/celestial-scaffold-local.png`, pngRGBA(LW, LH, Buffer.from(limg)));
 console.log('\nwrote celestial-scaffold.json + overlay.png (on stencil) + local.png (wing-local)');
