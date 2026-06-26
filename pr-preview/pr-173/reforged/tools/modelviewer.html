@@ -226,11 +226,16 @@ let curTier = 3;
 // URL params (shareable / diagnostic views): ?dragon=&tier=&az=&pol=&zoom=&off=wings,armor
 // `off` (and the legacy armor=0 / ftail=0) start with those changes REVERTED.
 const Q = new URLSearchParams(location.search);
+// Robust numeric parse: a junk param (e.g. a URL with text accidentally pasted onto the
+// end → tier="3 if you want…" → NaN) must NEVER reach the build, or ascendedDef crashes
+// on STAT_RAMP[NaN] and the whole viewer goes blank. Fall back to the current value.
+const numParam = (k, fallback) => { const v = parseFloat(Q.get(k)); return Number.isFinite(v) ? v : fallback; };
 if (Q.get('dragon') && DRAGONS[Q.get('dragon')]) curKey = Q.get('dragon');
-if (Q.get('tier') != null && Q.get('tier') !== '') curTier = +Q.get('tier');
-if (Q.get('az') != null) az = +Q.get('az');
-if (Q.get('pol') != null) pol = +Q.get('pol');
-const qZoom = Q.get('zoom') != null ? +Q.get('zoom') : null;
+const nForms = (DRAGONS[curKey].forms || []).length || 4;
+curTier = Math.max(0, Math.min(nForms - 1, Math.round(numParam('tier', curTier))));
+az = numParam('az', az);
+pol = numParam('pol', pol);
+const qZoom = Number.isFinite(parseFloat(Q.get('zoom'))) ? parseFloat(Q.get('zoom')) : null;
 const offIds = new Set((Q.get('off') || '').split(',').map(s => s.trim()).filter(Boolean));
 if (Q.get('armor') === '0') offIds.add('armor');
 if (Q.get('ftail') === '0') offIds.add('tail');
