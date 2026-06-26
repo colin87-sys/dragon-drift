@@ -871,8 +871,10 @@ export const DRAGONS = {
       wingOutlineScale: 1.5,
       wingDihedral: 0.8, wingSpanScale: 0.67, wingChordScale: 1.25,
       // the scaffold outline is a flat 2-D shape; orient that plane in 3-D so it isn't a
-      // poster facing the lens — tilt up (dihedral) + sweep the tips back toward the tail.
-      wingPlaneTiltX: 0.4, wingPlaneSweepY: 0.6, wingPlaneRollZ: 0,
+      // poster facing the lens. Roll the tips DOWN to a shallow ~11° dihedral (a real
+      // cruising-glide angle; soaring birds hold only a few degrees of positive V — a steep
+      // raised V reads as braking) with ~26° back-sweep toward the tail.
+      wingPlaneTiltX: 0.6, wingPlaneSweepY: 0.5, wingPlaneRollZ: -0.6,
       bodyKnobs: { sectionPoints: 18, sectionExponent: 2.4 }, // rounder, sleeker section
       bodyMetalness: 0.18, bodyRoughness: 0.4, scaleSize: 5, scaleRelief: 0.35, // semi-gloss
       tailKnobs: { bladeHalfW: 0.22, bladeLength: 2.0, forkSpread: 0.3, forkLength: 1.9, forkNotch: 1.2 },
