@@ -3361,3 +3361,20 @@ For geometry that was deleted in the redesign (the old fan wings), keep the old 
 viewer-only). So "make it toggleable" sometimes costs keeping the dead code path; budget for that when you redesign.
 Reusable rule: a redesign isn't done until its predecessor is still buildable behind a flag and registered as a
 revert — that is what makes before/after honest instead of a screenshot from memory.
+
+---
+
+### L106 — "My change isn't showing" was the SERVICE WORKER serving a stale module graph — stamp the SW on deploy
+The human reported the glider-wings toggle "doesn't change" — yet it worked locally and via `?off=wings`. The
+tell: the toggle UI (modelviewer.html) was the NEW version but the behaviour was the OLD one — a fresh HTML page
+driving a CACHED `dragonFlameMonarch.js` without the `legacyWing` branch. Root cause: `reforged/sw.js` is a
+content-versioned precache (cache-first within `VERSION`, scope `reforged/` — registered from `reforged/index.html`,
+so it ALSO governs `reforged/tools/modelviewer.html` + every `reforged/js/*` import), but `VERSION` is stamped by
+a MANUAL `tools/stamp-sw.mjs` that nobody ran. Across this whole session `VERSION` never moved and the new family
+files weren't even in the precache list, so returning visitors got a frozen, mixed-version module graph. Fix:
+ran the stamp (`VERSION 1bcc…→3c4d…`, 109 assets, now incl. the new files; `skipWaiting`+`clients.claim` so it
+self-heals next visit) AND added a `node …/stamp-sw.mjs` step to BOTH deploy workflows (pr-preview.yml +
+deploy-pages.yml) so it can never drift again. Lessons: (1) when a change "doesn't show" but is provably correct
+locally, suspect the CACHE/SW before the code — verify which file is stale, don't re-debug working logic; (2) a
+manual pre-deploy stamp WILL be forgotten — move it into CI; (3) `?param` URLs bypass nothing here, but they DID
+prove the code path was right, which is what localised the bug to delivery, not logic.
