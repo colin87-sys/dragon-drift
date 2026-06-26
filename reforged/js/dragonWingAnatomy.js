@@ -222,8 +222,17 @@ export function buildAnatomicalWing(opts) {
   // handles at the elbow/wrist so the engine's pose code + FX refs still resolve; the
   // bones articulate with the membrane as one unit, flapping from the shoulder + apex
   // lift. Articulating the membrane itself (skinned bend) is the next leapfrog (see L101).
-  // Single pivot-local 3D mapper, flat in XZ: +span → +X, +chord (+y leading) → −Z.
-  const P = (p) => new THREE.Vector3(p[0] * ws, 0, -p[1] * ws);
+  // Single pivot-local 3D mapper: +span → +X, +chord (+y leading) → −Z. Optional
+  // DIHEDRAL (tips raised above the root) + washout TWIST (leading up / trailing down)
+  // lift the sheet out of the flat plane so it reads like a stretched aerofoil, not a
+  // kite. Both default to 0 → dead-flat (Thundercoil's wing is byte-identical).
+  const maxSpanL = Math.max(A.wrist[0], ...fingers.map((f) => f.tip[0]));
+  const DIHl = (A.dihedral ?? 0) * maxSpanL * ws, TWl = (A.twist ?? 0) * ws;
+  const depthY = (x, y) => DIHl * Math.pow(Math.min(1, Math.max(0, x) / maxSpanL), 1.15) + TWl * y;
+  const P = (p) => new THREE.Vector3(p[0] * ws, depthY(p[0], p[1]), -p[1] * ws);
+  // Glow HIERARCHY (optional): the leading frame + arm spar read brightest/thickest,
+  // the inner finger struts dimmer/thinner. Fall back to the single strut material.
+  const leadM = opts.leadMat || strut, fingerM = opts.fingerMat || strut;
 
   // Trailing edge runs straight from the body (rootBack) to the inner fingertip; wristTrail
   // is the point on that line at the wrist's span — the internal join between the arm
@@ -239,8 +248,8 @@ export function buildAnatomicalWing(opts) {
   // wrist→wristTrail→rootBack (trailing) — the whole inner wing up to the wrist line.
   pivot.add(fanPanel([P(A.rootFront), P(A.elbow), P(A.wrist), P(wristTrail), P(A.rootBack)], mem));
   // arm bones (humerus + forearm) + joint nodes, same frame.
-  pivot.add(curvedBone(P(A.rootFront), P(A.elbow), 0.12, ws, strut, (A.strutR ?? 0.04) * 1.5));   // humerus (short)
-  pivot.add(curvedBone(P(A.elbow), P(A.wrist), 0.16, ws, strut, (A.strutR ?? 0.04) * 1.3));        // forearm
+  pivot.add(curvedBone(P(A.rootFront), P(A.elbow), 0.12, ws, leadM, (A.strutR ?? 0.04) * 1.5));   // humerus (short)
+  pivot.add(curvedBone(P(A.elbow), P(A.wrist), 0.16, ws, leadM, (A.strutR ?? 0.04) * 1.3));        // forearm
   const elbowNode = new THREE.Mesh(new THREE.OctahedronGeometry(0.07 * ws, 0), jointMat);
   elbowNode.position.copy(P(A.elbow));
   pivot.add(elbowNode);
@@ -291,11 +300,11 @@ export function buildAnatomicalWing(opts) {
       const ctrl2 = lfTip.clone().add(new THREE.Vector3(0, 0, -0.22 * hook * ws));                  // hold forward, then reverse to the talon
       const curve = new THREE.CubicBezierCurve3(a, conv, ctrl2, hookTip);
       leadPts = curve.getPoints(Math.max(8, sampN * 2));
-      leadStrut = new THREE.Mesh(new THREE.TubeGeometry(curve, Math.max(8, seg(14)), (A.strutR ?? 0.035) * ws, seg(4), false), strut);
+      leadStrut = new THREE.Mesh(new THREE.TubeGeometry(curve, Math.max(8, seg(14)), (A.strutR ?? 0.035) * ws, seg(4), false), leadM);
       wingtipV = hookTip;
     } else {
       leadPts = bezier(a, conv, lfTip, sampN);
-      leadStrut = curvedBone(a, lfTip, fingers[0].bow, ws, strut, A.strutR ?? 0.035);
+      leadStrut = curvedBone(a, lfTip, fingers[0].bow, ws, leadM, A.strutR ?? 0.035);
       wingtipV = lfTip;
     }
   }
@@ -324,7 +333,7 @@ export function buildAnatomicalWing(opts) {
   // Finger struts to the FULL tips (inner ones protrude past the web as points); the
   // leading strut is the hooked talon built above.
   pivot.add(leadStrut);
-  for (let i = 1; i < nF; i++) pivot.add(curvedBone(wristV, tip(fingers[i]), fingers[i].bow, ws, strut, A.strutR ?? 0.035));
+  for (let i = 1; i < nF; i++) pivot.add(curvedBone(wristV, tip(fingers[i]), fingers[i].bow, ws, fingerM, (A.strutR ?? 0.035) * (A.fingerRMul ?? 1)));
 
   const marker = new THREE.Object3D();
   marker.position.copy(wingtipV);

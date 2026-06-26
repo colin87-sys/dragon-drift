@@ -153,17 +153,19 @@ function buildMonarchHull(def, model, _bodyMat) {
     color: cPlate, roughness: 0.5, metalness: 0.3, side: THREE.DoubleSide,
   });
 
-  // BODY — broad chest/shoulders → pinched waist → hip flare → tail root. Width
-  // (rx, the X the rear cam reads) is the silhouette: shoulder 0.62 vs waist 0.32.
+  // BODY — a LONG, vertically-flatter dragon torso: broad shoulders → slim waist →
+  // long rear taper (NOT a round pod). rx (the rear-cam width) peaks at the shoulders;
+  // ry is kept < rx through the trunk so the body reads flat/muscular, not ball-like.
+  // broad shoulders → tapered torso → long tail (z runs −1.66 … 1.82, ~30% longer).
   const rings = [
-    { z: -1.50, rx: 0.26, ry: 0.30, y: 0.80 },  // neck base / upper chest
-    { z: -1.12, rx: 0.50, ry: 0.50, y: 0.66 },  // BROAD CHEST
-    { z: -0.72, rx: 0.62, ry: 0.56, y: 0.62 },  // SHOULDER mass (widest) — wing roots
-    { z: -0.30, rx: 0.55, ry: 0.52, y: 0.60 },  // back of shoulders
-    { z:  0.16, rx: 0.32, ry: 0.42, y: 0.58 },  // PINCHED WAIST
-    { z:  0.58, rx: 0.40, ry: 0.45, y: 0.56 },  // HIP / haunches
-    { z:  0.98, rx: 0.28, ry: 0.32, y: 0.54 },  // rump
-    { z:  1.28, rx: 0.14, ry: 0.16, y: 0.52 },  // tail root cap
+    { z: -1.66, rx: 0.20, ry: 0.24, y: 0.84 },  // neck base
+    { z: -1.18, rx: 0.46, ry: 0.42, y: 0.68 },  // chest rising
+    { z: -0.80, rx: 0.68, ry: 0.50, y: 0.62 },  // BROAD SHOULDERS (widest, flatter: ry<rx)
+    { z: -0.32, rx: 0.58, ry: 0.45, y: 0.58 },  // back of shoulders
+    { z:  0.22, rx: 0.37, ry: 0.39, y: 0.55 },  // SLIM WAIST
+    { z:  0.74, rx: 0.40, ry: 0.37, y: 0.53 },  // hip / haunches
+    { z:  1.30, rx: 0.23, ry: 0.23, y: 0.52 },  // upper tail root
+    { z:  1.82, rx: 0.09, ry: 0.11, y: 0.51 },  // long taper into the tail
   ];
   group.add(loftHull(rings, 13, hullMat, rgbArr(cBody), rgbArr(cBelly)));
 
@@ -183,8 +185,8 @@ function buildMonarchHull(def, model, _bodyMat) {
     roughness: 0.5, metalness: 0.28, side: THREE.DoubleSide,
   }), cMolten, 0.1 + glow * 0.25, spineMats);
 
-  const spineZ0 = -0.85, spineZ1 = 1.05;
-  const nSpine = seg(9);
+  const spineZ0 = -0.80, spineZ1 = 1.18;
+  const nSpine = seg(11);
   // Emissive keel ridge: a thin strip following the back between the blades.
   for (let i = 0; i < nSpine; i++) {
     const t = i / (nSpine - 1);
@@ -193,21 +195,41 @@ function buildMonarchHull(def, model, _bodyMat) {
     r.position.set(0, keelTopAt(z) - 0.01, z);
     group.add(r);
   }
-  // Dark serrated blades over the ridge — height ramps shoulder→rump, raked back.
+  // Molten volcanic SHARDS over the ridge — a strong SIZE HIERARCHY: tall at the
+  // shoulders, dropping fast (pow curve) to tiny near the tail root; a slight alternating
+  // rake so the row never reads as uniform pickets. Each is a flat YZ-plane blade
+  // (edge-on from behind → a crisp serrated dorsal line) with a sharp swept apex.
   for (let i = 0; i < nSpine; i++) {
     const t = i / (nSpine - 1);
     const z = lerp(spineZ0, spineZ1, t);
-    const h = lerp(0.36, 0.10, t) * (0.7 + 0.3 * glow);   // tall at shoulders
+    const h = lerp(0.52, 0.05, Math.pow(t, 0.78)) * (0.72 + 0.28 * glow) * (1 - 0.1 * (i % 2));  // tallest at the shoulders, varied
     const ky = keelTopAt(z);
-    const w = lerp(0.16, 0.06, t);
-    // A flat YZ-plane blade (edge-on from behind → a crisp serrated dorsal line).
+    const w = lerp(0.17, 0.045, t);
+    const rake = (0.45 + 0.25 * t) * w;     // apex swept back, more toward the tail
     const gBlade = new THREE.BufferGeometry();
     gBlade.setAttribute('position', new THREE.Float32BufferAttribute([
-      0, ky, z - w, 0, ky, z + w, 0, ky + h, z + w * 0.4,   // base front, base back, raked apex
+      0, ky, z - w, 0, ky, z + w, 0, ky + h, z + rake,   // base front, base back, raked sharp apex
     ], 3));
     gBlade.setIndex([0, 1, 2]);
     gBlade.computeVertexNormals();
     group.add(new THREE.Mesh(gBlade, bladeMat));
+  }
+
+  // SHOULDER / SCAPULA MASS + glowing wing-root socket — so the wings read as growing
+  // from a powerful body, not pasted onto a flat flank. A flattened hide bulge at each
+  // wing root, capped by a molten socket ring the wing spar plugs into.
+  const socketMat = tagFlare(new THREE.MeshStandardMaterial({
+    color: cMolten, emissive: cMolten, emissiveIntensity: 0.6 + glow * 1.0, roughness: 0.4, metalness: 0.2,
+  }), cMolten, 0.6 + glow * 1.0, spineMats);
+  for (const s of [-1, 1]) {
+    const bulge = new THREE.Mesh(new THREE.SphereGeometry(0.30, seg(8), seg(6)), hideMat);
+    bulge.scale.set(0.74, 0.66, 1.05);
+    bulge.position.set(s * 0.40, 0.84, -0.66);
+    group.add(bulge);
+    const socket = new THREE.Mesh(new THREE.TorusGeometry(0.115, 0.038, seg(5), seg(10)), socketMat);
+    socket.position.set(s * 0.50, 0.98, -0.62);
+    socket.rotation.set(0.2, s * 0.7, 0);     // face up-and-outward where the spar enters
+    group.add(socket);
   }
 
   // LEGLESS — a sleek wyvern-style flyer (legs read weird tucked under the racing
@@ -220,10 +242,10 @@ function buildMonarchHull(def, model, _bodyMat) {
   // at a fixed anchor. A small `userData.whip` gives the SHOP preview gentle life too.
   const spineSegs = [];
   const neckPts = [
-    { y: 0.84, z: -1.50, r: 0.26, role: 'neck' },
-    { y: 0.98, z: -1.74, r: 0.23, role: 'neck' },
-    { y: 1.10, z: -1.96, r: 0.20, role: 'neck' },
-    { y: 1.15, z: -2.18, r: 0.17, role: 'head' },   // tip = the head mount (= headBase)
+    { y: 0.84, z: -1.62, r: 0.24, role: 'neck' },
+    { y: 0.99, z: -1.88, r: 0.21, role: 'neck' },
+    { y: 1.12, z: -2.12, r: 0.18, role: 'neck' },
+    { y: 1.18, z: -2.34, r: 0.16, role: 'head' },   // tip = the head mount (= headBase)
   ];
   let parent = group, prevY = 0, prevZ = 0, headMount = null;
   neckPts.forEach((p, i) => {
@@ -264,11 +286,11 @@ function buildMonarchHull(def, model, _bodyMat) {
   group.add(throat);
 
   const attach = {
-    // wings sit just BEHIND the shoulder mass, high on the back (rear-V root).
-    wingRoot: (side) => ({ x: 0.44 * side, y: 1.02, z: -0.5 }),
-    headBase: { x: 0, y: 1.15, z: -2.18 },
+    // wings plug into the molten shoulder SOCKET (built above) on the broad shoulder mass.
+    wingRoot: (side) => ({ x: 0.50 * side, y: 0.98, z: -0.62 }),
+    headBase: { x: 0, y: 1.18, z: -2.34 },
     headMount,                      // the head parents to the animated neck tip
-    tailAnchor: { y: 0.52, z: 1.1 },
+    tailAnchor: { y: 0.51, z: 1.46 },
     keelTopAt,
     halfWidthAt,
     bodyMidY: 0.58,
@@ -334,20 +356,35 @@ function buildMonarchWing(def, model, attach, giM) {
     };
     wingOpts = { ws, membraneMat: wingMat, leadMat, fingerMat, jointMat, socketMat, anatomy };
   } else {
-    const strutInt = 0.5 + giM * 0.4 + F * 0.12;
-    const strutMat = tagFlare(new THREE.MeshStandardMaterial({
-      color: def.horn ?? 0x2a221c, emissive: cMolten, emissiveIntensity: strutInt, roughness: 0.4, metalness: 0.45,
-    }), cMolten, strutInt, spineMats);
+    // DEFAULT — the fuller western-dragon bat wing the human prefers, upgraded to read
+    // regal-volcanic instead of a flat orange fan. SAME researched anatomy (SHORT arm,
+    // MEDIAL wrist ≈ 28% span, curvature gradient: leading frame most-curved → inner
+    // ≈ straight) but with FOUR strong struts (not 5 thin rods), a thick bright LEADING
+    // spar over dimmer fingers (glow hierarchy), a hooked outer talon, and a baked
+    // DIHEDRAL + washout twist so the membrane is a raised, sagging aerofoil — not a kite.
+    const baseInt = 0.55 + giM * 0.45 + F * 0.12;
+    const leadMat = tagFlare(new THREE.MeshStandardMaterial({
+      color: def.horn ?? 0x2a221c, emissive: cMolten, emissiveIntensity: baseInt * 1.1, roughness: 0.36, metalness: 0.5,
+    }), cMolten, baseInt * 1.1, spineMats);
+    const fingerMat = tagFlare(new THREE.MeshStandardMaterial({
+      color: def.horn ?? 0x2a221c, emissive: cMolten, emissiveIntensity: baseInt * 0.5, roughness: 0.46, metalness: 0.4,
+    }), cMolten, baseInt * 0.5, spineMats);
+    const jointMat = tagFlare(new THREE.MeshStandardMaterial({
+      color: def.horn ?? 0x2a221c, emissive: cMolten, emissiveIntensity: baseInt * 1.35, roughness: 0.3, metalness: 0.5,
+    }), cMolten, baseInt * 1.35, spineMats);
     const anatomy = {
-      rootFront: [0, 0.34], rootBack: [0, -0.58],
-      elbow: [0.55, 0.34], wrist: [1.40, 0.46],
+      rootFront: [0, 0.42], rootBack: [0, -0.66],
+      elbow: [0.60, 0.42], wrist: [1.55, 0.56],            // short arm, medial wrist (~28% span)
       fingers: [
-        { tip: [5.30, 0.62], bow: 0.95 }, { tip: [4.75, -0.25], bow: 0.60 }, { tip: [3.95, -1.05], bow: 0.36 },
-        { tip: [3.00, -1.62], bow: 0.18 }, { tip: [2.05, -1.90], bow: 0.05 },
+        { tip: [5.45, 0.66], bow: 0.98 },                  // leading frame — longest, MOST curved
+        { tip: [4.45, -0.55], bow: 0.50 },
+        { tip: [3.35, -1.55], bow: 0.24 },
+        { tip: [2.25, -2.05], bow: 0.05 },                 // innermost — nearly STRAIGHT (curvature gradient)
       ],
-      scallop: 0.42, strutR: 0.038, claw: 0.10, hook: 0.9,
+      scallop: 0.30, strutR: 0.060, fingerRMul: 0.62, claw: 0.13, hook: 1.0,
+      dihedral: 0.18, twist: 0.12,                         // raised root + sagging washout
     };
-    wingOpts = { ws, membraneMat: wingMat, strutMat, anatomy };
+    wingOpts = { ws, membraneMat: wingMat, strutMat: leadMat, leadMat, fingerMat, jointMat, anatomy };
   }
   const Rp = buildAnatomicalWing(wingOpts).pivot;
   Rp.position.set(...Object.values(attach.wingRoot(1)));
@@ -388,23 +425,36 @@ function buildMonarchCrown(def, model, mats) {
   });
   const hornMat = mats.hornMat || new THREE.MeshStandardMaterial({ color: def.horn, roughness: 0.4, metalness: 0.4 });
 
-  // Cranium — an angular box (high brow), muzzle a 4-sided pyramid pointing -Z.
-  const cranium = new THREE.Mesh(new THREE.BoxGeometry(0.30, 0.24, 0.36), skullMat);
-  cranium.position.set(0, 0.02, 0.04);
+  // Cranium — a WIDE angular wedge (a broad regal skull, not a pointy bird head): a
+  // tall boxy braincase + heavy brow, and a SHORT BROAD muzzle (4-gon pyramid).
+  const cranium = new THREE.Mesh(new THREE.BoxGeometry(0.42, 0.30, 0.40), skullMat);
+  cranium.position.set(0, 0.04, 0.06);
   group.add(cranium);
-  const brow = new THREE.Mesh(new THREE.BoxGeometry(0.32, 0.10, 0.16), skullMat);
-  brow.position.set(0, 0.12, -0.04);
+  const brow = new THREE.Mesh(new THREE.BoxGeometry(0.46, 0.14, 0.18), skullMat);
+  brow.position.set(0, 0.17, -0.05);
   group.add(brow);
-  const muzzle = new THREE.Mesh(new THREE.ConeGeometry(0.15, 0.46, 4), skullMat);
+  const muzzle = new THREE.Mesh(new THREE.ConeGeometry(0.20, 0.40, 4), skullMat);
   muzzle.rotation.x = -Math.PI / 2;        // point forward (-Z)
   muzzle.rotation.y = Math.PI / 4;         // square the 4-gon to the view
-  muzzle.position.set(0, -0.03, -0.34);
+  muzzle.position.set(0, -0.02, -0.32);
   group.add(muzzle);
+
+  // Glowing JAW LINE — a thin molten strip down each side of the lower jaw (the "orange
+  // jaw/throat line"); reads as embers in the mouth from the side/front.
+  const jawMat = tagFlare(new THREE.MeshStandardMaterial({
+    color: cMolten, emissive: cMolten, emissiveIntensity: 0.6 + 0.5 * F, roughness: 0.4, metalness: 0.15,
+  }), cMolten, 0.6 + 0.5 * F, spineMats);
+  for (const s of [-1, 1]) {
+    const jaw = new THREE.Mesh(new THREE.BoxGeometry(0.025, 0.03, 0.34), jawMat);
+    jaw.position.set(s * 0.10, -0.12, -0.16);
+    jaw.rotation.x = 0.06;
+    group.add(jaw);
+  }
 
   // Cheek plates — angular side wedges (the "two side cheek horn ridges" base).
   for (const s of [-1, 1]) {
-    const cheek = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.14, 0.22), skullMat);
-    cheek.position.set(s * 0.17, -0.02, -0.04);
+    const cheek = new THREE.Mesh(new THREE.BoxGeometry(0.07, 0.16, 0.24), skullMat);
+    cheek.position.set(s * 0.21, -0.02, -0.02);
     cheek.rotation.z = s * 0.3;
     group.add(cheek);
   }
@@ -417,17 +467,18 @@ function buildMonarchCrown(def, model, mats) {
     group.add(eye);
   }
 
-  // CROWN HORNS — two large backward-and-up horns: the dominant rear-crown read.
+  // CROWN HORNS — two LARGE backward-and-up horns, thicker and longer: the dominant
+  // rear-crown silhouette from the chase cam.
   for (const s of [-1, 1]) {
-    const horn = makeHorn(0.62 * hornLen, 0.075, hornMat, 0.16);
-    horn.position.set(s * 0.13, 0.10, 0.12);
-    horn.rotation.set(0.7, -s * 0.25, s * 0.45);   // up + back + outward splay
+    const horn = makeHorn(0.82 * hornLen, 0.10, hornMat, 0.15);
+    horn.position.set(s * 0.16, 0.16, 0.16);
+    horn.rotation.set(0.66, -s * 0.24, s * 0.42);   // up + back + outward splay
     group.add(horn);
   }
-  // CHEEK HORNS — smaller swept-back ridges low on the jaw.
+  // CHEEK HORNS — smaller swept-back nubs low on the jaw (the secondary crown points).
   for (const s of [-1, 1]) {
-    const horn = makeHorn(0.34 * hornLen, 0.05, hornMat, 0.2);
-    horn.position.set(s * 0.18, -0.06, 0.0);
+    const horn = makeHorn(0.40 * hornLen, 0.062, hornMat, 0.2);
+    horn.position.set(s * 0.22, -0.05, 0.02);
     horn.rotation.set(1.0, -s * 0.2, s * 0.7);
     group.add(horn);
   }
@@ -516,28 +567,37 @@ function buildMonarchTail(def, model, mats, anchor) {
     z += (r + rN) * 0.5 * lenK;
   }
 
-  // FLAME-BLADE TIP — a fan of molten-edged blade fins spraying BACK + UP like a flame
-  // (the concept's tail terminus). Parented to the last seg so it rides the coil.
+  // 3-PRONGED MOLTEN FLAME CREST — the iconic tail terminus, readable from the rear
+  // chase cam: ONE long centre spear (leaf-blade) flanked by TWO shorter side fins,
+  // all molten-edged. Parented to the last seg so it rides the coil.
   const tipSeg = segs[n - 1];
-  const bladeFin = (L, W) => {
+  const tLen = 0.7 + 0.3 * (model.tailLength ?? 1);
+  const leafBlade = (L, W) => {
     const g = new THREE.BufferGeometry();
     g.setAttribute('position', new THREE.Float32BufferAttribute([
-      0, 0, 0,  W, 0, L * 0.42,  0, 0, L,  -W, 0, L * 0.42,   // a slim leaf-blade pointing +Z
+      0, 0, 0,  W, 0, L * 0.40,  0, 0, L,  -W, 0, L * 0.40,   // a slim leaf-blade pointing +Z
     ], 3));
     g.setIndex([0, 1, 2, 0, 2, 3]); g.computeVertexNormals();
     return g;
   };
-  const fanN = seg(5);
-  for (let i = 0; i < fanN; i++) {
-    const a = fanN > 1 ? (i / (fanN - 1) - 0.5) : 0;     // −0.5 … +0.5 across the fan
-    const central = Math.max(0, 1 - Math.abs(a) * 1.5);  // longest in the middle
-    const L = lerp(0.30, 0.6, central) * (0.7 + 0.3 * (model.tailLength ?? 1));
-    const fin = new THREE.Mesh(bladeFin(L, 0.05 + 0.035 * central), i % 2 === 0 ? finHotMat : finDarkMat);
-    fin.position.set(0, 0.02, 0.04);
-    fin.rotation.y = a * 1.5;                              // spread in x
-    fin.rotation.x = -0.5 - Math.abs(a) * 0.35;           // rise up + back (flame lick)
-    tipSeg.add(fin);
+  // centre spear — longest + brightest ember, rising back like a flame (big enough to
+  // read clearly from the rear chase cam).
+  const spear = new THREE.Mesh(leafBlade(1.00 * tLen, 0.11), finHotMat);
+  spear.position.set(0, 0.02, 0.03);
+  spear.rotation.x = -0.40;
+  tipSeg.add(spear);
+  // two side fins — shorter, splayed wide + up, framing the spear into a 3-prong crest.
+  for (const s of [-1, 1]) {
+    const sideFin = new THREE.Mesh(leafBlade(0.64 * tLen, 0.075), finDarkMat);
+    sideFin.position.set(0, 0.01, 0.04);
+    sideFin.rotation.y = s * 0.78;        // splay outward
+    sideFin.rotation.x = -0.50;           // rise up + back
+    tipSeg.add(sideFin);
   }
+  // a molten core node where the three prongs meet (the brightest ember).
+  const core = new THREE.Mesh(new THREE.OctahedronGeometry(0.075, 0), finHotMat);
+  core.position.set(0, 0.02, 0.03);
+  tipSeg.add(core);
 
   return { group: root, segs, tailFins: null, accentMats };
 }
@@ -664,13 +724,13 @@ registerSurfaceLayer('monarchArmor', ({ def, model, attach, gi }) => {
   const a0 = 0.36, a1 = 1.86;                                  // dorsal channel → lower flank
   const tBase = 0.052 + glow * 0.022;
   const nz = seg(4), na = seg(7);
-  // Bands down the body, SKIPPING the wing-root band (≈ -0.85..-0.40).
+  // Bands down the (now longer) body, SKIPPING the wing-root band (≈ -0.88..-0.42).
   const bands = [
-    [-1.18, -0.90],   // chest collar
-    [-0.34, -0.06],   // mid-back
-    [ 0.04,  0.30],   // waist
-    [ 0.40,  0.66],   // hip
-    [ 0.74,  0.98],   // rump
+    [-1.30, -0.94],   // chest collar
+    [-0.30,  0.06],   // mid-back (behind the shoulders)
+    [ 0.18,  0.46],   // waist
+    [ 0.58,  0.88],   // hip
+    [ 1.00,  1.32],   // rump → tail root
   ];
   for (const [z0, z1] of bands) {
     for (const sx of [1, -1]) meshes.push(shellPlate(sx, z0, z1, a0, a1, attach.ringAt, tBase, armorMat, nz, na));

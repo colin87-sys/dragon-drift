@@ -3407,3 +3407,26 @@ a bad input reaches a lookup table, the undefined row throws one level LATER tha
 validate where it enters AND harden the consumer; (c) user-pasted URLs carry junk — treat every query param as
 hostile. Reusable: any `+param`/`parseFloat(param)` that feeds geometry or an array index needs a finite-check + a
 sane fallback, never the raw NaN.
+
+---
+
+### L109 — Regal-volcanic Monarch pass: fix the SILHOUETTE in the torso rings, not with more parts
+The human's critique was "reads like an insect/orange glider," with a 7-point brief (body, shoulders, wings, head,
+spines, tail, colour). The biggest wins were proportion, not detail: (1) BODY — rewrote the loft rings LONGER
+(z −1.66…1.82) and vertically FLATTER (ry<rx through the trunk) with broad shoulders → slim waist → long taper, so
+it stops reading as a round pod. The whole attach contract (wingRoot/headBase/tailAnchor/neck) had to move with it —
+change the rings, re-seat everything that hangs off them (incl. the armor band z-ranges + the wing-root skip). (2)
+SHOULDERS — a flattened hide bulge + a molten TORUS socket at each wing root makes the wings grow from the body
+instead of pasting onto a flat flank. (3) WINGS — kept the human-preferred fuller fan AND our researched anatomy
+(short arm, medial wrist ~28%, curvature gradient leading→inner) but cut 5 thin rods → 4 STRONG struts, added a
+thick bright leading spar over dimmer fingers (glow hierarchy), a hooked talon, and — the key — generalised the
+LEGACY wing path to take an optional `dihedral`/`twist` (raised root + washout) and `leadMat`/`fingerMat`/
+`fingerRMul`, all defaulting to flat/single so Thundercoil stays byte-identical. So a "less flat, less fan" wing was
+a few anatomy dials, not a new builder. (4) SPINES — a pow-curve size HIERARCHY (tall shoulders → tiny tail) + a
+slight alternating rake so the row isn't uniform pickets. (5) HEAD — wider wedge cranium, bigger swept crown horns,
+a molten jaw line → a real crown read from the rear. (6) TAIL — a 3-PRONG molten flame crest (long centre spear +
+two splayed fins + ember core), sized to read from the rear chase cam (the explicit priority view). (7) COLOUR was
+already dark-charcoal; the "too orange" was the emissive accents + fresnel rim dominating a small body — fixed by
+making the BODY bigger/longer so the dark mass wins and orange stays an accent. 4260 tris. Lesson: when a creature
+"reads wrong," audit PROPORTION (torso ring profile, part scale ratios, the dark-vs-glow balance) before adding
+geometry — and gate every shared-builder upgrade behind defaulted dials so the roster never moves.
