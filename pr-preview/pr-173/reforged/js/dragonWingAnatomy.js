@@ -241,7 +241,72 @@ function buildGliderWing(opts) {
   return { pivot, wingMid, wingTip, marker };
 }
 
+// ── TRACED WING (opt-in via anatomy.leadingCurve) ────────────────────────────────────
+// The leading edge follows an EXPLICIT polyline TRACED from a reference planform (a true
+// convex arc — root → forward peak → wingtip), not a single bezier `bow`, so the
+// silhouette matches the art exactly. The struts still fan from a medial wrist (our
+// researched anatomy); the trailing edge scallops between the fingertips. Convex billow +
+// molten rim as the other paths. One welded frame on `pivot` (seam-free in any pose).
+function buildTracedWing(opts) {
+  const ws = opts.ws ?? 1, mem = opts.membraneMat;
+  const leadM = opts.leadMat || opts.strutMat, fingerM = opts.fingerMat || opts.strutMat;
+  const jointMat = opts.jointMat || leadM, rimMat = opts.rimMat;
+  const A = opts.anatomy, lc = A.leadingCurve, fingers = A.fingers, wrist2 = A.wrist;
+  const tipSpan = lc[lc.length - 1][0];
+  const maxSpan = Math.max(tipSpan, ...fingers.map((f) => f.tip[0]));
+  const DIH = (A.dihedral ?? 0) * maxSpan * ws, TW = (A.twist ?? 0) * ws;
+  const depthY = (x, y) => DIH * Math.pow(Math.min(1, Math.max(0, x) / maxSpan), 1.15) + TW * y;
+  const P = (p) => new THREE.Vector3(p[0] * ws, depthY(p[0], p[1]), -p[1] * ws);
+  const pivot = new THREE.Group(); pivot.userData.wingRole = 'pivot';
+  const claw = A.claw ?? 0.1;
+
+  // leading edge: smooth CatmullRom through the traced points (rootFront → wingtip).
+  const leadCurve = new THREE.CatmullRomCurve3(lc.map((p) => P(p)), false, 'catmullrom', 0.5);
+  const leadPts = leadCurve.getPoints(seg(16));
+  const wristV = P(wrist2);
+  const webTip = (f) => wristV.clone().lerp(P(f.tip), 1 - claw);
+  // membrane OUTLINE: leading curve, then trailing scallops tip → finger web tips → rootBack.
+  const outline = [...leadPts], trailPts = [];
+  const scStarts = [leadPts[leadPts.length - 1], ...fingers.map(webTip), P(A.rootBack)];
+  const hub2D = A.hub ?? [wrist2[0] * 0.9, (wrist2[1] + A.rootBack[1]) * 0.5];
+  for (let i = 0; i < scStarts.length - 1; i++) {
+    const a = scStarts[i], b = scStarts[i + 1];
+    const mid = a.clone().lerp(b, 0.5);
+    const perp = new THREE.Vector3(-(b.z - a.z), 0, b.x - a.x).normalize();
+    if (perp.dot(P(hub2D).clone().sub(mid)) < 0) perp.negate();
+    const ctrl = mid.add(perp.multiplyScalar((A.scallop ?? 0.25) * a.distanceTo(b)));
+    const sgs = bezier(a, ctrl, b, seg(5)).slice(1);
+    outline.push(...sgs);
+    if (i < scStarts.length - 2) trailPts.push(a, ...sgs);   // rim along the scallops, not the body edge
+  }
+  // membrane: convex-billowed fan from the hub.
+  const billow = (A.billow ?? 0) * ws;
+  const fanPts = [P(hub2D), ...outline];
+  pivot.add(billow > 0 ? billowedFan(fanPts, mem, seg(4), billow) : fanPanel(fanPts, mem));
+  if (rimMat) { const rim = edgeRim(trailPts, rimMat, A.rimR ?? 0.022, ws); if (rim) pivot.add(rim); }
+
+  // bones: a DOMINANT tapered leading spar along the traced curve + finger struts (claws).
+  pivot.add(taperedTube(leadCurve, (A.leadR ?? 0.07) * ws, (A.leadR ?? 0.07) * ws * 0.28, leadM, Math.max(12, seg(18)), seg(5)));
+  for (const f of fingers) {
+    const t = P(f.tip), dir = t.clone().sub(wristV);
+    if (dir.lengthSq() > 1e-9) dir.normalize();
+    const clawEnd = webTip(f).addScaledVector(dir, (A.clawLen ?? 0.09) * ws);
+    const ctrl = wristV.clone().lerp(clawEnd, 0.5).add(leadingPerp(wristV, clawEnd).multiplyScalar((f.bow ?? 0.2) * ws));
+    const curve = new THREE.QuadraticBezierCurve3(wristV, ctrl, clawEnd);
+    pivot.add(taperedTube(curve, (A.strutR ?? 0.04) * (A.fingerRMul ?? 1) * 1.35 * ws, 0.004 * ws, fingerM, Math.max(5, seg(9)), seg(4)));
+  }
+  const wristNode = new THREE.Mesh(new THREE.OctahedronGeometry(0.085 * ws, 0), jointMat);
+  wristNode.position.copy(wristV); pivot.add(wristNode);
+
+  // empty rig handles + tip marker.
+  const wingMid = new THREE.Group(); wingMid.position.copy(wristV); wingMid.userData.wingRole = 'mid'; pivot.add(wingMid);
+  const wingTip = new THREE.Group(); wingTip.position.copy(P(lc[Math.floor(lc.length * 0.6)]).sub(wristV)); wingTip.userData.wingRole = 'tip'; wingMid.add(wingTip);
+  const marker = new THREE.Object3D(); marker.position.copy(leadPts[leadPts.length - 1]); marker.userData.wingRole = 'marker'; pivot.add(marker);
+  return { pivot, wingMid, wingTip, marker };
+}
+
 export function buildAnatomicalWing(opts) {
+  if (opts.anatomy && opts.anatomy.leadingCurve) return buildTracedWing(opts);
   if (opts.anatomy && opts.anatomy.glider) return buildGliderWing(opts);
   const ws = opts.ws ?? 1;
   const mem = opts.membraneMat;
