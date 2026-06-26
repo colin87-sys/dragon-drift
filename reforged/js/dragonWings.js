@@ -694,11 +694,19 @@ function buildCrystalWings(def, model, attach, giM) {
     pivot.position.set(wr.x, wr.y, wr.z);
     group.add(pivot);
     // rest dihedral + side mirror live on a static child so the rig's flap
-    // (pivot.rotation) adds on top of the raised V. Outline mode bakes the angle in.
+    // (pivot.rotation) adds on top of the raised V.
+    // For an outline traced as a FLAT 2-D shape, the plane would otherwise sit dead-on to the
+    // lens (a poster). Orient that flat plane in 3-D from knobs: tilt up (dihedral, X), sweep
+    // back (Y) and roll in-plane (Z) — mirrored per side. Defaults 0 = unchanged for everyone else.
+    const orient = new THREE.Group();
+    if (outline) {
+      orient.rotation.set(model.wingPlaneTiltX ?? 0, s * (model.wingPlaneSweepY ?? 0), s * (model.wingPlaneRollZ ?? 0));
+    }
+    pivot.add(orient);
     const dih = new THREE.Group();
     dih.rotation.z = outline ? 0 : s * dihedral;
     dih.scale.x = s;                 // mirror the +x-built wing to the correct side
-    pivot.add(dih);
+    orient.add(dih);
 
     const wingTip = new THREE.Group();
     let tipMarker = new THREE.Object3D();
