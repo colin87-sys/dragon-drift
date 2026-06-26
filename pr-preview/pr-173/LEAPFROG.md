@@ -3345,3 +3345,19 @@ from the back. Same one-frame-on-pivot rule as L101, so still seam-free (the mem
 gap-free by construction). 3882 tris/form. Lesson: when a wing "looks wrong," audit the ANATOMY (one strong
 leading edge? clear wrist bend? varied non-radial fingers? stretched bays? slight 3D?) before adding geometry —
 and gate a redesign behind an anatomy flag so the other creature sharing the builder is untouched.
+
+---
+
+### L105 — Every change ships with a before/after toggle — a self-scaling change REGISTRY in the viewer
+The human asked for a toggle on EVERY change, plus an easy "select all" since the count grows. Replaced the two
+hardcoded `armor`/`ftail` checkboxes in `modelviewer.html` with a data-driven `CHANGES = [{ id, label, dragons,
+revert(def) }]` registry (newest first). The compare panel is GENERATED from it: one checkbox per change for the
+current dragon + a MASTER "all changes" switch that flips the whole stack original⇄everything in one tap (shows
+`indeterminate` when mixed). `defFor` resolves the def then calls `revert(def)` for every UNCHECKED change — so
+adding a future change is a ONE-LINER (append a registry entry) and the UI scales itself; `?off=wings,armor` (and
+legacy `armor=0`/`ftail=0`) preset the reverted set. The catch: a toggle needs a real BEFORE state to revert to.
+For geometry that was deleted in the redesign (the old fan wings), keep the old path alive behind a flag —
+`monarchWing` honours `model.legacyWing` to rebuild the pre-redesign anatomy (never set on the live blueprint,
+viewer-only). So "make it toggleable" sometimes costs keeping the dead code path; budget for that when you redesign.
+Reusable rule: a redesign isn't done until its predecessor is still buildable behind a flag and registered as a
+revert — that is what makes before/after honest instead of a screenshot from memory.
