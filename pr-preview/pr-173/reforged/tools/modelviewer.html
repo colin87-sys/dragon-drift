@@ -207,6 +207,15 @@ const keys = Object.keys(DRAGONS);
 pick.innerHTML = keys.map(k => `<option value="${k}">${DRAGONS[k].name || k}</option>`).join('');
 let curKey = keys.includes('flameMonarch') ? 'flameMonarch' : keys[0];
 let curTier = 3;
+// URL params (shareable / diagnostic views): ?dragon=&tier=&az=&pol=&zoom=&armor=0&ftail=0
+const Q = new URLSearchParams(location.search);
+if (Q.get('dragon') && DRAGONS[Q.get('dragon')]) curKey = Q.get('dragon');
+if (Q.get('tier') != null && Q.get('tier') !== '') curTier = +Q.get('tier');
+if (Q.get('az') != null) az = +Q.get('az');
+if (Q.get('pol') != null) pol = +Q.get('pol');
+const qZoom = Q.get('zoom') != null ? +Q.get('zoom') : null;
+if (Q.get('armor') === '0') document.getElementById('armor').checked = false;
+if (Q.get('ftail') === '0') document.getElementById('ftail').checked = false;
 pick.value = curKey;
 
 const formsEl = document.getElementById('forms');
@@ -237,6 +246,7 @@ resize();   // set aspect BEFORE the first load so portrait framing is correct
 renderForms();
 updateCmpVisibility();
 load(curKey, curTier);
+if (qZoom != null) dist = baseDist * qZoom;   // diagnostic close-up via ?zoom=
 
 let last = performance.now();
 function frame(now) {

@@ -86,20 +86,31 @@ export function buildAnatomicalWing(opts) {
   // joint-local 3D mapper (origin subtracted), flat in XZ: +span → +X, +chord → −Z.
   const at = (p, o) => new THREE.Vector3((p[0] - o[0]) * ws, 0, -(p[1] - o[1]) * ws);
 
-  // ── pivot (SHOULDER): humerus spar + a small propatagium sliver. Folds the wing. ──
+  // SHARED SEAM points so the three membrane panels WELD (each adjacent pair shares a
+  // full edge, not just a point — that was the visible gap). The arm-wing trailing edge
+  // runs straight from the body (rootBack) to the inner fingertip; the elbow & wrist
+  // seams are the points on that line at the elbow's and wrist's span.
+  const innerTip = fingers[nF - 1].tip;
+  const trailAt = (sx) => { const t = (sx - A.rootBack[0]) / (innerTip[0] - A.rootBack[0]); return [sx, A.rootBack[1] + (innerTip[1] - A.rootBack[1]) * t]; };
+  const elbowTrail = trailAt(A.elbow[0]);   // shared pivot|mid trailing seam
+  const wristTrail = trailAt(A.wrist[0]);   // shared mid|tip trailing seam
+
+  // ── pivot (SHOULDER): the propatagium quad [rootFront, elbow | elbowTrail, rootBack]
+  // + the (short) humerus spar. Its distal edge elbow→elbowTrail is shared with mid. ──
   const pivot = new THREE.Group();
   pivot.userData.wingRole = 'pivot';
-  pivot.add(fanPanel([at(A.rootFront, [0, 0]), at(A.elbow, [0, 0]), at([A.elbow[0], A.elbow[1] - 0.35], [0, 0]), at(A.rootBack, [0, 0])], mem));
+  pivot.add(fanPanel([at(A.rootFront, [0, 0]), at(A.elbow, [0, 0]), at(elbowTrail, [0, 0]), at(A.rootBack, [0, 0])], mem));
   pivot.add(curvedBone(at(A.rootFront, [0, 0]), at(A.elbow, [0, 0]), 0.12, ws, strut, (A.strutR ?? 0.04) * 1.5));   // humerus (short)
 
-  // ── wingMid (ELBOW): forearm spar + the inner membrane (plagiopatagium) to the body. ──
+  // ── wingMid (ELBOW): the forearm quad [elbow, wrist | wristTrail, elbowTrail] + the
+  // forearm spar. Shares elbow→elbowTrail with the pivot and wrist→wristTrail with the
+  // tip, so the whole inner membrane is gap-free. ──
   const wingMid = new THREE.Group();
   wingMid.position.copy(at(A.elbow, [0, 0]));
   wingMid.userData.wingRole = 'mid';
   pivot.add(wingMid);
   wingMid.add(fanPanel([
-    at(A.elbow, A.elbow), at(A.wrist, A.elbow),
-    at(fingers[nF - 1].tip, A.elbow), at(A.rootBack, A.elbow), at([A.elbow[0] * 0.4, A.rootBack[1] + 0.2], A.elbow),
+    at(A.elbow, A.elbow), at(A.wrist, A.elbow), at(wristTrail, A.elbow), at(elbowTrail, A.elbow),
   ], mem));
   wingMid.add(curvedBone(at(A.elbow, A.elbow), at(A.wrist, A.elbow), 0.16, ws, strut, (A.strutR ?? 0.04) * 1.3));   // forearm
   const elbowNode = new THREE.Mesh(new THREE.OctahedronGeometry(0.07 * ws, 0), jointMat);
@@ -164,6 +175,9 @@ export function buildAnatomicalWing(opts) {
     const ctrl = a.clone().lerp(b, 0.5).lerp(wristV, A.scallop);
     outline.push(...bezier(a, ctrl, b, sampN).slice(1));
   }
+  // close via the WRIST-SEAM point (shared with the forearm) so the hand-wing welds to
+  // the inner membrane along the full wrist edge instead of meeting it at a single point.
+  outline.push(at(wristTrail, A.wrist));
   wingTip.add(fanPanel(outline, mem));
 
   // Finger struts to the FULL tips (inner ones protrude past the web as points); the

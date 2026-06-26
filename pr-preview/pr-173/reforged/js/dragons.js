@@ -826,15 +826,12 @@ export const DRAGONS = {
     cost: 6400,
     parts: {
       torso: 'monarchHull', wings: 'monarchWing', head: 'monarchCrown', tail: 'monarchTail',
-      // ARMOR PLATING — overlapping dark cupped scale-plates with molten edges, laid on
-      // the flanks via the attach contract so they follow the body contour (wide at the
-      // shoulders, pinched at the waist). A broad flank run + a denser, larger SHOULDER/
-      // CHEST mantle (the armored shoulders of the concept). Counts per form [H,K,R,E];
-      // edge:true → molten rim that flares on Surge. One draw call per run.
-      shingle: [
-        { count: [8, 12, 16, 20], zRange: [-1.25, 1.05], len: 0.34, wid: 0.22, cup: 0.34, tilt: 0.44, yLift: 0.34, edge: true },
-        { count: [4, 8, 12, 14], zRange: [-1.2, -0.4], len: 0.42, wid: 0.28, cup: 0.42, tilt: 0.56, yLift: 0.6, cardRows: 2, edge: true },
-      ],
+      // The torso builds its OWN molten dorsal spine, so suppress the spine-line layer
+      // the engine would otherwise INFER from model.spineGlow (that inference was drawing
+      // a SECOND row of dorsal glow over the hand-built one — the "2 rows" jank).
+      surfaceLayers: [],
+      // (Armor plating removed — the shingle flank-scales collided with the wing roots
+      //  and read as scattered scales; a new armor approach is being designed.)
     },
     stats: { speed: 1.16, handling: 1.20, drain: 0.74, regen: 1.22 },
     boostSpine: true,   // brighten the molten spine + wing struts + tail fins on boost
