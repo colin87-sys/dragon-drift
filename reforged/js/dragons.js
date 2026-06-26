@@ -874,7 +874,11 @@ export const DRAGONS = {
       // poster facing the lens. Roll the tips DOWN to a shallow ~11° dihedral (a real
       // cruising-glide angle; soaring birds hold only a few degrees of positive V — a steep
       // raised V reads as braking) with ~26° back-sweep toward the tail.
-      wingPlaneTiltX: 0.6, wingPlaneSweepY: 0.5, wingPlaneRollZ: -0.6,
+      // tilt/sweep kept SMALL so the flap axis stays ~vertical (a clean beat, not a row);
+      // the flat-glide dihedral comes from rollZ (rotates about the beat axis, no skew) and
+      // the 3-D volume from wingBillow — not from laying the whole plane back.
+      wingPlaneTiltX: 0.12, wingPlaneSweepY: 0.22, wingPlaneRollZ: -0.55,
+      wingBillow: 0.6,
       // skinned 3-segment fold (shoulder→elbow→wrist) driven by dragonWingFlap.js
       wingSkinned: true,
       bodyKnobs: { sectionPoints: 18, sectionExponent: 2.4 }, // rounder, sleeker section

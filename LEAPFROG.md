@@ -3248,3 +3248,12 @@ wrist −0.16→0.16 (counter-fold); the membrane SKIN deforms ΔY≈−6.8 and 
 match the mesh to the driven side (`skeleton.bones.includes(rig.wrist)`) — grabbing "the largest skinned mesh"
 silently samples the wrong wing and reads ΔY=0 (a false "skin doesn't deform"). (3) Subdivide BEFORE
 `applyWingGradient`/weights so midpoints get colour + skin attributes.
+
+**Follow-up (prism wing parity):** the wing looked/felt off vs the roster because it was the only FLAT wing
+(no chordwise volume) flapped on a SKEWED axis. Two fixes, both in the `crystalWing` skinned path: (1) added a
+`wingBillow` that bows the membrane out in Z (sin across the chord × span taper, 0 at edges/root) so it reads as
+a 3-D membrane, not paper; struts ride the same billow. (2) De-skewed the beat: the flap is `shoulder.rotation.z`
+in the mount frame, so `wingPlaneTiltX`/`SweepY` (which tilt that frame) were rowing the beat — cut them small and
+let `wingPlaneRollZ` carry the flat-glide dihedral (roll is ABOUT the beat axis → no skew). Flap-axis tilt dropped
+43.6°→14.3° off vertical. **Rule: the flap axis is the wing-mount's local Z; keep mount tilt/sweep small or the
+shared beat reads as a row. Dihedral via roll (about the beat axis) is free.**

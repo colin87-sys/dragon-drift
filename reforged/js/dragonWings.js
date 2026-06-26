@@ -733,6 +733,19 @@ function buildCrystalWings(def, model, attach, giM) {
       let g = new THREE.ShapeGeometry(shp, seg(2)); g.scale(outScale, outScale, 1);
       for (let p = 0; p < passes; p++) g = subdivide(g); return g; };
     let farTip = outline[0]; for (const p of outline) if (p[0] > farTip[0]) farTip = p;
+    // Chordwise BILLOW: bow the flat sheet out in Z (depth) so it reads as a 3-D membrane
+    // catching air, not paper. Zero at the leading/trailing edges (top/bottom of the outline)
+    // and at the welded root; full across the mid-chord + outer span. (model.wingBillow)
+    const billowAmt = (model.wingBillow ?? 0) * outScale;
+    let oyMin = Infinity, oyMax = -Infinity, oxMax = 0;
+    for (const p of outline) { if (p[1] < oyMin) oyMin = p[1]; if (p[1] > oyMax) oyMax = p[1]; if (Math.abs(p[0]) > oxMax) oxMax = Math.abs(p[0]); }
+    const yMinS = oyMin * outScale, yMaxS = oyMax * outScale, maxXS = (oxMax || 3) * outScale;
+    const billow = (geo) => { if (!billowAmt) return; const pos = geo.attributes.position;
+      for (let i = 0; i < pos.count; i++) { const x = pos.getX(i), y = pos.getY(i);
+        const ty = Math.min(Math.max((y - yMinS) / ((yMaxS - yMinS) || 1), 0), 1);
+        const taper = sstep(Math.min(Math.abs(x) / (0.32 * maxXS), 1));   // 0 at root → full by ~⅓ span
+        pos.setZ(i, pos.getZ(i) + billowAmt * Math.sin(Math.PI * ty) * taper); }
+      pos.needsUpdate = true; };
     const rigs = {};
     for (const s of [-1, 1]) {
       const mount = new THREE.Group();
@@ -741,12 +754,12 @@ function buildCrystalWings(def, model, attach, giM) {
       const elbow = new THREE.Bone(); elbow.position.set(elbowX * s, elbowY, 0);
       const wrist = new THREE.Bone(); wrist.position.set((wristX - elbowX) * s, wristY - elbowY, 0);
       shoulder.add(elbow); elbow.add(wrist);
-      let mg = shapeGeo(outline, 2); mirror(mg, s); applyWingGradient(mg, def, 0, 1); mg.computeVertexNormals(); writeWeights(mg);
+      let mg = shapeGeo(outline, 2); mirror(mg, s); billow(mg); applyWingGradient(mg, def, 0, 1); mg.computeVertexNormals(); writeWeights(mg);
       const mem = new THREE.SkinnedMesh(mg, wingMat); mem.frustumCulled = false;
       const struts = [];
       for (const poly of (def.wingStruts && def.wingStruts.boneShapes ? def.wingStruts.boneShapes : [])) {
         if (poly.length < 3) continue;
-        let bg = shapeGeo(poly, 1); mirror(bg, s); bg.translate(0, 0, 0.05); bg.computeVertexNormals(); writeWeights(bg);
+        let bg = shapeGeo(poly, 1); mirror(bg, s); bg.translate(0, 0, 0.05); billow(bg); bg.computeVertexNormals(); writeWeights(bg);
         const sm = new THREE.SkinnedMesh(bg, strutMat); sm.frustumCulled = false; struts.push(sm);
       }
       mount.add(anchor); mount.add(shoulder); mount.add(mem); for (const sm of struts) mount.add(sm);
