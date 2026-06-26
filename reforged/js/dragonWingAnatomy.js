@@ -64,10 +64,12 @@ function billowedFan(pts, mat, rings, sag) {
   const pos = [apex.x, apex.y, apex.z];
   const idxOf = (r, j) => (r === 0 ? 0 : 1 + (r - 1) * m + j);
   for (let r = 1; r <= R; r++) {
-    const fr = r / R, dip = Math.sin(Math.PI * fr) * sag;   // belly the middle, pin the edges
+    const fr = r / R, crown = Math.sin(Math.PI * fr) * sag;   // crown the middle UP, pin the edges
     for (let j = 0; j < m; j++) {
       const b = boundary[j];
-      pos.push(apex.x + (b.x - apex.x) * fr, apex.y + (b.y - apex.y) * fr - dip, apex.z + (b.z - apex.z) * fr);
+      // +Y = CONVEX from the dorsal (top) view — the wing's upper surface domes up like a
+      // real aerofoil, not a dished sag; 0 at the apex + boundary so the bones stay crisp.
+      pos.push(apex.x + (b.x - apex.x) * fr, apex.y + (b.y - apex.y) * fr + crown, apex.z + (b.z - apex.z) * fr);
     }
   }
   const idx = [];
