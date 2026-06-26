@@ -3260,3 +3260,18 @@ node inspectors (tricount's headless three setup: `register('./three-resolver.mj
 Also added `?dragon=&tier=&az=&pol=&zoom=&armor=0&ftail=0` URL params to `modelviewer.html` for deterministic
 diagnostic close-ups. Reusable: a 30-line node geometry-dumper beats squinting at renders for "is it overlapping
 / gapping / duplicated" questions — get the numbers.
+
+---
+
+### L100 — The wing "gap" was the SCALLOP MATH, not the seam (verify the actual pixels, not your theory)
+After welding the panel seams (L99) the human STILL saw triangular gaps. Don't assume the first fix was the whole
+story — re-investigate. A winding check proved the fan triangulation was fine (38 tris, all same sign = star-
+shaped, no flips). Rendering the membrane top-down showed it CONTINUOUS. The gaps were the SCALLOPS themselves:
+the trailing-edge sag used `ctrl = mid.lerp(wrist, scallop)` — i.e. depth proportional to the distance from the
+WRIST. The leading fingers are ~5 units out, so their scallops sagged ~2 units deep → enormous open notches
+between the outer struts that read as holes; inner fingers stayed shallow. Fix: sag PERPENDICULAR to the
+finger-tip chord by `scallop * |a−b|` (proportional to the GAP between the two fingertips), so every scallop is
+even and shallow → a full membrane with a neat scalloped edge. Lesson: a "gap/hole" bug has several candidate
+causes (seam not welded · bad triangulation · edge geometry too deep); enumerate and rule each out with data
+(shared-verts count, triangle winding, a straight-on render) rather than fixing the first plausible one and
+declaring victory. Applies to both anatomical wings (Monarch + Thundercoil).

@@ -172,7 +172,13 @@ export function buildAnatomicalWing(opts) {
   const scStarts = [wingtipV, ...fingers.slice(1).map((f, i) => webTip(f, i + 1))];
   for (let i = 0; i < scStarts.length - 1; i++) {
     const a = scStarts[i], b = scStarts[i + 1];
-    const ctrl = a.clone().lerp(b, 0.5).lerp(wristV, A.scallop);
+    // Scallop depth proportional to the GAP between these two fingertips (NOT the
+    // distance to the wrist — that made the long outer fingers sag into huge open
+    // notches that read as holes). Sag perpendicular to the a→b chord, toward the wrist.
+    const mid = a.clone().lerp(b, 0.5);
+    const perp = new THREE.Vector3(-(b.z - a.z), 0, b.x - a.x).normalize();
+    if (perp.dot(wristV.clone().sub(mid)) < 0) perp.negate();
+    const ctrl = mid.add(perp.multiplyScalar(A.scallop * a.distanceTo(b)));
     outline.push(...bezier(a, ctrl, b, sampN).slice(1));
   }
   // close via the WRIST-SEAM point (shared with the forearm) so the hand-wing welds to
