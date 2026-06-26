@@ -826,12 +826,13 @@ export const DRAGONS = {
     cost: 6400,
     parts: {
       torso: 'monarchHull', wings: 'monarchWing', head: 'monarchCrown', tail: 'monarchTail',
-      // The torso builds its OWN molten dorsal spine, so suppress the spine-line layer
-      // the engine would otherwise INFER from model.spineGlow (that inference was drawing
-      // a SECOND row of dorsal glow over the hand-built one — the "2 rows" jank).
-      surfaceLayers: [],
-      // (Armor plating removed — the shingle flank-scales collided with the wing roots
-      //  and read as scattered scales; a new armor approach is being designed.)
+      // The torso builds its OWN molten dorsal spine, so the explicit layer list both
+      // suppresses the engine-INFERRED spine-line (that double-drew the dorsal glow —
+      // the "2 rows" jank) AND adds the banded segmented ARMOR: curved obsidian shell
+      // plates wrapping the back + upper flanks in transverse bands, leaving a dorsal
+      // channel for the molten spine and a glowing gap-line between bands. The wing-root
+      // z-band is skipped so the armor never collides with the wings.
+      surfaceLayers: ['monarchArmor'],
     },
     stats: { speed: 1.16, handling: 1.20, drain: 0.74, regen: 1.22 },
     boostSpine: true,   // brighten the molten spine + wing struts + tail fins on boost
