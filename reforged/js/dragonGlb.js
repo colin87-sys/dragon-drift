@@ -118,11 +118,12 @@ export function buildGlbDragon(def, opts = {}) {
   // wing nodes (the winged hand-authored placeholder, or a fully-modelled winged
   // export), we hide these and drive the GLB's wings instead. Swept two-panel
   // membrane, tiny tri count.
+  const ws = cfg.wingScale || 1;   // scales the authored wing to match a big GLB body
   const makeMembraneWing = (s) => {
     const g = new THREE.BufferGeometry();
     g.setAttribute('position', new THREE.Float32BufferAttribute([
-      0, 0, 0.34, s * 2.05, 0.05, 0.52, s * 1.62, 0.03, -0.42,   // leading panel
-      0, 0, 0.34, s * 1.62, 0.03, -0.42, 0, 0, -0.5,             // trailing panel
+      0, 0, 0.34 * ws, s * 2.05 * ws, 0.05 * ws, 0.52 * ws, s * 1.62 * ws, 0.03 * ws, -0.42 * ws,   // leading panel
+      0, 0, 0.34 * ws, s * 1.62 * ws, 0.03 * ws, -0.42 * ws, 0, 0, -0.5 * ws,                       // trailing panel
     ], 3));
     g.setIndex([0, 1, 2, 3, 4, 5]); g.computeVertexNormals();
     const m = new THREE.Mesh(g, wingMat); m.name = 'authoredWing';
@@ -214,6 +215,10 @@ export function buildGlbDragon(def, opts = {}) {
 function applyGlbTransform(content, cfg) {
   const s = cfg.scale ?? 1;
   content.scale.multiplyScalar(s);
+  // Facing: yaw to point the head down -Z (travel), pitch to lay a reared/curved
+  // pose into a flight line, roll if the mesh's "up" needs leveling.
   if (cfg.rotY) content.rotation.y += cfg.rotY;
+  if (cfg.rotX) content.rotation.x += cfg.rotX;
+  if (cfg.rotZ) content.rotation.z += cfg.rotZ;
   if (cfg.offset) content.position.set(cfg.offset[0] || 0, cfg.offset[1] || 0, cfg.offset[2] || 0);
 }
