@@ -840,7 +840,7 @@ export const DRAGONS = {
     hasStyle: true, surgeMotes: true,
     feverWing: 0xff6a78, feverEye: 0xffd2c0, feverWash: [0.06, 0.022, 0.03],
     model: {
-      scale: 1.12, wingScale: 1.18,
+      scale: 1.12, wingScale: 0.40,   // wingspan ≈ 5.7 crown-heights (was 1.18 → ~14, way oversized)
       bodyRoughness: 0.62, bodyMetalness: 0.12, rimBodyMul: 1.1,
       flapBias: 0.92, flapAmp: 0.88,   // broad, powerful, regal western-dragon beat
       flapFreqScale: 0.7,              // −30% flap speed (slower, readable regal beat)
