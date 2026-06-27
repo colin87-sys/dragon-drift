@@ -3579,3 +3579,31 @@ mechanism — a position-wave on overlapping segs is a free vertical whip with n
 paths need per-dragon GATES (every new term defaults to 0/identity) so the byte-identical roster constraint holds —
 verified Thundercoil (the other wingParts dragon) animates identically; (4) verification infra is part of the task:
 the freeze-mode gap meant the acceptance tool was lying, so fix the harness before trusting the render.
+
+---
+
+### L117 — Visible per-segment wing articulation needs SKINNING, not lag params — the lag was driving EMPTY handles; + flap below horizontal
+Two human notes on the flap: (1) "shouldn't the wings flap BELOW horizontal on the downstroke — research how low?" and
+(2) "there should be individual lag between the 3 segments per wing… research how this works without blatantly copying
+the old animation system." Investigating both: they share ONE root cause. The traced wing (L115 loft) welds the entire
+wing — membrane, leading spar, struts — to the PIVOT; `wingMid`/`wingTip` were literally "empty rig handles" (the code
+said so). So the per-segment lag (`midLag`/`tipLag` rotating those handles) moved NOTHING — the wing flapped as a rigid
+plank from the shoulder, no travelling fold. And `restLift 0.5` biased the whole stroke ~29° up so the downstroke only
+reached ~−8° (never a real power stroke). Fixes: (A) BELOW-HORIZONTAL — research says flapping amplitude is ~90–130°
+with the downstroke pressing the tip ~30–45° below horizontal (the power stroke scoops air below the body); retuned to
+apex ~+60° / bottom ~−35° by raising `rootAmp` and dropping `restLift` to a glide-only dihedral. (B) ARTICULATION —
+the real mechanism is skeletal SKINNING (the unified-hull L25 technique, adapted not copied): a 3-bone chain
+shoulder→elbow→wrist on the wing's neutral axis, with the membrane + spar + struts SKINNED to it (per-vertex weights
+blended shoulder→elbow→wrist by SPAN, smoothstep across each joint band). The bones ARE the `wingMid`/`wingTip` handles,
+so the EXISTING lagged cascade now bends a SEAMLESS skin — no split panels (which would re-open the L114 seam). Now the
+tips visibly curl inward at the apex and droop below horizontal on the press. Gotchas paid: (1) a SkinnedMesh can't be
+mirror-CLONED — `clone(true)` keeps the clone bound to the master's skeleton, so the left wing would deform with the
+right's bones; build BOTH wings (two independent skeletons), wrap the left in scale.x=-1 (same tri count). (2) bindMode
+'attached' is invariant to a rigid parent move (meshWorld⁻¹·boneWorld cancels the pivot), so binding at build-time and
+positioning the pivot afterward is safe — and a scale.x=-1 ancestor cancels too, so the mirror deforms correctly.
+(3) skin geometry by its OWN vertex x only when the geometry is authored in pivot-local absolute coords (membrane/spar/
+struts via `P()` are; a centered+positioned octahedron is NOT — parent that to a bone instead).
+Lessons: (1) when "more lag / more amplitude" does nothing, check whether the thing you're animating is ATTACHED to
+geometry — a handle with no skin/children is a no-op; (2) seamless AND articulated = skinning (one mesh, many bones),
+the only way to have both; (3) "research how low it flaps" has a real answer (~30–45° below horizontal) — bias the rest
+pose low so the active beat can press past level, don't let a glide dihedral eat the power stroke.
