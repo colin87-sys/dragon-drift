@@ -438,6 +438,15 @@ export function updateDragon(dt, player, time) {
   // Asset-backed (GLB) baked-clip flap, if present. The reactive wing flap still
   // runs through the wingRig path below; this only ticks a skinned GLB's own clip.
   if (glbAnim && glbAnim.mixer) glbAnim.mixer.update(dt);
+  // Asset-backed body SLITHER — advance the spine-wave clock, and make the coil
+  // faster + a touch deeper with speed so the serpent reads as actively swimming.
+  if (glbAnim && glbAnim.slither) {
+    const su = glbAnim.slither.uniforms;
+    const sp = Math.min(Math.max((player.speed - 35) / 45, 0), 1);
+    su.uTime.value += dt;
+    su.uWaveSpeed.value = 3.0 + sp * 4.5;
+    su.uAmp.value = glbAnim.slither.baseAmp * (0.75 + sp * 0.5);
+  }
 
   // Banking and pitch — banking deepens with speed for drama.
   // Bank is tracked separately so the barrel-roll spin can stack on top
