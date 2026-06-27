@@ -408,7 +408,7 @@ export function buildDragonModel(def, opts = {}) {
 // spinning model.
 export function makePreviewTick(def, result) {
   const { group, parts, auraSprite } = result;
-  const { head, tailSegs, wingPivotL, wingPivotR, wingPivot2L, wingPivot2R, wingTipL, wingTipR, wingRigL, wingRigR, wingMidL, wingMidR, wingYokeL, wingYokeR } = parts;
+  const { head, tailSegs, wingPivotL, wingPivotR, wingPivot2L, wingPivot2R, wingTipL, wingTipR, wingRigL, wingRigR, wingMidL, wingMidR, wingYokeL, wingYokeR, wingChainL, wingChainR } = parts;
   const { bodySegs, tailOrbiters } = parts;
   const flapBias = def.model.flapBias || 1;
   const flapAmp = def.model.flapAmp ?? 1;
@@ -478,8 +478,21 @@ export function makePreviewTick(def, result) {
         if (tp) { const tipF = md ? shape(phase - tLag) * tipA : (shape(phase - mLag) * midA + shape(phase - tLag) * tipA); const aT = md ? aTip : (aMid + aTip);
           tp.rotation.set(-0.05 + Math.cos(phase - tLag) * 0.18 - apexPitch * aT, tipSweep + rowT, -tipF + aT); }
       };
-      poseW(wingPivotR, wingMidR, wingTipR);
-      poseW(wingPivotL, wingMidL, wingTipL);
+      // SKINNED RIPPLE chain (matches gameplay driveChain, ins=0): elevation distributed down
+      // the bone chain as a phase-lagged wave so the bend ripples out — not a root hinge.
+      const driveChain = (chainArr) => {
+        if (!chainArr || chainArr.length < 2) return;
+        const N = chainArr.length, moving = N - 1;
+        const segAmp = m.segAmp ?? 0.2, segApex = m.segApex ?? 0.12, chLag = tLag || 1.6;
+        chainArr[0].parent.rotation.set(0.14 + feather * 0.16, -0.18 + rowR, restLift - 0.10);
+        for (let i = 1; i < N; i++) {
+          const f = moving > 1 ? (i - 1) / (moving - 1) : 0, lag = chLag * f;
+          const fold = shape(phase - lag) * segAmp, apx = apexUp(phase - lag) * segApex;
+          chainArr[i].rotation.set(Math.cos(flapWarp(phase - lag)) * 0.06 * f - apexPitch * apx, rowR * 0.5 * f, -fold + apx);
+        }
+      };
+      if (wingChainR) { driveChain(wingChainR); driveChain(wingChainL); }
+      else { poseW(wingPivotR, wingMidR, wingTipR); poseW(wingPivotL, wingMidL, wingTipL); }
     } else {
       const flap = Math.sin(phase) * 0.52 * flapAmp + 0.12;
       const feather = Math.sin(phase + Math.PI * 0.55) * 0.16;

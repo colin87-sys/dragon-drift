@@ -849,11 +849,12 @@ export const DRAGONS = {
       // with rare heavy pulses; a held apex V (restLift = rest dihedral, apex* lift
       // the tips highest at the top of the stroke).
       wingParts: true, glidePow: 1.2,
-      // Bigger total stroke that straddles horizontal: apex ~+60°, downstroke ~-35° BELOW
-      // horizontal (the power stroke scoops below the body) — restLift is the glide dihedral,
-      // kept low so the active beat presses down past level instead of hovering above it.
-      rootAmp: 0.72, midAmp: 0.5, tipAmp: 0.42, midLag: 0.62, tipLag: 1.2,
-      restLift: 0.22, apexRoot: 0.18, apexMid: 0.32, apexTip: 0.48, apexPitch: 0.12,
+      // SKINNED RIPPLE (boneFracs in the wing anatomy): the elevation is distributed down the
+      // bone chain as a phase-lagged wave, not one shoulder hinge — each segment trails the one
+      // inboard (tipLag = total ripple delay to the tip) and adds its own fold (segAmp). The
+      // summed stroke straddles horizontal: apex high, downstroke ~-38° BELOW level (power
+      // scoop); restLift is the glide dihedral, kept low so the beat presses past level.
+      segAmp: 0.22, segApex: 0.1, tipLag: 1.8, restLift: 0.2, apexPitch: 0.12,
       // REALISTIC BEAT (new): asymmetric power stroke + fore-aft rowing + body porpoise.
       downFrac: 0.58,        // downstroke takes 58% of the cycle → heavier/slower POWER stroke
       rowDeg: 15,            // fore-aft ROWING sweep (wingtip figure-8): forward on the downstroke

@@ -426,6 +426,7 @@ function buildMonarchWing(def, model, attach, giM) {
       wingPivotL: Lr.pivot, wingPivotR: R.pivot,
       wingMidL: Lr.wingMid, wingMidR: R.wingMid,
       wingTipL: Lr.wingTip, wingTipR: R.wingTip,
+      wingChainL: Lr.chain, wingChainR: R.chain,   // the skinned ripple chains (root→tip bones)
       tipMarkerL: Lr.marker, tipMarkerR: R.marker,
       wingPivot2L: null, wingPivot2R: null,
     },

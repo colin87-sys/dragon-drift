@@ -3607,3 +3607,29 @@ Lessons: (1) when "more lag / more amplitude" does nothing, check whether the th
 geometry — a handle with no skin/children is a no-op; (2) seamless AND articulated = skinning (one mesh, many bones),
 the only way to have both; (3) "research how low it flaps" has a real answer (~30–45° below horizontal) — bias the rest
 pose low so the active beat can press past level, don't let a glide dihedral eat the power stroke.
+
+---
+
+### L118 — A travelling RIPPLE needs the elevation DISTRIBUTED down a bone chain as a phase-lagged cascade — one big shoulder swing always reads as a root hinge
+After L117 skinned the wing to 3 bones, the human still felt it "hinge flapping at the part where it joins the body —
+each of the 3 segments should have a ripple delay." The L117 skinning was real but the DRIVE was still root-dominant:
+the pivot/shoulder carried the whole elevation swing (rootAmp 0.72) and the elbow/wrist added only small lagged folds,
+so the wing swung as a unit (a hinge) with a faint outboard fold. The fix is in the DRIVE, not just the skin: model
+the wing the way the body whip is modelled (L24/L40 driveChain) — a CHAIN of bones (now 5: `boneFracs` along the span,
+bone 0 STATIC to hold the body seam) where the elevation is DISTRIBUTED as a phase-lagged travelling wave. Each moving
+bone i adds its own fold `shape(phase − lag·f)·segAmp` with `lag ∝ span fraction f`, so bone 1 leads and every bone
+outboard trails a little more → the bend RIPPLES to the tip instead of the root swinging in unison. The pivot now
+carries only the STATIC pose (pitch + fore-aft rowing sweep + rest dihedral + bank); all the dynamic flap lives on the
+chain. Because no single joint does the whole swing, the root-hinge read is gone and you see a wave run out the wing
+(verified side preview: the bend position travels across phases; rear gameplay: high curled apex → below-horizontal
+rippled downstroke). Knobs: `segAmp` (per-bone fold), `segApex` (per-bone apex lift), `tipLag` (total ripple delay to
+the tip), `boneFracs` (where the bones sit). Gotchas: (1) the static root bone (bone 0, never rotated) is what keeps
+the conformed seam on the flank while the rest ripples — don't drive it; (2) put the rest dihedral on the PIVOT, not a
+moving bone, or the glide pose ripples; (3) the cascade replaces the 3-handle `poseWing` only when a chain is present
+(`wingChainR`), so Thundercoil (no chain) keeps the legacy path byte-identical. Same in the preview poser so the
+showcase matches.
+Lessons: (1) "it feels like a hinge" ⇒ the motion is concentrated at ONE joint; the cure is to DISTRIBUTE it down a
+chain with phase lag (a wave), never to add amplitude to the existing single swing; (2) the body-whip cascade and the
+wing-ripple cascade are the SAME pattern (phase-lagged drive over a bone chain) — reuse the mental model, not the code;
+(3) a static anchor bone is the clean way to keep a skinned attachment welded to the body while the limb deforms (L25
+again: freeze the RELATIONSHIP, here by simply never rotating bone 0).

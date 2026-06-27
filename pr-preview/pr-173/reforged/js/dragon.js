@@ -33,6 +33,8 @@ let wingMidL = null;  // middle joint of the 3-segment articulated wing (Mk II),
 let wingMidR = null;
 let wingTipL = null;  // secondary fold joint for 2-segment wing
 let wingTipR = null;
+let wingChainL = null;  // skinned ripple chain (root→tip bones) for the traced wing, null otherwise
+let wingChainR = null;
 let wingPivot2L = null;
 let wingPivot2R = null;
 let wingRigL = null;  // skinned-wing flap rigs (shoulder/elbow/wrist), null otherwise
@@ -150,6 +152,8 @@ export function createDragon(scene, def, riderDef) {
      wingPivot2L, wingPivot2R, tipMarkerL, tipMarkerR } = result.parts);
   wingMidL = result.parts.wingMidL || null;
   wingMidR = result.parts.wingMidR || null;
+  wingChainL = result.parts.wingChainL || null;
+  wingChainR = result.parts.wingChainR || null;
   wingYokeL = result.parts.wingYokeL || null;
   wingYokeR = result.parts.wingYokeR || null;
   wingRigL = result.parts.wingRigL || null;
@@ -369,6 +373,8 @@ export function disposeDragon() {
   wingYokeR = null;
   wingMidL = null;
   wingMidR = null;
+  wingChainL = null;
+  wingChainR = null;
   bodySegs = null;
   tailOrbiters = null;
   storm = null;
@@ -676,8 +682,36 @@ export function updateDragon(dt, player, time) {
       if (tp) { const tF = md ? tipF : (midF + tipF), aT = md ? apexTipF : (apexMidF + apexTipF);
         tp.rotation.set(-0.05 + twTip + 0.12 * inside - apexPitch * aT, tipSweepBase + 0.22 * inside + rowT, -(tF * amp) + aT * amp + 0.16 * inside); }
     };
-    poseWing(wingPivotR, wingMidR, wingTipR, bank);
-    poseWing(wingPivotL, wingMidL, wingTipL, -bank);
+    // ── TRAVELLING-RIPPLE cascade for the SKINNED chain wing ─────────────────────────
+    // Instead of one big shoulder swing (which reads as a root HINGE), the elevation is
+    // DISTRIBUTED down the bone chain as a phase-lagged wave: bone 1 leads, each bone outboard
+    // trails it a little more (lag ∝ span) and adds its own fold — so the bend RIPPLES out to
+    // the wingtip. Bone 0 stays static (holds the body seam); the pivot group carries only the
+    // static pose (pitch + fore-aft sweep + rest dihedral + bank). Same `shape`/`apexUp`/warp.
+    const driveChain = (chainArr, ins) => {
+      if (!chainArr || chainArr.length < 2) return;
+      const inside = Math.max(0, ins), outside = Math.max(0, -ins);
+      const amp = 1 - 0.34 * ins;
+      const baseZ = -0.10 - 0.20 * inside + 0.12 * outside;
+      const N = chainArr.length, moving = N - 1;
+      const segAmp = (m.segAmp ?? 0.2) * aoStiff, segApex = m.segApex ?? 0.12, chLag = m.tipLag ?? 1.6;
+      const pv = chainArr[0].parent;                            // the placement/pose group
+      pv.rotation.set(0.14 + featR * 0.16 + cBias, -0.18 + rowR, restLift + baseZ + rFold);
+      for (let i = 1; i < N; i++) {
+        const f = moving > 1 ? (i - 1) / (moving - 1) : 0;      // 0 at the first moving bone → 1 at the tip
+        const lag = chLag * f;                                  // ripple delay grows outward
+        const fold = shape(ph0 - lag) * segAmp, apx = apexUp(ph0 - lag) * segApex;
+        chainArr[i].rotation.set(
+          Math.cos(flapWarp(ph0 - lag)) * 0.06 * f - apexPitch * apx,   // washout twist, grows outward
+          rowR * 0.5 * f,                                                // fore-aft figure-8, grows outward
+          -(fold * amp) + apx * amp + 0.10 * inside * f);                // the LAGGED fold = the ripple (+ inside tuck)
+      }
+    };
+    if (wingChainR) { driveChain(wingChainR, bank); driveChain(wingChainL, -bank); }
+    else {
+      poseWing(wingPivotR, wingMidR, wingTipR, bank);
+      poseWing(wingPivotL, wingMidL, wingTipL, -bank);
+    }
   } else {
     wingPivotR.rotation.z = damp(wingPivotR.rotation.z, -rootFlap + turnBias + rollFold, 14, dt);
     wingPivotL.rotation.z = damp(wingPivotL.rotation.z,  rootFlap + turnBias - rollFold, 14, dt);
