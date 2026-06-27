@@ -416,13 +416,21 @@ export function makePreviewTick(def, result) {
   const segSway = def.model.segmentSway ?? 0.16;
   const segBob = def.model.segmentBob ?? 0.08;
   return (t) => {
-    // Float + gentle bank/pitch — the in-flight read, no spin.
+    // Wingbeat — same shape as the live rig (root flap + feather pitch + asymmetric warp).
+    const phase = t * 6.2 * flapBias * formSpeed(def.model) * (def.model.flapFreqScale ?? 1);
+    // Asymmetric beat warp (model.downFrac) shared with the wing pose + the body porpoise, so the
+    // showcase reads true to gameplay. Identity when unset (the rest of the roster unchanged).
+    const _df = def.model.downFrac, _TAU = Math.PI * 2;
+    const flapWarp = (_df == null) ? (p) => p : (p) => {
+      const tt = (((p % _TAU) + _TAU) % _TAU) / _TAU;
+      const u = tt < _df ? (tt / _df) * 0.5 : 0.5 + ((tt - _df) / (1 - _df)) * 0.5;
+      return u * _TAU;
+    };
+    // Float + gentle bank/pitch — the in-flight read, no spin. The chest PORPOISES on the beat.
     group.position.y = 0.15 + Math.sin(t * 1.5) * 0.09;
     group.rotation.y = 0;
     group.rotation.z = Math.sin(t * 0.7) * 0.13;        // lazy bank left/right
-    group.rotation.x = -0.05 + Math.sin(t * 1.5 + 1) * 0.03;
-    // Wingbeat — same shape as the live rig (root flap + feather pitch).
-    const phase = t * 6.2 * flapBias * formSpeed(def.model) * (def.model.flapFreqScale ?? 1);
+    group.rotation.x = -0.05 + Math.sin(t * 1.5 + 1) * 0.03 + (def.model.bodyFlapPitch ?? 0) * Math.sin(flapWarp(phase));
     if (wingRigL) {
       // Skinned wings: the shared animator drives the shoulder→elbow→wrist cascade
       // (dt=1 snaps to target, matching the preview's direct-set style).
@@ -447,21 +455,28 @@ export function makePreviewTick(def, result) {
       // Mk II per-FORM wing (preview): glide-hold waveform + shared-phase root→mid→tip
       // lag, L/R sign-mirror, 1/2/3 segments — matches the in-game rig so the showcase
       // and thumbnails read true per form.
-      const m = def.model, gp = m.glidePow ?? 1;
-      const shape = (ph) => { const s = Math.sin(ph); return Math.sign(s) * Math.pow(Math.abs(s), gp); };
+      const m = def.model, gp = m.glidePow ?? 1, DEG = Math.PI / 180;
+      const shape = (ph) => { const s = Math.sin(flapWarp(ph)); return Math.sign(s) * Math.pow(Math.abs(s), gp); };
+      const apexUp = (ph) => Math.pow(Math.max(0, -Math.sin(flapWarp(ph))), 0.7);
       const rootA = m.rootAmp ?? 0.5, midA = m.midAmp ?? 0, tipA = m.tipAmp ?? 0;
       const mLag = m.midLag ?? 0, tLag = m.tipLag ?? 0;
-      const feather = Math.sin(phase + Math.PI * 0.55) * 0.16;
+      const restLift = m.restLift ?? 0, apexPitch = m.apexPitch ?? 0;
+      const aRoot = (m.apexRoot ?? 0) * apexUp(phase), aMid = (m.apexMid ?? 0) * apexUp(phase - mLag), aTip = (m.apexTip ?? 0) * apexUp(phase - tLag);
+      const feather = Math.sin(phase + Math.PI * 0.55);
       const rootF = shape(phase) * rootA;
       const upMid = Math.max(0, Math.sin(phase - mLag));
       const upTip = Math.max(0, Math.sin(phase - tLag));
       const tipSweep = 0.07 + 0.16 * upTip;   // outer-tip backward sweep by stroke
-      // The LEFT wing is a scale.x=-1 mirror clone, so we apply the SAME logical pose to
-      // both rigs (no banking in the preview → identical → perfectly symmetric mirror).
+      const rowR = (m.rowDeg ?? 0) * DEG * Math.sin(flapWarp(phase));         // fore-aft rowing (figure-8)
+      const rowT = (m.rowDeg ?? 0) * DEG * 1.5 * Math.sin(flapWarp(phase - tLag));
+      // The LEFT wing is a scale.x=-1 mirror clone, so we apply the SAME logical pose to both rigs
+      // (no banking in the preview → identical → symmetric). Mirrors gameplay poseWing (ins=0):
+      // glide-hold flap + APEX V-lift + rest dihedral + fore-aft rowing.
       const poseW = (pv, md, tp) => {
-        pv.rotation.set(0.12 + feather, -0.18, -rootF - 0.1);
-        if (md) md.rotation.set(Math.cos(phase - mLag) * 0.10, upMid * 0.08, -shape(phase - mLag) * midA);
-        if (tp) { const tipF = md ? shape(phase - tLag) * tipA : (shape(phase - mLag) * midA + shape(phase - tLag) * tipA); tp.rotation.set(-0.05 + Math.cos(phase - tLag) * 0.18, tipSweep, -tipF); }
+        pv.rotation.set(0.14 + feather * 0.16 - apexPitch * aRoot, -0.18 + rowR, -rootF + aRoot + restLift - 0.10);
+        if (md) md.rotation.set(Math.cos(phase - mLag) * 0.10 - apexPitch * aMid, upMid * 0.08 + rowR * 0.6, -shape(phase - mLag) * midA + aMid);
+        if (tp) { const tipF = md ? shape(phase - tLag) * tipA : (shape(phase - mLag) * midA + shape(phase - tLag) * tipA); const aT = md ? aTip : (aMid + aTip);
+          tp.rotation.set(-0.05 + Math.cos(phase - tLag) * 0.18 - apexPitch * aT, tipSweep + rowT, -tipF + aT); }
       };
       poseW(wingPivotR, wingMidR, wingTipR);
       poseW(wingPivotL, wingMidL, wingTipL);
@@ -496,8 +511,11 @@ export function makePreviewTick(def, result) {
         // VERTICAL undulation (rotation.x), matching the in-flight body-whip read.
         tailSegs[i].rotation.x = Math.sin(tp) * 0.16 * ((i + 1) / nT);
       } else {
+        // VERTICAL beat follow-through (model.tailFollowFlap): tail trails the body porpoise,
+        // counter-phase + lagged aft — the "weight behind the wings", matching gameplay.
+        const followY = def.model.tailFollowFlap ? -Math.sin(flapWarp(phase) - 0.6 - i * 0.5) * def.model.tailFollowFlap * l2 : 0;
         tailSegs[i].position.x = Math.sin(tp) * 0.3 * l2;
-        tailSegs[i].position.y = Math.cos(tp * 0.8) * 0.16 * l2;
+        tailSegs[i].position.y = Math.cos(tp * 0.8) * 0.16 * l2 + followY;
         tailSegs[i].rotation.z = -Math.sin(tp) * 0.16 * l2;
       }
     }
