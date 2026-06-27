@@ -3551,3 +3551,31 @@ the base construction (a hub fan) can EVER be seamless; a loft/grid can, a fan c
 matching stations are a free gift — they loft directly into a clean ribbed surface, no resampling/alignment needed;
 (3) keep verifying at the angle the human shot from (underside), not the flattering 3/4 — the seam panel was nearly
 invisible at 3/4 and obvious from below, exactly where they were looking.
+
+---
+
+### L116 — Realistic wingbeat = research the biomechanics, then add the MISSING channels (asymmetric beat + fore-aft rowing + body porpoise), all gated
+The human wanted the Flame Monarch's 3-segment flap to read REAL and "sell it to the player," with the body
+reflecting the wing motion — and explicitly "create the joints/modules… plan from research, don't be lazy." Mapped
+the pipeline first: there are TWO flap systems — the yoke solver (`wingFlapSolver.js`, Bull/Seraph) and the older
+`wingParts` rig in `dragon.js` (Flame Monarch + Thundercoil). Flame Monarch is wingParts, which already had the
+travelling-whip lag (root→mid→tip) + a held apex-V, but was missing the three things real membrane flight needs:
+(1) an ASYMMETRIC beat — downstroke is the slow heavy POWER stroke, upstroke the quick recovery; (2) fore-aft
+ROWING — the wing reaches forward on the downstroke and sweeps back at the apex (the wingtip figure-8 that reads as
+thrust, not a flat hinge); (3) the BODY as "the weight behind the wings" — chest porpoises up on the power stroke,
+tail trails in counter-phase. Implemented as opt-in `model.*` knobs so the rig is unchanged unless asked:
+`downFrac` (time-warp the cycle), `rowDeg` (rowing on root+tip .y, tip carries the deeper loop), `bodyFlapPitch`
+(chest pitch on the group, 1-frame inertia lag like the yoke `bodyFlapLift`), `tailFollowFlap` (a beat-coupled
+VERTICAL position-wave on the existing overlapping tail segs — counter-phase + lagged aft, no re-rig needed because
+heavily-overlapping ellipsoids read a position wave as a smooth bend). Every value is a knob the human tunes on the
+lit preview. Also added `?wingDebug` freeze support to the wingParts branch (it only existed on the yoke branch) —
+without it `flapstrip` silently captured a live, un-frozen phase, so the five named stages now actually freeze and
+the strip shows a real apex-V → flat-power-downstroke → recovery cycle. Synced the same warp/row/apex/porpoise into
+the shop-preview poser (`dragonModel.js`) so the character-select reads true.
+Lessons: (1) for "make the motion realistic," name the biomechanical CHANNELS the rig lacks (asymmetry, rowing,
+body coupling) and add them — don't just scale amplitude/speed of what's there (L39's "sharpen the ENVELOPE, don't
+raise amplitude" generalizes: add the missing DEGREE OF FREEDOM); (2) couple the body via the cheapest faithful
+mechanism — a position-wave on overlapping segs is a free vertical whip with no new bones; (3) shared animation
+paths need per-dragon GATES (every new term defaults to 0/identity) so the byte-identical roster constraint holds —
+verified Thundercoil (the other wingParts dragon) animates identically; (4) verification infra is part of the task:
+the freeze-mode gap meant the acceptance tool was lying, so fix the harness before trusting the render.

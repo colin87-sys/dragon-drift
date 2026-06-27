@@ -851,6 +851,11 @@ export const DRAGONS = {
       wingParts: true, glidePow: 1.25,
       rootAmp: 0.55, midAmp: 0.44, tipAmp: 0.36, midLag: 0.6, tipLag: 1.15,
       restLift: 0.5, apexRoot: 0.16, apexMid: 0.3, apexTip: 0.46, apexPitch: 0.12,
+      // REALISTIC BEAT (new): asymmetric power stroke + fore-aft rowing + body porpoise.
+      downFrac: 0.58,        // downstroke takes 58% of the cycle → heavier/slower POWER stroke
+      rowDeg: 15,            // fore-aft ROWING sweep (wingtip figure-8): forward on the downstroke
+      bodyFlapPitch: 0.05,   // chest pitches up on the power downstroke (the porpoise heave)
+      tailFollowFlap: 0.13,  // tail heaves in counter-phase, lagged aft — the weight behind the wings
       bodyBobScale: 1.25,   // a touch more neck bob/breathe so the body reads alive
     },
     // Four forms of one growing monarch — charcoal ember whelp → molten-crowned

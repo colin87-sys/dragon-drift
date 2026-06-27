@@ -491,7 +491,7 @@ export function updateDragon(dt, player, time) {
   // Body coupling: the flap lifts the chest at apex / compresses (nose-down) on the downstroke.
   // bodyFlapLift is set by the yoke solver below (1-frame lag = natural inertia, "suspended under
   // the wings"); only applies to yoke dragons (else 0). The damp(…,9) adds the trailing response.
-  group.rotation.x = damp(group.rotation.x, player.velocity.y * 0.022 + posturePitch + (activeDef.model.flap ? bodyFlapLift : 0), 9, dt);
+  group.rotation.x = damp(group.rotation.x, player.velocity.y * 0.022 + posturePitch + ((activeDef.model.flap || activeDef.model.wingParts) ? bodyFlapLift : 0), 9, dt);
   // Slight yaw toward lateral movement
   group.rotation.y = damp(group.rotation.y, player.velocity.x * 0.008, 6, dt);
   head.rotation.y = damp(head.rotation.y, -player.velocity.x * 0.014, 8, dt);
@@ -536,6 +536,18 @@ export function updateDragon(dt, player, time) {
   // only changes the RATE. Wrapped mod 2π for float precision over long sessions.
   flapPhase = (flapPhase + dt * flapSpeed) % (Math.PI * 2);
   const phase = flapPhase;
+  // ASYMMETRIC BEAT (opt-in model.downFrac): time-warp the cycle so the DOWNSTROKE (power
+  // stroke) takes MORE of it than the quicker UPSTROKE (recovery) — the heavier, slower power
+  // beat real membrane wings have. Undefined ⇒ identity warp, so the rest of the roster
+  // (including Thundercoil, the other wingParts dragon) is byte-identical.
+  const TAU2 = Math.PI * 2, DEG = Math.PI / 180;
+  const flapDF = activeDef.model.downFrac;
+  const flapWarp = (flapDF == null) ? (p) => p : (p) => {
+    const t = (((p % TAU2) + TAU2) % TAU2) / TAU2;
+    const u = t < flapDF ? (t / flapDF) * 0.5 : 0.5 + ((t - flapDF) / (1 - flapDF)) * 0.5;
+    return u * TAU2;
+  };
+  const beatPhase = flapWarp(phase);     // warped master beat → drives the body porpoise + tail trail
   const rootFlap = Math.sin(phase) * flapAmp + 0.1;
   const feather = Math.sin(phase + Math.PI * 0.55);
   const tipLag = Math.sin(phase + 0.95);
@@ -603,27 +615,44 @@ export function updateDragon(dt, player, time) {
     // easing). Handles missing mid/tip segments (Hatchling=1, Kindled=2).
     const m = activeDef.model;
     const glidePow = m.glidePow ?? 1;
+    // FREEZE/NEUTRALISE for `?wingDebug` (flapstrip): hold one representative cycle point and
+    // zero steering/climb/roll so the pose is PURE beat output (the yoke branch already does this;
+    // the wingParts branch needs it too or flapstrip silently captures a live, un-frozen phase).
+    const WP_FREEZE = { apex: 1.5 * Math.PI, glide: 1.15 * Math.PI, recovery: 1.82 * Math.PI, downstroke: 0.5 * Math.PI, settle: 0.12 * Math.PI };
+    const ph0 = WING_DEBUG ? (WP_FREEZE[WING_DEBUG] ?? phase) : phase;
+    const cBias = WING_DEBUG ? 0 : climbBias, rFold = WING_DEBUG ? 0 : rollFold;
     const aoStiff = 1 - 0.25 * aero01;               // tighten follow-through on boost
     const rootA = (m.rootAmp ?? flapAmp), midA = (m.midAmp ?? 0) * aoStiff, tipA = (m.tipAmp ?? 0) * aoStiff;
     const midLag = m.midLag ?? 0, tipLag = m.tipLag ?? 0;
-    const shape = (ph) => { const s = Math.sin(ph); return Math.sign(s) * Math.pow(Math.abs(s), glidePow); };
-    const rootF = shape(phase) * rootA;
-    const midF  = shape(phase - midLag) * midA;
-    const tipF  = shape(phase - tipLag) * tipA;
-    const featR = Math.sin(phase + Math.PI * 0.55);
-    const twMid = Math.cos(phase - midLag) * 0.10;
-    const twTip = Math.cos(phase - tipLag) * 0.18;
-    const upMid = Math.max(0, Math.sin(phase - midLag));
-    const upTip = Math.max(0, Math.sin(phase - tipLag));
+    // The beat is time-warped (flapWarp) so a high downFrac slows/heavies the power downstroke;
+    // identity warp when model.downFrac is unset (Thundercoil → byte-identical).
+    const shape = (ph) => { const s = Math.sin(flapWarp(ph)); return Math.sign(s) * Math.pow(Math.abs(s), glidePow); };
+    const rootF = shape(ph0) * rootA;
+    const midF  = shape(ph0 - midLag) * midA;
+    const tipF  = shape(ph0 - tipLag) * tipA;
+    const featR = Math.sin(ph0 + Math.PI * 0.55);
+    const twMid = Math.cos(ph0 - midLag) * 0.10;
+    const twTip = Math.cos(ph0 - tipLag) * 0.18;
+    const upMid = Math.max(0, Math.sin(ph0 - midLag));
+    const upTip = Math.max(0, Math.sin(ph0 - tipLag));
+    // ROWING fore-aft sweep (opt-in model.rowDeg): the wing reaches FORWARD on the downstroke and
+    // sweeps BACK at the apex — the wingtip figure-8 that reads as a power cycle, not a flat hinge.
+    // The tip carries MORE row (lagged) so the hand traces the deeper loop. Default 0 → no change.
+    const rowR = (m.rowDeg ?? 0) * DEG * Math.sin(flapWarp(ph0));
+    const rowT = (m.rowDeg ?? 0) * DEG * 1.5 * Math.sin(flapWarp(ph0 - tipLag));
+    // BODY PORPOISE: drive the chest-pitch (applied to the group next frame = natural inertia lag)
+    // from the SAME warped beat — chest lifts on the power downstroke. Yoke dragons use bodyFlapLift
+    // via the solver; here we set it from the wingParts beat. Default 0 (incl. Thundercoil).
+    bodyFlapLift = (m.bodyFlapPitch ?? 0) * Math.sin(flapWarp(ph0));
     // APEX HIGH-V LIFT (opt-in via model.apex*): raise each segment into a strong V at the TOP
     // of the stroke. The wing's UP extreme is where sin(phase)<0, so `apexUp` peaks at −sin (the
     // apex) and the lift is ADDED to the flap (+rz = up); tips highest, lagged root→mid→tip, with
     // ^0.7 widening the dwell for a brief held apex. `restLift` raises the glide pose off flat so
     // it reads as a gentle V. Zero for any dragon without apex config (roster unchanged).
-    const apexUp = (ph) => Math.pow(Math.max(0, -Math.sin(ph)), 0.7);
-    const apexRootF = (m.apexRoot ?? 0) * apexUp(phase);
-    const apexMidF  = (m.apexMid  ?? 0) * apexUp(phase - midLag);
-    const apexTipF  = (m.apexTip  ?? 0) * apexUp(phase - tipLag);
+    const apexUp = (ph) => Math.pow(Math.max(0, -Math.sin(flapWarp(ph))), 0.7);
+    const apexRootF = (m.apexRoot ?? 0) * apexUp(ph0);
+    const apexMidF  = (m.apexMid  ?? 0) * apexUp(ph0 - midLag);
+    const apexTipF  = (m.apexTip  ?? 0) * apexUp(ph0 - tipLag);
     const apexPitch = m.apexPitch ?? 0;
     const restLift  = m.restLift ?? 0;
     // ── BANKING via POSE BIAS ONLY — never a L/R phase delay. Both wings share the ONE
@@ -631,19 +660,21 @@ export function updateDragon(dt, player, time) {
     // |bank| drives the SOFT→HARD continuum. `ins` = a wing's inside-ness (+1 fully inside
     // the turn → brake/tuck, −1 fully outside → power/open). Right wing is inside on a right
     // turn (bank>0); the left is its scale.x=-1 mirror, so the SAME logical pose flips correctly.
-    const bank = Math.max(-1, Math.min(1, turnBias / 0.28));
+    const bank = WING_DEBUG ? 0 : Math.max(-1, Math.min(1, turnBias / 0.28));
     const tipSweepBase = 0.07 + 0.16 * upTip;        // stroke-driven tip trail (both wings)
     const poseWing = (pv, md, tp, ins) => {
       const inside = Math.max(0, ins), outside = Math.max(0, -ins);
       const amp = 1 - 0.34 * ins;                    // INSIDE brakes (↓ arc), OUTSIDE powers (↑ arc)
       const baseZ = -0.10 - 0.20 * inside + 0.12 * outside;   // inside drops LOWER, outside opens HIGHER
       // shoulder/root: main flap (×amp) + APEX V-LIFT (+rz = up) + rest dihedral lift + bank baseline + climb pitch
-      pv.rotation.set(0.14 + featR * 0.16 + climbBias - apexPitch * apexRootF, -0.18, -(rootF * amp) + apexRootF * amp + restLift + baseZ + rollFold);
+      // + fore-aft ROWING on .y (reach forward on the power downstroke, sweep back at the apex).
+      pv.rotation.set(0.14 + featR * 0.16 + cBias - apexPitch * apexRootF, -0.18 + rowR, -(rootF * amp) + apexRootF * amp + restLift + baseZ + rFold);
       // forearm/mid: lagged flap + apex lift (more) + folds INWARD on the inside wing, SPREADS on the outside
-      if (md) md.rotation.set(twMid + 0.05 * inside - apexPitch * apexMidF, upMid * 0.08 + 0.05 * outside, -(midF * amp) + apexMidF * amp + 0.10 * inside);
+      if (md) md.rotation.set(twMid + 0.05 * inside - apexPitch * apexMidF, upMid * 0.08 + 0.05 * outside + rowR * 0.6, -(midF * amp) + apexMidF * amp + 0.10 * inside);
       // tip: smaller arc + apex lift (highest → forms the V) + feathers BACK (.y) + UP (.x) + folds up inside
+      // + the DEEPER row loop (the hand traces the wide figure-8).
       if (tp) { const tF = md ? tipF : (midF + tipF), aT = md ? apexTipF : (apexMidF + apexTipF);
-        tp.rotation.set(-0.05 + twTip + 0.12 * inside - apexPitch * aT, tipSweepBase + 0.22 * inside, -(tF * amp) + aT * amp + 0.16 * inside); }
+        tp.rotation.set(-0.05 + twTip + 0.12 * inside - apexPitch * aT, tipSweepBase + 0.22 * inside + rowT, -(tF * amp) + aT * amp + 0.16 * inside); }
     };
     poseWing(wingPivotR, wingMidR, wingTipR, bank);
     poseWing(wingPivotL, wingMidL, wingTipL, -bank);
@@ -765,7 +796,12 @@ export function updateDragon(dt, player, time) {
       const motionTrailY = -player.velocity.y * 0.04 * lock2;
       const speedWhip = speedNorm * Math.sin(time * 8 - i * 0.7) * 0.12 * lock2;
       const waveX = Math.sin(tphase) * amp + motionTrailX + speedWhip;
-      const waveY = Math.cos(tphase * 0.8) * amp * 0.55 + motionTrailY;
+      // VERTICAL beat follow-through (opt-in model.tailFollowFlap): the tail trails the body's
+      // porpoise — it heaves DOWN as the chest lifts on the power downstroke, in counter-phase and
+      // lagged aft (a travelling wave down the tail) so it reads as the "weight behind the wings".
+      const followY = activeDef.model.tailFollowFlap
+        ? -Math.sin(beatPhase - 0.6 - i * 0.5) * activeDef.model.tailFollowFlap * lock2 : 0;
+      const waveY = Math.cos(tphase * 0.8) * amp * 0.55 + motionTrailY + followY;
       tailSegs[i].position.x = damp(tailSegs[i].position.x, waveX, 10, dt);
       tailSegs[i].position.y = damp(tailSegs[i].position.y, waveY, 10, dt);
       // Rotation follows the wave direction so segments bank into the coil.
