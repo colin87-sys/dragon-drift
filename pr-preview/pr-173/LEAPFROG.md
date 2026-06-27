@@ -3526,3 +3526,28 @@ my first cut used |dx|<rx and it silently did NOTHING at the apex form because w
 rx — verify the discriminator at the ACTUAL render scale, not ws=1; (4) verify with a before/after at the angle the
 human named (rear-and-below) AND a wing-root close-up (`tools/gapzoom.mjs`) — at the default 3/4 the gap is hidden,
 which is why two "fixed" claims didn't hold up; the triangle only reads from below.
+
+---
+
+### L115 — A wing built as a triangle-FAN from a hub can never be seamless; rebuild the membrane as a LOFT between the leading & trailing edges
+L114 closed the root gap by appending a body-conforming seam to the hub-fan — but the human's next render (rear/
+below, IMG_7119) showed the cure was worse than the disease: the seam fanned steep triangles from the hub down to
+the body, and that inner wedge caught the light as a distinct, brightly-lit panel. Their words: "two different
+parts that connect to the body… redo the wing keeping the same outline but make sure it connects from the start."
+Verified with data before touching anything: rendered seam-on vs seam-off at the exact underside angle — the bright
+folded panel only appears with the seam, confirming it as the culprit. Root cause is deeper than the seam, though:
+ANY triangle-fan from a single apex is a cone, so adjacent fan triangles with different normals read as creases, and
+a body-attachment wedge is the worst case. You cannot make a fan seamless; you must change the topology.
+Fix (L115): rebuild the traced membrane as ONE lofted sheet. The leading and trailing curves were traced at the
+SAME span stations, so at each span the chord runs trailing→leading; loft between consecutive stations (span-subdiv
+for smoothing, chord-subdiv for the dome) into a single grid mesh — no hub, no apex, no fan edges. The innermost
+rows are conformed onto the body flank (the L114 `conformP`, root-gated by authored span) so the sheet GROWS from
+the body, and the convex dome is a per-chord `sin(πt)` crown gated to ~0 at the buried root so the attachment stays
+flat on the skin while the free sail bellies. Result: one continuous skin from body to wingtip, the leading/trailing
+silhouette byte-identical to the trace, gap closed, no seam panel — confirmed from underside, rear-3/4, dorsal, and
+a root close-up across tiers 0-3 with no console errors, +~150 tris/wing (still under budget).
+Lessons: (1) topology beats parameters — when a surface reads as "two parts," stop tuning the patch and ask whether
+the base construction (a hub fan) can EVER be seamless; a loft/grid can, a fan can't; (2) traced edges sampled at
+matching stations are a free gift — they loft directly into a clean ribbed surface, no resampling/alignment needed;
+(3) keep verifying at the angle the human shot from (underside), not the flattering 3/4 — the seam panel was nearly
+invisible at 3/4 and obvious from below, exactly where they were looking.
