@@ -170,77 +170,6 @@ function sagCtrl(a, b, toward, depth) {
   return [mx + px * d, my + py * d];
 }
 
-// ── GLIDER WING (opt-in via anatomy.glider) ─────────────────────────────────────────
-// A redesigned dragon/wyvern wing with a true bone HIERARCHY and an aerofoil read:
-//   • Wing root grows from a shoulder SOCKET mass (not a flat side point).
-//   • A single DOMINANT leading-edge spar sweeps shoulder → elbow → wrist → swept tip
-//     (thick→sharp taper, brightest glow). The wrist sits at the OUTER third, so the
-//     silhouette has a clear elbow + wrist BEND, not a circular umbrella.
-//   • From the wrist, a few FINGER struts fan back/down into the membrane — thinner and
-//     DIMMER than the spar (glow hierarchy), varied in length/angle (not an even fan).
-//   • The membrane is a radial fan from a hub near the wrist → taut stretched bays with
-//     scalloped trailing edges; a SMALL angled inner triangle at the body, not a curtain.
-//   • Dihedral + washout twist (tips higher than root, trailing edge lower) so it never
-//     reads as flat cardboard. Built in ONE frame on `pivot` → still seam-free in any pose.
-function buildGliderWing(opts) {
-  const ws = opts.ws ?? 1;
-  const mem = opts.membraneMat;
-  const leadMat = opts.leadMat || opts.strutMat;
-  const fingerMat = opts.fingerMat || opts.strutMat;
-  const jointMat = opts.jointMat || leadMat;
-  const socketMat = opts.socketMat || jointMat;
-  const A = opts.anatomy;
-  const fingers = A.fingers, nF = fingers.length;
-  const f0 = fingers[0].tip;                                  // leading finger tip = the wingtip
-  const maxSpan = Math.max(A.wrist[0], ...fingers.map((f) => f.tip[0]));
-  const DIH = (A.dihedral ?? 0.16) * maxSpan * ws;            // tip lift above the root
-  const TWIST = (A.twist ?? 0.12) * ws;                       // leading up / trailing down (washout)
-  const depthY = (x, y) => DIH * Math.pow(Math.min(1, Math.max(0, x) / maxSpan), 1.15) + TWIST * y;
-  const P = (p) => new THREE.Vector3(p[0] * ws, depthY(p[0], p[1]), -p[1] * ws);
-
-  const pivot = new THREE.Group();
-  pivot.userData.wingRole = 'pivot';
-
-  // ── membrane boundary (2D span,chord), CCW: leading edge → trailing scallops → inner ──
-  const boundary = [];
-  const leadCurve = new THREE.CatmullRomCurve3([A.rootFront, A.elbow, A.wrist, f0].map((p) => new THREE.Vector3(p[0], p[1], 0)), false, 'catmullrom', 0.5);
-  for (const v of leadCurve.getPoints(seg(11))) boundary.push([v.x, v.y]);
-  const claw = A.claw ?? 0.08;
-  // web tips sit slightly short of the bone tip (except the leading frame) so the strut
-  // pokes out as a claw point; the membrane scallops run between these web tips.
-  const webTip = (f, i) => (i === 0 ? f.tip : [A.wrist[0] + (f.tip[0] - A.wrist[0]) * (1 - claw), A.wrist[1] + (f.tip[1] - A.wrist[1]) * (1 - claw)]);
-  const tips = fingers.map(webTip);
-  for (let i = 0; i < nF - 1; i++) pushQuad2D(boundary, tips[i], sagCtrl(tips[i], tips[i + 1], A.wrist, A.scallop ?? 0.3), tips[i + 1], seg(5));
-  // inner trailing edge: innermost finger → short rootBack, gently concave (stretched, not a curtain)
-  pushQuad2D(boundary, tips[nF - 1], sagCtrl(tips[nF - 1], A.rootBack, A.wrist, A.innerSag ?? 0.12), A.rootBack, seg(6));
-  // (the loop auto-closes rootBack → rootFront — the short body attachment edge)
-  const hub = A.hub ?? [A.wrist[0] * 0.72, A.wrist[1] * 0.2];
-  pivot.add(membraneFan(hub, boundary, P, mem));
-
-  // ── bones ──
-  // DOMINANT leading spar: thick→sharp tapered tube along shoulder→elbow→wrist→tip.
-  const spar = new THREE.CatmullRomCurve3([A.rootFront, A.elbow, A.wrist, f0].map((p) => P(p)), false, 'catmullrom', 0.5);
-  pivot.add(taperedTube(spar, (A.leadR ?? 0.07) * ws, (A.leadR ?? 0.07) * ws * 0.3, leadMat, Math.max(10, seg(18)), seg(5)));
-  // finger struts (dim, thin, varied) from the wrist to each trailing tip.
-  for (let i = 1; i < nF; i++) pivot.add(curvedBone(P(A.wrist), P(fingers[i].tip), fingers[i].bow ?? 0.25, ws, fingerMat, A.fingerR ?? 0.032));
-  // joints — wrist is the brightest/biggest (the visual bend), elbow secondary.
-  const eN = new THREE.Mesh(new THREE.OctahedronGeometry(0.065 * ws, 0), jointMat); eN.position.copy(P(A.elbow)); pivot.add(eN);
-  const wN = new THREE.Mesh(new THREE.OctahedronGeometry(0.10 * ws, 0), jointMat); wN.position.copy(P(A.wrist)); pivot.add(wN);
-  // shoulder SOCKET mass at the root so the wing grows from the back, not a flat point.
-  if (A.socket !== false) {
-    const s = new THREE.Mesh(new THREE.SphereGeometry((A.socketR ?? 0.17) * ws, seg(8), seg(6)), socketMat);
-    s.scale.set(1.15, 0.8, 1.0);
-    s.position.copy(P([(A.rootFront[0] + A.rootBack[0]) / 2 + 0.04, (A.rootFront[1] + A.rootBack[1]) / 2]));
-    pivot.add(s);
-  }
-
-  // empty rig handles (engine pose code + FX role lookups) — geometry stays one welded sheet.
-  const wingMid = new THREE.Group(); wingMid.position.copy(P(A.elbow)); wingMid.userData.wingRole = 'mid'; pivot.add(wingMid);
-  const wingTip = new THREE.Group(); wingTip.position.copy(P(A.wrist).sub(P(A.elbow))); wingTip.userData.wingRole = 'tip'; wingMid.add(wingTip);
-  const marker = new THREE.Object3D(); marker.position.copy(P(f0)); marker.userData.wingRole = 'marker'; pivot.add(marker);
-  return { pivot, wingMid, wingTip, marker };
-}
-
 // ── TRACED WING (opt-in via anatomy.leadingCurve) ────────────────────────────────────
 // The leading edge follows an EXPLICIT polyline TRACED from a reference planform (a true
 // convex arc — root → forward peak → wingtip), not a single bezier `bow`, so the
@@ -350,17 +279,28 @@ function buildTracedWing(opts) {
     // wingtip. The INNERMOST rows are conformed onto the body flank (conformP, root-gated),
     // so the membrane GROWS from the body — connected from the start, the silhouette
     // (leading + trailing) byte-identical to the trace.
-    const tc2d = A.trailingCurve, rows = lc.length;
-    const S = 2, M = Math.max(3, seg(5));                       // span subdiv (smoothing) · chord subdiv
-    const lead = lc.map((p) => conformP(p));                    // leading edge (root buried/conformed)
-    const trail = tc2d.map((p) => conformP(p));                 // trailing edge (root snapped onto the flank)
-    for (let i = tc2d.length - 1; i >= 0; i--) trailPts.push(trail[i]);   // molten rim along the trailing edge
-    const pos = [], idx = [], grid = [], totalRows = (rows - 1) * S + 1;
-    for (let ri = 0; ri < totalRows; ri++) {
-      const f = ri / S, i0 = Math.min(rows - 1, Math.floor(f)), i1 = Math.min(rows - 1, i0 + 1), ft = f - i0;
-      const a = trail[i0].clone().lerp(trail[i1], ft);         // trailing point at this span
-      const b = lead[i0].clone().lerp(lead[i1], ft);           // leading point at this span
-      const span = lc[i0][0] + (lc[i1][0] - lc[i0][0]) * ft;
+    const tc2d = A.trailingCurve, M = Math.max(3, seg(5));
+    // Both edges are sampled as SMOOTH curves (Catmull-Rom in span) at high resolution, so the
+    // leading arc and the trailing SCALLOPS read as clean curves — not the angular facets a
+    // linear station-to-station loft gives. Sampling BY SPAN keeps the chords aligned (leading
+    // & trailing evaluated at the same span each row), so the lofted sheet stays chordwise.
+    const chordAt = (pts, s) => {
+      const n = pts.length;
+      if (s <= pts[0][0]) return pts[0][1];
+      if (s >= pts[n - 1][0]) return pts[n - 1][1];
+      let i = 0; while (i < n - 1 && pts[i + 1][0] < s) i++;
+      const p0 = pts[i > 0 ? i - 1 : 0], p1 = pts[i], p2 = pts[i + 1], p3 = pts[i + 2 < n ? i + 2 : n - 1];
+      const t = (s - p1[0]) / (p2[0] - p1[0]), t2 = t * t, t3 = t2 * t;     // Catmull-Rom on chord(span)
+      return 0.5 * (2 * p1[1] + (-p0[1] + p2[1]) * t + (2 * p0[1] - 5 * p1[1] + 4 * p2[1] - p3[1]) * t2 + (-p0[1] + 3 * p1[1] - 3 * p2[1] + p3[1]) * t3);
+    };
+    const N = Math.max(28, seg(44));                           // span samples → smooth edges
+    const sMin = lc[0][0], sMax = lc[lc.length - 1][0];
+    const atSpan = (s) => ({ b: conformP([s, chordAt(lc, s)]), a: conformP([s, chordAt(tc2d, s)]) });
+    for (let ri = N; ri >= 0; ri--) trailPts.push(atSpan(sMin + (sMax - sMin) * (ri / N)).a);   // smooth molten rim, tip→root
+    const pos = [], idx = [], grid = [];
+    for (let ri = 0; ri <= N; ri++) {
+      const span = sMin + (sMax - sMin) * (ri / N);
+      const { a, b } = atSpan(span);                           // a = trailing, b = leading at this span
       const gain = Math.min(1, Math.max(0, (span + 0.45) / 1.4));   // dome ~0 at the buried root → full mid-wing
       const row = [];
       for (let j = 0; j <= M; j++) {
@@ -370,6 +310,7 @@ function buildTracedWing(opts) {
       }
       grid.push(row);
     }
+    const totalRows = N + 1;
     for (let ri = 0; ri < totalRows - 1; ri++) for (let j = 0; j < M; j++) {
       const a = grid[ri][j], b = grid[ri][j + 1], c = grid[ri + 1][j], d = grid[ri + 1][j + 1];
       idx.push(a, c, b, b, c, d);
@@ -433,7 +374,6 @@ function buildTracedWing(opts) {
 
 export function buildAnatomicalWing(opts) {
   if (opts.anatomy && opts.anatomy.leadingCurve) return buildTracedWing(opts);
-  if (opts.anatomy && opts.anatomy.glider) return buildGliderWing(opts);
   const ws = opts.ws ?? 1;
   const mem = opts.membraneMat;
   const strut = opts.strutMat;

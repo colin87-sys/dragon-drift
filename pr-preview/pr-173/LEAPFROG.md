@@ -3674,3 +3674,23 @@ scallop depth) and author them EXPLICITLY — don't assume a faithful silhouette
 (2) a planform's silhouette cues must be EXAGGERATED to survive shrinking + shading + low-poly facets — trace for the
 read, not just the outline; (3) keep both lofted edges on the SAME span grid (here re-gridded to the finger lobes) so
 deepening the scallops doesn't desync the chordwise loft.
+
+---
+
+### L121 — Smooth the lofted edges (Catmull-Rom in SPAN), put the leading peak MEDIAL, even scallops — and the "32MB" was the chat's images, not the file
+The human gave a crisp reference and named what was still wrong: the leading convexity peaked mid-span (should be
+MEDIAL, ~25% out), and the trailing scallops were "jaggy and janky" (should be clean even arcs). Root cause of the
+jaggies: the loft sampled both edges with LINEAR station-to-station interpolation, so the scalloped trailing edge
+read as angular facets. Fix: sample both edges as SMOOTH curves — a `chordAt(points, s)` Catmull-Rom-in-SPAN sampler
+evaluated at high resolution, with leading & trailing taken at the SAME span each row so the chords stay aligned.
+Then re-author the curves: leading peak moved to span ~1.4 (≈26%, a real forward knuckle near the wrist) rising fast
+then a long sweep to a pointed tip; trailing edge four even scallops (finger lobes ~-1.65/-1.6/-1.45/-1.0, smooth
+cusps between) staying wide until the last scallop closes to the tip. Now the silhouette reads dragon, not moth.
+Also: the human hit a "Request too large (max 32MB)" error — NOT the file (39KB on disk), it was the accumulated
+RENDER IMAGES in the conversation. Mitigations: render small + clipped + dsf 1 (62KB vs 5MB strips), and CONSOLIDATE
+the module — removed the dead `buildGliderWing` path + its branch (no dragon ships `gliderWing`; Thundercoil's legacy
+fan path stays), trimming dragonWingAnatomy.js 629→557.
+Lessons: (1) a lofted edge is only as smooth as its SAMPLER — sample by the shared parameter (span) with a smoothing
+curve (Catmull-Rom), never linear station-to-station, or every control point becomes a facet; (2) "convexity should be
+medial" is a literal control: move the peak's SPAN, don't just raise its height; (3) when a client throws a size
+error mid-session, suspect the accumulated media in context (big PNGs), not the source file — shrink renders and prune.
