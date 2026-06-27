@@ -298,6 +298,45 @@ function buildTracedWing(opts) {
   const outline = [...leadPts], trailPts = [];
   const hub2D = A.hub ?? [wrist2[0] * 0.9, (wrist2[1] + A.rootBack[1]) * 0.5];
   const billow = (A.billow ?? 0) * ws;
+
+  // ── 3-BONE SKELETON (shoulder→elbow→wrist) for VISIBLE per-segment articulation ──
+  // The membrane + spar + struts are SKINNED to three bones, so when the rig's lagged
+  // cascade rotates elbow/wrist the wing actually BENDS at those joints — a real travelling
+  // fold, not a rigid plank swinging from the shoulder. Skinning keeps it ONE seamless skin
+  // (split panels would re-open the seam we just fixed): each vertex blends shoulder→elbow→
+  // wrist by its SPAN (smoothstep across the joint bands). Only the traced wing skins; every
+  // other wing path is untouched (skinByX falls back to a plain Mesh).
+  const skinned = !!(A.trailingCurve && wr);
+  let boneSh = null, boneEl = null, boneWr = null, skel = null;
+  let skinByX = (g, mt) => new THREE.Mesh(g, mt);
+  let wristBoneLocal = new THREE.Vector3();
+  if (skinned) {
+    const sstep = (x) => { x = x < 0 ? 0 : x > 1 ? 1 : x; return x * x * (3 - 2 * x); };
+    const eSpan = A.elbowSpan ?? maxSpan * 0.30, wSpan = A.wristSpan ?? maxSpan * 0.58, fb = A.foldBand ?? 0.7;
+    boneSh = new THREE.Bone();                                            // shoulder = pivot origin (root)
+    boneEl = new THREE.Bone(); boneEl.position.set(eSpan * ws, depthY(eSpan, 0), 0);
+    boneWr = new THREE.Bone(); boneWr.position.set((wSpan - eSpan) * ws, depthY(wSpan, 0) - depthY(eSpan, 0), 0);
+    boneSh.add(boneEl); boneEl.add(boneWr); pivot.add(boneSh);
+    boneEl.userData.wingRole = 'mid'; boneWr.userData.wingRole = 'tip';
+    wristBoneLocal.set(wSpan * ws, depthY(wSpan, 0), 0);                  // wrist bone in pivot-local (for the tip marker)
+    // span (local x / ws) → [boneA, boneB, weightA, weightB]; smoothstep across each joint band.
+    const spanSkin = (ax) => {
+      if (ax <= eSpan - fb) return [0, 0, 1, 0];
+      if (ax < eSpan + fb) { const t = sstep((ax - (eSpan - fb)) / (2 * fb)); return [0, 1, 1 - t, t]; }
+      if (ax <= wSpan - fb) return [1, 1, 1, 0];
+      if (ax < wSpan + fb) { const t = sstep((ax - (wSpan - fb)) / (2 * fb)); return [1, 2, 1 - t, t]; }
+      return [2, 2, 1, 0];
+    };
+    skel = new THREE.Skeleton([boneSh, boneEl, boneWr]);
+    skinByX = (g, mt) => {
+      const p = g.attributes.position, n = p.count;
+      const si = new Uint16Array(n * 4), sw = new Float32Array(n * 4);
+      for (let k = 0; k < n; k++) { const s = spanSkin(p.getX(k) / ws); si[k * 4] = s[0]; si[k * 4 + 1] = s[1]; sw[k * 4] = s[2]; sw[k * 4 + 1] = s[3]; }
+      g.setAttribute('skinIndex', new THREE.Uint16BufferAttribute(si, 4));
+      g.setAttribute('skinWeight', new THREE.Float32BufferAttribute(sw, 4));
+      const m = new THREE.SkinnedMesh(g, mt); m.frustumCulled = false; m.bind(skel); return m;
+    };
+  }
   if (A.trailingCurve) {
     // ── ONE LOFTED MEMBRANE (single continuous surface) ──────────────────────────
     // The wing is built as a single sheet LOFTED between the trailing and leading edges,
@@ -334,7 +373,7 @@ function buildTracedWing(opts) {
     const g = new THREE.BufferGeometry();
     g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
     g.setIndex(idx); g.computeVertexNormals();
-    pivot.add(new THREE.Mesh(g, mem));
+    pivot.add(skinByX(g, mem));
   } else {
     const scStarts = [leadPts[leadPts.length - 1], ...fingers.map(webTip), P(A.rootBack)];
     for (let i = 0; i < scStarts.length - 1; i++) {
@@ -350,10 +389,13 @@ function buildTracedWing(opts) {
     const fanPts = [P(hub2D), ...outline];
     pivot.add(billow > 0 ? billowedFan(fanPts, mem, seg(4), billow) : fanPanel(fanPts, mem));
   }
-  if (rimMat) { const rim = edgeRim(trailPts, rimMat, A.rimR ?? 0.022, ws); if (rim) pivot.add(rim); }
+  // rim, spar + struts are all SKINNED by span too (skinByX) so the bones, edge and skin
+  // bend together as one wing; for non-traced wings skinByX is a passthrough Mesh.
+  if (rimMat) { const rim = edgeRim(trailPts, rimMat, A.rimR ?? 0.022, ws); if (rim) pivot.add(skinByX(rim.geometry, rimMat)); }
 
   // bones: a DOMINANT tapered leading spar along the traced curve + finger struts (claws).
-  pivot.add(taperedTube(leadCurve, (A.leadR ?? 0.07) * ws, (A.leadR ?? 0.07) * ws * 0.28, leadM, Math.max(12, seg(18)), seg(5)));
+  const spar = taperedTube(leadCurve, (A.leadR ?? 0.07) * ws, (A.leadR ?? 0.07) * ws * 0.28, leadM, Math.max(12, seg(18)), seg(5));
+  pivot.add(skinByX(spar.geometry, spar.material));
   for (const f of fingers) {
     const t = P(f.tip), dir = t.clone().sub(wristV);
     if (dir.lengthSq() > 1e-9) dir.normalize();
@@ -363,15 +405,24 @@ function buildTracedWing(opts) {
     // across it; matched to the membrane billow so bone + skin curve together.
     ctrl.y += (A.strutCrown ?? (A.billow ?? 0) * 1.25) * ws;
     const curve = new THREE.QuadraticBezierCurve3(wristV, ctrl, clawEnd);
-    pivot.add(taperedTube(curve, (A.strutR ?? 0.04) * (A.fingerRMul ?? 1) * 1.35 * ws, 0.004 * ws, fingerM, Math.max(5, seg(9)), seg(4)));
+    const strut = taperedTube(curve, (A.strutR ?? 0.04) * (A.fingerRMul ?? 1) * 1.35 * ws, 0.004 * ws, fingerM, Math.max(5, seg(9)), seg(4));
+    pivot.add(skinByX(strut.geometry, strut.material));
   }
   const wristNode = new THREE.Mesh(new THREE.OctahedronGeometry(0.085 * ws, 0), jointMat);
-  wristNode.position.copy(wristV); pivot.add(wristNode);
+  wristNode.position.copy(wristV); (skinned ? boneSh : pivot).add(wristNode);   // rides the shoulder zone
 
-  // empty rig handles + tip marker.
-  const wingMid = new THREE.Group(); wingMid.position.copy(wristV); wingMid.userData.wingRole = 'mid'; pivot.add(wingMid);
-  const wingTip = new THREE.Group(); wingTip.position.copy(P(lc[Math.floor(lc.length * 0.6)]).sub(wristV)); wingTip.userData.wingRole = 'tip'; wingMid.add(wingTip);
-  const marker = new THREE.Object3D(); marker.position.copy(leadPts[leadPts.length - 1]); marker.userData.wingRole = 'marker'; pivot.add(marker);
+  // rig handles: for the skinned wing the BONES are the handles (elbow=mid, wrist=tip) so the
+  // engine's lagged cascade bends the real skeleton; otherwise empty Group handles as before.
+  let wingMid, wingTip;
+  if (skinned) {
+    wingMid = boneEl; wingTip = boneWr;
+  } else {
+    wingMid = new THREE.Group(); wingMid.position.copy(wristV); wingMid.userData.wingRole = 'mid'; pivot.add(wingMid);
+    wingTip = new THREE.Group(); wingTip.position.copy(P(lc[Math.floor(lc.length * 0.6)]).sub(wristV)); wingTip.userData.wingRole = 'tip'; wingMid.add(wingTip);
+  }
+  const marker = new THREE.Object3D(); marker.userData.wingRole = 'marker';
+  if (skinned) { marker.position.copy(leadPts[leadPts.length - 1]).sub(wristBoneLocal); boneWr.add(marker); }   // rides the wingtip
+  else { marker.position.copy(leadPts[leadPts.length - 1]); pivot.add(marker); }
   return { pivot, wingMid, wingTip, marker };
 }
 

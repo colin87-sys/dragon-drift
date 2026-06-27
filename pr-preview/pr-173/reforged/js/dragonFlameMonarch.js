@@ -5,7 +5,7 @@ import { makeGlowTexture } from './util.js';
 import { hexRgb } from './dragonParts.js';
 import { applyFresnelRim } from './surface.js';
 import { seg } from './modelDetail.js';
-import { buildAnatomicalWing, mirrorWing } from './dragonWingAnatomy.js';
+import { buildAnatomicalWing } from './dragonWingAnatomy.js';
 
 // ===========================================================================
 // FLAME MONARCH — a brand-new, matched part FAMILY (the "Phoenix technique").
@@ -408,22 +408,25 @@ function buildMonarchWing(def, model, attach, giM) {
     // to the flank) instead of floating off it — the root-cause fix for the wing/body gap.
     wingOpts = { ws, membraneMat: wingMat, strutMat: leadMat, leadMat, fingerMat, jointMat, rimMat, anatomy, attach, wingRoot: attach.wingRoot(1) };
   }
-  const Rp = buildAnatomicalWing(wingOpts).pivot;
-  Rp.position.set(...Object.values(attach.wingRoot(1)));
-  group.add(Rp);
-  const L = mirrorWing(Rp);
-  L.pivot.position.set(...Object.values(attach.wingRoot(1)));   // (mirror wrapper flips x)
-  group.add(L.wrap);
-
-  const byRole = (root, role) => { let f = null; root.traverse((o) => { if (!f && o.userData && o.userData.wingRole === role) f = o; }); return f; };
+  // Build BOTH wings (the skinned traced wing can't be mirror-CLONED: clone(true) keeps the
+  // clone bound to the right wing's skeleton, so the left would deform with the right's bones).
+  // Two procedural builds → two independent skeletons; the left is wrapped in a scale.x=-1
+  // mirror. Same tri count as a clone, just built twice.
+  const R = buildAnatomicalWing(wingOpts);
+  R.pivot.position.set(...Object.values(attach.wingRoot(1)));
+  group.add(R.pivot);
+  const Lr = buildAnatomicalWing(wingOpts);
+  Lr.pivot.position.set(...Object.values(attach.wingRoot(1)));
+  const Lwrap = new THREE.Group(); Lwrap.scale.x = -1; Lwrap.add(Lr.pivot);
+  group.add(Lwrap);
 
   return {
     group,
     parts: {
-      wingPivotL: L.pivot, wingPivotR: Rp,
-      wingMidL: L.wingMid, wingMidR: byRole(Rp, 'mid'),
-      wingTipL: L.wingTip, wingTipR: byRole(Rp, 'tip'),
-      tipMarkerL: L.marker, tipMarkerR: byRole(Rp, 'marker'),
+      wingPivotL: Lr.pivot, wingPivotR: R.pivot,
+      wingMidL: Lr.wingMid, wingMidR: R.wingMid,
+      wingTipL: Lr.wingTip, wingTipR: R.wingTip,
+      tipMarkerL: Lr.marker, tipMarkerR: R.marker,
       wingPivot2L: null, wingPivot2R: null,
     },
     wingMat,
