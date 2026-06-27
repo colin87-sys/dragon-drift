@@ -1304,13 +1304,19 @@ export const DRAGONS = {
   },
 
   // ── ASSET-BACKED EXPERIMENT (not procedural) ──────────────────────────────
-  // THUNDERCOIL AMPITHERE — a legless storm-serpent whose mesh is a committed GLB
-  // (assets/models/thundercoil.glb), loaded by dragonGlb.js instead of
+  // THUNDERCOIL AMPITHERE — a legless storm-serpent whose BODY mesh is a committed
+  // GLB (assets/models/thundercoil.glb), loaded by dragonGlb.js instead of
   // buildDragonModel's procedural builders. It coexists with the procedural
   // roster (which is untouched) to prove the AI-asset pipeline. `assetBacked`
   // caps it at one form (no ascension morph) and bypasses the procedural
-  // creature-grammar validation. The GLB is currently a hand-authored
-  // PLACEHOLDER silhouette; a Higgsfield-generated mesh overwrites it later.
+  // creature-grammar validation.
+  //   HYBRID rig: the GLB supplies only the wingless body+head; dragonGlb.js
+  //   mounts authored storm-membrane WINGS under the flap rig, so the shipped
+  //   gameplay-reactive wingbeat animates the AI mesh (thin membranes also
+  //   reconstruct poorly from image-to-3D, so the body is the only AI part).
+  //   The GLB is currently a hand-authored PLACEHOLDER body (wingless); a
+  //   Higgsfield-generated storm-serpent body overwrites it later (re-run
+  //   stamp-sw after).
   thundercoil: {
     name: 'Thundercoil Ampithere',
     title: 'A storm given a spine',
@@ -1320,8 +1326,8 @@ export const DRAGONS = {
     assetBacked: true,
     meshUrl: './assets/models/thundercoil.glb',
     // GLB placement: intrinsic mesh scale, facing (yaw), and the shoulder pivots
-    // the wing nodes re-parent onto (matches the placeholder authoring). Retune
-    // these for the real asset on the PR preview — no code change needed.
+    // each authored wing mounts onto. Retune for the real asset on the PR
+    // preview — no code change needed.
     glb: { scale: 1.0, rotY: 0, shoulder: [0.30, 0.14, 0.45] },
     stats: { speed: 1.10, handling: 1.06, drain: 0.97, regen: 1.0 },   // fast + electric
     model: {

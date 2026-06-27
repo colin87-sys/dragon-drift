@@ -7,11 +7,12 @@
 //   node tools/make-placeholder-glb.mjs
 //
 // Silhouette (legless, head forward at +Z): a long coiling body tapering to a
-// thin forked tail, large triangular wings near the front third, a lightning
-// crest, and electric accents. Hierarchy is FLAT + NON-skinned so dragonGlb.js
-// finds wing_L/wing_R/head by name and re-parents the wings under the flap
-// scaffold (the existing reactive wingbeat then drives them).
-//   root → body, accents(emissive), head, wing_L, wing_R
+// thin forked tail, a lightning crest, and electric accents. WINGLESS by design
+// — this stands in for the real HYBRID asset (an AI-generated storm-serpent
+// BODY), and dragonGlb.js mounts its own authored membrane wings under the flap
+// rig. Hierarchy is FLAT + NON-skinned so dragonGlb.js finds `head` by name and
+// re-parents it under the head pivot.
+//   root → body, accents(emissive), head
 
 import { writeFileSync, mkdirSync, rmSync, existsSync } from 'fs';
 import { join } from 'path';
@@ -78,11 +79,7 @@ const headGeo = newGeo();
 pushBox(headGeo, 0, 0.02, 0, 0.5, 0.34, 0.62);
 pushBox(headGeo, 0, -0.05, 0.34, 0.3, 0.2, 0.32);   // snout
 
-// --- wings: large TRIANGULAR membranes, root at the node origin (shoulder) ---
-const wingLGeo = newGeo();
-pushTri(wingLGeo, [0, 0, 0.35], [-2.1, 0.06, 0.55], [-1.7, 0.06, -1.0], [0, 1, 0]);
-const wingRGeo = newGeo();
-pushTri(wingRGeo, [0, 0, 0.35], [2.1, 0.06, 0.55], [1.7, 0.06, -1.0], [0, 1, 0]);
+// (No wing meshes — wings are authored under the flap rig by dragonGlb.js.)
 
 // --- binary packing --------------------------------------------------------
 const chunks = [];
@@ -108,19 +105,16 @@ function addGeo(geo) {
   return { posAcc, nrmAcc, idxAcc };
 }
 
-const bodyA = addGeo(bodyGeo), accentA = addGeo(accentGeo), headA = addGeo(headGeo), wingLA = addGeo(wingLGeo), wingRA = addGeo(wingRGeo);
+const bodyA = addGeo(bodyGeo), accentA = addGeo(accentGeo), headA = addGeo(headGeo);
 const mkMesh = (a, name, mat) => ({ name, primitives: [{ attributes: { POSITION: a.posAcc, NORMAL: a.nrmAcc }, indices: a.idxAcc, material: mat }] });
 const meshes = [
   mkMesh(bodyA, 'body', 0), mkMesh(accentA, 'accents', 1), mkMesh(headA, 'head', 0),
-  mkMesh(wingLA, 'wing_L', 0), mkMesh(wingRA, 'wing_R', 0),
 ];
 const nodes = [
-  { name: 'thundercoil_root', children: [1, 2, 3, 4, 5] },
+  { name: 'thundercoil_root', children: [1, 2, 3] },
   { name: 'body', mesh: 0 },
   { name: 'accents', mesh: 1 },
   { name: 'head', mesh: 2, translation: [0, 0.06, 1.35] },
-  { name: 'wing_L', mesh: 3, translation: [-0.30, 0.14, 0.45] },
-  { name: 'wing_R', mesh: 4, translation: [0.30, 0.14, 0.45] },
 ];
 
 const gltf = {
@@ -149,5 +143,5 @@ const binHdr = Buffer.alloc(8); binHdr.writeUInt32LE(binPadded.length, 0); binHd
 mkdirSync(outDir, { recursive: true });
 if (existsSync(join(outDir, 'aether.glb'))) rmSync(join(outDir, 'aether.glb'));   // retire the old name
 writeFileSync(outFile, Buffer.concat([head12, jsonHdr, json, binHdr, binPadded]));
-const tris = [bodyGeo, accentGeo, headGeo, wingLGeo, wingRGeo].reduce((s, g) => s + g.idx.length, 0) / 3;
+const tris = [bodyGeo, accentGeo, headGeo].reduce((s, g) => s + g.idx.length, 0) / 3;
 console.log(`wrote ${outFile}  (${total} bytes, ${tris} tris, ${meshes.length} meshes)`);

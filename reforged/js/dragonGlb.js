@@ -99,24 +99,37 @@ export function buildGlbDragon(def, opts = {}) {
   const wingMat = new THREE.MeshStandardMaterial({ color: def.wingInner ?? 0x2a6e76, roughness: 0.7, metalness: 0.1, transparent: true, opacity: 0.96, side: THREE.DoubleSide });
   const eyeMat = new THREE.MeshStandardMaterial({ color: 0x223344, emissive: def.eye ?? 0x8fe7ff, emissiveIntensity: 2.2 });
 
-  // Light placeholder silhouette (also the headless representation) — hidden the
-  // moment the real GLB is parented in.
+  // Light placeholder silhouette — the pre-load BODY+HEAD stand-in (also the
+  // headless representation). Hidden the moment a real GLB body is parented in.
+  // The WINGS are deliberately NOT part of this silhouette (see authoredWing*).
   const placeholder = new THREE.Group();
-  const body = new THREE.Mesh(new THREE.BoxGeometry(0.55, 0.45, 1.8), bodyMat);
-  placeholder.add(body);
+  const bodyMesh = new THREE.Mesh(new THREE.BoxGeometry(0.55, 0.45, 1.8), bodyMat);
+  placeholder.add(bodyMesh);
   const headBox = new THREE.Mesh(new THREE.BoxGeometry(0.4, 0.4, 0.5), bodyMat);
   head.add(headBox);
-  const mkWing = (s) => {
+  group.add(placeholder);
+
+  // Authored storm-membrane wings. In the HYBRID config (AI-generated body +
+  // rigged wings) these ARE the real, gameplay-reactive wings: they live
+  // permanently under the flap rig, so the shipped flapWing() beat
+  // (speed/boost/steer/climb) animates them with zero new animation code — the
+  // image-to-3D mesh need only supply the body, which reconstructs far more
+  // reliably than thin wing membranes. If a loaded GLB instead carries its OWN
+  // wing nodes (the winged hand-authored placeholder, or a fully-modelled winged
+  // export), we hide these and drive the GLB's wings instead. Swept two-panel
+  // membrane, tiny tri count.
+  const makeMembraneWing = (s) => {
     const g = new THREE.BufferGeometry();
     g.setAttribute('position', new THREE.Float32BufferAttribute([
-      0, 0, 0.25, s * 1.5, 0.05, 0.5, s * 1.4, 0.05, -0.6, 0, 0, -0.35,
+      0, 0, 0.34, s * 2.05, 0.05, 0.52, s * 1.62, 0.03, -0.42,   // leading panel
+      0, 0, 0.34, s * 1.62, 0.03, -0.42, 0, 0, -0.5,             // trailing panel
     ], 3));
-    g.setIndex([0, 1, 2, 0, 2, 3]); g.computeVertexNormals();
-    return new THREE.Mesh(g, wingMat);
+    g.setIndex([0, 1, 2, 3, 4, 5]); g.computeVertexNormals();
+    const m = new THREE.Mesh(g, wingMat); m.name = 'authoredWing';
+    return m;
   };
-  wingRigL.shoulder.add(mkWing(-1));
-  wingRigR.shoulder.add(mkWing(1));
-  group.add(placeholder);
+  const authoredWingL = makeMembraneWing(-1); wingRigL.shoulder.add(authoredWingL);
+  const authoredWingR = makeMembraneWing(1); wingRigR.shoulder.add(authoredWingR);
 
   // Aura sprite — dragon.js dereferences this UNCONDITIONALLY (fever/idle halo).
   const auraSprite = new THREE.Sprite(new THREE.SpriteMaterial({
@@ -140,11 +153,14 @@ export function buildGlbDragon(def, opts = {}) {
       let content;
       if (skinned) {
         // Skinned: clone preserving the skeleton, add static, drive via a mixer.
+        // A skinned export animates its OWN full body (wings included), so retire
+        // the authored membranes and the whole silhouette.
         return import('../lib/utils/SkeletonUtils.js').then((SU) => {
           content = SU.clone(gltf.scene);
           applyGlbTransform(content, cfg);
           group.add(content);
-          placeholder.visible = false;
+          authoredWingL.visible = false; authoredWingR.visible = false;
+          headBox.visible = false; placeholder.visible = false;
           if (gltf.animations && gltf.animations.length) {
             const mixer = new THREE.AnimationMixer(content);
             mixer.clipAction(gltf.animations[0]).play();
@@ -152,8 +168,10 @@ export function buildGlbDragon(def, opts = {}) {
           }
         });
       }
-      // Non-skinned: re-parent the wing nodes under the flap scaffold so the
-      // shipped reactive wingbeat drives them; body/head ride the root.
+      // Non-skinned. If the GLB carries named wing nodes, re-parent them under the
+      // flap scaffold so the shipped reactive wingbeat drives them (and retire the
+      // authored membranes). Otherwise the authored membrane wings stay and ARE
+      // the wings (the hybrid AI-body case). Body/head ride the root either way.
       content = gltf.scene.clone(true);
       applyGlbTransform(content, cfg);
       const wl = findFirst(content, /wing.?l\b|wing_l|leftwing/i);
@@ -163,12 +181,16 @@ export function buildGlbDragon(def, opts = {}) {
         node.position.set(0, 0, 0); node.rotation.set(0, 0, 0); node.scale.set(1, 1, 1);
         rig.shoulder.add(node);
       };
-      reparent(wl, wingRigL);
-      reparent(wr, wingRigR);
+      if (wl || wr) {
+        reparent(wl, wingRigL);
+        reparent(wr, wingRigR);
+        authoredWingL.visible = false; authoredWingR.visible = false; // GLB supplies wings
+      }
       const hn = findFirst(content, /^head$/i);
       if (hn) { hn.position.set(0, 0, 0); head.add(hn); }
-      group.add(content);            // remaining nodes (body, etc.) ride the root
+      headBox.visible = false;       // body+head silhouette retired (GLB body takes over)
       placeholder.visible = false;
+      group.add(content);            // remaining nodes (body, etc.) ride the root
     });
   }
 

@@ -3027,3 +3027,46 @@ far over the ~6000-tri procedural budget — the explicit subject of the experim
 **→ Leapfrog:** the real Higgsfield asset is a credit-gated step (image → 3D → rig+animate → download → commit);
 when it lands, decide skinned (drive its bones / mixer) vs non-skinned (re-parent wing nodes) from what the
 export actually contains, then retune `def.glb.{scale,rotY,shoulder}` on the preview — no code change needed.
+
+---
+
+## Lesson — The asset dragon is HYBRID (AI body + authored rigged wings), and the GLB drop-in is egress-gated
+
+**What we did (branch `claude/thundercoil-dragon-continue-7hb2zq`).** Continued the Thundercoil experiment toward the
+real Higgsfield asset and turned the asset path from "load a whole creature" into a HYBRID: the GLB supplies only
+the **wingless body+head**; `dragonGlb.js` mounts authored storm-membrane **wings** permanently under the flap rig.
+This is a deliberate design choice, not a fallback — two reasons, both load-bearing:
+1. **Motion.** Meshy's image-to-3D returns ONE static mesh with no named `wing_L/wing_R` nodes, and its auto-rig
+   "rigs non-bipeds poorly" (a legless serpent rigs to garbage). A one-shot winged mesh would fly with RIGID wings
+   — fatal for a flapping-dragon game. Authored wings under the existing `flapWing()` rig stay gameplay-reactive
+   (speed/boost/steer/climb) for free.
+2. **Reconstruction.** Thin wing membranes are exactly what image-to-3D reconstructs worst; the BODY is the part
+   that comes back clean. So generate only the body.
+
+**dragonGlb.js restructure (back-compatible).** The placeholder silhouette is now split: `placeholder` is the
+**body+head** stand-in only; `authoredWingL/R` are separate meshes parented under `wingRigL/R.shoulder`. On GLB load
+the swap-in: (a) if the GLB carries named wing nodes → reparent them under the rig AND hide the authored wings (a
+fully-modelled winged export still works); (b) else → keep the authored wings (the hybrid AI-body case); (c) always
+hide BOTH the placeholder body and the `headBox`. **Bug fixed in passing:** the old code hid only the body box, so a
+loaded GLB rendered the placeholder head + wings ON TOP of it (double geometry) — now the whole silhouette retires.
+The committed placeholder is regenerated **wingless** (`make-placeholder-glb.mjs`, 175 tris, 3 meshes) so the shipped
+asset exercises the authored-wing path, matching the real asset's shape.
+
+**New headless test `tests/glbcontract.mjs`.** Builds the asset-backed dragon through `buildDragonModel` under the
+three-resolver + DOM shim (mirrors tricount). In Node `inBrowser()` is false → the async swap-in is skipped and the
+SYNCHRONOUS placeholder+rig is returned, so the `{group,parts,materials,auraSprite}` contract is checkable with no
+WebGL: asserts `auraSprite.isSprite` (dereferenced every frame), `parts.head` is an Object3D, each `wingRig*.shoulder`
+carries an `authoredWing` mesh (the hybrid invariant), and `bodyMat` is real. Locks the must-return-real gotchas +
+the wing invariant against regression. defs/blueprint/flapcheck/ascension/glb/tricount stay green; roster total
+byte-identical (203265).
+
+**The gotcha that stopped the credit spend — egress policy blocks the asset CDN.** Generated the wingless body
+concept image on Higgsfield (`nano_banana_2`, 2 credits, job `c15b5f0c…`), but the result + any GLB live on
+`d8j0ntlcm91z4.cloudfront.net`, which this remote environment's egress policy **denies (403 on CONNECT)**. The proxy
+README says report blocked hosts, don't route around them. So the GLB **cannot be downloaded and committed from this
+session** — the credit-gated 3D step would produce a file we can't retrieve. We did NOT spend the 3D credits.
+**→ Leapfrog:** the body-mesh drop-in must happen where the Higgsfield CDN is reachable (a session with that host
+allowlisted, or the human downloads the GLB and commits it). The repo is now fully READY for it: overwrite
+`assets/models/thundercoil.glb` with the AI body, re-run `stamp-sw`, retune `def.glb.{scale,rotY,shoulder}` on the
+preview — no code change. Everything downstream (rig, wings, contract test, SW precache) already works against the
+placeholder, so the swap is one file + one stamp.
