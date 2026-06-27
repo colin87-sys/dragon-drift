@@ -260,6 +260,35 @@ function buildTracedWing(opts) {
   const pivot = new THREE.Group(); pivot.userData.wingRole = 'pivot';
   const claw = A.claw ?? 0.1;
 
+  // ── body-CONFORM (root-cause gap fix) ────────────────────────────────────────
+  // A flat membrane sheet hung off ONE pivot can't follow a rounded, tapering body:
+  // its inner-trailing corner (rootBack) is defined in the flat wing plane, so when
+  // the body surface drops/narrows under it that corner FLOATS, opening the V-notch
+  // gap. We snap ONLY the corners that genuinely hover OVER the body (within the body
+  // half-width AND outside its cross-section) down onto the skin — the visible scallops
+  // sit far out beside the body (|dx|≫rx) and pass through untouched, so the traced
+  // silhouette is unchanged. Pivot-local = model space minus wingRoot (pivot is only
+  // translated, never rotated); the body is symmetric so the right master conforms
+  // against +x and the mirror inherits it.
+  const wr = opts.wingRoot, ringAt = opts.attach && opts.attach.ringAt;
+  // Gate by the AUTHORED span coordinate (p[0]), NOT a world-distance test: span is
+  // wingScale-independent, so the same root edge conforms at every form/tier (a |dx|<rx
+  // test silently fails once wingScale pushes the root past the body half-width). Only the
+  // buried root vertices (span ≤ rootSpan) attach to the flank; the first real scallop is
+  // at span 0.4, so the visible silhouette is never touched.
+  const rootSpan = A.rootConformSpan ?? 0.25;
+  const conformP = (p) => {
+    const local = P(p);
+    if (!ringAt || !wr || p[0] > rootSpan) return local;                   // not the root edge → keep as traced
+    const wx = local.x + wr.x, wy = local.y + wr.y, wz = local.z + wr.z;   // model space
+    const r = ringAt(wz); if (!r || !r.rx || !r.ry) return local;
+    const dx = wx, dy = wy - r.cy;                                          // body centred at x=0
+    const e = (dx * dx) / (r.rx * r.rx) + (dy * dy) / (r.ry * r.ry);        // <1 inside flank, >1 outside
+    if (e <= 1) return local;                                              // already on/inside the skin → body covers it
+    const k = (1 / Math.sqrt(e)) * 0.95;                                    // radial snap onto the skin, tucked just inside
+    return new THREE.Vector3(dx * k - wr.x, r.cy + dy * k - wr.y, local.z); // back to pivot-local (z = chord, unchanged)
+  };
+
   // leading edge: smooth CatmullRom through the traced points (rootFront → wingtip).
   const leadCurve = new THREE.CatmullRomCurve3(lc.map((p) => P(p)), false, 'catmullrom', 0.5);
   const leadPts = leadCurve.getPoints(seg(16));
@@ -271,7 +300,7 @@ function buildTracedWing(opts) {
   if (A.trailingCurve) {
     // TRAILING edge follows an explicit DENSE traced polyline (root→tip order) — the real
     // scalloped silhouette, not a few guessed scallops. Walk it tip→root to close the loop.
-    const tc = A.trailingCurve.map((p) => P(p));
+    const tc = A.trailingCurve.map((p) => conformP(p));
     for (let i = tc.length - 2; i >= 1; i--) { outline.push(tc[i]); }   // skip dup tip + the root point (fan closes it)
     for (let i = tc.length - 1; i >= 0; i--) trailPts.push(tc[i]);      // rim along the full trailing curve
   } else {
@@ -287,6 +316,33 @@ function buildTracedWing(opts) {
       if (i < scStarts.length - 2) trailPts.push(a, ...sgs);
     }
   }
+  // ── INNER ROOT SEAM (root-cause gap fix) ─────────────────────────────────────
+  // The membrane is a fan from the hub; its inner edge is the OPEN side, running from
+  // the LEADING root (the shoulder) to the TRAILING root (the mid-back). Those are the
+  // user's "two root chords" — and because that inner edge is a straight line in the flat
+  // wing plane it lifts off the rounded body between them, leaving a TRIANGLE of bare
+  // background. We close it by walking a SEAM along the body surface from the mid-back
+  // root forward to the shoulder root and appending it to the outline, so the membrane
+  // fills right down onto the flank along the whole attachment — the wing's OWN edge
+  // conforms to the body (no bolted-on gusset, visible silhouette untouched).
+  if (ringAt && wr && A.trailingCurve) {
+    const lead0 = leadPts[0];                                  // shoulder root (outline[0])
+    const back0 = outline[outline.length - 1];                 // mid-back root (last appended, conformed)
+    const zBack = back0.z + wr.z, zLead = lead0.z + wr.z;      // model-space chord positions
+    const N = Math.max(4, seg(7));
+    // direction from each ring's centre toward the wing-root pivot → the upper-outer
+    // flank point where the wing actually grows from (keeps the seam on the back, not
+    // wrapping under the belly). 0.97 tucks it a hair inside so the body occludes the join.
+    for (let i = 1; i <= N; i++) {
+      const z = zBack + (zLead - zBack) * (i / (N + 1));
+      const r = ringAt(z); if (!r || !r.rx || !r.ry) continue;
+      const ang = Math.atan2((wr.y - r.cy) / r.ry, wr.x / r.rx);
+      const sx = r.rx * Math.cos(ang) * 0.97, sy = r.cy + r.ry * Math.sin(ang) * 0.97;
+      outline.push(new THREE.Vector3(sx - wr.x, sy - wr.y, z - wr.z));
+    }
+    outline.push(lead0.clone());                               // close the fan back onto the shoulder root
+  }
+
   // membrane: convex-billowed fan from the hub.
   const billow = (A.billow ?? 0) * ws;
   const fanPts = [P(hub2D), ...outline];

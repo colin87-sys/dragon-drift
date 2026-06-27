@@ -3498,3 +3498,31 @@ build the QA tool that emits NUMBERS (per-span deltas) — a constant offset vs 
 whether it's a shape error or a centring artifact; (2) a scalloped edge needs DENSE sampling + light smoothing,
 then drive geometry from the polyline directly — peak-detection alone under-counts rounded scallops; (3) any bone
 that lies under a cambered membrane must crown WITH it or it reads as flat struts under a dome.
+
+---
+
+### L114 — Wing/body gap = the membrane fan's OPEN inner edge ("two root chords"); fix it by conforming that edge to the body, not by bolting on a gusset
+The human flagged a persistent "giant space between the wing and body" and, crucially, named the geometry: "it's
+like there are 2 root chords, one at the shoulder and one at the mid-back, so there's a triangle gap between." That
+description IS the root cause. `buildTracedWing` fills the membrane as a triangle-fan from an interior `hub`; the
+fan's two end edges are hub→leadingRoot (the shoulder chord) and hub→rootBack (the mid-back chord), and fanPanel/
+billowedFan never close the loop between them — so the inner edge from shoulder to mid-back is a STRAIGHT line in
+the flat wing plane that lifts off the rounded, tapering body, leaving exactly that triangular hole. Earlier patches
+treated symptoms: "bury the root" pushed the chord inward (helped at rest, reopened with scale/flap) and a literal
+"gusset" patch added a separate sheet that changed the visible trailing silhouette — the human rightly rejected it
+("ugly gauset… analyse the code rather than patching"). The real fix (L114): walk a SEAM along the body surface
+from the mid-back root forward to the shoulder root (sample `attach.ringAt(z)`, project each ring onto its upper-
+outer flank in the direction of the wing-root pivot, tuck 0.97 inside) and append it to the membrane outline so the
+fan fills right down onto the flank along the whole attachment. The wing's OWN edge now conforms to the body — no
+extra mesh, and the leading/trailing silhouette is mathematically untouched (only the hidden inner seam moves).
+Paired with a per-vertex `conformP` that snaps the single floating rootBack corner onto the skin (gated by AUTHORED
+span p[0]≤rootSpan, NOT a world |dx|<rx test — see below) so the seam connects flush.
+Lessons: (1) when the human describes geometry precisely ("two chords, triangle between"), map it straight onto the
+mesh construction — here it pinpointed the fan's unclosed inner edge in one sentence after I'd burned renders
+guessing camera angles; (2) a gap between a flat-plane part and a curved body is almost never closed by moving the
+part — conform the shared EDGE to the body surface (sample the published `ringAt` contract) so both meet on the
+skin; (3) gate body-conform logic by AUTHORED, scale-free coordinates (span p[0]), never a world-distance test:
+my first cut used |dx|<rx and it silently did NOTHING at the apex form because wingScale 1.32 pushed the root past
+rx — verify the discriminator at the ACTUAL render scale, not ws=1; (4) verify with a before/after at the angle the
+human named (rear-and-below) AND a wing-root close-up (`tools/gapzoom.mjs`) — at the default 3/4 the gap is hidden,
+which is why two "fixed" claims didn't hold up; the triangle only reads from below.
