@@ -404,7 +404,9 @@ function buildMonarchWing(def, model, attach, giM) {
       dihedral: 0.18, twist: 0.12,                         // raised root + sagging washout
       billow: 0.34, rimR: 0.024, strutCrown: 0.42,         // convex sail + struts that crown WITH it + molten rim
     };
-    wingOpts = { ws, membraneMat: wingMat, strutMat: leadMat, leadMat, fingerMat, jointMat, rimMat, anatomy };
+    // pass the body so the wing's inner-lower edge CONFORMS to the body surface (attaches
+    // to the flank) instead of floating off it — the root-cause fix for the wing/body gap.
+    wingOpts = { ws, membraneMat: wingMat, strutMat: leadMat, leadMat, fingerMat, jointMat, rimMat, anatomy, attach, wingRoot: attach.wingRoot(1) };
   }
   const Rp = buildAnatomicalWing(wingOpts).pivot;
   Rp.position.set(...Object.values(attach.wingRoot(1)));
@@ -413,33 +415,6 @@ function buildMonarchWing(def, model, attach, giM) {
   L.pivot.position.set(...Object.values(attach.wingRoot(1)));   // (mirror wrapper flips x)
   group.add(L.wrap);
 
-  // BODY-ATTACHMENT GUSSET (plagiopatagium): a real dragon wing's membrane attaches to
-  // the BODY along the flank, not at a single root point — without this the membrane's
-  // whole inner-trailing edge floats off the body and leaves a triangular GAP. Fill it:
-  // a membrane strip from the wing's inner-trailing edge down to the body flank, run from
-  // the shoulder back to the deepest inner point. Built in world coords + mirrored.
-  const tcv = wingOpts.anatomy.trailingCurve;
-  if (tcv && attach.ringAt) {
-    const wr = attach.wingRoot(1), msp = 5.4;
-    const dih = wingOpts.anatomy.dihedral ?? 0, tw = wingOpts.anatomy.twist ?? 0;
-    const dY = (s, c) => dih * Math.pow(Math.min(1, Math.max(0, s) / msp), 1.15) * msp * ws + tw * ws * c;
-    const inner = tcv.filter((p) => p[0] <= 1.65);                  // root → deepest inner point
-    const gMat = wingMat;
-    for (const side of [1, -1]) {
-      const pos = [], idx = [];
-      inner.forEach(([s, c]) => {
-        const z = wr.z - c * ws;
-        pos.push(side * (wr.x + s * ws), wr.y + dY(s, c), z);       // wing inner-edge vertex
-        const r = attach.ringAt(z);
-        pos.push(side * r.rx * 0.82, r.cy + r.ry * 0.45, z);        // body-flank vertex
-      });
-      for (let i = 0; i < inner.length - 1; i++) { const a = i * 2; idx.push(a, a + 1, a + 2, a + 1, a + 3, a + 2); }
-      const g = new THREE.BufferGeometry();
-      g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
-      g.setIndex(idx); g.computeVertexNormals();
-      group.add(new THREE.Mesh(g, gMat));
-    }
-  }
   const byRole = (root, role) => { let f = null; root.traverse((o) => { if (!f && o.userData && o.userData.wingRole === role) f = o; }); return f; };
 
   return {
