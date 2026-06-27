@@ -3712,3 +3712,30 @@ Lessons: (1) a chained cascade with equal amplitude ALWAYS piles motion at the t
 the LAG (not the amplitude) is what sells the ripple; (2) "fold to dump air" has a precise envelope — max(0,-cos(warp))
 gives extended-downstroke / folded-upstroke / re-extended-apex for free; (3) match the fold bias (f^2) to the anatomy
 — wrist/tip folds, inner arm stays extended.
+
+---
+
+### L123 — Tuning the flexed upstroke: judge the FOLD on the up-phase frames (not the apex), and a deeper fold is a pure runtime param (byte-identical geometry)
+After L122 shipped the flexed-upstroke fold (`curlAmp`) the human's note was simply "it could be MORE flexed."
+This is the in-game judgement + tune pass. The right oracle is `tools/flapstrip.mjs flameMonarch 3` — it boots the
+real game, freezes the wing at each named cycle point via `?wingDebug=<phase>` (the wingParts branch has its own
+`WP_FREEZE` table so the chain pose is pure solver output, steering zeroed), screenshots the live chase cam, and
+montages glide·recovery·apex·downstroke·settle. The fold lives ONLY on the up-phases: the curl term is
+`curlAmp·max(0,−cos(warp))·f²`, which is 0 across the downstroke AND ~0 at the apex (re-extended) by construction — so
+judge "is it folded enough?" on the **recovery (dome)** and **glide (up-low)** frames, never the apex (which SHOULD
+read as a full extended V — if the apex changed, the envelope is wrong). At `curlAmp 0.5` the up-phase wing still read
+as a broad raised PLANE (outer hand roughly in-plane with the inner arm); bumping to **0.85** (≈49° at the tip bone,
+inside the 30–50° hand-wing flex from L122) made the outer hand visibly hook UP + inward on the upstroke — span
+narrows (dumps air) on glide/recovery while apex/downstroke/settle keep full area. A tight before/after crop of just
+the two up-phase frames (a throwaway canvas-montage script, same stitch as flapstrip) is what made the delta legible —
+at chase-cam distance the full strip under-reads a single-knob change.
+Gotchas / lessons: (1) `curlAmp` is a RUNTIME rotation parameter — it touches no geometry, so `tricount --detail=high`
+is byte-identical (235164, 0 over) and there's nothing to "verify" on the tri budget; the only real verification is the
+visual + the wing tests (`flapcheck`, `skinnedwing` green). (2) When tuning ONE flap knob, crop the comparison to the
+frames where that knob acts — a 0.5→0.85 fold is invisible in a 5-frame full strip but obvious in a 2-frame up-phase
+crop. (3) The remote/web execution env HAS Chromium (`/opt/pw-browsers`, `PLAYWRIGHT_BROWSERS_PATH`) so flapstrip runs
+headlessly here even though CI's Chromium is network-blocked — this is the place to do in-game render checks. (4)
+`tests/badges.mjs` (and other shop-grid browser tests) time out on `.shop-grid` in this container REGARDLESS of the
+change (confirmed by stashing) — a pre-existing environmental flake, not a regression; don't chase it. (5) f² keeps the
+fold in the outer hand (inner arm extended) — raise `curlAmp` for a deeper hand-fold, don't lower the exponent (that
+would fold the inner arm, breaking the anatomy).

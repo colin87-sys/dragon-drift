@@ -857,7 +857,7 @@ export const DRAGONS = {
       // segAmp = per-bone elevation; ampTaper FRONT-LOADS it (inner/shoulder swings most → the
       // inner 2/3 isn't stiff, tapering outward). curlAmp = the FLEXED-UPSTROKE fold: the wrist/
       // hand folds up mid-upstroke to dump air, re-extending by the apex (tip-concentrated, f²).
-      segAmp: 0.4, ampTaper: 0.68, curlAmp: 0.5, segApex: 0.08, tipLag: 1.75, restLift: 0.2, apexPitch: 0.12,
+      segAmp: 0.4, ampTaper: 0.68, curlAmp: 0.85, segApex: 0.08, tipLag: 1.75, restLift: 0.2, apexPitch: 0.12,
       // REALISTIC BEAT (new): asymmetric power stroke + fore-aft rowing + body porpoise.
       downFrac: 0.58,        // downstroke takes 58% of the cycle → heavier/slower POWER stroke
       rowDeg: 15,            // fore-aft ROWING sweep (wingtip figure-8): forward on the downstroke
