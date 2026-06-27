@@ -1304,34 +1304,36 @@ export const DRAGONS = {
   },
 
   // ── ASSET-BACKED EXPERIMENT (not procedural) ──────────────────────────────
-  // The lone dragon whose mesh is a committed GLB (assets/models/aether.glb),
-  // loaded by dragonGlb.js instead of buildDragonModel's procedural builders. It
-  // coexists with the procedural roster (which is untouched) to prove the
-  // AI-asset pipeline. `assetBacked` caps it at one form (no ascension morph) and
-  // bypasses the procedural creature-grammar validation. The GLB is currently a
-  // hand-authored PLACEHOLDER; a Higgsfield-generated mesh overwrites it later.
-  aether: {
-    name: 'Aether Wyrm',
-    title: 'Forged from light, not code',
+  // THUNDERCOIL AMPITHERE — a legless storm-serpent whose mesh is a committed GLB
+  // (assets/models/thundercoil.glb), loaded by dragonGlb.js instead of
+  // buildDragonModel's procedural builders. It coexists with the procedural
+  // roster (which is untouched) to prove the AI-asset pipeline. `assetBacked`
+  // caps it at one form (no ascension morph) and bypasses the procedural
+  // creature-grammar validation. The GLB is currently a hand-authored
+  // PLACEHOLDER silhouette; a Higgsfield-generated mesh overwrites it later.
+  thundercoil: {
+    name: 'Thundercoil Ampithere',
+    title: 'A storm given a spine',
     rarity: 'SSR',
     maxRarity: 'SSR',
     cost: 0,                 // free so the experiment is one tap to equip + test
     assetBacked: true,
-    meshUrl: './assets/models/aether.glb',
+    meshUrl: './assets/models/thundercoil.glb',
     // GLB placement: intrinsic mesh scale, facing (yaw), and the shoulder pivots
     // the wing nodes re-parent onto (matches the placeholder authoring). Retune
     // these for the real asset on the PR preview — no code change needed.
-    glb: { scale: 1.0, rotY: 0, shoulder: [0.26, 0.18, 0.0] },
-    stats: { speed: 1.06, handling: 1.04, drain: 0.98, regen: 1.02 },
+    glb: { scale: 1.0, rotY: 0, shoulder: [0.30, 0.14, 0.45] },
+    stats: { speed: 1.10, handling: 1.06, drain: 0.97, regen: 1.0 },   // fast + electric
     model: {
       scale: 1.0, bodyScale: 1.0, wingSpan: 1.0,
-      flapBias: 1.0, flapAmp: 1.0, spineGlow: 0,
+      flapBias: 1.05, flapAmp: 1.0, spineGlow: 0,
     },
-    fx: { auraColor: '142,233,255', auraIdle: 0.05, sparkle: false },
-    body: 0x143038, belly: 0x0c1c22, scales: 0x1c4650, horn: 0x9fdfe8,
-    wingInner: 0x2a8fa0, wingOuter: 0x123038, wingEmissive: 0x66ddee,
-    apexEye: 0x9ff0ff, apexSeam: 0x66ddee, coreGlow: 0x66ddee, surgeHi: 0xe6fbff,
-    eye: 0x8fe7ff, trail: 0x66ddee, boostTrail: 0x2a8fa0,
+    // Storm palette: charcoal/navy hide, pale-silver underbelly, electric blue-white accents.
+    fx: { auraColor: '120,200,255', auraIdle: 0.05, sparkle: false },
+    body: 0x232838, belly: 0xb9c4d6, scales: 0x2c3346, horn: 0x9fc4ff,
+    wingInner: 0x33405c, wingOuter: 0x161a26, wingEmissive: 0x8ec8ff,
+    apexEye: 0xd6ecff, apexSeam: 0x8ec8ff, coreGlow: 0x7ab8ff, surgeHi: 0xeaf4ff,
+    eye: 0xbfe2ff, trail: 0x8ec8ff, boostTrail: 0x5aa0ff,
   },
 };
 
