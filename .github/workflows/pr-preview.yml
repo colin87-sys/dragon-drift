@@ -24,6 +24,13 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      # Re-stamp the service-worker precache (VERSION + asset list) from current file
+      # contents. Without this the SW keeps serving STALE js modules to returning
+      # visitors — a fresh modelviewer.html with cached old builders — so toggles/edits
+      # silently no-op until the cache clears. Deterministic + idempotent.
+      - name: Stamp service worker precache
+        run: node reforged/tools/stamp-sw.mjs
+
       # Stage the publishable site into a sibling dir BEFORE deploying. The deploy
       # action creates its temp worktree at the repo root and rsyncs the source
       # into a subfolder of it; with source-dir '.' that source IS the repo root,

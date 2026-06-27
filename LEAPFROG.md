@@ -2980,3 +2980,887 @@ dragon from a guessed wing rig + connection would have been the very "back-and-f
 human's next trace (wing rig + joint + body outline); extend `deriveWingForm` to estimate `scallop` from the
 mean finger-notch depth; add tail/head rig modes the same way; overlay the BUILT silhouette behind the trace
 so correction is one screen.
+
+---
+
+### L89 — FLAME MONARCH: the "Phoenix technique" = a whole brand-new part FAMILY in one file, zero old parts
+The human asked, explicitly and twice, for a NEW dragon (Flame Monarch — a western fire-dragon racing monarch)
+built with the technique that made the Phoenix: **brand-new everything, no reused parts** (reuse re-skins).
+Identifying that technique was the prereq — the giveaway is the comment on `avian`/`feather`/`plume`/`beaked`:
+"the Phoenix, **folded out of its bespoke builder**". So: author a matched set of OWN builders, don't recompose
+the kit. Delivered `js/dragonFlameMonarch.js` registering **four** new builders (`monarchHull` torso,
+`monarchWing` wings, `monarchCrown` head, `monarchTail` tail), imported once in `dragonModel.js`, named in
+`flameMonarch.parts` in `dragons.js`. ~2170 tris/form (ceiling 6000); blueprint + tricount + defs gates green.
+
+**What made it land first try (reusable):**
+- **You only owe the CONTRACTS, never the parts.** Torso returns `{group, attach, mats?, coreGlow?, spineMats?}`
+  and `attach` publishes `wingRoot(side)/headBase/tailAnchor/keelTopAt(z)/halfWidthAt(z)/bodyMidY`. Wings return
+  the rig handles `{wingPivotL/R, wingTipL/R, tipMarkerL/R, wingPivot2L/R}` + `wingMat` + `spineMats`. Head →
+  `{group, spineMats}`. Tail → `{group, segs, tailFins, accentMats}`. Honour those and the shared rig + FX drive
+  bespoke geometry for free. (Mirror `buildNoneWings` for the minimal wing-rig skeleton.)
+- **The body silhouette IS a data ring-list.** Hand-rolled `loftHull(rings{z,rx,ry,y})` → one BufferGeometry,
+  and baked the charcoal-back→burnt-bronze-belly gradient as **vertex colors** (one mesh, no second material, no
+  seam) — `vertexColors:true` + white base. `sampleRing()` linear-interps the same rings for `keelTopAt`/
+  `halfWidthAt` so decoration sits on the real surface. Broad-chest→pinched-waist→hip is just the `rx` column.
+- **Resting wing dihedral must live on an INNER group, not the pivot** — the rig OVERWRITES `pivot.rotation.z`
+  every frame, so a baked V there is erased. Wrapping membrane+struts in `inner` (`rotation.z = side*dihedral`)
+  gave the "strong rear V in glide" the spec wanted: rear silhouette went 86%w·**20%h → 78%w·40%h**. The flap
+  then oscillates the pivot around the held V.
+- **Scalloped bat membrane for free via `THREE.Shape` earcut:** outline = root→wrist→fingers with a NOTCH vertex
+  between each finger pair (`mid + (wrist−mid)*scallop`), `ShapeGeometry`, `rotateX(-π/2)`, `geo.scale(side,1,1)`
+  to mirror the left. Finger struts = `bar(wrist→tip)` thin boxes; tag their molten mat into `spineMats`.
+- **One molten accent system, three FX behaviours.** Every emissive accent (dorsal ridge+blades, wing struts,
+  throat gorget, tail spines+ember fins, crown crest) is tagged `userData.baseEmissive/baseIntensity` and pushed
+  into `spineMats`/`accentMats`. Cruise = base molten; **Surge** lerps all toward `def.surgeHi` (set it to a hot
+  pink-orange `0xff5a78` for the "magma overload" pulse) + `feverWing`/`feverWash` tint the membrane/screen;
+  **boost** needed a NEW gated term — added `boostSpine` to the `dragon.js` spineMats loop (`+0.55` when
+  `player.boosting && def.boostSpine`), so the molten spine/struts brighten on boost too. Gated → the rest of the
+  roster is byte-identical (it was the only edit outside the new file + the blueprint).
+- **Dorsal spines read best as flat YZ-plane blades** (edge-on from the rear chase cam = a crisp serrated line),
+  tall-at-shoulder→short-at-rump; the torso owns shoulder→rump, the tail continues rump→tip on its sibling-seg
+  chain (no `tailWhip` → the position-wave rig sways it; `tailWhip` is the skinned-bone-coil opt-in, don't set it).
+
+**Gotchas / honesty.** The headless silhouette tool is SHAPE-ONLY — it verified the rear-V / crown / serrated
+spine, but the molten palette + glow + Surge pulse are HUMAN-judged on the PR preview (no lit headless render
+worked here: `heroshot`/`badges` need a served instance and fail identically on a clean tree, so they're not a
+regression). The wing is a single membrane panel on the pivot (no real wrist FOLD yet — `wingTip` only carries
+the contrail marker); a future pass can split inner/outer at the wrist for a 2-segment beat (see the membrane
+builder's seam trick). **→ Leapfrog:** judge molten/Surge on the preview, then (if liked) split the wrist and
+consider promoting `loftHull`'s vertex belly-gradient into a shared helper — every organic body wants a
+back→belly two-tone and it's currently inline.
+
+---
+
+### L90 — Flame Monarch feedback pass: "1 flap" → 3-segment articulated wing; "stiff body" → driven neck chain
+Human on the preview: the wing was "literally just 1 flapping movement up and down" (it was — single membrane
+panel on the pivot, `wingTip` carried only the marker, so only the root hinge moved) and "the body seems
+lifeless and stiff". Also: "they should be legless or they look weird" (the tucked legs read wrong under the
+racing body — removed; it's a sleek wyvern now). Two real motion wins, both by plugging into rig systems that
+already exist rather than inventing animation:
+
+- **3-SEGMENT ARTICULATED WING = `model.wingParts` + a NESTED pivot→wingMid→wingTip chain.** The gameplay rig
+  (`dragon.js` ~593, gated by `model.wingParts`) drives a root→mid→tip cascade with per-segment **lag**
+  (`midLag`/`tipLag`), per-segment amplitude (`rootAmp`/`midAmp`/`tipAmp`), a glide-hold beat (`glidePow` — high
+  = rare heavy pulses), and a **held apex V** (`restLift` = rest dihedral, `apexRoot/Mid/Tip` lift the tips
+  highest at the top of the stroke, `apexPitch`). So the builder must split the membrane into THREE panels, each
+  built in its JOINT-LOCAL frame and parented pivot→wingMid→wingTip, so a joint rotation folds everything
+  outboard of it (a travelling fold, not a rigid hinge). This made `restLift` (a rig dial) the rest-V — DELETE
+  the hand-baked `inner`-group dihedral from the first pass; it's redundant and the rig owns the pose anyway.
+- **`wingParts` wings = LEFT is a `scale.x=-1` MIRROR CLONE of the right master** (NOT side-mirrored geometry +
+  opposite-sign rotations like the simple 2-bone path). Tag each joint `userData.wingRole='pivot'|'mid'|'tip'|
+  'marker'`, build the right, `right.clone(true)` under a `scale.x=-1` wrapper, then `traverse` the clone by role
+  to expose `wingMidL/wingTipL/...`. The rig applies the SAME pose to both; the wrapper flips the left.
+  (Pattern copied verbatim from `dragonFaceted.js`'s `svjJetWing`.)
+- **ALIVE BODY = a driven `spineSegs` neck CHAIN + the head riding its tip.** The rig has a role animator
+  (`dragon.js` ~691, `if (spineSegs.length)`) that bobs + **BREATHES** (`Math.sin(time*…)` — continuous, even
+  gliding) bones tagged `userData.role='neck'`, composes `'head'`, lifts `'hip'`. Built the neck as a PARENTED
+  group chain (local offsets summing to `headBase`), tagged the bones, returned it as `torsoResult.spineSegs`.
+  Two MINIMAL additive `dragonModel.js` hooks made it work roster-safe: (1) source spineSegs from the torso too
+  (`wingsResult.parts.spineSegs || torsoResult.spineSegs`); (2) if `attach.headMount` is set (the neck-chain tip,
+  positioned at `headBase` at rest), parent the head there instead of `group.add` at a fixed anchor — so the head
+  RIDES the living neck and never detaches. Also set a tiny `userData.whip` on the neck bones so the SHOP preview
+  (which uses the whip path, not the role logic) gets gentle life too. Both hooks are nullable → every other
+  dragon byte-identical (verified: nightfury/hull/organism/ascension/modeldetail/sweptail/shingle all PASS).
+
+**Reusable takeaways.** (1) When motion feels mechanical, the fix is usually an EXISTING rig path you're not
+opting into (`wingParts`, the `spineSegs` role animator) — grep the rig for the dials before hand-rolling. (2) A
+bespoke part can ride shared body animation by returning the right handle (`spineSegs`) + one nullable attach
+hook (`headMount`); you don't need the whole creature on the unified hull to get a living neck. (3) Triangle-fan
+panels per joint are CHEAPER than one earcut sheet (2090→1814 tris) AND they articulate — win/win.
+
+---
+
+### L91 — THUNDERCOIL AMPHITHERE: a legless storm-serpent on `bodySegs` + a gated, geometry-only storm-FX system
+Third bespoke creature, same Phoenix technique (own `ampithereTorso`/`ampithereWing`/`ampithereHead` family,
+`tail:'none'`). The win was recognising the body plan maps onto an EXISTING rig system: a legless coiling
+serpent IS the segmented `bodySegs` travelling-wave (`dragon.js` ~778). The torso returns `bodySegs` (an array
+of sibling segment Groups, each at its base z with `userData.baseY`); the rig drives `position.x` (slither),
+`position.y` (bob), `rotation.y/z` (yaw/lean into the path) with a lead-first phase lag — so "undulates like a
+ribbon" + "tail trails on a bank with delayed follow-through" + "no legs / custom motion" all come FREE. Copy
+`dragonCrystalSerpent.js` for the structure: overlapping spheres (step `(r_i+r_{i+1})·0.5·0.9` → continuous
+tube), a procedural `radiusAt(t)` (chest bulge near the front third → fine tail), `headMount = bodySegs[0]` so
+the head rides the lead, `wingRoot` on the chest. The two `dragonModel.js` hooks from L90 (`headMount`,
+torso `spineSegs`) + the L90 `wingParts` 3-segment wing + the `scale.x=-1` mirror all REUSED verbatim — three
+creatures in, the contract surface is stable and new dragons are mostly data + palette.
+
+**Storm-FX = a gated, geometry-only effects bundle the torso returns and `dragon.js` drives (NOT particles).**
+The spec wanted lightning the existing spineMats/boost/Surge glow can't express (a current that RUNS head→tail,
+arcs that JUMP between points, an expanding shock RING). Pattern that worked: the torso builds the FX objects
+once (a glow-sprite **bead** with a `userData.path` of crest points; a few `THREE.Line` **arcs** with pinned
+`{a,b}` endpoints at the wing roots + tail fork; a `RingGeometry` **shock ring** behind the tail), all
+`visible=false`/opacity 0, bundled as one `storm` object → `parts.storm` (one nullable field, roster-safe). A
+single gated block in the tick (`if (storm && activeDef.stormFx)`) animates them from state already computed
+there: bead sweeps its path on `player.boosting||surgeMix>.25`; arcs strobe + re-jitter their midpoints (pinned
+ends) on `surgeMix`; the ring expands+fades over `surgeAnimT` (the ignition timer). Idle renders NOTHING.
+Reusable rules: (1) build FX geometry in the part builder (it knows the anchor positions), animate in the rig
+(it knows boost/Surge state) — bundle as ONE nullable `parts.*` field so the plumbing is a single line each in
+dragonModel + createDragon + the reset; (2) `RingGeometry` in the default XY plane faces the rear chase cam
+already → an instant shock ring; (3) a travelling glow bead along a stored point path reads as "current down the
+spine" far cheaper than per-node material animation (and dodges the shared-material problem — you can't phase a
+travelling pulse across meshes that share one mat). Gates green; nightfury/hull/organism/ascension unaffected.
+**Gotcha/honesty:** the bead/arcs ride the body's REST point path, not the live undulating positions (anchoring
+to moving segments each frame is the obvious upgrade if it reads loose on the preview); and all of it — like the
+molten/electric of L89 — is HUMAN-judged on the PR preview, the headless silhouette only proved the shape.
+
+---
+
+### L92 — Wings: stop drawing them by feel — RESEARCH the anatomy, then build from ratios (`dragonWingAnatomy.js`)
+Human (rightly) called the wings "weird/anaesthetic": straight finger struts + a too-long forearm pushing the
+wrist out, so the fingers looked stubby. The fix was to actually RESEARCH bat/dragon wing anatomy instead of
+guessing, and encode the ratios. Findings that matter for geometry:
+- **Short arm, LONG hand.** Humerus short/robust, forearm longer, but the DIGITS (metacarpals+phalanges) are the
+  most elongated bones — the hand-wing is the MAJORITY of the span, so the **wrist sits MEDIAL** (~⅓ out), not
+  far out. (My old wing had the elbow→wrist too long → the exact "weird" the human saw.)
+- Fingers **FAN from the wrist and are CURVED** (each digit bows; never straight). Digit II + base of III make a
+  **CONVEX leading-edge frame**; posterior (more lateral) digits curve MORE; the outermost finger frames the edge.
+- The membrane **SCALLOPS (curves inward toward the wrist) between fingertips**.
+Built `dragonWingAnatomy.js` (`buildAnatomicalWing` + `mirrorWing`): SHARED geometry MATH only — no look baked
+in. Each creature passes its own ratios/curvature/scallop/materials, so silhouettes stay distinct (Monarch =
+5 fingers, full rounded scallops, warm/molten; Thundercoil = 4 fingers, shallow crisp scallops, electric). It
+maps onto the existing 3-joint rig: pivot=humerus(short), wingMid=forearm, wingTip=the WHOLE hand-wing (the big
+fold, where the long fingers swing). Curved bones = `TubeGeometry` along a `QuadraticBezierCurve3`; the membrane
+edge is a sampled bezier (convex leading + scalloped trailing) fanned from the wrist. Key impl detail: bow the
+control point along the in-plane normal **flipped to always face −Z (leading)** so every finger curves convexly
+regardless of fan angle. Verified on the **`top` silhouette view** — that's the one that shows the wing PLANFORM
+(fan/curve/wrist), where `rear` only shows the flat span; the new wings read as real bat/dragon wings (curved
+fanning fingers, scalloped membrane, medial wrist) vs the old straight-strut triangles.
+**Reusable rules.** (1) When a shape "looks wrong," the move is RESEARCH + ratios, not another blind tweak — the
+human explicitly asked for this and it worked. (2) For wings, judge on `silhouette.mjs <key> top`, not `rear`.
+(3) Shared MATH with per-creature params is not a "reskin" — it's how you get N anatomically-correct wings that
+still look distinct (same principle as the shared loft/shingle/sweep helpers). Tri cost: curved tubes raised the
+Monarch 1814→2618 (still ≪6000). Applied to BOTH shipped wings (Monarch + Thundercoil).
+
+---
+
+### L93 — Wing aesthetics pass 2: curvature GRADIENT + claw points + one clean leading sweep
+First anatomy pass (L92) fixed the skeleton but the human still called the OUTLINE amateurish. More research +
+their direction pinned the three fixes that make a wing read as *stylized-good* rather than "a child drew it":
+1. **Finger curvature is a GRADIENT, and it runs leading→trailing, not the reverse.** The LEADING/outer finger
+   forms the stiff CONVEX leading frame and is the MOST curved; each finger toward the trailing/inner edge
+   straightens; the innermost ≈ STRAIGHT. (L92 had it backwards — trailing curved most — which bulged the wrong
+   edge.) Bow array now descends: e.g. Monarch `[0.95, 0.60, 0.36, 0.18, 0.05]` leading→trailing.
+2. **Protruding CLAW POINTS over even scallops.** The membrane WEB ends slightly short of each fingertip
+   (`webTip = lerp(wrist, tip, 1-claw)`, leading finger excepted — it reaches its tip as the frame) while the
+   bone strut runs to the FULL tip, so the fingertips poke out as points and the membrane sags between them in
+   even catenary scallops (`ctrl = mid.lerp(wrist, scallop)`, dropped the per-pair depth weighting). This single
+   change is most of the "dragon wing" read — without it the trailing edge is just a lumpy scalloped blob.
+3. **One continuous convex leading sweep + shorter humerus.** Shortened the humerus again (Monarch elbow x
+   0.95→0.55, wrist 1.78→1.40 ≈ 26% span) and placed the leading-edge joints (root→elbow→wrist→leading-tip) on a
+   smoothly rising line so there's no kink at the arm→hand join; the leading finger's high bow continues it into
+   one elegant arc. Swept, tapering tip placement (tips march from far-forward-out to back-in) gives the teardrop.
+**Reusable:** judge on `silhouette.mjs <key> top` (planform); the wing reads good when (a) the leading edge is ONE
+convex line shoulder→tip, (b) the fingers protrude as points over even sags, (c) curvature decreases leading→
+trailing. The bow direction is kept convex by flipping the in-plane normal toward −Z (leading) regardless of fan
+angle (`leadingPerp`). Tri cost unchanged (curve sampling, not more geo). The human's process note stands: when a
+shape "looks bad," RESEARCH the aesthetic + get the gradient/points right — don't blind-tweak.
+
+---
+
+### L94 — Wing caricature: hooked-TALON wingtip (`hook` param) = the stylization signature
+Human asked to "exaggerate certain features like a cartoon artist." The single highest-leverage move was a
+**hooked talon at the leading wingtip**: the leading finger is built as a CUBIC bezier (`CubicBezierCurve3`) that
+bulges convex-forward then REVERSES at the tip to a point swept out + back (+X/+Z), so the wingtip curls into a
+sickle. Membrane edge + strut share the curve (one bone read); the talon endpoint becomes the wingtip marker.
+Added as one `anatomy.hook` knob in `dragonWingAnatomy.js` (0 = the plain convex tip; ~0.9 Monarch rounded, ~1.05
+Thundercoil sharp) so it's a dial, not a rewrite. This + the L93 curvature gradient is the "line of action" a
+cartoonist gives a shape — it reads dynamic even at rest. Other caricature levers offered but not yet pulled:
+rhythmic (accelerating) finger spacing, fewer/bolder shapes, root-mass→tip-thin taper. Also: `model.flapFreqScale`
+(used in BOTH the gameplay phase, dragon.js ~526, and the preview) is the clean −X% flap-speed dial — set 0.7 on
+both new dragons for a slower, more readable beat (and so the human can assess wing shape mid-flap). Verify the
+hook on `silhouette.mjs <key> top`. Tri cost trivial (Monarch 2618→2730).
+
+---
+
+### L95 — A live orbit MODEL VIEWER (`tools/modelviewer.html`) — drag-to-rotate any dragon on the preview
+The human "can't visualize the dragon from different angles in-game." Built a standalone turntable: imports the
+real `buildDragonModel` + `makePreviewTick` (so it's the EXACT shipped mesh + animation), lights matched to the
+shop (ACES + hemi/key/rim/fill), `camera.layers.enable(1)` so core/edge GLOWS show, a lightweight custom orbit
+(pointer-drag → azimuth/polar, wheel → zoom, dblclick reset — no OrbitControls dependency), and a dropdown +
+H/K/R/E form buttons + auto-spin/animate toggles. Defaults: a game-like rear-3/4 angle, animate OFF (a clean
+static spread pose for inspection — toggle on to see the beat). **Gotcha that matters:** the deployed PR preview
+serves `reforged/` under a SUBPATH (`…/pr-preview/pr-N/reforged/`), so the other tools' root-absolute imports
+(`/lib/`, `/js/`) BREAK there — use paths relative to `tools/` (`../lib/three.module.js`, `../js/…`). Verified
+headlessly via `tests/serve.mjs` + Playwright (load, switch dragon, simulate a drag, screenshot, assert zero
+console errors) — the right way to smoke-test a browser tool in this sandbox. URL on a preview:
+`…/pr-preview/pr-N/reforged/tools/modelviewer.html`. Reusable for every future creature review.
+
+---
+
+### L96 — Mobile-friendly model viewer: the look-at-CENTRE bug + sphere framing + multi-pointer touch
+Making `tools/modelviewer.html` phone-friendly surfaced a subtle camera bug worth remembering. Symptom: on a
+portrait phone the dragon rendered as a tiny sliver stuck at the BOTTOM of the screen, even though a projected
+`center.project(camera)` read `[0,0]` (apparently centred). Cause: I hard-coded the orbit look-at to
+`(0, midY, 0)` — but a long-tailed / back-swept-winged creature's mass centre in **Z is not 0**, and from a
+LOOKING-DOWN camera the screen-vertical axis ≈ world Z, so an off-centre-Z target shoves the model off-screen.
+Fix: `box.getCenter(center)` — look at the TRUE x/y/z centre, not an assumed-zero one. (The projected-centre
+check fooled me because it projected the *assumed* centre, not the model's.) Then framing: a wide-winged dragon
+is ~7× wider than tall, so fitting height over-zooms and fitting width under-zooms — different per orientation.
+**Bounding-SPHERE framing against the smaller FOV axis** (`R / sin(min(fovV,fovH)/2)`) fits the whole creature
+in BOTH portrait and landscape AND never clips as it rotates (sphere is rotation-invariant). Touch: track ALL
+active pointers in a Map — 1 = orbit, 2 = pinch-zoom (ratio of finger distance) + pan (midpoint delta, slid along
+the camera's right/up vectors); `touch-action:none` + `maximum-scale=1` stop the browser hijacking the gesture.
+CSS: keep the control panel LEFT-anchored (not full-width) under `(pointer:coarse)` or it covers the model in
+landscape. Verified headlessly with Playwright at 390×844 (portrait) and 844×390 (landscape), screenshotting both.
+
+---
+
+### L97 — Flame Monarch armor + tail redo (from the human's concept art): shingle armor + smooth-overlap tail
+Human (with a concept image) said the lofted body read "weak/soft" and the bead-chain tail looked unaesthetic.
+Two fixes, both reusing proven kit:
+- **ARMOR = the `shingle` system** (`parts.shingle` in the blueprint, no new code). Overlapping dark cupped
+  scale-plates with a molten edge, laid on the flanks via `attach.halfWidthAt(z)` so they FOLLOW THE CONTOUR
+  (wide at the shoulders, pinched at the waist) — exactly what the human meant by "respect the body's contours."
+  Two runs: a broad flank run + a denser, larger SHOULDER/CHEST mantle (`cardRows:2`), counts per-form [H,K,R,E],
+  `edge:true` so the molten rim flares on Surge. ~+800 tris, one draw call per run. This is the go-to for "make
+  a body look armored/strong" on any torso that publishes the flank contract.
+- **SMOOTH TAIL = heavy overlap, not spacing.** The bead look came from sphere segments spaced ~one diameter
+  apart. Fix = z-elongated ellipsoids (`scale.z≈1.55`) on a chain whose z-step is `(r_i+r_{i+1})*0.5*lenK` with
+  lenK≈1.5 — i.e. the step is LESS than the combined radii, so consecutive sections MERGE into a continuous taper
+  (the crystalSerpent trick). Still a sibling-seg chain so the position-wave rig coils it. Tune length via lenK,
+  not segment count.
+- **DISTINCT TIP = a fanned FLAME-BLADE** (per the concept): a small fan of leaf-blade fins spraying back+up
+  (`rotation.y` spread + negative `rotation.x` lift), alternating hot-molten / dark-molten mats, longest in the
+  middle — a clear, character-fitting terminus parented to the last seg so it rides the coil.
+**Reusable:** when the human gives concept art, mine it for the exact features (here: layered shoulder plates +
+molten gap-glow + a fanned flame tail) and map each to existing systems before authoring new geometry. Judged the
+tail SHAPE on `silhouette.mjs side` (smooth vs beady reads instantly there); armor/molten is preview-judged.
+
+---
+
+### L98 — Before/after compare in the model viewer: feature toggles via a cloned blueprint
+Human wanted to SEE the difference a change made (the L97 armor + tail). Added "Compare changes" toggles to
+`tools/modelviewer.html` (armor / flame tail) that rebuild the dragon with the recent tweaks flipped off, so you
+A/B them at the same camera. Implementation is clean because blueprints are pure DATA: deep-clone `DRAGONS[key]`,
+mutate the clone (`delete clone.parts.shingle` to drop the armor; swap `parts.tail` to a kept LEGACY builder for
+the old tail), then `ascendedDef(clone, tier)`. The legacy bead tail is re-registered as `monarchTailBead` —
+used by NO shipped blueprint, kept solely so the viewer can show the "before". The toggle box auto-hides for
+dragons with nothing to compare. Reusable pattern: to demo any data-driven change, clone the blueprint + toggle
+the field, rather than diffing renders across git revisions. (Generic `delete parts.shingle` already works as an
+"armor off" for any shingled dragon, e.g. obsidian.)
+
+---
+
+### L99 — Verify with DATA before fixing: 3 Flame Monarch bugs found by dumping geometry, not guessing
+Human gave on-device screenshots + "don't assume, check visually with data before applying fixes." Built throwaway
+node inspectors (tricount's headless three setup: `register('./three-resolver.mjs')` + the DOM/canvas shim, then
+`buildDragonModel`) that dumped each mesh's world-AABB / vertices. Findings:
+1. **Armor collided with the wings** — the two shingle runs' merged-mesh z-ranges ([-1.59,1.7], [-1.55,-0.06])
+   both span the wing-root z (≈-0.56). Confirmed by data, not eyeballing.
+2. **"2 rows of dorsal spines"** = the engine INFERS a `spineGlowLine` surfaceLayer from `model.spineGlow`, which
+   drew an 11-mesh glow spine OVER the torso's hand-built one. Proof: `resolveSurfaceLayers(def,…)` returned
+   `['spineGlowLine']`, and building with `parts.surfaceLayers = []` dropped exactly those 11 meshes. **Lesson: if
+   your torso builds its own dorsal spine, declare `parts.surfaceLayers: []` to suppress the legacy-flag inference
+   — otherwise spineGlow/dorsalGlowCount/etc. silently add a second one.**
+3. **Wing membrane gap** = the 3 articulated panels shared only POINTS, not EDGES. Dumped each panel's world verts:
+   pivot↔mid shared only the elbow point + rootBack (an uncovered wedge between them). Fix: derive SHARED SEAM
+   points (`elbowTrail`/`wristTrail` on the rootBack→inner-fingertip line) so pivot|mid and mid|tip each share a
+   full EDGE (2 verts). Re-ran the dump → `shared verts pivot<->mid: 2`, `mid<->tip: 2` (a welded edge). The seam
+   welds at rest because the joint transforms telescope: a panel built at the parent origin and one at the child
+   origin map the same 2D seam point to the same world point.
+Also added `?dragon=&tier=&az=&pol=&zoom=&armor=0&ftail=0` URL params to `modelviewer.html` for deterministic
+diagnostic close-ups. Reusable: a 30-line node geometry-dumper beats squinting at renders for "is it overlapping
+/ gapping / duplicated" questions — get the numbers.
+
+---
+
+### L100 — The wing "gap" was the SCALLOP MATH, not the seam (verify the actual pixels, not your theory)
+After welding the panel seams (L99) the human STILL saw triangular gaps. Don't assume the first fix was the whole
+story — re-investigate. A winding check proved the fan triangulation was fine (38 tris, all same sign = star-
+shaped, no flips). Rendering the membrane top-down showed it CONTINUOUS. The gaps were the SCALLOPS themselves:
+the trailing-edge sag used `ctrl = mid.lerp(wrist, scallop)` — i.e. depth proportional to the distance from the
+WRIST. The leading fingers are ~5 units out, so their scallops sagged ~2 units deep → enormous open notches
+between the outer struts that read as holes; inner fingers stayed shallow. Fix: sag PERPENDICULAR to the
+finger-tip chord by `scallop * |a−b|` (proportional to the GAP between the two fingertips), so every scallop is
+even and shallow → a full membrane with a neat scalloped edge. Lesson: a "gap/hole" bug has several candidate
+causes (seam not welded · bad triangulation · edge geometry too deep); enumerate and rule each out with data
+(shared-verts count, triangle winding, a straight-on render) rather than fixing the first plausible one and
+declaring victory. Applies to both anatomical wings (Monarch + Thundercoil).
+
+---
+
+### L101 — A shared seam VERTEX is not a weld once the joints FOLD — build the membrane in ONE frame
+After L99/L100 the human STILL saw seams. The missing insight: the three membrane panels lived on three
+SEPARATE rig groups (pivot / wingMid@elbow / wingTip@wrist) that the engine FOLDS and SWEEPS independently —
+even the static viewer pose folds them (dumped `tick(0)`: `wingMid.rot.z≈0.22`, `wingTip.rot.z≈0.32`,
+`wingTip.rot.y≈0.07`). Two panels can share a seam *point* in 2D, but once their parent groups rotate relative
+to each other, that point maps to two DIFFERENT world positions and the seam opens. A weld at flat rest is not
+a weld in any posed state. The clean fix: stop splitting the membrane across folding joints. Build the WHOLE
+membrane + bones in a SINGLE pivot-local frame (`P = p => (p.x, 0, -p.y)`) and parent it all to `pivot`, so it
+is one rigid welded sheet that can never separate. `wingMid`/`wingTip` stay as EMPTY positioned groups so the
+engine pose code + FX role-lookups (`byRole`) still resolve; the wing now articulates from the SHOULDER (+ the
+apexRoot / restLift dials), which still reads alive. Verified headless: `meshes on wingMid/wingTip handle: 0,0`
+and arm+hand panels share `wrist`+`wristTrail` at identical coords on ONE group → gap-free in EVERY pose.
+Tradeoff: lost the per-segment elbow/wrist membrane fold; the next leapfrog is a SKINNED membrane (one mesh,
+vertices weighted to 3 bones) to bend smoothly without separating. Also: `modelviewer.html bounds()` was
+framing to INVISIBLE meshes (the hidden aim-pip, renderOrder≥998) — added `o.visible && o.renderOrder<998`.
+And a charcoal/obsidian dragon on the dark studio backdrop reads as "off-center / only one wing" because the
+far wing + the dark body vanish into the background — confirmed via projection math that the model IS centered
+(box center x=0.00, projected box centered). Don't chase a "framing bug" that is really a contrast problem.
+
+---
+
+### L102 — The viewer's REAL framing bug was high-DPR canvas overflow (read the GL buffer, not the screenshot)
+Continuing L101's framing puzzle: even a brightly-lit neutral-background render still showed the dragon jammed
+bottom-right. But reading the actual WebGL drawing buffer (`gl.getContext().readPixels` → non-bg pixel centroid)
+returned `[0.52, 0.46]` — DEAD CENTRE. The render was always centred; the *screenshot* was lying. Root cause:
+`gl.setSize(w, h, false)` — the `false` is `updateStyle`, so Three sizes the drawing buffer to `w*pixelRatio`
+but never sets `canvas.style.width/height`. On a DPR-2/3 phone the 2–3× buffer overflows the viewport and you
+only see the top-left slab, so the centred model lands in the bottom-right corner. This shipped to MOBILE (the
+viewer's whole point). Fix: drop the `false` → `gl.setSize(w, h)` so the canvas CSS size matches the viewport.
+Verified DPR-3 portrait now centres. Lessons: (1) when a screenshot and the geometry math disagree, the buffer
+is ground truth — `readPixels` a pixel centroid, don't keep re-reading the PNG; (2) `updateStyle=false` is only
+safe when CSS already pins the canvas size — here `#view{inset:0}` was NOT enough for a replaced element.
+
+### L103 — Flame Monarch armor: banded segmented plates (approach a) — contour-wrapped, wing-root-skipped
+The shingle flank-scales (L97/L99) collided with the wing roots + read as scattered scabs, so the human chose
+approach (a): bold TRANSVERSE armor BANDS. Built as a new `monarchArmor` surface layer (registered in the
+family file, declared via `parts.surfaceLayers: ['monarchArmor']`, which ALSO suppresses the inferred spine
+line). Each band = TWO curved shell plates (L/R) generated as a parametric grid over the body cross-section —
+needed a new attach hook `ringAt(z) → {cy, rx, ry}` (the full ellipse, not just `keelTopAt`) so the plates HUG
+the real contour, inflated outward by a tapered thickness so every edge rounds off (never flat cards). A DORSAL
+CHANNEL (arc starts at a0≈0.36 rad off the crest) is left open so the molten spine shows BETWEEN the L/R plates,
+and a flare-tagged MOLTEN GAP-LINE glows in each transverse gap. The 5 band z-ranges deliberately SKIP the
+wing-root band (≈ -0.85..-0.40) so the armor can never collide with the wings (the original failure). +644 tris
+(3342→3986, ceiling 6000). The viewer's armor compare-toggle was updated to filter `monarchArmor` out of
+`surfaceLayers` (it only knew about `parts.shingle` before). Reusable pattern: contour-following decoration wants
+the torso to publish a cross-section sampler, and "bands that skip a z-range" is the clean way to coexist with
+appendages rooted in that range.
+
+---
+
+### L104 — Wing aesthetics live in the bone HIERARCHY, not the polygon count ("glider" wing, opt-in)
+The human's critique of the welded wing: it read as "flat glowing fans" — equal-weight lines all radiating from
+one point, a circular umbrella edge, blocky vertical inner panels. The fix is structural, not more detail. New
+`buildGliderWing` path (opt-in via `anatomy.glider`, so Thundercoil's existing wing stays byte-identical —
+coexist→prove-on-hero). Five moves that made it read as a living wing: (1) ONE dominant leading-edge SPAR — a
+single tapered tube (thick root → sharp tip) swept shoulder→elbow→wrist→tip via CatmullRom, the brightest/
+thickest line; the finger struts are thinner AND dimmer (glow HIERARCHY = premium, not noisy). (2) Long arm so
+the WRIST sits at the outer ~60% span → a clear elbow+wrist BEND in the silhouette instead of a hand-fan. (3)
+Membrane as a radial FAN from a hub near the wrist → each inter-finger bay is a taut triangular sail stretched to
+a scalloped trailing edge (tension), and a SHORT rootBack makes the inner membrane a small angled triangle, not a
+curtain. (4) DIHEDRAL + washout TWIST baked into the 2D→3D map (`depthY = DIH·spanN^1.15 + TWIST·chord`) so tips
+sit higher than the root and the trailing edge lower — kills the flat-cardboard read; the membrane fan is then a
+subtly curved aerofoil for free. (5) A dark (non-glowing) shoulder SOCKET sphere at the root so the wing grows
+from the back. Same one-frame-on-pivot rule as L101, so still seam-free (the membrane is a single fan mesh —
+gap-free by construction). 3882 tris/form. Lesson: when a wing "looks wrong," audit the ANATOMY (one strong
+leading edge? clear wrist bend? varied non-radial fingers? stretched bays? slight 3D?) before adding geometry —
+and gate a redesign behind an anatomy flag so the other creature sharing the builder is untouched.
+
+---
+
+### L105 — Every change ships with a before/after toggle — a self-scaling change REGISTRY in the viewer
+The human asked for a toggle on EVERY change, plus an easy "select all" since the count grows. Replaced the two
+hardcoded `armor`/`ftail` checkboxes in `modelviewer.html` with a data-driven `CHANGES = [{ id, label, dragons,
+revert(def) }]` registry (newest first). The compare panel is GENERATED from it: one checkbox per change for the
+current dragon + a MASTER "all changes" switch that flips the whole stack original⇄everything in one tap (shows
+`indeterminate` when mixed). `defFor` resolves the def then calls `revert(def)` for every UNCHECKED change — so
+adding a future change is a ONE-LINER (append a registry entry) and the UI scales itself; `?off=wings,armor` (and
+legacy `armor=0`/`ftail=0`) preset the reverted set. The catch: a toggle needs a real BEFORE state to revert to.
+For geometry that was deleted in the redesign (the old fan wings), keep the old path alive behind a flag —
+`monarchWing` honours `model.legacyWing` to rebuild the pre-redesign anatomy (never set on the live blueprint,
+viewer-only). So "make it toggleable" sometimes costs keeping the dead code path; budget for that when you redesign.
+Reusable rule: a redesign isn't done until its predecessor is still buildable behind a flag and registered as a
+revert — that is what makes before/after honest instead of a screenshot from memory.
+
+---
+
+### L106 — "My change isn't showing" was the SERVICE WORKER serving a stale module graph — stamp the SW on deploy
+The human reported the glider-wings toggle "doesn't change" — yet it worked locally and via `?off=wings`. The
+tell: the toggle UI (modelviewer.html) was the NEW version but the behaviour was the OLD one — a fresh HTML page
+driving a CACHED `dragonFlameMonarch.js` without the `legacyWing` branch. Root cause: `reforged/sw.js` is a
+content-versioned precache (cache-first within `VERSION`, scope `reforged/` — registered from `reforged/index.html`,
+so it ALSO governs `reforged/tools/modelviewer.html` + every `reforged/js/*` import), but `VERSION` is stamped by
+a MANUAL `tools/stamp-sw.mjs` that nobody ran. Across this whole session `VERSION` never moved and the new family
+files weren't even in the precache list, so returning visitors got a frozen, mixed-version module graph. Fix:
+ran the stamp (`VERSION 1bcc…→3c4d…`, 109 assets, now incl. the new files; `skipWaiting`+`clients.claim` so it
+self-heals next visit) AND added a `node …/stamp-sw.mjs` step to BOTH deploy workflows (pr-preview.yml +
+deploy-pages.yml) so it can never drift again. Lessons: (1) when a change "doesn't show" but is provably correct
+locally, suspect the CACHE/SW before the code — verify which file is stale, don't re-debug working logic; (2) a
+manual pre-deploy stamp WILL be forgotten — move it into CI; (3) `?param` URLs bypass nothing here, but they DID
+prove the code path was right, which is what localised the bug to delivery, not logic.
+
+---
+
+### L107 — The human judged the glider wings WORSE than the old fan — reverted; kept behind a flag, not deleted
+Once the stale-cache fix (L106) let the toggle actually work, the human compared and chose the PREVIOUS wings:
+"previous was way more aesthetic." A detailed brief does not guarantee the execution wins — the glider read
+sparser/less appealing than the fuller 5-finger fan. Acted on the clear preference: made the OLD fan wing the
+LIVE default again (monarchWing default branch), moved the glider behind `model.gliderWing` (opt-in, kept — NOT
+deleted, so a future "blend" attempt or re-enable is one flag), and dropped the `wings` entry from the viewer's
+change registry (no wing change ships now, so no toggle). Budget back to 3986. Lessons: (1) taste is the human's
+call — when they prefer the BEFORE, revert fast and without ego; the build work isn't wasted, it's parked behind a
+flag; (2) the L101 redesign's smaller, surgical wins (glow hierarchy, rim-lit membrane, slight dihedral) might
+still improve the OLD shape — a "blend" is the likely next ask, so keep the glider materials/anatomy intact for
+harvest; (3) don't over-commit a big silhouette change as the default until the human has A/B'd it live.
+
+---
+
+### L108 — A junk URL param blanked the viewer — validate at the boundary AND at the crash site
+The human's viewer was blank again, but this time the cause was in the URL they pasted: my chat message text had
+been copied onto the end, so `?tier=3 If you want…` → `+tier` = NaN. NaN SURVIVES `Math.max(0, Math.min(NaN, n))`
+(both return NaN), reaches `STAT_RAMP[NaN]` = undefined, and `.speed` throws — blanking the whole viewer with a
+single TypeError. Fixed in two places (defence in depth): (1) the BOUNDARY — modelviewer.html parses every numeric
+param through `numParam(k, fallback)` (finite-check, else keep current) and clamps tier to the dragon's form range;
+(2) the CRASH SITE — `ascendedDef` coerces a non-finite tier to 0 so NO caller can ever crash on it. Lessons:
+(a) `Math.min/max` are NOT NaN guards — `Math.min(NaN, x) === NaN`; use `Number.isFinite` before clamping; (b) when
+a bad input reaches a lookup table, the undefined row throws one level LATER than where the bad value entered —
+validate where it enters AND harden the consumer; (c) user-pasted URLs carry junk — treat every query param as
+hostile. Reusable: any `+param`/`parseFloat(param)` that feeds geometry or an array index needs a finite-check + a
+sane fallback, never the raw NaN.
+
+---
+
+### L109 — Regal-volcanic Monarch pass: fix the SILHOUETTE in the torso rings, not with more parts
+The human's critique was "reads like an insect/orange glider," with a 7-point brief (body, shoulders, wings, head,
+spines, tail, colour). The biggest wins were proportion, not detail: (1) BODY — rewrote the loft rings LONGER
+(z −1.66…1.82) and vertically FLATTER (ry<rx through the trunk) with broad shoulders → slim waist → long taper, so
+it stops reading as a round pod. The whole attach contract (wingRoot/headBase/tailAnchor/neck) had to move with it —
+change the rings, re-seat everything that hangs off them (incl. the armor band z-ranges + the wing-root skip). (2)
+SHOULDERS — a flattened hide bulge + a molten TORUS socket at each wing root makes the wings grow from the body
+instead of pasting onto a flat flank. (3) WINGS — kept the human-preferred fuller fan AND our researched anatomy
+(short arm, medial wrist ~28%, curvature gradient leading→inner) but cut 5 thin rods → 4 STRONG struts, added a
+thick bright leading spar over dimmer fingers (glow hierarchy), a hooked talon, and — the key — generalised the
+LEGACY wing path to take an optional `dihedral`/`twist` (raised root + washout) and `leadMat`/`fingerMat`/
+`fingerRMul`, all defaulting to flat/single so Thundercoil stays byte-identical. So a "less flat, less fan" wing was
+a few anatomy dials, not a new builder. (4) SPINES — a pow-curve size HIERARCHY (tall shoulders → tiny tail) + a
+slight alternating rake so the row isn't uniform pickets. (5) HEAD — wider wedge cranium, bigger swept crown horns,
+a molten jaw line → a real crown read from the rear. (6) TAIL — a 3-PRONG molten flame crest (long centre spear +
+two splayed fins + ember core), sized to read from the rear chase cam (the explicit priority view). (7) COLOUR was
+already dark-charcoal; the "too orange" was the emissive accents + fresnel rim dominating a small body — fixed by
+making the BODY bigger/longer so the dark mass wins and orange stays an accent. 4260 tris. Lesson: when a creature
+"reads wrong," audit PROPORTION (torso ring profile, part scale ratios, the dark-vs-glow balance) before adding
+geometry — and gate every shared-builder upgrade behind defaulted dials so the roster never moves.
+
+---
+
+### L110 — Wing CLAWS: short tapered bone points at the scallop join, not long constant rods
+Human note on the Monarch wing: the finger struts ran as long straight constant-radius rods all the way to the
+full anatomical fingertip, poking far past the membrane. Correct dragon-claw read = a BONE that is thick at the
+wrist and TAPERS to a bony point ending just slightly past where the two membrane scallops join (the web tip).
+Fix (opt-in `taperedClaws`, so Thundercoil's shared legacy path stays byte-identical): each inner finger strut is
+now a `taperedTube` (r0 thick → ~0 point) along the bowed curve from the wrist to `webTip + clawLen·dir` — i.e. it
+stops a hair past the scallop join instead of at `tip(f)`. Key distinction baked into the anatomy: the membrane
+`webTip` (1−claw of the way out) is the SCALLOP JOIN; the bony claw should poke only `clawLen` past THAT, not run
+to the full digit length the curvature math uses. Lesson: a "claw too long" note is about where the strut ENDS
+(web-join + a hair) and its RADIUS PROFILE (taper to a point), not the finger anatomy — keep the two decoupled.
+
+---
+
+### L111 — "Flat moth wings" = a FLAT membrane — steal the Sovereign/Seraph billow + edge rim, don't keep tuning the fan
+The human kept saying the Monarch wing "looks off / like flat glider moth wings" and pointed at the Phoenix &
+Sovereign wings' aesthetic. Instead of tuning the fan again, READ the wings they admire (dispatched an Explore
+agent over `dragonSeraph.js buildSeraphWing` + `dragonWings.js buildMembraneWings`/`buildCurvedPatch`). The
+finding: those wings read premium for THREE reasons my flat anatomical fan lacked — (1) CHORDWISE BILLOW /
+camber (the membrane is a taut, slightly-concave SAIL via a curved grid, not a planar `ShapeGeometry`), (2) a
+bright CONTRASTING EDGE RIM on the silhouette (Sovereign cyan / Seraph gold), (3) material layering + a root→tip
+gradient. Dihedral alone (L109) wasn't enough — the *panel between the struts was still flat*. Fix: added
+`billowedFan` (subdivide the star-fan into concentric RINGS and sag the interior rings below the apex→edge chord
+— `dip = sin(π·fr)·sag`, 0 at apex+edge so bones stay crisp, max mid-span) and `edgeRim` (a bright emissive tube
+run along the scalloped trailing edge). Both opt-in (`A.billow`/`opts.rimMat`) so Thundercoil's shared path is
+byte-identical. +728 tris (4308→5036). Lessons: (1) when a human references EXISTING art they like, go read its
+builder and extract the concrete technique — that's faster and more reliable than another blind tuning pass; (2)
+"flat" is rarely the outline — it's the lack of cross-section CURVATURE (camber/billow) and edge ACCENT; a flat
+fill with a perfect silhouette still reads as cardboard; (3) a subdivided fan with a mid-span sag is the cheap way
+to camber any star-shaped membrane without a full grid rebuild.
+
+---
+
+### L112 — Trace a reference planform from PIXELS, not by eye — convert the envelope to anatomy dials
+The human handed a dorsal/planform reference image and said "trace these wings, keep the struts." Instead of
+eyeballing, MEASURED it: a throwaway Playwright script decoded the PNG to a canvas, classified warm wing pixels vs
+the dark bg, found the body symmetry axis (densest bright column), and traced per-column top (leading) + bottom
+(trailing) edges for one wing → the actual envelope in pixels. The read: a CONVEX leading edge peaking forward
+(chord ~+1.3) near 40% span then sweeping to the wingtip, a trailing edge dropping deepest (~−1.5) at the inner
+third, ~5 struts. Converted to the anatomy frame (scale = spanPx / target-span, chord origin at the root mid) and
+expressed as DIALS the builder already has: leading finger `bow` HIGH (1.32) makes the forward bulge; 5 finger
+tips placed along the traced trailing envelope (deepest at the inner third); short arm + medial wrist kept. So
+"trace this art" became "measure the envelope → set bow + 5 tip coords," not a new geometry path. 5264 tris.
+Lessons: (1) when given reference art, EXTRACT the curve numerically (decode → classify → per-column min/max y) —
+~30 lines and beats guessing; (2) a parametric wing means a traced shape collapses to a handful of dials (leading
+bow + fingertip coords), so matching reference art is cheap once the builder is parametric.
+
+---
+
+### L113 — Trace BOTH edges densely + a QA OVERLAY tool that reports numbers — close the loop on "is it accurate?"
+The human pushed for real accuracy: gap at the wing-root/body join, struts not crowning with the convex membrane,
+leading edge "not convex enough," and "not enough trace points for the trailing edge." Built the QA tool they
+asked for: `tools/wingoverlay.mjs` re-extracts the REFERENCE's own leading+trailing edges from the image, overlays
+OUR wing anatomy on it, and prints a per-span LEADING-CHORD table (ref vs ours, both relative to the wing chord-
+centre) so the match is a NUMBER, not a vibe. First pass showed a constant −0.40 offset → my LEADING shape was
+right but my trailing was guessed from 4 hand-placed fingers that smoothed away the scallops. Fix: trace the
+trailing edge DENSELY (every 0.2 span, LIGHT smoothing to keep scallops) and drive the membrane's trailing
+boundary from an explicit `trailingCurve` polyline (new opt-in in `buildTracedWing`), exactly like the leading
+edge — the deep inner lobe + mid plateau + scallop rise now reproduce. Result: leading edge within ±0.03 of the
+reference across the whole span. Also: (a) the root/body GAP was a long flat root-chord edge floating off the
+rounded body — fixed by a compact root + tucking; (b) struts were flat under the crowned membrane — added a
+`strutCrown` that bows each finger strut UP (+Y) to follow the dome (bone + skin curve together). Lessons: (1)
+build the QA tool that emits NUMBERS (per-span deltas) — a constant offset vs a varying one tells you instantly
+whether it's a shape error or a centring artifact; (2) a scalloped edge needs DENSE sampling + light smoothing,
+then drive geometry from the polyline directly — peak-detection alone under-counts rounded scallops; (3) any bone
+that lies under a cambered membrane must crown WITH it or it reads as flat struts under a dome.
+
+---
+
+### L114 — Wing/body gap = the membrane fan's OPEN inner edge ("two root chords"); fix it by conforming that edge to the body, not by bolting on a gusset
+The human flagged a persistent "giant space between the wing and body" and, crucially, named the geometry: "it's
+like there are 2 root chords, one at the shoulder and one at the mid-back, so there's a triangle gap between." That
+description IS the root cause. `buildTracedWing` fills the membrane as a triangle-fan from an interior `hub`; the
+fan's two end edges are hub→leadingRoot (the shoulder chord) and hub→rootBack (the mid-back chord), and fanPanel/
+billowedFan never close the loop between them — so the inner edge from shoulder to mid-back is a STRAIGHT line in
+the flat wing plane that lifts off the rounded, tapering body, leaving exactly that triangular hole. Earlier patches
+treated symptoms: "bury the root" pushed the chord inward (helped at rest, reopened with scale/flap) and a literal
+"gusset" patch added a separate sheet that changed the visible trailing silhouette — the human rightly rejected it
+("ugly gauset… analyse the code rather than patching"). The real fix (L114): walk a SEAM along the body surface
+from the mid-back root forward to the shoulder root (sample `attach.ringAt(z)`, project each ring onto its upper-
+outer flank in the direction of the wing-root pivot, tuck 0.97 inside) and append it to the membrane outline so the
+fan fills right down onto the flank along the whole attachment. The wing's OWN edge now conforms to the body — no
+extra mesh, and the leading/trailing silhouette is mathematically untouched (only the hidden inner seam moves).
+Paired with a per-vertex `conformP` that snaps the single floating rootBack corner onto the skin (gated by AUTHORED
+span p[0]≤rootSpan, NOT a world |dx|<rx test — see below) so the seam connects flush.
+Lessons: (1) when the human describes geometry precisely ("two chords, triangle between"), map it straight onto the
+mesh construction — here it pinpointed the fan's unclosed inner edge in one sentence after I'd burned renders
+guessing camera angles; (2) a gap between a flat-plane part and a curved body is almost never closed by moving the
+part — conform the shared EDGE to the body surface (sample the published `ringAt` contract) so both meet on the
+skin; (3) gate body-conform logic by AUTHORED, scale-free coordinates (span p[0]), never a world-distance test:
+my first cut used |dx|<rx and it silently did NOTHING at the apex form because wingScale 1.32 pushed the root past
+rx — verify the discriminator at the ACTUAL render scale, not ws=1; (4) verify with a before/after at the angle the
+human named (rear-and-below) AND a wing-root close-up (`tools/gapzoom.mjs`) — at the default 3/4 the gap is hidden,
+which is why two "fixed" claims didn't hold up; the triangle only reads from below.
+
+---
+
+### L115 — A wing built as a triangle-FAN from a hub can never be seamless; rebuild the membrane as a LOFT between the leading & trailing edges
+L114 closed the root gap by appending a body-conforming seam to the hub-fan — but the human's next render (rear/
+below, IMG_7119) showed the cure was worse than the disease: the seam fanned steep triangles from the hub down to
+the body, and that inner wedge caught the light as a distinct, brightly-lit panel. Their words: "two different
+parts that connect to the body… redo the wing keeping the same outline but make sure it connects from the start."
+Verified with data before touching anything: rendered seam-on vs seam-off at the exact underside angle — the bright
+folded panel only appears with the seam, confirming it as the culprit. Root cause is deeper than the seam, though:
+ANY triangle-fan from a single apex is a cone, so adjacent fan triangles with different normals read as creases, and
+a body-attachment wedge is the worst case. You cannot make a fan seamless; you must change the topology.
+Fix (L115): rebuild the traced membrane as ONE lofted sheet. The leading and trailing curves were traced at the
+SAME span stations, so at each span the chord runs trailing→leading; loft between consecutive stations (span-subdiv
+for smoothing, chord-subdiv for the dome) into a single grid mesh — no hub, no apex, no fan edges. The innermost
+rows are conformed onto the body flank (the L114 `conformP`, root-gated by authored span) so the sheet GROWS from
+the body, and the convex dome is a per-chord `sin(πt)` crown gated to ~0 at the buried root so the attachment stays
+flat on the skin while the free sail bellies. Result: one continuous skin from body to wingtip, the leading/trailing
+silhouette byte-identical to the trace, gap closed, no seam panel — confirmed from underside, rear-3/4, dorsal, and
+a root close-up across tiers 0-3 with no console errors, +~150 tris/wing (still under budget).
+Lessons: (1) topology beats parameters — when a surface reads as "two parts," stop tuning the patch and ask whether
+the base construction (a hub fan) can EVER be seamless; a loft/grid can, a fan can't; (2) traced edges sampled at
+matching stations are a free gift — they loft directly into a clean ribbed surface, no resampling/alignment needed;
+(3) keep verifying at the angle the human shot from (underside), not the flattering 3/4 — the seam panel was nearly
+invisible at 3/4 and obvious from below, exactly where they were looking.
+
+---
+
+### L116 — Realistic wingbeat = research the biomechanics, then add the MISSING channels (asymmetric beat + fore-aft rowing + body porpoise), all gated
+The human wanted the Flame Monarch's 3-segment flap to read REAL and "sell it to the player," with the body
+reflecting the wing motion — and explicitly "create the joints/modules… plan from research, don't be lazy." Mapped
+the pipeline first: there are TWO flap systems — the yoke solver (`wingFlapSolver.js`, Bull/Seraph) and the older
+`wingParts` rig in `dragon.js` (Flame Monarch + Thundercoil). Flame Monarch is wingParts, which already had the
+travelling-whip lag (root→mid→tip) + a held apex-V, but was missing the three things real membrane flight needs:
+(1) an ASYMMETRIC beat — downstroke is the slow heavy POWER stroke, upstroke the quick recovery; (2) fore-aft
+ROWING — the wing reaches forward on the downstroke and sweeps back at the apex (the wingtip figure-8 that reads as
+thrust, not a flat hinge); (3) the BODY as "the weight behind the wings" — chest porpoises up on the power stroke,
+tail trails in counter-phase. Implemented as opt-in `model.*` knobs so the rig is unchanged unless asked:
+`downFrac` (time-warp the cycle), `rowDeg` (rowing on root+tip .y, tip carries the deeper loop), `bodyFlapPitch`
+(chest pitch on the group, 1-frame inertia lag like the yoke `bodyFlapLift`), `tailFollowFlap` (a beat-coupled
+VERTICAL position-wave on the existing overlapping tail segs — counter-phase + lagged aft, no re-rig needed because
+heavily-overlapping ellipsoids read a position wave as a smooth bend). Every value is a knob the human tunes on the
+lit preview. Also added `?wingDebug` freeze support to the wingParts branch (it only existed on the yoke branch) —
+without it `flapstrip` silently captured a live, un-frozen phase, so the five named stages now actually freeze and
+the strip shows a real apex-V → flat-power-downstroke → recovery cycle. Synced the same warp/row/apex/porpoise into
+the shop-preview poser (`dragonModel.js`) so the character-select reads true.
+Lessons: (1) for "make the motion realistic," name the biomechanical CHANNELS the rig lacks (asymmetry, rowing,
+body coupling) and add them — don't just scale amplitude/speed of what's there (L39's "sharpen the ENVELOPE, don't
+raise amplitude" generalizes: add the missing DEGREE OF FREEDOM); (2) couple the body via the cheapest faithful
+mechanism — a position-wave on overlapping segs is a free vertical whip with no new bones; (3) shared animation
+paths need per-dragon GATES (every new term defaults to 0/identity) so the byte-identical roster constraint holds —
+verified Thundercoil (the other wingParts dragon) animates identically; (4) verification infra is part of the task:
+the freeze-mode gap meant the acceptance tool was lying, so fix the harness before trusting the render.
+
+---
+
+### L117 — Visible per-segment wing articulation needs SKINNING, not lag params — the lag was driving EMPTY handles; + flap below horizontal
+Two human notes on the flap: (1) "shouldn't the wings flap BELOW horizontal on the downstroke — research how low?" and
+(2) "there should be individual lag between the 3 segments per wing… research how this works without blatantly copying
+the old animation system." Investigating both: they share ONE root cause. The traced wing (L115 loft) welds the entire
+wing — membrane, leading spar, struts — to the PIVOT; `wingMid`/`wingTip` were literally "empty rig handles" (the code
+said so). So the per-segment lag (`midLag`/`tipLag` rotating those handles) moved NOTHING — the wing flapped as a rigid
+plank from the shoulder, no travelling fold. And `restLift 0.5` biased the whole stroke ~29° up so the downstroke only
+reached ~−8° (never a real power stroke). Fixes: (A) BELOW-HORIZONTAL — research says flapping amplitude is ~90–130°
+with the downstroke pressing the tip ~30–45° below horizontal (the power stroke scoops air below the body); retuned to
+apex ~+60° / bottom ~−35° by raising `rootAmp` and dropping `restLift` to a glide-only dihedral. (B) ARTICULATION —
+the real mechanism is skeletal SKINNING (the unified-hull L25 technique, adapted not copied): a 3-bone chain
+shoulder→elbow→wrist on the wing's neutral axis, with the membrane + spar + struts SKINNED to it (per-vertex weights
+blended shoulder→elbow→wrist by SPAN, smoothstep across each joint band). The bones ARE the `wingMid`/`wingTip` handles,
+so the EXISTING lagged cascade now bends a SEAMLESS skin — no split panels (which would re-open the L114 seam). Now the
+tips visibly curl inward at the apex and droop below horizontal on the press. Gotchas paid: (1) a SkinnedMesh can't be
+mirror-CLONED — `clone(true)` keeps the clone bound to the master's skeleton, so the left wing would deform with the
+right's bones; build BOTH wings (two independent skeletons), wrap the left in scale.x=-1 (same tri count). (2) bindMode
+'attached' is invariant to a rigid parent move (meshWorld⁻¹·boneWorld cancels the pivot), so binding at build-time and
+positioning the pivot afterward is safe — and a scale.x=-1 ancestor cancels too, so the mirror deforms correctly.
+(3) skin geometry by its OWN vertex x only when the geometry is authored in pivot-local absolute coords (membrane/spar/
+struts via `P()` are; a centered+positioned octahedron is NOT — parent that to a bone instead).
+Lessons: (1) when "more lag / more amplitude" does nothing, check whether the thing you're animating is ATTACHED to
+geometry — a handle with no skin/children is a no-op; (2) seamless AND articulated = skinning (one mesh, many bones),
+the only way to have both; (3) "research how low it flaps" has a real answer (~30–45° below horizontal) — bias the rest
+pose low so the active beat can press past level, don't let a glide dihedral eat the power stroke.
+
+---
+
+### L118 — A travelling RIPPLE needs the elevation DISTRIBUTED down a bone chain as a phase-lagged cascade — one big shoulder swing always reads as a root hinge
+After L117 skinned the wing to 3 bones, the human still felt it "hinge flapping at the part where it joins the body —
+each of the 3 segments should have a ripple delay." The L117 skinning was real but the DRIVE was still root-dominant:
+the pivot/shoulder carried the whole elevation swing (rootAmp 0.72) and the elbow/wrist added only small lagged folds,
+so the wing swung as a unit (a hinge) with a faint outboard fold. The fix is in the DRIVE, not just the skin: model
+the wing the way the body whip is modelled (L24/L40 driveChain) — a CHAIN of bones (now 5: `boneFracs` along the span,
+bone 0 STATIC to hold the body seam) where the elevation is DISTRIBUTED as a phase-lagged travelling wave. Each moving
+bone i adds its own fold `shape(phase − lag·f)·segAmp` with `lag ∝ span fraction f`, so bone 1 leads and every bone
+outboard trails a little more → the bend RIPPLES to the tip instead of the root swinging in unison. The pivot now
+carries only the STATIC pose (pitch + fore-aft rowing sweep + rest dihedral + bank); all the dynamic flap lives on the
+chain. Because no single joint does the whole swing, the root-hinge read is gone and you see a wave run out the wing
+(verified side preview: the bend position travels across phases; rear gameplay: high curled apex → below-horizontal
+rippled downstroke). Knobs: `segAmp` (per-bone fold), `segApex` (per-bone apex lift), `tipLag` (total ripple delay to
+the tip), `boneFracs` (where the bones sit). Gotchas: (1) the static root bone (bone 0, never rotated) is what keeps
+the conformed seam on the flank while the rest ripples — don't drive it; (2) put the rest dihedral on the PIVOT, not a
+moving bone, or the glide pose ripples; (3) the cascade replaces the 3-handle `poseWing` only when a chain is present
+(`wingChainR`), so Thundercoil (no chain) keeps the legacy path byte-identical. Same in the preview poser so the
+showcase matches.
+Lessons: (1) "it feels like a hinge" ⇒ the motion is concentrated at ONE joint; the cure is to DISTRIBUTE it down a
+chain with phase lag (a wave), never to add amplitude to the existing single swing; (2) the body-whip cascade and the
+wing-ripple cascade are the SAME pattern (phase-lagged drive over a bone chain) — reuse the mental model, not the code;
+(3) a static anchor bone is the clean way to keep a skinned attachment welded to the body while the limb deforms (L25
+again: freeze the RELATIONSHIP, here by simply never rotating bone 0).
+
+---
+
+### L119 — Proportions: MEASURE against the spec, don't eyeball — and calibrate the unit from a dimension you trust
+The human gave a crown-height-normalised proportion spec (crown=1.0; body 5.8–6.5, wingspan 5.4–5.8, etc.) and said
+"wingspan is way too much." Built `tools/proportions.mjs` to measure the actual model: boot the shared builder
+headless (the tricount three-resolver + DOM-shim trick), `Box3.setFromObject` the named parts (head/wings/tail), and
+report each dim in crown units. First pass said EVERYTHING was ~1.2–1.3× too big AND the wings 3× — which is the tell
+that the UNIT is wrong, not every part: `parts.head` under-measures the crown (it's a sub-node, varies per dragon).
+Calibrated the crown from dimensions that ARE trustworthy and on-spec — body length, shoulder width, hip width all
+back out crown ≈ 1.65 world (they agree to ±3%). In that unit the BODY is exactly on spec (noseTail 6.10, shoulder
+1.03, hip 0.61) and ONLY the wingspan is off: 14.4 vs 5.6 = 2.5× too big. So the fix is purely the wing, not a
+global rescale: `wingScale` 1.18 → 0.40 (the traced planform was authored ~3× too large relative to the body). Now
+wingspan ≈ 5.7 crowns / wingspan-to-body ratio 0.94 (spec 0.91), the wing still attaches cleanly (the conform/seam
+math is ws-relative so it adapts) and still ripples (the cascade is rotation-based, scale-free). Net: a sleek dragon
+(wings ≈ body length) instead of giant moth-wings.
+Lessons: (1) a proportion complaint is a MEASUREMENT task — write the probe (like the L36/L39c motion + gap probes),
+don't tune by thumbnail; (2) when EVERY part reads off by the same factor, your UNIT is miscalibrated — re-derive it
+from the dimensions that match the spec, then the real outlier pops out; (3) report a unit-INDEPENDENT ratio
+(wingspan / body-length) alongside the normalised one so a bad denominator can't hide the answer; (4) a planform
+traced in its own image space has NO inherent scale relationship to the body — always re-measure span-to-body after
+importing reference art.
+
+---
+
+### L120 — What reads "dragon" vs "moth/dragonfly": a STRONG convex leading frame past the wrist + DEEP, well-defined trailing scallops
+The human named the exact silhouette cues that separate a dragon wing from an insect one: (1) a leading frame that
+bulges hard FORWARD just past the wrist then sweeps back to a swept tip (a powerful curved spar, not a flat straight
+leading edge), and (2) DEEP, well-defined trailing SCALLOPS (each finger reaches far back; the membrane scoops sharply
+forward between fingers as clear cusps). Through the loft + skinning + proportion work the wing had drifted to a
+smooth, gently-swept moth shape — not because the loft changed the silhouette DATA (it didn't) but because the traced
+curves were never strong enough and the small final size made the weak cues vanish. Fix: re-author both edges on a
+shared span grid aligned to the finger lobes + cusps — leading peak chord 1.15→1.48 around span ~2.5 (a real forward
+knuckle past the wrist 0.85), trailing scallops deepened to a clear sawtooth (finger lobes -1.8/-1.4/-0.9/-0.45,
+cusps scooping forward between). The molten rim traces the deeper scallops and the leading spar follows the stronger
+arc, so both cues now read. Also lengthened the tail (lenK 1.5→1.85) to hit the spec (2.5→2.86 crown-heights).
+Lessons: (1) when a shape "loses character," get the human to name the DEFINING cues (here: leading convexity +
+scallop depth) and author them EXPLICITLY — don't assume a faithful silhouette trace carries the read at every size;
+(2) a planform's silhouette cues must be EXAGGERATED to survive shrinking + shading + low-poly facets — trace for the
+read, not just the outline; (3) keep both lofted edges on the SAME span grid (here re-gridded to the finger lobes) so
+deepening the scallops doesn't desync the chordwise loft.
+
+---
+
+### L121 — Smooth the lofted edges (Catmull-Rom in SPAN), put the leading peak MEDIAL, even scallops — and the "32MB" was the chat's images, not the file
+The human gave a crisp reference and named what was still wrong: the leading convexity peaked mid-span (should be
+MEDIAL, ~25% out), and the trailing scallops were "jaggy and janky" (should be clean even arcs). Root cause of the
+jaggies: the loft sampled both edges with LINEAR station-to-station interpolation, so the scalloped trailing edge
+read as angular facets. Fix: sample both edges as SMOOTH curves — a `chordAt(points, s)` Catmull-Rom-in-SPAN sampler
+evaluated at high resolution, with leading & trailing taken at the SAME span each row so the chords stay aligned.
+Then re-author the curves: leading peak moved to span ~1.4 (≈26%, a real forward knuckle near the wrist) rising fast
+then a long sweep to a pointed tip; trailing edge four even scallops (finger lobes ~-1.65/-1.6/-1.45/-1.0, smooth
+cusps between) staying wide until the last scallop closes to the tip. Now the silhouette reads dragon, not moth.
+Also: the human hit a "Request too large (max 32MB)" error — NOT the file (39KB on disk), it was the accumulated
+RENDER IMAGES in the conversation. Mitigations: render small + clipped + dsf 1 (62KB vs 5MB strips), and CONSOLIDATE
+the module — removed the dead `buildGliderWing` path + its branch (no dragon ships `gliderWing`; Thundercoil's legacy
+fan path stays), trimming dragonWingAnatomy.js 629→557.
+Lessons: (1) a lofted edge is only as smooth as its SAMPLER — sample by the shared parameter (span) with a smoothing
+curve (Catmull-Rom), never linear station-to-station, or every control point becomes a facet; (2) "convexity should be
+medial" is a literal control: move the peak's SPAN, don't just raise its height; (3) when a client throws a size
+error mid-session, suspect the accumulated media in context (big PNGs), not the source file — shrink renders and prune.
+
+---
+
+### L122 — Flexed upstroke (dump air) + front-load the cascade so the INNER wing isn't stiff
+Two coupled notes flying the apex: most motion was in the outer third (inner 2/3 stiff), and the wing never FOLDED
+to dump air on the upstroke. Both are cascade issues. (1) Stiff inner: equal per-bone amplitude makes the chained
+rotation accumulate LINEARLY to the tip, so the tip moves most and the inner barely rotates (short lever too). Fix:
+FRONT-LOAD the amplitude (ampTaper^i, e.g. 0.68) so the inner/shoulder bone carries the biggest swing, tapering
+outward — the inner 2/3 now moves while the lag still ripples. (2) Flexed upstroke: real birds/bats flex the wing on
+the upstroke (wrist + some elbow; inner arm stays extended) to cut drag and avoid negative lift — span -20-40%, area
+-30-50%, the hand-wing flexing ~30-50deg, EXTENDED through the downstroke (power) and re-extended by the apex.
+Modelled as a curl = curlAmp * max(0, -cos(warp)) * f^2: max(0,-cos(warp)) peaks MID-upstroke and is 0 through the
+downstroke (the exact timing), f^2 concentrates the fold at the wrist/tip. Knobs segAmp/ampTaper/curlAmp/segApex/
+tipLag; defaults (ampTaper 1, curlAmp 0) keep every other wingParts dragon byte-identical.
+Lessons: (1) a chained cascade with equal amplitude ALWAYS piles motion at the tip — front-load to move the inner,
+the LAG (not the amplitude) is what sells the ripple; (2) "fold to dump air" has a precise envelope — max(0,-cos(warp))
+gives extended-downstroke / folded-upstroke / re-extended-apex for free; (3) match the fold bias (f^2) to the anatomy
+— wrist/tip folds, inner arm stays extended.
+
+---
+
+### L123 — Tuning the flexed upstroke: judge the FOLD on the up-phase frames (not the apex), and a deeper fold is a pure runtime param (byte-identical geometry)
+After L122 shipped the flexed-upstroke fold (`curlAmp`) the human's note was simply "it could be MORE flexed."
+This is the in-game judgement + tune pass. The right oracle is `tools/flapstrip.mjs flameMonarch 3` — it boots the
+real game, freezes the wing at each named cycle point via `?wingDebug=<phase>` (the wingParts branch has its own
+`WP_FREEZE` table so the chain pose is pure solver output, steering zeroed), screenshots the live chase cam, and
+montages glide·recovery·apex·downstroke·settle. The fold lives ONLY on the up-phases: the curl term is
+`curlAmp·max(0,−cos(warp))·f²`, which is 0 across the downstroke AND ~0 at the apex (re-extended) by construction — so
+judge "is it folded enough?" on the **recovery (dome)** and **glide (up-low)** frames, never the apex (which SHOULD
+read as a full extended V — if the apex changed, the envelope is wrong). At `curlAmp 0.5` the up-phase wing still read
+as a broad raised PLANE (outer hand roughly in-plane with the inner arm); bumping to **0.85** (≈49° at the tip bone,
+inside the 30–50° hand-wing flex from L122) made the outer hand visibly hook UP + inward on the upstroke — span
+narrows (dumps air) on glide/recovery while apex/downstroke/settle keep full area. A tight before/after crop of just
+the two up-phase frames (a throwaway canvas-montage script, same stitch as flapstrip) is what made the delta legible —
+at chase-cam distance the full strip under-reads a single-knob change.
+Gotchas / lessons: (1) `curlAmp` is a RUNTIME rotation parameter — it touches no geometry, so `tricount --detail=high`
+is byte-identical (235164, 0 over) and there's nothing to "verify" on the tri budget; the only real verification is the
+visual + the wing tests (`flapcheck`, `skinnedwing` green). (2) When tuning ONE flap knob, crop the comparison to the
+frames where that knob acts — a 0.5→0.85 fold is invisible in a 5-frame full strip but obvious in a 2-frame up-phase
+crop. (3) The remote/web execution env HAS Chromium (`/opt/pw-browsers`, `PLAYWRIGHT_BROWSERS_PATH`) so flapstrip runs
+headlessly here even though CI's Chromium is network-blocked — this is the place to do in-game render checks. (4)
+`tests/badges.mjs` (and other shop-grid browser tests) time out on `.shop-grid` in this container REGARDLESS of the
+change (confirmed by stashing) — a pre-existing environmental flake, not a regression; don't chase it. (5) f² keeps the
+fold in the outer hand (inner arm extended) — raise `curlAmp` for a deeper hand-fold, don't lower the exponent (that
+would fold the inner arm, breaking the anatomy).
+
+---
+
+### L124 — The flexed-upstroke cascade was DEAD CODE: buildDragonModel never exported wingChainL/R, so curlAmp/ampTaper/segAmp never ran in-game (the "modest flex" was the poseWing fallback)
+The human, after L122, said the flex "is still very modest" — and gave the biomechanics spec (hand-wing flexes 30-50 deg
+at the WRIST, span -20..40%, area -30..50%, fold peaks mid-upstroke, re-extends by the apex). The L119 move is to MEASURE
+(`tools/flexmeasure.mjs`: boot the real builder headless, drive the actual wing bone-chain through the beat, compute the
+wrist fold angle + span shortening). Building it surfaced the real bug: **`buildDragonModel` never put `wingChainL/R`
+in its returned `parts`** — only `wingMidR`/`wingTipR` (which happen to be chain bones). So `dragon.js`
+`result.parts.wingChainR` was `undefined` → `null` → the `if (wingChainR) driveChain(...)` branch NEVER ran, and the
+wing silently fell back to the 3-handle `poseWing`. The ENTIRE skinned cascade (`curlAmp`, `ampTaper`, `segAmp`,
+`segApex`, `tipLag` — all consumed only inside `driveChain`) was inert dead code, in BOTH the live game and the preview
+(`makePreviewTick` destructures `wingChainL/R` from the same chain-less `parts`). The cascade commit `bf783a8` wired the
+CONSUMERS (driveChain in dragon.js + makePreviewTick) but forgot the one-line PRODUCER (the export), so every "tune
+curlAmp" pass since — incl. this session's 0.5→0.85 — changed nothing in-game (the render deltas were run-to-run seed
+noise, NOT the param). Fix: export `wingChainL, wingChainR` from both `buildDragonModel` returns (normal + preview),
+pulled from `wingsResult.parts` (null for non-chain wings → poseWing fallback preserved). Only `monarchWing` builds a
+chain, so this activates the cascade for Flame Monarch ALONE — rest of roster byte-identical (`tricount` 235164
+unchanged, `skinnedwing` green). The flapstrip before/after is night-and-day: dead-wired = flat raised plane; wired =
+the hand-wing curls into a tall folded arch (the real flexed upstroke). Measured at `curlAmp 0.85`: wrist flex ~36 deg
+(in the 30-50 range) but structural span draw-in only ~6% (vs 20-40% target) — the fold is `f²`-concentrated on the
+OUTERMOST bone, so the wing raises + curls hard but doesn't draw IN much; hitting the research's span/area reduction
+needs the fold pivoted MEDIALLY (at the wrist ~span 0.34) over the whole hand-wing, not just the tip (a future tune).
+Lessons: (1) when "tuning a param does nothing," FIRST verify the param's code path actually EXECUTES — check the value
+is wired end to end (producer→consumer), don't assume a render delta is your change (seed noise mimics it); the cheapest
+proof is a headless probe that reads the built `parts` keys. (2) A feature split across a producer (build/export) and
+consumers (animate) can ship "complete" with the producer missing — the consumers no-op silently behind a truthy guard
+(`if (wingChainR)`), so it LOOKS wired and even has passing build tests. Grep that the handle is RETURNED, not just
+built. (3) MEASURE the biomechanics against the spec (angle + span% probe) instead of eyeballing renders — it
+distinguished "angle is fine, span draw-in is the deficit," which a screenshot never would. (4) `flapstrip` seed noise:
+to compare a one-param wing change, the pose freeze is deterministic but the course/camera aren't — diff is only
+trustworthy for LARGE changes (like this activation) or via the headless measure, not pixel-peeping small ones.
+
+---
+
+### L125 — The flexed upstroke is WRIST FLEXION (inverted-V / M-shape), not an up-curl: arm extends up+back to a wrist PEAK, hand-wing folds DOWN/back from there
+After L124 wired the cascade live, the human nailed the remaining wrongness: "in the recovery stroke the shoulder
+should extend BACK, the wrist flexes such that it forms an inverted V — right now it's not doing that." The L122 `curl`
+term rotated the hand-wing further UP (a tip-concentrated upward arch, a "C"), which is the OPPOSITE of real upstroke
+flexion. Researched the avian kinematics (PMC pigeon-wing decoupling study + PLOS avian shoulder kinematics): on the
+upstroke the SHOULDER sweeps back (posterior retraction), then the ELBOW flexes, then the WRIST flexes (proximal→distal),
+"bringing the hand bones toward the ulna" and sweeping "the hand-wing backward while the arm-wing remains extended." So
+the wrist becomes the PEAK and the hand folds DOWN/back from it — viewed from behind, both wings make an inverted V each
+(an "M"). Rebuilt the fold as WRIST FLEXION: `upEnv = max(0,−cos(warp))` (peaks through the recovery, releases by the
+apex) drives a `handMask`-gated fold that is 0 inboard of `wristFrac` (arm stays extended) and ramps to the tip
+(elbow+hand fold), with the sign NEGATIVE (folds DOWN relative to the wrist, not up) and the apex-lift damped on the hand
+(`apx*(1−0.7*handMask)`) so the folded hand isn't re-raised; plus `armSweepBack` posterior retraction on the upstroke.
+New knobs replace `curlAmp`: `wristFlex` (fold depth), `wristFrac` (pivot in f-space, 0.28 = medial, engages elbow+
+wrist), `armSweepBack` (deg). Live: wristFlex 2.2, wristFrac 0.28, armSweepBack 28 → measured Λ-shape confirmed (wrist
+is the highest point, tip drops ~0.45 below it), span draw-in ~20%. Flapstrip recovery frame now reads as a clean M;
+downstroke stays wide+flat (full power area); apex re-extends. Both driveChain copies (dragon.js live + dragonModel.js
+preview) updated identically; roster byte-identical (only monarchWing has a chain; tricount 235164, skinnedwing +
+flapcheck green). The headless `flexmeasure.mjs` probe (with an "is the wrist the peak?" Λ check + span-draw-in) is what
+let me TUNE the model to the inverted-V analytically across (wristFrac × wristFlex) before paying a single 4-min render.
+Lessons: (1) "flexed upstroke" has a DIRECTION — the hand folds DOWN/back toward the forearm (wrist = peak, inverted V),
+NOT up; an up-curl is the classic wrong guess (it looks like more flap, not a fold). (2) span draw-in needs a MEDIAL
+pivot (elbow+wrist), not a tip-only fold — the research's "20-40% span" comes from the whole outer wing flexing, so
+`wristFrac` must sit around the elbow (~0.28 f), and the arm inboard must be MASKED out so it stays extended. (3) when a
+metric (my hand-wing angle) overshoots the spec while the SHAPE is right, trust the shape diagnostic (wrist-is-peak +
+tip-drop) + the render over the scalar — the angle definition rarely matches the paper's exactly. (4) research the
+ACTUAL biomechanics when the human says "research it" — the joint ORDER (shoulder→elbow→wrist) and the fold direction
+fell straight out of two papers and mapped 1:1 onto the cascade (lag = proximal→distal, negative handMask fold = wrist
+flexion, armSweepBack = shoulder retraction).
+
+---
+
+### L126 — Rebuild beats patching: the flap cycle was a pile of fighting terms. Clean two-channel model + two bone-chain gotchas (tip-bone rotations do nothing; angle≠bend)
+The human, seeing the L125 M-shape: "It looks weird and janky, there's no power stroke at all, and the M is WAY too
+pronounced — redo this cycle with the research in mind, start fresh, there's too much mixed-up coding." Correct call:
+the cascade had accreted SEVEN superimposed terms (front-loaded elevation + apexUp lift + curl/wristFlex + handMask +
+armSweepBack + washout-twist + inside-tuck, over a time-warp) that fought each other — the recovery fold had grown huge
+while the power downstroke had quietly vanished. Threw it out and rebuilt driveChain as TWO channels only: (1) POWER — a
+front-loaded `cos(warpedLaggedPhase)` elevation swing, DOWN-biased (`downScale 1.3 > upScale 0.7`) so the EXTENDED wing
+presses ~0.86 below body on the slow downstroke and lifts more modestly on the upstroke; (2) RECOVERY — ONE subtle wrist
+flex (`max(0,−sin(w))` half-sine, upstroke only) that folds the hand DOWN from a wrist peak, plus a single fore-aft
+`sin(w)` sweep (fwd downstroke / back upstroke). No apex-lift / washout / tuck. New clean knobs (beatAmp, upScale/
+downScale, flexAmp, wristFrac, handWidth, tipLag, sweepDeg) REPLACE the old pile (segAmp/segApex/apexPitch/curlAmp/
+wristFlex/armSweepBack/rowDeg). Measured: smooth tip-height sparkline, power 0.86 below body + bend 21° (extended) on the
+downstroke, recovery bend 37° (subtle, ~16° over the camber baseline), span draw-in 5%. Flapstrip confirms: wide
+extended power downstroke, gentle natural M on the recovery. Roster byte-identical (tricount 235164, skinnedwing green).
+TWO bone-chain gotchas paid here, both subtle:
+(1) **Rotating the TIP bone moves nothing.** In a chain, `bone[i].rotation` only transforms bones OUTBOARD of i. The
+L122–L125 flex was `f²`/ramp-weighted to PEAK at the last bone (f=1, the tip) — which has no children, so most of the
+"fold" was wasted; the visible bend came almost entirely from rest geometry + ripple lag, and `flexAmp` barely did
+anything. The fold must peak at the WRIST bone (one in from the tip) — a triangular `handMask` centred on `wristFrac`
+with ~0 at f>0.95. Once moved there, the flex actually responds (flexAmp 0.4→33°, 0.7→48°). Rule: to bend segment k→k+1,
+rotate bone k, never bone k+1; the outermost bone is a no-op handle.
+(2) **`wrist.y − tip.y` measures wing ANGLE, not flex.** A perfectly STRAIGHT wing angled downward already has the wrist
+above the tip (the tip is further out and lower), so that metric read ~0.5 "fold" on the EXTENDED downstroke and refused
+to budge with flexAmp — pure confound. The honest, rotation-invariant flex metric is the ANGLE between the inner-arm
+segment and the hand-wing segment (0 = straight). Swapping to it instantly separated "downstroke is extended (21°)" from
+"recovery is flexed (37°)".
+Lessons: (1) when a system has been patched N times and "feels janky," the move is a clean REBUILD from the model, not an
+(N+1)th term — superimposed envelopes that each seemed right individually sum to mush; (2) a "power stroke that
+disappeared" is usually an amplitude/bias problem — here an UP-biased swing (top lift ≫ down press); bias the swing DOWN
+and keep the downstroke EXTENDED (flex=0 there) so power = extended·slow·deep vs recovery = flexed·quick; (3) verify your
+metric isn't confounded by pose before trusting it (angle-vs-bend) — a probe that reports a number immune to the thing
+you're tuning is worse than no probe; (4) bone-chain authoring: the last bone only carries skin, never motion.
+
+---
+
+### L127 — A rear-cam flap reads as "lateral paddling" unless the SHOULDER drives fore-aft protraction/retraction — the big motion belongs on the pivot, not the bones
+The human, on the L126 clean cycle: "the shoulder joint isn't really extending on the recovery — it just looks like the
+wrist is flexing, so it's pushing air laterally. Looks weird. Redo the whole thing." Root cause: every version since the
+cascade put ELEVATION on the bone chain and left the shoulder PIVOT static in yaw, so the wing only swung up/down in the
+frontal plane (plus a tiny tip-weighted sweep). From the rear chase cam an up/down swing of a laterally-extended wing IS
+"lateral paddling" — there was almost zero FORE-AFT (depth, z) travel. Confirmed with a new probe metric (tip-z range):
+the old drive ≈ flat; real wings row. The fix is structural: drive the BIG motion at the SHOULDER (the pivot), two
+channels on it — (1) elevation (down-biased cos swing) and (2) PROTRACTION/RETRACTION (pivot YAW): the whole arm reaches
+FORWARD on the downstroke and draws UP+BACK on the upstroke (`shoulderSweep * sin(warp)`), which is the avian recovery
+sweep and the depth the rear cam needs. The BONES now carry only a small lagged ripple (so it isn't a dead hinge) + the
+one subtle wrist flex + a touch of distal figure-8. Measured: tip fore-aft travel went 0→1.93 (vs vertical 2.84), the
+wing is forward on the downstroke (tip z −0.56) and drawn back on the recovery (+0.57), downstroke extended (bend 6°),
+recovery wrist M subtle (29°). Flapstrip confirms the whole wing sweeps up+back on the recovery (not just the hand).
+Knobs: beatAmp (shoulder elevation), shoulderSweep (deg, the retraction), rippleAmp (bone secondary), flexAmp/wristFrac
+(wrist), tipSweep (distal figure-8). Roster byte-identical (only monarchWing has a chain; tricount 235164, skinnedwing
+green). Both driveChain copies (live + preview) rebuilt identically.
+Lessons: (1) on a REAR/chase cam, vertical flap alone always reads as paddling — you MUST have fore-aft (depth) motion
+for it to read as flight; measure tip-z travel, not just tip-y. (2) the SHOULDER (the pivot/root of the chain) should
+carry the limb's gross translation-in-angle (elevation + protraction/retraction); the distal bones carry SECONDARY
+detail (ripple, wrist flex). Putting the gross motion on the distal bones (to avoid a "hinge" look, L118) was an
+over-correction that starved the shoulder — the cure for "hinge" is fore-aft sweep + secondary ripple + distal flex, not
+moving the whole swing outboard. (3) "extending the shoulder" in the human's words = anatomical protraction/retraction =
+the pivot's YAW axis over the beat; name the axis and drive it explicitly. (4) the headless probe must measure the axis
+the complaint is about — adding a tip-z (depth) readout instantly made the "lateral paddle" quantitative and tunable.

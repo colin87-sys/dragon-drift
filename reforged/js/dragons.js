@@ -808,6 +808,176 @@ export const DRAGONS = {
     aura: 0xfff0a8, eye: 0xfff0c0, trail: 0xffd76a, boostTrail: 0xfff0c8,
   },
 
+  // FLAME MONARCH — a classic European fire dragon evolved into a racing monarch.
+  // Brand-new everything (the "Phoenix technique"): its OWN torso / wings / head /
+  // tail builders (monarchHull / monarchWing / monarchCrown / monarchTail), so the
+  // silhouette is genuinely new — a four-legged western drake with a broad chest,
+  // pinched waist, long balancing tail, wide-but-narrow bat wings that throw a rear
+  // V, swept-back crown horns, and an unmistakable molten dorsal spine. Dark
+  // charcoal/obsidian hide, burnt-bronze belly, molten orange-red in the spine
+  // gaps / throat / wing-vein struts / tail-tip fins. Its Surge is a "magma
+  // overload" — the spine, struts and fins pulse hot pink-orange (def.surgeHi);
+  // def.boostSpine brightens the same accents on boost.
+  flameMonarch: {
+    name: 'Flame Monarch',
+    title: 'Crowned in molten fire',
+    rarity: 'SSSR',
+    maxRarity: 'SSSR',
+    cost: 6400,
+    parts: {
+      torso: 'monarchHull', wings: 'monarchWing', head: 'monarchCrown', tail: 'monarchTail',
+      // The torso builds its OWN molten dorsal spine, so the explicit layer list both
+      // suppresses the engine-INFERRED spine-line (that double-drew the dorsal glow —
+      // the "2 rows" jank) AND adds the banded segmented ARMOR: curved obsidian shell
+      // plates wrapping the back + upper flanks in transverse bands, leaving a dorsal
+      // channel for the molten spine and a glowing gap-line between bands. The wing-root
+      // z-band is skipped so the armor never collides with the wings.
+      surfaceLayers: ['monarchArmor'],
+    },
+    stats: { speed: 1.16, handling: 1.20, drain: 0.74, regen: 1.22 },
+    boostSpine: true,   // brighten the molten spine + wing struts + tail fins on boost
+    // Magma-overload Surge: hot pink-orange flare + a warm low screen wash.
+    hasStyle: true, surgeMotes: true,
+    feverWing: 0xff6a78, feverEye: 0xffd2c0, feverWash: [0.06, 0.022, 0.03],
+    model: {
+      scale: 1.12, wingScale: 0.40,   // wingspan ≈ 5.7 crown-heights (was 1.18 → ~14, way oversized)
+      bodyRoughness: 0.62, bodyMetalness: 0.12, rimBodyMul: 1.1,
+      flapBias: 0.92, flapAmp: 0.88,   // broad, powerful, regal western-dragon beat
+      flapFreqScale: 0.7,              // −30% flap speed (slower, readable regal beat)
+      wingParts: true,
+      // SHOULDER-DRIVEN WINGBEAT (skinned chain — see driveChain). The SHOULDER carries the big
+      // motion; the bones add only a small ripple + the wrist flex. Rebuilt from the bird-kinematics
+      // research (L127) so the wing ROWS in 3D (depth), not a flat lateral paddle:
+      //  • SHOULDER ELEVATION (beatAmp): a down-biased swing (downScale>upScale) — the EXTENDED wing
+      //    presses below horizontal on the slow downstroke (downFrac), lifts more modestly on the up.
+      //  • SHOULDER SWEEP (shoulderSweep, deg): protraction/retraction — the whole arm reaches FORWARD
+      //    on the downstroke and draws UP+BACK on the upstroke (the recovery sweep — the key 3D depth).
+      //  • RIPPLE (rippleAmp, tapered by ampTaper, lagged by tipLag): a small proximal→distal
+      //    secondary wave so it isn't a dead hinge.
+      //  • WRIST FLEX (flexAmp at wristFrac): one subtle hand fold DOWN on the upstroke only.
+      //  • tipSweep: a touch of distal fore-aft so the wingtip traces a figure-8. restLift = glide
+      //    dihedral. No apex-lift / washout / tuck stacking.
+      beatAmp: 0.45, ampTaper: 0.7, tipLag: 0.8, restLift: 0.06,
+      upScale: 0.7, downScale: 1.3,
+      shoulderSweep: 20, rippleAmp: 0.14,
+      flexAmp: 0.45, wristFrac: 0.67, tipSweep: 12,
+      // asymmetric power stroke + body porpoise.
+      downFrac: 0.58,        // downstroke takes 58% of the cycle → heavier/slower POWER stroke
+      bodyFlapPitch: 0.05,   // chest pitches up on the power downstroke (the porpoise heave)
+      tailFollowFlap: 0.13,  // tail heaves in counter-phase, lagged aft — the weight behind the wings
+      bodyBobScale: 1.25,   // a touch more neck bob/breathe so the body reads alive
+    },
+    // Four forms of one growing monarch — charcoal ember whelp → molten-crowned
+    // king. bodyScale/wingSpan author an explicit growth curve (Radiant = 1.0);
+    // spineGlow ramps the molten light; hornLen/tailLength grow the crown + tail.
+    forms: [
+      // FORM 1 — Ember Whelp: a small dark drake, faint molten spine, stubby horns.
+      { bodyScale: 0.60, wingSpan: 0.82, spineGlow: 0.15, hornLen: 0.7, tailLength: 0.82,
+        colors: { body: 0x1a1512, belly: 0x5a3015, scales: 0x33271f, horn: 0x2a221c,
+          coreGlow: 0xff7a2e, wingEmissive: 0xff6a22, wingMembraneEmissive: 0x3a1408,
+          wingInner: 0x231a16, apexSeam: 0xff7a2e, eye: 0xffb43c,
+          trail: 0xff7a2e, boostTrail: 0xffa850 } },
+      // FORM 2 — Cinder Drake: bigger, the spine brightens, the crown horns lengthen.
+      { bodyScale: 0.80, wingSpan: 0.92, spineGlow: 0.42, hornLen: 0.92, tailLength: 0.92,
+        colors: { body: 0x191310, belly: 0x6a3818, scales: 0x382a20, horn: 0x2c231d,
+          coreGlow: 0xff6a24, wingEmissive: 0xff5a1c, wingMembraneEmissive: 0x44160a,
+          wingInner: 0x251b17, apexSeam: 0xff6e26, eye: 0xffa432,
+          trail: 0xff6a26, boostTrail: 0xff9a48 } },
+      // FORM 3 — Ember Sovereign (Radiant = 1.0): full molten dorsal spine + throat.
+      { bodyScale: 1.00, wingSpan: 1.00, spineGlow: 0.72, hornLen: 1.1, tailLength: 1.0,
+        colors: { body: 0x171210, belly: 0x7a4420, scales: 0x3c2c20, horn: 0x2e241e,
+          coreGlow: 0xff5e1e, wingEmissive: 0xff5418, wingMembraneEmissive: 0x4e180a,
+          wingInner: 0x261c18, apexSeam: 0xff6a22, eye: 0xff9a2c,
+          trail: 0xff6222, boostTrail: 0xff9440 } },
+      // FORM 4 — FLAME MONARCH (apex): the obsidian king, molten spine/struts/fins
+      // blazing, the crown at full reach. Surge flares this hardest.
+      { bodyScale: 1.12, wingSpan: 1.12, spineGlow: 1.0, hornLen: 1.25, tailLength: 1.08,
+        surgeGlowMultiplier: 1.3,
+        colors: { body: 0x161210, belly: 0x844a22, scales: 0x40301f, horn: 0x322620,
+          coreGlow: 0xff5a1e, wingEmissive: 0xff5014, wingMembraneEmissive: 0x58200c,
+          wingInner: 0x281e18, apexSeam: 0xff6a20, eye: 0xff8f28, aura: 0xff7a3a,
+          trail: 0xff5e1e, boostTrail: 0xff9038 } },
+    ],
+    fx: { auraColor: '255,120,60', auraIdle: 0.05, sparkle: false },
+    previewAccent: 0xff6a2a,
+    surgeHi: 0xff5a78,   // hot pink-orange magma flare for the Surge pulse
+    // Top-level fallbacks (≈ the apex form, for any raw render).
+    body: 0x161210, belly: 0x844a22, scales: 0x40301f, horn: 0x322620,
+    wingInner: 0x281e18, wingOuter: 0x140e0c, wingEmissive: 0xff5014,
+    wingMembraneEmissive: 0x58200c, coreGlow: 0xff5a1e, apexSeam: 0xff6a20,
+    surgeHi2: 0xff8f6a, eye: 0xff8f28, aura: 0xff7a3a,
+    trail: 0xff5e1e, boostTrail: 0xff9038,
+  },
+
+  // THUNDERCOIL AMPHITHERE — a legless storm-serpent (brand-new family, the Phoenix
+  // technique). A long coiling body undulating like a ribbon (the segmented bodySegs
+  // travelling-wave rig — no legs, custom motion), thick at the chest/wing-root and
+  // tapering to a thin forked-conductor tail. Large SHARP triangular wings mounted on
+  // the front third, a broad boxy wedge head with a flat crown, and a backward
+  // lightning crest (skull→neck) fading to low dorsal nodes. Storm-grey/navy hide,
+  // pale-silver belly, electric blue-white accents. Its Surge is a "storm overload":
+  // accents flare electric-white (surgeHi), arcs jump between the wing struts + tail
+  // fork, and a shock ring snaps out behind it (def.stormFx, driven in dragon.js);
+  // boost runs a current head→tail (def.boostSpine + the storm current).
+  thundercoil: {
+    name: 'Thundercoil Amphithere',
+    title: 'The storm given a spine',
+    rarity: 'SSSR',
+    maxRarity: 'SSSR',
+    cost: 6600,
+    parts: { torso: 'ampithereTorso', wings: 'ampithereWing', head: 'ampithereHead', tail: 'none' },
+    stats: { speed: 1.18, handling: 1.30, drain: 0.72, regen: 1.20 },
+    boostSpine: true,   // accents brighten on boost (the storm current adds the head→tail run)
+    stormFx: true,      // lightning arcs + shock ring (driven in dragon.js, boost/Surge only)
+    hasStyle: true, surgeMotes: true,
+    feverWing: 0x9ee6ff, feverEye: 0xeafbff, feverWash: [0.02, 0.05, 0.08],
+    model: {
+      scale: 1.04, wingScale: 1.14,
+      bodyRoughness: 0.5, bodyMetalness: 0.28, rimBodyMul: 1.0,
+      // Ribbon undulation — a gentle lead-first slither (front calm, tail whips).
+      segmentSway: 0.2, segmentBob: 0.06, segmentLag: 0.16,
+      flapBias: 1.0, flapAmp: 0.9, flapFreqScale: 0.7,   // −30% flap speed (assessment)
+      // SHARP triangular wing on the 3-segment articulated chain.
+      wingParts: true, glidePow: 1.15,
+      rootAmp: 0.52, midAmp: 0.42, tipAmp: 0.36, midLag: 0.55, tipLag: 1.05,
+      restLift: 0.46, apexRoot: 0.14, apexMid: 0.28, apexTip: 0.44, apexPitch: 0.12,
+    },
+    // Four forms of one growing storm-serpent — the body lengthens (segmentCount),
+    // the wings widen, and the electric charge ramps from dim spark to full storm.
+    forms: [
+      // FORM 1 — Spark Eel: a short dim serpent, few segments, faint crest.
+      { segmentCount: 9, bodyScale: 0.7, wingSpan: 0.82, spineGlow: 0.15, glowIntensity: 0.5,
+        colors: { body: 0x222833, belly: 0x9aa6b8, coreGlow: 0x5ab0e0, wingEmissive: 0x5ab0e0,
+          wingMembraneEmissive: 0x121a28, wingInner: 0x182230, apexSeam: 0x6ec4f0, eye: 0x9fe4ff,
+          trail: 0x5ab0e0, boostTrail: 0x8fd4ff } },
+      // FORM 2 — Storm Coil: longer body, brighter crest, the fork sharpens.
+      { segmentCount: 11, bodyScale: 0.86, wingSpan: 0.92, spineGlow: 0.42, glowIntensity: 0.7,
+        colors: { body: 0x1e2530, belly: 0xaeb8c8, coreGlow: 0x66c4ff, wingEmissive: 0x66c4ff,
+          wingMembraneEmissive: 0x142030, wingInner: 0x192536, apexSeam: 0x86d6ff, eye: 0xc4f0ff,
+          trail: 0x66c4ff, boostTrail: 0x9fe0ff } },
+      // FORM 3 — Tempest Serpent (Radiant = 1.0): full body, vivid electric crest.
+      { segmentCount: 13, bodyScale: 1.0, wingSpan: 1.0, spineGlow: 0.72, glowIntensity: 1.0,
+        colors: { body: 0x1a212c, belly: 0xc2ccdc, coreGlow: 0x7ad2ff, wingEmissive: 0x7ad2ff,
+          wingMembraneEmissive: 0x18263a, wingInner: 0x1b2940, apexSeam: 0x9ee6ff, eye: 0xd8f6ff,
+          trail: 0x7ad2ff, boostTrail: 0xb6ecff } },
+      // FORM 4 — THUNDERCOIL (apex): the longest, charged white-blue, fork ablaze.
+      { segmentCount: 14, bodyScale: 1.1, wingSpan: 1.12, spineGlow: 1.0, glowIntensity: 1.3,
+        surgeGlowMultiplier: 1.3,
+        colors: { body: 0x171e29, belly: 0xd6e0ee, coreGlow: 0x8fdcff, wingEmissive: 0x8fdcff,
+          wingMembraneEmissive: 0x1d2c44, wingInner: 0x1d2c46, apexSeam: 0xb6ecff, eye: 0xeafbff,
+          aura: 0x9ee6ff, trail: 0x8fdcff, boostTrail: 0xcaf2ff } },
+    ],
+    fx: { auraColor: '120,200,255', auraIdle: 0.05, sparkle: true },
+    previewAccent: 0x7ad2ff,
+    surgeHi: 0xcfeaff,   // electric white-blue flare for the storm Surge
+    // Top-level fallbacks (≈ the apex form, for any raw render).
+    body: 0x171e29, belly: 0xd6e0ee, scales: 0x2a3340,
+    wingInner: 0x1d2c46, wingOuter: 0x10161f, wingEmissive: 0x8fdcff,
+    wingMembraneEmissive: 0x1d2c44, coreGlow: 0x8fdcff, apexSeam: 0xb6ecff,
+    eye: 0xeafbff, aura: 0x9ee6ff, horn: 0x2a3340,
+    trail: 0x8fdcff, boostTrail: 0xcaf2ff,
+  },
+
   // A sleek astral serpent: one continuous flowing crystal body wrapped in glowing
   // energy bands, lateral astral fin-vanes, a regal mask head + a celestial saddle,
   // that slithers HORIZONTALLY (low + readable, §0.5) and tapers into a streaming
