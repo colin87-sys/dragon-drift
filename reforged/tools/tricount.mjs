@@ -100,6 +100,13 @@ let rosterTotal = 0;
 let over = 0;
 
 for (const key of Object.keys(DRAGONS)) {
+  // Asset-backed dragons (def.meshUrl) are a loaded GLB, not procedural geometry
+  // — the builder can't construct them headlessly and the per-form triangle
+  // budget doesn't apply. Their cost is reported by tests/glb.mjs instead.
+  if (DRAGONS[key].meshUrl) {
+    rows.push({ key, name: 'asset-backed', tris: 0, ok: true, asset: true });
+    continue;
+  }
   const maxTier = maxTierFor(key);
   for (let tier = 0; tier <= maxTier; tier++) {
     const def = ascendedDef(DRAGONS[key], tier, 0);

@@ -25,6 +25,7 @@ import { flapWing, formStrength, formSpeed } from './dragonWingFlap.js';
 import { solveWing } from './wingFlapSolver.js';
 import { composeSurface, fresnelRimPatch, buildSurfacePatches } from './dragonSurfaceShader.js';
 import { setActiveDetail, seg } from './modelDetail.js';
+import { buildGlbDragon } from './dragonGlb.js'; // asset-backed path (def.meshUrl)
 
 // Unified procedural dragon mesh builder.
 // Both the in-game rig (dragon.js) and the shop turntable (preview.js)
@@ -101,6 +102,10 @@ export function buildDragonModel(def, opts = {}) {
   // otherwise the build inherits the process-wide active level the live rig set
   // (createDragon → setActiveDetail). HIGH is byte-identical to the old geometry.
   if (opts.detail) setActiveDetail(opts.detail);
+  // Asset-backed coexist path: an AI-generated GLB dragon (def.meshUrl) loads a
+  // mesh and returns the SAME { group, parts, materials, auraSprite } contract,
+  // so the rest of the engine is untouched. Procedural roster is unaffected.
+  if (def.meshUrl) return buildGlbDragon(def, opts);
   const group = new THREE.Group();
   // Emissive multiplier (Radiant = 1.0; the apex can exceed 1) shared by every
   // glowing accent so a form's whole light signature ramps from one constant.

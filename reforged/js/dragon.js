@@ -37,6 +37,7 @@ let wingPivot2L = null;
 let wingPivot2R = null;
 let wingRigL = null;  // skinned-wing flap rigs (shoulder/elbow/wrist), null otherwise
 let wingRigR = null;
+let glbAnim = null;   // { mixer } for an asset-backed (GLB) dragon, null otherwise
 let head = null;
 let tailSegs = [];
 let spineSegs = [];       // night-fury body-spine whip bones (empty for every other dragon)
@@ -157,6 +158,7 @@ export function createDragon(scene, def, riderDef) {
   spineSegs = result.parts.spineSegs || [];
   bodySegs = result.parts.bodySegs || null;
   tailOrbiters = result.parts.tailOrbiters || null;
+  glbAnim = result.parts.glbAnim || null;   // asset-backed baked-clip mixer (if any)
   ({ bodyMat, wingMat, eyeMat } = result.materials);
   auraSprite = result.auraSprite;
   coreGlow = result.parts.coreGlow;
@@ -432,6 +434,10 @@ export function updateDragon(dt, player, time) {
     player.position.y + Math.sin(time * 2.1) * 0.16,
     player.position.z
   );
+
+  // Asset-backed (GLB) baked-clip flap, if present. The reactive wing flap still
+  // runs through the wingRig path below; this only ticks a skinned GLB's own clip.
+  if (glbAnim && glbAnim.mixer) glbAnim.mixer.update(dt);
 
   // Banking and pitch — banking deepens with speed for drama.
   // Bank is tracked separately so the barrel-roll spin can stack on top

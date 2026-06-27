@@ -94,6 +94,13 @@ export function validateCreatureBlueprint(def, name = def && def.name) {
   if (typeof def !== 'object' || def == null) {
     return { ok: false, errors: [`${tag}: blueprint must be an object.`], warnings };
   }
+  // Asset-backed dragons (def.meshUrl) carry no procedural torso/wings/head/tail
+  // builders — their geometry is a loaded GLB — so the creature grammar doesn't
+  // apply. Nothing to validate here beyond the presence of the mesh URL.
+  if (def.assetBacked || def.meshUrl) {
+    if (typeof def.meshUrl !== 'string') errors.push(`${tag}: assetBacked dragon needs a string meshUrl.`);
+    return { ok: errors.length === 0, errors, warnings };
+  }
 
   for (const d of CREATURE_GRAMMAR) {
     const val = getPath(def, d.path);

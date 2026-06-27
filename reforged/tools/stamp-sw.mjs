@@ -2,7 +2,7 @@
 // Run before deploying when reforged assets change:  node tools/stamp-sw.mjs
 // (from the reforged/ directory). Auto-versions the SW cache so returning
 // visitors converge on one consistent build and never mix old/new files.
-import { readFileSync, writeFileSync, readdirSync, statSync } from 'fs';
+import { readFileSync, writeFileSync, readdirSync, statSync, existsSync } from 'fs';
 import { createHash } from 'crypto';
 import { join, relative } from 'path';
 import { fileURLToPath } from 'url';
@@ -23,6 +23,11 @@ include.push(join(root, 'index.html'), join(root, 'manifest.json'));
 walk(join(root, 'css'), (p) => p.endsWith('.css'));
 walk(join(root, 'js'), (p) => p.endsWith('.js'));
 walk(join(root, 'lib'), (p) => /\.(js|woff2|ttf)$/.test(p));
+// Asset-backed dragon meshes (the GLB experiment) — precached so they boot +
+// run offline like the rest of the build. Same-origin only; never hot-linked.
+if (existsSync(join(root, 'assets', 'models'))) {
+  walk(join(root, 'assets', 'models'), (p) => p.endsWith('.glb'));
+}
 
 // Deterministic order + hash of every byte -> version.
 const assets = include

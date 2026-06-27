@@ -1302,6 +1302,37 @@ export const DRAGONS = {
     apexEye: 0x3fc6ff, apexSeam: 0xff3b2f, coreGlow: 0xff8a1f, surgeHi: 0xfff3d0,
     eye: 0x3fc6ff, trail: 0xff8a1f, boostTrail: 0xff3b2f,
   },
+
+  // ── ASSET-BACKED EXPERIMENT (not procedural) ──────────────────────────────
+  // The lone dragon whose mesh is a committed GLB (assets/models/aether.glb),
+  // loaded by dragonGlb.js instead of buildDragonModel's procedural builders. It
+  // coexists with the procedural roster (which is untouched) to prove the
+  // AI-asset pipeline. `assetBacked` caps it at one form (no ascension morph) and
+  // bypasses the procedural creature-grammar validation. The GLB is currently a
+  // hand-authored PLACEHOLDER; a Higgsfield-generated mesh overwrites it later.
+  aether: {
+    name: 'Aether Wyrm',
+    title: 'Forged from light, not code',
+    rarity: 'SSR',
+    maxRarity: 'SSR',
+    cost: 0,                 // free so the experiment is one tap to equip + test
+    assetBacked: true,
+    meshUrl: './assets/models/aether.glb',
+    // GLB placement: intrinsic mesh scale, facing (yaw), and the shoulder pivots
+    // the wing nodes re-parent onto (matches the placeholder authoring). Retune
+    // these for the real asset on the PR preview — no code change needed.
+    glb: { scale: 1.0, rotY: 0, shoulder: [0.26, 0.18, 0.0] },
+    stats: { speed: 1.06, handling: 1.04, drain: 0.98, regen: 1.02 },
+    model: {
+      scale: 1.0, bodyScale: 1.0, wingSpan: 1.0,
+      flapBias: 1.0, flapAmp: 1.0, spineGlow: 0,
+    },
+    fx: { auraColor: '142,233,255', auraIdle: 0.05, sparkle: false },
+    body: 0x143038, belly: 0x0c1c22, scales: 0x1c4650, horn: 0x9fdfe8,
+    wingInner: 0x2a8fa0, wingOuter: 0x123038, wingEmissive: 0x66ddee,
+    apexEye: 0x9ff0ff, apexSeam: 0x66ddee, coreGlow: 0x66ddee, surgeHi: 0xe6fbff,
+    eye: 0x8fe7ff, trail: 0x66ddee, boostTrail: 0x2a8fa0,
+  },
 };
 
 // Highest multipliers in the roster (for shop stat-bar normalisation).

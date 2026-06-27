@@ -2980,3 +2980,50 @@ dragon from a guessed wing rig + connection would have been the very "back-and-f
 human's next trace (wing rig + joint + body outline); extend `deriveWingForm` to estimate `scallop` from the
 mean finger-notch depth; add tail/head rig modes the same way; overlay the BUILT silhouette behind the trace
 so correction is one screen.
+
+---
+
+## Lesson — Asset-backed dragon (GLB) can COEXIST with the procedural roster behind one `def.meshUrl` branch
+
+**What we did (experiment branch `claude/dragon-drift-mcp-higgsfield-jo93e2`).** Proved that an AI-generated
+**GLB mesh** can fly as a real dragon WITHOUT touching the 100%-procedural roster. New dragon `aether`
+(`dragons.js`, additive, appended last) carries `assetBacked:true` + `meshUrl:'./assets/models/aether.glb'`.
+`buildDragonModel` (dragonModel.js) gets ONE early branch — `if (def.meshUrl) return buildGlbDragon(def, opts)`
+— so every procedural dragon is byte-identical (tricount roster total unchanged, `0 over budget`). New module
+`dragonGlb.js` returns the EXACT `{ group, parts, materials, auraSprite }` contract the engine already consumes.
+
+**The key reuse — gameplay-reactive flap for FREE.** dragon.js already drives a `{shoulder,elbow,wrist}` rig via
+`flapWing()` in the `if (wingRigL)` branch (the skinned-wing path). So `dragonGlb.js` builds an EMPTY
+shoulder→elbow→wrist scaffold, exposes it as `parts.wingRigL/R`, and re-parents the GLB's wing nodes under it.
+Result: the shipped, fully-reactive wingbeat (speed/boost/steer/climb) animates the AI mesh with **zero new
+animation code**. A SKINNED GLB instead plays its baked `AnimationClip` via `THREE.AnimationMixer`
+(`parts.glbAnim.mixer`, ticked once near the top of `updateDragon`) as the fallback. The whole-body transform
+(position/bank/pitch) is shared and untouched either way.
+
+**Contract gotchas that bite (must-return-real, not null).** `auraSprite` is dereferenced UNCONDITIONALLY in
+`updateDragon` (`auraSprite.material.opacity`), so the GLB path MUST return a real `THREE.Sprite`. `head` and
+`wingRigL/R.shoulder` must be real Object3Ds (head rotation is set every frame). Everything else
+(`tailSegs:[]`, `spineSegs:[]`, `bodySegs:null`, `wingPivot2*`, `tipMarker*`) is `if`-guarded or loop-over-empty,
+so null/undefined is safe — keep `spineGlow:0` so the wing-contrail block (gated `spineGlow>=0.5`) stays off.
+
+**Vendoring with NO build step.** `lib/loaders/GLTFLoader.js` + `lib/utils/{BufferGeometryUtils,SkeletonUtils}.js`
+copied from the `three@0.160.0` npm tarball (the CDN is egress-blocked; `registry.npmjs.org` is allowed). They
+`import {...} from 'three'`, which the existing importmap resolves — no bundler. GLTFLoader is imported
+**dynamically** and only in a real browser (`/^https?:$/.test(location.protocol)`), so Node tools never touch the
+DOM. Request an **uncompressed** GLB so no DRACO/meshopt wasm is needed.
+
+**Tooling kept green (all headless, no WebGL).** `tricount.mjs` SKIPS `def.meshUrl` dragons (a GLB can't be built
+headlessly and has no per-form budget) — their cost is reported by the new `tests/glb.mjs`, which validates the
+glTF2 binary header + JSON chunk and sums accessor triangles with NO renderer. `defs.mjs` and
+`validateCreatureBlueprint.js` short-circuit on `assetBacked` (no procedural forms/grammar). `maxTierFor` returns
+0 for asset dragons (a static mesh can't morph across ascension → single form). `stamp-sw.mjs` now walks
+`assets/models/*.glb` so the mesh precaches + serves same-origin offline. A hand-authored placeholder GLB
+(`tools/make-placeholder-glb.mjs`, pure-Node glTF encoder) proves the entire pipeline end-to-end before spending
+any Higgsfield credits; the real AI mesh later overwrites `assets/models/aether.glb` (then re-run stamp-sw).
+
+**Known limits (scope, not bugs).** One static form (no ascension geometry morph); reduced Surge/fever tinting
+on the PBR GLB (the dummy `bodyMat` rim/emissive hooks fire but don't reach the loaded material); AI meshes run
+far over the ~6000-tri procedural budget — the explicit subject of the experiment, judged on the PR preview.
+**→ Leapfrog:** the real Higgsfield asset is a credit-gated step (image → 3D → rig+animate → download → commit);
+when it lands, decide skinned (drive its bones / mixer) vs non-skinned (re-parent wing nodes) from what the
+export actually contains, then retune `def.glb.{scale,rotY,shoulder}` on the preview — no code change needed.
