@@ -1314,9 +1314,9 @@ export const DRAGONS = {
   //   mounts authored storm-membrane WINGS under the flap rig, so the shipped
   //   gameplay-reactive wingbeat animates the AI mesh (thin membranes also
   //   reconstruct poorly from image-to-3D, so the body is the only AI part).
-  //   The GLB is currently a hand-authored PLACEHOLDER body (wingless); a
-  //   Higgsfield-generated storm-serpent body overwrites it later (re-run
-  //   stamp-sw after).
+  //   The GLB is the REAL Higgsfield body now: a textured, wingless storm-serpent
+  //   from image_to_3D (job c608693e, ~31k tris, single mesh, no rig). Retune the
+  //   glb.{scale,rotY,shoulder} placement on the PR preview — no code change.
   thundercoil: {
     name: 'Thundercoil Ampithere',
     title: 'A storm given a spine',

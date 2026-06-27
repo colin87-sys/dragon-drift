@@ -3070,3 +3070,47 @@ allowlisted, or the human downloads the GLB and commits it). The repo is now ful
 `assets/models/thundercoil.glb` with the AI body, re-run `stamp-sw`, retune `def.glb.{scale,rotY,shoulder}` on the
 preview — no code change. Everything downstream (rig, wings, contract test, SW precache) already works against the
 placeholder, so the swap is one file + one stamp.
+
+---
+
+## Lesson — The egress unblocked, so the real AI body LANDED: the swap was exactly the "one file + one stamp" the prior lesson predicted
+
+**What we did (branch `claude/thundercoil-dragon-continue-7hb2zq`, continued).** The previous lesson left the asset
+pipeline fully built but blocked on egress — the Higgsfield CDN that serves generated meshes was 403-denied, so the
+3D step was held and credits unspent. This session the egress was OPEN (confirmed by curl'ing the prior concept PNG
+on `d8j0ntlcm91z4.cloudfront.net` → HTTP 200), which is the whole reason the sibling `higgsfield-download-perms`
+branch existed. So we finished the credit-gated step end to end:
+1. Reused the EXISTING wingless body concept image (job `c15b5f0c`, "ABSOLUTELY NO WINGS" storm-serpent turnaround) —
+   no new image credits. `show_generations(type:'image')` surfaced it by id.
+2. `generate_3d` with `model:'image_to_3d'`, `should_texture:true`, rigging OFF (job `c608693e`, **30 credits**;
+   preflighted free with `get_cost:true` — untextured was 20, textured 30). Rigging stays off on purpose: the prior
+   lesson's reason holds (auto-rig mangles a legless serpent; motion comes from the authored wings).
+3. Downloaded the result GLB and overwrote `assets/models/thundercoil.glb`, re-ran `tools/stamp-sw.mjs`, done.
+
+**The swap was byte-for-byte the predicted "one file + one stamp."** Only two files changed: the GLB and `sw.js`
+(version bump + precache list). Zero code edits to make it WORK — the hybrid path, contract test, and SW walker all
+just consumed the new asset. The only code touch was refreshing a now-stale "placeholder body" comment in
+`dragons.js`. Roster total stayed byte-identical (203265); `defs/blueprint/flapcheck/ascension/glb/glbcontract`
+all green; `tricount` still `0 over budget` (it skips `meshUrl` dragons).
+
+**Gotchas worth keeping:**
+- **The result GLB lives on a DIFFERENT CDN host than the concept image** — `d3u0tzju9qaucj.cloudfront.net` (3D
+  output), not `d8j0ntlcm91z4` (image output). Both happened to be reachable this session, but when checking egress,
+  verify the host that actually serves the *3D* result, not just the image CDN.
+- **What `image_to_3d` returns for a stylized creature:** ONE merged mesh named `Mesh_0`, 1 PBR material, 2 texture
+  images, **no skin, no animation, no named wing/head nodes**, glTF2, `extensionsRequired:[]` (uncompressed — no
+  DRACO/meshopt wasm, exactly what the no-build importmap needs). 31,153 tris, 6.7 MB (the BIN is almost all
+  texture). So the hybrid branch's "non-skinned, no wing nodes → keep the authored membrane wings" path is the one
+  that fires, as designed. Verify a fresh asset's shape with the JSON-chunk inspector (parse the GLB header, read
+  `meshes/skins/animations/node.names` + sum accessor tris) BEFORE wiring expectations — don't assume named nodes.
+- **6.7 MB is heavy for an offline-precached asset on weak mobile.** Accepted as the explicit subject of the
+  experiment (judged on the PR preview), but it's the real cost of an AI mesh vs the ~6k-tri procedural budget. If
+  this graduates from experiment to shipped, decimate + downscale the textures (or split the GLB out of the SW
+  precache and lazy-load it) before it rides in the offline bundle.
+
+**→ Leapfrog:** the asset path is now PROVEN with a real AI mesh, not a placeholder. Next is purely tuning + judgment
+on the preview: retune `def.glb.{scale,rotY,shoulder}` so the body sits right and the authored wings mount at the
+real shoulders; decide whether 31k tris / 6.7 MB earns its place or needs a decimation pass; and if the storm-serpent
+reads well, this is the template for any future AI-bodied dragon (concept image → `image_to_3d` textured/no-rig →
+overwrite a `meshUrl` GLB → stamp). The body-vs-wings division of labour (AI body, authored reactive wings) is the
+reusable pattern, not a one-off.
