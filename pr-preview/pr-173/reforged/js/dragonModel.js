@@ -297,6 +297,7 @@ export function buildDragonModel(def, opts = {}) {
     wingPivotL, wingPivotR, wingTipL, wingTipR,
     tipMarkerL, tipMarkerR, wingPivot2L, wingPivot2R,
     wingRigL, wingRigR, wingMidL, wingMidR, wingYokeL, wingYokeR,
+    wingChainL, wingChainR,   // skinned ripple chains (root→tip bones); null for non-chain wings
   } = wingsResult.parts;
   // Night-Fury grows its bat-tail fins + tail-bone whip chain INSIDE the wings
   // builder (the tail is part of the continuous hull, not a bolted tail module), so
@@ -377,7 +378,7 @@ export function buildDragonModel(def, opts = {}) {
 
     return {
       group: wrapper,
-      parts: { head, tailSegs, tailFins, spineSegs, bodySegs, tailOrbiters, riderSocket, wingYokeL, wingYokeR, wingPivotL, wingPivotR, wingMidL, wingMidR, wingTipL, wingTipR, wingPivot2L, wingPivot2R, tipMarkerL, tipMarkerR, wingRigL, wingRigR, coreGlow },
+      parts: { head, tailSegs, tailFins, spineSegs, bodySegs, tailOrbiters, riderSocket, wingYokeL, wingYokeR, wingPivotL, wingPivotR, wingMidL, wingMidR, wingTipL, wingTipR, wingPivot2L, wingPivot2R, tipMarkerL, tipMarkerR, wingRigL, wingRigR, wingChainL, wingChainR, coreGlow },
       materials: { bodyMat, wingMat, eyeMat, spineMats },
       auraSprite,
     };
@@ -394,6 +395,7 @@ export function buildDragonModel(def, opts = {}) {
       wingPivot2L, wingPivot2R,
       tipMarkerL, tipMarkerR,
       wingRigL, wingRigR,
+      wingChainL, wingChainR,             // skinned ripple chains (null for non-chain wings → poseWing fallback)
       coreGlow,
       storm: torsoResult.storm ?? null,   // Thundercoil's lightning bead/arcs/shock-ring (nullable)
     },

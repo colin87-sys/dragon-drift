@@ -3739,3 +3739,35 @@ headlessly here even though CI's Chromium is network-blocked — this is the pla
 change (confirmed by stashing) — a pre-existing environmental flake, not a regression; don't chase it. (5) f² keeps the
 fold in the outer hand (inner arm extended) — raise `curlAmp` for a deeper hand-fold, don't lower the exponent (that
 would fold the inner arm, breaking the anatomy).
+
+---
+
+### L124 — The flexed-upstroke cascade was DEAD CODE: buildDragonModel never exported wingChainL/R, so curlAmp/ampTaper/segAmp never ran in-game (the "modest flex" was the poseWing fallback)
+The human, after L122, said the flex "is still very modest" — and gave the biomechanics spec (hand-wing flexes 30-50 deg
+at the WRIST, span -20..40%, area -30..50%, fold peaks mid-upstroke, re-extends by the apex). The L119 move is to MEASURE
+(`tools/flexmeasure.mjs`: boot the real builder headless, drive the actual wing bone-chain through the beat, compute the
+wrist fold angle + span shortening). Building it surfaced the real bug: **`buildDragonModel` never put `wingChainL/R`
+in its returned `parts`** — only `wingMidR`/`wingTipR` (which happen to be chain bones). So `dragon.js`
+`result.parts.wingChainR` was `undefined` → `null` → the `if (wingChainR) driveChain(...)` branch NEVER ran, and the
+wing silently fell back to the 3-handle `poseWing`. The ENTIRE skinned cascade (`curlAmp`, `ampTaper`, `segAmp`,
+`segApex`, `tipLag` — all consumed only inside `driveChain`) was inert dead code, in BOTH the live game and the preview
+(`makePreviewTick` destructures `wingChainL/R` from the same chain-less `parts`). The cascade commit `bf783a8` wired the
+CONSUMERS (driveChain in dragon.js + makePreviewTick) but forgot the one-line PRODUCER (the export), so every "tune
+curlAmp" pass since — incl. this session's 0.5→0.85 — changed nothing in-game (the render deltas were run-to-run seed
+noise, NOT the param). Fix: export `wingChainL, wingChainR` from both `buildDragonModel` returns (normal + preview),
+pulled from `wingsResult.parts` (null for non-chain wings → poseWing fallback preserved). Only `monarchWing` builds a
+chain, so this activates the cascade for Flame Monarch ALONE — rest of roster byte-identical (`tricount` 235164
+unchanged, `skinnedwing` green). The flapstrip before/after is night-and-day: dead-wired = flat raised plane; wired =
+the hand-wing curls into a tall folded arch (the real flexed upstroke). Measured at `curlAmp 0.85`: wrist flex ~36 deg
+(in the 30-50 range) but structural span draw-in only ~6% (vs 20-40% target) — the fold is `f²`-concentrated on the
+OUTERMOST bone, so the wing raises + curls hard but doesn't draw IN much; hitting the research's span/area reduction
+needs the fold pivoted MEDIALLY (at the wrist ~span 0.34) over the whole hand-wing, not just the tip (a future tune).
+Lessons: (1) when "tuning a param does nothing," FIRST verify the param's code path actually EXECUTES — check the value
+is wired end to end (producer→consumer), don't assume a render delta is your change (seed noise mimics it); the cheapest
+proof is a headless probe that reads the built `parts` keys. (2) A feature split across a producer (build/export) and
+consumers (animate) can ship "complete" with the producer missing — the consumers no-op silently behind a truthy guard
+(`if (wingChainR)`), so it LOOKS wired and even has passing build tests. Grep that the handle is RETURNED, not just
+built. (3) MEASURE the biomechanics against the spec (angle + span% probe) instead of eyeballing renders — it
+distinguished "angle is fine, span draw-in is the deficit," which a screenshot never would. (4) `flapstrip` seed noise:
+to compare a one-param wing change, the pose freeze is deterministic but the course/camera aren't — diff is only
+trustworthy for LARGE changes (like this activation) or via the headless measure, not pixel-peeping small ones.
