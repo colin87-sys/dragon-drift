@@ -3694,3 +3694,21 @@ Lessons: (1) a lofted edge is only as smooth as its SAMPLER — sample by the sh
 curve (Catmull-Rom), never linear station-to-station, or every control point becomes a facet; (2) "convexity should be
 medial" is a literal control: move the peak's SPAN, don't just raise its height; (3) when a client throws a size
 error mid-session, suspect the accumulated media in context (big PNGs), not the source file — shrink renders and prune.
+
+---
+
+### L122 — Flexed upstroke (dump air) + front-load the cascade so the INNER wing isn't stiff
+Two coupled notes flying the apex: most motion was in the outer third (inner 2/3 stiff), and the wing never FOLDED
+to dump air on the upstroke. Both are cascade issues. (1) Stiff inner: equal per-bone amplitude makes the chained
+rotation accumulate LINEARLY to the tip, so the tip moves most and the inner barely rotates (short lever too). Fix:
+FRONT-LOAD the amplitude (ampTaper^i, e.g. 0.68) so the inner/shoulder bone carries the biggest swing, tapering
+outward — the inner 2/3 now moves while the lag still ripples. (2) Flexed upstroke: real birds/bats flex the wing on
+the upstroke (wrist + some elbow; inner arm stays extended) to cut drag and avoid negative lift — span -20-40%, area
+-30-50%, the hand-wing flexing ~30-50deg, EXTENDED through the downstroke (power) and re-extended by the apex.
+Modelled as a curl = curlAmp * max(0, -cos(warp)) * f^2: max(0,-cos(warp)) peaks MID-upstroke and is 0 through the
+downstroke (the exact timing), f^2 concentrates the fold at the wrist/tip. Knobs segAmp/ampTaper/curlAmp/segApex/
+tipLag; defaults (ampTaper 1, curlAmp 0) keep every other wingParts dragon byte-identical.
+Lessons: (1) a chained cascade with equal amplitude ALWAYS piles motion at the tip — front-load to move the inner,
+the LAG (not the amplitude) is what sells the ripple; (2) "fold to dump air" has a precise envelope — max(0,-cos(warp))
+gives extended-downstroke / folded-upstroke / re-extended-apex for free; (3) match the fold bias (f^2) to the anatomy
+— wrist/tip folds, inner arm stays extended.
