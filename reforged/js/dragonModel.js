@@ -486,14 +486,22 @@ export function makePreviewTick(def, result) {
         if (!chainArr || chainArr.length < 2) return;
         const N = chainArr.length, moving = N - 1;
         const segAmp = m.segAmp ?? 0.2, segApex = m.segApex ?? 0.12, chLag = tLag || 1.6;
-        const ampTaper = m.ampTaper ?? 1, curlAmp = m.curlAmp ?? 0;
+        const ampTaper = m.ampTaper ?? 1;
+        const wristFlex = m.wristFlex ?? m.curlAmp ?? 0, wristFrac = m.wristFrac ?? 0.5;
+        const armBack = (m.armSweepBack ?? 0) * DEG;
+        const ss = (x) => { x = x < 0 ? 0 : x > 1 ? 1 : x; return x * x * (3 - 2 * x); };
         chainArr[0].parent.rotation.set(0.14 + feather * 0.16, -0.18 + rowR, restLift - 0.10);
         for (let i = 1; i < N; i++) {
           const f = moving > 1 ? (i - 1) / (moving - 1) : 0, lag = chLag * f;
           const ampI = segAmp * Math.pow(ampTaper, i - 1);     // front-loaded → inner swings
           const fold = shape(phase - lag) * ampI, apx = apexUp(phase - lag) * segApex;
-          const curl = curlAmp * Math.max(0, -Math.cos(flapWarp(phase - lag))) * f * f;   // flexed upstroke
-          chainArr[i].rotation.set(Math.cos(flapWarp(phase - lag)) * 0.06 * f - apexPitch * apx, rowR * 0.5 * f, -fold + apx + curl);
+          // WRIST FLEXION (inverted-V / M-shape): hand-wing folds DOWN/back from a wrist peak +
+          // posterior shoulder sweep on the upstroke. Matches gameplay driveChain (ins=0).
+          const upEnv = Math.max(0, -Math.cos(flapWarp(phase - lag)));
+          const handMask = f <= wristFrac ? 0 : ss((f - wristFrac) / (1 - wristFrac));
+          const wristFold = -wristFlex * upEnv * handMask;
+          const sweepBack = armBack * upEnv * (0.4 + 0.6 * f);
+          chainArr[i].rotation.set(Math.cos(flapWarp(phase - lag)) * 0.06 * f - apexPitch * apx, rowR * 0.5 * f - sweepBack, -fold + apx * (1 - 0.7 * handMask) + wristFold);
         }
       };
       if (wingChainR) { driveChain(wingChainR); driveChain(wingChainL); }

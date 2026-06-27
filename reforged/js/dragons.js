@@ -855,9 +855,13 @@ export const DRAGONS = {
       // summed stroke straddles horizontal: apex high, downstroke ~-38° BELOW level (power
       // scoop); restLift is the glide dihedral, kept low so the beat presses past level.
       // segAmp = per-bone elevation; ampTaper FRONT-LOADS it (inner/shoulder swings most → the
-      // inner 2/3 isn't stiff, tapering outward). curlAmp = the FLEXED-UPSTROKE fold: the wrist/
-      // hand folds up mid-upstroke to dump air, re-extending by the apex (tip-concentrated, f²).
-      segAmp: 0.4, ampTaper: 0.68, curlAmp: 0.85, segApex: 0.08, tipLag: 1.75, restLift: 0.2, apexPitch: 0.12,
+      // inner 2/3 isn't stiff, tapering outward). WRIST FLEXION (inverted-V / M-shape upstroke,
+      // per the bird-kinematics research): the arm extends up+BACK to a peak at the WRIST, and the
+      // hand-wing folds DOWN/back from there (toward the forearm) — so the wrist is the apex, not
+      // the tip. wristFrac = where the pivot sits (f-space; arm inboard stays extended, elbow+hand
+      // fold outboard); wristFlex = fold depth; armSweepBack = posterior shoulder retraction on the
+      // upstroke (deg). The fold peaks through the recovery and re-extends by the apex.
+      segAmp: 0.4, ampTaper: 0.68, wristFlex: 2.2, wristFrac: 0.28, armSweepBack: 28, segApex: 0.08, tipLag: 1.75, restLift: 0.2, apexPitch: 0.12,
       // REALISTIC BEAT (new): asymmetric power stroke + fore-aft rowing + body porpoise.
       downFrac: 0.58,        // downstroke takes 58% of the cycle → heavier/slower POWER stroke
       rowDeg: 15,            // fore-aft ROWING sweep (wingtip figure-8): forward on the downstroke
