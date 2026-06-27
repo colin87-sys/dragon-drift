@@ -323,39 +323,10 @@ function buildMonarchWing(def, model, attach, giM) {
   });
   applyFresnelRim(wingMat, def.apexSeam || cMolten);          // softly rim-lit membrane edge
 
-  // DEFAULT — the warm western-dragon bat wing the human preferred: a SHORT arm, medial
-  // wrist (~26% span) and FIVE long curved fingers fanning to rounded scallops, the outer
-  // finger framing a fuller crescent. (The "glider" redesign read sparser/less aesthetic
-  // in review, so it's now OPT-IN via model.gliderWing — kept behind the flag, not the
-  // live look — and reachable in the viewer for a side-by-side.)
+  // The traced western-dragon bat wing: a SHORT arm, MEDIAL wrist, struts fanning to a
+  // scalloped trailing edge under a strong convex leading frame (see the anatomy below).
   let wingOpts;
-  if (model.gliderWing) {
-    // GLOW HIERARCHY — bright/thick leading spar + joints, dim/thin finger struts.
-    const baseInt = 0.6 + giM * 0.45 + F * 0.12;
-    const leadMat = tagFlare(new THREE.MeshStandardMaterial({
-      color: def.horn ?? 0x2a221c, emissive: cMolten, emissiveIntensity: baseInt * 1.15, roughness: 0.36, metalness: 0.5,
-    }), cMolten, baseInt * 1.15, spineMats);
-    const fingerMat = tagFlare(new THREE.MeshStandardMaterial({
-      color: def.horn ?? 0x2a221c, emissive: cMolten, emissiveIntensity: baseInt * 0.5, roughness: 0.46, metalness: 0.4,
-    }), cMolten, baseInt * 0.5, spineMats);
-    const jointMat = tagFlare(new THREE.MeshStandardMaterial({
-      color: def.horn ?? 0x2a221c, emissive: cMolten, emissiveIntensity: baseInt * 1.4, roughness: 0.3, metalness: 0.5,
-    }), cMolten, baseInt * 1.4, spineMats);
-    const socketMat = new THREE.MeshStandardMaterial({ color: def.scales ?? def.horn ?? 0x2a221c, roughness: 0.52, metalness: 0.32 });
-    applyFresnelRim(socketMat, def.apexSeam || cMolten);
-    const anatomy = {
-      glider: true,
-      rootFront: [0, 0.55], rootBack: [0, -0.30],
-      elbow: [1.30, 0.95], wrist: [3.05, 1.05],
-      hub: [2.35, -0.15],
-      fingers: [
-        { tip: [5.05, 0.35], bow: 0.30 }, { tip: [4.55, -0.55], bow: 0.34 },
-        { tip: [3.85, -1.40], bow: 0.30 }, { tip: [3.00, -2.05], bow: 0.20 },
-      ],
-      scallop: 0.30, innerSag: 0.12, claw: 0.10, leadR: 0.075, fingerR: 0.030, dihedral: 0.17, twist: 0.13, socketR: 0.18,
-    };
-    wingOpts = { ws, membraneMat: wingMat, leadMat, fingerMat, jointMat, socketMat, anatomy };
-  } else {
+  {
     // DEFAULT — the fuller western-dragon bat wing the human prefers, upgraded to read
     // regal-volcanic instead of a flat orange fan. SAME researched anatomy (SHORT arm,
     // MEDIAL wrist ≈ 28% span, curvature gradient: leading frame most-curved → inner
@@ -390,16 +361,21 @@ function buildMonarchWing(def, model, attach, giM) {
       // membrane scoops sharply FORWARD between fingers (clear cusps), not a smooth hem. Both
       // edges share the SAME span stations (aligned to the finger lobes + cusps) so the lofted
       // sheet stays chordwise. Curves START at span -0.45 → a compact root buried in the body.
-      leadingCurve: [[-0.45, 0.06], [0, 0.36], [0.5, 0.52], [1.0, 0.82], [1.6, 1.18], [2.05, 1.40], [2.55, 1.48], [3.0, 1.42], [3.45, 1.30], [3.9, 1.10], [4.4, 0.84], [4.9, 0.52], [5.4, 0.16]],
-      trailingCurve: [[-0.45, -0.06], [0, -0.45], [0.5, -1.0], [1.0, -1.5], [1.6, -1.80], [2.05, -1.20], [2.55, -1.40], [3.0, -0.78], [3.45, -0.92], [3.9, -0.30], [4.4, -0.45], [4.9, 0.05], [5.4, 0.16]],
-      wrist: [0.85, 0.30],                                 // SHORT humerus → wrist medial
-      rootBack: [0, -0.45],
-      hub: [1.45, -0.55],                                  // membrane fan apex (interior, below the leading arc)
+      // LEADING frame: the greatest convexity is MEDIAL — it rises FAST from the root to a strong
+      // bulge peaking ~span 1.4 (≈26% out, near the wrist), then a long graceful sweep to a pointed
+      // tip. TRAILING edge: four CLEAN, even SCALLOPS — each finger reaches deep (a smooth lobe),
+      // the membrane scooping forward between them; the loft samples both edges as smooth curves
+      // (Catmull-Rom in span) so the scallops are clean arcs, not jagged facets.
+      leadingCurve: [[-0.45, 0.06], [0, 0.45], [0.5, 1.0], [1.0, 1.4], [1.4, 1.55], [2.0, 1.5], [2.8, 1.32], [3.6, 1.05], [4.4, 0.68], [5.0, 0.36], [5.4, 0.12]],
+      trailingCurve: [[-0.45, -0.06], [0, -0.5], [0.6, -1.1], [1.2, -1.5], [1.9, -1.65], [2.4, -1.1], [2.9, -1.6], [3.4, -1.05], [3.9, -1.45], [4.4, -0.85], [4.8, -1.0], [5.15, -0.35], [5.4, 0.12]],
+      wrist: [1.30, 0.15],                                 // SHORT humerus → wrist MEDIAL (struts fan from here)
+      rootBack: [0, -0.5],
+      hub: [1.45, -0.55],                                  // membrane fan apex (legacy fan path only)
       fingers: [
-        { tip: [1.60, -1.80], bow: 0.05 },                 // struts to the DEEP scallop fingertips
-        { tip: [2.55, -1.40], bow: 0.12 },
-        { tip: [3.45, -0.92], bow: 0.18 },
-        { tip: [4.40, -0.45], bow: 0.22 },
+        { tip: [1.90, -1.65], bow: 0.05 },                 // struts fan to the DEEP scallop fingertips
+        { tip: [2.90, -1.60], bow: 0.10 },
+        { tip: [3.90, -1.45], bow: 0.16 },
+        { tip: [4.80, -1.00], bow: 0.22 },
       ],
       scallop: 0.24, strutR: 0.058, fingerRMul: 0.66, claw: 0.12, clawLen: 0.09,
       leadR: 0.072,
