@@ -297,12 +297,44 @@ function buildTracedWing(opts) {
   // membrane OUTLINE: leading curve (root→tip), then the trailing edge back to the root.
   const outline = [...leadPts], trailPts = [];
   const hub2D = A.hub ?? [wrist2[0] * 0.9, (wrist2[1] + A.rootBack[1]) * 0.5];
+  const billow = (A.billow ?? 0) * ws;
   if (A.trailingCurve) {
-    // TRAILING edge follows an explicit DENSE traced polyline (root→tip order) — the real
-    // scalloped silhouette, not a few guessed scallops. Walk it tip→root to close the loop.
-    const tc = A.trailingCurve.map((p) => conformP(p));
-    for (let i = tc.length - 2; i >= 1; i--) { outline.push(tc[i]); }   // skip dup tip + the root point (fan closes it)
-    for (let i = tc.length - 1; i >= 0; i--) trailPts.push(tc[i]);      // rim along the full trailing curve
+    // ── ONE LOFTED MEMBRANE (single continuous surface) ──────────────────────────
+    // The wing is built as a single sheet LOFTED between the trailing and leading edges,
+    // span station by span station (both traced curves share the same span samples, so the
+    // rows stay chordwise). There is NO hub and NO separate root panel, so the surface has
+    // no fan creases and no welded-on "second part" — it is one skin from the body to the
+    // wingtip. The INNERMOST rows are conformed onto the body flank (conformP, root-gated),
+    // so the membrane GROWS from the body — connected from the start, the silhouette
+    // (leading + trailing) byte-identical to the trace.
+    const tc2d = A.trailingCurve, rows = lc.length;
+    const S = 2, M = Math.max(3, seg(5));                       // span subdiv (smoothing) · chord subdiv
+    const lead = lc.map((p) => conformP(p));                    // leading edge (root buried/conformed)
+    const trail = tc2d.map((p) => conformP(p));                 // trailing edge (root snapped onto the flank)
+    for (let i = tc2d.length - 1; i >= 0; i--) trailPts.push(trail[i]);   // molten rim along the trailing edge
+    const pos = [], idx = [], grid = [], totalRows = (rows - 1) * S + 1;
+    for (let ri = 0; ri < totalRows; ri++) {
+      const f = ri / S, i0 = Math.min(rows - 1, Math.floor(f)), i1 = Math.min(rows - 1, i0 + 1), ft = f - i0;
+      const a = trail[i0].clone().lerp(trail[i1], ft);         // trailing point at this span
+      const b = lead[i0].clone().lerp(lead[i1], ft);           // leading point at this span
+      const span = lc[i0][0] + (lc[i1][0] - lc[i0][0]) * ft;
+      const gain = Math.min(1, Math.max(0, (span + 0.45) / 1.4));   // dome ~0 at the buried root → full mid-wing
+      const row = [];
+      for (let j = 0; j <= M; j++) {
+        const t = j / M, v = a.clone().lerp(b, t);
+        v.y += Math.sin(Math.PI * t) * billow * gain;          // CONVEX dome (+Y), pinned at both edges + root
+        pos.push(v.x, v.y, v.z); row.push(pos.length / 3 - 1);
+      }
+      grid.push(row);
+    }
+    for (let ri = 0; ri < totalRows - 1; ri++) for (let j = 0; j < M; j++) {
+      const a = grid[ri][j], b = grid[ri][j + 1], c = grid[ri + 1][j], d = grid[ri + 1][j + 1];
+      idx.push(a, c, b, b, c, d);
+    }
+    const g = new THREE.BufferGeometry();
+    g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+    g.setIndex(idx); g.computeVertexNormals();
+    pivot.add(new THREE.Mesh(g, mem));
   } else {
     const scStarts = [leadPts[leadPts.length - 1], ...fingers.map(webTip), P(A.rootBack)];
     for (let i = 0; i < scStarts.length - 1; i++) {
@@ -315,38 +347,9 @@ function buildTracedWing(opts) {
       outline.push(...sgs);
       if (i < scStarts.length - 2) trailPts.push(a, ...sgs);
     }
+    const fanPts = [P(hub2D), ...outline];
+    pivot.add(billow > 0 ? billowedFan(fanPts, mem, seg(4), billow) : fanPanel(fanPts, mem));
   }
-  // ── INNER ROOT SEAM (root-cause gap fix) ─────────────────────────────────────
-  // The membrane is a fan from the hub; its inner edge is the OPEN side, running from
-  // the LEADING root (the shoulder) to the TRAILING root (the mid-back). Those are the
-  // user's "two root chords" — and because that inner edge is a straight line in the flat
-  // wing plane it lifts off the rounded body between them, leaving a TRIANGLE of bare
-  // background. We close it by walking a SEAM along the body surface from the mid-back
-  // root forward to the shoulder root and appending it to the outline, so the membrane
-  // fills right down onto the flank along the whole attachment — the wing's OWN edge
-  // conforms to the body (no bolted-on gusset, visible silhouette untouched).
-  if (ringAt && wr && A.trailingCurve) {
-    const lead0 = leadPts[0];                                  // shoulder root (outline[0])
-    const back0 = outline[outline.length - 1];                 // mid-back root (last appended, conformed)
-    const zBack = back0.z + wr.z, zLead = lead0.z + wr.z;      // model-space chord positions
-    const N = Math.max(4, seg(7));
-    // direction from each ring's centre toward the wing-root pivot → the upper-outer
-    // flank point where the wing actually grows from (keeps the seam on the back, not
-    // wrapping under the belly). 0.97 tucks it a hair inside so the body occludes the join.
-    for (let i = 1; i <= N; i++) {
-      const z = zBack + (zLead - zBack) * (i / (N + 1));
-      const r = ringAt(z); if (!r || !r.rx || !r.ry) continue;
-      const ang = Math.atan2((wr.y - r.cy) / r.ry, wr.x / r.rx);
-      const sx = r.rx * Math.cos(ang) * 0.97, sy = r.cy + r.ry * Math.sin(ang) * 0.97;
-      outline.push(new THREE.Vector3(sx - wr.x, sy - wr.y, z - wr.z));
-    }
-    outline.push(lead0.clone());                               // close the fan back onto the shoulder root
-  }
-
-  // membrane: convex-billowed fan from the hub.
-  const billow = (A.billow ?? 0) * ws;
-  const fanPts = [P(hub2D), ...outline];
-  pivot.add(billow > 0 ? billowedFan(fanPts, mem, seg(4), billow) : fanPanel(fanPts, mem));
   if (rimMat) { const rim = edgeRim(trailPts, rimMat, A.rimR ?? 0.022, ws); if (rim) pivot.add(rim); }
 
   // bones: a DOMINANT tapered leading spar along the traced curve + finger struts (claws).
