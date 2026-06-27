@@ -3837,3 +3837,30 @@ disappeared" is usually an amplitude/bias problem — here an UP-biased swing (t
 and keep the downstroke EXTENDED (flex=0 there) so power = extended·slow·deep vs recovery = flexed·quick; (3) verify your
 metric isn't confounded by pose before trusting it (angle-vs-bend) — a probe that reports a number immune to the thing
 you're tuning is worse than no probe; (4) bone-chain authoring: the last bone only carries skin, never motion.
+
+---
+
+### L127 — A rear-cam flap reads as "lateral paddling" unless the SHOULDER drives fore-aft protraction/retraction — the big motion belongs on the pivot, not the bones
+The human, on the L126 clean cycle: "the shoulder joint isn't really extending on the recovery — it just looks like the
+wrist is flexing, so it's pushing air laterally. Looks weird. Redo the whole thing." Root cause: every version since the
+cascade put ELEVATION on the bone chain and left the shoulder PIVOT static in yaw, so the wing only swung up/down in the
+frontal plane (plus a tiny tip-weighted sweep). From the rear chase cam an up/down swing of a laterally-extended wing IS
+"lateral paddling" — there was almost zero FORE-AFT (depth, z) travel. Confirmed with a new probe metric (tip-z range):
+the old drive ≈ flat; real wings row. The fix is structural: drive the BIG motion at the SHOULDER (the pivot), two
+channels on it — (1) elevation (down-biased cos swing) and (2) PROTRACTION/RETRACTION (pivot YAW): the whole arm reaches
+FORWARD on the downstroke and draws UP+BACK on the upstroke (`shoulderSweep * sin(warp)`), which is the avian recovery
+sweep and the depth the rear cam needs. The BONES now carry only a small lagged ripple (so it isn't a dead hinge) + the
+one subtle wrist flex + a touch of distal figure-8. Measured: tip fore-aft travel went 0→1.93 (vs vertical 2.84), the
+wing is forward on the downstroke (tip z −0.56) and drawn back on the recovery (+0.57), downstroke extended (bend 6°),
+recovery wrist M subtle (29°). Flapstrip confirms the whole wing sweeps up+back on the recovery (not just the hand).
+Knobs: beatAmp (shoulder elevation), shoulderSweep (deg, the retraction), rippleAmp (bone secondary), flexAmp/wristFrac
+(wrist), tipSweep (distal figure-8). Roster byte-identical (only monarchWing has a chain; tricount 235164, skinnedwing
+green). Both driveChain copies (live + preview) rebuilt identically.
+Lessons: (1) on a REAR/chase cam, vertical flap alone always reads as paddling — you MUST have fore-aft (depth) motion
+for it to read as flight; measure tip-z travel, not just tip-y. (2) the SHOULDER (the pivot/root of the chain) should
+carry the limb's gross translation-in-angle (elevation + protraction/retraction); the distal bones carry SECONDARY
+detail (ripple, wrist flex). Putting the gross motion on the distal bones (to avoid a "hinge" look, L118) was an
+over-correction that starved the shoulder — the cure for "hinge" is fore-aft sweep + secondary ripple + distal flex, not
+moving the whole swing outboard. (3) "extending the shoulder" in the human's words = anatomical protraction/retraction =
+the pivot's YAW axis over the beat; name the axis and drive it explicitly. (4) the headless probe must measure the axis
+the complaint is about — adding a tip-z (depth) readout instantly made the "lateral paddle" quantitative and tunable.

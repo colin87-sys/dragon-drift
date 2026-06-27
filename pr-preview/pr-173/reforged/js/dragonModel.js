@@ -480,26 +480,30 @@ export function makePreviewTick(def, result) {
         if (tp) { const tipF = md ? shape(phase - tLag) * tipA : (shape(phase - mLag) * midA + shape(phase - tLag) * tipA); const aT = md ? aTip : (aMid + aTip);
           tp.rotation.set(-0.05 + Math.cos(phase - tLag) * 0.18 - apexPitch * aT, tipSweep + rowT, -tipF + aT); }
       };
-      // CLEAN WINGBEAT chain (matches gameplay driveChain, ins=0): a front-loaded, down-biased
-      // elevation power swing + ONE subtle wrist flex on the upstroke (folds the hand DOWN from a
-      // wrist peak) + a fore-aft sweep. No apex-lift / washout / tuck. See dragon.js for the model.
+      // SHOULDER-DRIVEN WINGBEAT chain (matches gameplay driveChain, ins=0): the SHOULDER (pivot)
+      // carries the elevation swing + fore-aft protraction/retraction (forward-down / up-back); the
+      // bones add a small lagged ripple + one subtle wrist flex + distal figure-8. See dragon.js.
       const driveChain = (chainArr) => {
         if (!chainArr || chainArr.length < 2) return;
         const N = chainArr.length, moving = N - 1;
-        const beatAmp = m.beatAmp ?? 0.3, taper = m.ampTaper ?? 0.8, chLag = tLag || 1.0;
+        const beatAmp = m.beatAmp ?? 0.45, taper = m.ampTaper ?? 0.7, chLag = tLag || 0.8;
         const upScale = m.upScale ?? 0.7, downScale = m.downScale ?? 1.3;
-        const flexAmp = m.flexAmp ?? 0.5, wristFrac = m.wristFrac ?? 0.67, handWidth = m.handWidth ?? 0.45;
-        const sweepDeg = (m.sweepDeg ?? 14) * DEG;
-        chainArr[0].parent.rotation.set(0.14 + feather * 0.16, -0.18, restLift - 0.10);
+        const shoulderSweep = (m.shoulderSweep ?? 20) * DEG, rippleAmp = m.rippleAmp ?? 0.14;
+        const flexAmp = m.flexAmp ?? 0.45, wristFrac = m.wristFrac ?? 0.67, handWidth = m.handWidth ?? 0.45;
+        const tipSweep = (m.tipSweep ?? 12) * DEG;
+        const w0 = flapWarp(phase), c0 = Math.cos(w0);
+        const sElev = beatAmp * (c0 >= 0 ? c0 * upScale : c0 * downScale);
+        const sSweep = shoulderSweep * Math.sin(w0);
+        chainArr[0].parent.rotation.set(0.14 + feather * 0.16, -0.18 + sSweep, restLift - 0.10 + sElev);
         for (let i = 1; i < N; i++) {
           const f = moving > 1 ? (i - 1) / (moving - 1) : 0;
-          const w = flapWarp(phase - chLag * f), c = Math.cos(w);
-          const elev = beatAmp * Math.pow(taper, i - 1) * (c >= 0 ? c * upScale : c * downScale);
+          const w = flapWarp(phase - chLag * f);
+          const ripple = rippleAmp * Math.pow(taper, i - 1) * Math.cos(w);
           const up = Math.max(0, -Math.sin(w));
           const hand = f > 0.95 ? 0 : Math.max(0, 1 - Math.abs(f - wristFrac) / handWidth);
           const flex = -flexAmp * up * hand;
-          const sweep = sweepDeg * Math.sin(w) * f;
-          chainArr[i].rotation.set(0, sweep, elev + flex);
+          const sweep = tipSweep * Math.sin(w) * f;
+          chainArr[i].rotation.set(0, sweep, ripple + flex);
         }
       };
       if (wingChainR) { driveChain(wingChainR); driveChain(wingChainL); }
