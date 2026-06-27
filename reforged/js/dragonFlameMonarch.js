@@ -366,16 +366,20 @@ function buildMonarchWing(def, model, attach, giM) {
       // tip. TRAILING edge: four CLEAN, even SCALLOPS — each finger reaches deep (a smooth lobe),
       // the membrane scooping forward between them; the loft samples both edges as smooth curves
       // (Catmull-Rom in span) so the scallops are clean arcs, not jagged facets.
-      leadingCurve: [[-0.45, 0.06], [0, 0.45], [0.5, 1.0], [1.0, 1.4], [1.4, 1.55], [2.0, 1.5], [2.8, 1.32], [3.6, 1.05], [4.4, 0.68], [5.0, 0.36], [5.4, 0.12]],
+      // LEADING frame: a STRONG, exaggerated convex bulge — it climbs at ~45° from the root to a
+      // pronounced peak (chord ~2.15) MEDIAL at span ~1.5, then sweeps in a long arc to the tip.
+      // TRAILING edge: four even scallops; the struts fan from the MEDIAL wrist and bow (each digit
+      // curved, posterior digits bowing MORE — the researched anatomy) out to the scallop tips.
+      leadingCurve: [[-0.45, 0.06], [0, 0.5], [0.4, 1.05], [0.8, 1.6], [1.2, 2.0], [1.5, 2.15], [2.0, 2.05], [2.7, 1.72], [3.5, 1.28], [4.3, 0.78], [4.9, 0.42], [5.4, 0.12]],
       trailingCurve: [[-0.45, -0.06], [0, -0.5], [0.6, -1.1], [1.2, -1.5], [1.9, -1.65], [2.4, -1.1], [2.9, -1.6], [3.4, -1.05], [3.9, -1.45], [4.4, -0.85], [4.8, -1.0], [5.15, -0.35], [5.4, 0.12]],
-      wrist: [1.30, 0.15],                                 // SHORT humerus → wrist MEDIAL (struts fan from here)
+      wrist: [1.35, 1.0],                                  // wrist near the LEADING frame, medial — struts fan from here
       rootBack: [0, -0.5],
       hub: [1.45, -0.55],                                  // membrane fan apex (legacy fan path only)
       fingers: [
-        { tip: [1.90, -1.65], bow: 0.05 },                 // struts fan to the DEEP scallop fingertips
-        { tip: [2.90, -1.60], bow: 0.10 },
-        { tip: [3.90, -1.45], bow: 0.16 },
-        { tip: [4.80, -1.00], bow: 0.22 },
+        { tip: [1.90, -1.65], bow: 0.14 },                 // CURVED struts fanning to the scallop tips;
+        { tip: [2.90, -1.60], bow: 0.24 },                 // posterior (outer) digits bow MORE
+        { tip: [3.90, -1.45], bow: 0.34 },
+        { tip: [4.80, -1.00], bow: 0.46 },
       ],
       scallop: 0.24, strutR: 0.058, fingerRMul: 0.66, claw: 0.12, clawLen: 0.09,
       leadR: 0.072,
