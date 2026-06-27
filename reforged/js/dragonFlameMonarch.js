@@ -372,14 +372,17 @@ function buildMonarchWing(def, model, attach, giM) {
       // curved, posterior digits bowing MORE — the researched anatomy) out to the scallop tips.
       leadingCurve: [[-0.45, 0.06], [0, 0.5], [0.4, 1.05], [0.8, 1.6], [1.2, 2.0], [1.5, 2.15], [2.0, 2.05], [2.7, 1.72], [3.5, 1.28], [4.3, 0.78], [4.9, 0.42], [5.4, 0.12]],
       trailingCurve: [[-0.45, -0.06], [0, -0.5], [0.6, -1.1], [1.2, -1.5], [1.9, -1.65], [2.4, -1.1], [2.9, -1.6], [3.4, -1.05], [3.9, -1.45], [4.4, -0.85], [4.8, -1.0], [5.15, -0.35], [5.4, 0.12]],
-      wrist: [1.35, 1.0],                                  // wrist near the LEADING frame, medial — struts fan from here
-      rootBack: [0, -0.5],
+      wrist: [1.40, 1.85],                                 // wrist sits ON the leading frame (at the bulge) so the
+      rootBack: [0, -0.5],                                 // struts radiate from it — no gap behind the leading edge
       hub: [1.45, -0.55],                                  // membrane fan apex (legacy fan path only)
+      // HARMONIOUS strut fan: the strut nearest the leading frame curves almost as much as the
+      // frame (slightly less); each strut inward (medially) curves progressively LESS — a smooth
+      // gradient of `bow`, decreasing from the leading-adjacent digit to the body-adjacent one.
       fingers: [
-        { tip: [1.90, -1.65], bow: 0.14 },                 // CURVED struts fanning to the scallop tips;
-        { tip: [2.90, -1.60], bow: 0.24 },                 // posterior (outer) digits bow MORE
-        { tip: [3.90, -1.45], bow: 0.34 },
-        { tip: [4.80, -1.00], bow: 0.46 },
+        { tip: [1.90, -1.65], bow: 0.18 },                 // most MEDIAL → least curve
+        { tip: [2.90, -1.60], bow: 0.32 },
+        { tip: [3.90, -1.45], bow: 0.50 },
+        { tip: [4.80, -1.00], bow: 0.72 },                 // nearest the LEADING frame → most curve
       ],
       scallop: 0.24, strutR: 0.058, fingerRMul: 0.66, claw: 0.12, clawLen: 0.09,
       leadR: 0.072,
