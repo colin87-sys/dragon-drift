@@ -845,21 +845,22 @@ export const DRAGONS = {
       flapBias: 0.92, flapAmp: 0.88,   // broad, powerful, regal western-dragon beat
       flapFreqScale: 0.7,              // −30% flap speed (slower, readable regal beat)
       wingParts: true,
-      // CLEAN WINGBEAT (skinned chain — see driveChain). TWO channels only, rebuilt from the
-      // bird-kinematics research (L126):
-      //  (1) POWER — a front-loaded elevation swing (beatAmp, tapered outboard by ampTaper) that is
-      //      DOWN-BIASED (downScale > upScale): the EXTENDED wing presses well BELOW horizontal on
-      //      the slower downstroke (downFrac), then lifts more modestly through the upstroke. restLift
-      //      = glide dihedral; tipLag = the proximal→distal ripple delay (small = a subtle travelling
-      //      wave, not a root hinge).
-      //  (2) RECOVERY — ONE subtle flex: the hand-wing (outboard of wristFrac) folds DOWN a touch on
-      //      the upstroke ONLY (flexAmp, a smooth half-sine), re-extending by the apex. sweepDeg
-      //      reaches the wing FORWARD on the downstroke and BACK on the upstroke (the figure-8 /
-      //      shoulder retraction). No apex-lift / washout / tuck stacking — power read comes from the
-      //      extended, slow, deep downstroke vs the flexed, quick upstroke.
-      beatAmp: 0.32, ampTaper: 0.78, tipLag: 0.8, restLift: 0.06,
+      // SHOULDER-DRIVEN WINGBEAT (skinned chain — see driveChain). The SHOULDER carries the big
+      // motion; the bones add only a small ripple + the wrist flex. Rebuilt from the bird-kinematics
+      // research (L127) so the wing ROWS in 3D (depth), not a flat lateral paddle:
+      //  • SHOULDER ELEVATION (beatAmp): a down-biased swing (downScale>upScale) — the EXTENDED wing
+      //    presses below horizontal on the slow downstroke (downFrac), lifts more modestly on the up.
+      //  • SHOULDER SWEEP (shoulderSweep, deg): protraction/retraction — the whole arm reaches FORWARD
+      //    on the downstroke and draws UP+BACK on the upstroke (the recovery sweep — the key 3D depth).
+      //  • RIPPLE (rippleAmp, tapered by ampTaper, lagged by tipLag): a small proximal→distal
+      //    secondary wave so it isn't a dead hinge.
+      //  • WRIST FLEX (flexAmp at wristFrac): one subtle hand fold DOWN on the upstroke only.
+      //  • tipSweep: a touch of distal fore-aft so the wingtip traces a figure-8. restLift = glide
+      //    dihedral. No apex-lift / washout / tuck stacking.
+      beatAmp: 0.45, ampTaper: 0.7, tipLag: 0.8, restLift: 0.06,
       upScale: 0.7, downScale: 1.3,
-      flexAmp: 0.5, wristFrac: 0.67, sweepDeg: 14,
+      shoulderSweep: 20, rippleAmp: 0.14,
+      flexAmp: 0.45, wristFrac: 0.67, tipSweep: 12,
       // asymmetric power stroke + body porpoise.
       downFrac: 0.58,        // downstroke takes 58% of the cycle → heavier/slower POWER stroke
       bodyFlapPitch: 0.05,   // chest pitches up on the power downstroke (the porpoise heave)

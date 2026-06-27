@@ -682,40 +682,43 @@ export function updateDragon(dt, player, time) {
       if (tp) { const tF = md ? tipF : (midF + tipF), aT = md ? apexTipF : (apexMidF + apexTipF);
         tp.rotation.set(-0.05 + twTip + 0.12 * inside - apexPitch * aT, tipSweepBase + 0.22 * inside + rowT, -(tF * amp) + aT * amp + 0.16 * inside); }
     };
-    // ── CLEAN WINGBEAT for the SKINNED chain wing (rebuilt from the bird-kinematics research) ──
-    // TWO channels, nothing stacked:
-    //  (1) POWER — a front-loaded ELEVATION swing (cos of the warped, phase-LAGGED beat) that is
-    //      DOWN-biased (downScale>upScale): the EXTENDED wing presses below horizontal on the slow
-    //      downstroke, lifting more modestly on the upstroke. The small per-bone lag is the gentle
-    //      proximal→distal ripple (not a root hinge).
-    //  (2) RECOVERY — one SUBTLE wrist flex: on the upstroke ONLY (smooth half-sine `up`), the WRIST
-    //      bone folds the hand DOWN (negative z) so the wrist reads as a soft peak; the mask peaks at
-    //      the wrist bone (rotating the TIP bone moves nothing) and is ~0 on the arm + at the tip, so
-    //      the arm stays extended. `sweep` reaches the wing forward on the downstroke, back on the
-    //      upstroke. No apex-lift / washout / tuck — the power read is the extended, slow, deep
-    //      downstroke vs the flexed, quick upstroke. Bone 0 stays static (holds the body seam).
+    // ── SHOULDER-DRIVEN WINGBEAT for the SKINNED chain wing (rebuilt — bird-kinematics research) ──
+    // The SHOULDER (pivot) carries the BIG motion so the wing ROWS in 3D, not a flat lateral paddle:
+    //  • ELEVATION — a down-biased cos swing (downScale>upScale): the EXTENDED wing presses below
+    //    horizontal on the slow downstroke, lifts more modestly on the upstroke.
+    //  • SWEEP — protraction/retraction on the pivot's yaw: the whole arm reaches FORWARD on the
+    //    downstroke and draws UP+BACK on the upstroke (the recovery sweep — the depth the rear cam
+    //    needs to not read as lateral paddling).
+    // The bones add only a SMALL lagged ripple (proximal→distal, so it isn't a dead hinge) + ONE
+    // subtle wrist flex (the hand folds DOWN on the upstroke; the mask peaks at the WRIST bone — a
+    // tip-bone rotation moves nothing) + a touch of distal fore-aft (the wingtip figure-8). Bone 0
+    // stays static (holds the body seam). No apex-lift / washout / tuck stacking.
     const driveChain = (chainArr, ins) => {
       if (!chainArr || chainArr.length < 2) return;
       const inside = Math.max(0, ins), outside = Math.max(0, -ins);
       const amp = 1 - 0.34 * ins;                              // banking: inside brakes, outside powers
       const baseZ = -0.20 * inside + 0.12 * outside;           // inside drops, outside opens
       const N = chainArr.length, moving = N - 1;
-      const beatAmp = (m.beatAmp ?? 0.3) * aoStiff, taper = m.ampTaper ?? 0.8, chLag = m.tipLag ?? 1.0;
+      const beatAmp = (m.beatAmp ?? 0.45) * aoStiff, taper = m.ampTaper ?? 0.7, chLag = m.tipLag ?? 0.8;
       const upScale = m.upScale ?? 0.7, downScale = m.downScale ?? 1.3;
-      const flexAmp = m.flexAmp ?? 0.5, wristFrac = m.wristFrac ?? 0.67, handWidth = m.handWidth ?? 0.45;
-      const sweepDeg = (m.sweepDeg ?? 14) * DEG;
-      const pv = chainArr[0].parent;                           // placement/pose group: static pose + bank
-      pv.rotation.set(0.14 + featR * 0.16 + cBias, -0.18, restLift + baseZ + rFold);
+      const shoulderSweep = (m.shoulderSweep ?? 20) * DEG, rippleAmp = (m.rippleAmp ?? 0.14) * aoStiff;
+      const flexAmp = m.flexAmp ?? 0.45, wristFrac = m.wristFrac ?? 0.67, handWidth = m.handWidth ?? 0.45;
+      const tipSweep = (m.tipSweep ?? 12) * DEG;
+      // SHOULDER (whole-wing): elevation swing + fore-aft protraction/retraction, both on the pivot.
+      const w0 = flapWarp(ph0), c0 = Math.cos(w0);
+      const sElev = beatAmp * (c0 >= 0 ? c0 * upScale : c0 * downScale);
+      const sSweep = shoulderSweep * Math.sin(w0);             // fwd downstroke / back upstroke
+      const pv = chainArr[0].parent;
+      pv.rotation.set(0.14 + featR * 0.16 + cBias, -0.18 + sSweep, restLift + baseZ + rFold + sElev * amp);
       for (let i = 1; i < N; i++) {
         const f = moving > 1 ? (i - 1) / (moving - 1) : 0;     // 0 at the first moving bone → 1 at the tip
         const w = flapWarp(ph0 - chLag * f);                   // warped, lagged beat (proximal→distal ripple)
-        const c = Math.cos(w);                                 // +1 top → −1 bottom
-        const elev = beatAmp * Math.pow(taper, i - 1) * (c >= 0 ? c * upScale : c * downScale);
+        const ripple = rippleAmp * Math.pow(taper, i - 1) * Math.cos(w);   // small secondary wave
         const up = Math.max(0, -Math.sin(w));                  // recovery window (0 on downstroke, smooth)
         const hand = f > 0.95 ? 0 : Math.max(0, 1 - Math.abs(f - wristFrac) / handWidth);   // peak at wrist bone
         const flex = -flexAmp * up * hand;                     // subtle hand fold DOWN on the upstroke
-        const sweep = sweepDeg * Math.sin(w) * f;              // fwd downstroke / back upstroke (figure-8)
-        chainArr[i].rotation.set(0, sweep, elev * amp + flex + 0.10 * inside * f);
+        const sweep = tipSweep * Math.sin(w) * f;              // distal fore-aft (wingtip figure-8)
+        chainArr[i].rotation.set(0, sweep, ripple * amp + flex + 0.10 * inside * f);
       }
     };
     if (wingChainR) { driveChain(wingChainR, bank); driveChain(wingChainL, -bank); }

@@ -36,25 +36,28 @@ const flapWarp = (flapDF == null) ? (p) => p : (p) => {
 };
 const ss = (x) => { x = x < 0 ? 0 : x > 1 ? 1 : x; return x * x * (3 - 2 * x); };
 
-// === CLEAN DRIVE (mirror of driveChain, ins=0) ===
+// === SHOULDER-DRIVEN DRIVE (mirror of driveChain, ins=0) ===
+// The SHOULDER (pivot) carries the big motion: an elevation swing AND a fore-aft protraction/
+// retraction (forward+down on the downstroke, up+BACK on the upstroke — the recovery sweep). The
+// bones add only a small lagged ripple + the subtle wrist flex. This gives 3D depth (rowing), not
+// a flat lateral paddle.
 function poseChain(chain, ph0, P) {
   const N = chain.length, moving = N - 1, amp = 1;
+  const w0 = flapWarp(ph0);
+  const c0 = Math.cos(w0);
+  const sElev = P.beatAmp * (c0 >= 0 ? c0 * P.upScale : c0 * P.downScale);   // shoulder elevation
+  const sSweep = P.shoulderSweep * DEG * Math.sin(w0);                       // fwd downstroke / back upstroke
   const pv = chain[0].parent;
-  pv.rotation.set(0.14, -0.18, P.restDihedral);                 // static placement only
+  pv.rotation.set(0.14, -0.18 + sSweep, P.restDihedral + sElev * amp);
   for (let i = 1; i < N; i++) {
     const f = moving > 1 ? (i - 1) / (moving - 1) : 0;
     const w = flapWarp(ph0 - P.chLag * f);
-    // POWER swing, front-loaded + DOWN-biased: the down half presses deeper than the up half lifts.
-    const c = Math.cos(w);                                               // +1 top → −1 bottom
-    const swing = c >= 0 ? c * P.upScale : c * P.downScale;
-    const elev = P.beatAmp * Math.pow(P.taper, i - 1) * swing;
-    const up = Math.max(0, -Math.sin(w));                                // recovery window (smooth bump)
-    // hand mask peaks at the WRIST BONE (rotating it folds the hand/tip); a tip-bone rotation moves
-    // nothing (no children), so the mask is ~0 at f=1. Triangular bump centred on wristFrac.
+    const ripple = P.rippleAmp * Math.pow(P.taper, i - 1) * Math.cos(w);     // small lagged secondary ripple
+    const up = Math.max(0, -Math.sin(w));                                    // recovery window
     const hand = f > 0.95 ? 0 : Math.max(0, 1 - Math.abs(f - P.wristFrac) / (P.handWidth ?? 0.45));
-    const flex = -P.flexAmp * up * hand;                                 // subtle hand fold DOWN on upstroke
-    const sweep = P.sweepDeg * DEG * Math.sin(w) * f;                    // fwd downstroke / back upstroke
-    chain[i].rotation.set(0, sweep, elev * amp + flex);
+    const flex = -P.flexAmp * up * hand;                                     // subtle wrist flex on upstroke
+    const sweep = P.tipSweep * DEG * Math.sin(w) * f;                        // distal fore-aft (figure-8 loop)
+    chain[i].rotation.set(0, sweep, ripple * amp + flex);
   }
 }
 function bonePts(chain) { chain[0].parent.updateWorldMatrix(true, true); return chain.map((b) => b.getWorldPosition(new THREE.Vector3())); }
@@ -75,21 +78,21 @@ const TIP = chain.length - 1, WRIST = 3, SH = 1;
 const SAMPLES = 96;
 
 function analyze(P) {
-  const tipY = [];
-  let maxRT = -1, minRT = 1e9, maxBend = -1, foldPts = null, topPts = null, botPts = null, topY = -1e9, botY = 1e9;
+  const tipY = [], tipZ = [];
+  let maxBend = -1, foldPts = null, topPts = null, botPts = null, topY = -1e9, botY = 1e9, maxZ = -1e9, minZ = 1e9;
   for (let s = 0; s < SAMPLES; s++) {
     const ph0 = (s / SAMPLES) * TAU;
     poseChain(chain, ph0, P);
     const pts = bonePts(chain);
-    tipY.push(pts[TIP].y);
-    const rt = rootTip(pts), bd = bend(pts);
-    if (rt > maxRT) maxRT = rt;
-    if (rt < minRT) minRT = rt;
+    tipY.push(pts[TIP].y); tipZ.push(pts[TIP].z);
+    const bd = bend(pts);
     if (bd > maxBend) { maxBend = bd; foldPts = pts.map(p => p.clone()); }       // most-flexed = recovery
     if (pts[TIP].y > topY) { topY = pts[TIP].y; topPts = pts.map(p => p.clone()); }
     if (pts[TIP].y < botY) { botY = pts[TIP].y; botPts = pts.map(p => p.clone()); }
+    if (pts[TIP].z > maxZ) maxZ = pts[TIP].z;
+    if (pts[TIP].z < minZ) minZ = pts[TIP].z;
   }
-  return { tipY, topPts, botPts, foldPts, maxBend, spanShort: (1 - minRT / maxRT) * 100 };
+  return { tipY, tipZ, topPts, botPts, foldPts, maxBend, foreAft: maxZ - minZ };
 }
 function spark(arr) {
   const lo = Math.min(...arr), hi = Math.max(...arr), bars = '▁▂▃▄▅▆▇█';
@@ -97,37 +100,17 @@ function spark(arr) {
 }
 
 const arg = process.argv[2];
-const BASE = { beatAmp: m.beatAmp ?? 0.34, taper: m.ampTaper ?? 0.78, chLag: m.tipLag ?? 1.0,
-  restDihedral: m.restLift ?? 0.06, flexAmp: m.flexAmp ?? 0.5, wristFrac: m.wristFrac ?? 0.5, sweepDeg: m.sweepDeg ?? 14,
+const BASE = { beatAmp: m.beatAmp ?? 0.7, taper: m.ampTaper ?? 0.7, chLag: m.tipLag ?? 1.0,
+  restDihedral: m.restLift ?? 0.06, flexAmp: m.flexAmp ?? 0.5, wristFrac: m.wristFrac ?? 0.67,
+  shoulderSweep: m.shoulderSweep ?? 35, rippleAmp: m.rippleAmp ?? 0.12, tipSweep: m.tipSweep ?? 10,
   upScale: m.upScale ?? 0.7, downScale: m.downScale ?? 1.3 };
-// allow inline overrides: node flexmeasure.mjs '{"chLag":0.6,"flexAmp":0.35}'
 if (arg && arg.trim().startsWith('{')) Object.assign(BASE, JSON.parse(arg));
 
-if (arg === 'grid') {
-  console.log(`\nGRID: beatAmp × flexAmp (taper ${BASE.taper}, chLag ${BASE.chLag}, wristFrac ${BASE.wristFrac})\n`);
-  console.log('beatAmp'.padStart(8) + 'flexAmp'.padStart(8) + 'powerDepth'.padStart(11) + 'topLift'.padStart(9) + 'M-drop'.padStart(8) + 'span-'.padStart(7));
-  console.log('-'.repeat(51));
-  for (const beatAmp of [0.24, 0.30, 0.36]) {
-    for (const flexAmp of [0.3, 0.5, 0.8]) {
-      const r = analyze({ ...BASE, beatAmp, flexAmp });
-      const root = r.botPts[0].y;
-      const powerDepth = root - r.botPts[TIP].y;    // tip below body root at downstroke bottom (>0 = press)
-      const topLift = r.topPts[TIP].y - root;
-      console.log(String(beatAmp).padStart(8) + String(flexAmp).padStart(8) +
-        powerDepth.toFixed(2).padStart(11) + topLift.toFixed(2).padStart(9) +
-        (r.maxBend.toFixed(0) + 'd').padStart(8) + (r.spanShort.toFixed(0) + '%').padStart(7));
-    }
-  }
-  console.log('-'.repeat(51));
-  console.log('powerDepth = tip below body root at downstroke bottom (bigger = stronger press)');
-  console.log('topLift = tip above root at top | bend = max flex angle on the upstroke (the M; subtle ≈ 20-30°)\n');
-} else {
-  const r = analyze(BASE);
-  console.log(`\nFlame Monarch CLEAN cycle  —`, JSON.stringify(BASE), '\n');
-  console.log('tip height over the cycle (top→down→bottom→up→top):');
-  console.log('  ' + spark(r.tipY) + '   (smooth = no janky jumps)\n');
-  const root = r.botPts[0].y;
-  console.log('POWER (downstroke bottom):  tip below body by', (root - r.botPts[TIP].y).toFixed(2), '  bend =', bend(r.botPts).toFixed(0) + 'd', '(≈0 = EXTENDED power stroke)');
-  console.log('TOP   (apex):               tip above body by', (r.topPts[TIP].y - root).toFixed(2), '  bend =', bend(r.topPts).toFixed(0) + 'd', '(≈0 = re-extended)');
-  console.log('RECOVERY (most flexed):     bend =', r.maxBend.toFixed(0) + 'd', '(the M / flex — keep subtle, ~20-30°)   span draw-in', r.spanShort.toFixed(0) + '%\n');
-}
+const r = analyze(BASE);
+console.log(`\nFlame Monarch SHOULDER-DRIVEN cycle  —`, JSON.stringify(BASE), '\n');
+console.log('tip HEIGHT   (elevation): ' + spark(r.tipY) + '   range', (Math.max(...r.tipY) - Math.min(...r.tipY)).toFixed(2));
+console.log('tip FORE-AFT (depth):     ' + spark(r.tipZ) + '   range', r.foreAft.toFixed(2), '  <- shoulder rowing; ~0 = flat lateral paddle\n');
+const root = r.botPts[0].y;
+console.log('POWER (downstroke):   tip below body', (root - r.botPts[TIP].y).toFixed(2) + ',', 'bend', bend(r.botPts).toFixed(0) + 'd (extended)', '  tip z', r.botPts[TIP].z.toFixed(2));
+console.log('TOP   (apex):         tip above body', (r.topPts[TIP].y - root).toFixed(2) + ',', 'bend', bend(r.topPts).toFixed(0) + 'd');
+console.log('RECOVERY (flexed):    bend', r.maxBend.toFixed(0) + 'd (the wrist M — subtle)', '  tip z', r.foldPts[TIP].z.toFixed(2), '(vs downstroke z above — should differ = wing drawn back)\n');
