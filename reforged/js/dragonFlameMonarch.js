@@ -383,21 +383,23 @@ function buildMonarchWing(def, model, attach, giM) {
     // bow, so the silhouette matches the art. Four struts fan from a medial wrist to a
     // scalloped trailing edge that drops deepest at the inner third. Convex billow + rim.
     const anatomy = {
-      // BOTH edges traced DENSELY from the reference (chord rel wing-centre, +=forward):
-      // the leading arc (broad convex bulge holding forward through mid-span) AND the real
-      // scalloped trailing edge (deep inner lobe → mid plateau → scallop rise → wingtip).
-      // both curves START at negative span (-0.45) → a compact root BURIED inside the body
-      // (world x≈0 at the spine), so the membrane EMERGES from the body surface with no gap.
-      leadingCurve: [[-0.45, 0.06], [0, 0.34], [0.4, 0.43], [0.8, 0.42], [1.2, 0.68], [1.6, 0.98], [2.0, 1.11], [2.4, 1.15], [2.8, 1.12], [3.2, 1.06], [3.6, 0.98], [4.0, 0.87], [4.4, 0.71], [4.8, 0.55], [5.2, 0.38], [5.4, 0.20]],
-      trailingCurve: [[-0.45, -0.06], [0, -0.45], [0.4, -0.93], [0.8, -1.39], [1.2, -1.57], [1.6, -1.71], [2.0, -1.28], [2.4, -1.13], [2.8, -1.14], [3.2, -0.54], [3.6, -0.33], [4.0, -0.38], [4.4, 0.12], [4.8, 0.21], [5.2, 0.17], [5.4, 0.20]],
+      // What makes this read DRAGON, not moth/dragonfly: (1) a STRONG convex leading frame that
+      // bulges hard FORWARD just past the wrist (peak chord ~1.48 around span 2.5) then sweeps
+      // back to a swept tip — a powerful curved spar, not a flat straight leading edge; (2) DEEP,
+      // well-defined trailing SCALLOPS — each finger reaches far back (a deep lobe) and the
+      // membrane scoops sharply FORWARD between fingers (clear cusps), not a smooth hem. Both
+      // edges share the SAME span stations (aligned to the finger lobes + cusps) so the lofted
+      // sheet stays chordwise. Curves START at span -0.45 → a compact root buried in the body.
+      leadingCurve: [[-0.45, 0.06], [0, 0.36], [0.5, 0.52], [1.0, 0.82], [1.6, 1.18], [2.05, 1.40], [2.55, 1.48], [3.0, 1.42], [3.45, 1.30], [3.9, 1.10], [4.4, 0.84], [4.9, 0.52], [5.4, 0.16]],
+      trailingCurve: [[-0.45, -0.06], [0, -0.45], [0.5, -1.0], [1.0, -1.5], [1.6, -1.80], [2.05, -1.20], [2.55, -1.40], [3.0, -0.78], [3.45, -0.92], [3.9, -0.30], [4.4, -0.45], [4.9, 0.05], [5.4, 0.16]],
       wrist: [0.85, 0.30],                                 // SHORT humerus → wrist medial
       rootBack: [0, -0.45],
       hub: [1.45, -0.55],                                  // membrane fan apex (interior, below the leading arc)
       fingers: [
-        { tip: [1.60, -1.71], bow: 0.05 },                 // struts to the DETECTED trailing fingertips
-        { tip: [2.55, -1.13], bow: 0.12 },
-        { tip: [3.45, -0.40], bow: 0.18 },
-        { tip: [4.40, 0.10], bow: 0.22 },
+        { tip: [1.60, -1.80], bow: 0.05 },                 // struts to the DEEP scallop fingertips
+        { tip: [2.55, -1.40], bow: 0.12 },
+        { tip: [3.45, -0.92], bow: 0.18 },
+        { tip: [4.40, -0.45], bow: 0.22 },
       ],
       scallop: 0.24, strutR: 0.058, fingerRMul: 0.66, claw: 0.12, clawLen: 0.09,
       leadR: 0.072,
@@ -547,7 +549,7 @@ function buildMonarchTail(def, model, mats, anchor) {
   const accentMats = [];
   const F = model.formLevel ?? 0;
   const glow = model.spineGlow ?? (F / 3);
-  const lenK = 1.5 * (model.tailLength ?? 1);
+  const lenK = 1.85 * (model.tailLength ?? 1);   // ~3.0 crown-heights (was 1.5 → ~2.5, short of spec)
   const cMolten = def.coreGlow ?? def.wingEmissive ?? 0xff5a1e;
 
   const hideMat = mats.bodyMat;            // shared charcoal hide (already rimmed)

@@ -3655,3 +3655,22 @@ from the dimensions that match the spec, then the real outlier pops out; (3) rep
 (wingspan / body-length) alongside the normalised one so a bad denominator can't hide the answer; (4) a planform
 traced in its own image space has NO inherent scale relationship to the body — always re-measure span-to-body after
 importing reference art.
+
+---
+
+### L120 — What reads "dragon" vs "moth/dragonfly": a STRONG convex leading frame past the wrist + DEEP, well-defined trailing scallops
+The human named the exact silhouette cues that separate a dragon wing from an insect one: (1) a leading frame that
+bulges hard FORWARD just past the wrist then sweeps back to a swept tip (a powerful curved spar, not a flat straight
+leading edge), and (2) DEEP, well-defined trailing SCALLOPS (each finger reaches far back; the membrane scoops sharply
+forward between fingers as clear cusps). Through the loft + skinning + proportion work the wing had drifted to a
+smooth, gently-swept moth shape — not because the loft changed the silhouette DATA (it didn't) but because the traced
+curves were never strong enough and the small final size made the weak cues vanish. Fix: re-author both edges on a
+shared span grid aligned to the finger lobes + cusps — leading peak chord 1.15→1.48 around span ~2.5 (a real forward
+knuckle past the wrist 0.85), trailing scallops deepened to a clear sawtooth (finger lobes -1.8/-1.4/-0.9/-0.45,
+cusps scooping forward between). The molten rim traces the deeper scallops and the leading spar follows the stronger
+arc, so both cues now read. Also lengthened the tail (lenK 1.5→1.85) to hit the spec (2.5→2.86 crown-heights).
+Lessons: (1) when a shape "loses character," get the human to name the DEFINING cues (here: leading convexity +
+scallop depth) and author them EXPLICITLY — don't assume a faithful silhouette trace carries the read at every size;
+(2) a planform's silhouette cues must be EXAGGERATED to survive shrinking + shading + low-poly facets — trace for the
+read, not just the outline; (3) keep both lofted edges on the SAME span grid (here re-gridded to the finger lobes) so
+deepening the scallops doesn't desync the chordwise loft.
