@@ -1328,7 +1328,7 @@ export const DRAGONS = {
     // GLB placement: intrinsic mesh scale, facing (yaw), and the shoulder pivots
     // each authored wing mounts onto. Retune for the real asset on the PR
     // preview — no code change needed.
-    glb: { scale: 1.0, rotY: 0, shoulder: [0.30, 0.14, 0.45] },
+    glb: { scale: 3.6, rotY: Math.PI, rotX: 1.0, shoulder: [0.5, 0.5, -1.6], wingScale: 2.2, riderAt: [0, 1.2, -1.4] },
     stats: { speed: 1.10, handling: 1.06, drain: 0.97, regen: 1.0 },   // fast + electric
     model: {
       scale: 1.0, bodyScale: 1.0, wingSpan: 1.0,

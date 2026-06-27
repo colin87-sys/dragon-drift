@@ -3114,3 +3114,41 @@ real shoulders; decide whether 31k tris / 6.7 MB earns its place or needs a deci
 reads well, this is the template for any future AI-bodied dragon (concept image → `image_to_3d` textured/no-rig →
 overwrite a `meshUrl` GLB → stamp). The body-vs-wings division of labour (AI body, authored reactive wings) is the
 reusable pattern, not a one-off.
+
+---
+
+## Lesson — Placing an AI mesh in the chase cam: VERIFY WITH `gameshots`, don't reason about Euler angles by eye
+
+**What we did.** First in-game look at the real Thundercoil GLB: it was tiny and facing the wrong way. Fixed both,
+but the win was the METHOD — `tools/gameshots.mjs` (Playwright + the live chase cam) renders the asset-backed dragon
+in the REAL renderer, which is the only way to judge a GLB (no headless WebGL — silhouette tools are procedural-only).
+Chromium IS available in this environment, so the loop is: edit `def.glb` → `node tools/_oneshot.mjs` (a 1-tier clone
+of gameshots) → screenshot → crop the dragon → look → repeat. Four iterations took minutes and removed ALL guessing.
+
+**The orientation facts (storm-serpent mesh, head at +Z / tail −Z / curl in +Y):**
+- The game writes `group.rotation.{x,y,z}` EVERY FRAME (dragon.js ~L493–499 for bank/pitch/yaw), so you CANNOT bake
+  facing into the figure group. Facing must live on the GLB *content* via `cfg.rotY/rotX/rotZ` (applied in
+  `applyGlbTransform`) — which is exactly why that hook exists. Added `rotX`/`rotZ` alongside the existing `rotY`.
+- Procedural dragons face **head −Z** (`headBase.z` is negative; chase cam looks toward `player.z − 16`). The GLB
+  came head **+Z** → `rotY = Math.PI`. That alone read as a vertical PILLAR, because this mesh's bbox is Y≈1.33 vs
+  Z≈1.91 — it's posed as a *floating vertical curl*, not a flat flight pose. A forward pitch lays the curl into a
+  flight line. **Sign matters and is NOT obvious from the numbers:** `rotX = −1.0` nosed the head DOWN toward the
+  camera (tail up/far — looked backwards); `rotX = +1.0` put the wedge head far/up-into-screen and the forked tail
+  trailing toward the camera — the correct chase read. The crop is what told them apart; don't trust intuition on
+  composed Euler rotations — render it.
+
+**Sizing without ballooning the rider.** The rider is parented UNDER the dragon group (`group.add(rider)`) and scales
+with `model.scale`, so DON'T size an asset dragon via `model.scale` (it inflates the rider too — same reason
+procedural dragons grow via `bodyScale`/`wingSpan`, not the group). Instead: body via `cfg.scale` (1.0→3.6 → ~7-unit
+body, matching Pearl/Aurum apex body length ~8 measured headlessly), and a NEW `cfg.wingScale` that multiplies the
+authored membrane-wing coords (the wings are fixed-size geometry, immune to `cfg.scale` which only touches the GLB
+content). Shoulders moved to `z = −1.6` so the wing roots sit on the chest, which is the −Z/front end after `rotY`.
+
+**Reusable knobs now on `def.glb`:** `{ scale, rotY, rotX, rotZ, shoulder:[x,y,z], wingScale, riderAt:[_,y,z] }` —
+the full placement vocabulary for any future AI-bodied dragon, all tunable from `dragons.js` with no code change.
+glbcontract/glb/defs/blueprint/flapcheck/ascension stay green.
+**→ Leapfrog:** open polish (preview judgment): the authored wings read SMALL beside the long serpent and sit high
+near the head — enlarge `wingScale` / re-place `shoulder`, or rethink the wing planform for an amphithere. And the
+body is still RIGID — it rides the shared whole-body transform + the wing flap, but does not slither/coil on its own;
+giving the serpent signature motion means a procedural vertex-undulation deformer (traveling sine along the spine),
+which is a real, separate piece of work + a per-channel velocity gate (see the flapcheck lesson), not free from the GLB.
