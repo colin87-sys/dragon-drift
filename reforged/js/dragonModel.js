@@ -480,28 +480,26 @@ export function makePreviewTick(def, result) {
         if (tp) { const tipF = md ? shape(phase - tLag) * tipA : (shape(phase - mLag) * midA + shape(phase - tLag) * tipA); const aT = md ? aTip : (aMid + aTip);
           tp.rotation.set(-0.05 + Math.cos(phase - tLag) * 0.18 - apexPitch * aT, tipSweep + rowT, -tipF + aT); }
       };
-      // SKINNED RIPPLE chain (matches gameplay driveChain, ins=0): elevation distributed down
-      // the bone chain as a phase-lagged wave so the bend ripples out — not a root hinge.
+      // CLEAN WINGBEAT chain (matches gameplay driveChain, ins=0): a front-loaded, down-biased
+      // elevation power swing + ONE subtle wrist flex on the upstroke (folds the hand DOWN from a
+      // wrist peak) + a fore-aft sweep. No apex-lift / washout / tuck. See dragon.js for the model.
       const driveChain = (chainArr) => {
         if (!chainArr || chainArr.length < 2) return;
         const N = chainArr.length, moving = N - 1;
-        const segAmp = m.segAmp ?? 0.2, segApex = m.segApex ?? 0.12, chLag = tLag || 1.6;
-        const ampTaper = m.ampTaper ?? 1;
-        const wristFlex = m.wristFlex ?? m.curlAmp ?? 0, wristFrac = m.wristFrac ?? 0.5;
-        const armBack = (m.armSweepBack ?? 0) * DEG;
-        const ss = (x) => { x = x < 0 ? 0 : x > 1 ? 1 : x; return x * x * (3 - 2 * x); };
-        chainArr[0].parent.rotation.set(0.14 + feather * 0.16, -0.18 + rowR, restLift - 0.10);
+        const beatAmp = m.beatAmp ?? 0.3, taper = m.ampTaper ?? 0.8, chLag = tLag || 1.0;
+        const upScale = m.upScale ?? 0.7, downScale = m.downScale ?? 1.3;
+        const flexAmp = m.flexAmp ?? 0.5, wristFrac = m.wristFrac ?? 0.67, handWidth = m.handWidth ?? 0.45;
+        const sweepDeg = (m.sweepDeg ?? 14) * DEG;
+        chainArr[0].parent.rotation.set(0.14 + feather * 0.16, -0.18, restLift - 0.10);
         for (let i = 1; i < N; i++) {
-          const f = moving > 1 ? (i - 1) / (moving - 1) : 0, lag = chLag * f;
-          const ampI = segAmp * Math.pow(ampTaper, i - 1);     // front-loaded → inner swings
-          const fold = shape(phase - lag) * ampI, apx = apexUp(phase - lag) * segApex;
-          // WRIST FLEXION (inverted-V / M-shape): hand-wing folds DOWN/back from a wrist peak +
-          // posterior shoulder sweep on the upstroke. Matches gameplay driveChain (ins=0).
-          const upEnv = Math.max(0, -Math.cos(flapWarp(phase - lag)));
-          const handMask = f <= wristFrac ? 0 : ss((f - wristFrac) / (1 - wristFrac));
-          const wristFold = -wristFlex * upEnv * handMask;
-          const sweepBack = armBack * upEnv * (0.4 + 0.6 * f);
-          chainArr[i].rotation.set(Math.cos(flapWarp(phase - lag)) * 0.06 * f - apexPitch * apx, rowR * 0.5 * f - sweepBack, -fold + apx * (1 - 0.7 * handMask) + wristFold);
+          const f = moving > 1 ? (i - 1) / (moving - 1) : 0;
+          const w = flapWarp(phase - chLag * f), c = Math.cos(w);
+          const elev = beatAmp * Math.pow(taper, i - 1) * (c >= 0 ? c * upScale : c * downScale);
+          const up = Math.max(0, -Math.sin(w));
+          const hand = f > 0.95 ? 0 : Math.max(0, 1 - Math.abs(f - wristFrac) / handWidth);
+          const flex = -flexAmp * up * hand;
+          const sweep = sweepDeg * Math.sin(w) * f;
+          chainArr[i].rotation.set(0, sweep, elev + flex);
         }
       };
       if (wingChainR) { driveChain(wingChainR); driveChain(wingChainL); }
