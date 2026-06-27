@@ -69,6 +69,32 @@ const anySkinned = (root) => {
   return s;
 };
 
+// Procedural body SLITHER: a traveling lateral wave down the serpent's spine,
+// injected into the GLB body material's vertex stage so it keeps its PBR
+// texture/lighting. Local +Z = head, -Z = tail (mesh-native axes), so the wave
+// runs along local Z and displaces local X (lateral); amplitude ramps 0→1 from
+// head→tail (the head leads, the tail whips), with a faint vertical roll for
+// organic feel. Driven by uniforms ticked in dragon.js (reactive to speed).
+// Normals are intentionally NOT recomputed (a subtle shear; cheaper, holds 60fps).
+function attachSlither(mat, u) {
+  mat.onBeforeCompile = (shader) => {
+    shader.uniforms.uTime = u.uTime; shader.uniforms.uAmp = u.uAmp;
+    shader.uniforms.uFreq = u.uFreq; shader.uniforms.uWaveSpeed = u.uWaveSpeed;
+    shader.uniforms.uSpineMin = u.uSpineMin; shader.uniforms.uSpineMax = u.uSpineMax;
+    shader.vertexShader =
+      'uniform float uTime;uniform float uAmp;uniform float uFreq;uniform float uWaveSpeed;uniform float uSpineMin;uniform float uSpineMax;\n' +
+      shader.vertexShader.replace(
+        '#include <begin_vertex>',
+        '#include <begin_vertex>\n' +
+        'float spineT = clamp((uSpineMax - position.z) / max(0.0001, uSpineMax - uSpineMin), 0.0, 1.0);\n' +
+        'float phase = uFreq * position.z + uWaveSpeed * uTime;\n' +
+        'transformed.x += uAmp * spineT * sin(phase);\n' +
+        'transformed.y += uAmp * 0.3 * spineT * cos(phase);\n'
+      );
+  };
+  mat.needsUpdate = true;
+}
+
 export function buildGlbDragon(def, opts = {}) {
   const model = def.model || {};
   const cfg = def.glb || {};
@@ -143,8 +169,18 @@ export function buildGlbDragon(def, opts = {}) {
 
   group.scale.setScalar(model.scale || 1);
 
-  // Holder ticked by dragon.js every frame (set only for a baked-clip GLB).
-  const glbAnim = { mixer: null };
+  // Holder ticked by dragon.js every frame: a baked-clip mixer (skinned GLB) and/or
+  // the procedural body-slither uniforms (a traveling spine wave; def.glb.slither).
+  const slither = cfg.slither || null;
+  const slitherU = {
+    uTime: { value: 0 }, uAmp: { value: slither?.amp ?? 0 },
+    uFreq: { value: slither?.freq ?? 6.0 }, uWaveSpeed: { value: slither?.speed ?? 4.0 },
+    uSpineMin: { value: -1 }, uSpineMax: { value: 1 },
+  };
+  const glbAnim = {
+    mixer: null,
+    slither: slither ? { uniforms: slitherU, baseAmp: slither.amp ?? 0 } : null,
+  };
 
   // --- async swap-in (browser only) ---------------------------------------
   if (inBrowser() && def.meshUrl) {
@@ -191,6 +227,17 @@ export function buildGlbDragon(def, opts = {}) {
       if (hn) { hn.position.set(0, 0, 0); head.add(hn); }
       headBox.visible = false;       // body+head silhouette retired (GLB body takes over)
       placeholder.visible = false;
+      // Procedural slither — wire the spine wave into every (body) mesh material
+      // and set the wave's spine bounds from the real geometry's local Z extent.
+      if (slither) {
+        content.traverse((o) => {
+          if (!o.isMesh || !o.geometry) return;
+          o.geometry.computeBoundingBox();
+          const bb = o.geometry.boundingBox;
+          slitherU.uSpineMin.value = bb.min.z; slitherU.uSpineMax.value = bb.max.z;
+          (Array.isArray(o.material) ? o.material : [o.material]).forEach((m) => m && attachSlither(m, slitherU));
+        });
+      }
       group.add(content);            // remaining nodes (body, etc.) ride the root
     });
   }

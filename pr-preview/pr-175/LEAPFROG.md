@@ -3152,3 +3152,40 @@ near the head — enlarge `wingScale` / re-place `shoulder`, or rethink the wing
 body is still RIGID — it rides the shared whole-body transform + the wing flap, but does not slither/coil on its own;
 giving the serpent signature motion means a procedural vertex-undulation deformer (traveling sine along the spine),
 which is a real, separate piece of work + a per-channel velocity gate (see the flapcheck lesson), not free from the GLB.
+
+---
+
+## Lesson — Lay the AI mesh into the flight plane (pitch), then give the static body a GPU SLITHER via onBeforeCompile
+
+**Orientation, finished.** The prior pass left Thundercoil flying but reading as a vertical reared pillar — the mesh
+is posed as a floating vertical curl (bbox Y≈1.33 ≈ Z≈1.91). The human's fix was precise: "rotate it 90° so head and
+tail are in the SAME plane — tail toward us, head toward the sun." That's a forward PITCH past the rear-up pose:
+`rotX` swept 1.0 → **1.8** lays the spine along the world depth axis (head −Z into the screen toward the horizon sun,
+forked tail +Z toward the camera) — the canonical chase-cam flight line. Lesson: an AI mesh's authored pose is rarely
+the gameplay pose; budget a pitch/roll to re-seat it into the camera's plane, and find the value by screenshot, not
+arithmetic (sign + amount of a composed Euler are not eyeball-predictable — `gameshots`/a 1-tier clone is the oracle).
+
+**The body was static; now it SLITHERS — without touching the mesh or losing its PBR texture.** A GLB body is one
+rigid mesh (no bones), so signature motion has to be a vertex deform. Did it as a shader injection via
+`material.onBeforeCompile`: prepend uniforms, then splice after `#include <begin_vertex>` a traveling lateral wave in
+MESH-LOCAL space — `spineT = clamp((spineMax - z)/(spineMax - spineMin),0,1)` (0 head → 1 tail), `transformed.x +=
+amp * spineT * sin(freq*z + waveSpeed*t)` (+ a faint `transformed.y` roll). Key wins:
+- **Local-space displacement is orientation-independent.** The wave runs along the mesh's own +Z spine and is applied
+  BEFORE the model matrix, so it's immune to the rotY/rotX/scale placement — the serpent slithers correctly no matter
+  how it's re-seated in the camera plane. Spine bounds come from the geometry's local-Z bbox at load.
+- **Amplitude ramps head→tail** (spineT) so the head leads and the tail whips — the read of a swimming serpent, not a
+  uniform wobble. Reactive: `dragon.js` ticks `uTime += dt` next to the existing `glbAnim.mixer` tick and scales
+  `uAmp`/`uWaveSpeed` with `player.speed` (the same speed-norm the flap uses).
+- **Keeps the GLB's own PBR material/texture** — onBeforeCompile augments the standard shader instead of replacing the
+  material (normals deliberately NOT recomputed: a subtle shear, cheaper, holds 60fps on 27k verts — a documented
+  tradeoff). All data-driven via `def.glb.slither {amp,freq,speed}`; absent → byte-identical for any other GLB dragon.
+- **Verified motion two ways.** Visually: two frames at different `uTime` show a DIFFERENT body curve (it animates, not
+  a frozen bend — a single screenshot can't prove this, same lesson as flapcheck). Numerically: a new pure-math gate
+  `tests/slither.mjs` mirrors the GLSL and asserts head-anchored / amp-bounded / tail-reaches-amp / oscillates-in-time
+  / **crest-travels-head→tail** (a standing wiggle would pass the first four and fail the fifth). The GLSL + JS are one
+  spec in two languages — change one, change the other.
+
+glbcontract/glb/defs/blueprint/flapcheck/ascension/slither all green; roster byte-identical (203265).
+**→ Leapfrog:** the per-channel "encode the motion invariant as a gate" rule now covers a SECOND channel (slither)
+besides the wing flap — the reusable move for any new cyclic body motion. Open polish (preview): the wings still read
+small/high beside the long body; tune `wingScale`/`shoulder`, and judge slither `amp`/`freq` + the `rotX` pitch on feel.
