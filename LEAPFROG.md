@@ -3633,3 +3633,25 @@ chain with phase lag (a wave), never to add amplitude to the existing single swi
 wing-ripple cascade are the SAME pattern (phase-lagged drive over a bone chain) — reuse the mental model, not the code;
 (3) a static anchor bone is the clean way to keep a skinned attachment welded to the body while the limb deforms (L25
 again: freeze the RELATIONSHIP, here by simply never rotating bone 0).
+
+---
+
+### L119 — Proportions: MEASURE against the spec, don't eyeball — and calibrate the unit from a dimension you trust
+The human gave a crown-height-normalised proportion spec (crown=1.0; body 5.8–6.5, wingspan 5.4–5.8, etc.) and said
+"wingspan is way too much." Built `tools/proportions.mjs` to measure the actual model: boot the shared builder
+headless (the tricount three-resolver + DOM-shim trick), `Box3.setFromObject` the named parts (head/wings/tail), and
+report each dim in crown units. First pass said EVERYTHING was ~1.2–1.3× too big AND the wings 3× — which is the tell
+that the UNIT is wrong, not every part: `parts.head` under-measures the crown (it's a sub-node, varies per dragon).
+Calibrated the crown from dimensions that ARE trustworthy and on-spec — body length, shoulder width, hip width all
+back out crown ≈ 1.65 world (they agree to ±3%). In that unit the BODY is exactly on spec (noseTail 6.10, shoulder
+1.03, hip 0.61) and ONLY the wingspan is off: 14.4 vs 5.6 = 2.5× too big. So the fix is purely the wing, not a
+global rescale: `wingScale` 1.18 → 0.40 (the traced planform was authored ~3× too large relative to the body). Now
+wingspan ≈ 5.7 crowns / wingspan-to-body ratio 0.94 (spec 0.91), the wing still attaches cleanly (the conform/seam
+math is ws-relative so it adapts) and still ripples (the cascade is rotation-based, scale-free). Net: a sleek dragon
+(wings ≈ body length) instead of giant moth-wings.
+Lessons: (1) a proportion complaint is a MEASUREMENT task — write the probe (like the L36/L39c motion + gap probes),
+don't tune by thumbnail; (2) when EVERY part reads off by the same factor, your UNIT is miscalibrated — re-derive it
+from the dimensions that match the spec, then the real outlier pops out; (3) report a unit-INDEPENDENT ratio
+(wingspan / body-length) alongside the normalised one so a bad denominator can't hide the answer; (4) a planform
+traced in its own image space has NO inherent scale relationship to the body — always re-measure span-to-body after
+importing reference art.
