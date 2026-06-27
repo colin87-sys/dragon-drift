@@ -1328,7 +1328,7 @@ export const DRAGONS = {
     // GLB placement: intrinsic mesh scale, facing (yaw), and the shoulder pivots
     // each authored wing mounts onto. Retune for the real asset on the PR
     // preview — no code change needed.
-    glb: { scale: 3.6, rotY: Math.PI, rotX: 1.8, shoulder: [0.5, 0.5, -1.6], wingScale: 2.2, riderAt: [0, 1.2, -1.4],
+    glb: { scale: 3.6, rotY: Math.PI, rotX: -0.30, shoulder: [0.5, 0.5, -1.6], wingScale: 2.2, riderAt: [0, 1.2, -1.4],
       // Procedural body slither: traveling lateral spine wave (local units; amp ramps head→tail).
       slither: { amp: 0.14, freq: 6.5, speed: 4.0 } },
     stats: { speed: 1.10, handling: 1.06, drain: 0.97, regen: 1.0 },   // fast + electric
