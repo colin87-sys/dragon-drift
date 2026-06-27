@@ -484,11 +484,14 @@ export function makePreviewTick(def, result) {
         if (!chainArr || chainArr.length < 2) return;
         const N = chainArr.length, moving = N - 1;
         const segAmp = m.segAmp ?? 0.2, segApex = m.segApex ?? 0.12, chLag = tLag || 1.6;
+        const ampTaper = m.ampTaper ?? 1, curlAmp = m.curlAmp ?? 0;
         chainArr[0].parent.rotation.set(0.14 + feather * 0.16, -0.18 + rowR, restLift - 0.10);
         for (let i = 1; i < N; i++) {
           const f = moving > 1 ? (i - 1) / (moving - 1) : 0, lag = chLag * f;
-          const fold = shape(phase - lag) * segAmp, apx = apexUp(phase - lag) * segApex;
-          chainArr[i].rotation.set(Math.cos(flapWarp(phase - lag)) * 0.06 * f - apexPitch * apx, rowR * 0.5 * f, -fold + apx);
+          const ampI = segAmp * Math.pow(ampTaper, i - 1);     // front-loaded → inner swings
+          const fold = shape(phase - lag) * ampI, apx = apexUp(phase - lag) * segApex;
+          const curl = curlAmp * Math.max(0, -Math.cos(flapWarp(phase - lag))) * f * f;   // flexed upstroke
+          chainArr[i].rotation.set(Math.cos(flapWarp(phase - lag)) * 0.06 * f - apexPitch * apx, rowR * 0.5 * f, -fold + apx + curl);
         }
       };
       if (wingChainR) { driveChain(wingChainR); driveChain(wingChainL); }

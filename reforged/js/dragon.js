@@ -695,16 +695,25 @@ export function updateDragon(dt, player, time) {
       const baseZ = -0.10 - 0.20 * inside + 0.12 * outside;
       const N = chainArr.length, moving = N - 1;
       const segAmp = (m.segAmp ?? 0.2) * aoStiff, segApex = m.segApex ?? 0.12, chLag = m.tipLag ?? 1.6;
+      const ampTaper = m.ampTaper ?? 1, curlAmp = m.curlAmp ?? 0;
       const pv = chainArr[0].parent;                            // the placement/pose group
       pv.rotation.set(0.14 + featR * 0.16 + cBias, -0.18 + rowR, restLift + baseZ + rFold);
       for (let i = 1; i < N; i++) {
         const f = moving > 1 ? (i - 1) / (moving - 1) : 0;      // 0 at the first moving bone → 1 at the tip
         const lag = chLag * f;                                  // ripple delay grows outward
-        const fold = shape(ph0 - lag) * segAmp, apx = apexUp(ph0 - lag) * segApex;
+        // ELEVATION amplitude is FRONT-LOADED (×ampTaper^i): the inner/shoulder bone swings the
+        // most so the inner 2/3 of the wing actually moves (not stiff), tapering outward — the
+        // lag still makes it ripple. apexUp lifts each segment into the V at the top.
+        const ampI = segAmp * Math.pow(ampTaper, i - 1);
+        const fold = shape(ph0 - lag) * ampI, apx = apexUp(ph0 - lag) * segApex;
+        // FLEXED UPSTROKE (dump air): the wrist/hand FOLDS up during the upstroke and re-extends
+        // by the apex. max(0,−cos(warp)) peaks MID-upstroke and is 0 through the downstroke
+        // (extended = max area for the power stroke); f*f concentrates the fold at the wrist/tip.
+        const curl = curlAmp * Math.max(0, -Math.cos(flapWarp(ph0 - lag))) * f * f;
         chainArr[i].rotation.set(
           Math.cos(flapWarp(ph0 - lag)) * 0.06 * f - apexPitch * apx,   // washout twist, grows outward
           rowR * 0.5 * f,                                                // fore-aft figure-8, grows outward
-          -(fold * amp) + apx * amp + 0.10 * inside * f);                // the LAGGED fold = the ripple (+ inside tuck)
+          -(fold * amp) + apx * amp + curl + 0.10 * inside * f);         // ripple + apex-V + upstroke FOLD + inside tuck
       }
     };
     if (wingChainR) { driveChain(wingChainR, bank); driveChain(wingChainL, -bank); }
