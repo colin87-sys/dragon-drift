@@ -158,6 +158,33 @@ export function buildGlbDragon(def, opts = {}) {
   const authoredWingL = makeMembraneWing(-1); wingRigL.shoulder.add(authoredWingL);
   const authoredWingR = makeMembraneWing(1); wingRigR.shoulder.add(authoredWingR);
 
+  // OPTIONAL: an AI-generated WING mesh (def.glb.wingMesh) parented under the flap
+  // rig, replacing the authored membrane — so the same flapWing() beat animates a
+  // real generated wing for free (a separate single-wing GLB reconstructs far better
+  // than wings buried in a full-body shot). One mesh authored for the RIGHT side;
+  // the left is a true mirror via a scale.x = -1 holder. Browser-only (the headless
+  // contract test keeps the authored wings). Tunable placement: {scale,rot,offset}.
+  const wingCfg = cfg.wingMesh || null;
+  if (inBrowser() && wingCfg && wingCfg.url) {
+    preloadDragonAsset(wingCfg.url).then((gltf) => {
+      if (!gltf || !gltf.scene) return;
+      const mountWing = (rig, side) => {
+        const holder = new THREE.Group();
+        holder.scale.x = side;                 // mirror the whole wing for the off side
+        const w = gltf.scene.clone(true);
+        w.scale.setScalar(wingCfg.scale ?? 1);
+        if (wingCfg.rot) w.rotation.set(wingCfg.rot[0] || 0, wingCfg.rot[1] || 0, wingCfg.rot[2] || 0);
+        if (wingCfg.offset) w.position.set(wingCfg.offset[0] || 0, wingCfg.offset[1] || 0, wingCfg.offset[2] || 0);
+        w.traverse((o) => { if (o.isMesh && o.material) o.material.side = THREE.DoubleSide; });
+        holder.add(w);
+        rig.shoulder.add(holder);
+      };
+      mountWing(wingRigR, 1);
+      mountWing(wingRigL, -1);
+      authoredWingL.visible = false; authoredWingR.visible = false;
+    });
+  }
+
   // Aura sprite — dragon.js dereferences this UNCONDITIONALLY (fever/idle halo).
   const auraSprite = new THREE.Sprite(new THREE.SpriteMaterial({
     map: makeGlowTexture(def.fx?.auraColor || '142,213,255'), transparent: true, opacity: 0,

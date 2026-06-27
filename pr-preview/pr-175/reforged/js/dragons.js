@@ -1330,7 +1330,10 @@ export const DRAGONS = {
     // preview — no code change needed.
     glb: { scale: 3.6, rotY: Math.PI, rotX: -0.30, shoulder: [0.5, 0.5, -1.6], wingScale: 2.2, riderAt: [0, 1.2, -1.4],
       // Procedural body slither: traveling lateral spine wave (local units; amp ramps head→tail).
-      slither: { amp: 0.14, freq: 6.5, speed: 4.0 } },
+      slither: { amp: 0.14, freq: 6.5, speed: 4.0 },
+      // AI-generated wing mesh on the flap rig (replaces the authored membrane). Placement
+      // tuned on the preview; one mesh, the off side is a mirror. scale/rot(radians)/offset.
+      wingMesh: { url: './assets/models/thundercoil_wing.glb', scale: 2.0, rot: [-1.57, 0, 0], offset: [0.2, 0, 0] } },
     stats: { speed: 1.10, handling: 1.06, drain: 0.97, regen: 1.0 },   // fast + electric
     model: {
       scale: 1.0, bodyScale: 1.0, wingSpan: 1.0,

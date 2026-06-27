@@ -3189,3 +3189,38 @@ glbcontract/glb/defs/blueprint/flapcheck/ascension/slither all green; roster byt
 **→ Leapfrog:** the per-channel "encode the motion invariant as a gate" rule now covers a SECOND channel (slither)
 besides the wing flap — the reusable move for any new cyclic body motion. Open polish (preview): the wings still read
 small/high beside the long body; tune `wingScale`/`shoulder`, and judge slither `amp`/`freq` + the `rotX` pitch on feel.
+
+---
+
+## Lesson — Data beats instructions for orientation; and a SEPARATE AI wing mesh hangs on the existing flap rig for free
+
+**Orientation, corrected by MEASUREMENT (not by following the ask literally).** The human said "rotate it 90°" and I'd
+been screenshot-tuning the pitch to a big value (+1.8) that still looked reared. The fix was to stop guessing and read
+the geometry: parse the GLB, find the head vs tail ends (the FORK = tail, by larger cross-section x-gap; the wedge =
+head), and compute the spine vector — `tail→head = (0, +0.506, +1.656)` native, i.e. only **~17° above horizontal,
+mostly along Z**. Then measure where PROCEDURAL dragons put head/tail: head at −Z (toward the horizon), tail at +Z
+(toward camera), both at near-equal low Y (pearl head −1.75/tail +4.02). So the correct leveling pitch after `rotY=π`
+is `atan(-sy/sz) = atan(-0.506/1.656) = −0.30 rad` — a GENTLE pitch, the opposite end of the range from my +1.8 guess.
+Rule: when the target is "match the rest of the roster," the roster's own data IS the spec — measure both the asset and
+a reference, compute the transform, THEN screenshot to confirm. Don't tune a composed-Euler pitch by eye from zero.
+
+**Wings, Option B: a separate AI wing GLB on the EXISTING rig — the cleanest "all-AI" wing.** The human asked why we
+can't generate AI wings and animate them after, since we'd just proved the body can be procedurally animated (slither).
+Right instinct. The reason the body-only hybrid existed is a QUALITY tradeoff, not an animation limit: image-to-3D
+reconstructs thin membranes worst, and a fused winged mesh has no wing bones to flap. The resolution that keeps the AI
+look AND a real flap: generate ONE wing in ISOLATION (a clear, face-on single wing with THICK finger-bone struts so the
+reconstructor has solid volume to grab — `nano_banana_flash`, then `image_to_3d` textured/no-rig), then parent that GLB
+under the existing `wingRigL/R.shoulder` (`def.glb.wingMesh {url,scale,rot,offset}`). `flapWing()` already rotates
+whatever rides the shoulder, so the AI wing flaps with ZERO new animation code — verified by two frames showing the
+wings in different positions. The off side is a TRUE MIRROR via a `scale.x = -1` holder group (mirror the parent, not
+the child, so a single authored orientation reflects cleanly; set `material.side = DoubleSide` for the flipped normals).
+Isolated-wing reconstruction came back clean (31k tris, clear membrane + bones + electric veins) — MUCH better than a
+wing buried in a full-body shot, confirming the lesson: generate the hard thin part ALONE and big in frame.
+
+**Orientation knob for the wing mesh:** its native bbox is a flat slab (X 1.91 × Y 1.78 × Z **0.86** thin), so the
+membrane faces ±Z; `rot:[−π/2,0,0]` turns that to face up as the starting mount, then offset/scale tuned on the preview.
+Headless stays safe: the AI-wing load is browser-only, so glbcontract still returns the authored membrane fallback and
+passes; `glb.mjs` now reports BOTH GLBs. Cost noted: two 31k-tri / ~7–8 MB GLBs (body + wing-cloned-twice ≈ 93k tris,
+~15 MB precached) — far over the procedural budget, the explicit price of an all-AI creature, judged on the preview.
+**→ Leapfrog:** if this graduates from experiment, decimate + texture-downscale both GLBs (or lazy-load them out of the
+SW precache); and the wing mount `rot/offset/scale` + a possible shader membrane-cup are the remaining preview tuning.
