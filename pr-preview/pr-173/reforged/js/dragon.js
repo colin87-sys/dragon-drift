@@ -695,7 +695,11 @@ export function updateDragon(dt, player, time) {
       const baseZ = -0.10 - 0.20 * inside + 0.12 * outside;
       const N = chainArr.length, moving = N - 1;
       const segAmp = (m.segAmp ?? 0.2) * aoStiff, segApex = m.segApex ?? 0.12, chLag = m.tipLag ?? 1.6;
-      const ampTaper = m.ampTaper ?? 1, curlAmp = m.curlAmp ?? 0;
+      const ampTaper = m.ampTaper ?? 1;
+      // WRIST FLEXION (inverted-V / M-shape upstroke). curlAmp is the legacy up-curl fallback.
+      const wristFlex = m.wristFlex ?? m.curlAmp ?? 0, wristFrac = m.wristFrac ?? 0.5;
+      const armBack = (m.armSweepBack ?? 0) * DEG;
+      const ss = (x) => { x = x < 0 ? 0 : x > 1 ? 1 : x; return x * x * (3 - 2 * x); };
       const pv = chainArr[0].parent;                            // the placement/pose group
       pv.rotation.set(0.14 + featR * 0.16 + cBias, -0.18 + rowR, restLift + baseZ + rFold);
       for (let i = 1; i < N; i++) {
@@ -706,14 +710,19 @@ export function updateDragon(dt, player, time) {
         // lag still makes it ripple. apexUp lifts each segment into the V at the top.
         const ampI = segAmp * Math.pow(ampTaper, i - 1);
         const fold = shape(ph0 - lag) * ampI, apx = apexUp(ph0 - lag) * segApex;
-        // FLEXED UPSTROKE (dump air): the wrist/hand FOLDS up during the upstroke and re-extends
-        // by the apex. max(0,−cos(warp)) peaks MID-upstroke and is 0 through the downstroke
-        // (extended = max area for the power stroke); f*f concentrates the fold at the wrist/tip.
-        const curl = curlAmp * Math.max(0, -Math.cos(flapWarp(ph0 - lag))) * f * f;
+        // FLEXED UPSTROKE = WRIST FLEXION (the M-shape): the arm extends up+BACK to a peak at the
+        // wrist, and the hand-wing folds DOWN/back from there (toward the forearm) — so the wrist
+        // is the apex, not the tip (an inverted V). upEnv = max(0,−cos(warp)) drives the fold
+        // through the recovery and releases it by the apex; handMask is 0 inboard of the wrist
+        // (arm stays extended) and ramps to the tip (elbow+hand fold, proximal→distal).
+        const upEnv = Math.max(0, -Math.cos(flapWarp(ph0 - lag)));
+        const handMask = f <= wristFrac ? 0 : ss((f - wristFrac) / (1 - wristFrac));
+        const wristFold = -wristFlex * upEnv * handMask;                // DOWN fold (negative z)
+        const sweepBack = armBack * upEnv * (0.4 + 0.6 * f);            // posterior shoulder/hand retraction
         chainArr[i].rotation.set(
           Math.cos(flapWarp(ph0 - lag)) * 0.06 * f - apexPitch * apx,   // washout twist, grows outward
-          rowR * 0.5 * f,                                                // fore-aft figure-8, grows outward
-          -(fold * amp) + apx * amp + curl + 0.10 * inside * f);         // ripple + apex-V + upstroke FOLD + inside tuck
+          rowR * 0.5 * f - sweepBack,                                   // fore-aft figure-8 + posterior sweep
+          -(fold * amp) + apx * amp * (1 - 0.7 * handMask) + wristFold + 0.10 * inside * f);  // ripple + apex-V + WRIST FLEX (down)
       }
     };
     if (wingChainR) { driveChain(wingChainR, bank); driveChain(wingChainL, -bank); }

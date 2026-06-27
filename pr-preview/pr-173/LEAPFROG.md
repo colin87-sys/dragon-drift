@@ -3771,3 +3771,34 @@ built. (3) MEASURE the biomechanics against the spec (angle + span% probe) inste
 distinguished "angle is fine, span draw-in is the deficit," which a screenshot never would. (4) `flapstrip` seed noise:
 to compare a one-param wing change, the pose freeze is deterministic but the course/camera aren't — diff is only
 trustworthy for LARGE changes (like this activation) or via the headless measure, not pixel-peeping small ones.
+
+---
+
+### L125 — The flexed upstroke is WRIST FLEXION (inverted-V / M-shape), not an up-curl: arm extends up+back to a wrist PEAK, hand-wing folds DOWN/back from there
+After L124 wired the cascade live, the human nailed the remaining wrongness: "in the recovery stroke the shoulder
+should extend BACK, the wrist flexes such that it forms an inverted V — right now it's not doing that." The L122 `curl`
+term rotated the hand-wing further UP (a tip-concentrated upward arch, a "C"), which is the OPPOSITE of real upstroke
+flexion. Researched the avian kinematics (PMC pigeon-wing decoupling study + PLOS avian shoulder kinematics): on the
+upstroke the SHOULDER sweeps back (posterior retraction), then the ELBOW flexes, then the WRIST flexes (proximal→distal),
+"bringing the hand bones toward the ulna" and sweeping "the hand-wing backward while the arm-wing remains extended." So
+the wrist becomes the PEAK and the hand folds DOWN/back from it — viewed from behind, both wings make an inverted V each
+(an "M"). Rebuilt the fold as WRIST FLEXION: `upEnv = max(0,−cos(warp))` (peaks through the recovery, releases by the
+apex) drives a `handMask`-gated fold that is 0 inboard of `wristFrac` (arm stays extended) and ramps to the tip
+(elbow+hand fold), with the sign NEGATIVE (folds DOWN relative to the wrist, not up) and the apex-lift damped on the hand
+(`apx*(1−0.7*handMask)`) so the folded hand isn't re-raised; plus `armSweepBack` posterior retraction on the upstroke.
+New knobs replace `curlAmp`: `wristFlex` (fold depth), `wristFrac` (pivot in f-space, 0.28 = medial, engages elbow+
+wrist), `armSweepBack` (deg). Live: wristFlex 2.2, wristFrac 0.28, armSweepBack 28 → measured Λ-shape confirmed (wrist
+is the highest point, tip drops ~0.45 below it), span draw-in ~20%. Flapstrip recovery frame now reads as a clean M;
+downstroke stays wide+flat (full power area); apex re-extends. Both driveChain copies (dragon.js live + dragonModel.js
+preview) updated identically; roster byte-identical (only monarchWing has a chain; tricount 235164, skinnedwing +
+flapcheck green). The headless `flexmeasure.mjs` probe (with an "is the wrist the peak?" Λ check + span-draw-in) is what
+let me TUNE the model to the inverted-V analytically across (wristFrac × wristFlex) before paying a single 4-min render.
+Lessons: (1) "flexed upstroke" has a DIRECTION — the hand folds DOWN/back toward the forearm (wrist = peak, inverted V),
+NOT up; an up-curl is the classic wrong guess (it looks like more flap, not a fold). (2) span draw-in needs a MEDIAL
+pivot (elbow+wrist), not a tip-only fold — the research's "20-40% span" comes from the whole outer wing flexing, so
+`wristFrac` must sit around the elbow (~0.28 f), and the arm inboard must be MASKED out so it stays extended. (3) when a
+metric (my hand-wing angle) overshoots the spec while the SHAPE is right, trust the shape diagnostic (wrist-is-peak +
+tip-drop) + the render over the scalar — the angle definition rarely matches the paper's exactly. (4) research the
+ACTUAL biomechanics when the human says "research it" — the joint ORDER (shoulder→elbow→wrist) and the fold direction
+fell straight out of two papers and mapped 1:1 onto the cascade (lag = proximal→distal, negative handMask fold = wrist
+flexion, armSweepBack = shoulder retraction).
