@@ -844,27 +844,24 @@ export const DRAGONS = {
       bodyRoughness: 0.62, bodyMetalness: 0.12, rimBodyMul: 1.1,
       flapBias: 0.92, flapAmp: 0.88,   // broad, powerful, regal western-dragon beat
       flapFreqScale: 0.7,              // −30% flap speed (slower, readable regal beat)
-      // 3-segment ARTICULATED wing (shoulder→elbow→wrist): per-segment amplitude +
-      // LAG make a travelling fold, not one rigid hinge; a glide-hold beat (glidePow)
-      // with rare heavy pulses; a held apex V (restLift = rest dihedral, apex* lift
-      // the tips highest at the top of the stroke).
-      wingParts: true, glidePow: 1.2,
-      // SKINNED RIPPLE (boneFracs in the wing anatomy): the elevation is distributed down the
-      // bone chain as a phase-lagged wave, not one shoulder hinge — each segment trails the one
-      // inboard (tipLag = total ripple delay to the tip) and adds its own fold (segAmp). The
-      // summed stroke straddles horizontal: apex high, downstroke ~-38° BELOW level (power
-      // scoop); restLift is the glide dihedral, kept low so the beat presses past level.
-      // segAmp = per-bone elevation; ampTaper FRONT-LOADS it (inner/shoulder swings most → the
-      // inner 2/3 isn't stiff, tapering outward). WRIST FLEXION (inverted-V / M-shape upstroke,
-      // per the bird-kinematics research): the arm extends up+BACK to a peak at the WRIST, and the
-      // hand-wing folds DOWN/back from there (toward the forearm) — so the wrist is the apex, not
-      // the tip. wristFrac = where the pivot sits (f-space; arm inboard stays extended, elbow+hand
-      // fold outboard); wristFlex = fold depth; armSweepBack = posterior shoulder retraction on the
-      // upstroke (deg). The fold peaks through the recovery and re-extends by the apex.
-      segAmp: 0.4, ampTaper: 0.68, wristFlex: 2.2, wristFrac: 0.28, armSweepBack: 28, segApex: 0.08, tipLag: 1.75, restLift: 0.2, apexPitch: 0.12,
-      // REALISTIC BEAT (new): asymmetric power stroke + fore-aft rowing + body porpoise.
+      wingParts: true,
+      // CLEAN WINGBEAT (skinned chain — see driveChain). TWO channels only, rebuilt from the
+      // bird-kinematics research (L126):
+      //  (1) POWER — a front-loaded elevation swing (beatAmp, tapered outboard by ampTaper) that is
+      //      DOWN-BIASED (downScale > upScale): the EXTENDED wing presses well BELOW horizontal on
+      //      the slower downstroke (downFrac), then lifts more modestly through the upstroke. restLift
+      //      = glide dihedral; tipLag = the proximal→distal ripple delay (small = a subtle travelling
+      //      wave, not a root hinge).
+      //  (2) RECOVERY — ONE subtle flex: the hand-wing (outboard of wristFrac) folds DOWN a touch on
+      //      the upstroke ONLY (flexAmp, a smooth half-sine), re-extending by the apex. sweepDeg
+      //      reaches the wing FORWARD on the downstroke and BACK on the upstroke (the figure-8 /
+      //      shoulder retraction). No apex-lift / washout / tuck stacking — power read comes from the
+      //      extended, slow, deep downstroke vs the flexed, quick upstroke.
+      beatAmp: 0.32, ampTaper: 0.78, tipLag: 0.8, restLift: 0.06,
+      upScale: 0.7, downScale: 1.3,
+      flexAmp: 0.5, wristFrac: 0.67, sweepDeg: 14,
+      // asymmetric power stroke + body porpoise.
       downFrac: 0.58,        // downstroke takes 58% of the cycle → heavier/slower POWER stroke
-      rowDeg: 15,            // fore-aft ROWING sweep (wingtip figure-8): forward on the downstroke
       bodyFlapPitch: 0.05,   // chest pitches up on the power downstroke (the porpoise heave)
       tailFollowFlap: 0.13,  // tail heaves in counter-phase, lagged aft — the weight behind the wings
       bodyBobScale: 1.25,   // a touch more neck bob/breathe so the body reads alive

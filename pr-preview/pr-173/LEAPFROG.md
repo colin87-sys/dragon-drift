@@ -3802,3 +3802,38 @@ tip-drop) + the render over the scalar — the angle definition rarely matches t
 ACTUAL biomechanics when the human says "research it" — the joint ORDER (shoulder→elbow→wrist) and the fold direction
 fell straight out of two papers and mapped 1:1 onto the cascade (lag = proximal→distal, negative handMask fold = wrist
 flexion, armSweepBack = shoulder retraction).
+
+---
+
+### L126 — Rebuild beats patching: the flap cycle was a pile of fighting terms. Clean two-channel model + two bone-chain gotchas (tip-bone rotations do nothing; angle≠bend)
+The human, seeing the L125 M-shape: "It looks weird and janky, there's no power stroke at all, and the M is WAY too
+pronounced — redo this cycle with the research in mind, start fresh, there's too much mixed-up coding." Correct call:
+the cascade had accreted SEVEN superimposed terms (front-loaded elevation + apexUp lift + curl/wristFlex + handMask +
+armSweepBack + washout-twist + inside-tuck, over a time-warp) that fought each other — the recovery fold had grown huge
+while the power downstroke had quietly vanished. Threw it out and rebuilt driveChain as TWO channels only: (1) POWER — a
+front-loaded `cos(warpedLaggedPhase)` elevation swing, DOWN-biased (`downScale 1.3 > upScale 0.7`) so the EXTENDED wing
+presses ~0.86 below body on the slow downstroke and lifts more modestly on the upstroke; (2) RECOVERY — ONE subtle wrist
+flex (`max(0,−sin(w))` half-sine, upstroke only) that folds the hand DOWN from a wrist peak, plus a single fore-aft
+`sin(w)` sweep (fwd downstroke / back upstroke). No apex-lift / washout / tuck. New clean knobs (beatAmp, upScale/
+downScale, flexAmp, wristFrac, handWidth, tipLag, sweepDeg) REPLACE the old pile (segAmp/segApex/apexPitch/curlAmp/
+wristFlex/armSweepBack/rowDeg). Measured: smooth tip-height sparkline, power 0.86 below body + bend 21° (extended) on the
+downstroke, recovery bend 37° (subtle, ~16° over the camber baseline), span draw-in 5%. Flapstrip confirms: wide
+extended power downstroke, gentle natural M on the recovery. Roster byte-identical (tricount 235164, skinnedwing green).
+TWO bone-chain gotchas paid here, both subtle:
+(1) **Rotating the TIP bone moves nothing.** In a chain, `bone[i].rotation` only transforms bones OUTBOARD of i. The
+L122–L125 flex was `f²`/ramp-weighted to PEAK at the last bone (f=1, the tip) — which has no children, so most of the
+"fold" was wasted; the visible bend came almost entirely from rest geometry + ripple lag, and `flexAmp` barely did
+anything. The fold must peak at the WRIST bone (one in from the tip) — a triangular `handMask` centred on `wristFrac`
+with ~0 at f>0.95. Once moved there, the flex actually responds (flexAmp 0.4→33°, 0.7→48°). Rule: to bend segment k→k+1,
+rotate bone k, never bone k+1; the outermost bone is a no-op handle.
+(2) **`wrist.y − tip.y` measures wing ANGLE, not flex.** A perfectly STRAIGHT wing angled downward already has the wrist
+above the tip (the tip is further out and lower), so that metric read ~0.5 "fold" on the EXTENDED downstroke and refused
+to budge with flexAmp — pure confound. The honest, rotation-invariant flex metric is the ANGLE between the inner-arm
+segment and the hand-wing segment (0 = straight). Swapping to it instantly separated "downstroke is extended (21°)" from
+"recovery is flexed (37°)".
+Lessons: (1) when a system has been patched N times and "feels janky," the move is a clean REBUILD from the model, not an
+(N+1)th term — superimposed envelopes that each seemed right individually sum to mush; (2) a "power stroke that
+disappeared" is usually an amplitude/bias problem — here an UP-biased swing (top lift ≫ down press); bias the swing DOWN
+and keep the downstroke EXTENDED (flex=0 there) so power = extended·slow·deep vs recovery = flexed·quick; (3) verify your
+metric isn't confounded by pose before trusting it (angle-vs-bend) — a probe that reports a number immune to the thing
+you're tuning is worse than no probe; (4) bone-chain authoring: the last bone only carries skin, never motion.
