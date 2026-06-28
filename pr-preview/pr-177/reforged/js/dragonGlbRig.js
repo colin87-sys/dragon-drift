@@ -50,7 +50,10 @@ export function computeRigSkin(positions) {
       const chain = x > 0 ? [B.SHR, B.ELR, B.WRR] : [B.SHL, B.ELL, B.WRL];
       const centers = [0.41, 0.63, 0.85], sp = 0.22;   // span position of shoulder/elbow/wrist
       let tot = 0; const tw = centers.map((c) => { const w = Math.max(0, 1 - Math.abs(ax - c) / sp); tot += w; return w; });
-      const seam = clamp01((0.44 - ax) / 0.14) * 0.6;  // inboard root → bleeds into chest
+      // NARROW root blend → chest: just the innermost sliver bleeds onto the body so the seam
+      // doesn't hard-tear, but the wing stays shoulder-driven and HINGES AT THE ROOT (a wide
+      // blend pinned the inner wing to the static chest → the wing creased mid-span instead).
+      const seam = clamp01((0.36 - ax) / 0.06) * 0.45;
       push(B.CHEST, seam);
       for (let k = 0; k < 3; k++) push(chain[k], (tot > 0 ? tw[k] / tot : 0) * (1 - seam));
     } else if (z < -0.30 && ax < 0.18) {              // TAIL chain (narrow midline back)
