@@ -564,7 +564,7 @@ export function updateDragon(dt, player, time) {
     // rotates as a unit about the root. Elbow/wrist held at REST for now (rigid below the
     // shoulder) so the hinge is unmistakably at the shoulder; the fold layers back once this
     // base flap reads right. + gentle climb spread + dive sweep-back.
-    const flapS = amp * 1.4 * Math.sin(ph);
+    const flapS = amp * 1.1 * Math.sin(ph);
     const elev = cl * 0.22;
     BN.shL.rotation.z = flapS + elev;  BN.shR.rotation.z = -flapS - elev;
     BN.shL.rotation.y = dv * 0.4 - turn * 0.12;  BN.shR.rotation.y = -dv * 0.4 - turn * 0.12;
