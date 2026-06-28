@@ -1325,17 +1325,16 @@ export const DRAGONS = {
     cost: 0,                 // free so the experiment is one tap to equip + test
     assetBacked: true,
     meshUrl: './assets/models/thundercoil.glb',
-    // GLB placement: intrinsic mesh scale, facing (yaw), and the shoulder pivots
-    // each authored wing mounts onto. Retune for the real asset on the PR
-    // preview — no code change needed.
     // UNIFIED WINGED MESH: one fused GLB (body + head + wings) from the cel-shaded
     // hero concept (Higgsfield job d01ab50b). Native pose stands vertical — spine
-    // along +Y (head +Y → tail −Y), wingspan along ±X — so a −90° pitch (rotX) lays
-    // it into the chase-cam flight plane (head −Z into the screen, forked tail +Z to
-    // camera, wings spread ±X). `fusedWings` retires the authored/separate wings (the
-    // mesh carries its own) and turns on the shader wing-flap deform. Retune
-    // scale/rot/wing/slither on the PR preview — no code change needed.
-    glb: { scale: 3.9, rotY: 0, rotX: -1.2, rotZ: 0, shoulder: [0.3, 0.2, -0.4], riderAt: [0, 0.9, 0.2],
+    // along +Y (head +Y → tail −Y), wingspan ±X, dorsal +Z. The pitch is MEASURED,
+    // not guessed: native +Y/−Y end up level (head −Z, tail +Z at equal height) only
+    // at rotX = −π/2 — matching the procedural roster, where the head sits at −Z and
+    // the tail at +Z at near-equal Y (azure: head [0,+0.31,−1.91] / tail [0,+0.2,+2.11]).
+    // `fusedWings` retires the authored/separate wings (the mesh carries its own) and
+    // turns on the shader wing-flap deform; `rim` defaults add a fresnel edge + fill so
+    // the PBR mesh isn't a black silhouette when backlit. Retune on the PR preview.
+    glb: { scale: 3.9, rotY: 0, rotX: -1.5708, rotZ: 0, shoulder: [0.3, 0.2, -0.4], riderAt: [0, 0.9, 0.2],
       fusedWings: true,
       // Procedural body slither: traveling lateral spine wave (local units; amp ramps head→tail).
       slither: { amp: 0.10, freq: 8.0, speed: 4.0 },

@@ -30,15 +30,20 @@
 - Green headless: glb / glbcontract / slither / wingflap / defs / blueprint / flapcheck / ascension.
   `stamp-sw` re-run (110 assets, only `thundercoil.glb` precached).
 
-## OPEN STEP (preview tuning only — no code change needed)
-Judge + fine-tune on the PR preview (GLBs can't render headlessly in CI):
-- `def.glb.rotX` / `scale` — the body still drapes a touch vertically (the coiled source pose);
-  nudge the pitch if a flatter flight line reads better.
-- `def.glb.wing {hingeX, amp}` — confirm the flap hinge sits at the true wing root and the beat
-  depth looks right (wings shouldn't tear from the body or clip it).
-- `def.glb.slither {amp, freq}` — judge the body coil feel at speed.
-- Material tint/emissive on the PBR mesh is limited (documented GLB tradeoff); the electric-blue
-  accents come from the baked texture.
+## Orientation + brightness — FIXED (measured, not guessed)
+- Orientation: leveled to the roster convention by MEASUREMENT. A procedural reference (azure) sits
+  head [0,+0.31,−1.91] / tail [0,+0.2,+2.11] (head −Z, tail +Z, equal height). Transforming
+  thundercoil's native bbox ends through its live world matrix showed `rotX −1.2` was a 21° nose-up
+  rear; `rotX = −π/2` levels it to match. Now `def.glb { scale 3.9, rotX −1.5708 }`.
+- Brightness: a backlit PBR GLB read as a black silhouette. Added a fresnel rim + neutral fill folded
+  into the deform shader (`def.glb.rim`, edge-weighted so the body keeps its grey with an electric edge).
+
+## OPEN STEP (preview fine-tuning only — no code change needed)
+Judge on the PR preview (GLBs can't render headlessly in CI):
+- `def.glb.rim {intensity, fillIntensity}` — confirm the lift reads right on the device (the report
+  said "really dark"); nudge up if still dim, down if it glows too hot.
+- `def.glb.scale` / `riderAt` — the coiled tail dips toward the water; lift if it clips.
+- `def.glb.wing {hingeX, amp}` / `slither {amp, freq}` — flap hinge at the true wing root + coil feel.
 
 ## How to resume in a fresh session
 1. Open the session on branch `claude/thundercoil-dragon-continue-7hb2zq`.

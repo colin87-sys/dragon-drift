@@ -117,6 +117,27 @@ function attachBodyDeform(mat, u, opts = {}) {
     }
     shader.vertexShader = decl + shader.vertexShader.replace(
       '#include <begin_vertex>', '#include <begin_vertex>\n' + body);
+    // Fresnel RIM + a flat ambient lift — a PBR GLB reads as a black silhouette when
+    // backlit (the sun sits ahead on the flight line); procedural dragons solve this
+    // with the same rim. View-direction term added to totalEmissiveRadiance, so it's
+    // independent of scene lights and survives the bake. Tinted to the electric accent.
+    if (opts.rim) {
+      const r = opts.rim;
+      shader.uniforms.uRimColor = { value: new THREE.Color(r.color ?? 0x8ec8ff) };
+      shader.uniforms.uRimInt = { value: r.intensity ?? 0.6 };
+      shader.uniforms.uRimPow = { value: r.power ?? 2.4 };
+      shader.uniforms.uRimBias = { value: r.bias ?? 0.0 };
+      shader.uniforms.uFillColor = { value: new THREE.Color(r.fill ?? 0x5a6a86) };
+      shader.uniforms.uFillInt = { value: r.fillIntensity ?? 0.0 };
+      shader.fragmentShader = shader.fragmentShader
+        .replace('#include <common>',
+          '#include <common>\nuniform vec3 uRimColor;uniform float uRimInt;uniform float uRimPow;uniform float uRimBias;uniform vec3 uFillColor;uniform float uFillInt;')
+        .replace('#include <emissivemap_fragment>',
+          '#include <emissivemap_fragment>\n{\n' +
+          'float vDotN = clamp(dot(normalize(normal), normalize(vViewPosition)), 0.0, 1.0);\n' +
+          'float fres = pow(1.0 - vDotN, uRimPow);\n' +
+          'totalEmissiveRadiance += uRimColor * (fres * uRimInt + uRimBias) + uFillColor * uFillInt;\n}\n');
+    }
   };
   mat.needsUpdate = true;
 }
@@ -271,8 +292,19 @@ export function buildGlbDragon(def, opts = {}) {
       // Procedural deform — wire the spine wave (+ fused wing-flap) into every mesh
       // material. The unified winged mesh's spine runs along local Y (head +Y → tail
       // −Y); the legacy wingless body runs along local Z. Bounds from the real bbox.
-      if (slither || (fused && wingCt)) {
+      if (slither || (fused && wingCt) || cfg.rim) {
         const axis = fused ? 'y' : 'z';
+        // Backlit-silhouette lift: a fresnel rim (+ optional flat fill) folded into the
+        // deform shader. Defaults derive from the dragon's electric accent so the edge
+        // glows on-brand; all tunable via def.glb.rim.
+        const rimCfg = cfg.rim === false ? null : {
+          color: (cfg.rim && cfg.rim.color) ?? def.apexSeam ?? def.eye ?? 0x8ec8ff,
+          intensity: (cfg.rim && cfg.rim.intensity) ?? 0.5,
+          power: (cfg.rim && cfg.rim.power) ?? 2.8,   // tight edge — accent, not a wash
+          bias: (cfg.rim && cfg.rim.bias) ?? 0.0,     // no flat electric add (kept the body grey)
+          fill: (cfg.rim && cfg.rim.fill) ?? 0x6a7896, // neutral steel fill lifts the backlit side
+          fillIntensity: (cfg.rim && cfg.rim.fillIntensity) ?? 0.2,
+        };
         content.traverse((o) => {
           if (!o.isMesh || !o.geometry) return;
           o.geometry.computeBoundingBox();
@@ -280,7 +312,7 @@ export function buildGlbDragon(def, opts = {}) {
           slitherU.uSpineMin.value = axis === 'y' ? bb.min.y : bb.min.z;
           slitherU.uSpineMax.value = axis === 'y' ? bb.max.y : bb.max.z;
           (Array.isArray(o.material) ? o.material : [o.material]).forEach(
-            (m) => m && attachBodyDeform(m, slitherU, { axis, flap: fused && !!wingCt }));
+            (m) => m && attachBodyDeform(m, slitherU, { axis, flap: fused && !!wingCt, rim: rimCfg }));
         });
       }
       group.add(content);            // remaining nodes (body, etc.) ride the root
