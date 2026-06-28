@@ -106,12 +106,16 @@ function attachBodyDeform(mat, u, opts = {}) {
     if (flap) {
       shader.uniforms.uFlapPhase = u.uFlapPhase; shader.uniforms.uFlapAmp = u.uFlapAmp;
       shader.uniforms.uHingeX = u.uHingeX; shader.uniforms.uHingeZ = u.uHingeZ;
-      shader.uniforms.uWingMinS = u.uWingMinS;
-      decl += 'uniform float uFlapPhase;uniform float uFlapAmp;uniform float uHingeX;uniform float uHingeZ;uniform float uWingMinS;\n';
+      shader.uniforms.uWingMinS = u.uWingMinS; shader.uniforms.uFlapTilt = u.uFlapTilt;
+      decl += 'uniform float uFlapPhase;uniform float uFlapAmp;uniform float uHingeX;uniform float uHingeZ;uniform float uWingMinS;uniform float uFlapTilt;\n';
       // Wing verts are wide in X AND in the FRONT/shoulder region (spine coord above
       // uWingMinS). The second gate is essential: the coiled TAIL also swings wide in
       // X, so a |x|-only mask grabs tail verts and flaps them — the "tail warps when it
       // moves" bug. The spine coord is the same axis the slither uses.
+      // The wingtip's swing happens in the X/Z (span/depth) plane; `uFlapTilt` (radians)
+      // rotates that swing toward the SPINE axis (transformed.y here) so the beat can be
+      // angled fore/aft instead of straight up/down. uFlapTilt = 0 ⇒ byte-identical to the
+      // shipped beat (Thundercoil), since the depth delta `ndz` is 0 for every non-wing vert.
       body +=
         'float wside = sign(position.x);\n' +
         'float wmask = step(uHingeX, abs(position.x)) * step(uWingMinS, ' + SP + ');\n' +
@@ -119,8 +123,11 @@ function attachBodyDeform(mat, u, opts = {}) {
         'float wdx = position.x - wside * uHingeX;\n' +
         'float wdz = position.z - uHingeZ;\n' +
         'float fc = cos(fth), fs = sin(fth);\n' +
-        'transformed.x += (wside * uHingeX + wdx * fc + wdz * fs) - position.x;\n' +
-        'transformed.z += (uHingeZ - wdx * fs + wdz * fc) - position.z;\n';
+        'float ndx = (wside * uHingeX + wdx * fc + wdz * fs) - position.x;\n' +
+        'float ndz = (uHingeZ - wdx * fs + wdz * fc) - position.z;\n' +
+        'transformed.x += ndx;\n' +
+        'transformed.z += ndz * cos(uFlapTilt);\n' +
+        'transformed.y += ndz * sin(uFlapTilt);\n';
     }
     shader.vertexShader = decl + shader.vertexShader.replace(
       '#include <begin_vertex>', '#include <begin_vertex>\n' + body);
@@ -245,6 +252,8 @@ export function buildGlbDragon(def, opts = {}) {
     // only flap verts whose spine coord is above this (the front/shoulder wing band) —
     // keeps the coiled tail (low spine coord) out of the wingbeat.
     uWingMinS: { value: wingCt?.minS ?? -1e9 },
+    // tilt (radians) of the wingbeat plane toward the spine; 0 = the shipped up/down beat.
+    uFlapTilt: { value: wingCt?.tilt ?? 0 },
   };
   const glbAnim = {
     mixer: null,

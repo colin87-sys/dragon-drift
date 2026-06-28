@@ -117,17 +117,19 @@ export function partColorBuffer(partIds) {
 // ── DEFORM MIRRORS (one spec with the dragonGlb.js GLSL; see tests/wingflap + slither) ───────────────
 // Flap: a vertex wide on the SPAN axis (|a| ≥ hingeX) AND in the front/shoulder spine band (s ≥ minS)
 // rotates about a fore/aft hinge (at a = ±hingeX) by fth = −side·amp·sin(phase), swinging the span/depth
-// pair. Body and the coiled tail (s < minS) are identity. Returns {da, db} on the (span, depth) axes.
+// pair. `p.tilt` (radians) then rotates that swing toward the SPINE axis, so the beat can be angled
+// fore/aft instead of straight up/down (tilt 0 ⇒ the shipped beat). Body and the coiled tail (s < minS)
+// are identity. Returns {da, db, ds} on the (span, depth, spine) axes. Mirrors dragonGlb.js exactly.
 export function flapDelta(a, b, s, phase, p) {
   const side = Math.sign(a);
   const mask = (Math.abs(a) >= p.hingeX && s >= p.minS) ? 1 : 0;
   const fth = -side * p.amp * Math.sin(phase) * mask;
-  const da = a - side * p.hingeX, db = b - (p.hingeZ || 0);
+  const da0 = a - side * p.hingeX, db0 = b - (p.hingeZ || 0);
   const fc = Math.cos(fth), fs = Math.sin(fth);
-  return {
-    da: (side * p.hingeX + da * fc + db * fs) - a,
-    db: ((p.hingeZ || 0) - da * fs + db * fc) - b,
-  };
+  const ndx = (side * p.hingeX + da0 * fc + db0 * fs) - a;
+  const ndz = ((p.hingeZ || 0) - da0 * fs + db0 * fc) - b;
+  const tilt = p.tilt || 0;
+  return { da: ndx, db: ndz * Math.cos(tilt), ds: ndz * Math.sin(tilt) };
 }
 
 // Slither: a traveling lateral wave down the spine. Amplitude ramps 0 (head) → 1 (tail); the head is
@@ -151,7 +153,7 @@ export function applyDeform(base, out, cfg) {
     const a = base[i * 3 + pa], b = base[i * 3 + da], s = base[i * 3 + sa];
     if (cfg.flap) {
       const d = flapDelta(a, b, s, cfg.flap.phase || 0, cfg.flap);
-      out[i * 3 + pa] += d.da; out[i * 3 + da] += d.db;
+      out[i * 3 + pa] += d.da; out[i * 3 + da] += d.db; out[i * 3 + sa] += d.ds;
     }
     if (cfg.slither) out[i * 3 + pa] += slitherOffset(s, cfg.slither.phase || 0, cfg.slither);
   }
@@ -182,6 +184,6 @@ export function buildExport({ key = 'emberMonarch', meshUrl, gates, orient, slit
   fusedWings: true,
   // spine = local ${gates.spineAxis} (head at ${gates.headAtMax ? '+' : '−'}${gates.spineAxis}); span = local ${gates.spanAxis}. Tagged in tools/glbtagger.html.
   slither: { amp: ${r3(sl.amp)}, freq: ${r3(sl.freq)}, speed: ${r3(sl.speed)} },
-  wing: { hingeX: ${r3(fl.hingeX ?? gates.hingeX)}, minS: ${r3(fl.minS ?? gates.wingMinS)}, amp: ${r3(fl.amp ?? 0.55)} } }
+  wing: { hingeX: ${r3(fl.hingeX ?? gates.hingeX)}, minS: ${r3(fl.minS ?? gates.wingMinS)}, amp: ${r3(fl.amp ?? 0.55)}, tilt: ${piExpr(fl.tilt ?? 0)} } }
 // spine bbox on ${gates.spineAxis}: [${sMin}, ${sMax}]   meshUrl: '${meshUrl || `./assets/models/${key}.glb`}'`;
 }

@@ -26,9 +26,10 @@ function flapDelta(x, z, s, phase, p) {
   const wdx = x - wside * p.hingeX;
   const wdz = z - p.hingeZ;
   const fc = Math.cos(fth), fs = Math.sin(fth);
-  const nx = wside * p.hingeX + wdx * fc + wdz * fs;
-  const nz = p.hingeZ - wdx * fs + wdz * fc;
-  return { dx: nx - x, dz: nz - z };
+  const ndx = (wside * p.hingeX + wdx * fc + wdz * fs) - x;
+  const ndz = (p.hingeZ - wdx * fs + wdz * fc) - z;
+  const tilt = p.tilt || 0;   // rotates the beat plane toward the spine axis (dy); 0 = shipped beat
+  return { dx: ndx, dz: ndz * Math.cos(tilt), dy: ndz * Math.sin(tilt) };
 }
 
 // thundercoil's shipped flap params (def.glb.wing). Spine coord s = native Y (head +Y →
@@ -77,6 +78,14 @@ check(up && down, `wingbeat oscillates over time (sign flips: up ${up} down ${do
 const z0 = Math.abs(flapDelta(TIP, 0.0, WING_S, 0, P).dz);
 const zPi = Math.abs(flapDelta(TIP, 0.0, WING_S, Math.PI, P).dz);
 check(z0 < 1e-9 && zPi < 1e-9, `flat at phase 0/π (|dz| ${z0.toExponential(1)} / ${zPi.toExponential(1)})`);
+
+// 6) FLAP TILT (uFlapTilt) — additive knob; tilt 0 is BYTE-IDENTICAL to the shipped beat (no spine-axis
+//    displacement), and tilt 90° routes the entire depth swing into the spine axis (dy) with dz → 0.
+const flat = flapDelta(TIP, 0.0, WING_S, Math.PI / 2, P);             // P has no tilt → tilt 0
+check(Math.abs(flat.dy) < 1e-12, `tilt 0 leaves the shipped beat unchanged (no spine motion, dy ${flat.dy.toExponential(1)})`);
+const tilted = flapDelta(TIP, 0.0, WING_S, Math.PI / 2, { ...P, tilt: Math.PI / 2 });
+check(Math.abs(tilted.dz) < 1e-9 && Math.abs(tilted.dy) > 0.05,
+  `tilt 90° routes the swing into the spine axis (dz ${tilted.dz.toExponential(1)} → 0, dy ${tilted.dy.toFixed(3)})`);
 
 console.log(`\nWing-flap gate — thundercoil (hingeX ${P.hingeX}, amp ${P.amp})`);
 console.log(`${pass} checks passed, ${fails} failed.`);
