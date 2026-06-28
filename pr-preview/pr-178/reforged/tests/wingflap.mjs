@@ -21,7 +21,8 @@ function check(cond, msg) { if (cond) { pass++; } else { fails++; console.log(` 
 // crucially the coiled TAIL which also swings wide in X) is mask 0 = identity.
 function flapDelta(x, z, s, phase, p) {
   const wside = Math.sign(x);
-  const wmask = (Math.abs(x) >= p.hingeX && s >= p.minS) ? 1 : 0;
+  const inB = z >= (p.minB ?? -Infinity) && z <= (p.maxB ?? Infinity);   // depth-axis (Z) band gate
+  const wmask = (Math.abs(x) >= p.hingeX && s >= p.minS && inB) ? 1 : 0;
   const fth = -wside * p.amp * Math.sin(phase) * wmask;
   const wdx = x - wside * p.hingeX;
   const wdz = z - p.hingeZ;
@@ -86,6 +87,14 @@ check(Math.abs(flat.dy) < 1e-12, `tilt 0 leaves the shipped beat unchanged (no s
 const tilted = flapDelta(TIP, 0.0, WING_S, Math.PI / 2, { ...P, tilt: Math.PI / 2 });
 check(Math.abs(tilted.dz) < 1e-9 && Math.abs(tilted.dy) > 0.05,
   `tilt 90° routes the swing into the spine axis (dz ${tilted.dz.toExponential(1)} → 0, dy ${tilted.dy.toFixed(3)})`);
+
+// 7) DEPTH BAND (uWingMinB/uWingMaxB) — the THIRD gate. With no band a wing vert flaps; constrain the
+//    depth (Z) window and a wing vert OUTSIDE it stops flapping (lets the wing be carved off limbs).
+const inBand = flapDelta(TIP, 0.5, WING_S, Math.PI / 2, P);                              // no band → flaps
+const outBand = flapDelta(TIP, 0.5, WING_S, Math.PI / 2, { ...P, minB: -0.2, maxB: 0.2 }); // z=0.5 outside
+check(Math.abs(inBand.dz) > 0.02, `default (no depth band) still flaps (|dz| ${Math.abs(inBand.dz).toFixed(3)})`);
+check(Math.abs(outBand.dz) < 1e-12 && Math.abs(outBand.dy) < 1e-12,
+  `depth band excludes wing verts outside [minB,maxB] (no motion)`);
 
 console.log(`\nWing-flap gate — thundercoil (hingeX ${P.hingeX}, amp ${P.amp})`);
 console.log(`${pass} checks passed, ${fails} failed.`);

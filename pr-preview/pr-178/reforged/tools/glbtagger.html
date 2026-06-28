@@ -81,6 +81,8 @@
         <button id="headEnd" class="mini">head @ +spine</button></div>
       <label class="sl">wing root (hingeX) <b id="vHinge">0.28</b></label><input id="hingeX" type="range" min="0" max="1" step="0.005" value="0.28">
       <label class="sl">wing band cut (minS) <b id="vMinS">-0.15</b></label><input id="wingMinS" type="range" min="-1" max="1" step="0.005" value="-0.15">
+      <label class="sl">wing depth min (minB) <small class="hint">excl. legs</small> <b id="vMinB">-1</b></label><input id="wingMinB" type="range" min="-1.2" max="1.2" step="0.005" value="-1">
+      <label class="sl">wing depth max (maxB) <b id="vMaxB">1</b></label><input id="wingMaxB" type="range" min="-1.2" max="1.2" step="0.005" value="1">
       <label class="sl">head cut <b id="vHead">0.75</b></label><input id="headCutS" type="range" min="-1" max="1" step="0.005" value="0.75">
       <label class="sl">tail cut <b id="vTail">-0.2</b></label><input id="tailCutS" type="range" min="-1" max="1" step="0.005" value="-0.2">
     </div>
@@ -97,7 +99,7 @@
     <div class="sec"><h2>Motion preview</h2>
       <div class="tools"><button id="flap" class="mini">Flap ▶</button><button id="slither" class="mini">Slither ▶</button></div>
       <label class="sl">flap amp <b id="vFlapA">0.55</b></label><input id="flapAmp" type="range" min="0" max="1.5" step="0.01" value="0.55">
-      <label class="sl">flap tilt <small class="hint">(beat plane fore/aft)</small> <b id="vFlapT">0°</b></label><input id="flapTilt" type="range" min="-60" max="60" step="1" value="0">
+      <label class="sl">flap tilt <small class="hint">(beat plane fore/aft)</small> <b id="vFlapT">0°</b></label><input id="flapTilt" type="range" min="-120" max="120" step="1" value="0">
       <label class="sl">slither amp <b id="vSlA">0.10</b></label><input id="slAmp" type="range" min="0" max="0.4" step="0.005" value="0.10">
       <label class="sl">slither freq <b id="vSlF">8.0</b></label><input id="slFreq" type="range" min="1" max="16" step="0.1" value="8">
     </div>
@@ -225,7 +227,7 @@ let flapping = false, slithering = false, t0 = performance.now();
 function animateDeform(now) {
   if (!meshes.length) return;
   const t = (now - t0) / 1000;
-  const flap = flapping ? { hingeX: gates.hingeX, hingeZ: 0, minS: gates.wingMinS, amp: +$('flapAmp').value, tilt: +$('flapTilt').value * DEG, phase: t * 6.0 } : null;
+  const flap = flapping ? { hingeX: gates.hingeX, hingeZ: 0, minS: gates.wingMinS, minB: gates.wingMinB, maxB: gates.wingMaxB, amp: +$('flapAmp').value, tilt: +$('flapTilt').value * DEG, phase: t * 6.0 } : null;
   const slither = slithering ? { amp: +$('slAmp').value, freq: +$('slFreq').value, waveSpeed: 4.0,
     spineMin: bbox.min[{ x: 0, y: 1, z: 2 }[gates.spineAxis]], spineMax: bbox.max[{ x: 0, y: 1, z: 2 }[gates.spineAxis]], phase: t } : null;
   for (const m of meshes) {
@@ -243,6 +245,8 @@ function syncGatesToUI() {
   $('spineAxis').value = gates.spineAxis; $('spanAxis').value = gates.spanAxis;
   $('hingeX').value = gates.hingeX; $('vHinge').textContent = gates.hingeX.toFixed(3);
   $('wingMinS').value = gates.wingMinS; $('vMinS').textContent = gates.wingMinS.toFixed(3);
+  $('wingMinB').value = gates.wingMinB; $('vMinB').textContent = gates.wingMinB.toFixed(3);
+  $('wingMaxB').value = gates.wingMaxB; $('vMaxB').textContent = gates.wingMaxB.toFixed(3);
   $('headCutS').value = gates.headCutS; $('vHead').textContent = gates.headCutS.toFixed(3);
   $('tailCutS').value = gates.tailCutS; $('vTail').textContent = gates.tailCutS.toFixed(3);
   $('headEnd').classList.toggle('on', gates.headAtMax);
@@ -252,12 +256,14 @@ function readGatesFromUI() {
   if (!gates) return;
   gates.spineAxis = $('spineAxis').value; gates.spanAxis = $('spanAxis').value;
   gates.hingeX = +$('hingeX').value; gates.wingMinS = +$('wingMinS').value;
+  gates.wingMinB = +$('wingMinB').value; gates.wingMaxB = +$('wingMaxB').value;
   gates.headCutS = +$('headCutS').value; gates.tailCutS = +$('tailCutS').value;
   $('vHinge').textContent = gates.hingeX.toFixed(3); $('vMinS').textContent = gates.wingMinS.toFixed(3);
+  $('vMinB').textContent = gates.wingMinB.toFixed(3); $('vMaxB').textContent = gates.wingMaxB.toFixed(3);
   $('vHead').textContent = gates.headCutS.toFixed(3); $('vTail').textContent = gates.tailCutS.toFixed(3);
   reclassify(); updateExport();
 }
-['spineAxis', 'spanAxis', 'hingeX', 'wingMinS', 'headCutS', 'tailCutS'].forEach((id) => {
+['spineAxis', 'spanAxis', 'hingeX', 'wingMinS', 'wingMinB', 'wingMaxB', 'headCutS', 'tailCutS'].forEach((id) => {
   $(id).addEventListener('input', readGatesFromUI);
 });
 $('headEnd').onclick = () => { if (!gates) return; gates.headAtMax = !gates.headAtMax; syncGatesToUI(); reclassify(); updateExport(); };

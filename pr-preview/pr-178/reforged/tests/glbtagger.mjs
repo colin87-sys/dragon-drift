@@ -109,6 +109,16 @@ const dTilt = flapDelta(0.9, -0.1, 0.3, Math.PI / 2, { ...flapP, tilt: Math.PI /
 check(Math.abs(dFlat.ds) < 1e-12, `flap tilt 0 adds no spine-axis motion (ds ${dFlat.ds.toExponential(1)})`);
 check(Math.abs(dTilt.db) < 1e-9 && Math.abs(dTilt.ds) > 0.02, `flap tilt 90° routes swing into spine axis (db→0, ds ${dTilt.ds.toFixed(3)})`);
 
+// 5c) DEPTH BAND (third gate) — a wing vert inside the depth window flaps; one outside is excluded, in
+//     both the classifier and the flap. flapDelta(a=span, b=depth, s=spine).
+const dInB = flapDelta(0.9, -0.1, 0.3, Math.PI / 2, { ...flapP, minB: -0.5, maxB: 0.5 });
+const dOutB = flapDelta(0.9, 0.9, 0.3, Math.PI / 2, { ...flapP, minB: -0.5, maxB: 0.5 });
+check(Math.abs(dInB.da) > 1e-6 || Math.abs(dInB.db) > 1e-6, `depth band keeps in-range wing vert flapping`);
+check(Math.abs(dOutB.da) < 1e-12 && Math.abs(dOutB.db) < 1e-12 && Math.abs(dOutB.ds) < 1e-12, `depth band excludes out-of-range wing vert`);
+// the cloud's wings sit at z=-0.1; a band that excludes z<-0.05 must shrink the WING class.
+const idsBand = classifyParts(cloud, { ...gates, wingMinB: -0.05, wingMaxB: 1 });
+check(partCounts(idsBand).wing < counts.wing, `depth band reduces the classified wing set (${partCounts(idsBand).wing} < ${counts.wing})`);
+
 // 6) EXPORT — the block carries the engine knobs and tidies the radian to Math.PI forms.
 const txt = buildExport({ key: 'emberMonarch', gates, orient: { scale: 3.9, rotY: Math.PI, rotX: -Math.PI / 2, rotZ: 0 },
   slither: { amp: 0.1, freq: 8, speed: 4 }, flap: { hingeX: 0.28, minS: -0.15, amp: 0.55 }, bbox: box });

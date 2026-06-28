@@ -107,7 +107,8 @@ function attachBodyDeform(mat, u, opts = {}) {
       shader.uniforms.uFlapPhase = u.uFlapPhase; shader.uniforms.uFlapAmp = u.uFlapAmp;
       shader.uniforms.uHingeX = u.uHingeX; shader.uniforms.uHingeZ = u.uHingeZ;
       shader.uniforms.uWingMinS = u.uWingMinS; shader.uniforms.uFlapTilt = u.uFlapTilt;
-      decl += 'uniform float uFlapPhase;uniform float uFlapAmp;uniform float uHingeX;uniform float uHingeZ;uniform float uWingMinS;uniform float uFlapTilt;\n';
+      shader.uniforms.uWingMinB = u.uWingMinB; shader.uniforms.uWingMaxB = u.uWingMaxB;
+      decl += 'uniform float uFlapPhase;uniform float uFlapAmp;uniform float uHingeX;uniform float uHingeZ;uniform float uWingMinS;uniform float uFlapTilt;uniform float uWingMinB;uniform float uWingMaxB;\n';
       // Wing verts are wide in X AND in the FRONT/shoulder region (spine coord above
       // uWingMinS). The second gate is essential: the coiled TAIL also swings wide in
       // X, so a |x|-only mask grabs tail verts and flaps them — the "tail warps when it
@@ -118,7 +119,7 @@ function attachBodyDeform(mat, u, opts = {}) {
       // shipped beat (Thundercoil), since the depth delta `ndz` is 0 for every non-wing vert.
       body +=
         'float wside = sign(position.x);\n' +
-        'float wmask = step(uHingeX, abs(position.x)) * step(uWingMinS, ' + SP + ');\n' +
+        'float wmask = step(uHingeX, abs(position.x)) * step(uWingMinS, ' + SP + ') * step(uWingMinB, position.z) * step(position.z, uWingMaxB);\n' +
         'float fth = -wside * uFlapAmp * sin(uFlapPhase) * wmask;\n' +
         'float wdx = position.x - wside * uHingeX;\n' +
         'float wdz = position.z - uHingeZ;\n' +
@@ -254,6 +255,9 @@ export function buildGlbDragon(def, opts = {}) {
     uWingMinS: { value: wingCt?.minS ?? -1e9 },
     // tilt (radians) of the wingbeat plane toward the spine; 0 = the shipped up/down beat.
     uFlapTilt: { value: wingCt?.tilt ?? 0 },
+    // depth-axis (fore/aft, local Z) band for the wing mask — the THIRD gate that lets the wing be
+    // carved off limbs sharing its span+spine. ±1e9 default ⇒ no effect (Thundercoil unchanged).
+    uWingMinB: { value: wingCt?.minB ?? -1e9 }, uWingMaxB: { value: wingCt?.maxB ?? 1e9 },
   };
   const glbAnim = {
     mixer: null,
