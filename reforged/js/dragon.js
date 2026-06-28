@@ -564,28 +564,32 @@ export function updateDragon(dt, player, time) {
     const inR = Math.max(0, turn) * bH, inL = Math.max(0, -turn) * bH;   // inside wing of a hard bank
 
     // SHOULDER: symmetric flap (±), + climb elevation (spread wide), + dive sweep-back (yaw).
-    const elev = cl * 0.22;
+    const elev = cl * 0.25;
     BN.shL.rotation.z = flap + elev;  BN.shR.rotation.z = -flap - elev;
-    BN.shL.rotation.y = dv * 0.45 - turn * 0.15;  BN.shR.rotation.y = -dv * 0.45 - turn * 0.15;
-    // ELBOW + WRIST: fold on the upstroke, fold harder on the INSIDE of a hard bank + in a dive.
-    const foldL = upstroke * 0.55 + inL * 0.9 + dv * 0.45;
-    const foldR = upstroke * 0.55 + inR * 0.9 + dv * 0.45;
-    BN.elL.rotation.z = foldL * 0.6;  BN.wrL.rotation.z = foldL;
-    BN.elR.rotation.z = -foldR * 0.6; BN.wrR.rotation.z = -foldR;
+    BN.shL.rotation.y = dv * 0.5 - turn * 0.15;  BN.shR.rotation.y = -dv * 0.5 - turn * 0.15;
+    // ELBOW + WRIST fold — the handwing curls up/in on the RECOVERY (upstroke), straight on the
+    // downstroke. The fold rotates the SAME direction as the shoulder's up-sweep (left negative /
+    // right positive) so it ADDS to the curl instead of fighting it (the prior opposite sign read
+    // as a broken crinkle). Folds harder on a hard-bank inside wing + in a dive.
+    const foldL = Math.min(1.15, upstroke * 0.7 + inL * 0.8 + dv * 0.5);
+    const foldR = Math.min(1.15, upstroke * 0.7 + inR * 0.8 + dv * 0.5);
+    BN.elL.rotation.z = -foldL * 0.55;  BN.wrL.rotation.z = -foldL;
+    BN.elR.rotation.z =  foldR * 0.55;  BN.wrR.rotation.z =  foldR;
 
-    // CHEST: heave with the power stroke (rises as the wings drive down) + posture pitch +
-    // a direction-change ripple + a touch of roll/yaw into the turn (carries neck+head).
-    BN.chest.position.y = R.chestRestY - amp * 0.07 * Math.sin(ph);
-    BN.chest.rotation.x = posturePitch * 0.22 + cl3(vertJerk * 0.012, 0.12);
-    BN.chest.rotation.z = bankZ * 0.25;
-    BN.chest.rotation.y = turn * 0.12;
+    // CHEST: clearly-visible heave with the power stroke (rises on the downstroke, dips on
+    // recovery) + a pitch rock + posture pitch + a direction-change ripple + roll/yaw into the
+    // turn. Carries the neck + head (they ride the chest bone).
+    BN.chest.position.y = R.chestRestY - 0.18 * Math.sin(ph);
+    BN.chest.rotation.x = -0.12 * Math.sin(ph) + posturePitch * 0.22 + cl3(vertJerk * 0.012, 0.12);
+    BN.chest.rotation.z = bankZ * 0.3;
+    BN.chest.rotation.y = turn * 0.14;
 
-    // TAIL: rudder counter-sweep (steer/bank) + climb-down / dive-up pitch + a lagged whip
-    // that trails the power stroke (tailB lags tailA).
-    const sweep = -turn * (0.30 + bH * 0.55);
-    const whip = amp * 0.18 * Math.sin(ph - 1.3);
-    BN.tailA.rotation.y = sweep;  BN.tailA.rotation.x = cl * 0.42 - dv * 0.30 - cl3(vertJerk * 0.01, 0.1);
-    BN.tailB.rotation.y = sweep + whip;  BN.tailB.rotation.x = cl * 0.30 - dv * 0.22 + whip * 0.5;
+    // TAIL: rudder counter-sweep (steer/bank) + climb-down / dive-up pitch + a lagged whip that
+    // trails the power stroke (tailB lags tailA → a traveling whip).
+    const sweep = -turn * (0.35 + bH * 0.6);
+    const whip = amp * 0.4 * Math.sin(ph - 1.4);
+    BN.tailA.rotation.y = sweep * 0.6;  BN.tailA.rotation.x = cl * 0.45 - dv * 0.35 + whip * 0.4 - cl3(vertJerk * 0.012, 0.12);
+    BN.tailB.rotation.y = sweep;        BN.tailB.rotation.x = cl * 0.30 - dv * 0.20 + whip;
   }
 
   // Wing flap: articulated cascade with speed/turn asymmetry + the blend layers (above).

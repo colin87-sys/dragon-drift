@@ -354,6 +354,9 @@ export function buildGlbDragon(def, opts = {}) {
           parent.remove(srcMesh);
           // dragon.js poses these bones each frame; uniforms carry the reactive flap phase/amp.
           glbAnim.rig = { bones: rig.bones, uniforms: slitherU, chestRestY: rig.bones.chest.position.y };
+          console.info('[dragonGlb] skinned rig active —', Object.keys(rig.bones).length, 'bones (wings/chest/tail)');
+        } else {
+          console.warn('[dragonGlb] skinnedRig set but rig build failed — mesh will be static (no flap)');
         }
       }
       group.add(content);            // remaining nodes (body, etc.) ride the root
