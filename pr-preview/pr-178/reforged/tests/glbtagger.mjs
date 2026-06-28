@@ -119,6 +119,13 @@ check(Math.abs(dOutB.da) < 1e-12 && Math.abs(dOutB.db) < 1e-12 && Math.abs(dOutB
 const idsBand = classifyParts(cloud, { ...gates, wingMinB: -0.05, wingMaxB: 1 });
 check(partCounts(idsBand).wing < counts.wing, `depth band reduces the classified wing set (${partCounts(idsBand).wing} < ${counts.wing})`);
 
+// 5d) SPANWISE FLEX — flex curls the membrane, so a near-hinge wing vert moves less than at flex 0
+//     (the rigid paddle), while the tip is unchanged. flapDelta(a=span, b=depth, s=spine).
+const fp = { ...flapP, tip: 0.95 };
+const midRigid = Math.abs(flapDelta(0.4, -0.1, 0.3, Math.PI / 2, fp).db);
+const midFlex = Math.abs(flapDelta(0.4, -0.1, 0.3, Math.PI / 2, { ...fp, flex: 1 }).db);
+check(midFlex < midRigid, `wing flex reduces near-hinge motion (${midFlex.toFixed(4)} < ${midRigid.toFixed(4)})`);
+
 // 6) EXPORT — the block carries the engine knobs and tidies the radian to Math.PI forms.
 const txt = buildExport({ key: 'emberMonarch', gates, orient: { scale: 3.9, rotY: Math.PI, rotX: -Math.PI / 2, rotZ: 0 },
   slither: { amp: 0.1, freq: 8, speed: 4 }, flap: { hingeX: 0.28, minS: -0.15, amp: 0.55 }, bbox: box });

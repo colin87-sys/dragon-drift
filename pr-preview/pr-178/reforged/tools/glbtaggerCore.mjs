@@ -131,7 +131,10 @@ export function flapDelta(a, b, s, phase, p) {
   const side = Math.sign(a);
   const inB = b >= (p.minB ?? -Infinity) && b <= (p.maxB ?? Infinity);   // depth-axis band gate
   const mask = (Math.abs(a) >= p.hingeX && s >= p.minS && inB) ? 1 : 0;
-  const fth = -side * p.amp * Math.sin(phase) * mask;
+  // SPANWISE FLEX — ramp the beat angle 0 (hinge) → full (tip) so the membrane curls; 0 = rigid.
+  const ss = (e0, e1, x) => { const t = Math.min(1, Math.max(0, (x - e0) / Math.max(1e-6, e1 - e0))); return t * t * (3 - 2 * t); };
+  const flexT = 1 + (p.flex || 0) * (ss(p.hingeX, p.tip ?? 1, Math.abs(a)) - 1);   // mix(1, smoothstep, flex)
+  const fth = -side * p.amp * Math.sin(phase) * mask * flexT;
   const da0 = a - side * p.hingeX, db0 = b - (p.hingeZ || 0);
   const fc = Math.cos(fth), fs = Math.sin(fth);
   const ndx = (side * p.hingeX + da0 * fc + db0 * fs) - a;
@@ -199,6 +202,6 @@ export function buildExport({ key = 'emberMonarch', meshUrl, gates, orient, slit
   // spine = local ${gates.spineAxis} (head at ${gates.headAtMax ? '+' : '−'}${gates.spineAxis}); span = local ${gates.spanAxis}. Tagged in tools/glbtagger.html.
   spineAxis: '${gates.spineAxis}', spanAxis: '${gates.spanAxis}',
   slither: { amp: ${r3(sl.amp)}, freq: ${r3(sl.freq)}, speed: ${r3(sl.speed)} },
-  wing: { hingeX: ${r3(fl.hingeX ?? gates.hingeX)}, minS: ${r3(fl.minS ?? gates.wingMinS)}, amp: ${r3(fl.amp ?? 0.55)}, tilt: ${piExpr(fl.tilt ?? 0)}${bandStr} } }
+  wing: { hingeX: ${r3(fl.hingeX ?? gates.hingeX)}, minS: ${r3(fl.minS ?? gates.wingMinS)}, amp: ${r3(fl.amp ?? 0.55)}, tilt: ${piExpr(fl.tilt ?? 0)}, flex: ${r3(fl.flex ?? 0)}${bandStr} } }
 // spine bbox on ${gates.spineAxis}: [${sMin}, ${sMax}]   meshUrl: '${meshUrl || `./assets/models/${key}.glb`}'`;
 }
