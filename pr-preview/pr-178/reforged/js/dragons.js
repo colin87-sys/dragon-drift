@@ -1377,12 +1377,14 @@ export const DRAGONS = {
     cost: 0,                 // free experiment, one tap to equip + test
     assetBacked: true,
     meshUrl: './assets/models/emberMonarch.glb',
-    glb: { scale: 3.9, rotY: Math.PI, rotX: -1.5708, rotZ: 0, shoulder: [0.3, 0.2, -0.4], riderAt: [0, 0.9, 0.2],
+    glb: { scale: 3.25, rotY: Math.PI, rotX: -0.611, rotZ: 0, shoulder: [0.3, 0.2, -0.4], riderAt: [0, 0.9, 0.2],
       fusedWings: true,
-      // spine = local Y (head +Y → tail −Y), span = local X — see tools/glbtagger.html.
+      // This mesh reconstructed with its spine along local Z (head +Z) and span along X; depth = Y.
+      // The deform follows these axes (dragonGlb.js reads spineAxis/spanAxis). Tagged in glbtagger.html.
+      spineAxis: 'z', spanAxis: 'x',
       slither: { amp: 0.10, freq: 8.0, speed: 4.0 },
-      // tilt (radians) angles the wingbeat plane fore/aft; 0 = straight up/down. Tune in glbtagger.html.
-      wing: { hingeX: 0.28, minS: -0.15, amp: 0.55, tilt: 0 } },
+      // wing gate (3-axis box) + tilt of the beat plane — all tuned in tools/glbtagger.html.
+      wing: { hingeX: 0.17, minS: -0.31, amp: 0.94, tilt: -1.065, minB: -0.14, maxB: 0.375 } },
     stats: { speed: 1.12, handling: 1.08, drain: 0.95, regen: 1.0 },
     model: {
       scale: 1.0, bodyScale: 1.0, wingSpan: 1.0,

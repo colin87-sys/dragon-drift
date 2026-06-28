@@ -197,6 +197,7 @@ export function buildExport({ key = 'emberMonarch', meshUrl, gates, orient, slit
   shoulder: [${r3(o.shoulderX ?? 0.3)}, ${r3(o.shoulderY ?? 0.2)}, ${r3(o.shoulderZ ?? -0.4)}], riderAt: [0, 0.9, 0.2],
   fusedWings: true,
   // spine = local ${gates.spineAxis} (head at ${gates.headAtMax ? '+' : '−'}${gates.spineAxis}); span = local ${gates.spanAxis}. Tagged in tools/glbtagger.html.
+  spineAxis: '${gates.spineAxis}', spanAxis: '${gates.spanAxis}',
   slither: { amp: ${r3(sl.amp)}, freq: ${r3(sl.freq)}, speed: ${r3(sl.speed)} },
   wing: { hingeX: ${r3(fl.hingeX ?? gates.hingeX)}, minS: ${r3(fl.minS ?? gates.wingMinS)}, amp: ${r3(fl.amp ?? 0.55)}, tilt: ${piExpr(fl.tilt ?? 0)}${bandStr} } }
 // spine bbox on ${gates.spineAxis}: [${sMin}, ${sMax}]   meshUrl: '${meshUrl || `./assets/models/${key}.glb`}'`;
