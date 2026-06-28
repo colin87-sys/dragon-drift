@@ -1328,12 +1328,20 @@ export const DRAGONS = {
     // GLB placement: intrinsic mesh scale, facing (yaw), and the shoulder pivots
     // each authored wing mounts onto. Retune for the real asset on the PR
     // preview — no code change needed.
-    glb: { scale: 3.6, rotY: Math.PI, rotX: -0.30, shoulder: [0.5, 0.5, -1.6], wingScale: 2.2, riderAt: [0, 1.2, -1.4],
+    // UNIFIED WINGED MESH: one fused GLB (body + head + wings) from the cel-shaded
+    // hero concept (Higgsfield job d01ab50b). Native pose stands vertical — spine
+    // along +Y (head +Y → tail −Y), wingspan along ±X — so a −90° pitch (rotX) lays
+    // it into the chase-cam flight plane (head −Z into the screen, forked tail +Z to
+    // camera, wings spread ±X). `fusedWings` retires the authored/separate wings (the
+    // mesh carries its own) and turns on the shader wing-flap deform. Retune
+    // scale/rot/wing/slither on the PR preview — no code change needed.
+    glb: { scale: 3.9, rotY: 0, rotX: -1.2, rotZ: 0, shoulder: [0.3, 0.2, -0.4], riderAt: [0, 0.9, 0.2],
+      fusedWings: true,
       // Procedural body slither: traveling lateral spine wave (local units; amp ramps head→tail).
-      slither: { amp: 0.14, freq: 6.5, speed: 4.0 },
-      // AI-generated wing mesh on the flap rig (replaces the authored membrane). Placement
-      // tuned on the preview; one mesh, the off side is a mirror. scale/rot(radians)/offset.
-      wingMesh: { url: './assets/models/thundercoil_wing.glb', scale: 2.0, rot: [-1.57, 0, 0], offset: [0.2, 0, 0] } },
+      slither: { amp: 0.10, freq: 8.0, speed: 4.0 },
+      // Shader wing-flap: verts past |localX|>hingeX rotate about a fore-aft hinge at the
+      // shoulder by amp·sin(phase); symmetric (both wings beat together). Tune on preview.
+      wing: { hingeX: 0.28, hingeY: 0.10, amp: 0.55 } },
     stats: { speed: 1.10, handling: 1.06, drain: 0.97, regen: 1.0 },   // fast + electric
     model: {
       scale: 1.0, bodyScale: 1.0, wingSpan: 1.0,

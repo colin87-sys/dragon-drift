@@ -13,15 +13,18 @@
 let pass = 0, fails = 0;
 function check(cond, msg) { if (cond) { pass++; } else { fails++; console.log(`  ✗ ${msg}`); } }
 
-// --- mirror of the GLSL in dragonGlb.js attachSlither() (local mesh axes: +Z head, -Z tail) ---
-//   spineT = clamp((spineMax - z) / (spineMax - spineMin), 0, 1)   // 0 head -> 1 tail
-//   dx     = amp * spineT * sin(freq*z + waveSpeed*t)
+// --- mirror of the GLSL in dragonGlb.js attachBodyDeform() ---
+// The unified winged mesh's spine runs along local +Y (head +Y → tail −Y); the wave
+// is the SAME 1-D traveling wave the legacy z-spine body used, so the invariants are
+// axis-agnostic and we just call the spine coordinate `z` here.
+//   spineT = clamp((spineMax - s) / (spineMax - spineMin), 0, 1)   // 0 head -> 1 tail
+//   dx     = amp * spineT * sin(freq*s + waveSpeed*t)
 const clamp = (v, a, b) => Math.min(Math.max(v, a), b);
 function spineT(z, p) { return clamp((p.spineMax - z) / Math.max(1e-4, p.spineMax - p.spineMin), 0, 1); }
 function offsetX(z, t, p) { return p.amp * spineT(z, p) * Math.sin(p.freq * z + p.waveSpeed * t); }
 
-// thundercoil's shipped params + its measured spine extent (glb local Z bbox).
-const P = { amp: 0.14, freq: 6.5, waveSpeed: 4.0, spineMin: -0.956, spineMax: 0.955 };
+// thundercoil's shipped params + its measured spine extent (glb local Y bbox).
+const P = { amp: 0.10, freq: 8.0, waveSpeed: 4.0, spineMin: -0.761, spineMax: 0.760 };
 
 // 1) HEAD ANCHORED — spineT==0 at the head, so it never displaces (the head leads, doesn't wag).
 let headMax = 0;

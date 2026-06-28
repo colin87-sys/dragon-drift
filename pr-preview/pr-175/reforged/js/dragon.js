@@ -447,6 +447,17 @@ export function updateDragon(dt, player, time) {
     su.uWaveSpeed.value = 3.0 + sp * 4.5;
     su.uAmp.value = glbAnim.slither.baseAmp * (0.75 + sp * 0.5);
   }
+  // Asset-backed fused-wing FLAP — advance the wingbeat clock (a fused winged mesh
+  // has no wing bones, so the wings flap via a shader vertex deform). The beat
+  // quickens with held boost and deepens a touch with speed, matching the rigged
+  // dragons' feel without the bone rig.
+  if (glbAnim && glbAnim.wingFlap) {
+    const wu = glbAnim.wingFlap.uniforms;
+    const sp = Math.min(Math.max((player.speed - 35) / 45, 0), 1);
+    const flapRate = (player.speedActive ? 9.5 : 5.5) + sp * 3.0;
+    wu.uFlapPhase.value += dt * flapRate;
+    wu.uFlapAmp.value = glbAnim.wingFlap.baseAmp * (0.85 + sp * 0.25);
+  }
 
   // Banking and pitch — banking deepens with speed for drama.
   // Bank is tracked separately so the barrel-roll spin can stack on top

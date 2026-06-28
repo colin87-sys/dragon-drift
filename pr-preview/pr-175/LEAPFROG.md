@@ -3224,3 +3224,52 @@ passes; `glb.mjs` now reports BOTH GLBs. Cost noted: two 31k-tri / ~7–8 MB GLB
 ~15 MB precached) — far over the procedural budget, the explicit price of an all-AI creature, judged on the preview.
 **→ Leapfrog:** if this graduates from experiment, decimate + texture-downscale both GLBs (or lazy-load them out of the
 SW precache); and the wing mount `rot/offset/scale` + a possible shader membrane-cup are the remaining preview tuning.
+
+---
+
+## Lesson — The all-AI wing landed: a SINGLE fused winged mesh + a shader wing-flap (no bones)
+
+**What we did.** The human rejected the separate photoreal wing GLB as off-style and asked to
+regenerate the WHOLE dragon WITH wings, in the game's cel-shaded art direction. So: generated a
+cel-shaded winged hero concept (`generate_image nano_banana_flash`, job `ef3b73e4` — the prompt
+spells out the art direction: "stylized cel-shaded game-asset look, smooth lofted forms, flat toon
+bands, soft emissive accents, NOT photorealistic"), then `image_to_3d` (textured, no rig) on THAT
+single image (job `d01ab50b`). The winged mesh reconstructed cleanly this time — **30,925 tris, one
+mesh, wings present and readable as bat-membranes** — overwrote `assets/models/thundercoil.glb`,
+re-ran `stamp-sw`, retired the whole separate-wing path (`thundercoil_wing.glb` + `def.glb.wingMesh`
++ the wingMesh load branch). Coexistence held: glb/glbcontract/defs/blueprint/flapcheck/ascension
+stayed green; the authored membrane wings stay as the headless fallback (glbcontract needs them) and
+are hidden in-browser once the fused mesh loads (new `def.glb.fusedWings` flag).
+
+**A fused winged mesh has wings but NO wing bones — so flap them with a shader vertex deform, same
+move as the slither.** `dragonGlb.js attachBodyDeform` now injects TWO local-space displacements
+into the body material's vertex stage (one `onBeforeCompile`, keeps the PBR texture): the existing
+slither wave + a new wing-flap. The flap: verts past `|localX| > uHingeX` are the wings; they rotate
+about a fore-aft hinge (local Y, at `localX = ±uHingeX`) by `fth = −sign(x)·amp·sin(phase)` so BOTH
+wings beat together (the `−sign(x)` makes the symmetric up/down; an antisymmetric sign would be a
+roll). Body verts (mask 0) are identity. `dragon.js` advances `uFlapPhase` reactively (quicker on
+held boost), right beside the slither tick. Wings swing through local Z, which the −90°-ish flight
+pitch maps to world up/down — so the flap is **placement-robust** (all pre-model-matrix, like the
+slither). Locked with a pure-math gate `tests/wingflap.mjs` (body-anchored / wing-swings /
+SYMMETRIC / oscillates / flat-at-phase-0,π), the wing-channel twin of `slither.mjs`. The
+per-channel "encode the motion invariant as a numeric gate" rule now covers THREE channels:
+rigged-wing flap, body slither, fused-wing flap.
+
+**Orientation came from the geometry, not a guess.** Each AI mesh is reconstructed in its own native
+pose: this winged one stands VERTICAL — `glbinspect` (a new headless tool that reads the GLB's
+POSITION accessor min/max, no renderer) showed widest axis X 1.91 (wingspan), spine Y 1.52 (head +Y
+→ tail −Y), depth Z 1.21. So the spine is local **Y** this time (the wingless turnaround body was
+local Z) — meaning the slither axis is now data-driven (`attachBodyDeform({axis})`, spine bbox read
+on the matching axis at load). A −90°-ish `rotX` lays Y into the chase depth axis; screenshot-tuned
+to `scale 3.9, rotX −1.2` (the coiled source pose drapes a little vertically — final pitch is the
+human's preview call). **Screenshot loop in this env:** playwright's pinned browser build (1228)
+mismatches the pre-installed Chromium (1194); `npm i -g playwright` + a temporary
+`executablePath: /opt/pw-browsers/chromium-1194/chrome-linux/chrome` in `tests/browser.mjs` (reverted
+before commit) gets a real in-engine GLB screenshot — the only way to judge a GLB (no headless WebGL).
+
+**→ Leapfrog:** the all-AI creature is real — generate the concept IN the game's art-direction
+words, convert the WHOLE thing once it reads (a stylized full-body shot reconstructs wings far better
+than a photoreal one), and animate the boneless mesh with stacked local-space shader deforms, each
+guarded by a math gate. Cost: one ~8 MB / 31k-tri GLB (down from two; the separate-wing era was ~15
+MB / 93k). If this graduates from experiment, decimate + texture-downscale and lazy-load it out of
+the SW precache.
