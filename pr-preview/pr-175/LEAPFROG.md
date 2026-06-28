@@ -3273,3 +3273,41 @@ than a photoreal one), and animate the boneless mesh with stacked local-space sh
 guarded by a math gate. Cost: one ~8 MB / 31k-tri GLB (down from two; the separate-wing era was ~15
 MB / 93k). If this graduates from experiment, decimate + texture-downscale and lazy-load it out of
 the SW precache.
+
+---
+
+## Lesson — Orient a GLB by MEASURING the roster, not eyeballing; and rim-light a backlit PBR mesh
+
+**The fused winged mesh shipped reared + dark on the real device.** Two fixes, both data-driven:
+
+**Orientation — measure both the asset AND a reference, don't guess the pitch.** I'd set `rotX −1.2`
+from bbox reasoning + a charitable screenshot; on the phone it read as a reared, side-on pillar. The
+fix was to MEASURE. A temporary in-browser seam (`window.__dragon = {group, head, tailSegs}`, reverted
+after) logged a procedural reference's real world-space head/tail relative to the dragon group: azure
+**head [0, +0.31, −1.91], tail [0, +0.2, +2.11]** — i.e. the roster convention is head −Z, tail +Z, at
+**near-equal Y (level)**. Then the same probe transformed thundercoil's native bbox extremes through its
+live world matrix: at `rotX −1.2` the native +Y/−Y ends landed at y +1.07 / −1.08 — a **21° nose-up
+rear**. Only `rotX = −π/2` puts both ends at equal height (level), matching azure. Confirmed in the real
+renderer (head into −Z toward the sun, forked tail +Z to camera, dorsal up). Also added `tools/glbaxes.mjs`
+(decodes the POSITION buffer and slices along an axis to read wingspan/spine/fork from cross-section
+spread, headless). Rule: when the target is "match the roster," the roster's own measured numbers ARE
+the spec — instrument the game, read head/tail world coords for a known-good dragon and for the new one,
+compute the transform, THEN screenshot to confirm. The bbox extreme ≠ the head, either: the widest |X|
+sat at high Y because the **wingtips** are raised in the authored hero pose, not because the head is there.
+
+**Brightness — a PBR GLB is a black silhouette when backlit; rim-light it like the procedural dragons.**
+The sun sits ahead on the flight line, so the camera sees the mesh's shadowed side. Procedural dragons
+already solve this with a fresnel rim. The GLB's own materials weren't getting it (the rim system targets
+the dummy `bodyMat`, not the loaded mesh's materials). Folded a fresnel rim + a flat fill into the SAME
+`attachBodyDeform` `onBeforeCompile` as the slither/flap — it had to be one injection, because
+`composeSurface`/`applyFresnelRim` create FRESH uniform objects and would (a) clobber a second
+`onBeforeCompile` and (b) break the externally-ticked deform uniforms. The rim adds
+`uRimColor*(fres*int + bias) + uFill*fillInt` to `totalEmissiveRadiance` (view-dependent edge, light-
+independent — survives the bake), injected at `#include <emissivemap_fragment>` exactly like the existing
+`fresnelRimPatch`. Tuning mattered: first pass (intensity 0.7 + a flat electric `bias` 0.05) washed the
+whole body into a glowing blue blob; `bias → 0` (edge-only) + a NEUTRAL steel fill (not the electric
+accent) kept the storm-grey form with just an on-brand electric edge. All data-driven via `def.glb.rim`.
+
+**→ Leapfrog:** for any asset-backed dragon, (1) orientation is a measurement, not a vibe — log a
+reference dragon's head/tail world coords and match them; (2) budget a rim+fill lift for the PBR mesh up
+front (backlit is the default framing), and keep it edge-weighted so it accents rather than floods.
