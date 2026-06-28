@@ -1,0 +1,506 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Dragon Drift — GLB Part Tagger</title>
+<style>
+  :root{ --bg:#0a0e1a; --panel:#0f1526; --line:#243049; --ink:#cfe0ff; --dim:#7f8db0; --accent:#9fe06a; --hot:#ffb454;
+    --body:#6b758f; --wing:#5cb3ff; --head:#ffcc4d; --tail:#ff6b29; }
+  *{box-sizing:border-box}
+  html,body{margin:0;height:100%;background:var(--bg);color:var(--ink);font:13px/1.5 system-ui,sans-serif;overflow:hidden}
+  #app{display:flex;height:100vh}
+  #stage{flex:1;position:relative;background:radial-gradient(circle at 50% 38%,#141c30,#0a0e1a 72%)}
+  #c{display:block;width:100%;height:100%;touch-action:none;cursor:grab}
+  #c:active{cursor:grabbing}
+  #panel{width:332px;flex:0 0 332px;background:var(--panel);border-left:1px solid var(--line);
+    display:flex;flex-direction:column;overflow-y:auto}
+  .sec{padding:11px 13px;border-bottom:1px solid var(--line)}
+  .sec h2{margin:0 0 8px;font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--dim)}
+  h1{font-size:14px;margin:0;color:var(--accent)} h1 small{color:var(--dim);font-weight:400;font-size:11px}
+  button{background:#16223c;color:var(--ink);border:1px solid var(--line);border-radius:7px;
+    padding:7px 9px;font-size:12px;cursor:pointer}
+  button:hover{border-color:#3a4d72}
+  button.on{background:var(--accent);color:#04140a;border-color:var(--accent);font-weight:600}
+  .tools{display:grid;grid-template-columns:1fr 1fr;gap:6px}
+  .tools.three{grid-template-columns:1fr 1fr 1fr}
+  .row{display:flex;gap:6px;align-items:center;margin:6px 0;flex-wrap:wrap}
+  .row.cols{justify-content:space-between}
+  label.sl{display:flex;justify-content:space-between;margin:8px 0 2px;color:var(--dim);font-size:11px}
+  label.sl b{color:var(--ink);font-weight:600}
+  input[type=range]{width:100%}
+  select{background:#0b1322;color:var(--ink);border:1px solid var(--line);border-radius:6px;padding:4px 6px;font-size:12px}
+  .legend{display:grid;grid-template-columns:1fr 1fr;gap:5px;margin-top:4px}
+  .lg{display:flex;align-items:center;gap:6px;font-size:11px;color:var(--dim)}
+  .sw{width:12px;height:12px;border-radius:3px;flex:0 0 12px}
+  .hint{color:var(--dim);font-size:11px}
+  #drop{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;text-align:center;
+    color:var(--dim);pointer-events:none;padding:0 40px}
+  #drop.hot{background:rgba(159,224,106,.08);outline:2px dashed var(--accent);outline-offset:-12px}
+  #status{position:absolute;left:10px;bottom:10px;background:rgba(8,12,24,.72);border:1px solid var(--line);
+    padding:5px 9px;border-radius:7px;color:var(--dim);font-size:11px;pointer-events:none;max-width:70%}
+  #out{width:100%;height:170px;background:#0b1322;color:#bfe;border:1px solid var(--line);border-radius:7px;
+    font:11px/1.4 ui-monospace,Menlo,monospace;padding:7px;resize:vertical;white-space:pre;overflow:auto}
+  .mini{font-size:11px;padding:5px 7px}.full{width:100%}
+</style>
+<script type="importmap">
+  { "imports": { "three": "../lib/three.module.js" } }
+</script>
+</head>
+<body>
+<div id="app">
+  <div id="stage">
+    <canvas id="c"></canvas>
+    <div id="drop">Drop a <b>.glb</b> here — or use <b>Load committed asset</b>.<br>
+      Drag to orbit · wheel to zoom · right-drag to pan.</div>
+    <div id="status">No model loaded.</div>
+  </div>
+  <div id="panel">
+    <div class="sec"><h1>GLB Part Tagger <small>Dragon Drift</small></h1>
+      <p class="hint" style="margin:6px 0 0">Tag a fused GLB's body parts by the <b>same geometric gates the engine flaps with</b>, then export the <code>def.glb</code> block. Sibling of the silhouette tracer.</p></div>
+
+    <div class="sec"><h2>Load</h2>
+      <div class="tools"><button id="loadAsset" class="mini">Load committed asset</button><button id="pickFile" class="mini">Pick .glb…</button></div>
+      <input id="file" type="file" accept=".glb" style="display:none" />
+      <div class="row" style="margin-top:7px"><span class="hint" id="meshinfo">—</span></div>
+    </div>
+
+    <div class="sec"><h2>View</h2>
+      <div class="tools"><button id="vTex" class="on mini">Textured</button><button id="vParts" class="mini">Parts</button></div>
+      <div class="legend">
+        <div class="lg"><span class="sw" style="background:var(--body)"></span>body <b id="cBody" style="color:var(--ink)">0</b></div>
+        <div class="lg"><span class="sw" style="background:var(--wing)"></span>wing <b id="cWing" style="color:var(--ink)">0</b></div>
+        <div class="lg"><span class="sw" style="background:var(--head)"></span>head <b id="cHead" style="color:var(--ink)">0</b></div>
+        <div class="lg"><span class="sw" style="background:var(--tail)"></span>tail <b id="cTail" style="color:var(--ink)">0</b></div>
+      </div>
+    </div>
+
+    <div class="sec"><h2>Axes &amp; part gates <small class="hint">(mesh-local)</small></h2>
+      <div class="row cols"><label class="hint">spine&nbsp;<select id="spineAxis"><option>x</option><option selected>y</option><option>z</option></select></label>
+        <label class="hint">span&nbsp;<select id="spanAxis"><option selected>x</option><option>y</option><option>z</option></select></label>
+        <button id="headEnd" class="mini">head @ +spine</button></div>
+      <label class="sl">wing root (hingeX) <b id="vHinge">0.28</b></label><input id="hingeX" type="range" min="0" max="1" step="0.005" value="0.28">
+      <label class="sl">wing band cut (minS) <b id="vMinS">-0.15</b></label><input id="wingMinS" type="range" min="-1" max="1" step="0.005" value="-0.15">
+      <label class="sl">wing depth min (minB) <small class="hint">excl. legs</small> <b id="vMinB">-1</b></label><input id="wingMinB" type="range" min="-1.2" max="1.2" step="0.005" value="-1">
+      <label class="sl">wing depth max (maxB) <b id="vMaxB">1</b></label><input id="wingMaxB" type="range" min="-1.2" max="1.2" step="0.005" value="1">
+      <label class="sl">head cut <b id="vHead">0.75</b></label><input id="headCutS" type="range" min="-1" max="1" step="0.005" value="0.75">
+      <label class="sl">tail cut <b id="vTail">-0.2</b></label><input id="tailCutS" type="range" min="-1" max="1" step="0.005" value="-0.2">
+    </div>
+
+    <div class="sec"><h2>Orient to flight line</h2>
+      <p class="hint" style="margin:0 0 4px">Rotate until the <b style="color:#ff5a5a">red HEAD arrow</b> runs through the head and <b style="color:#5cff8a">green UP</b> is the dorsal.</p>
+      <div class="tools three"><button id="pHead" class="mini">head −Z</button><button id="pLevel" class="mini">level</button><button id="pDorsal" class="mini">dorsal up</button></div>
+      <label class="sl">rotX <b id="vRotX">-90°</b></label><input id="rotX" type="range" min="-180" max="180" step="1" value="-90">
+      <label class="sl">rotY <b id="vRotY">180°</b></label><input id="rotY" type="range" min="-180" max="180" step="1" value="180">
+      <label class="sl">rotZ <b id="vRotZ">0°</b></label><input id="rotZ" type="range" min="-180" max="180" step="1" value="0">
+      <label class="sl">scale <b id="vScale">3.9</b></label><input id="scale" type="range" min="0.2" max="8" step="0.05" value="3.9">
+    </div>
+
+    <div class="sec"><h2>Motion preview</h2>
+      <div class="tools"><button id="flap" class="mini">Flap ▶</button><button id="slither" class="mini">Slither ▶</button></div>
+      <label class="sl">flap amp <b id="vFlapA">0.55</b></label><input id="flapAmp" type="range" min="0" max="1.5" step="0.01" value="0.55">
+      <label class="sl">flap tilt <small class="hint">(beat plane fore/aft)</small> <b id="vFlapT">0°</b></label><input id="flapTilt" type="range" min="-120" max="120" step="1" value="0">
+      <label class="sl">wing flex <small class="hint">(0 rigid → 1 membrane curl)</small> <b id="vFlex">0.00</b></label><input id="flapFlex" type="range" min="0" max="1" step="0.01" value="0">
+      <label class="sl">slither amp <b id="vSlA">0.10</b></label><input id="slAmp" type="range" min="0" max="0.4" step="0.005" value="0.10">
+      <label class="sl">slither freq <b id="vSlF">8.0</b></label><input id="slFreq" type="range" min="1" max="16" step="0.1" value="8">
+    </div>
+
+    <div class="sec"><h2>Wing rig <small class="hint">(bones → believable whip)</small></h2>
+      <div class="tools"><button id="vRig" class="mini">Rig view</button><button id="rigFlap" class="mini">Rig flap ▶</button></div>
+      <p class="hint" style="margin:4px 0">Splits each wing into bones from the shoulder pivot to the tip and previews the lagged cascade. Markers show the joints.</p>
+      <label class="sl">bones <b id="vBones">3</b></label><input id="bones" type="range" min="2" max="5" step="1" value="3">
+      <label class="sl">shoulder span (root) <b id="vShX">0.12</b></label><input id="shX" type="range" min="0" max="1" step="0.005" value="0.12">
+      <label class="sl">shoulder height <b id="vShY">0.00</b></label><input id="shY" type="range" min="-0.6" max="0.6" step="0.005" value="0">
+      <label class="sl">shoulder depth <b id="vShZ">0.00</b></label><input id="shZ" type="range" min="-0.8" max="0.8" step="0.005" value="0">
+      <label class="sl">whip lag <b id="vLag">0.50</b></label><input id="lag" type="range" min="0" max="1.5" step="0.01" value="0.5">
+      <label class="sl">tip bias <b id="vTipB">0.60</b></label><input id="tipBias" type="range" min="0" max="1.5" step="0.01" value="0.6">
+      <label class="sl">rig amp <b id="vRigA">0.60</b></label><input id="rigAmp" type="range" min="0" max="1.5" step="0.01" value="0.6">
+    </div>
+
+    <div class="sec"><h2>Export</h2>
+      <textarea id="out" readonly></textarea>
+      <div class="row" style="margin-top:7px"><button id="copy" class="mini full">Copy for Claude</button></div>
+    </div>
+  </div>
+</div>
+
+<script type="module">
+import * as THREE from 'three';
+import { GLTFLoader } from '../lib/loaders/GLTFLoader.js';
+import {
+  defaultGates, classifyParts, partCounts, partColorBuffer, aabb,
+  applyDeform, buildExport, PART_COLOR, PART,
+} from './glbtaggerCore.mjs';
+import {
+  evenJointSpans, assignBones, boneColorBuffer, boneCounts, jointChain, flapAxis, boneAngles,
+} from './wingRigCore.mjs';
+
+const $ = (id) => document.getElementById(id);
+const status = (m) => { $('status').textContent = m; };
+const DEG = Math.PI / 180;
+const ASSET = '../assets/models/emberMonarch.glb';   // committed asset (may not exist yet → friendly error)
+
+// ── renderer / scene / camera ─────────────────────────────────────────────────
+const canvas = $('c');
+const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
+renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+const scene = new THREE.Scene();
+scene.add(new THREE.HemisphereLight(0xcfe0ff, 0x202838, 1.1));
+const key = new THREE.DirectionalLight(0xfff0d8, 1.5); key.position.set(4, 6, 8); scene.add(key);
+const rim = new THREE.DirectionalLight(0x88bbff, 0.7); rim.position.set(-6, 2, -6); scene.add(rim);
+
+const camera = new THREE.PerspectiveCamera(45, 1, 0.01, 200);
+const target = new THREE.Vector3(0, 1, 0);
+let camR = 14, camTheta = Math.PI, camPhi = 1.32;   // start BEHIND (chase-cam side, −Z) and slightly above
+function placeCam() {
+  camera.position.set(
+    target.x + camR * Math.sin(camPhi) * Math.sin(camTheta),
+    target.y + camR * Math.cos(camPhi),
+    target.z + camR * Math.sin(camPhi) * Math.cos(camTheta));
+  camera.lookAt(target);
+}
+
+// reference gizmo: the flight line. Head should point −Z (into screen / toward the sun); dorsal up = +Y.
+const gizmo = new THREE.Group(); scene.add(gizmo);
+function arrow(dir, color, len) { return new THREE.ArrowHelper(dir, new THREE.Vector3(0, 1, 0), len, color, len * 0.18, len * 0.1); }
+gizmo.add(arrow(new THREE.Vector3(0, 0, -1), 0xff5a5a, 6));   // HEAD / forward (−Z)
+gizmo.add(arrow(new THREE.Vector3(0, 1, 0), 0x5cff8a, 4));    // DORSAL UP (+Y)
+const grid = new THREE.GridHelper(24, 24, 0x2a3550, 0x1a2236); grid.position.y = 0; scene.add(grid);
+
+// ── the model ─────────────────────────────────────────────────────────────────
+const modelRoot = new THREE.Group(); scene.add(modelRoot);   // orientation (rot/scale) lives here
+let gltfScene = null;
+let meshes = [];          // [{ mesh, base:Float32Array, geom }]
+let gates = null;
+let bbox = null;          // mesh-local bbox (first/combined mesh) along spine for slither bounds
+let view = 'tex';
+let partIds = null;
+let curLabel = '';        // current asset label, for the localStorage prefs key
+
+function clearModel() {
+  if (gltfScene) modelRoot.remove(gltfScene);
+  gltfScene = null; meshes = []; partIds = null;
+}
+
+async function loadFromUrl(url, label) {
+  status(`Loading ${label || url}…`);
+  const loader = new GLTFLoader();
+  let gltf;
+  try { gltf = await loader.loadAsync(url); }
+  catch (e) { status(`Load failed: ${e.message || e}. (If the committed asset isn't pushed yet, drop the .glb here.)`); return; }
+  clearModel();
+  gltfScene = gltf.scene; modelRoot.add(gltfScene);
+  // collect meshes + cache base positions; ensure each geometry has a COLOR attr for the parts view
+  gltfScene.traverse((o) => {
+    if (!o.isMesh || !o.geometry || !o.geometry.attributes.position) return;
+    const geom = o.geometry;
+    const base = geom.attributes.position.array.slice();
+    if (!geom.attributes.color)
+      geom.setAttribute('color', new THREE.BufferAttribute(new Float32Array(base.length), 3));
+    o.userData.texMat = o.material;
+    o.userData.partMat = new THREE.MeshBasicMaterial({ vertexColors: true });
+    meshes.push({ mesh: o, base, geom });
+  });
+  if (!meshes.length) { status('No mesh with positions found in this GLB.'); return; }
+  // gates seeded from the largest mesh's bbox
+  const main = meshes.reduce((a, b) => (b.base.length > a.base.length ? b : a));
+  gates = defaultGates(main.base);
+  bbox = aabb(main.base);
+  curLabel = label || '';
+  restorePrefs(label);   // last-session settings (localStorage), then a ?param preset overrides them
+  syncGatesToUI(); applyOrient(); reclassify(); frameModel();
+  // refresh the motion-slider readouts after a restore/preset (they're set programmatically above)
+  $('vFlapA').textContent = (+$('flapAmp').value).toFixed(2); $('vFlapT').textContent = (+$('flapTilt').value).toFixed(0) + '°';
+  $('vFlex').textContent = (+$('flapFlex').value).toFixed(2);
+  $('vSlA').textContent = (+$('slAmp').value).toFixed(2); $('vSlF').textContent = (+$('slFreq').value).toFixed(1);
+  const tris = meshes.reduce((n, m) => n + (m.geom.index ? m.geom.index.count : m.base.length / 3) / 3, 0);
+  $('meshinfo').textContent = `${meshes.length} mesh · ${Math.round(tris).toLocaleString()} tris · span±${Math.max(Math.abs(bbox.min[0]), Math.abs(bbox.max[0])).toFixed(2)}`;
+  status('Loaded. Tag the parts, orient to the flight line, then Copy for Claude.');
+  updateExport();
+}
+
+// ── presets: remember last session (localStorage) + accept a ?param preset link ───────────────────────
+const PREF_KEY = (label) => 'glbtagger:' + (new URL(location).searchParams.get('glb') || label || 'default');
+function savePrefs(label) {
+  if (!gates) return;
+  try {
+    localStorage.setItem(PREF_KEY(label), JSON.stringify({
+      g: { spineAxis: gates.spineAxis, spanAxis: gates.spanAxis, headAtMax: gates.headAtMax,
+        hingeX: gates.hingeX, wingMinS: gates.wingMinS, wingMinB: gates.wingMinB, wingMaxB: gates.wingMaxB,
+        headCutS: gates.headCutS, tailCutS: gates.tailCutS },
+      o: { rotX: +$('rotX').value, rotY: +$('rotY').value, rotZ: +$('rotZ').value, scale: +$('scale').value },
+      f: { amp: +$('flapAmp').value, tilt: +$('flapTilt').value, flex: +$('flapFlex').value,
+        slAmp: +$('slAmp').value, slFreq: +$('slFreq').value },
+      r: { bones: +$('bones').value, shX: +$('shX').value, shY: +$('shY').value, shZ: +$('shZ').value,
+        lag: +$('lag').value, tipBias: +$('tipBias').value, rigAmp: +$('rigAmp').value },
+    }));
+  } catch (e) { /* private mode / quota — non-fatal */ }
+}
+function restorePrefs(label) {
+  // 1) last-session localStorage
+  let saved = null;
+  try { saved = JSON.parse(localStorage.getItem(PREF_KEY(label)) || 'null'); } catch (e) { saved = null; }
+  const set = (id, v) => { if (v != null) $(id).value = v; };
+  set('shX', gates.hingeX);   // default the shoulder root to the wing root; saved/URL values override below
+  if (saved && saved.g) {
+    Object.assign(gates, saved.g);
+    const o = saved.o || {}, f = saved.f || {}, r = saved.r || {};
+    set('rotX', o.rotX); set('rotY', o.rotY); set('rotZ', o.rotZ); set('scale', o.scale);
+    set('flapAmp', f.amp); set('flapTilt', f.tilt); set('flapFlex', f.flex); set('slAmp', f.slAmp); set('slFreq', f.slFreq);
+    set('bones', r.bones); set('shX', r.shX); set('shY', r.shY); set('shZ', r.shZ);
+    set('lag', r.lag); set('tipBias', r.tipBias); set('rigAmp', r.rigAmp);
+  }
+  // 2) URL ?params override (a shared preset link). rot/tilt in DEGREES, gates in mesh units.
+  const q = new URL(location).searchParams;
+  const num = (k) => (q.has(k) ? +q.get(k) : null);
+  if (q.has('spineAxis')) gates.spineAxis = q.get('spineAxis');
+  if (q.has('spanAxis')) gates.spanAxis = q.get('spanAxis');
+  if (q.has('headAtMax')) gates.headAtMax = q.get('headAtMax') !== 'false';
+  for (const [k, gk] of [['hingeX', 'hingeX'], ['minS', 'wingMinS'], ['minB', 'wingMinB'], ['maxB', 'wingMaxB'], ['headCutS', 'headCutS'], ['tailCutS', 'tailCutS']]) {
+    const v = num(k); if (v != null) gates[gk] = v;
+  }
+  const setp = (id, v) => { if (v != null) $(id).value = v; };
+  setp('rotX', num('rotX')); setp('rotY', num('rotY')); setp('rotZ', num('rotZ')); setp('scale', num('scale'));
+  setp('flapAmp', num('amp')); setp('flapTilt', num('tilt')); setp('flapFlex', num('flex'));
+}
+
+function frameModel() {
+  const bb = new THREE.Box3().setFromObject(modelRoot);
+  const c = bb.getCenter(new THREE.Vector3()), sz = bb.getSize(new THREE.Vector3());
+  target.copy(c); camR = Math.max(sz.x, sz.y, sz.z) * 1.8 + 2; placeCam();
+}
+
+// ── classification + colours ───────────────────────────────────────────────────
+const AX = { x: 0, y: 1, z: 2 };
+const depthOf = (span, spine) => ['x', 'y', 'z'].find((a) => a !== span && a !== spine);
+
+function reclassify() {
+  if (!meshes.length) return;
+  let total = { body: 0, wing: 0, head: 0, tail: 0 };
+  for (const m of meshes) {
+    m.partIds = classifyParts(m.base, gates);
+    const c = partCounts(m.partIds); for (const k in total) total[k] += c[k];
+    if (m.base.length === Math.max(...meshes.map((x) => x.base.length))) partIds = m.partIds;
+  }
+  $('cBody').textContent = total.body.toLocaleString(); $('cWing').textContent = total.wing.toLocaleString();
+  $('cHead').textContent = total.head.toLocaleString(); $('cTail').textContent = total.tail.toLocaleString();
+  recomputeRig();        // keep the bone assignment in sync with the wing set
+  paintColors();
+}
+
+function paintColors() {
+  if (view === 'tex') return;
+  const bones = +$('bones').value;
+  for (const m of meshes) {
+    if (!m.geom.attributes.color) continue;
+    const buf = (view === 'rig' && m.boneIds) ? boneColorBuffer(m.boneIds, bones)
+      : partColorBuffer(m.partIds || classifyParts(m.base, gates));
+    m.geom.attributes.color.array.set(buf); m.geom.attributes.color.needsUpdate = true;
+  }
+}
+
+function applyView() {
+  for (const m of meshes) m.mesh.material = (view === 'parts' || view === 'rig') ? m.mesh.userData.partMat : m.mesh.userData.texMat;
+  rigMarkers.visible = (view === 'rig');
+  paintColors();
+}
+
+// ── WING RIG: split each wing into bones + preview the lagged-whip cascade (FK) ───────────────
+const rigMarkers = new THREE.Group(); modelRoot.add(rigMarkers);
+function shoulderVec() {     // pivot position (the two non-span coords) from the sliders, mesh-local
+  const v = [0, 0, 0];
+  v[AX[gates.spineAxis]] = +$('shY').value;
+  v[AX[depthOf(gates.spanAxis, gates.spineAxis)]] = +$('shZ').value;
+  return v;
+}
+function rigJointSpans() {
+  const spanHalf = bbox ? Math.max(Math.abs(bbox.min[AX[gates.spanAxis]]), Math.abs(bbox.max[AX[gates.spanAxis]])) : 1;
+  return evenJointSpans(+$('shX').value, spanHalf, +$('bones').value);
+}
+function recomputeRig() {
+  if (!meshes.length || !gates) return;
+  const bones = +$('bones').value, js = rigJointSpans(), sh = shoulderVec();
+  for (const m of meshes) m.boneIds = assignBones(m.base, m.partIds || classifyParts(m.base, gates), PART.WING, gates.spanAxis, js);
+  rigMarkers.clear();      // joint markers for both wings, under modelRoot (ride orientation/scale)
+  for (const side of [1, -1]) for (const J of jointChain(js, gates.spanAxis, sh, side)) {
+    const dot = new THREE.Mesh(new THREE.SphereGeometry(0.03, 8, 8), new THREE.MeshBasicMaterial({ color: 0xff5de0 }));
+    dot.position.set(J[0], J[1], J[2]); rigMarkers.add(dot);
+  }
+  rigMarkers.visible = (view === 'rig');
+  [['vBones', 'bones'], ['vShX', 'shX'], ['vShY', 'shY'], ['vShZ', 'shZ'], ['vLag', 'lag'], ['vTipB', 'tipBias'], ['vRigA', 'rigAmp']]
+    .forEach(([lab, id]) => $(lab).textContent = id === 'bones' ? $(id).value : (+$(id).value).toFixed(2));
+}
+function buildSkin(J, angles, axisVec) {   // forward-kinematics: rigid skin matrix per bone
+  const skins = []; let M = new THREE.Matrix4(); let prev = new THREE.Vector3();
+  for (let i = 0; i < angles.length; i++) {
+    const Ji = new THREE.Vector3(J[i][0], J[i][1], J[i][2]);
+    const local = new THREE.Matrix4().makeTranslation(Ji.x - prev.x, Ji.y - prev.y, Ji.z - prev.z)
+      .multiply(new THREE.Matrix4().makeRotationAxis(axisVec, angles[i]));
+    M = M.clone().multiply(local);
+    skins.push(M.clone().multiply(new THREE.Matrix4().makeTranslation(-Ji.x, -Ji.y, -Ji.z)));
+    prev = Ji;
+  }
+  return skins;
+}
+function applyRigDeform(now) {
+  const t = (now - t0) / 1000, bones = +$('bones').value, js = rigJointSpans();
+  const axisVec = new THREE.Vector3(...flapAxis(gates.spineAxis, depthOf(gates.spanAxis, gates.spineAxis), +$('flapTilt').value * DEG));
+  const sh = shoulderVec(), pa = AX[gates.spanAxis];
+  const ang = boneAngles(t * 6.0, bones, { amp: +$('rigAmp').value, lag: +$('lag').value, tipBias: +$('tipBias').value });
+  const skinR = buildSkin(jointChain(js, gates.spanAxis, sh, 1), ang, axisVec);                 // +span wing
+  const skinL = buildSkin(jointChain(js, gates.spanAxis, sh, -1), ang.map((a) => -a), axisVec);  // mirror beats together
+  const v = new THREE.Vector3();
+  for (const m of meshes) {
+    if (!m.boneIds) continue;
+    const out = m.geom.attributes.position.array; out.set(m.base);
+    for (let i = 0; i < m.boneIds.length; i++) {
+      const b = m.boneIds[i]; if (b < 0) continue;
+      const side = m.base[i * 3 + pa] >= 0 ? skinR : skinL;
+      v.set(m.base[i * 3], m.base[i * 3 + 1], m.base[i * 3 + 2]).applyMatrix4(side[b]);
+      out[i * 3] = v.x; out[i * 3 + 1] = v.y; out[i * 3 + 2] = v.z;
+    }
+    m.geom.attributes.position.needsUpdate = true; m._dirty = true;
+  }
+}
+
+// ── motion preview (CPU deform, mirrors the engine; normals intentionally not recomputed) ──────────────
+let flapping = false, slithering = false, rigFlapping = false, t0 = performance.now();
+function animateDeform(now) {
+  if (!meshes.length) return;
+  if (rigFlapping) { applyRigDeform(now); return; }
+  const t = (now - t0) / 1000;
+  const spanHalf = bbox ? Math.max(Math.abs(bbox.min[{ x: 0, y: 1, z: 2 }[gates.spanAxis]]), Math.abs(bbox.max[{ x: 0, y: 1, z: 2 }[gates.spanAxis]])) : 1;
+  const flap = flapping ? { hingeX: gates.hingeX, hingeZ: 0, minS: gates.wingMinS, minB: gates.wingMinB, maxB: gates.wingMaxB, amp: +$('flapAmp').value, tilt: +$('flapTilt').value * DEG, flex: +$('flapFlex').value, tip: spanHalf, phase: t * 6.0 } : null;
+  const slither = slithering ? { amp: +$('slAmp').value, freq: +$('slFreq').value, waveSpeed: 4.0,
+    spineMin: bbox.min[{ x: 0, y: 1, z: 2 }[gates.spineAxis]], spineMax: bbox.max[{ x: 0, y: 1, z: 2 }[gates.spineAxis]], phase: t } : null;
+  for (const m of meshes) {
+    if (!flap && !slither) {
+      if (m._dirty) { m.geom.attributes.position.array.set(m.base); m.geom.attributes.position.needsUpdate = true; m._dirty = false; }
+      continue;
+    }
+    applyDeform(m.base, m.geom.attributes.position.array, { spanAxis: gates.spanAxis, spineAxis: gates.spineAxis, flap, slither });
+    m.geom.attributes.position.needsUpdate = true; m._dirty = true;
+  }
+}
+
+// ── UI wiring ───────────────────────────────────────────────────────────────────
+function syncGatesToUI() {
+  $('spineAxis').value = gates.spineAxis; $('spanAxis').value = gates.spanAxis;
+  $('hingeX').value = gates.hingeX; $('vHinge').textContent = gates.hingeX.toFixed(3);
+  $('wingMinS').value = gates.wingMinS; $('vMinS').textContent = gates.wingMinS.toFixed(3);
+  $('wingMinB').value = gates.wingMinB; $('vMinB').textContent = gates.wingMinB.toFixed(3);
+  $('wingMaxB').value = gates.wingMaxB; $('vMaxB').textContent = gates.wingMaxB.toFixed(3);
+  $('headCutS').value = gates.headCutS; $('vHead').textContent = gates.headCutS.toFixed(3);
+  $('tailCutS').value = gates.tailCutS; $('vTail').textContent = gates.tailCutS.toFixed(3);
+  $('headEnd').classList.toggle('on', gates.headAtMax);
+  $('headEnd').textContent = gates.headAtMax ? 'head @ +spine' : 'head @ −spine';
+}
+function readGatesFromUI() {
+  if (!gates) return;
+  gates.spineAxis = $('spineAxis').value; gates.spanAxis = $('spanAxis').value;
+  gates.hingeX = +$('hingeX').value; gates.wingMinS = +$('wingMinS').value;
+  gates.wingMinB = +$('wingMinB').value; gates.wingMaxB = +$('wingMaxB').value;
+  gates.headCutS = +$('headCutS').value; gates.tailCutS = +$('tailCutS').value;
+  $('vHinge').textContent = gates.hingeX.toFixed(3); $('vMinS').textContent = gates.wingMinS.toFixed(3);
+  $('vMinB').textContent = gates.wingMinB.toFixed(3); $('vMaxB').textContent = gates.wingMaxB.toFixed(3);
+  $('vHead').textContent = gates.headCutS.toFixed(3); $('vTail').textContent = gates.tailCutS.toFixed(3);
+  reclassify(); updateExport();
+}
+['spineAxis', 'spanAxis', 'hingeX', 'wingMinS', 'wingMinB', 'wingMaxB', 'headCutS', 'tailCutS'].forEach((id) => {
+  $(id).addEventListener('input', readGatesFromUI);
+});
+$('headEnd').onclick = () => { if (!gates) return; gates.headAtMax = !gates.headAtMax; syncGatesToUI(); reclassify(); updateExport(); };
+
+function applyOrient() {
+  const rx = +$('rotX').value, ry = +$('rotY').value, rz = +$('rotZ').value, sc = +$('scale').value;
+  modelRoot.rotation.set(rx * DEG, ry * DEG, rz * DEG); modelRoot.scale.setScalar(sc);
+  $('vRotX').textContent = rx + '°'; $('vRotY').textContent = ry + '°'; $('vRotZ').textContent = rz + '°'; $('vScale').textContent = sc.toFixed(2);
+  updateExport();
+}
+['rotX', 'rotY', 'rotZ', 'scale'].forEach((id) => $(id).addEventListener('input', applyOrient));
+$('pHead').onclick = () => { $('rotX').value = -90; $('rotY').value = $('rotY').value; applyOrient(); };
+$('pLevel').onclick = () => { $('rotX').value = -90; $('rotZ').value = 0; applyOrient(); };
+$('pDorsal').onclick = () => { $('rotY').value = (Math.abs(+$('rotY').value) < 90) ? 180 : 0; applyOrient(); };
+
+function setView(v) {
+  view = v;
+  for (const [id, name] of [['vTex', 'tex'], ['vParts', 'parts'], ['vRig', 'rig']]) $(id).classList.toggle('on', name === v);
+  applyView();
+}
+$('vTex').onclick = () => setView('tex');
+$('vParts').onclick = () => setView('parts');
+$('vRig').onclick = () => setView('rig');
+$('flap').onclick = () => { flapping = !flapping; if (flapping) { rigFlapping = false; $('rigFlap').classList.remove('on'); } $('flap').classList.toggle('on', flapping); };
+$('slither').onclick = () => { slithering = !slithering; $('slither').classList.toggle('on', slithering); };
+$('rigFlap').onclick = () => { rigFlapping = !rigFlapping; if (rigFlapping) { flapping = false; $('flap').classList.remove('on'); setView('rig'); } $('rigFlap').classList.toggle('on', rigFlapping); };
+['flapAmp', 'flapTilt', 'flapFlex', 'slAmp', 'slFreq'].forEach((id) => $(id).addEventListener('input', () => {
+  $('vFlapA').textContent = (+$('flapAmp').value).toFixed(2); $('vFlapT').textContent = (+$('flapTilt').value).toFixed(0) + '°';
+  $('vFlex').textContent = (+$('flapFlex').value).toFixed(2);
+  $('vSlA').textContent = (+$('slAmp').value).toFixed(2); $('vSlF').textContent = (+$('slFreq').value).toFixed(1);
+  updateExport();
+}));
+// rig sliders: bones/shoulder-span change the bone assignment; all update markers + export
+['bones', 'shX', 'shY', 'shZ', 'lag', 'tipBias', 'rigAmp'].forEach((id) => $(id).addEventListener('input', () => {
+  recomputeRig(); if (view === 'rig') paintColors(); updateExport();
+}));
+
+function rigSpecString() {
+  if (!gates || !bbox) return '';
+  const bones = +$('bones').value, js = rigJointSpans(), sh = shoulderVec();
+  return `\n\n// ── WING RIG (for the skinned bake) ──\n` +
+    `// bones: ${bones}   spanAxis: ${gates.spanAxis}   spineAxis: ${gates.spineAxis}   beatTilt: ${(+$('flapTilt').value).toFixed(0)}°\n` +
+    `// shoulder (mesh-local, non-span coords): [${sh.map((n) => +n.toFixed(3)).join(', ')}]\n` +
+    `// jointSpans (|span| boundaries, root→tip): [${js.map((s) => +s.toFixed(3)).join(', ')}]\n` +
+    `// whip: amp ${(+$('rigAmp').value).toFixed(2)}, lag ${(+$('lag').value).toFixed(2)}, tipBias ${(+$('tipBias').value).toFixed(2)}`;
+}
+
+function updateExport() {
+  if (!gates) return;
+  $('out').value = buildExport({
+    key: 'emberMonarch', meshUrl: './assets/models/emberMonarch.glb', gates, bbox,
+    orient: { scale: +$('scale').value, rotX: +$('rotX').value * DEG, rotY: +$('rotY').value * DEG, rotZ: +$('rotZ').value * DEG,
+      shoulderX: 0.3, shoulderY: 0.2, shoulderZ: -0.4 },
+    slither: { amp: +$('slAmp').value, freq: +$('slFreq').value, speed: 4.0 },
+    flap: { hingeX: gates.hingeX, minS: gates.wingMinS, amp: +$('flapAmp').value, tilt: +$('flapTilt').value * DEG, flex: +$('flapFlex').value },
+  }) + rigSpecString();
+  savePrefs(curLabel);   // persist every change so the next visit restores this tuning
+}
+$('copy').onclick = () => { navigator.clipboard.writeText($('out').value); status('def.glb block copied — paste it back to Claude.'); };
+
+// ── load triggers ───────────────────────────────────────────────────────────────
+$('loadAsset').onclick = () => loadFromUrl(new URL(location).searchParams.get('glb') || ASSET, 'committed asset');
+$('pickFile').onclick = () => $('file').click();
+$('file').onchange = (e) => { const f = e.target.files[0]; if (f) loadFromUrl(URL.createObjectURL(f), f.name); };
+const drop = $('drop'), stage = $('stage');
+stage.addEventListener('dragover', (e) => { e.preventDefault(); drop.classList.add('hot'); });
+stage.addEventListener('dragleave', () => drop.classList.remove('hot'));
+stage.addEventListener('drop', (e) => { e.preventDefault(); drop.classList.remove('hot');
+  const f = e.dataTransfer.files[0]; if (f) loadFromUrl(URL.createObjectURL(f), f.name); });
+
+// ── orbit (tiny, dependency-free) ─────────────────────────────────────────────────
+let drag = null;
+canvas.addEventListener('pointerdown', (e) => { drag = { x: e.clientX, y: e.clientY, b: e.button }; canvas.setPointerCapture(e.pointerId); });
+canvas.addEventListener('pointerup', () => drag = null);
+canvas.addEventListener('pointermove', (e) => {
+  if (!drag) return;
+  const dx = e.clientX - drag.x, dy = e.clientY - drag.y; drag.x = e.clientX; drag.y = e.clientY;
+  if (drag.b === 2) {  // pan
+    const p = 0.01 * camR; const right = new THREE.Vector3().subVectors(camera.position, target).cross(camera.up).normalize();
+    target.addScaledVector(right, -dx * p); target.y += dy * p;
+  } else { camTheta -= dx * 0.01; camPhi = Math.min(Math.PI - 0.05, Math.max(0.05, camPhi - dy * 0.01)); }
+  placeCam();
+});
+canvas.addEventListener('wheel', (e) => { e.preventDefault(); camR = Math.max(1, camR * (1 + Math.sign(e.deltaY) * 0.1)); placeCam(); }, { passive: false });
+canvas.addEventListener('contextmenu', (e) => e.preventDefault());
+
+// ── resize + render loop ───────────────────────────────────────────────────────
+function resize() { const w = stage.clientWidth, h = stage.clientHeight; renderer.setSize(w, h, false); camera.aspect = w / h; camera.updateProjectionMatrix(); }
+addEventListener('resize', resize); resize(); placeCam();
+function loop(now) { animateDeform(now); renderer.render(scene, camera); requestAnimationFrame(loop); }
+requestAnimationFrame(loop);
+
+// auto-load if ?glb= provided
+if (new URL(location).searchParams.get('glb')) $('loadAsset').click();
+</script>
+</body>
+</html>

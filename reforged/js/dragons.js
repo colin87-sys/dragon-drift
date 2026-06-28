@@ -1355,6 +1355,50 @@ export const DRAGONS = {
     apexEye: 0xd6ecff, apexSeam: 0x8ec8ff, coreGlow: 0x7ab8ff, surgeHi: 0xeaf4ff,
     eye: 0xbfe2ff, trail: 0x8ec8ff, boostTrail: 0x5aa0ff,
   },
+
+  // ── ASSET-BACKED: EMBER MONARCH ───────────────────────────────────────────
+  // A regal fire-wyvern monarch — the second asset-backed dragon, same pipeline as
+  // Thundercoil. Single fused winged GLB (assets/models/emberMonarch.glb) from the
+  // approved Seedream concept → Higgsfield image_to_3d (job b7080297, textured + PBR,
+  // symmetry enforced, 30,842 tris). Body + head + wings are ONE mesh (no rig); the
+  // wingbeat + spine slither are the dragonGlb.js shader deform.
+  //   ORIENTATION + PART GATES are TOOL-TAGGED, not eyeballed: open tools/glbtagger.html
+  //   on the PR preview (?glb=./assets/models/emberMonarch.glb), confirm the part
+  //   classification + flight-line orientation, and paste the exported def.glb back to
+  //   refine the values below. First pass mirrors Thundercoil because the meshes are
+  //   near-identical in scale (span ±0.95, spine extent ~1.4): rotX −π/2 lays the native
+  //   +Y spine level into the chase depth axis, rotY π rolls the dorsal up; hingeX 0.28 /
+  //   minS −0.15 match the span half-extent. Judge + tune on the preview.
+  emberMonarch: {
+    name: 'Ember Monarch',
+    title: 'A throne of living fire',
+    rarity: 'SSR',
+    maxRarity: 'SSR',
+    cost: 0,                 // free experiment, one tap to equip + test
+    assetBacked: true,
+    meshUrl: './assets/models/emberMonarch.glb',
+    glb: { scale: 3.25, rotY: Math.PI, rotX: -0.611, rotZ: 0, shoulder: [0.3, 0.2, -0.4], riderAt: [0, 0.9, 0.2],
+      fusedWings: true,
+      // This mesh reconstructed with its spine along local Z (head +Z) and span along X; depth = Y.
+      // The deform follows these axes (dragonGlb.js reads spineAxis/spanAxis). Tagged in glbtagger.html.
+      spineAxis: 'z', spanAxis: 'x',
+      slither: { amp: 0.10, freq: 8.0, speed: 4.0 },
+      // wing gate (3-axis box) + tilt of the beat plane + spanwise flex — tuned in tools/glbtagger.html.
+      // flex>0 curls the membrane (vs a rigid paddle) and keeps any leg/arm caught by the gate nearly
+      // still, since near-body verts barely move. Judge the curl amount on the preview.
+      wing: { hingeX: 0.11, minS: -0.17, amp: 0.94, tilt: -1.065, flex: 0.75, minB: -0.145, maxB: 0.38 } },
+    stats: { speed: 1.12, handling: 1.08, drain: 0.95, regen: 1.0 },
+    model: {
+      scale: 1.0, bodyScale: 1.0, wingSpan: 1.0,
+      flapBias: 1.05, flapAmp: 1.0, spineGlow: 0,
+    },
+    // Fire-monarch palette: obsidian-charcoal hide, burnt-bronze belly, molten ember accents.
+    fx: { auraColor: '255,120,40', auraIdle: 0.05, sparkle: false },
+    body: 0x231f1e, belly: 0x7a4a1e, scales: 0x2b2422, horn: 0xffb24a,
+    wingInner: 0x2a211d, wingOuter: 0x16100e, wingEmissive: 0xff5a1f,
+    apexEye: 0xffcf6a, apexSeam: 0xff5a1f, coreGlow: 0xff7a2a, surgeHi: 0xffe6c0,
+    eye: 0xffd24a, trail: 0xff7a2a, boostTrail: 0xff3b1f,
+  },
 };
 
 // Highest multipliers in the roster (for shop stat-bar normalisation).

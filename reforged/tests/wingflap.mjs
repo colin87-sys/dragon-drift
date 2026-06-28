@@ -21,14 +21,18 @@ function check(cond, msg) { if (cond) { pass++; } else { fails++; console.log(` 
 // crucially the coiled TAIL which also swings wide in X) is mask 0 = identity.
 function flapDelta(x, z, s, phase, p) {
   const wside = Math.sign(x);
-  const wmask = (Math.abs(x) >= p.hingeX && s >= p.minS) ? 1 : 0;
-  const fth = -wside * p.amp * Math.sin(phase) * wmask;
+  const inB = z >= (p.minB ?? -Infinity) && z <= (p.maxB ?? Infinity);   // depth-axis (Z) band gate
+  const wmask = (Math.abs(x) >= p.hingeX && s >= p.minS && inB) ? 1 : 0;
+  const ss = (e0, e1, xx) => { const t = Math.min(1, Math.max(0, (xx - e0) / Math.max(1e-6, e1 - e0))); return t * t * (3 - 2 * t); };
+  const flexT = 1 + (p.flex || 0) * (ss(p.hingeX, p.tip ?? 1, Math.abs(x)) - 1);   // spanwise flex; 0 = rigid
+  const fth = -wside * p.amp * Math.sin(phase) * wmask * flexT;
   const wdx = x - wside * p.hingeX;
   const wdz = z - p.hingeZ;
   const fc = Math.cos(fth), fs = Math.sin(fth);
-  const nx = wside * p.hingeX + wdx * fc + wdz * fs;
-  const nz = p.hingeZ - wdx * fs + wdz * fc;
-  return { dx: nx - x, dz: nz - z };
+  const ndx = (wside * p.hingeX + wdx * fc + wdz * fs) - x;
+  const ndz = (p.hingeZ - wdx * fs + wdz * fc) - z;
+  const tilt = p.tilt || 0;   // rotates the beat plane toward the spine axis (dy); 0 = shipped beat
+  return { dx: ndx, dz: ndz * Math.cos(tilt), dy: ndz * Math.sin(tilt) };
 }
 
 // thundercoil's shipped flap params (def.glb.wing). Spine coord s = native Y (head +Y →
@@ -77,6 +81,32 @@ check(up && down, `wingbeat oscillates over time (sign flips: up ${up} down ${do
 const z0 = Math.abs(flapDelta(TIP, 0.0, WING_S, 0, P).dz);
 const zPi = Math.abs(flapDelta(TIP, 0.0, WING_S, Math.PI, P).dz);
 check(z0 < 1e-9 && zPi < 1e-9, `flat at phase 0/π (|dz| ${z0.toExponential(1)} / ${zPi.toExponential(1)})`);
+
+// 6) FLAP TILT (uFlapTilt) — additive knob; tilt 0 is BYTE-IDENTICAL to the shipped beat (no spine-axis
+//    displacement), and tilt 90° routes the entire depth swing into the spine axis (dy) with dz → 0.
+const flat = flapDelta(TIP, 0.0, WING_S, Math.PI / 2, P);             // P has no tilt → tilt 0
+check(Math.abs(flat.dy) < 1e-12, `tilt 0 leaves the shipped beat unchanged (no spine motion, dy ${flat.dy.toExponential(1)})`);
+const tilted = flapDelta(TIP, 0.0, WING_S, Math.PI / 2, { ...P, tilt: Math.PI / 2 });
+check(Math.abs(tilted.dz) < 1e-9 && Math.abs(tilted.dy) > 0.05,
+  `tilt 90° routes the swing into the spine axis (dz ${tilted.dz.toExponential(1)} → 0, dy ${tilted.dy.toFixed(3)})`);
+
+// 7) DEPTH BAND (uWingMinB/uWingMaxB) — the THIRD gate. With no band a wing vert flaps; constrain the
+//    depth (Z) window and a wing vert OUTSIDE it stops flapping (lets the wing be carved off limbs).
+const inBand = flapDelta(TIP, 0.5, WING_S, Math.PI / 2, P);                              // no band → flaps
+const outBand = flapDelta(TIP, 0.5, WING_S, Math.PI / 2, { ...P, minB: -0.2, maxB: 0.2 }); // z=0.5 outside
+check(Math.abs(inBand.dz) > 0.02, `default (no depth band) still flaps (|dz| ${Math.abs(inBand.dz).toFixed(3)})`);
+check(Math.abs(outBand.dz) < 1e-12 && Math.abs(outBand.dy) < 1e-12,
+  `depth band excludes wing verts outside [minB,maxB] (no motion)`);
+
+// 8) SPANWISE FLEX (uFlex) — flex 0 is the rigid beat; flex 1 curls the membrane so a near-hinge vert
+//    moves LESS while the wingtip beat is unchanged (the ramp is 1 at the tip).
+const tipP = { ...P, tip: 0.95 };
+const rigidTip = Math.abs(flapDelta(0.95, 0.0, WING_S, Math.PI / 2, tipP).dz);
+const rigidMid = Math.abs(flapDelta(0.35, 0.0, WING_S, Math.PI / 2, tipP).dz);
+const flexTip = Math.abs(flapDelta(0.95, 0.0, WING_S, Math.PI / 2, { ...tipP, flex: 1 }).dz);
+const flexMid = Math.abs(flapDelta(0.35, 0.0, WING_S, Math.PI / 2, { ...tipP, flex: 1 }).dz);
+check(Math.abs(flexTip - rigidTip) < 1e-9, `flex leaves the wingtip beat at full amplitude (tip unchanged)`);
+check(flexMid < rigidMid - 1e-6, `flex curls the wing: near-hinge vert moves less than rigid (${flexMid.toFixed(4)} < ${rigidMid.toFixed(4)})`);
 
 console.log(`\nWing-flap gate — thundercoil (hingeX ${P.hingeX}, amp ${P.amp})`);
 console.log(`${pass} checks passed, ${fails} failed.`);

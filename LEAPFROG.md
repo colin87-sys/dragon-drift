@@ -3347,3 +3347,86 @@ red herring for a separate bug — it only adds a rigid `group.rotation.z` spin;
 bursts speed, hitting the same clock bug. **→ Leapfrog:** any GPU/CPU cyclic motion whose rate is reactive
 MUST integrate phase per-frame; `rate · globalClock` is a latent spasm that hides until the rate changes
 mid-run, and gets worse the longer the session.
+
+## Lesson — A second asset-backed dragon (Ember Monarch) + the GLB PART-TAGGER tool: tag parts by gates, don't eyeball them
+**What we did.** Took a regal fire-wyvern monarch from a Seedream concept → Higgsfield `image_to_3d`
+(textured + PBR, `symmetry_mode:on`, 30,842 tris) and shipped it as the 2nd `assetBacked` dragon
+(`emberMonarch`), reusing the whole Thundercoil path (`dragonGlb.js` fused-wing shader flap + slither, no
+rig). Lucky parallel: the mesh came back nearly dimension-identical to Thundercoil (span ±0.95, spine
+extent ~1.4), so its shipped knobs (`hingeX 0.28 / minS −0.15 / scale 3.9 / rotX −π/2 / rotY π`) are a
+grounded first pass, not a guess.
+
+**The real build: `tools/glbtagger.html` (+ pure `tools/glbtaggerCore.mjs`, headless-tested in
+`tests/glbtagger.mjs`).** The Thundercoil orientation thrash (wrong `rotX` sign, belly-up, tail-flaps-
+with-wings) all came from *eyeballing geometric landmarks a bbox can't reveal*. The tagger is the GLB-side
+sibling of `tracer.html`: load the fused GLB, auto-classify every vertex into body/wing/head/tail using
+the **exact same gate the engine flaps with** (`|span| ≥ hingeX ∧ spine ≥ minS`), color it, let the human
+drag `hingeX / minS / head-cut / tail-cut` + `rotX/Y/Z` against an on-screen flight-line gizmo (red HEAD
+−Z, green DORSAL +Y), toggle the **real shader flap/slither** to confirm, then "Copy for Claude" the
+`def.glb` block. *What you paint is what flaps* because `glbtaggerCore.classifyParts`' WING predicate is
+byte-identical to the flap `wmask`, and `flapDelta`/`slitherOffset` mirror the GLSL (one spec, three
+languages now: `dragonGlb.js` GLSL, `tests/{wingflap,slither}.mjs`, and `glbtaggerCore.mjs`).
+
+**Rigging is a dead end for this engine — priced + checked, not assumed.** Meshy `enable_rigging` (+5 cr)
+fits a **humanoid** skeleton (rigs wyverns poorly) and `animation_actions` is a **human** clip library
+(walk/run/dance — no flying wingbeat). Decisively: the engine **never consumes a GLB skeleton** for the
+main motion (it deforms by geometry), so even a perfect rig wouldn't plug in. The durable answer to "what
+is each body part" is the geometric tagger above, not bones. (If true per-part articulation is ever wanted,
+the path is a one-time Blender pass naming nodes `wing_l`/`wing_r`/`head` — `dragonGlb.js` already
+auto-detects those names — *not* an auto-rig.)
+
+**→ Leapfrog:** for any future asset-backed dragon, the loop is now: concept → `image_to_3d` (symmetry on)
+→ `glbinspect` for raw bbox → **`glbtagger.html` on the PR preview to tag parts + orient by eye and export
+`def.glb`** → paste back → gates (`glb`/`glbcontract`/`wingflap`/`slither`/`glbtagger`/`tricount`/`defs`/
+`blueprint`) → `stamp-sw`. Orientation + part-ID is now a measured, visual, exported step — not prompt
+ping-pong on the preview.
+
+## Lesson — Flap-plane TILT knob: add a flap-orientation control to the engine AND the tagger together
+Adding a "drag a slider to angle the wingbeat" control means touching the shipped GLSL, so the rule is:
+extend the engine and every mirror of its math in the SAME change, with the new knob defaulting to the
+old behaviour. Added `def.glb.wing.tilt` (radians): the wingbeat's depth swing (`ndz`) is split
+`transformed.z += ndz·cos(tilt)` / `transformed.y += ndz·sin(tilt)`, rotating the beat plane from
+straight up/down toward fore/aft along the spine. Because `ndz` is exactly 0 for every non-wing vert and
+`tilt 0 ⇒ sin=0, cos=1`, it is **byte-identical to the shipped beat at 0** — Thundercoil is untouched and
+the wingflap gate now asserts that (8 checks). Mirrored in three places at once: `dragonGlb.js` GLSL,
+`glbtaggerCore.flapDelta`/`applyDeform` (now returns `{da,db,ds}`), and `tests/wingflap.mjs` +
+`tests/glbtagger.mjs`. The tagger gained a `flap tilt` slider that previews it live and exports it in the
+`def.glb` block. **→ Leapfrog:** the tagger is only trustworthy while it shares the engine's exact math —
+any new motion knob ships to the GLSL, the core mirror, the tests, and the tool in one atomic change, or
+the preview starts lying.
+
+## Lesson — Axis-aware fused deform + spanwise wing FLEX beat a rigid-hinge split for asset-backed wings
+Ember Monarch reconstructed with its spine along local **Z** (head +Z), not Y — but the fused-mesh
+shader deform hardcoded spine=Y, so the in-game flap/slither gated the wrong axis and never matched the
+tagger preview. Fix: **parametrise the deform axes** — `attachBodyDeform` now takes span/spine/depth and
+the caller reads `def.glb.spineAxis/spanAxis` (default x/y/z ⇒ Thundercoil byte-identical). Now any GLB's
+own native orientation is honoured; the tagger and engine finally agree for non-Y spines.
+
+**Split vs flex.** The human asked to "splice the wings off and put them on a hinge." Digging into the rig
+path (`dragonGlb.js` reparents `wing_l/wing_r` onto the shoulder→elbow→wrist scaffold) surfaced two real
+blockers: (1) reparenting pulls the wing OUT of `content`, dropping its orientation+scale, so the mesh
+must be pre-baked to the final frame first; (2) the gate box still catches a little leg/arm, and in a
+split those verts **detach and swing** (far worse than the shader, where they just flap a little). And a
+rigid hinge would still **crease at the root**. The lower-risk win that actually targets "awkward": a
+**spanwise FLEX** — ramp the beat angle `mix(1, smoothstep(hingeX, wingTip, |span|), uFlex)` so the
+membrane curls progressively (0 = the shipped rigid paddle, 1 = full curl). Bonus: near-body verts barely
+move, so any leg caught by the gate stays nearly still — it fixes the contamination symptom too. Added as
+`def.glb.wing.flex` (default 0 ⇒ Thundercoil unchanged) with a tagger slider + tests (wingflap 12).
+**→ Leapfrog:** before reparenting AI geometry onto the procedural rig, reach for a shader-space
+improvement first — flex/tilt/axis knobs got organic motion with no frame surgery and no clean-cut
+requirement; keep the true split in reserve for when a knob genuinely can't express the motion.
+
+## Lesson — A visual WING-RIG editor in the tagger: design the bone whip by eye, export, then bake
+The human (rightly) judged that no shader knob gets believable wing motion — it needs a **bone chain**
+(shoulder→…→tip) with a lagged whip, exactly how the procedural wings flap (`dragonWingFlap.js`). Rather
+than iterate that blind on slow PR deploys, the tagger now hosts a **wing-rig editor** (`tools/wingRigCore.mjs`
+pure core + `tests/wingrig.mjs`, 18 checks): it splits the gated WING set span-wise into N bones (2–5),
+places a shoulder→tip joint chain with draggable pivot sliders + markers, and **previews the real
+forward-kinematics cascade live in-browser** (per-bone phase-lagged, tip-biased rotation about a tilt-derived
+axis; both wings mirrored to beat together). It exports a rig spec (bones, shoulder, jointSpans, lag/tipBias/
+amp) for the eventual skinned-GLB bake. Design-the-motion-where-you-can-see-it, then bake — the same
+machine↔human inversion as the tracer. Also added: the tagger now **persists settings to localStorage** and
+accepts a **`?preset` link**, so tuning survives reloads and a pre-configured URL opens ready.
+**→ Leapfrog:** when motion needs a rig, build the rig *interactively with live FK preview* first and bake
+the asset second — never hand-place bones and discover the whip on a deploy. The pure FK/segmentation math
+stays headless-tested so the eventual engine driver shares one spec.
