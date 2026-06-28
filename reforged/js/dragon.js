@@ -438,25 +438,30 @@ export function updateDragon(dt, player, time) {
   // Asset-backed (GLB) baked-clip flap, if present. The reactive wing flap still
   // runs through the wingRig path below; this only ticks a skinned GLB's own clip.
   if (glbAnim && glbAnim.mixer) glbAnim.mixer.update(dt);
-  // Asset-backed body SLITHER — advance the spine-wave clock, and make the coil
-  // faster + a touch deeper with speed so the serpent reads as actively swimming.
-  if (glbAnim && glbAnim.slither) {
-    const su = glbAnim.slither.uniforms;
-    const sp = Math.min(Math.max((player.speed - 35) / 45, 0), 1);
-    su.uTime.value += dt;
-    su.uWaveSpeed.value = 3.0 + sp * 4.5;
-    su.uAmp.value = glbAnim.slither.baseAmp * (0.75 + sp * 0.5);
-  }
-  // Asset-backed fused-wing FLAP — advance the wingbeat clock (a fused winged mesh
-  // has no wing bones, so the wings flap via a shader vertex deform). The beat
-  // quickens with held boost and deepens a touch with speed, matching the rigged
-  // dragons' feel without the bone rig.
-  if (glbAnim && glbAnim.wingFlap) {
-    const wu = glbAnim.wingFlap.uniforms;
-    const sp = Math.min(Math.max((player.speed - 35) / 45, 0), 1);
-    const flapRate = (player.speedActive ? 9.5 : 5.5) + sp * 3.0;
-    wu.uFlapPhase.value += dt * flapRate;
-    wu.uFlapAmp.value = glbAnim.wingFlap.baseAmp * (0.85 + sp * 0.25);
+  // Asset-backed body SLITHER + fused-wing FLAP. CRITICAL: both ACCUMULATE phase
+  // (phase += dt·rate) so a rate change (boost/Surge) can never jolt the phase. The
+  // old slither did `phase = waveSpeed · uTime` with uTime growing unbounded, so a
+  // boost-time change in waveSpeed lurched the phase by Δrate·uTime — a spasm that got
+  // worse the longer the run. The speed factor is also DAMPED so the beat eases up to
+  // boost speed instead of snapping. `player.speed` is high during both boost and Surge,
+  // so this one speed-driven ramp covers both.
+  if (glbAnim && (glbAnim.slither || glbAnim.wingFlap)) {
+    const spTarget = Math.min(Math.max((player.speed - 35) / 45, 0), 1);
+    glbAnim.sp = damp(glbAnim.sp ?? spTarget, spTarget, 3, dt);   // eased speed factor
+    const sp = glbAnim.sp;
+    if (glbAnim.slither) {
+      const su = glbAnim.slither.uniforms;
+      const ws = glbAnim.slither.baseSpeed * (0.5 + sp * 0.5);    // cruise→boost, gentle
+      su.uTime.value += dt * ws;                                  // accumulate spine-wave phase
+      su.uAmp.value = glbAnim.slither.baseAmp * (0.85 + sp * 0.3);
+    }
+    if (glbAnim.wingFlap) {
+      const wu = glbAnim.wingFlap.uniforms;
+      const rateTarget = 5.0 + sp * 3.5;                          // no hard boost jump
+      glbAnim.flapRate = damp(glbAnim.flapRate ?? rateTarget, rateTarget, 4, dt);
+      wu.uFlapPhase.value += dt * glbAnim.flapRate;               // accumulate wingbeat phase
+      wu.uFlapAmp.value = glbAnim.wingFlap.baseAmp * (0.9 + sp * 0.2);
+    }
   }
 
   // Banking and pitch — banking deepens with speed for drama.
