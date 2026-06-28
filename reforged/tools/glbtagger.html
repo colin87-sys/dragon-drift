@@ -1,0 +1,331 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Dragon Drift — GLB Part Tagger</title>
+<style>
+  :root{ --bg:#0a0e1a; --panel:#0f1526; --line:#243049; --ink:#cfe0ff; --dim:#7f8db0; --accent:#9fe06a; --hot:#ffb454;
+    --body:#6b758f; --wing:#5cb3ff; --head:#ffcc4d; --tail:#ff6b29; }
+  *{box-sizing:border-box}
+  html,body{margin:0;height:100%;background:var(--bg);color:var(--ink);font:13px/1.5 system-ui,sans-serif;overflow:hidden}
+  #app{display:flex;height:100vh}
+  #stage{flex:1;position:relative;background:radial-gradient(circle at 50% 38%,#141c30,#0a0e1a 72%)}
+  #c{display:block;width:100%;height:100%;touch-action:none;cursor:grab}
+  #c:active{cursor:grabbing}
+  #panel{width:332px;flex:0 0 332px;background:var(--panel);border-left:1px solid var(--line);
+    display:flex;flex-direction:column;overflow-y:auto}
+  .sec{padding:11px 13px;border-bottom:1px solid var(--line)}
+  .sec h2{margin:0 0 8px;font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--dim)}
+  h1{font-size:14px;margin:0;color:var(--accent)} h1 small{color:var(--dim);font-weight:400;font-size:11px}
+  button{background:#16223c;color:var(--ink);border:1px solid var(--line);border-radius:7px;
+    padding:7px 9px;font-size:12px;cursor:pointer}
+  button:hover{border-color:#3a4d72}
+  button.on{background:var(--accent);color:#04140a;border-color:var(--accent);font-weight:600}
+  .tools{display:grid;grid-template-columns:1fr 1fr;gap:6px}
+  .tools.three{grid-template-columns:1fr 1fr 1fr}
+  .row{display:flex;gap:6px;align-items:center;margin:6px 0;flex-wrap:wrap}
+  .row.cols{justify-content:space-between}
+  label.sl{display:flex;justify-content:space-between;margin:8px 0 2px;color:var(--dim);font-size:11px}
+  label.sl b{color:var(--ink);font-weight:600}
+  input[type=range]{width:100%}
+  select{background:#0b1322;color:var(--ink);border:1px solid var(--line);border-radius:6px;padding:4px 6px;font-size:12px}
+  .legend{display:grid;grid-template-columns:1fr 1fr;gap:5px;margin-top:4px}
+  .lg{display:flex;align-items:center;gap:6px;font-size:11px;color:var(--dim)}
+  .sw{width:12px;height:12px;border-radius:3px;flex:0 0 12px}
+  .hint{color:var(--dim);font-size:11px}
+  #drop{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;text-align:center;
+    color:var(--dim);pointer-events:none;padding:0 40px}
+  #drop.hot{background:rgba(159,224,106,.08);outline:2px dashed var(--accent);outline-offset:-12px}
+  #status{position:absolute;left:10px;bottom:10px;background:rgba(8,12,24,.72);border:1px solid var(--line);
+    padding:5px 9px;border-radius:7px;color:var(--dim);font-size:11px;pointer-events:none;max-width:70%}
+  #out{width:100%;height:170px;background:#0b1322;color:#bfe;border:1px solid var(--line);border-radius:7px;
+    font:11px/1.4 ui-monospace,Menlo,monospace;padding:7px;resize:vertical;white-space:pre;overflow:auto}
+  .mini{font-size:11px;padding:5px 7px}.full{width:100%}
+</style>
+<script type="importmap">
+  { "imports": { "three": "../lib/three.module.js" } }
+</script>
+</head>
+<body>
+<div id="app">
+  <div id="stage">
+    <canvas id="c"></canvas>
+    <div id="drop">Drop a <b>.glb</b> here — or use <b>Load committed asset</b>.<br>
+      Drag to orbit · wheel to zoom · right-drag to pan.</div>
+    <div id="status">No model loaded.</div>
+  </div>
+  <div id="panel">
+    <div class="sec"><h1>GLB Part Tagger <small>Dragon Drift</small></h1>
+      <p class="hint" style="margin:6px 0 0">Tag a fused GLB's body parts by the <b>same geometric gates the engine flaps with</b>, then export the <code>def.glb</code> block. Sibling of the silhouette tracer.</p></div>
+
+    <div class="sec"><h2>Load</h2>
+      <div class="tools"><button id="loadAsset" class="mini">Load committed asset</button><button id="pickFile" class="mini">Pick .glb…</button></div>
+      <input id="file" type="file" accept=".glb" style="display:none" />
+      <div class="row" style="margin-top:7px"><span class="hint" id="meshinfo">—</span></div>
+    </div>
+
+    <div class="sec"><h2>View</h2>
+      <div class="tools"><button id="vTex" class="on mini">Textured</button><button id="vParts" class="mini">Parts</button></div>
+      <div class="legend">
+        <div class="lg"><span class="sw" style="background:var(--body)"></span>body <b id="cBody" style="color:var(--ink)">0</b></div>
+        <div class="lg"><span class="sw" style="background:var(--wing)"></span>wing <b id="cWing" style="color:var(--ink)">0</b></div>
+        <div class="lg"><span class="sw" style="background:var(--head)"></span>head <b id="cHead" style="color:var(--ink)">0</b></div>
+        <div class="lg"><span class="sw" style="background:var(--tail)"></span>tail <b id="cTail" style="color:var(--ink)">0</b></div>
+      </div>
+    </div>
+
+    <div class="sec"><h2>Axes &amp; part gates <small class="hint">(mesh-local)</small></h2>
+      <div class="row cols"><label class="hint">spine&nbsp;<select id="spineAxis"><option>x</option><option selected>y</option><option>z</option></select></label>
+        <label class="hint">span&nbsp;<select id="spanAxis"><option selected>x</option><option>y</option><option>z</option></select></label>
+        <button id="headEnd" class="mini">head @ +spine</button></div>
+      <label class="sl">wing root (hingeX) <b id="vHinge">0.28</b></label><input id="hingeX" type="range" min="0" max="1" step="0.005" value="0.28">
+      <label class="sl">wing band cut (minS) <b id="vMinS">-0.15</b></label><input id="wingMinS" type="range" min="-1" max="1" step="0.005" value="-0.15">
+      <label class="sl">head cut <b id="vHead">0.75</b></label><input id="headCutS" type="range" min="-1" max="1" step="0.005" value="0.75">
+      <label class="sl">tail cut <b id="vTail">-0.2</b></label><input id="tailCutS" type="range" min="-1" max="1" step="0.005" value="-0.2">
+    </div>
+
+    <div class="sec"><h2>Orient to flight line</h2>
+      <p class="hint" style="margin:0 0 4px">Rotate until the <b style="color:#ff5a5a">red HEAD arrow</b> runs through the head and <b style="color:#5cff8a">green UP</b> is the dorsal.</p>
+      <div class="tools three"><button id="pHead" class="mini">head −Z</button><button id="pLevel" class="mini">level</button><button id="pDorsal" class="mini">dorsal up</button></div>
+      <label class="sl">rotX <b id="vRotX">-90°</b></label><input id="rotX" type="range" min="-180" max="180" step="1" value="-90">
+      <label class="sl">rotY <b id="vRotY">180°</b></label><input id="rotY" type="range" min="-180" max="180" step="1" value="180">
+      <label class="sl">rotZ <b id="vRotZ">0°</b></label><input id="rotZ" type="range" min="-180" max="180" step="1" value="0">
+      <label class="sl">scale <b id="vScale">3.9</b></label><input id="scale" type="range" min="0.2" max="8" step="0.05" value="3.9">
+    </div>
+
+    <div class="sec"><h2>Motion preview</h2>
+      <div class="tools"><button id="flap" class="mini">Flap ▶</button><button id="slither" class="mini">Slither ▶</button></div>
+      <label class="sl">flap amp <b id="vFlapA">0.55</b></label><input id="flapAmp" type="range" min="0" max="1.5" step="0.01" value="0.55">
+      <label class="sl">slither amp <b id="vSlA">0.10</b></label><input id="slAmp" type="range" min="0" max="0.4" step="0.005" value="0.10">
+      <label class="sl">slither freq <b id="vSlF">8.0</b></label><input id="slFreq" type="range" min="1" max="16" step="0.1" value="8">
+    </div>
+
+    <div class="sec"><h2>Export</h2>
+      <textarea id="out" readonly></textarea>
+      <div class="row" style="margin-top:7px"><button id="copy" class="mini full">Copy for Claude</button></div>
+    </div>
+  </div>
+</div>
+
+<script type="module">
+import * as THREE from 'three';
+import { GLTFLoader } from '../lib/loaders/GLTFLoader.js';
+import {
+  defaultGates, classifyParts, partCounts, partColorBuffer, aabb,
+  applyDeform, buildExport, PART_COLOR,
+} from './glbtaggerCore.mjs';
+
+const $ = (id) => document.getElementById(id);
+const status = (m) => { $('status').textContent = m; };
+const DEG = Math.PI / 180;
+const ASSET = '../assets/models/emberMonarch.glb';   // committed asset (may not exist yet → friendly error)
+
+// ── renderer / scene / camera ─────────────────────────────────────────────────
+const canvas = $('c');
+const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
+renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+const scene = new THREE.Scene();
+scene.add(new THREE.HemisphereLight(0xcfe0ff, 0x202838, 1.1));
+const key = new THREE.DirectionalLight(0xfff0d8, 1.5); key.position.set(4, 6, 8); scene.add(key);
+const rim = new THREE.DirectionalLight(0x88bbff, 0.7); rim.position.set(-6, 2, -6); scene.add(rim);
+
+const camera = new THREE.PerspectiveCamera(45, 1, 0.01, 200);
+const target = new THREE.Vector3(0, 1, 0);
+let camR = 14, camTheta = Math.PI, camPhi = 1.32;   // start BEHIND (chase-cam side, −Z) and slightly above
+function placeCam() {
+  camera.position.set(
+    target.x + camR * Math.sin(camPhi) * Math.sin(camTheta),
+    target.y + camR * Math.cos(camPhi),
+    target.z + camR * Math.sin(camPhi) * Math.cos(camTheta));
+  camera.lookAt(target);
+}
+
+// reference gizmo: the flight line. Head should point −Z (into screen / toward the sun); dorsal up = +Y.
+const gizmo = new THREE.Group(); scene.add(gizmo);
+function arrow(dir, color, len) { return new THREE.ArrowHelper(dir, new THREE.Vector3(0, 1, 0), len, color, len * 0.18, len * 0.1); }
+gizmo.add(arrow(new THREE.Vector3(0, 0, -1), 0xff5a5a, 6));   // HEAD / forward (−Z)
+gizmo.add(arrow(new THREE.Vector3(0, 1, 0), 0x5cff8a, 4));    // DORSAL UP (+Y)
+const grid = new THREE.GridHelper(24, 24, 0x2a3550, 0x1a2236); grid.position.y = 0; scene.add(grid);
+
+// ── the model ─────────────────────────────────────────────────────────────────
+const modelRoot = new THREE.Group(); scene.add(modelRoot);   // orientation (rot/scale) lives here
+let gltfScene = null;
+let meshes = [];          // [{ mesh, base:Float32Array, geom }]
+let gates = null;
+let bbox = null;          // mesh-local bbox (first/combined mesh) along spine for slither bounds
+let view = 'tex';
+let partIds = null;
+
+function clearModel() {
+  if (gltfScene) modelRoot.remove(gltfScene);
+  gltfScene = null; meshes = []; partIds = null;
+}
+
+async function loadFromUrl(url, label) {
+  status(`Loading ${label || url}…`);
+  const loader = new GLTFLoader();
+  let gltf;
+  try { gltf = await loader.loadAsync(url); }
+  catch (e) { status(`Load failed: ${e.message || e}. (If the committed asset isn't pushed yet, drop the .glb here.)`); return; }
+  clearModel();
+  gltfScene = gltf.scene; modelRoot.add(gltfScene);
+  // collect meshes + cache base positions; ensure each geometry has a COLOR attr for the parts view
+  gltfScene.traverse((o) => {
+    if (!o.isMesh || !o.geometry || !o.geometry.attributes.position) return;
+    const geom = o.geometry;
+    const base = geom.attributes.position.array.slice();
+    if (!geom.attributes.color)
+      geom.setAttribute('color', new THREE.BufferAttribute(new Float32Array(base.length), 3));
+    o.userData.texMat = o.material;
+    o.userData.partMat = new THREE.MeshBasicMaterial({ vertexColors: true });
+    meshes.push({ mesh: o, base, geom });
+  });
+  if (!meshes.length) { status('No mesh with positions found in this GLB.'); return; }
+  // gates seeded from the largest mesh's bbox
+  const main = meshes.reduce((a, b) => (b.base.length > a.base.length ? b : a));
+  gates = defaultGates(main.base);
+  bbox = aabb(main.base);
+  syncGatesToUI(); reclassify(); frameModel();
+  const tris = meshes.reduce((n, m) => n + (m.geom.index ? m.geom.index.count : m.base.length / 3) / 3, 0);
+  $('meshinfo').textContent = `${meshes.length} mesh · ${Math.round(tris).toLocaleString()} tris · span±${Math.max(Math.abs(bbox.min[0]), Math.abs(bbox.max[0])).toFixed(2)}`;
+  status('Loaded. Tag the parts, orient to the flight line, then Copy for Claude.');
+  updateExport();
+}
+
+function frameModel() {
+  const bb = new THREE.Box3().setFromObject(modelRoot);
+  const c = bb.getCenter(new THREE.Vector3()), sz = bb.getSize(new THREE.Vector3());
+  target.copy(c); camR = Math.max(sz.x, sz.y, sz.z) * 1.8 + 2; placeCam();
+}
+
+// ── classification + colours ───────────────────────────────────────────────────
+function reclassify() {
+  if (!meshes.length) return;
+  let total = { body: 0, wing: 0, head: 0, tail: 0 };
+  for (const m of meshes) {
+    const ids = classifyParts(m.base, gates);
+    const col = partColorBuffer(ids);
+    m.geom.attributes.color.array.set(col);
+    m.geom.attributes.color.needsUpdate = true;
+    const c = partCounts(ids); for (const k in total) total[k] += c[k];
+    if (m.base.length === Math.max(...meshes.map((x) => x.base.length))) partIds = ids;
+  }
+  $('cBody').textContent = total.body.toLocaleString(); $('cWing').textContent = total.wing.toLocaleString();
+  $('cHead').textContent = total.head.toLocaleString(); $('cTail').textContent = total.tail.toLocaleString();
+}
+
+function applyView() {
+  for (const m of meshes) m.mesh.material = view === 'parts' ? m.mesh.userData.partMat : m.mesh.userData.texMat;
+}
+
+// ── motion preview (CPU deform, mirrors the engine; normals intentionally not recomputed) ──────────────
+let flapping = false, slithering = false, t0 = performance.now();
+function animateDeform(now) {
+  if (!meshes.length) return;
+  const t = (now - t0) / 1000;
+  const flap = flapping ? { hingeX: gates.hingeX, hingeZ: 0, minS: gates.wingMinS, amp: +$('flapAmp').value, phase: t * 6.0 } : null;
+  const slither = slithering ? { amp: +$('slAmp').value, freq: +$('slFreq').value, waveSpeed: 4.0,
+    spineMin: bbox.min[{ x: 0, y: 1, z: 2 }[gates.spineAxis]], spineMax: bbox.max[{ x: 0, y: 1, z: 2 }[gates.spineAxis]], phase: t } : null;
+  for (const m of meshes) {
+    if (!flap && !slither) {
+      if (m.geom.attributes.position.array.some && m._dirty) { m.geom.attributes.position.array.set(m.base); m.geom.attributes.position.needsUpdate = true; m._dirty = false; }
+      continue;
+    }
+    applyDeform(m.base, m.geom.attributes.position.array, { spanAxis: gates.spanAxis, spineAxis: gates.spineAxis, flap, slither });
+    m.geom.attributes.position.needsUpdate = true; m._dirty = true;
+  }
+}
+
+// ── UI wiring ───────────────────────────────────────────────────────────────────
+function syncGatesToUI() {
+  $('spineAxis').value = gates.spineAxis; $('spanAxis').value = gates.spanAxis;
+  $('hingeX').value = gates.hingeX; $('vHinge').textContent = gates.hingeX.toFixed(3);
+  $('wingMinS').value = gates.wingMinS; $('vMinS').textContent = gates.wingMinS.toFixed(3);
+  $('headCutS').value = gates.headCutS; $('vHead').textContent = gates.headCutS.toFixed(3);
+  $('tailCutS').value = gates.tailCutS; $('vTail').textContent = gates.tailCutS.toFixed(3);
+  $('headEnd').classList.toggle('on', gates.headAtMax);
+  $('headEnd').textContent = gates.headAtMax ? 'head @ +spine' : 'head @ −spine';
+}
+function readGatesFromUI() {
+  if (!gates) return;
+  gates.spineAxis = $('spineAxis').value; gates.spanAxis = $('spanAxis').value;
+  gates.hingeX = +$('hingeX').value; gates.wingMinS = +$('wingMinS').value;
+  gates.headCutS = +$('headCutS').value; gates.tailCutS = +$('tailCutS').value;
+  $('vHinge').textContent = gates.hingeX.toFixed(3); $('vMinS').textContent = gates.wingMinS.toFixed(3);
+  $('vHead').textContent = gates.headCutS.toFixed(3); $('vTail').textContent = gates.tailCutS.toFixed(3);
+  reclassify(); updateExport();
+}
+['spineAxis', 'spanAxis', 'hingeX', 'wingMinS', 'headCutS', 'tailCutS'].forEach((id) => {
+  $(id).addEventListener('input', readGatesFromUI);
+});
+$('headEnd').onclick = () => { if (!gates) return; gates.headAtMax = !gates.headAtMax; syncGatesToUI(); reclassify(); updateExport(); };
+
+function applyOrient() {
+  const rx = +$('rotX').value, ry = +$('rotY').value, rz = +$('rotZ').value, sc = +$('scale').value;
+  modelRoot.rotation.set(rx * DEG, ry * DEG, rz * DEG); modelRoot.scale.setScalar(sc);
+  $('vRotX').textContent = rx + '°'; $('vRotY').textContent = ry + '°'; $('vRotZ').textContent = rz + '°'; $('vScale').textContent = sc.toFixed(2);
+  updateExport();
+}
+['rotX', 'rotY', 'rotZ', 'scale'].forEach((id) => $(id).addEventListener('input', applyOrient));
+$('pHead').onclick = () => { $('rotX').value = -90; $('rotY').value = $('rotY').value; applyOrient(); };
+$('pLevel').onclick = () => { $('rotX').value = -90; $('rotZ').value = 0; applyOrient(); };
+$('pDorsal').onclick = () => { $('rotY').value = (Math.abs(+$('rotY').value) < 90) ? 180 : 0; applyOrient(); };
+
+$('vTex').onclick = () => { view = 'tex'; $('vTex').classList.add('on'); $('vParts').classList.remove('on'); applyView(); };
+$('vParts').onclick = () => { view = 'parts'; $('vParts').classList.add('on'); $('vTex').classList.remove('on'); applyView(); };
+$('flap').onclick = () => { flapping = !flapping; $('flap').classList.toggle('on', flapping); };
+$('slither').onclick = () => { slithering = !slithering; $('slither').classList.toggle('on', slithering); };
+['flapAmp', 'slAmp', 'slFreq'].forEach((id) => $(id).addEventListener('input', () => {
+  $('vFlapA').textContent = (+$('flapAmp').value).toFixed(2); $('vSlA').textContent = (+$('slAmp').value).toFixed(2); $('vSlF').textContent = (+$('slFreq').value).toFixed(1);
+}));
+
+function updateExport() {
+  if (!gates) return;
+  $('out').value = buildExport({
+    key: 'emberMonarch', meshUrl: './assets/models/emberMonarch.glb', gates, bbox,
+    orient: { scale: +$('scale').value, rotX: +$('rotX').value * DEG, rotY: +$('rotY').value * DEG, rotZ: +$('rotZ').value * DEG,
+      shoulderX: 0.3, shoulderY: 0.2, shoulderZ: -0.4 },
+    slither: { amp: +$('slAmp').value, freq: +$('slFreq').value, speed: 4.0 },
+    flap: { hingeX: gates.hingeX, minS: gates.wingMinS, amp: +$('flapAmp').value },
+  });
+}
+$('copy').onclick = () => { navigator.clipboard.writeText($('out').value); status('def.glb block copied — paste it back to Claude.'); };
+
+// ── load triggers ───────────────────────────────────────────────────────────────
+$('loadAsset').onclick = () => loadFromUrl(new URL(location).searchParams.get('glb') || ASSET, 'committed asset');
+$('pickFile').onclick = () => $('file').click();
+$('file').onchange = (e) => { const f = e.target.files[0]; if (f) loadFromUrl(URL.createObjectURL(f), f.name); };
+const drop = $('drop'), stage = $('stage');
+stage.addEventListener('dragover', (e) => { e.preventDefault(); drop.classList.add('hot'); });
+stage.addEventListener('dragleave', () => drop.classList.remove('hot'));
+stage.addEventListener('drop', (e) => { e.preventDefault(); drop.classList.remove('hot');
+  const f = e.dataTransfer.files[0]; if (f) loadFromUrl(URL.createObjectURL(f), f.name); });
+
+// ── orbit (tiny, dependency-free) ─────────────────────────────────────────────────
+let drag = null;
+canvas.addEventListener('pointerdown', (e) => { drag = { x: e.clientX, y: e.clientY, b: e.button }; canvas.setPointerCapture(e.pointerId); });
+canvas.addEventListener('pointerup', () => drag = null);
+canvas.addEventListener('pointermove', (e) => {
+  if (!drag) return;
+  const dx = e.clientX - drag.x, dy = e.clientY - drag.y; drag.x = e.clientX; drag.y = e.clientY;
+  if (drag.b === 2) {  // pan
+    const p = 0.01 * camR; const right = new THREE.Vector3().subVectors(camera.position, target).cross(camera.up).normalize();
+    target.addScaledVector(right, -dx * p); target.y += dy * p;
+  } else { camTheta -= dx * 0.01; camPhi = Math.min(Math.PI - 0.05, Math.max(0.05, camPhi - dy * 0.01)); }
+  placeCam();
+});
+canvas.addEventListener('wheel', (e) => { e.preventDefault(); camR = Math.max(1, camR * (1 + Math.sign(e.deltaY) * 0.1)); placeCam(); }, { passive: false });
+canvas.addEventListener('contextmenu', (e) => e.preventDefault());
+
+// ── resize + render loop ───────────────────────────────────────────────────────
+function resize() { const w = stage.clientWidth, h = stage.clientHeight; renderer.setSize(w, h, false); camera.aspect = w / h; camera.updateProjectionMatrix(); }
+addEventListener('resize', resize); resize(); placeCam();
+function loop(now) { animateDeform(now); renderer.render(scene, camera); requestAnimationFrame(loop); }
+requestAnimationFrame(loop);
+
+// auto-load if ?glb= provided
+if (new URL(location).searchParams.get('glb')) $('loadAsset').click();
+</script>
+</body>
+</html>

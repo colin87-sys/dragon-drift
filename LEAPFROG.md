@@ -3347,3 +3347,36 @@ red herring for a separate bug — it only adds a rigid `group.rotation.z` spin;
 bursts speed, hitting the same clock bug. **→ Leapfrog:** any GPU/CPU cyclic motion whose rate is reactive
 MUST integrate phase per-frame; `rate · globalClock` is a latent spasm that hides until the rate changes
 mid-run, and gets worse the longer the session.
+
+## Lesson — A second asset-backed dragon (Ember Monarch) + the GLB PART-TAGGER tool: tag parts by gates, don't eyeball them
+**What we did.** Took a regal fire-wyvern monarch from a Seedream concept → Higgsfield `image_to_3d`
+(textured + PBR, `symmetry_mode:on`, 30,842 tris) and shipped it as the 2nd `assetBacked` dragon
+(`emberMonarch`), reusing the whole Thundercoil path (`dragonGlb.js` fused-wing shader flap + slither, no
+rig). Lucky parallel: the mesh came back nearly dimension-identical to Thundercoil (span ±0.95, spine
+extent ~1.4), so its shipped knobs (`hingeX 0.28 / minS −0.15 / scale 3.9 / rotX −π/2 / rotY π`) are a
+grounded first pass, not a guess.
+
+**The real build: `tools/glbtagger.html` (+ pure `tools/glbtaggerCore.mjs`, headless-tested in
+`tests/glbtagger.mjs`).** The Thundercoil orientation thrash (wrong `rotX` sign, belly-up, tail-flaps-
+with-wings) all came from *eyeballing geometric landmarks a bbox can't reveal*. The tagger is the GLB-side
+sibling of `tracer.html`: load the fused GLB, auto-classify every vertex into body/wing/head/tail using
+the **exact same gate the engine flaps with** (`|span| ≥ hingeX ∧ spine ≥ minS`), color it, let the human
+drag `hingeX / minS / head-cut / tail-cut` + `rotX/Y/Z` against an on-screen flight-line gizmo (red HEAD
+−Z, green DORSAL +Y), toggle the **real shader flap/slither** to confirm, then "Copy for Claude" the
+`def.glb` block. *What you paint is what flaps* because `glbtaggerCore.classifyParts`' WING predicate is
+byte-identical to the flap `wmask`, and `flapDelta`/`slitherOffset` mirror the GLSL (one spec, three
+languages now: `dragonGlb.js` GLSL, `tests/{wingflap,slither}.mjs`, and `glbtaggerCore.mjs`).
+
+**Rigging is a dead end for this engine — priced + checked, not assumed.** Meshy `enable_rigging` (+5 cr)
+fits a **humanoid** skeleton (rigs wyverns poorly) and `animation_actions` is a **human** clip library
+(walk/run/dance — no flying wingbeat). Decisively: the engine **never consumes a GLB skeleton** for the
+main motion (it deforms by geometry), so even a perfect rig wouldn't plug in. The durable answer to "what
+is each body part" is the geometric tagger above, not bones. (If true per-part articulation is ever wanted,
+the path is a one-time Blender pass naming nodes `wing_l`/`wing_r`/`head` — `dragonGlb.js` already
+auto-detects those names — *not* an auto-rig.)
+
+**→ Leapfrog:** for any future asset-backed dragon, the loop is now: concept → `image_to_3d` (symmetry on)
+→ `glbinspect` for raw bbox → **`glbtagger.html` on the PR preview to tag parts + orient by eye and export
+`def.glb`** → paste back → gates (`glb`/`glbcontract`/`wingflap`/`slither`/`glbtagger`/`tricount`/`defs`/
+`blueprint`) → `stamp-sw`. Orientation + part-ID is now a measured, visual, exported step — not prompt
+ping-pong on the preview.
