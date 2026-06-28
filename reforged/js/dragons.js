@@ -1380,6 +1380,10 @@ export const DRAGONS = {
     // thundercoil-wingspan anchor — the upright pose is taller, so size is preview-tuned.
     glb: { scale: 3.9, rotY: Math.PI, rotX: 0, rotZ: 0, shoulder: [0.32, 0.35, -0.3], riderAt: [0, 0.9, 0.2],
       fusedWings: true,
+      // PROCEDURAL SKINNED RIG (dragonGlbRig.js): 3-bone folding wings + chest heave + tail
+      // whip, posed reactively in dragon.js. Replaces the shader vertex-shear flap (kept as
+      // the fallback when this is off). Legs + dedicated neck/head bones are the next pass.
+      skinnedRig: true,
       // NO slither (four-legged body — a spine wave would read as a swim, not a flight).
       // Shader wing-flap, X–Y SWING (wing.swing:'y'): because the mesh stays UPRIGHT (rotX 0),
       // world-up is local +Y, so the wingtip must swing through local Y — NOT the legacy
