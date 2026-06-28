@@ -3311,3 +3311,13 @@ accent) kept the storm-grey form with just an on-brand electric edge. All data-d
 **→ Leapfrog:** for any asset-backed dragon, (1) orientation is a measurement, not a vibe — log a
 reference dragon's head/tail world coords and match them; (2) budget a rim+fill lift for the PBR mesh up
 front (backlit is the default framing), and keep it edge-weighted so it accents rather than floods.
+
+**Addendum — the roll (dorsal-up) is a separate axis from the pitch, and only the human eye catches it.**
+After leveling with `rotX = −π/2`, the human reported the dragon flew BELLY-UP: native +Z is the belly,
+not the dorsal (my guess was wrong, and a rim-lit silhouette doesn't reveal up/down). Fix: `rotY = π` —
+a 180° roll about the spine, applied BEFORE the pitch (Euler 'XYZ' applies the Y rotation to the vector
+first), so the dorsal comes up; the wings then read as a raised V, matching the concept. Bonus check that
+confirms it: the wing dihedral flips from drooping-down to sweeping-up. Lesson: head/tail (pitch) and
+dorsal/belly (roll) are independent — measure/verify BOTH; a backlit mesh hides the roll, so confirm it
+on a lit frame (or just ask which way is up). For a vertical-standing source pose, the recipe that lands
+it is `rotX −π/2` (level) + `rotY π` (dorsal up).
