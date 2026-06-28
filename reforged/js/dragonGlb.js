@@ -87,9 +87,11 @@ const anySkinned = (root) => {
 // which the −90° flight pitch maps to world up/down). Body verts are untouched
 // (mask=0 → identity). Mirrors tests/wingflap.mjs.
 function attachBodyDeform(mat, u, opts = {}) {
-  const axis = opts.axis === 'y' ? 'y' : 'z';
-  const SP = axis === 'y' ? 'position.y' : 'position.z';   // spine coordinate
-  const LB = axis === 'y' ? 'z' : 'y';                     // secondary "roll" lateral axis
+  const axis = opts.axis === 'y' ? 'y' : 'z';              // SPINE axis (head→tail)
+  const spanA = opts.spanAxis || 'x';                      // wingspan / lateral axis
+  const depthA = opts.depthAxis || ['x', 'y', 'z'].find((a) => a !== axis && a !== spanA);  // fore/aft
+  const SP = 'position.' + axis;                           // spine coordinate
+  const LB = depthA;                                       // secondary "roll" lateral axis = depth
   const flap = !!opts.flap;
   mat.onBeforeCompile = (shader) => {
     shader.uniforms.uTime = u.uTime; shader.uniforms.uAmp = u.uAmp;
@@ -101,7 +103,7 @@ function attachBodyDeform(mat, u, opts = {}) {
     let body =
       'float spineT = clamp((uSpineMax - ' + SP + ') / max(0.0001, uSpineMax - uSpineMin), 0.0, 1.0);\n' +
       'float phase = uFreq * ' + SP + ' + uTime;\n' +
-      'transformed.x += uAmp * spineT * sin(phase);\n' +
+      'transformed.' + spanA + ' += uAmp * spineT * sin(phase);\n' +
       'transformed.' + LB + ' += uAmp * 0.3 * spineT * cos(phase);\n';
     if (flap) {
       shader.uniforms.uFlapPhase = u.uFlapPhase; shader.uniforms.uFlapAmp = u.uFlapAmp;
@@ -113,22 +115,24 @@ function attachBodyDeform(mat, u, opts = {}) {
       // uWingMinS). The second gate is essential: the coiled TAIL also swings wide in
       // X, so a |x|-only mask grabs tail verts and flaps them — the "tail warps when it
       // moves" bug. The spine coord is the same axis the slither uses.
-      // The wingtip's swing happens in the X/Z (span/depth) plane; `uFlapTilt` (radians)
-      // rotates that swing toward the SPINE axis (transformed.y here) so the beat can be
-      // angled fore/aft instead of straight up/down. uFlapTilt = 0 ⇒ byte-identical to the
-      // shipped beat (Thundercoil), since the depth delta `ndz` is 0 for every non-wing vert.
+      // The wingtip's swing happens in the SPAN/DEPTH plane; `uFlapTilt` (radians) rotates that
+      // swing toward the SPINE axis so the beat can be angled fore/aft instead of straight up/down.
+      // uFlapTilt = 0 ⇒ byte-identical to the shipped beat (the depth delta `ndz` is 0 for every
+      // non-wing vert). The span/spine/depth axes come from def.glb (default x/y/z = Thundercoil).
+      const SPAN = 'position.' + spanA, DEP = 'position.' + depthA;
+      const TSPAN = 'transformed.' + spanA, TDEP = 'transformed.' + depthA, TSPN = 'transformed.' + axis;
       body +=
-        'float wside = sign(position.x);\n' +
-        'float wmask = step(uHingeX, abs(position.x)) * step(uWingMinS, ' + SP + ') * step(uWingMinB, position.z) * step(position.z, uWingMaxB);\n' +
+        'float wside = sign(' + SPAN + ');\n' +
+        'float wmask = step(uHingeX, abs(' + SPAN + ')) * step(uWingMinS, ' + SP + ') * step(uWingMinB, ' + DEP + ') * step(' + DEP + ', uWingMaxB);\n' +
         'float fth = -wside * uFlapAmp * sin(uFlapPhase) * wmask;\n' +
-        'float wdx = position.x - wside * uHingeX;\n' +
-        'float wdz = position.z - uHingeZ;\n' +
+        'float wdx = ' + SPAN + ' - wside * uHingeX;\n' +
+        'float wdz = ' + DEP + ' - uHingeZ;\n' +
         'float fc = cos(fth), fs = sin(fth);\n' +
-        'float ndx = (wside * uHingeX + wdx * fc + wdz * fs) - position.x;\n' +
-        'float ndz = (uHingeZ - wdx * fs + wdz * fc) - position.z;\n' +
-        'transformed.x += ndx;\n' +
-        'transformed.z += ndz * cos(uFlapTilt);\n' +
-        'transformed.y += ndz * sin(uFlapTilt);\n';
+        'float ndx = (wside * uHingeX + wdx * fc + wdz * fs) - ' + SPAN + ';\n' +
+        'float ndz = (uHingeZ - wdx * fs + wdz * fc) - ' + DEP + ';\n' +
+        TSPAN + ' += ndx;\n' +
+        TDEP + ' += ndz * cos(uFlapTilt);\n' +
+        TSPN + ' += ndz * sin(uFlapTilt);\n';
     }
     shader.vertexShader = decl + shader.vertexShader.replace(
       '#include <begin_vertex>', '#include <begin_vertex>\n' + body);
@@ -318,7 +322,12 @@ export function buildGlbDragon(def, opts = {}) {
       // material. The unified winged mesh's spine runs along local Y (head +Y → tail
       // −Y); the legacy wingless body runs along local Z. Bounds from the real bbox.
       if (slither || (fused && wingCt) || cfg.rim) {
-        const axis = fused ? 'y' : 'z';
+        // Spine/span axes are per-dragon (def.glb.spineAxis/spanAxis); default to the fused
+        // convention (spine Y, span X) so Thundercoil is unchanged. Ember Monarch reconstructed
+        // with its spine along Z, so it declares spineAxis:'z' and the deform follows the mesh.
+        const axis = cfg.spineAxis || (fused ? 'y' : 'z');
+        const spanAxis = cfg.spanAxis || 'x';
+        const depthAxis = ['x', 'y', 'z'].find((a) => a !== axis && a !== spanAxis);
         // Backlit-silhouette lift: a fresnel rim (+ optional flat fill) folded into the
         // deform shader. Defaults derive from the dragon's electric accent so the edge
         // glows on-brand; all tunable via def.glb.rim.
@@ -334,10 +343,9 @@ export function buildGlbDragon(def, opts = {}) {
           if (!o.isMesh || !o.geometry) return;
           o.geometry.computeBoundingBox();
           const bb = o.geometry.boundingBox;
-          slitherU.uSpineMin.value = axis === 'y' ? bb.min.y : bb.min.z;
-          slitherU.uSpineMax.value = axis === 'y' ? bb.max.y : bb.max.z;
+          slitherU.uSpineMin.value = bb.min[axis]; slitherU.uSpineMax.value = bb.max[axis];
           (Array.isArray(o.material) ? o.material : [o.material]).forEach(
-            (m) => m && attachBodyDeform(m, slitherU, { axis, flap: fused && !!wingCt, rim: rimCfg }));
+            (m) => m && attachBodyDeform(m, slitherU, { axis, spanAxis, depthAxis, flap: fused && !!wingCt, rim: rimCfg }));
         });
       }
       group.add(content);            // remaining nodes (body, etc.) ride the root
