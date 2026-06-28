@@ -217,3 +217,38 @@ export function toLoftRings(sideProfile, topProfile, stations = 12) {
   }
   return rings;
 }
+
+// ── 5. WING-RIG DERIVATION (planform → engine wingForms) ─────────────────────
+// A traced wing RIG is a small set of handles in normalised image coords:
+//   root  — where the wing meets the body (the attach/joint locus)
+//   tips  — the finger-strut endpoints, ORDERED OUTER→INNER (tips[0] = the wingtip)
+//   lead  — (optional) a leading-edge control point (the spar bulge)
+//   wrist — (optional) the elbow/wrist along the leading spar
+// We build a wing-LOCAL frame at the root: x = span (root→outer tip), y = chord
+// (perpendicular, +y toward the leading edge), then scale so the outer tip sits at
+// x = targetSpan. That yields the exact shape `wingForms[]` consumes: tips x
+// descending outer→inner, lead +y (dragonParts.js buildWingShape). `aspect`=W/H
+// restores real proportions from per-axis-normalised points. scallop/arc are 3-D
+// finish dials a flat trace can't measure — emitted as sensible defaults to tune
+// on the preview.
+export function deriveWingForm(rig, { aspect = 1, targetSpan = 5.5 } = {}) {
+  if (!rig || !rig.root || !Array.isArray(rig.tips) || rig.tips.length < 1) return null;
+  const A = (p) => ({ x: p[0] * aspect, y: p[1] });        // → isotropic space
+  const r = A(rig.root), outer = A(rig.tips[0]);
+  let sx = outer.x - r.x, sy = outer.y - r.y;
+  const span = Math.hypot(sx, sy) || 1e-6;
+  sx /= span; sy /= span;                                   // span axis (unit)
+  let cx = -sy, cy = sx;                                    // chord axis (perp)
+  const ref = rig.lead ? A(rig.lead) : (rig.wrist ? A(rig.wrist) : null);
+  if (ref && ((ref.x - r.x) * cx + (ref.y - r.y) * cy) < 0) { cx = -cx; cy = -cy; }  // +y = leading-edge side
+  const k = targetSpan / span;
+  const local = (p) => { const q = A(p), dx = q.x - r.x, dy = q.y - r.y;
+    return [+((dx * sx + dy * sy) * k).toFixed(3), +((dx * cx + dy * cy) * k).toFixed(3)]; };
+  const tips = rig.tips.map(local);
+  const lead = rig.lead ? local(rig.lead)
+    : [+(targetSpan * 0.6).toFixed(3), +(tips[0][1] + 0.45).toFixed(3)];
+  return {
+    tips, lead, scallop: 0.4, arc: { bow: 0.6, hump: 0.6, humpAt: 0.58, hook: 0.4 },
+    note: 'planform (tips+lead) derived from the trace; scallop + arc{bow,hump,hook} are 3-D finish defaults — tune on the preview.',
+  };
+}

@@ -51,6 +51,9 @@ export function tierCost(dragonCost, tierIndex) {
 // premiums (SSSR) go to Eternal (tier 3 = SSSR). Keeps starters from reaching
 // the eternal/legendary form at all.
 export function maxTierFor(key) {
+  // Asset-backed dragons have a single static GLB form — a mesh can't morph
+  // geometry across ascension, so they cap at form 0 (no ascension ladder).
+  if (DRAGONS[key]?.assetBacked) return 0;
   return DRAGONS[key]?.maxRarity === 'SSR' ? 2 : ASCENSION_TIERS.length;
 }
 

@@ -116,6 +116,12 @@ ok(`${FLIGHTMARKS.length} flightmarks, unique ids, costs ≥800`);
 
 // --- Dragon evolution forms: starters (SSR) cap at 3, premiums (SSSR) have 4 ---
 for (const [key, d] of Object.entries(DRAGONS)) {
+  // Asset-backed dragons (a loaded GLB) have a single static form — no
+  // procedural ascension geometry, so the form-count contract doesn't apply.
+  if (d.assetBacked) {
+    assert(typeof d.meshUrl === 'string', `dragon ${key} (asset-backed) has a meshUrl`);
+    continue;
+  }
   const want = d.maxRarity === 'SSR' ? 3 : 4;
   assert(Array.isArray(d.forms) && d.forms.length === want, `dragon ${key} has ${want} forms`);
   for (let i = 0; i < want; i++) {

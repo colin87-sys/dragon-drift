@@ -37,6 +37,7 @@ let wingPivot2L = null;
 let wingPivot2R = null;
 let wingRigL = null;  // skinned-wing flap rigs (shoulder/elbow/wrist), null otherwise
 let wingRigR = null;
+let glbAnim = null;   // { mixer } for an asset-backed (GLB) dragon, null otherwise
 let head = null;
 let tailSegs = [];
 let spineSegs = [];       // night-fury body-spine whip bones (empty for every other dragon)
@@ -157,6 +158,7 @@ export function createDragon(scene, def, riderDef) {
   spineSegs = result.parts.spineSegs || [];
   bodySegs = result.parts.bodySegs || null;
   tailOrbiters = result.parts.tailOrbiters || null;
+  glbAnim = result.parts.glbAnim || null;   // asset-backed baked-clip mixer (if any)
   ({ bodyMat, wingMat, eyeMat } = result.materials);
   auraSprite = result.auraSprite;
   coreGlow = result.parts.coreGlow;
@@ -432,6 +434,35 @@ export function updateDragon(dt, player, time) {
     player.position.y + Math.sin(time * 2.1) * 0.16,
     player.position.z
   );
+
+  // Asset-backed (GLB) baked-clip flap, if present. The reactive wing flap still
+  // runs through the wingRig path below; this only ticks a skinned GLB's own clip.
+  if (glbAnim && glbAnim.mixer) glbAnim.mixer.update(dt);
+  // Asset-backed body SLITHER + fused-wing FLAP. CRITICAL: both ACCUMULATE phase
+  // (phase += dt·rate) so a rate change (boost/Surge) can never jolt the phase. The
+  // old slither did `phase = waveSpeed · uTime` with uTime growing unbounded, so a
+  // boost-time change in waveSpeed lurched the phase by Δrate·uTime — a spasm that got
+  // worse the longer the run. The speed factor is also DAMPED so the beat eases up to
+  // boost speed instead of snapping. `player.speed` is high during both boost and Surge,
+  // so this one speed-driven ramp covers both.
+  if (glbAnim && (glbAnim.slither || glbAnim.wingFlap)) {
+    const spTarget = Math.min(Math.max((player.speed - 35) / 45, 0), 1);
+    glbAnim.sp = damp(glbAnim.sp ?? spTarget, spTarget, 3, dt);   // eased speed factor
+    const sp = glbAnim.sp;
+    if (glbAnim.slither) {
+      const su = glbAnim.slither.uniforms;
+      const ws = glbAnim.slither.baseSpeed * (0.5 + sp * 0.5);    // cruise→boost, gentle
+      su.uTime.value += dt * ws;                                  // accumulate spine-wave phase
+      su.uAmp.value = glbAnim.slither.baseAmp * (0.85 + sp * 0.3);
+    }
+    if (glbAnim.wingFlap) {
+      const wu = glbAnim.wingFlap.uniforms;
+      const rateTarget = 5.0 + sp * 3.5;                          // no hard boost jump
+      glbAnim.flapRate = damp(glbAnim.flapRate ?? rateTarget, rateTarget, 4, dt);
+      wu.uFlapPhase.value += dt * glbAnim.flapRate;               // accumulate wingbeat phase
+      wu.uFlapAmp.value = glbAnim.wingFlap.baseAmp * (0.9 + sp * 0.2);
+    }
+  }
 
   // Banking and pitch — banking deepens with speed for drama.
   // Bank is tracked separately so the barrel-roll spin can stack on top
