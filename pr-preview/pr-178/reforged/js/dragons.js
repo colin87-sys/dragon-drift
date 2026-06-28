@@ -1381,7 +1381,8 @@ export const DRAGONS = {
       fusedWings: true,
       // spine = local Y (head +Y → tail −Y), span = local X — see tools/glbtagger.html.
       slither: { amp: 0.10, freq: 8.0, speed: 4.0 },
-      wing: { hingeX: 0.28, minS: -0.15, amp: 0.55 } },
+      // tilt (radians) angles the wingbeat plane fore/aft; 0 = straight up/down. Tune in glbtagger.html.
+      wing: { hingeX: 0.28, minS: -0.15, amp: 0.55, tilt: 0 } },
     stats: { speed: 1.12, handling: 1.08, drain: 0.95, regen: 1.0 },
     model: {
       scale: 1.0, bodyScale: 1.0, wingSpan: 1.0,

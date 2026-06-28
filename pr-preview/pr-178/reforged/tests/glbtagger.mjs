@@ -102,6 +102,13 @@ for (let i = 0; i < cloud.length / 3; i++) {
 check(headMove < 0.02, `head stays ~anchored under deform (max ${headMove.toFixed(3)})`);
 check(tipMove > 0.05, `wingtip swings under flap (max |dz| ${tipMove.toFixed(3)})`);
 
+// 5b) FLAP TILT — at 0 the swing stays out of the spine axis (ds≈0); at 90° the depth swing routes
+//     entirely into the spine axis (db→0, ds large). A wing vert: |x|=0.9 ≥ hingeX, y=0.3 ≥ minS.
+const dFlat = flapDelta(0.9, -0.1, 0.3, Math.PI / 2, { ...flapP, tilt: 0 });
+const dTilt = flapDelta(0.9, -0.1, 0.3, Math.PI / 2, { ...flapP, tilt: Math.PI / 2 });
+check(Math.abs(dFlat.ds) < 1e-12, `flap tilt 0 adds no spine-axis motion (ds ${dFlat.ds.toExponential(1)})`);
+check(Math.abs(dTilt.db) < 1e-9 && Math.abs(dTilt.ds) > 0.02, `flap tilt 90° routes swing into spine axis (db→0, ds ${dTilt.ds.toFixed(3)})`);
+
 // 6) EXPORT — the block carries the engine knobs and tidies the radian to Math.PI forms.
 const txt = buildExport({ key: 'emberMonarch', gates, orient: { scale: 3.9, rotY: Math.PI, rotX: -Math.PI / 2, rotZ: 0 },
   slither: { amp: 0.1, freq: 8, speed: 4 }, flap: { hingeX: 0.28, minS: -0.15, amp: 0.55 }, bbox: box });

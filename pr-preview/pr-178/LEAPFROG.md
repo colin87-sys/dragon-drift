@@ -3380,3 +3380,17 @@ auto-detects those names — *not* an auto-rig.)
 `def.glb`** → paste back → gates (`glb`/`glbcontract`/`wingflap`/`slither`/`glbtagger`/`tricount`/`defs`/
 `blueprint`) → `stamp-sw`. Orientation + part-ID is now a measured, visual, exported step — not prompt
 ping-pong on the preview.
+
+## Lesson — Flap-plane TILT knob: add a flap-orientation control to the engine AND the tagger together
+Adding a "drag a slider to angle the wingbeat" control means touching the shipped GLSL, so the rule is:
+extend the engine and every mirror of its math in the SAME change, with the new knob defaulting to the
+old behaviour. Added `def.glb.wing.tilt` (radians): the wingbeat's depth swing (`ndz`) is split
+`transformed.z += ndz·cos(tilt)` / `transformed.y += ndz·sin(tilt)`, rotating the beat plane from
+straight up/down toward fore/aft along the spine. Because `ndz` is exactly 0 for every non-wing vert and
+`tilt 0 ⇒ sin=0, cos=1`, it is **byte-identical to the shipped beat at 0** — Thundercoil is untouched and
+the wingflap gate now asserts that (8 checks). Mirrored in three places at once: `dragonGlb.js` GLSL,
+`glbtaggerCore.flapDelta`/`applyDeform` (now returns `{da,db,ds}`), and `tests/wingflap.mjs` +
+`tests/glbtagger.mjs`. The tagger gained a `flap tilt` slider that previews it live and exports it in the
+`def.glb` block. **→ Leapfrog:** the tagger is only trustworthy while it shares the engine's exact math —
+any new motion knob ships to the GLSL, the core mirror, the tests, and the tool in one atomic change, or
+the preview starts lying.
