@@ -160,6 +160,7 @@ let gates = null;
 let bbox = null;          // mesh-local bbox (first/combined mesh) along spine for slither bounds
 let view = 'tex';
 let partIds = null;
+let curLabel = '';        // current asset label, for the localStorage prefs key
 
 function clearModel() {
   if (gltfScene) modelRoot.remove(gltfScene);
@@ -190,11 +191,57 @@ async function loadFromUrl(url, label) {
   const main = meshes.reduce((a, b) => (b.base.length > a.base.length ? b : a));
   gates = defaultGates(main.base);
   bbox = aabb(main.base);
-  syncGatesToUI(); reclassify(); frameModel();
+  curLabel = label || '';
+  restorePrefs(label);   // last-session settings (localStorage), then a ?param preset overrides them
+  syncGatesToUI(); applyOrient(); reclassify(); frameModel();
+  // refresh the motion-slider readouts after a restore/preset (they're set programmatically above)
+  $('vFlapA').textContent = (+$('flapAmp').value).toFixed(2); $('vFlapT').textContent = (+$('flapTilt').value).toFixed(0) + '°';
+  $('vFlex').textContent = (+$('flapFlex').value).toFixed(2);
+  $('vSlA').textContent = (+$('slAmp').value).toFixed(2); $('vSlF').textContent = (+$('slFreq').value).toFixed(1);
   const tris = meshes.reduce((n, m) => n + (m.geom.index ? m.geom.index.count : m.base.length / 3) / 3, 0);
   $('meshinfo').textContent = `${meshes.length} mesh · ${Math.round(tris).toLocaleString()} tris · span±${Math.max(Math.abs(bbox.min[0]), Math.abs(bbox.max[0])).toFixed(2)}`;
   status('Loaded. Tag the parts, orient to the flight line, then Copy for Claude.');
   updateExport();
+}
+
+// ── presets: remember last session (localStorage) + accept a ?param preset link ───────────────────────
+const PREF_KEY = (label) => 'glbtagger:' + (new URL(location).searchParams.get('glb') || label || 'default');
+function savePrefs(label) {
+  if (!gates) return;
+  try {
+    localStorage.setItem(PREF_KEY(label), JSON.stringify({
+      g: { spineAxis: gates.spineAxis, spanAxis: gates.spanAxis, headAtMax: gates.headAtMax,
+        hingeX: gates.hingeX, wingMinS: gates.wingMinS, wingMinB: gates.wingMinB, wingMaxB: gates.wingMaxB,
+        headCutS: gates.headCutS, tailCutS: gates.tailCutS },
+      o: { rotX: +$('rotX').value, rotY: +$('rotY').value, rotZ: +$('rotZ').value, scale: +$('scale').value },
+      f: { amp: +$('flapAmp').value, tilt: +$('flapTilt').value, flex: +$('flapFlex').value,
+        slAmp: +$('slAmp').value, slFreq: +$('slFreq').value },
+    }));
+  } catch (e) { /* private mode / quota — non-fatal */ }
+}
+function restorePrefs(label) {
+  // 1) last-session localStorage
+  let saved = null;
+  try { saved = JSON.parse(localStorage.getItem(PREF_KEY(label)) || 'null'); } catch (e) { saved = null; }
+  if (saved && saved.g) {
+    Object.assign(gates, saved.g);
+    const o = saved.o || {}, f = saved.f || {};
+    const set = (id, v) => { if (v != null) $(id).value = v; };
+    set('rotX', o.rotX); set('rotY', o.rotY); set('rotZ', o.rotZ); set('scale', o.scale);
+    set('flapAmp', f.amp); set('flapTilt', f.tilt); set('flapFlex', f.flex); set('slAmp', f.slAmp); set('slFreq', f.slFreq);
+  }
+  // 2) URL ?params override (a shared preset link). rot/tilt in DEGREES, gates in mesh units.
+  const q = new URL(location).searchParams;
+  const num = (k) => (q.has(k) ? +q.get(k) : null);
+  if (q.has('spineAxis')) gates.spineAxis = q.get('spineAxis');
+  if (q.has('spanAxis')) gates.spanAxis = q.get('spanAxis');
+  if (q.has('headAtMax')) gates.headAtMax = q.get('headAtMax') !== 'false';
+  for (const [k, gk] of [['hingeX', 'hingeX'], ['minS', 'wingMinS'], ['minB', 'wingMinB'], ['maxB', 'wingMaxB'], ['headCutS', 'headCutS'], ['tailCutS', 'tailCutS']]) {
+    const v = num(k); if (v != null) gates[gk] = v;
+  }
+  const setp = (id, v) => { if (v != null) $(id).value = v; };
+  setp('rotX', num('rotX')); setp('rotY', num('rotY')); setp('rotZ', num('rotZ')); setp('scale', num('scale'));
+  setp('flapAmp', num('amp')); setp('flapTilt', num('tilt')); setp('flapFlex', num('flex'));
 }
 
 function frameModel() {
@@ -301,6 +348,7 @@ function updateExport() {
     slither: { amp: +$('slAmp').value, freq: +$('slFreq').value, speed: 4.0 },
     flap: { hingeX: gates.hingeX, minS: gates.wingMinS, amp: +$('flapAmp').value, tilt: +$('flapTilt').value * DEG, flex: +$('flapFlex').value },
   });
+  savePrefs(curLabel);   // persist every change so the next visit restores this tuning
 }
 $('copy').onclick = () => { navigator.clipboard.writeText($('out').value); status('def.glb block copied — paste it back to Claude.'); };
 
