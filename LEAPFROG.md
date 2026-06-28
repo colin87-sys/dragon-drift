@@ -3415,3 +3415,18 @@ move, so any leg caught by the gate stays nearly still — it fixes the contamin
 **→ Leapfrog:** before reparenting AI geometry onto the procedural rig, reach for a shader-space
 improvement first — flex/tilt/axis knobs got organic motion with no frame surgery and no clean-cut
 requirement; keep the true split in reserve for when a knob genuinely can't express the motion.
+
+## Lesson — A visual WING-RIG editor in the tagger: design the bone whip by eye, export, then bake
+The human (rightly) judged that no shader knob gets believable wing motion — it needs a **bone chain**
+(shoulder→…→tip) with a lagged whip, exactly how the procedural wings flap (`dragonWingFlap.js`). Rather
+than iterate that blind on slow PR deploys, the tagger now hosts a **wing-rig editor** (`tools/wingRigCore.mjs`
+pure core + `tests/wingrig.mjs`, 18 checks): it splits the gated WING set span-wise into N bones (2–5),
+places a shoulder→tip joint chain with draggable pivot sliders + markers, and **previews the real
+forward-kinematics cascade live in-browser** (per-bone phase-lagged, tip-biased rotation about a tilt-derived
+axis; both wings mirrored to beat together). It exports a rig spec (bones, shoulder, jointSpans, lag/tipBias/
+amp) for the eventual skinned-GLB bake. Design-the-motion-where-you-can-see-it, then bake — the same
+machine↔human inversion as the tracer. Also added: the tagger now **persists settings to localStorage** and
+accepts a **`?preset` link**, so tuning survives reloads and a pre-configured URL opens ready.
+**→ Leapfrog:** when motion needs a rig, build the rig *interactively with live FK preview* first and bake
+the asset second — never hand-place bones and discover the whip on a deploy. The pure FK/segmentation math
+stays headless-tested so the eventual engine driver shares one spec.

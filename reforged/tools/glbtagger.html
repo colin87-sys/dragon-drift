@@ -105,6 +105,18 @@
       <label class="sl">slither freq <b id="vSlF">8.0</b></label><input id="slFreq" type="range" min="1" max="16" step="0.1" value="8">
     </div>
 
+    <div class="sec"><h2>Wing rig <small class="hint">(bones → believable whip)</small></h2>
+      <div class="tools"><button id="vRig" class="mini">Rig view</button><button id="rigFlap" class="mini">Rig flap ▶</button></div>
+      <p class="hint" style="margin:4px 0">Splits each wing into bones from the shoulder pivot to the tip and previews the lagged cascade. Markers show the joints.</p>
+      <label class="sl">bones <b id="vBones">3</b></label><input id="bones" type="range" min="2" max="5" step="1" value="3">
+      <label class="sl">shoulder span (root) <b id="vShX">0.12</b></label><input id="shX" type="range" min="0" max="1" step="0.005" value="0.12">
+      <label class="sl">shoulder height <b id="vShY">0.00</b></label><input id="shY" type="range" min="-0.6" max="0.6" step="0.005" value="0">
+      <label class="sl">shoulder depth <b id="vShZ">0.00</b></label><input id="shZ" type="range" min="-0.8" max="0.8" step="0.005" value="0">
+      <label class="sl">whip lag <b id="vLag">0.50</b></label><input id="lag" type="range" min="0" max="1.5" step="0.01" value="0.5">
+      <label class="sl">tip bias <b id="vTipB">0.60</b></label><input id="tipBias" type="range" min="0" max="1.5" step="0.01" value="0.6">
+      <label class="sl">rig amp <b id="vRigA">0.60</b></label><input id="rigAmp" type="range" min="0" max="1.5" step="0.01" value="0.6">
+    </div>
+
     <div class="sec"><h2>Export</h2>
       <textarea id="out" readonly></textarea>
       <div class="row" style="margin-top:7px"><button id="copy" class="mini full">Copy for Claude</button></div>
@@ -117,8 +129,11 @@ import * as THREE from 'three';
 import { GLTFLoader } from '../lib/loaders/GLTFLoader.js';
 import {
   defaultGates, classifyParts, partCounts, partColorBuffer, aabb,
-  applyDeform, buildExport, PART_COLOR,
+  applyDeform, buildExport, PART_COLOR, PART,
 } from './glbtaggerCore.mjs';
+import {
+  evenJointSpans, assignBones, boneColorBuffer, boneCounts, jointChain, flapAxis, boneAngles,
+} from './wingRigCore.mjs';
 
 const $ = (id) => document.getElementById(id);
 const status = (m) => { $('status').textContent = m; };
@@ -216,6 +231,8 @@ function savePrefs(label) {
       o: { rotX: +$('rotX').value, rotY: +$('rotY').value, rotZ: +$('rotZ').value, scale: +$('scale').value },
       f: { amp: +$('flapAmp').value, tilt: +$('flapTilt').value, flex: +$('flapFlex').value,
         slAmp: +$('slAmp').value, slFreq: +$('slFreq').value },
+      r: { bones: +$('bones').value, shX: +$('shX').value, shY: +$('shY').value, shZ: +$('shZ').value,
+        lag: +$('lag').value, tipBias: +$('tipBias').value, rigAmp: +$('rigAmp').value },
     }));
   } catch (e) { /* private mode / quota — non-fatal */ }
 }
@@ -223,12 +240,15 @@ function restorePrefs(label) {
   // 1) last-session localStorage
   let saved = null;
   try { saved = JSON.parse(localStorage.getItem(PREF_KEY(label)) || 'null'); } catch (e) { saved = null; }
+  const set = (id, v) => { if (v != null) $(id).value = v; };
+  set('shX', gates.hingeX);   // default the shoulder root to the wing root; saved/URL values override below
   if (saved && saved.g) {
     Object.assign(gates, saved.g);
-    const o = saved.o || {}, f = saved.f || {};
-    const set = (id, v) => { if (v != null) $(id).value = v; };
+    const o = saved.o || {}, f = saved.f || {}, r = saved.r || {};
     set('rotX', o.rotX); set('rotY', o.rotY); set('rotZ', o.rotZ); set('scale', o.scale);
     set('flapAmp', f.amp); set('flapTilt', f.tilt); set('flapFlex', f.flex); set('slAmp', f.slAmp); set('slFreq', f.slFreq);
+    set('bones', r.bones); set('shX', r.shX); set('shY', r.shY); set('shZ', r.shZ);
+    set('lag', r.lag); set('tipBias', r.tipBias); set('rigAmp', r.rigAmp);
   }
   // 2) URL ?params override (a shared preset link). rot/tilt in DEGREES, gates in mesh units.
   const q = new URL(location).searchParams;
@@ -251,29 +271,103 @@ function frameModel() {
 }
 
 // ── classification + colours ───────────────────────────────────────────────────
+const AX = { x: 0, y: 1, z: 2 };
+const depthOf = (span, spine) => ['x', 'y', 'z'].find((a) => a !== span && a !== spine);
+
 function reclassify() {
   if (!meshes.length) return;
   let total = { body: 0, wing: 0, head: 0, tail: 0 };
   for (const m of meshes) {
-    const ids = classifyParts(m.base, gates);
-    const col = partColorBuffer(ids);
-    m.geom.attributes.color.array.set(col);
-    m.geom.attributes.color.needsUpdate = true;
-    const c = partCounts(ids); for (const k in total) total[k] += c[k];
-    if (m.base.length === Math.max(...meshes.map((x) => x.base.length))) partIds = ids;
+    m.partIds = classifyParts(m.base, gates);
+    const c = partCounts(m.partIds); for (const k in total) total[k] += c[k];
+    if (m.base.length === Math.max(...meshes.map((x) => x.base.length))) partIds = m.partIds;
   }
   $('cBody').textContent = total.body.toLocaleString(); $('cWing').textContent = total.wing.toLocaleString();
   $('cHead').textContent = total.head.toLocaleString(); $('cTail').textContent = total.tail.toLocaleString();
+  recomputeRig();        // keep the bone assignment in sync with the wing set
+  paintColors();
+}
+
+function paintColors() {
+  if (view === 'tex') return;
+  const bones = +$('bones').value;
+  for (const m of meshes) {
+    if (!m.geom.attributes.color) continue;
+    const buf = (view === 'rig' && m.boneIds) ? boneColorBuffer(m.boneIds, bones)
+      : partColorBuffer(m.partIds || classifyParts(m.base, gates));
+    m.geom.attributes.color.array.set(buf); m.geom.attributes.color.needsUpdate = true;
+  }
 }
 
 function applyView() {
-  for (const m of meshes) m.mesh.material = view === 'parts' ? m.mesh.userData.partMat : m.mesh.userData.texMat;
+  for (const m of meshes) m.mesh.material = (view === 'parts' || view === 'rig') ? m.mesh.userData.partMat : m.mesh.userData.texMat;
+  rigMarkers.visible = (view === 'rig');
+  paintColors();
+}
+
+// ── WING RIG: split each wing into bones + preview the lagged-whip cascade (FK) ───────────────
+const rigMarkers = new THREE.Group(); modelRoot.add(rigMarkers);
+function shoulderVec() {     // pivot position (the two non-span coords) from the sliders, mesh-local
+  const v = [0, 0, 0];
+  v[AX[gates.spineAxis]] = +$('shY').value;
+  v[AX[depthOf(gates.spanAxis, gates.spineAxis)]] = +$('shZ').value;
+  return v;
+}
+function rigJointSpans() {
+  const spanHalf = bbox ? Math.max(Math.abs(bbox.min[AX[gates.spanAxis]]), Math.abs(bbox.max[AX[gates.spanAxis]])) : 1;
+  return evenJointSpans(+$('shX').value, spanHalf, +$('bones').value);
+}
+function recomputeRig() {
+  if (!meshes.length || !gates) return;
+  const bones = +$('bones').value, js = rigJointSpans(), sh = shoulderVec();
+  for (const m of meshes) m.boneIds = assignBones(m.base, m.partIds || classifyParts(m.base, gates), PART.WING, gates.spanAxis, js);
+  rigMarkers.clear();      // joint markers for both wings, under modelRoot (ride orientation/scale)
+  for (const side of [1, -1]) for (const J of jointChain(js, gates.spanAxis, sh, side)) {
+    const dot = new THREE.Mesh(new THREE.SphereGeometry(0.03, 8, 8), new THREE.MeshBasicMaterial({ color: 0xff5de0 }));
+    dot.position.set(J[0], J[1], J[2]); rigMarkers.add(dot);
+  }
+  rigMarkers.visible = (view === 'rig');
+  [['vBones', 'bones'], ['vShX', 'shX'], ['vShY', 'shY'], ['vShZ', 'shZ'], ['vLag', 'lag'], ['vTipB', 'tipBias'], ['vRigA', 'rigAmp']]
+    .forEach(([lab, id]) => $(lab).textContent = id === 'bones' ? $(id).value : (+$(id).value).toFixed(2));
+}
+function buildSkin(J, angles, axisVec) {   // forward-kinematics: rigid skin matrix per bone
+  const skins = []; let M = new THREE.Matrix4(); let prev = new THREE.Vector3();
+  for (let i = 0; i < angles.length; i++) {
+    const Ji = new THREE.Vector3(J[i][0], J[i][1], J[i][2]);
+    const local = new THREE.Matrix4().makeTranslation(Ji.x - prev.x, Ji.y - prev.y, Ji.z - prev.z)
+      .multiply(new THREE.Matrix4().makeRotationAxis(axisVec, angles[i]));
+    M = M.clone().multiply(local);
+    skins.push(M.clone().multiply(new THREE.Matrix4().makeTranslation(-Ji.x, -Ji.y, -Ji.z)));
+    prev = Ji;
+  }
+  return skins;
+}
+function applyRigDeform(now) {
+  const t = (now - t0) / 1000, bones = +$('bones').value, js = rigJointSpans();
+  const axisVec = new THREE.Vector3(...flapAxis(gates.spineAxis, depthOf(gates.spanAxis, gates.spineAxis), +$('flapTilt').value * DEG));
+  const sh = shoulderVec(), pa = AX[gates.spanAxis];
+  const ang = boneAngles(t * 6.0, bones, { amp: +$('rigAmp').value, lag: +$('lag').value, tipBias: +$('tipBias').value });
+  const skinR = buildSkin(jointChain(js, gates.spanAxis, sh, 1), ang, axisVec);                 // +span wing
+  const skinL = buildSkin(jointChain(js, gates.spanAxis, sh, -1), ang.map((a) => -a), axisVec);  // mirror beats together
+  const v = new THREE.Vector3();
+  for (const m of meshes) {
+    if (!m.boneIds) continue;
+    const out = m.geom.attributes.position.array; out.set(m.base);
+    for (let i = 0; i < m.boneIds.length; i++) {
+      const b = m.boneIds[i]; if (b < 0) continue;
+      const side = m.base[i * 3 + pa] >= 0 ? skinR : skinL;
+      v.set(m.base[i * 3], m.base[i * 3 + 1], m.base[i * 3 + 2]).applyMatrix4(side[b]);
+      out[i * 3] = v.x; out[i * 3 + 1] = v.y; out[i * 3 + 2] = v.z;
+    }
+    m.geom.attributes.position.needsUpdate = true; m._dirty = true;
+  }
 }
 
 // ── motion preview (CPU deform, mirrors the engine; normals intentionally not recomputed) ──────────────
-let flapping = false, slithering = false, t0 = performance.now();
+let flapping = false, slithering = false, rigFlapping = false, t0 = performance.now();
 function animateDeform(now) {
   if (!meshes.length) return;
+  if (rigFlapping) { applyRigDeform(now); return; }
   const t = (now - t0) / 1000;
   const spanHalf = bbox ? Math.max(Math.abs(bbox.min[{ x: 0, y: 1, z: 2 }[gates.spanAxis]]), Math.abs(bbox.max[{ x: 0, y: 1, z: 2 }[gates.spanAxis]])) : 1;
   const flap = flapping ? { hingeX: gates.hingeX, hingeZ: 0, minS: gates.wingMinS, minB: gates.wingMinB, maxB: gates.wingMaxB, amp: +$('flapAmp').value, tilt: +$('flapTilt').value * DEG, flex: +$('flapFlex').value, tip: spanHalf, phase: t * 6.0 } : null;
@@ -281,7 +375,7 @@ function animateDeform(now) {
     spineMin: bbox.min[{ x: 0, y: 1, z: 2 }[gates.spineAxis]], spineMax: bbox.max[{ x: 0, y: 1, z: 2 }[gates.spineAxis]], phase: t } : null;
   for (const m of meshes) {
     if (!flap && !slither) {
-      if (m.geom.attributes.position.array.some && m._dirty) { m.geom.attributes.position.array.set(m.base); m.geom.attributes.position.needsUpdate = true; m._dirty = false; }
+      if (m._dirty) { m.geom.attributes.position.array.set(m.base); m.geom.attributes.position.needsUpdate = true; m._dirty = false; }
       continue;
     }
     applyDeform(m.base, m.geom.attributes.position.array, { spanAxis: gates.spanAxis, spineAxis: gates.spineAxis, flap, slither });
@@ -328,16 +422,37 @@ $('pHead').onclick = () => { $('rotX').value = -90; $('rotY').value = $('rotY').
 $('pLevel').onclick = () => { $('rotX').value = -90; $('rotZ').value = 0; applyOrient(); };
 $('pDorsal').onclick = () => { $('rotY').value = (Math.abs(+$('rotY').value) < 90) ? 180 : 0; applyOrient(); };
 
-$('vTex').onclick = () => { view = 'tex'; $('vTex').classList.add('on'); $('vParts').classList.remove('on'); applyView(); };
-$('vParts').onclick = () => { view = 'parts'; $('vParts').classList.add('on'); $('vTex').classList.remove('on'); applyView(); };
-$('flap').onclick = () => { flapping = !flapping; $('flap').classList.toggle('on', flapping); };
+function setView(v) {
+  view = v;
+  for (const [id, name] of [['vTex', 'tex'], ['vParts', 'parts'], ['vRig', 'rig']]) $(id).classList.toggle('on', name === v);
+  applyView();
+}
+$('vTex').onclick = () => setView('tex');
+$('vParts').onclick = () => setView('parts');
+$('vRig').onclick = () => setView('rig');
+$('flap').onclick = () => { flapping = !flapping; if (flapping) { rigFlapping = false; $('rigFlap').classList.remove('on'); } $('flap').classList.toggle('on', flapping); };
 $('slither').onclick = () => { slithering = !slithering; $('slither').classList.toggle('on', slithering); };
+$('rigFlap').onclick = () => { rigFlapping = !rigFlapping; if (rigFlapping) { flapping = false; $('flap').classList.remove('on'); setView('rig'); } $('rigFlap').classList.toggle('on', rigFlapping); };
 ['flapAmp', 'flapTilt', 'flapFlex', 'slAmp', 'slFreq'].forEach((id) => $(id).addEventListener('input', () => {
   $('vFlapA').textContent = (+$('flapAmp').value).toFixed(2); $('vFlapT').textContent = (+$('flapTilt').value).toFixed(0) + '°';
   $('vFlex').textContent = (+$('flapFlex').value).toFixed(2);
   $('vSlA').textContent = (+$('slAmp').value).toFixed(2); $('vSlF').textContent = (+$('slFreq').value).toFixed(1);
   updateExport();
 }));
+// rig sliders: bones/shoulder-span change the bone assignment; all update markers + export
+['bones', 'shX', 'shY', 'shZ', 'lag', 'tipBias', 'rigAmp'].forEach((id) => $(id).addEventListener('input', () => {
+  recomputeRig(); if (view === 'rig') paintColors(); updateExport();
+}));
+
+function rigSpecString() {
+  if (!gates || !bbox) return '';
+  const bones = +$('bones').value, js = rigJointSpans(), sh = shoulderVec();
+  return `\n\n// ── WING RIG (for the skinned bake) ──\n` +
+    `// bones: ${bones}   spanAxis: ${gates.spanAxis}   spineAxis: ${gates.spineAxis}   beatTilt: ${(+$('flapTilt').value).toFixed(0)}°\n` +
+    `// shoulder (mesh-local, non-span coords): [${sh.map((n) => +n.toFixed(3)).join(', ')}]\n` +
+    `// jointSpans (|span| boundaries, root→tip): [${js.map((s) => +s.toFixed(3)).join(', ')}]\n` +
+    `// whip: amp ${(+$('rigAmp').value).toFixed(2)}, lag ${(+$('lag').value).toFixed(2)}, tipBias ${(+$('tipBias').value).toFixed(2)}`;
+}
 
 function updateExport() {
   if (!gates) return;
@@ -347,7 +462,7 @@ function updateExport() {
       shoulderX: 0.3, shoulderY: 0.2, shoulderZ: -0.4 },
     slither: { amp: +$('slAmp').value, freq: +$('slFreq').value, speed: 4.0 },
     flap: { hingeX: gates.hingeX, minS: gates.wingMinS, amp: +$('flapAmp').value, tilt: +$('flapTilt').value * DEG, flex: +$('flapFlex').value },
-  });
+  }) + rigSpecString();
   savePrefs(curLabel);   // persist every change so the next visit restores this tuning
 }
 $('copy').onclick = () => { navigator.clipboard.writeText($('out').value); status('def.glb block copied — paste it back to Claude.'); };
