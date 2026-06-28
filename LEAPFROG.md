@@ -2981,6 +2981,53 @@ human's next trace (wing rig + joint + body outline); extend `deriveWingForm` to
 mean finger-notch depth; add tail/head rig modes the same way; overlay the BUILT silhouette behind the trace
 so correction is one screen.
 
+## Lesson — Second GLB dragon (Pyrelord Sovereign): the #175 asset architecture is DATA-ONLY for a new creature
+
+**Did:** added a second asset-backed dragon, the four-legged fire monarch `pyrelord`, on top of the now-merged
+#175 GLB pipeline. The whole engine side was **zero code** — `dragonModel.js` already dispatches on
+`def.meshUrl`, `dragon.js` already ticks the deform uniforms, and the `assetBacked`/`meshUrl` guards in
+`ascension.js` / `validateCreatureBlueprint.js` / `tests/defs.mjs` / `tools/tricount.mjs` already exempt
+asset dragons from the procedural contract. A new GLB dragon is therefore three data moves: drop the mesh at
+`assets/models/<key>.glb`, append a roster entry with `meshUrl` + a `glb:{}` block, run `stamp-sw`. The four
+headless gates auto-adopt it (`glbcontract` filters `DRAGONS` by `meshUrl`; `glb.mjs` walks every `*.glb`).
+**→ Leapfrog:** the asset path graduated from "the thundercoil experiment" to a reusable lane — proving the
+#175 thesis (an asset-backed dragon coexists with the 100% procedural roster, roster tri-total byte-identical).
+
+**The concept came in as art, so SKIP `generate_image`.** #175 had to regenerate a cel-shaded concept because
+the human's first 3D source was off-style. Here the human supplied three orthographic views (front/side/3-4)
+already in the game's aesthetic — so the pipeline shortens to `media_upload` → `generate_3d`. And with three
+views of one subject, the right model is **`meshy_multi_image_to_3d` (1–4 views), not the single-image lane**:
+more views = better geometry, and the spread-wing front view + profile side view pin the silhouette the
+chase cam reads. (`models_explore(type:'3d', input:'image')` surfaces it.)
+
+**Legged ≠ legless: take the flap, DROP the slither.** Thundercoil was a legless ampithere whose body sold
+motion via the spine SLITHER wave. A four-legged western dragon with a slither reads as a *swim*, not a
+flight — so `pyrelord.glb` omits `glb.slither` entirely and runs only the shader wing-flap. The slither code
+path in `dragonGlb.js` stays untouched (it's gated on `cfg.slither`), and `tests/slither.mjs` keeps passing
+because it's a pure math gate hardcoded to thundercoil's params, independent of any one dragon. Lesson: the
+asset `glb:{}` block is a **menu** — a new creature enables only the channels its anatomy justifies.
+
+**The wing-flap mask must clear the creature's OTHER wide-X parts — here the forelegs, not the tail.** #175's
+addendum 2 fixed the coiled tail flapping (a |x|-only mask grabbed it); the legged body has the same hazard at
+a different place. Measured the native bbox with `glbinspect`/`glbaxes`: wings are the wide band at native
+Y ∈ [−0.1, +0.45] (X-spread to ±1.65), the forelegs sit at x ≈ ±0.26, the tail/hindlegs at Y < −0.5. So
+`wing.hingeX = 0.4` (just outside the forelegs) AND `wing.minS = −0.1` (above the tail/hindlegs) isolate only
+the wing fans. **→ Leapfrog:** before setting a region mask, MEASURE the bbox bins — `hingeX`/`minS` are read
+off the geometry, not guessed.
+
+**Rim color is per-dragon brand: fire-orange, not thundercoil's electric blue.** The backlit-silhouette lift
+(`glb.rim`) defaults to the storm accent; a fire monarch must override it (`rim.color 0xff7a30`) so the lit
+edge reads on-brand against the sun ahead on the flight line.
+
+**Gotcha — Higgsfield MCP was approval-gated this session (GitHub MCP was not).** Every Higgsfield call
+returned `MCP tool call requires approval` (interactive auth absent in this remote run), so the real mesh
+couldn't be generated here. Mitigation that kept the lane shippable: a dependency-free **placeholder GLB**
+(`tools/make-pyrelord-placeholder-glb.mjs`, a winged-quadruped twin of #175's `make-placeholder-glb.mjs`,
+authored in the SAME native-axis convention so the `rotX −π/2 / rotY π` placement carries over). The real AI
+mesh overwrites `pyrelord.glb` with no code change; placement is then retuned on the preview. Lesson: when an
+external generator is blocked, a hand-encoded glTF stand-in proves the entire pipeline (loader → flap → SW
+precache → gates) end-to-end for free — the asset is the one swappable part.
+
 ---
 
 ## Lesson — Asset-backed dragon (GLB) can COEXIST with the procedural roster behind one `def.meshUrl` branch
