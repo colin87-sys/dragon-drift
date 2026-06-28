@@ -12,7 +12,7 @@
 //     so offline/flaky loads always replay a single coherent build.
 //   - activate deletes every other dd-reforged-* cache, so stale versions
 //     can't linger and get mixed in.
-const VERSION = 'f5c8f2e12624';                          // STAMP:VERSION
+const VERSION = 'c10a16510b74';                          // STAMP:VERSION
 const ASSETS = [
   './',
   './assets/models/pyrelord.glb',
