@@ -2981,6 +2981,53 @@ human's next trace (wing rig + joint + body outline); extend `deriveWingForm` to
 mean finger-notch depth; add tail/head rig modes the same way; overlay the BUILT silhouette behind the trace
 so correction is one screen.
 
+## Lesson — Second GLB dragon (Pyrelord Sovereign): the #175 asset architecture is DATA-ONLY for a new creature
+
+**Did:** added a second asset-backed dragon, the four-legged fire monarch `pyrelord`, on top of the now-merged
+#175 GLB pipeline. The whole engine side was **zero code** — `dragonModel.js` already dispatches on
+`def.meshUrl`, `dragon.js` already ticks the deform uniforms, and the `assetBacked`/`meshUrl` guards in
+`ascension.js` / `validateCreatureBlueprint.js` / `tests/defs.mjs` / `tools/tricount.mjs` already exempt
+asset dragons from the procedural contract. A new GLB dragon is therefore three data moves: drop the mesh at
+`assets/models/<key>.glb`, append a roster entry with `meshUrl` + a `glb:{}` block, run `stamp-sw`. The four
+headless gates auto-adopt it (`glbcontract` filters `DRAGONS` by `meshUrl`; `glb.mjs` walks every `*.glb`).
+**→ Leapfrog:** the asset path graduated from "the thundercoil experiment" to a reusable lane — proving the
+#175 thesis (an asset-backed dragon coexists with the 100% procedural roster, roster tri-total byte-identical).
+
+**The concept came in as art, so SKIP `generate_image`.** #175 had to regenerate a cel-shaded concept because
+the human's first 3D source was off-style. Here the human supplied three orthographic views (front/side/3-4)
+already in the game's aesthetic — so the pipeline shortens to `media_upload` → `generate_3d`. And with three
+views of one subject, the right model is **`meshy_multi_image_to_3d` (1–4 views), not the single-image lane**:
+more views = better geometry, and the spread-wing front view + profile side view pin the silhouette the
+chase cam reads. (`models_explore(type:'3d', input:'image')` surfaces it.)
+
+**Legged ≠ legless: take the flap, DROP the slither.** Thundercoil was a legless ampithere whose body sold
+motion via the spine SLITHER wave. A four-legged western dragon with a slither reads as a *swim*, not a
+flight — so `pyrelord.glb` omits `glb.slither` entirely and runs only the shader wing-flap. The slither code
+path in `dragonGlb.js` stays untouched (it's gated on `cfg.slither`), and `tests/slither.mjs` keeps passing
+because it's a pure math gate hardcoded to thundercoil's params, independent of any one dragon. Lesson: the
+asset `glb:{}` block is a **menu** — a new creature enables only the channels its anatomy justifies.
+
+**The wing-flap mask must clear the creature's OTHER wide-X parts — here the forelegs, not the tail.** #175's
+addendum 2 fixed the coiled tail flapping (a |x|-only mask grabbed it); the legged body has the same hazard at
+a different place. Measured the native bbox with `glbinspect`/`glbaxes`: wings are the wide band at native
+Y ∈ [−0.1, +0.45] (X-spread to ±1.65), the forelegs sit at x ≈ ±0.26, the tail/hindlegs at Y < −0.5. So
+`wing.hingeX = 0.4` (just outside the forelegs) AND `wing.minS = −0.1` (above the tail/hindlegs) isolate only
+the wing fans. **→ Leapfrog:** before setting a region mask, MEASURE the bbox bins — `hingeX`/`minS` are read
+off the geometry, not guessed.
+
+**Rim color is per-dragon brand: fire-orange, not thundercoil's electric blue.** The backlit-silhouette lift
+(`glb.rim`) defaults to the storm accent; a fire monarch must override it (`rim.color 0xff7a30`) so the lit
+edge reads on-brand against the sun ahead on the flight line.
+
+**Gotcha — Higgsfield MCP was approval-gated this session (GitHub MCP was not).** Every Higgsfield call
+returned `MCP tool call requires approval` (interactive auth absent in this remote run), so the real mesh
+couldn't be generated here. Mitigation that kept the lane shippable: a dependency-free **placeholder GLB**
+(`tools/make-pyrelord-placeholder-glb.mjs`, a winged-quadruped twin of #175's `make-placeholder-glb.mjs`,
+authored in the SAME native-axis convention so the `rotX −π/2 / rotY π` placement carries over). The real AI
+mesh overwrites `pyrelord.glb` with no code change; placement is then retuned on the preview. Lesson: when an
+external generator is blocked, a hand-encoded glTF stand-in proves the entire pipeline (loader → flap → SW
+precache → gates) end-to-end for free — the asset is the one swappable part.
+
 ---
 
 ## Lesson — Asset-backed dragon (GLB) can COEXIST with the procedural roster behind one `def.meshUrl` branch
@@ -3347,3 +3394,35 @@ red herring for a separate bug — it only adds a rigid `group.rotation.z` spin;
 bursts speed, hitting the same clock bug. **→ Leapfrog:** any GPU/CPU cyclic motion whose rate is reactive
 MUST integrate phase per-frame; `rate · globalClock` is a latent spasm that hides until the rate changes
 mid-run, and gets worse the longer the session.
+
+---
+
+## Lesson — Pyrelord real mesh landed: the placeholder→AI swap is a one-file overwrite, and a same-pipeline mesh inherits the proven facing
+
+**Did:** the Higgsfield MCP that was approval-gated when #176 shipped its placeholder is now authorized, so I ran the intended pipeline end-to-end and replaced the hand-encoded `pyrelord.glb` with the real AI mesh. Flow: `media_upload` (3 presigned PUTs from this env — the agent's own upload path, since the widget can't see container files) → `media_confirm` → `meshy_multi_image_to_3d` with the front/side/¾ views (`should_texture`, `enable_pbr`, `symmetry_mode:'on'`, `target_polycount:30000`, rigging OFF — the shader drives the flap, a non-biped rigs poorly) → 30 credits, ~4 min → `curl` the `rawUrl` GLB over `assets/models/pyrelord.glb` → `stamp-sw`. **29,694 tris / 14.4 MB, textured + PBR, valid glTF2.** The ONLY code touched was the `glb:{}` block + the SW stamp — exactly the "real mesh overwrites the `.glb` with no code change" contract #176 promised.
+
+**A mesh from the SAME Meshy pipeline inherits the SAME native convention — so don't re-measure facing from scratch, calibrate against the sibling.** `glbinspect` gave pyrelord bbox **X 1.910 / Y 1.762 / Z 1.501**, nearly identical in wingspan to thundercoil's **1.907 / 1.521 / 1.209**. Both come out of `meshy_multi_image_to_3d` as wingspan ±X, long body axis Y, depth Z. So thundercoil's MEASURED facing (`rotX −π/2` lays it level + maps the local-Z wing swing to a world up/down flap; `rotY π` rolls the dorsal up) carries over verbatim, and `scale 3.9` matches its proven on-screen wingspan (X within 0.2%). The placeholder's `scale 1.2` / `hingeX 0.4` were authored for a differently-sized unit hull and were stale the instant the real mesh landed — re-derive scale + wing gates from the REAL bbox, anchored to the sibling that's already preview-approved. **→ Leapfrog:** when two assets share a generator, the second's placement is a *port* of the first's, not a fresh measurement — bbox-match to the sibling and only the deltas (here: taller Y, deeper Z, a quadruped's leg mass) need preview tuning.
+
+**Gates that auto-adopt mean the swap is provably non-regressive without a renderer.** `glb` (validates the new 29.7k-tri mesh), `glbcontract` (25/25), `defs`, `blueprint`, `slither`, `wingflap` all pass, and `tricount` stays **byte-identical at 203,265** (asset dragons skipped). The human still judges the wingbeat + placement on the PR preview — scale/rot/`wing{hingeX,minS}`/rim are the knobs, and the deform bounds auto-read from the real bbox so the flap can't break, only mis-isolate. **→ Leapfrog:** the value of the #175 guard-and-walk gates is that an asset *content* swap (placeholder→AI) is validated by the same suite that validated the placeholder — the only thing left for a human is feel, not correctness.
+
+---
+
+## Lesson — Same generator ≠ same native orientation: MEASURE the facing per-mesh, and the wing-flap SWING PLANE must match it
+
+**The trap:** the prior session (above) assumed pyrelord's mesh shared thundercoil's native convention because both came from `meshy_multi_image_to_3d` with near-identical bbox extents (X≈1.91 wingspan both). It ported thundercoil's `rotX −π/2` verbatim. On the preview the dragon flew **head-down into the water, tail at the sky** — a 90° pitch error. Bbox *extents* matched; bbox *semantics* did not. Thundercoil is spine-VERTICAL (head +Y → tail −Y); pyrelord came out UPRIGHT & FORWARD-FACING (native **+Z snout, −Z back/wings, +Y dorsal, −Y feet**). Meshy orients from the *input views*, and a standing-quadruped concept yields a different native pose than a rearing-serpent concept — even at the same scale.
+
+**The fix is data, not a guess.** Wrote `tools/glborient.mjs`: it applies a candidate `{scale,rotX,rotY,rotZ}` (the exact Three.js Euler-XYZ matrix) to the real verts and prints where each native landmark direction lands in WORLD space, against the procedural roster's anchor (`headBase` z<0 ⇒ head −Z, dorsal +Y, feet −Y). It showed `rotX −π/2` sends the snout to world **(0, −2.92, −0.17)** = down; `rotX 0` sends it to **(0, +0.17, −2.92)** = forward & level = the procedural anchor. So the correct facing was just `rotY π` (snout +Z→world −Z travel) with **`rotX 0`** — the −π/2 was the bug. **→ Leapfrog:** never port a GLB's facing from a sibling on bbox-shape alone; run `glborient.mjs` and match landmark *directions* to the procedural `headBase`/feet/dorsal. Extents lie; landmark directions don't.
+
+**The wing-flap swing plane is COUPLED to the facing.** The shader flap rotates wing verts about a body hinge, swinging the tip through a SECONDARY axis that must map to world up/down. For a mesh laid flat by `rotX −π/2`, that axis is local **Z** (Z→world Y). For an upright mesh kept level by `rotX 0`, local Z is now FORE-AFT — so the legacy Z-swing beats the wings *horizontally* (the second half of the user's report). The vertical axis is now local **Y**. Generalised `attachBodyDeform` with `wing.swing:'y'` (X–Y plane, `uHingeY`) vs the default `'z'` (X–Z), so each asset's flap plane follows its facing; thundercoil's math stays byte-identical and `tests/wingflap.mjs` now locks BOTH planes (12 checks). **→ Leapfrog:** orientation and wing-flap are ONE decision — whenever you change a fused mesh's `rotX`, re-check that the flap's swing axis still maps to world vertical, or the wings beat sideways.
+
+---
+
+## Lesson — Animate a fused AI mesh by RIGGING it procedurally from measured regions, not by shader-shearing verts
+
+**The shader vertex-shear flap was a dead end.** An un-skinned fused mesh "flapped" by rotating wide-X verts in a plane (attachBodyDeform) — it can't pivot a wing from the shoulder, can't fold it, and can't move a head/neck/torso/tail at all. The human's verdict on the preview: "the wings are moving but not in the right orientation." The fix is a real rig: a procedural skeleton + skin weights built from the mesh, driven reactively.
+
+**The parts ARE identifiable from geometry — no manual rigging needed.** `tools/glbsegment.mjs` classifies every vertex into head/neck/torso/tail/wingL/wingR/legs by native-space region (the same measured frame from glborient.mjs: +Z snout, +Y dorsal, ±X wingspan) and reports per-part counts + centroids → bone pivots. Wings/head/neck separate crisply; the tail needed a narrow-midline gate (|x|<0.16, z<−0.30) to stop the legs class eating it. **→ Leapfrog:** an AI mesh with a known native frame is auto-segmentable — derive the skeleton's pivots from per-region centroids, don't eyeball them. (Caveat logged: this mesh's tail came out short/stubby, so tail range is limited regardless of rig.)
+
+**Research the biomechanics, then map joints to the engine's EXISTING flight signals.** Bat/bird flight: lift on the extended-wing downstroke, the wrist/elbow FOLD on the upstroke to cut negative lift + inertia; the tail is a rotational-damper rudder; the body heaves with the power stroke. dragon.js already computes smoothed `bankHard`/`diveAmount`/`climbAmount`/`vertJerk`/`posturePitch` — a comment there even reserved them for "wing-tuck / tail counter-sweep / head-lead on a hard bank." So the rig driver is a pure mapping: shoulder=±amp·sinφ sweep, elbow/wrist=fold on max(0,−sinφ), chest=heave −amp·sinφ, tail=rudder(−turn·bankHard)+lagged whip, climb→wing elevation, dive→sweep-back. **→ Leapfrog:** don't invent new input state for a creature animation — the flight model already exposes the maneuver gates; the rig is a function of them.
+
+**Architecture (one system, extensible).** `dragonGlbRig.js` = a PURE `computeRigSkin` (vertex→4 bone weights, testable headlessly — `tests/rig.mjs` 13 checks: partition-of-unity, ≤4 influences, landmark→correct bone, wing-root→chest seam so the membrane can't tear) + a `buildRig(THREE, mesh)` that builds the SPEC skeleton and binds a SkinnedMesh, all browser-only (Node keeps the placeholder, so glbcontract is unchanged). Gated behind `def.glb.skinnedRig`; the shader shear stays as the fallback; thundercoil untouched; tricount byte-identical. First pass rigs WINGS (3-bone fold) + CHEST (heave) + TAIL (whip) — the human's priority order; legs (2-joint tuck) + dedicated neck/head bones are the next increment, and the SPEC table + weight branches make adding them additive. **→ Leapfrog:** ship a rig the same way as any system here — pure core + headless gate + flag + coexist with the fallback + prove on the hero, then extend.

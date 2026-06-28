@@ -19,6 +19,7 @@
 import * as THREE from 'three';
 import { makeGlowTexture } from './util.js';
 import { applyFresnelRim } from './surface.js';
+import { buildRig } from './dragonGlbRig.js';
 
 // --- module cache: url -> Promise<gltf> (one parse shared by game + preview) ---
 const _cache = new Map();
@@ -106,21 +107,29 @@ function attachBodyDeform(mat, u, opts = {}) {
     if (flap) {
       shader.uniforms.uFlapPhase = u.uFlapPhase; shader.uniforms.uFlapAmp = u.uFlapAmp;
       shader.uniforms.uHingeX = u.uHingeX; shader.uniforms.uHingeZ = u.uHingeZ;
-      shader.uniforms.uWingMinS = u.uWingMinS;
-      decl += 'uniform float uFlapPhase;uniform float uFlapAmp;uniform float uHingeX;uniform float uHingeZ;uniform float uWingMinS;\n';
+      shader.uniforms.uHingeY = u.uHingeY; shader.uniforms.uWingMinS = u.uWingMinS;
+      decl += 'uniform float uFlapPhase;uniform float uFlapAmp;uniform float uHingeX;uniform float uHingeZ;uniform float uHingeY;uniform float uWingMinS;\n';
+      // SWING PLANE: the wingtip rotates about a body hinge and swings through a secondary
+      // axis that must map to WORLD up/down under the dragon's facing. A SPINE-VERTICAL
+      // mesh laid flat by rotX −π/2 (thundercoil) swings through local Z (Z → world Y);
+      // an UPRIGHT mesh kept level with rotX 0 (pyrelord, head +Z / dorsal +Y) swings
+      // through local Y (Y → world Y). `wing.swing:'y'` selects the X–Y plane; default
+      // is the legacy X–Z plane. Hinge2 is the matching shoulder offset (uHingeY/uHingeZ).
+      const SA = opts.flapSwing === 'y' ? 'y' : 'z';   // secondary (out-of-span) swing axis
+      const H2 = opts.flapSwing === 'y' ? 'uHingeY' : 'uHingeZ';
       // Wing verts are wide in X AND in the FRONT/shoulder region (spine coord above
-      // uWingMinS). The second gate is essential: the coiled TAIL also swings wide in
-      // X, so a |x|-only mask grabs tail verts and flaps them — the "tail warps when it
+      // uWingMinS). The second gate is essential: the coiled TAIL / low body also swings
+      // wide in X, so a |x|-only mask grabs them and flaps them — the "tail warps when it
       // moves" bug. The spine coord is the same axis the slither uses.
       body +=
         'float wside = sign(position.x);\n' +
         'float wmask = step(uHingeX, abs(position.x)) * step(uWingMinS, ' + SP + ');\n' +
         'float fth = -wside * uFlapAmp * sin(uFlapPhase) * wmask;\n' +
         'float wdx = position.x - wside * uHingeX;\n' +
-        'float wdz = position.z - uHingeZ;\n' +
+        'float wd2 = position.' + SA + ' - ' + H2 + ';\n' +
         'float fc = cos(fth), fs = sin(fth);\n' +
-        'transformed.x += (wside * uHingeX + wdx * fc + wdz * fs) - position.x;\n' +
-        'transformed.z += (uHingeZ - wdx * fs + wdz * fc) - position.z;\n';
+        'transformed.x += (wside * uHingeX + wdx * fc + wd2 * fs) - position.x;\n' +
+        'transformed.' + SA + ' += (' + H2 + ' - wdx * fs + wd2 * fc) - position.' + SA + ';\n';
     }
     shader.vertexShader = decl + shader.vertexShader.replace(
       '#include <begin_vertex>', '#include <begin_vertex>\n' + body);
@@ -242,6 +251,7 @@ export function buildGlbDragon(def, opts = {}) {
     // wing-flap (fused mesh only; harmless no-op uniforms otherwise)
     uFlapPhase: { value: 0 }, uFlapAmp: { value: wingCt?.amp ?? 0 },
     uHingeX: { value: wingCt?.hingeX ?? 1e9 }, uHingeZ: { value: wingCt?.hingeZ ?? 0 },
+    uHingeY: { value: wingCt?.hingeY ?? 0 },
     // only flap verts whose spine coord is above this (the front/shoulder wing band) —
     // keeps the coiled tail (low spine coord) out of the wingbeat.
     uWingMinS: { value: wingCt?.minS ?? -1e9 },
@@ -317,6 +327,9 @@ export function buildGlbDragon(def, opts = {}) {
           fill: (cfg.rim && cfg.rim.fill) ?? 0x6a7896, // neutral steel fill lifts the backlit side
           fillIntensity: (cfg.rim && cfg.rim.fillIntensity) ?? 0.2,
         };
+        // The shader vertex-shear flap is the FALLBACK; when a skinned rig is requested
+        // (cfg.skinnedRig) the bones do the wingbeat instead, so don't ALSO shear it.
+        const shaderFlap = fused && !!wingCt && !cfg.skinnedRig;
         content.traverse((o) => {
           if (!o.isMesh || !o.geometry) return;
           o.geometry.computeBoundingBox();
@@ -324,8 +337,27 @@ export function buildGlbDragon(def, opts = {}) {
           slitherU.uSpineMin.value = axis === 'y' ? bb.min.y : bb.min.z;
           slitherU.uSpineMax.value = axis === 'y' ? bb.max.y : bb.max.z;
           (Array.isArray(o.material) ? o.material : [o.material]).forEach(
-            (m) => m && attachBodyDeform(m, slitherU, { axis, flap: fused && !!wingCt, rim: rimCfg }));
+            (m) => m && attachBodyDeform(m, slitherU, { axis, flap: shaderFlap, flapSwing: wingCt?.swing === 'y' ? 'y' : 'z', rim: rimCfg }));
         });
+      }
+      // SKINNED RIG (cfg.skinnedRig): replace the static mesh with a SkinnedMesh driven by
+      // a procedural skeleton — 3-bone folding wings + chest heave + 2-bone tail whip, posed
+      // reactively in dragon.js (flap phase + bank/dive/climb signals). Legs + dedicated
+      // neck/head bones come next; for now neck/head ride the chest and legs ride the root.
+      if (cfg.skinnedRig && fused) {
+        let srcMesh = null;
+        content.traverse((o) => { if (!srcMesh && o.isMesh && o.geometry) srcMesh = o; });
+        const rig = srcMesh && buildRig(THREE, srcMesh);
+        if (rig) {
+          const parent = srcMesh.parent || content;
+          parent.add(rig.skinned);
+          parent.remove(srcMesh);
+          // dragon.js poses these bones each frame; uniforms carry the reactive flap phase/amp.
+          glbAnim.rig = { bones: rig.bones, uniforms: slitherU, chestRestY: rig.bones.chest.position.y, rootRestY: rig.bones.root.position.y };
+          console.info('[dragonGlb] skinned rig active —', Object.keys(rig.bones).length, 'bones (wings/chest/tail)');
+        } else {
+          console.warn('[dragonGlb] skinnedRig set but rig build failed — mesh will be static (no flap)');
+        }
       }
       group.add(content);            // remaining nodes (body, etc.) ride the root
     });

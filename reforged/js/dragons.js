@@ -1355,6 +1355,58 @@ export const DRAGONS = {
     apexEye: 0xd6ecff, apexSeam: 0x8ec8ff, coreGlow: 0x7ab8ff, surgeHi: 0xeaf4ff,
     eye: 0xbfe2ff, trail: 0x8ec8ff, boostTrail: 0x5aa0ff,
   },
+
+  pyrelord: {
+    name: 'Pyrelord Sovereign',
+    title: 'Crown of the molten throne',
+    rarity: 'SSR',
+    maxRarity: 'SSR',
+    cost: 0,                 // free so the experiment is one tap to equip + test
+    assetBacked: true,
+    meshUrl: './assets/models/pyrelord.glb',
+    // FOUR-LEGGED FIRE MONARCH: a fused winged GLB (body + head + wings) built from
+    // the three orthographic concept views (front / side / 3-4) via Higgsfield
+    // meshy_multi_image_to_3d (job 277898ca, textured + PBR, 29.7k tris). This is the
+    // REAL AI mesh (the hand-encoded placeholder it replaced is still reproducible via
+    // tools/make-pyrelord-placeholder-glb.mjs). UNLIKE thundercoil (spine-vertical), this
+    // mesh comes out of Meshy UPRIGHT & FORWARD-FACING — MEASURED with tools/glborient.mjs:
+    // native +Z = snout/front, −Z = back/wings, +Y = dorsal/crown, −Y = feet, ±X = wingspan
+    // (bbox X 1.910 / Y 1.762 / Z 1.501). So facing is just rotY = π (snout +Z → world −Z
+    // travel, dorsal +Y stays world up, wingspan ±X) with rotX = 0 — NO −π/2 pitch. (The
+    // original −π/2 port from thundercoil drove the head into the water and the tail at the
+    // sky; glborient.mjs confirms rotX 0 puts the snout at world −Z, level, matching the
+    // procedural roster's head −Z / dorsal +Y / feet −Y anchor.) NO slither (a body wave
+    // reads as a swim on a legged dragon); only the shader wing-flap runs. scale 3.9 is the
+    // thundercoil-wingspan anchor — the upright pose is taller, so size is preview-tuned.
+    glb: { scale: 3.9, rotY: Math.PI, rotX: 0, rotZ: 0, shoulder: [0.32, 0.35, -0.3], riderAt: [0, 0.9, 0.2],
+      fusedWings: true,
+      // PROCEDURAL SKINNED RIG (dragonGlbRig.js): 3-bone folding wings + chest heave + tail
+      // whip, posed reactively in dragon.js. Replaces the shader vertex-shear flap (kept as
+      // the fallback when this is off). Legs + dedicated neck/head bones are the next pass.
+      skinnedRig: true,
+      // NO slither (four-legged body — a spine wave would read as a swim, not a flight).
+      // Shader wing-flap, X–Y SWING (wing.swing:'y'): because the mesh stays UPRIGHT (rotX 0),
+      // world-up is local +Y, so the wingtip must swing through local Y — NOT the legacy
+      // local-Z (which is fore-aft here, the cause of the "wings flap the wrong way" report).
+      // Wing verts wide in X (|localX|>hingeX) AND above the shoulder (local Y>minS, excludes
+      // the four legs + low body + tail) rotate about the fore-aft shoulder hinge (hingeX,
+      // hingeY) by amp·sin(phase), symmetric. Gates measured off the bbox; retune on preview.
+      wing: { swing: 'y', hingeX: 0.3, hingeY: 0.35, minS: 0.2, amp: 0.5 },
+      // Fire-orange backlit rim (not thundercoil's electric blue) so the PBR mesh reads
+      // on-brand against the sun ahead on the flight line instead of as a black silhouette.
+      rim: { color: 0xff7a30, intensity: 0.5, power: 2.8, bias: 0.0, fill: 0x6a5240, fillIntensity: 0.2 } },
+    stats: { speed: 1.12, handling: 1.05, drain: 0.95, regen: 1.0 },   // premium fire monarch
+    model: {
+      scale: 1.0, bodyScale: 1.0, wingSpan: 1.0,
+      flapBias: 1.05, flapAmp: 1.0, spineGlow: 0,
+    },
+    // Monarch palette: obsidian/charcoal hide, burnt-bronze underbelly, molten-orange accents.
+    fx: { auraColor: '255,120,40', auraIdle: 0.06, sparkle: false },
+    body: 0x241f1c, belly: 0x8a5a2b, scales: 0x2c2622, horn: 0xc98a3a,
+    wingInner: 0x3a2a22, wingOuter: 0x161210, wingEmissive: 0xff6a1a,
+    apexEye: 0xffb030, apexSeam: 0xff5a18, coreGlow: 0xff6a1a, surgeHi: 0xffd9a0,
+    eye: 0xffb030, trail: 0xff7a1f, boostTrail: 0xff4a10,
+  },
 };
 
 // Highest multipliers in the roster (for shop stat-bar normalisation).

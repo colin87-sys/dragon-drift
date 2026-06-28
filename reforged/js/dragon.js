@@ -547,6 +547,50 @@ export function updateDragon(dt, player, time) {
     o.mesh.rotation.y = time * 1.5;
   }
 
+  // ─── SKINNED GLB RIG posing (asset-backed, e.g. pyrelord): drive the procedural skeleton
+  // from the reactive flap phase + the flight-state signals. Wings = 3-bone folding chain
+  // (shoulder sweep + elbow/wrist fold on the upstroke, per the bat/bird stroke); chest =
+  // power heave; tail = rudder counter-sweep + lagged whip. First-pass amplitudes, tuned on
+  // the preview. Mirror sign on Z keeps the beat symmetric (not a roll).
+  if (glbAnim && glbAnim.rig) {
+    const R = glbAnim.rig, BN = R.bones;
+    const ph = R.uniforms.uFlapPhase.value;
+    const amp = R.uniforms.uFlapAmp.value;            // ~0.45..0.6, scales with speed
+    const cl3 = (v, m) => Math.max(-m, Math.min(m, v));
+    const turn = cl3(player.velocity.x * 0.02, 1);    // +right / −left steer
+    const bH = bankHard, dv = diveAmount, cl = climbAmount;
+
+    // WINGS — CLEAN single-pivot flap from the shoulder, like thundercoil: the whole wing
+    // rotates as a unit about the root. Elbow/wrist held at REST for now (rigid below the
+    // shoulder) so the hinge is unmistakably at the shoulder; the fold layers back once this
+    // base flap reads right. + gentle climb spread + dive sweep-back.
+    const flapS = amp * 1.1 * Math.sin(ph);
+    const elev = cl * 0.22;
+    BN.shL.rotation.set(0, dv * 0.4 - turn * 0.12, flapS + elev);
+    BN.shR.rotation.set(0, -dv * 0.4 - turn * 0.12, -flapS - elev);
+    BN.elL.rotation.set(0, 0, 0);  BN.wrL.rotation.set(0, 0, 0);
+    BN.elR.rotation.set(0, 0, 0);  BN.wrR.rotation.set(0, 0, 0);
+
+    // BODY — NO vertical bounce (that pogo'd the head/neck). Only a gentle PITCH breath with the
+    // beat + posture pitch + roll/yaw into the turn, so the torso reads alive without the head
+    // bobbing. (Root stays at rest; vertical power-heave returns later as a body undulation that
+    // the neck COUNTERS so the head holds steady.)
+    BN.chest.position.y = R.chestRestY;
+    BN.chest.rotation.x = -0.04 * Math.sin(ph) + posturePitch * 0.2 + cl3(vertJerk * 0.01, 0.1);
+    BN.chest.rotation.z = bankZ * 0.3;
+    BN.chest.rotation.y = turn * 0.14;
+    BN.root.position.y = R.rootRestY;
+    BN.root.rotation.set(0, 0, bankZ * 0.12);
+
+    // TAIL — rudder counter-sweep (steer/bank) + climb-down / dive-up pitch + a lagged whip that
+    // trails the beat (tailB lags tailA). Large gains — the mesh tail is SHORT (a longer, more
+    // expressive tail would want a remeshed asset).
+    const sweep = -turn * (0.4 + bH * 0.7);
+    const whip = 0.35 * Math.sin(ph - 1.5);
+    BN.tailA.rotation.y = sweep * 0.6;  BN.tailA.rotation.x = cl * 0.5 - dv * 0.4 + whip * 0.5 - cl3(vertJerk * 0.012, 0.1);
+    BN.tailB.rotation.y = sweep;        BN.tailB.rotation.x = cl * 0.35 - dv * 0.25 + whip;
+  }
+
   // Wing flap: articulated cascade with speed/turn asymmetry + the blend layers (above).
   const feverBoost = player.feverActive ? 1.3 : 1;
   // FREQUENCY: boost/surge faster, a DIVE glides (slower/paused), decel eases back to normal.

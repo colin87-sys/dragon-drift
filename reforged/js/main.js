@@ -151,7 +151,7 @@ function triggerSetPiece(sp) {
 const debugFever = urlParams.get('debug') === 'fever';
 if (urlParams.has('debug')) {
   window.__dd = {
-    renderer, game, player, save: saveData, emit, ui, claimFeat,
+    renderer, scene, camera, game, player, save: saveData, emit, ui, claimFeat,
     juice: { hitstop, juiceEvent },
     postfx: { setPostTier, kick, kickState, handle: postfx },
     // Test seam: skip the attract splash and land on the dashboard hub.
