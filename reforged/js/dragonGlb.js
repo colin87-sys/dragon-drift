@@ -104,10 +104,15 @@ function attachBodyDeform(mat, u, opts = {}) {
     if (flap) {
       shader.uniforms.uFlapPhase = u.uFlapPhase; shader.uniforms.uFlapAmp = u.uFlapAmp;
       shader.uniforms.uHingeX = u.uHingeX; shader.uniforms.uHingeZ = u.uHingeZ;
-      decl += 'uniform float uFlapPhase;uniform float uFlapAmp;uniform float uHingeX;uniform float uHingeZ;\n';
+      shader.uniforms.uWingMinS = u.uWingMinS;
+      decl += 'uniform float uFlapPhase;uniform float uFlapAmp;uniform float uHingeX;uniform float uHingeZ;uniform float uWingMinS;\n';
+      // Wing verts are wide in X AND in the FRONT/shoulder region (spine coord above
+      // uWingMinS). The second gate is essential: the coiled TAIL also swings wide in
+      // X, so a |x|-only mask grabs tail verts and flaps them — the "tail warps when it
+      // moves" bug. The spine coord is the same axis the slither uses.
       body +=
         'float wside = sign(position.x);\n' +
-        'float wmask = step(uHingeX, abs(position.x));\n' +
+        'float wmask = step(uHingeX, abs(position.x)) * step(uWingMinS, ' + SP + ');\n' +
         'float fth = -wside * uFlapAmp * sin(uFlapPhase) * wmask;\n' +
         'float wdx = position.x - wside * uHingeX;\n' +
         'float wdz = position.z - uHingeZ;\n' +
@@ -234,6 +239,9 @@ export function buildGlbDragon(def, opts = {}) {
     // wing-flap (fused mesh only; harmless no-op uniforms otherwise)
     uFlapPhase: { value: 0 }, uFlapAmp: { value: wingCt?.amp ?? 0 },
     uHingeX: { value: wingCt?.hingeX ?? 1e9 }, uHingeZ: { value: wingCt?.hingeZ ?? 0 },
+    // only flap verts whose spine coord is above this (the front/shoulder wing band) —
+    // keeps the coiled tail (low spine coord) out of the wingbeat.
+    uWingMinS: { value: wingCt?.minS ?? -1e9 },
   };
   const glbAnim = {
     mixer: null,

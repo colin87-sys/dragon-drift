@@ -3321,3 +3321,13 @@ confirms it: the wing dihedral flips from drooping-down to sweeping-up. Lesson: 
 dorsal/belly (roll) are independent — measure/verify BOTH; a backlit mesh hides the roll, so confirm it
 on a lit frame (or just ask which way is up). For a vertical-standing source pose, the recipe that lands
 it is `rotX −π/2` (level) + `rotY π` (dorsal up).
+
+**Addendum 2 — a |x|-only wing mask flaps the COILED TAIL too.** The human saw the tail "warp weirdly
+when it moves." Cause: the fused-wing flap selected wing verts by `|localX| > hingeX` alone, but the
+serpent's coiled tail also swings wide in X (±0.4 vs hingeX 0.28), so the shader grabbed tail verts and
+beat them with the wings. Fix: AND a spine-band gate — `step(uHingeX,|x|) * step(uWingMinS, spineCoord)`
+— so only verts in the FRONT/shoulder band (high native Y) flap; the tail (low Y) is excluded. Added a
+gate check (`tests/wingflap.mjs`: a wide-X vert below the band must have zero displacement) so this can't
+regress. Lesson: a procedural-animation mask defined on ONE axis will catch unintended geometry on a
+folded/coiled body — gate it on the body REGION (here the spine coord), and assert the excluded region
+stays put.

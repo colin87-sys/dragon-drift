@@ -1339,9 +1339,10 @@ export const DRAGONS = {
       fusedWings: true,
       // Procedural body slither: traveling lateral spine wave (local units; amp ramps head→tail).
       slither: { amp: 0.10, freq: 8.0, speed: 4.0 },
-      // Shader wing-flap: verts past |localX|>hingeX rotate about a fore-aft hinge at the
-      // shoulder by amp·sin(phase); symmetric (both wings beat together). Tune on preview.
-      wing: { hingeX: 0.28, hingeY: 0.10, amp: 0.55 } },
+      // Shader wing-flap: verts wide in X (|localX|>hingeX) AND in the front/shoulder band
+      // (native spine Y > minS) rotate about a fore-aft hinge by amp·sin(phase), symmetric.
+      // minS keeps the coiled TAIL (low Y, but it swings wide in X) out of the wingbeat.
+      wing: { hingeX: 0.28, minS: -0.15, amp: 0.55 } },
     stats: { speed: 1.10, handling: 1.06, drain: 0.97, regen: 1.0 },   // fast + electric
     model: {
       scale: 1.0, bodyScale: 1.0, wingSpan: 1.0,
