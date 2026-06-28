@@ -1383,8 +1383,10 @@ export const DRAGONS = {
       // The deform follows these axes (dragonGlb.js reads spineAxis/spanAxis). Tagged in glbtagger.html.
       spineAxis: 'z', spanAxis: 'x',
       slither: { amp: 0.10, freq: 8.0, speed: 4.0 },
-      // wing gate (3-axis box) + tilt of the beat plane — all tuned in tools/glbtagger.html.
-      wing: { hingeX: 0.17, minS: -0.31, amp: 0.94, tilt: -1.065, minB: -0.14, maxB: 0.375 } },
+      // wing gate (3-axis box) + tilt of the beat plane + spanwise flex — tuned in tools/glbtagger.html.
+      // flex>0 curls the membrane (vs a rigid paddle) and keeps any leg/arm caught by the gate nearly
+      // still, since near-body verts barely move. Judge the curl amount on the preview.
+      wing: { hingeX: 0.11, minS: -0.17, amp: 0.94, tilt: -1.065, flex: 0.75, minB: -0.145, maxB: 0.38 } },
     stats: { speed: 1.12, handling: 1.08, drain: 0.95, regen: 1.0 },
     model: {
       scale: 1.0, bodyScale: 1.0, wingSpan: 1.0,

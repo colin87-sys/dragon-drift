@@ -3394,3 +3394,24 @@ the wingflap gate now asserts that (8 checks). Mirrored in three places at once:
 `def.glb` block. **→ Leapfrog:** the tagger is only trustworthy while it shares the engine's exact math —
 any new motion knob ships to the GLSL, the core mirror, the tests, and the tool in one atomic change, or
 the preview starts lying.
+
+## Lesson — Axis-aware fused deform + spanwise wing FLEX beat a rigid-hinge split for asset-backed wings
+Ember Monarch reconstructed with its spine along local **Z** (head +Z), not Y — but the fused-mesh
+shader deform hardcoded spine=Y, so the in-game flap/slither gated the wrong axis and never matched the
+tagger preview. Fix: **parametrise the deform axes** — `attachBodyDeform` now takes span/spine/depth and
+the caller reads `def.glb.spineAxis/spanAxis` (default x/y/z ⇒ Thundercoil byte-identical). Now any GLB's
+own native orientation is honoured; the tagger and engine finally agree for non-Y spines.
+
+**Split vs flex.** The human asked to "splice the wings off and put them on a hinge." Digging into the rig
+path (`dragonGlb.js` reparents `wing_l/wing_r` onto the shoulder→elbow→wrist scaffold) surfaced two real
+blockers: (1) reparenting pulls the wing OUT of `content`, dropping its orientation+scale, so the mesh
+must be pre-baked to the final frame first; (2) the gate box still catches a little leg/arm, and in a
+split those verts **detach and swing** (far worse than the shader, where they just flap a little). And a
+rigid hinge would still **crease at the root**. The lower-risk win that actually targets "awkward": a
+**spanwise FLEX** — ramp the beat angle `mix(1, smoothstep(hingeX, wingTip, |span|), uFlex)` so the
+membrane curls progressively (0 = the shipped rigid paddle, 1 = full curl). Bonus: near-body verts barely
+move, so any leg caught by the gate stays nearly still — it fixes the contamination symptom too. Added as
+`def.glb.wing.flex` (default 0 ⇒ Thundercoil unchanged) with a tagger slider + tests (wingflap 12).
+**→ Leapfrog:** before reparenting AI geometry onto the procedural rig, reach for a shader-space
+improvement first — flex/tilt/axis knobs got organic motion with no frame surgery and no clean-cut
+requirement; keep the true split in reserve for when a knob genuinely can't express the motion.

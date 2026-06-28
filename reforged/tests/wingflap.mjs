@@ -23,7 +23,9 @@ function flapDelta(x, z, s, phase, p) {
   const wside = Math.sign(x);
   const inB = z >= (p.minB ?? -Infinity) && z <= (p.maxB ?? Infinity);   // depth-axis (Z) band gate
   const wmask = (Math.abs(x) >= p.hingeX && s >= p.minS && inB) ? 1 : 0;
-  const fth = -wside * p.amp * Math.sin(phase) * wmask;
+  const ss = (e0, e1, xx) => { const t = Math.min(1, Math.max(0, (xx - e0) / Math.max(1e-6, e1 - e0))); return t * t * (3 - 2 * t); };
+  const flexT = 1 + (p.flex || 0) * (ss(p.hingeX, p.tip ?? 1, Math.abs(x)) - 1);   // spanwise flex; 0 = rigid
+  const fth = -wside * p.amp * Math.sin(phase) * wmask * flexT;
   const wdx = x - wside * p.hingeX;
   const wdz = z - p.hingeZ;
   const fc = Math.cos(fth), fs = Math.sin(fth);
@@ -95,6 +97,16 @@ const outBand = flapDelta(TIP, 0.5, WING_S, Math.PI / 2, { ...P, minB: -0.2, max
 check(Math.abs(inBand.dz) > 0.02, `default (no depth band) still flaps (|dz| ${Math.abs(inBand.dz).toFixed(3)})`);
 check(Math.abs(outBand.dz) < 1e-12 && Math.abs(outBand.dy) < 1e-12,
   `depth band excludes wing verts outside [minB,maxB] (no motion)`);
+
+// 8) SPANWISE FLEX (uFlex) — flex 0 is the rigid beat; flex 1 curls the membrane so a near-hinge vert
+//    moves LESS while the wingtip beat is unchanged (the ramp is 1 at the tip).
+const tipP = { ...P, tip: 0.95 };
+const rigidTip = Math.abs(flapDelta(0.95, 0.0, WING_S, Math.PI / 2, tipP).dz);
+const rigidMid = Math.abs(flapDelta(0.35, 0.0, WING_S, Math.PI / 2, tipP).dz);
+const flexTip = Math.abs(flapDelta(0.95, 0.0, WING_S, Math.PI / 2, { ...tipP, flex: 1 }).dz);
+const flexMid = Math.abs(flapDelta(0.35, 0.0, WING_S, Math.PI / 2, { ...tipP, flex: 1 }).dz);
+check(Math.abs(flexTip - rigidTip) < 1e-9, `flex leaves the wingtip beat at full amplitude (tip unchanged)`);
+check(flexMid < rigidMid - 1e-6, `flex curls the wing: near-hinge vert moves less than rigid (${flexMid.toFixed(4)} < ${rigidMid.toFixed(4)})`);
 
 console.log(`\nWing-flap gate — thundercoil (hingeX ${P.hingeX}, amp ${P.amp})`);
 console.log(`${pass} checks passed, ${fails} failed.`);

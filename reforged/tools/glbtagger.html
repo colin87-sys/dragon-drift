@@ -100,6 +100,7 @@
       <div class="tools"><button id="flap" class="mini">Flap ▶</button><button id="slither" class="mini">Slither ▶</button></div>
       <label class="sl">flap amp <b id="vFlapA">0.55</b></label><input id="flapAmp" type="range" min="0" max="1.5" step="0.01" value="0.55">
       <label class="sl">flap tilt <small class="hint">(beat plane fore/aft)</small> <b id="vFlapT">0°</b></label><input id="flapTilt" type="range" min="-120" max="120" step="1" value="0">
+      <label class="sl">wing flex <small class="hint">(0 rigid → 1 membrane curl)</small> <b id="vFlex">0.00</b></label><input id="flapFlex" type="range" min="0" max="1" step="0.01" value="0">
       <label class="sl">slither amp <b id="vSlA">0.10</b></label><input id="slAmp" type="range" min="0" max="0.4" step="0.005" value="0.10">
       <label class="sl">slither freq <b id="vSlF">8.0</b></label><input id="slFreq" type="range" min="1" max="16" step="0.1" value="8">
     </div>
@@ -227,7 +228,8 @@ let flapping = false, slithering = false, t0 = performance.now();
 function animateDeform(now) {
   if (!meshes.length) return;
   const t = (now - t0) / 1000;
-  const flap = flapping ? { hingeX: gates.hingeX, hingeZ: 0, minS: gates.wingMinS, minB: gates.wingMinB, maxB: gates.wingMaxB, amp: +$('flapAmp').value, tilt: +$('flapTilt').value * DEG, phase: t * 6.0 } : null;
+  const spanHalf = bbox ? Math.max(Math.abs(bbox.min[{ x: 0, y: 1, z: 2 }[gates.spanAxis]]), Math.abs(bbox.max[{ x: 0, y: 1, z: 2 }[gates.spanAxis]])) : 1;
+  const flap = flapping ? { hingeX: gates.hingeX, hingeZ: 0, minS: gates.wingMinS, minB: gates.wingMinB, maxB: gates.wingMaxB, amp: +$('flapAmp').value, tilt: +$('flapTilt').value * DEG, flex: +$('flapFlex').value, tip: spanHalf, phase: t * 6.0 } : null;
   const slither = slithering ? { amp: +$('slAmp').value, freq: +$('slFreq').value, waveSpeed: 4.0,
     spineMin: bbox.min[{ x: 0, y: 1, z: 2 }[gates.spineAxis]], spineMax: bbox.max[{ x: 0, y: 1, z: 2 }[gates.spineAxis]], phase: t } : null;
   for (const m of meshes) {
@@ -283,8 +285,9 @@ $('vTex').onclick = () => { view = 'tex'; $('vTex').classList.add('on'); $('vPar
 $('vParts').onclick = () => { view = 'parts'; $('vParts').classList.add('on'); $('vTex').classList.remove('on'); applyView(); };
 $('flap').onclick = () => { flapping = !flapping; $('flap').classList.toggle('on', flapping); };
 $('slither').onclick = () => { slithering = !slithering; $('slither').classList.toggle('on', slithering); };
-['flapAmp', 'flapTilt', 'slAmp', 'slFreq'].forEach((id) => $(id).addEventListener('input', () => {
+['flapAmp', 'flapTilt', 'flapFlex', 'slAmp', 'slFreq'].forEach((id) => $(id).addEventListener('input', () => {
   $('vFlapA').textContent = (+$('flapAmp').value).toFixed(2); $('vFlapT').textContent = (+$('flapTilt').value).toFixed(0) + '°';
+  $('vFlex').textContent = (+$('flapFlex').value).toFixed(2);
   $('vSlA').textContent = (+$('slAmp').value).toFixed(2); $('vSlF').textContent = (+$('slFreq').value).toFixed(1);
   updateExport();
 }));
@@ -296,7 +299,7 @@ function updateExport() {
     orient: { scale: +$('scale').value, rotX: +$('rotX').value * DEG, rotY: +$('rotY').value * DEG, rotZ: +$('rotZ').value * DEG,
       shoulderX: 0.3, shoulderY: 0.2, shoulderZ: -0.4 },
     slither: { amp: +$('slAmp').value, freq: +$('slFreq').value, speed: 4.0 },
-    flap: { hingeX: gates.hingeX, minS: gates.wingMinS, amp: +$('flapAmp').value, tilt: +$('flapTilt').value * DEG },
+    flap: { hingeX: gates.hingeX, minS: gates.wingMinS, amp: +$('flapAmp').value, tilt: +$('flapTilt').value * DEG, flex: +$('flapFlex').value },
   });
 }
 $('copy').onclick = () => { navigator.clipboard.writeText($('out').value); status('def.glb block copied — paste it back to Claude.'); };

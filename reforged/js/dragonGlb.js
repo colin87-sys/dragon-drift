@@ -110,7 +110,8 @@ function attachBodyDeform(mat, u, opts = {}) {
       shader.uniforms.uHingeX = u.uHingeX; shader.uniforms.uHingeZ = u.uHingeZ;
       shader.uniforms.uWingMinS = u.uWingMinS; shader.uniforms.uFlapTilt = u.uFlapTilt;
       shader.uniforms.uWingMinB = u.uWingMinB; shader.uniforms.uWingMaxB = u.uWingMaxB;
-      decl += 'uniform float uFlapPhase;uniform float uFlapAmp;uniform float uHingeX;uniform float uHingeZ;uniform float uWingMinS;uniform float uFlapTilt;uniform float uWingMinB;uniform float uWingMaxB;\n';
+      shader.uniforms.uFlex = u.uFlex; shader.uniforms.uWingTip = u.uWingTip;
+      decl += 'uniform float uFlapPhase;uniform float uFlapAmp;uniform float uHingeX;uniform float uHingeZ;uniform float uWingMinS;uniform float uFlapTilt;uniform float uWingMinB;uniform float uWingMaxB;uniform float uFlex;uniform float uWingTip;\n';
       // Wing verts are wide in X AND in the FRONT/shoulder region (spine coord above
       // uWingMinS). The second gate is essential: the coiled TAIL also swings wide in
       // X, so a |x|-only mask grabs tail verts and flaps them — the "tail warps when it
@@ -124,7 +125,12 @@ function attachBodyDeform(mat, u, opts = {}) {
       body +=
         'float wside = sign(' + SPAN + ');\n' +
         'float wmask = step(uHingeX, abs(' + SPAN + ')) * step(uWingMinS, ' + SP + ') * step(uWingMinB, ' + DEP + ') * step(' + DEP + ', uWingMaxB);\n' +
-        'float fth = -wside * uFlapAmp * sin(uFlapPhase) * wmask;\n' +
+        // SPANWISE FLEX: ramp the beat angle from 0 at the hinge to full at the tip so the membrane
+        // bends progressively (organic) instead of rotating as one rigid paddle that creases at the
+        // root. uFlex 0 ⇒ the shipped rigid beat; 1 ⇒ full progressive curl. Verts near the body
+        // barely move, so any leg/arm caught by the gate stays nearly still.
+        'float flexT = mix(1.0, smoothstep(uHingeX, uWingTip, abs(' + SPAN + ')), uFlex);\n' +
+        'float fth = -wside * uFlapAmp * sin(uFlapPhase) * wmask * flexT;\n' +
         'float wdx = ' + SPAN + ' - wside * uHingeX;\n' +
         'float wdz = ' + DEP + ' - uHingeZ;\n' +
         'float fc = cos(fth), fs = sin(fth);\n' +
@@ -262,6 +268,8 @@ export function buildGlbDragon(def, opts = {}) {
     // depth-axis (fore/aft, local Z) band for the wing mask — the THIRD gate that lets the wing be
     // carved off limbs sharing its span+spine. ±1e9 default ⇒ no effect (Thundercoil unchanged).
     uWingMinB: { value: wingCt?.minB ?? -1e9 }, uWingMaxB: { value: wingCt?.maxB ?? 1e9 },
+    // spanwise flex: 0 = rigid paddle beat (shipped), 1 = membrane curl. uWingTip = span half-extent.
+    uFlex: { value: wingCt?.flex ?? 0 }, uWingTip: { value: wingCt?.tip ?? 1 },
   };
   const glbAnim = {
     mixer: null,
@@ -344,6 +352,7 @@ export function buildGlbDragon(def, opts = {}) {
           o.geometry.computeBoundingBox();
           const bb = o.geometry.boundingBox;
           slitherU.uSpineMin.value = bb.min[axis]; slitherU.uSpineMax.value = bb.max[axis];
+          slitherU.uWingTip.value = Math.max(Math.abs(bb.min[spanAxis]), Math.abs(bb.max[spanAxis]));
           (Array.isArray(o.material) ? o.material : [o.material]).forEach(
             (m) => m && attachBodyDeform(m, slitherU, { axis, spanAxis, depthAxis, flap: fused && !!wingCt, rim: rimCfg }));
         });
