@@ -27,7 +27,8 @@ export const SPEC = [
   { name: 'tailB', parent: 'tailA', pos: [0.03, -0.62, -0.42] },
 ];
 
-const HX = 0.30, MINY = 0.12;   // wing gate (wide in X, above the shoulder in Y)
+const HX = 0.30, MINY = 0.04;   // wing gate: wide in X, above the legs in Y (BELOW the membrane's
+                                // bottom edge at y≈0.12 so the gate never cuts THROUGH the sheet)
 
 // PURE skin-weight assignment (no THREE / no WebGL) so tests/rig.mjs can lock the math.
 // positions: flat Float32Array [x,y,z,...]. Returns skinIndex/skinWeight (4 per vertex,
@@ -46,16 +47,16 @@ export function computeRigSkin(positions) {
     const inf = [];                                   // [boneIndex, weight] pairs
     const push = (idx, w) => { if (w > 1e-5) inf.push([idx, w]); };
 
-    if (ax > HX && y > MINY) {                         // WING chain
-      const chain = x > 0 ? [B.SHR, B.ELR, B.WRR] : [B.SHL, B.ELL, B.WRL];
-      const centers = [0.41, 0.63, 0.85], sp = 0.22;   // span position of shoulder/elbow/wrist
-      let tot = 0; const tw = centers.map((c) => { const w = Math.max(0, 1 - Math.abs(ax - c) / sp); tot += w; return w; });
-      // NARROW root blend → chest: just the innermost sliver bleeds onto the body so the seam
-      // doesn't hard-tear, but the wing stays shoulder-driven and HINGES AT THE ROOT (a wide
-      // blend pinned the inner wing to the static chest → the wing creased mid-span instead).
-      const seam = clamp01((0.36 - ax) / 0.06) * 0.45;
+    if (ax > HX && y > MINY) {                         // WING — SINGLE shoulder pivot (rigid flap)
+      // The whole membrane binds to ONE shoulder bone so it rotates as a unit about the wing
+      // root (thundercoil's single-hinge flap, on a bone). Splitting it across an elbow/wrist
+      // chain + a y-gate sheared the sheet into a crumple. A narrow inboard blend → chest keeps
+      // the root from hard-tearing. The elbow/wrist bones stay in the skeleton for the later
+      // fold pass but carry no weight yet.
+      const sh = x > 0 ? B.SHR : B.SHL;
+      const seam = clamp01((HX + 0.07 - ax) / 0.07) * 0.4;   // innermost 0.07 bleeds to chest
+      push(sh, 1 - seam);
       push(B.CHEST, seam);
-      for (let k = 0; k < 3; k++) push(chain[k], (tot > 0 ? tw[k] / tot : 0) * (1 - seam));
     } else if (z < -0.30 && ax < 0.18) {              // TAIL chain (narrow midline back)
       const centers = [-0.40, -0.55], sp = 0.16;
       let tot = 0; const tw = centers.map((c) => { const w = Math.max(0, 1 - Math.abs(z - c) / sp); tot += w; return w; });

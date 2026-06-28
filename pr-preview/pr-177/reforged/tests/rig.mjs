@@ -47,12 +47,13 @@ check(sumOk, 'every vertex weights sum to 1');
 check(negOk, 'no negative weights');
 check(cntOk, '≤4 influences per vertex');
 
-// 2) WING CHAIN — tip→wrist, mid→elbow, root→shoulder; left/right to their OWN chain.
-check(top(names.indexOf('wingTipR'))[0] === B.WRR, 'right wingtip binds to wrist (wrR)');
-check(top(names.indexOf('wingMidR'))[0] === B.ELR, 'right wing mid binds to elbow (elR)');
-check(top(names.indexOf('wingTipL'))[0] === B.WRL, 'left wingtip binds to wrist (wrL)');
-check(wOf(names.indexOf('wingTipR'), B.WRL) === 0 && wOf(names.indexOf('wingTipR'), B.SHL) === 0, 'right wing never bleeds onto LEFT bones');
-// 3) WING ROOT bleeds into the chest (so the membrane doesn't tear off the body).
+// 2) WING — the whole membrane binds to ONE shoulder bone (single-pivot rigid flap); the
+//    left/right wings bind to their OWN shoulder and never cross over.
+check(top(names.indexOf('wingTipR'))[0] === B.SHR, 'right wingtip binds to right shoulder (single pivot)');
+check(top(names.indexOf('wingMidR'))[0] === B.SHR, 'right wing mid binds to right shoulder');
+check(top(names.indexOf('wingTipL'))[0] === B.SHL, 'left wingtip binds to left shoulder');
+check(wOf(names.indexOf('wingTipR'), B.SHL) === 0, 'right wing never bleeds onto the LEFT shoulder');
+// 3) WING ROOT bleeds a little into the chest (so the root doesn't hard-tear off the body).
 check(wOf(names.indexOf('wingRootR'), B.CHEST) > 0.05, 'inboard wing root blends into chest');
 
 // 4) TAIL CHAIN — tip→tailB, base mixes tailA (+ a little root at the very base).
