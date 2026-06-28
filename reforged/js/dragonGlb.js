@@ -69,28 +69,54 @@ const anySkinned = (root) => {
   return s;
 };
 
-// Procedural body SLITHER: a traveling lateral wave down the serpent's spine,
-// injected into the GLB body material's vertex stage so it keeps its PBR
-// texture/lighting. Local +Z = head, -Z = tail (mesh-native axes), so the wave
-// runs along local Z and displaces local X (lateral); amplitude ramps 0→1 from
-// head→tail (the head leads, the tail whips), with a faint vertical roll for
-// organic feel. Driven by uniforms ticked in dragon.js (reactive to speed).
+// Procedural body DEFORM: a traveling lateral SLITHER wave down the serpent's
+// spine, plus (for a fused winged mesh) a shader WING-FLAP — both injected into
+// the GLB material's vertex stage so it keeps its PBR texture/lighting. Done in
+// MESH-LOCAL space (before the model matrix) so they're immune to the rotY/rotX/
+// scale placement. Driven by uniforms ticked in dragon.js (reactive to speed).
 // Normals are intentionally NOT recomputed (a subtle shear; cheaper, holds 60fps).
-function attachSlither(mat, u) {
+//
+// SLITHER: a wave runs along the spine axis (`opts.axis`: 'z' = the legacy body,
+// head +Z→tail −Z, displacing X; 'y' = the unified winged mesh, head +Y→tail −Y,
+// displacing X with a faint Z roll). Amplitude ramps 0→1 head→tail (head leads,
+// tail whips). The math is the SAME 1-D traveling wave either way (tests/slither.mjs).
+//
+// WING-FLAP (`opts.flap`, the fused winged mesh): verts past |localX|>uHingeX are
+// the wings; they rotate about a fore-aft hinge (local Y, at localX=±uHingeX) by
+// −side·amp·sin(phase) so BOTH wings beat together (wingtips swing through local Z,
+// which the −90° flight pitch maps to world up/down). Body verts are untouched
+// (mask=0 → identity). Mirrors tests/wingflap.mjs.
+function attachBodyDeform(mat, u, opts = {}) {
+  const axis = opts.axis === 'y' ? 'y' : 'z';
+  const SP = axis === 'y' ? 'position.y' : 'position.z';   // spine coordinate
+  const LB = axis === 'y' ? 'z' : 'y';                     // secondary "roll" lateral axis
+  const flap = !!opts.flap;
   mat.onBeforeCompile = (shader) => {
     shader.uniforms.uTime = u.uTime; shader.uniforms.uAmp = u.uAmp;
     shader.uniforms.uFreq = u.uFreq; shader.uniforms.uWaveSpeed = u.uWaveSpeed;
     shader.uniforms.uSpineMin = u.uSpineMin; shader.uniforms.uSpineMax = u.uSpineMax;
-    shader.vertexShader =
-      'uniform float uTime;uniform float uAmp;uniform float uFreq;uniform float uWaveSpeed;uniform float uSpineMin;uniform float uSpineMax;\n' +
-      shader.vertexShader.replace(
-        '#include <begin_vertex>',
-        '#include <begin_vertex>\n' +
-        'float spineT = clamp((uSpineMax - position.z) / max(0.0001, uSpineMax - uSpineMin), 0.0, 1.0);\n' +
-        'float phase = uFreq * position.z + uWaveSpeed * uTime;\n' +
-        'transformed.x += uAmp * spineT * sin(phase);\n' +
-        'transformed.y += uAmp * 0.3 * spineT * cos(phase);\n'
-      );
+    let decl = 'uniform float uTime;uniform float uAmp;uniform float uFreq;uniform float uWaveSpeed;uniform float uSpineMin;uniform float uSpineMax;\n';
+    let body =
+      'float spineT = clamp((uSpineMax - ' + SP + ') / max(0.0001, uSpineMax - uSpineMin), 0.0, 1.0);\n' +
+      'float phase = uFreq * ' + SP + ' + uWaveSpeed * uTime;\n' +
+      'transformed.x += uAmp * spineT * sin(phase);\n' +
+      'transformed.' + LB + ' += uAmp * 0.3 * spineT * cos(phase);\n';
+    if (flap) {
+      shader.uniforms.uFlapPhase = u.uFlapPhase; shader.uniforms.uFlapAmp = u.uFlapAmp;
+      shader.uniforms.uHingeX = u.uHingeX; shader.uniforms.uHingeZ = u.uHingeZ;
+      decl += 'uniform float uFlapPhase;uniform float uFlapAmp;uniform float uHingeX;uniform float uHingeZ;\n';
+      body +=
+        'float wside = sign(position.x);\n' +
+        'float wmask = step(uHingeX, abs(position.x));\n' +
+        'float fth = -wside * uFlapAmp * sin(uFlapPhase) * wmask;\n' +
+        'float wdx = position.x - wside * uHingeX;\n' +
+        'float wdz = position.z - uHingeZ;\n' +
+        'float fc = cos(fth), fs = sin(fth);\n' +
+        'transformed.x += (wside * uHingeX + wdx * fc + wdz * fs) - position.x;\n' +
+        'transformed.z += (uHingeZ - wdx * fs + wdz * fc) - position.z;\n';
+    }
+    shader.vertexShader = decl + shader.vertexShader.replace(
+      '#include <begin_vertex>', '#include <begin_vertex>\n' + body);
   };
   mat.needsUpdate = true;
 }
@@ -158,32 +184,10 @@ export function buildGlbDragon(def, opts = {}) {
   const authoredWingL = makeMembraneWing(-1); wingRigL.shoulder.add(authoredWingL);
   const authoredWingR = makeMembraneWing(1); wingRigR.shoulder.add(authoredWingR);
 
-  // OPTIONAL: an AI-generated WING mesh (def.glb.wingMesh) parented under the flap
-  // rig, replacing the authored membrane — so the same flapWing() beat animates a
-  // real generated wing for free (a separate single-wing GLB reconstructs far better
-  // than wings buried in a full-body shot). One mesh authored for the RIGHT side;
-  // the left is a true mirror via a scale.x = -1 holder. Browser-only (the headless
-  // contract test keeps the authored wings). Tunable placement: {scale,rot,offset}.
-  const wingCfg = cfg.wingMesh || null;
-  if (inBrowser() && wingCfg && wingCfg.url) {
-    preloadDragonAsset(wingCfg.url).then((gltf) => {
-      if (!gltf || !gltf.scene) return;
-      const mountWing = (rig, side) => {
-        const holder = new THREE.Group();
-        holder.scale.x = side;                 // mirror the whole wing for the off side
-        const w = gltf.scene.clone(true);
-        w.scale.setScalar(wingCfg.scale ?? 1);
-        if (wingCfg.rot) w.rotation.set(wingCfg.rot[0] || 0, wingCfg.rot[1] || 0, wingCfg.rot[2] || 0);
-        if (wingCfg.offset) w.position.set(wingCfg.offset[0] || 0, wingCfg.offset[1] || 0, wingCfg.offset[2] || 0);
-        w.traverse((o) => { if (o.isMesh && o.material) o.material.side = THREE.DoubleSide; });
-        holder.add(w);
-        rig.shoulder.add(holder);
-      };
-      mountWing(wingRigR, 1);
-      mountWing(wingRigL, -1);
-      authoredWingL.visible = false; authoredWingR.visible = false;
-    });
-  }
+  // NOTE: the separate AI-wing path (def.glb.wingMesh on the flap rig) is retired —
+  // Thundercoil is now a single UNIFIED winged mesh (def.glb.fusedWings) that carries
+  // its own wings, flapped by the shader deform. The authored membranes above remain
+  // only as the headless / no-asset fallback (hidden in-browser once the mesh loads).
 
   // Aura sprite — dragon.js dereferences this UNCONDITIONALLY (fever/idle halo).
   const auraSprite = new THREE.Sprite(new THREE.SpriteMaterial({
@@ -197,16 +201,24 @@ export function buildGlbDragon(def, opts = {}) {
   group.scale.setScalar(model.scale || 1);
 
   // Holder ticked by dragon.js every frame: a baked-clip mixer (skinned GLB) and/or
-  // the procedural body-slither uniforms (a traveling spine wave; def.glb.slither).
+  // the procedural body-deform uniforms (the traveling spine wave def.glb.slither,
+  // and — for a fused winged mesh — the shader wing-flap def.glb.wing).
   const slither = cfg.slither || null;
+  const fused = !!cfg.fusedWings;          // the unified winged mesh (spine along Y, shader flap)
+  const wingCt = cfg.wing || null;
   const slitherU = {
     uTime: { value: 0 }, uAmp: { value: slither?.amp ?? 0 },
     uFreq: { value: slither?.freq ?? 6.0 }, uWaveSpeed: { value: slither?.speed ?? 4.0 },
     uSpineMin: { value: -1 }, uSpineMax: { value: 1 },
+    // wing-flap (fused mesh only; harmless no-op uniforms otherwise)
+    uFlapPhase: { value: 0 }, uFlapAmp: { value: wingCt?.amp ?? 0 },
+    uHingeX: { value: wingCt?.hingeX ?? 1e9 }, uHingeZ: { value: wingCt?.hingeZ ?? 0 },
   };
   const glbAnim = {
     mixer: null,
     slither: slither ? { uniforms: slitherU, baseAmp: slither.amp ?? 0 } : null,
+    // wing-flap clock (dragon.js advances uFlapPhase reactively); null if not fused.
+    wingFlap: (fused && wingCt) ? { uniforms: slitherU, baseAmp: wingCt.amp ?? 0 } : null,
   };
 
   // --- async swap-in (browser only) ---------------------------------------
@@ -245,24 +257,30 @@ export function buildGlbDragon(def, opts = {}) {
         node.position.set(0, 0, 0); node.rotation.set(0, 0, 0); node.scale.set(1, 1, 1);
         rig.shoulder.add(node);
       };
-      if (wl || wr) {
-        reparent(wl, wingRigL);
-        reparent(wr, wingRigR);
-        authoredWingL.visible = false; authoredWingR.visible = false; // GLB supplies wings
+      if (fused || wl || wr) {
+        // A fused winged mesh carries its own wings (flapped by the shader deform),
+        // or a GLB with named wing nodes hangs them on the flap scaffold — either
+        // way the authored membrane fallback is retired.
+        if (wl || wr) { reparent(wl, wingRigL); reparent(wr, wingRigR); }
+        authoredWingL.visible = false; authoredWingR.visible = false;
       }
       const hn = findFirst(content, /^head$/i);
       if (hn) { hn.position.set(0, 0, 0); head.add(hn); }
       headBox.visible = false;       // body+head silhouette retired (GLB body takes over)
       placeholder.visible = false;
-      // Procedural slither — wire the spine wave into every (body) mesh material
-      // and set the wave's spine bounds from the real geometry's local Z extent.
-      if (slither) {
+      // Procedural deform — wire the spine wave (+ fused wing-flap) into every mesh
+      // material. The unified winged mesh's spine runs along local Y (head +Y → tail
+      // −Y); the legacy wingless body runs along local Z. Bounds from the real bbox.
+      if (slither || (fused && wingCt)) {
+        const axis = fused ? 'y' : 'z';
         content.traverse((o) => {
           if (!o.isMesh || !o.geometry) return;
           o.geometry.computeBoundingBox();
           const bb = o.geometry.boundingBox;
-          slitherU.uSpineMin.value = bb.min.z; slitherU.uSpineMax.value = bb.max.z;
-          (Array.isArray(o.material) ? o.material : [o.material]).forEach((m) => m && attachSlither(m, slitherU));
+          slitherU.uSpineMin.value = axis === 'y' ? bb.min.y : bb.min.z;
+          slitherU.uSpineMax.value = axis === 'y' ? bb.max.y : bb.max.z;
+          (Array.isArray(o.material) ? o.material : [o.material]).forEach(
+            (m) => m && attachBodyDeform(m, slitherU, { axis, flap: fused && !!wingCt }));
         });
       }
       group.add(content);            // remaining nodes (body, etc.) ride the root
