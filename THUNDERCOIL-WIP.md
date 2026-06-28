@@ -34,7 +34,9 @@
 - Orientation: leveled to the roster convention by MEASUREMENT. A procedural reference (azure) sits
   head [0,+0.31,−1.91] / tail [0,+0.2,+2.11] (head −Z, tail +Z, equal height). Transforming
   thundercoil's native bbox ends through its live world matrix showed `rotX −1.2` was a 21° nose-up
-  rear; `rotX = −π/2` levels it to match. Now `def.glb { scale 3.9, rotX −1.5708 }`.
+  rear; `rotX = −π/2` levels it to match. Then the human caught it flying BELLY-UP (native +Z is the
+  belly), fixed with `rotY = π` (180° roll about the spine, dorsal up). Now
+  `def.glb { scale 3.9, rotY Math.PI, rotX −1.5708 }`; wings read as a raised V.
 - Brightness: a backlit PBR GLB read as a black silhouette. Added a fresnel rim + neutral fill folded
   into the deform shader (`def.glb.rim`, edge-weighted so the body keeps its grey with an electric edge).
 
