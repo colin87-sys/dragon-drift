@@ -19,6 +19,7 @@
 import * as THREE from 'three';
 import { makeGlowTexture } from './util.js';
 import { applyFresnelRim } from './surface.js';
+import { buildRig } from './dragonGlbRig.js';
 
 // --- module cache: url -> Promise<gltf> (one parse shared by game + preview) ---
 const _cache = new Map();
@@ -326,6 +327,9 @@ export function buildGlbDragon(def, opts = {}) {
           fill: (cfg.rim && cfg.rim.fill) ?? 0x6a7896, // neutral steel fill lifts the backlit side
           fillIntensity: (cfg.rim && cfg.rim.fillIntensity) ?? 0.2,
         };
+        // The shader vertex-shear flap is the FALLBACK; when a skinned rig is requested
+        // (cfg.skinnedRig) the bones do the wingbeat instead, so don't ALSO shear it.
+        const shaderFlap = fused && !!wingCt && !cfg.skinnedRig;
         content.traverse((o) => {
           if (!o.isMesh || !o.geometry) return;
           o.geometry.computeBoundingBox();
@@ -333,8 +337,24 @@ export function buildGlbDragon(def, opts = {}) {
           slitherU.uSpineMin.value = axis === 'y' ? bb.min.y : bb.min.z;
           slitherU.uSpineMax.value = axis === 'y' ? bb.max.y : bb.max.z;
           (Array.isArray(o.material) ? o.material : [o.material]).forEach(
-            (m) => m && attachBodyDeform(m, slitherU, { axis, flap: fused && !!wingCt, flapSwing: wingCt?.swing === 'y' ? 'y' : 'z', rim: rimCfg }));
+            (m) => m && attachBodyDeform(m, slitherU, { axis, flap: shaderFlap, flapSwing: wingCt?.swing === 'y' ? 'y' : 'z', rim: rimCfg }));
         });
+      }
+      // SKINNED RIG (cfg.skinnedRig): replace the static mesh with a SkinnedMesh driven by
+      // a procedural skeleton — 3-bone folding wings + chest heave + 2-bone tail whip, posed
+      // reactively in dragon.js (flap phase + bank/dive/climb signals). Legs + dedicated
+      // neck/head bones come next; for now neck/head ride the chest and legs ride the root.
+      if (cfg.skinnedRig && fused) {
+        let srcMesh = null;
+        content.traverse((o) => { if (!srcMesh && o.isMesh && o.geometry) srcMesh = o; });
+        const rig = srcMesh && buildRig(THREE, srcMesh);
+        if (rig) {
+          const parent = srcMesh.parent || content;
+          parent.add(rig.skinned);
+          parent.remove(srcMesh);
+          // dragon.js poses these bones each frame; uniforms carry the reactive flap phase/amp.
+          glbAnim.rig = { bones: rig.bones, uniforms: slitherU, chestRestY: rig.bones.chest.position.y };
+        }
       }
       group.add(content);            // remaining nodes (body, etc.) ride the root
     });
