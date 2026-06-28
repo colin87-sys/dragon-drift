@@ -1302,6 +1302,59 @@ export const DRAGONS = {
     apexEye: 0x3fc6ff, apexSeam: 0xff3b2f, coreGlow: 0xff8a1f, surgeHi: 0xfff3d0,
     eye: 0x3fc6ff, trail: 0xff8a1f, boostTrail: 0xff3b2f,
   },
+
+  // ── ASSET-BACKED EXPERIMENT (not procedural) ──────────────────────────────
+  // THUNDERCOIL AMPITHERE — a legless storm-serpent whose BODY mesh is a committed
+  // GLB (assets/models/thundercoil.glb), loaded by dragonGlb.js instead of
+  // buildDragonModel's procedural builders. It coexists with the procedural
+  // roster (which is untouched) to prove the AI-asset pipeline. `assetBacked`
+  // caps it at one form (no ascension morph) and bypasses the procedural
+  // creature-grammar validation.
+  //   HYBRID rig: the GLB supplies only the wingless body+head; dragonGlb.js
+  //   mounts authored storm-membrane WINGS under the flap rig, so the shipped
+  //   gameplay-reactive wingbeat animates the AI mesh (thin membranes also
+  //   reconstruct poorly from image-to-3D, so the body is the only AI part).
+  //   The GLB is the REAL Higgsfield body now: a textured, wingless storm-serpent
+  //   from image_to_3D (job c608693e, ~31k tris, single mesh, no rig). Retune the
+  //   glb.{scale,rotY,shoulder} placement on the PR preview — no code change.
+  thundercoil: {
+    name: 'Thundercoil Ampithere',
+    title: 'A storm given a spine',
+    rarity: 'SSR',
+    maxRarity: 'SSR',
+    cost: 0,                 // free so the experiment is one tap to equip + test
+    assetBacked: true,
+    meshUrl: './assets/models/thundercoil.glb',
+    // UNIFIED WINGED MESH: one fused GLB (body + head + wings) from the cel-shaded
+    // hero concept (Higgsfield job d01ab50b). Native pose stands vertical — spine
+    // along +Y (head +Y → tail −Y), wingspan ±X, and dorsal −Z / belly +Z. Facing is
+    // MEASURED, not guessed: rotX = −π/2 lays native +Y/−Y level (head −Z, tail +Z at
+    // equal height) to match the procedural roster (azure: head [0,+0.31,−1.91] /
+    // tail [0,+0.2,+2.11]); rotY = π then rolls 180° about the spine so the DORSAL
+    // faces up — the bare −π/2 left the belly up. `fusedWings` retires the authored/
+    // separate wings (the mesh carries its own) and turns on the shader wing-flap
+    // deform; `rim` defaults add a fresnel edge + fill so the PBR mesh isn't a black
+    // silhouette when backlit. Retune on the PR preview.
+    glb: { scale: 3.9, rotY: Math.PI, rotX: -1.5708, rotZ: 0, shoulder: [0.3, 0.2, -0.4], riderAt: [0, 0.9, 0.2],
+      fusedWings: true,
+      // Procedural body slither: traveling lateral spine wave (local units; amp ramps head→tail).
+      slither: { amp: 0.10, freq: 8.0, speed: 4.0 },
+      // Shader wing-flap: verts wide in X (|localX|>hingeX) AND in the front/shoulder band
+      // (native spine Y > minS) rotate about a fore-aft hinge by amp·sin(phase), symmetric.
+      // minS keeps the coiled TAIL (low Y, but it swings wide in X) out of the wingbeat.
+      wing: { hingeX: 0.28, minS: -0.15, amp: 0.55 } },
+    stats: { speed: 1.10, handling: 1.06, drain: 0.97, regen: 1.0 },   // fast + electric
+    model: {
+      scale: 1.0, bodyScale: 1.0, wingSpan: 1.0,
+      flapBias: 1.05, flapAmp: 1.0, spineGlow: 0,
+    },
+    // Storm palette: charcoal/navy hide, pale-silver underbelly, electric blue-white accents.
+    fx: { auraColor: '120,200,255', auraIdle: 0.05, sparkle: false },
+    body: 0x232838, belly: 0xb9c4d6, scales: 0x2c3346, horn: 0x9fc4ff,
+    wingInner: 0x33405c, wingOuter: 0x161a26, wingEmissive: 0x8ec8ff,
+    apexEye: 0xd6ecff, apexSeam: 0x8ec8ff, coreGlow: 0x7ab8ff, surgeHi: 0xeaf4ff,
+    eye: 0xbfe2ff, trail: 0x8ec8ff, boostTrail: 0x5aa0ff,
+  },
 };
 
 // Highest multipliers in the roster (for shop stat-bar normalisation).

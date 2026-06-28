@@ -2980,3 +2980,370 @@ dragon from a guessed wing rig + connection would have been the very "back-and-f
 human's next trace (wing rig + joint + body outline); extend `deriveWingForm` to estimate `scallop` from the
 mean finger-notch depth; add tail/head rig modes the same way; overlay the BUILT silhouette behind the trace
 so correction is one screen.
+
+---
+
+## Lesson — Asset-backed dragon (GLB) can COEXIST with the procedural roster behind one `def.meshUrl` branch
+
+**What we did (experiment branch `claude/dragon-drift-mcp-higgsfield-jo93e2`).** Proved that an AI-generated
+**GLB mesh** can fly as a real dragon WITHOUT touching the 100%-procedural roster. New dragon `aether`
+(`dragons.js`, additive, appended last) carries `assetBacked:true` + `meshUrl:'./assets/models/aether.glb'`.
+`buildDragonModel` (dragonModel.js) gets ONE early branch — `if (def.meshUrl) return buildGlbDragon(def, opts)`
+— so every procedural dragon is byte-identical (tricount roster total unchanged, `0 over budget`). New module
+`dragonGlb.js` returns the EXACT `{ group, parts, materials, auraSprite }` contract the engine already consumes.
+
+**The key reuse — gameplay-reactive flap for FREE.** dragon.js already drives a `{shoulder,elbow,wrist}` rig via
+`flapWing()` in the `if (wingRigL)` branch (the skinned-wing path). So `dragonGlb.js` builds an EMPTY
+shoulder→elbow→wrist scaffold, exposes it as `parts.wingRigL/R`, and re-parents the GLB's wing nodes under it.
+Result: the shipped, fully-reactive wingbeat (speed/boost/steer/climb) animates the AI mesh with **zero new
+animation code**. A SKINNED GLB instead plays its baked `AnimationClip` via `THREE.AnimationMixer`
+(`parts.glbAnim.mixer`, ticked once near the top of `updateDragon`) as the fallback. The whole-body transform
+(position/bank/pitch) is shared and untouched either way.
+
+**Contract gotchas that bite (must-return-real, not null).** `auraSprite` is dereferenced UNCONDITIONALLY in
+`updateDragon` (`auraSprite.material.opacity`), so the GLB path MUST return a real `THREE.Sprite`. `head` and
+`wingRigL/R.shoulder` must be real Object3Ds (head rotation is set every frame). Everything else
+(`tailSegs:[]`, `spineSegs:[]`, `bodySegs:null`, `wingPivot2*`, `tipMarker*`) is `if`-guarded or loop-over-empty,
+so null/undefined is safe — keep `spineGlow:0` so the wing-contrail block (gated `spineGlow>=0.5`) stays off.
+
+**Vendoring with NO build step.** `lib/loaders/GLTFLoader.js` + `lib/utils/{BufferGeometryUtils,SkeletonUtils}.js`
+copied from the `three@0.160.0` npm tarball (the CDN is egress-blocked; `registry.npmjs.org` is allowed). They
+`import {...} from 'three'`, which the existing importmap resolves — no bundler. GLTFLoader is imported
+**dynamically** and only in a real browser (`/^https?:$/.test(location.protocol)`), so Node tools never touch the
+DOM. Request an **uncompressed** GLB so no DRACO/meshopt wasm is needed.
+
+**Tooling kept green (all headless, no WebGL).** `tricount.mjs` SKIPS `def.meshUrl` dragons (a GLB can't be built
+headlessly and has no per-form budget) — their cost is reported by the new `tests/glb.mjs`, which validates the
+glTF2 binary header + JSON chunk and sums accessor triangles with NO renderer. `defs.mjs` and
+`validateCreatureBlueprint.js` short-circuit on `assetBacked` (no procedural forms/grammar). `maxTierFor` returns
+0 for asset dragons (a static mesh can't morph across ascension → single form). `stamp-sw.mjs` now walks
+`assets/models/*.glb` so the mesh precaches + serves same-origin offline. A hand-authored placeholder GLB
+(`tools/make-placeholder-glb.mjs`, pure-Node glTF encoder) proves the entire pipeline end-to-end before spending
+any Higgsfield credits; the real AI mesh later overwrites `assets/models/aether.glb` (then re-run stamp-sw).
+
+**Known limits (scope, not bugs).** One static form (no ascension geometry morph); reduced Surge/fever tinting
+on the PBR GLB (the dummy `bodyMat` rim/emissive hooks fire but don't reach the loaded material); AI meshes run
+far over the ~6000-tri procedural budget — the explicit subject of the experiment, judged on the PR preview.
+**→ Leapfrog:** the real Higgsfield asset is a credit-gated step (image → 3D → rig+animate → download → commit);
+when it lands, decide skinned (drive its bones / mixer) vs non-skinned (re-parent wing nodes) from what the
+export actually contains, then retune `def.glb.{scale,rotY,shoulder}` on the preview — no code change needed.
+
+---
+
+## Lesson — The asset dragon is HYBRID (AI body + authored rigged wings), and the GLB drop-in is egress-gated
+
+**What we did (branch `claude/thundercoil-dragon-continue-7hb2zq`).** Continued the Thundercoil experiment toward the
+real Higgsfield asset and turned the asset path from "load a whole creature" into a HYBRID: the GLB supplies only
+the **wingless body+head**; `dragonGlb.js` mounts authored storm-membrane **wings** permanently under the flap rig.
+This is a deliberate design choice, not a fallback — two reasons, both load-bearing:
+1. **Motion.** Meshy's image-to-3D returns ONE static mesh with no named `wing_L/wing_R` nodes, and its auto-rig
+   "rigs non-bipeds poorly" (a legless serpent rigs to garbage). A one-shot winged mesh would fly with RIGID wings
+   — fatal for a flapping-dragon game. Authored wings under the existing `flapWing()` rig stay gameplay-reactive
+   (speed/boost/steer/climb) for free.
+2. **Reconstruction.** Thin wing membranes are exactly what image-to-3D reconstructs worst; the BODY is the part
+   that comes back clean. So generate only the body.
+
+**dragonGlb.js restructure (back-compatible).** The placeholder silhouette is now split: `placeholder` is the
+**body+head** stand-in only; `authoredWingL/R` are separate meshes parented under `wingRigL/R.shoulder`. On GLB load
+the swap-in: (a) if the GLB carries named wing nodes → reparent them under the rig AND hide the authored wings (a
+fully-modelled winged export still works); (b) else → keep the authored wings (the hybrid AI-body case); (c) always
+hide BOTH the placeholder body and the `headBox`. **Bug fixed in passing:** the old code hid only the body box, so a
+loaded GLB rendered the placeholder head + wings ON TOP of it (double geometry) — now the whole silhouette retires.
+The committed placeholder is regenerated **wingless** (`make-placeholder-glb.mjs`, 175 tris, 3 meshes) so the shipped
+asset exercises the authored-wing path, matching the real asset's shape.
+
+**New headless test `tests/glbcontract.mjs`.** Builds the asset-backed dragon through `buildDragonModel` under the
+three-resolver + DOM shim (mirrors tricount). In Node `inBrowser()` is false → the async swap-in is skipped and the
+SYNCHRONOUS placeholder+rig is returned, so the `{group,parts,materials,auraSprite}` contract is checkable with no
+WebGL: asserts `auraSprite.isSprite` (dereferenced every frame), `parts.head` is an Object3D, each `wingRig*.shoulder`
+carries an `authoredWing` mesh (the hybrid invariant), and `bodyMat` is real. Locks the must-return-real gotchas +
+the wing invariant against regression. defs/blueprint/flapcheck/ascension/glb/tricount stay green; roster total
+byte-identical (203265).
+
+**The gotcha that stopped the credit spend — egress policy blocks the asset CDN.** Generated the wingless body
+concept image on Higgsfield (`nano_banana_2`, 2 credits, job `c15b5f0c…`), but the result + any GLB live on
+`d8j0ntlcm91z4.cloudfront.net`, which this remote environment's egress policy **denies (403 on CONNECT)**. The proxy
+README says report blocked hosts, don't route around them. So the GLB **cannot be downloaded and committed from this
+session** — the credit-gated 3D step would produce a file we can't retrieve. We did NOT spend the 3D credits.
+**→ Leapfrog:** the body-mesh drop-in must happen where the Higgsfield CDN is reachable (a session with that host
+allowlisted, or the human downloads the GLB and commits it). The repo is now fully READY for it: overwrite
+`assets/models/thundercoil.glb` with the AI body, re-run `stamp-sw`, retune `def.glb.{scale,rotY,shoulder}` on the
+preview — no code change. Everything downstream (rig, wings, contract test, SW precache) already works against the
+placeholder, so the swap is one file + one stamp.
+
+---
+
+## Lesson — The egress unblocked, so the real AI body LANDED: the swap was exactly the "one file + one stamp" the prior lesson predicted
+
+**What we did (branch `claude/thundercoil-dragon-continue-7hb2zq`, continued).** The previous lesson left the asset
+pipeline fully built but blocked on egress — the Higgsfield CDN that serves generated meshes was 403-denied, so the
+3D step was held and credits unspent. This session the egress was OPEN (confirmed by curl'ing the prior concept PNG
+on `d8j0ntlcm91z4.cloudfront.net` → HTTP 200), which is the whole reason the sibling `higgsfield-download-perms`
+branch existed. So we finished the credit-gated step end to end:
+1. Reused the EXISTING wingless body concept image (job `c15b5f0c`, "ABSOLUTELY NO WINGS" storm-serpent turnaround) —
+   no new image credits. `show_generations(type:'image')` surfaced it by id.
+2. `generate_3d` with `model:'image_to_3d'`, `should_texture:true`, rigging OFF (job `c608693e`, **30 credits**;
+   preflighted free with `get_cost:true` — untextured was 20, textured 30). Rigging stays off on purpose: the prior
+   lesson's reason holds (auto-rig mangles a legless serpent; motion comes from the authored wings).
+3. Downloaded the result GLB and overwrote `assets/models/thundercoil.glb`, re-ran `tools/stamp-sw.mjs`, done.
+
+**The swap was byte-for-byte the predicted "one file + one stamp."** Only two files changed: the GLB and `sw.js`
+(version bump + precache list). Zero code edits to make it WORK — the hybrid path, contract test, and SW walker all
+just consumed the new asset. The only code touch was refreshing a now-stale "placeholder body" comment in
+`dragons.js`. Roster total stayed byte-identical (203265); `defs/blueprint/flapcheck/ascension/glb/glbcontract`
+all green; `tricount` still `0 over budget` (it skips `meshUrl` dragons).
+
+**Gotchas worth keeping:**
+- **The result GLB lives on a DIFFERENT CDN host than the concept image** — `d3u0tzju9qaucj.cloudfront.net` (3D
+  output), not `d8j0ntlcm91z4` (image output). Both happened to be reachable this session, but when checking egress,
+  verify the host that actually serves the *3D* result, not just the image CDN.
+- **What `image_to_3d` returns for a stylized creature:** ONE merged mesh named `Mesh_0`, 1 PBR material, 2 texture
+  images, **no skin, no animation, no named wing/head nodes**, glTF2, `extensionsRequired:[]` (uncompressed — no
+  DRACO/meshopt wasm, exactly what the no-build importmap needs). 31,153 tris, 6.7 MB (the BIN is almost all
+  texture). So the hybrid branch's "non-skinned, no wing nodes → keep the authored membrane wings" path is the one
+  that fires, as designed. Verify a fresh asset's shape with the JSON-chunk inspector (parse the GLB header, read
+  `meshes/skins/animations/node.names` + sum accessor tris) BEFORE wiring expectations — don't assume named nodes.
+- **6.7 MB is heavy for an offline-precached asset on weak mobile.** Accepted as the explicit subject of the
+  experiment (judged on the PR preview), but it's the real cost of an AI mesh vs the ~6k-tri procedural budget. If
+  this graduates from experiment to shipped, decimate + downscale the textures (or split the GLB out of the SW
+  precache and lazy-load it) before it rides in the offline bundle.
+
+**→ Leapfrog:** the asset path is now PROVEN with a real AI mesh, not a placeholder. Next is purely tuning + judgment
+on the preview: retune `def.glb.{scale,rotY,shoulder}` so the body sits right and the authored wings mount at the
+real shoulders; decide whether 31k tris / 6.7 MB earns its place or needs a decimation pass; and if the storm-serpent
+reads well, this is the template for any future AI-bodied dragon (concept image → `image_to_3d` textured/no-rig →
+overwrite a `meshUrl` GLB → stamp). The body-vs-wings division of labour (AI body, authored reactive wings) is the
+reusable pattern, not a one-off.
+
+---
+
+## Lesson — Placing an AI mesh in the chase cam: VERIFY WITH `gameshots`, don't reason about Euler angles by eye
+
+**What we did.** First in-game look at the real Thundercoil GLB: it was tiny and facing the wrong way. Fixed both,
+but the win was the METHOD — `tools/gameshots.mjs` (Playwright + the live chase cam) renders the asset-backed dragon
+in the REAL renderer, which is the only way to judge a GLB (no headless WebGL — silhouette tools are procedural-only).
+Chromium IS available in this environment, so the loop is: edit `def.glb` → `node tools/_oneshot.mjs` (a 1-tier clone
+of gameshots) → screenshot → crop the dragon → look → repeat. Four iterations took minutes and removed ALL guessing.
+
+**The orientation facts (storm-serpent mesh, head at +Z / tail −Z / curl in +Y):**
+- The game writes `group.rotation.{x,y,z}` EVERY FRAME (dragon.js ~L493–499 for bank/pitch/yaw), so you CANNOT bake
+  facing into the figure group. Facing must live on the GLB *content* via `cfg.rotY/rotX/rotZ` (applied in
+  `applyGlbTransform`) — which is exactly why that hook exists. Added `rotX`/`rotZ` alongside the existing `rotY`.
+- Procedural dragons face **head −Z** (`headBase.z` is negative; chase cam looks toward `player.z − 16`). The GLB
+  came head **+Z** → `rotY = Math.PI`. That alone read as a vertical PILLAR, because this mesh's bbox is Y≈1.33 vs
+  Z≈1.91 — it's posed as a *floating vertical curl*, not a flat flight pose. A forward pitch lays the curl into a
+  flight line. **Sign matters and is NOT obvious from the numbers:** `rotX = −1.0` nosed the head DOWN toward the
+  camera (tail up/far — looked backwards); `rotX = +1.0` put the wedge head far/up-into-screen and the forked tail
+  trailing toward the camera — the correct chase read. The crop is what told them apart; don't trust intuition on
+  composed Euler rotations — render it.
+
+**Sizing without ballooning the rider.** The rider is parented UNDER the dragon group (`group.add(rider)`) and scales
+with `model.scale`, so DON'T size an asset dragon via `model.scale` (it inflates the rider too — same reason
+procedural dragons grow via `bodyScale`/`wingSpan`, not the group). Instead: body via `cfg.scale` (1.0→3.6 → ~7-unit
+body, matching Pearl/Aurum apex body length ~8 measured headlessly), and a NEW `cfg.wingScale` that multiplies the
+authored membrane-wing coords (the wings are fixed-size geometry, immune to `cfg.scale` which only touches the GLB
+content). Shoulders moved to `z = −1.6` so the wing roots sit on the chest, which is the −Z/front end after `rotY`.
+
+**Reusable knobs now on `def.glb`:** `{ scale, rotY, rotX, rotZ, shoulder:[x,y,z], wingScale, riderAt:[_,y,z] }` —
+the full placement vocabulary for any future AI-bodied dragon, all tunable from `dragons.js` with no code change.
+glbcontract/glb/defs/blueprint/flapcheck/ascension stay green.
+**→ Leapfrog:** open polish (preview judgment): the authored wings read SMALL beside the long serpent and sit high
+near the head — enlarge `wingScale` / re-place `shoulder`, or rethink the wing planform for an amphithere. And the
+body is still RIGID — it rides the shared whole-body transform + the wing flap, but does not slither/coil on its own;
+giving the serpent signature motion means a procedural vertex-undulation deformer (traveling sine along the spine),
+which is a real, separate piece of work + a per-channel velocity gate (see the flapcheck lesson), not free from the GLB.
+
+---
+
+## Lesson — Lay the AI mesh into the flight plane (pitch), then give the static body a GPU SLITHER via onBeforeCompile
+
+**Orientation, finished.** The prior pass left Thundercoil flying but reading as a vertical reared pillar — the mesh
+is posed as a floating vertical curl (bbox Y≈1.33 ≈ Z≈1.91). The human's fix was precise: "rotate it 90° so head and
+tail are in the SAME plane — tail toward us, head toward the sun." That's a forward PITCH past the rear-up pose:
+`rotX` swept 1.0 → **1.8** lays the spine along the world depth axis (head −Z into the screen toward the horizon sun,
+forked tail +Z toward the camera) — the canonical chase-cam flight line. Lesson: an AI mesh's authored pose is rarely
+the gameplay pose; budget a pitch/roll to re-seat it into the camera's plane, and find the value by screenshot, not
+arithmetic (sign + amount of a composed Euler are not eyeball-predictable — `gameshots`/a 1-tier clone is the oracle).
+
+**The body was static; now it SLITHERS — without touching the mesh or losing its PBR texture.** A GLB body is one
+rigid mesh (no bones), so signature motion has to be a vertex deform. Did it as a shader injection via
+`material.onBeforeCompile`: prepend uniforms, then splice after `#include <begin_vertex>` a traveling lateral wave in
+MESH-LOCAL space — `spineT = clamp((spineMax - z)/(spineMax - spineMin),0,1)` (0 head → 1 tail), `transformed.x +=
+amp * spineT * sin(freq*z + waveSpeed*t)` (+ a faint `transformed.y` roll). Key wins:
+- **Local-space displacement is orientation-independent.** The wave runs along the mesh's own +Z spine and is applied
+  BEFORE the model matrix, so it's immune to the rotY/rotX/scale placement — the serpent slithers correctly no matter
+  how it's re-seated in the camera plane. Spine bounds come from the geometry's local-Z bbox at load.
+- **Amplitude ramps head→tail** (spineT) so the head leads and the tail whips — the read of a swimming serpent, not a
+  uniform wobble. Reactive: `dragon.js` ticks `uTime += dt` next to the existing `glbAnim.mixer` tick and scales
+  `uAmp`/`uWaveSpeed` with `player.speed` (the same speed-norm the flap uses).
+- **Keeps the GLB's own PBR material/texture** — onBeforeCompile augments the standard shader instead of replacing the
+  material (normals deliberately NOT recomputed: a subtle shear, cheaper, holds 60fps on 27k verts — a documented
+  tradeoff). All data-driven via `def.glb.slither {amp,freq,speed}`; absent → byte-identical for any other GLB dragon.
+- **Verified motion two ways.** Visually: two frames at different `uTime` show a DIFFERENT body curve (it animates, not
+  a frozen bend — a single screenshot can't prove this, same lesson as flapcheck). Numerically: a new pure-math gate
+  `tests/slither.mjs` mirrors the GLSL and asserts head-anchored / amp-bounded / tail-reaches-amp / oscillates-in-time
+  / **crest-travels-head→tail** (a standing wiggle would pass the first four and fail the fifth). The GLSL + JS are one
+  spec in two languages — change one, change the other.
+
+glbcontract/glb/defs/blueprint/flapcheck/ascension/slither all green; roster byte-identical (203265).
+**→ Leapfrog:** the per-channel "encode the motion invariant as a gate" rule now covers a SECOND channel (slither)
+besides the wing flap — the reusable move for any new cyclic body motion. Open polish (preview): the wings still read
+small/high beside the long body; tune `wingScale`/`shoulder`, and judge slither `amp`/`freq` + the `rotX` pitch on feel.
+
+---
+
+## Lesson — Data beats instructions for orientation; and a SEPARATE AI wing mesh hangs on the existing flap rig for free
+
+**Orientation, corrected by MEASUREMENT (not by following the ask literally).** The human said "rotate it 90°" and I'd
+been screenshot-tuning the pitch to a big value (+1.8) that still looked reared. The fix was to stop guessing and read
+the geometry: parse the GLB, find the head vs tail ends (the FORK = tail, by larger cross-section x-gap; the wedge =
+head), and compute the spine vector — `tail→head = (0, +0.506, +1.656)` native, i.e. only **~17° above horizontal,
+mostly along Z**. Then measure where PROCEDURAL dragons put head/tail: head at −Z (toward the horizon), tail at +Z
+(toward camera), both at near-equal low Y (pearl head −1.75/tail +4.02). So the correct leveling pitch after `rotY=π`
+is `atan(-sy/sz) = atan(-0.506/1.656) = −0.30 rad` — a GENTLE pitch, the opposite end of the range from my +1.8 guess.
+Rule: when the target is "match the rest of the roster," the roster's own data IS the spec — measure both the asset and
+a reference, compute the transform, THEN screenshot to confirm. Don't tune a composed-Euler pitch by eye from zero.
+
+**Wings, Option B: a separate AI wing GLB on the EXISTING rig — the cleanest "all-AI" wing.** The human asked why we
+can't generate AI wings and animate them after, since we'd just proved the body can be procedurally animated (slither).
+Right instinct. The reason the body-only hybrid existed is a QUALITY tradeoff, not an animation limit: image-to-3D
+reconstructs thin membranes worst, and a fused winged mesh has no wing bones to flap. The resolution that keeps the AI
+look AND a real flap: generate ONE wing in ISOLATION (a clear, face-on single wing with THICK finger-bone struts so the
+reconstructor has solid volume to grab — `nano_banana_flash`, then `image_to_3d` textured/no-rig), then parent that GLB
+under the existing `wingRigL/R.shoulder` (`def.glb.wingMesh {url,scale,rot,offset}`). `flapWing()` already rotates
+whatever rides the shoulder, so the AI wing flaps with ZERO new animation code — verified by two frames showing the
+wings in different positions. The off side is a TRUE MIRROR via a `scale.x = -1` holder group (mirror the parent, not
+the child, so a single authored orientation reflects cleanly; set `material.side = DoubleSide` for the flipped normals).
+Isolated-wing reconstruction came back clean (31k tris, clear membrane + bones + electric veins) — MUCH better than a
+wing buried in a full-body shot, confirming the lesson: generate the hard thin part ALONE and big in frame.
+
+**Orientation knob for the wing mesh:** its native bbox is a flat slab (X 1.91 × Y 1.78 × Z **0.86** thin), so the
+membrane faces ±Z; `rot:[−π/2,0,0]` turns that to face up as the starting mount, then offset/scale tuned on the preview.
+Headless stays safe: the AI-wing load is browser-only, so glbcontract still returns the authored membrane fallback and
+passes; `glb.mjs` now reports BOTH GLBs. Cost noted: two 31k-tri / ~7–8 MB GLBs (body + wing-cloned-twice ≈ 93k tris,
+~15 MB precached) — far over the procedural budget, the explicit price of an all-AI creature, judged on the preview.
+**→ Leapfrog:** if this graduates from experiment, decimate + texture-downscale both GLBs (or lazy-load them out of the
+SW precache); and the wing mount `rot/offset/scale` + a possible shader membrane-cup are the remaining preview tuning.
+
+---
+
+## Lesson — The all-AI wing landed: a SINGLE fused winged mesh + a shader wing-flap (no bones)
+
+**What we did.** The human rejected the separate photoreal wing GLB as off-style and asked to
+regenerate the WHOLE dragon WITH wings, in the game's cel-shaded art direction. So: generated a
+cel-shaded winged hero concept (`generate_image nano_banana_flash`, job `ef3b73e4` — the prompt
+spells out the art direction: "stylized cel-shaded game-asset look, smooth lofted forms, flat toon
+bands, soft emissive accents, NOT photorealistic"), then `image_to_3d` (textured, no rig) on THAT
+single image (job `d01ab50b`). The winged mesh reconstructed cleanly this time — **30,925 tris, one
+mesh, wings present and readable as bat-membranes** — overwrote `assets/models/thundercoil.glb`,
+re-ran `stamp-sw`, retired the whole separate-wing path (`thundercoil_wing.glb` + `def.glb.wingMesh`
++ the wingMesh load branch). Coexistence held: glb/glbcontract/defs/blueprint/flapcheck/ascension
+stayed green; the authored membrane wings stay as the headless fallback (glbcontract needs them) and
+are hidden in-browser once the fused mesh loads (new `def.glb.fusedWings` flag).
+
+**A fused winged mesh has wings but NO wing bones — so flap them with a shader vertex deform, same
+move as the slither.** `dragonGlb.js attachBodyDeform` now injects TWO local-space displacements
+into the body material's vertex stage (one `onBeforeCompile`, keeps the PBR texture): the existing
+slither wave + a new wing-flap. The flap: verts past `|localX| > uHingeX` are the wings; they rotate
+about a fore-aft hinge (local Y, at `localX = ±uHingeX`) by `fth = −sign(x)·amp·sin(phase)` so BOTH
+wings beat together (the `−sign(x)` makes the symmetric up/down; an antisymmetric sign would be a
+roll). Body verts (mask 0) are identity. `dragon.js` advances `uFlapPhase` reactively (quicker on
+held boost), right beside the slither tick. Wings swing through local Z, which the −90°-ish flight
+pitch maps to world up/down — so the flap is **placement-robust** (all pre-model-matrix, like the
+slither). Locked with a pure-math gate `tests/wingflap.mjs` (body-anchored / wing-swings /
+SYMMETRIC / oscillates / flat-at-phase-0,π), the wing-channel twin of `slither.mjs`. The
+per-channel "encode the motion invariant as a numeric gate" rule now covers THREE channels:
+rigged-wing flap, body slither, fused-wing flap.
+
+**Orientation came from the geometry, not a guess.** Each AI mesh is reconstructed in its own native
+pose: this winged one stands VERTICAL — `glbinspect` (a new headless tool that reads the GLB's
+POSITION accessor min/max, no renderer) showed widest axis X 1.91 (wingspan), spine Y 1.52 (head +Y
+→ tail −Y), depth Z 1.21. So the spine is local **Y** this time (the wingless turnaround body was
+local Z) — meaning the slither axis is now data-driven (`attachBodyDeform({axis})`, spine bbox read
+on the matching axis at load). A −90°-ish `rotX` lays Y into the chase depth axis; screenshot-tuned
+to `scale 3.9, rotX −1.2` (the coiled source pose drapes a little vertically — final pitch is the
+human's preview call). **Screenshot loop in this env:** playwright's pinned browser build (1228)
+mismatches the pre-installed Chromium (1194); `npm i -g playwright` + a temporary
+`executablePath: /opt/pw-browsers/chromium-1194/chrome-linux/chrome` in `tests/browser.mjs` (reverted
+before commit) gets a real in-engine GLB screenshot — the only way to judge a GLB (no headless WebGL).
+
+**→ Leapfrog:** the all-AI creature is real — generate the concept IN the game's art-direction
+words, convert the WHOLE thing once it reads (a stylized full-body shot reconstructs wings far better
+than a photoreal one), and animate the boneless mesh with stacked local-space shader deforms, each
+guarded by a math gate. Cost: one ~8 MB / 31k-tri GLB (down from two; the separate-wing era was ~15
+MB / 93k). If this graduates from experiment, decimate + texture-downscale and lazy-load it out of
+the SW precache.
+
+---
+
+## Lesson — Orient a GLB by MEASURING the roster, not eyeballing; and rim-light a backlit PBR mesh
+
+**The fused winged mesh shipped reared + dark on the real device.** Two fixes, both data-driven:
+
+**Orientation — measure both the asset AND a reference, don't guess the pitch.** I'd set `rotX −1.2`
+from bbox reasoning + a charitable screenshot; on the phone it read as a reared, side-on pillar. The
+fix was to MEASURE. A temporary in-browser seam (`window.__dragon = {group, head, tailSegs}`, reverted
+after) logged a procedural reference's real world-space head/tail relative to the dragon group: azure
+**head [0, +0.31, −1.91], tail [0, +0.2, +2.11]** — i.e. the roster convention is head −Z, tail +Z, at
+**near-equal Y (level)**. Then the same probe transformed thundercoil's native bbox extremes through its
+live world matrix: at `rotX −1.2` the native +Y/−Y ends landed at y +1.07 / −1.08 — a **21° nose-up
+rear**. Only `rotX = −π/2` puts both ends at equal height (level), matching azure. Confirmed in the real
+renderer (head into −Z toward the sun, forked tail +Z to camera, dorsal up). Also added `tools/glbaxes.mjs`
+(decodes the POSITION buffer and slices along an axis to read wingspan/spine/fork from cross-section
+spread, headless). Rule: when the target is "match the roster," the roster's own measured numbers ARE
+the spec — instrument the game, read head/tail world coords for a known-good dragon and for the new one,
+compute the transform, THEN screenshot to confirm. The bbox extreme ≠ the head, either: the widest |X|
+sat at high Y because the **wingtips** are raised in the authored hero pose, not because the head is there.
+
+**Brightness — a PBR GLB is a black silhouette when backlit; rim-light it like the procedural dragons.**
+The sun sits ahead on the flight line, so the camera sees the mesh's shadowed side. Procedural dragons
+already solve this with a fresnel rim. The GLB's own materials weren't getting it (the rim system targets
+the dummy `bodyMat`, not the loaded mesh's materials). Folded a fresnel rim + a flat fill into the SAME
+`attachBodyDeform` `onBeforeCompile` as the slither/flap — it had to be one injection, because
+`composeSurface`/`applyFresnelRim` create FRESH uniform objects and would (a) clobber a second
+`onBeforeCompile` and (b) break the externally-ticked deform uniforms. The rim adds
+`uRimColor*(fres*int + bias) + uFill*fillInt` to `totalEmissiveRadiance` (view-dependent edge, light-
+independent — survives the bake), injected at `#include <emissivemap_fragment>` exactly like the existing
+`fresnelRimPatch`. Tuning mattered: first pass (intensity 0.7 + a flat electric `bias` 0.05) washed the
+whole body into a glowing blue blob; `bias → 0` (edge-only) + a NEUTRAL steel fill (not the electric
+accent) kept the storm-grey form with just an on-brand electric edge. All data-driven via `def.glb.rim`.
+
+**→ Leapfrog:** for any asset-backed dragon, (1) orientation is a measurement, not a vibe — log a
+reference dragon's head/tail world coords and match them; (2) budget a rim+fill lift for the PBR mesh up
+front (backlit is the default framing), and keep it edge-weighted so it accents rather than floods.
+
+**Addendum — the roll (dorsal-up) is a separate axis from the pitch, and only the human eye catches it.**
+After leveling with `rotX = −π/2`, the human reported the dragon flew BELLY-UP: native +Z is the belly,
+not the dorsal (my guess was wrong, and a rim-lit silhouette doesn't reveal up/down). Fix: `rotY = π` —
+a 180° roll about the spine, applied BEFORE the pitch (Euler 'XYZ' applies the Y rotation to the vector
+first), so the dorsal comes up; the wings then read as a raised V, matching the concept. Bonus check that
+confirms it: the wing dihedral flips from drooping-down to sweeping-up. Lesson: head/tail (pitch) and
+dorsal/belly (roll) are independent — measure/verify BOTH; a backlit mesh hides the roll, so confirm it
+on a lit frame (or just ask which way is up). For a vertical-standing source pose, the recipe that lands
+it is `rotX −π/2` (level) + `rotY π` (dorsal up).
+
+**Addendum 2 — a |x|-only wing mask flaps the COILED TAIL too.** The human saw the tail "warp weirdly
+when it moves." Cause: the fused-wing flap selected wing verts by `|localX| > hingeX` alone, but the
+serpent's coiled tail also swings wide in X (±0.4 vs hingeX 0.28), so the shader grabbed tail verts and
+beat them with the wings. Fix: AND a spine-band gate — `step(uHingeX,|x|) * step(uWingMinS, spineCoord)`
+— so only verts in the FRONT/shoulder band (high native Y) flap; the tail (low Y) is excluded. Added a
+gate check (`tests/wingflap.mjs`: a wide-X vert below the band must have zero displacement) so this can't
+regress. Lesson: a procedural-animation mask defined on ONE axis will catch unintended geometry on a
+folded/coiled body — gate it on the body REGION (here the spine coord), and assert the excluded region
+stays put.
+
+**Addendum 3 — never multiply a varying rate by an unbounded clock; ACCUMULATE phase.** The human:
+"anytime there is acceleration the dragon spasms — hold-boost, a speed powerup, or a barrel-roll burst."
+One root cause: the slither phase was `phase = uFreq·spine + uWaveSpeed·uTime`, with `uTime += dt` growing
+unbounded and `uWaveSpeed` derived from speed. So d(phase)/dt = uWaveSpeed + uTime·d(uWaveSpeed)/dt — the
+second term scales with ELAPSED RUN TIME, so any speed change (acceleration) lurched the phase by a spike
+that got worse the longer you'd flown (≈600 rad/s 60s into a run for a 0.3s boost ramp). Fix: accumulate
+the phase directly — `uTime += dt·waveSpeed`, shader reads `uFreq·spine + uTime` — so a rate change only
+changes how fast phase advances, never jumps it (d(phase)/dt = waveSpeed, bounded, elapsed-time-independent).
+This is the SAME phase-accumulator rule the rigged wing flap already used (and our fused-wing flap uses);
+the slither was the one channel still multiplying. Also DAMPED the speed factor (`glbAnim.sp`) and the flap
+rate so the beat eases up to boost speed instead of snapping, and gentled the boost ramp. Barrel roll was a
+red herring for a separate bug — it only adds a rigid `group.rotation.z` spin; it spasmed solely because it
+bursts speed, hitting the same clock bug. **→ Leapfrog:** any GPU/CPU cyclic motion whose rate is reactive
+MUST integrate phase per-frame; `rate · globalClock` is a latent spasm that hides until the rate changes
+mid-run, and gets worse the longer the session.
