@@ -557,39 +557,44 @@ export function updateDragon(dt, player, time) {
     const ph = R.uniforms.uFlapPhase.value;
     const amp = R.uniforms.uFlapAmp.value;            // ~0.45..0.6, scales with speed
     const cl3 = (v, m) => Math.max(-m, Math.min(m, v));
-    const flap = amp * Math.sin(ph);                  // main wing sweep
     const upstroke = Math.max(0, -Math.sin(ph));      // recovery half (0..1): fold the wing here
     const turn = cl3(player.velocity.x * 0.02, 1);    // +right / −left steer
     const bH = bankHard, dv = diveAmount, cl = climbAmount;
     const inR = Math.max(0, turn) * bH, inL = Math.max(0, -turn) * bH;   // inside wing of a hard bank
 
-    // SHOULDER: symmetric flap (±), + climb elevation (spread wide), + dive sweep-back (yaw).
+    // SHOULDER is the DOMINANT motion — the WHOLE wing sweeps up/down from here (bumped so the
+    // pivot reads at the shoulder, not mid-wing). + climb elevation (spread) + dive sweep-back.
+    const flapS = amp * 1.4 * Math.sin(ph);
     const elev = cl * 0.25;
-    BN.shL.rotation.z = flap + elev;  BN.shR.rotation.z = -flap - elev;
+    BN.shL.rotation.z = flapS + elev;  BN.shR.rotation.z = -flapS - elev;
     BN.shL.rotation.y = dv * 0.5 - turn * 0.15;  BN.shR.rotation.y = -dv * 0.5 - turn * 0.15;
-    // ELBOW + WRIST fold — the handwing curls up/in on the RECOVERY (upstroke), straight on the
-    // downstroke. The fold rotates the SAME direction as the shoulder's up-sweep (left negative /
-    // right positive) so it ADDS to the curl instead of fighting it (the prior opposite sign read
-    // as a broken crinkle). Folds harder on a hard-bank inside wing + in a dive.
-    const foldL = Math.min(1.15, upstroke * 0.7 + inL * 0.8 + dv * 0.5);
-    const foldR = Math.min(1.15, upstroke * 0.7 + inR * 0.8 + dv * 0.5);
-    BN.elL.rotation.z = -foldL * 0.55;  BN.wrL.rotation.z = -foldL;
-    BN.elR.rotation.z =  foldR * 0.55;  BN.wrR.rotation.z =  foldR;
+    // ELBOW + WRIST add only a SUBTLE tip-fold on the recovery (same direction as the up-sweep)
+    // + a hard-bank inside-wing tuck + a dive tuck. Kept small so the wing flaps as a unit from
+    // the shoulder rather than cranking at the wrist (the reported "flex at the wrist" bug).
+    const foldL = Math.min(0.7, upstroke * 0.22 + inL * 0.6 + dv * 0.4);
+    const foldR = Math.min(0.7, upstroke * 0.22 + inR * 0.6 + dv * 0.4);
+    BN.elL.rotation.z = -foldL * 0.5;  BN.wrL.rotation.z = -foldL;
+    BN.elR.rotation.z =  foldR * 0.5;  BN.wrR.rotation.z =  foldR;
 
-    // CHEST: clearly-visible heave with the power stroke (rises on the downstroke, dips on
-    // recovery) + a pitch rock + posture pitch + a direction-change ripple + roll/yaw into the
-    // turn. Carries the neck + head (they ride the chest bone).
-    BN.chest.position.y = R.chestRestY - 0.18 * Math.sin(ph);
-    BN.chest.rotation.x = -0.12 * Math.sin(ph) + posturePitch * 0.22 + cl3(vertJerk * 0.012, 0.12);
+    // CHEST: heave + pitch with the power stroke — carries the neck + head (the head nods).
+    BN.chest.position.y = R.chestRestY - 0.16 * Math.sin(ph);
+    BN.chest.rotation.x = -0.10 * Math.sin(ph) + posturePitch * 0.22 + cl3(vertJerk * 0.012, 0.12);
     BN.chest.rotation.z = bankZ * 0.3;
     BN.chest.rotation.y = turn * 0.14;
 
+    // ROOT: a subtle WHOLE-BODY bob + pitch (lagging the wings) so the torso + legs aren't dead —
+    // the body is "suspended under the wings", rising a touch as they drive down.
+    BN.root.position.y = R.rootRestY + 0.07 * Math.sin(ph - 0.6);
+    BN.root.rotation.x = -0.05 * Math.sin(ph - 0.6) + posturePitch * 0.10;
+    BN.root.rotation.z = bankZ * 0.15;
+
     // TAIL: rudder counter-sweep (steer/bank) + climb-down / dive-up pitch + a lagged whip that
-    // trails the power stroke (tailB lags tailA → a traveling whip).
-    const sweep = -turn * (0.35 + bH * 0.6);
-    const whip = amp * 0.4 * Math.sin(ph - 1.4);
-    BN.tailA.rotation.y = sweep * 0.6;  BN.tailA.rotation.x = cl * 0.45 - dv * 0.35 + whip * 0.4 - cl3(vertJerk * 0.012, 0.12);
-    BN.tailB.rotation.y = sweep;        BN.tailB.rotation.x = cl * 0.30 - dv * 0.20 + whip;
+    // trails the power stroke (tailB lags tailA). Large amplitudes — the mesh tail is SHORT, so
+    // it needs them to read at all (a longer tail would want a remeshed asset).
+    const sweep = -turn * (0.4 + bH * 0.7);
+    const whip = 0.5 * Math.sin(ph - 1.5);
+    BN.tailA.rotation.y = sweep * 0.6;  BN.tailA.rotation.x = cl * 0.5 - dv * 0.4 + whip * 0.5 - cl3(vertJerk * 0.012, 0.12);
+    BN.tailB.rotation.y = sweep;        BN.tailB.rotation.x = cl * 0.35 - dv * 0.25 + whip;
   }
 
   // Wing flap: articulated cascade with speed/turn asymmetry + the blend layers (above).
