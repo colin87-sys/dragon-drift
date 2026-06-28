@@ -566,8 +566,8 @@ export function updateDragon(dt, player, time) {
     // base flap reads right. + gentle climb spread + dive sweep-back.
     const flapS = amp * 1.1 * Math.sin(ph);
     const elev = cl * 0.22;
-    BN.shL.rotation.z = flapS + elev;  BN.shR.rotation.z = -flapS - elev;
-    BN.shL.rotation.y = dv * 0.4 - turn * 0.12;  BN.shR.rotation.y = -dv * 0.4 - turn * 0.12;
+    BN.shL.rotation.set(0, dv * 0.4 - turn * 0.12, flapS + elev);
+    BN.shR.rotation.set(0, -dv * 0.4 - turn * 0.12, -flapS - elev);
     BN.elL.rotation.set(0, 0, 0);  BN.wrL.rotation.set(0, 0, 0);
     BN.elR.rotation.set(0, 0, 0);  BN.wrR.rotation.set(0, 0, 0);
 
