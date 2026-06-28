@@ -66,11 +66,15 @@ export function defaultGates(positions) {
   const sMin = min[AXIS[g.spineAxis]], sMax = max[AXIS[g.spineAxis]];
   const spanHalf = Math.max(Math.abs(min[AXIS[g.spanAxis]]), Math.abs(max[AXIS[g.spanAxis]]));
   const span = sMax - sMin;
+  const dMin = min[AXIS[g.depth]], dMax = max[AXIS[g.depth]];
   return {
     spanAxis: g.spanAxis, spineAxis: g.spineAxis,
     headAtMax: true,               // is the HEAD at the +spine end? (toggle in the tool)
     hingeX: +(spanHalf * 0.30).toFixed(3),
     wingMinS: +(sMin + span * 0.33).toFixed(3),   // wings live above this spine coord (tail excluded)
+    // depth-axis (fore/aft) band — the THIRD gate. Seeded to the full depth extent (no exclusion); the
+    // user tightens it to carve the wing off limbs that share its span+spine. Mirrors def.glb.wing.minB/maxB.
+    wingMinB: +dMin.toFixed(3), wingMaxB: +dMax.toFixed(3),
     headCutS: +(sMax - span * 0.18).toFixed(3),   // s ≥ this (and not wing) ⇒ head
     tailCutS: +(sMin + span * 0.18).toFixed(3),   // s ≤ this (and not wing) ⇒ tail
   };
@@ -84,11 +88,14 @@ export function classifyParts(positions, gates) {
   const n = positions.length / 3;
   const out = new Uint8Array(n);
   const sa = AXIS[gates.spineAxis], pa = AXIS[gates.spanAxis];
+  const da = AXIS[depthAxis(gates.spanAxis, gates.spineAxis)];
+  const minB = gates.wingMinB ?? -Infinity, maxB = gates.wingMaxB ?? Infinity;
   const { headCutS, tailCutS, headAtMax } = gates;
   for (let i = 0; i < n; i++) {
     const s = positions[i * 3 + sa];
     const span = Math.abs(positions[i * 3 + pa]);
-    if (span >= gates.hingeX && s >= gates.wingMinS) { out[i] = PART.WING; continue; }
+    const b = positions[i * 3 + da];   // depth (fore/aft) coord — the third wing gate
+    if (span >= gates.hingeX && s >= gates.wingMinS && b >= minB && b <= maxB) { out[i] = PART.WING; continue; }
     // head/tail are the two spine ENDS; headAtMax says the head is the +spine end.
     const atHead = headAtMax ? (s >= headCutS) : (s <= tailCutS);
     const atTail = headAtMax ? (s <= tailCutS) : (s >= headCutS);
@@ -122,7 +129,8 @@ export function partColorBuffer(partIds) {
 // are identity. Returns {da, db, ds} on the (span, depth, spine) axes. Mirrors dragonGlb.js exactly.
 export function flapDelta(a, b, s, phase, p) {
   const side = Math.sign(a);
-  const mask = (Math.abs(a) >= p.hingeX && s >= p.minS) ? 1 : 0;
+  const inB = b >= (p.minB ?? -Infinity) && b <= (p.maxB ?? Infinity);   // depth-axis band gate
+  const mask = (Math.abs(a) >= p.hingeX && s >= p.minS && inB) ? 1 : 0;
   const fth = -side * p.amp * Math.sin(phase) * mask;
   const da0 = a - side * p.hingeX, db0 = b - (p.hingeZ || 0);
   const fc = Math.cos(fth), fs = Math.sin(fth);
@@ -179,11 +187,17 @@ export function buildExport({ key = 'emberMonarch', meshUrl, gates, orient, slit
   const o = orient || {};
   const sl = slither || { amp: 0.10, freq: 8.0, speed: 4.0 };
   const fl = flap || {};
+  // depth band — only emit if it actually narrows the wing (tighter than the mesh's depth extent).
+  const da = AXIS[depthAxis(gates.spanAxis, gates.spineAxis)];
+  const dLo = bbox ? bbox.min[da] : -Infinity, dHi = bbox ? bbox.max[da] : Infinity;
+  const minB = fl.minB ?? gates.wingMinB, maxB = fl.maxB ?? gates.wingMaxB;
+  const bandStr = ((minB != null && minB > dLo + 1e-4) || (maxB != null && maxB < dHi - 1e-4))
+    ? `, minB: ${r3(minB)}, maxB: ${r3(maxB)}` : '';
   return `glb: { scale: ${r3(o.scale ?? 3.9)}, rotY: ${piExpr(o.rotY ?? Math.PI)}, rotX: ${piExpr(o.rotX ?? -Math.PI / 2)}, rotZ: ${piExpr(o.rotZ ?? 0)},
   shoulder: [${r3(o.shoulderX ?? 0.3)}, ${r3(o.shoulderY ?? 0.2)}, ${r3(o.shoulderZ ?? -0.4)}], riderAt: [0, 0.9, 0.2],
   fusedWings: true,
   // spine = local ${gates.spineAxis} (head at ${gates.headAtMax ? '+' : '−'}${gates.spineAxis}); span = local ${gates.spanAxis}. Tagged in tools/glbtagger.html.
   slither: { amp: ${r3(sl.amp)}, freq: ${r3(sl.freq)}, speed: ${r3(sl.speed)} },
-  wing: { hingeX: ${r3(fl.hingeX ?? gates.hingeX)}, minS: ${r3(fl.minS ?? gates.wingMinS)}, amp: ${r3(fl.amp ?? 0.55)}, tilt: ${piExpr(fl.tilt ?? 0)} } }
+  wing: { hingeX: ${r3(fl.hingeX ?? gates.hingeX)}, minS: ${r3(fl.minS ?? gates.wingMinS)}, amp: ${r3(fl.amp ?? 0.55)}, tilt: ${piExpr(fl.tilt ?? 0)}${bandStr} } }
 // spine bbox on ${gates.spineAxis}: [${sMin}, ${sMax}]   meshUrl: '${meshUrl || `./assets/models/${key}.glb`}'`;
 }
