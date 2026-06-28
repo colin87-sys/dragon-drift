@@ -93,12 +93,14 @@ function attachBodyDeform(mat, u, opts = {}) {
   const flap = !!opts.flap;
   mat.onBeforeCompile = (shader) => {
     shader.uniforms.uTime = u.uTime; shader.uniforms.uAmp = u.uAmp;
-    shader.uniforms.uFreq = u.uFreq; shader.uniforms.uWaveSpeed = u.uWaveSpeed;
+    shader.uniforms.uFreq = u.uFreq;
     shader.uniforms.uSpineMin = u.uSpineMin; shader.uniforms.uSpineMax = u.uSpineMax;
-    let decl = 'uniform float uTime;uniform float uAmp;uniform float uFreq;uniform float uWaveSpeed;uniform float uSpineMin;uniform float uSpineMax;\n';
+    let decl = 'uniform float uTime;uniform float uAmp;uniform float uFreq;uniform float uSpineMin;uniform float uSpineMax;\n';
+    // uTime is the ACCUMULATED wave phase (dragon.js advances it by dt·waveSpeed), not a
+    // raw clock — so a speed change never multiplies into a phase jump (see dragon.js).
     let body =
       'float spineT = clamp((uSpineMax - ' + SP + ') / max(0.0001, uSpineMax - uSpineMin), 0.0, 1.0);\n' +
-      'float phase = uFreq * ' + SP + ' + uWaveSpeed * uTime;\n' +
+      'float phase = uFreq * ' + SP + ' + uTime;\n' +
       'transformed.x += uAmp * spineT * sin(phase);\n' +
       'transformed.' + LB + ' += uAmp * 0.3 * spineT * cos(phase);\n';
     if (flap) {
@@ -233,8 +235,9 @@ export function buildGlbDragon(def, opts = {}) {
   const fused = !!cfg.fusedWings;          // the unified winged mesh (spine along Y, shader flap)
   const wingCt = cfg.wing || null;
   const slitherU = {
+    // uTime is the accumulated wave PHASE (dragon.js advances it by dt·waveSpeed).
     uTime: { value: 0 }, uAmp: { value: slither?.amp ?? 0 },
-    uFreq: { value: slither?.freq ?? 6.0 }, uWaveSpeed: { value: slither?.speed ?? 4.0 },
+    uFreq: { value: slither?.freq ?? 6.0 },
     uSpineMin: { value: -1 }, uSpineMax: { value: 1 },
     // wing-flap (fused mesh only; harmless no-op uniforms otherwise)
     uFlapPhase: { value: 0 }, uFlapAmp: { value: wingCt?.amp ?? 0 },
@@ -245,7 +248,8 @@ export function buildGlbDragon(def, opts = {}) {
   };
   const glbAnim = {
     mixer: null,
-    slither: slither ? { uniforms: slitherU, baseAmp: slither.amp ?? 0 } : null,
+    // baseSpeed = the cruise wave rate (def.glb.slither.speed); dragon.js scales it with speed.
+    slither: slither ? { uniforms: slitherU, baseAmp: slither.amp ?? 0, baseSpeed: slither.speed ?? 4.0 } : null,
     // wing-flap clock (dragon.js advances uFlapPhase reactively); null if not fused.
     wingFlap: (fused && wingCt) ? { uniforms: slitherU, baseAmp: wingCt.amp ?? 0 } : null,
   };

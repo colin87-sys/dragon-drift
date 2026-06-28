@@ -3331,3 +3331,19 @@ gate check (`tests/wingflap.mjs`: a wide-X vert below the band must have zero di
 regress. Lesson: a procedural-animation mask defined on ONE axis will catch unintended geometry on a
 folded/coiled body — gate it on the body REGION (here the spine coord), and assert the excluded region
 stays put.
+
+**Addendum 3 — never multiply a varying rate by an unbounded clock; ACCUMULATE phase.** The human:
+"anytime there is acceleration the dragon spasms — hold-boost, a speed powerup, or a barrel-roll burst."
+One root cause: the slither phase was `phase = uFreq·spine + uWaveSpeed·uTime`, with `uTime += dt` growing
+unbounded and `uWaveSpeed` derived from speed. So d(phase)/dt = uWaveSpeed + uTime·d(uWaveSpeed)/dt — the
+second term scales with ELAPSED RUN TIME, so any speed change (acceleration) lurched the phase by a spike
+that got worse the longer you'd flown (≈600 rad/s 60s into a run for a 0.3s boost ramp). Fix: accumulate
+the phase directly — `uTime += dt·waveSpeed`, shader reads `uFreq·spine + uTime` — so a rate change only
+changes how fast phase advances, never jumps it (d(phase)/dt = waveSpeed, bounded, elapsed-time-independent).
+This is the SAME phase-accumulator rule the rigged wing flap already used (and our fused-wing flap uses);
+the slither was the one channel still multiplying. Also DAMPED the speed factor (`glbAnim.sp`) and the flap
+rate so the beat eases up to boost speed instead of snapping, and gentled the boost ramp. Barrel roll was a
+red herring for a separate bug — it only adds a rigid `group.rotation.z` spin; it spasmed solely because it
+bursts speed, hitting the same clock bug. **→ Leapfrog:** any GPU/CPU cyclic motion whose rate is reactive
+MUST integrate phase per-frame; `rate · globalClock` is a latent spasm that hides until the rate changes
+mid-run, and gets worse the longer the session.
