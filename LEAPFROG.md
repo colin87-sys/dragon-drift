@@ -3449,3 +3449,31 @@ idea into *free* (geometry, emissive, particles, camera) vs *expensive* (collect
 reward systems). Spend only in the free lane and you ship the spectacle (an authored multi-act set piece)
 without paying the determinism/fairness tax — and **vary the mesh, never the hitbox**, so "less repetitive"
 never means "less fair."
+
+**Addendum — iteration 4 (owner playtest): density, a barrel-chest, and a roll-through tail finale.**
+On the preview the v3 spine felt **thinner, not richer** — "less ribs, doesn't feel continuous, breaks up
+with crystal windows." Three causes, all from the v3 changes: (1) a **longer run** straddles more of the
+ring *rhythm*, which swings hard (`nextWaypoint`: ≈55 units in "burst" up to ≈130 in "breath") — and a
+ribcage with a FIXED `depthHalf` (80-unit coverage) leaves real gaps on the long-spacing beats; (2) the
+heart was a **sparse 4-arch void** dead-centre; (3) **22% broken ribs** thinned the read. Fixes: tie each
+ribcage's `depthHalf`/`nRibs` to the **local ring spacing** (new overlay-only `seg.span = ring.dist -
+prevRing.dist`) so a rib lands **~every 6 units on every rhythm** — continuity becomes spacing-invariant
+instead of hoping the run lands on flow cadence. The heart became a **proper full-size ribcage** (a `grow`
+multiplier swelling width + height into a barrel chest) you still fly *through*, with the crystal as a
+decorative landmark beside the path; ribs swell 1.0→1.25 into the chest and taper back out (a body
+silhouette). Broken ribs → a subtle chip (rate 0.10, near-complete arc). **→ Leapfrog A:** when an overlay
+hangs geometry off a host line whose *spacing varies*, size the geometry to the **local spacing**, never a
+constant — "looks continuous" must not depend on which rhythm the host happened to be in.
+
+Then the owner asked for a **tail finale**: speed boosts you fly straight through, then a barrel-roll-through
+curtain into open air. The collectible veto from iteration 3 turned out to be **narrower than assumed** —
+`gold-determinism.mjs` freezes only `rings`/`obstacles`/`goldEmbers`, **NOT `orbs`** — so the overlay CAN
+string **speed orbs** (`out.orbs`, via a fixed deterministic line off the exit ring) without touching the
+fixture or the main `rnd`. The roll-through is a new `tailgate` beat: a brittle bone **portcullis across the
+WHOLE exit (no gap)** flagged `e.rollwall`; in collision, an active barrel-roll (`player.rollInvuln > 0`)
+**shatters it for style**, no roll is a light **non-fatal chip** — either way you pass into open air, it
+never blocks. Pure reuse: roll i-frames, the gate's shatter transform, `phaseBurst`, the orb pipeline.
+**→ Leapfrog B:** re-derive a constraint before letting it veto a feature — "the overlay can't add
+collectibles" was really "can't touch the *frozen* arrays," and orbs were never frozen. And a "barrel-roll
+through it" beat doesn't need a fail state: make the wall **non-fatal + always-passable**, and let the roll
+turn a chip into a *reward* — the mechanic teaches itself without ever ending a run.

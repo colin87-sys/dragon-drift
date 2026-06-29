@@ -496,7 +496,9 @@ export function createLevelGen(seed = CONFIG.seed, opts = {}) {
       if (ring.dist < firstAt || inGauntlet(ring.dist)) { prevRing = ring; continue; }
       if (!canyon && ring.dist >= nextCanyonAt) canyon = startCanyon(ring, out);
       if (canyon) {
-        out.canyonSegments.push(makeRockGap(ring, prevRing, canyon));
+        const seg = makeRockGap(ring, prevRing, canyon);
+        out.canyonSegments.push(seg);
+        if (seg.kind === 'tailgate') addTailOrbs(seg, out);
         canyon.idx++;
         if (--canyon.left <= 0) {
           out.canyonEnds.push(ring.dist + 40);
@@ -549,10 +551,27 @@ export function createLevelGen(seed = CONFIG.seed, opts = {}) {
     const i = c.idx, last = c.total - 1;
     if (i === 0) return 'skull';
     if (i === 1) return 'throat';
-    if (i >= last - 1) return 'exitflare';        // last two ribs flare open
+    if (i === last) return 'tailgate';            // roll-through curtain into open air
+    if (i === last - 1) return 'exitflare';       // ribs flare wide just before the tail
     const heartAt = Math.round((c.total - 1) * 0.5);
     if (i === heartAt) return 'heart';            // the chest cavity, second act
     return i < heartAt ? 'rib' : 'vertebra';      // ribs in front, vertebrae behind
+  }
+
+  // The tail finale strings a few SPEED BOOSTS straight through the exit — no
+  // navigation, pure "show speed": collect them, boost, and barrel-roll through the
+  // bone curtain into open air. Orbs ride a fixed deterministic line off the exit
+  // ring; they're not part of the gold-determinism fixture and we never touch the
+  // main rnd / rings / obstacles, so the base course stays byte-identical.
+  function addTailOrbs(seg, out) {
+    const n = CONFIG.canyonTailOrbs;
+    for (let k = 0; k < n; k++) {
+      out.orbs.push({
+        dist: seg.dist - 26 + k * 13,
+        x: clamp(seg.gapX, -11, 11),
+        y: clamp(seg.gapY + 1.5, 4.5, 20),
+      });
+    }
   }
 
   // One canyon gate's data: a safe aperture centered on the ring, plus the kind

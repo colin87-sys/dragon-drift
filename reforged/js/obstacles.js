@@ -619,6 +619,38 @@ function buildRockGap(o, e) {
     // Release: the last ribs flare OUTWARD, spacing opens, mostly sky — payoff.
     const dh = dhFor(0.8);
     ribcage(dh, nrFor(dh), { flare: 0.9 });
+  } else if (o.kind === 'tailgate') {
+    // Tail finale: a brittle bone PORTCULLIS across the whole mouth of the exit —
+    // no gap to thread. You barrel-roll through it into open air (a glowing roll
+    // cue says so). Non-fatal: rolling shatters it for style; not rolling is a
+    // light chip. Stays solid (no dissolve) so it reads as a wall, then shatters.
+    e.noDissolve = true;
+    e.rollwall = true;
+    const yLo = CONFIG.laneMinY, yHi = CEIL;
+    const cyc = (yLo + yHi) / 2, spanH = yHi - yLo, spanW = LANE + 1;
+    const parts = [];
+    const nV = 6, nH = 4;
+    for (let i = 0; i < nV; i++) {                 // vertical bone bars
+      const bx = -spanW + (i / (nV - 1)) * 2 * spanW;
+      const g = new THREE.BoxGeometry(0.32, spanH, 0.32); g.translate(bx, 0, (rng() - 0.5) * 0.6); parts.push(g);
+    }
+    for (let j = 0; j < nH; j++) {                 // horizontal struts → a lattice
+      const by = -spanH * 0.5 + (j / (nH - 1)) * spanH;
+      const g = new THREE.BoxGeometry(2 * spanW, 0.32, 0.32); g.translate(0, by, (rng() - 0.5) * 0.6); parts.push(g);
+    }
+    const curtain = mergeGeometries(parts, false); parts.forEach((g) => g.dispose());
+    curtain.computeVertexNormals();
+    e.shatterMesh = place(curtain, gx, cyc, 0);
+    box(gx, cyc, spanW, spanH * 0.5, T);           // full cross-section: no gap — roll through
+    // Glowing roll cue in the centre: a bright accent ring + chevron, spun in
+    // updateObstacles to read as "barrel roll here."
+    const cue = new THREE.Group();
+    cue.add(new THREE.Mesh(new THREE.TorusGeometry(2.2, 0.16, 8, 24), edgeMat));
+    const chev = new THREE.Mesh(new THREE.ConeGeometry(0.5, 1.1, 4), edgeMat);
+    chev.position.set(2.2, 0, 0); chev.rotation.z = -Math.PI * 0.5; cue.add(chev);
+    cue.position.set(gx, gy, T + 0.6);
+    group.add(cue);
+    e.rollCue = cue;
   }
 
   // No rim/frame on any canyon gate: every opening is framed by its own rock
@@ -722,6 +754,17 @@ export function updateObstacles(dt, time, playerDist, speedNorm = 0) {
       }
       // The heart-chamber crystal turns slowly so it catches light as you pass it.
       if (e.heartCore) { e.heartCore.rotation.y += dt * 0.3; e.heartCore.rotation.x += dt * 0.14; }
+      // Tail curtain: spin the roll cue; when rolled through, shatter it (scale +
+      // spin + fade) then hide. shatterT is set by the rollwall branch in collision.
+      if (e.rollCue) e.rollCue.rotation.z += dt * 2.2;
+      if (e.shatterT > 0) {
+        e.shatterT -= dt;
+        const k = 1 - Math.max(e.shatterT, 0) / CONFIG.phaseShatterDur;
+        if (e.shatterMesh) { e.shatterMesh.scale.setScalar(1 + k * 0.6); e.shatterMesh.rotation.z += dt * 4; }
+        if (e.fadeMat) e.fadeMat.opacity = Math.max(0, 1 - k);
+        if (e.rollCue) e.rollCue.visible = false;
+        if (e.shatterT <= 0 && e.shatterMesh) e.shatterMesh.visible = false;
+      }
     }
   }
 }

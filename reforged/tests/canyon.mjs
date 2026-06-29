@@ -10,7 +10,7 @@ const result = await page.evaluate(async () => {
   const run = () => {
     const gen = createLevelGen(1337);
     // walk in chunks like the game does, so multi-chunk canyons are exercised
-    const segs = [], starts = [], ends = [];
+    const segs = [], starts = [], ends = [], orbs = [];
     let ringsLen = 0, obsLen = 0;
     for (let d = 800; d <= 9000; d += 800) {
       const out = gen.ensure(d);
@@ -18,8 +18,9 @@ const result = await page.evaluate(async () => {
       segs.push(...out.canyonSegments);
       starts.push(...out.canyonStarts);
       ends.push(...out.canyonEnds);
+      orbs.push(...out.orbs);
     }
-    return { segs, starts, ends, ringsLen, obsLen };
+    return { segs, starts, ends, orbs, ringsLen, obsLen };
   };
   const a = run();
   createLevelGen(424242).ensure(9000); // interleave a different seed
@@ -28,7 +29,7 @@ const result = await page.evaluate(async () => {
 });
 
 const { segs, starts, ends } = result.a;
-const KINDS = ['split', 'overunder', 'skull', 'throat', 'rib', 'heart', 'vertebra', 'exitflare'];
+const KINDS = ['split', 'overunder', 'skull', 'throat', 'rib', 'heart', 'vertebra', 'exitflare', 'tailgate'];
 check('canyons spawn over 9 km', segs.length >= 1);
 // ends may trail starts by one if a run is still in progress at the walk boundary.
 check('canyon starts/ends are balanced',
@@ -49,6 +50,11 @@ if (spineSegs.length) {
   check('spine runs include a skull entrance', kinds.has('skull'));
   check('spine runs include a heart-chamber breather', kinds.has('heart'));
   check('spine runs include a flared exit', kinds.has('exitflare'));
+  check('spine runs include a roll-through tail curtain', kinds.has('tailgate'));
+  // Each tail curtain strings speed boosts straight through the exit.
+  const tails = segs.filter((s) => s.kind === 'tailgate');
+  check('tail curtains string speed boosts through the exit',
+    tails.every((t) => result.a.orbs.some((o) => o.dist > t.dist - 40 && o.dist <= t.dist)));
 }
 
 console.log(`  (segments: ${segs.length}, runs: ${starts.length} [${[...runs].join(',')}], kinds: ${[...kinds].join(', ')})`);
