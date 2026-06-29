@@ -219,6 +219,26 @@ function buildStealthFinShape(halfW, length) {
   return s;
 }
 
+// A NIGHT FURY tail-fin: a broad fanned blade (NOT a slim rudder) — narrow at the
+// hinge/root, fanning wide and tall with a LOBED/scalloped outer edge (the spread
+// "fingers" of Toothless's tail). Drawn upright (root at origin, tip toward +y,
+// width toward +x); buildLayeredFin mirrors it via scale.x and the tail splays the
+// pair into the iconic open-tail V.
+export function buildNightFuryFinShape(halfW, length) {
+  const s = new THREE.Shape();
+  s.moveTo(0, 0);                                                       // root / hinge
+  // inner (leading) edge sweeps up to the inner-top corner
+  s.bezierCurveTo(halfW * 0.10, length * 0.55, halfW * 0.30, length * 0.92, halfW * 0.44, length * 1.02);
+  // fanned, LOBED outer-top edge — three rounded spread-finger lobes
+  s.quadraticCurveTo(halfW * 0.64, length * 0.98, halfW * 0.74, length * 0.86);
+  s.quadraticCurveTo(halfW * 0.92, length * 0.86, halfW * 1.00, length * 0.72);
+  s.quadraticCurveTo(halfW * 1.16, length * 0.70, halfW * 1.20, length * 0.52);
+  // outer (trailing) edge sweeps back down to the root
+  s.quadraticCurveTo(halfW * 0.98, length * 0.22, halfW * 0.22, length * 0.05);
+  s.lineTo(0, 0);
+  return s;
+}
+
 // A swept fin with a DARK translucent membrane and a bright glowing RIM — the
 // premium "dark base, cyan edges" read (never a solid glowing panel). A slightly
 // larger emissive blade sits just behind the dark membrane, so only its border
