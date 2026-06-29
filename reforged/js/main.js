@@ -823,10 +823,12 @@ function tick() {
     // gaps read clearly, then restore. Counted so nested canyons stay balanced.
     while (pendingCanyonStarts.length && player.dist >= pendingCanyonStarts[0]) {
       pendingCanyonStarts.shift();
+      game.inCanyon = true;
       cameraCtl.setCanyon(true);
     }
     while (pendingCanyonEnds.length && player.dist >= pendingCanyonEnds[0]) {
       pendingCanyonEnds.shift();
+      game.inCanyon = false;
       cameraCtl.setCanyon(false);
     }
 

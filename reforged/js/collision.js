@@ -85,6 +85,13 @@ export function updateCollision(dt, player) {
     player.velocity.y = Math.max(player.velocity.y, 6);
     hit(player, 0, 0, CONFIG.groundDamage, 'ground');
   }
+  // Canyon ceiling: inside a Sky Canyon run you can't just climb over the rock to
+  // skip it — the top of the lane is capped (bounce + chip, like the ground).
+  if (game.inCanyon && p.y > CONFIG.canyonCeilingY) {
+    p.y = CONFIG.canyonCeilingY;
+    player.velocity.y = Math.min(player.velocity.y, -6);
+    hit(player, 0, 0, CONFIG.canyonCeilingDamage, 'ceiling');
+  }
 
   for (const c of colliders) {
     const dz = player.dist - c.dist;
@@ -272,8 +279,10 @@ function awardNearMiss(collider, player) {
 function hit(player, pushX, pushY, damage = CONFIG.obstacleDamage, cause = 'shard') {
   if (invuln > 0) return;
   // Barrel-roll i-frames: damage is dodged, and the near-miss checks above
-  // keep firing — rolling through a cluster showers bonuses instead.
-  if (player.rollInvuln > 0 && cause !== 'ground') return;
+  // keep firing — rolling through a cluster showers bonuses instead. The lane
+  // boundaries (ground / canyon ceiling) ignore i-frames so you can't roll-cheese
+  // a limit.
+  if (player.rollInvuln > 0 && cause !== 'ground' && cause !== 'ceiling') return;
   invuln = CONFIG.invulnTime;
   game.health = Math.max(0, game.health - damage);
   if (pushX) player.velocity.x += pushX * 10;

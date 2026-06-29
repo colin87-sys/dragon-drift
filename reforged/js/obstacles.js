@@ -108,6 +108,12 @@ export function initObstacles(s) {
       emissive: 0xff5a47,
       emissiveIntensity: 0.9,
     }),
+    // Ancient fossil bone for the Dragon Spine Canyon — warm ivory, faceted, a
+    // touch of emissive so the skeleton reads (and blooms) against any biome sky.
+    bone: new THREE.MeshStandardMaterial({
+      color: 0xe7dcc0, flatShading: true, roughness: 0.7, metalness: 0.0,
+      emissive: 0x4a3f2a, emissiveIntensity: 0.35,
+    }),
   };
   // Phase Gate skins, one material set per biome.
   veilMats = PHASE_SKINS.map((s) => makeVeilMat(s.veil, s.edge));
@@ -278,80 +284,125 @@ function buildRockGap(o, e) {
   const group = new THREE.Group();
   const gx = o.gapX, gy = o.gapY, W = o.gapW, H = o.gapH, T = o.thick;
   const LANE = CONFIG.laneHalfWidth;
+  const CEIL = CONFIG.canyonCeilingY;
+  const spine = o.run === 'spine';
 
-  // One per-instance body material for ALL rock in this gate → fades together.
-  const fadeMat = mats.body[bi].clone();
+  // One per-instance base material for ALL solids in this gate → they dissolve
+  // together near the camera. Bone for the Dragon Spine, biome rock otherwise.
+  const fadeMat = (spine ? mats.bone : mats.body[bi]).clone();
   fadeMat.transparent = true;
   fadeMat.opacity = 1;
   fadeMat.userData.perInstance = true;
   e.fadeMat = fadeMat;
   const edgeMat = edgeMats[bi];
 
-  // A faceted boulder mass covering an AABB; records its collider box.
-  const addRock = (cx, cy, hw, hh, hz) => {
+  // --- build helpers --------------------------------------------------------
+  const place = (geo, x, y, z = 0, rx = 0, ry = 0, rz = 0) => {
+    const m = new THREE.Mesh(geo, fadeMat);
+    m.position.set(x, y, z); m.rotation.set(rx, ry, rz);
+    group.add(m); return m;
+  };
+  const box = (cx, cy, hw, hh, hz = T) => e.boxes.push({ cx, cy, hw, hh, hz });
+  // Faceted lump (rock boulder OR a chunk of bone) + matching collider box.
+  const lump = (cx, cy, hw, hh, hz, jag = 0.34) => {
     const geo = new THREE.IcosahedronGeometry(1, 0);
     geo.scale(hw, hh, hz);
-    // a little asymmetric crumple so it doesn't read as a sphere
     const pos = geo.attributes.position;
-    for (let i = 0; i < pos.count; i++) {
-      const j = 0.82 + rng() * 0.36;
-      pos.setXYZ(i, pos.getX(i) * j, pos.getY(i) * j, pos.getZ(i) * j);
+    for (let k = 0; k < pos.count; k++) {
+      const j = 1 - jag * 0.5 + rng() * jag;
+      pos.setXYZ(k, pos.getX(k) * j, pos.getY(k) * j, pos.getZ(k) * j);
     }
     geo.computeVertexNormals();
-    const mesh = new THREE.Mesh(geo, fadeMat);
-    mesh.position.set(cx, cy, 0);
-    mesh.rotation.set(rng() * 0.4 - 0.2, rng() * Math.PI, rng() * 0.4 - 0.2);
-    group.add(mesh);
-    e.boxes.push({ cx, cy, hw, hh, hz });
+    place(geo, cx, cy, 0, rng() * 0.3 - 0.15, rng() * Math.PI, rng() * 0.3 - 0.15);
+    box(cx, cy, hw, hh, hz);
   };
-
-  // A flat rock shelf (over/under) — boxy, reads as a slab.
-  const addShelf = (cx, cy, hw, hh, hz) => {
-    const mesh = new THREE.Mesh(new THREE.BoxGeometry(hw * 2, hh * 2, hz * 2), fadeMat);
-    mesh.position.set(cx, cy, 0);
-    group.add(mesh);
-    e.boxes.push({ cx, cy, hw, hh, hz });
+  const slab = (cx, cy, hw, hh, hz) => {
+    place(new THREE.BoxGeometry(hw * 2, hh * 2, hz * 2), cx, cy);
+    box(cx, cy, hw, hh, hz);
   };
+  const decorCone = (r, h, x, y, z, rx = 0, ry = 0, rz = 0) =>
+    place(new THREE.ConeGeometry(r, h, 5), x, y, z, rx, ry, rz);
+  const ribArch = (r, tube, x, y, rz, arc = Math.PI) =>
+    place(new THREE.TorusGeometry(r, tube, 5, 16, arc), x, y, 0, 0, 0, rz);
 
-  if (o.style === 'split') {
-    // Two flanking slabs, clear gap between — open sky above.
+  // --- ROCK RUN -------------------------------------------------------------
+  if (o.kind === 'split') {
+    // Two TALL slabs (reach the canyon ceiling for scale + so you can't go over),
+    // clear gap between. Lateral threading.
     const lhw = (gx - W + LANE) / 2;
-    if (lhw > 0.5) addRock((-LANE + gx - W) / 2, gy, lhw, H + 4, T);
+    if (lhw > 0.5) lump((-LANE + gx - W) / 2, CEIL * 0.5, lhw, CEIL * 0.5 + 2, T);
     const rhw = (LANE - (gx + W)) / 2;
-    if (rhw > 0.5) addRock((gx + W + LANE) / 2, gy, rhw, H + 4, T);
-  } else if (o.style === 'rib') {
-    // Dragon-spine arch curving over the top; open underneath + to the sides.
-    const r = W + 1.6;
-    const arch = new THREE.Mesh(new THREE.TorusGeometry(r, 1.3, 5, 18, Math.PI), fadeMat);
-    arch.position.set(gx, gy + H, 0);
-    group.add(arch);
-    e.boxes.push({ cx: gx, cy: gy + H + r * 0.5, hw: r, hh: r * 0.55, hz: T });
-  } else if (o.style === 'spiral') {
-    // One big floating rock to a side; the gap hugs the open side, sky beyond.
-    const s = o.side || 1;
-    if (s < 0) {
-      const hw = (gx - W + LANE) / 2;
-      if (hw > 0.5) addRock((-LANE + gx - W) / 2, gy, hw, H + 6, T + 1);
-    } else {
-      const hw = (LANE - (gx + W)) / 2;
-      if (hw > 0.5) addRock((gx + W + LANE) / 2, gy, hw, H + 6, T + 1);
+    if (rhw > 0.5) lump((gx + W + LANE) / 2, CEIL * 0.5, rhw, CEIL * 0.5 + 2, T);
+  } else if (o.kind === 'overunder') {
+    // A ceiling (dive under) or floor (climb over) shelf spanning the lane.
+    if (o.shelf === 'floor') slab(gx, gy - H - 2.6, LANE + 1, 2.6, T);
+    else slab(gx, gy + H + 2.6, LANE + 1, 2.6, T);
+
+  // --- DRAGON SPINE CANYON --------------------------------------------------
+  } else if (o.kind === 'skull') {
+    // The enormous open mouth: cranium + horns above, jaws framing the opening,
+    // teeth bordering it, cheek hinges flanking. The mouth centre is the gap.
+    lump(gx, gy + H + 5.6, W + 5, 3.6, T + 2.5, 0.45);          // cranium
+    decorCone(1.1, 6.5, gx - (W + 4), gy + H + 7.5, -1, -0.5, 0, 0.5);  // L horn
+    decorCone(1.1, 6.5, gx + (W + 4), gy + H + 7.5, -1, -0.5, 0, -0.5); // R horn
+    lump(gx, gy + H + 1.4, W + 3.4, 1.4, T + 0.4, 0.22);        // upper jaw
+    lump(gx, gy - H - 1.4, W + 3.4, 1.4, T + 0.4, 0.22);        // lower jaw
+    lump(gx - (W + 2.4), gy, 1.6, H + 2, T);                    // L cheek hinge
+    lump(gx + (W + 2.4), gy, 1.6, H + 2, T);                    // R cheek hinge
+    const nteeth = 5;
+    for (let k = 0; k < nteeth; k++) {
+      const tx = gx - W + (k / (nteeth - 1)) * (2 * W);
+      decorCone(0.42, 1.5, tx, gy + H - 0.5, 0.3, Math.PI, 0, 0); // upper fang ↓
+      decorCone(0.42, 1.5, tx, gy - H + 0.5, 0.3, 0, 0, 0);       // lower fang ↑
     }
-  } else if (o.style === 'overunder') {
-    // A ceiling (dive under) or floor shelf (climb over) spanning the lane.
-    if (o.shelf === 'floor') addShelf(gx, gy - H - 2.6, LANE + 1, 2.6, T);
-    else addShelf(gx, gy + H + 2.6, LANE + 1, 2.6, T);
+  } else if (o.kind === 'throat') {
+    // First interior beat: a vertebra ring overhead + rib stubs closing in.
+    ribArch(W + 1.2, 0.9, gx, gy + H + 0.4, 0);
+    box(gx, gy + H + 1.7, W + 1.2, 1.3, T);
+    lump(gx - (W + 2.2), gy - 1, 1.3, H + 1.2, T);
+    lump(gx + (W + 2.2), gy - 1, 1.3, H + 1.2, T);
+  } else if (o.kind === 'rib') {
+    // Asymmetric ribcage beat: a big rib sweeps over the top, one side carries
+    // the bone mass (heavier `o.side`) → you weave to the open side. Alternating
+    // the heavy side per segment fakes the curl of a long coiled torso.
+    const s = o.side || 1;
+    ribArch(W + 4, 1.2, gx + s * 0.5, gy + H - 1, s > 0 ? -0.5 : 0.5, Math.PI * 0.85);
+    box(gx, gy + H + 2.4, W + 2, 2.2, T);                       // overhead rib
+    const edge = s > 0 ? gx + W : gx - W;
+    const outer = s > 0 ? LANE : -LANE;
+    const hw = Math.abs(outer - edge) / 2;
+    if (hw > 0.6) lump((edge + outer) / 2, gy - 0.5, hw, H + 3, T); // heavy flank wall
+    lump(gx - s * (W + 2.2), gy - H - 0.6, 1.2, 1.5, T);        // light-side rib stub
+  } else if (o.kind === 'vertebra') {
+    // Spine rhythm: a chunky vertebra body overhead with lateral processes + a
+    // neural spine, rib stubs at the sides. Duck under the bone.
+    lump(gx, gy + H + 2.3, W * 0.85, 2.0, T + 1);
+    decorCone(0.7, 3, gx - W * 0.85, gy + H + 2.3, 0, 0, 0, 1.45);
+    decorCone(0.7, 3, gx + W * 0.85, gy + H + 2.3, 0, 0, 0, -1.45);
+    decorCone(0.85, 3.6, gx, gy + H + 4.3, 0);
+    lump(gx - (W + 2.2), gy - 1, 1.2, H + 1.1, T);
+    lump(gx + (W + 2.2), gy - 1, 1.2, H + 1.1, T);
+  } else if (o.kind === 'exitflare') {
+    // Release: ribs flare OUTWARD, spacing opens, mostly sky — the payoff beat.
+    ribArch(W + 5, 1.0, gx - (W + 1), gy + 1, 0.8, Math.PI * 0.5);
+    ribArch(W + 5, 1.0, gx + (W + 1), gy + 1, -0.8, Math.PI * 0.5);
+    lump(gx - (LANE - 2), gy - H - 1, 1.0, 1.5, T);
+    lump(gx + (LANE - 2), gy - H - 1, 1.0, 1.5, T);
   }
 
-  // Emissive aperture rim — frames the safe route (the brightest "fly here" cue).
+  // Emissive aperture rim — frames the safe route (the clearest "fly here" cue).
+  // The exit beat keeps only a whisper of rim so it reads as opening out.
   const bar = (w, h, cx, cy) => {
     const m = new THREE.Mesh(new THREE.BoxGeometry(w, h, 0.35), edgeMat);
     m.position.set(cx, cy, 0.2);
     group.add(m);
   };
-  bar(W * 2 + 0.8, 0.45, gx, gy + H);
-  bar(W * 2 + 0.8, 0.45, gx, gy - H);
-  bar(0.45, H * 2 + 0.8, gx - W, gy);
-  bar(0.45, H * 2 + 0.8, gx + W, gy);
+  if (o.kind !== 'exitflare') {
+    bar(W * 2 + 0.8, 0.45, gx, gy + H);
+    bar(W * 2 + 0.8, 0.45, gx, gy - H);
+    bar(0.45, H * 2 + 0.8, gx - W, gy);
+    bar(0.45, H * 2 + 0.8, gx + W, gy);
+  }
 
   // Additive core-glow locator filling the opening (approach-lit, per-instance).
   const coreMat = new THREE.MeshBasicMaterial({
