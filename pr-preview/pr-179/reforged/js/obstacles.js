@@ -388,9 +388,13 @@ function buildRockGap(o, e) {
       const chanHalf = W + 0.1 + breathe * 1.7;
       // BOTH walls — you're flanked left AND right by tall stacks (not one open
       // side), so it reads as a canyon you're INSIDE, not a line you fly past.
-      const li = xc - chanHalf, lo = -LANE - 3;
+      let li = xc - chanHalf, ri = xc + chanHalf;
+      // Near a ring's plane, keep the walls clear of the reward ring even when the
+      // base-course ring sits far to one side: the channel centre is lane-clamped,
+      // so without this a far-out ring could hug a wall (hard to grab cleanly).
+      if (Math.abs(z) < 7) { li = Math.min(li, gx - 3); ri = Math.max(ri, gx + 3); }
+      const lo = -LANE - 3, ro = LANE + 3;
       if (li - lo > 1.4) seaStack((lo + li) / 2, (li - lo) / 2, top, bot, z, 0.06, hz);
-      const ri = xc + chanHalf, ro = LANE + 3;
       if (ro - ri > 1.4) seaStack((ro + ri) / 2, (ro - ri) / 2, top, bot, z, -0.06, hz);
       // Overhead rock bridge every other slice — caps the canyon so you're caged
       // from ABOVE too (the missing dimension), ducking under arch after arch.
