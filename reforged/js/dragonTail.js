@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import {
   buildForkShape, buildBladeShape, buildSpadeShape, buildLayeredFin,
+  buildNightFuryFinShape,
   featherGeo, featherGradient,
 } from './dragonParts.js';
 import { registerTail } from './dragonRecipe.js';
@@ -411,28 +412,33 @@ export function buildCleanTail(def, model, bodyMat, swept = false) {
     // HORIZONTAL (aircraft horizontal stabilizers), swept out to the sides at the tip
     // of the smooth swept stem — the Night Fury signature. Built from the layered-fin
     // primitive with a strong curve; sizes with tailFinScale so the fins grow per form.
+    // TOOTHLESS TAIL: two LARGE fan-fins splayed in a V at the very tail tip — the
+    // Night Fury signature (the natural fin + the red prosthetic). Big, fanned, and
+    // angled up-and-out so they read as a clear splayed pair from the rear chase cam,
+    // not flat horizontal stabilizers. Sizes with tailFinScale (grows per form).
     const fs = model.tailFinScale ?? 1;
     const em = ensureEdgeMat();
     const fill = ensureFinFill();
     for (const sx of [-1, 1]) {
-      // Narrower, finer blade (tipPinch down) so the twin fins read as a SLEEK swept
-      // rudder, not a broad rounded paddle that foreshortens to a teardrop from the
-      // rear chase cam. (Identity-Playbook: detail in a crisp edge, not a blob.)
-      const fin = buildLayeredFin(0.4 * fs, 1.42 * fs, fill, em, { curve: 0.12, tipPinch: 0.62 });
+      // A broad, fanned blade (Night-Fury tailfin shape): wide root, lobed trailing
+      // edge — a real fan, not a slim rudder.
+      const fin = buildLayeredFin(0.66 * fs, 1.7 * fs, fill, em, {
+        shape: buildNightFuryFinShape, curve: 0.16, tipPinch: 0.92, seam: false,
+      });
       fin.scale.x = sx;
       const p = new THREE.Group();
       p.add(fin);
-      p.rotation.x = Math.PI / 2;   // lay the blade FLAT — a crisp horizontal stabilizer (face +Y)
-      p.rotation.y = sx * 0.40;     // more swept-back so it reads as a fin, not a fan
-      p.rotation.z = 0;             // flat (no anhedral — a droop splits into a 'heart' blob from dead rear)
-      p.position.set(sx * 0.05, 0.02, 0.0);
+      // Stand the fans up-and-back and splay them outward into a V (the open tail).
+      p.rotation.x = 0.62;          // tip up-and-back (not flat) — a standing fan
+      p.rotation.z = sx * 0.62;     // splay outward → the iconic V / butterfly from behind
+      p.rotation.y = sx * 0.10;     // a hair of sweep
+      p.position.set(sx * 0.08, 0.06, 0.06);
       tip.add(p);
     }
-    // A FINE tail point (longer + sharper) instead of a stubby blunt cone — kills the
-    // rounded teardrop tip the old fat cone produced.
-    const point = new THREE.Mesh(new THREE.ConeGeometry(tipR * 0.55, 0.52, lod(6)), bodyMat);
+    // A slim tail-tip nub between the fans (where the fins root) — no fat cone.
+    const point = new THREE.Mesh(new THREE.ConeGeometry(tipR * 0.5, 0.34, lod(6)), bodyMat);
     point.rotation.x = Math.PI / 2;
-    point.position.set(0, 0, 0.2);
+    point.position.set(0, 0.02, 0.16);
     tip.add(point);
   } else if (style === 'shard') {
     // Obsidian crystal shards: a cluster of sharp, faceted obsidian-crystal
