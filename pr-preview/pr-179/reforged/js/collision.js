@@ -95,7 +95,9 @@ export function updateCollision(dt, player) {
 
   for (const c of colliders) {
     const dz = player.dist - c.dist;
-    if (Math.abs(dz) > 28) continue;
+    // Most colliders are thin; a ribcage section is a long tube (c.depthHalf),
+    // so widen the broad-phase reject for it.
+    if (Math.abs(dz) > 28 + (c.depthHalf || 0)) continue;
 
     if (c.type === 'pillar') {
       // Reduced hitbox (0.65 instead of 0.8) = more forgiving side scrapes
