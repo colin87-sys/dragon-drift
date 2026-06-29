@@ -567,6 +567,10 @@ export function createLevelGen(seed = CONFIG.seed, opts = {}) {
       gapW: CONFIG.canyonGapW, gapH: CONFIG.canyonGapH, thick: CONFIG.canyonThick,
       seed: (canyonRnd() * 1e6) | 0,
       runIdx: c.idx, runTotal: c.total, swaySign: c.swaySign,
+      // Distance back to the previous ring — obstacles.js sizes each ribcage to
+      // this so the bone tunnel tiles edge-to-edge on EVERY ring rhythm (burst /
+      // flow / breath) instead of leaving sparse gaps on the long-spacing beats.
+      span: prevRing ? ring.dist - prevRing.dist : 80,
     };
     // Over-under alternates ceiling/floor so it reads as "down, then up".
     if (kind === 'overunder') seg.shelf = c.idx % 2 === 0 ? 'ceiling' : 'floor';
