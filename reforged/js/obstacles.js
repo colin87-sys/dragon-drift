@@ -302,7 +302,9 @@ function buildRockGap(o, e) {
     m.position.set(x, y, z); m.rotation.set(rx, ry, rz);
     group.add(m); return m;
   };
-  const box = (cx, cy, hw, hh, hz = T) => e.boxes.push({ cx, cy, hw, hh, hz });
+  // oz = the box's local z-offset from the segment centre (lets a ribcage wall
+  // sit at a specific rib's depth so collision can follow the lateral sweep).
+  const box = (cx, cy, hw, hh, hz = T, oz = 0) => e.boxes.push({ cx, cy, hw, hh, hz, oz });
   // Faceted lump (rock boulder OR a chunk of bone) + matching collider box.
   const lump = (cx, cy, hw, hh, hz, jag = 0.34) => {
     const geo = new THREE.IcosahedronGeometry(1, 0);
@@ -342,18 +344,22 @@ function buildRockGap(o, e) {
     // sections (phase is shared at the section seams), so it reads as ONE long
     // curving ribcage, not isolated clumps.
     const phaseAt = (f) => runIdx - 2 + f;
-    const sway = (f) => (o.swaySign || 1) * 3.6 * Math.cos((Math.PI / 2) * phaseAt(f));
+    const sway = (f) => (o.swaySign || 1) * 3.0 * Math.cos((Math.PI / 2) * phaseAt(f));
 
-    // Collision shell: a wide, tall tube hugging the swept corridor (belly open).
-    const oxMid = gx + sway(0.5);
-    box(oxMid - cx * 0.82, cYc, 0.9, cy * 0.8, depthHalf);
-    box(oxMid + cx * 0.82, cYc, 0.9, cy * 0.8, depthHalf);
-    box(oxMid, cYc + cy * 0.8, cx * 0.82, 0.9, depthHalf);
+    // Collision FOLLOWS the sweep: thin side walls placed per-rib at each rib's
+    // depth (oz), so the safe corridor curves smoothly with the bone instead of
+    // jumping sideways at section seams (which forced blind dodges). The corridor
+    // is set just at the visible rib inner and the walls are thin, so you can fly
+    // right up to a rib before grazing it. Belly + overhead stay open.
+    const cor = cx * 0.92;
+    const wallHz = (depthHalf / Math.max(nRibs - 1, 1)) * 0.62; // tiles along z, slight overlap
 
     for (let k = 0; k < nRibs; k++) {
       const f = nRibs > 1 ? k / (nRibs - 1) : 0.5;
       const z = -depthHalf + f * 2 * depthHalf;
       const ox = gx + sway(f);
+      box(ox - cor, cYc, 0.4, cy * 0.9, wallHz, z);
+      box(ox + cor, cYc, 0.4, cy * 0.9, wallHz, z);
       const wS = cx * (1 + flare * Math.abs(f - 0.5) * 1.6);
       const hS = cy * (1 + flare * Math.abs(f - 0.5) * 0.9);
       const rib = place(new THREE.TorusGeometry(1, 0.1, 3, 12, Math.PI * 1.55),
@@ -409,33 +415,33 @@ function buildRockGap(o, e) {
     ribcage(34, 9, { flare: 0.9 });
   }
 
-  // Emissive aperture rim — frames the safe route for the rectangular openings
-  // (rock gates + the skull mouth). The ribcage beats skip it: the rib hoops +
-  // core-glow already read the corridor, and a hard rectangle would fight the
-  // round bone forms.
-  const bar = (w, h, cx, cy) => {
-    const m = new THREE.Mesh(new THREE.BoxGeometry(w, h, 0.35), edgeMat);
-    m.position.set(cx, cy, 0.2);
-    group.add(m);
-  };
-  if (o.kind === 'split' || o.kind === 'overunder' || o.kind === 'skull') {
+  // The rectangular openings (rock gates + skull mouth) get an emissive aperture
+  // rim + an additive core-glow locator. The ribcage beats get NEITHER: the rib
+  // hoops + the reward ring already read the corridor, and a square frame/glow
+  // around a round bone tunnel just looks like a stray box.
+  const rectGate = o.kind === 'split' || o.kind === 'overunder' || o.kind === 'skull';
+  if (rectGate) {
+    const bar = (w, h, cx, cy) => {
+      const m = new THREE.Mesh(new THREE.BoxGeometry(w, h, 0.35), edgeMat);
+      m.position.set(cx, cy, 0.2);
+      group.add(m);
+    };
     bar(W * 2 + 0.8, 0.45, gx, gy + H);
     bar(W * 2 + 0.8, 0.45, gx, gy - H);
     bar(0.45, H * 2 + 0.8, gx - W, gy);
     bar(0.45, H * 2 + 0.8, gx + W, gy);
-  }
 
-  // Additive core-glow locator filling the opening (approach-lit, per-instance).
-  const coreMat = new THREE.MeshBasicMaterial({
-    color: skin.core, transparent: true, opacity: 0, depthWrite: false,
-    blending: THREE.AdditiveBlending, side: THREE.DoubleSide,
-  });
-  coreMat.userData.perInstance = true;
-  const core = new THREE.Mesh(new THREE.PlaneGeometry(W * 2, H * 2), coreMat);
-  core.position.set(gx, gy, 0.1);
-  core.layers.set(1); // out of the water reflection
-  group.add(core);
-  e.core = core;
+    const coreMat = new THREE.MeshBasicMaterial({
+      color: skin.core, transparent: true, opacity: 0, depthWrite: false,
+      blending: THREE.AdditiveBlending, side: THREE.DoubleSide,
+    });
+    coreMat.userData.perInstance = true;
+    const core = new THREE.Mesh(new THREE.PlaneGeometry(W * 2, H * 2), coreMat);
+    core.position.set(gx, gy, 0.1);
+    core.layers.set(1); // out of the water reflection
+    group.add(core);
+    e.core = core;
+  }
 
   group.position.z = -o.dist;
   return group;
