@@ -46,6 +46,25 @@ import { initGestureTutorial, updateGestureTutorial } from './gestureTutorial.js
 import { initPbMarker, updatePbMarker } from './pbMarker.js';
 import { ascendedDef, grandfatherAscension, ascend, ascensionTier, radianceRank, ASCENSION_TIERS } from './ascension.js';
 import { applyFlightmark, buyFlightmark, equipFlightmark, FLIGHTMARKS, migrateFlightmarks } from './flightmarks.js';
+import { BUILD, BUILT } from './buildId.js';
+
+// Visible build stamp — confirms which build actually loaded (vs a stale service
+// worker cache). The id is the SW content hash, so it changes whenever any asset
+// changes; if the number on screen matches the latest deploy, you're current.
+(function showBuildStamp() {
+  try {
+    console.log(`[Dragon Drift] build ${BUILD} · built ${BUILT}`);
+    const el = document.createElement('div');
+    el.id = 'build-stamp';
+    el.textContent = 'build ' + BUILD;
+    el.title = 'Built ' + BUILT;
+    el.style.cssText =
+      'position:fixed;right:6px;bottom:5px;z-index:9999;pointer-events:none;' +
+      'font:10px/1 ui-monospace,Menlo,Consolas,monospace;color:rgba(255,255,255,.5);' +
+      'letter-spacing:.04em;text-shadow:0 1px 2px rgba(0,0,0,.6)';
+    document.body.appendChild(el);
+  } catch (e) { /* non-fatal cosmetic */ }
+})();
 
 // --- Renderer / scene / camera ---
 const renderer = new THREE.WebGLRenderer({ antialias: true });
