@@ -131,6 +131,11 @@ export const CONFIG = {
   canyonGapYLo: 5.5,
   canyonGapYHi: 19,
   canyonCeilingDamage: 12,    // chip on scraping the ceiling (gentle, like ground)
+  // Tail finale (Dragon Spine exit): a line of speed boosts then a brittle bone
+  // curtain across the whole mouth — you barrel-roll through it into open air.
+  // Non-fatal: rolling shatters it for style; forgetting to roll is a light chip.
+  canyonTailOrbs: 3,          // speed boosts strung through the tail exit
+  canyonTailChip: 12,         // gentle chip if you hit the curtain without rolling
 
   // Endless generation
   spawnAhead: 500,
