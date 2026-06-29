@@ -115,7 +115,7 @@ export const CONFIG = {
   canyonGapW: 4.4,            // half-width of the safe opening (≥ gateGapW)
   canyonGapH: 3.9,            // half-height of the safe opening (≥ gateGapH)
   canyonThick: 2.2,           // z half-depth of a rock gate (collision + mesh)
-  canyonSegments: [5, 7],     // min/max gates in a Rock Run (split + over-under)
+  canyonSegments: [8, 11],    // a Rock Run sustains ~8-11s of enclosed canyon then opens up
   spineSegments: [7, 9],      // a Dragon Spine Canyon is longer (skull→ribs→exit)
   canyonIntervalBase: 1500,   // metres between canyons (rarer than gauntlets)
   canyonIntervalJitter: 1100,
