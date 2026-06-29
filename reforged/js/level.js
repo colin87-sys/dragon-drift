@@ -522,7 +522,9 @@ export function createLevelGen(seed = CONFIG.seed, opts = {}) {
     const [lo, hi] = type === 'spine' ? CONFIG.spineSegments : CONFIG.canyonSegments;
     const left = CANYON_FORCE ? hi : lo + Math.floor(canyonRnd() * (hi - lo + 1));
     out.canyonStarts.push(ring.dist - 40);
-    return { type, left, idx: 0, total: left };
+    // The ribcage tunnel sweeps laterally to fake the body's curve; pick the side
+    // it starts on per run.
+    return { type, left, idx: 0, total: left, swaySign: canyonRnd() < 0.5 ? -1 : 1 };
   }
 
   // Pick the geometry "kind" for this segment from the run type + its position in
@@ -556,6 +558,7 @@ export function createLevelGen(seed = CONFIG.seed, opts = {}) {
       gapY: clamp(ring.y, CONFIG.canyonGapYLo, CONFIG.canyonGapYHi),
       gapW: CONFIG.canyonGapW, gapH: CONFIG.canyonGapH, thick: CONFIG.canyonThick,
       seed: (canyonRnd() * 1e6) | 0,
+      runIdx: c.idx, runTotal: c.total, swaySign: c.swaySign,
     };
     // Over-under alternates ceiling/floor so it reads as "down, then up".
     if (kind === 'overunder') seg.shelf = c.idx % 2 === 0 ? 'ceiling' : 'floor';

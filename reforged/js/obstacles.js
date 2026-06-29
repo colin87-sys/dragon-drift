@@ -330,23 +330,37 @@ function buildRockGap(o, e) {
   // the corridor and spanning the section depth — fly down the middle. Going wide
   // around the cage is possible but loses the reward ring at its centre.
   const ribcage = (depthHalf, nRibs, opts = {}) => {
-    const { flare = 0, vert = 0.0, spine = true } = opts;
-    // Shell collider tube (thin walls hugging the opening, the section's length).
-    box(gx - W - 0.9, gy, 1.1, H + 2, depthHalf);
-    box(gx + W + 0.9, gy, 1.1, H + 2, depthHalf);
-    box(gx, gy + H + 1.0, W + 1.2, 1.1, depthHalf); // dorsal cap (belly stays open)
+    const { flare = 0, vert = 0, neural = false } = opts;
+    e.depthHalf = Math.max(e.depthHalf || 0, depthHalf); // widen collision broad-phase
+    e.noDissolve = true;        // thin, open ribs never block the view → don't fade
+    const cx = 2 * W;           // TWICE as wide
+    const cy = H + 5.5;         // TALLER — the arch clears the forward sightline
+    const cYc = gy + 1.5;       // lift the cage so the belly opening stays roomy
+    const runIdx = o.runIdx || 0;
+    // Lateral sweep that fakes the curl of a long body: the tunnel starts on the
+    // far side (cos = ±1 at the cage's first rib) and continues seamlessly across
+    // sections (phase is shared at the section seams), so it reads as ONE long
+    // curving ribcage, not isolated clumps.
+    const phaseAt = (f) => runIdx - 2 + f;
+    const sway = (f) => (o.swaySign || 1) * 3.6 * Math.cos((Math.PI / 2) * phaseAt(f));
+
+    // Collision shell: a wide, tall tube hugging the swept corridor (belly open).
+    const oxMid = gx + sway(0.5);
+    box(oxMid - cx * 0.82, cYc, 0.9, cy * 0.8, depthHalf);
+    box(oxMid + cx * 0.82, cYc, 0.9, cy * 0.8, depthHalf);
+    box(oxMid, cYc + cy * 0.8, cx * 0.82, 0.9, depthHalf);
+
     for (let k = 0; k < nRibs; k++) {
       const f = nRibs > 1 ? k / (nRibs - 1) : 0.5;
       const z = -depthHalf + f * 2 * depthHalf;
-      const spread = 1 + flare * Math.abs(f - 0.5) * 2.2; // flare opens ribs at the ends
-      const R = (W + 1.1) * spread;
-      const rib = place(
-        new THREE.TorusGeometry(R, 0.8, 4, 14, Math.PI * 1.6),
-        gx, gy, z, (rng() - 0.5) * 0.18, 0, -Math.PI * 0.3, // belly-down gap + slight sway
-      );
-      rib.scale.set(1, 1.06, 1);
-      if (spine) place(new THREE.IcosahedronGeometry(0.55 + vert, 0), gx, gy + R * 1.06 + 0.2, z);
-      if (vert > 0.4) place(new THREE.ConeGeometry(0.5, 1.6 + vert, 5), gx, gy + R * 1.06 + 1.2, z); // neural spine
+      const ox = gx + sway(f);
+      const wS = cx * (1 + flare * Math.abs(f - 0.5) * 1.6);
+      const hS = cy * (1 + flare * Math.abs(f - 0.5) * 0.9);
+      const rib = place(new THREE.TorusGeometry(1, 0.1, 3, 12, Math.PI * 1.55),
+        ox, cYc, z, (rng() - 0.5) * 0.12, 0, -Math.PI * 0.3); // belly-down + slight sway
+      rib.scale.set(wS, hS, wS);
+      place(new THREE.IcosahedronGeometry(0.7 + vert, 0), ox, cYc + hS + 0.3, z); // dorsal vertebra
+      if (neural) place(new THREE.ConeGeometry(0.6, 2.2, 5), ox, cYc + hS + 1.7, z); // neural spine
     }
   };
 
@@ -381,19 +395,18 @@ function buildRockGap(o, e) {
       decorCone(0.42, 1.5, tx, gy - H + 0.5, 0.3, 0, 0, 0);       // lower fang ↑
     }
   } else if (o.kind === 'throat') {
-    // First interior beat: a short run of neck vertebrae + the first few ribs.
-    ribcage(12, 6, { vert: 0.5 });
+    // First interior beat: neck vertebrae + the first ribs, tiling into the cage.
+    ribcage(28, 8, { vert: 0.6 });
   } else if (o.kind === 'rib') {
-    // Main ribcage corridor: a dense run of successive ribs you fly down (a rib
-    // ~every 5 units). The breaks between sections read as the skeleton's
-    // weathered, incomplete stretches.
-    ribcage(22, 10);
+    // Main ribcage corridor: a CONTINUOUS run of successive ribs (a rib ~every 7
+    // units). Sections tile end-to-end so it reads as one long rib tunnel.
+    ribcage(40, 12);
   } else if (o.kind === 'vertebra') {
     // Spine rhythm: ribs with prominent dorsal vertebrae + neural spines.
-    ribcage(20, 9, { vert: 0.9 });
+    ribcage(40, 11, { vert: 1.0, neural: true });
   } else if (o.kind === 'exitflare') {
     // Release: the last ribs flare OUTWARD, spacing opens, mostly sky — payoff.
-    ribcage(20, 7, { flare: 0.9 });
+    ribcage(34, 9, { flare: 0.9 });
   }
 
   // Emissive aperture rim — frames the safe route for the rectangular openings
@@ -494,7 +507,9 @@ export function updateObstacles(dt, time, playerDist, speedNorm = 0) {
       const dz = e.dist - playerDist;
       const span = CONFIG.canyonFadeFar - CONFIG.canyonFadeNear;
       const fade = Math.min(1, Math.max(0, (dz - CONFIG.canyonFadeNear) / span));
-      if (e.fadeMat) e.fadeMat.opacity = fade;
+      // Ribcage sections are long tubes of thin, open bone — fading the whole
+      // section by its centre would vanish the ribs ahead, so they never fade.
+      if (e.fadeMat && !e.noDissolve) e.fadeMat.opacity = fade;
       // Core-glow locator wakes as the gate nears, telegraphing the safe route.
       if (e.core) {
         const appr = Math.min(1, Math.max(0, (180 - dz) / 150));
