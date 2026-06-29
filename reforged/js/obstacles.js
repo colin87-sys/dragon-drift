@@ -355,19 +355,24 @@ function buildRockGap(o, e) {
   // material — not a smooth blob. Merged to one mesh; collider hugs the lane band.
   const seaStack = (cx, hw, topY, botY, z = 0, lean = 0, hzCol = T) => {
     const h = topY - botY;
-    const n = Math.max(2, Math.round(hw / 2.3));     // shards across the wall width
-    const sr = (hw / n) * 1.55;                       // overlap so it reads as one mass
+    const n = Math.max(2, Math.round(hw / 2.2));     // shards across the wall width
+    const sr = (hw / n) * 1.15;                       // radius sized to fit WITHIN the wall
+    const span = Math.max(0, hw - sr);               // keep shard edges inside ±hw (no poking into the lane/channel)
     const parts = [];
     for (let i = 0; i < n; i++) {
-      const sx = -hw + ((i + 0.5) / n) * 2 * hw + (rng() - 0.5) * sr * 0.4;
-      const sh = h * (0.6 + rng() * 0.45);            // uneven, jagged crest
-      parts.push(shardGeo(sr * (0.8 + rng() * 0.5), sh, sx, botY, (rng() - 0.5) * hzCol * 0.5, lean + (rng() - 0.5) * 0.18));
+      const base = n > 1 ? -span + (i / (n - 1)) * 2 * span : 0;
+      const sx = base + (rng() - 0.5) * sr * 0.3;     // small jitter, stays contained
+      const r = sr * (0.85 + rng() * 0.25);
+      const sh = h * (0.62 + rng() * 0.42);           // uneven, jagged crest
+      parts.push(shardGeo(r, sh, sx, botY, (rng() - 0.5) * hzCol * 0.4, lean + (rng() - 0.5) * 0.16));
     }
     const merged = mergeGeometries(parts, false);
     parts.forEach((g) => g.dispose());
     merged.computeVertexNormals();
     place(merged, cx, 0, z);
-    box(cx, CONFIG.canyonCeilingY * 0.5, hw * 0.82, CONFIG.canyonCeilingY * 0.5 + 3, hzCol, z);
+    // Collider matches the visible footprint (full half-width) so you hit the rock
+    // you see and never get clipped by rock that pokes into the open channel.
+    box(cx, CONFIG.canyonCeilingY * 0.5, hw, CONFIG.canyonCeilingY * 0.5 + 3, hzCol, z);
   };
 
   // A continuous RUN of sea stacks: frequent towers alternating left/right that
@@ -616,7 +621,9 @@ export function updateObstacles(dt, time, playerDist, speedNorm = 0) {
         for (const a of e.archFades) {
           let t = (a.dist - playerDist - 8) / 26;
           t = t < 0 ? 0 : t > 1 ? 1 : t;
-          a.mat.opacity = 0.04 + 0.96 * (t * t * (3 - 2 * t));
+          // floor at 0.2 so a near arch stays faintly visible — it still has a
+          // collider, so it must never become invisible-but-solid (unfair hit).
+          a.mat.opacity = 0.2 + 0.8 * (t * t * (3 - 2 * t));
         }
       }
       // Core-glow locator wakes as the gate nears, telegraphing the safe route.
