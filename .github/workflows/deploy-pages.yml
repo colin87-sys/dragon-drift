@@ -53,6 +53,11 @@ jobs:
           path: ghp
         continue-on-error: true   # first run / no previews yet → just ship production
 
+      # Re-version the service worker from a content hash so production never
+      # serves a stale cache; also regenerates the on-screen build stamp.
+      - name: Stamp service worker
+        run: node src/reforged/tools/stamp-sw.mjs
+
       - name: Assemble the published site
         run: |
           mkdir -p _site

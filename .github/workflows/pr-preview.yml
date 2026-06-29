@@ -24,6 +24,12 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      # Re-version the service worker from a content hash of the assets so a
+      # changed build always reinstalls the SW instead of serving a stale cache.
+      # Also regenerates js/buildId.js (the on-screen build stamp).
+      - name: Stamp service worker
+        run: node reforged/tools/stamp-sw.mjs
+
       # Stage the publishable site into a sibling dir BEFORE deploying. The deploy
       # action creates its temp worktree at the repo root and rsyncs the source
       # into a subfolder of it; with source-dir '.' that source IS the repo root,
