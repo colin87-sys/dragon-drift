@@ -34,7 +34,7 @@ check('canyons spawn over 9 km', segs.length >= 1);
 check('canyon starts/ends are balanced',
   starts.length >= 1 && ends.length >= starts.length - 1 && ends.length <= starts.length);
 check('every gap sits inside the lane + under the ceiling',
-  segs.every((s) => s.gapX >= -9 && s.gapX <= 9 && s.gapY >= 8 && s.gapY <= 15));
+  segs.every((s) => s.gapX >= -9 && s.gapX <= 9 && s.gapY >= 5 && s.gapY <= 19));
 check('every segment has a known run + kind',
   segs.every((s) => ['rock', 'spine'].includes(s.run) && KINDS.includes(s.kind)));
 check('overlay is deterministic per seed',

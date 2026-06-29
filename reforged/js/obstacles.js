@@ -325,6 +325,33 @@ function buildRockGap(o, e) {
   const decorCone = (r, h, x, y, z, rx = 0, ry = 0, rz = 0) =>
     place(new THREE.ConeGeometry(r, h, 5), x, y, z, rx, ry, rz);
 
+  // A tall, rounded, weather-eroded SEA STACK — a HTTYD-style rock tower rising
+  // out of the mist below up past the ceiling, narrowing toward the top, with
+  // vertical erosion flutes. Records a collider box over the lane portion only.
+  const seaStack = (cx, hw, topY, botY) => {
+    const geo = new THREE.IcosahedronGeometry(1, 1); // rounder than the faceted lumps
+    const pos = geo.attributes.position;
+    const v = new THREE.Vector3();
+    const flute = 5 + ((rng() * 4) | 0);
+    const lean = (rng() - 0.5) * 0.1;
+    for (let i = 0; i < pos.count; i++) {
+      v.fromBufferAttribute(pos, i);
+      const t = (v.y + 1) / 2;                       // 0 base → 1 top
+      const taper = 1 - 0.42 * t * t;                // narrow toward the crown
+      const ang = Math.atan2(v.z, v.x);
+      const groove = 0.9 + 0.1 * Math.sin(ang * flute); // vertical erosion flutes
+      const r = taper * groove * (0.92 + rng() * 0.16);
+      pos.setXYZ(i, v.x * r + lean * v.y, v.y, v.z * r);
+    }
+    geo.computeVertexNormals();
+    const h = (topY - botY) / 2, cy = (topY + botY) / 2;
+    geo.scale(hw, h, hw * 0.92);
+    place(geo, cx, cy, 0, 0, rng() * Math.PI, 0);
+    // Collider hugs the lane band only (mesh extends below into the mist), a touch
+    // inside the silhouette so you can skim the rock without a hit.
+    box(cx, CONFIG.canyonCeilingY * 0.5, hw * 0.85, CONFIG.canyonCeilingY * 0.5 + 3, T);
+  };
+
   // A run of SUCCESSIVE rib bones along the flight axis — the actual ribcage.
   // Each rib is a curved hoop around the corridor (open at the belly), hung off a
   // dorsal spine of vertebrae, repeated frequently down z so you fly through a
@@ -372,16 +399,18 @@ function buildRockGap(o, e) {
 
   // --- ROCK RUN -------------------------------------------------------------
   if (o.kind === 'split') {
-    // Two TALL slabs (reach the canyon ceiling for scale + so you can't go over),
-    // clear gap between. Lateral threading.
+    // Two towering SEA STACKS rising from the mist past the ceiling, a winding
+    // slot between them — the HTTYD sea-stack chase. Lateral threading + banking.
+    const top = CEIL + 2, bot = -3; // rise from below the lane (the "sea") up high
     const lhw = (gx - W + LANE) / 2;
-    if (lhw > 0.5) lump((-LANE + gx - W) / 2, CEIL * 0.5, lhw, CEIL * 0.5 + 2, T);
+    if (lhw > 0.6) seaStack((-LANE + gx - W) / 2, lhw, top, bot);
     const rhw = (LANE - (gx + W)) / 2;
-    if (rhw > 0.5) lump((gx + W + LANE) / 2, CEIL * 0.5, rhw, CEIL * 0.5 + 2, T);
+    if (rhw > 0.6) seaStack((gx + W + LANE) / 2, rhw, top, bot);
   } else if (o.kind === 'overunder') {
-    // A ceiling (dive under) or floor (climb over) shelf spanning the lane.
-    if (o.shelf === 'floor') slab(gx, gy - H - 2.6, LANE + 1, 2.6, T);
-    else slab(gx, gy + H + 2.6, LANE + 1, 2.6, T);
+    // A rounded rock mass juts from the ceiling (dive under) or a shelf rises from
+    // the floor (climb over) — a vertical squeeze between the tower slots.
+    if (o.shelf === 'floor') lump(gx, gy - H - 3, LANE + 1, 3, T, 0.5);
+    else lump(gx, gy + H + 3, LANE + 1, 3, T, 0.5);
 
   // --- DRAGON SPINE CANYON --------------------------------------------------
   } else if (o.kind === 'skull') {
@@ -415,32 +444,20 @@ function buildRockGap(o, e) {
     ribcage(34, 9, { flare: 0.9 });
   }
 
-  // The rectangular openings (rock gates + skull mouth) get an emissive aperture
-  // rim + an additive core-glow locator. The ribcage beats get NEITHER: the rib
-  // hoops + the reward ring already read the corridor, and a square frame/glow
-  // around a round bone tunnel just looks like a stray box.
-  const rectGate = o.kind === 'split' || o.kind === 'overunder' || o.kind === 'skull';
-  if (rectGate) {
+  // A slim emissive rim just on the rock-run gates (split / over-under), as a
+  // subtle "thread here" cue between the stacks. NO filled glow plane anywhere —
+  // that additive square read as a crystal window. The skull mouth and the
+  // ribcage frame their own opening (jaws/teeth, ribs), so they get no rim.
+  if (o.kind === 'split' || o.kind === 'overunder') {
     const bar = (w, h, cx, cy) => {
-      const m = new THREE.Mesh(new THREE.BoxGeometry(w, h, 0.35), edgeMat);
+      const m = new THREE.Mesh(new THREE.BoxGeometry(w, h, 0.3), edgeMat);
       m.position.set(cx, cy, 0.2);
       group.add(m);
     };
-    bar(W * 2 + 0.8, 0.45, gx, gy + H);
-    bar(W * 2 + 0.8, 0.45, gx, gy - H);
-    bar(0.45, H * 2 + 0.8, gx - W, gy);
-    bar(0.45, H * 2 + 0.8, gx + W, gy);
-
-    const coreMat = new THREE.MeshBasicMaterial({
-      color: skin.core, transparent: true, opacity: 0, depthWrite: false,
-      blending: THREE.AdditiveBlending, side: THREE.DoubleSide,
-    });
-    coreMat.userData.perInstance = true;
-    const core = new THREE.Mesh(new THREE.PlaneGeometry(W * 2, H * 2), coreMat);
-    core.position.set(gx, gy, 0.1);
-    core.layers.set(1); // out of the water reflection
-    group.add(core);
-    e.core = core;
+    bar(W * 2 + 0.6, 0.4, gx, gy + H);
+    bar(W * 2 + 0.6, 0.4, gx, gy - H);
+    bar(0.4, H * 2 + 0.6, gx - W, gy);
+    bar(0.4, H * 2 + 0.6, gx + W, gy);
   }
 
   group.position.z = -o.dist;
