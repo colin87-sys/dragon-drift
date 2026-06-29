@@ -812,6 +812,65 @@ export const DRAGONS = {
     aura: 0xfff0a8, eye: 0xfff0c0, trail: 0xffd76a, boostTrail: 0xfff0c8,
   },
 
+  // ── ASTRAL CROWN SOVEREIGN — a Bahamut-inspired celestial emperor ──────────
+  // A from-scratch ARCHETYPE (its own model file, like the Phoenix): a classical
+  // four-legged monarch — plated star-metal shoulders, a crown of back-swept
+  // horns, a tall dorsal spine line, broad CATHEDRAL-MANTLE wings that throw a
+  // royal V, a long crown-spade tail and a luminous celestial core. Moonlit
+  // silver-white with royal indigo and gold-white/pale-cyan starlight accents
+  // (NOT ice, NOT fire). `archetype` routes buildDragonModel to astralCrownModel;
+  // `parts` is harmless/unused (kept only so the blueprint validator is happy).
+  astralCrown: {
+    name: 'Astral Crown Sovereign',
+    title: 'Monarch of the moonlit sky',
+    rarity: 'SSSR',
+    maxRarity: 'SSSR',
+    cost: 9000,
+    archetype: 'astralCrown',
+    parts: { torso: 'arrow', wings: 'membrane', head: 'horned', tail: 'clean' },
+    // Regal, balanced-high: strong handling/regen (a poised, commanding flyer),
+    // a sliver under the speed kings (a monarch glides, it doesn't scramble).
+    stats: { speed: 1.12, handling: 1.24, drain: 0.74, regen: 1.32 },
+    hasStyle: true,                    // keep its own starlight trail through Surge
+    feverWing: 0xDCE6FF,               // Ascendant Surge: cool starlight, not magenta
+    feverEye: 0xEAF2FF,
+    feverWash: [0.035, 0.05, 0.085],   // a restrained cool-celestial wash, kept low
+    surgeMotes: true,                  // starlight motes off the wings/tail in Surge
+    surgeHi: 0xFFF4D8,                 // accents flare gold-white on Surge
+    model: {
+      scale: 1.16, wingScale: 1.05,
+      flapBias: 0.82, flapAmp: 0.96,   // broad, slow, majestic monarch wingbeat
+    },
+    // Four forms of one growing emperor — the light, crown, armor and wings escalate
+    // (spineGlow drives the model's F when formLevel isn't stamped). The palette is
+    // one creature maturing in radiance, not a hue shift.
+    forms: [
+      // FORM 1 — Fledgling Sovereign: cooler, dimmer pewter-ivory, a small crown.
+      { spineGlow: 0,
+        colors: { body: 0xC8C7BF, scales: 0x9AA4B6, wingInner: 0x222c5c, wingOuter: 0x9fb0d2,
+          horn: 0xCFCDC2, coreGlow: 0x8fb6d4, apexSeam: 0xD8CBA0, eye: 0xAEC8E4 } },
+      // FORM 2 — Risen Sovereign: armor brightens, the core ignites faintly.
+      { spineGlow: 0.4,
+        colors: { body: 0xD8D6CC, scales: 0xA6B0C2, wingInner: 0x283470, wingOuter: 0xB4C2E0,
+          horn: 0xDCD9CC, coreGlow: 0xA6D2EE, apexSeam: 0xF0E2B0, eye: 0xBCD6F0 } },
+      // FORM 3 — Crowned Sovereign: full star-metal, tall crown, defined cathedral wings.
+      { spineGlow: 0.7,
+        colors: { body: 0xE6E3D8, scales: 0xB0BACB, wingInner: 0x2c3a7c, wingOuter: 0xC2D0EE,
+          horn: 0xE6E2D4, coreGlow: 0xB6E0FC, apexSeam: 0xFFEEC0, eye: 0xCAE4FF } },
+      // FORM 4 — ASTRAL CROWN: a radiant moonlit emperor — full plate, the highest
+      // crown, the grandest cathedral wings, a halo and a blazing celestial core.
+      { spineGlow: 1.0,
+        colors: { body: 0xEFEDE2, scales: 0xB8C2D2, wingInner: 0x2E3A80, wingOuter: 0xCBD8F2,
+          horn: 0xEAE7DA, coreGlow: 0xBFE6FF, apexSeam: 0xFFF1C8, aura: 0xCFE6FF, eye: 0xCFE9FF } },
+    ],
+    fx: { auraColor: '200,220,255', auraIdle: 0.0, sparkle: false },
+    // Top-level fallbacks (≈ the apex form, for any raw/unascended render).
+    body: 0xEFEDE2, belly: 0xC4CAD6, scales: 0xB8C2D2, horn: 0xEAE7DA,
+    wingInner: 0x2E3A80, wingOuter: 0xCBD8F2, wingEmissive: 0x9fb6e0,
+    apexEye: 0xCFE9FF, apexSeam: 0xFFF1C8, coreGlow: 0xBFE6FF, surgeHi: 0xFFF4D8,
+    aura: 0xCFE6FF, eye: 0xCFE9FF, trail: 0x9fb6e0, boostTrail: 0xCFE6FF,
+  },
+
   // A sleek astral serpent: one continuous flowing crystal body wrapped in glowing
   // energy bands, lateral astral fin-vanes, a regal mask head + a celestial saddle,
   // that slithers HORIZONTALLY (low + readable, §0.5) and tapers into a streaming
