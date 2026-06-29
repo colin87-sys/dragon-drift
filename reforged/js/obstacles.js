@@ -370,9 +370,11 @@ function buildRockGap(o, e) {
     parts.forEach((g) => g.dispose());
     merged.computeVertexNormals();
     place(merged, cx, 0, z);
-    // Collider matches the visible footprint (full half-width) so you hit the rock
-    // you see and never get clipped by rock that pokes into the open channel.
-    box(cx, CONFIG.canyonCeilingY * 0.5, hw, CONFIG.canyonCeilingY * 0.5 + 3, hzCol, z);
+    // Collider TAPERS with the spire so flying high to a ring doesn't clip the
+    // full-width box where the rock is only thin tips: a solid lower body, then a
+    // narrower crest pulled back from the opening up high.
+    box(cx, 6, hw, 9, hzCol, z);            // body: y -3..15, full width
+    box(cx, 18, hw * 0.6, 4.5, hzCol, z);   // crest: y 13.5..22.5, narrow (room up high)
   };
 
   // A continuous RUN of sea stacks: frequent towers alternating left/right that
