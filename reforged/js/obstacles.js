@@ -399,10 +399,11 @@ function buildRockGap(o, e) {
       // BOTH walls — you're flanked left AND right by tall stacks (not one open
       // side), so it reads as a canyon you're INSIDE, not a line you fly past.
       let li = xc - chanHalf, ri = xc + chanHalf;
-      // Near a ring's plane, keep the walls clear of the reward ring even when the
-      // base-course ring sits far to one side: the channel centre is lane-clamped,
-      // so without this a far-out ring could hug a wall (hard to grab cleanly).
-      if (Math.abs(z) < 7) { li = Math.min(li, gx - 3); ri = Math.max(ri, gx + 3); }
+      // Near a ring's plane, carve a generous CENTRED pocket around the reward
+      // ring — at least the ring's own radius (3.6) + the dragon + margin on each
+      // side — so a far-out ring is never pinched by a close wall and you can sit
+      // dead-centre to grab it cleanly.
+      if (Math.abs(z) < 8) { li = Math.min(li, gx - 5.6); ri = Math.max(ri, gx + 5.6); }
       const lo = -LANE - 3, ro = LANE + 3;
       if (li - lo > 1.4) seaStack((lo + li) / 2, (li - lo) / 2, top, bot, z, 0.06, hz);
       if (ro - ri > 1.4) seaStack((ro + ri) / 2, (ro - ri) / 2, top, bot, z, -0.06, hz);
