@@ -170,16 +170,21 @@ body.app-loaded > canvas { opacity: 1; }
    with a constant thickness (non-scaling stroke) so narrowing it never thins
    the line. Whispers the info; never fights the scene. */
 .stamina-arc { position: absolute; left: 50%; top: 64%; transform: translate(-50%,-50%);
-  width: min(31vw, 120px); height: 44px; z-index: 4; pointer-events: none; opacity: 0.9; }
+  width: min(33vw, 128px); height: 52px; z-index: 4; pointer-events: none; opacity: 0.9; }
 .stamina-arc svg { width: 100%; height: 100%; overflow: visible; }
-.arc-trk { fill: none; stroke: rgba(255,255,255,0.12); stroke-width: 3; stroke-linecap: round;
+.arc-trk { fill: none; stroke: rgba(255,255,255,0.13); stroke-width: 7; stroke-linecap: butt;
   vector-effect: non-scaling-stroke; }
-.arc-fil { fill: none; stroke: url(#stam-grad); stroke-width: 3; stroke-linecap: round;
-  vector-effect: non-scaling-stroke; opacity: 0.82;
-  filter: drop-shadow(0 0 3px rgba(60,225,215,0.45)); transition: stroke-dasharray 0.12s linear; }
-.arc-fil.depleted { stroke: #58606e; filter: none; }
-.arc-fil.low { animation: vit-low 0.7s ease-in-out infinite; }
-@keyframes vit-low { 0%,100%{opacity:0.8} 50%{opacity:1; filter:drop-shadow(0 0 7px rgba(130,255,235,0.9))} }
+/* The 3 phase segments. Dim/cool when not in a Surge (still readable as fuel);
+   each lit segment = one available phase. */
+.arc-seg { fill: none; stroke: url(#stam-grad); stroke-width: 7; stroke-linecap: butt;
+  vector-effect: non-scaling-stroke; opacity: 0; transition: opacity 0.2s, filter 0.2s; }
+.arc-seg.lit { opacity: 0.42; }
+/* In a Dragon Surge the whole bar lights up — lit segments glow magenta and
+   pulse, signalling "you can phase this many times". */
+.stamina-arc.surge .arc-seg.lit { stroke: url(#stam-grad-surge); opacity: 1;
+  filter: drop-shadow(0 0 7px rgba(255,130,255,0.95)); animation: stam-surge 1.05s ease-in-out infinite; }
+@keyframes stam-surge { 0%,100% { filter: drop-shadow(0 0 5px rgba(255,120,255,0.7)); }
+  50% { filter: drop-shadow(0 0 11px rgba(255,165,255,1)); } }
 
 /* Surge — a bare gem row + quiet multiplier, centred low */
 .surge-min { position: absolute; left: 50%; bottom: clamp(46px, 9vh, 108px);

@@ -80,7 +80,7 @@ export const CONFIG = {
   // Surge phase-through: during Dragon Surge, a well-timed barrel roll shatters
   // through a crystal wall (gate) that would normally crash you. Spends stamina
   // (which is why the stamina budget above is generous) and pays style points.
-  phaseStaminaCost: 40,
+  phaseStaminaCost: 110 / 3,  // a third of staminaMax → exactly 3 phases per full bar (one per stamina segment)
   phaseBonus: 150,        // style points × combo on a successful (minor) phase
   // Tiered phase feel (modeled on perfect rings): a cleanly-timed roll just before
   // the wall keeps lots of i-frame window left at the crossing → PERFECT; a desperate

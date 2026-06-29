@@ -439,11 +439,19 @@ export const ui = {
       <!-- Stamina: an arc cradling the dragon (beauty-first, near the gaze) -->
       <div class="stamina-arc" id="stamina-arc">
         <svg viewBox="0 0 250 92" preserveAspectRatio="none">
-          <defs><linearGradient id="stam-grad" x1="0" y1="0" x2="1" y2="0">
-            <stop offset="0" stop-color="#2bb6c9"/><stop offset="1" stop-color="#9affe6"/>
-          </linearGradient></defs>
-          <path class="arc-trk" pathLength="100" d="M 22 14 Q 125 74 228 14"/>
-          <path class="arc-fil" id="stamina-fill" pathLength="100" stroke-dasharray="100 100" d="M 22 14 Q 125 74 228 14"/>
+          <defs>
+            <linearGradient id="stam-grad" x1="0" y1="0" x2="1" y2="0">
+              <stop offset="0" stop-color="#2bb6c9"/><stop offset="1" stop-color="#9affe6"/>
+            </linearGradient>
+            <linearGradient id="stam-grad-surge" x1="0" y1="0" x2="1" y2="0">
+              <stop offset="0" stop-color="#ff7adf"/><stop offset="1" stop-color="#ffd2ff"/>
+            </linearGradient>
+          </defs>
+          <!-- 3 phase segments: one Dragon-Surge phase-through each (a third of the bar) -->
+          <path class="arc-trk" pathLength="100" stroke-dasharray="30 5 30 5 30" d="M 22 14 Q 125 74 228 14"/>
+          <path class="arc-seg" id="stam-seg-0" pathLength="100" stroke-dasharray="30 70" d="M 22 14 Q 125 74 228 14"/>
+          <path class="arc-seg" id="stam-seg-1" pathLength="100" stroke-dasharray="0 35 30 35" d="M 22 14 Q 125 74 228 14"/>
+          <path class="arc-seg" id="stam-seg-2" pathLength="100" stroke-dasharray="0 70 30 0" d="M 22 14 Q 125 74 228 14"/>
         </svg>
       </div>
       <!-- Surge: a bare gem row (no label/box) + a quiet multiplier -->
@@ -478,7 +486,8 @@ export const ui = {
     `;
     document.body.appendChild(root);
     els = {
-      stamina:      root.querySelector('#stamina-fill'),
+      staminaArc:   root.querySelector('#stamina-arc'),
+      stamSegs:     [root.querySelector('#stam-seg-0'), root.querySelector('#stam-seg-1'), root.querySelector('#stam-seg-2')],
       score:        root.querySelector('#score'),
       chain:        root.querySelector('#chain'),
       chainN:       root.querySelector('#chain-n'),
@@ -554,11 +563,13 @@ export const ui = {
     const hearts = els.healthHearts.children;
     for (let i = 0; i < hearts.length; i++)
       hearts[i].classList.toggle('full', game.health > i * heartUnit + 0.01);
-    // Stamina = arc fill (stroke length 0..100 via pathLength)
-    const stamPct = (game.stamina / CONFIG.staminaMax) * 100;
-    els.stamina.style.strokeDasharray = `${stamPct} 100`;
-    els.stamina.classList.toggle('depleted', game.stamina <= 0.5);
-    els.stamina.classList.toggle('low', game.stamina > 0.5 && game.stamina < CONFIG.staminaMax * 0.25);
+    // Stamina shown as 3 phase segments — each is one Dragon-Surge phase-through
+    // (a third of the bar). Lit segments = phases you can currently afford. The
+    // bar only lights up brightly (surge colour + glow) during a Surge, so the
+    // player instantly sees how many windows they can phase through.
+    const phases = Math.min(3, Math.floor(game.stamina / CONFIG.phaseStaminaCost + 1e-4));
+    for (let i = 0; i < 3; i++) els.stamSegs[i].classList.toggle('lit', i < phases);
+    els.staminaArc.classList.toggle('surge', !!game.feverActive);
     const shownScore = Math.floor(game.score);
     els.score.textContent = shownScore;
     // Earn pop: big single-frame jumps (rings/gates/bonuses) tick the score
