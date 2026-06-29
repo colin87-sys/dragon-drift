@@ -39,6 +39,12 @@ let splashT = 0;
 let introT = 0;
 const INTRO_DUR = 2.8;
 
+// Sky Canyon framing: while threading a rock run, pull the cam in a touch (so it
+// rides clear of the flanking rock) and widen the FOV (more peripheral read).
+// Eased so entering/leaving a canyon never snaps.
+let canyonOn = false;
+let canyonW = 0;
+
 export const cameraCtl = {
   splash: false,
 
@@ -56,6 +62,8 @@ export const cameraCtl = {
     deathOn = false;
     deathT = 0;
     gateKickT = 0;
+    canyonOn = false;
+    canyonW = 0;
   },
 
   shake(mag = 0.6) {
@@ -74,6 +82,11 @@ export const cameraCtl = {
 
   gateKick() {
     gateKickT = GATE_KICK_DUR;
+  },
+
+  // Toggled by main.js when the player enters/leaves a Sky Canyon run.
+  setCanyon(on) {
+    canyonOn = on;
   },
 
   // Engaged by finishDeath(); reset free via init() on restart. The
@@ -149,9 +162,11 @@ export const cameraCtl = {
       return;
     }
     const speedNorm = Math.min(Math.max((player.speed - 35) / 55, 0), 1);
+    canyonW = damp(canyonW, canyonOn ? 1 : 0, 3, dt);
     // A touch further back + higher than before so the (now larger) dragon sits
-    // lower in frame and more of the path ahead stays visible.
-    const targetBack = player.feverActive ? 7.2 : player.boosting ? 8.8 : 12.3;
+    // lower in frame and more of the path ahead stays visible. A canyon pulls it
+    // ~1.6 closer so the chase cam rides clear of the flanking rock.
+    const targetBack = (player.feverActive ? 7.2 : player.boosting ? 8.8 : 12.3) - canyonW * 1.6;
     const targetHeight = player.feverActive ? 2.5 : player.boosting ? 3.0 : 3.6;
     const dx = player.position.x * 0.9;
     smoothPos.x = damp(smoothPos.x, dx,                    4.5, dt);
@@ -208,6 +223,7 @@ export const cameraCtl = {
     if (player.boosting) targetFov = 86;
     if (player.feverActive) targetFov = 90;
     if (rollKickT > 0) targetFov += 4;
+    targetFov += canyonW * 6; // wider peripheral read while threading rock
     if (Math.abs(camera.fov - targetFov) > 0.1) {
       camera.fov = damp(camera.fov, targetFov, player.boosting ? 5 : 3, dt);
       camera.updateProjectionMatrix();

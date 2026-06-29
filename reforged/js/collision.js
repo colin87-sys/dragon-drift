@@ -163,6 +163,25 @@ export function updateCollision(dt, player) {
           }
         }
       }
+
+    } else if (c.type === 'rockGap') {
+      // Sky Canyon rock gate: each rock mass is an AABB. Hitting one is health
+      // damage (NON-fatal, roll-clearable via i-frames in hit()), not a crash.
+      // Slipping past a rock face close = near miss. The gap itself is clear.
+      let struck = false, grazed = false;
+      for (const b of c.boxes) {
+        if (Math.abs(dz) >= b.hz + R) continue;
+        const mx = Math.abs(p.x - b.cx);
+        const my = Math.abs(p.y - b.cy);
+        // Slightly inset solid box = forgiving edge scrapes.
+        if (mx < b.hw * 0.85 + R * 0.5 && my < b.hh * 0.85 + R * 0.5) { struck = true; break; }
+        if (mx < b.hw + 1.6 && my < b.hh + 1.6) grazed = true;
+      }
+      if (struck) {
+        hit(player, Math.sign(p.x - c.gapX) || 1, Math.sign(p.y - c.gapY) || 0, CONFIG.obstacleDamage, 'rock');
+      } else if (grazed) {
+        awardNearMiss(c, player);
+      }
     }
     if (game.state !== 'playing') return;
   }

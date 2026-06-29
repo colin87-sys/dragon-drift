@@ -12,7 +12,7 @@ import { initSplash, showSplash, hideSplash, splashVisible, launchFlash, igniteS
 import { player, applyDragonStats } from './player.js';
 import { cameraCtl } from './cameraController.js';
 import { initRings, addRing, updateRings, resetRings, setRingsVisible } from './rings.js';
-import { initObstacles, addObstacle, updateObstacles, resetObstacles } from './obstacles.js';
+import { initObstacles, addObstacle, addCanyonSegment, updateObstacles, resetObstacles, obstacleCount } from './obstacles.js';
 import { initPowerups, addOrb, updatePowerups, resetPowerups } from './powerups.js';
 import { initParticles, updateParticles, resetParticles, setParticleQuality } from './particles.js';
 import { setDragonQuality } from './dragon.js';
@@ -123,6 +123,10 @@ let levelGen = createLevelGen(runSeed, { scripted: isFirstFlight() });
 // alive = a cleared gauntlet (weekly trials, feats, milestones).
 const pendingGauntletStarts = [];
 const pendingGauntletEnds = [];
+// Sky Canyon boundaries: crossing a start widens the chase cam for the run;
+// crossing an end restores it.
+const pendingCanyonStarts = [];
+const pendingCanyonEnds = [];
 function spawnAhead() {
   const lead = Math.max(CONFIG.spawnAhead, player.speed * CONFIG.spawnAheadTime);
   if (levelGen.generatedUntil >= player.dist + lead) return;
@@ -134,6 +138,9 @@ function spawnAhead() {
   chunk.goldEmbers && chunk.goldEmbers.forEach(addGoldEmber);
   chunk.gauntletStarts && pendingGauntletStarts.push(...chunk.gauntletStarts);
   chunk.gauntletEnds && pendingGauntletEnds.push(...chunk.gauntletEnds);
+  chunk.canyonSegments && chunk.canyonSegments.forEach(addCanyonSegment);
+  chunk.canyonStarts && pendingCanyonStarts.push(...chunk.canyonStarts);
+  chunk.canyonEnds && pendingCanyonEnds.push(...chunk.canyonEnds);
   // Set-pieces
   chunk.setPieces && chunk.setPieces.forEach(sp => triggerSetPiece(sp));
 }
@@ -151,7 +158,7 @@ function triggerSetPiece(sp) {
 const debugFever = urlParams.get('debug') === 'fever';
 if (urlParams.has('debug')) {
   window.__dd = {
-    renderer, game, player, save: saveData, emit, ui, claimFeat,
+    renderer, game, player, save: saveData, emit, ui, claimFeat, obstacleCount,
     juice: { hitstop, juiceEvent },
     postfx: { setPostTier, kick, kickState, handle: postfx },
     // Test seam: skip the attract splash and land on the dashboard hub.
@@ -457,6 +464,8 @@ function restart() {
   clearDeath(true); // instant color restore (cameraCtl.init below resets the death cam)
   pendingGauntletStarts.length = 0;
   pendingGauntletEnds.length = 0;
+  pendingCanyonStarts.length = 0;
+  pendingCanyonEnds.length = 0;
   // Cull old set-pieces
   for (const sp of setpieceMeshes) scene.remove(sp.object);
   setpieceMeshes.length = 0;
@@ -808,6 +817,17 @@ function tick() {
       pendingGauntletEnds.shift();
       game.gauntletsClearedRun++;
       emit('gauntletCleared', { dist: player.dist });
+    }
+
+    // Sky Canyon boundaries: widen the chase cam through the run so the twisty
+    // gaps read clearly, then restore. Counted so nested canyons stay balanced.
+    while (pendingCanyonStarts.length && player.dist >= pendingCanyonStarts[0]) {
+      pendingCanyonStarts.shift();
+      cameraCtl.setCanyon(true);
+    }
+    while (pendingCanyonEnds.length && player.dist >= pendingCanyonEnds[0]) {
+      pendingCanyonEnds.shift();
+      cameraCtl.setCanyon(false);
     }
 
     // Boost start: camera kick + whoosh SFX

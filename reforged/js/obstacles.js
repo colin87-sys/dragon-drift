@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { CONFIG } from './config.js';
 import { biomeIndexAt } from './biomes.js';
+import { mulberry32 } from './util.js';
 
 // Hazards, spawned ahead and culled behind the dragon:
 //   pillar — floor spike (health damage)
@@ -255,6 +256,119 @@ function buildGate(o) {
   return group;
 }
 
+// --- Sky Canyon rock gates -------------------------------------------------
+// A canyon segment frames a safe aperture (centered on a reward ring) with rock
+// masses, an emissive aperture rim ("glowing crystal cracks"), and an additive
+// core-glow locator. The rock uses a PER-INSTANCE clone of the biome body
+// material so it can dissolve to nothing as it nears the camera (so a cleared
+// rock never blocks the view of what's next). Open-top by design: masses flank /
+// arch / shelf the gap but never seal the sky. Each mass also records an
+// axis-aligned collider box (`e.boxes`) consumed by collision.js.
+export function addCanyonSegment(o) {
+  const e = { ...o, type: 'rockGap', object: null, boxes: [], fadeMat: null, core: null };
+  e.object = buildRockGap(o, e);
+  scene.add(e.object);
+  entries.push(e);
+}
+
+function buildRockGap(o, e) {
+  const bi = biomeIndexAt(o.dist);
+  const skin = PHASE_SKINS[bi];
+  const rng = mulberry32((o.seed ^ 0x9e3779b9) >>> 0);
+  const group = new THREE.Group();
+  const gx = o.gapX, gy = o.gapY, W = o.gapW, H = o.gapH, T = o.thick;
+  const LANE = CONFIG.laneHalfWidth;
+
+  // One per-instance body material for ALL rock in this gate → fades together.
+  const fadeMat = mats.body[bi].clone();
+  fadeMat.transparent = true;
+  fadeMat.opacity = 1;
+  fadeMat.userData.perInstance = true;
+  e.fadeMat = fadeMat;
+  const edgeMat = edgeMats[bi];
+
+  // A faceted boulder mass covering an AABB; records its collider box.
+  const addRock = (cx, cy, hw, hh, hz) => {
+    const geo = new THREE.IcosahedronGeometry(1, 0);
+    geo.scale(hw, hh, hz);
+    // a little asymmetric crumple so it doesn't read as a sphere
+    const pos = geo.attributes.position;
+    for (let i = 0; i < pos.count; i++) {
+      const j = 0.82 + rng() * 0.36;
+      pos.setXYZ(i, pos.getX(i) * j, pos.getY(i) * j, pos.getZ(i) * j);
+    }
+    geo.computeVertexNormals();
+    const mesh = new THREE.Mesh(geo, fadeMat);
+    mesh.position.set(cx, cy, 0);
+    mesh.rotation.set(rng() * 0.4 - 0.2, rng() * Math.PI, rng() * 0.4 - 0.2);
+    group.add(mesh);
+    e.boxes.push({ cx, cy, hw, hh, hz });
+  };
+
+  // A flat rock shelf (over/under) — boxy, reads as a slab.
+  const addShelf = (cx, cy, hw, hh, hz) => {
+    const mesh = new THREE.Mesh(new THREE.BoxGeometry(hw * 2, hh * 2, hz * 2), fadeMat);
+    mesh.position.set(cx, cy, 0);
+    group.add(mesh);
+    e.boxes.push({ cx, cy, hw, hh, hz });
+  };
+
+  if (o.style === 'split') {
+    // Two flanking slabs, clear gap between — open sky above.
+    const lhw = (gx - W + LANE) / 2;
+    if (lhw > 0.5) addRock((-LANE + gx - W) / 2, gy, lhw, H + 4, T);
+    const rhw = (LANE - (gx + W)) / 2;
+    if (rhw > 0.5) addRock((gx + W + LANE) / 2, gy, rhw, H + 4, T);
+  } else if (o.style === 'rib') {
+    // Dragon-spine arch curving over the top; open underneath + to the sides.
+    const r = W + 1.6;
+    const arch = new THREE.Mesh(new THREE.TorusGeometry(r, 1.3, 5, 18, Math.PI), fadeMat);
+    arch.position.set(gx, gy + H, 0);
+    group.add(arch);
+    e.boxes.push({ cx: gx, cy: gy + H + r * 0.5, hw: r, hh: r * 0.55, hz: T });
+  } else if (o.style === 'spiral') {
+    // One big floating rock to a side; the gap hugs the open side, sky beyond.
+    const s = o.side || 1;
+    if (s < 0) {
+      const hw = (gx - W + LANE) / 2;
+      if (hw > 0.5) addRock((-LANE + gx - W) / 2, gy, hw, H + 6, T + 1);
+    } else {
+      const hw = (LANE - (gx + W)) / 2;
+      if (hw > 0.5) addRock((gx + W + LANE) / 2, gy, hw, H + 6, T + 1);
+    }
+  } else if (o.style === 'overunder') {
+    // A ceiling (dive under) or floor shelf (climb over) spanning the lane.
+    if (o.shelf === 'floor') addShelf(gx, gy - H - 2.6, LANE + 1, 2.6, T);
+    else addShelf(gx, gy + H + 2.6, LANE + 1, 2.6, T);
+  }
+
+  // Emissive aperture rim — frames the safe route (the brightest "fly here" cue).
+  const bar = (w, h, cx, cy) => {
+    const m = new THREE.Mesh(new THREE.BoxGeometry(w, h, 0.35), edgeMat);
+    m.position.set(cx, cy, 0.2);
+    group.add(m);
+  };
+  bar(W * 2 + 0.8, 0.45, gx, gy + H);
+  bar(W * 2 + 0.8, 0.45, gx, gy - H);
+  bar(0.45, H * 2 + 0.8, gx - W, gy);
+  bar(0.45, H * 2 + 0.8, gx + W, gy);
+
+  // Additive core-glow locator filling the opening (approach-lit, per-instance).
+  const coreMat = new THREE.MeshBasicMaterial({
+    color: skin.core, transparent: true, opacity: 0, depthWrite: false,
+    blending: THREE.AdditiveBlending, side: THREE.DoubleSide,
+  });
+  coreMat.userData.perInstance = true;
+  const core = new THREE.Mesh(new THREE.PlaneGeometry(W * 2, H * 2), coreMat);
+  core.position.set(gx, gy, 0.1);
+  core.layers.set(1); // out of the water reflection
+  group.add(core);
+  e.core = core;
+
+  group.position.z = -o.dist;
+  return group;
+}
+
 export function updateObstacles(dt, time, playerDist, speedNorm = 0) {
   // Warning pulse on every moving shard (shared material, one write).
   mats.mover.emissiveIntensity = 0.9 + Math.sin(time * 6) * 0.45;
@@ -314,6 +428,18 @@ export function updateObstacles(dt, time, playerDist, speedNorm = 0) {
           m.position.y = u.baseY + Math.sin(time * u.sp + u.phase) * (0.8 + rise * 0.8);
           m.position.x = u.baseX + Math.cos(time * u.sp * 0.6 + u.phase) * 0.5;
         }
+      }
+    } else if (e.type === 'rockGap') {
+      // Camera-proximity dissolve: solid far out, fades to nothing over the last
+      // ~15m so a cleared rock never blocks the view of the next gate.
+      const dz = e.dist - playerDist;
+      const span = CONFIG.canyonFadeFar - CONFIG.canyonFadeNear;
+      const fade = Math.min(1, Math.max(0, (dz - CONFIG.canyonFadeNear) / span));
+      if (e.fadeMat) e.fadeMat.opacity = fade;
+      // Core-glow locator wakes as the gate nears, telegraphing the safe route.
+      if (e.core) {
+        const appr = Math.min(1, Math.max(0, (180 - dz) / 150));
+        e.core.material.opacity = appr * 0.16 * (0.9 + 0.1 * Math.sin(time * 2.5));
       }
     }
   }

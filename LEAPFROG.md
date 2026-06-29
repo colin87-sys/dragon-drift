@@ -3347,3 +3347,55 @@ red herring for a separate bug — it only adds a rigid `group.rotation.z` spin;
 bursts speed, hitting the same clock bug. **→ Leapfrog:** any GPU/CPU cyclic motion whose rate is reactive
 MUST integrate phase per-frame; `rate · globalClock` is a latent spasm that hides until the rate changes
 mid-run, and gets worse the longer the session.
+
+---
+
+## Lesson — Sky Canyon: add a course-feature as a DETERMINISM-SAFE OVERLAY on the existing line, not a re-route
+
+**What we did.** Added a new gameplay beat — *How to Train Your Dragon*-style twisty rock canyons
+(threading gaps that move left/right AND up/down) — that breaks up the rings + Phase-Gate loop. Four
+archetypes (`split` two flanking slabs / `rib` Dragon-Spine arch / `spiral` big offset rock with the gap
+hugging open sky / `overunder` alternating ceiling↔floor shelf), one forgiving `rockGap` collider type.
+
+**The gotcha that shaped the whole design.** `tests/gold-determinism.mjs` asserts the base course
+(`rings` + `obstacles` arrays) for seed 1337 over 3 km is **byte-identical to a frozen fixture** — that's
+how old challenge links stay valid. So a course feature CANNOT touch the main `rnd` stream or those
+arrays, and **any feature that re-routes the waypoint line (moves `prev`, adds `rnd()` calls) breaks it.**
+
+**The reusable pattern — overlay, don't re-route.** Mirror the golden-ember isolation exactly:
+1. **Independent RNG stream** (`canyonRnd = mulberry32(seed ^ const)`), never the main `rnd`.
+2. **Separate output arrays** (`out.canyonSegments/canyonStarts/canyonEnds`), never `rings`/`obstacles`.
+3. A **post-pass** (`overlayCanyons(out)`) that runs AFTER the normal `ensure` loop and **frames the rings
+   already generated** — each rock gate's aperture is centered on an existing reward ring's `(x,y)`.
+This bought two hard problems for free: **reachability** (gaps sit on the already-reach-audited line →
+catchable by construction, no new reach math) and **visibility** (the safe opening is literally on the
+line the player is already flying toward the next ring). The determinism fixture stays green untouched.
+
+**Visibility kit (the owner's #1 fear: claustrophobia).** Open-TOP by design (masses flank/arch/shelf the
+gap, never seal the sky). Ported the Phase-Gate cues: emissive aperture rim + additive core-glow locator.
+The key NEW trick is **camera-proximity dissolve** — canyon rock uses a PER-INSTANCE clone of the biome
+body material (`transparent`, `userData.perInstance` so `removeAt` disposes it) whose opacity fades 1→0
+over the last ~15 m before the camera (`updateObstacles` reads `dz = e.dist - playerDist`). A cleared rock
+never blocks the view of the next gate. Collision is **box-AABB, non-fatal (25 dmg, roll-clearable via the
+existing `hit()` i-frame check)** — a pressure beat, not a run-ender; rocks deal damage like pillars, never
+crash like gates.
+
+**Build-your-own test harness (the owner asked for it).** `?canyon=split|rib|spiral|overunder|all` forces
+runs to begin right after takeoff and repeat with normal rings before/after each, so every archetype can be
+flown immediately — no need to play up to one. Launcher page: `reforged/canyontest.html`. The param is null
+in normal play and in the headless tests (no query string) → **zero behaviour change off the harness.**
+Reuses the same `new URLSearchParams(window.location.search)` seam `?debug=reach` already used.
+
+**Verification.** `tests/canyon.mjs` (overlay spawns, deterministic per seed, all 4 archetypes, gaps
+in-lane), `tests/canyonboot.mjs` (rocks BUILD in real WebGL + collision/camera/dissolve frames run with
+zero console errors — drives the input-less dragon forward via a new debug `obstacleCount` seam; don't
+assert an un-steered dragon SURVIVES, only that the code path doesn't throw), plus `gold-determinism`
+(base course untouched), `smoke`, `tricount`. **Pre-existing env flakes:** `badges.mjs` + `celebrate.mjs`
+time out on shop/skin-card UI visibility **on the clean tree too** — not regressions; confirm with
+`git stash` before blaming your diff.
+
+**→ Leapfrog:** the cleanest way to add a course beat to an endless generator with a frozen-fixture
+determinism guard is an **independent-stream, separate-array OVERLAY that frames the existing reachable
+line** — it sidesteps re-route determinism breakage AND inherits reachability/visibility for free. And for
+any large near-camera geometry in a fast chase-cam game, a **per-instance proximity dissolve** is the move
+that lets you add visually-blocking masses without blinding the player.

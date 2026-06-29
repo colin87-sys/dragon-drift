@@ -106,6 +106,22 @@ export const CONFIG = {
   gateGapW: 3.8,
   gateGapH: 3.4,
 
+  // Sky Canyon — a twisty rock-run set-piece that OVERLAYS the existing flight
+  // path (rock gates framed around already-generated reward rings). Driven by an
+  // independent RNG stream + separate output arrays so the base course
+  // (rings/obstacles) for any seed stays byte-identical — old challenge links and
+  // the gold-determinism fixture are untouched. Rocks are NON-fatal (health
+  // damage, roll-clearable) so a canyon is a pressure beat, not a run-ender.
+  canyonGapW: 4.4,            // half-width of the safe opening (≥ gateGapW)
+  canyonGapH: 3.9,            // half-height of the safe opening (≥ gateGapH)
+  canyonThick: 2.2,           // z half-depth of a rock gate (collision + mesh)
+  canyonSegments: [4, 6],     // min/max rock gates per canyon run
+  canyonIntervalBase: 1500,   // metres between canyons (rarer than gauntlets)
+  canyonIntervalJitter: 1100,
+  canyonFirstAt: 900,         // earliest a canyon can begin (past the tutorial)
+  canyonFadeNear: 1,          // dz where a rock has fully dissolved (at camera)
+  canyonFadeFar: 16,          // dz where a rock is fully solid again
+
   // Endless generation
   spawnAhead: 500,
   spawnAheadTime: 7,    // minimum reaction seconds; lead = max(spawnAhead, speed×this)
