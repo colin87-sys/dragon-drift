@@ -124,10 +124,12 @@ export const CONFIG = {
   canyonFadeFar: 16,          // dz where a rock is fully solid again
   // Vertical limit (active ONLY inside a canyon run): you can't climb over the
   // rock to skip it — flying above the ceiling bounces + chips like the floor.
-  // Gaps are clamped to sit clearly below it.
-  canyonCeilingY: 19.5,
-  canyonGapYLo: 8,            // gap-centre clamp so the opening stays under the ceiling
-  canyonGapYHi: 15,
+  // The gap clamp spans the full ring band so the framing always centres on the
+  // actual reward ring (a tighter clamp made the skull mouth drift off the ring);
+  // the ceiling sits just above the highest ring with a little headroom.
+  canyonCeilingY: 21,
+  canyonGapYLo: 5.5,
+  canyonGapYHi: 19,
   canyonCeilingDamage: 12,    // chip on scraping the ceiling (gentle, like ground)
 
   // Endless generation

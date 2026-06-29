@@ -534,7 +534,9 @@ export function createLevelGen(seed = CONFIG.seed, opts = {}) {
       // Rock Run: alternate tall split slabs with over-under shelves. Bias toward
       // a shelf when the path is making a big vertical move (sells the up/down).
       const dy = prevRing ? ring.y - prevRing.y : 0;
-      const wantShelf = Math.abs(dy) > 2.2 || c.idx % 2 === 1;
+      // Mostly tower-slots (the sea-stack read); an over-under squeeze only when
+      // the line really climbs or dives.
+      const wantShelf = Math.abs(dy) > 3.2;
       if (CANYON_FORCE === 'split') return 'split';
       if (CANYON_FORCE === 'overunder') return 'overunder';
       return wantShelf ? 'overunder' : 'split';
