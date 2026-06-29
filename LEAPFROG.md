@@ -3421,3 +3421,40 @@ are centered on the existing serpentine ring line, so the ring path already snak
 kind → geometry dispatch), not a bag of identical segments — that's what turns "some rocks" into "I flew
 through the mouth and ribcage of a dragon." And any lane limit a barrel-roll could cheese must bypass the
 roll i-frame check, the same way the ground always has.
+
+
+## Lesson — Why Phoenix reads ELEGANT and the rest read UGLY is two specific things (wings + bodies), now an Identity Playbook.
+
+The owner's verdict after the whole roster arc: "Phoenix was my best creation; I hate the style the
+wings are drawn and the bodies of the other dragons are uninspired and ugly. Start fresh, use Phoenix as
+the reference." Rather than guess, we rendered the rear chase-cam silhouette (`tools/silhouette.mjs <key>
+rear`, shape-only, headless — it WORKS, no browser) for the roster and read them side by side. The
+diagnosis is unambiguous and matches the complaint exactly:
+
+**Wings.** The ugly dragons (`membrane`/`hullWings`) are a **flat clipped `ShapeGeometry` sheet on a
+visible kite-frame** — leading-edge arm-bone + finger struts drawn as actual `wingStrut` cylinders, hung
+off a chrome shoulder ball — and because `archWing`'s bow is shallow the tips **droop flat**. From the
+rear cam: a paper kite / dead leaf with a skeleton poking through. (The membrane file's OWN comments are a
+war against this: "spokes," "kite frame," "bolted metallic shoulder sphere," "frozen-body seam.") Phoenix's
+`buildFeatherWings` is the opposite vocabulary: **two arched continuous surfaces** (`archUp` parabolic
+UPSWEEP) whose **scalloped/notched trailing edge IS the feather detail** — detail in the silhouette edge,
+not as protruding struts — `webGradient`/`featherGradient` dull-root→vivid-tip, and at most ONE glowing
+leading edge on elite forms. The tips **arc UP** (a lifting gesture), they don't sag.
+
+**Bodies.** azure/ember/jade/obsidian/solar all ride the SAME 8-station `ARROW_PROFILE` blade-tube in
+`dragonTorso.js` (+ bolted sphere fairings + a lerped sphere-chain neck) — one body, twelve paint jobs, so
+the rear-no-wings silhouette barely changes per dragon. Phoenix's `buildAvianTorso` is bespoke and
+characterful: sculpted egg + breast swell, a **focal heart-core glow**, a raked feather crown as the back
+read, a short 2-sphere neck. Pearl's `seraphHull` proves the cheap middle path — a `loftEllipse` ring list
+with a real chest/waist/hip pinch (L: "the body WAS always sculptable") — which most of the roster simply
+never used.
+
+**→ Leapfrog:** elegance in this engine is FIVE transferable laws, not taste — (1) wings ARC UP, never
+sag (`archUp`); (2) imply detail at the silhouette EDGE (notched surface), never expose struts; (3) color
+is a gradient dull-root→vivid-tip, never flat-fill; (4) grow limbs from the body, never a chrome ball; (5)
+give the eye a focal glow. The fix for "ugly wings" and "uninspired bodies" is a VOCABULARY swap (arched
+edge-detailed surfaces + sculpted per-creature silhouettes), not dial-tuning on the membrane/blade-tube.
+Codified as `reforged/IDENTITY-PLAYBOOK.md` (the aesthetic companion to MODEL-CREATION.md) with the
+rear-silhouette test, the wing/body anti-patterns→fixes, a fresh-dragon recipe + verification gates, and a
+worked blueprint template. The rear-silhouette render is the cheapest honest verdict we have — use it
+BEFORE touching color; the human still judges color/motion on the live preview.
