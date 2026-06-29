@@ -115,12 +115,20 @@ export const CONFIG = {
   canyonGapW: 4.4,            // half-width of the safe opening (≥ gateGapW)
   canyonGapH: 3.9,            // half-height of the safe opening (≥ gateGapH)
   canyonThick: 2.2,           // z half-depth of a rock gate (collision + mesh)
-  canyonSegments: [4, 6],     // min/max rock gates per canyon run
+  canyonSegments: [5, 7],     // min/max gates in a Rock Run (split + over-under)
+  spineSegments: [7, 9],      // a Dragon Spine Canyon is longer (skull→ribs→exit)
   canyonIntervalBase: 1500,   // metres between canyons (rarer than gauntlets)
   canyonIntervalJitter: 1100,
   canyonFirstAt: 900,         // earliest a canyon can begin (past the tutorial)
   canyonFadeNear: 1,          // dz where a rock has fully dissolved (at camera)
   canyonFadeFar: 16,          // dz where a rock is fully solid again
+  // Vertical limit (active ONLY inside a canyon run): you can't climb over the
+  // rock to skip it — flying above the ceiling bounces + chips like the floor.
+  // Gaps are clamped to sit clearly below it.
+  canyonCeilingY: 19.5,
+  canyonGapYLo: 8,            // gap-centre clamp so the opening stays under the ceiling
+  canyonGapYHi: 15,
+  canyonCeilingDamage: 12,    // chip on scraping the ceiling (gentle, like ground)
 
   // Endless generation
   spawnAhead: 500,

@@ -43,6 +43,7 @@ export const game = {
   surgesRun: 0,        // Dragon Surges triggered this run
   goldEmbersRun: 0,    // golden embers caught this run
   gauntletsClearedRun: 0,
+  inCanyon: false,     // inside a Sky Canyon run → vertical ceiling is active
   runSummary: null,    // built once at settle for the recap screen
   timeScale: 1,        // near-death slow-mo (main.js scales sim dt by this)
   slowMoTimer: 0,      // remaining slow-mo, in REAL seconds
@@ -113,6 +114,7 @@ export const game = {
     this.surgesRun = 0;
     this.goldEmbersRun = 0;
     this.gauntletsClearedRun = 0;
+    this.inCanyon = false;
     this.challengeBeaten = false;
     this.runSummary = null;
     this.timeScale = 1;

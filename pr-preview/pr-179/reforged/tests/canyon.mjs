@@ -28,17 +28,27 @@ const result = await page.evaluate(async () => {
 });
 
 const { segs, starts, ends } = result.a;
+const KINDS = ['split', 'overunder', 'skull', 'throat', 'rib', 'vertebra', 'exitflare'];
 check('canyons spawn over 9 km', segs.length >= 1);
-check('canyon starts/ends are balanced', starts.length === ends.length && starts.length >= 1);
-check('every gap sits inside the lane',
-  segs.every((s) => s.gapX >= -9 && s.gapX <= 9 && s.gapY >= 7 && s.gapY <= 18));
-check('every segment has a known archetype',
-  segs.every((s) => ['split', 'rib', 'spiral', 'overunder'].includes(s.style)));
+// ends may trail starts by one if a run is still in progress at the walk boundary.
+check('canyon starts/ends are balanced',
+  starts.length >= 1 && ends.length >= starts.length - 1 && ends.length <= starts.length);
+check('every gap sits inside the lane + under the ceiling',
+  segs.every((s) => s.gapX >= -9 && s.gapX <= 9 && s.gapY >= 8 && s.gapY <= 15));
+check('every segment has a known run + kind',
+  segs.every((s) => ['rock', 'spine'].includes(s.run) && KINDS.includes(s.kind)));
 check('overlay is deterministic per seed',
   JSON.stringify(result.a.segs) === JSON.stringify(result.b.segs));
 
-const styles = new Set(segs.map((s) => s.style));
-check('multiple archetypes appear', styles.size >= 2);
+const runs = new Set(segs.map((s) => s.run));
+const kinds = new Set(segs.map((s) => s.kind));
+check('multiple kinds appear', kinds.size >= 2);
+// A Dragon Spine run, if present, must open with a skull and end on a flare.
+const spineSegs = segs.filter((s) => s.run === 'spine');
+if (spineSegs.length) {
+  check('spine runs include a skull entrance', kinds.has('skull'));
+  check('spine runs include a flared exit', kinds.has('exitflare'));
+}
 
-console.log(`  (segments: ${segs.length}, runs: ${starts.length}, styles: ${[...styles].join(', ')})`);
+console.log(`  (segments: ${segs.length}, runs: ${starts.length} [${[...runs].join(',')}], kinds: ${[...kinds].join(', ')})`);
 await done();

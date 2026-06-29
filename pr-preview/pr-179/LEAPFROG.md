@@ -3399,3 +3399,25 @@ determinism guard is an **independent-stream, separate-array OVERLAY that frames
 line** — it sidesteps re-route determinism breakage AND inherits reachability/visibility for free. And for
 any large near-camera geometry in a fast chase-cam game, a **per-instance proximity dissolve** is the move
 that lets you add visually-blocking masses without blinding the player.
+
+
+**Addendum — iteration 2 (owner feedback): two run TYPES, a Dragon-Spine skeleton, and a height limit.**
+The owner reshaped the first cut: (1) removed the `spiral` archetype (no added purpose); (2) **mixed
+`split` + `overunder` into one "Rock Run"** mini-course (alternating, split made TALL for vertical scale);
+(3) added a **vertical height limit** — you could previously climb to `laneMaxY` and skip a canyon
+entirely. Fix: a `game.inCanyon` flag (set on the canyon start/end boundary in `main.js`, reset in
+`game.reset()`) gates a **canyon ceiling** in `collision.js` that bounces + chips like the floor, and
+i-frames are ignored for both lane boundaries (`cause !== 'ground' && cause !== 'ceiling'`) so you can't
+roll-cheese a limit; gaps are clamped to `[canyonGapYLo, canyonGapYHi]` so the opening always sits clearly
+below it. (4) Reinterpreted **Dragon Spine** as a multi-beat **leviathan-skeleton set piece**, not a single
+arch: a run is now a *typed sequence* — `startCanyon` picks `rock|spine`, `pickKind` maps each segment to a
+beat by its index (`skull → throat → rib/vertebra ribcage → exitflare`), and `buildRockGap` dispatches on
+`o.kind` to build a procedural skull (cranium + horns + jaws + teeth border + cheek hinges), asymmetric
+sweeping ribs (heavy side alternates per segment to **fake the curl of a long body while the path stays
+straight**), vertebra rhythm chunks, and a flared open-sky exit — all on a dedicated warm **bone material**
+(`mats.bone`). The fake-curvature illusion came for FREE from the determinism-overlay design: the openings
+are centered on the existing serpentine ring line, so the ring path already snakes L/R through the ribcage.
+**→ Leapfrog:** a "run" in an overlay generator wants to be a **typed beat-sequence** (run type → per-index
+kind → geometry dispatch), not a bag of identical segments — that's what turns "some rocks" into "I flew
+through the mouth and ribcage of a dragon." And any lane limit a barrel-roll could cheese must bypass the
+roll i-frame check, the same way the ground always has.
