@@ -472,11 +472,14 @@ function buildRockGap(o, e) {
   // the corridor and spanning the section depth — fly down the middle. Going wide
   // around the cage is possible but loses the reward ring at its centre.
   const ribcage = (depthHalf, nRibs, opts = {}) => {
-    const { flare = 0, vert = 0, neural = false, broken = false, tilt = false, squeeze = 1 } = opts;
+    const { flare = 0, vert = 0, neural = false, broken = false, tilt = false, grow = 1 } = opts;
     e.depthHalf = Math.max(e.depthHalf || 0, depthHalf); // widen collision broad-phase
     e.noDissolve = true;        // thin, open ribs never block the view → don't fade
-    const cx = 2 * W * squeeze; // TWICE as wide (× a tightening factor approaching the heart)
-    const cy = H + 5.5;         // TALLER — the arch clears the forward sightline
+    // `grow` swells the WHOLE cage (width + height) — the body is widest at the
+    // chest (heart), standard at the throat/tail. Height grows a little less than
+    // width so the arch reads as a barrel chest, not a spike.
+    const cx = 2 * W * grow;            // TWICE as wide, × the chest swell
+    const cy = (H + 5.5) * (1 + (grow - 1) * 0.7); // TALLER — clears the sightline
     const cYc = gy + 1.5;       // lift the cage so the belly opening stays roomy
     const runIdx = o.runIdx || 0;
     // Lateral sweep that fakes the curl of a long body: the tunnel starts on the
@@ -508,9 +511,11 @@ function buildRockGap(o, e) {
       // A broken/incomplete rib now and then (never first/last): a short arc hung
       // off one side with a snapped-bone stub, so the cage stops reading as a
       // perfect repeating mesh. VISUAL ONLY — the corridor colliders above remain.
-      const isBroken = broken && k > 0 && k < nRibs - 1 && rng() < 0.22;
+      const isBroken = broken && k > 0 && k < nRibs - 1 && rng() < 0.10;
       const bSide = rng() < 0.5 ? -1 : 1;
-      const arc = isBroken ? Math.PI * (0.55 + rng() * 0.3) : Math.PI * 1.55;
+      // A broken rib is a near-complete hoop with a chip taken out — a subtle
+      // accent, NOT a fragment (a short arc thinned the dense ribbing too much).
+      const arc = isBroken ? Math.PI * (0.95 + rng() * 0.25) : Math.PI * 1.55;
       const tw = tilt ? (rng() - 0.5) * 0.5 : 0;                   // tunnel hoops tilt/rotate a touch
       const rib = place(new THREE.TorusGeometry(1, 0.1, 3, 12, arc),
         ox, cYc, z, (rng() - 0.5) * 0.12, 0, -Math.PI * 0.3 + (isBroken ? bSide * 0.6 : 0) + tw);
@@ -521,39 +526,17 @@ function buildRockGap(o, e) {
     }
   };
 
-  // The chest cavity: a wide-OPEN breather act. Sparse, hugely-flared rib arches
-  // mark the ribcage at the flanks (so the lane reads as a cavern, not a tunnel),
-  // and a translucent crystal HEART hangs to one side of the path — pure spectacle,
-  // never on the centred ring line, never blocking the view. A second-act contrast
-  // that reinforces (not fights) the see-through feel.
-  const heartChamber = (depthHalf) => {
-    e.depthHalf = Math.max(e.depthHalf || 0, depthHalf);
-    e.noDissolve = true;
-    const cYc = gy + 1.5;
-    const runIdx = o.runIdx || 0;
-    const nArch = 4;
-    const wallHz = (depthHalf / nArch) * 0.6;
-    for (let k = 0; k < nArch; k++) {
-      const f = nArch > 1 ? k / (nArch - 1) : 0.5;
-      const z = -depthHalf + f * 2 * depthHalf;
-      const ox = gx + (o.swaySign || 1) * 2.0 * Math.cos((Math.PI / 2) * (runIdx - 2 + f));
-      const wS = 3.2 * W, hS = 2.0 * H;                            // huge → reads wide open
-      const rib = place(new THREE.TorusGeometry(1, 0.12, 3, 14, Math.PI * 1.4),
-        ox, cYc, z, (rng() - 0.5) * 0.1, 0, -Math.PI * 0.3);
-      rib.scale.set(wS, hS, wS);
-      // Colliders only far out at the cavity walls — the centred path is clear.
-      box(ox - wS * 0.95, cYc, 0.6, hS, wallHz, z);
-      box(ox + wS * 0.95, cYc, 0.6, hS, wallHz, z);
-    }
-    // The crystal heart: offset to the sway side and kept above the floor, so it's
-    // clearly beside the route (never a core you'd have to fly around). No collider.
+  // The heart is a DECORATIVE flourish, not a void: a translucent crystal core
+  // (with a faint bony cradle + a little mist) hung to ONE SIDE of the path so it
+  // reads as a glowing landmark while the dense ribs keep flowing past it. Never on
+  // the centred ring line, no collider, never blocks the view.
+  const addHeartCore = (depthHalf) => {
     const hx = Math.max(-(LANE - 2), Math.min(LANE - 2, gx + (o.swaySign || 1) * (W + 5)));
     const hy = Math.max(CONFIG.laneMinY + 2.5, Math.min(CEIL - 3, gy));
     const core = new THREE.Mesh(new THREE.IcosahedronGeometry(2.4, 0), mats.heart);
     core.position.set(hx, hy, 0);
     group.add(core);
     e.heartCore = core;                                            // slow-spun in updateObstacles
-    // A faint bony cradle cupping the heart + a little mist for atmosphere.
     place(new THREE.TorusGeometry(3.0, 0.16, 4, 16, Math.PI * 1.2), hx, hy, 0, 0, 0, Math.PI * 0.15);
     for (let m = 0; m < 2; m++) {
       const mz = -depthHalf + ((m + 0.5) / 2) * 2 * depthHalf;
@@ -562,6 +545,12 @@ function buildRockGap(o, e) {
       group.add(q);
     }
   };
+
+  // Size a ribcage to the LOCAL ring spacing so the bone tunnel tiles edge-to-edge
+  // on every rhythm (burst/flow/breath) — a rib lands ~every 6 units everywhere, so
+  // the ribbing stays continuous and dense instead of thinning on long-spacing beats.
+  const dhFor = (mult = 1) => Math.max(36, Math.min(80, (o.span || 80) * 0.6)) * mult;
+  const nrFor = (dh) => Math.max(8, Math.round((dh * 2) / 6));
 
   // --- ROCK RUN -------------------------------------------------------------
   if (o.kind === 'split') {
@@ -601,25 +590,35 @@ function buildRockGap(o, e) {
     }
   } else if (o.kind === 'throat') {
     // First interior beat: neck vertebrae + the first ribs, tiling into the cage.
-    ribcage(28, 8, { vert: 0.6 });
+    const dh = dhFor(0.8);
+    ribcage(dh, nrFor(dh), { vert: 0.6 });
   } else if (o.kind === 'rib') {
-    // Main ribcage corridor: a CONTINUOUS run of successive ribs (a rib ~every 7
-    // units), tiling end-to-end as one long tunnel. It TIGHTENS toward the heart
-    // (wide → narrow, the build-up before the breather), with the occasional broken
-    // rib so the long run never reads as a perfectly repeating mesh.
+    // Main ribcage corridor: a CONTINUOUS run of successive STANDARD-size ribs sized
+    // to the local ring spacing so it tiles edge-to-edge as one long dense tunnel —
+    // a touch swells toward the chest. The rare broken rib adds texture.
     const heartAt = Math.round((o.runTotal - 1) * 0.5);
     const prog = Math.max(0, Math.min(1, (o.runIdx - 2) / Math.max(1, heartAt - 2)));
-    ribcage(40, 12, { broken: true, squeeze: 1 - 0.22 * prog });
+    const dh = dhFor();
+    ribcage(dh, nrFor(dh), { broken: true, grow: 1 + 0.25 * prog }); // 1.0 → 1.25 toward the chest
   } else if (o.kind === 'heart') {
-    // Second act: the wide-open chest cavity with the crystal heart (a breather).
-    heartChamber(34);
+    // Second act: the CHEST — a proper FULL-SIZE ribcage, markedly wider and taller
+    // than the throat/tail ribs, still fully ribbed (no void). The crystal heart
+    // hangs beside the path as a glowing landmark.
+    const dh = dhFor();
+    ribcage(dh, nrFor(dh), { flare: 0.25, vert: 0.8, grow: 1.6 });
+    addHeartCore(dh);
   } else if (o.kind === 'vertebra') {
     // Back-third spine tunnel: bony hoops that read DIFFERENTLY from the rib slalom
     // — prominent neural spines, each hoop tilted/rotated a touch (thread the bones).
-    ribcage(40, 11, { vert: 1.0, neural: true, tilt: true });
+    // Tapers from chest-size back to standard so the body narrows toward the tail.
+    const heartAt = Math.round((o.runTotal - 1) * 0.5), last = o.runTotal - 1;
+    const t = Math.max(0, Math.min(1, (o.runIdx - heartAt) / Math.max(1, (last - 1) - heartAt)));
+    const dh = dhFor();
+    ribcage(dh, nrFor(dh), { vert: 1.0, neural: true, tilt: true, grow: 1.25 - 0.25 * t });
   } else if (o.kind === 'exitflare') {
     // Release: the last ribs flare OUTWARD, spacing opens, mostly sky — payoff.
-    ribcage(34, 9, { flare: 0.9 });
+    const dh = dhFor(0.8);
+    ribcage(dh, nrFor(dh), { flare: 0.9 });
   }
 
   // No rim/frame on any canyon gate: every opening is framed by its own rock
