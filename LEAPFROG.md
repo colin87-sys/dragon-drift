@@ -3421,3 +3421,31 @@ are centered on the existing serpentine ring line, so the ring path already snak
 kind → geometry dispatch), not a bag of identical segments — that's what turns "some rocks" into "I flew
 through the mouth and ribcage of a dragon." And any lane limit a barrel-roll could cheese must bypass the
 roll i-frame check, the same way the ground always has.
+
+**Addendum — iteration 3 (outside reviewer): authoring the spine into "Ancient Remains v2".**
+An outsider proposed turning the leviathan skeleton into a full "journey through the corpse" (skull
+approach → throat choke → rib slalom with varied rhythm/broken ribs → **heart chamber** → vertebrae ring
+tunnel → tail-burst exit), plus mechanics riffs (gem trails, surge-break bone walls, phase-through
+membranes, barrel-roll crystal growths). The useful filter was the **overlay architecture itself**: three
+of its invariants quietly veto whole categories of "good ideas," so they got dropped, not debated —
+(1) the canyon writes ONLY to `canyonSegments/Starts/Ends` on `canyonRnd`, so it **cannot add/move any
+collectible** (every gem-trail / orbiting-gem / safe-line-gem idea is out — `gold-determinism.mjs` stays
+the proof); (2) each segment is **1:1 bound to a centred reward ring**, so **nothing solid can sit on the
+line** (a heart "core you fly around / pick a side" is out — the core became *decorative, offset, no
+collider*); (3) canyon rock is **non-fatal + always-passable**, so a *mandatory* surge-wall/phase-membrane
+is out (an optional route with no reward — collectibles forbidden — is pointless). What survived was pure
+**geometry + juice**, which is exactly where an overlay is free: `pickKind` became an explicit positional
+template with a `heart` beat at the midpoint (`open→tight→OPEN→tight→release`); `ribcage()` grew
+`{broken, tilt, squeeze}` so the front ribs *tighten toward the heart* and throw the occasional snapped rib
+(kills the repeating-mesh read — the #1 complaint) while the **corridor colliders stay identical** (variety
+above the hitbox, never in it); a new `heartChamber()` is a wide-open cavity (sparse huge flared arches +
+a translucent magenta `mats.heart` crystal offset to the sway side) that *reinforces* the see-through value
+instead of fighting it; skull got bigger + pulsing soul-fire eyes (shared `mats.soul`, one emissive write/
+frame like `mats.mover`); and entry/exit beats are a shake + mist puff / bone-dust `burst` on the existing
+canyon boundary (no new plumbing). `spineSegments [7,9]→[10,12]` to fit the act without a 30s slog.
+**→ Leapfrog:** when a reviewer hands you a wish-list, **let the architecture's invariants do the triage** —
+a determinism-overlay's "can't touch base arrays / 1:1 ring binding / always-passable" rules pre-sort every
+idea into *free* (geometry, emissive, particles, camera) vs *expensive* (collectibles, hard blocks, new
+reward systems). Spend only in the free lane and you ship the spectacle (an authored multi-act set piece)
+without paying the determinism/fairness tax — and **vary the mesh, never the hitbox**, so "less repetitive"
+never means "less fair."

@@ -844,11 +844,17 @@ function tick() {
       pendingCanyonStarts.shift();
       game.inCanyon = true;
       cameraCtl.setCanyon(true);
+      // Entry beat: a soft wind/mist puff + a small shake as you cross the threshold
+      // ("you're entering something ancient"). Subtle — within the juice budget.
+      cameraCtl.shake(0.5);
+      burst(player.position, 0xcdd9ec, { count: 14, speed: 9, size: 1.1 });
     }
     while (pendingCanyonEnds.length && player.dist >= pendingCanyonEnds[0]) {
       pendingCanyonEnds.shift();
       game.inCanyon = false;
       cameraCtl.setCanyon(false);
+      // Exit burst: a puff of bone dust as you break out into open sky (release).
+      burst(player.position, 0xe7dcc0, { count: 18, speed: 14, size: 1.0 });
     }
 
     // Boost start: camera kick + whoosh SFX

@@ -541,12 +541,18 @@ export function createLevelGen(seed = CONFIG.seed, opts = {}) {
       if (CANYON_FORCE === 'overunder') return 'overunder';
       return wantShelf ? 'overunder' : 'split';
     }
-    // Dragon Spine Canyon beats: skull mouth → throat → ribcage/vertebrae → exit.
+    // Dragon Spine Canyon beats — an authored "ancient remains" sequence with a
+    // pacing curve, not random rocks: skull (cinematic gate) → throat (choke) →
+    // rib slalom (tight) → heart chamber (wide-open breather) → vertebra
+    // ring-tunnel (a different texture) → exitflare (release). The heart sits at
+    // the midpoint so the run reads open → tight → OPEN → tight → release.
     const i = c.idx, last = c.total - 1;
     if (i === 0) return 'skull';
     if (i === 1) return 'throat';
-    if (i >= last - 1) return 'exitflare';     // last two ribs flare open
-    return (i % 3 === 0) ? 'vertebra' : 'rib';  // mostly ribs, a vertebra every 3rd
+    if (i >= last - 1) return 'exitflare';        // last two ribs flare open
+    const heartAt = Math.round((c.total - 1) * 0.5);
+    if (i === heartAt) return 'heart';            // the chest cavity, second act
+    return i < heartAt ? 'rib' : 'vertebra';      // ribs in front, vertebrae behind
   }
 
   // One canyon gate's data: a safe aperture centered on the ring, plus the kind

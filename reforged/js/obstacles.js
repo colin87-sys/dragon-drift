@@ -121,6 +121,21 @@ export function initObstacles(s) {
       color: 0xc8d4e4, transparent: true, opacity: 0.08, depthWrite: false,
       side: THREE.DoubleSide, fog: true,
     }),
+    // Soul-fire for the skull's eyes — a cold green ember that pulses (shared, one
+    // write/frame in updateObstacles) so the mouth reads as "something ancient is
+    // awake" from a distance. Bright emissive so it blooms.
+    soul: new THREE.MeshStandardMaterial({
+      color: 0x0c2415, flatShading: true, roughness: 0.3, metalness: 0.0,
+      emissive: 0x4dff9e, emissiveIntensity: 1.8,
+    }),
+    // The dead leviathan's crystal heart — a translucent magenta core suspended in
+    // the chest cavity. Surge-coded colour; transparent + no depth write so it
+    // glows without ever blocking the view of the path past it.
+    heart: new THREE.MeshStandardMaterial({
+      color: 0x2a0e1e, flatShading: true, roughness: 0.2, metalness: 0.0,
+      emissive: 0xff3a78, emissiveIntensity: 1.4,
+      transparent: true, opacity: 0.6, depthWrite: false,
+    }),
   };
   // Phase Gate skins, one material set per biome.
   veilMats = PHASE_SKINS.map((s) => makeVeilMat(s.veil, s.edge));
@@ -457,10 +472,10 @@ function buildRockGap(o, e) {
   // the corridor and spanning the section depth — fly down the middle. Going wide
   // around the cage is possible but loses the reward ring at its centre.
   const ribcage = (depthHalf, nRibs, opts = {}) => {
-    const { flare = 0, vert = 0, neural = false } = opts;
+    const { flare = 0, vert = 0, neural = false, broken = false, tilt = false, squeeze = 1 } = opts;
     e.depthHalf = Math.max(e.depthHalf || 0, depthHalf); // widen collision broad-phase
     e.noDissolve = true;        // thin, open ribs never block the view → don't fade
-    const cx = 2 * W;           // TWICE as wide
+    const cx = 2 * W * squeeze; // TWICE as wide (× a tightening factor approaching the heart)
     const cy = H + 5.5;         // TALLER — the arch clears the forward sightline
     const cYc = gy + 1.5;       // lift the cage so the belly opening stays roomy
     const runIdx = o.runIdx || 0;
@@ -483,15 +498,68 @@ function buildRockGap(o, e) {
       const f = nRibs > 1 ? k / (nRibs - 1) : 0.5;
       const z = -depthHalf + f * 2 * depthHalf;
       const ox = gx + sway(f);
+      // The corridor walls ALWAYS bound the path (fair), no matter how the visible
+      // rib above them is varied or broken below — collision stays predictable.
       box(ox - cor, cYc, 0.4, cy * 0.9, wallHz, z);
       box(ox + cor, cYc, 0.4, cy * 0.9, wallHz, z);
-      const wS = cx * (1 + flare * Math.abs(f - 0.5) * 1.6);
-      const hS = cy * (1 + flare * Math.abs(f - 0.5) * 0.9);
-      const rib = place(new THREE.TorusGeometry(1, 0.1, 3, 12, Math.PI * 1.55),
-        ox, cYc, z, (rng() - 0.5) * 0.12, 0, -Math.PI * 0.3); // belly-down + slight sway
+      const wJit = 1 + (rng() - 0.5) * 0.16;                       // per-rib size jitter (less uniform)
+      const wS = cx * (1 + flare * Math.abs(f - 0.5) * 1.6) * wJit;
+      const hS = cy * (1 + flare * Math.abs(f - 0.5) * 0.9) * wJit;
+      // A broken/incomplete rib now and then (never first/last): a short arc hung
+      // off one side with a snapped-bone stub, so the cage stops reading as a
+      // perfect repeating mesh. VISUAL ONLY — the corridor colliders above remain.
+      const isBroken = broken && k > 0 && k < nRibs - 1 && rng() < 0.22;
+      const bSide = rng() < 0.5 ? -1 : 1;
+      const arc = isBroken ? Math.PI * (0.55 + rng() * 0.3) : Math.PI * 1.55;
+      const tw = tilt ? (rng() - 0.5) * 0.5 : 0;                   // tunnel hoops tilt/rotate a touch
+      const rib = place(new THREE.TorusGeometry(1, 0.1, 3, 12, arc),
+        ox, cYc, z, (rng() - 0.5) * 0.12, 0, -Math.PI * 0.3 + (isBroken ? bSide * 0.6 : 0) + tw);
       rib.scale.set(wS, hS, wS);
+      if (isBroken) place(shardGeo(0.5, 1.6 + rng(), ox + bSide * wS * 0.7, cYc - hS * 0.2, z, bSide * 0.5), 0, 0, 0);
       place(new THREE.IcosahedronGeometry(0.7 + vert, 0), ox, cYc + hS + 0.3, z); // dorsal vertebra
       if (neural) place(new THREE.ConeGeometry(0.6, 2.2, 5), ox, cYc + hS + 1.7, z); // neural spine
+    }
+  };
+
+  // The chest cavity: a wide-OPEN breather act. Sparse, hugely-flared rib arches
+  // mark the ribcage at the flanks (so the lane reads as a cavern, not a tunnel),
+  // and a translucent crystal HEART hangs to one side of the path — pure spectacle,
+  // never on the centred ring line, never blocking the view. A second-act contrast
+  // that reinforces (not fights) the see-through feel.
+  const heartChamber = (depthHalf) => {
+    e.depthHalf = Math.max(e.depthHalf || 0, depthHalf);
+    e.noDissolve = true;
+    const cYc = gy + 1.5;
+    const runIdx = o.runIdx || 0;
+    const nArch = 4;
+    const wallHz = (depthHalf / nArch) * 0.6;
+    for (let k = 0; k < nArch; k++) {
+      const f = nArch > 1 ? k / (nArch - 1) : 0.5;
+      const z = -depthHalf + f * 2 * depthHalf;
+      const ox = gx + (o.swaySign || 1) * 2.0 * Math.cos((Math.PI / 2) * (runIdx - 2 + f));
+      const wS = 3.2 * W, hS = 2.0 * H;                            // huge → reads wide open
+      const rib = place(new THREE.TorusGeometry(1, 0.12, 3, 14, Math.PI * 1.4),
+        ox, cYc, z, (rng() - 0.5) * 0.1, 0, -Math.PI * 0.3);
+      rib.scale.set(wS, hS, wS);
+      // Colliders only far out at the cavity walls — the centred path is clear.
+      box(ox - wS * 0.95, cYc, 0.6, hS, wallHz, z);
+      box(ox + wS * 0.95, cYc, 0.6, hS, wallHz, z);
+    }
+    // The crystal heart: offset to the sway side and kept above the floor, so it's
+    // clearly beside the route (never a core you'd have to fly around). No collider.
+    const hx = Math.max(-(LANE - 2), Math.min(LANE - 2, gx + (o.swaySign || 1) * (W + 5)));
+    const hy = Math.max(CONFIG.laneMinY + 2.5, Math.min(CEIL - 3, gy));
+    const core = new THREE.Mesh(new THREE.IcosahedronGeometry(2.4, 0), mats.heart);
+    core.position.set(hx, hy, 0);
+    group.add(core);
+    e.heartCore = core;                                            // slow-spun in updateObstacles
+    // A faint bony cradle cupping the heart + a little mist for atmosphere.
+    place(new THREE.TorusGeometry(3.0, 0.16, 4, 16, Math.PI * 1.2), hx, hy, 0, 0, 0, Math.PI * 0.15);
+    for (let m = 0; m < 2; m++) {
+      const mz = -depthHalf + ((m + 0.5) / 2) * 2 * depthHalf;
+      const q = new THREE.Mesh(new THREE.CircleGeometry(LANE * (0.8 + rng() * 0.3), 16), mats.mist);
+      q.position.set(gx + (rng() - 0.5) * 5, 1 + rng() * 3, mz);
+      group.add(q);
     }
   };
 
@@ -508,15 +576,23 @@ function buildRockGap(o, e) {
 
   // --- DRAGON SPINE CANYON --------------------------------------------------
   } else if (o.kind === 'skull') {
-    // The enormous open mouth: cranium + horns above, jaws framing the opening,
-    // teeth bordering it, cheek hinges flanking. The mouth centre is the gap.
-    lump(gx, gy + H + 5.6, W + 5, 3.6, T + 2.5, 0.45);          // cranium
-    decorCone(1.1, 6.5, gx - (W + 4), gy + H + 7.5, -1, -0.5, 0, 0.5);  // L horn
-    decorCone(1.1, 6.5, gx + (W + 4), gy + H + 7.5, -1, -0.5, 0, -0.5); // R horn
+    // The enormous open mouth — bigger and more iconic so it announces the set
+    // piece: a heavy cranium + long horns above, jaws framing the opening, teeth
+    // bordering it, cheek hinges flanking, and two soul-fire eyes that pulse so the
+    // mouth reads as "ancient, awake." The mouth centre is the gap.
+    lump(gx, gy + H + 6.4, W + 6.5, 4.4, T + 3.2, 0.45);        // cranium (larger)
+    decorCone(1.4, 8.5, gx - (W + 4.6), gy + H + 8.4, -1, -0.5, 0, 0.55);  // L horn (longer)
+    decorCone(1.4, 8.5, gx + (W + 4.6), gy + H + 8.4, -1, -0.5, 0, -0.55); // R horn
     lump(gx, gy + H + 1.4, W + 3.4, 1.4, T + 0.4, 0.22);        // upper jaw
     lump(gx, gy - H - 1.4, W + 3.4, 1.4, T + 0.4, 0.22);        // lower jaw
     lump(gx - (W + 2.4), gy, 1.6, H + 2, T);                    // L cheek hinge
     lump(gx + (W + 2.4), gy, 1.6, H + 2, T);                    // R cheek hinge
+    const eyeGeo = new THREE.IcosahedronGeometry(0.95, 0);
+    for (const sx of [-1, 1]) {
+      const eye = new THREE.Mesh(eyeGeo, mats.soul);             // shared soul-fire (pulsed globally)
+      eye.position.set(gx + sx * (W + 1.9), gy + H + 4.4, T + 0.9);
+      group.add(eye);
+    }
     const nteeth = 5;
     for (let k = 0; k < nteeth; k++) {
       const tx = gx - W + (k / (nteeth - 1)) * (2 * W);
@@ -528,11 +604,19 @@ function buildRockGap(o, e) {
     ribcage(28, 8, { vert: 0.6 });
   } else if (o.kind === 'rib') {
     // Main ribcage corridor: a CONTINUOUS run of successive ribs (a rib ~every 7
-    // units). Sections tile end-to-end so it reads as one long rib tunnel.
-    ribcage(40, 12);
+    // units), tiling end-to-end as one long tunnel. It TIGHTENS toward the heart
+    // (wide → narrow, the build-up before the breather), with the occasional broken
+    // rib so the long run never reads as a perfectly repeating mesh.
+    const heartAt = Math.round((o.runTotal - 1) * 0.5);
+    const prog = Math.max(0, Math.min(1, (o.runIdx - 2) / Math.max(1, heartAt - 2)));
+    ribcage(40, 12, { broken: true, squeeze: 1 - 0.22 * prog });
+  } else if (o.kind === 'heart') {
+    // Second act: the wide-open chest cavity with the crystal heart (a breather).
+    heartChamber(34);
   } else if (o.kind === 'vertebra') {
-    // Spine rhythm: ribs with prominent dorsal vertebrae + neural spines.
-    ribcage(40, 11, { vert: 1.0, neural: true });
+    // Back-third spine tunnel: bony hoops that read DIFFERENTLY from the rib slalom
+    // — prominent neural spines, each hoop tilted/rotated a touch (thread the bones).
+    ribcage(40, 11, { vert: 1.0, neural: true, tilt: true });
   } else if (o.kind === 'exitflare') {
     // Release: the last ribs flare OUTWARD, spacing opens, mostly sky — payoff.
     ribcage(34, 9, { flare: 0.9 });
@@ -549,6 +633,10 @@ function buildRockGap(o, e) {
 export function updateObstacles(dt, time, playerDist, speedNorm = 0) {
   // Warning pulse on every moving shard (shared material, one write).
   mats.mover.emissiveIntensity = 0.9 + Math.sin(time * 6) * 0.45;
+  // Skull soul-fire eyes + the crystal heart breathe (shared materials, one write
+  // each) so the skeleton's "living" elements pulse together across any instance.
+  if (mats.soul) mats.soul.emissiveIntensity = 1.7 + Math.sin(time * 2.2) * 0.6;
+  if (mats.heart) mats.heart.emissiveIntensity = 1.2 + Math.sin(time * 1.6) * 0.5;
   const sn = Math.max(0, Math.min(1, speedNorm));
   // Phase Gate: flow the veil shimmer (shared per biome) and give the aperture
   // ring a gentle, speed-aware breath. Six writes each — negligible.
@@ -633,6 +721,8 @@ export function updateObstacles(dt, time, playerDist, speedNorm = 0) {
         const appr = Math.min(1, Math.max(0, (180 - dz) / 150));
         e.core.material.opacity = appr * 0.16 * (0.9 + 0.1 * Math.sin(time * 2.5));
       }
+      // The heart-chamber crystal turns slowly so it catches light as you pass it.
+      if (e.heartCore) { e.heartCore.rotation.y += dt * 0.3; e.heartCore.rotation.x += dt * 0.14; }
     }
   }
 }

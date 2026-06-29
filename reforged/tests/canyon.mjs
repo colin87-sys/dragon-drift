@@ -28,7 +28,7 @@ const result = await page.evaluate(async () => {
 });
 
 const { segs, starts, ends } = result.a;
-const KINDS = ['split', 'overunder', 'skull', 'throat', 'rib', 'vertebra', 'exitflare'];
+const KINDS = ['split', 'overunder', 'skull', 'throat', 'rib', 'heart', 'vertebra', 'exitflare'];
 check('canyons spawn over 9 km', segs.length >= 1);
 // ends may trail starts by one if a run is still in progress at the walk boundary.
 check('canyon starts/ends are balanced',
@@ -47,6 +47,7 @@ check('multiple kinds appear', kinds.size >= 2);
 const spineSegs = segs.filter((s) => s.run === 'spine');
 if (spineSegs.length) {
   check('spine runs include a skull entrance', kinds.has('skull'));
+  check('spine runs include a heart-chamber breather', kinds.has('heart'));
   check('spine runs include a flared exit', kinds.has('exitflare'));
 }
 
