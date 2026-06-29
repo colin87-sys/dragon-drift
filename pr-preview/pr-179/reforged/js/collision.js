@@ -179,7 +179,9 @@ export function updateCollision(dt, player) {
       // Slipping past a rock face close = near miss. The gap itself is clear.
       let struck = false, grazed = false;
       for (const b of c.boxes) {
-        if (Math.abs(dz) >= b.hz + R) continue;
+        // b.oz lets a ribcage wall sit at a specific rib's depth, so the swept
+        // corridor's collision follows the bone instead of being one straight tube.
+        if (Math.abs(dz + (b.oz || 0)) >= b.hz + R) continue;
         const mx = Math.abs(p.x - b.cx);
         const my = Math.abs(p.y - b.cy);
         // Slightly inset solid box = forgiving edge scrapes.
