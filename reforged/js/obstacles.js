@@ -322,8 +322,33 @@ function buildRockGap(o, e) {
   };
   const decorCone = (r, h, x, y, z, rx = 0, ry = 0, rz = 0) =>
     place(new THREE.ConeGeometry(r, h, 5), x, y, z, rx, ry, rz);
-  const ribArch = (r, tube, x, y, rz, arc = Math.PI) =>
-    place(new THREE.TorusGeometry(r, tube, 5, 16, arc), x, y, 0, 0, 0, rz);
+
+  // A run of SUCCESSIVE rib bones along the flight axis — the actual ribcage.
+  // Each rib is a curved hoop around the corridor (open at the belly), hung off a
+  // dorsal spine of vertebrae, repeated frequently down z so you fly through a
+  // barrel of ribs (sky shows BETWEEN the ribs). Collision is a thin shell hugging
+  // the corridor and spanning the section depth — fly down the middle. Going wide
+  // around the cage is possible but loses the reward ring at its centre.
+  const ribcage = (depthHalf, nRibs, opts = {}) => {
+    const { flare = 0, vert = 0.0, spine = true } = opts;
+    // Shell collider tube (thin walls hugging the opening, the section's length).
+    box(gx - W - 0.9, gy, 1.1, H + 2, depthHalf);
+    box(gx + W + 0.9, gy, 1.1, H + 2, depthHalf);
+    box(gx, gy + H + 1.0, W + 1.2, 1.1, depthHalf); // dorsal cap (belly stays open)
+    for (let k = 0; k < nRibs; k++) {
+      const f = nRibs > 1 ? k / (nRibs - 1) : 0.5;
+      const z = -depthHalf + f * 2 * depthHalf;
+      const spread = 1 + flare * Math.abs(f - 0.5) * 2.2; // flare opens ribs at the ends
+      const R = (W + 1.1) * spread;
+      const rib = place(
+        new THREE.TorusGeometry(R, 0.8, 4, 14, Math.PI * 1.6),
+        gx, gy, z, (rng() - 0.5) * 0.18, 0, -Math.PI * 0.3, // belly-down gap + slight sway
+      );
+      rib.scale.set(1, 1.06, 1);
+      if (spine) place(new THREE.IcosahedronGeometry(0.55 + vert, 0), gx, gy + R * 1.06 + 0.2, z);
+      if (vert > 0.4) place(new THREE.ConeGeometry(0.5, 1.6 + vert, 5), gx, gy + R * 1.06 + 1.2, z); // neural spine
+    }
+  };
 
   // --- ROCK RUN -------------------------------------------------------------
   if (o.kind === 'split') {
@@ -356,48 +381,31 @@ function buildRockGap(o, e) {
       decorCone(0.42, 1.5, tx, gy - H + 0.5, 0.3, 0, 0, 0);       // lower fang ↑
     }
   } else if (o.kind === 'throat') {
-    // First interior beat: a vertebra ring overhead + rib stubs closing in.
-    ribArch(W + 1.2, 0.9, gx, gy + H + 0.4, 0);
-    box(gx, gy + H + 1.7, W + 1.2, 1.3, T);
-    lump(gx - (W + 2.2), gy - 1, 1.3, H + 1.2, T);
-    lump(gx + (W + 2.2), gy - 1, 1.3, H + 1.2, T);
+    // First interior beat: a short run of neck vertebrae + the first few ribs.
+    ribcage(12, 6, { vert: 0.5 });
   } else if (o.kind === 'rib') {
-    // Asymmetric ribcage beat: a big rib sweeps over the top, one side carries
-    // the bone mass (heavier `o.side`) → you weave to the open side. Alternating
-    // the heavy side per segment fakes the curl of a long coiled torso.
-    const s = o.side || 1;
-    ribArch(W + 4, 1.2, gx + s * 0.5, gy + H - 1, s > 0 ? -0.5 : 0.5, Math.PI * 0.85);
-    box(gx, gy + H + 2.4, W + 2, 2.2, T);                       // overhead rib
-    const edge = s > 0 ? gx + W : gx - W;
-    const outer = s > 0 ? LANE : -LANE;
-    const hw = Math.abs(outer - edge) / 2;
-    if (hw > 0.6) lump((edge + outer) / 2, gy - 0.5, hw, H + 3, T); // heavy flank wall
-    lump(gx - s * (W + 2.2), gy - H - 0.6, 1.2, 1.5, T);        // light-side rib stub
+    // Main ribcage corridor: a dense run of successive ribs you fly down (a rib
+    // ~every 5 units). The breaks between sections read as the skeleton's
+    // weathered, incomplete stretches.
+    ribcage(22, 10);
   } else if (o.kind === 'vertebra') {
-    // Spine rhythm: a chunky vertebra body overhead with lateral processes + a
-    // neural spine, rib stubs at the sides. Duck under the bone.
-    lump(gx, gy + H + 2.3, W * 0.85, 2.0, T + 1);
-    decorCone(0.7, 3, gx - W * 0.85, gy + H + 2.3, 0, 0, 0, 1.45);
-    decorCone(0.7, 3, gx + W * 0.85, gy + H + 2.3, 0, 0, 0, -1.45);
-    decorCone(0.85, 3.6, gx, gy + H + 4.3, 0);
-    lump(gx - (W + 2.2), gy - 1, 1.2, H + 1.1, T);
-    lump(gx + (W + 2.2), gy - 1, 1.2, H + 1.1, T);
+    // Spine rhythm: ribs with prominent dorsal vertebrae + neural spines.
+    ribcage(20, 9, { vert: 0.9 });
   } else if (o.kind === 'exitflare') {
-    // Release: ribs flare OUTWARD, spacing opens, mostly sky — the payoff beat.
-    ribArch(W + 5, 1.0, gx - (W + 1), gy + 1, 0.8, Math.PI * 0.5);
-    ribArch(W + 5, 1.0, gx + (W + 1), gy + 1, -0.8, Math.PI * 0.5);
-    lump(gx - (LANE - 2), gy - H - 1, 1.0, 1.5, T);
-    lump(gx + (LANE - 2), gy - H - 1, 1.0, 1.5, T);
+    // Release: the last ribs flare OUTWARD, spacing opens, mostly sky — payoff.
+    ribcage(20, 7, { flare: 0.9 });
   }
 
-  // Emissive aperture rim — frames the safe route (the clearest "fly here" cue).
-  // The exit beat keeps only a whisper of rim so it reads as opening out.
+  // Emissive aperture rim — frames the safe route for the rectangular openings
+  // (rock gates + the skull mouth). The ribcage beats skip it: the rib hoops +
+  // core-glow already read the corridor, and a hard rectangle would fight the
+  // round bone forms.
   const bar = (w, h, cx, cy) => {
     const m = new THREE.Mesh(new THREE.BoxGeometry(w, h, 0.35), edgeMat);
     m.position.set(cx, cy, 0.2);
     group.add(m);
   };
-  if (o.kind !== 'exitflare') {
+  if (o.kind === 'split' || o.kind === 'overunder' || o.kind === 'skull') {
     bar(W * 2 + 0.8, 0.45, gx, gy + H);
     bar(W * 2 + 0.8, 0.45, gx, gy - H);
     bar(0.45, H * 2 + 0.8, gx - W, gy);
