@@ -368,29 +368,39 @@ function buildRockGap(o, e) {
   // tower, so you can always see the slot ahead and plan.
   const stackRun = (depthHalf, count) => {
     e.depthHalf = Math.max(e.depthHalf || 0, depthHalf);
-    e.noDissolve = true;                 // side towers keep the lane ahead visible
+    e.noDissolve = true;
     const top = CEIL + 2, bot = -3;      // rise from the "sea" below up past the ceiling
     const sp = (2 * depthHalf) / count;
-    const hz = sp * 0.55;
-    const chanHalf = W + 0.4;            // free channel half-width
-    const CLAMP = LANE - chanHalf - 1.5; // keep the whole channel inside the lane → always fair
+    const hz = sp * 0.6;
     const runIdx = o.runIdx || 0;
-    // cos(π·…) is 0 at each ring plane (f=0.5) so the channel — and the reward
-    // ring — sit centred there, winding between; continuous across section seams.
-    // The channel CENTRE is clamped to the lane, so the wind can be pronounced
-    // (forces real weaving) yet never shove the path into the fatal lane wall.
-    const sway = (f) => (o.swaySign || 1) * 5.2 * Math.cos(Math.PI * (runIdx - 2 + f));
+    // The channel winds; cos(π·…) sits it centred on the reward ring at each ring
+    // plane and stays continuous across section seams. Centre clamped to the lane
+    // so a strong wind is always fair.
+    const sway = (f) => (o.swaySign || 1) * 5.0 * Math.cos(Math.PI * (runIdx - 2 + f));
+    const CLAMP = LANE - (W + 2) - 1;
     for (let k = 0; k < count; k++) {
       const f = (k + 0.5) / count;
-      const z = -depthHalf + f * 2 * depthHalf + (rng() - 0.5) * sp * 0.3; // break the grid
-      const s = (k % 2 === 0) ? -1 : 1;  // alternate sides → staggered slalom
+      const z = -depthHalf + f * 2 * depthHalf + (rng() - 0.5) * sp * 0.25;
       const xc = Math.max(-CLAMP, Math.min(CLAMP, gx + sway(f)));
-      const inner = xc + s * (chanHalf + (rng() - 0.5)); // jitter so towers aren't on a line
-      const outer = (s < 0 ? -LANE : LANE) + s * 2.5;
-      const cx = (inner + outer) / 2;
-      const hw = Math.abs(outer - inner) / 2;
-      if (hw < 1.2) continue;
-      seaStack(cx, hw, top, bot, z, -s * (0.05 + rng() * 0.06), hz);
+      // Breathing channel: claustrophobic pinches that open to a breath and back,
+      // one cycle per section — the rhythm is where the adrenaline lives.
+      const breathe = 0.5 + 0.5 * Math.sin(Math.PI * 2 * (runIdx - 2 + f));
+      const chanHalf = W + 0.1 + breathe * 1.7;
+      // BOTH walls — you're flanked left AND right by tall stacks (not one open
+      // side), so it reads as a canyon you're INSIDE, not a line you fly past.
+      const li = xc - chanHalf, lo = -LANE - 3;
+      if (li - lo > 1.4) seaStack((lo + li) / 2, (li - lo) / 2, top, bot, z, 0.06, hz);
+      const ri = xc + chanHalf, ro = LANE + 3;
+      if (ro - ri > 1.4) seaStack((ro + ri) / 2, (ro - ri) / 2, top, bot, z, -0.06, hz);
+      // Overhead rock bridge every other slice — caps the canyon so you're caged
+      // from ABOVE too (the missing dimension), ducking under arch after arch.
+      // Non-fatal rock, so a graze on a wobble just chips, never a cheap death.
+      if (k % 2 === 1) {
+        const ay = gy + H + 2.6;
+        const a = place(new THREE.IcosahedronGeometry(1, 1), xc, ay, z, 0, rng() * Math.PI, 0);
+        a.scale.set(chanHalf + 1.6, 1.5 + rng() * 0.6, hz * 0.9);
+        box(xc, ay + 0.4, chanHalf + 1.4, 1.6, hz * 0.85, z);
+      }
     }
     // Low sea-mist veils drifting between the stacks (atmosphere). Big soft discs
     // hugging the water; the flying-through parallax + biome fog do the rest.
@@ -449,9 +459,9 @@ function buildRockGap(o, e) {
 
   // --- ROCK RUN -------------------------------------------------------------
   if (o.kind === 'split') {
-    // A continuous staggered run of towering SEA STACKS — the HTTYD sea-stack
-    // chase: weave the single winding slot between them, banking left/right.
-    stackRun(36, 10);
+    // A winding rock canyon: tall sea stacks flank both sides + rock bridges arch
+    // overhead, so you're caged inside it (not flying past a line). Weave + duck.
+    stackRun(36, 6);
   } else if (o.kind === 'overunder') {
     // A rounded rock mass juts from the ceiling (dive under) or a shelf rises from
     // the floor (climb over) — a vertical squeeze between the tower slots.
