@@ -513,6 +513,10 @@ export const DRAGONS = {
       shoulderWidthScale: 1.2, wingRootOffset: { y: 0.06, z: -0.1 },
       riderSocket: { x: 0, y: 0.92, z: -0.45 },
       flapBias: 1.08, flapAmp: 0.82,
+      // MATTE BLACK hide: kill the fresnel rim glare (rimBodyMul→low) + high roughness +
+      // low env so the bright sky/sun doesn't wash the dark body to grey — it reads as the
+      // deep matte black of the reference Night Fury across biomes.
+      bodyRoughness: 0.82, bodyMetalness: 0.0, rimBodyMul: 0.14, bodyEnvIntensity: 0.3,
       // Night-Fury wing anatomy (dragonNightFury knobs): the wrist auto-aligns to the
       // INNERMOST scallop tip (no wingWristSpan override) so the 5 fingers fan from the
       // first scallop out to the wing edge; the arm sweeps FORWARD to the leading edge
