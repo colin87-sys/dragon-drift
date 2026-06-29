@@ -47,11 +47,30 @@
     })();
   </script>
   <script>
-    // Installable + offline replay. Network-first SW: online behavior is
-    // identical to no-SW, so deploys always take effect immediately.
+    // Installable + offline replay. The SW (sw.js) is cache-first WITHIN a
+    // content-hashed version, so a single load always replays one coherent build.
+    // To stop an already-open tab from getting stuck on an old build after a
+    // deploy, we (a) re-check for a new sw.js whenever the tab regains focus, and
+    // (b) reload ONCE when a new SW takes control — the live page is still running
+    // the previous cached modules, so one reload swaps in the freshly-cached build.
     if ('serviceWorker' in navigator && location.protocol !== 'file:') {
       addEventListener('load', function () {
-        navigator.serviceWorker.register('./sw.js', { updateViaCache: 'none' }).catch(function () {});
+        navigator.serviceWorker.register('./sw.js', { updateViaCache: 'none' }).then(function (reg) {
+          document.addEventListener('visibilitychange', function () {
+            if (document.visibilityState === 'visible') reg.update();
+          });
+        }).catch(function () {});
+        // Only when a controller already exists is a controllerchange an UPDATE
+        // (not the first install) — guard so first load never spuriously reloads,
+        // and the flag makes the reload strictly one-shot (no loops).
+        if (navigator.serviceWorker.controller) {
+          var ddReloaded = false;
+          navigator.serviceWorker.addEventListener('controllerchange', function () {
+            if (ddReloaded) return;
+            ddReloaded = true;
+            location.reload();
+          });
+        }
       });
     }
   </script>
