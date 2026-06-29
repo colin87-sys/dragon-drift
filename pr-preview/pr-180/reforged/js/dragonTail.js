@@ -415,19 +415,24 @@ export function buildCleanTail(def, model, bodyMat, swept = false) {
     const em = ensureEdgeMat();
     const fill = ensureFinFill();
     for (const sx of [-1, 1]) {
-      const fin = buildLayeredFin(0.5 * fs, 1.3 * fs, fill, em, { curve: 0.1, tipPinch: 0.85 });
+      // Narrower, finer blade (tipPinch down) so the twin fins read as a SLEEK swept
+      // rudder, not a broad rounded paddle that foreshortens to a teardrop from the
+      // rear chase cam. (Identity-Playbook: detail in a crisp edge, not a blob.)
+      const fin = buildLayeredFin(0.4 * fs, 1.42 * fs, fill, em, { curve: 0.12, tipPinch: 0.62 });
       fin.scale.x = sx;
       const p = new THREE.Group();
       p.add(fin);
       p.rotation.x = Math.PI / 2;   // lay the blade FLAT — a crisp horizontal stabilizer (face +Y)
-      p.rotation.y = sx * 0.26;     // shallow horizontal V — reads as a split fin from above
-      p.rotation.z = 0;             // no vertical splay
+      p.rotation.y = sx * 0.40;     // more swept-back so it reads as a fin, not a fan
+      p.rotation.z = 0;             // flat (no anhedral — a droop splits into a 'heart' blob from dead rear)
       p.position.set(sx * 0.05, 0.02, 0.0);
       tip.add(p);
     }
-    const point = new THREE.Mesh(new THREE.ConeGeometry(tipR + 0.02, 0.3, lod(6)), bodyMat);
+    // A FINE tail point (longer + sharper) instead of a stubby blunt cone — kills the
+    // rounded teardrop tip the old fat cone produced.
+    const point = new THREE.Mesh(new THREE.ConeGeometry(tipR * 0.55, 0.52, lod(6)), bodyMat);
     point.rotation.x = Math.PI / 2;
-    point.position.set(0, 0, 0.14);
+    point.position.set(0, 0, 0.2);
     tip.add(point);
   } else if (style === 'shard') {
     // Obsidian crystal shards: a cluster of sharp, faceted obsidian-crystal
