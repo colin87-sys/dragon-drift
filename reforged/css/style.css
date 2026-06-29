@@ -170,16 +170,19 @@ body.app-loaded > canvas { opacity: 1; }
    with a constant thickness (non-scaling stroke) so narrowing it never thins
    the line. Whispers the info; never fights the scene. */
 .stamina-arc { position: absolute; left: 50%; top: 64%; transform: translate(-50%,-50%);
-  width: min(31vw, 120px); height: 44px; z-index: 4; pointer-events: none; opacity: 0.9; }
+  width: min(33vw, 128px); height: 52px; z-index: 4; pointer-events: none; opacity: 0.9; }
 .stamina-arc svg { width: 100%; height: 100%; overflow: visible; }
-.arc-trk { fill: none; stroke: rgba(255,255,255,0.12); stroke-width: 3; stroke-linecap: round;
+/* Faint notched track — the 3 empty cells (gaps = notches). */
+.arc-trk { fill: none; stroke: rgba(255,255,255,0.1); stroke-width: 6; stroke-linecap: butt;
   vector-effect: non-scaling-stroke; }
-.arc-fil { fill: none; stroke: url(#stam-grad); stroke-width: 3; stroke-linecap: round;
-  vector-effect: non-scaling-stroke; opacity: 0.82;
-  filter: drop-shadow(0 0 3px rgba(60,225,215,0.45)); transition: stroke-dasharray 0.12s linear; }
-.arc-fil.depleted { stroke: #58606e; filter: none; }
-.arc-fil.low { animation: vit-low 0.7s ease-in-out infinite; }
-@keyframes vit-low { 0%,100%{opacity:0.8} 50%{opacity:1; filter:drop-shadow(0 0 7px rgba(130,255,235,0.9))} }
+/* The 3 equal phase cells. Hidden until "on" (its phase is affordable), then a
+   subtle teal fill; when also in a Surge ("lit") it glows hard + pulses. */
+.arc-cell { fill: none; stroke: url(#stam-grad); stroke-width: 6; stroke-linecap: butt;
+  vector-effect: non-scaling-stroke; opacity: 0; transition: opacity 0.18s, filter 0.18s; }
+.arc-cell.on { opacity: 0.72; filter: drop-shadow(0 0 5px rgba(64,224,210,0.6)); }
+.arc-cell.lit { opacity: 1; animation: stam-glow 1s ease-in-out infinite; }
+@keyframes stam-glow { 0%,100% { filter: drop-shadow(0 0 8px rgba(64,224,210,0.85)); }
+  50% { filter: drop-shadow(0 0 17px rgba(140,255,235,1)) drop-shadow(0 0 6px rgba(200,255,245,0.9)); } }
 
 /* Surge — a bare gem row + quiet multiplier, centred low */
 .surge-min { position: absolute; left: 50%; bottom: clamp(46px, 9vh, 108px);

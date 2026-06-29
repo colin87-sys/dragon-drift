@@ -80,7 +80,7 @@ export const CONFIG = {
   // Surge phase-through: during Dragon Surge, a well-timed barrel roll shatters
   // through a crystal wall (gate) that would normally crash you. Spends stamina
   // (which is why the stamina budget above is generous) and pays style points.
-  phaseStaminaCost: 40,
+  phaseStaminaCost: 110 / 3,  // a third of staminaMax → exactly 3 phases per full bar (one per stamina segment)
   phaseBonus: 150,        // style points × combo on a successful (minor) phase
   // Tiered phase feel (modeled on perfect rings): a cleanly-timed roll just before
   // the wall keeps lots of i-frame window left at the crossing → PERFECT; a desperate
@@ -105,6 +105,32 @@ export const CONFIG = {
   // path instead (see level.js).
   gateGapW: 3.8,
   gateGapH: 3.4,
+
+  // Sky Canyon — a twisty rock-run set-piece that OVERLAYS the existing flight
+  // path (rock gates framed around already-generated reward rings). Driven by an
+  // independent RNG stream + separate output arrays so the base course
+  // (rings/obstacles) for any seed stays byte-identical — old challenge links and
+  // the gold-determinism fixture are untouched. Rocks are NON-fatal (health
+  // damage, roll-clearable) so a canyon is a pressure beat, not a run-ender.
+  canyonGapW: 4.4,            // half-width of the safe opening (≥ gateGapW)
+  canyonGapH: 3.9,            // half-height of the safe opening (≥ gateGapH)
+  canyonThick: 2.2,           // z half-depth of a rock gate (collision + mesh)
+  canyonSegments: [8, 11],    // a Rock Run sustains ~8-11s of enclosed canyon then opens up
+  spineSegments: [7, 9],      // a Dragon Spine Canyon is longer (skull→ribs→exit)
+  canyonIntervalBase: 1500,   // metres between canyons (rarer than gauntlets)
+  canyonIntervalJitter: 1100,
+  canyonFirstAt: 900,         // earliest a canyon can begin (past the tutorial)
+  canyonFadeNear: 1,          // dz where a rock has fully dissolved (at camera)
+  canyonFadeFar: 16,          // dz where a rock is fully solid again
+  // Vertical limit (active ONLY inside a canyon run): you can't climb over the
+  // rock to skip it — flying above the ceiling bounces + chips like the floor.
+  // The gap clamp spans the full ring band so the framing always centres on the
+  // actual reward ring (a tighter clamp made the skull mouth drift off the ring);
+  // the ceiling sits just above the highest ring with a little headroom.
+  canyonCeilingY: 21,
+  canyonGapYLo: 5.5,
+  canyonGapYHi: 19,
+  canyonCeilingDamage: 12,    // chip on scraping the ceiling (gentle, like ground)
 
   // Endless generation
   spawnAhead: 500,

@@ -5,6 +5,14 @@ import { FIRST_FLIGHT_BEATS, FIRST_FLIGHT_END } from './firstFlight.js';
 
 const lerp = (a, b, k) => a + (b - a) * k;
 const REACH_AUDIT = new URLSearchParams(window.location.search).get('debug') === 'reach';
+// Obstacle test harness: ?canyon=split|rib|spiral|overunder|all forces Sky
+// Canyon runs to begin right after takeoff and repeat (with normal rings before
+// and after each), so every archetype can be flown immediately. null in normal
+// play and in the headless tests (no query param) → zero behaviour change.
+const CANYON_FORCE = new URLSearchParams(window.location.search).get('canyon');
+// Two canyon set-pieces: a ROCK RUN (mixed split slabs + over-under shelves) and
+// a DRAGON SPINE CANYON (skull entrance → throat → ribcage → vertebrae → sky exit).
+const CANYON_MODES = ['rock', 'spine'];
 
 // Set-pieces are computed from the biome grid: a gateway arch at every biome
 // boundary (k * biomeLength) and a mega-arch at each biome midpoint.
@@ -35,6 +43,15 @@ export function createLevelGen(seed = CONFIG.seed, opts = {}) {
   // rnd would reshuffle every existing seed and break old challenge links.
   const goldRnd = mulberry32((seed ^ 0x6b79d8a1) >>> 0);
   let nextGoldAt = CONFIG.goldEmberInterval;
+  // Sky Canyon also runs on its OWN independent stream and overlays the course
+  // as a separate output (never touches rnd / rings / obstacles), so the base
+  // course for a seed stays byte-identical (gold-determinism fixture safe).
+  const canyonRnd = mulberry32((seed ^ 0x2f9b4e17) >>> 0);
+  // Test harness brings the first canyon in right after takeoff; normal play
+  // waits past the tutorial with a jittered interval.
+  let nextCanyonAt = CANYON_FORCE ? 340 : CONFIG.canyonFirstAt + canyonRnd() * 500;
+  let canyon = null; // { type, left, idx, total } while a canyon run is in progress
+  let forceAllToggle = false; // ?canyon=all alternates rock/spine runs
   let prev = { dist: 0, x: 0, y: 8 };
   let swingX = 1;
   let swingY = 1;
@@ -339,6 +356,7 @@ export function createLevelGen(seed = CONFIG.seed, opts = {}) {
     const out = {
       rings: [], obstacles: [], orbs: [], setPieces: [], embers: [],
       goldEmbers: [], gauntletStarts: [], gauntletEnds: [],
+      canyonSegments: [], canyonStarts: [], canyonEnds: [],
     };
     while (prev.dist < target) {
       // Authored first-flight opening takes over placement until it's spent.
@@ -450,8 +468,105 @@ export function createLevelGen(seed = CONFIG.seed, opts = {}) {
       prevHopDirY = Math.sign(wp.y - prev.y) || prevHopDirY;
       prev = wp;
     }
+    overlayCanyons(out);
     generatedUntil = prev.dist;
     return out;
+  }
+
+  // Sky Canyon overlay: a PURELY ADDITIVE post-pass. It frames a run of the
+  // rings already generated this chunk with rock gates (separate output arrays,
+  // separate RNG) — it never reads/writes rnd, rings, obstacles or golds, so the
+  // base course for a seed is unchanged. Because each gate's aperture is centered
+  // on a real reward ring, every gap sits on the already-reach-audited flight
+  // line: catchable by construction, and the safe opening is on the line the
+  // player is already flying. Gauntlet rings are skipped (a corridor is its own
+  // beat) and no canyon starts in the tutorial zone.
+  function overlayCanyons(out) {
+    // A canyon never overlays a gauntlet corridor (two forced-line systems would
+    // stack). Skip rings inside any gauntlet range emitted this chunk.
+    const inGauntlet = (d) => {
+      for (let i = 0; i < out.gauntletStarts.length; i++) {
+        if (d >= out.gauntletStarts[i] && d <= (out.gauntletEnds[i] ?? Infinity)) return true;
+      }
+      return false;
+    };
+    const firstAt = CANYON_FORCE ? 320 : CONFIG.canyonFirstAt;
+    let prevRing = null;
+    for (const ring of out.rings) {
+      if (ring.dist < firstAt || inGauntlet(ring.dist)) { prevRing = ring; continue; }
+      if (!canyon && ring.dist >= nextCanyonAt) canyon = startCanyon(ring, out);
+      if (canyon) {
+        out.canyonSegments.push(makeRockGap(ring, prevRing, canyon));
+        canyon.idx++;
+        if (--canyon.left <= 0) {
+          out.canyonEnds.push(ring.dist + 40);
+          // Test harness: quick repeat with a stretch of normal rings between, so
+          // each run shows before/after integration. Normal play: rare + jittered.
+          nextCanyonAt = CANYON_FORCE
+            ? ring.dist + 300
+            : ring.dist + CONFIG.canyonIntervalBase + canyonRnd() * CONFIG.canyonIntervalJitter;
+          canyon = null;
+        }
+      }
+      prevRing = ring;
+    }
+  }
+
+  function startCanyon(ring, out) {
+    // Test harness forces a run type; the ?canyon=all demo alternates rock/spine.
+    let type = canyonRnd() < 0.5 ? 'rock' : 'spine';
+    if (CANYON_FORCE === 'rock' || CANYON_FORCE === 'split' || CANYON_FORCE === 'overunder') type = 'rock';
+    else if (CANYON_FORCE === 'spine') type = 'spine';
+    else if (CANYON_FORCE === 'all') type = forceAllToggle ? 'spine' : 'rock';
+    forceAllToggle = !forceAllToggle;
+    const [lo, hi] = type === 'spine' ? CONFIG.spineSegments : CONFIG.canyonSegments;
+    const left = CANYON_FORCE ? hi : lo + Math.floor(canyonRnd() * (hi - lo + 1));
+    out.canyonStarts.push(ring.dist - 40);
+    // The ribcage tunnel sweeps laterally to fake the body's curve; pick the side
+    // it starts on per run.
+    return { type, left, idx: 0, total: left, swaySign: canyonRnd() < 0.5 ? -1 : 1 };
+  }
+
+  // Pick the geometry "kind" for this segment from the run type + its position in
+  // the run, so each run reads as a deliberate sequence rather than random rocks.
+  function pickKind(ring, prevRing, c) {
+    if (c.type === 'rock') {
+      // Rock Run: alternate tall split slabs with over-under shelves. Bias toward
+      // a shelf when the path is making a big vertical move (sells the up/down).
+      const dy = prevRing ? ring.y - prevRing.y : 0;
+      // Mostly tower-slots (the sea-stack read); an over-under squeeze only when
+      // the line really climbs or dives.
+      const wantShelf = Math.abs(dy) > 3.2;
+      if (CANYON_FORCE === 'split') return 'split';
+      if (CANYON_FORCE === 'overunder') return 'overunder';
+      return wantShelf ? 'overunder' : 'split';
+    }
+    // Dragon Spine Canyon beats: skull mouth → throat → ribcage/vertebrae → exit.
+    const i = c.idx, last = c.total - 1;
+    if (i === 0) return 'skull';
+    if (i === 1) return 'throat';
+    if (i >= last - 1) return 'exitflare';     // last two ribs flare open
+    return (i % 3 === 0) ? 'vertebra' : 'rib';  // mostly ribs, a vertebra every 3rd
+  }
+
+  // One canyon gate's data: a safe aperture centered on the ring, plus the kind
+  // obstacles.js uses to build the framing geometry + collider boxes. The gap
+  // sits clearly below the canyon ceiling so the height limit is always fair.
+  function makeRockGap(ring, prevRing, c) {
+    const kind = pickKind(ring, prevRing, c);
+    const seg = {
+      type: 'rockGap', run: c.type, kind, dist: ring.dist,
+      gapX: clamp(ring.x, -9, 9),
+      gapY: clamp(ring.y, CONFIG.canyonGapYLo, CONFIG.canyonGapYHi),
+      gapW: CONFIG.canyonGapW, gapH: CONFIG.canyonGapH, thick: CONFIG.canyonThick,
+      seed: (canyonRnd() * 1e6) | 0,
+      runIdx: c.idx, runTotal: c.total, swaySign: c.swaySign,
+    };
+    // Over-under alternates ceiling/floor so it reads as "down, then up".
+    if (kind === 'overunder') seg.shelf = c.idx % 2 === 0 ? 'ceiling' : 'floor';
+    // Ribs alternate the heavier bone side to fake the curl of a long torso.
+    if (kind === 'rib' || kind === 'exitflare') seg.side = c.idx % 2 === 0 ? 1 : -1;
+    return seg;
   }
 
   return {

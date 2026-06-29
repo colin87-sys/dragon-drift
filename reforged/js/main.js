@@ -12,7 +12,7 @@ import { initSplash, showSplash, hideSplash, splashVisible, launchFlash, igniteS
 import { player, applyDragonStats } from './player.js';
 import { cameraCtl } from './cameraController.js';
 import { initRings, addRing, updateRings, resetRings, setRingsVisible } from './rings.js';
-import { initObstacles, addObstacle, updateObstacles, resetObstacles } from './obstacles.js';
+import { initObstacles, addObstacle, addCanyonSegment, updateObstacles, resetObstacles, obstacleCount } from './obstacles.js';
 import { initPowerups, addOrb, updatePowerups, resetPowerups } from './powerups.js';
 import { initParticles, updateParticles, resetParticles, setParticleQuality } from './particles.js';
 import { setDragonQuality } from './dragon.js';
@@ -46,6 +46,25 @@ import { initGestureTutorial, updateGestureTutorial } from './gestureTutorial.js
 import { initPbMarker, updatePbMarker } from './pbMarker.js';
 import { ascendedDef, grandfatherAscension, ascend, ascensionTier, radianceRank, ASCENSION_TIERS } from './ascension.js';
 import { applyFlightmark, buyFlightmark, equipFlightmark, FLIGHTMARKS, migrateFlightmarks } from './flightmarks.js';
+import { BUILD, BUILT } from './buildId.js';
+
+// Visible build stamp — confirms which build actually loaded (vs a stale service
+// worker cache). The id is the SW content hash, so it changes whenever any asset
+// changes; if the number on screen matches the latest deploy, you're current.
+(function showBuildStamp() {
+  try {
+    console.log(`[Dragon Drift] build ${BUILD} · built ${BUILT}`);
+    const el = document.createElement('div');
+    el.id = 'build-stamp';
+    el.textContent = 'build ' + BUILD;
+    el.title = 'Built ' + BUILT;
+    el.style.cssText =
+      'position:fixed;right:6px;bottom:5px;z-index:9999;pointer-events:none;' +
+      'font:10px/1 ui-monospace,Menlo,Consolas,monospace;color:rgba(255,255,255,.5);' +
+      'letter-spacing:.04em;text-shadow:0 1px 2px rgba(0,0,0,.6)';
+    document.body.appendChild(el);
+  } catch (e) { /* non-fatal cosmetic */ }
+})();
 
 // --- Renderer / scene / camera ---
 const renderer = new THREE.WebGLRenderer({ antialias: true });
@@ -123,6 +142,10 @@ let levelGen = createLevelGen(runSeed, { scripted: isFirstFlight() });
 // alive = a cleared gauntlet (weekly trials, feats, milestones).
 const pendingGauntletStarts = [];
 const pendingGauntletEnds = [];
+// Sky Canyon boundaries: crossing a start widens the chase cam for the run;
+// crossing an end restores it.
+const pendingCanyonStarts = [];
+const pendingCanyonEnds = [];
 function spawnAhead() {
   const lead = Math.max(CONFIG.spawnAhead, player.speed * CONFIG.spawnAheadTime);
   if (levelGen.generatedUntil >= player.dist + lead) return;
@@ -134,6 +157,9 @@ function spawnAhead() {
   chunk.goldEmbers && chunk.goldEmbers.forEach(addGoldEmber);
   chunk.gauntletStarts && pendingGauntletStarts.push(...chunk.gauntletStarts);
   chunk.gauntletEnds && pendingGauntletEnds.push(...chunk.gauntletEnds);
+  chunk.canyonSegments && chunk.canyonSegments.forEach(addCanyonSegment);
+  chunk.canyonStarts && pendingCanyonStarts.push(...chunk.canyonStarts);
+  chunk.canyonEnds && pendingCanyonEnds.push(...chunk.canyonEnds);
   // Set-pieces
   chunk.setPieces && chunk.setPieces.forEach(sp => triggerSetPiece(sp));
 }
@@ -151,7 +177,7 @@ function triggerSetPiece(sp) {
 const debugFever = urlParams.get('debug') === 'fever';
 if (urlParams.has('debug')) {
   window.__dd = {
-    renderer, game, player, save: saveData, emit, ui, claimFeat,
+    renderer, game, player, save: saveData, emit, ui, claimFeat, obstacleCount,
     juice: { hitstop, juiceEvent },
     postfx: { setPostTier, kick, kickState, handle: postfx },
     // Test seam: skip the attract splash and land on the dashboard hub.
@@ -457,6 +483,8 @@ function restart() {
   clearDeath(true); // instant color restore (cameraCtl.init below resets the death cam)
   pendingGauntletStarts.length = 0;
   pendingGauntletEnds.length = 0;
+  pendingCanyonStarts.length = 0;
+  pendingCanyonEnds.length = 0;
   // Cull old set-pieces
   for (const sp of setpieceMeshes) scene.remove(sp.object);
   setpieceMeshes.length = 0;
@@ -808,6 +836,19 @@ function tick() {
       pendingGauntletEnds.shift();
       game.gauntletsClearedRun++;
       emit('gauntletCleared', { dist: player.dist });
+    }
+
+    // Sky Canyon boundaries: widen the chase cam through the run so the twisty
+    // gaps read clearly, then restore. Counted so nested canyons stay balanced.
+    while (pendingCanyonStarts.length && player.dist >= pendingCanyonStarts[0]) {
+      pendingCanyonStarts.shift();
+      game.inCanyon = true;
+      cameraCtl.setCanyon(true);
+    }
+    while (pendingCanyonEnds.length && player.dist >= pendingCanyonEnds[0]) {
+      pendingCanyonEnds.shift();
+      game.inCanyon = false;
+      cameraCtl.setCanyon(false);
     }
 
     // Boost start: camera kick + whoosh SFX

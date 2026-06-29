@@ -85,10 +85,19 @@ export function updateCollision(dt, player) {
     player.velocity.y = Math.max(player.velocity.y, 6);
     hit(player, 0, 0, CONFIG.groundDamage, 'ground');
   }
+  // Canyon ceiling: inside a Sky Canyon run you can't just climb over the rock to
+  // skip it — the top of the lane is capped (bounce + chip, like the ground).
+  if (game.inCanyon && p.y > CONFIG.canyonCeilingY) {
+    p.y = CONFIG.canyonCeilingY;
+    player.velocity.y = Math.min(player.velocity.y, -6);
+    hit(player, 0, 0, CONFIG.canyonCeilingDamage, 'ceiling');
+  }
 
   for (const c of colliders) {
     const dz = player.dist - c.dist;
-    if (Math.abs(dz) > 28) continue;
+    // Most colliders are thin; a ribcage section is a long tube (c.depthHalf),
+    // so widen the broad-phase reject for it.
+    if (Math.abs(dz) > 28 + (c.depthHalf || 0)) continue;
 
     if (c.type === 'pillar') {
       // Reduced hitbox (0.65 instead of 0.8) = more forgiving side scrapes
@@ -162,6 +171,27 @@ export function updateCollision(dt, player) {
             awardNearMiss(c, player);
           }
         }
+      }
+
+    } else if (c.type === 'rockGap') {
+      // Sky Canyon rock gate: each rock mass is an AABB. Hitting one is health
+      // damage (NON-fatal, roll-clearable via i-frames in hit()), not a crash.
+      // Slipping past a rock face close = near miss. The gap itself is clear.
+      let struck = false, grazed = false;
+      for (const b of c.boxes) {
+        // b.oz lets a ribcage wall sit at a specific rib's depth, so the swept
+        // corridor's collision follows the bone instead of being one straight tube.
+        if (Math.abs(dz + (b.oz || 0)) >= b.hz + R) continue;
+        const mx = Math.abs(p.x - b.cx);
+        const my = Math.abs(p.y - b.cy);
+        // Slightly inset solid box = forgiving edge scrapes.
+        if (mx < b.hw * 0.85 + R * 0.5 && my < b.hh * 0.85 + R * 0.5) { struck = true; break; }
+        if (mx < b.hw + 1.6 && my < b.hh + 1.6) grazed = true;
+      }
+      if (struck) {
+        hit(player, Math.sign(p.x - c.gapX) || 1, Math.sign(p.y - c.gapY) || 0, CONFIG.obstacleDamage, 'rock');
+      } else if (grazed) {
+        awardNearMiss(c, player);
       }
     }
     if (game.state !== 'playing') return;
@@ -253,8 +283,10 @@ function awardNearMiss(collider, player) {
 function hit(player, pushX, pushY, damage = CONFIG.obstacleDamage, cause = 'shard') {
   if (invuln > 0) return;
   // Barrel-roll i-frames: damage is dodged, and the near-miss checks above
-  // keep firing — rolling through a cluster showers bonuses instead.
-  if (player.rollInvuln > 0 && cause !== 'ground') return;
+  // keep firing — rolling through a cluster showers bonuses instead. The lane
+  // boundaries (ground / canyon ceiling) ignore i-frames so you can't roll-cheese
+  // a limit.
+  if (player.rollInvuln > 0 && cause !== 'ground' && cause !== 'ceiling') return;
   invuln = CONFIG.invulnTime;
   game.health = Math.max(0, game.health - damage);
   if (pushX) player.velocity.x += pushX * 10;
