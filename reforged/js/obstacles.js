@@ -117,7 +117,7 @@ export function initObstacles(s) {
     // Soft pale sea-mist veils for the sea-stack run (low haze hugging the
     // water). Unlit, fogged so it recedes, no depth write so it layers cleanly.
     mist: new THREE.MeshBasicMaterial({
-      color: 0xdfe8f2, transparent: true, opacity: 0.16, depthWrite: false,
+      color: 0xc8d4e4, transparent: true, opacity: 0.08, depthWrite: false,
       side: THREE.DoubleSide, fog: true,
     }),
   };
@@ -331,33 +331,29 @@ function buildRockGap(o, e) {
   const decorCone = (r, h, x, y, z, rx = 0, ry = 0, rz = 0) =>
     place(new THREE.ConeGeometry(r, h, 5), x, y, z, rx, ry, rz);
 
-  // A tall, rounded, weather-eroded SEA STACK — a HTTYD-style rock tower rising
-  // out of the mist below up past the ceiling, narrowing toward the top, with
-  // vertical erosion flutes. `z` places it along the run; `lean` tilts the crown
-  // (so stacks can lean toward the channel); records a collider box (oz=z) over
-  // the lane band only.
+  // A craggy, FACETED rock spire matching the biome's low-poly props (sharp
+  // 5-6-sided towers), not a smooth blob: a tapered few-sided column with an
+  // irregular, jagged silhouette and a slanted crown. `z` places it along the
+  // run; `lean` tilts it; records a collider box (oz=z) over the lane band only.
   const seaStack = (cx, hw, topY, botY, z = 0, lean = 0, hzCol = T) => {
-    const geo = new THREE.IcosahedronGeometry(1, 1); // rounder than the faceted lumps
+    const sides = 5 + ((rng() * 2) | 0);             // 5-6 facets, like the spires
+    const geo = new THREE.CylinderGeometry(hw * 0.2, hw, 1, sides, 4);
     const pos = geo.attributes.position;
     const v = new THREE.Vector3();
-    const flute = 5 + ((rng() * 4) | 0);
-    const warp = (rng() - 0.5) * 0.12;
+    const tilt = (rng() - 0.5) * 0.5;                // uneven, leaning crown
     for (let i = 0; i < pos.count; i++) {
       v.fromBufferAttribute(pos, i);
-      const t = (v.y + 1) / 2;                       // 0 base → 1 top
-      const taper = 1 - 0.42 * t * t;                // narrow toward the crown
-      const ang = Math.atan2(v.z, v.x);
-      const groove = 0.9 + 0.1 * Math.sin(ang * flute); // vertical erosion flutes
-      const r = taper * groove * (0.92 + rng() * 0.16);
-      pos.setXYZ(i, v.x * r + warp * v.y, v.y, v.z * r);
+      const t = v.y + 0.5;                            // 0 base → 1 crown
+      const jag = 0.74 + rng() * 0.5;                 // irregular per-vertex crag
+      pos.setXYZ(i, v.x * jag + tilt * t, v.y, v.z * jag);
     }
     geo.computeVertexNormals();
-    const h = (topY - botY) / 2, cy = (topY + botY) / 2;
-    geo.scale(hw, h, hw * 0.92);
+    const h = topY - botY, cy = (topY + botY) / 2;
+    geo.scale(1, h, 0.92);
     place(geo, cx, cy, z, 0, rng() * Math.PI, lean);
     // Collider hugs the lane band only (mesh extends below into the mist), a touch
     // inside the silhouette so you can skim the rock without a hit.
-    box(cx, CONFIG.canyonCeilingY * 0.5, hw * 0.85, CONFIG.canyonCeilingY * 0.5 + 3, hzCol, z);
+    box(cx, CONFIG.canyonCeilingY * 0.5, hw * 0.82, CONFIG.canyonCeilingY * 0.5 + 3, hzCol, z);
   };
 
   // A continuous RUN of sea stacks: frequent towers alternating left/right that
@@ -399,19 +395,31 @@ function buildRockGap(o, e) {
       // Overhead rock bridge every other slice — caps the canyon so you're caged
       // from ABOVE too (the missing dimension), ducking under arch after arch.
       // Non-fatal rock, so a graze on a wobble just chips, never a cheap death.
+      // Each arch is an irregular faceted chunk on its OWN material that fades as
+      // you approach, so the near one turns translucent and you see the next ones.
       if (k % 2 === 1) {
         const ay = gy + H + 2.6;
-        const a = place(new THREE.IcosahedronGeometry(1, 1), xc, ay, z, 0, rng() * Math.PI, 0);
-        a.scale.set(chanHalf + 1.6, 1.5 + rng() * 0.6, hz * 0.9);
+        const ageo = new THREE.IcosahedronGeometry(1, 0); // sharp facets, not a smooth blob
+        const ap = ageo.attributes.position; const av = new THREE.Vector3();
+        for (let i = 0; i < ap.count; i++) { av.fromBufferAttribute(ap, i); const j = 0.68 + rng() * 0.64; ap.setXYZ(i, av.x * j, av.y * j, av.z * j); }
+        ageo.computeVertexNormals();
+        ageo.scale(chanHalf + 1.6, 1.4 + rng() * 0.6, hz * 0.9);
+        const amat = mats.body[bi].clone();
+        amat.transparent = true; amat.depthWrite = false; amat.userData.perInstance = true;
+        const a = new THREE.Mesh(ageo, amat);
+        a.position.set(xc, ay, z);
+        a.rotation.set((rng() - 0.5) * 0.25, rng() * Math.PI, (rng() - 0.5) * 0.25);
+        group.add(a);
         box(xc, ay + 0.4, chanHalf + 1.4, 1.6, hz * 0.85, z);
+        (e.archFades || (e.archFades = [])).push({ mat: amat, dist: o.dist - z });
       }
     }
-    // Low sea-mist veils drifting between the stacks (atmosphere). Big soft discs
-    // hugging the water; the flying-through parallax + biome fog do the rest.
-    for (let m = 0; m < 3; m++) {
-      const mz = -depthHalf + ((m + 0.5) / 3) * 2 * depthHalf;
-      const q = new THREE.Mesh(new THREE.CircleGeometry(LANE * (1.1 + rng() * 0.45), 18), mats.mist);
-      q.position.set(gx + (rng() - 0.5) * 5, 1.5 + rng() * 4.5, mz);
+    // Low sea-mist hugging the WATER (very subtle, kept low so it never washes the
+    // slot into glare). A couple of soft discs; biome fog + parallax do the rest.
+    for (let m = 0; m < 2; m++) {
+      const mz = -depthHalf + ((m + 0.5) / 2) * 2 * depthHalf;
+      const q = new THREE.Mesh(new THREE.CircleGeometry(LANE * (0.85 + rng() * 0.3), 16), mats.mist);
+      q.position.set(gx + (rng() - 0.5) * 5, 0.4 + rng() * 2, mz);
       group.add(q);
     }
   };
@@ -504,21 +512,9 @@ function buildRockGap(o, e) {
     ribcage(34, 9, { flare: 0.9 });
   }
 
-  // A slim emissive rim only on the over-under squeeze, as a subtle "thread here"
-  // cue. NO filled glow plane anywhere — that additive square read as a crystal
-  // window. The sea-stack slot, skull mouth, and ribcage all frame their own
-  // opening (towers, jaws/teeth, ribs), so they get no rim.
-  if (o.kind === 'overunder') {
-    const bar = (w, h, cx, cy) => {
-      const m = new THREE.Mesh(new THREE.BoxGeometry(w, h, 0.3), edgeMat);
-      m.position.set(cx, cy, 0.2);
-      group.add(m);
-    };
-    bar(W * 2 + 0.6, 0.4, gx, gy + H);
-    bar(W * 2 + 0.6, 0.4, gx, gy - H);
-    bar(0.4, H * 2 + 0.6, gx - W, gy);
-    bar(0.4, H * 2 + 0.6, gx + W, gy);
-  }
+  // No rim/frame on any canyon gate: every opening is framed by its own rock
+  // (sea-stack slot, over-under squeeze, skull jaws/teeth, ribcage). A rectangular
+  // bar frame read as an odd "crystal window" box, so it's gone.
 
   group.position.z = -o.dist;
   return group;
@@ -593,6 +589,15 @@ export function updateObstacles(dt, time, playerDist, speedNorm = 0) {
       // Ribcage sections are long tubes of thin, open bone — fading the whole
       // section by its centre would vanish the ribs ahead, so they never fade.
       if (e.fadeMat && !e.noDissolve) e.fadeMat.opacity = fade;
+      // Overhead rock bridges fade INDIVIDUALLY (each by its own depth) as you
+      // approach, so the near arch turns translucent and the next ones show
+      // through it — caging silhouette far, clear view up close.
+      if (e.archFades) {
+        for (const a of e.archFades) {
+          const d = a.dist - playerDist;
+          a.mat.opacity = Math.min(1, Math.max(0.12, (d - 4) / 16));
+        }
+      }
       // Core-glow locator wakes as the gate nears, telegraphing the safe route.
       if (e.core) {
         const appr = Math.min(1, Math.max(0, (180 - dz) / 150));
