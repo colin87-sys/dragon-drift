@@ -443,15 +443,13 @@ export const ui = {
             <linearGradient id="stam-grad" x1="0" y1="0" x2="1" y2="0">
               <stop offset="0" stop-color="#2bb6c9"/><stop offset="1" stop-color="#9affe6"/>
             </linearGradient>
-            <linearGradient id="stam-grad-surge" x1="0" y1="0" x2="1" y2="0">
-              <stop offset="0" stop-color="#ff7adf"/><stop offset="1" stop-color="#ffd2ff"/>
-            </linearGradient>
           </defs>
-          <!-- 3 phase segments: one Dragon-Surge phase-through each (a third of the bar) -->
-          <path class="arc-trk" pathLength="100" stroke-dasharray="30 5 30 5 30" d="M 22 14 Q 125 74 228 14"/>
-          <path class="arc-seg" id="stam-seg-0" pathLength="100" stroke-dasharray="30 70" d="M 22 14 Q 125 74 228 14"/>
-          <path class="arc-seg" id="stam-seg-1" pathLength="100" stroke-dasharray="0 35 30 35" d="M 22 14 Q 125 74 228 14"/>
-          <path class="arc-seg" id="stam-seg-2" pathLength="100" stroke-dasharray="0 70 30 0" d="M 22 14 Q 125 74 228 14"/>
+          <!-- 3 notched phase cells (one Surge phase each). Light border always
+               shows; the dark fill glows teal only when affordable AND in Surge. -->
+          <path class="arc-border" pathLength="100" stroke-dasharray="30 5 30 5 30" d="M 22 14 Q 125 74 228 14"/>
+          <path class="arc-cell" id="stam-seg-0" pathLength="100" stroke-dasharray="30 70" d="M 22 14 Q 125 74 228 14"/>
+          <path class="arc-cell" id="stam-seg-1" pathLength="100" stroke-dasharray="0 35 30 35" d="M 22 14 Q 125 74 228 14"/>
+          <path class="arc-cell" id="stam-seg-2" pathLength="100" stroke-dasharray="0 70 30 0" d="M 22 14 Q 125 74 228 14"/>
         </svg>
       </div>
       <!-- Surge: a bare gem row (no label/box) + a quiet multiplier -->
@@ -567,9 +565,11 @@ export const ui = {
     // (a third of the bar). Lit segments = phases you can currently afford. The
     // bar only lights up brightly (surge colour + glow) during a Surge, so the
     // player instantly sees how many windows they can phase through.
+    const inSurge = !!game.feverActive;
     const phases = Math.min(3, Math.floor(game.stamina / CONFIG.phaseStaminaCost + 1e-4));
-    for (let i = 0; i < 3; i++) els.stamSegs[i].classList.toggle('lit', i < phases);
-    els.staminaArc.classList.toggle('surge', !!game.feverActive);
+    // A cell glows only when the dragon is in a Surge AND has enough stamina for
+    // that phase; otherwise it's a dark outlined notch.
+    for (let i = 0; i < 3; i++) els.stamSegs[i].classList.toggle('lit', inSurge && i < phases);
     const shownScore = Math.floor(game.score);
     els.score.textContent = shownScore;
     // Earn pop: big single-frame jumps (rings/gates/bonuses) tick the score
