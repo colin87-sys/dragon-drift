@@ -3477,3 +3477,21 @@ never blocks. Pure reuse: roll i-frames, the gate's shatter transform, `phaseBur
 collectibles" was really "can't touch the *frozen* arrays," and orbs were never frozen. And a "barrel-roll
 through it" beat doesn't need a fail state: make the wall **non-fatal + always-passable**, and let the roll
 turn a chip into a *reward* — the mechanic teaches itself without ever ending a run.
+
+**Addendum — iteration 5 (owner playtest): cut the clever, keep the spine.** On the preview the
+multi-act spine read as **messy** — the owner's call was to strip it back: "our old rib run was good, just
+do MORE of it," lead in with a redesigned skull, and end on a **straight rib tunnel with a few speed boosts**
+you boost flat-out through into open air. So the heart chamber, broken ribs, chest-grow, vertebra variety
+AND the roll-through curtain all came **out** — `pickKind` is now just `skull → throat → rib (the swaying
+run, the bulk) → straightrib (finale)`. The finale reuses the same `ribcage` with a one-line `straight`
+flag (zero the sway) and strings `out.orbs` boosts through its first few segments; `spineSegments [9,11] →
+[13,16]` for "more of it." The **skull redesign** is the transferable bit: the old one was `lump()`s —
+icosahedra with *random full-axis rotation* + heavy jitter — which reads as a rubble pile, not a head. The
+fix was a local `boneMass` that (a) uses a **once-subdivided** icosa with **low jitter** (smooth, not
+craggy), (b) places with **NO random spin** so elongated masses (snout/brow/jaw) keep their intended
+orientation, and (c) adds **dark recessed eye sockets** (`mats.socket`) with the glowing eye set inside —
+contrast is what makes an eye read as an eye. Colliders frame the mouth but are tuned so none dips into the
+gap. **→ Leapfrog:** procedural "creature" geometry lives or dies on **controlled orientation + smoothness
++ local contrast**, not part count — random-rotation jittered blobs never read as anatomy. And when an
+authored set piece feels "messy," the fix is usually **subtract beats, not add polish**: one strong idea
+(a long rib run) done well beats five clever ones competing for the same 20 seconds.

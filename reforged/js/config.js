@@ -116,7 +116,9 @@ export const CONFIG = {
   canyonGapH: 3.9,            // half-height of the safe opening (≥ gateGapH)
   canyonThick: 2.2,           // z half-depth of a rock gate (collision + mesh)
   canyonSegments: [8, 11],    // a Rock Run sustains ~8-11s of enclosed canyon then opens up
-  spineSegments: [9, 11],     // a Dragon Spine Canyon: skull→throat→ribs→heart→vertebrae→exit
+  spineSegments: [13, 16],    // a Dragon Spine Canyon: skull→throat→long rib run→straight boost-out
+  spineFinaleSegs: 6,         // the closing STRAIGHT rib tunnel you boost through (~6-8s)
+  spineFinaleOrbs: 3,         // speed boosts strung through the start of that finale
   canyonIntervalBase: 1500,   // metres between canyons (rarer than gauntlets)
   canyonIntervalJitter: 1100,
   canyonFirstAt: 900,         // earliest a canyon can begin (past the tutorial)
@@ -131,11 +133,6 @@ export const CONFIG = {
   canyonGapYLo: 5.5,
   canyonGapYHi: 19,
   canyonCeilingDamage: 12,    // chip on scraping the ceiling (gentle, like ground)
-  // Tail finale (Dragon Spine exit): a line of speed boosts then a brittle bone
-  // curtain across the whole mouth — you barrel-roll through it into open air.
-  // Non-fatal: rolling shatters it for style; forgetting to roll is a light chip.
-  canyonTailOrbs: 3,          // speed boosts strung through the tail exit
-  canyonTailChip: 12,         // gentle chip if you hit the curtain without rolling
 
   // Endless generation
   spawnAhead: 500,
