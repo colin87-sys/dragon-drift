@@ -174,28 +174,6 @@ export function updateCollision(dt, player) {
       }
 
     } else if (c.type === 'rockGap') {
-      // Tail-curtain finale: a brittle bone portcullis across the whole exit (no
-      // gap). Barrel-roll through it (active i-frames) and it SHATTERS for style;
-      // forget to roll and it's a light, non-fatal chip. Either way you pass into
-      // open air — it never blocks. Resolved once (c.broken) so it can't re-fire.
-      if (c.rollwall) {
-        if (!c.broken && Math.abs(dz) < c.thick + R) {
-          c.broken = true;
-          if (player.rollInvuln > 0) {
-            c.shatterT = CONFIG.phaseShatterDur;
-            phaseBurst(player.position, true);
-            cameraCtl.shake(0.6);
-            const pts = Math.round(CONFIG.rollBonus * 2 * game.combo * game.scoreMult);
-            game.score += pts;
-            ui.nearMissPopup(pts);
-            sfx.nearMiss();
-            emit('phase');
-          } else {
-            hit(player, 0, 0, CONFIG.canyonTailChip, 'rock');
-          }
-        }
-        continue;
-      }
       // Sky Canyon rock gate: each rock mass is an AABB. Hitting one is health
       // damage (NON-fatal, roll-clearable via i-frames in hit()), not a crash.
       // Slipping past a rock face close = near miss. The gap itself is clear.

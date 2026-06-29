@@ -498,7 +498,12 @@ export function createLevelGen(seed = CONFIG.seed, opts = {}) {
       if (canyon) {
         const seg = makeRockGap(ring, prevRing, canyon);
         out.canyonSegments.push(seg);
-        if (seg.kind === 'tailgate') addTailOrbs(seg, out);
+        // Boost orbs on the first few straight-tunnel segments (a sustained boost
+        // that carries you out, not a wall of orbs).
+        if (seg.kind === 'straightrib'
+            && seg.runIdx - (seg.runTotal - CONFIG.spineFinaleSegs) < CONFIG.spineFinaleOrbs) {
+          addFinaleOrb(seg, out);
+        }
         canyon.idx++;
         if (--canyon.left <= 0) {
           out.canyonEnds.push(ring.dist + 40);
@@ -543,35 +548,27 @@ export function createLevelGen(seed = CONFIG.seed, opts = {}) {
       if (CANYON_FORCE === 'overunder') return 'overunder';
       return wantShelf ? 'overunder' : 'split';
     }
-    // Dragon Spine Canyon beats — an authored "ancient remains" sequence with a
-    // pacing curve, not random rocks: skull (cinematic gate) → throat (choke) →
-    // rib slalom (tight) → heart chamber (wide-open breather) → vertebra
-    // ring-tunnel (a different texture) → exitflare (release). The heart sits at
-    // the midpoint so the run reads open → tight → OPEN → tight → release.
-    const i = c.idx, last = c.total - 1;
+    // Dragon Spine Canyon: skull (a head you fly into) → throat → a long run of
+    // gently swaying ribs (the heart of it) → a STRAIGHT rib tunnel finale you boost
+    // flat-out through into open air.
+    const i = c.idx;
     if (i === 0) return 'skull';
     if (i === 1) return 'throat';
-    if (i === last) return 'tailgate';            // roll-through curtain into open air
-    if (i === last - 1) return 'exitflare';       // ribs flare wide just before the tail
-    const heartAt = Math.round((c.total - 1) * 0.5);
-    if (i === heartAt) return 'heart';            // the chest cavity, second act
-    return i < heartAt ? 'rib' : 'vertebra';      // ribs in front, vertebrae behind
+    if (i >= c.total - CONFIG.spineFinaleSegs) return 'straightrib';  // the boost-out finale
+    return 'rib';                                                     // the swaying rib run (bulk)
   }
 
-  // The tail finale strings a few SPEED BOOSTS straight through the exit — no
-  // navigation, pure "show speed": collect them, boost, and barrel-roll through the
-  // bone curtain into open air. Orbs ride a fixed deterministic line off the exit
-  // ring; they're not part of the gold-determinism fixture and we never touch the
-  // main rnd / rings / obstacles, so the base course stays byte-identical.
-  function addTailOrbs(seg, out) {
-    const n = CONFIG.canyonTailOrbs;
-    for (let k = 0; k < n; k++) {
-      out.orbs.push({
-        dist: seg.dist - 26 + k * 13,
-        x: clamp(seg.gapX, -11, 11),
-        y: clamp(seg.gapY + 1.5, 4.5, 20),
-      });
-    }
+  // The finale strings a few SPEED BOOSTS through the straight tunnel — no
+  // navigation, pure "show speed": grab a boost and blast straight out into open
+  // air. Orbs ride a fixed deterministic line off the segment's ring; they're not
+  // part of the gold-determinism fixture and we never touch the main rnd / rings /
+  // obstacles, so the base course stays byte-identical.
+  function addFinaleOrb(seg, out) {
+    out.orbs.push({
+      dist: seg.dist - 8,
+      x: clamp(seg.gapX, -11, 11),
+      y: clamp(seg.gapY + 1.5, 4.5, 20),
+    });
   }
 
   // One canyon gate's data: a safe aperture centered on the ring, plus the kind
@@ -594,7 +591,7 @@ export function createLevelGen(seed = CONFIG.seed, opts = {}) {
     // Over-under alternates ceiling/floor so it reads as "down, then up".
     if (kind === 'overunder') seg.shelf = c.idx % 2 === 0 ? 'ceiling' : 'floor';
     // Ribs alternate the heavier bone side to fake the curl of a long torso.
-    if (kind === 'rib' || kind === 'exitflare') seg.side = c.idx % 2 === 0 ? 1 : -1;
+    if (kind === 'rib') seg.side = c.idx % 2 === 0 ? 1 : -1;
     return seg;
   }
 

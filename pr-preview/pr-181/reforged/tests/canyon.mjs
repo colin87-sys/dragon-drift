@@ -29,7 +29,7 @@ const result = await page.evaluate(async () => {
 });
 
 const { segs, starts, ends } = result.a;
-const KINDS = ['split', 'overunder', 'skull', 'throat', 'rib', 'heart', 'vertebra', 'exitflare', 'tailgate'];
+const KINDS = ['split', 'overunder', 'skull', 'throat', 'rib', 'straightrib'];
 check('canyons spawn over 9 km', segs.length >= 1);
 // ends may trail starts by one if a run is still in progress at the walk boundary.
 check('canyon starts/ends are balanced',
@@ -48,13 +48,12 @@ check('multiple kinds appear', kinds.size >= 2);
 const spineSegs = segs.filter((s) => s.run === 'spine');
 if (spineSegs.length) {
   check('spine runs include a skull entrance', kinds.has('skull'));
-  check('spine runs include a heart-chamber breather', kinds.has('heart'));
-  check('spine runs include a flared exit', kinds.has('exitflare'));
-  check('spine runs include a roll-through tail curtain', kinds.has('tailgate'));
-  // Each tail curtain strings speed boosts straight through the exit.
-  const tails = segs.filter((s) => s.kind === 'tailgate');
-  check('tail curtains string speed boosts through the exit',
-    tails.every((t) => result.a.orbs.some((o) => o.dist > t.dist - 40 && o.dist <= t.dist)));
+  check('spine runs include the swaying rib run', kinds.has('rib'));
+  check('spine runs end in a straight boost-out tunnel', kinds.has('straightrib'));
+  // The straight finale strings speed boosts through it.
+  const straights = segs.filter((s) => s.kind === 'straightrib');
+  check('straight finale strings speed boosts through it',
+    straights.some((s) => result.a.orbs.some((o) => o.dist > s.dist - 20 && o.dist <= s.dist)));
 }
 
 console.log(`  (segments: ${segs.length}, runs: ${starts.length} [${[...runs].join(',')}], kinds: ${[...kinds].join(', ')})`);
