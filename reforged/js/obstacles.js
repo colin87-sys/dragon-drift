@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { CONFIG } from './config.js';
 import { biomeIndexAt } from './biomes.js';
 import { mulberry32 } from './util.js';
+import { mergeGeometries } from '../lib/utils/BufferGeometryUtils.js';
 
 // Hazards, spawned ahead and culled behind the dragon:
 //   pillar — floor spike (health damage)
@@ -331,28 +332,41 @@ function buildRockGap(o, e) {
   const decorCone = (r, h, x, y, z, rx = 0, ry = 0, rz = 0) =>
     place(new THREE.ConeGeometry(r, h, 5), x, y, z, rx, ry, rz);
 
-  // A craggy, FACETED rock spire matching the biome's low-poly props (sharp
-  // 5-6-sided towers), not a smooth blob: a tapered few-sided column with an
-  // irregular, jagged silhouette and a slanted crown. `z` places it along the
-  // run; `lean` tilts it; records a collider box (oz=z) over the lane band only.
-  const seaStack = (cx, hw, topY, botY, z = 0, lean = 0, hzCol = T) => {
-    const sides = 5 + ((rng() * 2) | 0);             // 5-6 facets, like the spires
-    const geo = new THREE.CylinderGeometry(hw * 0.2, hw, 1, sides, 4);
-    const pos = geo.attributes.position;
-    const v = new THREE.Vector3();
-    const tilt = (rng() - 0.5) * 0.5;                // uneven, leaning crown
-    for (let i = 0; i < pos.count; i++) {
-      v.fromBufferAttribute(pos, i);
-      const t = v.y + 0.5;                            // 0 base → 1 crown
-      const jag = 0.74 + rng() * 0.5;                 // irregular per-vertex crag
-      pos.setXYZ(i, v.x * jag + tilt * t, v.y, v.z * jag);
+  // One jagged faceted shard (5-sided crystal/rock spike), jittered, baked into a
+  // given transform so a cluster can be MERGED into one mesh (1 draw call).
+  const shardGeo = (r, h, ox, oy, oz, tilt, pointDown = false) => {
+    const g = new THREE.ConeGeometry(r, h, 5);
+    const p = g.attributes.position, v = new THREE.Vector3();
+    for (let i = 0; i < p.count; i++) {
+      v.fromBufferAttribute(p, i);
+      if (v.y < h * 0.42) { const j = 0.78 + rng() * 0.5; v.x *= j; v.z *= j; } // crag the body, keep the tip
+      p.setXYZ(i, v.x, v.y, v.z);
     }
-    geo.computeVertexNormals();
-    const h = topY - botY, cy = (topY + botY) / 2;
-    geo.scale(1, h, 0.92);
-    place(geo, cx, cy, z, 0, rng() * Math.PI, lean);
-    // Collider hugs the lane band only (mesh extends below into the mist), a touch
-    // inside the silhouette so you can skim the rock without a hit.
+    g.translate(0, h / 2, 0);                 // base at 0, tip at h
+    if (pointDown) g.rotateX(Math.PI);        // tip points down (stalactite)
+    g.rotateY(rng() * Math.PI);
+    g.rotateZ(tilt);
+    g.translate(ox, oy, oz);
+    return g;
+  };
+
+  // A canyon wall built from the biome's OWN vocabulary: a jagged ridge of sharp
+  // faceted shards (like the biome's spire props), tinted by the biome body
+  // material — not a smooth blob. Merged to one mesh; collider hugs the lane band.
+  const seaStack = (cx, hw, topY, botY, z = 0, lean = 0, hzCol = T) => {
+    const h = topY - botY;
+    const n = Math.max(2, Math.round(hw / 2.3));     // shards across the wall width
+    const sr = (hw / n) * 1.55;                       // overlap so it reads as one mass
+    const parts = [];
+    for (let i = 0; i < n; i++) {
+      const sx = -hw + ((i + 0.5) / n) * 2 * hw + (rng() - 0.5) * sr * 0.4;
+      const sh = h * (0.6 + rng() * 0.45);            // uneven, jagged crest
+      parts.push(shardGeo(sr * (0.8 + rng() * 0.5), sh, sx, botY, (rng() - 0.5) * hzCol * 0.5, lean + (rng() - 0.5) * 0.18));
+    }
+    const merged = mergeGeometries(parts, false);
+    parts.forEach((g) => g.dispose());
+    merged.computeVertexNormals();
+    place(merged, cx, 0, z);
     box(cx, CONFIG.canyonCeilingY * 0.5, hw * 0.82, CONFIG.canyonCeilingY * 0.5 + 3, hzCol, z);
   };
 
@@ -398,19 +412,23 @@ function buildRockGap(o, e) {
       // Each arch is an irregular faceted chunk on its OWN material that fades as
       // you approach, so the near one turns translucent and you see the next ones.
       if (k % 2 === 1) {
-        const ay = gy + H + 2.6;
-        const ageo = new THREE.IcosahedronGeometry(1, 0); // sharp facets, not a smooth blob
-        const ap = ageo.attributes.position; const av = new THREE.Vector3();
-        for (let i = 0; i < ap.count; i++) { av.fromBufferAttribute(ap, i); const j = 0.68 + rng() * 0.64; ap.setXYZ(i, av.x * j, av.y * j, av.z * j); }
+        const ay = gy + H + 5;                         // crest, high enough that tips clear the gap
+        const aw = chanHalf + 1.6;
+        const an = Math.max(2, Math.round(aw / 2.2));
+        const aparts = [];
+        for (let i = 0; i < an; i++) {                 // a row of downward shards (stalactites)
+          const sx = -aw + ((i + 0.5) / an) * 2 * aw + (rng() - 0.5);
+          aparts.push(shardGeo(0.9 + rng() * 0.8, 2 + rng() * 2, sx, 0, (rng() - 0.5) * hz * 0.5, (rng() - 0.5) * 0.25, true));
+        }
+        const ageo = mergeGeometries(aparts, false);
+        aparts.forEach((g) => g.dispose());
         ageo.computeVertexNormals();
-        ageo.scale(chanHalf + 1.6, 1.4 + rng() * 0.6, hz * 0.9);
         const amat = mats.body[bi].clone();
         amat.transparent = true; amat.depthWrite = false; amat.userData.perInstance = true;
         const a = new THREE.Mesh(ageo, amat);
         a.position.set(xc, ay, z);
-        a.rotation.set((rng() - 0.5) * 0.25, rng() * Math.PI, (rng() - 0.5) * 0.25);
         group.add(a);
-        box(xc, ay + 0.4, chanHalf + 1.4, 1.6, hz * 0.85, z);
+        box(xc, ay - 1.6, chanHalf + 1.4, 2, hz * 0.85, z);
         (e.archFades || (e.archFades = [])).push({ mat: amat, dist: o.dist - z });
       }
     }
@@ -591,11 +609,13 @@ export function updateObstacles(dt, time, playerDist, speedNorm = 0) {
       if (e.fadeMat && !e.noDissolve) e.fadeMat.opacity = fade;
       // Overhead rock bridges fade INDIVIDUALLY (each by its own depth) as you
       // approach, so the near arch turns translucent and the next ones show
-      // through it — caging silhouette far, clear view up close.
+      // through it — caging silhouette far, clear view up close. The fade is a
+      // long SMOOTHSTEP (solid ~34m out → clear by ~8m) so it eases, never pops.
       if (e.archFades) {
         for (const a of e.archFades) {
-          const d = a.dist - playerDist;
-          a.mat.opacity = Math.min(1, Math.max(0.12, (d - 4) / 16));
+          let t = (a.dist - playerDist - 8) / 26;
+          t = t < 0 ? 0 : t > 1 ? 1 : t;
+          a.mat.opacity = 0.04 + 0.96 * (t * t * (3 - 2 * t));
         }
       }
       // Core-glow locator wakes as the gate nears, telegraphing the safe route.
