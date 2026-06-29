@@ -327,13 +327,15 @@ function buildRockGap(o, e) {
 
   // A tall, rounded, weather-eroded SEA STACK — a HTTYD-style rock tower rising
   // out of the mist below up past the ceiling, narrowing toward the top, with
-  // vertical erosion flutes. Records a collider box over the lane portion only.
-  const seaStack = (cx, hw, topY, botY) => {
+  // vertical erosion flutes. `z` places it along the run; `lean` tilts the crown
+  // (so stacks can lean toward the channel); records a collider box (oz=z) over
+  // the lane band only.
+  const seaStack = (cx, hw, topY, botY, z = 0, lean = 0, hzCol = T) => {
     const geo = new THREE.IcosahedronGeometry(1, 1); // rounder than the faceted lumps
     const pos = geo.attributes.position;
     const v = new THREE.Vector3();
     const flute = 5 + ((rng() * 4) | 0);
-    const lean = (rng() - 0.5) * 0.1;
+    const warp = (rng() - 0.5) * 0.12;
     for (let i = 0; i < pos.count; i++) {
       v.fromBufferAttribute(pos, i);
       const t = (v.y + 1) / 2;                       // 0 base → 1 top
@@ -341,15 +343,46 @@ function buildRockGap(o, e) {
       const ang = Math.atan2(v.z, v.x);
       const groove = 0.9 + 0.1 * Math.sin(ang * flute); // vertical erosion flutes
       const r = taper * groove * (0.92 + rng() * 0.16);
-      pos.setXYZ(i, v.x * r + lean * v.y, v.y, v.z * r);
+      pos.setXYZ(i, v.x * r + warp * v.y, v.y, v.z * r);
     }
     geo.computeVertexNormals();
     const h = (topY - botY) / 2, cy = (topY + botY) / 2;
     geo.scale(hw, h, hw * 0.92);
-    place(geo, cx, cy, 0, 0, rng() * Math.PI, 0);
+    place(geo, cx, cy, z, 0, rng() * Math.PI, lean);
     // Collider hugs the lane band only (mesh extends below into the mist), a touch
     // inside the silhouette so you can skim the rock without a hit.
-    box(cx, CONFIG.canyonCeilingY * 0.5, hw * 0.85, CONFIG.canyonCeilingY * 0.5 + 3, T);
+    box(cx, CONFIG.canyonCeilingY * 0.5, hw * 0.85, CONFIG.canyonCeilingY * 0.5 + 3, hzCol, z);
+  };
+
+  // A continuous RUN of sea stacks: frequent towers alternating left/right that
+  // bound a gently winding channel, so there's essentially ONE path threading
+  // between them. The wind is smooth (always reachable) and continuous across
+  // sections; towers lean toward the channel; the channel is wider than the gap
+  // so the reward ring always sits inside it. Open on the far side of each lone
+  // tower, so you can always see the slot ahead and plan.
+  const stackRun = (depthHalf, count) => {
+    e.depthHalf = Math.max(e.depthHalf || 0, depthHalf);
+    e.noDissolve = true;                 // side towers keep the lane ahead visible
+    const top = CEIL + 2, bot = -3;      // rise from the "sea" below up past the ceiling
+    const sp = (2 * depthHalf) / count;
+    const hz = sp * 0.55;
+    const chanHalf = W + 0.8;            // free channel half-width (≥ the gap)
+    const runIdx = o.runIdx || 0;
+    // cos(π·…) is 0 at each ring plane (f=0.5) so the channel — and the reward
+    // ring — sit centred there, winding between; continuous across section seams.
+    const sway = (f) => (o.swaySign || 1) * 3.5 * Math.cos(Math.PI * (runIdx - 2 + f));
+    for (let k = 0; k < count; k++) {
+      const f = (k + 0.5) / count;
+      const z = -depthHalf + f * 2 * depthHalf;
+      const s = (k % 2 === 0) ? -1 : 1;  // alternate sides → staggered slalom
+      const xc = gx + sway(f);           // winding channel centre
+      const inner = xc + s * chanHalf;
+      const outer = (s < 0 ? -LANE : LANE) + s * 2;
+      const cx = (inner + outer) / 2;
+      const hw = Math.abs(outer - inner) / 2;
+      if (hw < 1.2) continue;
+      seaStack(cx, hw, top, bot, z, -s * (0.05 + rng() * 0.06), hz);
+    }
   };
 
   // A run of SUCCESSIVE rib bones along the flight axis — the actual ribcage.
@@ -399,13 +432,9 @@ function buildRockGap(o, e) {
 
   // --- ROCK RUN -------------------------------------------------------------
   if (o.kind === 'split') {
-    // Two towering SEA STACKS rising from the mist past the ceiling, a winding
-    // slot between them — the HTTYD sea-stack chase. Lateral threading + banking.
-    const top = CEIL + 2, bot = -3; // rise from below the lane (the "sea") up high
-    const lhw = (gx - W + LANE) / 2;
-    if (lhw > 0.6) seaStack((-LANE + gx - W) / 2, lhw, top, bot);
-    const rhw = (LANE - (gx + W)) / 2;
-    if (rhw > 0.6) seaStack((gx + W + LANE) / 2, rhw, top, bot);
+    // A continuous staggered run of towering SEA STACKS — the HTTYD sea-stack
+    // chase: weave the single winding slot between them, banking left/right.
+    stackRun(36, 7);
   } else if (o.kind === 'overunder') {
     // A rounded rock mass juts from the ceiling (dive under) or a shelf rises from
     // the floor (climb over) — a vertical squeeze between the tower slots.
@@ -444,11 +473,11 @@ function buildRockGap(o, e) {
     ribcage(34, 9, { flare: 0.9 });
   }
 
-  // A slim emissive rim just on the rock-run gates (split / over-under), as a
-  // subtle "thread here" cue between the stacks. NO filled glow plane anywhere —
-  // that additive square read as a crystal window. The skull mouth and the
-  // ribcage frame their own opening (jaws/teeth, ribs), so they get no rim.
-  if (o.kind === 'split' || o.kind === 'overunder') {
+  // A slim emissive rim only on the over-under squeeze, as a subtle "thread here"
+  // cue. NO filled glow plane anywhere — that additive square read as a crystal
+  // window. The sea-stack slot, skull mouth, and ribcage all frame their own
+  // opening (towers, jaws/teeth, ribs), so they get no rim.
+  if (o.kind === 'overunder') {
     const bar = (w, h, cx, cy) => {
       const m = new THREE.Mesh(new THREE.BoxGeometry(w, h, 0.3), edgeMat);
       m.position.set(cx, cy, 0.2);
