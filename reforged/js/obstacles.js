@@ -114,6 +114,12 @@ export function initObstacles(s) {
       color: 0xe7dcc0, flatShading: true, roughness: 0.7, metalness: 0.0,
       emissive: 0x4a3f2a, emissiveIntensity: 0.35,
     }),
+    // Soft pale sea-mist veils for the sea-stack run (low haze hugging the
+    // water). Unlit, fogged so it recedes, no depth write so it layers cleanly.
+    mist: new THREE.MeshBasicMaterial({
+      color: 0xdfe8f2, transparent: true, opacity: 0.16, depthWrite: false,
+      side: THREE.DoubleSide, fog: true,
+    }),
   };
   // Phase Gate skins, one material set per biome.
   veilMats = PHASE_SKINS.map((s) => makeVeilMat(s.veil, s.edge));
@@ -366,22 +372,33 @@ function buildRockGap(o, e) {
     const top = CEIL + 2, bot = -3;      // rise from the "sea" below up past the ceiling
     const sp = (2 * depthHalf) / count;
     const hz = sp * 0.55;
-    const chanHalf = W + 0.8;            // free channel half-width (≥ the gap)
+    const chanHalf = W + 0.4;            // free channel half-width
+    const CLAMP = LANE - chanHalf - 1.5; // keep the whole channel inside the lane → always fair
     const runIdx = o.runIdx || 0;
     // cos(π·…) is 0 at each ring plane (f=0.5) so the channel — and the reward
     // ring — sit centred there, winding between; continuous across section seams.
-    const sway = (f) => (o.swaySign || 1) * 3.5 * Math.cos(Math.PI * (runIdx - 2 + f));
+    // The channel CENTRE is clamped to the lane, so the wind can be pronounced
+    // (forces real weaving) yet never shove the path into the fatal lane wall.
+    const sway = (f) => (o.swaySign || 1) * 5.2 * Math.cos(Math.PI * (runIdx - 2 + f));
     for (let k = 0; k < count; k++) {
       const f = (k + 0.5) / count;
-      const z = -depthHalf + f * 2 * depthHalf;
+      const z = -depthHalf + f * 2 * depthHalf + (rng() - 0.5) * sp * 0.3; // break the grid
       const s = (k % 2 === 0) ? -1 : 1;  // alternate sides → staggered slalom
-      const xc = gx + sway(f);           // winding channel centre
-      const inner = xc + s * chanHalf;
-      const outer = (s < 0 ? -LANE : LANE) + s * 2;
+      const xc = Math.max(-CLAMP, Math.min(CLAMP, gx + sway(f)));
+      const inner = xc + s * (chanHalf + (rng() - 0.5)); // jitter so towers aren't on a line
+      const outer = (s < 0 ? -LANE : LANE) + s * 2.5;
       const cx = (inner + outer) / 2;
       const hw = Math.abs(outer - inner) / 2;
       if (hw < 1.2) continue;
       seaStack(cx, hw, top, bot, z, -s * (0.05 + rng() * 0.06), hz);
+    }
+    // Low sea-mist veils drifting between the stacks (atmosphere). Big soft discs
+    // hugging the water; the flying-through parallax + biome fog do the rest.
+    for (let m = 0; m < 3; m++) {
+      const mz = -depthHalf + ((m + 0.5) / 3) * 2 * depthHalf;
+      const q = new THREE.Mesh(new THREE.CircleGeometry(LANE * (1.1 + rng() * 0.45), 18), mats.mist);
+      q.position.set(gx + (rng() - 0.5) * 5, 1.5 + rng() * 4.5, mz);
+      group.add(q);
     }
   };
 
@@ -434,7 +451,7 @@ function buildRockGap(o, e) {
   if (o.kind === 'split') {
     // A continuous staggered run of towering SEA STACKS — the HTTYD sea-stack
     // chase: weave the single winding slot between them, banking left/right.
-    stackRun(36, 7);
+    stackRun(36, 10);
   } else if (o.kind === 'overunder') {
     // A rounded rock mass juts from the ceiling (dive under) or a shelf rises from
     // the floor (climb over) — a vertical squeeze between the tower slots.
