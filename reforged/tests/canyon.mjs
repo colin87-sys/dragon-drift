@@ -50,10 +50,14 @@ if (spineSegs.length) {
   check('spine runs include a skull entrance', kinds.has('skull'));
   check('spine runs include the swaying rib run', kinds.has('rib'));
   check('spine runs end in a straight boost-out tunnel', kinds.has('straightrib'));
-  // The straight finale strings speed boosts through it.
+  // The finale locks to one fixed line and strings a boost down it per segment, so
+  // the boosts form a dead-straight line inside the ribs.
   const straights = segs.filter((s) => s.kind === 'straightrib');
-  check('straight finale strings speed boosts through it',
-    straights.some((s) => result.a.orbs.some((o) => o.dist > s.dist - 20 && o.dist <= s.dist)));
+  check('finale segments expose a locked straight centre',
+    straights.every((s) => typeof s.straightX === 'number' && typeof s.straightY === 'number'));
+  check('each finale segment has a boost ON its locked line',
+    straights.every((s) => result.a.orbs.some(
+      (o) => Math.abs(o.x - s.straightX) < 1e-6 && o.dist > s.dist - 20 && o.dist <= s.dist)));
 }
 
 console.log(`  (segments: ${segs.length}, runs: ${starts.length} [${[...runs].join(',')}], kinds: ${[...kinds].join(', ')})`);
