@@ -102,6 +102,18 @@ export function burst(pos, colorHex, { count = 14, speed = 10, size = 0.9, life 
   for (let i = 0; i < n; i++) spawn(pos, colorHex, { speed, size, life });
 }
 
+// Barrel-roll air turbulence — pale vapor streaks shed during a roll. Biased
+// laterally in the roll direction and BEHIND the dragon (+z), elongated along
+// their velocity, so they read as turbulent air torn off the wings (the sense of
+// power being generated). Called per-frame while rolling for a continuous trail.
+export function rollWake(pos, dir = 1, count = 4) {
+  const n = Math.round(count * quality) || 1;
+  for (let i = 0; i < n; i++) {
+    tmpV.set(dir * (3 + Math.random() * 5), (Math.random() - 0.5) * 6, 5 + Math.random() * 6);
+    spawn(pos, 0xcdeaff, { speed: 6, size: 1.0, life: 0.42, velBias: tmpV, drag: 1.5, gravityScale: 0, stretch: 2.4 });
+  }
+}
+
 function shockwave(pos, colorHex, { rect = false, grow = 16, life = 0.5, aspect = 1 } = {}) {
   for (const sp of shocks) {
     if (sp.visible || sp.userData.isRect !== rect) continue;
