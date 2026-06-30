@@ -23,6 +23,7 @@
     .row input[type=range]{flex:1;min-width:0;accent-color:#7fa8ff}
     .row .val{flex:0 0 42px;text-align:right;color:#dfe8ff;font-variant-numeric:tabular-nums;font-size:12px}
     .row input[type=color]{flex:0 0 38px;height:24px;border:1px solid #2a3a5a;border-radius:5px;background:none;padding:0}
+    .row select{flex:1;min-width:0;background:#0e1426;color:#cfe;border:1px solid #2a3a5a;border-radius:5px;padding:5px 6px;font-size:12px}
     #bar{position:fixed;right:0;bottom:0;width:330px;max-width:88vw;box-sizing:border-box;
       display:flex;flex-wrap:wrap;gap:6px;padding:10px 12px;background:rgba(6,10,20,.92);border-left:1px solid #1d2a48;border-top:1px solid #1d2a48}
     #bar button, .forms button{background:#16223c;color:#cfe;border:1px solid #2a3a5a;border-radius:7px;padding:7px 10px;font-size:12px;cursor:pointer}
@@ -64,6 +65,7 @@
     <h1>Astral Crown — tuner</h1>
     <div class="sub">Drag the dials; the dragon updates live. Copy settings to hand back.</div>
     <div class="forms" id="forms"></div>
+    <div id="shapes"></div>
     <div id="dials"></div>
   </div>
   <div id="bar">
@@ -78,6 +80,7 @@
     import { makePreviewTick } from '../js/dragonModel.js';
     import {
       buildAstralCrownModel, CROWN_PARAMS, CROWN_PARAM_SCHEMA, CROWN_COLOR_KEYS,
+      CROWN_STYLE_LISTS, CROWN_DEFAULT_STYLES,
     } from '../js/astralCrownModel.js';
 
     // ── scene ────────────────────────────────────────────────────────────────
@@ -95,6 +98,7 @@
     // ── state ────────────────────────────────────────────────────────────────
     const baseDef = JSON.parse(JSON.stringify(DRAGONS.astralCrown));
     let params = { ...CROWN_PARAMS };
+    let styles = { ...CROWN_DEFAULT_STYLES };
     let F = 3;
     const topColors = () => { const o = {}; for (const c of CROWN_COLOR_KEYS) o[c.k] = baseDef[c.k]; return o; };
     const formColors = (f) => ({ ...topColors(), ...(((baseDef.forms || [])[f] || {}).colors || {}) });
@@ -108,6 +112,7 @@
       d.model = d.model || {};
       d.model.formLevel = F;
       d.model.crownParams = params;
+      d.model.crownStyles = styles;
       for (const c of CROWN_COLOR_KEYS) d[c.k] = colors[c.k];
       return d;
     }
@@ -181,6 +186,24 @@
     gl.addEventListener('pointerup', stop); gl.addEventListener('pointercancel', stop);
     gl.addEventListener('wheel', e => { e.preventDefault(); orbit.dist = Math.max(baseDist * 0.35, Math.min(baseDist * 2.6, orbit.dist * (1 + Math.sign(e.deltaY) * 0.08))); }, { passive: false });
 
+    // ── SHAPES (pick the variant of each component) ─────────────────────────────
+    {
+      const wrap = document.getElementById('shapes');
+      const d = document.createElement('details'); d.open = true;
+      const s = document.createElement('summary'); s.textContent = 'Shapes'; d.appendChild(s);
+      const body = document.createElement('div'); body.className = 'body'; d.appendChild(body);
+      const labels = { wings: 'Wings', torso: 'Torso', head: 'Head', tail: 'Tail' };
+      for (const comp of ['wings', 'torso', 'head', 'tail']) {
+        const row = document.createElement('div'); row.className = 'row';
+        const lab = document.createElement('label'); lab.textContent = labels[comp]; row.appendChild(lab);
+        const sel = document.createElement('select');
+        for (const v of CROWN_STYLE_LISTS[comp]) { const o = document.createElement('option'); o.value = v.k; o.textContent = v.label; if (styles[comp] === v.k) o.selected = true; sel.appendChild(o); }
+        sel.addEventListener('change', () => { styles[comp] = sel.value; rebuild(); });
+        row.appendChild(sel); body.appendChild(row);
+      }
+      wrap.appendChild(d);
+    }
+
     // ── GUI (generated from the schema) ────────────────────────────────────────
     const dials = document.getElementById('dials');
     const inputRefs = {};   // key → {range, val}
@@ -240,7 +263,7 @@
     document.getElementById('breset').onclick = () => { params = { ...CROWN_PARAMS }; colors = formColors(F); refreshDials(); for (const c of CROWN_COLOR_KEYS) if (colorRefs[c.k]) colorRefs[c.k].value = toHex(colors[c.k] ?? 0xffffff); rebuild(); toast('Dials reset'); };
     document.getElementById('bcopy').onclick = () => {
       const hexColors = {}; for (const k in colors) hexColors[k] = toHex(colors[k]);
-      const out = JSON.stringify({ form: F, crownParams: params, colors: hexColors }, null, 2);
+      const out = JSON.stringify({ form: F, crownStyles: styles, crownParams: params, colors: hexColors }, null, 2);
       navigator.clipboard?.writeText(out).then(() => toast('Settings copied!'), () => toast('Copy failed — see console'));
       console.log('[crown-tuner] settings:\n' + out);
     };
