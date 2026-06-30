@@ -469,15 +469,12 @@ function buildRockGap(o, e) {
   // the corridor and spanning the section depth — fly down the middle. Going wide
   // around the cage is possible but loses the reward ring at its centre.
   const ribcage = (depthHalf, nRibs, opts = {}) => {
-    const { flare = 0, vert = 0, neural = false, straight = false, centerX, centerY } = opts;
+    const { flare = 0, vert = 0, neural = false, straight = false } = opts;
     e.depthHalf = Math.max(e.depthHalf || 0, depthHalf); // widen collision broad-phase
     e.noDissolve = true;        // thin, open ribs never block the view → don't fade
     const cx = 2 * W;           // TWICE as wide
     const cy = H + 5.5;         // TALLER — the arch clears the forward sightline
-    // The straight finale locks the whole tube to ONE fixed line (centerX/centerY)
-    // so it doesn't snake with the reward ring; everything else rides the ring.
-    const baseX = centerX !== undefined ? centerX : gx;
-    const cYc = (centerY !== undefined ? centerY : gy) + 1.5; // lift so the belly stays roomy
+    const cYc = gy + 1.5;       // lift the cage so the belly opening stays roomy
     const runIdx = o.runIdx || 0;
     // Lateral sweep fakes the curl of a long body (continuous across section seams,
     // so it reads as ONE long curving ribcage). The FINALE goes STRAIGHT (no sway)
@@ -494,7 +491,7 @@ function buildRockGap(o, e) {
     for (let k = 0; k < nRibs; k++) {
       const f = nRibs > 1 ? k / (nRibs - 1) : 0.5;
       const z = -depthHalf + f * 2 * depthHalf;
-      const ox = baseX + sway(f);
+      const ox = gx + sway(f);
       box(ox - cor, cYc, 0.4, cy * 0.9, wallHz, z);
       box(ox + cor, cYc, 0.4, cy * 0.9, wallHz, z);
       const wS = cx * (1 + flare * Math.abs(f - 0.5) * 1.6);
@@ -587,11 +584,12 @@ function buildRockGap(o, e) {
     const dh = dhFor();
     ribcage(dh, nrFor(dh), {});
   } else if (o.kind === 'straightrib') {
-    // The finale: the sway STOPS and the whole tube LOCKS to one fixed straight
-    // line, with a straight line of speed orbs down its centre (placed in level.js)
-    // — boost flat-out down it and burst into open air.
+    // The finale: the L/R sway STOPS (no artificial sweep) but the tube still
+    // centres on each reward ring so the rings stay DEAD-CENTRE inside the ribs.
+    // Speed orbs ride the same ring line (placed in level.js) — boost down the
+    // centre and burst into open air.
     const dh = dhFor();
-    ribcage(dh, nrFor(dh), { straight: true, centerX: o.straightX, centerY: o.straightY });
+    ribcage(dh, nrFor(dh), { straight: true });
   }
 
   // No rim/frame on any canyon gate: every opening is framed by its own rock

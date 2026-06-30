@@ -151,7 +151,15 @@ function spawnAhead() {
   if (levelGen.generatedUntil >= player.dist + lead) return;
   const chunk = levelGen.ensure(player.dist + lead);
   chunk.rings.forEach(addRing);
-  chunk.obstacles.forEach(addObstacle);
+  // A base Phase Gate whose dist lands inside a canyon run is skipped — a blind
+  // crystal window between rib sections reads unfair. Generator output is untouched
+  // (determinism-safe); we just don't spawn the flagged ones here.
+  const gateSuppress = chunk.canyonGateSuppress && chunk.canyonGateSuppress.length
+    ? new Set(chunk.canyonGateSuppress) : null;
+  chunk.obstacles.forEach((o) => {
+    if (gateSuppress && o.type === 'gate' && gateSuppress.has(o.dist)) return;
+    addObstacle(o);
+  });
   chunk.orbs.forEach(addOrb);
   chunk.embers.forEach(addEmberLine);
   chunk.goldEmbers && chunk.goldEmbers.forEach(addGoldEmber);
