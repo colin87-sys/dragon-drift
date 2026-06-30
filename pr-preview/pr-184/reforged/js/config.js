@@ -154,16 +154,18 @@ export const CONFIG = {
     firstAt: 2500,          // metres: earliest a boss can appear
     interval: 3200,         // metres between encounters
     intervalJitter: 900,
-    settleGap: 26,          // metres ahead the boss holds (player-relative frame)
+    settleGap: 30,          // metres ahead the boss holds (player-relative frame)
     fightHeight: 11,        // y the boss settles at
     warnTime: 1.6,          // warning-banner lead before the boss enters
     approachTime: 2.6,      // seconds from spawn-offset to the settle point
     cruiseSpeed: 35,        // player forward speed locked during the fight (on-rails)
-    // Bullets (one InstancedMesh, octahedron, additive — the embers.js pattern)
+    // Bullets (one InstancedMesh, octahedron, additive — the embers.js pattern).
+    // Reaction window for an aimed bullet = settleGap / bulletSpeed (≈ 0.88s here);
+    // the spiral is slower (×0.78) so it reads as more forgiving.
     bulletPool: 320,
     bulletRadius: 0.55,
-    bulletHitScale: 0.7,    // effective player hit radius = playerRadius × this (forgiving)
-    bulletSpeed: 40,        // closing speed (m/s) of a boss bullet toward the player
+    bulletHitScale: 0.62,   // effective player hit radius = playerRadius × this (forgiving)
+    bulletSpeed: 34,        // closing speed (m/s) of a boss bullet toward the player
     bossSpeed: 52,          // closing speed of a rider/reflected bullet toward the boss
     bulletDamage: 18,
     bossHitRadius: 3.2,     // how close a boss-ward bullet must be to count as a hit

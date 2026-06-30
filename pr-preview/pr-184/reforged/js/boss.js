@@ -227,13 +227,18 @@ function aimVel(targetX, targetY, closing) {
 
 function fireAttack(id, player) {
   const closing = B.bulletSpeed;
-  const lead = 0.25;
+  // Very light lead only — a strongly-predictive aim makes the shot feel like it
+  // homes (you can't dodge by moving). Keep it near where the player IS so a
+  // committed sidestep clears it.
+  const lead = 0.08;
   const px = player.position.x + player.velocity.x * lead;
   const py = player.position.y + player.velocity.y * lead;
 
   if (id === 'aimed') {
+    // Wider spacing so the trio reads as three distinct bullets to dodge around,
+    // not one dense overlapping wall with no gap.
     for (let i = -1; i <= 1; i++) {
-      const v = aimVel(px + i * 1.2, py, closing);
+      const v = aimVel(px + i * 1.6, py, closing);
       spawnBoss(v.vx, v.vy, -closing, def.accent, false);
     }
   } else if (id === 'fan') {
