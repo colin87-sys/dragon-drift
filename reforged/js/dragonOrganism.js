@@ -107,6 +107,39 @@ const DRAKE_PROFILE = {
   headBase: (neckSegs) => ({ x: 0, y: 0.5 + (neckSegs - 4) * 0.09, z: -3.08 - (neckSegs - 4) * 0.34 }),
 };
 
+// CINDERVALE HULL PROFILE — a fresh whole-hull body for the fire starter, built
+// for organismWings' shared-vertex body↔wing weld. It is NOT the Night-Fury
+// drake profile and NOT the legacy arrow body: the chest is a short forward
+// crucible, the shoulders are high and wide, the waist pinches hard, and the
+// afterbody runs into a long rudder-tail boom. The membrane still uses the same
+// anatomical idea (root → wrist → fingers), but it grows from this hull's seam.
+const CINDER_HULL_PROFILE = {
+  zHold: -0.35,
+  tailShiftRefZ: 2.05,
+  tailAnchorY: 0.23,
+  tailAnchorZ: 1.42,
+  ring: drakeSection,
+  stations: [
+    [-3.18, 0.12, 0.08, 0.10],
+    [-2.55, 0.23, 0.17, 0.18],
+    [-1.78, 0.48, 0.42, 0.34],
+    [-1.18, 0.74, 0.66, 0.48],
+    [-0.62, 0.68, 0.58, 0.44],
+    [ 0.02, 0.40, 0.34, 0.30],
+    [ 0.70, 0.32, 0.27, 0.23],
+    [ 1.35, 0.29, 0.24, 0.19],
+    [ 2.05, 0.18, 0.16, 0.11],
+  ],
+  keel: [[-2.55, 0.17], [-1.18, 0.66], [-0.62, 0.58], [0.02, 0.34], [0.70, 0.27], [1.35, 0.24], [2.05, 0.16]],
+  wingRoot: { x: 0.56, y: 0.66, z: -0.62 },
+  fairing: { r: 0.34, scale: [1.0, 0.82, 1.34], pos: [0.54, 0.64, -0.7] },
+  neck: {
+    rBase: 0.42, rStep: 0.04, rMin: 0.19, scale: [0.82, 0.70, 1.18],
+    y0: 0.32, yStep: 0.078, z0: -2.1, zStep: -0.34, wobbleAmp: 0.06, wobbleFreq: 0.9,
+  },
+  headBase: (neckSegs) => ({ x: 0, y: 0.54 + (neckSegs - 4) * 0.085, z: -3.12 - (neckSegs - 4) * 0.33 }),
+};
+
 // organismTorso — the body-less peer for the clean-sheet hull. Builds the neck +
 // publishes the full attach contract (incl. attach.loft, the body-loft GENERATOR, +
 // attach.bodyMatDouble), but adds NO body mesh + NO fairings: organismWings grows
@@ -115,6 +148,10 @@ const DRAKE_PROFILE = {
 // drakeSection as the ring). Registered as a wings-slot peer.
 registerTorso('organismTorso', (def, model, bodyMat) =>
   buildTorso(DRAKE_PROFILE, def, model, bodyMat,
+    (profile, stretch) => sweepProfile({ ...profile, ring: profile.ring || drakeSection }, stretch),
+    { bodyMesh: false }));
+registerTorso('cinderHullTorso', (def, model, bodyMat) =>
+  buildTorso(CINDER_HULL_PROFILE, def, model, bodyMat,
     (profile, stretch) => sweepProfile({ ...profile, ring: profile.ring || drakeSection }, stretch),
     { bodyMesh: false }));
 
@@ -225,7 +262,7 @@ function buildOrganism(def, model, attach, giM) {
   const worldMaxX = (wingSpec.tips[0][0] || 5.7) * 1.34 * ws;
 
   // arm datums (mirror the shipped skinned wing so the bones land sensibly)
-  const wristXGeo = 3.3 * ws;
+  const wristXGeo = (model.wingWristSpan ?? 3.3) * ws;
   const elbowXGeo = wristXGeo * 0.52;
   const foldBand = 0.7 * ws;
   const rootBand = elbowXGeo * 0.55;
@@ -248,10 +285,14 @@ function buildOrganism(def, model, attach, giM) {
   // just above the body tone (no horn-tan, no glow, no metallic sheen) so the spars
   // disappear into the sleek matte-black wing instead of reading as a lit/metallic
   // skeleton. emissive ~0, metalness 0, high roughness.
-  const fingerCol = def.body ?? 0x0a0f1c;
+  const fingerCol = model.wingBoneColor === 'accent'
+    ? (def.horn ?? def.scales ?? def.body ?? 0x0a0f1c)
+    : (def.body ?? 0x0a0f1c);
   const fingerMat = new THREE.MeshStandardMaterial({
-    color: fingerCol, emissive: fingerCol, emissiveIntensity: 0.04,
-    roughness: 0.85, metalness: 0.0, side: THREE.DoubleSide,
+    color: fingerCol,
+    emissive: model.wingBoneColor === 'accent' ? (def.apexSeam ?? def.wingEmissive ?? fingerCol) : fingerCol,
+    emissiveIntensity: model.wingBoneColor === 'accent' ? 0.22 : 0.04,
+    roughness: 0.72, metalness: 0.04, side: THREE.DoubleSide,
   });
 
   // ── build the body loft + record the wing-seam verts (the shared-vert source) ─
@@ -464,6 +505,54 @@ function buildOrganism(def, model, attach, giM) {
     return g;
   }
 
+  // Cindervale anatomical wing mode: instead of one continuous orange sheet, build
+  // visibly separate membrane bays fanning from the wrist between the finger rays.
+  // Each bay is its own triangular/quadratic panel, skinned to the same bones as
+  // the fingers. This gives the chase camera a clear shoulder→elbow→wrist→5-ray
+  // dragon-wing read instead of a single ribbon surface.
+  function buildSkeletalMembraneSide(arm) {
+    const { wr, side } = arm;
+    const scaleX = 1.34 * ws, scaleZ = model.wingChord ?? 1;
+    const wristP = new THREE.Vector3(wr.x + wristXGeo * side, wr.y + wristLift, wr.z);
+    const tipToGroup = (sx, sy) => {
+      const wx = sx * scaleX;
+      const liftY = archLift(wx, worldMaxX, arc, ws);
+      return new THREE.Vector3(wx * side + wr.x, liftY + wr.y, -sy * scaleZ + wr.z);
+    };
+    const tips = wingSpec.tips.map(([sx, sy]) => tipToGroup(sx, sy));
+    const verts = [], indices = [], si = [], sw = [];
+    const addV = (p) => {
+      const ax = Math.abs(p.x - wr.x);
+      const s = spanSkin(side, ax);
+      verts.push(p.x, p.y, p.z);
+      si.push(s.si[0], s.si[1], s.si[2], s.si[3]);
+      sw.push(s.sw[0], s.sw[1], s.sw[2], s.sw[3]);
+      return (verts.length / 3) - 1;
+    };
+    const inset = 0.16 * ws;
+    for (let i = 0; i < tips.length - 1; i++) {
+      const a = tips[i], b = tips[i + 1];
+      const mid = a.clone().lerp(b, 0.5);
+      mid.y += (model.wingBillow ?? 0.12) * 0.45;
+      mid.z += inset * (i / Math.max(1, tips.length - 2));
+      const iw = addV(wristP);
+      const ia = addV(a);
+      const im = addV(mid);
+      const ib = addV(b);
+      // Two triangles per membrane bay, with a raised mid vertex so each web
+      // reads as a tensioned panel between bones rather than a flat ribbon.
+      if (side > 0) indices.push(iw, ia, im, iw, im, ib);
+      else indices.push(iw, im, ia, iw, ib, im);
+    }
+    const g = new THREE.BufferGeometry();
+    g.setAttribute('position', new THREE.Float32BufferAttribute(verts, 3));
+    g.setAttribute('skinIndex', new THREE.Uint16BufferAttribute(new Uint16Array(si), 4));
+    g.setAttribute('skinWeight', new THREE.Float32BufferAttribute(new Float32Array(sw), 4));
+    g.setIndex(indices);
+    g.computeVertexNormals();
+    return g;
+  }
+
   // ── FINGER struts — slim tubes from the WRIST out to the wing SCALLOP TIPS (C) ─
   // The human's spec: the finger struts must RADIATE from the wrist to the wing's
   // scallop TIPS (the pointy trailing-edge points that define the wing outline), in
@@ -496,13 +585,16 @@ function buildOrganism(def, model, attach, giM) {
       for (let s = 0; s < stations; s++) {
         const t = s / (stations - 1);
         const p = wristP.clone().lerp(target, t);
+        const curve = model.wingFingerCurve ?? 0.14;
+        p.z += Math.sin(Math.PI * t) * curve * 0.32 * Math.sign(target.z - wristP.z || 1);
         // lift the strut just above the membrane (toward +y) so it rides the surface.
         p.y += lift * Math.sin(Math.PI * Math.min(t, 0.85));
         centre.push(p);
         // B3 (L31): THICKER at the wrist base, tapering to a FINE point at the scallop
         // tip (cubic falloff so most of the spar stays slim but the root reads solid),
         // so each finger reads as a wing spar fanning from the wrist to a scallop point.
-        radii.push(0.050 + (0.0035 - 0.050) * (t * t * (3 - 2 * t)));
+        const rootR = model.wingFingerRadius ?? 0.050;
+        radii.push(rootR + (0.006 - rootR) * (t * t * (3 - 2 * t)));
         // articulate by span position along the arm.
         const ax = Math.abs(p.x - wr.x);
         skin.push(spanSkin(side, ax));
@@ -510,18 +602,20 @@ function buildOrganism(def, model, attach, giM) {
       const tube = skinnedTube(centre, radii, seg(4), (s) => skin[s], fingerMat);
       return tube.geometry;
     };
-    // 3-4 fingers radiating to the trailing scallop tips. tips[0] is the far leading
+    // 3-5 fingers radiating to the trailing scallop tips. tips[0] is the far leading
     // tip (the wing's outer point); the scallop tips are tips[1..] (the pointy
     // trailing-edge points). Take up to the inner tips so each finger lines up with a
     // scallop notch. Always include the outer leading tip for the long leading finger.
     const targets = [tips[0]];
-    for (let i = 1; i < tips.length && targets.length < 4; i++) targets.push(tips[i]);
+    const maxFingers = model.wingFingerCount ?? 5;
+    for (let i = 1; i < tips.length && targets.length < maxFingers; i++) targets.push(tips[i]);
     for (const t of targets) geos.push(finger(t));
     return geos;
   }
 
-  const memR = buildMembraneSide(armR, seamR);
-  const memL = buildMembraneSide(armL, seamL);
+  const skeletalPanels = model.wingPanelMode === 'skeletal';
+  const memR = skeletalPanels ? buildSkeletalMembraneSide(armR) : buildMembraneSide(armR, seamR);
+  const memL = skeletalPanels ? buildSkeletalMembraneSide(armL) : buildMembraneSide(armL, seamL);
   const fingersR = buildFingers(armR);
   const fingersL = buildFingers(armL);
   // merge L+R membrane into ONE translucent skinned mesh (membrane material). The
@@ -585,5 +679,6 @@ function buildOrganism(def, model, attach, giM) {
 }
 
 registerWings('organismWings', (def, model, attach, giM) => buildOrganism(def, model, attach, giM));
+registerWings('cinderHullWings', (def, model, attach, giM) => buildOrganism(def, model, attach, giM));
 
-export { buildOrganism, DRAKE_PROFILE, drakeSection };
+export { buildOrganism, DRAKE_PROFILE, CINDER_HULL_PROFILE, drakeSection };

@@ -413,7 +413,7 @@ export function makePreviewTick(def, result) {
   return (t) => {
     // Float + gentle bank/pitch — the in-flight read, no spin.
     group.position.y = 0.15 + Math.sin(t * 1.5) * 0.09;
-    group.rotation.y = 0;
+    group.rotation.y = def.model.previewYaw ?? 0;
     group.rotation.z = Math.sin(t * 0.7) * 0.13;        // lazy bank left/right
     group.rotation.x = -0.05 + Math.sin(t * 1.5 + 1) * 0.03;
     // Wingbeat — same shape as the live rig (root flap + feather pitch).
@@ -421,7 +421,7 @@ export function makePreviewTick(def, result) {
     if (wingRigL) {
       // Skinned wings: the shared animator drives the shoulder→elbow→wrist cascade
       // (dt=1 snaps to target, matching the preview's direct-set style).
-      const st = { phase, flapAmp: 0.52 * flapAmp, turnBias: 0, climbBias: 0, rollFold: 0, feather: Math.sin(phase + Math.PI * 0.55), strength: formStrength(def.model) };
+      const st = { phase, flapAmp: (def.model.previewFlapAmp ?? 0.52) * flapAmp, turnBias: 0, climbBias: 0, rollFold: 0, feather: Math.sin(phase + Math.PI * 0.55), strength: formStrength(def.model) };
       flapWing(wingRigL, st, 1);
       flapWing(wingRigR, st, 1);
       if (wingPivot2L) { const f = Math.sin(phase) * 0.52 * flapAmp + 0.12; wingPivot2L.rotation.z = f * 0.65; wingPivot2R.rotation.z = -f * 0.65; }
