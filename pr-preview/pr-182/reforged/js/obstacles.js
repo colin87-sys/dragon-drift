@@ -365,7 +365,7 @@ function buildRockGap(o, e) {
   // A canyon wall built from the biome's OWN vocabulary: a jagged ridge of sharp
   // faceted shards (like the biome's spire props), tinted by the biome body
   // material — not a smooth blob. Merged to one mesh; collider hugs the lane band.
-  const seaStack = (cx, hw, topY, botY, z = 0, lean = 0, hzCol = T) => {
+  const seaStack = (cx, hw, topY, botY, z = 0, lean = 0, hzCol = T, crest = true) => {
     const h = topY - botY;
     const n = Math.max(2, Math.round(hw / 2.2));     // shards across the wall width
     const sr = (hw / n) * 1.15;                       // radius sized to fit WITHIN the wall
@@ -381,12 +381,23 @@ function buildRockGap(o, e) {
     const merged = mergeGeometries(parts, false);
     parts.forEach((g) => g.dispose());
     merged.computeVertexNormals();
-    place(merged, cx, 0, z);
+    // SEE-THROUGH spire: a per-instance translucent material (like the arches), faded
+    // per-spire by its own depth in updateObstacles — SOLID far out so you read the
+    // winding channel ahead, TRANSLUCENT as it nears so you see the lateral path
+    // THROUGH it (the fix for "blind at boost speed"). Floored so it never fully
+    // vanishes — it has a collider.
+    const smat = mats.body[bi].clone();
+    smat.transparent = true; smat.depthWrite = false; smat.userData.perInstance = true;
+    const m = new THREE.Mesh(merged, smat);
+    m.position.set(cx, 0, z);
+    group.add(m);
+    (e.spireFades || (e.spireFades = [])).push({ mat: smat, dist: o.dist - z });
     // Collider TAPERS with the spire so flying high to a ring doesn't clip the
     // full-width box where the rock is only thin tips: a solid lower body, then a
-    // narrower crest pulled back from the opening up high.
+    // narrower crest pulled back up high — and the crest is DROPPED near a ring so
+    // lunging up to grab a high ring never clips a thin tip.
     box(cx, 6, hw, 9, hzCol, z);            // body: y -3..15, full width
-    box(cx, 18, hw * 0.6, 4.5, hzCol, z);   // crest: y 13.5..22.5, narrow (room up high)
+    if (crest) box(cx, 18, hw * 0.6, 4.5, hzCol, z);   // crest: y 13.5..22.5, narrow
   };
 
   // A continuous RUN of sea stacks: frequent towers alternating left/right that
@@ -418,14 +429,16 @@ function buildRockGap(o, e) {
       // BOTH walls — you're flanked left AND right by tall stacks (not one open
       // side), so it reads as a canyon you're INSIDE, not a line you fly past.
       let li = xc - chanHalf, ri = xc + chanHalf;
-      // Near a ring's plane, carve a generous CENTRED pocket around the reward
-      // ring — at least the ring's own radius (3.6) + the dragon + margin on each
-      // side — so a far-out ring is never pinched by a close wall and you can sit
-      // dead-centre to grab it cleanly.
-      if (Math.abs(z) < 8) { li = Math.min(li, gx - 5.6); ri = Math.max(ri, gx + 5.6); }
+      // Around the ring — INCLUDING its approach (a wide z-window, not just the ring
+      // plane) — carve a generous CENTRED pocket so no tower sits in front of the
+      // ring's approach line and you can sit dead-centre to grab it at speed without
+      // decelerating. Near the ring we also DROP the spire crests so a high ring is
+      // reachable without clipping a tip (the canyon ceiling still caps the climb).
+      const nearRing = Math.abs(z) < 12;
+      if (nearRing) { li = Math.min(li, gx - 7); ri = Math.max(ri, gx + 7); }
       const lo = -LANE - 3, ro = LANE + 3;
-      if (li - lo > 1.4) seaStack((lo + li) / 2, (li - lo) / 2, top, bot, z, 0.06, hz);
-      if (ro - ri > 1.4) seaStack((ro + ri) / 2, (ro - ri) / 2, top, bot, z, -0.06, hz);
+      if (li - lo > 1.4) seaStack((lo + li) / 2, (li - lo) / 2, top, bot, z, 0.06, hz, !nearRing);
+      if (ro - ri > 1.4) seaStack((ro + ri) / 2, (ro - ri) / 2, top, bot, z, -0.06, hz, !nearRing);
       // Overhead rock bridge every other slice — caps the canyon so you're caged
       // from ABOVE too (the missing dimension), ducking under arch after arch.
       // Non-fatal rock, so a graze on a wobble just chips, never a cheap death.
@@ -691,6 +704,17 @@ export function updateObstacles(dt, time, playerDist, speedNorm = 0) {
           // floor at 0.2 so a near arch stays faintly visible — it still has a
           // collider, so it must never become invisible-but-solid (unfair hit).
           a.mat.opacity = 0.2 + 0.8 * (t * t * (3 - 2 * t));
+        }
+      }
+      // Sea-stack spires: SOLID far out (read the winding channel ahead), then
+      // TRANSLUCENT as each nears the camera so you can see the lateral path THROUGH
+      // it and plan the weave at boost speed. Floored at 0.35 — it still has a
+      // collider, so it must never go fully invisible.
+      if (e.spireFades) {
+        for (const s of e.spireFades) {
+          let t = (s.dist - playerDist - 6) / 30;
+          t = t < 0 ? 0 : t > 1 ? 1 : t;
+          s.mat.opacity = 0.35 + 0.65 * (t * t * (3 - 2 * t));
         }
       }
       // Core-glow locator wakes as the gate nears, telegraphing the safe route.
