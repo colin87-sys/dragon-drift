@@ -3479,6 +3479,20 @@ membership in a visibility-toggle list) — the partition IS the clue. Never `vi
 that's allocated by `find(!visible)`: a force-show is a force-starve. And when a user says "X isn't showing,"
 instrument the actual emitter count before theorising about builds or caches — measurement beats assumption,
 especially right after you've already been wrong once.
+
+**Addendum — iteration 9 (owner): trail gating + a stamina bar stuck at "2 notches".** Trail feel: wingtip
+edge-trails were emitting constantly while boosting; the owner wanted them only **when turning** (air shed off
+the tips), with the **Phoenix** the sole exception (constant in Surge). Fix: gate the wingtip emit on
+`bankHard > 0.25` (the lateral-bank signal already computed for the aero-shear) OR `(isPhx && surging)`. And
+the boost-time *tail* trail was too heavy — lightened its rate (`0.018→0.035`, `speed-trail 0.012→0.03`) while
+leaving the Surge rates the owner already liked. The stamina bar bug was the sharper lesson: it had shown "2
+notches not 3" across EVERY build, and the cause was a **trailing zero in cell 3's `stroke-dasharray`**
+(`"0 72 28 0"` / the JS `…28 0` at full). A zero-length FINAL dash/gap is a known SVG pitfall — several
+engines (notably mobile WebKit) drop that segment, so the 3rd cell never drew. Fix: never emit a trailing 0
+(drop the 4th value when the remainder rounds to zero → `"0 72 28"`). **→ Leapfrog:** a bug that survives
+many "fixes" and reproduces only on the owner's device is a hint it's **renderer-specific**, not logic — and
+SVG `stroke-dasharray` with a trailing `0` is exactly that class of trap (renders in Chromium, vanishes in
+mobile WebKit). When a visual won't reproduce in headless, suspect the platform's renderer, not your math.
 without paying the determinism/fairness tax — and **vary the mesh, never the hitbox**, so "less repetitive"
 never means "less fair."
 
