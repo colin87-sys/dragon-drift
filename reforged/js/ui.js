@@ -447,10 +447,10 @@ export const ui = {
           <!-- 3 EQUAL notched cells (one Surge phase each). Faint track always
                shows all three; a cell fills teal when its phase is affordable and
                glows hard when also in a Surge. -->
-          <path class="arc-trk" pathLength="100" stroke-dasharray="31.3 3 31.3 3 31.4" d="M 22 14 Q 125 74 228 14"/>
-          <path class="arc-cell" id="stam-seg-0" pathLength="100" stroke-dasharray="31.3 68.7" d="M 22 14 Q 125 74 228 14"/>
-          <path class="arc-cell" id="stam-seg-1" pathLength="100" stroke-dasharray="0 34.3 31.3 34.4" d="M 22 14 Q 125 74 228 14"/>
-          <path class="arc-cell" id="stam-seg-2" pathLength="100" stroke-dasharray="0 68.6 31.4 0" d="M 22 14 Q 125 74 228 14"/>
+          <path class="arc-trk" pathLength="100" stroke-dasharray="28 8 28 8 28" d="M 22 14 Q 125 74 228 14"/>
+          <path class="arc-cell" id="stam-seg-0" pathLength="100" stroke-dasharray="28 72" d="M 22 14 Q 125 74 228 14"/>
+          <path class="arc-cell" id="stam-seg-1" pathLength="100" stroke-dasharray="0 36 28 36" d="M 22 14 Q 125 74 228 14"/>
+          <path class="arc-cell" id="stam-seg-2" pathLength="100" stroke-dasharray="0 72 28 0" d="M 22 14 Q 125 74 228 14"/>
         </svg>
       </div>
       <!-- Surge: a bare gem row (no label/box) + a quiet multiplier -->
@@ -569,8 +569,8 @@ export const ui = {
     // you see at a glance how many windows you can phase through.
     const third = CONFIG.staminaMax / 3;
     const inSurge = !!game.feverActive;
-    const SEG_START = [0, 34.3, 68.6];   // pathLength offset where each cell begins
-    const SEG_LEN = [31.3, 31.3, 31.4];  // each cell's drawable length
+    const SEG_START = [0, 36, 72];   // pathLength offset where each cell begins (8-wide notch gaps)
+    const SEG_LEN = [28, 28, 28];    // each cell's drawable length
     for (let i = 0; i < 3; i++) {
       const fill = Math.max(0, Math.min(1, (game.stamina - i * third) / third));
       const drawn = fill * SEG_LEN[i];
