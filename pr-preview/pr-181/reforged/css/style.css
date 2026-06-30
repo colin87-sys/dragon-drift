@@ -180,10 +180,15 @@ body.app-loaded > canvas { opacity: 1; }
    in a Surge (glows hard + pulses). No dasharray transition → the drain is live. */
 .arc-cell { fill: none; stroke: url(#stam-grad); stroke-width: 6; stroke-linecap: butt;
   vector-effect: non-scaling-stroke; opacity: 0; transition: opacity 0.18s, filter 0.18s; }
-.arc-cell.on { opacity: 0.72; filter: drop-shadow(0 0 5px rgba(64,224,210,0.6)); }
-.arc-cell.lit { opacity: 1; animation: stam-glow 1s ease-in-out infinite; }
-@keyframes stam-glow { 0%,100% { filter: drop-shadow(0 0 8px rgba(64,224,210,0.85)); }
-  50% { filter: drop-shadow(0 0 17px rgba(140,255,235,1)) drop-shadow(0 0 6px rgba(200,255,245,0.9)); } }
+/* Filled (affordable) cell — dim teal. Small shadow so it never bleeds across the
+   notch gaps into the next cell (that was fusing cells 1 & 2 visually). */
+.arc-cell.on { opacity: 0.8; filter: drop-shadow(0 0 2.5px rgba(64,224,210,0.5)); }
+/* In a Surge a full cell IGNITES — brighter near-white stroke + a hard pulsing
+   bloom — so it's obviously "ready to phase". */
+.arc-cell.lit { opacity: 1; stroke: #c4fff2; stroke-width: 7; animation: stam-glow 0.85s ease-in-out infinite; }
+@keyframes stam-glow {
+  0%,100% { filter: drop-shadow(0 0 5px rgba(130,255,235,0.95)) drop-shadow(0 0 10px rgba(80,240,220,0.65)); }
+  50%     { filter: drop-shadow(0 0 10px rgba(190,255,248,1)) drop-shadow(0 0 18px rgba(120,255,235,0.85)); } }
 
 /* Surge — a bare gem row + quiet multiplier, centred low */
 .surge-min { position: absolute; left: 50%; bottom: clamp(46px, 9vh, 108px);
