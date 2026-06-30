@@ -158,7 +158,11 @@ export const CONFIG = {
     fightHeight: 11,        // y the boss settles at
     warnTime: 1.6,          // warning-banner lead before the boss enters
     approachTime: 2.6,      // seconds from spawn-offset to the settle point
-    cruiseSpeed: 35,        // player forward speed locked during the fight (on-rails)
+    cruiseSpeed: 65,        // player forward speed locked during the fight — boost
+                            // pace so flying doesn't feel sluggish (on-rails)
+    // Telegraph: the boss visibly charges before each attack (fairness + game feel).
+    telegraphInstant: 0.5,  // wind-up for a one-shot volley (aimed / fan / spiral)
+    telegraphSustained: 0.7,// longer wind-up for a streamed pattern (tunnel / stream)
     // Bullets (one InstancedMesh, octahedron, additive — the embers.js pattern).
     // Reaction window for an aimed bullet = settleGap / bulletSpeed (≈ 0.88s here);
     // the spiral is slower (×0.78) so it reads as more forgiving.

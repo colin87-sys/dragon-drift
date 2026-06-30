@@ -47,6 +47,12 @@ let riderTimer = 0;
 let dyingT = 0;
 let spiralPhase = 0;
 let pendingDeath = false;      // set when hp hits 0; resolved in the update loop
+let bulletColor = 0xff3010;    // fiery red = danger (set per-boss from the def)
+let chargeT = 0;               // telegraph wind-up remaining before the held attack fires
+let chargeDur = 0;
+let curAttack = null;          // the attack being telegraphed
+const pending = [];            // streamed sub-volleys: { t, fire } (tunnel / spiralStream)
+const SUSTAINED = new Set(['tunnel', 'spiralStream']);
 
 // Player-relative pose: rel = metres ahead of the player.
 const pose = { x: 0, y: B.fightHeight, rel: B.settleGap };
@@ -79,6 +85,10 @@ export function startBossEncounter(player, defOverride) {
   hp = hpMax;
   phaseIdx = 0;
   spiralPhase = 0;
+  bulletColor = def.bulletColor ?? 0xff3010;
+  pending.length = 0;
+  chargeT = 0;
+  curAttack = null;
 
   model = buildBoss(def, quality);
   group = model.group;
@@ -183,17 +193,41 @@ export function updateBoss(dt, player, time) {
     pose.x = Math.sin(time * 0.7) * 5.0;
     pose.y = B.fightHeight + Math.sin(time * 1.3) * 0.8;
 
+    // Streamed sub-volleys (tunnel / spiral stream) fire on their own clock.
+    for (let i = pending.length - 1; i >= 0; i--) {
+      pending[i].t -= dt;
+      if (pending[i].t <= 0) { pending[i].fire(); pending.splice(i, 1); }
+    }
+
     riderTimer -= dt;
     if (riderTimer <= 0) {
       riderTimer = B.riderShotInterval;
       fireRiderShot(player);
     }
-    attackTimer -= dt;
-    if (attackTimer <= 0) {
-      const ph = def.phases[phaseIdx];
-      const id = ph.attacks[(Math.random() * ph.attacks.length) | 0];
-      fireAttack(id, player);
-      attackTimer = rand(ph.cadence[0], ph.cadence[1]);
+
+    if (chargeT > 0) {
+      // Telegraph wind-up: the boss charges (maw flares red), THEN releases.
+      chargeT -= dt;
+      model.setCharge(1 - Math.max(chargeT, 0) / chargeDur);
+      if (chargeT <= 0) {
+        model.setCharge(0);
+        model.flash(0.9);
+        tmp.set(pose.x, pose.y, -(player.dist + pose.rel));
+        burst(tmp, bulletColor, { count: 6, speed: 11, size: 0.9, life: 0.4 });
+        executeAttack(curAttack, player);
+        const ph = def.phases[phaseIdx];
+        attackTimer = rand(ph.cadence[0], ph.cadence[1]);
+      }
+    } else if (pending.length === 0) {
+      // Idle between attacks → count down, then begin telegraphing the next one.
+      attackTimer -= dt;
+      if (attackTimer <= 0) {
+        const ph = def.phases[phaseIdx];
+        curAttack = ph.attacks[(Math.random() * ph.attacks.length) | 0];
+        chargeDur = SUSTAINED.has(curAttack) ? B.telegraphSustained : B.telegraphInstant;
+        chargeT = chargeDur;
+        sfx.boostStart?.();   // a short charge whoosh as the wind-up begins
+      }
     }
   } else if (phase === 'dying') {
     dyingT += dt;
@@ -225,44 +259,79 @@ function aimVel(targetX, targetY, closing) {
   return { vx: (targetX - pose.x) / t, vy: (targetY - pose.y) / t };
 }
 
-function fireAttack(id, player) {
+// Resolve an attack id to bullets. Instant patterns fire one volley now; sustained
+// patterns push timed sub-volleys onto `pending` so they stream over ~1.5–2s.
+function executeAttack(id, player) {
   const closing = B.bulletSpeed;
   // Very light lead only — a strongly-predictive aim makes the shot feel like it
-  // homes (you can't dodge by moving). Keep it near where the player IS so a
-  // committed sidestep clears it.
+  // homes (you can't dodge by moving). Keep it near where the player IS.
   const lead = 0.08;
   const px = player.position.x + player.velocity.x * lead;
   const py = player.position.y + player.velocity.y * lead;
 
   if (id === 'aimed') {
-    // Wider spacing so the trio reads as three distinct bullets to dodge around,
-    // not one dense overlapping wall with no gap.
+    // Three distinct bullets to dodge around, not one dense overlapping wall.
     for (let i = -1; i <= 1; i++) {
       const v = aimVel(px + i * 1.6, py, closing);
-      spawnBoss(v.vx, v.vy, -closing, def.accent, false);
+      emitBoss(pose.x, pose.y, v.vx, v.vy, -closing);
     }
   } else if (id === 'fan') {
     const n = quality < 0.75 ? 5 : 7;
     for (let i = 0; i < n; i++) {
       const spread = (i / (n - 1) - 0.5) * 16;   // ±8m across the lane around the player
       const v = aimVel(px + spread, py, closing);
-      spawnBoss(v.vx, v.vy, -closing, def.accent, false);
+      emitBoss(pose.x, pose.y, v.vx, v.vy, -closing);
     }
   } else if (id === 'spiral') {
+    // Instant radial burst: bullets fly OUTWARD from the boss as they close.
     const n = quality < 0.75 ? 8 : 11;
     spiralPhase += 0.6;
     const slow = closing * 0.78;
     for (let i = 0; i < n; i++) {
       const a = spiralPhase + (i / n) * Math.PI * 2;
-      spawnBoss(Math.cos(a) * 9, Math.sin(a) * 9, -slow, def.glow, false);
+      emitBoss(pose.x, pose.y, Math.cos(a) * 9, Math.sin(a) * 9, -slow);
     }
+  } else if (id === 'tunnel') {
+    // A succession of bullet-RINGS rushing at you — a glowing tube to fly down,
+    // its centre weaving side to side so you follow the safe lane (rib-run feel).
+    const rings = quality < 0.75 ? 5 : 6;
+    const m = quality < 0.75 ? 12 : 16;
+    const slow = closing * 0.85;
+    for (let k = 0; k < rings; k++) {
+      const cx = Math.sin(k * 0.8) * 5;       // the safe centre drifts → you weave
+      pending.push({ t: k * 0.32, fire: () => fireRing(cx, B.fightHeight, 7, m, slow) });
+    }
+  } else if (id === 'spiralStream') {
+    // A rotating emitter: arms of bullets sweep around over time — read the spin.
+    const steps = quality < 0.75 ? 10 : 14;
+    const slow = closing * 0.8;
+    for (let k = 0; k < steps; k++) {
+      const a = spiralPhase + k * 0.45;
+      pending.push({ t: k * 0.12, fire: () => {
+        for (let arm = 0; arm < 2; arm++) {
+          const ang = a + arm * Math.PI;
+          emitBoss(pose.x, pose.y, Math.cos(ang) * 8, Math.sin(ang) * 8, -slow);
+        }
+      } });
+    }
+    spiralPhase += steps * 0.45;
   }
 }
 
-function spawnBoss(vx, vy, vrel, color, reflectable) {
+// A ring (circle outline) of bullets centred on (cx, cy) that closes straight in.
+function fireRing(cx, cy, radius, m, vrel) {
+  for (let i = 0; i < m; i++) {
+    const a = (i / m) * Math.PI * 2;
+    emitBoss(cx + Math.cos(a) * radius, cy + Math.sin(a) * radius, 0, 0, -vrel);
+  }
+}
+
+// Low-level boss-bullet spawn: starts at (x, y) on the boss's plane (rel=settleGap)
+// with the given velocity, always the fiery danger colour.
+function emitBoss(x, y, vx, vy, vrel, reflectable = false) {
   spawnBossBullet({
-    owner: 'boss', x: pose.x, y: pose.y, rel: pose.rel,
-    vx, vy, vrel, color, reflectable,
+    owner: 'boss', x, y, rel: pose.rel,
+    vx, vy, vrel, color: bulletColor, reflectable,
     dmg: B.bulletDamage, r: B.bulletRadius, life: 6,
   });
 }
@@ -308,6 +377,9 @@ export function resetBoss() {
   phase = 'idle';
   group = null; model = null; def = null;
   pendingDeath = false;
+  pending.length = 0;
+  chargeT = 0;
+  curAttack = null;
   game.inBoss = false;
   nextBossDist = debugFirstAt ?? B.firstAt;
   encounterIndex = 0;
