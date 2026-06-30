@@ -1,0 +1,285 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
+  <title>Astral Crown Sovereign — tuner</title>
+  <style>
+    html,body{margin:0;height:100%;background:#070b16;overflow:hidden;font-family:system-ui,sans-serif;color:#cfe}
+    #gl{display:block;position:fixed;left:0;top:0;width:100vw;height:100vh;touch-action:none}
+    #panel{position:fixed;right:0;top:0;bottom:0;width:330px;max-width:88vw;overflow-y:auto;
+      background:rgba(8,12,24,.82);backdrop-filter:blur(6px);border-left:1px solid #1d2a48;
+      padding:10px 12px 90px;box-sizing:border-box;font-size:13px}
+    #panel h1{font-size:15px;margin:2px 0 8px;color:#dfe8ff;letter-spacing:.3px}
+    #panel .sub{color:#8fa3c8;font-size:11px;margin:-6px 0 10px}
+    details{border:1px solid #1b2742;border-radius:8px;margin:0 0 8px;background:rgba(14,20,38,.5)}
+    summary{cursor:pointer;padding:7px 10px;color:#bcd0f4;font-weight:600;user-select:none;list-style:none}
+    summary::-webkit-details-marker{display:none}
+    summary:before{content:'▸ ';color:#5f7bb6}
+    details[open] summary:before{content:'▾ '}
+    .body{padding:4px 10px 10px}
+    .row{display:flex;align-items:center;gap:8px;margin:6px 0}
+    .row label{flex:0 0 116px;color:#a9bce0;font-size:12px}
+    .row input[type=range]{flex:1;min-width:0;accent-color:#7fa8ff}
+    .row .val{flex:0 0 42px;text-align:right;color:#dfe8ff;font-variant-numeric:tabular-nums;font-size:12px}
+    .row input[type=color]{flex:0 0 38px;height:24px;border:1px solid #2a3a5a;border-radius:5px;background:none;padding:0}
+    .row select{flex:1;min-width:0;background:#0e1426;color:#cfe;border:1px solid #2a3a5a;border-radius:5px;padding:5px 6px;font-size:12px}
+    #bar{position:fixed;right:0;bottom:0;width:330px;max-width:88vw;box-sizing:border-box;
+      display:flex;flex-wrap:wrap;gap:6px;padding:10px 12px;background:rgba(6,10,20,.92);border-left:1px solid #1d2a48;border-top:1px solid #1d2a48}
+    #bar button, .forms button{background:#16223c;color:#cfe;border:1px solid #2a3a5a;border-radius:7px;padding:7px 10px;font-size:12px;cursor:pointer}
+    #bar button.on{background:#2c6;color:#04140a}
+    #bar button.act{background:#3458a8;color:#eaf}
+    .forms{display:flex;gap:6px;margin:0 0 10px}
+    .forms button{flex:1;padding:6px 0}
+    .forms button.on{background:#3458a8;color:#fff;border-color:#5f7bb6}
+    #hud{position:fixed;left:12px;top:12px;color:#9fb6e0;font-size:12px;line-height:1.5;
+      background:rgba(8,12,24,.5);padding:7px 10px;border-radius:8px;pointer-events:none;user-select:none}
+    #hud b{color:#cfe9ff}
+    #views{position:fixed;left:12px;bottom:12px;display:flex;gap:6px}
+    #views button{background:#16223c;color:#cfe;border:1px solid #2a3a5a;border-radius:7px;padding:7px 11px;font-size:12px;cursor:pointer}
+    #err{position:fixed;left:12px;right:354px;top:54px;color:#ff9a9a;font-size:12px;line-height:1.5;
+      white-space:pre-wrap;background:rgba(40,8,8,.7);padding:10px;border-radius:8px;display:none;max-height:60vh;overflow:auto}
+    #toast{position:fixed;left:50%;bottom:20px;transform:translateX(-50%);background:#2c6;color:#04140a;
+      padding:8px 14px;border-radius:8px;font-size:13px;opacity:0;transition:opacity .2s;pointer-events:none}
+  </style>
+  <script type="importmap">{ "imports": { "three": "../lib/three.module.js" } }</script>
+  <script>
+    window.__err = (m) => { const e = document.getElementById('err'); if (e) { e.style.display = 'block'; e.textContent = 'Tuner error:\n' + m; } };
+    window.addEventListener('error', (ev) => window.__err((ev.error && ev.error.stack) || ev.message || String(ev)));
+    window.addEventListener('unhandledrejection', (ev) => window.__err('Promise: ' + ((ev.reason && ev.reason.stack) || ev.reason)));
+  </script>
+</head>
+<body>
+  <canvas id="gl"></canvas>
+  <div id="hud">Astral Crown Sovereign · <b id="lbl">Eternal</b><br>drag to rotate · scroll to zoom</div>
+  <div id="views">
+    <button data-yaw="0">Rear</button>
+    <button data-yaw="32">3/4</button>
+    <button data-yaw="90">Side</button>
+    <button id="vreset">Reset view</button>
+  </div>
+  <div id="err"></div>
+  <div id="toast"></div>
+
+  <div id="panel">
+    <h1>Astral Crown — tuner</h1>
+    <div class="sub">Drag the dials; the dragon updates live. Copy settings to hand back.</div>
+    <div class="forms" id="forms"></div>
+    <div id="shapes"></div>
+    <div id="dials"></div>
+  </div>
+  <div id="bar">
+    <button id="bflap" class="on">Flap: ON</button>
+    <button id="breset">Reset dials</button>
+    <button id="bcopy" class="act">Copy settings</button>
+  </div>
+
+  <script type="module">
+    import * as THREE from 'three';
+    import { DRAGONS } from '../js/dragons.js';
+    import { makePreviewTick } from '../js/dragonModel.js';
+    import {
+      buildAstralCrownModel, CROWN_PARAMS, CROWN_PARAM_SCHEMA, CROWN_COLOR_KEYS,
+      CROWN_STYLE_LISTS, CROWN_DEFAULT_STYLES,
+    } from '../js/astralCrownModel.js';
+
+    // ── scene ────────────────────────────────────────────────────────────────
+    const gl = document.getElementById('gl');
+    const renderer = new THREE.WebGLRenderer({ canvas: gl, alpha: true, antialias: true, preserveDrawingBuffer: true });
+    renderer.setPixelRatio(Math.min(devicePixelRatio || 1, 2));
+    renderer.toneMapping = THREE.ACESFilmicToneMapping;
+    const scene = new THREE.Scene();
+    const camera = new THREE.PerspectiveCamera(48, 1, 0.1, 400);
+    scene.add(new THREE.HemisphereLight(0xbcd4ff, 0x232a40, 1.05));
+    const keyL = new THREE.DirectionalLight(0xfff0d8, 1.7); keyL.position.set(2.6, 3.2, 4); scene.add(keyL);
+    const rimL = new THREE.DirectionalLight(0x88b6ff, 1.1); rimL.position.set(-3, 1.6, -3.2); scene.add(rimL);
+    const fillL = new THREE.DirectionalLight(0xcfe6ff, 0.4); fillL.position.set(0, -2, 2); scene.add(fillL);
+
+    // ── state ────────────────────────────────────────────────────────────────
+    const baseDef = JSON.parse(JSON.stringify(DRAGONS.astralCrown));
+    let params = { ...CROWN_PARAMS };
+    let styles = { ...CROWN_DEFAULT_STYLES };
+    let F = 3;
+    const topColors = () => { const o = {}; for (const c of CROWN_COLOR_KEYS) o[c.k] = baseDef[c.k]; return o; };
+    const formColors = (f) => ({ ...topColors(), ...(((baseDef.forms || [])[f] || {}).colors || {}) });
+    let colors = formColors(F);
+
+    const toHex = (n) => '#' + ('000000' + ((n >>> 0) & 0xffffff).toString(16)).slice(-6);
+    const toInt = (s) => parseInt(s.slice(1), 16);
+
+    function buildDef() {
+      const d = JSON.parse(JSON.stringify(baseDef));
+      d.model = d.model || {};
+      d.model.formLevel = F;
+      d.model.crownParams = params;
+      d.model.crownStyles = styles;
+      for (const c of CROWN_COLOR_KEYS) d[c.k] = colors[c.k];
+      return d;
+    }
+
+    let model = null, current = null, tick = null;
+    const center = new THREE.Vector3();
+    let baseDist = 9;
+    const orbit = { yaw: 32, pitch: 0.34, dist: 9 };
+    let flapOn = true, phase = 0;
+    const clock = new THREE.Clock();
+
+    function disposeTree(root) {
+      root.traverse(o => {
+        if (o.geometry) o.geometry.dispose();
+        if (o.material) { const ms = Array.isArray(o.material) ? o.material : [o.material]; ms.forEach(m => m && m.dispose && m.dispose()); }
+      });
+    }
+    function rebuild() {
+      if (current) { scene.remove(current); disposeTree(current); }
+      const def = buildDef();
+      model = buildAstralCrownModel(def);
+      tick = makePreviewTick(def, model);
+      current = model.group;
+      scene.add(current);
+      fit();
+    }
+    function fit() {
+      current.updateMatrixWorld(true);
+      const box = new THREE.Box3().setFromObject(current);
+      box.getCenter(center);
+      const s = box.getSize(new THREE.Vector3());
+      const radius = 0.5 * Math.max(s.x, s.y, s.z);
+      baseDist = (radius / Math.tan(camera.fov * Math.PI / 360)) * 1.5;
+      orbit.dist = Math.min(Math.max(orbit.dist, baseDist * 0.4), baseDist * 2.4) || baseDist;
+      if (!orbit._init) { orbit.dist = baseDist; orbit._init = true; }
+    }
+    function placeCamera() {
+      const yaw = orbit.yaw * Math.PI / 180, p = orbit.pitch;
+      camera.position.set(
+        center.x + orbit.dist * Math.sin(yaw) * Math.cos(p),
+        center.y + orbit.dist * Math.sin(p),
+        center.z + orbit.dist * Math.cos(yaw) * Math.cos(p));
+      camera.near = orbit.dist / 100; camera.far = orbit.dist * 20;
+      camera.updateProjectionMatrix();
+      camera.lookAt(center);
+    }
+    function resize() {
+      const w = window.innerWidth, h = window.innerHeight;
+      renderer.setSize(w, h, false); camera.aspect = w / h; camera.updateProjectionMatrix();
+    }
+    window.addEventListener('resize', resize);
+
+    function frame() {
+      requestAnimationFrame(frame);
+      const dt = Math.min(clock.getDelta(), 0.05);
+      if (flapOn && tick) { phase += dt; try { tick(phase); } catch (e) {} }
+      placeCamera();
+      renderer.render(scene, camera);
+    }
+
+    // ── drag-orbit + zoom ──────────────────────────────────────────────────────
+    let dragging = false, lx = 0, ly = 0;
+    gl.addEventListener('pointerdown', e => { dragging = true; lx = e.clientX; ly = e.clientY; gl.setPointerCapture(e.pointerId); });
+    gl.addEventListener('pointermove', e => {
+      if (!dragging) return;
+      orbit.yaw -= (e.clientX - lx) * 0.4;
+      orbit.pitch = Math.max(-1.2, Math.min(1.35, orbit.pitch + (e.clientY - ly) * 0.006));
+      lx = e.clientX; ly = e.clientY;
+    });
+    const stop = () => { dragging = false; };
+    gl.addEventListener('pointerup', stop); gl.addEventListener('pointercancel', stop);
+    gl.addEventListener('wheel', e => { e.preventDefault(); orbit.dist = Math.max(baseDist * 0.35, Math.min(baseDist * 2.6, orbit.dist * (1 + Math.sign(e.deltaY) * 0.08))); }, { passive: false });
+
+    // ── SHAPES (pick the variant of each component) ─────────────────────────────
+    {
+      const wrap = document.getElementById('shapes');
+      const d = document.createElement('details'); d.open = true;
+      const s = document.createElement('summary'); s.textContent = 'Shapes'; d.appendChild(s);
+      const body = document.createElement('div'); body.className = 'body'; d.appendChild(body);
+      const labels = { wings: 'Wings', torso: 'Torso', head: 'Head', tail: 'Tail' };
+      for (const comp of ['wings', 'torso', 'head', 'tail']) {
+        const row = document.createElement('div'); row.className = 'row';
+        const lab = document.createElement('label'); lab.textContent = labels[comp]; row.appendChild(lab);
+        const sel = document.createElement('select');
+        for (const v of CROWN_STYLE_LISTS[comp]) { const o = document.createElement('option'); o.value = v.k; o.textContent = v.label; if (styles[comp] === v.k) o.selected = true; sel.appendChild(o); }
+        sel.addEventListener('change', () => { styles[comp] = sel.value; rebuild(); });
+        row.appendChild(sel); body.appendChild(row);
+      }
+      wrap.appendChild(d);
+    }
+
+    // ── GUI (generated from the schema) ────────────────────────────────────────
+    const dials = document.getElementById('dials');
+    const inputRefs = {};   // key → {range, val}
+    function section(title, open) {
+      const d = document.createElement('details'); if (open) d.open = true;
+      const s = document.createElement('summary'); s.textContent = title; d.appendChild(s);
+      const body = document.createElement('div'); body.className = 'body'; d.appendChild(body);
+      dials.appendChild(d); return body;
+    }
+    function sliderRow(body, item) {
+      const row = document.createElement('div'); row.className = 'row';
+      const lab = document.createElement('label'); lab.textContent = item.label; row.appendChild(lab);
+      const r = document.createElement('input'); r.type = 'range'; r.min = item.min; r.max = item.max; r.step = item.step; r.value = params[item.k];
+      const v = document.createElement('span'); v.className = 'val'; v.textContent = (+params[item.k]).toFixed(item.step >= 1 ? 0 : 2);
+      r.addEventListener('input', () => { params[item.k] = +r.value; v.textContent = (+r.value).toFixed(item.step >= 1 ? 0 : 2); rebuild(); });
+      row.appendChild(r); row.appendChild(v); body.appendChild(row);
+      inputRefs[item.k] = { range: r, val: v, step: item.step };
+    }
+    for (const grp of CROWN_PARAM_SCHEMA) {
+      const body = section(grp.group, grp.group === 'Wings' || grp.group === 'Body');
+      for (const item of grp.items) sliderRow(body, item);
+    }
+    // colours
+    const colorRefs = {};
+    {
+      const body = section('Colours', false);
+      for (const c of CROWN_COLOR_KEYS) {
+        const row = document.createElement('div'); row.className = 'row';
+        const lab = document.createElement('label'); lab.textContent = c.label; row.appendChild(lab);
+        const inp = document.createElement('input'); inp.type = 'color'; inp.value = toHex(colors[c.k] ?? 0xffffff);
+        inp.addEventListener('input', () => { colors[c.k] = toInt(inp.value); rebuild(); });
+        row.appendChild(inp); body.appendChild(row); colorRefs[c.k] = inp;
+      }
+    }
+    // form buttons
+    const formsEl = document.getElementById('forms');
+    const formNames = ['Fledgling', 'Risen', 'Crowned', 'Astral'];
+    const formBtns = [];
+    for (let i = 0; i < 4; i++) {
+      const b = document.createElement('button'); b.textContent = 'T' + i; b.title = formNames[i];
+      b.onclick = () => setForm(i);
+      formsEl.appendChild(b); formBtns.push(b);
+    }
+    function setForm(f) {
+      F = f; colors = formColors(f);
+      for (const c of CROWN_COLOR_KEYS) if (colorRefs[c.k]) colorRefs[c.k].value = toHex(colors[c.k] ?? 0xffffff);
+      formBtns.forEach((b, i) => b.classList.toggle('on', i === f));
+      document.getElementById('lbl').textContent = formNames[f];
+      rebuild();
+    }
+    function refreshDials() {
+      for (const k in inputRefs) { const ref = inputRefs[k]; ref.range.value = params[k]; ref.val.textContent = (+params[k]).toFixed(ref.step >= 1 ? 0 : 2); }
+    }
+
+    // ── bar buttons + view snaps ────────────────────────────────────────────────
+    document.getElementById('bflap').onclick = (e) => { flapOn = !flapOn; e.target.textContent = 'Flap: ' + (flapOn ? 'ON' : 'OFF'); e.target.classList.toggle('on', flapOn); if (!flapOn) rebuild(); };
+    document.getElementById('breset').onclick = () => { params = { ...CROWN_PARAMS }; colors = formColors(F); refreshDials(); for (const c of CROWN_COLOR_KEYS) if (colorRefs[c.k]) colorRefs[c.k].value = toHex(colors[c.k] ?? 0xffffff); rebuild(); toast('Dials reset'); };
+    document.getElementById('bcopy').onclick = () => {
+      const hexColors = {}; for (const k in colors) hexColors[k] = toHex(colors[k]);
+      const out = JSON.stringify({ form: F, crownStyles: styles, crownParams: params, colors: hexColors }, null, 2);
+      navigator.clipboard?.writeText(out).then(() => toast('Settings copied!'), () => toast('Copy failed — see console'));
+      console.log('[crown-tuner] settings:\n' + out);
+    };
+    for (const b of document.querySelectorAll('#views button[data-yaw]')) b.onclick = () => { orbit.yaw = +b.dataset.yaw; orbit.pitch = 0.34; };
+    document.getElementById('vreset').onclick = () => { orbit.yaw = 32; orbit.pitch = 0.34; orbit.dist = baseDist; };
+
+    let toastT = 0;
+    function toast(msg) { const el = document.getElementById('toast'); el.textContent = msg; el.style.opacity = 1; clearTimeout(toastT); toastT = setTimeout(() => el.style.opacity = 0, 1400); }
+
+    // ── go ──────────────────────────────────────────────────────────────────────
+    try {
+      resize();
+      setForm(3);
+      frame();
+      window.__ready = true;
+    } catch (e) { window.__err((e && e.stack) || String(e)); throw e; }
+  </script>
+</body>
+</html>

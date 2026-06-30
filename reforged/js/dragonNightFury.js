@@ -275,13 +275,18 @@ function buildNightFury(def, model, attach) {
 
   // ── materials ──────────────────────────────────────────────────────────
   const wingMat = new THREE.MeshStandardMaterial({
-    color: 0xffffff, vertexColors: true, roughness: 0.55, side: THREE.DoubleSide,
+    // MATTE BLACK membrane: high roughness so the bright sky doesn't blow it out to
+    // grey (the reference Night Fury reads deep black). Still translucent (opacity
+    // kept) so hazards/rings stay visible THROUGH the wing — readability over fidelity.
+    color: 0xffffff, vertexColors: true, roughness: model.wingRoughness ?? 0.72, side: THREE.DoubleSide,
     transparent: true, opacity: model.wingOpacity ?? 0.82,
     emissive: def.wingMembraneEmissive ?? def.wingEmissive,
     emissiveIntensity: model.wingPanelGlow ?? 0.28,
   });
   if (model.wingSSS) {
-    composeSurface(wingMat, [membraneSSSPatch({ color: def.wingMembraneSSS ?? 0x2a3a52, strength: 0.22, power: 1.5 })]);
+    // Darker, weaker subsurface so the backlit edge stays a faint COOL rim, not a
+    // grey-blue wash that lightens the whole membrane.
+    composeSurface(wingMat, [membraneSSSPatch({ color: def.wingMembraneSSS ?? 0x16202e, strength: model.wingSSSStrength ?? 0.11, power: 1.7 })]);
   }
   const hullMat = attach.bodyMatDouble;                 // body fresnel + cellular relief
   const fingerCol = def.body ?? 0x0a0f1c;
