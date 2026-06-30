@@ -444,13 +444,17 @@ export const ui = {
               <stop offset="0" stop-color="#2bb6c9"/><stop offset="1" stop-color="#9affe6"/>
             </linearGradient>
           </defs>
-          <!-- 3 EQUAL notched cells (one Surge phase each). Faint track always
-               shows all three; a cell fills teal when its phase is affordable and
-               glows hard when also in a Surge. -->
-          <path class="arc-trk" pathLength="100" stroke-dasharray="28 8 28 8 28" d="M 22 14 Q 125 74 228 14"/>
-          <path class="arc-cell" id="stam-seg-0" pathLength="100" stroke-dasharray="28 72" d="M 22 14 Q 125 74 228 14"/>
-          <path class="arc-cell" id="stam-seg-1" pathLength="100" stroke-dasharray="0 36 28 36" d="M 22 14 Q 125 74 228 14"/>
-          <path class="arc-cell" id="stam-seg-2" pathLength="100" stroke-dasharray="0 72 28" d="M 22 14 Q 125 74 228 14"/>
+          <!-- THREE separate cell arcs with PHYSICAL gaps between them — each is a
+               third of the smile, so the bar ALWAYS reads as 3 notches on every
+               renderer (no dash-skip math to merge/drop). Each cell = a dim always-on
+               track + a bright fill drawn by its own stroke-dasharray (0..100 of its
+               own length). Each = one Surge phase; the whole bar ignites in Surge. -->
+          <path class="arc-trk" d="M 22 14 Q 50.8 30.8 79.7 38.2"/>
+          <path class="arc-trk" d="M 100.3 42.3 Q 125 45.7 149.7 42.3"/>
+          <path class="arc-trk" d="M 170.3 38.2 Q 199.2 30.8 228 14"/>
+          <path class="arc-cell" id="stam-seg-0" pathLength="100" stroke-dasharray="0 100" d="M 22 14 Q 50.8 30.8 79.7 38.2"/>
+          <path class="arc-cell" id="stam-seg-1" pathLength="100" stroke-dasharray="0 100" d="M 100.3 42.3 Q 125 45.7 149.7 42.3"/>
+          <path class="arc-cell" id="stam-seg-2" pathLength="100" stroke-dasharray="0 100" d="M 170.3 38.2 Q 199.2 30.8 228 14"/>
         </svg>
       </div>
       <!-- Surge: a bare gem row (no label/box) + a quiet multiplier -->
@@ -569,20 +573,15 @@ export const ui = {
     // you see at a glance how many windows you can phase through.
     const third = CONFIG.staminaMax / 3;
     const inSurge = !!game.feverActive;
-    const SEG_START = [0, 36, 72];   // pathLength offset where each cell begins (8-wide notch gaps)
-    const SEG_LEN = [28, 28, 28];    // each cell's drawable length
+    // In Surge the whole bar ignites (a container class drives the glow in CSS), so
+    // it's unmistakable even on a half-empty cell.
+    els.staminaArc.classList.toggle('surge', inSurge);
     for (let i = 0; i < 3; i++) {
       const fill = Math.max(0, Math.min(1, (game.stamina - i * third) / third));
-      const drawn = fill * SEG_LEN[i];
-      // Draw `drawn` of this cell starting at its offset; the rest is gap. NEVER emit
-      // a trailing 0 — a zero-length final gap (e.g. the last cell at full) makes some
-      // SVG engines (mobile WebKit) DROP the segment, so the 3rd notch would vanish.
-      const rest = 100 - SEG_START[i] - drawn;
-      els.stamSegs[i].setAttribute('stroke-dasharray', rest > 0.05
-        ? `0 ${SEG_START[i].toFixed(2)} ${drawn.toFixed(2)} ${rest.toFixed(2)}`
-        : `0 ${SEG_START[i].toFixed(2)} ${drawn.toFixed(2)}`);
+      // Each cell is its OWN arc (pathLength 100): draw `fill*100` of it from the
+      // start. No skip, no trailing/leading-zero edge cases → renders everywhere.
+      els.stamSegs[i].setAttribute('stroke-dasharray', `${(fill * 100).toFixed(1)} 100`);
       els.stamSegs[i].classList.toggle('on', fill > 0.001);
-      els.stamSegs[i].classList.toggle('lit', inSurge && fill > 0.001);
     }
     const shownScore = Math.floor(game.score);
     els.score.textContent = shownScore;
