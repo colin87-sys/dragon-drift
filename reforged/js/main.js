@@ -30,7 +30,7 @@ import { DRAGONS } from './dragons.js';
 import { RIDERS } from './riders.js';
 import { dailySeed, recordDailyRun, saveData, persist, grantXp, levelEmberReward, todayUTC, gambitSunsetRefund, freezeSaves } from './save.js';
 import { initEmbers, addEmberLine, updateEmbers, bankEmbers, resetEmbers } from './embers.js';
-import { initBoss, updateBoss, resetBoss, setBossQuality, forceBoss } from './boss.js';
+import { initBoss, updateBoss, resetBoss, setBossQuality, forceBoss, setBossDebugFirstAt } from './boss.js';
 import { emit, on } from './events.js';
 import { initAnalytics } from './analytics.js';
 import { initMissions, settleMissions } from './missions.js';
@@ -191,6 +191,14 @@ function triggerSetPiece(sp) {
   if (!obj) return;
   scene.add(obj);
   setpieceMeshes.push({ object: obj, dist: sp.dist });
+}
+
+// Playtest: ?boss (optionally ?boss=<metres>) pulls the first boss encounter in
+// to just after takeoff, so a touch device with no keyboard can reach a fight
+// without the debug B key. Default ~180m ≈ a few seconds of flight.
+if (urlParams.has('boss')) {
+  const d = parseInt(urlParams.get('boss'), 10);
+  setBossDebugFirstAt(Number.isFinite(d) && d > 0 ? d : 180);
 }
 
 // Debug: force Dragon Surge for visual verification
