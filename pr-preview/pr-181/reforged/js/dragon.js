@@ -1005,7 +1005,7 @@ export function updateDragon(dt, player, time) {
   // during Surge even WITHOUT boost, so a surging dragon always streams energy.
   trailTimer -= dt;
   if ((player.speedActive || player.feverActive) && trailTimer <= 0) {
-    trailTimer = (player.feverActive ? 0.009 : player.boosting ? 0.012 : 0.015) / quality;
+    trailTimer = (player.feverActive ? 0.009 : player.boosting ? 0.03 : 0.015) / quality;
     const s = trailSprites.find(s => !s.visible);
     if (s) {
       s.visible = true;
@@ -1036,7 +1036,8 @@ export function updateDragon(dt, player, time) {
   if ((player.boosting || player.feverActive) && boostTrailTimer <= 0) {
     const fxLvl = activeDef.model.spineGlow || 0; // 0 hatchling → 1 apex
     const pr = activeDef.model.particleRate ?? 1; // per-form trail density (apex emits more)
-    boostTrailTimer = (player.feverActive ? 0.012 : 0.018) / (quality * (1 + fxLvl * 0.7) * pr);
+    // Light tail trail while boosting; the current heavier rate stays for Surge.
+    boostTrailTimer = (player.feverActive ? 0.012 : 0.035) / (quality * (1 + fxLvl * 0.7) * pr);
     const s = boostTrailSprites.find(s => !s.visible);
     if (s && tailSegs.length) {
       tailSegs[tailSegs.length - 1].getWorldPosition(tmpV);
@@ -1109,10 +1110,14 @@ export function updateDragon(dt, player, time) {
   if (hasWingFx) {
     const wtFx = [0.05, 0.18, 0.45, 1.0][activeDef.model.formLevel ?? 2] ?? 1;
     const surging = player.feverActive;
-    if (wtFx > 0 && (player.boosting || surging) && (tipMarkerL || tipMarkerR)) {
+    const isPhx = activeDef.archetype === 'phoenix';
+    const turning = bankHard > 0.25;   // actively banking left / right
+    // Wingtip edge-trails fire when TURNING (air shed off the tips) — NOT constantly
+    // while boosting. The Phoenix is the exception: it streams them constantly in Surge.
+    if (wtFx > 0 && (tipMarkerL || tipMarkerR) && ((isPhx && surging) || turning)) {
       wingtipTrailTimer -= dt;
       if (wingtipTrailTimer <= 0) {
-        wingtipTrailTimer = (surging ? 0.02 : 0.034) / (quality * wtFx);
+        wingtipTrailTimer = (surging ? 0.02 : 0.03) / (quality * wtFx);
         const hex = surging ? (activeDef.hasStyle ? pickTrailHex(activeDef.trail) : 0xff4fd8) : 0xffffff;
         for (const marker of [tipMarkerL, tipMarkerR]) {
           if (!marker) continue;
