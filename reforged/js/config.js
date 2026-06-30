@@ -145,6 +145,36 @@ export const CONFIG = {
   biomeLength: 1500,      // metres per biome before cycling
   biomeTransition: 150,   // crossfade band at each seam
 
+  // Boss fight — a bullet-hell encounter that OVERLAYS the endless flight (like
+  // Sky Canyon): the boss flies in, settles in front and "flies backward" at a
+  // fixed player-relative distance while forward motion continues. Bullets close
+  // toward the player in the player-relative frame and are dodged in the X/Y lane.
+  // Gated by game.inBoss so a normal run is untouched when no boss is active.
+  BOSS: {
+    firstAt: 2500,          // metres: earliest a boss can appear
+    interval: 3200,         // metres between encounters
+    intervalJitter: 900,
+    settleGap: 26,          // metres ahead the boss holds (player-relative frame)
+    fightHeight: 11,        // y the boss settles at
+    warnTime: 1.6,          // warning-banner lead before the boss enters
+    approachTime: 2.6,      // seconds from spawn-offset to the settle point
+    cruiseSpeed: 35,        // player forward speed locked during the fight (on-rails)
+    // Bullets (one InstancedMesh, octahedron, additive — the embers.js pattern)
+    bulletPool: 320,
+    bulletRadius: 0.55,
+    bulletHitScale: 0.7,    // effective player hit radius = playerRadius × this (forgiving)
+    bulletSpeed: 40,        // closing speed (m/s) of a boss bullet toward the player
+    bossSpeed: 52,          // closing speed of a rider/reflected bullet toward the boss
+    bulletDamage: 18,
+    bossHitRadius: 3.2,     // how close a boss-ward bullet must be to count as a hit
+    // Rider auto-attack: the steady chip that always whittles the boss down
+    riderShotInterval: 0.5,
+    riderShotDamage: 3,
+    // Death + reward
+    deathTime: 2.6,         // disintegration dissolve length (s)
+    defeatScore: 5000,
+  },
+
   // Death freeze-frame
   deathFreezeDuration: 0.45, // seconds of freeze before game-over screen
 

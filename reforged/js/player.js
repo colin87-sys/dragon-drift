@@ -111,7 +111,9 @@ export const player = {
   update(dt) {
     this.prevDist = this.dist;
     this.wasBoosting = this.boosting;
-    this.boosting = input.boost && (game.stamina > 0 || this.orbTimer > 0);
+    // Boss fight = on-rails dodging: boost is suspended (the "stop boosting,
+    // focus on dodging" beat) and the 2nd finger is freed up for the surge tap.
+    this.boosting = !game.inBoss && input.boost && (game.stamina > 0 || this.orbTimer > 0);
 
     // Barrel roll request (set by input.js, consumed once)
     if (input.rollRequest) {
@@ -166,6 +168,9 @@ export const player = {
     if (this.boosting)     targetSpeed = S.boostSpeed * ramp;
     if (this.orbTimer > 0) targetSpeed = Math.max(targetSpeed, S.orbSpeed * ramp);
     targetSpeed *= game.mods.speed; // Daily "High Winds" tailwind
+    // On-rails during the boss: hold a steady cruise so the boss (which matches
+    // it and "flies backward") stays framed and bullet timing is predictable.
+    if (game.inBoss) targetSpeed = CONFIG.BOSS.cruiseSpeed;
     this.speed = damp(this.speed, targetSpeed, CONFIG.speedEase, dt);
 
     // Track max speed for stats

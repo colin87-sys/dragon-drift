@@ -64,7 +64,10 @@ function checkSlowMo(dt, player) {
 export function updateCollision(dt, player) {
   if (game.state !== 'playing') return;
   if (invuln > 0) invuln -= dt;
-  checkSlowMo(dt, player);
+  // During a boss fight the course hazards are suppressed (boss.js wipes them and
+  // main.js stops spawning new ones) — bullets are the only threat, handled by the
+  // bullet pool via hitPlayer(). We still enforce the lane walls / floor below.
+  if (!game.inBoss) checkSlowMo(dt, player);
   const p = player.position;
   const R = CONFIG.playerRadius;
 
@@ -93,7 +96,7 @@ export function updateCollision(dt, player) {
     hit(player, 0, 0, CONFIG.canyonCeilingDamage, 'ceiling');
   }
 
-  for (const c of colliders) {
+  if (!game.inBoss) for (const c of colliders) {
     const dz = player.dist - c.dist;
     // Most colliders are thin; a ribcage section is a long tube (c.depthHalf),
     // so widen the broad-phase reject for it.
@@ -300,7 +303,14 @@ function hit(player, pushX, pushY, damage = CONFIG.obstacleDamage, cause = 'shar
     if (game.feverActive) { game.feverActive = false; game.feverTimer = 0; }
   }
   emit('damage', { m: player.dist });
+  if (cause === 'bullet') game.bossHitsTakenRun++;
   if (game.health <= 0) die(player, cause, false);
+}
+
+// Boss bullet damage — routed through hit() so it respects invuln + barrel-roll
+// i-frames exactly like every other hazard (dodging a bullet by rolling is free).
+export function hitPlayer(player, damage, cause = 'bullet') {
+  hit(player, 0, 0, damage, cause);
 }
 
 function crash(player, cause) {

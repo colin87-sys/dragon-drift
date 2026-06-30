@@ -3571,3 +3571,52 @@ straight tube. **→ Leapfrog:** "make it straight" in an overlay that hangs off
 underlying anchor still moves; capture one anchor and lock to it. The cost is the host's own collectibles
 (reward rings) drift off-centre there, which is the right call ONLY when that beat isn't about collecting
 them (here it's a pure speed rush) — so lock to the line where the beat's *purpose* lives, not the host's.
+
+---
+
+### L89 — Boss fight = an ON-RAILS OVERLAY on the flight, not a new arena; bullets are a player-relative InstancedMesh pool
+
+**Did / learned.** Built the first increment of a bullet-hell boss fight for the live `reforged/` game
+(the user's vision: a boss flies in, settles in front, "flies backward" while spraying bullets you dodge by
+steering; the rider auto-chips it down; ~3 phases → disintegration). The whole thing ships as a **coexisting
+overlay** gated by `game.inBoss`, modelled exactly on the Sky Canyon `game.inCanyon` pattern: forward motion
+continues, hazards are suppressed for the duration, and it tears down cleanly back into the endless run.
+New modules are self-contained and additively wired — `bossModel.js` (a procedural NON-dragon creature,
+756 tris, with a `setDissolve(k)` death), `bossBullets.js` (the bullet pool), `bossDefs.js` (data schema),
+`boss.js` (the state machine: warn → approach → fight → dying → teardown). The only edits to shipped files
+are small, boss-gated guards (`player.js` suspends boost + locks cruise speed; `collision.js` skips the
+hazard loop + exports `hitPlayer`; `main.js` inits/updates/resets + suppresses hazard spawning while
+`inBoss`; `ui.js` gains `bossBanner`). The godfall arena game was explicitly **off-limits** (a known failure)
+— this is native to the flyer.
+
+**The key modelling insight — work in the PLAYER-RELATIVE frame.** A boss that "flies backward at matched
+speed" is *stationary ahead of the player* in the player-relative frame. So every bullet carries `rel` = how
+many metres ahead of the player it is (boss holds at `rel = settleGap`), and world `z = -(player.dist + rel)`
+is recomputed each frame. A boss bullet closes `rel → 0` and the **hit is the frame `rel` crosses 0** while
+x/y are near the player; a rider/reflected bullet closes `rel → settleGap` and emits `bossDamage` on arrival.
+This is frame-correct regardless of how fast forward flight is — no chasing a moving target, no world-velocity
+bookkeeping. Damage routes through the existing `hit()` (via the new `hitPlayer` export) so a barrel roll's
+`rollInvuln` i-frames negate a bullet **for free** — dodging fell out of the system we already had.
+
+**→ Systematize.** Two reusable patterns. (1) **The `inX` overlay contract**: a heavy gameplay mode is a flag
+that mirrors `inCanyon` — suppress generation at the *source* (skip laying meshes in `spawnAhead` but still
+advance the deterministic generator, so the course stays byte-identical for the seed), guard the systems that
+must change with `if (!game.inX)`, and reset on `restart()`/`settleRun()`. Nothing about a normal run changes
+when the flag is off. (2) **The embers InstancedMesh pool generalises to any swarm**: one draw call, `slots[]`
++ rotating cursor, HIDDEN scale matrix, sphere collision `dx²+dy²+dz² < r²`, quality-scaled visible cap. Bullets
+are just embers with velocity + an owner + a collision verdict. The boss itself is **data** (`bossDefs.js`:
+hp + 3 phases + attack ids), so a second boss is mostly authoring, not code.
+
+**→ Leapfrog (innovate).** The damage economy is now a tunable triangle — rider chip (steady), reflects
+(skill burst), surge unleash (the 2nd-finger tap) — balanced so ~3 surges + chip = a 3-phase kill. The next
+increments slot straight into the seams already built: the `reflectable` flag + `reflectBossBullets()` are
+already in the pool (increment 3 just flips flags + wires the roll listener), the surge meter already fills
+(increment 2 gates its auto-activate during boss and binds the 2nd-finger tap), and "bullet-hell rings" are
+just rings spawned by `boss.js` during the fight. Bigger picture: the player-relative overlay frame is a
+**general stage for scripted set-piece encounters** on the endless track (escorts, gauntlet bosses, chase
+sequences) — anything that wants to hold a fixed relative position and choreograph against the player without
+leaving the rails. **Verification reality (unchanged):** headless logic tests (`tests/boss.mjs` drives the
+full lifecycle to a kill) + a real-WebGL boot smoke (`tests/bossboot.mjs`, zero console errors through a live
+fight) + `tricount` (boss is additive, roster baseline untouched); the human judges approach choreography,
+bullet readability and the disintegration on the PR preview — our tools can't see motion. (`tests/badges.mjs`
+still times out on `.shop-grid` headless — environmental, fails on a clean tree too, as L88 notes.)

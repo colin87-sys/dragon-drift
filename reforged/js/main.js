@@ -30,6 +30,7 @@ import { DRAGONS } from './dragons.js';
 import { RIDERS } from './riders.js';
 import { dailySeed, recordDailyRun, saveData, persist, grantXp, levelEmberReward, todayUTC, gambitSunsetRefund, freezeSaves } from './save.js';
 import { initEmbers, addEmberLine, updateEmbers, bankEmbers, resetEmbers } from './embers.js';
+import { initBoss, updateBoss, resetBoss, setBossQuality, forceBoss } from './boss.js';
 import { emit, on } from './events.js';
 import { initAnalytics } from './analytics.js';
 import { initMissions, settleMissions } from './missions.js';
@@ -131,6 +132,7 @@ initPowerups(scene);
 initParticles(scene);
 initEmbers(scene);
 initGoldEmbers(scene);
+initBoss(scene);
 initPbMarker(scene);
 
 // Set-piece meshes must exist before the first spawnAhead() call below,
@@ -150,6 +152,16 @@ function spawnAhead() {
   const lead = Math.max(CONFIG.spawnAhead, player.speed * CONFIG.spawnAheadTime);
   if (levelGen.generatedUntil >= player.dist + lead) return;
   const chunk = levelGen.ensure(player.dist + lead);
+  // Boss fight overlay: keep the reward rings + ember trails flowing (so the run
+  // still reads as motion and combos can build) but suppress every hazard and
+  // structural set-piece for the duration. Generation still advances, so the
+  // course stays byte-identical for the seed — we just don't lay the meshes.
+  if (game.inBoss) {
+    chunk.rings.forEach(addRing);
+    chunk.embers.forEach(addEmberLine);
+    chunk.goldEmbers && chunk.goldEmbers.forEach(addGoldEmber);
+    return;
+  }
   chunk.rings.forEach(addRing);
   // A base Phase Gate whose dist lands inside a canyon run is skipped — a blind
   // crystal window between rib sections reads unfair. Generator output is untouched
@@ -188,6 +200,8 @@ if (urlParams.has('debug')) {
     renderer, scene, game, player, save: saveData, emit, ui, claimFeat, obstacleCount, trailDebug: __trailDebug,
     juice: { hitstop, juiceEvent },
     postfx: { setPostTier, kick, kickState, handle: postfx },
+    // Drop straight into a boss fight (also bound to the B key under ?debug).
+    spawnBoss: () => { if (game.state === 'playing') forceBoss(player); },
     // Test seam: skip the attract splash and land on the dashboard hub.
     toHub: () => {
       if (!splashVisible()) return;
@@ -196,6 +210,10 @@ if (urlParams.has('debug')) {
       ui.showScreen('start');
     },
   };
+  // B = force a boss encounter for hands-on testing.
+  window.addEventListener('keydown', (e) => {
+    if (e.code === 'KeyB' && game.state === 'playing') forceBoss(player);
+  });
 }
 
 // Perf overlay (?debug=perf): fps / draw calls / quality tier
@@ -484,6 +502,7 @@ function restart() {
   resetCollision();
   resetEmbers();
   resetGoldEmbers();
+  resetBoss();
   resetContactShadow();
   runSeed = seedForRun();
   game.runSeed = runSeed;
@@ -511,6 +530,7 @@ function restart() {
 // display, daily before weekly (the daily-count trial reads firstToday),
 // XP/levels before feats, feats LAST (they see everything else's writes).
 function settleRun() {
+  resetBoss();                                         // tear down any boss left mid-fight
   game.recordBests();                                  // 1 stats + mastery metres
   const newRecords = settleRecords();                  // 2 personal records
   const emberTotal = bankEmbers();                     // 3 haul (rider ×, first-flight ×)
@@ -713,6 +733,7 @@ function applyQuality(tier) {
   document.body.dataset.qtier = tier; // CSS gates (speedlines, motes) read this
   setParticleQuality(QUALITY_SCALARS[tier]);
   setDragonQuality(QUALITY_SCALARS[tier]);
+  setBossQuality(QUALITY_SCALARS[tier]);
   setContactShadowQuality(QUALITY_SCALARS[tier]);
   renderer.setPixelRatio(PIXEL_RATIOS[tier]);
   setPostTier(tier);
@@ -829,6 +850,7 @@ function tick() {
     spawnAhead();
 
     updateCollision(dt, player);
+    updateBoss(dt, player, clock.getElapsedTime());
     updateRings(dt, player, clock.getElapsedTime());
     updatePowerups(dt, player, clock.getElapsedTime());
     updateEmbers(dt, player, clock.getElapsedTime());

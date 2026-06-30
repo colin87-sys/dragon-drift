@@ -805,6 +805,21 @@ export const ui = {
     this._popup(`— ${name} —`, 'cyan');
   },
 
+  // Boss encounter callouts (warning, phase change, defeat). Two-line: a big
+  // banner on the milestone slot + a smaller subtitle on the secondary popup.
+  bossBanner(text, sub) {
+    const b = els.milestoneBanner;
+    if (b) {
+      b.textContent = text;
+      b.classList.remove('ms-anim');
+      void b.offsetWidth;
+      b.classList.add('ms-anim');
+    } else {
+      this._popup(text, 'gold');
+    }
+    if (sub) this._popup2(sub, 'gold');
+  },
+
   radioPopup(name) {
     this._popup2(`♪ Now playing: ${name}`, 'gold');
   },
