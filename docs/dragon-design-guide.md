@@ -10,6 +10,14 @@ a griffin, or a firebird without writing a renderer. This guide teaches you how.
 
 ---
 
+> **Fresh prompt-accuracy workflow:** if you are creating creatures from AI
+> prompts, start with
+> [`creature-prompt-creation-system.md`](creature-prompt-creation-system.md).
+> That document defines the newer prompt-first, reference-assisted blueprint process: visual
+> brief → whole-creature envelope → signature anchors → surface/motion. Use this
+> when prompt fidelity matters more than reusing existing modules.
+
+
 ## 0. The one rule that governs everything
 
 **Judge every dragon from the gameplay camera: behind and slightly above the
