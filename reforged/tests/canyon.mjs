@@ -10,7 +10,7 @@ const result = await page.evaluate(async () => {
   const run = () => {
     const gen = createLevelGen(1337);
     // walk in chunks like the game does, so multi-chunk canyons are exercised
-    const segs = [], starts = [], ends = [], orbs = [];
+    const segs = [], starts = [], ends = [], orbs = [], suppress = [], gateDists = [];
     let ringsLen = 0, obsLen = 0;
     for (let d = 800; d <= 9000; d += 800) {
       const out = gen.ensure(d);
@@ -19,8 +19,10 @@ const result = await page.evaluate(async () => {
       starts.push(...out.canyonStarts);
       ends.push(...out.canyonEnds);
       orbs.push(...out.orbs);
+      suppress.push(...out.canyonGateSuppress);
+      for (const ob of out.obstacles) if (ob.type === 'gate') gateDists.push(ob.dist);
     }
-    return { segs, starts, ends, orbs, ringsLen, obsLen };
+    return { segs, starts, ends, orbs, suppress, gateDists, ringsLen, obsLen };
   };
   const a = run();
   createLevelGen(424242).ensure(9000); // interleave a different seed
@@ -50,15 +52,23 @@ if (spineSegs.length) {
   check('spine runs include a skull entrance', kinds.has('skull'));
   check('spine runs include the swaying rib run', kinds.has('rib'));
   check('spine runs end in a straight boost-out tunnel', kinds.has('straightrib'));
-  // The finale locks to one fixed line and strings a boost down it per segment, so
-  // the boosts form a dead-straight line inside the ribs.
+  // The finale stops swaying but stays centred on the ring (rings dead-centre), with
+  // a boost on the ring line in each finale segment.
   const straights = segs.filter((s) => s.kind === 'straightrib');
-  check('finale segments expose a locked straight centre',
-    straights.every((s) => typeof s.straightX === 'number' && typeof s.straightY === 'number'));
-  check('each finale segment has a boost ON its locked line',
+  check('each finale segment has a boost on its ring line',
     straights.every((s) => result.a.orbs.some(
-      (o) => Math.abs(o.x - s.straightX) < 1e-6 && o.dist > s.dist - 20 && o.dist <= s.dist)));
+      (o) => Math.abs(o.x - s.gapX) < 1e-6 && o.dist > s.dist - 20 && o.dist <= s.dist)));
 }
+
+// Base Phase Gates inside a canyon run are suppressed (no blind crystal window
+// between rib sections) — and only ever gates, only ever inside a canyon range.
+const inCanyonRange = (d) => starts.some((s, i) => d >= s && d <= (ends[i] ?? Infinity));
+check('suppressed entries are all real gate dists',
+  result.a.suppress.every((d) => result.a.gateDists.includes(d)));
+check('suppressed gates all fall inside a canyon run',
+  result.a.suppress.every(inCanyonRange));
+check('suppression is deterministic per seed',
+  JSON.stringify(result.a.suppress) === JSON.stringify(result.b.suppress));
 
 console.log(`  (segments: ${segs.length}, runs: ${starts.length} [${[...runs].join(',')}], kinds: ${[...kinds].join(', ')})`);
 await done();
