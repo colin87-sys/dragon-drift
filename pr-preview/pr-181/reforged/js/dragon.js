@@ -1086,13 +1086,16 @@ export function updateDragon(dt, player, time) {
     }
   }
 
-  // ── Mk II universal wing FX (gated to Mk II for now; generalise later) ──────────────
-  const isMk2 = !!activeDef.model.wingParts;
+  // ── Universal wing FX — wingtip edge-trails + hard-bank aero-shear. They emit from
+  //    the wingtip markers, which (nearly) every dragon model provides, so the WHOLE
+  //    roster gets them (previously gated to Mk II only). Per-form intensity still
+  //    scales it; dragons without a form level default to a moderate, visible level.
+  const hasWingFx = !!(tipMarkerL || tipMarkerR);
   // (1) Wing-edge tip trails — thin streaks off the wingtip markers, scaling with boost/
   // surge + the form's maturity. WHITE at cruise/boost; the player's custom trail colour
   // during Surge (magenta-pink fallback). Per-form intensity (baby minimal → Eternal best).
-  if (isMk2) {
-    const wtFx = [0.05, 0.18, 0.45, 1.0][activeDef.model.formLevel ?? 3] ?? 1;
+  if (hasWingFx) {
+    const wtFx = [0.05, 0.18, 0.45, 1.0][activeDef.model.formLevel ?? 2] ?? 1;
     const surging = player.feverActive;
     if (wtFx > 0 && (player.boosting || surging) && (tipMarkerL || tipMarkerR)) {
       wingtipTrailTimer -= dt;
@@ -1121,8 +1124,8 @@ export function updateDragon(dt, player, time) {
   }
   // (2) Hard-bank aero-shear / wingtip vortex — thin WHITE vapor off the wingtips at high
   // speed + hard bank; the OUTSIDE wing (opposite the turn) shows the stronger/longer streak.
-  if (isMk2 && speedNorm > 0.58 && bankHard > 0.5 && (tipMarkerL || tipMarkerR)) {
-    const asFx = [0.2, 0.45, 0.7, 1.0][activeDef.model.formLevel ?? 3] ?? 1;
+  if (hasWingFx && speedNorm > 0.58 && bankHard > 0.5) {
+    const asFx = [0.2, 0.45, 0.7, 1.0][activeDef.model.formLevel ?? 2] ?? 1;
     aeroShearTimer -= dt;
     if (aeroShearTimer <= 0) {
       aeroShearTimer = 0.016 / quality;

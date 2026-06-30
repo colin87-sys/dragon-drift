@@ -3447,6 +3447,21 @@ canyon boundary (no new plumbing). `spineSegments [7,9]→[10,12]` to fit the ac
 a determinism-overlay's "can't touch base arrays / 1:1 ring binding / always-passable" rules pre-sort every
 idea into *free* (geometry, emissive, particles, camera) vs *expensive* (collectibles, hard blocks, new
 reward systems). Spend only in the free lane and you ship the spectacle (an authored multi-act set piece)
+
+**Addendum — iteration 7 (owner): "what happened to the surge VFX?" — a feature GATE, not a regression.**
+The owner felt the dragons' Dragon-Surge effects had disappeared. An evidence pass (read + `git log`) found
+nothing deleted: the universal surge VFX (material flare, trail colour-shift to magenta, aura bloom, Phoenix
+ember-motes) are all live. The missing piece was the **wingtip edge-trails + hard-bank aero-shear**, which
+were **deliberately gated to Aurum Toro Mk II** (`const isMk2 = !!activeDef.model.wingParts`, commit `4074762`,
+with the note "gated to Mk II for now; generalising is a one-line gate change once approved"). The wingtip
+*markers* (`tipMarkerL/R`) and the sprite *pools* already exist for the whole roster, so the gate was the only
+restriction — flipping it to a marker test (`hasWingFx = !!(tipMarkerL || tipMarkerR)`) gives every dragon the
+effect, with the per-form intensity defaulting to a moderate level for form-less dragons. Also found: barrel
+roll emitted **zero particles** (only camera + SFX), so added a `rollWake()` vapor emitter (lateral + behind,
+stretched along velocity) fired per-frame through the roll. **→ Leapfrog:** before "fixing a regression,"
+prove it IS one — `git log -p` the suspect files. A feeling of "this used to be here" often resolves to a
+deliberate feature gate (`isX`) with the infrastructure already roster-wide; the fix is flipping the gate, not
+rebuilding the feature. And the gate's own commit message usually tells you it was waiting for exactly this.
 without paying the determinism/fairness tax — and **vary the mesh, never the hitbox**, so "less repetitive"
 never means "less fair."
 

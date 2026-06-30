@@ -23,7 +23,7 @@ import { initPostFX, setPostSize, setPostPixelRatio, setPostTier, updatePostFX, 
 import { initContactShadow, updateContactShadow, resetContactShadow, setContactShadowQuality } from './contactShadow.js';
 import { hitstop, juiceEvent } from './juice.js';
 import { createWater, setWaterReflective, updateWater } from './water.js';
-import { burst } from './particles.js';
+import { burst, rollWake } from './particles.js';
 import { buildSetPiece } from './setpieces.js';
 import { BIOMES, biomeIndexAt, SUN_DIR } from './biomes.js';
 import { DRAGONS } from './dragons.js';
@@ -872,17 +872,22 @@ function tick() {
     }
     boostWasActive = player.boosting;
 
-    // Barrel roll start: camera lean, whoosh, style bonus
+    // Barrel roll start: camera lean, whoosh, style bonus + a hard burst of air
     if (player.rollJustStarted) {
       player.rollJustStarted = false;
-      cameraCtl.rollKick(player.roll ? player.roll.dir : 1);
+      const dir = player.roll ? player.roll.dir : 1;
+      cameraCtl.rollKick(dir);
       sfx.roll();
+      rollWake(player.position, dir, 12);   // initial turbulence puff
       const bonus = Math.round(CONFIG.rollBonus * game.combo * game.scoreMult);
       game.score += bonus;
       game.rolls = (game.rolls || 0) + 1;
       ui.rollPopup(bonus);
       emit('roll');
     }
+    // Turbulent air trails for the length of the roll — a continuous vapor wake torn
+    // off the wings (power being generated), not just a one-frame puff.
+    if (player.roll) rollWake(player.position, player.roll.dir, 4);
 
     // Mission distance progress (cheap: 3 active slots max)
     emit('distance', { m: player.dist });
