@@ -562,19 +562,23 @@ export const ui = {
     const hearts = els.healthHearts.children;
     for (let i = 0; i < hearts.length; i++)
       hearts[i].classList.toggle('full', game.health > i * heartUnit + 0.01);
-    // Stamina shown as 3 phase segments — each is one Dragon-Surge phase-through
-    // (a third of the bar). Lit segments = phases you can currently afford. The
-    // bar only lights up brightly (surge colour + glow) during a Surge, so the
-    // player instantly sees how many windows they can phase through.
-    // Three EQUAL notched cells (one Surge phase each). A cell is "on" (teal) when
-    // its phase is affordable; it glows hard ("lit") when also in a Surge — so you
-    // see at a glance how many windows you can phase through.
+    // Stamina = 3 EQUAL notched cells, each one Dragon-Surge phase-through (a third
+    // of the bar). Each cell fills LIVE (proportional to the stamina inside its
+    // third), so boosting drains the bar smoothly right-to-left instead of snapping
+    // in thirds. A filled cell is dimly lit teal; during a Surge it glows hard, so
+    // you see at a glance how many windows you can phase through.
     const third = CONFIG.staminaMax / 3;
     const inSurge = !!game.feverActive;
+    const SEG_START = [0, 34.3, 68.6];   // pathLength offset where each cell begins
+    const SEG_LEN = [31.3, 31.3, 31.4];  // each cell's drawable length
     for (let i = 0; i < 3; i++) {
-      const on = game.stamina >= (i + 1) * third - 0.5;
-      els.stamSegs[i].classList.toggle('on', on);
-      els.stamSegs[i].classList.toggle('lit', on && inSurge);
+      const fill = Math.max(0, Math.min(1, (game.stamina - i * third) / third));
+      const drawn = fill * SEG_LEN[i];
+      // Draw `drawn` of this cell starting at its offset; the rest is gap.
+      els.stamSegs[i].setAttribute('stroke-dasharray',
+        `0 ${SEG_START[i].toFixed(2)} ${drawn.toFixed(2)} ${(100 - SEG_START[i] - drawn).toFixed(2)}`);
+      els.stamSegs[i].classList.toggle('on', fill > 0.001);
+      els.stamSegs[i].classList.toggle('lit', inSurge && fill > 0.001);
     }
     const shownScore = Math.floor(game.score);
     els.score.textContent = shownScore;

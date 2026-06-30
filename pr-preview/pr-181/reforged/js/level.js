@@ -495,17 +495,24 @@ export function createLevelGen(seed = CONFIG.seed, opts = {}) {
       return false;
     };
     const firstAt = CANYON_FORCE ? 320 : CONFIG.canyonFirstAt;
-    let prevRing = null;
+    let prevRing = null, prevSeg = null;
     for (const ring of out.rings) {
-      if (ring.dist < firstAt || inGauntlet(ring.dist)) { prevRing = ring; continue; }
+      if (ring.dist < firstAt || inGauntlet(ring.dist)) { prevRing = ring; prevSeg = null; continue; }
       if (!canyon && ring.dist >= nextCanyonAt) canyon = startCanyon(ring, out);
       if (canyon) {
         const seg = makeRockGap(ring, prevRing, canyon);
+        // Smooth the rib tunnel across seams: each seg knows its neighbours' centres
+        // so obstacles.js can interpolate a gentle curve through the rings (rings stay
+        // dead-centre) instead of jumping the full ring-wander at each segment seam.
+        seg.prevX = canyon.lastGapX !== undefined ? canyon.lastGapX : seg.gapX;
+        if (prevSeg) prevSeg.nextX = seg.gapX;
+        canyon.lastGapX = seg.gapX;
         out.canyonSegments.push(seg);
         canyon.gateTo = ring.dist;   // furthest rib so far → gate-suppression window end
         // A continuous LINE of boosts — one per finale segment — so you grab boost
         // after boost down the centre of the rib tube, then shoot out into open air.
         if (seg.kind === 'straightrib') addFinaleOrb(seg, out);
+        prevSeg = seg;
         canyon.idx++;
         if (--canyon.left <= 0) {
           out.canyonEnds.push(ring.dist + 40);
@@ -516,7 +523,10 @@ export function createLevelGen(seed = CONFIG.seed, opts = {}) {
             ? ring.dist + 300
             : ring.dist + CONFIG.canyonIntervalBase + canyonRnd() * CONFIG.canyonIntervalJitter;
           canyon = null;
+          prevSeg = null;
         }
+      } else {
+        prevSeg = null;
       }
       prevRing = ring;
     }
@@ -607,8 +617,6 @@ export function createLevelGen(seed = CONFIG.seed, opts = {}) {
     };
     // Over-under alternates ceiling/floor so it reads as "down, then up".
     if (kind === 'overunder') seg.shelf = c.idx % 2 === 0 ? 'ceiling' : 'floor';
-    // Ribs alternate the heavier bone side to fake the curl of a long torso.
-    if (kind === 'rib') seg.side = c.idx % 2 === 0 ? 1 : -1;
     return seg;
   }
 
