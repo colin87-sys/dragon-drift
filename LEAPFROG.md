@@ -3493,6 +3493,23 @@ engines (notably mobile WebKit) drop that segment, so the 3rd cell never drew. F
 many "fixes" and reproduces only on the owner's device is a hint it's **renderer-specific**, not logic — and
 SVG `stroke-dasharray` with a trailing `0` is exactly that class of trap (renders in Chromium, vanishes in
 mobile WebKit). When a visual won't reproduce in headless, suspect the platform's renderer, not your math.
+
+**Addendum — iteration 11 (owner): the rock run is "blind" at boost speed — fix it with TRANSPARENCY, proven
+by a reaction-time calc.** The owner felt the sea-stack Rock Run was brutal at top speed (clipping spire
+crests while reaching a ring, towers occluding the ring) and proposed making the rock see-through. Instead of
+arguing feel, we did the math: top speed ≈ orb(80)×ramp(1.35) = **108 u/s**; a spire every ~12 units → one
+every **0.11 s**; a clean lateral thread needs ~0.25 s reaction + ~0.35 s move ≈ **0.6 s ≈ 65 units ≈ 5
+spires of foresight**. The spires were **opaque** (`noDissolve`), so you literally couldn't see 5 deep — that's
+the "blind," and it's *occlusion*, not a skill gap (the open ribs read fine at the same speed, which is the
+tell). Fix: give the spires the same **per-instance proximity fade** the overhead arches already had —
+SOLID far (read the channel) → TRANSLUCENT near (floor 0.35, see the path through the spire you're passing).
+Plus: a wider ring pocket that clears the ring's **approach** corridor (not just the ring plane), and the
+spire **crest collider dropped near a ring** so lunging up for a high ring can't clip a thin tip (the canyon
+ceiling still caps the climb). **→ Leapfrog:** when an owner says a section is "too hard / blind," reach for
+the **reaction-time arithmetic** (speed → obstacle cadence → required foresight) before tuning by vibes — it
+tells you whether the problem is difficulty (legit) or *readability* (a fairness bug). Here the cure was
+visibility, not slowing the player down: deceleration should stay an optional skill lever, never a tax the
+geometry forces because you couldn't see in time.
 without paying the determinism/fairness tax — and **vary the mesh, never the hitbox**, so "less repetitive"
 never means "less fair."
 
