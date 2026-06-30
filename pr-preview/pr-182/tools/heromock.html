@@ -1,0 +1,277 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<script type="importmap">{ "imports": { "three": "/lib/three.module.js" } }</script>
+<style>
+  /* Bundled app fonts (local — no network needed in headless). */
+  @font-face { font-family: 'Russo One'; src: url('/lib/fonts/russo-one-latin-400.woff2') format('woff2'); font-weight: 400; font-display: block; }
+  @font-face { font-family: 'Rajdhani'; src: url('/lib/fonts/rajdhani-latin-500.ttf') format('truetype'); font-weight: 500; font-display: block; }
+  @font-face { font-family: 'Rajdhani'; src: url('/lib/fonts/rajdhani-latin-700.ttf') format('truetype'); font-weight: 700; font-display: block; }
+  :root {
+    --accent: #7fe0ff; --rar: #ffd24d;
+    --font-display: 'Russo One', 'Trebuchet MS', sans-serif;
+    --font-body: 'Rajdhani', 'Segoe UI', sans-serif;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { width: 460px; height: 940px; overflow: hidden; font-family: var(--font-body); }
+  /* App-like cosmic backdrop */
+  body { position: relative;
+    background:
+      radial-gradient(120% 80% at 50% -10%, #16233f 0%, #0a1124 46%, #05080f 100%);
+    color: #eaf2ff; }
+  body::before { content: ''; position: absolute; inset: 0; z-index: 0;
+    background:
+      radial-gradient(60% 40% at 50% 30%, color-mix(in srgb, var(--accent) 16%, transparent), transparent 70%);
+    transition: background 0.3s; }
+  .app { position: relative; z-index: 1; width: 100%; height: 100%;
+    display: flex; flex-direction: column; padding: 0 14px; }
+
+  /* ── topbar ── */
+  .topbar { display: flex; align-items: center; gap: 10px; height: 58px; flex: none; }
+  .tb-back { width: 38px; height: 38px; border-radius: 12px; display: flex; align-items: center; justify-content: center;
+    font-size: 19px; color: #cfe2ff; background: linear-gradient(180deg, rgba(38,56,98,0.6), rgba(18,28,56,0.7));
+    border: 1px solid rgba(150,200,255,0.2); box-shadow: inset 0 1px 0 rgba(255,255,255,0.06); }
+  .tb-title { font-family: var(--font-display); font-size: 20px; letter-spacing: 3px; color: #fff;
+    text-shadow: 0 2px 14px rgba(120,180,255,0.3); }
+  .tb-spacer { flex: 1; }
+  .tb-wallet { display: flex; align-items: center; gap: 7px; padding: 7px 14px; border-radius: 20px;
+    font-family: var(--font-display); font-size: 15px; color: #ffe9a8;
+    background: linear-gradient(180deg, rgba(48,40,16,0.7), rgba(24,20,10,0.7));
+    border: 1px solid rgba(255,205,110,0.4); box-shadow: inset 0 1px 0 rgba(255,255,255,0.08); }
+  .tb-wallet .gem { color: #ffd86a; font-size: 13px; }
+
+  /* ── tabs ── */
+  .tabs { display: flex; gap: 8px; margin: 4px 0 6px; flex: none; }
+  .tab { flex: 1; text-align: center; padding: 9px 0; font-weight: 700; font-size: 12px; letter-spacing: 1.5px;
+    color: #cfe0f5; border-radius: 11px; background: linear-gradient(180deg, rgba(38,56,98,0.5), rgba(18,28,56,0.62));
+    border: 1px solid rgba(150,200,255,0.16); box-shadow: inset 0 1px 0 rgba(255,255,255,0.05); }
+  .tab.sel { color: #1a1206; background: linear-gradient(135deg, #ffe27a, #ffb84d); border-color: transparent;
+    box-shadow: 0 4px 14px rgba(255,180,70,0.3); }
+
+  /* ── hero stage ── */
+  .stage { position: relative; flex: 1 1 auto; min-height: 0; display: flex; align-items: center; justify-content: center;
+    margin: 4px 0 2px; border-radius: 22px; overflow: hidden;
+    background:
+      radial-gradient(80% 64% at 50% 40%, color-mix(in srgb, var(--accent) 22%, transparent), transparent 72%),
+      linear-gradient(180deg, rgba(20,30,56,0.5), rgba(8,12,26,0.62));
+    border: 1px solid rgba(150,200,255,0.16);
+    box-shadow: inset 0 1px 0 rgba(255,255,255,0.06), 0 14px 40px rgba(0,0,0,0.45); }
+  .stage canvas { position: relative; z-index: 1; width: 100%; height: 100%; display: block;
+    filter: drop-shadow(0 18px 30px rgba(0,0,0,0.5)); }
+  .pedestal { position: absolute; left: 50%; bottom: 8%; transform: translateX(-50%); z-index: 0;
+    width: 64%; height: 12%; border-radius: 50%;
+    background: radial-gradient(ellipse at center, color-mix(in srgb, var(--accent) 60%, transparent), transparent 70%);
+    filter: blur(7px); opacity: 0.7; }
+  .rothint { position: absolute; left: 50%; bottom: 4%; transform: translateX(-50%); z-index: 3;
+    font-size: 10.5px; font-weight: 700; letter-spacing: 1.5px; text-transform: uppercase; color: #dbe8ff;
+    padding: 6px 13px; border-radius: 18px; background: rgba(8,14,30,0.5);
+    border: 1px solid rgba(150,200,255,0.22); -webkit-backdrop-filter: blur(5px); backdrop-filter: blur(5px); }
+  .gem { position: absolute; top: 12px; left: 12px; z-index: 3; font-family: var(--font-display);
+    font-size: 12px; letter-spacing: 1.5px; padding: 5px 11px; border-radius: 9px;
+    color: var(--rar); background: color-mix(in srgb, var(--rar) 16%, rgba(8,14,30,0.7));
+    border: 1px solid color-mix(in srgb, var(--rar) 50%, transparent); }
+  .stage-arrows { position: absolute; top: 50%; transform: translateY(-50%); z-index: 3; width: 100%;
+    display: flex; justify-content: space-between; padding: 0 8px; pointer-events: none; }
+  .stage-arrows span { width: 40px; height: 40px; border-radius: 50%; display: flex; align-items: center; justify-content: center;
+    font-size: 22px; color: #e6eeff; background: rgba(10,18,38,0.45);
+    border: 1px solid color-mix(in srgb, var(--accent) 40%, rgba(150,190,255,0.28));
+    -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px); box-shadow: 0 4px 14px rgba(0,0,0,0.4); }
+
+  /* ── identity ── */
+  .ident { text-align: center; margin: 8px 0 2px; flex: none; }
+  .d-name { font-family: var(--font-display); font-size: 27px; letter-spacing: 0.5px; line-height: 1;
+    background: linear-gradient(180deg, #ffffff, color-mix(in srgb, var(--accent) 55%, #cfe0ff));
+    -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent;
+    text-shadow: 0 2px 22px color-mix(in srgb, var(--accent) 30%, transparent); }
+  .d-title { font-size: 13px; opacity: 0.66; font-style: italic; margin-top: 3px; }
+
+  /* ── form segmented control ── */
+  .forms { display: flex; gap: 5px; margin: 11px 2px 4px; flex: none;
+    padding: 4px; border-radius: 13px; background: rgba(6,11,24,0.55); border: 1px solid rgba(150,200,255,0.12); }
+  .seg { flex: 1; text-align: center; padding: 7px 0; font-size: 11px; font-weight: 700; letter-spacing: 1px;
+    color: rgba(200,224,255,0.7); border-radius: 9px; text-transform: uppercase; }
+  .seg.on { color: #06101e; background: linear-gradient(135deg, color-mix(in srgb, var(--accent) 92%, #fff), var(--accent));
+    box-shadow: 0 3px 12px color-mix(in srgb, var(--accent) 40%, transparent); }
+  .seg.lock { opacity: 0.4; }
+
+  /* ── stats ── */
+  .stats { display: flex; flex-direction: column; gap: 8px; margin: 8px 4px 4px; flex: none;
+    padding: 13px 15px; border-radius: 14px; background: rgba(8,14,30,0.45); border: 1px solid rgba(150,190,255,0.12); }
+  .srow { display: flex; align-items: center; gap: 11px; }
+  .slabel { width: 64px; text-align: left; font-size: 11px; font-weight: 700; letter-spacing: 1px; color: rgba(206,224,255,0.9); }
+  .strack { flex: 1; height: 8px; border-radius: 5px; background: rgba(4,8,18,0.85); overflow: hidden; box-shadow: inset 0 1px 2px rgba(0,0,0,0.5); }
+  .sfill { height: 100%; border-radius: 5px;
+    background: linear-gradient(90deg, color-mix(in srgb, var(--accent) 45%, #2a3a5a), var(--accent));
+    box-shadow: 0 0 8px color-mix(in srgb, var(--accent) 45%, transparent); }
+  .sval { width: 26px; text-align: right; font-family: var(--font-display); font-size: 13px; color: #eef5ff; }
+
+  /* ── CTA ── */
+  .cta { margin: 11px 4px 6px; flex: none; display: flex; justify-content: center; }
+  .cta button { width: 100%; padding: 14px 0; border: none; border-radius: 13px; cursor: pointer;
+    font-family: var(--font-display); font-size: 15px; letter-spacing: 2px; color: #1a1206;
+    background: linear-gradient(135deg, #ffe27a, #ffb84d); box-shadow: 0 6px 20px rgba(255,180,70,0.34); }
+  .cta button.equipped { color: #062013; background: linear-gradient(135deg, #9bffc7, #46d98a); box-shadow: 0 6px 20px rgba(70,217,138,0.3); }
+  .cta button.locked { color: #160d22;
+    background: linear-gradient(135deg, color-mix(in srgb, var(--accent) 75%, #fff), var(--accent));
+    box-shadow: 0 6px 20px color-mix(in srgb, var(--accent) 30%, transparent); }
+
+  /* ── dragon rail ── */
+  .rail { display: flex; gap: 9px; padding: 9px 2px 12px; flex: none; overflow-x: hidden; }
+  .thumb { position: relative; flex: 1; aspect-ratio: 1; border-radius: 13px; overflow: hidden;
+    background: radial-gradient(circle at 50% 36%, rgba(70,110,180,0.3), rgba(6,11,26,0.7) 80%);
+    border: 1px solid rgba(150,200,255,0.16); box-shadow: inset 0 1px 0 rgba(255,255,255,0.05); }
+  .thumb canvas { width: 100%; height: 100%; display: block; }
+  .thumb.on { border-color: var(--accent);
+    box-shadow: 0 0 0 1px var(--accent), 0 0 18px color-mix(in srgb, var(--accent) 45%, transparent); }
+  .thumb .tgem { position: absolute; top: 4px; right: 4px; width: 9px; height: 9px; border-radius: 3px;
+    background: var(--tr); box-shadow: 0 0 6px var(--tr); }
+  .thumb.lock::after { content: '🔒'; position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
+    font-size: 18px; background: rgba(4,8,16,0.55); }
+  .thumb .tcost { position: absolute; bottom: 3px; left: 0; right: 0; text-align: center; font-size: 8px; font-weight: 700;
+    color: #ffd86a; z-index: 2; }
+</style>
+</head>
+<body>
+  <div class="app">
+    <div class="topbar">
+      <div class="tb-back">‹</div>
+      <div class="tb-title">DRAGONS</div>
+      <div class="tb-spacer"></div>
+      <div class="tb-wallet"><span class="gem">◆</span><span id="wallet">12,480</span></div>
+    </div>
+    <div class="tabs">
+      <div class="tab sel">DRAGONS</div><div class="tab">RIDERS</div><div class="tab">MUSIC</div><div class="tab">STYLE</div>
+    </div>
+    <div class="stage" id="stage">
+      <div class="gem" id="gem">SSSR</div>
+      <div class="stage-arrows"><span>‹</span><span>›</span></div>
+      <canvas id="hero" width="760" height="760"></canvas>
+      <div class="pedestal"></div>
+      <div class="rothint">⟲ drag to rotate</div>
+    </div>
+    <div class="ident">
+      <div class="d-name" id="dname">Obsidian Shade</div>
+      <div class="d-title" id="dtitle">Night given wings</div>
+    </div>
+    <div class="forms" id="forms"></div>
+    <div class="stats" id="stats"></div>
+    <div class="cta" id="cta"><button>EQUIP</button></div>
+    <div class="rail" id="rail"></div>
+  </div>
+
+  <script type="module">
+    import * as THREE from 'three';
+    import { DRAGONS } from '/js/dragons.js';
+    import { ascendedDef } from '/js/ascension.js';
+    import { buildDragonModel } from '/js/dragonModel.js';
+
+    const RAR = { R: '#7fd49a', SR: '#62a8ff', SSR: '#c489ff', SSSR: '#ffd24d' };
+    const LADDER = { SSR: ['R', 'SR', 'SSR'], SSSR: ['R', 'SR', 'SSR', 'SSSR'] };
+    const FNAME = ['Hatchling', 'Kindled', 'Radiant', 'Eternal'];
+    const hex = (n) => '#' + (n >>> 0).toString(16).padStart(6, '0');
+
+    // shared offscreen renderer
+    const gl = new THREE.WebGLRenderer({ alpha: true, antialias: true });
+    gl.setPixelRatio(2);
+    gl.toneMapping = THREE.ACESFilmicToneMapping;
+    const scene = new THREE.Scene();
+    const camera = new THREE.PerspectiveCamera(38, 1, 0.1, 100);
+    scene.add(new THREE.HemisphereLight(0xbfdcff, 0x2e3448, 1.05));
+    const kL = new THREE.DirectionalLight(0xffe8c0, 2.0); kL.position.set(3, 4.5, 5); scene.add(kL);
+    const rL = new THREE.DirectionalLight(0x88b8ff, 1.05); rL.position.set(-4, 2, -3); scene.add(rL);
+    const fL = new THREE.DirectionalLight(0xd0f0ff, 0.4); fL.position.set(0, -2, 3); scene.add(fL);
+
+    const _box = new THREE.Box3(), _b = new THREE.Box3();
+    function meshBounds(root) {
+      _box.makeEmpty(); root.updateWorldMatrix(true, true);
+      root.traverse((o) => { if (o.isMesh && o.geometry) {
+        if (!o.geometry.boundingBox) o.geometry.computeBoundingBox();
+        _b.copy(o.geometry.boundingBox).applyMatrix4(o.matrixWorld); _box.union(_b);
+      } });
+      return _box;
+    }
+    function renderInto(canvas, def, { yaw, pad, res }) {
+      gl.setSize(res, res);
+      const { group } = buildDragonModel(def, { preview: true });
+      group.rotation.y = yaw;
+      group.traverse(o => { if (o.renderOrder >= 998) o.visible = false; }); // hide aim marker
+      scene.add(group);
+      const box = meshBounds(group);
+      const halfW = Math.max(Math.abs(box.min.x), Math.abs(box.max.x));
+      const halfD = Math.max(Math.abs(box.min.z), Math.abs(box.max.z));
+      const wide = Math.hypot(halfW, halfD);
+      const lookY = (box.min.y + box.max.y) / 2;
+      const halfH = Math.max(box.max.y - lookY, lookY - box.min.y);
+      const fit = Math.max(wide, halfH * 0.92) / Math.tan(camera.fov * Math.PI / 360);
+      const dist = fit * pad + 0.6;
+      camera.position.set(0, lookY + dist * 0.13, dist);
+      camera.lookAt(0, lookY, 0);
+      gl.render(scene, camera);
+      const ctx = canvas.getContext('2d');
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      ctx.drawImage(gl.domElement, 0, 0, canvas.width, canvas.height);
+      scene.remove(group);
+      group.traverse(o => { if (o.geometry) o.geometry.dispose(); if (o.material) o.material.dispose(); });
+    }
+
+    const keys = Object.keys(DRAGONS).filter(k => !['phoenix', 'astralWyrm'].includes(k));
+    function maxTier(d) { return (LADDER[d.maxRarity] || LADDER.SSSR).length - 1; }
+    function statFrac(d) {
+      const s = d.stats;
+      return {
+        SPEED: Math.max(0.08, Math.min(1, (s.speed - 0.95) / (1.2 - 0.95))),
+        AGILITY: Math.max(0.08, Math.min(1, (s.handling - 0.95) / (1.3 - 0.95))),
+        STAMINA: Math.max(0.08, Math.min(1, (s.regen - 0.95) / (1.4 - 0.95))),
+      };
+    }
+
+    // Build the dragon rail once (apex form thumbnails).
+    const rail = document.getElementById('rail');
+    rail.innerHTML = keys.map((k, i) => {
+      const d = DRAGONS[k];
+      const fr = (LADDER[d.maxRarity] || LADDER.SSSR).slice(-1)[0];
+      const locked = i % 3 === 2 && i > 2; // a couple shown locked for the mock
+      return `<div class="thumb${i === 0 ? ' on' : ''}${locked ? ' lock' : ''}" data-k="${k}" style="--accent:${hex(d.apexSeam || d.eye)};--tr:${RAR[fr]}">
+        <canvas width="200" height="200"></canvas><div class="tgem"></div>
+        ${locked ? `<div class="tcost">◆${d.cost}</div>` : ''}</div>`;
+    }).join('');
+    [...rail.children].forEach((el, i) => {
+      renderInto(el.querySelector('canvas'), ascendedDef(DRAGONS[keys[i]], maxTier(DRAGONS[keys[i]]), 0), { yaw: -0.35, pad: 1.5, res: 200 });
+    });
+
+    window.renderHero = (key, tier, state = 'equipped') => {
+      const d = DRAGONS[key];
+      const cap = maxTier(d);
+      tier = Math.min(tier, cap);
+      const ladder = LADDER[d.maxRarity] || LADDER.SSSR;
+      const fr = ladder[tier];
+      const accent = hex(d.apexSeam || d.eye);
+      document.documentElement.style.setProperty('--accent', accent);
+      document.documentElement.style.setProperty('--rar', RAR[fr]);
+      document.getElementById('gem').textContent = fr;
+      document.getElementById('dname').textContent = d.name;
+      document.getElementById('dtitle').textContent = d.title;
+      // forms
+      document.getElementById('forms').innerHTML = ladder.map((_, i) =>
+        `<div class="seg${i === tier ? ' on' : ''}">${FNAME[i]}</div>`).join('');
+      // stats
+      const sf = statFrac(d);
+      document.getElementById('stats').innerHTML = Object.entries(sf).map(([k, v]) =>
+        `<div class="srow"><div class="slabel">${k}</div><div class="strack"><div class="sfill" style="width:${Math.round(v * 100)}%"></div></div><div class="sval">${Math.round(40 + 59 * v)}</div></div>`).join('');
+      // cta
+      const cta = document.getElementById('cta');
+      if (state === 'equipped') cta.innerHTML = `<button class="equipped">✓ EQUIPPED</button>`;
+      else if (state === 'owned') cta.innerHTML = `<button>EQUIP</button>`;
+      else cta.innerHTML = `<button class="locked">◆ ${d.cost} · UNLOCK</button>`;
+      // rail highlight
+      [...rail.children].forEach(el => el.classList.toggle('on', el.dataset.k === key));
+      // hero render (slight 3/4)
+      renderInto(document.getElementById('hero'), ascendedDef(d, tier, state === 'locked' ? 0 : 2), { yaw: -0.5, pad: 1.32, res: 760 });
+      return true;
+    };
+    window.__ready = true;
+    window.renderHero('obsidian', 3);
+  </script>
+</body>
+</html>
