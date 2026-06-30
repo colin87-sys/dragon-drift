@@ -990,9 +990,10 @@ export function updateDragon(dt, player, time) {
     ponyMeshes[0].position.copy(ponyPoints[0]);
   }
 
-  // Speed trail (orb/fast), tinted per dragon; shifts pink during fever
+  // Speed trail (orb/fast), tinted per dragon; shifts pink during fever. Also emits
+  // during Surge even WITHOUT boost, so a surging dragon always streams energy.
   trailTimer -= dt;
-  if (player.speedActive && trailTimer <= 0) {
+  if ((player.speedActive || player.feverActive) && trailTimer <= 0) {
     trailTimer = (player.feverActive ? 0.009 : player.boosting ? 0.012 : 0.015) / quality;
     const s = trailSprites.find(s => !s.visible);
     if (s) {
@@ -1021,7 +1022,7 @@ export function updateDragon(dt, player, time) {
   // TIP, denser the more evolved the form (spineGlow proxies the tier), and a
   // white-gold core during Surge.
   boostTrailTimer -= dt;
-  if (player.boosting && boostTrailTimer <= 0) {
+  if ((player.boosting || player.feverActive) && boostTrailTimer <= 0) {
     const fxLvl = activeDef.model.spineGlow || 0; // 0 hatchling → 1 apex
     const pr = activeDef.model.particleRate ?? 1; // per-form trail density (apex emits more)
     boostTrailTimer = (player.feverActive ? 0.012 : 0.018) / (quality * (1 + fxLvl * 0.7) * pr);
@@ -1164,7 +1165,7 @@ export function updateDragon(dt, player, time) {
     const emitting = isPhx || player.feverActive;
     moteTimer -= dt;
     if (emitting && moteTimer <= 0 && tailSegs.length) {
-      moteTimer = isPhx ? Math.max(0.05, (player.boosting ? 0.08 : 0.18) - fxLvl * 0.07) : 0.045;
+      moteTimer = isPhx ? Math.max(0.05, (player.feverActive ? 0.07 : player.boosting ? 0.08 : 0.18) - fxLvl * 0.07) : 0.045;
       const s = emberMotes.find(s => !s.visible);
       if (s) {
         const src = isPhx ? tailSegs[Math.floor(tailSegs.length * 0.6)]
@@ -1174,7 +1175,7 @@ export function updateDragon(dt, player, time) {
         s.userData.life = 1;
         if (isPhx) {
           s.userData.vy = 0.5 + Math.random() * 0.9;
-          s.material.color.setHex(player.boosting ? 0xfff0c8 : 0xffd987);
+          s.material.color.setHex(player.feverActive ? 0xfff2d0 : player.boosting ? 0xfff0c8 : 0xffd987);
           s.position.set(tmpV.x + (Math.random() - 0.5) * 1.0,
             tmpV.y + (Math.random() - 0.5) * 0.5, tmpV.z + Math.random() * 1.2);
         } else {
@@ -1186,7 +1187,8 @@ export function updateDragon(dt, player, time) {
         }
       }
     }
-    const peak = isPhx ? 0.26 + fxLvl * 0.14 : 0.5; // Phoenix embers eased down so they read as accents, not clutter
+    // Phoenix embers eased down so they read as accents — but in Surge they blaze.
+    const peak = isPhx ? (player.feverActive ? 0.5 : 0.26 + fxLvl * 0.14) : 0.5;
     for (const s of emberMotes) {
       if (!s.visible) continue;
       s.userData.life -= dt * 0.85;
