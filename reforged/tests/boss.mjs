@@ -55,7 +55,7 @@ for (const key of BOSS_ORDER) {
     assert(ph.atFrac <= prev, `${key} phase atFrac is descending`);
     prev = ph.atFrac;
     assert(Array.isArray(ph.attacks) && ph.attacks.length > 0, `${key} phase has attacks`);
-    for (const a of ph.attacks) assert(['aimed', 'fan', 'spiral'].includes(a), `${key} attack '${a}' is known`);
+    for (const a of ph.attacks) assert(['aimed', 'fan', 'spiral', 'tunnel', 'spiralStream'].includes(a), `${key} attack '${a}' is known`);
     assert(ph.cadence[0] > 0 && ph.cadence[1] >= ph.cadence[0], `${key} cadence is a valid range`);
   }
 }

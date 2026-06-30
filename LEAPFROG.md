@@ -3620,3 +3620,42 @@ full lifecycle to a kill) + a real-WebGL boot smoke (`tests/bossboot.mjs`, zero 
 fight) + `tricount` (boss is additive, roster baseline untouched); the human judges approach choreography,
 bullet readability and the disintegration on the PR preview — our tools can't see motion. (`tests/badges.mjs`
 still times out on `.shop-grid` headless — environmental, fails on a clean tree too, as L88 notes.)
+
+---
+
+### L90 — Boss feel pass: telegraph the wind-up, colour danger red, keep boost pace, and build patterns as readable "safe-lane" shapes
+
+**Did / learned.** First playtest of the boss (L89) surfaced four feel problems, all fixed as data/small-system
+changes on the increment-1 scaffold. (1) The aimed "3-at-you" was unfair — 0.65s window, a 0.25s predictive
+LEAD that read as homing, and 1.2m spacing that overlapped the trio into one gapless wall. Fix = more reaction
+time (settleGap 26→30, bulletSpeed 40→34 → 0.88s), kill the lead (0.25→0.08 so moving actually dodges), widen
+spacing, shrink the hitbox. (2) Flying with boost SUSPENDED felt sluggish → lock the on-rails cruise to BOOST
+speed (`cruiseSpeed 35→65`); because bullets live in the player-relative frame, forward speed doesn't change
+dodge difficulty at all — it's pure motion *feel* (camera FOV widens, world rushes). (3) No wind-up read →
+added a **telegraph**: each attack now charges for 0.5s (instant) / 0.7s (streamed) while the model's maw flares
+toward red (`bossModel.setCharge(k)`), then releases with a flash + muzzle burst. (4) Bullets recoloured to
+**fiery red** danger (`def.bulletColor`), and the boss BODY moved to violet so red reads as "this hurts" against
+it. Plus variety: two **sustained** patterns — `tunnel` (a succession of bullet-rings with a weaving centre — the
+rib-run tube the player asked for) and `spiralStream` (a rotating emitter) — driven by a `pending[]` timed
+sub-volley queue, serialized so a new attack never starts mid-stream.
+
+**→ Systematize.** (a) **Telegraph + sub-volley queue = the general attack spine.** An attack is now {charge →
+execute}, and execute either fires one volley or pushes `{t, fire}` entries onto a `pending` queue processed each
+frame; gating "no new attack while `pending.length || chargeT`" serializes everything for free. Any future
+pattern (waves, walls, homing-with-counterplay) slots in as either an instant volley or a scheduled stream — no
+new control flow. (b) **Player-relative frame means feel and fairness are ORTHOGONAL knobs**: forward speed is
+free to tune for *motion feel* without touching dodge difficulty (which is `settleGap / bulletSpeed` + lead +
+hitbox). Tune them independently. (c) **Readable danmaku = a clear safe lane + a wind-up**, not low density —
+the tunnel works because the safe centre is obvious and *drifts smoothly*; the aimed shot failed because it had
+no gap and chased you. Bake the "safe shape" into the pattern, telegraph it, then escalate.
+
+**→ Leapfrog (innovate).** The charge state is exactly the hook the **reflect** increment needs: a `reflectable`
+attack can telegraph in a distinct colour, and the barrel-roll window (`reflectBossBullets()`, already stubbed)
+swats those back during the bullet's approach. The `pending` queue also unlocks **boss-authored bullet-hell
+rings** (rings + bullets co-scheduled so threading a ring during a tunnel pays combo) and **multi-emitter** bosses
+(several muzzles pushing independent streams). And because patterns are now declarative ids resolved by the
+controller, a second boss is *just* a `bossDefs` entry with a different attack mix + colours — the migration
+payoff. Verification unchanged: `tests/boss.mjs` (lifecycle to a kill, now through the telegraphed phases) +
+`tests/bossboot.mjs` (real WebGL, zero console errors with tunnel/stream live) + `tricount` (boss additive,
+roster 203265 untouched); the human judges the wind-up read, the red, the boost pace and the tunnel weave on the
+preview.

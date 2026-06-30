@@ -96,13 +96,22 @@ export function buildBoss(def, quality = 1) {
   // Cache base opacities so the dissolve can scale from each material's own value.
   for (const m of mats) m.userData.baseOpacity = m.transparent ? m.opacity : 1;
 
+  // Telegraph charge level 0→1: the maw flares (toward danger-red) and the throat
+  // swells just before an attack releases, so the player gets a fair wind-up read.
+  let charge = 0;
+  function setCharge(k) { charge = Math.max(0, Math.min(1, k)); }
+
   function tick(dt, time) {
     core.rotation.y += dt * 0.5;
     core.rotation.x += dt * 0.18;
     aura.rotation.y -= dt * 0.3;
     const pulse = 0.85 + Math.sin(time * 3) * 0.15;
-    mawMat.opacity = 0.6 + Math.sin(time * 5) * 0.25;
-    auraMat.opacity = (0.14 + Math.sin(time * 2) * 0.06) * pulse;
+    mawMat.opacity = 0.6 + Math.sin(time * 5) * 0.25 + charge * 0.9;
+    auraMat.opacity = (0.14 + Math.sin(time * 2) * 0.06) * pulse + charge * 0.3;
+    throat.scale.setScalar(1 + charge * 0.6);
+    throatMat.opacity = 0.85 + charge * 0.15;
+    throatMat.color.setHex(0xff3010).lerp(new THREE.Color(accent), 1 - charge); // reddens as it charges
+    coreMat.emissiveIntensity = 0.9 + charge * 1.6;
     for (const o of orbiters) {
       const u = o.userData;
       u.ang += dt * u.speed;
@@ -152,6 +161,7 @@ export function buildBoss(def, quality = 1) {
   return {
     group, muzzle, orbiters,
     setDissolve,
+    setCharge,
     flash,
     tick(dt, time) { tick(dt, time); tickFlash(dt); },
     dispose() {
