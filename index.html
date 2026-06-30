@@ -8,7 +8,9 @@
     // the legacy game. Reverted when reforged is ported back to the root.
     (function () {
       var p = location.pathname.replace(/\/+$/, '');
-      if (!p.endsWith('/reforged')) { location.replace('./reforged/'); }
+      // Carry the query string + hash through the bounce so ?boss / ?debug /
+      // ?seed= / ?daily links that hit the root still reach the reforged build.
+      if (!p.endsWith('/reforged')) { location.replace('./reforged/' + location.search + location.hash); }
     })();
   </script>
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
