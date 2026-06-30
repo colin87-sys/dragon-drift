@@ -5,7 +5,7 @@ import { initInput, initTouch, initMouse } from './input.js';
 import { createLevelGen } from './level.js';
 import { todaysDailyMod, dailyMods } from './daily.js';
 import { createEnvironment, updateEnvironment, resetEnvironment, getSkyMesh } from './environment.js';
-import { createDragon, updateDragon, resetDragon, rebuildDragon, setDragonFxVisible, setDragonModelDetail } from './dragon.js';
+import { createDragon, updateDragon, resetDragon, rebuildDragon, setDragonFxVisible, setDragonModelDetail, __trailDebug } from './dragon.js';
 import { resolveDetail } from './modelDetail.js';
 import { initReticle, updateReticle } from './reticle.js';
 import { initSplash, showSplash, hideSplash, splashVisible, launchFlash, igniteSplash, splashArmed } from './splash.js';
@@ -185,7 +185,7 @@ function triggerSetPiece(sp) {
 const debugFever = urlParams.get('debug') === 'fever';
 if (urlParams.has('debug')) {
   window.__dd = {
-    renderer, game, player, save: saveData, emit, ui, claimFeat, obstacleCount,
+    renderer, scene, game, player, save: saveData, emit, ui, claimFeat, obstacleCount, trailDebug: __trailDebug,
     juice: { hitstop, juiceEvent },
     postfx: { setPostTier, kick, kickState, handle: postfx },
     // Test seam: skip the attract splash and land on the dashboard hub.
@@ -786,13 +786,17 @@ function tick() {
   updateModelDetail(rawDt);
 
   // Shop hero shot: hide the loose gameplay FX — collectible rings + the dragon's own
-  // flight trail — for a clean static dragon. The `&& game.state !== 'playing'` guard
-  // forces them visible every frame during an ACTUAL run, so nothing can vanish
-  // mid-flight; nothing is removed, only .visible toggled. (Obstacles are NOT touched —
-  // the game manages their visibility, and they're the course "walls" we must keep.)
+  // flight trail — for a clean static dragon. (Obstacles are NOT touched — the game
+  // manages their visibility, and they're the course "walls" we must keep.)
+  // IMPORTANT: only HIDE the dragon FX (at the shop). Do NOT force them visible every
+  // frame during play — the trail/ember emitters allocate sprites via
+  // find(s => !s.visible), so marking every sprite visible=true each frame starves
+  // that allocator (no free sprite → nothing emits), which silently killed the
+  // boost / speed / ember trails. The emitters re-show their own sprites on emit, so
+  // leaving the shop needs no force-show.
   const hideShopFx = ui.atShop() && game.state !== 'playing';
   setRingsVisible(!hideShopFx);
-  setDragonFxVisible(!hideShopFx);
+  if (hideShopFx) setDragonFxVisible(false);
 
   // Slow-mo bookkeeping runs in REAL time so 0.6s of dilation is 0.6s felt.
   if (game.slowMoTimer > 0) {
