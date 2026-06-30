@@ -469,29 +469,34 @@ function buildRockGap(o, e) {
   // the corridor and spanning the section depth — fly down the middle. Going wide
   // around the cage is possible but loses the reward ring at its centre.
   const ribcage = (depthHalf, nRibs, opts = {}) => {
-    const { flare = 0, vert = 0, neural = false, straight = false } = opts;
+    const { flare = 0, vert = 0, neural = false } = opts;
     e.depthHalf = Math.max(e.depthHalf || 0, depthHalf); // widen collision broad-phase
     e.noDissolve = true;        // thin, open ribs never block the view → don't fade
     const cx = 2 * W;           // TWICE as wide
     const cy = H + 5.5;         // TALLER — the arch clears the forward sightline
     const cYc = gy + 1.5;       // lift the cage so the belly opening stays roomy
-    const runIdx = o.runIdx || 0;
-    // Lateral sweep fakes the curl of a long body (continuous across section seams,
-    // so it reads as ONE long curving ribcage). The FINALE goes STRAIGHT (no sway)
-    // so you can boost flat-out down one clean tunnel.
-    const phaseAt = (f) => runIdx - 2 + f;
-    const sway = straight ? () => 0 : (f) => (o.swaySign || 1) * 3.0 * Math.cos((Math.PI / 2) * phaseAt(f));
+    // The rib centre follows a SMOOTH curve through the rings: from the midpoint with
+    // the previous ring (at the entry), through this ring (dead-centre at the segment
+    // middle), to the midpoint with the next ring (at the exit). So consecutive ribs
+    // stagger GENTLY — a gentle curve, never a full-rib jump at a seam — and the
+    // reward ring sits dead-centre. Midpoints match the neighbour segments' edges, so
+    // the whole run reads as one continuous winding tunnel.
+    const px = o.prevX !== undefined ? o.prevX : gx;
+    const nx = o.nextX !== undefined ? o.nextX : gx;
+    const entryX = (px + gx) / 2, exitX = (gx + nx) / 2;
+    const baseAt = (f) => f <= 0.5 ? entryX + (gx - entryX) * (f / 0.5)
+                                   : gx + (exitX - gx) * ((f - 0.5) / 0.5);
 
-    // Collision FOLLOWS the sweep: thin side walls placed per-rib at each rib's
-    // depth (oz), so the safe corridor curves smoothly with the bone. Belly +
-    // overhead stay open; fly down the middle.
+    // Collision FOLLOWS the curve: thin side walls placed per-rib at each rib's depth
+    // (oz), so the safe corridor curves smoothly with the bone. Belly + overhead stay
+    // open; fly down the middle.
     const cor = cx * 0.92;
     const wallHz = (depthHalf / Math.max(nRibs - 1, 1)) * 0.62; // tiles along z, slight overlap
 
     for (let k = 0; k < nRibs; k++) {
       const f = nRibs > 1 ? k / (nRibs - 1) : 0.5;
       const z = -depthHalf + f * 2 * depthHalf;
-      const ox = gx + sway(f);
+      const ox = baseAt(f);
       box(ox - cor, cYc, 0.4, cy * 0.9, wallHz, z);
       box(ox + cor, cYc, 0.4, cy * 0.9, wallHz, z);
       const wS = cx * (1 + flare * Math.abs(f - 0.5) * 1.6);
@@ -577,19 +582,22 @@ function buildRockGap(o, e) {
     // First interior beat: neck vertebrae + the first ribs, tiling into the cage.
     const dh = dhFor(0.8);
     ribcage(dh, nrFor(dh), { vert: 0.6 });
-  } else if (o.kind === 'rib') {
-    // The main rib run: a CONTINUOUS run of successive ribs that sway gently L/R to
-    // fake the curl of a long body. Sized to the local ring spacing so it tiles
-    // edge-to-edge as one long tunnel — the heart of the set piece.
+    // Lateral entrance gnarls: bone buttresses fill the OUTER lane margins so you're
+    // funnelled INTO the ribcage rather than skimming around it. Sized to whatever
+    // room is left beside the (possibly off-centre) opening, so they never seal the
+    // way in — the corridor + a margin always stays clear.
+    const safeHalf = 2 * W * 0.92 + 1.6;          // just outside the rib corridor
+    const cyW = (CONFIG.laneMinY + CEIL) / 2, hhW = (CEIL - CONFIG.laneMinY) / 2;
+    const lInner = gx - safeHalf, rInner = gx + safeHalf;
+    if (lInner > -LANE + 1.5) lump((-LANE + lInner) / 2, cyW, (lInner + LANE) / 2, hhW, T, 0.3);
+    if (rInner < LANE - 1.5) lump((LANE + rInner) / 2, cyW, (LANE - rInner) / 2, hhW, T, 0.3);
+  } else if (o.kind === 'rib' || o.kind === 'straightrib') {
+    // The rib run: a CONTINUOUS run of successive ribs that wind GENTLY with the ring
+    // line (a smooth curve, rings dead-centre), tiling edge-to-edge as one long
+    // tunnel. The finale ('straightrib') is the same ribs with a line of speed orbs
+    // down the centre (placed in level.js) — boost flat-out and burst into open air.
     const dh = dhFor();
     ribcage(dh, nrFor(dh), {});
-  } else if (o.kind === 'straightrib') {
-    // The finale: the L/R sway STOPS (no artificial sweep) but the tube still
-    // centres on each reward ring so the rings stay DEAD-CENTRE inside the ribs.
-    // Speed orbs ride the same ring line (placed in level.js) — boost down the
-    // centre and burst into open air.
-    const dh = dhFor();
-    ribcage(dh, nrFor(dh), { straight: true });
   }
 
   // No rim/frame on any canyon gate: every opening is framed by its own rock
