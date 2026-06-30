@@ -3495,3 +3495,16 @@ gap. **→ Leapfrog:** procedural "creature" geometry lives or dies on **control
 + local contrast**, not part count — random-rotation jittered blobs never read as anatomy. And when an
 authored set piece feels "messy," the fix is usually **subtract beats, not add polish**: one strong idea
 (a long rib run) done well beats five clever ones competing for the same 20 seconds.
+
+**Addendum — iteration 6 (owner): a finale that LOCKS straight.** "Straight tunnel" wasn't enough — the
+finale ribs had only dropped the sway but still centred each beat on its own reward ring, which snakes, so
+it read as a *wandering* tube, not a straight one. The owner's vision: a **dead-straight line of speed
+boosts down the inside of the ribs** that builds speed until you shoot out. Fix: at the first finale
+segment, capture a fixed `finaleX/finaleY` on the run-state object and stamp it onto every finale segment;
+`ribcage` gained `centerX/centerY` so the hoops + corridor colliders lock to that line instead of `gapX/
+gapY`, and a boost is placed ON the line in each finale beat → a continuous straight orb-line inside a
+straight tube. **→ Leapfrog:** "make it straight" in an overlay that hangs off a *wandering* host line means
+**stop following the host** for that stretch — zeroing the decorative wobble (sway) isn't enough if the
+underlying anchor still moves; capture one anchor and lock to it. The cost is the host's own collectibles
+(reward rings) drift off-centre there, which is the right call ONLY when that beat isn't about collecting
+them (here it's a pure speed rush) — so lock to the line where the beat's *purpose* lives, not the host's.
