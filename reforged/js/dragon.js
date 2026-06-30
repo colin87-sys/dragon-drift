@@ -393,6 +393,17 @@ export function setDragonFxVisible(v) {
   for (const s of [...trailSprites, ...boostTrailSprites, ...emberMotes, ...wingMotes]) s.visible = v;
 }
 
+// Debug seam (exposed via window.__dd under ?debug): live count of visible FX
+// sprites per emitter, so tests can prove a trail is actually emitting.
+export function __trailDebug() {
+  const vis = (arr) => arr.filter((s) => s.visible && s.material.opacity > 0.01).length;
+  return {
+    trail: vis(trailSprites), boost: vis(boostTrailSprites), ember: vis(emberMotes),
+    wingtip: vis(wingtipTrailSprites), aero: vis(aeroShearSprites),
+    tailSegs: tailSegs.length, dragon: activeDef && activeDef.name,
+  };
+}
+
 // Lethal crashes (wall/gate) explode hot coral-red; health deaths stay icy.
 export function triggerDeathBurst(position, lethal = false) {
   burstActive = true;
@@ -990,10 +1001,11 @@ export function updateDragon(dt, player, time) {
     ponyMeshes[0].position.copy(ponyPoints[0]);
   }
 
-  // Speed trail (orb/fast), tinted per dragon; shifts pink during fever
+  // Speed trail (orb/fast), tinted per dragon; shifts pink during fever. Also emits
+  // during Surge even WITHOUT boost, so a surging dragon always streams energy.
   trailTimer -= dt;
-  if (player.speedActive && trailTimer <= 0) {
-    trailTimer = (player.feverActive ? 0.009 : player.boosting ? 0.012 : 0.015) / quality;
+  if ((player.speedActive || player.feverActive) && trailTimer <= 0) {
+    trailTimer = (player.feverActive ? 0.009 : player.boosting ? 0.03 : 0.015) / quality;
     const s = trailSprites.find(s => !s.visible);
     if (s) {
       s.visible = true;
@@ -1021,10 +1033,11 @@ export function updateDragon(dt, player, time) {
   // TIP, denser the more evolved the form (spineGlow proxies the tier), and a
   // white-gold core during Surge.
   boostTrailTimer -= dt;
-  if (player.boosting && boostTrailTimer <= 0) {
+  if ((player.boosting || player.feverActive) && boostTrailTimer <= 0) {
     const fxLvl = activeDef.model.spineGlow || 0; // 0 hatchling → 1 apex
     const pr = activeDef.model.particleRate ?? 1; // per-form trail density (apex emits more)
-    boostTrailTimer = (player.feverActive ? 0.012 : 0.018) / (quality * (1 + fxLvl * 0.7) * pr);
+    // Light tail trail while boosting; the current heavier rate stays for Surge.
+    boostTrailTimer = (player.feverActive ? 0.012 : 0.035) / (quality * (1 + fxLvl * 0.7) * pr);
     const s = boostTrailSprites.find(s => !s.visible);
     if (s && tailSegs.length) {
       tailSegs[tailSegs.length - 1].getWorldPosition(tmpV);
@@ -1086,18 +1099,25 @@ export function updateDragon(dt, player, time) {
     }
   }
 
-  // ── Mk II universal wing FX (gated to Mk II for now; generalise later) ──────────────
-  const isMk2 = !!activeDef.model.wingParts;
+  // ── Universal wing FX — wingtip edge-trails + hard-bank aero-shear. They emit from
+  //    the wingtip markers, which (nearly) every dragon model provides, so the WHOLE
+  //    roster gets them (previously gated to Mk II only). Per-form intensity still
+  //    scales it; dragons without a form level default to a moderate, visible level.
+  const hasWingFx = !!(tipMarkerL || tipMarkerR);
   // (1) Wing-edge tip trails — thin streaks off the wingtip markers, scaling with boost/
   // surge + the form's maturity. WHITE at cruise/boost; the player's custom trail colour
   // during Surge (magenta-pink fallback). Per-form intensity (baby minimal → Eternal best).
-  if (isMk2) {
-    const wtFx = [0.05, 0.18, 0.45, 1.0][activeDef.model.formLevel ?? 3] ?? 1;
+  if (hasWingFx) {
+    const wtFx = [0.05, 0.18, 0.45, 1.0][activeDef.model.formLevel ?? 2] ?? 1;
     const surging = player.feverActive;
-    if (wtFx > 0 && (player.boosting || surging) && (tipMarkerL || tipMarkerR)) {
+    const isPhx = activeDef.archetype === 'phoenix';
+    const turning = bankHard > 0.25;   // actively banking left / right
+    // Wingtip edge-trails fire when TURNING (air shed off the tips) — NOT constantly
+    // while boosting. The Phoenix is the exception: it streams them constantly in Surge.
+    if (wtFx > 0 && (tipMarkerL || tipMarkerR) && ((isPhx && surging) || turning)) {
       wingtipTrailTimer -= dt;
       if (wingtipTrailTimer <= 0) {
-        wingtipTrailTimer = (surging ? 0.02 : 0.034) / (quality * wtFx);
+        wingtipTrailTimer = (surging ? 0.02 : 0.03) / (quality * wtFx);
         const hex = surging ? (activeDef.hasStyle ? pickTrailHex(activeDef.trail) : 0xff4fd8) : 0xffffff;
         for (const marker of [tipMarkerL, tipMarkerR]) {
           if (!marker) continue;
@@ -1121,8 +1141,8 @@ export function updateDragon(dt, player, time) {
   }
   // (2) Hard-bank aero-shear / wingtip vortex — thin WHITE vapor off the wingtips at high
   // speed + hard bank; the OUTSIDE wing (opposite the turn) shows the stronger/longer streak.
-  if (isMk2 && speedNorm > 0.58 && bankHard > 0.5 && (tipMarkerL || tipMarkerR)) {
-    const asFx = [0.2, 0.45, 0.7, 1.0][activeDef.model.formLevel ?? 3] ?? 1;
+  if (hasWingFx && speedNorm > 0.58 && bankHard > 0.5) {
+    const asFx = [0.2, 0.45, 0.7, 1.0][activeDef.model.formLevel ?? 2] ?? 1;
     aeroShearTimer -= dt;
     if (aeroShearTimer <= 0) {
       aeroShearTimer = 0.016 / quality;
@@ -1161,7 +1181,7 @@ export function updateDragon(dt, player, time) {
     const emitting = isPhx || player.feverActive;
     moteTimer -= dt;
     if (emitting && moteTimer <= 0 && tailSegs.length) {
-      moteTimer = isPhx ? Math.max(0.05, (player.boosting ? 0.08 : 0.18) - fxLvl * 0.07) : 0.045;
+      moteTimer = isPhx ? Math.max(0.05, (player.feverActive ? 0.07 : player.boosting ? 0.08 : 0.18) - fxLvl * 0.07) : 0.045;
       const s = emberMotes.find(s => !s.visible);
       if (s) {
         const src = isPhx ? tailSegs[Math.floor(tailSegs.length * 0.6)]
@@ -1171,7 +1191,7 @@ export function updateDragon(dt, player, time) {
         s.userData.life = 1;
         if (isPhx) {
           s.userData.vy = 0.5 + Math.random() * 0.9;
-          s.material.color.setHex(player.boosting ? 0xfff0c8 : 0xffd987);
+          s.material.color.setHex(player.feverActive ? 0xfff2d0 : player.boosting ? 0xfff0c8 : 0xffd987);
           s.position.set(tmpV.x + (Math.random() - 0.5) * 1.0,
             tmpV.y + (Math.random() - 0.5) * 0.5, tmpV.z + Math.random() * 1.2);
         } else {
@@ -1183,7 +1203,8 @@ export function updateDragon(dt, player, time) {
         }
       }
     }
-    const peak = isPhx ? 0.26 + fxLvl * 0.14 : 0.5; // Phoenix embers eased down so they read as accents, not clutter
+    // Phoenix embers eased down so they read as accents — but in Surge they blaze.
+    const peak = isPhx ? (player.feverActive ? 0.5 : 0.26 + fxLvl * 0.14) : 0.5;
     for (const s of emberMotes) {
       if (!s.visible) continue;
       s.userData.life -= dt * 0.85;

@@ -447,10 +447,10 @@ export const ui = {
           <!-- 3 EQUAL notched cells (one Surge phase each). Faint track always
                shows all three; a cell fills teal when its phase is affordable and
                glows hard when also in a Surge. -->
-          <path class="arc-trk" pathLength="100" stroke-dasharray="31.3 3 31.3 3 31.4" d="M 22 14 Q 125 74 228 14"/>
-          <path class="arc-cell" id="stam-seg-0" pathLength="100" stroke-dasharray="31.3 68.7" d="M 22 14 Q 125 74 228 14"/>
-          <path class="arc-cell" id="stam-seg-1" pathLength="100" stroke-dasharray="0 34.3 31.3 34.4" d="M 22 14 Q 125 74 228 14"/>
-          <path class="arc-cell" id="stam-seg-2" pathLength="100" stroke-dasharray="0 68.6 31.4 0" d="M 22 14 Q 125 74 228 14"/>
+          <path class="arc-trk" pathLength="100" stroke-dasharray="28 8 28 8 28" d="M 22 14 Q 125 74 228 14"/>
+          <path class="arc-cell" id="stam-seg-0" pathLength="100" stroke-dasharray="28 72" d="M 22 14 Q 125 74 228 14"/>
+          <path class="arc-cell" id="stam-seg-1" pathLength="100" stroke-dasharray="0 36 28 36" d="M 22 14 Q 125 74 228 14"/>
+          <path class="arc-cell" id="stam-seg-2" pathLength="100" stroke-dasharray="0 72 28" d="M 22 14 Q 125 74 228 14"/>
         </svg>
       </div>
       <!-- Surge: a bare gem row (no label/box) + a quiet multiplier -->
@@ -562,19 +562,27 @@ export const ui = {
     const hearts = els.healthHearts.children;
     for (let i = 0; i < hearts.length; i++)
       hearts[i].classList.toggle('full', game.health > i * heartUnit + 0.01);
-    // Stamina shown as 3 phase segments — each is one Dragon-Surge phase-through
-    // (a third of the bar). Lit segments = phases you can currently afford. The
-    // bar only lights up brightly (surge colour + glow) during a Surge, so the
-    // player instantly sees how many windows they can phase through.
-    // Three EQUAL notched cells (one Surge phase each). A cell is "on" (teal) when
-    // its phase is affordable; it glows hard ("lit") when also in a Surge — so you
-    // see at a glance how many windows you can phase through.
+    // Stamina = 3 EQUAL notched cells, each one Dragon-Surge phase-through (a third
+    // of the bar). Each cell fills LIVE (proportional to the stamina inside its
+    // third), so boosting drains the bar smoothly right-to-left instead of snapping
+    // in thirds. A filled cell is dimly lit teal; during a Surge it glows hard, so
+    // you see at a glance how many windows you can phase through.
     const third = CONFIG.staminaMax / 3;
     const inSurge = !!game.feverActive;
+    const SEG_START = [0, 36, 72];   // pathLength offset where each cell begins (8-wide notch gaps)
+    const SEG_LEN = [28, 28, 28];    // each cell's drawable length
     for (let i = 0; i < 3; i++) {
-      const on = game.stamina >= (i + 1) * third - 0.5;
-      els.stamSegs[i].classList.toggle('on', on);
-      els.stamSegs[i].classList.toggle('lit', on && inSurge);
+      const fill = Math.max(0, Math.min(1, (game.stamina - i * third) / third));
+      const drawn = fill * SEG_LEN[i];
+      // Draw `drawn` of this cell starting at its offset; the rest is gap. NEVER emit
+      // a trailing 0 — a zero-length final gap (e.g. the last cell at full) makes some
+      // SVG engines (mobile WebKit) DROP the segment, so the 3rd notch would vanish.
+      const rest = 100 - SEG_START[i] - drawn;
+      els.stamSegs[i].setAttribute('stroke-dasharray', rest > 0.05
+        ? `0 ${SEG_START[i].toFixed(2)} ${drawn.toFixed(2)} ${rest.toFixed(2)}`
+        : `0 ${SEG_START[i].toFixed(2)} ${drawn.toFixed(2)}`);
+      els.stamSegs[i].classList.toggle('on', fill > 0.001);
+      els.stamSegs[i].classList.toggle('lit', inSurge && fill > 0.001);
     }
     const shownScore = Math.floor(game.score);
     els.score.textContent = shownScore;

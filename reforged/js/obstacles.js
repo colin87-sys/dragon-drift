@@ -121,6 +121,18 @@ export function initObstacles(s) {
       color: 0xc8d4e4, transparent: true, opacity: 0.08, depthWrite: false,
       side: THREE.DoubleSide, fog: true,
     }),
+    // Soul-fire for the skull's eyes — a cold green ember that pulses (shared, one
+    // write/frame in updateObstacles) so the mouth reads as "something ancient is
+    // awake" from a distance. Bright emissive so it blooms.
+    soul: new THREE.MeshStandardMaterial({
+      color: 0x0c2415, flatShading: true, roughness: 0.3, metalness: 0.0,
+      emissive: 0x4dff9e, emissiveIntensity: 1.8,
+    }),
+    // Dark recess for the skull's eye sockets — the glowing eye set inside it reads
+    // clearly as an eye-in-socket against the ivory bone.
+    socket: new THREE.MeshStandardMaterial({
+      color: 0x140f0a, flatShading: true, roughness: 0.9, metalness: 0.0,
+    }),
   };
   // Phase Gate skins, one material set per biome.
   veilMats = PHASE_SKINS.map((s) => makeVeilMat(s.veil, s.edge));
@@ -463,26 +475,28 @@ function buildRockGap(o, e) {
     const cx = 2 * W;           // TWICE as wide
     const cy = H + 5.5;         // TALLER — the arch clears the forward sightline
     const cYc = gy + 1.5;       // lift the cage so the belly opening stays roomy
-    const runIdx = o.runIdx || 0;
-    // Lateral sweep that fakes the curl of a long body: the tunnel starts on the
-    // far side (cos = ±1 at the cage's first rib) and continues seamlessly across
-    // sections (phase is shared at the section seams), so it reads as ONE long
-    // curving ribcage, not isolated clumps.
-    const phaseAt = (f) => runIdx - 2 + f;
-    const sway = (f) => (o.swaySign || 1) * 3.0 * Math.cos((Math.PI / 2) * phaseAt(f));
+    // The rib centre follows a SMOOTH curve through the rings: from the midpoint with
+    // the previous ring (at the entry), through this ring (dead-centre at the segment
+    // middle), to the midpoint with the next ring (at the exit). So consecutive ribs
+    // stagger GENTLY — a gentle curve, never a full-rib jump at a seam — and the
+    // reward ring sits dead-centre. Midpoints match the neighbour segments' edges, so
+    // the whole run reads as one continuous winding tunnel.
+    const px = o.prevX !== undefined ? o.prevX : gx;
+    const nx = o.nextX !== undefined ? o.nextX : gx;
+    const entryX = (px + gx) / 2, exitX = (gx + nx) / 2;
+    const baseAt = (f) => f <= 0.5 ? entryX + (gx - entryX) * (f / 0.5)
+                                   : gx + (exitX - gx) * ((f - 0.5) / 0.5);
 
-    // Collision FOLLOWS the sweep: thin side walls placed per-rib at each rib's
-    // depth (oz), so the safe corridor curves smoothly with the bone instead of
-    // jumping sideways at section seams (which forced blind dodges). The corridor
-    // is set just at the visible rib inner and the walls are thin, so you can fly
-    // right up to a rib before grazing it. Belly + overhead stay open.
+    // Collision FOLLOWS the curve: thin side walls placed per-rib at each rib's depth
+    // (oz), so the safe corridor curves smoothly with the bone. Belly + overhead stay
+    // open; fly down the middle.
     const cor = cx * 0.92;
     const wallHz = (depthHalf / Math.max(nRibs - 1, 1)) * 0.62; // tiles along z, slight overlap
 
     for (let k = 0; k < nRibs; k++) {
       const f = nRibs > 1 ? k / (nRibs - 1) : 0.5;
       const z = -depthHalf + f * 2 * depthHalf;
-      const ox = gx + sway(f);
+      const ox = baseAt(f);
       box(ox - cor, cYc, 0.4, cy * 0.9, wallHz, z);
       box(ox + cor, cYc, 0.4, cy * 0.9, wallHz, z);
       const wS = cx * (1 + flare * Math.abs(f - 0.5) * 1.6);
@@ -494,6 +508,12 @@ function buildRockGap(o, e) {
       if (neural) place(new THREE.ConeGeometry(0.6, 2.2, 5), ox, cYc + hS + 1.7, z); // neural spine
     }
   };
+
+  // Size a ribcage to the LOCAL ring spacing so the bone tunnel tiles edge-to-edge
+  // on every rhythm (burst/flow/breath) — a rib lands ~every 6 units everywhere, so
+  // the ribbing stays continuous and dense instead of thinning on long-spacing beats.
+  const dhFor = (mult = 1) => Math.max(36, Math.min(80, (o.span || 80) * 0.6)) * mult;
+  const nrFor = (dh) => Math.max(8, Math.round((dh * 2) / 6));
 
   // --- ROCK RUN -------------------------------------------------------------
   if (o.kind === 'split') {
@@ -508,34 +528,76 @@ function buildRockGap(o, e) {
 
   // --- DRAGON SPINE CANYON --------------------------------------------------
   } else if (o.kind === 'skull') {
-    // The enormous open mouth: cranium + horns above, jaws framing the opening,
-    // teeth bordering it, cheek hinges flanking. The mouth centre is the gap.
-    lump(gx, gy + H + 5.6, W + 5, 3.6, T + 2.5, 0.45);          // cranium
-    decorCone(1.1, 6.5, gx - (W + 4), gy + H + 7.5, -1, -0.5, 0, 0.5);  // L horn
-    decorCone(1.1, 6.5, gx + (W + 4), gy + H + 7.5, -1, -0.5, 0, -0.5); // R horn
-    lump(gx, gy + H + 1.4, W + 3.4, 1.4, T + 0.4, 0.22);        // upper jaw
-    lump(gx, gy - H - 1.4, W + 3.4, 1.4, T + 0.4, 0.22);        // lower jaw
-    lump(gx - (W + 2.4), gy, 1.6, H + 2, T);                    // L cheek hinge
-    lump(gx + (W + 2.4), gy, 1.6, H + 2, T);                    // R cheek hinge
-    const nteeth = 5;
+    // A dragon skull you fly INTO: an elongated cranium + heavy brow over recessed
+    // glowing eyes, a tapering snout/jaw framing the mouth, swept-back horns and
+    // interlocking fangs. Smoother shapes + deliberate placement so it reads as a
+    // HEAD, not a pile of rock. The open mouth IS the gap; colliders frame it but
+    // never intrude on the opening.
+    const cz = T + 1.2;                          // bring the face toward the approach
+    // A smooth-ish bone mass: a once-subdivided icosa, lightly jittered, NO random
+    // spin (so elongated shapes keep their intended orientation), + a frame collider.
+    const boneMass = (cx, cy, z, hw, hh, hz, jag = 0.13, rx = 0) => {
+      const geo = new THREE.IcosahedronGeometry(1, 1);
+      geo.scale(hw, hh, hz);
+      const p = geo.attributes.position;
+      for (let k = 0; k < p.count; k++) { const j = 1 - jag * 0.5 + rng() * jag; p.setXYZ(k, p.getX(k) * j, p.getY(k) * j, p.getZ(k) * j); }
+      geo.computeVertexNormals();
+      place(geo, cx, cy, z, rx, 0, 0);
+      box(cx, cy, hw, hh, hz, z);
+    };
+    boneMass(gx, gy + H + 6.8, -1.5, W + 6, 5.2, T + 4.5, 0.11, -0.25);  // cranium dome (up & back)
+    boneMass(gx, gy + H + 3.4, cz, W + 5.2, 1.2, T + 1.8, 0.1);          // heavy brow ridge
+    boneMass(gx, gy + H + 1.6, cz + 0.6, W + 3, 1.6, T + 2.6, 0.12);     // snout / upper jaw (bottom at mouth top)
+    boneMass(gx, gy - H - 1.6, cz + 0.4, W + 3, 1.6, T + 2.2, 0.13);     // lower jaw (top at mouth bottom)
+    boneMass(gx - (W + 2.7), gy + 0.4, cz - 0.4, 1.7, H + 2.2, T + 1, 0.16); // L cheekbone
+    boneMass(gx + (W + 2.7), gy + 0.4, cz - 0.4, 1.7, H + 2.2, T + 1, 0.16); // R cheekbone
+    // Eye sockets: a dark recessed ring with the soul-fire eye set deep inside,
+    // angled down-and-out so the skull reads as glaring at you.
+    const socketGeo = new THREE.TorusGeometry(1.45, 0.55, 6, 16);
+    for (const sx of [-1, 1]) {
+      const ex = gx + sx * (W + 2.3), ey = gy + H + 2.2;
+      const sock = new THREE.Mesh(socketGeo, mats.socket);
+      sock.position.set(ex, ey, cz + 0.5); sock.rotation.set(0.25, sx * 0.35, 0);
+      group.add(sock);
+      const eye = new THREE.Mesh(new THREE.IcosahedronGeometry(0.8, 0), mats.soul);
+      eye.position.set(ex, ey, cz + 0.1);
+      group.add(eye);
+    }
+    // Swept-back horns: long, smooth, angled up & back & splayed out from the crown.
+    for (const sx of [-1, 1]) {
+      const horn = new THREE.Mesh(new THREE.ConeGeometry(1.4, 11, 7), fadeMat);
+      horn.position.set(gx + sx * (W + 4.2), gy + H + 9.5, -2.5);
+      horn.rotation.set(-0.7, 0, sx * 0.5);
+      group.add(horn);
+    }
+    // Interlocking fangs along the jaw lines — bigger canines at the corners.
+    const nteeth = 6;
     for (let k = 0; k < nteeth; k++) {
-      const tx = gx - W + (k / (nteeth - 1)) * (2 * W);
-      decorCone(0.42, 1.5, tx, gy + H - 0.5, 0.3, Math.PI, 0, 0); // upper fang ↓
-      decorCone(0.42, 1.5, tx, gy - H + 0.5, 0.3, 0, 0, 0);       // lower fang ↑
+      const tx = gx - (W + 0.4) + (k / (nteeth - 1)) * 2 * (W + 0.4);
+      const big = (k === 0 || k === nteeth - 1) ? 2.0 : 1.2;
+      decorCone(0.46, big, tx, gy + H + 0.1, cz + 1, Math.PI, 0, 0);     // upper fang ↓
+      decorCone(0.4, big * 0.8, tx, gy - H - 0.1, cz + 1, 0, 0, 0);      // lower fang ↑
     }
   } else if (o.kind === 'throat') {
     // First interior beat: neck vertebrae + the first ribs, tiling into the cage.
-    ribcage(28, 8, { vert: 0.6 });
-  } else if (o.kind === 'rib') {
-    // Main ribcage corridor: a CONTINUOUS run of successive ribs (a rib ~every 7
-    // units). Sections tile end-to-end so it reads as one long rib tunnel.
-    ribcage(40, 12);
-  } else if (o.kind === 'vertebra') {
-    // Spine rhythm: ribs with prominent dorsal vertebrae + neural spines.
-    ribcage(40, 11, { vert: 1.0, neural: true });
-  } else if (o.kind === 'exitflare') {
-    // Release: the last ribs flare OUTWARD, spacing opens, mostly sky — payoff.
-    ribcage(34, 9, { flare: 0.9 });
+    const dh = dhFor(0.8);
+    ribcage(dh, nrFor(dh), { vert: 0.6 });
+    // Lateral entrance gnarls: bone buttresses fill the OUTER lane margins so you're
+    // funnelled INTO the ribcage rather than skimming around it. Sized to whatever
+    // room is left beside the (possibly off-centre) opening, so they never seal the
+    // way in — the corridor + a margin always stays clear.
+    const safeHalf = 2 * W * 0.92 + 1.6;          // just outside the rib corridor
+    const cyW = (CONFIG.laneMinY + CEIL) / 2, hhW = (CEIL - CONFIG.laneMinY) / 2;
+    const lInner = gx - safeHalf, rInner = gx + safeHalf;
+    if (lInner > -LANE + 1.5) lump((-LANE + lInner) / 2, cyW, (lInner + LANE) / 2, hhW, T, 0.3);
+    if (rInner < LANE - 1.5) lump((LANE + rInner) / 2, cyW, (LANE - rInner) / 2, hhW, T, 0.3);
+  } else if (o.kind === 'rib' || o.kind === 'straightrib') {
+    // The rib run: a CONTINUOUS run of successive ribs that wind GENTLY with the ring
+    // line (a smooth curve, rings dead-centre), tiling edge-to-edge as one long
+    // tunnel. The finale ('straightrib') is the same ribs with a line of speed orbs
+    // down the centre (placed in level.js) — boost flat-out and burst into open air.
+    const dh = dhFor();
+    ribcage(dh, nrFor(dh), {});
   }
 
   // No rim/frame on any canyon gate: every opening is framed by its own rock
@@ -549,6 +611,9 @@ function buildRockGap(o, e) {
 export function updateObstacles(dt, time, playerDist, speedNorm = 0) {
   // Warning pulse on every moving shard (shared material, one write).
   mats.mover.emissiveIntensity = 0.9 + Math.sin(time * 6) * 0.45;
+  // Skull soul-fire eyes breathe (shared material, one write) so the mouth reads as
+  // "ancient, awake" — pulsing together across any skull instance.
+  if (mats.soul) mats.soul.emissiveIntensity = 1.7 + Math.sin(time * 2.2) * 0.6;
   const sn = Math.max(0, Math.min(1, speedNorm));
   // Phase Gate: flow the veil shimmer (shared per biome) and give the aperture
   // ring a gentle, speed-aware breath. Six writes each — negligible.

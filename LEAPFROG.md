@@ -3421,3 +3421,136 @@ are centered on the existing serpentine ring line, so the ring path already snak
 kind → geometry dispatch), not a bag of identical segments — that's what turns "some rocks" into "I flew
 through the mouth and ribcage of a dragon." And any lane limit a barrel-roll could cheese must bypass the
 roll i-frame check, the same way the ground always has.
+
+**Addendum — iteration 3 (outside reviewer): authoring the spine into "Ancient Remains v2".**
+An outsider proposed turning the leviathan skeleton into a full "journey through the corpse" (skull
+approach → throat choke → rib slalom with varied rhythm/broken ribs → **heart chamber** → vertebrae ring
+tunnel → tail-burst exit), plus mechanics riffs (gem trails, surge-break bone walls, phase-through
+membranes, barrel-roll crystal growths). The useful filter was the **overlay architecture itself**: three
+of its invariants quietly veto whole categories of "good ideas," so they got dropped, not debated —
+(1) the canyon writes ONLY to `canyonSegments/Starts/Ends` on `canyonRnd`, so it **cannot add/move any
+collectible** (every gem-trail / orbiting-gem / safe-line-gem idea is out — `gold-determinism.mjs` stays
+the proof); (2) each segment is **1:1 bound to a centred reward ring**, so **nothing solid can sit on the
+line** (a heart "core you fly around / pick a side" is out — the core became *decorative, offset, no
+collider*); (3) canyon rock is **non-fatal + always-passable**, so a *mandatory* surge-wall/phase-membrane
+is out (an optional route with no reward — collectibles forbidden — is pointless). What survived was pure
+**geometry + juice**, which is exactly where an overlay is free: `pickKind` became an explicit positional
+template with a `heart` beat at the midpoint (`open→tight→OPEN→tight→release`); `ribcage()` grew
+`{broken, tilt, squeeze}` so the front ribs *tighten toward the heart* and throw the occasional snapped rib
+(kills the repeating-mesh read — the #1 complaint) while the **corridor colliders stay identical** (variety
+above the hitbox, never in it); a new `heartChamber()` is a wide-open cavity (sparse huge flared arches +
+a translucent magenta `mats.heart` crystal offset to the sway side) that *reinforces* the see-through value
+instead of fighting it; skull got bigger + pulsing soul-fire eyes (shared `mats.soul`, one emissive write/
+frame like `mats.mover`); and entry/exit beats are a shake + mist puff / bone-dust `burst` on the existing
+canyon boundary (no new plumbing). `spineSegments [7,9]→[10,12]` to fit the act without a 30s slog.
+**→ Leapfrog:** when a reviewer hands you a wish-list, **let the architecture's invariants do the triage** —
+a determinism-overlay's "can't touch base arrays / 1:1 ring binding / always-passable" rules pre-sort every
+idea into *free* (geometry, emissive, particles, camera) vs *expensive* (collectibles, hard blocks, new
+reward systems). Spend only in the free lane and you ship the spectacle (an authored multi-act set piece)
+
+**Addendum — iteration 7 (owner): "what happened to the surge VFX?" — a feature GATE, not a regression.**
+The owner felt the dragons' Dragon-Surge effects had disappeared. An evidence pass (read + `git log`) found
+nothing deleted: the universal surge VFX (material flare, trail colour-shift to magenta, aura bloom, Phoenix
+ember-motes) are all live. The missing piece was the **wingtip edge-trails + hard-bank aero-shear**, which
+were **deliberately gated to Aurum Toro Mk II** (`const isMk2 = !!activeDef.model.wingParts`, commit `4074762`,
+with the note "gated to Mk II for now; generalising is a one-line gate change once approved"). The wingtip
+*markers* (`tipMarkerL/R`) and the sprite *pools* already exist for the whole roster, so the gate was the only
+restriction — flipping it to a marker test (`hasWingFx = !!(tipMarkerL || tipMarkerR)`) gives every dragon the
+effect, with the per-form intensity defaulting to a moderate level for form-less dragons. Also found: barrel
+roll emitted **zero particles** (only camera + SFX), so added a `rollWake()` vapor emitter (lateral + behind,
+stretched along velocity) fired per-frame through the roll. **→ Leapfrog:** before "fixing a regression,"
+prove it IS one — `git log -p` the suspect files. A feeling of "this used to be here" often resolves to a
+deliberate feature gate (`isX`) with the infrastructure already roster-wide; the fix is flipping the gate, not
+rebuilding the feature. And the gate's own commit message usually tells you it was waiting for exactly this.
+
+**Addendum — iteration 8 (owner: "in Surge but no tail trail"): a pooled-sprite allocator starved by a
+force-show.** The owner saw the new wingtip trails but NO tail trail in Surge. I almost said "wrong build";
+the honest move was to MEASURE — added a debug seam (`__trailDebug()` on `window.__dd` under `?debug`)
+returning the live visible-count per emitter. It showed `boost=0, trail=0, ember=0` even while *boosting*,
+but `wingtip=2`. The tell: those three zeros are exactly the pools listed in `setDragonFxVisible()`, and the
+one non-zero pool is the one NOT in that list. Root cause: `main.js` ran `setDragonFxVisible(!hideShopFx)`
+**every frame before `updateDragon`**, and during play `!hideShopFx` is `true` → it set EVERY pooled trail
+sprite `visible = true`. The emitters allocate via `find(s => !s.visible)`; with every sprite force-shown
+there was never a free one, so **nothing emitted** — the boost/speed/ember trails had been silently dead for
+the whole roster, not just in Surge. Fix: only HIDE at the shop (`if (hideShopFx) setDragonFxVisible(false)`);
+never force-show during play — the emitters re-show their own sprites on emit. Guarded by `tests/surgefx.mjs`.
+**→ Leapfrog:** when one effect works and a sibling set doesn't, diff what's DIFFERENT about them (here:
+membership in a visibility-toggle list) — the partition IS the clue. Never `visible = true` a whole pool
+that's allocated by `find(!visible)`: a force-show is a force-starve. And when a user says "X isn't showing,"
+instrument the actual emitter count before theorising about builds or caches — measurement beats assumption,
+especially right after you've already been wrong once.
+
+**Addendum — iteration 9 (owner): trail gating + a stamina bar stuck at "2 notches".** Trail feel: wingtip
+edge-trails were emitting constantly while boosting; the owner wanted them only **when turning** (air shed off
+the tips), with the **Phoenix** the sole exception (constant in Surge). Fix: gate the wingtip emit on
+`bankHard > 0.25` (the lateral-bank signal already computed for the aero-shear) OR `(isPhx && surging)`. And
+the boost-time *tail* trail was too heavy — lightened its rate (`0.018→0.035`, `speed-trail 0.012→0.03`) while
+leaving the Surge rates the owner already liked. The stamina bar bug was the sharper lesson: it had shown "2
+notches not 3" across EVERY build, and the cause was a **trailing zero in cell 3's `stroke-dasharray`**
+(`"0 72 28 0"` / the JS `…28 0` at full). A zero-length FINAL dash/gap is a known SVG pitfall — several
+engines (notably mobile WebKit) drop that segment, so the 3rd cell never drew. Fix: never emit a trailing 0
+(drop the 4th value when the remainder rounds to zero → `"0 72 28"`). **→ Leapfrog:** a bug that survives
+many "fixes" and reproduces only on the owner's device is a hint it's **renderer-specific**, not logic — and
+SVG `stroke-dasharray` with a trailing `0` is exactly that class of trap (renders in Chromium, vanishes in
+mobile WebKit). When a visual won't reproduce in headless, suspect the platform's renderer, not your math.
+without paying the determinism/fairness tax — and **vary the mesh, never the hitbox**, so "less repetitive"
+never means "less fair."
+
+**Addendum — iteration 4 (owner playtest): density, a barrel-chest, and a roll-through tail finale.**
+On the preview the v3 spine felt **thinner, not richer** — "less ribs, doesn't feel continuous, breaks up
+with crystal windows." Three causes, all from the v3 changes: (1) a **longer run** straddles more of the
+ring *rhythm*, which swings hard (`nextWaypoint`: ≈55 units in "burst" up to ≈130 in "breath") — and a
+ribcage with a FIXED `depthHalf` (80-unit coverage) leaves real gaps on the long-spacing beats; (2) the
+heart was a **sparse 4-arch void** dead-centre; (3) **22% broken ribs** thinned the read. Fixes: tie each
+ribcage's `depthHalf`/`nRibs` to the **local ring spacing** (new overlay-only `seg.span = ring.dist -
+prevRing.dist`) so a rib lands **~every 6 units on every rhythm** — continuity becomes spacing-invariant
+instead of hoping the run lands on flow cadence. The heart became a **proper full-size ribcage** (a `grow`
+multiplier swelling width + height into a barrel chest) you still fly *through*, with the crystal as a
+decorative landmark beside the path; ribs swell 1.0→1.25 into the chest and taper back out (a body
+silhouette). Broken ribs → a subtle chip (rate 0.10, near-complete arc). **→ Leapfrog A:** when an overlay
+hangs geometry off a host line whose *spacing varies*, size the geometry to the **local spacing**, never a
+constant — "looks continuous" must not depend on which rhythm the host happened to be in.
+
+Then the owner asked for a **tail finale**: speed boosts you fly straight through, then a barrel-roll-through
+curtain into open air. The collectible veto from iteration 3 turned out to be **narrower than assumed** —
+`gold-determinism.mjs` freezes only `rings`/`obstacles`/`goldEmbers`, **NOT `orbs`** — so the overlay CAN
+string **speed orbs** (`out.orbs`, via a fixed deterministic line off the exit ring) without touching the
+fixture or the main `rnd`. The roll-through is a new `tailgate` beat: a brittle bone **portcullis across the
+WHOLE exit (no gap)** flagged `e.rollwall`; in collision, an active barrel-roll (`player.rollInvuln > 0`)
+**shatters it for style**, no roll is a light **non-fatal chip** — either way you pass into open air, it
+never blocks. Pure reuse: roll i-frames, the gate's shatter transform, `phaseBurst`, the orb pipeline.
+**→ Leapfrog B:** re-derive a constraint before letting it veto a feature — "the overlay can't add
+collectibles" was really "can't touch the *frozen* arrays," and orbs were never frozen. And a "barrel-roll
+through it" beat doesn't need a fail state: make the wall **non-fatal + always-passable**, and let the roll
+turn a chip into a *reward* — the mechanic teaches itself without ever ending a run.
+
+**Addendum — iteration 5 (owner playtest): cut the clever, keep the spine.** On the preview the
+multi-act spine read as **messy** — the owner's call was to strip it back: "our old rib run was good, just
+do MORE of it," lead in with a redesigned skull, and end on a **straight rib tunnel with a few speed boosts**
+you boost flat-out through into open air. So the heart chamber, broken ribs, chest-grow, vertebra variety
+AND the roll-through curtain all came **out** — `pickKind` is now just `skull → throat → rib (the swaying
+run, the bulk) → straightrib (finale)`. The finale reuses the same `ribcage` with a one-line `straight`
+flag (zero the sway) and strings `out.orbs` boosts through its first few segments; `spineSegments [9,11] →
+[13,16]` for "more of it." The **skull redesign** is the transferable bit: the old one was `lump()`s —
+icosahedra with *random full-axis rotation* + heavy jitter — which reads as a rubble pile, not a head. The
+fix was a local `boneMass` that (a) uses a **once-subdivided** icosa with **low jitter** (smooth, not
+craggy), (b) places with **NO random spin** so elongated masses (snout/brow/jaw) keep their intended
+orientation, and (c) adds **dark recessed eye sockets** (`mats.socket`) with the glowing eye set inside —
+contrast is what makes an eye read as an eye. Colliders frame the mouth but are tuned so none dips into the
+gap. **→ Leapfrog:** procedural "creature" geometry lives or dies on **controlled orientation + smoothness
++ local contrast**, not part count — random-rotation jittered blobs never read as anatomy. And when an
+authored set piece feels "messy," the fix is usually **subtract beats, not add polish**: one strong idea
+(a long rib run) done well beats five clever ones competing for the same 20 seconds.
+
+**Addendum — iteration 6 (owner): a finale that LOCKS straight.** "Straight tunnel" wasn't enough — the
+finale ribs had only dropped the sway but still centred each beat on its own reward ring, which snakes, so
+it read as a *wandering* tube, not a straight one. The owner's vision: a **dead-straight line of speed
+boosts down the inside of the ribs** that builds speed until you shoot out. Fix: at the first finale
+segment, capture a fixed `finaleX/finaleY` on the run-state object and stamp it onto every finale segment;
+`ribcage` gained `centerX/centerY` so the hoops + corridor colliders lock to that line instead of `gapX/
+gapY`, and a boost is placed ON the line in each finale beat → a continuous straight orb-line inside a
+straight tube. **→ Leapfrog:** "make it straight" in an overlay that hangs off a *wandering* host line means
+**stop following the host** for that stretch — zeroing the decorative wobble (sway) isn't enough if the
+underlying anchor still moves; capture one anchor and lock to it. The cost is the host's own collectibles
+(reward rings) drift off-centre there, which is the right call ONLY when that beat isn't about collecting
+them (here it's a pure speed rush) — so lock to the line where the beat's *purpose* lives, not the host's.

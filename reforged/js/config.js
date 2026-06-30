@@ -116,7 +116,8 @@ export const CONFIG = {
   canyonGapH: 3.9,            // half-height of the safe opening (≥ gateGapH)
   canyonThick: 2.2,           // z half-depth of a rock gate (collision + mesh)
   canyonSegments: [8, 11],    // a Rock Run sustains ~8-11s of enclosed canyon then opens up
-  spineSegments: [7, 9],      // a Dragon Spine Canyon is longer (skull→ribs→exit)
+  spineSegments: [13, 16],    // a Dragon Spine Canyon: skull→throat→long rib run→straight boost-out
+  spineFinaleSegs: 6,         // the closing STRAIGHT rib tunnel — a boost in each segment (~6-8s)
   canyonIntervalBase: 1500,   // metres between canyons (rarer than gauntlets)
   canyonIntervalJitter: 1100,
   canyonFirstAt: 900,         // earliest a canyon can begin (past the tutorial)

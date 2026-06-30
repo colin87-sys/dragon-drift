@@ -357,6 +357,10 @@ export function createLevelGen(seed = CONFIG.seed, opts = {}) {
       rings: [], obstacles: [], orbs: [], setPieces: [], embers: [],
       goldEmbers: [], gauntletStarts: [], gauntletEnds: [],
       canyonSegments: [], canyonStarts: [], canyonEnds: [],
+      // Dists of base Phase Gates that fall INSIDE a canyon run — main.js skips
+      // spawning these so a blind crystal window never appears between rib sections.
+      // A separate output array (never touches rings/obstacles) → fixture-safe.
+      canyonGateSuppress: [],
     };
     while (prev.dist < target) {
       // Authored first-flight opening takes over placement until it's spent.
@@ -491,24 +495,52 @@ export function createLevelGen(seed = CONFIG.seed, opts = {}) {
       return false;
     };
     const firstAt = CANYON_FORCE ? 320 : CONFIG.canyonFirstAt;
-    let prevRing = null;
+    let prevRing = null, prevSeg = null;
     for (const ring of out.rings) {
-      if (ring.dist < firstAt || inGauntlet(ring.dist)) { prevRing = ring; continue; }
+      if (ring.dist < firstAt || inGauntlet(ring.dist)) { prevRing = ring; prevSeg = null; continue; }
       if (!canyon && ring.dist >= nextCanyonAt) canyon = startCanyon(ring, out);
       if (canyon) {
-        out.canyonSegments.push(makeRockGap(ring, prevRing, canyon));
+        const seg = makeRockGap(ring, prevRing, canyon);
+        // Smooth the rib tunnel across seams: each seg knows its neighbours' centres
+        // so obstacles.js can interpolate a gentle curve through the rings (rings stay
+        // dead-centre) instead of jumping the full ring-wander at each segment seam.
+        seg.prevX = canyon.lastGapX !== undefined ? canyon.lastGapX : seg.gapX;
+        if (prevSeg) prevSeg.nextX = seg.gapX;
+        canyon.lastGapX = seg.gapX;
+        out.canyonSegments.push(seg);
+        canyon.gateTo = ring.dist;   // furthest rib so far → gate-suppression window end
+        // A continuous LINE of boosts — one per finale segment — so you grab boost
+        // after boost down the centre of the rib tube, then shoot out into open air.
+        if (seg.kind === 'straightrib') addFinaleOrb(seg, out);
+        prevSeg = seg;
         canyon.idx++;
         if (--canyon.left <= 0) {
           out.canyonEnds.push(ring.dist + 40);
+          suppressCanyonGates(out, canyon.gateFrom, ring.dist + 40);
           // Test harness: quick repeat with a stretch of normal rings between, so
           // each run shows before/after integration. Normal play: rare + jittered.
           nextCanyonAt = CANYON_FORCE
             ? ring.dist + 300
             : ring.dist + CONFIG.canyonIntervalBase + canyonRnd() * CONFIG.canyonIntervalJitter;
           canyon = null;
+          prevSeg = null;
         }
+      } else {
+        prevSeg = null;
       }
       prevRing = ring;
+    }
+    // A canyon still in progress at the chunk boundary: suppress the gates inside
+    // the part of it generated so far (the rest get suppressed as later chunks run).
+    if (canyon) suppressCanyonGates(out, canyon.gateFrom, canyon.gateTo);
+  }
+
+  // Mark base Phase Gates whose dist lands inside a canyon run, so main.js skips
+  // spawning them (no blind crystal window between rib sections). Reads obstacles,
+  // writes only the separate suppress list → base course stays byte-identical.
+  function suppressCanyonGates(out, from, to) {
+    for (const ob of out.obstacles) {
+      if (ob.type === 'gate' && ob.dist >= from && ob.dist <= to) out.canyonGateSuppress.push(ob.dist);
     }
   }
 
@@ -523,8 +555,10 @@ export function createLevelGen(seed = CONFIG.seed, opts = {}) {
     const left = CANYON_FORCE ? hi : lo + Math.floor(canyonRnd() * (hi - lo + 1));
     out.canyonStarts.push(ring.dist - 40);
     // The ribcage tunnel sweeps laterally to fake the body's curve; pick the side
-    // it starts on per run.
-    return { type, left, idx: 0, total: left, swaySign: canyonRnd() < 0.5 ? -1 : 1 };
+    // it starts on per run. gateFrom = start of the gate-suppression window, aligned
+    // with the canyon start marker (ring.dist - 40) so it covers the skull mouth.
+    return { type, left, idx: 0, total: left, swaySign: canyonRnd() < 0.5 ? -1 : 1,
+             gateFrom: ring.dist - 40, gateTo: ring.dist };
   }
 
   // Pick the geometry "kind" for this segment from the run type + its position in
@@ -541,12 +575,27 @@ export function createLevelGen(seed = CONFIG.seed, opts = {}) {
       if (CANYON_FORCE === 'overunder') return 'overunder';
       return wantShelf ? 'overunder' : 'split';
     }
-    // Dragon Spine Canyon beats: skull mouth → throat → ribcage/vertebrae → exit.
-    const i = c.idx, last = c.total - 1;
+    // Dragon Spine Canyon: skull (a head you fly into) → throat → a long run of
+    // gently swaying ribs (the heart of it) → a STRAIGHT rib tunnel finale you boost
+    // flat-out through into open air.
+    const i = c.idx;
     if (i === 0) return 'skull';
     if (i === 1) return 'throat';
-    if (i >= last - 1) return 'exitflare';     // last two ribs flare open
-    return (i % 3 === 0) ? 'vertebra' : 'rib';  // mostly ribs, a vertebra every 3rd
+    if (i >= c.total - CONFIG.spineFinaleSegs) return 'straightrib';  // the boost-out finale
+    return 'rib';                                                     // the swaying rib run (bulk)
+  }
+
+  // The finale strings a few SPEED BOOSTS through the straight tunnel — no
+  // navigation, pure "show speed": grab a boost and blast straight out into open
+  // air. Orbs ride a fixed deterministic line off the segment's ring; they're not
+  // part of the gold-determinism fixture and we never touch the main rnd / rings /
+  // obstacles, so the base course stays byte-identical.
+  function addFinaleOrb(seg, out) {
+    out.orbs.push({
+      dist: seg.dist - 8,
+      x: clamp(seg.gapX, -11, 11),        // ON the ring line, dead-centre inside the ribs
+      y: clamp(seg.gapY, 4.5, 20),
+    });
   }
 
   // One canyon gate's data: a safe aperture centered on the ring, plus the kind
@@ -561,11 +610,13 @@ export function createLevelGen(seed = CONFIG.seed, opts = {}) {
       gapW: CONFIG.canyonGapW, gapH: CONFIG.canyonGapH, thick: CONFIG.canyonThick,
       seed: (canyonRnd() * 1e6) | 0,
       runIdx: c.idx, runTotal: c.total, swaySign: c.swaySign,
+      // Distance back to the previous ring — obstacles.js sizes each ribcage to
+      // this so the bone tunnel tiles edge-to-edge on EVERY ring rhythm (burst /
+      // flow / breath) instead of leaving sparse gaps on the long-spacing beats.
+      span: prevRing ? ring.dist - prevRing.dist : 80,
     };
     // Over-under alternates ceiling/floor so it reads as "down, then up".
     if (kind === 'overunder') seg.shelf = c.idx % 2 === 0 ? 'ceiling' : 'floor';
-    // Ribs alternate the heavier bone side to fake the curl of a long torso.
-    if (kind === 'rib' || kind === 'exitflare') seg.side = c.idx % 2 === 0 ? 1 : -1;
     return seg;
   }
 

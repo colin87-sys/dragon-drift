@@ -5,7 +5,7 @@ import { initInput, initTouch, initMouse } from './input.js';
 import { createLevelGen } from './level.js';
 import { todaysDailyMod, dailyMods } from './daily.js';
 import { createEnvironment, updateEnvironment, resetEnvironment, getSkyMesh } from './environment.js';
-import { createDragon, updateDragon, resetDragon, rebuildDragon, setDragonFxVisible, setDragonModelDetail } from './dragon.js';
+import { createDragon, updateDragon, resetDragon, rebuildDragon, setDragonFxVisible, setDragonModelDetail, __trailDebug } from './dragon.js';
 import { resolveDetail } from './modelDetail.js';
 import { initReticle, updateReticle } from './reticle.js';
 import { initSplash, showSplash, hideSplash, splashVisible, launchFlash, igniteSplash, splashArmed } from './splash.js';
@@ -23,7 +23,7 @@ import { initPostFX, setPostSize, setPostPixelRatio, setPostTier, updatePostFX, 
 import { initContactShadow, updateContactShadow, resetContactShadow, setContactShadowQuality } from './contactShadow.js';
 import { hitstop, juiceEvent } from './juice.js';
 import { createWater, setWaterReflective, updateWater } from './water.js';
-import { burst } from './particles.js';
+import { burst, rollWake } from './particles.js';
 import { buildSetPiece } from './setpieces.js';
 import { BIOMES, biomeIndexAt, SUN_DIR } from './biomes.js';
 import { DRAGONS } from './dragons.js';
@@ -151,7 +151,15 @@ function spawnAhead() {
   if (levelGen.generatedUntil >= player.dist + lead) return;
   const chunk = levelGen.ensure(player.dist + lead);
   chunk.rings.forEach(addRing);
-  chunk.obstacles.forEach(addObstacle);
+  // A base Phase Gate whose dist lands inside a canyon run is skipped — a blind
+  // crystal window between rib sections reads unfair. Generator output is untouched
+  // (determinism-safe); we just don't spawn the flagged ones here.
+  const gateSuppress = chunk.canyonGateSuppress && chunk.canyonGateSuppress.length
+    ? new Set(chunk.canyonGateSuppress) : null;
+  chunk.obstacles.forEach((o) => {
+    if (gateSuppress && o.type === 'gate' && gateSuppress.has(o.dist)) return;
+    addObstacle(o);
+  });
   chunk.orbs.forEach(addOrb);
   chunk.embers.forEach(addEmberLine);
   chunk.goldEmbers && chunk.goldEmbers.forEach(addGoldEmber);
@@ -177,7 +185,7 @@ function triggerSetPiece(sp) {
 const debugFever = urlParams.get('debug') === 'fever';
 if (urlParams.has('debug')) {
   window.__dd = {
-    renderer, game, player, save: saveData, emit, ui, claimFeat, obstacleCount,
+    renderer, scene, game, player, save: saveData, emit, ui, claimFeat, obstacleCount, trailDebug: __trailDebug,
     juice: { hitstop, juiceEvent },
     postfx: { setPostTier, kick, kickState, handle: postfx },
     // Test seam: skip the attract splash and land on the dashboard hub.
@@ -778,13 +786,17 @@ function tick() {
   updateModelDetail(rawDt);
 
   // Shop hero shot: hide the loose gameplay FX — collectible rings + the dragon's own
-  // flight trail — for a clean static dragon. The `&& game.state !== 'playing'` guard
-  // forces them visible every frame during an ACTUAL run, so nothing can vanish
-  // mid-flight; nothing is removed, only .visible toggled. (Obstacles are NOT touched —
-  // the game manages their visibility, and they're the course "walls" we must keep.)
+  // flight trail — for a clean static dragon. (Obstacles are NOT touched — the game
+  // manages their visibility, and they're the course "walls" we must keep.)
+  // IMPORTANT: only HIDE the dragon FX (at the shop). Do NOT force them visible every
+  // frame during play — the trail/ember emitters allocate sprites via
+  // find(s => !s.visible), so marking every sprite visible=true each frame starves
+  // that allocator (no free sprite → nothing emits), which silently killed the
+  // boost / speed / ember trails. The emitters re-show their own sprites on emit, so
+  // leaving the shop needs no force-show.
   const hideShopFx = ui.atShop() && game.state !== 'playing';
   setRingsVisible(!hideShopFx);
-  setDragonFxVisible(!hideShopFx);
+  if (hideShopFx) setDragonFxVisible(false);
 
   // Slow-mo bookkeeping runs in REAL time so 0.6s of dilation is 0.6s felt.
   if (game.slowMoTimer > 0) {
@@ -844,11 +856,17 @@ function tick() {
       pendingCanyonStarts.shift();
       game.inCanyon = true;
       cameraCtl.setCanyon(true);
+      // Entry beat: a soft wind/mist puff + a small shake as you cross the threshold
+      // ("you're entering something ancient"). Subtle — within the juice budget.
+      cameraCtl.shake(0.5);
+      burst(player.position, 0xcdd9ec, { count: 14, speed: 9, size: 1.1 });
     }
     while (pendingCanyonEnds.length && player.dist >= pendingCanyonEnds[0]) {
       pendingCanyonEnds.shift();
       game.inCanyon = false;
       cameraCtl.setCanyon(false);
+      // Exit burst: a puff of bone dust as you break out into open sky (release).
+      burst(player.position, 0xe7dcc0, { count: 18, speed: 14, size: 1.0 });
     }
 
     // Boost start: camera kick + whoosh SFX
@@ -858,17 +876,22 @@ function tick() {
     }
     boostWasActive = player.boosting;
 
-    // Barrel roll start: camera lean, whoosh, style bonus
+    // Barrel roll start: camera lean, whoosh, style bonus + a hard burst of air
     if (player.rollJustStarted) {
       player.rollJustStarted = false;
-      cameraCtl.rollKick(player.roll ? player.roll.dir : 1);
+      const dir = player.roll ? player.roll.dir : 1;
+      cameraCtl.rollKick(dir);
       sfx.roll();
+      rollWake(player.position, dir, 12);   // initial turbulence puff
       const bonus = Math.round(CONFIG.rollBonus * game.combo * game.scoreMult);
       game.score += bonus;
       game.rolls = (game.rolls || 0) + 1;
       ui.rollPopup(bonus);
       emit('roll');
     }
+    // Turbulent air trails for the length of the roll — a continuous vapor wake torn
+    // off the wings (power being generated), not just a one-frame puff.
+    if (player.roll) rollWake(player.position, player.roll.dir, 4);
 
     // Mission distance progress (cheap: 3 active slots max)
     emit('distance', { m: player.dist });
