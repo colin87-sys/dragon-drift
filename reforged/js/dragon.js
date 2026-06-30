@@ -393,6 +393,17 @@ export function setDragonFxVisible(v) {
   for (const s of [...trailSprites, ...boostTrailSprites, ...emberMotes, ...wingMotes]) s.visible = v;
 }
 
+// Debug seam (exposed via window.__dd under ?debug): live count of visible FX
+// sprites per emitter, so tests can prove a trail is actually emitting.
+export function __trailDebug() {
+  const vis = (arr) => arr.filter((s) => s.visible && s.material.opacity > 0.01).length;
+  return {
+    trail: vis(trailSprites), boost: vis(boostTrailSprites), ember: vis(emberMotes),
+    wingtip: vis(wingtipTrailSprites), aero: vis(aeroShearSprites),
+    tailSegs: tailSegs.length, dragon: activeDef && activeDef.name,
+  };
+}
+
 // Lethal crashes (wall/gate) explode hot coral-red; health deaths stay icy.
 export function triggerDeathBurst(position, lethal = false) {
   burstActive = true;

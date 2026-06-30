@@ -3462,6 +3462,23 @@ stretched along velocity) fired per-frame through the roll. **→ Leapfrog:** be
 prove it IS one — `git log -p` the suspect files. A feeling of "this used to be here" often resolves to a
 deliberate feature gate (`isX`) with the infrastructure already roster-wide; the fix is flipping the gate, not
 rebuilding the feature. And the gate's own commit message usually tells you it was waiting for exactly this.
+
+**Addendum — iteration 8 (owner: "in Surge but no tail trail"): a pooled-sprite allocator starved by a
+force-show.** The owner saw the new wingtip trails but NO tail trail in Surge. I almost said "wrong build";
+the honest move was to MEASURE — added a debug seam (`__trailDebug()` on `window.__dd` under `?debug`)
+returning the live visible-count per emitter. It showed `boost=0, trail=0, ember=0` even while *boosting*,
+but `wingtip=2`. The tell: those three zeros are exactly the pools listed in `setDragonFxVisible()`, and the
+one non-zero pool is the one NOT in that list. Root cause: `main.js` ran `setDragonFxVisible(!hideShopFx)`
+**every frame before `updateDragon`**, and during play `!hideShopFx` is `true` → it set EVERY pooled trail
+sprite `visible = true`. The emitters allocate via `find(s => !s.visible)`; with every sprite force-shown
+there was never a free one, so **nothing emitted** — the boost/speed/ember trails had been silently dead for
+the whole roster, not just in Surge. Fix: only HIDE at the shop (`if (hideShopFx) setDragonFxVisible(false)`);
+never force-show during play — the emitters re-show their own sprites on emit. Guarded by `tests/surgefx.mjs`.
+**→ Leapfrog:** when one effect works and a sibling set doesn't, diff what's DIFFERENT about them (here:
+membership in a visibility-toggle list) — the partition IS the clue. Never `visible = true` a whole pool
+that's allocated by `find(!visible)`: a force-show is a force-starve. And when a user says "X isn't showing,"
+instrument the actual emitter count before theorising about builds or caches — measurement beats assumption,
+especially right after you've already been wrong once.
 without paying the determinism/fairness tax — and **vary the mesh, never the hitbox**, so "less repetitive"
 never means "less fair."
 
