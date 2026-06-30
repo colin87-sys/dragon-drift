@@ -28,6 +28,7 @@ let quality = 1;
 const B = CONFIG.BOSS;
 
 // Encounter scheduling (independent of the level RNG → course stays deterministic).
+let debugFirstAt = null;       // ?boss override: bring the first encounter in early
 let nextBossDist = B.firstAt;
 let encounterIndex = 0;
 
@@ -303,8 +304,15 @@ export function resetBoss() {
   group = null; model = null; def = null;
   pendingDeath = false;
   game.inBoss = false;
-  nextBossDist = B.firstAt;
+  nextBossDist = debugFirstAt ?? B.firstAt;
   encounterIndex = 0;
+}
+
+// Debug/playtest: pull the first encounter in to `dist` metres (e.g. ?boss → a
+// boss shortly after takeoff). Persists across runs so each restart re-triggers.
+export function setBossDebugFirstAt(dist) {
+  debugFirstAt = dist;
+  if (!active) nextBossDist = dist;
 }
 
 // Debug hook: drop straight into a fight (wired under ?debug in main.js).
