@@ -498,12 +498,10 @@ export function createLevelGen(seed = CONFIG.seed, opts = {}) {
       if (canyon) {
         const seg = makeRockGap(ring, prevRing, canyon);
         out.canyonSegments.push(seg);
-        // Boost orbs on the first few straight-tunnel segments (a sustained boost
-        // that carries you out, not a wall of orbs).
-        if (seg.kind === 'straightrib'
-            && seg.runIdx - (seg.runTotal - CONFIG.spineFinaleSegs) < CONFIG.spineFinaleOrbs) {
-          addFinaleOrb(seg, out);
-        }
+        // A continuous straight LINE of boosts — one per finale segment — so you
+        // grab boost after boost down the centre of the rib tube, pinned at max
+        // speed, then shoot out into open air.
+        if (seg.kind === 'straightrib') addFinaleOrb(seg, out);
         canyon.idx++;
         if (--canyon.left <= 0) {
           out.canyonEnds.push(ring.dist + 40);
@@ -566,8 +564,8 @@ export function createLevelGen(seed = CONFIG.seed, opts = {}) {
   function addFinaleOrb(seg, out) {
     out.orbs.push({
       dist: seg.dist - 8,
-      x: clamp(seg.gapX, -11, 11),
-      y: clamp(seg.gapY + 1.5, 4.5, 20),
+      x: clamp(seg.straightX, -11, 11),   // ON the locked straight line, inside the ribs
+      y: clamp(seg.straightY, 4.5, 20),
     });
   }
 
@@ -592,6 +590,15 @@ export function createLevelGen(seed = CONFIG.seed, opts = {}) {
     if (kind === 'overunder') seg.shelf = c.idx % 2 === 0 ? 'ceiling' : 'floor';
     // Ribs alternate the heavier bone side to fake the curl of a long torso.
     if (kind === 'rib') seg.side = c.idx % 2 === 0 ? 1 : -1;
+    // The STRAIGHT finale locks to ONE fixed line (captured at the first finale
+    // segment, so it's contiguous with the last swaying rib — no sideways jump) so
+    // the rib tube AND the line of boosts run dead-straight, not snaking with the
+    // reward ring. The speed rush wants a clean straight shot, not a wandering one.
+    if (kind === 'straightrib') {
+      if (c.finaleX === undefined) { c.finaleX = seg.gapX; c.finaleY = seg.gapY; }
+      seg.straightX = c.finaleX;
+      seg.straightY = c.finaleY;
+    }
     return seg;
   }
 

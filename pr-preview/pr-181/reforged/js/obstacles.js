@@ -469,12 +469,15 @@ function buildRockGap(o, e) {
   // the corridor and spanning the section depth — fly down the middle. Going wide
   // around the cage is possible but loses the reward ring at its centre.
   const ribcage = (depthHalf, nRibs, opts = {}) => {
-    const { flare = 0, vert = 0, neural = false, straight = false } = opts;
+    const { flare = 0, vert = 0, neural = false, straight = false, centerX, centerY } = opts;
     e.depthHalf = Math.max(e.depthHalf || 0, depthHalf); // widen collision broad-phase
     e.noDissolve = true;        // thin, open ribs never block the view → don't fade
     const cx = 2 * W;           // TWICE as wide
     const cy = H + 5.5;         // TALLER — the arch clears the forward sightline
-    const cYc = gy + 1.5;       // lift the cage so the belly opening stays roomy
+    // The straight finale locks the whole tube to ONE fixed line (centerX/centerY)
+    // so it doesn't snake with the reward ring; everything else rides the ring.
+    const baseX = centerX !== undefined ? centerX : gx;
+    const cYc = (centerY !== undefined ? centerY : gy) + 1.5; // lift so the belly stays roomy
     const runIdx = o.runIdx || 0;
     // Lateral sweep fakes the curl of a long body (continuous across section seams,
     // so it reads as ONE long curving ribcage). The FINALE goes STRAIGHT (no sway)
@@ -491,7 +494,7 @@ function buildRockGap(o, e) {
     for (let k = 0; k < nRibs; k++) {
       const f = nRibs > 1 ? k / (nRibs - 1) : 0.5;
       const z = -depthHalf + f * 2 * depthHalf;
-      const ox = gx + sway(f);
+      const ox = baseX + sway(f);
       box(ox - cor, cYc, 0.4, cy * 0.9, wallHz, z);
       box(ox + cor, cYc, 0.4, cy * 0.9, wallHz, z);
       const wS = cx * (1 + flare * Math.abs(f - 0.5) * 1.6);
@@ -584,11 +587,11 @@ function buildRockGap(o, e) {
     const dh = dhFor();
     ribcage(dh, nrFor(dh), {});
   } else if (o.kind === 'straightrib') {
-    // The finale: the sway STOPS — one straight tunnel of ribs you boost flat-out
-    // through (speed orbs are strung through it in level.js) before bursting into
-    // open air.
+    // The finale: the sway STOPS and the whole tube LOCKS to one fixed straight
+    // line, with a straight line of speed orbs down its centre (placed in level.js)
+    // — boost flat-out down it and burst into open air.
     const dh = dhFor();
-    ribcage(dh, nrFor(dh), { straight: true });
+    ribcage(dh, nrFor(dh), { straight: true, centerX: o.straightX, centerY: o.straightY });
   }
 
   // No rim/frame on any canyon gate: every opening is framed by its own rock
