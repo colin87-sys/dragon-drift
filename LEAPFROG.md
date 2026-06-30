@@ -3571,3 +3571,19 @@ straight tube. **→ Leapfrog:** "make it straight" in an overlay that hangs off
 underlying anchor still moves; capture one anchor and lock to it. The cost is the host's own collectibles
 (reward rings) drift off-centre there, which is the right call ONLY when that beat isn't about collecting
 them (here it's a pure speed rush) — so lock to the line where the beat's *purpose* lives, not the host's.
+
+**Addendum — iteration 12 (owner): kill the rib "barrel-roll-to-teleport" by BUFFERING one segment across
+chunks.** The rib tunnel interpolates each beat's centre from `(prevX, gapX, nextX)` so it curves smoothly
+through the rings — but `nextX` was only known for segments whose successor lived in the *same* `ensure()`
+chunk. The LAST segment of a chunk fell back to `nextX = gapX`, so at chunk boundaries the centre jumped half
+the ring-wander — a sideways lurch big enough at boost speed that you had to barrel-roll to reach the next
+rib set. The chunk boundary is arbitrary (wherever generation happened to stop), so this was a seam in the
+geometry caused purely by the *streaming* cadence, not the design. Fix: **buffer one segment** — hold each
+beat on the persistent `canyon` object (`canyon.pending`) until the NEXT ring arrives, stamp its `nextX`,
+THEN emit it; flush the final one when the run ends. Because `pending` + `lastGapX` ride on the canyon object
+(which survives across `ensure()` calls), every adjacent pair now chains exactly (`A.nextX == B.gapX`,
+`B.prevX == A.gapX`) regardless of where chunks split. Determinism is unaffected (a segment's data depends on
+its neighbour rings, not on chunking; the gold fixture is base-arrays only). **→ Leapfrog:** a discontinuity
+that only appears at *streaming boundaries* (chunk seams, LOD swaps, pooling refills) is a cadence artifact,
+not a design bug — fix it by carrying the one piece of look-ahead state across the boundary (here, defer the
+emit by one element) rather than by widening tolerances to hide it.

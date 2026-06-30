@@ -495,26 +495,33 @@ export function createLevelGen(seed = CONFIG.seed, opts = {}) {
       return false;
     };
     const firstAt = CANYON_FORCE ? 320 : CONFIG.canyonFirstAt;
-    let prevRing = null, prevSeg = null;
+    let prevRing = null;
+    // Emit a finished segment (now that it knows BOTH its neighbours' centres).
+    const emitSeg = (seg) => {
+      out.canyonSegments.push(seg);
+      if (seg.kind === 'straightrib') addFinaleOrb(seg, out);
+    };
     for (const ring of out.rings) {
-      if (ring.dist < firstAt || inGauntlet(ring.dist)) { prevRing = ring; prevSeg = null; continue; }
+      if (ring.dist < firstAt || inGauntlet(ring.dist)) { prevRing = ring; continue; }
       if (!canyon && ring.dist >= nextCanyonAt) canyon = startCanyon(ring, out);
       if (canyon) {
         const seg = makeRockGap(ring, prevRing, canyon);
-        // Smooth the rib tunnel across seams: each seg knows its neighbours' centres
-        // so obstacles.js can interpolate a gentle curve through the rings (rings stay
-        // dead-centre) instead of jumping the full ring-wander at each segment seam.
+        // Smooth the rib tunnel through the rings: obstacles.js interpolates a gentle
+        // curve from the previous ring's centre, through this ring, to the next ring's.
+        // To keep that continuous even ACROSS chunk boundaries (no half-wander
+        // "teleport" at the seam), BUFFER one segment — hold it until the NEXT ring
+        // arrives so we can stamp its nextX, THEN emit it. The pending segment rides
+        // on the canyon object, so it survives across ensure() calls.
         seg.prevX = canyon.lastGapX !== undefined ? canyon.lastGapX : seg.gapX;
-        if (prevSeg) prevSeg.nextX = seg.gapX;
+        if (canyon.pending) { canyon.pending.nextX = seg.gapX; emitSeg(canyon.pending); }
+        canyon.pending = seg;
         canyon.lastGapX = seg.gapX;
-        out.canyonSegments.push(seg);
         canyon.gateTo = ring.dist;   // furthest rib so far → gate-suppression window end
-        // A continuous LINE of boosts — one per finale segment — so you grab boost
-        // after boost down the centre of the rib tube, then shoot out into open air.
-        if (seg.kind === 'straightrib') addFinaleOrb(seg, out);
-        prevSeg = seg;
         canyon.idx++;
         if (--canyon.left <= 0) {
+          // Run finished: flush the final segment (its nextX stays undefined → it just
+          // exits on its own ring, which is fine for the last rib before the exit).
+          emitSeg(canyon.pending); canyon.pending = null;
           out.canyonEnds.push(ring.dist + 40);
           suppressCanyonGates(out, canyon.gateFrom, ring.dist + 40);
           // Test harness: quick repeat with a stretch of normal rings between, so
@@ -523,10 +530,7 @@ export function createLevelGen(seed = CONFIG.seed, opts = {}) {
             ? ring.dist + 300
             : ring.dist + CONFIG.canyonIntervalBase + canyonRnd() * CONFIG.canyonIntervalJitter;
           canyon = null;
-          prevSeg = null;
         }
-      } else {
-        prevSeg = null;
       }
       prevRing = ring;
     }
