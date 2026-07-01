@@ -193,6 +193,7 @@ export const CONFIG = {
     // EVERY bullet becomes reflectable. Surge is MANUAL (unleash with Space / a
     // 2nd-finger tap) and its job is to BURST the per-phase shield.
     surgeRiderMult: 0.5,    // rider fire interval × during Surge (0.5 = twice as fast)
+    surgeBeamDamage: 14,    // beam chip when unleashed with NO shield up (shielded → burst)
     shieldDamage: 999,      // a Surge unleash bursts the shield outright (phase advance)
     // Death reward: a defeated boss pays a big score bonus AND a haul of embers.
     defeatEmbers: 60,

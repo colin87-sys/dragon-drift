@@ -4119,3 +4119,43 @@ countdown fires one item then immediately "completes").
 boss 1 rests long (forgiving), a later boss shortens the break or overlaps clusters. It's also the seam for a
 telegraph — flash the maw on the break→cluster edge so the next wave is readable, turning the recovery window into
 an anticipation beat.
+
+### L104 — The Surge unleash as a cinematic: charge → mouth-beam → shield shatter, with looping "state" audio
+
+**Did / learned.** The Surge unleash was a one-frame `feverActive = true` + a generic particle burst — it read as a cheap
+placeholder next to the game's richer effects. Rebuilt it as a short cinematic driven by a tiny state machine in the
+controller (`surgeSeq = {phase:'charge'|'beam', t}`): (1) a **charge** wind-up (~0.5s) where a bright orb swells + flickers
+at the dragon's mouth and the camera shake ramps; (2) at the strike, a **beam** lances mouth→boss — two additive cylinders
+(white core + wide coloured glow) inside a `shaft` sub-group oriented each frame via `quaternion.setFromUnitVectors(UP, dir)`
+and stretched with `scale.y = length`, a muzzle flare at the origin and an impact bloom at the boss; (3) the shield **shatters**
+into real flying shards (pre-built tetrahedra on the bubble surface, flung along their own radial + spin, fading over 0.7s in
+`bossModel.tick`), not just a puff. The beam ORIGIN is a forward+up offset of the player position (the snout ≈1.3m ahead) —
+no need to plumb the private dragon head node across modules; from the chase cam it reads as "from the mouth".
+
+Crucially the shield-break now fires at the **moment of impact** (end of charge), not when the button is pressed — the button
+starts the sequence, the beam lands the hit. This is the general lesson: **a big action should be a short sequence, and its
+gameplay effect should resolve at the visual climax, not at the input.**
+
+Audio got the same "make it feel real" pass: procedural Web-Audio is one-shots by default, but *states* want **loops**. Added
+start/stop loop handles modeled on the music engine's `windSource` (a long-lived source + LFO, torn down on stop): a soft
+enticing **ready hum** (tremolo'd fifth) that pulls the player to unleash while the meter is full, and an electric **crackle**
+that sizzles for the whole Surge. Loops are driven by **edge-detecting** the ready/active booleans in the controller
+(`wasReady`/`wasSurge`) — start on the rising edge, stop on the falling edge, and also stop them in every teardown path
+(`!active`, `resetBoss`) so a loop can never leak past a fight. One-shots (`surgeBeam`, `shieldShatter`) fire at the climax.
+
+**→ Systematize.** (a) **Effects are sequences, not toggles.** Any headline verb (surge, phase, death) deserves a small
+`{phase, t}` state machine so it can wind up → climax → settle; resolve the mechanical effect at the climax frame.
+(b) **Loop vs one-shot is the core audio decision.** A momentary event is a one-shot; a *state* (ready, active, charging)
+is a loop with start/stop handles — and every loop needs guaranteed teardown on every exit path (edge-detect + stop in the
+cleanup branches), or it leaks. (c) **Don't plumb private nodes across modules for FX origins** — a world-space offset of a
+public transform (player position → snout) reads correctly from the fixed chase cam and keeps modules decoupled.
+(d) **Orient-a-shaft:** `setFromUnitVectors(localAxis, worldDir)` + midpoint position + `scale.(axis)=length` points/stretches
+any cylinder/box between two moving points — reuse for beams, tethers, links.
+
+**→ Leapfrog (innovate).** The charge→beam→impact rig is a reusable **"channel a big attack" primitive**: a rider ultimate, a
+boss's own beam, or a chargeable player shot all reduce to the same three-phase sequence with different origin/target/colour.
+The loop-audio handles generalize to any sustained state (boost hum, low-health heartbeat, tractor beam). Balance rode along:
+graze-bait now rests **1.8s** between clusters and the tutorial tunnel is **3–4** gently-weaving rings (not 5–6) so the tail of
+boss 1 stays readable. Verified: `tests/boss.mjs` (8; lifecycle now drives the real charge→strike→shatter path headless) +
+`bossboot` real-WebGL zero-error + `smoke` + `tricount` 203265 (boss model 844→900 tris for the shards, still far under budget).
+The human judges the charge/beam/shatter motion and the hum/crackle mix on the preview.
