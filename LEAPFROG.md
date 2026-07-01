@@ -4031,3 +4031,39 @@ change. Verified: `tests/boss.mjs` (8 checks; lifecycle now drives manual surge 
 asserting `surges >= 3` + `sawShield`) + `bossboot` real-WebGL zero-error (aura/shield/manual-surge live) +
 `tricount` unchanged (203265, boss model 764→844 with shield+aura additions counted only in-model); the human
 judges the armour telegraph, the graze-bait weave, the surge aura and the new pacing on the preview.
+
+---
+
+### L101 — Danmaku readability: per-ring colour banding + solid (occluding) bullets over additive bloom; and boss 1 as a gentle tutorial
+
+**Did / learned.** Two fixes for "I can't read successive rings" (they merged into a white blowout). (1) **Solid
+bullets, not additive blobs.** The bullet is now a SOLID, depth-writing core (per-bullet `instanceColor`,
+opaque, occludes its neighbours → a dense ring reads as *countable diamonds*), with the additive halo demoted to a
+subtle glow (opacity 0.4, r×2.0→1.5) so overlaps no longer sum to pure white. Additive blending *adds* light where
+bullets pile up — that's the washout; solid cores with depth-write keep their edges. (2) **Per-ring colour
+banding.** Successive rings cycle a warm-danger palette (red→magenta→orange, clear of the amber-parry / cyan-
+reflected role colours) via `instanceColor` — so three concentric waves read as "red, then magenta, then orange"
+instead of one mesh. Threaded through `emitBoss(...,color)`/`fireRing(...,color)`; tunnel bands per ring index,
+graze-bait per volley. Zero new draw calls (bullets are already one `InstancedMesh`). (3) **Boss 1 = tutorial.**
+VOIDMAW now introduces one verb per phase with slow, readable patterns (P1 `aimed` only → dodge+parry; P2 `+fan`;
+P3 `+tunnel`), drops the complex `spiral`/`spiralStream` to future bosses, slows the cadence, thins the graze-bait,
+and shows teaching banners ("ROLL INTO AMBER SHOTS TO PARRY", "GRAZE THE RINGS → UNLEASH SURGE"). A `tutorial`
+flag on the def gates the coaching.
+
+**→ Systematize.** (a) **Additive is for sparse highlights, not dense fields.** Any system where identical
+emitters can stack (bullets, particles, embers) should default to solid + depth-write for the readable body and
+reserve additive for a thin accent — or dense states blow out. (b) **Encode set-membership as hue when instances
+overlap.** When the player must distinguish members of an overlapping group (which wave, which lane, which team),
+band them by colour on the existing per-instance channel — it's free on an InstancedMesh and it's the canonical
+danmaku answer to wave-merging. Keep the band palette disjoint from any *role* colours already in use. (c)
+**Difficulty is a per-entity data dial, not a global.** The `tutorial` flag + a simpler `phases`/`cadence` make
+boss 1 gentle without touching the engine; boss N re-mixes the same verbs with harder data. Teach the vocabulary
+on the first instance, assume it on the rest.
+
+**→ Leapfrog (innovate).** Banding is now a reusable **wave-identity channel** — a future boss could band by
+THREAT TYPE (parryable vs not) or by TIMING (which ring hits first), turning colour into a second information
+axis. And the tutorial/complexity split is the seam for a **boss roster with a difficulty curve**: VOIDMAW teaches,
+boss 2 assumes parry + adds spiral, boss 3 adds a new pattern — each a `bossDefs` entry, near-zero new code (the
+Increment-4/5 payoff). Verified: `tests/boss.mjs` (8 checks; core+halo instanceColor set, tutorial phases valid)
++ `bossboot` real-WebGL zero-error (banded solid bullets live) + `tricount` unchanged (203265); the human judges
+whether the bands separate the waves and the tutorial pacing teaches cleanly on the preview.

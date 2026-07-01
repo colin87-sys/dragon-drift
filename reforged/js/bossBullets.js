@@ -40,6 +40,7 @@ const eul = new THREE.Euler();
 const posV = new THREE.Vector3();
 const sclV = new THREE.Vector3();
 const colV = new THREE.Color();
+const coreCol = new THREE.Color();
 const HIDDEN = new THREE.Matrix4().makeScale(0.0001, 0.0001, 0.0001);
 
 function makeSlot() {
@@ -59,20 +60,21 @@ function makeSlot() {
 
 export function initBossBullets(scene) {
   if (mesh) return;
-  // Halo: an additive coloured glow (the danger colour).
+  // Halo: a SUBTLE additive glow (kept low so dense overlaps don't sum to a white
+  // blowout — the readability killer). The real bullet is the solid core below.
   const glowMat = new THREE.MeshBasicMaterial({
-    transparent: true, blending: THREE.AdditiveBlending, depthWrite: false,
+    transparent: true, opacity: 0.4, blending: THREE.AdditiveBlending, depthWrite: false,
   });
   mesh = new THREE.InstancedMesh(new THREE.OctahedronGeometry(1, 0), glowMat, POOL);
   mesh.frustumCulled = false;
   mesh.instanceColor = new THREE.InstancedBufferAttribute(new Float32Array(POOL * 3), 3);
-  // Core: a bright near-opaque centre so a bullet reads solidly against any sky
-  // (a lone additive sprite washes out over the bright biomes).
-  const coreMat = new THREE.MeshBasicMaterial({
-    color: 0xfff2e6, transparent: true, opacity: 0.96, depthWrite: false,
-  });
+  // Core: a SOLID, per-bullet-coloured, depth-writing diamond — so a dense ring
+  // reads as countable diamonds (occluding each other) instead of a glowing mesh,
+  // and successive rings can colour-BAND to separate concentric waves.
+  const coreMat = new THREE.MeshBasicMaterial({});   // opaque; colour comes from instanceColor
   coreMesh = new THREE.InstancedMesh(new THREE.OctahedronGeometry(1, 0), coreMat, POOL);
   coreMesh.frustumCulled = false;
+  coreMesh.instanceColor = new THREE.InstancedBufferAttribute(new Float32Array(POOL * 3), 3);
   // Ground shadow: a soft dark disc on the floor under each bullet. Two rings that
   // overlap in view sit at different floor distances, so their shadows separate —
   // the floor grid becomes an absolute depth reference (a shadow under the dragon
@@ -184,12 +186,16 @@ export function updateBossBullets(dt, player) {
     eul.set(s.x * 0.3, s.rel * 0.3, 0);
     quat.setFromEuler(eul);
     posV.set(s.x, s.y, -(player.dist + s.rel));
-    m4.compose(posV, quat, sclV.setScalar(s.r * 2.0));   // halo
+    m4.compose(posV, quat, sclV.setScalar(s.r * 1.5));   // halo (subtle glow)
     mesh.setMatrixAt(i, m4);
     colV.setHex(s.color).lerp(WHITE, flare);
     mesh.setColorAt(i, colV);
-    m4.compose(posV, quat, sclV.setScalar(s.r * 0.85));  // core
+    // Solid core: the bullet's band colour, brightened so it pops on any sky, and
+    // warmed to white in the impact flare. This is the countable, occluding shape.
+    m4.compose(posV, quat, sclV.setScalar(s.r * 1.05));  // core
     coreMesh.setMatrixAt(i, m4);
+    coreCol.setHex(s.color).lerp(WHITE, 0.4 + flare * 0.55);
+    coreMesh.setColorAt(i, coreCol);
     // Shadow on the floor directly beneath the bullet.
     m4.compose(posV.set(s.x, GROUND_Y, -(player.dist + s.rel)), SHADOW_QUAT, shadowScl.setScalar(s.r * 1.5));
     shadowMesh.setMatrixAt(i, m4);
@@ -226,6 +232,7 @@ export function updateBossBullets(dt, player) {
   coreMesh.instanceMatrix.needsUpdate = true;
   shadowMesh.instanceMatrix.needsUpdate = true;
   if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true;
+  if (coreMesh.instanceColor) coreMesh.instanceColor.needsUpdate = true;
 }
 
 // Swat reflectable boss bullets near a rolling player back at the boss. `all`
