@@ -4255,3 +4255,28 @@ normal HUD and draws on the mode's own indicator. The thetaLength-sweep ring is 
 primitive (charge meters, cooldowns, capture rings). Verified: `boss.mjs` (8), `bossboot` real-WebGL zero-error, `smoke`,
 `tricount` 203265; a capture confirms the stamina bar gone + focus circle drawn + single hoop + dragon visible. The human
 judges the callout timing/readability and the fade/draw-on feel live.
+
+### L108 — Boss focus ring: one circle, HP-bar-paced draw, and killing the "graze" jargon
+
+**Did / learned.** Three small readability follow-ups on live feedback. (1) **One circle, not two.** The focus reticle
+still drew BOTH the graze-radius (outer) and hit-radius (inner) rings — the outer read as clutter. Collapsed to a single
+clean ring at a fixed framing radius (2.1, just off the body) so it frames the dragon without cutting through it or
+stacking concentric rings. (2) **Pace the reveal to an existing beat.** The draw-on was an exponential ease (~0.5s, felt
+abrupt); switched to a STEADY LINEAR sweep that takes exactly one `HP_REVEAL` to complete — the same duration as the boss
+health bar filling — so the two "fills from nothing" reads feel like one connected moment instead of two unrelated
+animations. (3) **Name mechanics in player words.** "GRAZE THE RINGS" and the "GRAZE" HUD counter are insider danmaku
+jargon — meaningless to a normal player. Reworded the callout to "FLY CLOSE TO THE RINGS → CHARGE SURGE" (says the action
+AND the reward) and relabelled the counter "SKIMS". Internals keep the `graze*` names; only the surfaced words changed.
+
+**→ Systematize.** (a) **One indicator, one job** — don't show two concentric rings when one communicates; extra rings
+read as noise, not information. (b) **Reuse timings, don't invent them** — when a new animation sits near an existing one
+(HP fill, stamina fade), drive it off the SAME duration constant so they read as a single orchestrated beat; a bespoke
+rate makes them feel disconnected. (c) **Surfaced text ≠ code identifiers** — a mechanic can keep its precise internal
+name (`graze`) while its player-facing label says what a newcomer would (fly close / skim); audit the *displayed* strings
+against "would a non-player understand this?", separately from the code. State the action and its payoff in the same line.
+
+**→ Leapfrog (innovate).** The linear-sweep-over-a-shared-constant is the reusable rule for any paired reveal (a mode's
+vitals fading while its indicator draws in on the same clock). And the jargon audit is a repeatable pass: every
+surfaced verb (graze→skim, parry, thread, gate) gets checked against a first-time player before ship. Verified: `boss.mjs`
+(8), `bossboot` zero-error, `smoke`, `tricount` 203265; a capture shows a single ring mid-sweep + the "SKIMS" label. The
+human judges the ring size and draw pace live.

@@ -107,24 +107,22 @@ export function initBoss(sc) {
   // Surge callout is fired from activateSurge (one note only — "REFLECT ANYTHING"),
   // so there's no duplicate banner here.
 
-  // Graze/hit reticle: a faint OUTER ring at the graze radius (green) and INNER
-  // ring at the hit radius (red) around the dragon, so during a fight the player
-  // has a spatial reference for "close enough to graze" vs "about to be hit".
-  const grazeR = CONFIG.BOSS.bulletRadius + CONFIG.playerRadius * CONFIG.BOSS.grazeScale;
-  const hitR = CONFIG.BOSS.bulletRadius + CONFIG.playerRadius * CONFIG.BOSS.bulletHitScale;
+  // Focus reticle: a SINGLE clean ring drawn around the dragon (the old outer graze
+  // ring read as clutter — one circle is cleaner). Sits just off the body so it
+  // frames the dragon without cutting through it.
+  const focusR = 2.1;
   reticle = new THREE.Group();
   reticleRings = [];
   const mkRing = (r, color, op) => {
-    const ir = r - 0.09, or = r + 0.06;
+    const ir = r - 0.075, or = r + 0.075;
     const m = new THREE.Mesh(
-      new THREE.RingGeometry(ir, or, 56, 1, Math.PI / 2, 0.0001),   // starts un-drawn
+      new THREE.RingGeometry(ir, or, 64, 1, Math.PI / 2, 0.0001),   // starts un-drawn
       new THREE.MeshBasicMaterial({ color, transparent: true, opacity: op, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide })
     );
     reticleRings.push({ mesh: m, ir, or });
     reticle.add(m);
   };
-  mkRing(grazeR, 0x9dffea, 0.28);
-  mkRing(hitR, 0xff5566, 0.4);
+  mkRing(focusR, 0x9dffea, 0.55);
   reticle.visible = false;
   scene.add(reticle);
 
@@ -389,10 +387,11 @@ function rebuildReticle() {
 
 export function updateBoss(dt, player, time) {
   if (!active) {
-    // Draw the focus circle OFF if it's still up (e.g. player died mid-fight).
+    // Draw the focus circle OFF if it's still up (e.g. player died mid-fight) —
+    // same steady linear rate as the draw-on (one HP_REVEAL to sweep the full circle).
     if (reticle) {
       if (reticleDraw > 0.005) {
-        reticleDraw = Math.max(0, reticleDraw - dt * 3.2 * Math.max(reticleDraw, 0.15));
+        reticleDraw = Math.max(0, reticleDraw - dt / HP_REVEAL);
         rebuildReticle();
         reticle.position.set(player.position.x, player.position.y, -player.dist);
         reticle.visible = reticleDraw > 0.005;
@@ -414,13 +413,16 @@ export function updateBoss(dt, player, time) {
     return;
   }
 
-  // Focus circle: draws ON (0→full, the way the HP bar fills) at boss start with
-  // the stamina fade, holds through the fight, draws OFF when it ends.
+  // Focus circle: sweeps ON (0→full) at a STEADY linear rate that takes exactly one
+  // HP_REVEAL to complete — the same pace as the boss health bar filling — so the
+  // two reads feel connected. Holds through the fight, sweeps OFF when it ends.
   if (reticle) {
     if (Math.abs(reticleDraw - reticleTarget) > 0.0005) {
-      reticleDraw += (reticleTarget - reticleDraw) * Math.min(dt * 3.2, 1);
-      if (Math.abs(reticleDraw - reticleTarget) < 0.01) reticleDraw = reticleTarget;
-      if (Math.abs(reticleDraw - reticleBuilt) > 0.02) rebuildReticle();
+      const step = dt / HP_REVEAL;
+      reticleDraw = reticleDraw < reticleTarget
+        ? Math.min(reticleTarget, reticleDraw + step)
+        : Math.max(reticleTarget, reticleDraw - step);
+      if (Math.abs(reticleDraw - reticleBuilt) > 0.015) rebuildReticle();
     }
     reticle.visible = reticleDraw > 0.005;
     reticle.position.set(player.position.x, player.position.y, -player.dist);
@@ -796,7 +798,7 @@ function damageBoss(amount, kind) {
     chargeT = 0; pending.length = 0; baitTimer = 0; baitResting = true; baitLeft = 0;
     model.flash(1.0);
     cameraCtl.shake?.(0.8);
-    ui.bossNote?.('⛨  SHIELDED  ⛨', 'GRAZE THE RINGS → UNLEASH SURGE', 'gold', 3.4);
+    ui.bossNote?.('⛨  SHIELDED  ⛨', 'FLY CLOSE TO THE RINGS → CHARGE SURGE', 'gold', 3.4);
     sfx.milestone?.();
     emit('bossShield', { phase: phaseIdx + 1 });
   }
