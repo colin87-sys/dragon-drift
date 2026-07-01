@@ -4067,3 +4067,35 @@ boss 2 assumes parry + adds spiral, boss 3 adds a new pattern — each a `bossDe
 Increment-4/5 payoff). Verified: `tests/boss.mjs` (8 checks; core+halo instanceColor set, tutorial phases valid)
 + `bossboot` real-WebGL zero-error (banded solid bullets live) + `tricount` unchanged (203265); the human judges
 whether the bands separate the waves and the tutorial pacing teaches cleanly on the preview.
+
+### L102 — Colour-blind-safe danmaku: round white-centre discs + brightness/size banding (hue is not a channel you own)
+
+**Did / learned.** The human is red-green colour-blind, and the L101 hue-banding (red→magenta→orange) was
+useless to them — three "reds". Also the solid diamonds still read as hard shards over the fiery boss. Two moves
+fixed both. (1) **Round bullets = a soft radial disc**, not geometry: one procedural `CanvasTexture` (white core →
+soft edge → transparent) on a camera-facing `PlaneGeometry` quad, drawn in TWO layers off the same slot — a NORMAL-
+blend COLOUR body (`instanceColor` tint, `s.r*2.7`) and a smaller universal-WHITE CORE on top (`s.r*1.35`, its own
+InstancedMesh, no instanceColor). Every bullet now has a white centre everyone sees regardless of hue — the danmaku
+"white-heart" read. Normal blend (not additive) means dense fields don't blow to white. (2) **Band by BRIGHTNESS +
+SIZE, not hue.** `BAND = [{c,s}]`: light-big / deep-small / mid-mid. Luminance and size survive any colour vision;
+hue is a bonus for those who have it. Threaded a `sizeMult` through `emitBoss`/`fireRing` so the collision radius
+tracks the visual size (`hitRi = s.r + R×bulletHitScale` per-bullet) — banding stays FAIR, a big bullet isn't a
+free hit. Also dropped `bulletDamage` 18→13 (human was dying): a clean hit stings, a graze-heavy run survives.
+
+**→ Systematize.** (a) **Never encode required information in HUE ALONE** — ~8% of male players can't decode it.
+Any set-membership/threat/timing cue must ALSO ride a channel everyone shares: LUMINANCE, SIZE, SHAPE, or MOTION.
+Hue is the redundant top layer, not the load-bearing one. The white-core-on-coloured-body pattern gives a universal
+read (the core) plus an enhanced read (the hue) for free. (b) **When visual size varies per instance, the hitbox
+must vary with it** — derive collision radius from the same `r`/`sizeMult` that drives the matrix scale, or the game
+lies about its hitboxes. (c) **Round soft sprites > hard geometry for dense readable fields**: a radial-gradient
+quad is one 64² canvas texture, one draw call per layer, and reads as a countable dot at any density; occlusion is
+handled by the opaque-ish core, not by depth-writing geometry.
+
+**→ Leapfrog (innovate).** The two-layer disc is now a reusable **accessible-projectile primitive** — body carries
+identity (hue/brightness/size), core carries the universal "there is a bullet here" read, and either layer can host
+a NEW channel (pulse the core for parryable, square the body for unblockable) without touching collision. This is
+the seam for a full **accessibility pass**: the same body/core split extends to obstacles and pickups, and a
+colour-blind-mode toggle could swap the BAND palette for a luminance-only ramp with zero engine change. Verified:
+`tests/boss.mjs` (8 checks) + `bossboot` real-WebGL zero-error (round banded bullets live) + `smoke` +
+`tricount` unchanged (203265, 0 over budget); the human judges on the preview whether the white cores stay
+countable and the brightness/size bands separate the waves without hue.

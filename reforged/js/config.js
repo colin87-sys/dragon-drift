@@ -163,7 +163,8 @@ export const CONFIG = {
     // Telegraph: the boss visibly charges before each attack (fairness + game feel).
     telegraphInstant: 0.5,  // wind-up for a one-shot volley (aimed / fan / spiral)
     telegraphSustained: 0.7,// longer wind-up for a streamed pattern (tunnel / stream)
-    // Bullets (one InstancedMesh, octahedron, additive — the embers.js pattern).
+    // Bullets (one InstancedMesh of soft round discs — white centre, coloured rim —
+    // built on the embers.js pool pattern; normal blend so they read over bloom).
     // Reaction window for an aimed bullet = settleGap / bulletSpeed (≈ 0.88s here);
     // the spiral is slower (×0.78) so it reads as more forgiving.
     bulletPool: 320,
@@ -171,7 +172,7 @@ export const CONFIG = {
     bulletHitScale: 0.62,   // effective player hit radius = playerRadius × this (forgiving)
     bulletSpeed: 28,        // closing speed (m/s) → reaction window ≈ settleGap/speed ≈ 1.07s
     bossSpeed: 52,          // closing speed of a rider/reflected bullet toward the boss
-    bulletDamage: 18,
+    bulletDamage: 13,      // forgiving: a clean hit stings but a graze-heavy run survives
     bossHitRadius: 3.2,     // how close a boss-ward bullet must be to count as a hit
     // Graze: skimming a bullet (inside the graze band but outside the hit radius)
     // charges Dragon Surge — the "drift" identity transplanted from rings onto

@@ -21,16 +21,34 @@ import { emit } from './events.js';
 const POOL = CONFIG.BOSS.bulletPool;
 const R = CONFIG.playerRadius;
 
-let mesh = null;       // additive coloured halo (the glow)
-let coreMesh = null;   // bright opaque core (readability — danmaku bullets are core+halo)
+let mesh = null;       // colour body (soft round disc, per-bullet tint)
+let coreMesh = null;   // white centre (colour-blind-safe read — everyone sees the dot)
 let shadowMesh = null; // soft dark dot on the floor under each bullet (depth anchor)
 let visibleCap = POOL;
 let clock = 0;         // accumulates dt for the parry-window pulse
 
 const GROUND_Y = 0.4;  // floor level the bullet shadows sit on
 const WHITE = new THREE.Color(0xffffff);
+const IDENTITY = new THREE.Quaternion();   // bullets are round → camera-facing quads, no spin
 const SHADOW_QUAT = new THREE.Quaternion().setFromEuler(new THREE.Euler(-Math.PI / 2, 0, 0));
 const shadowScl = new THREE.Vector3();
+
+// Procedural round-bullet texture: a soft radial disc (white core → soft edge →
+// transparent). Grayscale so instanceColor tints the BODY while the white CORE
+// layer stays white on top — the danmaku "white-centre coloured-rim" look.
+function makeBulletTex() {
+  const c = document.createElement('canvas');
+  c.width = c.height = 64;
+  const g = c.getContext('2d');
+  const gr = g.createRadialGradient(32, 32, 0, 32, 32, 32);
+  gr.addColorStop(0, 'rgba(255,255,255,1)');
+  gr.addColorStop(0.42, 'rgba(255,255,255,0.98)');
+  gr.addColorStop(0.72, 'rgba(255,255,255,0.55)');
+  gr.addColorStop(1, 'rgba(255,255,255,0)');
+  g.fillStyle = gr;
+  g.fillRect(0, 0, 64, 64);
+  return new THREE.CanvasTexture(c);
+}
 const slots = [];   // see makeSlot
 let cursor = 0;
 
@@ -40,7 +58,6 @@ const eul = new THREE.Euler();
 const posV = new THREE.Vector3();
 const sclV = new THREE.Vector3();
 const colV = new THREE.Color();
-const coreCol = new THREE.Color();
 const HIDDEN = new THREE.Matrix4().makeScale(0.0001, 0.0001, 0.0001);
 
 function makeSlot() {
@@ -60,21 +77,23 @@ function makeSlot() {
 
 export function initBossBullets(scene) {
   if (mesh) return;
-  // Halo: a SUBTLE additive glow (kept low so dense overlaps don't sum to a white
-  // blowout — the readability killer). The real bullet is the solid core below.
-  const glowMat = new THREE.MeshBasicMaterial({
-    transparent: true, opacity: 0.4, blending: THREE.AdditiveBlending, depthWrite: false,
+  const tex = makeBulletTex();
+  const quad = new THREE.PlaneGeometry(1, 1);   // round via the soft radial texture
+  // Body: the soft round COLOUR disc, per-bullet tint, NORMAL blend (no additive
+  // washout), soft-edged. Camera-facing (a +z quad ≈ faces the chase cam).
+  const bodyMat = new THREE.MeshBasicMaterial({
+    map: tex, transparent: true, depthWrite: false, depthTest: false,
   });
-  mesh = new THREE.InstancedMesh(new THREE.OctahedronGeometry(1, 0), glowMat, POOL);
+  mesh = new THREE.InstancedMesh(quad, bodyMat, POOL);
   mesh.frustumCulled = false;
   mesh.instanceColor = new THREE.InstancedBufferAttribute(new Float32Array(POOL * 3), 3);
-  // Core: a SOLID, per-bullet-coloured, depth-writing diamond — so a dense ring
-  // reads as countable diamonds (occluding each other) instead of a glowing mesh,
-  // and successive rings can colour-BAND to separate concentric waves.
-  const coreMat = new THREE.MeshBasicMaterial({});   // opaque; colour comes from instanceColor
-  coreMesh = new THREE.InstancedMesh(new THREE.OctahedronGeometry(1, 0), coreMat, POOL);
+  // Core: a smaller WHITE centre drawn on top — colour-blind-safe (everyone sees
+  // the white dot), keeps bullets countable no matter the body hue.
+  const coreMat = new THREE.MeshBasicMaterial({
+    map: tex, color: 0xffffff, transparent: true, depthWrite: false, depthTest: false,
+  });
+  coreMesh = new THREE.InstancedMesh(quad, coreMat, POOL);
   coreMesh.frustumCulled = false;
-  coreMesh.instanceColor = new THREE.InstancedBufferAttribute(new Float32Array(POOL * 3), 3);
   // Ground shadow: a soft dark disc on the floor under each bullet. Two rings that
   // overlap in view sit at different floor distances, so their shadows separate —
   // the floor grid becomes an absolute depth reference (a shadow under the dragon
@@ -152,8 +171,6 @@ export function updateBossBullets(dt, player) {
   clock += dt;
   const px = player.position.x;
   const py = player.position.y;
-  const hitR = CONFIG.BOSS.bulletRadius + R * CONFIG.BOSS.bulletHitScale;
-  const grazeR = CONFIG.BOSS.bulletRadius + R * CONFIG.BOSS.grazeScale;
   const bossR = CONFIG.BOSS.bossHitRadius;
 
   for (let i = 0; i < POOL; i++) {
@@ -181,21 +198,15 @@ export function updateBossBullets(dt, player) {
       }
     }
 
-    // Render in the player-relative frame (world z follows the player forward) as a
-    // bright core + a larger additive halo + a ground shadow (all off one slot).
-    eul.set(s.x * 0.3, s.rel * 0.3, 0);
-    quat.setFromEuler(eul);
+    // Round camera-facing bullet: a soft colour BODY with a WHITE CENTRE on top,
+    // plus a ground shadow (all off one slot). No spin — the disc is radial.
     posV.set(s.x, s.y, -(player.dist + s.rel));
-    m4.compose(posV, quat, sclV.setScalar(s.r * 1.5));   // halo (subtle glow)
+    m4.compose(posV, IDENTITY, sclV.setScalar(s.r * 2.7));   // body disc
     mesh.setMatrixAt(i, m4);
-    colV.setHex(s.color).lerp(WHITE, flare);
+    colV.setHex(s.color).lerp(WHITE, flare);                 // warm to white near impact
     mesh.setColorAt(i, colV);
-    // Solid core: the bullet's band colour, brightened so it pops on any sky, and
-    // warmed to white in the impact flare. This is the countable, occluding shape.
-    m4.compose(posV, quat, sclV.setScalar(s.r * 1.05));  // core
+    m4.compose(posV, IDENTITY, sclV.setScalar(s.r * 1.35));  // white centre (smaller)
     coreMesh.setMatrixAt(i, m4);
-    coreCol.setHex(s.color).lerp(WHITE, 0.4 + flare * 0.55);
-    coreMesh.setColorAt(i, coreCol);
     // Shadow on the floor directly beneath the bullet.
     m4.compose(posV.set(s.x, GROUND_Y, -(player.dist + s.rel)), SHADOW_QUAT, shadowScl.setScalar(s.r * 1.5));
     shadowMesh.setMatrixAt(i, m4);
@@ -208,8 +219,11 @@ export function updateBossBullets(dt, player) {
       if (prevRel > 0 && s.rel <= 0) {
         const dx = s.x - px, dy = s.y - py;
         const d2 = dx * dx + dy * dy;
-        if (d2 < hitR * hitR) { hitPlayer(player, s.dmg, 'bullet'); deactivate(i); continue; }
-        if (d2 < grazeR * grazeR) bulletGraze(player);
+        // Per-bullet radius so the hitbox matches the banded VISUAL size (fair).
+        const hitRi = s.r + R * CONFIG.BOSS.bulletHitScale;
+        const grazeRi = s.r + R * CONFIG.BOSS.grazeScale;
+        if (d2 < hitRi * hitRi) { hitPlayer(player, s.dmg, 'bullet'); deactivate(i); continue; }
+        if (d2 < grazeRi * grazeRi) bulletGraze(player);
       }
       if (s.rel < -12 || s.life <= 0 ||
           Math.abs(s.x) > CONFIG.laneHalfWidth + 10 || s.y < -4 || s.y > 34) {
@@ -232,7 +246,6 @@ export function updateBossBullets(dt, player) {
   coreMesh.instanceMatrix.needsUpdate = true;
   shadowMesh.instanceMatrix.needsUpdate = true;
   if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true;
-  if (coreMesh.instanceColor) coreMesh.instanceColor.needsUpdate = true;
 }
 
 // Swat reflectable boss bullets near a rolling player back at the boss. `all`
