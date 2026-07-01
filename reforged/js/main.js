@@ -255,7 +255,7 @@ initAnalytics();
 on('firstSurge', () => ui.surgeFlourish());
 // A boss encounter clears the field for a clean arena (the boss wipes hazards
 // itself; here we clear the collectibles so only the fight is on screen).
-on('bossStart', () => { resetRings(); resetEmbers(); resetPowerups(); resetGoldEmbers(); });
+on('bossStart', () => { resetRings(); resetEmbers(); resetPowerups(); resetGoldEmbers(); ui.staminaBoss(true); });
 // Boss over → resume the course FRESH from here (the arena stretch was suppressed;
 // without this the world is blank until the player catches up to the old cursor).
 // A grace band after it spawns rings/collectibles ONLY (no hazards) so the player
@@ -263,6 +263,12 @@ on('bossStart', () => { resetRings(); resetEmbers(); resetPowerups(); resetGoldE
 on('bossEnd', () => {
   levelGen.resume(player.dist);
   bossGraceUntil = player.dist + CONFIG.BOSS.postGrace;
+  ui.staminaBoss(false);   // fade the stamina bar back in (same animation, reversed)
+  // Guaranteed speed-boost pickups in the grace band: the player carries Dragon
+  // Surge out of the kill, and these keep speed + stamina topped up as the course
+  // eases back in (so the momentum from the fight doesn't just fizzle).
+  addOrb({ x: 0, y: player.position.y, dist: player.dist + 22 });
+  addOrb({ x: 0, y: player.position.y, dist: player.dist + 42 });
   spawnAhead();
 });
 ui.init({
