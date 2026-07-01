@@ -48,6 +48,7 @@ let dyingT = 0;
 let spiralPhase = 0;
 let pendingDeath = false;      // set when hp hits 0; resolved in the update loop
 let rollParried = false;       // this roll already landed a parry (announce once per roll)
+let reticle = null;            // faint graze/hit zone rings drawn around the dragon
 let bulletColor = 0xff3010;    // fiery red = danger (set per-boss from the def)
 let chargeT = 0;               // telegraph wind-up remaining before the held attack fires
 let chargeDur = 0;
@@ -68,6 +69,24 @@ export function initBoss(sc) {
   scene = sc;
   initBossBullets(scene);
   on('bossDamage', (e) => damageBoss(e.amount, e.kind));
+
+  // Graze/hit reticle: a faint OUTER ring at the graze radius (green) and INNER
+  // ring at the hit radius (red) around the dragon, so during a fight the player
+  // has a spatial reference for "close enough to graze" vs "about to be hit".
+  const grazeR = CONFIG.BOSS.bulletRadius + CONFIG.playerRadius * CONFIG.BOSS.grazeScale;
+  const hitR = CONFIG.BOSS.bulletRadius + CONFIG.playerRadius * CONFIG.BOSS.bulletHitScale;
+  reticle = new THREE.Group();
+  const mkRing = (r, color, op) => {
+    const m = new THREE.Mesh(
+      new THREE.RingGeometry(r - 0.09, r + 0.06, 44),
+      new THREE.MeshBasicMaterial({ color, transparent: true, opacity: op, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide })
+    );
+    return m;
+  };
+  reticle.add(mkRing(grazeR, 0x9dffea, 0.28));
+  reticle.add(mkRing(hitR, 0xff5566, 0.4));
+  reticle.visible = false;
+  scene.add(reticle);
 }
 
 export function setBossQuality(q) {
@@ -122,7 +141,11 @@ export function startBossEncounter(player, defOverride) {
   attackTimer = 0;
   riderTimer = B.riderShotInterval;
 
-  ui.bossBanner?.(`⚠  ${def.name}  ⚠`, def.title);
+  // Dramatic incoming warning during the approach: names the boss AND the
+  // direction it's coming from, plus a red danger glow on that side of the
+  // screen so the player can clear the space before it arrives.
+  const dir = def.approachFrom === 'side' ? (start.x < 0 ? 'left' : 'right') : 'behind';
+  ui.bossWarning?.(def.name, def.title, dir, B.warnTime + B.approachTime);
   sfx.feverStart?.();
   cameraCtl.shake?.(1.2);
   emit('bossStart', { id: def.id });
@@ -161,12 +184,19 @@ function startDeath(player) {
 
 export function updateBoss(dt, player, time) {
   if (!active) {
+    if (reticle) reticle.visible = false;
     // Trigger a fresh encounter once the player flies past the scheduled mark
     // (never inside a canyon, never on the menu).
     if (game.state === 'playing' && !game.inCanyon && player.dist >= nextBossDist) {
       startBossEncounter(player);
     }
     return;
+  }
+
+  // Keep the reticle on the dragon once the fight is engaged (not the warn beat).
+  if (reticle) {
+    reticle.visible = phase === 'fight' || phase === 'approach';
+    reticle.position.set(player.position.x, player.position.y, -player.dist);
   }
 
   updateBossBullets(dt, player);
@@ -398,6 +428,7 @@ function damageBoss(amount, kind) {
   if (phase !== 'fight') return;
   hp = Math.max(0, hp - amount);
   model.flash(0.6);
+  model.setHealth(hp / hpMax);
   emit('bossHit', { hp, hpMax, frac: hp / hpMax, kind });
 
   // Phase advance: when hp drops into the next phase's band.
@@ -423,6 +454,7 @@ export function resetBoss() {
   group = null; model = null; def = null;
   pendingDeath = false;
   rollParried = false;
+  if (reticle) reticle.visible = false;
   pending.length = 0;
   chargeT = 0;
   curAttack = null;

@@ -93,6 +93,35 @@ export function buildBoss(def, quality = 1) {
     orbiters.push(m);
   }
 
+  // --- Health bar: floats above the boss on its front face (so it faces the
+  // player), notched at the phase thresholds. Drawn depth-test-off + high render
+  // order so it's always legible over the body. ---
+  const barW = 8;
+  const hpBar = new THREE.Group();
+  hpBar.position.set(0, 4.4, 1.6);
+  const barBgMat = track(new THREE.MeshBasicMaterial({ color: 0x0a0610, transparent: true, opacity: 0.72, depthTest: false }));
+  const barBg = new THREE.Mesh(new THREE.PlaneGeometry(barW + 0.3, 0.62), barBgMat);
+  barBg.renderOrder = 998;
+  hpBar.add(barBg);
+  const fillWrap = new THREE.Group();      // scale.x from the LEFT edge
+  fillWrap.position.x = -barW / 2;
+  const barFillMat = track(new THREE.MeshBasicMaterial({ color: 0xff4468, transparent: true, depthTest: false }));
+  const barFill = new THREE.Mesh(new THREE.PlaneGeometry(barW, 0.44), barFillMat);
+  barFill.position.x = barW / 2;           // left edge sits at the wrapper origin
+  barFill.renderOrder = 999;
+  fillWrap.add(barFill);
+  hpBar.add(fillWrap);
+  const notchMat = track(new THREE.MeshBasicMaterial({ color: 0x0a0610, transparent: true, opacity: 0.85, depthTest: false }));
+  for (const p of (def.phases || [])) {
+    if (p.atFrac >= 0.999) continue;       // full-hp threshold isn't a divider
+    const notch = new THREE.Mesh(new THREE.PlaneGeometry(0.13, 0.6), notchMat);
+    notch.position.set(-barW / 2 + p.atFrac * barW, 0, 0.02);
+    notch.renderOrder = 1000;
+    hpBar.add(notch);
+  }
+  group.add(hpBar);
+  function setHealth(frac) { fillWrap.scale.x = Math.max(0.0001, Math.min(1, frac)); }
+
   // Cache base opacities so the dissolve can scale from each material's own value.
   for (const m of mats) m.userData.baseOpacity = m.transparent ? m.opacity : 1;
 
@@ -162,6 +191,7 @@ export function buildBoss(def, quality = 1) {
     group, muzzle, orbiters,
     setDissolve,
     setCharge,
+    setHealth,
     flash,
     tick(dt, time) { tick(dt, time); tickFlash(dt); },
     dispose() {

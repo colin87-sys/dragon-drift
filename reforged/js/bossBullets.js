@@ -23,6 +23,7 @@ const R = CONFIG.playerRadius;
 let mesh = null;       // additive coloured halo (the glow)
 let coreMesh = null;   // bright opaque core (readability — danmaku bullets are core+halo)
 let visibleCap = POOL;
+let clock = 0;         // accumulates dt for the parry-window pulse
 const slots = [];   // see makeSlot
 let cursor = 0;
 
@@ -125,6 +126,7 @@ function deactivate(i) {
 
 export function updateBossBullets(dt, player) {
   if (!mesh) return;
+  clock += dt;
   const px = player.position.x;
   const py = player.position.y;
   const hitR = CONFIG.BOSS.bulletRadius + R * CONFIG.BOSS.bulletHitScale;
@@ -141,16 +143,25 @@ export function updateBossBullets(dt, player) {
     s.rel += s.vrel * dt;
     s.life -= dt;
 
+    // Depth cue: a boss bullet LOOMS (grows) over the last ~7 metres so its
+    // approach reads clearly; a reflectable (amber) bullet PULSES once it enters
+    // the parry window, signalling "swat it now".
+    let prox = 1;
+    if (s.owner === 'boss' && s.rel < 7 && s.rel > -1) prox += (7 - s.rel) / 7 * 0.8;
+    if (s.reflectable && s.rel > 0 && s.rel <= CONFIG.BOSS.reflectWindow) {
+      prox += 0.25 + Math.sin(clock * 20) * 0.25;
+    }
+
     // Render in the player-relative frame (world z follows the player forward) as a
     // bright core + a larger additive halo (both driven off the same slot).
     eul.set(s.x * 0.3, s.rel * 0.3, 0);
     quat.setFromEuler(eul);
     posV.set(s.x, s.y, -(player.dist + s.rel));
-    m4.compose(posV, quat, sclV.setScalar(s.r * 2.0));   // halo
+    m4.compose(posV, quat, sclV.setScalar(s.r * 2.0 * prox));   // halo
     mesh.setMatrixAt(i, m4);
     colV.setHex(s.color);
     mesh.setColorAt(i, colV);
-    m4.compose(posV, quat, sclV.setScalar(s.r * 0.85));  // core
+    m4.compose(posV, quat, sclV.setScalar(s.r * 0.85 * prox));  // core
     coreMesh.setMatrixAt(i, m4);
 
     if (s.owner === 'boss') {
