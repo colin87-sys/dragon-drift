@@ -62,11 +62,15 @@ let curAttack = null;          // the attack being telegraphed
 const pending = [];            // streamed sub-volleys: { t, fire } (tunnel / spiralStream)
 const SUSTAINED = new Set(['tunnel', 'spiralStream']);
 const REFLECT_COLOR = 0xffc23c;   // amber = "you can parry this" (aimed/fan precision shots)
-// Per-ring colour banding: successive rings cycle these hues so overlapping/
-// concentric waves read as SEPARATE coloured bands, not one merged mesh (the
-// danmaku-standard fix for wave-merging). Kept warm-danger + clear of the amber
-// (parry) and cyan (reflected) role colours.
-const BAND = [0xff2a1c, 0xff1e8c, 0xff7a12];   // red → magenta → orange
+// Per-ring banding: successive rings differ in BRIGHTNESS and SIZE (not just hue),
+// so overlapping/concentric waves read apart even for colour-blind players — and
+// every bullet has a white centre (the universal read). Hues stay warm-danger,
+// clear of the amber (parry) and cyan (reflected) role colours.
+const BAND = [
+  { c: 0xffd2c6, s: 1.2 },   // light, big
+  { c: 0xc21400, s: 0.82 },  // dark/deep, small
+  { c: 0xff6e12, s: 1.0 },   // mid orange, mid
+];
 let bandIdx = 0;
 
 // Player-relative pose: rel = metres ahead of the player.
@@ -505,8 +509,8 @@ function executeAttack(id, player) {
     // ring → constant grazing; a big ring let you sit in a dead-safe hole.
     for (let k = 0; k < rings; k++) {
       const cx = anchorX + Math.sin(k * 0.8) * 5;   // centred on you, then weaves → you follow
-      const col = BAND[k % BAND.length];            // successive rings band by hue
-      pending.push({ t: k * 0.38, fire: () => fireRing(cx, B.fightHeight, 3.7, m, slow, col) });
+      const b = BAND[k % BAND.length];              // successive rings band by brightness+size
+      pending.push({ t: k * 0.38, fire: () => fireRing(cx, B.fightHeight, 3.7, m, slow, b.c, b.s) });
     }
   } else if (id === 'spiralStream') {
     // A rotating emitter: arms of bullets sweep around over time — read the spin.
@@ -532,25 +536,26 @@ function executeAttack(id, player) {
 function fireGrazeBait(player, time) {
   const cx = Math.max(-8, Math.min(8, player.position.x)) + Math.sin(time * 1.3) * 3;
   const cy = B.fightHeight + Math.sin(time * 0.9) * 1.5;
-  fireRing(cx, cy, 3.6, quality < 0.75 ? 10 : 13, B.bulletSpeed * 0.8, BAND[bandIdx++ % BAND.length]);
+  const b = BAND[bandIdx++ % BAND.length];
+  fireRing(cx, cy, 3.6, quality < 0.75 ? 9 : 11, B.bulletSpeed * 0.8, b.c, b.s);
 }
 
 // A ring (circle outline) of bullets centred on (cx, cy) that closes straight in.
-function fireRing(cx, cy, radius, m, vrel, color) {
+function fireRing(cx, cy, radius, m, vrel, color, sizeMult = 1) {
   for (let i = 0; i < m; i++) {
     const a = (i / m) * Math.PI * 2;
-    emitBoss(cx + Math.cos(a) * radius, cy + Math.sin(a) * radius, 0, 0, -vrel, false, color);
+    emitBoss(cx + Math.cos(a) * radius, cy + Math.sin(a) * radius, 0, 0, -vrel, false, color, sizeMult);
   }
 }
 
 // Low-level boss-bullet spawn: starts at (x, y) on the boss's plane (rel=settleGap)
-// with the given velocity. `color` overrides for banded rings; else amber if
-// reflectable, otherwise the boss's fiery danger colour.
-function emitBoss(x, y, vx, vy, vrel, reflectable = false, color = null) {
+// with the given velocity. `color`/`sizeMult` override for banded rings; else amber
+// if reflectable, otherwise the boss's fiery danger colour.
+function emitBoss(x, y, vx, vy, vrel, reflectable = false, color = null, sizeMult = 1) {
   spawnBossBullet({
     owner: 'boss', x, y, rel: pose.rel,
     vx, vy, vrel, color: color ?? (reflectable ? REFLECT_COLOR : bulletColor), reflectable,
-    dmg: B.bulletDamage, r: B.bulletRadius, life: 6,
+    dmg: B.bulletDamage, r: B.bulletRadius * sizeMult, life: 6,
   });
 }
 
