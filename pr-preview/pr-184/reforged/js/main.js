@@ -152,16 +152,11 @@ function spawnAhead() {
   const lead = Math.max(CONFIG.spawnAhead, player.speed * CONFIG.spawnAheadTime);
   if (levelGen.generatedUntil >= player.dist + lead) return;
   const chunk = levelGen.ensure(player.dist + lead);
-  // Boss fight overlay: keep the reward rings + ember trails flowing (so the run
-  // still reads as motion and combos can build) but suppress every hazard and
-  // structural set-piece for the duration. Generation still advances, so the
-  // course stays byte-identical for the seed — we just don't lay the meshes.
-  if (game.inBoss) {
-    chunk.rings.forEach(addRing);
-    chunk.embers.forEach(addEmberLine);
-    chunk.goldEmbers && chunk.goldEmbers.forEach(addGoldEmber);
-    return;
-  }
+  // Boss fight = a CLEAN ARENA: the encounter is the whole show, so no rings,
+  // embers, orbs, hazards or set-pieces are laid for the duration. Generation
+  // still advances above (the course stays byte-identical for the seed); we just
+  // spawn nothing. (Existing collectibles are cleared on 'bossStart' below.)
+  if (game.inBoss) return;
   chunk.rings.forEach(addRing);
   // A base Phase Gate whose dist lands inside a canyon run is skipped — a blind
   // crystal window between rib sections reads unfair. Generator output is untouched
@@ -247,6 +242,9 @@ initAnalytics();
 // First-ever Dragon Surge: the signature peak. A non-blocking flourish names the
 // moment mid-flight (the run never pauses); the run-1 recap explains it (recap.js).
 on('firstSurge', () => ui.surgeFlourish());
+// A boss encounter clears the field for a clean arena (the boss wipes hazards
+// itself; here we clear the collectibles so only the fight is on screen).
+on('bossStart', () => { resetRings(); resetEmbers(); resetPowerups(); resetGoldEmbers(); });
 ui.init({
   getCard: makeShareCard,
   onRestart: restart,

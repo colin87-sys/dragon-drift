@@ -183,7 +183,12 @@ export const CONFIG = {
     // precision aimed/fan shots) back at the boss for bonus damage — defence
     // becomes offence. Graze to charge → roll to parry.
     reflectWindow: 4.5,     // rel-distance ahead within which a rolling player swats a bullet
-    reflectDamageMult: 2,   // reflected bullet damage × vs the boss
+    reflectDamageMult: 2,   // reflected bullet damage × vs the boss (normal parry)
+    reflectPerfectMult: 2.7,// PERFECT parry (swatted right on top of you) hits harder
+    perfectParryRel: 1.8,   // a bullet swatted within this rel = a perfect parry
+    parryScore: 120,        // style points per parry (× perfect bonus × streak)
+    // Death reward: a defeated boss pays a big score bonus AND a haul of embers.
+    defeatEmbers: 60,
     // Rider auto-attack: the steady chip that always whittles the boss down
     riderShotInterval: 0.5,
     riderShotDamage: 3,

@@ -772,6 +772,13 @@ export const ui = {
     this._popup2(`BARREL ROLL +${points}`, 'gold');
   },
 
+  // Reflect/parry callout. A perfect parry gets the big violet banner with the
+  // climbing streak (like a perfect-phase); a normal parry is a quieter cyan pop.
+  parryPopup(points, perfect, streak) {
+    if (perfect) this._popup(`★ PERFECT PARRY ×${streak} ★  +${points}`, 'fever');
+    else this._popup2(`PARRY +${points}`, 'cyan');
+  },
+
   gatePopup(points) {
     this._popup(`THREADED +${points}`, 'cyan');
   },
