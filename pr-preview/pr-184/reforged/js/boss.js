@@ -62,6 +62,12 @@ let curAttack = null;          // the attack being telegraphed
 const pending = [];            // streamed sub-volleys: { t, fire } (tunnel / spiralStream)
 const SUSTAINED = new Set(['tunnel', 'spiralStream']);
 const REFLECT_COLOR = 0xffc23c;   // amber = "you can parry this" (aimed/fan precision shots)
+// Per-ring colour banding: successive rings cycle these hues so overlapping/
+// concentric waves read as SEPARATE coloured bands, not one merged mesh (the
+// danmaku-standard fix for wave-merging). Kept warm-danger + clear of the amber
+// (parry) and cyan (reflected) role colours.
+const BAND = [0xff2a1c, 0xff1e8c, 0xff7a12];   // red → magenta → orange
+let bandIdx = 0;
 
 // Player-relative pose: rel = metres ahead of the player.
 const pose = { x: 0, y: B.fightHeight, rel: B.settleGap };
@@ -153,6 +159,7 @@ export function startBossEncounter(player, defOverride) {
   phaseIdx = 0;
   spiralPhase = 0;
   shielded = false;
+  bandIdx = 0;
   bulletColor = def.bulletColor ?? 0xff3010;
   pending.length = 0;
   chargeT = 0;
@@ -287,6 +294,8 @@ export function updateBoss(dt, player, time) {
       model.setHealth(0);
       hpRevealT = HP_REVEAL;
       riderTimer = HP_REVEAL;
+      // Tutorial boss: teach the parry as the fight opens (amber shots = swat-able).
+      if (def.tutorial) ui.bossBanner?.('DODGE!', 'ROLL INTO AMBER SHOTS TO PARRY');
     }
   } else if (phase === 'fight') {
     // Hold station ahead and "fly backward"; gentle strafe/bob keeps it alive.
@@ -496,7 +505,8 @@ function executeAttack(id, player) {
     // ring → constant grazing; a big ring let you sit in a dead-safe hole.
     for (let k = 0; k < rings; k++) {
       const cx = anchorX + Math.sin(k * 0.8) * 5;   // centred on you, then weaves → you follow
-      pending.push({ t: k * 0.38, fire: () => fireRing(cx, B.fightHeight, 3.7, m, slow) });
+      const col = BAND[k % BAND.length];            // successive rings band by hue
+      pending.push({ t: k * 0.38, fire: () => fireRing(cx, B.fightHeight, 3.7, m, slow, col) });
     }
   } else if (id === 'spiralStream') {
     // A rotating emitter: arms of bullets sweep around over time — read the spin.
@@ -518,26 +528,28 @@ function executeAttack(id, player) {
 // Graze-bait (armour phase): small rings centred on the player and weaving, so the
 // bullets stream CLOSE past you (radius < grazeR → the whole ring grazes) with a
 // threadable lane. Weaving them tight charges the Surge that bursts the armour.
+// Each successive ring colour-BANDS so you can read them apart as they stack.
 function fireGrazeBait(player, time) {
   const cx = Math.max(-8, Math.min(8, player.position.x)) + Math.sin(time * 1.3) * 3;
   const cy = B.fightHeight + Math.sin(time * 0.9) * 1.5;
-  fireRing(cx, cy, 3.6, quality < 0.75 ? 12 : 16, B.bulletSpeed * 0.8);
+  fireRing(cx, cy, 3.6, quality < 0.75 ? 10 : 13, B.bulletSpeed * 0.8, BAND[bandIdx++ % BAND.length]);
 }
 
 // A ring (circle outline) of bullets centred on (cx, cy) that closes straight in.
-function fireRing(cx, cy, radius, m, vrel) {
+function fireRing(cx, cy, radius, m, vrel, color) {
   for (let i = 0; i < m; i++) {
     const a = (i / m) * Math.PI * 2;
-    emitBoss(cx + Math.cos(a) * radius, cy + Math.sin(a) * radius, 0, 0, -vrel);
+    emitBoss(cx + Math.cos(a) * radius, cy + Math.sin(a) * radius, 0, 0, -vrel, false, color);
   }
 }
 
 // Low-level boss-bullet spawn: starts at (x, y) on the boss's plane (rel=settleGap)
-// with the given velocity, always the fiery danger colour.
-function emitBoss(x, y, vx, vy, vrel, reflectable = false) {
+// with the given velocity. `color` overrides for banded rings; else amber if
+// reflectable, otherwise the boss's fiery danger colour.
+function emitBoss(x, y, vx, vy, vrel, reflectable = false, color = null) {
   spawnBossBullet({
     owner: 'boss', x, y, rel: pose.rel,
-    vx, vy, vrel, color: reflectable ? REFLECT_COLOR : bulletColor, reflectable,
+    vx, vy, vrel, color: color ?? (reflectable ? REFLECT_COLOR : bulletColor), reflectable,
     dmg: B.bulletDamage, r: B.bulletRadius, life: 6,
   });
 }
@@ -581,7 +593,7 @@ function damageBoss(amount, kind) {
     chargeT = 0; pending.length = 0; baitTimer = 0;   // drop any in-flight attack; graze-bait takes over
     model.flash(1.0);
     cameraCtl.shake?.(0.8);
-    ui.bossBanner?.('⛨  SHIELDED  ⛨', 'UNLEASH DRAGON SURGE');
+    ui.bossBanner?.('⛨  SHIELDED  ⛨', 'GRAZE THE RINGS → UNLEASH SURGE');
     sfx.milestone?.();
     emit('bossShield', { phase: phaseIdx + 1 });
   }

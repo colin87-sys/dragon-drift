@@ -23,10 +23,14 @@ export const BOSSES = {
     glow: 0xc89aff,
     bulletColor: 0xff3010,    // fiery red = "this will hurt"
     approachFrom: 'behind',   // 'behind' (overtakes you) | 'side' (sweeps in)
+    tutorial: true,           // first boss: teaches the verbs one at a time, gently
+    // VOIDMAW is the TUTORIAL boss — it introduces the mechanics one per phase with
+    // slow, readable patterns. Later bosses layer in spiral / spiralStream / new
+    // patterns and tighter cadences.
     phases: [
-      { atFrac: 1.00, cadence: [1.5, 2.1], attacks: ['aimed', 'fan'] },
-      { atFrac: 0.66, cadence: [1.2, 1.7], attacks: ['aimed', 'fan', 'tunnel'] },
-      { atFrac: 0.33, cadence: [1.0, 1.5], attacks: ['fan', 'spiral', 'tunnel', 'spiralStream'] },
+      { atFrac: 1.00, cadence: [1.9, 2.5], attacks: ['aimed'] },          // P1: dodge + PARRY (amber)
+      { atFrac: 0.66, cadence: [1.6, 2.1], attacks: ['aimed', 'fan'] },   // P2: + spread to weave
+      { atFrac: 0.33, cadence: [1.4, 1.9], attacks: ['aimed', 'fan', 'tunnel'] }, // P3: + rings to read
     ],
   },
 };
