@@ -976,6 +976,9 @@ function tick() {
       if (game.feverTimer <= 0) {
         game.feverActive = false;
         game.feverTimer = 0;
+        // In a boss the surge is graze-charged, so empty the meter when it ends —
+        // the next Surge must be re-earned by grazing (no permanent hyper).
+        if (game.inBoss) { game.consecutiveRings = 0; game.grazeCharge = 0; }
       }
     }
 

@@ -3956,3 +3956,38 @@ window, without the baseline parry already doing that job. Verified: `tests/boss
 assertion reads the config, still green at 0.55×) + `bossboot` real-WebGL zero-error (stripes + defeat fanfare
 live) + `tricount` unchanged (203265); the human judges the directional read, the new reflect pacing, and the
 fanfare on the preview.
+
+---
+
+### L99 — Increment 3: the Surge hyper closes the loop (graze→charge→pop→reflect-everything); the whole boss fight is a self-contained economy
+
+**Did / learned.** Wired Dragon Surge into the boss as the **hyper/overdrive** — the *spend* climax the graze→
+charge loop was building toward. While `feverActive` in a boss: (1) **bullet-time** — `updateBossBullets` gets a
+`dt × surgeBulletTime (0.5)` so bullets slow to half speed while the player still steers full-speed (classic
+witch-time; a window to weave and parry); (2) **double rider fire** — the rider interval × `surgeRiderMult (0.5)`;
+(3) **all-bullets-reflectable** — the reflect-during-roll call passes `all = feverActive`, so `reflectBossBullets`
+swats ANY bullet, not just the amber ones (the `all` flag scaffolded in L93 — activating it was one argument);
+plus every bullet now flares in the parry window (`game.feverActive` in the flare test) so the read matches the
+rule, and a "⚡ DRAGON SURGE ⚡ — REFLECT ANYTHING" callout fires on trigger. Surge is **graze-charged** (L91) and,
+in a boss, the meter **empties when it ends** (`game.inBoss` guard on the fever-timeout) so each hyper is
+re-earned — no permanent overdrive. Net: the full arc is now live — *graze the storm to charge → pop Surge → roll
+through slowed bullets reflecting everything into the boss* — and the headless lifecycle even shows it (immortal
+test player's grazing auto-fires Surge, double-rider drops the kill 50s→42s).
+
+**→ Systematize.** (a) **Scaffold the escalation as a parameter, activate it with an argument.** Increments 1–2
+built `reflectBossBullets(..., all=false)` and a `feverActive` charge source; Increment 3 was mostly
+`all = game.feverActive` + two `× multiplier`s — because the seams were pre-cut, the climax was ~15 lines, not a
+system. Design earlier increments to leave the *next* one a one-liner. (b) **A hyper is a set of orthogonal
+multipliers on existing systems** (time-scale on bullet update, interval-scale on the emitter, a boolean on the
+parry filter), not a new mode — so it composes with everything and can't desync. (c) **Earn-and-spend meters need
+a reset on spend-end**, gated to the context that owns them (`inBoss`), or the resource leaks into permanence.
+
+**→ Leapfrog (innovate).** The boss fight is now a **complete self-contained economy** — charge (graze),
+supplement (parry), climax (surge hyper), payoff (embers + fanfare), ease-out (grace band) — decoupled from the
+run's own systems yet reusing them (the surge meter, the roll, the rider). That's exactly the substrate a **Boss
+Rush mode** (Increment 5) monetises: chain encounters, carry the streaks, bank the hauls. And the increment
+pattern (scaffold-then-activate) is the template for **more bosses** (Increment 4): a new `bossDefs` entry +
+`bossModel` recipe re-mixes the *same* verbs (graze/parry/surge) with different attack data + palette — near-zero
+new systems. Verified: `tests/boss.mjs` (8 checks; kill 50s→42s shows Surge live in-sim) + `bossboot` real-WebGL
+zero-error with Surge forced (bullet-time + double-rider + all-reflect + flare) + `tricount` unchanged (203265);
+the human judges the bullet-time feel, the reflect-everything power fantasy, and the re-earn pacing on the preview.

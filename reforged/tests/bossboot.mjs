@@ -22,6 +22,11 @@ check('boss overlay engaged (game.inBoss)', await page.evaluate(() => window.__d
 
 await page.waitForTimeout(3500); // approach + a few seconds of bullet-hell
 
+// Force the Surge hyper (bullet-time + double rider fire + all-bullets-reflectable)
+// so that whole path runs in the real WebGL engine too.
+await page.evaluate(() => { window.__dd.game.feverActive = true; window.__dd.game.feverTimer = 8; });
+await page.waitForTimeout(1500);
+
 // Still flying, still in the fight (the rider chip alone needs ~30s to win), and
 // crucially nothing threw in the real WebGL path.
 check('still playing after the boss ran', await page.evaluate(() => window.__dd.game.state === 'playing'));

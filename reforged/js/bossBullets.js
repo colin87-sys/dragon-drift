@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { CONFIG } from './config.js';
+import { game } from './gameState.js';
 import { hitPlayer, bulletGraze } from './collision.js';
 import { burst } from './particles.js';
 import { emit } from './events.js';
@@ -171,7 +172,9 @@ export function updateBossBullets(dt, player) {
     if (s.owner === 'boss' && s.rel > 0) {
       const tti = s.rel / Math.max(Math.abs(s.vrel), 1);
       if (tti < 0.3) flare = 1 - tti / 0.3;
-      if (s.reflectable && s.rel <= CONFIG.BOSS.reflectWindow) {
+      // In Surge every bullet is parryable, so every bullet flares in the window.
+      const parryable = s.reflectable || game.feverActive;
+      if (parryable && s.rel <= CONFIG.BOSS.reflectWindow) {
         flare = Math.max(flare, 0.55 + Math.sin(clock * 22) * 0.35);
       }
     }
