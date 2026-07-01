@@ -13,6 +13,7 @@ export const input = {
   tx: 0, // touch-drag analog axes, -1..1
   ty: 0,
   rollRequest: 0, // -1 / +1: barrel roll request, consumed by player.update
+  surgeTap: false, // one-shot: unleash Dragon Surge (Space / 2nd-finger tap), consumed by boss.js
 };
 
 // Combined analog steering axes used by the flight model.
@@ -42,6 +43,9 @@ export function initInput() {
 
   window.addEventListener('keydown', (e) => {
     const action = KEYMAP[e.code];
+    // Space also unleashes Dragon Surge (consumed only during a boss); it still
+    // acts as boost outside a fight (boost is suspended in a boss anyway).
+    if (e.code === 'Space' && !e.repeat) input.surgeTap = true;
     if (action) {
       // e.repeat guard: key auto-repeat must not count as a double-tap.
       if (!e.repeat && (action === 'left' || action === 'right')) {
@@ -106,6 +110,7 @@ export function initTouch(el) {
           extras.set(t.identifier, {
             lx: t.clientX, ly: t.clientY, lt: performance.now(),
             acc: 0, dir: 0, rolled: false,
+            down: performance.now(), moved: 0, // for tap-to-surge detection
           });
         }
       }
@@ -149,6 +154,7 @@ export function initTouch(el) {
             const now = performance.now();
             const dx = t.clientX - rec.lx;
             const dy = t.clientY - rec.ly;
+            rec.moved += Math.abs(dx) + Math.abs(dy);
             // dt floors at 1ms so same-timestamp coalesced moves still count
             // toward the swipe instead of being silently dropped.
             const dtMs = Math.max(now - rec.lt, 1);
@@ -187,6 +193,11 @@ export function initTouch(el) {
         input.tx = 0;
         input.ty = 0;
       } else {
+        // A brief, still 2nd-finger touch (not a swipe/roll) = unleash Surge.
+        const rec = extras.get(t.identifier);
+        if (rec && !rec.rolled && rec.moved < 16 && performance.now() - rec.down < 260) {
+          input.surgeTap = true;
+        }
         extras.delete(t.identifier);
       }
     }

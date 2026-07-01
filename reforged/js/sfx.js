@@ -326,6 +326,12 @@ function tone({ freq = 440, end = 0, dur = 0.2, type = 'sine', vol = 0.12, delay
   osc.stop(t0 + dur + 0.05);
 }
 
+// --- Looping SFX handles (surge-ready hum, surge-active crackle) ---
+// Persistent node graphs, started/stopped by the boss controller. Modeled on the
+// music engine's windSource loop: one long-lived source + an LFO, torn down on stop.
+let surgeReadyNodes = null;
+let surgeCrackleNodes = null;
+
 export const sfx = {
   // Glassy ice-bell pluck: pure fundamental + bright inharmonic partial
   ring(combo = 1) {
@@ -375,6 +381,163 @@ export const sfx = {
   nearMiss() {
     noiseWhoosh({ from: 700, to: 3200, dur: 0.22, vol: 0.16, q: 1.6 });
     tone({ freq: 880, end: 1320, dur: 0.12, type: 'triangle', vol: 0.07, delay: 0.04 });
+  },
+  // Graze a boss bullet: a soft, SHORT high shimmer, kept quiet so a rapid stream
+  // of grazes blends into a pleasant sparkle instead of a machine-gun rattle. The
+  // pitch climbs gently with the graze streak (a subtle dopamine ladder).
+  graze(streak = 0) {
+    const step = Math.min(streak, 14);
+    const f = 1500 + step * 60;
+    tone({ freq: f, end: f * 1.18, dur: 0.045, type: 'triangle', vol: 0.03 });
+  },
+  // Reflect/parry a bullet. Normal = a metallic ting; PERFECT climbs a pentatonic
+  // ladder with the perfect-parry streak (like the perfect-phase chime — chaining
+  // perfect parries plays a rising melody).
+  parry(perfect = false, streak = 1) {
+    if (perfect) {
+      const penta = [0, 2, 4, 7, 9, 12, 14, 16, 19, 21];
+      const semi = penta[Math.min(streak - 1, penta.length - 1)] || 0;
+      const base = 600 * Math.pow(2, semi / 12);
+      tone({ freq: base, end: base * 2, dur: 0.16, type: 'triangle', vol: 0.12 });
+      tone({ freq: base * 2.01, dur: 0.2, type: 'sine', vol: 0.06, delay: 0.02 });
+      tone({ freq: base * 3, dur: 0.12, type: 'sine', vol: 0.04, delay: 0.03 });
+    } else {
+      tone({ freq: 440, end: 680, dur: 0.12, type: 'triangle', vol: 0.09 });
+      tone({ freq: 900, dur: 0.14, type: 'sine', vol: 0.04, delay: 0.02 });
+    }
+  },
+  // Chip/reflect pinging off boss armour: a short, quiet metallic clang so the
+  // player reads "that's bouncing off — charge Surge instead" (fires ~2/s, kept low).
+  shieldPing() {
+    tone({ freq: 2600, end: 1800, dur: 0.05, type: 'square', vol: 0.03 });
+    tone({ freq: 1300, dur: 0.06, type: 'triangle', vol: 0.03, delay: 0.005 });
+  },
+  // Boss defeated: a big triumphant fanfare — a low victory boom under a rising
+  // major arpeggio that blooms into a shimmering chord. The "you earned it" payoff.
+  bossDefeat() {
+    const a = getCtx();
+    if (!a) return;
+    noiseWhoosh({ from: 220, to: 40, dur: 0.7, vol: 0.22, q: 0.8 });          // low impact swell
+    tone({ freq: 90, end: 60, dur: 0.9, type: 'sine', vol: 0.16 });           // sub boom
+    const root = 392; // G4
+    const arp = [0, 4, 7, 12, 16, 19];                                        // major, two octaves
+    arp.forEach((semi, i) => {
+      const f = root * Math.pow(2, semi / 12);
+      tone({ freq: f, end: f, dur: 0.5, type: 'triangle', vol: 0.12, delay: i * 0.075 });
+      tone({ freq: f * 2, dur: 0.4, type: 'sine', vol: 0.05, delay: i * 0.075 + 0.01 });
+    });
+    // Final bloom chord (G major) + bright shimmer.
+    [0, 7, 12, 16].forEach((semi) => {
+      const f = root * Math.pow(2, semi / 12);
+      tone({ freq: f, dur: 1.1, type: 'sine', vol: 0.07, delay: 0.5 });
+    });
+    tone({ freq: 3136, dur: 0.5, type: 'triangle', vol: 0.05, delay: 0.55 });  // sparkle
+  },
+  // Surge READY: a soft, looping, enticing hum that says "unleash me". Two detuned
+  // voices a fifth apart with a slow tremolo swell + a gentle high shimmer, kept
+  // quiet so it sits under the music as a pull, not a nag. Start/stop as the meter
+  // fills / is spent. Idempotent (a second start is a no-op).
+  surgeReadyStart() {
+    const a = getCtx();
+    if (!a || !sfxBus || surgeReadyNodes) return;
+    const out = a.createGain();
+    out.gain.setValueAtTime(0.0001, a.currentTime);
+    out.gain.exponentialRampToValueAtTime(0.05, a.currentTime + 0.4);   // fade in
+    out.connect(sfxBus);
+    // Tremolo LFO: a slow breathing swell on the whole hum (the "come on…" pulse).
+    const trem = a.createGain();
+    trem.gain.value = 1;
+    const lfo = a.createOscillator();
+    lfo.type = 'sine';
+    lfo.frequency.value = 2.4;
+    const lfoDepth = a.createGain();
+    lfoDepth.gain.value = 0.5;
+    lfo.connect(lfoDepth).connect(trem.gain);
+    trem.connect(out);
+    const oscs = [];
+    for (const [freq, det, type, vol] of [[330, -4, 'triangle', 0.6], [495, 5, 'sine', 0.4], [990, 0, 'sine', 0.16]]) {
+      const o = a.createOscillator();
+      o.type = type; o.frequency.value = freq; o.detune.value = det;
+      const g = a.createGain(); g.gain.value = vol;
+      o.connect(g).connect(trem);
+      o.start();
+      oscs.push(o);
+    }
+    lfo.start();
+    surgeReadyNodes = { oscs, lfo, out };
+  },
+  surgeReadyStop() {
+    const n = surgeReadyNodes;
+    surgeReadyNodes = null;
+    if (!n) return;
+    const a = getCtx();
+    if (a && n.out) n.out.gain.setTargetAtTime(0.0001, a.currentTime, 0.06);
+    const kill = () => { for (const o of n.oscs) { try { o.stop(); } catch {} } try { n.lfo.stop(); } catch {} };
+    setTimeout(kill, 220);
+  },
+  // Surge UNLEASH: the beam fires. A hard downward laser sweep + a sub boom + a
+  // bright noise lance — the big "FWOOM" that launches the mouth beam at the boss.
+  surgeBeam() {
+    const a = getCtx();
+    if (!a) return;
+    tone({ freq: 70, end: 42, dur: 0.6, type: 'sine', vol: 0.18 });               // sub boom
+    tone({ freq: 1400, end: 240, dur: 0.5, type: 'sawtooth', vol: 0.12 });        // laser body sweep
+    tone({ freq: 2100, end: 520, dur: 0.4, type: 'square', vol: 0.06, delay: 0.02 });
+    noiseWhoosh({ from: 900, to: 6000, dur: 0.4, vol: 0.16, q: 0.7 });            // energy lance
+    tone({ freq: 660, end: 1320, dur: 0.14, type: 'triangle', vol: 0.1, delay: 0.01 }); // zap transient
+  },
+  // Surge ACTIVE crackle: a looping electric arc — band-passed noise sizzling with
+  // an LFO-jittered gain + a faint high buzz, so the lightning around the dragon
+  // has a constant cool crackle. Start on unleash, stop when Surge ends.
+  surgeCrackleStart() {
+    const a = getCtx();
+    if (!a || !sfxBus || surgeCrackleNodes) return;
+    const out = a.createGain();
+    out.gain.setValueAtTime(0.0001, a.currentTime);
+    out.gain.exponentialRampToValueAtTime(0.07, a.currentTime + 0.15);
+    out.connect(sfxBus);
+    // Sizzling band-passed noise (the arc body).
+    const src = a.createBufferSource();
+    src.buffer = getNoiseBuffer(a);
+    src.loop = true;
+    const bp = a.createBiquadFilter();
+    bp.type = 'bandpass'; bp.frequency.value = 2400; bp.Q.value = 1.1;
+    const sizzle = a.createGain(); sizzle.gain.value = 0.55;
+    src.connect(bp).connect(sizzle).connect(out);
+    // Gain-jitter LFO: rapid crackle (arc flicker) on the sizzle level.
+    const lfo = a.createOscillator();
+    lfo.type = 'square'; lfo.frequency.value = 17;
+    const lfoDepth = a.createGain(); lfoDepth.gain.value = 0.4;
+    lfo.connect(lfoDepth).connect(sizzle.gain);
+    // Faint high electric buzz on top.
+    const buzz = a.createOscillator();
+    buzz.type = 'sawtooth'; buzz.frequency.value = 3200;
+    const bg = a.createGain(); bg.gain.value = 0.02;
+    buzz.connect(bg).connect(out);
+    src.start(); lfo.start(); buzz.start();
+    surgeCrackleNodes = { src, lfo, buzz, out };
+  },
+  surgeCrackleStop() {
+    const n = surgeCrackleNodes;
+    surgeCrackleNodes = null;
+    if (!n) return;
+    const a = getCtx();
+    if (a && n.out) n.out.gain.setTargetAtTime(0.0001, a.currentTime, 0.08);
+    const kill = () => { try { n.src.stop(); } catch {} try { n.lfo.stop(); } catch {} try { n.buzz.stop(); } catch {} };
+    setTimeout(kill, 260);
+  },
+  // Boss shield SHATTERING under the beam: a bright glassy burst — a cluster of
+  // highpassed noise cracks + a few detuned high shards falling. Distinct from the
+  // musical phase() chime: this is the physical "the barrier breaks" sound.
+  shieldShatter() {
+    const a = getCtx();
+    if (!a) return;
+    noiseWhoosh({ from: 6000, to: 1400, dur: 0.25, vol: 0.16, q: 2.6 });         // main shatter
+    for (let i = 0; i < 5; i++) {
+      const f = 2600 + Math.floor(i * 137) * ((i % 2) ? 1 : 1.5);
+      tone({ freq: f, end: f * 0.6, dur: 0.18, type: 'triangle', vol: 0.06, delay: i * 0.035 }); // falling shards
+    }
+    tone({ freq: 150, end: 60, dur: 0.35, type: 'sawtooth', vol: 0.1, delay: 0.02 });  // low whoomp under
   },
   // Ember pickup: short blip that climbs a pentatonic ladder with the streak
   // (the Subway Surfers coin cadence — consecutive grabs feel like a melody).

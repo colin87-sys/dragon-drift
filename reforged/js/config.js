@@ -145,6 +145,68 @@ export const CONFIG = {
   biomeLength: 1500,      // metres per biome before cycling
   biomeTransition: 150,   // crossfade band at each seam
 
+  // Boss fight — a bullet-hell encounter that OVERLAYS the endless flight (like
+  // Sky Canyon): the boss flies in, settles in front and "flies backward" at a
+  // fixed player-relative distance while forward motion continues. Bullets close
+  // toward the player in the player-relative frame and are dodged in the X/Y lane.
+  // Gated by game.inBoss so a normal run is untouched when no boss is active.
+  BOSS: {
+    firstAt: 2500,          // metres: earliest a boss can appear
+    interval: 3200,         // metres between encounters
+    intervalJitter: 900,
+    settleGap: 30,          // metres ahead the boss holds (player-relative frame)
+    fightHeight: 13,        // y the boss settles at (above the horizon city, framed on sky)
+    warnTime: 2.0,          // warning flashes ALONE first, then the boss flies in
+    approachTime: 2.6,      // seconds from spawn-offset to the settle point
+    cruiseSpeed: 65,        // player forward speed locked during the fight — boost
+                            // pace so flying doesn't feel sluggish (on-rails)
+    // Telegraph: the boss visibly charges before each attack (fairness + game feel).
+    telegraphInstant: 0.5,  // wind-up for a one-shot volley (aimed / fan / spiral)
+    telegraphSustained: 0.7,// longer wind-up for a streamed pattern (tunnel / stream)
+    // Bullets (one InstancedMesh of soft round discs — white centre, coloured rim —
+    // built on the embers.js pool pattern; normal blend so they read over bloom).
+    // Reaction window for an aimed bullet = settleGap / bulletSpeed (≈ 0.88s here);
+    // the spiral is slower (×0.78) so it reads as more forgiving.
+    bulletPool: 320,
+    bulletRadius: 0.55,
+    bulletHitScale: 0.62,   // effective player hit radius = playerRadius × this (forgiving)
+    bulletSpeed: 28,        // closing speed (m/s) → reaction window ≈ settleGap/speed ≈ 1.07s
+    bossSpeed: 52,          // closing speed of a rider/reflected bullet toward the boss
+    bulletDamage: 13,      // forgiving: a clean hit stings but a graze-heavy run survives
+    bossHitRadius: 4.2,     // how close a boss-ward bullet must be to count as a hit (matches the larger body)
+    // Graze: skimming a bullet (inside the graze band but outside the hit radius)
+    // charges Dragon Surge — the "drift" identity transplanted from rings onto
+    // danmaku. Band = (hitR, grazeR];  grazeR = playerRadius × grazeScale + bulletRadius.
+    grazeScale: 3.0,        // grazeR ≈ 1.2×3.0 + 0.55 ≈ 4.15  (band ≈ [1.29, 4.15]) — skim from further
+    grazeScore: 12,         // score per bullet grazed
+    grazeGain: 0.34,        // surge-meter fraction per graze (~3 grazes ≈ one gem)
+    // Reflect: a barrel roll's i-frames swat REFLECTABLE bullets (amber; the
+    // precision aimed/fan shots) back at the boss for bonus damage — defence
+    // becomes offence. Graze to charge → roll to parry.
+    reflectWindow: 4.5,     // rel-distance ahead within which a rolling player swats a bullet
+    reflectDamageMult: 0.35,// reflected bullet damage × vs the boss (normal parry) — a
+                            // roll can swat several bullets, so keep per-bullet modest
+    reflectPerfectMult: 0.55,// PERFECT parry (swatted right on top of you) — slightly more
+    perfectParryRel: 1.8,   // a bullet swatted within this rel = a perfect parry
+    parryScore: 120,        // style points per parry (× perfect bonus × streak)
+    // Surge hyper: while Dragon Surge is active in a boss the rider double-fires and
+    // EVERY bullet becomes reflectable. Surge is MANUAL (unleash with Space / a
+    // 2nd-finger tap) and its job is to BURST the per-phase shield.
+    surgeRiderMult: 0.5,    // rider fire interval × during Surge (0.5 = twice as fast)
+    surgeBeamDamage: 14,    // beam chip when unleashed with NO shield up (shielded → burst)
+    shieldDamage: 999,      // a Surge unleash bursts the shield outright (phase advance)
+    // Death reward: a defeated boss pays a big score bonus AND a haul of embers.
+    defeatEmbers: 60,
+    postGrace: 50,          // metres after a boss with rings/orbs only (no hazards) to ease back in
+    // Rider auto-attack: a gentle chip (Surge is the real damage — it bursts the
+    // per-phase shield); tuned low so you can't brute-force phases with chip alone.
+    riderShotInterval: 0.5,
+    riderShotDamage: 1.4,
+    // Death + reward
+    deathTime: 2.6,         // disintegration dissolve length (s)
+    defeatScore: 5000,
+  },
+
   // Death freeze-frame
   deathFreezeDuration: 0.45, // seconds of freeze before game-over screen
 

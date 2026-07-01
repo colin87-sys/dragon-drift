@@ -142,6 +142,70 @@ body.app-loaded > canvas { opacity: 1; }
 .chain .chain-word { font-size: 8px; letter-spacing: 2.5px; opacity: 0.75; margin-left: 5px; vertical-align: 1px; }
 .chain.chain-pop { animation: chain-pop 0.28s ease-out; }
 @keyframes chain-pop { 0%{transform:scale(1)} 45%{transform:scale(1.3)} 100%{transform:scale(1)} }
+/* Live GRAZE counter (boss only) — graze-green, reuses the .chain layout + pop. */
+.graze-hud { color: #9dffea; text-shadow: 0 0 10px rgba(120, 255, 220, 0.6); }
+
+/* Boss incoming warning + directional danger glow (telegraph before it arrives) */
+.boss-warn { position: fixed; top: 30%; left: 0; right: 0; text-align: center;
+  pointer-events: none; opacity: 0; transition: opacity 0.3s; z-index: 40; }
+.boss-warn.show { opacity: 1; }
+.boss-warn-alert { font: 900 clamp(24px,8vw,58px)/1 'Russo One', system-ui, sans-serif;
+  color: #ff3b3b; letter-spacing: 0.14em; text-shadow: 0 0 20px rgba(255,40,40,0.85);
+  animation: warn-flash 0.5s steps(1) infinite; }
+.boss-warn-name { font: 800 clamp(18px,5.5vw,38px)/1.15 'Russo One', system-ui, sans-serif;
+  color: #fff; margin-top: 10px; text-shadow: 0 2px 14px #000, 0 0 22px rgba(255,90,90,0.5); }
+@keyframes warn-flash { 0%{opacity:1} 50%{opacity:0.3} }
+/* Foreboding DANGER anchored WHERE the boss emerges, on a bed of animated hazard
+   stripes. data-pos places it at the entry edge/corner; the stripes scroll inward. */
+.boss-danger { position: fixed; pointer-events: none; opacity: 0; z-index: 40;
+  padding: 10px 22px; letter-spacing: 0.16em;
+  font: 900 clamp(24px,8vw,64px)/1 'Russo One', system-ui, sans-serif;
+  color: rgba(255,60,60,0.95); text-shadow: 0 0 22px rgba(255,30,30,0.9), 0 4px 18px #000; }
+.boss-danger::before { content: ''; position: absolute; inset: -40px -60px; z-index: -1;
+  background: repeating-linear-gradient(-45deg, rgba(255,40,40,0.22) 0 22px, transparent 22px 44px);
+  mask: radial-gradient(closest-side, #000 40%, transparent); -webkit-mask: radial-gradient(closest-side, #000 40%, transparent);
+  animation: hazard-scroll 0.7s linear infinite; }
+.boss-danger.show { opacity: 1; animation: danger-throb 0.7s ease-in-out infinite; }
+.boss-danger[data-pos="bottom"] { left: 0; right: 0; bottom: 14%; text-align: center; }
+.boss-danger[data-pos="bottomRight"] { right: 6%; bottom: 15%; }
+.boss-danger[data-pos="bottomLeft"]  { left: 6%;  bottom: 15%; }
+.boss-danger[data-pos="right"] { right: 4%; top: 46%; }
+.boss-danger[data-pos="left"]  { left: 4%;  top: 46%; }
+@keyframes hazard-scroll { to { background-position: 62px 0; } }
+@keyframes danger-throb { 0%,100%{transform:scale(1)} 50%{transform:scale(1.06)} }
+.danger-glow { position: fixed; inset: 0; pointer-events: none; opacity: 0;
+  transition: opacity 0.4s; z-index: 39; }
+.danger-glow.show { animation: danger-pulse 0.85s ease-in-out infinite; }
+.danger-glow[data-dir="left"]  { background: linear-gradient(90deg, rgba(255,40,40,0.55), transparent 34%); }
+.danger-glow[data-dir="right"] { background: linear-gradient(270deg, rgba(255,40,40,0.55), transparent 34%); }
+.danger-glow[data-dir="bottomLeft"]  { background: radial-gradient(90% 80% at 0% 100%, rgba(255,40,40,0.6), transparent 55%); }
+.danger-glow[data-dir="bottomRight"] { background: radial-gradient(90% 80% at 100% 100%, rgba(255,40,40,0.6), transparent 55%); }
+.danger-glow[data-dir="bottom"] { background: radial-gradient(120% 90% at 50% 100%, rgba(255,40,40,0.6), transparent 55%); }
+@keyframes danger-pulse { 0%,100%{opacity:0.45} 50%{opacity:0.9} }
+
+/* Boss callout slot — ONE bottom-centre line, shows a single queued message at a
+   time (never overlapping) and doubles as the persistent SURGE-READY prompt.
+   Sits low where the eye rests during a fight, clear of the top HUD. */
+.boss-note { position: fixed; left: 0; right: 0; bottom: 22%; text-align: center;
+  pointer-events: none; opacity: 0; z-index: 45; transition: opacity 0.22s ease; }
+.boss-note.show { opacity: 1; }
+.boss-note .bn-main { display: block;
+  font: 900 clamp(22px,6.5vw,44px)/1.05 'Russo One', system-ui, sans-serif;
+  letter-spacing: 0.06em; color: #ffd86a;
+  text-shadow: 0 0 20px rgba(255,190,70,0.85), 0 2px 10px #000; }
+.boss-note .bn-sub { display: block; margin-top: 5px;
+  font: 700 clamp(12px,3.4vw,20px)/1.2 'Russo One', system-ui, sans-serif;
+  letter-spacing: 0.14em; color: #ffe9b8; text-shadow: 0 2px 8px #000; }
+.boss-note[data-tone="fever"] .bn-main { color: #ff8fe6; text-shadow: 0 0 22px rgba(255,90,220,0.9), 0 2px 10px #000; }
+.boss-note[data-tone="phase"] .bn-main { color: #d59bff; text-shadow: 0 0 22px rgba(190,110,255,0.9), 0 2px 10px #000; }
+.boss-note .bn-ready { display: block;
+  font: 800 clamp(16px,4.6vw,30px)/1 'Russo One', system-ui, sans-serif;
+  letter-spacing: 0.12em; color: #ff8fe6;
+  text-shadow: 0 0 18px rgba(255,90,220,0.9), 0 2px 12px #000; }
+.boss-note.show:not(.ready) { animation: boss-note-anim 0.4s cubic-bezier(.2,.9,.3,1.2); }
+.boss-note.ready { animation: surge-ready-throb 0.7s ease-in-out infinite; }
+@keyframes boss-note-anim { 0%{transform:translateY(14px) scale(0.9);opacity:0} 100%{transform:translateY(0) scale(1);opacity:1} }
+@keyframes surge-ready-throb { 0%,100%{transform:scale(1);opacity:0.85} 50%{transform:scale(1.06);opacity:1} }
 
 .dist { font-size: 13px; letter-spacing: 2px; opacity: 0.75; margin-top: 3px; }
 .best { font-size: 11px; letter-spacing: 2px; opacity: 0.6; margin-top: 4px; }
@@ -170,7 +234,11 @@ body.app-loaded > canvas { opacity: 1; }
    with a constant thickness (non-scaling stroke) so narrowing it never thins
    the line. Whispers the info; never fights the scene. */
 .stamina-arc { position: absolute; left: 50%; top: 64%; transform: translate(-50%,-50%);
-  width: min(33vw, 128px); height: 52px; z-index: 4; pointer-events: none; opacity: 0.9; }
+  width: min(33vw, 128px); height: 52px; z-index: 4; pointer-events: none; opacity: 0.9;
+  transition: opacity 0.6s ease, transform 0.6s ease; }
+/* During a boss the bar is meaningless (speed locked / unlimited) — fade it out
+   gracefully; the focus ring draws on in its place. Fades back in on boss exit. */
+.stamina-arc.boss-hidden { opacity: 0; transform: translate(-50%,-50%) scale(0.82); }
 .stamina-arc svg { width: 100%; height: 100%; overflow: visible; }
 /* Each of the 3 cells is its OWN arc with a real gap to its neighbour, so the bar
    always reads as 3 notches (no dash-skip math to merge or drop a segment). The dim

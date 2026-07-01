@@ -3571,3 +3571,687 @@ straight tube. **→ Leapfrog:** "make it straight" in an overlay that hangs off
 underlying anchor still moves; capture one anchor and lock to it. The cost is the host's own collectibles
 (reward rings) drift off-centre there, which is the right call ONLY when that beat isn't about collecting
 them (here it's a pure speed rush) — so lock to the line where the beat's *purpose* lives, not the host's.
+
+---
+
+### L89 — Boss fight = an ON-RAILS OVERLAY on the flight, not a new arena; bullets are a player-relative InstancedMesh pool
+
+**Did / learned.** Built the first increment of a bullet-hell boss fight for the live `reforged/` game
+(the user's vision: a boss flies in, settles in front, "flies backward" while spraying bullets you dodge by
+steering; the rider auto-chips it down; ~3 phases → disintegration). The whole thing ships as a **coexisting
+overlay** gated by `game.inBoss`, modelled exactly on the Sky Canyon `game.inCanyon` pattern: forward motion
+continues, hazards are suppressed for the duration, and it tears down cleanly back into the endless run.
+New modules are self-contained and additively wired — `bossModel.js` (a procedural NON-dragon creature,
+756 tris, with a `setDissolve(k)` death), `bossBullets.js` (the bullet pool), `bossDefs.js` (data schema),
+`boss.js` (the state machine: warn → approach → fight → dying → teardown). The only edits to shipped files
+are small, boss-gated guards (`player.js` suspends boost + locks cruise speed; `collision.js` skips the
+hazard loop + exports `hitPlayer`; `main.js` inits/updates/resets + suppresses hazard spawning while
+`inBoss`; `ui.js` gains `bossBanner`). The godfall arena game was explicitly **off-limits** (a known failure)
+— this is native to the flyer.
+
+**The key modelling insight — work in the PLAYER-RELATIVE frame.** A boss that "flies backward at matched
+speed" is *stationary ahead of the player* in the player-relative frame. So every bullet carries `rel` = how
+many metres ahead of the player it is (boss holds at `rel = settleGap`), and world `z = -(player.dist + rel)`
+is recomputed each frame. A boss bullet closes `rel → 0` and the **hit is the frame `rel` crosses 0** while
+x/y are near the player; a rider/reflected bullet closes `rel → settleGap` and emits `bossDamage` on arrival.
+This is frame-correct regardless of how fast forward flight is — no chasing a moving target, no world-velocity
+bookkeeping. Damage routes through the existing `hit()` (via the new `hitPlayer` export) so a barrel roll's
+`rollInvuln` i-frames negate a bullet **for free** — dodging fell out of the system we already had.
+
+**→ Systematize.** Two reusable patterns. (1) **The `inX` overlay contract**: a heavy gameplay mode is a flag
+that mirrors `inCanyon` — suppress generation at the *source* (skip laying meshes in `spawnAhead` but still
+advance the deterministic generator, so the course stays byte-identical for the seed), guard the systems that
+must change with `if (!game.inX)`, and reset on `restart()`/`settleRun()`. Nothing about a normal run changes
+when the flag is off. (2) **The embers InstancedMesh pool generalises to any swarm**: one draw call, `slots[]`
++ rotating cursor, HIDDEN scale matrix, sphere collision `dx²+dy²+dz² < r²`, quality-scaled visible cap. Bullets
+are just embers with velocity + an owner + a collision verdict. The boss itself is **data** (`bossDefs.js`:
+hp + 3 phases + attack ids), so a second boss is mostly authoring, not code.
+
+**→ Leapfrog (innovate).** The damage economy is now a tunable triangle — rider chip (steady), reflects
+(skill burst), surge unleash (the 2nd-finger tap) — balanced so ~3 surges + chip = a 3-phase kill. The next
+increments slot straight into the seams already built: the `reflectable` flag + `reflectBossBullets()` are
+already in the pool (increment 3 just flips flags + wires the roll listener), the surge meter already fills
+(increment 2 gates its auto-activate during boss and binds the 2nd-finger tap), and "bullet-hell rings" are
+just rings spawned by `boss.js` during the fight. Bigger picture: the player-relative overlay frame is a
+**general stage for scripted set-piece encounters** on the endless track (escorts, gauntlet bosses, chase
+sequences) — anything that wants to hold a fixed relative position and choreograph against the player without
+leaving the rails. **Verification reality (unchanged):** headless logic tests (`tests/boss.mjs` drives the
+full lifecycle to a kill) + a real-WebGL boot smoke (`tests/bossboot.mjs`, zero console errors through a live
+fight) + `tricount` (boss is additive, roster baseline untouched); the human judges approach choreography,
+bullet readability and the disintegration on the PR preview — our tools can't see motion. (`tests/badges.mjs`
+still times out on `.shop-grid` headless — environmental, fails on a clean tree too, as L88 notes.)
+
+---
+
+### L90 — Boss feel pass: telegraph the wind-up, colour danger red, keep boost pace, and build patterns as readable "safe-lane" shapes
+
+**Did / learned.** First playtest of the boss (L89) surfaced four feel problems, all fixed as data/small-system
+changes on the increment-1 scaffold. (1) The aimed "3-at-you" was unfair — 0.65s window, a 0.25s predictive
+LEAD that read as homing, and 1.2m spacing that overlapped the trio into one gapless wall. Fix = more reaction
+time (settleGap 26→30, bulletSpeed 40→34 → 0.88s), kill the lead (0.25→0.08 so moving actually dodges), widen
+spacing, shrink the hitbox. (2) Flying with boost SUSPENDED felt sluggish → lock the on-rails cruise to BOOST
+speed (`cruiseSpeed 35→65`); because bullets live in the player-relative frame, forward speed doesn't change
+dodge difficulty at all — it's pure motion *feel* (camera FOV widens, world rushes). (3) No wind-up read →
+added a **telegraph**: each attack now charges for 0.5s (instant) / 0.7s (streamed) while the model's maw flares
+toward red (`bossModel.setCharge(k)`), then releases with a flash + muzzle burst. (4) Bullets recoloured to
+**fiery red** danger (`def.bulletColor`), and the boss BODY moved to violet so red reads as "this hurts" against
+it. Plus variety: two **sustained** patterns — `tunnel` (a succession of bullet-rings with a weaving centre — the
+rib-run tube the player asked for) and `spiralStream` (a rotating emitter) — driven by a `pending[]` timed
+sub-volley queue, serialized so a new attack never starts mid-stream.
+
+**→ Systematize.** (a) **Telegraph + sub-volley queue = the general attack spine.** An attack is now {charge →
+execute}, and execute either fires one volley or pushes `{t, fire}` entries onto a `pending` queue processed each
+frame; gating "no new attack while `pending.length || chargeT`" serializes everything for free. Any future
+pattern (waves, walls, homing-with-counterplay) slots in as either an instant volley or a scheduled stream — no
+new control flow. (b) **Player-relative frame means feel and fairness are ORTHOGONAL knobs**: forward speed is
+free to tune for *motion feel* without touching dodge difficulty (which is `settleGap / bulletSpeed` + lead +
+hitbox). Tune them independently. (c) **Readable danmaku = a clear safe lane + a wind-up**, not low density —
+the tunnel works because the safe centre is obvious and *drifts smoothly*; the aimed shot failed because it had
+no gap and chased you. Bake the "safe shape" into the pattern, telegraph it, then escalate.
+
+**→ Leapfrog (innovate).** The charge state is exactly the hook the **reflect** increment needs: a `reflectable`
+attack can telegraph in a distinct colour, and the barrel-roll window (`reflectBossBullets()`, already stubbed)
+swats those back during the bullet's approach. The `pending` queue also unlocks **boss-authored bullet-hell
+rings** (rings + bullets co-scheduled so threading a ring during a tunnel pays combo) and **multi-emitter** bosses
+(several muzzles pushing independent streams). And because patterns are now declarative ids resolved by the
+controller, a second boss is *just* a `bossDefs` entry with a different attack mix + colours — the migration
+payoff. Verification unchanged: `tests/boss.mjs` (lifecycle to a kill, now through the telegraphed phases) +
+`tests/bossboot.mjs` (real WebGL, zero console errors with tunnel/stream live) + `tricount` (boss additive,
+roster 203265 untouched); the human judges the wind-up read, the red, the boost pace and the tunnel weave on the
+preview.
+
+---
+
+### L91 — Graze→Surge (boss Increment 1): reconnect danmaku to the signature meter; verify the design spec against HEAD before building it
+
+**Did / learned.** A design spec (`dragon-drift-boss-retune.md`) proposed wiring bullet **grazing** to Dragon
+Surge. Before implementing, I verified its claims against the live source — and two had **drifted from the spec's
+snapshot**: (1) §B claimed "no rings spawn during a boss, so surge is dormant/impossible," but the feel pass
+(L90) had since made `spawnAhead` keep rings + embers flowing while `game.inBoss` — so `consecutiveRings` can
+climb and Surge can already fire mid-fight; and worse, `rings.miss()` zeros `consecutiveRings`, so flying *past* a
+ring while dodging would **sabotage** any graze meter built on it. (2) `hit()` only resets the streak
+`if (combo > 1)`, but in a boss combo sits at 1, so a bullet hit would **not** cancel a graze-charged surge.
+Also confirmed the two things the spec couldn't: the surge gem-row HUD is **not** gated by `inBoss` (it's a
+sub-state of `playing`, so it's already visible), and there is **no** manual surge "tap" — surge is
+auto-trigger-only (the config/player comment about "freeing the 2nd finger" is aspirational). Built Increment 1
+against *those* facts: a graze band `(hitR, grazeR]` in the bullet crossing test calls `collision.bulletGraze()`,
+which charges a fractional `grazeCharge` accumulator that spills into whole `consecutiveRings` steps → the
+**existing** meter + auto-trigger, no new UI; a bullet hit now cancels the streak **unconditionally**; and rings
+go **decorative during a boss** (skip collect/miss) so grazing is the clean, sole surge driver.
+
+**→ Systematize.** (a) **Verify a design doc against HEAD, not against its own snapshot.** A spec written by
+reading the repo is still a *snapshot*; the branch moves. The cheap, decisive check is: for each load-bearing
+claim, grep/read the exact file+line it rests on. Here it flipped the entire premise (surge is NOT dormant) and
+surfaced two interaction bugs (ring-miss sabotage, combo-gated hit-cancel) the spec couldn't have known. Make
+"reconcile the plan with the code" the first step of every increment, and write the drift down. (b) **Reuse the
+meter, don't fork it.** Graze feeds `consecutiveRings` through a fractional accumulator, so the gem HUD, the
+threshold, the auto-trigger, and the "damage breaks it" risk/reward all compose for free — the new mechanic
+inherits the whole surge economy instead of reimplementing it. The pattern generalizes: to add a new *source* for
+an existing resource, drive the resource's existing integer/threshold, don't add a parallel meter. (c) **When two
+systems fight over one counter, neutralize the weaker one in the mode where the other owns it** — rings become
+decorative in a boss so danmaku owns the streak; one `!game.inBoss` guard, no new state.
+
+**→ Leapfrog (innovate).** Grazing is now the *earn* half of the surge loop the boss was missing — the "drift"
+identity transplanted from rings onto bullets, and it works on **every** pattern for free because the hook lives
+in the bullet update, not per-attack (so L90's tunnel/spiralStream and any future `rose`/`curtain`/`laserLance`
+reward tight threading the moment they ship). That sets up the *spend* half: Increment 2 wires the already-built,
+still-dead `reflectBossBullets()` to the barrel roll, and Increment 3 makes Surge the hyper (bullet-time + double
+rider fire + all-bullets-reflectable) — graze to charge, pop Surge, roll through the storm reflecting bullets
+into the boss. The ~3-surges-to-kill economy the test enforces finally becomes *earned* instead of waiting on the
+rider chip. Verification: `tests/boss.mjs` extended (graze charges, hit/miss excluded, hit cancels, sustained
+grazing auto-fires Surge) + `tests/bossboot.mjs` real-WebGL zero-error + `tricount` unchanged (203265) +
+`tiershots` compiles; the human judges on the preview whether the graze band *feels* right (the tuning numbers —
+`grazeScale 2.2`, `grazeGain 0.34` — are first guesses).
+
+---
+
+### L92 — Boss bullet readability + "stops short" feel: core+halo, fly PAST the plane, player-anchored area patterns
+
+**Did / learned.** Playtest notes on the danmaku: bullets read too transparent; they seemed to "stop just short of
+me"; too fast; and an edge-parked player skipped the circular patterns. Four fixes: (1) **core + halo** — a lone
+additive octahedron washes out over the bright biomes, so bullets are now a bright near-opaque core (`0xfff2e6`,
+a second `InstancedMesh` drawn on top) inside the additive coloured halo (radius ×2.0). Two draw calls total,
+still trivial. (2) **The "stops short" was real, not perceptual** — the crossing test `deactivate()`d EVERY boss
+bullet the frame it reached `rel=0` (hit/graze/miss alike), so bullets vanished exactly at the player. Now only a
+HIT consumes the bullet; graze/miss keep flying to `rel < -12` and whoosh past the camera. The hit/graze
+detection is unchanged (still dead-on the player plane) — the bug was purely the visual despawn. (3) `bulletSpeed
+34→28` (reaction ≈ `settleGap/speed` ≈ 1.07 s). (4) **Area patterns now anchor to the player** —
+`anchorX = clamp(player.x·0.7, ±8)` centres the tunnel weave and the spiral/spiralStream origin on the player's
+side of the lane, so you can't park at the edge and ignore them; aimed/fan already tracked you.
+
+**→ Systematize.** (a) **Readability is a render concern, not a collision one.** The visual scale (×2.0 halo,
+×0.85 core) is fully decoupled from the hitbox (`bulletRadius`-derived `hitR/grazeR`), so we can make bullets
+*look* bigger/brighter for legibility without making them *harder* to dodge — tune the two independently, always.
+(b) **"Vanishes at the player" is a despawn-timing smell.** Any projectile that resolves on a plane crossing
+should keep rendering a few frames PAST the crossing (only the CONSUMING outcome despawns immediately) or it reads
+as stopping short — a reusable rule for the reflect/rider bullets too. (c) **Center-emitted patterns exempt an
+edge player by construction;** anchoring the emission origin to a player-biased point is the general fix (bias
+< 1.0 so the safe gap/weave still forces a dodge rather than sitting trivially on them).
+
+**→ Leapfrog (innovate).** Core+halo gives a per-role *shape/brightness* vocabulary to layer on top of colour:
+reflectable bullets (Increment 2) can pulse the core, surge-time (Increment 3) can desaturate the halo, telegraphs
+can pre-flash the core — all without new geometry. And the "anchor area patterns to the player" knob is the seed
+of *difficulty by safe-lane placement* (Doremy's principle from the research): later phases can push the anchor
+bias toward 1.0 (tighter follow) or offset the gap AWAY from the player, escalating without adding a single
+bullet. Verified headless (`tests/boss.mjs` 6 checks) + real-WebGL (`bossboot`, zero console errors with two-layer
+bullets live) + `tricount` unchanged (203265); the human judges the new brightness, the whoosh-past, and whether
+the anchored patterns feel fair on the preview.
+
+---
+
+### L93 — Boss Increment 2: reflect-on-roll brings the dead parry alive (colour-coded, all-flag ready for the Surge hyper) + ring density reads the shape
+
+**Did / learned.** Wired the already-built-but-never-called `reflectBossBullets()` to the barrel roll: while
+`player.rollInvuln > 0` in a fight, nearby **reflectable** bullets flip owner `boss → player`, retarget the boss
+and deal `×reflectDamageMult` (2×) on arrival — defence becomes offence, the spend half of the graze→surge loop.
+Reflectable = the precision **aimed/fan** shots, and they now spawn a distinct **amber** (`0xffc23c`) so the
+player learns by colour which bullets are swat-able (danger red → amber parry-able → cyan reflected: an Ikaruga-
+style role palette, layered on the L92 core+halo). Reused the existing roll i-frame window (no new input) and the
+existing `emitBoss(reflectable)` flag; added an `all` param to `reflectBossBullets` so Increment 3's Surge hyper
+can make EVERY bullet reflectable by passing one boolean. Also acted on playtest feel: bumped tunnel ring density
+(`m` 16→26) and depth spacing (0.32→0.38 s) so each ring reads as a solid CIRCLE instead of a loose staggered
+cluster — sparse outlines don't read as rings, especially stacked in depth.
+
+**→ Systematize.** (a) **Build the mechanic dead, wire it live later.** `reflectBossBullets` shipped in
+Increment 1's scaffold with a unit test but no caller (L89) — so Increment 2 was *just* an import + a 6-line
+roll-window call + marking two attacks reflectable. Scaffolding a capability behind a flag (even unused) makes the
+increment that activates it tiny and low-risk. (b) **Colour is the teaching channel for counterplay.** When a
+mechanic asks the player to treat some bullets differently (parry these, not those), give the class its own colour
+*at spawn*, not just an effect on success — the read has to precede the action. (c) **Add the escalation seam as
+a parameter, not a fork.** `reflectBossBullets(..., all=false)` means the normal reflect and the Surge-hyper
+reflect are the same code path with one boolean — no duplicated logic to drift.
+
+**→ Leapfrog (innovate).** The loop is now whole on both halves: **graze** (skim to charge, L91) → **reflect**
+(roll to parry, here). Increment 3 closes it into the hyper: pop Surge → `reflectBossBullets(..., true)` +
+bullet-time + double rider fire, so "roll through the storm reflecting everything into the boss" becomes the
+earned ~3-surges-to-kill climax the test enforces. And the amber/red/cyan palette + the `all` flag are exactly the
+knobs a second boss (or a phase-3 escalation) will re-mix — e.g. a boss whose *tunnel* is reflectable, or a phase
+where nothing is parry-able. Verified: `tests/boss.mjs` (7 checks incl. reflect flips owner, deals 2×, plain
+bullets immune, `all=true` swats anything) + `bossboot` real-WebGL zero-error with amber bullets live + `tricount`
+unchanged (203265); the human judges the parry timing window (`reflectWindow 4.5`) and whether amber reads clearly
+on the preview.
+
+---
+
+### L94 — Boss juice pass: clean arena, death embers, perfect/normal parry with an escalating chime, graze dopamine, +HP
+
+**Did / learned.** A batch of playtest-driven feel work on the encounter. (1) **Clean arena** — during a boss,
+`spawnAhead` now lays NOTHING (rings/embers/orbs/hazards) and a `bossStart` listener wipes existing collectibles,
+so the fight is the whole show. Generation still advances every frame (ensure runs, then we return), so there's
+no post-boss backlog spike and the seed stays byte-identical. (2) **Death reward** = the big score bonus PLUS a
+haul of embers (`game.embersRun += defeatEmbers`, banked normally) + a gold ember-burst. (3) **Perfect vs normal
+parry** — `reflectBossBullets` classifies each swat by the bullet's `rel` at reflect time (≤ `perfectParryRel` =
+perfect), applies a bigger damage mult, and returns `{total, perfect}`; the controller announces once per roll
+(`rollParried` flag), climbs a **perfect-parry streak**, and rings a pentatonic chime that ladders with the streak
+(the perfect-phase chime pattern reused). (4) **Graze feedback** — a soft, very short, quiet shimmer whose pitch
+climbs with a decaying `grazeStreak`; deliberately tiny (`vol 0.03`, `dur 0.045`) so a dense stream of grazes
+*blends into a sparkle* rather than a machine-gun rattle. (5) **+HP** 130→240 because reflect damage was killing
+the boss too fast; the rider-chip-only path still wins in ~40s (headless kill went 31s→50s, well under the 100s
+test cap). Streaks (graze/parry/perfect-parry) all reset on a bullet hit — the risk/reward line.
+
+**→ Systematize.** (a) **"Clean arena" is the same overlay contract as suppression, taken to its limit:** don't
+special-case *what* to keep — keep nothing, and clear the field once on entry. Advancing generation without
+spawning (ensure-then-return) is the trick that avoids a backlog when the mode ends; reuse it for any
+"pause the world" mode. (b) **Timing tiers belong in the detector, not the caller.** Perfect-vs-normal is decided
+inside `reflectBossBullets` (it owns each bullet's `rel`) and surfaced as counts; the controller just reacts. Same
+shape as perfect-ring/perfect-phase — the resolver classifies, the caller celebrates. (c) **Frequency dictates
+sound budget:** a per-event SFX that can fire many times per second must be short + quiet + streak-pitched so it
+*accumulates* pleasantly; a rare event (perfect parry) can be loud and melodic. Design the envelope to the event's
+rate. (d) **Announce-once-per-gesture:** a continuous effect (reflect fires every roll frame) needs a latch
+(`rollParried`) so the popup/streak/chime fire once per gesture while the mechanical effect stays per-frame.
+
+**→ Leapfrog (innovate).** Graze→charge, roll→**perfect** parry (now with its own streak + rising melody), death
+→ embers: the encounter now has its *own* progression economy distinct from the run, which is exactly what a
+**Boss Rush mode** (Increment 5) rewards — chain bosses, bank the ember hauls, carry the parry streak. The
+graze/parry streak counters are also the raw material for **feats** ("10-perfect-parry chain", "no-hit boss",
+"surge-kill"). Next is Increment 3 (the Surge hyper: bullet-time + double rider fire + `reflectBossBullets(all)`),
+after which the graze→surge→reflect-everything climax is complete. Verified: `tests/boss.mjs` (7 checks incl.
+perfect-parry classification + 2× normal damage) + `bossboot` real-WebGL zero-error (clean arena + death embers +
+graze sfx live) + `tricount` unchanged (203265); the human judges the parry chime, graze sparkle, arena
+cleanliness and the new pacing on the preview.
+
+---
+
+### L95 — Grazeability is geometry (small rings + wider band), a live graze counter, and the post-arena "blank world" cursor fix
+
+**Did / learned.** Three playtest fixes. (1) **Rings were ungrazeable** — a radius-7 ring has a big dead-safe
+interior, so flying the centre never came near a bullet. Fix is geometric: shrank the tunnel ring radius to
+**3.7** (now *smaller than* the graze radius) and widened the graze band (`grazeScale 2.2→3.0` → grazeR ≈ 4.15,
+band ≈ [1.29, 4.15]). Now flying the centre of a ring skims the WHOLE ring (every bullet ~3.7 away, inside the
+band), and drifting off-centre brings the near edge into the hit radius — the ring became a graze corridor
+instead of a hoop with a hole. (2) **Live GRAZE counter** — a boss-only HUD chip (reuses the `.chain` layout,
+graze-green) that ticks `game.grazesRun` up in real time and pops on each skim, so the reward is visible and
+constant grazing is encouraged. (3) **The "blank world for a few hundred m" after a boss** was a generator-cursor
+bug: `spawnAhead` kept calling `ensure()` during the fight (advancing the cursor ~2600 m) but spawned nothing, so
+when the fight ended the cursor was far ahead and `ensure` had nothing new to lay until the player caught up. Fix:
+a `levelGen.resume(dist)` that reseats the cursor (`prev`, `generatedUntil`) to the player and drops transient
+corridor state, fired from a new `bossEnd` event → the course simply continues fresh ahead. No backfill spike, no
+empty stretch (probed: after `resume(3000)` the next rings start at ~3098, not 1000).
+
+**→ Systematize.** (a) **A mechanic's viability is often a geometry constraint, not a tuning nudge.** "Graze the
+ring" is only possible when `ringRadius < grazeR`; state the relationship and set the numbers to satisfy it,
+rather than nudging one value and hoping. The reusable rule: for a shape to be *grazeable from inside*, its inner
+clearance must be under the graze band; for it to *threaten*, its wall must be able to reach the hit radius. (b)
+**A stateful stream cursor that gets advanced-without-consuming needs an explicit resume/reseat**, or the mode
+that suppressed output leaves a hole. Any "pause the spawns but keep time moving" mode (boss, cutscene, safe zone)
+should pair suppression with a `resume(here)` on exit — don't let the producer silently run ahead of the
+consumer. (c) **Reuse a HUD atom by class, not by fork:** the graze chip is `.chain` + a colour override + a
+distinct data source — new readout, zero new layout/animation code.
+
+**→ Leapfrog (innovate).** The graze counter is the first piece of a **boss-local scoreboard** (grazes, parries,
+perfect-parries, no-hit) that a results/【feats】pass can total into medals — the encounter now generates its own
+stats stream. And `resume(dist)` generalises the overlay contract (L91/L94) into a clean **enter-suppress /
+exit-resume** lifecycle that any future scripted set-piece (escort, chase, bonus room) can reuse verbatim.
+Verified: `tests/boss.mjs` (7 checks) + `bossboot` real-WebGL zero-error (graze HUD builds, live) + a level-gen
+probe (resume generates ahead, no backfill) + `tricount` unchanged (203265); the human judges on the preview
+whether small rings graze well, the counter feels good, and the post-boss transition is seamless.
+
+---
+
+### L96 — Boss readability: telegraph (warning + directional danger), a world-space notched health bar, and DEPTH cues (loom + parry-pulse + hitbox reticle)
+
+**Did / learned.** Four legibility additions so the fight isn't abrupt or ambiguous. (1) **Telegraph** — a
+dramatic `ui.bossWarning(name, dir, duration)` overlay (flashing "⚠ WARNING ⚠" + boss name + "INCOMING — BEHIND/
+LEFT/RIGHT") plus a **directional red danger glow** on that screen edge (a vignette for 'behind', an edge gradient
+for a side), held across the warn + approach beats so the player can clear the space before the boss arrives.
+Direction is derived from the boss's `approachFrom`/spawn offset. (2) **Health bar** built INTO the boss model
+(`bossModel.setHealth(frac)`): a dark bg + a left-anchored fill (scaled via a wrapper group so `scale.x = frac`
+grows from the left) floating above the boss on its front face — so it faces the player for free (the group
+already faces the player) with **no per-frame billboard** — plus **phase-threshold notches** placed from
+`def.phases` (`x = -W/2 + atFrac·W`). Depth-test-off + high render order keeps it legible over the body. (3)
+**Depth cues** (the "how far is that bullet / when do I parry" gap): a boss bullet **LOOMS** — its render scale
+ramps up over the last ~7 m of approach (`prox = 1 + (7-rel)/7·0.8`), decoupled from its hitbox; and a reflectable
+bullet **PULSES** (`sin(clock·20)`) once it's inside the parry window, signalling "swat now". (4) A **graze/hit
+reticle** — faint additive rings around the dragon at the graze radius (green) and hit radius (red), shown only
+during a fight, giving a constant spatial reference for "close enough to graze" vs "about to be hit".
+
+**→ Systematize.** (a) **Attach status UI to the entity in its own local space when the entity already faces the
+camera** — the health bar needs no billboard because it rides the boss group's front face; parent to the thing
+that already has the orientation you want instead of recomputing it. (b) **Visual scale is a free readability
+channel because it's decoupled from collision** (reaffirming L92): looming/pulsing communicate depth + timing
+without touching `hitR`, so you can crank the *read* without changing the *difficulty*. (c) **Draw the invisible
+rule.** When players can't feel a threshold (graze band, parry window, hitbox), render it — a faint reticle turns
+an abstract radius into a spatial affordance; the same trick applies to any tuned-but-hidden gameplay constant.
+(d) **Telegraph = name + direction + a spatial cue**, not just text; the directional danger glow tells the player
+*where*, which plain banner text can't.
+
+**→ Leapfrog (innovate).** The health bar + notches make **phase transitions legible**, which sets up
+phase-specific spectacle (a palette/attack shift the player can now anticipate as the fill nears a notch). The
+reticle + loom + pulse are a reusable **danmaku readability kit** any future boss/pattern inherits — and the
+parry-pulse is the exact hook to make the Surge hyper (Increment 3) unmistakable (pulse ALL bullets when
+`feverActive`, since they all become reflectable). Verified: `tests/boss.mjs` (7 checks; model 756→764 tris with
+the bar, dissolve still fades it) + `bossboot` real-WebGL zero-error (bar/reticle/warning live) + `tricount`
+unchanged (203265); the human judges whether the warning reads in time, the bar/notches are clear, and the loom/
+reticle resolve the depth confusion on the preview.
+
+---
+
+### L97 — Depth via ground shadows + time-to-impact flare (not looming); bar reveal-on-settle; DANGER-from-below telegraph; post-boss grace band
+
+**Did / learned.** Player-directed refinements (some sourced from a parallel design chat). (1) **The loom read as
+confusing depth — replaced it with two better cues.** *Ground shadows:* a third bullet `InstancedMesh` drops a
+soft dark disc on the floor (`y≈0.4`, `renderOrder −1`, depthTest-off) under every bullet — two rings that overlap
+in view sit at different floor distances, so their shadow-circles separate and the floor grid becomes an absolute
+depth reference (a shadow sliding under the dragon = that bullet is at your plane). *Time-to-impact flare:* the
+halo colour warms toward white over the last ~0.3 s (`tti = rel/|vrel|`), so the bullet that reaches you FIRST
+flares first — "which hits me" is a colour read; reflectable bullets flare bright in the parry window (the parry
+cue). Both are pure render (decoupled from the hitbox). (2) **Health bar reveal-on-settle** — it looked janky
+flying past during the approach, so it's now hidden until the boss settles in front, then **fills 0→full** over
+0.8 s right before the rider opens fire (`setHealthBarVisible` + a `hpRevealT` lerp; `damageBoss` yields to the
+flourish). (3) **Telegraph moved the read to the bottom** — dropped the hard-to-see "INCOMING — dir" line;
+warning stays top, and a big foreboding **DANGER** now rises from the bottom edge (where the boss emerges from
+behind), reinforced by the directional edge-glow. (4) **Post-boss grace band** — for `postGrace` (450 m) after a
+kill, `spawnAhead` lays rings + orbs/embers only, **no hazards or set-pieces**, so the run eases back instead of
+slamming into a wall of obstacles the instant the boss dies.
+
+**→ Systematize.** (a) **Depth is communicated by a reference the eye already trusts, not by size.** Looming asks
+the player to infer distance from scale (ambiguous with many bullets); a *ground shadow* projects onto the floor
+grid — an absolute, shared ruler — and *colour-warming* converts "distance" into an ordinal "who's first" read.
+When a spatial cue confuses, anchor it to an existing frame (the floor) or recode it into a different perceptual
+channel (colour), rather than amplifying the ambiguous one. (b) **Reveal status UI on state-entry, not on
+spawn** — a bar/label attached to a moving entity should materialise when the entity reaches its *stable* pose,
+or it reads as jank during transit; gate the reveal on the phase transition. (c) **Telegraph where the threat
+appears** — put the danger cue at the screen location the thing emerges from (bottom = from behind), so the
+overlay doubles as a spatial instruction. (d) **Ease-in bands after a spike:** any hard mode→normal transition
+wants a short reward-only grace so the difficulty curve doesn't step-discontinuity.
+
+**→ Leapfrog (innovate).** The shadow mesh is a reusable **floor-projection layer** — it could also anchor the
+reflected bullets' return path or a boss's ground-slam AoE. The flare's colour-warming is a general
+"priority/ordering" channel (nearest-first) that a dense phase-3 pattern will lean on hard. And the grace band +
+`resume()` complete a clean **enter(suppress) → exit(resume + ease-in)** overlay lifecycle that Boss Rush and any
+scripted set-piece inherit. Verified: `tests/boss.mjs` (7 checks, model 764 tris) + `bossboot` real-WebGL
+zero-error (shadows/flare/bar-reveal/DANGER live) + `tricount` unchanged (203265); the human judges whether the
+shadows resolve overlapping-ring depth, the flare reads as time-to-impact, and the bar reveal + DANGER feel right
+on the preview.
+
+---
+
+### L98 — Directional DANGER (stripes at the entry corner), reflect rebalanced (a parry ≠ a phase), and a real defeat fanfare
+
+**Did / learned.** Three tuning/feel fixes. (1) **The DANGER telegraph was centred → moved it to WHERE the boss
+enters.** The controller derives a `dir` from `approachFrom` + the spawn X (`side`→left/right edge; `behind`→
+bottomLeft/bottomRight corner) and the overlay + a bed of **animated diagonal hazard stripes** (a masked
+`repeating-linear-gradient` scrolling inward) anchor there, with a matching corner/edge glow — so the danger reads
+as "clear THIS space", not just "something's coming". (2) **Reflect was wildly overtuned** — a roll swats *several*
+amber bullets at once, so at 2×/2.7× per bullet one parry cleared an 80-hp phase. Cut to **0.55× / 0.8×**
+(perfect still "slightly more"): reflecting ~3 bullets now chips ~30, a meaningful bonus on top of the rider
+chip, not a phase-delete. Key realization: **per-bullet damage must be sized to the MAX bullets a single gesture
+can affect**, not to one bullet. (3) **Defeat sound was a generic sting** — added `sfx.bossDefeat()`, a real
+fanfare (low victory boom + rising two-octave major arpeggio blooming into a shimmering chord) for the dopamine
+payoff.
+
+**→ Systematize.** (a) **A telegraph is a spatial instruction — place it at the threat's origin.** Position +
+inward-scrolling stripes turn "danger" from a label into a "move out of here" arrow; derive the anchor from the
+same spawn data that drives the entity's motion so they can't disagree. (b) **Balance AoE/multi-target abilities
+by their fan-out, not a single hit.** When one input (a roll) can hit N targets (N amber bullets), the per-target
+number must assume the worst-case N or it trivializes; the reflect bug was a per-bullet mult tuned as if only one
+bullet reflected. (c) **Reward-event audio should scale its production to the achievement's rarity** (L94): a
+per-frame graze is a tiny tick, a once-per-fight defeat earns a full multi-second fanfare.
+
+**→ Leapfrog (innovate).** The directional-stripe overlay is a reusable **"threat from here" primitive** — the
+same anchor+stripes could flag an incoming ground-slam edge, a laser-lance column, or an off-screen add. And with
+reflect now a *supplement* rather than a *delete*, the damage economy has clean headroom for the Surge hyper
+(Increment 3): pop Surge → all bullets reflectable + bullet-time, so a burst of parries becomes the burst-DPS
+window, without the baseline parry already doing that job. Verified: `tests/boss.mjs` (7 checks; reflect-damage
+assertion reads the config, still green at 0.55×) + `bossboot` real-WebGL zero-error (stripes + defeat fanfare
+live) + `tricount` unchanged (203265); the human judges the directional read, the new reflect pacing, and the
+fanfare on the preview.
+
+---
+
+### L99 — Increment 3: the Surge hyper closes the loop (graze→charge→pop→reflect-everything); the whole boss fight is a self-contained economy
+
+**Did / learned.** Wired Dragon Surge into the boss as the **hyper/overdrive** — the *spend* climax the graze→
+charge loop was building toward. While `feverActive` in a boss: (1) **bullet-time** — `updateBossBullets` gets a
+`dt × surgeBulletTime (0.5)` so bullets slow to half speed while the player still steers full-speed (classic
+witch-time; a window to weave and parry); (2) **double rider fire** — the rider interval × `surgeRiderMult (0.5)`;
+(3) **all-bullets-reflectable** — the reflect-during-roll call passes `all = feverActive`, so `reflectBossBullets`
+swats ANY bullet, not just the amber ones (the `all` flag scaffolded in L93 — activating it was one argument);
+plus every bullet now flares in the parry window (`game.feverActive` in the flare test) so the read matches the
+rule, and a "⚡ DRAGON SURGE ⚡ — REFLECT ANYTHING" callout fires on trigger. Surge is **graze-charged** (L91) and,
+in a boss, the meter **empties when it ends** (`game.inBoss` guard on the fever-timeout) so each hyper is
+re-earned — no permanent overdrive. Net: the full arc is now live — *graze the storm to charge → pop Surge → roll
+through slowed bullets reflecting everything into the boss* — and the headless lifecycle even shows it (immortal
+test player's grazing auto-fires Surge, double-rider drops the kill 50s→42s).
+
+**→ Systematize.** (a) **Scaffold the escalation as a parameter, activate it with an argument.** Increments 1–2
+built `reflectBossBullets(..., all=false)` and a `feverActive` charge source; Increment 3 was mostly
+`all = game.feverActive` + two `× multiplier`s — because the seams were pre-cut, the climax was ~15 lines, not a
+system. Design earlier increments to leave the *next* one a one-liner. (b) **A hyper is a set of orthogonal
+multipliers on existing systems** (time-scale on bullet update, interval-scale on the emitter, a boolean on the
+parry filter), not a new mode — so it composes with everything and can't desync. (c) **Earn-and-spend meters need
+a reset on spend-end**, gated to the context that owns them (`inBoss`), or the resource leaks into permanence.
+
+**→ Leapfrog (innovate).** The boss fight is now a **complete self-contained economy** — charge (graze),
+supplement (parry), climax (surge hyper), payoff (embers + fanfare), ease-out (grace band) — decoupled from the
+run's own systems yet reusing them (the surge meter, the roll, the rider). That's exactly the substrate a **Boss
+Rush mode** (Increment 5) monetises: chain encounters, carry the streaks, bank the hauls. And the increment
+pattern (scaffold-then-activate) is the template for **more bosses** (Increment 4): a new `bossDefs` entry +
+`bossModel` recipe re-mixes the *same* verbs (graze/parry/surge) with different attack data + palette — near-zero
+new systems. Verified: `tests/boss.mjs` (8 checks; kill 50s→42s shows Surge live in-sim) + `bossboot` real-WebGL
+zero-error with Surge forced (bullet-time + double-rider + all-reflect + flare) + `tricount` unchanged (203265);
+the human judges the bullet-time feel, the reflect-everything power fantasy, and the re-earn pacing on the preview.
+
+---
+
+### L100 — The armour gate: manual Surge + per-phase shield fused with a graze-bait flood (survival-by-grazing IS the break); + telegraph/tuning fixes
+
+**Did / learned.** A player-directed redesign (backed by a design note) that turns the boss into a proper
+armour-gate loop, plus a raft of feel fixes. **The gate:** each phase floor (`atFrac` 1.0/0.66/0.33) now raises a
+SHIELD — chip/reflect do **nothing** while shielded (they *ping* off: quiet clang + spark), and the ONLY way
+through is a **Dragon Surge unleash**. Surge is now **manual in a boss** (Space / a 2nd-finger tap; auto-fire
+removed from `bulletGraze`, gated so the normal run is unchanged), charged by grazing — so the vision's "3 surges
+to kill" is *literally* true: three shields, three surge-breaks. **The fusion (the key insight):** while
+shielded the boss **floods graze-bait** — small rings centred on the player and weaving (radius 3.6 < grazeR 4.15
+→ the whole ring grazes) with a threadable lane — so *surviving by grazing tight IS what charges the surge that
+breaks the armour*. Fleeing earns zero graze → zero surge → no progress, but you're never killed for it: the
+pressure is progress-denial, not death. **Feel fixes bundled:** warning now flashes ALONE first (boss hidden
+behind during `warn`, 2.0s) then clears as it flies in; DANGER moved to where it actually emerges (`behind` →
+bottom-centre, not a wrong corner); grace band 450→220 m; chip (rider 3→1.4) + reflect (2×/2.7× → 0.35/0.55×)
+cut hard so you can't brute-force; **bullet-time removed** (the sudden slow read as jarring); and a **dramatic
+Surge aura** (pulsing pink energy shell + crackling lightning bolts on the dragon) so an active Surge is
+unmistakable. Shield bubble + "⛨ SHIELDED — UNLEASH DRAGON SURGE" banner + "SURGE READY" prompt telegraph the
+mechanic hard.
+
+**→ Systematize.** (a) **Decouple survival from progress to teach aggression by economy, not tutorial.** Camping
+survives but can't win because the only progress currency (surge) is minted only by the risky act (grazing), and
+the boss *hands you* the bullets to graze during the gate. The reusable pattern: gate progress behind a resource
+that's earned only by engaging, and spawn the engagement material at the gate. (b) **A "hard gate" needs its own
+supply of the gate currency** — a shield that only Surge breaks is a soft-lock unless the shielded state also
+floods grazeable bullets; always pair a resource-gate with an in-context source of that resource. (c)
+**Auto→manual is a one-line policy flip at the charge site**, but the whole downstream design (save it for the
+shield) depends on it — decide agency early. (d) **Telegraph a rule change with a rule-change *sound*** (chip
+pinging off) as much as a visual; the clang says "stop doing that" faster than a banner.
+
+**→ Leapfrog (innovate).** The design note's **soft-gate** variant (chip trickles + a ramping nastier attack
+while shielded) is now a one-flag alternative on the same machinery — a per-boss difficulty knob. And the
+armour+graze-bait beat is a self-contained "survive-to-advance" module that a **second boss** re-skins with a
+different bait pattern (a laser corridor, a rose bloom) — the verbs (graze/charge/surge-break) stay, the bullets
+change. Verified: `tests/boss.mjs` (8 checks; lifecycle now drives manual surge to burst 3 shields → kill,
+asserting `surges >= 3` + `sawShield`) + `bossboot` real-WebGL zero-error (aura/shield/manual-surge live) +
+`tricount` unchanged (203265, boss model 764→844 with shield+aura additions counted only in-model); the human
+judges the armour telegraph, the graze-bait weave, the surge aura and the new pacing on the preview.
+
+---
+
+### L101 — Danmaku readability: per-ring colour banding + solid (occluding) bullets over additive bloom; and boss 1 as a gentle tutorial
+
+**Did / learned.** Two fixes for "I can't read successive rings" (they merged into a white blowout). (1) **Solid
+bullets, not additive blobs.** The bullet is now a SOLID, depth-writing core (per-bullet `instanceColor`,
+opaque, occludes its neighbours → a dense ring reads as *countable diamonds*), with the additive halo demoted to a
+subtle glow (opacity 0.4, r×2.0→1.5) so overlaps no longer sum to pure white. Additive blending *adds* light where
+bullets pile up — that's the washout; solid cores with depth-write keep their edges. (2) **Per-ring colour
+banding.** Successive rings cycle a warm-danger palette (red→magenta→orange, clear of the amber-parry / cyan-
+reflected role colours) via `instanceColor` — so three concentric waves read as "red, then magenta, then orange"
+instead of one mesh. Threaded through `emitBoss(...,color)`/`fireRing(...,color)`; tunnel bands per ring index,
+graze-bait per volley. Zero new draw calls (bullets are already one `InstancedMesh`). (3) **Boss 1 = tutorial.**
+VOIDMAW now introduces one verb per phase with slow, readable patterns (P1 `aimed` only → dodge+parry; P2 `+fan`;
+P3 `+tunnel`), drops the complex `spiral`/`spiralStream` to future bosses, slows the cadence, thins the graze-bait,
+and shows teaching banners ("ROLL INTO AMBER SHOTS TO PARRY", "GRAZE THE RINGS → UNLEASH SURGE"). A `tutorial`
+flag on the def gates the coaching.
+
+**→ Systematize.** (a) **Additive is for sparse highlights, not dense fields.** Any system where identical
+emitters can stack (bullets, particles, embers) should default to solid + depth-write for the readable body and
+reserve additive for a thin accent — or dense states blow out. (b) **Encode set-membership as hue when instances
+overlap.** When the player must distinguish members of an overlapping group (which wave, which lane, which team),
+band them by colour on the existing per-instance channel — it's free on an InstancedMesh and it's the canonical
+danmaku answer to wave-merging. Keep the band palette disjoint from any *role* colours already in use. (c)
+**Difficulty is a per-entity data dial, not a global.** The `tutorial` flag + a simpler `phases`/`cadence` make
+boss 1 gentle without touching the engine; boss N re-mixes the same verbs with harder data. Teach the vocabulary
+on the first instance, assume it on the rest.
+
+**→ Leapfrog (innovate).** Banding is now a reusable **wave-identity channel** — a future boss could band by
+THREAT TYPE (parryable vs not) or by TIMING (which ring hits first), turning colour into a second information
+axis. And the tutorial/complexity split is the seam for a **boss roster with a difficulty curve**: VOIDMAW teaches,
+boss 2 assumes parry + adds spiral, boss 3 adds a new pattern — each a `bossDefs` entry, near-zero new code (the
+Increment-4/5 payoff). Verified: `tests/boss.mjs` (8 checks; core+halo instanceColor set, tutorial phases valid)
++ `bossboot` real-WebGL zero-error (banded solid bullets live) + `tricount` unchanged (203265); the human judges
+whether the bands separate the waves and the tutorial pacing teaches cleanly on the preview.
+
+### L102 — Colour-blind-safe danmaku: round white-centre discs + brightness/size banding (hue is not a channel you own)
+
+**Did / learned.** The human is red-green colour-blind, and the L101 hue-banding (red→magenta→orange) was
+useless to them — three "reds". Also the solid diamonds still read as hard shards over the fiery boss. Two moves
+fixed both. (1) **Round bullets = a soft radial disc**, not geometry: one procedural `CanvasTexture` (white core →
+soft edge → transparent) on a camera-facing `PlaneGeometry` quad, drawn in TWO layers off the same slot — a NORMAL-
+blend COLOUR body (`instanceColor` tint, `s.r*2.7`) and a smaller universal-WHITE CORE on top (`s.r*1.35`, its own
+InstancedMesh, no instanceColor). Every bullet now has a white centre everyone sees regardless of hue — the danmaku
+"white-heart" read. Normal blend (not additive) means dense fields don't blow to white. (2) **Band by BRIGHTNESS +
+SIZE, not hue.** `BAND = [{c,s}]`: light-big / deep-small / mid-mid. Luminance and size survive any colour vision;
+hue is a bonus for those who have it. Threaded a `sizeMult` through `emitBoss`/`fireRing` so the collision radius
+tracks the visual size (`hitRi = s.r + R×bulletHitScale` per-bullet) — banding stays FAIR, a big bullet isn't a
+free hit. Also dropped `bulletDamage` 18→13 (human was dying): a clean hit stings, a graze-heavy run survives.
+
+**→ Systematize.** (a) **Never encode required information in HUE ALONE** — ~8% of male players can't decode it.
+Any set-membership/threat/timing cue must ALSO ride a channel everyone shares: LUMINANCE, SIZE, SHAPE, or MOTION.
+Hue is the redundant top layer, not the load-bearing one. The white-core-on-coloured-body pattern gives a universal
+read (the core) plus an enhanced read (the hue) for free. (b) **When visual size varies per instance, the hitbox
+must vary with it** — derive collision radius from the same `r`/`sizeMult` that drives the matrix scale, or the game
+lies about its hitboxes. (c) **Round soft sprites > hard geometry for dense readable fields**: a radial-gradient
+quad is one 64² canvas texture, one draw call per layer, and reads as a countable dot at any density; occlusion is
+handled by the opaque-ish core, not by depth-writing geometry.
+
+**→ Leapfrog (innovate).** The two-layer disc is now a reusable **accessible-projectile primitive** — body carries
+identity (hue/brightness/size), core carries the universal "there is a bullet here" read, and either layer can host
+a NEW channel (pulse the core for parryable, square the body for unblockable) without touching collision. This is
+the seam for a full **accessibility pass**: the same body/core split extends to obstacles and pickups, and a
+colour-blind-mode toggle could swap the BAND palette for a luminance-only ramp with zero engine change. Verified:
+`tests/boss.mjs` (8 checks) + `bossboot` real-WebGL zero-error (round banded bullets live) + `smoke` +
+`tricount` unchanged (203265, 0 over budget); the human judges on the preview whether the white cores stay
+countable and the brightness/size bands separate the waves without hue.
+
+### L103 — Graze-bait rhythm: clusters + breaks, not a non-stop stream (a missed entry needs a way back in)
+
+**Did / learned.** The shielded graze-bait fired one weaving ring every 0.42s forever. If the player got shut out of
+a lane (out of position when a ring arrived), re-entering meant crossing live bullets — you had to take a hit to get
+back to grazing. Fixed by giving the flood a RHYTHM: a **cluster** of 3–4 rings to thread, then a **break** (~1.4s,
+no new rings) that's a clear reposition window, then the next cluster. State is a tiny 2-var machine (`baitLeft`
+counts down the cluster; `baitResting` gates the break); primed on shield-raise (`resting=true, left=0` so the next
+tick opens a FULL first cluster) and reset on init. Verified: `tests/boss.mjs` (8) + `bossboot` zero-error.
+
+**→ Systematize.** **A survival/attrition mechanic must include a recovery beat.** Any "stay in the danger to make
+progress" loop (graze-to-charge, hold-the-zone, sustained-DPS) needs a periodic clear window or a single mistake
+compounds into a death spiral — the player can't recover without taking more damage. Encode the rhythm as
+cluster-then-break, and prime the state so the first cycle is full-length (a common off-by-one: an unprimed
+countdown fires one item then immediately "completes").
+
+**→ Leapfrog (innovate).** The cluster/break cadence is now a tunable difficulty axis independent of bullet count:
+boss 1 rests long (forgiving), a later boss shortens the break or overlaps clusters. It's also the seam for a
+telegraph — flash the maw on the break→cluster edge so the next wave is readable, turning the recovery window into
+an anticipation beat.
+
+### L104 — The Surge unleash as a cinematic: charge → mouth-beam → shield shatter, with looping "state" audio
+
+**Did / learned.** The Surge unleash was a one-frame `feverActive = true` + a generic particle burst — it read as a cheap
+placeholder next to the game's richer effects. Rebuilt it as a short cinematic driven by a tiny state machine in the
+controller (`surgeSeq = {phase:'charge'|'beam', t}`): (1) a **charge** wind-up (~0.5s) where a bright orb swells + flickers
+at the dragon's mouth and the camera shake ramps; (2) at the strike, a **beam** lances mouth→boss — two additive cylinders
+(white core + wide coloured glow) inside a `shaft` sub-group oriented each frame via `quaternion.setFromUnitVectors(UP, dir)`
+and stretched with `scale.y = length`, a muzzle flare at the origin and an impact bloom at the boss; (3) the shield **shatters**
+into real flying shards (pre-built tetrahedra on the bubble surface, flung along their own radial + spin, fading over 0.7s in
+`bossModel.tick`), not just a puff. The beam ORIGIN is a forward+up offset of the player position (the snout ≈1.3m ahead) —
+no need to plumb the private dragon head node across modules; from the chase cam it reads as "from the mouth".
+
+Crucially the shield-break now fires at the **moment of impact** (end of charge), not when the button is pressed — the button
+starts the sequence, the beam lands the hit. This is the general lesson: **a big action should be a short sequence, and its
+gameplay effect should resolve at the visual climax, not at the input.**
+
+Audio got the same "make it feel real" pass: procedural Web-Audio is one-shots by default, but *states* want **loops**. Added
+start/stop loop handles modeled on the music engine's `windSource` (a long-lived source + LFO, torn down on stop): a soft
+enticing **ready hum** (tremolo'd fifth) that pulls the player to unleash while the meter is full, and an electric **crackle**
+that sizzles for the whole Surge. Loops are driven by **edge-detecting** the ready/active booleans in the controller
+(`wasReady`/`wasSurge`) — start on the rising edge, stop on the falling edge, and also stop them in every teardown path
+(`!active`, `resetBoss`) so a loop can never leak past a fight. One-shots (`surgeBeam`, `shieldShatter`) fire at the climax.
+
+**→ Systematize.** (a) **Effects are sequences, not toggles.** Any headline verb (surge, phase, death) deserves a small
+`{phase, t}` state machine so it can wind up → climax → settle; resolve the mechanical effect at the climax frame.
+(b) **Loop vs one-shot is the core audio decision.** A momentary event is a one-shot; a *state* (ready, active, charging)
+is a loop with start/stop handles — and every loop needs guaranteed teardown on every exit path (edge-detect + stop in the
+cleanup branches), or it leaks. (c) **Don't plumb private nodes across modules for FX origins** — a world-space offset of a
+public transform (player position → snout) reads correctly from the fixed chase cam and keeps modules decoupled.
+(d) **Orient-a-shaft:** `setFromUnitVectors(localAxis, worldDir)` + midpoint position + `scale.(axis)=length` points/stretches
+any cylinder/box between two moving points — reuse for beams, tethers, links.
+
+**→ Leapfrog (innovate).** The charge→beam→impact rig is a reusable **"channel a big attack" primitive**: a rider ultimate, a
+boss's own beam, or a chargeable player shot all reduce to the same three-phase sequence with different origin/target/colour.
+The loop-audio handles generalize to any sustained state (boost hum, low-health heartbeat, tractor beam). Balance rode along:
+graze-bait now rests **1.8s** between clusters and the tutorial tunnel is **3–4** gently-weaving rings (not 5–6) so the tail of
+boss 1 stays readable. Verified: `tests/boss.mjs` (8; lifecycle now drives the real charge→strike→shatter path headless) +
+`bossboot` real-WebGL zero-error + `smoke` + `tricount` 203265 (boss model 844→900 tris for the shards, still far under budget).
+The human judges the charge/beam/shatter motion and the hum/crackle mix on the preview.
+
+### L105 — Boss graphical polish: it read "cheap" because it was DARK, SMALL and lost against a bloom-heavy world (+ a headless-clock gotcha)
+
+**Did / learned.** Screenshotting the real engine (boot → spawnBoss → capture) against the world/dragon made the gap
+obvious: the world is ACES + UnrealBloom + god-rays + fresnel-rim dragon, and the boss was a near-black icosahedron
+(`emissive 0.9`) with a flat additive shell — at its ~30m hold it shrank to a dark speck and vanished into the horizon
+city silhouette. Three fixes, all matching the house idiom: (1) **Fresnel energy shell** — packaged the `rimLight.js`
+onBeforeCompile trick as a standalone `makeEnergyShell()` ShaderMaterial (glows at grazing angles, clear face-on) and
+wrapped the body in a bright shell + soft halo, so the silhouette always reads against any background and the bloom
+catches it. (2) **Brighter + layered** — core `emissiveIntensity` 0.9→1.5, a molten additive inner core pulsing inside
+the faceted shell (contained-energy read). (3) **Bigger + framed** — `BASE_SCALE 1.5` (dissolve now multiplies from
+this base, not 1) and `fightHeight 11→13` so it floats above the horizon city on open sky; `bossHitRadius 3.2→4.2` to
+match the larger body. The Surge aura got the same treatment: the flat pink additive disc → a fresnel orb + molten core.
+Verified by capture: the boss now renders as a bright, spiky, glowing construct with a readable maw (was invisible).
+
+**The gotcha that ate an hour:** in the headless Playwright browser the boss looked "stuck in warn" — `warnT` counted
+down at ~0.125/0.4s, ~8× slower than real time, because a headless (no-display) browser THROTTLES requestAnimationFrame,
+so the game clock crawls and a 2s warn + 2.6s approach never elapse within a normal wait. It is NOT a bug — real
+hardware runs at 60fps (the user's own gameplay feedback proves the fight works). Lesson: **a headless capture harness
+is for VISUALS (does the frame look right), not for TIMED STATE TRANSITIONS** (did the state machine advance) — the
+wall-clock↔game-clock ratio is unreliable there. To reach a late state, either wait many× longer, drive the state
+directly, or trust the headless *logic* test (`boss.mjs`, which uses a fixed-dt loop and DOES reach fight→death).
+
+**→ Systematize.** (a) **Anything that must read in a bloom/ACES world needs emissive + a fresnel rim, not just a dark
+PBR body** — bloom rewards bright silhouettes and buries dark small ones. Package the rim as a reusable material so every
+new entity (boss, hazard, pickup) inherits the house look for free. (b) **Judge look by capturing the real pipeline** —
+a `scene.traverse` for a `userData.__isBoss` marker + `position.project(camera)` tells you exactly where a thing lands
+on screen and how big; guessing from code does not. (c) **Bake a base transform and have derived animations compose
+from it** (`group.scale = BASE * dissolveSpread`), or the scale-up silently fights the death scatter. (d) ShaderMaterial
+opacity lives in a **uniform**, so a material-`.opacity` dissolve loop must special-case `uniforms.uOpacity` or shells
+won't fade on death.
+
+**→ Leapfrog (innovate).** `makeEnergyShell` is now the game's **energy-surface primitive** — boss shell/halo, Surge
+aura, and (next) the beam glow, shield bubble, and reflected-bullet trails can all share one fresnel material with
+per-instance colour/power/strength, giving the whole boss layer a coherent "contained energy" language for near-zero
+cost. The capture-and-project debug seam (`__isBoss` + `bossState()`) is the reusable rig for any future "does the new
+thing actually look right on screen" pass. Verified: `boss.mjs` (8), `bossboot` zero-error, `smoke`, `tricount` 203265
+(boss model 844→1260 tris for the shells/core, far under the 6000 budget); the human judges the final look/scale live.
+
+### L106 — The Surge aura must FRAME the dragon, not envelop it (a player-owned effect can't occlude the player)
+
+**Did / learned.** The Surge aura was an enveloping fresnel ORB (+ an additive inner core) centred on the dragon. With
+the bloom pass filling the interior it rendered as a solid pink ball that COMPLETELY hid the dragon and buried the
+danmaku — during Surge (when every bullet is parryable and reading them matters MOST) the player literally couldn't see
+their dragon or the shots. A real player photo made it unmistakable. Redid it as a HALO: two thin camera-facing glow
+HOOPS (torus rings) around the dragon with a hollow centre, plus lightning arcs that live in the ring band (~2.3 out)
+and point radially OUTWARD — so the centre where the dragon + incoming bullets are stays completely clear. The
+"empowered" signal now comes from things that DON'T occlude: the postfx fever screen-wash, the dragon's own emissive
+flare, and the framing halo + crackle. Verified by capture: the dragon is fully visible inside the hoops.
+
+**→ Systematize.** **An effect attached to a gameplay-critical object must not occlude that object or its threats.**
+Anything centred on the player (aura, buff, shield, status) has to be built as a NON-occluding frame — a halo/ring, a
+ground marker, an outline/rim, upward wisps, or a screen-space vignette — never a filled volume over the thing you're
+steering. Rule of thumb: reserve filled/opaque volumes for ENEMIES and pickups (you WANT them to grab the eye);
+give the PLAYER edge-only, hollow, or off-body treatments. And remember additive + bloom turns a "faint transparent
+shell" into a solid glowing mass — test player-centred FX with bloom ON, at the density they'll actually hit.
+
+**→ Leapfrog (innovate).** The halo-frame is the reusable pattern for every player-centred state (boost, low-health,
+shield, power-up): swap colour/spin/'# of hoops' per state and it reads instantly without ever hiding the hero. It also
+freed the enveloping-orb idea for its correct owner — the BOSS shield bubble, where occluding the enemy is fine (even
+desirable). Verified: `boss.mjs` (8), `bossboot` zero-error, `tricount` 203265 (aura swapped orb→rings, tris flat).
+The human confirms the live read (dragon + bullets visible through Surge) on the preview.
+
+### L107 — Boss HUD legibility pass: one notification slot, platform-correct prompts, and letting player-owned UI get out of the way
+
+**Did / learned.** A batch of player-driven readability fixes for the boss overlay: (1) **One callout slot, queued.**
+Surge fired TWO overlapping banners ("DRAGON SURGE" from feverStart + "DRAGON SURGE / REFLECT ANYTHING" from an
+on('surge') handler) — illegible. Collapsed all boss callouts (WARNING aside) into a single bottom-centre `#boss-note`
+driven by a QUEUE: one message at a time, each held longer (~3s), the next only shown after the previous fades. Kept
+the useful instruction ("REFLECT ANYTHING") and dropped the redundant title. (2) **Same slot doubles as the persistent
+SURGE-READY prompt** — when the queue is idle it shows the prompt; a timed callout interrupts it and it returns after.
+This is the "one thing at a time" guarantee: a shared slot can't overlap itself. (3) **Platform-correct input labels** —
+the prompt reads "TAP" on a coarse-pointer/touch device and "SPACE" on a keyboard one (detected once via
+`maxTouchPoints`/`pointer: coarse`); shipping "SPACE / TAP" to everyone is lazy and wrong on both. (4) **Player-owned UI
+gets out of the way in the mode where it's meaningless** — the stamina bar (speed is locked / unlimited during a boss)
+FADES out on boss start (same 0.6s transition it fades back in on boss end), and a **focus circle draws ON in its place**
+(a RingGeometry whose `thetaLength` sweeps 0→2π — the same "fills from nothing" language as the HP bar), then draws OFF
+at the end. (5) Grace tuned: `postGrace 220→50`, Surge is GRANTED on the kill so the hyper carries into the grace band,
+and guaranteed speed-boost pickups spawn there so that momentum doesn't fizzle. (6) Removed the aura's redundant outer
+"depth" ring — one clean hoop.
+
+**→ Systematize.** (a) **A HUD needs ONE owner per screen region; route every transient callout through a single queued
+slot** so two events can never render on top of each other — overlap, not content, is what kills legibility. (b) **Input
+prompts must name the ACTUAL control for the device** — detect touch vs keyboard once and template the verb; never
+hardcode a platform's key. (c) **Mode-specific UI should animate in/out with the mode**, not blink — a bar that's
+meaningless this mode fades away (and reverses on exit with the identical transition), and if something replaces it, give
+the replacement a "draws on from nothing" reveal (thetaLength sweep / fill) so the swap reads as intentional. (d) **After
+a climactic beat, hand the player momentum, don't strip it** — carry the earned buff across the transition and seed
+pickups so the high continues instead of snapping back to baseline.
+
+**→ Leapfrog (innovate).** The queued single-slot notifier + the fade/draw-on swap are reusable for every mode
+transition (canyon, gauntlet, rush): one `note()` API with a priority/duration, one "vitals swap" helper that fades the
+normal HUD and draws on the mode's own indicator. The thetaLength-sweep ring is a general "radial progress/reveal"
+primitive (charge meters, cooldowns, capture rings). Verified: `boss.mjs` (8), `bossboot` real-WebGL zero-error, `smoke`,
+`tricount` 203265; a capture confirms the stamina bar gone + focus circle drawn + single hoop + dragon visible. The human
+judges the callout timing/readability and the fade/draw-on feel live.

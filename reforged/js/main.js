@@ -30,6 +30,7 @@ import { DRAGONS } from './dragons.js';
 import { RIDERS } from './riders.js';
 import { dailySeed, recordDailyRun, saveData, persist, grantXp, levelEmberReward, todayUTC, gambitSunsetRefund, freezeSaves } from './save.js';
 import { initEmbers, addEmberLine, updateEmbers, bankEmbers, resetEmbers } from './embers.js';
+import { initBoss, updateBoss, resetBoss, setBossQuality, forceBoss, setBossDebugFirstAt, bossDebugState } from './boss.js';
 import { emit, on } from './events.js';
 import { initAnalytics } from './analytics.js';
 import { initMissions, settleMissions } from './missions.js';
@@ -131,6 +132,7 @@ initPowerups(scene);
 initParticles(scene);
 initEmbers(scene);
 initGoldEmbers(scene);
+initBoss(scene);
 initPbMarker(scene);
 
 // Set-piece meshes must exist before the first spawnAhead() call below,
@@ -146,11 +148,26 @@ const pendingGauntletEnds = [];
 // crossing an end restores it.
 const pendingCanyonStarts = [];
 const pendingCanyonEnds = [];
+let bossGraceUntil = 0; // post-boss grace band end-distance (rings/collectibles only)
 function spawnAhead() {
   const lead = Math.max(CONFIG.spawnAhead, player.speed * CONFIG.spawnAheadTime);
   if (levelGen.generatedUntil >= player.dist + lead) return;
   const chunk = levelGen.ensure(player.dist + lead);
+  // Boss fight = a CLEAN ARENA: the encounter is the whole show, so no rings,
+  // embers, orbs, hazards or set-pieces are laid for the duration. Generation
+  // still advances above (the course stays byte-identical for the seed); we just
+  // spawn nothing. (Existing collectibles are cleared on 'bossStart' below.)
+  if (game.inBoss) return;
   chunk.rings.forEach(addRing);
+  // Post-boss grace band: lay the safe/reward content (rings above + orbs/embers/
+  // gold below) but SKIP every hazard and structural set-piece until the player has
+  // eased back in, so the run doesn't slam back with a wall of obstacles.
+  if (player.dist < bossGraceUntil) {
+    chunk.orbs.forEach(addOrb);
+    chunk.embers.forEach(addEmberLine);
+    chunk.goldEmbers && chunk.goldEmbers.forEach(addGoldEmber);
+    return;
+  }
   // A base Phase Gate whose dist lands inside a canyon run is skipped — a blind
   // crystal window between rib sections reads unfair. Generator output is untouched
   // (determinism-safe); we just don't spawn the flagged ones here.
@@ -181,6 +198,14 @@ function triggerSetPiece(sp) {
   setpieceMeshes.push({ object: obj, dist: sp.dist });
 }
 
+// Playtest: ?boss (optionally ?boss=<metres>) pulls the first boss encounter in
+// to just after takeoff, so a touch device with no keyboard can reach a fight
+// without the debug B key. Default ~180m ≈ a few seconds of flight.
+if (urlParams.has('boss')) {
+  const d = parseInt(urlParams.get('boss'), 10);
+  setBossDebugFirstAt(Number.isFinite(d) && d > 0 ? d : 180);
+}
+
 // Debug: force Dragon Surge for visual verification
 const debugFever = urlParams.get('debug') === 'fever';
 if (urlParams.has('debug')) {
@@ -188,6 +213,9 @@ if (urlParams.has('debug')) {
     renderer, scene, game, player, save: saveData, emit, ui, claimFeat, obstacleCount, trailDebug: __trailDebug,
     juice: { hitstop, juiceEvent },
     postfx: { setPostTier, kick, kickState, handle: postfx },
+    // Drop straight into a boss fight (also bound to the B key under ?debug).
+    spawnBoss: () => { if (game.state === 'playing') forceBoss(player); },
+    bossState: () => bossDebugState(),
     // Test seam: skip the attract splash and land on the dashboard hub.
     toHub: () => {
       if (!splashVisible()) return;
@@ -196,6 +224,10 @@ if (urlParams.has('debug')) {
       ui.showScreen('start');
     },
   };
+  // B = force a boss encounter for hands-on testing.
+  window.addEventListener('keydown', (e) => {
+    if (e.code === 'KeyB' && game.state === 'playing') forceBoss(player);
+  });
 }
 
 // Perf overlay (?debug=perf): fps / draw calls / quality tier
@@ -221,6 +253,24 @@ initAnalytics();
 // First-ever Dragon Surge: the signature peak. A non-blocking flourish names the
 // moment mid-flight (the run never pauses); the run-1 recap explains it (recap.js).
 on('firstSurge', () => ui.surgeFlourish());
+// A boss encounter clears the field for a clean arena (the boss wipes hazards
+// itself; here we clear the collectibles so only the fight is on screen).
+on('bossStart', () => { resetRings(); resetEmbers(); resetPowerups(); resetGoldEmbers(); ui.staminaBoss(true); });
+// Boss over → resume the course FRESH from here (the arena stretch was suppressed;
+// without this the world is blank until the player catches up to the old cursor).
+// A grace band after it spawns rings/collectibles ONLY (no hazards) so the player
+// eases back into the run instead of a wall of obstacles the instant it dies.
+on('bossEnd', () => {
+  levelGen.resume(player.dist);
+  bossGraceUntil = player.dist + CONFIG.BOSS.postGrace;
+  ui.staminaBoss(false);   // fade the stamina bar back in (same animation, reversed)
+  // Guaranteed speed-boost pickups in the grace band: the player carries Dragon
+  // Surge out of the kill, and these keep speed + stamina topped up as the course
+  // eases back in (so the momentum from the fight doesn't just fizzle).
+  addOrb({ x: 0, y: player.position.y, dist: player.dist + 22 });
+  addOrb({ x: 0, y: player.position.y, dist: player.dist + 42 });
+  spawnAhead();
+});
 ui.init({
   getCard: makeShareCard,
   onRestart: restart,
@@ -484,6 +534,7 @@ function restart() {
   resetCollision();
   resetEmbers();
   resetGoldEmbers();
+  resetBoss();
   resetContactShadow();
   runSeed = seedForRun();
   game.runSeed = runSeed;
@@ -493,6 +544,7 @@ function restart() {
   pendingGauntletEnds.length = 0;
   pendingCanyonStarts.length = 0;
   pendingCanyonEnds.length = 0;
+  bossGraceUntil = 0;
   // Cull old set-pieces
   for (const sp of setpieceMeshes) scene.remove(sp.object);
   setpieceMeshes.length = 0;
@@ -511,6 +563,7 @@ function restart() {
 // display, daily before weekly (the daily-count trial reads firstToday),
 // XP/levels before feats, feats LAST (they see everything else's writes).
 function settleRun() {
+  resetBoss();                                         // tear down any boss left mid-fight
   game.recordBests();                                  // 1 stats + mastery metres
   const newRecords = settleRecords();                  // 2 personal records
   const emberTotal = bankEmbers();                     // 3 haul (rider ×, first-flight ×)
@@ -713,6 +766,7 @@ function applyQuality(tier) {
   document.body.dataset.qtier = tier; // CSS gates (speedlines, motes) read this
   setParticleQuality(QUALITY_SCALARS[tier]);
   setDragonQuality(QUALITY_SCALARS[tier]);
+  setBossQuality(QUALITY_SCALARS[tier]);
   setContactShadowQuality(QUALITY_SCALARS[tier]);
   renderer.setPixelRatio(PIXEL_RATIOS[tier]);
   setPostTier(tier);
@@ -829,6 +883,7 @@ function tick() {
     spawnAhead();
 
     updateCollision(dt, player);
+    updateBoss(dt, player, clock.getElapsedTime());
     updateRings(dt, player, clock.getElapsedTime());
     updatePowerups(dt, player, clock.getElapsedTime());
     updateEmbers(dt, player, clock.getElapsedTime());
@@ -928,6 +983,9 @@ function tick() {
       if (game.feverTimer <= 0) {
         game.feverActive = false;
         game.feverTimer = 0;
+        // In a boss the surge is graze-charged, so empty the meter when it ends —
+        // the next Surge must be re-earned by grazing (no permanent hyper).
+        if (game.inBoss) { game.consecutiveRings = 0; game.grazeCharge = 0; }
       }
     }
 

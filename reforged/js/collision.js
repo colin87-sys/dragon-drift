@@ -64,7 +64,10 @@ function checkSlowMo(dt, player) {
 export function updateCollision(dt, player) {
   if (game.state !== 'playing') return;
   if (invuln > 0) invuln -= dt;
-  checkSlowMo(dt, player);
+  // During a boss fight the course hazards are suppressed (boss.js wipes them and
+  // main.js stops spawning new ones) — bullets are the only threat, handled by the
+  // bullet pool via hitPlayer(). We still enforce the lane walls / floor below.
+  if (!game.inBoss) checkSlowMo(dt, player);
   const p = player.position;
   const R = CONFIG.playerRadius;
 
@@ -93,7 +96,7 @@ export function updateCollision(dt, player) {
     hit(player, 0, 0, CONFIG.canyonCeilingDamage, 'ceiling');
   }
 
-  for (const c of colliders) {
+  if (!game.inBoss) for (const c of colliders) {
     const dz = player.dist - c.dist;
     // Most colliders are thin; a ribcage section is a long tube (c.depthHalf),
     // so widen the broad-phase reject for it.
@@ -300,7 +303,49 @@ function hit(player, pushX, pushY, damage = CONFIG.obstacleDamage, cause = 'shar
     if (game.feverActive) { game.feverActive = false; game.feverTimer = 0; }
   }
   emit('damage', { m: player.dist });
+  // A bullet hit ends the graze streak + any surge UNCONDITIONALLY (the combo-gated
+  // reset above rarely fires in a boss, where combo sits at 1) — grazing is a
+  // risk/reward line: get clipped and you lose the charge you skimmed for.
+  if (cause === 'bullet') {
+    game.bossHitsTakenRun++;
+    game.consecutiveRings = 0;
+    game.grazeCharge = 0;
+    game.grazeStreak = 0;
+    game.parryStreak = 0;
+    game.parryPerfectStreak = 0;
+    if (game.feverActive) { game.feverActive = false; game.feverTimer = 0; }
+  }
   if (game.health <= 0) die(player, cause, false);
+}
+
+// Boss bullet damage — routed through hit() so it respects invuln + barrel-roll
+// i-frames exactly like every other hazard (dodging a bullet by rolling is free).
+export function hitPlayer(player, damage, cause = 'bullet') {
+  hit(player, 0, 0, damage, cause);
+}
+
+// Grazing a bullet — skimming it inside the graze band but NOT getting hit —
+// charges Dragon Surge, the "drift" identity transplanted from rings onto danmaku.
+// Each bullet grazes once (at its plane-crossing frame), so no per-bullet cooldown
+// is needed. Fractional charge accumulates into whole surge-meter steps
+// (consecutiveRings), which the existing gem HUD shows and which auto-fires Surge
+// at the usual threshold — the same path a ring or gate takes.
+export function bulletGraze(player) {
+  game.grazesRun++;
+  game.grazeStreak = Math.min(game.grazeStreak + 1, 30);
+  game.grazeStreakTimer = 0.8;
+  const bonus = Math.round(CONFIG.BOSS.grazeScore * game.combo * game.scoreMult);
+  game.score += bonus;
+  nearMissSparks(player.position);
+  sfx.graze(game.grazeStreak);   // soft shimmer, pitch climbs with the streak
+  emit('bossGraze');
+  game.grazeCharge += CONFIG.BOSS.grazeGain;
+  while (game.grazeCharge >= 1) {
+    game.grazeCharge -= 1;
+    game.consecutiveRings = Math.min(game.consecutiveRings + 1, game.feverThreshold);
+  }
+  // NB: no auto-trigger here — in a boss, Surge is unleashed MANUALLY (Space /
+  // 2nd-finger tap) so the player can save it to burst a shield (see boss.js).
 }
 
 function crash(player, cause) {

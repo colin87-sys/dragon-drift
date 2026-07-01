@@ -44,6 +44,15 @@ export const game = {
   goldEmbersRun: 0,    // golden embers caught this run
   gauntletsClearedRun: 0,
   inCanyon: false,     // inside a Sky Canyon run → vertical ceiling is active
+  inBoss: false,       // inside a boss encounter → hazards suppressed, boost locked
+  bossesDefeatedRun: 0,// bosses slain this run
+  bossHitsTakenRun: 0, // bullet hits taken in the current fight (for the no-hit feat)
+  grazesRun: 0,        // bullets grazed this run (skim charges surge)
+  grazeCharge: 0,      // fractional surge accumulator: whole units → consecutiveRings
+  grazeStreak: 0,      // recent consecutive grazes (drives the graze chime pitch)
+  grazeStreakTimer: 0, // seconds left before the graze streak lapses
+  parryStreak: 0,      // consecutive parries (reflect combos)
+  parryPerfectStreak: 0, // consecutive PERFECT parries (drives the parry chime ladder)
   runSummary: null,    // built once at settle for the recap screen
   timeScale: 1,        // near-death slow-mo (main.js scales sim dt by this)
   slowMoTimer: 0,      // remaining slow-mo, in REAL seconds
@@ -115,6 +124,15 @@ export const game = {
     this.goldEmbersRun = 0;
     this.gauntletsClearedRun = 0;
     this.inCanyon = false;
+    this.inBoss = false;
+    this.bossesDefeatedRun = 0;
+    this.bossHitsTakenRun = 0;
+    this.grazesRun = 0;
+    this.grazeCharge = 0;
+    this.grazeStreak = 0;
+    this.grazeStreakTimer = 0;
+    this.parryStreak = 0;
+    this.parryPerfectStreak = 0;
     this.challengeBeaten = false;
     this.runSummary = null;
     this.timeScale = 1;

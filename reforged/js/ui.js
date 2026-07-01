@@ -21,6 +21,17 @@ import { ASCENSION_TIERS, ascendedDef, ascensionTier, canAscend, radianceRank, m
 let els = {};
 let handlers = {};
 
+// Surge-unleash input label, per device: a touch/coarse-pointer device (iOS,
+// Android) unleashes with a TAP; a keyboard device with SPACE. Detected once.
+const IS_TOUCH = (() => {
+  try {
+    return (navigator.maxTouchPoints > 0) ||
+      ('ontouchstart' in window) ||
+      (window.matchMedia && window.matchMedia('(pointer: coarse)').matches);
+  } catch { return false; }
+})();
+const SURGE_KEY = IS_TOUCH ? 'TAP' : 'SPACE';
+
 // §8 — one consistent, satisfying UI sound across the whole interface. A single
 // delegated capture-listener plays a soft "select" tick on any meaningful
 // control, or a gentle "deny" on locked/disabled ones. Action chimes (equip,
@@ -68,6 +79,7 @@ const ICONS = {
 let popupTimer = null;
 let lastCombo = 1;
 let lastChain = 0;
+let lastGraze = -1;
 let lastSurgeLit = -1;     // gems currently lit (avoid per-frame DOM churn)
 let lastThreshold = -1;    // gem-slot count (feverThreshold can change)
 let wasFever = false;      // fever-start edge -> ignition animation
@@ -433,6 +445,7 @@ export const ui = {
         <div class="embers-hud" id="embers-hud"></div>
         <div class="race-bar" id="race-bar"><span class="race-fill" id="race-fill"></span><span class="race-target" id="race-target"></span></div>
         <div class="chain" id="chain"><span class="chain-n" id="chain-n">0</span><span class="chain-word">CHAIN</span></div>
+        <div class="chain graze-hud" id="graze-hud"><span class="chain-n" id="graze-n">0</span><span class="chain-word">GRAZE</span></div>
         <div class="ff-chip" id="ff-chip"></div>
         <div class="assist-chip" id="assist-chip"></div>
       </div>
@@ -464,6 +477,16 @@ export const ui = {
         <div class="surge-gems" id="surge-gems"></div>
       </div>
       <div class="milestone-banner" id="milestone-banner"></div>
+      <div class="danger-glow" id="danger-glow"></div>
+      <div class="boss-warn" id="boss-warn">
+        <div class="boss-warn-alert">⚠ WARNING ⚠</div>
+        <div class="boss-warn-name" id="boss-warn-name"></div>
+      </div>
+      <div class="boss-danger" id="boss-danger">DANGER</div>
+      <!-- Single bottom-centre boss announcement slot: shows ONE message at a time
+           (queued) so callouts never overlap, and doubles as the persistent
+           SURGE-READY prompt when idle. -->
+      <div class="boss-note" id="boss-note"></div>
       <div class="popup" id="popup"></div>
       <div class="popup popup2" id="popup2"></div>
       <div class="feat-toast" id="feat-toast"></div>
@@ -494,6 +517,13 @@ export const ui = {
       score:        root.querySelector('#score'),
       chain:        root.querySelector('#chain'),
       chainN:       root.querySelector('#chain-n'),
+      grazeHud:     root.querySelector('#graze-hud'),
+      grazeN:       root.querySelector('#graze-n'),
+      bossWarn:     root.querySelector('#boss-warn'),
+      bossWarnName: root.querySelector('#boss-warn-name'),
+      bossDanger:   root.querySelector('#boss-danger'),
+      dangerGlow:   root.querySelector('#danger-glow'),
+      bossNote:     root.querySelector('#boss-note'),
       goldFlash:    root.querySelector('#gold-flash'),
       surgeWidget:  root.querySelector('#surge-widget'),
       surgeX:       root.querySelector('#surge-x'),
@@ -649,6 +679,17 @@ export const ui = {
       lastChain = chain;
     }
 
+    // Live GRAZE counter — shown only during a boss, ticks up on every skim in
+    // real time (encourages constant grazing to charge Surge).
+    if (els.grazeHud) {
+      els.grazeHud.classList.toggle('on', game.inBoss);
+      if (game.inBoss && game.grazesRun !== lastGraze) {
+        els.grazeN.textContent = game.grazesRun;
+        if (game.grazesRun > lastGraze) restartAnim(els.grazeHud, 'chain-pop');
+        lastGraze = game.grazesRun;
+      }
+    }
+
     els.dist.textContent = `${Math.floor(player.dist)} m`;
 
     // C1: BEST is a brief encouragement reveal near the record, not a
@@ -772,6 +813,13 @@ export const ui = {
     this._popup2(`BARREL ROLL +${points}`, 'gold');
   },
 
+  // Reflect/parry callout. A perfect parry gets the big violet banner with the
+  // climbing streak (like a perfect-phase); a normal parry is a quieter cyan pop.
+  parryPopup(points, perfect, streak) {
+    if (perfect) this._popup(`★ PERFECT PARRY ×${streak} ★  +${points}`, 'fever');
+    else this._popup2(`PARRY +${points}`, 'cyan');
+  },
+
   gatePopup(points) {
     this._popup(`THREADED +${points}`, 'cyan');
   },
@@ -803,6 +851,95 @@ export const ui = {
 
   biomePopup(name) {
     this._popup(`— ${name} —`, 'cyan');
+  },
+
+  // Dramatic incoming-boss warning shown across the warn + approach beats: a
+  // flashing WARNING, the boss name, and the direction it's coming from, plus a
+  // red danger glow on that edge so the player can clear the space.
+  bossWarning(name, title, dir, duration = 3) {
+    if (els.bossWarnName) els.bossWarnName.textContent = name;
+    const hide = (el) => el && el.classList.remove('show');
+    if (els.bossWarn) els.bossWarn.classList.add('show');
+    // Big foreboding DANGER + hazard stripes anchored WHERE the boss emerges, plus
+    // a matching directional glow, so the player clears exactly that space.
+    if (els.bossDanger) { els.bossDanger.dataset.pos = dir; els.bossDanger.classList.add('show'); }
+    if (els.dangerGlow) { els.dangerGlow.dataset.dir = dir; els.dangerGlow.classList.add('show'); }
+    clearTimeout(this._bossWarnTO);
+    this._bossWarnTO = setTimeout(() => {
+      hide(els.bossWarn); hide(els.bossDanger); hide(els.dangerGlow);
+    }, duration * 1000);
+    sfx.milestone?.();
+  },
+
+  // "SURGE READY" prompt during a boss when the meter is full (manual unleash).
+  // Shows the CORRECT input for the device (TAP on touch, SPACE on desktop). It
+  // lives in the SAME bottom slot as the callouts, so it's suppressed while a
+  // timed callout is up (one thing at a time) and returns when the slot is idle.
+  surgeReady(show) {
+    if (show === this._readyState) return;
+    this._readyState = show;
+    this._readyText = show ? `⚡ SURGE READY — ${SURGE_KEY} ⚡` : null;
+    if (!this._noteBusy) this._renderReady();
+  },
+
+  // Boss callouts (warning, phase, shield, surge, defeat) — ONE bottom-centre slot,
+  // QUEUED so they never overlap and each stays readable. `tone` colours it,
+  // `dur` (s) is how long it holds. Kept legible: one message at a time, at the
+  // bottom where the eye rests during a fight.
+  bossNote(text, sub = '', tone = 'gold', dur = 2.6) {
+    if (!els.bossNote) return;   // no HUD (e.g. headless tests) → no-op
+    this._noteQueue = this._noteQueue || [];
+    this._noteQueue.push({ text, sub, tone, dur });
+    this._pumpNote();
+  },
+
+  // Legacy alias: older call sites used bossBanner(text, sub).
+  bossBanner(text, sub) { this.bossNote(text, sub); },
+
+  _pumpNote() {
+    if (!els.bossNote || this._noteBusy) return;
+    const n = (this._noteQueue || []).shift();
+    if (!n) { this._renderReady(); return; }   // idle → the persistent prompt (if any)
+    this._noteBusy = true;
+    const el = els.bossNote;
+    el.dataset.tone = n.tone;
+    el.classList.remove('ready');
+    el.innerHTML = `<span class="bn-main">${n.text}</span>${n.sub ? `<span class="bn-sub">${n.sub}</span>` : ''}`;
+    el.classList.add('show');
+    restartAnim(el, 'boss-note-anim');
+    clearTimeout(this._noteTO);
+    this._noteTO = setTimeout(() => {
+      el.classList.remove('show');
+      setTimeout(() => { this._noteBusy = false; this._pumpNote(); }, 240);   // let it fade before the next
+    }, n.dur * 1000);
+  },
+
+  _renderReady() {
+    const el = els.bossNote;
+    if (!el) return;
+    if (this._readyText) {
+      el.dataset.tone = 'ready';
+      el.innerHTML = `<span class="bn-ready">${this._readyText}</span>`;
+      el.classList.add('show', 'ready');
+    } else {
+      el.classList.remove('show', 'ready');
+    }
+  },
+
+  // Flush the slot when a fight ends so no stale callout/prompt lingers.
+  bossNoteClear() {
+    this._noteQueue = [];
+    this._noteBusy = false;
+    this._readyState = false;
+    this._readyText = null;
+    clearTimeout(this._noteTO);
+    if (els.bossNote) els.bossNote.classList.remove('show', 'ready');
+  },
+
+  // Fade the stamina arc away for a boss (unlimited/locked speed → the bar is
+  // meaningless) and back in after; the boss focus ring draws on in its place.
+  staminaBoss(hidden) {
+    if (els.staminaArc) els.staminaArc.classList.toggle('boss-hidden', hidden);
   },
 
   radioPopup(name) {
