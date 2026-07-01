@@ -4197,3 +4197,27 @@ per-instance colour/power/strength, giving the whole boss layer a coherent "cont
 cost. The capture-and-project debug seam (`__isBoss` + `bossState()`) is the reusable rig for any future "does the new
 thing actually look right on screen" pass. Verified: `boss.mjs` (8), `bossboot` zero-error, `smoke`, `tricount` 203265
 (boss model 844→1260 tris for the shells/core, far under the 6000 budget); the human judges the final look/scale live.
+
+### L106 — The Surge aura must FRAME the dragon, not envelop it (a player-owned effect can't occlude the player)
+
+**Did / learned.** The Surge aura was an enveloping fresnel ORB (+ an additive inner core) centred on the dragon. With
+the bloom pass filling the interior it rendered as a solid pink ball that COMPLETELY hid the dragon and buried the
+danmaku — during Surge (when every bullet is parryable and reading them matters MOST) the player literally couldn't see
+their dragon or the shots. A real player photo made it unmistakable. Redid it as a HALO: two thin camera-facing glow
+HOOPS (torus rings) around the dragon with a hollow centre, plus lightning arcs that live in the ring band (~2.3 out)
+and point radially OUTWARD — so the centre where the dragon + incoming bullets are stays completely clear. The
+"empowered" signal now comes from things that DON'T occlude: the postfx fever screen-wash, the dragon's own emissive
+flare, and the framing halo + crackle. Verified by capture: the dragon is fully visible inside the hoops.
+
+**→ Systematize.** **An effect attached to a gameplay-critical object must not occlude that object or its threats.**
+Anything centred on the player (aura, buff, shield, status) has to be built as a NON-occluding frame — a halo/ring, a
+ground marker, an outline/rim, upward wisps, or a screen-space vignette — never a filled volume over the thing you're
+steering. Rule of thumb: reserve filled/opaque volumes for ENEMIES and pickups (you WANT them to grab the eye);
+give the PLAYER edge-only, hollow, or off-body treatments. And remember additive + bloom turns a "faint transparent
+shell" into a solid glowing mass — test player-centred FX with bloom ON, at the density they'll actually hit.
+
+**→ Leapfrog (innovate).** The halo-frame is the reusable pattern for every player-centred state (boost, low-health,
+shield, power-up): swap colour/spin/'# of hoops' per state and it reads instantly without ever hiding the hero. It also
+freed the enveloping-orb idea for its correct owner — the BOSS shield bubble, where occluding the enemy is fine (even
+desirable). Verified: `boss.mjs` (8), `bossboot` zero-error, `tricount` 203265 (aura swapped orb→rings, tris flat).
+The human confirms the live read (dragon + bullets visible through Surge) on the preview.

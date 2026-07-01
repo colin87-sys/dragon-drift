@@ -8,7 +8,7 @@ import { cameraCtl } from './cameraController.js';
 import { burst } from './particles.js';
 import { emit, on } from './events.js';
 import { clearAhead } from './obstacles.js';
-import { buildBoss, makeEnergyShell } from './bossModel.js';
+import { buildBoss } from './bossModel.js';
 import { bossDefForIndex } from './bossDefs.js';
 import {
   initBossBullets, updateBossBullets, spawnBossBullet, resetBossBullets,
@@ -122,26 +122,28 @@ export function initBoss(sc) {
   reticle.visible = false;
   scene.add(reticle);
 
-  // Dragon Surge aura: a fresnel energy ORB (bright at the rim, clear face-on — a
-  // real 3D shell, not a flat disc) with an inner molten core + flickering
-  // lightning, so an active Surge is unmistakable and reads as power, not a decal.
+  // Dragon Surge aura: a HALO that FRAMES the dragon, never covers it. An
+  // enveloping orb hid the dragon and buried the danmaku you must read — instead
+  // this is a pair of thin camera-facing glow HOOPS around the dragon (hollow
+  // centre → dragon + bullets stay fully visible) plus lightning that arcs
+  // strictly OUTWARD from behind. "Empowered", not "wrapped in a ball". The
+  // screen wash (postfx fever grade) + the dragon's own emissive carry the rest.
   surgeAura = new THREE.Group();
-  const auraShellMat = makeEnergyShell(0xff4fd0, { power: 2.0, strength: 1.4, opacity: 1.0 });
-  const auraSphere = new THREE.Mesh(new THREE.IcosahedronGeometry(3.4, 2), auraShellMat);
-  surgeAura.add(auraSphere);
-  const auraCore = new THREE.Mesh(
-    new THREE.IcosahedronGeometry(1.6, 1),
-    new THREE.MeshBasicMaterial({ color: 0xffd0f4, transparent: true, opacity: 0.55, blending: THREE.AdditiveBlending, depthWrite: false })
-  );
-  surgeAura.add(auraCore);
-  const boltMat = new THREE.MeshBasicMaterial({ color: 0xffbdf6, transparent: true, opacity: 0.9, blending: THREE.AdditiveBlending, depthWrite: false });
+  const haloMatA = new THREE.MeshBasicMaterial({ color: 0xff6ae0, transparent: true, opacity: 0.85, blending: THREE.AdditiveBlending, depthWrite: false });
+  const haloA = new THREE.Mesh(new THREE.TorusGeometry(2.5, 0.10, 8, 44), haloMatA);
+  const haloMatB = new THREE.MeshBasicMaterial({ color: 0x9d7bff, transparent: true, opacity: 0.4, blending: THREE.AdditiveBlending, depthWrite: false });
+  const haloB = new THREE.Mesh(new THREE.TorusGeometry(3.2, 0.06, 8, 44), haloMatB);
+  surgeAura.add(haloA, haloB);
+  const boltMat = new THREE.MeshBasicMaterial({ color: 0xffbdf6, transparent: true, opacity: 0.85, blending: THREE.AdditiveBlending, depthWrite: false });
   const bolts = [];
   for (let i = 0; i < 6; i++) {
-    const b = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.06, 3.6, 4), boltMat);
+    // Thin, SHORT arcs that live in the ring band (start ~2.1 out) so they never
+    // cross the dragon at the centre.
+    const b = new THREE.Mesh(new THREE.CylinderGeometry(0.045, 0.045, 1.6, 4), boltMat);
     surgeAura.add(b);
     bolts.push(b);
   }
-  surgeAura.userData = { auraSphere, auraShellMat, auraCore, bolts };
+  surgeAura.userData = { haloA, haloB, bolts };
   surgeAura.visible = false;
   scene.add(surgeAura);
 
@@ -246,21 +248,24 @@ function updateSurgeAura(dt, player, time, surge) {
   surgeAura.visible = surge;
   if (!surge) return;
   surgeAura.position.set(player.position.x, player.position.y, -player.dist);
-  const { auraSphere, auraShellMat, auraCore, bolts } = surgeAura.userData;
-  auraSphere.rotation.y += dt * 1.6;
-  auraSphere.scale.setScalar(1 + Math.sin(time * 10) * 0.13);
-  auraShellMat.uniforms.uStrength.value = 1.1 + Math.abs(Math.sin(time * 8)) * 0.7;   // rim breathes
-  auraCore.scale.setScalar(1 + Math.sin(time * 12) * 0.18);
-  auraCore.material.opacity = 0.45 + Math.abs(Math.sin(time * 9)) * 0.3;
-  // Lightning discharge: each bolt is anchored at a spoke around the dragon and
-  // points radially outward, flickering on/off and jittering its length — reads as
-  // arcing electricity, not random floating sticks.
+  const { haloA, haloB, bolts } = surgeAura.userData;
+  // Camera-facing hoops (XY plane ≈ faces the chase cam), slowly counter-spinning
+  // and breathing — a framing halo, hollow at the centre so the dragon shows through.
+  haloA.rotation.z += dt * 0.8;
+  haloB.rotation.z -= dt * 0.5;
+  haloA.scale.setScalar(1 + Math.sin(time * 6) * 0.06);
+  haloB.scale.setScalar(1 + Math.sin(time * 4 + 1) * 0.05);
+  haloA.material.opacity = 0.7 + Math.abs(Math.sin(time * 7)) * 0.25;
+  haloB.material.opacity = 0.3 + Math.abs(Math.sin(time * 5)) * 0.18;
+  // Lightning arcs living in the ring BAND (radius ~2.1), pointing radially outward
+  // and flickering — electricity crackling around the halo, never over the dragon.
   bolts.forEach((b, i) => {
     const ang = (i / bolts.length) * Math.PI * 2 + Math.sin(time * 7 + i * 1.7) * 0.3;
-    b.visible = Math.random() < 0.72;
-    b.position.set(Math.cos(ang) * 2.1, Math.sin(ang) * 2.1, (Math.random() - 0.5) * 1.4);
+    b.visible = Math.random() < 0.6;
+    const r = 2.3 + Math.random() * 0.5;
+    b.position.set(Math.cos(ang) * r, Math.sin(ang) * r, (Math.random() - 0.5) * 0.8);
     b.rotation.set(0, 0, ang - Math.PI / 2);   // length runs radially outward
-    b.scale.set(0.7 + Math.random() * 0.6, 0.6 + Math.random() * 0.9, 1);
+    b.scale.set(0.7 + Math.random() * 0.5, 0.5 + Math.random() * 0.7, 1);
   });
 }
 
