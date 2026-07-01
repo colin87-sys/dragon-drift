@@ -844,9 +844,9 @@ export const ui = {
     if (els.bossWarnName) els.bossWarnName.textContent = name;
     const hide = (el) => el && el.classList.remove('show');
     if (els.bossWarn) els.bossWarn.classList.add('show');
-    // Big foreboding DANGER rising from the BOTTOM — where the boss emerges — so
-    // the player clears the space. The edge danger-glow reinforces the direction.
-    if (els.bossDanger) els.bossDanger.classList.add('show');
+    // Big foreboding DANGER + hazard stripes anchored WHERE the boss emerges, plus
+    // a matching directional glow, so the player clears exactly that space.
+    if (els.bossDanger) { els.bossDanger.dataset.pos = dir; els.bossDanger.classList.add('show'); }
     if (els.dangerGlow) { els.dangerGlow.dataset.dir = dir; els.dangerGlow.classList.add('show'); }
     clearTimeout(this._bossWarnTO);
     this._bossWarnTO = setTimeout(() => {

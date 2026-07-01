@@ -143,10 +143,13 @@ export function startBossEncounter(player, defOverride) {
   attackTimer = 0;
   riderTimer = B.riderShotInterval;
 
-  // Dramatic incoming warning during the approach: names the boss AND the
-  // direction it's coming from, plus a red danger glow on that side of the
-  // screen so the player can clear the space before it arrives.
-  const dir = def.approachFrom === 'side' ? (start.x < 0 ? 'left' : 'right') : 'behind';
+  // Dramatic incoming warning during the approach: names the boss AND marks WHERE
+  // it enters from with a stripe/glow overlay so the player can clear that space.
+  // 'side' → enters from the left/right edge; 'behind' → rises from a bottom corner.
+  const sideL = start.x < 0;
+  const dir = def.approachFrom === 'side'
+    ? (sideL ? 'left' : 'right')
+    : (sideL ? 'bottomLeft' : 'bottomRight');
   ui.bossWarning?.(def.name, def.title, dir, B.warnTime + B.approachTime);
   sfx.feverStart?.();
   cameraCtl.shake?.(1.2);
@@ -175,7 +178,7 @@ function startDeath(player) {
   game.score += bonus;
   game.embersRun += embers;       // banked at run end like any ember haul
   ui.bossBanner?.('✦  SLAIN  ✦', `+${bonus}   ◆${embers}`);
-  sfx.record?.();
+  sfx.bossDefeat?.();
   cameraCtl.shake?.(2.0);
   tmp.set(pose.x, pose.y, -(player.dist + pose.rel));
   burst(tmp, 0xffc050, { count: 30, speed: 18, size: 1.2, life: 0.9 });

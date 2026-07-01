@@ -155,22 +155,30 @@ body.app-loaded > canvas { opacity: 1; }
 .boss-warn-name { font: 800 clamp(18px,5.5vw,38px)/1.15 'Russo One', system-ui, sans-serif;
   color: #fff; margin-top: 10px; text-shadow: 0 2px 14px #000, 0 0 22px rgba(255,90,90,0.5); }
 @keyframes warn-flash { 0%{opacity:1} 50%{opacity:0.3} }
-/* Big foreboding DANGER rising from the bottom (where the boss emerges). */
-.boss-danger { position: fixed; left: 0; right: 0; bottom: 16%; text-align: center;
-  pointer-events: none; opacity: 0; transform: translateY(24px); z-index: 40;
-  font: 900 clamp(30px,11vw,84px)/1 'Russo One', system-ui, sans-serif;
-  color: rgba(255,45,45,0.92); letter-spacing: 0.2em;
-  text-shadow: 0 0 26px rgba(255,30,30,0.9), 0 4px 20px #000; }
-.boss-danger.show { opacity: 1; transform: translateY(0);
-  transition: opacity 0.35s, transform 0.5s cubic-bezier(.2,1.2,.3,1);
-  animation: danger-throb 0.7s ease-in-out infinite 0.4s; }
-@keyframes danger-throb { 0%,100%{transform:translateY(0) scale(1)} 50%{transform:translateY(0) scale(1.05)} }
+/* Foreboding DANGER anchored WHERE the boss emerges, on a bed of animated hazard
+   stripes. data-pos places it at the entry edge/corner; the stripes scroll inward. */
+.boss-danger { position: fixed; pointer-events: none; opacity: 0; z-index: 40;
+  padding: 10px 22px; letter-spacing: 0.16em;
+  font: 900 clamp(24px,8vw,64px)/1 'Russo One', system-ui, sans-serif;
+  color: rgba(255,60,60,0.95); text-shadow: 0 0 22px rgba(255,30,30,0.9), 0 4px 18px #000; }
+.boss-danger::before { content: ''; position: absolute; inset: -40px -60px; z-index: -1;
+  background: repeating-linear-gradient(-45deg, rgba(255,40,40,0.22) 0 22px, transparent 22px 44px);
+  mask: radial-gradient(closest-side, #000 40%, transparent); -webkit-mask: radial-gradient(closest-side, #000 40%, transparent);
+  animation: hazard-scroll 0.7s linear infinite; }
+.boss-danger.show { opacity: 1; animation: danger-throb 0.7s ease-in-out infinite; }
+.boss-danger[data-pos="bottomRight"] { right: 6%; bottom: 15%; }
+.boss-danger[data-pos="bottomLeft"]  { left: 6%;  bottom: 15%; }
+.boss-danger[data-pos="right"] { right: 4%; top: 46%; }
+.boss-danger[data-pos="left"]  { left: 4%;  top: 46%; }
+@keyframes hazard-scroll { to { background-position: 62px 0; } }
+@keyframes danger-throb { 0%,100%{transform:scale(1)} 50%{transform:scale(1.06)} }
 .danger-glow { position: fixed; inset: 0; pointer-events: none; opacity: 0;
   transition: opacity 0.4s; z-index: 39; }
 .danger-glow.show { animation: danger-pulse 0.85s ease-in-out infinite; }
-.danger-glow[data-dir="behind"] { background: radial-gradient(ellipse 120% 90% at 50% 50%, transparent 52%, rgba(255,40,40,0.55)); }
 .danger-glow[data-dir="left"]  { background: linear-gradient(90deg, rgba(255,40,40,0.55), transparent 34%); }
 .danger-glow[data-dir="right"] { background: linear-gradient(270deg, rgba(255,40,40,0.55), transparent 34%); }
+.danger-glow[data-dir="bottomLeft"]  { background: radial-gradient(90% 80% at 0% 100%, rgba(255,40,40,0.6), transparent 55%); }
+.danger-glow[data-dir="bottomRight"] { background: radial-gradient(90% 80% at 100% 100%, rgba(255,40,40,0.6), transparent 55%); }
 @keyframes danger-pulse { 0%,100%{opacity:0.45} 50%{opacity:0.9} }
 
 .dist { font-size: 13px; letter-spacing: 2px; opacity: 0.75; margin-top: 3px; }
