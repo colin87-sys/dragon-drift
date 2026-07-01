@@ -47,6 +47,8 @@ export const game = {
   inBoss: false,       // inside a boss encounter → hazards suppressed, boost locked
   bossesDefeatedRun: 0,// bosses slain this run
   bossHitsTakenRun: 0, // bullet hits taken in the current fight (for the no-hit feat)
+  grazesRun: 0,        // bullets grazed this run (skim charges surge)
+  grazeCharge: 0,      // fractional surge accumulator: whole units → consecutiveRings
   runSummary: null,    // built once at settle for the recap screen
   timeScale: 1,        // near-death slow-mo (main.js scales sim dt by this)
   slowMoTimer: 0,      // remaining slow-mo, in REAL seconds
@@ -121,6 +123,8 @@ export const game = {
     this.inBoss = false;
     this.bossesDefeatedRun = 0;
     this.bossHitsTakenRun = 0;
+    this.grazesRun = 0;
+    this.grazeCharge = 0;
     this.challengeBeaten = false;
     this.runSummary = null;
     this.timeScale = 1;

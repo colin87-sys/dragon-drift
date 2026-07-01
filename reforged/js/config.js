@@ -173,6 +173,12 @@ export const CONFIG = {
     bossSpeed: 52,          // closing speed of a rider/reflected bullet toward the boss
     bulletDamage: 18,
     bossHitRadius: 3.2,     // how close a boss-ward bullet must be to count as a hit
+    // Graze: skimming a bullet (inside the graze band but outside the hit radius)
+    // charges Dragon Surge — the "drift" identity transplanted from rings onto
+    // danmaku. Band = (hitR, grazeR];  grazeR = playerRadius × grazeScale + bulletRadius.
+    grazeScale: 2.2,        // grazeR ≈ 1.2×2.2 + 0.55 ≈ 3.19  (band ≈ [1.29, 3.19])
+    grazeScore: 12,         // score per bullet grazed
+    grazeGain: 0.34,        // surge-meter fraction per graze (~3 grazes ≈ one gem)
     // Rider auto-attack: the steady chip that always whittles the boss down
     riderShotInterval: 0.5,
     riderShotDamage: 3,

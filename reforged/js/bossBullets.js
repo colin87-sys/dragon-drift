@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { CONFIG } from './config.js';
-import { hitPlayer } from './collision.js';
+import { hitPlayer, bulletGraze } from './collision.js';
 import { burst } from './particles.js';
 import { emit } from './events.js';
 
@@ -115,6 +115,7 @@ export function updateBossBullets(dt, player) {
   const px = player.position.x;
   const py = player.position.y;
   const hitR = CONFIG.BOSS.bulletRadius + R * CONFIG.BOSS.bulletHitScale;
+  const grazeR = CONFIG.BOSS.bulletRadius + R * CONFIG.BOSS.grazeScale;
   const bossR = CONFIG.BOSS.bossHitRadius;
 
   for (let i = 0; i < POOL; i++) {
@@ -136,11 +137,15 @@ export function updateBossBullets(dt, player) {
     mesh.setColorAt(i, colV);
 
     if (s.owner === 'boss') {
-      // Crossed the player's plane this frame → resolve the dodge.
+      // Crossed the player's plane this frame → resolve the dodge. A dead-on pass
+      // hits; a near-but-clean pass (inside the graze band) charges surge.
       if (prevRel > 0 && s.rel <= 0) {
         const dx = s.x - px, dy = s.y - py;
-        if (dx * dx + dy * dy < hitR * hitR) {
+        const d2 = dx * dx + dy * dy;
+        if (d2 < hitR * hitR) {
           hitPlayer(player, s.dmg, 'bullet');
+        } else if (d2 < grazeR * grazeR) {
+          bulletGraze(player);
         }
         deactivate(i);
       } else if (s.rel < -2 || s.life <= 0 ||

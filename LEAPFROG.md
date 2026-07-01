@@ -3659,3 +3659,46 @@ payoff. Verification unchanged: `tests/boss.mjs` (lifecycle to a kill, now throu
 `tests/bossboot.mjs` (real WebGL, zero console errors with tunnel/stream live) + `tricount` (boss additive,
 roster 203265 untouched); the human judges the wind-up read, the red, the boost pace and the tunnel weave on the
 preview.
+
+---
+
+### L91 — Graze→Surge (boss Increment 1): reconnect danmaku to the signature meter; verify the design spec against HEAD before building it
+
+**Did / learned.** A design spec (`dragon-drift-boss-retune.md`) proposed wiring bullet **grazing** to Dragon
+Surge. Before implementing, I verified its claims against the live source — and two had **drifted from the spec's
+snapshot**: (1) §B claimed "no rings spawn during a boss, so surge is dormant/impossible," but the feel pass
+(L90) had since made `spawnAhead` keep rings + embers flowing while `game.inBoss` — so `consecutiveRings` can
+climb and Surge can already fire mid-fight; and worse, `rings.miss()` zeros `consecutiveRings`, so flying *past* a
+ring while dodging would **sabotage** any graze meter built on it. (2) `hit()` only resets the streak
+`if (combo > 1)`, but in a boss combo sits at 1, so a bullet hit would **not** cancel a graze-charged surge.
+Also confirmed the two things the spec couldn't: the surge gem-row HUD is **not** gated by `inBoss` (it's a
+sub-state of `playing`, so it's already visible), and there is **no** manual surge "tap" — surge is
+auto-trigger-only (the config/player comment about "freeing the 2nd finger" is aspirational). Built Increment 1
+against *those* facts: a graze band `(hitR, grazeR]` in the bullet crossing test calls `collision.bulletGraze()`,
+which charges a fractional `grazeCharge` accumulator that spills into whole `consecutiveRings` steps → the
+**existing** meter + auto-trigger, no new UI; a bullet hit now cancels the streak **unconditionally**; and rings
+go **decorative during a boss** (skip collect/miss) so grazing is the clean, sole surge driver.
+
+**→ Systematize.** (a) **Verify a design doc against HEAD, not against its own snapshot.** A spec written by
+reading the repo is still a *snapshot*; the branch moves. The cheap, decisive check is: for each load-bearing
+claim, grep/read the exact file+line it rests on. Here it flipped the entire premise (surge is NOT dormant) and
+surfaced two interaction bugs (ring-miss sabotage, combo-gated hit-cancel) the spec couldn't have known. Make
+"reconcile the plan with the code" the first step of every increment, and write the drift down. (b) **Reuse the
+meter, don't fork it.** Graze feeds `consecutiveRings` through a fractional accumulator, so the gem HUD, the
+threshold, the auto-trigger, and the "damage breaks it" risk/reward all compose for free — the new mechanic
+inherits the whole surge economy instead of reimplementing it. The pattern generalizes: to add a new *source* for
+an existing resource, drive the resource's existing integer/threshold, don't add a parallel meter. (c) **When two
+systems fight over one counter, neutralize the weaker one in the mode where the other owns it** — rings become
+decorative in a boss so danmaku owns the streak; one `!game.inBoss` guard, no new state.
+
+**→ Leapfrog (innovate).** Grazing is now the *earn* half of the surge loop the boss was missing — the "drift"
+identity transplanted from rings onto bullets, and it works on **every** pattern for free because the hook lives
+in the bullet update, not per-attack (so L90's tunnel/spiralStream and any future `rose`/`curtain`/`laserLance`
+reward tight threading the moment they ship). That sets up the *spend* half: Increment 2 wires the already-built,
+still-dead `reflectBossBullets()` to the barrel roll, and Increment 3 makes Surge the hyper (bullet-time + double
+rider fire + all-bullets-reflectable) — graze to charge, pop Surge, roll through the storm reflecting bullets
+into the boss. The ~3-surges-to-kill economy the test enforces finally becomes *earned* instead of waiting on the
+rider chip. Verification: `tests/boss.mjs` extended (graze charges, hit/miss excluded, hit cancels, sustained
+grazing auto-fires Surge) + `tests/bossboot.mjs` real-WebGL zero-error + `tricount` unchanged (203265) +
+`tiershots` compiles; the human judges on the preview whether the graze band *feels* right (the tuning numbers —
+`grazeScale 2.2`, `grazeGain 0.34` — are first guesses).
