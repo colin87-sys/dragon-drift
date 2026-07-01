@@ -3845,3 +3845,41 @@ exit-resume** lifecycle that any future scripted set-piece (escort, chase, bonus
 Verified: `tests/boss.mjs` (7 checks) + `bossboot` real-WebGL zero-error (graze HUD builds, live) + a level-gen
 probe (resume generates ahead, no backfill) + `tricount` unchanged (203265); the human judges on the preview
 whether small rings graze well, the counter feels good, and the post-boss transition is seamless.
+
+---
+
+### L96 — Boss readability: telegraph (warning + directional danger), a world-space notched health bar, and DEPTH cues (loom + parry-pulse + hitbox reticle)
+
+**Did / learned.** Four legibility additions so the fight isn't abrupt or ambiguous. (1) **Telegraph** — a
+dramatic `ui.bossWarning(name, dir, duration)` overlay (flashing "⚠ WARNING ⚠" + boss name + "INCOMING — BEHIND/
+LEFT/RIGHT") plus a **directional red danger glow** on that screen edge (a vignette for 'behind', an edge gradient
+for a side), held across the warn + approach beats so the player can clear the space before the boss arrives.
+Direction is derived from the boss's `approachFrom`/spawn offset. (2) **Health bar** built INTO the boss model
+(`bossModel.setHealth(frac)`): a dark bg + a left-anchored fill (scaled via a wrapper group so `scale.x = frac`
+grows from the left) floating above the boss on its front face — so it faces the player for free (the group
+already faces the player) with **no per-frame billboard** — plus **phase-threshold notches** placed from
+`def.phases` (`x = -W/2 + atFrac·W`). Depth-test-off + high render order keeps it legible over the body. (3)
+**Depth cues** (the "how far is that bullet / when do I parry" gap): a boss bullet **LOOMS** — its render scale
+ramps up over the last ~7 m of approach (`prox = 1 + (7-rel)/7·0.8`), decoupled from its hitbox; and a reflectable
+bullet **PULSES** (`sin(clock·20)`) once it's inside the parry window, signalling "swat now". (4) A **graze/hit
+reticle** — faint additive rings around the dragon at the graze radius (green) and hit radius (red), shown only
+during a fight, giving a constant spatial reference for "close enough to graze" vs "about to be hit".
+
+**→ Systematize.** (a) **Attach status UI to the entity in its own local space when the entity already faces the
+camera** — the health bar needs no billboard because it rides the boss group's front face; parent to the thing
+that already has the orientation you want instead of recomputing it. (b) **Visual scale is a free readability
+channel because it's decoupled from collision** (reaffirming L92): looming/pulsing communicate depth + timing
+without touching `hitR`, so you can crank the *read* without changing the *difficulty*. (c) **Draw the invisible
+rule.** When players can't feel a threshold (graze band, parry window, hitbox), render it — a faint reticle turns
+an abstract radius into a spatial affordance; the same trick applies to any tuned-but-hidden gameplay constant.
+(d) **Telegraph = name + direction + a spatial cue**, not just text; the directional danger glow tells the player
+*where*, which plain banner text can't.
+
+**→ Leapfrog (innovate).** The health bar + notches make **phase transitions legible**, which sets up
+phase-specific spectacle (a palette/attack shift the player can now anticipate as the fill nears a notch). The
+reticle + loom + pulse are a reusable **danmaku readability kit** any future boss/pattern inherits — and the
+parry-pulse is the exact hook to make the Surge hyper (Increment 3) unmistakable (pulse ALL bullets when
+`feverActive`, since they all become reflectable). Verified: `tests/boss.mjs` (7 checks; model 756→764 tris with
+the bar, dissolve still fades it) + `bossboot` real-WebGL zero-error (bar/reticle/warning live) + `tricount`
+unchanged (203265); the human judges whether the warning reads in time, the bar/notches are clear, and the loom/
+reticle resolve the depth confusion on the preview.

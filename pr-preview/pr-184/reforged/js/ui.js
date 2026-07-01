@@ -466,6 +466,12 @@ export const ui = {
         <div class="surge-gems" id="surge-gems"></div>
       </div>
       <div class="milestone-banner" id="milestone-banner"></div>
+      <div class="danger-glow" id="danger-glow"></div>
+      <div class="boss-warn" id="boss-warn">
+        <div class="boss-warn-alert">⚠ WARNING ⚠</div>
+        <div class="boss-warn-name" id="boss-warn-name"></div>
+        <div class="boss-warn-dir" id="boss-warn-dir"></div>
+      </div>
       <div class="popup" id="popup"></div>
       <div class="popup popup2" id="popup2"></div>
       <div class="feat-toast" id="feat-toast"></div>
@@ -498,6 +504,10 @@ export const ui = {
       chainN:       root.querySelector('#chain-n'),
       grazeHud:     root.querySelector('#graze-hud'),
       grazeN:       root.querySelector('#graze-n'),
+      bossWarn:     root.querySelector('#boss-warn'),
+      bossWarnName: root.querySelector('#boss-warn-name'),
+      bossWarnDir:  root.querySelector('#boss-warn-dir'),
+      dangerGlow:   root.querySelector('#danger-glow'),
       goldFlash:    root.querySelector('#gold-flash'),
       surgeWidget:  root.querySelector('#surge-widget'),
       surgeX:       root.querySelector('#surge-x'),
@@ -825,6 +835,26 @@ export const ui = {
 
   biomePopup(name) {
     this._popup(`— ${name} —`, 'cyan');
+  },
+
+  // Dramatic incoming-boss warning shown across the warn + approach beats: a
+  // flashing WARNING, the boss name, and the direction it's coming from, plus a
+  // red danger glow on that edge so the player can clear the space.
+  bossWarning(name, title, dir, duration = 3) {
+    if (els.bossWarnName) els.bossWarnName.textContent = name;
+    if (els.bossWarnDir) els.bossWarnDir.textContent = `INCOMING — ${String(dir).toUpperCase()}`;
+    if (els.bossWarn) {
+      els.bossWarn.classList.add('show');
+      clearTimeout(this._bossWarnTO);
+      this._bossWarnTO = setTimeout(() => els.bossWarn.classList.remove('show'), duration * 1000);
+    }
+    if (els.dangerGlow) {
+      els.dangerGlow.dataset.dir = dir;
+      els.dangerGlow.classList.add('show');
+      clearTimeout(this._dangerTO);
+      this._dangerTO = setTimeout(() => els.dangerGlow.classList.remove('show'), duration * 1000);
+    }
+    sfx.milestone?.();
   },
 
   // Boss encounter callouts (warning, phase change, defeat). Two-line: a big
