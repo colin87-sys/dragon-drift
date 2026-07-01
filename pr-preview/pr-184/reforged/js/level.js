@@ -624,5 +624,18 @@ export function createLevelGen(seed = CONFIG.seed, opts = {}) {
     ensure,
     difficulty,
     get generatedUntil() { return generatedUntil; },
+    // Resume generation FRESH from `target` after a suppressed stretch (a boss
+    // arena). Without this the cursor is left far ahead (ensure ran during the
+    // fight but nothing was spawned), leaving a blank run when the fight ends.
+    // We reseat the cursor to the player and drop transient corridor state so the
+    // course simply continues ahead — no backfill spike, no empty stretch.
+    resume(target) {
+      prev = { dist: target, x: 0, y: 8 };
+      generatedUntil = target;
+      prevHopDirX = 0; prevHopDirY = 0;
+      gauntlet = null; canyon = null;
+      untilGauntlet = target + 650 + rnd() * 450;
+      nextGoldAt = target + CONFIG.goldEmberInterval;
+    },
   };
 }

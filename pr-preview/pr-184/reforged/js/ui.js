@@ -68,6 +68,7 @@ const ICONS = {
 let popupTimer = null;
 let lastCombo = 1;
 let lastChain = 0;
+let lastGraze = -1;
 let lastSurgeLit = -1;     // gems currently lit (avoid per-frame DOM churn)
 let lastThreshold = -1;    // gem-slot count (feverThreshold can change)
 let wasFever = false;      // fever-start edge -> ignition animation
@@ -433,6 +434,7 @@ export const ui = {
         <div class="embers-hud" id="embers-hud"></div>
         <div class="race-bar" id="race-bar"><span class="race-fill" id="race-fill"></span><span class="race-target" id="race-target"></span></div>
         <div class="chain" id="chain"><span class="chain-n" id="chain-n">0</span><span class="chain-word">CHAIN</span></div>
+        <div class="chain graze-hud" id="graze-hud"><span class="chain-n" id="graze-n">0</span><span class="chain-word">GRAZE</span></div>
         <div class="ff-chip" id="ff-chip"></div>
         <div class="assist-chip" id="assist-chip"></div>
       </div>
@@ -494,6 +496,8 @@ export const ui = {
       score:        root.querySelector('#score'),
       chain:        root.querySelector('#chain'),
       chainN:       root.querySelector('#chain-n'),
+      grazeHud:     root.querySelector('#graze-hud'),
+      grazeN:       root.querySelector('#graze-n'),
       goldFlash:    root.querySelector('#gold-flash'),
       surgeWidget:  root.querySelector('#surge-widget'),
       surgeX:       root.querySelector('#surge-x'),
@@ -647,6 +651,17 @@ export const ui = {
       els.chainN.textContent = chain;
       if (chain > lastChain && chain >= 2) restartAnim(els.chain, 'chain-pop');
       lastChain = chain;
+    }
+
+    // Live GRAZE counter — shown only during a boss, ticks up on every skim in
+    // real time (encourages constant grazing to charge Surge).
+    if (els.grazeHud) {
+      els.grazeHud.classList.toggle('on', game.inBoss);
+      if (game.inBoss && game.grazesRun !== lastGraze) {
+        els.grazeN.textContent = game.grazesRun;
+        if (game.grazesRun > lastGraze) restartAnim(els.grazeHud, 'chain-pop');
+        lastGraze = game.grazesRun;
+      }
     }
 
     els.dist.textContent = `${Math.floor(player.dist)} m`;

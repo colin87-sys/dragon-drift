@@ -137,6 +137,7 @@ function endEncounter(player) {
   game.inBoss = false;
   encounterIndex++;
   nextBossDist = player.dist + B.interval + Math.random() * B.intervalJitter;
+  emit('bossEnd', { dist: player.dist });   // main.js resumes level generation ahead
 }
 
 function startDeath(player) {
@@ -337,13 +338,13 @@ function executeAttack(id, player) {
     // A succession of bullet-RINGS rushing at you — a glowing tube to fly down,
     // its centre weaving side to side so you follow the safe lane (rib-run feel).
     const rings = quality < 0.75 ? 5 : 6;
-    // Denser rings so each reads as a solid CIRCLE (a sparse ring looks like a
-    // loose cluster, especially with several stacked in depth).
-    const m = quality < 0.75 ? 18 : 26;
+    const m = quality < 0.75 ? 12 : 16;
     const slow = closing * 0.85;
+    // Small rings (radius < grazeR) so flying the centre still SKIMS the whole
+    // ring → constant grazing; a big ring let you sit in a dead-safe hole.
     for (let k = 0; k < rings; k++) {
       const cx = anchorX + Math.sin(k * 0.8) * 5;   // centred on you, then weaves → you follow
-      pending.push({ t: k * 0.38, fire: () => fireRing(cx, B.fightHeight, 7, m, slow) });
+      pending.push({ t: k * 0.38, fire: () => fireRing(cx, B.fightHeight, 3.7, m, slow) });
     }
   } else if (id === 'spiralStream') {
     // A rotating emitter: arms of bullets sweep around over time — read the spin.

@@ -3809,3 +3809,39 @@ after which the graze→surge→reflect-everything climax is complete. Verified:
 perfect-parry classification + 2× normal damage) + `bossboot` real-WebGL zero-error (clean arena + death embers +
 graze sfx live) + `tricount` unchanged (203265); the human judges the parry chime, graze sparkle, arena
 cleanliness and the new pacing on the preview.
+
+---
+
+### L95 — Grazeability is geometry (small rings + wider band), a live graze counter, and the post-arena "blank world" cursor fix
+
+**Did / learned.** Three playtest fixes. (1) **Rings were ungrazeable** — a radius-7 ring has a big dead-safe
+interior, so flying the centre never came near a bullet. Fix is geometric: shrank the tunnel ring radius to
+**3.7** (now *smaller than* the graze radius) and widened the graze band (`grazeScale 2.2→3.0` → grazeR ≈ 4.15,
+band ≈ [1.29, 4.15]). Now flying the centre of a ring skims the WHOLE ring (every bullet ~3.7 away, inside the
+band), and drifting off-centre brings the near edge into the hit radius — the ring became a graze corridor
+instead of a hoop with a hole. (2) **Live GRAZE counter** — a boss-only HUD chip (reuses the `.chain` layout,
+graze-green) that ticks `game.grazesRun` up in real time and pops on each skim, so the reward is visible and
+constant grazing is encouraged. (3) **The "blank world for a few hundred m" after a boss** was a generator-cursor
+bug: `spawnAhead` kept calling `ensure()` during the fight (advancing the cursor ~2600 m) but spawned nothing, so
+when the fight ended the cursor was far ahead and `ensure` had nothing new to lay until the player caught up. Fix:
+a `levelGen.resume(dist)` that reseats the cursor (`prev`, `generatedUntil`) to the player and drops transient
+corridor state, fired from a new `bossEnd` event → the course simply continues fresh ahead. No backfill spike, no
+empty stretch (probed: after `resume(3000)` the next rings start at ~3098, not 1000).
+
+**→ Systematize.** (a) **A mechanic's viability is often a geometry constraint, not a tuning nudge.** "Graze the
+ring" is only possible when `ringRadius < grazeR`; state the relationship and set the numbers to satisfy it,
+rather than nudging one value and hoping. The reusable rule: for a shape to be *grazeable from inside*, its inner
+clearance must be under the graze band; for it to *threaten*, its wall must be able to reach the hit radius. (b)
+**A stateful stream cursor that gets advanced-without-consuming needs an explicit resume/reseat**, or the mode
+that suppressed output leaves a hole. Any "pause the spawns but keep time moving" mode (boss, cutscene, safe zone)
+should pair suppression with a `resume(here)` on exit — don't let the producer silently run ahead of the
+consumer. (c) **Reuse a HUD atom by class, not by fork:** the graze chip is `.chain` + a colour override + a
+distinct data source — new readout, zero new layout/animation code.
+
+**→ Leapfrog (innovate).** The graze counter is the first piece of a **boss-local scoreboard** (grazes, parries,
+perfect-parries, no-hit) that a results/【feats】pass can total into medals — the encounter now generates its own
+stats stream. And `resume(dist)` generalises the overlay contract (L91/L94) into a clean **enter-suppress /
+exit-resume** lifecycle that any future scripted set-piece (escort, chase, bonus room) can reuse verbatim.
+Verified: `tests/boss.mjs` (7 checks) + `bossboot` real-WebGL zero-error (graze HUD builds, live) + a level-gen
+probe (resume generates ahead, no backfill) + `tricount` unchanged (203265); the human judges on the preview
+whether small rings graze well, the counter feels good, and the post-boss transition is seamless.
