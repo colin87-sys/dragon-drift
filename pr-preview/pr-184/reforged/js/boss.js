@@ -57,6 +57,10 @@ let baitTimer = 0;             // cadence for the shielded graze-bait flood
 let baitLeft = 0;              // rings remaining in the current graze-bait CLUSTER
 let baitResting = false;       // true during the BREAK between clusters (reposition window)
 let surgeAura = null;          // dramatic pink aura + lightning on the dragon during Surge
+let surgeBeam = null;          // mouth→boss energy beam fired on a Surge unleash
+let surgeSeq = null;           // unleash cinematic state: { phase:'charge'|'beam', t }
+let wasReady = false;          // edge-detect Surge-ready → start/stop the enticing hum
+let wasSurge = false;          // edge-detect Surge-active → start/stop the crackle loop
 let bulletColor = 0xff3010;    // fiery red = danger (set per-boss from the def)
 let chargeT = 0;               // telegraph wind-up remaining before the held attack fires
 let chargeDur = 0;
@@ -79,6 +83,15 @@ let bandIdx = 0;
 const pose = { x: 0, y: B.fightHeight, rel: B.settleGap };
 const start = { x: 0, y: 7, rel: -12 };
 const tmp = new THREE.Vector3();
+
+// Surge-unleash cinematic timing + scratch vectors for the mouth→boss beam.
+const CHARGE_TIME = 0.5;       // wind-up: energy gathers at the dragon's mouth
+const BEAM_TIME = 0.55;        // beam live + fade after the strike
+const BEAM_UP = new THREE.Vector3(0, 1, 0);
+const beamO = new THREE.Vector3();     // origin (mouth)
+const beamT = new THREE.Vector3();     // target (boss)
+const beamDir = new THREE.Vector3();
+const beamQuat = new THREE.Quaternion();
 
 const easeInOut = (k) => (k < 0.5 ? 2 * k * k : 1 - Math.pow(-2 * k + 2, 2) / 2);
 const rand = (lo, hi) => lo + Math.random() * (hi - lo);
@@ -127,6 +140,100 @@ export function initBoss(sc) {
   surgeAura.userData = { auraSphere, bolts };
   surgeAura.visible = false;
   scene.add(surgeAura);
+
+  // Dragon Surge BEAM: fired from the dragon's mouth into the boss when a charged
+  // Surge is unleashed. Asset-free — a white-hot core cylinder inside a wide
+  // coloured glow (the shaft, oriented mouth→boss each frame), a muzzle orb that
+  // swells during the wind-up, and an impact flare that blooms at the boss.
+  surgeBeam = new THREE.Group();
+  const shaft = new THREE.Group();
+  const beamCore = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.22, 0.22, 1, 10, 1, true),
+    new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.95, blending: THREE.AdditiveBlending, depthWrite: false })
+  );
+  const beamGlow = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.75, 0.75, 1, 12, 1, true),
+    new THREE.MeshBasicMaterial({ color: 0xff4fd0, transparent: true, opacity: 0.5, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide })
+  );
+  shaft.add(beamGlow, beamCore);
+  const muzzleOrb = new THREE.Mesh(
+    new THREE.SphereGeometry(1, 12, 10),
+    new THREE.MeshBasicMaterial({ color: 0xbdeaff, transparent: true, opacity: 0.9, blending: THREE.AdditiveBlending, depthWrite: false })
+  );
+  const impactOrb = new THREE.Mesh(
+    new THREE.SphereGeometry(1, 12, 10),
+    new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.9, blending: THREE.AdditiveBlending, depthWrite: false })
+  );
+  surgeBeam.add(shaft, muzzleOrb, impactOrb);
+  surgeBeam.userData = { shaft, beamCore, beamGlow, muzzleOrb, impactOrb };
+  surgeBeam.visible = false;
+  scene.add(surgeBeam);
+}
+
+// Drive the Surge-unleash cinematic: a charge wind-up at the mouth, then a beam
+// lancing into the boss (which bursts the shield at the strike). Returns nothing;
+// clears `surgeSeq` when the beam finishes.
+function updateSurgeBeam(dt, player, time) {
+  if (!surgeBeam) return;
+  if (!surgeSeq) { if (surgeBeam.visible) surgeBeam.visible = false; return; }
+  surgeSeq.t += dt;
+  surgeBeam.visible = true;
+  const { shaft, beamCore, beamGlow, muzzleOrb, impactOrb } = surgeBeam.userData;
+
+  // Mouth ≈ just ahead + slightly above the dragon; boss at its settled pose.
+  beamO.set(player.position.x, player.position.y + 0.35, -(player.dist + 1.3));
+  beamT.set(pose.x, pose.y, -(player.dist + pose.rel));
+
+  if (surgeSeq.phase === 'charge') {
+    // Wind-up: a bright orb of energy gathers + flickers at the mouth, no shaft yet.
+    const k = Math.min(surgeSeq.t / CHARGE_TIME, 1);
+    shaft.visible = false;
+    impactOrb.visible = false;
+    muzzleOrb.visible = true;
+    muzzleOrb.position.copy(beamO);
+    muzzleOrb.scale.setScalar(0.3 + k * 1.1 + Math.sin(time * 40) * 0.08 * k);
+    muzzleOrb.material.opacity = 0.5 + k * 0.5;
+    cameraCtl.shake?.(0.12 * k);
+    if (k >= 1) { surgeSeq.phase = 'beam'; surgeSeq.t = 0; strikeSurge(player); }
+    return;
+  }
+
+  // 'beam' phase: the shaft is live mouth→boss, pulsing, then fades over BEAM_TIME.
+  const life = surgeSeq.t / BEAM_TIME;
+  if (life >= 1) { surgeSeq = null; surgeBeam.visible = false; return; }
+  const fade = 1 - life;
+  shaft.visible = true;
+  muzzleOrb.visible = true;
+  impactOrb.visible = true;
+
+  beamDir.copy(beamT).sub(beamO);
+  const len = Math.max(beamDir.length(), 0.001);
+  beamDir.multiplyScalar(1 / len);
+  beamQuat.setFromUnitVectors(BEAM_UP, beamDir);
+  shaft.position.copy(beamO).addScaledVector(beamDir, len / 2);
+  shaft.quaternion.copy(beamQuat);
+  const wob = 1 + Math.sin(time * 50) * 0.14;      // energy pulse across the shaft
+  shaft.scale.set(wob, len, wob);
+  beamCore.material.opacity = 0.95 * fade;
+  beamGlow.material.opacity = (0.5 + Math.sin(time * 30) * 0.15) * fade;
+
+  muzzleOrb.position.copy(beamO);
+  muzzleOrb.scale.setScalar((1.3 + Math.sin(time * 45) * 0.2) * fade + 0.2);
+  muzzleOrb.material.opacity = fade;
+  impactOrb.position.copy(beamT);
+  impactOrb.scale.setScalar((2.2 + Math.sin(time * 38) * 0.4) * (0.5 + fade * 0.5));
+  impactOrb.material.opacity = fade;
+}
+
+// The beam lands: shatter the shield (or chip an unshielded boss), impact FX, sfx.
+function strikeSurge(player) {
+  sfx.surgeBeam?.();
+  cameraCtl.shake?.(1.4);
+  tmp.set(pose.x, pose.y, -(player.dist + pose.rel));
+  burst(tmp, 0xffffff, { count: 24, speed: 22, size: 1.3, life: 0.6 });
+  burst(tmp, 0xff4fd0, { count: 18, speed: 15, size: 1.0, life: 0.7 });
+  if (shielded) breakShield(player);
+  else damageBoss(B.surgeBeamDamage ?? 14, 'surge');   // no shield up → a solid chip
 }
 
 // Pink aura + crackling lightning on the dragon while Surge is active.
@@ -139,12 +246,16 @@ function updateSurgeAura(dt, player, time, surge) {
   auraSphere.rotation.y += dt * 1.6;
   auraSphere.scale.setScalar(1 + Math.sin(time * 10) * 0.13);
   auraSphere.material.opacity = 0.2 + Math.abs(Math.sin(time * 8)) * 0.14;
-  for (const b of bolts) {
-    b.visible = Math.random() < 0.6;             // crackle: flicker on/off + reorient
-    b.rotation.set((Math.random() - 0.5) * Math.PI, Math.random() * Math.PI * 2, Math.random() * Math.PI);
-    b.position.set((Math.random() - 0.5) * 2.4, (Math.random() - 0.5) * 2.4, (Math.random() - 0.5) * 2.4);
-    b.scale.y = 0.6 + Math.random() * 0.7;
-  }
+  // Lightning discharge: each bolt is anchored at a spoke around the dragon and
+  // points radially outward, flickering on/off and jittering its length — reads as
+  // arcing electricity, not random floating sticks.
+  bolts.forEach((b, i) => {
+    const ang = (i / bolts.length) * Math.PI * 2 + Math.sin(time * 7 + i * 1.7) * 0.3;
+    b.visible = Math.random() < 0.72;
+    b.position.set(Math.cos(ang) * 2.1, Math.sin(ang) * 2.1, (Math.random() - 0.5) * 1.4);
+    b.rotation.set(0, 0, ang - Math.PI / 2);   // length runs radially outward
+    b.scale.set(0.7 + Math.random() * 0.6, 0.6 + Math.random() * 0.9, 1);
+  });
 }
 
 export function setBossQuality(q) {
@@ -247,6 +358,11 @@ export function updateBoss(dt, player, time) {
   if (!active) {
     if (reticle) reticle.visible = false;
     if (surgeAura) surgeAura.visible = false;
+    if (surgeBeam) surgeBeam.visible = false;
+    surgeSeq = null;
+    // Silence any lingering Surge loops when the fight isn't running (edge-only).
+    if (wasSurge) { sfx.surgeCrackleStop?.(); wasSurge = false; }
+    if (wasReady) { sfx.surgeReadyStop?.(); wasReady = false; }
     input.surgeTap = false;   // drop any stale tap between fights
     ui.surgeReady?.(false);
     // Trigger a fresh encounter once the player flies past the scheduled mark
@@ -267,6 +383,12 @@ export function updateBoss(dt, player, time) {
   updateBossBullets(dt, player);   // no bullet-time (the sudden slow read as jarring)
   model.tick(dt, time);
   updateSurgeAura(dt, player, time, surge);
+  updateSurgeBeam(dt, player, time);
+  // Surge-active crackle: the constant electric arc sound while the lightning is on.
+  if (surge !== wasSurge) {
+    if (surge) sfx.surgeCrackleStart?.(); else sfx.surgeCrackleStop?.();
+    wasSurge = surge;
+  }
 
   // Graze streak lapses if you stop skimming (drives the graze chime pitch).
   if (game.grazeStreakTimer > 0) {
@@ -317,6 +439,11 @@ export function updateBoss(dt, player, time) {
       if (ready) activateSurge(player);
     }
     ui.surgeReady?.(ready);
+    // Enticing looping hum while Surge is ready (and not yet unleashed): "tap me".
+    if (ready !== wasReady) {
+      if (ready) sfx.surgeReadyStart?.(); else sfx.surgeReadyStop?.();
+      wasReady = ready;
+    }
 
     // Health-bar fill-up flourish on settle (0 → current hp fraction).
     if (hpRevealT > 0) {
@@ -379,7 +506,7 @@ export function updateBoss(dt, player, time) {
         }
         fireGrazeBait(player, time);
         baitLeft--;
-        if (baitLeft <= 0) { baitResting = true; baitTimer = 1.4; }   // reposition break
+        if (baitLeft <= 0) { baitResting = true; baitTimer = 1.8; }   // reposition break
         else baitTimer = 0.42;                                        // within a cluster
       }
     } else if (chargeT > 0) {
@@ -440,9 +567,13 @@ function activateSurge(player) {
   ui.feverStart?.();
   ui.surgeReady?.(false);
   sfx.feverStart?.();
-  cameraCtl.shake?.(0.8);
+  sfx.surgeReadyStop?.();      // they answered the "tap me" hum — silence it
+  wasReady = false;
+  cameraCtl.shake?.(0.5);
   emit('surge');
-  if (shielded) breakShield(player);
+  // Kick off the mouth-beam cinematic: a charge wind-up, then the beam strikes and
+  // bursts the shield (breakShield fires at the moment of impact, not now).
+  surgeSeq = { phase: 'charge', t: 0 };
 }
 
 // A Surge unleash bursts the shield → advance to the next phase (or kill on the
@@ -450,8 +581,10 @@ function activateSurge(player) {
 // can't push past a phase floor.
 function breakShield(player) {
   shielded = false;
+  model.shatterShield?.();        // the bubble breaks into flying shards
   model.setShieldVisible?.(false);
   model.flash(1.0);
+  sfx.shieldShatter?.();          // the physical "barrier breaks" glass shatter
   cameraCtl.shake?.(1.6);
   tmp.set(pose.x, pose.y, -(player.dist + pose.rel));
   burst(tmp, 0xffffff, { count: 26, speed: 24, size: 1.4, life: 0.7 });
@@ -514,15 +647,17 @@ function executeAttack(id, player) {
   } else if (id === 'tunnel') {
     // A succession of bullet-RINGS rushing at you — a glowing tube to fly down,
     // its centre weaving side to side so you follow the safe lane (rib-run feel).
-    const rings = quality < 0.75 ? 5 : 6;
+    // TUTORIAL boss: keep the tunnel short + gently-weaving so the tail of the fight
+    // doesn't become a wall of consecutive rings. Later bosses lengthen/tighten it.
+    const rings = quality < 0.75 ? 3 : 4;
     const m = quality < 0.75 ? 12 : 16;
     const slow = closing * 0.85;
     // Small rings (radius < grazeR) so flying the centre still SKIMS the whole
     // ring → constant grazing; a big ring let you sit in a dead-safe hole.
     for (let k = 0; k < rings; k++) {
-      const cx = anchorX + Math.sin(k * 0.8) * 5;   // centred on you, then weaves → you follow
+      const cx = anchorX + Math.sin(k * 0.7) * 4;   // centred on you, then weaves → you follow
       const b = BAND[k % BAND.length];              // successive rings band by brightness+size
-      pending.push({ t: k * 0.38, fire: () => fireRing(cx, B.fightHeight, 3.7, m, slow, b.c, b.s) });
+      pending.push({ t: k * 0.46, fire: () => fireRing(cx, B.fightHeight, 3.7, m, slow, b.c, b.s) });
     }
   } else if (id === 'spiralStream') {
     // A rotating emitter: arms of bullets sweep around over time — read the spin.
@@ -629,6 +764,11 @@ export function resetBoss() {
   shielded = false;
   if (reticle) reticle.visible = false;
   if (surgeAura) surgeAura.visible = false;
+  if (surgeBeam) surgeBeam.visible = false;
+  surgeSeq = null;
+  sfx.surgeCrackleStop?.();
+  sfx.surgeReadyStop?.();
+  wasSurge = false; wasReady = false;
   ui.surgeReady?.(false);
   pending.length = 0;
   chargeT = 0;

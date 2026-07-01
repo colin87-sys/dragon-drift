@@ -132,7 +132,59 @@ export function buildBoss(def, quality = 1) {
   const shield = new THREE.Mesh(new THREE.IcosahedronGeometry(4.3, 1), shieldMat);
   shield.visible = false;
   group.add(shield);
-  function setShieldVisible(v) { shield.visible = v; }
+  function setShieldVisible(v) {
+    shield.visible = v;
+    if (v) { shatter = 0; for (const s of shards) s.mesh.visible = false; }  // re-arm on raise
+  }
+
+  // Shield SHARDS: faceted chips that the bubble breaks into when a Surge beam
+  // bursts it. Pre-built (asset-free) and hidden; shatterShield() flings them
+  // outward along their own radial + spin, fading over ~0.7s (driven in tick).
+  const shardChipMat = track(new THREE.MeshBasicMaterial({
+    color: glow, transparent: true, opacity: 0.9, blending: THREE.AdditiveBlending,
+    depthWrite: false, side: THREE.DoubleSide,
+  }));
+  const chipGeo = new THREE.TetrahedronGeometry(0.7, 0);
+  const shards = [];
+  const shardN = quality < 0.75 ? 8 : 14;
+  for (let i = 0; i < shardN; i++) {
+    const m = new THREE.Mesh(chipGeo, shardChipMat);
+    m.visible = false;
+    // Even-ish spread over a sphere (golden-angle) so the break looks like a bubble.
+    const y = 1 - (i / Math.max(shardN - 1, 1)) * 2;
+    const rr = Math.sqrt(Math.max(0, 1 - y * y));
+    const ph = i * 2.399963;
+    const dir = new THREE.Vector3(Math.cos(ph) * rr, y, Math.sin(ph) * rr);
+    m.userData = { dir, spin: new THREE.Vector3((Math.random() - 0.5) * 6, (Math.random() - 0.5) * 6, (Math.random() - 0.5) * 6) };
+    group.add(m);
+    shards.push({ mesh: m });
+  }
+  let shatter = 0;   // 0 = idle; >0 counts UP while shards fly (seconds since burst)
+  function shatterShield() {
+    shield.visible = false;
+    shatter = 0.0001;
+    for (const s of shards) {
+      const d = s.mesh.userData.dir;
+      s.mesh.position.set(d.x * 4.3, d.y * 4.3, d.z * 4.3);   // start on the bubble surface
+      s.mesh.rotation.set(Math.random() * Math.PI, Math.random() * Math.PI, Math.random() * Math.PI);
+      s.mesh.scale.setScalar(1);
+      s.mesh.visible = true;
+    }
+  }
+  function tickShatter(dt) {
+    if (shatter <= 0) return;
+    shatter += dt;
+    const k = shatter / 0.7;                 // 0→1 over the fling
+    if (k >= 1) { shatter = 0; for (const s of shards) s.mesh.visible = false; return; }
+    for (const s of shards) {
+      const u = s.mesh.userData;
+      s.mesh.position.addScaledVector(u.dir, dt * 22);           // fly outward
+      s.mesh.rotation.x += u.spin.x * dt;
+      s.mesh.rotation.y += u.spin.y * dt;
+      s.mesh.scale.setScalar(1 - k * 0.6);
+    }
+    shardChipMat.opacity = 0.9 * (1 - k);
+  }
 
   // Cache base opacities so the dissolve can scale from each material's own value.
   for (const m of mats) m.userData.baseOpacity = m.transparent ? m.opacity : 1;
@@ -211,8 +263,9 @@ export function buildBoss(def, quality = 1) {
     setHealth,
     setHealthBarVisible,
     setShieldVisible,
+    shatterShield,
     flash,
-    tick(dt, time) { tick(dt, time); tickFlash(dt); },
+    tick(dt, time) { tick(dt, time); tickFlash(dt); tickShatter(dt); },
     dispose() {
       group.traverse((o) => {
         if (o.geometry) o.geometry.dispose();
