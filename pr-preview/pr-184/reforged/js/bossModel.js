@@ -124,6 +124,16 @@ export function buildBoss(def, quality = 1) {
   function setHealth(frac) { fillWrap.scale.x = Math.max(0.0001, Math.min(1, frac)); }
   function setHealthBarVisible(v) { hpBar.visible = v; }
 
+  // Shield bubble: raised at a phase floor, only a Dragon Surge unleash bursts it.
+  const shieldMat = track(new THREE.MeshBasicMaterial({
+    color: glow, transparent: true, opacity: 0.24, blending: THREE.AdditiveBlending,
+    depthWrite: false, side: THREE.DoubleSide,
+  }));
+  const shield = new THREE.Mesh(new THREE.IcosahedronGeometry(4.3, 1), shieldMat);
+  shield.visible = false;
+  group.add(shield);
+  function setShieldVisible(v) { shield.visible = v; }
+
   // Cache base opacities so the dissolve can scale from each material's own value.
   for (const m of mats) m.userData.baseOpacity = m.transparent ? m.opacity : 1;
 
@@ -143,6 +153,11 @@ export function buildBoss(def, quality = 1) {
     throatMat.opacity = 0.85 + charge * 0.15;
     throatMat.color.setHex(0xff3010).lerp(new THREE.Color(accent), 1 - charge); // reddens as it charges
     coreMat.emissiveIntensity = 0.9 + charge * 1.6;
+    if (shield.visible) {
+      shield.rotation.y += dt * 0.9;
+      shield.rotation.x += dt * 0.5;
+      shieldMat.opacity = 0.18 + Math.abs(Math.sin(time * 4)) * 0.22;
+    }
     for (const o of orbiters) {
       const u = o.userData;
       u.ang += dt * u.speed;
@@ -195,6 +210,7 @@ export function buildBoss(def, quality = 1) {
     setCharge,
     setHealth,
     setHealthBarVisible,
+    setShieldVisible,
     flash,
     tick(dt, time) { tick(dt, time); tickFlash(dt); },
     dispose() {

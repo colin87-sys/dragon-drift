@@ -3991,3 +3991,43 @@ pattern (scaffold-then-activate) is the template for **more bosses** (Increment 
 new systems. Verified: `tests/boss.mjs` (8 checks; kill 50s→42s shows Surge live in-sim) + `bossboot` real-WebGL
 zero-error with Surge forced (bullet-time + double-rider + all-reflect + flare) + `tricount` unchanged (203265);
 the human judges the bullet-time feel, the reflect-everything power fantasy, and the re-earn pacing on the preview.
+
+---
+
+### L100 — The armour gate: manual Surge + per-phase shield fused with a graze-bait flood (survival-by-grazing IS the break); + telegraph/tuning fixes
+
+**Did / learned.** A player-directed redesign (backed by a design note) that turns the boss into a proper
+armour-gate loop, plus a raft of feel fixes. **The gate:** each phase floor (`atFrac` 1.0/0.66/0.33) now raises a
+SHIELD — chip/reflect do **nothing** while shielded (they *ping* off: quiet clang + spark), and the ONLY way
+through is a **Dragon Surge unleash**. Surge is now **manual in a boss** (Space / a 2nd-finger tap; auto-fire
+removed from `bulletGraze`, gated so the normal run is unchanged), charged by grazing — so the vision's "3 surges
+to kill" is *literally* true: three shields, three surge-breaks. **The fusion (the key insight):** while
+shielded the boss **floods graze-bait** — small rings centred on the player and weaving (radius 3.6 < grazeR 4.15
+→ the whole ring grazes) with a threadable lane — so *surviving by grazing tight IS what charges the surge that
+breaks the armour*. Fleeing earns zero graze → zero surge → no progress, but you're never killed for it: the
+pressure is progress-denial, not death. **Feel fixes bundled:** warning now flashes ALONE first (boss hidden
+behind during `warn`, 2.0s) then clears as it flies in; DANGER moved to where it actually emerges (`behind` →
+bottom-centre, not a wrong corner); grace band 450→220 m; chip (rider 3→1.4) + reflect (2×/2.7× → 0.35/0.55×)
+cut hard so you can't brute-force; **bullet-time removed** (the sudden slow read as jarring); and a **dramatic
+Surge aura** (pulsing pink energy shell + crackling lightning bolts on the dragon) so an active Surge is
+unmistakable. Shield bubble + "⛨ SHIELDED — UNLEASH DRAGON SURGE" banner + "SURGE READY" prompt telegraph the
+mechanic hard.
+
+**→ Systematize.** (a) **Decouple survival from progress to teach aggression by economy, not tutorial.** Camping
+survives but can't win because the only progress currency (surge) is minted only by the risky act (grazing), and
+the boss *hands you* the bullets to graze during the gate. The reusable pattern: gate progress behind a resource
+that's earned only by engaging, and spawn the engagement material at the gate. (b) **A "hard gate" needs its own
+supply of the gate currency** — a shield that only Surge breaks is a soft-lock unless the shielded state also
+floods grazeable bullets; always pair a resource-gate with an in-context source of that resource. (c)
+**Auto→manual is a one-line policy flip at the charge site**, but the whole downstream design (save it for the
+shield) depends on it — decide agency early. (d) **Telegraph a rule change with a rule-change *sound*** (chip
+pinging off) as much as a visual; the clang says "stop doing that" faster than a banner.
+
+**→ Leapfrog (innovate).** The design note's **soft-gate** variant (chip trickles + a ramping nastier attack
+while shielded) is now a one-flag alternative on the same machinery — a per-boss difficulty knob. And the
+armour+graze-bait beat is a self-contained "survive-to-advance" module that a **second boss** re-skins with a
+different bait pattern (a laser corridor, a rose bloom) — the verbs (graze/charge/surge-break) stay, the bullets
+change. Verified: `tests/boss.mjs` (8 checks; lifecycle now drives manual surge to burst 3 shields → kill,
+asserting `surges >= 3` + `sawShield`) + `bossboot` real-WebGL zero-error (aura/shield/manual-surge live) +
+`tricount` unchanged (203265, boss model 764→844 with shield+aura additions counted only in-model); the human
+judges the armour telegraph, the graze-bait weave, the surge aura and the new pacing on the preview.

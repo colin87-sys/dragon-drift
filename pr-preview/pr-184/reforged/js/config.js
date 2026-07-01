@@ -156,7 +156,7 @@ export const CONFIG = {
     intervalJitter: 900,
     settleGap: 30,          // metres ahead the boss holds (player-relative frame)
     fightHeight: 11,        // y the boss settles at
-    warnTime: 1.6,          // warning-banner lead before the boss enters
+    warnTime: 2.0,          // warning flashes ALONE first, then the boss flies in
     approachTime: 2.6,      // seconds from spawn-offset to the settle point
     cruiseSpeed: 65,        // player forward speed locked during the fight — boost
                             // pace so flying doesn't feel sluggish (on-rails)
@@ -183,22 +183,23 @@ export const CONFIG = {
     // precision aimed/fan shots) back at the boss for bonus damage — defence
     // becomes offence. Graze to charge → roll to parry.
     reflectWindow: 4.5,     // rel-distance ahead within which a rolling player swats a bullet
-    reflectDamageMult: 0.55,// reflected bullet damage × vs the boss (normal parry) — a
+    reflectDamageMult: 0.35,// reflected bullet damage × vs the boss (normal parry) — a
                             // roll can swat several bullets, so keep per-bullet modest
-    reflectPerfectMult: 0.8,// PERFECT parry (swatted right on top of you) — slightly more
+    reflectPerfectMult: 0.55,// PERFECT parry (swatted right on top of you) — slightly more
     perfectParryRel: 1.8,   // a bullet swatted within this rel = a perfect parry
     parryScore: 120,        // style points per parry (× perfect bonus × streak)
-    // Surge hyper: while Dragon Surge is active in a boss, bullets slow to
-    // bullet-time, the rider double-fires, and EVERY bullet becomes reflectable —
-    // graze to charge → pop Surge → roll through the storm reflecting it all back.
-    surgeBulletTime: 0.5,   // bullet motion time-scale during Surge (0.5 = half speed)
+    // Surge hyper: while Dragon Surge is active in a boss the rider double-fires and
+    // EVERY bullet becomes reflectable. Surge is MANUAL (unleash with Space / a
+    // 2nd-finger tap) and its job is to BURST the per-phase shield.
     surgeRiderMult: 0.5,    // rider fire interval × during Surge (0.5 = twice as fast)
+    shieldDamage: 999,      // a Surge unleash bursts the shield outright (phase advance)
     // Death reward: a defeated boss pays a big score bonus AND a haul of embers.
     defeatEmbers: 60,
-    postGrace: 450,         // metres after a boss with rings/orbs only (no hazards) to ease back in
-    // Rider auto-attack: the steady chip that always whittles the boss down
+    postGrace: 220,         // metres after a boss with rings/orbs only (no hazards) to ease back in
+    // Rider auto-attack: a gentle chip (Surge is the real damage — it bursts the
+    // per-phase shield); tuned low so you can't brute-force phases with chip alone.
     riderShotInterval: 0.5,
-    riderShotDamage: 3,
+    riderShotDamage: 1.4,
     // Death + reward
     deathTime: 2.6,         // disintegration dissolve length (s)
     defeatScore: 5000,

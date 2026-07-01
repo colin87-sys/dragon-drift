@@ -472,6 +472,7 @@ export const ui = {
         <div class="boss-warn-name" id="boss-warn-name"></div>
       </div>
       <div class="boss-danger" id="boss-danger">DANGER</div>
+      <div class="surge-ready" id="surge-ready">⚡ SURGE READY — SPACE / TAP ⚡</div>
       <div class="popup" id="popup"></div>
       <div class="popup popup2" id="popup2"></div>
       <div class="feat-toast" id="feat-toast"></div>
@@ -508,6 +509,7 @@ export const ui = {
       bossWarnName: root.querySelector('#boss-warn-name'),
       bossDanger:   root.querySelector('#boss-danger'),
       dangerGlow:   root.querySelector('#danger-glow'),
+      surgeReadyEl: root.querySelector('#surge-ready'),
       goldFlash:    root.querySelector('#gold-flash'),
       surgeWidget:  root.querySelector('#surge-widget'),
       surgeX:       root.querySelector('#surge-x'),
@@ -853,6 +855,13 @@ export const ui = {
       hide(els.bossWarn); hide(els.bossDanger); hide(els.dangerGlow);
     }, duration * 1000);
     sfx.milestone?.();
+  },
+
+  // "SURGE READY" prompt during a boss when the meter is full (manual unleash).
+  surgeReady(show) {
+    if (!els.surgeReadyEl || show === this._surgeReadyShown) return;
+    this._surgeReadyShown = show;
+    els.surgeReadyEl.classList.toggle('show', show);
   },
 
   // Boss encounter callouts (warning, phase change, defeat). Two-line: a big

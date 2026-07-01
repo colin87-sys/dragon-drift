@@ -3,6 +3,7 @@ import { CONFIG } from './config.js';
 import { game } from './gameState.js';
 import { ui } from './ui.js';
 import { sfx } from './sfx.js';
+import { input } from './input.js';
 import { cameraCtl } from './cameraController.js';
 import { burst } from './particles.js';
 import { emit, on } from './events.js';
@@ -51,6 +52,9 @@ let rollParried = false;       // this roll already landed a parry (announce onc
 let reticle = null;            // faint graze/hit zone rings drawn around the dragon
 let hpRevealT = 0;             // health-bar fill-up animation timer (0→full on settle)
 const HP_REVEAL = 0.8;
+let shielded = false;          // at a phase floor the boss shields — only Surge bursts it
+let baitTimer = 0;             // cadence for the shielded graze-bait flood
+let surgeAura = null;          // dramatic pink aura + lightning on the dragon during Surge
 let bulletColor = 0xff3010;    // fiery red = danger (set per-boss from the def)
 let chargeT = 0;               // telegraph wind-up remaining before the held attack fires
 let chargeDur = 0;
@@ -92,6 +96,43 @@ export function initBoss(sc) {
   reticle.add(mkRing(hitR, 0xff5566, 0.4));
   reticle.visible = false;
   scene.add(reticle);
+
+  // Dragon Surge aura: a pulsing pink energy shell + flickering lightning bolts
+  // around the dragon, so an active Surge is unmistakable.
+  surgeAura = new THREE.Group();
+  const auraSphere = new THREE.Mesh(
+    new THREE.IcosahedronGeometry(3.4, 1),
+    new THREE.MeshBasicMaterial({ color: 0xff4fd0, transparent: true, opacity: 0.26, blending: THREE.AdditiveBlending, depthWrite: false })
+  );
+  surgeAura.add(auraSphere);
+  const boltMat = new THREE.MeshBasicMaterial({ color: 0xffbdf6, transparent: true, opacity: 0.9, blending: THREE.AdditiveBlending, depthWrite: false });
+  const bolts = [];
+  for (let i = 0; i < 6; i++) {
+    const b = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.06, 3.6, 4), boltMat);
+    surgeAura.add(b);
+    bolts.push(b);
+  }
+  surgeAura.userData = { auraSphere, bolts };
+  surgeAura.visible = false;
+  scene.add(surgeAura);
+}
+
+// Pink aura + crackling lightning on the dragon while Surge is active.
+function updateSurgeAura(dt, player, time, surge) {
+  if (!surgeAura) return;
+  surgeAura.visible = surge;
+  if (!surge) return;
+  surgeAura.position.set(player.position.x, player.position.y, -player.dist);
+  const { auraSphere, bolts } = surgeAura.userData;
+  auraSphere.rotation.y += dt * 1.6;
+  auraSphere.scale.setScalar(1 + Math.sin(time * 10) * 0.13);
+  auraSphere.material.opacity = 0.2 + Math.abs(Math.sin(time * 8)) * 0.14;
+  for (const b of bolts) {
+    b.visible = Math.random() < 0.6;             // crackle: flicker on/off + reorient
+    b.rotation.set((Math.random() - 0.5) * Math.PI, Math.random() * Math.PI * 2, Math.random() * Math.PI);
+    b.position.set((Math.random() - 0.5) * 2.4, (Math.random() - 0.5) * 2.4, (Math.random() - 0.5) * 2.4);
+    b.scale.y = 0.6 + Math.random() * 0.7;
+  }
 }
 
 export function setBossQuality(q) {
@@ -111,6 +152,7 @@ export function startBossEncounter(player, defOverride) {
   hp = hpMax;
   phaseIdx = 0;
   spiralPhase = 0;
+  shielded = false;
   bulletColor = def.bulletColor ?? 0xff3010;
   pending.length = 0;
   chargeT = 0;
@@ -146,14 +188,11 @@ export function startBossEncounter(player, defOverride) {
   attackTimer = 0;
   riderTimer = B.riderShotInterval;
 
-  // Dramatic incoming warning during the approach: names the boss AND marks WHERE
-  // it enters from with a stripe/glow overlay so the player can clear that space.
-  // 'side' → enters from the left/right edge; 'behind' → rises from a bottom corner.
-  const sideL = start.x < 0;
-  const dir = def.approachFrom === 'side'
-    ? (sideL ? 'left' : 'right')
-    : (sideL ? 'bottomLeft' : 'bottomRight');
-  ui.bossWarning?.(def.name, def.title, dir, B.warnTime + B.approachTime);
+  // Warning flashes ALONE first (the boss stays hidden behind during 'warn'), then
+  // clears as the boss flies in. 'side' → left/right edge; 'behind' → bottom-centre
+  // (where it rises from behind), matching where it actually emerges.
+  const dir = def.approachFrom === 'side' ? (start.x < 0 ? 'left' : 'right') : 'bottom';
+  ui.bossWarning?.(def.name, def.title, dir, B.warnTime);
   sfx.feverStart?.();
   cameraCtl.shake?.(1.2);
   emit('bossStart', { id: def.id });
@@ -193,6 +232,9 @@ function startDeath(player) {
 export function updateBoss(dt, player, time) {
   if (!active) {
     if (reticle) reticle.visible = false;
+    if (surgeAura) surgeAura.visible = false;
+    input.surgeTap = false;   // drop any stale tap between fights
+    ui.surgeReady?.(false);
     // Trigger a fresh encounter once the player flies past the scheduled mark
     // (never inside a canyon, never on the menu).
     if (game.state === 'playing' && !game.inCanyon && player.dist >= nextBossDist) {
@@ -207,11 +249,10 @@ export function updateBoss(dt, player, time) {
     reticle.position.set(player.position.x, player.position.y, -player.dist);
   }
 
-  // Surge hyper: while Dragon Surge is up in a boss, bullets slow to bullet-time
-  // (the player still steers at full speed → a window to weave + reflect the storm).
   const surge = game.feverActive;
-  updateBossBullets(surge ? dt * CONFIG.BOSS.surgeBulletTime : dt, player);
+  updateBossBullets(dt, player);   // no bullet-time (the sudden slow read as jarring)
   model.tick(dt, time);
+  updateSurgeAura(dt, player, time, surge);
 
   // Graze streak lapses if you stop skimming (drives the graze chime pitch).
   if (game.grazeStreakTimer > 0) {
@@ -252,6 +293,14 @@ export function updateBoss(dt, player, time) {
     pose.rel = B.settleGap;
     pose.x = Math.sin(time * 0.7) * 5.0;
     pose.y = B.fightHeight + Math.sin(time * 1.3) * 0.8;
+
+    // Manual Surge unleash (Space / 2nd-finger tap) — the shield-breaker.
+    const ready = !game.feverActive && game.consecutiveRings >= game.feverThreshold;
+    if (input.surgeTap) {
+      input.surgeTap = false;
+      if (ready) activateSurge(player);
+    }
+    ui.surgeReady?.(ready);
 
     // Health-bar fill-up flourish on settle (0 → current hp fraction).
     if (hpRevealT > 0) {
@@ -298,7 +347,17 @@ export function updateBoss(dt, player, time) {
       rollParried = false;
     }
 
-    if (chargeT > 0) {
+    if (shielded) {
+      // Armour is up: the boss FLOODS graze-bait — dense rings streaming close past
+      // you with a threadable lane. Weaving them tight is how you charge the Surge
+      // that bursts the armour (survival-by-grazing IS the break mechanic). Chip
+      // does nothing here, so fleeing makes zero progress — you must come in tight.
+      baitTimer -= dt;
+      if (baitTimer <= 0) {
+        baitTimer = 0.42;
+        fireGrazeBait(player, time);
+      }
+    } else if (chargeT > 0) {
       // Telegraph wind-up: the boss charges (maw flares red), THEN releases.
       chargeT -= dt;
       model.setCharge(1 - Math.max(chargeT, 0) / chargeDur);
@@ -338,10 +397,49 @@ export function updateBoss(dt, player, time) {
 
 function placeGroup(player, time) {
   if (!group) return;
+  group.visible = phase !== 'warn';   // stay hidden behind while the warning flashes
   group.position.set(pose.x, pose.y, -(player.dist + pose.rel));
   // Face the player (local +z = front maw, world +z = toward the player) with a
   // little menacing yaw/roll wobble.
   group.rotation.set(0, Math.sin(time * 0.5) * 0.12, Math.sin(time * 0.9) * 0.08);
+}
+
+// ---- Surge (manual) + the per-phase shield ---------------------------------
+
+// Unleash Dragon Surge: the hyper (all-reflect + double rider, see updateBoss)
+// AND the shield-breaker. Charged by grazing; fired by the player (Space / tap).
+function activateSurge(player) {
+  game.feverActive = true;
+  game.feverTimer = CONFIG.feverDuration;
+  game.markSurgeSeen();
+  ui.feverStart?.();
+  ui.surgeReady?.(false);
+  sfx.feverStart?.();
+  cameraCtl.shake?.(0.8);
+  emit('surge');
+  if (shielded) breakShield(player);
+}
+
+// A Surge unleash bursts the shield → advance to the next phase (or kill on the
+// last). The shield is the ONLY thing that lets you progress — chip/reflect alone
+// can't push past a phase floor.
+function breakShield(player) {
+  shielded = false;
+  model.setShieldVisible?.(false);
+  model.flash(1.0);
+  cameraCtl.shake?.(1.6);
+  tmp.set(pose.x, pose.y, -(player.dist + pose.rel));
+  burst(tmp, 0xffffff, { count: 26, speed: 24, size: 1.4, life: 0.7 });
+  burst(tmp, def.glow, { count: 20, speed: 16, size: 1.1, life: 0.8 });
+  sfx.phase?.(true, 1);
+  const next = def.phases[phaseIdx + 1];
+  if (next) {
+    phaseIdx++;
+    ui.bossBanner?.(`PHASE ${phaseIdx + 1}`, def.name);
+    emit('bossPhase', { phase: phaseIdx + 1 });
+  } else {
+    pendingDeath = true;   // final shield burst → death (resolved next frame)
+  }
 }
 
 // ---- Attacks ----------------------------------------------------------------
@@ -417,6 +515,15 @@ function executeAttack(id, player) {
   }
 }
 
+// Graze-bait (armour phase): small rings centred on the player and weaving, so the
+// bullets stream CLOSE past you (radius < grazeR → the whole ring grazes) with a
+// threadable lane. Weaving them tight charges the Surge that bursts the armour.
+function fireGrazeBait(player, time) {
+  const cx = Math.max(-8, Math.min(8, player.position.x)) + Math.sin(time * 1.3) * 3;
+  const cy = B.fightHeight + Math.sin(time * 0.9) * 1.5;
+  fireRing(cx, cy, 3.6, quality < 0.75 ? 12 : 16, B.bulletSpeed * 0.8);
+}
+
 // A ring (circle outline) of bullets centred on (cx, cy) that closes straight in.
 function fireRing(cx, cy, radius, m, vrel) {
   for (let i = 0; i < m; i++) {
@@ -450,24 +557,34 @@ function fireRiderShot(player) {
 
 function damageBoss(amount, kind) {
   if (phase !== 'fight') return;
+  if (shielded) {
+    // Chip/reflect PINGS off the armour — a clang + spark telegraph "a different
+    // thing is needed now" (charge Surge), not "keep hitting it".
+    sfx.shieldPing?.();
+    if (group && Math.random() < 0.5) burst(group.position, def.glow, { count: 4, speed: 10, size: 0.7, life: 0.3 });
+    return;
+  }
   hp = Math.max(0, hp - amount);
   model.flash(0.6);
   if (hpRevealT <= 0) model.setHealth(hp / hpMax);   // don't fight the fill-up flourish
   emit('bossHit', { hp, hpMax, frac: hp / hpMax, kind });
 
-  // Phase advance: when hp drops into the next phase's band.
-  const next = def.phases[phaseIdx + 1];
-  if (next && hp / hpMax <= next.atFrac) {
-    phaseIdx++;
-    resetBossBullets();
+  // Reached the phase floor → raise the shield. Chip/reflect can't push past it;
+  // the player must charge Surge (by grazing) and unleash it to burst through.
+  const floor = def.phases[phaseIdx + 1]?.atFrac ?? 0;
+  if (hp / hpMax <= floor + 1e-4) {
+    shielded = true;
+    hp = Math.max(hp, floor * hpMax);
+    model.setHealth(hp / hpMax);
+    model.setShieldVisible?.(true);
+    model.setCharge(0);
+    chargeT = 0; pending.length = 0; baitTimer = 0;   // drop any in-flight attack; graze-bait takes over
     model.flash(1.0);
-    cameraCtl.shake?.(1.0);
-    ui.bossBanner?.(`PHASE ${phaseIdx + 1}`, def.name);
+    cameraCtl.shake?.(0.8);
+    ui.bossBanner?.('⛨  SHIELDED  ⛨', 'UNLEASH DRAGON SURGE');
     sfx.milestone?.();
-    emit('bossPhase', { phase: phaseIdx + 1 });
+    emit('bossShield', { phase: phaseIdx + 1 });
   }
-
-  if (hp <= 0) pendingDeath = true;   // resolved next frame in updateBoss
 }
 
 export function resetBoss() {
@@ -478,7 +595,10 @@ export function resetBoss() {
   group = null; model = null; def = null;
   pendingDeath = false;
   rollParried = false;
+  shielded = false;
   if (reticle) reticle.visible = false;
+  if (surgeAura) surgeAura.visible = false;
+  ui.surgeReady?.(false);
   pending.length = 0;
   chargeT = 0;
   curAttack = null;
@@ -500,5 +620,5 @@ export function forceBoss(player) {
 }
 
 export function bossDebugState() {
-  return { active, phase, hp, hpMax, phaseIdx, bullets: bossBulletCount(), nextBossDist };
+  return { active, phase, hp, hpMax, phaseIdx, shielded, bullets: bossBulletCount(), nextBossDist };
 }
