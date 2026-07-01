@@ -54,6 +54,8 @@ let hpRevealT = 0;             // health-bar fill-up animation timer (0→full o
 const HP_REVEAL = 0.8;
 let shielded = false;          // at a phase floor the boss shields — only Surge bursts it
 let baitTimer = 0;             // cadence for the shielded graze-bait flood
+let baitLeft = 0;              // rings remaining in the current graze-bait CLUSTER
+let baitResting = false;       // true during the BREAK between clusters (reposition window)
 let surgeAura = null;          // dramatic pink aura + lightning on the dragon during Surge
 let bulletColor = 0xff3010;    // fiery red = danger (set per-boss from the def)
 let chargeT = 0;               // telegraph wind-up remaining before the held attack fires
@@ -163,6 +165,7 @@ export function startBossEncounter(player, defOverride) {
   phaseIdx = 0;
   spiralPhase = 0;
   shielded = false;
+  baitTimer = 0; baitLeft = 0; baitResting = false;
   bandIdx = 0;
   bulletColor = def.bulletColor ?? 0xff3010;
   pending.length = 0;
@@ -365,10 +368,19 @@ export function updateBoss(dt, player, time) {
       // you with a threadable lane. Weaving them tight is how you charge the Surge
       // that bursts the armour (survival-by-grazing IS the break mechanic). Chip
       // does nothing here, so fleeing makes zero progress — you must come in tight.
+      // Rhythm: a CLUSTER of a few rings to thread, then a BREAK (a clear window
+      // to reposition if you got shut out of a lane), then the next cluster. A
+      // non-stop stream punished a single missed entry — the break lets you back in.
       baitTimer -= dt;
       if (baitTimer <= 0) {
-        baitTimer = 0.42;
+        if (baitResting) {
+          baitResting = false;
+          baitLeft = quality < 0.75 ? 3 : 4;   // rings per cluster
+        }
         fireGrazeBait(player, time);
+        baitLeft--;
+        if (baitLeft <= 0) { baitResting = true; baitTimer = 1.4; }   // reposition break
+        else baitTimer = 0.42;                                        // within a cluster
       }
     } else if (chargeT > 0) {
       // Telegraph wind-up: the boss charges (maw flares red), THEN releases.
@@ -595,7 +607,9 @@ function damageBoss(amount, kind) {
     model.setHealth(hp / hpMax);
     model.setShieldVisible?.(true);
     model.setCharge(0);
-    chargeT = 0; pending.length = 0; baitTimer = 0;   // drop any in-flight attack; graze-bait takes over
+    // Drop any in-flight attack; graze-bait takes over. Prime the cluster state so
+    // the FIRST cluster is full-length (resting=true + timer 0 → next tick opens it).
+    chargeT = 0; pending.length = 0; baitTimer = 0; baitResting = true; baitLeft = 0;
     model.flash(1.0);
     cameraCtl.shake?.(0.8);
     ui.bossBanner?.('⛨  SHIELDED  ⛨', 'GRAZE THE RINGS → UNLEASH SURGE');
