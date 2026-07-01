@@ -342,17 +342,10 @@ export function bulletGraze(player) {
   game.grazeCharge += CONFIG.BOSS.grazeGain;
   while (game.grazeCharge >= 1) {
     game.grazeCharge -= 1;
-    game.consecutiveRings++;
+    game.consecutiveRings = Math.min(game.consecutiveRings + 1, game.feverThreshold);
   }
-  if (!game.feverActive && game.consecutiveRings >= game.feverThreshold) {
-    game.feverActive = true;
-    game.feverTimer = CONFIG.feverDuration;
-    game.markSurgeSeen();
-    ui.feverStart();
-    sfx.feverStart();
-    juiceEvent('surgeStart');
-    emit('surge');
-  }
+  // NB: no auto-trigger here — in a boss, Surge is unleashed MANUALLY (Space /
+  // 2nd-finger tap) so the player can save it to burst a shield (see boss.js).
 }
 
 function crash(player, cause) {

@@ -33,6 +33,7 @@ const { resetCollision } = await import('../js/collision.js');
 const bullets = await import('../js/bossBullets.js');
 const boss = await import('../js/boss.js');
 const { ui } = await import('../js/ui.js');
+const { input } = await import('../js/input.js');
 const { initParticles } = await import('../js/particles.js');
 initParticles({ add() {} });   // the disintegration spawns burst particles
 
@@ -147,12 +148,14 @@ game.consecutiveRings = 4; game.grazeCharge = 0.5; game.health = 100;
 runBoss({ x: 0, vx: 0 });   // dead-on hit
 assert(game.consecutiveRings === 0 && game.grazeCharge === 0, 'a bullet hit cancels the graze streak (combo-1 safe)');
 
-// Sustained grazing fills the meter and auto-fires Dragon Surge.
-game.reset(); game.state = 'playing'; game.inBoss = true; game.health = 100; game.feverActive = false;
+// Sustained grazing FILLS the meter — but in a boss Surge is MANUAL (unleashed
+// with Space / a 2nd-finger tap), so it must NOT auto-fire from grazing.
+game.reset(); game.state = 'playing'; game.inBoss = true; game.health = 100; game.consecutiveRings = 0;
 let grazeCount = 0;
-while (!game.feverActive && grazeCount < 400) { runBoss({ x: 2.2, vx: 0 }); grazeCount++; }
-assert(game.feverActive, 'sustained grazing auto-fires Dragon Surge');
-ok(`graze charges surge (hit/miss excluded, hit cancels); ${grazeCount} grazes → Surge`);
+while (game.consecutiveRings < game.feverThreshold && grazeCount < 400) { runBoss({ x: 2.2, vx: 0 }); grazeCount++; }
+assert(game.consecutiveRings >= game.feverThreshold, 'sustained grazing fills the surge meter');
+assert(!game.feverActive, 'Surge does NOT auto-fire in a boss (manual unleash)');
+ok(`graze fills the meter (${grazeCount} grazes); no auto-surge in a boss`);
 
 // --- 3c. reflect (Increment 2): a roll swats reflectable bullets back --------
 bullets.resetBossBullets();
@@ -186,9 +189,8 @@ ok('reflect: roll swats amber bullets back for bonus damage; plain bullets immun
 // The all-reflect core is proven above (all=true). Here assert the two tuning
 // knobs the controller applies while feverActive are sane (slower bullets,
 // faster rider); the real-engine path is exercised in tests/bossboot.mjs.
-assert(CONFIG.BOSS.surgeBulletTime > 0 && CONFIG.BOSS.surgeBulletTime < 1, 'Surge bullet-time slows bullets (<1)');
 assert(CONFIG.BOSS.surgeRiderMult > 0 && CONFIG.BOSS.surgeRiderMult < 1, 'Surge shortens the rider interval (<1)');
-ok('Surge hyper knobs: bullet-time + faster rider + all-bullets-reflectable');
+ok('Surge hyper knobs: faster rider + all-bullets-reflectable + shield-burst');
 
 // --- 4. full controller lifecycle, driven to a kill -------------------------
 game.inBoss = false;
@@ -201,19 +203,30 @@ boss.forceBoss(player);
 assert(game.inBoss === true, 'forceBoss enters the encounter (game.inBoss set)');
 assert(boss.bossActive(), 'controller reports an active encounter');
 
-let t = 0, killed = false, sawFight = false, defeatedRun0 = game.bossesDefeatedRun;
+let t = 0, killed = false, sawFight = false, sawShield = false, surges = 0, defeatedRun0 = game.bossesDefeatedRun;
 on('bossDefeated', () => { killed = true; });
-// Run until the encounter has fully torn down (death → dissolve → teardown), capped.
-for (let i = 0; i < 60 * 100 && !(killed && !game.inBoss); i++) {
+on('surge', () => { surges++; });
+// Each phase floor raises a SHIELD that only a manual Surge unleash bursts. Drive
+// the loop like a skilled player: when shielded, top the meter and tap surge; and
+// decrement the fever timer (main.js's job in-game) so surges can re-arm.
+for (let i = 0; i < 60 * 160 && !(killed && !game.inBoss); i++) {
   const dt = 1 / 60;
   t += dt;
   player.dist += CONFIG.BOSS.cruiseSpeed * dt;             // mimic forward flight
-  boss.updateBoss(dt, player, t);
+  if (game.feverActive) { game.feverTimer -= dt; if (game.feverTimer <= 0) game.feverActive = false; }
   const st = boss.bossDebugState();
   if (st.phase === 'fight') sawFight = true;
+  if (st.shielded) {
+    sawShield = true;
+    game.consecutiveRings = game.feverThreshold;   // grazed enough to charge
+    input.surgeTap = true;                          // unleash (Space / tap)
+  }
+  boss.updateBoss(dt, player, t);
 }
 assert(sawFight, 'controller passed warn → approach → fight');
-assert(killed, 'rider auto-chip alone kills the boss within 90s (the MVP damage economy)');
+assert(sawShield, 'the boss raised a shield at a phase floor (only Surge bursts it)');
+assert(surges >= 3, `it took ~3 Surge unleashes to burst the shields and kill (got ${surges})`);
+assert(killed, 'shield-gated boss dies after the phases are burst with Surge');
 assertEq(game.inBoss, false, 'after death the overlay tears down (game.inBoss cleared)');
 assertEq(game.bossesDefeatedRun, defeatedRun0 + 1, 'a defeated boss is counted on the run');
 assert(bullets.bossBulletCount() === 0, 'all bullets are cleared on teardown');

@@ -166,6 +166,7 @@ body.app-loaded > canvas { opacity: 1; }
   mask: radial-gradient(closest-side, #000 40%, transparent); -webkit-mask: radial-gradient(closest-side, #000 40%, transparent);
   animation: hazard-scroll 0.7s linear infinite; }
 .boss-danger.show { opacity: 1; animation: danger-throb 0.7s ease-in-out infinite; }
+.boss-danger[data-pos="bottom"] { left: 0; right: 0; bottom: 14%; text-align: center; }
 .boss-danger[data-pos="bottomRight"] { right: 6%; bottom: 15%; }
 .boss-danger[data-pos="bottomLeft"]  { left: 6%;  bottom: 15%; }
 .boss-danger[data-pos="right"] { right: 4%; top: 46%; }
@@ -179,7 +180,17 @@ body.app-loaded > canvas { opacity: 1; }
 .danger-glow[data-dir="right"] { background: linear-gradient(270deg, rgba(255,40,40,0.55), transparent 34%); }
 .danger-glow[data-dir="bottomLeft"]  { background: radial-gradient(90% 80% at 0% 100%, rgba(255,40,40,0.6), transparent 55%); }
 .danger-glow[data-dir="bottomRight"] { background: radial-gradient(90% 80% at 100% 100%, rgba(255,40,40,0.6), transparent 55%); }
+.danger-glow[data-dir="bottom"] { background: radial-gradient(120% 90% at 50% 100%, rgba(255,40,40,0.6), transparent 55%); }
 @keyframes danger-pulse { 0%,100%{opacity:0.45} 50%{opacity:0.9} }
+
+/* SURGE READY prompt (boss, manual unleash) — pink, pulsing, above the dragon. */
+.surge-ready { position: fixed; left: 0; right: 0; bottom: 27%; text-align: center;
+  pointer-events: none; opacity: 0; z-index: 41;
+  font: 800 clamp(15px,4vw,26px)/1 'Russo One', system-ui, sans-serif;
+  color: #ff8fe6; letter-spacing: 0.12em;
+  text-shadow: 0 0 18px rgba(255,90,220,0.9), 0 2px 12px #000; }
+.surge-ready.show { opacity: 1; animation: surge-ready-throb 0.6s ease-in-out infinite; }
+@keyframes surge-ready-throb { 0%,100%{transform:scale(1);opacity:0.85} 50%{transform:scale(1.07);opacity:1} }
 
 .dist { font-size: 13px; letter-spacing: 2px; opacity: 0.75; margin-top: 3px; }
 .best { font-size: 11px; letter-spacing: 2px; opacity: 0.6; margin-top: 4px; }

@@ -400,6 +400,12 @@ export const sfx = {
       tone({ freq: 900, dur: 0.14, type: 'sine', vol: 0.04, delay: 0.02 });
     }
   },
+  // Chip/reflect pinging off boss armour: a short, quiet metallic clang so the
+  // player reads "that's bouncing off — charge Surge instead" (fires ~2/s, kept low).
+  shieldPing() {
+    tone({ freq: 2600, end: 1800, dur: 0.05, type: 'square', vol: 0.03 });
+    tone({ freq: 1300, dur: 0.06, type: 'triangle', vol: 0.03, delay: 0.005 });
+  },
   // Boss defeated: a big triumphant fanfare — a low victory boom under a rising
   // major arpeggio that blooms into a shimmering chord. The "you earned it" payoff.
   bossDefeat() {

@@ -18,7 +18,7 @@ export const BOSSES = {
     id: 'voidmaw',
     name: 'VOIDMAW',
     title: 'the Sky Tyrant',
-    hpMax: 240,
+    hpMax: 180,
     accent: 0xa040ff,         // body reads violet so the red bullets pop as danger
     glow: 0xc89aff,
     bulletColor: 0xff3010,    // fiery red = "this will hurt"
