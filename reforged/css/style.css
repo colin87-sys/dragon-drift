@@ -154,9 +154,17 @@ body.app-loaded > canvas { opacity: 1; }
   animation: warn-flash 0.5s steps(1) infinite; }
 .boss-warn-name { font: 800 clamp(18px,5.5vw,38px)/1.15 'Russo One', system-ui, sans-serif;
   color: #fff; margin-top: 10px; text-shadow: 0 2px 14px #000, 0 0 22px rgba(255,90,90,0.5); }
-.boss-warn-dir { font: 700 12px/1 ui-monospace, monospace; letter-spacing: 0.32em;
-  color: #ffbcbc; margin-top: 10px; }
 @keyframes warn-flash { 0%{opacity:1} 50%{opacity:0.3} }
+/* Big foreboding DANGER rising from the bottom (where the boss emerges). */
+.boss-danger { position: fixed; left: 0; right: 0; bottom: 16%; text-align: center;
+  pointer-events: none; opacity: 0; transform: translateY(24px); z-index: 40;
+  font: 900 clamp(30px,11vw,84px)/1 'Russo One', system-ui, sans-serif;
+  color: rgba(255,45,45,0.92); letter-spacing: 0.2em;
+  text-shadow: 0 0 26px rgba(255,30,30,0.9), 0 4px 20px #000; }
+.boss-danger.show { opacity: 1; transform: translateY(0);
+  transition: opacity 0.35s, transform 0.5s cubic-bezier(.2,1.2,.3,1);
+  animation: danger-throb 0.7s ease-in-out infinite 0.4s; }
+@keyframes danger-throb { 0%,100%{transform:translateY(0) scale(1)} 50%{transform:translateY(0) scale(1.05)} }
 .danger-glow { position: fixed; inset: 0; pointer-events: none; opacity: 0;
   transition: opacity 0.4s; z-index: 39; }
 .danger-glow.show { animation: danger-pulse 0.85s ease-in-out infinite; }

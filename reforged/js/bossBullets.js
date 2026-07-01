@@ -22,8 +22,14 @@ const R = CONFIG.playerRadius;
 
 let mesh = null;       // additive coloured halo (the glow)
 let coreMesh = null;   // bright opaque core (readability — danmaku bullets are core+halo)
+let shadowMesh = null; // soft dark dot on the floor under each bullet (depth anchor)
 let visibleCap = POOL;
 let clock = 0;         // accumulates dt for the parry-window pulse
+
+const GROUND_Y = 0.4;  // floor level the bullet shadows sit on
+const WHITE = new THREE.Color(0xffffff);
+const SHADOW_QUAT = new THREE.Quaternion().setFromEuler(new THREE.Euler(-Math.PI / 2, 0, 0));
+const shadowScl = new THREE.Vector3();
 const slots = [];   // see makeSlot
 let cursor = 0;
 
@@ -66,13 +72,26 @@ export function initBossBullets(scene) {
   });
   coreMesh = new THREE.InstancedMesh(new THREE.OctahedronGeometry(1, 0), coreMat, POOL);
   coreMesh.frustumCulled = false;
+  // Ground shadow: a soft dark disc on the floor under each bullet. Two rings that
+  // overlap in view sit at different floor distances, so their shadows separate —
+  // the floor grid becomes an absolute depth reference (a shadow under the dragon
+  // = that bullet is at your plane).
+  const shadowMat = new THREE.MeshBasicMaterial({
+    color: 0x000000, transparent: true, opacity: 0.32, depthWrite: false, depthTest: false,
+  });
+  shadowMesh = new THREE.InstancedMesh(new THREE.CircleGeometry(1, 14), shadowMat, POOL);
+  shadowMesh.frustumCulled = false;
+  shadowMesh.renderOrder = -1;   // under the bullets
   for (let i = 0; i < POOL; i++) {
     slots.push(makeSlot());
     mesh.setMatrixAt(i, HIDDEN);
     coreMesh.setMatrixAt(i, HIDDEN);
+    shadowMesh.setMatrixAt(i, HIDDEN);
   }
   mesh.instanceMatrix.needsUpdate = true;
   coreMesh.instanceMatrix.needsUpdate = true;
+  shadowMesh.instanceMatrix.needsUpdate = true;
+  scene.add(shadowMesh);
   scene.add(mesh);
   scene.add(coreMesh);   // added after the halo → drawn on top
 }
@@ -122,6 +141,7 @@ function deactivate(i) {
   slots[i].active = false;
   mesh.setMatrixAt(i, HIDDEN);
   if (coreMesh) coreMesh.setMatrixAt(i, HIDDEN);
+  if (shadowMesh) shadowMesh.setMatrixAt(i, HIDDEN);
 }
 
 export function updateBossBullets(dt, player) {
@@ -143,26 +163,33 @@ export function updateBossBullets(dt, player) {
     s.rel += s.vrel * dt;
     s.life -= dt;
 
-    // Depth cue: a boss bullet LOOMS (grows) over the last ~7 metres so its
-    // approach reads clearly; a reflectable (amber) bullet PULSES once it enters
-    // the parry window, signalling "swat it now".
-    let prox = 1;
-    if (s.owner === 'boss' && s.rel < 7 && s.rel > -1) prox += (7 - s.rel) / 7 * 0.8;
-    if (s.reflectable && s.rel > 0 && s.rel <= CONFIG.BOSS.reflectWindow) {
-      prox += 0.25 + Math.sin(clock * 20) * 0.25;
+    // Time-to-impact FLARE (the depth cue, replacing the confusing loom): a boss
+    // bullet warms toward white-hot in its last ~0.3 s, so the one that reaches
+    // you FIRST flares first — "which hits me" is a colour read. A reflectable
+    // bullet flares bright the instant it enters the parry window (the parry cue).
+    let flare = 0;
+    if (s.owner === 'boss' && s.rel > 0) {
+      const tti = s.rel / Math.max(Math.abs(s.vrel), 1);
+      if (tti < 0.3) flare = 1 - tti / 0.3;
+      if (s.reflectable && s.rel <= CONFIG.BOSS.reflectWindow) {
+        flare = Math.max(flare, 0.55 + Math.sin(clock * 22) * 0.35);
+      }
     }
 
     // Render in the player-relative frame (world z follows the player forward) as a
-    // bright core + a larger additive halo (both driven off the same slot).
+    // bright core + a larger additive halo + a ground shadow (all off one slot).
     eul.set(s.x * 0.3, s.rel * 0.3, 0);
     quat.setFromEuler(eul);
     posV.set(s.x, s.y, -(player.dist + s.rel));
-    m4.compose(posV, quat, sclV.setScalar(s.r * 2.0 * prox));   // halo
+    m4.compose(posV, quat, sclV.setScalar(s.r * 2.0));   // halo
     mesh.setMatrixAt(i, m4);
-    colV.setHex(s.color);
+    colV.setHex(s.color).lerp(WHITE, flare);
     mesh.setColorAt(i, colV);
-    m4.compose(posV, quat, sclV.setScalar(s.r * 0.85 * prox));  // core
+    m4.compose(posV, quat, sclV.setScalar(s.r * 0.85));  // core
     coreMesh.setMatrixAt(i, m4);
+    // Shadow on the floor directly beneath the bullet.
+    m4.compose(posV.set(s.x, GROUND_Y, -(player.dist + s.rel)), SHADOW_QUAT, shadowScl.setScalar(s.r * 1.5));
+    shadowMesh.setMatrixAt(i, m4);
 
     if (s.owner === 'boss') {
       // Resolve the dodge on the frame the bullet crosses the player's plane: a
@@ -194,6 +221,7 @@ export function updateBossBullets(dt, player) {
   }
   mesh.instanceMatrix.needsUpdate = true;
   coreMesh.instanceMatrix.needsUpdate = true;
+  shadowMesh.instanceMatrix.needsUpdate = true;
   if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true;
 }
 
@@ -236,8 +264,10 @@ export function resetBossBullets() {
     if (slots[i]) slots[i].active = false;
     if (mesh) mesh.setMatrixAt(i, HIDDEN);
     if (coreMesh) coreMesh.setMatrixAt(i, HIDDEN);
+    if (shadowMesh) shadowMesh.setMatrixAt(i, HIDDEN);
   }
   cursor = 0;
   if (mesh) mesh.instanceMatrix.needsUpdate = true;
   if (coreMesh) coreMesh.instanceMatrix.needsUpdate = true;
+  if (shadowMesh) shadowMesh.instanceMatrix.needsUpdate = true;
 }

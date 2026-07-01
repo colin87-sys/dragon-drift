@@ -148,6 +148,7 @@ const pendingGauntletEnds = [];
 // crossing an end restores it.
 const pendingCanyonStarts = [];
 const pendingCanyonEnds = [];
+let bossGraceUntil = 0; // post-boss grace band end-distance (rings/collectibles only)
 function spawnAhead() {
   const lead = Math.max(CONFIG.spawnAhead, player.speed * CONFIG.spawnAheadTime);
   if (levelGen.generatedUntil >= player.dist + lead) return;
@@ -158,6 +159,15 @@ function spawnAhead() {
   // spawn nothing. (Existing collectibles are cleared on 'bossStart' below.)
   if (game.inBoss) return;
   chunk.rings.forEach(addRing);
+  // Post-boss grace band: lay the safe/reward content (rings above + orbs/embers/
+  // gold below) but SKIP every hazard and structural set-piece until the player has
+  // eased back in, so the run doesn't slam back with a wall of obstacles.
+  if (player.dist < bossGraceUntil) {
+    chunk.orbs.forEach(addOrb);
+    chunk.embers.forEach(addEmberLine);
+    chunk.goldEmbers && chunk.goldEmbers.forEach(addGoldEmber);
+    return;
+  }
   // A base Phase Gate whose dist lands inside a canyon run is skipped — a blind
   // crystal window between rib sections reads unfair. Generator output is untouched
   // (determinism-safe); we just don't spawn the flagged ones here.
@@ -247,7 +257,13 @@ on('firstSurge', () => ui.surgeFlourish());
 on('bossStart', () => { resetRings(); resetEmbers(); resetPowerups(); resetGoldEmbers(); });
 // Boss over → resume the course FRESH from here (the arena stretch was suppressed;
 // without this the world is blank until the player catches up to the old cursor).
-on('bossEnd', () => { levelGen.resume(player.dist); spawnAhead(); });
+// A grace band after it spawns rings/collectibles ONLY (no hazards) so the player
+// eases back into the run instead of a wall of obstacles the instant it dies.
+on('bossEnd', () => {
+  levelGen.resume(player.dist);
+  bossGraceUntil = player.dist + CONFIG.BOSS.postGrace;
+  spawnAhead();
+});
 ui.init({
   getCard: makeShareCard,
   onRestart: restart,
@@ -521,6 +537,7 @@ function restart() {
   pendingGauntletEnds.length = 0;
   pendingCanyonStarts.length = 0;
   pendingCanyonEnds.length = 0;
+  bossGraceUntil = 0;
   // Cull old set-pieces
   for (const sp of setpieceMeshes) scene.remove(sp.object);
   setpieceMeshes.length = 0;

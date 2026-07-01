@@ -49,6 +49,8 @@ let spiralPhase = 0;
 let pendingDeath = false;      // set when hp hits 0; resolved in the update loop
 let rollParried = false;       // this roll already landed a parry (announce once per roll)
 let reticle = null;            // faint graze/hit zone rings drawn around the dragon
+let hpRevealT = 0;             // health-bar fill-up animation timer (0→full on settle)
+const HP_REVEAL = 0.8;
 let bulletColor = 0xff3010;    // fiery red = danger (set per-boss from the def)
 let chargeT = 0;               // telegraph wind-up remaining before the held attack fires
 let chargeDur = 0;
@@ -228,13 +230,25 @@ export function updateBoss(dt, player, time) {
     pose.y = start.y + (B.fightHeight - start.y) * e + arc;
     if (k >= 1) {
       phase = 'fight';
-      attackTimer = rand(0.6, 1.0);
+      attackTimer = rand(0.9, 1.3);
+      // Materialise the health bar now that it's settled in front, and animate it
+      // filling 0→full before the rider opens fire (no janky bar during the fly-in).
+      model.setHealthBarVisible(true);
+      model.setHealth(0);
+      hpRevealT = HP_REVEAL;
+      riderTimer = HP_REVEAL;
     }
   } else if (phase === 'fight') {
     // Hold station ahead and "fly backward"; gentle strafe/bob keeps it alive.
     pose.rel = B.settleGap;
     pose.x = Math.sin(time * 0.7) * 5.0;
     pose.y = B.fightHeight + Math.sin(time * 1.3) * 0.8;
+
+    // Health-bar fill-up flourish on settle (0 → current hp fraction).
+    if (hpRevealT > 0) {
+      hpRevealT -= dt;
+      model.setHealth((1 - Math.max(hpRevealT, 0) / HP_REVEAL) * (hp / hpMax));
+    }
 
     // Streamed sub-volleys (tunnel / spiral stream) fire on their own clock.
     for (let i = pending.length - 1; i >= 0; i--) {
@@ -428,7 +442,7 @@ function damageBoss(amount, kind) {
   if (phase !== 'fight') return;
   hp = Math.max(0, hp - amount);
   model.flash(0.6);
-  model.setHealth(hp / hpMax);
+  if (hpRevealT <= 0) model.setHealth(hp / hpMax);   // don't fight the fill-up flourish
   emit('bossHit', { hp, hpMax, frac: hp / hpMax, kind });
 
   // Phase advance: when hp drops into the next phase's band.

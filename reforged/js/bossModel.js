@@ -119,8 +119,10 @@ export function buildBoss(def, quality = 1) {
     notch.renderOrder = 1000;
     hpBar.add(notch);
   }
+  hpBar.visible = false;   // hidden during the fly-in; revealed once it settles ahead
   group.add(hpBar);
   function setHealth(frac) { fillWrap.scale.x = Math.max(0.0001, Math.min(1, frac)); }
+  function setHealthBarVisible(v) { hpBar.visible = v; }
 
   // Cache base opacities so the dissolve can scale from each material's own value.
   for (const m of mats) m.userData.baseOpacity = m.transparent ? m.opacity : 1;
@@ -192,6 +194,7 @@ export function buildBoss(def, quality = 1) {
     setDissolve,
     setCharge,
     setHealth,
+    setHealthBarVisible,
     flash,
     tick(dt, time) { tick(dt, time); tickFlash(dt); },
     dispose() {
