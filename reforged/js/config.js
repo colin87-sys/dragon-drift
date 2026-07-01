@@ -176,7 +176,7 @@ export const CONFIG = {
     // Graze: skimming a bullet (inside the graze band but outside the hit radius)
     // charges Dragon Surge — the "drift" identity transplanted from rings onto
     // danmaku. Band = (hitR, grazeR];  grazeR = playerRadius × grazeScale + bulletRadius.
-    grazeScale: 2.2,        // grazeR ≈ 1.2×2.2 + 0.55 ≈ 3.19  (band ≈ [1.29, 3.19])
+    grazeScale: 3.0,        // grazeR ≈ 1.2×3.0 + 0.55 ≈ 4.15  (band ≈ [1.29, 4.15]) — skim from further
     grazeScore: 12,         // score per bullet grazed
     grazeGain: 0.34,        // surge-meter fraction per graze (~3 grazes ≈ one gem)
     // Reflect: a barrel roll's i-frames swat REFLECTABLE bullets (amber; the

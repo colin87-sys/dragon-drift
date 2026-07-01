@@ -245,6 +245,9 @@ on('firstSurge', () => ui.surgeFlourish());
 // A boss encounter clears the field for a clean arena (the boss wipes hazards
 // itself; here we clear the collectibles so only the fight is on screen).
 on('bossStart', () => { resetRings(); resetEmbers(); resetPowerups(); resetGoldEmbers(); });
+// Boss over → resume the course FRESH from here (the arena stretch was suppressed;
+// without this the world is blank until the player catches up to the old cursor).
+on('bossEnd', () => { levelGen.resume(player.dist); spawnAhead(); });
 ui.init({
   getCard: makeShareCard,
   onRestart: restart,
