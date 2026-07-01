@@ -169,7 +169,7 @@ export const CONFIG = {
     bulletPool: 320,
     bulletRadius: 0.55,
     bulletHitScale: 0.62,   // effective player hit radius = playerRadius × this (forgiving)
-    bulletSpeed: 34,        // closing speed (m/s) of a boss bullet toward the player
+    bulletSpeed: 28,        // closing speed (m/s) → reaction window ≈ settleGap/speed ≈ 1.07s
     bossSpeed: 52,          // closing speed of a rider/reflected bullet toward the boss
     bulletDamage: 18,
     bossHitRadius: 3.2,     // how close a boss-ward bullet must be to count as a hit
