@@ -376,6 +376,30 @@ export const sfx = {
     noiseWhoosh({ from: 700, to: 3200, dur: 0.22, vol: 0.16, q: 1.6 });
     tone({ freq: 880, end: 1320, dur: 0.12, type: 'triangle', vol: 0.07, delay: 0.04 });
   },
+  // Graze a boss bullet: a soft, SHORT high shimmer, kept quiet so a rapid stream
+  // of grazes blends into a pleasant sparkle instead of a machine-gun rattle. The
+  // pitch climbs gently with the graze streak (a subtle dopamine ladder).
+  graze(streak = 0) {
+    const step = Math.min(streak, 14);
+    const f = 1500 + step * 60;
+    tone({ freq: f, end: f * 1.18, dur: 0.045, type: 'triangle', vol: 0.03 });
+  },
+  // Reflect/parry a bullet. Normal = a metallic ting; PERFECT climbs a pentatonic
+  // ladder with the perfect-parry streak (like the perfect-phase chime — chaining
+  // perfect parries plays a rising melody).
+  parry(perfect = false, streak = 1) {
+    if (perfect) {
+      const penta = [0, 2, 4, 7, 9, 12, 14, 16, 19, 21];
+      const semi = penta[Math.min(streak - 1, penta.length - 1)] || 0;
+      const base = 600 * Math.pow(2, semi / 12);
+      tone({ freq: base, end: base * 2, dur: 0.16, type: 'triangle', vol: 0.12 });
+      tone({ freq: base * 2.01, dur: 0.2, type: 'sine', vol: 0.06, delay: 0.02 });
+      tone({ freq: base * 3, dur: 0.12, type: 'sine', vol: 0.04, delay: 0.03 });
+    } else {
+      tone({ freq: 440, end: 680, dur: 0.12, type: 'triangle', vol: 0.09 });
+      tone({ freq: 900, dur: 0.14, type: 'sine', vol: 0.04, delay: 0.02 });
+    }
+  },
   // Ember pickup: short blip that climbs a pentatonic ladder with the streak
   // (the Subway Surfers coin cadence — consecutive grabs feel like a melody).
   ember(streak = 1) {

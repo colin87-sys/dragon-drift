@@ -310,6 +310,9 @@ function hit(player, pushX, pushY, damage = CONFIG.obstacleDamage, cause = 'shar
     game.bossHitsTakenRun++;
     game.consecutiveRings = 0;
     game.grazeCharge = 0;
+    game.grazeStreak = 0;
+    game.parryStreak = 0;
+    game.parryPerfectStreak = 0;
     if (game.feverActive) { game.feverActive = false; game.feverTimer = 0; }
   }
   if (game.health <= 0) die(player, cause, false);
@@ -329,10 +332,12 @@ export function hitPlayer(player, damage, cause = 'bullet') {
 // at the usual threshold — the same path a ring or gate takes.
 export function bulletGraze(player) {
   game.grazesRun++;
+  game.grazeStreak = Math.min(game.grazeStreak + 1, 30);
+  game.grazeStreakTimer = 0.8;
   const bonus = Math.round(CONFIG.BOSS.grazeScore * game.combo * game.scoreMult);
   game.score += bonus;
   nearMissSparks(player.position);
-  sfx.nearMiss();
+  sfx.graze(game.grazeStreak);   // soft shimmer, pitch climbs with the streak
   emit('bossGraze');
   game.grazeCharge += CONFIG.BOSS.grazeGain;
   while (game.grazeCharge >= 1) {

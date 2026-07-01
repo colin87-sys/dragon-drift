@@ -188,9 +188,10 @@ export function updateBossBullets(dt, player) {
 
 // Swat reflectable boss bullets near a rolling player back at the boss. `all`
 // (Surge hyper, increment 3) makes EVERY boss bullet reflectable, not just the
-// amber ones. Returns how many were flipped this call.
+// amber ones. A bullet swatted within `perfectParryRel` is a PERFECT parry (more
+// damage). Returns { total, perfect } counts for the FX/announcement.
 export function reflectBossBullets(player, windowRel, settleGap, bossX, bossY, all = false) {
-  let n = 0;
+  let total = 0, perfect = 0;
   for (let i = 0; i < POOL; i++) {
     const s = slots[i];
     if (!s.active || s.owner !== 'boss') continue;
@@ -198,6 +199,7 @@ export function reflectBossBullets(player, windowRel, settleGap, bossX, bossY, a
     if (s.rel < 0 || s.rel > windowRel) continue;
     const dx = s.x - player.position.x, dy = s.y - player.position.y;
     if (dx * dx + dy * dy > 9) continue;            // must be near the player to swat
+    const isPerfect = s.rel <= CONFIG.BOSS.perfectParryRel;
     // Flip it back at the boss.
     s.owner = 'player';
     s.targetRel = settleGap;
@@ -206,12 +208,14 @@ export function reflectBossBullets(player, windowRel, settleGap, bossX, bossY, a
     const t = Math.max((settleGap - s.rel) / CONFIG.BOSS.bossSpeed, 0.05);
     s.vx = (bossX - s.x) / t;
     s.vy = (bossY - s.y) / t;
-    s.color = 0x66ddff;
-    s.dmg = (s.dmg > 0 ? s.dmg : 5) * CONFIG.BOSS.reflectDamageMult;
+    s.color = isPerfect ? 0xaef0ff : 0x66ddff;      // perfect = brighter
+    const mult = isPerfect ? CONFIG.BOSS.reflectPerfectMult : CONFIG.BOSS.reflectDamageMult;
+    s.dmg = (s.dmg > 0 ? s.dmg : 5) * mult;
     s.life = 4;
-    n++;
+    total++;
+    if (isPerfect) perfect++;
   }
-  return n;
+  return { total, perfect };
 }
 
 export function bossBulletCount() { return activeCount(); }

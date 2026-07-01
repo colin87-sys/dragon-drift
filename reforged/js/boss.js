@@ -47,6 +47,7 @@ let riderTimer = 0;
 let dyingT = 0;
 let spiralPhase = 0;
 let pendingDeath = false;      // set when hp hits 0; resolved in the update loop
+let rollParried = false;       // this roll already landed a parry (announce once per roll)
 let bulletColor = 0xff3010;    // fiery red = danger (set per-boss from the def)
 let chargeT = 0;               // telegraph wind-up remaining before the held attack fires
 let chargeDur = 0;
@@ -144,11 +145,15 @@ function startDeath(player) {
   resetBossBullets();
   game.bossesDefeatedRun++;
   const bonus = Math.round(B.defeatScore * game.scoreMult);
+  const embers = B.defeatEmbers;
   game.score += bonus;
-  ui.bossBanner?.('✦  SLAIN  ✦', `+${bonus}`);
+  game.embersRun += embers;       // banked at run end like any ember haul
+  ui.bossBanner?.('✦  SLAIN  ✦', `+${bonus}   ◆${embers}`);
   sfx.record?.();
   cameraCtl.shake?.(2.0);
-  emit('bossDefeated', { id: def.id, bonus, noHit: game.bossHitsTakenRun === 0 });
+  tmp.set(pose.x, pose.y, -(player.dist + pose.rel));
+  burst(tmp, 0xffc050, { count: 30, speed: 18, size: 1.2, life: 0.9 });
+  emit('bossDefeated', { id: def.id, bonus, embers, noHit: game.bossHitsTakenRun === 0 });
 }
 
 // ---- Per-frame update -------------------------------------------------------
@@ -165,6 +170,12 @@ export function updateBoss(dt, player, time) {
 
   updateBossBullets(dt, player);
   model.tick(dt, time);
+
+  // Graze streak lapses if you stop skimming (drives the graze chime pitch).
+  if (game.grazeStreakTimer > 0) {
+    game.grazeStreakTimer -= dt;
+    if (game.grazeStreakTimer <= 0) game.grazeStreak = 0;
+  }
 
   // hp reached 0 last frame → begin the disintegration (needs the player ref).
   if (pendingDeath && phase === 'fight') {
@@ -207,17 +218,29 @@ export function updateBoss(dt, player, time) {
     }
 
     // Reflect: a barrel roll's i-frames swat nearby reflectable (amber) bullets
-    // back at the boss for bonus damage — defence into offence.
+    // back at the boss. A bullet swatted right on top of you is a PERFECT parry
+    // (more damage). Announce + ring the parry chime once per roll (streak climbs).
     if (player.rollInvuln > 0) {
-      const n = reflectBossBullets(player, B.reflectWindow, B.settleGap, pose.x, pose.y);
-      if (n > 0) {
-        game.score += Math.round(n * CONFIG.BOSS.grazeScore * 4 * game.scoreMult);
+      const r = reflectBossBullets(player, B.reflectWindow, B.settleGap, pose.x, pose.y);
+      if (r.total > 0) {
         tmp.set(player.position.x, player.position.y, -player.dist);
-        burst(tmp, 0x66ddff, { count: 6, speed: 15, size: 0.85, life: 0.4 });
-        sfx.phase?.(false, 0);
-        cameraCtl.shake?.(0.3);
-        emit('bossReflect', { n });
+        burst(tmp, r.perfect > 0 ? 0xaef0ff : 0x66ddff, { count: 7, speed: 16, size: 0.85, life: 0.4 });
+        cameraCtl.shake?.(r.perfect > 0 ? 0.5 : 0.3);
+        if (!rollParried) {
+          rollParried = true;
+          const perfect = r.perfect > 0;
+          if (perfect) game.parryPerfectStreak++; else game.parryPerfectStreak = 0;
+          game.parryStreak++;
+          const streak = perfect ? game.parryPerfectStreak : game.parryStreak;
+          const pts = Math.round(CONFIG.BOSS.parryScore * (perfect ? 1.7 : 1) * game.scoreMult);
+          game.score += pts;
+          ui.parryPopup?.(pts, perfect, streak);
+          sfx.parry?.(perfect, streak);
+          emit('bossReflect', { perfect, streak });
+        }
       }
+    } else {
+      rollParried = false;
     }
 
     if (chargeT > 0) {
@@ -398,6 +421,7 @@ export function resetBoss() {
   phase = 'idle';
   group = null; model = null; def = null;
   pendingDeath = false;
+  rollParried = false;
   pending.length = 0;
   chargeT = 0;
   curAttack = null;

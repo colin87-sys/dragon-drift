@@ -3770,3 +3770,42 @@ where nothing is parry-able. Verified: `tests/boss.mjs` (7 checks incl. reflect 
 bullets immune, `all=true` swats anything) + `bossboot` real-WebGL zero-error with amber bullets live + `tricount`
 unchanged (203265); the human judges the parry timing window (`reflectWindow 4.5`) and whether amber reads clearly
 on the preview.
+
+---
+
+### L94 — Boss juice pass: clean arena, death embers, perfect/normal parry with an escalating chime, graze dopamine, +HP
+
+**Did / learned.** A batch of playtest-driven feel work on the encounter. (1) **Clean arena** — during a boss,
+`spawnAhead` now lays NOTHING (rings/embers/orbs/hazards) and a `bossStart` listener wipes existing collectibles,
+so the fight is the whole show. Generation still advances every frame (ensure runs, then we return), so there's
+no post-boss backlog spike and the seed stays byte-identical. (2) **Death reward** = the big score bonus PLUS a
+haul of embers (`game.embersRun += defeatEmbers`, banked normally) + a gold ember-burst. (3) **Perfect vs normal
+parry** — `reflectBossBullets` classifies each swat by the bullet's `rel` at reflect time (≤ `perfectParryRel` =
+perfect), applies a bigger damage mult, and returns `{total, perfect}`; the controller announces once per roll
+(`rollParried` flag), climbs a **perfect-parry streak**, and rings a pentatonic chime that ladders with the streak
+(the perfect-phase chime pattern reused). (4) **Graze feedback** — a soft, very short, quiet shimmer whose pitch
+climbs with a decaying `grazeStreak`; deliberately tiny (`vol 0.03`, `dur 0.045`) so a dense stream of grazes
+*blends into a sparkle* rather than a machine-gun rattle. (5) **+HP** 130→240 because reflect damage was killing
+the boss too fast; the rider-chip-only path still wins in ~40s (headless kill went 31s→50s, well under the 100s
+test cap). Streaks (graze/parry/perfect-parry) all reset on a bullet hit — the risk/reward line.
+
+**→ Systematize.** (a) **"Clean arena" is the same overlay contract as suppression, taken to its limit:** don't
+special-case *what* to keep — keep nothing, and clear the field once on entry. Advancing generation without
+spawning (ensure-then-return) is the trick that avoids a backlog when the mode ends; reuse it for any
+"pause the world" mode. (b) **Timing tiers belong in the detector, not the caller.** Perfect-vs-normal is decided
+inside `reflectBossBullets` (it owns each bullet's `rel`) and surfaced as counts; the controller just reacts. Same
+shape as perfect-ring/perfect-phase — the resolver classifies, the caller celebrates. (c) **Frequency dictates
+sound budget:** a per-event SFX that can fire many times per second must be short + quiet + streak-pitched so it
+*accumulates* pleasantly; a rare event (perfect parry) can be loud and melodic. Design the envelope to the event's
+rate. (d) **Announce-once-per-gesture:** a continuous effect (reflect fires every roll frame) needs a latch
+(`rollParried`) so the popup/streak/chime fire once per gesture while the mechanical effect stays per-frame.
+
+**→ Leapfrog (innovate).** Graze→charge, roll→**perfect** parry (now with its own streak + rising melody), death
+→ embers: the encounter now has its *own* progression economy distinct from the run, which is exactly what a
+**Boss Rush mode** (Increment 5) rewards — chain bosses, bank the ember hauls, carry the parry streak. The
+graze/parry streak counters are also the raw material for **feats** ("10-perfect-parry chain", "no-hit boss",
+"surge-kill"). Next is Increment 3 (the Surge hyper: bullet-time + double rider fire + `reflectBossBullets(all)`),
+after which the graze→surge→reflect-everything climax is complete. Verified: `tests/boss.mjs` (7 checks incl.
+perfect-parry classification + 2× normal damage) + `bossboot` real-WebGL zero-error (clean arena + death embers +
+graze sfx live) + `tricount` unchanged (203265); the human judges the parry chime, graze sparkle, arena
+cleanliness and the new pacing on the preview.
