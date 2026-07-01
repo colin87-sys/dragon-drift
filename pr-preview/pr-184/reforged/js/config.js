@@ -189,6 +189,7 @@ export const CONFIG = {
     parryScore: 120,        // style points per parry (× perfect bonus × streak)
     // Death reward: a defeated boss pays a big score bonus AND a haul of embers.
     defeatEmbers: 60,
+    postGrace: 450,         // metres after a boss with rings/orbs only (no hazards) to ease back in
     // Rider auto-attack: the steady chip that always whittles the boss down
     riderShotInterval: 0.5,
     riderShotDamage: 3,

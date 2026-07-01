@@ -470,8 +470,8 @@ export const ui = {
       <div class="boss-warn" id="boss-warn">
         <div class="boss-warn-alert">⚠ WARNING ⚠</div>
         <div class="boss-warn-name" id="boss-warn-name"></div>
-        <div class="boss-warn-dir" id="boss-warn-dir"></div>
       </div>
+      <div class="boss-danger" id="boss-danger">DANGER</div>
       <div class="popup" id="popup"></div>
       <div class="popup popup2" id="popup2"></div>
       <div class="feat-toast" id="feat-toast"></div>
@@ -506,7 +506,7 @@ export const ui = {
       grazeN:       root.querySelector('#graze-n'),
       bossWarn:     root.querySelector('#boss-warn'),
       bossWarnName: root.querySelector('#boss-warn-name'),
-      bossWarnDir:  root.querySelector('#boss-warn-dir'),
+      bossDanger:   root.querySelector('#boss-danger'),
       dangerGlow:   root.querySelector('#danger-glow'),
       goldFlash:    root.querySelector('#gold-flash'),
       surgeWidget:  root.querySelector('#surge-widget'),
@@ -842,18 +842,16 @@ export const ui = {
   // red danger glow on that edge so the player can clear the space.
   bossWarning(name, title, dir, duration = 3) {
     if (els.bossWarnName) els.bossWarnName.textContent = name;
-    if (els.bossWarnDir) els.bossWarnDir.textContent = `INCOMING — ${String(dir).toUpperCase()}`;
-    if (els.bossWarn) {
-      els.bossWarn.classList.add('show');
-      clearTimeout(this._bossWarnTO);
-      this._bossWarnTO = setTimeout(() => els.bossWarn.classList.remove('show'), duration * 1000);
-    }
-    if (els.dangerGlow) {
-      els.dangerGlow.dataset.dir = dir;
-      els.dangerGlow.classList.add('show');
-      clearTimeout(this._dangerTO);
-      this._dangerTO = setTimeout(() => els.dangerGlow.classList.remove('show'), duration * 1000);
-    }
+    const hide = (el) => el && el.classList.remove('show');
+    if (els.bossWarn) els.bossWarn.classList.add('show');
+    // Big foreboding DANGER rising from the BOTTOM — where the boss emerges — so
+    // the player clears the space. The edge danger-glow reinforces the direction.
+    if (els.bossDanger) els.bossDanger.classList.add('show');
+    if (els.dangerGlow) { els.dangerGlow.dataset.dir = dir; els.dangerGlow.classList.add('show'); }
+    clearTimeout(this._bossWarnTO);
+    this._bossWarnTO = setTimeout(() => {
+      hide(els.bossWarn); hide(els.bossDanger); hide(els.dangerGlow);
+    }, duration * 1000);
     sfx.milestone?.();
   },
 

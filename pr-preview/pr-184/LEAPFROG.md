@@ -3883,3 +3883,43 @@ parry-pulse is the exact hook to make the Surge hyper (Increment 3) unmistakable
 the bar, dissolve still fades it) + `bossboot` real-WebGL zero-error (bar/reticle/warning live) + `tricount`
 unchanged (203265); the human judges whether the warning reads in time, the bar/notches are clear, and the loom/
 reticle resolve the depth confusion on the preview.
+
+---
+
+### L97 — Depth via ground shadows + time-to-impact flare (not looming); bar reveal-on-settle; DANGER-from-below telegraph; post-boss grace band
+
+**Did / learned.** Player-directed refinements (some sourced from a parallel design chat). (1) **The loom read as
+confusing depth — replaced it with two better cues.** *Ground shadows:* a third bullet `InstancedMesh` drops a
+soft dark disc on the floor (`y≈0.4`, `renderOrder −1`, depthTest-off) under every bullet — two rings that overlap
+in view sit at different floor distances, so their shadow-circles separate and the floor grid becomes an absolute
+depth reference (a shadow sliding under the dragon = that bullet is at your plane). *Time-to-impact flare:* the
+halo colour warms toward white over the last ~0.3 s (`tti = rel/|vrel|`), so the bullet that reaches you FIRST
+flares first — "which hits me" is a colour read; reflectable bullets flare bright in the parry window (the parry
+cue). Both are pure render (decoupled from the hitbox). (2) **Health bar reveal-on-settle** — it looked janky
+flying past during the approach, so it's now hidden until the boss settles in front, then **fills 0→full** over
+0.8 s right before the rider opens fire (`setHealthBarVisible` + a `hpRevealT` lerp; `damageBoss` yields to the
+flourish). (3) **Telegraph moved the read to the bottom** — dropped the hard-to-see "INCOMING — dir" line;
+warning stays top, and a big foreboding **DANGER** now rises from the bottom edge (where the boss emerges from
+behind), reinforced by the directional edge-glow. (4) **Post-boss grace band** — for `postGrace` (450 m) after a
+kill, `spawnAhead` lays rings + orbs/embers only, **no hazards or set-pieces**, so the run eases back instead of
+slamming into a wall of obstacles the instant the boss dies.
+
+**→ Systematize.** (a) **Depth is communicated by a reference the eye already trusts, not by size.** Looming asks
+the player to infer distance from scale (ambiguous with many bullets); a *ground shadow* projects onto the floor
+grid — an absolute, shared ruler — and *colour-warming* converts "distance" into an ordinal "who's first" read.
+When a spatial cue confuses, anchor it to an existing frame (the floor) or recode it into a different perceptual
+channel (colour), rather than amplifying the ambiguous one. (b) **Reveal status UI on state-entry, not on
+spawn** — a bar/label attached to a moving entity should materialise when the entity reaches its *stable* pose,
+or it reads as jank during transit; gate the reveal on the phase transition. (c) **Telegraph where the threat
+appears** — put the danger cue at the screen location the thing emerges from (bottom = from behind), so the
+overlay doubles as a spatial instruction. (d) **Ease-in bands after a spike:** any hard mode→normal transition
+wants a short reward-only grace so the difficulty curve doesn't step-discontinuity.
+
+**→ Leapfrog (innovate).** The shadow mesh is a reusable **floor-projection layer** — it could also anchor the
+reflected bullets' return path or a boss's ground-slam AoE. The flare's colour-warming is a general
+"priority/ordering" channel (nearest-first) that a dense phase-3 pattern will lean on hard. And the grace band +
+`resume()` complete a clean **enter(suppress) → exit(resume + ease-in)** overlay lifecycle that Boss Rush and any
+scripted set-piece inherit. Verified: `tests/boss.mjs` (7 checks, model 764 tris) + `bossboot` real-WebGL
+zero-error (shadows/flare/bar-reveal/DANGER live) + `tricount` unchanged (203265); the human judges whether the
+shadows resolve overlapping-ring depth, the flare reads as time-to-impact, and the bar reveal + DANGER feel right
+on the preview.
