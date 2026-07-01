@@ -11,7 +11,7 @@ import { buildBoss } from './bossModel.js';
 import { bossDefForIndex } from './bossDefs.js';
 import {
   initBossBullets, updateBossBullets, spawnBossBullet, resetBossBullets,
-  setBossBulletQuality, bossBulletCount,
+  setBossBulletQuality, bossBulletCount, reflectBossBullets,
 } from './bossBullets.js';
 
 // Boss encounter controller. A boss is an OVERLAY on the normal flight (gated by
@@ -53,6 +53,7 @@ let chargeDur = 0;
 let curAttack = null;          // the attack being telegraphed
 const pending = [];            // streamed sub-volleys: { t, fire } (tunnel / spiralStream)
 const SUSTAINED = new Set(['tunnel', 'spiralStream']);
+const REFLECT_COLOR = 0xffc23c;   // amber = "you can parry this" (aimed/fan precision shots)
 
 // Player-relative pose: rel = metres ahead of the player.
 const pose = { x: 0, y: B.fightHeight, rel: B.settleGap };
@@ -205,6 +206,20 @@ export function updateBoss(dt, player, time) {
       fireRiderShot(player);
     }
 
+    // Reflect: a barrel roll's i-frames swat nearby reflectable (amber) bullets
+    // back at the boss for bonus damage — defence into offence.
+    if (player.rollInvuln > 0) {
+      const n = reflectBossBullets(player, B.reflectWindow, B.settleGap, pose.x, pose.y);
+      if (n > 0) {
+        game.score += Math.round(n * CONFIG.BOSS.grazeScore * 4 * game.scoreMult);
+        tmp.set(player.position.x, player.position.y, -player.dist);
+        burst(tmp, 0x66ddff, { count: 6, speed: 15, size: 0.85, life: 0.4 });
+        sfx.phase?.(false, 0);
+        cameraCtl.shake?.(0.3);
+        emit('bossReflect', { n });
+      }
+    }
+
     if (chargeT > 0) {
       // Telegraph wind-up: the boss charges (maw flares red), THEN releases.
       chargeT -= dt;
@@ -274,16 +289,17 @@ function executeAttack(id, player) {
 
   if (id === 'aimed') {
     // Three distinct bullets to dodge around, not one dense overlapping wall.
+    // Aimed/fan are REFLECTABLE (amber) — the precision shots reward a parry.
     for (let i = -1; i <= 1; i++) {
       const v = aimVel(px + i * 1.6, py, closing);
-      emitBoss(pose.x, pose.y, v.vx, v.vy, -closing);
+      emitBoss(pose.x, pose.y, v.vx, v.vy, -closing, true);
     }
   } else if (id === 'fan') {
     const n = quality < 0.75 ? 5 : 7;
     for (let i = 0; i < n; i++) {
       const spread = (i / (n - 1) - 0.5) * 16;   // ±8m across the lane around the player
       const v = aimVel(px + spread, py, closing);
-      emitBoss(pose.x, pose.y, v.vx, v.vy, -closing);
+      emitBoss(pose.x, pose.y, v.vx, v.vy, -closing, true);
     }
   } else if (id === 'spiral') {
     // Instant radial burst: bullets fly OUTWARD from the boss as they close.
@@ -298,11 +314,13 @@ function executeAttack(id, player) {
     // A succession of bullet-RINGS rushing at you — a glowing tube to fly down,
     // its centre weaving side to side so you follow the safe lane (rib-run feel).
     const rings = quality < 0.75 ? 5 : 6;
-    const m = quality < 0.75 ? 12 : 16;
+    // Denser rings so each reads as a solid CIRCLE (a sparse ring looks like a
+    // loose cluster, especially with several stacked in depth).
+    const m = quality < 0.75 ? 18 : 26;
     const slow = closing * 0.85;
     for (let k = 0; k < rings; k++) {
       const cx = anchorX + Math.sin(k * 0.8) * 5;   // centred on you, then weaves → you follow
-      pending.push({ t: k * 0.32, fire: () => fireRing(cx, B.fightHeight, 7, m, slow) });
+      pending.push({ t: k * 0.38, fire: () => fireRing(cx, B.fightHeight, 7, m, slow) });
     }
   } else if (id === 'spiralStream') {
     // A rotating emitter: arms of bullets sweep around over time — read the spin.
@@ -334,7 +352,7 @@ function fireRing(cx, cy, radius, m, vrel) {
 function emitBoss(x, y, vx, vy, vrel, reflectable = false) {
   spawnBossBullet({
     owner: 'boss', x, y, rel: pose.rel,
-    vx, vy, vrel, color: bulletColor, reflectable,
+    vx, vy, vrel, color: reflectable ? REFLECT_COLOR : bulletColor, reflectable,
     dmg: B.bulletDamage, r: B.bulletRadius, life: 6,
   });
 }

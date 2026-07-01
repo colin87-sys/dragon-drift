@@ -154,6 +154,29 @@ while (!game.feverActive && grazeCount < 400) { runBoss({ x: 2.2, vx: 0 }); graz
 assert(game.feverActive, 'sustained grazing auto-fires Dragon Surge');
 ok(`graze charges surge (hit/miss excluded, hit cancels); ${grazeCount} grazes → Surge`);
 
+// --- 3c. reflect (Increment 2): a roll swats reflectable bullets back --------
+bullets.resetBossBullets();
+// A reflectable (amber) bullet just ahead of the player, near their x/y.
+bullets.spawnBossBullet({ owner: 'boss', x: 0.5, y: 8, rel: 2, vx: 0, vy: 0, vrel: -28, reflectable: true, dmg: 18, r: CONFIG.BOSS.bulletRadius, color: 0xffc23c, life: 6 });
+const nRef = bullets.reflectBossBullets(makePlayer(), CONFIG.BOSS.reflectWindow, CONFIG.BOSS.settleGap, 0, CONFIG.BOSS.fightHeight);
+assert(nRef === 1, 'a barrel roll reflects a nearby reflectable bullet');
+// It now flies back and damages the boss for ×reflectDamageMult.
+let reflDmg = 0;
+on('bossDamage', (e) => { if (e.kind === 'player') reflDmg += e.amount; });
+{
+  const p = makePlayer();
+  for (let i = 0; i < 300 && bullets.bossBulletCount() > 0; i++) bullets.updateBossBullets(1 / 60, p);
+}
+assert(reflDmg === 18 * CONFIG.BOSS.reflectDamageMult, `reflected bullet deals ×${CONFIG.BOSS.reflectDamageMult} to the boss (got ${reflDmg})`);
+// A non-reflectable bullet in the same spot cannot be swatted (until Surge, inc.3).
+bullets.resetBossBullets();
+bullets.spawnBossBullet({ owner: 'boss', x: 0.5, y: 8, rel: 2, vx: 0, vy: 0, vrel: -28, reflectable: false, dmg: 18, r: CONFIG.BOSS.bulletRadius, color: 0xff3010, life: 6 });
+assert(bullets.reflectBossBullets(makePlayer(), CONFIG.BOSS.reflectWindow, CONFIG.BOSS.settleGap, 0, CONFIG.BOSS.fightHeight) === 0, 'a non-reflectable bullet cannot be reflected');
+// …but the Surge hyper (all=true) swats even a non-reflectable bullet.
+assert(bullets.reflectBossBullets(makePlayer(), CONFIG.BOSS.reflectWindow, CONFIG.BOSS.settleGap, 0, CONFIG.BOSS.fightHeight, true) === 1, 'Surge (all=true) reflects any bullet');
+bullets.resetBossBullets();
+ok('reflect: roll swats amber bullets back for bonus damage; plain bullets immune (until Surge)');
+
 // --- 4. full controller lifecycle, driven to a kill -------------------------
 game.inBoss = false;
 game.reset();
