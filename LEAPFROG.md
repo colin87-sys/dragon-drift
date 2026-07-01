@@ -4159,3 +4159,41 @@ graze-bait now rests **1.8s** between clusters and the tutorial tunnel is **3–
 boss 1 stays readable. Verified: `tests/boss.mjs` (8; lifecycle now drives the real charge→strike→shatter path headless) +
 `bossboot` real-WebGL zero-error + `smoke` + `tricount` 203265 (boss model 844→900 tris for the shards, still far under budget).
 The human judges the charge/beam/shatter motion and the hum/crackle mix on the preview.
+
+### L105 — Boss graphical polish: it read "cheap" because it was DARK, SMALL and lost against a bloom-heavy world (+ a headless-clock gotcha)
+
+**Did / learned.** Screenshotting the real engine (boot → spawnBoss → capture) against the world/dragon made the gap
+obvious: the world is ACES + UnrealBloom + god-rays + fresnel-rim dragon, and the boss was a near-black icosahedron
+(`emissive 0.9`) with a flat additive shell — at its ~30m hold it shrank to a dark speck and vanished into the horizon
+city silhouette. Three fixes, all matching the house idiom: (1) **Fresnel energy shell** — packaged the `rimLight.js`
+onBeforeCompile trick as a standalone `makeEnergyShell()` ShaderMaterial (glows at grazing angles, clear face-on) and
+wrapped the body in a bright shell + soft halo, so the silhouette always reads against any background and the bloom
+catches it. (2) **Brighter + layered** — core `emissiveIntensity` 0.9→1.5, a molten additive inner core pulsing inside
+the faceted shell (contained-energy read). (3) **Bigger + framed** — `BASE_SCALE 1.5` (dissolve now multiplies from
+this base, not 1) and `fightHeight 11→13` so it floats above the horizon city on open sky; `bossHitRadius 3.2→4.2` to
+match the larger body. The Surge aura got the same treatment: the flat pink additive disc → a fresnel orb + molten core.
+Verified by capture: the boss now renders as a bright, spiky, glowing construct with a readable maw (was invisible).
+
+**The gotcha that ate an hour:** in the headless Playwright browser the boss looked "stuck in warn" — `warnT` counted
+down at ~0.125/0.4s, ~8× slower than real time, because a headless (no-display) browser THROTTLES requestAnimationFrame,
+so the game clock crawls and a 2s warn + 2.6s approach never elapse within a normal wait. It is NOT a bug — real
+hardware runs at 60fps (the user's own gameplay feedback proves the fight works). Lesson: **a headless capture harness
+is for VISUALS (does the frame look right), not for TIMED STATE TRANSITIONS** (did the state machine advance) — the
+wall-clock↔game-clock ratio is unreliable there. To reach a late state, either wait many× longer, drive the state
+directly, or trust the headless *logic* test (`boss.mjs`, which uses a fixed-dt loop and DOES reach fight→death).
+
+**→ Systematize.** (a) **Anything that must read in a bloom/ACES world needs emissive + a fresnel rim, not just a dark
+PBR body** — bloom rewards bright silhouettes and buries dark small ones. Package the rim as a reusable material so every
+new entity (boss, hazard, pickup) inherits the house look for free. (b) **Judge look by capturing the real pipeline** —
+a `scene.traverse` for a `userData.__isBoss` marker + `position.project(camera)` tells you exactly where a thing lands
+on screen and how big; guessing from code does not. (c) **Bake a base transform and have derived animations compose
+from it** (`group.scale = BASE * dissolveSpread`), or the scale-up silently fights the death scatter. (d) ShaderMaterial
+opacity lives in a **uniform**, so a material-`.opacity` dissolve loop must special-case `uniforms.uOpacity` or shells
+won't fade on death.
+
+**→ Leapfrog (innovate).** `makeEnergyShell` is now the game's **energy-surface primitive** — boss shell/halo, Surge
+aura, and (next) the beam glow, shield bubble, and reflected-bullet trails can all share one fresnel material with
+per-instance colour/power/strength, giving the whole boss layer a coherent "contained energy" language for near-zero
+cost. The capture-and-project debug seam (`__isBoss` + `bossState()`) is the reusable rig for any future "does the new
+thing actually look right on screen" pass. Verified: `boss.mjs` (8), `bossboot` zero-error, `smoke`, `tricount` 203265
+(boss model 844→1260 tris for the shells/core, far under the 6000 budget); the human judges the final look/scale live.

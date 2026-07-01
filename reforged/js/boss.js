@@ -8,7 +8,7 @@ import { cameraCtl } from './cameraController.js';
 import { burst } from './particles.js';
 import { emit, on } from './events.js';
 import { clearAhead } from './obstacles.js';
-import { buildBoss } from './bossModel.js';
+import { buildBoss, makeEnergyShell } from './bossModel.js';
 import { bossDefForIndex } from './bossDefs.js';
 import {
   initBossBullets, updateBossBullets, spawnBossBullet, resetBossBullets,
@@ -122,14 +122,18 @@ export function initBoss(sc) {
   reticle.visible = false;
   scene.add(reticle);
 
-  // Dragon Surge aura: a pulsing pink energy shell + flickering lightning bolts
-  // around the dragon, so an active Surge is unmistakable.
+  // Dragon Surge aura: a fresnel energy ORB (bright at the rim, clear face-on — a
+  // real 3D shell, not a flat disc) with an inner molten core + flickering
+  // lightning, so an active Surge is unmistakable and reads as power, not a decal.
   surgeAura = new THREE.Group();
-  const auraSphere = new THREE.Mesh(
-    new THREE.IcosahedronGeometry(3.4, 1),
-    new THREE.MeshBasicMaterial({ color: 0xff4fd0, transparent: true, opacity: 0.26, blending: THREE.AdditiveBlending, depthWrite: false })
-  );
+  const auraShellMat = makeEnergyShell(0xff4fd0, { power: 2.0, strength: 1.4, opacity: 1.0 });
+  const auraSphere = new THREE.Mesh(new THREE.IcosahedronGeometry(3.4, 2), auraShellMat);
   surgeAura.add(auraSphere);
+  const auraCore = new THREE.Mesh(
+    new THREE.IcosahedronGeometry(1.6, 1),
+    new THREE.MeshBasicMaterial({ color: 0xffd0f4, transparent: true, opacity: 0.55, blending: THREE.AdditiveBlending, depthWrite: false })
+  );
+  surgeAura.add(auraCore);
   const boltMat = new THREE.MeshBasicMaterial({ color: 0xffbdf6, transparent: true, opacity: 0.9, blending: THREE.AdditiveBlending, depthWrite: false });
   const bolts = [];
   for (let i = 0; i < 6; i++) {
@@ -137,7 +141,7 @@ export function initBoss(sc) {
     surgeAura.add(b);
     bolts.push(b);
   }
-  surgeAura.userData = { auraSphere, bolts };
+  surgeAura.userData = { auraSphere, auraShellMat, auraCore, bolts };
   surgeAura.visible = false;
   scene.add(surgeAura);
 
@@ -242,10 +246,12 @@ function updateSurgeAura(dt, player, time, surge) {
   surgeAura.visible = surge;
   if (!surge) return;
   surgeAura.position.set(player.position.x, player.position.y, -player.dist);
-  const { auraSphere, bolts } = surgeAura.userData;
+  const { auraSphere, auraShellMat, auraCore, bolts } = surgeAura.userData;
   auraSphere.rotation.y += dt * 1.6;
   auraSphere.scale.setScalar(1 + Math.sin(time * 10) * 0.13);
-  auraSphere.material.opacity = 0.2 + Math.abs(Math.sin(time * 8)) * 0.14;
+  auraShellMat.uniforms.uStrength.value = 1.1 + Math.abs(Math.sin(time * 8)) * 0.7;   // rim breathes
+  auraCore.scale.setScalar(1 + Math.sin(time * 12) * 0.18);
+  auraCore.material.opacity = 0.45 + Math.abs(Math.sin(time * 9)) * 0.3;
   // Lightning discharge: each bolt is anchored at a spoke around the dragon and
   // points radially outward, flickering on/off and jittering its length — reads as
   // arcing electricity, not random floating sticks.
@@ -285,6 +291,7 @@ export function startBossEncounter(player, defOverride) {
 
   model = buildBoss(def, quality);
   group = model.group;
+  group.userData.__isBoss = true;   // debug seam: locate the boss in the scene graph
   scene.add(group);
 
   // Approach choreography: come in from behind (overtake up and over) or sweep
@@ -791,5 +798,5 @@ export function forceBoss(player) {
 }
 
 export function bossDebugState() {
-  return { active, phase, hp, hpMax, phaseIdx, shielded, bullets: bossBulletCount(), nextBossDist };
+  return { active, phase, hp, hpMax, phaseIdx, shielded, bullets: bossBulletCount(), nextBossDist, warnT, approachT, poseRel: pose.rel };
 }
