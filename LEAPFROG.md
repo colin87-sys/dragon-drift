@@ -4099,3 +4099,23 @@ colour-blind-mode toggle could swap the BAND palette for a luminance-only ramp w
 `tests/boss.mjs` (8 checks) + `bossboot` real-WebGL zero-error (round banded bullets live) + `smoke` +
 `tricount` unchanged (203265, 0 over budget); the human judges on the preview whether the white cores stay
 countable and the brightness/size bands separate the waves without hue.
+
+### L103 — Graze-bait rhythm: clusters + breaks, not a non-stop stream (a missed entry needs a way back in)
+
+**Did / learned.** The shielded graze-bait fired one weaving ring every 0.42s forever. If the player got shut out of
+a lane (out of position when a ring arrived), re-entering meant crossing live bullets — you had to take a hit to get
+back to grazing. Fixed by giving the flood a RHYTHM: a **cluster** of 3–4 rings to thread, then a **break** (~1.4s,
+no new rings) that's a clear reposition window, then the next cluster. State is a tiny 2-var machine (`baitLeft`
+counts down the cluster; `baitResting` gates the break); primed on shield-raise (`resting=true, left=0` so the next
+tick opens a FULL first cluster) and reset on init. Verified: `tests/boss.mjs` (8) + `bossboot` zero-error.
+
+**→ Systematize.** **A survival/attrition mechanic must include a recovery beat.** Any "stay in the danger to make
+progress" loop (graze-to-charge, hold-the-zone, sustained-DPS) needs a periodic clear window or a single mistake
+compounds into a death spiral — the player can't recover without taking more damage. Encode the rhythm as
+cluster-then-break, and prime the state so the first cycle is full-length (a common off-by-one: an unprimed
+countdown fires one item then immediately "completes").
+
+**→ Leapfrog (innovate).** The cluster/break cadence is now a tunable difficulty axis independent of bullet count:
+boss 1 rests long (forgiving), a later boss shortens the break or overlaps clusters. It's also the seam for a
+telegraph — flash the maw on the break→cluster edge so the next wave is readable, turning the recovery window into
+an anticipation beat.
