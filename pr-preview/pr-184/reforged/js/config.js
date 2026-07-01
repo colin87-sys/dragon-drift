@@ -155,7 +155,7 @@ export const CONFIG = {
     interval: 3200,         // metres between encounters
     intervalJitter: 900,
     settleGap: 30,          // metres ahead the boss holds (player-relative frame)
-    fightHeight: 11,        // y the boss settles at
+    fightHeight: 13,        // y the boss settles at (above the horizon city, framed on sky)
     warnTime: 2.0,          // warning flashes ALONE first, then the boss flies in
     approachTime: 2.6,      // seconds from spawn-offset to the settle point
     cruiseSpeed: 65,        // player forward speed locked during the fight — boost
@@ -173,7 +173,7 @@ export const CONFIG = {
     bulletSpeed: 28,        // closing speed (m/s) → reaction window ≈ settleGap/speed ≈ 1.07s
     bossSpeed: 52,          // closing speed of a rider/reflected bullet toward the boss
     bulletDamage: 13,      // forgiving: a clean hit stings but a graze-heavy run survives
-    bossHitRadius: 3.2,     // how close a boss-ward bullet must be to count as a hit
+    bossHitRadius: 4.2,     // how close a boss-ward bullet must be to count as a hit (matches the larger body)
     // Graze: skimming a bullet (inside the graze band but outside the hit radius)
     // charges Dragon Surge — the "drift" identity transplanted from rings onto
     // danmaku. Band = (hitR, grazeR];  grazeR = playerRadius × grazeScale + bulletRadius.

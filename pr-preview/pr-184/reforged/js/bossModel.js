@@ -1,5 +1,38 @@
 import * as THREE from 'three';
 
+// Fresnel ENERGY SHELL — a reusable additive material that glows at grazing
+// angles (the silhouette edge) and is near-transparent face-on. This is the
+// house "reads cleanly against a bright sky" trick (see rimLight.js) packaged as
+// a standalone material so the boss body, its shield, and the Surge aura all get
+// a premium 3D energy read instead of looking like flat additive blobs. Zero
+// assets; `uTime`/`uStrength` are driven per frame for a live pulse.
+export function makeEnergyShell(color, { power = 2.4, strength = 1.0, opacity = 1.0 } = {}) {
+  return new THREE.ShaderMaterial({
+    uniforms: {
+      uColor: { value: new THREE.Color(color) },
+      uPower: { value: power },
+      uStrength: { value: strength },
+      uOpacity: { value: opacity },
+    },
+    transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide,
+    vertexShader: /* glsl */`
+      varying vec3 vN; varying vec3 vV;
+      void main() {
+        vec4 mv = modelViewMatrix * vec4(position, 1.0);
+        vN = normalize(normalMatrix * normal);
+        vV = normalize(-mv.xyz);
+        gl_Position = projectionMatrix * mv;
+      }`,
+    fragmentShader: /* glsl */`
+      uniform vec3 uColor; uniform float uPower; uniform float uStrength; uniform float uOpacity;
+      varying vec3 vN; varying vec3 vV;
+      void main() {
+        float f = pow(1.0 - clamp(dot(vN, vV), 0.0, 1.0), uPower);
+        gl_FragColor = vec4(uColor, f * uStrength * uOpacity);
+      }`,
+  });
+}
+
 // Procedural boss creature — asset-free, like everything else in the game.
 // This is deliberately NOT a dragon: a floating eldritch crystal construct (a
 // jagged core ringed with spikes, a glowing maw and two eyes, plus a few
@@ -12,25 +45,40 @@ import * as THREE from 'three';
 export function buildBoss(def, quality = 1) {
   const accent = def.accent ?? 0xff4488;
   const glow = def.glow ?? 0xff88cc;
+  // The boss holds ~30m ahead; at that range the base primitives read small and
+  // get lost against the horizon. Scale the whole construct up so it's an
+  // imposing centrepiece (the dissolve multiplies from this base, not 1).
+  const BASE_SCALE = def.scale ?? 1.5;
   const group = new THREE.Group();
   const mats = [];          // every material, for the dissolve
   const track = (m) => { mats.push(m); return m; };
 
-  // --- Core: a dark faceted body with an emissive accent ---
+  // --- Core: a dark faceted body with a strong emissive accent. Brighter than a
+  // normal prop so the bloom pass catches it and it reads as a threat, not scenery.
   const coreMat = track(new THREE.MeshStandardMaterial({
-    color: 0x140a18, emissive: accent, emissiveIntensity: 0.9,
-    roughness: 0.45, metalness: 0.3, flatShading: true,
+    color: 0x1a0e22, emissive: accent, emissiveIntensity: 1.5,
+    roughness: 0.35, metalness: 0.45, flatShading: true,
   }));
   const core = new THREE.Mesh(new THREE.IcosahedronGeometry(2.2, 1), coreMat);
   group.add(core);
 
-  // Inner glow shell — a slightly larger transparent shell that reads as energy.
-  const auraMat = track(new THREE.MeshBasicMaterial({
-    color: glow, transparent: true, opacity: 0.18,
-    blending: THREE.AdditiveBlending, depthWrite: false,
+  // Molten INNER CORE: a small bright sphere pulsing inside the faceted shell,
+  // seen through the gaps — the "contained energy" read (drives the bloom).
+  const innerMat = track(new THREE.MeshBasicMaterial({
+    color: glow, transparent: true, opacity: 0.9, blending: THREE.AdditiveBlending, depthWrite: false,
   }));
-  const aura = new THREE.Mesh(new THREE.IcosahedronGeometry(2.8, 1), auraMat);
-  group.add(aura);
+  const innerCore = new THREE.Mesh(new THREE.IcosahedronGeometry(1.5, 1), innerMat);
+  group.add(innerCore);
+
+  // Fresnel ENERGY SHELL: glows at the silhouette edge so the boss pops against a
+  // bright sky or the horizon city (the flat additive shell it replaces vanished).
+  const shellMat = track(makeEnergyShell(glow, { power: 2.2, strength: 1.15, opacity: 1.0 }));
+  const shell = new THREE.Mesh(new THREE.IcosahedronGeometry(2.9, 2), shellMat);
+  group.add(shell);
+  // A wider, softer outer halo shell for atmosphere/scale.
+  const haloMat = track(makeEnergyShell(accent, { power: 3.2, strength: 0.6, opacity: 1.0 }));
+  const halo = new THREE.Mesh(new THREE.IcosahedronGeometry(3.9, 2), haloMat);
+  group.add(halo);
 
   // --- Spike crown: cones jutting out around the equator ---
   const spikeMat = track(new THREE.MeshStandardMaterial({
@@ -197,14 +245,21 @@ export function buildBoss(def, quality = 1) {
   function tick(dt, time) {
     core.rotation.y += dt * 0.5;
     core.rotation.x += dt * 0.18;
-    aura.rotation.y -= dt * 0.3;
+    innerCore.rotation.y -= dt * 0.7;
+    shell.rotation.y -= dt * 0.3;
+    halo.rotation.y += dt * 0.15;
     const pulse = 0.85 + Math.sin(time * 3) * 0.15;
+    // Molten inner core breathes (brighter + swelling as it charges an attack).
+    innerCore.scale.setScalar(1 + Math.sin(time * 4) * 0.08 + charge * 0.35);
+    innerMat.opacity = (0.7 + Math.sin(time * 5) * 0.2) * pulse + charge * 0.3;
+    // Fresnel shells pulse their rim strength (and flare hot on a charge).
+    shellMat.uniforms.uStrength.value = 1.0 + Math.sin(time * 2.4) * 0.25 + charge * 0.8;
+    haloMat.uniforms.uStrength.value = 0.5 + Math.abs(Math.sin(time * 1.7)) * 0.2 + charge * 0.4;
     mawMat.opacity = 0.6 + Math.sin(time * 5) * 0.25 + charge * 0.9;
-    auraMat.opacity = (0.14 + Math.sin(time * 2) * 0.06) * pulse + charge * 0.3;
     throat.scale.setScalar(1 + charge * 0.6);
     throatMat.opacity = 0.85 + charge * 0.15;
     throatMat.color.setHex(0xff3010).lerp(new THREE.Color(accent), 1 - charge); // reddens as it charges
-    coreMat.emissiveIntensity = 0.9 + charge * 1.6;
+    coreMat.emissiveIntensity = 1.5 + charge * 1.8;
     if (shield.visible) {
       shield.rotation.y += dt * 0.9;
       shield.rotation.x += dt * 0.5;
@@ -232,6 +287,8 @@ export function buildBoss(def, quality = 1) {
     for (const m of mats) {
       m.transparent = true;
       m.opacity = (m.userData.baseOpacity ?? 1) * a;
+      // Fresnel energy shells carry opacity in a uniform, not material.opacity.
+      if (m.uniforms && m.uniforms.uOpacity) m.uniforms.uOpacity.value = (m.userData.baseOpacity ?? 1) * a;
       if (m.emissive) {
         m.emissiveIntensity = 0.5 + dissolve * 3.5;
         m.emissive.lerp(new THREE.Color(0xffffff), dissolve * 0.06);
@@ -239,7 +296,7 @@ export function buildBoss(def, quality = 1) {
     }
     // Scatter the spikes/shards outward as it comes apart.
     const spread = 1 + dissolve * 0.6;
-    group.scale.setScalar(spread);
+    group.scale.setScalar(BASE_SCALE * spread);
   }
 
   // Hit flash: a quick emissive spike (decayed by the controller).
@@ -248,13 +305,15 @@ export function buildBoss(def, quality = 1) {
   function tickFlash(dt) {
     if (flashAmt <= 0) return;
     flashAmt = Math.max(0, flashAmt - dt * 3);
-    coreMat.emissiveIntensity = 0.9 + flashAmt * 4;
+    coreMat.emissiveIntensity = 1.5 + flashAmt * 4;
   }
 
   // A front-facing node so FX (and future muzzle flashes) can originate at the maw.
   const muzzle = new THREE.Object3D();
   muzzle.position.set(0, 0, 2.4);
   group.add(muzzle);
+
+  group.scale.setScalar(BASE_SCALE);   // imposing at its ~30m hold distance
 
   return {
     group, muzzle, orbiters,
