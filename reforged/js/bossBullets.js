@@ -186,13 +186,15 @@ export function updateBossBullets(dt, player) {
   if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true;
 }
 
-// Find the nearest reflectable boss bullet inside a small window ahead of the
-// player — used by boss.js when a barrel roll fires (reflect, increment 3).
-export function reflectBossBullets(player, windowRel, settleGap, bossX, bossY) {
+// Swat reflectable boss bullets near a rolling player back at the boss. `all`
+// (Surge hyper, increment 3) makes EVERY boss bullet reflectable, not just the
+// amber ones. Returns how many were flipped this call.
+export function reflectBossBullets(player, windowRel, settleGap, bossX, bossY, all = false) {
   let n = 0;
   for (let i = 0; i < POOL; i++) {
     const s = slots[i];
-    if (!s.active || s.owner !== 'boss' || !s.reflectable) continue;
+    if (!s.active || s.owner !== 'boss') continue;
+    if (!all && !s.reflectable) continue;
     if (s.rel < 0 || s.rel > windowRel) continue;
     const dx = s.x - player.position.x, dy = s.y - player.position.y;
     if (dx * dx + dy * dy > 9) continue;            // must be near the player to swat
@@ -205,7 +207,7 @@ export function reflectBossBullets(player, windowRel, settleGap, bossX, bossY) {
     s.vx = (bossX - s.x) / t;
     s.vy = (bossY - s.y) / t;
     s.color = 0x66ddff;
-    s.dmg = s.dmg > 0 ? s.dmg * 2 : 10;
+    s.dmg = (s.dmg > 0 ? s.dmg : 5) * CONFIG.BOSS.reflectDamageMult;
     s.life = 4;
     n++;
   }

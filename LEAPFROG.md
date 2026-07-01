@@ -3736,3 +3736,37 @@ bias toward 1.0 (tighter follow) or offset the gap AWAY from the player, escalat
 bullet. Verified headless (`tests/boss.mjs` 6 checks) + real-WebGL (`bossboot`, zero console errors with two-layer
 bullets live) + `tricount` unchanged (203265); the human judges the new brightness, the whoosh-past, and whether
 the anchored patterns feel fair on the preview.
+
+---
+
+### L93 — Boss Increment 2: reflect-on-roll brings the dead parry alive (colour-coded, all-flag ready for the Surge hyper) + ring density reads the shape
+
+**Did / learned.** Wired the already-built-but-never-called `reflectBossBullets()` to the barrel roll: while
+`player.rollInvuln > 0` in a fight, nearby **reflectable** bullets flip owner `boss → player`, retarget the boss
+and deal `×reflectDamageMult` (2×) on arrival — defence becomes offence, the spend half of the graze→surge loop.
+Reflectable = the precision **aimed/fan** shots, and they now spawn a distinct **amber** (`0xffc23c`) so the
+player learns by colour which bullets are swat-able (danger red → amber parry-able → cyan reflected: an Ikaruga-
+style role palette, layered on the L92 core+halo). Reused the existing roll i-frame window (no new input) and the
+existing `emitBoss(reflectable)` flag; added an `all` param to `reflectBossBullets` so Increment 3's Surge hyper
+can make EVERY bullet reflectable by passing one boolean. Also acted on playtest feel: bumped tunnel ring density
+(`m` 16→26) and depth spacing (0.32→0.38 s) so each ring reads as a solid CIRCLE instead of a loose staggered
+cluster — sparse outlines don't read as rings, especially stacked in depth.
+
+**→ Systematize.** (a) **Build the mechanic dead, wire it live later.** `reflectBossBullets` shipped in
+Increment 1's scaffold with a unit test but no caller (L89) — so Increment 2 was *just* an import + a 6-line
+roll-window call + marking two attacks reflectable. Scaffolding a capability behind a flag (even unused) makes the
+increment that activates it tiny and low-risk. (b) **Colour is the teaching channel for counterplay.** When a
+mechanic asks the player to treat some bullets differently (parry these, not those), give the class its own colour
+*at spawn*, not just an effect on success — the read has to precede the action. (c) **Add the escalation seam as
+a parameter, not a fork.** `reflectBossBullets(..., all=false)` means the normal reflect and the Surge-hyper
+reflect are the same code path with one boolean — no duplicated logic to drift.
+
+**→ Leapfrog (innovate).** The loop is now whole on both halves: **graze** (skim to charge, L91) → **reflect**
+(roll to parry, here). Increment 3 closes it into the hyper: pop Surge → `reflectBossBullets(..., true)` +
+bullet-time + double rider fire, so "roll through the storm reflecting everything into the boss" becomes the
+earned ~3-surges-to-kill climax the test enforces. And the amber/red/cyan palette + the `all` flag are exactly the
+knobs a second boss (or a phase-3 escalation) will re-mix — e.g. a boss whose *tunnel* is reflectable, or a phase
+where nothing is parry-able. Verified: `tests/boss.mjs` (7 checks incl. reflect flips owner, deals 2×, plain
+bullets immune, `all=true` swats anything) + `bossboot` real-WebGL zero-error with amber bullets live + `tricount`
+unchanged (203265); the human judges the parry timing window (`reflectWindow 4.5`) and whether amber reads clearly
+on the preview.

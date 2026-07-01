@@ -179,6 +179,11 @@ export const CONFIG = {
     grazeScale: 2.2,        // grazeR ≈ 1.2×2.2 + 0.55 ≈ 3.19  (band ≈ [1.29, 3.19])
     grazeScore: 12,         // score per bullet grazed
     grazeGain: 0.34,        // surge-meter fraction per graze (~3 grazes ≈ one gem)
+    // Reflect: a barrel roll's i-frames swat REFLECTABLE bullets (amber; the
+    // precision aimed/fan shots) back at the boss for bonus damage — defence
+    // becomes offence. Graze to charge → roll to parry.
+    reflectWindow: 4.5,     // rel-distance ahead within which a rolling player swats a bullet
+    reflectDamageMult: 2,   // reflected bullet damage × vs the boss
     // Rider auto-attack: the steady chip that always whittles the boss down
     riderShotInterval: 0.5,
     riderShotDamage: 3,
