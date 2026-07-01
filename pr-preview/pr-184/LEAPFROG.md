@@ -3923,3 +3923,36 @@ scripted set-piece inherit. Verified: `tests/boss.mjs` (7 checks, model 764 tris
 zero-error (shadows/flare/bar-reveal/DANGER live) + `tricount` unchanged (203265); the human judges whether the
 shadows resolve overlapping-ring depth, the flare reads as time-to-impact, and the bar reveal + DANGER feel right
 on the preview.
+
+---
+
+### L98 — Directional DANGER (stripes at the entry corner), reflect rebalanced (a parry ≠ a phase), and a real defeat fanfare
+
+**Did / learned.** Three tuning/feel fixes. (1) **The DANGER telegraph was centred → moved it to WHERE the boss
+enters.** The controller derives a `dir` from `approachFrom` + the spawn X (`side`→left/right edge; `behind`→
+bottomLeft/bottomRight corner) and the overlay + a bed of **animated diagonal hazard stripes** (a masked
+`repeating-linear-gradient` scrolling inward) anchor there, with a matching corner/edge glow — so the danger reads
+as "clear THIS space", not just "something's coming". (2) **Reflect was wildly overtuned** — a roll swats *several*
+amber bullets at once, so at 2×/2.7× per bullet one parry cleared an 80-hp phase. Cut to **0.55× / 0.8×**
+(perfect still "slightly more"): reflecting ~3 bullets now chips ~30, a meaningful bonus on top of the rider
+chip, not a phase-delete. Key realization: **per-bullet damage must be sized to the MAX bullets a single gesture
+can affect**, not to one bullet. (3) **Defeat sound was a generic sting** — added `sfx.bossDefeat()`, a real
+fanfare (low victory boom + rising two-octave major arpeggio blooming into a shimmering chord) for the dopamine
+payoff.
+
+**→ Systematize.** (a) **A telegraph is a spatial instruction — place it at the threat's origin.** Position +
+inward-scrolling stripes turn "danger" from a label into a "move out of here" arrow; derive the anchor from the
+same spawn data that drives the entity's motion so they can't disagree. (b) **Balance AoE/multi-target abilities
+by their fan-out, not a single hit.** When one input (a roll) can hit N targets (N amber bullets), the per-target
+number must assume the worst-case N or it trivializes; the reflect bug was a per-bullet mult tuned as if only one
+bullet reflected. (c) **Reward-event audio should scale its production to the achievement's rarity** (L94): a
+per-frame graze is a tiny tick, a once-per-fight defeat earns a full multi-second fanfare.
+
+**→ Leapfrog (innovate).** The directional-stripe overlay is a reusable **"threat from here" primitive** — the
+same anchor+stripes could flag an incoming ground-slam edge, a laser-lance column, or an off-screen add. And with
+reflect now a *supplement* rather than a *delete*, the damage economy has clean headroom for the Surge hyper
+(Increment 3): pop Surge → all bullets reflectable + bullet-time, so a burst of parries becomes the burst-DPS
+window, without the baseline parry already doing that job. Verified: `tests/boss.mjs` (7 checks; reflect-damage
+assertion reads the config, still green at 0.55×) + `bossboot` real-WebGL zero-error (stripes + defeat fanfare
+live) + `tricount` unchanged (203265); the human judges the directional read, the new reflect pacing, and the
+fanfare on the preview.

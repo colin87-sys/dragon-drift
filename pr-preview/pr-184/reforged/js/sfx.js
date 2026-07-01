@@ -400,6 +400,27 @@ export const sfx = {
       tone({ freq: 900, dur: 0.14, type: 'sine', vol: 0.04, delay: 0.02 });
     }
   },
+  // Boss defeated: a big triumphant fanfare — a low victory boom under a rising
+  // major arpeggio that blooms into a shimmering chord. The "you earned it" payoff.
+  bossDefeat() {
+    const a = getCtx();
+    if (!a) return;
+    noiseWhoosh({ from: 220, to: 40, dur: 0.7, vol: 0.22, q: 0.8 });          // low impact swell
+    tone({ freq: 90, end: 60, dur: 0.9, type: 'sine', vol: 0.16 });           // sub boom
+    const root = 392; // G4
+    const arp = [0, 4, 7, 12, 16, 19];                                        // major, two octaves
+    arp.forEach((semi, i) => {
+      const f = root * Math.pow(2, semi / 12);
+      tone({ freq: f, end: f, dur: 0.5, type: 'triangle', vol: 0.12, delay: i * 0.075 });
+      tone({ freq: f * 2, dur: 0.4, type: 'sine', vol: 0.05, delay: i * 0.075 + 0.01 });
+    });
+    // Final bloom chord (G major) + bright shimmer.
+    [0, 7, 12, 16].forEach((semi) => {
+      const f = root * Math.pow(2, semi / 12);
+      tone({ freq: f, dur: 1.1, type: 'sine', vol: 0.07, delay: 0.5 });
+    });
+    tone({ freq: 3136, dur: 0.5, type: 'triangle', vol: 0.05, delay: 0.55 });  // sparkle
+  },
   // Ember pickup: short blip that climbs a pentatonic ladder with the streak
   // (the Subway Surfers coin cadence — consecutive grabs feel like a melody).
   ember(streak = 1) {
