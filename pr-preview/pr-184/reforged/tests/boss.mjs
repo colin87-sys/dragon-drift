@@ -182,6 +182,14 @@ assert(bullets.reflectBossBullets(makePlayer(), CONFIG.BOSS.reflectWindow, CONFI
 bullets.resetBossBullets();
 ok('reflect: roll swats amber bullets back for bonus damage; plain bullets immune (until Surge)');
 
+// --- 3d. Surge hyper (Increment 3): all-reflect + bullet-time + double rider --
+// The all-reflect core is proven above (all=true). Here assert the two tuning
+// knobs the controller applies while feverActive are sane (slower bullets,
+// faster rider); the real-engine path is exercised in tests/bossboot.mjs.
+assert(CONFIG.BOSS.surgeBulletTime > 0 && CONFIG.BOSS.surgeBulletTime < 1, 'Surge bullet-time slows bullets (<1)');
+assert(CONFIG.BOSS.surgeRiderMult > 0 && CONFIG.BOSS.surgeRiderMult < 1, 'Surge shortens the rider interval (<1)');
+ok('Surge hyper knobs: bullet-time + faster rider + all-bullets-reflectable');
+
 // --- 4. full controller lifecycle, driven to a kill -------------------------
 game.inBoss = false;
 game.reset();

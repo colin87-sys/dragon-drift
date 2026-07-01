@@ -188,6 +188,11 @@ export const CONFIG = {
     reflectPerfectMult: 0.8,// PERFECT parry (swatted right on top of you) — slightly more
     perfectParryRel: 1.8,   // a bullet swatted within this rel = a perfect parry
     parryScore: 120,        // style points per parry (× perfect bonus × streak)
+    // Surge hyper: while Dragon Surge is active in a boss, bullets slow to
+    // bullet-time, the rider double-fires, and EVERY bullet becomes reflectable —
+    // graze to charge → pop Surge → roll through the storm reflecting it all back.
+    surgeBulletTime: 0.5,   // bullet motion time-scale during Surge (0.5 = half speed)
+    surgeRiderMult: 0.5,    // rider fire interval × during Surge (0.5 = twice as fast)
     // Death reward: a defeated boss pays a big score bonus AND a haul of embers.
     defeatEmbers: 60,
     postGrace: 450,         // metres after a boss with rings/orbs only (no hazards) to ease back in

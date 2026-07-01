@@ -71,6 +71,9 @@ export function initBoss(sc) {
   scene = sc;
   initBossBullets(scene);
   on('bossDamage', (e) => damageBoss(e.amount, e.kind));
+  // Surge popping mid-fight IS the hyper — call it out so the player knows to
+  // roll through the storm and reflect everything.
+  on('surge', () => { if (active && phase === 'fight') ui.bossBanner?.('⚡ DRAGON SURGE ⚡', 'REFLECT ANYTHING'); });
 
   // Graze/hit reticle: a faint OUTER ring at the graze radius (green) and INNER
   // ring at the hit radius (red) around the dragon, so during a fight the player
@@ -204,7 +207,10 @@ export function updateBoss(dt, player, time) {
     reticle.position.set(player.position.x, player.position.y, -player.dist);
   }
 
-  updateBossBullets(dt, player);
+  // Surge hyper: while Dragon Surge is up in a boss, bullets slow to bullet-time
+  // (the player still steers at full speed → a window to weave + reflect the storm).
+  const surge = game.feverActive;
+  updateBossBullets(surge ? dt * CONFIG.BOSS.surgeBulletTime : dt, player);
   model.tick(dt, time);
 
   // Graze streak lapses if you stop skimming (drives the graze chime pitch).
@@ -261,7 +267,7 @@ export function updateBoss(dt, player, time) {
 
     riderTimer -= dt;
     if (riderTimer <= 0) {
-      riderTimer = B.riderShotInterval;
+      riderTimer = B.riderShotInterval * (surge ? B.surgeRiderMult : 1);   // double-fire in Surge
       fireRiderShot(player);
     }
 
@@ -269,7 +275,8 @@ export function updateBoss(dt, player, time) {
     // back at the boss. A bullet swatted right on top of you is a PERFECT parry
     // (more damage). Announce + ring the parry chime once per roll (streak climbs).
     if (player.rollInvuln > 0) {
-      const r = reflectBossBullets(player, B.reflectWindow, B.settleGap, pose.x, pose.y);
+      // In Surge, EVERY bullet is reflectable (not just the amber ones).
+      const r = reflectBossBullets(player, B.reflectWindow, B.settleGap, pose.x, pose.y, surge);
       if (r.total > 0) {
         tmp.set(player.position.x, player.position.y, -player.dist);
         burst(tmp, r.perfect > 0 ? 0xaef0ff : 0x66ddff, { count: 7, speed: 16, size: 0.85, life: 0.4 });
