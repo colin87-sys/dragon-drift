@@ -303,7 +303,15 @@ function hit(player, pushX, pushY, damage = CONFIG.obstacleDamage, cause = 'shar
     if (game.feverActive) { game.feverActive = false; game.feverTimer = 0; }
   }
   emit('damage', { m: player.dist });
-  if (cause === 'bullet') game.bossHitsTakenRun++;
+  // A bullet hit ends the graze streak + any surge UNCONDITIONALLY (the combo-gated
+  // reset above rarely fires in a boss, where combo sits at 1) — grazing is a
+  // risk/reward line: get clipped and you lose the charge you skimmed for.
+  if (cause === 'bullet') {
+    game.bossHitsTakenRun++;
+    game.consecutiveRings = 0;
+    game.grazeCharge = 0;
+    if (game.feverActive) { game.feverActive = false; game.feverTimer = 0; }
+  }
   if (game.health <= 0) die(player, cause, false);
 }
 
@@ -311,6 +319,35 @@ function hit(player, pushX, pushY, damage = CONFIG.obstacleDamage, cause = 'shar
 // i-frames exactly like every other hazard (dodging a bullet by rolling is free).
 export function hitPlayer(player, damage, cause = 'bullet') {
   hit(player, 0, 0, damage, cause);
+}
+
+// Grazing a bullet — skimming it inside the graze band but NOT getting hit —
+// charges Dragon Surge, the "drift" identity transplanted from rings onto danmaku.
+// Each bullet grazes once (at its plane-crossing frame), so no per-bullet cooldown
+// is needed. Fractional charge accumulates into whole surge-meter steps
+// (consecutiveRings), which the existing gem HUD shows and which auto-fires Surge
+// at the usual threshold — the same path a ring or gate takes.
+export function bulletGraze(player) {
+  game.grazesRun++;
+  const bonus = Math.round(CONFIG.BOSS.grazeScore * game.combo * game.scoreMult);
+  game.score += bonus;
+  nearMissSparks(player.position);
+  sfx.nearMiss();
+  emit('bossGraze');
+  game.grazeCharge += CONFIG.BOSS.grazeGain;
+  while (game.grazeCharge >= 1) {
+    game.grazeCharge -= 1;
+    game.consecutiveRings++;
+  }
+  if (!game.feverActive && game.consecutiveRings >= game.feverThreshold) {
+    game.feverActive = true;
+    game.feverTimer = CONFIG.feverDuration;
+    game.markSurgeSeen();
+    ui.feverStart();
+    sfx.feverStart();
+    juiceEvent('surgeStart');
+    emit('surge');
+  }
 }
 
 function crash(player, cause) {

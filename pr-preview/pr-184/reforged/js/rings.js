@@ -46,7 +46,10 @@ export function updateRings(dt, player, time) {
       r.mesh.material.emissive.setHex(game.feverActive ? 0x80ffcc : 0x12c95e);
       r.mesh.scale.setScalar(1 + Math.sin(time * 3 + r.dist) * 0.05 + (game.feverActive ? 0.08 : 0));
 
-      if (player.prevDist < r.dist && player.dist >= r.dist) {
+      // During a boss the rings are decorative motion only — collecting/missing is
+      // disabled so the surge meter is driven purely by grazing bullets (and an
+      // incidental fly-past can't reset the graze streak). See collision.bulletGraze.
+      if (!game.inBoss && player.prevDist < r.dist && player.dist >= r.dist) {
         const d = Math.hypot(player.position.x - r.x, player.position.y - r.y);
         if (d <= CONFIG.ringCatchRadius) collect(r, d);
         else miss(r);

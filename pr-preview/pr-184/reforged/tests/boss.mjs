@@ -39,6 +39,7 @@ initParticles({ add() {} });   // the disintegration spawns burst particles
 // Silence the HUD callouts (no real DOM elements headless).
 ui.bossBanner = () => {};
 ui.damageFlash = () => {};
+ui.feverStart = () => {};   // surge can now auto-trigger from grazing
 
 let n = 0;
 const ok = (m) => { n++; console.log(`  ✓ ${m}`); };
@@ -121,6 +122,37 @@ bullets.spawnBossBullet({ owner: 'rider', x: 0.5, y: 8, rel: 1.5, vx: 0, vy: 0, 
 assert(bossDmg === 5, 'a rider shot reaches the boss and emits bossDamage');
 bullets.resetBossBullets();
 ok('boss-ward (rider/reflected) bullets deal boss damage on arrival');
+
+// --- 3b. graze → surge charge (Increment 1: the spine) ----------------------
+// The graze band is (hitR, grazeR] ≈ (1.29, 3.19]. Skimming a bullet inside it
+// deals 0 damage but charges the surge meter; a dead-on pass hits; a wide pass
+// does neither. Sustained grazing auto-fires Dragon Surge at the usual threshold.
+game.state = 'playing'; game.inBoss = true;
+game.health = 100; game.grazesRun = 0; game.grazeCharge = 0; game.consecutiveRings = 0; game.feverActive = false;
+const grazeDmg = runBoss({ x: 2.2, vx: 0 });   // inside the graze band, outside the hit radius
+assert(grazeDmg === 0, 'a grazed bullet deals no damage');
+assert(game.grazesRun === 1, 'the graze is counted');
+assert(game.grazeCharge > 0 || game.consecutiveRings > 0, 'a graze charges the surge meter');
+
+game.health = 100; game.grazesRun = 0;
+runBoss({ x: 0, vx: 0 });
+assert(game.grazesRun === 0, 'a dead-on HIT is not a graze');
+game.health = 100; game.grazesRun = 0;
+runBoss({ x: 9, vx: 0 });
+assert(game.grazesRun === 0, 'a wide miss is neither hit nor graze');
+
+// A bullet hit wipes the graze-charged surge (risk/reward), even at combo 1.
+game.reset(); game.state = 'playing'; game.inBoss = true; game.combo = 1;
+game.consecutiveRings = 4; game.grazeCharge = 0.5; game.health = 100;
+runBoss({ x: 0, vx: 0 });   // dead-on hit
+assert(game.consecutiveRings === 0 && game.grazeCharge === 0, 'a bullet hit cancels the graze streak (combo-1 safe)');
+
+// Sustained grazing fills the meter and auto-fires Dragon Surge.
+game.reset(); game.state = 'playing'; game.inBoss = true; game.health = 100; game.feverActive = false;
+let grazeCount = 0;
+while (!game.feverActive && grazeCount < 400) { runBoss({ x: 2.2, vx: 0 }); grazeCount++; }
+assert(game.feverActive, 'sustained grazing auto-fires Dragon Surge');
+ok(`graze charges surge (hit/miss excluded, hit cancels); ${grazeCount} grazes → Surge`);
 
 // --- 4. full controller lifecycle, driven to a kill -------------------------
 game.inBoss = false;
