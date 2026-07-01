@@ -4255,3 +4255,46 @@ normal HUD and draws on the mode's own indicator. The thetaLength-sweep ring is 
 primitive (charge meters, cooldowns, capture rings). Verified: `boss.mjs` (8), `bossboot` real-WebGL zero-error, `smoke`,
 `tricount` 203265; a capture confirms the stamina bar gone + focus circle drawn + single hoop + dragon visible. The human
 judges the callout timing/readability and the fade/draw-on feel live.
+
+### L108 — GLB auto-rig: skin an AI-generated mesh to a procedurally-placed skeleton and let the SHIPPED flight animation drive it (the aesthetic-dragon pivot, increments 1–3)
+**Did / learned:** the human called the month-long procedural arc: the roster still reads "basic shapes / paddle-pop-stick
+wings" (only the layered-feather phoenix passes), so the pivot is **decide aesthetics at the IMAGE stage** (human-approved
+concepts → Meshy `multi_image_to_3d`) **and animate with the systems we already built** — never baked clips (researched:
+Meshy/Tripo auto-rigging is HUMANOID-only, no fly cycle in the 678-clip library; a dead end for dragons). Built the missing
+middle: **`dragonGlbRig.js`** converts a loaded static GLB into a `SkinnedMesh` bound to a procedurally-placed skeleton
+(root chest anchor → shoulder/elbow/wrist per side → neck/head fore, hip + 4 tail bones aft), exposed through the FROZEN
+contract (`wingRigL/R`, `spineSegs` roles, `tailSegs`, `parts.head` = the head bone) so `flapWing()` + spine-whip +
+tail-rudder drive the AI mesh with **zero animation-code change** (dragon.js diff = one line: the tail drive now also
+accepts `tailSegs[0].isBone`, the same detection the shop preview already used). Two load-bearing architecture rules:
+**(1) bake the placement into the geometry** (`def.glb` scale/rot → `applyMatrix4` once at load, CLONE the geometry first —
+`gltf.scene.clone(true)` SHARES geometry with the loader cache and baking in place corrupts it) so bones rest at IDENTITY
+rotations in the game frame and every `rotation.z/x/y` write means what it means on procedural rigs; **(2) build the bone
+GRAPH synchronously, refine POSITIONS from the measured mesh at load** — dragon.js captures `parts.*` once (stable-refs
+invariant), and positions are safe to mutate because the drive code writes only rotations. Weights are the two proven
+recipes fused: wings = the `spanSkin` welded-root band + smooth-stepped shoulder/elbow/wrist spans; body = the L36/L37
+z-band chain with a SINGLE-SLOT rigid chest band. Wing verts are gated by |x| AND a spine-z window (the thundercoil
+uWingMinS lesson — a coiled tail swings wide in x). **Measured-not-guessed defaults took three probes on the real mesh
+(the L39c discipline):** (a) a naive `wingZ` window clipped thundercoil's swept wings — the wingtip got body weights and
+moved 0.000 on a flap; fix = CLUSTER the wide-|x| verts by z (gap-split) and keep the cluster holding the widest vert
+(a tail never out-spans the wings). (b) min/max wing-root chord let a wide crest smear the chest band over the whole neck
+(`neckHead` partition → 0); (c) even percentiles didn't fix it because a thick SERPENT FLANK sits at wing-root |x| along
+the whole body — fix = measure the chord from verts JUST OUTBOARD of the shoulder (unambiguously wing), 5–95th pct.
+`onBeforeCompile` is last-assignment-wins, so the rim/fill fragment patch was factored to a standalone `attachRimFill`
+(exactly ONE patch function owns a material; skinning itself needs zero shader work — r160 auto-defines USE_SKINNING).
+**Verified:** `tests/glbrig.mjs` (15 gates: partition invariants incl. a synthetic coiled tail, L36 motion probes —
+tip 0.82 / chest 0 / coil 0, L/R mirror, order rules, placement bake round-trip); `glbcontract` +9 skinned-contract
+checks; REAL WebGL boot A/B (`?rigMode=skinned|shader` URL override): shader = 0 skinned meshes (byte-identical),
+skinned = 1 SkinnedMesh + 14 bones, zero console errors, in-flight screenshots both modes; roster tricount UNCHANGED
+(203265). Rig cost on the real 29k-vert mesh: ~50 ms one-time inside the existing preload.
+**→ Systematize:** the recipe for "make an arbitrary winged mesh ride the shipped animation" is now mechanical: bake →
+cluster-measure → place bones → span+z-band weights → bind → expose the frozen contract. All knobs live in
+`def.glb.rig {shoulderX, elbowT, wristT, band, wingZ, chestZ, neckZ, headZ, hipZ, tailN, flapProfile}` (game units,
+post-bake) — tune on the preview, never in code. `?rigMode=` A/Bs the SAME mesh under both rigs with zero commits.
+Skinned defs must declare `model.tailWhip` (rotation-only tail; the isBone guard covers forgetting it).
+**→ Leapfrog (innovate):** next = the hero pipeline (the plan in `/root/.claude/plans/` + PR): GATE 1 human-picks a
+cel-shaded wings-SPREAD multi-view concept (straight spine — a coiled pose fights both reconstruction and the tail
+chain); GATE 2 `multi_image_to_3d` at `target_polycount` ~12k, inspect via `glbinspect`, judge the turntable; then a
+def + `rig` knobs is the WHOLE integration (zero geometry code per dragon). Budget policy to land with the hero:
+per-file 20k tris / 10 MB hard in `tests/glb.mjs` with a thundercoil grandfather entry. If the skinned A/B on
+thundercoil reads better than the shader flap (expected — cascade + fold vs rigid hinge), flip its def and retire the
+shader path when the roster no longer needs it.

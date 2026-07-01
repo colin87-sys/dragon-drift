@@ -19,6 +19,7 @@
 import * as THREE from 'three';
 import { makeGlowTexture } from './util.js';
 import { applyFresnelRim } from './surface.js';
+import { buildGlbSkeleton, rigGlbContent } from './dragonGlbRig.js';
 
 // --- module cache: url -> Promise<gltf> (one parse shared by game + preview) ---
 const _cache = new Map();
@@ -124,29 +125,55 @@ function attachBodyDeform(mat, u, opts = {}) {
     }
     shader.vertexShader = decl + shader.vertexShader.replace(
       '#include <begin_vertex>', '#include <begin_vertex>\n' + body);
-    // Fresnel RIM + a flat ambient lift — a PBR GLB reads as a black silhouette when
-    // backlit (the sun sits ahead on the flight line); procedural dragons solve this
-    // with the same rim. View-direction term added to totalEmissiveRadiance, so it's
-    // independent of scene lights and survives the bake. Tinted to the electric accent.
-    if (opts.rim) {
-      const r = opts.rim;
-      shader.uniforms.uRimColor = { value: new THREE.Color(r.color ?? 0x8ec8ff) };
-      shader.uniforms.uRimInt = { value: r.intensity ?? 0.6 };
-      shader.uniforms.uRimPow = { value: r.power ?? 2.4 };
-      shader.uniforms.uRimBias = { value: r.bias ?? 0.0 };
-      shader.uniforms.uFillColor = { value: new THREE.Color(r.fill ?? 0x5a6a86) };
-      shader.uniforms.uFillInt = { value: r.fillIntensity ?? 0.0 };
-      shader.fragmentShader = shader.fragmentShader
-        .replace('#include <common>',
-          '#include <common>\nuniform vec3 uRimColor;uniform float uRimInt;uniform float uRimPow;uniform float uRimBias;uniform vec3 uFillColor;uniform float uFillInt;')
-        .replace('#include <emissivemap_fragment>',
-          '#include <emissivemap_fragment>\n{\n' +
-          'float vDotN = clamp(dot(normalize(normal), normalize(vViewPosition)), 0.0, 1.0);\n' +
-          'float fres = pow(1.0 - vDotN, uRimPow);\n' +
-          'totalEmissiveRadiance += uRimColor * (fres * uRimInt + uRimBias) + uFillColor * uFillInt;\n}\n');
-    }
+    if (opts.rim) injectRimFill(shader, opts.rim);
   };
   mat.needsUpdate = true;
+}
+
+// Fresnel RIM + a flat ambient lift — a PBR GLB reads as a black silhouette when
+// backlit (the sun sits ahead on the flight line); procedural dragons solve this
+// with the same rim. View-direction term added to totalEmissiveRadiance, so it's
+// independent of scene lights and survives the bake. Tinted to the electric accent.
+// Shared by BOTH GLB paths: the shader-deform path composes it inside its own
+// onBeforeCompile; the skinned path applies it standalone via attachRimFill.
+function injectRimFill(shader, r) {
+  shader.uniforms.uRimColor = { value: new THREE.Color(r.color ?? 0x8ec8ff) };
+  shader.uniforms.uRimInt = { value: r.intensity ?? 0.6 };
+  shader.uniforms.uRimPow = { value: r.power ?? 2.4 };
+  shader.uniforms.uRimBias = { value: r.bias ?? 0.0 };
+  shader.uniforms.uFillColor = { value: new THREE.Color(r.fill ?? 0x5a6a86) };
+  shader.uniforms.uFillInt = { value: r.fillIntensity ?? 0.0 };
+  shader.fragmentShader = shader.fragmentShader
+    .replace('#include <common>',
+      '#include <common>\nuniform vec3 uRimColor;uniform float uRimInt;uniform float uRimPow;uniform float uRimBias;uniform vec3 uFillColor;uniform float uFillInt;')
+    .replace('#include <emissivemap_fragment>',
+      '#include <emissivemap_fragment>\n{\n' +
+      'float vDotN = clamp(dot(normalize(normal), normalize(vViewPosition)), 0.0, 1.0);\n' +
+      'float fres = pow(1.0 - vDotN, uRimPow);\n' +
+      'totalEmissiveRadiance += uRimColor * (fres * uRimInt + uRimBias) + uFillColor * uFillInt;\n}\n');
+}
+
+// Standalone rim/fill for the SKINNED path. onBeforeCompile is last-assignment-
+// wins — exactly ONE patch function may own a material — so the skinned path
+// (which needs no vertex deform: r160 injects USE_SKINNING for a SkinnedMesh)
+// applies only this fragment-stage patch.
+function attachRimFill(mat, rimCfg) {
+  mat.onBeforeCompile = (shader) => injectRimFill(shader, rimCfg);
+  mat.needsUpdate = true;
+}
+
+// def.glb.rim → effective rim config (defaults derive from the dragon's accent
+// so the edge glows on-brand). `false` disables. Shared by both GLB paths.
+function resolveRimCfg(cfg, def) {
+  if (cfg.rim === false) return null;
+  return {
+    color: (cfg.rim && cfg.rim.color) ?? def.apexSeam ?? def.eye ?? 0x8ec8ff,
+    intensity: (cfg.rim && cfg.rim.intensity) ?? 0.5,
+    power: (cfg.rim && cfg.rim.power) ?? 2.8,   // tight edge — accent, not a wash
+    bias: (cfg.rim && cfg.rim.bias) ?? 0.0,     // no flat electric add (keeps the body grey)
+    fill: (cfg.rim && cfg.rim.fill) ?? 0x6a7896, // neutral steel fill lifts the backlit side
+    fillIntensity: (cfg.rim && cfg.rim.fillIntensity) ?? 0.2,
+  };
 }
 
 export function buildGlbDragon(def, opts = {}) {
@@ -158,9 +185,23 @@ export function buildGlbDragon(def, opts = {}) {
 
   // Animation rig — STABLE references captured once by dragon.js; the visual is
   // swapped in under them when the GLB resolves.
-  const wingRigL = makeWingRig(-1, sh);
-  const wingRigR = makeWingRig(1, sh);
-  group.add(wingRigL.shoulder, wingRigR.shoulder);
+  // SKINNED mode (def.glb.rigMode:'skinned'): the rig is a real bone skeleton
+  // (dragonGlbRig.js) built synchronously — topology fixed now, positions
+  // refined from the measured mesh at load, weights computed, mesh bound. The
+  // same flapWing()/spine-whip/tailWhip code drives it (Bones are Object3Ds).
+  // ?rigMode=skinned|shader — preview A/B override: judge the auto-rig on the
+  // SAME mesh against the shipped shader deform with zero commits (PR-preview
+  // oracle). Headless/no-location environments fall through to the def.
+  let rigMode = cfg.rigMode || 'shader';
+  try {
+    const q = new URLSearchParams(location.search).get('rigMode');
+    if (q === 'skinned' || q === 'shader') rigMode = q;
+  } catch { /* no location (Node) — keep the def's mode */ }
+  const skel = rigMode === 'skinned' ? buildGlbSkeleton(cfg, model) : null;
+  const wingRigL = skel ? skel.wingRigL : makeWingRig(-1, sh);
+  const wingRigR = skel ? skel.wingRigR : makeWingRig(1, sh);
+  if (skel) group.add(skel.root);
+  else group.add(wingRigL.shoulder, wingRigR.shoulder);
 
   const head = new THREE.Group();
   head.position.set(0, cfg.headAt ? cfg.headAt[1] : 0.1, cfg.headAt ? cfg.headAt[2] : 1.15);
@@ -231,9 +272,11 @@ export function buildGlbDragon(def, opts = {}) {
   // Holder ticked by dragon.js every frame: a baked-clip mixer (skinned GLB) and/or
   // the procedural body-deform uniforms (the traveling spine wave def.glb.slither,
   // and — for a fused winged mesh — the shader wing-flap def.glb.wing).
-  const slither = cfg.slither || null;
-  const fused = !!cfg.fusedWings;          // the unified winged mesh (spine along Y, shader flap)
-  const wingCt = cfg.wing || null;
+  // Skinned mode replaces both shader deforms — null them so dragon.js's
+  // uniform tick self-skips even if a def carries slither/wing knobs.
+  const slither = skel ? null : (cfg.slither || null);
+  const fused = !skel && !!cfg.fusedWings; // the unified winged mesh (spine along Y, shader flap)
+  const wingCt = skel ? null : (cfg.wing || null);
   const slitherU = {
     // uTime is the accumulated wave PHASE (dragon.js advances it by dt·waveSpeed).
     uTime: { value: 0 }, uAmp: { value: slither?.amp ?? 0 },
@@ -260,6 +303,9 @@ export function buildGlbDragon(def, opts = {}) {
       if (!gltf || !gltf.scene) return;
       const skinned = anySkinned(gltf.scene);
       let content;
+      if (skinned && skel) {
+        console.warn('[dragonGlb] rigMode:"skinned" but the GLB carries its own skeleton — using its baked clips instead');
+      }
       if (skinned) {
         // Skinned: clone preserving the skeleton, add static, drive via a mixer.
         // A skinned export animates its OWN full body (wings included), so retire
@@ -276,6 +322,32 @@ export function buildGlbDragon(def, opts = {}) {
             glbAnim.mixer = mixer;       // dragon.js ticks this (baked-flap fallback)
           }
         });
+      }
+      // SKINNED auto-rig: bake the placement into the geometry, refine the bone
+      // positions from the measured mesh, compute proximity/span weights, bind —
+      // then the shipped procedural flight animation drives the whole mesh.
+      // (dragonGlbRig.js; the frame + order rules live there.)
+      if (skel) {
+        content = gltf.scene.clone(true);
+        applyGlbTransform(content, cfg);
+        group.add(content);                    // shared frame BEFORE rigging/binding
+        try {
+          rigGlbContent(content, skel, cfg);
+        } catch (e) {
+          console.warn('[dragonGlb] auto-rig failed — keeping the placeholder rig', e);
+          group.remove(content);
+          return;
+        }
+        authoredWingL.visible = false; authoredWingR.visible = false;
+        headBox.visible = false; placeholder.visible = false;
+        const rimCfg = resolveRimCfg(cfg, def);
+        if (rimCfg) {
+          content.traverse((o) => {
+            if (!o.isMesh || !o.material) return;
+            (Array.isArray(o.material) ? o.material : [o.material]).forEach((m) => m && attachRimFill(m, rimCfg));
+          });
+        }
+        return;
       }
       // Non-skinned. If the GLB carries named wing nodes, re-parent them under the
       // flap scaffold so the shipped reactive wingbeat drives them (and retire the
@@ -309,14 +381,7 @@ export function buildGlbDragon(def, opts = {}) {
         // Backlit-silhouette lift: a fresnel rim (+ optional flat fill) folded into the
         // deform shader. Defaults derive from the dragon's electric accent so the edge
         // glows on-brand; all tunable via def.glb.rim.
-        const rimCfg = cfg.rim === false ? null : {
-          color: (cfg.rim && cfg.rim.color) ?? def.apexSeam ?? def.eye ?? 0x8ec8ff,
-          intensity: (cfg.rim && cfg.rim.intensity) ?? 0.5,
-          power: (cfg.rim && cfg.rim.power) ?? 2.8,   // tight edge — accent, not a wash
-          bias: (cfg.rim && cfg.rim.bias) ?? 0.0,     // no flat electric add (kept the body grey)
-          fill: (cfg.rim && cfg.rim.fill) ?? 0x6a7896, // neutral steel fill lifts the backlit side
-          fillIntensity: (cfg.rim && cfg.rim.fillIntensity) ?? 0.2,
-        };
+        const rimCfg = resolveRimCfg(cfg, def);
         content.traverse((o) => {
           if (!o.isMesh || !o.geometry) return;
           o.geometry.computeBoundingBox();
@@ -332,7 +397,15 @@ export function buildGlbDragon(def, opts = {}) {
   }
 
   const parts = {
-    head, tailSegs: [], tailFins: [], spineSegs: [], bodySegs: null, tailOrbiters: null,
+    // SKINNED mode exposes the real bones: parts.head = the head bone (dragon.js
+    // head-look deforms the head verts), spineSegs = [neck, hip] (roles set, the
+    // spine-whip branch), tailSegs = the tail bone chain (the def MUST declare
+    // model.tailWhip so dragon.js drives it by ROTATION — position tears a chain).
+    head: skel ? skel.headBone : head,
+    tailSegs: skel ? skel.tailSegs : [],
+    tailFins: [],
+    spineSegs: skel ? skel.spineSegs : [],
+    bodySegs: null, tailOrbiters: null,
     riderSocket, wingRigL, wingRigR, coreGlow: null, glbAnim,
     // legacy hookpoints left undefined on purpose — every consumer guards them
     // (the wingRig path is taken, wingPivot2/tipMarker are `if`-guarded).
