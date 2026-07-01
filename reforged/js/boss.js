@@ -49,11 +49,14 @@ let dyingT = 0;
 let spiralPhase = 0;
 let pendingDeath = false;      // set when hp hits 0; resolved in the update loop
 let rollParried = false;       // this roll already landed a parry (announce once per roll)
-let reticle = null;            // faint graze/hit zone rings drawn around the dragon
-let reticleRings = [];         // { mesh, r, ir, or, color, op } — for the draw-on sweep
-let reticleDraw = 0;           // 0 = no circle … 1 = full circle (drawn like the HP bar)
+let reticle = null;            // focus ring around the dragon (a dim track + bright fill)
+let reticleTrack = null;       // dim full-circle base
+let reticleFill = null;        // bright arc: draw-on progress × (in Surge) time-left
+let reticleHead = null;        // glowing comet at the fill's leading edge (Surge meter)
+let reticleOn = 0;             // 0 = no circle … 1 = full circle (drawn like the HP bar)
 let reticleTarget = 0;         // draws ON at boss start (with the stamina fade), OFF at end
-let reticleBuilt = -1;         // last drawn fraction baked into geometry (rebuild-on-change)
+const RETICLE_R = 2.1;         // radius — just off the dragon body
+const RETICLE_SEGS = 96;       // ring resolution (smooth drain edge)
 let hpRevealT = 0;             // health-bar fill-up animation timer (0→full on settle)
 const HP_REVEAL = 0.8;
 let shielded = false;          // at a phase floor the boss shields — only Surge bursts it
@@ -107,45 +110,50 @@ export function initBoss(sc) {
   // Surge callout is fired from activateSurge (one note only — "REFLECT ANYTHING"),
   // so there's no duplicate banner here.
 
-  // Focus reticle: a SINGLE clean ring drawn around the dragon (the old outer graze
-  // ring read as clutter — one circle is cleaner). Sits just off the body so it
-  // frames the dragon without cutting through it.
-  const focusR = 2.1;
+  // Focus reticle: ONE ring around the dragon, built as a dim TRACK + a bright
+  // FILL arc. In a normal fight the fill is full (a clean cyan circle). During
+  // Dragon Surge it becomes a TIME METER — the fill drains full→empty over the
+  // surge duration (revealing the dim track), tinted surge-pink with a glowing
+  // comet at the draining edge, so "how long is left" is a spatial read at the
+  // dragon, not another HUD bar. Drawn via setDrawRange (an angular wipe) so
+  // there are no per-frame geometry rebuilds.
+  const ir = RETICLE_R - 0.075, or = RETICLE_R + 0.075;
   reticle = new THREE.Group();
-  reticleRings = [];
-  const mkRing = (r, color, op) => {
-    const ir = r - 0.075, or = r + 0.075;
-    const m = new THREE.Mesh(
-      new THREE.RingGeometry(ir, or, 64, 1, Math.PI / 2, 0.0001),   // starts un-drawn
-      new THREE.MeshBasicMaterial({ color, transparent: true, opacity: op, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide })
-    );
-    reticleRings.push({ mesh: m, ir, or });
-    reticle.add(m);
-  };
-  mkRing(focusR, 0x9dffea, 0.55);
+  reticleTrack = new THREE.Mesh(
+    new THREE.RingGeometry(ir, or, RETICLE_SEGS, 1, Math.PI / 2, Math.PI * 2),
+    new THREE.MeshBasicMaterial({ color: 0x9dffea, transparent: true, opacity: 0.16, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide })
+  );
+  reticleFill = new THREE.Mesh(
+    new THREE.RingGeometry(ir - 0.02, or + 0.02, RETICLE_SEGS, 1, Math.PI / 2, Math.PI * 2),
+    new THREE.MeshBasicMaterial({ color: 0x9dffea, transparent: true, opacity: 0.58, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide })
+  );
+  reticleFill.renderOrder = 1;
+  reticleHead = new THREE.Mesh(
+    new THREE.SphereGeometry(0.17, 10, 8),
+    new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.9, blending: THREE.AdditiveBlending, depthWrite: false })
+  );
+  reticleHead.visible = false;
+  reticle.add(reticleTrack, reticleFill, reticleHead);
+  reticleTrack.geometry.setDrawRange(0, 0);   // starts un-drawn
+  reticleFill.geometry.setDrawRange(0, 0);
   reticle.visible = false;
   scene.add(reticle);
 
-  // Dragon Surge aura: a HALO that FRAMES the dragon, never covers it. An
-  // enveloping orb hid the dragon and buried the danmaku you must read — instead
-  // this is a pair of thin camera-facing glow HOOPS around the dragon (hollow
-  // centre → dragon + bullets stay fully visible) plus lightning that arcs
-  // strictly OUTWARD from behind. "Empowered", not "wrapped in a ball". The
-  // screen wash (postfx fever grade) + the dragon's own emissive carry the rest.
+  // Dragon Surge aura: JUST the lightning now. During Surge the focus ring itself
+  // turns into the pink drain METER, so a second full hoop would sit behind it and
+  // fill the drain gap — hiding the very "time left" read the meter exists for.
+  // So the aura is only outward-arcing bolts (energy flavour); the meter is the ring.
   surgeAura = new THREE.Group();
-  const haloMatA = new THREE.MeshBasicMaterial({ color: 0xff6ae0, transparent: true, opacity: 0.9, blending: THREE.AdditiveBlending, depthWrite: false });
-  const haloA = new THREE.Mesh(new THREE.TorusGeometry(2.5, 0.11, 8, 44), haloMatA);
-  surgeAura.add(haloA);   // ONE clean hoop (the outer "depth" ring was just clutter)
   const boltMat = new THREE.MeshBasicMaterial({ color: 0xffbdf6, transparent: true, opacity: 0.85, blending: THREE.AdditiveBlending, depthWrite: false });
   const bolts = [];
   for (let i = 0; i < 6; i++) {
-    // Thin, SHORT arcs that live in the ring band (start ~2.1 out) so they never
-    // cross the dragon at the centre.
+    // Thin, SHORT arcs that live OUTSIDE the meter ring (start ~2.6 out) so they
+    // never cross the dragon or the meter at the centre.
     const b = new THREE.Mesh(new THREE.CylinderGeometry(0.045, 0.045, 1.6, 4), boltMat);
     surgeAura.add(b);
     bolts.push(b);
   }
-  surgeAura.userData = { haloA, bolts };
+  surgeAura.userData = { bolts };
   surgeAura.visible = false;
   scene.add(surgeAura);
 
@@ -250,18 +258,14 @@ function updateSurgeAura(dt, player, time, surge) {
   surgeAura.visible = surge;
   if (!surge) return;
   surgeAura.position.set(player.position.x, player.position.y, -player.dist);
-  const { haloA, bolts } = surgeAura.userData;
-  // A single camera-facing hoop (XY plane ≈ faces the chase cam), slowly spinning
-  // and breathing — frames the dragon, hollow centre so it shows through.
-  haloA.rotation.z += dt * 0.8;
-  haloA.scale.setScalar(1 + Math.sin(time * 6) * 0.06);
-  haloA.material.opacity = 0.72 + Math.abs(Math.sin(time * 7)) * 0.25;
-  // Lightning arcs living in the ring BAND (radius ~2.1), pointing radially outward
-  // and flickering — electricity crackling around the halo, never over the dragon.
+  const { bolts } = surgeAura.userData;
+  // Lightning arcs living OUTSIDE the meter ring (radius ~2.7), pointing radially
+  // outward and flickering — electricity crackling around the dragon, never over
+  // the dragon or the drain meter at the centre.
   bolts.forEach((b, i) => {
     const ang = (i / bolts.length) * Math.PI * 2 + Math.sin(time * 7 + i * 1.7) * 0.3;
     b.visible = Math.random() < 0.6;
-    const r = 2.3 + Math.random() * 0.5;
+    const r = 2.75 + Math.random() * 0.5;
     b.position.set(Math.cos(ang) * r, Math.sin(ang) * r, (Math.random() - 0.5) * 0.8);
     b.rotation.set(0, 0, ang - Math.PI / 2);   // length runs radially outward
     b.scale.set(0.7 + Math.random() * 0.5, 0.5 + Math.random() * 0.7, 1);
@@ -324,7 +328,7 @@ export function startBossEncounter(player, defOverride) {
   attackTimer = 0;
   riderTimer = B.riderShotInterval;
   // Focus circle draws ON from nothing (synced with the stamina bar fading out).
-  reticleDraw = 0; reticleTarget = 1; reticleBuilt = -1;
+  reticleOn = 0; reticleTarget = 1;
 
   // Warning flashes ALONE first (the boss stays hidden behind during 'warn'), then
   // clears as the boss flies in. 'side' → left/right edge; 'behind' → bottom-centre
@@ -372,15 +376,32 @@ function startDeath(player) {
   emit('bossDefeated', { id: def.id, bonus, embers, noHit: game.bossHitsTakenRun === 0 });
 }
 
-// Rebake the focus-ring geometries to the current draw fraction (an angular sweep
-// from the top, like a clock hand) — only called while the draw is animating.
-function rebuildReticle() {
-  const theta = Math.max(reticleDraw * Math.PI * 2, 0.0001);
-  for (const rr of reticleRings) {
-    rr.mesh.geometry.dispose();
-    rr.mesh.geometry = new THREE.RingGeometry(rr.ir, rr.or, 56, 1, Math.PI / 2, theta);
+// Apply the focus ring each frame via setDrawRange (an angular wipe — no geometry
+// rebuilds). `timeLeft` 1 = full circle; in Surge it's feverTimer/feverDuration, so
+// the fill DRAINS as the surge runs out. `reticleOn` is the boss-start/end sweep.
+function applyReticle(timeLeft, time) {
+  if (!reticleTrack) return;
+  const segs = reticleTrack.geometry.index.count / 6;   // triangles per full ring / … → segments
+  const trackSeg = Math.round(segs * reticleOn);
+  const fillFrac = reticleOn * Math.max(0, Math.min(1, timeLeft));
+  const fillSeg = Math.round(segs * fillFrac);
+  reticleTrack.geometry.setDrawRange(0, trackSeg * 6);
+  reticleFill.geometry.setDrawRange(0, fillSeg * 6);
+  const surging = timeLeft < 0.999;
+  reticleFill.material.color.setHex(surging ? 0xff6ae0 : 0x9dffea);
+  reticleTrack.material.color.setHex(surging ? 0x8f6ad8 : 0x9dffea);
+  reticleFill.material.opacity = surging ? 0.55 + Math.abs(Math.sin(time * 8)) * 0.18 : 0.58;
+  // Comet at the draining edge — only while it's a live meter (fully drawn + surging).
+  if (surging && reticleOn > 0.99 && fillFrac > 0.004) {
+    const a = Math.PI / 2 + fillFrac * Math.PI * 2;
+    reticleHead.position.set(Math.cos(a) * RETICLE_R, Math.sin(a) * RETICLE_R, 0);
+    reticleHead.material.opacity = 0.85 + Math.sin(time * 14) * 0.15;
+    reticleHead.scale.setScalar(1 + Math.sin(time * 12) * 0.18);
+    reticleHead.visible = true;
+  } else {
+    reticleHead.visible = false;
   }
-  reticleBuilt = reticleDraw;
+  reticle.visible = reticleOn > 0.005;
 }
 
 // ---- Per-frame update -------------------------------------------------------
@@ -390,12 +411,11 @@ export function updateBoss(dt, player, time) {
     // Draw the focus circle OFF if it's still up (e.g. player died mid-fight) —
     // same steady linear rate as the draw-on (one HP_REVEAL to sweep the full circle).
     if (reticle) {
-      if (reticleDraw > 0.005) {
-        reticleDraw = Math.max(0, reticleDraw - dt / HP_REVEAL);
-        rebuildReticle();
+      if (reticleOn > 0.005) {
+        reticleOn = Math.max(0, reticleOn - dt / HP_REVEAL);
+        applyReticle(1, time);
         reticle.position.set(player.position.x, player.position.y, -player.dist);
-        reticle.visible = reticleDraw > 0.005;
-      } else { reticle.visible = false; }
+      } else { reticle.visible = false; if (reticleHead) reticleHead.visible = false; }
     }
     if (surgeAura) surgeAura.visible = false;
     if (surgeBeam) surgeBeam.visible = false;
@@ -413,22 +433,24 @@ export function updateBoss(dt, player, time) {
     return;
   }
 
+  const surge = game.feverActive;
+
   // Focus circle: sweeps ON (0→full) at a STEADY linear rate that takes exactly one
-  // HP_REVEAL to complete — the same pace as the boss health bar filling — so the
-  // two reads feel connected. Holds through the fight, sweeps OFF when it ends.
+  // HP_REVEAL to complete — the same pace as the boss health bar filling. In a normal
+  // fight the fill is a full cyan circle; during Surge it becomes a TIME METER that
+  // drains full→empty over the surge (feverTimer/feverDuration).
   if (reticle) {
-    if (Math.abs(reticleDraw - reticleTarget) > 0.0005) {
+    if (Math.abs(reticleOn - reticleTarget) > 0.0005) {
       const step = dt / HP_REVEAL;
-      reticleDraw = reticleDraw < reticleTarget
-        ? Math.min(reticleTarget, reticleDraw + step)
-        : Math.max(reticleTarget, reticleDraw - step);
-      if (Math.abs(reticleDraw - reticleBuilt) > 0.015) rebuildReticle();
+      reticleOn = reticleOn < reticleTarget
+        ? Math.min(reticleTarget, reticleOn + step)
+        : Math.max(reticleTarget, reticleOn - step);
     }
-    reticle.visible = reticleDraw > 0.005;
+    const timeLeft = surge ? Math.max(0, Math.min(1, game.feverTimer / CONFIG.feverDuration)) : 1;
+    applyReticle(timeLeft, time);
     reticle.position.set(player.position.x, player.position.y, -player.dist);
   }
 
-  const surge = game.feverActive;
   updateBossBullets(dt, player);   // no bullet-time (the sudden slow read as jarring)
   model.tick(dt, time);
   updateSurgeAura(dt, player, time, surge);
@@ -701,7 +723,7 @@ function executeAttack(id, player) {
     // TUTORIAL boss: keep the tunnel short + gently-weaving so the tail of the fight
     // doesn't become a wall of consecutive rings. Later bosses lengthen/tighten it.
     const rings = quality < 0.75 ? 3 : 4;
-    const m = quality < 0.75 ? 12 : 16;
+    const m = quality < 0.75 ? 14 : 22;   // denser ring → a clearer circle, easier to tell apart
     const slow = closing * 0.85;
     // Small rings (radius < grazeR) so flying the centre still SKIMS the whole
     // ring → constant grazing; a big ring let you sit in a dead-safe hole.
@@ -735,7 +757,7 @@ function fireGrazeBait(player, time) {
   const cx = Math.max(-8, Math.min(8, player.position.x)) + Math.sin(time * 1.3) * 3;
   const cy = B.fightHeight + Math.sin(time * 0.9) * 1.5;
   const b = BAND[bandIdx++ % BAND.length];
-  fireRing(cx, cy, 3.6, quality < 0.75 ? 9 : 11, B.bulletSpeed * 0.8, b.c, b.s);
+  fireRing(cx, cy, 3.6, quality < 0.75 ? 11 : 15, B.bulletSpeed * 0.8, b.c, b.s);   // denser = clearer circle
 }
 
 // A ring (circle outline) of bullets centred on (cx, cy) that closes straight in.
@@ -798,7 +820,7 @@ function damageBoss(amount, kind) {
     chargeT = 0; pending.length = 0; baitTimer = 0; baitResting = true; baitLeft = 0;
     model.flash(1.0);
     cameraCtl.shake?.(0.8);
-    ui.bossNote?.('⛨  SHIELDED  ⛨', 'FLY CLOSE TO THE RINGS → CHARGE SURGE', 'gold', 3.4);
+    ui.bossNote?.('⛨  SHIELDED  ⛨', 'FLY THROUGH THE RINGS → CHARGE SURGE', 'gold', 3.4);
     sfx.milestone?.();
     emit('bossShield', { phase: phaseIdx + 1 });
   }
@@ -814,7 +836,9 @@ export function resetBoss() {
   rollParried = false;
   shielded = false;
   if (reticle) reticle.visible = false;
-  reticleDraw = 0; reticleTarget = 0; reticleBuilt = -1;
+  reticleOn = 0; reticleTarget = 0;
+  if (reticleTrack) { reticleTrack.geometry.setDrawRange(0, 0); reticleFill.geometry.setDrawRange(0, 0); }
+  if (reticleHead) reticleHead.visible = false;
   if (surgeAura) surgeAura.visible = false;
   if (surgeBeam) surgeBeam.visible = false;
   surgeSeq = null;

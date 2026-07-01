@@ -4280,3 +4280,31 @@ vitals fading while its indicator draws in on the same clock). And the jargon au
 surfaced verb (graze→skim, parry, thread, gate) gets checked against a first-time player before ship. Verified: `boss.mjs`
 (8), `bossboot` zero-error, `smoke`, `tricount` 203265; a capture shows a single ring mid-sweep + the "SKIMS" label. The
 human judges the ring size and draw pace live.
+
+### L109 — The focus ring earns a second job: a Surge-time DRAIN METER (and why a full ring behind it defeats it)
+
+**Did / learned.** The circle around the dragon was decorative during a fight; gave it a JOB during Surge — it becomes
+the surge-timer. Built as a dim TRACK + a bright FILL arc revealed by `setDrawRange` (an angular wipe — no per-frame
+geometry rebuilds, unlike the earlier thetaLength approach). Normal fight = full cyan circle; Surge = the fill tints
+pink and DRAINS full→empty as `feverTimer/feverDuration` runs down, revealing the dim track, with a glowing comet at
+the draining edge. So "how long is left" is a spatial read AT the dragon, not another HUD bar. **The gotcha:** the Surge
+aura still drew a FULL pink hoop at almost the same radius — sitting behind the draining meter, it filled the drain gap
+and hid the exact thing the meter exists to show. Fix: remove the hoop entirely (the meter IS the ring now) and push
+the aura's lightning further out. Two other tweaks: reworded the shield hint to "FLY THROUGH THE RINGS" (clearest verb),
+and raised bullets-per-ring (tunnel 16→22, graze-bait 11→15) so each ring reads as a fuller, more distinct circle —
+denser outline = easier to tell consecutive rings apart.
+
+**→ Systematize.** (a) **Give an existing on-screen element a second job before adding a new one** — the focus ring was
+already there, already anchored to the dragon; making it the surge meter adds information with zero new UI. Reuse beats
+addition. (b) **A meter needs a CLEAR track behind its fill — nothing else may occupy that band.** If another full-value
+indicator sits behind/over a draining meter it back-fills the gap and the drain becomes invisible; audit the whole
+z-stack in that radius before trusting the read. (c) **`setDrawRange` is the cheap way to animate a radial/linear wipe** —
+build the full geometry once, reveal a fraction by index count; reserve geometry rebuilds for shape changes, not progress.
+(d) **For "tell them apart" readability, raise element DENSITY, not just colour** — a sparse ring of dots reads as
+scattered bullets; a dense one reads as a clean circle you can track as one object.
+
+**→ Leapfrog (innovate).** The track+fill+comet ring is now a reusable **diegetic radial meter** — any timed state
+(surge, shield-up countdown, a boss enrage timer, a charge) can borrow it around the relevant actor instead of a
+detached HUD gauge. And "reuse an anchored element for the new readout" is the default move for the next mechanic's
+feedback. Verified: `boss.mjs` (8), `bossboot` zero-error, `tricount` 203265; captures show the drain gap legible
+(no hoop back-filling it) with the dragon visible. The human judges the drain pace + comet aesthetic live.
