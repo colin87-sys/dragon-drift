@@ -4221,3 +4221,37 @@ shield, power-up): swap colour/spin/'# of hoops' per state and it reads instantl
 freed the enveloping-orb idea for its correct owner — the BOSS shield bubble, where occluding the enemy is fine (even
 desirable). Verified: `boss.mjs` (8), `bossboot` zero-error, `tricount` 203265 (aura swapped orb→rings, tris flat).
 The human confirms the live read (dragon + bullets visible through Surge) on the preview.
+
+### L107 — Boss HUD legibility pass: one notification slot, platform-correct prompts, and letting player-owned UI get out of the way
+
+**Did / learned.** A batch of player-driven readability fixes for the boss overlay: (1) **One callout slot, queued.**
+Surge fired TWO overlapping banners ("DRAGON SURGE" from feverStart + "DRAGON SURGE / REFLECT ANYTHING" from an
+on('surge') handler) — illegible. Collapsed all boss callouts (WARNING aside) into a single bottom-centre `#boss-note`
+driven by a QUEUE: one message at a time, each held longer (~3s), the next only shown after the previous fades. Kept
+the useful instruction ("REFLECT ANYTHING") and dropped the redundant title. (2) **Same slot doubles as the persistent
+SURGE-READY prompt** — when the queue is idle it shows the prompt; a timed callout interrupts it and it returns after.
+This is the "one thing at a time" guarantee: a shared slot can't overlap itself. (3) **Platform-correct input labels** —
+the prompt reads "TAP" on a coarse-pointer/touch device and "SPACE" on a keyboard one (detected once via
+`maxTouchPoints`/`pointer: coarse`); shipping "SPACE / TAP" to everyone is lazy and wrong on both. (4) **Player-owned UI
+gets out of the way in the mode where it's meaningless** — the stamina bar (speed is locked / unlimited during a boss)
+FADES out on boss start (same 0.6s transition it fades back in on boss end), and a **focus circle draws ON in its place**
+(a RingGeometry whose `thetaLength` sweeps 0→2π — the same "fills from nothing" language as the HP bar), then draws OFF
+at the end. (5) Grace tuned: `postGrace 220→50`, Surge is GRANTED on the kill so the hyper carries into the grace band,
+and guaranteed speed-boost pickups spawn there so that momentum doesn't fizzle. (6) Removed the aura's redundant outer
+"depth" ring — one clean hoop.
+
+**→ Systematize.** (a) **A HUD needs ONE owner per screen region; route every transient callout through a single queued
+slot** so two events can never render on top of each other — overlap, not content, is what kills legibility. (b) **Input
+prompts must name the ACTUAL control for the device** — detect touch vs keyboard once and template the verb; never
+hardcode a platform's key. (c) **Mode-specific UI should animate in/out with the mode**, not blink — a bar that's
+meaningless this mode fades away (and reverses on exit with the identical transition), and if something replaces it, give
+the replacement a "draws on from nothing" reveal (thetaLength sweep / fill) so the swap reads as intentional. (d) **After
+a climactic beat, hand the player momentum, don't strip it** — carry the earned buff across the transition and seed
+pickups so the high continues instead of snapping back to baseline.
+
+**→ Leapfrog (innovate).** The queued single-slot notifier + the fade/draw-on swap are reusable for every mode
+transition (canyon, gauntlet, rush): one `note()` API with a priority/duration, one "vitals swap" helper that fades the
+normal HUD and draws on the mode's own indicator. The thetaLength-sweep ring is a general "radial progress/reveal"
+primitive (charge meters, cooldowns, capture rings). Verified: `boss.mjs` (8), `bossboot` real-WebGL zero-error, `smoke`,
+`tricount` 203265; a capture confirms the stamina bar gone + focus circle drawn + single hoop + dragon visible. The human
+judges the callout timing/readability and the fade/draw-on feel live.

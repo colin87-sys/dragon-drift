@@ -197,7 +197,7 @@ export const CONFIG = {
     shieldDamage: 999,      // a Surge unleash bursts the shield outright (phase advance)
     // Death reward: a defeated boss pays a big score bonus AND a haul of embers.
     defeatEmbers: 60,
-    postGrace: 220,         // metres after a boss with rings/orbs only (no hazards) to ease back in
+    postGrace: 50,          // metres after a boss with rings/orbs only (no hazards) to ease back in
     // Rider auto-attack: a gentle chip (Surge is the real damage — it bursts the
     // per-phase shield); tuned low so you can't brute-force phases with chip alone.
     riderShotInterval: 0.5,

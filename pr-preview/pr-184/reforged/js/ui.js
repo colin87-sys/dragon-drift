@@ -21,6 +21,17 @@ import { ASCENSION_TIERS, ascendedDef, ascensionTier, canAscend, radianceRank, m
 let els = {};
 let handlers = {};
 
+// Surge-unleash input label, per device: a touch/coarse-pointer device (iOS,
+// Android) unleashes with a TAP; a keyboard device with SPACE. Detected once.
+const IS_TOUCH = (() => {
+  try {
+    return (navigator.maxTouchPoints > 0) ||
+      ('ontouchstart' in window) ||
+      (window.matchMedia && window.matchMedia('(pointer: coarse)').matches);
+  } catch { return false; }
+})();
+const SURGE_KEY = IS_TOUCH ? 'TAP' : 'SPACE';
+
 // §8 — one consistent, satisfying UI sound across the whole interface. A single
 // delegated capture-listener plays a soft "select" tick on any meaningful
 // control, or a gentle "deny" on locked/disabled ones. Action chimes (equip,
@@ -472,7 +483,10 @@ export const ui = {
         <div class="boss-warn-name" id="boss-warn-name"></div>
       </div>
       <div class="boss-danger" id="boss-danger">DANGER</div>
-      <div class="surge-ready" id="surge-ready">⚡ SURGE READY — SPACE / TAP ⚡</div>
+      <!-- Single bottom-centre boss announcement slot: shows ONE message at a time
+           (queued) so callouts never overlap, and doubles as the persistent
+           SURGE-READY prompt when idle. -->
+      <div class="boss-note" id="boss-note"></div>
       <div class="popup" id="popup"></div>
       <div class="popup popup2" id="popup2"></div>
       <div class="feat-toast" id="feat-toast"></div>
@@ -509,7 +523,7 @@ export const ui = {
       bossWarnName: root.querySelector('#boss-warn-name'),
       bossDanger:   root.querySelector('#boss-danger'),
       dangerGlow:   root.querySelector('#danger-glow'),
-      surgeReadyEl: root.querySelector('#surge-ready'),
+      bossNote:     root.querySelector('#boss-note'),
       goldFlash:    root.querySelector('#gold-flash'),
       surgeWidget:  root.querySelector('#surge-widget'),
       surgeX:       root.querySelector('#surge-x'),
@@ -858,25 +872,74 @@ export const ui = {
   },
 
   // "SURGE READY" prompt during a boss when the meter is full (manual unleash).
+  // Shows the CORRECT input for the device (TAP on touch, SPACE on desktop). It
+  // lives in the SAME bottom slot as the callouts, so it's suppressed while a
+  // timed callout is up (one thing at a time) and returns when the slot is idle.
   surgeReady(show) {
-    if (!els.surgeReadyEl || show === this._surgeReadyShown) return;
-    this._surgeReadyShown = show;
-    els.surgeReadyEl.classList.toggle('show', show);
+    if (show === this._readyState) return;
+    this._readyState = show;
+    this._readyText = show ? `⚡ SURGE READY — ${SURGE_KEY} ⚡` : null;
+    if (!this._noteBusy) this._renderReady();
   },
 
-  // Boss encounter callouts (warning, phase change, defeat). Two-line: a big
-  // banner on the milestone slot + a smaller subtitle on the secondary popup.
-  bossBanner(text, sub) {
-    const b = els.milestoneBanner;
-    if (b) {
-      b.textContent = text;
-      b.classList.remove('ms-anim');
-      void b.offsetWidth;
-      b.classList.add('ms-anim');
+  // Boss callouts (warning, phase, shield, surge, defeat) — ONE bottom-centre slot,
+  // QUEUED so they never overlap and each stays readable. `tone` colours it,
+  // `dur` (s) is how long it holds. Kept legible: one message at a time, at the
+  // bottom where the eye rests during a fight.
+  bossNote(text, sub = '', tone = 'gold', dur = 2.6) {
+    if (!els.bossNote) return;   // no HUD (e.g. headless tests) → no-op
+    this._noteQueue = this._noteQueue || [];
+    this._noteQueue.push({ text, sub, tone, dur });
+    this._pumpNote();
+  },
+
+  // Legacy alias: older call sites used bossBanner(text, sub).
+  bossBanner(text, sub) { this.bossNote(text, sub); },
+
+  _pumpNote() {
+    if (!els.bossNote || this._noteBusy) return;
+    const n = (this._noteQueue || []).shift();
+    if (!n) { this._renderReady(); return; }   // idle → the persistent prompt (if any)
+    this._noteBusy = true;
+    const el = els.bossNote;
+    el.dataset.tone = n.tone;
+    el.classList.remove('ready');
+    el.innerHTML = `<span class="bn-main">${n.text}</span>${n.sub ? `<span class="bn-sub">${n.sub}</span>` : ''}`;
+    el.classList.add('show');
+    restartAnim(el, 'boss-note-anim');
+    clearTimeout(this._noteTO);
+    this._noteTO = setTimeout(() => {
+      el.classList.remove('show');
+      setTimeout(() => { this._noteBusy = false; this._pumpNote(); }, 240);   // let it fade before the next
+    }, n.dur * 1000);
+  },
+
+  _renderReady() {
+    const el = els.bossNote;
+    if (!el) return;
+    if (this._readyText) {
+      el.dataset.tone = 'ready';
+      el.innerHTML = `<span class="bn-ready">${this._readyText}</span>`;
+      el.classList.add('show', 'ready');
     } else {
-      this._popup(text, 'gold');
+      el.classList.remove('show', 'ready');
     }
-    if (sub) this._popup2(sub, 'gold');
+  },
+
+  // Flush the slot when a fight ends so no stale callout/prompt lingers.
+  bossNoteClear() {
+    this._noteQueue = [];
+    this._noteBusy = false;
+    this._readyState = false;
+    this._readyText = null;
+    clearTimeout(this._noteTO);
+    if (els.bossNote) els.bossNote.classList.remove('show', 'ready');
+  },
+
+  // Fade the stamina arc away for a boss (unlimited/locked speed → the bar is
+  // meaningless) and back in after; the boss focus ring draws on in its place.
+  staminaBoss(hidden) {
+    if (els.staminaArc) els.staminaArc.classList.toggle('boss-hidden', hidden);
   },
 
   radioPopup(name) {
