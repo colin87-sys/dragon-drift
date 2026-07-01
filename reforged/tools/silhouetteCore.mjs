@@ -53,11 +53,18 @@ function applyPose(parts, flap, pose) {
 }
 
 // Render the filled silhouette of one dragon/form/view into an 8-bit coverage buffer (0 bg, 255 fill).
+// Roster-key entry point: resolve the form, then delegate to renderSilhouetteDef.
 export function renderSilhouette({ key, view = 'rear', tier, W, H, pose, hideWings = false }) {
   const maxTier = maxTierFor(key);
   const t = tier != null ? tier : maxTier;
-  const cam = new THREE.PerspectiveCamera(60, W / H, 0.1, 200);
   const def = ascendedDef(DRAGONS[key], t, 0);
+  return renderSilhouetteDef({ def, view, W, H, pose, hideWings, name: DRAGONS[key].name || key, formName: FORM[t] || `T${t}` });
+}
+
+// Same rasterizer, but from an already-resolved def (a mutated blueprint) — the gallery/variant path.
+// The def must be form-resolved (already run through ascendedDef); it carries its own model/parts/colors.
+export function renderSilhouetteDef({ def, view = 'rear', W, H, pose, hideWings = false, name = 'dragon', formName = '' }) {
+  const cam = new THREE.PerspectiveCamera(60, W / H, 0.1, 200);
   const built = buildDragonModel(def, {});
   const group = built.group;
   if (pose) applyPose(built.parts || {}, def.model.flap, pose);
@@ -126,7 +133,7 @@ export function renderSilhouette({ key, view = 'rear', tier, W, H, pose, hideWin
     else for (let i = 0; i < pos.count; i += 3) tri(i, i + 1, i + 2);
   });
   const bounds = maxX >= minX ? { minX, maxX, minY, maxY } : null;
-  return { buf, W, H, bounds, tris, name: DRAGONS[key].name || key, formName: FORM[t] || `T${t}` };
+  return { buf, W, H, bounds, tris, name, formName };
 }
 
 // --- PNG: CRC32 + chunk framing ----------------------------------------------
