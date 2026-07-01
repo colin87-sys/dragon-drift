@@ -268,6 +268,9 @@ function executeAttack(id, player) {
   const lead = 0.08;
   const px = player.position.x + player.velocity.x * lead;
   const py = player.position.y + player.velocity.y * lead;
+  // Area patterns (tunnel / spiral) follow the player's side of the lane so you
+  // can't just park at the edge and skip them; aimed/fan already track you.
+  const anchorX = Math.max(-8, Math.min(8, player.position.x * 0.7));
 
   if (id === 'aimed') {
     // Three distinct bullets to dodge around, not one dense overlapping wall.
@@ -289,7 +292,7 @@ function executeAttack(id, player) {
     const slow = closing * 0.78;
     for (let i = 0; i < n; i++) {
       const a = spiralPhase + (i / n) * Math.PI * 2;
-      emitBoss(pose.x, pose.y, Math.cos(a) * 9, Math.sin(a) * 9, -slow);
+      emitBoss(anchorX, B.fightHeight, Math.cos(a) * 9, Math.sin(a) * 9, -slow);
     }
   } else if (id === 'tunnel') {
     // A succession of bullet-RINGS rushing at you — a glowing tube to fly down,
@@ -298,7 +301,7 @@ function executeAttack(id, player) {
     const m = quality < 0.75 ? 12 : 16;
     const slow = closing * 0.85;
     for (let k = 0; k < rings; k++) {
-      const cx = Math.sin(k * 0.8) * 5;       // the safe centre drifts → you weave
+      const cx = anchorX + Math.sin(k * 0.8) * 5;   // centred on you, then weaves → you follow
       pending.push({ t: k * 0.32, fire: () => fireRing(cx, B.fightHeight, 7, m, slow) });
     }
   } else if (id === 'spiralStream') {
@@ -310,7 +313,7 @@ function executeAttack(id, player) {
       pending.push({ t: k * 0.12, fire: () => {
         for (let arm = 0; arm < 2; arm++) {
           const ang = a + arm * Math.PI;
-          emitBoss(pose.x, pose.y, Math.cos(ang) * 8, Math.sin(ang) * 8, -slow);
+          emitBoss(anchorX, B.fightHeight, Math.cos(ang) * 8, Math.sin(ang) * 8, -slow);
         }
       } });
     }

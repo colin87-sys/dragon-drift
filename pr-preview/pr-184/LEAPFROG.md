@@ -3702,3 +3702,37 @@ rider chip. Verification: `tests/boss.mjs` extended (graze charges, hit/miss exc
 grazing auto-fires Surge) + `tests/bossboot.mjs` real-WebGL zero-error + `tricount` unchanged (203265) +
 `tiershots` compiles; the human judges on the preview whether the graze band *feels* right (the tuning numbers —
 `grazeScale 2.2`, `grazeGain 0.34` — are first guesses).
+
+---
+
+### L92 — Boss bullet readability + "stops short" feel: core+halo, fly PAST the plane, player-anchored area patterns
+
+**Did / learned.** Playtest notes on the danmaku: bullets read too transparent; they seemed to "stop just short of
+me"; too fast; and an edge-parked player skipped the circular patterns. Four fixes: (1) **core + halo** — a lone
+additive octahedron washes out over the bright biomes, so bullets are now a bright near-opaque core (`0xfff2e6`,
+a second `InstancedMesh` drawn on top) inside the additive coloured halo (radius ×2.0). Two draw calls total,
+still trivial. (2) **The "stops short" was real, not perceptual** — the crossing test `deactivate()`d EVERY boss
+bullet the frame it reached `rel=0` (hit/graze/miss alike), so bullets vanished exactly at the player. Now only a
+HIT consumes the bullet; graze/miss keep flying to `rel < -12` and whoosh past the camera. The hit/graze
+detection is unchanged (still dead-on the player plane) — the bug was purely the visual despawn. (3) `bulletSpeed
+34→28` (reaction ≈ `settleGap/speed` ≈ 1.07 s). (4) **Area patterns now anchor to the player** —
+`anchorX = clamp(player.x·0.7, ±8)` centres the tunnel weave and the spiral/spiralStream origin on the player's
+side of the lane, so you can't park at the edge and ignore them; aimed/fan already tracked you.
+
+**→ Systematize.** (a) **Readability is a render concern, not a collision one.** The visual scale (×2.0 halo,
+×0.85 core) is fully decoupled from the hitbox (`bulletRadius`-derived `hitR/grazeR`), so we can make bullets
+*look* bigger/brighter for legibility without making them *harder* to dodge — tune the two independently, always.
+(b) **"Vanishes at the player" is a despawn-timing smell.** Any projectile that resolves on a plane crossing
+should keep rendering a few frames PAST the crossing (only the CONSUMING outcome despawns immediately) or it reads
+as stopping short — a reusable rule for the reflect/rider bullets too. (c) **Center-emitted patterns exempt an
+edge player by construction;** anchoring the emission origin to a player-biased point is the general fix (bias
+< 1.0 so the safe gap/weave still forces a dodge rather than sitting trivially on them).
+
+**→ Leapfrog (innovate).** Core+halo gives a per-role *shape/brightness* vocabulary to layer on top of colour:
+reflectable bullets (Increment 2) can pulse the core, surge-time (Increment 3) can desaturate the halo, telegraphs
+can pre-flash the core — all without new geometry. And the "anchor area patterns to the player" knob is the seed
+of *difficulty by safe-lane placement* (Doremy's principle from the research): later phases can push the anchor
+bias toward 1.0 (tighter follow) or offset the gap AWAY from the player, escalating without adding a single
+bullet. Verified headless (`tests/boss.mjs` 6 checks) + real-WebGL (`bossboot`, zero console errors with two-layer
+bullets live) + `tricount` unchanged (203265); the human judges the new brightness, the whoosh-past, and whether
+the anchored patterns feel fair on the preview.

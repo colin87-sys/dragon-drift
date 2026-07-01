@@ -20,7 +20,8 @@ import { emit } from './events.js';
 const POOL = CONFIG.BOSS.bulletPool;
 const R = CONFIG.playerRadius;
 
-let mesh = null;
+let mesh = null;       // additive coloured halo (the glow)
+let coreMesh = null;   // bright opaque core (readability — danmaku bullets are core+halo)
 let visibleCap = POOL;
 const slots = [];   // see makeSlot
 let cursor = 0;
@@ -50,18 +51,29 @@ function makeSlot() {
 
 export function initBossBullets(scene) {
   if (mesh) return;
-  const mat = new THREE.MeshBasicMaterial({
+  // Halo: an additive coloured glow (the danger colour).
+  const glowMat = new THREE.MeshBasicMaterial({
     transparent: true, blending: THREE.AdditiveBlending, depthWrite: false,
   });
-  mesh = new THREE.InstancedMesh(new THREE.OctahedronGeometry(1, 0), mat, POOL);
+  mesh = new THREE.InstancedMesh(new THREE.OctahedronGeometry(1, 0), glowMat, POOL);
   mesh.frustumCulled = false;
   mesh.instanceColor = new THREE.InstancedBufferAttribute(new Float32Array(POOL * 3), 3);
+  // Core: a bright near-opaque centre so a bullet reads solidly against any sky
+  // (a lone additive sprite washes out over the bright biomes).
+  const coreMat = new THREE.MeshBasicMaterial({
+    color: 0xfff2e6, transparent: true, opacity: 0.96, depthWrite: false,
+  });
+  coreMesh = new THREE.InstancedMesh(new THREE.OctahedronGeometry(1, 0), coreMat, POOL);
+  coreMesh.frustumCulled = false;
   for (let i = 0; i < POOL; i++) {
     slots.push(makeSlot());
     mesh.setMatrixAt(i, HIDDEN);
+    coreMesh.setMatrixAt(i, HIDDEN);
   }
   mesh.instanceMatrix.needsUpdate = true;
+  coreMesh.instanceMatrix.needsUpdate = true;
   scene.add(mesh);
+  scene.add(coreMesh);   // added after the halo → drawn on top
 }
 
 // Quality scales the concurrent-bullet ceiling (mobile draws fewer).
@@ -108,6 +120,7 @@ export function spawnBossBullet(opts) {
 function deactivate(i) {
   slots[i].active = false;
   mesh.setMatrixAt(i, HIDDEN);
+  if (coreMesh) coreMesh.setMatrixAt(i, HIDDEN);
 }
 
 export function updateBossBullets(dt, player) {
@@ -128,28 +141,31 @@ export function updateBossBullets(dt, player) {
     s.rel += s.vrel * dt;
     s.life -= dt;
 
-    // Render in the player-relative frame (world z follows the player forward).
+    // Render in the player-relative frame (world z follows the player forward) as a
+    // bright core + a larger additive halo (both driven off the same slot).
     eul.set(s.x * 0.3, s.rel * 0.3, 0);
     quat.setFromEuler(eul);
-    m4.compose(posV.set(s.x, s.y, -(player.dist + s.rel)), quat, sclV.setScalar(s.r));
+    posV.set(s.x, s.y, -(player.dist + s.rel));
+    m4.compose(posV, quat, sclV.setScalar(s.r * 2.0));   // halo
     mesh.setMatrixAt(i, m4);
     colV.setHex(s.color);
     mesh.setColorAt(i, colV);
+    m4.compose(posV, quat, sclV.setScalar(s.r * 0.85));  // core
+    coreMesh.setMatrixAt(i, m4);
 
     if (s.owner === 'boss') {
-      // Crossed the player's plane this frame → resolve the dodge. A dead-on pass
-      // hits; a near-but-clean pass (inside the graze band) charges surge.
+      // Resolve the dodge on the frame the bullet crosses the player's plane: a
+      // dead-on pass HITS (and is consumed here); a near-clean pass GRAZES. Either
+      // way a NON-hit keeps flying PAST the player and whooshes by the camera, so a
+      // bullet never appears to vanish just short of you.
       if (prevRel > 0 && s.rel <= 0) {
         const dx = s.x - px, dy = s.y - py;
         const d2 = dx * dx + dy * dy;
-        if (d2 < hitR * hitR) {
-          hitPlayer(player, s.dmg, 'bullet');
-        } else if (d2 < grazeR * grazeR) {
-          bulletGraze(player);
-        }
-        deactivate(i);
-      } else if (s.rel < -2 || s.life <= 0 ||
-                 Math.abs(s.x) > CONFIG.laneHalfWidth + 6 || s.y < -2 || s.y > 30) {
+        if (d2 < hitR * hitR) { hitPlayer(player, s.dmg, 'bullet'); deactivate(i); continue; }
+        if (d2 < grazeR * grazeR) bulletGraze(player);
+      }
+      if (s.rel < -12 || s.life <= 0 ||
+          Math.abs(s.x) > CONFIG.laneHalfWidth + 10 || s.y < -4 || s.y > 34) {
         deactivate(i);
       }
     } else {
@@ -166,6 +182,7 @@ export function updateBossBullets(dt, player) {
     }
   }
   mesh.instanceMatrix.needsUpdate = true;
+  coreMesh.instanceMatrix.needsUpdate = true;
   if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true;
 }
 
@@ -201,7 +218,9 @@ export function resetBossBullets() {
   for (let i = 0; i < POOL; i++) {
     if (slots[i]) slots[i].active = false;
     if (mesh) mesh.setMatrixAt(i, HIDDEN);
+    if (coreMesh) coreMesh.setMatrixAt(i, HIDDEN);
   }
   cursor = 0;
   if (mesh) mesh.instanceMatrix.needsUpdate = true;
+  if (coreMesh) coreMesh.instanceMatrix.needsUpdate = true;
 }
