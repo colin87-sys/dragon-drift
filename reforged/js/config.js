@@ -176,6 +176,16 @@ export const CONFIG = {
     bossSpeed: 52,          // closing speed of a rider/reflected bullet toward the boss
     bulletDamage: 13,      // forgiving: a clean hit stings but a graze-heavy run survives
     bossHitRadius: 4.2,     // how close a boss-ward bullet must be to count as a hit (matches the larger body)
+    // Render-order LAW for the fight: NOTHING draws over a bullet. Bullets (outline/
+    // body/core) sit at the top of the whole fight-FX stack; every other layer
+    // (shadow under the floor, arena walls, shield, surge FX, the focus ring) is
+    // beneath them. The boss's own HP bar is UI, not fight FX — it stays at its own
+    // 998-1000 band (bossModel.js) outside this table.
+    renderTiers: {
+      bulletShadow: -1, arenaWall: 2, shield: 3, surgeFx: 4,
+      focusTrack: 5, focusFill: 6, focusHead: 7,
+      bulletOutline: 20, bulletBody: 21, bulletCore: 22,
+    },
     // Graze: skimming a bullet (inside the graze band but outside the hit radius)
     // charges Dragon Surge — the "drift" identity transplanted from rings onto
     // danmaku. Band = (hitR, grazeR];  grazeR = playerRadius × grazeScale + bulletRadius.
