@@ -4866,3 +4866,45 @@ tag matches the def, a visible-draw-call budget gate, jaw/iris telegraph-silhoue
 gate) — all green alongside every pre-existing assertion (24 total); `tests/bossboot.mjs` zero console errors;
 `tools/bossshot.mjs` extended with state-based mid-charge + Stormrend-shielded captures; `tests/run-all.mjs` green
 (the pre-existing `badges.mjs` failure is unrelated — fails identically on the base commit).
+
+### L126 — On-device budget verdict + the "carved, not scattered" design pass
+
+**Did / learned.** The human ran the L124 stress URLs on a real phone and the numbers settle every question the
+headless sweep had to leave open. **Draw calls: 415 separate animated meshes held ~58fps** — draws at boss scale are
+simply not a budget axis on this renderer. **Triangles: 400k tris held ~59fps** — the 6,000/boss test ceiling is
+enormously conservative; geometry is effectively free at our scales. **Instancing: WORSE than separate meshes**
+(36.8fps with p95 spiking to ~217ms vs 58.4fps un-instanced at identical 200k-tri load) — the per-frame JS
+`instanceMatrix` recompute+upload janks harder than 400 draw submissions; L11's merge/instance instinct solved a
+problem this game doesn't have. **Overdraw: confirmed as THE cliff on-device** — the boss-realistic worst case (100
+fresnel-material meshes + 8 stacked shells) fell to 32.4fps / p50 30ms while every other axis stayed at vsync. Revised
+house rule: spend tris and draw calls freely at entity scale, ration additive/fresnel SCREEN COVERAGE, and don't
+reach for InstancedMesh to "save draws" unless the matrices are static. The boss draw gate in `tests/boss.mjs` rose
+24→30 on this evidence. Separately, a design-quality pass on both shipped boss bodies proved a craft lesson the first
+build missed: **randomness reads as noise, symmetry reads as intent**. The idol's jittered ornament-chip scatter
+(procedural "detail") read as debris speckle; replacing it with AUTHORED, mirrored relief — angled brow bars, a nose
+ridge, stacked cheek guards, temple studs, a crown of three fins — at the same tri cost made it read as a carved
+face. Same lesson, three more applications: slanted heptagonal eye sockets (outer corner high) turn the resting
+expression into a GLARE for zero extra geometry — expression lives in the socket shape, not the glow; gilding the brow
+bars + chin with the halo's gold material (one extra draw) ties the face into the halo/seam story and reads as
+"ancient wrathful god" instantly; and the asymmetric scar stays legible only if it's the ONE broken thing in an
+otherwise symmetric design (cracked cheek guard on the stub side only). On the mandala: gold vane TIPS parented to the
+spinning ring pivot put a circling glint on the outer wheel (motion + accent in one part), and flickering storm-arc
+LineSegments between the ring rails (opacity = sin^12 pulses on per-bolt clocks, tracked mats so dissolve still owns
+them) gave "Stormrend" its actual weather for ~0 fill cost — line-based FX are exempt from the overdraw cliff.
+
+**Gotcha.** `bossshot` fight-phase waits still time out under headless rAF throttle (~15×) — several captures caught
+the APPROACH tilt, where the mask catches hemisphere light and reads pale pink; judge design only on a front-on
+fight-phase frame (the charge captures, which wait on `bossState().charging`, are the reliable ones).
+
+**→ Systematize.** Budget review for new entities is now two questions, in order: (1) how much additive/fresnel
+screen coverage does it add (the only real cliff — count large shells, cap at ~2)? (2) is anything sub-1k-tris NOT
+merged that trivially could be? Draw count and tri count come last, not first. Design review for any new
+character/prop: author detail in mirrored, named placements (relief bands, ridge lines, crown fins) and reserve
+randomness for sub-0.1-unit jitter on top of authored positions — never for placement itself.
+
+**→ Leapfrog (innovate).** The stress page + phone URLs are now a permanent instrument: any future "can we afford X?"
+argument gets settled by adding an axis to `stress.html` and reading the HUD on a real device, not by ledger
+archaeology. The storm-arc idiom (static jagged LineSegments + per-mat sin^N opacity clocks) generalises to any
+"energy jumps between parts" read — dragon ascension forms, surge FX, canyon hazards — at near-zero cost. Verified:
+`tests/boss.mjs` 16/16 green (idol 2,502 tris / 18 draws; mandala 3,280 tris / 27 draws), `tests/bossboot.mjs` zero
+console errors, bossshot captures re-judged front-on in two biomes per boss.
