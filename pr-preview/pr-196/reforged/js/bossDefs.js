@@ -29,6 +29,12 @@ export const BOSSES = {
     name: 'VOIDMAW',
     title: 'the Sky Tyrant',
     hpMax: 180,
+    // Boss-archetype dispatch (bossModel.js buildBoss): routes to the
+    // Hollow Idol-Mask hero builder (bossIdol.js) instead of the legacy
+    // crystal-core construct. A def WITHOUT `archetype` (e.g. stormrend,
+    // until it migrates) still falls through to the legacy path unchanged —
+    // that's the coexist rule this system is built on.
+    archetype: 'idolMask',
     accent: 0xa040ff,         // body reads violet so the magenta bullets pop as danger
     glow: 0xc89aff,
     bulletColor: 0xff2b6a,    // magenta = "this will hurt" (danger role colour, never per-boss)

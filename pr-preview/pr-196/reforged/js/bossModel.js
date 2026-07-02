@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { makeEnergyShell, createBossCommon } from './bossKit.js';
+import { buildIdolMask } from './bossIdol.js';
 
 // API-stable re-export: boss.js imports makeEnergyShell from here for the
 // Surge aura FX. The implementation now lives in bossKit.js (shared plumbing
@@ -23,6 +24,12 @@ export { makeEnergyShell } from './bossKit.js';
 // All materials are collected so the disintegration death can fade them as one.
 
 export function buildBoss(def, quality = 1) {
+  // Archetype dispatch (coexist rule): a def with `archetype` gets its own
+  // hero builder; a def WITHOUT one falls straight through to the legacy
+  // construct below, byte-identical to before archetypes existed — so the
+  // shipped roster never breaks while new bosses migrate one at a time.
+  if (def.archetype === 'idolMask') return buildIdolMask(def, quality);
+
   const accent = def.accent ?? 0xff4488;
   const glow = def.glow ?? 0xff88cc;
   // Nullable BODY RECIPE: silhouette knobs so each boss reads distinct at 30m.
