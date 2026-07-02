@@ -133,9 +133,11 @@ function findAllByName(root, name) {
 // 415 draw calls (and instancing actually JANKED — 36.8fps with p95 spikes
 // from the per-frame instanceMatrix upload), so draw count at boss scale is
 // simply not the budget axis; additive-shell OVERDRAW is (32fps cliff on the
-// same phone). 30 still gates runaway part explosions without taxing
-// deliberate design (the design pass added gilt/tip/storm-arc draws).
-const DRAW_BUDGET = 30;
+// same phone). 34 still gates runaway part explosions without taxing
+// deliberate design (the design pass added gilt/tip/storm-arc draws; the
+// shareability pass added the living-eye rig — pupils, storm lids, vein
+// lines, brow pivots — worth every one of its ~4 extra draws per boss).
+const DRAW_BUDGET = 34;
 for (const key of BOSS_ORDER) {
   const def = BOSSES[key];
   const q1 = buildBoss(def, 1);

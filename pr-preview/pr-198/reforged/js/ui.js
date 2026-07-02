@@ -488,6 +488,18 @@ export const ui = {
            (queued) so callouts never overlap, and doubles as the persistent
            SURGE-READY prompt when idle. -->
       <div class="boss-note" id="boss-note"></div>
+      <!-- FromSoft-style reveal/kill cards: lower-third, non-blocking, fire-once
+           per fight-start / death beat. Sit ABOVE the boss-note slot (bottom:22%)
+           and clear of boss-warn (top:30%, only up during the earlier warn beat). -->
+      <div class="boss-title-card" id="boss-title-card">
+        <div class="btc-name" id="btc-name"></div>
+        <div class="btc-rule"></div>
+        <div class="btc-epithet" id="btc-epithet"></div>
+      </div>
+      <div class="boss-felled-card" id="boss-felled-card">
+        <div class="bfc-word">FELLED</div>
+        <div class="bfc-name" id="bfc-name"></div>
+      </div>
       <div class="popup" id="popup"></div>
       <div class="popup popup2" id="popup2"></div>
       <div class="feat-toast" id="feat-toast"></div>
@@ -525,6 +537,11 @@ export const ui = {
       bossDanger:   root.querySelector('#boss-danger'),
       dangerGlow:   root.querySelector('#danger-glow'),
       bossNote:     root.querySelector('#boss-note'),
+      bossTitleCard: root.querySelector('#boss-title-card'),
+      btcName:      root.querySelector('#btc-name'),
+      btcEpithet:   root.querySelector('#btc-epithet'),
+      bossFelledCard: root.querySelector('#boss-felled-card'),
+      bfcName:      root.querySelector('#bfc-name'),
       goldFlash:    root.querySelector('#gold-flash'),
       surgeWidget:  root.querySelector('#surge-widget'),
       surgeX:       root.querySelector('#surge-x'),
@@ -877,6 +894,34 @@ export const ui = {
       hide(els.bossWarn); hide(els.bossDanger); hide(els.dangerGlow);
     }, duration * 1000);
     sfx.milestone?.();
+  },
+
+  // FromSoft-style reveal card: fires once as the fight actually starts (settle
+  // done, `phase = 'fight'`). Big letter-spaced NAME + a thin accent rule + the
+  // epithet beneath, lower-third, fade-in → hold → fade-out. Non-blocking
+  // (pointer-events:none in CSS) and never overlaps the HP bar (a world-space
+  // sprite above the boss) or bossWarning (already hidden by the time fight starts).
+  bossTitleCard(name, epithet, accentHex = 0xffffff, duration = 2.4) {
+    if (!els.bossTitleCard) return;   // no HUD (e.g. headless tests) → no-op
+    const hex = `#${(accentHex ?? 0xffffff).toString(16).padStart(6, '0')}`;
+    els.bossTitleCard.style.setProperty('--btc-accent', hex);
+    els.bossTitleCard.style.setProperty('--btc-dur', `${duration}s`);
+    if (els.btcName) els.btcName.textContent = name || '';
+    if (els.btcEpithet) els.btcEpithet.textContent = epithet || '';
+    clearTimeout(this._btcTO);
+    restartAnim(els.bossTitleCard, 'btc-anim');
+    this._btcTO = setTimeout(() => els.bossTitleCard.classList.remove('btc-anim'), duration * 1000);
+  },
+
+  // Kill card: fires once at `startDeath`. A single gold word ('FELLED') + the
+  // boss name small beneath — same lower-third slot/placement as the title card.
+  bossFelledCard(name, duration = 2.6) {
+    if (!els.bossFelledCard) return;
+    els.bossFelledCard.style.setProperty('--bfc-dur', `${duration}s`);
+    if (els.bfcName) els.bfcName.textContent = name || '';
+    clearTimeout(this._bfcTO);
+    restartAnim(els.bossFelledCard, 'bfc-anim');
+    this._bfcTO = setTimeout(() => els.bossFelledCard.classList.remove('bfc-anim'), duration * 1000);
   },
 
   // "SURGE READY" prompt during a boss when the meter is full (manual unleash).

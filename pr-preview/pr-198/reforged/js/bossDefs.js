@@ -28,6 +28,7 @@ export const BOSSES = {
     id: 'voidmaw',
     name: 'VOIDMAW',
     title: 'the Sky Tyrant',
+    epithet: 'The Hollow Judgment',   // bossTitleCard's reveal-card subtitle
     hpMax: 180,
     // Boss-archetype dispatch (bossModel.js buildBoss): routes to the
     // Hollow Idol-Mask hero builder (bossIdol.js) instead of the legacy
@@ -55,6 +56,7 @@ export const BOSSES = {
     id: 'stormrend',
     name: 'STORMREND',
     title: 'the Tempest Herald',
+    epithet: 'Eye of the Unending Gale',   // bossTitleCard's reveal-card subtitle
     hpMax: 220,
     // Boss-archetype dispatch (bossModel.js buildBoss): routes to the
     // Eye-of-the-Storm Mandala hero builder (bossMandala.js) instead of the

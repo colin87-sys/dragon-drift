@@ -172,10 +172,26 @@ export function buildIdolMask(def, quality = 1) {
   // tying the face to the halo/seam gold story. Gilded brows over glaring
   // eyes is the single strongest "ancient wrathful god" cue on the face.
   const giltParts = [];
-  // Brow ridge bars: one angled bar above each socket, echoing the socket's
-  // angry slant (outer end high) — the eyebrows that give the face intent.
+  // Brow ridge bars — the EXPRESSION RIG (shareability pass). The bars used to
+  // be merged into the static gilt draw; they now live on individual pivots so
+  // ±0.3 rad of rotation gives the face a full emotional range: glare (rest),
+  // anger (charge — steeper), pain (hit flinch — inner ends up), sorrow
+  // (death — outer ends collapse). Research note: a face that can CHANGE
+  // state is the single strongest fan-art driver; two rotating boxes are the
+  // cheapest expression machine in the entire engine. Meshes share the gilt/
+  // halo material (created below) — wired up after it exists.
+  const BROW_BASE = -0.22;   // resting glare slant (outer end high), per side
+  const browPivots = [];
+  const browSpec = [];       // deferred: material doesn't exist yet
   for (const sx of [-1, 1]) {
-    relief(giltParts, new THREE.BoxGeometry(1.45, 0.24, 0.26), sx * 1.28, 1.02 + j(0.03), 0.46, sx * -0.22);
+    const pivot = new THREE.Object3D();
+    pivot.name = 'browPivot';
+    pivot.position.set(sx * 1.28, 1.02 + j(0.03), 0.46);
+    pivot.rotation.z = sx * BROW_BASE;
+    pivot.userData.sx = sx;
+    rig.add(pivot);
+    browPivots.push(pivot);
+    browSpec.push(pivot);
   }
   // Nose ridge: a vertical prism between the sockets — centre-line structure
   // (a face is read from its centre-line out; the old scatter had none).
@@ -378,6 +394,13 @@ export function buildIdolMask(def, quality = 1) {
   // Sit just behind the socket plane so they read as ignited INSIDE the
   // hollow eyes rather than floating in front of the mask.
   // ---------------------------------------------------------------------
+  // The eyes live in a group centred between the sockets so a single
+  // scale.y drives BLINKS (crushing eyes + pupils together about the socket
+  // line, not about the rig origin). Blinks are the aliveness heartbeat —
+  // and eyes closing to slits over sky-holes is a read no flat sprite gets.
+  const eyeGroup = new THREE.Group();
+  eyeGroup.position.set(0, 0.30, -0.25);
+  rig.add(eyeGroup);
   const eyeSeg = lowQ ? [8, 6] : [10, 8];
   const eyeParts = [];
   for (const sx of [-1, 1]) {
@@ -391,7 +414,7 @@ export function buildIdolMask(def, quality = 1) {
     // z −0.25 (front face is +0.40) so it sits INSIDE the socket tunnel, not
     // flush with the face.
     const eye = strip(new THREE.SphereGeometry(0.58, eyeSeg[0], eyeSeg[1]));
-    eye.translate(sx * 1.30, 0.30, -0.25);
+    eye.translate(sx * 1.30, 0, 0);   // relative to eyeGroup (which carries the 0.30/-0.25 offset)
     eyeParts.push(eye);
   }
   const eyeGeo = mergeGeometries(eyeParts, false);
@@ -415,7 +438,27 @@ export function buildIdolMask(def, quality = 1) {
   eyeMat.toneMapped = false;
   eyeMat.color.copy(EYE_BASE).multiplyScalar(EYE_HOT);
   const eyeMesh = new THREE.Mesh(eyeGeo, eyeMat);
-  rig.add(eyeMesh);
+  eyeGroup.add(eyeMesh);
+
+  // PUPILS — two small void-dark spheres riding the white-hot cores. The
+  // anthropomorphism research is unambiguous: eyes that DO things (track the
+  // player with a little lag, constrict when charging, dilate in death) are
+  // what turn "two glowing dots" into "a mind looking at you". Separate
+  // meshes (not merged) because constriction scales each pupil about its own
+  // centre; they're children of eyeGroup so blinks crush them with the eyes.
+  // r 0.14: big enough to read as a pupil at fight distance, small enough
+  // that the resting glare stays WRATHFUL — the first capture pass at 0.17
+  // tipped the look-away frames into googly-eyed comedy.
+  const pupilMat = track(new THREE.MeshBasicMaterial({ color: 0x140a1e }));
+  const pupilGeo = new THREE.SphereGeometry(0.14, 8, 6);
+  const pupils = [];
+  for (const sx of [-1, 1]) {
+    const p = new THREE.Mesh(pupilGeo, pupilMat);
+    p.userData.sx = sx;
+    p.position.set(sx * 1.30, 0, 0.48);   // embedded in the core's front face
+    eyeGroup.add(p);
+    pupils.push(p);
+  }
 
   // ---------------------------------------------------------------------
   // THROAT GLOW — hidden behind the jaw at rest (opacity 0); floods light
@@ -446,15 +489,23 @@ export function buildIdolMask(def, quality = 1) {
   // of pure violet — the halo is the idol's ancient gilding, the same
   // material story as the cracks, and it separates the halo tier from the
   // violet stone accents at a glance.
-  const haloEmissive = new THREE.Color(0xd8b45a).lerp(new THREE.Color(accent), 0.35);
+  // EMBER, not gold (palette separation): both bosses were sharing white+gold
+  // accents, which blurs them at thumbnail size — the exact failure mode the
+  // shareability research flags for attribution. The idol's metal runs warm
+  // ember-orange; Stormrend keeps the pale storm-gold.
+  const haloEmissive = new THREE.Color(0xe0913f).lerp(new THREE.Color(accent), 0.25);
   const haloMat = track(new THREE.MeshStandardMaterial({
     color: 0x14101c, emissive: haloEmissive, emissiveIntensity: 0.65, roughness: 0.5, metalness: 0.3, flatShading: true,
   }));
-  // Gilt face relief (brow bars + chin wedge) shares the halo's gold material
-  // — one extra draw, and the face's gilding visibly matches the halo's.
+  // Gilt face relief (chin wedge) shares the halo's gold material — one extra
+  // draw, and the face's gilding visibly matches the halo's.
   const giltGeo = mergeGeometries(giltParts, false);
   if (!giltGeo) throw new Error('buildIdolMask: gilt mergeGeometries returned null (attribute mismatch)');
   rig.add(new THREE.Mesh(giltGeo, haloMat));
+  // Brow bars mount onto their expression pivots now that the gilt material
+  // exists (geometry centred on the pivot so rotation.z IS the expression).
+  const browGeo = strip(new THREE.BoxGeometry(1.45, 0.24, 0.26));
+  for (const pivot of browSpec) pivot.add(new THREE.Mesh(browGeo, haloMat));
   // Debris chunks merged INTO each arc geometry sit in the arc gaps and ride
   // the arc's rotation for free (same draw call, no per-frame work): the
   // halo reads as a shattered sun-disc whose fragments still orbit together.
@@ -525,7 +576,7 @@ export function buildIdolMask(def, quality = 1) {
   // Gold-violet: the crack colour, mixed from the "intact stone" gold toward
   // this boss's violet accent so it reads as part of the SAME break, not a
   // generic damage-red decal.
-  const seamColor = new THREE.Color(0xd8b45a).lerp(new THREE.Color(accent), 0.4);
+  const seamColor = new THREE.Color(0xe0913f).lerp(new THREE.Color(accent), 0.35);   // same ember family as the halo/gilt
   const seamMat = track(new THREE.LineBasicMaterial({
     color: seamColor, transparent: true, opacity: 0.5, blending: THREE.AdditiveBlending, depthWrite: false,
   }));
@@ -604,6 +655,40 @@ export function buildIdolMask(def, quality = 1) {
   let shieldClamp = false;
   kit.onShieldChange((v) => { shieldClamp = v; });
 
+  // --- CHARISMA LAYER (shareability pass) -------------------------------
+  // Gaze: the controller feeds normalized player offsets (setGaze); the
+  // pupils chase them with LAG — snap-tracking reads as a turret, lagged
+  // tracking reads as ATTENTION — and occasionally wander off deliberately
+  // (perfect fixation is machine behavior; a mind's gaze drifts).
+  let gazeTX = 0, gazeTY = 0;        // controller-fed target
+  let gazeX = 0, gazeY = 0;          // lagged current
+  let lookAwayT = 0, lookAwayX = 0, lookAwayY = 0;
+  let nextLookAway = 4 + Math.random() * 5;
+  function setGaze(nx, ny) {
+    gazeTX = Math.max(-1, Math.min(1, nx));
+    gazeTY = Math.max(-1, Math.min(1, ny));
+  }
+  // Blink: the aliveness heartbeat. Suppressed at high charge (it STARES
+  // while winding up — the not-blinking is itself a tell) and while dying
+  // (the final slow close is its own beat, driven by dyingK below).
+  let blinkT = 0;
+  const BLINK_DUR = 0.22;
+  let nextBlink = 2.5 + Math.random() * 3.5;
+  // Notice beat: fired once by the controller as the fight opens — pupils
+  // snap to pinpoints, brows slam to anger, a brief recoil. Being NOTICED by
+  // a giant face is the best free character moment there is.
+  let noticeT = 0;
+  function notice() { noticeT = 0.9; blinkT = 0; nextBlink = 1.6; }
+  // Hit flinch: brows flash to PAIN and the rig recoils — "it can feel" is
+  // the empathy switch. Piggybacks on the controller's existing flash calls.
+  let painT = 0;
+  function flinchFlash(amt) { if (amt > 0.3) painT = Math.max(painT, 0.35); kit.flash(amt); }
+  // Death with emotion, not explosion: wrap the kit dissolve so the mask
+  // dies mournfully — sorrow brows, eyes easing shut over the sky-holes, jaw
+  // falling slack, halo spin winding down. Mournful deaths generate fan art.
+  let dyingK = 0;
+  function setDissolveEmotive(k) { dyingK = Math.max(0, Math.min(1, k)); kit.setDissolve(k); }
+
   const ACCENT_COLOR = new THREE.Color(accent);
   const DANGER_COLOR = new THREE.Color(0xff2b6a);   // danger role-colour (never per-boss) — matches the legacy throat idiom
   const _throatColor = new THREE.Color();
@@ -614,16 +699,72 @@ export function buildIdolMask(def, quality = 1) {
     rig.position.y = Math.sin(time * 0.45) * 0.15;
 
     // Halo arcs counter-rotate at different rates — two independent pieces
-    // of debris, not one wheel — and NEVER re-form a full ring (each is a
-    // partial arc with a permanent gap baked into the geometry).
-    haloA.rotation.z += dt * 0.18;
-    haloB.rotation.z -= dt * 0.30;
+    // of debris, not one wheel — and NEVER re-form a full ring. In death the
+    // spin winds down with the dissolve: the halo dies with it.
+    haloA.rotation.z += dt * 0.18 * (1 - dyingK);
+    haloB.rotation.z -= dt * 0.30 * (1 - dyingK);
+
+    // --- Gaze: lagged pursuit of the fed target, with deliberate wander ---
+    nextLookAway -= dt;
+    if (lookAwayT > 0) lookAwayT -= dt;
+    else if (nextLookAway <= 0 && charge < 0.2 && noticeT <= 0 && dyingK <= 0) {
+      lookAwayT = 0.7 + Math.random() * 0.6;
+      lookAwayX = (Math.random() - 0.5) * 1.6;
+      lookAwayY = Math.random() * 0.7 - 0.2;
+      nextLookAway = 4 + Math.random() * 5;
+    }
+    const gx = lookAwayT > 0 ? lookAwayX : gazeTX;
+    const gy = lookAwayT > 0 ? lookAwayY : gazeTY;
+    const gLag = (noticeT > 0 || charge > 0.5) ? 10 : 3.5;   // it LOCKS ON when it means it
+    gazeX += (gx - gazeX) * Math.min(1, dt * gLag);
+    gazeY += (gy - gazeY) * Math.min(1, dt * gLag);
+    for (const p of pupils) p.position.set(p.userData.sx * 1.30 + gazeX * 0.20, gazeY * 0.15, 0.48);
+
+    // --- Blink (triangle 1→0→1) + the dying slow-close ---
+    if (blinkT > 0) blinkT -= dt;
+    else {
+      nextBlink -= dt;
+      if (nextBlink <= 0 && charge < 0.5 && dyingK <= 0) { blinkT = BLINK_DUR; nextBlink = 2.5 + Math.random() * 3.5; }
+    }
+    const blinkK = blinkT > 0 ? Math.abs((blinkT / BLINK_DUR) * 2 - 1) : 1;
+    const deathLid = 1 - dyingK * 0.95;
+    eyeGroup.scale.y = Math.max(0.05, Math.min(blinkK, deathLid));
+
+    // --- Brow expression (priority: death sorrow > hit pain > notice anger >
+    // shield strain > charge anger > resting glare) ---
+    if (painT > 0) painT -= dt;
+    if (noticeT > 0) noticeT -= dt;
+    let browP = 0;   // added slant: negative = angrier (steeper), positive → inner-up pain / outer-collapse sorrow
+    if (dyingK > 0) browP = 0.55 * Math.min(1, dyingK * 2.5);
+    else if (painT > 0) browP = 0.30 * (painT / 0.35);
+    else if (noticeT > 0) browP = -0.28;
+    else browP = shieldClamp ? -0.10 : -0.22 * charge;
+    for (const b of browPivots) {
+      const target = b.userData.sx * (BROW_BASE + browP);
+      b.rotation.z += (target - b.rotation.z) * Math.min(1, dt * 9);
+    }
+
+    // --- Pupils: pinpoint at notice/charge (a free attack tell — pinpoint =
+    // rage in every animal), blown wide in death. ---
+    const pupilTarget = dyingK > 0 ? 1.5 : (noticeT > 0 ? 0.5 : 1 - charge * 0.45);
+    for (const p of pupils) {
+      const s = p.scale.x + (pupilTarget - p.scale.x) * Math.min(1, dt * 8);
+      p.scale.setScalar(Math.max(0.01, s));
+    }
+
+    // --- Flinch/notice recoil: a local z-nudge on the rig (placeGroup owns
+    // the world position; this rides under it). ---
+    const recoil = (painT > 0 ? painT / 0.35 : 0) * 0.3 + (noticeT > 0.6 ? (noticeT - 0.6) / 0.3 : 0) * 0.2;
+    rig.position.z = -recoil;
 
     // Eye flicker: two frequencies (slow ember + fast spark) so it never
     // reads as a metronome; charging brightens further; a raised shield
-    // clamps the eyes down to a leashed ~0.5 regardless of charge/flicker.
+    // clamps the eyes down to a leashed ~0.5 regardless of charge/flicker;
+    // death lets the ember gutter down as the lids close.
     const flicker = 0.85 + Math.sin(time * 4.2) * 0.1 + Math.sin(time * 13) * 0.04;
-    const eyeK = shieldClamp ? 0.5 : flicker * (1 + charge * 0.3);
+    let eyeK = shieldClamp ? 0.5 : flicker * (1 + charge * 0.3);
+    if (noticeT > 0) eyeK *= 1.25;
+    eyeK *= 1 - dyingK * 0.4;
     // EYE_HOT overdrive keeps the ember >1.0 linear (bloom threshold) at all
     // idle flicker values; the shield clamp (0.5 × 2.4 = 1.2) stays just at
     // the bloom edge — leashed, visibly dimmer, but never a dead gray dot.
@@ -635,9 +776,12 @@ export function buildIdolMask(def, quality = 1) {
     // JAW TELEGRAPH: hinges OPEN as charge rises — a silhouette change, not
     // just a colour flare, per the design brief. Clamped shut while shielded
     // so "wide open mouth" never coincides with "currently invulnerable".
-    const jawTarget = shieldClamp ? 0 : -charge * 0.62;
-    const tremble = (!shieldClamp && charge > 0.6) ? Math.sin(time * 18) * 0.02 * charge : 0;
-    jawPivot.rotation.x = jawTarget + tremble;
+    // In death it falls SLACK — the mournful open, not the threat open.
+    const jawTarget = dyingK > 0
+      ? -0.35 * Math.min(1, dyingK * 3)
+      : (shieldClamp ? 0 : -charge * 0.62);
+    const tremble = (!shieldClamp && dyingK <= 0 && charge > 0.6) ? Math.sin(time * 18) * 0.02 * charge : 0;
+    jawPivot.rotation.x += (jawTarget + tremble - jawPivot.rotation.x) * Math.min(1, dt * 10);
 
     // Throat: dark/invisible at rest (hidden behind the closed jaw anyway),
     // floods accent→danger-magenta and swells into view as the charge nears
@@ -675,13 +819,15 @@ export function buildIdolMask(def, quality = 1) {
 
   return {
     group, muzzle, orbiters,
-    setDissolve: kit.setDissolve,
+    setDissolve: setDissolveEmotive,   // kit dissolve + the mournful-death expression ramp
     setCharge,
+    setGaze,                           // optional charisma hooks — controller calls with ?.
+    notice,
     setHealth: kit.setHealth,
     setHealthBarVisible: kit.setHealthBarVisible,
     setShieldVisible: kit.setShieldVisible,
     shatterShield: kit.shatterShield,
-    flash: kit.flash,
+    flash: flinchFlash,                // kit flash + the brow-pain flinch
     // tickBody first (writes the archetype's own materials/pivots), then
     // kit.tickCommon LAST so its flash decay (tickFlash, inside tickCommon)
     // always wins over anything else touching the same material on this
