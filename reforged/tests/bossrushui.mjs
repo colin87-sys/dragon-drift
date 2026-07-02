@@ -31,12 +31,24 @@ await page.keyboard.press('Escape');
 await page.waitForSelector('#pm-quit');
 check('pause overlay has EXIT TO MENU', !!(await page.$('#pm-quit')));
 await page.click('#pm-quit');                       // first tap = arm, does NOT quit
-await page.waitForTimeout(150);
-check('first tap arms the confirm (still paused)', await page.evaluate(() => window.__dd.game.state === 'paused' && document.querySelector('#pm-quit')?.dataset.armed === '1'));
-await page.click('#pm-quit');                       // second tap = quit
+await page.waitForFunction(() => document.querySelector('#pm-quit')?.dataset.armed === '1');
+check('first tap arms the confirm (still paused)', await page.evaluate(() => window.__dd.game.state === 'paused'));
+await page.evaluate(() => document.querySelector('#pm-quit').click());   // second tap = quit (dispatched deterministically)
 await page.waitForSelector('#btn-start');
 check('second tap returns to the start screen', await page.evaluate(() => window.__dd.game.state === 'ready'));
 check('rail reachable again after exit (BOSS RUSH still there)', !!(await page.$('#btn-rush')));
 check('no console errors through the flow', errors.length === 0) || console.error(errors.join('\n'));
 
 await done();
+
+// --- Regression: a DEV-unlocked BOSS RUSH must show even on a brand-new (cold)
+// save. A cold save hides the rest of the rail, but ?dev / the settings dev toggle
+// should still surface the rush entry for testing (the "?dev shows nothing" bug). ---
+const cold = await boot({
+  query: '?debug&dev',
+  initScript: `localStorage.setItem('dragonDriftSave', JSON.stringify({ v: 3, stats: { runs: 0 }, flags: { seenIntro: true } }))`,
+});
+await cold.page.waitForTimeout(900);
+check('cold save + ?dev still shows BOSS RUSH', !!(await cold.page.$('#btn-rush')));
+check('cold + dev: no console errors', cold.errors.length === 0) || console.error(cold.errors.join('\n'));
+await cold.done();

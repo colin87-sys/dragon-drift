@@ -49,10 +49,12 @@ const RUSH_LEAD = 240;         // metres of warm-up before the first boss flies 
 const RUSH_BREATHER = 420;     // metres of ring-recharge between bosses (heal + re-arm surge)
 
 // The rush roster: bosses the player has DEFEATED (so a new boss must be beaten in
-// normal play before it joins the gauntlet), or every boss under the dev unlock.
+// normal play before it joins the gauntlet), or every boss under a dev unlock — the
+// `?dev`/`?rush=all` URL seam OR the in-app Settings → Dev Mode toggle (live).
 export function rushRoster() {
   const beaten = saveData.bossRush?.beaten || [];
-  return BOSS_ORDER.filter((k) => rushUnlockAll || beaten.includes(k));
+  const devAll = rushUnlockAll || !!saveData.settings?.dev;
+  return BOSS_ORDER.filter((k) => devAll || beaten.includes(k));
 }
 export function rushUnlocked() { return rushRoster().length > 0; }
 export function setRushUnlockAll(v) { rushUnlockAll = !!v; }
