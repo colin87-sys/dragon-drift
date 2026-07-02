@@ -335,6 +335,7 @@ export function buildIdolMask(def, quality = 1) {
   const jawGeo = mergeGeometries(jawParts, false);
   if (!jawGeo) throw new Error('buildIdolMask: jaw mergeGeometries returned null (attribute mismatch)');
   const jawPivot = new THREE.Object3D();
+  jawPivot.name = 'jawPivot';   // tests/tooling seam: the telegraph-silhouette gate finds this by name
   jawPivot.position.set(0, -1.70, 0.60);
   const jawMesh = new THREE.Mesh(jawGeo, baseMat);   // shares the dark base stone — separate draw, same "family"
   jawPivot.add(jawMesh);
