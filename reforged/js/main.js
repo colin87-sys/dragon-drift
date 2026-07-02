@@ -30,7 +30,7 @@ import { DRAGONS } from './dragons.js';
 import { RIDERS } from './riders.js';
 import { dailySeed, recordDailyRun, saveData, persist, grantXp, levelEmberReward, todayUTC, gambitSunsetRefund, freezeSaves } from './save.js';
 import { initEmbers, addEmberLine, updateEmbers, bankEmbers, resetEmbers } from './embers.js';
-import { initBoss, updateBoss, resetBoss, setBossQuality, forceBoss, setBossDebugFirstAt, setBossDebugDefIdx, bossDebugState } from './boss.js';
+import { initBoss, updateBoss, resetBoss, setBossQuality, forceBoss, setBossDebugFirstAt, setBossDebugDefIdx, bossDebugState, startBossRush, setRushUnlockAll, rushUnlocked } from './boss.js';
 import { emit, on } from './events.js';
 import { initAnalytics } from './analytics.js';
 import { initMissions, settleMissions } from './missions.js';
@@ -93,6 +93,10 @@ const challengeSeedParam = parseInt(urlParams.get('seed'), 10);
 const challengeSeed = Number.isFinite(challengeSeedParam) && challengeSeedParam > 0
   ? challengeSeedParam : null;
 if (urlParams.has('daily')) game.mode = 'daily';
+// Dev seam: unlock every boss in the rush roster (?dev or ?rush=all). Also lets
+// ?rush launch a gauntlet straight from the URL for playtesting on the preview.
+if (urlParams.has('dev') || urlParams.get('rush') === 'all') setRushUnlockAll(true);
+if (urlParams.has('rush')) game.mode = 'rush';
 
 // A brand-new pilot's very first normal run is authored (scripted opening +
 // pinned seed) so the first ~90s is intentional, repeatable and QA-able.
@@ -268,7 +272,9 @@ on('bossStart', () => { resetRings(); resetEmbers(); resetPowerups(); resetGoldE
 // eases back into the run instead of a wall of obstacles the instant it dies.
 on('bossEnd', () => {
   levelGen.resume(player.dist);
-  bossGraceUntil = player.dist + CONFIG.BOSS.postGrace;
+  // Rush = no obstacle course ever (rings/orbs only); a normal run gets a short
+  // hazard-free grace band before the course eases back in.
+  bossGraceUntil = game.mode === 'rush' ? Number.MAX_SAFE_INTEGER : player.dist + CONFIG.BOSS.postGrace;
   ui.staminaBoss(false);   // fade the stamina bar back in (same animation, reversed)
   // Guaranteed speed-boost pickups in the grace band: the player carries Dragon
   // Surge out of the kill, and these keep speed + stamina topped up as the course
@@ -276,6 +282,24 @@ on('bossEnd', () => {
   addOrb({ x: 0, y: player.position.y, dist: player.dist + 22 });
   addOrb({ x: 0, y: player.position.y, dist: player.dist + 42 });
   spawnAhead();
+});
+// Boss Rush WON — every unlocked boss felled. End the run cleanly as a VICTORY
+// (no crash): bank the clear, then enter the game-over freeze so the normal recap
+// pipeline (settleRun) pays out the haul. The recap reads game.rushCleared.
+on('rushClear', (e) => {
+  if (game.mode !== 'rush' || game.state !== 'playing') return;
+  game.rushCleared = true;
+  if (!saveData.bossRush) saveData.bossRush = { beaten: [], cleared: 0, bestClearMs: 0 };
+  saveData.bossRush.cleared = (saveData.bossRush.cleared || 0) + 1;
+  const ms = Math.round(game.time * 1000);
+  if (!saveData.bossRush.bestClearMs || ms < saveData.bossRush.bestClearMs) saveData.bossRush.bestClearMs = ms;
+  persist();
+  emit('rushCleared', { count: e && e.count });   // feats hook
+  sfx.bossDefeat?.();
+  cameraCtl.shake?.(1.4);
+  game.state = 'gameover';
+  game.deathCause = 'rushclear';
+  game.deathFreezeTimer = CONFIG.deathFreezeDuration;
 });
 ui.init({
   getCard: makeShareCard,
@@ -510,7 +534,7 @@ function startGame(mode = 'normal') {
   cameraCtl.setSplash(false);
   const modeChanged = mode !== game.mode;
   game.mode = mode;
-  if (modeChanged || mode === 'daily') {
+  if (modeChanged || mode === 'daily' || mode === 'rush') {
     // Mode decides the seed — rebuild the course before takeoff.
     restart();
   } else {
@@ -555,6 +579,13 @@ function restart() {
   for (const sp of setpieceMeshes) scene.remove(sp.object);
   setpieceMeshes.length = 0;
   levelGen = createLevelGen(runSeed, { scripted: isFirstFlight() });
+  // Boss Rush: the whole run is bosses + ring breathers, NO obstacle course — so
+  // pin the grace band open (spawnAhead lays rings/orbs only while dist < it) and
+  // arm the gauntlet driver, which schedules the first boss a short warm-up ahead.
+  if (game.mode === 'rush') {
+    bossGraceUntil = Number.MAX_SAFE_INTEGER;
+    startBossRush(player);
+  }
   spawnAhead();
   cameraCtl.init(camera, player);
   ui.hideScreen();

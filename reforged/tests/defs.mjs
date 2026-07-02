@@ -53,13 +53,13 @@ ok(`${untiered.length} untiered missions rotate forever`);
 // --- Feats ---
 const fids = FEAT_DEFS.map((d) => d.id);
 assertEq(new Set(fids).size, fids.length, 'feat ids unique');
-assertEq(FEAT_DEFS.length, 25, 'exactly 25 feats');
+assertEq(FEAT_DEFS.length, 30, 'exactly 30 feats');
 for (const d of FEAT_DEFS) {
   assert(d.reward >= 20 && d.reward <= 150, `feat ${d.id} reward in [20,150]`);
   assert(['skill', 'journey', 'collection'].includes(d.cat), `feat ${d.id} category valid`);
   if (d.title) assert(titleById(d.title), `feat ${d.id} title '${d.title}' exists`);
 }
-ok('25 feats, unique ids, rewards in [20,150], titles resolvable');
+ok('30 feats, unique ids, rewards in [20,150], titles resolvable');
 
 // --- Weekly trials ---
 const tids = TRIAL_POOL.map((t) => t.id);

@@ -29,6 +29,10 @@ const DEFAULTS = {
   riders: { owned: ['drifter'], equipped: 'drifter' },
   missions: { active: [], completedCount: 0, completedIds: [] },
   daily: { date: '', played: false, bestScore: 0, streak: 0, bonusDay: '' },
+  // Boss Rush: which bosses the player has defeated (unlocks them in the rush
+  // roster) + a lifetime clear counter + best clear time (ms). A boss enters the
+  // gauntlet only once beaten; the mode itself unlocks after the first kill.
+  bossRush: { beaten: [], cleared: 0, bestClearMs: 0 },
   stats: {
     runs: 0, totalDist: 0, totalRings: 0, totalEmbers: 0,
     totalPerfects: 0, totalGates: 0, totalNearMisses: 0, totalRolls: 0,
