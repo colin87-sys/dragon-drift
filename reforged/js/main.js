@@ -305,6 +305,7 @@ ui.init({
   getCard: makeShareCard,
   onRestart: restart,
   onStart: (mode) => startGame(mode),
+  rushUnlocked: () => rushUnlocked(),   // gate the BOSS RUSH rail entry (beaten a boss / dev)
   onEquipDragon: () => {
     rebuildDragon(equippedDragon(), equippedRider(), player);
     applyDragonStats(equippedDragon());
