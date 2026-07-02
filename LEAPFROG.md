@@ -4512,3 +4512,28 @@ patterns in isolation (the `debugEmitAttack` seam), not only in live play.
 the isolation-review habit (judge each pattern alone against the DOF list) belongs in the pattern-authoring checklist next
 to the budget + safe-lane gates. Verified: `boss.mjs` (11; budget + safe-lane unchanged), `bossboot` zero-error, `tricount`
 203265. The human judges on the preview whether the walls now feel inescapable-but-fair from the top/bottom of the lane.
+
+### L116 — Boss feats: extend by def + listener, and know the run-end order that makes a lifetime settle-feat fire on its milestone run
+
+**Did / learned.** Added the first boss achievements now that there are two bosses to slay: `boss_first` (live, on
+`bossDefeated`), `boss_nohit` (live, gated on the event's `noHit` flag), `boss_deflector` (live, on a `bossReflect`
+`streak >= 8`), and `boss_slay_10` (settle, lifetime `saveData.stats.totalBossKills >= 10`) — plus two registered titles
+(Flawless, Tempest's Bane). The feats system was built to extend cleanly: a `FEAT_DEFS` entry + either an event listener in
+`initFeats` (live) or a `settle()` predicate (run-end). Two integration facts worth banking: **(1) a title string on a feat
+MUST be registered in `titles.js` `TITLES`** (`titleFor` looks it up; an unregistered id silently yields no title) — and
+watch for name collisions (`skysovereign` was already a level-25 title, so the slay feat became "Tempest Tamer"). **(2) The
+run-end order is `recordBests()` (lifetime stat rollup) → settleMilestones → `settleFeats()`** (main.js), so a settle-feat
+reading a lifetime counter (`totalBossKills`, rolled up from `bossesDefeatedRun` in `recordBests`) already includes the
+just-finished run and fires on the exact milestone run — no off-by-one. New save fields (`totalBossKills`) deep-merge onto
+old saves; guard reads with `|| 0` for the pre-migration frame.
+
+**→ Systematize.** For any counter-based settle achievement: roll the per-run tally into `saveData.stats` in `recordBests`,
+guard the read with `|| 0`, and let the run-end order do the rest — don't recompute `lifetime + thisRun` in the predicate
+(that double-counts once the rollup ran). Live vs settle is the same split as everywhere: an instantaneous event (a kill, a
+streak) is a listener; a "reach N lifetime / this run" is a `settle()`. And every feat `title` needs a `TITLES` row —
+add it in the same change, and grep the existing ids for name/id collisions first.
+
+**→ Leapfrog (innovate).** The boss-stat surface (`bossesDefeatedRun`, `bossHitsTakenRun`, parry streak, per-boss id on
+`bossDefeated`) is now enough to author a whole boss-mastery track — per-boss no-hit feats, a "beat every boss" collection
+feat (needs a defeated-ids set in the save), a reflect-count lifetime title — all pure data + listeners. This is the hook
+the upcoming Boss Rush mode pays into: a rush completion is just another event feats can gate on.

@@ -25,6 +25,11 @@ export const FEAT_DEFS = [
   { id: 'gauntlet_3run',  cat: 'skill', name: 'Corridor King',         desc: 'Clear 3 gauntlets in one run',           reward: 60 },
   { id: 'clean_2k',       cat: 'skill', name: 'Untouchable',           desc: 'Fly 2,000 m without a scratch',          reward: 100, title: 'ghost' },
   { id: 'raw_5k',         cat: 'skill', name: 'Raw Sky',               desc: 'Score 5,000 with every assist off',      reward: 80,  settle: () => game.score >= 5000 && game.scoreMult > 1.24 },
+  // --- Boss (sky bosses: VOIDMAW, STORMREND, …) ---
+  { id: 'boss_first',     cat: 'skill', name: 'Giant Slayer',         desc: 'Defeat your first sky boss',             reward: 60 },
+  { id: 'boss_nohit',     cat: 'skill', name: 'Flawless Herald',      desc: 'Defeat a boss without taking a hit',     reward: 120, title: 'flawless' },
+  { id: 'boss_deflector', cat: 'skill', name: 'Storm Deflector',      desc: 'Reach an 8-parry streak on a boss',      reward: 80 },
+  { id: 'boss_slay_10',   cat: 'journey', name: 'Tempest Tamer',      desc: 'Slay 10 sky bosses',                     reward: 150, title: 'tempestbane', settle: () => (saveData.stats.totalBossKills || 0) >= 10 },
   // --- Journey ---
   { id: 'dist_5k_run',    cat: 'journey', name: 'Marathon Wing',       desc: 'Fly 5,000 m in one run',                 reward: 80,  settle: () => game.distance >= 5000 },
   { id: 'runs_10',        cat: 'journey', name: 'Regular',             desc: 'Finish 10 flights',                      reward: 30,  settle: () => saveData.stats.runs >= 10 },
@@ -139,6 +144,13 @@ export function initFeats() {
   on('nearMiss', () => { if (game.nearMisses >= 15) unlockFeat('nearmiss_15run', { live: true }); });
   on('gauntletCleared', () => { if (game.gauntletsClearedRun >= 3) unlockFeat('gauntlet_3run', { live: true }); });
   on('goldEmber', () => unlockFeat('gold_first', { live: true }));
+  // Boss feats: slaying the sky bosses. `bossDefeated` carries a no-hit flag; a
+  // parry streak comes off `bossReflect`. The lifetime slay count is a settle feat.
+  on('bossDefeated', (e) => {
+    unlockFeat('boss_first', { live: true });
+    if (e && e.noHit) unlockFeat('boss_nohit', { live: true });
+  });
+  on('bossReflect', (e) => { if (e && e.streak >= 8) unlockFeat('boss_deflector', { live: true }); });
   on('distance', (p) => {
     if (p.m - lastDamageDist >= 2000) unlockFeat('clean_2k', { live: true });
   });
