@@ -1,4 +1,7 @@
 import * as THREE from 'three';
+import { CONFIG } from './config.js';
+
+const TIERS = CONFIG.BOSS.renderTiers;   // render-order law: nothing draws over a bullet
 
 // Fresnel ENERGY SHELL — a reusable additive material that glows at grazing
 // angles (the silhouette edge) and is near-transparent face-on. This is the
@@ -216,17 +219,30 @@ export function buildBoss(def, quality = 1) {
   function setHealth(frac) { fillWrap.scale.x = Math.max(0.0001, Math.min(1, frac)); }
   function setHealthBarVisible(v) { hpBar.visible = v; }
 
-  // Shield bubble: raised at a phase floor, only a Dragon Surge unleash bursts it.
-  const shieldMat = track(new THREE.MeshBasicMaterial({
-    color: glow, transparent: true, opacity: 0.24, blending: THREE.AdditiveBlending,
-    depthWrite: false, side: THREE.DoubleSide,
+  // Shield: raised at a phase floor, only a Dragon Surge unleash bursts it. A
+  // filled additive bubble used to sit exactly where bullets spawn and washed
+  // them out — replaced by two meshes on ONE shared geometry so the muzzle
+  // region reads clear: a fresnel RIM (near-transparent face-on, glows at the
+  // silhouette) + a dark geodesic CAGE (dark lines vs a bright sky, additive rim
+  // vs a dark one — a two-way luminance edge either way). Both live in the same
+  // group, both toggle together, both keep the slow rotation.
+  const shieldGeo = new THREE.IcosahedronGeometry(4.3, 1);
+  const shieldRimMat = track(makeEnergyShell(glow, { power: 3.0, strength: 0.55 }));
+  const shieldRim = new THREE.Mesh(shieldGeo, shieldRimMat);
+  shieldRim.renderOrder = TIERS.shield;
+  const shieldCageMat = track(new THREE.LineBasicMaterial({
+    color: new THREE.Color(glow).multiplyScalar(0.45), transparent: true, opacity: 0.30, depthWrite: false,
   }));
-  const shield = new THREE.Mesh(new THREE.IcosahedronGeometry(4.3, 1), shieldMat);
+  const shieldCage = new THREE.LineSegments(new THREE.EdgesGeometry(shieldGeo), shieldCageMat);
+  shieldCage.renderOrder = TIERS.shield;
+  const shield = new THREE.Group();
+  shield.add(shieldRim, shieldCage);
   shield.visible = false;
   group.add(shield);
+  let shieldFlash = 0;   // 1→0 decay driven in tick: a raise flashes the rim strength up, then eases back
   function setShieldVisible(v) {
     shield.visible = v;
-    if (v) { shatter = 0; for (const s of shards) s.mesh.visible = false; }  // re-arm on raise
+    if (v) { shatter = 0; for (const s of shards) s.mesh.visible = false; shieldFlash = 1; }  // re-arm + flash on raise
   }
 
   // Shield SHARDS: faceted chips that the bubble breaks into when a Surge beam
@@ -242,6 +258,7 @@ export function buildBoss(def, quality = 1) {
   for (let i = 0; i < shardN; i++) {
     const m = new THREE.Mesh(chipGeo, shardChipMat);
     m.visible = false;
+    m.renderOrder = TIERS.shield;
     // Even-ish spread over a sphere (golden-angle) so the break looks like a bubble.
     const y = 1 - (i / Math.max(shardN - 1, 1)) * 2;
     const rr = Math.sqrt(Math.max(0, 1 - y * y));
@@ -307,7 +324,11 @@ export function buildBoss(def, quality = 1) {
     if (shield.visible) {
       shield.rotation.y += dt * 0.9;
       shield.rotation.x += dt * 0.5;
-      shieldMat.opacity = 0.18 + Math.abs(Math.sin(time * 4)) * 0.22;
+      // Rim strength pulses gently around its base; a raise (setShieldVisible)
+      // kicks shieldFlash to 1 and it decays back over ~0.4s, flashing the rim
+      // to ~1.2 on the moment of the shield going up.
+      if (shieldFlash > 0) shieldFlash = Math.max(0, shieldFlash - dt / 0.4);
+      shieldRimMat.uniforms.uStrength.value = 0.55 + Math.sin(time * 4) * 0.15 + shieldFlash * 0.65;
     }
     for (const o of orbiters) {
       const u = o.userData;

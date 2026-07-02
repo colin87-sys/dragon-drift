@@ -20,6 +20,7 @@ import { emit } from './events.js';
 
 const POOL = CONFIG.BOSS.bulletPool;
 const R = CONFIG.playerRadius;
+const TIERS = CONFIG.BOSS.renderTiers;   // render-order law: nothing draws over a bullet
 
 let mesh = null;       // colour body (soft round disc, per-bullet tint)
 let coreMesh = null;   // white centre (colour-blind-safe read — everyone sees the dot)
@@ -86,6 +87,7 @@ export function initBossBullets(scene) {
   });
   mesh = new THREE.InstancedMesh(quad, bodyMat, POOL);
   mesh.frustumCulled = false;
+  mesh.renderOrder = TIERS.bulletBody;
   mesh.instanceColor = new THREE.InstancedBufferAttribute(new Float32Array(POOL * 3), 3);
   // Core: a smaller WHITE centre drawn on top — colour-blind-safe (everyone sees
   // the white dot), keeps bullets countable no matter the body hue.
@@ -94,6 +96,7 @@ export function initBossBullets(scene) {
   });
   coreMesh = new THREE.InstancedMesh(quad, coreMat, POOL);
   coreMesh.frustumCulled = false;
+  coreMesh.renderOrder = TIERS.bulletCore;
   // Ground shadow: a soft dark disc on the floor under each bullet. Two rings that
   // overlap in view sit at different floor distances, so their shadows separate —
   // the floor grid becomes an absolute depth reference (a shadow under the dragon
@@ -103,7 +106,7 @@ export function initBossBullets(scene) {
   });
   shadowMesh = new THREE.InstancedMesh(new THREE.CircleGeometry(1, 14), shadowMat, POOL);
   shadowMesh.frustumCulled = false;
-  shadowMesh.renderOrder = -1;   // under the bullets
+  shadowMesh.renderOrder = TIERS.bulletShadow;   // under the bullets
   for (let i = 0; i < POOL; i++) {
     slots.push(makeSlot());
     mesh.setMatrixAt(i, HIDDEN);

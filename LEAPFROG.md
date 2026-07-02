@@ -4643,3 +4643,40 @@ than importing game modules into the view — keeps ui.js decoupled (it never im
 cards), and the locked-teaser chip is a reusable "here's what's still ahead" affordance for any progression surface. Verified:
 `tests/bossrushui.mjs` extended (rail → panel → FLY → pause → two-step abandon → back on menu; 11 checks) + `boss` (11,
 curtain retune intact) + `bossrush`/`smoke`/`defs` green, `tricount` 203265.
+
+### L121 — The render-order LAW: nothing draws over a bullet (a tier table, not per-mesh guesses) + shield-as-shape
+
+**Did / learned.** Boss bullets were hard to see for two structural reasons. (1) Every bullet mesh is depthTest-off
+at default `renderOrder 0`, while assorted fight FX (the focus-ring fill at `renderOrder 1`, additive walls/beams/
+aura at 0 but added to the scene later) drew OVER them — the most gameplay-critical pixels in the fight lost z-fights
+to decoration. Fixed with a LAW, not spot fixes: a `CONFIG.BOSS.renderTiers` table (shadow −1 · walls 2 · shield 3 ·
+surgeFx 4 · focus ring 5-7 · bullets 20-22, outline tier reserved for the next increment) that every fight-FX mesh
+sources explicitly — bullets top the stack by construction, and the HP bar stays at its own 998-1000 UI band. (2) The
+shield was a FILLED additive DoubleSide bubble (opacity pulsing to 0.40) in the boss glow colour sitting exactly over
+the bullet muzzle — it washed out every newly emitted bullet. Reworked as SHAPE, not film: a `makeEnergyShell` fresnel
+RIM (near-transparent face-on, so the muzzle region reads clear; flashes to ~1.2 strength on raise, decaying over
+0.4s, and pulses ±0.15 in tick via `uStrength` — never material opacity) + a dark geodesic CAGE (`EdgesGeometry` →
+`LineSegments`, glow ×0.45, NORMAL blend) on the same 4.3 icosahedron. Dark lines vs bright skies + additive rim vs
+dark skies = a two-way luminance edge; +1 draw call total. The gotcha: `track()`/`setDissolve` fades `material.
+opacity`, but a ShaderMaterial carries opacity in `uniforms.uOpacity` — the dissolve loop already special-cases that
+(L105), so the rim just had to be `track()`ed like shellMat, and the LineBasicMaterial fades like any other tracked
+material. The focus ring also got a budget cut (half-width 0.075→0.05, fill sharing the track's exact annulus, track
+0.16→0.10, normal-fight fill 0.58→0.32) so it frames the dragon instead of competing with bullets; the Surge drain
+state kept its full-brightness meter read.
+
+**→ Systematize.** (a) **Any depthTest-off layer cluster needs an explicit ORDER TABLE in config, stated as a law**
+("bullets draw above all fight FX") — per-mesh renderOrder literals scattered across files is how the reticle quietly
+climbed over the danmaku. New fight FX must take a tier from the table or it's a review flag; grep `transparent: true`
+in the boss files as the audit. (b) **An area-denial indicator must be a SHAPE (rim + wireframe), never a filled
+film** over a region the player must read through — the fresnel-rim + dark-cage pair is the reusable "bounded volume
+you can see into" primitive (shield, safe zone, arena dome). (c) **Pulse ShaderMaterial effects through uniforms**
+(`uStrength`), keeping `material.opacity`/`uOpacity` exclusively as the dissolve/fade channel, so animation never
+fights teardown.
+
+**→ Leapfrog (innovate).** The `bulletOutline` tier (20) is pre-cut for Increment 2's dark bullet outline — the
+two-way luminance idea applied to every bullet, same pattern as the cage. And `tools/bossshot.mjs` (boot → `?debug&
+bossIdx=K&boss=<metres>` → poke `player.dist` → wait on `bossState()` → screenshot) is the standing "judge the fight
+against a specific biome sky" rig; remember L105 — headless rAF throttles ~8×, so waits on timed phases need long
+budgets and captures are for VISUALS, not state timing. Verified: `boss.mjs` (11), `bossboot` zero-error, `smoke`,
+`tricount` 203265 · 0 over; captures of the amber + emberfall fights show the dimmer ring and the boss reading clean.
+The human judges bullet pop and the new shield read on the preview.

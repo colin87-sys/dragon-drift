@@ -28,6 +28,7 @@ let scene = null;
 let quality = 1;
 
 const B = CONFIG.BOSS;
+const TIERS = B.renderTiers;   // render-order law: nothing draws over a bullet
 
 // Encounter scheduling (independent of the level RNG → course stays deterministic).
 let debugFirstAt = null;       // ?boss override: bring the first encounter in early
@@ -171,6 +172,7 @@ export function initBoss(sc) {
   wallR = new THREE.Mesh(wallGeo, wallMat);
   wallL.rotation.y = Math.PI / 2;
   wallR.rotation.y = Math.PI / 2;
+  wallL.renderOrder = wallR.renderOrder = TIERS.arenaWall;
   wallL.visible = wallR.visible = false;
   scene.add(wallL); scene.add(wallR);
   // Surge callout is fired from activateSurge (one note only — "REFLECT ANYTHING"),
@@ -183,21 +185,26 @@ export function initBoss(sc) {
   // comet at the draining edge, so "how long is left" is a spatial read at the
   // dragon, not another HUD bar. Drawn via setDrawRange (an angular wipe) so
   // there are no per-frame geometry rebuilds.
-  const ir = RETICLE_R - 0.075, or = RETICLE_R + 0.075;
+  // Ring budget: fill and track share ONE thin annulus (no extra ±0.02 on the
+  // fill) so they never compete for the same band; opacity trimmed so the ring
+  // frames the dragon without competing with the bullets sitting on top of it.
+  const ir = RETICLE_R - 0.05, or = RETICLE_R + 0.05;
   reticle = new THREE.Group();
   reticleTrack = new THREE.Mesh(
     new THREE.RingGeometry(ir, or, RETICLE_SEGS, 1, Math.PI / 2, Math.PI * 2),
-    new THREE.MeshBasicMaterial({ color: 0x9dffea, transparent: true, opacity: 0.16, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide })
+    new THREE.MeshBasicMaterial({ color: 0x9dffea, transparent: true, opacity: 0.10, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide })
   );
+  reticleTrack.renderOrder = TIERS.focusTrack;
   reticleFill = new THREE.Mesh(
-    new THREE.RingGeometry(ir - 0.02, or + 0.02, RETICLE_SEGS, 1, Math.PI / 2, Math.PI * 2),
-    new THREE.MeshBasicMaterial({ color: 0x9dffea, transparent: true, opacity: 0.58, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide })
+    new THREE.RingGeometry(ir, or, RETICLE_SEGS, 1, Math.PI / 2, Math.PI * 2),
+    new THREE.MeshBasicMaterial({ color: 0x9dffea, transparent: true, opacity: 0.32, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide })
   );
-  reticleFill.renderOrder = 1;
+  reticleFill.renderOrder = TIERS.focusFill;
   reticleHead = new THREE.Mesh(
     new THREE.SphereGeometry(0.17, 10, 8),
     new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.9, blending: THREE.AdditiveBlending, depthWrite: false })
   );
+  reticleHead.renderOrder = TIERS.focusHead;
   reticleHead.visible = false;
   reticle.add(reticleTrack, reticleFill, reticleHead);
   reticleTrack.geometry.setDrawRange(0, 0);   // starts un-drawn
@@ -216,6 +223,7 @@ export function initBoss(sc) {
     // Thin, SHORT arcs that live OUTSIDE the meter ring (start ~2.6 out) so they
     // never cross the dragon or the meter at the centre.
     const b = new THREE.Mesh(new THREE.CylinderGeometry(0.045, 0.045, 1.6, 4), boltMat);
+    b.renderOrder = TIERS.surgeFx;
     surgeAura.add(b);
     bolts.push(b);
   }
@@ -237,15 +245,18 @@ export function initBoss(sc) {
     new THREE.CylinderGeometry(0.75, 0.75, 1, 12, 1, true),
     new THREE.MeshBasicMaterial({ color: 0xff4fd0, transparent: true, opacity: 0.5, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide })
   );
+  beamCore.renderOrder = beamGlow.renderOrder = TIERS.surgeFx;
   shaft.add(beamGlow, beamCore);
   const muzzleOrb = new THREE.Mesh(
     new THREE.SphereGeometry(1, 12, 10),
     new THREE.MeshBasicMaterial({ color: 0xbdeaff, transparent: true, opacity: 0.9, blending: THREE.AdditiveBlending, depthWrite: false })
   );
+  muzzleOrb.renderOrder = TIERS.surgeFx;
   const impactOrb = new THREE.Mesh(
     new THREE.SphereGeometry(1, 12, 10),
     new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.9, blending: THREE.AdditiveBlending, depthWrite: false })
   );
+  impactOrb.renderOrder = TIERS.surgeFx;
   surgeBeam.add(shaft, muzzleOrb, impactOrb);
   surgeBeam.userData = { shaft, beamCore, beamGlow, muzzleOrb, impactOrb };
   surgeBeam.visible = false;
@@ -495,7 +506,7 @@ function applyReticle(timeLeft, time) {
   const surging = timeLeft < 0.999;
   reticleFill.material.color.setHex(surging ? 0xff6ae0 : 0x9dffea);
   reticleTrack.material.color.setHex(surging ? 0x8f6ad8 : 0x9dffea);
-  reticleFill.material.opacity = surging ? 0.55 + Math.abs(Math.sin(time * 8)) * 0.18 : 0.58;
+  reticleFill.material.opacity = surging ? 0.55 + Math.abs(Math.sin(time * 8)) * 0.18 : 0.32;
   // Comet at the draining edge — only while it's a live meter (fully drawn + surging).
   if (surging && reticleOn > 0.99 && fillFrac > 0.004) {
     const a = Math.PI / 2 + fillFrac * Math.PI * 2;
