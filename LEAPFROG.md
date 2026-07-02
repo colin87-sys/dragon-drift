@@ -4298,3 +4298,32 @@ def + `rig` knobs is the WHOLE integration (zero geometry code per dragon). Budg
 per-file 20k tris / 10 MB hard in `tests/glb.mjs` with a thundercoil grandfather entry. If the skinned A/B on
 thundercoil reads better than the shader flap (expected — cascade + fold vs rigid hinge), flip its def and retire the
 shader path when the roster no longer needs it.
+
+### L109 — Verdant Prismwing: the first full image→mesh→auto-rig hero, end to end in one session
+**Did / learned:** ran the whole L108 pipeline on a new hero. GATE 1: 4 cel-shaded wings-SPREAD concept candidates
+(`nano_banana_pro`, ¾ view, plain background) — the human picked #3 (teal-green + gold chest + crystalline ice-blue
+crest, job `090d9d2c`). Views: reference-image edits gave a consistent second ¾ (`1d3a0413` — asked for "side profile",
+got ¾; fine, multi-view wants parallax not orthography) and a PERFECT symmetric top-down planform (`1663563a` — the
+most valuable view for wing reconstruction). Mesh: `multi_image_to_3d` (3 views, `target_polycount 12000`,
+`topology triangle`, `symmetry on`, textured, 30 credits) → `verdant.glb`, **12,340 tris / 7.8 MB** (measured, on
+target). Integration was DATA ONLY, exactly as designed: a def with `rigMode:'skinned'` + placement + rig windows —
+zero geometry code. Three lessons banked: **(1) placement orientation is a 2-shot experiment, not a guess** — the
+shop hero scene at rotY 0 vs π instantly shows facing (rotY 0 faced the camera → π is flight-correct; rotX for a
+STANDING-pose mesh is ≈−0.7, not thundercoil's −π/2 — the standing spine is already half-raked). **(2) the auto
+wing-window can swallow the head on a forward-swept wing**: the measured default gave `neckHead: 14` (head rigid in
+the chest band) because the leading edge sweeps past the neck; explicit `rig {wingZ, chestZ, neckZ, headZ}` knobs
+restored the fore chain (partitions wing 3583 / chest 3024 / neckHead 3055 / hipTail 3103, tip moves 2.72 on a
+0.4 rad flap) — and the L37 chestZ auto-expand guard did its job on the too-small explicit band. **(3) nfview can't
+judge a GLB dragon** (`./assets/...` meshUrl resolves relative to `/tools/` → 404 → placeholder); the in-engine
+boot screenshot (shop hero scene + chase cam) is the oracle. Budget policy landed with the hero: `tests/glb.mjs`
+now gates **20k tris / 10 MB hard / 6 MB warn** with `thundercoil.glb` grandfathered at 31k. All gates green
+(glb/glbcontract/glbrig/defs/blueprint/economy/shop/smoke, tricount 56 models 203265 UNCHANGED — asset-backed rows
+build 0 procedural tris), zero console errors in real-WebGL flight + shop.
+**→ Systematize:** the per-dragon recipe is proven MECHANICAL: concepts → pick → 2 more views → mesh → glbinspect →
+def (placement via the 2-shot facing experiment; rig windows via the headless partition probe — copy
+`scratchpad rigprobe` pattern: partitions + tip-move + the ax histogram). Both texture-heavy GLBs warn >6 MB —
+the next pipeline improvement is texture resize to 1024² (glbslim), not polycount.
+**→ Leapfrog (innovate):** remaining for this hero, all preview-judged knobs: flap feel (`flapProfile`), rim/fill
+lift, rider seat, price + rarity when it graduates from free-test. Then the roster: each bad procedural dragon can
+be re-run through this pipeline as pure data. The form-ramp increment (ONE mesh + scale/material/FX per form) is
+the next code step so asset-backed heroes stop being single-form.
