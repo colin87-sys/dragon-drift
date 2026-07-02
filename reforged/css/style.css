@@ -288,6 +288,15 @@ body.app-loaded > canvas { opacity: 1; }
 .surge-gems i.gem-pop { animation: gem-pop 0.3s var(--ease-out); }
 @keyframes gem-pop { 0%{transform:scale(1)} 45%{transform:scale(1.6)} 100%{transform:scale(1)} }
 
+/* Surge killed by a hit: one-shot grey-out sweep on the whole widget (paired
+   with the surgeFizzle sfx) so the loss never reads as a silent state change */
+.surge-min.surge-fizzle { animation: surge-fizzle 0.7s ease-out; }
+@keyframes surge-fizzle {
+  0%   { filter: grayscale(0) brightness(1.3); }
+  30%  { filter: grayscale(1) brightness(0.55); }
+  100% { filter: grayscale(0) brightness(1); }
+}
+
 /* fever glow behind the gems (subtle, not a box) */
 .surge-min.fever::before { content:""; position:absolute; left:50%; bottom:-6px;
   transform:translateX(-50%); width:170px; height:60px; z-index:-1; pointer-events:none;
@@ -837,6 +846,11 @@ body.app-loaded > canvas { opacity: 1; }
 .seg-btn:hover { color: #fff; border-color: var(--rf-stroke-hi); }
 .seg-btn.sel { color: #1a1206; background: linear-gradient(135deg, #ffe27a, #ffb84d); border-color: transparent;
   box-shadow: 0 4px 14px rgba(255, 180, 70, 0.32); }
+/* Armed destructive action (reset save, two-step confirm): unmistakably red */
+.seg-btn.danger-armed { color: #fff; border-color: rgba(255, 70, 60, 0.9);
+  background: linear-gradient(135deg, #b8241c, #7d120e);
+  box-shadow: 0 0 16px rgba(255, 60, 40, 0.45); animation: danger-armed-pulse 0.8s ease-in-out infinite; }
+@keyframes danger-armed-pulse { 0%,100%{filter:brightness(1)} 50%{filter:brightness(1.35)} }
 
 /* ============ HERO CHARACTER-SELECT (dragons tab) ============ */
 /* One focused screen: a big rotatable hero, a thumbnail RAIL to switch dragon, a

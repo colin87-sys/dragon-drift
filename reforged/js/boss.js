@@ -12,7 +12,7 @@ import { buildBoss } from './bossModel.js';
 import { bossDefForIndex } from './bossDefs.js';
 import {
   initBossBullets, updateBossBullets, spawnBossBullet, resetBossBullets,
-  setBossBulletQuality, bossBulletCount, reflectBossBullets,
+  setBossBulletQuality, bossBulletCount, reflectBossBullets, debugActiveBullets,
 } from './bossBullets.js';
 
 // Boss encounter controller. A boss is an OVERLAY on the normal flight (gated by
@@ -30,6 +30,7 @@ const B = CONFIG.BOSS;
 
 // Encounter scheduling (independent of the level RNG → course stays deterministic).
 let debugFirstAt = null;       // ?boss override: bring the first encounter in early
+let debugDefIdx = null;        // ?bossIdx override: force a specific BOSS_ORDER entry
 let nextBossDist = B.firstAt;
 let encounterIndex = 0;
 
@@ -70,7 +71,13 @@ let chargeT = 0;               // telegraph wind-up remaining before the held at
 let chargeDur = 0;
 let curAttack = null;          // the attack being telegraphed
 const pending = [];            // streamed sub-volleys: { t, fire } (tunnel / spiralStream)
-const SUSTAINED = new Set(['tunnel', 'spiralStream']);
+const SUSTAINED = new Set(['tunnel', 'spiralStream', 'movingGap', 'iris', 'stream', 'secondWave']);
+// Arena constriction (a def's showpiece phase narrows the lane): the live half-
+// width the fill patterns and the player clamp both read. Full lane when idle.
+const CONSTRICT_HW = 6.5;      // showpiece arena half-width (lab-proven value)
+let arenaHW = CONFIG.laneHalfWidth;
+let arenaTargetHW = CONFIG.laneHalfWidth;
+let wallL = null, wallR = null, wallMat = null;   // translucent storm walls
 const REFLECT_COLOR = 0xffc23c;   // amber = "you can parry this" (aimed/fan precision shots)
 // Per-ring banding: successive rings differ in BRIGHTNESS and SIZE (not just hue),
 // so overlapping/concentric waves read apart even for colour-blind players — and
@@ -104,6 +111,20 @@ export function initBoss(sc) {
   scene = sc;
   initBossBullets(scene);
   on('bossDamage', (e) => damageBoss(e.amount, e.kind));
+
+  // Arena walls: two tall translucent planes that slide in during a constriction
+  // showpiece phase. Hidden (opacity 0) whenever the arena is at full width.
+  wallMat = new THREE.MeshBasicMaterial({
+    color: 0x35e0ff, transparent: true, opacity: 0, side: THREE.DoubleSide,
+    blending: THREE.AdditiveBlending, depthWrite: false,
+  });
+  const wallGeo = new THREE.PlaneGeometry(90, CONFIG.laneMaxY + 8);
+  wallL = new THREE.Mesh(wallGeo, wallMat);
+  wallR = new THREE.Mesh(wallGeo, wallMat);
+  wallL.rotation.y = Math.PI / 2;
+  wallR.rotation.y = Math.PI / 2;
+  wallL.visible = wallR.visible = false;
+  scene.add(wallL); scene.add(wallR);
   // Surge callout is fired from activateSurge (one note only — "REFLECT ANYTHING"),
   // so there's no duplicate banner here.
 
@@ -282,7 +303,8 @@ export function bossActive() { return active; }
 export function startBossEncounter(player, defOverride) {
   if (active) return;
   active = true;
-  def = defOverride || bossDefForIndex(encounterIndex);
+  def = defOverride
+    || (debugDefIdx != null ? bossDefForIndex(debugDefIdx) : bossDefForIndex(encounterIndex));
   hpMax = def.hpMax;
   hp = hpMax;
   phaseIdx = 0;
@@ -294,6 +316,11 @@ export function startBossEncounter(player, defOverride) {
   pending.length = 0;
   chargeT = 0;
   curAttack = null;
+  // Fresh fight = full-width arena; the walls take the boss's accent colour.
+  arenaHW = arenaTargetHW = CONFIG.laneHalfWidth;
+  game.bossArenaHW = null;
+  if (wallMat) wallMat.color.setHex(def.accent ?? 0x35e0ff);
+  if (def.constrictPhase === 0) arenaTargetHW = CONSTRICT_HW;   // constrict from the opener
 
   model = buildBoss(def, quality);
   group = model.group;
@@ -345,6 +372,10 @@ function endEncounter(player) {
   active = false;
   phase = 'idle';
   game.inBoss = false;
+  // The arena is NEVER left narrowed past a fight (unconditional restore).
+  arenaHW = arenaTargetHW = CONFIG.laneHalfWidth;
+  game.bossArenaHW = null;
+  if (wallL) { wallL.visible = wallR.visible = false; wallMat.opacity = 0; }
   reticleTarget = 0;            // focus circle draws off (the !active branch animates it)
   ui.bossNoteClear?.();         // no stale callout/prompt lingers past the fight
   // Carry Dragon Surge OUT of the fight so the player keeps the hyper into the
@@ -360,6 +391,7 @@ function startDeath(player) {
   phase = 'dying';
   dyingT = 0;
   reticleTarget = 0;            // focus circle draws off as the boss disintegrates
+  arenaTargetHW = CONFIG.laneHalfWidth;   // storm walls glide out with the dissolve
   resetBossBullets();
   game.bossesDefeatedRun++;
   const bonus = Math.round(B.defeatScore * game.scoreMult);
@@ -424,6 +456,25 @@ export function updateBoss(dt, player, time) {
     }
     reticle.visible = reticleDraw > 0.005;
     reticle.position.set(player.position.x, player.position.y, -player.dist);
+  }
+
+  // Arena constriction: ease the live half-width toward its target, publish it
+  // for the player clamp (null = full lane, nothing to clamp), and slide the
+  // translucent storm walls with it. Restored unconditionally by endEncounter.
+  arenaHW += (arenaTargetHW - arenaHW) * Math.min(dt * 2.2, 1);
+  const narrowed = arenaHW < CONFIG.laneHalfWidth - 0.3;
+  game.bossArenaHW = narrowed ? arenaHW : null;
+  if (wallL) {
+    wallL.visible = wallR.visible = narrowed;
+    if (narrowed) {
+      const wy = (CONFIG.laneMinY + CONFIG.laneMaxY) / 2;
+      const wz = -(player.dist + 22);
+      wallL.position.set(-arenaHW, wy, wz);
+      wallR.position.set(arenaHW, wy, wz);
+      // Fade with how far the walls have come in; a soft pulse keeps them alive.
+      const closeK = (CONFIG.laneHalfWidth - arenaHW) / (CONFIG.laneHalfWidth - CONSTRICT_HW);
+      wallMat.opacity = Math.min(0.16, closeK * 0.16) * (0.8 + Math.sin(time * 3.2) * 0.2);
+    } else { wallMat.opacity = 0; }
   }
 
   const surge = game.feverActive;
@@ -644,6 +695,13 @@ function breakShield(player) {
     phaseIdx++;
     ui.bossNote?.(`PHASE ${phaseIdx + 1}`, def.name, 'phase', 2.6);
     emit('bossPhase', { phase: phaseIdx + 1 });
+    // Constriction showpiece: from this phase on, the storm walls slide in and
+    // the arena narrows (the fill patterns + player clamp both track arenaHW).
+    if (def.constrictPhase != null && phaseIdx >= def.constrictPhase) {
+      arenaTargetHW = CONSTRICT_HW;
+      ui.bossNote?.('⛈  THE ARENA NARROWS  ⛈', def.name, 'gold', 2.6);
+      cameraCtl.shake?.(0.8);
+    }
   } else {
     pendingDeath = true;   // final shield burst → death (resolved next frame)
   }
@@ -722,6 +780,105 @@ function executeAttack(id, player) {
       } });
     }
     spiralPhase += steps * 0.45;
+  } else if (id === 'curtain') {
+    // CURTAIN — a full wall across the lane minus ONE vertical safe lane, placed
+    // away from you so you must commit early. Fleeing up/down/out stays inside
+    // the wall: the lane is the only answer. One band colour per wall so stacked
+    // volleys read apart.
+    const hw = Math.min(12, arenaHW - 1);
+    const slot = 2.8;                              // generous lane: gentle 2nd-boss wall
+    const stepX = quality < 0.75 ? 3.2 : 2.4;
+    const stepY = quality < 0.75 ? 4.6 : 3.4;
+    const gap = Math.max(-hw + slot, Math.min(hw - slot, -Math.sign(player.position.x || 1) * 7));
+    const slow = closing * 0.85;
+    const b = BAND[bandIdx++ % BAND.length];
+    for (let x = -hw; x <= hw; x += stepX) {
+      if (Math.abs(x - gap) < slot) continue;
+      for (let y = CONFIG.laneMinY + 2.5; y <= CONFIG.laneMaxY - 2; y += stepY) {
+        emitBoss(x, y, 0, 0, -slow, false, b.c, b.s);
+      }
+    }
+  } else if (id === 'movingGap') {
+    // MOVING-GAP WALL — timed rows (two y-bands each) whose safe gap SLIDES
+    // sideways between rows: you can't pre-camp the gap, you track it in time.
+    const rows = quality < 0.75 ? 4 : 5;
+    const n = quality < 0.75 ? 6 : 10;   // low tier stays under the visibleCap floor
+    const dir = Math.random() < 0.5 ? 1 : -1;
+    const g0 = Math.max(-6, Math.min(6, player.position.x));
+    const slow = closing * 0.9;
+    for (let k = 0; k < rows; k++) {
+      const gap = Math.max(-9, Math.min(9, g0 + dir * 2.6 * k));
+      const b = BAND[k % BAND.length];
+      pending.push({ t: k * 0.3, fire: () => {
+        const hw = Math.min(12, arenaHW - 1), sx = (hw * 2) / n;
+        for (let x = -hw; x <= hw; x += sx) {
+          if (Math.abs(x - gap) < 2.6) continue;
+          for (const y of [B.fightHeight - 2.2, B.fightHeight + 2.2]) {
+            emitBoss(x, y, 0, 0, -slow, false, b.c, b.s);
+          }
+        }
+      } });
+    }
+  } else if (id === 'iris') {
+    // IRIS — contracting rings: each ring shrinks toward the centre as it closes,
+    // so camping an edge fails; the safe zone is the middle. The showpiece read.
+    const rings = quality < 0.75 ? 3 : 4;
+    const m = quality < 0.75 ? 12 : 16;
+    const rad = 10, contract = 0.62;
+    const slow = closing * 0.8;
+    const inSpd = (rad * contract) / (pose.rel / slow);   // arrives at rad×(1−contract) ≈ 3.8
+    const cx = anchorX, cy = B.fightHeight;
+    for (let k = 0; k < rings; k++) {
+      const b = BAND[k % BAND.length];
+      pending.push({ t: k * 0.4, fire: () => {
+        for (let i = 0; i < m; i++) {
+          const a = (i / m) * Math.PI * 2;
+          emitBoss(cx + Math.cos(a) * rad, cy + Math.sin(a) * rad,
+            -Math.cos(a) * inSpd, -Math.sin(a) * inSpd, -slow, false, b.c, b.s);
+        }
+      } });
+    }
+  } else if (id === 'stream') {
+    // STREAM — a tracking hose: re-aims at your LIVE position every tick, so one
+    // sidestep isn't enough — peel away in a smooth arc while it fires.
+    const ticks = quality < 0.75 ? 10 : 14;
+    const slow = closing * 0.95;
+    for (let k = 0; k < ticks; k++) {
+      pending.push({ t: k * 0.14, fire: () => {
+        const v = aimVel(player.position.x, player.position.y, slow);
+        emitBoss(pose.x, pose.y, v.vx, v.vy, -slow);
+      } });
+    }
+  } else if (id === 'secondWave') {
+    // SECOND WAVE — a spread, then a half-gap-offset second spread a beat later:
+    // the spot you just dodged into becomes unsafe. Kills "dodge once, relax".
+    const n = quality < 0.75 ? 7 : 9;
+    const span = 15;
+    const px0 = player.position.x;
+    const slow = closing * 0.92;
+    for (let w = 0; w < 2; w++) {
+      const off = w * (span / n / 2);
+      const b = BAND[w % BAND.length];
+      pending.push({ t: w * 0.55, fire: () => {
+        for (let i = 0; i < n; i++) {
+          const sx = px0 + (i / (n - 1) - 0.5) * span + off;
+          const v = aimVel(sx, B.fightHeight, slow);
+          emitBoss(pose.x, pose.y, v.vx, 0, -slow, false, b.c, b.s);
+        }
+      } });
+    }
+  } else if (id === 'crossfire') {
+    // CROSSFIRE — two flanking emitters fire converging aimed spreads: no single
+    // flee direction is clean. Precision shots → REFLECTABLE (amber): parry fuel.
+    const each = quality < 0.75 ? 4 : 5;
+    const slow = closing * 0.95;
+    for (const ex of [-10, 10]) {
+      for (let i = 0; i < each; i++) {
+        const off = (i / (each - 1) - 0.5) * 5;
+        const t = Math.max(pose.rel / slow, 0.05);
+        emitBoss(ex, pose.y, (px + off - ex) / t, (py - pose.y) / t, -slow, true);
+      }
+    }
   }
 }
 
@@ -826,6 +983,9 @@ export function resetBoss() {
   chargeT = 0;
   curAttack = null;
   game.inBoss = false;
+  arenaHW = arenaTargetHW = CONFIG.laneHalfWidth;
+  game.bossArenaHW = null;
+  if (wallL) { wallL.visible = wallR.visible = false; wallMat.opacity = 0; }
   nextBossDist = debugFirstAt ?? B.firstAt;
   encounterIndex = 0;
 }
@@ -837,11 +997,42 @@ export function setBossDebugFirstAt(dist) {
   if (!active) nextBossDist = dist;
 }
 
+// Debug/playtest: every encounter uses BOSS_ORDER[k] (?bossIdx=k) so the preview
+// can summon a specific boss without fighting through the cycle first.
+export function setBossDebugDefIdx(k) {
+  debugDefIdx = k;
+}
+
 // Debug hook: drop straight into a fight (wired under ?debug in main.js).
-export function forceBoss(player) {
-  startBossEncounter(player);
+// `idx` forces a specific BOSS_ORDER entry (?bossIdx=K) for preview judging.
+export function forceBoss(player, idx = null) {
+  startBossEncounter(player, idx != null ? bossDefForIndex(idx) : undefined);
 }
 
 export function bossDebugState() {
   return { active, phase, hp, hpMax, phaseIdx, shielded, bullets: bossBulletCount(), nextBossDist, warnT, approachT, poseRel: pose.rel };
+}
+
+// Test seam (headless pattern-budget checks): fire ONE attack volley with its
+// streamed sub-volleys flushed immediately. Returns [{ t, bullets: [{x,y}] }]
+// per volley (t = the stream offset), so suites can count emissions, estimate
+// concurrency, and scan fills for their designed safe lane. Only touches the
+// bullet pool + pending (caller resets the pool between attacks).
+export function debugEmitAttack(id, player, q = quality) {
+  const prevQ = quality;
+  quality = q;
+  pending.length = 0;
+  const volleys = [];
+  let seen = 0;
+  const take = (t) => {
+    const all = debugActiveBullets();
+    volleys.push({ t, bullets: all.slice(seen) });
+    seen = all.length;
+  };
+  executeAttack(id, player);
+  take(0);
+  pending.sort((a, b) => a.t - b.t);
+  while (pending.length) { const p = pending.shift(); p.fire(); take(p.t); }
+  quality = prevQ;
+  return volleys;
 }
