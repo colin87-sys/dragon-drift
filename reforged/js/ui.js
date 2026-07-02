@@ -1726,6 +1726,7 @@ export const ui = {
             ${saveData.stats.runs === 0 ? '' : `<button class="btn-secondary pm-nav-btn" id="pm-pilot">PILOT${badgeHtml(pilotBadgeDue())}</button>`}
             <button class="btn-secondary pm-nav-btn" id="pm-settings">SETTINGS</button>
             ${saveData.stats.runs === 0 ? '' : `<button class="btn-secondary pm-shop-btn" id="pm-shop">SHOP${badgeHtml(shopBadgeDue())}</button>`}
+            <button class="btn-secondary pm-nav-btn pm-quit-btn" id="pm-quit">EXIT TO MENU</button>
           </div>
         </div>
       </div>
@@ -1738,6 +1739,10 @@ export const ui = {
 
     const stop = (fn) => (e) => { e.stopPropagation(); fn(e); };
     els.screen.querySelector('#pm-resume').onclick = stop(() => handlers.onResume && handlers.onResume());
+    // Exit to the main menu (abandons the current run) — the only route back to the
+    // start-screen rail, where SHOP / DAILY / BOSS RUSH live.
+    const pmQuit = els.screen.querySelector('#pm-quit');
+    if (pmQuit) pmQuit.onclick = stop(() => handlers.onQuitToMenu && handlers.onQuitToMenu());
     // Shop + Pilot are hidden during the first flight (tutorial) — guard wiring.
     const pmShop = els.screen.querySelector('#pm-shop');
     if (pmShop) pmShop.onclick = stop(() => {

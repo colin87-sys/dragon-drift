@@ -4590,3 +4590,28 @@ loudly, because from the player's seat the invisible mechanic and a missing feat
 terminator. The deferred richer entry (a panel showing the unlocked-boss roster + best clear time before launch) is a drop-in
 upgrade of the button's click target. Verified: `smoke` (start screen renders clean), `bossrush` (2), `tricount` 203265; the
 human judges the button placement/label and the win recap on the preview.
+
+### L119 — The rail lives only on the start screen, so a mode is unreachable mid-session without an EXIT TO MENU
+
+**Did / learned.** Shipped the Boss Rush rail button (L118) — and the human still couldn't get to it: the start-screen rail
+(SHOP / DAILY / BOSS RUSH) renders ONLY in the `ready` state, which you see once at load. After TAKE OFF there was no route
+back — the pause overlay had RESUME / PILOT / SHOP / SETTINGS but no "leave this run." So any rail entry was reachable exactly
+once per page load. Fix: an **EXIT TO MENU** button in the pause overlay wired to `restart({ toMenu: true })` — the SAME full
+run-reset as a normal restart, but it lands on `game.state = 'ready'` + `showScreen('start')` (attract framing + rail) instead
+of launching. Reusing `restart` (not a bespoke teardown) means it inherits every reset the launch path already does
+(world/boss/particles/setpieces/env/death-cam) — forcing `mode = 'normal'` at the top so the rush-arming + dailyMod branches
+treat it as a plain menu return, and mirroring `resumeFromPause`'s `discardNextDelta` so the pause-gap dt spike is swallowed.
+The human's separate "?dev doesn't show the button" was ENVIRONMENTAL (production redeploys from master on merge — a 1-2 min
+lag + browser cache), confirmed by a real-browser test that shows the button for a beaten-boss save via the identical gate.
+
+**→ Systematize.** **Audit every new destination for "reachable more than once, from where the player actually is."** A menu
+affordance that only exists in a state you pass through once (the start screen) is a one-shot — pair any rail/menu entry with a
+persistent route back to that menu (pause → exit). And **model "leave to menu" as the launch reset that stops one step early**:
+call the existing `restart` with a `toMenu` flag rather than writing a parallel teardown, or the two drift and one forgets to
+reset something. When a reset function branches on `game.mode`, neutralise the mode (`= 'normal'`) before the branches so a
+"return to neutral" path can't accidentally re-arm the mode it's leaving.
+
+**→ Leapfrog (innovate).** EXIT TO MENU is the missing hub-return that also unblocks the gameover screen ("main menu" vs
+"retry") and any future mode selector, and `restart({toMenu})` is the reusable "soft reset to attract" primitive. Verified by
+a NEW real-browser test `tests/bossrushui.mjs` (beaten-boss save → BOSS RUSH visible → launches a rush → pause → EXIT TO MENU →
+back on the start screen with the rail intact, zero console errors) + `smoke`/`bossrush`/`boss` green, `tricount` 203265.

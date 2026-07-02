@@ -340,6 +340,7 @@ ui.init({
   onModelDetailChange: () => applyModelDetail(true),
   onPause: () => pauseManual(),
   onResume: () => resumeFromPause(),
+  onQuitToMenu: () => restart({ toMenu: true }),   // pause → back to the start-screen rail
   onRevive: () => {
     acceptRevive(player);
     sfx.revive();
@@ -551,7 +552,12 @@ let boostWasActive = false;
 let discardNextDelta = false;
 let currentBiome = 0;
 
-function restart() {
+function restart(opts = {}) {
+  // toMenu: reset the world but land on the START SCREEN (attract scene + rail)
+  // instead of launching a run — the "Exit to Menu" path from the pause overlay,
+  // which is the ONLY way back to the rail (and BOSS RUSH) mid-session.
+  const toMenu = !!opts.toMenu;
+  if (toMenu) game.mode = 'normal';   // leaving a run returns to the normal menu context
   game.reset();
   // Daily Challenge modifier (deterministic per UTC day) → run-level multipliers.
   game.dailyMod = game.mode === 'daily' ? todaysDailyMod() : null;
@@ -589,11 +595,22 @@ function restart() {
   }
   spawnAhead();
   cameraCtl.init(camera, player);
-  ui.hideScreen();
-  game.state = 'playing';
   boostWasActive = false;
   currentBiome = 0;
-  emit('runStart');
+  if (toMenu) {
+    // Back to the main menu: the attract framing + the start-screen rail, so a
+    // player mid-run can reach SHOP / DAILY / BOSS RUSH (the rail lives only here).
+    game.state = 'ready';
+    game.pauseReason = '';
+    discardNextDelta = true;      // swallow the pause-gap dt spike on the first menu frame
+    cameraCtl.setSplash(false);
+    music.startMenuTheme?.();
+    ui.showScreen('start');
+  } else {
+    ui.hideScreen();
+    game.state = 'playing';
+    emit('runStart');
+  }
 }
 
 // Run-end settle pipeline — the ORDER IS A CONTRACT:
