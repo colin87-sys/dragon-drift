@@ -1,0 +1,8 @@
+.claude/
+*.log
+node_modules/
+reforged/tools/_angles.html
+# Stray root-tree "Ember Gambit" feature files (untracked, not part of the reforged game)
+js/gambit.js
+tests/gambit.mjs
+.github/workflows/pages.yml
