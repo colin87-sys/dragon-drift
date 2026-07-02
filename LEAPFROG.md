@@ -4327,3 +4327,38 @@ the next pipeline improvement is texture resize to 1024² (glbslim), not polycou
 lift, rider seat, price + rarity when it graduates from free-test. Then the roster: each bad procedural dragon can
 be re-run through this pipeline as pure data. The form-ramp increment (ONE mesh + scale/material/FX per form) is
 the next code step so asset-backed heroes stop being single-form.
+
+### L110 — Rig v2: vision-marked joints + capsule/smoothed weights + flight-pose mesh — the smudge measured from 70.9× to 2.5×
+**Did / learned:** the human's phone screenshot showed the verdant v1 wings SMUDGING and the body stiff, and he flagged
+the old flame-monarch pain (PR #178's manual `glbtagger.html`) asking for "an easier way for you to identify and animate
+this." Three-part answer, each verified by the stretch PROBE (max posed/rest edge ratio at a hard flap extreme — the
+smudge as a NUMBER, L39c): **(1) weights**: hard axis-window bands tear a membrane at every classification boundary.
+Rebuilt `computeGlbWeights` as CAPSULE-distance weighting (each bone owns its joint→next-joint segment) + LAPLACIAN
+SMOOTHING of weights over the mesh adjacency (pinned rigid chest band). Five measured sub-lessons on the way down from
+70.9: a z-window can't segment a SWEPT wing (leading edge forward of any window that spares the neck) → capsule
+COMPETITION as the wing gate (70.9→28.9); wing capsules along the arm alone lose the trailing membrane to the chest
+capsule → **FINGER capsules** (the fingers carry the chord, like a real bat) marked from the top view; TOP-2 slot
+truncation re-tears what smoothing built at 3-bone junctions → keep all 4 GPU slots (→9.98); a soft falloff leaves
+5-bone junctions whose truncated 5th weight still tears → SHARP falloff 1/(d²+ε)² so ≤4 bones matter (→4.65); a tail
+that CURLS needs its capsule chain to FOLLOW the curl → `joints.tail` is a marked POLYLINE, else the coil steals wrist
+weight — the thundercoil bug, soft edition (→2.48). **(2) joint placement**: built `tools/rigshots.mjs` — flat-lit clay
+ORTHOGRAPHIC top+side renders with a labeled world-coordinate grid; Claude READS the images and writes
+`def.glb.rig.joints` (shoulder/elbow/wrist/tip/fingers, neck/head/hip, tail polyline, chest + windows). "Identify the
+body parts" is now Claude's vision doing the glbtagger's job — the human only judges the preview. The rigshots also
+answered the new mesh's orientation in ONE render (glbinspect's "widest axis = wingspan" guess is WRONG for a
+flight-pose mesh — the straight tail makes the SPINE longest). **(3) pose**: the v1 concept prompt said "standing" —
+a statue pose flies like a statue (dangling legs, upright chest; rotX can't fix anatomy). Regenerated the SAME approved
+design in a GLIDING pose (side view = the pose anchor, top = the planform, + ¾ + original as the 4th reference) →
+`multi_image_to_3d` → the rest pose IS the flight pose. First-try marks on the new mesh: stretch 2.54, wingtip drive
+2.45, partitions wing 5145 / chest 3762 / neckHead 3262 / hipTail 527. Also: `flapWing` gained ONE additive nullable
+term — `rig.restZ` (measured baked dihedral × `flapCenter`) so the beat oscillates around the mesh's own rest pose;
+procedural rigs byte-identical (flapcheck/skinnedwing/nightfury green). Rig cost ~150 ms one-time (24 smooth iters).
+**→ Systematize:** the per-mesh recipe is now: rigshots → Claude marks joints (+fingers, +tail polyline) → probe
+(partitions + tip-move + STRETCH < ~3) → def. Bank the laws: **author flying creatures IN the flying pose** (fix pose
+at the image stage, never with bones); **a membrane's chord is carried by fingers** — never model a wing as its
+leading edge only; **weight-slot truncation undoes smoothing** — keep all 4 slots and use a falloff sharp enough that
+4 suffice; **capsules must follow curled anatomy** (polyline marks).
+**→ Leapfrog (innovate):** the stretch probe should graduate from the scratchpad into `tools/` (rigprobe <key>) so
+every future mesh gets the number pre-preview. The remaining human-judged items: flap feel (`flapProfile`, `flapAmp`,
+`flapCenter`), rim brightness, rider seat. Roster rollout stays data-only: concepts (flying pose) → mesh → rigshots →
+marks → def.

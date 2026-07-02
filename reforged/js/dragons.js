@@ -1375,15 +1375,28 @@ export const DRAGONS = {
     assetBacked: true,
     meshUrl: './assets/models/verdant.glb',
     glb: {
-      scale: 6.5, rotY: Math.PI, rotX: -0.7, rotZ: 0, riderAt: [0, 0.7, 0.1],
+      scale: 6.5, rotY: Math.PI, rotX: 0, rotZ: 0, riderAt: [0, 0.7, 0.1],
       rigMode: 'skinned',
-      // MEASURED rig windows (headless probe, the L39c discipline): this mesh's
-      // wing leading edge sweeps forward past the neck, so the auto wing-window
-      // swallowed the head into the rigid chest band (neckHead partition = 14).
-      // Explicit windows restore the fore chain — partitions wing 3583 / chest
-      // 3024 / neckHead 3055 / hipTail 3103, wingtip moves 2.72 on a 0.4 rad
-      // flap. chestZ auto-expands to the measured chord at load (L37 guard).
-      rig: { tailN: 4, wingZ: [-2.2, 0.9], chestZ: [-1.7, 0.5], neckZ: -2.6, headZ: -3.4 },
+      // VISION-MARKED joints (Claude on tools/rigshots.mjs renders
+      // rigshot-verdant-{top,side}.png — the "Claude is the tagger" pipeline,
+      // replacing both the manual glbtagger and the window heuristics).
+      // Verified by the headless probe: partitions wing 5562 / chest 2969 /
+      // neckHead 1938 / hipTail 2296; wingtip moves 2.69 on a 0.4 rad flap;
+      // MAX MEMBRANE EDGE STRETCH 2.48 at a hard flap extreme (v1's window
+      // weights measured 70.9 — the wing-smudge fix, quantified). The tail is
+      // a marked POLYLINE because this mesh's tail curls sideways.
+      rig: {
+        tailN: 4, smoothIters: 24,
+        joints: {
+          shoulder: [0.75, -0.9, -3.25], elbow: [1.6, 0.6, -3.6], wrist: [2.5, 2.1, -3.9],
+          tip: [4.75, 1.0, -1.1],
+          fingers: [[4.65, 0.4, 1.4], [3.35, 0.1, 2.05], [2.2, -0.1, 2.3]],
+          neck: [0, -1.4, -3.9], head: [0, -1.2, -5.0],
+          hip: [0, -1.9, 1.8],
+          tail: [[0, -1.5, 3.0], [0, -1.25, 4.0], [0, -1.05, 5.0], [0, -0.85, 6.05]],
+          chest: [0, -2.1, -1.5], chestZ: [-3.0, 0.6], wingZ: [-4.2, 2.4],
+        },
+      },
       rim: { intensity: 0.45, fillIntensity: 0.22 },
     },
     stats: { speed: 1.04, handling: 1.12, drain: 0.96, regen: 1.05 },  // agile forest spirit

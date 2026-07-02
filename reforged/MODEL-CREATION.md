@@ -452,9 +452,11 @@ fly cycle; researched and ruled out, see LEAPFROG L108).
 
 **Per-dragon recipe (no geometry code):**
 1. **Concept (human gate #1).** Generate cel-shaded/stylized concepts: wings
-   FULLY SPREAD, straight neutral spine (a coiled pose fights both the 3D
-   reconstruction and the tail chain), side + ¾ + top views of one design,
-   plain background. Iterate HERE — never fix aesthetics later in code.
+   FULLY SPREAD, and — THE POSE LAW — **a FLYING/GLIDING pose** (body
+   horizontal, legs tucked, tail streaming straight back): the reconstruction
+   BAKES the pose, and a statue pose flies like a statue (verdant v1). Side +
+   ¾ + top views of one design, plain background. Iterate HERE — never fix
+   aesthetics (or pose) later in code.
 2. **Mesh (human gate #2).** `multi_image_to_3d` with the approved views:
    `target_polycount` ~12000, `topology:'triangle'`, `symmetry_mode:'on'`,
    textured. Save to `assets/models/<key>.glb`. Inspect with
@@ -474,9 +476,18 @@ fly cycle; researched and ruled out, see LEAPFROG L108).
    },
    model: { tailWhip: true, ... }          // rotation-only tail drive (chains tear on position)
    ```
-4. **Verify.** `tests/glbrig.mjs` (weight partitions + motion probes),
-   `tests/glbcontract.mjs`, `tests/glb.mjs` (budget), then judge motion on the
-   PR preview. `?rigMode=skinned|shader` A/Bs the same mesh under both rigs.
+4. **Mark the skeleton (Claude is the tagger).** `node tools/rigshots.mjs
+   <key>` renders flat-lit clay orthographic TOP + SIDE views with a labeled
+   world-coordinate grid; Claude reads the images and writes
+   `def.glb.rig.joints` — shoulder/elbow/wrist/tip (+ trailing `fingers`, they
+   carry the membrane chord), neck/head/hip + the `tail` POLYLINE (a curling
+   tail needs bones that follow it), chest + chestZ/wingZ. This replaces both
+   the manual glbtagger and the measurement heuristics (which remain the
+   no-marks fallback). Verify with the partition/stretch probe: target max
+   membrane edge stretch < ~3 at a hard flap extreme.
+5. **Verify.** `tests/glbrig.mjs` (weight partitions + motion probes + the
+   stretch gate), `tests/glbcontract.mjs`, `tests/glb.mjs` (budget), then judge
+   motion on the PR preview. `?rigMode=skinned|shader` A/Bs the same mesh.
 
 **How it works (`js/dragonGlbRig.js`):** the loaded mesh's placement is BAKED
 into its geometry (game frame: head −Z, wingspan ±X), a skeleton is placed from

@@ -109,10 +109,11 @@ for (let i = 0; i < pos.count; i++) {
     for (let k = 0; k < 4; k++) if (w[k] > 0 && WING_BONES.has(idx[k])) coilBad++;
     if (coilVert < 0) coilVert = i;
   }
-  // outermost wing verts: 100% wrist
+  // outermost wing verts: DOMINANT wrist (capsule weights blend a little
+  // elbow near the band — that gradient is the point of v2)
   if (isWingGate && ax > a.wristX + a.band) {
     const W = x < 0 ? BONE.WRIST_L : BONE.WRIST_R;
-    if (!(idx[0] === W && w[0] === 1)) tipBad++;
+    if (!(idx[0] === W && w[0] > 0.5)) tipBad++;
     if (x > tipX) { tipX = x; tipVert = i; }
   }
 }
@@ -122,8 +123,8 @@ assert(chestBad === 0, `chest band single-slot on root (${chestBad} bad)`);
 ok('chest band verts are single-slot on the root bone (L37 law)');
 assert(coilBad === 0, `coiled tail has zero wing weight (${coilBad} bad)`);
 ok('coiled wide-x tail verts carry ZERO wing weight (thundercoil bug locked)');
-assert(tipBad === 0, `outer wing verts 100% wrist (${tipBad} bad)`);
-ok('outer wing verts are 100% wrist');
+assert(tipBad === 0, `outer wing verts dominant-wrist (${tipBad} bad)`);
+ok('outer wing verts are dominated by the wrist bone');
 assert(a.chestZ[0] <= a.wingRootChordZ[0] && a.chestZ[1] >= a.wingRootChordZ[1],
   'chest band contains the measured wing-root chord');
 ok('chest band contains the measured wing-root chord (L37 measured, not guessed)');
@@ -214,5 +215,125 @@ assert(Math.abs(bb.min.z - (-2.2)) < 0.01 && Math.abs(bb.max.z - 2.6) < 0.01,
   `bake restores the game frame (z ${bb.min.z.toFixed(2)}..${bb.max.z.toFixed(2)})`);
 assert(content3.scale.x === 1 && content3.rotation.x === 0, 'content transform collapsed to identity');
 ok('placement bake: rotated/scaled content lands in the game frame, transforms collapsed');
+
+// ── stretch gate: the anti-smudge metric on an INDEXED membrane fixture ──────
+// v1's hard weight bands SHEARED the membrane at classification boundaries
+// (the verdant smudge). Gate: pose the shoulders at a hard flap extreme and
+// assert no edge stretches beyond 1.6× its rest length — smooth weights keep
+// neighbours moving together BY CONSTRUCTION.
+function membraneFixture() {
+  const verts = [], index = [];
+  const cols = 15, rows = 7;                      // per-side wing grid
+  const gx = (c) => 0.24 + (c / (cols - 1)) * 2.16;   // x 0.24..2.4
+  const gz = (r) => -0.5 + (r / (rows - 1)) * 0.9;    // z -0.5..0.4
+  for (const side of [1, -1]) {
+    const base = verts.length / 3;
+    for (let r = 0; r < rows; r++) for (let c = 0; c < cols; c++) {
+      verts.push(side * gx(c), 0.3, gz(r));
+    }
+    for (let r = 0; r < rows - 1; r++) for (let c = 0; c < cols - 1; c++) {
+      const a = base + r * cols + c, b = a + 1, d = a + cols, e = d + 1;
+      index.push(a, b, d, b, e, d);
+    }
+  }
+  // body strip along z so the chest/fore/aft chains exist
+  const bodyBase = verts.length / 3;
+  const bn = 30;
+  for (let i = 0; i <= bn; i++) {
+    const z = -2.2 + (i / bn) * 4.0;
+    verts.push(-0.18, 0.25, z, 0.18, 0.25, z);
+  }
+  for (let i = 0; i < bn; i++) {
+    const a = bodyBase + i * 2, b = a + 1, c = a + 2, d = a + 3;
+    index.push(a, b, c, b, d, c);
+  }
+  const g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.Float32BufferAttribute(verts, 3));
+  g.setIndex(index);
+  return g;
+}
+{
+  const group4 = new THREE.Group();
+  const skel4 = buildGlbSkeleton(RIG_CFG, {});
+  group4.add(skel4.root);
+  const content4 = new THREE.Group();
+  const mesh4 = new THREE.Mesh(membraneFixture(), new THREE.MeshStandardMaterial());
+  content4.add(mesh4);
+  group4.add(content4);
+  const stats4 = rigGlbContent(content4, skel4, RIG_CFG);
+  const sm4 = stats4.skinnedMeshes[0];
+  // hard flap extreme
+  skel4.wingRigL.shoulder.rotation.z = 0.7; skel4.wingRigR.shoulder.rotation.z = -0.7;
+  skel4.wingRigL.elbow.rotation.z = 0.3; skel4.wingRigR.elbow.rotation.z = -0.3;
+  group4.updateMatrixWorld(true);
+  const p4 = sm4.geometry.attributes.position;
+  const posed = [];
+  for (let i = 0; i < p4.count; i++) {
+    posed.push(sm4.applyBoneTransform(i, new THREE.Vector3().fromBufferAttribute(p4, i)));
+  }
+  const idx4 = sm4.geometry.index;
+  let maxRatio = 0;
+  const restA = new THREE.Vector3(), restB = new THREE.Vector3();
+  for (let i = 0; i < idx4.count; i += 3) {
+    for (const [u, v] of [[0, 1], [1, 2], [0, 2]]) {
+      const a = idx4.getX(i + u), b = idx4.getX(i + v);
+      restA.fromBufferAttribute(p4, a); restB.fromBufferAttribute(p4, b);
+      const rest = restA.distanceTo(restB);
+      if (rest < 1e-6) continue;
+      const ratio = posed[a].distanceTo(posed[b]) / rest;
+      if (ratio > maxRatio) maxRatio = ratio;
+    }
+  }
+  assert(maxRatio < 1.6, `max edge stretch at flap extreme < 1.6 (got ${maxRatio.toFixed(3)})`);
+  ok(`stretch gate: max membrane edge stretch ${maxRatio.toFixed(3)} at a hard flap extreme`);
+  // smoothing preserved the invariants
+  const sw4 = sm4.geometry.attributes.skinWeight;
+  let sumErr4 = 0;
+  for (let i = 0; i < p4.count; i++) {
+    sumErr4 = Math.max(sumErr4, Math.abs(sw4.getX(i) + sw4.getY(i) + sw4.getZ(i) + sw4.getW(i) - 1));
+  }
+  assert(sumErr4 < 1e-5, 'weights still sum to 1 after smoothing');
+  ok('smoothing preserves weight normalization');
+}
+
+// ── vision-marked joints override (rig.joints) ───────────────────────────────
+{
+  const group5 = new THREE.Group();
+  const JCFG = {
+    rig: {
+      tailN: 4,
+      joints: {
+        shoulder: [0.35, 0.32, -0.1], elbow: [1.1, 0.34, -0.05], wrist: [1.7, 0.36, 0.0],
+        tip: [2.4, 0.3, 0.0],
+        neck: [0, 0.35, -1.1], head: [0, 0.4, -1.9],
+        hip: [0, 0.3, 0.9], tailEnd: [0, 0.32, 2.5],
+        chest: [0, 0.3, 0],
+        wingZ: [-0.55, 0.45], chestZ: [-0.6, 0.5],
+      },
+    },
+  };
+  const skel5 = buildGlbSkeleton(JCFG, {});
+  group5.add(skel5.root);
+  const content5 = new THREE.Group();
+  content5.add(new THREE.Mesh(fixtureGeometry(), new THREE.MeshStandardMaterial()));
+  group5.add(content5);
+  rigGlbContent(content5, skel5, JCFG);
+  const a5 = skel5.analysis;
+  assert(a5.joints === true, 'analysis records joints mode');
+  assert(Math.abs(a5.shoulderX - 0.35) < 1e-6 && Math.abs(a5.elbowX - 1.1) < 1e-6
+    && Math.abs(a5.wristX - 1.7) < 1e-6, 'wing joint x taken from the marks');
+  assert(Math.abs(a5.neckZ - (-1.1)) < 1e-6 && Math.abs(a5.hipZ - 0.9) < 1e-6, 'spine z from the marks');
+  // placed bone world position matches the mark (right shoulder)
+  const shoulderWorld = new THREE.Vector3();
+  group5.updateMatrixWorld(true);
+  skel5.wingRigR.shoulder.getWorldPosition(shoulderWorld);
+  assert(shoulderWorld.distanceTo(new THREE.Vector3(0.35, 0.32, -0.1)) < 1e-5,
+    `shoulder bone sits at the mark (${shoulderWorld.x.toFixed(3)},${shoulderWorld.y.toFixed(3)},${shoulderWorld.z.toFixed(3)})`);
+  // rest dihedral exported (marks put the wrist a touch above the shoulder)
+  assert(typeof skel5.wingRigR.restZ === 'number' && typeof skel5.wingRigL.restZ === 'number'
+    && Math.abs(skel5.wingRigR.restZ + skel5.wingRigL.restZ) < 1e-9,
+    'restZ exported, mirror-signed');
+  ok('rig.joints override places bones at the marks + exports restZ');
+}
 
 console.log(`\nglbrig: ${n} checks passed`);
