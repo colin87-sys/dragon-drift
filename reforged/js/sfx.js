@@ -596,8 +596,21 @@ export const sfx = {
       tone({ freq: f, end: f * 1.5, dur: 0.3, type: 'square', vol: 0.1, delay: i * 0.09 }));
     tone({ freq: 1046.50, end: 2093, dur: 0.5, type: 'sawtooth', vol: 0.08, delay: 0.38 });
   },
+  // Combo break: a short snap transient into a falling minor figure — loud
+  // enough to read over the music and distinct from deny() (single low slide)
+  // and damage() (noise thud). Non-punitive: it states the loss, no dwelling.
   comboBreak() {
-    tone({ freq: 440, end: 200, dur: 0.35, type: 'square', vol: 0.08 });
+    noiseWhoosh({ from: 3200, to: 800, dur: 0.07, vol: 0.09, q: 1.8 });
+    tone({ freq: 523.25, end: 392, dur: 0.16, type: 'triangle', vol: 0.13 });
+    tone({ freq: 392, end: 261.63, dur: 0.22, type: 'square', vol: 0.09, delay: 0.09 });
+  },
+  // Dragon Surge dying to a hit: a soft downward fizzle, quieter than the
+  // damage thud it plays under — signals "the Surge is gone" without doubling
+  // the sting.
+  surgeFizzle() {
+    noiseWhoosh({ from: 2400, to: 300, dur: 0.35, vol: 0.08, q: 0.8 });
+    tone({ freq: 880, end: 330, dur: 0.4, type: 'sine', vol: 0.07 });
+    tone({ freq: 1320, end: 495, dur: 0.3, type: 'triangle', vol: 0.04, delay: 0.05 });
   },
   gate() {
     tone({ freq: 520, end: 1040, dur: 0.16, type: 'triangle', vol: 0.13 });

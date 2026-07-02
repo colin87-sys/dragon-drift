@@ -13,6 +13,7 @@ const BIT = {
   steer: 1, boost: 2, perfect: 4, gauntlet: 8, glide: 16, surge: 32, phase: 64, roll: 128,
   // Live (non-pausing) callouts for the remaining mechanics.
   orb: 256, gate: 512, ember: 1024, gold: 2048, nearMiss: 4096,
+  stamina: 8192, assist: 16384,
 };
 
 const isTouch = () =>
@@ -22,6 +23,7 @@ const isTouch = () =>
 let active = 0;      // currently shown bit (0 = none)
 let hideAt = 0;      // game.time to auto-hide
 let boostedThisRun = false;
+let earlyHitsThisRun = 0; // hits before 500m (glide-assist pointer trigger)
 let rollsAtShow = 0; // game.rolls when the roll-dodge hint was shown (dismiss on first roll after)
 let sentFirstInput = false; // funnel one-shots (analytics dedups across the install too)
 let sentFirstBoost = false;
@@ -44,7 +46,18 @@ function hide() {
 }
 
 export function initHints() {
-  on('runStart', () => { boostedThisRun = false; hide(); });
+  on('runStart', () => { boostedThisRun = false; earlyHitsThisRun = 0; hide(); });
+  // A rough start (two hits before 500m, past the learning runs) points at
+  // Glide Assist once ever — coaching, never scolding.
+  on('damage', (p) => {
+    if (!p || p.m > 500) return;
+    earlyHitsThisRun++;
+    if (active || seen(BIT.assist)) return;
+    if (saveData.settings.glideAssist || saveData.stats.runs < 3) return;
+    if (earlyHitsThisRun >= 2) {
+      show(BIT.assist, 'Rough start? GLIDE ASSIST in Settings can fly the line', 5);
+    }
+  });
   on('ring', (p) => {
     if (!eligible() || active || seen(BIT.perfect)) return;
     if (!(p && p.perfect)) {
@@ -134,6 +147,15 @@ export function updateHints(dt, player) {
     show(BIT.roll, isTouch()
       ? 'Swipe a second finger to BARREL ROLL — dodges damage'
       : 'Double-tap a direction (or Shift) to BARREL ROLL — dodges damage', 6);
+    return;
+  }
+
+  // Stamina starvation: the arc is beauty-first and never explained — the first
+  // time boost is held on an empty tank, name the resource (once ever, any run;
+  // not in a boss, where boost is suspended and the tap means Surge).
+  if (!gestureTutorialActive() && !seen(BIT.stamina) && !game.inBoss &&
+      input.boost && game.stamina <= 0 && player.orbTimer <= 0 && game.time > 2) {
+    show(BIT.stamina, 'Stamina spent — rings, windows and orbs refill it', 4.5);
     return;
   }
 
