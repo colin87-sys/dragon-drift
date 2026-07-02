@@ -4567,3 +4567,26 @@ scaling until death — a separate `bossRush.endlessBest`), and the mode-as-sche
 `rushClear` in ~149s with the overlay torn down), `boss.mjs` (11), `bossboot` zero-error, `defs`/`smoke`/`save-migration`
 green, `tricount` 203265. Fixed a stale `defs.mjs` feat-count guard (was 25, actual 30) that had drifted un-bumped on master.
 The human judges the menu entry, breather pacing, and the win recap on the preview.
+
+### L118 — Boss Rush discoverability: the menu entry is the mode; a mechanic with no way in doesn't exist to the player
+
+**Did / learned.** Shipped the Boss Rush CORE (L117) with only a `?rush` URL entry — and the human immediately asked "I don't
+see the boss rush mode?" A mode the player can't reach from the UI is, to them, not shipped. Added the missing entry: a
+**BOSS RUSH rail button** on the start screen, gated by `handlers.rushUnlocked()` (main passes the boss.js predicate, so it
+respects both the persisted `beaten` unlock AND the `?dev` override), wearing a NEW pill (`!saveData.flags.seenBossRush`,
+cleared on first launch) — wired to `handlers.onStart('rush')`, exactly mirroring the existing DAILY rail pattern. Plus the
+win-side readout: a `RUSH CLEAR!` recap heading (new `h1.good` gold gradient vs the crash-red `h1.bad`) shown when
+`game.rushCleared`. The whole thing is ~4 small edits because the rail/handlers/`onStart(mode)`/recap were already the seam.
+
+**→ Systematize.** **"Core done" ≠ "feature done" — a mode isn't shipped until it's reachable from the UI on the path a real
+player walks.** A `?flag` entry is a testing seam, not a feature; always pair a new mode with (a) its menu affordance, gated by
+the real unlock predicate (not a URL), and (b) its win/lose readout on the existing recap. Reuse the established entry pattern
+(here: rail button → `onStart(mode)`) so the new mode inherits click handling, NEW-pill reveal, and styling for free — a new
+mode should be a data/gate addition to the menu, not a bespoke screen. When you defer the UI to "preview-judged polish," say so
+loudly, because from the player's seat the invisible mechanic and a missing feature are indistinguishable.
+
+**→ Leapfrog (innovate).** The gated-rail-button + `onStart(mode)` pairing is now the template for every future mode entry
+(endless rush, a boss-of-the-day), and `h1.good` + `rushCleared` is the reusable "victory recap" skin for any non-death run
+terminator. The deferred richer entry (a panel showing the unlocked-boss roster + best clear time before launch) is a drop-in
+upgrade of the button's click target. Verified: `smoke` (start screen renders clean), `bossrush` (2), `tricount` 203265; the
+human judges the button placement/label and the win recap on the preview.

@@ -421,6 +421,10 @@ body.app-loaded > canvas { opacity: 1; }
   filter: drop-shadow(0 0 22px rgba(255, 190, 80, 0.45)) drop-shadow(0 2px 4px rgba(0,0,0,0.6)); }
 .screen h1.bad { background: linear-gradient(180deg, #ffd0c0, #ff8a7a 60%, #ff5040);
   -webkit-background-clip: text; background-clip: text; }
+/* Triumphant recap heading (Boss Rush cleared) — gold storm-light, not crash-red. */
+.screen h1.good { background: linear-gradient(180deg, #fff2c8, #ffd870 55%, #35e0ff);
+  -webkit-background-clip: text; background-clip: text; }
+.death-cause.good { color: #ffd870; }
 .screen h1.pause-title { font-size: 42px; }
 /* Wordmark shine: a second background layer sweeping across the gradient text.
    Scoped to .wordmark — "CRASHED!" must never shine. */

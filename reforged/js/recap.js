@@ -247,8 +247,9 @@ export function buildRecapHtml(score, dist, { isTouch, ICONS }) {
   }</div>`;
 
   return `
-    <h1 class="bad">CRASHED!</h1>
-    ${causeText ? `<p class="death-cause">${causeText}</p>` : ''}
+    ${game.rushCleared
+      ? `<h1 class="good">RUSH CLEAR!</h1><p class="death-cause good">Every boss felled — the gauntlet is yours.</p>`
+      : `<h1 class="bad">CRASHED!</h1>${causeText ? `<p class="death-cause">${causeText}</p>` : ''}`}
     ${recordChips(sum)}
     <p class="sub big"><b class="count-up" id="score-countup" data-target="${score}">0</b> points</p>
     ${pb > 0 && !game.isNewHighScore ? `<p class="sub">Personal best: <b>${pb}</b></p>` : ''}

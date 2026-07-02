@@ -72,6 +72,7 @@ const ICONS = {
   pilot:    '<svg viewBox="0 0 18 18" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M9 3.6l5 3.1-5-1-5 1z"/><path d="M9 8.7l5 3.1-5-1-5 1z"/></svg>',
   daily:    '<svg viewBox="0 0 18 18" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4.5" width="12" height="10.5" rx="1.4"/><path d="M3 7.6h12M6 3v3M12 3v3"/></svg>',
   feat:     '<svg viewBox="0 0 18 18" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M6.4 2.2l2.6 4.1 2.6-4.1"/><circle cx="9" cy="11" r="3.9"/></svg>',
+  rush:     '<svg viewBox="0 0 18 18" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M10 2L4 10h4l-1 6 6-8h-4l1-6z"/></svg>',
   weekly:   '<svg viewBox="0 0 18 18" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5.5 3.2h7v2.6a3.5 3.5 0 0 1-7 0z"/><path d="M5.5 4.2H4a1.6 1.6 0 0 0 1.6 1.9M12.5 4.2H14a1.6 1.6 0 0 1-1.6 1.9"/><path d="M9 9.4v2.3M6.8 14.6h4.4l-.6-2.9H7.4z"/></svg>',
 };
 
@@ -1209,6 +1210,10 @@ export const ui = {
         if (showQuests) items += railBtn('btn-quests', ICONS.weekly, 'QUESTS', questsBadgeDue(), newQuests);
         items += railBtn('btn-shop', ICONS.shop, 'SHOP', shopBadgeDue(), newShop);
         if (showDeep)   items += railBtn('btn-daily',  ICONS.daily,  'DAILY',  dailyBadgeDue(), newDaily);
+        // BOSS RUSH: appears once the player has beaten a boss (the mode's unlock),
+        // wears a NEW pill until first launched. Gated by main via handlers.rushUnlocked.
+        if (handlers.rushUnlocked && handlers.rushUnlocked())
+          items += railBtn('btn-rush', ICONS.rush, 'BOSS RUSH', false, !saveData.flags.seenBossRush);
         rail = `<nav class="hero-rail">${items}</nav>`;
       }
 
@@ -1897,6 +1902,12 @@ function wireScreenButtons(type) {
     if (quests) quests.onclick = stop(() => ui.showScreen('quests'));
     const dailyBtn = q('#btn-daily');
     if (dailyBtn) dailyBtn.onclick = stop(() => ui.showScreen('daily'));
+    // BOSS RUSH launches the gauntlet directly (no panel yet) + clears its NEW pill.
+    const rushBtn = q('#btn-rush');
+    if (rushBtn) rushBtn.onclick = stop(() => {
+      if (!saveData.flags.seenBossRush) { saveData.flags.seenBossRush = true; persist(); }
+      handlers.onStart && handlers.onStart('rush');
+    });
   }
   // QUESTS / DAILY panels are only ever opened from the start screen.
   if (type === 'quests' || type === 'daily') {
