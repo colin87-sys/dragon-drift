@@ -17,3 +17,8 @@ Then follow THE RULE in that file:
 
 The live game is in `reforged/`. Everything is 100% procedural (no asset files),
 vanilla Three.js r160, no build step, and must hold 60fps on weak mobile.
+
+**Designing or touching a BOSS?** Read [`reforged/BOSS-DESIGN.md`](./reforged/BOSS-DESIGN.md)
+first — it distills the boss research, design laws, the tier ladder, the archetype
+architecture, and the SHORT list of ledger lessons that matter for boss work (so you don't
+read the whole ledger for it).
