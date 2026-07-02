@@ -4909,7 +4909,45 @@ archaeology. The storm-arc idiom (static jagged LineSegments + per-mat sin^N opa
 `tests/boss.mjs` 16/16 green (idol 2,502 tris / 18 draws; mandala 3,280 tris / 27 draws), `tests/bossboot.mjs` zero
 console errors, bossshot captures re-judged front-on in two biomes per boss.
 
-### L127 — "?dev shows nothing": a feature gated behind a progressive-reveal (cold) shell is invisible to the dev override, and an in-app toggle must feed the same seam as the URL flag
+### L127 — Shareability is a different axis than beauty: the charisma layer
+
+**Did / learned.** Researched what makes bosses screenshot-viral vs fan-art-able and found they run on DIFFERENT
+machinery: screenshots need COMPOSITION (scale, backlight, a safe capture window); fan art needs CHARACTER (a face
+with changeable states, a from-memory-drawable silhouette, a hook feature, a name to rally around, something to draw
+it DOING). The decisive precedent: Majora's Mask's moon had no face until an artist added one — same object, face
+added, icon created. Anthropomorphism threshold is two dots plus intentional motion, but the eyes must DO things.
+Applied as a "charisma layer" on both bosses without touching their fight logic: PUPILS that track the player with
+lag (snap-tracking reads as a turret; lagged tracking with occasional deliberate look-aways reads as a MIND),
+blinks (idol blinks casually; the mandala is "the unblinking" — one blink per ~10s, so each is an event), pupil
+constriction as the charge tell / dilation in death, brow bars moved onto pivots (±0.3 rad = glare/anger/pain/sorrow
+— the cheapest expression rig in 3D), a fire-once notice() beat at fight start, hit flinches, and EMOTIONAL deaths
+(sorrow brows + eyes easing shut + jaw slack; petals furling like a flower at dusk) — mournful deaths generate art,
+explosions don't. Spectacle side: FromSoft-style reveal card (name + epithet, def-driven), FELLED kill card, reveal
++ phase-transition attack holds (players only screenshot when safe), kill slow-mo via the EXISTING
+game.slowMoTimer channel, and ember-vs-gold palette separation so the two bosses attribute at thumbnail size.
+
+**Gotchas.** (1) A pupil on a pulsing eye must ride the pulse: the mandala's eye core scales about the rig origin,
+so a static-z pupil gets swallowed when the charge pulse grows the eyeball past it — pupil z (and the lids) multiply
+by the pulse. (2) Pupil SIZE is the cute/dreadful dial: r 0.17 on the idol tipped look-away frames into googly
+comedy; r 0.14 keeps the wrath. (3) Blink scaling must happen about the socket line (eyes + pupils in a group whose
+origin is the eye centre), not the rig origin, or closing eyes slide down the face. (4) Handle-level wraps
+(setDissolve/flash/setHealth) are the clean seam for layering emotion onto kit plumbing — no bossKit changes needed.
+(5) PARALLEL AGENTS + GIT: an implementer ran `git stash` mid-session and silently captured the supervisor's
+concurrent uncommitted edits from disjoint files — worktree-level git commands are never safe alongside concurrent
+editors; agents working a shared tree must not run stash/checkout/reset at all.
+
+**→ Systematize.** New-boss checklist gains a shareability column: F-axis (doodle-test silhouette, ≥3 face states,
+hook feature, ≤3-colour identity, name+epithet, something-to-draw-it-doing) and S-axis (composed reveal, capture
+holds, kill card, thumbnail-attributable palette). The optional handle hooks `setGaze(nx,ny)` / `notice()` are now
+part of the archetype contract (controller optional-chains them; legacy builder ignores them).
+
+**→ Leapfrog (innovate).** The gaze/blink/pupil state machine is boss-agnostic — any future creature (or the
+player's own dragon in menus) can mount it for the same aliveness-per-line payoff. Next candidates from the research
+ladder, deliberately deferred: gesture hands for the idol (Master Hand pattern), horizon presence before the fight
+(MM-moon pattern), post-defeat companion shard (mascot conversion). Verified: tests/boss.mjs 16/16 (draw gate 30→34,
+evidence at the assertion), tests/bossboot.mjs zero console errors, captures re-judged in two biomes per boss.
+
+### L128 — "?dev shows nothing": a feature gated behind a progressive-reveal (cold) shell is invisible to the dev override, and an in-app toggle must feed the same seam as the URL flag
 
 **Did / learned.** The human reported BOSS RUSH never appeared — even with dev mode on. Reproduced the exact matrix in a real
 browser and found TWO gaps, both about the dev override not reaching the gate: (1) the start-screen rail is hidden entirely for
