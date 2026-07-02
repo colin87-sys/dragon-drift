@@ -175,6 +175,7 @@ export const game = {
     s.totalOrbs += this.speedOrbsCollected;
     s.totalGoldEmbers += this.goldEmbersRun;
     s.gauntletsCleared += this.gauntletsClearedRun;
+    s.totalBossKills = (s.totalBossKills || 0) + this.bossesDefeatedRun;
     // Dragon mastery: metres flown per dragon (array of [key, metres] pairs —
     // deepMerge drops dynamic-key maps, see save.js).
     const key = saveData.skins.equipped;

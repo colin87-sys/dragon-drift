@@ -33,7 +33,7 @@ const DEFAULTS = {
     runs: 0, totalDist: 0, totalRings: 0, totalEmbers: 0,
     totalPerfects: 0, totalGates: 0, totalNearMisses: 0, totalRolls: 0,
     totalSurges: 0, totalOrbs: 0, totalGoldEmbers: 0, gauntletsCleared: 0,
-    dailiesCompleted: 0,
+    dailiesCompleted: 0, totalBossKills: 0,
   },
   records: {
     bestChain: 0, bestPerfectStreak: 0, mostRingsRun: 0,

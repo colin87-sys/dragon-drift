@@ -20,6 +20,8 @@ export const TITLES = [
   { id: 'dawnchaser',   name: 'Dawnchaser',     source: 'Feat: Dawn Patrol' },
   { id: 'driftveteran', name: 'Drift Veteran',  source: 'Feat: Veteran of the Drift' },
   { id: 'midas',        name: 'Midas',          source: 'Feat: Midas Wing' },
+  { id: 'flawless',     name: 'Flawless',       source: 'Feat: Flawless Herald' },
+  { id: 'tempestbane',  name: "Tempest's Bane", source: 'Feat: Tempest Tamer' },
   // Ascension feats
   { id: 'eternal',      name: 'Eternal',       source: 'Feat: Eternal Bond' },
   // Weekly trials
