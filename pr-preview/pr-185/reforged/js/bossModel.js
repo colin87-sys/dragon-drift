@@ -45,6 +45,21 @@ export function makeEnergyShell(color, { power = 2.4, strength = 1.0, opacity = 
 export function buildBoss(def, quality = 1) {
   const accent = def.accent ?? 0xff4488;
   const glow = def.glow ?? 0xff88cc;
+  // Nullable BODY RECIPE: silhouette knobs so each boss reads distinct at 30m.
+  // Defaults reproduce the original construct (Voidmaw) exactly — a def with no
+  // `body` is byte-identical to before this recipe existed (coexist rule).
+  // This is knobs on ONE construct, deliberately NOT a creature system.
+  const body = {
+    silhouette: 'orb',        // 'orb' | 'shard' (elongated prow — bakes a stretch)
+    spikeCount: null,         // null = legacy quality-based 6/8
+    spikeLen: 2.4,
+    spikeSweep: 0,            // 0 = radial crown; >0 sweeps the vanes backward
+    orbiterStyle: 'shard',    // 'shard' octa chips | 'ringBlade' spinning blades
+    orbiterCount: null,       // null = legacy quality-based 2/3
+    eyeCount: 2,
+    coreDetail: 1,
+    ...(def.body || {}),
+  };
   // The boss holds ~30m ahead; at that range the base primitives read small and
   // get lost against the horizon. Scale the whole construct up so it's an
   // imposing centrepiece (the dissolve multiplies from this base, not 1).
@@ -53,13 +68,20 @@ export function buildBoss(def, quality = 1) {
   const mats = [];          // every material, for the dissolve
   const track = (m) => { mats.push(m); return m; };
 
+  // 'shard' silhouette: bake an elongation into the body geometries (geometry-
+  // level so the tick's animated scale.setScalar never fights a static scale).
+  const stretch = (geo) => {
+    if (body.silhouette === 'shard') geo.scale(0.82, 0.82, 1.5);
+    return geo;
+  };
+
   // --- Core: a dark faceted body with a strong emissive accent. Brighter than a
   // normal prop so the bloom pass catches it and it reads as a threat, not scenery.
   const coreMat = track(new THREE.MeshStandardMaterial({
     color: 0x1a0e22, emissive: accent, emissiveIntensity: 1.5,
     roughness: 0.35, metalness: 0.45, flatShading: true,
   }));
-  const core = new THREE.Mesh(new THREE.IcosahedronGeometry(2.2, 1), coreMat);
+  const core = new THREE.Mesh(stretch(new THREE.IcosahedronGeometry(2.2, body.coreDetail)), coreMat);
   group.add(core);
 
   // Molten INNER CORE: a small bright sphere pulsing inside the faceted shell,
@@ -67,31 +89,41 @@ export function buildBoss(def, quality = 1) {
   const innerMat = track(new THREE.MeshBasicMaterial({
     color: glow, transparent: true, opacity: 0.9, blending: THREE.AdditiveBlending, depthWrite: false,
   }));
-  const innerCore = new THREE.Mesh(new THREE.IcosahedronGeometry(1.5, 1), innerMat);
+  const innerCore = new THREE.Mesh(stretch(new THREE.IcosahedronGeometry(1.5, body.coreDetail)), innerMat);
   group.add(innerCore);
 
   // Fresnel ENERGY SHELL: glows at the silhouette edge so the boss pops against a
   // bright sky or the horizon city (the flat additive shell it replaces vanished).
   const shellMat = track(makeEnergyShell(glow, { power: 2.2, strength: 1.15, opacity: 1.0 }));
-  const shell = new THREE.Mesh(new THREE.IcosahedronGeometry(2.9, 2), shellMat);
+  const shell = new THREE.Mesh(stretch(new THREE.IcosahedronGeometry(2.9, 2)), shellMat);
   group.add(shell);
   // A wider, softer outer halo shell for atmosphere/scale.
   const haloMat = track(makeEnergyShell(accent, { power: 3.2, strength: 0.6, opacity: 1.0 }));
-  const halo = new THREE.Mesh(new THREE.IcosahedronGeometry(3.9, 2), haloMat);
+  const halo = new THREE.Mesh(stretch(new THREE.IcosahedronGeometry(3.9, 2)), haloMat);
   group.add(halo);
 
-  // --- Spike crown: cones jutting out around the equator ---
+  // --- Spike crown: cones jutting out around the equator (spikeSweep > 0 tilts
+  // them backward into swept storm-vanes — a clearly different silhouette) ---
   const spikeMat = track(new THREE.MeshStandardMaterial({
     color: 0x1a0f20, emissive: accent, emissiveIntensity: 0.5,
     roughness: 0.4, metalness: 0.35, flatShading: true,
   }));
-  const spikeGeo = new THREE.ConeGeometry(0.55, 2.4, 5);
-  const spikeCount = quality < 0.75 ? 6 : 8;
+  const spikeGeo = new THREE.ConeGeometry(0.55, body.spikeLen, 5);
+  const spikeCount = body.spikeCount != null
+    ? (quality < 0.75 ? Math.max(4, body.spikeCount - 2) : body.spikeCount)
+    : (quality < 0.75 ? 6 : 8);
+  const UP = new THREE.Vector3(0, 1, 0);
   for (let i = 0; i < spikeCount; i++) {
     const a = (i / spikeCount) * Math.PI * 2;
     const s = new THREE.Mesh(spikeGeo, spikeMat);
     s.position.set(Math.cos(a) * 2.4, Math.sin(a) * 2.4, 0);
-    s.rotation.z = a - Math.PI / 2;       // point outward
+    if (body.spikeSweep > 0) {
+      // Orient the cone outward + backward (away from the player-facing +z).
+      const dir = new THREE.Vector3(Math.cos(a), Math.sin(a), -body.spikeSweep).normalize();
+      s.quaternion.setFromUnitVectors(UP, dir);
+    } else {
+      s.rotation.z = a - Math.PI / 2;       // legacy radial crown (Voidmaw)
+    }
     group.add(s);
   }
 
@@ -112,22 +144,34 @@ export function buildBoss(def, quality = 1) {
   throat.rotation.x = -Math.PI / 2;       // open end toward the player
   group.add(throat);
 
-  // --- Eyes: two emissive sparks flanking the maw ---
+  // --- Eyes: emissive sparks over the maw (2 = flanking pair; 1 = a single
+  // larger cyclops storm-eye — a distinct face read per boss) ---
   const eyeMat = track(new THREE.MeshBasicMaterial({ color: 0xfff2ff }));
-  for (const sx of [-1, 1]) {
-    const eye = new THREE.Mesh(new THREE.SphereGeometry(0.28, 8, 6), eyeMat);
-    eye.position.set(sx * 1.0, 1.0, 1.9);
+  if (body.eyeCount === 1) {
+    const eye = new THREE.Mesh(new THREE.SphereGeometry(0.36, 8, 6), eyeMat);
+    eye.position.set(0, 1.05, 1.9);
     group.add(eye);
+  } else {
+    for (const sx of [-1, 1]) {
+      const eye = new THREE.Mesh(new THREE.SphereGeometry(0.28, 8, 6), eyeMat);
+      eye.position.set(sx * 1.0, 1.0, 1.9);
+      group.add(eye);
+    }
   }
 
-  // --- Orbiting shards (animated by the controller) ---
+  // --- Orbiters (animated by the controller): octa chips, or thin spinning
+  // ring-blades for a bladed-storm read ---
   const shardMat = track(new THREE.MeshStandardMaterial({
     color: 0x281030, emissive: glow, emissiveIntensity: 0.7,
     roughness: 0.3, metalness: 0.4, flatShading: true,
   }));
-  const shardGeo = new THREE.OctahedronGeometry(0.6, 0);
+  const shardGeo = body.orbiterStyle === 'ringBlade'
+    ? new THREE.TorusGeometry(0.62, 0.11, 6, 14)
+    : new THREE.OctahedronGeometry(0.6, 0);
   const orbiters = [];
-  const shardCount = quality < 0.75 ? 2 : 3;
+  const shardCount = body.orbiterCount != null
+    ? (quality < 0.75 ? Math.max(2, body.orbiterCount - 1) : body.orbiterCount)
+    : (quality < 0.75 ? 2 : 3);
   for (let i = 0; i < shardCount; i++) {
     const m = new THREE.Mesh(shardGeo, shardMat);
     m.userData = {

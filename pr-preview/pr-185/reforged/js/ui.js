@@ -849,6 +849,13 @@ export const ui = {
     b.classList.add('ms-anim');
   },
 
+  // Surge killed by a hit: one-shot dim/desaturate sweep over the gem row so
+  // the loss reads visually (paired with sfx.surgeFizzle from collision.js).
+  surgeLost() {
+    if (!els.surgeWidget) return;
+    restartAnim(els.surgeWidget, 'surge-fizzle');
+  },
+
   biomePopup(name) {
     this._popup(`— ${name} —`, 'cyan');
   },
@@ -2270,15 +2277,34 @@ function wireScreenButtons(type) {
         location.reload();
       });
     }
+    // Two-step in-DOM confirm (native confirm() is blocked/ugly in standalone
+    // PWA contexts): first tap arms the button with a danger label + 4s revert;
+    // only a second tap while armed erases.
     const reset = q('#btn-reset-save');
-    if (reset) reset.onclick = stop(() => {
-      if (confirm('Reset ALL progress (embers, dragons, riders, music, missions, records)?')) {
+    if (reset) {
+      const armedLabel = 'TAP AGAIN TO ERASE EVERYTHING';
+      let disarmTO = 0;
+      reset.onclick = stop(() => {
+        if (reset.dataset.armed !== '1') {
+          reset.dataset.armed = '1';
+          reset.dataset.label = reset.textContent;
+          reset.textContent = armedLabel;
+          reset.classList.add('danger-armed');
+          clearTimeout(disarmTO);
+          disarmTO = setTimeout(() => {
+            reset.dataset.armed = '';
+            reset.textContent = reset.dataset.label || 'RESET ALL PROGRESS';
+            reset.classList.remove('danger-armed');
+          }, 4000);
+          return;
+        }
+        clearTimeout(disarmTO);
         localStorage.removeItem('dragonDriftSave');
         localStorage.removeItem('dragonDriftHighScore');
         localStorage.removeItem('dragonDriftBestDist');
         location.reload();
-      }
-    });
+      });
+    }
   }
 }
 

@@ -11,7 +11,7 @@ export const CONFIG = {
   boostSpeed: 65,
   orbSpeed: 80,
   orbDuration: 2,
-  speedEase: 3,
+  speedEase: 5,
   lateralSpeed: 24,
   verticalSpeed: 18,
   moveAccel: 6,

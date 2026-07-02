@@ -4363,7 +4363,79 @@ every future mesh gets the number pre-preview. The remaining human-judged items:
 `flapCenter`), rim brightness, rider seat. Roster rollout stays data-only: concepts (flying pose) → mesh → rigshots →
 marks → def.
 
-### L111 — Boss focus ring: one circle, HP-bar-paced draw, and killing the "graze" jargon
+### L111 — The feel+UX micro-pass: name every silent state change, and know which "feel knobs" secretly live inside the generator
+**Did / learned:** Shipped the Phase-1 remediation from the full codebase critique (plan:
+5 phases; this is the smallest-highest-leverage one). Six changes: (1) `speedEase 3→5` —
+boost now arrives with the camera kick instead of 0.5s after it (steering settles in ~0.26s,
+speed was taking ~0.5s — the mismatch read as "floaty boost"); (2) gate slow-mo horizon
+`0.32→0.5×speed` (`collision.js`) — gates were getting ~40% less last-chance warning than
+pillars/shards, the exact hazard that most needs anticipation; (3) `sfx.comboBreak` redesigned
+(snap transient + falling minor figure) — the old single quiet square was inaudible under
+`damage()`; (4) NEW `sfx.surgeFizzle` + `ui.surgeLost()` (grey-out sweep on the gem row) wired
+in `hit()` — Dragon Surge used to die to a hit with ZERO feedback; (5) two new hints —
+stamina starvation (once-ever, fires when boost is held on an empty tank; the arc was
+beauty-first and never explained) and a glide-assist pointer (2 hits before 500m, runs≥3);
+(6) reset-save `window.confirm` → two-step armed danger button (native confirm is blocked/ugly
+in standalone PWA). Verified: gold-determinism byte-identical, defs/economy/juice/boss/smoke
+green, tricount 203265 · 0 over. KNOWN-ENV: `badges/celebrate/feats/return-triggers/
+save-purchases/stamina` browser suites fail on the CLEAN tree in this container (Playwright
+timing) — verified pre-existing by stash-compare before claiming green.
+**→ Systematize:** (a) THE GOTCHA THAT MATTERS: `boostSteeringBonus` looks like a feel knob but
+is baked into COURSE GENERATION (`level.js` gate-reach + `auditHop`) — retuning it reshuffles
+every seed and breaks every challenge link. Rule: before touching any CONFIG "feel" constant,
+grep `level.js` for it; if the generator reads it, SPLIT it (frozen generator constant + new
+feel constant consumed only by player.js). `speedEase` was verified generator-clean before
+this change. (b) "No silent state changes" is now a design invariant: every gameplay state the
+player cares about (combo, Surge, streaks) must have BOTH an audio and a visual statement of
+its loss, not just its gain — audit any new mechanic against this. (c) The stash-compare
+("does it fail on the clean tree?") is the standard move before attributing any test failure
+to your diff.
+**→ Leapfrog (innovate):** The critique's full 5-phase plan is on file
+(`/root/.claude/plans/` in-session; phases: P2 second boss reusing the already-implemented
+spiral/spiralStream patterns + minimal `bossModel` recipe knobs; P3 economy mid-band (Surge
+Tints 100-500◆, endless milestones, skill weeklies, starters→Eternal stats+glow, per-dragon
+perks); P4 pulse-gate hazard + biome-weighted OVERLAY generation via a 4th RNG stream — the
+Sky-Canyon pattern is the determinism-safe channel for ALL future late-game content; P5
+reduce-flashing toggle + a11y). The deferred handling-tuning PR (boostSteeringFeel split +
+clean-roll cooldown reward) is queued behind preview judgment of this pass.
+
+### L112 — STORMREND: the second boss ships as pure DATA + a job-tagged pattern vocabulary (and a budget test that caught its first bug before any human did)
+**Did / learned:** Phase 2 of the critique plan. Six new attack patterns in `executeAttack`
+(`curtain`/`movingGap`/`iris` fills, `stream`/`secondWave`/`crossfire` anti-flee — adapted from
+the human's Boss Pattern Lab exports, which matched the engine contract almost verbatim), the
+STORMREND def (teal/gold, side approach, 3 gentle phases, `constrictPhase: 2`), a nullable
+`def.body` recipe on `buildBoss` (silhouette/spikeSweep/orbiterStyle/eyeCount knobs — defaults
+reproduce Voidmaw byte-identically), the ARENA CONSTRICTION showpiece (walls ease to ±6.5 in
+phase 3; `game.bossArenaHW` clamps the player in player.js like laneMaxY — a push, never damage;
+restored unconditionally in endEncounter/resetBoss), `?bossIdx=K` preview forcing, and the lab
+itself contract-synced into `tools/patternlab.html` (CDN→vendored three, B_SPEED 34→28,
+FIGHT_Y 11→13, GRAZE_SCALE 2.2→3.0). Tests: whitelist +6 ids, model/lifecycle loops over
+BOSS_ORDER, and a NEW emission-budget check via `debugEmitAttack`/`debugActiveBullets` seams —
+worst concurrent load within one closing window ≤55 at low quality (the visibleCap floor is 60
+and `spawnBossBullet` DROPS SILENTLY past it → an over-budget wall spawns with random holes =
+unfair noise), plus a designed-safe-lane scan for every 2D fill. **The budget test caught
+movingGap at 60 concurrent on its first run** — the fix was low-tier density (n 8→6), never
+closing speed. Verified: boss.mjs 11 checks (voidmaw ~62s kill, stormrend ~77s — a fair step
+up), bossboot/defs/smoke/gold-determinism/juice/economy/canyonboot green, tricount 203265 · 0
+over, real-engine screenshot of the curtain wall + settled boss via `?bossIdx=1`.
+**→ Systematize:** (a) The pattern vocabulary is now JOB-TAGGED (fill / anti-flee / graze-bait /
+garnish / depth — the danmaku "every pattern has a purpose" law): a boss def picks a mix of
+jobs per phase, so authoring boss #3 is a data entry + maybe one new pattern. (b) The
+emission-budget test is the standing guard for ALL future patterns — any new branch is
+automatically counted against the low-tier cap and gap-scanned; silent-drop bugs are now
+structurally impossible to ship. (c) `tools/patternlab.html` is the tuning workflow: dial a
+pattern → export the branch → paste into executeAttack → the budget test validates it. Keep its
+K block synced with CONFIG.BOSS when tuning. (d) Constriction is data (`constrictPhase`) — any
+def can opt in.
+**→ Leapfrog (innovate):** Boss #3 can now be authored in an afternoon: pocket/converge/field
+patterns are already designed in the lab, the recipe knobs give it a silhouette, and spiral+
+spiralStream are still voidmaw/stormrend-unused at high cadence. The bigger unlock: per-def
+PATTERN DIALS (the lab's dial values baked into the def, not the branch) would make attacks
+fully data — one branch per shape, per-boss tuning in bossDefs. And the constriction system
+generalizes to non-boss set-pieces (a narrowing storm-front mid-run). Next critique phases: P3
+economy mid-band, P4 pulse gates + biome-weighted overlays, P5 accessibility.
+
+### L113 — Boss focus ring: one circle, HP-bar-paced draw, and killing the "graze" jargon
 
 **Did / learned.** Three small readability follow-ups on live feedback. (1) **One circle, not two.** The focus reticle
 still drew BOTH the graze-radius (outer) and hit-radius (inner) rings — the outer read as clutter. Collapsed to a single
@@ -4388,7 +4460,7 @@ surfaced verb (graze→skim, parry, thread, gate) gets checked against a first-t
 (8), `bossboot` zero-error, `smoke`, `tricount` 203265; a capture shows a single ring mid-sweep + the "SKIMS" label. The
 human judges the ring size and draw pace live.
 
-### L112 — The focus ring earns a second job: a Surge-time DRAIN METER (and why a full ring behind it defeats it)
+### L114 — The focus ring earns a second job: a Surge-time DRAIN METER (and why a full ring behind it defeats it)
 
 **Did / learned.** The circle around the dragon was decorative during a fight; gave it a JOB during Surge — it becomes
 the surge-timer. Built as a dim TRACK + a bright FILL arc revealed by `setDrawRange` (an angular wipe — no per-frame
