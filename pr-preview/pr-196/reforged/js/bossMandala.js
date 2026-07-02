@@ -176,6 +176,7 @@ export function buildStormMandala(def, quality = 1) {
     pivot.position.set(Math.cos(a) * IRIS_HINGE_R, Math.sin(a) * IRIS_HINGE_R, IRIS_Z);
     pivot.rotation.z = a;   // orients local +X outward (radial) and +Y tangential (the hinge axis)
     const mesh = new THREE.Mesh(petalGeoShared, petalMat);
+    mesh.name = 'irisPetal';   // tests/tooling seam: the telegraph-silhouette gate finds these by name
     pivot.add(mesh);
     rig.add(pivot);
     petals.push(mesh);

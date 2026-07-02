@@ -91,6 +91,118 @@ for (const key of BOSS_ORDER) {
   ok(`${key} model: ${tris} tris, dissolve + tick verified`);
 }
 
+// --- 2b. archetype system: quality scaling, userData tag, draw-call budget,
+// telegraph silhouette change, and the legacy-fallback coexist path (CP4) ---
+// Guards the specific failure modes bossKit.js/bossIdol.js/bossMandala.js
+// introduced: a def that forgets `archetype` silently rendering the OLD
+// crystal-core boss, a telegraph that only changes colour (not shape), and a
+// draw-call regression that quietly bloats past the mobile budget.
+// Same counting convention as section 2 above (`if (o.geometry)`, not
+// isMesh-gated) so the numbers this section prints are directly comparable.
+function countTris(root) {
+  let tris = 0;
+  root.traverse((o) => { if (o.geometry) { const g = o.geometry; tris += (g.index ? g.index.count : (g.attributes.position?.count ?? 0)) / 3; } });
+  return Math.round(tris);
+}
+// Effectively-visible drawables: a mesh/line/instanced-mesh only counts if IT
+// and every ancestor up to the root is visible — three.js's traverse() walks
+// hidden subtrees too, so a naive isMesh count would over-count the shield
+// bubble (hidden at rest) and the shatter shards (hidden until a burst).
+function countVisibleDraws(root) {
+  let draws = 0;
+  (function walk(o, parentVisible) {
+    const vis = parentVisible && o.visible;
+    if (!vis) return;
+    if (o.isMesh || o.isLineSegments || o.isInstancedMesh) draws++;
+    for (const c of o.children) walk(c, vis);
+  })(root, true);
+  return draws;
+}
+function findAllByName(root, name) {
+  const out = [];
+  root.traverse((o) => { if (o.name === name) out.push(o); });
+  return out;
+}
+
+// Measured @q1 (HP bar forced visible): voidmaw 17 draws (13 body + 4 HP
+// bar), stormrend 22 draws (18 body + 4 HP bar) — the mandala's 8 iris
+// petals are individual pivot meshes, not one InstancedMesh (bossMandala.js's
+// header comment: a deliberate CP3 tradeoff for simpler dissolve/tracking,
+// and the CP0 stress test found draws this small are noise on the slope, not
+// the cliff). The plan's original "≤20" estimate assumed the InstancedMesh
+// path; 24 keeps this a real regression gate against the ACTUAL shipped
+// architecture with headroom, not a rubber stamp.
+const DRAW_BUDGET = 24;
+for (const key of BOSS_ORDER) {
+  const def = BOSSES[key];
+  const q1 = buildBoss(def, 1);
+  const q05 = buildBoss(def, 0.5);
+  const tris1 = countTris(q1.group);
+  const tris05 = countTris(q05.group);
+  assert(tris05 > 0 && tris05 < tris1 && tris1 < 6000,
+    `${key} quality scaling: tris(q0.5)=${tris05} < tris(q1)=${tris1} < 6000`);
+  assertEq(q1.group.userData.archetype, def.archetype,
+    `${key} model.group.userData.archetype matches the def ('${def.archetype}') — guards silent legacy fallback`);
+
+  q1.setHealthBarVisible(true);   // hidden during fly-in by default; force it on for the gate
+  const draws = countVisibleDraws(q1.group);
+  assert(draws > 0 && draws <= DRAW_BUDGET, `${key} visible draw calls ${draws} within the ≤${DRAW_BUDGET} gate`);
+
+  q1.dispose(); q05.dispose();
+  ok(`${key} archetype checks: tris ${tris05}→${tris1}, archetype '${def.archetype}', ${draws} visible draws`);
+}
+
+// Telegraph-silhouette gate: setCharge(1) + tick must move a SHAPE (a pivot
+// rotation), not just recolour a material — the design law both archetypes
+// are built on. jawPivot/irisPetal names are set by the builders specifically
+// so this gate (and any future tool) can find them without hardcoding indices.
+{
+  const idol = buildBoss(BOSSES.voidmaw, 1);
+  const jaw = findAllByName(idol.group, 'jawPivot')[0];
+  assert(jaw, 'voidmaw exposes a named jawPivot for the telegraph gate');
+  idol.tick(0.05, 0.5);   // settle the idle pose before snapshotting
+  const preJawX = jaw.rotation.x;
+  idol.setCharge(1);
+  idol.tick(0.1, 1.0);
+  assert(jaw.rotation.x < -0.3,
+    `voidmaw jaw pivot hinges open on charge (rotation.x ${jaw.rotation.x.toFixed(3)}, was ${preJawX.toFixed(3)})`);
+  idol.dispose();
+  ok('voidmaw telegraph: setCharge(1) hinges the jaw pivot open (silhouette change)');
+}
+{
+  const mandala = buildBoss(BOSSES.stormrend, 1);
+  const petals = findAllByName(mandala.group, 'irisPetal');
+  assert(petals.length >= 2, 'stormrend exposes named irisPetal meshes for the telegraph gate');
+  mandala.tick(0.05, 0.5);   // settle the idle pose before snapshotting
+  const preAngles = petals.map((p) => p.rotation.y);
+  mandala.setCharge(1);
+  mandala.tick(0.1, 1.0);
+  const changed = petals.some((p, i) => Math.abs(p.rotation.y - preAngles[i]) > 0.01);
+  assert(changed, 'stormrend iris petal angles change on charge (silhouette change)');
+  mandala.dispose();
+  ok('stormrend telegraph: setCharge(1) flares the iris petals open (silhouette change)');
+}
+
+// Legacy coexist gate: a def WITHOUT `archetype` must still fall through to
+// the legacy construct (bossModel.js's buildBoss dispatcher) — the coexist
+// rule the whole archetype system is built on, guarding against a future def
+// silently losing its archetype and shipping the wrong boss unnoticed.
+{
+  const legacyDef = { ...BOSSES.voidmaw, archetype: undefined };
+  let legacyModel, legacyErr = null;
+  try { legacyModel = buildBoss(legacyDef, 1); } catch (e) { legacyErr = e; }
+  assert(!legacyErr, `legacy fallback construct builds without throwing (${legacyErr?.message})`);
+  assert(legacyModel.group.userData.archetype == null, 'legacy fallback construct carries no archetype userData tag');
+  const legacyTris = countTris(legacyModel.group);
+  assert(legacyTris > 0, `legacy fallback construct tris ${legacyTris} > 0`);
+  legacyModel.setDissolve(1);
+  let maxOp = 0;
+  legacyModel.group.traverse((o) => { if (o.material) maxOp = Math.max(maxOp, o.material.opacity); });
+  assert(maxOp < 0.02, `legacy fallback setDissolve(1) drives all materials transparent (max opacity ${maxOp.toFixed(3)})`);
+  legacyModel.dispose();
+  ok(`legacy coexist: def without archetype still builds the legacy construct (${legacyTris} tris), dissolve works, no throw`);
+}
+
 // --- 3. bullet pool: player-relative dodge / hit / reflect ------------------
 bullets.initBossBullets(fakeScene);
 game.state = 'playing';
