@@ -9,7 +9,8 @@ import { burst } from './particles.js';
 import { emit, on } from './events.js';
 import { clearAhead } from './obstacles.js';
 import { buildBoss } from './bossModel.js';
-import { bossDefForIndex } from './bossDefs.js';
+import { BOSSES, BOSS_ORDER, bossDefForIndex } from './bossDefs.js';
+import { saveData, persist } from './save.js';
 import {
   initBossBullets, updateBossBullets, spawnBossBullet, resetBossBullets,
   setBossBulletQuality, bossBulletCount, reflectBossBullets, debugActiveBullets,
@@ -33,6 +34,32 @@ let debugFirstAt = null;       // ?boss override: bring the first encounter in e
 let debugDefIdx = null;        // ?bossIdx override: force a specific BOSS_ORDER entry
 let nextBossDist = B.firstAt;
 let encounterIndex = 0;
+
+// Boss Rush (gauntlet): run the unlocked bosses back-to-back with a short ring
+// breather between each, then emit 'rushClear'. Architected so an endless variant
+// (loop the queue with per-lap scaling) can slot in later. Kept OFF for a normal run.
+let rushMode = false;
+let rushQueue = [];            // BOSS_ORDER keys to run, in order (only the beaten ones)
+let rushIndex = 0;             // which queue entry is current
+let rushUnlockAll = false;     // dev seam: treat every boss as unlocked
+const RUSH_LEAD = 240;         // metres of warm-up before the first boss flies in
+const RUSH_BREATHER = 420;     // metres of ring-recharge between bosses (heal + re-arm surge)
+
+// The rush roster: bosses the player has DEFEATED (so a new boss must be beaten in
+// normal play before it joins the gauntlet), or every boss under the dev unlock.
+export function rushRoster() {
+  const beaten = saveData.bossRush?.beaten || [];
+  return BOSS_ORDER.filter((k) => rushUnlockAll || beaten.includes(k));
+}
+export function rushUnlocked() { return rushRoster().length > 0; }
+export function setRushUnlockAll(v) { rushUnlockAll = !!v; }
+
+// Record a defeated boss into the save so it unlocks in the rush roster (any mode).
+function recordBossBeaten(id) {
+  if (!id) return;
+  if (!saveData.bossRush) saveData.bossRush = { beaten: [], cleared: 0, bestClearMs: 0 };
+  if (!saveData.bossRush.beaten.includes(id)) { saveData.bossRush.beaten.push(id); persist(); }
+}
 
 // Live encounter state.
 let active = false;
@@ -114,6 +141,7 @@ export function initBoss(sc) {
   scene = sc;
   initBossBullets(scene);
   on('bossDamage', (e) => damageBoss(e.amount, e.kind));
+  on('bossDefeated', (e) => recordBossBeaten(e && e.id));   // unlock it in the rush roster
 
   // Arena walls: two tall translucent planes that slide in during a constriction
   // showpiece phase. Hidden (opacity 0) whenever the arena is at full width.
@@ -306,7 +334,8 @@ export function startBossEncounter(player, defOverride) {
   if (active) return;
   active = true;
   def = defOverride
-    || (debugDefIdx != null ? bossDefForIndex(debugDefIdx) : bossDefForIndex(encounterIndex));
+    || (rushMode ? BOSSES[rushQueue[rushIndex]]
+      : (debugDefIdx != null ? bossDefForIndex(debugDefIdx) : bossDefForIndex(encounterIndex)));
   hpMax = def.hpMax;
   hp = hpMax;
   phaseIdx = 0;
@@ -367,6 +396,21 @@ export function startBossEncounter(player, defOverride) {
   emit('bossStart', { id: def.id });
 }
 
+// Begin a Boss Rush run: queue the unlocked bosses and schedule the first one a
+// short warm-up ahead. main.js suppresses the obstacle course for the whole run
+// (rings/orbs only), so the gauntlet is boss → breather → boss → … → 'rushClear'.
+export function startBossRush(player) {
+  rushMode = true;
+  rushQueue = rushRoster();
+  rushIndex = 0;
+  encounterIndex = 0;
+  active = false;
+  if (rushQueue.length === 0) { emit('rushClear', { count: 0 }); nextBossDist = Infinity; return; }
+  nextBossDist = player.dist + RUSH_LEAD;
+}
+
+export function inBossRush() { return rushMode; }
+
 function endEncounter(player) {
   if (group) { scene.remove(group); model.dispose?.(); }
   resetBossBullets();
@@ -385,7 +429,19 @@ function endEncounter(player) {
   game.feverActive = true;
   game.feverTimer = CONFIG.feverDuration;
   encounterIndex++;
-  nextBossDist = player.dist + B.interval + Math.random() * B.intervalJitter;
+  if (rushMode) {
+    // Gauntlet: advance the queue. Another boss → a short ring breather; queue
+    // exhausted → the run is WON (main.js ends it as a win on 'rushClear').
+    rushIndex++;
+    if (rushIndex >= rushQueue.length) {
+      nextBossDist = Infinity;
+      emit('rushClear', { count: rushQueue.length });
+    } else {
+      nextBossDist = player.dist + RUSH_BREATHER;
+    }
+  } else {
+    nextBossDist = player.dist + B.interval + Math.random() * B.intervalJitter;
+  }
   emit('bossEnd', { dist: player.dist });   // main.js resumes level generation ahead
 }
 
@@ -1018,6 +1074,8 @@ export function resetBoss() {
   if (wallL) { wallL.visible = wallR.visible = false; wallMat.opacity = 0; }
   nextBossDist = debugFirstAt ?? B.firstAt;
   encounterIndex = 0;
+  // Clear the gauntlet driver (a fresh run re-arms it via startBossRush if in rush).
+  rushMode = false; rushQueue = []; rushIndex = 0;
 }
 
 // Debug/playtest: pull the first encounter in to `dist` metres (e.g. ?boss → a

@@ -30,6 +30,7 @@ export const FEAT_DEFS = [
   { id: 'boss_nohit',     cat: 'skill', name: 'Flawless Herald',      desc: 'Defeat a boss without taking a hit',     reward: 120, title: 'flawless' },
   { id: 'boss_deflector', cat: 'skill', name: 'Storm Deflector',      desc: 'Reach an 8-parry streak on a boss',      reward: 80 },
   { id: 'boss_slay_10',   cat: 'journey', name: 'Tempest Tamer',      desc: 'Slay 10 sky bosses',                     reward: 150, title: 'tempestbane', settle: () => (saveData.stats.totalBossKills || 0) >= 10 },
+  { id: 'rush_clear',     cat: 'skill', name: 'Gauntlet Runner',      desc: 'Clear a Boss Rush',                      reward: 120 },
   // --- Journey ---
   { id: 'dist_5k_run',    cat: 'journey', name: 'Marathon Wing',       desc: 'Fly 5,000 m in one run',                 reward: 80,  settle: () => game.distance >= 5000 },
   { id: 'runs_10',        cat: 'journey', name: 'Regular',             desc: 'Finish 10 flights',                      reward: 30,  settle: () => saveData.stats.runs >= 10 },
@@ -151,6 +152,7 @@ export function initFeats() {
     if (e && e.noHit) unlockFeat('boss_nohit', { live: true });
   });
   on('bossReflect', (e) => { if (e && e.streak >= 8) unlockFeat('boss_deflector', { live: true }); });
+  on('rushCleared', () => unlockFeat('rush_clear', { live: true }));
   on('distance', (p) => {
     if (p.m - lastDamageDist >= 2000) unlockFeat('clean_2k', { live: true });
   });

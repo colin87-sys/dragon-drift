@@ -33,7 +33,8 @@ export const game = {
   isNewBestDistance: false,
   challengeScore: 0,
   challengeBeaten: false, // crossed the challenge target mid-run (race bar)
-  mode: 'normal',      // normal | daily
+  mode: 'normal',      // normal | daily | rush (Boss Rush gauntlet)
+  rushCleared: false,  // set when a Boss Rush run is won (all bosses felled)
   runSeed: CONFIG.seed,
   embersRun: 0,        // embers collected this run (banked at run end)
   emberBonusEarned: 0, // extra embers from the equipped rider's bonus
@@ -111,6 +112,7 @@ export const game = {
     this.distance = 0;
     this.time = 0;
     this.deathFreezeTimer = 0;
+    this.rushCleared = false;
     this.milestone = 0;
     this.recordBeaten = false;
     this.deathCause = '';

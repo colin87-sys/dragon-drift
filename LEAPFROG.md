@@ -4537,3 +4537,33 @@ add it in the same change, and grep the existing ids for name/id collisions firs
 `bossDefeated`) is now enough to author a whole boss-mastery track — per-boss no-hit feats, a "beat every boss" collection
 feat (needs a defeated-ids set in the save), a reflect-count lifetime title — all pure data + listeners. This is the hook
 the upcoming Boss Rush mode pays into: a rush completion is just another event feats can gate on.
+
+### L117 — Boss Rush (gauntlet): a new run MODE built by composing the existing overlay, grace band, and run-end — not a new arena
+
+**Did / learned.** Shipped Boss Rush as a third `game.mode` ('normal' | 'daily' | 'rush') by REUSING systems rather than
+building an arena. The whole mode is: (1) a driver in boss.js (`startBossRush` queues the unlocked bosses; `endEncounter`
+advances the queue → a short ring breather between bosses, or `emit('rushClear')` when the queue is exhausted), (2) the
+existing post-boss GRACE BAND pinned open for the whole run (`bossGraceUntil = MAX_SAFE_INTEGER`) so `spawnAhead` lays
+rings/orbs only and NO obstacle course ever spawns — the gauntlet is boss → recharge → boss, and (3) the normal run-end
+pipeline: `rushClear` sets `state='gameover'` with a `rushCleared` win flag (no crash FX) so `settleRun` pays the haul
+through the same recap. Zero new arena, zero new render path. Unlock model (per the human): a boss joins the rush roster
+only once DEFEATED (`saveData.bossRush.beaten`, recorded on any `bossDefeated`), the mode unlocks after the first kill, and
+a dev seam (`?dev` / `setRushUnlockAll`) exposes all. Architected for an ENDLESS variant later — the queue + per-lap scaling
+is the only addition; the driver already loops cleanly.
+
+**→ Systematize.** (a) **A new "mode" is usually a new schedule over existing systems, not new systems.** Before building,
+list the beats the mode needs (here: spawn bosses, suppress the course, heal between, end as a win) and map each to a knob
+that already exists (`nextBossDist`, `bossGraceUntil`, the grace band, the game-over freeze). A mode that reuses the run-end
+pipeline inherits scoring/records/feats/recap for free. (b) **Model "win" as a clean variant of "end," not a bespoke path**
+— reuse the game-over freeze + `settleRun`, gated by a flag (`rushCleared`), and just skip the crash FX. (c) **Gate content
+by a persisted `beaten` set** so new entries (bosses, biomes) self-unlock through normal play; add a dev override in the same
+change so playtesting never waits on grinding. (d) **Keep the seatbelt:** every mode-specific branch is gated on
+`game.mode === 'rush'` / `rushMode`, so a normal run is byte-unchanged (the driver resets to OFF in `resetBoss`).
+
+**→ Leapfrog (innovate).** The queue driver is the seam for the endless variant (loop the roster with per-lap HP/cadence
+scaling until death — a separate `bossRush.endlessBest`), and the mode-as-schedule recipe generalizes to future modes
+(a "canyon rush", a daily boss). The `rushCleared` win-end is the first non-death run terminator — the hook for any future
+"objective complete" mode. Verified: NEW `tests/bossrush.mjs` (roster gating locked→1→all; a full 2-boss gauntlet driven to
+`rushClear` in ~149s with the overlay torn down), `boss.mjs` (11), `bossboot` zero-error, `defs`/`smoke`/`save-migration`
+green, `tricount` 203265. Fixed a stale `defs.mjs` feat-count guard (was 25, actual 30) that had drifted un-bumped on master.
+The human judges the menu entry, breather pacing, and the win recap on the preview.
