@@ -100,16 +100,21 @@ export function buildIdolMask(def, quality = 1) {
     for (let i = 1; i < outline.length; i++) shape.lineTo(outline[i][0], outline[i][1]);
     shape.closePath();
 
-    // Angular carved eye-socket hole, ~9 points, wound CW (opposite the
-    // outline). `mirror` flips X *and* reverses point order so the mirrored
-    // hole stays CW too (mirroring across X alone would flip it to CCW).
-    // 1.3× the first cut: BIG sockets, so each bright core sits framed in a
-    // dark bevel ring that still reads at fight distance.
+    // Angular SLANTED socket (the character pass): a seven-point heptagon on
+    // a tilted ellipse — the outer (temple-side) corner rides high and the
+    // inner corner drops, so the resting expression is a GLARE, not the
+    // neutral surprise the old round nonagon gave. Points are generated in
+    // DECREASING angle order = CW winding (three.js hole convention);
+    // `mirror` flips X *and* reverses point order so the mirrored hole stays
+    // CW too (mirroring across X alone would flip it to CCW).
     const eyeHole = (cx, cy, mirror) => {
-      const rel = [
-        [0.00, 0.55], [0.39, 0.39], [0.62, 0.07], [0.49, -0.29], [0.16, -0.52],
-        [-0.20, -0.49], [-0.52, -0.20], [-0.60, 0.16], [-0.23, 0.49],
-      ];
+      const A = 0.74, B = 0.46, ROT = -0.35;   // slant: the left eye's -x (temple) end rises
+      const rel = [];
+      for (let k = 0; k < 7; k++) {
+        const t = -k * (Math.PI * 2 / 7);
+        const ex = Math.cos(t) * A, ey = Math.sin(t) * B;
+        rel.push([ex * Math.cos(ROT) - ey * Math.sin(ROT), ex * Math.sin(ROT) + ey * Math.cos(ROT)]);
+      }
       const pts = (mirror ? rel.slice().reverse() : rel).map(([x, y]) => [cx + (mirror ? -x : x), cy + y]);
       const path = new THREE.Path();
       path.moveTo(pts[0][0], pts[0][1]);
@@ -147,44 +152,70 @@ export function buildIdolMask(def, quality = 1) {
   const accentParts = [];          // brow-ridge + chin chips — the lit ridge line
 
   // ---------------------------------------------------------------------
-  // ORNAMENT PLATES — jittered chips scattered in bands (brow / temple /
-  // cheek / chin) so the mask reads as carved/assembled stone, not a flat
-  // extrude. Alternates box + triangular-prism silhouettes for texture
-  // variety at near-zero extra cost.
+  // CARVED RELIEF — authored, symmetric plates: a mason built this face.
+  // (Replaces the jittered chip scatter, which read as random debris
+  // speckle at fight distance — randomness reads as noise, symmetry reads
+  // as INTENT.) Symmetry law: everything mirrors EXCEPT the snapped-horn
+  // side (+x), where the upper cheek guard is cracked in two with a visible
+  // gap — the same damage story the stub and the crack seams tell. Tiny
+  // deterministic jitter keeps the carving hand-hewn, not CAD-perfect.
   // ---------------------------------------------------------------------
-  // Bands sit fully INSIDE the plate outline (round-4 rule: nothing bulges
-  // past the front silhouette and rounds it — the outline IS the design).
-  const chipBands = [
-    { cx: 0.00, cy: 1.40, sx: 1.70, sy: 0.22 },   // brow ridge
-    { cx: -2.15, cy: 0.55, sx: 0.32, sy: 0.45 },  // left temple
-    { cx: 2.15, cy: 0.55, sx: 0.32, sy: 0.45 },   // right temple
-    { cx: -1.50, cy: -0.95, sx: 0.38, sy: 0.42 }, // left cheek
-    { cx: 1.50, cy: -0.95, sx: 0.38, sy: 0.42 },  // right cheek
-    { cx: 0.00, cy: -1.70, sx: 0.80, sy: 0.28 },  // chin
-  ];
-  const chipCount = lowQ ? 10 : 18;
-  for (let i = 0; i < chipCount; i++) {
-    const bandIdx = i % chipBands.length;
-    const band = chipBands[bandIdx];
-    const x = band.cx + (rnd() - 0.5) * 2 * band.sx;
-    const y = band.cy + (rnd() - 0.5) * 2 * band.sy;
-    const z = 0.42 + rnd() * 0.14;         // proud of the mask's front face
-    const s = 0.20 + rnd() * 0.22;
-    let chip = (i % 2 === 0)
-      ? new THREE.BoxGeometry(s, s * (0.7 + rnd() * 0.6), s * 0.6)
-      : new THREE.CylinderGeometry(s * 0.5, s * 0.5, s * 0.9, 3);   // triangular prism
-    chip = strip(chip);   // strip() may return a NEW geometry (toNonIndexed) — must reassign, not just call
-    // Aggressive tilt (round-5: was ±0.3 rad, whose facets stayed too close
-    // to the front plane to catch a different value) so each chip presents a
-    // visibly different face than the flat plate behind it.
-    chip.rotateX((rnd() - 0.5) * 1.3);
-    chip.rotateY((rnd() - 0.5) * 1.3);
-    chip.rotateZ(rnd() * Math.PI * 2);
-    chip.translate(x, y, z);
-    // Value grouping: brow ridge (band 0) + chin (band 5) form the bright
-    // carved ridge line; temple/cheek chips are the mid carve tone.
-    (bandIdx === 0 || bandIdx === 5 ? accentParts : midParts).push(chip);
+  const j = (amt) => (rnd() - 0.5) * amt;
+  const relief = (parts, geo, x, y, z, rz = 0) => {
+    geo = strip(geo);
+    if (rz) geo.rotateZ(rz);
+    geo.translate(x, y, z);
+    parts.push(geo);
+  };
+  // GILT parts render with the halo's gold-emissive material (one extra draw
+  // — phone-verified cheap): the idol's gilding survives on the brow and chin,
+  // tying the face to the halo/seam gold story. Gilded brows over glaring
+  // eyes is the single strongest "ancient wrathful god" cue on the face.
+  const giltParts = [];
+  // Brow ridge bars: one angled bar above each socket, echoing the socket's
+  // angry slant (outer end high) — the eyebrows that give the face intent.
+  for (const sx of [-1, 1]) {
+    relief(giltParts, new THREE.BoxGeometry(1.45, 0.24, 0.26), sx * 1.28, 1.02 + j(0.03), 0.46, sx * -0.22);
   }
+  // Nose ridge: a vertical prism between the sockets — centre-line structure
+  // (a face is read from its centre-line out; the old scatter had none).
+  relief(midParts, new THREE.BoxGeometry(0.36, 1.05, 0.34), 0, 0.12, 0.44);
+  // Cheek guards: stacked plates tilted with the cheek line. The +x upper
+  // guard is the CRACKED one: two offset halves, gap between them.
+  relief(midParts, new THREE.BoxGeometry(0.62, 0.70, 0.24), -1.85, -0.55, 0.45, 0.18);
+  relief(midParts, new THREE.BoxGeometry(0.30, 0.66, 0.24), 1.68, -0.50, 0.45, -0.30);
+  relief(midParts, new THREE.BoxGeometry(0.26, 0.52, 0.24), 2.06, -0.68, 0.43, -0.55);
+  for (const sx of [-1, 1]) {
+    relief(midParts, new THREE.BoxGeometry(0.44, 0.55, 0.22), sx * 1.12, -1.18, 0.44, sx * -0.35);
+  }
+  // Temple studs: three small square bosses down each temple edge (skipped
+  // at low quality — sub-pixel there anyway).
+  if (!lowQ) {
+    for (const sx of [-1, 1]) {
+      for (let i = 0; i < 3; i++) {
+        relief(midParts, new THREE.BoxGeometry(0.20, 0.20, 0.30), sx * (2.30 - i * 0.16), 0.95 - i * 0.55 + j(0.04), 0.42, j(0.5));
+      }
+    }
+  }
+  // Chin plate: an inverted gilt wedge under the mouth line (top radius wide,
+  // bottom near-point — tapers downward, no rotation needed).
+  relief(giltParts, new THREE.CylinderGeometry(0.30, 0.06, 0.55, 3), 0, -1.62, 0.44);
+
+  // CROWN CREST — three blade fins rising off the brow: the outline's top
+  // edge was a featureless flat run. TALL centre fin (the capture pass at
+  // fight distance showed 1.05 barely broke the outline — the crown must be
+  // unmissable at 1×, not just in zoomed crops); the fin on the snapped side
+  // (+x) is clipped short — the damage reaches the crown too. Extruded thin
+  // (0.22) and buried mid-plate in z so only the rising blade breaks the
+  // silhouette.
+  const fin = (h, w) => {
+    const s = new THREE.Shape();
+    s.moveTo(-w / 2, 0); s.lineTo(0, h); s.lineTo(w / 2, 0); s.closePath();
+    return new THREE.ExtrudeGeometry(s, { depth: 0.22, steps: 1, bevelEnabled: false, curveSegments: 1 });
+  };
+  relief(accentParts, fin(1.40, 0.60), 0, 1.68, -0.12);
+  relief(accentParts, fin(0.85, 0.46), -0.85, 1.60, -0.12, 0.10);
+  relief(accentParts, fin(0.38, 0.40), 0.85, 1.58, -0.12, -0.12);
 
   // ---------------------------------------------------------------------
   // HORNS — one intact (tapered TubeGeometry), one snapped stub (jagged-rim
@@ -218,15 +249,16 @@ export function buildIdolMask(def, quality = 1) {
   // asymmetric-scar read at silhouette level, so both have to be obvious).
   const hornCurve = new THREE.CatmullRomCurve3([
     new THREE.Vector3(-2.20, 1.30, 0.20),   // base: left temple corner
-    new THREE.Vector3(-2.95, 2.50, -0.35),  // sweeps up and out
-    new THREE.Vector3(-2.45, 3.60, -1.20),  // tip curls back in and rearward
+    new THREE.Vector3(-3.15, 2.65, -0.40),  // sweeps up and OUT past the cheekbone flare
+    new THREE.Vector3(-2.50, 3.95, -1.30),  // tip curls back in and rearward
   ]);
   const hornTubular = 12, hornRadial = 8;
-  // Base radius 0.36 (was 0.30) and a shallower taper floor (0.26, was 0.16)
-  // — the old tip thinned to ~0.05 units, a needle that vanished into the
-  // halo-arc linework at fight distance. Still clearly tapered, just not to
-  // nothing.
-  const hornGeo = strip(new THREE.TubeGeometry(hornCurve, hornTubular, 0.36, hornRadial, false));
+  // Base radius 0.44 and a shallower taper floor (0.26) — earlier passes
+  // (0.30 base / 0.16 floor) thinned to a needle that vanished into the
+  // halo-arc linework at fight distance; the design-pass capture still read
+  // "stubby lump", so the whole sweep got bigger and wider. Still clearly
+  // tapered, just built to be read at 30m, not at arm's length.
+  const hornGeo = strip(new THREE.TubeGeometry(hornCurve, hornTubular, 0.44, hornRadial, false));
   taperTube(hornGeo, hornCurve, hornTubular, hornRadial, (u) => Math.max(0.26, 1 - u * 0.74));
   midParts.push(hornGeo);
 
@@ -410,25 +442,49 @@ export function buildIdolMask(def, quality = 1) {
   // mask edge and the arcs, which is what makes "halo floating BEHIND it"
   // legible at 30m. Emissive 0.65 / tube 0.16: bright enough to read as the
   // second accent tier, dim enough that bloom doesn't close the arc gaps.
+  // GILDED halo (design pass): emissive biased toward the seam gold instead
+  // of pure violet — the halo is the idol's ancient gilding, the same
+  // material story as the cracks, and it separates the halo tier from the
+  // violet stone accents at a glance.
+  const haloEmissive = new THREE.Color(0xd8b45a).lerp(new THREE.Color(accent), 0.35);
   const haloMat = track(new THREE.MeshStandardMaterial({
-    color: 0x14101c, emissive: accent, emissiveIntensity: 0.65, roughness: 0.5, metalness: 0.3, flatShading: true,
+    color: 0x14101c, emissive: haloEmissive, emissiveIntensity: 0.65, roughness: 0.5, metalness: 0.3, flatShading: true,
   }));
+  // Gilt face relief (brow bars + chin wedge) shares the halo's gold material
+  // — one extra draw, and the face's gilding visibly matches the halo's.
+  const giltGeo = mergeGeometries(giltParts, false);
+  if (!giltGeo) throw new Error('buildIdolMask: gilt mergeGeometries returned null (attribute mismatch)');
+  rig.add(new THREE.Mesh(giltGeo, haloMat));
+  // Debris chunks merged INTO each arc geometry sit in the arc gaps and ride
+  // the arc's rotation for free (same draw call, no per-frame work): the
+  // halo reads as a shattered sun-disc whose fragments still orbit together.
+  const debris = (angles, radius) => angles.map((ang) => {
+    let d = strip(new THREE.OctahedronGeometry(0.17 + rnd() * 0.10, 0));
+    d.rotateZ(rnd() * Math.PI);
+    d.rotateX(rnd() * Math.PI);
+    d.translate(Math.cos(ang) * radius, Math.sin(ang) * radius, 0);
+    return d;
+  });
   const haloTubularA = lowQ ? 14 : 24;
-  const arcA1 = strip(new THREE.TorusGeometry(4.0, 0.16, 6, haloTubularA, Math.PI * 0.55));
+  const arcA1 = strip(new THREE.TorusGeometry(4.0, 0.19, 6, haloTubularA, Math.PI * 0.55));
   arcA1.rotateZ(0.20);
-  const arcA2 = strip(new THREE.TorusGeometry(4.0, 0.16, 6, haloTubularA, Math.PI * 0.55));
+  const arcA2 = strip(new THREE.TorusGeometry(4.0, 0.19, 6, haloTubularA, Math.PI * 0.55));
   arcA2.rotateZ(Math.PI + 0.45);
-  const haloAGeo = mergeGeometries([arcA1, arcA2], false);
+  // Gap spans (arc A occupies 0.20–1.93 and 3.59–5.32 rad): debris at
+  // 2.35/3.05 and 5.75/6.35 sit squarely in the two openings.
+  const haloAGeo = mergeGeometries([arcA1, arcA2, ...debris([2.35, 3.05, 5.75, 6.35], 4.0)], false);
   if (!haloAGeo) throw new Error('buildIdolMask: halo-A mergeGeometries returned null (attribute mismatch)');
   haloAGeo.translate(0, 0, -1.6);
   const haloA = new THREE.Mesh(haloAGeo, haloMat);
   rig.add(haloA);
 
-  // Outer counter-arc stays inside the kit shield bubble (r 4.6): 4.4 + 0.13
-  // tube ≈ 4.53, so a raised shield never clips through the halo.
+  // Outer counter-arc stays inside the kit shield bubble (r 4.6): 4.4 + 0.15
+  // tube ≈ 4.55, so a raised shield never clips through the halo.
   const haloTubularB = lowQ ? 12 : 20;
-  const haloBGeo = strip(new THREE.TorusGeometry(4.4, 0.13, 6, haloTubularB, Math.PI * 0.4));
-  haloBGeo.rotateZ(1.3);
+  const arcB = strip(new THREE.TorusGeometry(4.4, 0.15, 6, haloTubularB, Math.PI * 0.4));
+  arcB.rotateZ(1.3);
+  const haloBGeo = mergeGeometries([arcB, ...debris([4.3, 5.9], 4.4)], false);
+  if (!haloBGeo) throw new Error('buildIdolMask: halo-B mergeGeometries returned null (attribute mismatch)');
   haloBGeo.translate(0, 0, -1.65);
   const haloB = new THREE.Mesh(haloBGeo, haloMat);
   rig.add(haloB);

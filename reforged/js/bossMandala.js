@@ -288,6 +288,76 @@ export function buildStormMandala(def, quality = 1) {
     mergeParts(buildRing(RING_R.C, bladeCounts.C, 3.2, 1, RING_Z.C, SCAR_IDX), 'ring-C'), ringCMat));
   rig.add(ringCPivot);
 
+  // GOLD VANE TIPS — ring C's blades get gilt tips (one extra draw, parented
+  // to the ring pivot so they ride the spin): a ring of glints circling the
+  // outer rim, tying the outer storm wheel to the corona/scar gold without
+  // brightening the whole ring. The scar blade gets no tip — it's snapped.
+  const tipMat = track(new THREE.MeshStandardMaterial({
+    color: 0x2a2415, emissive: glow, emissiveIntensity: 0.85, roughness: 0.4, metalness: 0.5, flatShading: true,
+  }));
+  const tipParts = [];
+  const TIP_LEN = 0.55;
+  for (let i = 0; i < bladeCounts.C; i++) {
+    if (i === SCAR_IDX) continue;
+    const a = (i / bladeCounts.C) * Math.PI * 2;
+    // Same orientation math as buildBlade (windDir=1 for ring C) so each tip
+    // caps its blade's apex exactly: root at the rail, apex at root + dir*len.
+    const dirAngle = a + Math.PI / 2 + SWIRL_OFF;
+    const dir = new THREE.Vector3(Math.cos(dirAngle), Math.sin(dirAngle), 0);
+    let tip = strip(new THREE.ConeGeometry(0.14, TIP_LEN, 4));
+    tip.scale(1, 1, 0.35);
+    tip.translate(0, 3.2 - TIP_LEN / 2, 0);   // sit over the blade's outer end
+    tip.applyQuaternion(new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 1, 0), dir));
+    tip.translate(Math.cos(a) * RING_R.C, Math.sin(a) * RING_R.C, RING_Z.C);
+    tipParts.push(tip);
+  }
+  ringCPivot.add(new THREE.Mesh(mergeParts(tipParts, 'ring-C-tips'), tipMat));
+
+  // STORM ARCS — jagged lightning bolts flickering between the ring rails:
+  // the mandala's namesake weather (the first build had rings and an eye but
+  // no STORM). Static jagged LineSegments, one per gap span; all the life is
+  // in opacity — sin clipped to a high power gives brief sharp flashes, each
+  // bolt on its own frequency/phase so the storm CRACKLES instead of
+  // blinking in sync. Anchored to the static rig, not the ring pivots:
+  // lightning doesn't ride machinery, it jumps between it.
+  function buildBolt(r0, r1, ang, zi, zo, seed) {
+    const brnd = mulberry32(seed);
+    const pts = [];
+    const segs = 5;
+    let p = new THREE.Vector3(Math.cos(ang) * r0, Math.sin(ang) * r0, zi);
+    for (let s = 1; s <= segs; s++) {
+      const u = s / segs;
+      const r = r0 + (r1 - r0) * u;
+      const a2 = ang + (brnd() - 0.5) * 0.22;
+      const next = new THREE.Vector3(
+        Math.cos(a2) * r, Math.sin(a2) * r,
+        zi + (zo - zi) * u + (brnd() - 0.5) * 0.15);
+      pts.push(p.x, p.y, p.z, next.x, next.y, next.z);
+      p = next;
+    }
+    const geo = new THREE.BufferGeometry();
+    geo.setAttribute('position', new THREE.Float32BufferAttribute(pts, 3));
+    return geo;
+  }
+  const boltDefs = [
+    { r0: RING_R.A, r1: RING_R.B, zi: RING_Z.A, zo: RING_Z.B, ang: 0.7, f: 2.3, ph: 0.0 },
+    { r0: RING_R.B, r1: RING_R.C, zi: RING_Z.B, zo: RING_Z.C, ang: 2.0, f: 2.9, ph: 4.2 },
+    { r0: RING_R.A, r1: RING_R.B, zi: RING_Z.A, zo: RING_Z.B, ang: 3.5, f: 1.7, ph: 2.1 },
+    { r0: RING_R.B, r1: RING_R.C, zi: RING_Z.B, zo: RING_Z.C, ang: 5.1, f: 1.3, ph: 1.3 },
+  ];
+  const bolts = [];
+  const boltCount = lowQ ? 2 : 4;
+  for (let i = 0; i < boltCount; i++) {
+    const bd = boltDefs[i];
+    // One material per bolt (LineBasic — trivially cheap) so each flashes on
+    // its own clock; a shared material would strobe them in lockstep.
+    const mat = track(new THREE.LineBasicMaterial({
+      color: accent, transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false,
+    }));
+    rig.add(new THREE.LineSegments(buildBolt(bd.r0, bd.r1, bd.ang, bd.zi, bd.zo, 0xb017 + i * 97), mat));
+    bolts.push({ mat, f: bd.f, ph: bd.ph });
+  }
+
   // Scar seam: short jagged gold lines fanning from the broken vane's root —
   // WebGL ignores linewidth, so bloom (additive blending) is what fattens
   // this into a readable crack, same fallback bossIdol.js documents.
@@ -421,6 +491,14 @@ export function buildStormMandala(def, quality = 1) {
 
     // Scar-seam shimmer (idle, its own frequency) + a shield-strain brighten.
     seamMat.opacity = (0.45 + Math.sin(time * 1.3) * 0.15) + (shieldOn ? 0.25 : 0);
+
+    // Storm arcs: sin clipped to a high power = brief sharp flashes on each
+    // bolt's own clock; charging makes the whole storm crackle harder (the
+    // arcs join the telegraph without adding any new geometry or fill).
+    for (const b of bolts) {
+      const s = Math.sin(time * b.f + b.ph);
+      b.mat.opacity = Math.pow(Math.max(0, s), 12) * (0.55 + charge * 0.45);
+    }
 
     // Orbiters — legacy loop, unchanged.
     for (const o of orbiters) {

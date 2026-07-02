@@ -129,10 +129,13 @@ function findAllByName(root, name) {
 // petals are individual pivot meshes, not one InstancedMesh (bossMandala.js's
 // header comment: a deliberate CP3 tradeoff for simpler dissolve/tracking,
 // and the CP0 stress test found draws this small are noise on the slope, not
-// the cliff). The plan's original "≤20" estimate assumed the InstancedMesh
-// path; 24 keeps this a real regression gate against the ACTUAL shipped
-// architecture with headroom, not a rubber stamp.
-const DRAW_BUDGET = 24;
+// the cliff). The on-device follow-up sealed it: a real phone held ~58fps at
+// 415 draw calls (and instancing actually JANKED — 36.8fps with p95 spikes
+// from the per-frame instanceMatrix upload), so draw count at boss scale is
+// simply not the budget axis; additive-shell OVERDRAW is (32fps cliff on the
+// same phone). 30 still gates runaway part explosions without taxing
+// deliberate design (the design pass added gilt/tip/storm-arc draws).
+const DRAW_BUDGET = 30;
 for (const key of BOSS_ORDER) {
   const def = BOSSES[key];
   const q1 = buildBoss(def, 1);
