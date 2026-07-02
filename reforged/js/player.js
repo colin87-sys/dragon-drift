@@ -144,6 +144,14 @@ export const player = {
       this.position.y = CONFIG.laneMaxY;
       this.velocity.y = Math.min(this.velocity.y, 0);
     }
+    // Boss arena constriction: the storm walls physically push you inward — a
+    // firm clamp (like laneMaxY above), never damage, so there are no cheap
+    // wall deaths inside a showpiece phase.
+    if (game.inBoss && game.bossArenaHW) {
+      const hw = game.bossArenaHW - 0.6;
+      if (this.position.x > hw) { this.position.x = hw; this.velocity.x = Math.min(this.velocity.x, 0); }
+      else if (this.position.x < -hw) { this.position.x = -hw; this.velocity.x = Math.max(this.velocity.x, 0); }
+    }
 
     if (this.boosting) {
       // Boost is a resource: it drains while held. An orb surge is free boost;
