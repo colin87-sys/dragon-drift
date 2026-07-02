@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { mergeGeometries } from '../lib/utils/BufferGeometryUtils.js';
 import { mulberry32 } from './util.js';
-import { makeEnergyShell, createBossCommon } from './bossKit.js';
+import { createBossCommon } from './bossKit.js';
 
 // VOIDMAW's body — the HOLLOW IDOL-MASK: "a wide shattered stone mask with
 // hollow eyes, one broken horn, and a broken halo floating behind it." This is
@@ -20,10 +20,13 @@ import { makeEnergyShell, createBossCommon } from './bossKit.js';
 // tests/boss.mjs). Every stone-material part is baked (translate/rotate/scale
 // on the GEOMETRY, never the mesh transform — those THREE.BufferGeometry
 // methods bake via applyMatrix4 internally, same effect as calling it by hand)
-// and merged into ONE draw call via mergeGeometries (the dragonHull/dragonTail
-// precedent). mergeGeometries HARD-FAILS (returns null) on any attribute-set
-// mismatch, so every part strips its `uv` (ExtrudeGeometry carries one; the
-// primitive geometries used here don't need it) before merging — see `strip()`.
+// and merged via mergeGeometries (the dragonHull/dragonTail precedent) into
+// THREE stone draw calls — one per painted value tier (dark base / mid carve /
+// bright ridge; see the round-5 note at the merge site) — ~13 fight-visible
+// draws total vs the ≤20 gate. mergeGeometries HARD-FAILS (returns null) on
+// any attribute-set mismatch, so every part strips its `uv` (ExtrudeGeometry
+// carries one; the primitive geometries used here don't need it) before
+// merging — see `strip()`.
 //
 // CONTRACT: boss.js stomps `group.rotation` every frame (placeGroup) and
 // `kit.setDissolve` owns `group.scale` — so every animated part here lives on
@@ -75,15 +78,23 @@ export function buildIdolMask(def, quality = 1) {
   // ---------------------------------------------------------------------
   function buildMaskShape() {
     const shape = new THREE.Shape();
-    // Wide angular pentagonal mask: broad brow (~4.4 units across at the
-    // temples) tapering to a narrow chin point — the "wide shattered stone
-    // mask" silhouette read at a glance, even reduced to a black shape.
+    // WIDE ANGULAR mask (round-4 gate review): 5.72 across × 3.93 tall
+    // (~1.46:1 — width visibly dominates) with LONG STRAIGHT runs: a flat
+    // brow, hard temple corners, a cheekbone flare at the widest point, one
+    // jagged notch per side, a blunt chin taper. Deliberately FEW points —
+    // the first cut's dense 22-gon read as a circle at fight distance; hard
+    // edges are what survive 30m.
     const outline = [
-      [0.00, 2.15], [-0.55, 2.30], [-1.25, 2.05], [-1.95, 1.55], [-2.20, 0.85],
-      [-2.05, 0.10], [-2.15, -0.55], [-1.85, -1.25], [-1.55, -1.85], [-1.05, -2.35],
-      [-0.45, -2.65], [0.00, -2.75], [0.45, -2.65], [1.05, -2.35], [1.55, -1.85],
-      [1.85, -1.25], [2.15, -0.55], [2.05, 0.10], [2.20, 0.85], [1.95, 1.55],
-      [1.25, 2.05], [0.55, 2.30],
+      [0.00, 1.75],                                     // brow centre peak
+      [-1.10, 1.70], [-2.30, 1.35],                     // flat brow → temple corner
+      [-2.86, 0.55],                                    // cheekbone flare (widest)
+      [-2.55, -0.20], [-2.75, -0.55],                   // jagged side notch
+      [-1.95, -1.35], [-1.15, -1.85], [-0.45, -2.10],   // hard chin taper
+      [0.00, -2.18],                                    // chin tip
+      [0.45, -2.10], [1.15, -1.85], [1.95, -1.35],
+      [2.75, -0.55], [2.55, -0.20],
+      [2.86, 0.55],
+      [2.30, 1.35], [1.10, 1.70],
     ];
     shape.moveTo(outline[0][0], outline[0][1]);
     for (let i = 1; i < outline.length; i++) shape.lineTo(outline[i][0], outline[i][1]);
@@ -92,10 +103,12 @@ export function buildIdolMask(def, quality = 1) {
     // Angular carved eye-socket hole, ~9 points, wound CW (opposite the
     // outline). `mirror` flips X *and* reverses point order so the mirrored
     // hole stays CW too (mirroring across X alone would flip it to CCW).
+    // 1.3× the first cut: BIG sockets, so each bright core sits framed in a
+    // dark bevel ring that still reads at fight distance.
     const eyeHole = (cx, cy, mirror) => {
       const rel = [
-        [0.00, 0.42], [0.30, 0.30], [0.48, 0.05], [0.38, -0.22], [0.12, -0.40],
-        [-0.15, -0.38], [-0.40, -0.15], [-0.46, 0.12], [-0.18, 0.38],
+        [0.00, 0.55], [0.39, 0.39], [0.62, 0.07], [0.49, -0.29], [0.16, -0.52],
+        [-0.20, -0.49], [-0.52, -0.20], [-0.60, 0.16], [-0.23, 0.49],
       ];
       const pts = (mirror ? rel.slice().reverse() : rel).map(([x, y]) => [cx + (mirror ? -x : x), cy + y]);
       const path = new THREE.Path();
@@ -104,8 +117,8 @@ export function buildIdolMask(def, quality = 1) {
       path.closePath();
       return path;
     };
-    shape.holes.push(eyeHole(-1.05, 0.35, false));   // left socket
-    shape.holes.push(eyeHole(1.05, 0.35, true));     // right socket (mirrored, still CW)
+    shape.holes.push(eyeHole(-1.30, 0.30, false));   // left socket
+    shape.holes.push(eyeHole(1.30, 0.30, true));     // right socket (mirrored, still CW)
     return shape;
   }
 
@@ -118,7 +131,20 @@ export function buildIdolMask(def, quality = 1) {
   // "front toward the player" and the eye-core glow (below, z≈-0.25) sits
   // inside the hollowed socket tunnel rather than in front of the mask.
   maskGeo.translate(0, 0, -0.6);   // front face → z≈0.4, back face → z≈-0.6
-  const stoneParts = [maskGeo];
+
+  // Round-5 gate: ONE merged stone draw with one uniform emissive read as a
+  // FLAT STICKER — the extruded front face is a single planar polygon, the
+  // sun sits ahead of the player (so the front face gets no directional
+  // shading), and uniform emissive flattened whatever facets existed. Fix:
+  // PAINT the value hierarchy instead of relying on lighting. Three part
+  // groups → three materials (same MeshStandardMaterial program, different
+  // color/emissive values): dark desaturated base plate, mid tone for the
+  // carved edges (horns + temple/cheek chips), brighter accent for the
+  // brow-ridge + chin lines. Costs +2 draw calls (13 visible vs the ≤20
+  // gate) and zero extra tris.
+  const baseParts = [maskGeo];     // mask plate + back lobes — the dark canvas
+  const midParts = [];             // horns + temple/cheek chips — carved mid tone
+  const accentParts = [];          // brow-ridge + chin chips — the lit ridge line
 
   // ---------------------------------------------------------------------
   // ORNAMENT PLATES — jittered chips scattered in bands (brow / temple /
@@ -126,17 +152,20 @@ export function buildIdolMask(def, quality = 1) {
   // extrude. Alternates box + triangular-prism silhouettes for texture
   // variety at near-zero extra cost.
   // ---------------------------------------------------------------------
+  // Bands sit fully INSIDE the plate outline (round-4 rule: nothing bulges
+  // past the front silhouette and rounds it — the outline IS the design).
   const chipBands = [
-    { cx: 0.00, cy: 2.00, sx: 1.55, sy: 0.30 },   // brow ridge
-    { cx: -1.85, cy: 0.85, sx: 0.45, sy: 0.85 },  // left temple
-    { cx: 1.85, cy: 0.85, sx: 0.45, sy: 0.85 },   // right temple
-    { cx: -1.70, cy: -1.00, sx: 0.45, sy: 0.65 }, // left cheek
-    { cx: 1.70, cy: -1.00, sx: 0.45, sy: 0.65 },  // right cheek
-    { cx: 0.00, cy: -2.10, sx: 0.95, sy: 0.35 },  // chin
+    { cx: 0.00, cy: 1.40, sx: 1.70, sy: 0.22 },   // brow ridge
+    { cx: -2.15, cy: 0.55, sx: 0.32, sy: 0.45 },  // left temple
+    { cx: 2.15, cy: 0.55, sx: 0.32, sy: 0.45 },   // right temple
+    { cx: -1.50, cy: -0.95, sx: 0.38, sy: 0.42 }, // left cheek
+    { cx: 1.50, cy: -0.95, sx: 0.38, sy: 0.42 },  // right cheek
+    { cx: 0.00, cy: -1.70, sx: 0.80, sy: 0.28 },  // chin
   ];
   const chipCount = lowQ ? 10 : 18;
   for (let i = 0; i < chipCount; i++) {
-    const band = chipBands[i % chipBands.length];
+    const bandIdx = i % chipBands.length;
+    const band = chipBands[bandIdx];
     const x = band.cx + (rnd() - 0.5) * 2 * band.sx;
     const y = band.cy + (rnd() - 0.5) * 2 * band.sy;
     const z = 0.42 + rnd() * 0.14;         // proud of the mask's front face
@@ -145,11 +174,16 @@ export function buildIdolMask(def, quality = 1) {
       ? new THREE.BoxGeometry(s, s * (0.7 + rnd() * 0.6), s * 0.6)
       : new THREE.CylinderGeometry(s * 0.5, s * 0.5, s * 0.9, 3);   // triangular prism
     chip = strip(chip);   // strip() may return a NEW geometry (toNonIndexed) — must reassign, not just call
-    chip.rotateX((rnd() - 0.5) * 0.6);
-    chip.rotateY((rnd() - 0.5) * 0.6);
+    // Aggressive tilt (round-5: was ±0.3 rad, whose facets stayed too close
+    // to the front plane to catch a different value) so each chip presents a
+    // visibly different face than the flat plate behind it.
+    chip.rotateX((rnd() - 0.5) * 1.3);
+    chip.rotateY((rnd() - 0.5) * 1.3);
     chip.rotateZ(rnd() * Math.PI * 2);
     chip.translate(x, y, z);
-    stoneParts.push(chip);
+    // Value grouping: brow ridge (band 0) + chin (band 5) form the bright
+    // carved ridge line; temple/cheek chips are the mid carve tone.
+    (bandIdx === 0 || bandIdx === 5 ? accentParts : midParts).push(chip);
   }
 
   // ---------------------------------------------------------------------
@@ -179,34 +213,46 @@ export function buildIdolMask(def, quality = 1) {
     geo.computeVertexNormals();
   }
 
+  // PROMINENT up-and-back sweep off the left temple corner — the horn must
+  // break the mask outline decisively (round-4 rule: the horns carry the
+  // asymmetric-scar read at silhouette level, so both have to be obvious).
   const hornCurve = new THREE.CatmullRomCurve3([
-    new THREE.Vector3(-1.85, 1.50, 0.25),   // base: left brow
-    new THREE.Vector3(-2.35, 2.60, -0.35),  // sweeps up and back
-    new THREE.Vector3(-2.05, 3.55, -1.35),  // tip
+    new THREE.Vector3(-2.20, 1.30, 0.20),   // base: left temple corner
+    new THREE.Vector3(-2.95, 2.50, -0.35),  // sweeps up and out
+    new THREE.Vector3(-2.45, 3.60, -1.20),  // tip curls back in and rearward
   ]);
   const hornTubular = 12, hornRadial = 8;
-  const hornGeo = strip(new THREE.TubeGeometry(hornCurve, hornTubular, 0.24, hornRadial, false));
-  taperTube(hornGeo, hornCurve, hornTubular, hornRadial, (u) => Math.max(0.16, 1 - u * 0.84));
-  stoneParts.push(hornGeo);
+  // Base radius 0.36 (was 0.30) and a shallower taper floor (0.26, was 0.16)
+  // — the old tip thinned to ~0.05 units, a needle that vanished into the
+  // halo-arc linework at fight distance. Still clearly tapered, just not to
+  // nothing.
+  const hornGeo = strip(new THREE.TubeGeometry(hornCurve, hornTubular, 0.36, hornRadial, false));
+  taperTube(hornGeo, hornCurve, hornTubular, hornRadial, (u) => Math.max(0.26, 1 - u * 0.74));
+  midParts.push(hornGeo);
 
-  // Snapped stub on the RIGHT brow: a short 6-sided cylinder with its top ring
-  // jittered in Y for a jagged break, instead of a clean cut.
-  const stubGeo = strip(new THREE.CylinderGeometry(0.24, 0.30, 0.55, 6, 1, false));
+  // Snapped stub on the RIGHT temple: a short 6-sided cylinder with its top
+  // ring jittered in Y for a jagged break, instead of a clean cut. Round-4
+  // gate re-review: the first pass (0.36 base radius, 0.65 tall) was legible
+  // in isolation but vanished against the halo arc at fight distance — a
+  // 4px smudge, not a "clearly breaks the outline" scar. Bulked up (0.52
+  // base radius, 1.05 tall, wider jag) and canted further outward so its
+  // jagged top silhouettes cleanly past the brow edge instead of hugging it.
+  const stubGeo = strip(new THREE.CylinderGeometry(0.40, 0.52, 1.05, 6, 1, false));
   {
     const pos = stubGeo.attributes.position;
     for (let i = 0; i < pos.count; i++) {
-      if (pos.getY(i) > 0.2) {   // top ring only
-        pos.setY(i, pos.getY(i) + (rnd() - 0.5) * 0.28);
-        pos.setX(i, pos.getX(i) + (rnd() - 0.5) * 0.06);
+      if (pos.getY(i) > 0.3) {   // top ring only
+        pos.setY(i, pos.getY(i) + (rnd() - 0.5) * 0.42);
+        pos.setX(i, pos.getX(i) + (rnd() - 0.5) * 0.10);
       }
     }
     pos.needsUpdate = true;
     stubGeo.computeVertexNormals();
   }
   stubGeo.rotateX(0.12);
-  stubGeo.rotateZ(-0.08);
-  stubGeo.translate(1.85, 1.55, 0.25);
-  stoneParts.push(stubGeo);
+  stubGeo.rotateZ(-0.30);   // canted outward (was -0.08) — juts clear of the brow instead of leaning against it
+  stubGeo.translate(2.35, 1.65, 0.10);
+  midParts.push(stubGeo);
 
   // ---------------------------------------------------------------------
   // HEAD BACK-MASS — two lobes behind the mask, deliberately clear of the
@@ -229,22 +275,38 @@ export function buildIdolMask(def, quality = 1) {
   // height with their tops below the socket band, so the whole crown behind
   // the brow stays hollow — sky through the sockets AND over the brow line,
   // which is what sells "hollow idol" instead of "mask glued onto a head".
+  // Round-4 rule: the lobes must ALSO stay inside the front plate's own
+  // silhouette (x extent ±1.99 < plate edge ±2.28 at this height) so the
+  // depth mass never bulges past the outline and rounds it off.
   for (const sx of [-1, 1]) {
-    const lobe = strip(new THREE.IcosahedronGeometry(0.9, 1));
-    jitterVerts(lobe, 0.12, rnd);
-    lobe.scale(1.15, 1.25, 0.8);
-    lobe.translate(sx * 1.55, -1.55, -1.0);
-    stoneParts.push(lobe);
+    const lobe = strip(new THREE.IcosahedronGeometry(0.75, 1));
+    jitterVerts(lobe, 0.10, rnd);
+    lobe.scale(1.05, 1.1, 0.8);
+    lobe.translate(sx * 1.2, -1.25, -1.0);
+    baseParts.push(lobe);
   }
 
-  // ---- Merge every stone part into ONE geometry / ONE draw call ----
-  const stoneGeo = mergeGeometries(stoneParts, false);
-  if (!stoneGeo) throw new Error('buildIdolMask: stone mergeGeometries returned null (attribute mismatch)');
-  const stoneMat = track(new THREE.MeshStandardMaterial({
-    color: 0x14101c, emissive: accent, emissiveIntensity: 0.35, roughness: 0.55, metalness: 0.3, flatShading: true,
+  // ---- Merge each value group into its own geometry / draw call ----
+  // Colors bias toward GRAY-violet (round-5: the old saturated 0x14101c +
+  // 0.13 emissive read as a uniform purple cutout) — the STONE is gray, the
+  // violet lives in the emissive accents and the halo/seams tier.
+  function mergeStone(parts, label) {
+    const geo = mergeGeometries(parts, false);
+    if (!geo) throw new Error(`buildIdolMask: ${label} mergeGeometries returned null (attribute mismatch)`);
+    return geo;
+  }
+  const baseMat = track(new THREE.MeshStandardMaterial({
+    color: 0x191720, emissive: accent, emissiveIntensity: 0.06, roughness: 0.6, metalness: 0.25, flatShading: true,
   }));
-  const stoneMesh = new THREE.Mesh(stoneGeo, stoneMat);
-  rig.add(stoneMesh);
+  const midMat = track(new THREE.MeshStandardMaterial({
+    color: 0x262230, emissive: accent, emissiveIntensity: 0.12, roughness: 0.55, metalness: 0.3, flatShading: true,
+  }));
+  const accentStoneMat = track(new THREE.MeshStandardMaterial({
+    color: 0x322c3e, emissive: accent, emissiveIntensity: 0.18, roughness: 0.5, metalness: 0.3, flatShading: true,
+  }));
+  rig.add(new THREE.Mesh(mergeStone(baseParts, 'base-stone'), baseMat));
+  rig.add(new THREE.Mesh(mergeStone(midParts, 'mid-stone'), midMat));
+  rig.add(new THREE.Mesh(mergeStone(accentParts, 'accent-stone'), accentStoneMat));
 
   // ---------------------------------------------------------------------
   // JAW SLAB + TEETH — the attack telegraph. A separate draw (same stone
@@ -274,7 +336,7 @@ export function buildIdolMask(def, quality = 1) {
   if (!jawGeo) throw new Error('buildIdolMask: jaw mergeGeometries returned null (attribute mismatch)');
   const jawPivot = new THREE.Object3D();
   jawPivot.position.set(0, -1.70, 0.60);
-  const jawMesh = new THREE.Mesh(jawGeo, stoneMat);   // shares the stone material — separate draw, same "family"
+  const jawMesh = new THREE.Mesh(jawGeo, baseMat);   // shares the dark base stone — separate draw, same "family"
   jawPivot.add(jawMesh);
   rig.add(jawPivot);
 
@@ -286,20 +348,39 @@ export function buildIdolMask(def, quality = 1) {
   const eyeSeg = lowQ ? [8, 6] : [10, 8];
   const eyeParts = [];
   for (const sx of [-1, 1]) {
-    // r=0.45 vs the ~0.45-"radius" ANGULAR socket: the round core covers the
-    // hole's middle while the hole's angular corners stay open — slivers of
-    // sky around a hot ember, which is exactly the "ignited inside a hollow
-    // socket" read (a bigger sphere would plug the hole and kill the
-    // see-through entirely). Recessed to z −0.25 (front face is +0.40) so it
-    // sits INSIDE the socket tunnel, not flush with the face.
-    const eye = strip(new THREE.SphereGeometry(0.45, eyeSeg[0], eyeSeg[1]));
-    eye.translate(sx * 1.05, 0.35, -0.25);
+    // r=0.58 (round-4 gate: was 0.45 — too small to win "brightest pixels on
+    // the boss" against the widened sockets). Against the ~0.6-"radius"
+    // angular socket the round core now fills most of the hole while the
+    // socket's angular CORNERS still stay open — a black rim of stone framing
+    // a white-hot core, not a sliver of sky around a small ember. Centred on
+    // the eyeHole(-1.30, 0.30) / (1.30, 0.30) socket positions above (was
+    // drifted off-centre at ±1.05, 0.35 before this pass). Recessed to
+    // z −0.25 (front face is +0.40) so it sits INSIDE the socket tunnel, not
+    // flush with the face.
+    const eye = strip(new THREE.SphereGeometry(0.58, eyeSeg[0], eyeSeg[1]));
+    eye.translate(sx * 1.30, 0.30, -0.25);
     eyeParts.push(eye);
   }
   const eyeGeo = mergeGeometries(eyeParts, false);
   if (!eyeGeo) throw new Error('buildIdolMask: eye mergeGeometries returned null (attribute mismatch)');
   const EYE_BASE = new THREE.Color(0xfff2ff);
+  // Round-5 gate ("dead eyes"): at color ≤1.0 the eyes could never win — the
+  // bloom threshold is 1.0 in LINEAR light (postfx.js UnrealBloomPass arg 4)
+  // and ACES crushes 1.0 to ~0.8 gray, so they read as matte dots while the
+  // HP bar outshone them. Two-part fix:
+  // 1. EYE_HOT overdrive: tickBody drives color to ~2.4× linear white — the
+  //    composer renders into a HalfFloat HDR target, so >1 values survive to
+  //    the bloom pass and the eyes genuinely bloom (and ACES maps them to
+  //    pure white, the brightest pixels on the boss).
+  // 2. toneMapped = false: in the composer path tone mapping happens once,
+  //    globally, in OutputPass (per-material toneMapped is a no-op there) —
+  //    but on the no-postfx fallback (weak devices, postfx.supported false)
+  //    materials DO tone map individually, and this keeps the eyes at full
+  //    white there too.
+  const EYE_HOT = 2.4;
   const eyeMat = track(new THREE.MeshBasicMaterial({ color: 0xfff2ff }));
+  eyeMat.toneMapped = false;
+  eyeMat.color.copy(EYE_BASE).multiplyScalar(EYE_HOT);
   const eyeMesh = new THREE.Mesh(eyeGeo, eyeMat);
   rig.add(eyeMesh);
 
@@ -395,33 +476,38 @@ export function buildIdolMask(def, quality = 1) {
   rig.add(seams);
 
   // ---------------------------------------------------------------------
-  // FRESNEL SHELL — exactly ONE (stress-test-calibrated cap: body shell +
-  // kit shield rim when raised = 2 large additive volumes on screen, max).
-  // Scaled to a wide, shallow mask silhouette instead of a sphere.
-  // ---------------------------------------------------------------------
-  // strength 0.3 / power 3.2 — DOWN from the planned 0.7/2.6: fight-distance
-  // captures showed 0.7 + bloom swallowing the whole mask in a violet bubble
-  // (it read as a permanently-raised shield, which also destroys the actual
-  // shield state's meaning). At 0.3/3.2 the shell is a grazing-angle sheen
-  // that gives the stone a void-energy skin without ever beating the eyes.
-  const shellMat = track(makeEnergyShell(glow, { power: 3.2, strength: 0.3 }));
-  const shellGeo = new THREE.IcosahedronGeometry(3.6, lowQ ? 1 : 2);
-  const shell = new THREE.Mesh(shellGeo, shellMat);
-  // HUG the mask (~2.7 × 2.9 × 1.8), don't balloon past it: at the planned
-  // (1.15, 1.2, 0.7) the shell rim landed on the halo radius and the two
-  // bloomed into one pink donut around a blob — the "permanent bubble" read
-  // again. Tight against the stone, the fresnel rim outlines the MASK edge
-  // itself: a void-energy skin, not a containment field.
-  shell.scale.set(0.75, 0.8, 0.5);
-  rig.add(shell);
+  // BACKLIGHT GLOW DISC (round-4 gate: REPLACES the old enclosing fresnel
+  // shell). The shell wrapped the whole mask volume in an additive bubble —
+  // from the real fight camera it swallowed the silhouette and read as "a
+  // purple ball with arcs", which is the exact failure the gate called out.
+  // A flat disc, strictly BEHIND the mask plane (front face z≈0.4, back
+  // z≈-0.6) and narrower than the mask's own half-width (2.86), can only
+  // rim-light the outline — glow bleeding around the jagged edges and out
+  // through the eye sockets via bloom — instead of enclosing the build. It
+  // carries NO charge/shield reaction (directive 5): the halo arcs + eyes
+  // are the energy read, this is pure ambience.
+  const glowDiscMat = track(new THREE.MeshBasicMaterial({
+    color: glow, transparent: true, opacity: 0.30, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide,
+  }));
+  const glowDiscGeo = new THREE.CircleGeometry(2.3, lowQ ? 10 : 18);
+  const glowDisc = new THREE.Mesh(glowDiscGeo, glowDiscMat);
+  glowDisc.position.set(0, 0, -1.9);
+  rig.add(glowDisc);
 
   // ---------------------------------------------------------------------
   // ORBITERS — void chips (contract: ≥2). Animation loop copied from the
   // legacy bossModel.js construct verbatim so the drift read stays familiar
   // across every boss archetype.
   // ---------------------------------------------------------------------
+  // Round-5 gate: at emissive glow(0xc89aff)×0.7 a flat-shaded octahedron
+  // facet rendered as a PALE GRAY WEDGE that, drifting past the mask's cheek,
+  // read like a glitched beam bolted to the face (the gate's "pale sideways
+  // wedge" — it moved between captures, which is how it was identified as an
+  // orbiter, not the stub). Dark void chips now: near-black base, dim violet
+  // accent emissive — drifting silhouettes, clearly darker than every stone
+  // tier and never in competition with the eyes.
   const voidChipMat = track(new THREE.MeshStandardMaterial({
-    color: 0x1a0f26, emissive: glow, emissiveIntensity: 0.7, roughness: 0.3, metalness: 0.4, flatShading: true,
+    color: 0x120b1a, emissive: accent, emissiveIntensity: 0.25, roughness: 0.3, metalness: 0.4, flatShading: true,
   }));
   const voidChipGeo = new THREE.OctahedronGeometry(0.6, 0);
   const orbiters = [];
@@ -439,9 +525,9 @@ export function buildIdolMask(def, quality = 1) {
     orbiters.push(m);
   }
 
-  // Hit flash targets the stone material (the "body" read, same idiom as the
-  // legacy core flash).
-  kit.flashBind(stoneMat, 0.35);
+  // Hit flash targets the base stone (the biggest-area "body" read, same
+  // idiom as the legacy core flash). Base intensity matches baseMat's 0.06.
+  kit.flashBind(baseMat, 0.06);
 
   // Shared plumbing is fully assembled now — cache base opacities + apply the
   // resting scale (finalize() also dev-asserts every material above went
@@ -481,7 +567,10 @@ export function buildIdolMask(def, quality = 1) {
     // clamps the eyes down to a leashed ~0.5 regardless of charge/flicker.
     const flicker = 0.85 + Math.sin(time * 4.2) * 0.1 + Math.sin(time * 13) * 0.04;
     const eyeK = shieldClamp ? 0.5 : flicker * (1 + charge * 0.3);
-    eyeMat.color.copy(EYE_BASE).multiplyScalar(eyeK);
+    // EYE_HOT overdrive keeps the ember >1.0 linear (bloom threshold) at all
+    // idle flicker values; the shield clamp (0.5 × 2.4 = 1.2) stays just at
+    // the bloom edge — leashed, visibly dimmer, but never a dead gray dot.
+    eyeMat.color.copy(EYE_BASE).multiplyScalar(eyeK * EYE_HOT);
 
     // Crack-seam shimmer (idle, its own frequency) + a shield-strain brighten.
     seamMat.opacity = (0.35 + Math.sin(time * 1.1) * 0.12) + (shieldClamp ? 0.3 : 0);
@@ -500,10 +589,11 @@ export function buildIdolMask(def, quality = 1) {
     _throatColor.copy(ACCENT_COLOR).lerp(DANGER_COLOR, charge);
     throatMat.color.copy(_throatColor);
 
-    // Fresnel shell flares hotter mid-charge — the whole body reads as
-    // powering up, not just the mouth. Base/pulse match the calmed-down
-    // shell material (0.3 base — see the shell comment for why).
-    shellMat.uniforms.uStrength.value = 0.3 + Math.sin(time * 2.2) * 0.06 + charge * 0.5;
+    // Backlight disc: a slow idle-only pulse, deliberately NOT driven by
+    // charge (round-4 directive 5 — "remove any shell/global flare in
+    // setCharge"; the jaw hinge + throat colour are the only charge tells so
+    // the mask stays dark and the eyes stay the brightest thing on screen).
+    glowDiscMat.opacity = 0.30 + Math.sin(time * 0.8) * 0.05;
 
     // Orbiters — legacy loop, unchanged (drifting void chips).
     for (const o of orbiters) {
