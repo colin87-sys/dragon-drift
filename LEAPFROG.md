@@ -4680,3 +4680,80 @@ against a specific biome sky" rig; remember L105 — headless rAF throttles ~8×
 budgets and captures are for VISUALS, not state timing. Verified: `boss.mjs` (11), `bossboot` zero-error, `smoke`,
 `tricount` 203265 · 0 over; captures of the amber + emberfall fights show the dimmer ring and the boss reading clean.
 The human judges bullet pop and the new shield read on the preview.
+
+### L122 — Bullet contrast is a LAYERED SYSTEM (two-way luminance edge) with a regression GATE, not a colour pick
+
+**Did / learned.** Increment 2 of the visibility arc. Bullets are now four instanced layers off one slot — dark
+annulus OUTLINE (r×3.1, alpha-only texture tinted per-instance) under the colour BODY (r×2.7) under the CORE
+(r×1.35→1.55, now per-instance colour) plus the ground shadow — so every bullet carries a dark rim that pops on
+bright skies AND a bright core that pops on dark skies. No biome, bloom level, or colour vision can erase both
+edges at once. Danger hue moved fiery-red→hot magenta `0xff2b6a` (bossDefs/BAND/telegraph-throat/patternlab all
+synced; red-on-amber was a luminance near-match for a red-green colour-blind player — Cave settled on pink/magenta
+for the same reason). Graze-bait is the ONLY emission with a dark core (`0x2a1020`): bait reads as a hollow pale
+DONUT vs danger's white-hearted HOT DISC vs the shield's wire CAGE — three gestalts, zero shared reads; the tti
+flare still heats a bait core white (it can hit dead-centre, so it must warn like everything else). Successive
+rings got the three depth cues perspective actually gives the eye: far bullets fog toward a neutral dim
+(`rel 30→15` ramps 50%→vivid, so the hottest ring is always the NEXT one), passed bullets (rel<0) shrink+fade with
+outline/shadow dropped at the crossing (the dodged ring stops competing), and every `fireRing` spawns a faint
+LineLoop HOOP in exact lockstep (same rel/vrel) that fades out at rel≈12 as the discrete bullets take over — a
+ring reads as ONE object whose circle size orders depth, the Star Fox hoop cue.
+
+**→ Systematize.** (a) **`tests/bulletcontrast.mjs` is the standing gate**: every biome × every bullet colour must
+clear ΔL ≥ 0.15 vs fog AND horizon, or the layered read (outline ≥0.25 below both, core ≥0.25 above both) must
+hold; per-biome `bullets:{light,mid,dark}` overrides in biomes.js are added ONLY where the gate demands (amber's
+light band, four dark-band lifts on near-black fogs). Readability is now a regression-gated invariant — a new biome
+or palette tweak that buries a bullet fails CI, not a playtest. Role colours (parry amber, reflected cyan) are
+PINNED globally — the two amber-horizon shortfalls are named accepted exceptions in the test, not silent skips.
+(b) **Alpha-only textures + per-instance tint** is the pattern for any layer that must fade per-bullet without a
+per-bullet material: bake the shape white, carry ALL colour in instanceColor (the outline fades toward grey for far
+bullets this way). (c) Order the colour maths: fog-dim FIRST, flare LAST — the imminent bullet must win every blend.
+
+**→ Leapfrog (innovate).** The hoop pool + lockstep-spawn seam (`spawnBossRingHoop` beside `fireRing`) generalizes
+to any "trace the volley's shape ahead of its bullets" telegraph — a curtain could flash its wall-line, an iris its
+contraction target. And the contrast gate's luminance table is the seed of a real accessibility surface: a
+high-contrast toggle is now just a second BAND the gate already validates. Verified: `boss.mjs` (11, untouched),
+`bulletcontrast` (36 combos), `bossboot` zero-error, `smoke`, `tricount` 203265 · 0 over. The human judges magenta
+pop, donut-vs-disc, and ring ordering on the preview (Boss Rush `?rush=all`).
+
+### L123 — Stage management: the world steps back so bullets own the extremes, and the dim IS the DANGER warning (not a fight-only effect)
+
+**Did / learned.** Increment 3 of the visibility arc, and the last one — the previous two made bullets loud; this one
+makes the world quiet around them (Cave's "black-label" logic: mid-tone everything else so the one thing that must
+read has nowhere to hide). A single render-only signal, `boss.js`'s `bossGradeTarget()`, returns 0 while idle/dying,
+**0.6 from the moment the DANGER banner goes up** (warn/approach/fight — not just 'fight'), and 1.0 while the boss is
+SHIELDED (the graze-bait flood is the densest bullet moment, so the world dims hardest there). Two independent
+consumers ease their OWN copy of that raw target — `postfx.js`'s `_bossMix` (mirrors `_deathMix`: ramped
+UNCONDITIONALLY before the `if (!postfx.enabled) return`, so a tier flap or mid-fight teardown can't strand a
+half-applied grade) trims saturation −0.10, lifts vignette +0.05, and eases bloom −0.05 at mix 1; `environment.js`
+gets its own local `bossMix` (same `damp(...,4,dt)` idiom `feverMix` already uses one line above it) and threads it
+into `updateAmbient`, which multiplies the ALREADY-computed opacity/size by `(1 − 0.55·mix)` / `(1 − 0.25·mix)`. Two
+easers of one raw signal, not one shared eased float — this is the existing house pattern (`feverActive` flows the
+same way: postfx keeps `_feverMix`, environment keeps its own `feverMix`), and it sidesteps a real ordering bug: 
+`updateEnvironment` runs *before* `updatePostFX` in the frame loop, so a shared eased value would read one frame
+stale in one of the two consumers. Also trimmed the Surge aura bolts 0.85→0.6 opacity (a small near-centre additive
+budget cut, same "reserve additive for a thin accent" logic as L101).
+
+**→ Systematize.** (a) **A "danger" dim is not a fight-state boolean — it's keyed to the WARNING, not the hazard.**
+Any telegraph→hazard pair (boss warn→fight, incoming-hit flash→damage, storm-warning→storm) should start its
+environmental response at the TELL, not the trigger — the warning and the world's reaction are one beat, or the dim
+lands as a jump-cut instead of a rising threat. (b) **`_deathMix`'s unconditional-ramp-before-the-enabled-check is
+now the template for any render grade sourced from gameplay state**: compute the state ramp first (so tier flips and
+teardowns can't strand it), gate only the *uniform write* on `postfx.enabled` — the state itself is always live. (c)
+**Compose, never stomp, on a value another system already animates.** `ambient.js`'s opacity/size were already
+`env.ambOpacity + feverMix*0.2` / `env.ambSize` (per-biome + per-fever) before this pass touched them — the fix
+multiplies the FINAL computed value by `(1 − k·mix)` rather than assigning over it, so at `mix=0` every new term is
+provably a no-op (`×1`, `−0·k`) and the biome/fever look survives untouched underneath. (d) **One raw signal, N local
+easers** beats one shared eased float when consumers run at different points in the frame order — cheaper to reason
+about than chasing a one-frame-stale read, and it's already how `feverActive` is plumbed in this codebase.
+
+**→ Leapfrog (innovate).** `bossGradeTarget()` is now a reusable **stage-directions signal** — dumb getter, no state
+of its own, any number of consumers can ease their own copy of it. The next hazard that needs "the world steps back"
+(a screen-filling storm-wall attack, a low-HP vignette, a final-boss-phase escalation) is just a new getter feeding
+the same `damp(...,4,dt)` idiom into whichever material already exists — zero new passes, zero new draw calls. This
+closes the three-increment visibility arc (render-order law → layered bullet contrast → stage-managed world); the
+next natural target is `tests/bulletcontrast.mjs`-style regression coverage for the GRADE itself (assert `bossMix=0`
+→ zero deltas, `bossMix=1` → exact −0.10/+0.05/−0.05), so a future postfx tweak can't silently re-bury the bullets.
+Verified: `boss.mjs` (11, untouched — render-only, no gameplay/timing/damage touched), `bossboot` zero-error, `smoke`,
+`juice` (10, death-grade/kick contract intact), `bulletcontrast` (36 combos), `bossrush` + `bossrushui`, `tricount`
+203265 · 0 over (no new draw calls, no new tris). The human judges the dim's timing against the DANGER banner and the
+mote fade's subtlety on the preview.

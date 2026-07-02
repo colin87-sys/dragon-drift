@@ -12,6 +12,11 @@ import { CONFIG } from './config.js';
 //   ambient.fall < 0 — particles RISE (volcanic embers)
 //   fauna    — the background flock's look (color/size/wingbeat)
 //   whale    — a colossal sky whale drifts the horizon (astral only)
+//   bullets  — OPTIONAL hex overrides { light, mid, dark } for the boss danmaku
+//              BAND (see boss.js). Present ONLY where the contrast gate
+//              (tests/bulletcontrast.mjs) fails against this biome's fog/horizon —
+//              most biomes read fine on the default BAND. Render-only; never
+//              touches hitboxes/kinematics.
 
 const C = (hex) => new THREE.Color(hex);
 
@@ -39,6 +44,9 @@ export const BIOMES = [
     faunaFlyby: true, // foreground gull flyby pass visible over the lane
     props: ['tower', 'column', 'archruin', 'slab', 'dome'],
     matIndex: 0, // verdigris stone
+    // Contrast gate: the dark/deep band (L≈0.16) reads too close to this
+    // biome's dark teal fog (L≈0.18) — lifted toward a lighter deep-rose.
+    bullets: { dark: 0xaf4f73 },
   },
   {
     // Amber Wastes: high-noon desert — the designated bright world in the cycle,
@@ -54,6 +62,9 @@ export const BIOMES = [
     fauna: { color: C(0xc8a060), scale: 1.3, flap: 0.5 }, // slow wide sand-kite gliders
     props: ['obelisk', 'column', 'slab', 'dome'],
     matIndex: 1, // sandstone
+    // Contrast gate: this is the brightest sky in the whole cycle (horizon
+    // L≈0.84) — the pale light band (L≈0.83) nearly vanishes into it. Deepened.
+    bullets: { light: 0xa98392 },
   },
   {
     // Cold sunset canyon — petrel pair + aurora wisps
@@ -82,6 +93,8 @@ export const BIOMES = [
     fauna: { color: C(0xff6a20), scale: 0.6, flap: 3.5 }, // fire-moths: tiny, erratic
     props: ['basalt', 'vent'],
     matIndex: 3, // basalt + ember veins
+    // Contrast gate: dark band vs this biome's near-black fog (L≈0.18) — lifted.
+    bullets: { dark: 0xa84167 },
   },
   {
     // Night garden — slow-bobbing translucent glow-jellies (additive blend)
@@ -96,6 +109,8 @@ export const BIOMES = [
     fauna: { color: C(0x80ffc8), scale: 1.1, flap: 0.3 }, // glow-jellies: large, slow bob
     props: ['glowcap', 'glowcapSmall', 'spirevine'],
     matIndex: 4, // mossy biolume
+    // Contrast gate: dark band vs this biome's near-black fog (L≈0.19) — lifted.
+    bullets: { dark: 0xaf4f73 },
   },
   {
     // Cosmos — star-koi shoal + existing whale; star-koi share whale drift pattern
@@ -111,6 +126,8 @@ export const BIOMES = [
     fauna: { color: C(0xa8d8ff), scale: 0.7, flap: 0.5 }, // star-koi: small, gentle drift
     props: ['monolith', 'arcshard'],
     matIndex: 5, // astral slate
+    // Contrast gate: dark band vs this biome's near-black fog (L≈0.12) — lifted.
+    bullets: { dark: 0xa84167 },
   },
 ];
 

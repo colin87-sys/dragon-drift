@@ -19,6 +19,7 @@ let sceneRef = null;
 let rnd = null;
 let bands = [];
 let feverMix = 0;
+let bossMix = 0; // eased boss-grade signal (see updateEnvironment), local copy — same pattern as feverMix
 
 const WALL_WINDOW = 900; // prop band: 100 behind the player to 800 ahead
 
@@ -420,13 +421,14 @@ export function resetEnvironment(seed) {
   if (seed !== undefined) rnd = mulberry32(seed + 99);
   for (const band of bands) reseedBand(band);
   feverMix = 0;
+  bossMix = 0;
 }
 
 // The sky-dome mesh — the god-ray occlusion mask hides it to paint the open-sky
 // light field while every solid occluder draws black.
 export function getSkyMesh() { return sky; }
 
-export function updateEnvironment(dt, camera, time, playerDist, feverActive = false, playerSpeed = 0) {
+export function updateEnvironment(dt, camera, time, playerDist, feverActive = false, playerSpeed = 0, bossTarget = 0) {
   sky.position.copy(camera.position);
   for (const band of bands) recycleBand(band, playerDist);
 
@@ -459,5 +461,10 @@ export function updateEnvironment(dt, camera, time, playerDist, feverActive = fa
   su.starMix.value = env.starMix;
   su.time.value = time;
 
-  updateAmbient(dt, camera, time, playerDist, playerSpeed, feverMix, env);
+  // Boss-time mote budget: own eased copy of the same signal postfx grades
+  // with (same ~1s damp idiom as feverMix above) — decays unconditionally so
+  // a boss teardown mid-fight can't strand the ambient dim either.
+  bossMix = damp(bossMix, bossTarget, 4, dt);
+
+  updateAmbient(dt, camera, time, playerDist, playerSpeed, feverMix, env, bossMix);
 }

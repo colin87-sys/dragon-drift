@@ -25,6 +25,9 @@ const TIERS = CONFIG.BOSS.renderTiers;   // render-order law: nothing draws over
 let mesh = null;       // colour body (soft round disc, per-bullet tint)
 let coreMesh = null;   // white centre (colour-blind-safe read — everyone sees the dot)
 let shadowMesh = null; // soft dark dot on the floor under each bullet (depth anchor)
+let outlineMesh = null; // dark annulus UNDER the body — a two-way luminance edge
+// (dark ring pops on bright skies, the white core pops on dark skies) so every
+// bullet reads against every biome without leaning on hue alone (L102/L121).
 let visibleCap = POOL;
 let clock = 0;         // accumulates dt for the parry-window pulse
 
@@ -33,6 +36,15 @@ const WHITE = new THREE.Color(0xffffff);
 const IDENTITY = new THREE.Quaternion();   // bullets are round → camera-facing quads, no spin
 const SHADOW_QUAT = new THREE.Quaternion().setFromEuler(new THREE.Euler(-Math.PI / 2, 0, 0));
 const shadowScl = new THREE.Vector3();
+// Depth-ordering scratch (module-level — zero per-frame allocation, L on the
+// "no allocations" render law): a neutral dim tone bullets fog toward as they
+// spawn far out, and the fixed dark outline tint (baked per-instance since the
+// outline MATERIAL colour is white — see makeOutlineTex/initBossBullets).
+const FOG_DIM = new THREE.Color(0x555060);
+const OUTLINE_TINT = new THREE.Color(0x140608);
+const OUTLINE_FOG = new THREE.Color(0x808080);   // far bullets: the dark ring softens toward this
+const coreColV = new THREE.Color();
+const outlineColV = new THREE.Color();
 
 // Procedural round-bullet texture: a soft radial disc (white core → soft edge →
 // transparent). Grayscale so instanceColor tints the BODY while the white CORE
@@ -45,6 +57,25 @@ function makeBulletTex() {
   gr.addColorStop(0, 'rgba(255,255,255,1)');
   gr.addColorStop(0.42, 'rgba(255,255,255,0.98)');
   gr.addColorStop(0.72, 'rgba(255,255,255,0.55)');
+  gr.addColorStop(1, 'rgba(255,255,255,0)');
+  g.fillStyle = gr;
+  g.fillRect(0, 0, 64, 64);
+  return new THREE.CanvasTexture(c);
+}
+
+// Annulus texture for the dark outline: transparent centre → soft ring peaking
+// near r≈0.75 → fades back to transparent at the edge. Painted WHITE (alpha-only
+// shape) so the actual near-black tint comes entirely from the per-instance
+// colour (material.color stays white) — that's what lets 2.6a fade the ring
+// toward a softer grey for distant bullets without fighting the texture.
+function makeOutlineTex() {
+  const c = document.createElement('canvas');
+  c.width = c.height = 64;
+  const g = c.getContext('2d');
+  const gr = g.createRadialGradient(32, 32, 0, 32, 32, 32);
+  gr.addColorStop(0, 'rgba(255,255,255,0)');
+  gr.addColorStop(0.55, 'rgba(255,255,255,0)');
+  gr.addColorStop(0.75, 'rgba(255,255,255,0.95)');
   gr.addColorStop(1, 'rgba(255,255,255,0)');
   g.fillStyle = gr;
   g.fillRect(0, 0, 64, 64);
@@ -72,8 +103,77 @@ function makeSlot() {
     reflectable: false,
     targetRel: 0, tx: 0, ty: 0,   // arrival target for boss-ward bullets
     color: 0xffffff,
+    coreColor: 0xffffff,   // white by default; graze-bait darkens it (the "donut" read)
     life: 0,
   };
+}
+
+// Ring hoop guide (2.6c): a faint circle outline that arrives IN LOCKSTEP with a
+// fired ring's bullets, tracing the shape a beat ahead of the discrete dots — the
+// "successive rings read as depth-ordered hoops, not a flat mess" cue. A small
+// pool of THREE.LineLoops (own draw call each, only while in flight — cheap,
+// rings are rare) sharing one unit-circle geometry, scaled per-hoop to its radius.
+const HOOP_POOL = 8;
+const HOOP_SEGS = 48;
+const HOOP_FADE_NEAR = 4;    // fully gone by this rel (entering the read band)
+const HOOP_FADE_SPAN = 8;
+let hoopGeo = null;
+const hoops = [];   // { active, cx, cy, radius, rel, vrel, mesh, mat }
+
+function makeHoopGeometry() {
+  const pts = new Float32Array(HOOP_SEGS * 3);
+  for (let i = 0; i < HOOP_SEGS; i++) {
+    const a = (i / HOOP_SEGS) * Math.PI * 2;
+    pts[i * 3] = Math.cos(a);
+    pts[i * 3 + 1] = Math.sin(a);
+    pts[i * 3 + 2] = 0;
+  }
+  const g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.BufferAttribute(pts, 3));
+  return g;
+}
+
+function initHoops(scene) {
+  hoopGeo = makeHoopGeometry();
+  for (let i = 0; i < HOOP_POOL; i++) {
+    const mat = new THREE.LineBasicMaterial({
+      color: 0xffffff, transparent: true, opacity: 0, depthWrite: false, depthTest: false,
+    });
+    const line = new THREE.LineLoop(hoopGeo, mat);
+    line.renderOrder = TIERS.bulletOutline - 1;   // just below the bullet outline tier
+    line.frustumCulled = false;
+    line.visible = false;
+    scene.add(line);
+    hoops.push({ active: false, cx: 0, cy: 0, radius: 1, rel: 0, vrel: 0, mesh: line, mat });
+  }
+}
+
+// Spawn a hoop that traces a ring pattern's shape, timed to arrive alongside its
+// bullets (caller matches `rel`/`vrel` to the bullets' own spawn kinematics).
+export function spawnBossRingHoop(cx, cy, radius, rel, vrel, color) {
+  for (const h of hoops) {
+    if (h.active) continue;
+    h.active = true; h.cx = cx; h.cy = cy; h.radius = radius; h.rel = rel; h.vrel = vrel;
+    h.mat.color.setHex(color ?? 0xffffff);
+    h.mesh.visible = true;
+    return h;
+  }
+  return null;   // pool exhausted — silently skip, it's a guide overlay, not gameplay
+}
+
+function updateHoops(dt, player) {
+  for (const h of hoops) {
+    if (!h.active) continue;
+    h.rel += h.vrel * dt;
+    if (h.rel < HOOP_FADE_NEAR) { h.active = false; h.mesh.visible = false; continue; }
+    h.mesh.position.set(h.cx, h.cy, -(player.dist + h.rel));
+    h.mesh.scale.setScalar(h.radius);
+    h.mat.opacity = 0.2 * Math.max(0, Math.min(1, (h.rel - HOOP_FADE_NEAR) / HOOP_FADE_SPAN));
+  }
+}
+
+function resetHoops() {
+  for (const h of hoops) { h.active = false; if (h.mesh) h.mesh.visible = false; }
 }
 
 export function initBossBullets(scene) {
@@ -89,14 +189,29 @@ export function initBossBullets(scene) {
   mesh.frustumCulled = false;
   mesh.renderOrder = TIERS.bulletBody;
   mesh.instanceColor = new THREE.InstancedBufferAttribute(new Float32Array(POOL * 3), 3);
-  // Core: a smaller WHITE centre drawn on top — colour-blind-safe (everyone sees
-  // the white dot), keeps bullets countable no matter the body hue.
+  // Core: a smaller centre drawn on top — colour-blind-safe (everyone sees the
+  // dot), keeps bullets countable no matter the body hue. instanceColor defaults
+  // to white (the danger "hot disc" read); graze-bait darkens it to a hollow
+  // "donut" so bait reads as a DIFFERENT thing from a danger bullet (2.4).
   const coreMat = new THREE.MeshBasicMaterial({
     map: tex, color: 0xffffff, transparent: true, depthWrite: false, depthTest: false,
   });
   coreMesh = new THREE.InstancedMesh(quad, coreMat, POOL);
   coreMesh.frustumCulled = false;
   coreMesh.renderOrder = TIERS.bulletCore;
+  coreMesh.instanceColor = new THREE.InstancedBufferAttribute(new Float32Array(POOL * 3), 3);
+  // Outline: a dark annulus UNDER the body — the two-way luminance edge (L121).
+  // material.color stays WHITE; the near-black tint is baked per-instance so
+  // 2.6a can fade it toward grey for distant bullets without fighting the map.
+  const outlineTex = makeOutlineTex();
+  const outlineMat = new THREE.MeshBasicMaterial({
+    map: outlineTex, color: 0xffffff, transparent: true, opacity: 0.55,
+    depthWrite: false, depthTest: false,
+  });
+  outlineMesh = new THREE.InstancedMesh(quad, outlineMat, POOL);
+  outlineMesh.frustumCulled = false;
+  outlineMesh.renderOrder = TIERS.bulletOutline;   // under body (21) + core (22) by construction
+  outlineMesh.instanceColor = new THREE.InstancedBufferAttribute(new Float32Array(POOL * 3), 3);
   // Ground shadow: a soft dark disc on the floor under each bullet. Two rings that
   // overlap in view sit at different floor distances, so their shadows separate —
   // the floor grid becomes an absolute depth reference (a shadow under the dragon
@@ -111,14 +226,20 @@ export function initBossBullets(scene) {
     slots.push(makeSlot());
     mesh.setMatrixAt(i, HIDDEN);
     coreMesh.setMatrixAt(i, HIDDEN);
+    outlineMesh.setMatrixAt(i, HIDDEN);
+    outlineMesh.setColorAt(i, OUTLINE_TINT);
     shadowMesh.setMatrixAt(i, HIDDEN);
   }
   mesh.instanceMatrix.needsUpdate = true;
   coreMesh.instanceMatrix.needsUpdate = true;
+  outlineMesh.instanceMatrix.needsUpdate = true;
+  outlineMesh.instanceColor.needsUpdate = true;
   shadowMesh.instanceMatrix.needsUpdate = true;
   scene.add(shadowMesh);
+  scene.add(outlineMesh);   // under the body
   scene.add(mesh);
-  scene.add(coreMesh);   // added after the halo → drawn on top
+  scene.add(coreMesh);   // added last → drawn on top
+  initHoops(scene);
 }
 
 // Quality scales the concurrent-bullet ceiling (mobile draws fewer).
@@ -158,6 +279,7 @@ export function spawnBossBullet(opts) {
   s.tx = opts.tx || 0;
   s.ty = opts.ty || 0;
   s.color = opts.color || 0xff4488;
+  s.coreColor = opts.coreColor || 0xffffff;
   s.life = opts.life || 6;
   return s;
 }
@@ -174,6 +296,7 @@ function deactivate(i) {
   slots[i].active = false;
   mesh.setMatrixAt(i, HIDDEN);
   if (coreMesh) coreMesh.setMatrixAt(i, HIDDEN);
+  if (outlineMesh) outlineMesh.setMatrixAt(i, HIDDEN);
   if (shadowMesh) shadowMesh.setMatrixAt(i, HIDDEN);
 }
 
@@ -209,18 +332,44 @@ export function updateBossBullets(dt, player) {
       }
     }
 
+    // Successive-ring depth ordering: a far-out bullet fogs dim, a boss bullet
+    // that's already CROSSED the plane (owner 'boss', rel<0 — a graze/miss still
+    // whooshing past, see L92) shrinks and recedes into the same fog tone, and
+    // the outline/shadow vanish the instant it crosses (they're a near-field
+    // read only). The FLARE lerp (above) is applied AFTER fog so an imminent
+    // bullet is always the hottest thing on screen regardless of distance fade.
+    const far = Math.max(0, Math.min(1, (s.rel - 15) / 15));
+    const past = s.owner === 'boss' && s.rel < 0;
+    const gone = past ? Math.max(0, Math.min(1, -s.rel / 5)) : 0;
+    const shrink = past ? 1 - gone * 0.7 : 1;
+
     // Round camera-facing bullet: a soft colour BODY with a WHITE CENTRE on top,
     // plus a ground shadow (all off one slot). No spin — the disc is radial.
     posV.set(s.x, s.y, -(player.dist + s.rel));
-    m4.compose(posV, IDENTITY, sclV.setScalar(s.r * 2.7));   // body disc
+    m4.compose(posV, IDENTITY, sclV.setScalar(s.r * 2.7 * shrink));   // body disc
     mesh.setMatrixAt(i, m4);
-    colV.setHex(s.color).lerp(WHITE, flare);                 // warm to white near impact
+    colV.setHex(s.color).lerp(FOG_DIM, Math.max(far, gone) * 0.5).lerp(WHITE, flare);
     mesh.setColorAt(i, colV);
-    m4.compose(posV, IDENTITY, sclV.setScalar(s.r * 1.35));  // white centre (smaller)
+    m4.compose(posV, IDENTITY, sclV.setScalar(s.r * 1.55 * shrink));  // centre (smaller)
     coreMesh.setMatrixAt(i, m4);
-    // Shadow on the floor directly beneath the bullet.
-    m4.compose(posV.set(s.x, GROUND_Y, -(player.dist + s.rel)), SHADOW_QUAT, shadowScl.setScalar(s.r * 1.5));
-    shadowMesh.setMatrixAt(i, m4);
+    // Core defaults white (the danger "hot disc"); graze-bait darkens it (a
+    // hollow "donut" — reads as a DIFFERENT thing). The tti flare still heats a
+    // bait core toward white in its last instant (2.4) — fairness: it can hit
+    // dead-centre, so it must flare like everything else.
+    coreColV.setHex(s.coreColor).lerp(WHITE, flare);
+    coreMesh.setColorAt(i, coreColV);
+    if (past) {
+      outlineMesh.setMatrixAt(i, HIDDEN);   // hidden the instant it crosses (near-field only)
+      shadowMesh.setMatrixAt(i, HIDDEN);
+    } else {
+      m4.compose(posV, IDENTITY, sclV.setScalar(s.r * 3.1));   // outline ring (under the body)
+      outlineMesh.setMatrixAt(i, m4);
+      outlineColV.copy(OUTLINE_TINT).lerp(OUTLINE_FOG, far * 0.5);
+      outlineMesh.setColorAt(i, outlineColV);
+      // Shadow on the floor directly beneath the bullet.
+      m4.compose(posV.set(s.x, GROUND_Y, -(player.dist + s.rel)), SHADOW_QUAT, shadowScl.setScalar(s.r * 1.5));
+      shadowMesh.setMatrixAt(i, m4);
+    }
 
     if (s.owner === 'boss') {
       // Resolve the dodge on the frame the bullet crosses the player's plane: a
@@ -255,8 +404,12 @@ export function updateBossBullets(dt, player) {
   }
   mesh.instanceMatrix.needsUpdate = true;
   coreMesh.instanceMatrix.needsUpdate = true;
+  outlineMesh.instanceMatrix.needsUpdate = true;
   shadowMesh.instanceMatrix.needsUpdate = true;
   if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true;
+  if (coreMesh.instanceColor) coreMesh.instanceColor.needsUpdate = true;
+  if (outlineMesh.instanceColor) outlineMesh.instanceColor.needsUpdate = true;
+  updateHoops(dt, player);
 }
 
 // Swat reflectable boss bullets near a rolling player back at the boss. `all`
@@ -298,10 +451,13 @@ export function resetBossBullets() {
     if (slots[i]) slots[i].active = false;
     if (mesh) mesh.setMatrixAt(i, HIDDEN);
     if (coreMesh) coreMesh.setMatrixAt(i, HIDDEN);
+    if (outlineMesh) outlineMesh.setMatrixAt(i, HIDDEN);
     if (shadowMesh) shadowMesh.setMatrixAt(i, HIDDEN);
   }
   cursor = 0;
   if (mesh) mesh.instanceMatrix.needsUpdate = true;
   if (coreMesh) coreMesh.instanceMatrix.needsUpdate = true;
+  if (outlineMesh) outlineMesh.instanceMatrix.needsUpdate = true;
   if (shadowMesh) shadowMesh.instanceMatrix.needsUpdate = true;
+  resetHoops();
 }

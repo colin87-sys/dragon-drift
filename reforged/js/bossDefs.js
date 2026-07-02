@@ -20,7 +20,7 @@
 // punishes a single relocation, garnish layers aimed shots on a structure.
 // Difficulty escalates by unlocking streamed patterns + tightening cadence —
 // never by raw bullet count (mobile visibleCap; density reads as unfair).
-// `accent`/`glow` colour the boss BODY; `bulletColor` is the fiery danger colour.
+// `accent`/`glow` colour the boss BODY; `bulletColor` is the magenta danger colour.
 // `constrictPhase`: phase index at which the arena walls slam in (showpiece).
 
 export const BOSSES = {
@@ -29,9 +29,9 @@ export const BOSSES = {
     name: 'VOIDMAW',
     title: 'the Sky Tyrant',
     hpMax: 180,
-    accent: 0xa040ff,         // body reads violet so the red bullets pop as danger
+    accent: 0xa040ff,         // body reads violet so the magenta bullets pop as danger
     glow: 0xc89aff,
-    bulletColor: 0xff3010,    // fiery red = "this will hurt"
+    bulletColor: 0xff2b6a,    // magenta = "this will hurt" (danger role colour, never per-boss)
     approachFrom: 'behind',   // 'behind' (overtakes you) | 'side' (sweeps in)
     tutorial: true,           // first boss: teaches the verbs one at a time, gently
     // VOIDMAW is the TUTORIAL boss — it introduces the mechanics one per phase with
@@ -51,7 +51,7 @@ export const BOSSES = {
     hpMax: 220,
     accent: 0x2fd8e8,         // storm teal — reads apart from Voidmaw's violet at 30m
     glow: 0xffd870,           // gold storm-light
-    bulletColor: 0xff3010,    // danger stays fiery red (role colour, never per-boss)
+    bulletColor: 0xff2b6a,    // danger stays magenta (role colour, never per-boss)
     approachFrom: 'side',     // sweeps in like a squall, not an overtake
     // The first REAL boss (Voidmaw is the tutorial): walls and anti-flee patterns
     // instead of raw aimed shots — gentle dials, the lesson is READING, not speed.
