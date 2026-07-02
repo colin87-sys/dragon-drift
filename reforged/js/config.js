@@ -163,6 +163,8 @@ export const CONFIG = {
     // Telegraph: the boss visibly charges before each attack (fairness + game feel).
     telegraphInstant: 0.5,  // wind-up for a one-shot volley (aimed / fan / spiral)
     telegraphSustained: 0.7,// longer wind-up for a streamed pattern (tunnel / stream)
+    telegraphWall: 0.72,    // longer "brace" for a full 2D wall (curtain) — commit-early
+                            // patterns need extra warning since the whole lane fills
     // Bullets (one InstancedMesh of soft round discs — white centre, coloured rim —
     // built on the embers.js pool pattern; normal blend so they read over bloom).
     // Reaction window for an aimed bullet = settleGap / bulletSpeed (≈ 0.88s here);

@@ -54,6 +54,23 @@ export function rushRoster() {
 export function rushUnlocked() { return rushRoster().length > 0; }
 export function setRushUnlockAll(v) { rushUnlockAll = !!v; }
 
+// Richer roster for the pre-launch panel: every boss with its unlock state + name +
+// body colours (for a themed chip), plus the best clear time. Locked bosses are
+// shown as "to unlock" so the roster teases what's still ahead without clutter.
+export function rushRosterInfo() {
+  const beaten = saveData.bossRush?.beaten || [];
+  return {
+    bosses: BOSS_ORDER.map((k) => ({
+      id: k, name: BOSSES[k].name, title: BOSSES[k].title,
+      accent: BOSSES[k].accent, glow: BOSSES[k].glow,
+      unlocked: rushUnlockAll || beaten.includes(k),
+    })),
+    unlockedCount: rushRoster().length,
+    bestClearMs: saveData.bossRush?.bestClearMs || 0,
+    cleared: saveData.bossRush?.cleared || 0,
+  };
+}
+
 // Record a defeated boss into the save so it unlocks in the rush roster (any mode).
 function recordBossBeaten(id) {
   if (!id) return;
@@ -706,7 +723,8 @@ export function updateBoss(dt, player, time) {
       if (attackTimer <= 0) {
         const ph = def.phases[phaseIdx];
         curAttack = ph.attacks[(Math.random() * ph.attacks.length) | 0];
-        chargeDur = SUSTAINED.has(curAttack) ? B.telegraphSustained : B.telegraphInstant;
+        chargeDur = curAttack === 'curtain' ? B.telegraphWall
+          : (SUSTAINED.has(curAttack) ? B.telegraphSustained : B.telegraphInstant);
         chargeT = chargeDur;
         sfx.boostStart?.();   // a short charge whoosh as the wind-up begins
       }
@@ -866,11 +884,15 @@ function executeAttack(id, player) {
     // the wall: the lane is the only answer. One band colour per wall so stacked
     // volleys read apart.
     const hw = Math.min(12, arenaHW - 1);
-    const slot = 2.8;                              // generous lane: gentle 2nd-boss wall
+    const slot = 3.0;                              // generous lane: gentle 2nd-boss wall
     const stepX = quality < 0.75 ? 3.2 : 2.4;
     const stepY = quality < 0.75 ? 4.6 : 3.4;
-    const gap = Math.max(-hw + slot, Math.min(hw - slot, -Math.sign(player.position.x || 1) * 7));
-    const slow = closing * 0.85;
+    // Gap sits toward your opposite side (commit early) but not all the way across —
+    // 5.5m, not 7m, so the traversal is fair to read + fly in the reaction window.
+    const gap = Math.max(-hw + slot, Math.min(hw - slot, -Math.sign(player.position.x || 1) * 5.5));
+    // Slower close than the aimed/fan shots: a full wall must be READ (find the gap)
+    // AND traversed, so it needs a longer reaction window than a bullet you sidestep.
+    const slow = closing * 0.66;
     const b = BAND[bandIdx++ % BAND.length];
     for (let x = -hw; x <= hw; x += stepX) {
       if (Math.abs(x - gap) < slot) continue;
