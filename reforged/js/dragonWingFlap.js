@@ -68,7 +68,10 @@ export function flapWing(rig, state, dt) {
   // (NO side) so both wings pitch leading-edge up/down TOGETHER — a true mirror beat, not the old
   // anti-symmetric roll that read as the wings flapping at slightly different times.
   const sh = rig.shoulder;
-  sh.rotation.z = damp(sh.rotation.z, -side * rootFlap + turnBias + side * rollFold + side * tuck * 0.5, 14, dt);
+  // rig.restZ (GLB auto-rig): recenters the beat around the mesh's own baked
+  // wing dihedral instead of horizontal. Nullable — procedural rigs (undefined)
+  // are byte-identical.
+  sh.rotation.z = damp(sh.rotation.z, -side * rootFlap + turnBias + side * rollFold + side * tuck * 0.5 + (rig.restZ ?? 0), 14, dt);
   sh.rotation.x = damp(sh.rotation.x, 0.14 + feather * 0.18 + climbBias - aero * P.surgeLevel + spread * P.spreadLift, 10, dt);
   sh.rotation.y = damp(sh.rotation.y, -side * 0.18 + turnBias * 0.8 - side * P.surgeSweep * aero + side * P.spreadOpen * spread, 9, dt);
 

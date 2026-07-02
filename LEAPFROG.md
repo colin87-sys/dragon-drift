@@ -4255,3 +4255,110 @@ normal HUD and draws on the mode's own indicator. The thetaLength-sweep ring is 
 primitive (charge meters, cooldowns, capture rings). Verified: `boss.mjs` (8), `bossboot` real-WebGL zero-error, `smoke`,
 `tricount` 203265; a capture confirms the stamina bar gone + focus circle drawn + single hoop + dragon visible. The human
 judges the callout timing/readability and the fade/draw-on feel live.
+
+### L108 — GLB auto-rig: skin an AI-generated mesh to a procedurally-placed skeleton and let the SHIPPED flight animation drive it (the aesthetic-dragon pivot, increments 1–3)
+**Did / learned:** the human called the month-long procedural arc: the roster still reads "basic shapes / paddle-pop-stick
+wings" (only the layered-feather phoenix passes), so the pivot is **decide aesthetics at the IMAGE stage** (human-approved
+concepts → Meshy `multi_image_to_3d`) **and animate with the systems we already built** — never baked clips (researched:
+Meshy/Tripo auto-rigging is HUMANOID-only, no fly cycle in the 678-clip library; a dead end for dragons). Built the missing
+middle: **`dragonGlbRig.js`** converts a loaded static GLB into a `SkinnedMesh` bound to a procedurally-placed skeleton
+(root chest anchor → shoulder/elbow/wrist per side → neck/head fore, hip + 4 tail bones aft), exposed through the FROZEN
+contract (`wingRigL/R`, `spineSegs` roles, `tailSegs`, `parts.head` = the head bone) so `flapWing()` + spine-whip +
+tail-rudder drive the AI mesh with **zero animation-code change** (dragon.js diff = one line: the tail drive now also
+accepts `tailSegs[0].isBone`, the same detection the shop preview already used). Two load-bearing architecture rules:
+**(1) bake the placement into the geometry** (`def.glb` scale/rot → `applyMatrix4` once at load, CLONE the geometry first —
+`gltf.scene.clone(true)` SHARES geometry with the loader cache and baking in place corrupts it) so bones rest at IDENTITY
+rotations in the game frame and every `rotation.z/x/y` write means what it means on procedural rigs; **(2) build the bone
+GRAPH synchronously, refine POSITIONS from the measured mesh at load** — dragon.js captures `parts.*` once (stable-refs
+invariant), and positions are safe to mutate because the drive code writes only rotations. Weights are the two proven
+recipes fused: wings = the `spanSkin` welded-root band + smooth-stepped shoulder/elbow/wrist spans; body = the L36/L37
+z-band chain with a SINGLE-SLOT rigid chest band. Wing verts are gated by |x| AND a spine-z window (the thundercoil
+uWingMinS lesson — a coiled tail swings wide in x). **Measured-not-guessed defaults took three probes on the real mesh
+(the L39c discipline):** (a) a naive `wingZ` window clipped thundercoil's swept wings — the wingtip got body weights and
+moved 0.000 on a flap; fix = CLUSTER the wide-|x| verts by z (gap-split) and keep the cluster holding the widest vert
+(a tail never out-spans the wings). (b) min/max wing-root chord let a wide crest smear the chest band over the whole neck
+(`neckHead` partition → 0); (c) even percentiles didn't fix it because a thick SERPENT FLANK sits at wing-root |x| along
+the whole body — fix = measure the chord from verts JUST OUTBOARD of the shoulder (unambiguously wing), 5–95th pct.
+`onBeforeCompile` is last-assignment-wins, so the rim/fill fragment patch was factored to a standalone `attachRimFill`
+(exactly ONE patch function owns a material; skinning itself needs zero shader work — r160 auto-defines USE_SKINNING).
+**Verified:** `tests/glbrig.mjs` (15 gates: partition invariants incl. a synthetic coiled tail, L36 motion probes —
+tip 0.82 / chest 0 / coil 0, L/R mirror, order rules, placement bake round-trip); `glbcontract` +9 skinned-contract
+checks; REAL WebGL boot A/B (`?rigMode=skinned|shader` URL override): shader = 0 skinned meshes (byte-identical),
+skinned = 1 SkinnedMesh + 14 bones, zero console errors, in-flight screenshots both modes; roster tricount UNCHANGED
+(203265). Rig cost on the real 29k-vert mesh: ~50 ms one-time inside the existing preload.
+**→ Systematize:** the recipe for "make an arbitrary winged mesh ride the shipped animation" is now mechanical: bake →
+cluster-measure → place bones → span+z-band weights → bind → expose the frozen contract. All knobs live in
+`def.glb.rig {shoulderX, elbowT, wristT, band, wingZ, chestZ, neckZ, headZ, hipZ, tailN, flapProfile}` (game units,
+post-bake) — tune on the preview, never in code. `?rigMode=` A/Bs the SAME mesh under both rigs with zero commits.
+Skinned defs must declare `model.tailWhip` (rotation-only tail; the isBone guard covers forgetting it).
+**→ Leapfrog (innovate):** next = the hero pipeline (the plan in `/root/.claude/plans/` + PR): GATE 1 human-picks a
+cel-shaded wings-SPREAD multi-view concept (straight spine — a coiled pose fights both reconstruction and the tail
+chain); GATE 2 `multi_image_to_3d` at `target_polycount` ~12k, inspect via `glbinspect`, judge the turntable; then a
+def + `rig` knobs is the WHOLE integration (zero geometry code per dragon). Budget policy to land with the hero:
+per-file 20k tris / 10 MB hard in `tests/glb.mjs` with a thundercoil grandfather entry. If the skinned A/B on
+thundercoil reads better than the shader flap (expected — cascade + fold vs rigid hinge), flip its def and retire the
+shader path when the roster no longer needs it.
+
+### L109 — Verdant Prismwing: the first full image→mesh→auto-rig hero, end to end in one session
+**Did / learned:** ran the whole L108 pipeline on a new hero. GATE 1: 4 cel-shaded wings-SPREAD concept candidates
+(`nano_banana_pro`, ¾ view, plain background) — the human picked #3 (teal-green + gold chest + crystalline ice-blue
+crest, job `090d9d2c`). Views: reference-image edits gave a consistent second ¾ (`1d3a0413` — asked for "side profile",
+got ¾; fine, multi-view wants parallax not orthography) and a PERFECT symmetric top-down planform (`1663563a` — the
+most valuable view for wing reconstruction). Mesh: `multi_image_to_3d` (3 views, `target_polycount 12000`,
+`topology triangle`, `symmetry on`, textured, 30 credits) → `verdant.glb`, **12,340 tris / 7.8 MB** (measured, on
+target). Integration was DATA ONLY, exactly as designed: a def with `rigMode:'skinned'` + placement + rig windows —
+zero geometry code. Three lessons banked: **(1) placement orientation is a 2-shot experiment, not a guess** — the
+shop hero scene at rotY 0 vs π instantly shows facing (rotY 0 faced the camera → π is flight-correct; rotX for a
+STANDING-pose mesh is ≈−0.7, not thundercoil's −π/2 — the standing spine is already half-raked). **(2) the auto
+wing-window can swallow the head on a forward-swept wing**: the measured default gave `neckHead: 14` (head rigid in
+the chest band) because the leading edge sweeps past the neck; explicit `rig {wingZ, chestZ, neckZ, headZ}` knobs
+restored the fore chain (partitions wing 3583 / chest 3024 / neckHead 3055 / hipTail 3103, tip moves 2.72 on a
+0.4 rad flap) — and the L37 chestZ auto-expand guard did its job on the too-small explicit band. **(3) nfview can't
+judge a GLB dragon** (`./assets/...` meshUrl resolves relative to `/tools/` → 404 → placeholder); the in-engine
+boot screenshot (shop hero scene + chase cam) is the oracle. Budget policy landed with the hero: `tests/glb.mjs`
+now gates **20k tris / 10 MB hard / 6 MB warn** with `thundercoil.glb` grandfathered at 31k. All gates green
+(glb/glbcontract/glbrig/defs/blueprint/economy/shop/smoke, tricount 56 models 203265 UNCHANGED — asset-backed rows
+build 0 procedural tris), zero console errors in real-WebGL flight + shop.
+**→ Systematize:** the per-dragon recipe is proven MECHANICAL: concepts → pick → 2 more views → mesh → glbinspect →
+def (placement via the 2-shot facing experiment; rig windows via the headless partition probe — copy
+`scratchpad rigprobe` pattern: partitions + tip-move + the ax histogram). Both texture-heavy GLBs warn >6 MB —
+the next pipeline improvement is texture resize to 1024² (glbslim), not polycount.
+**→ Leapfrog (innovate):** remaining for this hero, all preview-judged knobs: flap feel (`flapProfile`), rim/fill
+lift, rider seat, price + rarity when it graduates from free-test. Then the roster: each bad procedural dragon can
+be re-run through this pipeline as pure data. The form-ramp increment (ONE mesh + scale/material/FX per form) is
+the next code step so asset-backed heroes stop being single-form.
+
+### L110 — Rig v2: vision-marked joints + capsule/smoothed weights + flight-pose mesh — the smudge measured from 70.9× to 2.5×
+**Did / learned:** the human's phone screenshot showed the verdant v1 wings SMUDGING and the body stiff, and he flagged
+the old flame-monarch pain (PR #178's manual `glbtagger.html`) asking for "an easier way for you to identify and animate
+this." Three-part answer, each verified by the stretch PROBE (max posed/rest edge ratio at a hard flap extreme — the
+smudge as a NUMBER, L39c): **(1) weights**: hard axis-window bands tear a membrane at every classification boundary.
+Rebuilt `computeGlbWeights` as CAPSULE-distance weighting (each bone owns its joint→next-joint segment) + LAPLACIAN
+SMOOTHING of weights over the mesh adjacency (pinned rigid chest band). Five measured sub-lessons on the way down from
+70.9: a z-window can't segment a SWEPT wing (leading edge forward of any window that spares the neck) → capsule
+COMPETITION as the wing gate (70.9→28.9); wing capsules along the arm alone lose the trailing membrane to the chest
+capsule → **FINGER capsules** (the fingers carry the chord, like a real bat) marked from the top view; TOP-2 slot
+truncation re-tears what smoothing built at 3-bone junctions → keep all 4 GPU slots (→9.98); a soft falloff leaves
+5-bone junctions whose truncated 5th weight still tears → SHARP falloff 1/(d²+ε)² so ≤4 bones matter (→4.65); a tail
+that CURLS needs its capsule chain to FOLLOW the curl → `joints.tail` is a marked POLYLINE, else the coil steals wrist
+weight — the thundercoil bug, soft edition (→2.48). **(2) joint placement**: built `tools/rigshots.mjs` — flat-lit clay
+ORTHOGRAPHIC top+side renders with a labeled world-coordinate grid; Claude READS the images and writes
+`def.glb.rig.joints` (shoulder/elbow/wrist/tip/fingers, neck/head/hip, tail polyline, chest + windows). "Identify the
+body parts" is now Claude's vision doing the glbtagger's job — the human only judges the preview. The rigshots also
+answered the new mesh's orientation in ONE render (glbinspect's "widest axis = wingspan" guess is WRONG for a
+flight-pose mesh — the straight tail makes the SPINE longest). **(3) pose**: the v1 concept prompt said "standing" —
+a statue pose flies like a statue (dangling legs, upright chest; rotX can't fix anatomy). Regenerated the SAME approved
+design in a GLIDING pose (side view = the pose anchor, top = the planform, + ¾ + original as the 4th reference) →
+`multi_image_to_3d` → the rest pose IS the flight pose. First-try marks on the new mesh: stretch 2.54, wingtip drive
+2.45, partitions wing 5145 / chest 3762 / neckHead 3262 / hipTail 527. Also: `flapWing` gained ONE additive nullable
+term — `rig.restZ` (measured baked dihedral × `flapCenter`) so the beat oscillates around the mesh's own rest pose;
+procedural rigs byte-identical (flapcheck/skinnedwing/nightfury green). Rig cost ~150 ms one-time (24 smooth iters).
+**→ Systematize:** the per-mesh recipe is now: rigshots → Claude marks joints (+fingers, +tail polyline) → probe
+(partitions + tip-move + STRETCH < ~3) → def. Bank the laws: **author flying creatures IN the flying pose** (fix pose
+at the image stage, never with bones); **a membrane's chord is carried by fingers** — never model a wing as its
+leading edge only; **weight-slot truncation undoes smoothing** — keep all 4 slots and use a falloff sharp enough that
+4 suffice; **capsules must follow curled anatomy** (polyline marks).
+**→ Leapfrog (innovate):** the stretch probe should graduate from the scratchpad into `tools/` (rigprobe <key>) so
+every future mesh gets the number pre-preview. The remaining human-judged items: flap feel (`flapProfile`, `flapAmp`,
+`flapCenter`), rim brightness, rider seat. Roster rollout stays data-only: concepts (flying pose) → mesh → rigshots →
+marks → def.
