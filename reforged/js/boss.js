@@ -835,9 +835,12 @@ function executeAttack(id, player) {
       const b = BAND[k % BAND.length];
       pending.push({ t: k * 0.3, fire: () => {
         const hw = Math.min(12, arenaHW - 1), sx = (hw * 2) / n;
+        // Bands track the player's LIVE height so the wall can't be out-CLIMBED —
+        // flying high/low just keeps you sandwiched; the moving X gap is the answer.
+        const cy = Math.max(CONFIG.laneMinY + 3, Math.min(CONFIG.laneMaxY - 3, player.position.y));
         for (let x = -hw; x <= hw; x += sx) {
           if (Math.abs(x - gap) < 2.6) continue;
-          for (const y of [B.fightHeight - 2.2, B.fightHeight + 2.2]) {
+          for (const y of [cy - 2.4, cy + 2.4]) {
             emitBoss(x, y, 0, 0, -slow, false, b.c, b.s);
           }
         }
@@ -884,10 +887,11 @@ function executeAttack(id, player) {
       const off = w * (span / n / 2);
       const b = BAND[w % BAND.length];
       pending.push({ t: w * 0.55, fire: () => {
+        const ty = player.position.y;   // track the player's height so a vertical dodge can't skip the wave
         for (let i = 0; i < n; i++) {
           const sx = px0 + (i / (n - 1) - 0.5) * span + off;
-          const v = aimVel(sx, B.fightHeight, slow);
-          emitBoss(pose.x, pose.y, v.vx, 0, -slow, false, b.c, b.s);
+          const v = aimVel(sx, ty, slow);
+          emitBoss(pose.x, pose.y, v.vx, v.vy, -slow, false, b.c, b.s);
         }
       } });
     }
