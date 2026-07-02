@@ -1355,6 +1355,63 @@ export const DRAGONS = {
     apexEye: 0xd6ecff, apexSeam: 0x8ec8ff, coreGlow: 0x7ab8ff, surgeHi: 0xeaf4ff,
     eye: 0xbfe2ff, trail: 0x8ec8ff, boostTrail: 0x5aa0ff,
   },
+
+  // ── VERDANT PRISMWING — the first FULL GLB-auto-rig hero (LEAPFROG L108) ───
+  // Mesh: Higgsfield multi_image_to_3d job 92f1ae55 from the human-approved
+  // cel-shaded concept (090d9d2c: teal-green scales, golden chest, crystalline
+  // ice-blue crest) + generated side (1d3a0413) / top (1663563a) views.
+  // MEASURED (glbinspect): 12,340 tris, 7.80 MB, one mesh; native bbox
+  // x ±0.956 (wingspan), y ±0.595, z ±0.566; standing pose, Y-up, symmetric.
+  // rigMode:'skinned' = dragonGlbRig auto-rig: the mesh is skinned to a 14-bone
+  // skeleton at load and the SHIPPED flapWing/spine-whip/tail drive animates it
+  // (no baked clips, no shader hinge). rig knobs are measured defaults —
+  // override here only if the preview shows a mask/placement miss.
+  verdant: {
+    name: 'Verdant Prismwing',
+    title: 'Cut from living crystal',
+    rarity: 'SSR',
+    maxRarity: 'SSR',
+    cost: 0,                 // free while the pipeline is judged; price at sign-off
+    assetBacked: true,
+    meshUrl: './assets/models/verdant.glb',
+    glb: {
+      scale: 6.5, rotY: Math.PI, rotX: 0, rotZ: 0, riderAt: [0, 0.7, 0.1],
+      rigMode: 'skinned',
+      // VISION-MARKED joints (Claude on tools/rigshots.mjs renders
+      // rigshot-verdant-{top,side}.png — the "Claude is the tagger" pipeline,
+      // replacing both the manual glbtagger and the window heuristics).
+      // Verified by the headless probe: partitions wing 5562 / chest 2969 /
+      // neckHead 1938 / hipTail 2296; wingtip moves 2.69 on a 0.4 rad flap;
+      // MAX MEMBRANE EDGE STRETCH 2.48 at a hard flap extreme (v1's window
+      // weights measured 70.9 — the wing-smudge fix, quantified). The tail is
+      // a marked POLYLINE because this mesh's tail curls sideways.
+      rig: {
+        tailN: 4, smoothIters: 24,
+        joints: {
+          shoulder: [0.75, -0.9, -3.25], elbow: [1.6, 0.6, -3.6], wrist: [2.5, 2.1, -3.9],
+          tip: [4.75, 1.0, -1.1],
+          fingers: [[4.65, 0.4, 1.4], [3.35, 0.1, 2.05], [2.2, -0.1, 2.3]],
+          neck: [0, -1.4, -3.9], head: [0, -1.2, -5.0],
+          hip: [0, -1.9, 1.8],
+          tail: [[0, -1.5, 3.0], [0, -1.25, 4.0], [0, -1.05, 5.0], [0, -0.85, 6.05]],
+          chest: [0, -2.1, -1.5], chestZ: [-3.0, 0.6], wingZ: [-4.2, 2.4],
+        },
+      },
+      rim: { intensity: 0.45, fillIntensity: 0.22 },
+    },
+    stats: { speed: 1.04, handling: 1.12, drain: 0.96, regen: 1.05 },  // agile forest spirit
+    model: {
+      scale: 1.0, flapBias: 0.95, flapAmp: 1.0, spineGlow: 0,
+      tailWhip: true,          // REQUIRED: bone-chain tail is rotation-driven
+      flapProfile: { lagElbow: 0.24, lagWrist: 1.0, elbowAmp: 0.3, foldAmp: 0.3 },
+    },
+    // Canopy palette: teal-green hide, gold chest, crystal-mint accents.
+    fx: { auraColor: '120,255,200', auraIdle: 0.05, sparkle: false },
+    body: 0x1e7a5e, belly: 0xd9a83a, scales: 0x14543f, horn: 0xbfe8ff,
+    wingInner: 0x1d4a3a, wingOuter: 0x0f2c22, wingEmissive: 0x66d9a8,
+    apexEye: 0xe8c86a, apexSeam: 0x9fe8d8, coreGlow: 0x66ffc8, surgeHi: 0xeafff4,
+    eye: 0xe8c86a, trail: 0x66d9a8, boostTrail: 0x2fb98a,
+  },
 };
 
 // Highest multipliers in the roster (for shop stat-bar normalisation).

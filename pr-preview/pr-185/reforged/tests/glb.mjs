@@ -19,9 +19,17 @@ import { fileURLToPath } from 'url';
 const here = dirname(fileURLToPath(import.meta.url));
 const modelsDir = join(here, '..', 'assets', 'models');
 
-// Generous ceiling — this is an EXPERIMENT branch; AI meshes run large and the
-// point is to measure, not to gate hard. Bump knowingly if a real asset needs it.
-const TRI_CEILING = 300000;
+// Budget policy for asset-backed dragons (the GLB auto-rig pipeline): one
+// skinned hero replaces a whole procedural build, so it gets its own class —
+// well above the 6000/13000 procedural ceilings but a HARD gate (weak-mobile
+// 60fps is the law; texture BYTES are the real cost, hence the size gates).
+// Ask for a lower target_polycount / smaller textures rather than bumping these.
+const TRI_CEILING = 20000;
+const BYTES_HARD = 10 * 1024 * 1024;   // fail
+const BYTES_WARN = 6 * 1024 * 1024;    // warn — consider texture resize
+// Shipped before the policy existed; grandfathered at its measured size so the
+// new gate can't be loosened by accident. Remove the entry when it's re-meshed.
+const GRANDFATHER_TRIS = { 'thundercoil.glb': 31000 };
 
 function fail(msg) { console.error(`glb: FAIL — ${msg}`); process.exit(1); }
 
@@ -83,14 +91,19 @@ for (const file of files) {
   const skinned = (gltf.skins || []).length > 0;
   const animN = (gltf.animations || []).length;
 
-  const ok = tris <= TRI_CEILING;
-  if (!ok) totalOver++;
+  const ceiling = GRANDFATHER_TRIS[file] ?? TRI_CEILING;
+  const okTris = tris <= ceiling;
+  const okBytes = bytes <= BYTES_HARD;
+  if (!okTris || !okBytes) totalOver++;
+  const warnBytes = okBytes && bytes > BYTES_WARN;
   console.log(
     `glb: ${file.padEnd(24)} ${String(tris).padStart(8)} tris  ` +
     `${(bytes / 1024).toFixed(0).padStart(6)} KB  meshes=${meshN}  ` +
-    `skinned=${skinned ? 'yes' : 'no'}  anims=${animN}  ${ok ? 'OK' : `OVER ${TRI_CEILING}`}`
+    `skinned=${skinned ? 'yes' : 'no'}  anims=${animN}  ` +
+    `${okTris ? '' : `OVER ${ceiling} tris `}${okBytes ? '' : `OVER ${BYTES_HARD / 1024 / 1024} MB `}` +
+    `${warnBytes ? 'WARN size>6MB — resize textures ' : ''}${okTris && okBytes ? 'OK' : ''}`
   );
 }
 
-if (totalOver > 0) fail(`${totalOver} asset(s) over the ${TRI_CEILING}-tri ceiling`);
+if (totalOver > 0) fail(`${totalOver} asset(s) over budget (tris/bytes)`);
 console.log(`glb: ${files.length} asset(s) valid.`);
