@@ -115,7 +115,7 @@ export function buildIdolMask(def, quality = 1) {
   }));
   // Shape was authored with the CCW winding needed for the extrude's cap at
   // z=depth to face +Z (front). Centre the slab on Z=0 so "front toward +z" ==
-  // "front toward the player" and the eye-core glow (below, z≈-0.3) sits
+  // "front toward the player" and the eye-core glow (below, z≈-0.25) sits
   // inside the hollowed socket tunnel rather than in front of the mask.
   maskGeo.translate(0, 0, -0.6);   // front face → z≈0.4, back face → z≈-0.6
   const stoneParts = [maskGeo];
@@ -210,8 +210,8 @@ export function buildIdolMask(def, quality = 1) {
 
   // ---------------------------------------------------------------------
   // HEAD BACK-MASS — two lobes behind the mask, deliberately clear of the
-  // socket sight-lines (kept out near the temples) so the sockets stay real
-  // holes with sky visible through them, not a wall of stone one unit back.
+  // two socket sight-lines so the sockets stay real holes with sky visible
+  // through them, not a wall of stone one unit back.
   // ---------------------------------------------------------------------
   function jitterVerts(geo, amt, seedRnd) {
     const pos = geo.attributes.position;
@@ -224,11 +224,16 @@ export function buildIdolMask(def, quality = 1) {
     pos.needsUpdate = true;
     geo.computeVertexNormals();
   }
+  // Placement is raycast-verified (a grid of front→back rays through each
+  // socket must clear the stone — see the CP2 review): the lobes sit at CHEEK
+  // height with their tops below the socket band, so the whole crown behind
+  // the brow stays hollow — sky through the sockets AND over the brow line,
+  // which is what sells "hollow idol" instead of "mask glued onto a head".
   for (const sx of [-1, 1]) {
-    const lobe = strip(new THREE.IcosahedronGeometry(1.05, 1));
-    jitterVerts(lobe, 0.14, rnd);
-    lobe.scale(1.15, 1.35, 0.85);
-    lobe.translate(sx * 1.85, -0.05, -1.05);
+    const lobe = strip(new THREE.IcosahedronGeometry(0.9, 1));
+    jitterVerts(lobe, 0.12, rnd);
+    lobe.scale(1.15, 1.25, 0.8);
+    lobe.translate(sx * 1.55, -1.55, -1.0);
     stoneParts.push(lobe);
   }
 
@@ -281,8 +286,14 @@ export function buildIdolMask(def, quality = 1) {
   const eyeSeg = lowQ ? [8, 6] : [10, 8];
   const eyeParts = [];
   for (const sx of [-1, 1]) {
+    // r=0.45 vs the ~0.45-"radius" ANGULAR socket: the round core covers the
+    // hole's middle while the hole's angular corners stay open — slivers of
+    // sky around a hot ember, which is exactly the "ignited inside a hollow
+    // socket" read (a bigger sphere would plug the hole and kill the
+    // see-through entirely). Recessed to z −0.25 (front face is +0.40) so it
+    // sits INSIDE the socket tunnel, not flush with the face.
     const eye = strip(new THREE.SphereGeometry(0.45, eyeSeg[0], eyeSeg[1]));
-    eye.translate(sx * 1.05, 0.35, -0.30);
+    eye.translate(sx * 1.05, 0.35, -0.25);
     eyeParts.push(eye);
   }
   const eyeGeo = mergeGeometries(eyeParts, false);
@@ -311,13 +322,19 @@ export function buildIdolMask(def, quality = 1) {
   // space IS the "broken" read). Torus geometry already lies flat facing +Z,
   // so no extra rotation is needed to face the player.
   // ---------------------------------------------------------------------
+  // Fight-distance calibration (three capture rounds): radius 3.4 arcs sat
+  // only ~1.2 units off the mask edge (2.2) — bloom fused mask + arcs into
+  // one blob. Pushed to 4.0/4.4 there is a clear band of SKY between the
+  // mask edge and the arcs, which is what makes "halo floating BEHIND it"
+  // legible at 30m. Emissive 0.65 / tube 0.16: bright enough to read as the
+  // second accent tier, dim enough that bloom doesn't close the arc gaps.
   const haloMat = track(new THREE.MeshStandardMaterial({
-    color: 0x14101c, emissive: accent, emissiveIntensity: 0.5, roughness: 0.5, metalness: 0.3, flatShading: true,
+    color: 0x14101c, emissive: accent, emissiveIntensity: 0.65, roughness: 0.5, metalness: 0.3, flatShading: true,
   }));
   const haloTubularA = lowQ ? 14 : 24;
-  const arcA1 = strip(new THREE.TorusGeometry(3.4, 0.14, 6, haloTubularA, Math.PI * 0.55));
+  const arcA1 = strip(new THREE.TorusGeometry(4.0, 0.16, 6, haloTubularA, Math.PI * 0.55));
   arcA1.rotateZ(0.20);
-  const arcA2 = strip(new THREE.TorusGeometry(3.4, 0.14, 6, haloTubularA, Math.PI * 0.55));
+  const arcA2 = strip(new THREE.TorusGeometry(4.0, 0.16, 6, haloTubularA, Math.PI * 0.55));
   arcA2.rotateZ(Math.PI + 0.45);
   const haloAGeo = mergeGeometries([arcA1, arcA2], false);
   if (!haloAGeo) throw new Error('buildIdolMask: halo-A mergeGeometries returned null (attribute mismatch)');
@@ -325,8 +342,10 @@ export function buildIdolMask(def, quality = 1) {
   const haloA = new THREE.Mesh(haloAGeo, haloMat);
   rig.add(haloA);
 
+  // Outer counter-arc stays inside the kit shield bubble (r 4.6): 4.4 + 0.13
+  // tube ≈ 4.53, so a raised shield never clips through the halo.
   const haloTubularB = lowQ ? 12 : 20;
-  const haloBGeo = strip(new THREE.TorusGeometry(4.1, 0.11, 6, haloTubularB, Math.PI * 0.4));
+  const haloBGeo = strip(new THREE.TorusGeometry(4.4, 0.13, 6, haloTubularB, Math.PI * 0.4));
   haloBGeo.rotateZ(1.3);
   haloBGeo.translate(0, 0, -1.65);
   const haloB = new THREE.Mesh(haloBGeo, haloMat);
@@ -380,10 +399,20 @@ export function buildIdolMask(def, quality = 1) {
   // kit shield rim when raised = 2 large additive volumes on screen, max).
   // Scaled to a wide, shallow mask silhouette instead of a sphere.
   // ---------------------------------------------------------------------
-  const shellMat = track(makeEnergyShell(glow, { power: 2.6, strength: 0.7 }));
+  // strength 0.3 / power 3.2 — DOWN from the planned 0.7/2.6: fight-distance
+  // captures showed 0.7 + bloom swallowing the whole mask in a violet bubble
+  // (it read as a permanently-raised shield, which also destroys the actual
+  // shield state's meaning). At 0.3/3.2 the shell is a grazing-angle sheen
+  // that gives the stone a void-energy skin without ever beating the eyes.
+  const shellMat = track(makeEnergyShell(glow, { power: 3.2, strength: 0.3 }));
   const shellGeo = new THREE.IcosahedronGeometry(3.6, lowQ ? 1 : 2);
   const shell = new THREE.Mesh(shellGeo, shellMat);
-  shell.scale.set(1.15, 1.2, 0.7);
+  // HUG the mask (~2.7 × 2.9 × 1.8), don't balloon past it: at the planned
+  // (1.15, 1.2, 0.7) the shell rim landed on the halo radius and the two
+  // bloomed into one pink donut around a blob — the "permanent bubble" read
+  // again. Tight against the stone, the fresnel rim outlines the MASK edge
+  // itself: a void-energy skin, not a containment field.
+  shell.scale.set(0.75, 0.8, 0.5);
   rig.add(shell);
 
   // ---------------------------------------------------------------------
@@ -472,8 +501,9 @@ export function buildIdolMask(def, quality = 1) {
     throatMat.color.copy(_throatColor);
 
     // Fresnel shell flares hotter mid-charge — the whole body reads as
-    // powering up, not just the mouth.
-    shellMat.uniforms.uStrength.value = 0.7 + Math.sin(time * 2.2) * 0.12 + charge * 0.6;
+    // powering up, not just the mouth. Base/pulse match the calmed-down
+    // shell material (0.3 base — see the shell comment for why).
+    shellMat.uniforms.uStrength.value = 0.3 + Math.sin(time * 2.2) * 0.06 + charge * 0.5;
 
     // Orbiters — legacy loop, unchanged (drifting void chips).
     for (const o of orbiters) {
