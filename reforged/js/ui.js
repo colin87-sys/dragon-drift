@@ -1295,6 +1295,32 @@ export const ui = {
         </div>
         <p class="share-hint">A fresh modifier every day · your daily score stays out of your main best.</p>`;
 
+    } else if (type === 'rush') {
+      // Boss Rush roster panel (reached from the BOSS RUSH rail icon). Shows the
+      // gauntlet line-up — bosses you've beaten, plus locked teasers of what's still
+      // ahead — and your best clear, then FLY launches the back-to-back run.
+      const info = (handlers.rushInfo && handlers.rushInfo()) || { bosses: [], unlockedCount: 0, bestClearMs: 0, cleared: 0 };
+      const fmtT = (ms) => { const s = Math.round(ms / 1000); return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`; };
+      const hex = (n) => '#' + ((n >>> 0) & 0xffffff).toString(16).padStart(6, '0');
+      const chips = info.bosses.map((b) => b.unlocked
+        ? `<div class="rush-chip" style="--a:${hex(b.accent)}"><span class="rush-dot"></span>${b.name}</div>`
+        : `<div class="rush-chip locked"><span class="rush-dot"></span>??? <span class="rush-lock">🔒</span></div>`).join('');
+      html = `
+        <div class="screen-topbar">
+          <span class="topbar-title">BOSS RUSH</span>
+          <button class="topbar-close" id="btn-back" title="Back">✕</button>
+        </div>
+        <div class="daily-card rush-panel">
+          <div class="daily-info">
+            <div class="daily-title">${ICONS.rush} THE GAUNTLET</div>
+            <div class="daily-sub">Every boss you've felled, back-to-back with a breather between. Survive the lot for the clear.</div>
+            <div class="rush-roster">${chips}</div>
+            ${info.bestClearMs > 0 ? `<div class="rush-best">Best clear <b>${fmtT(info.bestClearMs)}</b>${info.cleared > 1 ? ` · cleared ${info.cleared}×` : ''}</div>` : ''}
+          </div>
+          <button class="btn-secondary btn-fly-rush glow" id="btn-fly-rush">FLY THE GAUNTLET</button>
+        </div>
+        <p class="share-hint">Beat a new boss in a normal run to add it to the gauntlet.</p>`;
+
     } else if (type === 'shop') {
       // Opening the shop clears its badge: the wallet watermark records what
       // you could see was affordable RIGHT NOW (honesty invariant).
@@ -1574,7 +1600,7 @@ export const ui = {
       if (e.target !== els.screen) return;
       if (Math.hypot(e.clientX - backDownX, e.clientY - backDownY) > 10) return; // a scroll/drag, not a tap
       if (type === 'shop' || type === 'settings' || type === 'pilot' ||
-          type === 'quests' || type === 'daily') {
+          type === 'quests' || type === 'daily' || type === 'rush') {
         if (returnScreen === 'pause') ui.showPauseOverlay();
         else ui.showScreen(returnScreen);
       }
@@ -1740,9 +1766,29 @@ export const ui = {
     const stop = (fn) => (e) => { e.stopPropagation(); fn(e); };
     els.screen.querySelector('#pm-resume').onclick = stop(() => handlers.onResume && handlers.onResume());
     // Exit to the main menu (abandons the current run) — the only route back to the
-    // start-screen rail, where SHOP / DAILY / BOSS RUSH live.
+    // start-screen rail (SHOP / DAILY / BOSS RUSH). Two-step armed confirm (native
+    // confirm() is blocked/ugly in a PWA): first tap arms, a second within 4s quits.
     const pmQuit = els.screen.querySelector('#pm-quit');
-    if (pmQuit) pmQuit.onclick = stop(() => handlers.onQuitToMenu && handlers.onQuitToMenu());
+    if (pmQuit) {
+      let quitTO = 0;
+      pmQuit.onclick = stop(() => {
+        if (pmQuit.dataset.armed !== '1') {
+          pmQuit.dataset.armed = '1';
+          pmQuit.dataset.label = pmQuit.textContent;
+          pmQuit.textContent = 'ABANDON RUN?';
+          pmQuit.classList.add('danger-armed');
+          clearTimeout(quitTO);
+          quitTO = setTimeout(() => {
+            pmQuit.dataset.armed = '';
+            pmQuit.textContent = pmQuit.dataset.label || 'EXIT TO MENU';
+            pmQuit.classList.remove('danger-armed');
+          }, 4000);
+          return;
+        }
+        clearTimeout(quitTO);
+        handlers.onQuitToMenu && handlers.onQuitToMenu();
+      });
+    }
     // Shop + Pilot are hidden during the first flight (tutorial) — guard wiring.
     const pmShop = els.screen.querySelector('#pm-shop');
     if (pmShop) pmShop.onclick = stop(() => {
@@ -1907,18 +1953,20 @@ function wireScreenButtons(type) {
     if (quests) quests.onclick = stop(() => ui.showScreen('quests'));
     const dailyBtn = q('#btn-daily');
     if (dailyBtn) dailyBtn.onclick = stop(() => ui.showScreen('daily'));
-    // BOSS RUSH launches the gauntlet directly (no panel yet) + clears its NEW pill.
+    // BOSS RUSH opens its roster panel (like DAILY) + clears its NEW pill.
     const rushBtn = q('#btn-rush');
     if (rushBtn) rushBtn.onclick = stop(() => {
       if (!saveData.flags.seenBossRush) { saveData.flags.seenBossRush = true; persist(); }
-      handlers.onStart && handlers.onStart('rush');
+      ui.showScreen('rush');
     });
   }
-  // QUESTS / DAILY panels are only ever opened from the start screen.
-  if (type === 'quests' || type === 'daily') {
+  // QUESTS / DAILY / RUSH panels are only ever opened from the start screen.
+  if (type === 'quests' || type === 'daily' || type === 'rush') {
     returnScreen = 'start';
     const fly = q('#btn-fly-daily');
     if (fly) fly.onclick = stop(() => handlers.onStart && handlers.onStart('daily'));
+    const flyRush = q('#btn-fly-rush');
+    if (flyRush) flyRush.onclick = stop(() => handlers.onStart && handlers.onStart('rush'));
   }
   if (type === 'gameover') returnScreen = 'gameover';
 

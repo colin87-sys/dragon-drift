@@ -15,18 +15,27 @@ check('start screen visible', await page.$eval('#screen', (el) => el.classList.c
 // The unlock gate: beating a boss surfaces the BOSS RUSH rail entry.
 check('BOSS RUSH rail button present (boss beaten → unlocked)', !!(await page.$('#btn-rush')));
 
-// Launch the gauntlet from the button, confirm we enter a rush run.
+// The rail button opens the ROSTER PANEL (not a direct launch).
 await page.click('#btn-rush');
-await page.waitForTimeout(700);
-check('BOSS RUSH launches a rush run', await page.evaluate(() => window.__dd.game.state === 'playing' && window.__dd.game.mode === 'rush'));
+await page.waitForSelector('#btn-fly-rush');
+check('BOSS RUSH opens the roster panel', !!(await page.$('#btn-fly-rush')));
+check('roster shows a boss chip', (await page.$$('.rush-chip')).length >= 1);
 
-// Pause, then EXIT TO MENU → back on the start screen with the rail.
+// FLY launches the gauntlet.
+await page.click('#btn-fly-rush');
+await page.waitForTimeout(700);
+check('FLY launches a rush run', await page.evaluate(() => window.__dd.game.state === 'playing' && window.__dd.game.mode === 'rush'));
+
+// Pause → EXIT TO MENU is a TWO-STEP armed confirm (abandons the run).
 await page.keyboard.press('Escape');
 await page.waitForSelector('#pm-quit');
 check('pause overlay has EXIT TO MENU', !!(await page.$('#pm-quit')));
-await page.click('#pm-quit');
+await page.click('#pm-quit');                       // first tap = arm, does NOT quit
+await page.waitForTimeout(150);
+check('first tap arms the confirm (still paused)', await page.evaluate(() => window.__dd.game.state === 'paused' && document.querySelector('#pm-quit')?.dataset.armed === '1'));
+await page.click('#pm-quit');                       // second tap = quit
 await page.waitForSelector('#btn-start');
-check('EXIT TO MENU returns to the start screen', await page.evaluate(() => window.__dd.game.state === 'ready'));
+check('second tap returns to the start screen', await page.evaluate(() => window.__dd.game.state === 'ready'));
 check('rail reachable again after exit (BOSS RUSH still there)', !!(await page.$('#btn-rush')));
 check('no console errors through the flow', errors.length === 0) || console.error(errors.join('\n'));
 

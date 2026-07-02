@@ -4615,3 +4615,31 @@ reset something. When a reset function branches on `game.mode`, neutralise the m
 "retry") and any future mode selector, and `restart({toMenu})` is the reusable "soft reset to attract" primitive. Verified by
 a NEW real-browser test `tests/bossrushui.mjs` (beaten-boss save → BOSS RUSH visible → launches a rush → pause → EXIT TO MENU →
 back on the start screen with the rail intact, zero console errors) + `smoke`/`bossrush`/`boss` green, `tricount` 203265.
+
+### L120 — Boss Rush pre-launch panel + destructive-action confirm, and "reaction time" is travel time not just telegraph
+
+**Did / learned.** Three live-feedback polish items, each landing on an existing pattern. (1) **STORMREND's curtain was
+brutal** — the human wanted "a bit more reaction time." The lesson: for a full-lane WALL, the readable window is the TRAVEL
+time (once it fires you must READ the gap AND traverse to it), not the telegraph (which only says "something's coming," not
+WHERE). So the fix was mostly the closing speed: `×0.85 → ×0.66` (travel 1.26s → 1.62s) + a longer wall-specific telegraph
+(`telegraphWall 0.72` via a per-attack override, not the shared instant/sustained split) + a nearer forced gap (7 → 5.5m).
+~+0.58s of genuine reaction, no trivialisation. (2) **Roster panel** — the rail button now opens a panel (mirroring the DAILY
+panel: `screen-topbar` + `daily-card` + `share-hint`, reusing its layout so it inherits the theme) instead of launching; it
+lists every boss as an accent-tinted chip with LOCKED "???" teasers for the not-yet-beaten, plus best clear time, then FLY
+launches. New screen types slot into the same generic back/tap-outside dismissal by adding the type to those two lists.
+(3) **Abandon confirm** — reused the established two-step ARMED danger button (first tap → "ABANDON RUN?" + `.danger-armed`
++ 4s auto-revert, second tap acts); native `confirm()` is blocked/ugly in a standalone PWA, so the in-DOM arm is the house
+pattern for every destructive action (reset-save, quit run).
+
+**→ Systematize.** (a) **Tune the axis the player actually reacts on.** For dodge-by-sidestep it's telegraph + closing; for
+find-the-gap walls it's TRAVEL time (read + traverse). Diagnose which before turning a knob — lengthening a telegraph a wall
+player can't act on yet is wasted. (b) **A new menu screen is a data addition, not new plumbing:** author the HTML reusing an
+existing panel's classes, then register the type in the shared dismissal lists (`#btn-back` return + tap-outside) and give it a
+`returnScreen`. (c) **One destructive-confirm pattern, everywhere:** the two-step armed button — reuse it for every irreversible
+tap; never reach for `confirm()` in a PWA. (d) **Pass view-model data to ui.js through a handler getter** (`rushInfo()`) rather
+than importing game modules into the view — keeps ui.js decoupled (it never imports bossDefs).
+
+**→ Leapfrog (innovate).** The roster panel is the template for a future mode-select hub (daily / rush / endless as themed
+cards), and the locked-teaser chip is a reusable "here's what's still ahead" affordance for any progression surface. Verified:
+`tests/bossrushui.mjs` extended (rail → panel → FLY → pause → two-step abandon → back on menu; 11 checks) + `boss` (11,
+curtain retune intact) + `bossrush`/`smoke`/`defs` green, `tricount` 203265.
