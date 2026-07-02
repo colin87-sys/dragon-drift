@@ -4680,3 +4680,37 @@ against a specific biome sky" rig; remember L105 — headless rAF throttles ~8×
 budgets and captures are for VISUALS, not state timing. Verified: `boss.mjs` (11), `bossboot` zero-error, `smoke`,
 `tricount` 203265 · 0 over; captures of the amber + emberfall fights show the dimmer ring and the boss reading clean.
 The human judges bullet pop and the new shield read on the preview.
+
+### L122 — Bullet contrast is a LAYERED SYSTEM (two-way luminance edge) with a regression GATE, not a colour pick
+
+**Did / learned.** Increment 2 of the visibility arc. Bullets are now four instanced layers off one slot — dark
+annulus OUTLINE (r×3.1, alpha-only texture tinted per-instance) under the colour BODY (r×2.7) under the CORE
+(r×1.35→1.55, now per-instance colour) plus the ground shadow — so every bullet carries a dark rim that pops on
+bright skies AND a bright core that pops on dark skies. No biome, bloom level, or colour vision can erase both
+edges at once. Danger hue moved fiery-red→hot magenta `0xff2b6a` (bossDefs/BAND/telegraph-throat/patternlab all
+synced; red-on-amber was a luminance near-match for a red-green colour-blind player — Cave settled on pink/magenta
+for the same reason). Graze-bait is the ONLY emission with a dark core (`0x2a1020`): bait reads as a hollow pale
+DONUT vs danger's white-hearted HOT DISC vs the shield's wire CAGE — three gestalts, zero shared reads; the tti
+flare still heats a bait core white (it can hit dead-centre, so it must warn like everything else). Successive
+rings got the three depth cues perspective actually gives the eye: far bullets fog toward a neutral dim
+(`rel 30→15` ramps 50%→vivid, so the hottest ring is always the NEXT one), passed bullets (rel<0) shrink+fade with
+outline/shadow dropped at the crossing (the dodged ring stops competing), and every `fireRing` spawns a faint
+LineLoop HOOP in exact lockstep (same rel/vrel) that fades out at rel≈12 as the discrete bullets take over — a
+ring reads as ONE object whose circle size orders depth, the Star Fox hoop cue.
+
+**→ Systematize.** (a) **`tests/bulletcontrast.mjs` is the standing gate**: every biome × every bullet colour must
+clear ΔL ≥ 0.15 vs fog AND horizon, or the layered read (outline ≥0.25 below both, core ≥0.25 above both) must
+hold; per-biome `bullets:{light,mid,dark}` overrides in biomes.js are added ONLY where the gate demands (amber's
+light band, four dark-band lifts on near-black fogs). Readability is now a regression-gated invariant — a new biome
+or palette tweak that buries a bullet fails CI, not a playtest. Role colours (parry amber, reflected cyan) are
+PINNED globally — the two amber-horizon shortfalls are named accepted exceptions in the test, not silent skips.
+(b) **Alpha-only textures + per-instance tint** is the pattern for any layer that must fade per-bullet without a
+per-bullet material: bake the shape white, carry ALL colour in instanceColor (the outline fades toward grey for far
+bullets this way). (c) Order the colour maths: fog-dim FIRST, flare LAST — the imminent bullet must win every blend.
+
+**→ Leapfrog (innovate).** The hoop pool + lockstep-spawn seam (`spawnBossRingHoop` beside `fireRing`) generalizes
+to any "trace the volley's shape ahead of its bullets" telegraph — a curtain could flash its wall-line, an iris its
+contraction target. And the contrast gate's luminance table is the seed of a real accessibility surface: a
+high-contrast toggle is now just a second BAND the gate already validates. Verified: `boss.mjs` (11, untouched),
+`bulletcontrast` (36 combos), `bossboot` zero-error, `smoke`, `tricount` 203265 · 0 over. The human judges magenta
+pop, donut-vs-disc, and ring ordering on the preview (Boss Rush `?rush=all`).

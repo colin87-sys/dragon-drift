@@ -11,9 +11,11 @@ import { clearAhead } from './obstacles.js';
 import { buildBoss } from './bossModel.js';
 import { BOSSES, BOSS_ORDER, bossDefForIndex } from './bossDefs.js';
 import { saveData, persist } from './save.js';
+import { BIOMES, biomeIndexAt } from './biomes.js';
 import {
   initBossBullets, updateBossBullets, spawnBossBullet, resetBossBullets,
   setBossBulletQuality, bossBulletCount, reflectBossBullets, debugActiveBullets,
+  spawnBossRingHoop,
 } from './bossBullets.js';
 
 // Boss encounter controller. A boss is an OVERLAY on the normal flight (gated by
@@ -114,7 +116,7 @@ let surgeBeam = null;          // mouth→boss energy beam fired on a Surge unle
 let surgeSeq = null;           // unleash cinematic state: { phase:'charge'|'beam', t }
 let wasReady = false;          // edge-detect Surge-ready → start/stop the enticing hum
 let wasSurge = false;          // edge-detect Surge-active → start/stop the crackle loop
-let bulletColor = 0xff3010;    // fiery red = danger (set per-boss from the def)
+let bulletColor = 0xff2b6a;    // magenta = danger (set per-boss from the def)
 let chargeT = 0;               // telegraph wind-up remaining before the held attack fires
 let chargeDur = 0;
 let curAttack = null;          // the attack being telegraphed
@@ -129,14 +131,29 @@ let wallL = null, wallR = null, wallMat = null;   // translucent storm walls
 const REFLECT_COLOR = 0xffc23c;   // amber = "you can parry this" (aimed/fan precision shots)
 // Per-ring banding: successive rings differ in BRIGHTNESS and SIZE (not just hue),
 // so overlapping/concentric waves read apart even for colour-blind players — and
-// every bullet has a white centre (the universal read). Hues stay warm-danger,
-// clear of the amber (parry) and cyan (reflected) role colours.
+// every bullet has a white centre (the universal read). Hues stay in the magenta
+// danger family, clear of the amber (parry) and cyan (reflected) role colours.
 const BAND = [
-  { c: 0xffd2c6, s: 1.2 },   // light, big
-  { c: 0xc21400, s: 0.82 },  // dark/deep, small
-  { c: 0xff6e12, s: 1.0 },   // mid orange, mid
+  { c: 0xffc6dc, s: 1.2 },   // light, big
+  { c: 0x8f0a3c, s: 0.82 },  // dark/deep, small
+  { c: 0xff4f9a, s: 1.0 },   // mid, mid
 ];
 let bandIdx = 0;
+// Per-biome BAND override (contrast gate, tests/bulletcontrast.mjs): most biomes
+// read fine on the default BAND above, but a couple of skies push a band colour
+// too close in luminance to their fog/horizon — biomes.js may carry a
+// `bullets: { light, mid, dark }` hex override for those. Resolved ONCE at
+// encounter start (render-only; never touches kinematics) and reset on teardown.
+let activeBand = BAND;
+function resolveBand(biomeIdx) {
+  const o = BIOMES[biomeIdx]?.bullets;
+  if (!o) return BAND;
+  return [
+    { c: o.light ?? BAND[0].c, s: BAND[0].s },
+    { c: o.dark ?? BAND[1].c, s: BAND[1].s },
+    { c: o.mid ?? BAND[2].c, s: BAND[2].s },
+  ];
+}
 
 // Player-relative pose: rel = metres ahead of the player.
 const pose = { x: 0, y: B.fightHeight, rel: B.settleGap };
@@ -371,7 +388,8 @@ export function startBossEncounter(player, defOverride) {
   shielded = false;
   baitTimer = 0; baitLeft = 0; baitResting = false;
   bandIdx = 0;
-  bulletColor = def.bulletColor ?? 0xff3010;
+  activeBand = resolveBand(biomeIndexAt(player.dist));
+  bulletColor = def.bulletColor ?? 0xff2b6a;
   pending.length = 0;
   chargeT = 0;
   curAttack = null;
@@ -446,6 +464,7 @@ function endEncounter(player) {
   active = false;
   phase = 'idle';
   game.inBoss = false;
+  activeBand = BAND;
   // The arena is NEVER left narrowed past a fight (unconditional restore).
   arenaHW = arenaTargetHW = CONFIG.laneHalfWidth;
   game.bossArenaHW = null;
@@ -723,7 +742,7 @@ export function updateBoss(dt, player, time) {
         model.setCharge(0);
         model.flash(0.9);
         tmp.set(pose.x, pose.y, -(player.dist + pose.rel));
-        burst(tmp, bulletColor, { count: 6, speed: 11, size: 0.9, life: 0.4 });
+        burst(tmp, bulletColor, { count: 10, speed: 14, size: 0.9, life: 0.4 });   // "shots away" muzzle flash
         executeAttack(curAttack, player);
         const ph = def.phases[phaseIdx];
         attackTimer = rand(ph.cadence[0], ph.cadence[1]);
@@ -872,7 +891,7 @@ function executeAttack(id, player) {
     // ring → constant grazing; a big ring let you sit in a dead-safe hole.
     for (let k = 0; k < rings; k++) {
       const cx = anchorX + Math.sin(k * 0.7) * 4;   // centred on you, then weaves → you follow
-      const b = BAND[k % BAND.length];              // successive rings band by brightness+size
+      const b = activeBand[k % activeBand.length];   // successive rings band by brightness+size
       pending.push({ t: k * 0.46, fire: () => fireRing(cx, B.fightHeight, 3.7, m, slow, b.c, b.s) });
     }
   } else if (id === 'spiralStream') {
@@ -904,7 +923,7 @@ function executeAttack(id, player) {
     // Slower close than the aimed/fan shots: a full wall must be READ (find the gap)
     // AND traversed, so it needs a longer reaction window than a bullet you sidestep.
     const slow = closing * 0.66;
-    const b = BAND[bandIdx++ % BAND.length];
+    const b = activeBand[bandIdx++ % activeBand.length];
     for (let x = -hw; x <= hw; x += stepX) {
       if (Math.abs(x - gap) < slot) continue;
       for (let y = CONFIG.laneMinY + 2.5; y <= CONFIG.laneMaxY - 2; y += stepY) {
@@ -921,7 +940,7 @@ function executeAttack(id, player) {
     const slow = closing * 0.9;
     for (let k = 0; k < rows; k++) {
       const gap = Math.max(-9, Math.min(9, g0 + dir * 2.6 * k));
-      const b = BAND[k % BAND.length];
+      const b = activeBand[k % activeBand.length];
       pending.push({ t: k * 0.3, fire: () => {
         const hw = Math.min(12, arenaHW - 1), sx = (hw * 2) / n;
         // Bands track the player's LIVE height so the wall can't be out-CLIMBED —
@@ -945,7 +964,7 @@ function executeAttack(id, player) {
     const inSpd = (rad * contract) / (pose.rel / slow);   // arrives at rad×(1−contract) ≈ 3.8
     const cx = anchorX, cy = B.fightHeight;
     for (let k = 0; k < rings; k++) {
-      const b = BAND[k % BAND.length];
+      const b = activeBand[k % activeBand.length];
       pending.push({ t: k * 0.4, fire: () => {
         for (let i = 0; i < m; i++) {
           const a = (i / m) * Math.PI * 2;
@@ -974,7 +993,7 @@ function executeAttack(id, player) {
     const slow = closing * 0.92;
     for (let w = 0; w < 2; w++) {
       const off = w * (span / n / 2);
-      const b = BAND[w % BAND.length];
+      const b = activeBand[w % activeBand.length];
       pending.push({ t: w * 0.55, fire: () => {
         const ty = player.position.y;   // track the player's height so a vertical dodge can't skip the wave
         for (let i = 0; i < n; i++) {
@@ -1006,26 +1025,34 @@ function executeAttack(id, player) {
 function fireGrazeBait(player, time) {
   const cx = Math.max(-8, Math.min(8, player.position.x)) + Math.sin(time * 1.3) * 3;
   const cy = B.fightHeight + Math.sin(time * 0.9) * 1.5;
-  const b = BAND[bandIdx++ % BAND.length];
-  fireRing(cx, cy, 3.6, quality < 0.75 ? 11 : 15, B.bulletSpeed * 0.8, b.c, b.s);   // denser = clearer circle
+  const b = activeBand[bandIdx++ % activeBand.length];
+  // Bait gets a DARK core (hollow "donut") — the only emission that does. Every
+  // other pattern keeps the default white "hot disc" core (2.4): bait must read
+  // as a DIFFERENT thing from danger, on top of the brightness/size banding.
+  fireRing(cx, cy, 3.6, quality < 0.75 ? 11 : 15, B.bulletSpeed * 0.8, b.c, b.s, 0x2a1020);   // denser = clearer circle
 }
 
 // A ring (circle outline) of bullets centred on (cx, cy) that closes straight in.
-function fireRing(cx, cy, radius, m, vrel, color, sizeMult = 1) {
+// A faint hoop guide traces the same shape in lockstep (spawned at the bullets'
+// own rel/vrel so a straight-closing ring's hoop is exact, not approximate).
+function fireRing(cx, cy, radius, m, vrel, color, sizeMult = 1, coreColor = null) {
+  spawnBossRingHoop(cx, cy, radius, pose.rel, -vrel, color ?? bulletColor);
   for (let i = 0; i < m; i++) {
     const a = (i / m) * Math.PI * 2;
-    emitBoss(cx + Math.cos(a) * radius, cy + Math.sin(a) * radius, 0, 0, -vrel, false, color, sizeMult);
+    emitBoss(cx + Math.cos(a) * radius, cy + Math.sin(a) * radius, 0, 0, -vrel, false, color, sizeMult, coreColor);
   }
 }
 
 // Low-level boss-bullet spawn: starts at (x, y) on the boss's plane (rel=settleGap)
 // with the given velocity. `color`/`sizeMult` override for banded rings; else amber
-// if reflectable, otherwise the boss's fiery danger colour.
-function emitBoss(x, y, vx, vy, vrel, reflectable = false, color = null, sizeMult = 1) {
+// if reflectable, otherwise the boss's magenta danger colour. `coreColor` overrides
+// the white "hot disc" centre — ONLY graze-bait passes one (the dark "donut" read).
+function emitBoss(x, y, vx, vy, vrel, reflectable = false, color = null, sizeMult = 1, coreColor = null) {
   spawnBossBullet({
     owner: 'boss', x, y, rel: pose.rel,
     vx, vy, vrel, color: color ?? (reflectable ? REFLECT_COLOR : bulletColor), reflectable,
     dmg: B.bulletDamage, r: B.bulletRadius * sizeMult, life: 6,
+    coreColor: coreColor ?? 0xffffff,
   });
 }
 
@@ -1102,6 +1129,7 @@ export function resetBoss() {
   chargeT = 0;
   curAttack = null;
   game.inBoss = false;
+  activeBand = BAND;
   arenaHW = arenaTargetHW = CONFIG.laneHalfWidth;
   game.bossArenaHW = null;
   if (wallL) { wallL.visible = wallR.visible = false; wallMat.opacity = 0; }

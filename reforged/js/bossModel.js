@@ -319,7 +319,7 @@ export function buildBoss(def, quality = 1) {
     mawMat.opacity = 0.6 + Math.sin(time * 5) * 0.25 + charge * 0.9;
     throat.scale.setScalar(1 + charge * 0.6);
     throatMat.opacity = 0.85 + charge * 0.15;
-    throatMat.color.setHex(0xff3010).lerp(new THREE.Color(accent), 1 - charge); // reddens as it charges
+    throatMat.color.setHex(0xff2b6a).lerp(new THREE.Color(accent), 1 - charge); // magenta-hot as it charges
     coreMat.emissiveIntensity = 1.5 + charge * 1.8;
     if (shield.visible) {
       shield.rotation.y += dt * 0.9;
