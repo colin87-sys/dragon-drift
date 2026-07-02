@@ -4946,3 +4946,33 @@ player's own dragon in menus) can mount it for the same aliveness-per-line payof
 ladder, deliberately deferred: gesture hands for the idol (Master Hand pattern), horizon presence before the fight
 (MM-moon pattern), post-defeat companion shard (mascot conversion). Verified: tests/boss.mjs 16/16 (draw gate 30→34,
 evidence at the assertion), tests/bossboot.mjs zero console errors, captures re-judged in two biomes per boss.
+
+### L128 — "?dev shows nothing": a feature gated behind a progressive-reveal (cold) shell is invisible to the dev override, and an in-app toggle must feed the same seam as the URL flag
+
+**Did / learned.** The human reported BOSS RUSH never appeared — even with dev mode on. Reproduced the exact matrix in a real
+browser and found TWO gaps, both about the dev override not reaching the gate: (1) the start-screen rail is hidden entirely for
+a **cold** save (`runs === 0`, the progressive-reveal shell), so the rush button — correctly gated on `rushUnlocked()` — was
+inside that hidden `if (!cold)` block and never rendered on a fresh save, which is exactly the state a first-time visitor (or a
+different device, e.g. the human's phone vs the desktop they'd played previews on — localStorage is per-origin-AND-device) is in;
+(2) the roster unlock (`setRushUnlockAll`) was only wired to the `?dev` URL param, NOT the in-app **Settings → Dev Mode** toggle
+(`saveData.settings.dev`) the human actually used. Fixes: hoist the rush button OUT of the `!cold` block (render it whenever
+unlocked — the only cold+unlocked case is a dev override, since a real unlock requires beating a boss, which means you're not
+cold), and make `rushRoster()` treat `saveData.settings.dev` as unlock-all too (LIVE, re-read each render — so toggling dev in
+settings and returning to the menu surfaces it without a reload). Normal players are unaffected (a no-dev cold save still shows
+nothing; the button only appears after a real boss kill). Also confirmed the live site WAS current (build stamp matched master),
+so this was a genuine gate bug, not deploy lag — and fixed a flaky test second-tap by dispatching the click via `evaluate`.
+
+**→ Systematize.** (a) **A dev/test override must bypass EVERY gate between it and the thing it reveals — including the
+progressive-disclosure shell.** When onboarding hides UI by tenure (`cold`/`runs`), audit whether a dev-forced feature is
+trapped inside that shell; render override-eligible items outside the tenure gate. (b) **Every unlock has ONE truth function,
+and all entry points feed it.** A URL flag and an in-app toggle for the "same" dev state must both flow into the same predicate
+(`rushRoster` now reads `rushUnlockAll || saveData.settings.dev || beaten`); wiring only one leaves the other silently dead.
+Prefer reading persistent toggles LIVE in the gate over a one-shot boot-time setter, so the toggle reflects without a reload.
+(c) **When a user says "X doesn't show," reproduce the exact state matrix** (cold/warm × dev/no-dev × unlocked/not) in a real
+browser before theorising — the truth table instantly localises which cell is broken, and rules out deploy/cache (check the
+build stamp) vs a real gate.
+
+**→ Leapfrog (innovate).** The "override-eligible items render outside the tenure shell" rule and the single-unlock-predicate
+pattern apply to every future gated mode (endless rush, boss-of-the-day) and every dev seam. Verified: `tests/bossrushui.mjs`
+extended with a cold-save + `?dev` regression case (13 checks; the exact bug now guarded) + the state matrix reproduced
+(cold/warm × dev/settings-toggle/none), `boss` (16) / `bossrush` / `smoke` green, `tricount` 203265.

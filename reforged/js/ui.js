@@ -1249,18 +1249,19 @@ export const ui = {
         `<button class="hero-rail-btn${isNew ? ' rail-new' : ''}" id="${id}">${icon}<span>${label}</span>${
           isNew ? '<span class="rail-new-pill">NEW</span>' : badgeHtml(due)}</button>`;
       let rail = '';
+      let items = '';
       if (!cold) {
-        let items = '';
         if (showDeep)   items += railBtn('btn-pilot',  ICONS.pilot,  'PILOT',  pilotBadgeDue(), newPilot);
         if (showQuests) items += railBtn('btn-quests', ICONS.weekly, 'QUESTS', questsBadgeDue(), newQuests);
         items += railBtn('btn-shop', ICONS.shop, 'SHOP', shopBadgeDue(), newShop);
         if (showDeep)   items += railBtn('btn-daily',  ICONS.daily,  'DAILY',  dailyBadgeDue(), newDaily);
-        // BOSS RUSH: appears once the player has beaten a boss (the mode's unlock),
-        // wears a NEW pill until first launched. Gated by main via handlers.rushUnlocked.
-        if (handlers.rushUnlocked && handlers.rushUnlocked())
-          items += railBtn('btn-rush', ICONS.rush, 'BOSS RUSH', false, !saveData.flags.seenBossRush);
-        rail = `<nav class="hero-rail">${items}</nav>`;
       }
+      // BOSS RUSH: normally appears once you've beaten a boss (which means you're well
+      // past cold). Shown even on a brand-new (cold) save when DEV-unlocked (?dev or
+      // the Settings dev toggle) so it's testable immediately. NEW pill until launched.
+      if (handlers.rushUnlocked && handlers.rushUnlocked())
+        items += railBtn('btn-rush', ICONS.rush, 'BOSS RUSH', false, !saveData.flags.seenBossRush);
+      if (items) rail = `<nav class="hero-rail">${items}</nav>`;
 
       const sub = cold
         ? 'Thread rings. Chase the surge.'
