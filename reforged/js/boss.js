@@ -234,7 +234,7 @@ export function initBoss(sc) {
   // fill the drain gap — hiding the very "time left" read the meter exists for.
   // So the aura is only outward-arcing bolts (energy flavour); the meter is the ring.
   surgeAura = new THREE.Group();
-  const boltMat = new THREE.MeshBasicMaterial({ color: 0xffbdf6, transparent: true, opacity: 0.85, blending: THREE.AdditiveBlending, depthWrite: false });
+  const boltMat = new THREE.MeshBasicMaterial({ color: 0xffbdf6, transparent: true, opacity: 0.6, blending: THREE.AdditiveBlending, depthWrite: false });
   const bolts = [];
   for (let i = 0; i < 6; i++) {
     // Thin, SHORT arcs that live OUTSIDE the meter ring (start ~2.6 out) so they
@@ -372,6 +372,16 @@ export function setBossQuality(q) {
 }
 
 export function bossActive() { return active; }
+
+// Render-only signal for the world-dim grade (postfx._bossMix / ambient's mote
+// budget): the dim rides the DANGER warning, not just the fight — so it starts
+// at 'warn' (the overlay's banner phase), holds through approach/fight, and
+// spikes while the boss is SHIELDED (bullets need the most headroom then).
+// Dumb getter, no state of its own — callers own all easing.
+export function bossGradeTarget() {
+  if (!active || (phase !== 'warn' && phase !== 'approach' && phase !== 'fight')) return 0;
+  return shielded ? 1.0 : 0.6;
+}
 
 // ---- Encounter lifecycle ----------------------------------------------------
 

@@ -123,12 +123,15 @@ export function createAmbient(scene) {
   scene.add(whale);
 }
 
-export function updateAmbient(dt, camera, time, playerDist, playerSpeed, feverMix, env) {
+export function updateAmbient(dt, camera, time, playerDist, playerSpeed, feverMix, env, bossMix = 0) {
   // Lerped biome look + fever tint override.
   tmpColor.copy(env.ambColor).lerp(feverColor, feverMix);
   points.material.color.copy(tmpColor);
-  points.material.opacity = env.ambOpacity + feverMix * 0.2;
-  points.material.size = env.ambSize;
+  // Boss-time mote budget: compose (not stomp) on top of the biome/fever look —
+  // motes step back so bullets own the near-centre extremes. Zero term at
+  // bossMix=0, so a normal run is byte-identical to pre-Increment-3.
+  points.material.opacity = (env.ambOpacity + feverMix * 0.2) * (1 - 0.55 * bossMix);
+  points.material.size = env.ambSize * (1 - 0.25 * bossMix);
 
   const speedDrift = Math.max(0, playerSpeed - 35) * 0.5 * dt;
   const cx = camera.position.x;

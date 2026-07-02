@@ -130,6 +130,10 @@ const KICK_MAX = { bloom: 0.36, lift: 0.6, sat: 0.35, vig: 0.25, ab: 0.010 };
 let _flashFrames = 0;   // hard gold flash, decremented per PRESENTED frame
 let _deathOn = false;
 let _deathMix = 0;
+// Boss-time stage-management grade: the world mid-tones itself so bullets own
+// the extremes (Cave black-label logic). Target rides boss.js's phase/shielded
+// signal (0 idle, 0.6 warn/approach/fight, 1.0 shielded) — see updatePostFX.
+let _bossMix = 0;
 
 const KICK_PRESETS = {
   goldenEmber:      { bloom: 0.30, lift: 0.35 },
@@ -168,7 +172,7 @@ export function clearDeath(instant = false) {
 
 // Test/debug introspection (read-only snapshot).
 export function kickState() {
-  return { ..._kick, flashFrames: _flashFrames, deathMix: _deathMix, deathOn: _deathOn };
+  return { ..._kick, flashFrames: _flashFrames, deathMix: _deathMix, deathOn: _deathOn, bossMix: _bossMix };
 }
 
 export function initPostFX(renderer, scene, camera) {
@@ -275,7 +279,7 @@ export function setPostTier(tier) {
 // Per-frame dynamics: speed-driven chromatic aberration, fever pulse, and
 // the impulse kicks. Kicks decay with rawDt (real time) so a hitstop can't
 // freeze its own flash on screen.
-export function updatePostFX(dt, speedNorm, feverActive, rawDt = dt) {
+export function updatePostFX(dt, speedNorm, feverActive, rawDt = dt, bossTarget = 0) {
   // State decays UNCONDITIONALLY — if the adaptive tier drops to 2 (composer
   // off) mid-decay, a frozen half-applied grade must not survive to pop back
   // when the tier restores.
@@ -284,6 +288,11 @@ export function updatePostFX(dt, speedNorm, feverActive, rawDt = dt) {
   }
   if (_deathOn) _deathMix = Math.min(_deathMix + rawDt / 0.45, 1);
   else if (_deathMix > 0) _deathMix = damp(_deathMix, 0, 10, rawDt);
+  // Boss grade: same unconditional-decay guarantee as _deathMix (teardown/
+  // death/abandon mid-fight must never strand the dim) — ease ~1s both ways,
+  // the feverMix damp idiom below, but computed here (not gated on
+  // postfx.enabled) so a tier flap can't strand it either.
+  _bossMix = damp(_bossMix, bossTarget, 4, rawDt);
 
   if (!postfx.enabled) return;
   const u = postfx.gradingPass.uniforms;
@@ -303,13 +312,16 @@ export function updatePostFX(dt, speedNorm, feverActive, rawDt = dt) {
   u.lift.value = postfx._feverMix * (0.24 + Math.sin(performance.now() * 0.006) * 0.09)
     + _kick.lift + flash * 0.26;
   u.liftTint.value.set(postfx._feverTint[0], postfx._feverTint[1], postfx._feverTint[2]);
-  let sat = 1.18 + postfx._feverMix * 0.08 + _kick.sat;
-  let vig = 0.30 + _kick.vig;
+  // Boss-time stage management: the world mid-tones itself (sat/vig/bloom ease
+  // toward this at mix=1) so the bullets are the most vivid thing on screen —
+  // scales linearly with _bossMix, zero term at mix=0 (no boss = byte-identical).
+  let sat = 1.18 + postfx._feverMix * 0.08 + _kick.sat - _bossMix * 0.10;
+  let vig = 0.30 + _kick.vig + _bossMix * 0.05;
   // Bloom eases DOWN during Surge (clamped) so the bright scene/sky can't blow
   // out and bury the silhouette — the dragon's own emissive is far brighter and
   // still blooms, keeping the glow ON the dragon, not the whole screen.
   postfx.bloomPass.strength = Math.max(0.08,
-    postfx._baseBloom + _kick.bloom + flash * 0.25 - postfx._feverMix * 0.07);
+    postfx._baseBloom + _kick.bloom + flash * 0.25 - postfx._feverMix * 0.07 - _bossMix * 0.05);
 
   // God-rays (tier 0): place the sun, ease the shafts down a touch in Surge, and
   // disable the whole thing (mask render included) when the sun isn't on-screen.

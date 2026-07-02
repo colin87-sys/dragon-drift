@@ -30,7 +30,7 @@ import { DRAGONS } from './dragons.js';
 import { RIDERS } from './riders.js';
 import { dailySeed, recordDailyRun, saveData, persist, grantXp, levelEmberReward, todayUTC, gambitSunsetRefund, freezeSaves } from './save.js';
 import { initEmbers, addEmberLine, updateEmbers, bankEmbers, resetEmbers } from './embers.js';
-import { initBoss, updateBoss, resetBoss, setBossQuality, forceBoss, setBossDebugFirstAt, setBossDebugDefIdx, bossDebugState, startBossRush, setRushUnlockAll, rushUnlocked, rushRosterInfo } from './boss.js';
+import { initBoss, updateBoss, resetBoss, setBossQuality, forceBoss, setBossDebugFirstAt, setBossDebugDefIdx, bossDebugState, bossGradeTarget, startBossRush, setRushUnlockAll, rushUnlocked, rushRosterInfo } from './boss.js';
 import { emit, on } from './events.js';
 import { initAnalytics } from './analytics.js';
 import { initMissions, settleMissions } from './missions.js';
@@ -1080,7 +1080,7 @@ function tick() {
     cameraCtl.update(dt, player, game.state === 'ready' || atShop, atShop);
     if (introPlaying && !cameraCtl.introPlaying) introPlaying = false;
     updateReticle(player, game.state === 'playing');
-    updateEnvironment(dt, camera, t, player.dist, game.feverActive, player.speed);
+    updateEnvironment(dt, camera, t, player.dist, game.feverActive, player.speed, bossGradeTarget());
     updateWater(dt, player.dist, t, scene.fog);
     updateContactShadow(dt, player);
 
@@ -1113,7 +1113,7 @@ function tick() {
   }
 
   const speedNorm = (player.speed - CONFIG.baseSpeed) / (CONFIG.orbSpeed - CONFIG.baseSpeed);
-  updatePostFX(dt, speedNorm, game.feverActive, rawDt);
+  updatePostFX(dt, speedNorm, game.feverActive, rawDt, bossGradeTarget());
   renderPostFX();
 
   if (perfEl) {
