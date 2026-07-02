@@ -4434,3 +4434,25 @@ PATTERN DIALS (the lab's dial values baked into the def, not the branch) would m
 fully data — one branch per shape, per-boss tuning in bossDefs. And the constriction system
 generalizes to non-boss set-pieces (a narrowing storm-front mid-run). Next critique phases: P3
 economy mid-band, P4 pulse gates + biome-weighted overlays, P5 accessibility.
+
+### L113 — Phase 3 (economy) is fully specified in PHASE3-HANDOFF.md — execute it, don't re-derive it
+**Did / learned:** The critique's Phase 3 (economy mid-band + endgame) was NOT implemented — it
+was compiled into `PHASE3-HANDOFF.md` (repo root): a zero-context execution doc with verbatim
+find/replace blocks, per-step verification commands, commit messages, and a final checklist.
+Five parts: Surge Tints (150–450◆ cosmetic recolouring the Surge moment via an `applySurgeTint`
+def-overlay + a shared surge-FX palette in particles.js), endless milestone rungs (computed
+×2.2 past the authored tail — never stored), 4 skill weeklies (+ a new `game.phasesRun`
+counter), starters→Eternal (drop the SSR cap in `maxTierFor`; geometry reuse via the existing
+formLevel clamp; badge already honest via RARITY_LADDERS), and per-dragon perks (nullable
+`def.perk` carried on `game.perk`; consumed at roll-cooldown / phase-cost / near-miss-pay).
+Key facts baked into the doc so nobody re-learns them: the two-trees trap (edit `reforged/`
+only), deepMerge's arrays-only rule, persistNow-on-purchase, the six container-only test
+failures, and tests/economy.mjs's live guardrails (early earn 120–400◆/run, apex 18–45 runs,
+milestone pool <3500◆).
+**→ Systematize:** "map seams verbatim → write find/replace steps → per-step test gates" is now
+the house pattern for handing work between sessions/people; the doc format doubles as a review
+checklist. The flightmarks→tints overlay chain (`applySurgeTint(applyFlightmark(ascendedDef()))`)
+is the template for every future cosmetic category.
+**→ Leapfrog (innovate):** Execute the doc as-is (any session, any skill level). After it ships,
+the remaining critique phases are P4 (pulse gates + biome-weighted OVERLAY generation — the
+Sky-Canyon determinism pattern) and P5 (reduce-flashing + a11y), both outlined in L111/L112.
