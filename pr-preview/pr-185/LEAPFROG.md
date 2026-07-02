@@ -4487,3 +4487,28 @@ scattered bullets; a dense one reads as a clean circle you can track as one obje
 detached HUD gauge. And "reuse an anchored element for the new readout" is the default move for the next mechanic's
 feedback. Verified: `boss.mjs` (8), `bossboot` zero-error, `tricount` 203265; captures show the drain gap legible
 (no hoop back-filling it) with the dragon visible. The human judges the drain pace + comet aesthetic live.
+
+### L115 — Anti-flee patterns must cover the axis they defend: STORMREND's movingGap/secondWave were out-flyable vertically
+
+**Did / learned.** Reviewing STORMREND as a designer (would I ship it?) surfaced one real hole: two patterns only threatened a
+~4m band around `fightHeight`, but the player's Y is UNCLAMPED during a boss (only X has the arena walls + a laneMaxY cap).
+So `movingGap` (two rows at `fightHeight ± 2.2`) and `secondWave` (fired at a fixed `fightHeight`, `vy` hard-zeroed) were
+both neutralised by simply flying to y≈20 or y≈6 — the "track the sliding gap" / "the spot you dodged into is unsafe" jobs
+evaporated. Fix: make them TRACK the player's live Y. `movingGap` centres its two bands on `player.position.y` at each row's
+fire time (clamped to the lane) so the wall follows you up/down and the moving X gap is the only way through; `secondWave`
+aims at `player.position.y` (restoring the `vy` term) so a vertical dodge can't skip it. Zero bullet-count change → the
+emission-budget test stayed green untouched. The co-phase tracking patterns (`stream`/`aimed`/`crossfire`) had partly
+masked the hole, which is why it survived to review.
+
+**→ Systematize.** **A pattern's coverage must span the axis its JOB defends.** An anti-flee/fill pattern that punishes
+horizontal relocation still fails if the player can relocate on a FREE axis it doesn't cover — audit each pattern against
+every unconstrained degree of freedom (here: Y is free, so any "you can't escape" pattern must be Y-aware, by spanning the
+band or tracking the player). The cheap fix is usually TRACK, not ENLARGE: re-centre on the player's live position at fire
+time (no extra bullets, budget-neutral) instead of widening the wall (which costs concurrency against the mobile cap).
+Corollary: when several patterns fire in the same phase, a tracking one can MASK a static one's coverage hole — review
+patterns in isolation (the `debugEmitAttack` seam), not only in live play.
+
+**→ Leapfrog (innovate).** "Track the free axis at fire time" is the reusable rule for every future anti-flee pattern, and
+the isolation-review habit (judge each pattern alone against the DOF list) belongs in the pattern-authoring checklist next
+to the budget + safe-lane gates. Verified: `boss.mjs` (11; budget + safe-lane unchanged), `bossboot` zero-error, `tricount`
+203265. The human judges on the preview whether the walls now feel inescapable-but-fair from the top/bottom of the lane.
