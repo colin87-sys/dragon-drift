@@ -1,0 +1,723 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Dragon Drift — Boss Pattern Lab</title>
+<style>
+  :root{--bg:#0f192d;--panel:#131f36ee;--edge:#25406e;--ink:#dbe8ff;--dim:#7f96c2;
+    --cyan:#35e0ff;--gold:#ffcf5a;--danger:#ff2b6a;--violet:#a875ff;--green:#4fe08a;--orange:#ff7a3c;}
+  /* category colours */
+  .c-fill{--cc:var(--gold)} .c-antiflee{--cc:var(--orange)} .c-graze{--cc:var(--cyan)}
+  .c-garnish{--cc:var(--violet)} .c-depth{--cc:var(--green)}
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  html,body{margin:0;height:100%;overflow:hidden;background:var(--bg);
+    font-family:'Rajdhani',system-ui,-apple-system,Segoe UI,Roboto,sans-serif;color:var(--ink)}
+  #app{position:fixed;inset:0} canvas{display:block;touch-action:none}
+  #hud{position:fixed;top:10px;left:12px;z-index:5;pointer-events:none;font-size:12px;line-height:1.55;
+    letter-spacing:.3px;text-shadow:0 1px 3px #000b;max-width:52vw}
+  #hud b{color:var(--cyan);font-weight:700} #hud .warn{color:var(--danger)} #hud .ok{color:var(--gold)}
+  /* meters */
+  #meters{position:fixed;top:10px;left:50%;transform:translateX(-50%);z-index:5;width:min(360px,60vw);
+    pointer-events:none;text-align:center}
+  .bar{height:12px;border-radius:7px;background:#0e1a30cc;border:1px solid var(--edge);overflow:hidden;margin:4px 0}
+  .bar > i{display:block;height:100%;width:0;transition:width .12s linear}
+  .barHP > i{background:linear-gradient(90deg,#ff4d82,#ffb03a)} .barSU > i{background:linear-gradient(90deg,#2ec5ff,#8f7bff)}
+  .mlabel{font-size:10.5px;letter-spacing:1px;text-transform:uppercase;color:var(--dim);text-shadow:0 1px 2px #000}
+  #armorTag{font-family:'Russo One',sans-serif;font-size:13px;color:var(--danger);text-shadow:0 0 8px #ff2b6a88;
+    margin-top:3px;min-height:16px}
+  /* panel */
+  #panel{position:fixed;top:0;right:0;z-index:6;width:310px;max-width:88vw;height:100%;background:var(--panel);
+    backdrop-filter:blur(10px);border-left:1px solid var(--edge);padding:12px 12px 60px;overflow-y:auto;
+    transition:transform .25s ease;-webkit-overflow-scrolling:touch}
+  #panel.hidden{transform:translateX(100%)}
+  #panel h1{font-family:'Russo One',sans-serif;font-size:14px;margin:2px 0;letter-spacing:.5px;color:#fff}
+  #panel .sub{font-size:11px;color:var(--dim);margin:0 0 10px}
+  .grp{border:1px solid var(--edge);border-radius:9px;padding:8px 9px 10px;margin-bottom:10px;background:#0e1a30aa}
+  .grp h2{font-size:10.5px;text-transform:uppercase;letter-spacing:1.1px;color:var(--cyan);margin:0 0 8px;font-weight:700}
+  .row{display:flex;align-items:center;justify-content:space-between;gap:8px;margin:6px 0}
+  .row label{font-size:12px;color:var(--ink)} .row .val{font-size:11.5px;color:var(--gold);
+    font-variant-numeric:tabular-nums;min-width:52px;text-align:right}
+  input[type=range]{-webkit-appearance:none;appearance:none;width:100%;height:4px;border-radius:3px;background:#243a63;outline:none;margin:0}
+  input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:15px;height:15px;border-radius:50%;background:var(--cyan);box-shadow:0 0 6px #35e0ff88;cursor:pointer}
+  input[type=range]::-moz-range-thumb{width:15px;height:15px;border-radius:50%;background:var(--cyan);border:none;cursor:pointer}
+  .rangewrap{flex:1;margin:0 4px}
+  select,.btn{font-family:inherit;font-size:12px;color:var(--ink);background:#1a2b4d;border:1px solid var(--edge);
+    border-radius:7px;padding:6px 8px;cursor:pointer;width:100%}
+  select:focus{outline:1px solid var(--cyan)}
+  .btnrow{display:flex;gap:6px;margin-top:5px;flex-wrap:wrap} .btn{text-align:center;flex:1;transition:.12s;min-width:60px}
+  .btn:hover{border-color:var(--cyan)} .btn.on{background:var(--cyan);color:#06121f;border-color:var(--cyan);font-weight:700}
+  .btn.fire{background:linear-gradient(180deg,#ff4d82,#e01a5a);color:#fff;border-color:#ff4d82;font-weight:700}
+  .btn.exp{background:linear-gradient(180deg,#39d98a,#1eb56a);color:#06231a;border-color:#39d98a;font-weight:700}
+  .toggle{display:flex;align-items:center;gap:8px;font-size:12px;margin:6px 0;cursor:pointer;user-select:none}
+  .toggle .box{width:16px;height:16px;border-radius:4px;border:1px solid var(--edge);background:#1a2b4d;position:relative;flex:0 0 auto}
+  .toggle.on .box{background:var(--cyan);border-color:var(--cyan)}
+  .toggle.on .box::after{content:"";position:absolute;left:5px;top:1px;width:4px;height:9px;border:solid #06121f;border-width:0 2px 2px 0;transform:rotate(45deg)}
+  .note{font-size:11px;color:var(--dim);line-height:1.45;margin-top:3px}.note b{color:var(--cyan)}
+  /* pattern list */
+  .plist{display:flex;flex-direction:column;gap:4px}
+  .pitem{display:flex;align-items:center;gap:7px;padding:6px 8px;border:1px solid var(--edge);border-radius:7px;
+    background:#14223d;cursor:pointer;font-size:12.5px;transition:.12s}
+  .pitem:hover{border-color:var(--cc)} .pitem.sel{border-color:var(--cc);background:#1b2f52;box-shadow:inset 0 0 0 1px var(--cc)}
+  .pitem .dot{width:9px;height:9px;border-radius:50%;background:var(--cc);flex:0 0 auto;box-shadow:0 0 6px var(--cc)}
+  .pitem .badge{margin-left:auto;font-size:9px;letter-spacing:.6px;text-transform:uppercase;color:var(--cc);
+    border:1px solid var(--cc);border-radius:5px;padding:1px 5px;opacity:.85}
+  .cathdr{font-size:9.5px;letter-spacing:1px;text-transform:uppercase;color:var(--cc);margin:8px 0 2px;font-weight:700}
+  /* export modal */
+  #modal{position:fixed;inset:0;z-index:20;background:#050a14e0;display:none;align-items:center;justify-content:center;padding:16px}
+  #modal.show{display:flex} .card{background:#0e1a30;border:1px solid var(--edge);border-radius:12px;
+    width:min(760px,96vw);max-height:88vh;display:flex;flex-direction:column;padding:14px}
+  .card h3{font-family:'Russo One',sans-serif;font-size:14px;margin:0 0 4px;color:#fff}
+  .card .sub{font-size:11px;color:var(--dim);margin:0 0 8px}
+  .card textarea{flex:1;min-height:340px;width:100%;background:#08111f;color:#cfe0ff;border:1px solid var(--edge);
+    border-radius:8px;padding:10px;font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:11.5px;
+    line-height:1.5;resize:vertical;white-space:pre}
+  .card .actions{display:flex;gap:8px;margin-top:10px}
+  #tabBtn{position:fixed;top:10px;right:12px;z-index:7;width:40px;height:40px;border-radius:9px;background:var(--panel);
+    border:1px solid var(--edge);color:var(--cyan);font-size:19px;cursor:pointer;display:flex;align-items:center;justify-content:center;backdrop-filter:blur(8px)}
+  #hint{position:fixed;bottom:12px;left:12px;z-index:5;font-size:11.5px;color:var(--dim);pointer-events:none;text-shadow:0 1px 3px #000a}
+  #hint b{color:var(--cyan)}#hint kbd{background:#1a2b4d;border:1px solid var(--edge);border-radius:4px;padding:0 5px;font-size:10.5px}
+  #parryBtn{position:fixed;bottom:52px;left:12px;z-index:7;padding:11px 20px;border-radius:11px;border:1px solid var(--cyan);
+    background:#0e2436cc;color:var(--cyan);font-family:'Russo One',sans-serif;font-size:14px;letter-spacing:1px;cursor:pointer;
+    backdrop-filter:blur(8px);box-shadow:0 0 14px #35e0ff44;display:none}
+  #parryBtn.show{display:block}#parryBtn:active{background:var(--cyan);color:#06121f}
+</style>
+</head>
+<body>
+<div id="app"></div>
+<div id="hud"></div>
+<div id="meters">
+  <div class="mlabel">Boss HP</div><div class="bar barHP"><i id="hpFill"></i></div>
+  <div class="mlabel">Surge charge (graze to fill)</div><div class="bar barSU"><i id="suFill"></i></div>
+  <div id="armorTag"></div>
+</div>
+<button id="tabBtn">⚙</button>
+<button id="parryBtn">PARRY</button>
+<div id="hint">Fly with <b>mouse / finger</b>. <kbd>Space</kbd> pops Surge when charged. Try fleeing an armor phase — watch the fight stall.</div>
+
+<div id="panel">
+  <h1>BOSS PATTERN LAB</h1>
+  <p class="sub">Real cam &amp; kinematics. Every pattern tagged by its <i>job</i>. Tune, test the economy, export to Claude&nbsp;Code.</p>
+
+  <div class="grp">
+    <h2>Mode</h2>
+    <div class="btnrow">
+      <div class="btn on" data-mode="practice">Practice (one pattern)</div>
+      <div class="btn" data-mode="boss">Boss fight (economy)</div>
+    </div>
+    <div class="note" id="modeNote"></div>
+  </div>
+
+  <div class="grp">
+    <h2>Pattern · by job</h2>
+    <div class="plist" id="plist"></div>
+    <div class="note" id="patBlurb" style="margin-top:8px"></div>
+  </div>
+
+  <div class="grp" id="dialGrp">
+    <h2>Dials · <span id="dialName" style="color:var(--gold)"></span></h2>
+    <div id="dials"></div>
+  </div>
+
+  <div class="grp">
+    <h2>Layer</h2>
+    <div class="toggle" id="overlayT"><span class="box"></span><span>Overlay: aimed shots on the gap</span></div>
+    <div class="note">The correct use of aimed bullets — contest the one safe spot so a wall's gap can't just be camped. Applies to wall patterns.</div>
+    <div class="toggle" id="constrictT" style="margin-top:8px"><span class="box"></span><span>Boss constricts the arena (walls slam in)</span></div>
+    <div class="note">Shrinks the playfield to a narrow slot (your Sky Canyon trick). Removes the edges you'd flee to <b>and</b> makes fills cheap. Try it with any pattern.</div>
+  </div>
+
+  <div class="grp" id="ecoGrp">
+    <h2>Economy · armor gate</h2>
+    <div class="row"><label>Surge / graze</label><span class="val" id="spgV"></span></div>
+    <div class="rangewrap"><input type="range" id="spg" min="0.01" max="0.12" step="0.005"></div>
+    <div class="row"><label>Rider chip /s</label><span class="val" id="chipV"></span></div>
+    <div class="rangewrap"><input type="range" id="chip" min="1" max="14" step="0.5"></div>
+    <div class="toggle on" id="hardT"><span class="box"></span><span>Hard gate (chip = 0 while armored)</span></div>
+    <div class="btnrow"><div class="btn" id="surgeBtn">POP SURGE</div><div class="btn" id="rezBtn">Reset fight</div></div>
+    <div class="note" id="ecoNote"></div>
+  </div>
+
+  <div class="grp">
+    <h2>Look</h2>
+    <div class="row"><label>Bullets</label></div>
+    <div class="btnrow">
+      <div class="btn on" data-style="bill">Magenta core (visible)</div>
+      <div class="btn" data-style="octa">Red octa (current)</div>
+    </div>
+    <div class="btnrow" style="margin-top:6px">
+      <div class="btn on" data-sky="sunset">Sunset</div><div class="btn" data-sky="dusk">Dusk</div><div class="btn" data-sky="void">Void</div>
+    </div>
+    <div class="row" style="margin-top:8px"><label>Bullet size</label><span class="val" id="sizeV"></span></div>
+    <div class="rangewrap"><input type="range" id="size" min="0.6" max="2.2" step="0.05"></div>
+    <div class="toggle on" id="ringsShowT"><span class="box"></span><span>Show hit / graze rings</span></div>
+    <div class="toggle" id="slowT"><span class="box"></span><span>Slow-mo (½)</span></div>
+  </div>
+
+  <div class="grp">
+    <h2>Depth cues</h2>
+    <div class="toggle on" id="shadowT"><span class="box"></span><span>Ground shadows</span></div>
+    <div class="note">The fix for overlapping rings — shadows land at different distances on the floor even when the bullets overlap in view. Watch a shadow slide under you = that ring is at your plane.</div>
+    <div class="toggle on" id="tintT" style="margin-top:8px"><span class="box"></span><span>Time-to-impact flare</span></div>
+    <div class="note">Bullets warm from magenta toward <b>white-hot</b> in their last ~0.3s. The nearer of two overlapping rings flares first = it hits first.</div>
+    <div class="toggle" id="markerT" style="margin-top:8px"><span class="box"></span><span>Plane marker (your depth)</span></div>
+    <div class="toggle" id="reflectT" style="margin-top:6px"><span class="box"></span><span>Parry demo: reflectable bullets</span></div>
+    <div class="toggle" id="reachT" style="margin-top:6px"><span class="box"></span><span>Show parry reach volume</span></div>
+    <div class="note">Reflectable bullets read <b style="color:var(--cyan)">cyan</b> and flare bright when they enter the roll\u2019s reach. Parry then \u2014 <kbd>Shift</kbd> or the PARRY button. Reflected shots fly back into the boss.</div>
+  </div>
+
+  <div class="grp">
+    <h2>Ring readability</h2>
+    <div class="toggle on" id="bandT"><span class="box"></span><span>Alternate ring colours</span></div>
+    <div class="note">Successive rings cycle red \u2192 magenta \u2192 amber, so overlapping rings read as separate <b>bands</b> instead of one mesh. The biggest fix for tunnels. Works on the diamond bullets (via instanceColor).</div>
+    <div class="toggle on" id="bloomT" style="margin-top:8px"><span class="box"></span><span>Bloom (additive glow)</span></div>
+    <div class="note">Your current look. Turn it <b>off</b> for dense rings \u2014 additive sums to white where bullets pile up (the blowout in your shot). Solid bullets keep their edges so you can count them.</div>
+  </div>
+
+  <div class="grp">
+    <h2>Export → Claude Code</h2>
+    <div class="btnrow"><div class="btn exp" id="expBtn">EXPORT THIS PATTERN</div></div>
+    <div class="toggle" id="expAllT" style="margin-top:6px"><span class="box"></span><span>Include full boss config (all patterns + economy)</span></div>
+    <div class="note">Generates paste-ready <b>executeAttack</b> code + config with your tuned numbers, matching your boss.js conventions.</div>
+  </div>
+</div>
+
+<div id="modal"><div class="card">
+  <h3>Tuned spec — paste into Claude Code</h3>
+  <p class="sub">Real <code>executeAttack</code> branches + config, tuned to the numbers you dialed. Implements per the boss-retune doc.</p>
+  <textarea id="expOut" spellcheck="false"></textarea>
+  <div class="actions">
+    <div class="btn exp" id="copyBtn" style="flex:2">Copy to clipboard</div>
+    <div class="btn" id="dlBtn">Download .md</div>
+    <div class="btn" id="closeBtn">Close</div>
+  </div>
+</div></div>
+
+<script type="importmap">{ "imports": { "three": "/lib/three.module.js" } }</script>
+<script type="module">
+import * as THREE from 'three';
+
+/* ── EXACT engine constants (reforged/js/config.js CONFIG.BOSS · bossDefs.js) ──
+   CONTRACT-SYNCED to js/boss.js executeAttack() as of the Stormrend PR:
+   emitBoss(x,y,vx,vy,vrel,reflectable,color,sizeMult) · fireRing(cx,cy,radius,m,vrel,color,sizeMult)
+   aimVel(tx,ty,closing) · pending.push({t,fire}) · quality · spiralPhase · BAND colour-banding.
+   SHIPPED pattern ids: aimed fan spiral tunnel spiralStream curtain movingGap iris stream secondWave crossfire.
+   TO RE-SYNC after engine tuning: update this K block from CONFIG.BOSS and diff an exported
+   snippet against the matching executeAttack branch. ── */
+const K={FOV:58,CAM_BACK:11,CAM_UP:3.2,CAM_LOOK:16,LANE_HW:13,LANE_MINY:2.5,LANE_MAXY:22,
+  PLAYER_R:1.2,START_Y:8,SETTLE:30,FIGHT_Y:13,CRUISE:65,B_SPEED:28,B_R:0.55,B_HITSCALE:0.62,POOL:320,
+  VIOLET:0xa040ff,GLOW:0xc89aff,RED:0xff3010};
+const HIT_R=K.B_R+K.PLAYER_R*K.B_HITSCALE;        // ≈1.294
+const GRAZE_SCALE=3.0, GRAZE_R=K.B_R+K.PLAYER_R*GRAZE_SCALE;   // ≈4.15
+
+/* ── renderer / scene / camera ── */
+const app=document.getElementById('app');
+const renderer=new THREE.WebGLRenderer({antialias:true,powerPreference:'high-performance'});
+renderer.setPixelRatio(Math.min(devicePixelRatio,2)); renderer.setSize(innerWidth,innerHeight); app.appendChild(renderer.domElement);
+const scene=new THREE.Scene(); const camera=new THREE.PerspectiveCamera(K.FOV,innerWidth/innerHeight,0.1,2200);
+scene.fog=new THREE.Fog(0x24344f,60,640);
+scene.add(new THREE.HemisphereLight(0xbfd3ff,0x1a2238,1.1));
+const key=new THREE.DirectionalLight(0xffe0b0,1.4); key.position.set(-40,30,20); scene.add(key);
+
+/* ── sky presets ── */
+function gradTex(st){const c=document.createElement('canvas');c.width=8;c.height=256;const g=c.getContext('2d');
+  const gr=g.createLinearGradient(0,0,0,256);st.forEach(s=>gr.addColorStop(s[0],s[1]));g.fillStyle=gr;g.fillRect(0,0,8,256);
+  const t=new THREE.CanvasTexture(c);t.colorSpace=THREE.SRGBColorSpace;return t;}
+const SKIES={sunset:{tex:gradTex([[0,'#2a2350'],[0.42,'#8a4d86'],[0.6,'#e8823c'],[0.74,'#ffc25a'],[1,'#fff0c0']]),fog:0x6a4b5c,sun:'#ffe6a0',grid:0x8a5a3a},
+  dusk:{tex:gradTex([[0,'#0a1230'],[0.45,'#243a6e'],[0.7,'#4a5f9a'],[1,'#9fb0d8']]),fog:0x2c3c60,sun:'#cfe0ff',grid:0x2f4a78},
+  void:{tex:gradTex([[0,'#05070f'],[0.6,'#0a0f1e'],[1,'#141b30']]),fog:0x0a0f1e,sun:null,grid:0x1d2a48}};
+let sunSprite=null,gridHelper=null;
+function makeSun(){const c=document.createElement('canvas');c.width=c.height=128;const g=c.getContext('2d');
+  const gr=g.createRadialGradient(64,64,0,64,64,64);gr.addColorStop(0,'#fff');gr.addColorStop(.3,'#ffe9b0');gr.addColorStop(1,'rgba(255,220,150,0)');
+  g.fillStyle=gr;g.fillRect(0,0,128,128);
+  const s=new THREE.Sprite(new THREE.SpriteMaterial({map:new THREE.CanvasTexture(c),blending:THREE.AdditiveBlending,depthWrite:false,transparent:true}));s.scale.set(180,180,1);return s;}
+function setSky(n){const s=SKIES[n];scene.background=s.tex;scene.fog.color.setHex(s.fog);
+  if(sunSprite){scene.remove(sunSprite);sunSprite=null;}
+  if(s.sun){sunSprite=makeSun();sunSprite.material.color.set(s.sun);sunSprite.position.set(-30,K.LANE_MINY+26,-560);scene.add(sunSprite);}
+  if(gridHelper)gridHelper.material.color.setHex(s.grid);
+  document.querySelectorAll('[data-sky]').forEach(b=>b.classList.toggle('on',b.dataset.sky===n));}
+
+/* ── ground + spires ── */
+const ground=new THREE.Mesh(new THREE.PlaneGeometry(600,2400),new THREE.MeshStandardMaterial({color:0x0c1428,roughness:.55,metalness:.4}));
+ground.rotation.x=-Math.PI/2;ground.position.z=-900;scene.add(ground);
+gridHelper=new THREE.GridHelper(2400,240,0x8a5a3a,0x8a5a3a);gridHelper.position.set(0,.02,-900);gridHelper.material.transparent=true;gridHelper.material.opacity=.28;scene.add(gridHelper);
+const spMat=new THREE.MeshStandardMaterial({color:0x101a2e,roughness:.9,metalness:.1});
+for(let i=0;i<26;i++){const side=i%2?1:-1,h=14+Math.random()*44;
+  const s=new THREE.Mesh(new THREE.CylinderGeometry(1.2+Math.random()*2,2.5+Math.random()*3,h,6),spMat);
+  s.position.set(side*(18+Math.random()*40),h/2,-60-i*46-Math.random()*30);scene.add(s);}
+
+/* ── dragon ── */
+const dragon=new THREE.Group();
+const body=new THREE.Mesh(new THREE.ConeGeometry(.7,2.6,6),new THREE.MeshStandardMaterial({color:0x16233d,roughness:.4,metalness:.6,emissive:0x0a2740,emissiveIntensity:.5}));
+body.rotation.x=-Math.PI/2;dragon.add(body);
+const wingMat=new THREE.MeshStandardMaterial({color:0x1b2c4e,roughness:.5,metalness:.5,emissive:0x1d5fa0,emissiveIntensity:.6,side:THREE.DoubleSide});
+function wing(d){const s=new THREE.Shape();s.moveTo(0,0);s.lineTo(3.1*d,.5);s.lineTo(2.4*d,-.9);s.lineTo(0,-.4);
+  const w=new THREE.Mesh(new THREE.ShapeGeometry(s),wingMat);w.position.z=.2;return w;}
+dragon.add(wing(1),wing(-1));
+const arc=new THREE.Mesh(new THREE.TorusGeometry(2.2,.08,8,40,Math.PI*1.15),new THREE.MeshBasicMaterial({color:0x35e0ff,transparent:true,opacity:.8}));
+arc.rotation.x=Math.PI/2.1;arc.position.y=-.4;dragon.add(arc);scene.add(dragon);
+const ringHit=new THREE.Mesh(new THREE.RingGeometry(HIT_R-.06,HIT_R,48),new THREE.MeshBasicMaterial({color:0xff3b6b,transparent:true,opacity:.85,side:THREE.DoubleSide}));
+const ringGrz=new THREE.Mesh(new THREE.RingGeometry(GRAZE_R-.06,GRAZE_R,48),new THREE.MeshBasicMaterial({color:0x35e0ff,transparent:true,opacity:.4,side:THREE.DoubleSide}));
+scene.add(ringHit,ringGrz);
+
+/* ── boss orb ── */
+const boss=new THREE.Group();
+const orb=new THREE.Mesh(new THREE.IcosahedronGeometry(2.4,0),new THREE.MeshStandardMaterial({color:K.VIOLET,emissive:K.VIOLET,emissiveIntensity:.9,roughness:.3,metalness:.3,flatShading:true}));
+const spikes=new THREE.Mesh(new THREE.IcosahedronGeometry(3.4,0),new THREE.MeshBasicMaterial({color:K.GLOW,wireframe:true,transparent:true,opacity:.6}));
+boss.add(orb,spikes);
+// armor plating shell (shown when armored)
+const armorShell=new THREE.Mesh(new THREE.IcosahedronGeometry(3.0,0),new THREE.MeshStandardMaterial({color:0x9fb2d8,metalness:.9,roughness:.3,flatShading:true,transparent:true,opacity:0}));
+boss.add(armorShell);
+scene.add(boss);
+
+/* ── arena constriction walls (slam in to shrink the playfield) ── */
+const wallGeo=new THREE.BoxGeometry(0.6,K.LANE_MAXY-K.LANE_MINY,240);
+const wallMat=new THREE.MeshStandardMaterial({color:0xa875ff,emissive:0x6a3adf,emissiveIntensity:.5,metalness:.4,roughness:.3,transparent:true,opacity:0});
+const wallL=new THREE.Mesh(wallGeo,wallMat),wallR=new THREE.Mesh(wallGeo,wallMat.clone());
+[wallL,wallR].forEach(w=>scene.add(w));
+
+/* ── BULLET POOL (faithful rel-frame + plane-crossing) ── */
+const bullets=Array.from({length:K.POOL},()=>({active:false,x:0,y:0,rel:0,vx:0,vy:0,vrel:0,prevRel:0,life:0,reflectable:false,refl:false,col:0xff2b6a}));
+let cursor=0;
+function spawn(x,y,vx,vy,vrel,reflectable=false,colHex=0xff2b6a){for(let i=0;i<K.POOL;i++){const idx=(cursor+i)%K.POOL,s=bullets[idx];
+  if(!s.active){s.active=true;s.x=x;s.y=y;s.rel=K.SETTLE;s.prevRel=K.SETTLE;s.vx=vx;s.vy=vy;s.vrel=vrel;s.life=6;s.reflectable=reflectable&&reflectDemo;s.refl=false;s.col=colHex;cursor=(idx+1)%K.POOL;return;}}}
+function activeCount(){let n=0;for(const s of bullets)if(s.active)n++;return n;}
+const HIDDEN=new THREE.Matrix4().makeScale(1e-4,1e-4,1e-4);
+const octaGeo=new THREE.OctahedronGeometry(1,0);
+let meshBullets=new THREE.InstancedMesh(octaGeo,new THREE.MeshBasicMaterial({color:0xffffff,transparent:true,depthWrite:false,blending:THREE.AdditiveBlending,opacity:.95}),K.POOL);
+meshBullets.instanceColor=new THREE.InstancedBufferAttribute(new Float32Array(K.POOL*3),3);
+meshBullets.frustumCulled=false;meshBullets.instanceMatrix.setUsage(THREE.DynamicDrawUsage);meshBullets.visible=false;scene.add(meshBullets);
+function billTex(rim){const c=document.createElement('canvas');c.width=c.height=128;const g=c.getContext('2d');
+  const col=new THREE.Color(rim),r=col.r*255|0,gg=col.g*255|0,b=col.b*255|0;const gr=g.createRadialGradient(64,64,0,64,64,64);
+  gr.addColorStop(0,'rgba(255,255,255,1)');gr.addColorStop(.28,'rgba(255,255,255,.96)');gr.addColorStop(.48,`rgba(${r},${gg},${b},.95)`);gr.addColorStop(1,`rgba(${r},${gg},${b},0)`);
+  g.fillStyle=gr;g.fillRect(0,0,128,128);const t=new THREE.CanvasTexture(c);t.colorSpace=THREE.SRGBColorSpace;return t;}
+function whiteTex(){const c=document.createElement('canvas');c.width=c.height=128;const g=c.getContext('2d');const gr=g.createRadialGradient(64,64,0,64,64,64);
+  gr.addColorStop(0,'rgba(255,255,255,1)');gr.addColorStop(.4,'rgba(255,255,255,.9)');gr.addColorStop(1,'rgba(255,255,255,0)');g.fillStyle=gr;g.fillRect(0,0,128,128);
+  const t=new THREE.CanvasTexture(c);t.colorSpace=THREE.SRGBColorSpace;return t;}
+const CORE_TEX=billTex(0xff2b6a),WHITE_TEX=whiteTex();
+const ptGeo=new THREE.BufferGeometry();ptGeo.setAttribute('position',new THREE.BufferAttribute(new Float32Array(K.POOL*3),3));
+ptGeo.setAttribute('color',new THREE.BufferAttribute(new Float32Array(K.POOL*3),3));
+const ptMat=new THREE.PointsMaterial({size:2,map:CORE_TEX,transparent:true,depthWrite:false,sizeAttenuation:true,blending:THREE.AdditiveBlending});
+let pointBullets=new THREE.Points(ptGeo,ptMat);pointBullets.frustumCulled=false;scene.add(pointBullets);
+// depth cue: ground shadows
+function shadowTex(){const c=document.createElement('canvas');c.width=c.height=64;const g=c.getContext('2d');const gr=g.createRadialGradient(32,32,0,32,32,32);
+  gr.addColorStop(0,'rgba(0,0,10,.55)');gr.addColorStop(.6,'rgba(0,0,10,.28)');gr.addColorStop(1,'rgba(0,0,10,0)');g.fillStyle=gr;g.fillRect(0,0,64,64);
+  const t=new THREE.CanvasTexture(c);return t;}
+const shGeo=new THREE.BufferGeometry();shGeo.setAttribute('position',new THREE.BufferAttribute(new Float32Array(K.POOL*3),3));
+const shadowPts=new THREE.Points(shGeo,new THREE.PointsMaterial({size:1.6,map:shadowTex(),transparent:true,depthWrite:false,sizeAttenuation:true,blending:THREE.NormalBlending,opacity:.9}));
+shadowPts.frustumCulled=false;scene.add(shadowPts);
+// depth cue: parry reach volume (matches reflectBossBullets: within ~3 units, rel 0..windowRel)
+const REACH_REL=9, REACH_R=3;
+const reachVol=new THREE.Mesh(new THREE.CylinderGeometry(REACH_R,REACH_R*.6,REACH_REL,16,1,true),
+  new THREE.MeshBasicMaterial({color:0x35e0ff,transparent:true,opacity:0,side:THREE.DoubleSide,blending:THREE.AdditiveBlending}));
+reachVol.rotation.x=Math.PI/2;scene.add(reachVol);
+// depth cue: plane marker at the player's depth
+const planeRing=new THREE.Mesh(new THREE.RingGeometry(5.5,5.9,56),new THREE.MeshBasicMaterial({color:0x9fb3d8,transparent:true,opacity:0,side:THREE.DoubleSide}));
+scene.add(planeRing);
+let bulletStyle='bill';
+function setStyle(s){bulletStyle=s;pointBullets.visible=(s==='bill');meshBullets.visible=(s==='octa');
+  document.querySelectorAll('[data-style]').forEach(b=>b.classList.toggle('on',b.dataset.style===s));}
+
+/* ─────────────────────────────────────────────────────────────────────────
+   PATTERN REGISTRY — each tagged by its JOB. fire() spawns; code() emits the
+   real executeAttack branch with the dialed numbers baked in.
+   ctx = { bx, player(), pending, closing, fightY, hw }
+   ───────────────────────────────────────────────────────────────────────── */
+const C=K.B_SPEED;
+const RING_PAL=[0xff3020,0xff2b9a,0xffb020];   // successive rings cycle these → readable bands, not a mesh
+let arenaHW=K.LANE_HW, arenaTarget=K.LANE_HW, constrictOn=false;   // playfield can shrink (walls slam in)
+function aimFrom(bx,by,tx,ty,close){const t=Math.max(K.SETTLE/close,.05);return{vx:(tx-bx)/t,vy:(ty-by)/t};}
+function gapX(place,px){return place==='at-player'?px:place==='center'?0:place==='random'?(Math.random()*2-1)*8:(-Math.sign(px||1)*7);}
+// 2D FILL — the only shapes that trap a plane. Both respect the (possibly shrunk) arena.
+function fillWall(cx,slotHalf,close,stepX=2.4,stepY=2.4){for(let x=-arenaHW;x<=arenaHW;x+=stepX){if(Math.abs(x-cx)<slotHalf)continue;
+  for(let y=K.LANE_MINY+1;y<=K.LANE_MAXY-1;y+=stepY)spawn(x,y,0,0,-C*close);}}
+function fillField(hx,hy,hr,close,step=2.3){for(let x=-arenaHW;x<=arenaHW;x+=step)for(let y=K.LANE_MINY+1;y<=K.LANE_MAXY-1;y+=step){
+  if(Math.hypot(x-hx,y-hy)<hr)continue;spawn(x,y,0,0,-C*close);}}
+
+const PATTERNS={
+  /* ---------- SPACE-FILLERS (truly camp-proof: fill the plane / shrink / move) ---------- */
+  curtain:{name:'Curtain (2D wall)',cat:'fill',blurb:'A FULL wall \u2014 fills the whole cross-section except one vertical safe lane. Flee up/down/out and you\u2019re still in it. Only the lane is safe. (Now genuinely camp-proof.)',
+    dials:{slot:{l:'Safe-lane half-width',min:1.6,max:4.5,step:.1,def:2.6},density:{l:'Density (gap px)',min:1.8,max:3.4,step:.1,def:2.4},
+      close:{l:'Closing \u00D7',min:.6,max:1.05,step:.01,def:.9},place:{l:'Lane placement',enum:['away','at-player','center','random'],def:'away'}},
+    fire(d,ctx){const g=THREE.MathUtils.clamp(gapX(d.place,ctx.player().x),-arenaHW+d.slot,arenaHW-d.slot);
+      fillWall(g,d.slot,d.close,d.density,d.density);if(overlay)aimGap(ctx,g);},
+    code:d=>`} else if (id === 'curtain') {\n    const gapX = ${d.place==='at-player'?'player.position.x':d.place==='center'?'0':d.place==='random'?'(Math.random()*2-1)*8':'(-Math.sign(player.position.x||1)*7)'};\n    const HW = ${K.LANE_HW}, step = quality<0.75?${(d.density+0.4).toFixed(1)}:${d.density};   // fills X *and* Y minus a lane = a real wall\n    for (let x = -HW; x <= HW; x += step) {\n      if (Math.abs(x - gapX) < ${d.slot}) continue;\n      for (let y = ${K.LANE_MINY+1}; y <= ${K.LANE_MAXY-1}; y += step) emitBoss(x, y, 0, 0, -B.bulletSpeed*${d.close});\n    }`},
+
+  pocket:{name:'Field + pocket',cat:'fill',blurb:'Fills the ENTIRE plane except one small safe pocket, placed away from you. No edge is safe \u2014 you must reach the pocket. The hardest camp-proof shape.',
+    dials:{holeR:{l:'Pocket radius',min:2,max:5,step:.1,def:3},density:{l:'Density (gap px)',min:2,max:3.6,step:.1,def:2.5},
+      close:{l:'Closing \u00D7',min:.55,max:.95,step:.01,def:.75},place:{l:'Pocket placement',enum:['away','center','random'],def:'away'}},
+    fire(d,ctx){const p=ctx.player();const hx=d.place==='center'?0:d.place==='random'?(Math.random()*2-1)*(arenaHW-4):THREE.MathUtils.clamp(-p.x,-arenaHW+d.holeR,arenaHW-d.holeR);
+      const hy=d.place==='away'?THREE.MathUtils.clamp((K.LANE_MINY+K.LANE_MAXY)-p.y,K.LANE_MINY+d.holeR,K.LANE_MAXY-d.holeR):K.FIGHT_Y;
+      fillField(hx,hy,d.holeR,d.close,d.density);},
+    code:d=>`} else if (id === 'pocket') {\n    const hx = ${d.place==='center'?'0':d.place==='random'?'(Math.random()*2-1)*9':'Math.max(-9,Math.min(9,-player.position.x))'};\n    const hy = ${d.place==='away'?'Math.max(5,Math.min(19,'+(K.LANE_MINY+K.LANE_MAXY)+'-player.position.y))':'B.fightHeight'};   // pocket placed away from you\n    const HW = ${K.LANE_HW}, step = quality<0.75?${(d.density+0.5).toFixed(1)}:${d.density};\n    for (let x = -HW; x <= HW; x += step) for (let y = ${K.LANE_MINY+1}; y <= ${K.LANE_MAXY-1}; y += step) {\n      if (Math.hypot(x-hx, y-hy) < ${d.holeR}) continue;\n      emitBoss(x, y, 0, 0, -B.bulletSpeed*${d.close});\n    }`},
+
+  iris:{name:'Iris (shrink to centre)',cat:'fill',blurb:'A ring that contracts inward as it arrives \u2014 the safe zone shrinks to the centre. Camp an edge and the ring reaches the edge first. Forces you to the middle.',
+    dials:{rings:{l:'Rings',min:2,max:6,step:1,def:4},per:{l:'Bullets / ring',min:14,max:30,step:1,def:22},
+      rad:{l:'Start radius',min:8,max:14,step:.5,def:12},contract:{l:'Contraction',min:.3,max:1,step:.05,def:.7},
+      space:{l:'Ring spacing',min:.16,max:.4,step:.02,def:.26},close:{l:'Closing \u00D7',min:.6,max:.95,step:.02,def:.8}},
+    fire(d,ctx){const travel=K.SETTLE/(C*d.close);const inSpd=(d.rad*d.contract)/travel;
+      for(let k=0;k<d.rings;k++){const col=RING_PAL[k%RING_PAL.length];ctx.pending.push({t:k*d.space,fire:()=>{for(let i=0;i<d.per;i++){const a=(i/d.per)*Math.PI*2;
+        spawn(Math.cos(a)*d.rad,K.FIGHT_Y+Math.sin(a)*d.rad,-Math.cos(a)*inSpd,-Math.sin(a)*inSpd,-C*d.close,false,col);}}});}},
+    code:d=>`} else if (id === 'iris') {\n    const rings = ${d.rings}, m = quality<0.75?${Math.max(12,d.per-6)}:${d.per};\n    const travel = pose.rel/(B.bulletSpeed*${d.close}), inSpd = (${d.rad}*${d.contract})/travel;  // ring contracts as it closes\n    for (let k = 0; k < rings; k++) pending.push({ t: k*${d.space}, fire: () => {\n      for (let i = 0; i < m; i++) { const a = (i/m)*Math.PI*2;\n        emitBoss(Math.cos(a)*${d.rad}, B.fightHeight + Math.sin(a)*${d.rad}, -Math.cos(a)*inSpd, -Math.sin(a)*inSpd, -B.bulletSpeed*${d.close}); }\n    }});`},
+
+  movingGap:{name:'Moving-gap wall',cat:'fill',blurb:'A wall whose gap SLIDES across as it approaches. You can\u2019t pre-camp the gap \u2014 it moves before it arrives. Track it in time.',
+    dials:{rows:{l:'Rows',min:3,max:8,step:1,def:5},rowSpace:{l:'Row spacing',min:.14,max:.4,step:.01,def:.24},
+      sweep:{l:'Gap sweep / row',min:1,max:6,step:.2,def:3},gapHalf:{l:'Gap half-width',min:1.4,max:4.5,step:.1,def:2.4},
+      count:{l:'Bullets / row',min:6,max:20,step:1,def:12},close:{l:'Closing \u00D7',min:.6,max:1.05,step:.01,def:.9}},
+    fire(d,ctx){const dir=Math.random()<.5?1:-1;const g0=THREE.MathUtils.clamp(ctx.player().x,-6,6);
+      for(let k=0;k<d.rows;k++){const g=THREE.MathUtils.clamp(g0+dir*d.sweep*k,-9,9);
+        ctx.pending.push({t:k*d.rowSpace,fire:()=>{const step=24/d.count;for(let x=-12;x<=12;x+=step){if(Math.abs(x-g)<d.gapHalf)continue;spawn(x,ctx.fightY,0,0,-C*d.close);}}});}},
+    code:d=>`} else if (id === 'movingGap') {\n    const dir = Math.random()<0.5?1:-1;\n    const g0 = Math.max(-6, Math.min(6, player.position.x));\n    for (let k = 0; k < ${d.rows}; k++) {\n      const gapX = Math.max(-9, Math.min(9, g0 + dir*${d.sweep}*k));\n      pending.push({ t: k*${d.rowSpace}, fire: () => {\n        const n = quality<0.75?${Math.max(6,d.count-4)}:${d.count}, step=24/n;\n        for (let x=-12; x<=12; x+=step){ if(Math.abs(x-gapX)<${d.gapHalf})continue; emitBoss(x,B.fightHeight,0,0,-B.bulletSpeed*${d.close}); }\n      }});\n    }`},
+
+  converge:{name:'Converging walls',cat:'fill',blurb:'Two walls squeeze the safe zone inward, gap in the middle. Denies the edges you\u2019d flee to \u2014 forces centre.',
+    dials:{rows:{l:'Rows',min:3,max:8,step:1,def:5},rowSpace:{l:'Row spacing',min:.14,max:.4,step:.01,def:.26},
+      startGap:{l:'Start gap',min:5,max:11,step:.5,def:9},endGap:{l:'End gap',min:1.6,max:5,step:.2,def:2.6},close:{l:'Closing \u00D7',min:.6,max:1.05,step:.01,def:.88}},
+    fire(d,ctx){for(let k=0;k<d.rows;k++){const f=k/(d.rows-1);const half=d.startGap+(d.endGap-d.startGap)*f;
+      ctx.pending.push({t:k*d.rowSpace,fire:()=>{for(let x=-12;x<=12;x+=1.4){if(Math.abs(x)<half)continue;spawn(x,ctx.fightY,0,0,-C*d.close);}}});}},
+    code:d=>`} else if (id === 'converge') {\n    for (let k = 0; k < ${d.rows}; k++) {\n      const f = k/${d.rows-1}, half = ${d.startGap} + (${d.endGap}-${d.startGap})*f;\n      pending.push({ t: k*${d.rowSpace}, fire: () => {\n        for (let x=-12; x<=12; x+=1.4){ if(Math.abs(x)<half)continue; emitBoss(x,B.fightHeight,0,0,-B.bulletSpeed*${d.close}); }\n      }});\n    }`},
+
+  /* ---------- DEPTH STRUCTURE ---------- */
+  tunnel:{name:'Tunnel (tube)',cat:'depth',blurb:'The one pattern that uses depth as navigable space \u2014 nested rings form a tube you fly down, the safe centre weaving.',
+    dials:{rings:{l:'Rings',min:3,max:10,step:1,def:6},per:{l:'Bullets / ring',min:8,max:28,step:1,def:22},
+      space:{l:'Ring spacing',min:.12,max:.42,step:.01,def:.22},rad:{l:'Ring radius',min:4.5,max:9.5,step:.1,def:7},
+      weave:{l:'Weave amount',min:0,max:8,step:.2,def:5},close:{l:'Closing \u00D7',min:.6,max:1.05,step:.01,def:.85}},
+    fire(d,ctx){tunnelPhase+=.5;for(let k=0;k<d.rings;k++){const cx=Math.sin(tunnelPhase+k*.35)*d.weave,cy=ctx.fightY+Math.cos(tunnelPhase+k*.35)*(d.weave*.4);const col=RING_PAL[k%RING_PAL.length];
+      ctx.pending.push({t:k*d.space,fire:()=>{for(let i=0;i<d.per;i++){const a=(i/d.per)*Math.PI*2;spawn(cx+Math.cos(a)*d.rad,cy+Math.sin(a)*d.rad,0,0,-C*d.close,false,col);}}});}},
+    code:d=>`} else if (id === 'tunnel') {\n    const rings = quality<0.75?${Math.max(4,d.rings-2)}:${d.rings};\n    const m = quality<0.75?${Math.max(10,d.per-6)}:${d.per};\n    const slow = closing * ${d.close};\n    spiralPhase += 0.5;\n    for (let k = 0; k < rings; k++) {\n      const cx = Math.sin(spiralPhase + k*0.35) * ${d.weave};\n      const cy = B.fightHeight + Math.cos(spiralPhase + k*0.35) * ${(d.weave*.4).toFixed(2)};\n      pending.push({ t: k*${d.space}, fire: () => fireRing(cx, cy, ${d.rad}, m, slow) });\n    }`},
+
+  /* ---------- ANTI-FLEE ---------- */
+  stream:{name:'Tracking stream',cat:'antiflee',blurb:'A hose, not a burst. Re-aims at your LIVE position for seconds \u2014 one relocation won\u2019t beat it, you must peel away in a smooth arc.',
+    dials:{dur:{l:'Duration (s)',min:1,max:4,step:.2,def:2.4},rate:{l:'Shots / s',min:4,max:16,step:1,def:9},
+      perTick:{l:'Bullets / shot',min:1,max:4,step:1,def:2},spread:{l:'Spread',min:0,max:3,step:.1,def:1.4},close:{l:'Closing \u00D7',min:.7,max:1.1,step:.01,def:1}},
+    fire(d,ctx){const ticks=Math.round(d.dur*d.rate),dtk=1/d.rate;
+      for(let k=0;k<ticks;k++)ctx.pending.push({t:k*dtk,fire:()=>{const p=ctx.player();for(let i=0;i<d.perTick;i++){const off=(i-(d.perTick-1)/2)*d.spread;const v=aimFrom(ctx.bx(),ctx.fightY,p.x+off,p.y,C*d.close);spawn(ctx.bx(),ctx.fightY,v.vx,v.vy,-C*d.close);}}});},
+    code:d=>`} else if (id === 'stream') {\n    const ticks = ${Math.round(d.dur*d.rate)}, dtk = ${(1/d.rate).toFixed(3)};\n    for (let k = 0; k < ticks; k++) pending.push({ t: k*dtk, fire: () => {\n      const p = player.position;                 // LIVE position each tick = it tracks you\n      for (let i = 0; i < ${d.perTick}; i++) {\n        const off = (i-${((d.perTick-1)/2).toFixed(1)})*${d.spread};\n        const v = aimVel(p.x + off, p.y, B.bulletSpeed*${d.close});\n        emitBoss(pose.x, pose.y, v.vx, v.vy, -B.bulletSpeed*${d.close});\n      }\n    }});`},
+
+  secondWave:{name:'Delayed second wave',cat:'antiflee',blurb:'A spread, then a beat later a second spread offset by half a gap \u2014 the spot you just dodged into becomes unsafe. Kills \u201Cdodge once, relax\u201D.',
+    dials:{count:{l:'Bullets / wave',min:5,max:13,step:1,def:9},span:{l:'Spread span',min:10,max:18,step:.5,def:16},
+      waves:{l:'Waves',min:2,max:4,step:1,def:2},delay:{l:'Wave delay',min:.35,max:1,step:.05,def:.6},close:{l:'Closing \u00D7',min:.7,max:1.05,step:.01,def:.92}},
+    fire(d,ctx){const px=ctx.player().x;for(let w=0;w<d.waves;w++){const off=(w%2)*(d.span/d.count/2);
+      ctx.pending.push({t:w*d.delay,fire:()=>{for(let i=0;i<d.count;i++){const sx=px+(i/(d.count-1)-.5)*d.span+off;const v=aimFrom(ctx.bx(),ctx.fightY,sx,ctx.fightY,C*d.close);spawn(ctx.bx(),ctx.fightY,v.vx,0,-C*d.close);}}});}},
+    code:d=>`} else if (id === 'secondWave') {\n    const px = player.position.x;\n    for (let w = 0; w < ${d.waves}; w++) {\n      const off = (w%2)*${(d.span/d.count/2).toFixed(2)};   // half-gap offset → new gap lands on the old safe spot\n      pending.push({ t: w*${d.delay}, fire: () => {\n        for (let i = 0; i < ${d.count}; i++) {\n          const sx = px + (i/${d.count-1}-0.5)*${d.span} + off;\n          const v = aimVel(sx, B.fightHeight, B.bulletSpeed*${d.close});\n          emitBoss(pose.x, pose.y, v.vx, 0, -B.bulletSpeed*${d.close});\n        }\n      }});\n    }`},
+
+  crossfire:{name:'Cross-fire',cat:'antiflee',blurb:'Two emitters at different lane positions firing together \u2014 no single flee direction is clean.',
+    dials:{sep:{l:'Emitter sep',min:6,max:13,step:.5,def:10},each:{l:'Bullets each',min:4,max:10,step:1,def:6},
+      spread:{l:'Aim spread',min:1,max:5,step:.2,def:3},close:{l:'Closing \u00D7',min:.7,max:1.05,step:.01,def:.92}},
+    fire(d,ctx){const p=ctx.player();[-d.sep,d.sep].forEach(ex=>{for(let i=0;i<d.each;i++){const off=(i/(d.each-1)-.5)*2*d.spread;const v=aimFrom(ex,ctx.fightY,p.x+off,p.y,C*d.close);spawn(ex,ctx.fightY,v.vx,v.vy,-C*d.close,true);}});},
+    code:d=>`} else if (id === 'crossfire') {\n    const p = player.position;\n    for (const ex of [-${d.sep}, ${d.sep}]) {\n      for (let i = 0; i < ${d.each}; i++) {\n        const off = (i/${d.each-1}-0.5)*${2*d.spread};\n        const t = Math.max(pose.rel / (B.bulletSpeed*${d.close}), 0.05);\n        emitBoss(ex, B.fightHeight, (p.x+off-ex)/t, (p.y-B.fightHeight)/t, -B.bulletSpeed*${d.close});\n      }\n    }`},
+
+  /* ---------- GRAZE-BAIT (armor-gate fuel) ---------- */
+  corridor:{name:'Graze corridor',cat:'graze',blurb:'Fills the WHOLE width except a drifting safe lane \u2014 flee outside and you\u2019re in the wall, camp an edge and the lane slides off you. Thread it tight, skimming both sides = max graze = armor-break fuel.',
+    dials:{lane:{l:'Safe-lane half-width',min:2,max:5,step:.1,def:3.2},drift:{l:'Lane drift',min:0,max:8,step:.2,def:4.5},
+      dur:{l:'Duration (s)',min:1.4,max:4,step:.2,def:2.8},rate:{l:'Rows / s',min:4,max:12,step:1,def:7},close:{l:'Closing \u00D7',min:.7,max:1,step:.01,def:.85}},
+    fire(d,ctx){const ticks=Math.round(d.dur*d.rate),dtk=1/d.rate;corridorPhase+=.3;const yb=[K.LANE_MINY+2,K.FIGHT_Y,K.LANE_MAXY-2];
+      for(let k=0;k<ticks;k++)ctx.pending.push({t:k*dtk,fire:()=>{const cx=Math.sin(corridorPhase+k*.18)*d.drift;
+        for(let x=-arenaHW;x<=arenaHW;x+=2.4){if(Math.abs(x-cx)<d.lane)continue;for(const y of yb)spawn(x,y,0,0,-C*d.close);}}});},
+    code:d=>`} else if (id === 'corridor') {   // GRAZE-BAIT (flee-proof): open this when armor engages\n    const ticks = ${Math.round(d.dur*d.rate)}, dtk = ${(1/d.rate).toFixed(3)}, HW = ${K.LANE_HW};\n    const yb = [${(K.LANE_MINY+2).toFixed(1)}, B.fightHeight, ${(K.LANE_MAXY-2).toFixed(1)}];   // 3 bands = a wall, not a thin line\n    spiralPhase += 0.3;\n    for (let k = 0; k < ticks; k++) pending.push({ t: k*dtk, fire: () => {\n      const cx = Math.sin(spiralPhase + k*0.18) * ${d.drift};   // drifting safe lane → can't camp an edge\n      for (let x = -HW; x <= HW; x += 2.4) { if (Math.abs(x-cx) < ${d.lane}) continue;\n        for (const y of yb) emitBoss(x, y, 0, 0, -B.bulletSpeed*${d.close}); }\n    }});`},
+
+  field:{name:'Slow field',cat:'graze',blurb:'A lattice of slow bullets you weave through, brushing each for graze. A \u201Ccalm before the storm\u201D charge beat.',
+    dials:{cols:{l:'Columns',min:4,max:10,step:1,def:7},rowsY:{l:'Rows (y)',min:3,max:7,step:1,def:5},
+      slow:{l:'Slow \u00D7',min:.4,max:.8,step:.02,def:.55},jitter:{l:'Jitter',min:0,max:2,step:.1,def:.8}},
+    fire(d,ctx){const gw=24/(d.cols-1),gh=(K.LANE_MAXY-K.LANE_MINY-3)/(d.rowsY-1);
+      for(let cx=0;cx<d.cols;cx++)for(let ry=0;ry<d.rowsY;ry++){const x=-12+cx*gw+(Math.random()*2-1)*d.jitter,y=K.LANE_MINY+2+ry*gh+(Math.random()*2-1)*d.jitter;spawn(x,y,0,0,-C*d.slow);}},
+    code:d=>`} else if (id === 'field') {   // GRAZE-BAIT: slow lattice to weave & brush\n    const cols = ${d.cols}, rowsY = ${d.rowsY}, gw = 24/(cols-1), gh = ${((K.LANE_MAXY-K.LANE_MINY-3)/(d.rowsY-1)).toFixed(2)};\n    for (let cx=0; cx<cols; cx++) for (let ry=0; ry<rowsY; ry++) {\n      const x = -12 + cx*gw + (Math.random()*2-1)*${d.jitter};\n      const y = ${K.LANE_MINY+2} + ry*gh + (Math.random()*2-1)*${d.jitter};\n      emitBoss(x, y, 0, 0, -B.bulletSpeed*${d.slow});\n    }`},
+
+  /* ---------- GARNISH (flee-able alone; layer only) ---------- */
+  aimed:{name:'Aimed-N',cat:'garnish',blurb:'2\u20133 shots straight at you. Flee-able alone \u2014 use it ON a wall\u2019s gap or the corner you\u2019d flee to. (Turn on the overlay toggle.)',
+    dials:{count:{l:'Bullets',min:1,max:5,step:1,def:3},spread:{l:'Spread',min:.8,max:3,step:.1,def:1.6},close:{l:'Closing \u00D7',min:.8,max:1.1,step:.01,def:1}},
+    fire(d,ctx){const p=ctx.player();for(let i=0;i<d.count;i++){const off=(i-(d.count-1)/2)*d.spread;const v=aimFrom(ctx.bx(),ctx.fightY,p.x+off,p.y,C*d.close);spawn(ctx.bx(),ctx.fightY,v.vx,v.vy,-C*d.close,true);}},
+    code:d=>`} else if (id === 'aimed') {\n    for (let i = -${(d.count-1)/2}; i <= ${(d.count-1)/2}; i++) {\n      const v = aimVel(player.position.x + i*${d.spread}, player.position.y, B.bulletSpeed*${d.close});\n      emitBoss(pose.x, pose.y, v.vx, v.vy, -B.bulletSpeed*${d.close});\n    }`},
+
+  spiral:{name:'Rotating spiral',cat:'garnish',blurb:'Rotating arms with a sweeping gap. A one-shot radial is edge-dodgeable \u2014 rotation makes it earn its keep.',
+    dials:{arms:{l:'Arms',min:1,max:4,step:1,def:2},steps:{l:'Steps',min:8,max:20,step:1,def:14},
+      stepDelay:{l:'Step delay',min:.06,max:.2,step:.01,def:.12},rot:{l:'Rotation',min:.2,max:.8,step:.02,def:.45},close:{l:'Closing \u00D7',min:.7,max:1,step:.01,def:.8}},
+    fire(d,ctx){spiralPhase+=.6;for(let k=0;k<d.steps;k++){const a0=spiralPhase+k*d.rot;
+      ctx.pending.push({t:k*d.stepDelay,fire:()=>{for(let arm=0;arm<d.arms;arm++){const a=a0+arm*(Math.PI*2/d.arms);spawn(ctx.bx(),ctx.fightY,Math.cos(a)*8,Math.sin(a)*8,-C*d.close);}}});}
+      spiralPhase+=d.steps*d.rot;},
+    code:d=>`} else if (id === 'spiralStream') {\n    const steps = quality<0.75?${Math.max(8,d.steps-4)}:${d.steps}, slow = closing*${d.close};\n    for (let k = 0; k < steps; k++) {\n      const a0 = spiralPhase + k*${d.rot};\n      pending.push({ t: k*${d.stepDelay}, fire: () => {\n        for (let arm = 0; arm < ${d.arms}; arm++) { const a = a0 + arm*${(Math.PI*2/d.arms).toFixed(3)};\n          emitBoss(pose.x, pose.y, Math.cos(a)*8, Math.sin(a)*8, -slow); }\n      }});\n    }\n    spiralPhase += steps*${d.rot};`},
+};
+let tunnelPhase=0,spiralPhase=0,corridorPhase=0;
+const CATS={fill:'Space-filler',depth:'Depth structure',antiflee:'Anti-flee',graze:'Graze-bait',garnish:'Garnish'};
+const CATCLASS={fill:'c-fill',depth:'c-depth',antiflee:'c-antiflee',graze:'c-graze',garnish:'c-garnish'};
+
+// overlay garnish: aimed shots dropped ON a wall's gap
+let overlay=false;
+function aimGap(ctx,gx){const p=ctx.player();for(let i=-1;i<=1;i++){const v=aimFrom(ctx.bx(),ctx.fightY,gx+i*1.2,ctx.fightY,C);spawn(ctx.bx(),ctx.fightY,v.vx,v.vy,-C);}}
+
+/* ── dial values (persist per pattern) ── */
+const dialVals={};
+for(const[id,p]of Object.entries(PATTERNS)){dialVals[id]={};for(const[k,d]of Object.entries(p.dials))dialVals[id][k]=d.def;}
+let curPat='curtain';
+
+/* ── ctx + firing ── */
+const pending=[];
+function ctx(){return{bx:()=>boss.position.x,player:()=>dragon.position,pending,fightY:K.FIGHT_Y,hw:K.LANE_HW};}
+function firePattern(id){PATTERNS[id].fire(dialVals[id],ctx());}
+
+/* ── ECONOMY (armor gate) ── */
+let mode='practice';
+const eco={hp:1,surge:0,armored:false,gates:[0.66,0.33],gateIdx:0,surgeActive:0,armoredTime:0,
+  spg:0.045,chip:6,hard:true,bossPat:'curtain',phasePool:['curtain','fan','aimed']};
+function resetFight(){eco.hp=1;eco.surge=0;eco.armored=false;eco.gateIdx=0;eco.surgeActive=0;eco.armoredTime=0;for(const s of bullets)s.active=false;pending.length=0;}
+const PHASE_POOLS=[['curtain','movingGap','pocket','aimed'],['curtain','tunnel','iris','crossfire','secondWave'],['pocket','tunnel','converge','iris','spiral','stream']];
+function bossPhaseIdx(){return eco.hp>0.66?0:eco.hp>0.33?1:2;}
+let bossFireTimer=1;
+function popSurge(){if(eco.surge<1||eco.surgeActive>0)return;eco.surgeActive=4;eco.surge=0;
+  if(eco.armored){eco.armored=false;eco.gateIdx++;flashBreak=.5;}}
+let flashBreak=0;
+
+/* ── input ── */
+const target={x:0,y:K.START_Y};
+function pm(e){const r=renderer.domElement.getBoundingClientRect();const nx=((e.clientX-r.left)/r.width)*2-1,ny=((e.clientY-r.top)/r.height)*2-1;
+  target.x=THREE.MathUtils.clamp(nx*K.LANE_HW,-K.LANE_HW,K.LANE_HW);target.y=THREE.MathUtils.clamp(K.START_Y-ny*(K.LANE_MAXY-K.LANE_MINY)*.5,K.LANE_MINY,K.LANE_MAXY);}
+renderer.domElement.addEventListener('pointermove',pm);renderer.domElement.addEventListener('pointerdown',pm);
+addEventListener('keydown',e=>{if(e.code==='Space'){e.preventDefault();popSurge();}if(e.code==='ShiftLeft'||e.code==='ShiftRight'){e.preventDefault();if(reflectDemo)doParry();}});
+
+/* ── counters / loop ── */
+let dist=0,hits=0,grazes=0,flashHit=0,flashGrz=0,P_size=1.0,slow=false;
+let cueShadow=true,cueTint=true,cueReach=false,cueMarker=false,reflectDemo=false,parries=0,ringBand=true,bloomOn=true;
+const cMag=new THREE.Color(0xff2b6a),cHot=new THREE.Color(0xffffff),cCyanDim=new THREE.Color(0x1f7fd0),cCyanHot=new THREE.Color(0x9ff0ff),cTmp=new THREE.Color(),cBase=new THREE.Color();
+function refreshPtMode(){const per=cueTint||ringBand;if(per){ptMat.map=WHITE_TEX;ptMat.vertexColors=true;}else{ptMat.map=CORE_TEX;ptMat.vertexColors=false;}ptMat.color.setHex(0xffffff);ptMat.needsUpdate=true;}
+function setTint(on){cueTint=on;refreshPtMode();}
+function setBloom(on){bloomOn=on;const b=on?THREE.AdditiveBlending:THREE.NormalBlending;
+  meshBullets.material.blending=b;meshBullets.material.transparent=on;meshBullets.material.depthWrite=!on;meshBullets.material.opacity=on?.95:1;meshBullets.material.needsUpdate=true;
+  ptMat.blending=b;ptMat.depthWrite=false;ptMat.needsUpdate=true;}
+function doParry(){let n=0;for(const s of bullets){if(s.active&&s.reflectable&&!s.refl&&s.rel>=0&&s.rel<=REACH_REL){const dx=s.x-dragon.position.x,dy=s.y-dragon.position.y;
+  if(dx*dx+dy*dy<=REACH_R*REACH_R){s.refl=true;s.reflectable=false;const t=Math.max((K.SETTLE-s.rel)/52,.05);s.vx=(boss.position.x-s.x)/t;s.vy=(boss.position.y-s.y)/t;s.vrel=52;parries++;n++;}}}
+  if(n)flashBreak=.4;}
+const clock=new THREE.Clock();const hud=document.getElementById('hud');
+function frame(){requestAnimationFrame(frame);let dt=Math.min(clock.getDelta(),.05);if(slow)dt*=.5;const t=clock.elapsedTime;
+  dist+=K.CRUISE*dt;
+  const px=dragon.position.x,py=dragon.position.y;
+  dragon.position.x+=(target.x-px)*Math.min(dt*8,1);dragon.position.y+=(target.y-py)*Math.min(dt*8,1);dragon.position.z=-dist;
+  // arena constriction: ease width toward target, clamp the dragon inside, animate walls
+  arenaTarget=constrictOn?6.5:K.LANE_HW; arenaHW+=(arenaTarget-arenaHW)*Math.min(dt*2.2,1);
+  dragon.position.x=THREE.MathUtils.clamp(dragon.position.x,-arenaHW+0.6,arenaHW-0.6);
+  const wallShow=arenaHW<K.LANE_HW-0.3;const wy=(K.LANE_MINY+K.LANE_MAXY)/2,wz=dragon.position.z-70;
+  wallL.position.set(-arenaHW,wy,wz);wallR.position.set(arenaHW,wy,wz);
+  wallL.material.opacity+=((wallShow?.55:0)-wallL.material.opacity)*Math.min(dt*5,1);wallR.material.opacity=wallL.material.opacity;
+  dragon.rotation.z=THREE.MathUtils.clamp((target.x-px)*-.06,-.5,.5);dragon.rotation.x=THREE.MathUtils.clamp((target.y-py)*.03,-.3,.3);
+  arc.material.opacity=.5+.3*Math.sin(t*4);
+  camera.position.set(dragon.position.x,dragon.position.y+K.CAM_UP,dragon.position.z+K.CAM_BACK);
+  camera.lookAt(dragon.position.x,dragon.position.y,dragon.position.z-K.CAM_LOOK);
+  const bx=Math.sin(t*.7)*5,by=K.FIGHT_Y+Math.sin(t*1.3)*.8;boss.position.set(bx,by,-(dist+K.SETTLE));boss.rotation.y+=dt*.6;spikes.rotation.x-=dt*.4;
+  armorShell.material.opacity+=(( (mode==='boss'&&eco.armored)?.7:0)-armorShell.material.opacity)*Math.min(dt*6,1);
+  armorShell.rotation.y-=dt*.9;
+  [ringHit,ringGrz].forEach(r=>{r.position.copy(dragon.position);r.lookAt(camera.position);});
+
+  /* firing */
+  if(mode==='practice'){autoTimer-=dt;if(auto&&autoTimer<=0&&pending.length===0){firePattern(curPat);autoTimer=volleyDur(curPat);}}
+  else{ // boss mode
+    if(eco.armored){eco.armoredTime+=dt;if(!eco.hard)eco.hp=Math.max(.02,eco.hp-(eco.chip*.3/100)*dt);bossFireTimer-=dt;if(bossFireTimer<=0&&pending.length===0){firePattern('corridor');bossFireTimer=volleyDur('corridor')+.3;}}
+    else{ // chip + cycle phase patterns
+      eco.hp=Math.max(0,eco.hp-(eco.chip/100)*dt* (eco.surgeActive>0?2:1));
+      // armor gate check
+      if(eco.gateIdx<eco.gates.length&&eco.hp<=eco.gates[eco.gateIdx]){eco.armored=true;if(eco.hard)eco.hp=eco.gates[eco.gateIdx];pending.length=0;bossFireTimer=.4;}
+      bossFireTimer-=dt;if(bossFireTimer<=0&&pending.length===0){const pool=PHASE_POOLS[bossPhaseIdx()];const pick=pool[Math.random()*pool.length|0];firePattern(pick);bossFireTimer=volleyDur(pick);}
+    }
+    if(eco.surgeActive>0)eco.surgeActive=Math.max(0,eco.surgeActive-dt);
+  }
+  for(let i=pending.length-1;i>=0;i--){pending[i].t-=dt;if(pending[i].t<=0){pending[i].fire();pending.splice(i,1);}}
+
+  /* bullets update + faithful collision */
+  const dpx=dragon.position.x,dpy=dragon.position.y;let mi=0,pi=0,shn=0;
+  const posA=ptGeo.attributes.position.array,colA=ptGeo.attributes.color.array,shA=shGeo.attributes.position.array;
+  const m4=new THREE.Matrix4(),q=new THREE.Quaternion(),e=new THREE.Euler(),sc=new THREE.Vector3(),pos=new THREE.Vector3();
+  const rB=K.B_R*P_size, PROX=13;
+  for(let idx=0;idx<K.POOL;idx++){const s=bullets[idx];if(!s.active)continue;
+    s.prevRel=s.rel;s.rel+=s.vrel*dt;s.x+=s.vx*dt;s.y+=s.vy*dt;s.life-=dt;const wz=-(dist+s.rel);
+    if(s.refl){ // reflected → travels to the boss
+      if(s.rel>=K.SETTLE-2.5){const dx=s.x-boss.position.x,dy=s.y-boss.position.y;if(dx*dx+dy*dy<12&&mode==='boss'&&!eco.armored)eco.hp=Math.max(0,eco.hp-0.05);s.active=false;continue;}
+      if(s.rel>K.SETTLE+4){s.active=false;continue;}
+    } else {
+      if(s.prevRel>0&&s.rel<=0){const dx=s.x-dpx,dy=s.y-dpy,d2=dx*dx+dy*dy;
+        if(d2<HIT_R*HIT_R){hits++;flashHit=.18;if(mode==='boss'){eco.surge=Math.max(0,eco.surge-.15);}}
+        else if(d2<GRAZE_R*GRAZE_R){grazes++;flashGrz=.14;if(mode==='boss'&&!eco.surgeActive)eco.surge=Math.min(1,eco.surge+eco.spg);}
+        s.active=false;continue;}
+      if(s.rel<-3||s.life<=0||Math.abs(s.x)>K.LANE_HW+8||s.y<-3||s.y>32){s.active=false;continue;}
+    }
+    // ground shadow (depth cue) — position on the floor, slides toward you as it nears
+    if(cueShadow){shA[shn*3]=s.x;shA[shn*3+1]=0.08;shA[shn*3+2]=wz;shn++;}
+    // per-bullet colour: base = ring band (or danger), flare toward white by nearness, reflectable = cyan
+    const prox=Math.min(Math.max(1-s.rel/PROX,0),1),f=prox*prox;
+    if(s.refl){cTmp.copy(cCyanHot);}
+    else if(s.reflectable){const inWin=s.rel<=REACH_REL?1:0;cTmp.copy(cCyanDim).lerp(cCyanHot,Math.max(cueTint?f:0,inWin*0.8));}
+    else{cBase.setHex(ringBand?s.col:0xff2b6a);cTmp.copy(cBase);if(cueTint)cTmp.lerp(cHot,f);}
+    if(bulletStyle==='bill'){posA[pi*3]=s.x;posA[pi*3+1]=s.y;posA[pi*3+2]=wz;
+      if(cueTint||ringBand){colA[pi*3]=cTmp.r;colA[pi*3+1]=cTmp.g;colA[pi*3+2]=cTmp.b;}
+      pi++;}
+    else{e.set(s.x*.3,s.rel*.3,0);q.setFromEuler(e);m4.compose(pos.set(s.x,s.y,wz),q,sc.setScalar(rB));meshBullets.setMatrixAt(mi,m4);meshBullets.setColorAt(mi,cTmp);mi++;}}
+  for(let j=mi;j<K.POOL;j++)meshBullets.setMatrixAt(j,HIDDEN);
+  meshBullets.instanceMatrix.needsUpdate=true;if(meshBullets.instanceColor)meshBullets.instanceColor.needsUpdate=true;
+  ptGeo.setDrawRange(0,pi);ptGeo.attributes.position.needsUpdate=true;if(cueTint||ringBand)ptGeo.attributes.color.needsUpdate=true;ptMat.size=2*P_size;
+  shadowPts.visible=cueShadow;if(cueShadow){shGeo.setDrawRange(0,shn);shGeo.attributes.position.needsUpdate=true;}
+  // parry reach volume + plane marker follow the dragon at its depth
+  reachVol.position.set(dragon.position.x,dragon.position.y,dragon.position.z-REACH_REL/2);
+  reachVol.material.opacity+=(((cueReach)?.14:0)-reachVol.material.opacity)*Math.min(dt*6,1);
+  planeRing.position.set(dragon.position.x,dragon.position.y,dragon.position.z);planeRing.lookAt(camera.position);
+  planeRing.material.opacity+=(((cueMarker)?.5:0)-planeRing.material.opacity)*Math.min(dt*6,1);
+
+  flashHit=Math.max(0,flashHit-dt);flashGrz=Math.max(0,flashGrz-dt);
+  ringHit.material.opacity=.55+flashHit*3;ringGrz.material.opacity=.35+flashGrz*3;body.material.emissiveIntensity=.5+flashHit*4;
+  orb.material.emissiveIntensity=.9+(eco.surgeActive>0?.8:0)+flashBreak*3;flashBreak=Math.max(0,flashBreak-dt);
+  renderer.render(scene,camera);
+
+  /* HUD + meters */
+  const n=activeCount(),react=(K.SETTLE/(K.B_SPEED*(dialVals[curPat].close||1)));
+  hud.innerHTML=`<div>bullets <b>${n}</b>/${K.POOL} ${n>280?'<span class="warn">\u26A0 near cap</span>':''}</div>`+
+    `<div>reaction \u2248 <b>${react.toFixed(2)}s</b> \u00B7 hits <span class="warn">${hits}</span> \u00B7 grazes <span style="color:var(--cyan)">${grazes}</span>${reflectDemo?` \u00B7 parries <span style="color:var(--cyan)">${parries}</span>`:''}</div>`+
+    (mode==='boss'?`<div>${eco.armored?`<span class="warn">ARMORED \u2014 stalled ${eco.armoredTime.toFixed(1)}s</span>`:'chipping'} \u00B7 surge ${(eco.surge*100|0)}%${eco.surgeActive>0?' <span class="ok">\u2726 ACTIVE</span>':''}</div>`:'');
+  document.getElementById('hpFill').style.width=(mode==='boss'?eco.hp*100:0)+'%';
+  document.getElementById('suFill').style.width=(mode==='boss'?eco.surge*100:0)+'%';
+  document.getElementById('meters').style.opacity=mode==='boss'?1:.25;
+  document.getElementById('armorTag').textContent=(mode==='boss'&&eco.armored)?(eco.surge>=1?'\u2726 SURGE READY \u2014 press SPACE to break armor':'ARMOR UP \u2014 graze to charge surge'):(eco.surgeActive>0?'\u2726 SURGE ACTIVE':'');
+}
+let auto=true,autoTimer=.6;
+function volleyDur(id){if(['tunnel','corridor','iris'].includes(id))return (dialVals[id].rings||dialVals[id].dur*(dialVals[id].rate||1)||6)*(dialVals[id].space||.15)+1.2;
+  if(['stream'].includes(id))return dialVals[id].dur+.8;if(['movingGap','converge','secondWave','spiral'].includes(id))return 1.6;return 1.3;}
+frame();
+
+/* ─────────────────────────── UI WIRING ─────────────────────────── */
+// pattern list grouped by category
+const plist=document.getElementById('plist');
+const order=['fill','depth','antiflee','graze','garnish'];
+order.forEach(cat=>{const h=document.createElement('div');h.className='cathdr '+CATCLASS[cat];h.textContent=CATS[cat];plist.appendChild(h);
+  for(const[id,p]of Object.entries(PATTERNS))if(p.cat===cat){const el=document.createElement('div');el.className='pitem '+CATCLASS[cat]+(id===curPat?' sel':'');
+    el.innerHTML=`<span class="dot"></span><span>${p.name}</span><span class="badge">${cat==='fill'?'fill':cat==='antiflee'?'anti-flee':cat==='graze'?'graze':cat==='depth'?'depth':'garnish'}</span>`;
+    el.onclick=()=>selectPattern(id);plist.appendChild(el);}});
+function selectPattern(id){curPat=id;document.querySelectorAll('.pitem').forEach(e=>e.classList.remove('sel'));
+  [...document.querySelectorAll('.pitem')].find(e=>e.querySelector('span:nth-child(2)').textContent===PATTERNS[id].name)?.classList.add('sel');
+  document.getElementById('patBlurb').innerHTML=PATTERNS[id].blurb;document.getElementById('dialName').textContent=PATTERNS[id].name;buildDials(id);autoTimer=.1;pending.length=0;}
+function buildDials(id){const box=document.getElementById('dials');box.innerHTML='';const p=PATTERNS[id];
+  for(const[k,d]of Object.entries(p.dials)){
+    if(d.enum){const row=document.createElement('div');row.className='row';row.innerHTML=`<label>${d.l}</label>`;
+      const sel=document.createElement('select');sel.style.width='auto';sel.style.flex='0 0 auto';
+      d.enum.forEach(o=>{const op=document.createElement('option');op.value=o;op.textContent=o;sel.appendChild(op);});
+      sel.value=dialVals[id][k];sel.onchange=e=>dialVals[id][k]=e.target.value;row.appendChild(sel);box.appendChild(row);
+    }else{const row=document.createElement('div');row.className='row';const vid=`d_${id}_${k}`;
+      row.innerHTML=`<label>${d.l}</label><span class="val" id="${vid}">${dialVals[id][k]}</span>`;box.appendChild(row);
+      const wrap=document.createElement('div');wrap.className='rangewrap';const inp=document.createElement('input');inp.type='range';
+      inp.min=d.min;inp.max=d.max;inp.step=d.step;inp.value=dialVals[id][k];
+      inp.oninput=e=>{const v=parseFloat(e.target.value);dialVals[id][k]=v;document.getElementById(vid).textContent=(d.step<1?v.toFixed(2):v);};
+      wrap.appendChild(inp);box.appendChild(wrap);}}}
+selectPattern('curtain');
+
+// mode
+document.querySelectorAll('[data-mode]').forEach(b=>b.onclick=()=>{mode=b.dataset.mode;
+  document.querySelectorAll('[data-mode]').forEach(x=>x.classList.toggle('on',x===b));
+  document.getElementById('modeNote').innerHTML=mode==='boss'
+    ?'Boss cycles patterns by HP band. At <b>66%</b> and <b>33%</b> it ARMORS \u2014 chip pings off, and only a graze-charged <b>Surge</b> breaks it. Flee and the fight stalls.'
+    :'Fires the selected pattern on a loop so you can tune its dials in isolation.';
+  if(mode==='boss')resetFight();});
+document.getElementById('modeNote').innerHTML='Fires the selected pattern on a loop so you can tune its dials in isolation.';
+
+// economy sliders
+function b(id,key,fmt,after){const el=document.getElementById(id),out=document.getElementById(id+'V');
+  const set=v=>{eco[key]=parseFloat(v);if(out)out.textContent=fmt?fmt(eco[key]):v;if(after)after();};el.oninput=e=>set(e.target.value);el.value=eco[key];set(eco[key]);}
+b('spg','spg',v=>v.toFixed(3));b('chip','chip',v=>v.toFixed(1)+'/s');
+function tog(id,fn,init){const el=document.getElementById(id);let on=init;el.classList.toggle('on',on);el.onclick=()=>{on=!on;el.classList.toggle('on',on);fn(on);};fn(on);}
+tog('hardT',v=>eco.hard=v,true);
+document.getElementById('surgeBtn').onclick=popSurge;
+document.getElementById('rezBtn').onclick=resetFight;
+document.getElementById('ecoNote').innerHTML='POP SURGE (or Space) when the bar is full. During armor that breaks the plating; otherwise it\u2019s 2\u00D7 chip + a flourish.';
+
+// overlay + look
+tog('overlayT',v=>overlay=v,false);
+tog('constrictT',v=>constrictOn=v,false);
+document.querySelectorAll('[data-style]').forEach(x=>x.onclick=()=>setStyle(x.dataset.style));
+document.querySelectorAll('[data-sky]').forEach(x=>x.onclick=()=>setSky(x.dataset.sky));
+(function(){const el=document.getElementById('size'),out=document.getElementById('sizeV');const set=v=>{P_size=parseFloat(v);out.textContent=P_size.toFixed(2)+'\u00D7';};el.oninput=e=>set(e.target.value);el.value=1;set(1);})();
+tog('ringsShowT',v=>{ringHit.visible=v;ringGrz.visible=v;},true);
+tog('slowT',v=>slow=v,false);
+tog('shadowT',v=>cueShadow=v,true);
+tog('tintT',v=>setTint(v),true);
+tog('markerT',v=>cueMarker=v,false);
+tog('reachT',v=>cueReach=v,false);
+tog('bandT',v=>{ringBand=v;refreshPtMode();},true);
+tog('bloomT',v=>setBloom(v),true);
+tog('reflectT',v=>{reflectDemo=v;document.getElementById('parryBtn').classList.toggle('show',v);if(!v)for(const s of bullets){s.reflectable=false;}},false);
+document.getElementById('parryBtn').addEventListener('pointerdown',ev=>{ev.preventDefault();ev.stopPropagation();doParry();});
+
+// panel toggle
+document.getElementById('tabBtn').onclick=()=>document.getElementById('panel').classList.toggle('hidden');
+
+/* ── EXPORT ── */
+let expAll=false;tog('expAllT',v=>expAll=v,false);
+function buildExport(){
+  const stamp=new Date().toISOString().slice(0,10);
+  const head=`# Dragon Drift boss \u2014 tuned pattern spec (Danmaku Lab, ${stamp})\n`+
+    `# Implement per dragon-drift-boss-retune.md, into reforged/js/boss.js executeAttack()\n`+
+    `# and bossDefs.js. Numbers below are FEEL-TUNED starting values, not final.\n`+
+    `# Frame is player-relative: emitBoss spawns at rel = pose.rel (= settleGap).\n`;
+  const ids=expAll?Object.keys(PATTERNS):[curPat];
+  let out=head+`\n// ===== executeAttack() branches =====\n`;
+  ids.forEach(id=>{out+=`\n// [${CATS[PATTERNS[id].cat]}] ${PATTERNS[id].name}\n${PATTERNS[id].code(dialVals[id])}\n`;});
+  // config + wiring
+  out+=`\n// ===== CONFIG additions (config.js -> CONFIG.BOSS) =====\n`+
+    `//   grazeScale: ${GRAZE_SCALE},           // graze band outer = playerRadius*this + bulletRadius (~${GRAZE_R.toFixed(2)})\n`;
+  if(expAll){
+    out+=`//   surgePerGraze: ${eco.spg.toFixed(3)},      // surge charge per grazed bullet in a fight\n`+
+      `//   riderChipPerSec: ${eco.chip.toFixed(1)},     // (approx) boss hp% chipped per second by the rider\n`+
+      `//   armorGates: [0.66, 0.33],   // hp fractions where armor engages; only a Surge break advances\n`+
+      `//   armorHard: ${eco.hard},           // true = chip does 0 while armored\n`+
+      `\n// ===== bossDefs.js phase wiring (suggested) =====\n`+
+      `// phases: [\n`+
+      `//   { atFrac: 1.00, cadence: [1.5,2.1], attacks: ['curtain','movingGap','pocket','aimed'] },\n`+
+      `//   { atFrac: 0.66, cadence: [1.2,1.7], attacks: ['curtain','tunnel','iris','crossfire','secondWave'] },  // armor gate here → 'corridor'\n`+
+      `//   { atFrac: 0.33, cadence: [1.0,1.5], attacks: ['pocket','tunnel','converge','iris','stream'] },          // armor gate here → 'corridor'\n`+
+      `// ]\n`+
+      `// FLEE-PROOFING: curtain/pocket/iris fill or shrink the plane; corridor fills full width minus a drifting\n`+
+      `// lane. The armor-break bait MUST be one of these (a 1D line of bullets is always dodgeable in X/Y).\n`+
+      `// Optional: constrict the lane during an attack (reuse the Sky-Canyon wall clamp) so fills are cheap and edgeless.\n`+
+      `// ]\n`+
+      `// Armor gate: on crossing into a phase, set armored=true, freeze hp, open 'corridor' (graze-bait);\n`+
+      `// grazing charges surge; popping Surge sets armored=false and lets hp fall to the next band.\n`;
+  }
+  out+=`\n// Remember: add each new attack id to the whitelist in tests/boss.mjs, and mark\n// streamed ones (tunnel, corridor, iris, stream, movingGap, converge, spiralStream) as SUSTAINED.\n`;
+  if(cueShadow||cueTint||reflectDemo){
+    out+=`\n// ===== DEPTH CUES (shippable) — bossBullets.js =====\n`+
+    `// Perspective hides how far a bullet is. These make arrival/parry timing readable.\n`;
+    if(cueTint)out+=`//\n// 1) TIME-TO-IMPACT TINT via instanceColor (your bullets are an InstancedMesh):\n`+
+      `//    In initBossBullets: mesh.instanceColor = new THREE.InstancedBufferAttribute(new Float32Array(POOL*3),3);\n`+
+      `//    Per bullet each frame, colour by nearness (rel small = imminent):\n`+
+      `//      const prox = Math.min(Math.max(1 - s.rel/13, 0), 1), f = prox*prox;\n`+
+      `//      // danger warms magenta->white; reflectable reads cyan and flares in the parry window:\n`+
+      `//      if (s.reflectable) tmp.copy(CYAN_DIM).lerp(CYAN_HOT, Math.max(f, s.rel<=reflectWindowRel?0.8:0));\n`+
+      `//      else               tmp.copy(DANGER).lerp(WHITE, f);\n`+
+      `//      mesh.setColorAt(i, tmp);  // set mesh.instanceColor.needsUpdate = true after the loop\n`;
+    if(cueShadow)out+=`//\n// 2) GROUND SHADOWS (the fix for overlapping rings — disambiguates depth on the floor):\n`+
+      `//    A second InstancedMesh/Points of soft dark discs; per bullet put one at (s.x, groundY+0.05, worldZ).\n`+
+      `//    Overlapping rings then cast separated shadows at different distances = you see which lands first.\n`;
+    if(reflectDemo)out+=`//\n// 3) PARRY TELEGRAPH: mark reflectable bullets cyan (above) and draw the roll's reach\n`+
+      `//    (reflectBossBullets uses ~3 units x/y, rel 0..windowRel) as a faint volume ahead of the dragon.\n`+
+      `//    A bullet is parryable when it's inside that volume AND flaring — reaction, not distance-guess.\n`;
+  }
+  if(ringBand||!bloomOn){
+    out+=`\n// ===== RING READABILITY (shippable) — boss.js + bossBullets.js =====\n`;
+    if(ringBand)out+=`// PER-RING COLOUR BANDING — the fix for "successive rings merge into one mesh".\n`+
+      `//   const RING_PAL = [0xff3020, 0xff2b9a, 0xffb020];\n`+
+      `//   In tunnel/iris, colour each ring by its index k and thread it through to the bullet:\n`+
+      `//     const col = RING_PAL[k % RING_PAL.length];\n`+
+      `//     ...fireRing(cx, cy, r, m, slow, col)  ->  emitBoss(..., col)  ->  spawnBossBullet({..., color: col})\n`+
+      `//   Then colour the instance: mesh.setColorAt(i, tmp.setHex(bullet.color)); mesh.instanceColor.needsUpdate = true.\n`+
+      `//   (Add instanceColor in initBossBullets as in the depth-cue block.) Overlapping rings now read as bands.\n`;
+    if(!bloomOn)out+=`// BULLET BLOOM: additive blending sums to white where bullets pile up (kills ring structure).\n`+
+      `//   For dense patterns, render bullets with NormalBlending + solid (opaque) material so edges survive;\n`+
+      `//   keep additive only for sparse/hero moments. In this lab: bloom OFF looked cleaner for tunnels.\n`;
+  }
+  return out;
+}
+document.getElementById('expBtn').onclick=()=>{document.getElementById('expOut').value=buildExport();document.getElementById('modal').classList.add('show');};
+document.getElementById('closeBtn').onclick=()=>document.getElementById('modal').classList.remove('show');
+document.getElementById('copyBtn').onclick=async()=>{const ta=document.getElementById('expOut');ta.select();
+  try{await navigator.clipboard.writeText(ta.value);document.getElementById('copyBtn').textContent='Copied \u2713';setTimeout(()=>document.getElementById('copyBtn').textContent='Copy to clipboard',1400);}
+  catch{document.execCommand('copy');}};
+document.getElementById('dlBtn').onclick=()=>{const blob=new Blob([document.getElementById('expOut').value],{type:'text/markdown'});
+  const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='dragon-drift-boss-patterns.md';a.click();};
+
+// init
+setSky('sunset');setStyle('bill');
+addEventListener('resize',()=>{camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix();renderer.setSize(innerWidth,innerHeight);});
+</script>
+</body>
+</html>
