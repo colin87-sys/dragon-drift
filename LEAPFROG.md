@@ -4434,3 +4434,106 @@ PATTERN DIALS (the lab's dial values baked into the def, not the branch) would m
 fully data — one branch per shape, per-boss tuning in bossDefs. And the constriction system
 generalizes to non-boss set-pieces (a narrowing storm-front mid-run). Next critique phases: P3
 economy mid-band, P4 pulse gates + biome-weighted overlays, P5 accessibility.
+
+### L113 — Boss focus ring: one circle, HP-bar-paced draw, and killing the "graze" jargon
+
+**Did / learned.** Three small readability follow-ups on live feedback. (1) **One circle, not two.** The focus reticle
+still drew BOTH the graze-radius (outer) and hit-radius (inner) rings — the outer read as clutter. Collapsed to a single
+clean ring at a fixed framing radius (2.1, just off the body) so it frames the dragon without cutting through it or
+stacking concentric rings. (2) **Pace the reveal to an existing beat.** The draw-on was an exponential ease (~0.5s, felt
+abrupt); switched to a STEADY LINEAR sweep that takes exactly one `HP_REVEAL` to complete — the same duration as the boss
+health bar filling — so the two "fills from nothing" reads feel like one connected moment instead of two unrelated
+animations. (3) **Name mechanics in player words.** "GRAZE THE RINGS" and the "GRAZE" HUD counter are insider danmaku
+jargon — meaningless to a normal player. Reworded the callout to "FLY CLOSE TO THE RINGS → CHARGE SURGE" (says the action
+AND the reward) and relabelled the counter "SKIMS". Internals keep the `graze*` names; only the surfaced words changed.
+
+**→ Systematize.** (a) **One indicator, one job** — don't show two concentric rings when one communicates; extra rings
+read as noise, not information. (b) **Reuse timings, don't invent them** — when a new animation sits near an existing one
+(HP fill, stamina fade), drive it off the SAME duration constant so they read as a single orchestrated beat; a bespoke
+rate makes them feel disconnected. (c) **Surfaced text ≠ code identifiers** — a mechanic can keep its precise internal
+name (`graze`) while its player-facing label says what a newcomer would (fly close / skim); audit the *displayed* strings
+against "would a non-player understand this?", separately from the code. State the action and its payoff in the same line.
+
+**→ Leapfrog (innovate).** The linear-sweep-over-a-shared-constant is the reusable rule for any paired reveal (a mode's
+vitals fading while its indicator draws in on the same clock). And the jargon audit is a repeatable pass: every
+surfaced verb (graze→skim, parry, thread, gate) gets checked against a first-time player before ship. Verified: `boss.mjs`
+(8), `bossboot` zero-error, `smoke`, `tricount` 203265; a capture shows a single ring mid-sweep + the "SKIMS" label. The
+human judges the ring size and draw pace live.
+
+### L114 — The focus ring earns a second job: a Surge-time DRAIN METER (and why a full ring behind it defeats it)
+
+**Did / learned.** The circle around the dragon was decorative during a fight; gave it a JOB during Surge — it becomes
+the surge-timer. Built as a dim TRACK + a bright FILL arc revealed by `setDrawRange` (an angular wipe — no per-frame
+geometry rebuilds, unlike the earlier thetaLength approach). Normal fight = full cyan circle; Surge = the fill tints
+pink and DRAINS full→empty as `feverTimer/feverDuration` runs down, revealing the dim track, with a glowing comet at
+the draining edge. So "how long is left" is a spatial read AT the dragon, not another HUD bar. **The gotcha:** the Surge
+aura still drew a FULL pink hoop at almost the same radius — sitting behind the draining meter, it filled the drain gap
+and hid the exact thing the meter exists to show. Fix: remove the hoop entirely (the meter IS the ring now) and push
+the aura's lightning further out. Two other tweaks: reworded the shield hint to "FLY THROUGH THE RINGS" (clearest verb),
+and raised bullets-per-ring (tunnel 16→22, graze-bait 11→15) so each ring reads as a fuller, more distinct circle —
+denser outline = easier to tell consecutive rings apart.
+
+**→ Systematize.** (a) **Give an existing on-screen element a second job before adding a new one** — the focus ring was
+already there, already anchored to the dragon; making it the surge meter adds information with zero new UI. Reuse beats
+addition. (b) **A meter needs a CLEAR track behind its fill — nothing else may occupy that band.** If another full-value
+indicator sits behind/over a draining meter it back-fills the gap and the drain becomes invisible; audit the whole
+z-stack in that radius before trusting the read. (c) **`setDrawRange` is the cheap way to animate a radial/linear wipe** —
+build the full geometry once, reveal a fraction by index count; reserve geometry rebuilds for shape changes, not progress.
+(d) **For "tell them apart" readability, raise element DENSITY, not just colour** — a sparse ring of dots reads as
+scattered bullets; a dense one reads as a clean circle you can track as one object.
+
+**→ Leapfrog (innovate).** The track+fill+comet ring is now a reusable **diegetic radial meter** — any timed state
+(surge, shield-up countdown, a boss enrage timer, a charge) can borrow it around the relevant actor instead of a
+detached HUD gauge. And "reuse an anchored element for the new readout" is the default move for the next mechanic's
+feedback. Verified: `boss.mjs` (8), `bossboot` zero-error, `tricount` 203265; captures show the drain gap legible
+(no hoop back-filling it) with the dragon visible. The human judges the drain pace + comet aesthetic live.
+
+### L115 — Anti-flee patterns must cover the axis they defend: STORMREND's movingGap/secondWave were out-flyable vertically
+
+**Did / learned.** Reviewing STORMREND as a designer (would I ship it?) surfaced one real hole: two patterns only threatened a
+~4m band around `fightHeight`, but the player's Y is UNCLAMPED during a boss (only X has the arena walls + a laneMaxY cap).
+So `movingGap` (two rows at `fightHeight ± 2.2`) and `secondWave` (fired at a fixed `fightHeight`, `vy` hard-zeroed) were
+both neutralised by simply flying to y≈20 or y≈6 — the "track the sliding gap" / "the spot you dodged into is unsafe" jobs
+evaporated. Fix: make them TRACK the player's live Y. `movingGap` centres its two bands on `player.position.y` at each row's
+fire time (clamped to the lane) so the wall follows you up/down and the moving X gap is the only way through; `secondWave`
+aims at `player.position.y` (restoring the `vy` term) so a vertical dodge can't skip it. Zero bullet-count change → the
+emission-budget test stayed green untouched. The co-phase tracking patterns (`stream`/`aimed`/`crossfire`) had partly
+masked the hole, which is why it survived to review.
+
+**→ Systematize.** **A pattern's coverage must span the axis its JOB defends.** An anti-flee/fill pattern that punishes
+horizontal relocation still fails if the player can relocate on a FREE axis it doesn't cover — audit each pattern against
+every unconstrained degree of freedom (here: Y is free, so any "you can't escape" pattern must be Y-aware, by spanning the
+band or tracking the player). The cheap fix is usually TRACK, not ENLARGE: re-centre on the player's live position at fire
+time (no extra bullets, budget-neutral) instead of widening the wall (which costs concurrency against the mobile cap).
+Corollary: when several patterns fire in the same phase, a tracking one can MASK a static one's coverage hole — review
+patterns in isolation (the `debugEmitAttack` seam), not only in live play.
+
+**→ Leapfrog (innovate).** "Track the free axis at fire time" is the reusable rule for every future anti-flee pattern, and
+the isolation-review habit (judge each pattern alone against the DOF list) belongs in the pattern-authoring checklist next
+to the budget + safe-lane gates. Verified: `boss.mjs` (11; budget + safe-lane unchanged), `bossboot` zero-error, `tricount`
+203265. The human judges on the preview whether the walls now feel inescapable-but-fair from the top/bottom of the lane.
+
+### L116 — Boss feats: extend by def + listener, and know the run-end order that makes a lifetime settle-feat fire on its milestone run
+
+**Did / learned.** Added the first boss achievements now that there are two bosses to slay: `boss_first` (live, on
+`bossDefeated`), `boss_nohit` (live, gated on the event's `noHit` flag), `boss_deflector` (live, on a `bossReflect`
+`streak >= 8`), and `boss_slay_10` (settle, lifetime `saveData.stats.totalBossKills >= 10`) — plus two registered titles
+(Flawless, Tempest's Bane). The feats system was built to extend cleanly: a `FEAT_DEFS` entry + either an event listener in
+`initFeats` (live) or a `settle()` predicate (run-end). Two integration facts worth banking: **(1) a title string on a feat
+MUST be registered in `titles.js` `TITLES`** (`titleFor` looks it up; an unregistered id silently yields no title) — and
+watch for name collisions (`skysovereign` was already a level-25 title, so the slay feat became "Tempest Tamer"). **(2) The
+run-end order is `recordBests()` (lifetime stat rollup) → settleMilestones → `settleFeats()`** (main.js), so a settle-feat
+reading a lifetime counter (`totalBossKills`, rolled up from `bossesDefeatedRun` in `recordBests`) already includes the
+just-finished run and fires on the exact milestone run — no off-by-one. New save fields (`totalBossKills`) deep-merge onto
+old saves; guard reads with `|| 0` for the pre-migration frame.
+
+**→ Systematize.** For any counter-based settle achievement: roll the per-run tally into `saveData.stats` in `recordBests`,
+guard the read with `|| 0`, and let the run-end order do the rest — don't recompute `lifetime + thisRun` in the predicate
+(that double-counts once the rollup ran). Live vs settle is the same split as everywhere: an instantaneous event (a kill, a
+streak) is a listener; a "reach N lifetime / this run" is a `settle()`. And every feat `title` needs a `TITLES` row —
+add it in the same change, and grep the existing ids for name/id collisions first.
+
+**→ Leapfrog (innovate).** The boss-stat surface (`bossesDefeatedRun`, `bossHitsTakenRun`, parry streak, per-boss id on
+`bossDefeated`) is now enough to author a whole boss-mastery track — per-boss no-hit feats, a "beat every boss" collection
+feat (needs a defeated-ids set in the save), a reflect-count lifetime title — all pure data + listeners. This is the hook
+the upcoming Boss Rush mode pays into: a rush completion is just another event feats can gate on.

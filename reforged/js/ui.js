@@ -445,7 +445,7 @@ export const ui = {
         <div class="embers-hud" id="embers-hud"></div>
         <div class="race-bar" id="race-bar"><span class="race-fill" id="race-fill"></span><span class="race-target" id="race-target"></span></div>
         <div class="chain" id="chain"><span class="chain-n" id="chain-n">0</span><span class="chain-word">CHAIN</span></div>
-        <div class="chain graze-hud" id="graze-hud"><span class="chain-n" id="graze-n">0</span><span class="chain-word">GRAZE</span></div>
+        <div class="chain graze-hud" id="graze-hud"><span class="chain-n" id="graze-n">0</span><span class="chain-word">SKIMS</span></div>
         <div class="ff-chip" id="ff-chip"></div>
         <div class="assist-chip" id="assist-chip"></div>
       </div>
