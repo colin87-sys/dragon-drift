@@ -1169,7 +1169,7 @@ export function forceBoss(player, idx = null) {
 }
 
 export function bossDebugState() {
-  return { active, phase, hp, hpMax, phaseIdx, shielded, bullets: bossBulletCount(), nextBossDist, warnT, approachT, poseRel: pose.rel };
+  return { active, phase, hp, hpMax, phaseIdx, shielded, bullets: bossBulletCount(), nextBossDist, warnT, approachT, poseRel: pose.rel, charging: chargeT > 0 };
 }
 
 // Test seam (headless pattern-budget checks): fire ONE attack volley with its

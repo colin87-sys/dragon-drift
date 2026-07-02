@@ -4757,3 +4757,112 @@ Verified: `boss.mjs` (11, untouched — render-only, no gameplay/timing/damage t
 `juice` (10, death-grade/kick contract intact), `bulletcontrast` (36 combos), `bossrush` + `bossrushui`, `tricount`
 203265 · 0 over (no new draw calls, no new tris). The human judges the dim's timing against the DANGER banner and the
 mote fade's subtlety on the preview.
+
+### L124 — GPU budget stress test: draw calls are a slope, overdraw is the cliff
+
+**Did / learned.** Built `tools/stress.html` (a self-measuring page importing the game's real renderer setup — `main.js`'s
+renderer flags, `initPostFX` bloom+grade, the 2-light rig, sky/fog) + `tools/stress.mjs` (a Playwright sweep, `node
+tools/stress.mjs`, ~5min) that drives it across five axes at the game's real quality tiers: `meshes` (draw-call axis,
+10→400 @500 tris/mesh), `tris` (tri axis, 50→8000 on 50 meshes), `mat` (standard / basic-additive / energyShell),
+`instanced` (0 vs 1 at meshes=400), and `shells` (overdraw axis — stacked large additive/fresnel shells, 0/2/4/8/16 on 50
+meshes), then re-sweeps `tier` 0/1/2 on whichever row measured worst. Findings: the **draw-call axis is a SLOPE, not a
+cliff** — flat to ~100 draws, then climbing roughly linearly (~0.9ms/call headless past that point); roughly **one draw
+call ≈ 1,000 merged tris** in relative cost, so merging still pays but isn't the fire-alarm the old belief (L11: "the GPU
+is idle, JS+draw calls are the bottleneck") made it out to be. The tri axis stayed cheap across the whole 50→8000 range
+(well inside the 6000/boss ceiling). Materials varied cost ±15% (standard vs basic-additive vs energyShell) — real but
+secondary. The actual **CLIFF is overdraw**: 2 large stacked additive/fresnel shells already cost **+50% frame time at
+720p**, scaling with resolution, and it keeps climbing as more stack — exactly the shape of the current-at-the-time boss
+body (2 body fresnel shells + additive maw/throat/core). Instancing (meshes=400, instanced 0 vs 1) is **unresolved
+headless** — swiftshader's fill-rate floor swamps the signal; needs a real-phone A/B (worst-case `stress.html?...` URLs
+are listed in the PR for the human to open).
+
+**Gotcha.** Headless numbers are RELATIVE ONLY. Headless Chromium's rAF throttles ~8x (L105) and swiftshader (no real
+GPU) makes the 720p composer's fill cost dominate every axis into noise — `stress.mjs` deliberately samples at a small
+640×360 viewport (drops that floor ~4x so per-draw CPU cost becomes visible again) and the sweep prints curve
+SHAPES/inflection points, never absolute fps, front and centre in its own output. Anyone re-running this for a future
+GPU question needs to re-read that banner before trusting a number.
+
+**Revised budget rule** (narrows L11's "spend tris, not draw calls" for boss/prop-scale geometry — the roster-wide LOD
+discipline that claim also justifies stays correct, since LOD also merges): (1) merge opaque parts under ~1k tris into an
+existing draw call when convenient, but it's no longer urgent below ~100 total draws; (2) cap **≤2 large additive/fresnel
+shells visible on screen at once** — this is the real mobile risk, not draw count; (3) budget **shell count AND
+coverage** explicitly per creature/FX stack as a design knob, not an afterthought; (4) always pair a headless sweep with
+real-phone URLs before trusting an absolute ms number.
+
+**→ Systematize.** Any future GPU-budget question in this repo now has a standing instrument: `node tools/stress.mjs`
+for curve shape (~5min headless), plus opening specific `stress.html?meshes=..&shells=..&tier=..` URLs on a real phone
+for ground truth — no more steering the whole game's budget off one old ledger line. The four-axis param page is the
+reusable shape for the NEXT GPU question (particles, terrain tiles, whatever needs a curve) — copy the harness, swap
+the axis being swept.
+
+**→ Leapfrog (innovate).** The overdraw finding directly shaped the boss redesign that followed (L125): both new
+archetypes dropped the old "2 body shells + halo" stack to ONE local shell (Stormrend's eye corona) or zero (Voidmaw's
+backlit discs, strictly behind the silhouette plane) specifically because this test proved shells were the real risk,
+not the draw-call count the old ledger worried about — a stress-test finding turning a design knob, exactly as the plan
+intended either outcome to. Verified: `node tools/stress.mjs` completes (~20 sweep rows + a 3-row tier cross-product on
+the worst case, all producing a result); findings folded into the PR description with the phone-test URL list;
+`tricount`/`boss.mjs`/`bossboot.mjs` untouched by this checkpoint (tooling-only, no gameplay/render change).
+
+### L125 — Boss archetype system + procedural character design laws
+
+**Did / learned.** Replaced the single-recipe boss body (`bossModel.js`'s old monolithic `buildBoss()` — one
+icosahedron-core crystal construct both Voidmaw and Stormrend shared, knobbed via a `body` recipe) with an **archetype
+system**. `bossKit.js`'s `createBossCommon(def, quality, opts)` now owns every non-silhouette part every boss needs — HP
+bar, shield bubble (fresnel rim + geodesic cage) + golden-angle shatter shards, the dissolve-on-death fade, hit-flash
+decay, the `makeEnergyShell` fresnel material — extracted verbatim so behavior stayed byte-identical through the
+extraction (proven by `boss.mjs`'s pre-existing exact tri-count assertions never moving). `bossModel.js`'s `buildBoss()`
+is now a thin DISPATCHER: `def.archetype === 'idolMask'` → `bossIdol.js`'s Hollow Idol-Mask (a wide shattered stone mask
+with real hollow eye-socket holes, a broken horn + broken halo, a jaw-hinge telegraph); `'stormMandala'` →
+`bossMandala.js`'s Eye-of-the-Storm Mandala (concentric counter-rotating vane rings around one HDR-overdriven eye, an
+iris-petal shield telegraph); a def WITHOUT `archetype` falls straight through to the legacy construct UNCHANGED — the
+coexist rule (`tests/boss.mjs`'s new legacy-fallback gate builds `{ ...BOSSES.voidmaw, archetype: undefined }` and
+asserts it still produces the original 1,340-tri construct with working dissolve and no throw, so a future def that
+forgets to set `archetype` fails loudly in CI instead of silently shipping the wrong boss).
+
+Seven design laws earned over real capture-iteration rounds (`bossshot.mjs` screenshots judged against the fight
+camera), now documented inline in both builders' headers: **(1) silhouette-first** — every shape decision is judged by
+a one-sentence outline test AT FIGHT DISTANCE (30m); dense/round outlines (the mask's first 22-point cut) read as a
+circle at range, so both builders settled on few, long, hard-edged outline points instead. **(2) no enclosing
+fresnel/additive shell** around the whole body — a gate round caught the old shell-wrapped mask reading as "a purple
+balloon with arcs," erasing the very silhouette it was meant to sell; replaced with flat BACKLIT DISCS strictly behind
+the silhouette plane (rim-lights the outline via bloom bleeding through jagged edges/sockets, instead of enclosing the
+volume) — Stormrend keeps exactly ONE small local shell (the eye corona), justified because it's tied to the one focal
+point, not a body wrap. **(3) the sun sits ahead of the player** in this camera rig, so boss FRONT faces get no
+directional shading — uniform emissive on one merged draw reads as a flat sticker; the fix is PAINTING a value hierarchy
+across 2-3 merged material groups at different emissive-intensity tiers (dark base → mid carve → bright accent) instead
+of trusting lighting to sculpt the form. **(4) focal glow points need HDR overdrive** — multiply the base colour ~2.4x
+past 1.0 linear, because the composer's bloom threshold is 1.0 linear and ACES crushes anything ≤1.0 toward grey (a
+"dead eyes" gate finding: the eyes lost the brightest-pixel contest to the HP bar until overdriven); pair with
+`material.toneMapped = false` so the same read survives the no-postfx fallback where materials tonemap individually
+instead of once in `OutputPass`. **(5) telegraphs must change the SILHOUETTE**, not just recolour — the jaw pivot
+hinges open (`jawPivot.rotation.x`) and the iris petals retract (`irisPetal` mesh `rotation.y`) on `setCharge(k)`; both
+names are now baked into the builders specifically so tests/tools can find them by name instead of hardcoding
+scene-graph indices. **(6) small flat-shaded satellites with bright emissive read as pale glitchy debris**, not
+intentional FX — a drifting orbiter chip was mistaken for a broken part because it was as bright as the stone tiers;
+keep orbiters DARK (near-black base) with only a dim accent emissive so they never compete with the stone/eye
+hierarchy. **(7) `mergeGeometries` gotchas**: it HARD-FAILS (returns `null`, no thrown error) on any attribute-set
+mismatch, so every part needs `geo.deleteAttribute('uv')` (+`uv2`, which `ExtrudeGeometry` also emits) before merging;
+it also requires ALL inputs indexed or NONE, so `toNonIndexed()` normalisation (three.js's Polyhedron/Extrude
+geometries are built non-indexed, Box/Cylinder/Sphere/Cone/Torus/Tube indexed) is needed too — both wrapped in one
+`strip()` helper per builder, and its return value MUST be reassigned (`geo = geo.toNonIndexed()`), since it returns a
+new geometry rather than mutating in place.
+
+**→ Systematize.** (a) `bossKit.js`'s `createBossCommon`/`track()`/`finalize()` is the template for any future boss
+archetype: build body parts, `track()` every material created, call `kit.finalize()` last (its dev-assert traverses for
+any material that slipped past `track()` and warns loudly — the exact silent-dissolve-miss bug class the plan's risk
+#1 called out). (b) The `strip()` idiom (delete uv/uv2, force non-indexed) is copy-paste-identical in `bossIdol.js` and
+`bossMandala.js` — worth promoting into `bossKit.js` itself the next time a THIRD archetype needs it. (c) The seven
+design laws above aren't boss-specific — they're house rules for ANY new procedural character silhouette in this engine
+(frontal-lit camera, bloom-driven focal points, additive-shell overdraw risk per L124) and belong in a shared
+design-notes location the next character build reads first, rather than being rediscovered per-boss.
+
+**→ Leapfrog (innovate).** The archetype-dispatcher pattern (`def.archetype` routes to a builder file; `undefined`
+falls to a byte-identical legacy path) is the reusable shape for the NEXT roster expansion — a third boss is now "write
+`bossThirdThing.js`, add one line to the dispatcher, set `archetype:` on its def," zero risk to the shipped two. The
+named-pivot convention (`jawPivot`/`irisPetal`) generalises to "every telegraph-critical transform gets a stable name"
+— the next archetype's telegraph gate is a `findAllByName` away, not a new hardcoded traversal. Verified (CP4):
+`tests/boss.mjs` extended with 8 new checks (quality-scaling tri bounds 0<tris(q0.5)<tris(q1)<6000, archetype userData
+tag matches the def, a visible-draw-call budget gate, jaw/iris telegraph-silhouette gates, the legacy-fallback coexist
+gate) — all green alongside every pre-existing assertion (24 total); `tests/bossboot.mjs` zero console errors;
+`tools/bossshot.mjs` extended with state-based mid-charge + Stormrend-shielded captures; `tests/run-all.mjs` green
+(the pre-existing `badges.mjs` failure is unrelated — fails identically on the base commit).

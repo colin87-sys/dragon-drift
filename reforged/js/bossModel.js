@@ -1,51 +1,37 @@
 import * as THREE from 'three';
-import { CONFIG } from './config.js';
+import { makeEnergyShell, createBossCommon } from './bossKit.js';
+import { buildIdolMask } from './bossIdol.js';
+import { buildStormMandala } from './bossMandala.js';
 
-const TIERS = CONFIG.BOSS.renderTiers;   // render-order law: nothing draws over a bullet
-
-// Fresnel ENERGY SHELL — a reusable additive material that glows at grazing
-// angles (the silhouette edge) and is near-transparent face-on. This is the
-// house "reads cleanly against a bright sky" trick (see rimLight.js) packaged as
-// a standalone material so the boss body, its shield, and the Surge aura all get
-// a premium 3D energy read instead of looking like flat additive blobs. Zero
-// assets; `uTime`/`uStrength` are driven per frame for a live pulse.
-export function makeEnergyShell(color, { power = 2.4, strength = 1.0, opacity = 1.0 } = {}) {
-  return new THREE.ShaderMaterial({
-    uniforms: {
-      uColor: { value: new THREE.Color(color) },
-      uPower: { value: power },
-      uStrength: { value: strength },
-      uOpacity: { value: opacity },
-    },
-    transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide,
-    vertexShader: /* glsl */`
-      varying vec3 vN; varying vec3 vV;
-      void main() {
-        vec4 mv = modelViewMatrix * vec4(position, 1.0);
-        vN = normalize(normalMatrix * normal);
-        vV = normalize(-mv.xyz);
-        gl_Position = projectionMatrix * mv;
-      }`,
-    fragmentShader: /* glsl */`
-      uniform vec3 uColor; uniform float uPower; uniform float uStrength; uniform float uOpacity;
-      varying vec3 vN; varying vec3 vV;
-      void main() {
-        float f = pow(1.0 - clamp(dot(vN, vV), 0.0, 1.0), uPower);
-        gl_FragColor = vec4(uColor, f * uStrength * uOpacity);
-      }`,
-  });
-}
+// API-stable re-export: boss.js imports makeEnergyShell from here for the
+// Surge aura FX. The implementation now lives in bossKit.js (shared plumbing
+// for every boss archetype) — this file just forwards it so no consumer needs
+// to change.
+export { makeEnergyShell } from './bossKit.js';
 
 // Procedural boss creature — asset-free, like everything else in the game.
 // This is deliberately NOT a dragon: a floating eldritch crystal construct (a
 // jagged core ringed with spikes, a glowing maw and two eyes, plus a few
 // orbiting shards), so the boss reads as an "other" against the dragon roster.
 //
+// This is the LEGACY construct: the original single-recipe boss body. New
+// archetypes (idol-mask, storm-mandala, ...) get their own builder files and
+// delegate the shared plumbing — HP bar, shield bubble + shards, dissolve,
+// flash decay — to bossKit.js exactly like this file does, so behavior stays
+// identical across every boss and there's one place that owns it.
+//
 // Returns a handle the controller (boss.js) drives:
 //   { group, muzzle, orbiters[], setDissolve(k), flash(amt), tick(dt, time) }
 // All materials are collected so the disintegration death can fade them as one.
 
 export function buildBoss(def, quality = 1) {
+  // Archetype dispatch (coexist rule): a def with `archetype` gets its own
+  // hero builder; a def WITHOUT one falls straight through to the legacy
+  // construct below, byte-identical to before archetypes existed — so the
+  // shipped roster never breaks while new bosses migrate one at a time.
+  if (def.archetype === 'idolMask') return buildIdolMask(def, quality);
+  if (def.archetype === 'stormMandala') return buildStormMandala(def, quality);
+
   const accent = def.accent ?? 0xff4488;
   const glow = def.glow ?? 0xff88cc;
   // Nullable BODY RECIPE: silhouette knobs so each boss reads distinct at 30m.
@@ -67,9 +53,13 @@ export function buildBoss(def, quality = 1) {
   // get lost against the horizon. Scale the whole construct up so it's an
   // imposing centrepiece (the dissolve multiplies from this base, not 1).
   const BASE_SCALE = def.scale ?? 1.5;
-  const group = new THREE.Group();
-  const mats = [];          // every material, for the dissolve
-  const track = (m) => { mats.push(m); return m; };
+
+  // Shared plumbing (HP bar, shield bubble + shards, dissolve, flash decay) —
+  // see bossKit.js. `kit.group` is the root every body part below attaches to;
+  // `kit.track` collects every material this builder creates so the dissolve
+  // and finalize() dev-assert can see it.
+  const kit = createBossCommon(def, quality, { baseScale: BASE_SCALE });
+  const { group, track } = kit;
 
   // 'shard' silhouette: bake an elongation into the body geometries (geometry-
   // level so the tick's animated scale.setScalar never fights a static scale).
@@ -188,115 +178,13 @@ export function buildBoss(def, quality = 1) {
     orbiters.push(m);
   }
 
-  // --- Health bar: floats above the boss on its front face (so it faces the
-  // player), notched at the phase thresholds. Drawn depth-test-off + high render
-  // order so it's always legible over the body. ---
-  const barW = 8;
-  const hpBar = new THREE.Group();
-  hpBar.position.set(0, 4.4, 1.6);
-  const barBgMat = track(new THREE.MeshBasicMaterial({ color: 0x0a0610, transparent: true, opacity: 0.72, depthTest: false }));
-  const barBg = new THREE.Mesh(new THREE.PlaneGeometry(barW + 0.3, 0.62), barBgMat);
-  barBg.renderOrder = 998;
-  hpBar.add(barBg);
-  const fillWrap = new THREE.Group();      // scale.x from the LEFT edge
-  fillWrap.position.x = -barW / 2;
-  const barFillMat = track(new THREE.MeshBasicMaterial({ color: 0xff4468, transparent: true, depthTest: false }));
-  const barFill = new THREE.Mesh(new THREE.PlaneGeometry(barW, 0.44), barFillMat);
-  barFill.position.x = barW / 2;           // left edge sits at the wrapper origin
-  barFill.renderOrder = 999;
-  fillWrap.add(barFill);
-  hpBar.add(fillWrap);
-  const notchMat = track(new THREE.MeshBasicMaterial({ color: 0x0a0610, transparent: true, opacity: 0.85, depthTest: false }));
-  for (const p of (def.phases || [])) {
-    if (p.atFrac >= 0.999) continue;       // full-hp threshold isn't a divider
-    const notch = new THREE.Mesh(new THREE.PlaneGeometry(0.13, 0.6), notchMat);
-    notch.position.set(-barW / 2 + p.atFrac * barW, 0, 0.02);
-    notch.renderOrder = 1000;
-    hpBar.add(notch);
-  }
-  hpBar.visible = false;   // hidden during the fly-in; revealed once it settles ahead
-  group.add(hpBar);
-  function setHealth(frac) { fillWrap.scale.x = Math.max(0.0001, Math.min(1, frac)); }
-  function setHealthBarVisible(v) { hpBar.visible = v; }
+  // Hit flash targets the core material (the brightest/most "alive" read).
+  kit.flashBind(coreMat, 1.5);
 
-  // Shield: raised at a phase floor, only a Dragon Surge unleash bursts it. A
-  // filled additive bubble used to sit exactly where bullets spawn and washed
-  // them out — replaced by two meshes on ONE shared geometry so the muzzle
-  // region reads clear: a fresnel RIM (near-transparent face-on, glows at the
-  // silhouette) + a dark geodesic CAGE (dark lines vs a bright sky, additive rim
-  // vs a dark one — a two-way luminance edge either way). Both live in the same
-  // group, both toggle together, both keep the slow rotation.
-  const shieldGeo = new THREE.IcosahedronGeometry(4.3, 1);
-  const shieldRimMat = track(makeEnergyShell(glow, { power: 3.0, strength: 0.55 }));
-  const shieldRim = new THREE.Mesh(shieldGeo, shieldRimMat);
-  shieldRim.renderOrder = TIERS.shield;
-  const shieldCageMat = track(new THREE.LineBasicMaterial({
-    color: new THREE.Color(glow).multiplyScalar(0.45), transparent: true, opacity: 0.30, depthWrite: false,
-  }));
-  const shieldCage = new THREE.LineSegments(new THREE.EdgesGeometry(shieldGeo), shieldCageMat);
-  shieldCage.renderOrder = TIERS.shield;
-  const shield = new THREE.Group();
-  shield.add(shieldRim, shieldCage);
-  shield.visible = false;
-  group.add(shield);
-  let shieldFlash = 0;   // 1→0 decay driven in tick: a raise flashes the rim strength up, then eases back
-  function setShieldVisible(v) {
-    shield.visible = v;
-    if (v) { shatter = 0; for (const s of shards) s.mesh.visible = false; shieldFlash = 1; }  // re-arm + flash on raise
-  }
-
-  // Shield SHARDS: faceted chips that the bubble breaks into when a Surge beam
-  // bursts it. Pre-built (asset-free) and hidden; shatterShield() flings them
-  // outward along their own radial + spin, fading over ~0.7s (driven in tick).
-  const shardChipMat = track(new THREE.MeshBasicMaterial({
-    color: glow, transparent: true, opacity: 0.9, blending: THREE.AdditiveBlending,
-    depthWrite: false, side: THREE.DoubleSide,
-  }));
-  const chipGeo = new THREE.TetrahedronGeometry(0.7, 0);
-  const shards = [];
-  const shardN = quality < 0.75 ? 8 : 14;
-  for (let i = 0; i < shardN; i++) {
-    const m = new THREE.Mesh(chipGeo, shardChipMat);
-    m.visible = false;
-    m.renderOrder = TIERS.shield;
-    // Even-ish spread over a sphere (golden-angle) so the break looks like a bubble.
-    const y = 1 - (i / Math.max(shardN - 1, 1)) * 2;
-    const rr = Math.sqrt(Math.max(0, 1 - y * y));
-    const ph = i * 2.399963;
-    const dir = new THREE.Vector3(Math.cos(ph) * rr, y, Math.sin(ph) * rr);
-    m.userData = { dir, spin: new THREE.Vector3((Math.random() - 0.5) * 6, (Math.random() - 0.5) * 6, (Math.random() - 0.5) * 6) };
-    group.add(m);
-    shards.push({ mesh: m });
-  }
-  let shatter = 0;   // 0 = idle; >0 counts UP while shards fly (seconds since burst)
-  function shatterShield() {
-    shield.visible = false;
-    shatter = 0.0001;
-    for (const s of shards) {
-      const d = s.mesh.userData.dir;
-      s.mesh.position.set(d.x * 4.3, d.y * 4.3, d.z * 4.3);   // start on the bubble surface
-      s.mesh.rotation.set(Math.random() * Math.PI, Math.random() * Math.PI, Math.random() * Math.PI);
-      s.mesh.scale.setScalar(1);
-      s.mesh.visible = true;
-    }
-  }
-  function tickShatter(dt) {
-    if (shatter <= 0) return;
-    shatter += dt;
-    const k = shatter / 0.7;                 // 0→1 over the fling
-    if (k >= 1) { shatter = 0; for (const s of shards) s.mesh.visible = false; return; }
-    for (const s of shards) {
-      const u = s.mesh.userData;
-      s.mesh.position.addScaledVector(u.dir, dt * 22);           // fly outward
-      s.mesh.rotation.x += u.spin.x * dt;
-      s.mesh.rotation.y += u.spin.y * dt;
-      s.mesh.scale.setScalar(1 - k * 0.6);
-    }
-    shardChipMat.opacity = 0.9 * (1 - k);
-  }
-
-  // Cache base opacities so the dissolve can scale from each material's own value.
-  for (const m of mats) m.userData.baseOpacity = m.transparent ? m.opacity : 1;
+  // Shared plumbing is fully assembled now — cache base opacities + apply the
+  // resting scale (finalize() also dev-asserts every material above went
+  // through track()).
+  kit.finalize();
 
   // Telegraph charge level 0→1: the maw flares (toward danger-red) and the throat
   // swells just before an attack releases, so the player gets a fair wind-up read.
@@ -321,15 +209,6 @@ export function buildBoss(def, quality = 1) {
     throatMat.opacity = 0.85 + charge * 0.15;
     throatMat.color.setHex(0xff2b6a).lerp(new THREE.Color(accent), 1 - charge); // magenta-hot as it charges
     coreMat.emissiveIntensity = 1.5 + charge * 1.8;
-    if (shield.visible) {
-      shield.rotation.y += dt * 0.9;
-      shield.rotation.x += dt * 0.5;
-      // Rim strength pulses gently around its base; a raise (setShieldVisible)
-      // kicks shieldFlash to 1 and it decays back over ~0.4s, flashing the rim
-      // to ~1.2 on the moment of the shield going up.
-      if (shieldFlash > 0) shieldFlash = Math.max(0, shieldFlash - dt / 0.4);
-      shieldRimMat.uniforms.uStrength.value = 0.55 + Math.sin(time * 4) * 0.15 + shieldFlash * 0.65;
-    }
     for (const o of orbiters) {
       const u = o.userData;
       u.ang += dt * u.speed;
@@ -343,53 +222,25 @@ export function buildBoss(def, quality = 1) {
     }
   }
 
-  // Disintegration: k 0→1 fades every material to nothing and blows the emissive
-  // toward white so the creature "burns out" as it scatters.
-  let dissolve = 0;
-  function setDissolve(k) {
-    dissolve = Math.max(0, Math.min(1, k));
-    const a = 1 - dissolve;
-    for (const m of mats) {
-      m.transparent = true;
-      m.opacity = (m.userData.baseOpacity ?? 1) * a;
-      // Fresnel energy shells carry opacity in a uniform, not material.opacity.
-      if (m.uniforms && m.uniforms.uOpacity) m.uniforms.uOpacity.value = (m.userData.baseOpacity ?? 1) * a;
-      if (m.emissive) {
-        m.emissiveIntensity = 0.5 + dissolve * 3.5;
-        m.emissive.lerp(new THREE.Color(0xffffff), dissolve * 0.06);
-      }
-    }
-    // Scatter the spikes/shards outward as it comes apart.
-    const spread = 1 + dissolve * 0.6;
-    group.scale.setScalar(BASE_SCALE * spread);
-  }
-
-  // Hit flash: a quick emissive spike (decayed by the controller).
-  let flashAmt = 0;
-  function flash(amt) { flashAmt = Math.max(flashAmt, amt); }
-  function tickFlash(dt) {
-    if (flashAmt <= 0) return;
-    flashAmt = Math.max(0, flashAmt - dt * 3);
-    coreMat.emissiveIntensity = 1.5 + flashAmt * 4;
-  }
-
   // A front-facing node so FX (and future muzzle flashes) can originate at the maw.
   const muzzle = new THREE.Object3D();
   muzzle.position.set(0, 0, 2.4);
   group.add(muzzle);
 
-  group.scale.setScalar(BASE_SCALE);   // imposing at its ~30m hold distance
-
   return {
     group, muzzle, orbiters,
-    setDissolve,
+    setDissolve: kit.setDissolve,
     setCharge,
-    setHealth,
-    setHealthBarVisible,
-    setShieldVisible,
-    shatterShield,
-    flash,
-    tick(dt, time) { tick(dt, time); tickFlash(dt); tickShatter(dt); },
+    setHealth: kit.setHealth,
+    setHealthBarVisible: kit.setHealthBarVisible,
+    setShieldVisible: kit.setShieldVisible,
+    shatterShield: kit.shatterShield,
+    flash: kit.flash,
+    // Write order matters: body tick() writes coreMat.emissiveIntensity from
+    // `charge` first, then kit.tickCommon runs its flash decay LAST (inside
+    // tickCommon) so a hit flash always wins over the charge flare on the same
+    // frame — identical to the original single-function tick's line order.
+    tick(dt, time) { tick(dt, time); kit.tickCommon(dt, time); },
     dispose() {
       group.traverse((o) => {
         if (o.geometry) o.geometry.dispose();
