@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import { CONFIG } from './config.js';
 import { game } from './gameState.js';
 import { ui } from './ui.js';
-import { sfx } from './sfx.js';
+import { sfx, setSlowMo } from './sfx.js';
 import { input } from './input.js';
 import { cameraCtl } from './cameraController.js';
 import { burst } from './particles.js';
@@ -514,10 +514,19 @@ function startDeath(player) {
   game.score += bonus;
   game.embersRun += embers;       // banked at run end like any ember haul
   ui.bossNote?.('✦  SLAIN  ✦', `+${bonus}   ◆${embers}`, 'gold', 3.2);
+  ui.bossFelledCard?.(def.name);   // kill card: gold "FELLED" + the boss name
   sfx.bossDefeat?.();
   cameraCtl.shake?.(2.0);
   tmp.set(pose.x, pose.y, -(player.dist + pose.rel));
   burst(tmp, 0xffc050, { count: 30, speed: 18, size: 1.2, life: 0.9 });
+  // SLOW-MO ON THE KILL: reuse the existing near-death dilation channel (main.js
+  // reads game.slowMoTimer/timeScale every tick regardless of who set it) rather
+  // than inventing a second time-scale system. NOTE: main.js hardcodes the slow-mo
+  // scale to 0.35× (not tunable from here without touching main.js, which is out
+  // of this pass's file scope) — so this lands at ~1.2s of 0.35×, close to but not
+  // exactly the ~0.25x asked for.
+  game.slowMoTimer = Math.max(game.slowMoTimer, 1.2);
+  setSlowMo(true);
   emit('bossDefeated', { id: def.id, bonus, embers, noHit: game.bossHitsTakenRun === 0 });
 }
 
@@ -658,6 +667,14 @@ export function updateBoss(dt, player, time) {
       model.setHealth(0);
       hpRevealT = HP_REVEAL;
       riderTimer = HP_REVEAL;
+      // Spectacle beat: the boss notices you (builder-owned, optional) + the
+      // FromSoft-style reveal card (name + epithet). REVEAL HOLD — guarantee the
+      // card's readable without a bullet in your face: push both the boss's own
+      // attack clock AND the rider's auto-fire out past the card's hold time.
+      model.notice?.();
+      ui.bossTitleCard?.(def.name, def.epithet, def.accent);
+      attackTimer = Math.max(attackTimer, 1.9);
+      riderTimer = Math.max(riderTimer, 1.9);
       // Tutorial boss: teach the parry as the fight opens (amber shots = swat-able).
       if (def.tutorial) ui.bossNote?.('DODGE!', 'ROLL INTO AMBER SHOTS TO PARRY', 'gold', 3.0);
     }
@@ -790,6 +807,15 @@ function placeGroup(player, time) {
   // Face the player (local +z = front maw, world +z = toward the player) with a
   // little menacing yaw/roll wobble.
   group.rotation.set(0, Math.sin(time * 0.5) * 0.12, Math.sin(time * 0.9) * 0.08);
+  // GAZE FEED (optional model hook): normalized offset of the player relative to
+  // the boss's facing axis, in WORLD axes — placeGroup keeps rotation near-
+  // identity so world≈local, and the model handles its own local conversion.
+  // Skipped during 'warn' (the boss is still hidden then; nothing to sell yet).
+  if (phase !== 'warn') {
+    const nx = Math.max(-1, Math.min(1, (player.position.x - pose.x) / 12));
+    const ny = Math.max(-1, Math.min(1, (player.position.y - pose.y) / 12));
+    model.setGaze?.(nx, ny);
+  }
 }
 
 // ---- Surge (manual) + the per-phase shield ---------------------------------
@@ -828,6 +854,12 @@ function breakShield(player) {
   burst(tmp, 0xffffff, { count: 26, speed: 24, size: 1.4, life: 0.7 });
   burst(tmp, def.glow, { count: 20, speed: 16, size: 1.1, life: 0.8 });
   sfx.phase?.(true, 1);
+  // PHASE-TRANSITION HOLD: wipe any sustained sub-volleys still streaming in from
+  // the pre-burst attack (a tunnel/iris mid-flight would otherwise land right on
+  // top of the phase transition), then guarantee a capture-safe window before the
+  // new phase's first attack can telegraph.
+  pending.length = 0;
+  attackTimer = Math.max(attackTimer, 1.6);
   const next = def.phases[phaseIdx + 1];
   if (next) {
     phaseIdx++;

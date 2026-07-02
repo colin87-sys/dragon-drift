@@ -137,6 +137,77 @@ export function buildStormMandala(def, quality = 1) {
   rig.add(corona);
 
   // ---------------------------------------------------------------------
+  // THE LIVING EYE (shareability pass). The research verdict on abstract
+  // bosses is blunt: mandalas get screenshotted, never drawn — UNLESS the
+  // eye behaves like an eye. Three parts turn the lamp into a mind:
+  // a PUPIL that tracks the player with lag (attention, not turret), STORM
+  // LIDS that blink rarely (this boss is "the unblinking" — so when it DOES
+  // blink, it's an event; and they close forever in death), and BLOODSHOT
+  // gold veins that surface as its health drains (the fight is written on
+  // the eye itself).
+  // ---------------------------------------------------------------------
+  const pupilMat = track(new THREE.MeshBasicMaterial({ color: 0x081014 }));
+  const pupil = new THREE.Mesh(new THREE.SphereGeometry(0.42, 10, 8), pupilMat);
+  // z rides the eye's pulse in tick — the eye core scales about the rig
+  // origin (its geometry is offset to EYE_Z), so a static pupil would be
+  // swallowed whole every time the charge pulse grows the eyeball past it.
+  pupil.position.set(0, 0, (EYE_Z + 1.02));
+  rig.add(pupil);
+
+  // Lids: two polar-cap shells hinged at the eye's equator — dark storm-metal
+  // (shares petalMat: same program, same tier). At rest they tuck behind the
+  // eye's top/bottom; a blink swings them shut over the front.
+  const lidGeo = strip(new THREE.SphereGeometry(1.24, lowQ ? 10 : 14, 4, 0, Math.PI * 2, 0, Math.PI * 0.34));
+  const lids = [];
+  for (const side of [1, -1]) {
+    const lidPivot = new THREE.Object3D();
+    lidPivot.position.set(0, 0, EYE_Z);
+    const lid = new THREE.Mesh(lidGeo, petalMat);
+    if (side < 0) lid.rotation.z = Math.PI;   // bottom lid: cap flipped to hug the -Y pole
+    lidPivot.add(lid);
+    lidPivot.rotation.x = side * -1.15;       // rest: swung back behind the eye
+    lidPivot.userData.side = side;
+    rig.add(lidPivot);
+    lids.push(lidPivot);
+  }
+
+  // Bloodshot veins: jagged gold radials projected onto the eyeball's front
+  // hemisphere (r slightly above the core so they sit ON the surface),
+  // revealed by setHealth as HP drains. Damage state lives on the face.
+  function buildVeins() {
+    const vrnd = mulberry32(0xb100d5);
+    const R = 1.19;
+    const pts = [];
+    const veinN = lowQ ? 7 : 10;
+    const onSphere = (px, py) => {
+      const d2 = px * px + py * py;
+      const z = Math.sqrt(Math.max(0.01, R * R - d2));
+      return [px, py, EYE_Z + z];
+    };
+    for (let v = 0; v < veinN; v++) {
+      const phi = (v / veinN) * Math.PI * 2 + vrnd() * 0.4;
+      let d = 0.38 + vrnd() * 0.15;
+      let a = phi;
+      let prev = onSphere(Math.cos(a) * d, Math.sin(a) * d);
+      const steps = 3;
+      for (let s = 0; s < steps; s++) {
+        d += (0.95 - 0.38) / steps + (vrnd() - 0.5) * 0.06;
+        a += (vrnd() - 0.5) * 0.25;
+        const next = onSphere(Math.cos(a) * Math.min(d, 1.05), Math.sin(a) * Math.min(d, 1.05));
+        pts.push(...prev, ...next);
+        prev = next;
+      }
+    }
+    const geo = new THREE.BufferGeometry();
+    geo.setAttribute('position', new THREE.Float32BufferAttribute(pts, 3));
+    return geo;
+  }
+  const veinMat = track(new THREE.LineBasicMaterial({
+    color: glow, transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false,
+  }));
+  rig.add(new THREE.LineSegments(buildVeins(), veinMat));
+
+  // ---------------------------------------------------------------------
   // IRIS PETALS ×8 — individual pivot meshes (not InstancedMesh: the plan's
   // own risk-mitigation calls this the simpler fallback given the dissolve/
   // tracking constraints, and the stress test found draws this small are
@@ -435,6 +506,29 @@ export function buildStormMandala(def, quality = 1) {
   const _eyeColor = new THREE.Color();
   let closeAmt = 0;   // 0 = resting-open, 1 = fully shingled closed (eased toward shieldOn target)
 
+  // --- CHARISMA LAYER (shareability pass): the eye is a mind, not a lamp ---
+  let gazeTX = 0, gazeTY = 0, gazeX = 0, gazeY = 0;
+  let lookAwayT = 0, lookAwayX = 0, lookAwayY = 0;
+  let nextLookAway = 6 + Math.random() * 6;      // rarer than the idol: this thing FIXATES
+  function setGaze(nx, ny) {
+    gazeTX = Math.max(-1, Math.min(1, nx));
+    gazeTY = Math.max(-1, Math.min(1, ny));
+  }
+  // "The unblinking" blinks maybe once per ten seconds — which makes each
+  // blink an event, and the final close (death) land harder.
+  let blinkT = 0;
+  const BLINK_DUR = 0.26;
+  let nextBlink = 7 + Math.random() * 5;
+  let noticeT = 0;
+  function notice() { noticeT = 0.9; }
+  let painT = 0;   // hit flinch: a squint — the lids jump to a third closed
+  function flinchFlash(amt) { if (amt > 0.3) painT = Math.max(painT, 0.3); kit.flash(amt); }
+  let dyingK = 0;  // death: petals furl, lids close forever, pupil blows wide
+  function setDissolveEmotive(k) { dyingK = Math.max(0, Math.min(1, k)); kit.setDissolve(k); }
+  let hpFrac = 1;  // bloodshot veins surface as this drains
+  function setHealthVeined(frac) { hpFrac = Math.max(0, Math.min(1, frac)); kit.setHealth(frac); }
+  let eyePulse = 1;  // last frame's eye-core pulse — pupil/lids ride it (see tick)
+
   // Round-2: 0.90 rad left the petal tips reaching r≈0.74 — well inside the
   // eye (r 1.15), shuttering most of it at rest. 1.05 pulls the tips out to
   // r≈0.90 so the eye reads as a big hot disc fringed by dark petals instead
@@ -443,13 +537,57 @@ export function buildStormMandala(def, quality = 1) {
   const TAU = Math.PI * 2;
 
   function tickBody(dt, time) {
-    // --- Iris petals: ease closeAmt toward the shield target over ~0.35s. ---
-    const closeTarget = shieldOn ? 1 : 0;
-    const closeRate = dt / 0.35;
+    // --- Iris petals: ease closeAmt toward the shield target over ~0.35s.
+    // Death furls them too (slower): the flower closes at dusk. ---
+    const closeTarget = Math.max(shieldOn ? 1 : 0, dyingK > 0 ? Math.min(1, dyingK * 1.4) : 0);
+    const closeRate = dt / (dyingK > 0 ? 0.9 : 0.35);
     closeAmt = closeAmt < closeTarget
       ? Math.min(closeTarget, closeAmt + closeRate)
       : Math.max(closeTarget, closeAmt - closeRate);
     if (openKick > 0) openKick = Math.max(0, openKick - dt / 0.25);
+
+    // --- Gaze: lagged pursuit + rare deliberate drift (it mostly FIXATES —
+    // that's its character; the idol glances around, the storm stares). ---
+    nextLookAway -= dt;
+    if (lookAwayT > 0) lookAwayT -= dt;
+    else if (nextLookAway <= 0 && charge < 0.2 && noticeT <= 0 && dyingK <= 0) {
+      lookAwayT = 0.5 + Math.random() * 0.4;
+      lookAwayX = (Math.random() - 0.5) * 1.2;
+      lookAwayY = (Math.random() - 0.5) * 0.8;
+      nextLookAway = 6 + Math.random() * 6;
+    }
+    const gx = lookAwayT > 0 ? lookAwayX : gazeTX;
+    const gy = lookAwayT > 0 ? lookAwayY : gazeTY;
+    const gLag = (noticeT > 0 || charge > 0.5) ? 12 : 4;
+    gazeX += (gx - gazeX) * Math.min(1, dt * gLag);
+    gazeY += (gy - gazeY) * Math.min(1, dt * gLag);
+    // Pupil z rides the eye's pulse (computed below, applied next frame — a
+    // one-frame lag nobody can see): the eye core scales about the rig origin,
+    // so a static-z pupil gets swallowed whenever the charge pulse grows the
+    // eyeball past it (the first capture pass shipped exactly that bug).
+    pupil.position.set(gazeX * 0.42, gazeY * 0.32, (EYE_Z + 1.02) * eyePulse);
+
+    // Pupil state: pinpoint rage on notice + as charge rises (the tell every
+    // animal understands), blown wide in death.
+    if (painT > 0) painT -= dt;
+    if (noticeT > 0) noticeT -= dt;
+    const pupilTarget = dyingK > 0 ? 1.7 : (noticeT > 0 ? 0.45 : 1 - charge * 0.5);
+    pupil.scale.setScalar(Math.max(0.01, pupil.scale.x + (pupilTarget - pupil.scale.x) * Math.min(1, dt * 9)));
+
+    // --- Lids: rare blinks, a pain squint, and the final close. lidK 0 = open
+    // (swung back), 1 = fully shut over the front. ---
+    if (blinkT > 0) blinkT -= dt;
+    else {
+      nextBlink -= dt;
+      if (nextBlink <= 0 && charge < 0.4 && dyingK <= 0) { blinkT = BLINK_DUR; nextBlink = 7 + Math.random() * 5; }
+    }
+    const blinkK = blinkT > 0 ? 1 - Math.abs((blinkT / BLINK_DUR) * 2 - 1) : 0;
+    const lidK = Math.max(blinkK, painT > 0 ? 0.35 * (painT / 0.3) : 0, dyingK * 0.95);
+    for (const l of lids) l.rotation.x = l.userData.side * -(1.15 - lidK * 1.0);
+
+    // Bloodshot veins: the fight written on the eyeball — surfaces with lost
+    // HP, flares with charge, fades out with the dissolve.
+    veinMat.opacity = (1 - hpFrac) * (0.55 + charge * 0.3) * (1 - dyingK);
 
     const breathe = Math.sin(time * 0.7 * TAU) * 0.04;
     // theta=0 -> tip fully extended over the eye (closed/shingled); larger
@@ -463,9 +601,15 @@ export function buildStormMandala(def, quality = 1) {
     // charge rises; a raised shield leashes it down to ~0.8 (visibly muted
     // behind the closed petals) regardless of charge. ---
     const pulse = 1 + Math.sin(time * 3 * TAU) * 0.03 + charge * 0.35;
+    eyePulse = pulse;
     eyeMesh.scale.setScalar(pulse);
+    // Lids scale with the pulse too, or a charge-swollen eyeball (r 1.15×1.35)
+    // pokes through closed lids (r 1.24) during a mid-charge pain squint.
+    for (const l of lids) l.scale.setScalar(pulse);
     const activeK = 1;   // full ignition when not shielded (HDR overdrive carries the "unblinking" read)
-    const eyeK = THREE.MathUtils.lerp(activeK, 0.8, closeAmt);
+    let eyeK = THREE.MathUtils.lerp(activeK, 0.8, closeAmt);
+    if (noticeT > 0) eyeK *= 1.25;        // the notice flare: it SEES you
+    eyeK *= 1 - dyingK * 0.5;             // death: the light going out behind closing lids
     _eyeColor.copy(EYE_BASE).lerp(DANGER_COLOR, charge * 0.85);
     eyeMat.color.copy(_eyeColor).multiplyScalar(eyeK * EYE_HOT);
 
@@ -481,7 +625,10 @@ export function buildStormMandala(def, quality = 1) {
     const kC = charge;
     const kB = Math.max(0, Math.min(1, (charge - 0.33) / 0.67));
     const kA = Math.max(0, Math.min(1, (charge - 0.66) / 0.34));
-    const spinMult = (k) => THREE.MathUtils.lerp(1 + 2.5 * k, 0.4, closeAmt);
+    // Notice gives every ring a brief spin surge (the storm reacts to seeing
+    // you); death winds the whole machine down with the dissolve.
+    const noticeKick = noticeT > 0 ? 1 + (noticeT / 0.9) * 1.5 : 1;
+    const spinMult = (k) => THREE.MathUtils.lerp(1 + 2.5 * k, 0.4, closeAmt) * noticeKick * (1 - dyingK * 0.9);
     ringAPivot.rotation.z += dt * 0.5 * spinMult(kA);
     ringBPivot.rotation.z -= dt * 0.35 * spinMult(kB);
     ringCPivot.rotation.z += dt * 0.22 * spinMult(kC);
@@ -497,7 +644,7 @@ export function buildStormMandala(def, quality = 1) {
     // arcs join the telegraph without adding any new geometry or fill).
     for (const b of bolts) {
       const s = Math.sin(time * b.f + b.ph);
-      b.mat.opacity = Math.pow(Math.max(0, s), 12) * (0.55 + charge * 0.45);
+      b.mat.opacity = Math.pow(Math.max(0, s), 12) * (0.55 + charge * 0.45) * (1 - dyingK);
     }
 
     // Orbiters — legacy loop, unchanged.
@@ -517,13 +664,15 @@ export function buildStormMandala(def, quality = 1) {
 
   return {
     group, muzzle, orbiters,
-    setDissolve: kit.setDissolve,
+    setDissolve: setDissolveEmotive,   // kit dissolve + petals furling / lids closing / light going out
     setCharge,
-    setHealth: kit.setHealth,
+    setGaze,                           // optional charisma hooks — controller calls with ?.
+    notice,
+    setHealth: setHealthVeined,        // kit HP bar + the bloodshot-vein reveal
     setHealthBarVisible: kit.setHealthBarVisible,
     setShieldVisible: kit.setShieldVisible,
     shatterShield: kit.shatterShield,
-    flash: kit.flash,
+    flash: flinchFlash,                // kit flash + the lid squint
     // Write order matches every other archetype: body tick first, kit.tickCommon
     // (flash decay) last so a hit flash always wins on a shared material.
     tick(dt, time) { tickBody(dt, time); kit.tickCommon(dt, time); },
