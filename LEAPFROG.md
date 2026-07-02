@@ -4255,3 +4255,39 @@ normal HUD and draws on the mode's own indicator. The thetaLength-sweep ring is 
 primitive (charge meters, cooldowns, capture rings). Verified: `boss.mjs` (8), `bossboot` real-WebGL zero-error, `smoke`,
 `tricount` 203265; a capture confirms the stamina bar gone + focus circle drawn + single hoop + dragon visible. The human
 judges the callout timing/readability and the fade/draw-on feel live.
+
+### L108 — The feel+UX micro-pass: name every silent state change, and know which "feel knobs" secretly live inside the generator
+**Did / learned:** Shipped the Phase-1 remediation from the full codebase critique (plan:
+5 phases; this is the smallest-highest-leverage one). Six changes: (1) `speedEase 3→5` —
+boost now arrives with the camera kick instead of 0.5s after it (steering settles in ~0.26s,
+speed was taking ~0.5s — the mismatch read as "floaty boost"); (2) gate slow-mo horizon
+`0.32→0.5×speed` (`collision.js`) — gates were getting ~40% less last-chance warning than
+pillars/shards, the exact hazard that most needs anticipation; (3) `sfx.comboBreak` redesigned
+(snap transient + falling minor figure) — the old single quiet square was inaudible under
+`damage()`; (4) NEW `sfx.surgeFizzle` + `ui.surgeLost()` (grey-out sweep on the gem row) wired
+in `hit()` — Dragon Surge used to die to a hit with ZERO feedback; (5) two new hints —
+stamina starvation (once-ever, fires when boost is held on an empty tank; the arc was
+beauty-first and never explained) and a glide-assist pointer (2 hits before 500m, runs≥3);
+(6) reset-save `window.confirm` → two-step armed danger button (native confirm is blocked/ugly
+in standalone PWA). Verified: gold-determinism byte-identical, defs/economy/juice/boss/smoke
+green, tricount 203265 · 0 over. KNOWN-ENV: `badges/celebrate/feats/return-triggers/
+save-purchases/stamina` browser suites fail on the CLEAN tree in this container (Playwright
+timing) — verified pre-existing by stash-compare before claiming green.
+**→ Systematize:** (a) THE GOTCHA THAT MATTERS: `boostSteeringBonus` looks like a feel knob but
+is baked into COURSE GENERATION (`level.js` gate-reach + `auditHop`) — retuning it reshuffles
+every seed and breaks every challenge link. Rule: before touching any CONFIG "feel" constant,
+grep `level.js` for it; if the generator reads it, SPLIT it (frozen generator constant + new
+feel constant consumed only by player.js). `speedEase` was verified generator-clean before
+this change. (b) "No silent state changes" is now a design invariant: every gameplay state the
+player cares about (combo, Surge, streaks) must have BOTH an audio and a visual statement of
+its loss, not just its gain — audit any new mechanic against this. (c) The stash-compare
+("does it fail on the clean tree?") is the standard move before attributing any test failure
+to your diff.
+**→ Leapfrog (innovate):** The critique's full 5-phase plan is on file
+(`/root/.claude/plans/` in-session; phases: P2 second boss reusing the already-implemented
+spiral/spiralStream patterns + minimal `bossModel` recipe knobs; P3 economy mid-band (Surge
+Tints 100-500◆, endless milestones, skill weeklies, starters→Eternal stats+glow, per-dragon
+perks); P4 pulse-gate hazard + biome-weighted OVERLAY generation via a 4th RNG stream — the
+Sky-Canyon pattern is the determinism-safe channel for ALL future late-game content; P5
+reduce-flashing toggle + a11y). The deferred handling-tuning PR (boostSteeringFeel split +
+clean-roll cooldown reward) is queued behind preview judgment of this pass.

@@ -34,7 +34,7 @@ function checkSlowMo(dt, player) {
   const p = player.position;
   for (const c of colliders) {
     const dz = c.dist - player.dist;
-    const horizon = c.type === 'gate' ? player.speed * 0.32 : player.speed * 0.55;
+    const horizon = c.type === 'gate' ? player.speed * 0.5 : player.speed * 0.55;
     if (dz < 4 || dz > horizon) continue;
     const t = dz / Math.max(player.speed, 1);
     const fx = p.x + player.velocity.x * t;
@@ -297,6 +297,7 @@ function hit(player, pushX, pushY, damage = CONFIG.obstacleDamage, cause = 'shar
   cameraCtl.shake(0.8);
   ui.damageFlash();
   sfx.damage();
+  const surgeBefore = game.feverActive;
   // Breaking a combo on damage
   if (game.combo > 1) {
     game.consecutiveRings = 0;
@@ -314,6 +315,12 @@ function hit(player, pushX, pushY, damage = CONFIG.obstacleDamage, cause = 'shar
     game.parryStreak = 0;
     game.parryPerfectStreak = 0;
     if (game.feverActive) { game.feverActive = false; game.feverTimer = 0; }
+  }
+  // Surge died to this hit: name the loss (soft fizzle + gem-row dim) so it
+  // never ends silently under the damage thud.
+  if (surgeBefore && !game.feverActive) {
+    sfx.surgeFizzle();
+    ui.surgeLost();
   }
   if (game.health <= 0) die(player, cause, false);
 }
