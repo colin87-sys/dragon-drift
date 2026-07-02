@@ -767,7 +767,10 @@ export function updateDragon(dt, player, time) {
   }
 
   const nTail = tailSegs.length;
-  if (nTail && activeDef.model.tailWhip) {
+  if (nTail && (activeDef.model.tailWhip || tailSegs[0].isBone)) {
+    // isBone: a skinned tail chain (night-fury / GLB auto-rig) must be driven by
+    // ROTATION even when the def forgot tailWhip — position writes tear a chain
+    // (the same detection the shop preview tick uses, L36).
     // Night-Fury tail = a SKINNED bone chain (driven by ROTATION only — position tears it). It
     // moves like the ORIGINAL dragons (azure): a LATERAL travelling COIL — a side-to-side wave
     // running aft down the tail (azure's non-skinned tail is `sin(time*4.0 − i*0.6)·0.3·lock²`

@@ -79,5 +79,35 @@ for (const key of assetKeys) {
   ok(meshes > 0, `${key}: group has visible placeholder geometry (${meshes} meshes)`);
 }
 
+// ── SKINNED rig mode (dragonGlbRig) — contract on a forced clone ─────────────
+// No roster def opts into rigMode:'skinned' yet; prove the contract on a clone
+// of an asset-backed def forced onto it (the coexist-test discipline). The
+// skeleton is built SYNCHRONOUSLY, so all handles must be real Bones headlessly.
+{
+  const base = DRAGONS[assetKeys[0]];
+  const def = JSON.parse(JSON.stringify(base));
+  def.glb = { ...(def.glb || {}), rigMode: 'skinned' };
+  def.model = { ...(def.model || {}), tailWhip: true };   // rotation-only tail drive (chains tear on position)
+  const built = buildDragonModel(def, {});
+  const P = built.parts;
+  ok(P.wingRigL.shoulder.isBone && P.wingRigL.elbow.isBone && P.wingRigL.wrist.isBone,
+    'skinned: wingRigL chain is real Bones');
+  ok(P.wingRigR.shoulder.isBone && P.wingRigR.side === 1 && P.wingRigL.side === -1,
+    'skinned: wing rig sides are ±1 (mirror-sign contract)');
+  ok(P.head && P.head.isBone, 'skinned: parts.head is the head BONE');
+  ok(P.spineSegs.length === 2 && P.spineSegs[0].userData.role === 'neck'
+    && P.spineSegs[1].userData.role === 'hip', 'skinned: spineSegs = [neck, hip] with roles');
+  ok(P.tailSegs.length > 0 && P.tailSegs.every((b) => b.isBone), 'skinned: tailSegs are Bones');
+  ok(def.model.tailWhip === true, 'skinned: def declares model.tailWhip (rotation-only drive)');
+  ok(P.glbAnim && P.glbAnim.slither === null && P.glbAnim.wingFlap === null,
+    'skinned: shader-deform ticks are null (no double drive)');
+  let authored = 0;
+  P.wingRigL.shoulder.traverse((o) => { if (o.name === 'authoredWing') authored++; });
+  ok(authored === 1, 'skinned: authored membrane fallback still rides the shoulder bone');
+  // shader mode on the same def stays byte-identical in shape: Groups, not Bones
+  const built2 = buildDragonModel(DRAGONS[assetKeys[0]], {});
+  ok(!built2.parts.wingRigL.shoulder.isBone, 'shader mode (default) still uses Group scaffold — coexistence');
+}
+
 console.log(`\n${pass} GLB-contract checks passed, ${fail} failed.`);
 if (fail > 0) process.exit(1);

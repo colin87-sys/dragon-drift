@@ -441,3 +441,59 @@ rigid.
 
 *Keep this file current as the engine grows (new builders, new dials). It's the single source ChatGPT
 should read before proposing a model, and the spec format in §10 is the contract for "recreatable."*
+
+## 12. The GLB AUTO-RIG pipeline (AI-generated mesh, shipped procedural animation)
+
+The alternative to authoring geometry: generate the mesh from an approved concept
+image and let the engine rig it. Aesthetics are decided at the IMAGE stage (the
+human approves/rejects concepts in seconds); motion is the shipped procedural
+flight system — never baked clips (external auto-riggers are humanoid-only, no
+fly cycle; researched and ruled out, see LEAPFROG L108).
+
+**Per-dragon recipe (no geometry code):**
+1. **Concept (human gate #1).** Generate cel-shaded/stylized concepts: wings
+   FULLY SPREAD, and — THE POSE LAW — **a FLYING/GLIDING pose** (body
+   horizontal, legs tucked, tail streaming straight back): the reconstruction
+   BAKES the pose, and a statue pose flies like a statue (verdant v1). Side +
+   ¾ + top views of one design, plain background. Iterate HERE — never fix
+   aesthetics (or pose) later in code.
+2. **Mesh (human gate #2).** `multi_image_to_3d` with the approved views:
+   `target_polycount` ~12000, `topology:'triangle'`, `symmetry_mode:'on'`,
+   textured. Save to `assets/models/<key>.glb`. Inspect with
+   `node tools/glbinspect.mjs` and record tris/bytes/bbox in the def comment
+   (measured, not guessed). Over budget → re-request at a lower polycount.
+3. **Def.** `assetBacked: true`, `meshUrl`, and:
+   ```js
+   glb: {
+     scale, rotY, rotX, rotZ, offset, rim: {...},   // placement + backlit lift
+     rigMode: 'skinned',        // 'shader' = the legacy hinge-flap deform
+     rig: {                      // ALL optional — defaults are MEASURED from the mesh
+       shoulderX, elbowT, wristT, band,   // wing chain placement (game units / span fractions)
+       wingZ: [lo,hi], chestZ: [lo,hi],   // wing gate window + rigid chest band
+       neckZ, headZ, hipZ, tailN,         // spine/tail chain controls
+       flapProfile: {...},                // wingbeat character (dragonWingFlap)
+     },
+   },
+   model: { tailWhip: true, ... }          // rotation-only tail drive (chains tear on position)
+   ```
+4. **Mark the skeleton (Claude is the tagger).** `node tools/rigshots.mjs
+   <key>` renders flat-lit clay orthographic TOP + SIDE views with a labeled
+   world-coordinate grid; Claude reads the images and writes
+   `def.glb.rig.joints` — shoulder/elbow/wrist/tip (+ trailing `fingers`, they
+   carry the membrane chord), neck/head/hip + the `tail` POLYLINE (a curling
+   tail needs bones that follow it), chest + chestZ/wingZ. This replaces both
+   the manual glbtagger and the measurement heuristics (which remain the
+   no-marks fallback). Verify with the partition/stretch probe: target max
+   membrane edge stretch < ~3 at a hard flap extreme.
+5. **Verify.** `tests/glbrig.mjs` (weight partitions + motion probes + the
+   stretch gate), `tests/glbcontract.mjs`, `tests/glb.mjs` (budget), then judge
+   motion on the PR preview. `?rigMode=skinned|shader` A/Bs the same mesh.
+
+**How it works (`js/dragonGlbRig.js`):** the loaded mesh's placement is BAKED
+into its geometry (game frame: head −Z, wingspan ±X), a skeleton is placed from
+MEASURED extents (wide-|x| z-clustering finds the wings; a percentile chord just
+outboard of the shoulder sizes the rigid chest band), weights fuse the two proven
+recipes (wing `spanSkin` bands + the L36/L37 body z-band chain), and the mesh is
+bound as ONE SkinnedMesh. The frozen rig contract (`wingRigL/R`, `spineSegs`,
+`tailSegs`, `parts.head`) then lets `flapWing()` + spine-whip + tail-rudder drive
+it with zero new animation code.
