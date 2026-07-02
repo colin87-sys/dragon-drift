@@ -4398,3 +4398,39 @@ perks); P4 pulse-gate hazard + biome-weighted OVERLAY generation via a 4th RNG s
 Sky-Canyon pattern is the determinism-safe channel for ALL future late-game content; P5
 reduce-flashing toggle + a11y). The deferred handling-tuning PR (boostSteeringFeel split +
 clean-roll cooldown reward) is queued behind preview judgment of this pass.
+
+### L112 — STORMREND: the second boss ships as pure DATA + a job-tagged pattern vocabulary (and a budget test that caught its first bug before any human did)
+**Did / learned:** Phase 2 of the critique plan. Six new attack patterns in `executeAttack`
+(`curtain`/`movingGap`/`iris` fills, `stream`/`secondWave`/`crossfire` anti-flee — adapted from
+the human's Boss Pattern Lab exports, which matched the engine contract almost verbatim), the
+STORMREND def (teal/gold, side approach, 3 gentle phases, `constrictPhase: 2`), a nullable
+`def.body` recipe on `buildBoss` (silhouette/spikeSweep/orbiterStyle/eyeCount knobs — defaults
+reproduce Voidmaw byte-identically), the ARENA CONSTRICTION showpiece (walls ease to ±6.5 in
+phase 3; `game.bossArenaHW` clamps the player in player.js like laneMaxY — a push, never damage;
+restored unconditionally in endEncounter/resetBoss), `?bossIdx=K` preview forcing, and the lab
+itself contract-synced into `tools/patternlab.html` (CDN→vendored three, B_SPEED 34→28,
+FIGHT_Y 11→13, GRAZE_SCALE 2.2→3.0). Tests: whitelist +6 ids, model/lifecycle loops over
+BOSS_ORDER, and a NEW emission-budget check via `debugEmitAttack`/`debugActiveBullets` seams —
+worst concurrent load within one closing window ≤55 at low quality (the visibleCap floor is 60
+and `spawnBossBullet` DROPS SILENTLY past it → an over-budget wall spawns with random holes =
+unfair noise), plus a designed-safe-lane scan for every 2D fill. **The budget test caught
+movingGap at 60 concurrent on its first run** — the fix was low-tier density (n 8→6), never
+closing speed. Verified: boss.mjs 11 checks (voidmaw ~62s kill, stormrend ~77s — a fair step
+up), bossboot/defs/smoke/gold-determinism/juice/economy/canyonboot green, tricount 203265 · 0
+over, real-engine screenshot of the curtain wall + settled boss via `?bossIdx=1`.
+**→ Systematize:** (a) The pattern vocabulary is now JOB-TAGGED (fill / anti-flee / graze-bait /
+garnish / depth — the danmaku "every pattern has a purpose" law): a boss def picks a mix of
+jobs per phase, so authoring boss #3 is a data entry + maybe one new pattern. (b) The
+emission-budget test is the standing guard for ALL future patterns — any new branch is
+automatically counted against the low-tier cap and gap-scanned; silent-drop bugs are now
+structurally impossible to ship. (c) `tools/patternlab.html` is the tuning workflow: dial a
+pattern → export the branch → paste into executeAttack → the budget test validates it. Keep its
+K block synced with CONFIG.BOSS when tuning. (d) Constriction is data (`constrictPhase`) — any
+def can opt in.
+**→ Leapfrog (innovate):** Boss #3 can now be authored in an afternoon: pocket/converge/field
+patterns are already designed in the lab, the recipe knobs give it a silhouette, and spiral+
+spiralStream are still voidmaw/stormrend-unused at high cadence. The bigger unlock: per-def
+PATTERN DIALS (the lab's dial values baked into the def, not the branch) would make attacks
+fully data — one branch per shape, per-boss tuning in bossDefs. And the constriction system
+generalizes to non-boss set-pieces (a narrowing storm-front mid-run). Next critique phases: P3
+economy mid-band, P4 pulse gates + biome-weighted overlays, P5 accessibility.

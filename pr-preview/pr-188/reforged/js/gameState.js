@@ -45,6 +45,7 @@ export const game = {
   gauntletsClearedRun: 0,
   inCanyon: false,     // inside a Sky Canyon run → vertical ceiling is active
   inBoss: false,       // inside a boss encounter → hazards suppressed, boost locked
+  bossArenaHW: null,   // narrowed arena half-width during a constriction showpiece (null = full lane)
   bossesDefeatedRun: 0,// bosses slain this run
   bossHitsTakenRun: 0, // bullet hits taken in the current fight (for the no-hit feat)
   grazesRun: 0,        // bullets grazed this run (skim charges surge)
@@ -125,6 +126,7 @@ export const game = {
     this.gauntletsClearedRun = 0;
     this.inCanyon = false;
     this.inBoss = false;
+    this.bossArenaHW = null;
     this.bossesDefeatedRun = 0;
     this.bossHitsTakenRun = 0;
     this.grazesRun = 0;

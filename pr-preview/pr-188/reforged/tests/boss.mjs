@@ -57,7 +57,8 @@ for (const key of BOSS_ORDER) {
     assert(ph.atFrac <= prev, `${key} phase atFrac is descending`);
     prev = ph.atFrac;
     assert(Array.isArray(ph.attacks) && ph.attacks.length > 0, `${key} phase has attacks`);
-    for (const a of ph.attacks) assert(['aimed', 'fan', 'spiral', 'tunnel', 'spiralStream'].includes(a), `${key} attack '${a}' is known`);
+    for (const a of ph.attacks) assert(['aimed', 'fan', 'spiral', 'tunnel', 'spiralStream',
+      'curtain', 'movingGap', 'iris', 'stream', 'secondWave', 'crossfire'].includes(a), `${key} attack '${a}' is known`);
     assert(ph.cadence[0] > 0 && ph.cadence[1] >= ph.cadence[0], `${key} cadence is a valid range`);
   }
 }
@@ -65,27 +66,30 @@ assertEq(bossDefForIndex(0).id, BOSS_ORDER[0], 'bossDefForIndex(0) → first bos
 assertEq(bossDefForIndex(BOSS_ORDER.length).id, BOSS_ORDER[0], 'bossDefForIndex wraps the list');
 ok(`bossDefs schema valid for ${BOSS_ORDER.length} boss(es), all 3-phase`);
 
-// --- 2. bossModel: tri budget + dissolve ------------------------------------
-const model = buildBoss(BOSSES.voidmaw, 1);
-let tris = 0;
-model.group.traverse((o) => { if (o.geometry) { const g = o.geometry; tris += (g.index ? g.index.count : (g.attributes.position?.count ?? 0)) / 3; } });
-tris = Math.round(tris);
-assert(tris > 0 && tris < 6000, `boss model tris ${tris} within the per-form budget (<6000)`);
-assert(model.muzzle && model.orbiters.length >= 2, 'boss model exposes a muzzle node + orbiting shards');
-// Dissolve fully fades every material's opacity toward zero.
-model.setDissolve(1);
-let maxOp = 0;
-model.group.traverse((o) => { if (o.material) maxOp = Math.max(maxOp, o.material.opacity); });
-assert(maxOp < 0.02, `setDissolve(1) drives all materials transparent (max opacity ${maxOp.toFixed(3)})`);
-model.setDissolve(0);
-let restored = 0;
-model.group.traverse((o) => { if (o.material) restored = Math.max(restored, o.material.opacity); });
-assert(restored > 0.5, 'setDissolve(0) restores opacity');
-// tick() animates the orbiters and never throws.
-const o0 = model.orbiters[0].position.clone();
-model.tick(0.2, 1.0);
-assert(model.orbiters[0].position.distanceTo(o0) > 0, 'model.tick advances the orbiters');
-ok(`boss model: ${tris} tris, dissolve + tick verified`);
+// --- 2. bossModel: tri budget + dissolve (every boss in the roster) ---------
+for (const key of BOSS_ORDER) {
+  const model = buildBoss(BOSSES[key], 1);
+  let tris = 0;
+  model.group.traverse((o) => { if (o.geometry) { const g = o.geometry; tris += (g.index ? g.index.count : (g.attributes.position?.count ?? 0)) / 3; } });
+  tris = Math.round(tris);
+  assert(tris > 0 && tris < 6000, `${key} model tris ${tris} within the per-form budget (<6000)`);
+  assert(model.muzzle && model.orbiters.length >= 2, `${key} model exposes a muzzle node + orbiters`);
+  // Dissolve fully fades every material's opacity toward zero.
+  model.setDissolve(1);
+  let maxOp = 0;
+  model.group.traverse((o) => { if (o.material) maxOp = Math.max(maxOp, o.material.opacity); });
+  assert(maxOp < 0.02, `${key} setDissolve(1) drives all materials transparent (max opacity ${maxOp.toFixed(3)})`);
+  model.setDissolve(0);
+  let restored = 0;
+  model.group.traverse((o) => { if (o.material) restored = Math.max(restored, o.material.opacity); });
+  assert(restored > 0.5, `${key} setDissolve(0) restores opacity`);
+  // tick() animates the orbiters and never throws.
+  const o0 = model.orbiters[0].position.clone();
+  model.tick(0.2, 1.0);
+  assert(model.orbiters[0].position.distanceTo(o0) > 0, `${key} model.tick advances the orbiters`);
+  model.dispose();
+  ok(`${key} model: ${tris} tris, dissolve + tick verified`);
+}
 
 // --- 3. bullet pool: player-relative dodge / hit / reflect ------------------
 bullets.initBossBullets(fakeScene);
@@ -192,44 +196,109 @@ ok('reflect: roll swats amber bullets back for bonus damage; plain bullets immun
 assert(CONFIG.BOSS.surgeRiderMult > 0 && CONFIG.BOSS.surgeRiderMult < 1, 'Surge shortens the rider interval (<1)');
 ok('Surge hyper knobs: faster rider + all-bullets-reflectable + shield-burst');
 
-// --- 4. full controller lifecycle, driven to a kill -------------------------
-game.inBoss = false;
-game.reset();
-game.state = 'playing';
-game.health = 1e9;            // immortal player → we are testing the boss economy
-boss.initBoss(fakeScene);
-const player = makePlayer();
-boss.forceBoss(player);
-assert(game.inBoss === true, 'forceBoss enters the encounter (game.inBoss set)');
-assert(boss.bossActive(), 'controller reports an active encounter');
-
-let t = 0, killed = false, sawFight = false, sawShield = false, surges = 0, defeatedRun0 = game.bossesDefeatedRun;
-on('bossDefeated', () => { killed = true; });
-on('surge', () => { surges++; });
-// Each phase floor raises a SHIELD that only a manual Surge unleash bursts. Drive
-// the loop like a skilled player: when shielded, top the meter and tap surge; and
-// decrement the fever timer (main.js's job in-game) so surges can re-arm.
-for (let i = 0; i < 60 * 160 && !(killed && !game.inBoss); i++) {
-  const dt = 1 / 60;
-  t += dt;
-  player.dist += CONFIG.BOSS.cruiseSpeed * dt;             // mimic forward flight
-  if (game.feverActive) { game.feverTimer -= dt; if (game.feverTimer <= 0) game.feverActive = false; }
-  const st = boss.bossDebugState();
-  if (st.phase === 'fight') sawFight = true;
-  if (st.shielded) {
-    sawShield = true;
-    game.consecutiveRings = game.feverThreshold;   // grazed enough to charge
-    input.surgeTap = true;                          // unleash (Space / tap)
+// --- 3e. pattern emission budget + designed safe gaps ------------------------
+// spawnBossBullet silently DROPS past visibleCap (floor 60 on the lowest tier),
+// which would punch RANDOM holes in a wall — unfair noise, not difficulty. So:
+// every attack fits the low-tier ceiling (no ~1.2s closing window ever holds
+// more than ~55 bullets), and every 2D fill leaves a threadable designed lane.
+const ALL_ATTACKS = ['aimed', 'fan', 'spiral', 'tunnel', 'spiralStream',
+  'curtain', 'movingGap', 'iris', 'stream', 'secondWave', 'crossfire'];
+const TRAVEL = CONFIG.BOSS.settleGap / (CONFIG.BOSS.bulletSpeed * 0.8);   // slowest closing ≈ 1.34s
+const laneSafe = (v, half = 2.2) => {
+  for (let g = -11; g <= 11; g += 0.25) {
+    if (v.every((b) => Math.abs(b.x - g) >= half)) return true;
   }
-  boss.updateBoss(dt, player, t);
+  return false;
+};
+for (const q of [1, 0.7]) {
+  for (const id of ALL_ATTACKS) {
+    bullets.resetBossBullets();
+    const volleys = boss.debugEmitAttack(id, makePlayer(), q);
+    const total = volleys.reduce((s, v) => s + v.bullets.length, 0);
+    assert(total > 0, `${id} @q${q} emits bullets`);
+    // Worst concurrent load: all volleys whose stream offset falls inside one
+    // travel window are alive together.
+    let worst = 0;
+    for (const v of volleys) {
+      const load = volleys.filter((w) => w.t >= v.t - TRAVEL && w.t <= v.t)
+        .reduce((s, w) => s + w.bullets.length, 0);
+      worst = Math.max(worst, load);
+    }
+    if (q < 1) assert(worst <= 55, `${id} @q${q} concurrent load ${worst} fits the low-tier cap (≤55)`);
+    else assert(worst <= 160, `${id} @q1 concurrent load ${worst} leaves pool headroom (≤160)`);
+  }
 }
-assert(sawFight, 'controller passed warn → approach → fight');
-assert(sawShield, 'the boss raised a shield at a phase floor (only Surge bursts it)');
-assert(surges >= 3, `it took ~3 Surge unleashes to burst the shields and kill (got ${surges})`);
-assert(killed, 'shield-gated boss dies after the phases are burst with Surge');
-assertEq(game.inBoss, false, 'after death the overlay tears down (game.inBoss cleared)');
-assertEq(game.bossesDefeatedRun, defeatedRun0 + 1, 'a defeated boss is counted on the run');
-assert(bullets.bossBulletCount() === 0, 'all bullets are cleared on teardown');
-ok(`controller lifecycle: warn→approach→fight→death→teardown, boss slain at ~${t.toFixed(1)}s`);
+// The 2D fills must leave their designed safe lane (≥2.2 half-width somewhere).
+{
+  bullets.resetBossBullets();
+  const wall = boss.debugEmitAttack('curtain', makePlayer(), 1);
+  assert(laneSafe(wall[0].bullets), 'curtain leaves a threadable safe lane');
+  bullets.resetBossBullets();
+  const rows = boss.debugEmitAttack('movingGap', makePlayer(), 1);
+  for (const r of rows) {
+    if (!r.bullets.length) continue;   // the instant volley is empty (all streamed)
+    assert(laneSafe(r.bullets), `movingGap row @t${r.t.toFixed(2)} leaves a sliding safe lane`);
+  }
+}
+bullets.resetBossBullets();
+ok(`pattern budget: ${ALL_ATTACKS.length} attacks fit the low-tier bullet cap; fills keep designed lanes`);
+
+// --- 4. full controller lifecycle, driven to a kill (EVERY boss) -------------
+boss.initBoss(fakeScene);
+let killsSeen = 0, surgesSeen = 0;
+on('bossDefeated', () => { killsSeen++; });
+on('surge', () => { surgesSeen++; });
+
+// Drive one full encounter of BOSS_ORDER[idx] like a skilled player: when the
+// phase-floor shield rises, top the meter and tap Surge (the only way past);
+// decrement the fever timer (main.js's job in-game) so surges can re-arm.
+function driveKill(idx) {
+  game.inBoss = false;
+  game.reset();
+  game.state = 'playing';
+  game.health = 1e9;          // immortal player → we are testing the boss economy
+  const player = makePlayer();
+  boss.forceBoss(player, idx);
+  const kills0 = killsSeen, surges0 = surgesSeen;
+  let t = 0, sawFight = false, sawShield = false, sawNarrow = false;
+  for (let i = 0; i < 60 * 200 && !(killsSeen > kills0 && !game.inBoss); i++) {
+    const dt = 1 / 60;
+    t += dt;
+    player.dist += CONFIG.BOSS.cruiseSpeed * dt;             // mimic forward flight
+    if (game.feverActive) { game.feverTimer -= dt; if (game.feverTimer <= 0) game.feverActive = false; }
+    const st = boss.bossDebugState();
+    if (st.phase === 'fight') sawFight = true;
+    if (st.shielded) {
+      sawShield = true;
+      game.consecutiveRings = game.feverThreshold;   // grazed enough to charge
+      input.surgeTap = true;                          // unleash (Space / tap)
+    }
+    if (game.bossArenaHW != null) sawNarrow = true;
+    boss.updateBoss(dt, player, t);
+  }
+  return { t, sawFight, sawShield, sawNarrow,
+    killed: killsSeen > kills0, surges: surgesSeen - surges0 };
+}
+
+for (let idx = 0; idx < BOSS_ORDER.length; idx++) {
+  const key = BOSS_ORDER[idx];
+  const r = driveKill(idx);
+  assert(r.sawFight, `${key}: controller passed warn → approach → fight`);
+  assert(r.sawShield, `${key}: raised a shield at a phase floor (only Surge bursts it)`);
+  assert(r.surges >= 3, `${key}: ~3 Surge unleashes to burst the shields and kill (got ${r.surges})`);
+  assert(r.killed, `${key}: shield-gated boss dies after the phases are burst`);
+  assertEq(game.inBoss, false, `${key}: after death the overlay tears down (game.inBoss cleared)`);
+  assertEq(game.bossesDefeatedRun, 1, `${key}: the defeated boss is counted on the run`);
+  assert(bullets.bossBulletCount() === 0, `${key}: all bullets are cleared on teardown`);
+  // Constriction contract: a def with constrictPhase narrows the arena during
+  // the fight and ALWAYS restores it on teardown.
+  if (BOSSES[key].constrictPhase != null) {
+    assert(r.sawNarrow, `${key}: the arena narrowed at the constriction phase`);
+  } else {
+    assert(!r.sawNarrow, `${key}: no constriction → the arena never narrowed`);
+  }
+  assertEq(game.bossArenaHW, null, `${key}: arena width restored after the fight`);
+  ok(`${key} lifecycle: warn→approach→fight→death→teardown, slain at ~${r.t.toFixed(1)}s`);
+}
 
 console.log(`\n${n} boss checks passed.`);

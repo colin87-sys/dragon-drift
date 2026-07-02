@@ -30,7 +30,7 @@ import { DRAGONS } from './dragons.js';
 import { RIDERS } from './riders.js';
 import { dailySeed, recordDailyRun, saveData, persist, grantXp, levelEmberReward, todayUTC, gambitSunsetRefund, freezeSaves } from './save.js';
 import { initEmbers, addEmberLine, updateEmbers, bankEmbers, resetEmbers } from './embers.js';
-import { initBoss, updateBoss, resetBoss, setBossQuality, forceBoss, setBossDebugFirstAt, bossDebugState } from './boss.js';
+import { initBoss, updateBoss, resetBoss, setBossQuality, forceBoss, setBossDebugFirstAt, setBossDebugDefIdx, bossDebugState } from './boss.js';
 import { emit, on } from './events.js';
 import { initAnalytics } from './analytics.js';
 import { initMissions, settleMissions } from './missions.js';
@@ -204,6 +204,12 @@ function triggerSetPiece(sp) {
 if (urlParams.has('boss')) {
   const d = parseInt(urlParams.get('boss'), 10);
   setBossDebugFirstAt(Number.isFinite(d) && d > 0 ? d : 180);
+}
+// ?bossIdx=K forces every encounter to BOSS_ORDER[K] (e.g. ?boss&bossIdx=1 =
+// Stormrend right after takeoff) so the preview can judge a specific boss.
+if (urlParams.has('bossIdx')) {
+  const k = parseInt(urlParams.get('bossIdx'), 10);
+  if (Number.isFinite(k) && k >= 0) setBossDebugDefIdx(k);
 }
 
 // Debug: force Dragon Surge for visual verification
