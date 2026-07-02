@@ -21,16 +21,24 @@
 // the GLB resolves, then weights are computed, then meshes are bound. Rotations
 // are never pre-posed; positions are never written after bind.
 //
-// Weighting reuses the two proven recipes:
-//  - wings: the skinnedMembrane spanSkin bands (dragonWings.js) — a welded
-//    root band (body anchor → shoulder) then smooth-stepped shoulder/elbow/
-//    wrist spans, so the wing GROWS from the body instead of pivoting off it.
-//  - body: the L36/L37 z-band chain — a rigid single-slot chest band that must
-//    CONTAIN the wing-root chord (measured, then enforced), blending fore into
-//    neck→head and aft into hip→tail bones.
-// Wing verts are gated by BOTH |x| and a spine-z window: a coiled tail also
-// swings wide in x, and an |x|-only mask flaps it (the thundercoil shader-path
-// bug, locked by tests/glbrig.mjs).
+// WEIGHTING (v2 — the anti-smudge rework): hard axis-window bands tore the
+// membrane (adjacent verts on different bones with no gradient shear during the
+// flap — the verdant v1 smudge). v2 weights every vertex by DISTANCE TO BONE
+// CAPSULES (each bone owns the segment from its joint to the next joint), keeps
+// the top-2, then runs LAPLACIAN SMOOTHING of the weights over the mesh
+// adjacency graph so there is no hard seam anywhere BY CONSTRUCTION. Two
+// survivors from v1: the wing z-window (now only a MASK keeping tail/leg verts
+// off wing capsules — the thundercoil coiled-tail lesson) and the rigid
+// single-slot chest band (L37; PINNED through smoothing so the saddle/weld zone
+// never softens).
+//
+// JOINT PLACEMENT: `rig.joints` (explicit 3D positions — normally marked by
+// Claude's vision on tools/rigshots.mjs renders) overrides every measurement
+// heuristic; without it the L108 measured defaults (wide-|x| z-clustering,
+// outboard percentile chord) still apply. The baked wing DIHEDRAL is measured
+// from the placed shoulder→wrist vector and exported as wingRig.restZ so
+// flapWing oscillates around the mesh's own rest pose (scaled by
+// rig.flapCenter: 0 = beat around the baked pose, 1 = around horizontal).
 
 import * as THREE from 'three';
 
@@ -56,6 +64,9 @@ export const DEFAULT_RIG = {
   neckZ: null, headZ: null, hipZ: null,   // spine control z's; defaults from bbox
   tailN: 4,              // tail chain length
   flapProfile: null,     // per-creature flap character (falls through to model.flapProfile)
+  joints: null,          // explicit 3D joint positions (vision-marked) — see refine
+  flapCenter: 0.5,       // 0 = flap around the baked dihedral, 1 = around horizontal
+  smoothIters: 10,       // Laplacian weight-smoothing passes (0 disables)
 };
 
 const sstep = (x) => { x = Math.min(Math.max(x, 0), 1); return x * x * (3 - 2 * x); };
@@ -172,14 +183,19 @@ export function refineSkeletonFromGeometry(skel, geoms, cfg = {}) {
   if (!total) throw new Error('dragonGlbRig: no vertices to rig');
   const halfSpanRaw = Math.max(Math.abs(minX), Math.abs(maxX));
 
-  // ── effective gates (config wins; measurement fills the gaps) ─────────────
+  // ── effective gates (vision marks win, then config, then measurement) ─────
   // Default wing z-window: find where the WIDE verts actually live. Wide-x
   // verts are either wings or a coiled tail; the two form separate z-clusters
   // (that separation is the whole reason the window exists), so gap-split the
   // sorted z list and keep the cluster containing the globally widest vert —
   // that one is the wing band by definition (a tail never out-spans the wings).
-  const wingZ = rig.wingZ ?? measureWingWindow(geoms, halfSpanRaw, maxZ - minZ);
-  const shoulderX = rig.shoulderX ?? halfSpanRaw * 0.18;
+  // `rig.joints` = explicit joint positions marked by vision on the rigshots
+  // renders: RIGHT-side wing joints as [x,y,z] (x>0; the left is mirrored),
+  // spine joints as [x,y,z] with x ignored. Every field optional.
+  const J = rig.joints || null;
+  const wingZ = (J && J.wingZ) ?? rig.wingZ ?? measureWingWindow(geoms, halfSpanRaw, maxZ - minZ);
+  const shoulderX = (J && J.shoulder) ? Math.abs(J.shoulder[0])
+    : (rig.shoulderX ?? halfSpanRaw * 0.18);
   const rootStart = shoulderX * 0.55;                 // welded root band start
 
   // ── pass 2: wing stats inside the gate ────────────────────────────────────
@@ -205,6 +221,7 @@ export function refineSkeletonFromGeometry(skel, geoms, cfg = {}) {
     }
   }
   if (!(halfSpan > 0)) halfSpan = halfSpanRaw;
+  if (J && J.tip) halfSpan = Math.max(halfSpan, Math.abs(J.tip[0]));
   let chordLo, chordHi;
   if (chordZs.length) {
     chordZs.sort((a, b) => a - b);
@@ -212,22 +229,29 @@ export function refineSkeletonFromGeometry(skel, geoms, cfg = {}) {
     chordHi = chordZs[Math.min(chordZs.length - 1, Math.floor(chordZs.length * 0.95))];
   } else { chordLo = wingZ[0]; chordHi = wingZ[1]; }
 
-  // ── chest band: MUST contain the measured wing-root chord (L37) ───────────
+  // ── chest band ─────────────────────────────────────────────────────────────
+  // Heuristic path: MUST contain the measured wing-root chord (L37 — the band
+  // anchors the wing↔body junction). Vision-marked path: TRUST the mark — on a
+  // swept wing the z-chord spans most of the body and expansion swallows the
+  // neck; capsule competition already classifies the root correctly.
   const margin = (maxZ - minZ) * 0.04;
-  let chestZ = rig.chestZ ? [...rig.chestZ] : [chordLo - margin, chordHi + margin];
+  const chestGiven = (J && J.chestZ) ?? rig.chestZ;
+  let chestZ = chestGiven ? [...chestGiven] : [chordLo - margin, chordHi + margin];
   let chestExpanded = false;
-  if (chestZ[0] > chordLo - 1e-6) { chestZ[0] = chordLo - margin; chestExpanded = true; }
-  if (chestZ[1] < chordHi + 1e-6) { chestZ[1] = chordHi + margin; chestExpanded = true; }
-  if (chestExpanded && rig.chestZ) {
-    console.warn('[dragonGlbRig] chestZ expanded to contain the measured wing-root chord',
-      { given: rig.chestZ, chord: [chordLo, chordHi], used: chestZ });
+  if (!(J && J.chestZ)) {
+    if (chestZ[0] > chordLo - 1e-6) { chestZ[0] = chordLo - margin; chestExpanded = true; }
+    if (chestZ[1] < chordHi + 1e-6) { chestZ[1] = chordHi + margin; chestExpanded = true; }
+    if (chestExpanded && chestGiven) {
+      console.warn('[dragonGlbRig] chestZ expanded to contain the measured wing-root chord',
+        { given: chestGiven, chord: [chordLo, chordHi], used: chestZ });
+    }
   }
 
   // ── spine control z's ──────────────────────────────────────────────────────
-  const neckZ = rig.neckZ ?? chestZ[0] + (minZ - chestZ[0]) * 0.45;
-  const headZ = rig.headZ ?? chestZ[0] + (minZ - chestZ[0]) * 0.8;
-  const hipZ = rig.hipZ ?? chestZ[1] + (maxZ - chestZ[1]) * 0.3;
-  const tailEndZ = chestZ[1] + (maxZ - chestZ[1]) * 0.95;
+  const neckZ = (J && J.neck) ? J.neck[2] : (rig.neckZ ?? chestZ[0] + (minZ - chestZ[0]) * 0.45);
+  const headZ = (J && J.head) ? J.head[2] : (rig.headZ ?? chestZ[0] + (minZ - chestZ[0]) * 0.8);
+  const hipZ = (J && J.hip) ? J.hip[2] : (rig.hipZ ?? chestZ[1] + (maxZ - chestZ[1]) * 0.3);
+  const tailEndZ = (J && J.tailEnd) ? J.tailEnd[2] : chestZ[1] + (maxZ - chestZ[1]) * 0.95;
 
   // ── sampled anchors: mean y (and z for wing joints) near each control ─────
   const bandW = Math.max(rig.band * halfSpan, halfSpan * 0.08);
@@ -254,12 +278,16 @@ export function refineSkeletonFromGeometry(skel, geoms, cfg = {}) {
     return s ? s.y : chestY;
   };
 
-  const elbowX = rig.elbowT * halfSpan;
-  const wristX = rig.wristT * halfSpan;
-  const sSample = wingAt(shoulderX), eSample = wingAt(elbowX), wSample = wingAt(wristX);
+  const elbowX = (J && J.elbow) ? Math.abs(J.elbow[0]) : rig.elbowT * halfSpan;
+  const wristX = (J && J.wrist) ? Math.abs(J.wrist[0]) : rig.wristT * halfSpan;
+  const sSample = (J && J.shoulder) ? { y: J.shoulder[1], z: J.shoulder[2] } : wingAt(shoulderX);
+  const eSample = (J && J.elbow) ? { y: J.elbow[1], z: J.elbow[2] } : wingAt(elbowX);
+  const wSample = (J && J.wrist) ? { y: J.wrist[1], z: J.wrist[2] } : wingAt(wristX);
+  const spineYAt = (mark, tz) => (J && mark ? mark[1] : spineAt(tz));
 
   // ── write bone rest POSITIONS (local = worldTarget − parentWorldTarget) ───
-  const rootP = new THREE.Vector3(0, chestY, (chestZ[0] + chestZ[1]) / 2);
+  const rootY = (J && J.chest) ? J.chest[1] : chestY;
+  const rootP = new THREE.Vector3(0, rootY, (chestZ[0] + chestZ[1]) / 2);
   skel.root.position.copy(rootP);
   const place = (b, wx, wy, wz, parentP) => {
     b.position.set(wx - parentP.x, wy - parentP.y, wz - parentP.z);
@@ -271,90 +299,295 @@ export function refineSkeletonFromGeometry(skel, geoms, cfg = {}) {
     p = place(wr.elbow, side * elbowX, eSample.y, eSample.z, p);
     place(wr.wrist, side * wristX, wSample.y, wSample.z, p);
   }
-  let p = place(skel.spineSegs[0], 0, spineAt(neckZ), neckZ, rootP);        // neck
-  place(skel.headBone, 0, spineAt(headZ), headZ, p);
-  p = place(skel.spineSegs[1], 0, spineAt(hipZ), hipZ, rootP);               // hip
+  let p = place(skel.spineSegs[0], 0, spineYAt(J && J.neck, neckZ), neckZ, rootP);   // neck
+  place(skel.headBone, 0, spineYAt(J && J.head, headZ), headZ, p);
+  p = place(skel.spineSegs[1], 0, spineYAt(J && J.hip, hipZ), hipZ, rootP);          // hip
   const tailN = skel.tailSegs.length;
+  const tailEndY = (J && J.tailEnd) ? J.tailEnd[1] : spineAt(tailEndZ);
+  const hipY = (J && J.hip) ? J.hip[1] : spineAt(hipZ);
+  // J.tail: the tail as a marked POLYLINE (one [x,y,z] per tail bone) — a tail
+  // that CURLS sideways must have bones (and capsules) that follow the curl,
+  // or the far coil sits closer to the wing capsules than to a straight-line
+  // tail axis and steals flap weight (the thundercoil bug, soft edition —
+  // measured 0.198 wrist weight on the verdant curled tail tip).
+  const tailMarks = (J && Array.isArray(J.tail) && J.tail.length === tailN) ? J.tail : null;
   for (let i = 0; i < tailN; i++) {
-    const tz = hipZ + ((i + 1) / tailN) * (tailEndZ - hipZ);
-    p = place(skel.tailSegs[i], 0, spineAt(tz), tz, p);
+    if (tailMarks) {
+      const m = tailMarks[i];
+      p = place(skel.tailSegs[i], m[0], m[1], m[2], p);
+    } else {
+      const t = (i + 1) / tailN;
+      const tz = hipZ + t * (tailEndZ - hipZ);
+      const ty = J ? hipY + t * (tailEndY - hipY) : spineAt(tz);
+      p = place(skel.tailSegs[i], 0, ty, tz, p);
+    }
   }
+
+  // ── flap rest-center: the baked wing DIHEDRAL, exported per side so
+  // flapWing oscillates around the mesh's own rest pose (rig.flapCenter:
+  // 0 = beat around the baked pose, 1 = around horizontal). Additive +
+  // nullable in flapWing → procedural rigs unchanged.
+  const dihedral = Math.atan2(wSample.y - sSample.y, Math.max(1e-4, wristX - shoulderX));
+  const center = rig.flapCenter ?? 0.5;
+  skel.wingRigR.restZ = -dihedral * center;
+  skel.wingRigL.restZ = dihedral * center;
 
   skel.analysis = {
     halfSpan, shoulderX, rootStart, elbowX, wristX, band: bandW,
     wingZ, chestZ, chestExpanded, wingRootChordZ: [chordLo, chordHi],
-    neckZ, headZ, hipZ, tailEndZ, chestY,
+    neckZ, headZ, hipZ, tailEndZ, chestY: rootY, dihedral,
+    joints: !!J, tipJoint: (J && J.tip) || null, fingerJoints: (J && J.fingers) || null,
     spineMinZ: minZ, spineMaxZ: maxZ, vertCount: total,
   };
   return skel.analysis;
 }
 
-// One-time weight pass over a baked geometry. Writes skinIndex/skinWeight
-// (4-wide, two active slots) and returns partition stats for the gates.
+// Squared distance from point p to segment a→b (a capsule axis).
+function segDistSq(px, py, pz, a, b) {
+  const abx = b[0] - a[0], aby = b[1] - a[1], abz = b[2] - a[2];
+  const apx = px - a[0], apy = py - a[1], apz = pz - a[2];
+  const len2 = abx * abx + aby * aby + abz * abz;
+  let t = len2 > 0 ? (apx * abx + apy * aby + apz * abz) / len2 : 0;
+  t = t < 0 ? 0 : t > 1 ? 1 : t;
+  const dx = apx - abx * t, dy = apy - aby * t, dz = apz - abz * t;
+  return dx * dx + dy * dy + dz * dz;
+}
+
+// Rest world position of a bone in the group frame (rest = pure translations,
+// so accumulating local positions up to and including the root IS that frame —
+// the same frame the baked geometry lives in).
+function jointPos(skel, bone) {
+  const v = new THREE.Vector3();
+  let b = bone;
+  while (b && b !== skel.root) { v.add(b.position); b = b.parent; }
+  v.add(skel.root.position);
+  return [v.x, v.y, v.z];
+}
+
+// Bone capsules: each bone owns the segment from ITS joint to the next joint
+// out the chain (rotating a bone swings exactly that segment). `wing` = ±1
+// side mask for wing capsules; body capsules are unmasked.
+function buildCapsules(skel, analysis) {
+  const caps = [];
+  const P = (b) => jointPos(skel, b);
+  for (const side of [-1, 1]) {
+    const wr = side < 0 ? skel.wingRigL : skel.wingRigR;
+    const [S, E, W] = side < 0
+      ? [BONE.SHOULDER_L, BONE.ELBOW_L, BONE.WRIST_L]
+      : [BONE.SHOULDER_R, BONE.ELBOW_R, BONE.WRIST_R];
+    const s = P(wr.shoulder), e = P(wr.elbow), w = P(wr.wrist);
+    // wrist capsule runs to the wingtip: the vision MARK when given (a bat arm
+    // bends at the carpal — the fingers do NOT continue the forearm direction),
+    // else extrapolate along the forearm out to the measured half-span.
+    let tip;
+    if (analysis.tipJoint) {
+      const t = analysis.tipJoint;
+      tip = [side * Math.abs(t[0]), t[1], t[2]];
+    } else {
+      const span = Math.max(1e-4, Math.abs(w[0]) - Math.abs(e[0]));
+      const ext = Math.max(0, analysis.halfSpan - Math.abs(w[0])) / span;
+      tip = [w[0] + (w[0] - e[0]) * ext, w[1] + (w[1] - e[1]) * ext, w[2] + (w[2] - e[2]) * ext];
+    }
+    caps.push({ a: s, b: e, bone: S, wing: side });
+    caps.push({ a: e, b: w, bone: E, wing: side });
+    caps.push({ a: w, b: tip, bone: W, wing: side });
+    // FINGER capsules (vision marks): in a bat wing the fingers carry the
+    // membrane CHORD — without them the trailing membrane is closer to the
+    // chest capsule than to the leading-edge arm and tears off the wing
+    // (measured 10× stretch at the verdant trailing edge). Fingers ride the
+    // wrist bone, exactly like the procedural wing's strut fan.
+    for (const f of analysis.fingerJoints || []) {
+      caps.push({ a: w, b: [side * Math.abs(f[0]), f[1], f[2]], bone: W, wing: side });
+    }
+  }
+  const r = P(skel.root);
+  const { chestZ, spineMinZ, spineMaxZ } = analysis;
+  caps.push({ a: [0, r[1], chestZ[0]], b: [0, r[1], chestZ[1]], bone: BONE.ROOT, wing: 0 });
+  const n = P(skel.spineSegs[0]), h = P(skel.headBone);
+  caps.push({ a: n, b: h, bone: BONE.NECK, wing: 0 });
+  caps.push({ a: h, b: [0, h[1], spineMinZ], bone: BONE.HEAD, wing: 0 });
+  const hip = P(skel.spineSegs[1]);
+  let prev = hip, prev2 = hip, prevBone = BONE.HIP;
+  for (let i = 0; i < skel.tailSegs.length; i++) {
+    const t = P(skel.tailSegs[i]);
+    caps.push({ a: prev, b: t, bone: prevBone, wing: 0 });
+    prev2 = prev; prev = t; prevBone = BONE.TAIL0 + i;
+  }
+  // final capsule continues along the LAST segment's direction (a curled tail
+  // does not end pointing down +z), half a segment further to cover the tip
+  caps.push({
+    a: prev,
+    b: [prev[0] + (prev[0] - prev2[0]) * 0.5, prev[1] + (prev[1] - prev2[1]) * 0.5, prev[2] + (prev[2] - prev2[2]) * 0.5],
+    bone: prevBone, wing: 0,
+  });
+  return caps;
+}
+
+// Vertex adjacency from an indexed geometry (flat neighbor lists). Null for
+// non-indexed geometry — smoothing then no-ops (fixtures, point clouds).
+function buildAdjacency(geo) {
+  const idx = geo.index;
+  if (!idx) return null;
+  const n = geo.attributes.position.count;
+  const deg = new Uint16Array(n);
+  const pushPair = (cb) => {
+    for (let i = 0; i < idx.count; i += 3) {
+      const a = idx.getX(i), b = idx.getX(i + 1), c = idx.getX(i + 2);
+      cb(a, b); cb(b, a); cb(b, c); cb(c, b); cb(a, c); cb(c, a);
+    }
+  };
+  pushPair((a) => deg[a]++);
+  const off = new Uint32Array(n + 1);
+  for (let i = 0; i < n; i++) off[i + 1] = off[i] + deg[i];
+  const nbr = new Uint32Array(off[n]);
+  const cursor = Uint32Array.from(off.subarray(0, n));
+  pushPair((a, b) => { nbr[cursor[a]++] = b; });
+  return { off, nbr };
+}
+
+// One-time weight pass over a baked geometry (v2 — capsules + smoothing).
+// Every vertex is weighted by inverse squared distance to the bone capsules
+// (wing capsules masked by side + the wing z-window; the rigid chest band is
+// PINNED single-slot on the root), then the weights are Laplacian-smoothed
+// over the mesh adjacency so no hard seam survives — the anti-smudge fix.
+// Writes skinIndex/skinWeight (4-wide, two active slots) and returns partition
+// stats (by DOMINANT bone) for the gates.
 export function computeGlbWeights(geo, skel, analysis = skel.analysis) {
   if (!analysis) throw new Error('dragonGlbRig: computeGlbWeights before refineSkeletonFromGeometry');
-  const { shoulderX, rootStart, elbowX, wristX, band, wingZ, chestZ,
-    neckZ, headZ, hipZ, tailEndZ } = analysis;
+  const { rootStart, chestZ } = analysis;
+  const caps = buildCapsules(skel, analysis);
+  const wingCaps = caps.filter((c) => c.wing !== 0);
+  const bodyCaps = caps.filter((c) => c.wing === 0);
+  const NB = skel.allBones.length;
   const pos = geo.attributes.position;
-  const si = new Uint16Array(pos.count * 4);
-  const sw = new Float32Array(pos.count * 4);
-  const stats = { wingL: 0, wingR: 0, chest: 0, neckHead: 0, hipTail: 0, total: pos.count };
+  const n = pos.count;
 
-  const tailN = skel.tailSegs.length;
-  // Aft control chain: [z, boneIndex] ascending in z. Fore chain descends.
-  const aft = [[chestZ[1], BONE.ROOT], [hipZ, BONE.HIP]];
-  for (let i = 0; i < tailN; i++) {
-    aft.push([hipZ + ((i + 1) / tailN) * (tailEndZ - hipZ), BONE.TAIL0 + i]);
-  }
-  // fore chain: the coordinate DESCENDS toward the head, so walk it on −z.
-  const fore = [[-chestZ[0], BONE.ROOT], [-neckZ, BONE.NECK], [-headZ, BONE.HEAD]];
+  // Dense per-vertex weight rows — smoothing needs random access. 14 bones ×
+  // ~13k verts ≈ 730 KB transient; freed after the top-2 write.
+  let W = new Float32Array(n * NB);
+  const pinned = new Uint8Array(n);
+  const eps2 = Math.pow(analysis.halfSpan * 0.05, 2);   // softening → smooth gradients
 
-  const write = (i, a, b, t) => {
-    // Two active slots — collapse to single-slot when both controls are the
-    // same bone (the L37 gotcha: a [1−t, t] pair on one bone index breaks the
-    // "slot-weight === 1" rigid-band invariant even though it sums to 1).
-    const o = i * 4;
-    if (a === b || t <= 0) { si[o] = a; sw[o] = 1; }
-    else if (t >= 1) { si[o] = b; sw[o] = 1; }
-    else { si[o] = a; si[o + 1] = b; sw[o] = 1 - t; sw[o + 1] = t; }
-  };
-  // Walk a control chain [coord ascending] and blend between the bracket pair.
-  const chainWeight = (i, controls, c) => {
-    if (c <= controls[0][0]) { write(i, controls[0][1], controls[0][1], 0); return; }
-    for (let k = 0; k < controls.length - 1; k++) {
-      const [c0, b0] = controls[k], [c1, b1] = controls[k + 1];
-      if (c <= c1) { write(i, b0, b1, sstep((c - c0) / (c1 - c0))); return; }
-    }
-    const last = controls[controls.length - 1][1];
-    write(i, last, last, 0);
-  };
-
-  for (let i = 0; i < pos.count; i++) {
-    const x = pos.getX(i), z = pos.getZ(i);
+  for (let i = 0; i < n; i++) {
+    const x = pos.getX(i), y = pos.getY(i), z = pos.getZ(i);
     const ax = Math.abs(x);
-    const isWing = ax > rootStart && z >= wingZ[0] && z <= wingZ[1];
-    if (isWing) {
-      const [S, E, W] = x < 0
-        ? [BONE.SHOULDER_L, BONE.ELBOW_L, BONE.WRIST_L]
-        : [BONE.SHOULDER_R, BONE.ELBOW_R, BONE.WRIST_R];
-      if (x < 0) stats.wingL++; else stats.wingR++;
-      const b = band;
-      if (ax < shoulderX) write(i, BONE.ROOT, S, sstep((ax - rootStart) / (shoulderX - rootStart)));
-      else if (ax <= elbowX - b) write(i, S, S, 0);
-      else if (ax < elbowX + b) write(i, S, E, sstep((ax - (elbowX - b)) / (2 * b)));
-      else if (ax <= wristX - b) write(i, E, E, 0);
-      else if (ax < wristX + b) write(i, E, W, sstep((ax - (wristX - b)) / (2 * b)));
-      else write(i, W, W, 0);
-    } else if (z >= chestZ[0] && z <= chestZ[1]) {
-      stats.chest++;
-      write(i, BONE.ROOT, BONE.ROOT, 0);       // rigid anchor band, single slot
-    } else if (z < chestZ[0]) {
-      stats.neckHead++;
-      chainWeight(i, fore, -z);
-    } else {
-      stats.hipTail++;
-      chainWeight(i, aft, z);
+    const o = i * NB;
+    // Wing eligibility by SOFT CAPSULE COMPETITION, not a z-window: wing
+    // capsules count in proportion to how much CLOSER the vert is to the wing
+    // than to the body. A z-window cannot segment a SWEPT wing (the verdant
+    // leading edge lives forward of any window that spares the neck — measured
+    // 70× edge stretch); a HARD closer-than test fixes that but leaves a 0→1
+    // cliff along the equidistance line that no smoothing bridges (measured
+    // 13× at the wing–neck junction). The soft margin gate g ramps over a real
+    // spatial band, and still hits EXACTLY zero where the body is decisively
+    // closer — a coiled tail (tail capsule through the coil) stays wing-free.
+    let dBody = Infinity;
+    for (const c of bodyCaps) {
+      const d = segDistSq(x, y, z, c.a, c.b);
+      if (d < dBody) dBody = d;
     }
+    let dWing = Infinity;
+    if (ax > rootStart) {
+      for (const c of wingCaps) {
+        if ((c.wing < 0) !== (x < 0)) continue;
+        const d = segDistSq(x, y, z, c.a, c.b);
+        if (d < dWing) dWing = d;
+      }
+    }
+    let gate = 0;
+    if (dWing < Infinity) {
+      const dB = Math.sqrt(dBody), dW = Math.sqrt(dWing);
+      const m = (dB - dW) / Math.max(1e-6, dB + dW);   // −1 (deep body) … +1 (deep wing)
+      gate = sstep((m + 0.25) / 0.5);                   // 0 at m≤−0.25, 1 at m≥+0.25
+    }
+    if (gate < 0.05 && z >= chestZ[0] && z <= chestZ[1]) {
+      W[o + BONE.ROOT] = 1; pinned[i] = 1;      // rigid anchor band (L37), pinned
+      continue;
+    }
+    // Welded root ramp (the L1/L22 law: the wing GROWS from the body): wing
+    // influence fades to ZERO toward the root edge, so junction verts move
+    // with the torso like their body neighbours — the membrane stretches
+    // instead of tearing where the leading edge climbs the neck (measured:
+    // the tear at the wing–neck junction survives any amount of smoothing
+    // without this ramp).
+    const rootRamp = sstep((ax - rootStart) / Math.max(1e-4, analysis.shoulderX * 1.4 - rootStart));
+    const wingScale = gate * rootRamp;
+    let sum = 0;
+    for (const c of caps) {
+      let w;
+      // SHARP falloff (1/(d²+ε)²): keeps ≤4 significant bones per vert so the
+      // 4-slot write is lossless — a soft falloff left 5-bone junctions whose
+      // truncated smallest weight re-tore the smoothed field (measured 10× at
+      // the crowded wing-root/neck region). Smoothing then re-spreads the
+      // sharp field ALONG THE MESH, which is the spread we actually want.
+      const d = segDistSq(x, y, z, c.a, c.b) + eps2;
+      if (c.wing !== 0) {
+        if (wingScale <= 0 || (c.wing < 0) !== (x < 0)) continue;
+        w = wingScale / (d * d);
+      } else {
+        w = 1 / (d * d);
+      }
+      W[o + c.bone] += w; sum += w;
+    }
+    if (sum > 0) for (let b = 0; b < NB; b++) W[o + b] /= sum;
+    else W[o + BONE.ROOT] = 1;
+  }
+
+  // Laplacian smoothing over the mesh graph — the seam killer. Pinned rows
+  // (chest band) pass through unchanged so the anchor never softens.
+  const iters = skel.rig.smoothIters ?? 10;
+  const adj = iters > 0 ? buildAdjacency(geo) : null;
+  if (adj) {
+    let W2 = new Float32Array(n * NB);
+    for (let it = 0; it < iters; it++) {
+      for (let i = 0; i < n; i++) {
+        const o = i * NB;
+        if (pinned[i]) { W2.set(W.subarray(o, o + NB), o); continue; }
+        const s0 = adj.off[i], s1 = adj.off[i + 1];
+        const k = s1 - s0;
+        if (!k) { W2.set(W.subarray(o, o + NB), o); continue; }
+        for (let b = 0; b < NB; b++) {
+          let acc = 0;
+          for (let s = s0; s < s1; s++) acc += W[adj.nbr[s] * NB + b];
+          W2[o + b] = 0.5 * W[o + b] + 0.5 * (acc / k);
+        }
+      }
+      const tmp = W; W = W2; W2 = tmp;
+    }
+  }
+
+  // Top-4 per vertex → attributes; stats by the dominant bone. FOUR slots, not
+  // two: at 3-bone junctions (shoulder/neck/head around the wing root) a top-2
+  // cut DROPS the small bridging weight smoothing just built and re-sharpens
+  // the seam (measured: the same 13× tear survived any smoothing until the
+  // truncated third weight was kept). GPU skinning is 4-wide anyway.
+  const si = new Uint16Array(n * 4);
+  const sw = new Float32Array(n * 4);
+  const stats = { wingL: 0, wingR: 0, chest: 0, neckHead: 0, hipTail: 0, total: n };
+  for (let i = 0; i < n; i++) {
+    const o = i * NB;
+    const top = [[-1, 0], [-1, 0], [-1, 0], [-1, 0]];   // [bone, w] descending
+    for (let b = 0; b < NB; b++) {
+      const w = W[o + b];
+      if (w <= 1e-6) continue;
+      for (let k = 0; k < 4; k++) {
+        if (w > top[k][1]) { top.splice(k, 0, [b, w]); top.length = 4; break; }
+      }
+    }
+    const q = i * 4;
+    let s = 0;
+    for (let k = 0; k < 4; k++) if (top[k][0] >= 0) s += top[k][1];
+    if (s <= 0) { si[q] = BONE.ROOT; sw[q] = 1; stats.chest++; continue; }
+    for (let k = 0; k < 4; k++) {
+      if (top[k][0] < 0) break;
+      si[q + k] = top[k][0]; sw[q + k] = top[k][1] / s;
+    }
+    const b0 = top[0][0];
+    if (b0 >= BONE.SHOULDER_L && b0 <= BONE.WRIST_L) stats.wingL++;
+    else if (b0 >= BONE.SHOULDER_R && b0 <= BONE.WRIST_R) stats.wingR++;
+    else if (b0 === BONE.ROOT) stats.chest++;
+    else if (b0 === BONE.NECK || b0 === BONE.HEAD) stats.neckHead++;
+    else stats.hipTail++;
   }
   geo.setAttribute('skinIndex', new THREE.Uint16BufferAttribute(si, 4));
   geo.setAttribute('skinWeight', new THREE.Float32BufferAttribute(sw, 4));
