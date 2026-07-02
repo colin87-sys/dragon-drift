@@ -31,9 +31,10 @@ export const BOSSES = {
     hpMax: 180,
     // Boss-archetype dispatch (bossModel.js buildBoss): routes to the
     // Hollow Idol-Mask hero builder (bossIdol.js) instead of the legacy
-    // crystal-core construct. A def WITHOUT `archetype` (e.g. stormrend,
-    // until it migrates) still falls through to the legacy path unchanged —
-    // that's the coexist rule this system is built on.
+    // crystal-core construct. A def WITHOUT `archetype` still falls through
+    // to the legacy path unchanged — that's the coexist rule this system is
+    // built on (both bosses have now migrated; the fallback stays live for
+    // any future def that doesn't set one yet).
     archetype: 'idolMask',
     accent: 0xa040ff,         // body reads violet so the magenta bullets pop as danger
     glow: 0xc89aff,
@@ -55,6 +56,10 @@ export const BOSSES = {
     name: 'STORMREND',
     title: 'the Tempest Herald',
     hpMax: 220,
+    // Boss-archetype dispatch (bossModel.js buildBoss): routes to the
+    // Eye-of-the-Storm Mandala hero builder (bossMandala.js) instead of the
+    // legacy crystal-core construct — see voidmaw's `archetype` comment above.
+    archetype: 'stormMandala',
     accent: 0x2fd8e8,         // storm teal — reads apart from Voidmaw's violet at 30m
     glow: 0xffd870,           // gold storm-light
     bulletColor: 0xff2b6a,    // danger stays magenta (role colour, never per-boss)
