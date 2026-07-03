@@ -13,8 +13,8 @@ import { createBossCommon, stripForMerge } from './bossKit.js';
 // (≥3× the prow); the prow is a small dark wedge carrying the single focal.
 // Nothing round: no socket-pair (slot 1), no orb (slot 2) — a horizontal slit.
 //
-// FOCAL (§3.2): the VISOR SLIT is THE brightest thing — a thin HDR white-orange
-// bar, toneMapped=false, overdriven ×2.4, with a hot core that slides for gaze.
+// FOCAL (§3.2): the VISOR SLIT is THE brightest thing — a single continuous thin
+// molten white-orange bar, toneMapped=false, nothing crossing its front plane.
 // Everything else is charcoal with ember accents ≤0.2 (the smoulder), so the
 // slit reads as the one eye of the hunter.
 //
@@ -28,7 +28,7 @@ import { createBossCommon, stripForMerge } from './bossKit.js';
 //
 // FACELESS-CARRIER LAW (§4b) — the visor slit + wing language carry all seven
 // charisma channels behind the unchanged setGaze/notice hooks:
-//   GAZE   — a hot core slides along the slit toward the player (+ cowl tilt),
+//   GAZE   — the whole cowl + slit turn toward the player (a subtle head tilt),
 //   BLINK  — the slit thins to a thread on its own slow clock,
 //   CHARGE — wings mantle/flare/tuck per attack + the slit narrows to a hot line,
 //   EXPRESSION — three wing poses (mantle=tracking / flare=fan / tuck=committed),
@@ -115,25 +115,29 @@ export function buildEmberHunter(def, quality = 1) {
   };
 
   // ---------------------------------------------------------------------
-  // THE HEAD — a raptor PROW, not a crate (gate directive 1): a cranium wedge
-  // LENGTHENED to ~3.4 with a beak projecting forward-DOWN (nose well ahead of
-  // the cowl, below the eye-line), a dark visor cowl NARROWER than the head, and
-  // two swept-back CREST fins — the 30m read says "head", not "billboard".
+  // THE HEAD — a raptor PROW, not a crate (gate directives 1 & 3): the cranium
+  // sits BEHIND the visor plane (nothing may cross the slit's front), a hooked
+  // BEAK projects forward-DOWN and BREAKS the silhouette below the cowl, and two
+  // SWEPT-BACK crest fins trail behind the cowl top. Total head span ~4 (nape →
+  // beak tip) reads as a head, not a billboard.
   // ---------------------------------------------------------------------
-  const PROW_W = 1.44, COWL_W = 1.7;   // cowl ≤ 1.3×prow width (1.87) ✓
+  const PROW_W = 1.5, COWL_W = 1.7;   // cowl ≤ 1.3×prow width ✓
   const prowGeo = (() => {
+    // Cranium/skull: mass BEHIND the cowl — its front vertex lands at z≈0.8,
+    // well behind the slit plane (z1.34), so it can NEVER split the eye.
     const oct = strip(new THREE.OctahedronGeometry(1.0, lowQ ? 1 : 2));
-    oct.scale(0.72, 0.6, 1.7);           // length 2·1.0·1.7 = 3.4 (the raptor skull)
-    oct.translate(0, 0.2, -0.15);
-    // BEAK — a hooked cone projecting forward-DOWN, tip ~z2.6 (≥1.0 ahead of the
-    // cowl front z1.4) and BELOW the slit line so it never splits the eye.
-    const beak = strip(new THREE.ConeGeometry(0.34, 1.5, 4));
-    beak.rotateX(Math.PI * 0.56); beak.rotateZ(Math.PI / 4); beak.translate(0, -0.3, 2.05);
-    const keel = strip(new THREE.BoxGeometry(0.14, 0.5, 1.4)); keel.translate(0, 0.55, -0.1);
-    // Two swept-back crest fins off the cowl top (tapered extrudes, ±0.25 rad).
+    oct.scale(0.75, 0.62, 1.35);
+    oct.translate(0, 0.22, -0.55);
+    // BEAK — a hooked diamond cone projecting forward-DOWN; its tip (~y−0.85,
+    // z2.4) sits WELL below the cowl bottom (y−0.12), so a beak point clearly
+    // breaks the front silhouette under the visor (the raptor read).
+    const beak = strip(new THREE.ConeGeometry(0.36, 1.7, 4));
+    beak.rotateX(2.15); beak.rotateZ(Math.PI / 4); beak.translate(0, -0.4, 1.7);
+    const keel = strip(new THREE.BoxGeometry(0.14, 0.5, 1.3)); keel.translate(0, 0.55, -0.5);
+    // Two crest fins SWEPT BACK off the cowl top (tips trail behind, sharp taper).
     const crest = (a) => {
-      const c = strip(new THREE.ExtrudeGeometry(bladeShape(1.2, 0.3), { ...bladeExtrude, depth: 0.1 }));
-      c.rotateX(0.95); c.rotateZ(a); c.translate(a > 0 ? 0.24 : -0.24, 0.74, 0.15);
+      const c = strip(new THREE.ExtrudeGeometry(bladeShape(1.1, 0.26), { ...bladeExtrude, depth: 0.1 }));
+      c.rotateX(-0.7); c.rotateZ(a); c.translate(a > 0 ? 0.2 : -0.2, 0.62, -0.1);
       return c;
     };
     return mergeCharcoal([oct, beak, keel, crest(0.25), crest(-0.25)], 'prow');
@@ -144,38 +148,44 @@ export function buildEmberHunter(def, quality = 1) {
   const cowlGeo = (() => {
     // Visor PLATE (dark housing, slit framed in BLACK, §3.2) + a brow & jaw that
     // PROTRUDE forward of it so the slit sits RECESSED in the shadowed groove.
+    // The plate front (z1.41) stays BEHIND the slit front (z1.40) at the centre —
+    // only the brow (above) and jaw (below) protrude, never across the bar.
     const plate = strip(new THREE.BoxGeometry(COWL_W, 0.58, 0.26)); plate.translate(0, 0.3, 1.28);
-    const brow = strip(new THREE.BoxGeometry(COWL_W + 0.1, 0.24, 0.6)); brow.translate(0, 0.62, 1.42);
-    const jaw = strip(new THREE.BoxGeometry(COWL_W - 0.2, 0.2, 0.55)); jaw.translate(0, -0.02, 1.42);
+    const brow = strip(new THREE.BoxGeometry(COWL_W + 0.1, 0.24, 0.6)); brow.translate(0, 0.63, 1.42);
+    const jaw = strip(new THREE.BoxGeometry(COWL_W - 0.2, 0.2, 0.55)); jaw.translate(0, -0.05, 1.42);
     return mergeCharcoal([plate, brow, jaw], 'cowl');
   })();
   const cowl = new THREE.Mesh(cowlGeo, cowlMat);
   rig.add(cowl);
 
   // ---------------------------------------------------------------------
-  // THE VISOR SLIT — the one focal (§3.2/§4b, gate directive 2): ONE continuous
-  // thin molten bar, recessed in the cowl groove, HDR-overdriven ×2.4 with
-  // toneMapped=false so it is the single hottest thing on the boss. Width ≤70%
-  // of the cowl; NEVER segmentable (no socket-pair — that is slot 1's axis).
+  // THE VISOR SLIT — the ONE focal (§3.2/§4b, gate directive 2): a single
+  // continuous molten bar, centred on the cowl, recessed in the shadowed groove,
+  // toneMapped=false so bloom catches it. NOTHING crosses its front plane. NO
+  // separate white core (it read as a second blob) — the bar IS the eye.
   // ---------------------------------------------------------------------
-  const SLIT_BASE = new THREE.Color(0xffc07a);   // molten white-orange (directive 2)
-  const SLIT_HOT = 2.4;
-  const SLIT_W = COWL_W * 0.68;
-  const slitMat = track(new THREE.MeshBasicMaterial({ color: 0xffc07a }));
+  const SLIT_W = COWL_W * 0.62;                  // ~65% of the cowl width (directive 2)
+  // A molten bar = a thin WHITE-HOT core line (the §3.2 focal peak, passes the
+  // brightness law) inside a wider ORANGE glow (so it reads MOLTEN, not a pure-
+  // white sticker). Both horizontal + concentric → ONE bar, never segmented.
+  const slit = new THREE.Group();
+  slit.position.set(0, 0.3, 1.34);   // recessed behind the brow/jaw fronts (z1.72)
+  const glowMat = track(new THREE.MeshBasicMaterial({ color: 0xff6a1e }));
+  glowMat.toneMapped = false;
+  const GLOW_BASE = new THREE.Color(1.0 * 1.5, 0.42 * 1.5, 0.12 * 1.5);   // ember-orange halo
+  glowMat.color.copy(GLOW_BASE);
+  const slitGlow = new THREE.Mesh(new THREE.BoxGeometry(SLIT_W * 1.06, 0.24, 0.1), glowMat);
+  slitGlow.position.z = 0.02;
+  slit.add(slitGlow);
+  const SLIT_BASE = new THREE.Color(0xffe4c0);   // near-white molten core
+  const SLIT_HOT = 2.3;
+  const slitMat = track(new THREE.MeshBasicMaterial({ color: 0xffe4c0 }));
   slitMat.toneMapped = false;
   slitMat.color.copy(SLIT_BASE).multiplyScalar(SLIT_HOT);
-  const slit = new THREE.Mesh(new THREE.BoxGeometry(SLIT_W, 0.14, 0.12), slitMat);
-  slit.position.set(0, 0.3, 1.34);   // recessed ~0.2 behind the brow/jaw front (z1.55)
+  const core = new THREE.Mesh(new THREE.BoxGeometry(SLIT_W * 0.94, 0.1, 0.12), slitMat);
+  core.position.z = 0.06;
+  slit.add(core);
   rig.add(slit);
-  // Hot core: a small brighter spot that slides WITHIN the slit bounds for the
-  // gaze — clamped inside the bar so the slit can never segment into two.
-  const coreMat = track(new THREE.MeshBasicMaterial({ color: 0xffffff }));
-  coreMat.toneMapped = false;
-  coreMat.color.setRGB(2.9, 2.5, 2.0);
-  const core = new THREE.Mesh(new THREE.BoxGeometry(0.34, 0.14, 0.1), coreMat);
-  core.position.set(0, 0.3, 1.38);
-  const CORE_TRAVEL = SLIT_W * 0.5 - 0.22;   // keep the hot spot off the slit ends
-  rig.add(core);
 
   // ---------------------------------------------------------------------
   // THE WINGS — each a solid inner ROOT PLATE (darkest tier) carrying a COMB of
@@ -235,10 +245,14 @@ export function buildEmberHunter(def, quality = 1) {
       mesh.rotation.x = 0.1;
       pivot.add(mesh);
       // Ember strip along the blade's root third (ei 0.18 — reads at 30m, the
-      // root-crack LineSegments did not).
-      const es = new THREE.Mesh(emberStripGeo, emberStripMat);
-      es.position.set(0, primLen[i] * 0.22, 0.11);
-      pivot.add(es);
+      // root-crack LineSegments did not). The snapped scar blade (outer-left) is
+      // handled separately below and gets no strip (avoids a second bright speck).
+      const scarBlade = sx < 0 && i === N_PRIM - 1;
+      if (!scarBlade) {
+        const es = new THREE.Mesh(emberStripGeo, emberStripMat);
+        es.position.set(0, primLen[i] * 0.22, 0.11);
+        pivot.add(es);
+      }
       blades.push({ pivot, base: primAngle[i], idx: i, len: primLen[i], isOuter: primLead[i], mesh });
     }
 
@@ -267,17 +281,20 @@ export function buildEmberHunter(def, quality = 1) {
   {
     const scar = wings[0].blades[N_PRIM - 1];
     scar.mesh.geometry.dispose();
-    scar.mesh.geometry = makeBladeGeo(scar.len * 0.5, 0.52);
+    scar.mesh.geometry = makeBladeGeo(scar.len * 0.45, 0.52);   // snapped clearly short vs the right-wing mirror
     scar.mesh.material = leadMat;
-    // Jagged torn stump (a 3-sided cone) — not a clean cut.
-    const jag = strip(new THREE.ConeGeometry(0.28, 0.42, 3));
-    jag.rotateZ(0.5); jag.translate(0, scar.len * 0.5 - 0.05, 0.06);
+    // Jagged torn stump (a 3-sided cone, DARK — not a bright speck).
+    const jag = strip(new THREE.ConeGeometry(0.3, 0.4, 3));
+    jag.rotateZ(0.5); jag.translate(0, scar.len * 0.45 - 0.04, 0.05);
     scar.pivot.add(new THREE.Mesh(jag, leadMat));
-    // The still-smouldering ember tip block (0xffa050 ×1.6, sized ~0.35).
-    const stumpMat = track(new THREE.MeshBasicMaterial({ color: 0xffa050 }));
-    stumpMat.toneMapped = false; stumpMat.color.setRGB(2.55, 1.6, 0.8);
-    const stump = new THREE.Mesh(new THREE.OctahedronGeometry(0.35, 0), stumpMat);
-    stump.position.set(0, scar.len * 0.5, 0.06);
+    // ONE still-smouldering ember chunk flush on the stump end — a DIM ember
+    // (§3 law 2: NOT a second focal). toneMapped so it never ties the visor;
+    // captured luminance stays well under the slit's (gate directive 2).
+    const stumpMat = track(new THREE.MeshStandardMaterial({
+      color: 0x180a04, emissive: 0xff8a40, emissiveIntensity: 1.1, roughness: 0.5, metalness: 0.2, flatShading: true,
+    }));
+    const stump = new THREE.Mesh(new THREE.OctahedronGeometry(0.34, 0), stumpMat);
+    stump.position.set(0, scar.len * 0.45, 0.05);
     scar.pivot.add(stump);
     scar.scar = true;
   }
@@ -392,25 +409,19 @@ export function buildEmberHunter(def, quality = 1) {
     if (noticeT > 0) slitK *= 1.3;
     slitK *= 1 - dyingK * 0.9;
     slitMat.color.copy(SLIT_BASE).multiplyScalar(Math.max(0.05, slitK) * SLIT_HOT);
+    glowMat.color.copy(GLOW_BASE).multiplyScalar(Math.max(0.18, slitK));   // the molten halo leashes with the core
     // Vertical thinning: blink crushes it; charge narrows it to a line; notice widens.
     let slitH = 1 - blinkProg * 0.85 - charge * 0.4;
     if (noticeT > 0.5) slitH = 1.25;
     slitH *= 1 - dyingK * 0.9;
     slit.scale.y = Math.max(0.06, slitH);   // width (scale.x) stays 1 — the bar never segments (directive 2)
-    // Hot core rides the gaze along the slit, CLAMPED inside the bar so the slit
-    // never splits into two; hidden while blinking/dying.
-    core.position.x = Math.max(-CORE_TRAVEL, Math.min(CORE_TRAVEL, gazeX * 0.55));
-    core.position.y = 0.3 + gazeY * 0.05;
-    core.visible = blinkProg < 0.6 && dyingK < 0.85;
-    const coreK = Math.max(0.1, slitK) * (noticeT > 0 ? 1.3 : 1);
-    core.material.color.setRGB(2.9 * coreK, 2.5 * coreK, 2.0 * coreK);
 
-    // Cowl/prow tilt toward the gaze (a subtle head turn); the slit rides along
-    // so the eye stays seated in the cowl.
+    // Cowl/prow/slit tilt TOGETHER toward the gaze (a subtle head turn) so the
+    // eye stays seated in the cowl and the bar never detaches from the housing.
     prow.rotation.y = gazeX * 0.07;
     prow.rotation.x = -gazeY * 0.06 + (charge > 0 && tell === 'tuck' ? charge * 0.12 : 0);
     cowl.rotation.copy(prow.rotation);
-    slit.rotation.y = prow.rotation.y; core.rotation.y = prow.rotation.y;
+    slit.rotation.y = prow.rotation.y;
 
     // Recoil (flinch/notice): the whole rig kicks back.
     const recoil = (painT > 0 ? painT / 0.32 : 0) * 0.4 + (noticeT > 0.6 ? (noticeT - 0.6) / 0.3 : 0) * 0.3;

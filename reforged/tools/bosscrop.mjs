@@ -67,14 +67,16 @@ function bossBox() {
       if (px < x0) x0 = px; if (px > x1) x1 = px; if (py < y0) y0 = py; if (py > y1) y1 = py;
     }
   });
-  return any ? { W, H, x0, y0, x1, y1 } : null;
+  return any ? { W, H, x0, y0, x1, y1, cx: (x0 + x1) / 2, cy: (y0 + y1) / 2, yaw: boss.rotation.y } : null;
 }
 
-// Crop a decoded RGBA frame to the boss box (+pad), upscale 2× (nearest).
-function cropZoom(rgba, W, H, box) {
-  const padX = (box.x1 - box.x0) * 0.28 + 20, padY = (box.y1 - box.y0) * 0.28 + 20;
-  const cx0 = Math.max(0, Math.floor(box.x0 - padX)), cy0 = Math.max(0, Math.floor(box.y0 - padY));
-  const cx1 = Math.min(W, Math.ceil(box.x1 + padX)), cy1 = Math.min(H, Math.ceil(box.y1 + padY));
+// Crop a FIXED-size window (half-widths hw/hh) centred on the boss box centre,
+// upscale 2× (nearest). A fixed size across idle/charge/shielded keeps the boss
+// at the SAME apparent distance/scale so the mantle span contraction is
+// measurable (gate directive 4).
+function cropZoom(rgba, W, H, box, hw, hh) {
+  const cx0 = Math.max(0, Math.floor(box.cx - hw)), cy0 = Math.max(0, Math.floor(box.cy - hh));
+  const cx1 = Math.min(W, Math.ceil(box.cx + hw)), cy1 = Math.min(H, Math.ceil(box.cy + hh));
   const cw = cx1 - cx0, ch = cy1 - cy0, Z = 2;
   const out = Buffer.alloc(cw * Z * ch * Z * 4);
   for (let y = 0; y < ch * Z; y++) for (let x = 0; x < cw * Z; x++) {
@@ -92,15 +94,36 @@ const { page, done } = await boot({
 });
 page.setDefaultTimeout(150000);
 
+// FIXED crop half-size, locked from the idle (widest) pose so every state is
+// framed at the same scale. Set on the first shoot.
+let fixedHW = 0, fixedHH = 0;
+
+// Wait for a FRONT-ON, LOW-BULLET moment: the boss yaw wobble ≤~0.08 rad and few
+// bullets over it (so the silhouette isn't tilted or occluded — gate directive 4).
+async function waitClean(maxBullets = 6, tries = 40) {
+  let best = null;
+  for (let i = 0; i < tries; i++) {
+    const s = await page.evaluate(() => ({ b: window.__dd.bossState().bullets, box: (() => { let o = null; window.__dd.scene.traverse((x) => { if (x.userData && x.userData.__isBoss) o = x; }); return o ? o.rotation.y : 9; })() }));
+    const yaw = Math.abs(s.box);
+    if (yaw < 0.08 && s.b <= maxBullets) return;
+    if (!best || yaw < best.yaw) best = { yaw, b: s.b };
+    await page.waitForTimeout(180);
+  }
+}
+
 async function shoot(state) {
   const box = await page.evaluate(bossBox);
   const png = await page.screenshot();
   if (!box) { console.warn(`  ! ${state}: no boss box`); return; }
+  if (!fixedHW) {   // lock the framing from the first (idle) capture, +28% pad
+    fixedHW = (box.x1 - box.x0) / 2 * 1.28 + 24;
+    fixedHH = (box.y1 - box.y0) / 2 * 1.28 + 24;
+  }
   const { rgba } = decodePNG(png);
-  const { buf, w, h } = cropZoom(rgba, box.W, box.H, box);
+  const { buf, w, h } = cropZoom(rgba, box.W, box.H, box, fixedHW, fixedHH);
   const path = `${OUT}${bossId}-${cpTag}-${state}-${roundTag}.png`;
   fs.writeFileSync(path, buf);
-  console.log(`wrote ${path}  (${w}x${h})`);
+  console.log(`wrote ${path}  (${w}x${h}) yaw ${box.yaw.toFixed(3)}`);
 }
 
 try {
@@ -111,15 +134,18 @@ try {
   await page.evaluate(() => window.__dd.spawnBoss());
   await page.waitForFunction(() => window.__dd.bossState().phase === 'fight', { timeout: 90000 });
 
-  for (const state of states) {
+  // ALWAYS capture idle first (it locks the fixed framing for the other states).
+  const ordered = ['idle', ...states.filter((s) => s !== 'idle')];
+  for (const state of ordered) {
+    if (!states.includes(state)) continue;   // idle only captured if requested; but it locks framing regardless
     if (state === 'idle') {
-      // Let the reveal title card fully fade (DOM animation, wall-clock) for a
-      // clean, un-charged frame.
-      await page.waitForTimeout(3200);
+      await page.waitForTimeout(3200);        // let the reveal title card fade
       await page.waitForFunction(() => !window.__dd.bossState().charging, { timeout: 6000 }).catch(() => {});
+      await waitClean(4);                     // front-on, bullet-free reveal-hold frame
       await shoot('idle');
     } else if (state === 'charge') {
       await page.waitForFunction(() => window.__dd.bossState().charging, { timeout: 60000 }).catch(() => {});
+      await waitClean(10);                    // charge wind-up (low bullets), front-on
       await shoot('charge');
     } else if (state === 'shielded' || state === 'dread') {
       let sh = false;
@@ -127,13 +153,13 @@ try {
         sh = await page.evaluate(() => { window.__dd.emit('bossDamage', { amount: 1e6, kind: 'debug' }); return window.__dd.bossState().shielded; });
         if (!sh) await page.waitForTimeout(120);
       }
-      // Headless rAF is throttled, so the wing-fold pose eases in slowly in
-      // wall-clock — wait several seconds for it to SETTLE symmetric + front-on
-      // before capturing (round-1 caught a mid-ease tilt).
-      await page.waitForTimeout(6000);
+      await page.waitForTimeout(6000);        // let the wing-fold pose settle symmetric
+      await waitClean(6, 60);                 // wait for a graze-bait REST gap (few bullets), front-on
       await shoot(state);
     }
   }
+  // If idle wasn't requested, we still shot it to lock framing — remove it.
+  if (!states.includes('idle')) fs.rmSync(`${OUT}${bossId}-${cpTag}-idle-${roundTag}.png`, { force: true });
   await done();
   console.log('\nbosscrop done.');
 } catch (e) {
