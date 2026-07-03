@@ -18,6 +18,24 @@ const TIERS = CONFIG.BOSS.renderTiers;   // render-order law: nothing draws over
 // animation (jaw pivots, iris rings, etc.) belongs on inner rig groups that
 // archetype builders add under `group`.
 
+// stripForMerge: strips `uv` (and `uv2`, which ExtrudeGeometry also emits) so
+// every part handed to mergeGeometries carries the exact same attribute SET
+// (position+normal only) — mergeGeometries returns null, SILENTLY, on any
+// mismatch; there is no error otherwise. It also normalises indexing:
+// three.js's Polyhedron-based geometries (Icosahedron, Octahedron) and
+// ExtrudeGeometry are built NON-indexed while Box/Cylinder/Sphere/Cone/Torus/
+// Tube are indexed — mergeGeometries requires ALL inputs indexed or NONE (a
+// second, less-documented way it silently returns null). Promoted here from
+// identical copies in bossIdol.js/bossMandala.js once the third archetype
+// landed (the BOSS-DESIGN.md §8 backlog item). NOTE: returns a NEW geometry
+// when it un-indexes — always reassign (`geo = stripForMerge(geo)`).
+export function stripForMerge(geo) {
+  geo.deleteAttribute('uv');
+  if (geo.attributes.uv2) geo.deleteAttribute('uv2');
+  if (geo.index) geo = geo.toNonIndexed();
+  return geo;
+}
+
 // Fresnel ENERGY SHELL — a reusable additive material that glows at grazing
 // angles (the silhouette edge) and is near-transparent face-on. This is the
 // house "reads cleanly against a bright sky" trick (see rimLight.js) packaged as
@@ -61,6 +79,12 @@ export function createBossCommon(def, quality = 1, {
   shieldRadius = 4.3,
   hpBarY = 4.4,
   hpBarZ = 1.6,
+  // Counter-scale for the HP bar: the bar lives inside `group`, so a boss with
+  // a big def.scale would wear a proportionally huge bar (barW 8 → 16 world
+  // units at scale 2). An archetype passes e.g. 0.75 to keep the bar at the
+  // roster's usual on-screen width. Default 1 = byte-identical for the shipped
+  // bosses.
+  hpBarScale = 1,
   baseScale = def.scale ?? 1.5,
 } = {}) {
   const glow = def.glow ?? 0xff88cc;
@@ -75,6 +99,7 @@ export function createBossCommon(def, quality = 1, {
   const barW = 8;
   const hpBar = new THREE.Group();
   hpBar.position.set(0, hpBarY, hpBarZ);
+  hpBar.scale.setScalar(hpBarScale);
   const barBgMat = track(new THREE.MeshBasicMaterial({ color: 0x0a0610, transparent: true, opacity: 0.72, depthTest: false }));
   const barBg = new THREE.Mesh(new THREE.PlaneGeometry(barW + 0.3, 0.62), barBgMat);
   barBg.renderOrder = 998;

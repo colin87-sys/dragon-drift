@@ -187,6 +187,25 @@ for (const key of BOSS_ORDER) {
   mandala.dispose();
   ok('stormrend telegraph: setCharge(1) flares the iris petals open (silhouette change)');
 }
+{
+  const colossus = buildBoss(BOSSES.craghold, 1);
+  const fingers = findAllByName(colossus.group, 'fingerPivot');
+  assert(fingers.length >= 6, `craghold exposes ≥6 named fingerPivots for the telegraph gate (${fingers.length})`);
+  for (const side of ['handPivotL', 'handPivotR']) {
+    assert(findAllByName(colossus.group, side).length === 1, `craghold exposes exactly one ${side}`);
+  }
+  // Settle the idle pose, snapshot, then charge: the default (no attack-tell)
+  // wind-up is the CLENCH — hands rise and the digit slabs curl hard. The gate
+  // asserts the SHAPE moved (≥4 digits by >0.25 rad), not a colour.
+  for (let i = 0; i < 40; i++) colossus.tick(0.05, i * 0.05);
+  const preCurl = fingers.map((f) => f.rotation.x);
+  colossus.setCharge(1);
+  for (let i = 0; i < 20; i++) colossus.tick(0.05, 2 + i * 0.05);
+  const moved = fingers.filter((f, i) => Math.abs(f.rotation.x - preCurl[i]) > 0.25).length;
+  assert(moved >= 4, `craghold clench: ${moved} fingerPivots moved >0.25 rad on charge (need ≥4 — silhouette change)`);
+  colossus.dispose();
+  ok('craghold telegraph: setCharge(1) clenches the gesture hands (silhouette change)');
+}
 
 // Legacy coexist gate: a def WITHOUT `archetype` must still fall through to
 // the legacy construct (bossModel.js's buildBoss dispatcher) — the coexist
@@ -378,6 +397,7 @@ function driveKill(idx) {
   boss.forceBoss(player, idx);
   const kills0 = killsSeen, surges0 = surgesSeen;
   let t = 0, sawFight = false, sawShield = false, sawNarrow = false;
+  let sawSetpiece = false, setpieceMaxX = 0, setpieceMaxY = 0, chargedDuringSetpiece = false;
   for (let i = 0; i < 60 * 200 && !(killsSeen > kills0 && !game.inBoss); i++) {
     const dt = 1 / 60;
     t += dt;
@@ -390,10 +410,19 @@ function driveKill(idx) {
       game.consecutiveRings = game.feverThreshold;   // grazed enough to charge
       input.surgeTap = true;                          // unleash (Space / tap)
     }
+    if (st.setpiece) {
+      // The def-gated station-leave beat: record the pose excursion (the boss
+      // must actually LEAVE station) and that no telegraph runs during it.
+      sawSetpiece = true;
+      setpieceMaxX = Math.max(setpieceMaxX, Math.abs(st.poseX));
+      setpieceMaxY = Math.max(setpieceMaxY, st.poseY);
+      if (st.charging) chargedDuringSetpiece = true;
+    }
     if (game.bossArenaHW != null) sawNarrow = true;
     boss.updateBoss(dt, player, t);
   }
   return { t, sawFight, sawShield, sawNarrow,
+    sawSetpiece, setpieceMaxX, setpieceMaxY, chargedDuringSetpiece,
     killed: killsSeen > kills0, surges: surgesSeen - surges0 };
 }
 
@@ -415,6 +444,18 @@ for (let idx = 0; idx < BOSS_ORDER.length; idx++) {
     assert(!r.sawNarrow, `${key}: no constriction → the arena never narrowed`);
   }
   assertEq(game.bossArenaHW, null, `${key}: arena width restored after the fight`);
+  // Setpiece contract (the fenced controller seam): a def WITH `setpiece` plays
+  // it exactly at its phase — a real station-leave excursion, never while a
+  // telegraph is charging — and a def WITHOUT one NEVER sees it (the
+  // byte-unchanged fence for the shipped bosses).
+  if (BOSSES[key].setpiece) {
+    assert(r.sawSetpiece, `${key}: the def's setpiece played`);
+    assert(r.setpieceMaxX > 9 || r.setpieceMaxY > CONFIG.BOSS.fightHeight + 3,
+      `${key}: setpiece left station (max |x| ${r.setpieceMaxX.toFixed(1)}, max y ${r.setpieceMaxY.toFixed(1)})`);
+    assert(!r.chargedDuringSetpiece, `${key}: no attack telegraph during the setpiece (quiet capture window)`);
+  } else {
+    assert(!r.sawSetpiece, `${key}: no setpiece def → the fight never leaves station`);
+  }
   ok(`${key} lifecycle: warn→approach→fight→death→teardown, slain at ~${r.t.toFixed(1)}s`);
 }
 

@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { makeEnergyShell, createBossCommon } from './bossKit.js';
 import { buildIdolMask } from './bossIdol.js';
 import { buildStormMandala } from './bossMandala.js';
+import { buildStoneColossus } from './bossColossus.js';
 
 // API-stable re-export: boss.js imports makeEnergyShell from here for the
 // Surge aura FX. The implementation now lives in bossKit.js (shared plumbing
@@ -31,6 +32,7 @@ export function buildBoss(def, quality = 1) {
   // shipped roster never breaks while new bosses migrate one at a time.
   if (def.archetype === 'idolMask') return buildIdolMask(def, quality);
   if (def.archetype === 'stormMandala') return buildStormMandala(def, quality);
+  if (def.archetype === 'stoneColossus') return buildStoneColossus(def, quality);
 
   const accent = def.accent ?? 0xff4488;
   const glow = def.glow ?? 0xff88cc;
