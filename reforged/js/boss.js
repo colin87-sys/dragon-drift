@@ -44,17 +44,22 @@ let encounterIndex = 0;
 let rushMode = false;
 let rushQueue = [];            // BOSS_ORDER keys to run, in order (only the beaten ones)
 let rushIndex = 0;             // which queue entry is current
+let rushSolo = false;          // this run is a SINGLE-boss pick from a multi-boss roster
 let rushUnlockAll = false;     // dev seam: treat every boss as unlocked
 const RUSH_LEAD = 240;         // metres of warm-up before the first boss flies in
 const RUSH_BREATHER = 420;     // metres of ring-recharge between bosses (heal + re-arm surge)
 
+// Dev unlock-all: the `?dev`/`?rush=all` URL seam OR the in-app Settings → Dev
+// Mode toggle (live). ONE predicate so the roster, the unlock gate, and the panel's
+// per-boss `unlocked` flag never disagree (a mismatch showed every chip as ??? in
+// the settings-dev path).
+function rushDevAll() { return rushUnlockAll || !!saveData.settings?.dev; }
+
 // The rush roster: bosses the player has DEFEATED (so a new boss must be beaten in
-// normal play before it joins the gauntlet), or every boss under a dev unlock — the
-// `?dev`/`?rush=all` URL seam OR the in-app Settings → Dev Mode toggle (live).
+// normal play before it joins the gauntlet), or every boss under a dev unlock.
 export function rushRoster() {
   const beaten = saveData.bossRush?.beaten || [];
-  const devAll = rushUnlockAll || !!saveData.settings?.dev;
-  return BOSS_ORDER.filter((k) => devAll || beaten.includes(k));
+  return BOSS_ORDER.filter((k) => rushDevAll() || beaten.includes(k));
 }
 export function rushUnlocked() { return rushRoster().length > 0; }
 export function setRushUnlockAll(v) { rushUnlockAll = !!v; }
@@ -64,11 +69,12 @@ export function setRushUnlockAll(v) { rushUnlockAll = !!v; }
 // shown as "to unlock" so the roster teases what's still ahead without clutter.
 export function rushRosterInfo() {
   const beaten = saveData.bossRush?.beaten || [];
+  const devAll = rushDevAll();
   return {
     bosses: BOSS_ORDER.map((k) => ({
       id: k, name: BOSSES[k].name, title: BOSSES[k].title,
       accent: BOSSES[k].accent, glow: BOSSES[k].glow,
-      unlocked: rushUnlockAll || beaten.includes(k),
+      unlocked: devAll || beaten.includes(k),
     })),
     unlockedCount: rushRoster().length,
     bestClearMs: saveData.bossRush?.bestClearMs || 0,
@@ -492,9 +498,16 @@ export function startBossEncounter(player, defOverride) {
 // Begin a Boss Rush run: queue the unlocked bosses and schedule the first one a
 // short warm-up ahead. main.js suppresses the obstacle course for the whole run
 // (rings/orbs only), so the gauntlet is boss → breather → boss → … → 'rushClear'.
-export function startBossRush(player) {
+// `only` (a BOSS_ORDER key) restricts the queue to a SINGLE boss — the "fight one
+// particular boss" pick from the roster panel; it must be an unlocked boss.
+export function startBossRush(player, only = null) {
   rushMode = true;
-  rushQueue = rushRoster();
+  const roster = rushRoster();
+  const pick = only && roster.includes(only);
+  rushQueue = pick ? [only] : roster;
+  // SOLO = a deliberate single pick from a roster of MORE than one. Picking your
+  // only unlocked boss IS the full gauntlet, so that stays a real clear.
+  rushSolo = !!(pick && roster.length > 1);
   rushIndex = 0;
   encounterIndex = 0;
   active = false;
@@ -530,7 +543,11 @@ function endEncounter(player) {
     rushIndex++;
     if (rushIndex >= rushQueue.length) {
       nextBossDist = Infinity;
-      emit('rushClear', { count: rushQueue.length });
+      // `solo` gates the gauntlet-clear rewards in main.js (a practice pick must not
+      // overwrite the full-gauntlet best or award the clear feat); `name` labels the
+      // solo win recap. Read the name BEFORE this frame's def is torn down above? No —
+      // def is already null here, so resolve from the queue key.
+      emit('rushClear', { count: rushQueue.length, solo: rushSolo, name: rushSolo ? (BOSSES[rushQueue[0]]?.name || '') : '' });
     } else {
       nextBossDist = player.dist + RUSH_BREATHER;
     }
@@ -1245,7 +1262,7 @@ export function resetBoss() {
   nextBossDist = debugFirstAt ?? B.firstAt;
   encounterIndex = 0;
   // Clear the gauntlet driver (a fresh run re-arms it via startBossRush if in rush).
-  rushMode = false; rushQueue = []; rushIndex = 0;
+  rushMode = false; rushQueue = []; rushIndex = 0; rushSolo = false;
 }
 
 // Debug/playtest: pull the first encounter in to `dist` metres (e.g. ?boss → a

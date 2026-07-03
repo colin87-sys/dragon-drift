@@ -45,7 +45,15 @@ saveData.bossRush.beaten = [BOSS_ORDER[0]];
 assertEq(boss.rushRoster().length, 1, 'beating one boss puts exactly it in the roster');
 boss.setRushUnlockAll(true);
 assertEq(boss.rushRoster().length, BOSS_ORDER.length, 'dev unlock exposes every boss');
-ok(`roster gating: locked→1→all (${BOSS_ORDER.length} bosses)`);
+// P2 fix: the in-app Settings dev toggle must unlock the PANEL chips too, not just
+// the rail — rushRosterInfo().unlocked has to use the same predicate as rushRoster.
+boss.setRushUnlockAll(false);
+saveData.bossRush.beaten = [];
+saveData.settings = { ...(saveData.settings || {}), dev: true };
+assert(boss.rushRosterInfo().bosses.every((b) => b.unlocked), 'Settings dev toggle unlocks every panel chip (not ???)');
+saveData.settings.dev = false;
+boss.setRushUnlockAll(true);
+ok(`roster gating: locked→1→all (${BOSS_ORDER.length} bosses); settings-dev unlocks chips`);
 
 // --- 2. drive a full rush to a WIN -------------------------------------------
 game.reset();
@@ -77,10 +85,42 @@ for (let i = 0; i < 60 * 320 && !rushClear; i++) {
   boss.updateBoss(dt, player, t);
 }
 assert(rushClear !== null, 'the rush ends by emitting rushClear');
+assert(!rushClear.solo, 'a full-gauntlet clear is NOT flagged solo (earns the gauntlet rewards)');
 assertEq(rushClear.count, BOSS_ORDER.length, `rushClear reports all ${BOSS_ORDER.length} bosses cleared`);
 assertEq(defeated, BOSS_ORDER.length, `every unlocked boss was defeated exactly once (${defeated})`);
 assertEq(fights.size, BOSS_ORDER.length, 'each distinct boss appeared in the gauntlet');
 assert(!game.inBoss, 'the overlay is torn down when the rush ends');
 ok(`full gauntlet: ${BOSS_ORDER.length} bosses back-to-back → rushClear at ~${t.toFixed(0)}s`);
+
+// --- 3. pick a SINGLE boss (roster panel "fight one solo") -------------------
+game.reset();
+game.state = 'playing';
+game.mode = 'rush';
+game.health = 1e9;
+player.dist = 0; player.position.set(0, 8, 0);
+const only = BOSS_ORDER[BOSS_ORDER.length - 1];   // the LAST boss → proves it's not just index 0
+let d2 = 0, rc2 = null; const f2 = new Set();
+on('bossDefeated', (e) => { d2++; if (e && e.id) f2.add(e.id); });
+on('bossStart', (e) => { if (e && e.id) f2.add(e.id); });
+on('rushClear', (e) => { rc2 = e; });
+boss.startBossRush(player, only);
+let t2 = 0;
+for (let i = 0; i < 60 * 180 && !rc2; i++) {
+  const dt = 1 / 60; t2 += dt;
+  player.dist += CONFIG.BOSS.cruiseSpeed * dt;
+  if (game.feverActive) { game.feverTimer -= dt; if (game.feverTimer <= 0) game.feverActive = false; }
+  const st = boss.bossDebugState();
+  if (st.shielded) { game.consecutiveRings = game.feverThreshold; input.surgeTap = true; }
+  boss.updateBoss(dt, player, t2);
+}
+assert(rc2 !== null, 'single-boss pick ends by emitting rushClear');
+assertEq(rc2.count, 1, 'a single-boss pick clears exactly 1 boss');
+assertEq(d2, 1, 'exactly one boss defeated on a single pick');
+assert(f2.size === 1 && f2.has(only), `only the picked boss (${only}) was fought`);
+// P1 fix: a solo pick from a MULTI-boss roster is flagged solo (so main.js withholds
+// the gauntlet-clear rewards) and names the boss for the win recap.
+assert(rc2.solo === true, 'a single pick from a multi-boss roster is flagged solo');
+assert(typeof rc2.name === 'string' && rc2.name.length > 0, 'the solo clear names the boss (recap)');
+ok(`single-boss pick: fought only ${only} → rushClear solo, count 1`);
 
 console.log(`\n${n} boss-rush checks passed.`);

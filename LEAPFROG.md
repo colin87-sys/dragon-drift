@@ -5042,3 +5042,58 @@ Sentinels' 1.5). **New law: before building, state the boss's PRIMARY READ (face
 swarm / architecture / …) and reject it if any shipped boss already owns it — the doodle test now includes "could
 this sketch be mistaken for a shipped boss?"** Voidmaw owns FACE, Stormrend owns LONE EYE, Craghold owns HANDS.
 Verified: tests/boss.mjs 20/20 (craghold 2,285 tris @q1, 34 draws), bossboot clean, captures re-judged front-on.
+
+### L131 — Single-boss select: the roster chips become the picker (one control, two jobs), and the mode driver already supported a length-1 queue
+
+**Did / learned.** The human wanted to fight ONE particular boss, not always the whole gauntlet. Rather than build a separate
+"boss practice" mode, gave the EXISTING Boss Rush roster panel a second job: each unlocked boss chip is now a tappable button
+(`.rush-chip.pick[data-boss]`) that starts a rush restricted to just that boss, while FLY THE GAUNTLET runs them all. The engine
+change was trivial because the rush driver was already a queue: `startBossRush(player, only)` sets `rushQueue = [only]` instead
+of the full roster, and the length-1 gauntlet flows through the identical boss → 'rushClear' path (count 1). Threading the pick
+to the driver reused the mode plumbing: a `rushOnlyBoss` module var in main.js set by a new `onStartRush(key)` handler, consumed
+in the same `restart()` rush-arm block and cleared after (so a replay defaults back to the full gauntlet). The gauntlet button
+now only renders when >1 boss is unlocked (a "gauntlet" of one is just that boss — tap the chip). Locked bosses stay
+non-tappable `???` teasers.
+
+**→ Systematize.** (a) **Before adding a mode, check whether an existing one is a superset with a parameter.** "Fight one
+boss" is "Boss Rush with a one-item queue" — a filter arg on the driver, not a new system. When a driver is built around a
+queue/list, single-item selection is almost free; expose it rather than forking. (b) **Let a display list double as its own
+picker.** The roster panel already enumerated the bosses; making the chips interactive adds the control with zero new surface —
+one component, two jobs (show the line-up AND pick from it). (c) **Thread a one-shot selection through the same mode entry
+(a consumed module var), not a parallel start path**, so mode setup/teardown stays single-sourced. (d) **Collapse a
+now-degenerate control**: hide FLY THE GAUNTLET at 1 unlocked boss so the UI never offers a "gauntlet of one."
+
+**→ Leapfrog (innovate).** `startBossRush(only)` + `onStartRush(key)` is the seam for a full **boss practice / rematch** surface
+(per-boss best times, a "beat all solo" achievement) and for the deferred **endless** variant (an infinite queue with per-lap
+scaling) — all queue shapes over one driver. Verified: `tests/bossrush.mjs` +1 (pick the LAST boss → only it is fought →
+rushClear count 1), `tests/bossrushui.mjs` (13; tap a chip → single-boss rush launches), `boss` (16) / `smoke` / `defs` green,
+`tricount` 203265.
+
+### L132 — Single-boss select, review pass: a degenerate case (queue of 1) must not inherit the full mechanic's rewards, and one unlock predicate must feed EVERY consumer
+
+**Did / learned.** An automated review (Codex) caught two real defects in the single-boss pick (L131), both classic "reused the
+mechanic, forgot the reward/gate semantics diverge" bugs. **P1 — solo picks counted as gauntlet clears.** A one-boss queue
+emits the SAME `rushClear` as the full gauntlet, and main.js paid every `rushClear` the gauntlet rewards: `bossRush.cleared++`,
+`bestClearMs` overwrite, the `rush_clear` feat, and a "every boss felled" recap — so beating ONE picked boss could overwrite
+your full-run best and award the clear without fighting the rest. Fix: carry a `solo` flag on the event (set when the pick
+restricts a roster of >1 — picking your ONLY boss is still the real gauntlet), gate all lifetime/feat rewards on `!solo`, and
+give the solo win its own recap ("<BOSS> FELLED!" + "the gauntlet clear stays for the full roster"). **P2 — the panel chips
+ignored the settings dev toggle.** After L127 unified `rushRoster()`/`rushUnlocked()` on `rushDevAll()` (URL flag OR
+`settings.dev`), the NEW `rushRosterInfo().bosses[].unlocked` still computed `rushUnlockAll || beaten` — so in the Settings-dev
+path the rail opened but every chip rendered as a locked `???`, making the picker unusable. Fix: extract `rushDevAll()` and
+call it from ALL THREE (roster, gate, panel info).
+
+**→ Systematize.** (a) **When you specialise a mechanic to a degenerate case (a queue of one, a batch of zero), re-derive its
+REWARD and SIDE-EFFECT semantics from scratch — they don't inherit.** The run flowed through the same code, but "you cleared
+the gauntlet" is false for a practice pick; flag the variant at the source and gate the payouts on it. (b) **A shared unlock/
+eligibility predicate must have exactly ONE definition that EVERY consumer calls** — the gate, the list, the per-item render.
+Adding a new consumer that re-inlines the old formula silently desyncs (rail open but all items locked). When you unify a
+predicate, grep for every place that recomputes it and route them through the one function. (c) **Automated PR review earns
+its keep on exactly these seams** — reward integrity and consumer-desync are easy to miss by hand; treat its P1/P2 as real
+until disproven.
+
+**→ Leapfrog (innovate).** `solo` on the clear event is the hook for a proper **boss-practice surface** (per-boss best solo
+times, a "beat each boss solo" track) kept cleanly separate from the gauntlet leaderboard. And `rushDevAll()` is the template:
+any dev/eligibility gate gets one predicate function the moment a second consumer appears. Verified: `tests/bossrush.mjs` +2
+(full clear is not solo; a multi-roster pick is solo + names the boss; settings-dev unlocks every panel chip), `bossrushui`
+(13) / `boss` (20) / `smoke` / `defs` green, `tricount` 203265.

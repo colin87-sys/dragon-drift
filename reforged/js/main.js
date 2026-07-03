@@ -153,6 +153,7 @@ const pendingGauntletEnds = [];
 const pendingCanyonStarts = [];
 const pendingCanyonEnds = [];
 let bossGraceUntil = 0; // post-boss grace band end-distance (rings/collectibles only)
+let rushOnlyBoss = null; // when set, the next rush fights just this ONE boss (roster pick)
 function spawnAhead() {
   const lead = Math.max(CONFIG.spawnAhead, player.speed * CONFIG.spawnAheadTime);
   if (levelGen.generatedUntil >= player.dist + lead) return;
@@ -288,13 +289,21 @@ on('bossEnd', () => {
 // pipeline (settleRun) pays out the haul. The recap reads game.rushCleared.
 on('rushClear', (e) => {
   if (game.mode !== 'rush' || game.state !== 'playing') return;
+  const solo = !!(e && e.solo);
   game.rushCleared = true;
-  if (!saveData.bossRush) saveData.bossRush = { beaten: [], cleared: 0, bestClearMs: 0 };
-  saveData.bossRush.cleared = (saveData.bossRush.cleared || 0) + 1;
-  const ms = Math.round(game.time * 1000);
-  if (!saveData.bossRush.bestClearMs || ms < saveData.bossRush.bestClearMs) saveData.bossRush.bestClearMs = ms;
-  persist();
-  emit('rushCleared', { count: e && e.count });   // feats hook
+  game.rushSolo = solo;                     // recap copy: solo → the boss name, full → RUSH CLEAR
+  game.rushBossName = (e && e.name) || '';
+  // GAUNTLET-CLEAR rewards (lifetime count, best time, the clear feat) are for the
+  // WHOLE roster only — a solo/practice pick must not overwrite the gauntlet best
+  // or award the clear. Both still end the run on a win recap.
+  if (!solo) {
+    if (!saveData.bossRush) saveData.bossRush = { beaten: [], cleared: 0, bestClearMs: 0 };
+    saveData.bossRush.cleared = (saveData.bossRush.cleared || 0) + 1;
+    const ms = Math.round(game.time * 1000);
+    if (!saveData.bossRush.bestClearMs || ms < saveData.bossRush.bestClearMs) saveData.bossRush.bestClearMs = ms;
+    persist();
+    emit('rushCleared', { count: e && e.count });   // feats hook (gauntlet only)
+  }
   sfx.bossDefeat?.();
   cameraCtl.shake?.(1.4);
   game.state = 'gameover';
@@ -307,6 +316,7 @@ ui.init({
   onStart: (mode) => startGame(mode),
   rushUnlocked: () => rushUnlocked(),   // gate the BOSS RUSH rail entry (beaten a boss / dev)
   rushInfo: () => rushRosterInfo(),     // roster + best time for the pre-launch panel
+  onStartRush: (only) => { rushOnlyBoss = only || null; startGame('rush'); },  // pick one boss (or all)
   onEquipDragon: () => {
     rebuildDragon(equippedDragon(), equippedRider(), player);
     applyDragonStats(equippedDragon());
@@ -592,7 +602,8 @@ function restart(opts = {}) {
   // arm the gauntlet driver, which schedules the first boss a short warm-up ahead.
   if (game.mode === 'rush') {
     bossGraceUntil = Number.MAX_SAFE_INTEGER;
-    startBossRush(player);
+    startBossRush(player, rushOnlyBoss);   // rushOnlyBoss = a single-boss pick, or null for all
+    rushOnlyBoss = null;                    // consume: a replay defaults back to the full gauntlet
   }
   spawnAhead();
   cameraCtl.init(camera, player);
