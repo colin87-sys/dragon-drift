@@ -5117,3 +5117,24 @@ hit-model work if they share a pool (the craghold precedent), and THREE.Fog hard
 horizon landmark must be fog-exempt with its own haze (the sky-dome pattern), because camera far (1600) was never
 the limiter. Verified: doc-only change, full suite untouched-green; registry has 14 unique primary reads and
 4-axis palette allocations; lore web carries no retired-boss references.
+
+### L134 — The move-set research pass: spell cards adopted, rule-breaks rationed, dread moves named
+
+**Did / learned.** Three research fan-outs (legendary move sets · shmup/danmaku heritage · dimension/rule-breaking
+bosses) before building slot 3, distilled into BOSS-DESIGN.md §5f. Headline adoptions: (1) **Touhou's spell-card
+system** — named, title-carded signature patterns with capture/fail ledgers and timeout escape hatches; names turn
+patterns into nouns and nouns accrete fan culture; near-zero cost on our existing phase/dial/title-card systems.
+(2) **The 3–5 move core + one NAMED dread move per boss** (longest telegraph, 1–2 uses, counterintuitive answer,
+deliberately the graze goldmine) — the folklore hook players warn each other about. (3) **Emitter = organ is now
+absolute law**: if a featureless sphere could emit the pattern, the body is set dressing. (4) **Rule-breaks are
+rationed one category per roster** under the Mantis rule (in-character, ≤3s resolution with the game visibly alive,
+deterministic, never touches saves/purchases, ritual trained clean first) — allocations pinned per slot (late banner
++ the one lying FELLED card at 12, hold-breaker + localStorage stat-taunts at 9, music-death at 10, HUD-sewing at 11,
+stage cards + one player-addressed line at 14). VETOED for mobile web: fake crashes, touch-input tampering, save
+wagering, full all-range mode — Star Fox's own evidence keeps monster fights on the rail; Panzer Dragoon's
+quadrant-orbit buys the arena fantasy rail-natively. (5) Structural assignments: EITHERWING is the roster's one duo
+(eye-handoff = kill-order), ONEWING its Vergil-grammar rival return, slot 14's stage 3 is the verb-shift climax
+(surge-chase through the wheels), destructible sub-parts on 4 hero bosses incl. editing the finale's exam by
+destroying wheel relics. **Gotcha:** the research repeatedly warns the ONE-lie budget — honest dread UI (phase pips,
+re-struck stage cards) is unlimited, but each category of UI lie survives exactly one use per game before it reads
+as noise or betrayal.
