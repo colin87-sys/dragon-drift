@@ -524,15 +524,22 @@ for (let idx = 0; idx < BOSS_ORDER.length; idx++) {
     assert(!r.sawNarrow, `${key}: no constriction → the arena never narrowed`);
   }
   assertEq(game.bossArenaHW, null, `${key}: arena width restored after the fight`);
-  // Setpiece contract (the fenced controller seam): a def WITH `setpiece` plays
-  // it exactly at its phase — a real station-leave excursion, never while a
-  // telegraph is charging — and a def WITHOUT one NEVER sees it (the
-  // byte-unchanged fence for the shipped bosses).
-  if (BOSSES[key].setpiece) {
+  // Setpiece contract (the fenced controller seam): a def WITH a setpiece plays it
+  // at its phase — a real station-leave excursion — and a def WITHOUT one NEVER
+  // sees it (the byte-unchanged fence for the shipped bosses). Supports the legacy
+  // single `setpiece` and the per-phase `setpieces` array. A QUIET setpiece holds
+  // fire (capture window); a MOVING setpiece (§5e moving-station) fires WHILE it
+  // travels, so the quiet-window rule is waived and firing is instead required.
+  const setpieces = BOSSES[key].setpieces || (BOSSES[key].setpiece ? [BOSSES[key].setpiece] : []);
+  if (setpieces.length) {
     assert(r.sawSetpiece, `${key}: the def's setpiece played`);
     assert(r.setpieceMaxX > 9 || r.setpieceMaxY > CONFIG.BOSS.fightHeight + 3,
       `${key}: setpiece left station (max |x| ${r.setpieceMaxX.toFixed(1)}, max y ${r.setpieceMaxY.toFixed(1)})`);
-    assert(!r.chargedDuringSetpiece, `${key}: no attack telegraph during the setpiece (quiet capture window)`);
+    if (setpieces.some((s) => s.moving)) {
+      assert(r.chargedDuringSetpiece, `${key}: a moving-station setpiece keeps firing while it travels (§5e)`);
+    } else {
+      assert(!r.chargedDuringSetpiece, `${key}: no attack telegraph during the setpiece (quiet capture window)`);
+    }
   } else {
     assert(!r.sawSetpiece, `${key}: no setpiece def → the fight never leaves station`);
   }

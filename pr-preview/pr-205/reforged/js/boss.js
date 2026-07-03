@@ -167,11 +167,64 @@ const SETPIECE_PATHS = {
     const t = easeInOut((k - 0.75) / 0.25);
     return { x: 16 * (1 - t), y: B.fightHeight + 5 * (1 - t), rel: 14 + (B.settleGap - 14) * t };
   },
+  // ASHTALON — CIRCLING PASS (§5e moving-station): a wide elliptical orbit around
+  // a point ~19m ahead of the player, in the (x, rel) plane, rising a touch at the
+  // near pass. Runs as a MOVING setpiece — the attack machine keeps firing, so its
+  // pursuit-curve streams originate from a hunter that is actually circling you
+  // (emitter=organ, §5f law 7). Stays in FRONT (rel 8..30) so it's always readable
+  // and the HP bar never leaves frame.
+  circlingPass(k) {
+    const B = CONFIG.BOSS;
+    const ang = k * Math.PI * 2;                   // one full circle over the setpiece
+    return {
+      x: Math.sin(ang) * 13,
+      y: B.fightHeight + Math.sin(k * Math.PI) * 3,
+      rel: 19 + Math.cos(ang) * 11,                // k0 far(30) → k0.5 near(8) → k1 far(30)
+    };
+  },
+  // ASHTALON — STOOPING STRIKE (§5f dread, "from above"): CLIMB high and hold (the
+  // long dread telegraph), then STOOP — accelerate straight down through the lane
+  // and close in (the killing dive), then recover to station. Runs MOVING so the
+  // dread pattern rains from the diving hunter. This is the roster's proof of the
+  // §5e "from above" motion in the live pose frame (y climbs to ~21, dives to ~5).
+  stoopingStrike(k) {
+    const B = CONFIG.BOSS;
+    const TOP_Y = B.fightHeight + 8, TOP_REL = B.settleGap + 4;   // (21, 34) — high and drawn back
+    const DIVE_Y = 5, DIVE_REL = 10;                              // plunge low and near
+    if (k < 0.42) {                    // climb + HOLD (the 2–3s ritual pose)
+      const t = easeInOut(k / 0.42);
+      return { x: 0, y: B.fightHeight + (TOP_Y - B.fightHeight) * t, rel: B.settleGap + (TOP_REL - B.settleGap) * t };
+    }
+    if (k < 0.72) {                    // STOOP — accelerate down and in
+      const e = ((k - 0.42) / 0.30) ** 2;   // squared = the diving acceleration
+      return { x: 0, y: TOP_Y + (DIVE_Y - TOP_Y) * e, rel: TOP_REL + (DIVE_REL - TOP_REL) * e };
+    }
+    const t = easeInOut((k - 0.72) / 0.28);   // recover to station
+    return { x: 0, y: DIVE_Y + (B.fightHeight - DIVE_Y) * t, rel: DIVE_REL + (B.settleGap - DIVE_REL) * t };
+  },
 };
 function clearSetpiece() {
   if (setpieceT >= 0) model?.setSetpiece?.(0);
   setpieceT = -1;
   setpieceDef = null;
+}
+// Resolve the setpiece armed on entering `idx` (per-phase array first, then the
+// legacy single) and arm it. A `moving` setpiece keeps the attack/rider clocks
+// live (fires while it travels); a quiet one pushes them past its duration.
+function setpieceForPhase(idx) {
+  if (Array.isArray(def.setpieces)) return def.setpieces.find((s) => s.atPhase === idx) || null;
+  if (def.setpiece && def.setpiece.atPhase === idx) return def.setpiece;
+  return null;
+}
+function armSetpieceForPhase(idx) {
+  const sp = setpieceForPhase(idx);
+  if (!sp || !SETPIECE_PATHS[sp.id]) return;
+  setpieceDef = sp;
+  setpieceT = 0;
+  if (!sp.moving) {   // quiet pass → suppress fire for a capture-safe window
+    attackTimer = Math.max(attackTimer, sp.dur + 1.2);
+    riderTimer = Math.max(riderTimer, sp.dur);
+  }
 }
 
 // ---- Spell cards (BOSS-DESIGN.md §5f/§5h) -----------------------------------
@@ -491,12 +544,22 @@ export function startBossEncounter(player, defOverride) {
   group.userData.__isBoss = true;   // debug seam: locate the boss in the scene graph
   scene.add(group);
 
-  // Approach choreography: come in from behind (overtake up and over) or sweep
-  // in from the side, then settle dead ahead and face the player.
+  // Approach choreography (§5e): from behind (overtake up and over), the side,
+  // ABOVE (a stoop out of the top of the frame), or BELOW (rise out of the deep),
+  // then settle dead ahead and face the player. 'above'/'below' hold station-rel
+  // and travel in y, so the arc is a pure descent/ascent (no over-the-top hop).
   if (def.approachFrom === 'side') {
     start.rel = B.settleGap;
     start.x = (Math.random() < 0.5 ? -1 : 1) * 22;
     start.y = B.fightHeight;
+  } else if (def.approachFrom === 'above') {
+    start.rel = B.settleGap;
+    start.x = (Math.random() < 0.5 ? -1 : 1) * 4;
+    start.y = B.fightHeight + 22;   // above the top of the portrait envelope (~y35)
+  } else if (def.approachFrom === 'below') {
+    start.rel = B.settleGap;
+    start.x = (Math.random() < 0.5 ? -1 : 1) * 4;
+    start.y = -8;                   // rises from below the frame (Brineholm/Marrowcoil)
   } else {
     start.rel = -12;
     start.x = (Math.random() < 0.5 ? -1 : 1) * 4;
@@ -521,9 +584,10 @@ export function startBossEncounter(player, defOverride) {
   reticleOn = 0; reticleTarget = 1;
 
   // Warning flashes ALONE first (the boss stays hidden behind during 'warn'), then
-  // clears as the boss flies in. 'side' → left/right edge; 'behind' → bottom-centre
-  // (where it rises from behind), matching where it actually emerges.
-  const dir = def.approachFrom === 'side' ? (start.x < 0 ? 'left' : 'right') : 'bottom';
+  // clears as the boss flies in — anchored WHERE it emerges. 'side' → left/right;
+  // 'above' → top; 'below'/'behind' → bottom-centre.
+  const dir = def.approachFrom === 'side' ? (start.x < 0 ? 'left' : 'right')
+    : def.approachFrom === 'above' ? 'top' : 'bottom';
   ui.bossWarning?.(def.name, def.title, dir, B.warnTime);
   sfx.feverStart?.();
   cameraCtl.shake?.(1.2);
@@ -743,15 +807,25 @@ export function updateBoss(dt, player, time) {
 
   if (phase === 'warn') {
     warnT -= dt;
-    if (warnT <= 0) phase = 'approach';
+    if (warnT <= 0) {
+      phase = 'approach';
+      // §5f rule-break: announce + swing to the rear view as the hunter overtakes
+      // from behind (no fire during approach anyway — the Mantis rule holds). Eases
+      // back out before it settles ahead. Runs ONCE per encounter, on entry.
+      if (def.rearViewOvertake && cameraCtl.rearView) {
+        cameraCtl.rearView(B.approachTime - 0.2);
+        ui.bossNote?.('⟲  BEHIND YOU  ⟲', 'THE HUNTER OVERTAKES', 'gold', 2.2);
+      }
+    }
   } else if (phase === 'approach') {
     approachT += dt;
     const k = Math.min(approachT / B.approachTime, 1);
     const e = easeInOut(k);
     pose.x = start.x + (0 - start.x) * e;
     pose.rel = start.rel + (B.settleGap - start.rel) * e;
-    // Arc up and over the player on a behind-approach so it never clips the dragon.
-    const arc = def.approachFrom === 'side' ? 0 : Math.sin(k * Math.PI) * 6;
+    // Arc up and over the player ONLY on a behind-approach (so it never clips the
+    // dragon); side/above/below travel straight in (the y descent/ascent IS the arc).
+    const arc = (def.approachFrom == null || def.approachFrom === 'behind') ? Math.sin(k * Math.PI) * 6 : 0;
     pose.y = start.y + (B.fightHeight - start.y) * e + arc;
     if (k >= 1) {
       phase = 'fight';
@@ -999,15 +1073,14 @@ function breakShield(player) {
     beginCard(phaseIdx);
     ui.bossNote?.(`PHASE ${phaseIdx + 1}`, def.name, 'phase', 2.6);
     emit('bossPhase', { phase: phaseIdx + 1 });
-    // Def-gated setpiece: entering this phase plays the scripted station-leave
-    // beat. Attack + rider clocks are held past its duration so the pass is a
-    // quiet capture window (pending was wiped above).
-    if (def.setpiece && SETPIECE_PATHS[def.setpiece.id] && phaseIdx === def.setpiece.atPhase) {
-      setpieceDef = def.setpiece;
-      setpieceT = 0;
-      attackTimer = Math.max(attackTimer, setpieceDef.dur + 1.2);
-      riderTimer = Math.max(riderTimer, setpieceDef.dur);
-    }
+    // Def-gated setpiece: entering this phase plays a scripted station-leave beat.
+    // A QUIET setpiece (default) holds the attack + rider clocks past its duration
+    // for a capture-safe pass; a MOVING setpiece (§5e moving-station branch) leaves
+    // the clocks alone, so the boss keeps firing from wherever the path carries it
+    // (ASHTALON's circling pass + stooping strike). Supports the legacy single
+    // `def.setpiece` and the per-phase `def.setpieces` array (voidmaw/stormrend
+    // carry neither → byte-unchanged, the lifecycle test asserts they never arm).
+    armSetpieceForPhase(phaseIdx);
     // Constriction showpiece: from this phase on, the storm walls slide in and
     // the arena narrows (the fill patterns + player clamp both track arenaHW).
     if (def.constrictPhase != null && phaseIdx >= def.constrictPhase) {
