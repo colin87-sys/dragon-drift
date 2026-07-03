@@ -5172,3 +5172,44 @@ danger-magenta bleed (G3), frame-presence envelope (G4), telegraph silhouette-ma
 The delegation protocol: sheet → suites green → gate green → post 3 crops to the PR → STOP; merge verdict is human.
 **The honest limit is stated in the doc:** the gate catches toy-color/dead-eyes/blob/static-telegraph classes; it
 cannot catch "reads as a mitten" — so the protocol ends at crops, never at self-approved merge.
+
+### L137 — ASHTALON (slot 3, the Ember Hunter): the first Colossus, and what building it taught the engine
+
+**Did.** Built `tools/bossgate.mjs` to spec (proved PASS on the shipped two BEFORE touching the new boss — the
+calibration is the gate's credibility), then ASHTALON: a charcoal raptor of two scythe-wings with ONE molten visor
+slit (§5b slot 3, replacing CRAGHOLD). Two checkpoints, each a FRESH `fable` design-gate agent judging front-on
+crops, builder never self-approving. Body took SIX gate rounds; behavior passed round 1. ~7765 tris (Colossi budget
+5–8k), G1–G7 all green, 21 boss checks green.
+
+**Learned — the capture lies the gate caught that in-engine views hid.** (1) **A bright emissive core's white bloom
+DROWNS a thin adjacent fringe at capture scale** — the visor read as a "flat white bar" and the gate FAILED it twice
+before I found the real cause: the dark cowl plate front sat at the SAME z as the orange fringe and occluded it, so
+only the core poked through. Fix pattern: push the housing BACK so emissive detail sits proud, and make the fringe
+TALL relative to the core (0.56 vs 0.11) so a saturated band survives above/below the bloom. Verify emissive detail
+at a 4× head-crop, never the full-body crop — the detail that decides G1/palette is sub-20px there. (2) **A transient
+pose can't be captured by waiting for it** — headless rAF throttling means `charging` (a boolean) grabs frames at
+every charge level, so the mantle never showed contracted. Fix: expose a debug PIN (`setBossDebugCharge`,
+`setBossDebugSetpiece`) that HOLDS the pose square-on as a still; the crop tool pins → shoots → releases. This is now
+the way to capture any wind-up/dive/setpiece silhouette. (3) **A floating head + two wings fails silhouette-first** —
+the gate's flood-fill "one connected component" test caught sky between wing roots and torso; a shoulder-yoke/chest
+mass bridging cowl→wing-roots fixed it. (4) **The one-scar law is a MIRROR law** — the scar blade skips its ember
+strip, but the mirrored blade on the other wing must skip too or its strip reads as a second asymmetric fleck.
+
+**Learned — the §5e engine extensions, built to coexist (shipped bosses byte-unchanged).** (5) **Moving-station is a
+one-line insight:** setpieces suppress fire ONLY because the arm code pushes the attack/rider clocks past the
+duration — a `moving:true` setpiece simply DOESN'T push them, and the pose-follow already coexists with the attack
+machine, so the boss fires from wherever the path carries it. (6) Per-phase `def.setpieces` array added ALONGSIDE the
+legacy single `def.setpiece` (the lifecycle test asserts voidmaw/stormrend still never arm one). (7) `approachFrom`
+'above'/'below' branches + a `top` warning-banner direction complete the entry-direction set (ASHTALON proves the
+"from above" MOTION via the stooping-dive setpiece; the approach-branch heroes are WEFTWITCH/BRINEHOLM later).
+(8) The §5f rule-break (rear-view camera beat as it overtakes) is CAMERA-ONLY: an eased trapezoid in
+`cameraController` that looks back down the course during the approach, announced, no fire — deterministic, ≤3s, the
+Mantis rule holds. Expose `cameraCtl` + `on` on the debug seam so `rearActive` and card events are verifiable headless.
+
+**Gotcha.** The gate is pixel-strict and RIGHT: at round 5 I judged the idle "excellent" — the gate saw a flat white
+bar (occluded fringe) and a detached silhouette. Builder-never-judges is not ceremony; the in-engine camera hides
+depth-occlusion and bloom-wash that only a captured, upscaled crop exposes. **Verified:** boss.mjs 21/21 green
+(incl. the new moving-station-fires assertion + full ashtalon lifecycle to a kill, all 3 cards incl. the dread
+resolving); defs/bossboot/bossrush/bossrushui/appshell/smoke/splash/surgefx green; the 3 pre-existing flaky suites
+(badges/economy/save-purchases) confirmed to fail IDENTICALLY on the base commit; rear-view + opener card confirmed
+firing at runtime; bossgate G1–G7 PASS.
