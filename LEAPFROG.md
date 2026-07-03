@@ -5159,3 +5159,16 @@ artifact per band opener, gacha-fairness baselines (premium dragons may only mak
 shape-redundancy for role colors, and the second sun's lid-aperture dramaturgy. **Gotcha:** audits this late find
 load-bearing contradictions cheaply (the 44km ladder bug, the unbuildable charisma floor) — run the multi-lens sweep
 BEFORE the first build of any big roster, not after.
+
+### L136 — The bossgate spec: automate the objective half of taste, and never let the builder be the judge
+
+**Did / learned.** Session evidence is unambiguous: coding-session self-verdicts on visual design run systematically
+more generous than review gates (CRAGHOLD's "I'd defend it" covered a geometrically buried pupil, 0.02-gap mitten
+fingers, and toy-green diffuse). BOSS-DESIGN §7b now specs `tools/bossgate.mjs` (implementation lands with the
+slot-3 build): pixel-sampled assertions on real captures for the MEASURABLE design laws — focal brightest-and-small
+(G1), dark-body luminance/saturation medians with sanctioned pale exemptions (G2), palette hue attribution + zero
+danger-magenta bleed (G3), frame-presence envelope (G4), telegraph silhouette-mask diff ≥6% (G5), shielded eye-leash
+(G6), additive-volume count (G7) — plus per-sheet numeric geometry asserts (digit gaps, size ratios) in boss.mjs.
+The delegation protocol: sheet → suites green → gate green → post 3 crops to the PR → STOP; merge verdict is human.
+**The honest limit is stated in the doc:** the gate catches toy-color/dead-eyes/blob/static-telegraph classes; it
+cannot catch "reads as a mitten" — so the protocol ends at crops, never at self-approved merge.
