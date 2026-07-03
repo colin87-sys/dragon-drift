@@ -6,3 +6,6 @@ reforged/tools/_angles.html
 js/gambit.js
 tests/gambit.mjs
 .github/workflows/pages.yml
+
+# Boss design-review capture crops (checkpoint gate artifacts; not shipped)
+reforged-captures/

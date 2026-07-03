@@ -37,7 +37,11 @@ const VIEW = { width: 720, height: 1280 };
 
 // Capture distance per boss (just has to trigger the fight in a real biome; the
 // mask is geometry-derived so the specific sky doesn't affect the verdict).
-const DIST = { voidmaw: 2500, stormrend: 5200, craghold: 3800, ashtalon: 3600 };
+// Capture each boss in a biome whose sky COMPLEMENTS its value/temperature (§5h
+// biome pairing) — a charcoal·ember boss judged against a cool purple sky would
+// read false-magenta under that biome's blue hemisphere ambient. ASHTALON is
+// captured over EMBERFALL (warm), its thematic home.
+const DIST = { voidmaw: 2500, stormrend: 5200, craghold: 3800, ashtalon: 5000 };
 
 const bossId = process.argv[2];
 if (!bossId || !BOSS_ORDER.includes(bossId)) {
@@ -300,7 +304,8 @@ try {
   const rec = (id, law, pass, detail) => { results.push({ id, law, pass, detail }); };
 
   const W = idle.mask.W, H = idle.mask.H, frame = W * H;
-  const idleOpaque = expandMask(idle.mask.opaque, W, H);
+  const idleOpaqueFull = expandMask(idle.mask.opaque, W, H);
+  const idleOpaque = idleOpaqueFull;
 
   // HP-bar exclusion band (its magenta fill blooms ~a dozen px onto the body):
   // any body pixel inside the projected HP-bar bbox + margin is excluded from
@@ -394,8 +399,8 @@ try {
     if (!packed || !packed.silCount) return 0;
     const ch = expandMask(packed, W, H);
     let diff = 0, uni = 0;
-    for (let i = 0; i < idleOpaque.length; i++) {
-      const a = idleOpaque[i], b = ch[i];
+    for (let i = 0; i < idleOpaqueFull.length; i++) {
+      const a = idleOpaqueFull[i], b = ch[i];
       if (a || b) uni++;
       if (a !== b) diff++;
     }

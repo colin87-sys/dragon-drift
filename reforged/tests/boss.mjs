@@ -252,6 +252,29 @@ for (const key of BOSS_ORDER) {
   colossus.dispose();
   ok('craghold telegraph: setCharge(1) clenches the gesture hands (silhouette change)');
 }
+{
+  const hunter = buildBoss(BOSSES.ashtalon, 1);
+  for (const side of ['wingPivotL', 'wingPivotR']) {
+    assert(findAllByName(hunter.group, side).length === 1, `ashtalon exposes exactly one ${side}`);
+  }
+  const blades = findAllByName(hunter.group, 'bladePivot');
+  assert(blades.length >= 12, `ashtalon exposes ≥12 named bladePivots for the telegraph gate (${blades.length})`);
+  const shoulders = ['wingPivotL', 'wingPivotR'].map((s) => findAllByName(hunter.group, s)[0]);
+  // Settle the idle beat, snapshot, then charge: the default (no attack-tell)
+  // wind-up is the MANTLE — both wings raise up-forward + the fan narrows. The
+  // gate asserts the SHAPE moved (shoulders rotate AND blades re-fan), not colour.
+  for (let i = 0; i < 40; i++) hunter.tick(0.05, i * 0.05);
+  const preShoulder = shoulders.map((s) => s.rotation.z);
+  const preFan = blades.map((b) => b.rotation.z);
+  hunter.setCharge(1);
+  for (let i = 0; i < 30; i++) hunter.tick(0.05, 2 + i * 0.05);
+  const shoulderMoved = shoulders.filter((s, i) => Math.abs(s.rotation.z - preShoulder[i]) > 0.1).length;
+  const fanMoved = blades.filter((b, i) => Math.abs(b.rotation.z - preFan[i]) > 0.05).length;
+  assert(shoulderMoved === 2, `ashtalon mantle: both wing shoulders rotated on charge (${shoulderMoved}/2)`);
+  assert(fanMoved >= 8, `ashtalon mantle: ${fanMoved} blade pivots re-fanned on charge (need ≥8 — silhouette change)`);
+  hunter.dispose();
+  ok('ashtalon telegraph: setCharge(1) mantles the scythe-wings (silhouette change)');
+}
 
 // Legacy coexist gate: a def WITHOUT `archetype` must still fall through to
 // the legacy construct (bossModel.js's buildBoss dispatcher) — the coexist

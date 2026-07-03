@@ -149,9 +149,46 @@ export const BOSSES = {
       { id: 'craghold_clasp',   name: 'HANDS THAT HELD THE SKY — Colossal Clasp', atFrac: 0.33, timer: 28, dread: true },
     ],
   },
+
+  ashtalon: {
+    id: 'ashtalon',
+    name: 'ASHTALON',
+    title: 'the Ember Hunter',
+    epithet: 'What the Ash Still Hunts',   // the lore gap: what is it hunting FOR?
+    tier: 2,                               // COLOSSUS (§5b band 2), slot-3 opener
+    // Boss-archetype dispatch (bossModel.js buildBoss): the Ember-Hunter builder
+    // (bossAshtalon.js) — BOSS-DESIGN.md §5b registry slot 3, replacing the
+    // retired CRAGHOLD. A charcoal raptor of two vast scythe-wings with ONE
+    // molten visor slit; it OVERTAKES from behind and hunts (no socket-pair like
+    // slot 1, no orb like slot 2 — a single horizontal ember slit in a dark cowl).
+    archetype: 'emberHunter',
+    accent: 0xff6a30,         // ember orange — the smoulder on charcoal (identity in emissive)
+    glow: 0xff9a4a,           // warmer ember (shield rim / shards / backlight)
+    bulletColor: 0xff2b6a,    // danger stays magenta (role colour, never per-boss)
+    approachFrom: 'behind',   // it overtakes from behind and rises over you (the hunter)
+    scale: 1.7,               // COLOSSUS — the scythe-wings span wide (~14 pre-scale)
+    hpMax: 290,               // Tier 2 band (260–330); slot-3 opener sits low in it
+    // Mechanical star (SOP): closing + cadence — FAST but SPARSE. Its cards are
+    // pursuit curves (stream debuts here), tightening toward the dread dive. The
+    // moving-station branch, the EMBER HUNT stooping-dive setpiece, and the
+    // scripted rear-view camera beat land with the behaviour pass (§5e/§5f).
+    phases: [
+      { atFrac: 1.00, cadence: [1.5, 2.0], attacks: ['aimed', 'stream'] },                 // P1: the hunter's tracking hose debuts
+      { atFrac: 0.66, cadence: [1.4, 1.8], attacks: ['fan', 'stream', 'crossfire'] },       // P2: circling passes converge
+      { atFrac: 0.33, cadence: [1.3, 1.7], attacks: ['stream', 'spiralStream', 'secondWave'] }, // P3: the stoop (dread)
+    ],
+    cards: [
+      { id: 'ashtalon_stoop',   name: 'EMBER — First Stoop',        atFrac: 1.00, timer: 22 },
+      { id: 'ashtalon_circle',  name: 'EMBER HUNT — Circling Pass',  atFrac: 0.66, timer: 24 },
+      { id: 'ashtalon_strike',  name: 'EMBER HUNT — Stooping Strike', atFrac: 0.33, timer: 26, dread: true },
+    ],
+  },
 };
 
-export const BOSS_ORDER = ['voidmaw', 'stormrend', 'craghold'];
+// Registry slot 3 is ASHTALON (Colossi opener); CRAGHOLD is RETIRED (§5b L130) —
+// its def + builder stay for the geometry-lesson lineage and its own telegraph
+// test, but it is OUT of the encounter rotation.
+export const BOSS_ORDER = ['voidmaw', 'stormrend', 'ashtalon'];
 
 // Which boss to use for the Nth encounter of a run (cycles once the list is
 // exhausted — more bosses just extend the list).
