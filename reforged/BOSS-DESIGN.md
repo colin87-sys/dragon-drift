@@ -510,6 +510,132 @@ limiter. Portrait camera envelope at rel 30: x ±15 / y 2..22.
   (environment.js integration); the stage system (stage swap = builder-internal dissolve
   between sub-rigs, driven off phase transitions); pattern-era quoting (zero new ids).
 
+## 5f. MOVE-SET GRAMMAR + THE SPELL-CARD SYSTEM (research pass, 2026-07)
+
+Three research tracks (legendary move sets · shmup/danmaku heritage · dimension/rule-breaking
+bosses) distilled into adopted law. Full sources live in the research reports; the load-bearing
+precedents are cited inline.
+
+### The move-set laws (every boss)
+
+1. **The 3–5 move core.** Each boss: 3–5 attacks, each a unique triple of silhouette POSE +
+   pattern SHAPE + one best VERB (dodge/graze/parry/surge). If two attacks share a pose or an
+   answer, cut one. (Punch-Out tells; Cuphead phase vocabularies.)
+2. **One NAMED dread move per boss.** The fight's longest telegraph (2–3s held ritual pose),
+   used 1–2 times or threshold-gated, screen-filling, near-lethal, with a COUNTERINTUITIVE
+   answer that uses a non-default verb — and it is deliberately the fight's graze goldmine,
+   so mastery converts terror into the biggest scoring moment. (Waterfowl Dance, Genichiro's
+   lightning; two flavors: lethal-dread for late bosses, spectacle-dread for early.)
+3. **Phase grammar: introduce → develop → twist → desperation.** Develop = same reads,
+   faster, +1 move. Twist = ONE systemic change. Desperation (last ~20%) = max-tempo remix +
+   the guaranteed dread move + a music layer. Old telegraphs stay valid all fight. (Isshin.)
+4. **Teach before you test.** Any parry/surge-answered move debuts in a slow survivable form
+   on an earlier boss or phase. Slot 14 is an EXAM over the roster's taught mechanics, zero
+   new ids. (The Genichiro→Isshin lightning pipeline.)
+5. **Legible turn-taking.** Every attack string ends in an unmistakable exposure state:
+   weak-point glow + pattern silence + a slumped pose. Nobody ever wonders whose turn it is.
+6. **Honest bars; one earned resurrection.** Phase pips on the HP bar everywhere (Sekiro
+   deathblow grammar — truthful dread is unlimited). The roster gets exactly ONE lying
+   FELLED card, at slot 12 — see rule-breaks. (Friede/Radagon; the Health-Bar-Lie trust rule.)
+7. **Emitter = organ.** Every pattern originates from a visible body part; the telegraph is
+   that part's animation; phase change is visible damage/transformation. If a featureless
+   sphere could emit the pattern, the body is set dressing. (CAVE part grammar, Gradius core
+   ritual, already implied by law §3.5 — now absolute.)
+8. **Rhythm is a fairness subsidy.** Per-attack audio cues; dense patterns emit on the music
+   grid where possible; graze ticks confirm "close but safe." Behind-camera depth ambiguity
+   becomes thrill, not unfairness. (Grimm; Just Shapes & Beats; Returnal's audio channel.)
+
+### The spell-card system (ADOPTED — the genre's biggest fan-culture engine)
+
+Attacks of consequence become **named, title-carded set-pieces** (Touhou's invention: names
+turn patterns into nouns; nouns get ranked, wiki'd, screenshotted, fan-arted):
+
+- A **card** = one named signature pattern-phase: small title card (reuses `bossTitleCard`
+  styling, lower-right, non-blocking), bullet-cancel flash on entry, its own dial block, a
+  TIMER (~20–30s), and a per-card ledger: **capture** (survive it hitless) vs **survived**
+  (timed out / took hits). Timeout is the escape hatch — no card ever hard-walls a weaker
+  player; capture is the mastery atom players share. (Cost: LOW — a banner variant + timer +
+  stats map on top of the SOP's phases/dials.)
+- **One trick per card**: a single geometric insight (a rotating safe lane, streaming, a
+  rhythm) composed from the existing pattern vocabulary. Later cards remix earlier ones
+  denser/inverted; slot 14 quotes the roster. **The pattern IS the personality** (Cirno law):
+  card geometry expresses the boss's character — KNELLGRAVE's cards are metronomic,
+  ASHTALON's are pursuit curves, WEFTWITCH's are lattices.
+- **Naming grammar** (Darius discipline — one formula for the whole roster): every card is
+  `"<FRAGMENT OF THE EPITHET> — <plain pattern name>"`, e.g. Voidmaw's *"HOLLOW JUDGMENT —
+  Sky-Splitting Verdict"*, KNELLGRAVE's *"IT RINGS — The Second Toll"*. The boss's dread move
+  (law 2) is always its final card.
+- **Survival cards ×2 max in the roster**: boss invincible + visibly sealed/charging; pure
+  dodge exam on a timer. Assigned: slot 10 (a toll you can only outlast) and slot 13's
+  vertical squeeze. The unfillable bar is the tell.
+- **Post-clear EX cards** (deferred, post-roster): beat a boss hitless → unlock its bonus
+  ultra card in the boss-select picker (can't cost a run). Per-card stats feed leaderboards.
+
+### Rule-break allocation (each category spent ONCE; the Mantis rule governs all)
+
+A break is legal only if: performed in-character as the boss's power; resolves ≤3s with the
+game visibly alive; deterministic; never touches saves/purchases/real progress; and the
+ritual it breaks ran clean through Tiers 1–3 first. VETOED for mobile web: fake crashes/
+freezes/system dialogs, touch-input tampering, save/currency wagering, full free-flight
+all-range mode (Star Fox's own monster fights stayed on the rail; the Panzer Dragoon
+quadrant-orbit buys the arena fantasy rail-natively).
+
+| Slot | Break(s) | Precedent |
+|---|---|---|
+| 3 ASHTALON | one scripted rear-view camera beat as it overtakes (~3s, announced, no fire during the swing) | Sin & Punishment; SF64's "announce the mode" |
+| 7 THRUMSWARM | mirrors a ring-buffer of YOUR recent flying back at you as its formation (boss-side mirroring — never touch input) | NieR twin fights |
+| 9 KARNVOW | fires ONE slow survivable shot during the reveal hold (the trophy-hunter has no honor — the roster's only hold-breaker); taunt cards quote your OWN run stats from localStorage (deaths, which boss felled you most) — diegetic Psycho Mantis; escalation: quadrant-orbit duel beat | Sans's menu attack; Psycho Mantis; Panzer Dragoon |
+| 10 KNELLGRAVE | the music DIES for the whole fight — only the toll keeps time (the silence is the puzzle's clock) | Sans's silence; Grimm's audio-bound moves |
+| 11 WEFTWITCH | threads visibly sew across the HUD chrome (never over bullets — render-order LAW holds); one banner gets stitched over | Omega Flowey's UI arena, honest version |
+| 12 ONEWING | late DANGER banner (already canon) + the roster's ONE lying FELLED card: it fires, cracks, and ≤35% of the bar returns — resolve ≤2s, crippled silhouette stays moving as the tell (the MGS2 live-corner rule); its name IS the mechanic | Radagon→Elden Beast; Fission Mailed |
+| 14 THE UNMASKED | honest re-struck stage cards ("II — THE UNMASKED"); a one-frame title glitch where the card reads VOIDMAW (it made the masks); exactly ONE line addressed past the dragon at the player, stage 3 | Elden Beast card; Eternal Darkness micro-dose; Mantis |
+
+### Signature-move assignments (the dread move per slot — names draft, user may veto)
+
+3 ASHTALON *"EMBER HUNT — Stooping Strike"* (full-speed dive pass, lethal-dread, answer:
+surge INTO the dive gap) · 4 MARROWCOIL *"MARROW — The Closing Ribs"* (ribcage constricts one
+ring at a time while coils sweep; graze goldmine) · 5 EITHERWING *"EITHER/OR — Both Halves at
+Once"* (the eye splits its light: simultaneous mirrored crossfire) · 6 HOLLOWGATE *"THE DOOR
+PRAYS — Rose Judgment"* (all 8 panes fire radially while the arch closes its portcullis) ·
+7 THRUMSWARM *"A THOUSAND — Your Own Wings"* (the swarm becomes your dragon and flies your
+recorded path back at you) · 8 BRINEHOLM *"THE ISLAND BREATHES — Sounding"* (it dives; the
+whole arena floor erupts in geyser curtains; spectacle-dread) · 9 KARNVOW *"WEARS THE HORN —
+Voidmaw's Verdict"* (it fires boss 1's dread card back at you, violet-scarred) · 10 KNELLGRAVE
+*"IT RINGS — The Last Toll"* (survival card: nine accelerating tolls, pure rhythm dodge) ·
+11 WEFTWITCH *"SHE MENDS — Warp and Weft"* (the whole arena re-woven in one pass: every lane
+stitches shut except the one her hands never touched) · 12 ONEWING *"WOULD NOT DIE — The
+Missing Wing"* (it performs EITHERWING's old dual attack ALONE, the dead half's volley arriving
+as ghost-bullets) · 13 EMBERTIDE *"SKY SET LOOSE — Horizon Break"* (survival card: the tide
+crests the whole frame; the safe pocket is where the face is — hide in its shadow) · 14 THE
+UNMASKED: its final card is the roster exam — *"WHAT WORE THE SKY — Every Verdict at Once"*,
+quoting one card from every felled boss at once, thinned to fairness caps.
+
+**Destructible sub-parts** (CAVE law — hero bosses only, 3–4 in the roster, prove-then-extend):
+6 HOLLOWGATE portcullis bars + individual rose panes (shooting a pane deletes its radial from
+the composite) · 8 BRINEHOLM shackle posts (freeing it early softens phase 3 — mercy as
+mechanics) · 12 ONEWING the fused dead frame (breakable; breaking it removes the ghost-bullet
+component but enrages the tempo) · 14 wheel relics (each destroyed relic removes that boss's
+quoted card from the final exam — the player edits the finale).
+
+**Duo law** (one per roster): EITHERWING is the duo — complementary axes (one twin flies
+lane-denial walls, the other aimed tempo), and the eye-handoff IS the kill-order mechanic:
+whichever twin holds the eye when the pair breaks fires the desperation card alone. ONEWING
+returning at slot 12 is the roster's rival-return payoff (Vergil grammar: two-thirds familiar
+kit + counters to what you learned + the old unanswerable dual attack finally parryable).
+
+**Verb-shift climax** (Radiance law): slot 14 stage 3 abandons pattern-dodging — the shroud
+opens and the fight becomes a surge-chase THROUGH the wheels to reach the core before it
+re-veils. Endings are remembered by what the player did last.
+
+### Engine additions this section costs (append to §5e ledger)
+
+Card system: title-card variant + per-card timer/capture flag + stats map (LOW — sits on the
+SOP's phase/dial schema: a card = a named phase-attack entry). Stat-taunt templating from
+existing localStorage run stats (LOW). One scripted camera beat seam (MEDIUM — cameraCtl
+path, announced, fire-suppressed). Sub-part HP: per-part hit test vs the single-center model —
+route by the `bossDamage` event's existing x/y payload (MEDIUM; hero bosses only). HUD-sew
+overlay: DOM/SVG lines above chrome, below bullets (LOW).
+
 ## 6. The system — how to build boss N (architecture)
 
 Everything is data + one builder file. `boss.js` (controller) needs ZERO changes for a new boss.
