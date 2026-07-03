@@ -36,6 +36,7 @@ const TIERS = B.renderTiers;   // render-order law: nothing draws over a bullet
 let debugFirstAt = null;       // ?boss override: bring the first encounter in early
 let debugDefIdx = null;        // ?bossIdx override: force a specific BOSS_ORDER entry
 let debugChargePin = -1;       // capture hook: ≥0 holds the charge/mantle pose for a still
+let debugSetpiecePin = null;   // capture hook: { id, k } holds a setpiece pose (the dive) for a still
 let nextBossDist = B.firstAt;
 let encounterIndex = 0;
 
@@ -848,6 +849,13 @@ export function updateBoss(dt, player, time) {
       // Tutorial boss: teach the parry as the fight opens (amber shots = swat-able).
       if (def.tutorial) ui.bossNote?.('DODGE!', 'ROLL INTO AMBER SHOTS TO PARRY', 'gold', 3.0);
     }
+  } else if (phase === 'fight' && debugSetpiecePin) {
+    // Capture-only: freeze a SETPIECE pose (e.g. the stooping-dive silhouette) at a
+    // fixed path parameter so the crop tool can shoot the dread pose as a still.
+    const p = SETPIECE_PATHS[debugSetpiecePin.id]?.(debugSetpiecePin.k);
+    if (p) { pose.x = 0; pose.y = B.fightHeight; pose.rel = B.settleGap; }
+    model.setSetpiece?.(Math.sin(debugSetpiecePin.k * Math.PI));
+    model.setCharge(0);
   } else if (phase === 'fight' && debugChargePin >= 0) {
     // Capture-only: freeze the boss square-on and HOLD the contracted mantle pose
     // at the pinned charge level so the crop tool can shoot the wind-up silhouette
@@ -1422,6 +1430,12 @@ export function setBossDebugDefIdx(k) {
 // and hand the fight state machine back over.
 export function setBossDebugCharge(level) {
   debugChargePin = level;
+}
+
+// Capture hook (bosscrop): pin a SETPIECE pose (id + path parameter k) so a still
+// can be shot of e.g. the stooping-dive silhouette. Pass null to release.
+export function setBossDebugSetpiece(pin) {
+  debugSetpiecePin = pin;
 }
 
 // Debug hook: drop straight into a fight (wired under ?debug in main.js).

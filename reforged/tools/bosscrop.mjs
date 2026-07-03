@@ -175,6 +175,13 @@ try {
       await page.waitForTimeout(2200);
       await shoot('charge', 8);
       await page.evaluate(() => window.__dd.bossPinCharge(-1));   // release the state machine
+    } else if (state === 'dive') {
+      // Pin the stooping-dive setpiece pose (mid-stoop, k≈0.6 → wings full tuck) as
+      // a still so the gate can judge the dread silhouette front-on (§5f).
+      await page.evaluate(() => window.__dd.bossPinSetpiece({ id: 'stoopingStrike', k: 0.6 }));
+      await page.waitForTimeout(2200);
+      await shoot('dive', 8);
+      await page.evaluate(() => window.__dd.bossPinSetpiece(null));
     } else if (state === 'shielded' || state === 'dread') {
       let sh = false;
       for (let i = 0; i < 25 && !sh; i++) {
