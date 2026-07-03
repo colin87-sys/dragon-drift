@@ -301,6 +301,9 @@ export function buildDragonModel(def, opts = {}) {
   if (wingsResult.parts.tailFins) tailFins = wingsResult.parts.tailFins;
   if (wingsResult.parts.tailSegs) tailSegs = wingsResult.parts.tailSegs;
   const spineSegs = wingsResult.parts.spineSegs || null;   // night-fury body-spine whip (nullable)
+  // Living face (design-system dragons, creatureFace.js) — additive-nullable like
+  // tailFins/spineSegs: dragons without def.design.face get null and zero behavior.
+  const face = wingsResult.face || null;
 
   // Solar aura card (apex only): a tall narrow backlight behind the body — a
   // corona, not a ring that competes with the collectible rings.
@@ -373,7 +376,7 @@ export function buildDragonModel(def, opts = {}) {
 
     return {
       group: wrapper,
-      parts: { head, tailSegs, tailFins, spineSegs, bodySegs, tailOrbiters, riderSocket, wingYokeL, wingYokeR, wingPivotL, wingPivotR, wingMidL, wingMidR, wingTipL, wingTipR, wingPivot2L, wingPivot2R, tipMarkerL, tipMarkerR, wingRigL, wingRigR, coreGlow },
+      parts: { head, tailSegs, tailFins, spineSegs, bodySegs, tailOrbiters, riderSocket, wingYokeL, wingYokeR, wingPivotL, wingPivotR, wingMidL, wingMidR, wingTipL, wingTipR, wingPivot2L, wingPivot2R, tipMarkerL, tipMarkerR, wingRigL, wingRigR, coreGlow, face },
       materials: { bodyMat, wingMat, eyeMat, spineMats },
       auraSprite,
     };
@@ -390,7 +393,7 @@ export function buildDragonModel(def, opts = {}) {
       wingPivot2L, wingPivot2R,
       tipMarkerL, tipMarkerR,
       wingRigL, wingRigR,
-      coreGlow,
+      coreGlow, face,
     },
     materials: { bodyMat, wingMat, eyeMat, spineMats },
     auraSprite,
@@ -410,6 +413,10 @@ export function makePreviewTick(def, result) {
   const segLag = (def.model.segmentLag ?? 0.14) * 7;
   const segSway = def.model.segmentSway ?? 0.16;
   const segBob = def.model.segmentBob ?? 0.08;
+  // Preview-only asymmetry pose (P1 law, design-system dragons) — applied HERE and
+  // nowhere else: the in-game pose is owned by the flight state and stays symmetric.
+  const pose = def.model.previewPose || null;
+  let lastFaceT = 0;
   return (t) => {
     // Float + gentle bank/pitch — the in-flight read, no spin.
     group.position.y = 0.15 + Math.sin(t * 1.5) * 0.09;
@@ -422,8 +429,11 @@ export function makePreviewTick(def, result) {
       // Skinned wings: the shared animator drives the shoulder→elbow→wrist cascade
       // (dt=1 snaps to target, matching the preview's direct-set style).
       const st = { phase, flapAmp: 0.52 * flapAmp, turnBias: 0, climbBias: 0, rollFold: 0, feather: Math.sin(phase + Math.PI * 0.55), strength: formStrength(def.model) };
-      flapWing(wingRigL, st, 1);
-      flapWing(wingRigR, st, 1);
+      // previewPose.wingFoldDelta: a small per-side amplitude bias so the shop pose
+      // breaks mirror symmetry (P1) without touching the in-flight rig.
+      const foldD = pose ? (pose.wingFoldDelta || 0) : 0;
+      flapWing(wingRigL, foldD ? { ...st, flapAmp: st.flapAmp * (1 + foldD) } : st, 1);
+      flapWing(wingRigR, foldD ? { ...st, flapAmp: st.flapAmp * (1 - foldD) } : st, 1);
       if (wingPivot2L) { const f = Math.sin(phase) * 0.52 * flapAmp + 0.12; wingPivot2L.rotation.z = f * 0.65; wingPivot2R.rotation.z = -f * 0.65; }
     } else if (def.model.flap && wingYokeL) {
       // Mk II YOKE wing (preview): the shared 5-phase solver drives yoke→inner→mid→tip into a
@@ -490,6 +500,8 @@ export function makePreviewTick(def, result) {
       if (boneTail) {
         // VERTICAL undulation (rotation.x), matching the in-flight body-whip read.
         tailSegs[i].rotation.x = Math.sin(tp) * 0.16 * ((i + 1) / nT);
+        // previewPose.tailSway: a static lateral set along the chain (P1 asymmetry).
+        if (pose && pose.tailSway) tailSegs[i].rotation.y = pose.tailSway * ((i + 1) / nT);
       } else {
         tailSegs[i].position.x = Math.sin(tp) * 0.3 * l2;
         tailSegs[i].position.y = Math.cos(tp * 0.8) * 0.16 * l2;
@@ -515,7 +527,14 @@ export function makePreviewTick(def, result) {
         b.rotation.x = w.gain * Math.sin(t * 1.6 + w.phase);
       }
     }
-    head.rotation.y = Math.sin(t * 0.9) * 0.1;
+    head.rotation.y = Math.sin(t * 0.9) * 0.1 + (pose ? (pose.headYaw || 0) : 0);
+    // Living face (creatureFace.js): idle gaze wander + the blink/brow heartbeat so
+    // the shop dragon looks AT things instead of staring dead ahead.
+    if (parts.face) {
+      parts.face.setGaze(Math.sin(t * 0.5) * 0.6, Math.sin(t * 0.33) * 0.3);
+      parts.face.tick(Math.max(0.001, Math.min(0.1, t - lastFaceT)), t);
+      lastFaceT = t;
+    }
     // Segmented-wyrm body: a lead-first travelling wave (each plate trails the
     // one ahead with a phase lag) + a gentle vertical bob — a zero-gravity drift.
     if (bodySegs) {

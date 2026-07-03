@@ -8,6 +8,7 @@ import { seg } from './modelDetail.js';
 import { skinnedTube, sweepProfileSmooth } from './dragonSweep.js';
 import { buildTorso } from './dragonTorso.js';
 import { composeSurface, membraneSSSPatch } from './dragonSurfaceShader.js';
+import { buildCreatureFace } from './creatureFace.js';
 
 // ── GENERIC UNIFIED HULL (data-driven) ───────────────────────────────────────
 // This is the proven Night-Fury organism kernel (LEAPFROG L24–L39: zero-gap
@@ -607,7 +608,22 @@ function buildHull(def, model, attach) {
   let miniL = null, miniR = null;
   const HEAD_Y = TY + (hk.headY ?? 0.30), TAILFIN_Y = TY + (hk.tailFinY ?? -0.18);
 
-  if (model.hullEyes ?? hk.eyes ?? true) {
+  // LIVING FACE (design-system dragons): def.design.face swaps the legacy static
+  // dot-eyes for the creatureFace charisma layer (gaze/blink/brow/pupil machine).
+  // Additive-nullable: dragons without design.face are byte-identical below.
+  let face = null;
+  if (def.design && def.design.face) {
+    const fs = def.design.face;
+    face = buildCreatureFace({
+      eyeX: fs.eyeX ?? (hk.eyeX ?? 0.275),
+      eyeY: fs.eyeY ?? (HEAD_Y - 0.05 + (model.eyeYOffset ?? 0)),
+      eyeZ: fs.eyeZ ?? (hk.eyeZ ?? -3.52),
+      eyeScale: model.eyeScale ?? fs.eyeScale ?? 1,
+      browLen: fs.browLen, browLift: fs.browLift, browColor: fs.browColor,
+    }, def);
+    face.group.traverse((o) => { o.frustumCulled = false; });
+    group.add(face.group);
+  } else if (model.hullEyes ?? hk.eyes ?? true) {
     // eyeScale grows the eye (cute baby reads bigger-eyed); eyeYOffset drops it lower-set
     // (Kindchenschema). A pupil sphere gives a readable eye in the shop/¾ view (the chase
     // cam barely sees the face, so this is a front-view bonus, not the cuteness driver).
@@ -871,6 +887,7 @@ function buildHull(def, model, attach) {
       wingRigL: { shoulder: armL.shoulder, elbow: armL.elbow, wrist: armL.wrist, side: -1, profile: model.flapProfile || null },
       wingRigR: { shoulder: armR.shoulder, elbow: armR.elbow, wrist: armR.wrist, side: 1, profile: model.flapProfile || null },
     },
+    face,
     wingMat,
     spineMats,
   };
