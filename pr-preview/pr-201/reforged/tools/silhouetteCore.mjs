@@ -62,9 +62,18 @@ export function renderSilhouette({ key, view = 'rear', tier, W, H, pose, hideWin
   const group = built.group;
   if (pose) applyPose(built.parts || {}, def.model.flap, pose);
   // hideWings: drop the wing subtrees so the BODY silhouette can be inspected un-occluded.
+  // wingRigL/R may be a HANDLE object ({shoulder, elbow, wrist}) on skinned hulls — use
+  // its shoulder root; hull membrane/finger surfaces are sibling skinned meshes, so skip
+  // those by their stable names too.
   const skip = new Set();
-  if (hideWings && built.parts) for (const k of ['wingYokeL', 'wingYokeR', 'wingRigL', 'wingRigR'])
-    if (built.parts[k]) built.parts[k].traverse((o) => skip.add(o));
+  if (hideWings && built.parts) for (const k of ['wingYokeL', 'wingYokeR', 'wingRigL', 'wingRigR']) {
+    const p = built.parts[k];
+    const node = p && (p.traverse ? p : p.shoulder);
+    if (node) node.traverse((o) => skip.add(o));
+  }
+  if (hideWings) group.traverse((o) => {
+    if (o.name === 'hullMembrane' || o.name === 'hullFingers') skip.add(o);
+  });
   if (view === 'climb') group.rotation.x = 0.92;          // ~53° nose-up: dorsal back, tail toward the lens
   group.updateMatrixWorld(true);
 

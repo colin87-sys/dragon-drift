@@ -5042,3 +5042,34 @@ against `designcheck --ci`, then sovereign/aurelith when their v2 concepts pass 
 `parts.head` (a no-op on hull lofts) — when hero profiles add fore spine bones near the skull, route it there and
 land the P1 mirrored-raster check. Verified: face 9/9 + hull/nightfury/blueprint/defs/designgate/smoke/flapcheck/
 skinnedwing/wingflap/organism/unifiedhull/sweptail/sweptprofile all green, tricount 203265 UNCHANGED.
+
+### L131 — Nimbus ships born-gated: the first design-system hero, and two measured law-vs-medium findings
+
+**Did / learned.** Built the first Gate-2-approved hero end to end as pure data: `dragonHeroProfiles.js`
+(NIMBUS_PROFILE + NIMBUS_ANCHORS — the anchors the mass checks read live next to the stations they describe), a
+`nimbus` def (wip-flagged, `design:` block opts it into enforcement, face spec, previewPose, tailPuff hero feature),
+a new `tailPuff` hull knob (sphere-cluster on the last tail bone, tailBulb host pattern), and the `ui.js`
+`rosterKeys()` truth function (wip hidden unless the LIVE dev toggle — the L128 rule applied on day one, plus a
+designgate invariant that every design: dragon stays wip until its Gate 4). All 12 design laws measure green
+(`designcheck --ci` passes; S1 0.41 vs closest azure, C1 54/39/7). Two findings only MEASUREMENT could surface:
+**(1) C1 (60/30/10 by 3D area) and D2 (span 1.8–2.2×) are in tension on winged bodies** — at the minimum legal span
+the membrane out-areas a compact body (nimbus measured 44/50/6); passing strictly required trimming the wing chord
+(0.47→0.26, still ≥0.2) below the approved concept's round deep wings. The C1-band decision (revise vs keep-strict)
+is queued for the human; the def carries the restore values in a comment. **(2) a station profile has TWO
+independent silhouette channels** — halfWidth is the top-view read, keelTop+belly is the SIDE-view read; the first
+dome authored its "big head" into halfWidth only and the side render showed a submarine. Author BOTH (tall dome via
+keel/belly + width via hw) while holding mass = hw×(keel+belly) inside the S3/D1 budget. Also fixed
+`silhouette --no-wings` for skinned hulls (wingRig is a handle object, not an Object3D; membrane/fingers are sibling
+meshes — skip by stable name), which is what made finding (2) visible.
+
+**→ Systematize.** (a) Author-side rule for every future hero: sketch the profile in BOTH channels before tuning
+laws — hw (top) and keel+belly (side) each carry half the silhouette. (b) The per-hero loop is proven:
+profile → pure-check script → def → `designcheck <key>` → `silhouette` renders (+ `--no-wings` for the body read)
+→ human. Minutes per iteration, all headless. (c) `rosterKeys()` is THE shop-visibility predicate — any future
+gated content joins it, never a second filter.
+
+**→ Leapfrog (innovate).** Pending human input: the C1 band decision (evidence above), the nimbus body-shape verdict
+on the renders, and Gate 2 v2 for sovereign/aurelith. Then: restore-or-keep nimbus chord per the C1 verdict, sovereign
+build (SOVEREIGN_PROFILE per its brief), aurelith (needs tail-ring orbiter wiring + the longest whip). Verified:
+designgate 16 + face 9 + defs/blueprint/hull/smoke/nightfury/flapcheck green, `designcheck --ci` clean, tricount
+59 models 216621 (203265 shipped + nimbus's 3 forms — shipped rows UNCHANGED), readability nimbus OK ×3 forms.

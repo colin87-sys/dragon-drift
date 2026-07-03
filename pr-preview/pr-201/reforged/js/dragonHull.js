@@ -851,6 +851,39 @@ function buildHull(def, model, attach) {
     }
   }
 
+  // ── TAIL PUFF (nimbus) — a soft cloud tuft at the whip tip: a small cluster of
+  // overlapping matte spheres with a gentle emissive, riding the last tail bone
+  // (same host pattern as tailBulb/tailFluke). The hero-feature accent (A3). ──
+  if (def.hull && def.hull.tailPuff) {
+    const tp = def.hull.tailPuff;
+    const glow = model.tailPuffGlow ?? 1;
+    const scl = (tp.r ?? 0.14) * (model.tailPuffScale ?? 1) / 0.14;
+    const puffMat = new THREE.MeshStandardMaterial({
+      color: tp.color ?? 0xffffff, emissive: tp.emissive ?? tp.color ?? 0xffffff,
+      emissiveIntensity: (tp.emissiveIntensity ?? 0.7) * glow, roughness: 0.95, metalness: 0,
+    });
+    if (def.design) puffMat.userData.paletteTier = 'accent';
+    spineMats.push(puffMat);
+    const puff = new THREE.Group();
+    const lobes = [[0, 0, 0, 0.14], [0.09, 0.05, 0.04, 0.10], [-0.09, 0.04, 0.03, 0.10], [0, 0.10, -0.05, 0.09], [0, -0.02, 0.10, 0.09]];
+    for (const [x, y, z, r] of lobes) {
+      const s = new THREE.Mesh(new THREE.SphereGeometry(r * scl, seg(8), seg(6)), puffMat);
+      s.position.set(x * scl, y * scl, z * scl);
+      s.frustumCulled = false;
+      puff.add(s);
+    }
+    const puffZ = tp.z ?? (TAIL_BONE_Z.length ? TAIL_BONE_Z[TAIL_BONE_Z.length - 1] + 0.1 : 2.6);
+    const baseW = new THREE.Vector3(0, TY + chAt(puffZ, 4) + (tp.yLift ?? 0), puffZ);
+    if (tailBones.length) {
+      const zL = TAIL_BONE_Z[TAIL_BONE_Z.length - 1];
+      puff.position.copy(baseW.clone().sub(new THREE.Vector3(0, TY + chAt(zL, 4), zL)));
+      tailBones[tailBones.length - 1].add(puff);
+    } else {
+      puff.position.copy(baseW);
+      group.add(puff);
+    }
+  }
+
   for (const f of features) { f.frustumCulled = false; group.add(f); }
 
   const mkMarker = (arm) => {

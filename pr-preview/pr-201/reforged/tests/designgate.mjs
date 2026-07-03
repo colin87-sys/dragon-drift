@@ -128,6 +128,11 @@ const GOOD_PALETTE = { dominant: '#20304a', secondary: '#7fb2d9', accent: '#ffe2
 // ── ENFORCEMENT: every design-gated dragon must pass every non-skipped check ────
 {
   const gated = designKeys();
+  // Rollout safety: a design-system dragon stays wip (hidden from the shop unless
+  // dev mode — ui.js rosterKeys) until its Gate 4 human approval removes the flag.
+  const { DRAGONS } = await import('../tools/designcheckCore.mjs');
+  for (const key of gated) assert(DRAGONS[key].wip === true, `${key} declares wip:true (pre-Gate-4)`);
+  if (gated.length) ok(`all ${gated.length} design-gated dragon(s) are wip-flagged pre-Gate-4`);
   let fails = 0;
   for (const key of gated) {
     for (const r of checkAll(key)) {
