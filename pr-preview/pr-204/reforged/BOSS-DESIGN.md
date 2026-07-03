@@ -636,6 +636,34 @@ path, announced, fire-suppressed). Sub-part HP: per-part hit test vs the single-
 route by the `bossDamage` event's existing x/y payload (MEDIUM; hero bosses only). HUD-sew
 overlay: DOM/SVG lines above chrome, below bullets (LOW).
 
+## 5g. THE PROGRESSIVE GEOMETRY BUDGET (user directive, 2026-07: spend the hardware)
+
+The measured ceiling (L126: a real phone held ~58fps at 400k tris / 415 animated draws;
+overdraw is the ONLY cliff) is ~10× above even the ladder below — grandeur must be VISIBLE
+in the geometry, not just the behavior. Budgets now RISE per band; the §5d sheet numbers are
+MINIMUMS, and builders are expected to spend up toward the band budget on: facet/relief
+density, more organs/animated parts, richer wing/coil/wheel segment counts, bigger destructible
+assemblies, and extra pose articulation — NEVER on stacked additive volumes (the overdraw law
+is absolute at every band; ≤2 large additive shells on screen, always).
+
+| Band | Tri budget @q1 | Visible-draw gate | Move-set richness |
+|---|---|---|---|
+| SENTINELS (1–2, shipped) | ≤4,000 | ≤34 | 3-move core, 2–3 cards |
+| COLOSSI (3–5) | 5,000–8,000 | ≤50 | 4-move core, 3–4 cards, 1 setpiece |
+| CALAMITIES (6–9) | 8,000–14,000 | ≤70 | 4–5 cards, multi-part bodies/adds |
+| WORLD-ENDERS (10–13) | 14,000–22,000 | ≤90 | 5–6 cards, world-state beats |
+| THE APEX (14) | ~30,000 across stages | ≤120 | the roster exam |
+
+Rules: (1) `tests/boss.mjs` gates become per-band ceilings keyed off `def.tier` (lands with
+the first Colossi build; the flat 6,000/34 gate applies only to tier-1 defs thereafter).
+(2) The quality ladder still applies — `tris(q0.5) < tris(q1)` stays a gate, and lowQ drops
+must scale with the bigger bodies (segment counts, card density via the SOP's *Low dials).
+(3) Draws stay cheap but not free: no InstancedMesh for animated matrices (L126), and any
+single merged mesh over ~20k tris should be split so the dissolve/flash material tiers stay
+per-region. (4) If a build sheet's concept doesn't NEED its band budget, spend the surplus on
+its dread-move spectacle (more simultaneous animated parts during the named card) rather than
+static filler — richness players see mid-fight beats richness in the idle silhouette.
+
 ## 6. The system — how to build boss N (architecture)
 
 Everything is data + one builder file. `boss.js` (controller) needs ZERO changes for a new boss.
