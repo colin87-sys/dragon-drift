@@ -30,7 +30,7 @@ import { DRAGONS } from './dragons.js';
 import { RIDERS } from './riders.js';
 import { dailySeed, recordDailyRun, saveData, persist, grantXp, levelEmberReward, todayUTC, gambitSunsetRefund, freezeSaves } from './save.js';
 import { initEmbers, addEmberLine, updateEmbers, bankEmbers, resetEmbers } from './embers.js';
-import { initBoss, updateBoss, resetBoss, setBossQuality, forceBoss, setBossDebugFirstAt, setBossDebugDefIdx, setBossDebugCharge, bossDebugState, bossGradeTarget, startBossRush, setRushUnlockAll, rushUnlocked, rushRosterInfo } from './boss.js';
+import { initBoss, updateBoss, resetBoss, setBossQuality, forceBoss, setBossDebugFirstAt, setBossDebugDefIdx, setBossDebugCharge, setBossDebugSetpiece, bossDebugState, bossGradeTarget, startBossRush, setRushUnlockAll, rushUnlocked, rushRosterInfo } from './boss.js';
 import { emit, on } from './events.js';
 import { initAnalytics } from './analytics.js';
 import { initMissions, settleMissions } from './missions.js';
@@ -221,7 +221,7 @@ if (urlParams.has('bossIdx')) {
 const debugFever = urlParams.get('debug') === 'fever';
 if (urlParams.has('debug')) {
   window.__dd = {
-    renderer, scene, camera, game, player, save: saveData, emit, ui, claimFeat, obstacleCount, trailDebug: __trailDebug,
+    renderer, scene, camera, game, player, save: saveData, emit, on, ui, cameraCtl, claimFeat, obstacleCount, trailDebug: __trailDebug,
     juice: { hitstop, juiceEvent },
     postfx: { setPostTier, kick, kickState, handle: postfx },
     // Drop straight into a boss fight (also bound to the B key under ?debug).
@@ -229,6 +229,8 @@ if (urlParams.has('debug')) {
     bossState: () => bossDebugState(),
     // Capture hook: pin/release the charge (mantle) pose for still crops.
     bossPinCharge: (lvl) => setBossDebugCharge(lvl),
+    // Capture hook: pin/release a setpiece pose (e.g. the stooping dive) for stills.
+    bossPinSetpiece: (pin) => setBossDebugSetpiece(pin),
     // Test seam: skip the attract splash and land on the dashboard hub.
     toHub: () => {
       if (!splashVisible()) return;
