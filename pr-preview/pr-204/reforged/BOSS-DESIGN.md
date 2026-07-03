@@ -796,10 +796,48 @@ Everything is data + one builder file. `boss.js` (controller) needs ZERO changes
    APPROACH tilt (mask catches hemisphere light, reads pale) — judge design ONLY on front-on
    fight/charge frames. Zoom crops: render the PNG in a Playwright page with CSS
    transform-scale and screenshot a clip.
-4. **Self-critique against §3 laws + §4 scorecard BEFORE presenting.** The shipped bosses took
-   5 and 2 capture-iteration rounds; the gates that failed were always: enclosing shell → blob,
-   uniform emissive → sticker, sub-1.0-linear glow → dead gray eyes, random scatter → noise.
-5. Human judges motion/feel on the PR preview (`?debug&boss=100&bossIdx=N`, `?rush=all`).
+4. `node tools/bossgate.mjs <bossId>` — **THE MEASURABLE-DESIGN GATE** (spec below; the
+   implementation is a pulled-forward track that lands WITH the slot-3 build). It automates
+   the objective half of design review, because the session record is unambiguous: builder
+   self-verdicts are systematically more generous than the gate (CRAGHOLD "I'd defend it"
+   shipped a buried pupil, mitten fingers, and toy-green). Iterate against this
+   mechanically — it exists so a coding session can converge without taste.
+5. **Self-critique against §3 laws + §4 scorecard, then POST CROPS.** A builder session
+   never merges on its own verdict: it posts idle/charge/shielded front-on crops to the PR
+   and stops. The design pass/fail belongs to the human (or a supervisor session) — one
+   cheap look per boss beats one debugging session per shipped mistake.
+6. Human judges motion/feel on the PR preview (`?debug&boss=100&bossIdx=N`, `?rush=all`).
+
+### 7b. `tools/bossgate.mjs` spec (the objective design-law assertions)
+
+Boots the bossshot harness for one boss, waits state-based for a front-on FIGHT frame (plus
+one mid-charge and one shielded frame), then pixel-samples the captures. Boss screen region =
+a box around the projected pose (read `bossState().poseX/poseY` through the camera transform;
+exclude the top HP-bar band). All thresholds are per-def overridable via a `gate:` block on
+the def (e.g. `gate: { pale: true }` for the sanctioned VALUE-INVERTED slots 4/6/7-queen)
+— overrides must cite their registry sanction in a comment.
+
+| # | Law (source) | Assertion on the capture |
+|---|---|---|
+| G1 | Focal law (§3.2) | max luminance in region ≥ 250/255, AND the ≥240 cluster covers ≤2.5% of the boss silhouette (bright + SMALL = eyes, not a wash) |
+| G2 | Dark body (§3.3) | median luminance of silhouette pixels ≤ 90/255 and median HSV saturation ≤ 0.55 (skip when `gate.pale`; then instead assert median ≥ 150 + a dark edge-cage sample) |
+| G3 | Palette attribution (§5b axis) | dominant accent-pixel hue within ±25° of `def.accent`; ZERO pixels within the danger-magenta ±15° band outside bullet sprites |
+| G4 | Presence (§1 envelope) | boss silhouette covers 8–35% of the frame at the fight hold (not lost, not swallowing the screen); center of mass within the portrait-safe box |
+| G5 | Telegraph shape (§3.5) | binarized silhouette mask of the CHARGE frame differs from the IDLE frame by ≥6% of silhouette pixels (telegraphs change SHAPE, not just color) |
+| G6 | Shielded read (§5f) | during shield: the G1 bright cluster's luminance drops ≥30% (the eyes visibly leash/hide when invulnerable) |
+| G7 | Overdraw law (§2) | traverse the built model: count large additive/fresnel volumes (bounding-sphere screen coverage > 15% at settle distance) ≤ 2 incl. kit shield |
+
+Geometry-level craft asserts that pixels can't see (digit gaps ≥ pitch−width, socket recess
+depth, part-size ratio ladder) belong in `tests/boss.mjs` as per-sheet numeric asserts — each
+§5d sheet may declare them, and the builder adds them with the boss.
+
+**Delegation protocol (how a Sonnet session ships a boss without a taste gap):** build to the
+§5d sheet → `boss.mjs` + `bossboot.mjs` + `bossgate.mjs` all green → post 3 crops to the PR →
+STOP and await the design verdict. The gate script is the builder's iteration loop; the crops
+are the merge condition. Known limitation, stated honestly: G1–G7 catch the *measurable*
+failure classes (toy-color, dead eyes, blob shells, color collisions, static telegraphs) but
+NOT "reads as a mitten" / "reads as googly" — that judgment stays human, which is why the
+protocol ends at crops, not at merge.
 
 ## 8. Deferred backlog (researched, unbuilt — good Tier 2/3 starting points)
 
