@@ -289,13 +289,21 @@ on('bossEnd', () => {
 // pipeline (settleRun) pays out the haul. The recap reads game.rushCleared.
 on('rushClear', (e) => {
   if (game.mode !== 'rush' || game.state !== 'playing') return;
+  const solo = !!(e && e.solo);
   game.rushCleared = true;
-  if (!saveData.bossRush) saveData.bossRush = { beaten: [], cleared: 0, bestClearMs: 0 };
-  saveData.bossRush.cleared = (saveData.bossRush.cleared || 0) + 1;
-  const ms = Math.round(game.time * 1000);
-  if (!saveData.bossRush.bestClearMs || ms < saveData.bossRush.bestClearMs) saveData.bossRush.bestClearMs = ms;
-  persist();
-  emit('rushCleared', { count: e && e.count });   // feats hook
+  game.rushSolo = solo;                     // recap copy: solo → the boss name, full → RUSH CLEAR
+  game.rushBossName = (e && e.name) || '';
+  // GAUNTLET-CLEAR rewards (lifetime count, best time, the clear feat) are for the
+  // WHOLE roster only — a solo/practice pick must not overwrite the gauntlet best
+  // or award the clear. Both still end the run on a win recap.
+  if (!solo) {
+    if (!saveData.bossRush) saveData.bossRush = { beaten: [], cleared: 0, bestClearMs: 0 };
+    saveData.bossRush.cleared = (saveData.bossRush.cleared || 0) + 1;
+    const ms = Math.round(game.time * 1000);
+    if (!saveData.bossRush.bestClearMs || ms < saveData.bossRush.bestClearMs) saveData.bossRush.bestClearMs = ms;
+    persist();
+    emit('rushCleared', { count: e && e.count });   // feats hook (gauntlet only)
+  }
   sfx.bossDefeat?.();
   cameraCtl.shake?.(1.4);
   game.state = 'gameover';
