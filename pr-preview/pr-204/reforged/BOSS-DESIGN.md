@@ -105,6 +105,22 @@ framing · title cards · safe capture windows · thumbnail-attributable grade.
 Shipped baselines after the charisma pass: Voidmaw ≈ F 13/16, S 7/12 · Stormrend ≈ F 10/16,
 S 9/12. **Every new boss must beat the tier minimums below.**
 
+
+### 4b. The charisma-carrier law (faceless bosses)
+
+The §4 ladder rungs 1–7 are written in eye anatomy (pupils, blinks, brows) — buildable as-is
+for only half the roster. LAW: every build sheet must name its carrier for SEVEN channels —
+GAZE, BLINK-analog, CHARGE-TELL, EXPRESSION (≥3 states), FLINCH, NOTICE, DEATH — behind the
+unchanged `setGaze`/`notice` handle hooks. **A sheet missing any channel is not claimable.**
+Seeded carriers for the faceless slots: KARNVOW = the guttering cowl-glint + lance language
+(salute / point / lower = mood); KNELLGRAVE = the bound clapper-figure (it LIFTS ITS HEAD
+mid-swing — the roster's darkest notice beat); WEFTWITCH = her two pale hands are the face
+(weaving tempo = mood, hands still = dread); HOLLOWGATE = a lit pane that MIGRATES around the
+rose window as its pupil; EMBERTIDE = negative-space eye-hollows in the light (recorded
+exception to §3 law 2: its focal is darkness in brightness); THE UNMASKED stage 1 = the lid
+aperture itself. Each sheet also ships its doodle-test GLYPH — which becomes the boss-select
+chip icon (L131 chips need 14 faces).
+
 ## 5. THE BOSS TIER LADDER — each tier more grand, memorable, shareable
 
 The roster escalates in spectacle, scale, and character investment. A tier is a CONTRACT of
@@ -663,6 +679,72 @@ single merged mesh over ~20k tris should be split so the dissolve/flash material
 per-region. (4) If a build sheet's concept doesn't NEED its band budget, spend the surplus on
 its dread-move spectacle (more simultaneous animated parts during the named card) rather than
 static filler — richness players see mid-fight beats richness in the idle silhouette.
+
+## 5h. PRODUCTION DEFAULTS (gap-audit adoptions + owner decisions, 2026-07)
+
+Owner decisions (locked): **(1) LIFETIME LADDER** — ladder progress persists across runs; a
+run's first boss = the lowest unbeaten slot; beaten slots recur with tightened dials; a felled
+slot never repeats within one run. The band-aware progression controller replaces
+`bossDefForIndex`'s modulo with slot 6 (hard blocker for Tier-3 foreshadowing). **(2) MUSIC
+LAYERS OVER THE STATION, never replacing it** — boss entry ducks melody layers (keeps
+bass+percussion), adds a dread-pad, desperation forces the top layers; restores under the
+existing defeat fanfare. The player's (partly purchased) Dragon Radio stays theirs.
+**(3) LOCAL-ONLY card stats** — see §5f.
+
+Adopted defaults:
+- **Card/save schema**: defs gain `cards: [{ id (stable, never the display name), name,
+  atFrac, timer, attacks, dials, survival?, dread? }]` — timeout snaps hp past `atFrac`
+  (the deterministic escape hatch); exactly one `dread: true` card, always last. Save bumps
+  to array-form collections (`cards: [[cardId, captures, survivals]]`,
+  `bossLedger: [[bossId, kills, deathsTo]]`) written from the existing `bossDefeated`/death
+  event seams. Defs-lint adds name-length budgets (name ≤12, epithet ≤34, card lines ≤16/24).
+- **Machine-readable tiers**: `def.tier` 1–5 required, registry-consistency assert; the §5g
+  ladder becomes `TIER_BUDGETS` in tests/boss.mjs (tier-1 hard gate stays 6,000/34; shipped
+  Sentinels sit at 2.7–3.6k). lowQ contract as RATIOS: q0.5 ≤60% band tris / ≤70% band
+  draws; card *Low dials ≤75% bullets. A headless additive-coverage audit lands with the
+  first Colossi build.
+- **Build order (§5b is a queue)**: slots ship in strict registry order — claim only the
+  lowest open slot. Pulled-forward tracks: card system + Tier-1 card retrofit with slot 3;
+  the ladder controller with slot 6; per-boss kill/death stat accrual with slot 3 (slot 9's
+  taunts need real data by then); second-sun seeding with slot 10. Each band's §5e
+  extensions land with that band's OPENER.
+- **Fight economy**: TTK targets per band (Sentinels 60–90s → Apex 5–6min; Boss Rush at
+  0.75× hp, gauntlet ≤20min) enforced by a headless DPS-sim duration gate. One shield per
+  phase stays the invariant (phase count is the scaling knob); Tier 3+ shields get a
+  surge-immune wind-up so banked surges can't chain-skip phases; graze banks normally during
+  survival cards; nonstandard shields (THRUMSWARM's ring) must still expose a surge answer.
+- **Rewards & feats**: `defeatScore = hpMax × 25`, `defeatEmbers = 40 + 20 × tier`, one-time
+  2× first-kill ember bonus; card captures pay SCORE only (+400 × tier — embers stay out of
+  skill loops). Feats are band-scaled templates (per-band first-fell/no-hit, per-boss
+  all-cards title drawn from the epithet, two roster-wide apex feats) — boss PRs add zero
+  new feat ids.
+- **Death & retry**: a revive resumes the SAME fight (hp/phase retained, live bullets
+  cancelled with the card-entry flash, 1.5s i-frames); Boss Rush gets one retry-this-boss
+  per gauntlet (invalidates bestClearMs); encountered-but-unbeaten bosses become pickable as
+  rewardless solo practice.
+- **Roster audio**: §5b gains a VOICE column (one waveform family + register + signature
+  noise per boss; one 4–8 note motif per BAND, not 14 themes). Telegraph cues are keyed by
+  ANSWER VERB (mirroring the role-color law), wired once at the telegraph-class hook. One
+  band-scaled stinger kit (~7 procedural one-shots). Rhythm slots get optional `def.bpm`.
+  LAW: every fairness- or foreshadow-bearing cue has a synchronized VISUAL twin — muted play
+  (and slot 10's music-death break) never loses information.
+- **Biome pairing & foreshadow artifacts**: §5b gains a Home-biome column
+  (value/temperature complement — pale bosses over dark skies); the ladder controller snaps
+  encounters to fixed offsets so biome-early foreshadowing is authorable; every band opener
+  owns exactly ONE foreshadow artifact (glint / audio / sky-grade channel) listed in its §5d
+  NEEDS line — ASHTALON takes the Tier-2 glint on the fauna-flyby seam.
+- **Fairness baseline vs the dragon gacha**: all tuning validated at the roster-worst
+  handling multiplier; bullet hit radius fixed to CONFIG playerRadius regardless of dragon
+  model (premium dragons may only make fights EASIER); last-chance slow-mo fires on boss
+  bullets; glideAssist becomes a wider forgiveness bubble during fights (never auto-fly);
+  assisted captures count but carry a ledger flag.
+- **Colorblind redundancy**: role is never hue-alone — parryable amber gets a distinct
+  marker silhouette, reflected cyan a directional trail; bulletcontrast.mjs gains the three
+  dichromacy matrices as a role-pair distance gate.
+- **The second sun's schedule**: seeded permanently at the first Calamity kill with a
+  scripted 4s first-appearance beat; fixed ~22° off SUN_DIR, fog-exempt, static within a
+  run; escalates by LID APERTURE only — one notch per band cleared, never blinking, only
+  ever opening further; the half-open "it turned" beat lands after slot 13.
 
 ## 6. The system — how to build boss N (architecture)
 

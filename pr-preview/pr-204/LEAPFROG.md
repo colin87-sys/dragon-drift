@@ -5138,3 +5138,24 @@ quadrant-orbit buys the arena fantasy rail-natively. (5) Structural assignments:
 destroying wheel relics. **Gotcha:** the research repeatedly warns the ONE-lie budget — honest dread UI (phase pips,
 re-struck stage cards) is unlimited, but each category of UI lie survives exactly one use per game before it reads
 as noise or betrayal.
+
+### L135 — The gap audit: six lenses, three owner decisions, twelve defaults — the plan is now buildable end-to-end
+
+**Did / learned.** Before ending the planning arc, a six-lens audit (audio · UI/meta · gameplay systems · world/
+staging · technical/production · charisma coverage) swept BOSS-DESIGN.md for anything still requiring decision or
+design; 42 raw gaps consolidated to 3 owner decisions + 12 adoptable defaults, all now written into the doc. Owner
+decisions locked: LIFETIME LADDER (progress persists across runs — the modulo cycling made encounter 14 land ~44km
+into a single run, structurally unreachable; the band-aware controller lands with slot 6), MUSIC LAYERS OVER THE
+STATION (never replace the player's partly-purchased radio — duck/add layers instead), LOCAL-ONLY card stats (the
+game is a client-side PWA; 'leaderboards' would have silently committed a backend). Biggest systemic catch: the
+charisma ladder was written in EYE anatomy and was literally unbuildable for six faceless slots — §4b now requires
+every build sheet to name its carrier for seven channels (gaze/blink/tell/expression/flinch/notice/death), with
+seeded carriers (KNELLGRAVE's bound clapper LIFTS ITS HEAD mid-swing; WEFTWITCH's hands are the face; HOLLOWGATE's
+pupil is a migrating lit pane). Also new: §5g progressive geometry budgets (grandeur must be visible — budgets rise
+per band toward ~30k tris/120 draws at the Apex, all ~10× under the measured phone ceiling, surplus spent on
+dread-move spectacle never static filler), per-band TTK targets with a DPS-sim gate, reward/feat scaling formulas,
+revive-resumes-the-fight semantics, verb-keyed audio cues with mandatory visual twins, biome pairing + one foreshadow
+artifact per band opener, gacha-fairness baselines (premium dragons may only make fights easier), colorblind
+shape-redundancy for role colors, and the second sun's lid-aperture dramaturgy. **Gotcha:** audits this late find
+load-bearing contradictions cheaply (the 44km ladder bug, the unbuildable charisma floor) — run the multi-lens sweep
+BEFORE the first build of any big roster, not after.
