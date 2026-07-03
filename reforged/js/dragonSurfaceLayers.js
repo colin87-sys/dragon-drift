@@ -36,6 +36,7 @@ registerSurfaceLayer('spineGlowLine', ({ def, model, attach, gi }) => {
   });
   spineMat.userData.baseEmissive = spineCol;
   spineMat.userData.baseIntensity = (0.7 + g * 2.0) * gi;
+  if (def.design) spineMat.userData.paletteTier = 'accent';   // C1 palette-law tag
   flareMats.push(spineMat);
   const segN = 11;
   for (let i = 0; i < segN; i++) {

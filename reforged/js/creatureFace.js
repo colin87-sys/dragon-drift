@@ -36,6 +36,7 @@ export function buildCreatureFace(spec, def = {}) {
   const eyeMat = new THREE.MeshBasicMaterial({ color: 0xffffff });
   eyeMat.toneMapped = false;
   eyeMat.color.set(def.eye ?? 0xffffff).lerp(new THREE.Color(1, 1, 1), 0.5).multiplyScalar(EYE_HOT);
+  eyeMat.userData.paletteTier = 'accent';   // C1 palette-law measurement tag
   const pupilMat = new THREE.MeshStandardMaterial({ color: def.eyePupil ?? 0x0a0a0a, roughness: 0.35, metalness: 0 });
   const browMat = new THREE.MeshStandardMaterial({ color: spec.browColor ?? def.horn ?? 0x222222, roughness: 0.8, metalness: 0 });
 

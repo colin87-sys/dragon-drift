@@ -13,6 +13,7 @@
 //
 // Rarity by price: R (free) · SR (600-1200) · SSR (2200-3400) · SSSR (5000)
 import { FIRE_PROFILE, WATER_PROFILE, EARTH_PROFILE } from './dragonHullProfiles.js';
+import { NIMBUS_PROFILE, NIMBUS_ANCHORS } from './dragonHeroProfiles.js';
 
 export const DRAGONS = {
   azure: {
@@ -1411,6 +1412,107 @@ export const DRAGONS = {
     wingInner: 0x1d4a3a, wingOuter: 0x0f2c22, wingEmissive: 0x66d9a8,
     apexEye: 0xe8c86a, apexSeam: 0x9fe8d8, coreGlow: 0x66ffc8, surgeHi: 0xeafff4,
     eye: 0xe8c86a, trail: 0x66d9a8, boostTrail: 0x2fb98a,
+  },
+
+  // ── NIMBUS — the design-system cute starter (docs/concepts/nimbus/BRIEF.md,
+  // Gate-2-approved). Rounded-apex Gate-1 language: circle motif at 3 scales
+  // (head dome / round-scalloped wings / cloud-puff tail tip). WIP: hidden from
+  // the shop unless dev mode — ships to players only after Gate 4. The design:
+  // block opts it into designcheck enforcement (tests/designgate.mjs).
+  nimbus: {
+    name: 'Nimbus',
+    title: 'The Cloud Whelp',
+    wip: true,
+    rarity: 'R', maxRarity: 'SSR', cost: 0,
+    bodyMetalness: 0.0, bodyRoughness: 0.85, bodyEnvIntensity: 0.06, scaleSize: 2.6, scaleRelief: 0.35,
+    rimBodyMul: 0.7,
+    design: {
+      heroFeature: 'cloud-puff tail tip',
+      shapeRecipe: { primary: 'circle', secondary: 'triangle' },
+      anchors: NIMBUS_ANCHORS,
+      paletteTiers: { dominant: '#3a5560', secondary: '#e8dcc4', accent: '#ff8a5f' },
+      face: { eyeZ: -2.32, eyeX: 0.26, browLen: 0.15, browLift: 0.14 },
+    },
+    parts: {
+      torso: 'hullTorso', head: 'none', wings: 'hullWings', tail: 'none',
+      surface: { shader: ['cellularScalesNormal'] },
+    },
+    hull: {
+      profile: NIMBUS_PROFILE, section: { ex: 2.5, flatTop: 1.0 }, sectionN: 20,
+      knobs: { eyes: false, dorsalZRange: [-1.1, 2.0], chestBand: [-0.95, 0.55], seamDorsal: 0.87 },
+      tailPuff: { r: 0.19, z: 2.62, color: 0xffe8dc, emissive: 0xff8a5f, emissiveIntensity: 0.7, yLift: 0.02 },
+    },
+    stats: { speed: 1.0, handling: 1.05, drain: 1.0, regen: 1.05 },
+    model: {
+      scale: 0.92, wingScale: 1.0, tailSegments: 0, neckSegments: 0, ridgeCount: 0,
+      wingRootScale: 1.1, shoulderWidthScale: 1.05, wingRootOffset: { y: 0.03, z: -0.05 },
+      riderSocket: { x: 0, y: 0.75, z: -0.3 },
+      flapBias: 1.1, flapAmp: 0.9,
+      wingArmLeadChord: 0.32,
+      wingArmRadius: 0.095, wingForearmRadius: 0.065, wingFrameTipRadius: 0.011, wingFingerRadius: 0.045,
+      tailWhip: true, bodyWhip: true, tailSteer: true,
+      spineFwdZ: [-0.9, -1.6], spineHipZ: 0.95,
+      tailBoneZ: [1.50, 1.95, 2.35, 2.60],
+      previewPose: { headYaw: 0.26, wingFoldDelta: 0.08, tailSway: 0.12 },
+    },
+    // Rounded, deep-chord wings — 4 fingers, round-scalloped concave trailing edge
+    // (the circle motif at wing scale). Span authored to the D2 1.8–2.2× law.
+    wingForms: [
+      // F0 hatchling — stubby round baby fan
+      { tips: [[1.70, 0.24], [1.35, -0.45], [0.90, -0.62], [0.50, -0.50]],
+        lead: [1.15, 0.30], scallop: 0.22, rootChord: 0.42, flame: false,
+        arc: { bow: 0.20, hump: 0.05, humpAt: 0.55, hook: 0.0 } },
+      // F1 kindled — the round fan opens
+      { tips: [[2.70, 0.30], [2.20, -0.65], [1.50, -0.90], [0.85, -0.80]],
+        lead: [1.80, 0.42], scallop: 0.28, rootChord: 0.55, flame: false,
+        arc: { bow: 0.26, hump: 0.10, humpAt: 0.55, hook: 0.0 } },
+      // F2 radiant (SSR apex) — broadest rounded wing. Chord sits at the STRICT-C1
+      // shape (the membrane must not out-area the hull under the current 60/30/10
+      // bands); if Gate 0 revises the C1 bands, restore the rounder deep chord
+      // (rootChord 0.54, tips y ≈ -0.72/-0.98/-0.90) from the approved concept.
+      { tips: [[3.60, 0.22], [2.95, -0.44], [2.10, -0.60], [1.20, -0.55]],
+        lead: [2.40, 0.32], scallop: 0.30, rootChord: 0.34, flame: false,
+        arc: { bow: 0.30, hump: 0.12, humpAt: 0.56, hook: 0.0 } },
+    ],
+    forms: [
+      // F0 HATCHLING — the nearly-spherical whelp: dull teal, bare puff nub.
+      { wingForm: 0, bodyScale: 0.62, wingSpan: 0.78, wingChord: 1.15,
+        hullSection: { ex: 2.8, flatTop: 1.05 }, headBulge: 1.25, spineArch: 0.75,
+        eyeScale: 1.5, eyeYOffset: -0.04,
+        spineGlow: 0, glowIntensity: 0.25, particleRate: 0.2,
+        wingOpacity: 0.92, wingPanelGlow: 0.06, previewScale: 0.8,
+        tailPuffGlow: 0.15, tailPuffScale: 0.55,
+        colors: { body: 0x2c3f48, belly: 0x8f8a7c, scales: 0x4a626e, horn: 0x5a707c,
+          wingInner: 0x46626e, wingOuter: 0x27373f, wingEmissive: 0x50707c,
+          apexSeam: 0x5a7a88, eye: 0xff8a5f, coreGlow: 0x6f93a2 } },
+      // F1 KINDLED — clearer teal, cream belly emerges, faint puff glow.
+      { wingForm: 1, bodyScale: 0.82, wingSpan: 0.92, wingChord: 1.35,
+        hullSection: { ex: 2.6 }, headBulge: 1.1, spineArch: 0.9,
+        eyeScale: 1.3, eyeYOffset: -0.02,
+        spineGlow: 0.1, glowIntensity: 0.5, particleRate: 0.5,
+        wingOpacity: 0.9, wingPanelGlow: 0.1, previewScale: 0.92,
+        tailPuffGlow: 0.55, tailPuffScale: 0.8,
+        colors: { body: 0x334e5a, belly: 0xcfc4ac, scales: 0x5f7d8a, horn: 0x74909c,
+          wingInner: 0x587886, wingOuter: 0x2c414b, wingEmissive: 0x6f95a4,
+          apexSeam: 0x74a0b0, eye: 0xff8a5f, coreGlow: 0x8fb3c2 } },
+      // F2 RADIANT (SSR apex) — full brief palette: storm-teal, cream, coral puff
+      // + a thin coral spine seam. Restrained (starter stays below Eternals).
+      { wingForm: 2, bodyScale: 1.0, wingSpan: 1.0, wingChord: 1.5,
+        hullSection: { ex: 2.5, flatTop: 1.0 }, headBulge: 1.0, spineArch: 1.0,
+        eyeScale: 1.15, eyeYOffset: 0.0,
+        spineGlow: 0.28, glowIntensity: 0.85, particleRate: 0.8,
+        wingOpacity: 0.9, wingPanelGlow: 0.14, previewScale: 1.0,
+        tailPuffGlow: 1.0, tailPuffScale: 1.0,
+        colors: { body: 0x3a5560, belly: 0xe8dcc4, scales: 0x6f93a2, horn: 0x86a4b0,
+          wingInner: 0x6f95a4, wingOuter: 0x33484f, wingEmissive: 0x8fb9c8,
+          apexSeam: 0xff8a5f, eye: 0xff8a5f, coreGlow: 0xffa87f } },
+    ],
+    fx: { auraColor: '255,138,95', auraIdle: 0.0, sparkle: false },
+    previewAccent: 0xff8a5f,
+    body: 0x3a5560, belly: 0xe8dcc4, scales: 0x6f93a2, horn: 0x86a4b0,
+    wingInner: 0x6f95a4, wingOuter: 0x33484f, wingEmissive: 0x8fb9c8,
+    apexEye: 0xffb08f, apexSeam: 0xff8a5f, coreGlow: 0xffa87f, surgeHi: 0xfff0e4,
+    eye: 0xff8a5f, trail: 0xff9a6f, boostTrail: 0xffc0a0,
   },
 };
 

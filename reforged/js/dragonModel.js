@@ -126,6 +126,9 @@ export function buildDragonModel(def, opts = {}) {
   // default = unchanged, so the roster is byte-identical). Flows to the hull
   // (attach.bodyMatDouble clone) AND the neck. Obsidian2 uses it to kill the
   // "smooth metal" read so the v2 scale relief reads as living hide.
+  // C1 palette-law tag (design-system dragons): set BEFORE the torso clones bodyMat
+  // (Material.copy JSON-copies userData, so the hull's bodyMatDouble inherits it).
+  if (def.design) bodyMat.userData.paletteTier = 'dominant';
   if (def.bodyRoughness != null) bodyMat.roughness = def.bodyRoughness;
   if (def.bodyMetalness != null) bodyMat.metalness = def.bodyMetalness;
   // envMapIntensity (default 1) — a dark SMOOTH body reflects the bright sky and
@@ -304,6 +307,9 @@ export function buildDragonModel(def, opts = {}) {
   // Living face (design-system dragons, creatureFace.js) — additive-nullable like
   // tailFins/spineSegs: dragons without def.design.face get null and zero behavior.
   const face = wingsResult.face || null;
+  // C1 palette-law tag: wing membrane = secondary (dominant was tagged on bodyMat
+  // pre-clone above; accents tag themselves at their creation sites).
+  if (def.design && wingMat) wingMat.userData.paletteTier = 'secondary';
 
   // Solar aura card (apex only): a tall narrow backlight behind the body — a
   // corona, not a ring that competes with the collectible rings.

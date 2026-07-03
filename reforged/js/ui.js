@@ -178,10 +178,18 @@ function buyOrEquipDragon(key) {
 //   • FORM    — the big ◀ ▶ ladder arrows below the model (Hatchling→apex).
 // Themed live by the scrubbed form's rarity (--accent). Disposed on close.
 const FR_ACCENT = { R: '#7fd49a', SR: '#62a8ff', SSR: '#c489ff', SSSR: '#ffd24d' };
+
+// ONE truth function for the visible roster (the L128 rule: every entry point
+// feeds the same predicate, and the dev toggle is read LIVE per render). WIP
+// design-system dragons (def.wip) are hidden from every shop surface unless
+// Settings → Dev Mode is on — they ship to players only after their Gate 4.
+function rosterKeys() {
+  return Object.keys(DRAGONS).filter((k) => !DRAGONS[k].wip || saveData.settings.dev);
+}
 let inspectOpen = false;
 function openInspect(startKey) {
   if (inspectOpen) return;
-  const keys = Object.keys(DRAGONS);
+  const keys = rosterKeys();
   let di = keys.indexOf(startKey);
   if (di < 0) return;
   inspectOpen = true;
@@ -1383,8 +1391,8 @@ export const ui = {
         // Hero character-select — a big rotatable hero, a thumbnail RAIL to switch
         // dragon, a segmented form selector, lean stats + one CTA. The identity /
         // forms / stats / CTA are filled in by wireHeroSelect once the screen builds.
-        const keysAll = Object.keys(DRAGONS);
-        if (!heroKey || !DRAGONS[heroKey]) heroKey = saveData.skins.equipped || keysAll[0];
+        const keysAll = rosterKeys();
+        if (!heroKey || !DRAGONS[heroKey] || !keysAll.includes(heroKey)) heroKey = saveData.skins.equipped || keysAll[0];
         const rail = keysAll.map((k) => {
           const d = DRAGONS[k];
           const owned = saveData.skins.owned.includes(k);
@@ -1935,7 +1943,8 @@ function shopBadgeDue() {
   const embers = saveData.embers;
   const seen = saveData.ui.shopSeenEmbers;
   const due = (cost) => cost <= embers && cost > seen;
-  for (const [key, d] of Object.entries(DRAGONS)) {
+  for (const key of rosterKeys()) {
+    const d = DRAGONS[key];
     if (!saveData.skins.owned.includes(key) && due(d.cost)) return true;
   }
   for (const [key, r] of Object.entries(RIDERS)) {
