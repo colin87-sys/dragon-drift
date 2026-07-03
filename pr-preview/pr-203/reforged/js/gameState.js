@@ -34,7 +34,9 @@ export const game = {
   challengeScore: 0,
   challengeBeaten: false, // crossed the challenge target mid-run (race bar)
   mode: 'normal',      // normal | daily | rush (Boss Rush gauntlet)
-  rushCleared: false,  // set when a Boss Rush run is won (all bosses felled)
+  rushCleared: false,  // set when a Boss Rush run is won (gauntlet OR a solo pick)
+  rushSolo: false,     // the won run was a single-boss pick (not the full gauntlet)
+  rushBossName: '',    // the boss's name for a solo-win recap
   runSeed: CONFIG.seed,
   embersRun: 0,        // embers collected this run (banked at run end)
   emberBonusEarned: 0, // extra embers from the equipped rider's bonus
@@ -113,6 +115,8 @@ export const game = {
     this.time = 0;
     this.deathFreezeTimer = 0;
     this.rushCleared = false;
+    this.rushSolo = false;
+    this.rushBossName = '';
     this.milestone = 0;
     this.recordBeaten = false;
     this.deathCause = '';
