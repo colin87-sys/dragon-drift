@@ -4976,3 +4976,40 @@ build stamp) vs a real gate.
 pattern apply to every future gated mode (endless rush, boss-of-the-day) and every dev seam. Verified: `tests/bossrushui.mjs`
 extended with a cold-save + `?dev` regression case (13 checks; the exact bug now guarded) + the state matrix reproduced
 (cold/warm × dev/settings-toggle/none), `boss` (16) / `bossrush` / `smoke` green, `tricount` 203265.
+
+### L129 — The dragon design SYSTEM: measurable laws with named renderer levers, an honesty protocol, and art demoted to DIRECTION (never a match target)
+
+**Did / learned.** Opened the dragon-design-overhaul arc (the player-roster answer to L125's boss design laws) with the
+process built BEFORE any dragon: `docs/DRAGON-DESIGN-SYSTEM.md` (the canonical beauty doc — `dragon-design-guide.md`
+stays the playability manual) + `tools/designcheckCore.mjs`/`designcheck.mjs` + `tests/designgate.mjs`. Two human
+decisions shape everything: **(1) concept art is DIRECTION ONLY.** The human confirmed the old silhouette-overlay
+loop (match procedural geometry to a reference image) topped out at ~40% against a 95% expectation — and when offered
+the image→3D mesh path (the L108–L110 pipeline) as the only way to literally hit 95%, chose to stay PROCEDURAL with
+art as mood/direction. So there is NO "matches the reference" metric anywhere in the arc: the model is judged as
+itself, on committed renders + the PR preview. **(2) an honesty protocol is written law** (doc §1): the AI never
+self-certifies beauty (no aesthetic adjectives in AI claims — numbers from tools + shipped images only), every check
+prints VALUE vs THRESHOLD (a claim without its number is treated as false), and rejection means shape work, never
+argument. The gate itself: 10 measurable laws (silhouette uniqueness/negative-space/mass-hierarchy, taper, bimodal
+head scale, unique hero feature, chest dominance, wing credibility, cy line-of-action, palette 60/30/10 + ΔL≥15,
+preview asymmetry) — each law names its renderer LEVER (station halfWidth/cy channels, wingForms tips/lead, palette
+hexes), killing the "adjectives with no knob" anti-pattern that burned the pre-L108 months. Enforcement is opt-in by
+construction: only defs declaring a `design:` block are gated; the shipped roster is grandfathered (reported
+informationally — the baseline table shows fire FAILing D2 span 1.3× vs 1.8–2.2 and D3 bend 72.8° vs 30–60°, which is
+the numeric evidence for why the system exists). Gotchas banked: D3 continuity must be a KINK ANGLE (max Δθ between
+segments), not a raw |Δcy| cap — stations are unevenly spaced, so a wide gap legitimately accumulates lift and a raw
+cap false-fails good profiles; and `designgate.mjs` tests the GATE ITSELF both ways (a known-good fixture profile
+PASSES every law → the laws are satisfiable; sausage-tail/mushy-head/hip-heavy/flat-spine/convex-wing/mud-palette
+fixtures each FAIL their law → the gate catches real violations, not vibes).
+
+**→ Systematize.** (a) Any future "make X beautiful" request starts at `DRAGON-DESIGN-SYSTEM.md` §4 and speaks in
+levers, not adjectives. (b) The opt-in `design:` block + grandfathered-baseline pattern is the coexist rule applied
+to REVIEW tooling — a new gate never turns red on shipped content. (c) The core/CLI/test triple (designcheckCore →
+designcheck.mjs → designgate.mjs) mirrors silhouetteCore and is the shape for any future measurable-quality gate.
+(d) Thresholds live in the doc table and `THRESHOLDS` (mirror), and change only via Gate-0 human approval.
+
+**→ Leapfrog (innovate).** Next in the arc: Gate 0 (human approves the doc thresholds), style boards (Gate 1), then
+per-hero briefs → concepts (Gate 2) → hull-profile builds that must be born passing `designcheck --ci` (Gate 3 on the
+PR preview, dev-mode `wip:` filter). C1 needs builders to tag `material.userData.paletteTier`; P1's mirrored-raster
+half lands with the headMount pose plumbing (creatureFace arc). Verified: `tests/designgate.mjs` 15 checks green;
+full sweep green except the KNOWN pre-existing env failures (badges + five browser-driven tests fail identically on
+the base commit — verified in a clean worktree, never stash per L127); `tricount` 203265 UNCHANGED.
