@@ -124,23 +124,32 @@ export function buildEmberHunter(def, quality = 1) {
   const PROW_W = 1.5, COWL_W = 1.7;   // cowl ≤ 1.3×prow width ✓
   const prowGeo = (() => {
     // Cranium/skull: mass BEHIND the cowl — its front vertex lands at z≈0.8,
-    // well behind the slit plane (z1.34), so it can NEVER split the eye.
+    // well behind the slit plane; its BOTTOM stays above the cowl bottom so only
+    // the beak breaks the lower silhouette.
     const oct = strip(new THREE.OctahedronGeometry(1.0, lowQ ? 1 : 2));
-    oct.scale(0.75, 0.62, 1.35);
-    oct.translate(0, 0.22, -0.55);
-    // BEAK — a hooked diamond cone projecting forward-DOWN; its tip (~y−0.85,
-    // z2.4) sits WELL below the cowl bottom (y−0.12), so a beak point clearly
-    // breaks the front silhouette under the visor (the raptor read).
-    const beak = strip(new THREE.ConeGeometry(0.36, 1.7, 4));
-    beak.rotateX(2.15); beak.rotateZ(Math.PI / 4); beak.translate(0, -0.4, 1.7);
-    const keel = strip(new THREE.BoxGeometry(0.14, 0.5, 1.3)); keel.translate(0, 0.55, -0.5);
-    // Two crest fins SWEPT BACK off the cowl top (tips trail behind, sharp taper).
+    oct.scale(0.72, 0.56, 1.35);
+    oct.translate(0, 0.3, -0.55);
+    // BEAK — a NARROW 3-sided hook projecting forward-DOWN to a sharp VERTEX
+    // (~y−0.7, z2.3) WELL below the cowl bottom (y−0.15): the head's lowest
+    // silhouette pixel is a point, not a curve (gate directive 6).
+    const beak = strip(new THREE.ConeGeometry(0.26, 1.7, 3));
+    beak.rotateX(2.25); beak.rotateZ(0.4); beak.translate(0, -0.35, 1.75);
+    const keel = strip(new THREE.BoxGeometry(0.14, 0.5, 1.3)); keel.translate(0, 0.58, -0.5);
+    // Two crest fins SWEPT HARD BACK (tips trail well behind the cowl top, apex
+    // low, sharp taper — gate directive 5). rotateX −1.2 leans them aft.
     const crest = (a) => {
-      const c = strip(new THREE.ExtrudeGeometry(bladeShape(1.1, 0.26), { ...bladeExtrude, depth: 0.1 }));
-      c.rotateX(-0.7); c.rotateZ(a); c.translate(a > 0 ? 0.2 : -0.2, 0.62, -0.1);
+      const c = strip(new THREE.ExtrudeGeometry(bladeShape(1.15, 0.22), { ...bladeExtrude, depth: 0.09 }));
+      c.rotateX(-1.2); c.rotateZ(a); c.translate(a > 0 ? 0.18 : -0.18, 0.58, -0.2);
       return c;
     };
-    return mergeCharcoal([oct, beak, keel, crest(0.25), crest(-0.25)], 'prow');
+    // Brow relief: a mirrored pair of notched charcoal ledges over the visor ends
+    // (§5g face richness — the cowl is no longer a featureless quad; gate dir 7).
+    const brow = (sx) => {
+      const b = strip(new THREE.BoxGeometry(0.34, 0.16, 0.3));
+      b.rotateZ(-sx * 0.25); b.translate(sx * 0.62, 0.52, 1.5);
+      return b;
+    };
+    return mergeCharcoal([oct, beak, keel, crest(0.25), crest(-0.25), brow(1), brow(-1)], 'prow');
   })();
   const prow = new THREE.Mesh(prowGeo, charcoalMat);
   rig.add(prow);
@@ -281,20 +290,16 @@ export function buildEmberHunter(def, quality = 1) {
   {
     const scar = wings[0].blades[N_PRIM - 1];
     scar.mesh.geometry.dispose();
-    scar.mesh.geometry = makeBladeGeo(scar.len * 0.45, 0.52);   // snapped clearly short vs the right-wing mirror
+    scar.mesh.geometry = makeBladeGeo(scar.len * 0.42, 0.52);   // snapped clearly short vs the right-wing mirror
     scar.mesh.material = leadMat;
-    // Jagged torn stump (a 3-sided cone, DARK — not a bright speck).
-    const jag = strip(new THREE.ConeGeometry(0.3, 0.4, 3));
-    jag.rotateZ(0.5); jag.translate(0, scar.len * 0.45 - 0.04, 0.05);
-    scar.pivot.add(new THREE.Mesh(jag, leadMat));
-    // ONE still-smouldering ember chunk flush on the stump end — a DIM ember
-    // (§3 law 2: NOT a second focal). toneMapped so it never ties the visor;
-    // captured luminance stays well under the slit's (gate directive 2).
+    // ONE clean convex ember chunk flush on the snapped end (no jag, no floating
+    // flecks). DIM (§3 law 2: never a second focal) — toneMapped emissive kept
+    // in the 100–150 captured band, ≤60% of the visor (gate directive 4).
     const stumpMat = track(new THREE.MeshStandardMaterial({
-      color: 0x180a04, emissive: 0xff8a40, emissiveIntensity: 1.1, roughness: 0.5, metalness: 0.2, flatShading: true,
+      color: 0x140702, emissive: 0xff7a2e, emissiveIntensity: 0.55, roughness: 0.6, metalness: 0.1, flatShading: true,
     }));
-    const stump = new THREE.Mesh(new THREE.OctahedronGeometry(0.34, 0), stumpMat);
-    stump.position.set(0, scar.len * 0.45, 0.05);
+    const stump = new THREE.Mesh(new THREE.OctahedronGeometry(0.32, 0), stumpMat);
+    stump.position.set(0, scar.len * 0.42 - 0.08, 0.02);   // embedded flush in the stump end, not floating
     scar.pivot.add(stump);
     scar.scar = true;
   }
@@ -303,16 +308,19 @@ export function buildEmberHunter(def, quality = 1) {
   // CINDER-CHIP TRAILERS — 3 dark cinder chips streaming behind the hunter
   // (orbiter contract ≥2; law 8: satellites stay DARK, dim ember ei ≤0.12).
   // ---------------------------------------------------------------------
+  // DARK cinders (§3 law 8: small satellites stay dark) — very low diffuse +
+  // emissive so they read as unlit chips, never amber debris/false eyes that
+  // rival the scar or visor (gate directive 4: captured luminance ≤110).
   const cinderMat = track(new THREE.MeshStandardMaterial({
-    color: 0x140a06, emissive: accent, emissiveIntensity: 0.12, roughness: 0.5, metalness: 0.3, flatShading: true,
+    color: 0x060302, emissive: accent, emissiveIntensity: 0.03, roughness: 0.85, metalness: 0.0, flatShading: true,
   }));
-  const cinderGeo = strip(new THREE.OctahedronGeometry(0.34, 0));
+  const cinderGeo = strip(new THREE.OctahedronGeometry(0.3, 0));
   const orbiters = [];
   for (let i = 0; i < 3; i++) {
     const m = new THREE.Mesh(cinderGeo, cinderMat);
-    // Held between the wings and low, near the body, so the trailers stay
-    // ON-FRAME every capture (gate directive 8) rather than orbiting off-screen.
-    m.userData = { ang: (i / 3) * Math.PI * 2 + 0.4, radius: 2.0 + i * 0.35, speed: 0.8 + i * 0.22, baseY: -0.6 + i * 0.2, tilt: i * 0.7 };
+    // Trail LOW and BEHIND the body (never flanking the head symmetrically —
+    // that read as a second pair of eyes) but still on-frame.
+    m.userData = { ang: (i / 3) * Math.PI * 2 + 0.9, radius: 1.6 + i * 0.4, speed: 0.8 + i * 0.22, baseY: -1.4 - i * 0.25, tilt: i * 0.7 };
     rig.add(m);
     orbiters.push(m);
   }
@@ -405,13 +413,18 @@ export function buildEmberHunter(def, quality = 1) {
     // (the hunter's eye slitting to a hot line); leashed dim under a shield;
     // gutters out in death. Width (scale.x) is the blink/charge tell. ---
     const flicker = 0.85 + Math.sin(time * 4.2) * 0.1 + Math.sin(time * 13) * 0.04;
-    let slitK = shieldClamp ? 0.24 : flicker * (1 + charge * 0.35);
-    if (noticeT > 0) slitK *= 1.3;
-    slitK *= 1 - dyingK * 0.9;
-    slitMat.color.copy(SLIT_BASE).multiplyScalar(Math.max(0.05, slitK) * SLIT_HOT);
-    glowMat.color.copy(GLOW_BASE).multiplyScalar(Math.max(0.18, slitK));   // the molten halo leashes with the core
-    // Vertical thinning: blink crushes it; charge narrows it to a line; notice widens.
-    let slitH = 1 - blinkProg * 0.85 - charge * 0.4;
+    // The molten HALO leashes hard under a shield (the leash read, G6); but the
+    // white-hot CORE stays lit so the focal is the boss's BRIGHTEST point in
+    // EVERY state, above the bullets (§3.2 focal supremacy — gate directive 3).
+    let haloK = shieldClamp ? 0.22 : flicker * (1 + charge * 0.35);
+    let coreK = shieldClamp ? 0.85 : haloK;
+    if (noticeT > 0) { haloK *= 1.3; coreK *= 1.3; }
+    haloK *= 1 - dyingK * 0.9; coreK *= 1 - dyingK * 0.9;
+    slitMat.color.copy(SLIT_BASE).multiplyScalar(Math.max(0.05, coreK) * SLIT_HOT);
+    glowMat.color.copy(GLOW_BASE).multiplyScalar(Math.max(0.15, haloK));
+    // Vertical thinning: blink crushes it; charge/shield narrow it to a hot line;
+    // notice widens. Under shield the eye slits to a bright thread (leash + supremacy).
+    let slitH = 1 - blinkProg * 0.85 - charge * 0.4 - (shieldClamp ? 0.4 : 0);
     if (noticeT > 0.5) slitH = 1.25;
     slitH *= 1 - dyingK * 0.9;
     slit.scale.y = Math.max(0.06, slitH);   // width (scale.x) stays 1 — the bar never segments (directive 2)
@@ -436,19 +449,22 @@ export function buildEmberHunter(def, quality = 1) {
       let shoulderRot = beat;      // rotation.z on the shoulder (raise/lower the whole wing)
       let fanMul = 1;              // spread multiplier on the blade fan
       let rake = 0.12;             // per-blade rotation.x (aft rake)
+      let shoulderInX = 0;         // inward pull of the shoulder (contracts the span)
 
       if (charge > 0.001 && !shieldClamp && dyingK <= 0) {
-        if (gesture === 'mantle') {        // fold up-forward, narrow — tracking a target
-          shoulderRot += 0.95 * charge;    // ≥0.8 rad fold at full charge (gate directive 6)
-          fanMul = 1 - 0.65 * charge;      // pull the span in (~14 → ≤9)
-          rake += 0.3 * charge;
+        if (gesture === 'mantle') {        // fold up + PULL IN — a hunched, narrow ready-to-stoop pose
+          shoulderRot += 1.35 * charge;    // fold the blades hard up-forward
+          fanMul = 1 - 0.72 * charge;      // collapse the fan
+          shoulderInX = 1.0 * charge;      // draw the shoulders inward (span ~15 → ≤9, gate directive 2)
+          rake += 0.35 * charge;
         } else if (gesture === 'flare') {  // spread wide — the fan
           shoulderRot += 0.12 * charge;
           fanMul = 1 + 0.95 * charge;
           rake -= 0.06 * charge;
-        } else if (gesture === 'tuck') {   // fold back + down — the committed stoop
-          shoulderRot += 1.0 * charge;
-          fanMul = 1 - 0.7 * charge;
+        } else if (gesture === 'tuck') {   // fold back + down + in — the committed stoop
+          shoulderRot += 1.3 * charge;
+          fanMul = 1 - 0.72 * charge;
+          shoulderInX = 0.9 * charge;
           rake += 0.5 * charge;
         }
       }
@@ -465,6 +481,7 @@ export function buildEmberHunter(def, quality = 1) {
       if (shieldClamp) {
         shoulderRot = -0.45;
         fanMul = 0.4;
+        shoulderInX = 0.5;
         rake = 0.35;
       } else if (shieldOpenT > 0) {
         shoulderRot += 0.2 * (shieldOpenT / 0.25);   // snap-open overshoot
@@ -499,6 +516,9 @@ export function buildEmberHunter(def, quality = 1) {
       const srSign = w.sx < 0 ? -1 : 1;
       const sEase = Math.min(1, dt * 5);
       w.shoulder.rotation.z += (shoulderRot * srSign - w.shoulder.rotation.z) * sEase;
+      // Draw the shoulder inward on the folding poses (contracts the tip-to-tip span).
+      const targetX = w.sx * (1.1 - shoulderInX);
+      w.shoulder.position.x += (targetX - w.shoulder.position.x) * sEase;
       const fEase = Math.min(1, dt * 6);
       for (const b of w.blades) {
         // Spread the fan around its centre (blade 0 = inner anchor).

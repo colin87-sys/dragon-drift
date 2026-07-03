@@ -39,9 +39,10 @@ const VIEW = { width: 720, height: 1280 };
 // mask is geometry-derived so the specific sky doesn't affect the verdict).
 // Capture each boss in a biome whose sky COMPLEMENTS its value/temperature (§5h
 // biome pairing) — a charcoal·ember boss judged against a cool purple sky would
-// read false-magenta under that biome's blue hemisphere ambient. ASHTALON is
-// captured over EMBERFALL (warm), its thematic home.
-const DIST = { voidmaw: 2500, stormrend: 5200, craghold: 3800, ashtalon: 5000 };
+// read false-magenta under that biome's blue hemisphere ambient, and dark rock
+// spires would merge into its dark wings. ASHTALON is captured over AMBER WASTES
+// (warm ambient + a clean, spire-free horizon).
+const DIST = { voidmaw: 2500, stormrend: 5200, craghold: 3800, ashtalon: 2500 };
 
 const bossId = process.argv[2];
 if (!bossId || !BOSS_ORDER.includes(bossId)) {

@@ -18,7 +18,7 @@ import { decodePNG, pngRGBA } from './silhouetteCore.mjs';
 const { BOSS_ORDER } = await import('../js/bossDefs.js');
 
 const VIEW = { width: 720, height: 1280 };
-const DIST = { voidmaw: 2500, stormrend: 5200, craghold: 3800, ashtalon: 5000 };
+const DIST = { voidmaw: 2500, stormrend: 5200, craghold: 3800, ashtalon: 2500 };
 const OUT = new URL('../../reforged-captures/', import.meta.url).pathname;
 
 const bossId = process.argv[2];
@@ -98,32 +98,55 @@ page.setDefaultTimeout(150000);
 // framed at the same scale. Set on the first shoot.
 let fixedHW = 0, fixedHH = 0;
 
-// Wait for a FRONT-ON, LOW-BULLET moment: the boss yaw wobble ≤~0.08 rad and few
-// bullets over it (so the silhouette isn't tilted or occluded — gate directive 4).
-async function waitClean(maxBullets = 6, tries = 40) {
-  let best = null;
-  for (let i = 0; i < tries; i++) {
-    const s = await page.evaluate(() => ({ b: window.__dd.bossState().bullets, box: (() => { let o = null; window.__dd.scene.traverse((x) => { if (x.userData && x.userData.__isBoss) o = x; }); return o ? o.rotation.y : 9; })() }));
-    const yaw = Math.abs(s.box);
-    if (yaw < 0.08 && s.b <= maxBullets) return;
-    if (!best || yaw < best.yaw) best = { yaw, b: s.b };
-    await page.waitForTimeout(180);
+const pollState = () => page.evaluate(() => {
+  let o = null; window.__dd.scene.traverse((x) => { if (x.userData && x.userData.__isBoss) o = x; });
+  return { b: window.__dd.bossState().bullets, yaw: o ? o.rotation.y : 9 };
+});
+
+// SKY fraction inside the fixed crop window: pillars are dark like the boss, so a
+// higher bright-pixel fraction means MORE open sky behind the boss = less pillar
+// contamination of the silhouette (gate directive 1 — clean captures).
+function skyScore(rgba, W, H, box, hw, hh) {
+  const cx0 = Math.max(0, Math.floor(box.cx - hw)), cy0 = Math.max(0, Math.floor(box.cy - hh));
+  const cx1 = Math.min(W, Math.ceil(box.cx + hw)), cy1 = Math.min(H, Math.ceil(box.cy + hh));
+  let bright = 0, tot = 0;
+  for (let y = cy0; y < cy1; y += 2) for (let x = cx0; x < cx1; x += 2) {
+    const s = (y * W + x) * 4;
+    tot++;
+    if (0.2126 * rgba[s] + 0.7152 * rgba[s + 1] + 0.0722 * rgba[s + 2] > 95) bright++;
   }
+  return tot ? bright / tot : 0;
 }
 
-async function shoot(state) {
-  const box = await page.evaluate(bossBox);
-  const png = await page.screenshot();
-  if (!box) { console.warn(`  ! ${state}: no boss box`); return; }
-  if (!fixedHW) {   // lock the framing from the first (idle) capture, +28% pad
-    fixedHW = (box.x1 - box.x0) / 2 * 1.28 + 24;
-    fixedHH = (box.y1 - box.y0) / 2 * 1.28 + 24;
+// Grab several front-on, low-bullet candidates over the boss's lateral drift and
+// keep the one with the CLEANEST (most-sky) backdrop.
+async function shoot(state, maxBullets, nCands = 7, gap = 550) {
+  const cands = [];
+  for (let i = 0; i < nCands; i++) {
+    const st = await pollState();
+    if (Math.abs(st.yaw) < 0.1 && st.b <= maxBullets) {
+      const box = await page.evaluate(bossBox);
+      if (box) cands.push({ box, png: await page.screenshot() });
+    }
+    if (i < nCands - 1) await page.waitForTimeout(gap);
   }
-  const { rgba } = decodePNG(png);
-  const { buf, w, h } = cropZoom(rgba, box.W, box.H, box, fixedHW, fixedHH);
+  if (!cands.length) { const box = await page.evaluate(bossBox); if (box) cands.push({ box, png: await page.screenshot() }); }
+  if (!cands.length) { console.warn(`  ! ${state}: no boss box`); return; }
+  if (!fixedHW) {   // lock the framing from the FIRST idle candidate, +26% pad
+    const b0 = cands[0].box;
+    fixedHW = (b0.x1 - b0.x0) / 2 * 1.26 + 22;
+    fixedHH = (b0.y1 - b0.y0) / 2 * 1.26 + 22;
+  }
+  let best = null;
+  for (const c of cands) {
+    const { rgba } = decodePNG(c.png);
+    const s = skyScore(rgba, c.box.W, c.box.H, c.box, fixedHW, fixedHH);
+    if (!best || s > best.s) best = { box: c.box, rgba, s };
+  }
+  const { buf, w, h } = cropZoom(best.rgba, best.box.W, best.box.H, best.box, fixedHW, fixedHH);
   const path = `${OUT}${bossId}-${cpTag}-${state}-${roundTag}.png`;
   fs.writeFileSync(path, buf);
-  console.log(`wrote ${path}  (${w}x${h}) yaw ${box.yaw.toFixed(3)}`);
+  console.log(`wrote ${path}  (${w}x${h}) yaw ${best.box.yaw.toFixed(3)} sky ${(best.s * 100).toFixed(0)}% (${cands.length} cands)`);
 }
 
 try {
@@ -137,16 +160,14 @@ try {
   // ALWAYS capture idle first (it locks the fixed framing for the other states).
   const ordered = ['idle', ...states.filter((s) => s !== 'idle')];
   for (const state of ordered) {
-    if (!states.includes(state)) continue;   // idle only captured if requested; but it locks framing regardless
+    if (!states.includes(state)) continue;
     if (state === 'idle') {
       await page.waitForTimeout(3200);        // let the reveal title card fade
       await page.waitForFunction(() => !window.__dd.bossState().charging, { timeout: 6000 }).catch(() => {});
-      await waitClean(4);                     // front-on, bullet-free reveal-hold frame
-      await shoot('idle');
+      await shoot('idle', 2);                 // bullet-free reveal-hold, cleanest backdrop
     } else if (state === 'charge') {
       await page.waitForFunction(() => window.__dd.bossState().charging, { timeout: 60000 }).catch(() => {});
-      await waitClean(10);                    // charge wind-up (low bullets), front-on
-      await shoot('charge');
+      await shoot('charge', 8);
     } else if (state === 'shielded' || state === 'dread') {
       let sh = false;
       for (let i = 0; i < 25 && !sh; i++) {
@@ -154,11 +175,9 @@ try {
         if (!sh) await page.waitForTimeout(120);
       }
       await page.waitForTimeout(6000);        // let the wing-fold pose settle symmetric
-      await waitClean(6, 60);                 // wait for a graze-bait REST gap (few bullets), front-on
-      await shoot(state);
+      await shoot(state, 5, 10, 700);          // more candidates: wait out a graze-bait REST gap
     }
   }
-  // If idle wasn't requested, we still shot it to lock framing — remove it.
   if (!states.includes('idle')) fs.rmSync(`${OUT}${bossId}-${cpTag}-idle-${roundTag}.png`, { force: true });
   await done();
   console.log('\nbosscrop done.');
