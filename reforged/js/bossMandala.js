@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { mergeGeometries } from '../lib/utils/BufferGeometryUtils.js';
 import { mulberry32 } from './util.js';
-import { createBossCommon, makeEnergyShell } from './bossKit.js';
+import { createBossCommon, makeEnergyShell, stripForMerge } from './bossKit.js';
 
 // STORMREND's body — the EYE-OF-THE-STORM MANDALA: "concentric counter-rotating
 // rings of storm blades around one huge unblinking eye." Second archetype in the
@@ -50,14 +50,9 @@ export function buildStormMandala(def, quality = 1) {
 
   const rnd = mulberry32(0x57081ae0);
 
-  // Same strip() idiom as bossIdol.js — see that file's header comment for the
-  // full mergeGeometries attribute-mismatch rationale.
-  const strip = (geo) => {
-    geo.deleteAttribute('uv');
-    if (geo.attributes.uv2) geo.deleteAttribute('uv2');
-    if (geo.index) geo = geo.toNonIndexed();
-    return geo;
-  };
+  // Attribute/indexing normalisation before mergeGeometries — shared kit
+  // helper (see bossKit.js#stripForMerge for the full silent-null rationale).
+  const strip = stripForMerge;
   const mergeParts = (parts, label) => {
     const geo = mergeGeometries(parts, false);
     if (!geo) throw new Error(`buildStormMandala: ${label} mergeGeometries returned null (attribute mismatch)`);

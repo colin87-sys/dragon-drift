@@ -29,6 +29,7 @@ const SCENES = [
   { name: 'amber', dist: 2500, bossIdx: 0, shielded: true },       // Voidmaw · AMBER WASTES
   { name: 'emberfall', dist: 5200, bossIdx: 1, shielded: true },   // Stormrend · EMBERFALL CALDERA
   { name: 'astral', dist: 8000, bossIdx: 0, shielded: false },     // Voidmaw · ASTRAL SHALLOWS
+  { name: 'frozen', dist: 3800, bossIdx: 2, shielded: true },      // Craghold · FROZEN REACH (moss-green vs the pale sky)
 ];
 const SAVE = `localStorage.setItem('dragonDriftSave', JSON.stringify({ v: 3, stats: { runs: 5 }, flags: { seenIntro: true } }))`;
 

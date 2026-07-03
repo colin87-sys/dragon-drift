@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { mergeGeometries } from '../lib/utils/BufferGeometryUtils.js';
 import { mulberry32 } from './util.js';
-import { createBossCommon } from './bossKit.js';
+import { createBossCommon, stripForMerge } from './bossKit.js';
 
 // VOIDMAW's body — the HOLLOW IDOL-MASK: "a wide shattered stone mask with
 // hollow eyes, one broken horn, and a broken halo floating behind it." This is
@@ -54,21 +54,9 @@ export function buildIdolMask(def, quality = 1) {
   // shape popping) while still looking hand-broken, not radially symmetric.
   const rnd = mulberry32(0x1d017a5c);
 
-  // Strips `uv` (and `uv2`, which ExtrudeGeometry also emits) so every part
-  // handed to mergeGeometries carries the exact same attribute SET
-  // (position+normal only) — the #1 risk in the plan (mergeGeometries returns
-  // null, silently, on any mismatch; there is no error otherwise). It also
-  // normalises indexing: three.js's Polyhedron-based geometries (Icosahedron,
-  // Octahedron) and ExtrudeGeometry are built NON-indexed while Box/Cylinder/
-  // Sphere/Cone/Torus/Tube are indexed — mergeGeometries requires ALL inputs
-  // indexed or NONE (a second, less-documented way it silently returns null),
-  // so every part is normalised to non-indexed here.
-  const strip = (geo) => {
-    geo.deleteAttribute('uv');
-    if (geo.attributes.uv2) geo.deleteAttribute('uv2');
-    if (geo.index) geo = geo.toNonIndexed();
-    return geo;
-  };
+  // Attribute/indexing normalisation before mergeGeometries — shared kit
+  // helper (see bossKit.js#stripForMerge for the full silent-null rationale).
+  const strip = stripForMerge;
 
   // ---------------------------------------------------------------------
   // MASK PLATE — an angular THREE.Shape extruded with two REAL hole paths for

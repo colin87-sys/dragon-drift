@@ -64,7 +64,10 @@ on('bossStart', (e) => { if (e && e.id) fights.add(e.id); });
 on('rushClear', (e) => { rushClear = e; });
 
 let t = 0;
-for (let i = 0; i < 60 * 260 && !rushClear; i++) {
+// Frame budget: ~80s/boss + breathers. Raised 260→320s when CRAGHOLD (boss 3)
+// joined — its Tier 2 crossing-pass setpiece adds a held ~6s beat per fight,
+// and the pre-setpiece 3-boss gauntlet already ran ~251s against the old cap.
+for (let i = 0; i < 60 * 320 && !rushClear; i++) {
   const dt = 1 / 60;
   t += dt;
   player.dist += CONFIG.BOSS.cruiseSpeed * dt;     // forward flight crosses the boss/breather marks

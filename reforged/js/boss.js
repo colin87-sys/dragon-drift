@@ -124,6 +124,40 @@ let chargeDur = 0;
 let curAttack = null;          // the attack being telegraphed
 const pending = [];            // streamed sub-volleys: { t, fire } (tunnel / spiralStream)
 const SUSTAINED = new Set(['tunnel', 'spiralStream', 'movingGap', 'iris', 'stream', 'secondWave']);
+// Def-gated SETPIECE (the ONE deliberate exception to "a new boss needs zero
+// controller changes" — BOSS-DESIGN.md §5's Tier 2 "the fight moves" clause
+// requires a station-leave beat, and station-keeping lives here). A def opts in
+// with `setpiece: { id, atPhase, dur }`: entering phase index `atPhase` (via
+// breakShield) plays SETPIECE_PATHS[id] once — a scripted pose path that
+// overrides the station hold while attacks + rider fire are held (a guaranteed
+// quiet capture window, like the reveal hold). Defs without `setpiece` are
+// byte-unchanged (the lifecycle test asserts the shipped two never see one).
+let setpieceT = -1;            // <0 idle · ≥0 seconds into the active setpiece
+let setpieceDef = null;
+const SETPIECE_PATHS = {
+  // The crossing pass: sweep out wide, rise, close in, and drift straight
+  // across the lane OVER the player (hands spread via model.setSetpiece) —
+  // the fly-under scale-contrast frame — then ease back to station.
+  crossingPass(k) {
+    const B = CONFIG.BOSS;
+    if (k < 0.25) {
+      const t = easeInOut(k / 0.25);
+      return { x: -16 * t, y: B.fightHeight + 5 * t, rel: B.settleGap - (B.settleGap - 14) * t };
+    }
+    if (k < 0.75) {
+      const t = (k - 0.25) / 0.5;
+      const lift = Math.sin(t * Math.PI);
+      return { x: -16 + 32 * easeInOut(t), y: B.fightHeight + 5 + lift * 1.5, rel: 14 - lift * 3 };
+    }
+    const t = easeInOut((k - 0.75) / 0.25);
+    return { x: 16 * (1 - t), y: B.fightHeight + 5 * (1 - t), rel: 14 + (B.settleGap - 14) * t };
+  },
+};
+function clearSetpiece() {
+  if (setpieceT >= 0) model?.setSetpiece?.(0);
+  setpieceT = -1;
+  setpieceDef = null;
+}
 // Arena constriction (a def's showpiece phase narrows the lane): the live half-
 // width the fill patterns and the player clamp both read. Full lane when idle.
 const CONSTRICT_HW = 6.5;      // showpiece arena half-width (lab-proven value)
@@ -428,6 +462,7 @@ export function startBossEncounter(player, defOverride) {
     start.y = 7;
   }
   pose.x = start.x; pose.y = start.y; pose.rel = start.rel;
+  clearSetpiece();
   placeGroup(player, 0);
 
   // Suppress the normal course for the fight: wipe hazards already spawned ahead;
@@ -473,6 +508,7 @@ export function startBossRush(player, only = null) {
 export function inBossRush() { return rushMode; }
 
 function endEncounter(player) {
+  clearSetpiece();
   if (group) { scene.remove(group); model.dispose?.(); }
   resetBossBullets();
   group = null; model = null; def = null;
@@ -510,6 +546,7 @@ function endEncounter(player) {
 function startDeath(player) {
   phase = 'dying';
   dyingT = 0;
+  clearSetpiece();
   reticleTarget = 0;            // focus circle draws off as the boss disintegrates
   arenaTargetHW = CONFIG.laneHalfWidth;   // storm walls glide out with the dissolve
   resetBossBullets();
@@ -684,10 +721,23 @@ export function updateBoss(dt, player, time) {
       if (def.tutorial) ui.bossNote?.('DODGE!', 'ROLL INTO AMBER SHOTS TO PARRY', 'gold', 3.0);
     }
   } else if (phase === 'fight') {
-    // Hold station ahead and "fly backward"; gentle strafe/bob keeps it alive.
-    pose.rel = B.settleGap;
-    pose.x = Math.sin(time * 0.7) * 5.0;
-    pose.y = B.fightHeight + Math.sin(time * 1.3) * 0.8;
+    if (setpieceT >= 0 && !shielded) {
+      // Scripted station-leave beat (def-gated; see SETPIECE_PATHS). Attacks +
+      // rider fire were held past its duration when it armed, and pending was
+      // wiped by the shield break that armed it — a quiet, capture-safe pass.
+      setpieceT += dt;
+      const k = Math.min(setpieceT / setpieceDef.dur, 1);
+      const p = SETPIECE_PATHS[setpieceDef.id](k);
+      pose.x = p.x; pose.y = p.y; pose.rel = p.rel;
+      model.setSetpiece?.(Math.sin(k * Math.PI));   // pose spread eases in and back out
+      if (k >= 1) clearSetpiece();
+    } else {
+      if (setpieceT >= 0) clearSetpiece();   // shield rose mid-beat: abort cleanly
+      // Hold station ahead and "fly backward"; gentle strafe/bob keeps it alive.
+      pose.rel = B.settleGap;
+      pose.x = Math.sin(time * 0.7) * 5.0;
+      pose.y = B.fightHeight + Math.sin(time * 1.3) * 0.8;
+    }
 
     // Manual Surge unleash (Space / 2nd-finger tap) — the shield-breaker.
     const ready = !game.feverActive && game.consecutiveRings >= game.feverThreshold;
@@ -772,6 +822,7 @@ export function updateBoss(dt, player, time) {
       model.setCharge(1 - Math.max(chargeT, 0) / chargeDur);
       if (chargeT <= 0) {
         model.setCharge(0);
+        model.setAttackTell?.(null);   // wind-up pose releases with the shot
         model.flash(0.9);
         tmp.set(pose.x, pose.y, -(player.dist + pose.rel));
         burst(tmp, bulletColor, { count: 10, speed: 14, size: 0.9, life: 0.4 });   // "shots away" muzzle flash
@@ -788,6 +839,9 @@ export function updateBoss(dt, player, time) {
         chargeDur = curAttack === 'curtain' ? B.telegraphWall
           : (SUSTAINED.has(curAttack) ? B.telegraphSustained : B.telegraphInstant);
         chargeT = chargeDur;
+        // Optional model hook: which gesture family to wind up in (the
+        // colossus's hands point/sweep/spin/clench/slam per attack id).
+        model.setAttackTell?.(curAttack);
         sfx.boostStart?.();   // a short charge whoosh as the wind-up begins
       }
     }
@@ -870,6 +924,15 @@ function breakShield(player) {
     phaseIdx++;
     ui.bossNote?.(`PHASE ${phaseIdx + 1}`, def.name, 'phase', 2.6);
     emit('bossPhase', { phase: phaseIdx + 1 });
+    // Def-gated setpiece: entering this phase plays the scripted station-leave
+    // beat. Attack + rider clocks are held past its duration so the pass is a
+    // quiet capture window (pending was wiped above).
+    if (def.setpiece && SETPIECE_PATHS[def.setpiece.id] && phaseIdx === def.setpiece.atPhase) {
+      setpieceDef = def.setpiece;
+      setpieceT = 0;
+      attackTimer = Math.max(attackTimer, setpieceDef.dur + 1.2);
+      riderTimer = Math.max(riderTimer, setpieceDef.dur);
+    }
     // Constriction showpiece: from this phase on, the storm walls slide in and
     // the arena narrows (the fill patterns + player clamp both track arenaHW).
     if (def.constrictPhase != null && phaseIdx >= def.constrictPhase) {
@@ -1139,6 +1202,7 @@ function damageBoss(amount, kind) {
     model.setHealth(hp / hpMax);
     model.setShieldVisible?.(true);
     model.setCharge(0);
+    model.setAttackTell?.(null);   // no wind-up pose while the armour holds
     // Drop any in-flight attack; graze-bait takes over. Prime the cluster state so
     // the FIRST cluster is full-length (resting=true + timer 0 → next tick opens it).
     chargeT = 0; pending.length = 0; baitTimer = 0; baitResting = true; baitLeft = 0;
@@ -1151,6 +1215,7 @@ function damageBoss(amount, kind) {
 }
 
 export function resetBoss() {
+  clearSetpiece();
   if (group && scene) { scene.remove(group); model && model.dispose && model.dispose(); }
   resetBossBullets();
   active = false;
@@ -1206,7 +1271,7 @@ export function forceBoss(player, idx = null) {
 }
 
 export function bossDebugState() {
-  return { active, phase, hp, hpMax, phaseIdx, shielded, bullets: bossBulletCount(), nextBossDist, warnT, approachT, poseRel: pose.rel, charging: chargeT > 0 };
+  return { active, phase, hp, hpMax, phaseIdx, shielded, bullets: bossBulletCount(), nextBossDist, warnT, approachT, poseRel: pose.rel, poseX: pose.x, poseY: pose.y, setpiece: setpieceT >= 0, charging: chargeT > 0 };
 }
 
 // Test seam (headless pattern-budget checks): fire ONE attack volley with its
