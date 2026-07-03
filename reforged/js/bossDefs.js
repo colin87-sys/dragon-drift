@@ -22,6 +22,19 @@
 // never by raw bullet count (mobile visibleCap; density reads as unfair).
 // `accent`/`glow` colour the boss BODY; `bulletColor` is the magenta danger colour.
 // `constrictPhase`: phase index at which the arena walls slam in (showpiece).
+//
+// `tier` (1–5, REQUIRED): the band this boss sits in (BOSS-DESIGN.md §5b/§5g) —
+// tests/boss.mjs keys the tri/draw ceilings off it (TIER_BUDGETS). Sentinels=1,
+// Colossi=2, Calamities=3, World-Enders=4, the Apex=5.
+//
+// SPELL CARDS (§5f/§5h): `cards[]` names each phase as a title-carded set-piece,
+// aligned 1:1 with `phases` (card[i] ↔ phase[i]). A card =
+//   { id (stable, never the display name), name, atFrac (= its phase's),
+//     timer (~20–30s capture window), dread? (exactly ONE, always last),
+//     survival? (invincible seal — timeout snaps hp past atFrac) }.
+// Naming grammar (§5f): "<FRAGMENT OF THE EPITHET> — <plain pattern name>".
+// Capture = survive the card hitless; ledgered per-card (local-only, save.js).
+// A def WITHOUT `cards` keeps the un-carded phase behaviour (coexist rule).
 
 export const BOSSES = {
   voidmaw: {
@@ -29,6 +42,7 @@ export const BOSSES = {
     name: 'VOIDMAW',
     title: 'the Sky Tyrant',
     epithet: 'The Hollow Judgment',   // bossTitleCard's reveal-card subtitle
+    tier: 1,                          // SENTINEL (§5b band 1)
     hpMax: 180,
     // Boss-archetype dispatch (bossModel.js buildBoss): routes to the
     // Hollow Idol-Mask hero builder (bossIdol.js) instead of the legacy
@@ -50,6 +64,12 @@ export const BOSSES = {
       { atFrac: 0.66, cadence: [1.6, 2.1], attacks: ['aimed', 'fan'] },   // P2: + spread to weave
       { atFrac: 0.33, cadence: [1.4, 1.9], attacks: ['aimed', 'fan', 'tunnel'] }, // P3: + rings to read
     ],
+    // Spell cards (§5f grammar; last is the dread card — the §5f worked example).
+    cards: [
+      { id: 'voidmaw_verdict',  name: 'HOLLOW — Opening Verdict',            atFrac: 1.00, timer: 22 },
+      { id: 'voidmaw_cloven',   name: 'HOLLOW — Cloven Sky',                 atFrac: 0.66, timer: 24 },
+      { id: 'voidmaw_splitter', name: 'HOLLOW JUDGMENT — Sky-Splitting Verdict', atFrac: 0.33, timer: 26, dread: true },
+    ],
   },
 
   stormrend: {
@@ -57,6 +77,7 @@ export const BOSSES = {
     name: 'STORMREND',
     title: 'the Tempest Herald',
     epithet: 'Eye of the Unending Gale',   // bossTitleCard's reveal-card subtitle
+    tier: 1,                               // SENTINEL (§5b band 1)
     hpMax: 220,
     // Boss-archetype dispatch (bossModel.js buildBoss): routes to the
     // Eye-of-the-Storm Mandala hero builder (bossMandala.js) instead of the
@@ -81,6 +102,11 @@ export const BOSSES = {
       { atFrac: 0.66, cadence: [1.6, 2.1], attacks: ['movingGap', 'stream', 'aimed'] },// P2: anti-flee
       { atFrac: 0.33, cadence: [1.4, 1.9], attacks: ['iris', 'secondWave', 'crossfire'] }, // P3: the storm
     ],
+    cards: [
+      { id: 'stormrend_wall',    name: 'UNENDING — Gale Wall',            atFrac: 1.00, timer: 22 },
+      { id: 'stormrend_squall',  name: 'UNENDING GALE — Shifting Squall', atFrac: 0.66, timer: 24 },
+      { id: 'stormrend_eye',     name: 'EYE OF THE GALE — Heart of the Storm', atFrac: 0.33, timer: 26, dread: true },
+    ],
   },
 
   craghold: {
@@ -88,6 +114,7 @@ export const BOSSES = {
     name: 'CRAGHOLD',
     title: 'the Sundered Colossus',
     epithet: 'The Hands That Held the Sky',   // the lore gap: held — what made them let go?
+    tier: 2,                                  // COLOSSUS (§5b band 2)
     hpMax: 260,
     // Boss-archetype dispatch (bossModel.js buildBoss): routes to the Stone
     // Colossus builder (bossColossus.js) — the first Tier 2 COLOSSUS
@@ -116,10 +143,59 @@ export const BOSSES = {
       { atFrac: 0.66, cadence: [1.5, 2.0], attacks: ['spiralStream', 'crossfire', 'stream'] }, // P2: the hands converge (after the crossing pass)
       { atFrac: 0.33, cadence: [1.3, 1.7], attacks: ['curtain', 'spiralStream', 'crossfire'] },// P3: walls in the constricted arena
     ],
+    cards: [
+      { id: 'craghold_reach',   name: 'HELD THE SKY — Sundered Reach',        atFrac: 1.00, timer: 24 },
+      { id: 'craghold_grasp',   name: 'THE HANDS — Converging Grasp',         atFrac: 0.66, timer: 26 },
+      { id: 'craghold_clasp',   name: 'HANDS THAT HELD THE SKY — Colossal Clasp', atFrac: 0.33, timer: 28, dread: true },
+    ],
+  },
+
+  ashtalon: {
+    id: 'ashtalon',
+    name: 'ASHTALON',
+    title: 'the Ember Hunter',
+    epithet: 'What the Ash Still Hunts',   // the lore gap: what is it hunting FOR?
+    tier: 2,                               // COLOSSUS (§5b band 2), slot-3 opener
+    // Boss-archetype dispatch (bossModel.js buildBoss): the Ember-Hunter builder
+    // (bossAshtalon.js) — BOSS-DESIGN.md §5b registry slot 3, replacing the
+    // retired CRAGHOLD. A charcoal raptor of two vast scythe-wings with ONE
+    // molten visor slit; it OVERTAKES from behind and hunts (no socket-pair like
+    // slot 1, no orb like slot 2 — a single horizontal ember slit in a dark cowl).
+    archetype: 'emberHunter',
+    accent: 0xff6a30,         // ember orange — the smoulder on charcoal (identity in emissive)
+    glow: 0xff9a4a,           // warmer ember (shield rim / shards / backlight)
+    bulletColor: 0xff2b6a,    // danger stays magenta (role colour, never per-boss)
+    approachFrom: 'behind',   // it overtakes from behind and rises over you (the hunter)
+    scale: 1.7,               // COLOSSUS — the scythe-wings span wide (~14 pre-scale)
+    hpMax: 290,               // Tier 2 band (260–330); slot-3 opener sits low in it
+    // Mechanical star (SOP): closing + cadence — FAST but SPARSE. Its cards are
+    // pursuit curves (stream debuts here), tightening toward the dread dive.
+    // §5f rule-break: one scripted rear-view camera beat as it overtakes from
+    // behind at fight entry (announced, no fire during the swing).
+    rearViewOvertake: true,
+    // §5e moving-station setpieces (fire while they travel, per-phase). P2 = the
+    // wide CIRCLING orbit; P3 = the EMBER HUNT stooping dive from above (dread).
+    setpieces: [
+      { id: 'circlingPass',   atPhase: 1, dur: 7.0, moving: true },
+      { id: 'stoopingStrike', atPhase: 2, dur: 5.5, moving: true, dread: true },
+    ],
+    phases: [
+      { atFrac: 1.00, cadence: [1.5, 2.0], attacks: ['aimed', 'stream'] },                 // P1: the hunter's tracking hose debuts
+      { atFrac: 0.66, cadence: [1.4, 1.8], attacks: ['fan', 'stream', 'crossfire'] },       // P2: circling passes converge
+      { atFrac: 0.33, cadence: [1.3, 1.7], attacks: ['stream', 'spiralStream', 'secondWave'] }, // P3: the stoop (dread)
+    ],
+    cards: [
+      { id: 'ashtalon_stoop',   name: 'EMBER — First Stoop',        atFrac: 1.00, timer: 22 },
+      { id: 'ashtalon_circle',  name: 'EMBER HUNT — Circling Pass',  atFrac: 0.66, timer: 24 },
+      { id: 'ashtalon_strike',  name: 'EMBER HUNT — Stooping Strike', atFrac: 0.33, timer: 26, dread: true },
+    ],
   },
 };
 
-export const BOSS_ORDER = ['voidmaw', 'stormrend', 'craghold'];
+// Registry slot 3 is ASHTALON (Colossi opener); CRAGHOLD is RETIRED (§5b L130) —
+// its def + builder stay for the geometry-lesson lineage and its own telegraph
+// test, but it is OUT of the encounter rotation.
+export const BOSS_ORDER = ['voidmaw', 'stormrend', 'ashtalon'];
 
 // Which boss to use for the Nth encounter of a run (cycles once the list is
 // exhausted — more bosses just extend the list).

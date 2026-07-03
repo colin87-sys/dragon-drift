@@ -45,6 +45,12 @@ const INTRO_DUR = 2.8;
 let canyonOn = false;
 let canyonW = 0;
 
+// Rear-view rule-break beat (ASHTALON §5f): a scripted, announced ~3s swing that
+// looks BACK over the dragon's tail at the hunter overtaking from behind, then
+// eases forward again. The only camera authored to face backward; a trapezoid
+// envelope (ease in / hold / ease out) blends it over the normal chase framing.
+let rearT = 0, rearDur = 0;
+
 export const cameraCtl = {
   splash: false,
 
@@ -88,6 +94,11 @@ export const cameraCtl = {
   setCanyon(on) {
     canyonOn = on;
   },
+
+  // Fire the rear-view overtake beat (ASHTALON). Eased in/out over ~0.6s at each
+  // end; boss.js announces it and holds fire for the swing.
+  rearView(dur = 3.0) { rearDur = dur; rearT = dur; },
+  get rearActive() { return rearT > 0; },
 
   // Engaged by finishDeath(); reset free via init() on restart. The
   // revive-accept path never calls finishDeath, so a saved run never dollies.
@@ -209,6 +220,22 @@ export const cameraCtl = {
     // Aim a little higher (toward the path) so the dragon drops lower in frame.
     lookTarget.set(player.position.x, player.position.y + 1.0 + speedNorm * 0.25, player.position.z - 16);
     camera.lookAt(lookTarget);
+
+    // Rear-view overtake beat (ASHTALON §5f): swing AHEAD of and above the dragon
+    // and look BACK down the course at the hunter climbing up behind, then ease
+    // forward again. Trapezoid envelope (0.6s in / hold / 0.6s out) blends it over
+    // the chase framing so the reversal never snaps. Camera-only, deterministic.
+    if (rearT > 0) {
+      rearT -= dt;
+      const env = Math.max(0, Math.min(1, (rearDur - rearT) / 0.6, rearT / 0.6));
+      const rz = player.position.z - 9;   // ahead of the dragon (−z), looking back
+      camera.position.x += (player.position.x * 0.9 - camera.position.x) * env;
+      camera.position.y += (player.position.y + 3.6 - camera.position.y) * env;
+      camera.position.z += (rz - camera.position.z) * env;
+      const lookZ = player.position.z + (-16) * (1 - env) + 34 * env;   // forward → back
+      lookTarget.set(player.position.x, player.position.y + 1.0 + 0.5 * env, lookZ);
+      camera.lookAt(lookTarget);
+    }
 
     // Roll lean: applied after lookAt (which resets orientation each frame).
     if (rollKickT > 0) {

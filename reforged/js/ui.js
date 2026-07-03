@@ -500,6 +500,14 @@ export const ui = {
         <div class="bfc-word">FELLED</div>
         <div class="bfc-name" id="bfc-name"></div>
       </div>
+      <!-- Spell card (BOSS-DESIGN.md §5f): a small lower-RIGHT named set-piece
+           card + a capture timer. Non-blocking, sits clear of the lower-third
+           reveal/felled cards and the bottom-centre boss-note slot. -->
+      <div class="boss-card" id="boss-card">
+        <div class="bc-label" id="bc-label"></div>
+        <div class="bc-name" id="bc-name"></div>
+        <div class="bc-timer" id="bc-timer"></div>
+      </div>
       <div class="popup" id="popup"></div>
       <div class="popup popup2" id="popup2"></div>
       <div class="feat-toast" id="feat-toast"></div>
@@ -542,6 +550,10 @@ export const ui = {
       btcEpithet:   root.querySelector('#btc-epithet'),
       bossFelledCard: root.querySelector('#boss-felled-card'),
       bfcName:      root.querySelector('#bfc-name'),
+      bossCard:     root.querySelector('#boss-card'),
+      bcLabel:      root.querySelector('#bc-label'),
+      bcName:       root.querySelector('#bc-name'),
+      bcTimer:      root.querySelector('#bc-timer'),
       goldFlash:    root.querySelector('#gold-flash'),
       surgeWidget:  root.querySelector('#surge-widget'),
       surgeX:       root.querySelector('#surge-x'),
@@ -922,6 +934,44 @@ export const ui = {
     clearTimeout(this._bfcTO);
     restartAnim(els.bossFelledCard, 'bfc-anim');
     this._bfcTO = setTimeout(() => els.bossFelledCard.classList.remove('bfc-anim'), duration * 1000);
+  },
+
+  // Spell card (BOSS-DESIGN.md §5f): announce a named phase set-piece in the
+  // lower-right, with a live capture TIMER. A dread card gets the hot label.
+  // Non-blocking; capture/survive is flashed by bossCardResult.
+  bossCard(name, accentHex = 0xffffff, dread = false) {
+    if (!els.bossCard) return;   // no HUD (headless) → no-op
+    const hex = `#${(accentHex ?? 0xffffff).toString(16).padStart(6, '0')}`;
+    els.bossCard.style.setProperty('--bc-accent', hex);
+    els.bossCard.dataset.dread = dread ? '1' : '0';
+    els.bossCard.dataset.captured = '';
+    if (els.bcLabel) els.bcLabel.textContent = dread ? '❖ DREAD CARD' : 'SPELL CARD';
+    if (els.bcName) els.bcName.textContent = name || '';
+    if (els.bcTimer) { els.bcTimer.textContent = ''; els.bcTimer.dataset.low = '0'; }
+    clearTimeout(this._bcTO);
+    els.bossCard.classList.add('show');
+    restartAnim(els.bossCard, 'bc-in');
+  },
+  // Live per-frame timer update (seconds remaining); pulses under ~5s.
+  bossCardTimer(remain, _total) {
+    if (!els.bcTimer) return;
+    els.bcTimer.textContent = `${Math.max(0, Math.ceil(remain))}s`;
+    els.bcTimer.dataset.low = remain <= 5 ? '1' : '0';
+  },
+  // Resolve: CAPTURE (survived hitless) or SURVIVED (took a hit / timed out).
+  bossCardResult(captured, _name) {
+    if (!els.bossCard) return;
+    if (els.bcLabel) els.bcLabel.textContent = captured ? '✦ CAPTURE' : 'SURVIVED';
+    if (els.bcTimer) els.bcTimer.textContent = '';
+    els.bossCard.dataset.captured = captured ? '1' : '0';
+    restartAnim(els.bossCard, captured ? 'bc-capture' : 'bc-survive');
+    clearTimeout(this._bcTO);
+    this._bcTO = setTimeout(() => els.bossCard && els.bossCard.classList.remove('show'), 1500);
+  },
+  bossCardClear() {
+    if (!els.bossCard) return;
+    clearTimeout(this._bcTO);
+    els.bossCard.classList.remove('show');
   },
 
   // "SURGE READY" prompt during a boss when the meter is full (manual unleash).

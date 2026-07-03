@@ -42,6 +42,19 @@ ui.bossBanner = () => {};
 ui.damageFlash = () => {};
 ui.feverStart = () => {};   // surge can now auto-trigger from grazing
 
+// Per-band geometry budgets (BOSS-DESIGN.md §5g/§5h): the flat 6,000/34 gate is
+// now keyed off def.tier — tier-1 (Sentinels) keeps the hard 6,000/34; higher
+// bands rise so grandeur can be spent in geometry. lowQ contract is RATIOS of
+// the band ceiling (q0.5 ≤60% band tris / ≤70% band draws).
+const TIER_BUDGETS = {
+  1: { tris: 6000, draws: 34 },
+  2: { tris: 8000, draws: 50 },
+  3: { tris: 14000, draws: 70 },
+  4: { tris: 22000, draws: 90 },
+  5: { tris: 30000, draws: 120 },
+};
+const budgetFor = (d) => TIER_BUDGETS[d.tier] || TIER_BUDGETS[1];
+
 let n = 0;
 const ok = (m) => { n++; console.log(`  ✓ ${m}`); };
 const fakeScene = { add() {}, remove() {} };
@@ -51,6 +64,11 @@ const makePlayer = () => ({ position: new THREE.Vector3(0, 8, 0), velocity: new 
 for (const key of BOSS_ORDER) {
   const d = BOSSES[key];
   assert(d && d.hpMax > 0, `${key} has positive hp`);
+  // Machine-readable tier (§5b/§5g/§5h): required, 1–5, and it drives the budget.
+  assert(Number.isInteger(d.tier) && d.tier >= 1 && d.tier <= 5, `${key} declares a valid tier 1–5 (got ${d.tier})`);
+  // Defs-lint name budgets (§5h): NAME ≤12, epithet ≤34 (title-card legibility).
+  assert((d.name || '').length <= 12, `${key} name ≤12 chars ("${d.name}")`);
+  assert((d.epithet || '').length <= 34, `${key} epithet ≤34 chars ("${d.epithet}")`);
   assertEq(d.phases.length, 3, `${key} has 3 phases (the vision: ~3 surges to kill)`);
   let prev = Infinity;
   for (const ph of d.phases) {
@@ -60,6 +78,25 @@ for (const key of BOSS_ORDER) {
     for (const a of ph.attacks) assert(['aimed', 'fan', 'spiral', 'tunnel', 'spiralStream',
       'curtain', 'movingGap', 'iris', 'stream', 'secondWave', 'crossfire'].includes(a), `${key} attack '${a}' is known`);
     assert(ph.cadence[0] > 0 && ph.cadence[1] >= ph.cadence[0], `${key} cadence is a valid range`);
+  }
+  // Spell cards (§5f/§5h): optional (coexist rule), but if present they must
+  // align 1:1 with phases, carry stable ids + a timer + an atFrac matching the
+  // phase, name within the card-line budget, and EXACTLY ONE dread card, last.
+  if (d.cards) {
+    assertEq(d.cards.length, d.phases.length, `${key} has one card per phase`);
+    const ids = new Set();
+    let dread = 0, lastDread = false;
+    d.cards.forEach((c, i) => {
+      assert(c.id && !ids.has(c.id), `${key} card ${i} has a unique stable id ('${c.id}')`);
+      ids.add(c.id);
+      assert(c.name && c.name.length <= 44, `${key} card ${i} name within budget ("${c.name}")`);
+      assert(c.name.includes(' — '), `${key} card ${i} follows the "<FRAGMENT> — <pattern>" grammar ("${c.name}")`);
+      assert(c.timer > 0, `${key} card ${i} has a positive timer`);
+      assertEq(c.atFrac, d.phases[i].atFrac, `${key} card ${i} atFrac matches its phase`);
+      if (c.dread) { dread++; lastDread = (i === d.cards.length - 1); }
+    });
+    assertEq(dread, 1, `${key} has exactly one dread card`);
+    assert(lastDread, `${key} dread card is the LAST card`);
   }
 }
 assertEq(bossDefForIndex(0).id, BOSS_ORDER[0], 'bossDefForIndex(0) → first boss');
@@ -72,7 +109,8 @@ for (const key of BOSS_ORDER) {
   let tris = 0;
   model.group.traverse((o) => { if (o.geometry) { const g = o.geometry; tris += (g.index ? g.index.count : (g.attributes.position?.count ?? 0)) / 3; } });
   tris = Math.round(tris);
-  assert(tris > 0 && tris < 6000, `${key} model tris ${tris} within the per-form budget (<6000)`);
+  const bud = budgetFor(BOSSES[key]);
+  assert(tris > 0 && tris < bud.tris, `${key} model tris ${tris} within the tier-${BOSSES[key].tier} budget (<${bud.tris})`);
   assert(model.muzzle && model.orbiters.length >= 2, `${key} model exposes a muzzle node + orbiters`);
   // Dissolve fully fades every material's opacity toward zero.
   model.setDissolve(1);
@@ -137,24 +175,32 @@ function findAllByName(root, name) {
 // deliberate design (the design pass added gilt/tip/storm-arc draws; the
 // shareability pass added the living-eye rig — pupils, storm lids, vein
 // lines, brow pivots — worth every one of its ~4 extra draws per boss).
-const DRAW_BUDGET = 34;
+// Draw budget is now per-band (TIER_BUDGETS): tier-1 Sentinels keep the hard 34
+// (measured @q1, HP bar forced visible: voidmaw 17, stormrend 22 — the mandala's
+// 8 iris petals are individual pivot meshes, not one InstancedMesh, a deliberate
+// tradeoff; a real phone held ~58fps at 415 draws and instancing JANKED, so draw
+// count at boss scale isn't the budget axis — additive-shell OVERDRAW is). Higher
+// bands rise so a richer Colossus/Calamity can spend draws on organs, not shells.
 for (const key of BOSS_ORDER) {
   const def = BOSSES[key];
+  const bud = budgetFor(def);
   const q1 = buildBoss(def, 1);
   const q05 = buildBoss(def, 0.5);
   const tris1 = countTris(q1.group);
   const tris05 = countTris(q05.group);
-  assert(tris05 > 0 && tris05 < tris1 && tris1 < 6000,
-    `${key} quality scaling: tris(q0.5)=${tris05} < tris(q1)=${tris1} < 6000`);
+  assert(tris05 > 0 && tris05 < tris1 && tris1 < bud.tris,
+    `${key} quality scaling: tris(q0.5)=${tris05} < tris(q1)=${tris1} < ${bud.tris} (tier ${def.tier})`);
+  // lowQ contract as a RATIO of the band ceiling (§5h): q0.5 ≤60% band tris.
+  assert(tris05 <= bud.tris * 0.60, `${key} lowQ tris ${tris05} ≤ 60% of the tier-${def.tier} ceiling (${Math.round(bud.tris * 0.6)})`);
   assertEq(q1.group.userData.archetype, def.archetype,
     `${key} model.group.userData.archetype matches the def ('${def.archetype}') — guards silent legacy fallback`);
 
   q1.setHealthBarVisible(true);   // hidden during fly-in by default; force it on for the gate
   const draws = countVisibleDraws(q1.group);
-  assert(draws > 0 && draws <= DRAW_BUDGET, `${key} visible draw calls ${draws} within the ≤${DRAW_BUDGET} gate`);
+  assert(draws > 0 && draws <= bud.draws, `${key} visible draw calls ${draws} within the tier-${def.tier} ≤${bud.draws} gate`);
 
   q1.dispose(); q05.dispose();
-  ok(`${key} archetype checks: tris ${tris05}→${tris1}, archetype '${def.archetype}', ${draws} visible draws`);
+  ok(`${key} archetype checks: tris ${tris05}→${tris1}, archetype '${def.archetype}', ${draws} visible draws (tier ${def.tier})`);
 }
 
 // Telegraph-silhouette gate: setCharge(1) + tick must move a SHAPE (a pivot
@@ -205,6 +251,29 @@ for (const key of BOSS_ORDER) {
   assert(moved >= 4, `craghold clench: ${moved} fingerPivots moved >0.25 rad on charge (need ≥4 — silhouette change)`);
   colossus.dispose();
   ok('craghold telegraph: setCharge(1) clenches the gesture hands (silhouette change)');
+}
+{
+  const hunter = buildBoss(BOSSES.ashtalon, 1);
+  for (const side of ['wingPivotL', 'wingPivotR']) {
+    assert(findAllByName(hunter.group, side).length === 1, `ashtalon exposes exactly one ${side}`);
+  }
+  const blades = findAllByName(hunter.group, 'bladePivot');
+  assert(blades.length >= 12, `ashtalon exposes ≥12 named bladePivots for the telegraph gate (${blades.length})`);
+  const shoulders = ['wingPivotL', 'wingPivotR'].map((s) => findAllByName(hunter.group, s)[0]);
+  // Settle the idle beat, snapshot, then charge: the default (no attack-tell)
+  // wind-up is the MANTLE — both wings raise up-forward + the fan narrows. The
+  // gate asserts the SHAPE moved (shoulders rotate AND blades re-fan), not colour.
+  for (let i = 0; i < 40; i++) hunter.tick(0.05, i * 0.05);
+  const preShoulder = shoulders.map((s) => s.rotation.z);
+  const preFan = blades.map((b) => b.rotation.z);
+  hunter.setCharge(1);
+  for (let i = 0; i < 30; i++) hunter.tick(0.05, 2 + i * 0.05);
+  const shoulderMoved = shoulders.filter((s, i) => Math.abs(s.rotation.z - preShoulder[i]) > 0.1).length;
+  const fanMoved = blades.filter((b, i) => Math.abs(b.rotation.z - preFan[i]) > 0.05).length;
+  assert(shoulderMoved === 2, `ashtalon mantle: both wing shoulders rotated on charge (${shoulderMoved}/2)`);
+  assert(fanMoved >= 8, `ashtalon mantle: ${fanMoved} blade pivots re-fanned on charge (need ≥8 — silhouette change)`);
+  hunter.dispose();
+  ok('ashtalon telegraph: setCharge(1) mantles the scythe-wings (silhouette change)');
 }
 
 // Legacy coexist gate: a def WITHOUT `archetype` must still fall through to
@@ -382,8 +451,10 @@ ok(`pattern budget: ${ALL_ATTACKS.length} attacks fit the low-tier bullet cap; f
 // --- 4. full controller lifecycle, driven to a kill (EVERY boss) -------------
 boss.initBoss(fakeScene);
 let killsSeen = 0, surgesSeen = 0;
+const cardsResolved = [];   // ids resolved (capture/survived) across the current kill
 on('bossDefeated', () => { killsSeen++; });
 on('surge', () => { surgesSeen++; });
+on('bossCard', (e) => { cardsResolved.push(e.id); });
 
 // Drive one full encounter of BOSS_ORDER[idx] like a skilled player: when the
 // phase-floor shield rises, top the meter and tap Surge (the only way past);
@@ -396,6 +467,7 @@ function driveKill(idx) {
   const player = makePlayer();
   boss.forceBoss(player, idx);
   const kills0 = killsSeen, surges0 = surgesSeen;
+  cardsResolved.length = 0;
   let t = 0, sawFight = false, sawShield = false, sawNarrow = false;
   let sawSetpiece = false, setpieceMaxX = 0, setpieceMaxY = 0, chargedDuringSetpiece = false;
   for (let i = 0; i < 60 * 200 && !(killsSeen > kills0 && !game.inBoss); i++) {
@@ -423,7 +495,8 @@ function driveKill(idx) {
   }
   return { t, sawFight, sawShield, sawNarrow,
     sawSetpiece, setpieceMaxX, setpieceMaxY, chargedDuringSetpiece,
-    killed: killsSeen > kills0, surges: surgesSeen - surges0 };
+    killed: killsSeen > kills0, surges: surgesSeen - surges0,
+    cardsResolved: [...cardsResolved] };
 }
 
 for (let idx = 0; idx < BOSS_ORDER.length; idx++) {
@@ -433,6 +506,13 @@ for (let idx = 0; idx < BOSS_ORDER.length; idx++) {
   assert(r.sawShield, `${key}: raised a shield at a phase floor (only Surge bursts it)`);
   assert(r.surges >= 3, `${key}: ~3 Surge unleashes to burst the shields and kill (got ${r.surges})`);
   assert(r.killed, `${key}: shield-gated boss dies after the phases are burst`);
+  // Spell cards (§5f): a def with cards resolves EACH one across the full kill
+  // (one per phase, ending at that phase's shield-break / the final death).
+  if (BOSSES[key].cards) {
+    const want = BOSSES[key].cards.map((c) => c.id);
+    assert(want.every((id) => r.cardsResolved.includes(id)),
+      `${key}: every spell card resolved across the kill (${r.cardsResolved.length}/${want.length}: ${r.cardsResolved.join(', ')})`);
+  }
   assertEq(game.inBoss, false, `${key}: after death the overlay tears down (game.inBoss cleared)`);
   assertEq(game.bossesDefeatedRun, 1, `${key}: the defeated boss is counted on the run`);
   assert(bullets.bossBulletCount() === 0, `${key}: all bullets are cleared on teardown`);
@@ -444,15 +524,22 @@ for (let idx = 0; idx < BOSS_ORDER.length; idx++) {
     assert(!r.sawNarrow, `${key}: no constriction → the arena never narrowed`);
   }
   assertEq(game.bossArenaHW, null, `${key}: arena width restored after the fight`);
-  // Setpiece contract (the fenced controller seam): a def WITH `setpiece` plays
-  // it exactly at its phase — a real station-leave excursion, never while a
-  // telegraph is charging — and a def WITHOUT one NEVER sees it (the
-  // byte-unchanged fence for the shipped bosses).
-  if (BOSSES[key].setpiece) {
+  // Setpiece contract (the fenced controller seam): a def WITH a setpiece plays it
+  // at its phase — a real station-leave excursion — and a def WITHOUT one NEVER
+  // sees it (the byte-unchanged fence for the shipped bosses). Supports the legacy
+  // single `setpiece` and the per-phase `setpieces` array. A QUIET setpiece holds
+  // fire (capture window); a MOVING setpiece (§5e moving-station) fires WHILE it
+  // travels, so the quiet-window rule is waived and firing is instead required.
+  const setpieces = BOSSES[key].setpieces || (BOSSES[key].setpiece ? [BOSSES[key].setpiece] : []);
+  if (setpieces.length) {
     assert(r.sawSetpiece, `${key}: the def's setpiece played`);
     assert(r.setpieceMaxX > 9 || r.setpieceMaxY > CONFIG.BOSS.fightHeight + 3,
       `${key}: setpiece left station (max |x| ${r.setpieceMaxX.toFixed(1)}, max y ${r.setpieceMaxY.toFixed(1)})`);
-    assert(!r.chargedDuringSetpiece, `${key}: no attack telegraph during the setpiece (quiet capture window)`);
+    if (setpieces.some((s) => s.moving)) {
+      assert(r.chargedDuringSetpiece, `${key}: a moving-station setpiece keeps firing while it travels (§5e)`);
+    } else {
+      assert(!r.chargedDuringSetpiece, `${key}: no attack telegraph during the setpiece (quiet capture window)`);
+    }
   } else {
     assert(!r.sawSetpiece, `${key}: no setpiece def → the fight never leaves station`);
   }

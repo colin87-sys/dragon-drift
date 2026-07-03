@@ -10,7 +10,7 @@ import { emit, on } from './events.js';
 import { clearAhead } from './obstacles.js';
 import { buildBoss } from './bossModel.js';
 import { BOSSES, BOSS_ORDER, bossDefForIndex } from './bossDefs.js';
-import { saveData, persist } from './save.js';
+import { saveData, persist, recordBossCard, recordBossLedger } from './save.js';
 import { BIOMES, biomeIndexAt } from './biomes.js';
 import {
   initBossBullets, updateBossBullets, spawnBossBullet, resetBossBullets,
@@ -35,6 +35,8 @@ const TIERS = B.renderTiers;   // render-order law: nothing draws over a bullet
 // Encounter scheduling (independent of the level RNG → course stays deterministic).
 let debugFirstAt = null;       // ?boss override: bring the first encounter in early
 let debugDefIdx = null;        // ?bossIdx override: force a specific BOSS_ORDER entry
+let debugChargePin = -1;       // capture hook: ≥0 holds the charge/mantle pose for a still
+let debugSetpiecePin = null;   // capture hook: { id, k } holds a setpiece pose (the dive) for a still
 let nextBossDist = B.firstAt;
 let encounterIndex = 0;
 
@@ -116,6 +118,14 @@ const RETICLE_SEGS = 96;       // ring resolution (smooth drain edge)
 let hpRevealT = 0;             // health-bar fill-up animation timer (0→full on settle)
 const HP_REVEAL = 0.8;
 let shielded = false;          // at a phase floor the boss shields — only Surge bursts it
+// Spell-card state (BOSS-DESIGN.md §5f/§5h). A card = one named phase, aligned
+// 1:1 with def.cards[phaseIdx]: it title-cards on entry, runs a display TIMER,
+// and is CAPTURED if the whole card was survived hitless (snapshot the run's
+// bullet-hit counter at card start, compare at card end). Defs without `cards`
+// leave activeCard null and the whole system is inert (coexist rule).
+let activeCard = null;
+let cardTimer = 0;             // seconds remaining in the current card's window (display / survival seal)
+let cardHits0 = 0;            // game.bossHitsTakenRun at card start (capture = no new hits by card end)
 let baitTimer = 0;             // cadence for the shielded graze-bait flood
 let baitLeft = 0;              // rings remaining in the current graze-bait CLUSTER
 let baitResting = false;       // true during the BREAK between clusters (reposition window)
@@ -158,11 +168,89 @@ const SETPIECE_PATHS = {
     const t = easeInOut((k - 0.75) / 0.25);
     return { x: 16 * (1 - t), y: B.fightHeight + 5 * (1 - t), rel: 14 + (B.settleGap - 14) * t };
   },
+  // ASHTALON — CIRCLING PASS (§5e moving-station): a wide elliptical orbit around
+  // a point ~19m ahead of the player, in the (x, rel) plane, rising a touch at the
+  // near pass. Runs as a MOVING setpiece — the attack machine keeps firing, so its
+  // pursuit-curve streams originate from a hunter that is actually circling you
+  // (emitter=organ, §5f law 7). Stays in FRONT (rel 8..30) so it's always readable
+  // and the HP bar never leaves frame.
+  circlingPass(k) {
+    const B = CONFIG.BOSS;
+    const ang = k * Math.PI * 2;                   // one full circle over the setpiece
+    return {
+      x: Math.sin(ang) * 13,
+      y: B.fightHeight + Math.sin(k * Math.PI) * 3,
+      rel: 19 + Math.cos(ang) * 11,                // k0 far(30) → k0.5 near(8) → k1 far(30)
+    };
+  },
+  // ASHTALON — STOOPING STRIKE (§5f dread, "from above"): CLIMB high and hold (the
+  // long dread telegraph), then STOOP — accelerate straight down through the lane
+  // and close in (the killing dive), then recover to station. Runs MOVING so the
+  // dread pattern rains from the diving hunter. This is the roster's proof of the
+  // §5e "from above" motion in the live pose frame (y climbs to ~21, dives to ~5).
+  stoopingStrike(k) {
+    const B = CONFIG.BOSS;
+    const TOP_Y = B.fightHeight + 8, TOP_REL = B.settleGap + 4;   // (21, 34) — high and drawn back
+    const DIVE_Y = 5, DIVE_REL = 10;                              // plunge low and near
+    if (k < 0.42) {                    // climb + HOLD (the 2–3s ritual pose)
+      const t = easeInOut(k / 0.42);
+      return { x: 0, y: B.fightHeight + (TOP_Y - B.fightHeight) * t, rel: B.settleGap + (TOP_REL - B.settleGap) * t };
+    }
+    if (k < 0.72) {                    // STOOP — accelerate down and in
+      const e = ((k - 0.42) / 0.30) ** 2;   // squared = the diving acceleration
+      return { x: 0, y: TOP_Y + (DIVE_Y - TOP_Y) * e, rel: TOP_REL + (DIVE_REL - TOP_REL) * e };
+    }
+    const t = easeInOut((k - 0.72) / 0.28);   // recover to station
+    return { x: 0, y: DIVE_Y + (B.fightHeight - DIVE_Y) * t, rel: DIVE_REL + (B.settleGap - DIVE_REL) * t };
+  },
 };
 function clearSetpiece() {
   if (setpieceT >= 0) model?.setSetpiece?.(0);
   setpieceT = -1;
   setpieceDef = null;
+}
+// Resolve the setpiece armed on entering `idx` (per-phase array first, then the
+// legacy single) and arm it. A `moving` setpiece keeps the attack/rider clocks
+// live (fires while it travels); a quiet one pushes them past its duration.
+function setpieceForPhase(idx) {
+  if (Array.isArray(def.setpieces)) return def.setpieces.find((s) => s.atPhase === idx) || null;
+  if (def.setpiece && def.setpiece.atPhase === idx) return def.setpiece;
+  return null;
+}
+function armSetpieceForPhase(idx) {
+  const sp = setpieceForPhase(idx);
+  if (!sp || !SETPIECE_PATHS[sp.id]) return;
+  setpieceDef = sp;
+  setpieceT = 0;
+  if (!sp.moving) {   // quiet pass → suppress fire for a capture-safe window
+    attackTimer = Math.max(attackTimer, sp.dur + 1.2);
+    riderTimer = Math.max(riderTimer, sp.dur);
+  }
+}
+
+// ---- Spell cards (BOSS-DESIGN.md §5f/§5h) -----------------------------------
+// beginCard: title-card the phase's named set-piece, arm its timer, snapshot the
+// hit counter (capture = hitless through the whole card). endCard: decide the
+// capture/survived outcome, ledger it (local-only), and announce it. A phase
+// with no matching card entry leaves the system inert.
+function beginCard(idx) {
+  activeCard = (def && def.cards && def.cards[idx]) || null;
+  if (!activeCard) { cardTimer = 0; return; }
+  cardTimer = activeCard.timer ?? 24;
+  cardHits0 = game.bossHitsTakenRun;
+  // Small lower-right title card (§5f) — the reveal card owns the lower-third;
+  // the spell card names the pattern without covering it.
+  ui.bossCard?.(activeCard.name, def.accent, !!activeCard.dread);
+  emit('bossCardStart', { id: activeCard.id, boss: def.id, dread: !!activeCard.dread });
+}
+function endCard() {
+  if (!activeCard) return;
+  const captured = game.bossHitsTakenRun === cardHits0;   // no bullet took a hit across the card
+  recordBossCard(activeCard.id, captured);
+  ui.bossCardResult?.(captured, activeCard.name);
+  emit('bossCard', { id: activeCard.id, boss: def.id, captured, dread: !!activeCard.dread });
+  activeCard = null;
+  cardTimer = 0;
 }
 // Arena constriction (a def's showpiece phase narrows the lane): the live half-
 // width the fill patterns and the player clamp both read. Full lane when idle.
@@ -438,6 +526,7 @@ export function startBossEncounter(player, defOverride) {
   phaseIdx = 0;
   spiralPhase = 0;
   shielded = false;
+  activeCard = null; cardTimer = 0;   // spell-card state resets per encounter
   baitTimer = 0; baitLeft = 0; baitResting = false;
   bandIdx = 0;
   activeBand = resolveBand(biomeIndexAt(player.dist));
@@ -456,12 +545,22 @@ export function startBossEncounter(player, defOverride) {
   group.userData.__isBoss = true;   // debug seam: locate the boss in the scene graph
   scene.add(group);
 
-  // Approach choreography: come in from behind (overtake up and over) or sweep
-  // in from the side, then settle dead ahead and face the player.
+  // Approach choreography (§5e): from behind (overtake up and over), the side,
+  // ABOVE (a stoop out of the top of the frame), or BELOW (rise out of the deep),
+  // then settle dead ahead and face the player. 'above'/'below' hold station-rel
+  // and travel in y, so the arc is a pure descent/ascent (no over-the-top hop).
   if (def.approachFrom === 'side') {
     start.rel = B.settleGap;
     start.x = (Math.random() < 0.5 ? -1 : 1) * 22;
     start.y = B.fightHeight;
+  } else if (def.approachFrom === 'above') {
+    start.rel = B.settleGap;
+    start.x = (Math.random() < 0.5 ? -1 : 1) * 4;
+    start.y = B.fightHeight + 22;   // above the top of the portrait envelope (~y35)
+  } else if (def.approachFrom === 'below') {
+    start.rel = B.settleGap;
+    start.x = (Math.random() < 0.5 ? -1 : 1) * 4;
+    start.y = -8;                   // rises from below the frame (Brineholm/Marrowcoil)
   } else {
     start.rel = -12;
     start.x = (Math.random() < 0.5 ? -1 : 1) * 4;
@@ -486,9 +585,10 @@ export function startBossEncounter(player, defOverride) {
   reticleOn = 0; reticleTarget = 1;
 
   // Warning flashes ALONE first (the boss stays hidden behind during 'warn'), then
-  // clears as the boss flies in. 'side' → left/right edge; 'behind' → bottom-centre
-  // (where it rises from behind), matching where it actually emerges.
-  const dir = def.approachFrom === 'side' ? (start.x < 0 ? 'left' : 'right') : 'bottom';
+  // clears as the boss flies in — anchored WHERE it emerges. 'side' → left/right;
+  // 'above' → top; 'below'/'behind' → bottom-centre.
+  const dir = def.approachFrom === 'side' ? (start.x < 0 ? 'left' : 'right')
+    : def.approachFrom === 'above' ? 'top' : 'bottom';
   ui.bossWarning?.(def.name, def.title, dir, B.warnTime);
   sfx.feverStart?.();
   cameraCtl.shake?.(1.2);
@@ -532,6 +632,8 @@ function endEncounter(player) {
   if (wallL) { wallL.visible = wallR.visible = false; wallMat.opacity = 0; }
   reticleTarget = 0;            // focus circle draws off (the !active branch animates it)
   ui.bossNoteClear?.();         // no stale callout/prompt lingers past the fight
+  activeCard = null; cardTimer = 0;
+  ui.bossCardClear?.();         // clear the spell-card readout past the fight
   // Carry Dragon Surge OUT of the fight so the player keeps the hyper into the
   // grace band (the kill earns it) — the normal fever visuals take over there.
   game.feverActive = true;
@@ -560,6 +662,8 @@ function endEncounter(player) {
 function startDeath(player) {
   phase = 'dying';
   dyingT = 0;
+  endCard();                              // resolve the final card if a path reached death without a shield-break
+  recordBossLedger(def.id, { kill: true });   // per-boss kill accrual (§5h; slot 9's taunts read it)
   clearSetpiece();
   reticleTarget = 0;            // focus circle draws off as the boss disintegrates
   arenaTargetHW = CONFIG.laneHalfWidth;   // storm walls glide out with the dissolve
@@ -704,15 +808,25 @@ export function updateBoss(dt, player, time) {
 
   if (phase === 'warn') {
     warnT -= dt;
-    if (warnT <= 0) phase = 'approach';
+    if (warnT <= 0) {
+      phase = 'approach';
+      // §5f rule-break: announce + swing to the rear view as the hunter overtakes
+      // from behind (no fire during approach anyway — the Mantis rule holds). Eases
+      // back out before it settles ahead. Runs ONCE per encounter, on entry.
+      if (def.rearViewOvertake && cameraCtl.rearView) {
+        cameraCtl.rearView(B.approachTime - 0.2);
+        ui.bossNote?.('⟲  BEHIND YOU  ⟲', 'THE HUNTER OVERTAKES', 'gold', 2.2);
+      }
+    }
   } else if (phase === 'approach') {
     approachT += dt;
     const k = Math.min(approachT / B.approachTime, 1);
     const e = easeInOut(k);
     pose.x = start.x + (0 - start.x) * e;
     pose.rel = start.rel + (B.settleGap - start.rel) * e;
-    // Arc up and over the player on a behind-approach so it never clips the dragon.
-    const arc = def.approachFrom === 'side' ? 0 : Math.sin(k * Math.PI) * 6;
+    // Arc up and over the player ONLY on a behind-approach (so it never clips the
+    // dragon); side/above/below travel straight in (the y descent/ascent IS the arc).
+    const arc = (def.approachFrom == null || def.approachFrom === 'behind') ? Math.sin(k * Math.PI) * 6 : 0;
     pose.y = start.y + (B.fightHeight - start.y) * e + arc;
     if (k >= 1) {
       phase = 'fight';
@@ -729,11 +843,26 @@ export function updateBoss(dt, player, time) {
       // attack clock AND the rider's auto-fire out past the card's hold time.
       model.notice?.();
       ui.bossTitleCard?.(def.name, def.epithet, def.accent);
+      beginCard(0);   // the first phase's named spell card (§5f)
       attackTimer = Math.max(attackTimer, 1.9);
       riderTimer = Math.max(riderTimer, 1.9);
       // Tutorial boss: teach the parry as the fight opens (amber shots = swat-able).
       if (def.tutorial) ui.bossNote?.('DODGE!', 'ROLL INTO AMBER SHOTS TO PARRY', 'gold', 3.0);
     }
+  } else if (phase === 'fight' && debugSetpiecePin) {
+    // Capture-only: freeze a SETPIECE pose (e.g. the stooping-dive silhouette) at a
+    // fixed path parameter so the crop tool can shoot the dread pose as a still.
+    const p = SETPIECE_PATHS[debugSetpiecePin.id]?.(debugSetpiecePin.k);
+    if (p) { pose.x = 0; pose.y = B.fightHeight; pose.rel = B.settleGap; }
+    model.setSetpiece?.(Math.sin(debugSetpiecePin.k * Math.PI));
+    model.setCharge(0);
+  } else if (phase === 'fight' && debugChargePin >= 0) {
+    // Capture-only: freeze the boss square-on and HOLD the contracted mantle pose
+    // at the pinned charge level so the crop tool can shoot the wind-up silhouette
+    // as a still (the live charge is too transient to catch headless). No firing.
+    pose.rel = B.settleGap; pose.x = 0; pose.y = B.fightHeight;
+    model.setAttackTell?.('aimed');
+    model.setCharge(debugChargePin);
   } else if (phase === 'fight') {
     if (setpieceT >= 0 && !shielded) {
       // Scripted station-leave beat (def-gated; see SETPIECE_PATHS). Attacks +
@@ -751,6 +880,16 @@ export function updateBoss(dt, player, time) {
       pose.rel = B.settleGap;
       pose.x = Math.sin(time * 0.7) * 5.0;
       pose.y = B.fightHeight + Math.sin(time * 1.3) * 0.8;
+    }
+
+    // Spell-card timer (§5f): the on-screen card countdown. A SURVIVAL card
+    // (invincible seal) uses timeout as the deterministic escape hatch — it
+    // bursts the seal so a weaker player is never hard-walled; a normal card's
+    // timer is a display window (capture is decided by staying hitless).
+    if (activeCard && cardTimer > 0) {
+      cardTimer = Math.max(0, cardTimer - dt);
+      ui.bossCardTimer?.(cardTimer, activeCard.timer ?? 24);
+      if (cardTimer <= 0 && activeCard.survival && shielded) breakShield(player);
     }
 
     // Manual Surge unleash (Space / 2nd-finger tap) — the shield-breaker.
@@ -933,20 +1072,23 @@ function breakShield(player) {
   // new phase's first attack can telegraph.
   pending.length = 0;
   attackTimer = Math.max(attackTimer, 1.6);
+  // The surviving-the-phase card resolves the instant its shield bursts: capture
+  // if the whole card was hitless. The next phase's card arms right after.
+  endCard();
   const next = def.phases[phaseIdx + 1];
   if (next) {
     phaseIdx++;
+    beginCard(phaseIdx);
     ui.bossNote?.(`PHASE ${phaseIdx + 1}`, def.name, 'phase', 2.6);
     emit('bossPhase', { phase: phaseIdx + 1 });
-    // Def-gated setpiece: entering this phase plays the scripted station-leave
-    // beat. Attack + rider clocks are held past its duration so the pass is a
-    // quiet capture window (pending was wiped above).
-    if (def.setpiece && SETPIECE_PATHS[def.setpiece.id] && phaseIdx === def.setpiece.atPhase) {
-      setpieceDef = def.setpiece;
-      setpieceT = 0;
-      attackTimer = Math.max(attackTimer, setpieceDef.dur + 1.2);
-      riderTimer = Math.max(riderTimer, setpieceDef.dur);
-    }
+    // Def-gated setpiece: entering this phase plays a scripted station-leave beat.
+    // A QUIET setpiece (default) holds the attack + rider clocks past its duration
+    // for a capture-safe pass; a MOVING setpiece (§5e moving-station branch) leaves
+    // the clocks alone, so the boss keeps firing from wherever the path carries it
+    // (ASHTALON's circling pass + stooping strike). Supports the legacy single
+    // `def.setpiece` and the per-phase `def.setpieces` array (voidmaw/stormrend
+    // carry neither → byte-unchanged, the lifecycle test asserts they never arm).
+    armSetpieceForPhase(phaseIdx);
     // Constriction showpiece: from this phase on, the storm walls slide in and
     // the arena narrows (the fill patterns + player clamp both track arenaHW).
     if (def.constrictPhase != null && phaseIdx >= def.constrictPhase) {
@@ -1230,6 +1372,11 @@ function damageBoss(amount, kind) {
 
 export function resetBoss() {
   clearSetpiece();
+  // Hard reset (game over / new run): if a fight was live and NOT already won,
+  // the player died to this boss — accrue the death-to (§5h; slot 9 reads it).
+  if (active && def && phase !== 'dying') recordBossLedger(def.id, { death: true });
+  activeCard = null; cardTimer = 0;
+  ui.bossCardClear?.();
   if (group && scene) { scene.remove(group); model && model.dispose && model.dispose(); }
   resetBossBullets();
   active = false;
@@ -1278,6 +1425,19 @@ export function setBossDebugDefIdx(k) {
   debugDefIdx = k;
 }
 
+// Capture hook (bosscrop): pin the charge/mantle pose at `level` (0..1) so a still
+// can be shot of the contracted wind-up silhouette. Pass a negative value to release
+// and hand the fight state machine back over.
+export function setBossDebugCharge(level) {
+  debugChargePin = level;
+}
+
+// Capture hook (bosscrop): pin a SETPIECE pose (id + path parameter k) so a still
+// can be shot of e.g. the stooping-dive silhouette. Pass null to release.
+export function setBossDebugSetpiece(pin) {
+  debugSetpiecePin = pin;
+}
+
 // Debug hook: drop straight into a fight (wired under ?debug in main.js).
 // `idx` forces a specific BOSS_ORDER entry (?bossIdx=K) for preview judging.
 export function forceBoss(player, idx = null) {
@@ -1285,7 +1445,11 @@ export function forceBoss(player, idx = null) {
 }
 
 export function bossDebugState() {
-  return { active, phase, hp, hpMax, phaseIdx, shielded, bullets: bossBulletCount(), nextBossDist, warnT, approachT, poseRel: pose.rel, poseX: pose.x, poseY: pose.y, setpiece: setpieceT >= 0, charging: chargeT > 0 };
+  // chargeLevel: 0 at the start of a wind-up → 1 at full contraction (mirrors the
+  // value fed to model.setCharge). The crop tool waits for a HIGH level so it grabs
+  // the fully-contracted mantle pose, not an early spread frame (charging is boolean).
+  const chargeLevel = chargeDur > 0 && chargeT > 0 ? 1 - Math.max(chargeT, 0) / chargeDur : 0;
+  return { active, phase, hp, hpMax, phaseIdx, shielded, bullets: bossBulletCount(), nextBossDist, warnT, approachT, poseRel: pose.rel, poseX: pose.x, poseY: pose.y, setpiece: setpieceT >= 0, charging: chargeT > 0, chargeLevel };
 }
 
 // Test seam (headless pattern-budget checks): fire ONE attack volley with its
