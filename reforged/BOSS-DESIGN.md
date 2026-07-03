@@ -105,6 +105,22 @@ framing · title cards · safe capture windows · thumbnail-attributable grade.
 Shipped baselines after the charisma pass: Voidmaw ≈ F 13/16, S 7/12 · Stormrend ≈ F 10/16,
 S 9/12. **Every new boss must beat the tier minimums below.**
 
+
+### 4b. The charisma-carrier law (faceless bosses)
+
+The §4 ladder rungs 1–7 are written in eye anatomy (pupils, blinks, brows) — buildable as-is
+for only half the roster. LAW: every build sheet must name its carrier for SEVEN channels —
+GAZE, BLINK-analog, CHARGE-TELL, EXPRESSION (≥3 states), FLINCH, NOTICE, DEATH — behind the
+unchanged `setGaze`/`notice` handle hooks. **A sheet missing any channel is not claimable.**
+Seeded carriers for the faceless slots: KARNVOW = the guttering cowl-glint + lance language
+(salute / point / lower = mood); KNELLGRAVE = the bound clapper-figure (it LIFTS ITS HEAD
+mid-swing — the roster's darkest notice beat); WEFTWITCH = her two pale hands are the face
+(weaving tempo = mood, hands still = dread); HOLLOWGATE = a lit pane that MIGRATES around the
+rose window as its pupil; EMBERTIDE = negative-space eye-hollows in the light (recorded
+exception to §3 law 2: its focal is darkness in brightness); THE UNMASKED stage 1 = the lid
+aperture itself. Each sheet also ships its doodle-test GLYPH — which becomes the boss-select
+chip icon (L131 chips need 14 faces).
+
 ## 5. THE BOSS TIER LADDER — each tier more grand, memorable, shareable
 
 The roster escalates in spectacle, scale, and character investment. A tier is a CONTRACT of
@@ -216,8 +232,8 @@ safe-lane gates exactly once.
 |---|---|---|---|---|---|---|
 | 1 | VOIDMAW | shattered mask | hollow sockets + broken horn/halo | violet·ember·white / points | behind | shipped |
 | 2 | STORMREND | concentric rings | unblinking eye + blade rings | teal·gold·white / points+lines | side | shipped |
-| 3 | CRAGHOLD | broad bust + detached limbs | two gesture hands | moss·bronze·white / points | behind | shipped |
-| 4 | VESPERCOIL | sinuous ribbon | dangled lure-lantern | indigo·pearl / dotted-chain | below (new) | open |
+| 3 | ASHTALON | winged pursuer (scythe-wing raptor) | never holds station — it hunts you | charcoal·ember / one molten SLIT | behind, overtakes | open (replaces retired CRAGHOLD¹) |
+| 4 | MARROWCOIL | segmented skeleton (bone dragon) | fly-through ribcage + skull lure | bone-white·void·ice-blue / dotted-chain + pinpoints | below (new) | open (absorbs VESPERCOIL²) |
 | 5 | EITHERWING | twin bodies | one eye passed between two | oxblood·aged-silver / single point | both sides | open |
 | 6 | HOLLOWGATE | architecture with a void | rose-window face | ivory·stained-glass / leaded field (VALUE-INVERTED: near-white) | static-ahead | open |
 | 7 | THRUMSWARM | stippled swarm | condenses into YOUR dragon | void-black·star-white / scattered points | condenses | open |
@@ -227,17 +243,32 @@ safe-lane gates exactly once.
 | 11 | WEFTWITCH | radial limbs + threads | visibly re-weaves the arena | moth-grey·rose / taut lines | above (new) | open |
 | 12 | ONEWING | lopsided twin (designed echo of 5 — flagged) | twin's frame fused in its chest | ashen-rose·blackened silver | behind, NO warning banner | open |
 | 13 | EMBERTIDE | frame-wide band/wave | face surfacing from light | vermilion→rose / full-frame field | the whole horizon | open |
-| 14 | THE UNMASKED | eclipse disc → composite figure | wears every prior scar as a wound | black·white / corona ring (RESERVED from slot 1) | always there | open |
+| 14 | THE UNMASKED | eclipse disc → wheels-within-wheels angel | the second sun cracks into an Ophanim: rings of tracking eyes, six scythe-wings, every prior scar worn as a relic | black·dark-gold·white / corona ring + eye-points (corona RESERVED from slot 1) | always there | open |
+
+¹ CRAGHOLD (broad bust → palm-eyed hands, moss·bronze) shipped at slot 3 and was RETIRED by
+user verdict after two rebuilds — the concept never escaped "Voidmaw with hands" (LEAPFROG
+L130). It stays in `BOSS_ORDER` only until ASHTALON ships in its slot; its geometry lessons
+(finger chains, socket pools, tell-family poses) are inherited by ASHTALON/EITHERWING/KARNVOW.
+² VESPERCOIL's coil-the-lane verb, below-approach, and lure-lantern all transfer to
+MARROWCOIL; the eel skin is retired for the stronger bone-dragon identity (user directive).
 
 ### Slot briefs (one paragraph each — the full design happens in that boss's own session)
 
-- **4 — VESPERCOIL, "What the Water Would Not Keep"** (Tier 2). A sky-eel whose ribbon body
-  never fully fits the frame; black fill = one S-curve with an angler head. The body IS the
-  arena: it coils around the lane and the rail threads its coils (graze-bait made diegetic);
-  tail sweeps telegraph lateral hazards; the lure-lantern is the stream/aimed emitter
-  (principle 3). Jobs: graze-bait + tunnel/iris fills placed along the coil. Rises from below
-  the water/fog line ('below' is a small approach extension). Lore gap: the lure's light is
-  not its own — whose is it?
+- **3 — ASHTALON, "the Ember Hunter"** (Tier 2 opener). The first boss that does not wait
+  for you: a charcoal raptor of two vast scythe-wings that overtakes from behind, banks wide,
+  and circles the lane between diving passes. No round eyes — one horizontal molten VISOR
+  SLIT in a dark cowl (nothing like slot 1's socket-pair or slot 2's orb). Wing poses ARE the
+  telegraphs: mantle-fold = tracking stream incoming along its dive line, full flare = fan.
+  Scar: one snapped wingtip blade, still smoldering (KARNVOW later wears it). Mechanical
+  star (SOP): closing + cadence — fast but sparse. Lore gap: what is it hunting FOR?
+- **4 — MARROWCOIL, "What the Sky Could Not Digest"** (Tier 2). The bone dragon: a low-poly
+  skull (box cranium, tapered snout, hinged jaw, twin horn-tubes) with cold pinlight eyes
+  and a lure-light hung between the horns; behind it, sixteen vertebrae coiling on a
+  traveling sine — and a mid-body RIBCAGE the rail flies straight through. The body IS the
+  arena: ring/iris fills emit as expanding bone-white rings off the coil circles, tail
+  sweeps telegraph lateral hazards, graze-bait beads the spine (all of VESPERCOIL's verbs,
+  stronger skin). Rises from below the fog line ('below' approach extension). VALUE claim:
+  the pale-bodied serpent (bone on void). Lore gap: whose skeleton?
 - **5 — EITHERWING, "Two Halves of the Broken Whole"** (Tier 2 peak). The roster's only
   multi-body silhouette: two mirrored dart-wraiths orbiting a shared ember. Crossfire made
   flesh — the twins ARE the ±10 flank emitters, swapping sides in figure-eights (the fight
@@ -297,23 +328,29 @@ safe-lane gates exactly once.
   biome sky shifts a full biome early (postfx grade — the blood-red-sky pattern). Fill apex:
   curtain/iris/movingGap at the fairness-floored cadence. Lore payoff: Stormrend's "unending
   gale" was its LEASH — closes slot 2's gap.
-- **14 — THE UNMASKED, "What Wore the Sky as a Mask"** (Tier 5, the Apex). Persistent
-  presence from mid-game once seeded: a second sun with a lidded eye on the horizon of
-  ordinary runs. Stage 1 silhouette: the eclipse disc (black disc + white corona — the
-  corona-ring glow-shape is reserved for it from slot 1 onward). Stage 2: the disc CRACKS
-  (it made the masks — the Voidmaw rhyme) and unfolds into a composite figure wearing every
-  earlier scar as a trophy-wound: horn, finger, shackle-chains, lure-light, the clapper's
-  silhouette — the whole lore web answered in one shareable body. Fights by QUOTING one
-  pattern-era per phase (zero new attack ids — the finale is the tested vocabulary at full
-  power). Post-defeat: the companion-shard mascot conversion (§8). Leaves exactly one new
+- **14 — THE UNMASKED, "What Wore the Sky as a Mask"** (Tier 5, the Apex — the game's
+  biblically accurate angel). Persistent presence from mid-game once seeded: a SECOND SUN
+  with a lidded eye on the horizon of ordinary runs. Stage 1 silhouette: the eclipse disc
+  (black disc + white corona — the corona-ring glow-shape is reserved for it from slot 1
+  onward). Stage 2: the disc CRACKS (it made the masks — the Voidmaw rhyme) and unfolds
+  into an OPHANIM — three concentric counter-rotating wheels, gimbal-tilted on different
+  axes (wheels within wheels), every wheel studded with independent white eyes that ALL
+  track you on their own lag; six scythe-wings (slot 3's blade-fan anatomy at doubled
+  scale) unfolding pair by pair; every earlier scar worn as a relic wired to its rails —
+  horn, snapped feather-blade, chain link, thread spool, bell shard. Stage 3: the wings
+  mantle open and the veiled core unveils. Fights by QUOTING one pattern-era per stage
+  (zero new attack ids — the finale is the tested vocabulary at full power). The reveal
+  hold where every eye on every wheel snaps to the player at once is the screenshot of the
+  game. Post-defeat: the companion-shard mascot conversion (§8). Leaves exactly one new
   gap for post-game.
 
 ### The lore web (gaps and their claimants — point, never answer early)
 
-Craghold's severed finger + broken shackles → claimed by 8 (same chain-maker) and 9 (wears
-the finger). Voidmaw's broken horn → 9's lance. Stormrend's "unending gale" → 13's leash.
-5's fled twin → becomes 12. 11's mended tear → 14's entry wound. 4's borrowed lure-light,
-10's bound clapper, 9's sender → open threads for 14 and post-game.
+Voidmaw's broken horn → 9's lance. Ashtalon's snapped wingtip feather-blade → 9's trophy
+chain. Stormrend's "unending gale" → 13's leash. 8's broken shackles → the unseen
+chain-maker (open thread). 5's fled twin → becomes 12. 11's mended tear → 14's entry wound.
+4's skeleton (whose?), 4's borrowed lure-light, 10's bound clapper, 9's sender → open
+threads for 14 and post-game.
 
 **Progression note (deferred)**: `bossDefForIndex`'s modulo-cycling is fine through Tier 2;
 this band structure is what eventually replaces it (encounter N → band-appropriate slot,
@@ -328,6 +365,386 @@ entrance-as-spectacle (DualShockers; Source Gaming "Big Baddies Breakdown") · M
 persistent dread (Zelda Wiki: Moon) · Monster Hunter flagship silhouette discipline (Capcom
 MH Rise dev interviews; Vice, "The Developers of Monster Hunter Explain What It's Like to
 Build Monsters").
+
+## 5c. BAND EXPERIENCE CONTRACTS — what the PLAYER feels change (not just visuals)
+
+Each band adds a new *category* of experience the previous band never did — this is the
+reason to keep playing, encounter after encounter:
+
+- **SENTINELS — "a duel."** The boss holds station ahead; you exchange fire. (Shipped.)
+- **COLOSSI — "the fight moves."** The boss leaves station: dive passes, side orbits,
+  crossing the lane while firing; the rail threads its negative space (a ribcage, between
+  wings); the arena reacts to its body. First-time feeling: *it isn't waiting for me.*
+- **CALAMITIES — "the fight is a scene."** Multi-part bodies (a swarm, twin bodies, a whale
+  you scroll along), formations-as-telegraphs, relationship beats (BRINEHOLM hesitates;
+  EITHERWING's survivor flees), new arrival directions (below the fog, condensing from
+  dust, both flanks at once). Feeling: *bosses stopped being one thing in front of me.*
+- **WORLD-ENDERS — "the lane breaks."** Attacks originate OFF-lane (threads from above,
+  pendulum sweeps across, a tide that IS the horizon); the world-state reacts (sky grade
+  shifts a biome early, vertical constriction, audio foreshadowing); entrances are
+  subverted (heard before seen; NO warning banner; already there when the banner fires).
+  Feeling: *the fight stopped respecting the rules the game taught me.*
+- **THE APEX — "it owns the game."** A second sun with a lidded eye rides ordinary runs
+  from mid-game; the finale is flying INTO its sky; multi-stage body; quotes every earlier
+  pattern era; answers the lore web; leaves a companion-shard echo. Feeling: *the thing
+  that was always watching finally turned around.*
+
+Retention loop: each band's opener is spectacle-forward and gentler than the previous
+band's peak (the sawtooth); the NEXT band is foreshadowed one biome early (horizon glints,
+audio, sky grade) so the player always has a visible "what is THAT?" ahead of their wall.
+
+## 5d. BUILD SHEETS (low-poly translation per open slot — primitives, palette, budget, reuse)
+
+**A registry row without a build sheet is not claimable.** These are the concrete
+translations — a builder session starts from its sheet, not from the brief's prose.
+(All tri counts @q1 pre-`def.scale`; every sheet obeys §2/§3; camera envelope law from the
+feasibility survey: at rel 30, on-screen centers within x ±15 / y 2..22 on portrait — push
+`rel` to 50–60 for wide lateral action instead of parking wide at 30.)
+
+- **3 ASHTALON** — prow: flattened stretched octahedron (~3 long); cowl band: dark box arc
+  wrapping the prow face; VISOR SLIT: thin recessed box, HDR white-orange ×2.4,
+  toneMapped=false; wings: 2 shoulder pivots × 6 tapered flat scythe-blades each (extruded
+  triangles, lengths 2.5→4.2, baked fan ±0.5 rad), span ~14; wing-root ember-crack
+  LineSegments; 3 dark cinder-chip trailers (orbiter contract). Poses on the wing pivots:
+  mantle (fold up-forward) / flare (spread) / dive-tuck. Scar: outermost left blade snapped
+  at half length, ember tip. Charcoal 0x121012 base ei 0.02 / ember 0xff6a30 accents ei
+  ≤0.2 / slit hottest. ~1.8k tris, ~14 draws. REUSES: tell-family pose machine + setpiece
+  paths (craghold's), HDR idiom, kit. NEEDS: moving-station branch (§5e).
+- **4 MARROWCOIL** — skull: box cranium 1.6w + tapered snout box + jawPivot jaw slab + 2
+  curved horn tubes (TubeGeometry taper, the idol's horn kernel); eye pinlights: 2 small
+  HDR ice-blue spheres recessed in dark socket boxes; lure: HDR teardrop on a LineSegments
+  strand between horns (focal). Spine: 16 octahedron vertebrae (r 0.5→0.25 taper) each
+  with 2 short torus-arc rib stubs, positioned each frame along a CatmullRom whose control
+  points run a traveling sine (coil sweep); RIBCAGE: 5 pairs of long torus arcs (r 2.6,
+  arc π·0.6) mid-chain forming the fly-through tunnel; tail blade: flat kite. Bone
+  0xd8d2c0 diffuse (sanctioned VALUE inversion, dark joints paint the hierarchy) / void
+  gaps / ice-blue 0x8fd0ff lights. ~3.5k tris, ~24 draws (vertebra chain = separate small
+  meshes — phone-verified fine; NO InstancedMesh, L126). REUSES: mandala rail-merge idiom,
+  charisma eye rig, jawPivot precedent. NEEDS: below-approach + cull-bound widening (§5e).
+- **5 EITHERWING** — per twin: stretched-octahedron kite body (~2.2 long) + crescent head
+  fin (flat arc extrude) + 2 ribbon tails (4 flat tapered boxes on lagged pivots); THE EYE:
+  one HDR orb that detaches and glides between bodies on a LineSegments bead-thread (the
+  charge tell: whoever holds the eye fires next). Figure-eight orbits (moving-station
+  branch) around a drifting center; crossfire's existing ±10 emitters = their fire points.
+  ONE shared hp pool + one bar (zero hit-model work — the craghold precedent); shield
+  wraps whichever body holds the eye. Oxblood 0x2a1114 + aged-silver rims; eyeless twin
+  always darker. ~2×900 tris. REUSES: everything; NEEDS: nothing structural.
+- **6 HOLLOWGATE** — 2 jagged pillars (stacked offset boxes, 5 per pillar) + broken lintel
+  arc (4 box segments, one missing = the scar) + floating masonry chips; ROSE WINDOW in
+  the lintel: 8 wedge panes (cone-slice extrudes) round a hub — panes light individually
+  (expression rig: which panes glow = the face's mood); portcullis: 6 box bars descending
+  as the wall volleys. VALUE-INVERTED near-white ivory 0xd8d0c2 + dark edge cage
+  (EdgesGeometry) + stained-glass emissive inside the window only. Arch gap ≥ 9 wide —
+  the rail flies through every pass. ~2.5k tris. NEEDS: static-ahead approach (trivial) +
+  first horizon-presence seeding (fog-exempt, §5e).
+- **7 THRUMSWARM** — queen: bone-white lantern rhombus (stretched octahedron + 6 rib fins
+  + dark edge cage) with ONE amber eye; swarm: 28 dark tetra motes (separate meshes)
+  lerping between authored formation tables: ring / wall / line / YOUR-DRAGON (~30 slots
+  sampled once from the player's model vertices — the meme frame). Chip damage only lands
+  while condensed; shield phase = the swarm becomes a ring around YOU (L106 law: ring,
+  never a filled volume). Void-black motes ei ≤0.1 / star-white queen. ~1.6k tris.
+- **8 BRINEHOLM** — never fully on screen: whale-back ridge = ONE long low-facet hull
+  (~24 units, 8 radial facets) spanning the frame bottom; 4 fin-sails (flat tapered
+  extrudes) rising/falling on pivots; THE EYE: 3-unit HDR hemisphere + iris ring + heavy
+  stone lid that surfaces for weak-point windows; broken shackle posts + snapped chain
+  tori along the ridge. Geyser curtains rise from below-frame (off-rel spawns). Kelp-black
+  0x0c1210 / abalone 2-tone emissive banding / white eye. ~3k tris. NEEDS: below-horizon
+  rise + widened bullet cull bounds (§5e).
+- **9 KARNVOW** — vertical figure ~9 tall: hooded cowl (tapered extrude) whose face is an
+  EMPTY VOID with one cold glint deep inside (no face — the anti-mask); pauldrons; lance =
+  Voidmaw's snapped-horn geometry (same tube-taper kernel, violet-scarred); trophy chain
+  (LineSegments + relic charms: Ashtalon's feather-blade, one unclaimed hook). Rides
+  ALONGSIDE matching your speed (moving station at x ≈ ±12, rel 12–18), then cuts in.
+  Parries your reflected bullets once (amber flash + riposte). Tarnished iron 0x1c1e22 /
+  trophy glints in the owed bosses' palettes / amber. ~2k tris.
+- **10 KNELLGRAVE** — bell: 3 stacked tapered cylinder bands + flared lip (10 facets),
+  crack seam = jagged LineSegments + thin HDR candle-slit box behind it; chain: 3 link
+  tori + LineSegments vanishing up off-frame (hangs from NOTHING); clapper: bound figure
+  (capsule + crossing strap boxes + drooped head sphere) visible only mid-swing. Pendulum
+  = one rig pivot; toll rings = expanding ring-walls on a rhythmic beat (iris inverted);
+  audio tolls one biome early. Patina copper 0x1a2420 / candle 0xffd890. ~2.2k tris.
+  NEEDS: audio-foreshadow seam + off-lane sweep bounds (§5e).
+- **11 WEFTWITCH** — mantle bust: hooded triangular shroud (extrude, no legs) with 2 pale
+  hands only; 6 radial spinneret limbs (2-segment tapered tubes on pivots); WEB: taut
+  LineSegments spanning arena to off-screen anchors (overdraw-exempt); gaps visibly stitch
+  shut between waves (thread redraw); laserLance = one thread pulled tight → HDR flash;
+  rose = woven rosette knots. Parry cuts a glowing thread → stagger. Descends from ABOVE
+  on one thread. Moth-grey 0x1e1c22 / rose 0xd88098. ~1.8k tris. NEEDS: above-approach +
+  `top` warning direction (§5e).
+- **12 ONEWING** — EITHERWING survivor at ×2.2 scale, permanently listing ~12°: one vast
+  8-blade wing (Ashtalon kernel, oversized), one atrophied 2-blade stub; the dead twin's
+  kite frame fused across the chest as a pure-black EdgesGeometry wireframe ghost
+  (eyeless); its old bead-thread hangs snapped. Mirrors your last dodge into the next
+  volley. Ashen-rose 0x241418 / blackened silver / ghost stays black. Entrance: NO
+  warning banner (def.noWarn — the banner fires late, as the jump-scare). ~2.6k tris.
+- **13 EMBERTIDE** — the horizon attacks: 3 frame-wide thin light-bands (long flat planes,
+  additive, staggered z, UNstacked vs camera → inside the overdraw cap since they replace
+  the sky) + a FACE surfacing as dark relief bumps pushed through the glow (brow/nose/chin
+  silhouette masses, opaque). Vertical constriction: ceiling/floor light-bands close in
+  (new constrict axis). Sky grade shifts a biome early. Vermilion→rose gradient / dark
+  relief. ~1.2k tris + postfx. NEEDS: vertical constrict + full-frame emitter rows (§5e).
+- **14 THE UNMASKED** — Stage 1 (seeded mid-game on ordinary runs): fog-exempt black disc
+  + white corona ring + one heavy lid, camera-relative like the sky dome (its reserved
+  glow-shape). Stage 2: 3 concentric wheels (torus rails + box spokes) gimbal-tilted on
+  different axes, counter-rotating; 6–8 independent HDR almond eyes PER WHEEL (the proven
+  eye rig ×~20, each with own gaze lag — draws are free, L126); six scythe-wings
+  (Ashtalon kernel ×2 scale) unfolding pair by pair; relics wired to the rails (horn,
+  feather-blade, chain link, thread spool, bell shard). Stage 3: wings mantle open, the
+  veiled core (HDR sphere behind petal shroud — mandala petal kernel) unveils. Dark gold
+  0x181206 / gold rails / white eyes+corona. ~5k tris across stages, staged builds swap
+  via dissolve. NEEDS: horizon-presence system + stage system (§5e).
+
+**Reserves (parked, fully-designed concepts for variants/post-game — not claimable slots):**
+MAWSIREN (spiral shell siren), THUNDERGRAVE (storm gate), THE SILVERED WOUND (mirror that
+replays known patterns), NIGHT BLOOM (unfolding black orchid), SUNDERED FORGE (caged molten
+heart), STARFALL (ablating comet doing passes).
+
+## 5e. ENGINE-EXTENSION ROADMAP (per band — grounded, with the seams)
+
+Ground truth (feasibility survey, 2026-07): the whole fight lives in a player-relative
+`pose {x,y,rel}` frame with NO clamps (`boss.js` pose ~:194, `placeGroup` ~:859);
+`SETPIECE_PATHS` (~:137) is a one-function seam for scripted movement; `spawnBossBullet`
+takes arbitrary origins (crossfire already fires from ±10; the rider shot proves off-`rel`
+spawns work). Fog (near 70–85 / far 380–430) ERASES everything past ~400m regardless of
+emissive — horizon objects must be fog-exempt with their own haze (the sky-dome pattern:
+`material.fog = false` + camera-following, `environment.js`). Camera far=1600 is not the
+limiter. Portrait camera envelope at rel 30: x ±15 / y 2..22.
+
+- **COLOSSI (small):** new `SETPIECE_PATHS` entries (dive-under, side orbit, figure-eight);
+  a NON-suppressing moving-station branch (setpieces currently hold fire — ~:721-730);
+  `approachFrom: 'below' | 'above'` branches (~:455-463) + a `top` warning-banner direction
+  (CSS). EITHERWING needs zero hit-model work (shared pool, crossfire emitters).
+- **CALAMITIES (medium):** formation-slot tables (model-side only); below-horizon rise
+  (pose.y from −8) + WIDEN the bullet cull bounds (`bossBullets.js` ~:388-389 currently
+  deletes anything born past ±23 x / 34 y); scroll-along-back reuses moving-station.
+- **WORLD-ENDERS (medium):** off-lane/off-`rel` volleys via direct `spawnBossBullet` with
+  per-emitter time-to-impact (`aimVel` assumes `pose.rel` — crossfire's inline t is the
+  template); `def.noWarn` flag; audio-foreshadow seam (play a boss sfx cue from levelGen
+  distance triggers); VERTICAL constriction (arena system today only narrows x —
+  ~:161-166, :650-664); early sky-grade seeding via the `bossGradeTarget` channel.
+- **APEX (the big one):** the fog-exempt second-sun landmark seeded on ordinary runs
+  (environment.js integration); the stage system (stage swap = builder-internal dissolve
+  between sub-rigs, driven off phase transitions); pattern-era quoting (zero new ids).
+
+## 5f. MOVE-SET GRAMMAR + THE SPELL-CARD SYSTEM (research pass, 2026-07)
+
+Three research tracks (legendary move sets · shmup/danmaku heritage · dimension/rule-breaking
+bosses) distilled into adopted law. Full sources live in the research reports; the load-bearing
+precedents are cited inline.
+
+### The move-set laws (every boss)
+
+1. **The 3–5 move core.** Each boss: 3–5 attacks, each a unique triple of silhouette POSE +
+   pattern SHAPE + one best VERB (dodge/graze/parry/surge). If two attacks share a pose or an
+   answer, cut one. (Punch-Out tells; Cuphead phase vocabularies.)
+2. **One NAMED dread move per boss.** The fight's longest telegraph (2–3s held ritual pose),
+   used 1–2 times or threshold-gated, screen-filling, near-lethal, with a COUNTERINTUITIVE
+   answer that uses a non-default verb — and it is deliberately the fight's graze goldmine,
+   so mastery converts terror into the biggest scoring moment. (Waterfowl Dance, Genichiro's
+   lightning; two flavors: lethal-dread for late bosses, spectacle-dread for early.)
+3. **Phase grammar: introduce → develop → twist → desperation.** Develop = same reads,
+   faster, +1 move. Twist = ONE systemic change. Desperation (last ~20%) = max-tempo remix +
+   the guaranteed dread move + a music layer. Old telegraphs stay valid all fight. (Isshin.)
+4. **Teach before you test.** Any parry/surge-answered move debuts in a slow survivable form
+   on an earlier boss or phase. Slot 14 is an EXAM over the roster's taught mechanics, zero
+   new ids. (The Genichiro→Isshin lightning pipeline.)
+5. **Legible turn-taking.** Every attack string ends in an unmistakable exposure state:
+   weak-point glow + pattern silence + a slumped pose. Nobody ever wonders whose turn it is.
+6. **Honest bars; one earned resurrection.** Phase pips on the HP bar everywhere (Sekiro
+   deathblow grammar — truthful dread is unlimited). The roster gets exactly ONE lying
+   FELLED card, at slot 12 — see rule-breaks. (Friede/Radagon; the Health-Bar-Lie trust rule.)
+7. **Emitter = organ.** Every pattern originates from a visible body part; the telegraph is
+   that part's animation; phase change is visible damage/transformation. If a featureless
+   sphere could emit the pattern, the body is set dressing. (CAVE part grammar, Gradius core
+   ritual, already implied by law §3.5 — now absolute.)
+8. **Rhythm is a fairness subsidy.** Per-attack audio cues; dense patterns emit on the music
+   grid where possible; graze ticks confirm "close but safe." Behind-camera depth ambiguity
+   becomes thrill, not unfairness. (Grimm; Just Shapes & Beats; Returnal's audio channel.)
+
+### The spell-card system (ADOPTED — the genre's biggest fan-culture engine)
+
+Attacks of consequence become **named, title-carded set-pieces** (Touhou's invention: names
+turn patterns into nouns; nouns get ranked, wiki'd, screenshotted, fan-arted):
+
+- A **card** = one named signature pattern-phase: small title card (reuses `bossTitleCard`
+  styling, lower-right, non-blocking), bullet-cancel flash on entry, its own dial block, a
+  TIMER (~20–30s), and a per-card ledger: **capture** (survive it hitless) vs **survived**
+  (timed out / took hits). Timeout is the escape hatch — no card ever hard-walls a weaker
+  player; capture is the mastery atom players share. (Cost: LOW — a banner variant + timer +
+  stats map on top of the SOP's phases/dials.)
+- **One trick per card**: a single geometric insight (a rotating safe lane, streaming, a
+  rhythm) composed from the existing pattern vocabulary. Later cards remix earlier ones
+  denser/inverted; slot 14 quotes the roster. **The pattern IS the personality** (Cirno law):
+  card geometry expresses the boss's character — KNELLGRAVE's cards are metronomic,
+  ASHTALON's are pursuit curves, WEFTWITCH's are lattices.
+- **Naming grammar** (Darius discipline — one formula for the whole roster): every card is
+  `"<FRAGMENT OF THE EPITHET> — <plain pattern name>"`, e.g. Voidmaw's *"HOLLOW JUDGMENT —
+  Sky-Splitting Verdict"*, KNELLGRAVE's *"IT RINGS — The Second Toll"*. The boss's dread move
+  (law 2) is always its final card.
+- **Survival cards ×2 max in the roster**: boss invincible + visibly sealed/charging; pure
+  dodge exam on a timer. Assigned: slot 10 (a toll you can only outlast) and slot 13's
+  vertical squeeze. The unfillable bar is the tell.
+- **Post-clear EX cards** (deferred, post-roster): beat a boss hitless → unlock its bonus
+  ultra card in the boss-select picker (can't cost a run). Per-card stats feed leaderboards.
+
+### Rule-break allocation (each category spent ONCE; the Mantis rule governs all)
+
+A break is legal only if: performed in-character as the boss's power; resolves ≤3s with the
+game visibly alive; deterministic; never touches saves/purchases/real progress; and the
+ritual it breaks ran clean through Tiers 1–3 first. VETOED for mobile web: fake crashes/
+freezes/system dialogs, touch-input tampering, save/currency wagering, full free-flight
+all-range mode (Star Fox's own monster fights stayed on the rail; the Panzer Dragoon
+quadrant-orbit buys the arena fantasy rail-natively).
+
+| Slot | Break(s) | Precedent |
+|---|---|---|
+| 3 ASHTALON | one scripted rear-view camera beat as it overtakes (~3s, announced, no fire during the swing) | Sin & Punishment; SF64's "announce the mode" |
+| 7 THRUMSWARM | mirrors a ring-buffer of YOUR recent flying back at you as its formation (boss-side mirroring — never touch input) | NieR twin fights |
+| 9 KARNVOW | fires ONE slow survivable shot during the reveal hold (the trophy-hunter has no honor — the roster's only hold-breaker); taunt cards quote your OWN run stats from localStorage (deaths, which boss felled you most) — diegetic Psycho Mantis; escalation: quadrant-orbit duel beat | Sans's menu attack; Psycho Mantis; Panzer Dragoon |
+| 10 KNELLGRAVE | the music DIES for the whole fight — only the toll keeps time (the silence is the puzzle's clock) | Sans's silence; Grimm's audio-bound moves |
+| 11 WEFTWITCH | threads visibly sew across the HUD chrome (never over bullets — render-order LAW holds); one banner gets stitched over | Omega Flowey's UI arena, honest version |
+| 12 ONEWING | late DANGER banner (already canon) + the roster's ONE lying FELLED card: it fires, cracks, and ≤35% of the bar returns — resolve ≤2s, crippled silhouette stays moving as the tell (the MGS2 live-corner rule); its name IS the mechanic | Radagon→Elden Beast; Fission Mailed |
+| 14 THE UNMASKED | honest re-struck stage cards ("II — THE UNMASKED"); a one-frame title glitch where the card reads VOIDMAW (it made the masks); exactly ONE line addressed past the dragon at the player, stage 3 | Elden Beast card; Eternal Darkness micro-dose; Mantis |
+
+### Signature-move assignments (the dread move per slot — names draft, user may veto)
+
+3 ASHTALON *"EMBER HUNT — Stooping Strike"* (full-speed dive pass, lethal-dread, answer:
+surge INTO the dive gap) · 4 MARROWCOIL *"MARROW — The Closing Ribs"* (ribcage constricts one
+ring at a time while coils sweep; graze goldmine) · 5 EITHERWING *"EITHER/OR — Both Halves at
+Once"* (the eye splits its light: simultaneous mirrored crossfire) · 6 HOLLOWGATE *"THE DOOR
+PRAYS — Rose Judgment"* (all 8 panes fire radially while the arch closes its portcullis) ·
+7 THRUMSWARM *"A THOUSAND — Your Own Wings"* (the swarm becomes your dragon and flies your
+recorded path back at you) · 8 BRINEHOLM *"THE ISLAND BREATHES — Sounding"* (it dives; the
+whole arena floor erupts in geyser curtains; spectacle-dread) · 9 KARNVOW *"WEARS THE HORN —
+Voidmaw's Verdict"* (it fires boss 1's dread card back at you, violet-scarred) · 10 KNELLGRAVE
+*"IT RINGS — The Last Toll"* (survival card: nine accelerating tolls, pure rhythm dodge) ·
+11 WEFTWITCH *"SHE MENDS — Warp and Weft"* (the whole arena re-woven in one pass: every lane
+stitches shut except the one her hands never touched) · 12 ONEWING *"WOULD NOT DIE — The
+Missing Wing"* (it performs EITHERWING's old dual attack ALONE, the dead half's volley arriving
+as ghost-bullets) · 13 EMBERTIDE *"SKY SET LOOSE — Horizon Break"* (survival card: the tide
+crests the whole frame; the safe pocket is where the face is — hide in its shadow) · 14 THE
+UNMASKED: its final card is the roster exam — *"WHAT WORE THE SKY — Every Verdict at Once"*,
+quoting one card from every felled boss at once, thinned to fairness caps.
+
+**Destructible sub-parts** (CAVE law — hero bosses only, 3–4 in the roster, prove-then-extend):
+6 HOLLOWGATE portcullis bars + individual rose panes (shooting a pane deletes its radial from
+the composite) · 8 BRINEHOLM shackle posts (freeing it early softens phase 3 — mercy as
+mechanics) · 12 ONEWING the fused dead frame (breakable; breaking it removes the ghost-bullet
+component but enrages the tempo) · 14 wheel relics (each destroyed relic removes that boss's
+quoted card from the final exam — the player edits the finale).
+
+**Duo law** (one per roster): EITHERWING is the duo — complementary axes (one twin flies
+lane-denial walls, the other aimed tempo), and the eye-handoff IS the kill-order mechanic:
+whichever twin holds the eye when the pair breaks fires the desperation card alone. ONEWING
+returning at slot 12 is the roster's rival-return payoff (Vergil grammar: two-thirds familiar
+kit + counters to what you learned + the old unanswerable dual attack finally parryable).
+
+**Verb-shift climax** (Radiance law): slot 14 stage 3 abandons pattern-dodging — the shroud
+opens and the fight becomes a surge-chase THROUGH the wheels to reach the core before it
+re-veils. Endings are remembered by what the player did last.
+
+### Engine additions this section costs (append to §5e ledger)
+
+Card system: title-card variant + per-card timer/capture flag + stats map (LOW — sits on the
+SOP's phase/dial schema: a card = a named phase-attack entry). Stat-taunt templating from
+existing localStorage run stats (LOW). One scripted camera beat seam (MEDIUM — cameraCtl
+path, announced, fire-suppressed). Sub-part HP: per-part hit test vs the single-center model —
+route by the `bossDamage` event's existing x/y payload (MEDIUM; hero bosses only). HUD-sew
+overlay: DOM/SVG lines above chrome, below bullets (LOW).
+
+## 5g. THE PROGRESSIVE GEOMETRY BUDGET (user directive, 2026-07: spend the hardware)
+
+The measured ceiling (L126: a real phone held ~58fps at 400k tris / 415 animated draws;
+overdraw is the ONLY cliff) is ~10× above even the ladder below — grandeur must be VISIBLE
+in the geometry, not just the behavior. Budgets now RISE per band; the §5d sheet numbers are
+MINIMUMS, and builders are expected to spend up toward the band budget on: facet/relief
+density, more organs/animated parts, richer wing/coil/wheel segment counts, bigger destructible
+assemblies, and extra pose articulation — NEVER on stacked additive volumes (the overdraw law
+is absolute at every band; ≤2 large additive shells on screen, always).
+
+| Band | Tri budget @q1 | Visible-draw gate | Move-set richness |
+|---|---|---|---|
+| SENTINELS (1–2, shipped) | ≤4,000 | ≤34 | 3-move core, 2–3 cards |
+| COLOSSI (3–5) | 5,000–8,000 | ≤50 | 4-move core, 3–4 cards, 1 setpiece |
+| CALAMITIES (6–9) | 8,000–14,000 | ≤70 | 4–5 cards, multi-part bodies/adds |
+| WORLD-ENDERS (10–13) | 14,000–22,000 | ≤90 | 5–6 cards, world-state beats |
+| THE APEX (14) | ~30,000 across stages | ≤120 | the roster exam |
+
+Rules: (1) `tests/boss.mjs` gates become per-band ceilings keyed off `def.tier` (lands with
+the first Colossi build; the flat 6,000/34 gate applies only to tier-1 defs thereafter).
+(2) The quality ladder still applies — `tris(q0.5) < tris(q1)` stays a gate, and lowQ drops
+must scale with the bigger bodies (segment counts, card density via the SOP's *Low dials).
+(3) Draws stay cheap but not free: no InstancedMesh for animated matrices (L126), and any
+single merged mesh over ~20k tris should be split so the dissolve/flash material tiers stay
+per-region. (4) If a build sheet's concept doesn't NEED its band budget, spend the surplus on
+its dread-move spectacle (more simultaneous animated parts during the named card) rather than
+static filler — richness players see mid-fight beats richness in the idle silhouette.
+
+## 5h. PRODUCTION DEFAULTS (gap-audit adoptions + owner decisions, 2026-07)
+
+Owner decisions (locked): **(1) LIFETIME LADDER** — ladder progress persists across runs; a
+run's first boss = the lowest unbeaten slot; beaten slots recur with tightened dials; a felled
+slot never repeats within one run. The band-aware progression controller replaces
+`bossDefForIndex`'s modulo with slot 6 (hard blocker for Tier-3 foreshadowing). **(2) MUSIC
+LAYERS OVER THE STATION, never replacing it** — boss entry ducks melody layers (keeps
+bass+percussion), adds a dread-pad, desperation forces the top layers; restores under the
+existing defeat fanfare. The player's (partly purchased) Dragon Radio stays theirs.
+**(3) LOCAL-ONLY card stats** — see §5f.
+
+Adopted defaults:
+- **Card/save schema**: defs gain `cards: [{ id (stable, never the display name), name,
+  atFrac, timer, attacks, dials, survival?, dread? }]` — timeout snaps hp past `atFrac`
+  (the deterministic escape hatch); exactly one `dread: true` card, always last. Save bumps
+  to array-form collections (`cards: [[cardId, captures, survivals]]`,
+  `bossLedger: [[bossId, kills, deathsTo]]`) written from the existing `bossDefeated`/death
+  event seams. Defs-lint adds name-length budgets (name ≤12, epithet ≤34, card lines ≤16/24).
+- **Machine-readable tiers**: `def.tier` 1–5 required, registry-consistency assert; the §5g
+  ladder becomes `TIER_BUDGETS` in tests/boss.mjs (tier-1 hard gate stays 6,000/34; shipped
+  Sentinels sit at 2.7–3.6k). lowQ contract as RATIOS: q0.5 ≤60% band tris / ≤70% band
+  draws; card *Low dials ≤75% bullets. A headless additive-coverage audit lands with the
+  first Colossi build.
+- **Build order (§5b is a queue)**: slots ship in strict registry order — claim only the
+  lowest open slot. Pulled-forward tracks: card system + Tier-1 card retrofit with slot 3;
+  the ladder controller with slot 6; per-boss kill/death stat accrual with slot 3 (slot 9's
+  taunts need real data by then); second-sun seeding with slot 10. Each band's §5e
+  extensions land with that band's OPENER.
+- **Fight economy**: TTK targets per band (Sentinels 60–90s → Apex 5–6min; Boss Rush at
+  0.75× hp, gauntlet ≤20min) enforced by a headless DPS-sim duration gate. One shield per
+  phase stays the invariant (phase count is the scaling knob); Tier 3+ shields get a
+  surge-immune wind-up so banked surges can't chain-skip phases; graze banks normally during
+  survival cards; nonstandard shields (THRUMSWARM's ring) must still expose a surge answer.
+- **Rewards & feats**: `defeatScore = hpMax × 25`, `defeatEmbers = 40 + 20 × tier`, one-time
+  2× first-kill ember bonus; card captures pay SCORE only (+400 × tier — embers stay out of
+  skill loops). Feats are band-scaled templates (per-band first-fell/no-hit, per-boss
+  all-cards title drawn from the epithet, two roster-wide apex feats) — boss PRs add zero
+  new feat ids.
+- **Death & retry**: a revive resumes the SAME fight (hp/phase retained, live bullets
+  cancelled with the card-entry flash, 1.5s i-frames); Boss Rush gets one retry-this-boss
+  per gauntlet (invalidates bestClearMs); encountered-but-unbeaten bosses become pickable as
+  rewardless solo practice.
+- **Roster audio**: §5b gains a VOICE column (one waveform family + register + signature
+  noise per boss; one 4–8 note motif per BAND, not 14 themes). Telegraph cues are keyed by
+  ANSWER VERB (mirroring the role-color law), wired once at the telegraph-class hook. One
+  band-scaled stinger kit (~7 procedural one-shots). Rhythm slots get optional `def.bpm`.
+  LAW: every fairness- or foreshadow-bearing cue has a synchronized VISUAL twin — muted play
+  (and slot 10's music-death break) never loses information.
+- **Biome pairing & foreshadow artifacts**: §5b gains a Home-biome column
+  (value/temperature complement — pale bosses over dark skies); the ladder controller snaps
+  encounters to fixed offsets so biome-early foreshadowing is authorable; every band opener
+  owns exactly ONE foreshadow artifact (glint / audio / sky-grade channel) listed in its §5d
+  NEEDS line — ASHTALON takes the Tier-2 glint on the fauna-flyby seam.
+- **Fairness baseline vs the dragon gacha**: all tuning validated at the roster-worst
+  handling multiplier; bullet hit radius fixed to CONFIG playerRadius regardless of dragon
+  model (premium dragons may only make fights EASIER); last-chance slow-mo fires on boss
+  bullets; glideAssist becomes a wider forgiveness bubble during fights (never auto-fly);
+  assisted captures count but carry a ledger flag.
+- **Colorblind redundancy**: role is never hue-alone — parryable amber gets a distinct
+  marker silhouette, reflected cyan a directional trail; bulletcontrast.mjs gains the three
+  dichromacy matrices as a role-pair distance gate.
+- **The second sun's schedule**: seeded permanently at the first Calamity kill with a
+  scripted 4s first-appearance beat; fixed ~22° off SUN_DIR, fog-exempt, static within a
+  run; escalates by LID APERTURE only — one notch per band cleared, never blinking, only
+  ever opening further; the half-open "it turned" beat lands after slot 13.
 
 ## 6. The system — how to build boss N (architecture)
 
@@ -379,10 +796,48 @@ Everything is data + one builder file. `boss.js` (controller) needs ZERO changes
    APPROACH tilt (mask catches hemisphere light, reads pale) — judge design ONLY on front-on
    fight/charge frames. Zoom crops: render the PNG in a Playwright page with CSS
    transform-scale and screenshot a clip.
-4. **Self-critique against §3 laws + §4 scorecard BEFORE presenting.** The shipped bosses took
-   5 and 2 capture-iteration rounds; the gates that failed were always: enclosing shell → blob,
-   uniform emissive → sticker, sub-1.0-linear glow → dead gray eyes, random scatter → noise.
-5. Human judges motion/feel on the PR preview (`?debug&boss=100&bossIdx=N`, `?rush=all`).
+4. `node tools/bossgate.mjs <bossId>` — **THE MEASURABLE-DESIGN GATE** (spec below; the
+   implementation is a pulled-forward track that lands WITH the slot-3 build). It automates
+   the objective half of design review, because the session record is unambiguous: builder
+   self-verdicts are systematically more generous than the gate (CRAGHOLD "I'd defend it"
+   shipped a buried pupil, mitten fingers, and toy-green). Iterate against this
+   mechanically — it exists so a coding session can converge without taste.
+5. **Self-critique against §3 laws + §4 scorecard, then POST CROPS.** A builder session
+   never merges on its own verdict: it posts idle/charge/shielded front-on crops to the PR
+   and stops. The design pass/fail belongs to the human (or a supervisor session) — one
+   cheap look per boss beats one debugging session per shipped mistake.
+6. Human judges motion/feel on the PR preview (`?debug&boss=100&bossIdx=N`, `?rush=all`).
+
+### 7b. `tools/bossgate.mjs` spec (the objective design-law assertions)
+
+Boots the bossshot harness for one boss, waits state-based for a front-on FIGHT frame (plus
+one mid-charge and one shielded frame), then pixel-samples the captures. Boss screen region =
+a box around the projected pose (read `bossState().poseX/poseY` through the camera transform;
+exclude the top HP-bar band). All thresholds are per-def overridable via a `gate:` block on
+the def (e.g. `gate: { pale: true }` for the sanctioned VALUE-INVERTED slots 4/6/7-queen)
+— overrides must cite their registry sanction in a comment.
+
+| # | Law (source) | Assertion on the capture |
+|---|---|---|
+| G1 | Focal law (§3.2) | max luminance in region ≥ 250/255, AND the ≥240 cluster covers ≤2.5% of the boss silhouette (bright + SMALL = eyes, not a wash) |
+| G2 | Dark body (§3.3) | median luminance of silhouette pixels ≤ 90/255 and median HSV saturation ≤ 0.55 (skip when `gate.pale`; then instead assert median ≥ 150 + a dark edge-cage sample) |
+| G3 | Palette attribution (§5b axis) | dominant accent-pixel hue within ±25° of `def.accent`; ZERO pixels within the danger-magenta ±15° band outside bullet sprites |
+| G4 | Presence (§1 envelope) | boss silhouette covers 8–35% of the frame at the fight hold (not lost, not swallowing the screen); center of mass within the portrait-safe box |
+| G5 | Telegraph shape (§3.5) | binarized silhouette mask of the CHARGE frame differs from the IDLE frame by ≥6% of silhouette pixels (telegraphs change SHAPE, not just color) |
+| G6 | Shielded read (§5f) | during shield: the G1 bright cluster's luminance drops ≥30% (the eyes visibly leash/hide when invulnerable) |
+| G7 | Overdraw law (§2) | traverse the built model: count large additive/fresnel volumes (bounding-sphere screen coverage > 15% at settle distance) ≤ 2 incl. kit shield |
+
+Geometry-level craft asserts that pixels can't see (digit gaps ≥ pitch−width, socket recess
+depth, part-size ratio ladder) belong in `tests/boss.mjs` as per-sheet numeric asserts — each
+§5d sheet may declare them, and the builder adds them with the boss.
+
+**Delegation protocol (how a Sonnet session ships a boss without a taste gap):** build to the
+§5d sheet → `boss.mjs` + `bossboot.mjs` + `bossgate.mjs` all green → post 3 crops to the PR →
+STOP and await the design verdict. The gate script is the builder's iteration loop; the crops
+are the merge condition. Known limitation, stated honestly: G1–G7 catch the *measurable*
+failure classes (toy-color, dead eyes, blob shells, color collisions, static telegraphs) but
+NOT "reads as a mitten" / "reads as googly" — that judgment stays human, which is why the
+protocol ends at crops, not at merge.
 
 ## 8. Deferred backlog (researched, unbuilt — good Tier 2/3 starting points)
 
