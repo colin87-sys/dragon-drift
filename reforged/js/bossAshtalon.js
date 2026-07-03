@@ -89,7 +89,7 @@ export function buildEmberHunter(def, quality = 1) {
   // Ember smoulder strips (the wing-root crack lines) — the ONLY ember on the
   // wing, so they carry the accent tier; brightened so G3 still reads ember.
   const emberStripMat = track(new THREE.MeshStandardMaterial({
-    color: 0x2a1006, emissive: accent, emissiveIntensity: 0.35, roughness: 0.5, metalness: 0.2, flatShading: true,
+    color: 0x2a1006, emissive: accent, emissiveIntensity: 0.2, roughness: 0.5, metalness: 0.2, flatShading: true,
   }));
 
   // Shared blade machinery (crest fins + wing scythe-blades): a curved tapered
@@ -159,13 +159,45 @@ export function buildEmberHunter(def, quality = 1) {
     // PROTRUDE forward of it so the slit sits RECESSED in the shadowed groove.
     // The plate front (z1.41) stays BEHIND the slit front (z1.40) at the centre —
     // only the brow (above) and jaw (below) protrude, never across the bar.
-    const plate = strip(new THREE.BoxGeometry(COWL_W, 0.58, 0.26)); plate.translate(0, 0.3, 1.28);
-    const brow = strip(new THREE.BoxGeometry(COWL_W + 0.1, 0.24, 0.6)); brow.translate(0, 0.63, 1.42);
-    const jaw = strip(new THREE.BoxGeometry(COWL_W - 0.2, 0.2, 0.55)); jaw.translate(0, -0.05, 1.42);
-    return mergeCharcoal([plate, brow, jaw], 'cowl');
+    // Visor PLATE pushed BACK (front z≈1.29) so the molten fringe (front z≈1.41)
+    // sits clearly PROUD of the dark housing — when the plate was level with the
+    // fringe it occluded the orange, leaving only the white core visible (that was
+    // the round-4/5 "flat white bar" miss, directive 1).
+    const plate = strip(new THREE.BoxGeometry(COWL_W, 0.62, 0.26)); plate.translate(0, 0.3, 1.16);
+    // BROW LEDGE: a wide ledge tilted forward-DOWN so its front lip OVERHANGS the
+    // slit from ABOVE (lip at y≈0.6, front z≈1.69) — the slit sits RECESSED in a
+    // shadowed groove beneath a dark step, but the lip stays clear of the fringe
+    // top (y0.58) so it never eats the upper orange band (directive 1 + 3).
+    const brow = strip(new THREE.BoxGeometry(COWL_W + 0.16, 0.3, 0.6));
+    brow.rotateX(0.34); brow.translate(0, 0.84, 1.46);
+    // Central NASAL RIDGE — a forward peak ABOVE the slit that notches the head's
+    // top silhouette so it is no longer a flat horizontal edge.
+    const ridge = strip(new THREE.BoxGeometry(0.34, 0.36, 0.85));
+    ridge.rotateX(0.22); ridge.translate(0, 0.9, 1.42);
+    const jaw = strip(new THREE.BoxGeometry(COWL_W - 0.2, 0.2, 0.55)); jaw.translate(0, -0.12, 1.42);
+    return mergeCharcoal([plate, brow, ridge, jaw], 'cowl');
   })();
   const cowl = new THREE.Mesh(cowlGeo, cowlMat);
   rig.add(cowl);
+
+  // ---------------------------------------------------------------------
+  // THE TORSO / SHOULDER-YOKE (gate directive 2): a broad charcoal chest that
+  // BRIDGES the cowl out to both wing shoulders (x≈±1.1), sitting just BEHIND the
+  // cowl and slit. Front-on it fills the sky that used to show between each wing
+  // root and the head, so the flood-filled silhouette is ONE connected hunter,
+  // not a floating head between two detached scythes.
+  // ---------------------------------------------------------------------
+  const torsoGeo = (() => {
+    const chest = strip(new THREE.BoxGeometry(2.9, 1.05, 0.9)); chest.translate(0, -0.04, 0.12);
+    // Shoulder pads angled down-out, reaching past the wing roots so the join is solid.
+    const yokeL = strip(new THREE.BoxGeometry(1.0, 0.72, 0.7)); yokeL.rotateZ(0.42); yokeL.translate(-1.15, 0.16, 0.05);
+    const yokeR = strip(new THREE.BoxGeometry(1.0, 0.72, 0.7)); yokeR.rotateZ(-0.42); yokeR.translate(1.15, 0.16, 0.05);
+    // A keeled breast tapering down — gives the hunter a chest and breaks the box bottom.
+    const keel = strip(new THREE.ConeGeometry(0.55, 1.15, 4)); keel.rotateX(Math.PI); keel.rotateY(0.78); keel.translate(0, -0.72, 0.42);
+    return mergeCharcoal([chest, yokeL, yokeR, keel], 'torso');
+  })();
+  const torso = new THREE.Mesh(torsoGeo, charcoalMat);
+  rig.add(torso);
 
   // ---------------------------------------------------------------------
   // THE VISOR SLIT — the ONE focal (§3.2/§4b, gate directive 2): a single
@@ -187,18 +219,24 @@ export function buildEmberHunter(def, quality = 1) {
   glowMat.toneMapped = false;
   const GLOW_BASE = new THREE.Color(1.0 * 1.8, 0.31 * 1.8, 0.06 * 1.8);   // (255,143,28) molten orange
   glowMat.color.copy(GLOW_BASE);
-  const slitGlow = new THREE.Mesh(new THREE.BoxGeometry(SLIT_W * 1.12, 0.34, 0.09), glowMat);
-  slitGlow.position.z = 0.02;
-  slit.add(slitGlow);
-  // Thin white-hot CORE line inside the orange frame (the §3.2 focal peak).
+  // The molten FRINGE is TALL relative to the white core (0.56 vs 0.11) so a thick
+  // band of saturated orange (~0.22 world each side) survives the core's white
+  // bloom above and below it — the round-4/5 gate kept reading a flat white bar
+  // because the old 0.34 fringe was drowned by the core halo (directive 1).
+  const slitFringe = new THREE.Mesh(new THREE.BoxGeometry(SLIT_W * 1.22, 0.56, 0.09), glowMat);
+  slitFringe.position.z = 0.02;
+  slit.add(slitFringe);
+  // Thin white-hot CORE line inside the orange fringe (the §3.2 focal peak). Kept
+  // NARROWER than the fringe on every side so orange caps its ends too, not just
+  // its top/bottom — the whole slit reads MOLTEN, never white tape.
   const SLIT_BASE = new THREE.Color(0xffe4c0);
   const SLIT_HOT = 2.6;
   const slitMat = track(new THREE.MeshBasicMaterial({ color: 0xffe4c0 }));
   slitMat.toneMapped = false;
   slitMat.color.copy(SLIT_BASE).multiplyScalar(SLIT_HOT);
-  // Thick+bright enough that the peak solidly clears the G1 ≥250 focal law at
-  // capture scale, but still ≥3px of orange frame shows above/below it.
-  const core = new THREE.Mesh(new THREE.BoxGeometry(SLIT_W * 0.8, 0.13, 0.12), slitMat);
+  // Thin+bright: peak solidly clears the G1 ≥250 focal law at capture scale, but
+  // now ≥0.2 world of orange fringe shows above/below it (directive 1 acceptance).
+  const core = new THREE.Mesh(new THREE.BoxGeometry(SLIT_W * 0.7, 0.11, 0.12), slitMat);
   core.position.z = 0.07;
   slit.add(core);
   rig.add(slit);
@@ -260,11 +298,13 @@ export function buildEmberHunter(def, quality = 1) {
       const mesh = new THREE.Mesh(makeBladeGeo(primLen[i], 0.5), primLead[i] ? leadMat : trailMat);
       mesh.rotation.x = 0.1;
       pivot.add(mesh);
-      // Ember strip along the blade's root third (ei 0.18 — reads at 30m, the
-      // root-crack LineSegments did not). The snapped scar blade (outer-left) is
-      // handled separately below and gets no strip (avoids a second bright speck).
-      const scarBlade = sx < 0 && i === N_PRIM - 1;
-      if (!scarBlade) {
+      // Ember strip along the blade's root third — a DIM smoulder line, not a
+      // saturated blob. Skipped on the OUTERMOST blade of BOTH wings: the left
+      // outer is the snapped scar (its own bright ember), and the right outer must
+      // MIRROR that skip or its strip reads as a second asymmetric fleck the gate
+      // flagged (directive 4 — exactly one saturated ember blob on the wings).
+      const outerMost = i === N_PRIM - 1;
+      if (!outerMost) {
         const es = new THREE.Mesh(emberStripGeo, emberStripMat);
         es.position.set(0, primLen[i] * 0.22, 0.11);
         pivot.add(es);
@@ -546,7 +586,10 @@ export function buildEmberHunter(def, quality = 1) {
     }
 
     // Ember smoulder pulse (its own clock) + death gutter; tickFlash (LAST) wins.
-    emberStripMat.emissiveIntensity = (0.35 + Math.sin(time * 1.7) * 0.08) * (1 - dyingK * 0.7);
+    // Dim base (0.2) so the root strips read as a smoulder line, never a saturated
+    // orange blob that rivals the ONE scar (directive 4). G3 ember is carried by
+    // the molten visor + scar, which have ample margin (was 64% vs 25% needed).
+    emberStripMat.emissiveIntensity = (0.2 + Math.sin(time * 1.7) * 0.06) * (1 - dyingK * 0.7);
 
     // Cinder trailers drift near the body (kept on-frame — dark, dim ei ≤0.25).
     for (const o of orbiters) {
