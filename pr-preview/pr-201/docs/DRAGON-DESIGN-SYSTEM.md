@@ -125,7 +125,15 @@ Vocabulary: **triangle** (aggression, speed), **square** (power, weight), **circ
 
 | Dragon | Primary/secondary shape | Claimed silhouette signature | Hero feature |
 |--------|------------------------|------------------------------|--------------|
-| *(new heroes add rows at brief time; shipped roster rows optional/backfill)* | | | |
+| nimbus | circle 70 / triangle 30 | big round head, compact teardrop body, puff-tipped short tail | cloud-puff tail tip |
+| sovereign | square 70 / triangle 30 | TALL+COMPACT+BROAD: upright neck, massive chest, deep-chord cathedral wings, SHORT spade tail (~35%) | dawn-ray horn crown |
+| aurelith | triangle 70 / square 30 | LONG+LOW+NARROW: serpentine glide line, raked scythe wings, LONG whip tail (≥55%) + detached ring | gilt sigil-ring orbiting the tail |
+
+Gate-2 lesson (human, 2026-07-03): sovereign and aurelith v1 concepts read as near-twins
+in macro silhouette ("almost a reskin" in low poly). Uniqueness must be structural —
+tail length ratio, wing planform aspect, body attitude — because surface detail
+(crowns, plates, glow) vanishes at blob distance. The ledger rows above now encode
+opposing structure, not just different decoration.
 
 ## §6 Proportion tables (station-profile terms)
 
