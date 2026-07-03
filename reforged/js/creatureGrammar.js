@@ -12,7 +12,7 @@
 // from what is actually buildable. See validateCreatureBlueprint.js.
 
 export const GROUPS = Object.freeze([
-  'recipe', 'hull', 'wing', 'motion', 'surface', 'material', 'surfaceLayers', 'fx',
+  'recipe', 'hull', 'wing', 'motion', 'surface', 'material', 'surfaceLayers', 'fx', 'design',
 ]);
 
 // Knob KINDS the validator understands:
@@ -91,6 +91,18 @@ export const CREATURE_GRAMMAR = Object.freeze([
   { path: 'model.armorPlates', group: 'surfaceLayers', kind: 'bool', forms: true, desc: 'Angular shoulder/flank armour plates.' },
   { path: 'model.glowSeams', group: 'surfaceLayers', kind: 'bool', forms: true, desc: 'Under-scale emissive vein seams.' },
   { path: 'model.bladeFins', group: 'surfaceLayers', kind: 'bool', forms: true, desc: 'Sharp lateral blade fins.' },
+
+  // --- design: the measurable design-law contract (docs/DRAGON-DESIGN-SYSTEM.md) --
+  // Declaring `design` OPTS a dragon into the designcheck gate (tools/designcheck.mjs
+  // + tests/designgate.mjs). The shipped roster omits it and stays grandfathered.
+  { path: 'design', group: 'design', kind: 'object', desc: 'Design-law contract: declaring this block opts the dragon into the designcheck gate.' },
+  { path: 'design.heroFeature', group: 'design', kind: 'string', desc: 'The single A3 signature feature — must be unique across the roster.' },
+  { path: 'design.anchors', group: 'design', kind: 'object', desc: 'Station z-anchors the mass checks read: { headBackZ, chestZ:[z0,z1], hipZ:[z0,z1], tailBaseZ }.' },
+  { path: 'design.paletteTiers', group: 'design', kind: 'object', desc: 'Palette tiers { dominant, secondary, accent } hexes — C2 value-hierarchy input.' },
+  { path: 'model.previewPose', group: 'design', kind: 'object', desc: 'Shop/preview-only asymmetry pose (P1) — never applied in flight.' },
+  { path: 'model.previewPose.headYaw', group: 'design', kind: 'number', min: 0.17, max: 0.35, desc: 'Preview head turn (rad; P1 law wants 10–20°).' },
+  { path: 'model.previewPose.wingFoldDelta', group: 'design', kind: 'number', min: 0, max: 0.3, desc: 'Per-side wing fold asymmetry in the preview.' },
+  { path: 'model.previewPose.tailSway', group: 'design', kind: 'number', min: 0, max: 0.4, desc: 'Preview tail sway offset.' },
 ]);
 
 // Fast lookup: path → descriptor.

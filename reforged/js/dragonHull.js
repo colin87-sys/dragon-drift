@@ -8,6 +8,7 @@ import { seg } from './modelDetail.js';
 import { skinnedTube, sweepProfileSmooth } from './dragonSweep.js';
 import { buildTorso } from './dragonTorso.js';
 import { composeSurface, membraneSSSPatch } from './dragonSurfaceShader.js';
+import { buildCreatureFace } from './creatureFace.js';
 
 // ── GENERIC UNIFIED HULL (data-driven) ───────────────────────────────────────
 // This is the proven Night-Fury organism kernel (LEAPFROG L24–L39: zero-gap
@@ -448,10 +449,14 @@ function buildHull(def, model, attach) {
       return new THREE.Vector3(wx * side + wr.x, liftY + wr.y, -sy * scaleZ + wr.z);
     };
     const tips = wingSpec.tips;
-    const finger = (tip, fanT, frame) => {
+    // WING-CAMBER LAW (docs/DRAGON-DESIGN-SYSTEM.md §5b): each finger-strut's
+    // chordwise camber is graded — MAX at the leading strut, gradual falloff to a
+    // floor at the innermost. `camber` is the pre-scaled magnitude per strut;
+    // legacy dragons (no wingCamberFalloff) keep the old `fanT` scaling exactly.
+    const finger = (tip, fanT, frame, camber) => {
       const target = tipToGroup(tip[0], tip[1]);
       const stations = seg(6);
-      const bowMag = (model.wingFingerCurve ?? 0.0) * fanT;
+      const bowMag = (model.wingFingerCurve ?? 0.0) * (camber ?? fanT);
       const rBase = frame ? (model.wingFrameRadius ?? 0.085) : r0;
       const topLift = frame ? lift * (model.wingFrameLift ?? 0.0) : lift;
       const centre = [], radii = [], skin = [];
@@ -470,9 +475,18 @@ function buildHull(def, model, attach) {
       return tube.geometry;
     };
     const struts = [];
+    const nStrut = tips.length - 1;              // struts are tips[1..], leading→inner
+    const falloff = model.wingCamberFalloff;     // opt-in: innermost camber as a fraction of the leading strut's
     for (let i = 1; i < tips.length; i++) {
       const fanT = tips.length > 1 ? i / (tips.length - 1) : 0;
-      struts.push(finger(tips[i], fanT, false));
+      let camber;
+      if (falloff != null) {
+        // uMed 0 = leading strut (just inboard of the frame), 1 = innermost strut.
+        const uMed = nStrut > 1 ? (i - 1) / (nStrut - 1) : 0;
+        const ease = Math.pow(1 - uMed, model.wingCamberPow ?? 1.4);
+        camber = falloff + (1 - falloff) * ease;   // 1 at the leading strut → falloff at the innermost
+      }
+      struts.push(finger(tips[i], fanT, false, camber));
     }
     return struts;
   }
@@ -607,7 +621,22 @@ function buildHull(def, model, attach) {
   let miniL = null, miniR = null;
   const HEAD_Y = TY + (hk.headY ?? 0.30), TAILFIN_Y = TY + (hk.tailFinY ?? -0.18);
 
-  if (model.hullEyes ?? hk.eyes ?? true) {
+  // LIVING FACE (design-system dragons): def.design.face swaps the legacy static
+  // dot-eyes for the creatureFace charisma layer (gaze/blink/brow/pupil machine).
+  // Additive-nullable: dragons without design.face are byte-identical below.
+  let face = null;
+  if (def.design && def.design.face) {
+    const fs = def.design.face;
+    face = buildCreatureFace({
+      eyeX: fs.eyeX ?? (hk.eyeX ?? 0.275),
+      eyeY: fs.eyeY ?? (HEAD_Y - 0.05 + (model.eyeYOffset ?? 0)),
+      eyeZ: fs.eyeZ ?? (hk.eyeZ ?? -3.52),
+      eyeScale: model.eyeScale ?? fs.eyeScale ?? 1,
+      browLen: fs.browLen, browLift: fs.browLift, browColor: fs.browColor,
+    }, def);
+    face.group.traverse((o) => { o.frustumCulled = false; });
+    group.add(face.group);
+  } else if (model.hullEyes ?? hk.eyes ?? true) {
     // eyeScale grows the eye (cute baby reads bigger-eyed); eyeYOffset drops it lower-set
     // (Kindchenschema). A pupil sphere gives a readable eye in the shop/¾ view (the chase
     // cam barely sees the face, so this is a front-view bonus, not the cuteness driver).
@@ -835,6 +864,39 @@ function buildHull(def, model, attach) {
     }
   }
 
+  // ── TAIL PUFF (nimbus) — a soft cloud tuft at the whip tip: a small cluster of
+  // overlapping matte spheres with a gentle emissive, riding the last tail bone
+  // (same host pattern as tailBulb/tailFluke). The hero-feature accent (A3). ──
+  if (def.hull && def.hull.tailPuff) {
+    const tp = def.hull.tailPuff;
+    const glow = model.tailPuffGlow ?? 1;
+    const scl = (tp.r ?? 0.14) * (model.tailPuffScale ?? 1) / 0.14;
+    const puffMat = new THREE.MeshStandardMaterial({
+      color: tp.color ?? 0xffffff, emissive: tp.emissive ?? tp.color ?? 0xffffff,
+      emissiveIntensity: (tp.emissiveIntensity ?? 0.7) * glow, roughness: 0.95, metalness: 0,
+    });
+    if (def.design) puffMat.userData.paletteTier = 'accent';
+    spineMats.push(puffMat);
+    const puff = new THREE.Group();
+    const lobes = [[0, 0, 0, 0.14], [0.09, 0.05, 0.04, 0.10], [-0.09, 0.04, 0.03, 0.10], [0, 0.10, -0.05, 0.09], [0, -0.02, 0.10, 0.09]];
+    for (const [x, y, z, r] of lobes) {
+      const s = new THREE.Mesh(new THREE.SphereGeometry(r * scl, seg(8), seg(6)), puffMat);
+      s.position.set(x * scl, y * scl, z * scl);
+      s.frustumCulled = false;
+      puff.add(s);
+    }
+    const puffZ = tp.z ?? (TAIL_BONE_Z.length ? TAIL_BONE_Z[TAIL_BONE_Z.length - 1] + 0.1 : 2.6);
+    const baseW = new THREE.Vector3(0, TY + chAt(puffZ, 4) + (tp.yLift ?? 0), puffZ);
+    if (tailBones.length) {
+      const zL = TAIL_BONE_Z[TAIL_BONE_Z.length - 1];
+      puff.position.copy(baseW.clone().sub(new THREE.Vector3(0, TY + chAt(zL, 4), zL)));
+      tailBones[tailBones.length - 1].add(puff);
+    } else {
+      puff.position.copy(baseW);
+      group.add(puff);
+    }
+  }
+
   for (const f of features) { f.frustumCulled = false; group.add(f); }
 
   const mkMarker = (arm) => {
@@ -871,6 +933,7 @@ function buildHull(def, model, attach) {
       wingRigL: { shoulder: armL.shoulder, elbow: armL.elbow, wrist: armL.wrist, side: -1, profile: model.flapProfile || null },
       wingRigR: { shoulder: armR.shoulder, elbow: armR.elbow, wrist: armR.wrist, side: 1, profile: model.flapProfile || null },
     },
+    face,
     wingMat,
     spineMats,
   };

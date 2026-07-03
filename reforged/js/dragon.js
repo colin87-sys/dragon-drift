@@ -41,6 +41,8 @@ let glbAnim = null;   // { mixer } for an asset-backed (GLB) dragon, null otherw
 let head = null;
 let tailSegs = [];
 let spineSegs = [];       // night-fury body-spine whip bones (empty for every other dragon)
+let face = null;          // living face handle (creatureFace.js; null for the shipped roster)
+let faceFever = false;    // edge-detect for the face notice() beat on Surge ignition
 let surge01 = 0;          // Dragon-Surge (fever) blend
 let boost01 = 0;          // held speed-boost blend (distinct from surge)
 let decel01 = 0;          // boost-RELEASE air-brake spike, eases out
@@ -159,6 +161,7 @@ export function createDragon(scene, def, riderDef) {
   bodySegs = result.parts.bodySegs || null;
   tailOrbiters = result.parts.tailOrbiters || null;
   glbAnim = result.parts.glbAnim || null;   // asset-backed baked-clip mixer (if any)
+  face = result.parts.face || null;         // living face (design-system dragons; nullable)
   ({ bodyMat, wingMat, eyeMat } = result.materials);
   auraSprite = result.auraSprite;
   coreGlow = result.parts.coreGlow;
@@ -764,6 +767,17 @@ export function updateDragon(dt, player, time) {
         b.rotation.x = damp(b.rotation.x, w.gain * sp * flapSurge(phase + w.phase), 9, dt);
       }
     }
+  }
+
+  // ── LIVING FACE (creatureFace.js) — optional-chained: the shipped roster has no
+  // face handle and pays nothing. Gaze follows the steering input (the dragon looks
+  // where it flies), notice() fires on the Surge ignition beat, mood tracks intensity.
+  if (face) {
+    face.setGaze(turnBias * 1.4, climbAmount - diveAmount * 0.8);
+    if (player.feverActive && !faceFever) face.notice();
+    faceFever = player.feverActive;
+    face.setMood(player.feverActive ? 'alert' : player.boosting ? 'strain' : 'rest');
+    face.tick(dt, time);
   }
 
   const nTail = tailSegs.length;

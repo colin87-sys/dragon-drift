@@ -4976,3 +4976,100 @@ build stamp) vs a real gate.
 pattern apply to every future gated mode (endless rush, boss-of-the-day) and every dev seam. Verified: `tests/bossrushui.mjs`
 extended with a cold-save + `?dev` regression case (13 checks; the exact bug now guarded) + the state matrix reproduced
 (cold/warm × dev/settings-toggle/none), `boss` (16) / `bossrush` / `smoke` green, `tricount` 203265.
+
+### L129 — The dragon design SYSTEM: measurable laws with named renderer levers, an honesty protocol, and art demoted to DIRECTION (never a match target)
+
+**Did / learned.** Opened the dragon-design-overhaul arc (the player-roster answer to L125's boss design laws) with the
+process built BEFORE any dragon: `docs/DRAGON-DESIGN-SYSTEM.md` (the canonical beauty doc — `dragon-design-guide.md`
+stays the playability manual) + `tools/designcheckCore.mjs`/`designcheck.mjs` + `tests/designgate.mjs`. Two human
+decisions shape everything: **(1) concept art is DIRECTION ONLY.** The human confirmed the old silhouette-overlay
+loop (match procedural geometry to a reference image) topped out at ~40% against a 95% expectation — and when offered
+the image→3D mesh path (the L108–L110 pipeline) as the only way to literally hit 95%, chose to stay PROCEDURAL with
+art as mood/direction. So there is NO "matches the reference" metric anywhere in the arc: the model is judged as
+itself, on committed renders + the PR preview. **(2) an honesty protocol is written law** (doc §1): the AI never
+self-certifies beauty (no aesthetic adjectives in AI claims — numbers from tools + shipped images only), every check
+prints VALUE vs THRESHOLD (a claim without its number is treated as false), and rejection means shape work, never
+argument. The gate itself: 10 measurable laws (silhouette uniqueness/negative-space/mass-hierarchy, taper, bimodal
+head scale, unique hero feature, chest dominance, wing credibility, cy line-of-action, palette 60/30/10 + ΔL≥15,
+preview asymmetry) — each law names its renderer LEVER (station halfWidth/cy channels, wingForms tips/lead, palette
+hexes), killing the "adjectives with no knob" anti-pattern that burned the pre-L108 months. Enforcement is opt-in by
+construction: only defs declaring a `design:` block are gated; the shipped roster is grandfathered (reported
+informationally — the baseline table shows fire FAILing D2 span 1.3× vs 1.8–2.2 and D3 bend 72.8° vs 30–60°, which is
+the numeric evidence for why the system exists). Gotchas banked: D3 continuity must be a KINK ANGLE (max Δθ between
+segments), not a raw |Δcy| cap — stations are unevenly spaced, so a wide gap legitimately accumulates lift and a raw
+cap false-fails good profiles; and `designgate.mjs` tests the GATE ITSELF both ways (a known-good fixture profile
+PASSES every law → the laws are satisfiable; sausage-tail/mushy-head/hip-heavy/flat-spine/convex-wing/mud-palette
+fixtures each FAIL their law → the gate catches real violations, not vibes).
+
+**→ Systematize.** (a) Any future "make X beautiful" request starts at `DRAGON-DESIGN-SYSTEM.md` §4 and speaks in
+levers, not adjectives. (b) The opt-in `design:` block + grandfathered-baseline pattern is the coexist rule applied
+to REVIEW tooling — a new gate never turns red on shipped content. (c) The core/CLI/test triple (designcheckCore →
+designcheck.mjs → designgate.mjs) mirrors silhouetteCore and is the shape for any future measurable-quality gate.
+(d) Thresholds live in the doc table and `THRESHOLDS` (mirror), and change only via Gate-0 human approval.
+
+**→ Leapfrog (innovate).** Next in the arc: Gate 0 (human approves the doc thresholds), style boards (Gate 1), then
+per-hero briefs → concepts (Gate 2) → hull-profile builds that must be born passing `designcheck --ci` (Gate 3 on the
+PR preview, dev-mode `wip:` filter). C1 needs builders to tag `material.userData.paletteTier`; P1's mirrored-raster
+half lands with the headMount pose plumbing (creatureFace arc). Verified: `tests/designgate.mjs` 15 checks green;
+full sweep green except the KNOWN pre-existing env failures (badges + five browser-driven tests fail identically on
+the base commit — verified in a clean worktree, never stash per L127); `tricount` 203265 UNCHANGED.
+
+### L130 — creatureFace: the boss charisma machine extracted as a spec-driven module (+ the sRGB→linear eye-overdrive gotcha)
+
+**Did / learned.** Built `creatureFace.js` — the L127 gaze/blink/brow/pupil state machine re-implemented generic
+(lagged gaze with deliberate look-aways, blink heartbeat, one-shot notice() pupil-pinch, mood brows on ±0.3 rad
+pivots) with geometry from a spec `{eyeX, eyeY, eyeZ, eyeScale, browLen…}` + palette from the def; zero imports from
+boss code. Wired additively-nullable end to end: `dragonHull` swaps its legacy dot-eyes for the face when
+`def.design.face` is declared (else byte-identical); `dragonModel` returns nullable `parts.face` and drives it in the
+shop preview (idle gaze wander) alongside the new `model.previewPose` (P1 shop asymmetry: per-side flapAmp bias +
+static tail sway + head yaw — preview ONLY, the flight state stays symmetric); `dragon.js` optional-chains one block
+(gaze from steering, notice() on Surge ignition, mood from boost/fever). Cost: the whole face is 464 tris, only
+**+24 tris** over the legacy eyes it replaces. **The gotcha that failed the first gate run:** r160 colour management
+converts hex via sRGB→linear, which CRUSHES mid colours (sRGB 0.55 → linear 0.27), so `def.eye × 2.4` can still land
+UNDER the 1.0 bloom threshold — the "HDR overdriven" eye was numerically dim. Fix: lerp the def tint halfway to white
+BEFORE the ×2.4 overdrive (any tint then clears 1.2 on every channel; the boss idol dodged this by starting from a
+near-white base). `tests/face.mjs` (9 gates) asserts the contract, the ≤600 tri budget, the >1.0 overdrive with
+toneMapped=false, notice-constriction and gaze pursuit actually moving state, the null path on a shipped dragon, and
+a headless preview-tick drive.
+
+**→ Systematize.** (a) Any future "HDR overdrive" material must be asserted numerically (`color.r > 1` post-set) —
+eyeballing a hex constant lies once colour management converts it. (b) The face contract
+(`tick/setGaze/notice/setMood`) is the creature-side twin of the boss archetype hooks; menus/bosses/pets can all
+mount it. (c) previewPose is the P1 lever: shop-only, def-declared, never touches flight code.
+
+**→ Leapfrog (innovate).** Next: `dragonHeroProfiles.js` + the nimbus def (Gate-2-approved, flight-pose law) built
+against `designcheck --ci`, then sovereign/aurelith when their v2 concepts pass Gate 2. headYaw currently rotates
+`parts.head` (a no-op on hull lofts) — when hero profiles add fore spine bones near the skull, route it there and
+land the P1 mirrored-raster check. Verified: face 9/9 + hull/nightfury/blueprint/defs/designgate/smoke/flapcheck/
+skinnedwing/wingflap/organism/unifiedhull/sweptail/sweptprofile all green, tricount 203265 UNCHANGED.
+
+### L131 — Nimbus ships born-gated: the first design-system hero, and two measured law-vs-medium findings
+
+**Did / learned.** Built the first Gate-2-approved hero end to end as pure data: `dragonHeroProfiles.js`
+(NIMBUS_PROFILE + NIMBUS_ANCHORS — the anchors the mass checks read live next to the stations they describe), a
+`nimbus` def (wip-flagged, `design:` block opts it into enforcement, face spec, previewPose, tailPuff hero feature),
+a new `tailPuff` hull knob (sphere-cluster on the last tail bone, tailBulb host pattern), and the `ui.js`
+`rosterKeys()` truth function (wip hidden unless the LIVE dev toggle — the L128 rule applied on day one, plus a
+designgate invariant that every design: dragon stays wip until its Gate 4). All 12 design laws measure green
+(`designcheck --ci` passes; S1 0.41 vs closest azure, C1 54/39/7). Two findings only MEASUREMENT could surface:
+**(1) C1 (60/30/10 by 3D area) and D2 (span 1.8–2.2×) are in tension on winged bodies** — at the minimum legal span
+the membrane out-areas a compact body (nimbus measured 44/50/6); passing strictly required trimming the wing chord
+(0.47→0.26, still ≥0.2) below the approved concept's round deep wings. The C1-band decision (revise vs keep-strict)
+is queued for the human; the def carries the restore values in a comment. **(2) a station profile has TWO
+independent silhouette channels** — halfWidth is the top-view read, keelTop+belly is the SIDE-view read; the first
+dome authored its "big head" into halfWidth only and the side render showed a submarine. Author BOTH (tall dome via
+keel/belly + width via hw) while holding mass = hw×(keel+belly) inside the S3/D1 budget. Also fixed
+`silhouette --no-wings` for skinned hulls (wingRig is a handle object, not an Object3D; membrane/fingers are sibling
+meshes — skip by stable name), which is what made finding (2) visible.
+
+**→ Systematize.** (a) Author-side rule for every future hero: sketch the profile in BOTH channels before tuning
+laws — hw (top) and keel+belly (side) each carry half the silhouette. (b) The per-hero loop is proven:
+profile → pure-check script → def → `designcheck <key>` → `silhouette` renders (+ `--no-wings` for the body read)
+→ human. Minutes per iteration, all headless. (c) `rosterKeys()` is THE shop-visibility predicate — any future
+gated content joins it, never a second filter.
+
+**→ Leapfrog (innovate).** Pending human input: the C1 band decision (evidence above), the nimbus body-shape verdict
+on the renders, and Gate 2 v2 for sovereign/aurelith. Then: restore-or-keep nimbus chord per the C1 verdict, sovereign
+build (SOVEREIGN_PROFILE per its brief), aurelith (needs tail-ring orbiter wiring + the longest whip). Verified:
+designgate 16 + face 9 + defs/blueprint/hull/smoke/nightfury/flapcheck green, `designcheck --ci` clean, tricount
+59 models 216621 (203265 shipped + nimbus's 3 forms — shipped rows UNCHANGED), readability nimbus OK ×3 forms.

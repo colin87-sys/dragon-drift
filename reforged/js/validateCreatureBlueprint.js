@@ -141,6 +141,9 @@ export function validateCreatureBlueprint(def, name = def && def.name) {
 
     } else if (d.kind === 'bool') {
       if (val != null && typeof val !== 'boolean') warnings.push(`${where} = ${JSON.stringify(val)} is usually a boolean.`);
+
+    } else if (d.kind === 'string') {
+      if (val != null && typeof val !== 'string') errors.push(`${where} = ${JSON.stringify(val)} must be a string.`);
     }
     // 'object' / 'color' / 'fx' are descriptive-only (documented, not enforced).
   }
