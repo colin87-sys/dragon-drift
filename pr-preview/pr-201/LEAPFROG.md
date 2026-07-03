@@ -5013,3 +5013,32 @@ PR preview, dev-mode `wip:` filter). C1 needs builders to tag `material.userData
 half lands with the headMount pose plumbing (creatureFace arc). Verified: `tests/designgate.mjs` 15 checks green;
 full sweep green except the KNOWN pre-existing env failures (badges + five browser-driven tests fail identically on
 the base commit — verified in a clean worktree, never stash per L127); `tricount` 203265 UNCHANGED.
+
+### L130 — creatureFace: the boss charisma machine extracted as a spec-driven module (+ the sRGB→linear eye-overdrive gotcha)
+
+**Did / learned.** Built `creatureFace.js` — the L127 gaze/blink/brow/pupil state machine re-implemented generic
+(lagged gaze with deliberate look-aways, blink heartbeat, one-shot notice() pupil-pinch, mood brows on ±0.3 rad
+pivots) with geometry from a spec `{eyeX, eyeY, eyeZ, eyeScale, browLen…}` + palette from the def; zero imports from
+boss code. Wired additively-nullable end to end: `dragonHull` swaps its legacy dot-eyes for the face when
+`def.design.face` is declared (else byte-identical); `dragonModel` returns nullable `parts.face` and drives it in the
+shop preview (idle gaze wander) alongside the new `model.previewPose` (P1 shop asymmetry: per-side flapAmp bias +
+static tail sway + head yaw — preview ONLY, the flight state stays symmetric); `dragon.js` optional-chains one block
+(gaze from steering, notice() on Surge ignition, mood from boost/fever). Cost: the whole face is 464 tris, only
+**+24 tris** over the legacy eyes it replaces. **The gotcha that failed the first gate run:** r160 colour management
+converts hex via sRGB→linear, which CRUSHES mid colours (sRGB 0.55 → linear 0.27), so `def.eye × 2.4` can still land
+UNDER the 1.0 bloom threshold — the "HDR overdriven" eye was numerically dim. Fix: lerp the def tint halfway to white
+BEFORE the ×2.4 overdrive (any tint then clears 1.2 on every channel; the boss idol dodged this by starting from a
+near-white base). `tests/face.mjs` (9 gates) asserts the contract, the ≤600 tri budget, the >1.0 overdrive with
+toneMapped=false, notice-constriction and gaze pursuit actually moving state, the null path on a shipped dragon, and
+a headless preview-tick drive.
+
+**→ Systematize.** (a) Any future "HDR overdrive" material must be asserted numerically (`color.r > 1` post-set) —
+eyeballing a hex constant lies once colour management converts it. (b) The face contract
+(`tick/setGaze/notice/setMood`) is the creature-side twin of the boss archetype hooks; menus/bosses/pets can all
+mount it. (c) previewPose is the P1 lever: shop-only, def-declared, never touches flight code.
+
+**→ Leapfrog (innovate).** Next: `dragonHeroProfiles.js` + the nimbus def (Gate-2-approved, flight-pose law) built
+against `designcheck --ci`, then sovereign/aurelith when their v2 concepts pass Gate 2. headYaw currently rotates
+`parts.head` (a no-op on hull lofts) — when hero profiles add fore spine bones near the skull, route it there and
+land the P1 mirrored-raster check. Verified: face 9/9 + hull/nightfury/blueprint/defs/designgate/smoke/flapcheck/
+skinnedwing/wingflap/organism/unifiedhull/sweptail/sweptprofile all green, tricount 203265 UNCHANGED.
