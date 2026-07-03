@@ -109,8 +109,10 @@ export function buildStoneColossus(def, quality = 1) {
     for (let i = 1; i < outline.length; i++) shape.lineTo(outline[i][0], outline[i][1]);
     shape.closePath();
     // Slit socket: a long low hexagon, slanted so the temple end rides high.
+    // Capture round 1: 0.54×0.17 slits read as SPECKS at fight distance — the
+    // eyes lost the brightest-pixel contest. Widened and heightened.
     const slitHole = (cx, cy, mirror) => {
-      const W = 0.54, H = 0.17, ROT = -0.14;   // half-extents; left eye's temple (-x) end rises
+      const W = 0.66, H = 0.22, ROT = -0.14;   // half-extents; left eye's temple (-x) end rises
       const rel = [
         [-W, 0.02], [-W * 0.55, H], [W * 0.55, H],
         [W, -0.02], [W * 0.55, -H], [-W * 0.55, -H],
@@ -148,10 +150,11 @@ export function buildStoneColossus(def, quality = 1) {
     baseParts.push(dome);
   }
   // Twin crown STELES — symmetric citadel towers (the colossus's height; the
-  // asymmetry budget is spent on the hand, not the crown).
+  // asymmetry budget is spent on the hand, not the crown). Round-1 bulk-up:
+  // taller + thicker so they break the outline decisively at 30m.
   for (const sx of [-1, 1]) {
-    relief(midParts, new THREE.BoxGeometry(0.52, 1.55, 0.46), sx * 1.30, 3.15, -0.35, sx * -0.05);
-    if (!lowQ) relief(accentParts, new THREE.BoxGeometry(0.30, 0.22, 0.30), sx * 1.30, 4.02, -0.35);  // capstone
+    relief(midParts, new THREE.BoxGeometry(0.62, 1.85, 0.46), sx * 1.30, 3.30, -0.35, sx * -0.05);
+    if (!lowQ) relief(accentParts, new THREE.BoxGeometry(0.34, 0.24, 0.30), sx * 1.30, 4.35, -0.35);  // capstone
   }
   // CHEST — a keel wedge under the face + an accent keystone with chevrons.
   relief(baseParts, new THREE.BoxGeometry(3.05, 1.35, 1.05), 0, -2.45, -0.35);
@@ -188,8 +191,10 @@ export function buildStoneColossus(def, quality = 1) {
     for (const sx of [-1, 1]) relief(bronzeParts, new THREE.BoxGeometry(0.22, 0.22, 0.36), sx * 2.10, 0.92, 0.36);  // temple rivets
   }
 
+  // Round-1 value fix: 0x15161a + metalness 0.22 lifted pale under the
+  // hemisphere light — the basalt must stay a NEAR-BLACK canvas.
   const baseMat = track(new THREE.MeshStandardMaterial({
-    color: 0x15161a, emissive: accent, emissiveIntensity: 0.06, roughness: 0.62, metalness: 0.22, flatShading: true,
+    color: 0x0e0f12, emissive: accent, emissiveIntensity: 0.05, roughness: 0.7, metalness: 0.15, flatShading: true,
   }));
   const midMat = track(new THREE.MeshStandardMaterial({
     color: 0x23262b, emissive: accent, emissiveIntensity: 0.12, roughness: 0.55, metalness: 0.28, flatShading: true,
@@ -224,11 +229,13 @@ export function buildStoneColossus(def, quality = 1) {
     shedAnims.push({ mesh, mat: m, dir: flingDir, t: -1, spin: new THREE.Vector3(j(4), j(4), j(4)) });
     return mesh;
   }
+  // Round-1 bulk-up: heavier pauldrons + a wider, thicker brim — both must
+  // break the outline decisively so their SHED visibly changes the silhouette.
   for (const sx of [-1, 1]) {
-    shedPlate(new THREE.BoxGeometry(1.35, 0.55, 1.15), baseMat.clone(), sx * 2.95, -1.35, -0.30, sx * -0.28,
+    shedPlate(new THREE.BoxGeometry(1.70, 0.62, 1.30), baseMat.clone(), sx * 3.10, -1.35, -0.30, sx * -0.28,
       new THREE.Vector3(sx * 2.2, -0.6, 0.4));
   }
-  const brimPlate = shedPlate(new THREE.BoxGeometry(5.45, 0.30, 1.45), midMat.clone(), 0, 1.30, 0.28, 0,
+  const brimPlate = shedPlate(new THREE.BoxGeometry(5.95, 0.38, 1.55), midMat.clone(), 0, 1.30, 0.28, 0,
     new THREE.Vector3(0, 1.8, 1.6));
   let shedCount = 0;      // 0 none · 1 pauldrons gone · 2 brim gone (eyes exposed)
   let exposedK = 0;       // eases 0→1 after the brim sheds — drives the slit→round eye change
@@ -259,13 +266,13 @@ export function buildStoneColossus(def, quality = 1) {
   // everything about the socket line together.
   // ---------------------------------------------------------------------
   const eyeGroup = new THREE.Group();
-  eyeGroup.position.set(0, 0.42, -0.10);
+  eyeGroup.position.set(0, 0.42, 0.0);   // round 1: forward, at the socket mouth — recessed eyes vanished
   rig.add(eyeGroup);
   const eyeSeg = lowQ ? [9, 7] : [13, 9];
   const eyeParts = [];
   for (const sx of [-1, 1]) {
-    const eye = strip(new THREE.SphereGeometry(0.42, eyeSeg[0], eyeSeg[1]));
-    eye.scale(1.30, 1, 0.75);   // wide — spans the slit
+    const eye = strip(new THREE.SphereGeometry(0.50, eyeSeg[0], eyeSeg[1]));   // round 1: 0.42 read as a speck at 30m
+    eye.scale(1.40, 1, 0.75);   // wide — spans the slit
     eye.translate(sx * 1.18, 0, 0);
     eyeParts.push(eye);
   }
@@ -280,12 +287,12 @@ export function buildStoneColossus(def, quality = 1) {
   eyeMat.color.copy(EYE_BASE).multiplyScalar(EYE_HOT);
   eyeGroup.add(new THREE.Mesh(eyeGeo, eyeMat));
   const pupilMat = track(new THREE.MeshBasicMaterial({ color: 0x0c140c }));
-  const pupilGeo = new THREE.SphereGeometry(0.12, lowQ ? 6 : 8, lowQ ? 4 : 6);
+  const pupilGeo = new THREE.SphereGeometry(0.14, lowQ ? 6 : 8, lowQ ? 4 : 6);
   const pupils = [];
   for (const sx of [-1, 1]) {
     const p = new THREE.Mesh(pupilGeo, pupilMat);
     p.userData.sx = sx;
-    p.position.set(sx * 1.18, 0, 0.34);
+    p.position.set(sx * 1.18, 0, 0.42);
     eyeGroup.add(p);
     pupils.push(p);
   }
@@ -316,8 +323,9 @@ export function buildStoneColossus(def, quality = 1) {
   // originate from named visible anatomy), and a broken bronze shackle cuff
   // with chain-link stubs. LEFT hand carries THE SCAR: a sheared ring-finger
   // stump merged into the palm, with crack seams radiating from it.
-  // World math: roots sit at local ±4.6 → ×def.scale(2) ≈ ±9.2 — visually
-  // owning crossfire's fixed ±10 flank emitters.
+  // World math: roots sit at local ±4.9 → ×def.scale(2) ≈ ±9.8 — visually
+  // owning crossfire's fixed ±10 flank emitters. Each hand scales 1.45× as a
+  // unit (round-1 capture fix: 1× read as ordinary hands, not colossal ones).
   // ---------------------------------------------------------------------
   const DANGER_COLOR = new THREE.Color(0xff2b6a);   // role colour, never per-boss
   const ACCENT_COLOR = new THREE.Color(accent);
@@ -330,7 +338,11 @@ export function buildStoneColossus(def, quality = 1) {
   function buildHand(sx) {
     const root = new THREE.Group();
     root.name = sx < 0 ? 'handL' : 'handR';
-    root.position.set(sx * 4.6, -0.35, 0.55);
+    root.position.set(sx * 4.9, -0.35, 0.55);
+    // Round 1: at 1× the hands read as ordinary hands, not COLOSSAL ones — the
+    // hook died at fight distance. The whole hand scales as a unit (only
+    // position/rotation are animated below, never scale, so this is safe).
+    root.scale.setScalar(1.45);
     rig.add(root);
     const wrist = new THREE.Object3D();
     wrist.name = sx < 0 ? 'handPivotL' : 'handPivotR';
@@ -409,7 +421,7 @@ export function buildStoneColossus(def, quality = 1) {
     cuff.rotation.x = Math.PI / 2;
     wrist.add(cuff);
 
-    return { root, wrist, digits, core, sx, baseX: sx * 4.6, baseY: -0.35, baseZ: 0.55, phase: sx < 0 ? 0 : 1.7 };
+    return { root, wrist, digits, core, sx, baseX: sx * 4.9, baseY: -0.35, baseZ: 0.55, phase: sx < 0 ? 0 : 1.7 };
   }
   const hands = [buildHand(-1), buildHand(1)];
 
@@ -470,7 +482,12 @@ export function buildStoneColossus(def, quality = 1) {
     orbiters.push(m);
   }
 
-  kit.flashBind(baseMat, 0.06);
+  // Hit flash rings the BRONZE fittings, not the base stone: rider fire lands
+  // every ~0.5s, and a whole-face flash in a HIGH-luminance green (unlike the
+  // idol's dim violet) kept the basalt permanently semi-lit in captures — the
+  // "flat pale sticker" failure by another road. The fittings flashing hot
+  // reads as struck metal; the brow-pain flinch still sells the hit.
+  kit.flashBind(bronzeMat, 0.15);
   kit.finalize();
 
   // ---------------------------------------------------------------------

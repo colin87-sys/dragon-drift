@@ -95,7 +95,7 @@ export const BOSSES = {
     // enormous detached gesture HANDS that wind up every telegraph.
     archetype: 'stoneColossus',
     accent: 0x69c94f,         // moss/lichen green — the only unclaimed hue family at 30m
-    glow: 0xd8f09a,           // pale lichen-gold (shield rim / shards / backlight)
+    glow: 0xafd06a,           // deep lichen-gold (shield rim / shards / backlight) — the first, paler pick read as a yellow balloon at shield-raise
     bulletColor: 0xff2b6a,    // danger stays magenta (role colour, never per-boss)
     approachFrom: 'behind',   // the colossus overtakes and rises over you
     scale: 2.0,               // Tier 2 escalation invariant (~2 vs the Sentinels' 1.5)
