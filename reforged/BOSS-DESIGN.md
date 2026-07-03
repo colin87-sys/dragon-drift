@@ -216,7 +216,7 @@ safe-lane gates exactly once.
 |---|---|---|---|---|---|---|
 | 1 | VOIDMAW | shattered mask | hollow sockets + broken horn/halo | violet·ember·white / points | behind | shipped |
 | 2 | STORMREND | concentric rings | unblinking eye + blade rings | teal·gold·white / points+lines | side | shipped |
-| 3 | CRAGHOLD | broad bust + detached limbs | two gesture hands | moss·bronze·white / points | behind | claimed |
+| 3 | CRAGHOLD | broad bust + detached limbs | two gesture hands | moss·bronze·white / points | behind | shipped |
 | 4 | VESPERCOIL | sinuous ribbon | dangled lure-lantern | indigo·pearl / dotted-chain | below (new) | open |
 | 5 | EITHERWING | twin bodies | one eye passed between two | oxblood·aged-silver / single point | both sides | open |
 | 6 | HOLLOWGATE | architecture with a void | rose-window face | ivory·stained-glass / leaded field (VALUE-INVERTED: near-white) | static-ahead | open |
@@ -391,12 +391,14 @@ Everything is data + one builder file. `boss.js` (controller) needs ZERO changes
 - Post-defeat companion shard (mascot conversion).
 - Composed sun/eclipse reveal + victory tableau with optional auto-capture share card.
 - Per-boss fullscreen grade tint (thumbnail attribution beyond the accent palette).
-- `strip()` helper promotion into bossKit (it's copy-pasted in both builders — do it when a
-  third archetype lands).
+- ~~`strip()` helper promotion into bossKit~~ — DONE with the third archetype (CRAGHOLD):
+  `bossKit.js#stripForMerge`, both older builders re-import it.
 
 ## 9. Ledger reading list (READ ONLY THESE — the ledger is 470KB and mostly not about bosses)
 
 LEAPFROG.md lessons relevant to boss work, in priority order:
+- **L129** — CRAGHOLD (boss 3, first Tier 2 Colossus): the gesture-hand limb system, the
+  def-gated setpiece seam, flash-bind luminance, and the draw-budget reality at 3 bosses.
 - **L127** — shareability research + charisma layer + the parallel-agent git gotcha.
 - **L126** — on-device budget verdict (draws/tris free, instancing janks, overdraw cliff) +
   "carved, not scattered" craft lesson.

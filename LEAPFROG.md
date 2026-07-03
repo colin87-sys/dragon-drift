@@ -4976,3 +4976,53 @@ build stamp) vs a real gate.
 pattern apply to every future gated mode (endless rush, boss-of-the-day) and every dev seam. Verified: `tests/bossrushui.mjs`
 extended with a cold-save + `?dev` regression case (13 checks; the exact bug now guarded) + the state matrix reproduced
 (cold/warm × dev/settings-toggle/none), `boss` (16) / `bossrush` / `smoke` green, `tricount` 203265.
+
+### L129 — CRAGHOLD (boss 3): the roster registry, the gesture-hand Colossus, and the one fenced controller seam
+
+**Did / learned.** Shipped the first Tier 2 COLOSSUS per `BOSS-DESIGN.md` (which the human merged mid-session — read
+THAT doc first for boss work, not this ledger) plus its new §5b: a research-backed **14-slot roster registry**
+(SotC/Cuphead/Furi/Radahn/Majora principles; five bands to THE APEX at slot 14; per-slot identity axes — silhouette
+family / hook / palette+glow-shape may never collide; future sessions CLAIM a slot before designing). CRAGHOLD, "the
+Sundered Colossus" / "The Hands That Held the Sky": a helmed near-black basalt bust with two enormous detached gesture
+HANDS (`bossColossus.js`, archetype `stoneColossus`, def scale 2.0, hp 260, spiral+spiralStream debut, moss-green/
+bronze/white-hot — green was the last unclaimed hue family). The hands ARE the fight's language: named `fingerPivot`/
+`handPivotL/R` slabs curl per gesture family (`setAttackTell` optional hook: point/sweep/spin/clench/slam), clasp a
+guard pose while shielded, spread for the setpiece, and die mournfully. Phase transitions change the SILHOUETTE with
+zero controller work by counting shield drops on the existing `onShieldChange` hook (break 1 flings the pauldrons,
+break 2 cracks the helm brim off → slit eyes become exposed round eyes). The scar: a sheared ring-finger stump +
+broken shackle cuffs (slots 8/9 claim the payoff). **The ONE fenced controller change** (Tier 2's "the fight moves"
+clause — station-keeping lives in boss.js, so §6's "zero controller changes" cannot cover it): a def-gated
+`setpiece: { id, atPhase, dur }` plays a scripted pose path ONCE on entering that phase — `crossingPass` sweeps out,
+rises, closes to rel≈11 and drifts straight across the lane OVER the player (hands spread — the SotC fly-under
+frame) — with attack+rider clocks held so the beat is a quiet capture window; lifecycle sim asserts defs WITHOUT a
+setpiece never leave station (the byte-unchanged fence for the shipped two).
+
+**Gotchas.** (1) **The 34-draw gate is nearly spent**: the gate counts the HP bar (4 draws, forced visible) and
+stormrend already sits at 31 — craghold landed at exactly 33 only by merging both hands' chain-links into their cuff
+draws and giving hands scale-as-a-unit instead of more parts. Boss 4+ must budget draws at design time or raise the
+gate deliberately. (2) **Flash-bind luminance**: binding the kit hit-flash to the big base tier is fine for a
+LOW-luminance accent (the idol's violet) but with rider fire landing every ~0.5s a HIGH-luminance green kept the whole
+face semi-flashed — "flat pale sticker" by another road. Bind the flash to a small tier (craghold: the bronze
+fittings — struck-metal read; the brow flinch still sells the hit). (3) **Scale-as-a-unit beats re-authoring**: the
+round-1 hands read as ordinary hands; `root.scale.setScalar(1.45)` fixed it in one line — safe because only
+position/rotation are animated, never scale. Same story as def scale 2.0 → kit needed an `hpBarScale` counter-scale
+opt (the bar lives inside the scaled group). (4) **A held setpiece stretches every timing test downstream**: the
++~6s beat pushed the 3-boss rush past its 260s frame cap — the fix is the TEST's frame budget (260→320), never the
+economy. (5) **The L127 stash rule re-confirmed the hard way**: a compound shell command that merely *mentioned*
+`git stash -u` executed it and captured the whole uncommitted increment; `git stash pop` restored everything, but the
+rule is now absolute — stash never appears in ANY command in a live worktree, not even inside a "guard" one-liner.
+
+**→ Systematize.** (a) New-boss flow is now: read BOSS-DESIGN.md → claim a §5b registry slot → build per §6 → flip the
+row to `shipped` in the same PR (this PR is the template). (b) `SETPIECE_PATHS` is the seam for every future
+"fight moves" beat — a new beat is a path function + a def descriptor, zero new state. (c) The capture-iteration
+protocol (bossshot → judge against §3/§4 → fix → re-capture) converged in two rounds; keep judging ONLY front-on
+fight/charge frames (approach-tilt + mid-flash frames lie).
+
+**→ Leapfrog (innovate).** Slots 4 (VESPERCOIL) and 5 (EITHERWING) are fully briefed in §5b — boss 4 needs the small
+'below' approach extension; slot 5's twin-body crossfire wants the deferred `model.handMuzzles` world-position seam
+(optional-chained in executeAttack's crossfire branch, ±10 fallback) so emitters ride the bodies exactly. And
+`bossDefForIndex`'s modulo-cycling should become band-aware progression once Tier 3 opens (registry has the ladder).
+Verified: `boss.mjs` 20/20 (kill ladder 63s→78s→103s), `bossboot` zero console errors, `bossrush` (gauntlet ~261s),
+`bossrushui`, `smoke`, `bulletcontrast` (36 combos), `tricount` 203265 · 0 over; craghold 2407 tris @q1 / 33 draws;
+`badges.mjs` timeout confirmed pre-existing on the base commit via a throwaway worktree. Human judges the colossus
+read, the hand gestures, and the crossing pass on the PR preview (`?debug&boss=100&bossIdx=2`, `?rush=all`).
