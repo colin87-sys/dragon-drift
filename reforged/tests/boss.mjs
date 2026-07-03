@@ -187,6 +187,25 @@ for (const key of BOSS_ORDER) {
   mandala.dispose();
   ok('stormrend telegraph: setCharge(1) flares the iris petals open (silhouette change)');
 }
+{
+  const colossus = buildBoss(BOSSES.craghold, 1);
+  const fingers = findAllByName(colossus.group, 'fingerPivot');
+  assert(fingers.length >= 6, `craghold exposes ≥6 named fingerPivots for the telegraph gate (${fingers.length})`);
+  for (const side of ['handPivotL', 'handPivotR']) {
+    assert(findAllByName(colossus.group, side).length === 1, `craghold exposes exactly one ${side}`);
+  }
+  // Settle the idle pose, snapshot, then charge: the default (no attack-tell)
+  // wind-up is the CLENCH — hands rise and the digit slabs curl hard. The gate
+  // asserts the SHAPE moved (≥4 digits by >0.25 rad), not a colour.
+  for (let i = 0; i < 40; i++) colossus.tick(0.05, i * 0.05);
+  const preCurl = fingers.map((f) => f.rotation.x);
+  colossus.setCharge(1);
+  for (let i = 0; i < 20; i++) colossus.tick(0.05, 2 + i * 0.05);
+  const moved = fingers.filter((f, i) => Math.abs(f.rotation.x - preCurl[i]) > 0.25).length;
+  assert(moved >= 4, `craghold clench: ${moved} fingerPivots moved >0.25 rad on charge (need ≥4 — silhouette change)`);
+  colossus.dispose();
+  ok('craghold telegraph: setCharge(1) clenches the gesture hands (silhouette change)');
+}
 
 // Legacy coexist gate: a def WITHOUT `archetype` must still fall through to
 // the legacy construct (bossModel.js's buildBoss dispatcher) — the coexist
