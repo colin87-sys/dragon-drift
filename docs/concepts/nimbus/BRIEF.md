@@ -33,5 +33,7 @@ Compact silhouette, no long trailing parts that read as obstacle language; reada
 gates (readability.mjs) confirm at build time. Puff is soft-glow, never bloom-heavy.
 
 ## Concept art (direction only — DRAGON-DESIGN-SYSTEM.md §1.2)
-concept: *(pending Gate 2)*
-approved: *(pending — written only by the human)*
+concept: sheet.png, forms.png
+approved: 2026-07-03 by the human (Gate 2), with the binding note: **the dragon is
+seen in FLIGHT — pose every render and author the build in the flight pose** (the
+L110 law). The sheet's grounded panels are direction for shape/color only.

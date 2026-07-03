@@ -8,16 +8,25 @@ primary/secondary shape: triangle 70 (sleek rake) / square 30 (carved plates)
 (Gate-1 language: mythic idol value-tiers on a SLEEKER curve language than board 4)
 motif: the GILT CRESCENT — the tail sigil-ring, the crescent horns, and crescent
 relief seams on the chest plates
-silhouette signature: a raked, slim-hipped body wearing segmented carved plates, with
-a floating ring at the tail — the only dragon whose silhouette includes a detached shape
+silhouette signature: **LONG + LOW + NARROW** — an elongated serpentine glide line,
+slim body, scythe wings raked hard backward (narrow high-aspect crescent planform),
+and a very LONG whip tail (≥ 55% of nose-to-tip length) carrying the detached ring —
+the only silhouette in the roster with a detached shape. At blob distance it reads as
+a horizontal line with swept blades.
+macro differentiation vs sovereign (Gate-2 human note — never a reskin): Aurelith is
+the LONG-TAILED, NARROW-SWEPT, LOW one; Sovereign is the compact, broad, upright one.
+The two must differ in the S1 rear-silhouette XOR by structure, not surface.
 hero feature (A3): **gilt sigil-ring orbiting the tail tip** (built on the proven
 tail-orbiter part)
 
 ## Proportion targets (§6, designcheck-bound)
 head:body ≤ 0.12 (small-head mode, A2) · wingspan 2.0× body (D2) ·
-chest:hip ≥ 1.6 (D1) · tail taper ≥ 6:1, the longest cleanest whip (A1) ·
-spine bend 40–55° (D3) · wing chord ≥ 0.20 half-span, 5 fingers, concave trailing
-edge (D2)
+chest:hip ≥ 1.6 (D1, but the whole body slim + elongated) ·
+tail LONG: ≥ 55% of total length, taper ≥ 6:1, the cleanest whip in the roster (A1) ·
+spine bend 40–55° as one LOW flowing S along the whole body (D3) ·
+wing chord ≤ 0.25 half-span (narrow high-aspect SCYTHE planform, raked hard aft),
+5 swept fingers, concave trailing edge (D2) ·
+FLIGHT POSE in every render and in the built rest pose (L110 law)
 
 ## Palette (C1 60/30/10 · C2 ΔL ≥ 15 · L125/L126 boss laws apply)
 dominant #1c1a20 carved basalt (L* ≈ 10) ·

@@ -8,16 +8,24 @@ primary/secondary shape: square 70 (regal weight) / triangle 30 (crown spikes)
 (Gate-1 language: western build + celestial luminous accents)
 motif: the CROWN SPIKE — repeated at the horn crown, the wing-finger tips, and the
 tail spade
-silhouette signature: heavy noble chest with a cathedral wing arch and a distinct
-multi-point horn crown readable at chase distance
+silhouette signature: **TALL + COMPACT + BROAD** — a proud upright-arched neck over a
+massive chest, deep-chord low-aspect cathedral wings, and a SHORT thick spade tail
+(tail ≈ 35% of nose-to-tip length). At blob distance it reads as a vertical mass with
+wide wings.
+macro differentiation vs aurelith (Gate-2 human note — never a reskin): Sovereign is
+the SHORT-TAILED, BROAD-WINGED, UPRIGHT one; Aurelith is the long, low, narrow one.
+The two must differ in the S1 rear-silhouette XOR by structure, not surface.
 hero feature (A3): **dawn-ray horn crown** — a fan of swept crown horns whose inner
 edges catch the accent glow
 
 ## Proportion targets (§6, designcheck-bound)
 head:body ≤ 0.12 (small-head majestic mode, A2) · wingspan 2.1× body (D2) ·
 chest:hip ≥ 1.8 (D1 — the heaviest chest of the three heroes) ·
-tail taper ≥ 5:1 (A1) · spine bend 45–60°, proud arched neck (D3) ·
-wing chord ≥ 0.22 half-span, 5 fingers, concave trailing edge (D2)
+tail SHORT: ≈ 35% of total length, taper ≥ 5:1 into the spade (A1) ·
+spine bend 45–60° with the arch at the NECK, head held high (D3) ·
+wing chord DEEP ≥ 0.35 half-span (low-aspect cathedral planform), 5 radially fanned
+fingers, concave trailing edge (D2) ·
+FLIGHT POSE in every render and in the built rest pose (L110 law)
 
 ## Palette (C1 60/30/10 · C2 ΔL ≥ 15)
 dominant #4a1626 deep wine hide (L* ≈ 16) ·
