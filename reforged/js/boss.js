@@ -10,7 +10,7 @@ import { emit, on } from './events.js';
 import { clearAhead } from './obstacles.js';
 import { buildBoss } from './bossModel.js';
 import { BOSSES, BOSS_ORDER, bossDefForIndex } from './bossDefs.js';
-import { saveData, persist } from './save.js';
+import { saveData, persist, recordBossCard, recordBossLedger } from './save.js';
 import { BIOMES, biomeIndexAt } from './biomes.js';
 import {
   initBossBullets, updateBossBullets, spawnBossBullet, resetBossBullets,
@@ -116,6 +116,14 @@ const RETICLE_SEGS = 96;       // ring resolution (smooth drain edge)
 let hpRevealT = 0;             // health-bar fill-up animation timer (0→full on settle)
 const HP_REVEAL = 0.8;
 let shielded = false;          // at a phase floor the boss shields — only Surge bursts it
+// Spell-card state (BOSS-DESIGN.md §5f/§5h). A card = one named phase, aligned
+// 1:1 with def.cards[phaseIdx]: it title-cards on entry, runs a display TIMER,
+// and is CAPTURED if the whole card was survived hitless (snapshot the run's
+// bullet-hit counter at card start, compare at card end). Defs without `cards`
+// leave activeCard null and the whole system is inert (coexist rule).
+let activeCard = null;
+let cardTimer = 0;             // seconds remaining in the current card's window (display / survival seal)
+let cardHits0 = 0;            // game.bossHitsTakenRun at card start (capture = no new hits by card end)
 let baitTimer = 0;             // cadence for the shielded graze-bait flood
 let baitLeft = 0;              // rings remaining in the current graze-bait CLUSTER
 let baitResting = false;       // true during the BREAK between clusters (reposition window)
@@ -163,6 +171,31 @@ function clearSetpiece() {
   if (setpieceT >= 0) model?.setSetpiece?.(0);
   setpieceT = -1;
   setpieceDef = null;
+}
+
+// ---- Spell cards (BOSS-DESIGN.md §5f/§5h) -----------------------------------
+// beginCard: title-card the phase's named set-piece, arm its timer, snapshot the
+// hit counter (capture = hitless through the whole card). endCard: decide the
+// capture/survived outcome, ledger it (local-only), and announce it. A phase
+// with no matching card entry leaves the system inert.
+function beginCard(idx) {
+  activeCard = (def && def.cards && def.cards[idx]) || null;
+  if (!activeCard) { cardTimer = 0; return; }
+  cardTimer = activeCard.timer ?? 24;
+  cardHits0 = game.bossHitsTakenRun;
+  // Small lower-right title card (§5f) — the reveal card owns the lower-third;
+  // the spell card names the pattern without covering it.
+  ui.bossCard?.(activeCard.name, def.accent, !!activeCard.dread);
+  emit('bossCardStart', { id: activeCard.id, boss: def.id, dread: !!activeCard.dread });
+}
+function endCard() {
+  if (!activeCard) return;
+  const captured = game.bossHitsTakenRun === cardHits0;   // no bullet took a hit across the card
+  recordBossCard(activeCard.id, captured);
+  ui.bossCardResult?.(captured, activeCard.name);
+  emit('bossCard', { id: activeCard.id, boss: def.id, captured, dread: !!activeCard.dread });
+  activeCard = null;
+  cardTimer = 0;
 }
 // Arena constriction (a def's showpiece phase narrows the lane): the live half-
 // width the fill patterns and the player clamp both read. Full lane when idle.
@@ -438,6 +471,7 @@ export function startBossEncounter(player, defOverride) {
   phaseIdx = 0;
   spiralPhase = 0;
   shielded = false;
+  activeCard = null; cardTimer = 0;   // spell-card state resets per encounter
   baitTimer = 0; baitLeft = 0; baitResting = false;
   bandIdx = 0;
   activeBand = resolveBand(biomeIndexAt(player.dist));
@@ -532,6 +566,8 @@ function endEncounter(player) {
   if (wallL) { wallL.visible = wallR.visible = false; wallMat.opacity = 0; }
   reticleTarget = 0;            // focus circle draws off (the !active branch animates it)
   ui.bossNoteClear?.();         // no stale callout/prompt lingers past the fight
+  activeCard = null; cardTimer = 0;
+  ui.bossCardClear?.();         // clear the spell-card readout past the fight
   // Carry Dragon Surge OUT of the fight so the player keeps the hyper into the
   // grace band (the kill earns it) — the normal fever visuals take over there.
   game.feverActive = true;
@@ -560,6 +596,8 @@ function endEncounter(player) {
 function startDeath(player) {
   phase = 'dying';
   dyingT = 0;
+  endCard();                              // resolve the final card if a path reached death without a shield-break
+  recordBossLedger(def.id, { kill: true });   // per-boss kill accrual (§5h; slot 9's taunts read it)
   clearSetpiece();
   reticleTarget = 0;            // focus circle draws off as the boss disintegrates
   arenaTargetHW = CONFIG.laneHalfWidth;   // storm walls glide out with the dissolve
@@ -729,6 +767,7 @@ export function updateBoss(dt, player, time) {
       // attack clock AND the rider's auto-fire out past the card's hold time.
       model.notice?.();
       ui.bossTitleCard?.(def.name, def.epithet, def.accent);
+      beginCard(0);   // the first phase's named spell card (§5f)
       attackTimer = Math.max(attackTimer, 1.9);
       riderTimer = Math.max(riderTimer, 1.9);
       // Tutorial boss: teach the parry as the fight opens (amber shots = swat-able).
@@ -751,6 +790,16 @@ export function updateBoss(dt, player, time) {
       pose.rel = B.settleGap;
       pose.x = Math.sin(time * 0.7) * 5.0;
       pose.y = B.fightHeight + Math.sin(time * 1.3) * 0.8;
+    }
+
+    // Spell-card timer (§5f): the on-screen card countdown. A SURVIVAL card
+    // (invincible seal) uses timeout as the deterministic escape hatch — it
+    // bursts the seal so a weaker player is never hard-walled; a normal card's
+    // timer is a display window (capture is decided by staying hitless).
+    if (activeCard && cardTimer > 0) {
+      cardTimer = Math.max(0, cardTimer - dt);
+      ui.bossCardTimer?.(cardTimer, activeCard.timer ?? 24);
+      if (cardTimer <= 0 && activeCard.survival && shielded) breakShield(player);
     }
 
     // Manual Surge unleash (Space / 2nd-finger tap) — the shield-breaker.
@@ -933,9 +982,13 @@ function breakShield(player) {
   // new phase's first attack can telegraph.
   pending.length = 0;
   attackTimer = Math.max(attackTimer, 1.6);
+  // The surviving-the-phase card resolves the instant its shield bursts: capture
+  // if the whole card was hitless. The next phase's card arms right after.
+  endCard();
   const next = def.phases[phaseIdx + 1];
   if (next) {
     phaseIdx++;
+    beginCard(phaseIdx);
     ui.bossNote?.(`PHASE ${phaseIdx + 1}`, def.name, 'phase', 2.6);
     emit('bossPhase', { phase: phaseIdx + 1 });
     // Def-gated setpiece: entering this phase plays the scripted station-leave
@@ -1230,6 +1283,11 @@ function damageBoss(amount, kind) {
 
 export function resetBoss() {
   clearSetpiece();
+  // Hard reset (game over / new run): if a fight was live and NOT already won,
+  // the player died to this boss — accrue the death-to (§5h; slot 9 reads it).
+  if (active && def && phase !== 'dying') recordBossLedger(def.id, { death: true });
+  activeCard = null; cardTimer = 0;
+  ui.bossCardClear?.();
   if (group && scene) { scene.remove(group); model && model.dispose && model.dispose(); }
   resetBossBullets();
   active = false;

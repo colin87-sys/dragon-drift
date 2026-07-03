@@ -22,6 +22,19 @@
 // never by raw bullet count (mobile visibleCap; density reads as unfair).
 // `accent`/`glow` colour the boss BODY; `bulletColor` is the magenta danger colour.
 // `constrictPhase`: phase index at which the arena walls slam in (showpiece).
+//
+// `tier` (1–5, REQUIRED): the band this boss sits in (BOSS-DESIGN.md §5b/§5g) —
+// tests/boss.mjs keys the tri/draw ceilings off it (TIER_BUDGETS). Sentinels=1,
+// Colossi=2, Calamities=3, World-Enders=4, the Apex=5.
+//
+// SPELL CARDS (§5f/§5h): `cards[]` names each phase as a title-carded set-piece,
+// aligned 1:1 with `phases` (card[i] ↔ phase[i]). A card =
+//   { id (stable, never the display name), name, atFrac (= its phase's),
+//     timer (~20–30s capture window), dread? (exactly ONE, always last),
+//     survival? (invincible seal — timeout snaps hp past atFrac) }.
+// Naming grammar (§5f): "<FRAGMENT OF THE EPITHET> — <plain pattern name>".
+// Capture = survive the card hitless; ledgered per-card (local-only, save.js).
+// A def WITHOUT `cards` keeps the un-carded phase behaviour (coexist rule).
 
 export const BOSSES = {
   voidmaw: {
@@ -29,6 +42,7 @@ export const BOSSES = {
     name: 'VOIDMAW',
     title: 'the Sky Tyrant',
     epithet: 'The Hollow Judgment',   // bossTitleCard's reveal-card subtitle
+    tier: 1,                          // SENTINEL (§5b band 1)
     hpMax: 180,
     // Boss-archetype dispatch (bossModel.js buildBoss): routes to the
     // Hollow Idol-Mask hero builder (bossIdol.js) instead of the legacy
@@ -50,6 +64,12 @@ export const BOSSES = {
       { atFrac: 0.66, cadence: [1.6, 2.1], attacks: ['aimed', 'fan'] },   // P2: + spread to weave
       { atFrac: 0.33, cadence: [1.4, 1.9], attacks: ['aimed', 'fan', 'tunnel'] }, // P3: + rings to read
     ],
+    // Spell cards (§5f grammar; last is the dread card — the §5f worked example).
+    cards: [
+      { id: 'voidmaw_verdict',  name: 'HOLLOW — Opening Verdict',            atFrac: 1.00, timer: 22 },
+      { id: 'voidmaw_cloven',   name: 'HOLLOW — Cloven Sky',                 atFrac: 0.66, timer: 24 },
+      { id: 'voidmaw_splitter', name: 'HOLLOW JUDGMENT — Sky-Splitting Verdict', atFrac: 0.33, timer: 26, dread: true },
+    ],
   },
 
   stormrend: {
@@ -57,6 +77,7 @@ export const BOSSES = {
     name: 'STORMREND',
     title: 'the Tempest Herald',
     epithet: 'Eye of the Unending Gale',   // bossTitleCard's reveal-card subtitle
+    tier: 1,                               // SENTINEL (§5b band 1)
     hpMax: 220,
     // Boss-archetype dispatch (bossModel.js buildBoss): routes to the
     // Eye-of-the-Storm Mandala hero builder (bossMandala.js) instead of the
@@ -81,6 +102,11 @@ export const BOSSES = {
       { atFrac: 0.66, cadence: [1.6, 2.1], attacks: ['movingGap', 'stream', 'aimed'] },// P2: anti-flee
       { atFrac: 0.33, cadence: [1.4, 1.9], attacks: ['iris', 'secondWave', 'crossfire'] }, // P3: the storm
     ],
+    cards: [
+      { id: 'stormrend_wall',    name: 'UNENDING — Gale Wall',            atFrac: 1.00, timer: 22 },
+      { id: 'stormrend_squall',  name: 'UNENDING GALE — Shifting Squall', atFrac: 0.66, timer: 24 },
+      { id: 'stormrend_eye',     name: 'EYE OF THE GALE — Heart of the Storm', atFrac: 0.33, timer: 26, dread: true },
+    ],
   },
 
   craghold: {
@@ -88,6 +114,7 @@ export const BOSSES = {
     name: 'CRAGHOLD',
     title: 'the Sundered Colossus',
     epithet: 'The Hands That Held the Sky',   // the lore gap: held — what made them let go?
+    tier: 2,                                  // COLOSSUS (§5b band 2)
     hpMax: 260,
     // Boss-archetype dispatch (bossModel.js buildBoss): routes to the Stone
     // Colossus builder (bossColossus.js) — the first Tier 2 COLOSSUS
@@ -115,6 +142,11 @@ export const BOSSES = {
       { atFrac: 1.00, cadence: [1.7, 2.2], attacks: ['fan', 'spiral', 'aimed'] },              // P1: the radial fill debuts
       { atFrac: 0.66, cadence: [1.5, 2.0], attacks: ['spiralStream', 'crossfire', 'stream'] }, // P2: the hands converge (after the crossing pass)
       { atFrac: 0.33, cadence: [1.3, 1.7], attacks: ['curtain', 'spiralStream', 'crossfire'] },// P3: walls in the constricted arena
+    ],
+    cards: [
+      { id: 'craghold_reach',   name: 'HELD THE SKY — Sundered Reach',        atFrac: 1.00, timer: 24 },
+      { id: 'craghold_grasp',   name: 'THE HANDS — Converging Grasp',         atFrac: 0.66, timer: 26 },
+      { id: 'craghold_clasp',   name: 'HANDS THAT HELD THE SKY — Colossal Clasp', atFrac: 0.33, timer: 28, dread: true },
     ],
   },
 };

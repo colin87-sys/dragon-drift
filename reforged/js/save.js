@@ -11,7 +11,7 @@ const KEY = 'dragonDriftSave';
 // objects under a {} default are dropped on load — collections MUST be
 // arrays (e.g. mastery.flown is [[key, metres], ...], never a map).
 const DEFAULTS = {
-  v: 3,
+  v: 4,
   best: { score: 0, dist: 0 },
   flags: {
     seenFirstSurge: false, hintsSeen: 0, seenIOSHint: false, phaseTaught: false, seenIntro: false,
@@ -33,6 +33,14 @@ const DEFAULTS = {
   // roster) + a lifetime clear counter + best clear time (ms). A boss enters the
   // gauntlet only once beaten; the mode itself unlocks after the first kill.
   bossRush: { beaten: [], cleared: 0, bestClearMs: 0 },
+  // Spell-card mastery + per-boss combat ledger (BOSS-DESIGN.md §5f/§5h). Both
+  // are ARRAY-form collections (dynamic keys under a {} default are dropped by
+  // deepMerge — see the note above): bossCards = [[cardId, captures, survivals]],
+  // bossLedger = [[bossId, kills, deathsTo]]. Written from the existing
+  // bossDefeated / card / death event seams; slot 9's taunt cards read the
+  // ledger, so the accrual lands now (§5h build-order note).
+  bossCards: [],
+  bossLedger: [],
   stats: {
     runs: 0, totalDist: 0, totalRings: 0, totalEmbers: 0,
     totalPerfects: 0, totalGates: 0, totalNearMisses: 0, totalRolls: 0,
@@ -268,4 +276,33 @@ export function recordDailyRun(score) {
   }
   persist();
   return { firstToday, streakBonus, featherUsed };
+}
+
+// --- Spell-card + boss-ledger accrual (BOSS-DESIGN.md §5f/§5h) ---
+// A card is CAPTURED when survived hitless, else SURVIVED (took hits / timed
+// out). Local-only (owner decision §5h). Both collections are array-of-tuples
+// so deepMerge preserves them across loads.
+export function recordBossCard(cardId, captured) {
+  if (!cardId) return;
+  let e = saveData.bossCards.find((x) => x[0] === cardId);
+  if (!e) { e = [cardId, 0, 0]; saveData.bossCards.push(e); }
+  if (captured) e[1]++; else e[2]++;
+  persist();
+}
+export function bossCardStats(cardId) {
+  const e = saveData.bossCards.find((x) => x[0] === cardId);
+  return e ? { captures: e[1], survivals: e[2] } : { captures: 0, survivals: 0 };
+}
+// Per-boss kills / deaths-to. slot 9's taunt cards quote this (§5f rule-break).
+export function recordBossLedger(bossId, { kill = false, death = false } = {}) {
+  if (!bossId) return;
+  let e = saveData.bossLedger.find((x) => x[0] === bossId);
+  if (!e) { e = [bossId, 0, 0]; saveData.bossLedger.push(e); }
+  if (kill) e[1]++;
+  if (death) e[2]++;
+  persist();
+}
+export function bossLedgerStats(bossId) {
+  const e = saveData.bossLedger.find((x) => x[0] === bossId);
+  return e ? { kills: e[1], deathsTo: e[2] } : { kills: 0, deathsTo: 0 };
 }
