@@ -1,0 +1,69 @@
+<!doctype html>
+<meta charset="utf8">
+<title>clayshot</title>
+<!-- Flat-lit CLAY renders of a PROCEDURAL dragon (buildDragonModel) from top /
+     side / three-quarter-above, so geometry (e.g. wing-strut camber) can be
+     judged without the game UI or finish/material noise. ?key=<dragonKey>&form=<0..3> -->
+<style>body{margin:0;background:#20242c}canvas{display:block}</style>
+<script type="importmap">
+  { "imports": { "three": "/lib/three.module.js" } }
+</script>
+<canvas id="top" width="900" height="900"></canvas>
+<canvas id="side" width="900" height="900"></canvas>
+<canvas id="threeq" width="900" height="900"></canvas>
+<script type="module">
+  import * as THREE from 'three';
+  import { DRAGONS } from '/js/dragons.js';
+  import { ascendedDef, maxTierFor } from '/js/ascension.js';
+  import { buildDragonModel } from '/js/dragonModel.js';
+
+  const P = new URLSearchParams(location.search);
+  const key = P.get('key') || 'nimbus';
+  const form = P.get('form') != null ? Number(P.get('form')) : maxTierFor(key);
+  const def = ascendedDef(DRAGONS[key], form, 0);
+  const built = buildDragonModel(def, {});
+  const group = built.group;
+
+  // Flat clay so lighting/finish never hides the geometry read (rigshots L35).
+  const clay = new THREE.MeshStandardMaterial({ color: 0xc2c6d0, roughness: 0.85, metalness: 0, side: THREE.DoubleSide });
+  const wingClay = new THREE.MeshStandardMaterial({ color: 0x9aa0ae, roughness: 0.9, metalness: 0, side: THREE.DoubleSide, transparent: false });
+  group.traverse((o) => {
+    if (!o.isMesh) return;
+    o.material = (o.name === 'hullMembrane') ? wingClay : clay;
+  });
+  group.updateMatrixWorld(true);
+  const box = new THREE.Box3().setFromObject(group);
+  const mid = box.getCenter(new THREE.Vector3());
+  const size = box.getSize(new THREE.Vector3());
+  const pad = 1.1;
+
+  function shoot(id, view) {
+    const canvas = document.getElementById(id);
+    const r = new THREE.WebGLRenderer({ canvas, antialias: true });
+    r.setClearColor(0x20242c, 1);
+    const scene = new THREE.Scene();
+    scene.add(new THREE.HemisphereLight(0xffffff, 0x556070, 1.15));
+    const key1 = new THREE.DirectionalLight(0xffffff, 0.5); key1.position.set(0.4, 1, 0.6); scene.add(key1);
+    const holder = new THREE.Group(); holder.add(group.clone(true)); scene.add(holder);
+    const maxd = Math.max(size.x, size.y, size.z) * 0.5 * pad;
+    let cam;
+    if (view === 'top' || view === 'side') {
+      const half = maxd;
+      cam = new THREE.OrthographicCamera(-half, half, half, -half, 0.1, 400);
+      if (view === 'top') { cam.position.set(mid.x, mid.y + 100, mid.z); cam.up.set(0, 0, -1); }
+      else { cam.position.set(mid.x + 100, mid.y, mid.z); cam.up.set(0, 1, 0); }   // right-side, head at +... screen right = -z
+      cam.lookAt(mid);
+    } else { // threeq: rear-3/4-above (the read the chase cam approximates, but lifted so struts show)
+      cam = new THREE.PerspectiveCamera(35, 1, 0.1, 400);
+      const d = maxd * 3.2;
+      cam.position.set(mid.x + d * 0.55, mid.y + d * 0.7, mid.z + d * 0.9);
+      cam.lookAt(mid.x, mid.y, mid.z);
+    }
+    cam.updateProjectionMatrix();
+    r.render(scene, cam);
+  }
+  shoot('top', 'top');
+  shoot('side', 'side');
+  shoot('threeq', 'threeq');
+  window.__ready = true;
+</script>

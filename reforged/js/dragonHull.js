@@ -482,9 +482,14 @@ function buildHull(def, model, attach) {
       let camber;
       if (falloff != null) {
         // uMed 0 = leading strut (just inboard of the frame), 1 = innermost strut.
+        // NEGATIVE so the strut bows FORWARD (−z), the SAME direction the leading
+        // frame bows (leadEdgePt z = −yAtLead); a positive camber bows backward,
+        // which reads as the strut curving the WRONG way vs the frame. Magnitude
+        // grades from 1 (leading strut, follows the frame) to `falloff` (innermost,
+        // gentler — never straight).
         const uMed = nStrut > 1 ? (i - 1) / (nStrut - 1) : 0;
         const ease = Math.pow(1 - uMed, model.wingCamberPow ?? 1.4);
-        camber = falloff + (1 - falloff) * ease;   // 1 at the leading strut → falloff at the innermost
+        camber = -(falloff + (1 - falloff) * ease);
       }
       struts.push(finger(tips[i], fanT, false, camber));
     }

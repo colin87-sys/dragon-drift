@@ -1488,10 +1488,10 @@ export const DRAGONS = {
         eyeScale: 1.5, eyeYOffset: -0.04,
         wingWristMedial: 0.52, wingFingerSplay: 0.34, wingFingerCurve: 0.26, wingFingerBulge: 0.03,
         spineGlow: 0, glowIntensity: 0.25, particleRate: 0.2,
-        wingOpacity: 0.92, wingPanelGlow: 0.06, previewScale: 0.8,
+        wingOpacity: 0.99, wingPanelGlow: 0.02, previewScale: 0.8,
         tailPuffGlow: 0.15, tailPuffScale: 0.55,
         colors: { body: 0x2c3f48, belly: 0x8f8a7c, scales: 0x4a626e, horn: 0x5a707c,
-          wingInner: 0x46626e, wingOuter: 0x27373f, wingEmissive: 0x50707c,
+          wingInner: 0x34474f, wingOuter: 0x212e34, wingEmissive: 0x232f35,
           apexSeam: 0x5a7a88, eye: 0xff8a5f, coreGlow: 0x6f93a2 } },
       // F1 KINDLED — clearer teal, cream belly emerges, faint puff glow.
       { wingForm: 1, bodyScale: 0.82, wingSpan: 0.92, wingChord: 1.35,
@@ -1499,10 +1499,10 @@ export const DRAGONS = {
         eyeScale: 1.3, eyeYOffset: -0.02,
         wingWristMedial: 0.50, wingFingerSplay: 0.32, wingFingerCurve: 0.25, wingFingerBulge: 0.04,
         spineGlow: 0.1, glowIntensity: 0.5, particleRate: 0.5,
-        wingOpacity: 0.9, wingPanelGlow: 0.1, previewScale: 0.92,
+        wingOpacity: 0.98, wingPanelGlow: 0.03, previewScale: 0.92,
         tailPuffGlow: 0.55, tailPuffScale: 0.8,
         colors: { body: 0x334e5a, belly: 0xcfc4ac, scales: 0x5f7d8a, horn: 0x74909c,
-          wingInner: 0x587886, wingOuter: 0x2c414b, wingEmissive: 0x6f95a4,
+          wingInner: 0x395a68, wingOuter: 0x22343b, wingEmissive: 0x28414a,
           apexSeam: 0x74a0b0, eye: 0xff8a5f, coreGlow: 0x8fb3c2 } },
       // F2 RADIANT (SSR apex) — full brief palette: storm-teal, cream, coral puff
       // + a thin coral spine seam. Restrained (starter stays below Eternals).
@@ -1511,10 +1511,13 @@ export const DRAGONS = {
         eyeScale: 1.15, eyeYOffset: 0.0,
         wingWristMedial: 0.48, wingFingerSplay: 0.30, wingFingerCurve: 0.24, wingFingerBulge: 0.05,
         spineGlow: 0.28, glowIntensity: 0.85, particleRate: 0.8,
-        wingOpacity: 0.9, wingPanelGlow: 0.14, previewScale: 1.0,
+        // Membrane reads as SKIN not blown-out glass: opaque, low glow, a richer
+        // teal that holds form under the bright shop backlight (the pale + glowy
+        // v1 blew out to a featureless white sheet, hiding all the wing geometry).
+        wingOpacity: 0.98, wingPanelGlow: 0.03, previewScale: 1.0,
         tailPuffGlow: 1.0, tailPuffScale: 1.0,
         colors: { body: 0x3a5560, belly: 0xe8dcc4, scales: 0x6f93a2, horn: 0x86a4b0,
-          wingInner: 0x6f95a4, wingOuter: 0x33484f, wingEmissive: 0x8fb9c8,
+          wingInner: 0x3f6472, wingOuter: 0x24363d, wingEmissive: 0x2c4650,
           apexSeam: 0xff8a5f, eye: 0xff8a5f, coreGlow: 0xffa87f } },
     ],
     fx: { auraColor: '255,138,95', auraIdle: 0.0, sparkle: false },
