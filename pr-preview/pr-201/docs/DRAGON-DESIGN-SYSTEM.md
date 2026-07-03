@@ -135,6 +135,17 @@ tail length ratio, wing planform aspect, body attitude — because surface detai
 (crowns, plates, glow) vanishes at blob distance. The ledger rows above now encode
 opposing structure, not just different decoration.
 
+## §5b The wing-camber law (why wings read as wings)
+
+Researched from bat-flight aerodynamics ([JEB 218:653](https://journals.biologists.com/jeb/article/218/5/653/14631/), [Biology Open 1:1226](https://journals.biologists.com/bio/article/1/12/1226/819/)) and airfoil geometry, then encoded as a generator rule. A fan of finger-struts that all curve equally reads as a *webbed hand or a leaf*; a real wing has **graded camber**:
+
+1. **The leading spar carries the strongest camber.** It is the airfoil's leading edge — a bold forward-bowed convex curve. Aerodynamically it is where camber is controlled (the "leading-edge flap"); visually it is the line the eye reads as "wing." Peak forward bow sits at ≈30–40% of the span from the wrist (airfoil max-camber position), not at the tip.
+2. **Camber falls off monotonically toward the trailing/inner edge.** Each successive finger-strut inboard of the leading spar is *slightly* less curved than the one outboard of it — a smooth gradual progression, never a step change.
+3. **The innermost strut is the straightest — but not straight.** It keeps a gentle batten curve (a floor camber ≈0.3 of the leading spar's), so the membrane still tensions; a dead-straight innermost strut reads as a tent pole.
+4. **Scallop depth may stay even; the STRUT curvature is what grades.** Even fingertip spacing gives clean repeated scallops (§ D2); the graded *camber* is a separate, additive read layered on top.
+
+**Renderer levers** (`dragonHull.js` `buildFingers`): leading-spar convexity = `wingForms[].lead[1]` (higher = more forward bow) + `wingArmLeadChord`; the strut falloff = `model.wingCamberFalloff` (innermost camber as a fraction of the leading strut's, e.g. 0.3) and `model.wingCamberPow` (falloff easing, higher = the drop concentrates near the leading edge). Absent `wingCamberFalloff`, the legacy behaviour is preserved byte-identically (shipped roster unaffected). **Anti-pattern caught by this law:** the pre-fix generator scaled strut camber by `fanT`, which *increased* curvature toward the medial fingers — backwards; wings built that way read as fans, not airfoils.
+
 ## §6 Proportion tables (station-profile terms)
 
 Authored on the proven hull z-layout (nose ≈ −4 … tail tip ≈ +4.35; see

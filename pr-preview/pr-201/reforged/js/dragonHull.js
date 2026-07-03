@@ -449,10 +449,14 @@ function buildHull(def, model, attach) {
       return new THREE.Vector3(wx * side + wr.x, liftY + wr.y, -sy * scaleZ + wr.z);
     };
     const tips = wingSpec.tips;
-    const finger = (tip, fanT, frame) => {
+    // WING-CAMBER LAW (docs/DRAGON-DESIGN-SYSTEM.md §5b): each finger-strut's
+    // chordwise camber is graded — MAX at the leading strut, gradual falloff to a
+    // floor at the innermost. `camber` is the pre-scaled magnitude per strut;
+    // legacy dragons (no wingCamberFalloff) keep the old `fanT` scaling exactly.
+    const finger = (tip, fanT, frame, camber) => {
       const target = tipToGroup(tip[0], tip[1]);
       const stations = seg(6);
-      const bowMag = (model.wingFingerCurve ?? 0.0) * fanT;
+      const bowMag = (model.wingFingerCurve ?? 0.0) * (camber ?? fanT);
       const rBase = frame ? (model.wingFrameRadius ?? 0.085) : r0;
       const topLift = frame ? lift * (model.wingFrameLift ?? 0.0) : lift;
       const centre = [], radii = [], skin = [];
@@ -471,9 +475,18 @@ function buildHull(def, model, attach) {
       return tube.geometry;
     };
     const struts = [];
+    const nStrut = tips.length - 1;              // struts are tips[1..], leading→inner
+    const falloff = model.wingCamberFalloff;     // opt-in: innermost camber as a fraction of the leading strut's
     for (let i = 1; i < tips.length; i++) {
       const fanT = tips.length > 1 ? i / (tips.length - 1) : 0;
-      struts.push(finger(tips[i], fanT, false));
+      let camber;
+      if (falloff != null) {
+        // uMed 0 = leading strut (just inboard of the frame), 1 = innermost strut.
+        const uMed = nStrut > 1 ? (i - 1) / (nStrut - 1) : 0;
+        const ease = Math.pow(1 - uMed, model.wingCamberPow ?? 1.4);
+        camber = falloff + (1 - falloff) * ease;   // 1 at the leading strut → falloff at the innermost
+      }
+      struts.push(finger(tips[i], fanT, false, camber));
     }
     return struts;
   }
