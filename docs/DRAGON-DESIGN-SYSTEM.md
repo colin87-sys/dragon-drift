@@ -58,13 +58,18 @@ worker can never ship them. Runtime stays 100% procedural.
 
 ## §3 Roster design language
 
-*(Recorded after Gate 1 — the human picks from the style boards in
-`docs/concepts/style/`.)*
+**Gate 1 verdict (human, 2026-07-03, from the boards in `docs/concepts/style/`):**
+the language is **mapped by tier**, not one-size-fits-all:
 
-**Tier → personality mapping (human-decided):** the roster spans archetypes by price —
-**cute & collectible** for the free starter, **sleek & predatory / majestic & regal**
-for the mid tier, **exotic & otherworldly** for the SSSR premium — unified by one
-rendering language chosen at Gate 1.
+| Tier | Language | Board lineage |
+|------|----------|---------------|
+| Free starter (cute & collectible) | **Rounded apex curves** — smooth continuous loft, big eyes, soft rounded outlines | board 1 |
+| Mid (SSR, majestic/sleek) | **Western/celestial** — regal western build with celestial luminous accents | boards 2+3 |
+| Premium (SSSR, exotic) | **Sleek mythic** — the carved-idol value-tier language on a sleeker, less bulky curve language | board 4, slimmed |
+
+Curve quality is carried by these languages (Gate-0 note: outlines/curves are the
+historically weak axis) — every hero concept and build is judged against its tier's
+board lineage by the human, never by the machine.
 
 ## §4 The design laws
 

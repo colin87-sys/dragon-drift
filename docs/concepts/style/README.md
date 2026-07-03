@@ -17,5 +17,7 @@ never a match target.
 | `board-4-mythic.png` | Sculpted mythic idol (the boss-arc language) | painted value tiers across 2–3 material groups, gilt relief bands (authored, mirrored — L126), glow seams between plates, hard-edged outline points |
 | `board-5-aero.png` | Streamlined aero speed-form | swept delta `wingForms` (raked tips), faceted section profile (`dragonFaceted` lineage), energy-seam accents, everything raked toward −z |
 
-**Gate 1 verdict (human):** *pending — recorded here and in DRAGON-DESIGN-SYSTEM.md §3
-when the human picks.*
+**Gate 1 verdict (human, 2026-07-03):** tier-mapped — **rounded apex curves** (board 1)
+for the cute free starter · **western/celestial** (boards 2+3) for the mid tier ·
+**sleek mythic** (board 4 on a sleeker curve language) for the SSSR premium. Details in
+DRAGON-DESIGN-SYSTEM.md §3.
