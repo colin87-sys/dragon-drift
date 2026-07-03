@@ -221,7 +221,7 @@ if (urlParams.has('bossIdx')) {
 const debugFever = urlParams.get('debug') === 'fever';
 if (urlParams.has('debug')) {
   window.__dd = {
-    renderer, scene, game, player, save: saveData, emit, ui, claimFeat, obstacleCount, trailDebug: __trailDebug,
+    renderer, scene, camera, game, player, save: saveData, emit, ui, claimFeat, obstacleCount, trailDebug: __trailDebug,
     juice: { hitstop, juiceEvent },
     postfx: { setPostTier, kick, kickState, handle: postfx },
     // Drop straight into a boss fight (also bound to the B key under ?debug).
