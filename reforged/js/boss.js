@@ -35,6 +35,7 @@ const TIERS = B.renderTiers;   // render-order law: nothing draws over a bullet
 // Encounter scheduling (independent of the level RNG → course stays deterministic).
 let debugFirstAt = null;       // ?boss override: bring the first encounter in early
 let debugDefIdx = null;        // ?bossIdx override: force a specific BOSS_ORDER entry
+let debugChargePin = -1;       // capture hook: ≥0 holds the charge/mantle pose for a still
 let nextBossDist = B.firstAt;
 let encounterIndex = 0;
 
@@ -773,6 +774,13 @@ export function updateBoss(dt, player, time) {
       // Tutorial boss: teach the parry as the fight opens (amber shots = swat-able).
       if (def.tutorial) ui.bossNote?.('DODGE!', 'ROLL INTO AMBER SHOTS TO PARRY', 'gold', 3.0);
     }
+  } else if (phase === 'fight' && debugChargePin >= 0) {
+    // Capture-only: freeze the boss square-on and HOLD the contracted mantle pose
+    // at the pinned charge level so the crop tool can shoot the wind-up silhouette
+    // as a still (the live charge is too transient to catch headless). No firing.
+    pose.rel = B.settleGap; pose.x = 0; pose.y = B.fightHeight;
+    model.setAttackTell?.('aimed');
+    model.setCharge(debugChargePin);
   } else if (phase === 'fight') {
     if (setpieceT >= 0 && !shielded) {
       // Scripted station-leave beat (def-gated; see SETPIECE_PATHS). Attacks +
@@ -1336,6 +1344,13 @@ export function setBossDebugDefIdx(k) {
   debugDefIdx = k;
 }
 
+// Capture hook (bosscrop): pin the charge/mantle pose at `level` (0..1) so a still
+// can be shot of the contracted wind-up silhouette. Pass a negative value to release
+// and hand the fight state machine back over.
+export function setBossDebugCharge(level) {
+  debugChargePin = level;
+}
+
 // Debug hook: drop straight into a fight (wired under ?debug in main.js).
 // `idx` forces a specific BOSS_ORDER entry (?bossIdx=K) for preview judging.
 export function forceBoss(player, idx = null) {
@@ -1343,7 +1358,11 @@ export function forceBoss(player, idx = null) {
 }
 
 export function bossDebugState() {
-  return { active, phase, hp, hpMax, phaseIdx, shielded, bullets: bossBulletCount(), nextBossDist, warnT, approachT, poseRel: pose.rel, poseX: pose.x, poseY: pose.y, setpiece: setpieceT >= 0, charging: chargeT > 0 };
+  // chargeLevel: 0 at the start of a wind-up → 1 at full contraction (mirrors the
+  // value fed to model.setCharge). The crop tool waits for a HIGH level so it grabs
+  // the fully-contracted mantle pose, not an early spread frame (charging is boolean).
+  const chargeLevel = chargeDur > 0 && chargeT > 0 ? 1 - Math.max(chargeT, 0) / chargeDur : 0;
+  return { active, phase, hp, hpMax, phaseIdx, shielded, bullets: bossBulletCount(), nextBossDist, warnT, approachT, poseRel: pose.rel, poseX: pose.x, poseY: pose.y, setpiece: setpieceT >= 0, charging: chargeT > 0, chargeLevel };
 }
 
 // Test seam (headless pattern-budget checks): fire ONE attack volley with its

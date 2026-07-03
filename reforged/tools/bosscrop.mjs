@@ -118,9 +118,11 @@ function skyScore(rgba, W, H, box, hw, hh) {
   return tot ? bright / tot : 0;
 }
 
-// Grab several front-on, low-bullet candidates over the boss's lateral drift and
-// keep the one with the CLEANEST (most-sky) backdrop.
+// Grab several front-on, low-bullet candidates over the boss's lateral drift.
+// For 'charge' keep the NARROWEST silhouette (the contracted mantle the gate
+// must be able to measure); for the others keep the CLEANEST (most-sky) backdrop.
 async function shoot(state, maxBullets, nCands = 7, gap = 550) {
+  const narrow = state === 'charge';
   const cands = [];
   for (let i = 0; i < nCands; i++) {
     const st = await pollState();
@@ -140,13 +142,14 @@ async function shoot(state, maxBullets, nCands = 7, gap = 550) {
   let best = null;
   for (const c of cands) {
     const { rgba } = decodePNG(c.png);
-    const s = skyScore(rgba, c.box.W, c.box.H, c.box, fixedHW, fixedHH);
-    if (!best || s > best.s) best = { box: c.box, rgba, s };
+    const width = c.box.x1 - c.box.x0;
+    const s = narrow ? -width : skyScore(rgba, c.box.W, c.box.H, c.box, fixedHW, fixedHH);
+    if (!best || s > best.s) best = { box: c.box, rgba, s, width };
   }
   const { buf, w, h } = cropZoom(best.rgba, best.box.W, best.box.H, best.box, fixedHW, fixedHH);
   const path = `${OUT}${bossId}-${cpTag}-${state}-${roundTag}.png`;
   fs.writeFileSync(path, buf);
-  console.log(`wrote ${path}  (${w}x${h}) yaw ${best.box.yaw.toFixed(3)} sky ${(best.s * 100).toFixed(0)}% (${cands.length} cands)`);
+  console.log(`wrote ${path}  (${w}x${h}) yaw ${best.box.yaw.toFixed(3)} width ${best.width.toFixed(0)}px (${cands.length} cands)`);
 }
 
 try {
@@ -166,8 +169,12 @@ try {
       await page.waitForFunction(() => !window.__dd.bossState().charging, { timeout: 6000 }).catch(() => {});
       await shoot('idle', 2);                 // bullet-free reveal-hold, cleanest backdrop
     } else if (state === 'charge') {
-      await page.waitForFunction(() => window.__dd.bossState().charging, { timeout: 60000 }).catch(() => {});
+      // Pin the mantle pose at full contraction and hold it as a still — the live
+      // charge is too transient to catch headless. Ease-in is fast (poseSpeed 20).
+      await page.evaluate(() => window.__dd.bossPinCharge(1));
+      await page.waitForTimeout(2200);
       await shoot('charge', 8);
+      await page.evaluate(() => window.__dd.bossPinCharge(-1));   // release the state machine
     } else if (state === 'shielded' || state === 'dread') {
       let sh = false;
       for (let i = 0; i < 25 && !sh; i++) {

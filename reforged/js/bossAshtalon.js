@@ -64,33 +64,32 @@ export function buildEmberHunter(def, quality = 1) {
 
   // ---- Painted value tiers (the sun can't shade the front face — §3.4). The
   // charcoal runs near-black; the ember identity lives ONLY in the emissive
-  // accent tier (wingtip smoulder + root cracks + the slit).
-  // Warm charcoal (R≥G≥B): the sheet's 0x121012 has B>G, so warm/red biome
-  // ambient tints the big flat wing membrane MAGENTA-hued (a false danger-role
-  // collision the gate's G3 flags) — nudged warm so lit charcoal reads ember, not
-  // magenta, while staying near-black (§3.3).
+  // accents (root-crack strips + scar chunk + visor halo), NEVER the diffuse.
+  // NEUTRAL charcoal (|R−B| ≤ 8, ZERO ember floor) — a warm/red diffuse read as
+  // saturated OXBLOOD (a §3-law-3 violation, a G2 saturation fail, and a slot-5
+  // palette collision the round-4 gate flagged). The capture biome is warm
+  // (AMBER WASTES), so a neutral diffuse reads warm-neutral, low-sat.
   const charcoalMat = track(new THREE.MeshStandardMaterial({
-    color: 0x15120d, emissive: accent, emissiveIntensity: 0.07, roughness: 0.82, metalness: 0.0, flatShading: true,
+    color: 0x16151a, emissive: accent, emissiveIntensity: 0.0, roughness: 0.85, metalness: 0.0, flatShading: true,
   }));
   const cowlMat = track(new THREE.MeshStandardMaterial({
-    color: 0x0b0906, emissive: accent, emissiveIntensity: 0.04, roughness: 0.86, metalness: 0.0, flatShading: true,
+    color: 0x0c0b10, emissive: accent, emissiveIntensity: 0.0, roughness: 0.88, metalness: 0.0, flatShading: true,
   }));
-  // WING VALUE TIERS (gate directive 4 — no flat-sticker shading, §3.4): three
-  // painted charcoal values so the wing reads a hierarchy at 30m, plus the ember
-  // smoulder strip. A low ember emissive floor keeps every tier WARM (never the
-  // magenta a B>G charcoal reads under a cool sky). Hexes per the gate directive.
+  // WING VALUE TIERS (§3.4 painted hierarchy) — all NEUTRAL charcoal, no ember in
+  // the diffuse (gate directive 3). Ember lives only in the strips/scar/visor.
   const leadMat = track(new THREE.MeshStandardMaterial({
-    color: 0x241a14, emissive: accent, emissiveIntensity: 0.09, roughness: 0.78, metalness: 0.0, flatShading: true,
+    color: 0x1c1a1f, emissive: accent, emissiveIntensity: 0.0, roughness: 0.8, metalness: 0.0, flatShading: true,
   }));
   const trailMat = track(new THREE.MeshStandardMaterial({
-    color: 0x121012, emissive: accent, emissiveIntensity: 0.06, roughness: 0.82, metalness: 0.0, flatShading: true,
+    color: 0x141317, emissive: accent, emissiveIntensity: 0.0, roughness: 0.84, metalness: 0.0, flatShading: true,
   }));
   const rootMat = track(new THREE.MeshStandardMaterial({
-    color: 0x0c0a0c, emissive: accent, emissiveIntensity: 0.05, roughness: 0.85, metalness: 0.0, flatShading: true,
+    color: 0x0d0c11, emissive: accent, emissiveIntensity: 0.0, roughness: 0.86, metalness: 0.0, flatShading: true,
   }));
-  // Ember smoulder strips (ei 0.18) — the accent that reads at 30m, not only close.
+  // Ember smoulder strips (the wing-root crack lines) — the ONLY ember on the
+  // wing, so they carry the accent tier; brightened so G3 still reads ember.
   const emberStripMat = track(new THREE.MeshStandardMaterial({
-    color: 0x2a1006, emissive: accent, emissiveIntensity: 0.18, roughness: 0.5, metalness: 0.2, flatShading: true,
+    color: 0x2a1006, emissive: accent, emissiveIntensity: 0.35, roughness: 0.5, metalness: 0.2, flatShading: true,
   }));
 
   // Shared blade machinery (crest fins + wing scythe-blades): a curved tapered
@@ -142,11 +141,12 @@ export function buildEmberHunter(def, quality = 1) {
       c.rotateX(-1.2); c.rotateZ(a); c.translate(a > 0 ? 0.18 : -0.18, 0.58, -0.2);
       return c;
     };
-    // Brow relief: a mirrored pair of notched charcoal ledges over the visor ends
-    // (§5g face richness — the cowl is no longer a featureless quad; gate dir 7).
+    // Brow relief: a mirrored pair of RAISED charcoal ledges over the visor ends
+    // (0.14 thick, protruding well forward of the cowl face so each throws a
+    // clear value step at capture scale — §5g face richness, gate dir 5/7).
     const brow = (sx) => {
-      const b = strip(new THREE.BoxGeometry(0.34, 0.16, 0.3));
-      b.rotateZ(-sx * 0.25); b.translate(sx * 0.62, 0.52, 1.5);
+      const b = strip(new THREE.BoxGeometry(0.42, 0.22, 0.5));
+      b.rotateZ(-sx * 0.32); b.translate(sx * 0.6, 0.5, 1.62);
       return b;
     };
     return mergeCharcoal([oct, beak, keel, crest(0.25), crest(-0.25), brow(1), brow(-1)], 'prow');
@@ -179,20 +179,27 @@ export function buildEmberHunter(def, quality = 1) {
   // white sticker). Both horizontal + concentric → ONE bar, never segmented.
   const slit = new THREE.Group();
   slit.position.set(0, 0.3, 1.34);   // recessed behind the brow/jaw fronts (z1.72)
-  const glowMat = track(new THREE.MeshBasicMaterial({ color: 0xff6a1e }));
+  // ORANGE molten FRAME — a wide, tall, saturated ember quad that extends well
+  // beyond the white core on all sides, so the ring just outside the core reads
+  // molten orange (R−B ≥ 60), not white tape (gate directive 4). 0xff5010 stays
+  // deep orange even when HDR-boosted (R clips, B stays low).
+  const glowMat = track(new THREE.MeshBasicMaterial({ color: 0xff5010 }));
   glowMat.toneMapped = false;
-  const GLOW_BASE = new THREE.Color(1.0 * 1.5, 0.42 * 1.5, 0.12 * 1.5);   // ember-orange halo
+  const GLOW_BASE = new THREE.Color(1.0 * 1.8, 0.31 * 1.8, 0.06 * 1.8);   // (255,143,28) molten orange
   glowMat.color.copy(GLOW_BASE);
-  const slitGlow = new THREE.Mesh(new THREE.BoxGeometry(SLIT_W * 1.06, 0.24, 0.1), glowMat);
+  const slitGlow = new THREE.Mesh(new THREE.BoxGeometry(SLIT_W * 1.12, 0.34, 0.09), glowMat);
   slitGlow.position.z = 0.02;
   slit.add(slitGlow);
-  const SLIT_BASE = new THREE.Color(0xffe4c0);   // near-white molten core
-  const SLIT_HOT = 2.3;
+  // Thin white-hot CORE line inside the orange frame (the §3.2 focal peak).
+  const SLIT_BASE = new THREE.Color(0xffe4c0);
+  const SLIT_HOT = 2.6;
   const slitMat = track(new THREE.MeshBasicMaterial({ color: 0xffe4c0 }));
   slitMat.toneMapped = false;
   slitMat.color.copy(SLIT_BASE).multiplyScalar(SLIT_HOT);
-  const core = new THREE.Mesh(new THREE.BoxGeometry(SLIT_W * 0.94, 0.1, 0.12), slitMat);
-  core.position.z = 0.06;
+  // Thick+bright enough that the peak solidly clears the G1 ≥250 focal law at
+  // capture scale, but still ≥3px of orange frame shows above/below it.
+  const core = new THREE.Mesh(new THREE.BoxGeometry(SLIT_W * 0.8, 0.13, 0.12), slitMat);
+  core.position.z = 0.07;
   slit.add(core);
   rig.add(slit);
 
@@ -294,12 +301,13 @@ export function buildEmberHunter(def, quality = 1) {
     scar.mesh.material = leadMat;
     // ONE clean convex ember chunk flush on the snapped end (no jag, no floating
     // flecks). DIM (§3 law 2: never a second focal) — toneMapped emissive kept
-    // in the 100–150 captured band, ≤60% of the visor (gate directive 4).
+    // in the 100–150 captured band, ≤60% of the visor. Sized so it reads on the
+    // idle silhouette edge too, not only in charge (gate directive 6).
     const stumpMat = track(new THREE.MeshStandardMaterial({
-      color: 0x140702, emissive: 0xff7a2e, emissiveIntensity: 0.55, roughness: 0.6, metalness: 0.1, flatShading: true,
+      color: 0x140702, emissive: 0xff7a2e, emissiveIntensity: 0.6, roughness: 0.6, metalness: 0.1, flatShading: true,
     }));
-    const stump = new THREE.Mesh(new THREE.OctahedronGeometry(0.32, 0), stumpMat);
-    stump.position.set(0, scar.len * 0.42 - 0.08, 0.02);   // embedded flush in the stump end, not floating
+    const stump = new THREE.Mesh(new THREE.OctahedronGeometry(0.42, 0), stumpMat);
+    stump.position.set(0, scar.len * 0.42 - 0.06, 0.02);   // flush on the stump end
     scar.pivot.add(stump);
     scar.scar = true;
   }
@@ -453,9 +461,9 @@ export function buildEmberHunter(def, quality = 1) {
 
       if (charge > 0.001 && !shieldClamp && dyingK <= 0) {
         if (gesture === 'mantle') {        // fold up + PULL IN — a hunched, narrow ready-to-stoop pose
-          shoulderRot += 1.35 * charge;    // fold the blades hard up-forward
-          fanMul = 1 - 0.72 * charge;      // collapse the fan
-          shoulderInX = 1.0 * charge;      // draw the shoulders inward (span ~15 → ≤9, gate directive 2)
+          shoulderRot += 1.5 * charge;     // fold the blades hard up-forward
+          fanMul = 1 - 0.8 * charge;       // collapse the fan
+          shoulderInX = 1.15 * charge;     // draw the shoulders inward (span ~15 → ≤9, gate directive 2)
           rake += 0.35 * charge;
         } else if (gesture === 'flare') {  // spread wide — the fan
           shoulderRot += 0.12 * charge;
@@ -514,12 +522,15 @@ export function buildEmberHunter(def, quality = 1) {
       // T·R·S), so it is NOT auto-conjugated like the blade pivots are — the left
       // wing needs the OPPOSITE sign to fold mirror-symmetric with the right.
       const srSign = w.sx < 0 ? -1 : 1;
-      const sEase = Math.min(1, dt * 5);
+      // Snap FASTER while charging/shielded so the mantle contraction is fully
+      // reached in the brief (rAF-throttled) capture window, not caught mid-ease.
+      const poseSpeed = (charge > 0.25 || shieldClamp || setpieceK > 0) ? 20 : 5;
+      const sEase = Math.min(1, dt * poseSpeed);
       w.shoulder.rotation.z += (shoulderRot * srSign - w.shoulder.rotation.z) * sEase;
       // Draw the shoulder inward on the folding poses (contracts the tip-to-tip span).
       const targetX = w.sx * (1.1 - shoulderInX);
       w.shoulder.position.x += (targetX - w.shoulder.position.x) * sEase;
-      const fEase = Math.min(1, dt * 6);
+      const fEase = Math.min(1, dt * (poseSpeed + 1));
       for (const b of w.blades) {
         // Spread the fan around its centre (blade 0 = inner anchor).
         const target = b.base * fanMul + (b.isOuter ? Math.sin(time * 2 + b.idx) * 0.02 : 0);
@@ -535,7 +546,7 @@ export function buildEmberHunter(def, quality = 1) {
     }
 
     // Ember smoulder pulse (its own clock) + death gutter; tickFlash (LAST) wins.
-    emberStripMat.emissiveIntensity = (0.18 + Math.sin(time * 1.7) * 0.06) * (1 - dyingK * 0.7);
+    emberStripMat.emissiveIntensity = (0.35 + Math.sin(time * 1.7) * 0.08) * (1 - dyingK * 0.7);
 
     // Cinder trailers drift near the body (kept on-frame — dark, dim ei ≤0.25).
     for (const o of orbiters) {
