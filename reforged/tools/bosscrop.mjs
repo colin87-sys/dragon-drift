@@ -127,7 +127,10 @@ try {
         sh = await page.evaluate(() => { window.__dd.emit('bossDamage', { amount: 1e6, kind: 'debug' }); return window.__dd.bossState().shielded; });
         if (!sh) await page.waitForTimeout(120);
       }
-      await page.waitForTimeout(500);
+      // Headless rAF is throttled, so the wing-fold pose eases in slowly in
+      // wall-clock — wait several seconds for it to SETTLE symmetric + front-on
+      // before capturing (round-1 caught a mid-ease tilt).
+      await page.waitForTimeout(6000);
       await shoot(state);
     }
   }
