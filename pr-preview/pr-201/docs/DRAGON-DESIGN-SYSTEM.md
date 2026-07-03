@@ -68,6 +68,12 @@ rendering language chosen at Gate 1.
 
 ## §4 The design laws
 
+> **Gate 0: thresholds approved by the human, 2026-07-03** (PR #201). Noted at
+> approval: proportions are only part of the problem — outline/curve *quality* is the
+> historically weak axis, and it is exactly what the machine can't gate. Curve
+> character is therefore owned by the Gate-1 style language and the human render
+> gates (S4/D4 stay HUMAN).
+
 Each law names its **renderer lever** — the actual knob that controls it. A law with no
 lever is an adjective, and adjectives are how past sessions wasted rounds (anti-pattern
 §8.1). Thresholds are Gate-0-approved and adjustable **only here**; `designcheckCore.mjs`
