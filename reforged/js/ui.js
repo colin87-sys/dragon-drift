@@ -1348,9 +1348,12 @@ export const ui = {
       const info = (handlers.rushInfo && handlers.rushInfo()) || { bosses: [], unlockedCount: 0, bestClearMs: 0, cleared: 0 };
       const fmtT = (ms) => { const s = Math.round(ms / 1000); return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`; };
       const hex = (n) => '#' + ((n >>> 0) & 0xffffff).toString(16).padStart(6, '0');
+      // Unlocked bosses are TAPPABLE chips — tap one to fight it solo; locked ones
+      // are ??? teasers. The FLY button runs the whole gauntlet back-to-back.
       const chips = info.bosses.map((b) => b.unlocked
-        ? `<div class="rush-chip" style="--a:${hex(b.accent)}"><span class="rush-dot"></span>${b.name}</div>`
+        ? `<button type="button" class="rush-chip pick" data-boss="${b.id}" style="--a:${hex(b.accent)}" title="Fight ${b.name} solo"><span class="rush-dot"></span>${b.name}</button>`
         : `<div class="rush-chip locked"><span class="rush-dot"></span>??? <span class="rush-lock">🔒</span></div>`).join('');
+      const multi = info.unlockedCount > 1;
       html = `
         <div class="screen-topbar">
           <span class="topbar-title">BOSS RUSH</span>
@@ -1359,13 +1362,13 @@ export const ui = {
         <div class="daily-card rush-panel">
           <div class="daily-info">
             <div class="daily-title">${ICONS.rush} THE GAUNTLET</div>
-            <div class="daily-sub">Every boss you've felled, back-to-back with a breather between. Survive the lot for the clear.</div>
+            <div class="daily-sub">Tap a boss to fight it solo${multi ? ', or FLY THE GAUNTLET for all of them back-to-back' : ''}.</div>
             <div class="rush-roster">${chips}</div>
             ${info.bestClearMs > 0 ? `<div class="rush-best">Best clear <b>${fmtT(info.bestClearMs)}</b>${info.cleared > 1 ? ` · cleared ${info.cleared}×` : ''}</div>` : ''}
           </div>
-          <button class="btn-secondary btn-fly-rush glow" id="btn-fly-rush">FLY THE GAUNTLET</button>
+          ${multi ? `<button class="btn-secondary btn-fly-rush glow" id="btn-fly-rush">FLY THE GAUNTLET</button>` : ''}
         </div>
-        <p class="share-hint">Beat a new boss in a normal run to add it to the gauntlet.</p>`;
+        <p class="share-hint">Beat a new boss in a normal run to add it to the roster.</p>`;
 
     } else if (type === 'shop') {
       // Opening the shop clears its badge: the wallet watermark records what
@@ -2012,7 +2015,11 @@ function wireScreenButtons(type) {
     const fly = q('#btn-fly-daily');
     if (fly) fly.onclick = stop(() => handlers.onStart && handlers.onStart('daily'));
     const flyRush = q('#btn-fly-rush');
-    if (flyRush) flyRush.onclick = stop(() => handlers.onStart && handlers.onStart('rush'));
+    if (flyRush) flyRush.onclick = stop(() => handlers.onStartRush && handlers.onStartRush(null));   // whole gauntlet
+    // Tap a roster chip → fight just that ONE boss.
+    for (const chip of els.screen.querySelectorAll('.rush-chip.pick[data-boss]')) {
+      chip.onclick = stop(() => handlers.onStartRush && handlers.onStartRush(chip.dataset.boss));
+    }
   }
   if (type === 'gameover') returnScreen = 'gameover';
 

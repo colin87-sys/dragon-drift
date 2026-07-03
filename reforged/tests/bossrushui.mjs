@@ -4,9 +4,10 @@
 // the headless logic tests can't (rail gating, pause-menu handlers).
 import { boot, check } from './browser.mjs';
 
-// Returning pilot (runs=5 → full rail) who has beaten VOIDMAW (→ rush unlocked).
+// Returning pilot (runs=5 → full rail) who has beaten BOTH bosses (→ rush unlocked,
+// gauntlet available, and every boss is a tappable "fight solo" chip).
 const { page, errors, done } = await boot({
-  initScript: `localStorage.setItem('dragonDriftSave', JSON.stringify({ v: 3, stats: { runs: 5 }, flags: { seenIntro: true }, bossRush: { beaten: ['voidmaw'], cleared: 0, bestClearMs: 0 } }))`,
+  initScript: `localStorage.setItem('dragonDriftSave', JSON.stringify({ v: 3, stats: { runs: 5 }, flags: { seenIntro: true }, bossRush: { beaten: ['voidmaw', 'stormrend'], cleared: 0, bestClearMs: 0 } }))`,
 });
 await page.waitForTimeout(1200);
 
@@ -19,12 +20,12 @@ check('BOSS RUSH rail button present (boss beaten → unlocked)', !!(await page.
 await page.click('#btn-rush');
 await page.waitForSelector('#btn-fly-rush');
 check('BOSS RUSH opens the roster panel', !!(await page.$('#btn-fly-rush')));
-check('roster shows a boss chip', (await page.$$('.rush-chip')).length >= 1);
+check('roster shows tappable boss chips (fight solo)', (await page.$$('.rush-chip.pick[data-boss]')).length === 2);
 
-// FLY launches the gauntlet.
-await page.click('#btn-fly-rush');
+// Tap a single boss chip → fight JUST that boss (a length-1 rush).
+await page.click('.rush-chip.pick[data-boss="stormrend"]');
 await page.waitForTimeout(700);
-check('FLY launches a rush run', await page.evaluate(() => window.__dd.game.state === 'playing' && window.__dd.game.mode === 'rush'));
+check('tapping a boss chip launches a single-boss rush', await page.evaluate(() => window.__dd.game.state === 'playing' && window.__dd.game.mode === 'rush'));
 
 // Pause → EXIT TO MENU is a TWO-STEP armed confirm (abandons the run).
 await page.keyboard.press('Escape');

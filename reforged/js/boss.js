@@ -457,9 +457,12 @@ export function startBossEncounter(player, defOverride) {
 // Begin a Boss Rush run: queue the unlocked bosses and schedule the first one a
 // short warm-up ahead. main.js suppresses the obstacle course for the whole run
 // (rings/orbs only), so the gauntlet is boss → breather → boss → … → 'rushClear'.
-export function startBossRush(player) {
+// `only` (a BOSS_ORDER key) restricts the queue to a SINGLE boss — the "fight one
+// particular boss" pick from the roster panel; it must be an unlocked boss.
+export function startBossRush(player, only = null) {
   rushMode = true;
-  rushQueue = rushRoster();
+  const roster = rushRoster();
+  rushQueue = (only && roster.includes(only)) ? [only] : roster;
   rushIndex = 0;
   encounterIndex = 0;
   active = false;

@@ -4976,3 +4976,29 @@ build stamp) vs a real gate.
 pattern apply to every future gated mode (endless rush, boss-of-the-day) and every dev seam. Verified: `tests/bossrushui.mjs`
 extended with a cold-save + `?dev` regression case (13 checks; the exact bug now guarded) + the state matrix reproduced
 (cold/warm × dev/settings-toggle/none), `boss` (16) / `bossrush` / `smoke` green, `tricount` 203265.
+
+### L129 — Single-boss select: the roster chips become the picker (one control, two jobs), and the mode driver already supported a length-1 queue
+
+**Did / learned.** The human wanted to fight ONE particular boss, not always the whole gauntlet. Rather than build a separate
+"boss practice" mode, gave the EXISTING Boss Rush roster panel a second job: each unlocked boss chip is now a tappable button
+(`.rush-chip.pick[data-boss]`) that starts a rush restricted to just that boss, while FLY THE GAUNTLET runs them all. The engine
+change was trivial because the rush driver was already a queue: `startBossRush(player, only)` sets `rushQueue = [only]` instead
+of the full roster, and the length-1 gauntlet flows through the identical boss → 'rushClear' path (count 1). Threading the pick
+to the driver reused the mode plumbing: a `rushOnlyBoss` module var in main.js set by a new `onStartRush(key)` handler, consumed
+in the same `restart()` rush-arm block and cleared after (so a replay defaults back to the full gauntlet). The gauntlet button
+now only renders when >1 boss is unlocked (a "gauntlet" of one is just that boss — tap the chip). Locked bosses stay
+non-tappable `???` teasers.
+
+**→ Systematize.** (a) **Before adding a mode, check whether an existing one is a superset with a parameter.** "Fight one
+boss" is "Boss Rush with a one-item queue" — a filter arg on the driver, not a new system. When a driver is built around a
+queue/list, single-item selection is almost free; expose it rather than forking. (b) **Let a display list double as its own
+picker.** The roster panel already enumerated the bosses; making the chips interactive adds the control with zero new surface —
+one component, two jobs (show the line-up AND pick from it). (c) **Thread a one-shot selection through the same mode entry
+(a consumed module var), not a parallel start path**, so mode setup/teardown stays single-sourced. (d) **Collapse a
+now-degenerate control**: hide FLY THE GAUNTLET at 1 unlocked boss so the UI never offers a "gauntlet of one."
+
+**→ Leapfrog (innovate).** `startBossRush(only)` + `onStartRush(key)` is the seam for a full **boss practice / rematch** surface
+(per-boss best times, a "beat all solo" achievement) and for the deferred **endless** variant (an infinite queue with per-lap
+scaling) — all queue shapes over one driver. Verified: `tests/bossrush.mjs` +1 (pick the LAST boss → only it is fought →
+rushClear count 1), `tests/bossrushui.mjs` (13; tap a chip → single-boss rush launches), `boss` (16) / `smoke` / `defs` green,
+`tricount` 203265.
