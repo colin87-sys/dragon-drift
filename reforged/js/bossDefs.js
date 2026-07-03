@@ -169,9 +169,16 @@ export const BOSSES = {
     scale: 1.7,               // COLOSSUS — the scythe-wings span wide (~14 pre-scale)
     hpMax: 290,               // Tier 2 band (260–330); slot-3 opener sits low in it
     // Mechanical star (SOP): closing + cadence — FAST but SPARSE. Its cards are
-    // pursuit curves (stream debuts here), tightening toward the dread dive. The
-    // moving-station branch, the EMBER HUNT stooping-dive setpiece, and the
-    // scripted rear-view camera beat land with the behaviour pass (§5e/§5f).
+    // pursuit curves (stream debuts here), tightening toward the dread dive.
+    // §5f rule-break: one scripted rear-view camera beat as it overtakes from
+    // behind at fight entry (announced, no fire during the swing).
+    rearViewOvertake: true,
+    // §5e moving-station setpieces (fire while they travel, per-phase). P2 = the
+    // wide CIRCLING orbit; P3 = the EMBER HUNT stooping dive from above (dread).
+    setpieces: [
+      { id: 'circlingPass',   atPhase: 1, dur: 7.0, moving: true },
+      { id: 'stoopingStrike', atPhase: 2, dur: 5.5, moving: true, dread: true },
+    ],
     phases: [
       { atFrac: 1.00, cadence: [1.5, 2.0], attacks: ['aimed', 'stream'] },                 // P1: the hunter's tracking hose debuts
       { atFrac: 0.66, cadence: [1.4, 1.8], attacks: ['fan', 'stream', 'crossfire'] },       // P2: circling passes converge

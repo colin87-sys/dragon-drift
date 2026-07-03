@@ -167,6 +167,7 @@ body.app-loaded > canvas { opacity: 1; }
   animation: hazard-scroll 0.7s linear infinite; }
 .boss-danger.show { opacity: 1; animation: danger-throb 0.7s ease-in-out infinite; }
 .boss-danger[data-pos="bottom"] { left: 0; right: 0; bottom: 14%; text-align: center; }
+.boss-danger[data-pos="top"] { left: 0; right: 0; top: 16%; text-align: center; }
 .boss-danger[data-pos="bottomRight"] { right: 6%; bottom: 15%; }
 .boss-danger[data-pos="bottomLeft"]  { left: 6%;  bottom: 15%; }
 .boss-danger[data-pos="right"] { right: 4%; top: 46%; }
@@ -181,6 +182,7 @@ body.app-loaded > canvas { opacity: 1; }
 .danger-glow[data-dir="bottomLeft"]  { background: radial-gradient(90% 80% at 0% 100%, rgba(255,40,40,0.6), transparent 55%); }
 .danger-glow[data-dir="bottomRight"] { background: radial-gradient(90% 80% at 100% 100%, rgba(255,40,40,0.6), transparent 55%); }
 .danger-glow[data-dir="bottom"] { background: radial-gradient(120% 90% at 50% 100%, rgba(255,40,40,0.6), transparent 55%); }
+.danger-glow[data-dir="top"] { background: radial-gradient(120% 90% at 50% 0%, rgba(255,40,40,0.6), transparent 55%); }
 @keyframes danger-pulse { 0%,100%{opacity:0.45} 50%{opacity:0.9} }
 
 /* Boss callout slot — ONE bottom-centre line, shows a single queued message at a
