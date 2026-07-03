@@ -607,7 +607,11 @@ function restart(opts = {}) {
   if (game.mode === 'rush') {
     bossGraceUntil = Number.MAX_SAFE_INTEGER;
     startBossRush(player, rushOnlyBoss);   // rushOnlyBoss = a single-boss pick, or null for all
-    rushOnlyBoss = null;                    // consume: a replay defaults back to the full gauntlet
+    // Do NOT consume the solo pick here: FLY AGAIN (a plain restart) after dying in
+    // a single-boss fight must RE-FIGHT that boss, not silently fall back to the
+    // full gauntlet from Voidmaw. Every menu launch (onStartRush) sets rushOnlyBoss
+    // fresh (a boss id for solo, null for all), and Exit-to-Menu flips mode→normal,
+    // so the pick only persists across retries of the same run — exactly the intent.
   }
   spawnAhead();
   cameraCtl.init(camera, player);
