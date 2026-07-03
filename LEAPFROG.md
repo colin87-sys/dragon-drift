@@ -5097,3 +5097,23 @@ times, a "beat each boss solo" track) kept cleanly separate from the gauntlet le
 any dev/eligibility gate gets one predicate function the moment a second consumer appears. Verified: `tests/bossrush.mjs` +2
 (full clear is not solo; a multi-roster pick is solo + names the boss; settings-dev unlocks every panel chip), `bossrushui`
 (13) / `boss` (20) / `smoke` / `defs` green, `tricount` 203265.
+
+### L133 — The roster merge: three plans became one authority, and rows now require build sheets
+
+**Did / learned.** Three conflicting roster visions had accumulated (the §5b registry from the slot-3 session, the
+user-approved brainstorm from the design session, the difficulty SOP's mechanical slots). Merged into ONE authority in
+BOSS-DESIGN.md: 14 slots, five bands (Sentinels / Colossi / Calamities / World-Enders / Apex). User verdicts folded
+in: CRAGHOLD retired (row footnoted, stays in BOSS_ORDER only until ASHTALON ships in slot 3); the bone dragon
+(MARROWCOIL) absorbs VESPERCOIL's slot, verbs, and approach; the biblically-accurate angel FUSES with THE UNMASKED —
+the second-sun eclipse disc cracks open into an Ophanim (wheels within wheels of independently tracking eyes, six
+scythe-wings, prior scars worn as relics). **New rules this merge hardened:** (1) a registry row without a BUILD
+SHEET (primitives, palette hexes, tri estimate, reuse pointers, engine needs) is not claimable — prose briefs alone
+produced "Voidmaw with hands"; (2) bands are EXPERIENCE contracts, not visual tiers — each band adds a category the
+previous never did (duel → the fight moves → the fight is a scene → the lane breaks → it owns the game), written in
+§5c; (3) engine work is allocated per band in §5e from a measured feasibility survey — the load-bearing findings:
+the player-relative pose frame has no clamps (off-station movement is a one-function SETPIECE_PATHS entry), bullet
+cull bounds (±23 x / 34 y) delete off-lane volleys at birth and must widen for World-Enders, twins need ZERO
+hit-model work if they share a pool (the craghold precedent), and THREE.Fog hard-erases everything past ~400m — a
+horizon landmark must be fog-exempt with its own haze (the sky-dome pattern), because camera far (1600) was never
+the limiter. Verified: doc-only change, full suite untouched-green; registry has 14 unique primary reads and
+4-axis palette allocations; lore web carries no retired-boss references.

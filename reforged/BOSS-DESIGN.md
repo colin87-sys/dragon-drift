@@ -216,8 +216,8 @@ safe-lane gates exactly once.
 |---|---|---|---|---|---|---|
 | 1 | VOIDMAW | shattered mask | hollow sockets + broken horn/halo | violet·ember·white / points | behind | shipped |
 | 2 | STORMREND | concentric rings | unblinking eye + blade rings | teal·gold·white / points+lines | side | shipped |
-| 3 | CRAGHOLD | broad bust + detached limbs | two gesture hands | moss·bronze·white / points | behind | shipped |
-| 4 | VESPERCOIL | sinuous ribbon | dangled lure-lantern | indigo·pearl / dotted-chain | below (new) | open |
+| 3 | ASHTALON | winged pursuer (scythe-wing raptor) | never holds station — it hunts you | charcoal·ember / one molten SLIT | behind, overtakes | open (replaces retired CRAGHOLD¹) |
+| 4 | MARROWCOIL | segmented skeleton (bone dragon) | fly-through ribcage + skull lure | bone-white·void·ice-blue / dotted-chain + pinpoints | below (new) | open (absorbs VESPERCOIL²) |
 | 5 | EITHERWING | twin bodies | one eye passed between two | oxblood·aged-silver / single point | both sides | open |
 | 6 | HOLLOWGATE | architecture with a void | rose-window face | ivory·stained-glass / leaded field (VALUE-INVERTED: near-white) | static-ahead | open |
 | 7 | THRUMSWARM | stippled swarm | condenses into YOUR dragon | void-black·star-white / scattered points | condenses | open |
@@ -227,17 +227,32 @@ safe-lane gates exactly once.
 | 11 | WEFTWITCH | radial limbs + threads | visibly re-weaves the arena | moth-grey·rose / taut lines | above (new) | open |
 | 12 | ONEWING | lopsided twin (designed echo of 5 — flagged) | twin's frame fused in its chest | ashen-rose·blackened silver | behind, NO warning banner | open |
 | 13 | EMBERTIDE | frame-wide band/wave | face surfacing from light | vermilion→rose / full-frame field | the whole horizon | open |
-| 14 | THE UNMASKED | eclipse disc → composite figure | wears every prior scar as a wound | black·white / corona ring (RESERVED from slot 1) | always there | open |
+| 14 | THE UNMASKED | eclipse disc → wheels-within-wheels angel | the second sun cracks into an Ophanim: rings of tracking eyes, six scythe-wings, every prior scar worn as a relic | black·dark-gold·white / corona ring + eye-points (corona RESERVED from slot 1) | always there | open |
+
+¹ CRAGHOLD (broad bust → palm-eyed hands, moss·bronze) shipped at slot 3 and was RETIRED by
+user verdict after two rebuilds — the concept never escaped "Voidmaw with hands" (LEAPFROG
+L130). It stays in `BOSS_ORDER` only until ASHTALON ships in its slot; its geometry lessons
+(finger chains, socket pools, tell-family poses) are inherited by ASHTALON/EITHERWING/KARNVOW.
+² VESPERCOIL's coil-the-lane verb, below-approach, and lure-lantern all transfer to
+MARROWCOIL; the eel skin is retired for the stronger bone-dragon identity (user directive).
 
 ### Slot briefs (one paragraph each — the full design happens in that boss's own session)
 
-- **4 — VESPERCOIL, "What the Water Would Not Keep"** (Tier 2). A sky-eel whose ribbon body
-  never fully fits the frame; black fill = one S-curve with an angler head. The body IS the
-  arena: it coils around the lane and the rail threads its coils (graze-bait made diegetic);
-  tail sweeps telegraph lateral hazards; the lure-lantern is the stream/aimed emitter
-  (principle 3). Jobs: graze-bait + tunnel/iris fills placed along the coil. Rises from below
-  the water/fog line ('below' is a small approach extension). Lore gap: the lure's light is
-  not its own — whose is it?
+- **3 — ASHTALON, "the Ember Hunter"** (Tier 2 opener). The first boss that does not wait
+  for you: a charcoal raptor of two vast scythe-wings that overtakes from behind, banks wide,
+  and circles the lane between diving passes. No round eyes — one horizontal molten VISOR
+  SLIT in a dark cowl (nothing like slot 1's socket-pair or slot 2's orb). Wing poses ARE the
+  telegraphs: mantle-fold = tracking stream incoming along its dive line, full flare = fan.
+  Scar: one snapped wingtip blade, still smoldering (KARNVOW later wears it). Mechanical
+  star (SOP): closing + cadence — fast but sparse. Lore gap: what is it hunting FOR?
+- **4 — MARROWCOIL, "What the Sky Could Not Digest"** (Tier 2). The bone dragon: a low-poly
+  skull (box cranium, tapered snout, hinged jaw, twin horn-tubes) with cold pinlight eyes
+  and a lure-light hung between the horns; behind it, sixteen vertebrae coiling on a
+  traveling sine — and a mid-body RIBCAGE the rail flies straight through. The body IS the
+  arena: ring/iris fills emit as expanding bone-white rings off the coil circles, tail
+  sweeps telegraph lateral hazards, graze-bait beads the spine (all of VESPERCOIL's verbs,
+  stronger skin). Rises from below the fog line ('below' approach extension). VALUE claim:
+  the pale-bodied serpent (bone on void). Lore gap: whose skeleton?
 - **5 — EITHERWING, "Two Halves of the Broken Whole"** (Tier 2 peak). The roster's only
   multi-body silhouette: two mirrored dart-wraiths orbiting a shared ember. Crossfire made
   flesh — the twins ARE the ±10 flank emitters, swapping sides in figure-eights (the fight
@@ -297,23 +312,29 @@ safe-lane gates exactly once.
   biome sky shifts a full biome early (postfx grade — the blood-red-sky pattern). Fill apex:
   curtain/iris/movingGap at the fairness-floored cadence. Lore payoff: Stormrend's "unending
   gale" was its LEASH — closes slot 2's gap.
-- **14 — THE UNMASKED, "What Wore the Sky as a Mask"** (Tier 5, the Apex). Persistent
-  presence from mid-game once seeded: a second sun with a lidded eye on the horizon of
-  ordinary runs. Stage 1 silhouette: the eclipse disc (black disc + white corona — the
-  corona-ring glow-shape is reserved for it from slot 1 onward). Stage 2: the disc CRACKS
-  (it made the masks — the Voidmaw rhyme) and unfolds into a composite figure wearing every
-  earlier scar as a trophy-wound: horn, finger, shackle-chains, lure-light, the clapper's
-  silhouette — the whole lore web answered in one shareable body. Fights by QUOTING one
-  pattern-era per phase (zero new attack ids — the finale is the tested vocabulary at full
-  power). Post-defeat: the companion-shard mascot conversion (§8). Leaves exactly one new
+- **14 — THE UNMASKED, "What Wore the Sky as a Mask"** (Tier 5, the Apex — the game's
+  biblically accurate angel). Persistent presence from mid-game once seeded: a SECOND SUN
+  with a lidded eye on the horizon of ordinary runs. Stage 1 silhouette: the eclipse disc
+  (black disc + white corona — the corona-ring glow-shape is reserved for it from slot 1
+  onward). Stage 2: the disc CRACKS (it made the masks — the Voidmaw rhyme) and unfolds
+  into an OPHANIM — three concentric counter-rotating wheels, gimbal-tilted on different
+  axes (wheels within wheels), every wheel studded with independent white eyes that ALL
+  track you on their own lag; six scythe-wings (slot 3's blade-fan anatomy at doubled
+  scale) unfolding pair by pair; every earlier scar worn as a relic wired to its rails —
+  horn, snapped feather-blade, chain link, thread spool, bell shard. Stage 3: the wings
+  mantle open and the veiled core unveils. Fights by QUOTING one pattern-era per stage
+  (zero new attack ids — the finale is the tested vocabulary at full power). The reveal
+  hold where every eye on every wheel snaps to the player at once is the screenshot of the
+  game. Post-defeat: the companion-shard mascot conversion (§8). Leaves exactly one new
   gap for post-game.
 
 ### The lore web (gaps and their claimants — point, never answer early)
 
-Craghold's severed finger + broken shackles → claimed by 8 (same chain-maker) and 9 (wears
-the finger). Voidmaw's broken horn → 9's lance. Stormrend's "unending gale" → 13's leash.
-5's fled twin → becomes 12. 11's mended tear → 14's entry wound. 4's borrowed lure-light,
-10's bound clapper, 9's sender → open threads for 14 and post-game.
+Voidmaw's broken horn → 9's lance. Ashtalon's snapped wingtip feather-blade → 9's trophy
+chain. Stormrend's "unending gale" → 13's leash. 8's broken shackles → the unseen
+chain-maker (open thread). 5's fled twin → becomes 12. 11's mended tear → 14's entry wound.
+4's skeleton (whose?), 4's borrowed lure-light, 10's bound clapper, 9's sender → open
+threads for 14 and post-game.
 
 **Progression note (deferred)**: `bossDefForIndex`'s modulo-cycling is fine through Tier 2;
 this band structure is what eventually replaces it (encounter N → band-appropriate slot,
@@ -328,6 +349,166 @@ entrance-as-spectacle (DualShockers; Source Gaming "Big Baddies Breakdown") · M
 persistent dread (Zelda Wiki: Moon) · Monster Hunter flagship silhouette discipline (Capcom
 MH Rise dev interviews; Vice, "The Developers of Monster Hunter Explain What It's Like to
 Build Monsters").
+
+## 5c. BAND EXPERIENCE CONTRACTS — what the PLAYER feels change (not just visuals)
+
+Each band adds a new *category* of experience the previous band never did — this is the
+reason to keep playing, encounter after encounter:
+
+- **SENTINELS — "a duel."** The boss holds station ahead; you exchange fire. (Shipped.)
+- **COLOSSI — "the fight moves."** The boss leaves station: dive passes, side orbits,
+  crossing the lane while firing; the rail threads its negative space (a ribcage, between
+  wings); the arena reacts to its body. First-time feeling: *it isn't waiting for me.*
+- **CALAMITIES — "the fight is a scene."** Multi-part bodies (a swarm, twin bodies, a whale
+  you scroll along), formations-as-telegraphs, relationship beats (BRINEHOLM hesitates;
+  EITHERWING's survivor flees), new arrival directions (below the fog, condensing from
+  dust, both flanks at once). Feeling: *bosses stopped being one thing in front of me.*
+- **WORLD-ENDERS — "the lane breaks."** Attacks originate OFF-lane (threads from above,
+  pendulum sweeps across, a tide that IS the horizon); the world-state reacts (sky grade
+  shifts a biome early, vertical constriction, audio foreshadowing); entrances are
+  subverted (heard before seen; NO warning banner; already there when the banner fires).
+  Feeling: *the fight stopped respecting the rules the game taught me.*
+- **THE APEX — "it owns the game."** A second sun with a lidded eye rides ordinary runs
+  from mid-game; the finale is flying INTO its sky; multi-stage body; quotes every earlier
+  pattern era; answers the lore web; leaves a companion-shard echo. Feeling: *the thing
+  that was always watching finally turned around.*
+
+Retention loop: each band's opener is spectacle-forward and gentler than the previous
+band's peak (the sawtooth); the NEXT band is foreshadowed one biome early (horizon glints,
+audio, sky grade) so the player always has a visible "what is THAT?" ahead of their wall.
+
+## 5d. BUILD SHEETS (low-poly translation per open slot — primitives, palette, budget, reuse)
+
+**A registry row without a build sheet is not claimable.** These are the concrete
+translations — a builder session starts from its sheet, not from the brief's prose.
+(All tri counts @q1 pre-`def.scale`; every sheet obeys §2/§3; camera envelope law from the
+feasibility survey: at rel 30, on-screen centers within x ±15 / y 2..22 on portrait — push
+`rel` to 50–60 for wide lateral action instead of parking wide at 30.)
+
+- **3 ASHTALON** — prow: flattened stretched octahedron (~3 long); cowl band: dark box arc
+  wrapping the prow face; VISOR SLIT: thin recessed box, HDR white-orange ×2.4,
+  toneMapped=false; wings: 2 shoulder pivots × 6 tapered flat scythe-blades each (extruded
+  triangles, lengths 2.5→4.2, baked fan ±0.5 rad), span ~14; wing-root ember-crack
+  LineSegments; 3 dark cinder-chip trailers (orbiter contract). Poses on the wing pivots:
+  mantle (fold up-forward) / flare (spread) / dive-tuck. Scar: outermost left blade snapped
+  at half length, ember tip. Charcoal 0x121012 base ei 0.02 / ember 0xff6a30 accents ei
+  ≤0.2 / slit hottest. ~1.8k tris, ~14 draws. REUSES: tell-family pose machine + setpiece
+  paths (craghold's), HDR idiom, kit. NEEDS: moving-station branch (§5e).
+- **4 MARROWCOIL** — skull: box cranium 1.6w + tapered snout box + jawPivot jaw slab + 2
+  curved horn tubes (TubeGeometry taper, the idol's horn kernel); eye pinlights: 2 small
+  HDR ice-blue spheres recessed in dark socket boxes; lure: HDR teardrop on a LineSegments
+  strand between horns (focal). Spine: 16 octahedron vertebrae (r 0.5→0.25 taper) each
+  with 2 short torus-arc rib stubs, positioned each frame along a CatmullRom whose control
+  points run a traveling sine (coil sweep); RIBCAGE: 5 pairs of long torus arcs (r 2.6,
+  arc π·0.6) mid-chain forming the fly-through tunnel; tail blade: flat kite. Bone
+  0xd8d2c0 diffuse (sanctioned VALUE inversion, dark joints paint the hierarchy) / void
+  gaps / ice-blue 0x8fd0ff lights. ~3.5k tris, ~24 draws (vertebra chain = separate small
+  meshes — phone-verified fine; NO InstancedMesh, L126). REUSES: mandala rail-merge idiom,
+  charisma eye rig, jawPivot precedent. NEEDS: below-approach + cull-bound widening (§5e).
+- **5 EITHERWING** — per twin: stretched-octahedron kite body (~2.2 long) + crescent head
+  fin (flat arc extrude) + 2 ribbon tails (4 flat tapered boxes on lagged pivots); THE EYE:
+  one HDR orb that detaches and glides between bodies on a LineSegments bead-thread (the
+  charge tell: whoever holds the eye fires next). Figure-eight orbits (moving-station
+  branch) around a drifting center; crossfire's existing ±10 emitters = their fire points.
+  ONE shared hp pool + one bar (zero hit-model work — the craghold precedent); shield
+  wraps whichever body holds the eye. Oxblood 0x2a1114 + aged-silver rims; eyeless twin
+  always darker. ~2×900 tris. REUSES: everything; NEEDS: nothing structural.
+- **6 HOLLOWGATE** — 2 jagged pillars (stacked offset boxes, 5 per pillar) + broken lintel
+  arc (4 box segments, one missing = the scar) + floating masonry chips; ROSE WINDOW in
+  the lintel: 8 wedge panes (cone-slice extrudes) round a hub — panes light individually
+  (expression rig: which panes glow = the face's mood); portcullis: 6 box bars descending
+  as the wall volleys. VALUE-INVERTED near-white ivory 0xd8d0c2 + dark edge cage
+  (EdgesGeometry) + stained-glass emissive inside the window only. Arch gap ≥ 9 wide —
+  the rail flies through every pass. ~2.5k tris. NEEDS: static-ahead approach (trivial) +
+  first horizon-presence seeding (fog-exempt, §5e).
+- **7 THRUMSWARM** — queen: bone-white lantern rhombus (stretched octahedron + 6 rib fins
+  + dark edge cage) with ONE amber eye; swarm: 28 dark tetra motes (separate meshes)
+  lerping between authored formation tables: ring / wall / line / YOUR-DRAGON (~30 slots
+  sampled once from the player's model vertices — the meme frame). Chip damage only lands
+  while condensed; shield phase = the swarm becomes a ring around YOU (L106 law: ring,
+  never a filled volume). Void-black motes ei ≤0.1 / star-white queen. ~1.6k tris.
+- **8 BRINEHOLM** — never fully on screen: whale-back ridge = ONE long low-facet hull
+  (~24 units, 8 radial facets) spanning the frame bottom; 4 fin-sails (flat tapered
+  extrudes) rising/falling on pivots; THE EYE: 3-unit HDR hemisphere + iris ring + heavy
+  stone lid that surfaces for weak-point windows; broken shackle posts + snapped chain
+  tori along the ridge. Geyser curtains rise from below-frame (off-rel spawns). Kelp-black
+  0x0c1210 / abalone 2-tone emissive banding / white eye. ~3k tris. NEEDS: below-horizon
+  rise + widened bullet cull bounds (§5e).
+- **9 KARNVOW** — vertical figure ~9 tall: hooded cowl (tapered extrude) whose face is an
+  EMPTY VOID with one cold glint deep inside (no face — the anti-mask); pauldrons; lance =
+  Voidmaw's snapped-horn geometry (same tube-taper kernel, violet-scarred); trophy chain
+  (LineSegments + relic charms: Ashtalon's feather-blade, one unclaimed hook). Rides
+  ALONGSIDE matching your speed (moving station at x ≈ ±12, rel 12–18), then cuts in.
+  Parries your reflected bullets once (amber flash + riposte). Tarnished iron 0x1c1e22 /
+  trophy glints in the owed bosses' palettes / amber. ~2k tris.
+- **10 KNELLGRAVE** — bell: 3 stacked tapered cylinder bands + flared lip (10 facets),
+  crack seam = jagged LineSegments + thin HDR candle-slit box behind it; chain: 3 link
+  tori + LineSegments vanishing up off-frame (hangs from NOTHING); clapper: bound figure
+  (capsule + crossing strap boxes + drooped head sphere) visible only mid-swing. Pendulum
+  = one rig pivot; toll rings = expanding ring-walls on a rhythmic beat (iris inverted);
+  audio tolls one biome early. Patina copper 0x1a2420 / candle 0xffd890. ~2.2k tris.
+  NEEDS: audio-foreshadow seam + off-lane sweep bounds (§5e).
+- **11 WEFTWITCH** — mantle bust: hooded triangular shroud (extrude, no legs) with 2 pale
+  hands only; 6 radial spinneret limbs (2-segment tapered tubes on pivots); WEB: taut
+  LineSegments spanning arena to off-screen anchors (overdraw-exempt); gaps visibly stitch
+  shut between waves (thread redraw); laserLance = one thread pulled tight → HDR flash;
+  rose = woven rosette knots. Parry cuts a glowing thread → stagger. Descends from ABOVE
+  on one thread. Moth-grey 0x1e1c22 / rose 0xd88098. ~1.8k tris. NEEDS: above-approach +
+  `top` warning direction (§5e).
+- **12 ONEWING** — EITHERWING survivor at ×2.2 scale, permanently listing ~12°: one vast
+  8-blade wing (Ashtalon kernel, oversized), one atrophied 2-blade stub; the dead twin's
+  kite frame fused across the chest as a pure-black EdgesGeometry wireframe ghost
+  (eyeless); its old bead-thread hangs snapped. Mirrors your last dodge into the next
+  volley. Ashen-rose 0x241418 / blackened silver / ghost stays black. Entrance: NO
+  warning banner (def.noWarn — the banner fires late, as the jump-scare). ~2.6k tris.
+- **13 EMBERTIDE** — the horizon attacks: 3 frame-wide thin light-bands (long flat planes,
+  additive, staggered z, UNstacked vs camera → inside the overdraw cap since they replace
+  the sky) + a FACE surfacing as dark relief bumps pushed through the glow (brow/nose/chin
+  silhouette masses, opaque). Vertical constriction: ceiling/floor light-bands close in
+  (new constrict axis). Sky grade shifts a biome early. Vermilion→rose gradient / dark
+  relief. ~1.2k tris + postfx. NEEDS: vertical constrict + full-frame emitter rows (§5e).
+- **14 THE UNMASKED** — Stage 1 (seeded mid-game on ordinary runs): fog-exempt black disc
+  + white corona ring + one heavy lid, camera-relative like the sky dome (its reserved
+  glow-shape). Stage 2: 3 concentric wheels (torus rails + box spokes) gimbal-tilted on
+  different axes, counter-rotating; 6–8 independent HDR almond eyes PER WHEEL (the proven
+  eye rig ×~20, each with own gaze lag — draws are free, L126); six scythe-wings
+  (Ashtalon kernel ×2 scale) unfolding pair by pair; relics wired to the rails (horn,
+  feather-blade, chain link, thread spool, bell shard). Stage 3: wings mantle open, the
+  veiled core (HDR sphere behind petal shroud — mandala petal kernel) unveils. Dark gold
+  0x181206 / gold rails / white eyes+corona. ~5k tris across stages, staged builds swap
+  via dissolve. NEEDS: horizon-presence system + stage system (§5e).
+
+**Reserves (parked, fully-designed concepts for variants/post-game — not claimable slots):**
+MAWSIREN (spiral shell siren), THUNDERGRAVE (storm gate), THE SILVERED WOUND (mirror that
+replays known patterns), NIGHT BLOOM (unfolding black orchid), SUNDERED FORGE (caged molten
+heart), STARFALL (ablating comet doing passes).
+
+## 5e. ENGINE-EXTENSION ROADMAP (per band — grounded, with the seams)
+
+Ground truth (feasibility survey, 2026-07): the whole fight lives in a player-relative
+`pose {x,y,rel}` frame with NO clamps (`boss.js` pose ~:194, `placeGroup` ~:859);
+`SETPIECE_PATHS` (~:137) is a one-function seam for scripted movement; `spawnBossBullet`
+takes arbitrary origins (crossfire already fires from ±10; the rider shot proves off-`rel`
+spawns work). Fog (near 70–85 / far 380–430) ERASES everything past ~400m regardless of
+emissive — horizon objects must be fog-exempt with their own haze (the sky-dome pattern:
+`material.fog = false` + camera-following, `environment.js`). Camera far=1600 is not the
+limiter. Portrait camera envelope at rel 30: x ±15 / y 2..22.
+
+- **COLOSSI (small):** new `SETPIECE_PATHS` entries (dive-under, side orbit, figure-eight);
+  a NON-suppressing moving-station branch (setpieces currently hold fire — ~:721-730);
+  `approachFrom: 'below' | 'above'` branches (~:455-463) + a `top` warning-banner direction
+  (CSS). EITHERWING needs zero hit-model work (shared pool, crossfire emitters).
+- **CALAMITIES (medium):** formation-slot tables (model-side only); below-horizon rise
+  (pose.y from −8) + WIDEN the bullet cull bounds (`bossBullets.js` ~:388-389 currently
+  deletes anything born past ±23 x / 34 y); scroll-along-back reuses moving-station.
+- **WORLD-ENDERS (medium):** off-lane/off-`rel` volleys via direct `spawnBossBullet` with
+  per-emitter time-to-impact (`aimVel` assumes `pose.rel` — crossfire's inline t is the
+  template); `def.noWarn` flag; audio-foreshadow seam (play a boss sfx cue from levelGen
+  distance triggers); VERTICAL constriction (arena system today only narrows x —
+  ~:161-166, :650-664); early sky-grade seeding via the `bossGradeTarget` channel.
+- **APEX (the big one):** the fog-exempt second-sun landmark seeded on ordinary runs
+  (environment.js integration); the stage system (stage swap = builder-internal dissolve
+  between sub-rigs, driven off phase transitions); pattern-era quoting (zero new ids).
 
 ## 6. The system — how to build boss N (architecture)
 
