@@ -1448,40 +1448,42 @@ export const DRAGONS = {
       wingRootScale: 1.1, shoulderWidthScale: 1.05, wingRootOffset: { y: 0.03, z: -0.05 },
       riderSocket: { x: 0, y: 0.75, z: -0.3 },
       flapBias: 1.1, flapAmp: 0.9,
-      wingArmLeadChord: 0.18,
+      wingArmLeadChord: 0.42,
       wingArmRadius: 0.10, wingForearmRadius: 0.07, wingFrameTipRadius: 0.012, wingFingerRadius: 0.042,
       tailWhip: true, bodyWhip: true, tailSteer: true,
       spineFwdZ: [-0.9, -1.6], spineHipZ: 0.95,
       tailBoneZ: [1.50, 1.95, 2.35, 2.60],
       previewPose: { headYaw: 0.26, wingFoldDelta: 0.08, tailSway: 0.12 },
     },
-    // GINKGO-FAN wings — authored FRESH from the circle motif (human directive:
-    // no shape data derived from shipped dragons). Different DNA from every
-    // raptor fan in the roster: near-equal fingers spread on a circular ARC (a
-    // round paper-fan edge, not a raked descending tip line), deep ROUND cumulus
-    // scallops between them, and a high arched leading frame (positive bow — an
-    // umbrella arch, not a gull droop). Trailing edge still law-concave (D2).
+    // RAKED-FAN wings — authored FRESH (own numbers, not derived from any shipped
+    // def), following real wing anatomy: the WINGTIP is the longest/outermost digit
+    // and the fingers shorten toward the body, so the tip line rakes down in a clean
+    // descending arc; the leading edge is one CONVEX forward-bowed curve (propatagium
+    // → digit II), tensioned from a MEDIAL wrist (the fan pivot sits well inboard, so
+    // the hook on the leading frame sits close to the body); the trailing edge dips
+    // in EVEN scallops between the evenly-spaced fingertips. Wrist medial via
+    // wingWristMedial (per form); convexity via a high lead[1]; hook via arc.hook.
     wingForms: [
-      // F0 hatchling — a tiny round mitten: 4 stubby near-equal fingers on an arc
-      { tips: [[1.45, 0.06], [1.30, -0.42], [0.95, -0.62], [0.55, -0.50]],
-        lead: [0.85, 0.26], scallop: 0.30, rootChord: 0.50, flame: false,
-        arc: { bow: 0.34, hump: 0.0, humpAt: 0.5, hook: 0.0 } },
-      // F1 kindled — the fan gains a fifth rib, the arc widens
-      { tips: [[2.45, 0.08], [2.15, -0.60], [1.55, -0.90], [0.95, -0.85], [0.55, -0.60]],
-        lead: [1.45, 0.34], scallop: 0.36, rootChord: 0.56, flame: false,
-        arc: { bow: 0.40, hump: 0.0, humpAt: 0.5, hook: 0.0 } },
-      // F2 radiant (SSR apex) — the full round fan: five ribs on a circle, the
-      // middle pair longest-hanging (the arc's belly), deep cumulus lobes
-      { tips: [[3.55, 0.10], [3.15, -0.70], [2.45, -1.15], [1.60, -1.15], [0.85, -0.85]],
-        lead: [2.00, 0.42], scallop: 0.42, rootChord: 0.60, flame: false,
-        arc: { bow: 0.45, hump: 0.0, humpAt: 0.5, hook: 0.0 } },
+      // F0 hatchling — 4 short fingers, the raked baby fan (wingtip already leads)
+      { tips: [[1.55, 0.20], [1.20, -0.30], [0.82, -0.60], [0.45, -0.55]],
+        lead: [0.95, 0.40], scallop: 0.24, rootChord: 0.44, flame: false,
+        arc: { bow: 0.30, hump: 0.06, humpAt: 0.55, hook: 0.10 } },
+      // F1 kindled — a 5th finger, the convex leading edge and hook strengthen
+      { tips: [[2.60, 0.28], [2.05, -0.34], [1.50, -0.80], [0.98, -1.00], [0.52, -0.90]],
+        lead: [1.55, 0.54], scallop: 0.27, rootChord: 0.50, flame: false,
+        arc: { bow: 0.32, hump: 0.09, humpAt: 0.55, hook: 0.13 } },
+      // F2 radiant (SSR apex) — full raked fan: 5 evenly-spaced ribs, wingtip
+      // longest, clean even scallops, a strongly convex forward-bowed leading frame
+      { tips: [[3.75, 0.34], [3.05, -0.34], [2.35, -0.82], [1.60, -1.06], [0.85, -0.98]],
+        lead: [1.95, 0.82], scallop: 0.30, rootChord: 0.52, flame: false,
+        arc: { bow: 0.40, hump: 0.14, humpAt: 0.5, hook: 0.16 } },
     ],
     forms: [
       // F0 HATCHLING — the nearly-spherical whelp: dull teal, bare puff nub.
       { wingForm: 0, bodyScale: 0.62, wingSpan: 0.78, wingChord: 1.15,
         hullSection: { ex: 2.8, flatTop: 1.05 }, headBulge: 1.25, spineArch: 0.75,
         eyeScale: 1.5, eyeYOffset: -0.04,
-        wingWristMedial: 0.85, wingFingerSplay: 0.50, wingFingerCurve: 0.35, wingFingerBulge: 0.02,
+        wingWristMedial: 0.52, wingFingerSplay: 0.34, wingFingerCurve: 0.26, wingFingerBulge: 0.03,
         spineGlow: 0, glowIntensity: 0.25, particleRate: 0.2,
         wingOpacity: 0.92, wingPanelGlow: 0.06, previewScale: 0.8,
         tailPuffGlow: 0.15, tailPuffScale: 0.55,
@@ -1492,7 +1494,7 @@ export const DRAGONS = {
       { wingForm: 1, bodyScale: 0.82, wingSpan: 0.92, wingChord: 1.35,
         hullSection: { ex: 2.6 }, headBulge: 1.1, spineArch: 0.9,
         eyeScale: 1.3, eyeYOffset: -0.02,
-        wingWristMedial: 0.75, wingFingerSplay: 0.45, wingFingerCurve: 0.32, wingFingerBulge: 0.03,
+        wingWristMedial: 0.50, wingFingerSplay: 0.32, wingFingerCurve: 0.25, wingFingerBulge: 0.04,
         spineGlow: 0.1, glowIntensity: 0.5, particleRate: 0.5,
         wingOpacity: 0.9, wingPanelGlow: 0.1, previewScale: 0.92,
         tailPuffGlow: 0.55, tailPuffScale: 0.8,
@@ -1504,7 +1506,7 @@ export const DRAGONS = {
       { wingForm: 2, bodyScale: 1.0, wingSpan: 1.0, wingChord: 1.5,
         hullSection: { ex: 2.5, flatTop: 1.0 }, headBulge: 1.0, spineArch: 1.0,
         eyeScale: 1.15, eyeYOffset: 0.0,
-        wingWristMedial: 0.68, wingFingerSplay: 0.42, wingFingerCurve: 0.30, wingFingerBulge: 0.04,
+        wingWristMedial: 0.48, wingFingerSplay: 0.30, wingFingerCurve: 0.24, wingFingerBulge: 0.05,
         spineGlow: 0.28, glowIntensity: 0.85, particleRate: 0.8,
         wingOpacity: 0.9, wingPanelGlow: 0.14, previewScale: 1.0,
         tailPuffGlow: 1.0, tailPuffScale: 1.0,
