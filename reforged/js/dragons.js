@@ -1450,6 +1450,9 @@ export const DRAGONS = {
       flapBias: 1.1, flapAmp: 0.9,
       wingArmLeadChord: 0.42,
       wingArmRadius: 0.10, wingForearmRadius: 0.07, wingFrameTipRadius: 0.012, wingFingerRadius: 0.042,
+      // Wing-camber law (§5b): leading strut most cambered → innermost 0.28 of it,
+      // falloff eased toward the leading edge (pow 1.6) so adjacent struts differ subtly.
+      wingCamberFalloff: 0.28, wingCamberPow: 1.6,
       tailWhip: true, bodyWhip: true, tailSteer: true,
       spineFwdZ: [-0.9, -1.6], spineHipZ: 0.95,
       tailBoneZ: [1.50, 1.95, 2.35, 2.60],
@@ -1475,7 +1478,7 @@ export const DRAGONS = {
       // F2 radiant (SSR apex) — full raked fan: 5 evenly-spaced ribs, wingtip
       // longest, clean even scallops, a strongly convex forward-bowed leading frame
       { tips: [[3.75, 0.34], [3.05, -0.34], [2.35, -0.82], [1.60, -1.06], [0.85, -0.98]],
-        lead: [1.95, 0.82], scallop: 0.30, rootChord: 0.52, flame: false,
+        lead: [1.55, 1.05], scallop: 0.30, rootChord: 0.52, flame: false,
         arc: { bow: 0.40, hump: 0.14, humpAt: 0.5, hook: 0.16 } },
     ],
     forms: [
