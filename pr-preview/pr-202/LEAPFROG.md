@@ -5026,3 +5026,19 @@ Verified: `boss.mjs` 20/20 (kill ladder 63s→78s→103s), `bossboot` zero conso
 `bossrushui`, `smoke`, `bulletcontrast` (36 combos), `tricount` 203265 · 0 over; craghold 2407 tris @q1 / 33 draws;
 `badges.mjs` timeout confirmed pre-existing on the base commit via a throwaway worktree. Human judges the colossus
 read, the hand gestures, and the crossing pass on the PR preview (`?debug&boss=100&bossIdx=2`, `?rush=all`).
+
+### L130 — Concept collision: the tier ladder escalates grandeur, it doesn't guarantee a NEW IDEA
+
+**Did / learned.** Boss 3 (CRAGHOLD) shipped as "a stone face with glowing eyes, plus hands" — a concept collision
+with Voidmaw that user review caught immediately ("boss 1 with hands"). The playbook's laws are a quality FLOOR, not
+a diversity engine: following every law can still reproduce the previous boss's read. Redesigned faceless: two
+colossal basalt hands with an HDR eye in each palm, a shattered crown floating in the empty sky where a head should
+be (the missing head IS the hook + lore gap). Craft gates that failed on the way and their fixes: digits need REAL
+sky gaps (0.46 pitch on 0.30-wide fingers — 0.02-gap digits read as a mitten) and an open rest pose (curled distals
+face the camera and paint the hand front with their material); a bright eye must sit in a DARK SOCKET POOL (near-
+black disc behind it) or it reads googly, not dreadful; identity hue lives in emissive GLINTS only (base ei 0.02 —
+even 0.05 over a large palm face reads as toy-colour); "colossus" is a scale number, not a label (def.scale 2.4 vs
+Sentinels' 1.5). **New law: before building, state the boss's PRIMARY READ (face / lone eye / hands / serpent /
+swarm / architecture / …) and reject it if any shipped boss already owns it — the doodle test now includes "could
+this sketch be mistaken for a shipped boss?"** Voidmaw owns FACE, Stormrend owns LONE EYE, Craghold owns HANDS.
+Verified: tests/boss.mjs 20/20 (craghold 2,285 tris @q1, 34 draws), bossboot clean, captures re-judged front-on.

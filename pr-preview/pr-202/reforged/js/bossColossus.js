@@ -3,45 +3,45 @@ import { mergeGeometries } from '../lib/utils/BufferGeometryUtils.js';
 import { mulberry32 } from './util.js';
 import { createBossCommon, stripForMerge } from './bossKit.js';
 
-// CRAGHOLD's body — the STONE COLOSSUS: "a broad flat-helmed stone head on
-// pauldron shoulders, flanked by two enormous detached open hands." Third
-// archetype in the system, and the first Tier 2 COLOSSUS (BOSS-DESIGN.md §5/
-// §5b slot 3): everything the Sentinels have PLUS a gesture/limb system — the
-// two floating HANDS are the fight's telegraphs (point / clench / sweep /
-// slam), its poseability, and the diegetic body for the flank-emitter patterns
-// (crossfire fires from x≈±10; the hands visually own those muzzles).
+// CRAGHOLD's body — REBUILD (design-review verdict, 2026-07): the shipped
+// "helmed stone bust + two hands" read as Voidmaw-in-green with mitten hands —
+// concept collision with boss 1 (a second stone-face-with-glowing-eyes boss)
+// and a silhouette with three competing focal points. The fix takes the
+// epithet literally: CRAGHOLD IS NOW TWO COLOSSAL BASALT HANDS WITH AN EYE IN
+// EACH PALM — AND NO HEAD. Where a head would be, a SHATTERED STONE CROWN
+// floats alone in empty sky. The missing head is the negative space, the
+// hook, and the lore gap (boss 1 is a face with no body; boss 3 is a body
+// with no face — zero silhouette overlap).
 //
-// SILHOUETTE-FIRST: one sentence — helmed bust + two huge open hands. Few hard
-// outline points (flat brim run, twin crown steles, pauldron slabs, mitten-
-// blocky hands a 12-year-old can draw). The eyes are hot SLITS under the brim
-// shadow at rest; when the helm brim is SHED (phase transition, below) they
-// become exposed round eyes — the silhouette itself escalates with the fight.
+// SILHOUETTE-FIRST: one sentence — "two vast stone hands flanking a broken
+// floating crown." The crown sits centred, well above and between the hands,
+// so visible SKY reads through the head-void at rest.
 //
-// THE SCAR (one asymmetric break, §3 law 6): the LEFT hand's ring finger is a
-// clean-sheared STUMP, and crack seams radiate from it across the palm. Both
-// wrists wear SHATTERED SHACKLE CUFFS with broken chain-link stubs — the same
-// damage story ("something severed and something broke its chains"), pointed
-// at, never answered. Lore gap claimed by registry slots 8 and 9.
+// THE SCAR (one asymmetric break, §3 law 6): one crown arc is visibly
+// SNAPPED — a jagged debris cluster at its broken end — the other two arcs
+// and both hands stay symmetric. (The old stump/shackle lore objects are
+// gone with the bust; the crown now carries the single scar.)
 //
-// PALETTE (registry slot 3): near-black basalt base (~75%), moss-green accent
-// emissive (~20%), dark-bronze DIFFUSE trim (cuffs/collar/helm — diffuse so it
-// can never collide with Voidmaw's emissive ember at thumbnail size), white-hot
-// focal eyes + palm cores (<5%, EYE_HOT overdrive). Danger stays role-magenta.
+// PALETTE (registry slot 3): near-black basalt base (~75%), moss-lichen
+// accent emissive on the distal finger segments/knuckles (~20%), white-hot
+// palm eyes (<5%, EYE_HOT overdrive — THE two brightest points on the boss,
+// nothing else competes: no palm core circles, no orb rows). The floating
+// crown carries a THIRD, dimmer accent family (dark bronze + warm gold-lichen
+// emissive ~0.55) — visibly cooler than the eyes, tying it to the "ancient
+// fittings" story the other stone bosses use for trim.
 //
-// PHASE TRANSITIONS CHANGE THE SILHOUETTE (Tier 2 contract): the model counts
-// shield BREAKS via kit.onShieldChange — break #1 flings both pauldron slabs
-// off (narrower shoulders), break #2 cracks the helm brim off (slit eyes become
-// exposed round eyes, bigger and hotter). Resting hand grip escalates with the
-// sheds: open palms → drumming fingers → clenched fists. All model-side; the
-// controller is untouched.
-//
-// GEOMETRY BUDGET: ~3-4.5k tris @q1 (ceiling 6,000), ~29 visible body draws +
-// 4 HP-bar draws vs the ≤34 gate — stone merges into four value-tier draws
-// (dark base / mid carve / accent ridge / bronze trim), every part goes through
-// stripForMerge (bossKit) before mergeGeometries (silent-null law). Additive
-// budget: ZERO enclosing shells — one backlit disc strictly behind the bust
-// plane + two SMALL palm-core discs (the "attack originates from named visible
-// anatomy" glow). Crack seams are LineSegments (overdraw-exempt).
+// GESTURE/LIMB SYSTEM (Tier 2 contract): each hand is FOUR fingers, each a
+// 2-segment pivot chain (root `fingerPivot` + one child pivot, one shared
+// scalar drives both — see the per-finger curl note below) plus a 1-segment
+// thumb. DRAW-BUDGET NOTE: the spec's reference build calls for a 3-segment
+// finger chain and a 2-segment thumb; at 4 fingers × 2 hands that would be
+// 24 finger meshes alone, which — stacked against the mandatory palm/eye/
+// pupil/crown/orbiter/HP-bar draws — blows past the ≤34 visible-draw gate
+// (tests/boss.mjs). Consolidated to a 2-segment finger chain (root + one
+// child riding at 0.85× the root's curl, folding the spec's mid+tip into one
+// distal box) and a 1-segment thumb: 34 visible draws @q1 exactly at rest,
+// with the fold still reading as a real knuckle (a small knuckle cube is
+// baked into the distal segment's base, at the joint).
 //
 // CONTRACT: boss.js stomps `group.rotation` every frame (placeGroup) and
 // `kit.setDissolve` owns `group.scale` — every animated part lives on `rig`,
@@ -49,15 +49,14 @@ import { createBossCommon, stripForMerge } from './bossKit.js';
 
 export function buildStoneColossus(def, quality = 1) {
   const accent = def.accent ?? 0x69c94f;   // moss/lichen green — identity lives in emissive
-  const glow = def.glow ?? 0xd8f09a;       // pale lichen-gold — shield rim, shards, backlight
+  const glow = def.glow ?? 0xd8f09a;       // pale lichen-gold — shield rim, shards
   const lowQ = quality < 0.75;
 
-  // Shared plumbing. shieldRadius 4.4 wraps the bust (the hands float OUTSIDE
-  // the bubble — deliberate, the mandala's "machinery outside the ward"
-  // precedent — and the guard pose below pulls them IN when it rises). The
-  // colossus runs def.scale 2.0, so the HP bar counter-scales (0.75 → world
-  // width 12, the roster's usual read) — see bossKit's hpBarScale.
-  const kit = createBossCommon(def, quality, { shieldRadius: 4.4, hpBarY: 4.6, hpBarZ: 1.6, hpBarScale: 0.75 });
+  // Shared plumbing. shieldRadius wraps the space between the hands (where the
+  // crown floats); the hands themselves sit mostly OUTSIDE the bubble at
+  // x=±5.4 — same "machinery outside the ward" precedent the old bust used.
+  // hpBarY sits above the crown's own top (crown centre 3.6 + arc radius ≤2.6).
+  const kit = createBossCommon(def, quality, { shieldRadius: 4.6, hpBarY: 6.8, hpBarZ: 1.6, hpBarScale: 0.75 });
   const { group, track } = kit;
   group.userData.archetype = 'stoneColossus';   // guards the legacy-fallback coexist path (tests/boss.mjs)
 
@@ -66,464 +65,292 @@ export function buildStoneColossus(def, quality = 1) {
 
   // Deterministic jitter — same seed every build (no per-load shape popping).
   const rnd = mulberry32(0xc0105505);
-  const j = (amt) => (rnd() - 0.5) * amt;
   const strip = stripForMerge;
-
   const mergeStone = (parts, label) => {
     const geo = mergeGeometries(parts, false);
     if (!geo) throw new Error(`buildStoneColossus: ${label} mergeGeometries returned null (attribute mismatch)`);
     return geo;
   };
-  const relief = (parts, geo, x, y, z, rz = 0) => {
-    geo = strip(geo);
-    if (rz) geo.rotateZ(rz);
-    geo.translate(x, y, z);
-    parts.push(geo);
-  };
 
   // ---- Painted value tiers (the sun can't shade the front face — §3 law 4).
-  // Basalt runs COOL near-black; the moss identity is emissive-only.
-  const baseParts = [];     // face plate + helm dome + chest — the dark canvas
-  const midParts = [];      // steles + cheek plates + neck — carved mid tone
-  const accentParts = [];   // brow ledge + keystone chevrons — the lit ridge line
-  const bronzeParts = [];   // helm trim + collar — ancient fittings (DIFFUSE bronze)
-
-  // ---------------------------------------------------------------------
-  // FACE PLATE — wide angular slab with two REAL slit holes (negative space:
-  // sky glows through a dormant socket). Slits slant outer-corner-high so the
-  // resting read is a GLARE (the idol's socket lesson). Outline CCW, holes CW.
-  // ---------------------------------------------------------------------
-  function buildFaceShape() {
-    const shape = new THREE.Shape();
-    const outline = [
-      [0.00, 1.28],
-      [-1.60, 1.28], [-2.34, 0.92],                    // flat brow run → hard temple corner
-      [-2.46, -0.18],                                  // jaw flare (widest)
-      [-1.72, -1.28], [-0.82, -1.74],                  // hard chin taper
-      [0.00, -1.88],
-      [0.82, -1.74], [1.72, -1.28],
-      [2.46, -0.18],
-      [2.34, 0.92], [1.60, 1.28],
-    ];
-    shape.moveTo(outline[0][0], outline[0][1]);
-    for (let i = 1; i < outline.length; i++) shape.lineTo(outline[i][0], outline[i][1]);
-    shape.closePath();
-    // Slit socket: a long low hexagon, slanted so the temple end rides high.
-    // Capture round 1: 0.54×0.17 slits read as SPECKS at fight distance — the
-    // eyes lost the brightest-pixel contest. Widened and heightened.
-    const slitHole = (cx, cy, mirror) => {
-      const W = 0.66, H = 0.22, ROT = -0.14;   // half-extents; left eye's temple (-x) end rises
-      const rel = [
-        [-W, 0.02], [-W * 0.55, H], [W * 0.55, H],
-        [W, -0.02], [W * 0.55, -H], [-W * 0.55, -H],
-      ].map(([x, y]) => [x * Math.cos(ROT) - y * Math.sin(ROT), x * Math.sin(ROT) + y * Math.cos(ROT)]);
-      // CW winding for holes; mirroring X alone would flip winding, so the
-      // mirrored side also reverses point order (idol precedent).
-      const pts = (mirror ? rel.slice().reverse() : rel).map(([x, y]) => [cx + (mirror ? -x : x), cy + y]);
-      const path = new THREE.Path();
-      path.moveTo(pts[0][0], pts[0][1]);
-      for (let i = 1; i < pts.length; i++) path.lineTo(pts[i][0], pts[i][1]);
-      path.closePath();
-      return path;
-    };
-    shape.holes.push(slitHole(-1.18, 0.42, false));
-    shape.holes.push(slitHole(1.18, 0.42, true));
-    return shape;
-  }
-  const faceGeo = strip(new THREE.ExtrudeGeometry(buildFaceShape(), {
-    depth: 0.9, steps: 1, bevelEnabled: true, bevelThickness: 0.10, bevelSize: 0.14,
-    bevelSegments: 2, curveSegments: 1,
+  // Basalt runs near-black; the moss identity lives entirely in the emissive
+  // accent tier (the distal finger/knuckle segments); the crown owns its own
+  // dim bronze/gold family, cooler than the palm-eyes.
+  const basaltMat = track(new THREE.MeshStandardMaterial({
+    color: 0x0c0f0a, emissive: accent, emissiveIntensity: 0.02, roughness: 0.7, metalness: 0.15, flatShading: true,
   }));
-  faceGeo.translate(0, 0, -0.5);   // front face → z≈+0.4
-  baseParts.push(faceGeo);
-
-  // HELM DOME — a low wide trapezoid above the brim line; carries the twin
-  // crown steles. Buried slightly back so the brim (below) overhangs it.
-  {
-    const s = new THREE.Shape();
-    s.moveTo(-2.42, 0); s.lineTo(-1.92, 1.15); s.lineTo(1.92, 1.15); s.lineTo(2.42, 0);
-    s.closePath();
-    const dome = strip(new THREE.ExtrudeGeometry(s, {
-      depth: 1.05, steps: 1, bevelEnabled: true, bevelThickness: 0.08, bevelSize: 0.10, bevelSegments: 1, curveSegments: 1,
-    }));
-    dome.translate(0, 1.42, -0.75);
-    baseParts.push(dome);
-  }
-  // Twin crown STELES — symmetric citadel towers (the colossus's height; the
-  // asymmetry budget is spent on the hand, not the crown). Round-1 bulk-up:
-  // taller + thicker so they break the outline decisively at 30m.
-  for (const sx of [-1, 1]) {
-    relief(midParts, new THREE.BoxGeometry(0.62, 1.85, 0.46), sx * 1.30, 3.30, -0.35, sx * -0.05);
-    if (!lowQ) relief(accentParts, new THREE.BoxGeometry(0.34, 0.24, 0.30), sx * 1.30, 4.35, -0.35);  // capstone
-  }
-  // CHEST — a keel wedge under the face + an accent keystone with chevrons.
-  relief(baseParts, new THREE.BoxGeometry(3.05, 1.35, 1.05), 0, -2.45, -0.35);
-  relief(midParts, new THREE.BoxGeometry(2.10, 0.55, 0.55), 0, -1.80, 0.02);          // neck band
-  relief(accentParts, new THREE.BoxGeometry(0.72, 1.00, 0.28), 0, -2.35, 0.30);       // keystone
-  if (!lowQ) {
-    for (let i = 0; i < 3; i++) {
-      relief(accentParts, new THREE.BoxGeometry(0.90 - i * 0.22, 0.10, 0.30), 0, -2.02 - i * 0.28, 0.32);  // chevrons
-    }
-  }
-  // CHEEK PLATES — mirrored guards along the jaw line.
-  for (const sx of [-1, 1]) {
-    relief(midParts, new THREE.BoxGeometry(0.60, 0.72, 0.26), sx * 1.90, -0.62, 0.38, sx * 0.24);
-    relief(midParts, new THREE.BoxGeometry(0.40, 0.50, 0.24), sx * 1.20, -1.24, 0.40, sx * 0.42);
-  }
-  // Dome relief bands — authored, mirrored (never scattered).
-  if (!lowQ) {
-    for (const sx of [-1, 1]) {
-      relief(midParts, new THREE.BoxGeometry(0.16, 0.95, 0.26), sx * 0.72, 1.92, 0.30, sx * 0.10);
-    }
-    relief(midParts, new THREE.BoxGeometry(0.16, 1.00, 0.26), 0, 1.95, 0.30);
-  }
-
-  // BRONZE fittings (diffuse-bronze tier): helm trim band + gorget collar.
-  relief(bronzeParts, new THREE.BoxGeometry(4.05, 0.17, 0.34), 0, 2.50, 0.02);
-  {
-    const collarTubular = lowQ ? 14 : 24;
-    const collar = strip(new THREE.TorusGeometry(1.55, 0.15, 6, collarTubular, Math.PI));
-    collar.rotateZ(Math.PI);           // open side up — a gorget under the chin, not a halo
-    collar.translate(0, -1.55, 0.30);
-    bronzeParts.push(collar);
-  }
-  if (!lowQ) {
-    for (const sx of [-1, 1]) relief(bronzeParts, new THREE.BoxGeometry(0.22, 0.22, 0.36), sx * 2.10, 0.92, 0.36);  // temple rivets
-  }
-
-  // Round-1 value fix: 0x15161a + metalness 0.22 lifted pale under the
-  // hemisphere light — the basalt must stay a NEAR-BLACK canvas.
-  const baseMat = track(new THREE.MeshStandardMaterial({
-    color: 0x0e0f12, emissive: accent, emissiveIntensity: 0.05, roughness: 0.7, metalness: 0.15, flatShading: true,
-  }));
+  // Knuckle-mid tier (round 3: was 0x232c17/ei 0.20 on EVERY distal segment —
+  // that over-allocated the identity tier and the fingertips read as a light-
+  // green cap; the spec's bright 0.20 accent survives as the lichen seams).
   const midMat = track(new THREE.MeshStandardMaterial({
-    color: 0x23262b, emissive: accent, emissiveIntensity: 0.12, roughness: 0.55, metalness: 0.28, flatShading: true,
-  }));
-  const accentStoneMat = track(new THREE.MeshStandardMaterial({
-    color: 0x2c332c, emissive: accent, emissiveIntensity: 0.18, roughness: 0.5, metalness: 0.3, flatShading: true,
+    color: 0x141a0f, emissive: accent, emissiveIntensity: 0.06, roughness: 0.5, metalness: 0.3, flatShading: true,
   }));
   const bronzeMat = track(new THREE.MeshStandardMaterial({
-    color: 0x4a3a20, emissive: 0xc98a3f, emissiveIntensity: 0.15, roughness: 0.45, metalness: 0.55, flatShading: true,
+    color: 0x2a1d10, emissive: new THREE.Color(0xc98a3f).lerp(new THREE.Color(accent), 0.3),
+    emissiveIntensity: 0.7, roughness: 0.45, metalness: 0.55, flatShading: true,   // round 2: 0.55 vanished at 30m — the crown IS the hook, it must read
   }));
-  rig.add(new THREE.Mesh(mergeStone(baseParts, 'base-stone'), baseMat));
-  rig.add(new THREE.Mesh(mergeStone(midParts, 'mid-stone'), midMat));
-  rig.add(new THREE.Mesh(mergeStone(accentParts, 'accent-stone'), accentStoneMat));
-  rig.add(new THREE.Mesh(mergeStone(bronzeParts, 'bronze-trim'), bronzeMat));
 
   // ---------------------------------------------------------------------
-  // SHEDDABLE PLATES — pauldrons ×2 + helm brim, each its own mesh with a
-  // CLONED (tracked) material so the shed fade never dims the merged tier.
-  // Break #1 (first shield break) flings the pauldrons; break #2 flings the
-  // brim and the slit eyes become exposed round eyes. Silhouette-changing
-  // phase transitions, per the Tier 2 contract.
+  // SHARED GEOMETRY (built once, instanced across both hands via separate
+  // Mesh objects — geometry sharing costs nothing extra in tris/memory, and
+  // every finger/thumb needs its OWN pivot transform regardless).
   // ---------------------------------------------------------------------
-  const shedAnims = [];
-  function shedPlate(geo, mat, x, y, z, rz, flingDir) {
-    geo = strip(geo);
-    const m = track(mat);
-    m.transparent = true;
-    const mesh = new THREE.Mesh(geo, m);
-    mesh.position.set(x, y, z);
-    mesh.rotation.z = rz;
-    rig.add(mesh);
-    shedAnims.push({ mesh, mat: m, dir: flingDir, t: -1, spin: new THREE.Vector3(j(4), j(4), j(4)) });
-    return mesh;
-  }
-  // Round-1 bulk-up: heavier pauldrons + a wider, thicker brim — both must
-  // break the outline decisively so their SHED visibly changes the silhouette.
-  for (const sx of [-1, 1]) {
-    shedPlate(new THREE.BoxGeometry(1.70, 0.62, 1.30), baseMat.clone(), sx * 3.10, -1.35, -0.30, sx * -0.28,
-      new THREE.Vector3(sx * 2.2, -0.6, 0.4));
-  }
-  const brimPlate = shedPlate(new THREE.BoxGeometry(5.95, 0.38, 1.55), midMat.clone(), 0, 1.30, 0.28, 0,
-    new THREE.Vector3(0, 1.8, 1.6));
-  let shedCount = 0;      // 0 none · 1 pauldrons gone · 2 brim gone (eyes exposed)
-  let exposedK = 0;       // eases 0→1 after the brim sheds — drives the slit→round eye change
-  function triggerShed(n) {
-    if (n === 1) { for (const s of shedAnims.slice(0, 2)) s.t = 0; }
-    if (n === 2) { const s = shedAnims[2]; if (s) s.t = 0; }
-  }
-  function tickSheds(dt) {
-    for (const s of shedAnims) {
-      if (s.t < 0) continue;
-      s.t += dt;
-      const k = s.t / 0.9;
-      if (k >= 1) { s.mesh.visible = false; s.t = -2; continue; }
-      s.mesh.position.addScaledVector(s.dir, dt * 6);
-      s.mesh.rotation.x += s.spin.x * dt;
-      s.mesh.rotation.y += s.spin.y * dt;
-      s.mesh.rotation.z += s.spin.z * dt;
-      s.mat.opacity = 1 - k;
-    }
-  }
+  // PALM — a slab + a wrist cuff block baked below it + the eye-socket ring,
+  // all static relative to the wrist pivot → ONE merged basalt draw per hand.
+  const palmBox = strip(new THREE.BoxGeometry(1.85, 1.9, 0.55));
+  // Brow overhang: a basalt ledge jutting over the socket top — the shadow
+  // that keeps the palm-eye DREADFUL instead of googly (the idol's socket
+  // lesson, transplanted). Merged into the palm draw: zero extra cost.
+  const browLedge = strip(new THREE.BoxGeometry(1.05, 0.26, 0.55));
+  browLedge.translate(0, 0.74, 0.18);
+  const cuffBox = strip(new THREE.BoxGeometry(1.3, 0.7, 0.6));
+  cuffBox.translate(0, -1.30, 0);
+  const socketSeg = lowQ ? 10 : 16;
+  const socketPool = strip(new THREE.CylinderGeometry(0.78, 0.78, 0.12, socketSeg));
+  socketPool.rotateX(Math.PI / 2);        // a near-black disc the eye floats in — the idol's
+  socketPool.translate(0, 0.05, 0.26);    // "bright core framed in black" law, transplanted
+  const socketRing = strip(new THREE.TorusGeometry(0.62, 0.09, 5, socketSeg));
+  socketRing.translate(0, 0.05, 0.30);   // torus already lies flat facing +Z — the palm's front plane
+  const palmGeo = mergeStone([palmBox, cuffBox, socketPool, socketRing, browLedge], 'palm');
 
-  // ---------------------------------------------------------------------
-  // EYES — hot slits under the brim shadow (focal-point law: the brightest
-  // thing on the boss). Squashed spheres fill the slit holes; eyeGroup.scale.y
-  // is the one dial that carries slit-squash × blink × death-close, and eases
-  // toward round (1.0) once the brim sheds. Pupils are separate meshes (each
-  // constricts about its own centre) riding inside eyeGroup so blinks crush
-  // everything about the socket line together.
-  // ---------------------------------------------------------------------
-  const eyeGroup = new THREE.Group();
-  eyeGroup.position.set(0, 0.42, 0.0);   // round 1: forward, at the socket mouth — recessed eyes vanished
-  rig.add(eyeGroup);
-  const eyeSeg = lowQ ? [9, 7] : [13, 9];
-  const eyeParts = [];
-  for (const sx of [-1, 1]) {
-    const eye = strip(new THREE.SphereGeometry(0.50, eyeSeg[0], eyeSeg[1]));   // round 1: 0.42 read as a speck at 30m
-    eye.scale(1.40, 1, 0.75);   // wide — spans the slit
-    eye.translate(sx * 1.18, 0, 0);
-    eyeParts.push(eye);
-  }
-  const eyeGeo = mergeGeometries(eyeParts, false);
-  if (!eyeGeo) throw new Error('buildStoneColossus: eye mergeGeometries returned null (attribute mismatch)');
-  const EYE_BASE = new THREE.Color(0xf2fff0);
-  // EYE_HOT overdrive + toneMapped=false: the bloom threshold is 1.0 LINEAR
-  // and ACES crushes ≤1.0 to gray — see bossIdol.js's "dead eyes" note.
+  // FINGERS — 2-segment chain per finger: root (`fingerPivot`, the curl
+  // scalar) + one child riding at 0.85× the root's rotation (the spec's
+  // mid+tip taper folded into one distal box, see the header note). A small
+  // knuckle cube is baked into the distal segment's base — the joint bump.
+  // Round 3: fingers thickened + lengthened — at 30m front-on the first cut's
+  // 0.34-wide digits read as a serration, not FINGERS; a finger run needs to
+  // rival the palm's own height to read as a hand.
+  const seg1Geo = strip(new THREE.BoxGeometry(0.30, 0.85, 0.30));
+  seg1Geo.translate(0, 0.425, 0);         // root pivot at y=0 → tip at y=0.85
+  const seg2Base = strip(new THREE.BoxGeometry(0.25, 1.05, 0.24));
+  seg2Base.translate(0, 0.525, 0);
+  const knuckleGeo = strip(new THREE.BoxGeometry(0.32, 0.30, 0.34));
+  knuckleGeo.translate(0, 0.15, 0);       // straddles the joint at the distal segment's base
+  const seg2Geo = mergeStone([seg2Base, knuckleGeo], 'finger-distal');
+
+  // THUMB — a single rigid segment (design-spec calls for 2; consolidated to
+  // 1 for the same draw-budget reason as the fingers — see header note).
+  const thumbGeo = strip(new THREE.BoxGeometry(0.30, 0.85, 0.34));
+  thumbGeo.translate(0, 0.425, 0);
+
+  // PALM EYE — the focal law: THE brightest thing on the boss. HDR overdrive
+  // + toneMapped=false, the exact idiom bossIdol.js's eyes use. Squashed in z
+  // (round-2 capture fix): a full sphere protruded 0.5 past the palm face, so
+  // the shield-clamp fists curled THROUGH it and the eye stayed visible while
+  // "hidden"; flattened, the curled fingers actually cover it.
+  const eyeGeo = strip(new THREE.SphereGeometry(0.5, lowQ ? 10 : 14, lowQ ? 8 : 10));
+  eyeGeo.scale(1, 0.82, 0.68);   // almond, not googly
+  const EYE_BASE = new THREE.Color(0xeafff0);
   const EYE_HOT = 2.4;
-  const eyeMat = track(new THREE.MeshBasicMaterial({ color: 0xf2fff0 }));
+  const eyeMat = track(new THREE.MeshBasicMaterial({ color: 0xeafff0 }));
   eyeMat.toneMapped = false;
   eyeMat.color.copy(EYE_BASE).multiplyScalar(EYE_HOT);
-  eyeGroup.add(new THREE.Mesh(eyeGeo, eyeMat));
+  const pupilGeo = new THREE.SphereGeometry(0.10, lowQ ? 6 : 8, lowQ ? 4 : 6);
   const pupilMat = track(new THREE.MeshBasicMaterial({ color: 0x0c140c }));
-  const pupilGeo = new THREE.SphereGeometry(0.14, lowQ ? 6 : 8, lowQ ? 4 : 6);
-  const pupils = [];
-  for (const sx of [-1, 1]) {
-    const p = new THREE.Mesh(pupilGeo, pupilMat);
-    p.userData.sx = sx;
-    p.position.set(sx * 1.18, 0, 0.42);
-    eyeGroup.add(p);
-    pupils.push(p);
-  }
 
-  // BROW LEDGE bars — the expression rig (±0.3 rad = glare/anger/pain/sorrow),
-  // heavy stone versions of the idol's gilt bars. Named pivots.
-  const BROW_BASE = -0.18;
-  const browPivots = [];
-  const browGeo = strip(new THREE.BoxGeometry(1.30, 0.24, 0.30));
-  for (const sx of [-1, 1]) {
-    const pivot = new THREE.Object3D();
-    pivot.name = 'browPivot';
-    pivot.position.set(sx * 1.18, 0.94, 0.40);
-    pivot.rotation.z = sx * BROW_BASE;
-    pivot.userData.sx = sx;
-    pivot.add(new THREE.Mesh(browGeo, accentStoneMat));
-    rig.add(pivot);
-    browPivots.push(pivot);
-  }
-
-  // ---------------------------------------------------------------------
-  // THE HANDS — two enormous detached floating hands, the Tier 2 gesture/limb
-  // system and the fight's telegraph anatomy. Per hand: a root group (named
-  // handL/handR — the drift/guard/setpiece position channel), a wrist pivot
-  // (named handPivotL/handPivotR — the orientation channel: point/sweep/slam),
-  // digit slabs each on a named fingerPivot (the curl channel — the telegraph-
-  // silhouette test gate reads these), a small white-hot PALM CORE (attacks
-  // originate from named visible anatomy), and a broken bronze shackle cuff
-  // with chain-link stubs. LEFT hand carries THE SCAR: a sheared ring-finger
-  // stump merged into the palm, with crack seams radiating from it.
-  // World math: roots sit at local ±4.9 → ×def.scale(2) ≈ ±9.8 — visually
-  // owning crossfire's fixed ±10 flank emitters. Each hand scales 1.45× as a
-  // unit (round-1 capture fix: 1× read as ordinary hands, not colossal ones).
-  // ---------------------------------------------------------------------
-  const DANGER_COLOR = new THREE.Color(0xff2b6a);   // role colour, never per-boss
-  const ACCENT_COLOR = new THREE.Color(accent);
-  const coreMat = track(new THREE.MeshBasicMaterial({
-    color: accent, transparent: true, opacity: 0.75, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide,
+  // LICHEN SEAMS — authored dim-green additive LineSegments across each palm
+  // face (LineSegments are overdraw-exempt, §2): the moss identity as GLINTS
+  // on near-black stone, never as diffuse. One shared geometry, mirrored by
+  // the wrist transform; small deterministic jitter keeps it hand-grown.
+  const seamGeo = (() => {
+    const seamRnd = mulberry32(0x5ca25ca2);
+    const Z = 0.30;
+    const runs = [
+      // three seams wrapping around the socket, upper-left → lower-right
+      [[-0.72, 0.85], [-0.45, 0.55], [-0.55, 0.10], [-0.35, -0.35], [-0.60, -0.75]],
+      [[0.68, 0.90], [0.52, 0.48], [0.66, 0.05], [0.45, -0.42]],
+      [[-0.25, -0.62], [0.10, -0.72], [0.48, -0.60], [0.70, -0.80]],
+    ];
+    const pts = [];
+    for (const run of runs) {
+      for (let i = 0; i < run.length - 1; i++) {
+        pts.push(
+          run[i][0] + (seamRnd() - 0.5) * 0.06, run[i][1] + (seamRnd() - 0.5) * 0.06, Z,
+          run[i + 1][0] + (seamRnd() - 0.5) * 0.06, run[i + 1][1] + (seamRnd() - 0.5) * 0.06, Z
+        );
+      }
+    }
+    const g = new THREE.BufferGeometry();
+    g.setAttribute('position', new THREE.Float32BufferAttribute(pts, 3));
+    return g;
+  })();
+  const seamMat = track(new THREE.LineBasicMaterial({
+    color: new THREE.Color(accent).multiplyScalar(0.55), transparent: true, opacity: 0.45,
+    blending: THREE.AdditiveBlending, depthWrite: false,
   }));
-  coreMat.toneMapped = false;
-  const _coreColor = new THREE.Color();
+
+  // ---------------------------------------------------------------------
+  // HAND builder — root (position/orientation channel) → wrist pivot
+  // (named handPivotL/handPivotR, exactly one each — test contract) → palm,
+  // eye, 4 fingers, 1 thumb.
+  // ---------------------------------------------------------------------
+  const HAND_X = 4.2, HAND_Y = 0.1, HAND_Z = 0.65;
+  const BASE_TILT = 0.12;   // "tilted toward center" resting lean
+  const fingerX = [-0.69, -0.23, 0.23, 0.69];   // 0.46 pitch on 0.30-wide digits = real sky gaps
+  const fanBase = fingerX.map((_, i) => (i - 1.5) * 0.11);   // ±0.165 rad fan — digits break the outline
 
   function buildHand(sx) {
     const root = new THREE.Group();
     root.name = sx < 0 ? 'handL' : 'handR';
-    root.position.set(sx * 4.9, -0.35, 0.55);
-    // Round 1: at 1× the hands read as ordinary hands, not COLOSSAL ones — the
-    // hook died at fight distance. The whole hand scales as a unit (only
-    // position/rotation are animated below, never scale, so this is safe).
-    root.scale.setScalar(1.45);
+    root.position.set(sx * HAND_X, HAND_Y, HAND_Z);
     rig.add(root);
     const wrist = new THREE.Object3D();
     wrist.name = sx < 0 ? 'handPivotL' : 'handPivotR';
+    wrist.rotation.z = -sx * BASE_TILT;
     root.add(wrist);
 
-    // PALM — a bevel-less slab + mirrored knuckle ridges; the left palm merges
-    // the STUMP (short jagged nub at the ring slot — the one broken thing).
-    const palmParts = [strip(new THREE.BoxGeometry(1.15, 1.55, 0.42))];
-    for (let i = 0; i < 2; i++) {
-      relief(palmParts, new THREE.BoxGeometry(0.30, 0.16, 0.20), -0.28 + i * 0.40, 0.72, 0.20);
-    }
-    relief(palmParts, new THREE.BoxGeometry(0.66, 0.28, 0.18), 0, -0.30, 0.24);   // palm heel bar
-    if (sx < 0) {
-      // The sheared stump: jagged top ring, canted — sits where a third
-      // finger's knuckle would be.
-      const stump = strip(new THREE.BoxGeometry(0.26, 0.30, 0.34));
-      const pos = stump.attributes.position;
-      for (let i = 0; i < pos.count; i++) {
-        if (pos.getY(i) > 0.1) { pos.setY(i, pos.getY(i) + j(0.16)); pos.setX(i, pos.getX(i) + j(0.06)); }
-      }
-      pos.needsUpdate = true;
-      stump.computeVertexNormals();
-      stump.rotateZ(0.18);
-      stump.translate(0.44, 0.88, 0);
-      palmParts.push(stump);
-    }
-    const palmGeo = mergeGeometries(palmParts, false);
-    if (!palmGeo) throw new Error('buildStoneColossus: palm mergeGeometries returned null (attribute mismatch)');
-    wrist.add(new THREE.Mesh(palmGeo, midMat));
+    wrist.add(new THREE.Mesh(palmGeo, basaltMat));
+    wrist.add(new THREE.LineSegments(seamGeo, seamMat));   // lichen glints ride every gesture
 
-    // DIGITS — two finger slabs + a thumb, each slab's mesh IS its pivot
-    // (geometry translated so the base knuckle sits at the origin; rotation.x
-    // is the curl). All named fingerPivot for the telegraph gate.
-    const digits = [];
-    const digitSpec = [
-      { x: -0.32, y: 0.80, w: 0.30, len: 0.98, thumb: false },
-      { x: 0.08, y: 0.82, w: 0.30, len: 1.06, thumb: false },
-      { x: sx < 0 ? -0.62 : 0.62, y: -0.10, w: 0.26, len: 0.72, thumb: true },
-    ];
-    for (const d of digitSpec) {
-      let geo = strip(new THREE.BoxGeometry(d.w, d.len, 0.36));
-      geo.translate(0, d.len / 2, 0);
-      const mesh = new THREE.Mesh(geo, midMat);
-      mesh.name = 'fingerPivot';
-      mesh.position.set(d.thumb ? d.x : d.x * (sx < 0 ? 1 : -1) * -1, d.y, 0);
-      if (d.thumb) mesh.rotation.z = sx * -0.85;   // thumb angles outward from the palm edge
-      mesh.userData.thumb = d.thumb;
-      wrist.add(mesh);
-      digits.push(mesh);
+    const eyeMesh = new THREE.Mesh(eyeGeo, eyeMat);
+    eyeMesh.position.set(0, 0.05, 0.36);
+    wrist.add(eyeMesh);
+    const pupilMesh = new THREE.Mesh(pupilGeo, pupilMat);
+    pupilMesh.position.set(0, 0.05, 0.70);   // riding the squashed eye's front
+    wrist.add(pupilMesh);
+
+    const fingers = [];
+    for (let i = 0; i < 4; i++) {
+      const rootPivot = new THREE.Object3D();
+      rootPivot.name = 'fingerPivot';   // telegraph-silhouette test gate finds these by name
+      rootPivot.position.set(fingerX[i], 0.95, 0.05);
+      rootPivot.rotation.z = fanBase[i];
+      wrist.add(rootPivot);
+      rootPivot.add(new THREE.Mesh(seg1Geo, basaltMat));
+      const childPivot = new THREE.Object3D();
+      childPivot.position.set(0, 0.85, 0);   // at the root segment's tip
+      rootPivot.add(childPivot);
+      childPivot.add(new THREE.Mesh(seg2Geo, midMat));
+      fingers.push({ root: rootPivot, child: childPivot, fanBase: fanBase[i], idx: i });
     }
 
-    // PALM CORE — the small white-hot emitter glow, recessed into the palm
-    // face. Heats accent→danger-magenta with the charge (the throat idiom).
-    const core = new THREE.Mesh(new THREE.CircleGeometry(0.30, lowQ ? 10 : 16), coreMat);
-    core.position.set(0, 0.10, 0.24);
-    wrist.add(core);
+    const thumb = new THREE.Object3D();
+    thumb.name = 'thumbPivot';   // deliberately NOT fingerPivot — see design spec
+    thumb.position.set(sx < 0 ? 0.72 : -0.72, -0.15, 0.28);   // proud of the palm face, not buried in it
+    thumb.rotation.z = sx * -0.55;   // angled inward along the palm edge, clear of the eye
+    wrist.add(thumb);
+    thumb.add(new THREE.Mesh(thumbGeo, basaltMat));
 
-    // SHACKLE CUFF — broken bronze arc around the wrist + chain-link stubs
-    // (merged into ONE bronze draw per hand). The left chain hangs longer —
-    // the same break, told twice.
-    const cuffParts = [];
-    const cuffTubular = lowQ ? 8 : 12;
-    const arc1 = strip(new THREE.TorusGeometry(0.58, 0.13, 5, cuffTubular, Math.PI * 1.15));
-    arc1.rotateZ(-0.4);
-    const arc2 = strip(new THREE.TorusGeometry(0.58, 0.13, 5, Math.max(4, cuffTubular >> 1), Math.PI * 0.45));
-    arc2.rotateZ(Math.PI * 1.05);
-    cuffParts.push(arc1, arc2);
-    const links = sx < 0 ? 3 : 2;
-    for (let i = 0; i < links; i++) {
-      relief(cuffParts, new THREE.BoxGeometry(0.16, 0.26, 0.10), sx * 0.52, -0.98 - i * 0.30, 0.05, j(0.6));
-    }
-    const cuffGeo = mergeGeometries(cuffParts, false);
-    if (!cuffGeo) throw new Error('buildStoneColossus: cuff mergeGeometries returned null (attribute mismatch)');
-    const cuff = new THREE.Mesh(cuffGeo, bronzeMat);
-    cuff.position.set(0, -0.80, 0);
-    cuff.rotation.x = Math.PI / 2;
-    wrist.add(cuff);
-
-    return { root, wrist, digits, core, sx, baseX: sx * 4.9, baseY: -0.35, baseZ: 0.55, phase: sx < 0 ? 0 : 1.7 };
+    return {
+      root, wrist, fingers, thumb, pupil: pupilMesh, sx,
+      baseX: sx * HAND_X, baseY: HAND_Y, baseZ: HAND_Z,
+      phase: sx < 0 ? 0 : Math.PI,
+      indexIdx: sx < 0 ? 3 : 0,   // the finger nearest the (inward-angled) thumb
+    };
   }
   const hands = [buildHand(-1), buildHand(1)];
 
-  // CRACK SEAMS — radiating from the stump across the LEFT palm (the scar
-  // pointed at, LineSegments = overdraw-free). Lives in the wrist space so it
-  // rides every gesture.
-  {
-    const seamRnd = mulberry32(0x5ca25ca2);
-    const origin = new THREE.Vector3(0.44, 0.86, 0.23);
-    const targets = [
-      new THREE.Vector3(-0.30, 0.60, 0.23), new THREE.Vector3(-0.50, 0.05, 0.23),
-      new THREE.Vector3(0.10, -0.45, 0.23), new THREE.Vector3(0.52, -0.10, 0.23),
-      new THREE.Vector3(-0.15, -0.72, 0.23),
-    ];
-    const perBranch = lowQ ? 2 : 4;
-    const pts = [];
-    for (const t of targets) {
-      let p = origin.clone();
-      for (let s = 0; s < perBranch; s++) {
-        const u = (s + 1) / perBranch;
-        const next = origin.clone().lerp(t, u);
-        next.x += (seamRnd() - 0.5) * 0.10;
-        next.y += (seamRnd() - 0.5) * 0.10;
-        pts.push(p.x, p.y, p.z, next.x, next.y, next.z);
-        p = next;
-      }
-    }
-    const seamGeo = new THREE.BufferGeometry();
-    seamGeo.setAttribute('position', new THREE.Float32BufferAttribute(pts, 3));
-    const seamColor = new THREE.Color(0xc98a3f).lerp(ACCENT_COLOR, 0.5);
-    var seamMat = track(new THREE.LineBasicMaterial({
-      color: seamColor, transparent: true, opacity: 0.5, blending: THREE.AdditiveBlending, depthWrite: false,
-    }));
-    hands[0].wrist.add(new THREE.LineSegments(seamGeo, seamMat));
-  }
+  // ---------------------------------------------------------------------
+  // THE SHATTERED CROWN — the head-void. Centred above and between the
+  // hands; sky reads through the gap at rest. Two independently-rotating
+  // draws (the "counter-rotation, two rates" idle read) — group A carries
+  // two intact arcs, group B carries the one SNAPPED arc + a debris cluster
+  // concentrated at its broken end (the scar, law 6).
+  // ---------------------------------------------------------------------
+  const CROWN_Y = 2.9, CROWN_Z = -1.1;
+  const crownDebris = (angles, radius, seedRnd) => angles.map((ang) => {
+    const d = strip(new THREE.OctahedronGeometry(0.16 + seedRnd() * 0.09, 0));
+    d.rotateZ(seedRnd() * Math.PI);
+    d.rotateX(seedRnd() * Math.PI);
+    d.translate(Math.cos(ang) * radius, Math.sin(ang) * radius, 0);
+    return d;
+  });
+  const crownRnd = mulberry32(0x5eed7a55);
+  // Round-2 capture fix: 0.14 tubes at emissive 0.55 read as faint drifting
+  // debris, not "a broken crown" — thickened + brightened (still far dimmer
+  // than the palm-eyes' 2.4 HDR white).
+  const crownTubular = lowQ ? 10 : 16;
+  const arc1 = strip(new THREE.TorusGeometry(2.25, 0.30, 5, crownTubular, Math.PI * 0.42));
+  arc1.rotateZ(0.35);
+  const arc2 = strip(new THREE.TorusGeometry(2.55, 0.30, 5, crownTubular, Math.PI * 0.36));
+  arc2.rotateZ(Math.PI + 0.55);
+  const crownAGeo = mergeStone(
+    [arc1, arc2, ...crownDebris([1.65, 5.4], 2.3, crownRnd)], 'crown-A'
+  );
+  const crownA = new THREE.Mesh(crownAGeo, bronzeMat);
+  crownA.position.set(0, CROWN_Y, CROWN_Z);
+  rig.add(crownA);
 
-  // BACKLIGHT DISC — strictly behind the bust plane, narrower than the bust's
-  // half-width: rim-lights the outline via bloom, never encloses the volume
-  // (§3 law: no enclosing shell). Pure ambience, no charge reaction.
-  const glowDiscMat = track(new THREE.MeshBasicMaterial({
-    color: glow, transparent: true, opacity: 0.26, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide,
-  }));
-  const glowDisc = new THREE.Mesh(new THREE.CircleGeometry(2.45, lowQ ? 10 : 18), glowDiscMat);
-  glowDisc.position.set(0, 0.5, -2.05);
-  rig.add(glowDisc);
+  // The snapped arc: shorter span, and its trailing end (the +thetaStart edge)
+  // carries a tight debris cluster instead of a clean cut — the one
+  // deliberate asymmetric scar.
+  const arc3 = strip(new THREE.TorusGeometry(2.0, 0.30, 5, crownTubular, Math.PI * 0.48));
+  arc3.rotateZ(Math.PI * 1.55);
+  const crownBGeo = mergeStone(
+    [arc3, ...crownDebris([4.87, 4.98, 5.10, 3.2], 2.0, crownRnd)], 'crown-B'
+  );
+  const crownB = new THREE.Mesh(crownBGeo, bronzeMat);
+  crownB.position.set(0, CROWN_Y, CROWN_Z);
+  rig.add(crownB);
 
-  // ORBITERS — dark masonry chunks (contract ≥2; law 8: satellites stay dark).
+  // ---------------------------------------------------------------------
+  // ORBITERS — dark masonry chunks (contract ≥2; law 8: satellites stay
+  // dark). Held at exactly 2 (not 3) — see the header draw-budget note.
+  // ---------------------------------------------------------------------
   const masonryMat = track(new THREE.MeshStandardMaterial({
     color: 0x101408, emissive: accent, emissiveIntensity: 0.22, roughness: 0.4, metalness: 0.3, flatShading: true,
   }));
   const masonryGeo = strip(new THREE.BoxGeometry(0.55, 0.38, 0.46));
   const orbiters = [];
-  const orbiterCount = lowQ ? 2 : 3;
-  for (let i = 0; i < orbiterCount; i++) {
+  for (let i = 0; i < 2; i++) {
     const m = new THREE.Mesh(masonryGeo, masonryMat);
-    m.userData = { ang: (i / orbiterCount) * Math.PI * 2, radius: 3.4 + i * 0.5, speed: 0.9 + i * 0.2, baseY: 0.4, tilt: i * 0.6 };
+    m.userData = { ang: (i / 2) * Math.PI * 2, radius: 3.6 + i * 0.6, speed: 0.9 + i * 0.2, baseY: 1.6, tilt: i * 0.6 };
     rig.add(m);
     orbiters.push(m);
   }
 
-  // Hit flash rings the BRONZE fittings, not the base stone: rider fire lands
-  // every ~0.5s, and a whole-face flash in a HIGH-luminance green (unlike the
-  // idol's dim violet) kept the basalt permanently semi-lit in captures — the
-  // "flat pale sticker" failure by another road. The fittings flashing hot
-  // reads as struck metal; the brow-pain flinch still sells the hit.
-  kit.flashBind(bronzeMat, 0.15);
+  // Hit flash rings the BRONZE crown, never the basalt (round-2 capture fix,
+  // re-learning the shipped build's ledger lesson the hard way): rider fire
+  // lands every ~0.5s, so a flash bound to the basalt kept BOTH HANDS
+  // permanently semi-lit in bright green — the exact "saturated toy-green"
+  // failure this rebuild exists to kill. The crown flashing hot reads as
+  // struck metal; the pain-splay flinch still sells the hit on the hands.
+  kit.flashBind(bronzeMat, 0.7);
   kit.finalize();
 
   // ---------------------------------------------------------------------
-  // ANIMATION
+  // ANIMATION — curl scale (0 open → 1 fully closed fist, hiding the eye).
   // ---------------------------------------------------------------------
+  // Round-2 capture fix: 0.35 leaned the fingertips ~60° toward the camera —
+  // front-on (the only view that matters, §1) the foreshortening erased them
+  // and the hands read as MITTENS again. 0.18 keeps the fingers standing in
+  // the XY plane where the silhouette can see them; it still reads as the
+  // spec's "rest half-curl" because the child joint adds its 0.85× on top.
+  const REST_CURL = 0.18;
+  const BLINK_CURL = 0.58;
+  const CLENCH_CURL = 0.95;      // the big tell: fist wind-up, eye fully hidden
+  const POINT_EXTEND = 0.04;
+  const POINT_CURL = 0.85;
+  const SPLAY_CURL = 0.08;
+  const CONVERGE_CURL = 0.55;
+  const NOTICE_OPEN = 0.02;
+  const SHIELD_CURL = 1.0;
+  const ROOT_ANGLE = 1.6;        // rad at curl=1 on the root pivot
+  const CHILD_RATIO = 0.85;      // consolidated stand-in for the spec's 0.8×/0.6× chain
+
   let charge = 0;
   function setCharge(k) { charge = Math.max(0, Math.min(1, k)); }
 
-  // Optional controller hook (fed alongside setCharge once the controller's
-  // attack-tell seam lands): selects which gesture family the hands wind up
-  // in. null = the default clench — which is also what the telegraph-
-  // silhouette test gate asserts on a bare setCharge(1).
   let tell = null;
   const TELL_FAMILY = {
     aimed: 'point', stream: 'point',
-    fan: 'sweep', crossfire: 'sweep',
-    spiral: 'spin', spiralStream: 'spin',
-    tunnel: 'clench', iris: 'clench',
-    curtain: 'slam', movingGap: 'slam', secondWave: 'slam',
+    fan: 'splay', spiral: 'splay', spiralStream: 'splay',
+    tunnel: 'clench', iris: 'clench', curtain: 'clench', movingGap: 'clench', secondWave: 'clench',
+    crossfire: 'converge',
   };
   function setAttackTell(id) { tell = id ? (TELL_FAMILY[id] ?? 'clench') : null; }
 
-  // Optional setpiece hook (the crossing pass): k 0→1 spreads the hands wide
-  // and splays the fingers — the frame where the player flies BETWEEN them.
   let setpieceK = 0;
   function setSetpiece(k) { setpieceK = Math.max(0, Math.min(1, k)); }
 
-  // Shield: guard pose while raised (hands clasp IN, inside the bubble); each
-  // LOWER (= a break) sheds silhouette armor — the phase-transition law.
   let shieldClamp = false;
+  let shieldOpenT = 0;   // brief overshoot window after a shield lowers
   kit.onShieldChange((v) => {
     if (v) { shieldClamp = true; return; }
-    if (shieldClamp) { shieldClamp = false; shedCount = Math.min(2, shedCount + 1); triggerShed(shedCount); }
+    if (shieldClamp) { shieldClamp = false; shieldOpenT = 0.25; }
   });
 
-  // --- Charisma layer (colossus dials: everything HEAVY and SLOW) ---
+  // --- Charisma layer ---
   let gazeTX = 0, gazeTY = 0, gazeX = 0, gazeY = 0;
   let lookAwayT = 0, lookAwayX = 0, lookAwayY = 0;
   let nextLookAway = 5 + Math.random() * 6;
@@ -531,9 +358,8 @@ export function buildStoneColossus(def, quality = 1) {
     gazeTX = Math.max(-1, Math.min(1, nx));
     gazeTY = Math.max(-1, Math.min(1, ny));
   }
-  let blinkT = 0;
-  const BLINK_DUR = 0.34;                        // a heavy lid, not a flutter
-  let nextBlink = 6 + Math.random() * 3;         // slow — each blink is an event
+  const BLINK_DUR = 0.3;
+  let blinkT = 0, nextBlink = 4 + Math.random() * 3, blinkHand = 0;
   let noticeT = 0;
   function notice() { noticeT = 0.9; blinkT = 0; nextBlink = 3; }
   let painT = 0;
@@ -542,17 +368,11 @@ export function buildStoneColossus(def, quality = 1) {
   function setDissolveEmotive(k) { dyingK = Math.max(0, Math.min(1, k)); kit.setDissolve(k); }
 
   function tickBody(dt, time) {
-    // Idle: a slow tectonic breath-bob + an even slower roll — two
-    // frequencies so the mountain never reads as scenery.
-    rig.position.y = Math.sin(time * 0.35) * 0.18;
-    rig.rotation.z = Math.sin(time * 0.22) * 0.012;
-    // Death: the head bows (rig-local — placeGroup owns the world transform).
-    rig.rotation.x += ((dyingK * 0.30) - rig.rotation.x) * Math.min(1, dt * 3);
+    // Idle: a slow tectonic breath (root never animates — placeGroup owns it).
+    rig.rotation.z = Math.sin(time * 0.22) * 0.01;
+    rig.rotation.x += ((dyingK * 0.15) - rig.rotation.x) * Math.min(1, dt * 3);
 
-    // Eyes exposed after the brim sheds.
-    exposedK += ((shedCount >= 2 ? 1 : 0) - exposedK) * Math.min(1, dt * 2.5);
-
-    // --- Gaze: high-lag pursuit (a mountain turns slowly), deliberate wander ---
+    // --- Gaze: high-lag pursuit, deliberate look-aways (copied idiom) ---
     nextLookAway -= dt;
     if (lookAwayT > 0) lookAwayT -= dt;
     else if (nextLookAway <= 0 && charge < 0.2 && noticeT <= 0 && dyingK <= 0) {
@@ -566,142 +386,175 @@ export function buildStoneColossus(def, quality = 1) {
     const gLag = (noticeT > 0 || charge > 0.5) ? 8 : 2.2;
     gazeX += (gx - gazeX) * Math.min(1, dt * gLag);
     gazeY += (gy - gazeY) * Math.min(1, dt * gLag);
-    for (const p of pupils) p.position.set(p.userData.sx * 1.18 + gazeX * 0.16, gazeY * 0.10, 0.34);
 
-    // --- Blink × slit-squash × death-close, all about the socket line ---
+    // --- Blink: alternating hands, fingers curl to ~0.58 and back ---
     if (blinkT > 0) blinkT -= dt;
     else {
       nextBlink -= dt;
-      if (nextBlink <= 0 && charge < 0.5 && dyingK <= 0) { blinkT = BLINK_DUR; nextBlink = 6 + Math.random() * 3; }
+      if (nextBlink <= 0 && charge < 0.5 && noticeT <= 0 && dyingK <= 0) {
+        blinkT = BLINK_DUR; nextBlink = 4 + Math.random() * 3; blinkHand = 1 - blinkHand;
+      }
     }
-    const blinkK = blinkT > 0 ? Math.abs((blinkT / BLINK_DUR) * 2 - 1) : 1;
-    const slitBase = 0.34 + exposedK * 0.66;   // slits at rest; round once the brim is gone
-    const deathLid = 1 - dyingK * 0.95;
-    eyeGroup.scale.y = Math.max(0.05, slitBase * Math.min(blinkK, deathLid));
+    const blinkProg = blinkT > 0 ? 1 - Math.abs((blinkT / BLINK_DUR) * 2 - 1) : 0;
 
-    // --- Brow expression (death sorrow > pain > notice > shield strain > charge > glare) ---
     if (painT > 0) painT -= dt;
     if (noticeT > 0) noticeT -= dt;
-    let browP = 0;
-    if (dyingK > 0) browP = 0.55 * Math.min(1, dyingK * 2.5);
-    else if (painT > 0) browP = 0.30 * (painT / 0.35);
-    else if (noticeT > 0) browP = -0.28;
-    else browP = shieldClamp ? -0.10 : -0.22 * charge;
-    for (const b of browPivots) {
-      const target = b.userData.sx * (BROW_BASE + browP);
-      b.rotation.z += (target - b.rotation.z) * Math.min(1, dt * 7);
-    }
+    if (shieldOpenT > 0) shieldOpenT -= dt;
 
-    // --- Pupils: pinpoint rage at notice/charge, blown wide in death ---
-    const pupilTarget = dyingK > 0 ? 1.5 : (noticeT > 0 ? 0.5 : 1 - charge * 0.45);
-    for (const p of pupils) {
-      const s = p.scale.x + (pupilTarget - p.scale.x) * Math.min(1, dt * 7);
-      p.scale.setScalar(Math.max(0.01, s));
-    }
+    // --- Pupils: pinpoint at notice/charge, dilated wide in death ---
+    const pupilTarget = dyingK > 0 ? 1.6 : (noticeT > 0.5 ? 0.35 : 1 - charge * 0.6);
 
-    // --- Flinch/notice recoil ---
+    // --- Eye heat: two flicker frequencies + charge flare; shield leashes it
+    // dim; death gutters it out (fingers physically cover it too). ---
+    const flicker = 0.85 + Math.sin(time * 3.8) * 0.1 + Math.sin(time * 11) * 0.04;
+    let eyeK = shieldClamp ? 0.22 : flicker * (1 + charge * 0.3);   // guttering under the closed fist
+    if (noticeT > 0) eyeK *= 1.25;
+    eyeK *= 1 - dyingK * 0.85;
+    eyeMat.color.copy(EYE_BASE).multiplyScalar(Math.max(0.05, eyeK) * EYE_HOT);
+
+    const gesture = tell ?? 'clench';
     const recoil = (painT > 0 ? painT / 0.35 : 0) * 0.35 + (noticeT > 0.6 ? (noticeT - 0.6) / 0.3 : 0) * 0.25;
     rig.position.z = -recoil;
 
-    // --- Eye heat: two flicker frequencies; shield leashes to a dim ember;
-    // exposed eyes burn hotter; death gutters as the lids close. ---
-    const flicker = 0.85 + Math.sin(time * 3.8) * 0.1 + Math.sin(time * 11) * 0.04;
-    let eyeK = shieldClamp ? 0.5 : flicker * (1 + charge * 0.3) * (1 + exposedK * 0.2);
-    if (noticeT > 0) eyeK *= 1.25;
-    eyeK *= 1 - dyingK * 0.4;
-    eyeMat.color.copy(EYE_BASE).multiplyScalar(eyeK * EYE_HOT);
-
-    // Seams shimmer on their own clock; shield strain brightens the break.
-    seamMat.opacity = (0.35 + Math.sin(time * 1.3) * 0.12) + (shieldClamp ? 0.3 : 0);
-
-    // --- HANDS: rest-drift → gesture wind-up → guard → setpiece → death ---
-    // Resting grip escalates with the sheds: open → drumming → fists.
-    const gesture = tell ?? 'clench';
     for (let hi = 0; hi < hands.length; hi++) {
       const h = hands[hi];
-      // Position channel (root): idle drift around the flank station.
-      let tx = h.baseX + Math.sin(time * 0.5 + h.phase) * 0.25 + gazeX * 0.3;
+      const sx = h.sx;
+
+      // Position channel: idle drift, antiphase bob at 2 frequencies.
+      let tx = h.baseX + Math.sin(time * 0.5 + h.phase) * 0.25 + Math.sin(time * 0.9 + h.phase * 1.7) * 0.12 + gazeX * 0.3;
       let ty = h.baseY + Math.sin(time * 0.8 + h.phase) * 0.28;
       let tz = h.baseZ + Math.sin(time * 0.42 + h.phase * 2) * 0.15;
-      // Orientation channel (wrist) + curl channel (digits).
-      let rx = 0, rz = 0;
-      let curl;
-      if (shedCount === 0) curl = 0.15;
-      else if (shedCount === 1) curl = 0.28;   // per-digit drum added below
-      else curl = 0.75;
-      if (charge > 0.01 && !shieldClamp && dyingK <= 0) {
-        // Wind-up: every family raises the hands; the pose differs.
+      let rz = -sx * BASE_TILT + gazeX * 0.08;
+      let ry = 0;
+      let rx = gazeY * 0.05;
+
+      // Per-finger curl targets: rest + micro-flex (±0.04 rad at the root).
+      const curls = [0, 1, 2, 3].map((i) => REST_CURL + Math.sin(time * 2 + i * 1.3 + h.phase) * 0.025);
+      let thumbCurl = REST_CURL * 0.85;
+      let fanMul = 1;
+
+      // Blink: this hand's fingers curl toward BLINK_CURL (the eyelid read).
+      if (hi === blinkHand && blinkProg > 0) {
+        for (let i = 0; i < 4; i++) curls[i] += (BLINK_CURL - curls[i]) * blinkProg;
+      }
+
+      // Attack-tell wind-up: tension rises toward the gesture's pose as
+      // charge climbs (0..1 IS the blend factor — the controller already
+      // eases charge in over the telegraph duration).
+      if (charge > 0.001 && !shieldClamp && dyingK <= 0) {
         ty += charge * 0.5;
-        if (gesture === 'clench') curl = curl + (0.95 - curl) * charge;
-        else if (gesture === 'point') {
-          if (h.sx > 0) { curl = curl * (1 - charge) + 0.05 * charge; rx = -0.55 * charge; }
-          else curl = curl + (0.9 - curl) * charge;
-        } else if (gesture === 'sweep') {
-          curl = curl * (1 - charge) + 0.08 * charge;
-          rz = h.sx * 0.5 * charge;
-          tx += h.sx * 0.6 * charge;
-        } else if (gesture === 'spin') {
-          curl = curl + (0.5 - curl) * charge;
-          rz = Math.sin(time * 6) * 0.6 * charge;
-        } else if (gesture === 'slam') {
-          curl = curl * (1 - charge) + 0.05 * charge;
-          ty += charge * 1.1;
-          rx = 0.7 * charge;
+        if (gesture === 'clench') {
+          for (let i = 0; i < 4; i++) curls[i] += (CLENCH_CURL - curls[i]) * charge;
+          thumbCurl += (CLENCH_CURL - thumbCurl) * charge;
+        } else if (gesture === 'point') {
+          for (let i = 0; i < 4; i++) {
+            const target = i === h.indexIdx ? POINT_EXTEND : POINT_CURL;
+            curls[i] += (target - curls[i]) * charge;
+          }
+          thumbCurl += (POINT_CURL - thumbCurl) * charge;
+          fanMul = 1 - 0.4 * charge;
+          rx += -0.25 * charge;
+        } else if (gesture === 'splay') {
+          for (let i = 0; i < 4; i++) curls[i] += (SPLAY_CURL - curls[i]) * charge;
+          thumbCurl += (SPLAY_CURL - thumbCurl) * charge;
+          fanMul = 1 + 2.6 * charge;
+        } else if (gesture === 'converge') {
+          for (let i = 0; i < 4; i++) curls[i] += (CONVERGE_CURL - curls[i]) * charge;
+          thumbCurl += (CONVERGE_CURL - thumbCurl) * charge;
+          tx -= sx * 1.1 * charge;
+          ry = -sx * 0.35 * charge;
+          fanMul = 1 - 0.3 * charge;
         }
       }
+
+      // Pain flinch: recoil back + fingers splay open, quick.
+      if (painT > 0 && !shieldClamp && dyingK <= 0) {
+        const painK = painT / 0.35;
+        for (let i = 0; i < 4; i++) curls[i] += (SPLAY_CURL - curls[i]) * painK * 0.8;
+        thumbCurl += (SPLAY_CURL - thumbCurl) * painK * 0.8;
+        fanMul = Math.max(fanMul, 1 + 2 * painK);
+        tz -= 0.5 * painK;
+      }
+
+      // Shield raised: BOTH hands close into fists over their own eyes — the
+      // invulnerability read (it can't be hurt while its eyes are hidden).
       if (shieldClamp) {
-        // Guard: clasp in front of the face, inside the shield bubble.
-        tx = h.sx * 1.7; ty = -0.1; tz = 1.5; curl = 0.55; rx = 0; rz = h.sx * 0.2;
+        tx = sx * 1.5; ty = 0.3; tz = 1.2; rz = sx * 0.15; ry = 0;
+        for (let i = 0; i < 4; i++) curls[i] = SHIELD_CURL;
+        thumbCurl = SHIELD_CURL;
+        fanMul = 0.3;
+      } else if (shieldOpenT > 0) {
+        // Snap-open overshoot the instant the shield drops.
+        const k = shieldOpenT / 0.25;
+        for (let i = 0; i < 4; i++) curls[i] -= 0.18 * k;
+        thumbCurl -= 0.18 * k;
       }
-      if (setpieceK > 0) {
-        // Crossing pass: arms spread WIDE, fingers splayed — the frame the
-        // player flies under, between the hands.
-        tx += h.sx * 1.8 * setpieceK;
-        ty += 0.8 * setpieceK;
-        curl = curl * (1 - setpieceK) + 0.05 * setpieceK;
-        rz = (rz || 0) + h.sx * 0.3 * setpieceK;
+
+      // Setpiece (the crossing pass): hands spread WIDE — the fly-under
+      // scale-contrast frame. Base gap at rest (2×5.4=10.8) already clears
+      // the ≥7-unit contract; this adds extra spread + open fingers for read.
+      if (setpieceK > 0 && !shieldClamp && dyingK <= 0) {
+        tx += sx * 1.4 * setpieceK;
+        ty += 0.7 * setpieceK;
+        for (let i = 0; i < 4; i++) curls[i] += (SPLAY_CURL * 0.6 - curls[i]) * setpieceK;
+        fanMul = Math.max(fanMul, 1 + 1.5 * setpieceK);
       }
+
+      // Notice beat: fingers SNAP fully open (the eyes revealed wide) —
+      // overrides everything else (only fires once, nothing else active then).
+      if (noticeT > 0.5) {
+        for (let i = 0; i < 4; i++) curls[i] = NOTICE_OPEN;
+        thumbCurl = NOTICE_OPEN;
+        fanMul = 1.3;
+      }
+
+      // Death: the hands drift TOGETHER toward centre and FOLD closed over
+      // their own eyes — a mournful clasp, never an explosion.
       if (dyingK > 0) {
-        // Mournful: hands rise toward the face, then fall slack and drift
-        // apart, fingers uncurling — never an explosion.
-        const rise = Math.min(1, dyingK * 2.5);
-        const fall = Math.max(0, dyingK - 0.45) / 0.55;
-        tx = h.baseX + (h.sx * 2.4 - h.baseX) * rise + h.sx * 1.2 * fall;
-        ty = h.baseY + 1.0 * rise - 2.4 * fall;
-        tz = h.baseZ + 0.7 * rise * (1 - fall);
-        curl = 0.4 * (1 - fall) + 0.05;
-        rx = 0.3 * fall;
+        tx = h.baseX + (sx * 1.0 - h.baseX) * dyingK;
+        ty = h.baseY + (1.1 - h.baseY) * dyingK;
+        tz = h.baseZ + (1.6 - h.baseZ) * dyingK;
+        for (let i = 0; i < 4; i++) curls[i] = curls[i] + (1.0 - curls[i]) * dyingK;
+        thumbCurl = thumbCurl + (1.0 - thumbCurl) * dyingK;
+        fanMul = 1 - dyingK * 0.75;
+        rz = rz * (1 - dyingK);
       }
-      if (noticeT > 0.5) curl = Math.max(curl, 0.95);   // the notice beat: fists SNAP shut
-      const ease = Math.min(1, dt * 4);
-      h.root.position.x += (tx - h.root.position.x) * ease;
-      h.root.position.y += (ty - h.root.position.y) * ease;
-      h.root.position.z += (tz - h.root.position.z) * ease;
-      h.wrist.rotation.x += (rx - h.wrist.rotation.x) * Math.min(1, dt * 5);
-      h.wrist.rotation.z += (rz - h.wrist.rotation.z) * Math.min(1, dt * 5);
-      for (let di = 0; di < h.digits.length; di++) {
-        const d = h.digits[di];
-        let dCurl = curl;
-        if (shedCount === 1 && charge < 0.01 && !shieldClamp && dyingK <= 0 && setpieceK <= 0) {
-          dCurl += Math.sin(time * 2.4 + di * 1.9 + h.phase) * 0.18;   // drumming fingers
-        }
-        if (d.userData.thumb) dCurl *= 0.7;
-        d.rotation.x += (dCurl - d.rotation.x) * Math.min(1, dt * 8);
+
+      const posEase = Math.min(1, dt * 4);
+      h.root.position.x += (tx - h.root.position.x) * posEase;
+      h.root.position.y += (ty - h.root.position.y) * posEase;
+      h.root.position.z += (tz - h.root.position.z) * posEase;
+      const rotEase = Math.min(1, dt * 5);
+      h.wrist.rotation.x += (rx - h.wrist.rotation.x) * rotEase;
+      h.wrist.rotation.y += (ry - h.wrist.rotation.y) * rotEase;
+      h.wrist.rotation.z += (rz - h.wrist.rotation.z) * rotEase;
+
+      const poseEase = Math.min(1, dt * 8);   // "pose lerps at ~8/s"
+      for (const f of h.fingers) {
+        f.root.rotation.x += (curls[f.idx] * ROOT_ANGLE - f.root.rotation.x) * poseEase;
+        f.child.rotation.x += (curls[f.idx] * ROOT_ANGLE * CHILD_RATIO - f.child.rotation.x) * poseEase;
+        f.root.rotation.z += (f.fanBase * fanMul - f.root.rotation.z) * Math.min(1, dt * 6);
       }
-      // Palm cores heat accent→danger with the wind-up (attack anatomy law).
-      h.core.scale.setScalar(1 + charge * 0.6 + setpieceK * 0.3);
+      h.thumb.rotation.x += (thumbCurl * ROOT_ANGLE * 0.9 - h.thumb.rotation.x) * poseEase;
+
+      // Pupils ride the gaze, per hand.
+      h.pupil.position.set(gazeX * 0.10, 0.05 + gazeY * 0.06, 0.70);
+      const pScale = h.pupil.scale.x + (pupilTarget - h.pupil.scale.x) * Math.min(1, dt * 7);
+      h.pupil.scale.setScalar(Math.max(0.01, pScale));
     }
-    _coreColor.copy(ACCENT_COLOR).lerp(DANGER_COLOR, charge);
-    coreMat.color.copy(_coreColor).multiplyScalar(1 + charge * 1.4);
-    coreMat.opacity = shieldClamp ? 0.25 : 0.75 * (1 - dyingK) * (0.7 + charge * 0.3 + Math.sin(time * 2.1) * 0.08);
 
-    // Backlight disc: slow idle pulse only (never a charge tell).
-    glowDiscMat.opacity = 0.26 + Math.sin(time * 0.7) * 0.05;
+    // Crown: slow counter-rotation at two rates; sinks + dims in death.
+    crownA.rotation.z += dt * 0.15 * (1 - dyingK);
+    crownB.rotation.z -= dt * 0.22 * (1 - dyingK);
+    const crownYTarget = CROWN_Y - dyingK * 0.5;
+    crownA.position.y += (crownYTarget - crownA.position.y) * Math.min(1, dt * 2);
+    crownB.position.y += (crownYTarget - crownB.position.y) * Math.min(1, dt * 2);
+    bronzeMat.emissiveIntensity = 0.7 * (1 - dyingK * 0.6);   // tickFlash (LAST) overrides while a hit flash decays
 
-    // Shed plates fly + fade.
-    tickSheds(dt);
+    // Lichen seams shimmer on their own slow clock; they die with the body.
+    seamMat.opacity = (0.35 + Math.sin(time * 1.3) * 0.12) * (1 - dyingK);
 
-    // Orbiters — the legacy drift loop (masonry caught in its gravity).
+    // Orbiters — dark masonry drift.
     for (const o of orbiters) {
       const u = o.userData;
       u.ang += dt * u.speed;
@@ -715,27 +568,25 @@ export function buildStoneColossus(def, quality = 1) {
     }
   }
 
-  // Muzzle: bullets/FX originate at the chest keystone line. On `group` (not
-  // `rig`) so it ignores the breath-bob — a stable controller reference.
+  // Muzzle: bullets/FX originate between the hands, at chest height. On
+  // `group` (not `rig`) so it ignores idle motion — a stable controller ref.
   const muzzle = new THREE.Object3D();
-  muzzle.position.set(0, -0.6, 2.4);
+  muzzle.position.set(0, 0.2, 2.2);
   group.add(muzzle);
 
   return {
     group, muzzle, orbiters,
-    setDissolve: setDissolveEmotive,   // kit dissolve + the mournful-death choreography
+    setDissolve: setDissolveEmotive,
     setCharge,
-    setAttackTell,                     // optional — gesture family per telegraph (controller ?.-calls)
-    setSetpiece,                       // optional — the crossing-pass spread (controller ?.-calls)
+    setAttackTell,
+    setSetpiece,
     setGaze,
     notice,
     setHealth: kit.setHealth,
     setHealthBarVisible: kit.setHealthBarVisible,
     setShieldVisible: kit.setShieldVisible,
     shatterShield: kit.shatterShield,
-    flash: flinchFlash,                // kit flash + the pain flinch
-    // tickBody first, kit.tickCommon LAST (its flash decay must win any
-    // same-frame write to a shared material — the house write-order rule).
+    flash: flinchFlash,
     tick(dt, time) { tickBody(dt, time); kit.tickCommon(dt, time); },
     dispose() {
       group.traverse((o) => {

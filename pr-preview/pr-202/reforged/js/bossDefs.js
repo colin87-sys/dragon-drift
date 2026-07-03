@@ -91,14 +91,17 @@ export const BOSSES = {
     hpMax: 260,
     // Boss-archetype dispatch (bossModel.js buildBoss): routes to the Stone
     // Colossus builder (bossColossus.js) — the first Tier 2 COLOSSUS
-    // (BOSS-DESIGN.md §5b registry slot 3): a helmed stone bust flanked by two
-    // enormous detached gesture HANDS that wind up every telegraph.
+    // (BOSS-DESIGN.md §5b registry slot 3), rebuilt after design review to
+    // resolve a concept collision with Voidmaw (boss 1): CRAGHOLD is now TWO
+    // COLOSSAL BASALT HANDS WITH AN EYE IN EACH PALM and NO HEAD — a shattered
+    // stone crown floats alone in the sky where a head would be. Boss 1 is a
+    // face with no body; boss 3 is a body with no face.
     archetype: 'stoneColossus',
     accent: 0x69c94f,         // moss/lichen green — the only unclaimed hue family at 30m
     glow: 0xafd06a,           // deep lichen-gold (shield rim / shards / backlight) — the first, paler pick read as a yellow balloon at shield-raise
     bulletColor: 0xff2b6a,    // danger stays magenta (role colour, never per-boss)
     approachFrom: 'behind',   // the colossus overtakes and rises over you
-    scale: 2.0,               // Tier 2 escalation invariant (~2 vs the Sentinels' 1.5)
+    scale: 2.4,               // Tier 2 escalation invariant — COLOSSAL (Sentinels sit at 1.5)
     constrictPhase: 2,        // phase 3: the walls close on the constricted-arena showpiece
     // The crossing-pass setpiece (Tier 2 "the fight moves"): at phase-2 entry
     // the colossus leaves station and drifts across the lane directly over the
