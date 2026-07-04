@@ -5233,3 +5233,17 @@ dedup discrete/tick continuous, annulus not radius, bands drawn in-world, riches
 perfect-parry heals (1 pip, cap 3/fight), and a per-band mechanic ladder (organ break → rally + reflect-only seal →
 rhythm parry + beam duel → star pips). **Gotcha for tuners:** the graze detector is single-frame at rel-crossing —
 every continuous graze form needs the new ticking branch with its own dedup, or parking exploits return.
+
+### L138 — The Studio Gate: judge design in isolation first; in-game captures judge only integration
+
+**Did / learned.** (Numbering note: two parallel sessions both minted L137 — file order is authoritative.) The
+MARROWCOIL build surfaced a systematic gate failure: in-game captures made the design gate judge biome props as boss
+anatomy, and round-to-round camera/pose variance produced contradictory directives. The working fix, now law in
+BOSS-DESIGN §7c: an isolated STUDIO shoot (tools/bossstudio.mjs — the tiershots precedent for bosses: builder booted
+directly, real lighting + bloom/ACES, no world; two backdrops (near-dark + pale); one contact sheet per state with
+four fixed angles at deterministic animation phase so rounds are pixel-comparable; standard states idle/notice/
+charge/shielded/dread/dissolve). Studio pass judges DESIGN; only after it passes do in-game captures run, judging
+INTEGRATION only (home-sky contrast, presence, bullet readability). bossgate's pixel assertions move to studio
+frames where the background is controlled. Second standing rule from the same lesson: TOOL-MAKING IS SANCTIONED —
+builders create/extend viewers freely whenever seeing clearly is the bottleneck; tools-to-see are cheap, half-blind
+verdicts are expensive.
