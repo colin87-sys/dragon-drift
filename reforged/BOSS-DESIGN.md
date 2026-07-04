@@ -202,7 +202,7 @@ all 13 others. When a boss ships, flip its row to `shipped`.
    peak but grander in spectacle. Never monotone.
 7. **The entrance is the share moment; build-up multiplies it** (Radahn's meteor + the
    festival around it): every slot gets ONE authored entrance beat; Tier 3+ adds pre-fight
-   foreshadowing.
+   foreshadowing. The full grammar, per-slot choreography, and claimed beats: §5j.
 8. **Persistent dread compounds** (Majora's moon: always visible, sky reacts on the final
    day): horizon presence + world-state reaction are assigned to specific top-band slots.
 9. **The flagship transplant test** (Monster Hunter: the silhouette must survive out of
@@ -395,6 +395,7 @@ reason to keep playing, encounter after encounter:
 Retention loop: each band's opener is spectacle-forward and gentler than the previous
 band's peak (the sawtooth); the NEXT band is foreshadowed one biome early (horizon glints,
 audio, sky grade) so the player always has a visible "what is THAT?" ahead of their wall.
+How each band's ARRIVAL escalates is its own contract — the entrance grammar (§5j).
 
 ## 5d. BUILD SHEETS (low-poly translation per open slot — primitives, palette, budget, reuse)
 
@@ -413,6 +414,7 @@ feasibility survey: at rel 30, on-screen centers within x ±15 / y 2..22 on port
   at half length, ember tip. Charcoal 0x121012 base ei 0.02 / ember 0xff6a30 accents ei
   ≤0.2 / slit hottest. ~1.8k tris, ~14 draws. REUSES: tell-family pose machine + setpiece
   paths (craghold's), HDR idiom, kit. NEEDS: moving-station branch (§5e).
+  ENTRANCE: SHIPPED — the §5j exemplar; rear-view-overtake is its claim forever.
 - **4 MARROWCOIL** — skull: box cranium 1.6w + tapered snout box + jawPivot jaw slab + 2
   curved horn tubes (TubeGeometry taper, the idol's horn kernel); eye pinlights: 2 small
   HDR ice-blue spheres recessed in dark socket boxes; lure: HDR teardrop on a LineSegments
@@ -433,6 +435,7 @@ feasibility survey: at rel 30, on-screen centers within x ±15 / y 2..22 on port
   ~3.5k tris, ~24 draws (vertebra chain = separate small
   meshes — phone-verified fine; NO InstancedMesh, L126). REUSES: mandala rail-merge idiom,
   charisma eye rig, jawPivot precedent. NEEDS: below-approach + cull-bound widening (§5e).
+  ENTRANCE: shipped rise stands; §5j *Count the Ribs* retrofit STAGED (inert `def.riseBeats`).
 - **5 EITHERWING** — per twin: stretched-octahedron kite body (~2.2 long) + crescent head
   fin (flat arc extrude) + 2 ribbon tails (4 flat tapered boxes on lagged pivots); THE EYE:
   one HDR orb that detaches and glides between bodies on a LineSegments bead-thread (the
@@ -441,6 +444,17 @@ feasibility survey: at rel 30, on-screen centers within x ±15 / y 2..22 on port
   ONE shared hp pool + one bar (zero hit-model work — the craghold precedent); shield
   wraps whichever body holds the eye. Oxblood 0x2a1114 + aged-silver rims; eyeless twin
   always darker. ~2×900 tris. REUSES: everything; NEEDS: nothing structural.
+  ENTRANCE (§5j *The Baton Cross*, hijack 1.6s): honest RIGHT banner; both twins slide in
+  from BOTH flanks and bracket the dragon at x ±8, rel 14 (inside the portrait envelope),
+  matching speed one breath — coal-dark, backlit, rims unlit; heads angle in (`setGaze`);
+  the dragon's look-yaw strains RIGHT against its 0.7 clamp (the strain reads "beside us").
+  Bullet-time 1.6s: the EYE detaches and crosses right→left at rel ~10, bead-thread drawing
+  one taut silver line across the FULL portrait width (escalation guard); dragon+rider heads
+  track the crossing in a full sweep — ride the generalized `setOvertake` with a
+  chase-identical pose (spends the hijack invisibly; keeps the look window alive; feed the
+  ORB's world-x as `bx`). Rider: "Two bodies. One eye." Left twin's rims IGNITE on the
+  catch, right goes dark; both scissor into the figure-eight; snap; title card. Skip →
+  settle, eye left. The crossing orb is a non-colliding prop (Mantis covers fire, not props).
 - **6 HOLLOWGATE** — 2 jagged pillars (stacked offset boxes, 5 per pillar) + broken lintel
   arc (4 box segments, one missing = the scar) + floating masonry chips; ROSE WINDOW in
   the lintel: 8 wedge panes (cone-slice extrudes) round a hub — panes light individually
@@ -449,12 +463,34 @@ feasibility survey: at rel 30, on-screen centers within x ±15 / y 2..22 on port
   (EdgesGeometry) + stained-glass emissive inside the window only. Arch gap ≥ 9 wide —
   the rail flies through every pass. ~2.5k tris. NEEDS: static-ahead approach (trivial) +
   first horizon-presence seeding (fog-exempt, §5e).
+  ENTRANCE (§5j *Vigil Lights*, hijack 0s — BANKS the fight's hijack): the dead black arch
+  grows on the horizon a full biome, never moving — the only boss that never comes to you
+  (degrade: def-flagged warn visibility + large start.rel until the horizon seed ships).
+  rel ~150: look-yaw locks; rider: "It hasn't moved. Not once." Honest top banner. Ease to
+  station — the lintel tops out past the frame. IGNITION: panes light one per slow choir
+  beat, and the LIT pane pools toward whichever side the player steers — in DISCRETE
+  wedge-steps sampled on ignition beats ONLY (continuous tracking is 14's claim); rider:
+  "It's not watching the sky. It's watching US." Last 3 panes under a 0.5× dilate window,
+  camera home; the hub ignites HOT with the sun framed inside the aperture; the portcullis
+  drops once and LIFTS — a door opening in invitation. Title card, first murmured verse.
+  Motion risk: portcullis + pane beat must carry it or it reads as a loading screen.
 - **7 THRUMSWARM** — queen: bone-white lantern rhombus (stretched octahedron + 6 rib fins
   + dark edge cage) with ONE amber eye; swarm: 28 dark tetra motes (separate meshes)
   lerping between authored formation tables: ring / wall / line / YOUR-DRAGON (~30 slots
   sampled once from the player's model vertices — the meme frame). Chip damage only lands
   while condensed; shield phase = the swarm becomes a ring around YOU (L106 law: ring,
   never a filled volume). Void-black motes ei ≤0.1 / star-white queen. ~1.6k tris.
+  ENTRANCE (§5j *The Shape It Remembers*, hijack 2.8s @0.24×): standard warn, ash sold via
+  the `bossGradeTarget` ambient channel (the group gate hides ALL parts during warn — no
+  per-mote exemption). At hijack u=0 the 28 unlit motes converge at rel ~45 and click,
+  slot by slot, into the YOUR-DRAGON formation — a stippled copy of dragon AND rider
+  gliding ahead, visibly discrete points, never a solid fill; sub-bass thrum with a fog
+  shudder is the condensation's click-track (phone-speaker-proof). The copy's head-cluster
+  performs YOUR Ashtalon glance-back AT you — camera stays forward (homage, not reuse);
+  rider: "That's... us." The queen's amber eye ignites inside the copy's skull. Burst →
+  station ring; title card; ostinato opens. Do NOT live-mirror input here — the copy holds
+  a neutral glide (the ring-buffer payoff belongs to its *Your Own Wings* card). Skip
+  clamps the formation lerp to the ring or the settle pops.
 - **8 BRINEHOLM** — never fully on screen: whale-back ridge = ONE long low-facet hull
   (~24 units, 8 radial facets) spanning the frame bottom; 4 fin-sails (flat tapered
   extrudes) rising/falling on pivots; THE EYE: 3-unit HDR hemisphere + iris ring + heavy
@@ -462,6 +498,20 @@ feasibility survey: at rel 30, on-screen centers within x ±15 / y 2..22 on port
   tori along the ridge. Geyser curtains rise from below-frame (off-rel spawns). Kelp-black
   0x0c1210 / abalone 2-tone emissive banding / white eye. ~3k tris. NEEDS: below-horizon
   rise + widened bullet cull bounds (§5e).
+  ENTRANCE (§5j *The Reef Was Breathing*, hijack ≤3s @0.35 — spends the roster's ONE
+  environment-wakes archetype): the crest tease starts AT WARN behind a scoped sub-rig
+  exemption to the group gate (crest only): a kelp-black facet ridge slides into
+  frame-bottom-right paralleling the lane just above the fog, lifting ~0.6m and settling
+  every few seconds, synced to tidal-drone swells driven off the `bossStart` emit. Dragon's
+  head turns down-toward-it; rider: "That reef is keeping pace." Honest bottom banner —
+  the dragon reacted FIRST. Fight start: `setOvertake` slews low across the wing as the
+  24-unit hull INHALES up through the fog floor (start deepened to y≈−14), fin-sails
+  unfolding bow-to-stern, banding lighting in a wave; the crest exits frame-top — it never
+  fits. Mid-rise the ascent HOLDS one fixed ~0.4s u-segment as the dragon's shadow crosses
+  it (the canon hesitation). The eye stays SUBMERGED — a pale glow at the bow; the lid
+  grinds and the iris LOCKS once at settle (no continuous tracking). Rider lore line on a
+  shackle-post flypast: "Same forge as the hunter's chains." Rush re-entry degrades to
+  spawn-at-warn gracefully; the crest stays lane-adjacent, never under the rail.
 - **9 KARNVOW** — vertical figure ~9 tall: hooded cowl (tapered extrude) whose face is an
   EMPTY VOID with one cold glint deep inside (no face — the anti-mask); pauldrons; lance =
   Voidmaw's snapped-horn geometry (same tube-taper kernel, violet-scarred); trophy chain
@@ -469,6 +519,18 @@ feasibility survey: at rel 30, on-screen centers within x ±15 / y 2..22 on port
   ALONGSIDE matching your speed (moving station at x ≈ ±12, rel 12–18), then cuts in.
   Parries your reflected bullets once (amber flash + riposte). Tarnished iron 0x1c1e22 /
   trophy glints in the owed bosses' palettes / amber. ~2k tris.
+  ENTRANCE (§5j *It Kept Count*, hijack 2.8s @0.5 shallow): banner RIGHT, honest. It fades
+  in alongside at x+12, rel 16 — rel ROCK-STEADY, no pull-ahead ever (any rel change reads
+  as 3's spent overtake); lance held LOW, cowl facing forward — it NEVER looks at you
+  (indifference is the taunt; 12 owns the mutual gaze). Shallow flank slew; the taunt lands
+  via `ui.bossNote` reading the SHIPPED `save.js bossLedgerStats`: "KARNVOW — WEARS THE
+  HORN IT TOOK / FELLED ×12. MOST: ASHTALON." — the Psycho Mantis stat-quote, granted §5f.
+  Mandatory fallback on fresh saves: "NO RECORD. IT WILL START ONE." As the line lands, the
+  ONE charm matching your top killer FLARES in that boss's palette (MANDATORY beat — the
+  escalation hinge), the rotation ending on the tilted EMPTY hook. Rider: "It's wearing
+  the one that beat us." Without turning its head the lance snaps low→POINT. Card out,
+  cut in laterally, wheel, settle — zero shots. Dedicated taunt-card UI + shortened
+  rush-repeat variant land with the §5f cost item; v1 ships on bossNote.
 - **10 KNELLGRAVE** — bell: 3 stacked tapered cylinder bands + flared lip (10 facets),
   crack seam = jagged LineSegments + thin HDR candle-slit box behind it; chain: 3 link
   tori + LineSegments vanishing up off-frame (hangs from NOTHING); clapper: bound figure
@@ -476,6 +538,20 @@ feasibility survey: at rel 30, on-screen centers within x ±15 / y 2..22 on port
   = one rig pivot; toll rings = expanding ring-walls on a rhythmic beat (iris inverted);
   audio tolls one biome early. Patina copper 0x1a2420 / candle 0xffd890. ~2.2k tris.
   NEEDS: audio-foreshadow seam + off-lane sweep bounds (§5e).
+  ENTRANCE (§5j *It Lifts Its Head*, hijack 2.6s @0.30): canon tolls a biome early
+  (`getBossEta()`); honest top banner; sky dims one grade across warn. The music DIES on
+  the warn-end toll (`musicKill()` — the granted fight-long silence contained as support;
+  attacks quantize to `getBeatClock` from here). A dark flicker crosses the lane; the bell
+  fades in ABOVE the frame already mid-swing — only the flared lip + 3 chain links dip
+  into view (y≈24, rel 20) — sweeping PERPENDICULAR across the lane over the dragon: a
+  cross, never an overtake. At the apex, bullet-time; the stock overtake framing already
+  pitches up at a y≈24 boss (no new pose endpoints): the bell mouth fills the top of the
+  screen, the candle-slit snaps on HDR, and the bound clapper swings out of the mouth and
+  LIFTS ITS HEAD — the drooped sphere tilts up, straps catching candlelight. Rider owns
+  the vertical (yaw clamp can't): "Above us — there's someone inside it." The dragon
+  strains at the clamp anyway. Snap; the bell wheels down to station, still swinging.
+  Keep the body above y≈22 (near-plane clipping); mid-fight the chain-thins-into-empty-sky
+  look-up is a free camera-less re-reveal.
 - **11 WEFTWITCH** — mantle bust: hooded triangular shroud (extrude, no legs) with 2 pale
   hands only; 6 radial spinneret limbs (2-segment tapered tubes on pivots); WEB: taut
   LineSegments spanning arena to off-screen anchors (overdraw-exempt); gaps visibly stitch
@@ -483,18 +559,57 @@ feasibility survey: at rel 30, on-screen centers within x ±15 / y 2..22 on port
   rose = woven rosette knots. Parry cuts a glowing thread → stagger. Descends from ABOVE
   on one thread. Moth-grey 0x1e1c22 / rose 0xd88098. ~1.8k tris. NEEDS: above-approach +
   `top` warning direction (§5e).
+  ENTRANCE (§5j *The Mended Banner*, hijack 2.2s @0.35): ambient ~2s, fully playable —
+  thin rose threads lace across the HUD chrome (DOM/SVG above chrome, below bullets — her
+  granted §5f break), needle-pull sfx. The banner slides in on time, dir top, and is
+  LEGIBLE first (so 12's silence still shocks) — then a thread LASHES across it,
+  cross-stitching the epithet mid-word; the banner pins half-deployed, quivering
+  (`suppressAutoHide`; cleared on skip/enterFight/resetBoss). Hijack: HARD CUT to the loom
+  reveal (the thread exits BEHIND the banner — UI↔world registration matters for zero
+  frames): she hangs small at frame top, thread-fan widening to full frame width; her two
+  working hands STOP; one long pale finger points straight DOWN at the dragon. She drops
+  the single thread to station as the camera returns; the stitched banner tears free; the
+  HUD comes back PRE-STITCHED at settle; plucked-string note per thread. This spends her
+  one rule-break as the primary beat — the fight never re-stitches a second banner.
 - **12 ONEWING** — EITHERWING survivor at ×2.2 scale, permanently listing ~12°: one vast
   8-blade wing (Ashtalon kernel, oversized), one atrophied 2-blade stub; the dead twin's
   kite frame fused across the chest as a pure-black EdgesGeometry wireframe ghost
   (eyeless); its old bead-thread hangs snapped. Mirrors your last dodge into the next
-  volley. Ashen-rose 0x241418 / blackened silver / ghost stays black. Entrance: NO
-  warning banner (def.noWarn — the banner fires late, as the jump-scare). ~2.6k tris.
+  volley. Ashen-rose 0x241418 / blackened silver / ghost stays black. ~2.6k tris.
+  ENTRANCE (§5j *The Grave It Carries*, hijack 2.6s @0.45 — the verify pass's only outright
+  PASS): warn suppressed (`def.noWarn`, its granted break). Ambient lead-in: ashen-rose
+  wall tint + fog-floor drop; an arrhythmic double wing-THUMP heard BEHIND. It climbs from
+  behind-below to draw level ~12m off the LEFT flank — one beat, never a pacing state
+  (9 owns alongside-as-state). Side-slew inside slow-mo to a profile TWO-SHOT (the shipped
+  midpoint-look frames it): dragon foreground right, ONEWING filling the left half,
+  listing 12°; the vast wing gives one THUMP, the stub twitches; it visibly sags and
+  re-lifts between beats (rubato in motion). Gaze script: the single eye finds dragon and
+  rider — `setDragonLook` holds them looking back (the mutual gaze is ITS claim) — then
+  the eye DIMS and drops to the black wireframe frame fused across its own chest, then
+  returns to you. Rider: "The twin. It kept the body." It folds and DROPS out of frame;
+  camera home; TWO SECONDS of silent normal play; then it ERUPTS from the fog floor at
+  rel +50 already at station and the DANGER banner fires WITH the eruption. No rear view,
+  no pull-ahead, ever. Skip fires the pending late banner immediately (a skipper still
+  gets the canon jump-scare); slow-mo window must not reach u=1 (leak gotcha).
 - **13 EMBERTIDE** — the horizon attacks: 3 frame-wide thin light-bands (long flat planes,
   additive, staggered z, UNstacked vs camera → inside the overdraw cap since they replace
   the sky) + a FACE surfacing as dark relief bumps pushed through the glow (brow/nose/chin
   silhouette masses, opaque). Vertical constriction: ceiling/floor light-bands close in
   (new constrict axis). Sky grade shifts a biome early. Vermilion→rose gradient / dark
   relief. ~1.2k tris + postfx. NEEDS: vertical constrict + full-frame emitter rows (§5e).
+  ENTRANCE (§5j *The Sky Comes Loose*, hijack 2.2s @0.30): the grade seeds at WARN-START
+  (`bossGradeTarget` already fires there; the biome-early version upgrades in when
+  `getBossEta()` ships) — the sunset ahead fattens, wrong-colored. Honest banner via the
+  new `'horizon'→'top'` dir mapping. The horizon-lift runs in the flythrough's FIRST
+  segment (boss visible, skippable): the lowest band separates from the ground line, a
+  slit of dark under-sky opening beneath it; rider: "That's not the sun setting. It's
+  getting up." Then the three bands rush rel 380→60 STAGGERED (anti-smear), overflowing
+  BOTH portrait edges — never fits the frame (escalation guard); two eye-hollows tear open
+  as darkness in the glow and settle on the dragon; title card. Ceiling/floor bands ignite
+  as COSMETIC rig nodes at settle — the real y-constrict + letterbox squeeze are saved for
+  the fight's first CRESCENDO SET (a free §5j re-entrance). Low-pass muffle the first time
+  its light-shadow crosses the dragon. MANDATORY: crossfade the real sky dome during the
+  lift (one sky, never two) + overdraw audit with all three bands + any fever volume.
 - **14 THE UNMASKED** — Stage 1 (seeded mid-game on ordinary runs): fog-exempt black disc
   + white corona ring + one heavy lid, camera-relative like the sky dome (its reserved
   glow-shape). Stage 2: 3 concentric wheels (torus rails + box spokes) gimbal-tilted on
@@ -505,6 +620,23 @@ feasibility survey: at rel 30, on-screen centers within x ±15 / y 2..22 on port
   veiled core (HDR sphere behind petal shroud — mandala petal kernel) unveils. Dark gold
   0x181206 / gold rails / white eyes+corona. ~5k tris across stages, staged builds swap
   via dissolve. NEEDS: horizon-presence system + stage system (§5e).
+  ENTRANCE (§5j *Don't Move*, ZERO camera hijack — 1.2s dilate @0.28 only): one biome early
+  a single held choir partial joins the station mix (`getBossEta()`, or cut). Fight start:
+  landmark handoff (`secondSun.handoff()`) — the disc hangs huge above the lane; the lane
+  runs straight into its shadowed sky; false-night grade + hard-edged shadow become the
+  stage-1 arena state. HUD hides; the banner strikes HONEST and on time, from top:
+  I — THE UNMASKED. Then, chase cam frozen: the lid peels fully open and the revealed
+  pupil — an HDR white almond wider than the lane — tracks the dragon's lane-x with a
+  heavy wet ~0.35s lag. The player steers, and the sky steers after them: they PERFORM
+  the read with their own stick (continuous live stick-tracking is this slot's EXCLUSIVE
+  claim). Rider, whispered: "Don't move." … "It's watching us." (both lines
+  dragon-directed — the granted ADDRESSED line stays banked for stage 3). At window end
+  one fast saccade snaps the pupil dead-center (guarantees the read for players who held
+  still); the aperture contracts once — the lid is the §4b carrier, and this debuts its
+  NOTICE channel. Title card, stage-1 station. After thirteen entrances of escalating
+  motion, nothing moves but its attention: the stillness is the point. Run under the
+  existing `flythrough` phase name (gaze exclusion for free); self-feed `setGaze` with
+  lag + saccade; rider yaw is pitch-less — never fake a look-up.
 
 **Reserves (parked, fully-designed concepts for variants/post-game — not claimable slots):**
 MAWSIREN (spiral shell siren), THUNDERGRAVE (storm gate), THE SILVERED WOUND (mirror that
@@ -522,10 +654,14 @@ emissive — horizon objects must be fog-exempt with their own haze (the sky-dom
 `material.fog = false` + camera-following, `environment.js`). Camera far=1600 is not the
 limiter. Portrait camera envelope at rel 30: x ±15 / y 2..22.
 
-- **COLOSSI (small):** new `SETPIECE_PATHS` entries (dive-under, side orbit, figure-eight);
-  a NON-suppressing moving-station branch (setpieces currently hold fire — ~:721-730);
-  `approachFrom: 'below' | 'above'` branches (~:455-463) + a `top` warning-banner direction
-  (CSS). EITHERWING needs zero hit-model work (shared pool, crossfire emitters).
+- **COLOSSI (small):** new `SETPIECE_PATHS` entries (dive-under, side orbit, figure-eight;
+  registry at ~:164); a NON-suppressing moving-station branch (setpieces currently hold
+  fire — ~:721-730); `approachFrom: 'below' | 'above'` branches (~:455-463) + a `top`
+  warning-banner direction (CSS, shipped). EITHERWING needs zero hit-model work (shared
+  pool, crossfire emitters). PLUS the §5j entrance engine: the `ENTRANCE_SCRIPTS` registry
+  (generalize `updateFlythrough` on the Q1 data/machinery split) and the `setOvertake`
+  state generalization (pose endpoints + pivot/blend + fov as per-boss data) — both land
+  WITH SLOT 5, alongside the §5i phrase machine (one "engine slot" session).
 - **CALAMITIES (medium):** formation-slot tables (model-side only); below-horizon rise
   (pose.y from −8) + WIDEN the bullet cull bounds (`bossBullets.js` ~:388-389 currently
   deletes anything born past ±23 x / 34 y); scroll-along-back reuses moving-station.
@@ -862,6 +998,175 @@ continuous forms — the current single-frame rel-crossing check needs a ticking
 its own dedup story (MEDIUM, lands with slot 6); clearance-scored thread + annulus math
 (LOW, per-boss); `amberdiet` + `rhythmprint` CI gates (LOW); organ-break part HP reuses the
 §5f destructible-sub-part plumbing (already costed).
+
+## 5j. ENTRANCES & PRE-FIGHT THEATER (the entrance grammar, 2026-07)
+
+The ASHTALON overtake (rear-view swing + bullet-time close pass + mutual glance) is the
+owner-confirmed highlight of the roster. Principle 7 ("the entrance is the share moment")
+now grows into a SYSTEM: one authored, identity-stating entrance per slot, escalating per
+band, drawn from a shared beat vocabulary and enforced by uniqueness claims — exactly the
+spell-card/rhythm pattern. Research base: rail-shooter lineage (Star Fox ace arrivals,
+Ace Combat callsign-before-contact, Sin & Punishment terrain-wakes), spectacle canon
+(Radahn, SotC first sightings, Monster Hunter turf reveals), subversion canon (Sans,
+Dimitrescu's distributed stalking), player-interaction canon (Titanfall 2 Viper, Baldur's
+doorstep). Full concept/verify record: session workflow 2026-07 (26 agents, adversarially
+verified against `boss.js`/`cameraController.js` as shipped).
+
+### The entrance laws
+
+1. **State the primary read before the first shot.** A player who skips everything still
+   knows what this boss IS. The entrance performs the boss's grammar (Radahn's arrows teach
+   "closing" before he's visible) — never a generic roar. Strength claims decay across 14
+   slots; identity compounds.
+2. **One claim, one camera move.** A second simultaneous idea turns 3 seconds into noise.
+3. **The player never loses stick control.** HUD may hide, time may dilate, camera may
+   move — the dragon still flies. (Cuphead lets you move during the card.)
+4. **Tap-to-skip always** (`input.surgeTap` → `skipTo`); the skip path must land at station
+   with the read intact and all state released (slow-mo, banner pins, pending late banners).
+5. **No boss fire during the beat** (the Mantis rule).
+6. **One camera hijack per fight, spent at the entrance.** Ambient world beats (audio, sky
+   grade, fog) may start biomes earlier; the hijacked-camera portion is ≤ ~3s wall.
+7. **The motion vector is the sentence:** toward you = threat, past you = superiority
+   (SPENT on 3), indifferent = discovery, above you = judgment, still = attention. Pick one.
+8. **Cast the avatar deliberately, one role per boss** — target, witness, addressee,
+   co-star, prey, performer. The dragon+rider reaction is this game's crowd-shot and it
+   PRECEDES spectacle by ~1s (Spielberg: hold on Grant's face first). The yaw clamp is
+   ±0.7 rad and yaw-ONLY — the rider LINE owns anything vertical.
+9. **Banner subversions are rationed rule-breaks** (§5f): late/NO banner belongs to 12,
+   the stitched banner to 11. Everyone else's banner is honest and on time.
+10. **Re-entrances are free spectacle:** phase transitions may reuse entrance machinery for
+    a second reveal (Radahn's meteor) at zero new plumbing cost.
+
+### The beat vocabulary (all verified against shipped code)
+
+- **Camera:** `setOvertake` per-frame hijack (replaces the whole frame; branch early-returns
+  so shake/kicks are dead inside it, `cameraController.js:193-211`); dormant `rearView(dur)`
+  (`:107` — defined, never called, composes OVER chase); bullet-time
+  (`game.slowMoTimer/Scale`, engage/release discipline below); FOV envelope (intro eases
+  74→58; overtake forces 80 — per-boss fov becomes state data in the generalization).
+- **World:** `bossGradeTarget` sky/grade channel; fog-floor rises (y from −8, deeper per
+  def); arena wall accent; audio foreshadow (NEEDS the `getBossEta()` getter — does not
+  exist yet, `nextBossDist` is module-private `boss.js:40`); `musicKill()` (slot 10's; via
+  the bgSuspend silence path — `music.stop()` can't cut mid-phrase, scheduled notes ring).
+- **Relationship:** dragon+rider look-yaw (`main.js:1096-1102` — today only fed while
+  `overtakeState` is live; the entrance-look fallback seam generalizes it); rider callout
+  (`ui.bossNote`) for direction the yaw can't reach, scale, lore recognition, and absence;
+  `setGaze`/`notice()`/`setEyeLock` model hooks (optional-chained, no-op elsewhere).
+- **Announcement:** `ui.bossWarning` directional banner (honest default; `dir` from
+  `approachFrom`, `'horizon'→'top'` mapping to add); title card at `enterFight`; the banner
+  self-hides on a WALL-clock timeout (`ui.js:904-907`) — delayed banners must pass a
+  shortened dur.
+- **Builder gotchas (all bit somebody in verification):** a new phase name must join
+  `placeGroup`'s gaze exclusion (`boss.js:1158`) or it stomps scripted `setGaze`;
+  `releaseCineSlow` must fire on skip AND window-exit AND `resetBoss` — a leak leaves
+  `slowMoScale` poisoned so later near-death slow-mo runs at the wrong depth; script clocks
+  are SCALED seconds (`CINE_DUR 1.32 ≈ 2.5s wall`); rush mode replays entrances every loop —
+  stat/novelty beats need a shortened repeat variant; `skipTo` must resume at station or the
+  fight strafe pops.
+
+### The band entrance ladder
+
+- **SENTINELS — announced arrival.** Banner + one warn-window accent (a look, a grade, a
+  sound). No hijack. (Retrofits below.)
+- **COLOSSI — one full cinematic beat.** The camera or the sightline moves; the boss
+  performs its core mechanic on YOU before the first volley. (3 = the exemplar.)
+- **CALAMITIES — the scene assembles on camera.** Multi-part bodies condense/surface/ride
+  alongside; the world is a participant; the personalization arc opens (9 reads your save).
+- **WORLD-ENDERS — the arrival is subverted.** What breaks escalates per slot: 10 the
+  soundtrack, 11 the HUD chrome, 12 the arrival grammar itself, 13 the horizon.
+- **APEX — the entrance started biomes ago.** After thirteen entrances of escalating
+  motion, 14 moves NOTHING but its attention. The stillness is the point.
+
+### The entrance registry (primary beat + avatar role are CLAIMED, like silhouettes)
+
+| # | Boss | Entrance (title) | Primary beat | Avatar role | Hijack |
+|---|---|---|---|---|---|
+| 1 | VOIDMAW | *Don't Look Back* (staged retrofit) | reaction-precedes-banner | the stalked | 0s |
+| 2 | STORMREND | *The Storm Arrives Before the Eye* (staged) | sky-announces | the witness | 0s |
+| 3 | ASHTALON | *The Overtake* (SHIPPED, exemplar) | rear-view overtake + eye-lock | co-star | 2.5s |
+| 4 | MARROWCOIL | *Count the Ribs* (staged retrofit) | scale-by-count (audio) | the measurer | 0s |
+| 5 | EITHERWING | *The Baton Cross* | eye-handoff across your sightline | the crossed | 1.6s |
+| 6 | HOLLOWGATE | *Vigil Lights* | pane-by-pane face ignition | the watched | 0s (banked) |
+| 7 | THRUMSWARM | *The Shape It Remembers* | condense-into-YOU + glance-back | the subject | 2.8s |
+| 8 | BRINEHOLM | *The Reef Was Breathing* | terrain-inhale rise | the discoverer | ≤3s |
+| 9 | KARNVOW | *It Kept Count* | save-file taunt at flank hold | the addressee | 2.8s |
+| 10 | KNELLGRAVE | *It Lifts Its Head* | music-kill + overhead cross + clapper notice | the passed-under | 2.6s |
+| 11 | WEFTWITCH | *The Mended Banner* | HUD stitched, banner pinned | the user | 2.2s |
+| 12 | ONEWING | *The Grave It Carries* | grief two-shot → vanish → late-banner eruption | the blamed | 2.6s |
+| 13 | EMBERTIDE | *The Sky Comes Loose* | horizon detaches and rushes | the engulfed | 2.2s |
+| 14 | THE UNMASKED | *Don't Move* | the pupil follows your stick; camera frozen | the performer | 0s camera (1.2s dilate) |
+
+Full choreography lives in each slot's §5d sheet (`ENTRANCE:` line). Uniqueness rulings
+from the adversarial pass (binding):
+- **Continuous live stick-tracking is 14's exclusive claim.** 6's pupil-pane moves in
+  DISCRETE wedge-steps sampled only on ignition beats — architecture ticking, not tracking.
+- **9 never turns its cowl** (indifference is the taunt; lance points without looking);
+  **12 owns the mutual-gaze profile two-shot** — that's how two "alongside" holds differ.
+- **Rear-view-overtake is 3's forever.** 12 approaches from behind but: no rear camera,
+  no pull-ahead, it drops AWAY. 7's glance-back is the COPY quoting YOU — camera stays
+  forward; reads as homage, not reuse.
+- **11's banner must be legible before the stitch lands** so 12's total silence still
+  shocks (consecutive banner rule-breaks, both granted).
+- **13 is the sky in maximum motion; 14 is the sky perfectly still** — the strongest band
+  boundary in the roster. Protect both extremes.
+- **8 spends the roster's one environment-wakes archetype.** 6 vs 8 ("scenery was alive")
+  is band-coherent on opposite axes: ahead-architecture ignites vs flank-terrain inhales.
+- **Escalation guards:** 5's bead-thread cross must span the FULL portrait width or the
+  slot reads as a step down from 3; 9's charm-flare-matching-your-top-killer beat is
+  MANDATORY (without it 9 is the weakest entrance in the roster); 13's bands must overflow
+  both portrait edges — never fit the frame.
+
+### Staged retrofits (slots 1/2/4 — shipped bosses, inert until a polish pass)
+
+Chosen for reveal-grammar spread (Wrong-Way / sky-announces / Measured Giant). All hang off
+three hook points only (warn-entry block, `bossStart`/`bossEnd` events, post-warn approach);
+nothing touches enterFight, phases, or fire; each is dead code without its def field.
+- **1 VOIDMAW — *Don't Look Back*:** warn opens SILENT; the dragon's head snaps back and
+  STRAINS at the clamp (it cannot find the thing — it's dead behind, the one place yaw
+  can't reach); rider: "Behind us. Don't look — fly." Banner slides in at T+0.7 (shortened
+  dur — wall-clock gotcha) — the UI *confirms* what the dragon already knew. Look releases
+  as the mask passes overhead. `def.entranceNotes = {riderLine, lookStrain, bannerDelay}`.
+- **2 STORMREND — *The Storm Arrives Before the Eye*:** on `bossStart` the grade lerps
+  storm-teal; two sheet-lightning pulses (≤15% luma, teal ONLY — never the damage-flash
+  hues) each answered 0.3s later by thunder; the rings sweep into a sky that already
+  belongs to them. `def.warnGrade = {tint, pulses}`.
+- **4 MARROWCOIL — *Count the Ribs*:** warn = rider line 1 + low bone-clatter; at the fog
+  breach one huge sub-"whoom" as the lure clears the fog line; rider recognition: "…that's
+  a SKELETON." (points the whose-bones lore gap, never answers it); then one dry CLACK as
+  each of the 5 rib pairs crests — five ticks counting out a body the portrait never holds.
+  Decorates the shipped rise, retimes nothing. Threshold triggers latch once per rib (the
+  coil sine re-dips segments — no re-fire); reset per encounter. `def.riseBeats`.
+- Alternates on file with user-veto flags: V3 rear-glance (grazes 3's signature — dormant
+  `rearView` seam, first use roster-wide), S3 false-alarm double-take (misdirection
+  rationing). Ship the three above first, judge on PR preview, one def field at a time.
+
+### Engine additions this section costs (append to §5e ledger; lands WITH SLOT 5 unless noted)
+
+- **`ENTRANCE_SCRIPTS` registry** — generalize `updateFlythrough` (`boss.js:798-853`) on the
+  verified Q1 split. Per-boss DATA: path `fn(u)→{x,y,rel}` terminating at
+  `(0, fightHeight, settleGap)`, `skipTo`, slow-mo window `{uIn,uOut,depth}`, yaw script,
+  gaze formula, pose/tuck envelope, announce + rider lines, camera envelope params. SHARED
+  machinery (already shipped, stays in boss.js): warn→script phase plumbing, skip, slow-mo
+  engage/release + sentinel, `setOvertake` feed, HUD hold, `enterFight` handoff, `resetBoss`
+  abort. Coexist: defs without `def.entrance` keep today's approach byte-identical. (MEDIUM)
+- **`setOvertake` state generalization** — move the hardcoded rear-look pose endpoints,
+  pivot/blend (0.60/0.32, `cameraController.js:197`), lookTarget weighting, and FOV target
+  into the state object. Prerequisite for every non-Ashtalon hijack. (SMALL)
+- **Entrance-look fallback** — a boss-published look target consulted in `main.js`'s else
+  branch (today `setDragonLook(null)` stomps every frame overtake is inactive). Needed by
+  the retrofits, 6, 8, 12. (SMALL)
+- **`getBossEta()` getter + scheduled emits** — makes audio foreshadow real (10's toll,
+  14's choir partial; the §5e WORLD-ENDERS item, now concrete). (SMALL)
+- **`musicKill()/musicRestore()`** — hard-zero `musicBus` via the bgSuspend path; restore on
+  fanfare + `resetBoss`. Slot 10. (SMALL)
+- **Banner variants** — `suppressAutoHide`/pin + stitched-over state (slot 11, with its
+  HUD-sew overlay — MEDIUM); `'horizon'→'top'` dir mapping (13); `def.noWarn` (12, already
+  ledgered). New `approachFrom` start branches as data: `'condense'` (7), `'ahead'` (6),
+  `'horizon'` (13), `'landmark'` (14). (each trivial)
+- **Scoped warn-visibility exemption** — one sub-rig (8's breathing crest) visible during
+  warn while the group gate (`boss.js:1146`) holds for the body. (SMALL, slot 8)
+- **Taunt-card UI variant** reading `save.js bossLedgerStats` (shipped) + shortened
+  rush-repeat variant — 9 ships v1 on `ui.bossNote`, card lands with the §5f cost item.
 
 ## 6. The system — how to build boss N (architecture)
 

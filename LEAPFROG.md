@@ -5308,3 +5308,46 @@ values you'd want live, never placeholders — the staging is worthless if the s
 **Gotcha.** A merged PR is finished — this follow-up restarted the branch from the new master (`checkout -B` off
 `origin/master`, force-with-lease) rather than stacking on merged history, and picked up two further master merges
 (§5i itself, then a §5b upgrade) that had to be read fresh before editing.
+
+### L139 — The entrance grammar (§5j): the ASHTALON overtake generalizes into a claimed-beat system
+
+**Did.** The owner called ASHTALON's entrance (rear-view swing, bullet-time close pass, mutual dragon/rider
+glance) the highlight of the roster and asked for "some cool interaction or dramatic entrance" on every boss
+from now on. Per THE RULE that became a SYSTEM, not ten one-offs: BOSS-DESIGN.md §5j — entrance laws, a
+code-verified beat vocabulary, a band entrance ladder (announced arrival → one cinematic beat → the scene
+assembles → the arrival is subverted → the entrance started biomes ago), an ENTRANCE REGISTRY where the primary
+beat and the AVATAR ROLE are claimed like silhouettes, full per-slot choreography as `ENTRANCE:` lines in every
+§5d sheet (5–14), staged zero-hijack retrofits for shipped 1/2/4, and the engine bill (ENTRANCE_SCRIPTS registry
++ setOvertake state generalization, landing WITH slot 5). Process: a 26-agent workflow (3 research lenses →
+one concept agent per slot → adversarial per-slot verify against boss.js/cameraController.js as shipped →
+global uniqueness/escalation judge), then Fable synthesis of winners + fixes + tie-breaks into the doc.
+
+**Learned.** (1) The overtake was ~80% reusable machinery all along — the ONLY bespoke part is the keyframe
+table (`updateFlythrough`); camera hijack, bullet-time ownership, dragon look-yaw, HUD hold, tap-to-skip, and
+the no-fire rule are already generic seams. Q1 split: per-boss DATA (path fn, skipTo, slow-mo window, yaw/gaze
+scripts, announce) vs SHARED machinery (phase plumbing, skip, slow-mo release, enterFight handoff, resetBoss
+abort). (2) Entrances collide like silhouettes: the adversarial pass caught 6 and 14 BOTH tracking the player's
+stick with an eye — the tie-break (6 = discrete wedge-steps on ignition beats; 14 = exclusive continuous
+tracking) is now law, same for 9-never-turns-its-cowl vs 12-owns-the-mutual-gaze. Reveal collision = identity
+collision; the registry claims both the beat AND the avatar role (target/witness/addressee/co-star/performer).
+(3) The strongest escalation move in the whole set is an INVERSION: after thirteen entrances of escalating
+motion, the Apex moves nothing but its attention (the pupil follows your stick, camera frozen) — spectacle
+budgets rise per band, but the summit spends ZERO camera. (4) Adversarial verify against real code is what
+made the concepts buildable: 29/30 raw concepts FAILED feasibility as authored (missing seams, hijack overruns,
+gate misunderstandings); every §5j pick ships WITH its verified fix folded in, so builders inherit
+pre-debugged choreography, not wishes.
+
+**Gotchas (verified, will bite builders).** `releaseCineSlow` must fire on skip AND window-exit AND resetBoss —
+a leak leaves `slowMoScale` non-null and poisons later near-death slow-mo depth. New phase names must join
+`placeGroup`'s gaze exclusion or scripted `setGaze` gets stomped same-frame. `bossWarning` self-hides on a
+WALL-clock timeout — any delayed banner passes a shortened dur. The overtake camera branch early-returns, so
+shake/kicks are dead inside a hijack. Rush mode replays entrances every loop — novelty beats (9's stat taunt)
+need a shortened repeat variant. `main.js` stomps `setDragonLook(null)` every frame overtake is inactive — the
+entrance-look fallback seam is the fix, not per-boss hacks. And the audio-foreshadow seam everyone keeps
+assuming (10's early toll, 14's choir) STILL does not exist — `nextBossDist` is module-private; it's now a
+costed §5j item (`getBossEta()`), not an ambient assumption.
+
+**The reusable pattern.** Research lenses → one concept agent per slot with the SAME embedded law sheet →
+adversarial verify that must name the missing seam or the broken law (default: refute) → a global judge for
+collisions/escalation → the designer synthesizes winners WITH their fixes into the master doc as claimed,
+build-sheet-grade specs. Same shape as the §5i and roster passes; it keeps scaling.
