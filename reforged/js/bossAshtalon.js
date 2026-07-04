@@ -223,7 +223,9 @@ export function buildEmberHunter(def, quality = 1) {
   // band of saturated orange (~0.22 world each side) survives the core's white
   // bloom above and below it — the round-4/5 gate kept reading a flat white bar
   // because the old 0.34 fringe was drowned by the core halo (directive 1).
-  const slitFringe = new THREE.Mesh(new THREE.BoxGeometry(SLIT_W * 1.22, 0.56, 0.09), glowMat);
+  // Fringe widened to 1.5× the slit so the full-size core has real TRAVEL room —
+  // the voidmaw-style socket: the eye visibly roams within the orange.
+  const slitFringe = new THREE.Mesh(new THREE.BoxGeometry(SLIT_W * 1.5, 0.62, 0.09), glowMat);
   slitFringe.position.z = 0.02;
   slit.add(slitFringe);
   // Thin white-hot CORE line inside the orange fringe (the §3.2 focal peak). Kept
@@ -236,9 +238,16 @@ export function buildEmberHunter(def, quality = 1) {
   slitMat.color.copy(SLIT_BASE).multiplyScalar(SLIT_HOT);
   // Thin+bright: peak solidly clears the G1 ≥250 focal law at capture scale, but
   // now ≥0.2 world of orange fringe shows above/below it (directive 1 acceptance).
+  // The white-hot CORE — the §3.2 focal peak — kept at full size, but it SLIDES as a
+  // whole within the molten orange fringe to act as the PUPIL, pointing at the player
+  // (the tracking eye — subtle in the fight, a hard lock during the overtake pass).
+  // Travel is bounded so the white core never slides out of the orange fringe.
   const core = new THREE.Mesh(new THREE.BoxGeometry(SLIT_W * 0.7, 0.11, 0.12), slitMat);
   core.position.z = 0.07;
   slit.add(core);
+  // Travel bounds: (fringe − core)/2 slack each side, so a full deflection parks the
+  // core hard against the fringe edge without ever sliding out of the orange.
+  const PUPIL_X = SLIT_W * 0.38, PUPIL_Y = 0.22;
   rig.add(slit);
 
   // ---------------------------------------------------------------------
@@ -416,6 +425,10 @@ export function buildEmberHunter(def, quality = 1) {
     gazeTX = Math.max(-1, Math.min(1, nx));
     gazeTY = Math.max(-1, Math.min(1, ny));
   }
+  // Eye-lock (cinematic overtake): kill the idle look-aways and SNAP the pupil to
+  // the fed gaze, so the white core hard-tracks the dragon through the pass.
+  let eyeLock = false;
+  function setEyeLock(v) { eyeLock = !!v; }
   const BLINK_DUR = 0.22;
   let blinkT = 0, nextBlink = 3.5 + Math.random() * 3;
   let noticeT = 0;
@@ -430,18 +443,19 @@ export function buildEmberHunter(def, quality = 1) {
     rig.rotation.z = Math.sin(time * 0.5) * 0.015;
     rig.rotation.x += ((dyingK * 0.2) - rig.rotation.x) * Math.min(1, dt * 3);
 
-    // --- Gaze: high-lag pursuit + look-aways (the hunter sizing you up) ---
+    // --- Gaze: high-lag pursuit + look-aways (the hunter sizing you up) — unless
+    // eye-locked (cinematic), where it hard-tracks the fed gaze with no wandering.
     nextLookAway -= dt;
     if (lookAwayT > 0) lookAwayT -= dt;
-    else if (nextLookAway <= 0 && charge < 0.2 && noticeT <= 0 && dyingK <= 0) {
+    else if (!eyeLock && nextLookAway <= 0 && charge < 0.2 && noticeT <= 0 && dyingK <= 0) {
       lookAwayT = 0.7 + Math.random() * 0.6;
       lookAwayX = (Math.random() - 0.5) * 1.5;
       lookAwayY = Math.random() * 0.5 - 0.2;
       nextLookAway = 5 + Math.random() * 6;
     }
-    const gx = lookAwayT > 0 ? lookAwayX : gazeTX;
-    const gy = lookAwayT > 0 ? lookAwayY : gazeTY;
-    const gLag = (noticeT > 0 || charge > 0.5) ? 9 : 2.4;   // snaps to lock-on when hunting
+    const gx = (!eyeLock && lookAwayT > 0) ? lookAwayX : gazeTX;
+    const gy = (!eyeLock && lookAwayT > 0) ? lookAwayY : gazeTY;
+    const gLag = eyeLock ? 16 : (noticeT > 0 || charge > 0.5) ? 9 : 4.5;   // responsive pursuit; snaps to lock-on when hunting
     gazeX += (gx - gazeX) * Math.min(1, dt * gLag);
     gazeY += (gy - gazeY) * Math.min(1, dt * gLag);
 
@@ -483,6 +497,10 @@ export function buildEmberHunter(def, quality = 1) {
     prow.rotation.x = -gazeY * 0.06 + (charge > 0 && tell === 'tuck' ? charge * 0.12 : 0);
     cowl.rotation.copy(prow.rotation);
     slit.rotation.y = prow.rotation.y;
+    // The white-hot core (the PUPIL) slides within the orange fringe to point AT the
+    // player — the tracking eye (subtle in the fight, a hard lock during the pass).
+    core.position.x = gazeX * PUPIL_X;
+    core.position.y = gazeY * PUPIL_Y;
 
     // Recoil (flinch/notice): the whole rig kicks back.
     const recoil = (painT > 0 ? painT / 0.32 : 0) * 0.4 + (noticeT > 0.6 ? (noticeT - 0.6) / 0.3 : 0) * 0.3;
@@ -618,6 +636,7 @@ export function buildEmberHunter(def, quality = 1) {
     setAttackTell,
     setSetpiece,
     setGaze,
+    setEyeLock,
     notice,
     setHealth: kit.setHealth,
     setHealthBarVisible: kit.setHealthBarVisible,
