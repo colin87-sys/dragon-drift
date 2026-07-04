@@ -51,6 +51,7 @@ export function buildBoneCoil(def, quality = 1) {
   group.userData.archetype = 'boneCoil';
 
   const rig = new THREE.Group();
+  rig.name = 'boneRig';   // capture-tool seam: profile crops yaw this (placeGroup owns group, never rig)
   rig.position.y = -0.4;
   group.add(rig);
 
@@ -90,29 +91,32 @@ export function buildBoneCoil(def, quality = 1) {
   rig.add(skull);
 
   const CRANIUM_W = 1.7;
-  const craniumGeo = (() => {
-    // Wedge cranium: wider at the back (brain-case), tapering forward into the
-    // snout — a skull profile, not a cube. Built from a back box + a tapered
-    // snout box + a blunt muzzle, plus mirrored cheek arches.
+  // Wedge cranium: wider at the back (brain-case), tapering forward into the
+  // snout — a skull profile, not a cube. Sub-parts are kept separate so the
+  // dark edge cage can be built WITHOUT the snout: its front-face rim read as a
+  // dark screen/second-mouth under the eyes (gate r3 #3).
+  const capParts = (() => {   // the brain-case cap (gets the edge cage)
     const braincase = strip(new THREE.BoxGeometry(CRANIUM_W, 1.4, 1.3));
     braincase.translate(0, 0.2, -0.55);
     const dome = strip(new THREE.OctahedronGeometry(1.05, lowQ ? 0 : 1));
     dome.scale(CRANIUM_W * 0.5, 0.55, 0.85); dome.translate(0, 0.66, -0.55);
-    // Long tapered SNOUT projecting forward (foreshortened from the rail) — the
-    // dragon muzzle. Two stacked boxes narrowing toward a blunt nose.
+    const cheek = (sx) => { const c = strip(new THREE.BoxGeometry(0.3, 0.72, 1.15)); c.rotateZ(-sx * 0.12); c.translate(sx * (CRANIUM_W * 0.5 + 0.03), -0.08, -0.2); return c; };
+    const crest = strip(new THREE.BoxGeometry(0.34, 0.4, 1.0)); crest.rotateX(0.2); crest.translate(0, 0.66, 0.1);
+    return [braincase, dome, cheek(1), cheek(-1), crest];
+  })();
+  const snoutParts = (() => {   // the muzzle (NO edge cage — plain bone faces)
     const snoutA = strip(new THREE.BoxGeometry(1.02, 0.72, 1.5)); snoutA.translate(0, -0.16, 0.75);
     const snoutB = strip(new THREE.BoxGeometry(0.66, 0.5, 1.2)); snoutB.translate(0, -0.24, 1.75);
     const nose = strip(new THREE.BoxGeometry(0.5, 0.4, 0.4)); nose.translate(0, -0.3, 2.45);
-    // Cheekbone arches (mirrored relief).
-    const cheek = (sx) => { const c = strip(new THREE.BoxGeometry(0.3, 0.72, 1.15)); c.rotateZ(-sx * 0.12); c.translate(sx * (CRANIUM_W * 0.5 + 0.03), -0.08, -0.2); return c; };
-    // A ridged brow crest between the horns (centre-line structure, not a flat top).
-    const crest = strip(new THREE.BoxGeometry(0.34, 0.4, 1.0)); crest.rotateX(0.2); crest.translate(0, 0.66, 0.1);
-    return mergeBone([braincase, dome, snoutA, snoutB, nose, cheek(1), cheek(-1), crest], 'cranium');
+    return [snoutA, snoutB, nose];
   })();
+  const capGeo = mergeBone(capParts, 'craniumCap');
+  const craniumGeo = mergeBone([capGeo.clone(), ...snoutParts], 'cranium');
   const craniumMesh = new THREE.Mesh(craniumGeo, boneMat);
   skull.add(craniumMesh);
-  // Carved edge cage on the cranium (dark seams — §3.4, gate directive 4).
-  skull.add(new THREE.LineSegments(new THREE.EdgesGeometry(craniumGeo, 24), edgeMat));
+  // Carved edge cage on the BRAIN-CASE only (dark seams — §3.4); the snout's
+  // front face stays clean bone (gate r3 #3).
+  skull.add(new THREE.LineSegments(new THREE.EdgesGeometry(capGeo, 24), edgeMat));
 
   // Dark skull recesses: deep EYE SOCKETS (shadow tunnels the pinlights sit in) +
   // nostril pits + under-snout shadow + horn-base sockets — all carved near-black.
@@ -126,8 +130,20 @@ export function buildBoneCoil(def, quality = 1) {
     parts.push(nostril(1), nostril(-1));
     const jawline = strip(new THREE.BoxGeometry(0.9, 0.12, 1.9)); jawline.translate(0, -0.5, 0.9);
     parts.push(jawline);
-    const hb = (sx) => { const b = strip(new THREE.OctahedronGeometry(0.24, 0)); b.translate(sx * 0.42, 0.58, -0.35); return b; };   // dark socket AT the horn base (no floating fragment)
-    parts.push(hb(1), hb(-1));
+    // Horn SOCKETS (gate r3 #1): a dark cylinder r 0.34 × h 0.12 SLEEVING each
+    // horn root, oriented along the horn's launch direction, at the root point.
+    const hornSocket = (sx) => {
+      const c = strip(new THREE.CylinderGeometry(0.34, 0.34, 0.12, 8));
+      const dir = new THREE.Vector3(sx * 0.4, 0.85, -0.75).normalize();
+      c.applyQuaternion(new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 1, 0), dir));
+      c.translate(sx * 0.55 + dir.x * 0.1, 0.5 + dir.y * 0.1, -0.2 + dir.z * 0.1);
+      return c;
+    };
+    parts.push(hornSocket(1), hornSocket(-1));
+    // Inner-mouth plane (gate r3 #2): a dark cavity box under the snout so the
+    // OPEN jaw reads as a dark wedge, never sky showing through the head.
+    const mouthCavity = strip(new THREE.BoxGeometry(0.72, 0.26, 1.4)); mouthCavity.translate(0, -0.62, 0.95);
+    parts.push(mouthCavity);
     return mergeBone(parts, 'skullDark');
   })();
   skull.add(new THREE.Mesh(skullDarkGeo, darkMat));
@@ -146,7 +162,12 @@ export function buildBoneCoil(def, quality = 1) {
     return mergeBone([slab, chin, fang(1), fang(-1)], 'jaw');
   })();
   jawPivot.add(new THREE.Mesh(jawGeo, boneMat));
-  const jawDark = new THREE.Mesh(strip(new THREE.BoxGeometry(0.6, 0.2, 1.3)), darkMat);   // recessed mouth slot
+  // Inner-mouth plane (gate r3 #2): its own deeper near-black 0x1a1214 so the
+  // open jaw reads as a dark wedge, distinct from the joint darks.
+  const mouthMat = track(new THREE.MeshStandardMaterial({
+    color: 0x1a1214, emissive: 0x000000, emissiveIntensity: 0.0, roughness: 0.95, metalness: 0.0, flatShading: true,
+  }));
+  const jawDark = new THREE.Mesh(strip(new THREE.BoxGeometry(0.62, 0.2, 1.35)), mouthMat);   // recessed mouth slot riding the jaw
   jawDark.position.set(0, 0.06, 0.95); jawPivot.add(jawDark);
 
   // ---- HORNS — two tapered TubeGeometry sweeps raked BACK (−z) and OUT (±x)
@@ -162,20 +183,25 @@ export function buildBoneCoil(def, quality = 1) {
     }
     pos.needsUpdate = true; geo.computeVertexNormals();
   }
-  const hornTubular = lowQ ? 9 : 15, hornRadial = lowQ ? 5 : 7;
+  // Gate r3 #1, verbatim: roots at the cranium top corners (±0.55, +0.5, −0.2 —
+  // INSIDE the braincase box, weld = overlap ≥0.1), swept BACK 0.8 rad off
+  // vertical, radius taper 0.28 → 0.06, ~10 path × 6 radial segments.
+  const hornTubular = 10, hornRadial = 6;
+  const hornCurve = (sx) => new THREE.CatmullRomCurve3([
+    new THREE.Vector3(sx * 0.55, 0.5, -0.2),    // root: inside the cranium top corner
+    new THREE.Vector3(sx * 0.95, 1.35, -0.95),  // rises, raking back (~0.8 rad off vertical)
+    new THREE.Vector3(sx * 1.3, 1.95, -1.9),
+    new THREE.Vector3(sx * 1.5, 2.2, -2.9),     // tip: high and well behind (length ~3.3 ≥ 1.5×W)
+  ]);
   const makeHornGeo = (sx) => {
-    // Base EMBEDDED in the cranium back-top (starts at y0.55, inside the dome, so
-    // there is no sky gap — gate directive 7), rakes back+out ~0.8 rad, tip well
-    // behind (−z 3.6) + out (±x 2.1). Continuous taper 0.32→0.06, length ≥1.5×W.
-    const curve = new THREE.CatmullRomCurve3([
-      new THREE.Vector3(sx * 0.42, 0.55, -0.35),
-      new THREE.Vector3(sx * 1.1, 1.15, -1.2),
-      new THREE.Vector3(sx * 1.7, 1.35, -2.5),
-      new THREE.Vector3(sx * 2.1, 1.2, -3.6),
-    ]);
-    const g = strip(new THREE.TubeGeometry(curve, hornTubular, 0.32, hornRadial, false));
-    taperTube(g, curve, hornTubular, hornRadial, (u) => Math.max(0.06, 1 - u * 0.82));
-    return g;
+    // TAPER FIRST, strip SECOND: taperTube indexes verts as (tubular+1)×(radial+1)
+    // rings, which only holds on the INDEXED TubeGeometry — stripForMerge's
+    // toNonIndexed() re-lays verts per-triangle and the ring math then mangles the
+    // tube into flat shards (the r3 "paddle horns"/"2.05 clearance" root cause).
+    const curve = hornCurve(sx);
+    const g = new THREE.TubeGeometry(curve, hornTubular, 0.28, hornRadial, false);
+    taperTube(g, curve, hornTubular, hornRadial, (u) => Math.max(0.06 / 0.28, 1 - u * (1 - 0.06 / 0.28)));
+    return strip(g);
   };
   skull.add(new THREE.Mesh(mergeBone([makeHornGeo(1), makeHornGeo(-1)], 'horns'), boneMat));
 
@@ -196,11 +222,12 @@ export function buildBoneCoil(def, quality = 1) {
   }
   const eyeMeshes = [];
   for (const sx of [-1, 1]) {
-    // Bigger (radius ×1.3) + seated at the socket mouth so both eyes CLIP white +
-    // bloom from any angle (gate directive 6 — no lit-gray dot). Still ringed by
-    // the dark socket box (hollow-set), the lure stays the single hottest point.
+    // Seated PROUD of the socket mouth (+0.06 along the socket normal, gate r3
+    // #4) so neither eye can be occluded at 3/4 angles — both CLIP white + bloom
+    // in every state. Still ringed by the dark socket box (hollow-set); the lure
+    // stays the single hottest point.
     const core = new THREE.Mesh(new THREE.SphereGeometry(0.145, 10, 8), eyeMat);
-    core.position.set(sx * 0.52, 0.14, 0.62); eyes.add(core);
+    core.position.set(sx * 0.52, 0.14, 0.68); eyes.add(core);
     eyeMeshes.push({ core, sx });
   }
 
@@ -244,7 +271,7 @@ export function buildBoneCoil(def, quality = 1) {
   // behind. The dorsal-z run is what makes the 5 rib rings nest into a tunnel
   // front-on (foreshortened) with their roots planted on real vertebrae.
   const ctrlBase = [
-    new THREE.Vector3(0.0, 5.7, 0.9),     // nape under the skull
+    new THREE.Vector3(0.0, 5.35, 0.9),    // nape — tucked right under the skull (no head/neck gap)
     new THREE.Vector3(2.7, 3.9, 0.4),     // neck coils right (the visible coil)
     new THREE.Vector3(-2.6, 2.5, 0.3),    // neck coils left
     new THREE.Vector3(0.4, 1.5, 1.0),     // arrives at the ribcage front-top
@@ -252,54 +279,88 @@ export function buildBoneCoil(def, quality = 1) {
     new THREE.Vector3(0.5, 0.6, -4.2),    // dorsal back end (long z run)
     new THREE.Vector3(2.6, -3.2, -3.8),   // short tail drops behind
   ];
-  const ctrlAmp = ctrlBase.map((_, i) => 2.4 * Math.sin(Math.PI * i / (ctrlBase.length - 1)));
+  // Sweep amplitude per control point: the NECK and TAIL carry the traveling
+  // sine (the serpentine identity motion) while the DORSAL cage section (ctrl
+  // 3–5) stays near-noded — the ribcage barrel sweeps as one coherent tunnel
+  // instead of fanning into a spiral mid-frame.
+  const ctrlAmp = [0, 1.9, 2.3, 0.55, 0.35, 0.7, 2.1];
   const spineCurve = new THREE.CatmullRomCurve3(ctrlBase.map((p) => p.clone()));
   spineCurve.curveType = 'catmullrom';
   spineCurve.arcLengthDivisions = lowQ ? 32 : 60;   // arc-length LUT resolution (rebuilt each frame for EVEN vertebra pitch)
 
-  const vertDetail = lowQ ? 0 : 1;
   const vertNodes = [];
-  // Joint discs on the larger/visible vertebrae (draw budget: the tiny tail-tip
-  // junctions rely on the wide gaps instead). A near-black disc between bones.
-  const JOINT_ON = new Set([2, 3, 4, 5, 6]);   // dark joints between the visible mid-mass bones (draw budget; tail-tips rely on wide gaps)
   for (let i = 0; i < N_VERT; i++) {
     const t = i / (N_VERT - 1);
     const r = 0.5 - t * 0.25;   // sheet taper 0.5 → 0.25 (chunky bones = the dominant mass)
     const node = new THREE.Object3D();
     rig.add(node);
-    // FLAT octahedron (detail 0 — hard facets, not a round puff) squashed in y so
-    // each bone reads as a stacked vertebral disc, plus a raised NEURAL SPINE FIN
-    // (dorsal ridge) + two longer torus-arc RIB STUBS (§5g richness, §5d).
+    // FLAT octahedron (detail 0 — hard facets), y×0.55 (gate r3 #5a) — local y is
+    // the CHAIN AXIS: the mesh is oriented to the curve tangent each frame, so the
+    // flattening is along the chain and the fins/stubs stand perpendicular to it.
     const octa = strip(new THREE.OctahedronGeometry(r, 0));
-    octa.scale(1.0, 0.62, 1.0);   // flatten (gate directive 4: octahedra, not popcorn)
-    // Rib stubs: short torus arcs laid FLAT in the horizontal xz-plane (rotateX
-    // π/2) so they sweep OUT to each side and curve back — near-zero y-extent, so
-    // the along-chain vertebra width stays the flattened octahedron (pitch>width).
+    octa.scale(1.0, 0.55, 1.0);
+    // Rib stubs: short torus arcs laid FLAT in the plane perpendicular to the
+    // chain axis, sweeping out to each side — near-zero extent along the chain.
     const stubR = r * 0.75 + 0.2, stubTube = 0.06, stubArc = Math.PI * 0.55;
     const stub = (sx) => {
       const g = strip(new THREE.TorusGeometry(stubR, stubTube, lowQ ? 4 : 5, lowQ ? 6 : 9, stubArc));
-      g.rotateX(Math.PI / 2);                        // ring into the horizontal plane
+      g.rotateX(Math.PI / 2);                        // ring into the plane ⊥ to the chain
       g.rotateY(sx > 0 ? Math.PI * 0.5 : Math.PI);   // aim the arc out to this side, curving back
       g.translate(sx * (r * 0.5), -0.08, -0.05);
       return g;
     };
-    const parts = [octa, stub(1), stub(-1)];
-    if (!lowQ) { const fin = strip(new THREE.BoxGeometry(0.06, r * 0.5, r * 1.15)); fin.translate(0, r * 0.28, -r * 0.6); parts.push(fin); }   // neural spine fin — a dorsal ridge trailing BACK (minimal y-extent so pitch>width holds)
+    const parts = lowQ ? [octa] : [octa, stub(1), stub(-1)];   // stubs are the lowQ drop (§5h ratio)
+    // NEURAL SPINE FIN (gate r3 #9): a thin blade standing out of local +z —
+    // perpendicular to the chain (the mesh orients to the tangent with +z held
+    // toward world-up, so the fins read as a dorsal ridge). Height scales with
+    // the bone taper. Vertebrae 2–12; merged into the bone mesh (no extra draw).
+    if (!lowQ && i >= 2 && i <= 12) {
+      const fh = 0.5 * (r / 0.5);
+      const fin = strip(new THREE.BoxGeometry(0.06, 0.3 * (r / 0.5), fh));
+      fin.translate(0, 0, r * 0.72 + fh * 0.5);
+      parts.push(fin);
+    }
     const vGeo = mergeBone(parts, `vert${i}`);
     vGeo.computeBoundingBox();
     const mesh = new THREE.Mesh(vGeo, boneMat);
     mesh.name = 'vertebra';
     node.add(mesh);
-    // Near-black JOINT DISC in the gap BETWEEN this bone and the next (at the
-    // bottom of the vertebra, toward the descending chain) — a carved dark seam,
-    // not a cap on top (gate directive 4).
-    if (JOINT_ON.has(i)) {
-      const disc = new THREE.Mesh(strip(new THREE.CylinderGeometry(r * 0.6, r * 0.55, 0.12, 8)), darkMat);
-      disc.position.set(0, -r * 0.62, -0.03);
-      node.add(disc);
-    }
     vertNodes.push({ node, mesh, t, r });
   }
+  // Chain SAMPLING is proportional to bone size (big neck bones take more arc
+  // length than tail tips) so the inter-bone gap stays a consistent fraction of
+  // each bone's own radius (gate r3 #5c) instead of huge at the tail. The DORSAL
+  // bones (6–10, the rib-ring hosts) get extra weight: the rib rings need z-run
+  // between their planes (≥1.2× tube diameter of sky) while the visible neck and
+  // tail pack tight so bone-disc-bone reads as one articulated column.
+  const RIB_V0 = 6;   // first dorsal rib-host vertebra (rings ride 6..10) — used by the spacing weights below
+  const chainU = (() => {
+    const w = vertNodes.map((v, i) => v.r * (i >= RIB_V0 && i < RIB_V0 + 5 ? 2.1 : 1));
+    const u = [0];
+    for (let i = 1; i < N_VERT; i++) u.push(u[i - 1] + (w[i - 1] + w[i]) / 2);
+    const total = u[N_VERT - 1];
+    return u.map((x) => x / total);
+  })();
+  const discU = [];   // curve stations of the 15 joint discs (gap midpoints ON the curve)
+  for (let i = 0; i < N_VERT - 1; i++) discU.push((chainU[i] + chainU[i + 1]) / 2);
+  // THE JOINT-DISC CHAIN (gate r3 #5b): one near-black disc at the MIDPOINT of
+  // every inter-bone gap, oriented to the curve tangent, so bone-disc-bone reads
+  // as one articulated column. All 15 discs live in ONE dynamic mesh (a manual
+  // matrix transform of a cached template each frame — one draw call, no
+  // InstancedMesh per L126). Template: an 8-facet squat cylinder.
+  const discChain = (() => {
+    const tpl = strip(new THREE.CylinderGeometry(1, 1, 1, 8)).toNonIndexed();
+    const tplPos = tpl.attributes.position.array.slice();
+    const tplNrm = tpl.attributes.normal.array.slice();
+    const nV = tplPos.length / 3, nD = N_VERT - 1;
+    const geo = new THREE.BufferGeometry();
+    geo.setAttribute('position', new THREE.BufferAttribute(new Float32Array(nD * tplPos.length), 3));
+    geo.setAttribute('normal', new THREE.BufferAttribute(new Float32Array(nD * tplNrm.length), 3));
+    const mesh = new THREE.Mesh(geo, darkMat);
+    mesh.frustumCulled = false;   // verts are rewritten per frame; skip stale-bounds culling
+    rig.add(mesh);
+    return { mesh, geo, tplPos, tplNrm, nV, nD };
+  })();
 
   // ---------------------------------------------------------------------
   // THE RIBCAGE — FIVE separate rib PAIRS, each planted ON a dorsal vertebra
@@ -312,36 +373,60 @@ export function buildBoneCoil(def, quality = 1) {
   // left rib is SNAPPED (the scar); a faint ice-blue rim centres the aperture.
   // ---------------------------------------------------------------------
   const N_RING = 5;
-  const RIB_V0 = 6;                 // rings ride vertebrae 6..10 (the dorsal run)
   const RING_R = [3.9, 3.6, 3.35, 3.1, 2.9];   // front→back taper (nested = reads as ribs; front aperture ≈9 world @scale)
-  const ribTube = 0.19, ribArc = Math.PI * 0.6;
-  const ribRadialSeg = lowQ ? 4 : 6, ribTubularSeg = lowQ ? 11 : 18;
-  const ribHang = (R) => -R * 0.62;   // the ring centre hangs below its dorsal vertebra (aperture clear of the spine)
-  // One rib = a torus arc centred on the horizontal side axis; a PAIR = left +
-  // right, leaving the dorsal (spine) + ventral gaps a real ribcage has.
-  const makeRibArc = (R, sx, span) => {
-    const g = strip(new THREE.TorusGeometry(R, ribTube, ribRadialSeg, ribTubularSeg, span));
-    g.rotateZ(-span / 2 + (sx > 0 ? 0 : Math.PI));
-    return g;
+  // Each RIB = a TAPERED, FACETED bone tube (gate r3 #7): a TubeGeometry along a
+  // circular arc from its ROOT at the spine (θ≈84°, overlapping the host
+  // vertebra) sweeping down-around to a free TIP (θ≈−24°), radius tapering
+  // 0.30 root → 0.12 tip, radialSegments 5 so the tube visibly facets. The pair
+  // leaves the dorsal notch (where the spine runs) + a ventral gap.
+  const ribArc = Math.PI * 0.6;                    // 108° sweep per rib
+  const ROOT_TH = Math.PI * (84 / 180);            // root angle (near the spine top)
+  const ribTubularSeg = lowQ ? 8 : 12, ribRadialSeg = 5;
+  const ribHang = (R) => -R * 0.97;   // ring centre sits so the rib ROOT lands ON the host vertebra
+  const makeRibGeo = (R, sx, spanFrac = 1) => {
+    // Arc curve in the ring's local xy-plane: θ runs root → tip; sx=-1 mirrors.
+    const pts = [];
+    const n = 8;
+    for (let i = 0; i <= n; i++) {
+      const th = ROOT_TH - (i / n) * ribArc * spanFrac;
+      pts.push(new THREE.Vector3(sx * Math.cos(th) * R, Math.sin(th) * R, 0));
+    }
+    const curve = new THREE.CatmullRomCurve3(pts);
+    // Taper BEFORE strip — taperTube's ring indexing only holds on the indexed
+    // TubeGeometry (see makeHornGeo).
+    const g = new THREE.TubeGeometry(curve, ribTubularSeg, 0.3, ribRadialSeg, false);
+    taperTube(g, curve, ribTubularSeg, ribRadialSeg, (u) => Math.max(0.4, 1 - u * 0.6));   // 0.30 → 0.12
+    return strip(g);
   };
   const ribPivots = [];
+  const ribEnd = (R, sx, spanFrac = 1) => {   // tip position of a rib arc (for caps)
+    const th = ROOT_TH - ribArc * spanFrac;
+    return [sx * Math.cos(th) * R, Math.sin(th) * R];
+  };
   for (let h = 0; h < N_RING; h++) {
     const R = RING_R[h];
     const pivot = new THREE.Object3D();
     pivot.name = 'ribPivot';
-    pivot.position.set(0, ribHang(R), 0);   // hang below the dorsal vertebra it parents to
+    pivot.position.set(0, ribHang(R), 0);    // roots land on the host vertebra above
     vertNodes[RIB_V0 + h].node.add(pivot);   // planted ON a real vertebra (roots ride bone)
     // The scar (§3.6): the THIRD pair (h===2)'s LEFT rib snapped at ~55% arc.
-    const leftSpan = h === 2 ? ribArc * 0.55 : ribArc;
-    pivot.add(new THREE.Mesh(mergeBone([makeRibArc(R, 1, ribArc), makeRibArc(R, -1, leftSpan)], `ribRing${h}`), ribBoneMat));
-    // Dark socket knobs at the two rib roots (dorsal ends) + jagged dark-marrow
-    // cap on the scar rib's broken end — one merged dark mesh per pair.
+    const leftSpan = h === 2 ? 0.55 : 1;
+    pivot.add(new THREE.Mesh(mergeBone([makeRibGeo(R, 1), makeRibGeo(R, -1, leftSpan)], `ribRing${h}`), ribBoneMat));
+    // Per-ring dark mesh (gate r3 #6/#7/#8): SOCKET KNOBS (r 0.22) at the two
+    // roots — AT the rib/vertebra junction — dark TIP CAPS on the free ends, and
+    // the jagged MARROW CAP on the scar rib's broken end. One merged dark mesh.
     const darks = [];
-    for (const sx of [-1, 1]) { const b = strip(new THREE.OctahedronGeometry(0.19, 0)); b.translate(sx * Math.cos(ribArc / 2) * R * 0.98, Math.sin(ribArc / 2) * R * 0.98, 0); darks.push(b); }
-    if (h === 2) {
-      // broken end of the shortened left arc (angle measured from its start at π).
-      const endA = Math.PI - (ribArc / 2 - leftSpan);
-      const cap = strip(new THREE.OctahedronGeometry(0.24, 0)); cap.translate(Math.cos(endA) * R, Math.sin(endA) * R, 0); darks.push(cap);
+    for (const sx of [-1, 1]) {
+      const k = strip(new THREE.SphereGeometry(0.22, 6, 5));
+      k.translate(sx * Math.cos(ROOT_TH) * R, Math.sin(ROOT_TH) * R, 0);
+      darks.push(k);
+    }
+    for (const sx of [1, -1]) {
+      const frac = sx < 0 ? leftSpan : 1;
+      const [ex, ey] = ribEnd(R, sx, frac);
+      const c = strip(new THREE.OctahedronGeometry(sx < 0 && h === 2 ? 0.34 : 0.15, 0));   // scar marrow cap big + jagged (legible at fight hold)
+      c.translate(ex, ey, 0);
+      darks.push(c);
     }
     pivot.add(new THREE.Mesh(mergeBone(darks, `ribRoot${h}`), darkMat));
     ribPivots.push({ pivot, idx: h, R });
@@ -350,7 +435,7 @@ export function buildBoneCoil(def, quality = 1) {
   // dim — well below the eyes/lure focal). Rides the front dorsal vertebra.
   const rimMat = track(new THREE.MeshBasicMaterial({ color: accent, transparent: true, opacity: 0.7, blending: THREE.AdditiveBlending, depthWrite: false }));
   rimMat.toneMapped = false; rimMat.color.copy(EYE_BASE).multiplyScalar(1.0);
-  const rim = new THREE.Mesh(new THREE.TorusGeometry(RING_R[0] - ribTube - 0.15, 0.05, 6, 40), rimMat);
+  const rim = new THREE.Mesh(new THREE.TorusGeometry(RING_R[0] - 0.45, 0.05, 6, 40), rimMat);
   rim.position.set(0, ribHang(RING_R[0]), 0.35);
   vertNodes[RIB_V0].node.add(rim);
 
@@ -413,7 +498,19 @@ export function buildBoneCoil(def, quality = 1) {
   let dyingK = 0;
   function setDissolveEmotive(k) { dyingK = Math.max(0, Math.min(1, k)); kit.setDissolve(k); }
 
-  const _v = new THREE.Vector3();
+  const _v = new THREE.Vector3(), _v2 = new THREE.Vector3(), _t = new THREE.Vector3();
+  const _q = new THREE.Quaternion(), _m = new THREE.Matrix4(), _nm = new THREE.Matrix3(), _s = new THREE.Vector3();
+  const _bx = new THREE.Vector3(), _bz = new THREE.Vector3(), _up = new THREE.Vector3(0, 1, 0), _fwd = new THREE.Vector3(0, 0, 1);
+  // Orient local +y along the tangent with local +z held as close to world-up as
+  // possible (stable roll — the dorsal fins read as one consistent ridge). Falls
+  // back to world-forward when the tangent is near-vertical.
+  function orientToTangent(quat, t) {
+    const ref = Math.abs(t.dot(_up)) > 0.92 ? _fwd : _up;
+    _bz.copy(ref).addScaledVector(t, -ref.dot(t)).normalize();   // ⊥ component of the reference
+    _bx.crossVectors(t, _bz).normalize();
+    _m.makeBasis(_bx, t, _bz);
+    quat.setFromRotationMatrix(_m);
+  }
   function tickBody(dt, time) {
     rig.rotation.z = Math.sin(time * 0.4) * 0.02 + Math.sin(time * 0.9) * 0.008;
 
@@ -424,13 +521,47 @@ export function buildBoneCoil(def, quality = 1) {
       spineCurve.points[i].x = ctrlBase[i].x + ctrlAmp[i] * coilAmp * Math.sin(i * COIL_SEP - coilRate);
       spineCurve.points[i].y = ctrlBase[i].y + dyingK * (-1.2) * (i / (ctrlBase.length - 1));
     }
-    // Resample by ARC LENGTH (updateArcLengths rebuilds the LUT for the mutated
-    // points) so the 16 vertebrae space EVENLY — even pitch keeps every bone gap
-    // open (pitch > width, the anti-sausage assert) regardless of the coil shape.
+    // Resample by ARC LENGTH at the size-proportional stations (chainU) so each
+    // bone's gap stays a consistent fraction of its own radius, and ORIENT each
+    // bone mesh to the curve tangent (local y = chain axis) with local +z held
+    // toward world-up — the articulated column read (gate r3 #5), with the
+    // dorsal fins standing up consistently.
     spineCurve.updateArcLengths();
-    for (let k = 0; k < N_VERT; k++) { spineCurve.getPointAt(k / (N_VERT - 1), _v); vertNodes[k].node.position.copy(_v); }
+    for (let k = 0; k < N_VERT; k++) {
+      spineCurve.getPointAt(chainU[k], _v);
+      vertNodes[k].node.position.copy(_v);
+      spineCurve.getTangentAt(chainU[k], _t);
+      orientToTangent(vertNodes[k].mesh.quaternion, _t);
+    }
     // The rib rings are children of the dorsal vertebrae (6–10), so they ride the
     // coil + stay rooted to real bone automatically — no separate placement.
+    // JOINT-DISC CHAIN: place a dark disc at each inter-bone gap midpoint,
+    // oriented to the local chain direction, radius 0.55× the upper bone's r —
+    // one dynamic mesh (verts rewritten from the cached template).
+    {
+      const pos = discChain.geo.attributes.position.array;
+      const nrm = discChain.geo.attributes.normal.array;
+      for (let d = 0; d < discChain.nD; d++) {
+        // Disc sits ON the curve at the gap-midpoint station (not the chord
+        // midpoint — during a hard S-coil the chord midpoint floats off the bone
+        // line and the disc read as a detached black chip).
+        spineCurve.getPointAt(discU[d], _v);
+        spineCurve.getTangentAt(discU[d], _t);
+        orientToTangent(_q, _t);
+        const dr = vertNodes[d].r * 0.66;
+        _m.compose(_v, _q, _s.set(dr, 0.15, dr));
+        _nm.getNormalMatrix(_m);
+        for (let vtx = 0; vtx < discChain.nV; vtx++) {
+          const si = vtx * 3, di = (d * discChain.nV + vtx) * 3;
+          _v2.set(discChain.tplPos[si], discChain.tplPos[si + 1], discChain.tplPos[si + 2]).applyMatrix4(_m);
+          pos[di] = _v2.x; pos[di + 1] = _v2.y; pos[di + 2] = _v2.z;
+          _v2.set(discChain.tplNrm[si], discChain.tplNrm[si + 1], discChain.tplNrm[si + 2]).applyMatrix3(_nm).normalize();
+          nrm[di] = _v2.x; nrm[di + 1] = _v2.y; nrm[di + 2] = _v2.z;
+        }
+      }
+      discChain.geo.attributes.position.needsUpdate = true;
+      discChain.geo.attributes.normal.needsUpdate = true;
+    }
 
     // Gaze
     nextLookAway -= dt;

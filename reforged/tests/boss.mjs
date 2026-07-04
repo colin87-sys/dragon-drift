@@ -323,22 +323,24 @@ for (const key of BOSS_ORDER) {
   assert(constricted >= 4, `marrowcoil Closing Ribs constricts the cage (${constricted}/5 hoops shrank ≥0.15 — aperture change)`);
   coil.setSetpiece(0, { id: 'closingRibs' });
 
-  // §7b assert 2 — VERTEBRA PITCH > WIDTH: the 16 segments must read as separate
-  // bones with visible gaps (the anti-SAUSAGE law). Pitch = centre spacing along
-  // the chain; width = the vertebra's extent along the chain axis (its y-size —
-  // the rib stubs splay in x/z and don't fill the inter-bone gap).
+  // §7b assert 2 — VERTEBRA PITCH > WIDTH per adjacent pair: the 16 segments must
+  // read as separate bones with visible gaps (the anti-SAUSAGE law). Pitch =
+  // centre spacing along the chain; width = each bone's extent along the chain
+  // axis (its geometry y-size — meshes orient local y to the curve tangent).
+  // Spacing is size-proportional (big neck bones take more arc than tail tips),
+  // so the law is per-PAIR: every pitch must exceed the larger neighbour's width.
   for (let i = 0; i < 10; i++) coil.tick(0.05, i * 0.05);   // rest
   const verts = findAllByName(coil.group, 'vertebra');
   assert(verts.length === 16, `marrowcoil exposes 16 named vertebrae (${verts.length})`);
   const centres = verts.map((m) => m.parent.position.clone());
-  let minPitch = Infinity, maxWidth = 0;
-  for (let i = 0; i < verts.length; i++) {
-    verts[i].geometry.computeBoundingBox();
-    const bb = verts[i].geometry.boundingBox;
-    maxWidth = Math.max(maxWidth, bb.max.y - bb.min.y);
-    if (i > 0) minPitch = Math.min(minPitch, centres[i].distanceTo(centres[i - 1]));
+  const widths = verts.map((m) => { m.geometry.computeBoundingBox(); const bb = m.geometry.boundingBox; return bb.max.y - bb.min.y; });
+  let minRatio = Infinity;
+  for (let i = 1; i < verts.length; i++) {
+    const pitch = centres[i].distanceTo(centres[i - 1]);
+    const w = Math.max(widths[i], widths[i - 1]);
+    minRatio = Math.min(minRatio, pitch / w);
   }
-  assert(minPitch > maxWidth, `marrowcoil vertebra pitch ${minPitch.toFixed(2)} > width ${maxWidth.toFixed(2)} (separate bones, visible gaps)`);
+  assert(minRatio > 1, `marrowcoil vertebra pitch exceeds width for EVERY adjacent pair (worst pitch/width ${minRatio.toFixed(2)} > 1 — separate bones, visible gaps)`);
 
   // §7b assert 4 — COIL SWEEP amplitude ≥ 3 units laterally in one period. Tick
   // over one coil period (~5.5s) and measure a mid vertebra's lateral (local x)
@@ -350,7 +352,7 @@ for (const key of BOSS_ORDER) {
   assert(sweep >= 3, `marrowcoil coil sweep moves the chain ${sweep.toFixed(2)} units laterally in one period (≥3)`);
 
   coil.dispose();
-  ok(`marrowcoil geometry: clearance ${tightest.toFixed(1)}, pitch>${maxWidth.toFixed(2)}, coil sweep ${sweep.toFixed(1)}, jaw+ribs telegraph`);
+  ok(`marrowcoil geometry: clearance ${tightest.toFixed(1)}, pitch/width ${minRatio.toFixed(2)}, coil sweep ${sweep.toFixed(1)}, jaw+ribs telegraph`);
 }
 
 // Legacy coexist gate: a def WITHOUT `archetype` must still fall through to
