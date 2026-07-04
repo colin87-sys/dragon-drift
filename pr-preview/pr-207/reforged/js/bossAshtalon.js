@@ -236,19 +236,14 @@ export function buildEmberHunter(def, quality = 1) {
   slitMat.color.copy(SLIT_BASE).multiplyScalar(SLIT_HOT);
   // Thin+bright: peak solidly clears the G1 ≥250 focal law at capture scale, but
   // now ≥0.2 world of orange fringe shows above/below it (directive 1 acceptance).
+  // The white-hot CORE — the §3.2 focal peak — kept at full size, but it SLIDES as a
+  // whole within the molten orange fringe to act as the PUPIL, pointing at the player
+  // (the tracking eye — subtle in the fight, a hard lock during the overtake pass).
+  // Travel is bounded so the white core never slides out of the orange fringe.
   const core = new THREE.Mesh(new THREE.BoxGeometry(SLIT_W * 0.7, 0.11, 0.12), slitMat);
   core.position.z = 0.07;
   slit.add(core);
-  // PUPIL — a narrow DARK iris riding in the white-hot core; it slides within the
-  // slit to TRACK the player (charisma: the eye follows you, and locks on during the
-  // cinematic overtake). Dark + in FRONT of the core so it reads as a pupil notch
-  // against the molten glow. Its travel is bounded so it never leaves the slit.
-  const pupilMat = track(new THREE.MeshBasicMaterial({ color: 0x140702 }));
-  pupilMat.toneMapped = false;
-  const pupil = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.13, 0.05), pupilMat);
-  pupil.position.z = 0.15;
-  slit.add(pupil);
-  const PUPIL_X = SLIT_W * 0.26, PUPIL_Y = 0.04;
+  const PUPIL_X = SLIT_W * 0.24, PUPIL_Y = 0.12;
   rig.add(slit);
 
   // ---------------------------------------------------------------------
@@ -493,10 +488,10 @@ export function buildEmberHunter(def, quality = 1) {
     prow.rotation.x = -gazeY * 0.06 + (charge > 0 && tell === 'tuck' ? charge * 0.12 : 0);
     cowl.rotation.copy(prow.rotation);
     slit.rotation.y = prow.rotation.y;
-    // The PUPIL slides within the slit to point AT the player — the tracking eye
-    // (subtle in the fight, a hard lock during the overtake pass).
-    pupil.position.x = gazeX * PUPIL_X;
-    pupil.position.y = gazeY * PUPIL_Y;
+    // The white-hot core (the PUPIL) slides within the orange fringe to point AT the
+    // player — the tracking eye (subtle in the fight, a hard lock during the pass).
+    core.position.x = gazeX * PUPIL_X;
+    core.position.y = gazeY * PUPIL_Y;
 
     // Recoil (flinch/notice): the whole rig kicks back.
     const recoil = (painT > 0 ? painT / 0.32 : 0) * 0.4 + (noticeT > 0.6 ? (noticeT - 0.6) / 0.3 : 0) * 0.3;
