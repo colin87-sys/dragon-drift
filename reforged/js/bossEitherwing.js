@@ -59,7 +59,7 @@ export function buildTwinWraith(def, quality = 1) {
   // centre UNDER the bubble when it raises (see onShieldChange), so the centred
   // bubble reads as wrapping the holder without any hit-model work. hpBarY clears
   // the orbiting twins; hpBarScale keeps the shared bar at roster width.
-  const kit = createBossCommon(def, quality, { shieldRadius: 4.4, hpBarY: 5.6, hpBarZ: 1.4, hpBarScale: 0.85 });
+  const kit = createBossCommon(def, quality, { shieldRadius: 4.4, hpBarY: 5.6, hpBarZ: 1.4, hpBarScale: 0.85, shieldRimStrength: 0.18 });
   const { group, track } = kit;
   group.userData.archetype = 'eitherwing';   // guards the legacy-fallback coexist path (tests/boss.mjs)
 
@@ -558,10 +558,11 @@ export function buildTwinWraith(def, quality = 1) {
     // rail (one twin nearer the player through each crossing).
     const ZSEP = 1.6;   // depth offset — keeps the twins (and their inward-facing noses) apart at the figure-eight node
     const th = orbitPhase;
-    // The figure-eight plane is TILTED ~24° so the pair separates VERTICALLY as well
-    // as horizontally — they never line up behind each other at the 3/4 view (the
-    // overlapped-orbit ambiguity, CP1 r6 directive 3). Pure choreography, in-game too.
-    const TILT = 0.42, ct = Math.cos(TILT), st = Math.sin(TILT);
+    // The figure-eight plane is TILTED ~36° so the pair separates VERTICALLY as well
+    // as horizontally — they never line up behind each other at the 3/4 view AND their
+    // outward-trailing tails never bridge into one connected component (the overlapped-
+    // orbit ambiguity, CP1 r6 dir 3 + r7 dir 1: raised 24°→36°). Pure choreography, in-game too.
+    const TILT = 0.62, ct = Math.cos(TILT), st = Math.sin(TILT);
     const axr = Math.sin(th) * ORBIT_R * spread, ayr = Math.sin(th * 2) * ORBIT_R * 0.5 * spread;
     const bxr = Math.sin(th + Math.PI) * ORBIT_R * spread, byr = Math.sin((th + Math.PI) * 2) * ORBIT_R * 0.5 * spread;
     const ax = axr * ct - ayr * st, ay = axr * st + ayr * ct;
@@ -738,7 +739,11 @@ export function buildTwinWraith(def, quality = 1) {
     glintMat.color.setScalar(GLINT_HOT * Math.max(0.05, (shieldClamp ? 0.3 : 1) * (1 - dyingK) * (dreadSplit > 0.05 ? 0.7 : 1)));   // leashes under shield, guts in death, dims to 0.7× when the light SPLITS (dread)
     const tuck = blinkProg * 0.8 + (shieldClamp ? 0.3 : 0);
     orb.scale.setScalar(Math.max(0.1, 1 - tuck * 0.7 + (noticeT > 0.5 ? 0.2 : 0)));
-    iris.scale.setScalar(1 + tuck * 0.25);
+    // CORONA FLARE (CP1 r7 dir 4): on charge the iris ring blooms bright + flares WIDE —
+    // a visible salmon corona around the constricting pupil, the loudest half of the
+    // "about to fire" tell (drives the charge/idle pixel delta past the 3% floor).
+    irisMat.emissiveIntensity = 0.85 + charge * 1.7 * (1 - dyingK);
+    iris.scale.setScalar(1 + tuck * 0.25 + charge * 0.28);
     glint.visible = tuck < 0.6 && dyingK < 0.4;   // the catchlight winks out on a blink/tuck, and EARLY in death (the ember guts; the glow retreats to the socket ring)
     // Pupil: constricts on charge/notice (the charge tell), tracks the player, and on
     // a HANDOFF biases toward the RECEIVING twin so the eye LOOKS where it's going
@@ -764,17 +769,26 @@ export function buildTwinWraith(def, quality = 1) {
       // Ribbon flow: the standing-wave base curve + a TRAVELLING wave (animated)
       // that eases in with LAG so the ribbon trails the body (the §7b flow law).
       // Charge/setpiece flare the amplitude; death furls the tails down.
-      const flare = charge * 0.28 * (isHolder ? 1 : 0.4) + setpieceK * 0.22;
+      // On CHARGE the holder's tail SNAPS TAUT (the standing wave collapses, the ribbon
+      // goes rigid/straight — the "about to fire" tension tell, CP1 r7 dir 4); setpiece
+      // still flares the amplitude. straighten pulls the base curve + sway toward zero.
+      const straighten = isHolder ? charge : charge * 0.4;
+      const flare = setpieceK * 0.22;
+      // The death FURL curls each joint the SAME way so the ~8-joint chain rolls into a
+      // TIGHT COIL near the root by the flee — the extended tails otherwise dominate the
+      // §7c auto-fit box and shrink the survivor's body/socket to ~20% (CP1 r7 dir 2+3).
+      // Ramp ×1.6 so the coil is complete by the flee capture (dyingK≈0.72).
+      const furlK = clamp(dyingK * 1.6, 0, 1);
       for (const chain of w.ribbons) {
         for (let s = 0; s < chain.length; s++) {
           const seg = chain[s];
-          const anim = Math.sin(time * 1.7 + seg.wave + w.sx) * (0.1 + flare) * (1 + s * 0.12);
-          const furl = dyingK * (0.35 + s * 0.1);
-          // Cap the PER-JOINT bend to ±0.38 rad so the 30%-overlap always spans the
+          const anim = Math.sin(time * 1.7 + seg.wave + w.sx) * (0.1 + flare) * (1 + s * 0.12) * (1 - straighten);
+          const furl = furlK * (0.5 + s * 0.06);
+          // Cap the PER-JOINT bend to ±0.5 rad so the 30%-overlap always spans the
           // joint — the tail flows as one continuous ribbon, never a broken chain
-          // (CP1 r3 directive 2).
-          const targetZ = clamp(seg.baseZ + anim * (1 - dyingK), -0.38, 0.38);
-          const targetX = clamp(seg.baseX + anim * 0.5 * (1 - dyingK) + furl, -0.5, 0.5);
+          // (CP1 r3 directive 2); the uniform-sign furl still coils it tight at death.
+          const targetZ = clamp(seg.baseZ * (1 - straighten) + anim * (1 - furlK) + furl * 0.6, -0.5, 0.5);
+          const targetX = clamp(seg.baseX * (1 - straighten) + anim * 0.5 * (1 - furlK) + furl, -0.5, 0.5);
           const ease = Math.min(1, dt * (2.2 + s * 0.4));   // lag: the tip trails the root
           seg.swayZ += (targetZ - seg.swayZ) * ease;
           seg.swayX += (targetX - seg.swayX) * ease;
@@ -784,9 +798,10 @@ export function buildTwinWraith(def, quality = 1) {
       }
       // Fins mantle up on charge; furl down in death.
       const fin = w.twin.getObjectByName('crescentFin');
-      // Fins mantle up on charge; SNAP OPEN ≥0.4 rad on notice (the reveal beat, CP1
-      // r4 directive 2); furl down in death.
-      if (fin) fin.rotation.x = -0.1 - charge * 0.4 * (isHolder ? 1 : 0.5) - (noticeT > 0.4 ? 0.55 : 0) + dyingK * 0.5;
+      // Fins mantle up on charge; the HOLDER's crest RAKES HARD (−0.75 rad) as it winds
+      // to fire (CP1 r7 dir 4 — the raised-crest half of the charge tell); SNAP OPEN
+      // ≥0.4 rad on notice (the reveal beat, CP1 r4 dir 2); furl down in death.
+      if (fin) fin.rotation.x = -0.1 - charge * 0.75 * (isHolder ? 1 : 0.4) - (noticeT > 0.4 ? 0.55 : 0) + dyingK * 0.5;
     }
 
     // --- Ember motes drift near the thread midpoint (dark, dim — §3 law 8). They
