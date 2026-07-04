@@ -256,7 +256,11 @@ const SETPIECE_PATHS = {
   // them. Eases in/out so it laces into station-keeping between beats.
   figureEight(k) {
     const B = CONFIG.BOSS;
-    const env = Math.sin(Math.min(1, k) * Math.PI);   // 0→1→0 amplitude (lace in/out)
+    // PLATEAU envelope (not a sine lace): ramp the amplitude up over the first 15% and down
+    // over the last 15%, but hold FULL amplitude through the middle — a sine lace peaks at
+    // k=0.5 (a FAR point) and damps the near-lobe crossings (k=0.25/0.75) to 0.7, so the
+    // dive never actually reached the camera. The plateau lets each pass hit full depth.
+    const env = k < 0.15 ? k / 0.15 : k > 0.85 ? (1 - k) / 0.15 : 1;
     const LAPS = 2;                                    // two full passes over the beat
     const th = k * Math.PI * 2 * LAPS;
     const near = (1 - Math.cos(th)) / 2;              // 0 at the far point → 1 as the near lobe crosses
@@ -264,7 +268,7 @@ const SETPIECE_PATHS = {
     return {
       x: Math.sin(th * 0.5) * 3 * env,                 // slow group drift; the ±x scissor is the twins' local orbit
       y: B.fightHeight + Math.sin(th) * 3.5 * env,     // slightly above / below player height on each pass
-      rel: B.settleGap + (dive - B.settleGap) * env,   // station → the dive (rel<0 = past the camera) → station
+      rel: B.settleGap + (dive - B.settleGap) * env,   // station(26) → the dive (rel −6, past the camera) → station
     };
   },
 };
@@ -1017,10 +1021,14 @@ export function updateBoss(dt, player, time) {
     pose.y = start.y + (B.fightHeight - start.y) * e + arc;
     if (k >= 1) enterFight();
   } else if (phase === 'fight' && debugSetpiecePin) {
-    // Capture-only: freeze a SETPIECE pose (e.g. the stooping-dive silhouette) at a
-    // fixed path parameter so the crop tool can shoot the dread pose as a still.
+    // Capture-only: freeze a SETPIECE pose at a fixed path parameter so the crop tool
+    // can shoot it as a still. By default the GROUP holds station (the crop just wants
+    // the model's per-beat pose, e.g. ASHTALON's stoop wing-tuck). A pin with
+    // `moveGroup` also applies the path's group TRANSLATION — EITHERWING's close pass IS
+    // the group diving past the camera, so its money frame needs the real rel/x/y.
     const p = SETPIECE_PATHS[debugSetpiecePin.id]?.(debugSetpiecePin.k);
-    if (p) { pose.x = 0; pose.y = B.fightHeight; pose.rel = B.settleGap; }
+    if (p && debugSetpiecePin.moveGroup) { pose.x = p.x; pose.y = p.y; pose.rel = p.rel; }
+    else if (p) { pose.x = 0; pose.y = B.fightHeight; pose.rel = B.settleGap; }
     model.setSetpiece?.(Math.sin(debugSetpiecePin.k * Math.PI), { id: debugSetpiecePin.id });
     model.setCharge(0);
   } else if (phase === 'fight' && debugChargePin >= 0) {
