@@ -126,8 +126,24 @@ export function buildBoneCoil(def, quality = 1) {
   // nostril pits + under-snout shadow + horn-base sockets — all carved near-black.
   const skullDarkGeo = (() => {
     const parts = [];
-    const socket = (sx) => { const s = strip(new THREE.BoxGeometry(0.65, 0.48, 0.62)); s.translate(sx * 0.655, 0.14, 0.34); return s; };   // r15 gate #4: +0.15u wider along ±x — the recessed pinlight keeps its dark frame at profile yaws
-    parts.push(socket(1), socket(-1));
+    // r16 gate #1: the socket is an OPEN-FRAME recess, not a solid box. Four dark
+    // rim bars ring a 0.34×0.34 opening (front face z=0.80) with a dark back-plate
+    // behind; the pinlight sits RECESSED at z≈0.66 (front pole 0.795, just behind
+    // the rim). From the front rail it shows bright through the opening; from any
+    // profile yaw the near rim bar shades it, so it never floats over sky/bone —
+    // resolving the front-visible-vs-profile-framed tension a solid box can't.
+    const socketFrame = (sx) => {
+      const cx = sx * 0.655, cy = 0.14, fz = 0.55, d = 0.5;   // bar centre-z 0.55, depth 0.5 → front face 0.80
+      const bars = [
+        strip(new THREE.BoxGeometry(0.72, 0.19, d)).translate(cx, cy + 0.265, fz),   // top
+        strip(new THREE.BoxGeometry(0.72, 0.19, d)).translate(cx, cy - 0.265, fz),   // bottom
+        strip(new THREE.BoxGeometry(0.19, 0.34, d)).translate(cx - 0.265, cy, fz),   // inner
+        strip(new THREE.BoxGeometry(0.19, 0.34, d)).translate(cx + 0.265, cy, fz),   // outer
+        strip(new THREE.BoxGeometry(0.72, 0.72, 0.12)).translate(cx, cy, 0.30),      // dark back-plate
+      ];
+      return bars;
+    };
+    parts.push(...socketFrame(1), ...socketFrame(-1));
     // Nostrils: thin dark SLITS on the snout TOP surface only (a front-face pit
     // read as googly cartoon eyes — gate directive 5 — so keep them off the face).
     const nostril = (sx) => { const n = strip(new THREE.BoxGeometry(0.09, 0.3, 0.22)); n.translate(sx * 0.12, -0.02, 2.35); return n; };
@@ -266,15 +282,15 @@ export function buildBoneCoil(def, quality = 1) {
   // hollow-set glow. In one `eyes` group so setGaze slides them + the skull carries.
   const EYE_BASE = new THREE.Color(accent);
   const DEATH_EYE = new THREE.Color(0x1a2026);   // r14 gate #4: the dead-socket tone
-  const EYE_HOT = 1.6;   // D1: the lure is the ONE focal; the eyes are the bright second tier (≤ half)
+  const EYE_HOT = 1.9;   // r16 polish: the flush deep-set pinlight reads unambiguously bright from the front rail — still well below the lure focal (×2.4)
   const eyeMat = track(new THREE.MeshBasicMaterial({ color: accent })); eyeMat.toneMapped = false;
   eyeMat.color.copy(EYE_BASE).multiplyScalar(EYE_HOT);
   const eyeHaloMat = track(new THREE.MeshBasicMaterial({ color: 0x3a5666, transparent: true, opacity: 0.95 }));   // dark IRIS disc — the white core sits centred in it (gate r11 #5)
   eyeHaloMat.toneMapped = false;
   const eyes = new THREE.Group(); eyes.position.copy(skull.position); eyes.scale.copy(skull.scale); rig.add(eyes);   // mirrors the skull transform so the pinlights stay seated in the scaled sockets
   {
-    const hl = strip(new THREE.CircleGeometry(0.17, 12)); hl.translate(-0.62, 0.14, 0.66);
-    const hr = strip(new THREE.CircleGeometry(0.17, 12)); hr.translate(0.62, 0.14, 0.66);
+    const hl = strip(new THREE.CircleGeometry(0.16, 12)); hl.translate(-0.655, 0.14, 0.60);   // dark iris disc backs the recessed core (r16 gate #1)
+    const hr = strip(new THREE.CircleGeometry(0.16, 12)); hr.translate(0.655, 0.14, 0.60);
     eyes.add(new THREE.Mesh(mergeGeometries([hl, hr], false), eyeHaloMat));   // flat IRIS discs — the core stays concentric at every angle (gate r12 #9)
   }
   const eyeMeshes = [];
@@ -283,8 +299,8 @@ export function buildBoneCoil(def, quality = 1) {
     // #4) so neither eye can be occluded at 3/4 angles — both CLIP white + bloom
     // in every state. Still ringed by the dark socket box (hollow-set); the lure
     // stays the single hottest point.
-    const core = new THREE.Mesh(new THREE.SphereGeometry(0.125, 10, 8), eyeMat);
-    core.position.set(sx * 0.62, 0.14, 0.8); eyes.add(core);   // r15 gate #4: recessed 0.1u deeper — the pinlight stays framed in socket dark through yaw 0–80
+    const core = new THREE.Mesh(new THREE.SphereGeometry(0.135, 10, 8), eyeMat);
+    core.position.set(sx * 0.655, 0.14, 0.66); eyes.add(core);   // r16 gate #1: front pole 0.795, recessed just behind the 0.80 rim — shows through the opening from the front rail, shaded by the near rim bar at every profile yaw
     eyeMeshes.push({ core, sx });
   }
 
@@ -915,7 +931,7 @@ export function buildBoneCoil(def, quality = 1) {
       // to zero is the only honest "dark socket".
       const pin = (1 - charge * 0.35 + dyingK * 0.4) * (1 - eyeDead);
       e.core.scale.set(pin, pin * (1 - blinkProg * 0.9), pin);
-      e.core.position.x = e.sx * 0.655 + gazeX * 0.04;   // centred in the widened socket (r15 #4)
+      e.core.position.x = e.sx * 0.655 + gazeX * 0.04;   // centred in the widened, deepened socket (r16 #1)
     }
     lureBead.position.y = Math.sin(time * 1.4) * 0.06 + charge * 0.1;
     lure.position.x = Math.sin(time * COIL_OMEGA) * 0.12;   // D1: visibly TETHERED — swings with the coil phase
