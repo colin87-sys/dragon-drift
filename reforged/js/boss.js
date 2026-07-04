@@ -118,6 +118,7 @@ let dyingT = 0;
 let spiralPhase = 0;
 let pendingDeath = false;      // set when hp hits 0; resolved in the update loop
 let rollParried = false;       // this roll already landed a parry (announce once per roll)
+let perfectHealsUsed = 0;      // §5i C perfect-parry heals spent this fight (cap 3)
 let reticle = null;            // focus ring around the dragon (a dim track + bright fill)
 let reticleTrack = null;       // dim full-circle base
 let reticleFill = null;        // bright arc: draw-on progress × (in Surge) time-left
@@ -600,6 +601,7 @@ export function startBossEncounter(player, defOverride) {
   // legacy uniform roll). Reset per encounter so its phrase state starts clean.
   rhythm = def.rhythm ? makeRhythm(def) : null;
   rhythmRest = null;
+  perfectHealsUsed = 0;   // §5i C: the perfect-parry heal cap resets each fight
   // Fresh fight = full-width arena; the walls take the boss's accent colour.
   arenaHW = arenaTargetHW = CONFIG.laneHalfWidth;
   game.bossArenaHW = null;
@@ -1102,6 +1104,17 @@ export function updateBoss(dt, player, time) {
           rollParried = true;
           const perfect = r.perfect > 0;
           if (perfect) game.parryPerfectStreak++; else game.parryPerfectStreak = 0;
+          // PERFECT-PARRY HEAL (§5i C, adopted GLOBALLY — lands with the slot-5
+          // parry-economy rollout): a perfect parry restores 1 HP pip (one heart),
+          // capped 3/fight — the Furi law (make parry players feel loved; the cap
+          // kills farming). Guarded on health < max so it never touches a player who
+          // isn't hurt (and the immortal test-player is never capped down to max).
+          if (perfect && perfectHealsUsed < 3 && game.health < CONFIG.healthMax) {
+            game.health = Math.min(CONFIG.healthMax, game.health + CONFIG.healthMax / 4);
+            perfectHealsUsed++;
+            ui.bossNote?.('PERFECT — +1 ♥', '', 'gold', 1.4);
+            emit('perfectHeal', { used: perfectHealsUsed });
+          }
           game.parryStreak++;
           const streak = perfect ? game.parryPerfectStreak : game.parryStreak;
           const pts = Math.round(CONFIG.BOSS.parryScore * (perfect ? 1.7 : 1) * game.scoreMult);
