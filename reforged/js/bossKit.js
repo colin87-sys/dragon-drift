@@ -77,6 +77,7 @@ export function makeEnergyShell(color, { power = 2.4, strength = 1.0, opacity = 
 // can see it.
 export function createBossCommon(def, quality = 1, {
   shieldRadius = 4.3,
+  shieldY = 0,          // vertical offset of the shield bubble (a tall boss centres it on its weak point)
   hpBarY = 4.4,
   hpBarZ = 1.6,
   // Counter-scale for the HP bar: the bar lives inside `group`, so a boss with
@@ -142,6 +143,7 @@ export function createBossCommon(def, quality = 1, {
   const shieldCage = new THREE.LineSegments(new THREE.EdgesGeometry(shieldGeo), shieldCageMat);
   shieldCage.renderOrder = TIERS.shield;
   const shield = new THREE.Group();
+  shield.position.y = shieldY;
   shield.add(shieldRim, shieldCage);
   shield.visible = false;
   group.add(shield);

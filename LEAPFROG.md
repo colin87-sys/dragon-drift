@@ -5214,6 +5214,42 @@ resolving); defs/bossboot/bossrush/bossrushui/appshell/smoke/splash/surgefx gree
 (badges/economy/save-purchases) confirmed to fail IDENTICALLY on the base commit; rear-view + opener card confirmed
 firing at runtime; bossgate G1–G7 PASS.
 
+---
+
+## Lesson: MARROWCOIL (slot 4) — deterministic review stages end capture-churn; consolidate gate directives before iterating
+
+**What we did.** Built the Tier-2 bone dragon to its §5d sheet (box-cranium skull + jawPivot, twin horn tubes,
+pinlight eyes, lure focal on a sagging strand, SIXTEEN tapering octahedron vertebrae on a traveling-sine CatmullRom,
+5-ring rotating-rib RIBCAGE the rail flies through, kite tail), plus the §5e seams (below-approach existed; bullet
+cull-bound widened to y −16). After 10 in-game capture rounds burned on frame-inconsistency, we built
+`tools/bossview.html` + `tools/bossviewshot.mjs`: an ISOLATED, SEEDED, fixed-timestep boss stage whose
+`renderState(opts)` is a pure function of (seed, t, dials, camera) — byte-identical pixels every run, named-part
+focus targeting, `probeWorld` for camera math, and `camMid/camOff/lookOff` interior placements.
+
+**The big pattern — one consolidation pass before more rounds.** Ten rounds of gate directives had accumulated
+CONTRADICTIONS (near-rings vs open arcs; tail must clear the cage vs exit through it). One dedicated gate pass on the
+deterministic captures produced a single numbered WORK ORDER (D1–D13) with canonical resolutions (D3: open arcs at
+idle, near-rings ONLY during dread via per-rib ROOT-PIVOT ROTATION, tips graze 0.8u, roots pinned by construction;
+D10: chain threads THROUGH the cage, last 3 vertebrae + kite exit outside). Iterating against a frozen work order
+beats re-litigating shifting directives every round.
+
+**Gotchas.** (1) The RAF loop stomps any camera you place directly — a `freeCam` flag must gate `placeCamera()` or
+interior shots silently render the orbit view (they looked like "tiny exterior" frames). (2) A `focus:` name that no
+longer exists fails SILENTLY to whole-body fit — when renaming rig nodes (ribPivot → ribPivotL0..4), grep the capture
+tool for stale names. (3) An edit that concatenates a statement into a trailing comment (skull.rotation.x swallowed
+into the D12 comment) passes every headless test — only the CAPTURE showed the missing charge-rear; keep behaviour
+lines on their own line. (4) A literal inside-the-cage dread camera can NEVER satisfy "eyes visible" — the eyes face
++z; the canonical dread frame is the rail's APPROACH (yaw 0, cage-mouth focus, gaze pinned down), acceptance criteria
+met without impossible geometry. (5) The charge roar rears the skull ~9°: close-ups must RAISE camera pitch (~0.28)
+to keep both eyes in frame (D12) — the wide charge frame was fine all along.
+
+**Verified.** tests/boss.mjs 25/25 green — marrowcoil block asserts per-sheet geometry: ribcage clearance ≥4.5
+(recovered per-ring from pivot pairs: Rr = |ax−bx|/(2cos84°), radial ×2 = 4.8), vertebra pitch/width ≥0.5 (welded
+chain rationale documented), coil sweep ≥3 (4.2 measured on verts[3]), dread = ≥6 pivots |Δrot.z| > 0.44 rad, tier-2
+budget 6,456 tris ≤ 8,000 / 49 draws ≤ 50. Full bossrush lifecycle green (slain ~107s, all cards resolve).
+
+---
+
 ### L137 — Combat feel: the ping-pong was measurable, and rhythm/graze/parry are now allocated systems
 
 **Did / learned.** A five-track investigation (two code ground-truth agents + three research tracks) before building

@@ -73,9 +73,10 @@ on('rushClear', (e) => { rushClear = e; });
 
 let t = 0;
 // Frame budget: ~80s/boss + breathers. Raised 260→320s when CRAGHOLD (boss 3)
-// joined — its Tier 2 crossing-pass setpiece adds a held ~6s beat per fight,
-// and the pre-setpiece 3-boss gauntlet already ran ~251s against the old cap.
-for (let i = 0; i < 60 * 320 && !rushClear; i++) {
+// joined; raised 320→440s when MARROWCOIL (boss 4) joined — its higher hp (300)
+// + moving-station setpieces run ~100s in the gauntlet, and the 3-boss gauntlet
+// already ran ~251s against the old cap.
+for (let i = 0; i < 60 * 440 && !rushClear; i++) {
   const dt = 1 / 60;
   t += dt;
   player.dist += CONFIG.BOSS.cruiseSpeed * dt;     // forward flight crosses the boss/breather marks

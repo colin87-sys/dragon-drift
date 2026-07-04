@@ -385,8 +385,15 @@ export function updateBossBullets(dt, player) {
         if (d2 < hitRi * hitRi) { hitPlayer(player, s.dmg, 'bullet'); deactivate(i); continue; }
         if (d2 < grazeRi * grazeRi) bulletGraze(player);
       }
+      // Cull off-frame bullets. The lower y-bound is WIDENED to -16 (§5e, the
+      // MARROWCOIL/BRINEHOLM below-approach need): a boss that rises through the
+      // fog line and fires from below-frame is born at negative y, so a tight
+      // -4 floor deleted its bullets at birth. Anything that actually passes the
+      // player is still culled by rel < -12; life <= 0 bounds the rest, so the
+      // wider floor only lets legitimately-low-born bullets travel into frame.
+      // The shipped bosses fire from y≈13 and never reach this floor (byte-safe).
       if (s.rel < -12 || s.life <= 0 ||
-          Math.abs(s.x) > CONFIG.laneHalfWidth + 10 || s.y < -4 || s.y > 34) {
+          Math.abs(s.x) > CONFIG.laneHalfWidth + 10 || s.y < -16 || s.y > 34) {
         deactivate(i);
       }
     } else {

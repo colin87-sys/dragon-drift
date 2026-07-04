@@ -233,7 +233,7 @@ safe-lane gates exactly once.
 | 1 | VOIDMAW | shattered mask | hollow sockets + broken horn/halo | violet·ember·white / points | behind | shipped |
 | 2 | STORMREND | concentric rings | unblinking eye + blade rings | teal·gold·white / points+lines | side | shipped |
 | 3 | ASHTALON | winged pursuer (scythe-wing raptor) | never holds station — it hunts you | charcoal·ember / one molten SLIT | behind, overtakes | claimed (replaces retired CRAGHOLD¹) |
-| 4 | MARROWCOIL | segmented skeleton (bone dragon) | fly-through ribcage + skull lure | bone-white·void·ice-blue / dotted-chain + pinpoints | below (new) | open (absorbs VESPERCOIL²) |
+| 4 | MARROWCOIL | segmented skeleton (bone dragon) | fly-through ribcage + skull lure | bone-white·void·ice-blue / ring-aperture + pinpoints | below (new) | claimed (absorbs VESPERCOIL²) |
 | 5 | EITHERWING | twin bodies | one eye passed between two | oxblood·aged-silver / single point | both sides | open |
 | 6 | HOLLOWGATE | architecture with a void | rose-window face | ivory·stained-glass / leaded field (VALUE-INVERTED: near-white) | static-ahead | open |
 | 7 | THRUMSWARM | stippled swarm | condenses into YOUR dragon | void-black·star-white / scattered points | condenses | open |
@@ -418,7 +418,9 @@ feasibility survey: at rel 30, on-screen centers within x ±15 / y 2..22 on port
   points run a traveling sine (coil sweep); RIBCAGE: 5 pairs of long torus arcs (r 2.6,
   arc π·0.6) mid-chain forming the fly-through tunnel; tail blade: flat kite. Bone
   0xd8d2c0 diffuse (sanctioned VALUE inversion, dark joints paint the hierarchy) / void
-  gaps / ice-blue 0x8fd0ff lights. ~3.5k tris, ~24 draws (vertebra chain = separate small
+  gaps / ice-blue 0x8fd0ff lights. Scar (as built): LEFT rib ring 2 snapped at 0.45 span —
+  jagged break face, a floating orphan fragment arc, and a COLD ice seam (no warm marrow;
+  the ice family keeps the one-accent law). ~3.5k tris, ~24 draws (vertebra chain = separate small
   meshes — phone-verified fine; NO InstancedMesh, L126). REUSES: mandala rail-merge idiom,
   charisma eye rig, jawPivot precedent. NEEDS: below-approach + cull-bound widening (§5e).
 - **5 EITHERWING** — per twin: stretched-octahedron kite body (~2.2 long) + crescent head

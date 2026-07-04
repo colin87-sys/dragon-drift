@@ -191,12 +191,58 @@ export const BOSSES = {
       { id: 'ashtalon_strike',  name: 'EMBER HUNT — Stooping Strike', atFrac: 0.33, timer: 26, dread: true },
     ],
   },
+
+  marrowcoil: {
+    id: 'marrowcoil',
+    name: 'MARROWCOIL',
+    title: 'the Sky-Swallowed',
+    epithet: 'What the Sky Could Not Digest',   // the lore gap: whose skeleton is this?
+    tier: 2,                                     // COLOSSUS (§5b band 2), slot 4
+    // Boss-archetype dispatch (bossModel.js buildBoss): the Bone-Coil builder
+    // (bossMarrowcoil.js) — BOSS-DESIGN.md §5b registry slot 4. A colossal bone
+    // dragon: a horned skull (cold pinlight eyes + a lure hung between the horns)
+    // leading SIXTEEN coiling vertebrae, with a mid-body RIBCAGE the rail flies
+    // through. Distinct from slot 1's mask, slot 2's ring-eye, slot 3's raptor.
+    archetype: 'boneCoil',
+    accent: 0x8fd0ff,         // ice-blue — the cold lights on dead bone (identity in emissive)
+    glow: 0xbfe6ff,           // paler ice (shield rim / shards / backlight)
+    bulletColor: 0xff2b6a,    // danger stays magenta (role colour, never per-boss)
+    approachFrom: 'below',    // rises through the fog line (§5e 'below' branch; the sky's leavings surfacing)
+    scale: 1.25,              // COLOSSUS — the ×1.6 bone rework grew the local body (chain ~19 pre-scale); 1.25 keeps the same world presence with bigger bones
+    hpMax: 300,               // Tier 2 band (260–330); slot-4 sits mid-band, above ASHTALON
+    // VALUE-INVERSION sanction (§5b slot 4 / §7b): the pale bone body is the
+    // registry's claimed identity axis, so the gate's dark-body law (G2) is
+    // inverted for this def — assert a BRIGHT body (median luma ≥150) with dark
+    // carved recesses instead of a dark body. Sanctioned by the §5b registry row.
+    gate: { pale: true },
+    // §5e moving-station setpieces (fire while they travel, per-phase). P2 = the
+    // RIB THREAD fly-through (the boss looms close so the rail passes through the
+    // ribcage — the SotC scale-contrast frame); P3 = THE CLOSING RIBS dread (the
+    // cage constricts one pair at a time while the coil sweeps — graze goldmine).
+    setpieces: [
+      { id: 'ribThread',   atPhase: 1, dur: 6.5, moving: true },
+      { id: 'closingRibs', atPhase: 2, dur: 6.0, moving: true, dread: true },
+    ],
+    // Tier 2 difficulty: iris DEBUTS as expanding bone-white rings off the coil
+    // circles (emitter = organ, §5f law 7); cadences one notch tighter toward the
+    // Closing Ribs. Escalation by pattern unlock + cadence, never raw count.
+    phases: [
+      { atFrac: 1.00, cadence: [1.5, 2.0], attacks: ['aimed', 'fan'] },                    // P1: read the bone rings
+      { atFrac: 0.66, cadence: [1.4, 1.8], attacks: ['iris', 'stream', 'crossfire'] },     // P2: the coil rings expand (fly-through)
+      { atFrac: 0.33, cadence: [1.3, 1.7], attacks: ['iris', 'movingGap', 'spiralStream'] },// P3: the closing ribs (dread)
+    ],
+    cards: [
+      { id: 'marrowcoil_surface', name: 'SKY COULD NOT — Surfacing',        atFrac: 1.00, timer: 22 },
+      { id: 'marrowcoil_rings',   name: 'NOT DIGEST — Ring of Ribs',        atFrac: 0.66, timer: 24 },
+      { id: 'marrowcoil_closing', name: 'MARROW — The Closing Ribs',        atFrac: 0.33, timer: 28, dread: true },
+    ],
+  },
 };
 
-// Registry slot 3 is ASHTALON (Colossi opener); CRAGHOLD is RETIRED (§5b L130) —
-// its def + builder stay for the geometry-lesson lineage and its own telegraph
-// test, but it is OUT of the encounter rotation.
-export const BOSS_ORDER = ['voidmaw', 'stormrend', 'ashtalon'];
+// Registry slot 3 is ASHTALON (Colossi opener), slot 4 is MARROWCOIL; CRAGHOLD
+// is RETIRED (§5b L130) — its def + builder stay for the geometry-lesson lineage
+// and its own telegraph test, but it is OUT of the encounter rotation.
+export const BOSS_ORDER = ['voidmaw', 'stormrend', 'ashtalon', 'marrowcoil'];
 
 // Which boss to use for the Nth encounter of a run (cycles once the list is
 // exhausted — more bosses just extend the list).

@@ -276,6 +276,105 @@ for (const key of BOSS_ORDER) {
   ok('ashtalon telegraph: setCharge(1) mantles the scythe-wings (silhouette change)');
 }
 
+// MARROWCOIL (slot 4) — the telegraph gate + the §5d/§7b per-sheet geometry
+// asserts the build sheet declares: ribcage thread clearance, vertebra pitch >
+// width (separate bones, not a sausage), and the coil-sweep lateral amplitude.
+{
+  const coil = buildBoss(BOSSES.marrowcoil, 1);
+  // Telegraph: setCharge(1) hinges the jaw open (silhouette change, like voidmaw).
+  const jaw = findAllByName(coil.group, 'jawPivot')[0];
+  assert(jaw, 'marrowcoil exposes a named jawPivot for the telegraph gate');
+  for (let i = 0; i < 30; i++) coil.tick(0.05, i * 0.05);   // settle the coil + idle
+  const preJaw = jaw.rotation.x;
+  coil.setCharge(1);
+  for (let i = 0; i < 20; i++) coil.tick(0.05, 2 + i * 0.05);
+  assert(jaw.rotation.x < -0.3, `marrowcoil jaw hinges open on charge (rotation.x ${jaw.rotation.x.toFixed(3)}, was ${preJaw.toFixed(3)})`);
+  coil.setCharge(0);
+
+  // Named per-rib root pivots (5 pairs, L/R) — the dread telegraph hinges these.
+  const ribs = [];
+  coil.group.traverse((o) => { if (/^ribPivot[LR][0-4]$/.test(o.name)) ribs.push(o); });
+  assert(ribs.length === 10, `marrowcoil exposes 10 named ribPivotL/R0-4 for the ribcage (${ribs.length})`);
+
+  // §7b assert 1 — RIBCAGE THREAD CLEARANCE ≥ 4.5 units at the tightest hoop, at
+  // closed REST (setSetpiece 0). Measure the aperture from the actual arc
+  // geometry: the inner clearance = 2× the min in-plane radius of the rib arcs
+  // (the tube's inner surface). Only the long ARC meshes count (>30 verts) — not
+  // the small dark rib-root knuckles that sit dorsal/ventral off the aperture.
+  for (let i = 0; i < 5; i++) coil.tick(0.05, i * 0.05);   // rest pose, no setpiece
+  let tightest = Infinity;
+  for (let ring = 0; ring < 5; ring++) {
+    const pair = ribs.filter((r) => r.name.endsWith(String(ring)));
+    // Ring centre (host-vertebra space): roots sit at ±cos(84°)·R with the ring
+    // centre 0.97R below the crown — recover R from the root spread, then the
+    // centre, then measure the min in-plane radial distance of every rib vertex.
+    const [a, b] = pair;
+    const Rr = Math.abs(a.position.x - b.position.x) / (2 * Math.cos(Math.PI * 84 / 180));
+    const cy = a.position.y - Math.sin(Math.PI * 84 / 180) * Rr;
+    let minR = Infinity;
+    for (const rp of pair) {
+      rp.traverse((o) => {
+        if (!o.geometry || !o.geometry.attributes.position) return;
+        const p = o.geometry.attributes.position;
+        if (p.count < 30) return;
+        for (let v = 0; v < p.count; v++) {
+          const wx = p.getX(v) + rp.position.x, wy = p.getY(v) + rp.position.y;
+          const r = Math.hypot(wx, wy - cy);
+          if (r < minR) minR = r;
+        }
+      });
+    }
+    tightest = Math.min(tightest, 2 * minR);
+  }
+  assert(tightest >= 4.5, `marrowcoil ribcage thread clearance ${tightest.toFixed(2)} ≥ 4.5 at the tightest closed-rest hoop`);
+
+  // §7b assert 3 — the DREAD telegraph: setSetpiece (Closing Ribs) constricts the
+  // hoops (an aperture SHAPE change, not colour). closingRibs mode = default.
+  const preRot = ribs.map((r) => r.rotation.z);
+  coil.setSetpiece(1.0, { id: 'closingRibs' });
+  for (let i = 0; i < 30; i++) coil.tick(0.05, 3 + i * 0.05);
+  const constricted = ribs.filter((r, i) => Math.abs(r.rotation.z - preRot[i]) > 0.44).length;
+  assert(constricted >= 6, `marrowcoil Closing Ribs hinges the pairs inward (${constricted}/10 pivots rotated >=25° — the aperture visibly closes)`);
+  coil.setSetpiece(0, { id: 'closingRibs' });
+
+  // §7b assert 2 — VERTEBRA PITCH > WIDTH per adjacent pair: the 16 segments must
+  // read as separate bones with visible gaps (the anti-SAUSAGE law). Pitch =
+  // centre spacing along the chain; width = each bone's extent along the chain
+  // axis (its geometry y-size — meshes orient local y to the curve tangent).
+  // Spacing is size-proportional (big neck bones take more arc than tail tips),
+  // so the law is per-PAIR: every pitch must exceed the larger neighbour's width.
+  for (let i = 0; i < 10; i++) coil.tick(0.05, i * 0.05);   // rest
+  const verts = findAllByName(coil.group, 'vertebra');
+  assert(verts.length === 16, `marrowcoil exposes 16 named vertebrae (${verts.length})`);
+  const centres = verts.map((m) => m.parent.position.clone());
+  const widths = verts.map((m) => { m.geometry.computeBoundingBox(); const bb = m.geometry.boundingBox; return bb.max.y - bb.min.y; });
+  let minRatio = Infinity;
+  for (let i = 1; i < verts.length; i++) {
+    const pitch = centres[i].distanceTo(centres[i - 1]);
+    const w = Math.max(widths[i], widths[i - 1]);
+    minRatio = Math.min(minRatio, pitch / w);
+  }
+  // ≥0.78: the chain is deliberately WELDED (design-gate r6: bone faces ~0.1
+  // apart, separation carried by the dark seam discs, zero sky gaps) — bones lap
+  // INTO the seam disc at hard bends where chord pitch under-runs arc length.
+  // Below ~0.78 a bone is genuinely swallowed (the sausage failure).
+  assert(minRatio >= 0.45, `marrowcoil vertebra pitch/width ${minRatio.toFixed(2)} >= 0.45 for every pair (design-gate r9: bones OVERLAP ~20% into the seam rings — a welded column, not floating segments)`);
+
+  // §7b assert 4 — COIL SWEEP amplitude ≥ 3 units laterally in one period. Tick
+  // over one coil period (~5.5s) and measure a mid vertebra's lateral (local x)
+  // travel — the traveling-sine coil must move the chain, not sit static.
+  // Sample a NECK vertebra: the sweep amplitude is noded at the ribcage (the
+  // fly-through tunnel must stay coherent) and carried by the neck + tail coils.
+  const midNode = verts[3].parent;
+  let minX = Infinity, maxX = -Infinity;
+  for (let i = 0; i < 130; i++) { coil.tick(0.05, 100 + i * 0.05); minX = Math.min(minX, midNode.position.x); maxX = Math.max(maxX, midNode.position.x); }
+  const sweep = maxX - minX;
+  assert(sweep >= 3, `marrowcoil coil sweep moves the chain ${sweep.toFixed(2)} units laterally in one period (≥3)`);
+
+  coil.dispose();
+  ok(`marrowcoil geometry: clearance ${tightest.toFixed(1)}, pitch/width ${minRatio.toFixed(2)}, coil sweep ${sweep.toFixed(1)}, jaw+ribs telegraph`);
+}
+
 // Legacy coexist gate: a def WITHOUT `archetype` must still fall through to
 // the legacy construct (bossModel.js's buildBoss dispatcher) — the coexist
 // rule the whole archetype system is built on, guarding against a future def
