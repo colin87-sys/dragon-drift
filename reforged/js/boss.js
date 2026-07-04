@@ -9,6 +9,7 @@ import { burst } from './particles.js';
 import { emit, on } from './events.js';
 import { clearAhead } from './obstacles.js';
 import { buildBoss } from './bossModel.js';
+import { makeRhythm } from './bossRhythm.js';
 import { BOSSES, BOSS_ORDER, bossDefForIndex } from './bossDefs.js';
 import { saveData, persist, recordBossCard, recordBossLedger } from './save.js';
 import { BIOMES, biomeIndexAt } from './biomes.js';
@@ -149,6 +150,12 @@ let bulletColor = 0xff2b6a;    // magenta = danger (set per-boss from the def)
 let chargeT = 0;               // telegraph wind-up remaining before the held attack fires
 let chargeDur = 0;
 let curAttack = null;          // the attack being telegraphed
+// §5i RHYTHM: the phrase machine for defs with a `rhythm` block (bossRhythm.js).
+// null for a def without one → the legacy uniform cadence roll (coexist rule).
+// `rhythmRest` stashes the rest the machine returned alongside the picked attack,
+// applied once that attack fires.
+let rhythm = null;
+let rhythmRest = null;
 const pending = [];            // streamed sub-volleys: { t, fire } (tunnel / spiralStream)
 const SUSTAINED = new Set(['tunnel', 'spiralStream', 'movingGap', 'iris', 'stream', 'secondWave']);
 // Def-gated SETPIECE (the ONE deliberate exception to "a new boss needs zero
@@ -236,6 +243,22 @@ const SETPIECE_PATHS = {
     if (k < 0.22) { const t = easeInOut(k / 0.22); return { x: 0, y: B.fightHeight + RISE * t, rel: B.settleGap + (HOLD_REL - B.settleGap) * t }; }
     if (k < 0.8) { const t = (k - 0.22) / 0.58; return { x: Math.sin(t * Math.PI * 2) * SWEEP, y: B.fightHeight + RISE, rel: HOLD_REL }; }
     const t = easeInOut((k - 0.8) / 0.2); return { x: Math.sin(Math.PI * 2) * SWEEP * (1 - t), y: B.fightHeight + RISE * (1 - t), rel: HOLD_REL + (B.settleGap - HOLD_REL) * t };
+  },
+  // EITHERWING — FIGURE-EIGHT (§5b/§5e slot 5, moving-station): the pair traces a
+  // lemniscate around a drifting centre — the fight NEVER stops moving. Runs MOVING
+  // so the twins' crossfire keeps raining from wherever the eight carries them (the
+  // ±10 flank emitters ARE their fire points, §5d). Stays in FRONT (rel 20..32) and
+  // reads as choreography, not wandering (the in-game legibility gate). Eases in and
+  // back out so it laces cleanly into station-keeping between phases.
+  figureEight(k) {
+    const B = CONFIG.BOSS;
+    const th = k * Math.PI * 2;
+    const env = Math.sin(Math.min(1, k) * Math.PI);   // 0→1→0 amplitude (lace in/out)
+    return {
+      x: Math.sin(th) * 13 * env,                       // wide lateral sweep (leaves station, |x|→13)
+      y: B.fightHeight + Math.sin(th * 2) * 4 * env,    // the vertical crossover of the eight
+      rel: B.settleGap - 4 - Math.cos(th) * 6 * env,    // drift nearer/farther, always readable
+    };
   },
 };
 function clearSetpiece() {
@@ -573,6 +596,10 @@ export function startBossEncounter(player, defOverride) {
   pending.length = 0;
   chargeT = 0;
   curAttack = null;
+  // §5i: build the phrase machine for a def with a rhythm signature (else null →
+  // legacy uniform roll). Reset per encounter so its phrase state starts clean.
+  rhythm = def.rhythm ? makeRhythm(def) : null;
+  rhythmRest = null;
   // Fresh fight = full-width arena; the walls take the boss's accent colour.
   arenaHW = arenaTargetHW = CONFIG.laneHalfWidth;
   game.bossArenaHW = null;
@@ -600,6 +627,15 @@ export function startBossEncounter(player, defOverride) {
     start.rel = B.settleGap;
     start.x = (Math.random() < 0.5 ? -1 : 1) * 4;
     start.y = -8;                   // rises from below the frame (Brineholm/Marrowcoil)
+  } else if (def.approachFrom === 'sides') {
+    // BOTH SIDES at once (§5b/§5d slot 5, EITHERWING): the pair materialises dead
+    // ahead and glides into station centred, while the two twins sweep OUT from the
+    // centre to their figure-eight orbit (the model's own intro spread) — the "both
+    // flanks at once" arrival that no single-body boss can make. The group travels
+    // in rel only (a pure forward settle); the twins own the lateral arrival.
+    start.rel = B.settleGap + 10;
+    start.x = 0;
+    start.y = B.fightHeight;
   } else {
     start.rel = -12;
     start.x = (Math.random() < 0.5 ? -1 : 1) * 4;
@@ -1110,14 +1146,25 @@ export function updateBoss(dt, player, time) {
         burst(tmp, bulletColor, { count: 10, speed: 14, size: 0.9, life: 0.4 });   // "shots away" muzzle flash
         executeAttack(curAttack, player);
         const ph = def.phases[phaseIdx];
-        attackTimer = rand(ph.cadence[0], ph.cadence[1]);
+        // §5i: a rhythm def uses the machine's authored rest (its signature's
+        // fingerprint, stashed when the attack was picked); else the legacy roll.
+        attackTimer = (rhythm && rhythmRest != null) ? rhythmRest : rand(ph.cadence[0], ph.cadence[1]);
+        rhythmRest = null;
       }
     } else if (pending.length === 0) {
       // Idle between attacks → count down, then begin telegraphing the next one.
       attackTimer -= dt;
       if (attackTimer <= 0) {
         const ph = def.phases[phaseIdx];
-        curAttack = ph.attacks[(Math.random() * ph.attacks.length) | 0];
+        // §5i: the phrase machine picks the attack AND the rest that follows it
+        // (amber-floor enforced inside); a def without a rhythm keeps uniform pick.
+        if (rhythm) {
+          const step = rhythm.nextStep(phaseIdx, ph.attacks);
+          curAttack = step.id;
+          rhythmRest = step.rest;
+        } else {
+          curAttack = ph.attacks[(Math.random() * ph.attacks.length) | 0];
+        }
         chargeDur = curAttack === 'curtain' ? B.telegraphWall
           : (SUSTAINED.has(curAttack) ? B.telegraphSustained : B.telegraphInstant);
         chargeT = chargeDur;
@@ -1210,6 +1257,11 @@ function breakShield(player) {
   const next = def.phases[phaseIdx + 1];
   if (next) {
     phaseIdx++;
+    // §5i: restart the phrase state at the phase seam (crescendo re-ramps per
+    // card; the ambush/wall cluster restarts clean) — the amber-floor clock is
+    // kept continuous across the transition inside the machine.
+    rhythm?.reset();
+    rhythmRest = null;
     beginCard(phaseIdx);
     ui.bossNote?.(`PHASE ${phaseIdx + 1}`, def.name, 'phase', 2.6);
     emit('bossPhase', { phase: phaseIdx + 1 });
@@ -1373,13 +1425,17 @@ function executeAttack(id, player) {
     }
   } else if (id === 'stream') {
     // STREAM — a tracking hose: re-aims at your LIVE position every tick, so one
-    // sidestep isn't enough — peel away in a smooth arc while it fires.
+    // sidestep isn't enough — peel away in a smooth arc while it fires. Every 4th
+    // tick is AMBER-tipped (reflectable): the §5i C.1 parry-diet hotfix that makes
+    // the tracking hose a parry-carrier, so stream-heavy dread phases (ASHTALON P3,
+    // MARROWCOIL P3) still meet the AMBER FLOOR (≥1 amber volley per rolling 12s).
     const ticks = quality < 0.75 ? 10 : 14;
     const slow = closing * 0.95;
     for (let k = 0; k < ticks; k++) {
+      const amber = (k % 4) === 3;   // amber tip every 4th tick (the parry beat)
       pending.push({ t: k * 0.14, fire: () => {
         const v = aimVel(player.position.x, player.position.y, slow);
-        emitBoss(pose.x, pose.y, v.vx, v.vy, -slow);
+        emitBoss(pose.x, pose.y, v.vx, v.vy, -slow, amber);
       } });
     }
   } else if (id === 'secondWave') {

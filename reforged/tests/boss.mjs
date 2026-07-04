@@ -103,6 +103,55 @@ assertEq(bossDefForIndex(0).id, BOSS_ORDER[0], 'bossDefForIndex(0) → first bos
 assertEq(bossDefForIndex(BOSS_ORDER.length).id, BOSS_ORDER[0], 'bossDefForIndex wraps the list');
 ok(`bossDefs schema valid for ${BOSS_ORDER.length} boss(es), all 3-phase`);
 
+// --- 1b. §5i RHYTHM gates: `rhythmprint` (every boss owns a DISTINCT temporal
+// fingerprint — the ping-pong is retired) + `amberdiet` (the AMBER FLOOR holds:
+// a parry-carrier volley lands in every rolling 12s window of every phase). Both
+// simulate the pure phrase machine (bossRhythm.js) headlessly — variance as CI. --
+{
+  const { simulatePhase, hasAmberCarrier } = await import('../js/bossRhythm.js');
+  // seeded rng so the sim is deterministic in CI (no flake across runs)
+  const seeded = (a) => () => { a |= 0; a = a + 0x6D2B79F5 | 0; let t = Math.imul(a ^ a >>> 15, 1 | a); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; };
+  // two-sample Kolmogorov–Smirnov distance between rest-gap samples
+  const ks = (a, b) => {
+    const A = [...a].sort((x, y) => x - y), B = [...b].sort((x, y) => x - y);
+    const F = (s, x) => { let lo = 0, hi = s.length; while (lo < hi) { const m = (lo + hi) >> 1; if (s[m] <= x) lo = m + 1; else hi = m; } return lo / s.length; };
+    let d = 0; for (const x of [...A, ...B]) d = Math.max(d, Math.abs(F(A, x) - F(B, x))); return d;
+  };
+  const KS_FLOOR = 0.20;   // any two bosses' gap distributions differ by at least this
+  const rests = {};
+  for (const key of BOSS_ORDER) {
+    const def = BOSSES[key];
+    assert(def.rhythm && typeof def.rhythm.signature === 'string',
+      `${key} declares a §5i rhythm signature (the ping-pong fix lands with slot 5)`);
+    rests[key] = [];
+    def.phases.forEach((ph, pi) => {
+      // amberdiet: the phase must be ABLE to serve an amber volley (design), and
+      // the machine's amber floor must keep the fire-to-fire gap ≤12s (behaviour).
+      assert(hasAmberCarrier(ph.attacks),
+        `${key} P${pi + 1}: phase can serve an amber volley (AMBER FLOOR, §5i C.1) [${ph.attacks.join(',')}]`);
+      const sim = simulatePhase(def, pi, ph.attacks, 60, seeded(9001 + idxKey(key) * 131 + pi * 13));
+      rests[key].push(...sim.rests);
+      const fires = [0, ...sim.amberFires, sim.endT];
+      let maxGap = 0; for (let i = 1; i < fires.length; i++) maxGap = Math.max(maxGap, fires[i] - fires[i - 1]);
+      assert(maxGap <= 12, `${key} P${pi + 1}: an amber volley every ≤12s (maxGap ${maxGap.toFixed(1)}s — amberdiet)`);
+    });
+    ok(`${key} amberdiet: every phase serves amber within 12s (${def.rhythm.signature})`);
+  }
+  // rhythmprint: pairwise-distinct aggregate distributions (KS floor).
+  let minKS = 1, minPair = '';
+  for (let i = 0; i < BOSS_ORDER.length; i++) {
+    for (let j = i + 1; j < BOSS_ORDER.length; j++) {
+      const a = BOSS_ORDER[i], b = BOSS_ORDER[j];
+      const d = ks(rests[a], rests[b]);
+      if (d < minKS) { minKS = d; minPair = `${a}/${b}`; }
+      assert(d >= KS_FLOOR,
+        `rhythmprint: ${a} (${BOSSES[a].rhythm.signature}) vs ${b} (${BOSSES[b].rhythm.signature}) gap distributions differ (KS ${d.toFixed(2)} ≥ ${KS_FLOOR})`);
+    }
+  }
+  ok(`rhythmprint: ${BOSS_ORDER.length} bosses have distinct rhythm fingerprints (min KS ${minKS.toFixed(2)} @ ${minPair})`);
+}
+function idxKey(k) { return BOSS_ORDER.indexOf(k); }
+
 // --- 2. bossModel: tri budget + dissolve (every boss in the roster) ---------
 for (const key of BOSS_ORDER) {
   const model = buildBoss(BOSSES[key], 1);

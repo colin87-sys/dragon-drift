@@ -35,6 +35,21 @@
 // Naming grammar (§5f): "<FRAGMENT OF THE EPITHET> — <plain pattern name>".
 // Capture = survive the card hitless; ledgered per-card (local-only, save.js).
 // A def WITHOUT `cards` keeps the un-carded phase behaviour (coexist rule).
+//
+// RHYTHM SIGNATURES (§5i): `rhythm = { signature, phases:[…] }` gives a boss a
+// DISTINCT temporal fingerprint (the ping-pong fix). The bossRhythm.js phrase
+// machine reads it at the cadence seam — replacing the flat uniform roll — and
+// owns the AMBER FLOOR (a parry-carrier lands in every rolling 12s window). A def
+// WITHOUT `rhythm` keeps the legacy uniform `cadence` roll (coexist). Per-phase
+// knobs (index ↔ phases[i]) are signature-specific + share `tighten` (a per-phase
+// scalar that preserves the signature SHAPE while ramping density):
+//   metronome:    { pulse }                     fixed turn-taking pulse
+//   crescendo:    { hi, lo, steps }             rest ramps hi→lo per card, resets
+//   ambushRest:   { rest, gap, burst }          long silence, then a sforzando cluster
+//   burstSustain: { sustainRest, wallGap, wallBurst } sustain rest vs wall bursts
+//   callResponse: { handoff, response }         twin A ↔ twin B; handoff is the baton
+// The `rhythmprint` CI gate (tests/boss.mjs) asserts any two bosses' gap
+// distributions differ by a KS floor; `amberdiet` asserts the floor holds.
 
 export const BOSSES = {
   voidmaw: {
@@ -70,6 +85,12 @@ export const BOSSES = {
       { id: 'voidmaw_cloven',   name: 'HOLLOW — Cloven Sky',                 atFrac: 0.66, timer: 24 },
       { id: 'voidmaw_splitter', name: 'HOLLOW JUDGMENT — Sky-Splitting Verdict', atFrac: 0.33, timer: 26, dread: true },
     ],
+    // §5i METRONOME — fixed-pulse turn-taking, the teacher; tension IS the
+    // consistency. Tightens per phase (the escalation), never bursts.
+    rhythm: {
+      signature: 'metronome',
+      phases: [{ pulse: 2.1 }, { pulse: 1.85 }, { pulse: 1.6 }],
+    },
   },
 
   stormrend: {
@@ -107,6 +128,16 @@ export const BOSSES = {
       { id: 'stormrend_squall',  name: 'UNENDING GALE — Shifting Squall', atFrac: 0.66, timer: 24 },
       { id: 'stormrend_eye',     name: 'EYE OF THE GALE — Heart of the Storm', atFrac: 0.33, timer: 26, dread: true },
     ],
+    // §5i CRESCENDO — one ramp per card: sparse → dense → a HARD CUT at capture
+    // (the gale gathering). Each phase re-ramps from its `hi` down to its `lo`.
+    rhythm: {
+      signature: 'crescendo',
+      phases: [
+        { hi: 2.5, lo: 1.4, steps: 5 },
+        { hi: 2.3, lo: 1.2, steps: 5 },
+        { hi: 2.1, lo: 1.0, steps: 6 },
+      ],
+    },
   },
 
   craghold: {
@@ -190,6 +221,17 @@ export const BOSSES = {
       { id: 'ashtalon_circle',  name: 'EMBER HUNT — Circling Pass',  atFrac: 0.66, timer: 24 },
       { id: 'ashtalon_strike',  name: 'EMBER HUNT — Stooping Strike', atFrac: 0.33, timer: 26, dread: true },
     ],
+    // §5i AMBUSH–REST — long circling silences (2–3s), then a sforzando cluster of
+    // quick shots; the REST is the dread (the hunter sizing you up). Bimodal,
+    // short-heavy. P3's stream carries the amber tips (the parry diet, §5i C.1).
+    rhythm: {
+      signature: 'ambushRest',
+      phases: [
+        { rest: 3.0, gap: 0.55, burst: 2 },
+        { rest: 2.8, gap: 0.50, burst: 3 },
+        { rest: 2.6, gap: 0.45, burst: 3 },
+      ],
+    },
   },
 
   marrowcoil: {
@@ -229,13 +271,24 @@ export const BOSSES = {
     phases: [
       { atFrac: 1.00, cadence: [1.5, 2.0], attacks: ['aimed', 'fan'] },                    // P1: read the bone rings
       { atFrac: 0.66, cadence: [1.4, 1.8], attacks: ['iris', 'stream', 'crossfire'] },     // P2: the coil rings expand (fly-through)
-      { atFrac: 0.33, cadence: [1.3, 1.7], attacks: ['iris', 'movingGap', 'spiralStream'] },// P3: the closing ribs (dread)
+      { atFrac: 0.33, cadence: [1.3, 1.7], attacks: ['iris', 'movingGap', 'spiralStream', 'stream'] },// P3: the closing ribs (dread) — `stream` added as the AMBER carrier (§5i C.1 data-tune: the closing coil keeps tracking, so its amber-tipped hose meets the AMBER FLOOR)
     ],
     cards: [
       { id: 'marrowcoil_surface', name: 'SKY COULD NOT — Surfacing',        atFrac: 1.00, timer: 22 },
       { id: 'marrowcoil_rings',   name: 'NOT DIGEST — Ring of Ribs',        atFrac: 0.66, timer: 24 },
       { id: 'marrowcoil_closing', name: 'MARROW — The Closing Ribs',        atFrac: 0.33, timer: 28, dread: true },
     ],
+    // §5i BURST-vs-SUSTAIN — coil sweeps read as a continuous stream texture; rib
+    // slams are discrete wall bursts. The machine alternates a sustained-rest with
+    // a short wall-gap cluster; the burst count rises toward the closing ribs.
+    rhythm: {
+      signature: 'burstSustain',
+      phases: [
+        { sustainRest: 2.3, wallGap: 0.75, wallBurst: 2 },
+        { sustainRest: 2.1, wallGap: 0.70, wallBurst: 2 },
+        { sustainRest: 1.9, wallGap: 0.65, wallBurst: 3 },
+      ],
+    },
   },
 };
 
