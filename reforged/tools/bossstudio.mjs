@@ -44,12 +44,15 @@ const STATES = [
   { name: 'charge',   o: { charge: 1, t: 2.0 } },
   { name: 'shielded', o: { shield: true, t: 1.5 } },   // per-state auto-fit frames the bubble + the outside seeker (CP1 r6)
   // dread setpiece — eitherwing's dread card is the figure-eight ("Both Halves at Once").
-  { name: 'dread',    o: { charge: 1, sp: 0.8, spmode: 'figureEight', dread: true, t: 2.4 } },
+  // dread seeded at the MAX-separation orbit phase (t≈1.6 → orbitPhase≈π/2 at the
+  // dread rate 1.04) so the 3/4 view shows TWO separated bodies + the split light at
+  // both sockets, never the figure-eight CROSSING blob (CP1 r8 dir 5).
+  { name: 'dread',    o: { charge: 1, sp: 0.8, spmode: 'figureEight', dread: true, t: 1.6 } },
   { name: 'dissolve', o: { death: 0.32, t: 1.4 } },   // mid-dissolve: BOTH halves present (the fallen still large), the survivor circling
 ];
 // EITHERWING extras: the eye-handoff (eye mid-thread) + the survivor flee pose.
 const EXTRAS = [
-  { name: 'handoff', o: { handoff: 0.5, t: 2.0 } },   // setDebugHandoff(0.5): eye mid-thread between the twins
+  { name: 'handoff', o: { handoff: 0.5, t: 2.85 } },   // setDebugHandoff(0.5): eye mid-thread; t2.85 = max twin separation (orbitPhase≈π/2) so the 3/4 view has clear air on both sides of the eye, not an eclipse blob (CP1 r8 dir 5)
   { name: 'flee',    o: { death: 0.72, t: 2.6 } },   // the LONE survivor + its hollow "eclipse socket"; per-state auto-fit frames it at spec (short snapped thread), no chip-motes
 ];
 const states = bossId === 'eitherwing' ? [...STATES, ...EXTRAS] : STATES;

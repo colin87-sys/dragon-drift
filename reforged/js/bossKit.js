@@ -92,6 +92,12 @@ export function createBossCommon(def, quality = 1, {
   // value so the shell never out-glows the focal (§3.2 — the eye stays the hottest
   // point even while shielded); the dark faceted cage still reads.
   shieldRimStrength = 0.55,
+  // Shield-cage line opacity. Default 0.30 (byte-identical for shipped bosses). A boss
+  // that leashes its rim near-off (EITHERWING) raises this so the FACETED WIREFRAME —
+  // not a bloom-filled shell — carries the "this is a shield" read on BOTH backdrops
+  // (the mid-grey lines read on dark AND pale; a bright rim only blooms into a solid
+  // pale egg on the dark sheet, CP1 r8 dir 2).
+  shieldCageOpacity = 0.30,
 } = {}) {
   const glow = def.glow ?? 0xff88cc;
 
@@ -143,7 +149,7 @@ export function createBossCommon(def, quality = 1, {
   const shieldRim = new THREE.Mesh(shieldGeo, shieldRimMat);
   shieldRim.renderOrder = TIERS.shield;
   const shieldCageMat = track(new THREE.LineBasicMaterial({
-    color: new THREE.Color(glow).multiplyScalar(0.45), transparent: true, opacity: 0.30, depthWrite: false,
+    color: new THREE.Color(glow).multiplyScalar(0.45), transparent: true, opacity: shieldCageOpacity, depthWrite: false,
   }));
   const shieldCage = new THREE.LineSegments(new THREE.EdgesGeometry(shieldGeo), shieldCageMat);
   shieldCage.renderOrder = TIERS.shield;

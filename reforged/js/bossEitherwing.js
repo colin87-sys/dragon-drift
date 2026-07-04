@@ -59,7 +59,7 @@ export function buildTwinWraith(def, quality = 1) {
   // centre UNDER the bubble when it raises (see onShieldChange), so the centred
   // bubble reads as wrapping the holder without any hit-model work. hpBarY clears
   // the orbiting twins; hpBarScale keeps the shared bar at roster width.
-  const kit = createBossCommon(def, quality, { shieldRadius: 4.4, hpBarY: 5.6, hpBarZ: 1.4, hpBarScale: 0.85, shieldRimStrength: 0.18 });
+  const kit = createBossCommon(def, quality, { shieldRadius: 4.4, hpBarY: 5.6, hpBarZ: 1.4, hpBarScale: 0.85, shieldRimStrength: 0.07, shieldCageOpacity: 0.55 });
   const { group, track } = kit;
   group.userData.archetype = 'eitherwing';   // guards the legacy-fallback coexist path (tests/boss.mjs)
 
@@ -635,7 +635,14 @@ export function buildTwinWraith(def, quality = 1) {
       const surv = survivorIsA ? _sa : _sb, far = survivorIsA ? _sb : _sa;
       far.set(surv.x + 0.5, surv.y - 1.3, surv.z + 0.2);   // the snapped end dangles just below the socket
     }
-    _eye.copy(_sa).lerp(_sb, Math.max(0, Math.min(1, holdT)));
+    // Seat the eye at 10–90% of the thread — NEVER flush against a socket. Resting
+    // ON a socket buries the orb + catchlight inside the holder's broadside kite body,
+    // so the eye vanished from the front + profile angles (it only read in 3/4 + top-
+    // down, CP1 r8 dir 3). Floating it ~0.3u off the socket keeps the bloom in open air,
+    // readable from every angle, while a full 0→1 handoff still crosses 0.1→0.9 (the §7b
+    // travel assert needs ≥0.7·thread; 0.8·thread clears it).
+    const eyeF = 0.1 + Math.max(0, Math.min(1, holdT)) * 0.8;
+    _eye.copy(_sa).lerp(_sb, eyeF);
     // A gentle arc up off the thread mid-glide (the eye lifts as it crosses).
     const glideLift = Math.sin(Math.max(0, Math.min(1, holdT)) * Math.PI) * (Math.abs(holdTarget - holdT) > 0.05 ? 0.5 : 0.12);
     eyeRig.position.set(_eye.x, _eye.y + glideLift, _eye.z + 0.15);
@@ -678,7 +685,11 @@ export function buildTwinWraith(def, quality = 1) {
     // r3 directive 3). During the dread card BOTH sockets light (~50% of the eye's
     // intensity) — the eye splits its light — so the "Both Halves at Once" card reads
     // in glow before any bullet exists.
-    socketMat.emissiveIntensity = 0.18 + dyingK * 2.4 + dreadSplit * 1.1 + (noticeT > 0.4 ? 0.5 : 0);   // socket rim ticks up on notice too (CP1 r4 dir 2)
+    // Idle socket base kept LOW (0.10) so the two seats read as dim HOLLOW rings and the
+    // floating white-hot EYE is the sole bright holder-marker — not "two near-identical
+    // orange rings" that hid which twin holds the eye (CP1 r8 dir 3). Mourning/dread/notice
+    // still tick it up.
+    socketMat.emissiveIntensity = 0.10 + dyingK * 2.4 + dreadSplit * 1.1 + (noticeT > 0.4 ? 0.5 : 0);
     beadMat.opacity = 0.85 * (1 - dyingK * 0.3) + fleeK * 0.15;
     // DREAD "split light" (CP1 r5 directive 1): a second HDR core ignites inside the
     // SEEKER's empty socket and the thread beads overdrive to HDR — the eye's light
@@ -731,13 +742,21 @@ export function buildTwinWraith(def, quality = 1) {
     // a sclera blow-up) so its bloom never floods the pupil; dips further mid-glide
     // (CP1 r2 directive 1). The glint carries the G1 focal peak, not the sclera.
     const gliding = Math.abs(holdTarget - Math.max(0, Math.min(1, holdT))) > 0.05;
-    let eyeK = shieldClamp ? 0.62 : flicker * (1 + charge * 0.12);   // the sclera stays a touch lit under shield so a stranger sees WHO is protected (the glint still leashes for G6)
+    // Under shield the eye stays HOT and OPEN — EITHERWING's parry job is ORGAN BREAK on
+    // the eye-holder (§5f), so the shielded frame MUST still answer "who fires next": the
+    // white-hot orb + catchlight mark the holder inside the leashed (dim-shell) bubble.
+    // NOT a dead eye (CP1 r8 dir 1 — the r7 shell-cut inverted the focal into a dead eye).
+    let eyeK = shieldClamp ? 0.7 : flicker * (1 + charge * 0.12);
     if (noticeT > 0) eyeK *= 1.4;   // the eye SNAPS bright on notice (the ignition beat — CP1 r4 directive 2)
     if (gliding) eyeK *= 0.78;
     eyeK *= Math.max(0, 1 - dyingK * 1.7);   // the shared ember GUTTERS OUT by the flee (the glow retreats into the socket ring)
     orbMat.color.copy(EYE_BASE).multiplyScalar(Math.max(0.02, eyeK) * EYE_HOT);
-    glintMat.color.setScalar(GLINT_HOT * Math.max(0.05, (shieldClamp ? 0.3 : 1) * (1 - dyingK) * (dreadSplit > 0.05 ? 0.7 : 1)));   // leashes under shield, guts in death, dims to 0.7× when the light SPLITS (dread)
-    const tuck = blinkProg * 0.8 + (shieldClamp ? 0.3 : 0);
+    // Under shield the catchlight stays a VISIBLE hot pinpoint (marks the holder — the
+    // eye is not dead, CP1 r8 dir 1) but LEASHED to ~0.5 so its bloom cluster stays under
+    // 70% of the idle peak (G6 law: the focal damps when invulnerable — you can still see
+    // WHO holds the eye, but it reads as banked, not firing).
+    glintMat.color.setScalar(GLINT_HOT * Math.max(0.05, (shieldClamp ? 0.5 : 1) * (1 - dyingK) * (dreadSplit > 0.05 ? 0.7 : 1)));
+    const tuck = blinkProg * 0.8 + (shieldClamp ? 0.08 : 0);   // barely tucked under shield — the eye stays wide/alert so the holder reads
     orb.scale.setScalar(Math.max(0.1, 1 - tuck * 0.7 + (noticeT > 0.5 ? 0.2 : 0)));
     // CORONA FLARE (CP1 r7 dir 4): on charge the iris ring blooms bright + flares WIDE —
     // a visible salmon corona around the constricting pupil, the loudest half of the
