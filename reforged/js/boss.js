@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import { CONFIG } from './config.js';
 import { game } from './gameState.js';
 import { ui } from './ui.js';
-import { sfx, setSlowMo } from './sfx.js';
+import { sfx, setSlowMo, getBeatClock } from './sfx.js';
 import { input } from './input.js';
 import { cameraCtl } from './cameraController.js';
 import { burst } from './particles.js';
@@ -1159,7 +1159,9 @@ export function updateBoss(dt, player, time) {
         // §5i: the phrase machine picks the attack AND the rest that follows it
         // (amber-floor enforced inside); a def without a rhythm keeps uniform pick.
         if (rhythm) {
-          const step = rhythm.nextStep(phaseIdx, ph.attacks);
+          // Pass the live music beat grid (null when muted/headless) so a def with
+          // a `ticket` can beat-lock its phrasing (§5i fairness subsidy).
+          const step = rhythm.nextStep(phaseIdx, ph.attacks, Math.random, getBeatClock());
           curAttack = step.id;
           rhythmRest = step.rest;
         } else {

@@ -36,20 +36,25 @@
 // Capture = survive the card hitless; ledgered per-card (local-only, save.js).
 // A def WITHOUT `cards` keeps the un-carded phase behaviour (coexist rule).
 //
-// RHYTHM SIGNATURES (§5i): `rhythm = { signature, phases:[…] }` gives a boss a
-// DISTINCT temporal fingerprint (the ping-pong fix). The bossRhythm.js phrase
-// machine reads it at the cadence seam — replacing the flat uniform roll — and
-// owns the AMBER FLOOR (a parry-carrier lands in every rolling 12s window). A def
-// WITHOUT `rhythm` keeps the legacy uniform `cadence` roll (coexist). Per-phase
-// knobs (index ↔ phases[i]) are signature-specific + share `tighten` (a per-phase
-// scalar that preserves the signature SHAPE while ramping density):
-//   metronome:    { pulse }                     fixed turn-taking pulse
-//   crescendo:    { hi, lo, steps }             rest ramps hi→lo per card, resets
-//   ambushRest:   { rest, gap, burst }          long silence, then a sforzando cluster
-//   burstSustain: { sustainRest, wallGap, wallBurst } sustain rest vs wall bursts
-//   callResponse: { handoff, response }         twin A ↔ twin B; handoff is the baton
-// The `rhythmprint` CI gate (tests/boss.mjs) asserts any two bosses' gap
-// distributions differ by a KS floor; `amberdiet` asserts the floor holds.
+// RHYTHM SIGNATURES (§5i): `rhythm = { signature, ticket?, phases:[…] }` gives a
+// boss a DISTINCT temporal fingerprint (the ping-pong fix). The bossRhythm.js
+// phrase machine reads it at the cadence seam — replacing the flat uniform roll.
+// A def WITHOUT `rhythm` keeps the legacy uniform `cadence` roll (coexist).
+// Schema (staged canonical, #211): each `phases[i]` (indexed to `phases` above)
+// authors a `phrase` — an ordered list of MEASURES the machine walks and repeats:
+//   { kind: 'sustain', attack, beats, gap }   a stream: `beats` shots, `gap` between
+//   { kind: 'burst',   attack, count, gap }   a wall slam: `count` shots, tight `gap`
+// `gap` is a scalar or a [lo,hi] range (uniform). Between phrase repeats the machine
+// rests `restLo..restHi` by `restDist` ('uniform' | 'bimodal' lo-or-hi | 'decaying'
+// hi→lo ramp = a crescendo/tightening). `ticket:{bpm,quantize}` snaps to the beat
+// grid via getBeatClock() when music is live. `signature` (the §5i taxonomy name:
+// 'metronome' | 'crescendo' | 'ambush-rest' | 'burst-sustain' | 'call-response')
+// tags the fingerprint for review; `ratioBurst` documents the wall-burst share.
+// The machine owns the AMBER FLOOR: if a phrase runs a rolling 12s window with no
+// amber-carrier volley, the next shot is swapped to an amber-carrier drawn from the
+// phase `attacks` (the parry-diet fairness subsidy). The `rhythmprint` CI gate
+// (tests/boss.mjs) asserts any two bosses' gap distributions differ by a KS floor;
+// `amberdiet` asserts the amber floor holds.
 
 export const BOSSES = {
   voidmaw: {
@@ -86,10 +91,16 @@ export const BOSSES = {
       { id: 'voidmaw_splitter', name: 'HOLLOW JUDGMENT — Sky-Splitting Verdict', atFrac: 0.33, timer: 26, dread: true },
     ],
     // §5i METRONOME — fixed-pulse turn-taking, the teacher; tension IS the
-    // consistency. Tightens per phase (the escalation), never bursts.
+    // consistency. Every gap equals the pulse (sustain gap == phrase rest, uniform
+    // = degenerate), so it reads as a clock; the pulse only TIGHTENS per phase.
     rhythm: {
       signature: 'metronome',
-      phases: [{ pulse: 2.1 }, { pulse: 1.85 }, { pulse: 1.6 }],
+      ticket: { bpm: 114, quantize: '1/4' },
+      phases: [
+        { phrase: [{ kind: 'sustain', attack: 'aimed', beats: 1, gap: 2.1 }], restLo: 2.1, restHi: 2.1, restDist: 'uniform' },
+        { phrase: [{ kind: 'sustain', attack: 'aimed', beats: 1, gap: 1.85 }, { kind: 'sustain', attack: 'fan', beats: 1, gap: 1.85 }], restLo: 1.85, restHi: 1.85, restDist: 'uniform' },
+        { phrase: [{ kind: 'sustain', attack: 'aimed', beats: 1, gap: 1.6 }, { kind: 'sustain', attack: 'fan', beats: 1, gap: 1.6 }, { kind: 'sustain', attack: 'tunnel', beats: 1, gap: 1.6 }], restLo: 1.6, restHi: 1.6, restDist: 'uniform' },
+      ],
     },
   },
 
@@ -129,13 +140,19 @@ export const BOSSES = {
       { id: 'stormrend_eye',     name: 'EYE OF THE GALE — Heart of the Storm', atFrac: 0.33, timer: 26, dread: true },
     ],
     // §5i CRESCENDO — one ramp per card: sparse → dense → a HARD CUT at capture
-    // (the gale gathering). Each phase re-ramps from its `hi` down to its `lo`.
+    // (the gale gathering). Short phrases + a DECAYING phrase rest (restHi→restLo)
+    // make the dominant gap tighten each repeat — the sparse-to-dense ramp — then
+    // reset on the next card. The wall/anti-flee attacks flow inside the phrase.
     rhythm: {
       signature: 'crescendo',
+      ticket: { bpm: 100, quantize: '1/4' },
       phases: [
-        { hi: 2.5, lo: 1.4, steps: 5 },
-        { hi: 2.3, lo: 1.2, steps: 5 },
-        { hi: 2.1, lo: 1.0, steps: 6 },
+        { phrase: [{ kind: 'sustain', attack: 'fan', beats: 1, gap: 0.7 }, { kind: 'sustain', attack: 'curtain', beats: 1, gap: 0.7 }],
+          restLo: 1.3, restHi: 2.6, restDist: 'decaying' },
+        { phrase: [{ kind: 'sustain', attack: 'aimed', beats: 1, gap: 0.6 }, { kind: 'sustain', attack: 'stream', beats: 1, gap: 0.6 }, { kind: 'sustain', attack: 'movingGap', beats: 1, gap: 0.6 }],
+          restLo: 1.1, restHi: 2.3, restDist: 'decaying' },
+        { phrase: [{ kind: 'sustain', attack: 'crossfire', beats: 1, gap: 0.55 }, { kind: 'sustain', attack: 'secondWave', beats: 1, gap: 0.55 }, { kind: 'sustain', attack: 'iris', beats: 1, gap: 0.55 }],
+          restLo: 0.9, restHi: 2.1, restDist: 'decaying' },
       ],
     },
   },
@@ -221,15 +238,20 @@ export const BOSSES = {
       { id: 'ashtalon_circle',  name: 'EMBER HUNT — Circling Pass',  atFrac: 0.66, timer: 24 },
       { id: 'ashtalon_strike',  name: 'EMBER HUNT — Stooping Strike', atFrac: 0.33, timer: 26, dread: true },
     ],
-    // §5i AMBUSH–REST — long circling silences (2–3s), then a sforzando cluster of
-    // quick shots; the REST is the dread (the hunter sizing you up). Bimodal,
-    // short-heavy. P3's stream carries the amber tips (the parry diet, §5i C.1).
+    // §5i AMBUSH–REST — long circling silences (2.4–3.2s), then a sforzando burst
+    // cluster of quick shots (the stoop); the REST is the dread (the hunter sizing
+    // you up). Strongly bimodal, short-heavy. P3's `stream` sustain carries the
+    // amber tips so the stoop still serves parry fuel (the diet, §5i C.1).
     rhythm: {
-      signature: 'ambushRest',
+      signature: 'ambush-rest',
+      ticket: { bpm: 92, quantize: '1/8' },
       phases: [
-        { rest: 3.0, gap: 0.55, burst: 2 },
-        { rest: 2.8, gap: 0.50, burst: 3 },
-        { rest: 2.6, gap: 0.45, burst: 3 },
+        { phrase: [{ kind: 'burst', attack: 'aimed', count: 2, gap: 0.5 }],
+          restLo: 2.6, restHi: 3.2, restDist: 'uniform' },
+        { phrase: [{ kind: 'burst', attack: 'crossfire', count: 2, gap: 0.45 }, { kind: 'burst', attack: 'fan', count: 2, gap: 0.35 }],
+          restLo: 2.4, restHi: 3.0, restDist: 'uniform' },
+        { phrase: [{ kind: 'burst', attack: 'spiralStream', count: 2, gap: 0.4 }, { kind: 'sustain', attack: 'stream', beats: 3, gap: 0.35 }, { kind: 'burst', attack: 'secondWave', count: 2, gap: 0.4 }],
+          restLo: 2.2, restHi: 2.8, restDist: 'uniform' },
       ],
     },
   },
@@ -278,15 +300,47 @@ export const BOSSES = {
       { id: 'marrowcoil_rings',   name: 'NOT DIGEST — Ring of Ribs',        atFrac: 0.66, timer: 24 },
       { id: 'marrowcoil_closing', name: 'MARROW — The Closing Ribs',        atFrac: 0.33, timer: 28, dread: true },
     ],
-    // §5i BURST-vs-SUSTAIN — coil sweeps read as a continuous stream texture; rib
-    // slams are discrete wall bursts. The machine alternates a sustained-rest with
-    // a short wall-gap cluster; the burst count rises toward the closing ribs.
+    // §5i.A RHYTHM SIGNATURE — BURST-vs-SUSTAIN (slot 4). The coil sweeps lay a
+    // continuous SUSTAIN stream (low, even gaps); the rib slams punch discrete
+    // BURST walls (a tight doublet/triplet, then a hard rest). The burst:sustain
+    // ratio CLIMBS each phase — P1 mostly sustain, P3 mostly slam. The staged
+    // schema (#211) is now LIVE — bossRhythm.js reads it at the cadence seam.
+    // `phases` is indexed to `phases` above; `ratioBurst` is the wall-burst share
+    // of each phrase (the per-phase ratio shift that IS the signature).
     rhythm: {
-      signature: 'burstSustain',
+      signature: 'burst-sustain',
+      ticket: { bpm: 84, quantize: '1/8' },   // the coil's pulse; bursts land on eighth-notes
       phases: [
-        { sustainRest: 2.3, wallGap: 0.75, wallBurst: 2 },
-        { sustainRest: 2.1, wallGap: 0.70, wallBurst: 2 },
-        { sustainRest: 1.9, wallGap: 0.65, wallBurst: 3 },
+        { // P1 — read the bone rings: sustain-led
+          ratioBurst: 0.2,
+          phrase: [
+            { kind: 'sustain', attack: 'aimed', beats: 4, gap: [0.50, 0.62] },
+            { kind: 'burst',   attack: 'fan',   count: 2, gap: 0.18 },
+          ],
+          restLo: 1.4, restHi: 2.0, restDist: 'uniform',
+        },
+        { // P2 — the coil rings expand (fly-through): even trade
+          ratioBurst: 0.5,
+          phrase: [
+            { kind: 'sustain', attack: 'stream',    beats: 5, gap: [0.42, 0.50] },
+            { kind: 'burst',   attack: 'crossfire', count: 3, gap: 0.16 },
+            { kind: 'sustain', attack: 'iris',      beats: 2, gap: 0.60 },
+          ],
+          restLo: 1.1, restHi: 1.7, restDist: 'bimodal',   // quick inter-burst gaps + one long breath
+        },
+        { // P3 — the closing ribs (dread): burst-led, walls dominate. The trailing
+          // `stream` sustain is the AMBER carrier (§5i C.1 amberdiet data-tune: the
+          // closing coil keeps its amber-tipped tracking hose, so this dread phase
+          // still serves a parry volley — mirrors the `stream` added to `attacks`).
+          ratioBurst: 0.7,
+          phrase: [
+            { kind: 'burst',   attack: 'movingGap',    count: 3, gap: 0.14 },
+            { kind: 'burst',   attack: 'spiralStream', count: 2, gap: 0.16 },
+            { kind: 'sustain', attack: 'stream',       beats: 3, gap: 0.42 },
+            { kind: 'sustain', attack: 'iris',         beats: 2, gap: 0.55 },
+          ],
+          restLo: 0.9, restHi: 1.5, restDist: 'decaying',  // the rest itself tightens toward each slam
+        },
       ],
     },
   },

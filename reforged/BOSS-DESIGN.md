@@ -228,22 +228,22 @@ safe-lane gates exactly once.
 
 ### The slot table (identity axes — no two rows may share silhouette family, hook, or palette swatch/glow-shape)
 
-| # | Working name | Silhouette family | Hook | Palette (hue·value·glow-shape) | Approach | Status |
-|---|---|---|---|---|---|---|
-| 1 | VOIDMAW | shattered mask | hollow sockets + broken horn/halo | violet·ember·white / points | behind | shipped |
-| 2 | STORMREND | concentric rings | unblinking eye + blade rings | teal·gold·white / points+lines | side | shipped |
-| 3 | ASHTALON | winged pursuer (scythe-wing raptor) | never holds station — it hunts you | charcoal·ember / one molten SLIT | behind, overtakes | claimed (replaces retired CRAGHOLD¹) |
-| 4 | MARROWCOIL | segmented skeleton (bone dragon) | fly-through ribcage + skull lure | bone-white·void·ice-blue / ring-aperture + pinpoints | below (new) | claimed (absorbs VESPERCOIL²) |
-| 5 | EITHERWING | twin bodies | one eye passed between two | oxblood·aged-silver / single point | both sides | open |
-| 6 | HOLLOWGATE | architecture with a void | rose-window face | ivory·stained-glass / leaded field (VALUE-INVERTED: near-white) | static-ahead | open |
-| 7 | THRUMSWARM | stippled swarm | condenses into YOUR dragon | void-black·star-white / scattered points | condenses | open |
-| 8 | BRINEHOLM | bottom-anchored ridge | the surfacing whale-eye | kelp-black·abalone / iridescent sheen | below-horizon | open |
-| 9 | KARNVOW | slender vertical duelist | trophy-chain of earlier bosses' scars | tarnished-iron·trophy glints | alongside | open |
-| 10 | KNELLGRAVE | hanging pendulum | bound figure as the clapper | patina-copper·candle / vertical slit | pre-heard, fades in | open |
-| 11 | WEFTWITCH | radial limbs + threads | visibly re-weaves the arena | moth-grey·rose / taut lines | above (new) | open |
-| 12 | ONEWING | lopsided twin (designed echo of 5 — flagged) | twin's frame fused in its chest | ashen-rose·blackened silver | behind, NO warning banner | open |
-| 13 | EMBERTIDE | frame-wide band/wave | face surfacing from light | vermilion→rose / full-frame field | the whole horizon | open |
-| 14 | THE UNMASKED | eclipse disc → wheels-within-wheels angel | the second sun cracks into an Ophanim: rings of tracking eyes, six scythe-wings, every prior scar worn as a relic | black·dark-gold·white / corona ring + eye-points (corona RESERVED from slot 1) | always there | open |
+| # | Working name | Silhouette family | Hook | Palette (hue·value·glow-shape) | Approach | Status | Parry job (§5i.C) |
+|---|---|---|---|---|---|---|---|
+| 1 | VOIDMAW | shattered mask | hollow sockets + broken horn/halo | violet·ember·white / points | behind | shipped | —³ |
+| 2 | STORMREND | concentric rings | unblinking eye + blade rings | teal·gold·white / points+lines | side | shipped | —³ |
+| 3 | ASHTALON | winged pursuer (scythe-wing raptor) | never holds station — it hunts you | charcoal·ember / one molten SLIT | behind, overtakes | claimed (replaces retired CRAGHOLD¹) | —³ |
+| 4 | MARROWCOIL | segmented skeleton (bone dragon) | fly-through ribcage + skull lure | bone-white·void·ice-blue / ring-aperture + pinpoints | below (new) | claimed (absorbs VESPERCOIL²) | **rib-slam ambers → ORGAN BREAK** (Colossi debut): parry a rib-slam's ambers N× → that rib CRACKS, its pattern component deleted (reused at 5 on the eye-holder) |
+| 5 | EITHERWING | twin bodies | one eye passed between two | oxblood·aged-silver / single point | both sides | open | — |
+| 6 | HOLLOWGATE | architecture with a void | rose-window face | ivory·stained-glass / leaded field (VALUE-INVERTED: near-white) | static-ahead | open | — |
+| 7 | THRUMSWARM | stippled swarm | condenses into YOUR dragon | void-black·star-white / scattered points | condenses | open | — |
+| 8 | BRINEHOLM | bottom-anchored ridge | the surfacing whale-eye | kelp-black·abalone / iridescent sheen | below-horizon | open | — |
+| 9 | KARNVOW | slender vertical duelist | trophy-chain of earlier bosses' scars | tarnished-iron·trophy glints | alongside | open | — |
+| 10 | KNELLGRAVE | hanging pendulum | bound figure as the clapper | patina-copper·candle / vertical slit | pre-heard, fades in | open | — |
+| 11 | WEFTWITCH | radial limbs + threads | visibly re-weaves the arena | moth-grey·rose / taut lines | above (new) | open | — |
+| 12 | ONEWING | lopsided twin (designed echo of 5 — flagged) | twin's frame fused in its chest | ashen-rose·blackened silver | behind, NO warning banner | open | — |
+| 13 | EMBERTIDE | frame-wide band/wave | face surfacing from light | vermilion→rose / full-frame field | the whole horizon | open | — |
+| 14 | THE UNMASKED | eclipse disc → wheels-within-wheels angel | the second sun cracks into an Ophanim: rings of tracking eyes, six scythe-wings, every prior scar worn as a relic | black·dark-gold·white / corona ring + eye-points (corona RESERVED from slot 1) | always there | open | — |
 
 ¹ CRAGHOLD (broad bust → palm-eyed hands, moss·bronze) shipped at slot 3 and was RETIRED by
 user verdict after two rebuilds — the concept never escaped "Voidmaw with hands" (LEAPFROG
@@ -251,6 +251,9 @@ L130). It stays in `BOSS_ORDER` only until ASHTALON ships in its slot; its geome
 (finger chains, socket pools, tell-family poses) are inherited by ASHTALON/EITHERWING/KARNVOW.
 ² VESPERCOIL's coil-the-lane verb, below-approach, and lure-lantern all transfer to
 MARROWCOIL; the eel skin is retired for the stronger bone-dragon identity (user directive).
+³ Parry job not yet allocated: shipped slots 1–3 carry only the base roll-reflect + perfect
+tier — their distinctive amber-carrier is a §5i retrofit (staged with the slot-5 phrase machine;
+ASHTALON P3's amber-tip is the one flagged immediate hotfix). Open slots fill this at build time.
 
 ### Slot briefs (one paragraph each — the full design happens in that boss's own session)
 
@@ -420,7 +423,14 @@ feasibility survey: at rel 30, on-screen centers within x ±15 / y 2..22 on port
   0xd8d2c0 diffuse (sanctioned VALUE inversion, dark joints paint the hierarchy) / void
   gaps / ice-blue 0x8fd0ff lights. Scar (as built): LEFT rib ring 2 snapped at 0.45 span —
   jagged break face, a floating orphan fragment arc, and a COLD ice seam (no warm marrow;
-  the ice family keeps the one-accent law). ~3.5k tris, ~24 draws (vertebra chain = separate small
+  the ice family keeps the one-accent law). GRAZE FORM (§5i.B, Colossi band): **THREAD-THE-GAP**
+  — the ribcage aperture IS the graze anatomy (not an abstract zone). The shipped `ribThread`
+  fly-through setpiece (P2, card *"NOT DIGEST — Ring of Ribs"*) already embodies it: the rail
+  threads the open rib gap as the boss looms close; §5i scores it by clearance + lateness
+  (tighter + later = bigger chunk, consecutive threads chain), and the dread `closingRibs` (P3)
+  tightens the same gap so the richest payout lands at the scariest instant. (Scoring wiring
+  arrives with the slot-6 continuous-graze detector; the anatomy + setpiece ship here.)
+  ~3.5k tris, ~24 draws (vertebra chain = separate small
   meshes — phone-verified fine; NO InstancedMesh, L126). REUSES: mandala rail-merge idiom,
   charisma eye rig, jawPivot precedent. NEEDS: below-approach + cull-bound widening (§5e).
 - **5 EITHERWING** — per twin: stretched-octahedron kite body (~2.2 long) + crescent head

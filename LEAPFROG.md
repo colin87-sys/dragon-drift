@@ -5283,3 +5283,28 @@ INTEGRATION only (home-sky contrast, presence, bullet readability). bossgate's p
 frames where the background is controlled. Second standing rule from the same lesson: TOOL-MAKING IS SANCTIONED —
 builders create/extend viewers freely whenever seeing clearly is the bottleneck; tools-to-see are cheap, half-blind
 verdicts are expensive.
+
+---
+
+### L138 — MARROWCOIL §5i follow-up: stage the spec's data ahead of its engine, inert and bound
+
+**Did / learned.** §5i (Rhythm Signatures / Graze Ladder / Parry Economy) landed AFTER MARROWCOIL shipped and
+merged, and names slot 4 in all three systems — but its enforcement lands later (phrase machine + `getBeatClock()`
+with slot 5; continuous-graze detector with slot 6; `amberdiet`/`rhythmprint` CI gates unbuilt). Rather than
+re-open a merged boss to build against absent infrastructure (you cannot validate "two bosses' gap distributions
+differ" or "≥1 amber per 12s" with no engine), we did the **cheap, verifiable groundwork only**: (1) a real
+`def.rhythm` BURST-vs-SUSTAIN block — per-phase phrases whose `attack` names mirror the phase `attacks` arrays and
+whose `ratioBurst` climbs P1→P3 (sustain-led → slam-led), so the slot-5 machine binds cleanly; (2) the §5d sheet
+names **THREAD-THE-GAP** as the rib graze *anatomy* and points at the SHIPPED `ribThread` fly-through as the attack
+that already embodies it (scoring waits for slot 6); (3) a new §5b **"parry job"** column with slot 4's ORGAN BREAK
+filled and a footnote marking shipped 1–3 as retrofit-pending.
+
+**The pattern.** When a cross-cutting spec post-dates a shipped feature and stages its own rollout, don't retrofit
+the feature in isolation — **stage its DATA now (inert, engine-shaped, bound to real fields) and defer the WIRING to
+the coordinated pass when the engine + its CI gates exist.** Keep the two provably separable: the data must read as
+zero-behavior-change (boss.mjs 25/25 + defs 12/12 green because nothing consumes the new fields yet). Author real
+values you'd want live, never placeholders — the staging is worthless if the slot-5 builder has to redo it.
+
+**Gotcha.** A merged PR is finished — this follow-up restarted the branch from the new master (`checkout -B` off
+`origin/master`, force-with-lease) rather than stacking on merged history, and picked up two further master merges
+(§5i itself, then a §5b upgrade) that had to be read fresh before editing.
