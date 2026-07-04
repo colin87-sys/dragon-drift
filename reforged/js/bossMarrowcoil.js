@@ -68,9 +68,9 @@ export function buildBoneCoil(def, quality = 1) {
   // the value hierarchy so the pale mass reads CARVED, not injection-moulded.
   // RIB_EI sits well under BONE_EI (gate r4 #7): the rib family reads a clear
   // value step darker/warmer than the vertebra family, not one plastic mass.
-  const BONE_EI = 0.95, RIB_EI = 0.62;
+  const BONE_EI = 0.86, RIB_EI = 0.62;   // r15 gate #1: skull renders in the same family as the spine (Δ ≤ ~8 RGB), face still the lightest D6 tier
   const boneMat = track(new THREE.MeshStandardMaterial({
-    color: 0xe4ded0, emissive: 0xe4ded0, emissiveIntensity: BONE_EI, roughness: 0.82, metalness: 0.0, flatShading: true,   // D6: the SKULL tier — the face leads, lightest bone
+    color: 0xd8d2c0, emissive: 0xd8d2c0, emissiveIntensity: BONE_EI, roughness: 0.82, metalness: 0.0, flatShading: true,   // r15 gate #1a: sheet bone — skull and spine render as ONE material family, no white-plastic head
   }));
   const ribBoneMat = track(new THREE.MeshStandardMaterial({
     color: 0xcfc8b4, emissive: 0xcfc8b4, emissiveIntensity: RIB_EI, roughness: 0.85, metalness: 0.0, flatShading: true,
@@ -126,7 +126,7 @@ export function buildBoneCoil(def, quality = 1) {
   // nostril pits + under-snout shadow + horn-base sockets — all carved near-black.
   const skullDarkGeo = (() => {
     const parts = [];
-    const socket = (sx) => { const s = strip(new THREE.BoxGeometry(0.5, 0.48, 0.62)); s.translate(sx * 0.58, 0.14, 0.34); return s; };   // outboard of the snout eclipse line, inset within the cranium side
+    const socket = (sx) => { const s = strip(new THREE.BoxGeometry(0.65, 0.48, 0.62)); s.translate(sx * 0.655, 0.14, 0.34); return s; };   // r15 gate #4: +0.15u wider along ±x — the recessed pinlight keeps its dark frame at profile yaws
     parts.push(socket(1), socket(-1));
     // Nostrils: thin dark SLITS on the snout TOP surface only (a front-face pit
     // read as googly cartoon eyes — gate directive 5 — so keep them off the face).
@@ -180,7 +180,7 @@ export function buildBoneCoil(def, quality = 1) {
     const A = new THREE.Vector3(), B = new THREE.Vector3(), C = new THREE.Vector3();
     const ab = new THREE.Vector3(), ac = new THREE.Vector3(), n = new THREE.Vector3();
     const verts = [], cols = [];
-    const RECESS = new THREE.Color(0xb8b2a2);
+    const RECESS = new THREE.Color(0xa8a292);   // r15 gate #1b: under-brow eyedropper must land ≤ 0xbcb6a6
     for (let f = 0; f < src.count; f += 3) {
       A.fromBufferAttribute(src, f); B.fromBufferAttribute(src, f + 1); C.fromBufferAttribute(src, f + 2);
       n.crossVectors(ab.subVectors(B, A), ac.subVectors(C, A)).normalize();
@@ -284,7 +284,7 @@ export function buildBoneCoil(def, quality = 1) {
     // in every state. Still ringed by the dark socket box (hollow-set); the lure
     // stays the single hottest point.
     const core = new THREE.Mesh(new THREE.SphereGeometry(0.125, 10, 8), eyeMat);
-    core.position.set(sx * 0.62, 0.14, 0.9); eyes.add(core);   // fully proud of the socket mouth — no yaw/pitch/roar angle occludes either eye
+    core.position.set(sx * 0.62, 0.14, 0.8); eyes.add(core);   // r15 gate #4: recessed 0.1u deeper — the pinlight stays framed in socket dark through yaw 0–80
     eyeMeshes.push({ core, sx });
   }
 
@@ -583,7 +583,11 @@ export function buildBoneCoil(def, quality = 1) {
   // One rib: arc from the root (θ=ROOT_TH) sweeping down; geometry RELATIVE to
   // the root point; taper 0.30→0.12; plus the D11a RIDGE BEVEL along the outer
   // edge (a slim tube at R+0.2 merged in — the arc stops reading as ribbon).
-  const makeRib = (R, sx, spanFrac = 1, taperFloor = 0.4) => {
+  // r15 gate #5b: dim ice tick facets (0x8fd0ff ×0.5 — satellite cap) on the
+  // INNER rim of the aperture-framing ribs so the fly-through opening
+  // self-announces from the rail.
+  const ICE_TICK = new THREE.Color(0x8fd0ff).multiplyScalar(0.5);
+  const makeRib = (R, sx, spanFrac = 1, taperFloor = 0.4, ticks = false) => {
     const root = new THREE.Vector3(sx * Math.cos(ROOT_TH) * R, Math.sin(ROOT_TH) * R, 0);
     const arcPts = (rr, zoff) => {
       const pts = [];
@@ -603,7 +607,20 @@ export function buildBoneCoil(def, quality = 1) {
       taperTube(ridge, ridgeCurve, ribTubularSeg, 4, (u) => Math.max(0.4, 1 - u * 0.6));
       parts.push(strip(ridge));
     }
-    return bakeRib(mergeBone(parts, 'rib'), new THREE.Vector3(0, 0, 0));
+    const baked = bakeRib(mergeBone(parts, 'rib'), new THREE.Vector3(0, 0, 0));
+    if (!ticks) return baked;
+    const tparts = [];
+    for (const f of [0.45, 0.6, 0.75]) {
+      const th = ROOT_TH - f * ribArc * spanFrac;
+      const t = strip(new THREE.OctahedronGeometry(0.09, 0));
+      t.translate(sx * Math.cos(th) * (R - 0.34) - root.x, Math.sin(th) * (R - 0.34) - root.y, 0);
+      tparts.push(t);
+    }
+    const tg = mergeBone(tparts, 'ribTicks');
+    const n = tg.attributes.position.count, cols = new Float32Array(n * 3);
+    for (let i = 0; i < n; i++) { cols[i * 3] = ICE_TICK.r; cols[i * 3 + 1] = ICE_TICK.g; cols[i * 3 + 2] = ICE_TICK.b; }
+    tg.setAttribute('color', new THREE.BufferAttribute(cols, 3));
+    return mergeBone([baked, tg], 'ribWithTicks');
   };
   const ribPivots = [];
   for (let h = 0; h < N_RING; h++) {
@@ -614,7 +631,7 @@ export function buildBoneCoil(def, quality = 1) {
       pivot.name = `ribPivot${sx < 0 ? 'L' : 'R'}${h}`;   // telegraph gate finds these by name (D3)
       pivot.position.set(sx * Math.cos(ROOT_TH) * R, ribHang(R) + Math.sin(ROOT_TH) * R, 0);   // AT the root, on the host vertebra
       vertNodes[RIB_V0 + h].node.add(pivot);
-      pivot.add(new THREE.Mesh(makeRib(R, sx, spanFrac), ribVertMat));
+      pivot.add(new THREE.Mesh(makeRib(R, sx, spanFrac, 0.4, h === 1 || h === 2), ribVertMat));   // mid pairs carry the aperture ticks (r15 #5b)
       ribPivots.push({ pivot, idx: h, sx, R });
     }
   }
@@ -695,8 +712,10 @@ export function buildBoneCoil(def, quality = 1) {
   const orbiters = [];
   for (let i = 0; i < 2; i++) {
     const m = new THREE.Mesh(chipGeo, chipMat);
-    m.userData = { ang: (i / 2) * Math.PI * 2 + 0.6, radius: 1.5 + i * 0.4, speed: 0.5 + i * 0.18, baseY: 5.6 - i * 1.0, tilt: i * 1.3 };   // circle the neck below the skull (§3 law 8 — never stray tunnel debris)
-    rig.add(m);
+    // r15 gate #6: chips PARENT to a neck vertebra and orbit ≤0.3u from it, so
+    // no sweep pose can strand a dark box in empty sky (they ride the coil).
+    m.userData = { ang: (i / 2) * Math.PI * 2 + 0.6, radius: 0.28, speed: 0.5 + i * 0.18, tilt: i * 1.3 };
+    vertNodes[2 + i * 2].node.add(m);
     orbiters.push(m);
   }
 
@@ -887,16 +906,24 @@ export function buildBoneCoil(def, quality = 1) {
     if (dyingK >= 0.4) eyeMat.color.copy(DEATH_EYE);
     eyeHaloMat.opacity = Math.max(0.03, 0.5 * eyeK) * (1 - eyeDead);
     lureMat.color.setHex(0xd8ecff).multiplyScalar(Math.max(0.1, lureK) * LURE_HOT);
+    if (eyeDead > 0) lureMat.color.lerp(DEATH_EYE, eyeDead);   // r15 gate #2: dead means dark — the lure fades fully out over death 0.4→0.7
     lureHaloMat.opacity = Math.max(0.05, 0.6 * lureK * (1 - dyingK * 0.9));
     strandMat.opacity = 0.6 * (1 - dyingK);
     for (const e of eyeMeshes) {
-      const pin = 1 - charge * 0.35 + dyingK * 0.4;
+      // r15 gate #2: past death 0.4 the cores VANISH — a dark-lerped disk still
+      // reads pale through the dissolve transparency over pale bone, so scale
+      // to zero is the only honest "dark socket".
+      const pin = (1 - charge * 0.35 + dyingK * 0.4) * (1 - eyeDead);
       e.core.scale.set(pin, pin * (1 - blinkProg * 0.9), pin);
-      e.core.position.x = e.sx * 0.62 + gazeX * 0.04;
+      e.core.position.x = e.sx * 0.655 + gazeX * 0.04;   // centred in the widened socket (r15 #4)
     }
     lureBead.position.y = Math.sin(time * 1.4) * 0.06 + charge * 0.1;
     lure.position.x = Math.sin(time * COIL_OMEGA) * 0.12;   // D1: visibly TETHERED — swings with the coil phase
-    lure.position.z = LURE_BASE_POS.z + charge * 0.75;   // r14 gate #2: the charge battery pitches AHEAD of the brow so the full teardrop + taut strands are on camera
+    // r15 gate #3: at full charge the battery swings +1.2z ahead of the brow AND
+    // +0.4u up so the FULL teardrop + both taut strands clear the brow line at
+    // yaw 0 in both the full-body and D12 framings.
+    lure.position.z = LURE_BASE_POS.z + charge * 1.2;
+    lure.position.y = LURE_BASE_POS.y + charge * 0.4 - dyingK * 0.8;   // r15 gate #2: the dead lure slackens and drops
     updateStrand(charge);
     lure.scale.setScalar((1 + charge * 0.18) * (1 - dyingK * 0.6));
 
@@ -914,7 +941,11 @@ export function buildBoneCoil(def, quality = 1) {
       if (setpieceMode === 'thread' && setpieceK > 0) rot = -setpieceK * 0.1 + breathe;
       else {
         const stagger = Math.max(0, Math.min(1, (setpieceK - j * 0.12) / 0.4));
-        rot = stagger * 0.87 + charge * 0.05 + breathe;   // 0.87 rad ≈ 50° full close
+        // r15 gate #5a: the two mid pairs rest slightly OUTWARD so one contiguous
+        // dark aperture dominates the rail's tunnel framing; the bias yields to
+        // the dread close (stagger) so the 50° constriction is untouched.
+        const apertureBias = (j === 1 || j === 2) ? 0.1 * (1 - stagger) : 0;
+        rot = stagger * 0.87 + charge * 0.05 + breathe - apertureBias;   // 0.87 rad ≈ 50° full close
       }
       if (painT > 0) rot -= (painT / 0.3) * 0.12;
       if (shieldClamp) rot = 0.18;
@@ -928,7 +959,8 @@ export function buildBoneCoil(def, quality = 1) {
 
     for (const o of orbiters) {
       const u = o.userData; u.ang += dt * u.speed;
-      o.position.set(Math.cos(u.ang) * u.radius, u.baseY + Math.sin(time * 1.2 + u.tilt) * 0.6, -0.8 + Math.sin(u.ang) * u.radius * 0.3);
+      // ≤0.3u from the parent vertebra in every pose (r15 gate #6)
+      o.position.set(Math.cos(u.ang) * u.radius, Math.sin(time * 1.2 + u.tilt) * 0.12, Math.sin(u.ang) * u.radius);
       o.rotation.x += dt * 1.3; o.rotation.y += dt * 1.0;
     }
   }

@@ -34,7 +34,10 @@ const FRAMES = [
   { name: 'charge',          o: { t: 1.0, charge: 1, yaw: 0, pitch: -0.12 } },
   { name: 'profile',         o: { t: 1.0, yaw: 80, pitch: 0.02 } },
   { name: 'ribcage',         o: { t: 1.0, yaw: 0, pitch: -0.05, focus: 'ribPivotL2', distMul: 0.62 } },
-  { name: 'tunnel',          o: { t: 1.0, yaw: 0, pitch: 0.0, focus: 'ribPivotL2', distMul: 0.4 } },
+  // r15 gate #5: the rail's TRUE tunnel view — eye on the approach axis at the
+  // cage mouth, staring down the ring centres; the aperture must be the first
+  // thing the eye finds (ice ticks on the inner rims self-announce the hole).
+  { name: 'tunnel',          o: { t: 1.0, camMid: ['ribPivotL0', 'ribPivotR0'], camOff: [0, -3.4, 11], look: 'ribPivotL2', lookOff: [0.35, -3.0, 0], fov: 52 } },
   { name: 'skullidle',       o: { t: 1.0, yaw: 0, pitch: 0.0, focus: 'skullGroup', distMul: 0.3 } },
   { name: 'skullidle-prof',  o: { t: 1.0, yaw: 65, pitch: 0.02, focus: 'skullGroup', distMul: 0.3 } },
   // the charge roar rears the skull ~9° up — the camera rises to meet the face
