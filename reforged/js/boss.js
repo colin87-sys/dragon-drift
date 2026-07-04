@@ -103,6 +103,15 @@ let warnT = 0;
 let approachT = 0;
 let attackTimer = 0;
 let riderTimer = 0;
+// Cinematic overtake entrance (§5f, ASHTALON): a scripted flythrough — rise from
+// behind, a bullet-time close pass with the visor/eyes tracking you, pull ahead
+// (back to camera), then wheel around to face you. cineYaw overrides placeGroup's
+// face-the-player rule for the turn; cineSide = which flank it sweeps.
+let cineT = 0;
+let cineYaw = null;            // null = normal facing; else a scripted world-yaw for the turn-around
+let cineSide = 1;
+let cineSkip = false;         // a tap during the flythrough fast-forwards to the turn-around
+let cineSlow = false;         // bullet-time currently engaged by the flythrough (owns game.slowMoTimer)
 let dyingT = 0;
 let spiralPhase = 0;
 let pendingDeath = false;      // set when hp hits 0; resolved in the update loop
@@ -126,6 +135,7 @@ let shielded = false;          // at a phase floor the boss shields — only Sur
 let activeCard = null;
 let cardTimer = 0;             // seconds remaining in the current card's window (display / survival seal)
 let cardHits0 = 0;            // game.bossHitsTakenRun at card start (capture = no new hits by card end)
+let cardExpired = false;      // the display timer ran out before the phase was cleared → capture downgrades to SURVIVED (never blocks progress)
 let baitTimer = 0;             // cadence for the shielded graze-bait flood
 let baitLeft = 0;              // rings remaining in the current graze-bait CLUSTER
 let baitResting = false;       // true during the BREAK between clusters (reposition window)
@@ -238,6 +248,7 @@ function beginCard(idx) {
   if (!activeCard) { cardTimer = 0; return; }
   cardTimer = activeCard.timer ?? 24;
   cardHits0 = game.bossHitsTakenRun;
+  cardExpired = false;
   // Small lower-right title card (§5f) — the reveal card owns the lower-third;
   // the spell card names the pattern without covering it.
   ui.bossCard?.(activeCard.name, def.accent, !!activeCard.dread);
@@ -245,8 +256,12 @@ function beginCard(idx) {
 }
 function endCard() {
   if (!activeCard) return;
-  const captured = game.bossHitsTakenRun === cardHits0;   // no bullet took a hit across the card
+  // CAPTURE = cleared the phase HITLESS *and* before the card timer ran out. The
+  // timer is a real capture deadline now (not just display): letting it expire
+  // downgrades the result to SURVIVED but NEVER blocks progress (§5f: no hard wall).
+  const captured = game.bossHitsTakenRun === cardHits0 && !cardExpired;
   recordBossCard(activeCard.id, captured);
+  if (captured) sfx.cardCapture?.(!!activeCard.dread);   // the acknowledgement chime (bigger for a dread card)
   ui.bossCardResult?.(captured, activeCard.name);
   emit('bossCard', { id: activeCard.id, boss: def.id, captured, dread: !!activeCard.dread });
   activeCard = null;
@@ -718,6 +733,77 @@ function applyReticle(timeLeft, time) {
   reticle.visible = reticleOn > 0.005;
 }
 
+// Settle into the fight: reveal the health bar (fill 0→full), the notice beat +
+// reveal card, and the first spell card — with the attack/rider clocks held past
+// the card's hold so the reveal is bullet-free. Shared by the plain approach and
+// the cinematic flythrough entrance.
+function enterFight() {
+  phase = 'fight';
+  cineYaw = null;                     // hand facing back to placeGroup (face the player)
+  cameraCtl.setOvertake?.(null);      // release the cinematic camera if it was active
+  attackTimer = rand(0.9, 1.3);
+  model.setHealthBarVisible(true);
+  model.setHealth(0);
+  hpRevealT = HP_REVEAL;
+  riderTimer = HP_REVEAL;
+  model.notice?.();
+  ui.bossTitleCard?.(def.name, def.epithet, def.accent);
+  beginCard(0);
+  attackTimer = Math.max(attackTimer, 1.9);
+  riderTimer = Math.max(riderTimer, 1.9);
+  if (def.tutorial) ui.bossNote?.('DODGE!', 'ROLL INTO AMBER SHOTS TO PARRY', 'gold', 3.0);
+}
+
+// The cinematic overtake entrance (ASHTALON, §5f). A scripted flythrough on its
+// own normalized clock: it rises from behind, sweeps CLOSE past you in bullet-time
+// with the visor tracking you, pulls ahead (its back to the returning chase cam),
+// then banks 180° to face you as the fight opens. Camera-only + pose; no fire (the
+// Mantis rule). A 2nd-finger tap / Space fast-forwards to the turn-around.
+const CINE_DUR = 3.7;            // scaled-seconds; the bullet-time pass stretches wall-clock
+function updateFlythrough(dt, player, time) {
+  // Tap to skip → jump to the turn-around (you still see it wheel to face you).
+  if (input.surgeTap) { input.surgeTap = false; cineSkip = true; }
+  if (cineSkip && cineT < CINE_DUR * 0.73) { cineT = CINE_DUR * 0.73; if (cineSlow) { cineSlow = false; game.slowMoTimer = 0; setSlowMo(false); } }
+  cineT += dt;
+  const u = Math.min(cineT / CINE_DUR, 1);
+  const L = (a, b, t) => a + (b - a) * t;
+  const seg = (u0, u1) => easeInOut(Math.max(0, Math.min(1, (u - u0) / (u1 - u0))));
+  const S = cineSide;
+
+  // Keyframed player-relative path: behind-below → close pass (crosses your depth)
+  // → ahead → station. y stays a few units above a typical dragon height so the
+  // pass sweeps OVER you without clipping.
+  let x, y, rel;
+  if (u < 0.30) { const t = seg(0, 0.30); x = L(S * 3, S * 5, t); y = L(4, 10, t); rel = L(-15, -3, t); }
+  else if (u < 0.52) { const t = seg(0.30, 0.52); x = L(S * 5, S * 2, t); y = L(10, B.fightHeight + 1, t); rel = L(-3, 3, t); }
+  else if (u < 0.73) { const t = seg(0.52, 0.73); x = L(S * 2, 0, t); y = L(B.fightHeight + 1, B.fightHeight, t); rel = L(3, B.settleGap * 0.7, t); }
+  else { const t = seg(0.73, 1); x = 0; y = B.fightHeight; rel = L(B.settleGap * 0.7, B.settleGap, t); }
+  pose.x = x; pose.y = y; pose.rel = rel;
+
+  // Bullet-time across the close pass (C2): engage on entry, release on exit. The
+  // flythrough owns game.slowMoTimer for its window (main.js scales dt → the whole
+  // moment slows, and this clock with it, which IS the dwell).
+  if (u >= 0.30 && u < 0.52 && !cineSlow) { cineSlow = true; game.slowMoTimer = 3; setSlowMo(true); }
+  else if ((u >= 0.52 || u >= 1) && cineSlow) { cineSlow = false; game.slowMoTimer = 0; setSlowMo(false); }
+
+  // Wings sweep into the diving tuck through the pass, easing back to rest by the turn.
+  model.setSetpiece?.(u < 0.73 ? Math.sin(Math.min(1, u / 0.6) * Math.PI * 0.5) * 0.85 : 0);
+  model.setCharge?.(0);
+  // Eyes track you through the pass (a glint toward the prey), then face you on the turn.
+  const nx = Math.max(-1, Math.min(1, (player.position.x - pose.x) / 12));
+  const ny = Math.max(-1, Math.min(1, (player.position.y - pose.y) / 12));
+  model.setGaze?.(nx, ny);
+
+  // Facing: hold the dive line (visor to the rear camera) until C4, then WHEEL 180°
+  // from facing-away to facing-you as the fight opens.
+  cineYaw = u < 0.73 ? Math.PI : Math.PI * (1 - seg(0.73, 1));
+
+  // Feed the cinematic camera the boss's world position so it tracks the flythrough.
+  cameraCtl.setOvertake?.({ k: u, bx: pose.x, by: pose.y, bz: -(player.dist + pose.rel) });
+
+  if (u >= 1) enterFight();
+}
+
 // ---- Per-frame update -------------------------------------------------------
 
 export function updateBoss(dt, player, time) {
@@ -809,15 +895,19 @@ export function updateBoss(dt, player, time) {
   if (phase === 'warn') {
     warnT -= dt;
     if (warnT <= 0) {
-      phase = 'approach';
-      // §5f rule-break: announce + swing to the rear view as the hunter overtakes
-      // from behind (no fire during approach anyway — the Mantis rule holds). Eases
-      // back out before it settles ahead. Runs ONCE per encounter, on entry.
-      if (def.rearViewOvertake && cameraCtl.rearView) {
-        cameraCtl.rearView(B.approachTime - 0.2);
-        ui.bossNote?.('⟲  BEHIND YOU  ⟲', 'THE HUNTER OVERTAKES', 'gold', 2.2);
+      if (def.cinematicEntrance) {
+        // §5f rule-break: the full scripted overtake cinematic (flythrough phase).
+        phase = 'flythrough';
+        cineT = 0; cineSkip = false; cineSlow = false;
+        cineSide = start.x < 0 ? -1 : 1;
+        cineYaw = Math.PI;   // faces its dive line (visor to the rear camera) until the turn
+        ui.bossNote?.('⟲  BEHIND YOU  ⟲', 'THE HUNTER OVERTAKES', 'gold', 2.0);
+      } else {
+        phase = 'approach';
       }
     }
+  } else if (phase === 'flythrough') {
+    updateFlythrough(dt, player, time);
   } else if (phase === 'approach') {
     approachT += dt;
     const k = Math.min(approachT / B.approachTime, 1);
@@ -828,27 +918,7 @@ export function updateBoss(dt, player, time) {
     // dragon); side/above/below travel straight in (the y descent/ascent IS the arc).
     const arc = (def.approachFrom == null || def.approachFrom === 'behind') ? Math.sin(k * Math.PI) * 6 : 0;
     pose.y = start.y + (B.fightHeight - start.y) * e + arc;
-    if (k >= 1) {
-      phase = 'fight';
-      attackTimer = rand(0.9, 1.3);
-      // Materialise the health bar now that it's settled in front, and animate it
-      // filling 0→full before the rider opens fire (no janky bar during the fly-in).
-      model.setHealthBarVisible(true);
-      model.setHealth(0);
-      hpRevealT = HP_REVEAL;
-      riderTimer = HP_REVEAL;
-      // Spectacle beat: the boss notices you (builder-owned, optional) + the
-      // FromSoft-style reveal card (name + epithet). REVEAL HOLD — guarantee the
-      // card's readable without a bullet in your face: push both the boss's own
-      // attack clock AND the rider's auto-fire out past the card's hold time.
-      model.notice?.();
-      ui.bossTitleCard?.(def.name, def.epithet, def.accent);
-      beginCard(0);   // the first phase's named spell card (§5f)
-      attackTimer = Math.max(attackTimer, 1.9);
-      riderTimer = Math.max(riderTimer, 1.9);
-      // Tutorial boss: teach the parry as the fight opens (amber shots = swat-able).
-      if (def.tutorial) ui.bossNote?.('DODGE!', 'ROLL INTO AMBER SHOTS TO PARRY', 'gold', 3.0);
-    }
+    if (k >= 1) enterFight();
   } else if (phase === 'fight' && debugSetpiecePin) {
     // Capture-only: freeze a SETPIECE pose (e.g. the stooping-dive silhouette) at a
     // fixed path parameter so the crop tool can shoot the dread pose as a still.
@@ -882,14 +952,18 @@ export function updateBoss(dt, player, time) {
       pose.y = B.fightHeight + Math.sin(time * 1.3) * 0.8;
     }
 
-    // Spell-card timer (§5f): the on-screen card countdown. A SURVIVAL card
-    // (invincible seal) uses timeout as the deterministic escape hatch — it
-    // bursts the seal so a weaker player is never hard-walled; a normal card's
-    // timer is a display window (capture is decided by staying hitless).
+    // Spell-card timer (§5f): the on-screen card countdown, now a real CAPTURE
+    // DEADLINE. When it hits 0: a SURVIVAL card bursts its own seal (the escape
+    // hatch, so a weaker player is never hard-walled); a normal card flags
+    // `cardExpired` so the eventual result is SURVIVED not CAPTURE — but the phase
+    // continues and progress is never blocked.
     if (activeCard && cardTimer > 0) {
       cardTimer = Math.max(0, cardTimer - dt);
       ui.bossCardTimer?.(cardTimer, activeCard.timer ?? 24);
-      if (cardTimer <= 0 && activeCard.survival && shielded) breakShield(player);
+      if (cardTimer <= 0) {
+        if (activeCard.survival && shielded) breakShield(player);
+        else { cardExpired = true; ui.bossCardExpire?.(); }
+      }
     }
 
     // Manual Surge unleash (Space / 2nd-finger tap) — the shield-breaker.
@@ -1017,13 +1091,16 @@ function placeGroup(player, time) {
   group.visible = phase !== 'warn';   // stay hidden behind while the warning flashes
   group.position.set(pose.x, pose.y, -(player.dist + pose.rel));
   // Face the player (local +z = front maw, world +z = toward the player) with a
-  // little menacing yaw/roll wobble.
-  group.rotation.set(0, Math.sin(time * 0.5) * 0.12, Math.sin(time * 0.9) * 0.08);
+  // little menacing yaw/roll wobble. During the cinematic entrance, cineYaw owns
+  // the yaw instead (it faces its dive line, then wheels 180° to face you).
+  if (cineYaw != null) group.rotation.set(0, cineYaw, 0);
+  else group.rotation.set(0, Math.sin(time * 0.5) * 0.12, Math.sin(time * 0.9) * 0.08);
   // GAZE FEED (optional model hook): normalized offset of the player relative to
   // the boss's facing axis, in WORLD axes — placeGroup keeps rotation near-
   // identity so world≈local, and the model handles its own local conversion.
-  // Skipped during 'warn' (the boss is still hidden then; nothing to sell yet).
-  if (phase !== 'warn') {
+  // Skipped during 'warn' (the boss is still hidden then; nothing to sell yet) and
+  // during the flythrough (updateFlythrough drives the tracking gaze itself).
+  if (phase !== 'warn' && phase !== 'flythrough') {
     const nx = Math.max(-1, Math.min(1, (player.position.x - pose.x) / 12));
     const ny = Math.max(-1, Math.min(1, (player.position.y - pose.y) / 12));
     model.setGaze?.(nx, ny);
@@ -1372,6 +1449,11 @@ function damageBoss(amount, kind) {
 
 export function resetBoss() {
   clearSetpiece();
+  // Release the cinematic entrance if we tore down mid-flythrough (game over during
+  // the overtake): drop the slow-mo, the camera hijack, and the facing override.
+  cineYaw = null; cineSkip = false;
+  if (cineSlow) { cineSlow = false; game.slowMoTimer = 0; setSlowMo(false); }
+  cameraCtl.setOvertake?.(null);
   // Hard reset (game over / new run): if a fight was live and NOT already won,
   // the player died to this boss — accrue the death-to (§5h; slot 9 reads it).
   if (active && def && phase !== 'dying') recordBossLedger(def.id, { death: true });

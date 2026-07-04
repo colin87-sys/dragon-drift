@@ -945,6 +945,7 @@ export const ui = {
     els.bossCard.style.setProperty('--bc-accent', hex);
     els.bossCard.dataset.dread = dread ? '1' : '0';
     els.bossCard.dataset.captured = '';
+    els.bossCard.dataset.expired = '';
     if (els.bcLabel) els.bcLabel.textContent = dread ? '❖ DREAD CARD' : 'SPELL CARD';
     if (els.bcName) els.bcName.textContent = name || '';
     if (els.bcTimer) { els.bcTimer.textContent = ''; els.bcTimer.dataset.low = '0'; }
@@ -957,6 +958,14 @@ export const ui = {
     if (!els.bcTimer) return;
     els.bcTimer.textContent = `${Math.max(0, Math.ceil(remain))}s`;
     els.bcTimer.dataset.low = remain <= 5 ? '1' : '0';
+  },
+  // Capture DEADLINE passed (timer hit 0 before the phase was cleared): mark the
+  // timer so the player reads why the card will resolve SURVIVED, not CAPTURE —
+  // without blocking the fight (progress is never walled).
+  bossCardExpire() {
+    if (!els.bossCard) return;
+    if (els.bcTimer) { els.bcTimer.textContent = '✕'; els.bcTimer.dataset.low = '1'; }
+    els.bossCard.dataset.expired = '1';
   },
   // Resolve: CAPTURE (survived hitless) or SURVIVED (took a hit / timed out).
   bossCardResult(captured, _name) {

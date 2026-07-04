@@ -51,6 +51,13 @@ let canyonW = 0;
 // envelope (ease in / hold / ease out) blends it over the normal chase framing.
 let rearT = 0, rearDur = 0;
 
+// Cinematic overtake framing (ASHTALON flythrough): driven per-frame by the boss
+// with { k, bx, by, bz } — k is 0..1 progress, b* the boss world position. The
+// camera looks BACK and tracks the hunter as it climbs up behind and sweeps past
+// (so the look naturally pivots as it crosses you), then blends home to the normal
+// forward chase as it pulls ahead. null = inactive.
+let overtake = null;
+
 export const cameraCtl = {
   splash: false,
 
@@ -99,6 +106,11 @@ export const cameraCtl = {
   // end; boss.js announces it and holds fire for the swing.
   rearView(dur = 3.0) { rearDur = dur; rearT = dur; },
   get rearActive() { return rearT > 0; },
+
+  // Boss-driven cinematic overtake framing (ASHTALON flythrough). Pass a state
+  // object each frame, or null to release back to the normal chase.
+  setOvertake(state) { overtake = state; },
+  get overtakeActive() { return overtake != null; },
 
   // Engaged by finishDeath(); reset free via init() on restart. The
   // revive-accept path never calls finishDeath, so a saved run never dollies.
@@ -170,6 +182,27 @@ export const cameraCtl = {
         camera.fov = damp(camera.fov, fovTarget, 2.5, dt);
         camera.updateProjectionMatrix();
       }
+      return;
+    }
+    // Cinematic overtake framing (ASHTALON flythrough): look BACK and TRACK the
+    // hunter as it climbs up behind and sweeps past (the look pivots as it crosses
+    // you), then blend home to the normal chase as it pulls ahead. Deterministic,
+    // camera-only. rearEnv 1→0 across the pivot moves the camera from an ahead/high
+    // "look-back" pose to the normal chase pose.
+    if (overtake) {
+      const pivot = 0.55;
+      const rearEnv = overtake.k < pivot ? 1 : Math.max(0, 1 - (overtake.k - pivot) / (1 - pivot));
+      const nx = player.position.x * 0.9, ny = player.position.y + 3.6, nz = player.position.z + 12.3;
+      const rx = player.position.x * 0.9, ry = player.position.y + 4.4, rz = player.position.z - 9;
+      camera.position.set(nx + (rx - nx) * rearEnv, ny + (ry - ny) * rearEnv, nz + (rz - nz) * rearEnv);
+      smoothPos.copy(camera.position);
+      // Look target eases from the boss (tracked while it's the subject) to the
+      // normal forward look as we return to the chase.
+      const fx = player.position.x, fy = player.position.y + 1.0, fz = player.position.z - 16;
+      lookTarget.set(fx + (overtake.bx - fx) * rearEnv, fy + (overtake.by - fy) * rearEnv, fz + (overtake.bz - fz) * rearEnv);
+      camera.lookAt(lookTarget);
+      const fovT = 80;
+      if (Math.abs(camera.fov - fovT) > 0.1) { camera.fov = damp(camera.fov, fovT, 4, dt); camera.updateProjectionMatrix(); }
       return;
     }
     const speedNorm = Math.min(Math.max((player.speed - 35) / 55, 0), 1);
