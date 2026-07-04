@@ -357,9 +357,10 @@ export const BOSSES = {
     // one eye passed between them (the charge tell). Distinct from every prior
     // slot: not a mask (1), a ring-eye (2), a raptor (3), or a bone dragon (4).
     archetype: 'eitherwing',
-    accent: 0x7a1c18,         // OXBLOOD — a WARM dark red (identity in the emissive rims); pushed off
-                              // pure blood-red so its hue clears danger-magenta (0xff2b6a≈342°) by ~20°
-                              // — the §5d/gate OXBLOOD-MAGENTA collision the sheet flags (bulletcontrast).
+    accent: 0x86200f,         // OXBLOOD — a WARM dark red (identity in the emissive rims); pushed WARM off
+                              // pure blood-red (rendered hue ~9°) so NO lit pixel enters danger-magenta's
+                              // reserved band (0xff2b6a≈342°, ±15° = 327–357°) on any state — the §5d/gate
+                              // OXBLOOD-MAGENTA collision law (CP1 gate directive 6: 0x7a1c18 drifted to ~355°).
     glow: 0xc9c1b4,           // AGED SILVER — the rims/shield/shards read cool desaturated metal, the
                               // second palette swatch (oxblood + aged-silver, §5d), apart from the eye's white.
     bulletColor: 0xff2b6a,    // danger stays magenta (role colour, never per-boss)
