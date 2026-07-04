@@ -575,6 +575,34 @@ export const sfx = {
       tone({ freq: f * 1.5, dur: 0.18, type: 'triangle', vol: 0.07, delay: i * 0.14 });
     });
   },
+  // Time-dilation whoosh for a bullet-time beat (ASHTALON's overtake pass).
+  // entering=true → a deep DOWNWARD sweep + sub rumble (the world slowing); false →
+  // a quick upward zip back to real time.
+  timeDilate(entering = true) {
+    if (entering) {
+      tone({ freq: 660, end: 90, dur: 0.7, type: 'sawtooth', vol: 0.10 });
+      noiseWhoosh({ from: 1400, to: 160, dur: 0.7, vol: 0.09, q: 0.8 });
+      tone({ freq: 55, dur: 0.95, type: 'sine', vol: 0.06 });        // sub rumble under the dilation
+    } else {
+      tone({ freq: 120, end: 760, dur: 0.24, type: 'sawtooth', vol: 0.07 });
+      noiseWhoosh({ from: 300, to: 2200, dur: 0.22, vol: 0.06, q: 0.8 });
+    }
+  },
+  // Spell-card CAPTURE (§5f): a bright rising sparkle that resolves — the "you
+  // got it" acknowledgement when a card is cleared hitless in time. dread=true
+  // makes it fuller and a touch grander for the boss's signature card. Sits above
+  // the action chimes' register so it reads clearly over a live fight.
+  cardCapture(dread = false) {
+    const notes = dread ? [587.33, 739.99, 987.77, 1174.66] : [659.25, 830.61, 1046.5];
+    notes.forEach((f, i) => {
+      tone({ freq: f, dur: 0.22, type: 'triangle', vol: 0.10, delay: i * 0.07 });
+      tone({ freq: f * 2, dur: 0.16, type: 'sine', vol: 0.045, delay: i * 0.07 });   // shimmer octave
+    });
+    if (dread) {   // a grander resolving stamp under the sparkle
+      tone({ freq: 293.66, end: 440, dur: 0.5, type: 'sawtooth', vol: 0.07, delay: 0.16 });
+      tone({ freq: 1174.66, end: 1760, dur: 0.4, type: 'sine', vol: 0.05, delay: 0.30 });
+    }
+  },
   // Radio retune: static blip + sweep
   radio() {
     noiseWhoosh({ from: 2000, to: 600, dur: 0.12, vol: 0.1, q: 0.6 });

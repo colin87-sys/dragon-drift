@@ -170,9 +170,10 @@ export const BOSSES = {
     hpMax: 290,               // Tier 2 band (260–330); slot-3 opener sits low in it
     // Mechanical star (SOP): closing + cadence — FAST but SPARSE. Its cards are
     // pursuit curves (stream debuts here), tightening toward the dread dive.
-    // §5f rule-break: one scripted rear-view camera beat as it overtakes from
-    // behind at fight entry (announced, no fire during the swing).
-    rearViewOvertake: true,
+    // §5f rule-break: the scripted cinematic OVERTAKE entrance — rises from behind,
+    // a bullet-time close pass with the visor tracking you, pulls ahead (back to
+    // camera), then wheels 180° to face you. Announced, no fire, tap to skip.
+    cinematicEntrance: true,
     // §5e moving-station setpieces (fire while they travel, per-phase). P2 = the
     // wide CIRCLING orbit; P3 = the EMBER HUNT stooping dive from above (dread).
     setpieces: [
