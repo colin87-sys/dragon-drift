@@ -146,10 +146,10 @@ export function buildTwinWraith(def, quality = 1) {
   // dart), with a raised oxblood SPINE rib (relief, §3.4) and a dark socket boss on
   // the front face where the eye seats when held.
   // ------------------------------------------------------------------
-  // REACH PASS (r8, §5d L140): the ensemble was reading ~40% of ASHTALON's mass at fight
-  // distance → the whole silhouette scales UP. Same dart proportions, bigger dart.
-  const BODY_LEN = 4.6;                 // 2.7 → 4.6
-  const KITE_W = 1.7, KITE_H = 1.28;    // 1.05/0.82 → 1.7/1.28 (dart proportions held: ~1.6× each)
+  // PRESENCE r9 (§5d L141): perceived size sums per BODY, not per formation — each twin must
+  // pass the boss-test ALONE, so the dart grows again (~9.6 on-screen units at def.scale 1.55).
+  const BODY_LEN = 6.2;                 // 4.6 → 6.2 (r9)
+  const KITE_W = 2.3, KITE_H = 1.73;    // 1.7/1.28 → 2.3/1.73 (dart proportions held)
   function kiteGeo() {
     const oct = strip(new THREE.OctahedronGeometry(1.0, lowQ ? 1 : 3));   // detail 3 @q1 = carved facets, not a smooth shard (§5g)
     oct.scale(KITE_W / 2, KITE_H / 2, BODY_LEN / 2);   // a broad flat dart (reads as a wing/blade broadside, not a needle)
@@ -325,16 +325,17 @@ export function buildTwinWraith(def, quality = 1) {
     outline.name = seeker ? 'eitherOutlineB' : 'eitherOutlineA';
     twin.add(outline);
 
-    // Crescent head fin (mirrored on the seeker so the pair reads as mirror-twins).
+    // Crescent head fin (mirrored on the seeker so the pair reads as mirror-twins). +35%
+    // (r9) so it holds its share of the bigger dart's silhouette.
     const fin = new THREE.Mesh(crescentGeo(), silverMat);
     fin.name = 'crescentFin';
-    fin.scale.x = sx;                                  // mirror the crescent per side
-    fin.position.set(sx * 0.1, 0.5, BODY_LEN * 0.16);
+    fin.scale.set(sx * 1.35, 1.35, 1.35);              // mirror per side (sx) + 35% (r9)
+    fin.position.set(sx * 0.12, 0.7, BODY_LEN * 0.16);
     fin.rotation.z = sx * -0.15;
     twin.add(fin);
     // The fin's OUTER edge is oxblood too (part of the lit silhouette) — not silver.
     const finRim = new THREE.Mesh(finRimGeo(), rimMatT);
-    finRim.scale.x = sx; finRim.position.copy(fin.position);
+    finRim.scale.set(sx * 1.35, 1.35, 1.35); finRim.position.copy(fin.position);
     twin.add(finRim);
 
     // Eye socket on the nose (empty on the seeker → its face; glows in mourning at death).
@@ -390,7 +391,7 @@ export function buildTwinWraith(def, quality = 1) {
   // (~8.1u at lenScale 1). `lenScale` (tail A 1.0× / tail B 0.85×) keeps the two tails
   // unequal so they never read as parallel rods (CP1 gate directive 1).
   const RIBBON_SEG = lowQ ? 8 : 12;
-  function segLen(s, lenScale = 1) { return (0.95 - s * 0.05) * lenScale; }
+  function segLen(s, lenScale = 1) { return (1.25 - s * 0.05) * lenScale; }   // r9: base 0.95→1.25 → ~10u light-trails (segment count/taper unchanged)
   // Half-width of the ribbon at ring i (root wide → tip fine), so the strip reads as a
   // real tapering comet-tail, not a slab.
   function ribbonHalfW(i, segN, lenScale) { return (0.30 - (i / segN) * 0.27) * lenScale; }
@@ -414,6 +415,7 @@ export function buildTwinWraith(def, quality = 1) {
   const EYE_BASE = new THREE.Color(0xfff2ea);
   const eyeRig = new THREE.Group();
   eyeRig.name = 'eyeRig';
+  eyeRig.scale.setScalar(1.3);   // r9: eye rig +30% so it stays the proportional focal on the bigger dart (tick only writes .position, never .scale)
   const orbMat = track(new THREE.MeshBasicMaterial({ color: 0xfff2ea }));
   orbMat.toneMapped = false;
   orbMat.color.copy(EYE_BASE).multiplyScalar(EYE_HOT);
@@ -651,7 +653,9 @@ export function buildTwinWraith(def, quality = 1) {
     // where both lobes cross — so the twins never collide and the eye-thread length
     // stays > 0 at every orbit phase (§7b). It also gives the pair real depth on the
     // rail (one twin nearer the player through each crossing).
-    const ZSEP = 2.4;   // 1.6 → 2.4 (REACH): depth offset keeps the twins apart at the figure-eight node at the larger orbit
+    const ZSEP = 3.4;   // depth offset keeps the twins' inward-facing sockets apart at the figure-eight node.
+    // Must exceed the socket forward-offset (BODY_LEN*0.42 ≈ 2.6) or the noses cross and the eye-thread
+    // collapses to 0 (§7b). Grew 2.4→3.4 with the r9 body (BODY_LEN 4.6→6.2 pushed the sockets further in).
     const th = orbitPhase;
     // The figure-eight plane is TILTED ~36° so the pair separates VERTICALLY as well
     // as horizontally — they never line up behind each other at the 3/4 view AND their
