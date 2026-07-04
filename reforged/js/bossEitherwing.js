@@ -650,7 +650,7 @@ export function buildTwinWraith(def, quality = 1) {
     // r3 directive 3). During the dread card BOTH sockets light (~50% of the eye's
     // intensity) — the eye splits its light — so the "Both Halves at Once" card reads
     // in glow before any bullet exists.
-    socketMat.emissiveIntensity = 0.18 + dyingK * 2.4 + dreadSplit * 1.1;
+    socketMat.emissiveIntensity = 0.18 + dyingK * 2.4 + dreadSplit * 1.1 + (noticeT > 0.4 ? 0.5 : 0);   // socket rim ticks up on notice too (CP1 r4 dir 2)
     beadMat.opacity = 0.85 * (1 - dyingK * 0.3) + fleeK * 0.15;
     // Lift the aged-silver rims + crest so the fleeing MOURNER is a visible BODY on
     // the dark flee frame (not a charcoal ghost) — CP1 r2 directive 3. The diffuse
@@ -689,7 +689,7 @@ export function buildTwinWraith(def, quality = 1) {
     // (CP1 r2 directive 1). The glint carries the G1 focal peak, not the sclera.
     const gliding = Math.abs(holdTarget - Math.max(0, Math.min(1, holdT))) > 0.05;
     let eyeK = shieldClamp ? 0.62 : flicker * (1 + charge * 0.12);   // the sclera stays a touch lit under shield so a stranger sees WHO is protected (the glint still leashes for G6)
-    if (noticeT > 0) eyeK *= 1.12;
+    if (noticeT > 0) eyeK *= 1.4;   // the eye SNAPS bright on notice (the ignition beat — CP1 r4 directive 2)
     if (gliding) eyeK *= 0.78;
     eyeK *= Math.max(0, 1 - dyingK * 1.7);   // the shared ember GUTTERS OUT by the flee (the glow retreats into the socket ring)
     orbMat.color.copy(EYE_BASE).multiplyScalar(Math.max(0.02, eyeK) * EYE_HOT);
@@ -742,12 +742,20 @@ export function buildTwinWraith(def, quality = 1) {
       }
       // Fins mantle up on charge; furl down in death.
       const fin = w.twin.getObjectByName('crescentFin');
-      if (fin) fin.rotation.x = -0.1 - charge * 0.4 * (isHolder ? 1 : 0.5) + dyingK * 0.5;
+      // Fins mantle up on charge; SNAP OPEN ≥0.4 rad on notice (the reveal beat, CP1
+      // r4 directive 2); furl down in death.
+      if (fin) fin.rotation.x = -0.1 - charge * 0.4 * (isHolder ? 1 : 0.5) - (noticeT > 0.4 ? 0.55 : 0) + dyingK * 0.5;
     }
 
-    // --- Ember motes drift near the thread midpoint (dark, dim — §3 law 8). ---
+    // --- Ember motes drift near the thread midpoint (dark, dim — §3 law 8). They
+    // WINK OUT at the flee (dyingK≥0.7) along with the scattered thread beads, so the
+    // ONLY debris on the lone-survivor frame is the snapped bead-thread arc off the
+    // socket (CP1 r4 directive 4 — the motes read as clinging confetti otherwise).
+    const debrisGone = dyingK >= 0.7;
+    beads.visible = !debrisGone;
     const mid = _sa.clone().lerp(_sb, 0.5);
     for (const o of orbiters) {
+      o.visible = !debrisGone;
       const u = o.userData;
       u.ang += dt * u.speed;
       o.position.set(mid.x + Math.cos(u.ang) * u.radius, mid.y + Math.sin(time + u.tilt) * 0.4, mid.z + Math.sin(u.ang) * u.radius * 0.5);

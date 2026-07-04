@@ -36,8 +36,11 @@ const SEED = 1;
 // renderState dial bag at a DETERMINISTIC animation phase t (identical framing
 // every run).
 const STATES = [
-  { name: 'idle',     o: { t: 1.5 } },
-  { name: 'notice',   o: { noticeAt: 0.5, t: 1.2 } },
+  // idle/notice seeded at MAX orbital separation (orbitPhase≈π/2 at t≈2.85, rate 0.55)
+  // so the twins are spread ~1.5 body-lengths apart with the eye clear of both bodies —
+  // never the figure-eight CROSSING moment where they overlap into one blob (CP1 r4 dir 1+3).
+  { name: 'idle',     o: { t: 2.85 } },
+  { name: 'notice',   o: { noticeAt: 2.4, t: 2.85 } },
   { name: 'charge',   o: { charge: 1, t: 2.0 } },
   { name: 'shielded', o: { shield: true, t: 1.5 } },
   // dread setpiece — eitherwing's dread card is the figure-eight ("Both Halves at Once").
