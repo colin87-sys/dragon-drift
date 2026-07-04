@@ -92,8 +92,8 @@ export function buildTwinWraith(def, quality = 1) {
   // Aged-silver crescent-fin rim + socket ring (the cool second swatch). Kept dim
   // (small satellites/details stay dark, §3 law 8) so it never rivals the eye.
   const silverMat = track(new THREE.MeshStandardMaterial({
-    color: 0x2b2a28, emissive: glow, emissiveIntensity: 0.22, roughness: 0.4, metalness: 0.55, flatShading: true,
-  }));
+    color: 0x191816, emissive: glow, emissiveIntensity: 0.14, roughness: 0.55, metalness: 0.3, flatShading: true,
+  }));   // AGED (tarnished) silver — dark enough to keep the body median low (G2), the rim reads on the edge
   silverMat.side = THREE.DoubleSide;
   const ribbonMat = track(new THREE.MeshStandardMaterial({
     color: 0x140c0b, emissive: accent, emissiveIntensity: 0.12, roughness: 0.8, metalness: 0.1, flatShading: true,
@@ -109,10 +109,11 @@ export function buildTwinWraith(def, quality = 1) {
   // dart), with a raised oxblood SPINE rib (relief, §3.4) and a dark socket boss on
   // the front face where the eye seats when held.
   // ------------------------------------------------------------------
-  const BODY_LEN = 2.2;
+  const BODY_LEN = 2.7;
+  const KITE_W = 1.05, KITE_H = 0.82;   // the dart's broadside width/height — the DOMINANT mass (§3.1)
   function kiteGeo() {
-    const oct = strip(new THREE.OctahedronGeometry(0.85, lowQ ? 1 : 3));   // detail 3 @q1 = carved facets, not a smooth shard (§5g)
-    oct.scale(0.62, 0.5, BODY_LEN / (0.85 * 2));   // narrow + tall-ish, stretched long into a dart
+    const oct = strip(new THREE.OctahedronGeometry(1.0, lowQ ? 1 : 3));   // detail 3 @q1 = carved facets, not a smooth shard (§5g)
+    oct.scale(KITE_W / 2, KITE_H / 2, BODY_LEN / 2);   // a broad flat dart (reads as a wing/blade broadside, not a needle)
     return oct;
   }
   function spineRibGeo() {
@@ -282,14 +283,18 @@ export function buildTwinWraith(def, quality = 1) {
   // a beaded LineSegments THREAD strung between the twins' sockets. It DETACHES and
   // glides from holder to seeker; whoever holds it fires next. THE focal (§3.2).
   // ------------------------------------------------------------------
-  const EYE_HOT = 2.6;
+  // A SMALL, intensely-hot orb: the focal must be a tight bright POINT (peak ≥250,
+  // ≤~5% of the silhouette — the §3.2/G1 law), NOT a big bloomed disc that swallows
+  // the darts. Hotter (clips to white through ACES) but small (the bright cluster
+  // stays tiny; the two dart bodies stay the dominant mass, §3.1).
+  const EYE_HOT = 6.0;   // clips comfortably to pure white (≥250) through ACES + bloom, with margin; the small orb keeps the bright cluster tiny (§3.2/G1)
   const EYE_BASE = new THREE.Color(0xfff0e6);
   const eyeRig = new THREE.Group();
   eyeRig.name = 'eyeRig';
   const orbMat = track(new THREE.MeshBasicMaterial({ color: 0xfff0e6 }));
   orbMat.toneMapped = false;
   orbMat.color.copy(EYE_BASE).multiplyScalar(EYE_HOT);
-  const orb = new THREE.Mesh(new THREE.SphereGeometry(0.42, lowQ ? 12 : 20, lowQ ? 8 : 16), orbMat);
+  const orb = new THREE.Mesh(new THREE.SphereGeometry(0.24, lowQ ? 12 : 18, lowQ ? 8 : 14), orbMat);
   eyeRig.add(orb);
   // Oxblood IRIS ring around the orb (the eye reads as an EYE — iris, not a stray
   // bullet; the §5d LOOSE-BULLET-EYE failure class). A torus ring plus radiating
@@ -297,13 +302,13 @@ export function buildTwinWraith(def, quality = 1) {
   const irisMat = track(new THREE.MeshStandardMaterial({
     color: 0x30100c, emissive: accent, emissiveIntensity: 0.9, roughness: 0.45, metalness: 0.3, flatShading: true,
   }));
-  const irisParts = [strip(new THREE.TorusGeometry(0.5, 0.12, 8, lowQ ? 16 : 26))];
+  const irisParts = [strip(new THREE.TorusGeometry(0.32, 0.075, 8, lowQ ? 16 : 24))];
   const nPetal = lowQ ? 6 : 10;
   for (let i = 0; i < nPetal; i++) {
     const a = (i / nPetal) * Math.PI * 2;
-    const p = strip(new THREE.ConeGeometry(0.06, 0.22, 3));
-    p.rotateX(Math.PI / 2); p.translate(0, 0, -0.11);   // point inward
-    p.rotateZ(a); p.translate(Math.cos(a) * 0.5, Math.sin(a) * 0.5, 0);
+    const p = strip(new THREE.ConeGeometry(0.04, 0.15, 3));
+    p.rotateX(Math.PI / 2); p.translate(0, 0, -0.075);   // point inward
+    p.rotateZ(a); p.translate(Math.cos(a) * 0.32, Math.sin(a) * 0.32, 0);
     irisParts.push(p);
   }
   const iris = new THREE.Mesh(mergeOx(irisParts, 'iris'), irisMat);
@@ -313,9 +318,9 @@ export function buildTwinWraith(def, quality = 1) {
   // §4b charge tell) and tracks the player (gaze). Sits proud of the orb toward +z.
   const pupilMat = track(new THREE.MeshBasicMaterial({ color: 0x140406 }));
   pupilMat.toneMapped = false;
-  const pupil = new THREE.Mesh(new THREE.SphereGeometry(0.17, 10, 8), pupilMat);
+  const pupil = new THREE.Mesh(new THREE.SphereGeometry(0.1, 10, 8), pupilMat);
   pupil.name = 'eyePupil';
-  pupil.position.z = 0.34;
+  pupil.position.z = 0.2;
   eyeRig.add(pupil);
   rig.add(eyeRig);
 
@@ -413,12 +418,21 @@ export function buildTwinWraith(def, quality = 1) {
   kit.onShieldChange((v) => { shieldClamp = v; });
 
   function socketWorldLocal(twin, out) {
-    // The socket sits at local +z on the twin; return its position in RIG space
-    // (the twins are direct children of rig, so twin.position + rotated offset).
-    out.set(0, 0.02, BODY_LEN * 0.42).applyEuler(twin.rotation).add(twin.position);
+    // The socket sits on the dart's NOSE (local +z); return its position in RIG
+    // space (the twins are direct children of rig — quaternion-oriented now).
+    out.set(0, 0, BODY_LEN * 0.42).applyQuaternion(twin.quaternion).add(twin.position);
     return out;
   }
   const _sa = new THREE.Vector3(), _sb = new THREE.Vector3(), _eye = new THREE.Vector3();
+  const _dir = new THREE.Vector3(), _zAxis = new THREE.Vector3(0, 0, 1), _roll = new THREE.Quaternion();
+  function orientDart(twin, pos, cx, cy, time, phase, faceCam) {
+    if (faceCam) _dir.set(0, 0, 1);                                   // notice: nose → the player (camera)
+    else _dir.set(cx - pos[0], cy - pos[1], -pos[2]).normalize();     // else nose → the shared ember (centre)
+    if (_dir.lengthSq() < 1e-6) _dir.set(0, 0, 1);
+    twin.quaternion.setFromUnitVectors(_zAxis, _dir);                 // point the long axis at the target
+    _roll.setFromAxisAngle(_dir, Math.sin(time * 1.1 + phase) * 0.12);// a slow living roll about the facing axis
+    twin.quaternion.premultiply(_roll);
+  }
 
   function tickBody(dt, time) {
     if (t0 == null) t0 = time;
@@ -438,7 +452,7 @@ export function buildTwinWraith(def, quality = 1) {
     // where both lobes cross — so the twins never collide and the eye-thread length
     // stays > 0 at every orbit phase (§7b). It also gives the pair real depth on the
     // rail (one twin nearer the player through each crossing).
-    const ZSEP = 1.0;
+    const ZSEP = 1.6;   // depth offset — keeps the twins (and their inward-facing noses) apart at the figure-eight node
     const th = orbitPhase;
     const ax = Math.sin(th) * ORBIT_R * spread, ay = Math.sin(th * 2) * ORBIT_R * 0.5 * spread;
     const bx = Math.sin(th + Math.PI) * ORBIT_R * spread, by = Math.sin((th + Math.PI) * 2) * ORBIT_R * 0.5 * spread;
@@ -459,11 +473,14 @@ export function buildTwinWraith(def, quality = 1) {
     twinA.twin.position.set(posA[0], posA[1], posA[2]);
     twinB.twin.position.set(posB[0], posB[1], posB[2]);
 
-    // Twins bank into their travel + face the player (a subtle yaw toward centre).
-    const bank = (x) => Math.max(-0.5, Math.min(0.5, -x * 0.12));
-    twinA.twin.rotation.set(0.06, bank(ax) + gazeX * 0.05, Math.sin(time * 1.3) * 0.05);
-    twinB.twin.rotation.set(0.06, bank(bx) + gazeX * 0.05, Math.sin(time * 1.3 + Math.PI) * 0.05);
-    if (noticeT > 0.4) { twinA.twin.rotation.y = 0; twinB.twin.rotation.y = 0; }   // snap to face you
+    // Orient each dart to FACE THE SHARED EMBER (nose → centre): the two darts read
+    // broadside (their length across the frame, the dominant mass) with the ember
+    // framed between their inward noses, and their ribbon tails trail OUTWARD — the
+    // "two mirrored dart-wraiths orbiting a shared ember" one-liner, from every orbit
+    // phase. On NOTICE they snap to face the PLAYER instead (nose → camera, +z).
+    const faceCam = noticeT > 0.4;
+    orientDart(twinA.twin, posA, cx, cy, time, 0, faceCam);
+    orientDart(twinB.twin, posB, cx, cy, time, Math.PI, faceCam);
 
     // --- The eye handoff (the charge tell). A handoff crosses on its own baton
     // beat; charging PINS the eye to the firing twin (whoever is about to shoot). --
@@ -537,7 +554,7 @@ export function buildTwinWraith(def, quality = 1) {
     // rides the orb front. Death dilates it (§4b: dilation = death).
     const pupilBase = 1 - charge * 0.5 - (noticeT > 0.4 ? 0.3 : 0) + dyingK * 0.6;
     pupil.scale.setScalar(Math.max(0.25, pupilBase) * (1 - tuck * 0.6));
-    pupil.position.set(gazeX * 0.14, gazeY * 0.12, 0.34 - tuck * 0.3);
+    pupil.position.set(gazeX * 0.09, gazeY * 0.08, 0.2 - tuck * 0.18);
 
     // --- The twins' fins/ribbons pose by charge (EXPRESSION, §4b): open-glide idle,
     // mantle on charge (fins rake up + ribbons flare), furl in death. Plus the flinch

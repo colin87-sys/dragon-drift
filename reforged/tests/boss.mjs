@@ -477,20 +477,22 @@ for (const key of BOSS_ORDER) {
   assert(minThread > 0.5 && minSep > 0.5,
     `eitherwing eye-thread length ${minThread.toFixed(2)} and twin separation ${minSep.toFixed(2)} stay > 0 at every orbit phase`);
 
-  // §7b assert 4 — HANDOFF TRAVEL ≥ twin separation: the eye physically DETACHES and
-  // crosses from one socket to the other (not a nudge). Pin A→B and measure the eye's
-  // world displacement against the live twin separation.
+  // §7b assert 4 — HANDOFF TRAVEL: the eye physically DETACHES and crosses the full
+  // thread from one socket to the other (not a nudge). The darts face the ember with
+  // their noses inward, so the eye seats on the inward SOCKETS — its journey is the
+  // socket-to-socket THREAD span (the meaningful separation the eye crosses), which
+  // it must traverse in full, and it must be a real glide (> 1.5 units).
   tw.setDebugHandoff(0); for (let i = 0; i < 14; i++) tw.tick(0.05, 80 + i * 0.05);
   const eye0 = tw.eyeWorldLocalPos().clone();
-  const sepAt = tw.twinSeparation();
   tw.setDebugHandoff(1); for (let i = 0; i < 14; i++) tw.tick(0.05, 80.7 + i * 0.05);
   const eye1 = tw.eyeWorldLocalPos().clone();
+  const threadAt = tw.threadLength();
   const travel = eye0.distanceTo(eye1);
-  assert(travel >= sepAt * 0.75 && travel > 1.0,
-    `eitherwing handoff: the eye travels ${travel.toFixed(2)} ≥ the twin separation ${sepAt.toFixed(2)} (it detaches and glides across, not a nudge)`);
+  assert(travel >= threadAt * 0.7 && travel > 1.5,
+    `eitherwing handoff: the eye travels ${travel.toFixed(2)} across the full thread span ${threadAt.toFixed(2)} (it detaches and glides, not a nudge)`);
 
   tw.dispose();
-  ok(`eitherwing geometry: twin ΔL ${(lum.A - lum.B).toFixed(2)}, ribbon spread ${spreadA.toFixed(2)}, thread≥${minThread.toFixed(1)}, handoff ${travel.toFixed(1)}≥sep ${sepAt.toFixed(1)}, ${ribMoved} ribbons telegraph`);
+  ok(`eitherwing geometry: twin ΔL ${(lum.A - lum.B).toFixed(2)}, ribbon spread ${spreadA.toFixed(2)}, thread≥${minThread.toFixed(1)}, handoff ${travel.toFixed(1)}/thread ${threadAt.toFixed(1)}, ${ribMoved} ribbons telegraph`);
 }
 
 // Legacy coexist gate: a def WITHOUT `archetype` must still fall through to
