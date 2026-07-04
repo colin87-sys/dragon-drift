@@ -39,7 +39,7 @@ const FRAMES = [
   { name: 'skullidle-prof',  o: { t: 1.0, yaw: 65, pitch: 0.02, focus: 'skullGroup', distMul: 0.3 } },
   // the charge roar rears the skull ~9° up — the camera rises to meet the face
   // so D12's acceptance (front elevation, BOTH eyes visible) holds at close range
-  { name: 'skullcharge',     o: { t: 1.0, charge: 1, yaw: 0, pitch: 0.28, focus: 'skullGroup', distMul: 0.4 } },
+  { name: 'skullcharge',     o: { t: 1.0, charge: 1, yaw: 0, pitch: 0.2, focus: 'skullGroup', distMul: 0.55 } },
   { name: 'skullcharge-prof',o: { t: 1.0, charge: 1, yaw: 50, pitch: 0.02, focus: 'skullGroup', distMul: 0.3 } },
   { name: 'scar',            o: { t: 1.0, yaw: 0, pitch: -0.05, focus: 'marrowScar', distMul: 0.2 } },
   { name: 'ribroot',         o: { t: 1.0, yaw: 0, pitch: 0.1, focus: 'ribPivotL2', distMul: 0.26 } },

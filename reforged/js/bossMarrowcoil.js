@@ -168,6 +168,41 @@ export function buildBoneCoil(def, quality = 1) {
   })();
   skull.add(new THREE.Mesh(skullDarkGeo, darkMat));
 
+  // r14 gate #3: kill PLASTIC BONE on the skull front. The recess tint is baked
+  // as a SHELL of the cranium's OWN triangles — every face whose normal has
+  // y < −0.2 or |x| > 0.7 (the under-brow shelf, under-cheek faces and snout
+  // side walls, exactly as directed) is copied, pushed 0.012 out along its
+  // normal, and painted 0xb8b2a2 unlit so an eyedropper reads the authored
+  // value. Hugs the skull perfectly — no jutting overlay plates. Plus the
+  // 0x14121c seam ring where the cranium box meets the snout box. One draw.
+  {
+    const src = craniumGeo.attributes.position;
+    const A = new THREE.Vector3(), B = new THREE.Vector3(), C = new THREE.Vector3();
+    const ab = new THREE.Vector3(), ac = new THREE.Vector3(), n = new THREE.Vector3();
+    const verts = [], cols = [];
+    const RECESS = new THREE.Color(0xb8b2a2);
+    for (let f = 0; f < src.count; f += 3) {
+      A.fromBufferAttribute(src, f); B.fromBufferAttribute(src, f + 1); C.fromBufferAttribute(src, f + 2);
+      n.crossVectors(ab.subVectors(B, A), ac.subVectors(C, A)).normalize();
+      if (!(n.y < -0.2 || Math.abs(n.x) > 0.7)) continue;
+      if ((A.y + B.y + C.y) / 3 < -0.45) continue;   // leave the jawline/mouth darks alone
+      for (const P of [A, B, C]) {
+        verts.push(P.x + n.x * 0.012, P.y + n.y * 0.012, P.z + n.z * 0.012);
+        cols.push(RECESS.r, RECESS.g, RECESS.b);
+      }
+    }
+    const shell = new THREE.BufferGeometry();
+    shell.setAttribute('position', new THREE.BufferAttribute(new Float32Array(verts), 3));
+    const seam = strip(new THREE.BoxGeometry(0.98, 0.76, 0.05)); seam.translate(0, -0.16, 0.04);   // cranium↔snout seam line
+    seam.deleteAttribute('normal'); seam.deleteAttribute('uv');   // match the bare shell for the merge
+    const SEAM_C = new THREE.Color(0x14121c);
+    for (let i = 0; i < seam.attributes.position.count; i++) cols.push(SEAM_C.r, SEAM_C.g, SEAM_C.b);
+    const merged = mergeBone([shell, seam], 'skullRecess');
+    merged.setAttribute('color', new THREE.BufferAttribute(new Float32Array(cols), 3));
+    const recessMat = track(new THREE.MeshBasicMaterial({ vertexColors: true }));
+    skull.add(new THREE.Mesh(merged, recessMat));
+  }
+
   // Hinged JAW (telegraph pivot). A tapered under-jaw slab; the mouth is a dark
   // recessed slot (NOT a front grid of teeth), with a few subtle fang tips only.
   const jawPivot = new THREE.Object3D();
@@ -230,6 +265,7 @@ export function buildBoneCoil(def, quality = 1) {
   // dark sockets (diameter ≤0.25× socket width). A small saturated halo reads the
   // hollow-set glow. In one `eyes` group so setGaze slides them + the skull carries.
   const EYE_BASE = new THREE.Color(accent);
+  const DEATH_EYE = new THREE.Color(0x1a2026);   // r14 gate #4: the dead-socket tone
   const EYE_HOT = 1.6;   // D1: the lure is the ONE focal; the eyes are the bright second tier (≤ half)
   const eyeMat = track(new THREE.MeshBasicMaterial({ color: accent })); eyeMat.toneMapped = false;
   eyeMat.color.copy(EYE_BASE).multiplyScalar(EYE_HOT);
@@ -261,34 +297,57 @@ export function buildBoneCoil(def, quality = 1) {
   const lureHaloMat = track(new THREE.MeshBasicMaterial({ color: accent, transparent: true, opacity: 0.6, blending: THREE.AdditiveBlending, depthWrite: false }));
   lureHaloMat.toneMapped = false; lureHaloMat.color.copy(LURE_BASE).multiplyScalar(1.5);
   const lure = new THREE.Group();
-  lure.position.set(0, 1.3, 0.1);     // D1: 0.4u above the cranium mid — crowned, not a floating waypoint pin   // hung BETWEEN the horns (~0.7 above the cranium roof), not a stalk off the crown (gate r9 #5)
+  // r14 gate #1: dropped 0.25u and pulled FORWARD so ≥30% of the teardrop
+  // overlaps the cranium silhouette from yaw 0 — hung IN FRONT of bone, not sky.
+  const LURE_BASE_POS = new THREE.Vector3(0, 1.05, 0.55);
+  lure.position.copy(LURE_BASE_POS);
   skull.add(lure);
-  // D1/D9: the STRAND — a visible V-sag from each horn tip to the lure
-  // (3 LineSegments per side, 0x8fd0ff). Its geometry is REWRITTEN each tick:
-  // the sag flattens as charge ramps — the borrowed light visibly feeding the
-  // attack (emitter-organ law §5f.7).
-  const strandMat = track(new THREE.LineBasicMaterial({ color: 0x8fd0ff, transparent: true, opacity: 0.95 }));
+  // D1/D9 + r14 gate #1: the STRAND — a 0.05u-wide flat RIBBON pair (LineSegments
+  // are sub-pixel-dishonest at fight scale) from each horn tip to the lure, its
+  // V-sag rewritten each tick: the sag flattens as charge ramps — the borrowed
+  // light visibly feeding the attack (emitter-organ law §5f.7).
+  const strandMat = track(new THREE.MeshBasicMaterial({ color: 0x8fd0ff, transparent: true, opacity: 0.95, side: THREE.DoubleSide }));
   strandMat.toneMapped = false;
   strandMat.color.multiplyScalar(1.2);
+  // Cross-ribbon: at each point the strand carries TWO 0.06u bands (one spanning
+  // x, one spanning y) so it never collapses edge-on from any review camera.
+  const STRAND_PTS = 7, STRAND_W = 0.06;
   const strandGeo = new THREE.BufferGeometry();
-  strandGeo.setAttribute('position', new THREE.BufferAttribute(new Float32Array(12 * 3), 3));
-  const strand = new THREE.LineSegments(strandGeo, strandMat);
+  strandGeo.setAttribute('position', new THREE.BufferAttribute(new Float32Array(2 * STRAND_PTS * 4 * 3), 3));
+  {
+    const idx = [];
+    for (const side of [0, 1]) {
+      const base = side * STRAND_PTS * 4;
+      for (let i = 0; i < STRAND_PTS - 1; i++) {
+        const p = base + i * 4, q = p + 4;
+        idx.push(p, p + 1, q, p + 1, q + 1, q);           // x-band quad
+        idx.push(p + 2, p + 3, q + 2, p + 3, q + 3, q + 2); // y-band quad
+      }
+    }
+    strandGeo.setIndex(idx);
+  }
+  const strand = new THREE.Mesh(strandGeo, strandMat);
   strand.frustumCulled = false;
   lure.add(strand);
   const HORN_TIP = new THREE.Vector3(1.5, 2.2, -2.9);   // horn tip in skull space (see hornCurve)
   function updateStrand(chargeK) {
     const pos = strandGeo.attributes.position.array;
+    const h = STRAND_W / 2;
     let w = 0;
     for (const sx of [-1, 1]) {
-      // 3 chained segments horn-tip → lure with a mid sag that flattens on charge.
+      // catenary-ish run horn-tip → lure; the mid sag flattens on charge.
       const tip = new THREE.Vector3(sx * HORN_TIP.x - lure.position.x, HORN_TIP.y - lure.position.y, HORN_TIP.z - lure.position.z);
       const sag = 0.45 * (1 - chargeK * 0.8);
-      const p1 = tip.clone().multiplyScalar(0.66); p1.y -= sag * 0.7;
-      const p2 = tip.clone().multiplyScalar(0.33); p2.y -= sag;
-      const chain = [tip, p1, p2, new THREE.Vector3(0, 0, 0)];
-      for (let i = 0; i < 3; i++) {
-        pos[w++] = chain[i].x; pos[w++] = chain[i].y; pos[w++] = chain[i].z;
-        pos[w++] = chain[i + 1].x; pos[w++] = chain[i + 1].y; pos[w++] = chain[i + 1].z;
+      for (let i = 0; i < STRAND_PTS; i++) {
+        const u = 1 - i / (STRAND_PTS - 1);        // 1 = horn tip, 0 = lure
+        // the run BOWS FORWARD (+z) so its middle clears the cranium dome and
+        // reads against sky from the rail's yaw-0 view (r14 gate #1)
+        const x = tip.x * u, z = tip.z * u + 0.55 * Math.sin(Math.PI * u);
+        const y = tip.y * u - sag * Math.sin(Math.PI * u) * 0.8;
+        pos[w++] = x - h; pos[w++] = y; pos[w++] = z;
+        pos[w++] = x + h; pos[w++] = y; pos[w++] = z;
+        pos[w++] = x; pos[w++] = y - h; pos[w++] = z;
+        pos[w++] = x; pos[w++] = y + h; pos[w++] = z;
       }
     }
     strandGeo.attributes.position.needsUpdate = true;
@@ -332,8 +391,8 @@ export function buildBoneCoil(def, quality = 1) {
     new THREE.Vector3(-1.9, 3.6, 0.5),    // ...then sweeps LEFT (the S — gentle bend radius: big bones must track it)
     new THREE.Vector3(-1.3, 2.4, 0.8),    // ENTERS the cage from above-LEFT, front
     new THREE.Vector3(0.0, 1.55, -1.6),   // threads the middle, running back
-    new THREE.Vector3(3.5, 0.1, -3.9),    // EXITS below-RIGHT, pulled clear of the (smaller) cage
-    new THREE.Vector3(12.0, -5.8, -1.4),  // tail sweeps right-down-OUT at cage-front depth, WIDE — the kite separates from the arc mass and clears the silhouette by >=1.5
+    new THREE.Vector3(3.9, -0.2, -3.9),   // EXITS below-RIGHT, pulled clear of the (smaller) cage
+    new THREE.Vector3(12.8, -6.6, -1.4),  // r14 gate #6: +0.8 right/down — the kite blade tip clears the outermost rib arc by ≥1 blade-length of sky
   ];
   const ctrlAmp = [0, 2.5, 2.7, 0.7, 0.4, 1.1, 1.3];   // D5: the sine visibly travels (idle vs coilsweep ≥6% silhouette shift)   // outer coils sweep >=1.5 peak (idle vs coilsweep are different poses); cage section stays noded   // tail amp small: its sweep never re-enters the aperture's projected circle
   const spineCurve = new THREE.CatmullRomCurve3(ctrlBase.map((p) => p.clone()));
@@ -583,14 +642,30 @@ export function buildBoneCoil(def, quality = 1) {
     seam.position.set(breakPos.x, breakPos.y, 0.06);
     seam.name = 'marrowScar';   // capture-tool focus target
     scarPivot.add(seam);
-    // The floating ORPHAN FRAGMENT below the break (kept from r13, re-anchored).
+    // The floating ORPHAN FRAGMENT (r14 gate #5): a 0.6u rib-tone arc chunk that
+    // visibly BELONGS to the snapped rib — it starts just past the break, drifts
+    // ≤0.5u below the break face, and carries the dark tone ONLY at its broken
+    // end (where it tore off), so it reads as the fallen piece, not a glitch chip.
     const fragPts = [];
+    const FRAG_SPAN = 0.6 / R;                       // 0.6u of arc
     for (let i = 0; i <= 4; i++) {
-      const th = ROOT_TH - ribArc * (0.55 + (i / 4) * 0.22);
-      fragPts.push(new THREE.Vector3(-Math.cos(th) * R - root.x, Math.sin(th) * R - root.y - 0.22, 0));
+      const th = breakTh - 0.03 - (i / 4) * FRAG_SPAN;
+      fragPts.push(new THREE.Vector3(-Math.cos(th) * R - root.x, Math.sin(th) * R - root.y - 0.35, 0));
     }
-    const frag = new THREE.TubeGeometry(new THREE.CatmullRomCurve3(fragPts), 6, 0.14, ribRadialSeg, false);
-    scarPivot.add(new THREE.Mesh(bakeRib(strip(frag), fragPts[0]), ribVertMat));
+    const frag = strip(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(fragPts), 6, 0.15, ribRadialSeg, false));
+    {
+      const pos = frag.attributes.position;
+      const cols = new Float32Array(pos.count * 3);
+      const TONE = new THREE.Color(0xc4beac), A = new THREE.Vector3(), B = new THREE.Vector3(), C = new THREE.Vector3();
+      for (let f = 0; f < pos.count; f += 3) {
+        A.fromBufferAttribute(pos, f); B.fromBufferAttribute(pos, f + 1); C.fromBufferAttribute(pos, f + 2);
+        const d = Math.hypot((A.x + B.x + C.x) / 3 - fragPts[0].x, (A.y + B.y + C.y) / 3 - fragPts[0].y);
+        const c = d < 0.14 ? RIB_JOINT : TONE;       // dark ONLY at the broken end
+        for (let k3 = 0; k3 < 3; k3++) { cols[(f + k3) * 3] = c.r; cols[(f + k3) * 3 + 1] = c.g; cols[(f + k3) * 3 + 2] = c.b; }
+      }
+      frag.setAttribute('color', new THREE.BufferAttribute(cols, 3));
+    }
+    scarPivot.add(new THREE.Mesh(frag, ribVertMat));
   }
   // (the aperture rim torus was cut — gate r11 #7: a perfect hoop read as gym
   // equipment; the near-closed arch tips + corridor recession carry the read.)
@@ -770,7 +845,7 @@ export function buildBoneCoil(def, quality = 1) {
     if (noticeT > 0) noticeT -= dt;
     if (shieldOpenT > 0) shieldOpenT -= dt;
 
-    skull.rotation.y = gazeX * 0.16 + charge * 0.12;   // roar yaw kept subtle — D12: charge stays a front elevation, both eyes visible
+    skull.rotation.y = gazeX * 0.16 + charge * 0.06;   // roar yaw kept subtle — D12/r14 #2: charge stays a front elevation; both eyes AND both taut strands read
     skull.rotation.x = -gazeY * 0.1 - charge * 0.15;   // the head REARS BACK as the jaw drops (the roar) — the dark mouth wedge faces the rail (gate r6 #6)
     eyes.rotation.copy(skull.rotation);
     eyes.position.set(skull.position.x, skull.position.y, skull.position.z);
@@ -805,7 +880,12 @@ export function buildBoneCoil(def, quality = 1) {
     if (noticeT > 0) { eyeK *= 1.35; lureK *= 1.35; }
     eyeK *= 1 - dyingK * 0.95; lureK *= 1 - Math.min(1, dyingK * 2.5);   // D8: the lure gutters out FIRST
     eyeMat.color.copy(EYE_BASE).multiplyScalar(Math.max(0.05, eyeK) * EYE_HOT);
-    eyeHaloMat.opacity = Math.max(0.03, 0.5 * eyeK);
+    // r14 gate #4: dark sockets in death — past dyingK 0.4 the emissive clamps to
+    // 0 and the residual disk lerps into socket shadow (0x1a2026), no lit orbs.
+    const eyeDead = Math.max(0, Math.min(1, (dyingK - 0.25) / 0.15));
+    if (eyeDead > 0) eyeMat.color.lerp(DEATH_EYE, eyeDead);
+    if (dyingK >= 0.4) eyeMat.color.copy(DEATH_EYE);
+    eyeHaloMat.opacity = Math.max(0.03, 0.5 * eyeK) * (1 - eyeDead);
     lureMat.color.setHex(0xd8ecff).multiplyScalar(Math.max(0.1, lureK) * LURE_HOT);
     lureHaloMat.opacity = Math.max(0.05, 0.6 * lureK * (1 - dyingK * 0.9));
     strandMat.opacity = 0.6 * (1 - dyingK);
@@ -816,6 +896,7 @@ export function buildBoneCoil(def, quality = 1) {
     }
     lureBead.position.y = Math.sin(time * 1.4) * 0.06 + charge * 0.1;
     lure.position.x = Math.sin(time * COIL_OMEGA) * 0.12;   // D1: visibly TETHERED — swings with the coil phase
+    lure.position.z = LURE_BASE_POS.z + charge * 0.75;   // r14 gate #2: the charge battery pitches AHEAD of the brow so the full teardrop + taut strands are on camera
     updateStrand(charge);
     lure.scale.setScalar((1 + charge * 0.18) * (1 - dyingK * 0.6));
 
