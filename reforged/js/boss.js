@@ -110,6 +110,7 @@ let riderTimer = 0;
 let cineT = 0;
 let cineYaw = null;            // null = normal facing; else a scripted world-yaw for the turn-around
 let cineSide = 1;
+let cineAnchorX = 0, cineAnchorY = 8;   // the dragon's x/y at flythrough start (pass beside it, both in frame)
 let cineSkip = false;         // a tap during the flythrough fast-forwards to the turn-around
 let cineSlow = false;         // bullet-time currently engaged by the flythrough (owns game.slowMoTimer)
 let dyingT = 0;
@@ -741,6 +742,8 @@ function enterFight() {
   phase = 'fight';
   cineYaw = null;                     // hand facing back to placeGroup (face the player)
   cameraCtl.setOvertake?.(null);      // release the cinematic camera if it was active
+  model.setEyeLock?.(false);          // hand the pupil back to the idle gaze
+  ui.cinematicHold?.(false);          // restore the gameplay HUD
   attackTimer = rand(0.9, 1.3);
   model.setHealthBarVisible(true);
   model.setHealth(0);
@@ -782,10 +785,14 @@ function updateFlythrough(dt, player, time) {
   // Keyframed player-relative path: behind-below → close pass (crosses your depth,
   // LARGE and close) → ahead → station. y stays a few units above a typical dragon
   // height so the pass sweeps OVER your shoulder without clipping.
+  // Path ANCHORED beside the dragon (cineAnchorX/Y, snapshotted at start) so the
+  // pass is always a close encounter with the dragon and the camera can hold BOTH
+  // in frame — then it eases to station centre (0, fightHeight) for the fight.
+  const AX = cineAnchorX, AY = cineAnchorY;
   let x, y, rel;
-  if (u < U1) { const t = seg(0, U1); x = L(S * 3, S * 5, t); y = L(4, 10, t); rel = L(-15, -3, t); }
-  else if (u < U2) { const t = seg(U1, U2); x = L(S * 5, S * 2.5, t); y = L(10, B.fightHeight + 1, t); rel = L(-3, 3, t); }
-  else if (u < U3) { const t = seg(U2, U3); x = L(S * 2.5, 0, t); y = L(B.fightHeight + 1, B.fightHeight, t); rel = L(3, B.settleGap * 0.7, t); }
+  if (u < U1) { const t = seg(0, U1); x = AX + S * L(2, 4, t); y = L(AY - 3, AY + 3, t); rel = L(-15, -3, t); }
+  else if (u < U2) { const t = seg(U1, U2); x = AX + S * L(4, 3, t); y = AY + L(3, 3.5, t); rel = L(-3, 3, t); }
+  else if (u < U3) { const t = seg(U2, U3); x = L(AX + S * 3, 0, t); y = L(AY + 3.5, B.fightHeight, t); rel = L(3, B.settleGap * 0.7, t); }
   else { const t = seg(U3, 1); x = 0; y = B.fightHeight; rel = L(B.settleGap * 0.7, B.settleGap, t); }
   pose.x = x; pose.y = y; pose.rel = rel;
 
@@ -913,7 +920,11 @@ export function updateBoss(dt, player, time) {
         phase = 'flythrough';
         cineT = 0; cineSkip = false; cineSlow = false;
         cineSide = start.x < 0 ? -1 : 1;
+        cineAnchorX = player.position.x; cineAnchorY = player.position.y;   // pass beside the dragon
         cineYaw = Math.PI;   // faces its dive line (visor to the rear camera) until the turn
+        model.setEyeLock?.(true);         // the pupil hard-tracks the dragon through the pass
+        ui.cinematicHold?.(true);         // hide the gameplay HUD — keep the moment clean
+        ui.surgeReady?.(false);
         ui.bossNote?.('⟲  BEHIND YOU  ⟲', 'THE HUNTER OVERTAKES', 'gold', 2.0);
       } else {
         phase = 'approach';
@@ -1467,6 +1478,8 @@ export function resetBoss() {
   cineYaw = null; cineSkip = false;
   releaseCineSlow();
   cameraCtl.setOvertake?.(null);
+  model?.setEyeLock?.(false);
+  ui.cinematicHold?.(false);
   // Hard reset (game over / new run): if a fight was live and NOT already won,
   // the player died to this boss — accrue the death-to (§5h; slot 9 reads it).
   if (active && def && phase !== 'dying') recordBossLedger(def.id, { death: true });

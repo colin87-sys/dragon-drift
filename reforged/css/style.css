@@ -79,6 +79,16 @@ body.app-loaded > canvas { opacity: 1; }
 
 #hud { position: fixed; inset: 0; pointer-events: none; color: #eaf4ff; }
 
+/* Cinematic hold (ASHTALON overtake): fade out the gameplay HUD so nothing
+   competes with the entrance. Only the boss banner / reveal card stay up. */
+#hud.cine-hold .hud-top-left,
+#hud.cine-hold .hud-top-center,
+#hud.cine-hold .hud-top-right,
+#hud.cine-hold .stamina-arc,
+#hud.cine-hold .surge-min,
+#hud.cine-hold .milestone-banner,
+#hud.cine-hold .boss-note.ready { opacity: 0 !important; transition: opacity 0.3s ease; }
+
 /* ============ ORNATE BOTTOM BAR (Panzer Dragoon style) ============ */
 /* ============ HUD CORNER LAYOUT (WS6) ============ */
 .hud-top-left {

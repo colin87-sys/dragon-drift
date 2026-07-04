@@ -959,6 +959,13 @@ export const ui = {
     els.bcTimer.textContent = `${Math.max(0, Math.ceil(remain))}s`;
     els.bcTimer.dataset.low = remain <= 5 ? '1' : '0';
   },
+  // Cinematic hold (ASHTALON overtake): hide the gameplay HUD so the entrance
+  // reads as one clean moment — no score/hearts/meters/prompts competing with it.
+  // The boss banner + reveal card stay. Restored when the fight opens.
+  cinematicHold(on) {
+    const hud = els.hud || (typeof document !== 'undefined' && document.getElementById('hud'));
+    if (hud) hud.classList.toggle('cine-hold', !!on);
+  },
   // Capture DEADLINE passed (timer hit 0 before the phase was cleared): mark the
   // timer so the player reads why the card will resolve SURVIVED, not CAPTURE —
   // without blocking the fight (progress is never walled).
