@@ -376,6 +376,18 @@ export function buildTwinWraith(def, quality = 1) {
   eyeRig.add(glint);
   rig.add(eyeRig);
 
+  // SPLIT CORE — a second HDR eye-core that ignites INSIDE the SEEKER's empty socket
+  // during the dread card only ("EITHER/OR — Both Halves at Once": the eye SPLITS its
+  // light to BOTH sockets, §5f). White-hot, toneMapped=false — the eye idiom — sized
+  // ~75% of the main core; seated at the seeker socket each tick (CP1 r5 directive 1).
+  const splitMat = track(new THREE.MeshBasicMaterial({ color: 0xfff1e0 }));
+  splitMat.toneMapped = false;
+  const splitCore = new THREE.Mesh(new THREE.SphereGeometry(0.16, 10, 8), splitMat);
+  splitCore.name = 'eyeSplitCore';
+  splitCore.visible = false;
+  splitCore.renderOrder = 7;
+  rig.add(splitCore);
+
   // The BEADED THREAD — a LineSegments strand strung between the two sockets, with
   // beads, that the eye rides (overdraw-exempt, §2). Rebuilt each frame from the
   // live socket world positions so it always connects the drifting twins.
@@ -576,7 +588,7 @@ export function buildTwinWraith(def, quality = 1) {
       // state. NOT both-in-bubble (that killed the read).
       const holderIsA = holdT < 0.5;
       const inb = [0, 0.15, 0.5];                        // holder → centre, under the bubble
-      const out = [Math.sin(time * 0.5) * 0.6 + 5.4, 0.5 + Math.sin(time * 0.7) * 0.4, -1.4];   // seeker orbits OUTSIDE (|pos|≈5.6 > 4.4)
+      const out = [Math.sin(time * 0.5) * 0.4 + 4.9, 0.5 + Math.sin(time * 0.7) * 0.4, -1.2];   // seeker orbits just OUTSIDE the bubble (|pos|≈5.0 > 4.4) but IN FRAME (CP1 r5 directive 3)
       if (holderIsA) { posA = inb; posB = out; } else { posB = inb; posA = out; }
     }
     twinA.twin.position.set(posA[0], posA[1], posA[2]);
@@ -607,6 +619,14 @@ export function buildTwinWraith(def, quality = 1) {
     // Seat the eye on the thread between the two sockets at the hold fraction.
     socketWorldLocal(twinA.twin, _sa);
     socketWorldLocal(twinB.twin, _sb);
+    // FLEE: the thread SNAPS — its far end collapses to a short dangling arc off the
+    // survivor's own socket (not spanning to the vanished fallen half across the
+    // frame), so the §7c auto-fit frames the LONE survivor + its hollow socket at
+    // spec height instead of shrinking it to fit the far-flung span (CP1 r5 dir 2).
+    if (dyingK > 0.55) {
+      const surv = survivorIsA ? _sa : _sb, far = survivorIsA ? _sb : _sa;
+      far.set(surv.x + 0.5, surv.y - 1.3, surv.z + 0.2);   // the snapped end dangles just below the socket
+    }
     _eye.copy(_sa).lerp(_sb, Math.max(0, Math.min(1, holdT)));
     // A gentle arc up off the thread mid-glide (the eye lifts as it crosses).
     const glideLift = Math.sin(Math.max(0, Math.min(1, holdT)) * Math.PI) * (Math.abs(holdTarget - holdT) > 0.05 ? 0.5 : 0.12);
@@ -652,6 +672,21 @@ export function buildTwinWraith(def, quality = 1) {
     // in glow before any bullet exists.
     socketMat.emissiveIntensity = 0.18 + dyingK * 2.4 + dreadSplit * 1.1 + (noticeT > 0.4 ? 0.5 : 0);   // socket rim ticks up on notice too (CP1 r4 dir 2)
     beadMat.opacity = 0.85 * (1 - dyingK * 0.3) + fleeK * 0.15;
+    // DREAD "split light" (CP1 r5 directive 1): a second HDR core ignites inside the
+    // SEEKER's empty socket and the thread beads overdrive to HDR — the eye's light
+    // visibly travels the thread to BOTH sockets. The holder core dims to ~0.7× so it
+    // reads as SPLIT, not doubled. Off (invisible) outside the dread card.
+    if (dreadSplit > 0.05) {
+      const seekerSock = aHolds > 0.5 ? _sb : _sa;
+      splitCore.visible = true;
+      splitCore.position.set(seekerSock.x, seekerSock.y, seekerSock.z + 0.08);
+      splitMat.color.setRGB(1, 0.945, 0.878).multiplyScalar(2.2 + dreadSplit * 5.0);
+      splitCore.scale.setScalar(0.6 + dreadSplit * 0.4);
+      beadMat.color.copy(new THREE.Color(0xffb890)).multiplyScalar(1 + dreadSplit * 2.2);   // light travels the thread
+    } else {
+      splitCore.visible = false;
+      beadMat.color.copy(new THREE.Color(glow));
+    }
     // Lift the aged-silver rims + crest so the fleeing MOURNER is a visible BODY on
     // the dark flee frame (not a charcoal ghost) — CP1 r2 directive 3. The diffuse
     // stays charcoal; only the rim/fin emissive rises.
@@ -693,7 +728,7 @@ export function buildTwinWraith(def, quality = 1) {
     if (gliding) eyeK *= 0.78;
     eyeK *= Math.max(0, 1 - dyingK * 1.7);   // the shared ember GUTTERS OUT by the flee (the glow retreats into the socket ring)
     orbMat.color.copy(EYE_BASE).multiplyScalar(Math.max(0.02, eyeK) * EYE_HOT);
-    glintMat.color.setScalar(GLINT_HOT * Math.max(0.05, (shieldClamp ? 0.3 : 1) * (1 - dyingK)));   // the glint leashes under shield, guts in death
+    glintMat.color.setScalar(GLINT_HOT * Math.max(0.05, (shieldClamp ? 0.3 : 1) * (1 - dyingK) * (dreadSplit > 0.05 ? 0.7 : 1)));   // leashes under shield, guts in death, dims to 0.7× when the light SPLITS (dread)
     const tuck = blinkProg * 0.8 + (shieldClamp ? 0.3 : 0);
     orb.scale.setScalar(Math.max(0.1, 1 - tuck * 0.7 + (noticeT > 0.5 ? 0.2 : 0)));
     iris.scale.setScalar(1 + tuck * 0.25);

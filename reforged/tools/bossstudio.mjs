@@ -42,7 +42,7 @@ const STATES = [
   { name: 'idle',     o: { t: 2.85 } },
   { name: 'notice',   o: { noticeAt: 2.4, t: 2.85 } },
   { name: 'charge',   o: { charge: 1, t: 2.0 } },
-  { name: 'shielded', o: { shield: true, t: 1.5 } },
+  { name: 'shielded', o: { shield: true, t: 1.5, distMul: 1.25 } },   // zoom out so the OUTSIDE seeker stays in frame beside the bubble (CP1 r5 directive 3)
   // dread setpiece — eitherwing's dread card is the figure-eight ("Both Halves at Once").
   { name: 'dread',    o: { charge: 1, sp: 0.8, spmode: 'figureEight', dread: true, t: 2.4 } },
   { name: 'dissolve', o: { death: 0.32, t: 1.4 } },   // mid-dissolve: BOTH halves present (the fallen still large), the survivor circling
@@ -50,7 +50,7 @@ const STATES = [
 // EITHERWING extras: the eye-handoff (eye mid-thread) + the survivor flee pose.
 const EXTRAS = [
   { name: 'handoff', o: { handoff: 0.5, t: 2.0 } },   // setDebugHandoff(0.5): eye mid-thread between the twins
-  { name: 'flee',    o: { death: 0.72, t: 2.6 } },    // the LONE survivor circling its (now-vanished) fallen half — the mournful beat, no dissolve chip-motes, before the off-frame flight
+  { name: 'flee',    o: { death: 0.72, t: 2.6, distMul: 0.72 } },   // the LONE survivor + its hollow "eclipse socket" framed close (short snapped thread), no chip-motes
 ];
 const states = bossId === 'eitherwing' ? [...STATES, ...EXTRAS] : STATES;
 
