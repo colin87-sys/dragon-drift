@@ -245,20 +245,26 @@ const SETPIECE_PATHS = {
     if (k < 0.8) { const t = (k - 0.22) / 0.58; return { x: Math.sin(t * Math.PI * 2) * SWEEP, y: B.fightHeight + RISE, rel: HOLD_REL }; }
     const t = easeInOut((k - 0.8) / 0.2); return { x: Math.sin(Math.PI * 2) * SWEEP * (1 - t), y: B.fightHeight + RISE * (1 - t), rel: HOLD_REL + (B.settleGap - HOLD_REL) * t };
   },
-  // EITHERWING — FIGURE-EIGHT (§5b/§5e slot 5, moving-station): the pair traces a
-  // lemniscate around a drifting centre — the fight NEVER stops moving. Runs MOVING
-  // so the twins' crossfire keeps raining from wherever the eight carries them (the
-  // ±10 flank emitters ARE their fire points, §5d). Stays in FRONT (rel 20..32) and
-  // reads as choreography, not wandering (the in-game legibility gate). Eases in and
-  // back out so it laces cleanly into station-keeping between phases.
+  // EITHERWING — CLOSE-PASS FIGURE-EIGHT (§5b/§5e slot 5, moving-station; r9 PRESENCE, L141):
+  // a TRUE flyby, not a loom. The near lobe of the 3D lemniscate DIVES PAST the camera —
+  // twice over the beat, rel sweeping 26 → −6 → back (the pair genuinely overtake and
+  // re-approach; the r8 loom parked at rel ~20 and never landed). The GROUP carries the rel
+  // dive + the vertical crossover; the twins' own local orbit supplies the ±x SCISSOR so
+  // they pass on OPPOSITE flanks (never lane-center — the no-clip guard). The camera never
+  // moves (slot-3 differentiation: repeating side-by-side flanking passes, not a one-time
+  // rear-view beat). Runs MOVING so crossfire keeps raining from wherever the pass carries
+  // them. Eases in/out so it laces into station-keeping between beats.
   figureEight(k) {
     const B = CONFIG.BOSS;
-    const th = k * Math.PI * 2;
     const env = Math.sin(Math.min(1, k) * Math.PI);   // 0→1→0 amplitude (lace in/out)
+    const LAPS = 2;                                    // two full passes over the beat
+    const th = k * Math.PI * 2 * LAPS;
+    const near = (1 - Math.cos(th)) / 2;              // 0 at the far point → 1 as the near lobe crosses
+    const dive = 26 - near * 32;                       // 26 → −6: the near lobe crosses BEHIND the player
     return {
-      x: Math.sin(th) * 13 * env,                       // wide lateral sweep (leaves station, |x|→13)
-      y: B.fightHeight + Math.sin(th * 2) * 4 * env,    // the vertical crossover of the eight
-      rel: B.settleGap - 4 - Math.cos(th) * 6 * env,    // drift nearer/farther, always readable
+      x: Math.sin(th * 0.5) * 3 * env,                 // slow group drift; the ±x scissor is the twins' local orbit
+      y: B.fightHeight + Math.sin(th) * 3.5 * env,     // slightly above / below player height on each pass
+      rel: B.settleGap + (dive - B.settleGap) * env,   // station → the dive (rel<0 = past the camera) → station
     };
   },
 };
@@ -350,6 +356,7 @@ function resolveBand(biomeIdx) {
 
 // Player-relative pose: rel = metres ahead of the player.
 const pose = { x: 0, y: B.fightHeight, rel: B.settleGap };
+let prevPassRel = 99;   // tracks pose.rel across frames so a close-pass whoosh fires once per crossing
 const start = { x: 0, y: 7, rel: -12 };
 const tmp = new THREE.Vector3();
 
@@ -1032,6 +1039,10 @@ export function updateBoss(dt, player, time) {
       const k = Math.min(setpieceT / setpieceDef.dur, 1);
       const p = SETPIECE_PATHS[setpieceDef.id](k);
       pose.x = p.x; pose.y = p.y; pose.rel = p.rel;
+      // Whoosh as a close pass crosses toward the camera (EITHERWING's flyby dives past
+      // the player). Fires once per inbound crossing of rel≈8, never every frame.
+      if (pose.rel < 8 && prevPassRel >= 8) sfx.nearMiss?.();
+      prevPassRel = pose.rel;
       // Pass the setpiece def so a model can respond per-beat (ASHTALON ignores
       // the 2nd arg; MARROWCOIL reads it to tell a fly-through pass — cage OPEN —
       // from its Closing-Ribs dread — cage CONSTRICTING).
