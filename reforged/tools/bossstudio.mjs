@@ -10,11 +10,14 @@
 // composites them into ONE 2x2 contact-sheet PNG. Every frame is a pure function
 // of (seed, t, dials, angle): round K and round K+1 are pixel-comparable, so
 // design review always judges the SAME look (§7c, the bossview precedent).
+//
+// The 2x2 grid is composited IN-PAGE (studioSheetInit/studioTile draw the live
+// GL canvas into a 2D sheet), so each sheet is ONE re-sim + three cheap camera
+// reframes (studioAngle) + ONE element screenshot — no per-angle PNG decode.
 import { createRequire } from 'module';
 import { execSync } from 'child_process';
 import { writeFileSync, mkdirSync } from 'fs';
 import { serve } from '../tests/serve.mjs';
-import { decodePNG, pngRGBA } from './silhouetteCore.mjs';
 
 const require = createRequire(import.meta.url);
 const pw = (() => {
@@ -31,7 +34,7 @@ const SEED = 1;
 
 // The §7c standard states + the two eitherwing extras. Each `o` is a
 // renderState dial bag at a DETERMINISTIC animation phase t (identical framing
-// every run). Angles are added per-render below.
+// every run).
 const STATES = [
   { name: 'idle',     o: { t: 1.5 } },
   { name: 'notice',   o: { noticeAt: 0.5, t: 1.2 } },
@@ -50,36 +53,12 @@ const states = bossId === 'eitherwing' ? [...STATES, ...EXTRAS] : STATES;
 
 const BGS = ['dark', 'pale'];
 // Grid order: front TL, 3/4 TR, profile BL, top-down BR.
-const ANGLES = ['front', 'threequarter', 'profile', 'topdown'];
-const ANGLE_LABEL = { front: 'front', threequarter: '3/4', profile: 'profile', topdown: 'top-down' };
-
-// Box-average 2x downsample of an RGBA frame ({w,h,rgba} → {w/2,h/2,rgba}).
-function downsample2(src) {
-  const { w, h, rgba } = src;
-  const ow = w >> 1, oh = h >> 1;
-  const out = Buffer.alloc(ow * oh * 4);
-  for (let y = 0; y < oh; y++) for (let x = 0; x < ow; x++) {
-    const sx = x * 2, sy = y * 2;
-    for (let c = 0; c < 4; c++) {
-      const a = rgba[((sy) * w + sx) * 4 + c], b = rgba[((sy) * w + sx + 1) * 4 + c];
-      const d = rgba[((sy + 1) * w + sx) * 4 + c], e = rgba[((sy + 1) * w + sx + 1) * 4 + c];
-      out[(y * ow + x) * 4 + c] = (a + b + d + e) >> 2;
-    }
-  }
-  return { w: ow, h: oh, rgba: out };
-}
-
-// Composite four equally-sized tiles into a 2x2 sheet (TL,TR,BL,BR order).
-function contactSheet(tiles) {
-  const tw = tiles[0].w, th = tiles[0].h, SW = tw * 2, SH = th * 2;
-  const sheet = Buffer.alloc(SW * SH * 4);
-  const place = (tile, ox, oy) => {
-    for (let y = 0; y < th; y++)
-      tile.rgba.copy(sheet, ((oy + y) * SW + ox) * 4, y * tw * 4, (y + 1) * tw * 4);
-  };
-  place(tiles[0], 0, 0); place(tiles[1], tw, 0); place(tiles[2], 0, th); place(tiles[3], tw, th);
-  return pngRGBA(SW, SH, sheet);
-}
+const ANGLES = [
+  { name: 'front',        label: 'front' },
+  { name: 'threequarter', label: '3/4' },
+  { name: 'profile',      label: 'profile' },
+  { name: 'topdown',      label: 'top-down' },
+];
 
 mkdirSync('reforged-captures', { recursive: true });
 
@@ -90,22 +69,25 @@ page.on('pageerror', (e) => console.error('PAGEERR', e.message));
 await page.goto(`${srv.url}/tools/bossstudio.html?boss=${bossId}&seed=${SEED}&bg=dark`);
 await page.waitForFunction(() => window.__ready === true, { timeout: 30000 });
 
-// Hide the interactive chrome — captures are the canvas + the angle label only.
-await page.evaluate(() => { for (const id of ['hud', 'panel', 'bosses']) { const el = document.getElementById(id); if (el) el.style.display = 'none'; } });
+// Hide the interactive chrome — the sheet element is captured on its own.
+await page.evaluate(() => { for (const id of ['hud', 'panel', 'bosses', 'studiolabel']) { const el = document.getElementById(id); if (el) el.style.display = 'none'; } });
+// Pause the RAF loop so the page is static during capture (else page.screenshot
+// stalls on the compositor stability wait — ~30s/shot with a live loop).
+await page.evaluate(() => window.studioPauseLoop());
 
+const SHEET_CLIP = { x: 0, y: 0, width: 1000, height: 1000 };   // sheet = 2 cols × 500px cells
 const written = [];
 for (const st of states) {
   for (const bgName of BGS) {
-    const tiles = [];
-    for (const angle of ANGLES) {
-      await page.evaluate((o) => window.renderState(o), { boss: bossId, seed: SEED, bg: bgName, angle, ...st.o });
-      // Angle label (DOM overlay, captured in the screenshot).
-      await page.evaluate((txt) => { const l = document.getElementById('studiolabel'); l.textContent = txt; l.style.display = 'block'; }, ANGLE_LABEL[angle]);
-      const png = await page.screenshot();
-      tiles.push(downsample2(decodePNG(png)));
+    await page.evaluate(() => window.studioSheetInit(2, 2, 500));
+    for (let i = 0; i < ANGLES.length; i++) {
+      const a = ANGLES[i];
+      if (i === 0) await page.evaluate((o) => window.renderState(o), { boss: bossId, seed: SEED, bg: bgName, angle: a.name, ...st.o });
+      else await page.evaluate((name) => window.studioAngle(name), a.name);
+      await page.evaluate(([quad, label]) => window.studioTile(quad, label), [i, a.label]);
     }
     const path = `reforged-captures/${bossId}-studio-${st.name}-${bgName}-${round}.png`;
-    writeFileSync(path, contactSheet(tiles));
+    writeFileSync(path, await page.screenshot({ clip: SHEET_CLIP }));
     written.push(path);
     console.log('wrote', path);
   }

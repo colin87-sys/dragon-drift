@@ -37,6 +37,10 @@
   <canvas id="gl"></canvas>
   <div id="err"></div>
   <div id="studiolabel"></div>
+  <!-- Headless contact-sheet target: the driver composites the 4 angles into
+       this 2D canvas in-page, then screenshots ONLY this element (one shot, no
+       JS PNG decode). Hidden until the driver switches it on. -->
+  <canvas id="sheet" width="1000" height="1000" style="position:fixed;left:0;top:0;display:none;z-index:9"></canvas>
   <div id="hud"><b id="lbl">eitherwing</b> · t=<b id="tlbl">0.00</b>s · seed <b id="slbl">1</b> · bg <b id="bglbl">dark</b><br>
     the STUDIO stage — bloom/ACES pipeline, two backdrops, deterministic replay (same seed + time + dials = same pixels)</div>
   <div class="row" id="bosses"></div>
@@ -154,7 +158,12 @@
       m.setSetpiece?.(dials.sp, { id: dials.spmode });
       m.setShieldVisible?.(dials.shield);
       m.setHealth?.(dials.hp);
-      m.setDissolve?.(dials.death);
+      // setDissolve unconditionally flips EVERY material to transparent (bossKit
+      // #setDissolve), which empties bossgate's opaque silhouette mask (G1/G2/G3
+      // read 0). In-game, setDissolve fires ONLY during death, so idle bodies
+      // stay opaque — mirror that here: skip it at death 0 so the studio's opaque
+      // mask matches the shipped frame.
+      if (dials.death > 0) m.setDissolve?.(dials.death);
       if (dials.handoff != null) m.setDebugHandoff?.(dials.handoff);   // eitherwing eye-thread pin (§7c handoff frame)
       if (dials.noticeAt >= 0 && t >= dials.noticeAt && t - DT < dials.noticeAt) m.notice?.();
     }
@@ -228,12 +237,20 @@
       document.getElementById('slbl').textContent = seed;
     }
 
+    let loopOn = true;
     function frame() {
+      if (!loopOn) return;
       requestAnimationFrame(frame);
       if (playing && model) step();
       if (!freeCam) placeCamera();
       render();
     }
+    // Headless capture pauses the RAF loop: with no continuous rendering the page
+    // is STATIC, so page.screenshot doesn't stall on the compositor's stability
+    // wait (a live RAF loop made an element/page screenshot take ~30s). All
+    // renderState/studioAngle/studioTile calls render on demand, so stills still work.
+    window.studioPauseLoop = () => { loopOn = false; };
+    window.studioResumeLoop = () => { if (!loopOn) { loopOn = true; frame(); } };
 
     // ── drag + zoom ──
     let dragging = false, lx = 0, ly = 0;
@@ -313,6 +330,43 @@
         if (o) { const v = o.getWorldPosition(new THREE.Vector3()); res[nm] = [+v.x.toFixed(2), +v.y.toFixed(2), +v.z.toFixed(2)]; }
       }
       return res;
+    };
+
+    // ── headless contact-sheet compositing (bossstudio.mjs) ──
+    // studioAngle switches to a named angle WITHOUT re-simulating (camera only),
+    // so a sheet re-sims ONCE (via renderState) then reframes cheaply for the
+    // other three angles. studioTile copies the live GL canvas into a quadrant
+    // of the 2D sheet + draws the angle label. One screenshot per sheet.
+    window.studioAngle = (name, distMul = 1) => {
+      if (ANGLES[name]) { orbit.yaw = ANGLES[name][0]; orbit.pitch = ANGLES[name][1]; }
+      orbit.dist = baseDist * distMul;
+      freeCam = false;
+      placeCamera();
+      render();
+      return true;
+    };
+    const _sheet = document.getElementById('sheet');
+    window.studioSheetInit = (cols = 2, rows = 2, cell = 500) => {
+      _sheet.width = cols * cell; _sheet.height = rows * cell;
+      _sheet.style.width = (cols * cell) + 'px'; _sheet.style.height = (rows * cell) + 'px';
+      _sheet.style.display = 'block';
+      const ctx = _sheet.getContext('2d');
+      ctx.clearRect(0, 0, _sheet.width, _sheet.height);
+      _sheet.__cell = cell; _sheet.__cols = cols;
+    };
+    window.studioTile = (quad, label) => {
+      const cell = _sheet.__cell, cols = _sheet.__cols;
+      const ctx = _sheet.getContext('2d');
+      const ox = (quad % cols) * cell, oy = ((quad / cols) | 0) * cell;
+      ctx.drawImage(gl, ox, oy, cell, cell);   // preserveDrawingBuffer → the live still copies cleanly
+      if (label) {
+        ctx.font = '600 20px system-ui, sans-serif';
+        ctx.textBaseline = 'top';
+        ctx.lineWidth = 4; ctx.strokeStyle = 'rgba(0,0,0,.85)';
+        ctx.strokeText(label, ox + 10, oy + 10);
+        ctx.fillStyle = '#fff'; ctx.fillText(label, ox + 10, oy + 10);
+      }
+      return true;
     };
 
     // Integration seam for bossgate.mjs extractMask(): the studio exposes the

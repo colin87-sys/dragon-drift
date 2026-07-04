@@ -49,9 +49,15 @@ const DIST = { voidmaw: 2500, stormrend: 5200, craghold: 3800, ashtalon: 2500,
   // (a sunset biome pushed the blue↔orange overlap to false-magenta, a G3 fail).
   marrowcoil: 8000 };
 
-const bossId = process.argv[2];
+// --studio (§7c): run the SAME G1–G7 pixel gate on the ISOLATED STUDIO frames
+// (tools/bossstudio.html) instead of the contaminated in-game frame — a
+// controlled background ends the false reads (world props judged as boss parts,
+// varying tilt/pose between rounds; §7c/L138). Additive: the non-studio path is
+// byte-identical to before.
+const STUDIO = process.argv.includes('--studio');
+const bossId = process.argv.slice(2).find((a) => !a.startsWith('--'));
 if (!bossId || !BOSS_ORDER.includes(bossId)) {
-  console.error(`usage: node tools/bossgate.mjs <bossId>\n  bossId ∈ ${BOSS_ORDER.join(', ')}`);
+  console.error(`usage: node tools/bossgate.mjs <bossId> [--studio]\n  bossId ∈ ${BOSS_ORDER.join(', ')}`);
   process.exit(2);
 }
 const def = BOSSES[bossId];
@@ -188,11 +194,16 @@ function expandMask(mk, W, H) {
 }
 
 // ------------------------------------------------------------------ capture
-const { page, done } = await boot({
-  query: `?debug&bossIdx=${bossIdx}&boss=${dist}`,
-  viewport: VIEW, deviceScaleFactor: 1,
-  initScript: `localStorage.setItem('dragonDriftSave', JSON.stringify({ v: 3, stats: { runs: 5 }, flags: { seenIntro: true } }))`,
-});
+// STUDIO mode navigates the same boot() to tools/bossstudio.html (which exposes
+// the identical window.__dd = { scene, camera, renderer } seam, so extractMask()
+// + grab() below work VERBATIM); the in-game path is unchanged.
+const { page, done } = STUDIO
+  ? await boot({ query: `tools/bossstudio.html?boss=${bossId}&seed=1&bg=dark`, viewport: VIEW, deviceScaleFactor: 1 })
+  : await boot({
+      query: `?debug&bossIdx=${bossIdx}&boss=${dist}`,
+      viewport: VIEW, deviceScaleFactor: 1,
+      initScript: `localStorage.setItem('dragonDriftSave', JSON.stringify({ v: 3, stats: { runs: 5 }, flags: { seenIntro: true } }))`,
+    });
 
 page.setDefaultTimeout(150000);   // headless rAF throttle makes warn+approach slow
 
@@ -208,10 +219,10 @@ const DUMP = process.env.GATE_DUMP;   // set to a dir to dump the captured frame
 // of whose G1 clusters sits right on its ceiling) capture byte-identically.
 const CAPTURE_FREEZE = !!gate.pale;
 async function grab(tag) {
-  if (CAPTURE_FREEZE) await page.evaluate(() => { const g = window.__dd.game; if (g.state === 'playing') { g.__gateFrozen = true; g.state = 'paused'; } });
+  if (CAPTURE_FREEZE && !STUDIO) await page.evaluate(() => { const g = window.__dd.game; if (g.state === 'playing') { g.__gateFrozen = true; g.state = 'paused'; } });
   const mask = await page.evaluate(extractMask);
   const png = await page.screenshot();
-  if (CAPTURE_FREEZE) await page.evaluate(() => { const g = window.__dd.game; if (g.__gateFrozen) { g.__gateFrozen = false; g.state = 'playing'; } });
+  if (CAPTURE_FREEZE && !STUDIO) await page.evaluate(() => { const g = window.__dd.game; if (g.__gateFrozen) { g.__gateFrozen = false; g.state = 'playing'; } });
   if (DUMP && tag) { const fs = await import('node:fs'); fs.writeFileSync(`${DUMP}/gate-${bossId}-${tag}.png`, png); }
   return { mask, rgba: decodePNG(png).rgba };
 }
@@ -256,6 +267,32 @@ async function grabQuiet(nFrames = 4, gapMs = 250) {
 }
 
 try {
+  // idle / chargeShots / shield feed the SHARED G1–G7 assertions below; both the
+  // studio path and the in-game path produce them in the same shape.
+  let idle, chargeShots = [], shield = null;
+  if (STUDIO) {
+    // §7c: drive the isolated studio through window.renderState and grab via the
+    // SAME extractMask()+screenshot path (extractMask reads window.__dd, which the
+    // studio exposes). Deterministic front-on frames — no world contamination.
+    await page.waitForFunction(() => window.__ready === true, { timeout: 30000 });
+    await page.evaluate(() => window.studioPauseLoop && window.studioPauseLoop());
+    const shoot = async (o, tag) => { await page.evaluate((x) => window.renderState(x), { boss: bossId, seed: 1, angle: 'front', ...o }); return grab(tag); };
+    idle = await shoot({ t: 1.5 }, 'idle');
+    // idle glow PEAK baseline (G6) from the single deterministic idle frame.
+    const glowPeakOf = (f) => {
+      const mk = f.mask && f.mask.glow;
+      if (!mk || !mk.silCount) return 0;
+      const m = expandMask(mk, f.mask.W, f.mask.H);
+      let n = 0, b = 0;
+      for (let i = 0; i < m.length; i++) if (m[i]) { n++; if (luma(f.rgba[i * 4], f.rgba[i * 4 + 1], f.rgba[i * 4 + 2]) >= 240) b++; }
+      return n ? b / n : 0;
+    };
+    idle.glowPeak = glowPeakOf(idle);
+    // up to 3 charge frames (0.4/0.7/1.0) — G5 uses the most-charged shape diff.
+    for (const c of [0.4, 0.7, 1.0]) chargeShots.push(await shoot({ charge: c, t: 2.0 }, 'charge' + c));
+    // a shielded frame — G6 leash read.
+    shield = await shoot({ shield: true, t: 1.5 }, 'shield');
+  } else {
   await page.click('#btn-start').catch(() => {});
   await page.waitForFunction(() => window.__dd.game.state === 'playing', { timeout: 15000 });
   // Fly to the target biome so the sky/grade matches, then drop straight into
@@ -280,13 +317,13 @@ try {
   // the quiet grab; behind/side approaches are already settled so this is a no-op.
   await page.waitForFunction(() => window.__dd.bossState().poseY > 10, { timeout: 30000 }).catch(() => {});
   await page.waitForFunction(() => !window.__dd.bossState().charging, { timeout: 8000 }).catch(() => {});
-  const idle = await grabQuiet();
+  idle = await grabQuiet();
 
   // CHARGE: telegraph wind-up (still low-bullet). Charge windows are short and
   // headless timing can grab a just-ended (idle-pose) frame, so collect several
   // candidates across up to 3 telegraphs; G5 uses the MOST-charged (max shape
   // diff vs idle) — a single unlucky grab no longer flakes the telegraph gate.
-  const chargeShots = [];
+  chargeShots = [];
   for (let t = 0; t < 3; t++) {
     await page.waitForFunction(() => window.__dd.bossState().charging, { timeout: 60000 }).catch(() => {});
     chargeShots.push(await grab('charge' + t));
@@ -306,7 +343,7 @@ try {
   // raise-flash decays over ~0.4s game-time (≈6s wall-clock throttled), so a
   // single early grab can catch the flash, not the settled leashed state — the
   // symmetric counterpart to the idle glow-PEAK baseline.
-  let shield = null;
+  shield = null;
   if (shielded) {
     const shots = [];
     for (let i = 0; i < 4; i++) { shots.push(await grab('shield' + i)); await page.waitForTimeout(500); }
@@ -321,6 +358,7 @@ try {
     shots.sort((a, b) => glowFrac(a) - glowFrac(b));
     shield = shots[0];
   }
+  }   // end in-game capture branch
 
   await done();
 
