@@ -85,16 +85,23 @@ export function buildTwinWraith(def, quality = 1) {
   const bodySeekerMat = track(new THREE.MeshStandardMaterial({
     color: 0x0d0908, emissive: accent, emissiveIntensity: 0.06, roughness: 0.85, metalness: 0.1, flatShading: true,
   }));
-  // Oxblood emissive RIM strips — the crease lines down the kite spine + fin edge;
-  // the ONLY oxblood on the body, so they carry the accent tier (G3 attribution).
-  const rimMat = track(new THREE.MeshStandardMaterial({
-    color: 0x2a0d0a, emissive: accent, emissiveIntensity: 0.55, roughness: 0.5, metalness: 0.25, flatShading: true,
+  // LIT-SILHOUETTE LAW (§5d L140): small mass ⇒ the identity is the EDGE. The oxblood
+  // rims WIDEN (0.14 bars) and run the FULL kite perimeter + fin outer edge, at TWO value
+  // tiers — the HOLDER's outline burns bright (ei 0.9), the SEEKER's is dim (ei 0.45), so
+  // a stranger reads which twin is lit from the silhouette alone. Diffuse stays near-black
+  // (identity in emissive, §3 law 3); the dark oxblood color keeps ei 0.9 from blooming
+  // white (it stays a red EDGE, not a second focal — the eye is the only glow, ONE-GLOW).
+  const rimHolderMat = track(new THREE.MeshStandardMaterial({
+    color: 0x2a0d0a, emissive: accent, emissiveIntensity: 0.9, roughness: 0.5, metalness: 0.25, flatShading: true,
   }));
-  // Aged-silver crescent-fin rim + socket ring (the cool second swatch). Kept dim
-  // (small satellites/details stay dark, §3 law 8) so it never rivals the eye.
+  const rimSeekerMat = track(new THREE.MeshStandardMaterial({
+    color: 0x1a0806, emissive: accent, emissiveIntensity: 0.45, roughness: 0.55, metalness: 0.2, flatShading: true,
+  }));
+  // Aged-silver crescent fins (the cool second swatch), lifted to ei 0.30 (REACH) so the
+  // fin planes read as a lit surface at fight distance, still short of the eye.
   const silverMat = track(new THREE.MeshStandardMaterial({
-    color: 0x191816, emissive: glow, emissiveIntensity: 0.14, roughness: 0.55, metalness: 0.3, flatShading: true,
-  }));   // AGED (tarnished) silver — dark enough to keep the body median low (G2), the rim reads on the edge
+    color: 0x191816, emissive: glow, emissiveIntensity: 0.30, roughness: 0.55, metalness: 0.3, flatShading: true,
+  }));   // AGED (tarnished) silver — dark enough to keep the body median low (G2), the fin reads
   silverMat.side = THREE.DoubleSide;
   // The SOCKET rings get their OWN material (not the shared silver) so the empty
   // socket can flare into the mourning glow at the flee-death — the survivor's FACE
@@ -117,8 +124,10 @@ export function buildTwinWraith(def, quality = 1) {
   // dart), with a raised oxblood SPINE rib (relief, §3.4) and a dark socket boss on
   // the front face where the eye seats when held.
   // ------------------------------------------------------------------
-  const BODY_LEN = 2.7;
-  const KITE_W = 1.05, KITE_H = 0.82;   // the dart's broadside width/height — the DOMINANT mass (§3.1)
+  // REACH PASS (r8, §5d L140): the ensemble was reading ~40% of ASHTALON's mass at fight
+  // distance → the whole silhouette scales UP. Same dart proportions, bigger dart.
+  const BODY_LEN = 4.6;                 // 2.7 → 4.6
+  const KITE_W = 1.7, KITE_H = 1.28;    // 1.05/0.82 → 1.7/1.28 (dart proportions held: ~1.6× each)
   function kiteGeo() {
     const oct = strip(new THREE.OctahedronGeometry(1.0, lowQ ? 1 : 3));   // detail 3 @q1 = carved facets, not a smooth shard (§5g)
     oct.scale(KITE_W / 2, KITE_H / 2, BODY_LEN / 2);   // a broad flat dart (reads as a wing/blade broadside, not a needle)
@@ -195,12 +204,46 @@ export function buildTwinWraith(def, quality = 1) {
     const spine = strip(new THREE.BoxGeometry(0.07, 0.9, 0.16)); spine.rotateZ(-0.55); spine.translate(0.45, 0.45, 0);
     return mergeOx([outer, inner, spine], 'crescent');
   };
-  // A slim silver rim bar riding the crescent's outer edge (the aged-silver swatch).
+  // A slim rim bar riding the crescent's outer edge (oxblood — part of the lit silhouette).
   const finRimGeo = () => {
-    const g = strip(new THREE.BoxGeometry(0.06, 1.15, 0.14));
-    g.rotateZ(-0.5); g.translate(0.7, 0.62, 0.0);
+    const g = strip(new THREE.BoxGeometry(0.09, 1.3, 0.14));
+    g.rotateZ(-0.5); g.translate(0.85, 0.75, 0.0);
     return g;
   };
+
+  // FULL-PERIMETER oxblood rim (LIT-SILHOUETTE LAW, §5d L140): thin 0.14 bars tracing the
+  // kite octahedron's 12 edges (the equator diamond + the nose/tail apex ridges) + one
+  // flank-crease keel line, so the twin reads as an oxblood LINE-DRAWING of its silhouette
+  // from any angle. Merged → ONE draw on the twin's rim material.
+  const _ebQ = new THREE.Quaternion(), _ebZ = new THREE.Vector3(0, 0, 1), _ebD = new THREE.Vector3();
+  function edgeBar(ax, ay, az, bx, by, bz, w) {
+    _ebD.set(bx - ax, by - ay, bz - az);
+    const len = _ebD.length() || 1e-4;
+    const g = strip(new THREE.BoxGeometry(w, w, len));
+    _ebQ.setFromUnitVectors(_ebZ, _ebD.clone().normalize());
+    g.applyQuaternion(_ebQ);
+    g.translate((ax + bx) / 2, (ay + by) / 2, (az + bz) / 2);
+    return g;
+  }
+  function rimPerimeterGeo(sx) {
+    const hw = KITE_W / 2, hh = KITE_H / 2, hl = BODY_LEN / 2, w = 0.14;
+    // 6 octahedron apexes: nose(+z) tail(−z) and the 4 equator points (±x, ±y).
+    const eq = [[hw, 0, 0], [0, hh, 0], [-hw, 0, 0], [0, -hh, 0]];
+    const bars = [];
+    for (let i = 0; i < 4; i++) {                             // equator diamond (4 edges)
+      const a = eq[i], b = eq[(i + 1) % 4];
+      bars.push(edgeBar(a[0], a[1], a[2], b[0], b[1], b[2], w));
+    }
+    for (const e of eq) {                                     // nose + tail apex ridges (8 edges)
+      bars.push(edgeBar(0, 0, hl, e[0], e[1], e[2], w));
+      bars.push(edgeBar(0, 0, -hl, e[0], e[1], e[2], w));
+    }
+    // Dorsal keel crease down the spine (a lit centre line on the top facet).
+    const keel = strip(new THREE.BoxGeometry(w * 0.8, w * 0.8, BODY_LEN * 0.7));
+    keel.translate(sx * 0.06, hh * 0.7, 0.05);
+    bars.push(keel);
+    return mergeOx(bars, 'rimperim');
+  }
 
   // Dark socket ring on the nose — the eye's seat (empty on the seeker → its FACE
   // is this ring, the holder/seeker tell). A FACETED silver torus (14–16 seg) with
@@ -219,11 +262,64 @@ export function buildTwinWraith(def, quality = 1) {
   // and are never straight — §5d / CP1 gate directive 1). `seeker` paints the darker
   // value tier and gets the ONE scar (a snapped upper tail).
   // ------------------------------------------------------------------
+  // A deforming ribbon STRIP: ONE mesh per tail (1 draw) whose vertices are rebuilt each
+  // frame from the lagged pivot chain's world positions. The old build used one mesh per
+  // segment (40+ draws for four 12-segment tails) — over the ≤30-draw REACH budget; the
+  // strip renders the same flowing chain in a single draw. Flat tapered quad-strip,
+  // DoubleSide, frustumCulled off (its verts leave the local bounds as it flows).
+  function makeTailStrip(segN, lenScale, mat, name) {
+    const rings = segN + 1;
+    const geo = new THREE.BufferGeometry();
+    geo.setAttribute('position', new THREE.BufferAttribute(new Float32Array(rings * 2 * 3), 3));
+    const nrm = new Float32Array(rings * 2 * 3);
+    for (let i = 0; i < rings * 2; i++) nrm[i * 3 + 1] = 1;   // flat up-normal (emissive carries it; DoubleSide)
+    geo.setAttribute('normal', new THREE.BufferAttribute(nrm, 3));
+    const idx = [];
+    for (let i = 0; i < segN; i++) { const a = i * 2, b = a + 1, c = a + 2, d = a + 3; idx.push(a, c, b, b, c, d); }
+    geo.setIndex(idx);
+    const mesh = new THREE.Mesh(geo, mat);
+    mesh.frustumCulled = false;
+    if (name) mesh.name = name;   // mat is a shared ribbonMat/ribbonSeekerMat, already tracked at creation
+    return { geo, mesh, segN, lenScale };
+  }
+  // Rebuild a tail strip from its pivot chain (twin-local space). Called each tick after
+  // the flow loop has posed the pivots.
+  const _wp = new THREE.Vector3();
+  const _tan = new THREE.Vector3(), _side = new THREE.Vector3(), _up = new THREE.Vector3(0, 1, 0);
+  const _twinInv = new THREE.Matrix4();
+  const _pts = [];
+  function updateTailStrip(tail, twin, twinInv) {
+    const { geo, segN, lenScale } = tail;
+    const segs = tail.segs;
+    // Spine points (twin-local): each pivot origin + a final tip off the last pivot.
+    for (let i = 0; i < segN; i++) {
+      segs[i].pivot.getWorldPosition(_wp);
+      (_pts[i] || (_pts[i] = new THREE.Vector3())).copy(_wp).applyMatrix4(twinInv);
+    }
+    const last = segs[segN - 1].pivot;
+    _wp.set(0, 0, -segLen(segN - 1, lenScale)); last.localToWorld(_wp);
+    (_pts[segN] || (_pts[segN] = new THREE.Vector3())).copy(_wp).applyMatrix4(twinInv);
+    const pos = geo.attributes.position.array;
+    for (let i = 0; i <= segN; i++) {
+      const p = _pts[i];
+      const a = _pts[Math.max(0, i - 1)], b = _pts[Math.min(segN, i + 1)];
+      _tan.subVectors(b, a);
+      _side.crossVectors(_tan, _up);
+      if (_side.lengthSq() < 1e-6) _side.set(1, 0, 0);
+      _side.normalize().multiplyScalar(ribbonHalfW(i, segN, lenScale));
+      const o = i * 6;
+      pos[o] = p.x + _side.x; pos[o + 1] = p.y + _side.y; pos[o + 2] = p.z + _side.z;
+      pos[o + 3] = p.x - _side.x; pos[o + 4] = p.y - _side.y; pos[o + 5] = p.z - _side.z;
+    }
+    geo.attributes.position.needsUpdate = true;
+  }
+
   function buildTwin(sx, seeker) {
     const twin = new THREE.Object3D();
     twin.name = seeker ? 'eitherTwinB' : 'eitherTwinA';
     const bodyMat = seeker ? bodySeekerMat : bodyHolderMat;
     const ribMat = seeker ? ribbonSeekerMat : ribbonMat;
+    const rimMatT = seeker ? rimSeekerMat : rimHolderMat;   // LIT-SILHOUETTE value tier
 
     // Body (merged kite + spine rib + dorsal vanes + keel so all the relief shares
     // the body material — richness without draw inflation, §5g).
@@ -231,19 +327,20 @@ export function buildTwinWraith(def, quality = 1) {
     body.name = seeker ? 'eitherTwinBodyB' : 'eitherTwinBodyA';
     twin.add(body);
 
-    // Oxblood rim strip down the flank crease (the accent tier the eye is read against).
-    const rimGeo = strip(new THREE.BoxGeometry(0.05, 0.1, BODY_LEN * 0.8));
-    rimGeo.translate(sx * 0.24, 0.06, 0.05);
-    twin.add(new THREE.Mesh(rimGeo, rimMat));
+    // FULL-PERIMETER oxblood rim (LIT-SILHOUETTE): the kite octahedron's 12 edges as thin
+    // 0.14 bars + a flank-crease keel line — the twin reads as an oxblood line-drawing of
+    // its own silhouette from every angle. Merged → one draw on the twin's rim tier.
+    twin.add(new THREE.Mesh(rimPerimeterGeo(sx), rimMatT));
 
     // Crescent head fin (mirrored on the seeker so the pair reads as mirror-twins).
     const fin = new THREE.Mesh(crescentGeo(), silverMat);
     fin.name = 'crescentFin';
     fin.scale.x = sx;                                  // mirror the crescent per side
-    fin.position.set(sx * 0.1, 0.36, BODY_LEN * 0.16);
+    fin.position.set(sx * 0.1, 0.5, BODY_LEN * 0.16);
     fin.rotation.z = sx * -0.15;
     twin.add(fin);
-    const finRim = new THREE.Mesh(finRimGeo(), silverMat);
+    // The fin's OUTER edge is oxblood too (part of the lit silhouette) — not silver.
+    const finRim = new THREE.Mesh(finRimGeo(), rimMatT);
     finRim.scale.x = sx; finRim.position.copy(fin.position);
     twin.add(finRim);
 
@@ -258,55 +355,52 @@ export function buildTwinWraith(def, quality = 1) {
     // so at ANY capture phase the two tails are curved and NON-parallel, never a
     // pair of straight chopstick rods (CP1 gate directive 1). The tick adds the
     // travelling flow on top, easing (lag) toward it.
+    // TWO comet-tails. Each is a chain of lagged pivots (invisible drivers — named
+    // ribbonPivot so the telegraph/§7b gate still finds them) PLUS one deforming strip
+    // mesh rebuilt from those pivots each tick (1 draw/tail, not 12). The seeker's upper
+    // tail is SNAPPED short (4 segs) — the ONE scar (its strip is named eitherScar).
     const ribbons = [];
     for (let t = 0; t < 2; t++) {
-      const rootY = t === 0 ? 0.24 : -0.24;            // upper + lower tail
+      const rootY = t === 0 ? 0.30 : -0.30;            // upper + lower tail (spread for the taller body)
       const tailPhase = t * 1.2;                       // base phase offset between the two tails
       const lenScale = t === 0 ? 1.0 : 0.85;           // unequal tail lengths
-      const segN = (seeker && t === 0) ? 4 : RIBBON_SEG;   // the seeker's upper tail is SNAPPED short (the scar)
+      const isScar = seeker && t === 0;
+      const segN = isScar ? 4 : RIBBON_SEG;            // the seeker's upper tail is SNAPPED short (the scar)
       let parent = twin;
-      const chain = [];
+      const segs = [];
       for (let s = 0; s < segN; s++) {
         const pivot = new THREE.Object3D();
         pivot.name = 'ribbonPivot';                    // the telegraph/§7b gate finds these by name
         pivot.position.set(0, s === 0 ? rootY : 0, s === 0 ? -BODY_LEN * 0.42 : -segLen(s - 1, lenScale));
-        // Standing-wave base curve (fixed): adjacent segments differ ~0.16 rad so
-        // the resting ribbon is a meandering S, never a rod.
+        // Standing-wave base curve (fixed): adjacent segments differ so the resting
+        // ribbon is a meandering S, never a rod.
         const wave = tailPhase + s * 0.55;
-        const baseZ = Math.sin(wave) * 0.22;             // gentler bend per joint so the overlap always covers it
+        const baseZ = Math.sin(wave) * 0.22;
         const baseX = -0.12 + Math.cos(wave) * 0.14;
         pivot.rotation.set(baseX, 0, baseZ);
         parent.add(pivot);
-        const snapped = (seeker && t === 0 && s === segN - 1);
-        const seg = new THREE.Mesh(ribbonSegGeo(s, lenScale, snapped), ribMat);
-        seg.position.z = -segLen(s, lenScale) * (snapped ? 0.35 : 0.5);
-        pivot.add(seg);
-        if (snapped) seg.name = 'eitherScar';
-        chain.push({ pivot, seg, wave, baseZ, baseX, swayZ: baseZ, swayX: baseX });
+        segs.push({ pivot, wave, baseZ, baseX, swayZ: baseZ, swayX: baseX });
         parent = pivot;
       }
-      ribbons.push(chain);
+      const tailMat = isScar ? ribMat : ribMat;        // both share the twin's ribbon material
+      const tail = makeTailStrip(segN, lenScale, tailMat, isScar ? 'eitherScar' : null);
+      tail.segs = segs;
+      twin.add(tail.mesh);
+      ribbons.push(tail);
     }
 
     return { twin, body, bodyMat, ribbons, sx, seeker };
   }
 
-  // Ribbon segment: a flat tapered box, narrowing + shortening toward the tail tip
-  // (a real ribbon, not a slab), subdivided for §5g relief. `lenScale` sets the
-  // tail's overall length (tail A 1.0× / tail B 0.85× — unequal so the two tails
-  // never read as parallel rods, CP1 gate directive 1). `snapped` = the scar stump.
-  const RIBBON_SEG = lowQ ? 5 : 8;
-  function segLen(s, lenScale = 1) { return (0.6 - s * 0.05) * lenScale; }
-  function ribbonSegGeo(s, lenScale, snapped = false) {
-    // Each segment is 30% LONGER than its pivot spacing so it OVERLAPS the joints
-    // above and below — the black-fill silhouette stays continuous through the S-curve
-    // instead of fracturing into gapped rectangles (CP1 r3 directive 2). Centred on
-    // its nominal length (seg.position.z), so the extra length laps BOTH joints.
-    const len = (snapped ? 0.22 * lenScale : segLen(s, lenScale)) * 1.3;
-    const w = 0.46 - s * 0.04;
-    const g = strip(new THREE.BoxGeometry(w, 0.06, len, 2, 1, 2));
-    return g;
-  }
+  // REACH COMET-TAILS (§5d L140): 12 segments at base segLen 0.95 → ~7–8-unit flowing
+  // trails. `segLen` sets the pivot spacing; the tail's total length is their sum
+  // (~8.1u at lenScale 1). `lenScale` (tail A 1.0× / tail B 0.85×) keeps the two tails
+  // unequal so they never read as parallel rods (CP1 gate directive 1).
+  const RIBBON_SEG = lowQ ? 8 : 12;
+  function segLen(s, lenScale = 1) { return (0.95 - s * 0.05) * lenScale; }
+  // Half-width of the ribbon at ring i (root wide → tip fine), so the strip reads as a
+  // real tapering comet-tail, not a slab.
+  function ribbonHalfW(i, segN, lenScale) { return (0.30 - (i / segN) * 0.27) * lenScale; }
 
   const twinA = buildTwin(1, false);    // the HOLDER half (brighter; holds the eye at idle)
   const twinB = buildTwin(-1, true);    // the SEEKER half (darker; the eyeless, scarred twin)
@@ -393,7 +487,10 @@ export function buildTwinWraith(def, quality = 1) {
   // live socket world positions so it always connects the drifting twins.
   const THREAD_BEADS = 14;
   const threadMat = track(new THREE.LineBasicMaterial({
-    color: new THREE.Color(glow).multiplyScalar(0.6), transparent: true, opacity: 0.5, depthWrite: false,
+    // LIT-SILHOUETTE: the bead-thread is the THIRD silhouette element (two darts + the line
+    // between) and stays ALWAYS visible at silver ~0.6 (§5d L140) so the "one eye, two bodies"
+    // read never drops out — even against the brightest biome sky.
+    color: new THREE.Color(glow).multiplyScalar(0.6), transparent: true, opacity: 0.62, depthWrite: false,
   }));
   const threadGeo = new THREE.BufferGeometry();
   const threadPos = new Float32Array((THREAD_BEADS - 1) * 2 * 3);   // segment pairs
@@ -445,7 +542,7 @@ export function buildTwinWraith(def, quality = 1) {
 
   // Hit flash rings the oxblood rim tier (a struck pair flares at its rims, never
   // lights the near-black body toy-red — the craghold/ashtalon lesson transplanted).
-  kit.flashBind(rimMat, 0.55);
+  kit.flashBind(rimHolderMat, 0.9);
   kit.finalize();
 
   // ==================================================================
@@ -475,7 +572,7 @@ export function buildTwinWraith(def, quality = 1) {
   // Figure-eight orbit: the twins ride a lemniscate 180° out of phase around a
   // slowly drifting centre — the fight NEVER stops moving. Kept LOCAL (the group
   // station-keeps; the moving-station setpiece adds the whole-body sweep on top).
-  const ORBIT_R = 2.6;
+  const ORBIT_R = 5.2;   // 2.6 → 5.2 (REACH: crossing span ≈ 23u, ASHTALON-class reach across the portrait)
   let orbitPhase = 0;
   let t0 = null;               // first-tick time → encounter-relative clock (for the intro spread + death)
 
@@ -556,7 +653,7 @@ export function buildTwinWraith(def, quality = 1) {
     // where both lobes cross — so the twins never collide and the eye-thread length
     // stays > 0 at every orbit phase (§7b). It also gives the pair real depth on the
     // rail (one twin nearer the player through each crossing).
-    const ZSEP = 1.6;   // depth offset — keeps the twins (and their inward-facing noses) apart at the figure-eight node
+    const ZSEP = 2.4;   // 1.6 → 2.4 (REACH): depth offset keeps the twins apart at the figure-eight node at the larger orbit
     const th = orbitPhase;
     // The figure-eight plane is TILTED ~36° so the pair separates VERTICALLY as well
     // as horizontally — they never line up behind each other at the 3/4 view AND their
@@ -709,8 +806,11 @@ export function buildTwinWraith(def, quality = 1) {
     // Lift the aged-silver rims + crest so the fleeing MOURNER is a visible BODY on
     // the dark flee frame (not a charcoal ghost) — CP1 r2 directive 3. The diffuse
     // stays charcoal; only the rim/fin emissive rises.
-    silverMat.emissiveIntensity = 0.14 + dyingK * 0.4;
-    rimMat.emissiveIntensity = 0.55 + dyingK * 0.35;
+    silverMat.emissiveIntensity = 0.30 + dyingK * 0.4;
+    // The two rim tiers hold their LIT-SILHOUETTE base (holder 0.9 / seeker 0.45) and both
+    // rise a touch as the mourner flees so the survivor stays a visible line-drawing.
+    rimHolderMat.emissiveIntensity = 0.9 + dyingK * 0.35;
+    rimSeekerMat.emissiveIntensity = 0.45 + dyingK * 0.25;
 
     // --- Gaze: the HELD eye tracks the player with lag + look-aways (a mind, not a
     // turret). Eye-lock hard-tracks during notice/charge. ---
@@ -758,11 +858,13 @@ export function buildTwinWraith(def, quality = 1) {
     glintMat.color.setScalar(GLINT_HOT * Math.max(0.05, (shieldClamp ? 0.5 : 1) * (1 - dyingK) * (dreadSplit > 0.05 ? 0.7 : 1)));
     const tuck = blinkProg * 0.8 + (shieldClamp ? 0.08 : 0);   // barely tucked under shield — the eye stays wide/alert so the holder reads
     orb.scale.setScalar(Math.max(0.1, 1 - tuck * 0.7 + (noticeT > 0.5 ? 0.2 : 0)));
-    // CORONA FLARE (CP1 r7 dir 4): on charge the iris ring blooms bright + flares WIDE —
-    // a visible salmon corona around the constricting pupil, the loudest half of the
-    // "about to fire" tell (drives the charge/idle pixel delta past the 3% floor).
-    irisMat.emissiveIntensity = 0.85 + charge * 1.7 * (1 - dyingK);
-    iris.scale.setScalar(1 + tuck * 0.25 + charge * 0.28);
+    // ONE-GLOW LAW (§5d L140): outside the dread card the HELD EYE is the pair's only glow.
+    // The corona flare is a DREAD-ONLY light (not a per-charge glow) — the normal charge
+    // tell is carried by SHAPE (crest rake + taut tails) + the pupil constricting + the eye
+    // pinning to the firer, none of which add a second light source. The iris keeps its
+    // dim base 0.85 (it's part of the eye), and only blooms wide during dread.
+    irisMat.emissiveIntensity = 0.85 + dreadSplit * 1.7;
+    iris.scale.setScalar(1 + tuck * 0.25 + dreadSplit * 0.28);
     glint.visible = tuck < 0.6 && dyingK < 0.4;   // the catchlight winks out on a blink/tuck, and EARLY in death (the ember guts; the glow retreats to the socket ring)
     // Pupil: constricts on charge/notice (the charge tell), tracks the player, and on
     // a HANDOFF biases toward the RECEIVING twin so the eye LOOKS where it's going
@@ -798,14 +900,14 @@ export function buildTwinWraith(def, quality = 1) {
       // §7c auto-fit box and shrink the survivor's body/socket to ~20% (CP1 r7 dir 2+3).
       // Ramp ×1.6 so the coil is complete by the flee capture (dyingK≈0.72).
       const furlK = clamp(dyingK * 1.6, 0, 1);
-      for (const chain of w.ribbons) {
+      for (const tail of w.ribbons) {
+        const chain = tail.segs;
         for (let s = 0; s < chain.length; s++) {
           const seg = chain[s];
           const anim = Math.sin(time * 1.7 + seg.wave + w.sx) * (0.1 + flare) * (1 + s * 0.12) * (1 - straighten);
           const furl = furlK * (0.5 + s * 0.06);
-          // Cap the PER-JOINT bend to ±0.5 rad so the 30%-overlap always spans the
-          // joint — the tail flows as one continuous ribbon, never a broken chain
-          // (CP1 r3 directive 2); the uniform-sign furl still coils it tight at death.
+          // Cap the PER-JOINT bend to ±0.5 rad so the tail flows as one continuous
+          // ribbon; the uniform-sign furl still coils it tight at death.
           const targetZ = clamp(seg.baseZ * (1 - straighten) + anim * (1 - furlK) + furl * 0.6, -0.5, 0.5);
           const targetX = clamp(seg.baseX * (1 - straighten) + anim * 0.5 * (1 - furlK) + furl, -0.5, 0.5);
           const ease = Math.min(1, dt * (2.2 + s * 0.4));   // lag: the tip trails the root
@@ -815,12 +917,18 @@ export function buildTwinWraith(def, quality = 1) {
           seg.pivot.rotation.x = seg.swayX;
         }
       }
-      // Fins mantle up on charge; furl down in death.
-      const fin = w.twin.getObjectByName('crescentFin');
       // Fins mantle up on charge; the HOLDER's crest RAKES HARD (−0.75 rad) as it winds
       // to fire (CP1 r7 dir 4 — the raised-crest half of the charge tell); SNAP OPEN
       // ≥0.4 rad on notice (the reveal beat, CP1 r4 dir 2); furl down in death.
+      const fin = w.twin.getObjectByName('crescentFin');
       if (fin) fin.rotation.x = -0.1 - charge * 0.75 * (isHolder ? 1 : 0.4) - (noticeT > 0.4 ? 0.55 : 0) + dyingK * 0.5;
+
+      // Rebuild the deforming comet-tail strips from the now-posed pivot chains (1 draw
+      // per tail). The twin's own transform (orbit pose + flinch above) is final for this
+      // frame, so its world matrix is current.
+      w.twin.updateMatrixWorld(true);
+      _twinInv.copy(w.twin.matrixWorld).invert();
+      for (const tail of w.ribbons) updateTailStrip(tail, w.twin, _twinInv);
     }
 
     // --- Ember motes drift near the thread midpoint (dark, dim — §3 law 8). They

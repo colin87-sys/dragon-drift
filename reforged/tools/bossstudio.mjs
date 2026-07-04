@@ -57,7 +57,13 @@ const EXTRAS = [
 ];
 const states = bossId === 'eitherwing' ? [...STATES, ...EXTRAS] : STATES;
 
-const BGS = ['dark', 'pale'];
+const BGS = ['dark', 'pale', 'sunset'];   // §7c L140: + warm sunset-gold (warm accents vanish on warm skies)
+// The fight-distance frames (§7c L140): ONE front-on shot per key state at the REAL
+// encounter geometry (FOV 72, boss at rel 30, NO auto-framing) — judged for PRESENCE.
+// idle = the formation at full spread; handoff = the interlocked-crossing "money frame".
+const FIGHT_STATES = bossId === 'eitherwing'
+  ? [{ name: 'idle', o: { t: 2.85 } }, { name: 'handoff', o: { handoff: 0.5, t: 2.85 } }]
+  : [{ name: 'idle', o: { t: 2.85 } }];
 // Grid order: front TL, 3/4 TR, profile BL, top-down BR.
 const ANGLES = [
   { name: 'front',        label: 'front' },
@@ -99,7 +105,21 @@ for (const st of states) {
   }
 }
 
+// FIGHT-DISTANCE FRAMES — single front-on shots at the real encounter geometry. Composited
+// through the same GL→2D sheet path as the contact sheets (a 1×1 tile) for capture parity.
+for (const st of FIGHT_STATES) {
+  for (const bgName of BGS) {
+    await page.evaluate(() => window.studioSheetInit(1, 1, 1000));
+    await page.evaluate((o) => window.renderState(o), { boss: bossId, seed: SEED, bg: bgName, fight: true, ...st.o });
+    await page.evaluate((label) => window.studioTile(0, label), `fight · rel30 · ${st.name}`);
+    const path = `reforged-captures/${bossId}-fight-${st.name}-${bgName}-${round}.png`;
+    writeFileSync(path, await page.screenshot({ clip: SHEET_CLIP }));
+    written.push(path);
+    console.log('wrote', path);
+  }
+}
+
 await browser.close();
 srv.close?.();
-console.log(`\n${written.length} contact sheets written.`);
+console.log(`\n${written.length} images written (contact sheets + fight-distance frames).`);
 process.exit(0);

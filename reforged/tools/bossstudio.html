@@ -102,8 +102,9 @@
     let bg = params.get('bg') === 'pale' ? 'pale' : 'dark';
     const nativeRandom = Math.random.bind(Math);
 
-    // §7c backdrop pair.
-    const BACKDROPS = { dark: 0x14121a, pale: 0xcfd6e4 };
+    // §7c backdrops: near-dark + pale + (L140) warm sunset-gold — warm dark accents
+    // (oxblood, ember) vanish against warm skies in a way neither neutral backdrop catches.
+    const BACKDROPS = { dark: 0x14121a, pale: 0xcfd6e4, sunset: 0xd9a24a };
 
     const gl = document.getElementById('gl');
     const renderer = new THREE.WebGLRenderer({ canvas: gl, antialias: true, preserveDrawingBuffer: true });
@@ -247,7 +248,7 @@
     window.addEventListener('resize', resize);
 
     function setBackdrop(name) {
-      bg = name === 'pale' ? 'pale' : 'dark';
+      bg = BACKDROPS[name] != null ? name : 'dark';
       scene.background.setHex(BACKDROPS[bg]);
       const el = document.getElementById('bglbl'); if (el) el.textContent = bg;
     }
@@ -334,7 +335,16 @@
       if (opts.angle && ANGLES[opts.angle]) { orbit.yaw = ANGLES[opts.angle][0]; orbit.pitch = ANGLES[opts.angle][1]; }
       if (opts.yaw != null) orbit.yaw = opts.yaw;
       if (opts.pitch != null) orbit.pitch = opts.pitch;
-      orbit.dist = baseDist * (opts.distMul ?? 1);
+      // FIGHT-DISTANCE FRAME (§7c L140): the REAL encounter geometry — front-on, camera at
+      // the live chase FOV (72) with the boss at its true station distance (rel 30), NO
+      // auto-framing. The 60%-height auto-frame normalizes scale and HIDES presence
+      // failures; this frame judges presence (ensemble span vs the portrait envelope).
+      if (opts.fight) {
+        orbit.yaw = ANGLES.front[0]; orbit.pitch = ANGLES.front[1];
+        orbit.dist = opts.fightRel ?? 30;
+      } else {
+        orbit.dist = baseDist * (opts.distMul ?? 1);
+      }
       placeCamera();
       render();
       return true;
