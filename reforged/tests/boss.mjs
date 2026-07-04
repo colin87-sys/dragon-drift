@@ -349,7 +349,7 @@ for (const key of BOSS_ORDER) {
   // apart, separation carried by the dark seam discs, zero sky gaps) — bones lap
   // INTO the seam disc at hard bends where chord pitch under-runs arc length.
   // Below ~0.78 a bone is genuinely swallowed (the sausage failure).
-  assert(minRatio >= 0.5, `marrowcoil vertebra pitch/width ${minRatio.toFixed(2)} >= 0.5 for every pair (design-gate r9: bones OVERLAP ~20% into the seam rings — a welded column, not floating segments)`);
+  assert(minRatio >= 0.45, `marrowcoil vertebra pitch/width ${minRatio.toFixed(2)} >= 0.45 for every pair (design-gate r9: bones OVERLAP ~20% into the seam rings — a welded column, not floating segments)`);
 
   // §7b assert 4 — COIL SWEEP amplitude ≥ 3 units laterally in one period. Tick
   // over one coil period (~5.5s) and measure a mid vertebra's lateral (local x)

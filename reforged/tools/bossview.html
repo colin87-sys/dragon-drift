@@ -118,7 +118,7 @@
 
     const center = new THREE.Vector3(0, 0, 0);
     let baseDist = 30;
-    const orbit = { yaw: 180, pitch: -0.12, dist: 30 };   // yaw 180 = the rail's front-on view
+    const orbit = { yaw: 0, pitch: -0.12, dist: 30 };   // bosses FACE +z (toward the player): yaw 0 = the rail's front-on view
 
     function applyDials(m, t) {
       m.setGaze?.(dials.gx, dials.gy);
@@ -218,7 +218,7 @@
     gl.addEventListener('wheel', e => { e.preventDefault(); orbit.dist = Math.max(baseDist * 0.25, Math.min(baseDist * 3, orbit.dist * (1 + Math.sign(e.deltaY) * 0.08))); }, { passive: false });
 
     // ── controls ──
-    const VIEWS = { rail: [180, -0.12, 1], front: [180, 0.05, 1], profile: [95, 0.05, 1], top: [180, 1.15, 1.1] };
+    const VIEWS = { rail: [0, -0.12, 1], front: [0, 0.05, 1], profile: [80, 0.05, 1], top: [0, 1.15, 1.1] };
     for (const b of document.querySelectorAll('button[data-view]')) b.onclick = () => {
       const [y, p, d] = VIEWS[b.dataset.view];
       orbit.yaw = y; orbit.pitch = p; orbit.dist = baseDist * d;
@@ -253,13 +253,23 @@
     }
 
     // ── headless hook (capture tooling): set everything, render one still ──
-    // opts: { boss, seed, t, charge, sp, spmode, death, hp, shield, gx, gy, yaw, pitch, distMul }
+    // opts: { boss, seed, t, charge, sp, spmode, death, hp, shield, gx, gy,
+    //         yaw, pitch, distMul, focus } — focus aims the camera at a NAMED
+    //         part ('skullGroup' | 'marrowScar' | 'ribPivot' | 'tailBlade' | ...)
+    //         so close-ups frame the same anatomy every capture.
     window.renderState = (opts = {}) => {
       playing = false;
       if (opts.boss && opts.boss !== key) { key = opts.boss; fitted = false; }
       if (opts.seed != null) seed = opts.seed;
       for (const k of ['charge', 'sp', 'spmode', 'death', 'hp', 'shield', 'gx', 'gy']) if (opts[k] != null) dials[k] = opts[k];
       simulate(opts.t ?? 1.0);
+      if (opts.focus) {
+        let obj = null;
+        current.traverse((o) => { if (o.name === opts.focus && !obj) obj = o; });
+        if (obj) { current.updateMatrixWorld(true); obj.getWorldPosition(center); }
+      } else {
+        fitted = false; fitOnce();   // recentre on the whole body
+      }
       if (opts.yaw != null) orbit.yaw = opts.yaw;
       if (opts.pitch != null) orbit.pitch = opts.pitch;
       orbit.dist = baseDist * (opts.distMul ?? 1);
