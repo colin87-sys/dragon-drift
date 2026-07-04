@@ -807,17 +807,20 @@ function updateFlythrough(dt, player, time) {
   model.setSetpiece?.(tuck);
   model.setCharge?.(0);
 
-  // Body PURELY flies by: it holds its dive line (visor to the rear camera) through
-  // the pass, then WHEELS 180° to face you as the fight opens. The body never twists
-  // to track — only the PUPIL does (setGaze below), so the silhouette stays clean.
-  cineYaw = u < U3 ? Math.PI : Math.PI * (1 - seg(U3, 1));
+  // Body flies by on its dive line (visor to the rear camera), with an EVER-SO-
+  // SLIGHT lean toward the dragon through the pass (≤ ~12°, mirroring the dragon's
+  // own glance — they angle toward each other for the eye-lock), then WHEELS 180°
+  // to face you as the fight opens. The real tracking stays in the PUPIL; the lean
+  // rides the same fade as the gaze so the wheel-around starts clean.
+  const dx = player.position.x - pose.x, dy = player.position.y - pose.y;
+  const track = u < U3 ? 1 : (1 - seg(U3, 1));
+  const lean = Math.max(-0.22, Math.min(0.22, -dx * 0.06)) * track;   // yaw π+δ: δ<0 noses toward a +x dragon
+  cineYaw = (u < U3 ? Math.PI : Math.PI * (1 - seg(U3, 1))) + lean;
   // The PUPIL tracks the dragon (eye-lock): the visor faces the camera/dragon (world
   // −z) during the pass, so a dragon to world-right reads as the boss's local-left —
   // hence the −dx. Normalized over ~4m: the anchored path keeps the dragon 3-4 units
   // away, so the pupil actually reaches FULL deflection (a /8 divisor left it near
   // centre — the "not tracking" read). Eased out to centre through the turn.
-  const dx = player.position.x - pose.x, dy = player.position.y - pose.y;
-  const track = u < U3 ? 1 : (1 - seg(U3, 1));
   model.setGaze?.(Math.max(-1, Math.min(1, -dx / 4)) * track, Math.max(-1, Math.min(1, dy / 4)) * track);
 
   // Feed the cinematic camera the boss's world position so it tracks the flythrough.
