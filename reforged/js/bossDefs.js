@@ -236,6 +236,48 @@ export const BOSSES = {
       { id: 'marrowcoil_rings',   name: 'NOT DIGEST — Ring of Ribs',        atFrac: 0.66, timer: 24 },
       { id: 'marrowcoil_closing', name: 'MARROW — The Closing Ribs',        atFrac: 0.33, timer: 28, dread: true },
     ],
+    // §5i.A RHYTHM SIGNATURE — BURST-vs-SUSTAIN (slot 4). The coil sweeps lay a
+    // continuous SUSTAIN stream (low, even gaps); the rib slams punch discrete
+    // BURST walls (a tight doublet/triplet, then a hard rest). The burst:sustain
+    // ratio CLIMBS each phase — P1 mostly sustain, P3 mostly slam.
+    // STAGED / INERT DATA: no engine reads this yet. The phrase machine + the
+    // getBeatClock() export land with the slot-5 build (§5i staged rollout); until
+    // then this changes ZERO behavior. Attack names mirror the phase `attacks`
+    // arrays above so the machine binds cleanly when it arrives. `phases` is
+    // indexed to `phases` above; `ratioBurst` is the wall-burst share of each
+    // phrase (the per-phase ratio shift that IS the signature).
+    rhythm: {
+      signature: 'burst-sustain',
+      ticket: { bpm: 84, quantize: '1/8' },   // the coil's pulse; bursts land on eighth-notes
+      phases: [
+        { // P1 — read the bone rings: sustain-led
+          ratioBurst: 0.2,
+          phrase: [
+            { kind: 'sustain', attack: 'aimed', beats: 4, gap: [0.50, 0.62] },
+            { kind: 'burst',   attack: 'fan',   count: 2, gap: 0.18 },
+          ],
+          restLo: 1.4, restHi: 2.0, restDist: 'uniform',
+        },
+        { // P2 — the coil rings expand (fly-through): even trade
+          ratioBurst: 0.5,
+          phrase: [
+            { kind: 'sustain', attack: 'stream',    beats: 5, gap: [0.42, 0.50] },
+            { kind: 'burst',   attack: 'crossfire', count: 3, gap: 0.16 },
+            { kind: 'sustain', attack: 'iris',      beats: 2, gap: 0.60 },
+          ],
+          restLo: 1.1, restHi: 1.7, restDist: 'bimodal',   // quick inter-burst gaps + one long breath
+        },
+        { // P3 — the closing ribs (dread): burst-led, walls dominate
+          ratioBurst: 0.75,
+          phrase: [
+            { kind: 'burst',   attack: 'movingGap',    count: 3, gap: 0.14 },
+            { kind: 'burst',   attack: 'spiralStream', count: 2, gap: 0.16 },
+            { kind: 'sustain', attack: 'iris',         beats: 2, gap: 0.55 },
+          ],
+          restLo: 0.9, restHi: 1.5, restDist: 'decaying',  // the rest itself tightens toward each slam
+        },
+      ],
+    },
   },
 };
 
