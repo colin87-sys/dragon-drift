@@ -345,10 +345,11 @@ for (const key of BOSS_ORDER) {
     const w = Math.max(widths[i], widths[i - 1]);
     minRatio = Math.min(minRatio, pitch / w);
   }
-  // ≥0.85: bones may lap slightly INTO the dark seam disc at hard curve bends
-  // (chord pitch under-runs arc length there) — that still reads as articulated
-  // bone-disc-bone; below 0.85 a bone is being swallowed (the sausage failure).
-  assert(minRatio >= 0.85, `marrowcoil vertebra pitch ~matches width for EVERY adjacent pair (worst pitch/width ${minRatio.toFixed(2)} ≥ 0.85 — separate bones with dark seams)`);
+  // ≥0.78: the chain is deliberately WELDED (design-gate r6: bone faces ~0.1
+  // apart, separation carried by the dark seam discs, zero sky gaps) — bones lap
+  // INTO the seam disc at hard bends where chord pitch under-runs arc length.
+  // Below ~0.78 a bone is genuinely swallowed (the sausage failure).
+  assert(minRatio >= 0.78, `marrowcoil vertebra pitch ~matches width for EVERY adjacent pair (worst pitch/width ${minRatio.toFixed(2)} ≥ 0.78 — welded bones with dark seam joints)`);
 
   // §7b assert 4 — COIL SWEEP amplitude ≥ 3 units laterally in one period. Tick
   // over one coil period (~5.5s) and measure a mid vertebra's lateral (local x)

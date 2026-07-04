@@ -155,7 +155,7 @@ export function buildBoneCoil(def, quality = 1) {
     // Occipital CONDYLE disc (gate r4 #2): the dark junction where vertebra 0
     // roots inside the skull's back-bottom (bone 0 sits at rig (0,6.35,0.0) —
     // static, since the sweep amplitude is 0 at the nape).
-    const condyle = strip(new THREE.CylinderGeometry(0.5, 0.5, 0.16, 8)); condyle.translate(0, -0.55, -1.15);
+    const condyle = strip(new THREE.CylinderGeometry(0.5, 0.5, 0.16, 8)); condyle.translate(0, -0.33, -1.02);
     parts.push(condyle);
     return mergeBone(parts, 'skullDark');
   })();
@@ -287,7 +287,7 @@ export function buildBoneCoil(def, quality = 1) {
   // tail). ctrl[0] sits INSIDE the skull's occipital face (gate r4 #2 — vertebra
   // 0 roots in the skull; the condyle disc marks the junction).
   const ctrlBase = [
-    new THREE.Vector3(0.0, 6.2, -0.25),   // occiput — vertebra 0 sits 0.3 INSIDE the skull's back-bottom (gate r6 #4)
+    new THREE.Vector3(0.0, 6.5, -0.1),    // occiput — vertebra 0 intersects the occipital face by >=0.3 (gate r7 #4)
     new THREE.Vector3(2.3, 4.8, 0.3),     // neck coils right (the visible coil)
     new THREE.Vector3(-2.2, 3.3, 0.2),    // neck coils left
     new THREE.Vector3(0.4, 2.0, 0.55),    // arrives at the ribcage crown (front) — soft turn into the depth run
@@ -314,35 +314,22 @@ export function buildBoneCoil(def, quality = 1) {
     // FLAT octahedron (detail 0 — hard facets), y×0.55 (gate r3 #5a) — local y is
     // the CHAIN AXIS: the mesh is oriented to the curve tangent each frame, so the
     // flattening is along the chain and the fins/stubs stand perpendicular to it.
-    // ELONGATED bone (gate r6 #1/#2): along-chain length ≥1.3× radius, so the
-    // pale bones nearly fill the pitch and the chain reads as ONE column with
-    // thin dark seams — never black rods with pale flakes. Dorsal (rib-host)
-    // bones run longer still, buying the ring planes their sky separation.
-    const dorsalHost = i > RIB_V0 && i < RIB_V0 + 5;   // bone 6 sits ON the neck->dorsal bend: keep it short so the chord pitch clears it
-    const len = 1.3 * r * (dorsalHost ? 1.35 : 1);
+    // ONE SOLID ELONGATED OCTAHEDRON per bone (gate r7 #1): length 1.4× radius,
+    // long axis (local y) laid along the chain by lookAt-style orientation in the
+    // tick. Plus the §5d torus-arc RIB-STUB pair — thick enough to read as bone
+    // knuckles and widen the column. No plates, no fins.
+    const len = 1.4 * r;
     const octa = strip(new THREE.OctahedronGeometry(r, 0));
     octa.scale(1.0, len / (2 * r), 1.0);
-    // Rib stubs: short torus arcs laid FLAT in the plane perpendicular to the
-    // chain axis, sweeping out to each side — near-zero extent along the chain.
-    const stubR = r * 0.75 + 0.2, stubTube = 0.06, stubArc = Math.PI * 0.55;
+    const stubR = r * 0.7 + 0.18, stubTube = 0.09, stubArc = Math.PI * 0.5;
     const stub = (sx) => {
       const g = strip(new THREE.TorusGeometry(stubR, stubTube, lowQ ? 4 : 5, lowQ ? 6 : 7, stubArc));
-      g.rotateX(Math.PI / 2);                        // ring into the plane ⊥ to the chain
-      g.rotateY(sx > 0 ? Math.PI * 0.5 : Math.PI);   // aim the arc out to this side, curving back
-      g.translate(sx * (r * 0.5), -0.08, -0.05);
+      g.rotateX(Math.PI / 2);
+      g.rotateY(sx > 0 ? Math.PI * 0.5 : Math.PI);
+      g.translate(sx * (r * 0.45), 0, -0.04);
       return g;
     };
-    const parts = lowQ ? [octa] : [octa, stub(1), stub(-1)];   // stubs are the lowQ drop (§5h ratio)
-    // NEURAL SPINE FIN (gate r3 #9): a thin blade standing out of local +z —
-    // perpendicular to the chain (the mesh orients to the tangent with +z held
-    // toward world-up, so the fins read as a dorsal ridge). Height scales with
-    // the bone taper. Vertebrae 2–12; merged into the bone mesh (no extra draw).
-    if (!lowQ && i >= 2 && i <= 12) {
-      const fh = 0.5 * (r / 0.5);
-      const fin = strip(new THREE.BoxGeometry(0.06, 0.3 * (r / 0.5), fh));
-      fin.translate(0, 0, r * 0.72 + fh * 0.5);
-      parts.push(fin);
-    }
+    const parts = lowQ ? [octa] : [octa, stub(1), stub(-1)];
     const vGeo = mergeBone(parts, `vert${i}`);
     vGeo.computeBoundingBox();
     const mesh = new THREE.Mesh(vGeo, boneMat);
@@ -359,7 +346,7 @@ export function buildBoneCoil(def, quality = 1) {
   // Station weights = each bone's LENGTH + the 0.15 seam gap (gate r6 #2), and
   // the curve is NORMALISED to that total (below), so consecutive bones sit
   // ≤0.15 apart at rest — one traceable pale column.
-  const SEAM = 0.15;
+  const SEAM = 0.1;   // welded chain (gate r7 #3)
   const chainU = (() => {
     const w = vertNodes.map((v) => v.len + SEAM);
     const u = [0];
@@ -367,7 +354,7 @@ export function buildBoneCoil(def, quality = 1) {
     const total = u[N_VERT - 1];
     return u.map((x) => x / total);
   })();
-  const CHAIN_LEN = vertNodes.reduce((a, v) => a + v.len + SEAM, 0) * 1.05;   // target curve length (+5% slack: chord pitch under-runs arc length at bends)
+  const CHAIN_LEN = vertNodes.reduce((a, v) => a + v.len + SEAM, 0) * 1.06;   // target curve length (+6% slack: chord pitch under-runs arc length at bends)
   // NORMALISE the curve to the chain length (gate r6 #2): scale every control
   // point about the fixed occiput anchor so the rest-pose arc length equals the
   // bones + seams — gaps come out at ~SEAM everywhere, at any authored curve.
@@ -393,7 +380,10 @@ export function buildBoneCoil(def, quality = 1) {
     const geo = new THREE.BufferGeometry();
     geo.setAttribute('position', new THREE.BufferAttribute(new Float32Array(nD * tplPos.length), 3));
     geo.setAttribute('normal', new THREE.BufferAttribute(new Float32Array(nD * tplNrm.length), 3));
-    const mesh = new THREE.Mesh(geo, darkMat);
+    const discMat = track(new THREE.MeshStandardMaterial({
+      color: 0x14120f, emissive: 0x000000, emissiveIntensity: 0.0, roughness: 0.95, metalness: 0.0, flatShading: true,
+    }));
+    const mesh = new THREE.Mesh(geo, discMat);
     mesh.frustumCulled = false;   // verts are rewritten per frame; skip stale-bounds culling
     rig.add(mesh);
     return { mesh, geo, tplPos, tplNrm, nV, nD };
@@ -485,13 +475,16 @@ export function buildBoneCoil(def, quality = 1) {
     if (h === 2) {
       const [ex, ey] = ribEnd(R, -1, leftSpan);
       const marrowMat = track(new THREE.MeshStandardMaterial({
-        color: 0x3a2f22, emissive: 0x6a4a30, emissiveIntensity: 0.6, roughness: 0.85, metalness: 0.0, flatShading: true,
+        color: 0x3a2f22, emissive: 0x6a4a30, emissiveIntensity: 1.0, roughness: 0.85, metalness: 0.0, flatShading: true,
       }));
       marrowMat.toneMapped = false;   // the warm marrow glow survives the boss-fight grade (gate r6 #5)
-      const snapFace = strip(new THREE.CylinderGeometry(0.3, 0.34, 0.16, 7));
+      const snapFace = strip(new THREE.CylinderGeometry(0.35, 0.38, 0.18, 7));
       snapFace.rotateZ(0.3 + Math.PI / 2);   // angled 0.3 rad off the rib axis (the jagged break)
-      const core = strip(new THREE.SphereGeometry(0.16, 6, 5)); core.translate(0.04, 0, 0.05);
-      const marrowMesh = new THREE.Mesh(mergeBone([snapFace, core], 'marrow'), marrowMat);
+      const core = strip(new THREE.SphereGeometry(0.18, 6, 5)); core.translate(0.05, 0, 0.06);
+      // Two short marrow DRIP studs below the break (gate r7 #5).
+      const drip1 = strip(new THREE.CylinderGeometry(0.06, 0.04, 0.3, 5)); drip1.translate(-0.08, -0.32, 0.02);
+      const drip2 = strip(new THREE.CylinderGeometry(0.05, 0.03, 0.2, 5)); drip2.translate(0.14, -0.26, -0.03);
+      const marrowMesh = new THREE.Mesh(mergeBone([snapFace, core, drip1, drip2], 'marrow'), marrowMat);
       marrowMesh.position.set(ex, ey, 0);   // on the MESH (not baked into geometry) so tools can project its world position
       marrowMesh.name = 'marrowScar';       // capture-tool seam: the scar proof crop projects this
       pivot.add(marrowMesh);
@@ -597,7 +590,13 @@ export function buildBoneCoil(def, quality = 1) {
     for (let k = 0; k < N_VERT; k++) {
       spineCurve.getPointAt(chainU[k], _v);
       vertNodes[k].node.position.copy(_v);
-      spineCurve.getTangentAt(chainU[k], _t);
+    }
+    // Orient every bone's LONG AXIS along its chain SEGMENT (lookAt the next
+    // bone centre — gate r7 #1): the column reads as end-to-end bones, and the
+    // joint discs (below) lie exactly on the same segments.
+    for (let k = 0; k < N_VERT; k++) {
+      const a = vertNodes[Math.max(0, k - 1)].node.position, b = vertNodes[Math.min(N_VERT - 1, k + 1)].node.position;
+      _t.subVectors(b, a).normalize();
       orientToTangent(vertNodes[k].mesh.quaternion, _t);
     }
     // The rib rings are children of the dorsal vertebrae (6–10), so they ride the
@@ -609,17 +608,13 @@ export function buildBoneCoil(def, quality = 1) {
       const pos = discChain.geo.attributes.position.array;
       const nrm = discChain.geo.attributes.normal.array;
       for (let d = 0; d < discChain.nD; d++) {
-        // Disc sits ON the curve at the gap-midpoint station (not the chord
-        // midpoint — during a hard S-coil the chord midpoint floats off the bone
-        // line and the disc read as a detached black chip). Its THICKNESS is the
-        // live gap + 0.1 overlap into both bones (the WELD, gate r4 #1): the
-        // bone-disc-bone column stays continuous at every sweep phase.
-        spineCurve.getPointAt(discU[d], _v);
-        spineCurve.getTangentAt(discU[d], _t);
+        // Disc at the CHORD midpoint between consecutive bone centres, axis
+        // aligned to the segment (gate r7 #2) — with the welded 0.1 seams the
+        // chord midpoints sit on the visual chain at every sweep phase.
+        const a = vertNodes[d].node.position, b = vertNodes[d + 1].node.position;
+        _v.copy(a).add(b).multiplyScalar(0.5);
+        _t.subVectors(b, a).normalize();
         orientToTangent(_q, _t);
-        // THIN flat seam disc (gate r6 #1): fixed 0.12 thickness — the pale bones
-        // nearly touch (SEAM spacing), so the disc reads as a carved joint line,
-        // never a black rod. Radius ≤0.8× the smaller neighbour.
         const dr = Math.min(vertNodes[d].r, vertNodes[d + 1].r) * 0.75;
         _m.compose(_v, _q, _s.set(dr, 0.12, dr));
         _nm.getNormalMatrix(_m);
