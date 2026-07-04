@@ -746,6 +746,111 @@ Adopted defaults:
   run; escalates by LID APERTURE only — one notch per band cleared, never blinking, only
   ever opening further; the half-open "it turned" beat lands after slot 13.
 
+## 5i. COMBAT FEEL — RHYTHM SIGNATURES, THE GRAZE LADDER, THE PARRY ECONOMY (2026-07)
+
+Ground truth (measured from code, master @ a2001b9): **the ping-pong is real and quantified.**
+All shipped bosses share one temporal envelope — tell 0.5–0.72s → volley 1.1–3.0s in flight →
+FLAT-UNIFORM rest 1.3–2.5s → repeat ~16–22×/min. Attacks are strictly serial (never overlap),
+the cadence roll is uniform-random with no anti-repeat, there are no bursts, doublets,
+accelerando, call-and-response, or music coupling — the music engine owns a real private beat
+grid (per-track bpm, eighth-note scheduler in sfx.js) that nothing exports. Cross-boss cycle
+means span just 2.35–3.5s: the roster differs in DENSITY, not in RHYTHM. Likewise graze has
+one active form (the shield bait-donut flood — everything else is incidental), and for a
+dodge-only player EVERY kill is 100% rider chip; ASHTALON P3 is the first shipped phase with
+ZERO amber (parry mechanically dead outside Surge). This section fixes all three.
+
+### A. RHYTHM SIGNATURES (kills the ping-pong)
+
+**The phrasing engine** (attach points are the cadence roll + attack pick, `boss.js` ~:1087 and
+~:1092-1102, plus a `getBeatClock()` export from sfx's existing private grid — lands with the
+slot-5 build; shipped-boss retrofits are pure def data):
+`def.rhythm = { signature, phrase: [...attack-slot patterns with gaps], restLo/restHi + rest
+DISTRIBUTION (uniform | bimodal | decaying), burst: {count, gap}, ticket: {bpm-quantized} }`.
+Rules: the phrase machine may double/triple attacks into strings (bursts) and insert authored
+rest measures; two bosses may not share a primary signature; a headless `rhythmprint` test
+simulates 60s per phase and asserts the inter-attack-gap distributions of any two bosses
+differ (KS-distance floor) — variance becomes CI, not vibes.
+
+**Allocation (primary signature per slot — registry column; shipped three retrofit as data):**
+| Slot | Signature | The feel |
+|---|---|---|
+| 1 VOIDMAW | METRONOME | fixed-pulse turn-taking — the teacher; tension = consistency |
+| 2 STORMREND | CRESCENDO | one ramp per card: sparse → dense → HARD CUT at capture |
+| 3 ASHTALON | AMBUSH–REST | long circling silences (2–4s), sforzando stoops; the rest IS the dread |
+| 4 MARROWCOIL | BURST-vs-SUSTAIN | coil sweeps = continuous stream texture; rib slams = discrete wall bursts; the ratio shifts per phase |
+| 5 EITHERWING | CALL-AND-RESPONSE | twins alternate A-B phrases; the eye handoff is the baton; overlapping only at the dread card |
+| 6 HOLLOWGATE | VERSE–CHORUS | door-prayer verses (low aimed murmur) alternating rose-window chorus set-pieces — the Touhou nonspell/spell macro |
+| 7 THRUMSWARM | PRESSURE OSTINATO | no true rests; micro-pauses live INSIDE the swarm's condensation cycle |
+| 8 BRINEHOLM | TIDAL DRONE | sustain-only, slowest pulse in the roster — breathing-rhythm swells; the relief texture |
+| 9 KARNVOW | AGGRESSION EXCHANGE | your parries steal its tempo — rallies reshape its phrasing; initiative wins |
+| 10 KNELLGRAVE | MUSIC-LOCKED | the toll is the only clock (music is dead); attack-ticket quantization to the bell's accelerating beat |
+| 11 WEFTWITCH | SYNCOPATED LOOM | quantized grid with off-beat accents — threads land BETWEEN the beats you learned |
+| 12 ONEWING | RUBATO / FEINT | the roster's ONE broken-meter boss: held wind-ups, denied downbeats, grief as arrhythmia (fairness rules: delays are FIXED per attack, animation-held, never randomized) |
+| 13 EMBERTIDE | CRESCENDO SETS | Stormrend's ramp QUOTED in repeating wave-sets (designed echo — the gale was its leash), each set cut harder |
+| 14 UNMASKED | THE MEDLEY | quotes each felled boss's signature per stage — the rhythm exam |
+
+Rest-beat law: rests are authored, not residual — every signature defines what its rest looks
+like (Ashtalon circles, Brineholm breathes, Knellgrave's clapper swings silent). Sequencing
+law: adjacent slots never share attention TYPE (reading-load vs execution-load).
+
+### B. THE GRAZE LADDER (fresh proximity verbs per band; all feed the Surge meter)
+
+Cross-cutting laws: dedup discrete / tick continuous (one graze per bullet; per-frame ticking
+only for beams/pockets — kills parking exploits); annulus not radius (a too-close edge always
+exists); reward bands are DRAWN in-world (pink sheaths/annuli — rail depth is hard to judge);
+payout richest at the scariest instant; reset-on-hit with a mercy shield at max.
+
+| Band | New graze forms (debut slot) |
+|---|---|
+| Sentinels (shipped) | buzz tick · shield bait-donuts · tunnel/iris center-skim |
+| Colossi | **SLIPSTREAM** (3: ride the stoop's wake — a moving safe pocket with collision walls) · **THREAD-THE-GAP scored by clearance+lateness** (4: the ribs — tighter+later = bigger chunk, consecutive threads chain) · **ORBIT ANNULUS** (5: co-rotate with the figure-eight inside a drawn band; a full unbroken lap = +1 level + i-frame pulse) |
+| Calamities | **RIDE-THE-BEAM-EDGE** (6: per-frame ticks that RAMP with unbroken contact) · **ABSORB-A-COLOR** (7: the swarm sheds surge-pink motes braided into magenta — weave in and soak) · **SHADOW-RIDE + SPRAY-SOAK** (8: the whale's lee vs geysers; freed shackles vent a 2×-value pink spray for one beat before hardening lethal) · **HOLD-UNTIL-FLINCH** (9: proximity-tiered chips for holding the lance line to the flash) |
+| World-Enders | **SHRINKING SAFE DISC** (10: toll-ring pockets — escalating ticks, bail on the last beat) · **CANCEL-CONVERT MOTE HARVEST** (11: cut threads bloom into falling motes; steer the bloom) · spray-soak escalation (12: breaking the dead frame) · **TIDE-EDGE + FACE-SHADOW POCKET** (13) |
+| Meta spine | **NO-HIT ADRENALINE LADDER** (global, lands with slot 6): 5 rungs per-fight (magnet → +gain → weak-point ping → +burst → one-hit shield), reset on hit · **TRICK-LINE LINKING** (lands slot 10): chaining DIFFERENT forms multiplies; repeats decay |
+
+Law: every §5d sheet names its band's graze form as ANATOMY (the form is a body part's
+geometry, not an abstract zone) and its card set offers it at least once per phase.
+
+### C. THE PARRY ECONOMY (no more chip-and-wait)
+
+**The seven diet laws** (enforced, not aspirational):
+1. **AMBER FLOOR (CI gate `amberdiet` in tests/boss.mjs):** every rolling 12s window of every
+   phase contains ≥1 amber volley; ≥20% of aimed-class emissions per phase are amber.
+   *Immediate hotfix: ASHTALON P3 currently 0% amber — amber-tip every 4th stream tick.*
+2. **Registry column "parry job":** each slot declares its amber-carrier move + which mechanic
+   it feeds; distinctness review diffs parry jobs like verbs.
+3. **Amber is ANATOMY, never paint** — sourced from a named organ with its own tell; the
+   silhouette predicts amber before the color confirms it.
+4. **Chip always progresses; parry ACCELERATES** — target: parry-literate ~30–40% faster,
+   perfect-parry ~50% (validated by the TTK DPS-sim). Outside ≤2 reflect-only seals, no HP is
+   parry-gated.
+5. **Per-volley ROI caps** (a wide fan must not trivialize any economy).
+6. **NEVER punish declining** — every amber is cleanly dodgeable; rewards are speed/style/
+   resources, never penalty-avoidance.
+7. **The dread move feeds the diet** on ≥4 slots (its counterintuitive answer is a parry read).
+
+**Adopted globally:** PERFECT-PARRY HEAL — a perfect parry restores 1 HP pip, capped 3/fight
+(the Furi law: make parry players feel loved; cap kills farming).
+
+**The parry ladder (≤1 new mechanic debut per band, then reused):**
+| Band | Debut mechanic |
+|---|---|
+| Sentinels | base roll-reflect + perfect tier (shipped) |
+| Colossi | **ORGAN BREAK** (4: parry a rib-slam's ambers N times → that rib CRACKS, its pattern component deleted — parry as sculptor; reused at 5 on the eye-holder) |
+| Calamities | **TENNIS RALLY + REFLECT-ONLY SEAL** (9, the showcase: it bats your cyan back as one big returnable orb, faster each return; its seal phase makes parry temporarily the only gun with a guaranteed amber diet — the ≤2 seal budget lives here and at 14) |
+| World-Enders | **RHYTHM PARRY CARD** (10: a named card announces a 4–6 amber chain on the TOLL's rhythm — parry the whole chain on its beat) · **BEAM DUEL** (13: Surge ≥50% lets you fire INTO the tide's crest — hold lane-center against drift while beams lock) |
+| Apex | **STAR PIPS** (perfect parries bank ≤3 stars that multiply the final stage's Surge damage; all lost on a hit) + the medley demands every prior read |
+
+Reserves (designed, unallocated): poise bar, amber bank, zandatsu lane, overload reload,
+rally regain — post-roster or NG+ material.
+
+**Engine cost ledger additions (§5e):** phrase machine + rest distributions at the cadence
+seam (LOW); `getBeatClock()` export from sfx (LOW); graze detection branch for lingering/
+continuous forms — the current single-frame rel-crossing check needs a ticking sibling with
+its own dedup story (MEDIUM, lands with slot 6); clearance-scored thread + annulus math
+(LOW, per-boss); `amberdiet` + `rhythmprint` CI gates (LOW); organ-break part HP reuses the
+§5f destructible-sub-part plumbing (already costed).
+
 ## 6. The system — how to build boss N (architecture)
 
 Everything is data + one builder file. `boss.js` (controller) needs ZERO changes for a new boss.
