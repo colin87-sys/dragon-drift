@@ -91,11 +91,17 @@ export function buildTwinWraith(def, quality = 1) {
   // a stranger reads which twin is lit from the silhouette alone. Diffuse stays near-black
   // (identity in emissive, §3 law 3); the dark oxblood color keeps ei 0.9 from blooming
   // white (it stays a red EDGE, not a second focal — the eye is the only glow, ONE-GLOW).
+  // The rim EMISSIVE is a WARM oxblood 0x93400f (hue ~22°) — 13° warmer than def.accent
+  // (0x86200f, ~9°) so that at ei 0.9 the BLOOM halo (which desaturates + ACES-shifts a
+  // saturated dark-red toward the 357° edge) stays clear of the danger-magenta band
+  // (327–357°) on the dark backdrop — the OXBLOOD-MAGENTA collision the §5d gate law + the
+  // REACH note both warn of at ei 0.9. Still oxblood, still within G3's ±25° of the accent.
+  const RIM_EMISSIVE = 0x93400f;
   const rimHolderMat = track(new THREE.MeshStandardMaterial({
-    color: 0x2a0d0a, emissive: accent, emissiveIntensity: 0.9, roughness: 0.5, metalness: 0.25, flatShading: true,
+    color: 0x2a0d0a, emissive: RIM_EMISSIVE, emissiveIntensity: 0.9, roughness: 0.5, metalness: 0.25, flatShading: true,
   }));
   const rimSeekerMat = track(new THREE.MeshStandardMaterial({
-    color: 0x1a0806, emissive: accent, emissiveIntensity: 0.45, roughness: 0.55, metalness: 0.2, flatShading: true,
+    color: 0x1a0806, emissive: RIM_EMISSIVE, emissiveIntensity: 0.45, roughness: 0.55, metalness: 0.2, flatShading: true,
   }));
   // Aged-silver crescent fins (the cool second swatch), lifted to ei 0.30 (REACH) so the
   // fin planes read as a lit surface at fight distance, still short of the eye.
