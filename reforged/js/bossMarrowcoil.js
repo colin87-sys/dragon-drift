@@ -91,7 +91,7 @@ export function buildBoneCoil(def, quality = 1) {
   const skull = new THREE.Group();
   skull.name = 'skullGroup';   // viewer focus target
   skull.position.set(0, 6.9, 1.15);   // leads the (longer, ×1.6-boned) chain; occiput overlaps vertebra 0
-  skull.scale.setScalar(1.22);        // head stays the dominant terminal mass over the ×1.6 neck bones (§3.1 ladder)
+  skull.scale.setScalar(1.42);   // gate r12 #4: the skull is the dominant terminal mass        // head stays the dominant terminal mass over the ×1.6 neck bones (§3.1 ladder)
   rig.add(skull);
 
   const CRANIUM_W = 1.7;
@@ -231,9 +231,9 @@ export function buildBoneCoil(def, quality = 1) {
   eyeHaloMat.toneMapped = false;
   const eyes = new THREE.Group(); eyes.position.copy(skull.position); eyes.scale.copy(skull.scale); rig.add(eyes);   // mirrors the skull transform so the pinlights stay seated in the scaled sockets
   {
-    const hl = strip(new THREE.SphereGeometry(0.17, 8, 6)); hl.translate(-0.62, 0.14, 0.62);
-    const hr = strip(new THREE.SphereGeometry(0.17, 8, 6)); hr.translate(0.62, 0.14, 0.62);
-    eyes.add(new THREE.Mesh(mergeGeometries([hl, hr], false), eyeHaloMat));
+    const hl = strip(new THREE.CircleGeometry(0.17, 12)); hl.translate(-0.62, 0.14, 0.66);
+    const hr = strip(new THREE.CircleGeometry(0.17, 12)); hr.translate(0.62, 0.14, 0.66);
+    eyes.add(new THREE.Mesh(mergeGeometries([hl, hr], false), eyeHaloMat));   // flat IRIS discs — the core stays concentric at every angle (gate r12 #9)
   }
   const eyeMeshes = [];
   for (const sx of [-1, 1]) {
@@ -302,7 +302,7 @@ export function buildBoneCoil(def, quality = 1) {
     new THREE.Vector3(-1.9, 3.6, 0.5),    // ...then sweeps LEFT (the S — gentle bend radius: big bones must track it)
     new THREE.Vector3(-1.3, 2.4, 0.8),    // ENTERS the cage from above-LEFT, front
     new THREE.Vector3(0.0, 1.55, -1.6),   // threads the middle, running back
-    new THREE.Vector3(2.6, 0.3, -4.5),    // EXITS below-RIGHT, deep
+    new THREE.Vector3(3.5, 0.1, -3.9),    // EXITS below-RIGHT, pulled clear of the (smaller) cage
     new THREE.Vector3(12.0, -5.8, -1.4),  // tail sweeps right-down-OUT at cage-front depth, WIDE — the kite separates from the arc mass and clears the silhouette by >=1.5
   ];
   const ctrlAmp = [0, 2.2, 2.3, 0.7, 0.4, 0.8, 1.2];   // outer coils sweep >=1.5 peak (idle vs coilsweep are different poses); cage section stays noded   // tail amp small: its sweep never re-enters the aperture's projected circle
@@ -336,7 +336,7 @@ export function buildBoneCoil(def, quality = 1) {
   const vertNodes = [];
   for (let i = 0; i < N_VERT; i++) {
     const t = i / (N_VERT - 1);
-    const r = 0.85 - t * 0.4;   // gate r6 #1: radius ramp 0.85 → 0.45 — the pale bones ARE the spine mass
+    const r = (0.85 - t * 0.4) * 1.15;   // gate r12 #4: spine mass up — the coil must dominate the black fill
     const node = new THREE.Object3D();
     rig.add(node);
     // FLAT octahedron (detail 0 — hard facets), y×0.55 (gate r3 #5a) — local y is
@@ -435,13 +435,13 @@ export function buildBoneCoil(def, quality = 1) {
   // left rib is SNAPPED (the scar); a faint ice-blue rim centres the aperture.
   // ---------------------------------------------------------------------
   const N_RING = 5;
-  const RING_R = [3.9, 3.55, 3.2, 2.9, 2.6];   // stronger front->back taper: the corridor recedes in a still (gate r10 #5)   // front→back taper (nested = reads as ribs; front aperture ≈9 world @scale)
+  const RING_R = [3.3, 3.1, 2.95, 2.8, 2.65];   // gate r12 #4: the cage yields the mass hierarchy back to skull+spine (clearance stays >=4.5)   // stronger front->back taper: the corridor recedes in a still (gate r10 #5)   // front→back taper (nested = reads as ribs; front aperture ≈9 world @scale)
   // Each RIB = a TAPERED, FACETED bone tube (gate r3 #7): a TubeGeometry along a
   // circular arc from its ROOT at the spine (θ≈84°, overlapping the host
   // vertebra) sweeping down-around to a free TIP (θ≈−24°), radius tapering
   // 0.30 root → 0.12 tip, radialSegments 5 so the tube visibly facets. The pair
   // leaves the dorsal notch (where the spine runs) + a ventral gap.
-  const ribArc = Math.PI * 0.92;                   // ~166°: left+right tips nearly meet at the bottom — each pair reads as a RING you pass through (gate r10 #3)
+  const ribArc = Math.PI * 0.68;                   // gate r12 #4: back toward the sheet's sweep — arcs, not hoops; the receding corridor + threading spine carry the fly-through
   const ROOT_TH = Math.PI * (84 / 180);            // root angle (near the spine top)
   const ribTubularSeg = lowQ ? 8 : 12, ribRadialSeg = 5;
   const ribHang = (R) => -R * 0.97;   // ring centre sits so the rib ROOT lands ON the host vertebra
@@ -472,20 +472,34 @@ export function buildBoneCoil(def, quality = 1) {
     pivot.position.set(0, ribHang(R), 0);    // roots land on the host vertebra above
     vertNodes[RIB_V0 + h].node.add(pivot);   // planted ON a real vertebra (roots ride bone)
     // The scar (§3.6): the THIRD pair (h===2)'s LEFT rib snapped at ~55% arc.
-    const leftSpan = h === 2 ? 0.6 : 1;   // gate r6 #5: snapped at 60%
+    const leftSpan = h === 2 ? 0.57 : 1;   // gate r12 #2: SEVERED at ~57% — a void gap, then a floating distal fragment
         // Gate r11 #2: facet the arcs LENGTHWISE — value bands keyed on the angle
     // along the arc (6+ visible polygon breaks per rib; ΔL ≥ 12/255 survives
     // ACES) instead of face-normal buckets, which the arc's curvature washed out.
-    const ringGeo = mergeBone([makeRibGeo(R, 1), makeRibGeo(R, -1, leftSpan, h === 2 ? 0.7 : 0.4)], `ribRing${h}`);
+    const ringParts = [makeRibGeo(R, 1), makeRibGeo(R, -1, leftSpan, h === 2 ? 0.7 : 0.4)];
+    if (h === 2) {
+      // The snapped-off DISTAL FRAGMENT: a short arc past a ~0.3-unit void gap.
+      const fragPts = [];
+      for (let i = 0; i <= 4; i++) {
+        const th = ROOT_TH - ribArc * (0.62 + (i / 4) * 0.16);
+        fragPts.push(new THREE.Vector3(-Math.cos(th) * R, Math.sin(th) * R, 0));
+      }
+      const frag = new THREE.TubeGeometry(new THREE.CatmullRomCurve3(fragPts), 6, 0.16, ribRadialSeg, false);
+      ringParts.push(strip(frag));
+    }
+    const ringGeo = mergeBone(ringParts, `ribRing${h}`);
     {
       const pos = ringGeo.attributes.position;
       const cols = new Float32Array(pos.count * 3);
-      const band = [new THREE.Color(0xe4dfd0), new THREE.Color(0xd8d2c0), new THREE.Color(0xcfc8b4)];
+      const band = [new THREE.Color(0xece7d8), new THREE.Color(0xd4cdba), new THREE.Color(0xb4ac9a)];
+      const rootTone = new THREE.Color(0x8a8578);
       const A = new THREE.Vector3(), B = new THREE.Vector3(), C = new THREE.Vector3();
       for (let f = 0; f < pos.count; f += 3) {
         A.fromBufferAttribute(pos, f); B.fromBufferAttribute(pos, f + 1); C.fromBufferAttribute(pos, f + 2);
         const th = Math.atan2((A.y + B.y + C.y) / 3, (A.x + B.x + C.x) / 3);   // angle along the ring
-        const c = band[Math.abs(Math.floor(th / (Math.PI / 5))) % 3];
+        // Dark joint tone at the root (§3 law 4 painted hierarchy), bands after.
+        const nearRoot = Math.abs(th) > ROOT_TH - 0.18;
+        const c = nearRoot ? rootTone : band[Math.abs(Math.floor(th / (Math.PI / 5))) % 3];
         for (let k3 = 0; k3 < 3; k3++) { cols[(f + k3) * 3] = c.r; cols[(f + k3) * 3 + 1] = c.g; cols[(f + k3) * 3 + 2] = c.b; }
       }
       ringGeo.setAttribute('color', new THREE.BufferAttribute(cols, 3));
@@ -518,7 +532,7 @@ export function buildBoneCoil(def, quality = 1) {
       // in the un-zoomed idle frame (still far dimmer than the ice focals).
       const marrowMat = track(new THREE.MeshBasicMaterial({ color: 0xff7a3a }));
       marrowMat.toneMapped = false;
-      marrowMat.color.multiplyScalar(3.0);   // gate r11 #3: clips toward white-hot in the no-bloom frames
+      marrowMat.color.setHex(0xffb238).multiplyScalar(3.0);   // gate r12 #2 hexes
       // Clean angled break disc (gate r11 #3): one cap tilted 0.3 rad off the
       // local rib tangent — no jagged tabs, no z-fighting drips.
       const endTh = ROOT_TH - ribArc * leftSpan;
@@ -538,8 +552,8 @@ export function buildBoneCoil(def, quality = 1) {
       marrowMesh.position.set(ex, ey, 0);   // on the MESH (not baked into geometry) so tools can project its world position
       // White-hot INNER CORE strip (gate r11 #3): thin, ×4.5 — the centre clips white.
       const coreMat = track(new THREE.MeshBasicMaterial({ color: 0xffd8b0 }));
-      coreMat.toneMapped = false; coreMat.color.multiplyScalar(4.5);
-      const corePts = mstripPts.map((p2) => p2.clone().add(new THREE.Vector3(ex, ey, 0.08)));   // pivot-space (the strip pts are marrow-relative)
+      coreMat.toneMapped = false; coreMat.color.setHex(0xfff6e0).multiplyScalar(4.5);
+      const corePts = mstripPts.map((p2) => p2.clone().add(new THREE.Vector3(ex, ey, 0.34)));   // PROUD of the outer strip (it was buried inside the r-0.25 tube and never clipped white)
       const coreStrip = new THREE.Mesh(strip(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(corePts), 9, 0.1, 4, false)), coreMat);
       pivot.add(coreStrip);
       marrowMesh.name = 'marrowScar';       // capture-tool seam: the scar proof crop projects this
@@ -574,7 +588,7 @@ export function buildBoneCoil(def, quality = 1) {
   const orbiters = [];
   for (let i = 0; i < 2; i++) {
     const m = new THREE.Mesh(chipGeo, chipMat);
-    m.userData = { ang: (i / 2) * Math.PI * 2 + 0.6, radius: 1.6 + i * 0.5, speed: 0.5 + i * 0.18, baseY: 3.2 - i * 1.4, tilt: i * 1.3 };   // hug the neck chain (§3 law 8 — never far-off render garbage)
+    m.userData = { ang: (i / 2) * Math.PI * 2 + 0.6, radius: 1.5 + i * 0.4, speed: 0.5 + i * 0.18, baseY: 5.6 - i * 1.0, tilt: i * 1.3 };   // circle the neck below the skull (§3 law 8 — never stray tunnel debris)
     rig.add(m);
     orbiters.push(m);
   }
@@ -768,6 +782,7 @@ export function buildBoneCoil(def, quality = 1) {
       s *= 1 - dyingK * 0.25;
       const es = rb.pivot.scale.x + (s - rb.pivot.scale.x) * Math.min(1, dt * (setpieceK > 0 || charge > 0.25 ? 14 : 5));
       rb.pivot.scale.set(es, es, 1);
+      rb.pivot.position.y = -rb.R * 0.97 * es;   // roots stay PINNED to the host vertebra through the constrict (gate r12 #7)
     }
 
     tail.rotation.z = Math.sin(time * COIL_OMEGA - COIL_SEP * 6) * 0.4 * (1 - dyingK * 0.6);

@@ -42,7 +42,7 @@ const FRAMES = [
   { name: 'scar',            o: { t: 1.0, yaw: 0, pitch: -0.05, focus: 'marrowScar', distMul: 0.2 } },
   { name: 'ribroot',         o: { t: 1.0, yaw: 0, pitch: 0.1, focus: 'ribPivot', distMul: 0.26 } },
   { name: 'ribroot-offaxis', o: { t: 1.0, yaw: 30, pitch: 0.1, focus: 'ribPivot', distMul: 0.26 } },
-  { name: 'dread',           o: { t: 2.0, sp: 0.75, spmode: 'closingRibs', yaw: 0, pitch: -0.05, focus: 'ribPivot', distMul: 0.55 } },
+  { name: 'dread',           o: { t: 2.0, sp: 0.75, spmode: 'closingRibs', yaw: 0, pitch: -0.05, distMul: 0.85 } },
   { name: 'shielded',        o: { t: 1.0, shield: true, yaw: 0, pitch: -0.12 } },
   { name: 'death',           o: { t: 1.0, death: 0.55, yaw: 0, pitch: -0.12 } },
 ];

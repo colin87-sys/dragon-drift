@@ -261,6 +261,9 @@
       playing = false;
       if (opts.boss && opts.boss !== key) { key = opts.boss; fitted = false; }
       if (opts.seed != null) seed = opts.seed;
+      // RESET to base state each call — dials must never leak between canonical
+      // frames (a leaked charge=1 once produced byte-identical idle/charge files).
+      Object.assign(dials, { charge: 0, sp: 0, spmode: 'closingRibs', death: 0, hp: 1, shield: false, noticeAt: -1, gx: 0, gy: 0 });
       for (const k of ['charge', 'sp', 'spmode', 'death', 'hp', 'shield', 'gx', 'gy']) if (opts[k] != null) dials[k] = opts[k];
       simulate(opts.t ?? 1.0);
       if (opts.focus) {
