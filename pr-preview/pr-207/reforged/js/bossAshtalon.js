@@ -239,6 +239,16 @@ export function buildEmberHunter(def, quality = 1) {
   const core = new THREE.Mesh(new THREE.BoxGeometry(SLIT_W * 0.7, 0.11, 0.12), slitMat);
   core.position.z = 0.07;
   slit.add(core);
+  // PUPIL — a narrow DARK iris riding in the white-hot core; it slides within the
+  // slit to TRACK the player (charisma: the eye follows you, and locks on during the
+  // cinematic overtake). Dark + in FRONT of the core so it reads as a pupil notch
+  // against the molten glow. Its travel is bounded so it never leaves the slit.
+  const pupilMat = track(new THREE.MeshBasicMaterial({ color: 0x140702 }));
+  pupilMat.toneMapped = false;
+  const pupil = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.13, 0.05), pupilMat);
+  pupil.position.z = 0.15;
+  slit.add(pupil);
+  const PUPIL_X = SLIT_W * 0.26, PUPIL_Y = 0.04;
   rig.add(slit);
 
   // ---------------------------------------------------------------------
@@ -483,6 +493,10 @@ export function buildEmberHunter(def, quality = 1) {
     prow.rotation.x = -gazeY * 0.06 + (charge > 0 && tell === 'tuck' ? charge * 0.12 : 0);
     cowl.rotation.copy(prow.rotation);
     slit.rotation.y = prow.rotation.y;
+    // The PUPIL slides within the slit to point AT the player — the tracking eye
+    // (subtle in the fight, a hard lock during the overtake pass).
+    pupil.position.x = gazeX * PUPIL_X;
+    pupil.position.y = gazeY * PUPIL_Y;
 
     // Recoil (flinch/notice): the whole rig kicks back.
     const recoil = (painT > 0 ? painT / 0.32 : 0) * 0.4 + (noticeT > 0.6 ? (noticeT - 0.6) / 0.3 : 0) * 0.3;

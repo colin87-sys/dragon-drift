@@ -800,14 +800,16 @@ function updateFlythrough(dt, player, time) {
   model.setSetpiece?.(tuck);
   model.setCharge?.(0);
 
-  // The visor LOCKS onto the dragon: yaw the whole body to track it (the small-angle
-  // gaze rig alone can't sell "watching you"). This also naturally WHEELS it ~180°
-  // from facing-away (behind you) to facing-you (ahead) as it crosses. cineYaw:
-  // local +z (visor) points along world (dx, rel) = the boss→player direction.
-  const dx = player.position.x - pose.x;
-  cineYaw = Math.atan2(dx, rel);
-  // Fine eye tilt on top (now correct — the body faces you, so world ≈ local).
-  model.setGaze?.(Math.max(-1, Math.min(1, dx / 12)), Math.max(-1, Math.min(1, (player.position.y - pose.y) / 12)));
+  // Body PURELY flies by: it holds its dive line (visor to the rear camera) through
+  // the pass, then WHEELS 180° to face you as the fight opens. The body never twists
+  // to track — only the PUPIL does (setGaze below), so the silhouette stays clean.
+  cineYaw = u < U3 ? Math.PI : Math.PI * (1 - seg(U3, 1));
+  // The PUPIL tracks the dragon (eye-lock): the visor faces the camera/dragon (world
+  // −z) during the pass, so a dragon to world-right reads as the boss's local-left —
+  // hence the −dx. Eased out to centre through the turn.
+  const dx = player.position.x - pose.x, dy = player.position.y - pose.y;
+  const track = u < U3 ? 1 : (1 - seg(U3, 1));
+  model.setGaze?.(Math.max(-1, Math.min(1, -dx / 8)) * track, Math.max(-1, Math.min(1, dy / 8)) * track);
 
   // Feed the cinematic camera the boss's world position so it tracks the flythrough.
   cameraCtl.setOvertake?.({ k: u, bx: pose.x, by: pose.y, bz: -(player.dist + pose.rel) });
