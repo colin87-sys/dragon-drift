@@ -47,7 +47,7 @@ const STATES = [
 // EITHERWING extras: the eye-handoff (eye mid-thread) + the survivor flee pose.
 const EXTRAS = [
   { name: 'handoff', o: { handoff: 0.5, t: 2.0 } },   // setDebugHandoff(0.5): eye mid-thread between the twins
-  { name: 'flee',    o: { death: 0.7, t: 2.0 } },     // the survivor circling/fleeing pose
+  { name: 'flee',    o: { death: 0.52, t: 1.5 } },    // the MOURNFUL circling beat (before the off-frame flight): survivor centred, both twins visible, socket-ring glow + scattered beads
 ];
 const states = bossId === 'eitherwing' ? [...STATES, ...EXTRAS] : STATES;
 

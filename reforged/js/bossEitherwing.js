@@ -312,24 +312,27 @@ export function buildTwinWraith(def, quality = 1) {
   // a beaded LineSegments THREAD strung between the twins' sockets. It DETACHES and
   // glides from holder to seeker; whoever holds it fires next. THE focal (§3.2).
   // ------------------------------------------------------------------
-  // A SMALL, intensely-hot orb: the focal must be a tight bright POINT (peak ≥250,
-  // ≤~5% of the silhouette — the §3.2/G1 law), NOT a big bloomed disc that swallows
-  // the darts. Hotter (clips to white through ACES) but small (the bright cluster
-  // stays tiny; the two dart bodies stay the dominant mass, §3.1).
-  const EYE_HOT = 6.0;   // clips comfortably to pure white (≥250) through ACES + bloom, with margin; the small orb keeps the bright cluster tiny (§3.2/G1)
-  const EYE_BASE = new THREE.Color(0xfff0e6);
+  // The eye is a REAL EYE, structured so a dark PUPIL survives bloom (CP1 gate r2
+  // directive 1): a MODERATE-HDR sclera RING (its bloom is a halo, not a flood) +
+  // a BIG dark pupil proud of it + a tiny ULTRA-HOT catchlight glint that alone
+  // carries the §3.2/G1 focal peak (≥250) in a pinpoint cluster. Sclera dimmed from
+  // 6.0→2.1 so its annulus bloom can't fill the pupil centre.
+  const EYE_HOT = 2.1;                     // the sclera ring — gentle bloom, never floods the pupil
+  const GLINT_HOT = 9.0;                   // the catchlight — the G1 maxLum peak; big enough to survive 2× AA
+  const EYE_BASE = new THREE.Color(0xfff2ea);
   const eyeRig = new THREE.Group();
   eyeRig.name = 'eyeRig';
-  const orbMat = track(new THREE.MeshBasicMaterial({ color: 0xfff0e6 }));
+  const orbMat = track(new THREE.MeshBasicMaterial({ color: 0xfff2ea }));
   orbMat.toneMapped = false;
   orbMat.color.copy(EYE_BASE).multiplyScalar(EYE_HOT);
   const orb = new THREE.Mesh(new THREE.SphereGeometry(0.24, lowQ ? 12 : 18, lowQ ? 8 : 14), orbMat);
   eyeRig.add(orb);
-  // Oxblood IRIS ring around the orb (the eye reads as an EYE — iris, not a stray
-  // bullet; the §5d LOOSE-BULLET-EYE failure class). A torus ring plus radiating
-  // PETAL wedges (the EYE_HOT rig's carved iris) — emissive oxblood, dimmer than the orb.
+  // Iris ring around the orb (the eye reads as an EYE — iris, not a stray bullet).
+  // EMBER-SALMON emissive (warmed off rose per CP1 r2 directive 5) so its bloom-mix
+  // halo never lands a bright pixel in the danger-magenta band (327–357°).
+  const IRIS_EMBER = 0xff7a58;
   const irisMat = track(new THREE.MeshStandardMaterial({
-    color: 0x30100c, emissive: accent, emissiveIntensity: 0.9, roughness: 0.45, metalness: 0.3, flatShading: true,
+    color: 0x3a1410, emissive: IRIS_EMBER, emissiveIntensity: 0.85, roughness: 0.45, metalness: 0.3, flatShading: true,
   }));
   const irisParts = [strip(new THREE.TorusGeometry(0.32, 0.075, 8, lowQ ? 16 : 24))];
   const nPetal = lowQ ? 6 : 10;
@@ -350,11 +353,22 @@ export function buildTwinWraith(def, quality = 1) {
   // over the orb so it always occludes the hot centre.
   const pupilMat = track(new THREE.MeshBasicMaterial({ color: 0x140a0a }));
   pupilMat.toneMapped = false;
-  const pupil = new THREE.Mesh(new THREE.SphereGeometry(0.17, 12, 10), pupilMat);
+  const pupil = new THREE.Mesh(new THREE.SphereGeometry(0.2, 14, 12), pupilMat);   // ~0.83 of the sclera → a big dark disc, only a thin bright ring survives
   pupil.name = 'eyePupil';
-  pupil.position.z = 0.15;
+  pupil.position.z = 0.16;   // proud ≥0.06 of the sclera front (0.24) → the pupil front sits at ~0.36
   pupil.renderOrder = 6;
   eyeRig.add(pupil);
+  // CATCHLIGHT glint — a pinpoint ultra-hot spark on the upper rim of the eye. It
+  // alone carries the §3.2/G1 focal peak (≥250) in a tiny cluster, so the sclera can
+  // stay dim enough to keep the pupil dark. Reads as a living wet catchlight.
+  const glintMat = track(new THREE.MeshBasicMaterial({ color: 0xffffff }));
+  glintMat.toneMapped = false;
+  glintMat.color.setScalar(GLINT_HOT);
+  const glint = new THREE.Mesh(new THREE.SphereGeometry(0.12, 10, 8), glintMat);
+  glint.name = 'eyeGlint';
+  glint.position.set(-0.08, 0.09, 0.44);   // upper-left, PROUD OF THE PUPIL (front ~0.36) so it's never occluded
+  glint.renderOrder = 7;
+  eyeRig.add(glint);
   rig.add(eyeRig);
 
   // The BEADED THREAD — a LineSegments strand strung between the two sockets, with
@@ -403,7 +417,7 @@ export function buildTwinWraith(def, quality = 1) {
   const moteMat = track(new THREE.MeshStandardMaterial({
     color: 0x070302, emissive: accent, emissiveIntensity: 0.06, roughness: 0.85, metalness: 0.0, flatShading: true,
   }));
-  const moteGeo = strip(new THREE.OctahedronGeometry(0.16, 0));
+  const moteGeo = strip(new THREE.OctahedronGeometry(0.1, 0));   // small (was 0.16) so the sparks don't scan as dark confetti on the pale sheet (CP1 r2 polish)
   const orbiters = [];
   for (let i = 0; i < 3; i++) {
     const m = new THREE.Mesh(moteGeo, moteMat);
@@ -467,7 +481,11 @@ export function buildTwinWraith(def, quality = 1) {
     // leave emissive to the per-frame tick, which keeps the survivor charcoal and
     // confines the glow to the guttering ember at its socket. The flee pose itself
     // (survivor circles the fallen half, takes the eye, flees) is driven in tickBody.
-    const a = 1 - dyingK;
+    // BACK-LOADED fade: the survivor stays FULLY OPAQUE through the whole flee (the
+    // mourner must be visible — CP1 r2 directive 3), only vanishing in the last beat
+    // as it clears the frame. At k=1 everything is transparent (the dissolve test
+    // still passes); at the flee capture (k≈0.5) opacity is 1.
+    const a = dyingK < 0.82 ? 1 : Math.max(0, 1 - (dyingK - 0.82) / 0.18);
     for (const m of kit.mats) {
       m.transparent = true;
       const base = m.userData.baseOpacity ?? 1;
@@ -610,6 +628,11 @@ export function buildTwinWraith(def, quality = 1) {
     // sheet too (CP1 gate directive 5). Beads carry the last of the light.
     socketMat.emissiveIntensity = 0.18 + dyingK * 2.4;
     beadMat.opacity = 0.85 * (1 - dyingK * 0.3) + fleeK * 0.15;
+    // Lift the aged-silver rims + crest so the fleeing MOURNER is a visible BODY on
+    // the dark flee frame (not a charcoal ghost) — CP1 r2 directive 3. The diffuse
+    // stays charcoal; only the rim/fin emissive rises.
+    silverMat.emissiveIntensity = 0.14 + dyingK * 0.4;
+    rimMat.emissiveIntensity = 0.55 + dyingK * 0.35;
 
     // --- Gaze: the HELD eye tracks the player with lag + look-aways (a mind, not a
     // turret). Eye-lock hard-tracks during notice/charge. ---
@@ -637,18 +660,29 @@ export function buildTwinWraith(def, quality = 1) {
     // --- The eye brightness/size: white-hot focal in every state; leashes dim under
     // a shield (G6); pupil constricts on charge (the tell); tucks on blink. ---
     const flicker = 0.9 + Math.sin(time * 4.5) * 0.07 + Math.sin(time * 12) * 0.03;
-    let eyeK = shieldClamp ? 0.4 : flicker * (1 + charge * 0.4);
-    if (noticeT > 0) eyeK *= 1.35;
+    // Sclera stays MODERATE in every state (the charge tell is the PUPIL + glint, not
+    // a sclera blow-up) so its bloom never floods the pupil; dips further mid-glide
+    // (CP1 r2 directive 1). The glint carries the G1 focal peak, not the sclera.
+    const gliding = Math.abs(holdTarget - Math.max(0, Math.min(1, holdT))) > 0.05;
+    let eyeK = shieldClamp ? 0.4 : flicker * (1 + charge * 0.12);
+    if (noticeT > 0) eyeK *= 1.12;
+    if (gliding) eyeK *= 0.78;
     eyeK *= Math.max(0, 1 - dyingK * 1.7);   // the shared ember GUTTERS OUT by the flee (the glow retreats into the socket ring)
     orbMat.color.copy(EYE_BASE).multiplyScalar(Math.max(0.02, eyeK) * EYE_HOT);
+    glintMat.color.setScalar(GLINT_HOT * Math.max(0.05, (shieldClamp ? 0.3 : 1) * (1 - dyingK)));   // the glint leashes under shield, guts in death
     const tuck = blinkProg * 0.8 + (shieldClamp ? 0.3 : 0);
     orb.scale.setScalar(Math.max(0.1, 1 - tuck * 0.7 + (noticeT > 0.5 ? 0.2 : 0)));
     iris.scale.setScalar(1 + tuck * 0.25);
-    // Pupil: constricts on charge/notice (the charge tell), tracks the player, and
-    // rides the orb front. Death dilates it (§4b: dilation = death).
-    const pupilBase = 1 - charge * 0.5 - (noticeT > 0.4 ? 0.3 : 0) + dyingK * 0.6;
-    pupil.scale.setScalar(Math.max(0.35, pupilBase) * (1 - tuck * 0.5));
-    pupil.position.set(gazeX * 0.09, gazeY * 0.08, 0.15 - tuck * 0.14);
+    glint.visible = tuck < 0.6 && dyingK < 0.4;   // the catchlight winks out on a blink/tuck, and EARLY in death (the ember guts; the glow retreats to the socket ring)
+    // Pupil: constricts on charge/notice (the charge tell), tracks the player, and on
+    // a HANDOFF biases toward the RECEIVING twin so the eye LOOKS where it's going
+    // (CP1 r2 directive 2). Death dilates it (§4b: dilation = death).
+    const pupilBase = 1 - charge * 0.4 - (noticeT > 0.4 ? 0.3 : 0) + dyingK * 0.6;
+    pupil.scale.setScalar(Math.max(0.4, pupilBase) * (1 - tuck * 0.5));
+    const recv = holdTarget > 0.5 ? _sb : _sa;
+    const glideBiasX = gliding ? Math.max(-1, Math.min(1, (recv.x - _eye.x) * 0.6)) * 0.07 : 0;
+    pupil.position.set(gazeX * 0.08 + glideBiasX, gazeY * 0.07, 0.16 - tuck * 0.14);
+    glint.position.set(-0.09 + gazeX * 0.05, 0.1 + gazeY * 0.04, 0.44);
 
     // --- The twins' fins/ribbons pose by charge (EXPRESSION, §4b): open-glide idle,
     // mantle on charge (fins rake up + ribbons flare), furl in death. Plus the flinch
