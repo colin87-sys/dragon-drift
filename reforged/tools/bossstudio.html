@@ -155,7 +155,7 @@
       m.setGaze?.(dials.gx, dials.gy);
       m.setCharge?.(dials.charge);
       m.setAttackTell?.(dials.charge > 0 ? 'aimed' : null);
-      m.setSetpiece?.(dials.sp, { id: dials.spmode });
+      m.setSetpiece?.(dials.sp, { id: dials.spmode, dread: dials.dread });
       m.setShieldVisible?.(dials.shield);
       m.setHealth?.(dials.hp);
       // setDissolve unconditionally flips EVERY material to transparent (bossKit
@@ -305,8 +305,8 @@
       if (opts.seed != null) seed = opts.seed;
       if (opts.bg != null) setBackdrop(opts.bg);
       // RESET to base state each call — dials must never leak between canonical frames.
-      Object.assign(dials, { charge: 0, sp: 0, spmode: 'figureEight', death: 0, hp: 1, shield: false, noticeAt: -1, gx: 0, gy: 0, handoff: null });
-      for (const k of ['charge', 'sp', 'spmode', 'death', 'hp', 'shield', 'gx', 'gy', 'noticeAt', 'handoff']) if (opts[k] != null) dials[k] = opts[k];
+      Object.assign(dials, { charge: 0, sp: 0, spmode: 'figureEight', dread: false, death: 0, hp: 1, shield: false, noticeAt: -1, gx: 0, gy: 0, handoff: null });
+      for (const k of ['charge', 'sp', 'spmode', 'dread', 'death', 'hp', 'shield', 'gx', 'gy', 'noticeAt', 'handoff']) if (opts[k] != null) dials[k] = opts[k];
       simulate(opts.t ?? 1.0);
       camera.fov = opts.fov ?? FOV; camera.updateProjectionMatrix();
       freeCam = false;

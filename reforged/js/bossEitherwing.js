@@ -52,6 +52,7 @@ export function buildTwinWraith(def, quality = 1) {
   const glow = def.glow ?? 0xc9c1b4;        // aged silver — rims, shield, shards, backlight
   const lowQ = quality < 0.75;
   const strip = stripForMerge;
+  const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
 
   // Shield wraps whichever body holds the eye — but the kit bubble is centred on
   // the rig origin (the shared ember the twins orbit); the eye-holder is pulled to
@@ -99,8 +100,8 @@ export function buildTwinWraith(def, quality = 1) {
   // socket can flare into the mourning glow at the flee-death — the survivor's FACE
   // is the glowing empty ring (CP1 gate directive 5) — without lighting the fins.
   const socketMat = track(new THREE.MeshStandardMaterial({
-    color: 0x201d1a, emissive: glow, emissiveIntensity: 0.18, roughness: 0.5, metalness: 0.4, flatShading: true,
-  }));
+    color: 0x201d1a, emissive: 0xff7a58, emissiveIntensity: 0.18, roughness: 0.5, metalness: 0.4, flatShading: true,
+  }));   // ember-salmon so the dread "split light" + the mourning glow read warm (matches the eye), not silver
   socketMat.side = THREE.DoubleSide;
   const ribbonMat = track(new THREE.MeshStandardMaterial({
     color: 0x140c0b, emissive: accent, emissiveIntensity: 0.12, roughness: 0.8, metalness: 0.1, flatShading: true,
@@ -272,8 +273,8 @@ export function buildTwinWraith(def, quality = 1) {
         // Standing-wave base curve (fixed): adjacent segments differ ~0.16 rad so
         // the resting ribbon is a meandering S, never a rod.
         const wave = tailPhase + s * 0.55;
-        const baseZ = Math.sin(wave) * 0.3;
-        const baseX = -0.14 + Math.cos(wave) * 0.18;
+        const baseZ = Math.sin(wave) * 0.22;             // gentler bend per joint so the overlap always covers it
+        const baseX = -0.12 + Math.cos(wave) * 0.14;
         pivot.rotation.set(baseX, 0, baseZ);
         parent.add(pivot);
         const snapped = (seeker && t === 0 && s === segN - 1);
@@ -297,7 +298,11 @@ export function buildTwinWraith(def, quality = 1) {
   const RIBBON_SEG = lowQ ? 5 : 8;
   function segLen(s, lenScale = 1) { return (0.6 - s * 0.05) * lenScale; }
   function ribbonSegGeo(s, lenScale, snapped = false) {
-    const len = snapped ? 0.22 * lenScale : segLen(s, lenScale);
+    // Each segment is 30% LONGER than its pivot spacing so it OVERLAPS the joints
+    // above and below — the black-fill silhouette stays continuous through the S-curve
+    // instead of fracturing into gapped rectangles (CP1 r3 directive 2). Centred on
+    // its nominal length (seg.position.z), so the extra length laps BOTH joints.
+    const len = (snapped ? 0.22 * lenScale : segLen(s, lenScale)) * 1.3;
     const w = 0.46 - s * 0.04;
     const g = strip(new THREE.BoxGeometry(w, 0.06, len, 2, 1, 2));
     return g;
@@ -415,8 +420,8 @@ export function buildTwinWraith(def, quality = 1) {
   // §3 law 8: satellites stay DARK, dim ei). They drift near the thread's midpoint.
   // ------------------------------------------------------------------
   const moteMat = track(new THREE.MeshStandardMaterial({
-    color: 0x070302, emissive: accent, emissiveIntensity: 0.06, roughness: 0.85, metalness: 0.0, flatShading: true,
-  }));
+    color: 0x3a2420, emissive: accent, emissiveIntensity: 0.1, roughness: 0.85, metalness: 0.0, flatShading: true,
+  }));   // warmed off near-black (was 0x070302) so the sparks don't scan as dark confetti on the pale sheet (CP1 r3 polish)
   const moteGeo = strip(new THREE.OctahedronGeometry(0.1, 0));   // small (was 0.16) so the sparks don't scan as dark confetti on the pale sheet (CP1 r2 polish)
   const orbiters = [];
   for (let i = 0; i < 3; i++) {
@@ -441,7 +446,11 @@ export function buildTwinWraith(def, quality = 1) {
   function setAttackTell(id) { tell = id || null; }
 
   let setpieceK = 0;
-  function setSetpiece(k) { setpieceK = Math.max(0, Math.min(1, k)); }
+  let dreadSplit = 0;   // >0 only during the DREAD card (setpiece def carries dread:true) → the eye splits its light to BOTH sockets
+  function setSetpiece(k, sdef) {
+    setpieceK = Math.max(0, Math.min(1, k));
+    dreadSplit = (sdef && sdef.dread) ? setpieceK : 0;
+  }
 
   // Eye handoff state: holdT eases 0 (twinA holds) ↔ 1 (twinB holds). The eye seats
   // at the holder's socket; a handoff is a glide across the thread. `handoffFrom`
@@ -540,18 +549,25 @@ export function buildTwinWraith(def, quality = 1) {
     const ax = Math.sin(th) * ORBIT_R * spread, ay = Math.sin(th * 2) * ORBIT_R * 0.5 * spread;
     const bx = Math.sin(th + Math.PI) * ORBIT_R * spread, by = Math.sin((th + Math.PI) * 2) * ORBIT_R * 0.5 * spread;
 
-    // Death flee: the survivor (the eye-holder) circles the fallen half twice then
-    // flees off +x; the fallen half (the eyeless twin) stays and dissolves in place.
+    // EMOTIONAL DEATH (§4b): the pair BREAKS — the fallen half stops at a fixed point
+    // and SHRINKS/sinks as it dissolves; the survivor circles ITS FALLEN HALF (two
+    // laps), then FLEES off-frame at the very end. This gives TWO distinct studio
+    // beats — mid-dissolve (both halves present) vs the lone survivor circling (the
+    // fallen shrunk away) — the CP1 r3 directive 1 fix.
     let posA = [cx + ax, cy + ay, ZSEP], posB = [cx + bx, cy + by, -ZSEP];
     let survivorIsA = holdT < 0.5;
+    let fallenShrink = 0;
     if (dyingK > 0) {
-      const circle = age * 3.2;                        // two slow laps as it grieves
-      const flee = Math.max(0, dyingK - 0.55) / 0.45;  // after the circling, it leaves
-      const sv = [Math.cos(circle) * 2.4 * (1 - flee) + flee * 26, 1.2 + Math.sin(circle) * 1.2, -flee * 6];
-      const fallen = survivorIsA ? posB : posA;
-      const fx = survivorIsA ? posA : posB;   // survivor slot
-      fx[0] = sv[0]; fx[1] = sv[1]; fx[2] = sv[2];
-      fallen[1] -= dyingK * 0.6;              // the fallen half sinks as it fades
+      const circle = age * 2.2;                              // two slow laps as it grieves
+      const flee = Math.max(0, dyingK - 0.85) / 0.15;        // stays circling until the very end, THEN leaves
+      fallenShrink = clamp((dyingK - 0.3) / 0.4, 0, 1);      // the fallen half dwindles to nothing by ~0.7
+      const fp = [-1.7, -0.2 - dyingK * 0.7, -0.5];          // the fallen half stops lower-left and sinks
+      const sv = [
+        fp[0] + Math.cos(circle) * 2.7 * (1 - flee) + flee * 26,
+        fp[1] + 1.4 + Math.sin(circle) * 1.6 * (1 - flee),
+        fp[2] + Math.sin(circle) * 1.4 - flee * 6,
+      ];
+      if (survivorIsA) { posA = sv; posB = fp; } else { posB = sv; posA = fp; }
     } else if (shieldClamp) {
       // SHIELD STAGING (§5f, CP1 gate directive 4): the bubble wraps whichever body
       // HOLDS the eye — the holder pulls to the centred bubble; the SEEKER holds its
@@ -565,6 +581,10 @@ export function buildTwinWraith(def, quality = 1) {
     }
     twinA.twin.position.set(posA[0], posA[1], posA[2]);
     twinB.twin.position.set(posB[0], posB[1], posB[2]);
+    // The FALLEN half shrinks away as it dissolves (the pair breaking); the survivor
+    // stays full size and flees intact (§4b, CP1 r3 directive 1).
+    twinA.twin.scale.setScalar(survivorIsA ? 1 : Math.max(0.001, 1 - fallenShrink));
+    twinB.twin.scale.setScalar(survivorIsA ? Math.max(0.001, 1 - fallenShrink) : 1);
 
     // Orient each dart to FACE THE SHARED EMBER (nose → centre): the two darts read
     // broadside (their length across the frame, the dominant mass) with the ember
@@ -626,7 +646,11 @@ export function buildTwinWraith(def, quality = 1) {
     // into the empty SOCKET rings (HDR ×2.4-ish), the survivor's face — its body
     // stays charcoal (the custom fade never blows emissive) so it reads on the pale
     // sheet too (CP1 gate directive 5). Beads carry the last of the light.
-    socketMat.emissiveIntensity = 0.18 + dyingK * 2.4;
+    // Socket glow: the mourning ember at death + the DREAD "split light" (§5f, CP1
+    // r3 directive 3). During the dread card BOTH sockets light (~50% of the eye's
+    // intensity) — the eye splits its light — so the "Both Halves at Once" card reads
+    // in glow before any bullet exists.
+    socketMat.emissiveIntensity = 0.18 + dyingK * 2.4 + dreadSplit * 1.1;
     beadMat.opacity = 0.85 * (1 - dyingK * 0.3) + fleeK * 0.15;
     // Lift the aged-silver rims + crest so the fleeing MOURNER is a visible BODY on
     // the dark flee frame (not a charcoal ghost) — CP1 r2 directive 3. The diffuse
@@ -664,7 +688,7 @@ export function buildTwinWraith(def, quality = 1) {
     // a sclera blow-up) so its bloom never floods the pupil; dips further mid-glide
     // (CP1 r2 directive 1). The glint carries the G1 focal peak, not the sclera.
     const gliding = Math.abs(holdTarget - Math.max(0, Math.min(1, holdT))) > 0.05;
-    let eyeK = shieldClamp ? 0.4 : flicker * (1 + charge * 0.12);
+    let eyeK = shieldClamp ? 0.62 : flicker * (1 + charge * 0.12);   // the sclera stays a touch lit under shield so a stranger sees WHO is protected (the glint still leashes for G6)
     if (noticeT > 0) eyeK *= 1.12;
     if (gliding) eyeK *= 0.78;
     eyeK *= Math.max(0, 1 - dyingK * 1.7);   // the shared ember GUTTERS OUT by the flee (the glow retreats into the socket ring)
@@ -698,14 +722,17 @@ export function buildTwinWraith(def, quality = 1) {
       // Ribbon flow: the standing-wave base curve + a TRAVELLING wave (animated)
       // that eases in with LAG so the ribbon trails the body (the §7b flow law).
       // Charge/setpiece flare the amplitude; death furls the tails down.
-      const flare = charge * 0.45 * (isHolder ? 1 : 0.4) + setpieceK * 0.3;
+      const flare = charge * 0.28 * (isHolder ? 1 : 0.4) + setpieceK * 0.22;
       for (const chain of w.ribbons) {
         for (let s = 0; s < chain.length; s++) {
           const seg = chain[s];
-          const anim = Math.sin(time * 1.7 + seg.wave + w.sx) * (0.12 + flare) * (1 + s * 0.14);
-          const furl = dyingK * (0.4 + s * 0.12);
-          const targetZ = seg.baseZ + anim * (1 - dyingK);
-          const targetX = seg.baseX + anim * 0.6 * (1 - dyingK) + furl;
+          const anim = Math.sin(time * 1.7 + seg.wave + w.sx) * (0.1 + flare) * (1 + s * 0.12);
+          const furl = dyingK * (0.35 + s * 0.1);
+          // Cap the PER-JOINT bend to ±0.38 rad so the 30%-overlap always spans the
+          // joint — the tail flows as one continuous ribbon, never a broken chain
+          // (CP1 r3 directive 2).
+          const targetZ = clamp(seg.baseZ + anim * (1 - dyingK), -0.38, 0.38);
+          const targetX = clamp(seg.baseX + anim * 0.5 * (1 - dyingK) + furl, -0.5, 0.5);
           const ease = Math.min(1, dt * (2.2 + s * 0.4));   // lag: the tip trails the root
           seg.swayZ += (targetZ - seg.swayZ) * ease;
           seg.swayX += (targetX - seg.swayX) * ease;

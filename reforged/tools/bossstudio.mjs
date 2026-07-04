@@ -41,13 +41,13 @@ const STATES = [
   { name: 'charge',   o: { charge: 1, t: 2.0 } },
   { name: 'shielded', o: { shield: true, t: 1.5 } },
   // dread setpiece — eitherwing's dread card is the figure-eight ("Both Halves at Once").
-  { name: 'dread',    o: { charge: 1, sp: 0.8, spmode: 'figureEight', t: 2.4 } },
-  { name: 'dissolve', o: { death: 0.5, t: 1.5 } },
+  { name: 'dread',    o: { charge: 1, sp: 0.8, spmode: 'figureEight', dread: true, t: 2.4 } },
+  { name: 'dissolve', o: { death: 0.32, t: 1.4 } },   // mid-dissolve: BOTH halves present (the fallen still large), the survivor circling
 ];
 // EITHERWING extras: the eye-handoff (eye mid-thread) + the survivor flee pose.
 const EXTRAS = [
   { name: 'handoff', o: { handoff: 0.5, t: 2.0 } },   // setDebugHandoff(0.5): eye mid-thread between the twins
-  { name: 'flee',    o: { death: 0.52, t: 1.5 } },    // the MOURNFUL circling beat (before the off-frame flight): survivor centred, both twins visible, socket-ring glow + scattered beads
+  { name: 'flee',    o: { death: 0.72, t: 2.6 } },    // the LONE survivor circling its (now-vanished) fallen half — the mournful beat, no dissolve chip-motes, before the off-frame flight
 ];
 const states = bossId === 'eitherwing' ? [...STATES, ...EXTRAS] : STATES;
 
