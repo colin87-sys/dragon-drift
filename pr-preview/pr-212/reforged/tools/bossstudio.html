@@ -102,8 +102,9 @@
     let bg = params.get('bg') === 'pale' ? 'pale' : 'dark';
     const nativeRandom = Math.random.bind(Math);
 
-    // §7c backdrop pair.
-    const BACKDROPS = { dark: 0x14121a, pale: 0xcfd6e4 };
+    // §7c backdrops: near-dark + pale + (L140) warm sunset-gold — warm dark accents
+    // (oxblood, ember) vanish against warm skies in a way neither neutral backdrop catches.
+    const BACKDROPS = { dark: 0x14121a, pale: 0xcfd6e4, sunset: 0xd9a24a };
 
     const gl = document.getElementById('gl');
     const renderer = new THREE.WebGLRenderer({ canvas: gl, antialias: true, preserveDrawingBuffer: true });
@@ -155,7 +156,7 @@
       m.setGaze?.(dials.gx, dials.gy);
       m.setCharge?.(dials.charge);
       m.setAttackTell?.(dials.charge > 0 ? 'aimed' : null);
-      m.setSetpiece?.(dials.sp, { id: dials.spmode });
+      m.setSetpiece?.(dials.sp, { id: dials.spmode, dread: dials.dread });
       m.setShieldVisible?.(dials.shield);
       m.setHealth?.(dials.hp);
       // setDissolve unconditionally flips EVERY material to transparent (bossKit
@@ -194,18 +195,38 @@
       refreshHud();
     }
 
-    let fitted = false;
+    // Re-fit PER STATE (not once): each state's pose (flee lone-survivor, mid-dissolve,
+    // shielded pair) frames from ITS OWN post-scale bounds at ~60% frame height, so a
+    // small/off-centre pose isn't shrunk to fit the idle spread (CP1 r6 directives 1+2).
     function fitOnce() {
-      if (fitted || !current) return;
+      if (!current) return;
       current.updateMatrixWorld(true);
-      const box = new THREE.Box3().setFromObject(current);
+      // Fit to VISIBLE geometry ONLY. THREE.Box3.setFromObject counts HIDDEN
+      // children too — the raised-but-hidden shield bubble (world radius ~5.9)
+      // and the hidden HP bar (world y ~7.9) inflated maxDim to ~13.9, so a lone
+      // pose (the flee survivor, ~1.5u) shrank to ~6% of frame and floated in a
+      // corner because the box centred on the hidden shell at the origin (CP1 r8
+      // dir 4). Traverse and union only on-screen meshes: skip any node with a
+      // hidden ancestor, and skip Points (scattered dead-bead debris). The visible
+      // shield in the shielded state still counts (it's not hidden there).
+      const box = new THREE.Box3();
+      const tmp = new THREE.Box3();
+      current.traverse((o) => {
+        if (!o.geometry || o.type === 'Points') return;
+        let p = o, shown = true;
+        while (p && p !== current) { if (!p.visible) { shown = false; break; } p = p.parent; }
+        if (!shown || !current.visible) return;
+        tmp.setFromObject(o);
+        if (isFinite(tmp.min.x)) box.union(tmp);
+      });
+      if (box.isEmpty()) box.setFromObject(current);
       box.getCenter(center);
       const s = box.getSize(new THREE.Vector3());
-      // Auto-distance so the largest extent spans ~60% of frame height (§7c).
+      // Auto-distance so the largest extent spans ~57% of frame height (§7c) — a hair
+      // under 60% to keep ≥3% margin so ribbon tips never clip the frame edge.
       const maxDim = Math.max(s.x, s.y, s.z);
-      baseDist = (0.5 * maxDim / Math.tan(camera.fov * Math.PI / 360)) / 0.60;
+      baseDist = (0.5 * maxDim / Math.tan(camera.fov * Math.PI / 360)) / 0.57;
       orbit.dist = baseDist;
-      fitted = true;
     }
     function placeCamera() {
       const yaw = orbit.yaw * Math.PI / 180, p = orbit.pitch;
@@ -227,7 +248,7 @@
     window.addEventListener('resize', resize);
 
     function setBackdrop(name) {
-      bg = name === 'pale' ? 'pale' : 'dark';
+      bg = BACKDROPS[name] != null ? name : 'dark';
       scene.background.setHex(BACKDROPS[bg]);
       const el = document.getElementById('bglbl'); if (el) el.textContent = bg;
     }
@@ -305,8 +326,8 @@
       if (opts.seed != null) seed = opts.seed;
       if (opts.bg != null) setBackdrop(opts.bg);
       // RESET to base state each call — dials must never leak between canonical frames.
-      Object.assign(dials, { charge: 0, sp: 0, spmode: 'figureEight', death: 0, hp: 1, shield: false, noticeAt: -1, gx: 0, gy: 0, handoff: null });
-      for (const k of ['charge', 'sp', 'spmode', 'death', 'hp', 'shield', 'gx', 'gy', 'noticeAt', 'handoff']) if (opts[k] != null) dials[k] = opts[k];
+      Object.assign(dials, { charge: 0, sp: 0, spmode: 'figureEight', dread: false, death: 0, hp: 1, shield: false, noticeAt: -1, gx: 0, gy: 0, handoff: null });
+      for (const k of ['charge', 'sp', 'spmode', 'dread', 'death', 'hp', 'shield', 'gx', 'gy', 'noticeAt', 'handoff']) if (opts[k] != null) dials[k] = opts[k];
       simulate(opts.t ?? 1.0);
       camera.fov = opts.fov ?? FOV; camera.updateProjectionMatrix();
       freeCam = false;
@@ -314,7 +335,16 @@
       if (opts.angle && ANGLES[opts.angle]) { orbit.yaw = ANGLES[opts.angle][0]; orbit.pitch = ANGLES[opts.angle][1]; }
       if (opts.yaw != null) orbit.yaw = opts.yaw;
       if (opts.pitch != null) orbit.pitch = opts.pitch;
-      orbit.dist = baseDist * (opts.distMul ?? 1);
+      // FIGHT-DISTANCE FRAME (§7c L140): the REAL encounter geometry — front-on, camera at
+      // the live chase FOV (72) with the boss at its true station distance (rel 30), NO
+      // auto-framing. The 60%-height auto-frame normalizes scale and HIDES presence
+      // failures; this frame judges presence (ensemble span vs the portrait envelope).
+      if (opts.fight) {
+        orbit.yaw = ANGLES.front[0]; orbit.pitch = ANGLES.front[1];
+        orbit.dist = opts.fightRel ?? 30;
+      } else {
+        orbit.dist = baseDist * (opts.distMul ?? 1);
+      }
       placeCamera();
       render();
       return true;

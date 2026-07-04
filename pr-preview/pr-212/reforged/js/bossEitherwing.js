@@ -52,13 +52,14 @@ export function buildTwinWraith(def, quality = 1) {
   const glow = def.glow ?? 0xc9c1b4;        // aged silver — rims, shield, shards, backlight
   const lowQ = quality < 0.75;
   const strip = stripForMerge;
+  const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
 
   // Shield wraps whichever body holds the eye — but the kit bubble is centred on
   // the rig origin (the shared ember the twins orbit); the eye-holder is pulled to
   // centre UNDER the bubble when it raises (see onShieldChange), so the centred
   // bubble reads as wrapping the holder without any hit-model work. hpBarY clears
   // the orbiting twins; hpBarScale keeps the shared bar at roster width.
-  const kit = createBossCommon(def, quality, { shieldRadius: 4.4, hpBarY: 5.6, hpBarZ: 1.4, hpBarScale: 0.85 });
+  const kit = createBossCommon(def, quality, { shieldRadius: 4.4, hpBarY: 5.6, hpBarZ: 1.4, hpBarScale: 0.85, shieldRimStrength: 0.07, shieldCageOpacity: 0.55 });
   const { group, track } = kit;
   group.userData.archetype = 'eitherwing';   // guards the legacy-fallback coexist path (tests/boss.mjs)
 
@@ -84,30 +85,59 @@ export function buildTwinWraith(def, quality = 1) {
   const bodySeekerMat = track(new THREE.MeshStandardMaterial({
     color: 0x0d0908, emissive: accent, emissiveIntensity: 0.06, roughness: 0.85, metalness: 0.1, flatShading: true,
   }));
-  // Oxblood emissive RIM strips — the crease lines down the kite spine + fin edge;
-  // the ONLY oxblood on the body, so they carry the accent tier (G3 attribution).
-  const rimMat = track(new THREE.MeshStandardMaterial({
-    color: 0x2a0d0a, emissive: accent, emissiveIntensity: 0.55, roughness: 0.5, metalness: 0.25, flatShading: true,
+  // LIT-SILHOUETTE LAW (§5d L140): small mass ⇒ the identity is the EDGE. The oxblood
+  // rims WIDEN (0.14 bars) and run the FULL kite perimeter + fin outer edge, at TWO value
+  // tiers — the HOLDER's outline burns bright (ei 0.9), the SEEKER's is dim (ei 0.45), so
+  // a stranger reads which twin is lit from the silhouette alone. Diffuse stays near-black
+  // (identity in emissive, §3 law 3); the dark oxblood color keeps ei 0.9 from blooming
+  // white (it stays a red EDGE, not a second focal — the eye is the only glow, ONE-GLOW).
+  // The rim EMISSIVE is a WARM oxblood 0x93400f (hue ~22°) — 13° warmer than def.accent
+  // (0x86200f, ~9°) so that at ei 0.9 the BLOOM halo (which desaturates + ACES-shifts a
+  // saturated dark-red toward the 357° edge) stays clear of the danger-magenta band
+  // (327–357°) on the dark backdrop — the OXBLOOD-MAGENTA collision the §5d gate law + the
+  // REACH note both warn of at ei 0.9. Still oxblood, still within G3's ±25° of the accent.
+  const RIM_EMISSIVE = 0x93400f;
+  const rimHolderMat = track(new THREE.MeshStandardMaterial({
+    color: 0x2a0d0a, emissive: RIM_EMISSIVE, emissiveIntensity: 0.9, roughness: 0.5, metalness: 0.25, flatShading: true,
   }));
-  // Aged-silver crescent-fin rim + socket ring (the cool second swatch). Kept dim
-  // (small satellites/details stay dark, §3 law 8) so it never rivals the eye.
+  const rimSeekerMat = track(new THREE.MeshStandardMaterial({
+    color: 0x1a0806, emissive: RIM_EMISSIVE, emissiveIntensity: 0.6, roughness: 0.55, metalness: 0.2, flatShading: true,
+  }));
+  // INVERTED-HULL OUTLINE materials (BackSide): a scaled copy of the kite body rendered
+  // back-faces-only draws a CONTINUOUS emissive silhouette line around the whole dart from
+  // every angle — the "oxblood line-drawing" the LIT-SILHOUETTE law asks for. (Edge-bars on
+  // the base octahedron chord INSIDE the detail-3 bulged body and only poke out as scattered
+  // dabs — the r-REACH gate flag.) toneMapped stays on; the dark oxblood keeps it a red EDGE.
+  const outlineHolderMat = track(new THREE.MeshStandardMaterial({
+    color: 0x000000, emissive: RIM_EMISSIVE, emissiveIntensity: 1.15, roughness: 0.6, metalness: 0.0,
+    side: THREE.BackSide,
+  }));
+  const outlineSeekerMat = track(new THREE.MeshStandardMaterial({
+    color: 0x000000, emissive: RIM_EMISSIVE, emissiveIntensity: 0.75, roughness: 0.6, metalness: 0.0,
+    side: THREE.BackSide,
+  }));
+  // Aged-silver crescent fins (the cool second swatch), lifted to ei 0.30 (REACH) so the
+  // fin planes read as a lit surface at fight distance, still short of the eye.
   const silverMat = track(new THREE.MeshStandardMaterial({
-    color: 0x191816, emissive: glow, emissiveIntensity: 0.14, roughness: 0.55, metalness: 0.3, flatShading: true,
-  }));   // AGED (tarnished) silver — dark enough to keep the body median low (G2), the rim reads on the edge
+    color: 0x191816, emissive: glow, emissiveIntensity: 0.30, roughness: 0.55, metalness: 0.3, flatShading: true,
+  }));   // AGED (tarnished) silver — dark enough to keep the body median low (G2), the fin reads
   silverMat.side = THREE.DoubleSide;
   // The SOCKET rings get their OWN material (not the shared silver) so the empty
   // socket can flare into the mourning glow at the flee-death — the survivor's FACE
   // is the glowing empty ring (CP1 gate directive 5) — without lighting the fins.
   const socketMat = track(new THREE.MeshStandardMaterial({
-    color: 0x201d1a, emissive: glow, emissiveIntensity: 0.18, roughness: 0.5, metalness: 0.4, flatShading: true,
-  }));
+    color: 0x201d1a, emissive: 0xff7a58, emissiveIntensity: 0.18, roughness: 0.5, metalness: 0.4, flatShading: true,
+  }));   // ember-salmon so the dread "split light" + the mourning glow read warm (matches the eye), not silver
   socketMat.side = THREE.DoubleSide;
+  // Comet-tail strips carry a warm-oxblood emissive so they read as flowing light-trails —
+  // lifted from 0.12/0.08 so the SEEKER's tails don't vanish near-black-on-near-black on the
+  // dark sky (the two-body X only read on light skies otherwise — REACH gate directive 4).
   const ribbonMat = track(new THREE.MeshStandardMaterial({
-    color: 0x140c0b, emissive: accent, emissiveIntensity: 0.12, roughness: 0.8, metalness: 0.1, flatShading: true,
+    color: 0x140c0b, emissive: RIM_EMISSIVE, emissiveIntensity: 0.28, roughness: 0.8, metalness: 0.1, flatShading: true,
   }));
   ribbonMat.side = THREE.DoubleSide;
   const ribbonSeekerMat = track(new THREE.MeshStandardMaterial({
-    color: 0x0b0605, emissive: accent, emissiveIntensity: 0.08, roughness: 0.82, metalness: 0.1, flatShading: true,
+    color: 0x0b0605, emissive: RIM_EMISSIVE, emissiveIntensity: 0.20, roughness: 0.82, metalness: 0.1, flatShading: true,
   }));
   ribbonSeekerMat.side = THREE.DoubleSide;
 
@@ -116,8 +146,10 @@ export function buildTwinWraith(def, quality = 1) {
   // dart), with a raised oxblood SPINE rib (relief, §3.4) and a dark socket boss on
   // the front face where the eye seats when held.
   // ------------------------------------------------------------------
-  const BODY_LEN = 2.7;
-  const KITE_W = 1.05, KITE_H = 0.82;   // the dart's broadside width/height — the DOMINANT mass (§3.1)
+  // REACH PASS (r8, §5d L140): the ensemble was reading ~40% of ASHTALON's mass at fight
+  // distance → the whole silhouette scales UP. Same dart proportions, bigger dart.
+  const BODY_LEN = 4.6;                 // 2.7 → 4.6
+  const KITE_W = 1.7, KITE_H = 1.28;    // 1.05/0.82 → 1.7/1.28 (dart proportions held: ~1.6× each)
   function kiteGeo() {
     const oct = strip(new THREE.OctahedronGeometry(1.0, lowQ ? 1 : 3));   // detail 3 @q1 = carved facets, not a smooth shard (§5g)
     oct.scale(KITE_W / 2, KITE_H / 2, BODY_LEN / 2);   // a broad flat dart (reads as a wing/blade broadside, not a needle)
@@ -194,12 +226,13 @@ export function buildTwinWraith(def, quality = 1) {
     const spine = strip(new THREE.BoxGeometry(0.07, 0.9, 0.16)); spine.rotateZ(-0.55); spine.translate(0.45, 0.45, 0);
     return mergeOx([outer, inner, spine], 'crescent');
   };
-  // A slim silver rim bar riding the crescent's outer edge (the aged-silver swatch).
+  // A slim rim bar riding the crescent's outer edge (oxblood — part of the lit silhouette).
   const finRimGeo = () => {
-    const g = strip(new THREE.BoxGeometry(0.06, 1.15, 0.14));
-    g.rotateZ(-0.5); g.translate(0.7, 0.62, 0.0);
+    const g = strip(new THREE.BoxGeometry(0.09, 1.3, 0.14));
+    g.rotateZ(-0.5); g.translate(0.85, 0.75, 0.0);
     return g;
   };
+
 
   // Dark socket ring on the nose — the eye's seat (empty on the seeker → its FACE
   // is this ring, the holder/seeker tell). A FACETED silver torus (14–16 seg) with
@@ -218,11 +251,64 @@ export function buildTwinWraith(def, quality = 1) {
   // and are never straight — §5d / CP1 gate directive 1). `seeker` paints the darker
   // value tier and gets the ONE scar (a snapped upper tail).
   // ------------------------------------------------------------------
+  // A deforming ribbon STRIP: ONE mesh per tail (1 draw) whose vertices are rebuilt each
+  // frame from the lagged pivot chain's world positions. The old build used one mesh per
+  // segment (40+ draws for four 12-segment tails) — over the ≤30-draw REACH budget; the
+  // strip renders the same flowing chain in a single draw. Flat tapered quad-strip,
+  // DoubleSide, frustumCulled off (its verts leave the local bounds as it flows).
+  function makeTailStrip(segN, lenScale, mat, name) {
+    const rings = segN + 1;
+    const geo = new THREE.BufferGeometry();
+    geo.setAttribute('position', new THREE.BufferAttribute(new Float32Array(rings * 2 * 3), 3));
+    const nrm = new Float32Array(rings * 2 * 3);
+    for (let i = 0; i < rings * 2; i++) nrm[i * 3 + 1] = 1;   // flat up-normal (emissive carries it; DoubleSide)
+    geo.setAttribute('normal', new THREE.BufferAttribute(nrm, 3));
+    const idx = [];
+    for (let i = 0; i < segN; i++) { const a = i * 2, b = a + 1, c = a + 2, d = a + 3; idx.push(a, c, b, b, c, d); }
+    geo.setIndex(idx);
+    const mesh = new THREE.Mesh(geo, mat);
+    mesh.frustumCulled = false;
+    if (name) mesh.name = name;   // mat is a shared ribbonMat/ribbonSeekerMat, already tracked at creation
+    return { geo, mesh, segN, lenScale };
+  }
+  // Rebuild a tail strip from its pivot chain (twin-local space). Called each tick after
+  // the flow loop has posed the pivots.
+  const _wp = new THREE.Vector3();
+  const _tan = new THREE.Vector3(), _side = new THREE.Vector3(), _up = new THREE.Vector3(0, 1, 0);
+  const _twinInv = new THREE.Matrix4();
+  const _pts = [];
+  function updateTailStrip(tail, twin, twinInv) {
+    const { geo, segN, lenScale } = tail;
+    const segs = tail.segs;
+    // Spine points (twin-local): each pivot origin + a final tip off the last pivot.
+    for (let i = 0; i < segN; i++) {
+      segs[i].pivot.getWorldPosition(_wp);
+      (_pts[i] || (_pts[i] = new THREE.Vector3())).copy(_wp).applyMatrix4(twinInv);
+    }
+    const last = segs[segN - 1].pivot;
+    _wp.set(0, 0, -segLen(segN - 1, lenScale)); last.localToWorld(_wp);
+    (_pts[segN] || (_pts[segN] = new THREE.Vector3())).copy(_wp).applyMatrix4(twinInv);
+    const pos = geo.attributes.position.array;
+    for (let i = 0; i <= segN; i++) {
+      const p = _pts[i];
+      const a = _pts[Math.max(0, i - 1)], b = _pts[Math.min(segN, i + 1)];
+      _tan.subVectors(b, a);
+      _side.crossVectors(_tan, _up);
+      if (_side.lengthSq() < 1e-6) _side.set(1, 0, 0);
+      _side.normalize().multiplyScalar(ribbonHalfW(i, segN, lenScale));
+      const o = i * 6;
+      pos[o] = p.x + _side.x; pos[o + 1] = p.y + _side.y; pos[o + 2] = p.z + _side.z;
+      pos[o + 3] = p.x - _side.x; pos[o + 4] = p.y - _side.y; pos[o + 5] = p.z - _side.z;
+    }
+    geo.attributes.position.needsUpdate = true;
+  }
+
   function buildTwin(sx, seeker) {
     const twin = new THREE.Object3D();
     twin.name = seeker ? 'eitherTwinB' : 'eitherTwinA';
     const bodyMat = seeker ? bodySeekerMat : bodyHolderMat;
     const ribMat = seeker ? ribbonSeekerMat : ribbonMat;
+    const rimMatT = seeker ? rimSeekerMat : rimHolderMat;   // LIT-SILHOUETTE value tier
 
     // Body (merged kite + spine rib + dorsal vanes + keel so all the relief shares
     // the body material — richness without draw inflation, §5g).
@@ -230,19 +316,24 @@ export function buildTwinWraith(def, quality = 1) {
     body.name = seeker ? 'eitherTwinBodyB' : 'eitherTwinBodyA';
     twin.add(body);
 
-    // Oxblood rim strip down the flank crease (the accent tier the eye is read against).
-    const rimGeo = strip(new THREE.BoxGeometry(0.05, 0.1, BODY_LEN * 0.8));
-    rimGeo.translate(sx * 0.24, 0.06, 0.05);
-    twin.add(new THREE.Mesh(rimGeo, rimMat));
+    // LIT-SILHOUETTE: an inverted-hull OUTLINE (a scaled backface copy of the kite) draws a
+    // CONTINUOUS oxblood silhouette line around the dart from every angle — the "oxblood
+    // line-drawing" read. The HOLDER's line burns bright, the SEEKER's dim (the value tier
+    // reads from the outline alone, even where the near-black body dissolves into the sky).
+    const outline = new THREE.Mesh(kiteGeo(), seeker ? outlineSeekerMat : outlineHolderMat);
+    outline.scale.setScalar(1.07);
+    outline.name = seeker ? 'eitherOutlineB' : 'eitherOutlineA';
+    twin.add(outline);
 
     // Crescent head fin (mirrored on the seeker so the pair reads as mirror-twins).
     const fin = new THREE.Mesh(crescentGeo(), silverMat);
     fin.name = 'crescentFin';
     fin.scale.x = sx;                                  // mirror the crescent per side
-    fin.position.set(sx * 0.1, 0.36, BODY_LEN * 0.16);
+    fin.position.set(sx * 0.1, 0.5, BODY_LEN * 0.16);
     fin.rotation.z = sx * -0.15;
     twin.add(fin);
-    const finRim = new THREE.Mesh(finRimGeo(), silverMat);
+    // The fin's OUTER edge is oxblood too (part of the lit silhouette) — not silver.
+    const finRim = new THREE.Mesh(finRimGeo(), rimMatT);
     finRim.scale.x = sx; finRim.position.copy(fin.position);
     twin.add(finRim);
 
@@ -257,51 +348,52 @@ export function buildTwinWraith(def, quality = 1) {
     // so at ANY capture phase the two tails are curved and NON-parallel, never a
     // pair of straight chopstick rods (CP1 gate directive 1). The tick adds the
     // travelling flow on top, easing (lag) toward it.
+    // TWO comet-tails. Each is a chain of lagged pivots (invisible drivers — named
+    // ribbonPivot so the telegraph/§7b gate still finds them) PLUS one deforming strip
+    // mesh rebuilt from those pivots each tick (1 draw/tail, not 12). The seeker's upper
+    // tail is SNAPPED short (4 segs) — the ONE scar (its strip is named eitherScar).
     const ribbons = [];
     for (let t = 0; t < 2; t++) {
-      const rootY = t === 0 ? 0.24 : -0.24;            // upper + lower tail
+      const rootY = t === 0 ? 0.30 : -0.30;            // upper + lower tail (spread for the taller body)
       const tailPhase = t * 1.2;                       // base phase offset between the two tails
       const lenScale = t === 0 ? 1.0 : 0.85;           // unequal tail lengths
-      const segN = (seeker && t === 0) ? 4 : RIBBON_SEG;   // the seeker's upper tail is SNAPPED short (the scar)
+      const isScar = seeker && t === 0;
+      const segN = isScar ? 4 : RIBBON_SEG;            // the seeker's upper tail is SNAPPED short (the scar)
       let parent = twin;
-      const chain = [];
+      const segs = [];
       for (let s = 0; s < segN; s++) {
         const pivot = new THREE.Object3D();
         pivot.name = 'ribbonPivot';                    // the telegraph/§7b gate finds these by name
         pivot.position.set(0, s === 0 ? rootY : 0, s === 0 ? -BODY_LEN * 0.42 : -segLen(s - 1, lenScale));
-        // Standing-wave base curve (fixed): adjacent segments differ ~0.16 rad so
-        // the resting ribbon is a meandering S, never a rod.
+        // Standing-wave base curve (fixed): adjacent segments differ so the resting
+        // ribbon is a meandering S, never a rod.
         const wave = tailPhase + s * 0.55;
-        const baseZ = Math.sin(wave) * 0.3;
-        const baseX = -0.14 + Math.cos(wave) * 0.18;
+        const baseZ = Math.sin(wave) * 0.22;
+        const baseX = -0.12 + Math.cos(wave) * 0.14;
         pivot.rotation.set(baseX, 0, baseZ);
         parent.add(pivot);
-        const snapped = (seeker && t === 0 && s === segN - 1);
-        const seg = new THREE.Mesh(ribbonSegGeo(s, lenScale, snapped), ribMat);
-        seg.position.z = -segLen(s, lenScale) * (snapped ? 0.35 : 0.5);
-        pivot.add(seg);
-        if (snapped) seg.name = 'eitherScar';
-        chain.push({ pivot, seg, wave, baseZ, baseX, swayZ: baseZ, swayX: baseX });
+        segs.push({ pivot, wave, baseZ, baseX, swayZ: baseZ, swayX: baseX });
         parent = pivot;
       }
-      ribbons.push(chain);
+      const tailMat = isScar ? ribMat : ribMat;        // both share the twin's ribbon material
+      const tail = makeTailStrip(segN, lenScale, tailMat, isScar ? 'eitherScar' : null);
+      tail.segs = segs;
+      twin.add(tail.mesh);
+      ribbons.push(tail);
     }
 
     return { twin, body, bodyMat, ribbons, sx, seeker };
   }
 
-  // Ribbon segment: a flat tapered box, narrowing + shortening toward the tail tip
-  // (a real ribbon, not a slab), subdivided for §5g relief. `lenScale` sets the
-  // tail's overall length (tail A 1.0× / tail B 0.85× — unequal so the two tails
-  // never read as parallel rods, CP1 gate directive 1). `snapped` = the scar stump.
-  const RIBBON_SEG = lowQ ? 5 : 8;
-  function segLen(s, lenScale = 1) { return (0.6 - s * 0.05) * lenScale; }
-  function ribbonSegGeo(s, lenScale, snapped = false) {
-    const len = snapped ? 0.22 * lenScale : segLen(s, lenScale);
-    const w = 0.46 - s * 0.04;
-    const g = strip(new THREE.BoxGeometry(w, 0.06, len, 2, 1, 2));
-    return g;
-  }
+  // REACH COMET-TAILS (§5d L140): 12 segments at base segLen 0.95 → ~7–8-unit flowing
+  // trails. `segLen` sets the pivot spacing; the tail's total length is their sum
+  // (~8.1u at lenScale 1). `lenScale` (tail A 1.0× / tail B 0.85×) keeps the two tails
+  // unequal so they never read as parallel rods (CP1 gate directive 1).
+  const RIBBON_SEG = lowQ ? 8 : 12;
+  function segLen(s, lenScale = 1) { return (0.95 - s * 0.05) * lenScale; }
+  // Half-width of the ribbon at ring i (root wide → tip fine), so the strip reads as a
+  // real tapering comet-tail, not a slab.
+  function ribbonHalfW(i, segN, lenScale) { return (0.30 - (i / segN) * 0.27) * lenScale; }
 
   const twinA = buildTwin(1, false);    // the HOLDER half (brighter; holds the eye at idle)
   const twinB = buildTwin(-1, true);    // the SEEKER half (darker; the eyeless, scarred twin)
@@ -312,24 +404,27 @@ export function buildTwinWraith(def, quality = 1) {
   // a beaded LineSegments THREAD strung between the twins' sockets. It DETACHES and
   // glides from holder to seeker; whoever holds it fires next. THE focal (§3.2).
   // ------------------------------------------------------------------
-  // A SMALL, intensely-hot orb: the focal must be a tight bright POINT (peak ≥250,
-  // ≤~5% of the silhouette — the §3.2/G1 law), NOT a big bloomed disc that swallows
-  // the darts. Hotter (clips to white through ACES) but small (the bright cluster
-  // stays tiny; the two dart bodies stay the dominant mass, §3.1).
-  const EYE_HOT = 6.0;   // clips comfortably to pure white (≥250) through ACES + bloom, with margin; the small orb keeps the bright cluster tiny (§3.2/G1)
-  const EYE_BASE = new THREE.Color(0xfff0e6);
+  // The eye is a REAL EYE, structured so a dark PUPIL survives bloom (CP1 gate r2
+  // directive 1): a MODERATE-HDR sclera RING (its bloom is a halo, not a flood) +
+  // a BIG dark pupil proud of it + a tiny ULTRA-HOT catchlight glint that alone
+  // carries the §3.2/G1 focal peak (≥250) in a pinpoint cluster. Sclera dimmed from
+  // 6.0→2.1 so its annulus bloom can't fill the pupil centre.
+  const EYE_HOT = 2.1;                     // the sclera ring — gentle bloom, never floods the pupil
+  const GLINT_HOT = 9.0;                   // the catchlight — the G1 maxLum peak; big enough to survive 2× AA
+  const EYE_BASE = new THREE.Color(0xfff2ea);
   const eyeRig = new THREE.Group();
   eyeRig.name = 'eyeRig';
-  const orbMat = track(new THREE.MeshBasicMaterial({ color: 0xfff0e6 }));
+  const orbMat = track(new THREE.MeshBasicMaterial({ color: 0xfff2ea }));
   orbMat.toneMapped = false;
   orbMat.color.copy(EYE_BASE).multiplyScalar(EYE_HOT);
   const orb = new THREE.Mesh(new THREE.SphereGeometry(0.24, lowQ ? 12 : 18, lowQ ? 8 : 14), orbMat);
   eyeRig.add(orb);
-  // Oxblood IRIS ring around the orb (the eye reads as an EYE — iris, not a stray
-  // bullet; the §5d LOOSE-BULLET-EYE failure class). A torus ring plus radiating
-  // PETAL wedges (the EYE_HOT rig's carved iris) — emissive oxblood, dimmer than the orb.
+  // Iris ring around the orb (the eye reads as an EYE — iris, not a stray bullet).
+  // EMBER-SALMON emissive (warmed off rose per CP1 r2 directive 5) so its bloom-mix
+  // halo never lands a bright pixel in the danger-magenta band (327–357°).
+  const IRIS_EMBER = 0xff7a58;
   const irisMat = track(new THREE.MeshStandardMaterial({
-    color: 0x30100c, emissive: accent, emissiveIntensity: 0.9, roughness: 0.45, metalness: 0.3, flatShading: true,
+    color: 0x3a1410, emissive: IRIS_EMBER, emissiveIntensity: 0.85, roughness: 0.45, metalness: 0.3, flatShading: true,
   }));
   const irisParts = [strip(new THREE.TorusGeometry(0.32, 0.075, 8, lowQ ? 16 : 24))];
   const nPetal = lowQ ? 6 : 10;
@@ -350,19 +445,45 @@ export function buildTwinWraith(def, quality = 1) {
   // over the orb so it always occludes the hot centre.
   const pupilMat = track(new THREE.MeshBasicMaterial({ color: 0x140a0a }));
   pupilMat.toneMapped = false;
-  const pupil = new THREE.Mesh(new THREE.SphereGeometry(0.17, 12, 10), pupilMat);
+  const pupil = new THREE.Mesh(new THREE.SphereGeometry(0.2, 14, 12), pupilMat);   // ~0.83 of the sclera → a big dark disc, only a thin bright ring survives
   pupil.name = 'eyePupil';
-  pupil.position.z = 0.15;
+  pupil.position.z = 0.16;   // proud ≥0.06 of the sclera front (0.24) → the pupil front sits at ~0.36
   pupil.renderOrder = 6;
   eyeRig.add(pupil);
+  // CATCHLIGHT glint — a pinpoint ultra-hot spark on the upper rim of the eye. It
+  // alone carries the §3.2/G1 focal peak (≥250) in a tiny cluster, so the sclera can
+  // stay dim enough to keep the pupil dark. Reads as a living wet catchlight.
+  const glintMat = track(new THREE.MeshBasicMaterial({ color: 0xffffff }));
+  glintMat.toneMapped = false;
+  glintMat.color.setScalar(GLINT_HOT);
+  const glint = new THREE.Mesh(new THREE.SphereGeometry(0.12, 10, 8), glintMat);
+  glint.name = 'eyeGlint';
+  glint.position.set(-0.08, 0.09, 0.44);   // upper-left, PROUD OF THE PUPIL (front ~0.36) so it's never occluded
+  glint.renderOrder = 7;
+  eyeRig.add(glint);
   rig.add(eyeRig);
+
+  // SPLIT CORE — a second HDR eye-core that ignites INSIDE the SEEKER's empty socket
+  // during the dread card only ("EITHER/OR — Both Halves at Once": the eye SPLITS its
+  // light to BOTH sockets, §5f). White-hot, toneMapped=false — the eye idiom — sized
+  // ~75% of the main core; seated at the seeker socket each tick (CP1 r5 directive 1).
+  const splitMat = track(new THREE.MeshBasicMaterial({ color: 0xfff1e0 }));
+  splitMat.toneMapped = false;
+  const splitCore = new THREE.Mesh(new THREE.SphereGeometry(0.16, 10, 8), splitMat);
+  splitCore.name = 'eyeSplitCore';
+  splitCore.visible = false;
+  splitCore.renderOrder = 7;
+  rig.add(splitCore);
 
   // The BEADED THREAD — a LineSegments strand strung between the two sockets, with
   // beads, that the eye rides (overdraw-exempt, §2). Rebuilt each frame from the
   // live socket world positions so it always connects the drifting twins.
   const THREAD_BEADS = 14;
   const threadMat = track(new THREE.LineBasicMaterial({
-    color: new THREE.Color(glow).multiplyScalar(0.6), transparent: true, opacity: 0.5, depthWrite: false,
+    // LIT-SILHOUETTE: the bead-thread is the THIRD silhouette element (two darts + the line
+    // between) and stays ALWAYS visible at silver ~0.6 (§5d L140) so the "one eye, two bodies"
+    // read never drops out — even against the brightest biome sky.
+    color: new THREE.Color(glow).multiplyScalar(0.6), transparent: true, opacity: 0.62, depthWrite: false,
   }));
   const threadGeo = new THREE.BufferGeometry();
   const threadPos = new Float32Array((THREAD_BEADS - 1) * 2 * 3);   // segment pairs
@@ -400,10 +521,15 @@ export function buildTwinWraith(def, quality = 1) {
   // EMBER MOTES — small dark sparks off the shared ember (the orbiter contract ≥2;
   // §3 law 8: satellites stay DARK, dim ei). They drift near the thread's midpoint.
   // ------------------------------------------------------------------
-  const moteMat = track(new THREE.MeshStandardMaterial({
-    color: 0x070302, emissive: accent, emissiveIntensity: 0.06, roughness: 0.85, metalness: 0.0, flatShading: true,
+  // ADDITIVE warm sparks (not opaque boxes): an opaque dark mote reads as a black rectangle
+  // on the pale/sunset skies (REACH gate directive 3). Additive blending can only ADD warmth
+  // — a faint ember spark on the dark sky, and INVISIBLE (never a dark hole) on bright skies.
+  // Dim + tiny so it stays an ember, never a second glow (ONE-GLOW LAW).
+  const moteMat = track(new THREE.MeshBasicMaterial({
+    color: 0x4a2410, transparent: true, opacity: 0.85, blending: THREE.AdditiveBlending, depthWrite: false,
   }));
-  const moteGeo = strip(new THREE.OctahedronGeometry(0.16, 0));
+  moteMat.toneMapped = false;
+  const moteGeo = strip(new THREE.OctahedronGeometry(0.1, 0));
   const orbiters = [];
   for (let i = 0; i < 3; i++) {
     const m = new THREE.Mesh(moteGeo, moteMat);
@@ -414,7 +540,7 @@ export function buildTwinWraith(def, quality = 1) {
 
   // Hit flash rings the oxblood rim tier (a struck pair flares at its rims, never
   // lights the near-black body toy-red — the craghold/ashtalon lesson transplanted).
-  kit.flashBind(rimMat, 0.55);
+  kit.flashBind(outlineHolderMat, 1.15);   // a struck pair flares along its silhouette outline
   kit.finalize();
 
   // ==================================================================
@@ -427,7 +553,11 @@ export function buildTwinWraith(def, quality = 1) {
   function setAttackTell(id) { tell = id || null; }
 
   let setpieceK = 0;
-  function setSetpiece(k) { setpieceK = Math.max(0, Math.min(1, k)); }
+  let dreadSplit = 0;   // >0 only during the DREAD card (setpiece def carries dread:true) → the eye splits its light to BOTH sockets
+  function setSetpiece(k, sdef) {
+    setpieceK = Math.max(0, Math.min(1, k));
+    dreadSplit = (sdef && sdef.dread) ? setpieceK : 0;
+  }
 
   // Eye handoff state: holdT eases 0 (twinA holds) ↔ 1 (twinB holds). The eye seats
   // at the holder's socket; a handoff is a glide across the thread. `handoffFrom`
@@ -440,7 +570,7 @@ export function buildTwinWraith(def, quality = 1) {
   // Figure-eight orbit: the twins ride a lemniscate 180° out of phase around a
   // slowly drifting centre — the fight NEVER stops moving. Kept LOCAL (the group
   // station-keeps; the moving-station setpiece adds the whole-body sweep on top).
-  const ORBIT_R = 2.6;
+  const ORBIT_R = 5.2;   // 2.6 → 5.2 (REACH: crossing span ≈ 23u, ASHTALON-class reach across the portrait)
   let orbitPhase = 0;
   let t0 = null;               // first-tick time → encounter-relative clock (for the intro spread + death)
 
@@ -467,7 +597,11 @@ export function buildTwinWraith(def, quality = 1) {
     // leave emissive to the per-frame tick, which keeps the survivor charcoal and
     // confines the glow to the guttering ember at its socket. The flee pose itself
     // (survivor circles the fallen half, takes the eye, flees) is driven in tickBody.
-    const a = 1 - dyingK;
+    // BACK-LOADED fade: the survivor stays FULLY OPAQUE through the whole flee (the
+    // mourner must be visible — CP1 r2 directive 3), only vanishing in the last beat
+    // as it clears the frame. At k=1 everything is transparent (the dissolve test
+    // still passes); at the flee capture (k≈0.5) opacity is 1.
+    const a = dyingK < 0.82 ? 1 : Math.max(0, 1 - (dyingK - 0.82) / 0.18);
     for (const m of kit.mats) {
       m.transparent = true;
       const base = m.userData.baseOpacity ?? 1;
@@ -517,23 +651,38 @@ export function buildTwinWraith(def, quality = 1) {
     // where both lobes cross — so the twins never collide and the eye-thread length
     // stays > 0 at every orbit phase (§7b). It also gives the pair real depth on the
     // rail (one twin nearer the player through each crossing).
-    const ZSEP = 1.6;   // depth offset — keeps the twins (and their inward-facing noses) apart at the figure-eight node
+    const ZSEP = 2.4;   // 1.6 → 2.4 (REACH): depth offset keeps the twins apart at the figure-eight node at the larger orbit
     const th = orbitPhase;
-    const ax = Math.sin(th) * ORBIT_R * spread, ay = Math.sin(th * 2) * ORBIT_R * 0.5 * spread;
-    const bx = Math.sin(th + Math.PI) * ORBIT_R * spread, by = Math.sin((th + Math.PI) * 2) * ORBIT_R * 0.5 * spread;
+    // The figure-eight plane is TILTED ~36° so the pair separates VERTICALLY as well
+    // as horizontally — they never line up behind each other at the 3/4 view AND their
+    // outward-trailing tails never bridge into one connected component (the overlapped-
+    // orbit ambiguity, CP1 r6 dir 3 + r7 dir 1: raised 24°→36°). Pure choreography, in-game too.
+    const TILT = 0.62, ct = Math.cos(TILT), st = Math.sin(TILT);
+    const axr = Math.sin(th) * ORBIT_R * spread, ayr = Math.sin(th * 2) * ORBIT_R * 0.5 * spread;
+    const bxr = Math.sin(th + Math.PI) * ORBIT_R * spread, byr = Math.sin((th + Math.PI) * 2) * ORBIT_R * 0.5 * spread;
+    const ax = axr * ct - ayr * st, ay = axr * st + ayr * ct;
+    const bx = bxr * ct - byr * st, by = bxr * st + byr * ct;
 
-    // Death flee: the survivor (the eye-holder) circles the fallen half twice then
-    // flees off +x; the fallen half (the eyeless twin) stays and dissolves in place.
+    // EMOTIONAL DEATH (§4b): the pair BREAKS — the fallen half stops at a fixed point
+    // and SHRINKS/sinks as it dissolves; the survivor circles ITS FALLEN HALF (two
+    // laps), then FLEES off-frame at the very end. This gives TWO distinct studio
+    // beats — mid-dissolve (both halves present) vs the lone survivor circling (the
+    // fallen shrunk away) — the CP1 r3 directive 1 fix.
     let posA = [cx + ax, cy + ay, ZSEP], posB = [cx + bx, cy + by, -ZSEP];
     let survivorIsA = holdT < 0.5;
+    let fallenShrink = 0;
     if (dyingK > 0) {
-      const circle = age * 3.2;                        // two slow laps as it grieves
-      const flee = Math.max(0, dyingK - 0.55) / 0.45;  // after the circling, it leaves
-      const sv = [Math.cos(circle) * 2.4 * (1 - flee) + flee * 26, 1.2 + Math.sin(circle) * 1.2, -flee * 6];
-      const fallen = survivorIsA ? posB : posA;
-      const fx = survivorIsA ? posA : posB;   // survivor slot
-      fx[0] = sv[0]; fx[1] = sv[1]; fx[2] = sv[2];
-      fallen[1] -= dyingK * 0.6;              // the fallen half sinks as it fades
+      const circle = age * 2.2;                              // two slow laps as it grieves
+      const flee = Math.max(0, dyingK - 0.85) / 0.15;        // stays circling until the very end, THEN leaves
+      fallenShrink = clamp((dyingK - 0.3) / 0.4, 0, 1);      // the fallen half dwindles to nothing by ~0.7
+      const fp = [-1.1, -0.2 - dyingK * 0.7, -0.5];          // the fallen half stops and sinks (near centre so the flee frames tight)
+      const orbR = 2.7 * (1 - clamp((dyingK - 0.4) / 0.6, 0, 0.62));   // the survivor's circle TIGHTENS as it grieves → a compact frame (CP1 r6 dir 1)
+      const sv = [
+        fp[0] + Math.cos(circle) * orbR * (1 - flee) + flee * 26,
+        fp[1] + 0.9 + Math.sin(circle) * orbR * 0.6 * (1 - flee),
+        fp[2] + Math.sin(circle) * 1.0 - flee * 6,
+      ];
+      if (survivorIsA) { posA = sv; posB = fp; } else { posB = sv; posA = fp; }
     } else if (shieldClamp) {
       // SHIELD STAGING (§5f, CP1 gate directive 4): the bubble wraps whichever body
       // HOLDS the eye — the holder pulls to the centred bubble; the SEEKER holds its
@@ -542,18 +691,25 @@ export function buildTwinWraith(def, quality = 1) {
       // state. NOT both-in-bubble (that killed the read).
       const holderIsA = holdT < 0.5;
       const inb = [0, 0.15, 0.5];                        // holder → centre, under the bubble
-      const out = [Math.sin(time * 0.5) * 0.6 + 5.4, 0.5 + Math.sin(time * 0.7) * 0.4, -1.4];   // seeker orbits OUTSIDE (|pos|≈5.6 > 4.4)
+      const out = [Math.sin(time * 0.5) * 0.4 + 4.9, 0.5 + Math.sin(time * 0.7) * 0.4, -1.2];   // seeker orbits just OUTSIDE the bubble (|pos|≈5.0 > 4.4) but IN FRAME (CP1 r5 directive 3)
       if (holderIsA) { posA = inb; posB = out; } else { posB = inb; posA = out; }
     }
     twinA.twin.position.set(posA[0], posA[1], posA[2]);
     twinB.twin.position.set(posB[0], posB[1], posB[2]);
+    // The FALLEN half shrinks away as it dissolves (the pair breaking); the survivor
+    // stays full size and flees intact (§4b, CP1 r3 directive 1).
+    twinA.twin.scale.setScalar(survivorIsA ? 1 : Math.max(0.001, 1 - fallenShrink));
+    twinB.twin.scale.setScalar(survivorIsA ? Math.max(0.001, 1 - fallenShrink) : 1);
 
     // Orient each dart to FACE THE SHARED EMBER (nose → centre): the two darts read
     // broadside (their length across the frame, the dominant mass) with the ember
     // framed between their inward noses, and their ribbon tails trail OUTWARD — the
     // "two mirrored dart-wraiths orbiting a shared ember" one-liner, from every orbit
     // phase. On NOTICE they snap to face the PLAYER instead (nose → camera, +z).
-    const faceCam = noticeT > 0.4;
+    // NOTICE snaps both to face the player; the DREAD card also LOCKS both facing forward
+    // (both halves squared up at you — distinct body language from charge's inward-nosed
+    // taut-tail wind-up, REACH gate directive 1).
+    const faceCam = noticeT > 0.4 || dreadSplit > 0.3;
     orientDart(twinA.twin, posA, cx, cy, time, 0, faceCam);
     orientDart(twinB.twin, posB, cx, cy, time, Math.PI, faceCam);
 
@@ -569,7 +725,22 @@ export function buildTwinWraith(def, quality = 1) {
     // Seat the eye on the thread between the two sockets at the hold fraction.
     socketWorldLocal(twinA.twin, _sa);
     socketWorldLocal(twinB.twin, _sb);
-    _eye.copy(_sa).lerp(_sb, Math.max(0, Math.min(1, holdT)));
+    // FLEE: the thread SNAPS — its far end collapses to a short dangling arc off the
+    // survivor's own socket (not spanning to the vanished fallen half across the
+    // frame), so the §7c auto-fit frames the LONE survivor + its hollow socket at
+    // spec height instead of shrinking it to fit the far-flung span (CP1 r5 dir 2).
+    if (dyingK > 0.55) {
+      const surv = survivorIsA ? _sa : _sb, far = survivorIsA ? _sb : _sa;
+      far.set(surv.x + 0.5, surv.y - 1.3, surv.z + 0.2);   // the snapped end dangles just below the socket
+    }
+    // Seat the eye at 10–90% of the thread — NEVER flush against a socket. Resting
+    // ON a socket buries the orb + catchlight inside the holder's broadside kite body,
+    // so the eye vanished from the front + profile angles (it only read in 3/4 + top-
+    // down, CP1 r8 dir 3). Floating it ~0.3u off the socket keeps the bloom in open air,
+    // readable from every angle, while a full 0→1 handoff still crosses 0.1→0.9 (the §7b
+    // travel assert needs ≥0.7·thread; 0.8·thread clears it).
+    const eyeF = 0.1 + Math.max(0, Math.min(1, holdT)) * 0.8;
+    _eye.copy(_sa).lerp(_sb, eyeF);
     // A gentle arc up off the thread mid-glide (the eye lifts as it crosses).
     const glideLift = Math.sin(Math.max(0, Math.min(1, holdT)) * Math.PI) * (Math.abs(holdTarget - holdT) > 0.05 ? 0.5 : 0.12);
     eyeRig.position.set(_eye.x, _eye.y + glideLift, _eye.z + 0.15);
@@ -608,8 +779,46 @@ export function buildTwinWraith(def, quality = 1) {
     // into the empty SOCKET rings (HDR ×2.4-ish), the survivor's face — its body
     // stays charcoal (the custom fade never blows emissive) so it reads on the pale
     // sheet too (CP1 gate directive 5). Beads carry the last of the light.
-    socketMat.emissiveIntensity = 0.18 + dyingK * 2.4;
+    // Socket glow: the mourning ember at death + the DREAD "split light" (§5f, CP1
+    // r3 directive 3). During the dread card BOTH sockets light (~50% of the eye's
+    // intensity) — the eye splits its light — so the "Both Halves at Once" card reads
+    // in glow before any bullet exists.
+    // Idle socket base kept LOW (0.10) so the two seats read as dim HOLLOW rings and the
+    // floating white-hot EYE is the sole bright holder-marker — not "two near-identical
+    // orange rings" that hid which twin holds the eye (CP1 r8 dir 3). Mourning/dread/notice
+    // still tick it up.
+    socketMat.emissiveIntensity = 0.10 + dyingK * 2.4 + dreadSplit * 1.1 + (noticeT > 0.4 ? 0.5 : 0);
     beadMat.opacity = 0.85 * (1 - dyingK * 0.3) + fleeK * 0.15;
+    // DREAD "split light" (CP1 r5 directive 1): a second HDR core ignites inside the
+    // SEEKER's empty socket and the thread beads overdrive to HDR — the eye's light
+    // visibly travels the thread to BOTH sockets. The holder core dims to ~0.7× so it
+    // reads as SPLIT, not doubled. Off (invisible) outside the dread card.
+    if (dreadSplit > 0.05) {
+      const seekerSock = aHolds > 0.5 ? _sb : _sa;
+      splitCore.visible = true;
+      // Seat it PROUD of the seeker socket (toward camera) so the seeker body/collar can't
+      // occlude it, and drive it WHITE-HOT (scalar ~9, matching the eye's catchlight) so its
+      // bloom cluster peaks ≥240 — a real second core, not a dim socket-ring tint. Prior
+      // pass read only 161 lum (a peach C-ring); dread was indistinguishable from charge.
+      splitCore.position.set(seekerSock.x, seekerSock.y + 0.04, seekerSock.z + 0.4);
+      splitMat.color.setRGB(1, 0.945, 0.878).multiplyScalar(3.2 + dreadSplit * 6.2);
+      splitCore.scale.setScalar(0.9 + dreadSplit * 0.6);
+      beadMat.color.copy(new THREE.Color(0xffb890)).multiplyScalar(1 + dreadSplit * 2.2);   // light travels the thread
+    } else {
+      splitCore.visible = false;
+      beadMat.color.copy(new THREE.Color(glow));
+    }
+    // Lift the aged-silver rims + crest so the fleeing MOURNER is a visible BODY on
+    // the dark flee frame (not a charcoal ghost) — CP1 r2 directive 3. The diffuse
+    // stays charcoal; only the rim/fin emissive rises.
+    silverMat.emissiveIntensity = 0.30 + dyingK * 0.4;
+    // The rim tiers + the inverted-hull OUTLINE tiers hold their LIT-SILHOUETTE base (holder
+    // hot / seeker dim-but-legible) and rise as the mourner flees so the survivor stays a
+    // visible line-drawing. The outline is the dominant silhouette edge (directive 2).
+    rimHolderMat.emissiveIntensity = 0.9 + dyingK * 0.35;
+    rimSeekerMat.emissiveIntensity = 0.6 + dyingK * 0.25;
+    outlineHolderMat.emissiveIntensity = 1.15 + dyingK * 0.4;
+    outlineSeekerMat.emissiveIntensity = 0.75 + dyingK * 0.3;
 
     // --- Gaze: the HELD eye tracks the player with lag + look-aways (a mind, not a
     // turret). Eye-lock hard-tracks during notice/charge. ---
@@ -637,18 +846,46 @@ export function buildTwinWraith(def, quality = 1) {
     // --- The eye brightness/size: white-hot focal in every state; leashes dim under
     // a shield (G6); pupil constricts on charge (the tell); tucks on blink. ---
     const flicker = 0.9 + Math.sin(time * 4.5) * 0.07 + Math.sin(time * 12) * 0.03;
-    let eyeK = shieldClamp ? 0.4 : flicker * (1 + charge * 0.4);
-    if (noticeT > 0) eyeK *= 1.35;
+    // Sclera stays MODERATE in every state (the charge tell is the PUPIL + glint, not
+    // a sclera blow-up) so its bloom never floods the pupil; dips further mid-glide
+    // (CP1 r2 directive 1). The glint carries the G1 focal peak, not the sclera.
+    const gliding = Math.abs(holdTarget - Math.max(0, Math.min(1, holdT))) > 0.05;
+    // Under shield the eye stays HOT and OPEN — EITHERWING's parry job is ORGAN BREAK on
+    // the eye-holder (§5f), so the shielded frame MUST still answer "who fires next": the
+    // white-hot orb + catchlight mark the holder inside the leashed (dim-shell) bubble.
+    // NOT a dead eye (CP1 r8 dir 1 — the r7 shell-cut inverted the focal into a dead eye).
+    let eyeK = shieldClamp ? 0.7 : flicker * (1 + charge * 0.12);
+    if (noticeT > 0) eyeK *= 1.4;   // the eye SNAPS bright on notice (the ignition beat — CP1 r4 directive 2)
+    if (gliding) eyeK *= 0.78;
     eyeK *= Math.max(0, 1 - dyingK * 1.7);   // the shared ember GUTTERS OUT by the flee (the glow retreats into the socket ring)
     orbMat.color.copy(EYE_BASE).multiplyScalar(Math.max(0.02, eyeK) * EYE_HOT);
-    const tuck = blinkProg * 0.8 + (shieldClamp ? 0.3 : 0);
-    orb.scale.setScalar(Math.max(0.1, 1 - tuck * 0.7 + (noticeT > 0.5 ? 0.2 : 0)));
-    iris.scale.setScalar(1 + tuck * 0.25);
-    // Pupil: constricts on charge/notice (the charge tell), tracks the player, and
-    // rides the orb front. Death dilates it (§4b: dilation = death).
-    const pupilBase = 1 - charge * 0.5 - (noticeT > 0.4 ? 0.3 : 0) + dyingK * 0.6;
-    pupil.scale.setScalar(Math.max(0.35, pupilBase) * (1 - tuck * 0.5));
-    pupil.position.set(gazeX * 0.09, gazeY * 0.08, 0.15 - tuck * 0.14);
+    // Under shield the catchlight stays a VISIBLE hot pinpoint (marks the holder — the
+    // eye is not dead, CP1 r8 dir 1) but LEASHED to ~0.5 so its bloom cluster stays under
+    // 70% of the idle peak (G6 law: the focal damps when invulnerable — you can still see
+    // WHO holds the eye, but it reads as banked, not firing).
+    glintMat.color.setScalar(GLINT_HOT * Math.max(0.05, (shieldClamp ? 0.62 : 1) * (1 - dyingK) * (dreadSplit > 0.05 ? 0.7 : 1)));
+    const tuck = blinkProg * 0.8 + (shieldClamp ? 0.08 : 0);   // barely tucked under shield — the eye stays wide/alert so the holder reads
+    // Under shield the orb ENLARGES so the eye is unmistakably the hottest point INSIDE the
+    // cage — the caged twin is the parry target, and the bright dotted cage seams must not
+    // out-read it (REACH gate directive 5). Glint 0.62× keeps the bloom cluster under G6's leash.
+    orb.scale.setScalar(Math.max(0.1, 1 - tuck * 0.7 + (noticeT > 0.5 ? 0.2 : 0) + (shieldClamp ? 0.3 : 0)));
+    // ONE-GLOW LAW (§5d L140): outside the dread card the HELD EYE is the pair's only glow.
+    // The corona flare is a DREAD-ONLY light (not a per-charge glow) — the normal charge
+    // tell is carried by SHAPE (crest rake + taut tails) + the pupil constricting + the eye
+    // pinning to the firer, none of which add a second light source. The iris keeps its
+    // dim base 0.85 (it's part of the eye), and only blooms wide during dread.
+    irisMat.emissiveIntensity = 0.85 + dreadSplit * 1.7 + (shieldClamp ? 0.7 : 0);   // brighter peach ring under shield so the eye reads through the cage (dir 5)
+    iris.scale.setScalar(1 + tuck * 0.25 + dreadSplit * 0.28);
+    glint.visible = tuck < 0.6 && dyingK < 0.4;   // the catchlight winks out on a blink/tuck, and EARLY in death (the ember guts; the glow retreats to the socket ring)
+    // Pupil: constricts on charge/notice (the charge tell), tracks the player, and on
+    // a HANDOFF biases toward the RECEIVING twin so the eye LOOKS where it's going
+    // (CP1 r2 directive 2). Death dilates it (§4b: dilation = death).
+    const pupilBase = 1 - charge * 0.4 - (noticeT > 0.4 ? 0.3 : 0) + dyingK * 0.6;
+    pupil.scale.setScalar(Math.max(0.4, pupilBase) * (1 - tuck * 0.5));
+    const recv = holdTarget > 0.5 ? _sb : _sa;
+    const glideBiasX = gliding ? Math.max(-1, Math.min(1, (recv.x - _eye.x) * 0.6)) * 0.07 : 0;
+    pupil.position.set(gazeX * 0.08 + glideBiasX, gazeY * 0.07, 0.16 - tuck * 0.14);
+    glint.position.set(-0.09 + gazeX * 0.05, 0.1 + gazeY * 0.04, 0.44);
 
     // --- The twins' fins/ribbons pose by charge (EXPRESSION, §4b): open-glide idle,
     // mantle on charge (fins rake up + ribbons flare), furl in death. Plus the flinch
@@ -664,14 +901,30 @@ export function buildTwinWraith(def, quality = 1) {
       // Ribbon flow: the standing-wave base curve + a TRAVELLING wave (animated)
       // that eases in with LAG so the ribbon trails the body (the §7b flow law).
       // Charge/setpiece flare the amplitude; death furls the tails down.
-      const flare = charge * 0.45 * (isHolder ? 1 : 0.4) + setpieceK * 0.3;
-      for (const chain of w.ribbons) {
+      // On CHARGE the holder's tail SNAPS TAUT (the standing wave collapses, the ribbon
+      // goes rigid/straight — the "about to fire" tension tell, CP1 r7 dir 4); setpiece
+      // still flares the amplitude. straighten pulls the base curve + sway toward zero.
+      // DREAD vs CHARGE must not look alike (REACH gate directive 1). CHARGE owns the
+      // TAUT-TAILS tell — but during the DREAD card the tails FLARE WIDE instead (both
+      // twins spread + locked), so the two tells read distinctly. straighten is gated OFF
+      // by dreadSplit; the dread flare spreads the chain.
+      const straighten = (isHolder ? charge : charge * 0.4) * (1 - dreadSplit);
+      const flare = setpieceK * 0.22 + dreadSplit * 0.34;
+      // The death FURL curls each joint the SAME way so the ~8-joint chain rolls into a
+      // TIGHT COIL near the root by the flee — the extended tails otherwise dominate the
+      // §7c auto-fit box and shrink the survivor's body/socket to ~20% (CP1 r7 dir 2+3).
+      // Ramp ×1.6 so the coil is complete by the flee capture (dyingK≈0.72).
+      const furlK = clamp(dyingK * 1.6, 0, 1);
+      for (const tail of w.ribbons) {
+        const chain = tail.segs;
         for (let s = 0; s < chain.length; s++) {
           const seg = chain[s];
-          const anim = Math.sin(time * 1.7 + seg.wave + w.sx) * (0.12 + flare) * (1 + s * 0.14);
-          const furl = dyingK * (0.4 + s * 0.12);
-          const targetZ = seg.baseZ + anim * (1 - dyingK);
-          const targetX = seg.baseX + anim * 0.6 * (1 - dyingK) + furl;
+          const anim = Math.sin(time * 1.7 + seg.wave + w.sx) * (0.1 + flare) * (1 + s * 0.12) * (1 - straighten);
+          const furl = furlK * (0.5 + s * 0.06);
+          // Cap the PER-JOINT bend to ±0.5 rad so the tail flows as one continuous
+          // ribbon; the uniform-sign furl still coils it tight at death.
+          const targetZ = clamp(seg.baseZ * (1 - straighten) + anim * (1 - furlK) + furl * 0.6, -0.5, 0.5);
+          const targetX = clamp(seg.baseX * (1 - straighten) + anim * 0.5 * (1 - furlK) + furl, -0.5, 0.5);
           const ease = Math.min(1, dt * (2.2 + s * 0.4));   // lag: the tip trails the root
           seg.swayZ += (targetZ - seg.swayZ) * ease;
           seg.swayX += (targetX - seg.swayX) * ease;
@@ -679,14 +932,29 @@ export function buildTwinWraith(def, quality = 1) {
           seg.pivot.rotation.x = seg.swayX;
         }
       }
-      // Fins mantle up on charge; furl down in death.
+      // Fins mantle up on charge; the HOLDER's crest RAKES HARD (−0.75 rad) as it winds
+      // to fire (CP1 r7 dir 4 — the raised-crest half of the charge tell); SNAP OPEN
+      // ≥0.4 rad on notice (the reveal beat, CP1 r4 dir 2); furl down in death.
       const fin = w.twin.getObjectByName('crescentFin');
-      if (fin) fin.rotation.x = -0.1 - charge * 0.4 * (isHolder ? 1 : 0.5) + dyingK * 0.5;
+      if (fin) fin.rotation.x = -0.1 - charge * 0.75 * (isHolder ? 1 : 0.4) - (noticeT > 0.4 ? 0.55 : 0) + dyingK * 0.5;
+
+      // Rebuild the deforming comet-tail strips from the now-posed pivot chains (1 draw
+      // per tail). The twin's own transform (orbit pose + flinch above) is final for this
+      // frame, so its world matrix is current.
+      w.twin.updateMatrixWorld(true);
+      _twinInv.copy(w.twin.matrixWorld).invert();
+      for (const tail of w.ribbons) updateTailStrip(tail, w.twin, _twinInv);
     }
 
-    // --- Ember motes drift near the thread midpoint (dark, dim — §3 law 8). ---
+    // --- Ember motes drift near the thread midpoint (dark, dim — §3 law 8). They
+    // WINK OUT at the flee (dyingK≥0.7) along with the scattered thread beads, so the
+    // ONLY debris on the lone-survivor frame is the snapped bead-thread arc off the
+    // socket (CP1 r4 directive 4 — the motes read as clinging confetti otherwise).
+    const debrisGone = dyingK >= 0.7;
+    beads.visible = !debrisGone;
     const mid = _sa.clone().lerp(_sb, 0.5);
     for (const o of orbiters) {
+      o.visible = !debrisGone;
       const u = o.userData;
       u.ang += dt * u.speed;
       o.position.set(mid.x + Math.cos(u.ang) * u.radius, mid.y + Math.sin(time + u.tilt) * 0.4, mid.z + Math.sin(u.ang) * u.radius * 0.5);

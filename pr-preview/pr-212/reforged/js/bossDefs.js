@@ -365,7 +365,7 @@ export const BOSSES = {
                               // second palette swatch (oxblood + aged-silver, §5d), apart from the eye's white.
     bulletColor: 0xff2b6a,    // danger stays magenta (role colour, never per-boss)
     approachFrom: 'sides',    // BOTH SIDES at once (§5e new branch): the twins arrive from both flanks
-    scale: 1.35,              // COLOSSUS — the pair spans wide; keeps the twins readable at fight distance
+    scale: 1.55,              // COLOSSUS — REACH PASS (r8): 1.35→1.55, crossing span ≈ 23u (ASHTALON-class reach)
     hpMax: 330,               // Tier 2 band (260–330); slot-5 PEAK sits at the top (the sawtooth crest)
     // §5f DUO LAW (one per roster): complementary axes — one twin flies lane-denial
     // WALLS (movingGap/secondWave), the other aimed TEMPO (aimed/crossfire); volley

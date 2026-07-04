@@ -36,22 +36,34 @@ const SEED = 1;
 // renderState dial bag at a DETERMINISTIC animation phase t (identical framing
 // every run).
 const STATES = [
-  { name: 'idle',     o: { t: 1.5 } },
-  { name: 'notice',   o: { noticeAt: 0.5, t: 1.2 } },
+  // idle/notice seeded at MAX orbital separation (orbitPhase≈π/2 at t≈2.85, rate 0.55)
+  // so the twins are spread ~1.5 body-lengths apart with the eye clear of both bodies —
+  // never the figure-eight CROSSING moment where they overlap into one blob (CP1 r4 dir 1+3).
+  { name: 'idle',     o: { t: 2.85 } },
+  { name: 'notice',   o: { noticeAt: 2.4, t: 2.85 } },
   { name: 'charge',   o: { charge: 1, t: 2.0 } },
-  { name: 'shielded', o: { shield: true, t: 1.5 } },
+  { name: 'shielded', o: { shield: true, t: 1.5 } },   // per-state auto-fit frames the bubble + the outside seeker (CP1 r6)
   // dread setpiece — eitherwing's dread card is the figure-eight ("Both Halves at Once").
-  { name: 'dread',    o: { charge: 1, sp: 0.8, spmode: 'figureEight', t: 2.4 } },
-  { name: 'dissolve', o: { death: 0.5, t: 1.5 } },
+  // dread seeded at the MAX-separation orbit phase (t≈1.6 → orbitPhase≈π/2 at the
+  // dread rate 1.04) so the 3/4 view shows TWO separated bodies + the split light at
+  // both sockets, never the figure-eight CROSSING blob (CP1 r8 dir 5).
+  { name: 'dread',    o: { charge: 1, sp: 0.8, spmode: 'figureEight', dread: true, t: 1.6 } },
+  { name: 'dissolve', o: { death: 0.32, t: 1.4 } },   // mid-dissolve: BOTH halves present (the fallen still large), the survivor circling
 ];
 // EITHERWING extras: the eye-handoff (eye mid-thread) + the survivor flee pose.
 const EXTRAS = [
-  { name: 'handoff', o: { handoff: 0.5, t: 2.0 } },   // setDebugHandoff(0.5): eye mid-thread between the twins
-  { name: 'flee',    o: { death: 0.7, t: 2.0 } },     // the survivor circling/fleeing pose
+  { name: 'handoff', o: { handoff: 0.5, t: 2.85 } },   // setDebugHandoff(0.5): eye mid-thread; t2.85 = max twin separation (orbitPhase≈π/2) so the 3/4 view has clear air on both sides of the eye, not an eclipse blob (CP1 r8 dir 5)
+  { name: 'flee',    o: { death: 0.72, t: 2.6 } },   // the LONE survivor + its hollow "eclipse socket"; per-state auto-fit frames it at spec (short snapped thread), no chip-motes
 ];
 const states = bossId === 'eitherwing' ? [...STATES, ...EXTRAS] : STATES;
 
-const BGS = ['dark', 'pale'];
+const BGS = ['dark', 'pale', 'sunset'];   // §7c L140: + warm sunset-gold (warm accents vanish on warm skies)
+// The fight-distance frames (§7c L140): ONE front-on shot per key state at the REAL
+// encounter geometry (FOV 72, boss at rel 30, NO auto-framing) — judged for PRESENCE.
+// idle = the formation at full spread; handoff = the interlocked-crossing "money frame".
+const FIGHT_STATES = bossId === 'eitherwing'
+  ? [{ name: 'idle', o: { t: 2.85 } }, { name: 'handoff', o: { handoff: 0.5, t: 2.85 } }]
+  : [{ name: 'idle', o: { t: 2.85 } }];
 // Grid order: front TL, 3/4 TR, profile BL, top-down BR.
 const ANGLES = [
   { name: 'front',        label: 'front' },
@@ -93,7 +105,21 @@ for (const st of states) {
   }
 }
 
+// FIGHT-DISTANCE FRAMES — single front-on shots at the real encounter geometry. Composited
+// through the same GL→2D sheet path as the contact sheets (a 1×1 tile) for capture parity.
+for (const st of FIGHT_STATES) {
+  for (const bgName of BGS) {
+    await page.evaluate(() => window.studioSheetInit(1, 1, 1000));
+    await page.evaluate((o) => window.renderState(o), { boss: bossId, seed: SEED, bg: bgName, fight: true, ...st.o });
+    await page.evaluate((label) => window.studioTile(0, label), `fight · rel30 · ${st.name}`);
+    const path = `reforged-captures/${bossId}-fight-${st.name}-${bgName}-${round}.png`;
+    writeFileSync(path, await page.screenshot({ clip: SHEET_CLIP }));
+    written.push(path);
+    console.log('wrote', path);
+  }
+}
+
 await browser.close();
 srv.close?.();
-console.log(`\n${written.length} contact sheets written.`);
+console.log(`\n${written.length} images written (contact sheets + fight-distance frames).`);
 process.exit(0);
