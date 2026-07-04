@@ -5381,7 +5381,7 @@ catches. (4) Multi-body bosses: the FORMATION is the body — scale the formatio
 slot 5 is load-bearing (call-response rhythm, DUO law, the Baton Cross entrance, the slot-12 ONEWING seed) and
 the failure was presentation scale. Diagnose which axis actually failed before moving a boss between bands.
 
-### L141 — EITHERWING REACH build: the techniques that hit the r8 spec (studio CP1 PASS)
+### L142 — EITHERWING REACH build: the techniques that hit the r8 spec (studio CP1 PASS)
 
 **Did / learned.** Executed the L140 REACH spec on the shipped twin-wraith builder and cleared a two-round
 studio design gate. Four techniques carried it, each reusable:
@@ -5416,3 +5416,31 @@ tell coexist by making the tell SHAPE (pose) not a second glow — the corona/em
 bar inflated the studio auto-fit's `maxDim` ~14× and shrank the flee survivor to ~10% of frame. A per-state
 "fit to visible geometry only" traversal (skip nodes with a hidden ancestor + skip Points debris) is mandatory
 for any auto-framing tool, or a small/off-centre pose is judged as a framing failure that isn't real.
+
+### L141 — The r8 span bet failed: presence sums per body, and a pass must CROSS the player
+
+**Did / learned.** The r8 REACH pass fixed EITHERWING's color (the inverted-hull lit silhouette is genuinely
+better than the spec'd rim strips) and passed every gate including the new fight-distance frame — and the owner
+STILL called it tiny in game. The span bet was wrong: 23 units of formation reach is mostly empty space between
+two ~7-unit darts. **Perceived size sums per BODY, not per formation — negative space is not mass.** Each body
+of a multi-body boss must pass the "is this alone a boss?" bar at fight distance before the formation counts
+for anything. r9 therefore grows the darts themselves (6.2×2.3, ~9.6 on-screen units each, tails ~10u) AND adds
+the lever the fight never used: PROXIMITY. The evidence pair is now owner-verified from both directions — the
+roster's best-loved moment (ASHTALON's overtake) is its one TRUE flyby, and its quietest broken promise
+(MARROWCOIL's ribThread) is a loom that stopped short: the path parks the group at rel 7 but the spine trails
+away, so the cage never wraps the rail and the player never felt a fly-through. **A pass must CROSS the player
+(rel sweeps through negative), not approach them** — r9's figure-eight near-lobe sweeps rel ~18→−6→back on the
+rhythm rest, lateral-offset guarded. The ribThread gap is logged in the §5d sheet as a fix candidate.
+
+**Also killed this session: the "small boss = cheap boss" intuition.** The owner asked how something so small
+costs 26 draws and whether we'd hit the ceiling. Draws count MESHES, not pixels — and the measured phone
+ceilings (415 draws @58.4fps, 400k tris @58.8fps, L124/126) mean scaling geometry is FREE: same meshes, same
+draw count, tris unchanged by scale. Per-boss budgets are allocation discipline, not hardware limits. No new
+stress test needed; the experiment already ran on the owner's phone.
+
+**Escalation audit (owner request).** Difficulty ladder healthy: HP 180→220→290→300→330, cadence tightens per
+band, palette grows by unlocks, parry mechanics debut per band. Grandeur rises 1→2→3→4 then breaks at slot 5
+TWICE: body presence AND first-contact drama (ASHTALON opens with the overtake; EITHERWING's Baton Cross
+doesn't exist until the CP2 entrance engine). New audit law: **grandeur comparisons must include first-contact
+drama — a slot without its entrance beat will always feel lesser than a slot with one, independent of
+geometry.** Judge drafts accordingly (or discount for it) before concluding a boss's body is the problem.
