@@ -436,14 +436,31 @@ feasibility survey: at rel 30, on-screen centers within x ±15 / y 2..22 on port
   meshes — phone-verified fine; NO InstancedMesh, L126). REUSES: mandala rail-merge idiom,
   charisma eye rig, jawPivot precedent. NEEDS: below-approach + cull-bound widening (§5e).
   ENTRANCE: shipped rise stands; §5j *Count the Ribs* retrofit STAGED (inert `def.riseBeats`).
-- **5 EITHERWING** — per twin: stretched-octahedron kite body (~2.2 long) + crescent head
-  fin (flat arc extrude) + 2 ribbon tails (4 flat tapered boxes on lagged pivots); THE EYE:
-  one HDR orb that detaches and glides between bodies on a LineSegments bead-thread (the
-  charge tell: whoever holds the eye fires next). Figure-eight orbits (moving-station
-  branch) around a drifting center; crossfire's existing ±10 emitters = their fire points.
-  ONE shared hp pool + one bar (zero hit-model work — the craghold precedent); shield
-  wraps whichever body holds the eye. Oxblood 0x2a1114 + aged-silver rims; eyeless twin
-  always darker. ~2×900 tris. REUSES: everything; NEEDS: nothing structural.
+- **5 EITHERWING** — **REACH SPEC (r8, 2026-07 — supersedes the conservative first sheet;
+  L140):** the first draft built to "~2×900 tris, 2.2-long bodies" and presented ~40% of
+  ASHTALON's presence at the band PEAK. The ensemble is the body; this boss's wingspan is
+  its FORMATION. Per twin: stretched-octahedron kite body (**4.6 long × 1.7 wide** — same
+  dart proportions) + crescent head fin (flat arc extrude, mirrored per twin) + 2 ribbon
+  COMET-TAILS (**12 tapered segments, base segLen 0.95 → ~7–8-unit flowing trails**; the
+  last 3 segments per tail carry ember-gradient emissive ei 0.35→0.15 so crossings draw
+  light-trails). THE EYE: one HDR orb that detaches and glides between bodies on a beaded
+  thread (the charge tell: whoever holds the eye fires next) — eye rig proportions
+  unchanged (the googly read self-corrects at the new body size). Formation: figure-eight
+  at **ORBIT_R 5.2, ZSEP 2.4, def.scale 1.55** → crossing span ≈ 23 units, ASHTALON-class
+  reach, sweeping the full portrait width (orbit ±8 fits the x ±15 envelope at rel 30).
+  Align the visual crossing with the authored rhythm REST (the handoff window) — the
+  interlocked-crescents crossing with the eye mid-thread is THE screenshot frame.
+  **LIT-SILHOUETTE LAW (small mass ⇒ the identity is the EDGE):** body diffuse stays
+  near-black, but the oxblood rims widen to **0.14** and run the FULL kite perimeter + fin
+  outer edge (holder ei 0.9 / seeker ei 0.45); fins aged-silver ei 0.30; the bead-thread
+  between the twins ALWAYS visible at silver ei ~0.6 — the silhouette is three elements:
+  two oxblood line-drawings and the line between them, readable on the BRIGHTEST biome sky.
+  **ONE-GLOW LAW:** outside the dread card exactly one light source among the pair (the
+  held eye); the seeker's split core + charge glow are dread-card-only; muzzle light
+  emanates from the EYE. ONE shared hp pool + one bar (zero hit-model work); shield wraps
+  the eye-holder. Oxblood (warm, clear of danger-magenta ±15°) + aged-silver; eyeless twin
+  always darker. **~4.5k tris total, ≤30 draws (band cap 8k/50 — spend it).** REUSES:
+  everything; NEEDS: nothing structural.
   ENTRANCE (§5j *The Baton Cross*, hijack 1.6s): honest RIGHT banner; both twins slide in
   from BOTH flanks and bracket the dragon at x ±8, rel 14 (inside the portrait envelope),
   matching speed one breath — coal-dark, backlit, rims unlit; heads angle in (`setGaze`);
@@ -1282,7 +1299,16 @@ already carries an equivalent viewer, adopt and rename it — never rebuild):
   the game's real lighting rig (sun + hemisphere) and real postfx chain (bloom/ACES — the
   design laws are written against the bloom pipeline, so the studio must keep it).
 - TWO backdrops per shoot, judged on both: near-dark 0x14121a and pale 0xcfd6e4 (a boss must
-  read against a dark sky AND a bright horizon).
+  read against a dark sky AND a bright horizon). **PLUS (L140, EITHERWING lesson): a warm
+  sunset-gold backdrop 0xd9a24a** — warm dark accents (oxblood, ember) vanish against warm
+  skies in a way neither neutral backdrop catches.
+- **FIGHT-DISTANCE FRAME (L140, mandatory alongside the contact sheet):** one shot at the
+  REAL encounter geometry — camera at the live chase FOV (72) and the boss at its true
+  station distance (rel 30, or its own settle rel), NO auto-framing. The 60%-height
+  auto-frame normalizes scale and hides presence failures (EITHERWING shipped 4 gate rounds
+  looking fine in studio while presenting ~40% of ASHTALON's on-screen mass in game). The
+  fight-distance frame is judged for PRESENCE: ensemble span vs the portrait envelope, and
+  % of silhouette that emits at that distance.
 - CONTACT SHEET per state — one image, four fixed angles (front-on · 3/4 · profile · slight
   top-down), identical framing (FOV 72, camera distance auto-set so the boss spans ~60% of
   frame height), deterministic animation phase (fixed time seed) so round K and round K+1
