@@ -199,10 +199,12 @@ export const cameraCtl = {
       const rx = player.position.x * 0.9, ry = player.position.y + 4.4, rz = player.position.z - 9;
       camera.position.set(nx + (rx - nx) * rearEnv, ny + (ry - ny) * rearEnv, nz + (rz - nz) * rearEnv);
       smoothPos.copy(camera.position);
-      // Look target eases from the boss (tracked while it's the subject) to the
-      // normal forward look as we return to the chase.
+      // Look at the MIDPOINT of the dragon and the boss (not the boss alone) so
+      // BOTH stay in the shot for the eye-lock, whatever lane the dragon is in —
+      // easing to the normal forward look as we return to the chase.
+      const mx = (player.position.x + overtake.bx) / 2, my = (player.position.y + overtake.by) / 2 + 1.0, mz = (player.position.z + overtake.bz) / 2;
       const fx = player.position.x, fy = player.position.y + 1.0, fz = player.position.z - 16;
-      lookTarget.set(fx + (overtake.bx - fx) * rearEnv, fy + (overtake.by - fy) * rearEnv, fz + (overtake.bz - fz) * rearEnv);
+      lookTarget.set(fx + (mx - fx) * rearEnv, fy + (my - fy) * rearEnv, fz + (mz - fz) * rearEnv);
       camera.lookAt(lookTarget);
       const fovT = 80;
       if (Math.abs(camera.fov - fovT) > 0.1) { camera.fov = damp(camera.fov, fovT, 4, dt); camera.updateProjectionMatrix(); }

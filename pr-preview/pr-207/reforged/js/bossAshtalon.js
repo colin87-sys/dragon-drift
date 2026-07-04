@@ -421,6 +421,10 @@ export function buildEmberHunter(def, quality = 1) {
     gazeTX = Math.max(-1, Math.min(1, nx));
     gazeTY = Math.max(-1, Math.min(1, ny));
   }
+  // Eye-lock (cinematic overtake): kill the idle look-aways and SNAP the pupil to
+  // the fed gaze, so the white core hard-tracks the dragon through the pass.
+  let eyeLock = false;
+  function setEyeLock(v) { eyeLock = !!v; }
   const BLINK_DUR = 0.22;
   let blinkT = 0, nextBlink = 3.5 + Math.random() * 3;
   let noticeT = 0;
@@ -435,18 +439,19 @@ export function buildEmberHunter(def, quality = 1) {
     rig.rotation.z = Math.sin(time * 0.5) * 0.015;
     rig.rotation.x += ((dyingK * 0.2) - rig.rotation.x) * Math.min(1, dt * 3);
 
-    // --- Gaze: high-lag pursuit + look-aways (the hunter sizing you up) ---
+    // --- Gaze: high-lag pursuit + look-aways (the hunter sizing you up) — unless
+    // eye-locked (cinematic), where it hard-tracks the fed gaze with no wandering.
     nextLookAway -= dt;
     if (lookAwayT > 0) lookAwayT -= dt;
-    else if (nextLookAway <= 0 && charge < 0.2 && noticeT <= 0 && dyingK <= 0) {
+    else if (!eyeLock && nextLookAway <= 0 && charge < 0.2 && noticeT <= 0 && dyingK <= 0) {
       lookAwayT = 0.7 + Math.random() * 0.6;
       lookAwayX = (Math.random() - 0.5) * 1.5;
       lookAwayY = Math.random() * 0.5 - 0.2;
       nextLookAway = 5 + Math.random() * 6;
     }
-    const gx = lookAwayT > 0 ? lookAwayX : gazeTX;
-    const gy = lookAwayT > 0 ? lookAwayY : gazeTY;
-    const gLag = (noticeT > 0 || charge > 0.5) ? 9 : 2.4;   // snaps to lock-on when hunting
+    const gx = (!eyeLock && lookAwayT > 0) ? lookAwayX : gazeTX;
+    const gy = (!eyeLock && lookAwayT > 0) ? lookAwayY : gazeTY;
+    const gLag = eyeLock ? 16 : (noticeT > 0 || charge > 0.5) ? 9 : 2.4;   // snaps to lock-on when hunting
     gazeX += (gx - gazeX) * Math.min(1, dt * gLag);
     gazeY += (gy - gazeY) * Math.min(1, dt * gLag);
 
@@ -627,6 +632,7 @@ export function buildEmberHunter(def, quality = 1) {
     setAttackTell,
     setSetpiece,
     setGaze,
+    setEyeLock,
     notice,
     setHealth: kit.setHealth,
     setHealthBarVisible: kit.setHealthBarVisible,
