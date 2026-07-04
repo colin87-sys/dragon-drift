@@ -203,6 +203,29 @@ const SETPIECE_PATHS = {
     const t = easeInOut((k - 0.72) / 0.28);   // recover to station
     return { x: 0, y: DIVE_Y + (B.fightHeight - DIVE_Y) * t, rel: DIVE_REL + (B.settleGap - DIVE_REL) * t };
   },
+  // MARROWCOIL — RIB THREAD (§5c "the rail threads its negative space"): the bone
+  // dragon LOOMS straight in until the rail passes THROUGH the ribcage (rel drops
+  // to ~7, centred, raised so the mid-body cage sits on the frame centre — the
+  // SotC scale-contrast frame), holds the fly-through, then eases back. Runs
+  // MOVING so the coil's iris rings keep expanding as it closes (emitter=organ).
+  ribThread(k) {
+    const B = CONFIG.BOSS;
+    const NEAR_REL = 7, RISE = 2.4;   // loom close + rise so the cage centres on frame
+    if (k < 0.34) { const t = easeInOut(k / 0.34); return { x: 0, y: B.fightHeight + RISE * t, rel: B.settleGap + (NEAR_REL - B.settleGap) * t }; }
+    if (k < 0.66) { const t = (k - 0.34) / 0.32; return { x: Math.sin(t * Math.PI) * 2.0, y: B.fightHeight + RISE, rel: NEAR_REL }; }   // hold the fly-through (slight drift)
+    const t = easeInOut((k - 0.66) / 0.34); return { x: 0, y: B.fightHeight + RISE * (1 - t), rel: NEAR_REL + (B.settleGap - NEAR_REL) * t };
+  },
+  // MARROWCOIL — THE CLOSING RIBS (§5f dread): holds at mid-close range (the cage
+  // readable + threadable) while the model constricts the ribcage one pair at a
+  // time (setSetpiece envelope). A slow lateral drift keeps the coil sweeping;
+  // the pattern rains through the shrinking aperture (the graze goldmine).
+  closingRibs(k) {
+    const B = CONFIG.BOSS;
+    const HOLD_REL = 13, RISE = 2.0, SWEEP = 11;   // the coil sweeps the lane wide (leaves station) as the ribs close
+    if (k < 0.22) { const t = easeInOut(k / 0.22); return { x: 0, y: B.fightHeight + RISE * t, rel: B.settleGap + (HOLD_REL - B.settleGap) * t }; }
+    if (k < 0.8) { const t = (k - 0.22) / 0.58; return { x: Math.sin(t * Math.PI * 2) * SWEEP, y: B.fightHeight + RISE, rel: HOLD_REL }; }
+    const t = easeInOut((k - 0.8) / 0.2); return { x: Math.sin(Math.PI * 2) * SWEEP * (1 - t), y: B.fightHeight + RISE * (1 - t), rel: HOLD_REL + (B.settleGap - HOLD_REL) * t };
+  },
 };
 function clearSetpiece() {
   if (setpieceT >= 0) model?.setSetpiece?.(0);
@@ -854,7 +877,7 @@ export function updateBoss(dt, player, time) {
     // fixed path parameter so the crop tool can shoot the dread pose as a still.
     const p = SETPIECE_PATHS[debugSetpiecePin.id]?.(debugSetpiecePin.k);
     if (p) { pose.x = 0; pose.y = B.fightHeight; pose.rel = B.settleGap; }
-    model.setSetpiece?.(Math.sin(debugSetpiecePin.k * Math.PI));
+    model.setSetpiece?.(Math.sin(debugSetpiecePin.k * Math.PI), { id: debugSetpiecePin.id });
     model.setCharge(0);
   } else if (phase === 'fight' && debugChargePin >= 0) {
     // Capture-only: freeze the boss square-on and HOLD the contracted mantle pose
@@ -872,7 +895,10 @@ export function updateBoss(dt, player, time) {
       const k = Math.min(setpieceT / setpieceDef.dur, 1);
       const p = SETPIECE_PATHS[setpieceDef.id](k);
       pose.x = p.x; pose.y = p.y; pose.rel = p.rel;
-      model.setSetpiece?.(Math.sin(k * Math.PI));   // pose spread eases in and back out
+      // Pass the setpiece def so a model can respond per-beat (ASHTALON ignores
+      // the 2nd arg; MARROWCOIL reads it to tell a fly-through pass — cage OPEN —
+      // from its Closing-Ribs dread — cage CONSTRICTING).
+      model.setSetpiece?.(Math.sin(k * Math.PI), setpieceDef);   // pose spread eases in and back out
       if (k >= 1) clearSetpiece();
     } else {
       if (setpieceT >= 0) clearSetpiece();   // shield rose mid-beat: abort cleanly

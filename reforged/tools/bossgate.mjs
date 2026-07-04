@@ -42,7 +42,12 @@ const VIEW = { width: 720, height: 1280 };
 // read false-magenta under that biome's blue hemisphere ambient, and dark rock
 // spires would merge into its dark wings. ASHTALON is captured over AMBER WASTES
 // (warm ambient + a clean, spire-free horizon).
-const DIST = { voidmaw: 2500, stormrend: 5200, craghold: 3800, ashtalon: 2500 };
+const DIST = { voidmaw: 2500, stormrend: 5200, craghold: 3800, ashtalon: 2500,
+  // MARROWCOIL is the PALE VALUE-INVERTED boss (§5b slot 4); §5h biome pairing =
+  // pale bodies over DARK skies. ASTRAL SHALLOWS (~8000m, near-black violet sky)
+  // lets the bone pop and keeps the additive ice-blue out of a warm horizon
+  // (a sunset biome pushed the blue↔orange overlap to false-magenta, a G3 fail).
+  marrowcoil: 8000 };
 
 const bossId = process.argv[2];
 if (!bossId || !BOSS_ORDER.includes(bossId)) {
@@ -192,9 +197,21 @@ const { page, done } = await boot({
 page.setDefaultTimeout(150000);   // headless rAF throttle makes warn+approach slow
 
 const DUMP = process.env.GATE_DUMP;   // set to a dir to dump the captured frames
+// PALE bosses (gate.pale) FREEZE the sim for the mask+screenshot pair. The two
+// are separate CDP round-trips; between them the boss animates (dt clamped to
+// 0.05s → several px/tick), which slides a THIN/SPARSE PALE body's bright
+// geometry off its projected mask → the mask then samples SKY (a false-dark
+// G2/palette read that flaked the bone boss between 196 and 39). Pausing stops
+// updateBoss + game.time; the frame still renders, so the still boss is captured
+// and the mask lines up exactly (proven: 4/4 frames identical). Restricted to
+// pale defs so the shipped DARK bosses (whose sky-blend is already dark, and one
+// of whose G1 clusters sits right on its ceiling) capture byte-identically.
+const CAPTURE_FREEZE = !!gate.pale;
 async function grab(tag) {
+  if (CAPTURE_FREEZE) await page.evaluate(() => { const g = window.__dd.game; if (g.state === 'playing') { g.__gateFrozen = true; g.state = 'paused'; } });
   const mask = await page.evaluate(extractMask);
   const png = await page.screenshot();
+  if (CAPTURE_FREEZE) await page.evaluate(() => { const g = window.__dd.game; if (g.__gateFrozen) { g.__gateFrozen = false; g.state = 'playing'; } });
   if (DUMP && tag) { const fs = await import('node:fs'); fs.writeFileSync(`${DUMP}/gate-${bossId}-${tag}.png`, png); }
   return { mask, rgba: decodePNG(png).rgba };
 }
@@ -255,6 +272,13 @@ try {
   // Headless rAF is throttled ~15× (LEAPFROG L105), so warn+approach burn real
   // wall-clock — the waits are generous by necessity, not because the beat is long.
   await page.waitForFunction(() => window.__dd.bossState().phase === 'fight', { timeout: 90000 });
+  // SETTLE wait (fixes the approach-tilt flake, L137): a 'below'/'above'-approach
+  // boss enters 'fight' still RISING into station (poseY climbing from the fog
+  // line), so a grab here catches it low/off-frame — the exact tilt that read a
+  // pale bone dragon as a dark sky-blended lattice (median 41 vs 196 settled).
+  // Wait for the pose to reach station height (all bosses fight at ~13) before
+  // the quiet grab; behind/side approaches are already settled so this is a no-op.
+  await page.waitForFunction(() => window.__dd.bossState().poseY > 10, { timeout: 30000 }).catch(() => {});
   await page.waitForFunction(() => !window.__dd.bossState().charging, { timeout: 8000 }).catch(() => {});
   const idle = await grabQuiet();
 
