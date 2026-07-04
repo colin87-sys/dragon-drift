@@ -305,6 +305,9 @@ export function buildBoneCoil(def, quality = 1) {
   spineCurve.arcLengthDivisions = lowQ ? 48 : 100;   // arc-length LUT resolution (rebuilt each frame for EVEN vertebra pitch)
 
   const RIB_V0 = 6;   // first dorsal rib-host vertebra (rings ride 6..10)
+  // UNLIT vertex-colored bone (gate r8 #2): facet values are BAKED, so the carve
+  // reads under any light; .color is the live dim channel (shield/death leash).
+  const vertMat = track(new THREE.MeshBasicMaterial({ vertexColors: true, color: 0xffffff }));
   const vertNodes = [];
   for (let i = 0; i < N_VERT; i++) {
     const t = i / (N_VERT - 1);
@@ -331,8 +334,24 @@ export function buildBoneCoil(def, quality = 1) {
     };
     const parts = lowQ ? [octa] : [octa, stub(1), stub(-1)];
     const vGeo = mergeBone(parts, `vert${i}`);
-    vGeo.computeBoundingBox();
-    const mesh = new THREE.Mesh(vGeo, boneMat);
+    // Bake the §1 painted hierarchy PER FACE (gate r8 #2): top facets bone
+    // 0xd8d2c0, sides ~35% darker, bottoms darker still — on an UNLIT
+    // vertex-colored material, so every octahedron visibly facets at 30m
+    // (uniform emissive on a Standard material was flattening the carve).
+    {
+      const pos = vGeo.attributes.position;
+      const cols = new Float32Array(pos.count * 3);
+      const top = new THREE.Color(0xd8d2c0), side = new THREE.Color(0xb8b0a0), bot = new THREE.Color(0x968e7e);
+      const A = new THREE.Vector3(), B = new THREE.Vector3(), C = new THREE.Vector3(), N = new THREE.Vector3();
+      for (let f = 0; f < pos.count; f += 3) {
+        A.fromBufferAttribute(pos, f); B.fromBufferAttribute(pos, f + 1); C.fromBufferAttribute(pos, f + 2);
+        N.subVectors(B, A).cross(C.clone().sub(A)).normalize();
+        const c = N.z > 0.35 ? top : (N.z < -0.35 ? bot : side);   // local z faces the rail once oriented
+        for (let k3 = 0; k3 < 3; k3++) { cols[(f + k3) * 3] = c.r; cols[(f + k3) * 3 + 1] = c.g; cols[(f + k3) * 3 + 2] = c.b; }
+      }
+      vGeo.setAttribute('color', new THREE.BufferAttribute(cols, 3));
+    }
+    const mesh = new THREE.Mesh(vGeo, vertMat);
     mesh.name = 'vertebra';
     node.add(mesh);
     vertNodes.push({ node, mesh, t, r, len });
@@ -347,13 +366,17 @@ export function buildBoneCoil(def, quality = 1) {
   // the curve is NORMALISED to that total (below), so consecutive bones sit
   // ≤0.15 apart at rest — one traceable pale column.
   const SEAM = 0.1;   // welded chain (gate r7 #3)
-  const chainU = (() => {
+  // ABSOLUTE arc-length stations (gate r8 #1): S_i in world units from the
+  // occiput. The tick divides by the LIVE curve length each frame, so bone
+  // spacing stays CONSTANT at every sweep phase — the traveling sine lengthens
+  // the curve, and fractional sampling was stretching the chain apart mid-sweep.
+  const chainS = (() => {
     const w = vertNodes.map((v) => v.len + SEAM);
     const u = [0];
     for (let i = 1; i < N_VERT; i++) u.push(u[i - 1] + (w[i - 1] + w[i]) / 2);
-    const total = u[N_VERT - 1];
-    return u.map((x) => x / total);
+    return u;
   })();
+  const chainU = chainS.map((x) => x / chainS[N_VERT - 1]);   // rest-pose fractions (build-time helpers)
   const CHAIN_LEN = vertNodes.reduce((a, v) => a + v.len + SEAM, 0) * 1.06;   // target curve length (+6% slack: chord pitch under-runs arc length at bends)
   // NORMALISE the curve to the chain length (gate r6 #2): scale every control
   // point about the fixed occiput anchor so the rest-pose arc length equals the
@@ -474,11 +497,13 @@ export function buildBoneCoil(def, quality = 1) {
     // mesh + material so it is unmistakable at fight hold.
     if (h === 2) {
       const [ex, ey] = ribEnd(R, -1, leftSpan);
-      const marrowMat = track(new THREE.MeshStandardMaterial({
-        color: 0x3a2f22, emissive: 0x6a4a30, emissiveIntensity: 1.0, roughness: 0.85, metalness: 0.0, flatShading: true,
-      }));
-      marrowMat.toneMapped = false;   // the warm marrow glow survives the boss-fight grade (gate r6 #5)
-      const snapFace = strip(new THREE.CylinderGeometry(0.35, 0.38, 0.18, 7));
+      // UNLIT warm marrow (gate r8 #4): MeshBasicMaterial, toneMapped=false,
+      // boosted past 1 so it blooms — the warmest cluster on the body, legible
+      // in the un-zoomed idle frame (still far dimmer than the ice focals).
+      const marrowMat = track(new THREE.MeshBasicMaterial({ color: 0x8a5a38 }));
+      marrowMat.toneMapped = false;
+      marrowMat.color.multiplyScalar(1.5);
+      const snapFace = strip(new THREE.CylinderGeometry(0.45, 0.48, 0.2, 7));
       snapFace.rotateZ(0.3 + Math.PI / 2);   // angled 0.3 rad off the rib axis (the jagged break)
       const core = strip(new THREE.SphereGeometry(0.18, 6, 5)); core.translate(0.05, 0, 0.06);
       // Two short marrow DRIP studs below the break (gate r7 #5).
@@ -587,8 +612,9 @@ export function buildBoneCoil(def, quality = 1) {
     // toward world-up — the articulated column read (gate r3 #5), with the
     // dorsal fins standing up consistently.
     spineCurve.updateArcLengths();
+    const liveLen = spineCurve.getLength();
     for (let k = 0; k < N_VERT; k++) {
-      spineCurve.getPointAt(chainU[k], _v);
+      spineCurve.getPointAt(Math.min(1, chainS[k] / liveLen), _v);   // absolute stations: constant spacing in EVERY pose
       vertNodes[k].node.position.copy(_v);
     }
     // Orient every bone's LONG AXIS along its chain SEGMENT (lookAt the next
@@ -673,6 +699,7 @@ export function buildBoneCoil(def, quality = 1) {
     const boneLit = shieldClamp ? 0.5 : (1 - dyingK * 0.55);
     boneMat.emissiveIntensity = BONE_EI * boneLit;
     ribBoneMat.emissiveIntensity = RIB_EI * boneLit;
+    vertMat.color.setScalar(0.35 + 0.65 * boneLit);   // baked-facet bones leash on the same channel
 
     // Ice-blue lights: lure hottest, eyes second; flicker; constrict on charge;
     // gutter on blink/death; leash hard under a shield.
