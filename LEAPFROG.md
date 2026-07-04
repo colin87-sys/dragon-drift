@@ -5380,3 +5380,39 @@ catches. (4) Multi-body bosses: the FORMATION is the body — scale the formatio
 **Gotcha.** Do not confuse this with a tier problem: the owner floated demoting EITHERWING to Sentinel, but
 slot 5 is load-bearing (call-response rhythm, DUO law, the Baton Cross entrance, the slot-12 ONEWING seed) and
 the failure was presentation scale. Diagnose which axis actually failed before moving a boss between bands.
+
+### L141 — EITHERWING REACH build: the techniques that hit the r8 spec (studio CP1 PASS)
+
+**Did / learned.** Executed the L140 REACH spec on the shipped twin-wraith builder and cleared a two-round
+studio design gate. Four techniques carried it, each reusable:
+
+1. **Deforming STRIP ribbons beat per-segment pivot chains for long tails on a draw budget.** The spec wants
+   12-segment comet-tails ×2 tails ×2 twins = 48 meshes as separate pivots → 48+ draws, blowing the ≤30 cap.
+   Fix: keep the lagged pivot chain as INVISIBLE logical drivers (still named `ribbonPivot` so the telegraph/
+   §7b asserts pass unchanged) but render each tail as ONE `BufferGeometry` quad-strip rebuilt each tick from
+   the pivots' world positions (`updateMatrixWorld` → `worldToLocal` the joint origins → write a tapered strip
+   with `side = cross(tangent, up)`). 40+ ribbon draws → 4. Net boss: 5401 tris/50 draws → 4817/26.
+2. **Lit-silhouette = INVERTED-HULL outline, not edge-bars.** First attempt traced the base octahedron's 12
+   edges with thin bars — but the body is a detail-3 (sphere-projected) octahedron, so the straight edge-bars
+   CHORD INSIDE the bulged body and only poke out at the apexes → the gate saw "scattered arrow-dabs," seeker
+   perimeter unlit. Fix: a scaled (×1.07) BackSide copy of the body draws a CONTINUOUS silhouette line from
+   every angle in one draw. Two emissive tiers (holder ei 1.15 / seeker 0.75) make the holder/seeker value
+   step read from the OUTLINE ALONE, even where the near-black body dissolves into the sky.
+3. **A "second focal" must borrow the primary focal's whole idiom.** The dread split-core first read as a
+   161-lum peach ring (dread ≈ charge) because it was dim (scalar ~6) and barely proud (z+0.08 → occluded by
+   the socket collar). Fix: match the EYE's catchlight recipe exactly — white-hot scalar ~9, bigger, seated
+   PROUD (z+0.4) toward camera so nothing occludes it → a real ≥240 core. A focal peak is scalar × size ×
+   unoccluded-proudness; miss any factor and bloom won't reach threshold (same lesson as the G1 glint fix).
+4. **Distinguish two tells by OPPOSING one axis, not adding decoration.** Dread and charge both had taut
+   tails. Gating the charge "straighten" OFF during dread (`straighten *= 1 - dreadSplit`) + a dread-only wide
+   flare made the SAME tails read taut-for-charge / flared-for-dread — one shared control, opposite poles.
+
+**The laws this mints.** (a) For animated multi-segment appendages under a draw cap, drive an invisible skeleton
+and skin ONE strip — don't pay a draw per segment. (b) A continuous emissive silhouette is an inverted hull, not
+traced edges (edges of a subdivided/rounded body chord inside it). (c) The ONE-GLOW law and a readable charge
+tell coexist by making the tell SHAPE (pose) not a second glow — the corona/ember/split-core stay dread-only.
+
+**Gotcha.** `THREE.Box3.setFromObject` counts HIDDEN children — the raised-but-hidden shield bubble + hidden HP
+bar inflated the studio auto-fit's `maxDim` ~14× and shrank the flee survivor to ~10% of frame. A per-state
+"fit to visible geometry only" traversal (skip nodes with a hidden ancestor + skip Points debris) is mandatory
+for any auto-framing tool, or a small/off-centre pose is judged as a framing failure that isn't real.
