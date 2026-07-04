@@ -108,7 +108,7 @@ export function buildBoneCoil(def, quality = 1) {
     return [braincase, dome, cheek(1), cheek(-1), crest];
   })();
   const snoutParts = (() => {   // the muzzle (NO edge cage — plain bone faces)
-    const snoutA = strip(new THREE.BoxGeometry(1.02, 0.72, 1.5)); snoutA.translate(0, -0.16, 0.75);
+    const snoutA = strip(new THREE.BoxGeometry(0.92, 0.72, 1.5)); snoutA.translate(0, -0.16, 0.75);
     const snoutB = strip(new THREE.BoxGeometry(0.66, 0.5, 1.2)); snoutB.translate(0, -0.24, 1.75);
     const nose = strip(new THREE.BoxGeometry(0.5, 0.4, 0.4)); nose.translate(0, -0.3, 2.45);
     return [snoutA, snoutB, nose];
@@ -125,7 +125,7 @@ export function buildBoneCoil(def, quality = 1) {
   // nostril pits + under-snout shadow + horn-base sockets — all carved near-black.
   const skullDarkGeo = (() => {
     const parts = [];
-    const socket = (sx) => { const s = strip(new THREE.BoxGeometry(0.54, 0.48, 0.62)); s.translate(sx * 0.52, 0.14, 0.34); return s; };
+    const socket = (sx) => { const s = strip(new THREE.BoxGeometry(0.54, 0.48, 0.62)); s.translate(sx * 0.62, 0.14, 0.34); return s; };   // outboard: the snout edge was eclipsing the yaw-side eye (gate r10 #3)
     parts.push(socket(1), socket(-1));
     // Nostrils: thin dark SLITS on the snout TOP surface only (a front-face pit
     // read as googly cartoon eyes — gate directive 5 — so keep them off the face).
@@ -230,8 +230,8 @@ export function buildBoneCoil(def, quality = 1) {
   eyeHaloMat.toneMapped = false; eyeHaloMat.color.copy(EYE_BASE).multiplyScalar(1.25);
   const eyes = new THREE.Group(); eyes.position.copy(skull.position); eyes.scale.copy(skull.scale); rig.add(eyes);   // mirrors the skull transform so the pinlights stay seated in the scaled sockets
   {
-    const hl = strip(new THREE.SphereGeometry(0.22, 8, 6)); hl.translate(-0.52, 0.14, 0.58);
-    const hr = strip(new THREE.SphereGeometry(0.22, 8, 6)); hr.translate(0.52, 0.14, 0.58);
+    const hl = strip(new THREE.SphereGeometry(0.22, 8, 6)); hl.translate(-0.62, 0.14, 0.58);
+    const hr = strip(new THREE.SphereGeometry(0.22, 8, 6)); hr.translate(0.62, 0.14, 0.58);
     eyes.add(new THREE.Mesh(mergeGeometries([hl, hr], false), eyeHaloMat));
   }
   const eyeMeshes = [];
@@ -241,7 +241,7 @@ export function buildBoneCoil(def, quality = 1) {
     // in every state. Still ringed by the dark socket box (hollow-set); the lure
     // stays the single hottest point.
     const core = new THREE.Mesh(new THREE.SphereGeometry(0.145, 10, 8), eyeMat);
-    core.position.set(sx * 0.52, 0.14, 0.86); eyes.add(core);   // fully proud of the socket mouth — no yaw/pitch/roar angle occludes either eye
+    core.position.set(sx * 0.62, 0.14, 0.9); eyes.add(core);   // fully proud of the socket mouth — no yaw/pitch/roar angle occludes either eye
     eyeMeshes.push({ core, sx });
   }
 
@@ -254,7 +254,7 @@ export function buildBoneCoil(def, quality = 1) {
   const lureHaloMat = track(new THREE.MeshBasicMaterial({ color: accent, transparent: true, opacity: 0.6, blending: THREE.AdditiveBlending, depthWrite: false }));
   lureHaloMat.toneMapped = false; lureHaloMat.color.copy(LURE_BASE).multiplyScalar(1.5);
   const lure = new THREE.Group();
-  lure.position.set(0, 1.75, -1.3);   // hung BETWEEN the horns (~0.7 above the cranium roof), not a stalk off the crown (gate r9 #5)
+  lure.position.set(0, 1.45, -1.3);   // catenary sags ~0.45 above the roof (gate r10 #6)   // hung BETWEEN the horns (~0.7 above the cranium roof), not a stalk off the crown (gate r9 #5)
   skull.add(lure);
   const strandMat = track(new THREE.LineBasicMaterial({ color: 0xcfc8b4, transparent: true, opacity: 0.6 }));
   strandMat.toneMapped = false;
@@ -295,15 +295,15 @@ export function buildBoneCoil(def, quality = 1) {
     new THREE.Vector3(2.3, 4.8, 0.3),     // neck coils right (the visible coil)
     new THREE.Vector3(-2.2, 3.3, 0.2),    // neck coils left
     new THREE.Vector3(0.4, 2.0, 0.55),    // arrives at the ribcage crown (front) — soft turn into the depth run
-    new THREE.Vector3(0.3, 1.5, -1.4),    // dorsal rides the crown, running back
-    new THREE.Vector3(0.7, 0.9, -4.3),    // dorsal back end (long z run)
+    new THREE.Vector3(0.3, 1.5, -2.0),    // dorsal rides the crown, running back (deeper corridor)
+    new THREE.Vector3(0.7, 0.9, -5.6),    // dorsal back end (long z run — 5 visibly receding arches)
     new THREE.Vector3(7.6, -6.4, -8.0),   // tail exits rearward-DOWN-OUT, strictly outside the ring's projected circle even mid-sweep (gate r6 #3)
   ];
   // Sweep amplitude per control point: the NECK and TAIL carry the traveling
   // sine (the serpentine identity motion) while the DORSAL cage section (ctrl
   // 3–5) stays near-noded — the ribcage barrel sweeps as one coherent tunnel
   // instead of fanning into a spiral mid-frame.
-  const ctrlAmp = [0, 1.6, 2.0, 0.55, 0.35, 0.7, 0.8];   // tail amp small: its sweep never re-enters the aperture's projected circle
+  const ctrlAmp = [0, 2.3, 2.8, 0.55, 0.35, 0.7, 0.8];   // tail amp small: its sweep never re-enters the aperture's projected circle
   const spineCurve = new THREE.CatmullRomCurve3(ctrlBase.map((p) => p.clone()));
   spineCurve.curveType = 'catmullrom';
   spineCurve.arcLengthDivisions = lowQ ? 48 : 100;   // arc-length LUT resolution (rebuilt each frame for EVEN vertebra pitch)
@@ -328,6 +328,7 @@ export function buildBoneCoil(def, quality = 1) {
     const len = 1.4 * r;
     const octa = strip(new THREE.OctahedronGeometry(r, 0));
     octa.scale(1.0, len / (2 * r), 1.0);
+    octa.rotateY(0.3 * (i % 2 ? 1 : -1));   // ~0.3 rad off-axis alternating — two faces catch different values (gate r10 #1b)
     const stubR = r * 0.7 + 0.18, stubTube = 0.09, stubArc = Math.PI * 0.5;
     const stub = (sx) => {
       const g = strip(new THREE.TorusGeometry(stubR, stubTube, lowQ ? 4 : 5, lowQ ? 6 : 7, stubArc));
@@ -345,7 +346,7 @@ export function buildBoneCoil(def, quality = 1) {
     {
       const pos = vGeo.attributes.position;
       const cols = new Float32Array(pos.count * 3);
-      const top = new THREE.Color(0xd8d2c0), side = new THREE.Color(0xb8b0a0), bot = new THREE.Color(0x968e7e);
+      const top = new THREE.Color(0xd8d2c0), side = new THREE.Color(0xb0aa98), bot = new THREE.Color(0x8a8474);
       const A = new THREE.Vector3(), B = new THREE.Vector3(), C = new THREE.Vector3(), N = new THREE.Vector3();
       for (let f = 0; f < pos.count; f += 3) {
         A.fromBufferAttribute(pos, f); B.fromBufferAttribute(pos, f + 1); C.fromBufferAttribute(pos, f + 2);
@@ -369,19 +370,21 @@ export function buildBoneCoil(def, quality = 1) {
   // Station weights = each bone's LENGTH + the 0.15 seam gap (gate r6 #2), and
   // the curve is NORMALISED to that total (below), so consecutive bones sit
   // ≤0.15 apart at rest — one traceable pale column.
-  const SEAM = 0.1;   // welded chain (gate r7 #3)
+  // gate r10 #1: NEGATIVE seam proportional to bone size — adjacent bones
+  // INTERSECT by ~20% of their radius (zero background pixels from any angle).
+  const SEAM = 0;
   // ABSOLUTE arc-length stations (gate r8 #1): S_i in world units from the
   // occiput. The tick divides by the LIVE curve length each frame, so bone
   // spacing stays CONSTANT at every sweep phase — the traveling sine lengthens
   // the curve, and fractional sampling was stretching the chain apart mid-sweep.
   const chainS = (() => {
-    const w = vertNodes.map((v) => v.len + SEAM);
+    const w = vertNodes.map((v) => v.len - 0.4 * v.r);   // pitch ≈ len − 0.4r → ~20% overlap each side
     const u = [0];
     for (let i = 1; i < N_VERT; i++) u.push(u[i - 1] + (w[i - 1] + w[i]) / 2);
     return u;
   })();
   const chainU = chainS.map((x) => x / chainS[N_VERT - 1]);   // rest-pose fractions (build-time helpers)
-  const CHAIN_LEN = vertNodes.reduce((a, v) => a + v.len + SEAM, 0) * 1.06;   // target curve length (+6% slack: chord pitch under-runs arc length at bends)
+  const CHAIN_LEN = vertNodes.reduce((a, v) => a + v.len - 0.4 * v.r, 0) * 1.13;   // target curve length (+6% slack: chord pitch under-runs arc length at bends)
   // NORMALISE the curve to the chain length (gate r6 #2): scale every control
   // point about the fixed occiput anchor so the rest-pose arc length equals the
   // bones + seams — gaps come out at ~SEAM everywhere, at any authored curve.
@@ -408,7 +411,7 @@ export function buildBoneCoil(def, quality = 1) {
     geo.setAttribute('position', new THREE.BufferAttribute(new Float32Array(nD * tplPos.length), 3));
     geo.setAttribute('normal', new THREE.BufferAttribute(new Float32Array(nD * tplNrm.length), 3));
     const discMat = track(new THREE.MeshStandardMaterial({
-      color: 0x14120f, emissive: 0x000000, emissiveIntensity: 0.0, roughness: 0.95, metalness: 0.0, flatShading: true,
+      color: 0x1a1614, emissive: 0x000000, emissiveIntensity: 0.0, roughness: 0.95, metalness: 0.0, flatShading: true,
     }));
     const mesh = new THREE.Mesh(geo, discMat);
     mesh.frustumCulled = false;   // verts are rewritten per frame; skip stale-bounds culling
@@ -427,7 +430,7 @@ export function buildBoneCoil(def, quality = 1) {
   // left rib is SNAPPED (the scar); a faint ice-blue rim centres the aperture.
   // ---------------------------------------------------------------------
   const N_RING = 5;
-  const RING_R = [3.9, 3.6, 3.35, 3.1, 2.9];   // front→back taper (nested = reads as ribs; front aperture ≈9 world @scale)
+  const RING_R = [3.9, 3.55, 3.2, 2.9, 2.6];   // stronger front->back taper: the corridor recedes in a still (gate r10 #5)   // front→back taper (nested = reads as ribs; front aperture ≈9 world @scale)
   // Each RIB = a TAPERED, FACETED bone tube (gate r3 #7): a TubeGeometry along a
   // circular arc from its ROOT at the spine (θ≈84°, overlapping the host
   // vertebra) sweeping down-around to a free TIP (θ≈−24°), radius tapering
@@ -515,9 +518,9 @@ export function buildBoneCoil(def, quality = 1) {
       const mstripPts = [];
       for (let i = 0; i <= 5; i++) {
         const th = (ROOT_TH - ribArc * leftSpan) + (i / 5) * (1.2 / R);
-        mstripPts.push(new THREE.Vector3(-Math.cos(th) * R - ex, Math.sin(th) * R - ey, 0.14));
+        mstripPts.push(new THREE.Vector3(-Math.cos(th) * R - ex, Math.sin(th) * R - ey, 0.2));   // proud toward the rail (+z)
       }
-      const mstrip = strip(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(mstripPts), 6, 0.1, 4, false));
+      const mstrip = strip(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(mstripPts), 6, 0.14, 4, false));   // >=0.25 across (gate r10 #2)
       const marrowMesh = new THREE.Mesh(mergeBone([snapFace, core, drip1, drip2, mstrip], 'marrow'), marrowMat);
       marrowMesh.position.set(ex, ey, 0);   // on the MESH (not baked into geometry) so tools can project its world position
       marrowMesh.name = 'marrowScar';       // capture-tool seam: the scar proof crop projects this
@@ -650,7 +653,9 @@ export function buildBoneCoil(def, quality = 1) {
         _v.copy(a).add(b).multiplyScalar(0.5);
         _t.subVectors(b, a).normalize();
         orientToTangent(_q, _t);
-        const dr = Math.min(vertNodes[d].r, vertNodes[d + 1].r) * 0.75;
+        // Encircling ring seated IN the overlap seam (gate r10 #1b): radius just
+        // past the local bone waist so it fully bands the chain.
+        const dr = Math.min(vertNodes[d].r, vertNodes[d + 1].r) * 0.9;
         _m.compose(_v, _q, _s.set(dr, 0.12, dr));
         _nm.getNormalMatrix(_m);
         for (let vtx = 0; vtx < discChain.nV; vtx++) {
@@ -685,7 +690,7 @@ export function buildBoneCoil(def, quality = 1) {
     if (noticeT > 0) noticeT -= dt;
     if (shieldOpenT > 0) shieldOpenT -= dt;
 
-    skull.rotation.y = gazeX * 0.16; skull.rotation.x = -gazeY * 0.1 - charge * 0.15;   // the head REARS BACK as the jaw drops (the roar) — the dark mouth wedge faces the rail (gate r6 #6)
+    skull.rotation.y = gazeX * 0.16 + charge * 0.35; skull.rotation.x = -gazeY * 0.1 - charge * 0.15;   // roar yaw: one horn + the open jaw break the front outline (gate r10 #4)   // the head REARS BACK as the jaw drops (the roar) — the dark mouth wedge faces the rail (gate r6 #6)
     eyes.rotation.copy(skull.rotation);
     eyes.position.set(skull.position.x, skull.position.y, skull.position.z);
 
@@ -726,7 +731,7 @@ export function buildBoneCoil(def, quality = 1) {
     for (const e of eyeMeshes) {
       const pin = 1 - charge * 0.35 + dyingK * 0.4;
       e.core.scale.set(pin, pin * (1 - blinkProg * 0.9), pin);
-      e.core.position.x = e.sx * 0.52 + gazeX * 0.05;
+      e.core.position.x = e.sx * 0.62 + gazeX * 0.04;
     }
     lureBead.position.y = Math.sin(time * 1.4) * 0.06 + charge * 0.1;
     lure.scale.setScalar((1 + charge * 0.18) * (1 - dyingK * 0.6));
