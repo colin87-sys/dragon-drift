@@ -70,6 +70,11 @@ const _surgeBaseCol = new THREE.Color();
 const _surgeHi = new THREE.Color(); // per-dragon Surge highlight (def.surgeHi)
 let quality = 1;
 
+// Cinematic look-yaw override (ASHTALON overtake): the dragon+rider turn to face
+// the boss during the flythrough. null = normal (velocity-based) yaw.
+let lookYaw = null;
+export function setDragonLook(yaw) { lookYaw = yaw; }
+
 export function setDragonQuality(q) {
   quality = q;
 }
@@ -531,8 +536,10 @@ export function updateDragon(dt, player, time) {
   // bodyFlapLift is set by the yoke solver below (1-frame lag = natural inertia, "suspended under
   // the wings"); only applies to yoke dragons (else 0). The damp(…,9) adds the trailing response.
   group.rotation.x = damp(group.rotation.x, player.velocity.y * 0.022 + posturePitch + (activeDef.model.flap ? bodyFlapLift : 0), 9, dt);
-  // Slight yaw toward lateral movement
-  group.rotation.y = damp(group.rotation.y, player.velocity.x * 0.008, 6, dt);
+  // Slight yaw toward lateral movement — unless a cinematic is turning the dragon
+  // to face something (ASHTALON's overtake): then blend toward that look yaw.
+  const yawTarget = lookYaw != null ? lookYaw : player.velocity.x * 0.008;
+  group.rotation.y = damp(group.rotation.y, yawTarget, lookYaw != null ? 7 : 6, dt);
   head.rotation.y = damp(head.rotation.y, -player.velocity.x * 0.014, 8, dt);
   head.rotation.x = damp(head.rotation.x, -player.velocity.y * 0.008, 8, dt);
   riderGroup.rotation.z = damp(riderGroup.rotation.z, -player.velocity.x * 0.035, 8, dt);

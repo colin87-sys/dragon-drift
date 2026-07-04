@@ -754,49 +754,60 @@ function enterFight() {
   if (def.tutorial) ui.bossNote?.('DODGE!', 'ROLL INTO AMBER SHOTS TO PARRY', 'gold', 3.0);
 }
 
-// The cinematic overtake entrance (ASHTALON, §5f). A scripted flythrough on its
-// own normalized clock: it rises from behind, sweeps CLOSE past you in bullet-time
-// with the visor tracking you, pulls ahead (its back to the returning chase cam),
-// then banks 180° to face you as the fight opens. Camera-only + pose; no fire (the
-// Mantis rule). A 2nd-finger tap / Space fast-forwards to the turn-around.
-const CINE_DUR = 3.7;            // scaled-seconds; the bullet-time pass stretches wall-clock
+// The cinematic overtake entrance (ASHTALON, §5f). A scripted flythrough on a
+// normalized clock driven by SCALED dt, so the boss AND the world slow together
+// through the bullet-time close pass while the rise/pull-ahead/turn stay snappy —
+// ~2.5s wall total. It rises from behind, sweeps CLOSE past you in DEEP bullet-time
+// with the visor LOCKED on you (the whole body tracks the dragon), then wheels to
+// face you as the fight opens. No fire (the Mantis rule). Space / 2nd-finger tap
+// fast-forwards to the settle. CINE_DUR is scaled-seconds; with CINE_SLOW across
+// the pass the wall-clock lands near 2.5s (tuned empirically).
+const CINE_DUR = 1.32;           // scaled-sec → ~2.5s wall at 60fps (the pass slow-mo stretches it)
+const CINE_SLOW = 0.24;          // bullet-time depth on the pass (deeper than the 0.35 default)
+const U1 = 0.30, U2 = 0.58, U3 = 0.82;   // C1 rise | C2 pass | C3 pull-ahead | C4 settle
+function releaseCineSlow() {
+  if (!cineSlow) return;
+  cineSlow = false; game.slowMoTimer = 0; game.slowMoScale = null; setSlowMo(false); sfx.timeDilate?.(false);
+}
 function updateFlythrough(dt, player, time) {
-  // Tap to skip → jump to the turn-around (you still see it wheel to face you).
+  // Tap to skip → jump to the settle (you still see it wheel to face you).
   if (input.surgeTap) { input.surgeTap = false; cineSkip = true; }
-  if (cineSkip && cineT < CINE_DUR * 0.73) { cineT = CINE_DUR * 0.73; if (cineSlow) { cineSlow = false; game.slowMoTimer = 0; setSlowMo(false); } }
+  if (cineSkip && cineT < CINE_DUR * U3) { cineT = CINE_DUR * U3; releaseCineSlow(); }
   cineT += dt;
   const u = Math.min(cineT / CINE_DUR, 1);
   const L = (a, b, t) => a + (b - a) * t;
   const seg = (u0, u1) => easeInOut(Math.max(0, Math.min(1, (u - u0) / (u1 - u0))));
   const S = cineSide;
 
-  // Keyframed player-relative path: behind-below → close pass (crosses your depth)
-  // → ahead → station. y stays a few units above a typical dragon height so the
-  // pass sweeps OVER you without clipping.
+  // Keyframed player-relative path: behind-below → close pass (crosses your depth,
+  // LARGE and close) → ahead → station. y stays a few units above a typical dragon
+  // height so the pass sweeps OVER your shoulder without clipping.
   let x, y, rel;
-  if (u < 0.30) { const t = seg(0, 0.30); x = L(S * 3, S * 5, t); y = L(4, 10, t); rel = L(-15, -3, t); }
-  else if (u < 0.52) { const t = seg(0.30, 0.52); x = L(S * 5, S * 2, t); y = L(10, B.fightHeight + 1, t); rel = L(-3, 3, t); }
-  else if (u < 0.73) { const t = seg(0.52, 0.73); x = L(S * 2, 0, t); y = L(B.fightHeight + 1, B.fightHeight, t); rel = L(3, B.settleGap * 0.7, t); }
-  else { const t = seg(0.73, 1); x = 0; y = B.fightHeight; rel = L(B.settleGap * 0.7, B.settleGap, t); }
+  if (u < U1) { const t = seg(0, U1); x = L(S * 3, S * 5, t); y = L(4, 10, t); rel = L(-15, -3, t); }
+  else if (u < U2) { const t = seg(U1, U2); x = L(S * 5, S * 2.5, t); y = L(10, B.fightHeight + 1, t); rel = L(-3, 3, t); }
+  else if (u < U3) { const t = seg(U2, U3); x = L(S * 2.5, 0, t); y = L(B.fightHeight + 1, B.fightHeight, t); rel = L(3, B.settleGap * 0.7, t); }
+  else { const t = seg(U3, 1); x = 0; y = B.fightHeight; rel = L(B.settleGap * 0.7, B.settleGap, t); }
   pose.x = x; pose.y = y; pose.rel = rel;
 
-  // Bullet-time across the close pass (C2): engage on entry, release on exit. The
-  // flythrough owns game.slowMoTimer for its window (main.js scales dt → the whole
-  // moment slows, and this clock with it, which IS the dwell).
-  if (u >= 0.30 && u < 0.52 && !cineSlow) { cineSlow = true; game.slowMoTimer = 3; setSlowMo(true); }
-  else if ((u >= 0.52 || u >= 1) && cineSlow) { cineSlow = false; game.slowMoTimer = 0; setSlowMo(false); }
+  // DEEP bullet-time across the close pass (C2): a downward time-dilation whoosh on
+  // entry, a snap back on exit. Owns game.slowMoTimer/Scale for the window (main.js
+  // scales dt → boss + world + this clock all slow together = the dwell).
+  if (u >= U1 && u < U2 && !cineSlow) { cineSlow = true; game.slowMoTimer = 5; game.slowMoScale = CINE_SLOW; setSlowMo(true); sfx.timeDilate?.(true); }
+  else if ((u >= U2 || u >= 1) && cineSlow) { releaseCineSlow(); }
 
-  // Wings sweep into the diving tuck through the pass, easing back to rest by the turn.
-  model.setSetpiece?.(u < 0.73 ? Math.sin(Math.min(1, u / 0.6) * Math.PI * 0.5) * 0.85 : 0);
+  // Wings ramp into the diving tuck, hold through the pass, ease back to rest for the fight.
+  const tuck = u < U1 ? seg(0, U1) * 0.85 : u < U3 ? 0.85 : L(0.85, 0, seg(U3, 1));
+  model.setSetpiece?.(tuck);
   model.setCharge?.(0);
-  // Eyes track you through the pass (a glint toward the prey), then face you on the turn.
-  const nx = Math.max(-1, Math.min(1, (player.position.x - pose.x) / 12));
-  const ny = Math.max(-1, Math.min(1, (player.position.y - pose.y) / 12));
-  model.setGaze?.(nx, ny);
 
-  // Facing: hold the dive line (visor to the rear camera) until C4, then WHEEL 180°
-  // from facing-away to facing-you as the fight opens.
-  cineYaw = u < 0.73 ? Math.PI : Math.PI * (1 - seg(0.73, 1));
+  // The visor LOCKS onto the dragon: yaw the whole body to track it (the small-angle
+  // gaze rig alone can't sell "watching you"). This also naturally WHEELS it ~180°
+  // from facing-away (behind you) to facing-you (ahead) as it crosses. cineYaw:
+  // local +z (visor) points along world (dx, rel) = the boss→player direction.
+  const dx = player.position.x - pose.x;
+  cineYaw = Math.atan2(dx, rel);
+  // Fine eye tilt on top (now correct — the body faces you, so world ≈ local).
+  model.setGaze?.(Math.max(-1, Math.min(1, dx / 12)), Math.max(-1, Math.min(1, (player.position.y - pose.y) / 12)));
 
   // Feed the cinematic camera the boss's world position so it tracks the flythrough.
   cameraCtl.setOvertake?.({ k: u, bx: pose.x, by: pose.y, bz: -(player.dist + pose.rel) });
@@ -1452,7 +1463,7 @@ export function resetBoss() {
   // Release the cinematic entrance if we tore down mid-flythrough (game over during
   // the overtake): drop the slow-mo, the camera hijack, and the facing override.
   cineYaw = null; cineSkip = false;
-  if (cineSlow) { cineSlow = false; game.slowMoTimer = 0; setSlowMo(false); }
+  releaseCineSlow();
   cameraCtl.setOvertake?.(null);
   // Hard reset (game over / new run): if a fight was live and NOT already won,
   // the player died to this boss — accrue the death-to (§5h; slot 9 reads it).
