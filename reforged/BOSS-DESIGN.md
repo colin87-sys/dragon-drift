@@ -436,6 +436,12 @@ feasibility survey: at rel 30, on-screen centers within x ±15 / y 2..22 on port
   meshes — phone-verified fine; NO InstancedMesh, L126). REUSES: mandala rail-merge idiom,
   charisma eye rig, jawPivot precedent. NEEDS: below-approach + cull-bound widening (§5e).
   ENTRANCE: shipped rise stands; §5j *Count the Ribs* retrofit STAGED (inert `def.riseBeats`).
+  KNOWN GAP (owner-verified, 2026-07 — L141): the promised rib FLY-THROUGH does not land
+  in the shipped game. `ribThread` (boss.js:222) brings the GROUP to rel 7 but the spine
+  trails away from the player, so the cage LOOMS and never wraps the rail. Fix candidate
+  for a polish session: sweep the group through rel ~−6 during the thread hold (a true
+  pass, lateral-offset guarded) or advance the mid-cage ahead of the skull for the hold.
+  No behavior change until that session; the sheet stops claiming the fly-through.
 - **5 EITHERWING** — **REACH SPEC (r8, 2026-07 — supersedes the conservative first sheet;
   L140):** the first draft built to "~2×900 tris, 2.2-long bodies" and presented ~40% of
   ASHTALON's presence at the band PEAK. The ensemble is the body; this boss's wingspan is
@@ -450,6 +456,22 @@ feasibility survey: at rel 30, on-screen centers within x ±15 / y 2..22 on port
   reach, sweeping the full portrait width (orbit ±8 fits the x ±15 envelope at rel 30).
   Align the visual crossing with the authored rhythm REST (the handoff window) — the
   interlocked-crescents crossing with the eye mid-thread is THE screenshot frame.
+  **PRESENCE SPEC (r9, 2026-07 — L141; owner verdict after r8: still tiny in game — the
+  span bet failed; perceived size sums per BODY, not per formation, and negative space is
+  not mass):** (a) **each twin must pass the boss-test ALONE** — BODY_LEN 4.6→**6.2**,
+  KITE_W 1.7→**2.3**, fins +35%, eye rig +30% (stays the proportional focal); def.scale
+  1.55 unchanged → ~9.6 on-screen units per twin; tails base segLen 0.95→**1.25** (~10-unit
+  light-trails, segment count unchanged). (b) **CLOSE-PASS FIGURE-EIGHT — a TRUE flyby,
+  not a loom:** the eight becomes a 3D lemniscate; once per phrase cycle (aligned to the
+  rhythm REST/handoff) the near lobe dives past the camera — the twins scissor PAST the
+  player's flanks, rel sweeping ~18 → **−6** → back around (they genuinely overtake and
+  re-approach), x ±6–8 at the pass (lateral offset is the no-clip guard — never
+  lane-center), slightly above/below player height, tails whipping; whoosh sfx on the
+  pass. Slot-3 differentiation is structural: side-by-side scissor FLANKING passes on a
+  repeating fight rhythm, never a single rear-view camera beat — the camera never moves.
+  Station rel MAY drop 30→26 (pose is unclamped). (c) **Cost truth:** scaling is FREE —
+  same meshes, same draws (~4.8k tris / 26 draws unchanged); per-boss budgets are
+  allocation discipline, the measured phone ceiling is 415 draws / 400k tris (L124/126).
   **LIT-SILHOUETTE LAW (small mass ⇒ the identity is the EDGE):** body diffuse stays
   near-black, but the oxblood rims widen to **0.14** and run the FULL kite perimeter + fin
   outer edge (holder ei 0.9 / seeker ei 0.45); fins aged-silver ei 0.30; the bead-thread
