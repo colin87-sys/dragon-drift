@@ -101,7 +101,20 @@ export function buildTwinWraith(def, quality = 1) {
     color: 0x2a0d0a, emissive: RIM_EMISSIVE, emissiveIntensity: 0.9, roughness: 0.5, metalness: 0.25, flatShading: true,
   }));
   const rimSeekerMat = track(new THREE.MeshStandardMaterial({
-    color: 0x1a0806, emissive: RIM_EMISSIVE, emissiveIntensity: 0.45, roughness: 0.55, metalness: 0.2, flatShading: true,
+    color: 0x1a0806, emissive: RIM_EMISSIVE, emissiveIntensity: 0.6, roughness: 0.55, metalness: 0.2, flatShading: true,
+  }));
+  // INVERTED-HULL OUTLINE materials (BackSide): a scaled copy of the kite body rendered
+  // back-faces-only draws a CONTINUOUS emissive silhouette line around the whole dart from
+  // every angle — the "oxblood line-drawing" the LIT-SILHOUETTE law asks for. (Edge-bars on
+  // the base octahedron chord INSIDE the detail-3 bulged body and only poke out as scattered
+  // dabs — the r-REACH gate flag.) toneMapped stays on; the dark oxblood keeps it a red EDGE.
+  const outlineHolderMat = track(new THREE.MeshStandardMaterial({
+    color: 0x000000, emissive: RIM_EMISSIVE, emissiveIntensity: 1.15, roughness: 0.6, metalness: 0.0,
+    side: THREE.BackSide,
+  }));
+  const outlineSeekerMat = track(new THREE.MeshStandardMaterial({
+    color: 0x000000, emissive: RIM_EMISSIVE, emissiveIntensity: 0.75, roughness: 0.6, metalness: 0.0,
+    side: THREE.BackSide,
   }));
   // Aged-silver crescent fins (the cool second swatch), lifted to ei 0.30 (REACH) so the
   // fin planes read as a lit surface at fight distance, still short of the eye.
@@ -116,12 +129,15 @@ export function buildTwinWraith(def, quality = 1) {
     color: 0x201d1a, emissive: 0xff7a58, emissiveIntensity: 0.18, roughness: 0.5, metalness: 0.4, flatShading: true,
   }));   // ember-salmon so the dread "split light" + the mourning glow read warm (matches the eye), not silver
   socketMat.side = THREE.DoubleSide;
+  // Comet-tail strips carry a warm-oxblood emissive so they read as flowing light-trails —
+  // lifted from 0.12/0.08 so the SEEKER's tails don't vanish near-black-on-near-black on the
+  // dark sky (the two-body X only read on light skies otherwise — REACH gate directive 4).
   const ribbonMat = track(new THREE.MeshStandardMaterial({
-    color: 0x140c0b, emissive: accent, emissiveIntensity: 0.12, roughness: 0.8, metalness: 0.1, flatShading: true,
+    color: 0x140c0b, emissive: RIM_EMISSIVE, emissiveIntensity: 0.28, roughness: 0.8, metalness: 0.1, flatShading: true,
   }));
   ribbonMat.side = THREE.DoubleSide;
   const ribbonSeekerMat = track(new THREE.MeshStandardMaterial({
-    color: 0x0b0605, emissive: accent, emissiveIntensity: 0.08, roughness: 0.82, metalness: 0.1, flatShading: true,
+    color: 0x0b0605, emissive: RIM_EMISSIVE, emissiveIntensity: 0.20, roughness: 0.82, metalness: 0.1, flatShading: true,
   }));
   ribbonSeekerMat.side = THREE.DoubleSide;
 
@@ -217,39 +233,6 @@ export function buildTwinWraith(def, quality = 1) {
     return g;
   };
 
-  // FULL-PERIMETER oxblood rim (LIT-SILHOUETTE LAW, §5d L140): thin 0.14 bars tracing the
-  // kite octahedron's 12 edges (the equator diamond + the nose/tail apex ridges) + one
-  // flank-crease keel line, so the twin reads as an oxblood LINE-DRAWING of its silhouette
-  // from any angle. Merged → ONE draw on the twin's rim material.
-  const _ebQ = new THREE.Quaternion(), _ebZ = new THREE.Vector3(0, 0, 1), _ebD = new THREE.Vector3();
-  function edgeBar(ax, ay, az, bx, by, bz, w) {
-    _ebD.set(bx - ax, by - ay, bz - az);
-    const len = _ebD.length() || 1e-4;
-    const g = strip(new THREE.BoxGeometry(w, w, len));
-    _ebQ.setFromUnitVectors(_ebZ, _ebD.clone().normalize());
-    g.applyQuaternion(_ebQ);
-    g.translate((ax + bx) / 2, (ay + by) / 2, (az + bz) / 2);
-    return g;
-  }
-  function rimPerimeterGeo(sx) {
-    const hw = KITE_W / 2, hh = KITE_H / 2, hl = BODY_LEN / 2, w = 0.14;
-    // 6 octahedron apexes: nose(+z) tail(−z) and the 4 equator points (±x, ±y).
-    const eq = [[hw, 0, 0], [0, hh, 0], [-hw, 0, 0], [0, -hh, 0]];
-    const bars = [];
-    for (let i = 0; i < 4; i++) {                             // equator diamond (4 edges)
-      const a = eq[i], b = eq[(i + 1) % 4];
-      bars.push(edgeBar(a[0], a[1], a[2], b[0], b[1], b[2], w));
-    }
-    for (const e of eq) {                                     // nose + tail apex ridges (8 edges)
-      bars.push(edgeBar(0, 0, hl, e[0], e[1], e[2], w));
-      bars.push(edgeBar(0, 0, -hl, e[0], e[1], e[2], w));
-    }
-    // Dorsal keel crease down the spine (a lit centre line on the top facet).
-    const keel = strip(new THREE.BoxGeometry(w * 0.8, w * 0.8, BODY_LEN * 0.7));
-    keel.translate(sx * 0.06, hh * 0.7, 0.05);
-    bars.push(keel);
-    return mergeOx(bars, 'rimperim');
-  }
 
   // Dark socket ring on the nose — the eye's seat (empty on the seeker → its FACE
   // is this ring, the holder/seeker tell). A FACETED silver torus (14–16 seg) with
@@ -333,10 +316,14 @@ export function buildTwinWraith(def, quality = 1) {
     body.name = seeker ? 'eitherTwinBodyB' : 'eitherTwinBodyA';
     twin.add(body);
 
-    // FULL-PERIMETER oxblood rim (LIT-SILHOUETTE): the kite octahedron's 12 edges as thin
-    // 0.14 bars + a flank-crease keel line — the twin reads as an oxblood line-drawing of
-    // its own silhouette from every angle. Merged → one draw on the twin's rim tier.
-    twin.add(new THREE.Mesh(rimPerimeterGeo(sx), rimMatT));
+    // LIT-SILHOUETTE: an inverted-hull OUTLINE (a scaled backface copy of the kite) draws a
+    // CONTINUOUS oxblood silhouette line around the dart from every angle — the "oxblood
+    // line-drawing" read. The HOLDER's line burns bright, the SEEKER's dim (the value tier
+    // reads from the outline alone, even where the near-black body dissolves into the sky).
+    const outline = new THREE.Mesh(kiteGeo(), seeker ? outlineSeekerMat : outlineHolderMat);
+    outline.scale.setScalar(1.07);
+    outline.name = seeker ? 'eitherOutlineB' : 'eitherOutlineA';
+    twin.add(outline);
 
     // Crescent head fin (mirrored on the seeker so the pair reads as mirror-twins).
     const fin = new THREE.Mesh(crescentGeo(), silverMat);
@@ -534,10 +521,15 @@ export function buildTwinWraith(def, quality = 1) {
   // EMBER MOTES — small dark sparks off the shared ember (the orbiter contract ≥2;
   // §3 law 8: satellites stay DARK, dim ei). They drift near the thread's midpoint.
   // ------------------------------------------------------------------
-  const moteMat = track(new THREE.MeshStandardMaterial({
-    color: 0x3a2420, emissive: accent, emissiveIntensity: 0.1, roughness: 0.85, metalness: 0.0, flatShading: true,
-  }));   // warmed off near-black (was 0x070302) so the sparks don't scan as dark confetti on the pale sheet (CP1 r3 polish)
-  const moteGeo = strip(new THREE.OctahedronGeometry(0.1, 0));   // small (was 0.16) so the sparks don't scan as dark confetti on the pale sheet (CP1 r2 polish)
+  // ADDITIVE warm sparks (not opaque boxes): an opaque dark mote reads as a black rectangle
+  // on the pale/sunset skies (REACH gate directive 3). Additive blending can only ADD warmth
+  // — a faint ember spark on the dark sky, and INVISIBLE (never a dark hole) on bright skies.
+  // Dim + tiny so it stays an ember, never a second glow (ONE-GLOW LAW).
+  const moteMat = track(new THREE.MeshBasicMaterial({
+    color: 0x4a2410, transparent: true, opacity: 0.85, blending: THREE.AdditiveBlending, depthWrite: false,
+  }));
+  moteMat.toneMapped = false;
+  const moteGeo = strip(new THREE.OctahedronGeometry(0.1, 0));
   const orbiters = [];
   for (let i = 0; i < 3; i++) {
     const m = new THREE.Mesh(moteGeo, moteMat);
@@ -548,7 +540,7 @@ export function buildTwinWraith(def, quality = 1) {
 
   // Hit flash rings the oxblood rim tier (a struck pair flares at its rims, never
   // lights the near-black body toy-red — the craghold/ashtalon lesson transplanted).
-  kit.flashBind(rimHolderMat, 0.9);
+  kit.flashBind(outlineHolderMat, 1.15);   // a struck pair flares along its silhouette outline
   kit.finalize();
 
   // ==================================================================
@@ -714,7 +706,10 @@ export function buildTwinWraith(def, quality = 1) {
     // framed between their inward noses, and their ribbon tails trail OUTWARD — the
     // "two mirrored dart-wraiths orbiting a shared ember" one-liner, from every orbit
     // phase. On NOTICE they snap to face the PLAYER instead (nose → camera, +z).
-    const faceCam = noticeT > 0.4;
+    // NOTICE snaps both to face the player; the DREAD card also LOCKS both facing forward
+    // (both halves squared up at you — distinct body language from charge's inward-nosed
+    // taut-tail wind-up, REACH gate directive 1).
+    const faceCam = noticeT > 0.4 || dreadSplit > 0.3;
     orientDart(twinA.twin, posA, cx, cy, time, 0, faceCam);
     orientDart(twinB.twin, posB, cx, cy, time, Math.PI, faceCam);
 
@@ -801,9 +796,13 @@ export function buildTwinWraith(def, quality = 1) {
     if (dreadSplit > 0.05) {
       const seekerSock = aHolds > 0.5 ? _sb : _sa;
       splitCore.visible = true;
-      splitCore.position.set(seekerSock.x, seekerSock.y, seekerSock.z + 0.08);
-      splitMat.color.setRGB(1, 0.945, 0.878).multiplyScalar(2.2 + dreadSplit * 5.0);
-      splitCore.scale.setScalar(0.6 + dreadSplit * 0.4);
+      // Seat it PROUD of the seeker socket (toward camera) so the seeker body/collar can't
+      // occlude it, and drive it WHITE-HOT (scalar ~9, matching the eye's catchlight) so its
+      // bloom cluster peaks ≥240 — a real second core, not a dim socket-ring tint. Prior
+      // pass read only 161 lum (a peach C-ring); dread was indistinguishable from charge.
+      splitCore.position.set(seekerSock.x, seekerSock.y + 0.04, seekerSock.z + 0.4);
+      splitMat.color.setRGB(1, 0.945, 0.878).multiplyScalar(3.2 + dreadSplit * 6.2);
+      splitCore.scale.setScalar(0.9 + dreadSplit * 0.6);
       beadMat.color.copy(new THREE.Color(0xffb890)).multiplyScalar(1 + dreadSplit * 2.2);   // light travels the thread
     } else {
       splitCore.visible = false;
@@ -813,10 +812,13 @@ export function buildTwinWraith(def, quality = 1) {
     // the dark flee frame (not a charcoal ghost) — CP1 r2 directive 3. The diffuse
     // stays charcoal; only the rim/fin emissive rises.
     silverMat.emissiveIntensity = 0.30 + dyingK * 0.4;
-    // The two rim tiers hold their LIT-SILHOUETTE base (holder 0.9 / seeker 0.45) and both
-    // rise a touch as the mourner flees so the survivor stays a visible line-drawing.
+    // The rim tiers + the inverted-hull OUTLINE tiers hold their LIT-SILHOUETTE base (holder
+    // hot / seeker dim-but-legible) and rise as the mourner flees so the survivor stays a
+    // visible line-drawing. The outline is the dominant silhouette edge (directive 2).
     rimHolderMat.emissiveIntensity = 0.9 + dyingK * 0.35;
-    rimSeekerMat.emissiveIntensity = 0.45 + dyingK * 0.25;
+    rimSeekerMat.emissiveIntensity = 0.6 + dyingK * 0.25;
+    outlineHolderMat.emissiveIntensity = 1.15 + dyingK * 0.4;
+    outlineSeekerMat.emissiveIntensity = 0.75 + dyingK * 0.3;
 
     // --- Gaze: the HELD eye tracks the player with lag + look-aways (a mind, not a
     // turret). Eye-lock hard-tracks during notice/charge. ---
@@ -861,15 +863,18 @@ export function buildTwinWraith(def, quality = 1) {
     // eye is not dead, CP1 r8 dir 1) but LEASHED to ~0.5 so its bloom cluster stays under
     // 70% of the idle peak (G6 law: the focal damps when invulnerable — you can still see
     // WHO holds the eye, but it reads as banked, not firing).
-    glintMat.color.setScalar(GLINT_HOT * Math.max(0.05, (shieldClamp ? 0.5 : 1) * (1 - dyingK) * (dreadSplit > 0.05 ? 0.7 : 1)));
+    glintMat.color.setScalar(GLINT_HOT * Math.max(0.05, (shieldClamp ? 0.62 : 1) * (1 - dyingK) * (dreadSplit > 0.05 ? 0.7 : 1)));
     const tuck = blinkProg * 0.8 + (shieldClamp ? 0.08 : 0);   // barely tucked under shield — the eye stays wide/alert so the holder reads
-    orb.scale.setScalar(Math.max(0.1, 1 - tuck * 0.7 + (noticeT > 0.5 ? 0.2 : 0)));
+    // Under shield the orb ENLARGES so the eye is unmistakably the hottest point INSIDE the
+    // cage — the caged twin is the parry target, and the bright dotted cage seams must not
+    // out-read it (REACH gate directive 5). Glint 0.62× keeps the bloom cluster under G6's leash.
+    orb.scale.setScalar(Math.max(0.1, 1 - tuck * 0.7 + (noticeT > 0.5 ? 0.2 : 0) + (shieldClamp ? 0.3 : 0)));
     // ONE-GLOW LAW (§5d L140): outside the dread card the HELD EYE is the pair's only glow.
     // The corona flare is a DREAD-ONLY light (not a per-charge glow) — the normal charge
     // tell is carried by SHAPE (crest rake + taut tails) + the pupil constricting + the eye
     // pinning to the firer, none of which add a second light source. The iris keeps its
     // dim base 0.85 (it's part of the eye), and only blooms wide during dread.
-    irisMat.emissiveIntensity = 0.85 + dreadSplit * 1.7;
+    irisMat.emissiveIntensity = 0.85 + dreadSplit * 1.7 + (shieldClamp ? 0.7 : 0);   // brighter peach ring under shield so the eye reads through the cage (dir 5)
     iris.scale.setScalar(1 + tuck * 0.25 + dreadSplit * 0.28);
     glint.visible = tuck < 0.6 && dyingK < 0.4;   // the catchlight winks out on a blink/tuck, and EARLY in death (the ember guts; the glow retreats to the socket ring)
     // Pupil: constricts on charge/notice (the charge tell), tracks the player, and on
@@ -899,8 +904,12 @@ export function buildTwinWraith(def, quality = 1) {
       // On CHARGE the holder's tail SNAPS TAUT (the standing wave collapses, the ribbon
       // goes rigid/straight — the "about to fire" tension tell, CP1 r7 dir 4); setpiece
       // still flares the amplitude. straighten pulls the base curve + sway toward zero.
-      const straighten = isHolder ? charge : charge * 0.4;
-      const flare = setpieceK * 0.22;
+      // DREAD vs CHARGE must not look alike (REACH gate directive 1). CHARGE owns the
+      // TAUT-TAILS tell — but during the DREAD card the tails FLARE WIDE instead (both
+      // twins spread + locked), so the two tells read distinctly. straighten is gated OFF
+      // by dreadSplit; the dread flare spreads the chain.
+      const straighten = (isHolder ? charge : charge * 0.4) * (1 - dreadSplit);
+      const flare = setpieceK * 0.22 + dreadSplit * 0.34;
       // The death FURL curls each joint the SAME way so the ~8-joint chain rolls into a
       // TIGHT COIL near the root by the flee — the extended tails otherwise dominate the
       // §7c auto-fit box and shrink the survivor's body/socket to ~20% (CP1 r7 dir 2+3).
