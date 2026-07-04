@@ -134,11 +134,18 @@ export function buildBoneCoil(def, quality = 1) {
     // resolving the front-visible-vs-profile-framed tension a solid box can't.
     const socketFrame = (sx) => {
       const cx = sx * 0.655, cy = 0.14, fz = 0.55, d = 0.5;   // bar centre-z 0.55, depth 0.5 → front face 0.80
+      const med = cx - sx * 0.255;   // MEDIAL (toward the snout centreline) — correct for both eyes
+      const lat = cx + sx * 0.265;   // LATERAL (away from centreline)
       const bars = [
         strip(new THREE.BoxGeometry(0.72, 0.19, d)).translate(cx, cy + 0.265, fz),   // top
-        strip(new THREE.BoxGeometry(0.72, 0.19, d)).translate(cx, cy - 0.265, fz),   // bottom
-        strip(new THREE.BoxGeometry(0.19, 0.34, d)).translate(cx - 0.265, cy, fz),   // inner
-        strip(new THREE.BoxGeometry(0.19, 0.34, d)).translate(cx + 0.265, cy, fz),   // outer
+        // r17 gate #1: the BOTTOM bar also juts forward to the snout front plane so
+        // the eye's lower border stays dark (not pale muzzle) through yaw 40–60.
+        strip(new THREE.BoxGeometry(0.72, 0.26, 1.4)).translate(cx, cy - 0.24, 0.80), // bottom (infraorbital rim)
+        // r17 gate #1: the MEDIAL bar is wide (0.24) and juts forward FLUSH with the
+        // snout front plane (z 1.5) so it stays proud of the snout silhouette through
+        // yaw 40–60 — otherwise the snout hides it and pale cheek frames the eye.
+        strip(new THREE.BoxGeometry(0.24, 0.42, 1.4)).translate(med, cy, 0.80),      // medial (orbital strut)
+        strip(new THREE.BoxGeometry(0.19, 0.34, d)).translate(lat, cy, fz),          // lateral
         strip(new THREE.BoxGeometry(0.72, 0.72, 0.12)).translate(cx, cy, 0.30),      // dark back-plate
       ];
       return bars;
