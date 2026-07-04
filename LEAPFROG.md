@@ -5213,3 +5213,23 @@ depth-occlusion and bloom-wash that only a captured, upscaled crop exposes. **Ve
 resolving); defs/bossboot/bossrush/bossrushui/appshell/smoke/splash/surgefx green; the 3 pre-existing flaky suites
 (badges/economy/save-purchases) confirmed to fail IDENTICALLY on the base commit; rear-view + opener card confirmed
 firing at runtime; bossgate G1–G7 PASS.
+
+### L137 — Combat feel: the ping-pong was measurable, and rhythm/graze/parry are now allocated systems
+
+**Did / learned.** A five-track investigation (two code ground-truth agents + three research tracks) before building
+slot 4. The measured diagnosis: all shipped bosses share ONE temporal envelope (tell 0.5–0.72s → volley → flat-uniform
+rest 1.3–2.5s, ~16–22 attacks/min; strictly serial; no bursts/doublets/accelerando/music coupling despite sfx.js
+privately owning a real beat grid) — the roster varied in density, never rhythm. Graze had one authored form (the
+shield bait-donut flood). Dodge-only kills were 100% rider chip, and ASHTALON P3 shipped with zero amber (parry dead
+outside Surge). BOSS-DESIGN §5i now allocates: (1) a RHYTHM SIGNATURE per slot from a 9-signature taxonomy
+(metronome / crescendo / ambush-rest / burst-vs-sustain / call-and-response / verse-chorus / pressure ostinato /
+music-locked / ONE rubato — plus the apex medley), driven by a def.rhythm phrase machine at the cadence seam and a
+`rhythmprint` CI gate asserting inter-attack-gap distributions differ between bosses (variance as CI, not vibes);
+(2) a GRAZE LADDER — new proximity verbs per band (slipstream, clearance-scored threads, orbit annulus, beam-edge
+ticks, color absorb, spray-soak, shrinking discs, mote harvest) + a global no-hit adrenaline spine, under laws:
+dedup discrete/tick continuous, annulus not radius, bands drawn in-world, richest payout at the scariest instant;
+(3) a PARRY ECONOMY — seven diet laws incl. the AMBER FLOOR as a CI gate (`amberdiet`: ≥1 amber volley per rolling
+12s per phase), amber-is-anatomy, chip-progresses/parry-accelerates (30–50% faster targets), never-punish-declining,
+perfect-parry heals (1 pip, cap 3/fight), and a per-band mechanic ladder (organ break → rally + reflect-only seal →
+rhythm parry + beam duel → star pips). **Gotcha for tuners:** the graze detector is single-frame at rel-crossing —
+every continuous graze form needs the new ticking branch with its own dedup, or parking exploits return.
