@@ -5,6 +5,7 @@ import { buildStormMandala } from './bossMandala.js';
 import { buildStoneColossus } from './bossColossus.js';
 import { buildEmberHunter } from './bossAshtalon.js';
 import { buildBoneCoil } from './bossMarrowcoil.js';
+import { buildTwinWraith } from './bossEitherwing.js';
 
 // API-stable re-export: boss.js imports makeEnergyShell from here for the
 // Surge aura FX. The implementation now lives in bossKit.js (shared plumbing
@@ -37,6 +38,7 @@ export function buildBoss(def, quality = 1) {
   if (def.archetype === 'stoneColossus') return buildStoneColossus(def, quality);
   if (def.archetype === 'emberHunter') return buildEmberHunter(def, quality);
   if (def.archetype === 'boneCoil') return buildBoneCoil(def, quality);
+  if (def.archetype === 'eitherwing') return buildTwinWraith(def, quality);
 
   const accent = def.accent ?? 0xff4488;
   const glow = def.glow ?? 0xff88cc;

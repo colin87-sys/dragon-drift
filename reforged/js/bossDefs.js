@@ -344,12 +344,99 @@ export const BOSSES = {
       ],
     },
   },
+
+  eitherwing: {
+    id: 'eitherwing',
+    name: 'EITHERWING',
+    title: 'the Broken Whole',
+    epithet: 'Two Halves of the Broken Whole',   // the lore gap: whole of WHAT? (feeds slot 12, ONEWING)
+    tier: 2,                                       // COLOSSUS (§5b band 2), slot-5 PEAK
+    // Boss-archetype dispatch (bossModel.js buildBoss): the Twin-Wraith builder
+    // (bossEitherwing.js) — BOSS-DESIGN.md §5b registry slot 5, the roster's ONLY
+    // multi-body silhouette: TWO mirrored dart-wraiths orbiting a SHARED EMBER —
+    // one eye passed between them (the charge tell). Distinct from every prior
+    // slot: not a mask (1), a ring-eye (2), a raptor (3), or a bone dragon (4).
+    archetype: 'eitherwing',
+    accent: 0x7a1c18,         // OXBLOOD — a WARM dark red (identity in the emissive rims); pushed off
+                              // pure blood-red so its hue clears danger-magenta (0xff2b6a≈342°) by ~20°
+                              // — the §5d/gate OXBLOOD-MAGENTA collision the sheet flags (bulletcontrast).
+    glow: 0xc9c1b4,           // AGED SILVER — the rims/shield/shards read cool desaturated metal, the
+                              // second palette swatch (oxblood + aged-silver, §5d), apart from the eye's white.
+    bulletColor: 0xff2b6a,    // danger stays magenta (role colour, never per-boss)
+    approachFrom: 'sides',    // BOTH SIDES at once (§5e new branch): the twins arrive from both flanks
+    scale: 1.35,              // COLOSSUS — the pair spans wide; keeps the twins readable at fight distance
+    hpMax: 330,               // Tier 2 band (260–330); slot-5 PEAK sits at the top (the sawtooth crest)
+    // §5f DUO LAW (one per roster): complementary axes — one twin flies lane-denial
+    // WALLS (movingGap/secondWave), the other aimed TEMPO (aimed/crossfire); volley
+    // origins alternate sides (crossfire's ±10 flank emitters ARE the twins). ONE
+    // shared hp pool + one bar (zero hit-model work — the craghold precedent). The
+    // dread card fires the mirrored SIMULTANEOUS crossfire ("Both Halves at Once").
+    // §5i CALL-AND-RESPONSE: the twins alternate A-B phrases; the eye handoff is the
+    // baton between them (the rhythm block below authors the alternation).
+    setpieces: [
+      { id: 'figureEight', atPhase: 1, dur: 8.0, moving: true },                // P2: the pair leaves station, laces the eight
+      { id: 'figureEight', atPhase: 2, dur: 7.0, moving: true, dread: true },   // P3: desperation keeps moving (Both Halves at Once)
+    ],
+    // Tier 2 difficulty: crossfire is the twins' signature (both flanks at once);
+    // movingGap/secondWave = the lane-denial half; iris debuts in the dread phase.
+    // Escalation by pattern unlock + cadence, never raw bullet count.
+    phases: [
+      { atFrac: 1.00, cadence: [1.5, 2.0], attacks: ['aimed', 'movingGap'] },              // P1: introduce the two axes (tempo vs wall)
+      { atFrac: 0.66, cadence: [1.4, 1.8], attacks: ['crossfire', 'secondWave', 'stream'] },// P2: the eye hands off (crossfire = both sides)
+      { atFrac: 0.33, cadence: [1.3, 1.7], attacks: ['crossfire', 'movingGap', 'iris'] },   // P3: Both Halves at Once (dread — mirrored crossfire)
+    ],
+    // Spell cards (§5f grammar; dread card LAST, verbatim from the §5f/§5d sheet).
+    cards: [
+      { id: 'eitherwing_divide', name: 'TWO HALVES — The Divide',        atFrac: 1.00, timer: 24 },
+      { id: 'eitherwing_baton',  name: 'BROKEN WHOLE — Passing the Eye',  atFrac: 0.66, timer: 26 },
+      { id: 'eitherwing_both',   name: 'EITHER/OR — Both Halves at Once', atFrac: 0.33, timer: 28, dread: true },
+    ],
+    // §5i CALL-AND-RESPONSE — the twins alternate A-B phrases; the eye handoff is
+    // the baton between them (a longer phrase REST = the baton crossing). Tight
+    // bimodal: quick in-phrase responses + the handoff beat. Phrases overlap ONLY
+    // during the dread card, where crossfire's two-flank simultaneity delivers it.
+    rhythm: {
+      signature: 'call-response',
+      ticket: { bpm: 108, quantize: '1/8' },   // the shared ember's pulse; the handoff lands on the beat
+      phases: [
+        { // P1 — the two axes trade: tempo (aimed) ↔ wall (movingGap), a long baton between.
+          // Tight-clustered responses (short gap) + a distinctly LONG handoff = a crisp
+          // BIMODAL fingerprint, well apart from Stormrend's crescendo ramp (rhythmprint).
+          ratioBurst: 0.3,
+          phrase: [
+            { kind: 'sustain', attack: 'aimed',     beats: 2, gap: 0.34 },   // twin B (tempo) calls — a quick doublet
+            { kind: 'sustain', attack: 'movingGap', beats: 1, gap: 0.34 },   // twin A (wall) responds
+          ],
+          restLo: 1.75, restHi: 1.95, restDist: 'uniform',                   // the handoff (baton crossing) — the long mode
+        },
+        { // P2 — the eye passes faster; crossfire = both flanks; the response tightens
+          ratioBurst: 0.4,
+          phrase: [
+            { kind: 'sustain', attack: 'crossfire',  beats: 2, gap: 0.3 },
+            { kind: 'sustain', attack: 'secondWave', beats: 1, gap: 0.3 },
+            { kind: 'sustain', attack: 'stream',     beats: 1, gap: 0.3 },   // the amber-tipped tracking half
+          ],
+          restLo: 1.6, restHi: 1.8, restDist: 'uniform',
+        },
+        { // P3 — Both Halves at Once: the response phrases nearly touch (the overlap read)
+          ratioBurst: 0.5,
+          phrase: [
+            { kind: 'sustain', attack: 'crossfire', beats: 2, gap: 0.26 },
+            { kind: 'sustain', attack: 'movingGap', beats: 1, gap: 0.26 },
+            { kind: 'sustain', attack: 'iris',      beats: 1, gap: 0.26 },
+          ],
+          restLo: 1.45, restHi: 1.65, restDist: 'uniform',
+        },
+      ],
+    },
+  },
 };
 
-// Registry slot 3 is ASHTALON (Colossi opener), slot 4 is MARROWCOIL; CRAGHOLD
-// is RETIRED (§5b L130) — its def + builder stay for the geometry-lesson lineage
-// and its own telegraph test, but it is OUT of the encounter rotation.
-export const BOSS_ORDER = ['voidmaw', 'stormrend', 'ashtalon', 'marrowcoil'];
+// Registry slot 3 is ASHTALON (Colossi opener), slot 4 is MARROWCOIL, slot 5 is
+// EITHERWING (the Colossi peak, the roster's only twin body); CRAGHOLD is RETIRED
+// (§5b L130) — its def + builder stay for the geometry-lesson lineage and its own
+// telegraph test, but it is OUT of the encounter rotation.
+export const BOSS_ORDER = ['voidmaw', 'stormrend', 'ashtalon', 'marrowcoil', 'eitherwing'];
 
 // Which boss to use for the Nth encounter of a run (cycles once the list is
 // exhausted — more bosses just extend the list).

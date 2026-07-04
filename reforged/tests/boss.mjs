@@ -424,6 +424,75 @@ for (const key of BOSS_ORDER) {
   ok(`marrowcoil geometry: clearance ${tightest.toFixed(1)}, pitch/width ${minRatio.toFixed(2)}, coil sweep ${sweep.toFixed(1)}, jaw+ribs telegraph`);
 }
 
+// EITHERWING (slot 5) — the telegraph gate + the §5d/§7b per-sheet geometry asserts
+// the build sheet declares: twin-value asymmetry (the eyeless twin measurably
+// darker), ribbon pivot LAG > 0 (the tails FLOW, not stick), eye-thread length > 0
+// at every orbit phase, and a handoff that moves the eye ≥ the twin separation.
+{
+  const tw = buildBoss(BOSSES.eitherwing, 1);
+
+  // Named anatomy the telegraph/design gates + the studio locate by name.
+  assert(findAllByName(tw.group, 'eitherTwinA').length === 1 && findAllByName(tw.group, 'eitherTwinB').length === 1,
+    'eitherwing exposes both named twins (eitherTwinA/B)');
+  assert(!!tw.group.getObjectByName('eyeRig'), 'eitherwing exposes the named eyeRig (the shared eye)');
+  assert(!!tw.group.getObjectByName('eyeThread'), 'eitherwing exposes the named eyeThread (the beaded strand)');
+  assert(!!tw.group.getObjectByName('eitherScar'), 'eitherwing exposes the ONE asymmetric scar (the snapped ribbon)');
+  const ribbons = findAllByName(tw.group, 'ribbonPivot');
+  assert(ribbons.length >= 12, `eitherwing exposes ≥12 named ribbonPivots for the flowing tails (${ribbons.length})`);
+
+  // TELEGRAPH (§3.5): setCharge flares the ribbons + fins and glides the eye — the
+  // SILHOUETTE must change, not just colour. Assert the ribbon pivots re-fan.
+  for (let i = 0; i < 12; i++) tw.tick(0.05, i * 0.05);   // settle idle
+  const preRib = ribbons.map((r) => r.rotation.z);
+  tw.setCharge(1); tw.setAttackTell('crossfire');
+  for (let i = 0; i < 16; i++) tw.tick(0.05, 1 + i * 0.05);
+  const ribMoved = ribbons.filter((r, i) => Math.abs(r.rotation.z - preRib[i]) > 0.03).length;
+  assert(ribMoved >= 6, `eitherwing telegraph: ${ribMoved} ribbon pivots flared on charge (need ≥6 — silhouette change)`);
+  tw.setCharge(0);
+
+  // §7b assert 1 — TWIN VALUE: the eyeless twin is measurably darker. Pin the eye to
+  // twin A (A holds) → twin B is the seeker and must read a value step darker.
+  tw.setDebugHandoff(0);
+  for (let i = 0; i < 24; i++) tw.tick(0.05, 20 + i * 0.05);
+  const lum = tw.twinBodyLum();
+  assert(lum.A - lum.B > 0.03,
+    `eitherwing twin value: the eyeless (seeker) twin is measurably darker (holder ${lum.A.toFixed(3)} vs seeker ${lum.B.toFixed(3)})`);
+
+  // §7b assert 2 — RIBBON LAG > 0: the tails must FLOW, not move as a rigid slab. A
+  // travelling wave with per-segment ease means, at any instant, the segments sit at
+  // DIFFERENT sway angles (spread > 0) — and they actively animate over time.
+  tw.setDebugHandoff(null);
+  let sA = ribbons.map((r) => r.rotation.z);
+  const spreadA = Math.max(...sA) - Math.min(...sA);
+  for (let i = 0; i < 20; i++) tw.tick(0.05, 30 + i * 0.05);
+  let sB = ribbons.map((r) => r.rotation.z);
+  const moved = ribbons.filter((r, i) => Math.abs(sB[i] - sA[i]) > 0.005).length;
+  assert(spreadA > 0.02, `eitherwing ribbon lag: the segments sit at different sway angles (spread ${spreadA.toFixed(3)} — a flowing chain, not a rigid slab)`);
+  assert(moved >= 6, `eitherwing ribbon lag: ${moved} ribbon pivots animate over time (the tails flow)`);
+
+  // §7b assert 3 — EYE-THREAD LENGTH > 0 at EVERY orbit phase: the twins never
+  // collide (the figure-eight node is depth-offset), so the eye always has a thread.
+  let minThread = Infinity, minSep = Infinity;
+  for (let i = 0; i < 200; i++) { tw.tick(0.05, 40 + i * 0.05); minThread = Math.min(minThread, tw.threadLength()); minSep = Math.min(minSep, tw.twinSeparation()); }
+  assert(minThread > 0.5 && minSep > 0.5,
+    `eitherwing eye-thread length ${minThread.toFixed(2)} and twin separation ${minSep.toFixed(2)} stay > 0 at every orbit phase`);
+
+  // §7b assert 4 — HANDOFF TRAVEL ≥ twin separation: the eye physically DETACHES and
+  // crosses from one socket to the other (not a nudge). Pin A→B and measure the eye's
+  // world displacement against the live twin separation.
+  tw.setDebugHandoff(0); for (let i = 0; i < 14; i++) tw.tick(0.05, 80 + i * 0.05);
+  const eye0 = tw.eyeWorldLocalPos().clone();
+  const sepAt = tw.twinSeparation();
+  tw.setDebugHandoff(1); for (let i = 0; i < 14; i++) tw.tick(0.05, 80.7 + i * 0.05);
+  const eye1 = tw.eyeWorldLocalPos().clone();
+  const travel = eye0.distanceTo(eye1);
+  assert(travel >= sepAt * 0.75 && travel > 1.0,
+    `eitherwing handoff: the eye travels ${travel.toFixed(2)} ≥ the twin separation ${sepAt.toFixed(2)} (it detaches and glides across, not a nudge)`);
+
+  tw.dispose();
+  ok(`eitherwing geometry: twin ΔL ${(lum.A - lum.B).toFixed(2)}, ribbon spread ${spreadA.toFixed(2)}, thread≥${minThread.toFixed(1)}, handoff ${travel.toFixed(1)}≥sep ${sepAt.toFixed(1)}, ${ribMoved} ribbons telegraph`);
+}
+
 // Legacy coexist gate: a def WITHOUT `archetype` must still fall through to
 // the legacy construct (bossModel.js's buildBoss dispatcher) — the coexist
 // rule the whole archetype system is built on, guarding against a future def
