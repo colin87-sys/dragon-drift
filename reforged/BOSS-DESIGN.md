@@ -946,6 +946,48 @@ failure classes (toy-color, dead eyes, blob shells, color collisions, static tel
 NOT "reads as a mitten" / "reads as googly" — that judgment stays human, which is why the
 protocol ends at crops, not at merge.
 
+### 7c. THE STUDIO GATE — isolated viewing BEFORE in-game judging (process law, 2026-07)
+
+**Recorded failure (MARROWCOIL build):** design-gate verdicts on in-game captures were
+contaminated by the world — biome props behind the boss were judged as boss parts, and
+varying camera tilt/pose/distance between rounds produced inconsistent, even contradictory
+directives. The fix that worked: an ISOLATED STUDIO environment with consistent framing,
+plus explicit permission for the builder to create whatever viewing tools it needs.
+
+**LAW: every boss is judged in the studio FIRST. In-game captures come second and judge
+INTEGRATION only.** The two passes answer different questions and must not be mixed:
+- STUDIO pass = is the DESIGN right? (silhouette, anatomy, value tiers, expression states,
+  articulation) — controlled background, no world.
+- IN-GAME pass = does it SURVIVE the world? (contrast against its home-sky per §5b, bullet
+  readability, presence at the real fight distance, approach choreography).
+
+**`tools/bossstudio.mjs` spec** (the tiershots/nfview precedent, for bosses; if a branch
+already carries an equivalent viewer, adopt and rename it — never rebuild):
+- Boots the builder DIRECTLY (buildBoss(def) — no game world, no fog, no biome, no props);
+  the game's real lighting rig (sun + hemisphere) and real postfx chain (bloom/ACES — the
+  design laws are written against the bloom pipeline, so the studio must keep it).
+- TWO backdrops per shoot, judged on both: near-dark 0x14121a and pale 0xcfd6e4 (a boss must
+  read against a dark sky AND a bright horizon).
+- CONTACT SHEET per state — one image, four fixed angles (front-on · 3/4 · profile · slight
+  top-down), identical framing (FOV 72, camera distance auto-set so the boss spans ~60% of
+  frame height), deterministic animation phase (fixed time seed) so round K and round K+1
+  are pixel-comparable.
+- STANDARD STATES: idle · notice() · setCharge(1) · shielded · the dread-card pose ·
+  setDissolve(0.5). Per-boss extra states (setpiece poses, organ-cracked damage states) are
+  added per its sheet.
+- `bossgate.mjs`'s pixel assertions (G1–G7) run on STUDIO frames — controlled background
+  ends the false reads; the in-game pass keeps only the integration checks (G3 palette vs
+  home sky, G4 presence envelope).
+
+**TOOL-MAKING IS SANCTIONED AND EXPECTED:** the builder may create or extend viewer/capture
+tooling freely (commit under `tools/`, stamp-sw as usual) whenever seeing something clearly
+is the bottleneck — tools-to-see are cheap; verdicts made half-blind are expensive. This is
+the studio's standing rule, not a per-session permission.
+
+**Updated delegation protocol order** (§7b amended): build → suites green → STUDIO contact
+sheets → gate verdict on studio → (pass) → in-game bossshot captures → gate verdict on
+integration → (pass) → post both sets to the PR → STOP for the human.
+
 ## 8. Deferred backlog (researched, unbuilt — good Tier 2/3 starting points)
 
 - Gesture hands for Voidmaw (Master Hand pattern) — poseability retrofit.
