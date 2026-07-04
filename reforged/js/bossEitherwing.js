@@ -558,8 +558,14 @@ export function buildTwinWraith(def, quality = 1) {
     // rail (one twin nearer the player through each crossing).
     const ZSEP = 1.6;   // depth offset — keeps the twins (and their inward-facing noses) apart at the figure-eight node
     const th = orbitPhase;
-    const ax = Math.sin(th) * ORBIT_R * spread, ay = Math.sin(th * 2) * ORBIT_R * 0.5 * spread;
-    const bx = Math.sin(th + Math.PI) * ORBIT_R * spread, by = Math.sin((th + Math.PI) * 2) * ORBIT_R * 0.5 * spread;
+    // The figure-eight plane is TILTED ~24° so the pair separates VERTICALLY as well
+    // as horizontally — they never line up behind each other at the 3/4 view (the
+    // overlapped-orbit ambiguity, CP1 r6 directive 3). Pure choreography, in-game too.
+    const TILT = 0.42, ct = Math.cos(TILT), st = Math.sin(TILT);
+    const axr = Math.sin(th) * ORBIT_R * spread, ayr = Math.sin(th * 2) * ORBIT_R * 0.5 * spread;
+    const bxr = Math.sin(th + Math.PI) * ORBIT_R * spread, byr = Math.sin((th + Math.PI) * 2) * ORBIT_R * 0.5 * spread;
+    const ax = axr * ct - ayr * st, ay = axr * st + ayr * ct;
+    const bx = bxr * ct - byr * st, by = bxr * st + byr * ct;
 
     // EMOTIONAL DEATH (§4b): the pair BREAKS — the fallen half stops at a fixed point
     // and SHRINKS/sinks as it dissolves; the survivor circles ITS FALLEN HALF (two
@@ -573,11 +579,12 @@ export function buildTwinWraith(def, quality = 1) {
       const circle = age * 2.2;                              // two slow laps as it grieves
       const flee = Math.max(0, dyingK - 0.85) / 0.15;        // stays circling until the very end, THEN leaves
       fallenShrink = clamp((dyingK - 0.3) / 0.4, 0, 1);      // the fallen half dwindles to nothing by ~0.7
-      const fp = [-1.7, -0.2 - dyingK * 0.7, -0.5];          // the fallen half stops lower-left and sinks
+      const fp = [-1.1, -0.2 - dyingK * 0.7, -0.5];          // the fallen half stops and sinks (near centre so the flee frames tight)
+      const orbR = 2.7 * (1 - clamp((dyingK - 0.4) / 0.6, 0, 0.62));   // the survivor's circle TIGHTENS as it grieves → a compact frame (CP1 r6 dir 1)
       const sv = [
-        fp[0] + Math.cos(circle) * 2.7 * (1 - flee) + flee * 26,
-        fp[1] + 1.4 + Math.sin(circle) * 1.6 * (1 - flee),
-        fp[2] + Math.sin(circle) * 1.4 - flee * 6,
+        fp[0] + Math.cos(circle) * orbR * (1 - flee) + flee * 26,
+        fp[1] + 0.9 + Math.sin(circle) * orbR * 0.6 * (1 - flee),
+        fp[2] + Math.sin(circle) * 1.0 - flee * 6,
       ];
       if (survivorIsA) { posA = sv; posB = fp; } else { posB = sv; posA = fp; }
     } else if (shieldClamp) {

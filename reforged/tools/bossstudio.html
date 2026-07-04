@@ -194,18 +194,20 @@
       refreshHud();
     }
 
-    let fitted = false;
+    // Re-fit PER STATE (not once): each state's pose (flee lone-survivor, mid-dissolve,
+    // shielded pair) frames from ITS OWN post-scale bounds at ~60% frame height, so a
+    // small/off-centre pose isn't shrunk to fit the idle spread (CP1 r6 directives 1+2).
     function fitOnce() {
-      if (fitted || !current) return;
+      if (!current) return;
       current.updateMatrixWorld(true);
       const box = new THREE.Box3().setFromObject(current);
       box.getCenter(center);
       const s = box.getSize(new THREE.Vector3());
-      // Auto-distance so the largest extent spans ~60% of frame height (§7c).
+      // Auto-distance so the largest extent spans ~57% of frame height (§7c) — a hair
+      // under 60% to keep ≥3% margin so ribbon tips never clip the frame edge.
       const maxDim = Math.max(s.x, s.y, s.z);
-      baseDist = (0.5 * maxDim / Math.tan(camera.fov * Math.PI / 360)) / 0.60;
+      baseDist = (0.5 * maxDim / Math.tan(camera.fov * Math.PI / 360)) / 0.57;
       orbit.dist = baseDist;
-      fitted = true;
     }
     function placeCamera() {
       const yaw = orbit.yaw * Math.PI / 180, p = orbit.pitch;
