@@ -223,7 +223,9 @@ export function buildEmberHunter(def, quality = 1) {
   // band of saturated orange (~0.22 world each side) survives the core's white
   // bloom above and below it — the round-4/5 gate kept reading a flat white bar
   // because the old 0.34 fringe was drowned by the core halo (directive 1).
-  const slitFringe = new THREE.Mesh(new THREE.BoxGeometry(SLIT_W * 1.22, 0.56, 0.09), glowMat);
+  // Fringe widened to 1.5× the slit so the full-size core has real TRAVEL room —
+  // the voidmaw-style socket: the eye visibly roams within the orange.
+  const slitFringe = new THREE.Mesh(new THREE.BoxGeometry(SLIT_W * 1.5, 0.62, 0.09), glowMat);
   slitFringe.position.z = 0.02;
   slit.add(slitFringe);
   // Thin white-hot CORE line inside the orange fringe (the §3.2 focal peak). Kept
@@ -243,7 +245,9 @@ export function buildEmberHunter(def, quality = 1) {
   const core = new THREE.Mesh(new THREE.BoxGeometry(SLIT_W * 0.7, 0.11, 0.12), slitMat);
   core.position.z = 0.07;
   slit.add(core);
-  const PUPIL_X = SLIT_W * 0.24, PUPIL_Y = 0.12;
+  // Travel bounds: (fringe − core)/2 slack each side, so a full deflection parks the
+  // core hard against the fringe edge without ever sliding out of the orange.
+  const PUPIL_X = SLIT_W * 0.38, PUPIL_Y = 0.22;
   rig.add(slit);
 
   // ---------------------------------------------------------------------
@@ -451,7 +455,7 @@ export function buildEmberHunter(def, quality = 1) {
     }
     const gx = (!eyeLock && lookAwayT > 0) ? lookAwayX : gazeTX;
     const gy = (!eyeLock && lookAwayT > 0) ? lookAwayY : gazeTY;
-    const gLag = eyeLock ? 16 : (noticeT > 0 || charge > 0.5) ? 9 : 2.4;   // snaps to lock-on when hunting
+    const gLag = eyeLock ? 16 : (noticeT > 0 || charge > 0.5) ? 9 : 4.5;   // responsive pursuit; snaps to lock-on when hunting
     gazeX += (gx - gazeX) * Math.min(1, dt * gLag);
     gazeY += (gy - gazeY) * Math.min(1, dt * gLag);
 

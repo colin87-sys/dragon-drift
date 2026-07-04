@@ -813,10 +813,12 @@ function updateFlythrough(dt, player, time) {
   cineYaw = u < U3 ? Math.PI : Math.PI * (1 - seg(U3, 1));
   // The PUPIL tracks the dragon (eye-lock): the visor faces the camera/dragon (world
   // −z) during the pass, so a dragon to world-right reads as the boss's local-left —
-  // hence the −dx. Eased out to centre through the turn.
+  // hence the −dx. Normalized over ~4m: the anchored path keeps the dragon 3-4 units
+  // away, so the pupil actually reaches FULL deflection (a /8 divisor left it near
+  // centre — the "not tracking" read). Eased out to centre through the turn.
   const dx = player.position.x - pose.x, dy = player.position.y - pose.y;
   const track = u < U3 ? 1 : (1 - seg(U3, 1));
-  model.setGaze?.(Math.max(-1, Math.min(1, -dx / 8)) * track, Math.max(-1, Math.min(1, dy / 8)) * track);
+  model.setGaze?.(Math.max(-1, Math.min(1, -dx / 4)) * track, Math.max(-1, Math.min(1, dy / 4)) * track);
 
   // Feed the cinematic camera the boss's world position so it tracks the flythrough.
   cameraCtl.setOvertake?.({ k: u, bx: pose.x, by: pose.y, bz: -(player.dist + pose.rel) });
