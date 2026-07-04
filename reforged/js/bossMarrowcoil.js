@@ -241,7 +241,7 @@ export function buildBoneCoil(def, quality = 1) {
     // in every state. Still ringed by the dark socket box (hollow-set); the lure
     // stays the single hottest point.
     const core = new THREE.Mesh(new THREE.SphereGeometry(0.145, 10, 8), eyeMat);
-    core.position.set(sx * 0.52, 0.14, 0.76); eyes.add(core);   // fully proud of the socket mouth — no yaw/pitch/roar angle occludes either eye
+    core.position.set(sx * 0.52, 0.14, 0.86); eyes.add(core);   // fully proud of the socket mouth — no yaw/pitch/roar angle occludes either eye
     eyeMeshes.push({ core, sx });
   }
 
@@ -254,11 +254,15 @@ export function buildBoneCoil(def, quality = 1) {
   const lureHaloMat = track(new THREE.MeshBasicMaterial({ color: accent, transparent: true, opacity: 0.6, blending: THREE.AdditiveBlending, depthWrite: false }));
   lureHaloMat.toneMapped = false; lureHaloMat.color.copy(LURE_BASE).multiplyScalar(1.5);
   const lure = new THREE.Group();
-  lure.position.set(0, 2.5, 1.3);
+  lure.position.set(0, 1.75, -1.3);   // hung BETWEEN the horns (~0.7 above the cranium roof), not a stalk off the crown (gate r9 #5)
   skull.add(lure);
   const strandMat = track(new THREE.LineBasicMaterial({ color: 0xcfc8b4, transparent: true, opacity: 0.6 }));
   strandMat.toneMapped = false;
-  lure.add(new THREE.LineSegments(new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(0, -1.9, -0.6), new THREE.Vector3(0, 0, 0)]), strandMat));
+  // Strand endpoints ON the two horns, lure at the catenary low point.
+  lure.add(new THREE.LineSegments(new THREE.BufferGeometry().setFromPoints([
+    new THREE.Vector3(-1.25, 0.2, -0.5), new THREE.Vector3(0, 0, 0),
+    new THREE.Vector3(0, 0, 0), new THREE.Vector3(1.25, 0.2, -0.5),
+  ]), strandMat));
   const lureGeo = (() => {
     const s = strip(new THREE.SphereGeometry(0.24, 10, 8));
     const drip = strip(new THREE.ConeGeometry(0.14, 0.4, 8)); drip.rotateX(Math.PI); drip.translate(0, -0.28, 0);
@@ -299,7 +303,7 @@ export function buildBoneCoil(def, quality = 1) {
   // sine (the serpentine identity motion) while the DORSAL cage section (ctrl
   // 3–5) stays near-noded — the ribcage barrel sweeps as one coherent tunnel
   // instead of fanning into a spiral mid-frame.
-  const ctrlAmp = [0, 2.0, 2.4, 0.55, 0.35, 0.7, 0.8];   // tail amp small: its sweep never re-enters the aperture's projected circle
+  const ctrlAmp = [0, 1.6, 2.0, 0.55, 0.35, 0.7, 0.8];   // tail amp small: its sweep never re-enters the aperture's projected circle
   const spineCurve = new THREE.CatmullRomCurve3(ctrlBase.map((p) => p.clone()));
   spineCurve.curveType = 'catmullrom';
   spineCurve.arcLengthDivisions = lowQ ? 48 : 100;   // arc-length LUT resolution (rebuilt each frame for EVEN vertebra pitch)
@@ -332,7 +336,7 @@ export function buildBoneCoil(def, quality = 1) {
       g.translate(sx * (r * 0.45), 0, -0.04);
       return g;
     };
-    const parts = lowQ ? [octa] : [octa, stub(1), stub(-1)];
+    const parts = (lowQ || i < 5) ? [octa] : [octa, stub(1), stub(-1)];   // gate r9 #1: the neck welds as one clean tapering line — no stub debris
     const vGeo = mergeBone(parts, `vert${i}`);
     // Bake the §1 painted hierarchy PER FACE (gate r8 #2): top facets bone
     // 0xd8d2c0, sides ~35% darker, bottoms darker still — on an UNLIT
@@ -466,12 +470,10 @@ export function buildBoneCoil(def, quality = 1) {
     // two roots — AT the rib/vertebra junction — dark TIP CAPS on the free ends,
     // and an INTERCOSTAL GROOVE line (a thin dark arc recessed along each rib's
     // inner curve) so the big pale arcs read carved, not moulded plastic.
+    // Gate r9 #2: exactly ONE dark band per chain joint and nothing else dark
+    // near the chain — the crown socket knobs are gone; the dark tier here is
+    // only the rib TIP caps + grooves, both well below the crown.
     const darks = [];
-    for (const sx of [-1, 1]) {
-      const k = strip(new THREE.SphereGeometry(0.22, 6, 5));
-      k.translate(sx * Math.cos(ROOT_TH) * R, Math.sin(ROOT_TH) * R, 0);
-      darks.push(k);
-    }
     for (const sx of [1, -1]) {
       const frac = sx < 0 ? leftSpan : 1;
       const [ex, ey] = ribEnd(R, sx, frac);
@@ -484,7 +486,7 @@ export function buildBoneCoil(def, quality = 1) {
         const frac = sx < 0 ? leftSpan : 1;
         const gpts = [];
         for (let i = 0; i <= 6; i++) {
-          const th = ROOT_TH - (i / 6) * ribArc * frac;
+          const th = (ROOT_TH - 0.3) - (i / 6) * (ribArc * frac - 0.3);   // grooves start below the crown (≥0.5 clear of the chain)
           gpts.push(new THREE.Vector3(sx * Math.cos(th) * (R - 0.24), Math.sin(th) * (R - 0.24), 0.02));
         }
         darks.push(strip(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(gpts), 8, 0.05, 3, false)));
@@ -500,16 +502,23 @@ export function buildBoneCoil(def, quality = 1) {
       // UNLIT warm marrow (gate r8 #4): MeshBasicMaterial, toneMapped=false,
       // boosted past 1 so it blooms — the warmest cluster on the body, legible
       // in the un-zoomed idle frame (still far dimmer than the ice focals).
-      const marrowMat = track(new THREE.MeshBasicMaterial({ color: 0x8a5a38 }));
+      const marrowMat = track(new THREE.MeshBasicMaterial({ color: 0xff7a3a }));
       marrowMat.toneMapped = false;
-      marrowMat.color.multiplyScalar(1.5);
+      marrowMat.color.multiplyScalar(2.2);   // gate r9 #3: unambiguously the warmest region after the lure
       const snapFace = strip(new THREE.CylinderGeometry(0.45, 0.48, 0.2, 7));
       snapFace.rotateZ(0.3 + Math.PI / 2);   // angled 0.3 rad off the rib axis (the jagged break)
       const core = strip(new THREE.SphereGeometry(0.18, 6, 5)); core.translate(0.05, 0, 0.06);
       // Two short marrow DRIP studs below the break (gate r7 #5).
       const drip1 = strip(new THREE.CylinderGeometry(0.06, 0.04, 0.3, 5)); drip1.translate(-0.08, -0.32, 0.02);
       const drip2 = strip(new THREE.CylinderGeometry(0.05, 0.03, 0.2, 5)); drip2.translate(0.14, -0.26, -0.03);
-      const marrowMesh = new THREE.Mesh(mergeBone([snapFace, core, drip1, drip2], 'marrow'), marrowMat);
+      // Exposed marrow STRIP along the last ~1.2 units of the broken arc.
+      const mstripPts = [];
+      for (let i = 0; i <= 5; i++) {
+        const th = (ROOT_TH - ribArc * leftSpan) + (i / 5) * (1.2 / R);
+        mstripPts.push(new THREE.Vector3(-Math.cos(th) * R - ex, Math.sin(th) * R - ey, 0.14));
+      }
+      const mstrip = strip(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(mstripPts), 6, 0.1, 4, false));
+      const marrowMesh = new THREE.Mesh(mergeBone([snapFace, core, drip1, drip2, mstrip], 'marrow'), marrowMat);
       marrowMesh.position.set(ex, ey, 0);   // on the MESH (not baked into geometry) so tools can project its world position
       marrowMesh.name = 'marrowScar';       // capture-tool seam: the scar proof crop projects this
       pivot.add(marrowMesh);
