@@ -33,16 +33,26 @@ const FRAMES = [
   { name: 'coilsweep',       o: { t: 3.7, yaw: 0, pitch: -0.12 } },
   { name: 'charge',          o: { t: 1.0, charge: 1, yaw: 0, pitch: -0.12 } },
   { name: 'profile',         o: { t: 1.0, yaw: 80, pitch: 0.02 } },
-  { name: 'ribcage',         o: { t: 1.0, yaw: 0, pitch: -0.05, focus: 'ribPivot', distMul: 0.62 } },
-  { name: 'tunnel',          o: { t: 1.0, yaw: 0, pitch: 0.0, focus: 'ribPivot', distMul: 0.4 } },
+  { name: 'ribcage',         o: { t: 1.0, yaw: 0, pitch: -0.05, focus: 'ribPivotL2', distMul: 0.62 } },
+  { name: 'tunnel',          o: { t: 1.0, yaw: 0, pitch: 0.0, focus: 'ribPivotL2', distMul: 0.4 } },
   { name: 'skullidle',       o: { t: 1.0, yaw: 0, pitch: 0.0, focus: 'skullGroup', distMul: 0.3 } },
   { name: 'skullidle-prof',  o: { t: 1.0, yaw: 65, pitch: 0.02, focus: 'skullGroup', distMul: 0.3 } },
-  { name: 'skullcharge',     o: { t: 1.0, charge: 1, yaw: 0, pitch: 0.0, focus: 'skullGroup', distMul: 0.3 } },
+  // the charge roar rears the skull ~9° up — the camera rises to meet the face
+  // so D12's acceptance (front elevation, BOTH eyes visible) holds at close range
+  { name: 'skullcharge',     o: { t: 1.0, charge: 1, yaw: 0, pitch: 0.28, focus: 'skullGroup', distMul: 0.4 } },
   { name: 'skullcharge-prof',o: { t: 1.0, charge: 1, yaw: 50, pitch: 0.02, focus: 'skullGroup', distMul: 0.3 } },
   { name: 'scar',            o: { t: 1.0, yaw: 0, pitch: -0.05, focus: 'marrowScar', distMul: 0.2 } },
-  { name: 'ribroot',         o: { t: 1.0, yaw: 0, pitch: 0.1, focus: 'ribPivot', distMul: 0.26 } },
-  { name: 'ribroot-offaxis', o: { t: 1.0, yaw: 30, pitch: 0.1, focus: 'ribPivot', distMul: 0.26 } },
-  { name: 'dread',           o: { t: 2.0, sp: 0.75, spmode: 'closingRibs', yaw: 0, pitch: -0.05, distMul: 0.85 } },
+  { name: 'ribroot',         o: { t: 1.0, yaw: 0, pitch: 0.1, focus: 'ribPivotL2', distMul: 0.26 } },
+  { name: 'ribroot-offaxis', o: { t: 1.0, yaw: 30, pitch: 0.1, focus: 'ribPivotL2', distMul: 0.26 } },
+  // D7 canonical dread: the rail's-eye approach — camera on the fight axis
+  // (yaw 0) framed on the cage mouth, sp=0.75 closingRibs at t=2.4. Must show
+  // ≥2 rib pairs rotated ≥25° inward, the aperture ≤60% of idle span, and the
+  // skull's eyes + lure above the closing arcs. (A literal inside-the-cage eye
+  // can never see the eyes — they face +z — so the canonical frame is the
+  // approach; camMid/camOff interior shots remain available for spot checks.)
+  { name: 'dread',           o: { t: 2.4, sp: 0.75, spmode: 'closingRibs', gy: -0.4, focus: 'ribPivotL1', yaw: 0, pitch: 0.04, distMul: 0.58, fov: 62 } },
+  // exterior companion — verifies the ≥25° per-pair rotation + ≤60% aperture from outside
+  { name: 'dread-ext',       o: { t: 2.4, sp: 0.75, spmode: 'closingRibs', yaw: 0, pitch: -0.05, distMul: 0.85 } },
   { name: 'shielded',        o: { t: 1.0, shield: true, yaw: 0, pitch: -0.12 } },
   { name: 'death',           o: { t: 1.0, death: 0.55, yaw: 0, pitch: -0.12 } },
 ];

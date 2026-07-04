@@ -418,7 +418,9 @@ feasibility survey: at rel 30, on-screen centers within x ±15 / y 2..22 on port
   points run a traveling sine (coil sweep); RIBCAGE: 5 pairs of long torus arcs (r 2.6,
   arc π·0.6) mid-chain forming the fly-through tunnel; tail blade: flat kite. Bone
   0xd8d2c0 diffuse (sanctioned VALUE inversion, dark joints paint the hierarchy) / void
-  gaps / ice-blue 0x8fd0ff lights. ~3.5k tris, ~24 draws (vertebra chain = separate small
+  gaps / ice-blue 0x8fd0ff lights. Scar (as built): LEFT rib ring 2 snapped at 0.45 span —
+  jagged break face, a floating orphan fragment arc, and a COLD ice seam (no warm marrow;
+  the ice family keeps the one-accent law). ~3.5k tris, ~24 draws (vertebra chain = separate small
   meshes — phone-verified fine; NO InstancedMesh, L126). REUSES: mandala rail-merge idiom,
   charisma eye rig, jawPivot precedent. NEEDS: below-approach + cull-bound widening (§5e).
 - **5 EITHERWING** — per twin: stretched-octahedron kite body (~2.2 long) + crescent head

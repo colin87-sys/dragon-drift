@@ -119,6 +119,7 @@
     const center = new THREE.Vector3(0, 0, 0);
     let baseDist = 30;
     const orbit = { yaw: 0, pitch: -0.12, dist: 30 };   // bosses FACE +z (toward the player): yaw 0 = the rail's front-on view
+    let freeCam = false;   // camMid interior shots place the camera directly; RAF must not stomp it
 
     function applyDials(m, t) {
       m.setGaze?.(dials.gx, dials.gy);
@@ -200,13 +201,13 @@
     function frame() {
       requestAnimationFrame(frame);
       if (playing && model) step();
-      placeCamera();
+      if (!freeCam) placeCamera();
       renderer.render(scene, camera);
     }
 
     // ── drag + zoom (nfview idiom) ──
     let dragging = false, lx = 0, ly = 0;
-    gl.addEventListener('pointerdown', e => { dragging = true; lx = e.clientX; ly = e.clientY; gl.setPointerCapture(e.pointerId); });
+    gl.addEventListener('pointerdown', e => { dragging = true; freeCam = false; lx = e.clientX; ly = e.clientY; gl.setPointerCapture(e.pointerId); });
     gl.addEventListener('pointermove', e => {
       if (!dragging) return;
       orbit.yaw -= (e.clientX - lx) * 0.4;
@@ -257,6 +258,12 @@
     //         yaw, pitch, distMul, focus } — focus aims the camera at a NAMED
     //         part ('skullGroup' | 'marrowScar' | 'ribPivot' | 'tailBlade' | ...)
     //         so close-ups frame the same anatomy every capture.
+    //   INTERIOR mode: { camMid: [nameA, nameB], camOff: [x,y,z], look: name,
+    //         fov } — puts the EYE at the midpoint of two named parts (plus a
+    //         world offset) and looks at a third. This is how the canonical
+    //         dread frame stands INSIDE the ribcage on the rail axis and looks
+    //         forward at the skull through the closing aperture — a pose the
+    //         orbit-a-focus math cannot express.
     window.renderState = (opts = {}) => {
       playing = false;
       if (opts.boss && opts.boss !== key) { key = opts.boss; fitted = false; }
@@ -266,6 +273,25 @@
       Object.assign(dials, { charge: 0, sp: 0, spmode: 'closingRibs', death: 0, hp: 1, shield: false, noticeAt: -1, gx: 0, gy: 0 });
       for (const k of ['charge', 'sp', 'spmode', 'death', 'hp', 'shield', 'gx', 'gy']) if (opts[k] != null) dials[k] = opts[k];
       simulate(opts.t ?? 1.0);
+      camera.fov = opts.fov ?? 50; camera.updateProjectionMatrix();   // reset per call — no leaks
+      freeCam = false;
+      if (opts.camMid) {
+        current.updateMatrixWorld(true);
+        const find = (nm) => { let o = null; current.traverse((x) => { if (x.name === nm && !o) o = x; }); return o; };
+        const a = find(opts.camMid[0]), b = find(opts.camMid[1]), lk = find(opts.look || 'skullGroup');
+        if (a && b && lk) {
+          const pa = a.getWorldPosition(new THREE.Vector3()), pb = b.getWorldPosition(new THREE.Vector3());
+          camera.position.copy(pa).add(pb).multiplyScalar(0.5);
+          if (opts.camOff) camera.position.add(new THREE.Vector3(...opts.camOff));
+          camera.near = 0.05; camera.far = 400; camera.updateProjectionMatrix();
+          const tgt = lk.getWorldPosition(new THREE.Vector3());
+          if (opts.lookOff) tgt.add(new THREE.Vector3(...opts.lookOff));
+          camera.lookAt(tgt);
+          freeCam = true;
+          renderer.render(scene, camera);
+          return true;
+        }
+      }
       if (opts.focus) {
         let obj = null;
         current.traverse((o) => { if (o.name === opts.focus && !obj) obj = o; });
@@ -279,6 +305,18 @@
       placeCamera();
       renderer.render(scene, camera);
       return true;
+    };
+
+    // capture-tooling probe: world positions of named parts (for camera math)
+    window.probeWorld = (names) => {
+      if (!current) return null;
+      current.updateMatrixWorld(true);
+      const res = {};
+      for (const nm of names) {
+        let o = null; current.traverse((x) => { if (x.name === nm && !o) o = x; });
+        if (o) { const v = o.getWorldPosition(new THREE.Vector3()); res[nm] = [+v.x.toFixed(2), +v.y.toFixed(2), +v.z.toFixed(2)]; }
+      }
+      return res;
     };
 
     try {

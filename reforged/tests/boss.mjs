@@ -291,9 +291,10 @@ for (const key of BOSS_ORDER) {
   assert(jaw.rotation.x < -0.3, `marrowcoil jaw hinges open on charge (rotation.x ${jaw.rotation.x.toFixed(3)}, was ${preJaw.toFixed(3)})`);
   coil.setCharge(0);
 
-  // Named rib pivots (5 hoops) — the dread telegraph + the fly-through cage.
-  const ribs = findAllByName(coil.group, 'ribPivot');
-  assert(ribs.length === 5, `marrowcoil exposes 5 named ribPivots for the ribcage (${ribs.length})`);
+  // Named per-rib root pivots (5 pairs, L/R) — the dread telegraph hinges these.
+  const ribs = [];
+  coil.group.traverse((o) => { if (/^ribPivot[LR][0-4]$/.test(o.name)) ribs.push(o); });
+  assert(ribs.length === 10, `marrowcoil exposes 10 named ribPivotL/R0-4 for the ribcage (${ribs.length})`);
 
   // §7b assert 1 — RIBCAGE THREAD CLEARANCE ≥ 4.5 units at the tightest hoop, at
   // closed REST (setSetpiece 0). Measure the aperture from the actual arc
@@ -302,30 +303,38 @@ for (const key of BOSS_ORDER) {
   // the small dark rib-root knuckles that sit dorsal/ventral off the aperture.
   for (let i = 0; i < 5; i++) coil.tick(0.05, i * 0.05);   // rest pose, no setpiece
   let tightest = Infinity;
-  for (const rp of ribs) {
+  for (let ring = 0; ring < 5; ring++) {
+    const pair = ribs.filter((r) => r.name.endsWith(String(ring)));
+    // Ring centre (host-vertebra space): roots sit at ±cos(84°)·R with the ring
+    // centre 0.97R below the crown — recover R from the root spread, then the
+    // centre, then measure the min in-plane radial distance of every rib vertex.
+    const [a, b] = pair;
+    const Rr = Math.abs(a.position.x - b.position.x) / (2 * Math.cos(Math.PI * 84 / 180));
+    const cy = a.position.y - Math.sin(Math.PI * 84 / 180) * Rr;
     let minR = Infinity;
-    rp.traverse((o) => {
-      if (!o.geometry || !o.geometry.attributes.position) return;
-      const p = o.geometry.attributes.position;
-      if (p.count < 30) return;   // skip tiny knuckle meshes; measure the arcs (and offset parts like the marrow cap)
-      for (let v = 0; v < p.count; v++) {
-        // Measure in PIVOT space: the mesh's local offset counts (e.g. the marrow
-        // scar sits on the ring via mesh.position, not baked geometry).
-        const r = Math.hypot(p.getX(v) + o.position.x, p.getY(v) + o.position.y);
-        if (r < minR) minR = r;
-      }
-    });
+    for (const rp of pair) {
+      rp.traverse((o) => {
+        if (!o.geometry || !o.geometry.attributes.position) return;
+        const p = o.geometry.attributes.position;
+        if (p.count < 30) return;
+        for (let v = 0; v < p.count; v++) {
+          const wx = p.getX(v) + rp.position.x, wy = p.getY(v) + rp.position.y;
+          const r = Math.hypot(wx, wy - cy);
+          if (r < minR) minR = r;
+        }
+      });
+    }
     tightest = Math.min(tightest, 2 * minR);
   }
   assert(tightest >= 4.5, `marrowcoil ribcage thread clearance ${tightest.toFixed(2)} ≥ 4.5 at the tightest closed-rest hoop`);
 
   // §7b assert 3 — the DREAD telegraph: setSetpiece (Closing Ribs) constricts the
   // hoops (an aperture SHAPE change, not colour). closingRibs mode = default.
-  const preScale = ribs.map((r) => r.scale.x);
+  const preRot = ribs.map((r) => r.rotation.z);
   coil.setSetpiece(1.0, { id: 'closingRibs' });
   for (let i = 0; i < 30; i++) coil.tick(0.05, 3 + i * 0.05);
-  const constricted = ribs.filter((r, i) => r.scale.x < preScale[i] - 0.15).length;
-  assert(constricted >= 4, `marrowcoil Closing Ribs constricts the cage (${constricted}/5 hoops shrank ≥0.15 — aperture change)`);
+  const constricted = ribs.filter((r, i) => Math.abs(r.rotation.z - preRot[i]) > 0.44).length;
+  assert(constricted >= 6, `marrowcoil Closing Ribs hinges the pairs inward (${constricted}/10 pivots rotated >=25° — the aperture visibly closes)`);
   coil.setSetpiece(0, { id: 'closingRibs' });
 
   // §7b assert 2 — VERTEBRA PITCH > WIDTH per adjacent pair: the 16 segments must
