@@ -15,7 +15,7 @@ import { initRings, addRing, updateRings, resetRings, setRingsVisible } from './
 import { initObstacles, addObstacle, addCanyonSegment, updateObstacles, resetObstacles, obstacleCount } from './obstacles.js';
 import { initPowerups, addOrb, updatePowerups, resetPowerups } from './powerups.js';
 import { initParticles, updateParticles, resetParticles, setParticleQuality } from './particles.js';
-import { setDragonQuality } from './dragon.js';
+import { setDragonQuality, setDragonLook } from './dragon.js';
 import { updateCollision, resetCollision, acceptRevive, finishDeath } from './collision.js';
 import { ui } from './ui.js';
 import { music, sfx, setSlowMo, unlockAllTracks } from './sfx.js';
@@ -930,9 +930,9 @@ function tick() {
   // Slow-mo bookkeeping runs in REAL time so 0.6s of dilation is 0.6s felt.
   if (game.slowMoTimer > 0) {
     game.slowMoTimer -= rawDt;
-    game.timeScale = 0.35;
+    game.timeScale = game.slowMoScale ?? 0.35;   // caller may deepen it (boss cinematic)
     game.hitstopTimer = 0; // slow-mo wins: kill any in-flight impact freeze
-    if (game.slowMoTimer <= 0) setSlowMo(false);
+    if (game.slowMoTimer <= 0) { setSlowMo(false); game.slowMoScale = null; }
   } else if (game.timeScale < 1) {
     game.timeScale = Math.min(1, game.timeScale + rawDt * 3);
   }
@@ -1091,6 +1091,15 @@ function tick() {
     }
 
     const t = clock.getElapsedTime();
+    // ASHTALON overtake: turn the dragon+rider to face the hunter as it sweeps past
+    // (a clamped glance around the close pass — never a full backward flip).
+    const ov = cameraCtl.overtakeState;
+    if (ov) {
+      const dx = ov.bx - player.position.x, dz = ov.bz - player.position.z;
+      const win = Math.max(0, Math.min(1, (ov.k - 0.20) / 0.12, (0.86 - ov.k) / 0.12));  // ramp in/out around the pass
+      const yaw = Math.max(-0.7, Math.min(0.7, Math.atan2(-dx, -dz)));                     // face the boss, clamped
+      setDragonLook(win > 0 ? yaw * win : null);
+    } else setDragonLook(null);
     updateDragon(dt, player, t);
     updateParticles(dt, camera);
     const obstacleSpeedNorm = (player.speed - CONFIG.baseSpeed) / (CONFIG.orbSpeed - CONFIG.baseSpeed);
