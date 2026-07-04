@@ -46,7 +46,7 @@ export function buildBoneCoil(def, quality = 1) {
   const glow = def.glow ?? 0xbfe6ff;
   const lowQ = quality < 0.75;
 
-  const kit = createBossCommon(def, quality, { shieldRadius: 4.8, hpBarY: 10.6, hpBarZ: 1.4, hpBarScale: 0.7 });
+  const kit = createBossCommon(def, quality, { shieldRadius: 4.8, hpBarY: 11.4, hpBarZ: 1.4, hpBarScale: 0.7 });
   const { group, track } = kit;
   group.userData.archetype = 'boneCoil';
 
@@ -66,7 +66,9 @@ export function buildBoneCoil(def, quality = 1) {
   // the sanctioned VALUE INVERSION clears G2 (median ≥150) under hemisphere-only
   // front light; the DARKS (0x241f1a joints/sockets/roots, zero emissive) carve
   // the value hierarchy so the pale mass reads CARVED, not injection-moulded.
-  const BONE_EI = 0.95, RIB_EI = 0.82;
+  // RIB_EI sits well under BONE_EI (gate r4 #7): the rib family reads a clear
+  // value step darker/warmer than the vertebra family, not one plastic mass.
+  const BONE_EI = 0.95, RIB_EI = 0.62;
   const boneMat = track(new THREE.MeshStandardMaterial({
     color: 0xd8d2c0, emissive: 0xd8d2c0, emissiveIntensity: BONE_EI, roughness: 0.82, metalness: 0.0, flatShading: true,
   }));
@@ -87,7 +89,8 @@ export function buildBoneCoil(def, quality = 1) {
   // and deep dark sockets keep it reading as bone, not a box mascot.
   // ---------------------------------------------------------------------
   const skull = new THREE.Group();
-  skull.position.set(0, 5.6, 0.9);
+  skull.position.set(0, 6.9, 1.15);   // leads the (longer, ×1.6-boned) chain; occiput overlaps vertebra 0
+  skull.scale.setScalar(1.22);        // head stays the dominant terminal mass over the ×1.6 neck bones (§3.1 ladder)
   rig.add(skull);
 
   const CRANIUM_W = 1.7;
@@ -144,6 +147,16 @@ export function buildBoneCoil(def, quality = 1) {
     // OPEN jaw reads as a dark wedge, never sky showing through the head.
     const mouthCavity = strip(new THREE.BoxGeometry(0.72, 0.26, 1.4)); mouthCavity.translate(0, -0.62, 0.95);
     parts.push(mouthCavity);
+    // Mouth BACK-PLANE (gate r4 #6): a tall dark plane recessed behind the front
+    // teeth — hidden by the closed jaw, it faces the camera as a solid dark
+    // wedge ≥0.5 tall when the jaw hinges open (the front-on charge tell).
+    const mouthBack = strip(new THREE.BoxGeometry(0.95, 0.6, 0.18)); mouthBack.translate(0, -0.42, 0.5);
+    parts.push(mouthBack);
+    // Occipital CONDYLE disc (gate r4 #2): the dark junction where vertebra 0
+    // roots inside the skull's back-bottom (bone 0 sits at rig (0,6.35,0.0) —
+    // static, since the sweep amplitude is 0 at the nape).
+    const condyle = strip(new THREE.CylinderGeometry(0.5, 0.5, 0.16, 8)); condyle.translate(0, -0.55, -1.15);
+    parts.push(condyle);
     return mergeBone(parts, 'skullDark');
   })();
   skull.add(new THREE.Mesh(skullDarkGeo, darkMat));
@@ -155,8 +168,9 @@ export function buildBoneCoil(def, quality = 1) {
   jawPivot.position.set(0, -0.5, 0.2);
   skull.add(jawPivot);
   const jawGeo = (() => {
-    const slab = strip(new THREE.BoxGeometry(0.82, 0.32, 1.85)); slab.translate(0, -0.12, 1.0);
-    const chin = strip(new THREE.BoxGeometry(0.5, 0.26, 0.5)); chin.translate(0, -0.18, 2.05);
+    // Full snout width (gate r4 #6) so the open jaw breaks the silhouette front-on.
+    const slab = strip(new THREE.BoxGeometry(1.02, 0.32, 1.85)); slab.translate(0, -0.12, 1.0);
+    const chin = strip(new THREE.BoxGeometry(0.62, 0.26, 0.5)); chin.translate(0, -0.18, 2.05);
     // Two subtle fang tips at the front corners only (not a full toothy rectangle).
     const fang = (sx) => { const t = strip(new THREE.ConeGeometry(0.08, 0.3, 4)); t.translate(sx * 0.28, 0.12, 1.9); return t; };
     return mergeBone([slab, chin, fang(1), fang(-1)], 'jaw');
@@ -167,7 +181,7 @@ export function buildBoneCoil(def, quality = 1) {
   const mouthMat = track(new THREE.MeshStandardMaterial({
     color: 0x1a1214, emissive: 0x000000, emissiveIntensity: 0.0, roughness: 0.95, metalness: 0.0, flatShading: true,
   }));
-  const jawDark = new THREE.Mesh(strip(new THREE.BoxGeometry(0.62, 0.2, 1.35)), mouthMat);   // recessed mouth slot riding the jaw
+  const jawDark = new THREE.Mesh(strip(new THREE.BoxGeometry(0.95, 0.22, 1.5)), mouthMat);   // wide dark mouth slot riding the jaw (reads front-on when it hinges)
   jawDark.position.set(0, 0.06, 0.95); jawPivot.add(jawDark);
 
   // ---- HORNS — two tapered TubeGeometry sweeps raked BACK (−z) and OUT (±x)
@@ -214,7 +228,7 @@ export function buildBoneCoil(def, quality = 1) {
   eyeMat.color.copy(EYE_BASE).multiplyScalar(EYE_HOT);
   const eyeHaloMat = track(new THREE.MeshBasicMaterial({ color: accent, transparent: true, opacity: 0.5, blending: THREE.AdditiveBlending, depthWrite: false }));
   eyeHaloMat.toneMapped = false; eyeHaloMat.color.copy(EYE_BASE).multiplyScalar(1.25);
-  const eyes = new THREE.Group(); eyes.position.copy(skull.position); rig.add(eyes);
+  const eyes = new THREE.Group(); eyes.position.copy(skull.position); eyes.scale.copy(skull.scale); rig.add(eyes);   // mirrors the skull transform so the pinlights stay seated in the scaled sockets
   {
     const hl = strip(new THREE.SphereGeometry(0.22, 8, 6)); hl.translate(-0.52, 0.14, 0.58);
     const hr = strip(new THREE.SphereGeometry(0.22, 8, 6)); hr.translate(0.52, 0.14, 0.58);
@@ -266,24 +280,26 @@ export function buildBoneCoil(def, quality = 1) {
   // ribs hang below it); a short TAIL drops off behind. This keeps the fly-through
   // aperture (the barrel centre, below the dorsal spine) clear of the chain.
   // Neck coils down (visible, frontal); the DORSAL spine (vertebrae ~6–10) then
-  // runs BACK in depth (−z) at roughly constant height — the ribs hang from these
-  // dorsal bones, forming the barrel the rail flies down; a short tail drops off
-  // behind. The dorsal-z run is what makes the 5 rib rings nest into a tunnel
-  // front-on (foreshortened) with their roots planted on real vertebrae.
+  // rides the CROWN of the rib arch, running back in depth (−z) — the ribs hang
+  // from these dorsal bones, framing the fly-through below; the post-cage tail
+  // exits REARWARD-DOWN BEHIND the cage, outside the aperture cylinder (gate r4
+  // #3: the rail's flight line through the rings stays clear of the boss's own
+  // tail). ctrl[0] sits INSIDE the skull's occipital face (gate r4 #2 — vertebra
+  // 0 roots in the skull; the condyle disc marks the junction).
   const ctrlBase = [
-    new THREE.Vector3(0.0, 5.35, 0.9),    // nape — tucked right under the skull (no head/neck gap)
-    new THREE.Vector3(2.7, 3.9, 0.4),     // neck coils right (the visible coil)
-    new THREE.Vector3(-2.6, 2.5, 0.3),    // neck coils left
-    new THREE.Vector3(0.4, 1.5, 1.0),     // arrives at the ribcage front-top
-    new THREE.Vector3(0.3, 1.2, -1.7),    // dorsal runs BACK along the barrel top
-    new THREE.Vector3(0.5, 0.6, -4.2),    // dorsal back end (long z run)
-    new THREE.Vector3(2.6, -3.2, -3.8),   // short tail drops behind
+    new THREE.Vector3(0.0, 6.35, 0.0),    // occiput — inside the skull's back-bottom
+    new THREE.Vector3(2.3, 4.9, 0.3),     // neck coils right (the visible coil)
+    new THREE.Vector3(-2.2, 3.3, 0.2),    // neck coils left
+    new THREE.Vector3(0.4, 1.9, 1.1),     // arrives at the ribcage crown (front)
+    new THREE.Vector3(0.3, 1.5, -1.4),    // dorsal rides the crown, running back
+    new THREE.Vector3(0.6, 1.1, -4.0),    // dorsal back end (long z run)
+    new THREE.Vector3(2.6, -1.2, -5.6),   // tail exits rearward-down BEHIND the cage (≥2 clear of the aperture line)
   ];
   // Sweep amplitude per control point: the NECK and TAIL carry the traveling
   // sine (the serpentine identity motion) while the DORSAL cage section (ctrl
   // 3–5) stays near-noded — the ribcage barrel sweeps as one coherent tunnel
   // instead of fanning into a spiral mid-frame.
-  const ctrlAmp = [0, 1.9, 2.3, 0.55, 0.35, 0.7, 2.1];
+  const ctrlAmp = [0, 2.0, 2.4, 0.55, 0.35, 0.7, 2.0];
   const spineCurve = new THREE.CatmullRomCurve3(ctrlBase.map((p) => p.clone()));
   spineCurve.curveType = 'catmullrom';
   spineCurve.arcLengthDivisions = lowQ ? 32 : 60;   // arc-length LUT resolution (rebuilt each frame for EVEN vertebra pitch)
@@ -291,19 +307,19 @@ export function buildBoneCoil(def, quality = 1) {
   const vertNodes = [];
   for (let i = 0; i < N_VERT; i++) {
     const t = i / (N_VERT - 1);
-    const r = 0.5 - t * 0.25;   // sheet taper 0.5 → 0.25 (chunky bones = the dominant mass)
+    const r = 0.8 - t * 0.4;   // gate r4 #1: ×1.6 the sheet taper (0.8 → 0.4) — the spine is the DOMINANT mass, traceable as one column
     const node = new THREE.Object3D();
     rig.add(node);
     // FLAT octahedron (detail 0 — hard facets), y×0.55 (gate r3 #5a) — local y is
     // the CHAIN AXIS: the mesh is oriented to the curve tangent each frame, so the
     // flattening is along the chain and the fins/stubs stand perpendicular to it.
     const octa = strip(new THREE.OctahedronGeometry(r, 0));
-    octa.scale(1.0, 0.55, 1.0);
+    octa.scale(1.0, 0.5, 1.0);   // flat vertebral disc (along-chain width 1.0r — pitch clears it with the welded joint gap)
     // Rib stubs: short torus arcs laid FLAT in the plane perpendicular to the
     // chain axis, sweeping out to each side — near-zero extent along the chain.
     const stubR = r * 0.75 + 0.2, stubTube = 0.06, stubArc = Math.PI * 0.55;
     const stub = (sx) => {
-      const g = strip(new THREE.TorusGeometry(stubR, stubTube, lowQ ? 4 : 5, lowQ ? 6 : 9, stubArc));
+      const g = strip(new THREE.TorusGeometry(stubR, stubTube, lowQ ? 4 : 5, lowQ ? 6 : 7, stubArc));
       g.rotateX(Math.PI / 2);                        // ring into the plane ⊥ to the chain
       g.rotateY(sx > 0 ? Math.PI * 0.5 : Math.PI);   // aim the arc out to this side, curving back
       g.translate(sx * (r * 0.5), -0.08, -0.05);
@@ -412,9 +428,10 @@ export function buildBoneCoil(def, quality = 1) {
     // The scar (§3.6): the THIRD pair (h===2)'s LEFT rib snapped at ~55% arc.
     const leftSpan = h === 2 ? 0.55 : 1;
     pivot.add(new THREE.Mesh(mergeBone([makeRibGeo(R, 1), makeRibGeo(R, -1, leftSpan)], `ribRing${h}`), ribBoneMat));
-    // Per-ring dark mesh (gate r3 #6/#7/#8): SOCKET KNOBS (r 0.22) at the two
-    // roots — AT the rib/vertebra junction — dark TIP CAPS on the free ends, and
-    // the jagged MARROW CAP on the scar rib's broken end. One merged dark mesh.
+    // Per-ring dark mesh (gate r3 #6/#7 + r4 #7): SOCKET KNOBS (r 0.22) at the
+    // two roots — AT the rib/vertebra junction — dark TIP CAPS on the free ends,
+    // and an INTERCOSTAL GROOVE line (a thin dark arc recessed along each rib's
+    // inner curve) so the big pale arcs read carved, not moulded plastic.
     const darks = [];
     for (const sx of [-1, 1]) {
       const k = strip(new THREE.SphereGeometry(0.22, 6, 5));
@@ -424,11 +441,39 @@ export function buildBoneCoil(def, quality = 1) {
     for (const sx of [1, -1]) {
       const frac = sx < 0 ? leftSpan : 1;
       const [ex, ey] = ribEnd(R, sx, frac);
-      const c = strip(new THREE.OctahedronGeometry(sx < 0 && h === 2 ? 0.34 : 0.15, 0));   // scar marrow cap big + jagged (legible at fight hold)
+      const c = strip(new THREE.OctahedronGeometry(0.15, 0));
       c.translate(ex, ey, 0);
       darks.push(c);
     }
+    if (!lowQ) {
+      for (const sx of [1, -1]) {   // intercostal groove: a slim dark arc on the inner curve
+        const frac = sx < 0 ? leftSpan : 1;
+        const gpts = [];
+        for (let i = 0; i <= 6; i++) {
+          const th = ROOT_TH - (i / 6) * ribArc * frac;
+          gpts.push(new THREE.Vector3(sx * Math.cos(th) * (R - 0.24), Math.sin(th) * (R - 0.24), 0.02));
+        }
+        darks.push(strip(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(gpts), 8, 0.05, 3, false)));
+      }
+    }
     pivot.add(new THREE.Mesh(mergeBone(darks, `ribRoot${h}`), darkMat));
+    // THE SCAR (§3.6, gate r4 #5): the snapped rib's marrow — an angled snap-face
+    // disc (0.3 rad off the rib axis) with a faint WARM emissive core (0x6a4a30
+    // ei 0.35 — dim, well under half the eye intensity per §3 law 2). Its own
+    // mesh + material so it is unmistakable at fight hold.
+    if (h === 2) {
+      const [ex, ey] = ribEnd(R, -1, leftSpan);
+      const marrowMat = track(new THREE.MeshStandardMaterial({
+        color: 0x3a2f22, emissive: 0x6a4a30, emissiveIntensity: 0.35, roughness: 0.85, metalness: 0.0, flatShading: true,
+      }));
+      const snapFace = strip(new THREE.CylinderGeometry(0.24, 0.28, 0.14, 7));
+      snapFace.rotateZ(0.3 + Math.PI / 2);   // angled 0.3 rad off the rib axis (the jagged break)
+      const core = strip(new THREE.SphereGeometry(0.13, 6, 5)); core.translate(0.03, 0, 0.03);
+      const marrowMesh = new THREE.Mesh(mergeBone([snapFace, core], 'marrow'), marrowMat);
+      marrowMesh.position.set(ex, ey, 0);   // on the MESH (not baked into geometry) so tools can project its world position
+      marrowMesh.name = 'marrowScar';       // capture-tool seam: the scar proof crop projects this
+      pivot.add(marrowMesh);
+    }
     ribPivots.push({ pivot, idx: h, R });
   }
   // Ice-blue APERTURE RIM centred INSIDE the front rib pair (the "fly here" tell,
@@ -544,12 +589,16 @@ export function buildBoneCoil(def, quality = 1) {
       for (let d = 0; d < discChain.nD; d++) {
         // Disc sits ON the curve at the gap-midpoint station (not the chord
         // midpoint — during a hard S-coil the chord midpoint floats off the bone
-        // line and the disc read as a detached black chip).
+        // line and the disc read as a detached black chip). Its THICKNESS is the
+        // live gap + 0.1 overlap into both bones (the WELD, gate r4 #1): the
+        // bone-disc-bone column stays continuous at every sweep phase.
         spineCurve.getPointAt(discU[d], _v);
         spineCurve.getTangentAt(discU[d], _t);
         orientToTangent(_q, _t);
-        const dr = vertNodes[d].r * 0.66;
-        _m.compose(_v, _q, _s.set(dr, 0.15, dr));
+        const pitch = vertNodes[d].node.position.distanceTo(vertNodes[d + 1].node.position);
+        const gap = Math.max(0.08, pitch - (vertNodes[d].r + vertNodes[d + 1].r) * 0.55);
+        const dr = vertNodes[d].r * 0.6;
+        _m.compose(_v, _q, _s.set(dr, gap + 0.1, dr));
         _nm.getNormalMatrix(_m);
         for (let vtx = 0; vtx < discChain.nV; vtx++) {
           const si = vtx * 3, di = (d * discChain.nV + vtx) * 3;
@@ -569,6 +618,7 @@ export function buildBoneCoil(def, quality = 1) {
     else if (nextLookAway <= 0 && charge < 0.2 && noticeT <= 0 && dyingK <= 0) {
       lookAwayT = 0.6 + Math.random() * 0.6; lookAwayX = (Math.random() - 0.5) * 1.4; lookAwayY = Math.random() * 0.4 - 0.2; nextLookAway = 5 + Math.random() * 6;
     }
+    if (charge > 0.4 && lookAwayT > 0) lookAwayT = 0;   // a charging predator locks on — never captured mid-look-away
     const gx = lookAwayT > 0 ? lookAwayX : gazeTX, gy = lookAwayT > 0 ? lookAwayY : gazeTY;
     const gLag = (noticeT > 0 || charge > 0.5) ? 9 : 2.4;
     gazeX += (gx - gazeX) * Math.min(1, dt * gLag); gazeY += (gy - gazeY) * Math.min(1, dt * gLag);
@@ -652,7 +702,7 @@ export function buildBoneCoil(def, quality = 1) {
   }
 
   const muzzle = new THREE.Object3D();
-  muzzle.position.set(0, 4.6, 2.6);
+  muzzle.position.set(0, 6.4, 2.9);   // at the (raised) skull's maw
   group.add(muzzle);
 
   return {

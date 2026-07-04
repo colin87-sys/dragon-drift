@@ -207,7 +207,7 @@ export const BOSSES = {
     glow: 0xbfe6ff,           // paler ice (shield rim / shards / backlight)
     bulletColor: 0xff2b6a,    // danger stays magenta (role colour, never per-boss)
     approachFrom: 'below',    // rises through the fog line (§5e 'below' branch; the sky's leavings surfacing)
-    scale: 1.6,               // COLOSSUS — the chain spans tall (~13 pre-scale, skull→tail); scaled to read visibly grander than the Sentinels
+    scale: 1.25,              // COLOSSUS — the ×1.6 bone rework grew the local body (chain ~19 pre-scale); 1.25 keeps the same world presence with bigger bones
     hpMax: 300,               // Tier 2 band (260–330); slot-4 sits mid-band, above ASHTALON
     // VALUE-INVERSION sanction (§5b slot 4 / §7b): the pale bone body is the
     // registry's claimed identity axis, so the gate's dark-body law (G2) is

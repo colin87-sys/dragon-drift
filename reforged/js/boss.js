@@ -210,7 +210,7 @@ const SETPIECE_PATHS = {
   // MOVING so the coil's iris rings keep expanding as it closes (emitter=organ).
   ribThread(k) {
     const B = CONFIG.BOSS;
-    const NEAR_REL = 7, RISE = 2.4;   // loom close + rise so the cage centres on frame
+    const NEAR_REL = 7, RISE = 1.0;   // loom close (the ×1.6-bone rework already hangs the cage at rail height; a slight rise centres it)
     if (k < 0.34) { const t = easeInOut(k / 0.34); return { x: 0, y: B.fightHeight + RISE * t, rel: B.settleGap + (NEAR_REL - B.settleGap) * t }; }
     if (k < 0.66) { const t = (k - 0.34) / 0.32; return { x: Math.sin(t * Math.PI) * 2.0, y: B.fightHeight + RISE, rel: NEAR_REL }; }   // hold the fly-through (slight drift)
     const t = easeInOut((k - 0.66) / 0.34); return { x: 0, y: B.fightHeight + RISE * (1 - t), rel: NEAR_REL + (B.settleGap - NEAR_REL) * t };

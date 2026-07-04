@@ -307,8 +307,13 @@ for (const key of BOSS_ORDER) {
     rp.traverse((o) => {
       if (!o.geometry || !o.geometry.attributes.position) return;
       const p = o.geometry.attributes.position;
-      if (p.count < 30) return;   // skip the root knuckles; measure the arcs only
-      for (let v = 0; v < p.count; v++) { const r = Math.hypot(p.getX(v), p.getY(v)); if (r < minR) minR = r; }
+      if (p.count < 30) return;   // skip tiny knuckle meshes; measure the arcs (and offset parts like the marrow cap)
+      for (let v = 0; v < p.count; v++) {
+        // Measure in PIVOT space: the mesh's local offset counts (e.g. the marrow
+        // scar sits on the ring via mesh.position, not baked geometry).
+        const r = Math.hypot(p.getX(v) + o.position.x, p.getY(v) + o.position.y);
+        if (r < minR) minR = r;
+      }
     });
     tightest = Math.min(tightest, 2 * minR);
   }
