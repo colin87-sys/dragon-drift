@@ -613,8 +613,9 @@ for (const key of BOSS_ORDER) {
 // posts (the §5f mercy mechanic: per-part hit test + break, mirroring the pane API).
 {
   const bh = buildBoss(BOSSES.brineholm, 1);
-  // Named parts the gate + the §5f plumbing find by name.
-  for (let i = 0; i < 4; i++) assert(!!bh.group.getObjectByName(`finPivot${i}`), `brineholm exposes named finPivot${i}`);
+  // Named parts the gate + the §5f plumbing find by name (a HERO orca sickle fin
+  // + one small accent — a single big curved fin reads "alive", not a mast row).
+  for (let i = 0; i < 2; i++) assert(!!bh.group.getObjectByName(`finPivot${i}`), `brineholm exposes named finPivot${i}`);
   assert(!!bh.group.getObjectByName('eyeLidPivot'), 'brineholm exposes the named eyeLidPivot (the heavy-lid telegraph)');
   assert(!!bh.group.getObjectByName('brineEye'), 'brineholm exposes the named brineEye (the one HDR focal + weak point)');
   assert(!!bh.group.getObjectByName('eyeCore'), 'brineholm exposes the named eyeCore (the G1 pinpoint)');
@@ -635,8 +636,8 @@ for (const key of BOSS_ORDER) {
   for (let s = 0; s < 24; s++) bh.tick(0.05, 1.0 + s * 0.05);   // let the lid grind + sails flare ease in
   const postFins = bh.finRaise();
   let finsMoved = 0;
-  for (let i = 0; i < 4; i++) if (Math.abs(postFins[i] - preFins[i]) > 0.2) finsMoved++;
-  assert(finsMoved >= 3, `brineholm charge FLARES the fin-sails (${finsMoved}/4 pivots rotated >0.2 rad — silhouette change)`);
+  for (let i = 0; i < preFins.length; i++) if (Math.abs(postFins[i] - preFins[i]) > 0.2) finsMoved++;
+  assert(finsMoved >= 2, `brineholm charge FLARES the fin-sails (${finsMoved}/${preFins.length} pivots rotated >0.2 rad — silhouette change)`);
   const postLid = bh.group.getObjectByName('eyeLidPivot').rotation.x;
   assert(postLid > preLid + 0.4, `brineholm charge grinds the eye-lid open (lidPivot.rot.x ${postLid.toFixed(2)} > ${preLid.toFixed(2)} — the lid lifts up-and-back, the eye surfaces to be hit)`);
 
@@ -681,9 +682,9 @@ for (const key of BOSS_ORDER) {
     const nFins = bn.finRaise();
     const nLid = bn.group.getObjectByName('eyeLidPivot').rotation.x;
     let finStartle = 0;
-    for (let i = 0; i < 4; i++) if (Math.abs(nFins[i] - idleFins[i]) > 0.15) finStartle++;
-    assert(finStartle >= 3 && nLid > idleLid + 0.2,
-      `brineholm NOTICE is a state JUMP (${finStartle}/4 sails startled, lid flung ${nLid.toFixed(2)} > ${idleLid.toFixed(2)}) — not idle+ε`);
+    for (let i = 0; i < idleFins.length; i++) if (Math.abs(nFins[i] - idleFins[i]) > 0.15) finStartle++;
+    assert(finStartle >= 2 && nLid > idleLid + 0.2,
+      `brineholm NOTICE is a state JUMP (${finStartle}/${idleFins.length} sails startled, lid flung ${nLid.toFixed(2)} > ${idleLid.toFixed(2)}) — not idle+ε`);
     bn.dispose();
   }
 
