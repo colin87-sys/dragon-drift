@@ -155,18 +155,19 @@ export function buildCleanTail(def, model, bodyMat, swept = false) {
   // metalness so it never catches the cool rim light as a steel-blue sheen (ember's
   // tail must not glow — fire owns the tail bloom, roster law §5). Default = shipped.
   const iron = !!model.tailIron;
-  const accentCol = iron ? (model.tailIronColor ?? 0x241a16)
+  const ironCol = model.tailIronColor ?? 0x2a1a12;   // WARM dark iron (not navy) — ember blacks are warm
+  const accentCol = iron ? ironCol
     : (g > 0 ? (def.apexSeam || def.scales) : def.scales);
   const plateMat = new THREE.MeshStandardMaterial({
     color: accentCol, emissive: iron ? 0x000000 : accentCol,
     emissiveIntensity: iron ? 0 : (0.3 + g * 1.5) * giM,
-    roughness: iron ? 0.72 : 0.35, metalness: iron ? 0.12 : 0.5,
+    roughness: iron ? 0.92 : 0.35, metalness: iron ? 0.0 : 0.5, envMapIntensity: iron ? 0.2 : 1,   // very rough + zero metal + low env → holds warm iron, never a steel-blue sheen (gate r4 dir 7)
   });
   plateMat.userData.baseEmissive = iron ? 0x000000 : accentCol;
   plateMat.userData.baseIntensity = iron ? 0 : (0.3 + g * 1.5) * giM;
   const accentMats = iron ? [] : [plateMat];      // iron tail: nothing for the Surge flare to light
   const membraneMat = iron
-    ? new THREE.MeshStandardMaterial({ color: model.tailIronColor ?? 0x241a16, roughness: 0.72, metalness: 0.1, side: THREE.DoubleSide })
+    ? new THREE.MeshStandardMaterial({ color: ironCol, roughness: 0.92, metalness: 0.0, envMapIntensity: 0.2, side: THREE.DoubleSide })
     : new THREE.MeshStandardMaterial({
         color: def.body, emissive: def.wingOuter || def.body, emissiveIntensity: 0.2,
         roughness: 0.5, metalness: 0.25, side: THREE.DoubleSide,

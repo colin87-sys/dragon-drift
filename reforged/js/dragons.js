@@ -130,7 +130,7 @@ export const DRAGONS = {
       hornType: 'bladeRearHorns', rearGlowIntensity: 0,
       neckBlend: 1.5,                   // thick short forge neck fuses the segment beads
       // ember gapped-finger membrane shared dials (per-form span/collar accrete below)
-      rayCount: 4, raySweep: 0.62, rayDihedral: 0.26, membraneCamber: 0.34, scallop: 0.26,
+      rayCount: 4, raySweep: 0.62, rayDihedral: 0.26, membraneCamber: 0.34, scallop: 0.28,
       rayScale: 0.82, rayDetail: 1.0, rayEmissiveIntensity: 1.1,
       sparColor: 0x5a4038,              // warm ash-scute leading spar (the sunlit dorsal top tier, law 11)
       flapBias: 0.95, flapAmp: 0.95,    // heavy, powerful beat
@@ -165,7 +165,7 @@ export const DRAGONS = {
       // eyes, full broad gapped wings, backSpines, 2 horn pairs, a short thick tail
       // with a DARK IRON blade tip, and the blazing forge-collar corona (the ONE
       // bloom). DEEPEST value; emissive at its richest (still ≤1.2, no glow-seams).
-      { wingScale: 1.0, raySpan: 11.6, rayDetail: 2.0, collarStage: 2,
+      { wingScale: 1.0, raySpan: 11.2, rayDetail: 2.0, collarStage: 2,
         spineCurl: 0.95, eyeShape: 1.0, headScale: 0.56, eyeScale: 0.83, snoutScale: 0.6,
         shoulderWidthScale: 1.6, hornType: 'bladeRearHorns', hornScale: 1.5, hornPairs: 2, browIntensity: 1.05,
         // ASH-SCUTE dorsal tier (law 11 / gate dir 8): low warm leaf-scutes tinted ash,
@@ -173,7 +173,7 @@ export const DRAGONS = {
         // the sun shades. 'scute' style (not the debug-arrow cones); ridgeColor forces a
         // MATTE ash material (avoids the shared scalesMat's cyan emissive).
         tailStyle: 'blade', tailLength: 0.55, tailSegments: 6, neckSegments: 5, backSpines: true,
-        ridgeCount: 12, ridgeStyle: 'scute', ridgeColor: 0x5a4038, ridgeSeat: -0.01, spineGlow: 0,
+        ridgeCount: 12, ridgeStyle: 'scute', ridgeColor: 0x7a5540, ridgeSeat: 0.0, spineGlow: 0,
         colors: { body: 0x1c0d08, belly: 0x2e1c12, wingInner: 0x2a1208, wingOuter: 0x180a06,
           wingEmissive: 0xff8b2a, scales: 0x5a4038, horn: 0x6a4636,
           apexSeam: 0x5a1e08, eye: 0xff6a1a, coreGlow: 0xff9a3a } },

@@ -284,7 +284,7 @@ function eyeZone(c, { r, x, y, z, glow }) {
   // 12), seated in a dark socket recess and pushed proud along its outward normal.
   if (c.cfg.hotEye) {
     const hotCol = c.mats.eyeMat.emissive.clone();
-    const irisMat = new THREE.MeshStandardMaterial({ color: 0x1a0d06, emissive: hotCol, emissiveIntensity: 1.15, roughness: 0.32 });
+    const irisMat = new THREE.MeshStandardMaterial({ color: 0x1a0d06, emissive: hotCol, emissiveIntensity: 1.0, roughness: 0.32 });   // ≤ the forge-collar bloom (law 12: collar is the ONE brightest point)
     const scleraMat = new THREE.MeshStandardMaterial({ color: 0x120a06, emissive: hotCol, emissiveIntensity: 0.32, roughness: 0.45 });
     const socketMat = new THREE.MeshStandardMaterial({ color: 0x0a0503, roughness: 0.7, metalness: 0.02 });
     const catchMat = new THREE.MeshStandardMaterial({ color: 0xffdca8, emissive: 0xffdca8, emissiveIntensity: 2.4 });
