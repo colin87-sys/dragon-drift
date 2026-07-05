@@ -18,7 +18,7 @@ import { initParticles, updateParticles, resetParticles, setParticleQuality } fr
 import { setDragonQuality, setDragonLook } from './dragon.js';
 import { updateCollision, resetCollision, acceptRevive, finishDeath } from './collision.js';
 import { ui } from './ui.js';
-import { music, sfx, setSlowMo, unlockAllTracks } from './sfx.js';
+import { music, sfx, setSlowMo, unlockAllTracks, getAudioHealth } from './sfx.js';
 import { initPostFX, setPostSize, setPostPixelRatio, setPostTier, updatePostFX, renderPostFX, postfx, kick, clearDeath, kickState, setupGodRays, setGodRaySun } from './postfx.js';
 import { initContactShadow, updateContactShadow, resetContactShadow, setContactShadowQuality } from './contactShadow.js';
 import { hitstop, juiceEvent } from './juice.js';
@@ -223,6 +223,8 @@ if (urlParams.has('debug')) {
   window.__dd = {
     renderer, scene, camera, game, player, save: saveData, emit, on, ui, cameraCtl, claimFeat, obstacleCount, trailDebug: __trailDebug,
     juice: { hitstop, juiceEvent },
+    // Audio overhaul debug: v2 flag, worklet-limiter state, underrun beacons.
+    audioHealth: () => getAudioHealth(),
     postfx: { setPostTier, kick, kickState, handle: postfx },
     // Drop straight into a boss fight (also bound to the B key under ?debug).
     spawnBoss: () => { if (game.state === 'playing') forceBoss(player); },
