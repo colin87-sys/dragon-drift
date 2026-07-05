@@ -65,6 +65,44 @@ export const ENTRANCE_SCRIPTS = {
     // pose endpoints / pivot / blend live in cameraController's default overtake state.
     camera(u, pose, player) { return { k: u, bx: pose.x, by: pose.y, bz: -(player.dist + pose.rel) }; },
   },
+
+  // EITHERWING — THE BATON CROSS (§5j slot 5). Both twins slide in from BOTH flanks and
+  // bracket the dragon (twinA RIGHT, twinB LEFT); the shared EYE detaches and crosses
+  // right→left across the FULL portrait width on a taut bead-thread — the camera + the
+  // dragon's own look-yaw sweep WITH it (fed the ORB's world-x as bx, the §5d escalation
+  // guard) — then the LEFT twin catches it (rims ignite) and both scissor into the
+  // figure-eight as the fight opens. The whole cinematic (twins/eye/ignition) is choreographed
+  // in the eitherwing model's setEntrance(u); this script owns the group path, camera feed,
+  // slow-mo window, and banner. eyeLock OFF (the eye does its own crossing, not a dragon-track).
+  batonCross: {
+    dur: 1.1,
+    skipTo: 0.82,              // skip → the scissor/settle (the eye still ends on the LEFT twin)
+    anchorToDragon: true,      // the brackets frame the dragon's start position
+    initYaw: 0,                // the group stays upright/forward; the twins face inward themselves
+    eyeLock: false,
+    slowWindow: { uIn: 0.24, uOut: 0.86, depth: 0.42 },   // the crossing dwells in bullet-time (~1.6s wall)
+    announce: { title: '⟶  TWO HALVES  ⟵', sub: 'ONE EYE BETWEEN THEM', tone: 'gold', dur: 1.8 },
+    _cross(u) { const k = clamp01((u - 0.32) / 0.52); return k < 0.5 ? 2 * k * k : 1 - Math.pow(-2 * k + 2, 2) / 2; },
+    // The group holds at the bracket distance (rel 14) beside the dragon, then eases back to
+    // station as the pair scissor into the figure-eight. x/y centred on the dragon anchor.
+    path(u, ctx) {
+      const { AX, AY, B } = ctx;
+      const settle = clamp01((u - 0.82) / 0.18);
+      const s = settle < 0.5 ? 2 * settle * settle : 1 - Math.pow(-2 * settle + 2, 2) / 2;
+      return { x: AX * (1 - s), y: AY + (B.fightHeight - AY) * s, rel: 14 + (B.settleGap - 14) * s };
+    },
+    tuck(u) { return clamp01((u - 0.8) / 0.2) * 0.5; },   // the tails flare as the pair scissor into the fight
+    // Drive the model's entrance choreography (twins bracket→scissor + eye cross + ignition).
+    onFrame(u, ctx, pose, player, model) { model.setEntrance?.(u); },
+    onStart(model) { model.setEntrance?.(0); },
+    // Feed the crossing ORB's world-x as bx so the cinematic camera pans to hold it AND
+    // main.js's look-window strains the dragon's head right→left with the eye (the "beside
+    // us" read). The orb rides rel ~12 (a touch nearer than the rel-14 brackets).
+    camera(u, pose, player) {
+      const orbLocalX = (1 - 2 * this._cross(u)) * 8;   // +8 (right twin) → −8 (left twin)
+      return { k: u, bx: pose.x + orbLocalX, by: pose.y + 1, bz: -(player.dist + 12) };
+    },
+  },
 };
 
 // Pure per-frame sampler (for tests + any tooling): returns the full frame a script

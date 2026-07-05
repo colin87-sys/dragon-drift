@@ -365,6 +365,7 @@ export const BOSSES = {
                               // second palette swatch (oxblood + aged-silver, §5d), apart from the eye's white.
     bulletColor: 0xff2b6a,    // danger stays magenta (role colour, never per-boss)
     approachFrom: 'sides',    // BOTH SIDES at once (§5e new branch): the twins arrive from both flanks
+    entrance: 'batonCross',   // §5j THE BATON CROSS: twins bracket the dragon, the eye crosses right→left, then scissor into the fight (falls back to the 'sides' approach if the script is absent)
     scale: 1.55,              // COLOSSUS — REACH PASS (r8): 1.35→1.55, crossing span ≈ 23u (ASHTALON-class reach)
     grazeBaitR: 4.0,          // WIDER shield graze-ring (default 3.6) — the r9 body reads big, so the
                               // fixed ring felt tight to thread; 4.0 stays ≤ grazeR (≈4.15) so it still fully skims

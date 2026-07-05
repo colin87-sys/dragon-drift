@@ -39,6 +39,7 @@ let debugFirstAt = null;       // ?boss override: bring the first encounter in e
 let debugDefIdx = null;        // ?bossIdx override: force a specific BOSS_ORDER entry
 let debugChargePin = -1;       // capture hook: ≥0 holds the charge/mantle pose for a still
 let debugSetpiecePin = null;   // capture hook: { id, k } holds a setpiece pose (the dive) for a still
+let debugEntrancePin = null;   // capture hook: 0..1 holds an ENTRANCE_SCRIPTS pose (the Baton Cross) for a still
 let nextBossDist = B.firstAt;
 let encounterIndex = 0;
 
@@ -815,6 +816,7 @@ function applyReticle(timeLeft, time) {
 function enterFight() {
   phase = 'fight';
   entranceId = null;                  // the scripted entrance is done
+  model?.setEntrance?.(null);         // release any per-boss entrance choreography (EITHERWING's Baton Cross)
   cineYaw = null;                     // hand facing back to placeGroup (face the player)
   cameraCtl.setOvertake?.(null);      // release the cinematic camera if it was active
   model.setEyeLock?.(false);          // hand the pupil back to the idle gaze
@@ -1022,6 +1024,21 @@ export function updateBoss(dt, player, time) {
     pose.rel = B.settleGap; pose.x = 0; pose.y = B.fightHeight;
     model.setAttackTell?.('aimed');
     model.setCharge(debugChargePin);
+  } else if (phase === 'fight' && debugEntrancePin != null && (def.entrance || def.cinematicEntrance)) {
+    // Capture-only: freeze a scripted ENTRANCE pose at a fixed clock u so the crop tool
+    // can shoot the Baton Cross (twins bracketing, eye mid-cross, scissor) as a still.
+    const script = ENTRANCE_SCRIPTS[def.entrance ?? 'overtake'];
+    if (script) {
+      const u = debugEntrancePin;
+      const ctx = { AX: player.position.x, AY: player.position.y, S: 1, B };
+      const p = script.path(u, ctx); pose.x = p.x; pose.y = p.y; pose.rel = p.rel;
+      model.setSetpiece?.(script.tuck ? script.tuck(u, ctx) : 0);
+      model.setCharge?.(0);
+      cineYaw = script.yaw ? script.yaw(u, ctx, pose, player) : (script.initYaw ?? null);
+      if (script.gaze) { const g = script.gaze(u, ctx, pose, player); model.setGaze?.(g.gx, g.gy); }
+      script.onFrame?.(u, ctx, pose, player, model, time);
+      if (script.camera) cameraCtl.setOvertake?.(script.camera(u, pose, player, ctx));
+    }
   } else if (phase === 'fight') {
     if (setpieceT >= 0 && !shielded) {
       // Scripted station-leave beat (def-gated; see SETPIECE_PATHS). Attacks +
@@ -1654,6 +1671,11 @@ export function setBossDebugCharge(level) {
 // can be shot of e.g. the stooping-dive silhouette. Pass null to release.
 export function setBossDebugSetpiece(pin) {
   debugSetpiecePin = pin;
+}
+
+// Capture hook: pin an ENTRANCE pose at clock u∈[0,1] (the Baton Cross) for a still.
+export function setBossDebugEntrance(u) {
+  debugEntrancePin = u;
 }
 
 // Debug hook: drop straight into a fight (wired under ?debug in main.js).
