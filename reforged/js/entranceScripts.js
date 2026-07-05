@@ -66,43 +66,54 @@ export const ENTRANCE_SCRIPTS = {
     camera(u, pose, player) { return { k: u, bx: pose.x, by: pose.y, bz: -(player.dist + pose.rel) }; },
   },
 
-  // EITHERWING — THE BATON CROSS (§5j slot 5). Both twins slide in from BOTH flanks and
-  // bracket the dragon (twinA RIGHT, twinB LEFT); the shared EYE detaches and crosses
-  // right→left across the FULL portrait width on a taut bead-thread — the camera + the
-  // dragon's own look-yaw sweep WITH it (fed the ORB's world-x as bx, the §5d escalation
-  // guard) — then the LEFT twin catches it (rims ignite) and both scissor into the
-  // figure-eight as the fight opens. The whole cinematic (twins/eye/ignition) is choreographed
-  // in the eitherwing model's setEntrance(u); this script owns the group path, camera feed,
-  // slow-mo window, and banner. eyeLock OFF (the eye does its own crossing, not a dragon-track).
+  // EITHERWING — THE BATON CROSS (§5j slot 5). A REAR-CAM sequential reveal: the camera
+  // wheels to a look-BACK pose as twinA rises from behind-below on the RIGHT (the dragon
+  // cranks its head right to look) with the shared EYE on it; then the EYE crosses to twinB
+  // as it rises on the LEFT (the dragon's head + the camera pan LEFT to follow the eye);
+  // then both SCISSOR forward together into the figure-eight as the camera eases home and
+  // the fight opens. The per-twin rise + eye-cross is choreographed in the eitherwing model's
+  // setEntrance(u); this script owns the group's rear approach, the camera pan (fed the LIT
+  // twin's world-x as bx), the dragon's dual head-turn (lookWin/lookYaw), slow-mo, and banner.
+  // eyeLock OFF (the eye crosses on its own beat, it is not tracking the dragon).
   batonCross: {
-    dur: 1.2,                  // ~2.4s wall — the smoothness comes from the scissor easing, not a longer clock
-    skipTo: 0.78,              // skip → the scissor/settle (the eye still ends on the LEFT twin)
-    anchorToDragon: true,      // the brackets frame the dragon's start position
+    dur: 1.8,                  // ~3.5s wall — three distinct beats (reveal A · reveal B · scissor) need the room
+    skipTo: 0.70,              // skip → the scissor/settle (the eye still ends on the LEFT twin)
+    anchorToDragon: true,      // the reveal frames the dragon's start position
     initYaw: 0,                // the group stays upright/forward; the twins face inward themselves
     eyeLock: false,
-    slowWindow: { uIn: 0.24, uOut: 0.88, depth: 0.42 },   // the crossing dwells in bullet-time (matches the shipped feel)
+    slowWindow: { uIn: 0.08, uOut: 0.90, depth: 0.40 },   // the whole reveal dwells in bullet-time
     announce: { title: '⟶  TWO HALVES  ⟵', sub: 'ONE EYE BETWEEN THEM', tone: 'gold', dur: 1.8 },
-    _cross(u) { const k = clamp01((u - 0.32) / 0.52); return k < 0.5 ? 2 * k * k : 1 - Math.pow(-2 * k + 2, 2) / 2; },
-    // The group holds at the bracket distance (rel 14) beside the dragon, then eases back to
-    // station as the pair scissor into the figure-eight. x/y centred on the dragon anchor.
+    // The LIT twin's local x (group space): beat 1 = twinA at +9 (RIGHT); beat 2 crosses to
+    // twinB at −9 (LEFT) as the eye passes; beat 3 eases to centre as they scissor forward.
+    _lit(u) {
+      const cross = easeInOut(clamp01((u - 0.34) / 0.28));    // 0 → A (right) · 1 → B (left)
+      const settle = easeInOut(clamp01((u - 0.66) / 0.30));   // ease the focus to centre in the scissor
+      return L(9, -9, cross) * (1 - settle);
+    },
+    // The group rides BEHIND the dragon (rel < 0, inside the rear-look camera) through both
+    // reveals, then sweeps AHEAD to the fight station as the pair scissor into the figure-eight.
     path(u, ctx) {
       const { AX, AY, B } = ctx;
-      const settle = clamp01((u - 0.82) / 0.18);
+      const settle = clamp01((u - 0.66) / 0.34);
       const s = settle < 0.5 ? 2 * settle * settle : 1 - Math.pow(-2 * settle + 2, 2) / 2;
-      return { x: AX * (1 - s), y: AY + (B.fightHeight - AY) * s, rel: 14 + (B.settleGap - 14) * s };
+      return { x: AX * (1 - s), y: L(AY + 1.5, B.fightHeight, s), rel: L(-9, B.settleGap, s) };
     },
-    tuck(u) { return clamp01((u - 0.8) / 0.2) * 0.5; },   // the tails flare as the pair scissor into the fight
-    // Drive the model's entrance choreography (twins bracket→scissor + eye cross + ignition).
+    tuck(u) { return clamp01((u - 0.7) / 0.3) * 0.5; },   // the tails flare as the pair scissor into the fight
+    // Drive the model's per-twin rise + eye-cross + ignition.
     onFrame(u, ctx, pose, player, model) { model.setEntrance?.(u); },
     onStart(model) { model.setEntrance?.(0); },
-    // Feed the crossing ORB's world-x as bx so the cinematic camera pans to hold it AND
-    // main.js's look-window strains the dragon's head right→left with the eye (the "beside
-    // us" read). The orb rides rel ~12 (a touch nearer than the rel-14 brackets).
+    // Feed the LIT twin's world-x as bx so (a) the rear-look camera pans right→left between
+    // the two reveals and (b) main.js turns the dragon's head to each twin in turn. lookWin
+    // holds the head-turn open across BOTH reveals and eases it out through the scissor
+    // (ASHTALON's default single-glance window doesn't fit a two-beat reveal). No chaseCam:
+    // this uses the rear-look block. pivot 0.70 keeps the look-back through both reveals.
     camera(u, pose, player) {
-      const orbLocalX = (1 - 2 * this._cross(u)) * 8;   // +8 (right twin) → −8 (left twin)
-      // chaseCam: the camera stays in the normal chase (the twins bracket AHEAD and fit the
-      // frame); only main.js's dragon-look reads bx to sweep the head with the crossing eye.
-      return { k: u, bx: pose.x + orbLocalX, by: pose.y + 1, bz: -(player.dist + 12), chaseCam: true };
+      const lit = this._lit(u);
+      const lookWin = clamp01(u / 0.12) * (1 - clamp01((u - 0.70) / 0.22));
+      return {
+        k: u, bx: pose.x + lit, by: pose.y + 1.5, bz: -(player.dist + pose.rel),
+        pivot: 0.70, blend: 0.24, fov: 82, lookWin,
+      };
     },
   },
 };
