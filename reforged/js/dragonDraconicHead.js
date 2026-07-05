@@ -233,6 +233,7 @@ function eyeZone(c, { r, x, y, z, glow }) {
     // round teardrop. An almond outline has sharp front+rear CANTHUS points; a pale-ice iris in a
     // dark socket surround with a real vertical SLIT pupil and a HIGH catchlight = a falcon gaze.
     const irisMat = new THREE.MeshStandardMaterial({ color: 0xbfe8ff, emissive: 0x5fb0dd, emissiveIntensity: 1.15, roughness: 0.22, side: THREE.DoubleSide });
+    const irisShadeMat = new THREE.MeshStandardMaterial({ color: 0x6fb4dc, emissive: 0x2f7aa8, emissiveIntensity: 0.5, roughness: 0.3, side: THREE.DoubleSide });   // darker upper tier (same hue)
     const pupilMat = new THREE.MeshStandardMaterial({ color: 0x0a1420, roughness: 0.4, side: THREE.DoubleSide });
     const socketMat = new THREE.MeshStandardMaterial({ color: 0x0e1c2c, roughness: 0.62, side: THREE.DoubleSide });
     const catchMat = new THREE.MeshStandardMaterial({ color: 0xffffff, emissive: 0xffffff, emissiveIntensity: 3.2 });
@@ -255,10 +256,17 @@ function eyeZone(c, { r, x, y, z, glow }) {
       g.add(socket);                                          // dark surround → the pale iris sits INSIDE dark
       const iris = new THREE.Mesh(new THREE.ShapeGeometry(almond(L, H), seg(6)), irisMat);
       iris.position.z = 0.014; g.add(iris);
-      const pupil = new THREE.Mesh(new THREE.PlaneGeometry(L * 0.32, H * 1.7), pupilMat);
-      pupil.position.z = 0.026; g.add(pupil);                 // vertical SLIT spanning the eye height, proud so it renders
-      const spec = new THREE.Mesh(new THREE.SphereGeometry(R2 * 0.12, seg(4), seg(3)), catchMat);
-      spec.position.set(-L * 0.42, H * 0.5, 0.05); g.add(spec);   // HIGH + off-centre glint (upper-front) = alive, not crying
+      // ONE internal value step (gate r12 dir 4): a darker tier shading the upper third under the
+      // brow overhang, same hue family — so the eye reads as a lit sphere in a socket, not a cutout.
+      const irisShade = new THREE.Mesh(new THREE.ShapeGeometry(almond(L * 0.94, H * 0.9), seg(6)), irisShadeMat);
+      irisShade.position.set(0, H * 0.42, 0.02); g.add(irisShade);
+      // readable dark vertical SLIT pupil (gate r12 dir 2): ~50% eye height, ~15% width, seated
+      // toward the forward canthus so the gaze reads ahead; proud so it survives at distance.
+      const pupil = new THREE.Mesh(new THREE.PlaneGeometry(L * 0.26, H * 1.0), pupilMat);
+      pupil.position.set(-L * 0.22, 0, 0.05); g.add(pupil);
+      // small hard catchlight DOT inside the iris, upper-forward beside the slit (both eyes)
+      const spec = new THREE.Mesh(new THREE.SphereGeometry(R2 * 0.1, seg(4), seg(3)), catchMat);
+      spec.position.set(-L * 0.02, H * 0.42, 0.07); g.add(spec);
       c.head.add(g);
       // BROW ridge that OVERHANGS the eye (gate r11 dir 3): its lower edge intersects the upper lid.
       const browR = new THREE.Mesh(new THREE.BoxGeometry(R2 * 1.7, R2 * 0.32, R2 * 0.66), browMat);

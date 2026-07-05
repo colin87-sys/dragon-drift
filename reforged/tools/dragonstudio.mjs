@@ -86,7 +86,7 @@ for (let form = 0; form <= maxTier; form++) {
     { part: 'wing',  zoom: 1, label: 'wing' },
     { part: 'head',  zoom: 1, label: 'head' },
     { part: 'wing',  zoom: 4, label: 'wing 4×' },
-    { part: 'head',  zoom: 4, label: 'head/eye 4×' },
+    { part: 'head',  zoom: 2.2, label: 'head/eye 2.2×' },   // 4× put the camera INSIDE the head shell (gate r12 dir 1); 2.2× keeps it outside with the eye readable
     { part: 'whole', zoom: 1, label: 'whole (dark)', bg: 'dark' },
   ];
   await page.evaluate((c) => window.dsSheetInit(c[0], c[1], c[2]), [3, 2, 460]);
