@@ -232,48 +232,44 @@ function eyeZone(c, { r, x, y, z, glow }) {
     // TRUE ALMOND built from a flat SHAPE (gate r11 dir 1/2/3): scaled spheres only ever made a
     // round teardrop. An almond outline has sharp front+rear CANTHUS points; a pale-ice iris in a
     // dark socket surround with a real vertical SLIT pupil and a HIGH catchlight = a falcon gaze.
-    const irisMat = new THREE.MeshStandardMaterial({ color: 0xbfe8ff, emissive: 0x5fb0dd, emissiveIntensity: 1.15, roughness: 0.22, side: THREE.DoubleSide });
-    const irisShadeMat = new THREE.MeshStandardMaterial({ color: 0x6fb4dc, emissive: 0x2f7aa8, emissiveIntensity: 0.5, roughness: 0.3, side: THREE.DoubleSide });   // darker upper tier (same hue)
+    // CONFORMAL almond eye (gate r14): ONE connected lens sitting NEAR-FLUSH on the head (a proud
+    // stack parallax-floated the catchlight and broke the silhouette). The value step is BAKED into
+    // the iris as a vertex-colour gradient (pale lower → darker upper) so it is one lens, not shards.
     const pupilMat = new THREE.MeshStandardMaterial({ color: 0x0a1420, roughness: 0.4, side: THREE.DoubleSide });
     const socketMat = new THREE.MeshStandardMaterial({ color: 0x0e1c2c, roughness: 0.62, side: THREE.DoubleSide });
-    const catchMat = new THREE.MeshStandardMaterial({ color: 0xffffff, emissive: 0xffffff, emissiveIntensity: 3.2 });
+    const catchMat = new THREE.MeshStandardMaterial({ color: 0xffffff, emissive: 0xffffff, emissiveIntensity: 3.0 });
     const browMat = new THREE.MeshStandardMaterial({ color: 0x16283c, roughness: 0.66, metalness: 0.04 });
-    // almond outline: sharp canthus at ±L, taut upper lid (+H), shallower lower lid (−0.8H)
     const almond = (L, H) => { const sh = new THREE.Shape();
       sh.moveTo(-L, 0); sh.quadraticCurveTo(-L * 0.1, H, L, 0); sh.quadraticCurveTo(-L * 0.1, -H * 0.8, -L, 0); return sh; };
-    const R2 = rr * 2.55;                                    // ~16% head length (higher-set, keen)
-    const L = R2 * 1.08, H = R2 * 0.52;                      // length 2.16 : height ~1.0 → a proper almond
-    const ex = c.hx * 0.64, ey = c.hy * 0.14, ez = c.faceZ - c.faceR * 0.2;   // higher-set on the skull
+    const R2 = rr * 2.4;
+    const L = R2 * 1.12, H = R2 * 0.5;                       // length 2.24 : height 1.0 → keen almond
+    // iris geometry with a BAKED value gradient (built once, shared by both eyes)
+    const irisGeo = new THREE.ShapeGeometry(almond(L, H), seg(8));
+    { const pos = irisGeo.attributes.position, cols = [], pale = new THREE.Color(0xc8edff), dk = new THREE.Color(0x4f97c6), tmp = new THREE.Color();
+      for (let i = 0; i < pos.count; i++) { const t = (pos.getY(i) + 0.8 * H) / (1.8 * H); tmp.copy(pale).lerp(dk, Math.max(0, Math.min(1, t * 0.9))); cols.push(tmp.r, tmp.g, tmp.b); }
+      irisGeo.setAttribute('color', new THREE.Float32BufferAttribute(cols, 3)); }
+    const irisMat = new THREE.MeshStandardMaterial({ vertexColors: true, emissive: 0x3f88b4, emissiveIntensity: 0.72, roughness: 0.24, side: THREE.DoubleSide });
+    const ex = c.hx * 0.62, ey = c.hy * 0.15, ez = c.faceZ - c.faceR * 0.18;   // higher-set, a touch less lateral
     for (const s of [-1, 1]) {
       const g = new THREE.Group();
-      const yaw = Math.PI - s * 0.62;
-      // seat the flat almond PROUD of the curved head shell along its own facing normal (a flat
-      // shape at the eye centre would be swallowed by the shell) — push out ~0.16 along the normal.
-      const nx = Math.sin(yaw), nz = Math.cos(yaw), out = 0.17;
-      g.position.set(s * ex + nx * out, ey + 0.02, ez + nz * out);
-      g.rotation.set(0.05, yaw, s * 0.2);                    // face outward-FORWARD; rake the long axis ~12°
-      // THIN dark socket rim (gate r13 dir 2: the fat outline was swallowing the pupil) — only a
-      // little bigger than the iris so the dark surround reads as a keen lid, not a heavy frame.
-      const socket = new THREE.Mesh(new THREE.ShapeGeometry(almond(L * 1.12, H * 1.2), seg(6)), socketMat);
-      g.add(socket);
-      const iris = new THREE.Mesh(new THREE.ShapeGeometry(almond(L, H), seg(6)), irisMat);
-      iris.position.z = 0.014; g.add(iris);
-      // ONE internal value step (LANDED r12): darker same-hue upper tier under the brow overhang.
-      const irisShade = new THREE.Mesh(new THREE.ShapeGeometry(almond(L * 0.92, H * 0.86), seg(6)), irisShadeMat);
-      irisShade.position.set(0, H * 0.46, 0.02); g.add(irisShade);
-      // discrete vertical SLIT pupil (gate r13 dir 2): a narrow near-black sliver at the forward
-      // third, CENTRED in the tall part of the almond and surrounded by iris on all sides (h:w ≈5:1),
-      // proud so it never merges with the outline.
-      const pupil = new THREE.Mesh(new THREE.PlaneGeometry(L * 0.12, H * 0.92), pupilMat);
-      pupil.position.set(-L * 0.14, -H * 0.05, 0.06); g.add(pupil);
-      // catchlight DOT — bigger + very proud, high-forward on the iris, overlapping the dark tier so
-      // it reads on BOTH eyes from every angle (gate r13 dir 3). The 3D dot is inherently per-eye.
-      const spec = new THREE.Mesh(new THREE.SphereGeometry(R2 * 0.14, seg(5), seg(4)), catchMat);
-      spec.position.set(-L * 0.02, H * 0.5, 0.11); g.add(spec);
+      const yaw = Math.PI - s * 0.5;                          // face more forward → both read face-front
+      const nx = Math.sin(yaw), nz = Math.cos(yaw), out = 0.16;   // proud enough to READ as a keen almond (the r13 level that scored life 3); catchlight/pupil are near-coplanar so no parallax float this time
+      g.position.set(s * ex + nx * out, ey + 0.01, ez + nz * out);
+      g.rotation.set(0.04, yaw, s * 0.2);                    // rake the long axis ~12°
+      const socket = new THREE.Mesh(new THREE.ShapeGeometry(almond(L * 1.1, H * 1.16), seg(6)), socketMat);
+      socket.position.z = -0.004; g.add(socket);              // thin dark rim tracing the almond
+      const iris = new THREE.Mesh(irisGeo, irisMat);
+      iris.position.z = 0.004; g.add(iris);
+      // slit pupil FULLY inside the lens (h:w ~5:1), forward third, co-planar so it can't detach
+      const pupil = new THREE.Mesh(new THREE.PlaneGeometry(L * 0.14, H * 0.82), pupilMat);
+      pupil.position.set(-L * 0.12, -H * 0.04, 0.008); g.add(pupil);
+      // small catchlight ON the cornea — tiny offset so parallax can never float it off the eye
+      const spec = new THREE.Mesh(new THREE.SphereGeometry(R2 * 0.09, seg(4), seg(3)), catchMat);
+      spec.position.set(-L * 0.02, H * 0.4, 0.016); g.add(spec);
       c.head.add(g);
-      // BROW ridge that OVERHANGS the eye (gate r11 dir 3): its lower edge intersects the upper lid.
-      const browR = new THREE.Mesh(new THREE.BoxGeometry(R2 * 1.7, R2 * 0.32, R2 * 0.66), browMat);
-      browR.position.set(s * (ex * 0.98), ey + H * 0.92, ez + R2 * 0.18);
+      // BROW ridge overhanging the eye (its lower edge meets the upper lid)
+      const browR = new THREE.Mesh(new THREE.BoxGeometry(R2 * 1.6, R2 * 0.3, R2 * 0.58), browMat);
+      browR.position.set(s * (ex * 0.98), ey + H * 0.86, ez + R2 * 0.14);
       browR.rotation.set(0.2, s * 0.16, s * 0.4);
       c.head.add(browR);
     }
