@@ -666,6 +666,14 @@ export function startBossEncounter(player, defOverride) {
     start.rel = B.settleGap;
     start.x = (Math.random() < 0.5 ? -1 : 1) * 4;
     start.y = -8;                   // rises from below the frame (Brineholm/Marrowcoil)
+  } else if (def.approachFrom === 'ahead') {
+    // DEAD AHEAD (§5b/§5d slot 6, HOLLOWGATE): the only boss that never comes
+    // to you — it holds the horizon and the RAIL closes the distance. Large
+    // start.rel is the §5j degrade path until the fog-exempt horizon-presence
+    // seed ships (the arch is visible far up the lane through the haze).
+    start.rel = 150;
+    start.x = 0;
+    start.y = B.fightHeight;
   } else if (def.approachFrom === 'sides') {
     // BOTH SIDES at once (§5b/§5d slot 5, EITHERWING): the pair materialises dead
     // ahead and glides into station centred, while the two twins sweep OUT from the
@@ -702,7 +710,7 @@ export function startBossEncounter(player, defOverride) {
   // clears as the boss flies in — anchored WHERE it emerges. 'side' → left/right;
   // 'above' → top; 'below'/'behind' → bottom-centre.
   const dir = def.approachFrom === 'side' ? (start.x < 0 ? 'left' : 'right')
-    : def.approachFrom === 'above' ? 'top' : 'bottom';
+    : (def.approachFrom === 'above' || def.approachFrom === 'ahead') ? 'top' : 'bottom';
   ui.bossWarning?.(def.name, def.title, dir, B.warnTime);
   sfx.feverStart?.();
   cameraCtl.shake?.(1.2);

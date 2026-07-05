@@ -69,7 +69,12 @@ for (const key of BOSS_ORDER) {
   // Defs-lint name budgets (§5h): NAME ≤12, epithet ≤34 (title-card legibility).
   assert((d.name || '').length <= 12, `${key} name ≤12 chars ("${d.name}")`);
   assert((d.epithet || '').length <= 34, `${key} epithet ≤34 chars ("${d.epithet}")`);
-  assertEq(d.phases.length, 3, `${key} has 3 phases (the vision: ~3 surges to kill)`);
+  // Phase count is band-scaled (§5g move-set richness): Sentinels/Colossi hold
+  // the original 3-surge vision; Calamities+ may carry 4–5 carded phases (the
+  // band contract's "4–5 cards"). One shield per phase stays the invariant —
+  // phase count IS the §5h scaling knob.
+  if (d.tier <= 2) assertEq(d.phases.length, 3, `${key} has 3 phases (the vision: ~3 surges to kill)`);
+  else assert(d.phases.length >= 3 && d.phases.length <= 5, `${key} (tier ${d.tier}) has 3–5 phases (got ${d.phases.length})`);
   let prev = Infinity;
   for (const ph of d.phases) {
     assert(ph.atFrac <= prev, `${key} phase atFrac is descending`);
@@ -493,6 +498,67 @@ for (const key of BOSS_ORDER) {
 
   tw.dispose();
   ok(`eitherwing geometry: twin ΔL ${(lum.A - lum.B).toFixed(2)}, ribbon spread ${spreadA.toFixed(2)}, thread≥${minThread.toFixed(1)}, handoff ${travel.toFixed(1)}/thread ${threadAt.toFixed(1)}, ${ribMoved} ribbons telegraph`);
+}
+
+// HOLLOWGATE (slot 6) — the telegraph gate + the §5d/§7b per-sheet geometry
+// asserts (the ruined-arch Calamity opener: fly-through gap ≥9, portcullis
+// telegraph on a named pivot, the 8-pane expression rig, the discrete pupil).
+{
+  const hg = buildBoss(BOSSES.hollowgate, 1);
+
+  // Named anatomy the telegraph/design gates + the studio locate by name.
+  const pivot = hg.group.getObjectByName('portcullisPivot');
+  assert(!!pivot, 'hollowgate exposes a named portcullisPivot for the telegraph gate');
+  assert(!!hg.group.getObjectByName('roseHub'), 'hollowgate exposes the named roseHub (the focal + def.muzzle organ)');
+  assert(!!hg.group.getObjectByName('scarShard'), 'hollowgate exposes the ONE asymmetric scar (the orphan voussoir shard)');
+  for (let i = 0; i < 8; i++) assert(!!hg.group.getObjectByName(`rosePane${i}`), `hollowgate exposes named rosePane${i}`);
+
+  // §5d sheet law — the FLY-THROUGH GAP: ≥9 world units wide (the rail flies
+  // through the arch every pass; L141 — the pass must genuinely enclose the rail).
+  const gapW = hg.archGapWidth();
+  assert(gapW >= 9, `hollowgate arch gap ${gapW.toFixed(1)} ≥ 9 world units (the fly-through law)`);
+  const span = hg.archGapSpan();
+  assert(span.hi - span.lo >= 12, `hollowgate arch gap vertical span ${(span.hi - span.lo).toFixed(1)} ≥ 12 (clears the rail height band)`);
+
+  // TELEGRAPH (§3.5, the named-pivot gate): setCharge(1) DESCENDS the portcullis
+  // into the gap — a shape change in the void, not a colour change.
+  hg.tick(0.016, 0.5);
+  const y0 = pivot.position.y;
+  hg.setCharge(1);
+  hg.setAttackTell('curtain');
+  for (let i = 0; i < 90; i++) hg.tick(0.016, 1 + i * 0.016);
+  const dropped = y0 - pivot.position.y;
+  assert(dropped > 3, `hollowgate telegraph: setCharge(1) drops the portcullis ${dropped.toFixed(2)} local units into the gap (silhouette change)`);
+  hg.setCharge(0); hg.setAttackTell(null);
+
+  // EXPRESSION RIG (§4b): the lit PUPIL pane migrates toward the gaze — and it
+  // TICKS in discrete wedge-steps (≤1 wedge per tick interval; continuous
+  // tracking is slot 14's exclusive claim).
+  for (let i = 0; i < 240; i++) { hg.setGaze(-1, 0); hg.tick(0.016, 4 + i * 0.016); }
+  const leftPane = hg.pupilPane();
+  const stepLog = new Set([leftPane]);
+  for (let i = 0; i < 240; i++) { hg.setGaze(1, 0); hg.tick(0.016, 9 + i * 0.016); stepLog.add(hg.pupilPane()); }
+  const rightPane = hg.pupilPane();
+  assert(leftPane !== rightPane, `hollowgate pupil migrates with gaze (pane ${leftPane} → ${rightPane})`);
+  assert(stepLog.size >= 3, `hollowgate pupil moved through ${stepLog.size} discrete wedge-steps (ticking, not teleporting)`);
+  const glowNow = hg.paneIntensities();
+  assert(glowNow[rightPane] > Math.min(...glowNow) + 0.3,
+    `hollowgate pupil pane ${rightPane} is the brightest wedge (ei ${glowNow[rightPane].toFixed(2)})`);
+
+  // §5j VIGIL LIGHTS ignition: setEntrance ignites the panes progressively —
+  // dark at u≈0, most of the ring lit by u≈0.85.
+  hg.setEntrance(0.02);
+  for (let i = 0; i < 30; i++) hg.tick(0.016, 20 + i * 0.016);
+  const litEarly = hg.paneIntensities().filter((v) => v > 0.2).length;
+  hg.setEntrance(0.85);
+  for (let i = 0; i < 90; i++) hg.tick(0.016, 21 + i * 0.016);
+  const litLate = hg.paneIntensities().filter((v) => v > 0.2).length;
+  assert(litEarly <= 1 && litLate >= 5,
+    `hollowgate ignition: ${litEarly} pane(s) lit at u=0.02 → ${litLate} lit at u=0.85 (one per beat)`);
+  hg.setEntrance(null);
+
+  hg.dispose();
+  ok(`hollowgate geometry: gap ${gapW.toFixed(1)}w, portcullis drop ${dropped.toFixed(1)}, pupil ${leftPane}→${rightPane} in ${stepLog.size} steps, ignition ${litEarly}→${litLate}`);
 }
 
 // Legacy coexist gate: a def WITHOUT `archetype` must still fall through to
