@@ -294,7 +294,20 @@ function eyeZone(c, { r, x, y, z, glow }) {
     // the default eye keeps its shipped almond squash byte-identical.
     if (c.cfg.cuteEye) eye.scale.set(1.0, 0.96, 0.92); else eye.scale.set(sx, sy, 0.82);
     eye.rotation.set(0.1, -s * tiltY, -s * tiltZ);   // almond/feline tilt (0 when round)
-    eye.position.set(s * x, yset, z);
+    // EYE ANCHOR: the ONE-SHELL smooth wedge (apex skull) SWALLOWS a flush-seated ball —
+    // the r13 keen decal existed precisely because of this, seated proud on the wedge cheek.
+    // The socketed ball inherits that proven proud anchor; every other skull keeps the
+    // zone anchor (and the default eye keeps its shipped position byte-identical).
+    const oneShellEye = c.cfg.cuteEye && c.cfg.skullType === 'smoothWedgeSkull';
+    // The r13 keen decal's EXACT proven anchor: forward on the narrowing snout (where the
+    // wedge is slim enough to clear) + pushed 0.17 proud along the cheek normal. A ball
+    // needs a touch more (its own radius) than the flat shape did.
+    const kYaw = Math.PI - s * 0.62, kN = new THREE.Vector3(Math.sin(kYaw), 0, Math.cos(kYaw));
+    const ecA = oneShellEye
+      ? new THREE.Vector3(s * c.hx * 0.64, c.hy * 0.14 + 0.02, c.faceZ - c.faceR * 0.2)
+          .addScaledVector(kN, 0.17 + rr * 0.4)
+      : new THREE.Vector3(s * x, yset, z);
+    eye.position.copy(ecA);
     c.head.add(eye);
     if (c.cfg.cuteEye) {
       // A cartoon eye built from FLAT COPLANAR DISC DECALS (gate CP2 r3 dir 1). Both prior
@@ -302,8 +315,10 @@ function eyeZone(c, { r, x, y, z, glow }) {
       // stray fleck-triangles; flat CircleGeometry decals stacked at increasing depth are
       // parallel planes that CANNOT intersect — clean rims, no shatter. They sit proud of the
       // sclera in a group facing the forward-and-slightly-out gaze normal (button-eye read).
-      const nrm = new THREE.Vector3(s * 0.15, 0.05, -1).normalize();
-      const ec = new THREE.Vector3(s * x, yset, z);
+      const nrm = oneShellEye
+        ? new THREE.Vector3(kN.x, 0.06, kN.z).normalize()          // apex: gaze along the wedge-cheek normal (the keen decal's facing)
+        : new THREE.Vector3(s * 0.15, 0.05, -1).normalize();       // young forms: mostly forward, small outward
+      const ec = ecA;
       const dg = new THREE.Group();
       dg.position.copy(ec).addScaledVector(nrm, rr * 0.99);   // seat the decal plane just PROUD of the sclera front (~0.92·rr) so the white sclera never z-fights through the pupil
       dg.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), nrm);   // +Z (the CircleGeometry face normal) → gaze
@@ -312,9 +327,27 @@ function eyeZone(c, { r, x, y, z, glow }) {
         const m = new THREE.Mesh(new THREE.CircleGeometry(radius, seg(16)), mat);
         m.position.set(ox, oy, zoff); dg.add(m); return m;
       };
-      disc(rr * 0.6, cuteIrisMat, 0);                              // blue IRIS disc
-      disc(rr * 0.32, cutePupilMat, rr * 0.02);                    // dark PUPIL, proud of the iris
-      disc(rr * 0.11, cuteGlintMat, rr * 0.04, -rr * 0.13, rr * 0.15);   // CATCHLIGHT dot, upper-inner
+      // IRIS-DOMINANT proportions (research: cute = ~90% iris+pupil with only a sliver of
+      // sclera; a small pupil floating on a wide white field is the STARTLED/manic read).
+      disc(rr * 0.66, cuteIrisMat, 0);                             // blue IRIS disc — fills most of the aperture
+      disc(rr * 0.42, cutePupilMat, rr * 0.02);                    // big dark PUPIL (big pupil = young/soft)
+      disc(rr * 0.12, cuteGlintMat, rr * 0.04, -s * rr * 0.14, rr * 0.16);   // CATCHLIGHT — mirrored per side so BOTH sit upper-INNER (the r4 gate caught the left/right mismatch)
+
+      // SOCKET LIDS (research: an eye sits IN an orbit under an upper lid — never a naked
+      // exposed ball; the lid gives the aperture its shape and the gaze its seat). Two
+      // body-hued spherical caps hood the eyeball, radius +7% so they can never z-fight.
+      // eyeShape drives the lid: es=0 → a light high hood (round wide baby aperture);
+      // es=1 → a deep, nose-ward-slanted hood (the keen almond apex). This ONE dial-driven
+      // socket replaces the separate keen-almond decal, so every form shares an eye system.
+      const hood = 0.62 + es * 0.5;                                // upper-lid angular coverage
+      const upperLid = new THREE.Mesh(new THREE.SphereGeometry(rr * 1.07, seg(9), seg(3), 0, Math.PI * 2, 0, hood), c.flapMat);
+      upperLid.position.copy(ec);
+      upperLid.rotation.set(-0.38 - es * 0.22, 0, s * es * 0.5);   // tip the hood forward over the upper iris; roll it nose-ward for the keen slant
+      c.head.add(upperLid);
+      const lowerLid = new THREE.Mesh(new THREE.SphereGeometry(rr * 1.06, seg(8), seg(2), 0, Math.PI * 2, Math.PI - (0.34 + es * 0.18), 0.34 + es * 0.18), c.flapMat);
+      lowerLid.position.copy(ec);
+      lowerLid.rotation.set(-0.3, 0, 0);                           // a soft lower-lid crescent closes the socket from below
+      c.head.add(lowerLid);
     }
     if (glow) {
       const rim = new THREE.Mesh(new THREE.TorusGeometry(r * 1.12, r * 0.14, seg(5), seg(10), Math.PI * 1.1), c.glowMat);
