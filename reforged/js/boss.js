@@ -2375,6 +2375,22 @@ export function debugRunSetpiece(id) {
   if (!sp.moving) { attackTimer = Math.max(attackTimer, sp.dur + 1.2); riderTimer = Math.max(riderTimer, sp.dur); }
 }
 
+// Capture hook: snap straight to the FIGHT phase at station, skipping warn + the
+// entrance. THRUMSWARM's deep-dilate entrance (2.8s @0.24×) crawls under headless rAF
+// throttle, stalling capture tools for minutes; this lands the fight instantly for a
+// still. Capture-only (never wired into gameplay); no-op once already fighting.
+export function debugForceFight(player) {
+  if (!active || !player) return;
+  if (phase === 'fight' || phase === 'dying') return;
+  const B = CONFIG.BOSS;
+  pose.x = 0; pose.y = B.fightHeight; pose.rel = B.settleGap;
+  cineSkip = false; cineYaw = null; entranceId = null; poseSmooth = false; fightWobbleT = 1e9;
+  releaseCineSlow();
+  cameraCtl.setOvertake?.(null);
+  placeGroup(player, 0, 0.016);
+  enterFight();
+}
+
 export function bossDebugState() {
   // chargeLevel: 0 at the start of a wind-up → 1 at full contraction (mirrors the
   // value fed to model.setCharge). The crop tool waits for a HIGH level so it grabs

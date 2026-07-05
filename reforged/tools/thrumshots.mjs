@@ -49,15 +49,16 @@ async function session(dist, fn) {
 }
 
 async function skipToFight(page) {
-  // Warn + the deep-dilate entrance crawl under headless rAF throttle; tap surgeTap every
-  // poll (a no-op in warn, the skip in flythrough) and poll patiently until fight.
-  for (let i = 0; i < 240; i++) {
-    const ph = await page.evaluate(() => { try { window.__dd.input.surgeTap = true; return window.__dd.bossState().phase; } catch { return 'idle'; } });
-    if (ph === 'fight') break;
-    await page.waitForTimeout(300);
+  // The deep-dilate entrance crawls under headless rAF throttle; once the boss is warning/
+  // flying-in, SNAP straight to fight via the capture-only debugForceFight seam.
+  await page.waitForFunction(() => window.__dd.bossState().phase !== 'idle', { timeout: 40000 });
+  for (let i = 0; i < 30; i++) {
+    await page.evaluate(() => window.__dd.bossForceFight());
+    if ((await page.evaluate(() => window.__dd.bossState().phase)) === 'fight') break;
+    await page.waitForTimeout(200);
   }
-  await page.waitForFunction(() => window.__dd.bossState().phase === 'fight', { timeout: 30000 });
-  await page.waitForTimeout(1500);
+  await page.waitForFunction(() => window.__dd.bossState().phase === 'fight', { timeout: 20000 });
+  await page.waitForTimeout(1200);
 }
 
 // HOME — the bright biome (FROZEN REACH ~3800; pale sky so the black motes read).
