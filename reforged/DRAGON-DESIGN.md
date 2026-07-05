@@ -212,7 +212,7 @@ change them.
 | Fantasy | swift sky courier — falcon energy | forge-born bruiser — anvil-and-coal energy | river-wind dancer — koi/eastern energy |
 | Body plan | compact avian glider: short body, deep keel chest, long swept wings | stocky broad wyrm: heavy squared shoulders, thick neck, short powerful tail | long sinuous serpent: body IS the silhouette, tall elegant fin fans |
 | Silhouette primitive | △ swept arrow/dart | □ anvil/block masses | ○ flowing S-ribbon |
-| Wing architecture (HERO) | **swept blade-feather comb** (§3 col 1): stiff falcon PRIMARIES, straight taut leading edges (`feather` lineage + ASHTALON comb lessons) | **broad-chord ember membrane** (§3 col 2): gapped finger rays through dark membrane (`skinnedMembrane`/`nightFuryWings` lineage) | **silk fin sails** (§3 col 3): tall overlapping koi-fin lobes + trailing streamers (`seraphWing` chord logic + `sideFins`; `plume` TAIL builder is streamer INSPIRATION only) |
+| Wing architecture (HERO) | **swept blade-feather comb** (§3 col 1): stiff falcon PRIMARIES, straight taut leading edges (`feather` lineage + ASHTALON comb lessons — CONSTRUCTION only: separation/z-stagger/value-tiers/taper. Do NOT copy its scythe SHAPE language: no hooked crescents, no villain silhouette — azure's blades are straight-edged falcon feathers, a hero read) | **broad-chord ember membrane** (§3 col 2): gapped finger rays through dark membrane (`skinnedMembrane`/`nightFuryWings` lineage) | **silk fin sails** (§3 col 3): tall overlapping koi-fin lobes + trailing streamers (`seraphWing` chord logic + `sideFins`; `plume` TAIL builder is streamer INSPIRATION only) |
 | Motif (fixed anchor, blooms 0.3→0.6→1.0) | **brow crest** (head, gold-tipped): single feather-nub → 3-blade swept crest fan | **forge collar** (nape/wing-root yoke — rear-visible): two dull coals between the wing roots → glowing collar arc → blazing yoke with 6-spike corona | **chin pearl** (jaw) + lockstep rear carrier: pearl bead → held pearl → luminous river-pearl cradled by whiskers, with a pearl rim gradient on the rear lobe tips + tail-veil edge blooming in step |
 | Accent (law 9 table) | gold `0xd9b36a`, diffuse tips only | lava `0xff8b2a`, emissive only | cool pearl `0xeafff4`, rim/pearl |
 | Eye character | bright, alert, round→keen | small, hot, deep-set | calm, long, painterly |
@@ -402,11 +402,41 @@ land with the first slot that hits them.
    deterministic contact sheets. Also: clamp tier montages to
    `maxTierFor(key)` (today `tiershots.html` renders and frames by an
    unreachable T3 for starters — the gate must never judge a phantom form).
-6. **`setFlapDebugPose(glide|fold|bank)`** debug pin on the flap rigs —
-   transient poses cannot be captured by waiting (L137 law).
+   Effectiveness requirements, from running the current tools on the shipped
+   starters (r1 audit): (a) **fill-the-frame detail crops** — in today's
+   tiershots the dragon is a ~15%-height sliver in a mostly-empty tile; wing
+   gaps, value tiers and scallops are unjudgeable. Keep the fixed-distance
+   ladder frame for the SIZE ramp, but add per-part crops (whole-dragon,
+   wing close-up, head) where the subject fills ≥60% of the crop, and judge
+   emissive/edge detail at a 4× crop (bossgate law). (b) **Backdrop contrast
+   is mandatory** — navy-on-near-black hid azure's silhouette edges in both
+   tiershots and headshot; every state renders on all three §8 backdrops,
+   and the pale backdrop is the primary silhouette-judgment frame.
+   (c) **Deterministic wing phase** via the §6.6 pin — tiershots' idle pose
+   is whatever the clock gives it. (d) headshot's REAR tile currently
+   clips inside the neck geometry — reposition or drop that angle.
+6. **Flap debug pin for the starter motion paths.** A `?wingDebug=<phase>`
+   FREEZE mode already exists (`dragon.js` ~line 600, used by
+   `tools/flapstrip.mjs`) but it lives inside the Mk II YOKE branch — it only
+   freezes `model.flap` dragons, and NO starter rides that path (§3 motion
+   rows). EXTEND `?wingDebug` (plus a fold/bank pin) to the direct-pivot and
+   skinned-rig paths rather than inventing a parallel mechanism — transient
+   poses cannot be captured by waiting (L137 law).
 7. **`tests/starters.mjs`** (§7) + `def.accentHue` on the three starters.
 8. **`--wings-only` flag** on `tools/silhouette.mjs`/`silhouetteCore.mjs`
    (it has `--no-wings`; CP3 needs the inverse) — slot C.
+9. **Silhouette resolution for gap asserts**: at the default 560×440 the
+   rear-view dragon spans ~250px, so a 5-blade comb's gaps are 3–5px —
+   aliasing territory. Add a `--w/--h` (or fixed 2×) render size and/or a
+   tight auto-crop so the subject fills the frame before any pixel-level
+   gap judgment; the `top` planform view at default size is already
+   adequate (verified).
+10. **`?cleanshot` capture flag** (in-game): gameshots frames currently have
+   the tutorial banner, the green target ring and trail scribbles OVERLAPPING
+   the dragon, and the wing phase differs per tile (non-comparable). A debug
+   flag that hides HUD/hints/rings/trails + the §6.6 wing pin (pass
+   `wingDebug` through gameshots) makes in-game frames judgeable; clamp its
+   tier loop per §8 step 4.
 
 ## §7 Per-sheet geometry asserts (`tests/starters.mjs`, new)
 
@@ -464,6 +494,29 @@ Process is the boss playbook's, restyled for dragons:
    Black fills via `tools/silhouette.mjs`; face crops via `tools/headshot.mjs`.
    The tier montage IS the true-scale form-ladder frame (framed once, by the
    apex form).
+
+   **Existing tool inventory — USE these, do not rebuild them** (several have
+   capabilities their usage comments undersell):
+   - `tools/silhouette.mjs <key> <view> [form]` — headless black fills, ~100ms,
+     no browser. Views: rear/side/front/climb AND (undocumented, verified
+     working) `top` — the wing PLANFORM fill — and `threeq` (rear-¾-above,
+     the bank read). Flags: `--pose=glide|recovery|apex|downstroke|settle`
+     (frozen wing-cycle poses, works headlessly on non-yoke dragons too) and
+     `--no-wings` (body-only fill). `--wings-only` is the one missing flag
+     (§6.8).
+   - `tools/silhouette-overlay.mjs <concept.png> <key> [view]` — built-vs-
+     concept overlap %, for tuning a wing planform against a reference sketch.
+   - `tools/flapstrip.mjs [key] [tier]` — the 5-phase wing-motion strip from
+     the REAL chase cam via `?wingDebug` (yoke dragons today; §6.6 extends it
+     to the starter paths).
+   - `tools/nfview.mjs [key] [tier]` — lit multi-yaw stills (front/¾/side/
+     ¾-rear/rear) on a neutral stage — the general angle viewer dragonstudio
+     wraps.
+   - `tools/headshot.mjs [key] [tier]` — 4-angle head montage (azure/ember/
+     jade are already in its default list).
+   - `tools/tiershots.mjs`, `tools/gameshots.mjs`, `tools/inspectshot.mjs` —
+     tier montage / in-game chase crops / shop-showcase phone frames (clamp
+     caveats per §6.5 and step 4).
 3. Spawn a FRESH gate agent (model `fable`) per round with the verbatim GATE
    PROMPT below + capture paths + tri counts (+ prior directives for rounds
    ≥2). The builder NEVER judges its own output. Quote verdicts verbatim.
