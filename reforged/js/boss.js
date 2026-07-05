@@ -118,6 +118,12 @@ let cineYaw = null;            // null = normal facing; else a scripted world-ya
 // entrance (which ends at x=0) and at every setpiece boundary (station ↔ scripted path). rel is
 // left DIRECT so the flyby dive stays crisp; x/y are slow enough that the damp barely lags them.
 let poseSX = 0, poseSY = 0, poseSmooth = false;
+// The idle fight yaw/roll wobble (placeGroup) is a function of absolute time, so releasing a
+// scripted entrance — which holds the group square (cineYaw≈0) — into it SNAPS the whole group up
+// to ~7°/5° in one frame. This timer eases the wobble amplitude 0→1 over ~0.6s, but ONLY after a
+// cinematic entrance (seeded to 0 in enterFight when cineYaw was live). Huge default = full wobble
+// immediately for plain 'approach' bosses (their wobble already ran during the approach; no dip).
+let fightWobbleT = 1e9;
 let cineSide = 1;
 let cineAnchorX = 0, cineAnchorY = 8;   // the dragon's x/y at flythrough start (pass beside it, both in frame)
 let cineSkip = false;         // a tap during the flythrough fast-forwards to the turn-around
@@ -839,6 +845,7 @@ function applyReticle(timeLeft, time) {
 function enterFight() {
   phase = 'fight';
   poseSX = pose.x; poseSY = pose.y; poseSmooth = true;   // seed the group x/y smoother from the entrance-end pose (no handoff jump)
+  if (cineYaw != null) fightWobbleT = 0;   // released from a scripted entrance → ease the yaw/roll wobble in from its settled facing (no snap)
   entranceId = null;                  // the scripted entrance is done
   model?.setEntrance?.(null);         // release any per-boss entrance choreography (EITHERWING's Baton Cross)
   cineYaw = null;                     // hand facing back to placeGroup (face the player)
@@ -1265,7 +1272,13 @@ function placeGroup(player, time, dt) {
   // little menacing yaw/roll wobble. During the cinematic entrance, cineYaw owns
   // the yaw instead (it faces its dive line, then wheels 180° to face you).
   if (cineYaw != null) group.rotation.set(0, cineYaw, 0);
-  else group.rotation.set(0, Math.sin(time * 0.5) * 0.12, Math.sin(time * 0.9) * 0.08);
+  else {
+    // Ease the wobble amplitude in after a cinematic entrance so the group doesn't snap from its
+    // settled square facing (cineYaw≈0) to the full sin-wobble in one frame. Full within ~0.6s.
+    fightWobbleT += dt || 0.016;
+    const w = Math.min(1, fightWobbleT / 0.6);
+    group.rotation.set(0, Math.sin(time * 0.5) * 0.12 * w, Math.sin(time * 0.9) * 0.08 * w);
+  }
   // GAZE FEED (optional model hook): normalized offset of the player relative to
   // the boss's facing axis, in WORLD axes — placeGroup keeps rotation near-
   // identity so world≈local, and the model handles its own local conversion.
@@ -1655,7 +1668,7 @@ export function resetBoss() {
   clearSetpiece();
   // Release the cinematic entrance if we tore down mid-flythrough (game over during
   // the overtake): drop the slow-mo, the camera hijack, and the facing override.
-  cineYaw = null; cineSkip = false; entranceId = null; poseSmooth = false;
+  cineYaw = null; cineSkip = false; entranceId = null; poseSmooth = false; fightWobbleT = 1e9;
   releaseCineSlow();
   cameraCtl.setOvertake?.(null);
   model?.setEyeLock?.(false);
