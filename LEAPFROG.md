@@ -5649,3 +5649,24 @@ next session starts from "the eye needs a socket, not a bolt-on decal," not from
 and confine every subsequent directive to the failing zone — and when one feature (the eye) eats round after
 round trading one artifact for another, that is the signal it's a STRUCTURAL limit (geometry/pipeline), not a
 tuning one; stop nudging and either change the structure or hand the last 5% to the human on the PR preview.
+
+
+### L148 — AZURE wing root: a one-line additive lever, tuned live on the human's eye (backpack → shoulder)
+
+**What we did.** The human read the apex comb as "too far back on the body — a backpack, not a shoulder."
+The fix was already a wired lever: `attach.wingRoot` in `dragonTorso.js` publishes the mount point and
+adds `model.wingRootOffset.{y,z}` (default 0, byte-identical to roster); the wing pivot in `dragonWings.js`
+`buildSide` sits exactly at that published point, so translating the offset slides the WHOLE comb (all 5
+blades) as one rigid unit — no per-blade fiddling, no rake/span/tri change. Set `wingRootOffset:{ z:-0.4 }`
+on the azure model (−z = toward the nose in this rig: head=−z, tail=+z). Landed at −0.4 after a live sweep.
+
+**The gotcha / the reusable pattern.** (a) **Confirm the axes with the human BEFORE the edit** — they
+asked "confirm the planes, x y z" and it was worth it: X=lateral span, Y=vertical, Z=fore/aft with
+head=−z. Naming the convention out loud turned a vague "move it forward" into an exact signed lever and
+avoided moving the wrong axis. (b) **A fore/aft shoulder move has a narrow good band; sweep it, don't
+guess.** −0.25 read clean-but-slightly-aft, **−0.4 seated the shoulder with a clean mid-back (the pick)**,
+−0.6 overshot — the comb crowded the neck and started reading as neck-mounted. The top-down planform +
+side black-fill silhouettes are the views that resolve wing-root fore/aft position; capture both per value.
+(c) **The lever already existed on the torso contract** — reach for the published attach point + its additive
+offset before touching geometry; the roster stays byte-identical because every other dragon leaves the
+offset at 0. Motion/feel is the human's call — capture all three values, state a recommendation, let them pick.
