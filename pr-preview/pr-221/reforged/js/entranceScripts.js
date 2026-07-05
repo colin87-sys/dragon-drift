@@ -99,21 +99,17 @@ export const ENTRANCE_SCRIPTS = {
       return { x: AX * (1 - s), y: L(AY + 1.5, B.fightHeight, s), rel: L(-9, B.settleGap, s) };
     },
     tuck(u) { return clamp01((u - 0.7) / 0.3) * 0.5; },   // the tails flare as the pair scissor into the fight
-    // Drive the model's per-twin materialise + eye-cross + ignition.
-    onFrame(u, ctx, pose, player, model) { model.setEntrance?.(u); },
-    onStart(model) { model.setEntrance?.(0); },
-    // The eye FACES + tracks the dragon the whole entrance. Aim from the LIT twin's approx world
-    // position (its local ±9 offset × the boss scale ≈1.5) toward the dragon — so the eye turns
-    // INWARD toward the dragon (not just straight down) and PIVOTS as it rides the thread from
-    // twinA (right) to twinB (left), staying dragon-facing across the cross. The model lags the
-    // pupil + tilts the whole eyeRig toward this; look-aways/blinks are suppressed in the entrance.
-    gaze(u, ctx, pose, player) {
-      const eyeX = pose.x + this._lit(u) * 1.5, eyeY = pose.y + 1.4;
-      return {
-        gx: Math.max(-1, Math.min(1, (player.position.x - eyeX) / 8)),
-        gy: Math.max(-1, Math.min(1, (player.position.y - eyeY) / 7)),
-      };
+    // Drive the model's per-twin materialise + eye-cross + ignition, AND feed the dragon's position
+    // in the model's RIG space so the eye can lookAt it (a real facing, not a pupil nudge). Group
+    // space: the group sits at `pose` (scale ≈ def.scale); the dragon is at (player − pose) / scale,
+    // and its rig-z is pose.rel/scale (group-z = −(dist+rel), dragon-z = −dist). The eye points its
+    // front at this every frame, so it keeps looking at the dragon as it rides the thread + passes.
+    onFrame(u, ctx, pose, player, model) {
+      model.setEntrance?.(u);
+      const s = ctx.sc || 1.5;
+      model.setEntranceAim?.((player.position.x - pose.x) / s, (player.position.y - pose.y) / s, pose.rel / s);
     },
+    onStart(model) { model.setEntrance?.(0); },
     // Feed the LIT twin's world-x as bx so the rear-look camera focus-pans right→left between
     // the two reveals. lookWin stays ~0 through BEAT 1 (the CAMERA reveals twinA; the dragon
     // faces forward), then ramps on BEAT 2 so the DRAGON turns its head to twinB as it forms,

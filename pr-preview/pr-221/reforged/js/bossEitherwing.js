@@ -583,6 +583,9 @@ export function buildTwinWraith(def, quality = 1) {
   let handoffTimer = 3.0;      // seconds until the next handoff (the baton beat)
   let debugHold = null;        // test/studio pin: forces holdT to a value
   let entranceU = null;        // §5j THE BATON CROSS: 0..1 entrance clock (null = normal fight); overrides the orbit
+  const _entAim = new THREE.Vector3();   // §5j: the dragon's position in RIG space (fed by the script) — the eye lookAt target
+  let entAimSet = false;
+  const _aimDir = new THREE.Vector3();
 
   // Figure-eight orbit: the twins ride a lemniscate 180° out of phase around a
   // slowly drifting centre — the fight NEVER stops moving. Kept LOCAL (the group
@@ -970,15 +973,17 @@ export function buildTwinWraith(def, quality = 1) {
     const glideBiasX = gliding ? Math.max(-1, Math.min(1, (recv.x - _eye.x) * 0.6)) * 0.07 : 0;
     pupil.position.set(gazeX * 0.08 + glideBiasX, gazeY * 0.07, 0.16 - tuck * 0.14);
     glint.position.set(-0.09 + gazeX * 0.05, 0.1 + gazeY * 0.04, 0.44);
-    // §5j: through the entrance the whole eye TURNS to face the dragon (not just the pupil) — it
-    // pivots on the ribbon toward the gaze target as it rides from twinA to twinB, so it stays
-    // dragon-facing and readable across the cross. The script feeds a strong dragon-tracking gaze;
-    // here the eyeRig tilts with it. Outside the entrance the eye keeps its shipped forward set.
-    // A GENTLE turn toward the dragon — the pupil (offset above) carries the tracking; the eyeRig
-    // only leans so the eye reads as facing the dragon. Kept small (≤~16° yaw) so the pupil/glint
-    // NEVER rotate behind the body or away from camera — the eye is the focal, it must always read.
-    if (entranceU != null) eyeRig.rotation.set(-gazeY * 0.38 - 0.06, gazeX * 0.28, 0);
-    else eyeRig.rotation.set(0, 0, 0);
+    // §5j: through the entrance the whole eye LOOKS AT the dragon — a real lookAt, not a pupil
+    // nudge. The script feeds the dragon's RIG-space position (_entAim); we point the eyeRig's
+    // FRONT (+z, where the pupil/glint sit) straight at it. As the eye rides the thread from twinA
+    // to twinB and the group approaches, the aim updates every frame, so the eye pivots on the
+    // string to keep facing the dragon — including as it passes. Outside the entrance: shipped forward set.
+    if (entranceU != null && entAimSet) {
+      _aimDir.copy(_entAim).sub(_eye);
+      if (_aimDir.lengthSq() > 1e-4) { _aimDir.normalize(); eyeRig.quaternion.setFromUnitVectors(_zAxis, _aimDir); }
+    } else {
+      eyeRig.rotation.set(0, 0, 0);
+    }
 
     // --- The twins' fins/ribbons pose by charge (EXPRESSION, §4b): open-glide idle,
     // mantle on charge (fins rake up + ribbons flare), furl in death. Plus the flinch
@@ -1077,7 +1082,9 @@ export function buildTwinWraith(def, quality = 1) {
   // §5j THE BATON CROSS: the entrance driver sets the 0..1 clock each frame (null = fight).
   // The rig-local x the eye crosses to (twinA RIGHT +8 → twinB LEFT −8) so the driver can
   // feed the ORB's world-x to the camera + the dragon-look strain.
-  function setEntrance(u) { entranceU = u == null ? null : Math.max(0, Math.min(1, u)); }
+  function setEntrance(u) { entranceU = u == null ? null : Math.max(0, Math.min(1, u)); if (u == null) entAimSet = false; }
+  // §5j: the driver feeds the DRAGON's position in RIG space each frame so the eye can lookAt it.
+  function setEntranceAim(x, y, z) { if (x == null) { entAimSet = false; } else { _entAim.set(x, y, z); entAimSet = true; } }
   function entranceEyeLocalX() { return entranceU == null ? 0 : (1 - 2 * easeK(clamp((entranceU - 0.34) / 0.28, 0, 1))) * 9; }
   function twinBodyLum() {
     // The rendered value of each twin body (diffuse + emissive) — the seeker must be
@@ -1094,7 +1101,7 @@ export function buildTwinWraith(def, quality = 1) {
     setSetpiece,
     setGaze,
     notice,
-    setEntrance, entranceEyeLocalX,
+    setEntrance, setEntranceAim, entranceEyeLocalX,
     setHealth: kit.setHealth,
     setHealthBarVisible: kit.setHealthBarVisible,
     setShieldVisible: kit.setShieldVisible,
