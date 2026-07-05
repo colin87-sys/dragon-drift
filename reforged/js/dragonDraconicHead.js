@@ -378,9 +378,9 @@ function eyeZone(c, { r, x, y, z, glow }) {
     // hue ladder: warm gold (f0) → HOT saturated amber (f1) → bright near-white gold (f2). f1
     // must NOT wash to pale cream (round-3 dir 2) — it is the most SATURATED of the three.
     const irisCol = es < 0.5
-      ? new THREE.Color(0xffa838).lerp(new THREE.Color(0xffb833), es * 2)
-      : new THREE.Color(0xffb833).lerp(new THREE.Color(0xffe89a), (es - 0.5) * 2);
-    const emisI = 0.6 + es * 0.35;                            // moderate so the saturated hue stays HOT (not blown to featureless cream by ACES); the dark pupil carries the read
+      ? new THREE.Color(0xffa838).lerp(new THREE.Color(0xffb347), es * 2)   // f1 target 0xffb347 hot amber (gate cp2 r4 note 2 — was reading lemon-yellow)
+      : new THREE.Color(0xffb347).lerp(new THREE.Color(0xffe0a0), (es - 0.5) * 2);
+    const emisI = 0.5 + es * 0.3;                             // lower so the amber stays HOT amber, not blown to lemon/cream by ACES; the dark pupil + socket carry the read
     const rimCol = new THREE.Color(0x3a1508);                 // DARK brow arc (dir 4) — a legible ridge, not a body-tinted sliver
     const irisMat = new THREE.MeshStandardMaterial({ color: irisCol, emissive: irisCol, emissiveIntensity: emisI, roughness: 0.3 });
     const pupilMat = new THREE.MeshStandardMaterial({ color: 0x1c0a04, roughness: 0.42 });   // dark forward pupil (dir 2) — the contrast that reads the eye even when iris ≈ body hue
@@ -412,7 +412,7 @@ function eyeZone(c, { r, x, y, z, glow }) {
         socket.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), kN);
         c.head.add(socket);
       }
-      const iris = new THREE.Mesh(new THREE.SphereGeometry(irisR, seg(12), seg(9)), irisMat);
+      const iris = new THREE.Mesh(new THREE.SphereGeometry(irisR, seg(13), seg(9)), irisMat);   // a touch smoother disc (gate cp2 r4 note 1 — the low-poly rim read as ragged notches)
       iris.position.copy(eyeC); iris.scale.set(1.0, sYamnd, 0.62);
       iris.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), kN);
       c.head.add(iris);
