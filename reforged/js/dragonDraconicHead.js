@@ -170,8 +170,8 @@ function buildSmoothForgeSkull(c) {
   rings.push(st[st.length - 1]);
   // value-tier vertex paint: body crown, a darker muzzle step, a cream jaw underside.
   const bodyC = c.mats.bodyMat.color.clone();
-  const snoutC = bodyC.clone().multiplyScalar(0.78);            // one value step darker over the muzzle (law 11)
-  const jawC = c.mats.bellyMat.color.clone();                  // cream jaw underside
+  const snoutC = bodyC.clone().multiplyScalar(0.86);            // one WARM value step darker over the muzzle (0.78 read muddy-gray, dir 3)
+  const jawC = c.mats.bellyMat.color.clone();                  // cream jaw underside (dir 3: the underjaw must read cream, not a gray smudge)
   const M = seg(16), verts = [], cols = [], idx = [];
   for (const [z, w, h, yc] of rings) {
     for (let k = 0; k < M; k++) {
@@ -180,7 +180,7 @@ function buildSmoothForgeSkull(c) {
       verts.push(w * cs, yy, z);
       let col = bodyC;
       if (z < -0.7 * sc) col = snoutC;                          // muzzle darker tier
-      if (z < -0.5 * sc && sn < -0.25) col = jawC;              // lower muzzle / jaw underside = cream
+      if (z < -0.42 * sc && sn < -0.1) col = jawC;              // lower muzzle / jaw underside = cream (wider band so the mouth reads cream, dir 3)
       cols.push(col.r, col.g, col.b);
     }
   }
@@ -375,9 +375,13 @@ function eyeZone(c, { r, x, y, z, glow }) {
     // iris LIGHTENS hard toward apex (warm gold 0xffb040 young → near-white gold 0xffe89a apex)
     // so the SMALL keen apex eye pops as a bright spot on the deep-orange head WITHOUT a dark
     // socket patch (round-2 dark sclera read as goggle-commas); the dark forward pupil reads it.
-    const irisCol = new THREE.Color(0xffb040).lerp(new THREE.Color(0xffe89a), es);
-    const emisI = 0.7 + es * 0.5;                             // 0.7 young → ~1.2 apex — hot, the bright light hue carries the apex contrast
-    const rimCol = new THREE.Color(0x8a3d14);                 // body-dark brow ring (dir 1) — a partial arc, not a donut
+    // hue ladder: warm gold (f0) → HOT saturated amber (f1) → bright near-white gold (f2). f1
+    // must NOT wash to pale cream (round-3 dir 2) — it is the most SATURATED of the three.
+    const irisCol = es < 0.5
+      ? new THREE.Color(0xffa838).lerp(new THREE.Color(0xffb833), es * 2)
+      : new THREE.Color(0xffb833).lerp(new THREE.Color(0xffe89a), (es - 0.5) * 2);
+    const emisI = 0.6 + es * 0.35;                            // moderate so the saturated hue stays HOT (not blown to featureless cream by ACES); the dark pupil carries the read
+    const rimCol = new THREE.Color(0x3a1508);                 // DARK brow arc (dir 4) — a legible ridge, not a body-tinted sliver
     const irisMat = new THREE.MeshStandardMaterial({ color: irisCol, emissive: irisCol, emissiveIntensity: emisI, roughness: 0.3 });
     const pupilMat = new THREE.MeshStandardMaterial({ color: 0x1c0a04, roughness: 0.42 });   // dark forward pupil (dir 2) — the contrast that reads the eye even when iris ≈ body hue
     const rimMat = new THREE.MeshStandardMaterial({ color: rimCol, roughness: 0.72, metalness: 0.02 });
@@ -391,15 +395,33 @@ function eyeZone(c, { r, x, y, z, glow }) {
       // eyeball seated PROUD of the lofted shell — pushed a FIXED distance along the outward
       // normal (not a tiny iris-relative nudge, which buried the small apex eye INSIDE the wide
       // forge cheek → invisible). Shallow-Z lens so it never bulges into a hammerhead ball.
-      const eyeC = new THREE.Vector3(s * ex, yEye, ez).addScaledVector(kN, c.faceR * 0.3 + irisR * 0.2);
+      const eyeC = new THREE.Vector3(s * ex, yEye, ez).addScaledVector(kN, c.faceR * 0.5 + irisR * 0.2);   // clear the WIDE forge cheek (~0.4) so the small apex eye sits proud, not buried
+      // es-SCALED dark eye SOCKET (a shallow dark almond on the cheek behind the iris) — the
+      // value contrast a SMALL SAME-HUE apex eye needs to read as the facial hot point. Scaled
+      // by es so it's a thin lash at f0 (which already contrasts the light baby body → stays
+      // cute, no goggles) and a clear dark socket at the apex (deep-orange body swallows the eye).
+      // dark eye SOCKET — only on the older forms (es≥0.35). The apex/adolescent deep-orange body
+      // swallows a same-hue eye, so a dark almond gives the hot iris its value contrast. f0's light
+      // baby body already contrasts the hot iris, so it stays socket-FREE (the gate's best face —
+      // no goggles). Co-centred with the iris so it reads as the socket the bright iris sits inside.
+      if (es >= 0.35) {
+        const socket = new THREE.Mesh(new THREE.SphereGeometry(irisR * (1.0 + es * 0.32), seg(9), seg(7)),
+          new THREE.MeshStandardMaterial({ color: 0x2a1206, roughness: 0.6 }));
+        socket.position.copy(eyeC).addScaledVector(kN, -irisR * 0.08);
+        socket.scale.set(1.14, sYamnd * 1.1, 0.5);
+        socket.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), kN);
+        c.head.add(socket);
+      }
       const iris = new THREE.Mesh(new THREE.SphereGeometry(irisR, seg(12), seg(9)), irisMat);
       iris.position.copy(eyeC); iris.scale.set(1.0, sYamnd, 0.62);
       iris.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), kN);
       c.head.add(iris);
       // THIN UPPER-ARC brow ring over the top-rear of the eye (≤120°) — the socket read
       // without a full donut. A torus arc, tube ≤0.18× eye diameter, hugging the iris rim.
-      const rim = new THREE.Mesh(new THREE.TorusGeometry(irisR * 0.98, irisR * 0.16, seg(5), seg(9), Math.PI * 0.7), rimMat);
-      rim.position.copy(eyeC).addScaledVector(kN, irisR * 0.02);
+      const rim = new THREE.Mesh(new THREE.TorusGeometry(irisR * 0.98, irisR * 0.17, seg(5), seg(9), Math.PI * 0.7), rimMat);
+      // SUNK back toward the shell (−kN) and lifted a touch so it reads as a brow RIDGE of the
+      // skull overlapping the iris top, not a clip-on crescent floating in daylight (dir 4).
+      rim.position.copy(eyeC).addScaledVector(kN, -irisR * 0.3).add(new THREE.Vector3(0, irisR * 0.12, 0));
       rim.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), kN);
       rim.rotateZ(Math.PI * 0.15 - s * 0.1);                 // seat the open gap at the lower-front, arc riding the top-rear
       rim.scale.y = sYamnd;
@@ -408,7 +430,7 @@ function eyeZone(c, { r, x, y, z, glow }) {
       // forward edge — round-2i's big offset slid it half off the iris into a cross-eyed read).
       const gaze = new THREE.Vector3(kN.x * 0.5, kN.y, kN.z * 0.5 - 0.5).normalize();
       const pupil = new THREE.Mesh(new THREE.CircleGeometry(irisR * 0.34, seg(12)), pupilMat);
-      pupil.position.copy(eyeC).addScaledVector(kN, irisR * 0.6).addScaledVector(gaze, irisR * 0.1);
+      pupil.position.copy(eyeC).addScaledVector(kN, irisR * 0.6).addScaledVector(gaze, irisR * 0.15);
       pupil.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), kN);
       c.head.add(pupil);
       // white catchlight — a tiny bright dot upper-forward of the pupil, so the hot eye lives.

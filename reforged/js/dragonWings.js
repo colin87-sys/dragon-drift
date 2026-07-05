@@ -1389,7 +1389,7 @@ function buildForgeCollar(def, model, attach, spineMats) {
     // gate cp2 dir 3: bloom UP — the corona must be UNAMBIGUOUSLY the brightest point in the
     // rear-chase glide. Coal core emissive 2.6→3.6 and the whole yoke grown so it out-reads a
     // thumbnail. (Law 12: the ONE bloom — it MAY blow to white under ACES.)
-    const coalMat2 = new THREE.MeshStandardMaterial({ color: 0x1c0d08, emissive: 0xffc23d, emissiveIntensity: 5.5, roughness: 0.5, metalness: 0.05 });   // peak luminance must beat every other pixel incl. the wing leading edges (gate cp2 dir 5)
+    const coalMat2 = new THREE.MeshStandardMaterial({ color: 0x1c0d08, emissive: 0xffe08a, emissiveIntensity: 7.5, roughness: 0.5, metalness: 0.05 });   // near-white-gold core, peak luminance beats every other pixel incl. the wing leading edges (gate cp2 r3 dir 5)
     for (const [cx, cy, cz, cr] of [[0, 0.06, 0.02, 0.24], [-0.2, -0.01, 0.0, 0.18], [0.2, -0.01, 0.0, 0.18]]) {
       const coal = new THREE.Mesh(new THREE.SphereGeometry(cr, seg(10), seg(8)), coalMat2);
       coal.position.set(cx, cy, cz);
