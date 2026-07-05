@@ -61,6 +61,7 @@ export function buildHollowgate(def, quality = 1) {
   const strip = stripForMerge;
   const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
   const clamp01 = (v) => clamp(v, 0, 1);
+  const _white = new THREE.Color(0xfff6e8);
 
   // The shield wraps the WEAK POINT — the rose window (focal = weak point,
   // Zelda grammar), which sits high in the lintel; hpBar clears the ring top.
@@ -192,6 +193,11 @@ export function buildHollowgate(def, quality = 1) {
     const bt1 = strip(new THREE.BoxGeometry(1.1, 1.5, 1.5)); bt1.translate(bx, PILLAR_BASE + 0.85, 0);
     const bt2 = strip(new THREE.BoxGeometry(0.7, 1.0, 1.2)); bt2.translate(bx + sx * 0.1, PILLAR_BASE + 2.05, 0);
     mid.push(bt1, bt2);
+    // INNER REVEAL plank — the gap-facing face graded a full step darker so the
+    // fly-through corridor reads as carved depth (§3.4; gate r4 watch item).
+    const rv = strip(new THREE.BoxGeometry(0.18, PILLAR_TOP - PILLAR_BASE - 0.4, 1.55));
+    rv.translate(sx * (GAP_HALF + 0.05), (PILLAR_TOP + PILLAR_BASE) / 2, 0);
+    mid.push(rv);
     // Broken CROWN: two snapped finial stubs on top (jagged hard points, §3.1).
     for (const [ox, h] of [[-0.55, 0.9], [0.5, 0.55]]) {
       const f = strip(new THREE.ConeGeometry(0.28, h, 4));
@@ -226,11 +232,19 @@ export function buildHollowgate(def, quality = 1) {
   // ---- THE TYMPANUM RING — the faceted stone annulus that holds the rose
   // window, seated above the gap between the pillar tops. 8 cusp gable stones
   // ride its rim (the rose's outer teeth in silhouette).
-  const ringGeo = strip(new THREE.TorusGeometry(RING_R, RING_TUBE, 6, lowQ ? 12 : 16));
+  // THE SCAR (§3.6) lives HERE: the ring is BITTEN — a missing arc at the
+  // upper-right (≈48°–82°) where the lost voussoir tore the rim away. The
+  // torus is built with a gap (arc < 2π, rotated so the wound sits upper-
+  // right), dark break faces jag both lips, and the orphan shard floats IN
+  // the bite. One wound, mirror-symmetric everywhere else.
+  const BITE_LO = Math.PI * 0.265, BITE_HI = Math.PI * 0.46;   // the missing arc (upper-right)
+  const ringGeo = strip(new THREE.TorusGeometry(RING_R, RING_TUBE, 6, lowQ ? 12 : 16, Math.PI * 2 - (BITE_HI - BITE_LO)));
+  ringGeo.rotateZ(BITE_HI);                       // gap spans BITE_LO..BITE_HI
   ringGeo.translate(0, RING_C, 0);
   const cuspParts = [];
   for (let i = 0; i < 8; i++) {
     const a = (i / 8) * Math.PI * 2 + Math.PI / 8;
+    if (a > BITE_LO - 0.2 && a < BITE_HI + 0.2) continue;   // no cusp inside the wound
     const c = strip(new THREE.ConeGeometry(0.26, 0.72, 4));
     c.rotateZ(-a + Math.PI / 2);                       // point outward along the radial
     c.translate(Math.cos(a) * (RING_R + RING_TUBE + 0.22), RING_C + Math.sin(a) * (RING_R + RING_TUBE + 0.22), 0);
@@ -240,9 +254,8 @@ export function buildHollowgate(def, quality = 1) {
   ringFace.name = 'roseRing';
   rig.add(ringFace);
 
-  // ---- VOUSSOIRS — the broken arc bridging pillar tops to the ring. LEFT: two
-  // stones. RIGHT: ONE — the upper-right voussoir is MISSING (THE SCAR): jagged
-  // break stubs mark the wound and one orphan SHARD floats inside it.
+  // ---- VOUSSOIRS — the arc bridging pillar tops to the ring, MIRRORED (§3.6:
+  // symmetry reads as intent; the ONE wound is the ring bite above).
   function voussoir(x, y, rz, w = 1.9) {
     const v = strip(new THREE.BoxGeometry(w, 0.85, 1.5));
     v.rotateZ(rz);
@@ -253,25 +266,28 @@ export function buildHollowgate(def, quality = 1) {
     voussoir(-3.0, 3.65, 0.42),
     voussoir(-2.55, 4.35, 0.85, 1.15),   // hugs the ring's lower-left rim (never crosses the glass)
     voussoir(3.0, 3.65, -0.42),
-    // (upper-right slot at ≈(2.55, 4.35) deliberately MISSING — the scar)
+    voussoir(2.55, 4.35, -0.85, 1.15),
   ];
   const vous = new THREE.Mesh(mergeIv(vousParts, 'voussoirs'), stoneFaceMat);
   vous.name = 'archLintel';
   rig.add(vous);
-  // Break stubs at both lips of the wound (dark tier — a raw fracture).
+  // Break stubs jagging BOTH LIPS of the ring bite (dark tier — a raw fracture).
   const stubParts = [];
-  for (const [x, y, r, s] of [[2.62, 4.1, 0.4, 0.42], [1.28, 5.05, -0.5, 0.38], [2.2, 3.9, 1.2, 0.3]]) {
+  for (const [ang, s, rr] of [[BITE_LO - 0.03, 0.5, RING_R], [BITE_HI + 0.03, 0.46, RING_R], [BITE_LO + 0.02, 0.3, RING_R + 0.35], [BITE_HI - 0.02, 0.28, RING_R - 0.35]]) {
     const t = strip(new THREE.TetrahedronGeometry(s, 0));
-    t.rotateZ(r);
-    t.translate(x, y, 0);
+    t.rotateZ(ang * 2.3);
+    t.translate(Math.cos(ang) * rr, RING_C + Math.sin(ang) * rr, 0);
     stubParts.push(t);
   }
   const stubs = new THREE.Mesh(mergeIv(stubParts, 'scarStubs'), stoneDarkMat);
   rig.add(stubs);
-  // The orphan shard — floats in the wound, never falls (the memory hook).
-  const scarShard = new THREE.Mesh(strip(new THREE.TetrahedronGeometry(0.5, 0)), stoneMidMat);
+  // The orphan shard — a chunk of the torn rim floating IN the bite, never
+  // falling (the memory hook; its bob is authored in the tick).
+  const SCAR_ANG = (BITE_LO + BITE_HI) / 2;
+  const SCAR_POS = [Math.cos(SCAR_ANG) * (RING_R + 0.15), RING_C + Math.sin(SCAR_ANG) * (RING_R + 0.15)];
+  const scarShard = new THREE.Mesh(strip(new THREE.TetrahedronGeometry(0.55, 0)), stoneFace2Mat);
   scarShard.name = 'scarShard';
-  scarShard.position.set(2.05, 4.75, 0.35);
+  scarShard.position.set(SCAR_POS[0], SCAR_POS[1], 0.1);
   rig.add(scarShard);
 
   // ---- THE ROSE WINDOW — 8 wedge panes (annular sectors) around the hub, each
@@ -337,7 +353,7 @@ export function buildHollowgate(def, quality = 1) {
   // telegraph: the pivot DESCENDS into the gap (a ~9-world-unit silhouette
   // change in the void — §3.5, the named-pivot gate finds it). Death: it drops
   // closed for good. The bars ride BEHIND the window plane (z −0.55).
-  const PORT_RAISED = 2.55, PORT_TRAVEL = 4.9, BAR_LEN = 4.2;
+  const PORT_RAISED = 2.55, PORT_TRAVEL = 5.4, BAR_LEN = 4.2;
   const portcullisPivot = new THREE.Group();
   portcullisPivot.name = 'portcullisPivot';
   portcullisPivot.position.set(0, PORT_RAISED, -0.55);
@@ -347,17 +363,17 @@ export function buildHollowgate(def, quality = 1) {
     // Arched gate profile: outer bars shorter, so the raised grid tucks behind
     // the ring's circular silhouette instead of poking naked stubs past it.
     const len = BAR_LEN - Math.pow(Math.abs(x) / 2.1, 2) * 1.9;
-    const bar = strip(new THREE.BoxGeometry(0.17, len, 0.17));
+    const bar = strip(new THREE.BoxGeometry(0.26, len, 0.2));
     bar.translate(x, len / 2 + 0.42, 0);
     portParts.push(bar);
-    const tooth = strip(new THREE.ConeGeometry(0.15, 0.5, 4));
+    const tooth = strip(new THREE.ConeGeometry(0.2, 0.62, 4));
     tooth.rotateX(Math.PI);
-    tooth.translate(x, 0.2, 0);
+    tooth.translate(x, 0.14, 0);
     portParts.push(tooth);
   }
   if (!lowQ) {
-    for (const by of [1.4, 3.2]) {
-      const brace = strip(new THREE.BoxGeometry(4.5, 0.14, 0.14));
+    for (const by of [0.9, 2.2, 3.4]) {
+      const brace = strip(new THREE.BoxGeometry(4.5, 0.18, 0.16));
       brace.translate(0, by, 0);
       portParts.push(brace);
     }
@@ -389,7 +405,7 @@ export function buildHollowgate(def, quality = 1) {
     m.name = 'masonryChip';
     m.userData = {
       ang: (i / N_CHIP) * Math.PI * 2,
-      rx: 5.6 + (i % 3) * 0.8, ry: 3.4 + (i % 2) * 1.6,
+      rx: 4.9 + (i % 3) * 0.5, ry: 3.2 + (i % 2) * 1.3,
       cy: 0.5 + i * 1.1,
       speed: 0.16 + (i % 3) * 0.05,
       bob: 0.7 + (i % 2) * 0.5,
@@ -561,19 +577,30 @@ export function buildHollowgate(def, quality = 1) {
         const rank = (i - pupilIdx + 8) % 8;
         t = (rank < litN ? 1.5 : 0.05) * flicker(i);
         hubK = 1 + charge * 0.35;
+      } else if (noticeT > 0) {
+        // NOTICE (§4.6, gate r4 dir 2) — a HARD two-beat snap that reads in a
+        // glance: every pane SLAMS DARK except the pupil (the door's eye finds
+        // you) … then the full ring FLASHES once as the beat releases.
+        t = noticeT > 0.35 ? (i === pupilIdx ? 2.4 : 0.02) : 1.5 * flicker(i);
       } else {
-        // VIGIL idle: the pupil pane burns; its neighbours hold a low litany;
-        // cool panes idle dimmer (warm-dominant identity, G3). Unlit glass is
-        // near-DARK — the contrast IS the face.
+        // VIGIL idle — the LEADED FIELD is the default read (gate r4 dir 4):
+        // the white-hot PUPIL pane + its warm neighbours + the two saturated
+        // COOL panes held lit, so the window never collapses to a gold ring-eye.
         const rank = Math.min((i - pupilIdx + 8) % 8, (pupilIdx - i + 8) % 8);
-        t = (rank === 0 ? 1.7 : rank === 1 ? 0.5 : 0.05) * flicker(i);
-        if (noticeT > 0) t = Math.max(t, (0.7 + noticeT * 0.5) * clamp01((1 - noticeT) * 8 - ((i - pupilIdx + 8) % 8) * 0.6));
+        t = (rank === 0 ? 2.4 : rank === 1 ? 0.35 : 0.14) * flicker(i);
+        if (PANE_COOL[i]) t = Math.max(t, 0.6 * flicker(i));   // the stained blues/teals stay lit
       }
       // The two bottom VIGIL CANDLES never fully die outside death/blink — the
       // door is always praying (and the warm floor anchors the G3 identity).
       if (PANE_CANDLE[i] && entranceU == null && dyingK <= 0 && !shieldClamp) t = Math.max(t, 0.55 * flicker(i));
       t *= (1 - blink * 0.88);
-      if (PANE_COOL[i]) t *= 0.4;                           // cool glass idles dim — warm gold owns the thumbnail
+      // THE PUPIL is visually DISTINCT from mood glass (gate r4 dir 3): its
+      // emissive shifts toward white-hot so "where the bright near-white pane
+      // sits" = "where the door is looking", second only to the hub.
+      paneMats[i].emissive.setHex(PANE_HUES[i]);
+      if (i === pupilIdx && entranceU == null && dyingK <= 0 && !shieldClamp && dreadK <= 0.05) {
+        paneMats[i].emissive.lerp(_white, 0.55);
+      }
       paneGlow[i] += (t - paneGlow[i]) * Math.min(1, dt * 7);
       paneMats[i].emissiveIntensity = paneGlow[i];
     }
@@ -617,8 +644,8 @@ export function buildHollowgate(def, quality = 1) {
       o.rotation.x += dt * u.spin;
       o.rotation.y += dt * u.spin * 1.4;
     }
-    // The orphan scar-shard hovers in its wound on its own two beats.
-    scarShard.position.y = 4.75 + Math.sin(time * 0.9) * 0.12 + Math.sin(time * 2.3) * 0.04;
+    // The orphan scar-shard hovers in the ring bite on its own two beats.
+    scarShard.position.y = SCAR_POS[1] + Math.sin(time * 0.9) * 0.12 + Math.sin(time * 2.3) * 0.04;
     scarShard.rotation.z += dt * 0.2;
   }
   let portDrop = 0;
