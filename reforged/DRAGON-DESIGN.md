@@ -298,10 +298,13 @@ land with the first slot that hits them.
   2 = full high-aspect span 2.8–3.2×, crest fan complete, forked banner tail,
   gold tips at their richest (still diffuse; `spineGlow` ≤0.3 — restraint IS
   the read).
-- Tri targets: ~2.4k / ~3.8k / ~5.2k. Engine needs hit here: blade-comb wing
-  builder; posture dial; eye-shape dial; `tailStyle` in grammar;
-  `forms:true` flags; assert-metadata handles; `tools/dragonstudio.mjs`;
-  `tests/starters.mjs` (§6/§7/§8).
+- Tri targets: ~2.4k / ~3.8k / ~5.2k. Engine needs still open for this slot:
+  blade-comb wing builder; posture dial; eye-shape dial; assert-metadata
+  handles; `tests/starters.mjs` (§7/§8). ALREADY LANDED by slot 0 (the tooling
+  tranche): `tailStyle` in grammar, the `forms:true` dial flags,
+  `tools/dragonstudio.mjs` + the `maxTierFor` clamp, the universal `?wingDebug`
+  pin (`setFlapDebugPose`), the silhouette `--wings-only`/`--scale`/`--crop`
+  levers, and `?cleanshot` — use them, don't rebuild them.
 
 ### EMBER — "Ember Wyrm" (slot B) — branch `claude/ember-rebuild`
 - **Torso** `arrow` broadened (`shoulderWidthScale` ~1.4) or `hullTorso`:
@@ -379,17 +382,31 @@ land with the first slot that hits them.
 
 ## §6 Engine needs (land with the FIRST slot that hits them — see build order)
 
+**SLOT 0 — the TOOLING TRANCHE — LANDED (branch `claude/dragon-tools-slot-0`).**
+Before slot A, the capture/verification toolchain was made state-of-the-art so the
+azure/ember/jade builders inherit effective tools instead of building them mid-slot.
+DONE here: item 5 (`tools/dragonstudio.mjs` + the `maxTierFor` clamp on
+`tiershots.html`), item 6 (the `?wingDebug` freeze extended to EVERY wing path via the
+shared `js/wingDebugPose.js` poser + `setFlapDebugPose`, plus fold/bank pins), item 8
+(`--wings-only`), item 9 (silhouette `--scale`/`--w/--h` + `--crop`), item 10
+(`?cleanshot` + the clamped/`wingDebug`-passthrough gameshots), the headshot NAPE
+fix + three backdrops, and the item-2 GRAMMAR FREEBIES (`model.tailStyle` as a
+live-resolved enum + `forms:true` on `headScale`/`eyeScale`/`wingScale` + the wing-shape
+dials). The §8 step 0 CALIBRATION was proven end-to-end on shipped azure (the gate
+FAILed it, as designed). STILL OPEN for the builder slots: items 1, 3, 4, 7, the
+posture/spine-curl dial and the eye-shape dial (item 2), and `tests/starters.mjs`.
+
 1. **Wing builders** per §5d (blade comb / gapped membrane / silk fin),
    self-registered, each declaring its §3 motion path and publishing the
    standard rig parts (`wingPivotL/R`; `wingRigL/R` where skinned).
-2. **Grammar extensions**: `model.tailStyle` (enum
-   simple/finned/blade/comet/twinfin/shard, `forms:true`); `forms:true` flags
-   on `headScale`, `eyeScale`, `wingScale` and the wing-shape dials the
-   sheets vary per form (accretion already APPLIES them — this adds per-form
-   range-checking); a **posture/spine-curl dial** (the one genuinely missing
-   proportion dial — no torso builder has one); an **eye-shape dial**
-   (round↔almond — the draconic eye zone is hardcoded almond; `headScale`
-   reaches `draconic` but NOT `horned`).
+2. **Grammar extensions**: `model.tailStyle` — ✓ DONE (slot 0), added as a LIVE-resolved
+   enum (`kind:'enum'`, `registry:'tailStyle'`) validated against `dragonTail.TAIL_STYLES`
+   (the full 12-style buildable set, not the doc's starter subset, so the shipped roster's
+   `nightfury` etc. stay green); `forms:true` flags on `headScale`, `eyeScale`, `wingScale`
+   and the wing-shape dials the sheets vary per form — ✓ DONE (slot 0). STILL OPEN: a
+   **posture/spine-curl dial** (the one genuinely missing proportion dial — no torso builder
+   has one); an **eye-shape dial** (round↔almond — the draconic eye zone is hardcoded almond;
+   `headScale` reaches `draconic` but NOT `horned`).
 3. **Motif socket pattern**: a named `motifAnchor` each build publishes;
    per-form motif geometry swaps in one place; §7 checks anchor invariance.
 4. **Assert-metadata contract** (extends the anchor pattern): every

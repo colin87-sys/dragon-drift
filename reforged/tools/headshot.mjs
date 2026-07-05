@@ -1,5 +1,6 @@
 // Head-design QA: renders a dragon's HEAD close-up from four angles (front / 3-4 /
-// side / rear) into a montage, so the draconic head house-style can be judged.
+// side / NAPE) × the three §8 backdrops (dark / pale / gold) into a montage, so the
+// draconic head house-style + the rear-visible motif carrier can be judged on every sky.
 //   node tools/headshot.mjs [key] [tier]   →   /tmp/head-<key>.png
 import { createRequire } from 'module';
 import { execSync } from 'child_process';
@@ -17,7 +18,7 @@ function loadPlaywright() {
 const { chromium } = loadPlaywright();
 const srv = await serve();
 const browser = await chromium.launch();
-const page = await browser.newPage({ viewport: { width: 1300, height: 380 }, deviceScaleFactor: 2 });
+const page = await browser.newPage({ viewport: { width: 1300, height: 1100 }, deviceScaleFactor: 2 });
 page.on('pageerror', e => console.error('PAGEERROR', String(e)));
 await page.goto(srv.url + '/tools/headshot.html');
 await page.waitForFunction(() => window.__ready, { timeout: 15000 });
