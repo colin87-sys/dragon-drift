@@ -1097,7 +1097,12 @@ function tick() {
     const ov = cameraCtl.overtakeState;
     if (ov) {
       const dx = ov.bx - player.position.x, dz = ov.bz - player.position.z;
-      const win = Math.max(0, Math.min(1, (ov.k - 0.20) / 0.12, (0.86 - ov.k) / 0.12));  // ramp in/out around the pass
+      // A script may drive its own look-window (EITHERWING's two-beat reveal needs the
+      // head-turn open across BOTH reveals); ASHTALON leaves lookWin undefined and keeps
+      // its single-glance ramp, so its golden trace is untouched.
+      const win = ov.lookWin !== undefined
+        ? ov.lookWin
+        : Math.max(0, Math.min(1, (ov.k - 0.20) / 0.12, (0.86 - ov.k) / 0.12));  // ramp in/out around the pass
       const yaw = Math.max(-0.7, Math.min(0.7, Math.atan2(-dx, -dz)));                     // face the boss, clamped
       setDragonLook(win > 0 ? yaw * win : null);
     } else setDragonLook(null);
