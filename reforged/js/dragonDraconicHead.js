@@ -114,10 +114,13 @@ function taperedPredatorSnout(c) { snoutBase(c, { len: 1.5 * c.cfg.snoutScale,  
 
 // ── JAW ───────────────────────────────────────────────────────────────────── // a smooth lower jaw blended under the muzzle (never a box)
 function jaw(c, { len, wid, drop, sharp }) {
-  const m = c.mats.bellyMat;
-  // Flattened lower jaw centred under the muzzle, ending just shy of the nose.
+  // keenEye (azure): a SLIM, DARK jaw blended into the wedge (body-toned, smaller,
+  // tucked higher) — not a big bright belly ball that reads as a separate lump.
+  const keen = c.cfg.keenEye;
+  const m = keen ? c.mats.bodyMat : c.mats.bellyMat;
+  const jr = c.faceR * (keen ? 0.62 : 0.8), jw = wid * (keen ? 0.82 : 1), jd = drop * (keen ? 0.62 : 1);
   const z = c.snoutTipZ * 0.46;
-  c.head.add(ellipsoid(m, c.faceR * 0.8, wid, 0.44, len, 0, -c.hy * drop, z, 10));
+  c.head.add(ellipsoid(m, jr, jw, 0.4, len, 0, -c.hy * jd, z, 10));
   if (sharp) c.head.add(ellipsoid(m, c.faceR * 0.28, 0.8, 0.55, 1.2, 0, -c.hy * drop - 0.02, z - c.faceR * 0.8 * len * 0.7, 7));
 }
 function compactSmoothJaw(c)   { jaw(c, { len: 1.0,  wid: 0.82, drop: 0.36, sharp: false }); }
@@ -142,22 +145,25 @@ function eyeZone(c, { r, x, y, z, glow }) {
   // pupil, seated PROUD on the wide cheek (clear of the long muzzle) so it reads on the
   // small head. Default OFF → obsidian/pearl/solar keep the original eye byte-identical.
   if (c.cfg.keenEye) {
-    const socketMat = new THREE.MeshStandardMaterial({ color: 0x0a1420, roughness: 0.55, emissive: 0x0a1420, emissiveIntensity: 0.06 });
-    const irisMat = new THREE.MeshStandardMaterial({ color: c.def.eye, emissive: c.def.eye, emissiveIntensity: 2.4 });
-    // A big DARK almond socket seated proud on the cheek IS the eye shape — a dark
+    const socketMat = new THREE.MeshStandardMaterial({ color: 0x0a1420, roughness: 0.5, emissive: 0x0a1420, emissiveIntensity: 0.04 });
+    const irisMat = new THREE.MeshStandardMaterial({ color: 0x9fd8ff, emissive: 0x9fd8ff, emissiveIntensity: 1.4 });
+    // A big DARK almond socket seated PROUD on the cheek IS the eye shape — a dark
     // almond against the light-lit hide reads as an eye where a light iris dissolves.
-    // A small bright iris glint sits inside it toward the camera (the brightest facial
-    // point, §4). FRONT-cheek, high + forward at the snout↔cranium junction (dir 8).
-    const R2 = rr * 2.55;
-    const ex = c.hx * 0.66, ey = c.hy * 0.42, ez = c.faceZ - c.faceR * 0.22;
-    const px = R2 * 0.5;                                     // proud outward
+    // A bright iris glint sits inside it toward the camera (the brightest facial point,
+    // §4). FRONT-cheek, high + forward at the snout↔cranium junction (r3 dir 2).
+    const R2 = rr * 3.0;
+    const ex = c.hx * 0.6, ey = c.hy * 0.42, ez = c.faceZ - c.faceR * 0.26;
+    const px = R2 * 0.7;                                     // proud outward so it never buries
     for (const s of [-1, 1]) {
-      const socket = new THREE.Mesh(new THREE.SphereGeometry(R2, seg(11), seg(9)), socketMat);
-      socket.scale.set(0.66, 1.05, 0.6); socket.rotation.set(0.06, -s * 0.55, -s * 0.4);
-      socket.position.set(s * (ex + px), ey, ez - R2 * 0.24); c.head.add(socket);
-      const iris = new THREE.Mesh(new THREE.SphereGeometry(R2 * 0.62, seg(10), seg(8)), irisMat);
-      iris.scale.set(0.66, 1.02, 0.58); iris.rotation.set(0.06, -s * 0.55, -s * 0.4);
-      iris.position.set(s * (ex + px + R2 * 0.14), ey + R2 * 0.02, ez - R2 * 0.3); c.head.add(iris);
+      // The big DARK almond socket is the dominant, PROUD, outermost element (the eye
+      // shape reads as a dark almond against the light hide); a SMALL central glint
+      // sits just inside it, not poking past — so the dark rim always frames the eye.
+      const socket = new THREE.Mesh(new THREE.SphereGeometry(R2, seg(12), seg(10)), socketMat);
+      socket.scale.set(0.5, 1.15, 0.66); socket.rotation.set(0.06, -s * 0.5, -s * 0.42);
+      socket.position.set(s * (ex + px), ey, ez - R2 * 0.18); c.head.add(socket);
+      const iris = new THREE.Mesh(new THREE.SphereGeometry(R2 * 0.42, seg(9), seg(7)), irisMat);
+      iris.scale.set(0.5, 1.1, 0.62); iris.rotation.set(0.06, -s * 0.5, -s * 0.42);
+      iris.position.set(s * (ex + px + R2 * 0.04), ey + R2 * 0.06, ez - R2 * 0.2); c.head.add(iris);
     }
     return;
   }
@@ -334,7 +340,7 @@ function browCrest(c) {
     const b = new THREE.Mesh(g, bladeMat);
     const spread = n > 1 ? (t - 0.5) * 0.5 : 0;             // tight fan (swept, not radial star — dir 3)
     b.position.set(ax, ay, az);
-    b.rotation.x = -0.6;                                     // rake back ~35°, blades near-parallel
+    b.rotation.x = -0.32;                                    // rake up-and-back so the blades BREAK the head outline (r3 dir 3)
     b.rotation.z = spread;
     b.rotation.y = spread * 0.4;
     c.head.add(b);

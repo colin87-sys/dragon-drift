@@ -32,10 +32,12 @@ export function setFlapDebugPose(parts, pose = 'glide') {
       pivot.rotation.set(0.05, -s * 0.5, s * 0.5);
       if (tip) tip.rotation.set(0.0, -s * 0.7, s * 1.1);
     } else if (pose === 'bank') {
-      // Hard RIGHT bank: right (inside) wing tucks + dips, left (outside) opens.
+      // A moderate RIGHT bank: right (inside) wing tucks + dips, left (outside) opens.
+      // The wrist fold is GENTLE so the raised outer blades stay rooted along the arm
+      // march (no detached floating slivers / daylight at the roots — r3 dir 9).
       const inside = s > 0;
-      pivot.rotation.set(0.12, -s * 0.18, s * (inside ? 0.5 : -0.32));
-      if (tip) tip.rotation.set(-0.1, 0, s * (inside ? 0.7 : -0.2));
+      pivot.rotation.set(0.12, -s * 0.18, s * (inside ? 0.42 : -0.26));
+      if (tip) tip.rotation.set(-0.08, 0, s * (inside ? 0.32 : -0.12));
     }
   };
 

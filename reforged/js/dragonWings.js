@@ -786,8 +786,8 @@ function buildBladeFeatherWings(def, model, attach, giM) {
   // Leading-arm SPAR + covert material — MATTE horn (dir 1): dark, metalness 0, so it
   // reads as bone structure, never chrome scaffolding.
   const armMat = new THREE.MeshStandardMaterial({
-    color: model.bladeSparColor ?? 0x44566a, roughness: 0.68, metalness: 0.0,
-    emissive: 0x1c2836, emissiveIntensity: 0.16,          // lighter horn so the spar never reads near-black (dir 4)
+    color: model.bladeSparColor ?? 0x6a7f96, roughness: 0.6, metalness: 0.0,
+    emissive: 0x2a3a4c, emissiveIntensity: 0.3,           // lifted horn value so the spar reads as light structure, never near-black (r3 dir 5)
   });
   const ribMat = new THREE.MeshStandardMaterial({ color: cMid, roughness: 0.5, metalness: 0.0 });
   const covertMat = new THREE.MeshStandardMaterial({ color: cDark, roughness: 0.6, metalness: 0.0, side: THREE.DoubleSide });
