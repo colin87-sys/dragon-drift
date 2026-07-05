@@ -59,7 +59,9 @@ measurable ones, the gate (§8) judges the rest in pixels.
    way, tail counter-arcs.
 3. **Mass hierarchy (per view).** From the SIDE profile: body 55–65% of
    silhouette area, wings+tail 25–35%, head+accents ~10%. From the REAR-chase
-   glide: wings 50–65%, body 25–40%, head+accents ≤10%. Never split any two
+   glide: wings 50–65%, body 25–40%, head+accents ≤10% (jade exception,
+   sheet-sanctioned: wings+fins 30–50%, body 40–60% — the serpent IS the
+   silhouette). Never split any two
    adjacent masses 50/50; adjacent major-mass ratios target ~1.6 (avoid the
    dead 0.9–1.1 band).
 4. **Taper law.** Every neck, tail, limb, horn, whisker and wing element tapers
@@ -87,7 +89,7 @@ measurable ones, the gate (§8) judges the rest in pixels.
    |---|---|---|---|
    | azure | `0xd9b36a` gold | ~39° | DIFFUSE tip-paint ONLY — zero accent emissive on wings |
    | ember | `0xff8b2a` lava | ~27° | EMISSIVE ONLY on a near-black body — zero warm accent diffuse |
-   | jade  | `0xeafff4` cool pearl | ~157° | rim gradient + pearl glow — iridescent-cold, never warm |
+   | jade  | `0xeafff4` cool pearl | ~149° | rim gradient + pearl glow — iridescent-cold, never warm |
    Azure and ember are 12° apart in hue; the carrier rule (diffuse-only vs
    emissive-only) is what separates them — §7 asserts it.
 10. **Life over symmetry.** Perfect L/R pose symmetry in idle reads dead —
@@ -98,8 +100,10 @@ measurable ones, the gate (§8) judges the rest in pixels.
     staggered planes, camber). One flat material on a large surface =
     "flat sticker" fail.
 12. **Rarity ceiling.** Starters never use `glowSeams`, `wingVeins`, halos,
-    `auraIdle > 0` or `sparkle`; `spineGlow` ≤ 0.32; exactly ONE emissive
-    bloom point per dragon (its motif). Premiums keep the fx drama — starters
+    `auraIdle > 0` or `sparkle`; `spineGlow` ≤ 0.32; at MOST one emissive
+    bloom point per dragon, and if present it is the motif (azure's motif is
+    deliberately diffuse-only — its bloom allowance goes unused; the eyes
+    stay the brightest facial points, not a bloom). Premiums keep the fx drama — starters
     win on FORM. This supersedes the shipped "smallest, narrowest wings so
     premiums feel rare" comment on azure (update that comment when the build
     lands): starters may have beautiful, majestic wings; what they may not
@@ -254,7 +258,9 @@ and report (§9).
 **CP1 authoring semantics (all slots).** Author the base def as the shared
 skeleton with apex dials carried in `forms[2]`; `forms[0]`/`forms[1]` may be
 minimal stubs at CP1 but must still BUILD CLEAN (`tricount --ci` runs all
-forms). Render CP1 captures via `ascendedDef(def, 2)`. By CP2,
+forms). At CP1, `tests/starters.mjs` may scope the per-form band/monotonicity
+asserts to form 2 (build-clean only for forms 0–1); full 0–2 coverage is
+mandatory from CP2. Render CP1 captures via `ascendedDef(def, 2)`. By CP2,
 base+`forms[0]` must resolve to the hatchling per the §4 table.
 
 **BUILD ORDER — strict queue: azure → ember → jade.** Each slot's branch is
@@ -281,8 +287,11 @@ land with the first slot that hits them.
   eye-shape dial.
 - **Tail** builder `clean`, per-form `tailStyle: 'simple' → 'simple' →
   'finned'` (the shipped pattern, `dragons.js` forms); apex reads as a forked
-  banner (kite/swallow energy — echoes the blades; tier-0 fork HINT via a
-  small twin-tip on the simple style, the tier-0 silhouette key).
+  banner (kite/swallow energy — echoes the blades). Tier-0 fork HINT (the
+  tier-0 silhouette key) via a NEW opt-in knob (e.g. `model.tailTipFork`,
+  default off) on the clean builder's simple style — shipped `simple`
+  geometry untouched (§9) — or by using the existing `twinfin` style at
+  form 0. Builder picks one and states it in the PR.
 - **Forms**: 0 = round-chested fluffball glider (head:body 1:2.0–2.4, curled
   posture), stub blade-comb (even stubs keep gaps), crest nub, forked tail
   hint; 1 = blades lengthen, crest 3-blade fan begins, span 2.0–2.3×;
@@ -360,8 +369,9 @@ land with the first slot that hits them.
   from the wing builder's kit; `plume` remains a tail-builder REFERENCE for
   streamer shaping, not a per-form swap target).
 - **Forms**: 0 = chubby LONG river-pup (head:body 1:2.8–3.2 — less extreme
-  than its siblings so the serpent hint survives), big calm eyes, 2 fin-bud
-  lobes visible, pearl bead; 1 = body lengthens, 3 lobes unfurl, whiskers
+  than its siblings so the serpent hint survives), big calm eyes, 3 fin-bud
+  lobes BUILT (≥2 visible in silhouette — the tier-0 key; matches the §3
+  3/3/4 count and the §7 assert), pearl bead; 1 = body lengthens, lobes unfurl, whiskers
   bud; 2 = full S-ribbon glory, 4 lobes + streamers, veil tail, pearl + rim
   carrier radiant.
 - Tri targets: ~2.3k / ~3.9k / ~5.4k. Engine needs hit here: fin-lobe wing
@@ -395,6 +405,8 @@ land with the first slot that hits them.
 6. **`setFlapDebugPose(glide|fold|bank)`** debug pin on the flap rigs —
    transient poses cannot be captured by waiting (L137 law).
 7. **`tests/starters.mjs`** (§7) + `def.accentHue` on the three starters.
+8. **`--wings-only` flag** on `tools/silhouette.mjs`/`silhouetteCore.mjs`
+   (it has `--no-wings`; CP3 needs the inverse) — slot C.
 
 ## §7 Per-sheet geometry asserts (`tests/starters.mjs`, new)
 
@@ -412,17 +424,19 @@ the §4 defaults, via a small per-dragon spec table in the test:
 - Declared rig parts exist (`wingPivotL/R`; `wingRigL/R` where the sheet says
   skinned); driving the fold contracts measured span (ratio ≤0.7 of glide).
 - Taper: every tapered chain (tail, neck, elements from `wingElements`):
-  tip ≤0.20× base, with a ≥0.08 floor (degenerate needles fail too).
+  tip ≤0.20× base, with a ≥0.08 floor (deliberate assert slack: the suite
+  only catches sausages and degenerate needles — the gate judges the law-4
+  10–20% band in pixels).
 - Line of action: `parts.spinePoints` polyline has ≥1 inflection in idle.
 - Motif anchor: positions compared in PRE-SCALE local space (divide out the
   form's resolved `d.model.scale` before comparing) — drift ≤0.15 units;
   motif bounding volume monotonic increasing.
 - Tri budget per form within sheet targets ±20% and under the 6,000 ceiling
   (`tricount` remains the hard gate).
-- Palette: ≤3 base diffuse hues + 1 emissive accent per form; accent hue
-  within ±20° of `def.accentHue`; carrier rule (azure: no accent-hued
-  emissive on wings; ember: no warm accent diffuse; jade: accent cool,
-  ~157°±20°).
+- Palette: ≤3 base diffuse hues + ≤1 emissive accent per form (azure's
+  accent is diffuse-only — zero is correct for it); accent hue within ±20°
+  of `def.accentHue`; carrier rule (azure: no accent-hued emissive on wings;
+  ember: no warm accent diffuse; jade: accent cool, ~149°±20°).
 
 ## §8 The gate protocol (aesthetics gate — the reason this rebuild exists)
 
@@ -457,10 +471,15 @@ Process is the boss playbook's, restyled for dragons:
    fresh gate. After ~4 rounds of churn: consolidate all directives into one
    frozen numbered work order before iterating further (MARROWCOIL law).
 4. In-game captures second — `node tools/gameshots.mjs` (or the `?debug`
-   URL flow): chase idle, mid-bank, tier-up reveal. Bank/fold AESTHETICS are
-   judged on the pinned studio states; the in-game pass judges INTEGRATION
-   only (readability against biome skies, presence at gameplay distance) —
-   the BOSS-DESIGN §7c studio-vs-integration split.
+   URL flow): ONLY the three named frames are handed to the gate — chase
+   idle, mid-bank, tier-up reveal. Tier MONTAGES come exclusively from the
+   clamped dragonstudio tool: gameshots' hardcoded tier loop `[0,1,2,3]`
+   composites a mislabeled phantom-T3 tile for starters — either clamp its
+   loop to `maxTierFor(key)` (slot A engine need if used for montages) or
+   never hand its montage to the gate. Bank/fold AESTHETICS are judged on
+   the pinned studio states; the in-game pass judges INTEGRATION only
+   (readability against biome skies, presence at gameplay distance) — the
+   BOSS-DESIGN §7c studio-vs-integration split.
 5. Human judges motion/feel on the PR preview. Merge verdict is human.
 
 Checkpoints per slot: **CP1** = apex form body+wings first built (per the
@@ -492,7 +511,9 @@ rebuild, spawned with fresh eyes. Trust nothing you were told beyond this
 prompt: read the capture PNGs at the provided paths yourself, and read
 reforged/DRAGON-DESIGN.md §2 (aesthetic laws), §3 (wing law — the universal
 clauses plus THIS dragon's architecture column), §4 (growth arc), the §5
-registry row and §5d build sheet for THIS dragon, and §8's failure classes.
+registry row and §5d build sheet for THIS dragon, §8 step 2's capture-set
+definition (states, angles, backdrops, per reachable form — so you can tell
+when a required capture is missing), and §8's failure classes.
 PRECEDENCE: where the §5d sheet or the §3 per-architecture column gives a
 number, it overrides the shared §3/§4 defaults — judge against the sheet.
 If any capture is ambiguous, non-deterministic between rounds, or missing a

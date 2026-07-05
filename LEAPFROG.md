@@ -5408,3 +5408,38 @@ TWICE: body presence AND first-contact drama (ASHTALON opens with the overtake; 
 doesn't exist until the CP2 entrance engine). New audit law: **grandeur comparisons must include first-contact
 drama — a slot without its entrance beat will always feel lesser than a slot with one, independent of
 geometry.** Judge drafts accordingly (or discount for it) before concluding a boss's body is the problem.
+
+
+### L142 — DRAGON-DESIGN.md: the boss pipeline turns on the players; the doc itself must pass a gate
+
+**Did.** Wrote `reforged/DRAGON-DESIGN.md` — the starter-rebuild playbook (PR #216): aesthetics-first law set,
+per-architecture WING LAW, hatchling→adolescent→apex growth-arc dial bands, anti-collision trio registry, three
+§5d build sheets on the real dial grammar, `tests/starters.mjs` assert spec, and a studio-first gate protocol
+with a verbatim aesthetics GATE PROMPT. The owner's verdict on the shipped starters — functionally green,
+visually inferior — is the whole reason: the boss arc proved that a harsh fresh-eyes gate is what buys beauty,
+so the starters get one too.
+
+**Learned.** (1) **Gate the DESIGN DOC like a build.** A 4-lens adversarial panel (feasibility / aesthetics /
+distinctness / process) FAILed the first draft with 30+ surgical directives, then a 2-lens verify pass PASSed
+r2 with a 10-item punch list. The catches were real: per-form BUILDER swaps are impossible (`ascendedDef`
+merges `forms[]` into `d.model` only — every per-form change must be a model knob; `tailStyle` pattern);
+`horned` ignores `headScale` (ember's head is now `draconic feralPredator`); and the planned "Charmander law"
+tail-ember DUPLICATED shipped `fire`'s tailBulb motif — the registry's anti-collision test must sweep the FULL
+roster, not just the trio (ember's motif is now a rear-visible FORGE COLLAR at the yoke). (2) **A universal law
+plus a divergent sheet is a gate deadlock** — jade's fin-sails contradicted the "all wings" finger-ray law, so
+the doc now carries an explicit PRECEDENCE RULE (sheet overrides shared bands, stated inside the gate prompt)
+and a per-architecture clause table instead of one law pretending to fit three wings. (3) **The shipped
+starters are a free calibration target**: §8 step 0 runs the gate on the shipped dragon first and expects FAIL
+(MITTEN / FLAT STICKER / SAME-DRAGON-BIGGER); a gate that passes the old starter is a broken gate — the
+inverse of the bossgate prove-on-shipped-good law. (4) The shipped `membrane` wing with `flame:false` is
+structurally the mitten class the ASHTALON gate killed in round 2 — filled web, one flat material, edge
+treatment opt-in and off. The rebuild is architecture, not polish.
+
+**Gotcha.** `tools/tiershots.mjs`/`gameshots.mjs` render tier loops to 3 unconditionally — starters cap at
+tier 2, so every montage grows a mislabeled PHANTOM-T3 tile that a fresh gate will judge. Clamp to
+`maxTierFor(key)` before any starter gate round (§6.5/§8.4; it's a named failure class now).
+
+**Pattern.** Design→build→gate generalizes beyond bosses: registry claim → build sheet → suites → deterministic
+studio captures → fresh `fable` gate (builder never self-judges) → integration pass → human merge verdict. And
+one meta-law: run the adversarial panel on the DOC before any builder burns a session on it — 30 directives
+cost minutes at design time and would have cost three build sessions at build time.
