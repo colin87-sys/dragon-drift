@@ -188,6 +188,34 @@ const SUSTAINED = new Set(['tunnel', 'spiralStream', 'movingGap', 'iris', 'strea
 // byte-unchanged (the lifecycle test asserts the shipped two never see one).
 let setpieceT = -1;            // <0 idle · ≥0 seconds into the active setpiece
 let setpieceDef = null;
+// §5b/§5d slot 7 (THRUMSWARM): the swarm's condense/scatter cycle is the PRESSURE-
+// OSTINATO puzzle read — CONDENSED = vulnerable + firing, SCATTERED = invulnerable
+// (chip only lands while condensed, the turn-taking tell). Def-gated on
+// `condenseInvuln`; every value is inert (0/false) for every other archetype.
+let staggerT = 0;             // >0 = the queen is STAGGERED (parry job): the swarm is LOCKED condensed (exposed)
+let staggerHits = 0;         // amber-volley parries banked toward the next stagger (SCATTER-STAGGER, §5i.C)
+let swarmScattered = false;  // last-frame condense read (for the deflect feedback + the ostinato tell)
+let swarmDeflectHinted = false;  // one-shot "scattered = untouchable" hint per encounter
+let condHold = 0;            // seconds the swarm stays CONDENSED past its last shot (bridges the ostinato)
+// §5i.B ABSORB-A-COLOR (THRUMSWARM's Calamities graze, def-gated `grazeForm:'absorbColor'`):
+// the swarm SHEDS surge-pink motes braided into the magenta stream; weaving in and SOAKing
+// them feeds the Surge meter (ANATOMY — the pink is shed by the swarm body). Rendered as ONE
+// additive THREE.Points (well inside the ≤2 large-additive-volume overdraw law, L124). A
+// SOAK is non-lethal: touching a pink mote absorbs it (bulletGraze → surge). Inert for every
+// other archetype (no grazeForm, no shed).
+let soakMotes = null;        // the THREE.Points object (one additive draw)
+let soakPos = null;          // its position attribute buffer
+const soakList = [];         // active pink motes {x,y,rel,vx,vy,vrel,ttl}
+const SOAK_MAX = 16;         // hard cap on-screen (overdraw + fairness)
+let soakShed = 0;            // countdown between sheds
+// §5e INPUT/POSE RING BUFFER (the roster's ring buffer — ONEWING reuses it at slot 12).
+// Records the player's recent flight path; THRUMSWARM's *Your Own Wings* replays it as the
+// swarm-dragon's own path (§5f rule-break: boss-side mirroring that NEVER touches input).
+// General + inert (recorded for any boss; only a setpiece that reads it does anything).
+const poseRing = [];         // recent player {x,y} samples (newest last)
+let poseRingT = 0;           // sample cadence
+const POSE_RING_MAX = 90;    // ~9s at 0.1s cadence
+let wingsPath = null;        // snapshot of poseRing taken when Your Own Wings arms
 // §5i.B RIDE-THE-BEAM-EDGE (Calamities graze debut, def-gated `grazeForm:
 // 'beamEdge'`): per-frame ticking graze with its OWN dedup story — the tick
 // clock rate-limits payout (vs the crossing check's one-per-bullet), and the
@@ -421,6 +449,41 @@ const SETPIECE_PATHS = {
       rel: B.settleGap + (dive - B.settleGap) * env,   // station(26) → the dive (rel −6, past the camera) → station
     };
   },
+  // THRUMSWARM — CONDENSE PASS (§5e moving-station, P2): the swarm sweeps ACROSS the lane
+  // (leaving station, |x| → ~12) as it condenses to fire, dipping close on the near pass,
+  // then re-centres. Moving → the ring/wall volleys keep coming from wherever it travels.
+  condensePass(k) {
+    const B = CONFIG.BOSS;
+    const env = k < 0.15 ? k / 0.15 : k > 0.85 ? (1 - k) / 0.15 : 1;
+    return {
+      x: Math.sin(k * Math.PI * 2) * 12 * env,               // out to ±12 and back (leaves station)
+      y: B.fightHeight + Math.sin(k * Math.PI) * 2.5,
+      rel: B.settleGap - Math.sin(k * Math.PI) * (B.settleGap - 12) * env,   // dips close on the near pass
+    };
+  },
+  // THRUMSWARM — YOUR OWN WINGS (§5f dread, P4): the swarm becomes the player's dragon and
+  // flies the RECORDED flight path (wingsPath) back at them — the roster's ring-buffer break
+  // (boss-side mirroring, never touches input). The lateral x/y REPLAYS what the player just
+  // flew (clamped to the arena for fairness — §5f "capped to fairness"); rel sweeps in for a
+  // genuine CLOSE PASS (L141: cross the player) and back. wingsPath is snapshotted at arm.
+  yourWings(k) {
+    const B = CONFIG.BOSS;
+    let x = 0, y = B.fightHeight;
+    const path = wingsPath;
+    if (path && path.length > 1) {
+      const f = k * (path.length - 1);
+      const i = Math.min(path.length - 1, Math.floor(f));
+      const j = Math.min(path.length - 1, i + 1);
+      const t = f - i;
+      x = path[i].x + (path[j].x - path[i].x) * t;
+      y = path[i].y + (path[j].y - path[i].y) * t;
+    } else {
+      x = Math.sin(k * Math.PI * 2) * 8;   // fallback weave if no path was recorded
+    }
+    x = Math.max(-14, Math.min(14, x));    // fairness clamp to the portrait envelope
+    y = Math.max(2, Math.min(22, y));
+    return { x, y, rel: B.settleGap - Math.sin(k * Math.PI) * (B.settleGap - 3) };   // a close flyby (min rel ~3)
+  },
 };
 function clearSetpiece() {
   if (setpieceT >= 0) model?.setSetpiece?.(0);
@@ -444,10 +507,103 @@ function armSetpieceForPhase(idx) {
   if (!sp || !SETPIECE_PATHS[sp.id]) return;
   setpieceDef = sp;
   setpieceT = 0;
+  // §5e/§5f Your Own Wings: snapshot the player's recorded flight path NOW so the copy
+  // replays exactly what they just flew (capped to fairness in the path fn).
+  if (sp.id === 'yourWings') wingsPath = poseRing.slice(-70);
   if (!sp.moving) {   // quiet pass → suppress fire for a capture-safe window
     attackTimer = Math.max(attackTimer, sp.dur + 1.2);
     riderTimer = Math.max(riderTimer, sp.dur);
   }
+}
+
+// §5b/§5d slot 7 (THRUMSWARM): map each attack to the swarm FORMATION it fires from
+// (ring = radial, wall = lane-denial, line = swept). Emitter = organ (§5f): the swarm
+// condenses into the shape, then the shape fires.
+const SWARM_ATTACK_FORM = {
+  spiral: 'ring', iris: 'ring', aimed: 'ring', fan: 'ring',
+  curtain: 'wall', movingGap: 'wall', secondWave: 'wall',
+  stream: 'line', crossfire: 'line', spiralStream: 'line',
+};
+// driveSwarm: drive the swarm's condense/scatter cycle + formation from the live fight
+// state (the PRESSURE-OSTINATO puzzle read). CONDENSED while a volley winds up or is in
+// flight (vulnerable + firing); SCATTERED during the rest (invulnerable — chip only lands
+// while condensed). A parry-STAGGER locks it condensed (the exposed bonus window). Def-
+// gated on `condenseInvuln`; a model without setCondense (every other archetype) no-ops.
+function driveSwarm(dt, player) {
+  if (!def || (!def.condenseInvuln && def.grazeForm !== 'absorbColor') || !model || !model.setCondense) return;
+  if (staggerT > 0) staggerT = Math.max(0, staggerT - dt);
+  if (phase !== 'fight') { swarmScattered = false; return; }   // entrance/approach/death own the form
+  if (shielded) { swarmScattered = false; return; }            // onShieldChange owns the ring-shield
+  if (setpieceT >= 0 && setpieceDef && setpieceDef.dread) { swarmScattered = false; return; }  // Your Own Wings owns the dragon form
+  // CONDENSED while a volley winds up / is in flight (vulnerable + firing), held through the
+  // dense ostinato by `condHold` so the swarm only SCATTERS at the phrase RESTS — brief
+  // invulnerable micro-pauses (the turn-taking tell), not a half-fight gate. A parry-stagger
+  // locks it condensed. SCATTERED = chip does nothing (the puzzle read).
+  const firing = chargeT > 0 || pending.length > 0 || staggerT > 0;
+  if (firing) condHold = 1.1;                     // stay exposed ~1.1s past the last shot
+  else condHold = Math.max(0, condHold - dt);
+  if (firing || condHold > 0) {
+    if (firing) model.setFormation(SWARM_ATTACK_FORM[curAttack] || 'ring');
+    model.setCondense(1);
+  } else {
+    model.setCondense(0);   // the lerp blends the motes back to the scatter cloud (invulnerable)
+  }
+  swarmScattered = (model.condenseLive ? model.condenseLive() : 1) < 0.45;
+
+  // §5i.B ABSORB-A-COLOR: while CONDENSED and firing, the swarm SHEDS surge-pink motes
+  // (braided into the magenta stream) that drift toward the player's lane to be soaked.
+  if (def.grazeForm === 'absorbColor' && soakList.length < SOAK_MAX) {
+    soakShed -= dt;
+    if (soakShed <= 0 && (chargeT > 0 || pending.length > 0 || staggerT > 0)) {
+      soakShed = 0.5 + Math.random() * 0.5;
+      shedSoakMote(player);
+    }
+  }
+}
+
+// Shed one surge-pink soak mote from the swarm (the muzzle = the queen) drifting toward the
+// player's lane. Non-lethal — the player weaves in to SOAK it (feeds Surge).
+function shedSoakMote(player) {
+  const mp = model.partWorldPos ? model.partWorldPos(def.muzzle) : null;
+  const sx = mp ? mp.x : pose.x, sy = mp ? mp.y : pose.y;
+  const relFromPlayer = mp ? (-mp.z - player.dist) : pose.rel;
+  const spread = 3.2;
+  soakList.push({
+    x: sx + (Math.random() - 0.5) * spread, y: sy + (Math.random() - 0.5) * spread,
+    rel: relFromPlayer,
+    vx: (player.position.x - sx) * 0.05 + (Math.random() - 0.5) * 1.2,
+    vy: (player.position.y - sy) * 0.05 + (Math.random() - 0.5) * 1.2,
+    vrel: -(relFromPlayer + 2) / 2.4,     // close to the player over ~2.4s
+    ttl: 3.2,
+  });
+}
+
+// Move the soak motes; a mote within soak radius of the player is ABSORBED (bulletGraze →
+// Surge). Expire on ttl or once well past the player. Writes the Points buffer + visibility.
+function updateSoakMotes(dt, player) {
+  if (!soakMotes) return;
+  const SOAK_R = 2.2;
+  for (let i = soakList.length - 1; i >= 0; i--) {
+    const m = soakList[i];
+    m.ttl -= dt;
+    m.x += m.vx * dt; m.y += m.vy * dt; m.rel += m.vrel * dt;
+    const near = Math.abs(m.rel) < 2.4;
+    if (near && Math.hypot(m.x - player.position.x, m.y - player.position.y) < SOAK_R) {
+      bulletGraze(player);                       // ABSORBED → feeds Surge (the graze economy)
+      emit('absorbColor', {});
+      tmp.set(player.position.x, player.position.y, -player.dist);
+      burst(tmp, 0xff5ab0, { count: 4, speed: 8, size: 0.5, life: 0.3 });
+      soakList.splice(i, 1); continue;
+    }
+    if (m.ttl <= 0 || m.rel < -6) { soakList.splice(i, 1); continue; }
+  }
+  for (let i = 0; i < SOAK_MAX; i++) {
+    const m = soakList[i];
+    if (m) soakPos.set([m.x, m.y, -(player.dist + m.rel)], i * 3);
+    else soakPos.set([9999, 9999, 9999], i * 3);
+  }
+  soakMotes.geometry.attributes.position.needsUpdate = true;
+  soakMotes.visible = soakList.length > 0;
 }
 
 // ---- Spell cards (BOSS-DESIGN.md §5f/§5h) -----------------------------------
@@ -550,6 +706,24 @@ export function initBoss(sc) {
   wallL.renderOrder = wallR.renderOrder = TIERS.arenaWall;
   wallL.visible = wallR.visible = false;
   scene.add(wallL); scene.add(wallR);
+
+  // §5i.B ABSORB-A-COLOR soak motes: ONE additive Points cloud (surge-pink), parked
+  // off-screen until a swarm boss sheds into it. One draw, one additive volume.
+  {
+    const g = new THREE.BufferGeometry();
+    soakPos = new Float32Array(SOAK_MAX * 3).fill(9999);
+    g.setAttribute('position', new THREE.BufferAttribute(soakPos, 3));
+    g.setDrawRange(0, SOAK_MAX);
+    const m = new THREE.PointsMaterial({
+      color: 0xff5ab0, size: 1.5, sizeAttenuation: true, transparent: true, opacity: 0.95,
+      blending: THREE.AdditiveBlending, depthWrite: false,
+    });
+    soakMotes = new THREE.Points(g, m);
+    soakMotes.frustumCulled = false;
+    soakMotes.renderOrder = TIERS.surgeFx;
+    soakMotes.visible = false;
+    scene.add(soakMotes);
+  }
   // Surge callout is fired from activateSurge (one note only — "REFLECT ANYTHING"),
   // so there's no duplicate banner here.
 
@@ -848,6 +1022,10 @@ export function startBossEncounter(player, defOverride) {
   clearAhead(player.dist + 800);
   game.inBoss = true;
   game.bossHitsTakenRun = 0;
+  staggerT = 0; staggerHits = 0; swarmScattered = false; swarmDeflectHinted = false;   // §5d slot 7 swarm state
+  condHold = 0; soakShed = 0; soakList.length = 0;
+  poseRing.length = 0; poseRingT = 0; wingsPath = null;   // §5e ring buffer: fresh per encounter
+  if (soakMotes) soakMotes.visible = false;
 
   phase = 'warn';
   warnT = B.warnTime;
@@ -1139,6 +1317,17 @@ export function updateBoss(dt, player, time) {
   }
 
   updateBossBullets(dt, player);   // no bullet-time (the sudden slow read as jarring)
+  driveSwarm(dt, player);          // §5d slot 7: the condense/scatter cycle + formation (inert for other bosses)
+  updateSoakMotes(dt, player);     // §5i.B ABSORB-A-COLOR (inert unless grazeForm='absorbColor')
+  // §5e ring buffer: sample the player's flight path while fighting (for Your Own Wings).
+  if (phase === 'fight' || phase === 'flythrough') {
+    poseRingT -= dt;
+    if (poseRingT <= 0) {
+      poseRingT = 0.1;
+      poseRing.push({ x: player.position.x, y: player.position.y });
+      if (poseRing.length > POSE_RING_MAX) poseRing.shift();
+    }
+  }
   model.tick(dt, time);
   updateSurgeAura(dt, player, time, surge);
   updateSurgeBeam(dt, player, time);
@@ -1377,6 +1566,19 @@ export function updateBoss(dt, player, time) {
           ui.parryPopup?.(pts, perfect, streak);
           sfx.parry?.(perfect, streak);
           emit('bossReflect', { perfect, streak });
+          // §5i.C SCATTER-STAGGER (THRUMSWARM's parry job): parry the queen's amber-eye
+          // volley 3× → the queen recoils and the swarm can't re-scatter for 2.5s (LOCKED
+          // condensed = a guaranteed chip window — parry ACCELERATES, never gates, §5i.C
+          // law 4). Surge reflects don't count (they're free-for-all, not the amber read).
+          if (def.condenseInvuln && !surge) {
+            staggerHits++;
+            if (staggerHits >= 3) {
+              staggerHits = 0; staggerT = 2.5;
+              ui.bossNote?.('✦ STAGGERED — STRIKE NOW ✦', 'THE SWARM CAN\'T SCATTER', 'gold', 2.4);
+              sfx.milestone?.();
+              emit('bossStagger', {});
+            }
+          }
         }
       }
     } else {
@@ -2007,6 +2209,16 @@ function damageBoss(amount, kind, e = null) {
     // thing is needed now" (charge Surge), not "keep hitting it".
     sfx.shieldPing?.();
     if (group && Math.random() < 0.5) burst(group.position, def.glow, { count: 4, speed: 10, size: 0.7, life: 0.3 });
+    return;
+  }
+  // §5d slot 7 (THRUMSWARM): chip only lands while the swarm is CONDENSED. Scattered =
+  // invulnerable (the turn-taking tell) — the hit sparks off the dispersed cloud with no
+  // damage, so the player learns to strike the condensed windows. Surge (the shield
+  // break) is a separate path and is never gated here. Def-gated on `condenseInvuln`.
+  if (def.condenseInvuln && model.condenseLive && model.condenseLive() < 0.45) {
+    sfx.shieldPing?.();
+    if (!swarmDeflectHinted) { swarmDeflectHinted = true; ui.bossNote?.('✦ SCATTERED — UNTOUCHABLE ✦', 'STRIKE WHEN IT CONDENSES', 'gold', 2.6); }
+    emit('bossDeflect', { reason: 'scattered' });
     return;
   }
   if (e) amount += routePartDamage(e);   // §5f: a landed part-hit can crack a pane (+bonus chip)

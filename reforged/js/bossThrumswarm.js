@@ -437,6 +437,7 @@ export function buildThrumswarm(def, quality = 1) {
   // condenseK 0 = scattered (invulnerable tell); 1 = the named shape is tight.
   let toForm = 'scatter';
   let condenseK = 0;
+  let liveCondIn = 0;   // the last eased effective condense (the chip-vulnerability read)
   // Optional runtime override of the YOUR-DRAGON slots with the player's ACTUAL
   // dragon vertices (the §5e engine seam / the roster ring-buffer's sibling — the
   // literal "your own dragon"). Default = the authored heraldic copy (studio +
@@ -550,6 +551,7 @@ export function buildThrumswarm(def, quality = 1) {
     // Fable root-cause fix). The bloom dims + the lantern shrinks; the amber eye stays.
     const dragonMode = (toForm === 'yourDragon') ? condIn : 0;
     queenGroup.scale.setScalar(1.3 * (1 - dragonMode * 0.42));
+    liveCondIn = condIn;   // the eased effective condense — boss.js reads it for the chip-invuln gate
 
     // Queen migrates to the target formation's queen slot.
     const qT = formQueen(toForm);
@@ -675,6 +677,7 @@ export function buildThrumswarm(def, quality = 1) {
     setGaze,
     notice,
     setCondense, setFormation, setYourDragonSlots,
+    condenseLive: () => liveCondIn,   // boss.js reads the LIVE eased condense for the chip-invuln gate
     setEntrance, setEntranceSteer,
     setHealth: kit.setHealth,
     setHealthBarVisible: kit.setHealthBarVisible,

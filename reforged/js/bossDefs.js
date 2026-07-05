@@ -595,12 +595,15 @@ export const BOSSES = {
     // (feeds the Surge meter). ANATOMY: the pink motes are shed by the swarm body.
     // Def-gated (uses slot 6's continuous-graze detector); shipped bosses inert.
     grazeForm: 'absorbColor',
-    // §5e moving-station setpieces land in CP2 (integration): the CONDENSE PASS
-    // (the swarm sweeps the lane, condensing to fire) and YOUR OWN WINGS (the dread
-    // card — the copy flies the player's RECORDED path back, which needs the §5e
-    // input/pose ring buffer). The dread spell CARD resolves per-phase regardless;
-    // only its movement choreography waits for CP2. The swarm model's setSetpiece
-    // hook + formation tables are already built and studio-proven.
+    // §5e moving-station setpieces: CONDENSE PASS (P2 — the swarm sweeps the lane
+    // condensing to fire) and YOUR OWN WINGS (P4 dread — the copy flies the player's
+    // RECORDED flight path back at them via the §5e input/pose ring buffer; the §5f
+    // rule-break, boss-side mirroring that never touches input). Both moving (fire
+    // while they travel).
+    setpieces: [
+      { id: 'condensePass', atPhase: 1, dur: 7.0, moving: true },
+      { id: 'yourWings',    atPhase: 3, dur: 8.0, moving: true, dread: true },
+    ],
     // Tier 3 difficulty: the swarm's condensations ARE the patterns — ring/wall
     // formations fire radial/curtain volleys; the queen's amber eye aims the amber
     // carrier. Escalation by pattern unlock + cadence (floor 1.2), never raw count.
