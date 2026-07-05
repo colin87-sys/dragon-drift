@@ -1025,12 +1025,16 @@ function buildEmberMembraneWings(def, model, attach, giM) {
   const rayScale = model.rayScale ?? 0.82;             // per-digit length step
   const detail = model.rayDetail ?? 1;                 // per-form richness
 
-  // wrist sits at the inner ~20%: the fanned hand (rays + webs) hangs past it so a
-  // wrist furl sweeps the whole outer wing. elbow bisects the inner arm.
-  const wristX = reach * 0.2;
-  const elbowX = wristX * 0.5;
+  // A real jointed arm: the wrist sits at ~35% of half-span along a shoulder→elbow→
+  // wrist march (gate r3: no single-point sunburst hub), and the fanned hand + webs
+  // hang past it so a wrist furl sweeps the whole outer wing.
+  const wristX = reach * 0.35;
+  const elbowX = wristX * 0.52;
   const wristY = wristX * Math.tan(theta), wristZ = 0;
   const elbowY = elbowX * Math.tan(theta), elbowZ = 0;
+  // The METACARPAL hand: the 4 finger roots march a short knuckle arc from the wrist
+  // (inner, leading) outward+aft, so no two rays share a root (≥0.04× half-span apart).
+  const handSpanX = reach * 0.16, handSpanZ = reach * 0.09;
 
   // ── palette ─────────────────────────────────────────────────────────────────
   // Membrane: OPAQUE coal — dorsal 0x2a1208, root/ventral darker. Painted value
@@ -1105,7 +1109,7 @@ function buildEmberMembraneWings(def, model, attach, giM) {
   // a shallow festoon (scallop × the panel's own CHORD, §3 0.22–0.30 — NOT × span).
   // notch>0 cuts a deeper V into the outer trailing edge (a true V-gap at the tip).
   // gPanel is the panel's value tier (leading panel brightest → root panel darkest).
-  function membranePanel(A, B, gPanel, notch = 0, festoon = true) {
+  function membranePanel(A, B, gPanel, notch = 0, festoon = true, webEnd = 1) {
     const nu = seg(Math.max(3, Math.round(6 * detail))), nv = seg(3);
     const verts = [], cols = [], idx = [];
     const pa = new THREE.Vector3(), pb = new THREE.Vector3(), p = new THREE.Vector3();
@@ -1115,7 +1119,7 @@ function buildEmberMembraneWings(def, model, attach, giM) {
     const spanDir = new THREE.Vector3().subVectors(A.tip, A.root)
       .add(new THREE.Vector3().subVectors(B.tip, B.root)).normalize();
     for (let i = 0; i <= nu; i++) {
-      const u = i / nu;
+      const u = (i / nu) * webEnd;                    // webEnd<1 leaves the OUTER tips open → a true V-gap
       pa.lerpVectors(A.root, A.tip, u);
       pb.lerpVectors(B.root, B.tip, u);
       for (let j = 0; j <= nv; j++) {
@@ -1157,17 +1161,19 @@ function buildEmberMembraneWings(def, model, attach, giM) {
   }
   const maxLen = reach - wristX;                       // outer hand length (wrist → tip envelope)
 
-  // Ray roots march a short knuckle line at the wrist (small Z spread), tips fan
-  // out to the outer envelope with progressive back-rake → true planform gaps.
+  // Ray roots MARCH the metacarpal hand arc (staggered in X and Z, never one point);
+  // tips fan to the outer envelope with progressive back-rake → true planform gaps.
+  // All wrist-local (added under the wrist group at wristX).
   function rayFor(i) {
     const t = N > 1 ? i / (N - 1) : 0;
-    const rootZ = -0.10 + t * 0.34;                    // knuckle spread (leading −Z → trailing +Z)
-    const root = new THREE.Vector3(0, 0, rootZ);       // wrist-local (added under wrist group)
-    const len = maxLen * lenMulFor(i);
+    const rootX = t * handSpanX;                       // knuckles march outboard along the hand
+    const rootZ = -0.06 + t * handSpanZ * 3.2;         // and spread aft (leading −Z → trailing +Z)
+    const root = new THREE.Vector3(rootX, rootX * Math.tan(theta), rootZ);
+    const len = (maxLen - rootX) * lenMulFor(i);       // measured from the knuckle to the tip envelope
     const rake = sweep * t;                            // outer rays rake back
     const tip = new THREE.Vector3(
-      len * Math.cos(rake),
-      len * Math.sin(theta) * 0.5,                     // slight tip lift (camber/dihedral)
+      rootX + len * Math.cos(rake),
+      (rootX + len * Math.cos(rake)) * Math.tan(theta) + len * 0.06,   // arc UP with dihedral (gate r3 #11: not flat)
       rootZ + len * Math.sin(rake) + 0.10 * t);        // sweep back in +Z
     return { root, tip, len };
   }
@@ -1196,33 +1202,35 @@ function buildEmberMembraneWings(def, model, attach, giM) {
       rays.push({ ...r, root: rr.root, tip: rr.tip });
     }
 
-    // BRACHIAL PATAGIUM — the deep inboard membrane filling root→wrist AFT of the arm,
-    // so the inner wing is broad CHORD, not a bare stick (gate r2: "kite on a stick").
-    // Root chord is deep (attaches down the body flank); its outboard trailing edge
-    // butts the innermost ray so the surface is continuous. On the shoulder group.
+    // Finger roots in SHOULDER space (the wrist group sits at wristX): the brachial's
+    // outboard edge = this hand arc, so the inboard membrane and the finger fan share
+    // one boundary and read as ONE continuous sheet (gate r3: no mid-wing slit).
+    const rootShoulder = (i) => new THREE.Vector3(
+      wristX * side + rays[i].root.x, wristY + rays[i].root.y, wristZ + rays[i].root.z);
+    const hIn = rootShoulder(0), hOut = rootShoulder(N - 1);
+
+    // BRACHIAL PATAGIUM — the deep inboard membrane, leading = the arm (root→wrist=hIn),
+    // trailing = the body flank → the OUTER finger root (hOut). Fills the whole inner
+    // wing with broad chord and butts the hand arc (no slit). On the shoulder group.
     {
-      const innerChord = reach * 0.34;                 // deep root chord (≥0.45× body — carries the area)
-      const wristChord = reach * 0.20;                 // still broad at the wrist, meeting the hand
-      const A = { root: new THREE.Vector3(0.02 * side, 0.02, -0.05),
-                  tip: new THREE.Vector3(wristX * side, wristY, wristZ - 0.05) };   // leading = the arm
-      const B = { root: new THREE.Vector3(-0.06 * side, -0.05, innerChord),         // trailing-in: down the body flank
-                  tip: new THREE.Vector3(wristX * side, wristY - 0.04, wristZ + wristChord) };
-      shoulder.add(membranePanel(A, B, 0.92, 0, false));   // no festoon — it meets the hand
+      const innerChord = reach * 0.34;                 // deep root chord (carries the area)
+      const A = { root: new THREE.Vector3(0.02 * side, 0.02, -0.05), tip: hIn.clone() };
+      const B = { root: new THREE.Vector3(-0.06 * side, -0.05, innerChord), tip: hOut.clone() };
+      shoulder.add(membranePanel(A, B, 0.9, 0, false));   // no festoon — it meets the hand
     }
-    // PROPATAGIUM fillet — the small leading membrane FORE of the arm (root→wrist).
+    // PROPATAGIUM fillet — the small leading membrane FORE of the arm.
     {
-      const A = { root: new THREE.Vector3(0.02 * side, 0.03, -0.05 - reach * 0.05),
-                  tip: new THREE.Vector3(wristX * side, wristY + 0.01, wristZ - 0.06) };
-      const B = { root: new THREE.Vector3(0.02 * side, 0.02, -0.04), tip: new THREE.Vector3(wristX * side, wristY, wristZ - 0.05) };
+      const A = { root: new THREE.Vector3(0.02 * side, 0.03, -0.05 - reach * 0.05), tip: hIn.clone().add(new THREE.Vector3(0, 0.01, -0.02)) };
+      const B = { root: new THREE.Vector3(0.02 * side, 0.02, -0.04), tip: hIn.clone() };
       shoulder.add(membranePanel(A, B, 1.05, 0, false));   // brightest leading tier
     }
-    // membrane panels between adjacent rays (leading→trailing), each a BROAD full-chord
-    // sheet with a shallow festooned trailing edge. The OUTERMOST panel gets a deep
-    // notch → a true V-gap ≥0.15× span between the outer two rays (§3 col 2).
+    // Inter-finger panels (wrist group). The INNER panel [0-1] webs FULL so the surface
+    // stays continuous with the brachial; the OUTER TWO intervals [1-2],[2-3] web only
+    // ~0.68 → true through V-gaps ≥0.15× half-span between the outer ray tips (§3 col 2).
     for (let i = 0; i < N - 1; i++) {
-      const notch = i >= N - 3 ? 1 : 0;              // the OUTER TWO intervals (1-2, 2-3) cut into true V-gaps
-      const gPanel = [1.0, 0.86, 0.74][i] ?? 0.74;   // leading panel brightest → outer darkest (value tier)
-      wrist.add(membranePanel(rays[i], rays[i + 1], gPanel, notch));
+      const outer = i >= 1;                          // intervals 1-2, 2-3 = the outer two
+      const gPanel = [1.0, 0.86, 0.74][i] ?? 0.74;   // leading panel brightest → outer darkest
+      wrist.add(membranePanel(rays[i], rays[i + 1], gPanel, 0, true, outer ? 0.68 : 1.0));
     }
     // ray tubes ON TOP of the panels (drawn after, sit just above the skin), warm-emissive.
     // Rim gradient (gate r2 dir 9): the LEADING ray is brightest, trailing rays fade to
@@ -1232,7 +1240,7 @@ function buildEmberMembraneWings(def, model, attach, giM) {
     for (let i = 0; i < N; i++) {
       const r = rays[i];
       const r0 = 0.075 * ws * (0.85 + 0.3 * (1 - i / N));
-      const rimHot = 1.0 - 0.6 * (i / (N - 1));       // ray0 leading = 1.0 → trailing ray = 0.4
+      const rimHot = 1.0 - 0.72 * (i / (N - 1));      // ray0 leading = 1.0 → trailing ray ≤0.35 (backlit, not neon outline)
       const tube = rayTube(r.root, r.tip, r0, r0 * 0.15, 0.18 * rimHot, rimHot);   // tip r ~15% base; ray-index rim gradient
       wrist.add(tube);
       const tipObj = new THREE.Object3D();

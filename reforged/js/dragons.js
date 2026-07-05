@@ -125,6 +125,7 @@ export const DRAGONS = {
       headScale: 1.0, snoutScale: 0.7, browIntensity: 1.35,
       hotEye: true,                     // small PROUD emissive eye clears the long predator muzzle → reads as the brightest facial point (§4)
       tailIron: true,                   // matte DARK-IRON tail — zero glow (fire owns the tail bloom, roster law §5)
+      squareShoulders: true,            // beveled BLOCK scapula plates → the anvil shoulder read (not round balls)
       shoulderWidthScale: 1.4,          // ANVIL shoulders (tier-0 key: ≥1.25× azure's hatchling)
       hornType: 'bladeRearHorns', rearGlowIntensity: 0,
       neckBlend: 1.5,                   // thick short forge neck fuses the segment beads
@@ -153,7 +154,7 @@ export const DRAGONS = {
           apexSeam: 0x3a1206, eye: 0xff8b2a, coreGlow: 0xc25a2a } },
       // Adolescent (form 1) — shoulders square up further, rays lengthen, horns bud,
       // eyes narrow, snout projects, collar becomes a glowing arc. MID value.
-      { wingScale: 0.88, raySpan: 6.6, rayDetail: 0.95, collarStage: 1,
+      { wingScale: 0.88, raySpan: 8.4, rayDetail: 0.95, collarStage: 1,
         spineCurl: 0.2, eyeShape: 0.5, headScale: 0.9, eyeScale: 1.15, snoutScale: 0.64,
         shoulderWidthScale: 1.48, hornType: 'bladeRearHorns', hornScale: 0.55, browIntensity: 1.1,
         tailStyle: 'simple', tailLength: 0.56, tailPlates: false, tailSegments: 6, neckSegments: 5, backSpines: false, ridgeCount: 0, spineGlow: 0,
@@ -164,10 +165,15 @@ export const DRAGONS = {
       // eyes, full broad gapped wings, backSpines, 2 horn pairs, a short thick tail
       // with a DARK IRON blade tip, and the blazing forge-collar corona (the ONE
       // bloom). DEEPEST value; emissive at its richest (still ≤1.2, no glow-seams).
-      { wingScale: 1.0, raySpan: 8.8, rayDetail: 2.0, collarStage: 2,
+      { wingScale: 1.0, raySpan: 11.6, rayDetail: 2.0, collarStage: 2,
         spineCurl: 0.95, eyeShape: 1.0, headScale: 0.56, eyeScale: 0.83, snoutScale: 0.6,
-        shoulderWidthScale: 1.6, hornType: 'bladeRearHorns', hornScale: 1.0, hornPairs: 2, browIntensity: 1.05,
-        tailStyle: 'blade', tailLength: 0.55, tailSegments: 6, neckSegments: 5, backSpines: true, ridgeCount: 0, spineGlow: 0,
+        shoulderWidthScale: 1.6, hornType: 'bladeRearHorns', hornScale: 1.5, hornPairs: 2, browIntensity: 1.05,
+        // ASH-SCUTE dorsal tier (law 11 / gate dir 8): low warm leaf-scutes tinted ash,
+        // ×0.8 falloff toward the tail, seated into the back — the sculpted top value tier
+        // the sun shades. 'scute' style (not the debug-arrow cones); ridgeColor forces a
+        // MATTE ash material (avoids the shared scalesMat's cyan emissive).
+        tailStyle: 'blade', tailLength: 0.55, tailSegments: 6, neckSegments: 5, backSpines: true,
+        ridgeCount: 12, ridgeStyle: 'scute', ridgeColor: 0x5a4038, ridgeSeat: -0.01, spineGlow: 0,
         colors: { body: 0x1c0d08, belly: 0x2e1c12, wingInner: 0x2a1208, wingOuter: 0x180a06,
           wingEmissive: 0xff8b2a, scales: 0x5a4038, horn: 0x6a4636,
           apexSeam: 0x5a1e08, eye: 0xff6a1a, coreGlow: 0xff9a3a } },

@@ -197,10 +197,24 @@ function buildTorso(profile, def, model, bodyMat, geoFn = buildTorsoGeometry, op
   const bridged = def.parts && def.parts.wings === 'skinnedMembraneBridge';
   const fr = profile.fairing;
   const fScale = shoulderW;
+  // squareShoulders (additive, default off): a beveled BLOCK scapula plate instead of
+  // the rounded sphere fairing — the ANVIL shoulder read (gate: "two round balls").
+  // Chamfered top edge (a scaled cylinder cross-section reads as a bevelled block from
+  // rear chase). Default keeps the shipped sphere byte-identical.
+  const squareShoulder = !!model.squareShoulders;
   if (bodyMesh && !bridged) for (const s of [-1, 1]) {
-    const root = new THREE.Mesh(new THREE.SphereGeometry(fr.r * fScale, seg(9), seg(7)), bodyMat);
-    root.scale.set(fr.scale[0], fr.scale[1], fr.scale[2]);
-    root.position.set(s * fr.pos[0] * fScale, fr.pos[1], fr.pos[2]);
+    let root;
+    if (squareShoulder) {
+      // a low box with chamfered top edges → squared muscular scapula
+      const g = new THREE.BoxGeometry(fr.r * fScale * 1.7, fr.r * fScale * 1.5, fr.r * fScale * 2.2, 1, 1, 1);
+      root = new THREE.Mesh(g, bodyMat);
+      root.rotation.set(0.12, s * 0.16, s * -0.32);      // cant the block up-and-out (chamfer read)
+      root.position.set(s * fr.pos[0] * fScale * 1.05, fr.pos[1] + fr.r * 0.2, fr.pos[2]);
+    } else {
+      root = new THREE.Mesh(new THREE.SphereGeometry(fr.r * fScale, seg(9), seg(7)), bodyMat);
+      root.scale.set(fr.scale[0], fr.scale[1], fr.scale[2]);
+      root.position.set(s * fr.pos[0] * fScale, fr.pos[1], fr.pos[2]);
+    }
     group.add(root);
   }
 
