@@ -119,7 +119,10 @@ registerSurfaceLayer('scaleRidge', ({ model, attach, scalesMat }) => {
     const ridge = new THREE.Mesh(
       new THREE.ConeGeometry(0.09 + Math.max(0, 5 - Math.abs(i - 4)) * 0.016, 0.34, seg(5)), scalesMat);
     ridge.rotation.x = -Math.PI / 2;
-    ridge.position.set(0, attach.keelTopAt(-2.55 + i * ridgeStep) + 0.06, -2.55 + i * ridgeStep);
+    // ridgeSeat (additive, default 0.06 = byte-identical roster): a lower/negative seat
+    // EMBEDS the ridge base into the back so it reads as a fused low ridge, not a detached
+    // quad floating above the dorsal line (gate r5 dir 2b — the "debris at the wing root").
+    ridge.position.set(0, attach.keelTopAt(-2.55 + i * ridgeStep) + (model.ridgeSeat ?? 0.06), -2.55 + i * ridgeStep);
     meshes.push(ridge);
   }
   return { meshes, flareMats: [] };

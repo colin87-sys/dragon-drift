@@ -118,12 +118,15 @@ srv.close?.();
 // ── headless black-fill silhouettes (reuse tools/silhouette.mjs — assembly, not invention) ──
 // The pale sheet is the primary silhouette frame; these are the pure black fills the gate reads for
 // the one-connected-component / gap / mass-hierarchy laws, at a resolution that resolves the gaps.
+// Measurement fills use the AUTO-FIT frame (rearfit, not the chase cam) at ×2.5 with
+// NO tight crop — the full span sits inside the frame with margin on every edge, so the
+// gate can certify the span band instead of demanding a re-capture (gate r5 dir 1).
 for (let form = 0; form <= maxTier; form++) {
-  for (const view of ['rear', 'side', 'top']) {
+  for (const [view, label] of [['rearfit', 'rear'], ['side', 'side'], ['top', 'top']]) {
     try {
-      execFileSync('node', ['tools/silhouette.mjs', key, view, String(form), '--scale=2', '--crop'], { stdio: 'ignore' });
+      execFileSync('node', ['tools/silhouette.mjs', key, view, String(form), '--scale=2.5'], { stdio: 'ignore' });
       const src = `/tmp/sil-${key}-${view}.png`;
-      const dst = `reforged-captures/dragon-${key}-f${form}-sil-${view}-${round}.png`;
+      const dst = `reforged-captures/dragon-${key}-f${form}-sil-${label}-${round}.png`;
       execFileSync('cp', [src, dst]);
       written.push(dst); console.log('wrote', dst);
     } catch (e) { console.error(`silhouette ${key} ${view} f${form} failed:`, e.message); }

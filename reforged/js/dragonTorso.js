@@ -150,6 +150,24 @@ function buildTorso(profile, def, model, bodyMat, geoFn = buildTorsoGeometry, op
   const torsoMat = bodyMat.clone();
   torsoMat.side = THREE.DoubleSide;
   const torsoGeo = bodyMesh ? geoFn(profile, stretch) : null;
+  // POSTURE keel-bend (gate r5 dir 11): spineCurl must bend the VISIBLE body, not just the
+  // neck chain + the spinePoints metadata — otherwise the side silhouette's back is a dead
+  // flat line (STRAIGHT SPINE). Overlay the same S-wave the spinePoints use (sin over the
+  // tail→shoulder z-run) onto the loft verts so the chest drops and the after-body/tail
+  // counter-arcs, giving a clear inflection. Additive: spineCurl 0 → geometry byte-identical.
+  const sc = model.spineCurl ?? 0;
+  if (torsoGeo && sc) {
+    torsoGeo.computeBoundingBox();
+    const bb = torsoGeo.boundingBox, z0 = bb.min.z, z1 = bb.max.z, dz = (z1 - z0) || 1;
+    const amp = sc * 0.24;                       // proud upright S at apex (sc 0.95), curled whelp when <0
+    const pos = torsoGeo.attributes.position;
+    for (let i = 0; i < pos.count; i++) {
+      const f = (pos.getZ(i) - z0) / dz;         // 0 tail(+later) → 1 shoulder; matches spinePoints' f
+      pos.setY(i, pos.getY(i) + amp * Math.sin(f * Math.PI * 2));
+    }
+    pos.needsUpdate = true;
+    torsoGeo.computeVertexNormals();
+  }
   // Pass 2 (opt-in): weight the body verts near each wing root to that side's
   // shoulder bone so the torso surface itself bulges with the wingbeat. The bones
   // live in the wing mounts → the orchestrator binds this mesh once both exist.

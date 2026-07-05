@@ -800,6 +800,10 @@ function buildBladeFeatherWings(def, model, attach, giM) {
     const nX = seg(Math.max(3, Math.round(7 * bd))), nZ = seg(Math.max(2, Math.round(4 * bd)));
     const verts = [], cols = [], idx = [];
     const cb = new THREE.Color(baseHex), ct = new THREE.Color(tipHex), cg = new THREE.Color(cGold), c = new THREE.Color();
+    // Two-tone chord split (gate r5 dir 6): leading half rides brighter sky, trailing half
+    // steps down a value — so each blade shows in-surface structure (with the rib), never a
+    // blank gradient. Blended in on top of the along-length tier so the tiers still read.
+    const cTrail = new THREE.Color(0x6f8cb0);
     for (let i = 0; i <= nX; i++) {
       const t = i / nX;
       const x = t * L;
@@ -811,6 +815,7 @@ function buildBladeFeatherWings(def, model, attach, giM) {
         const y = camber * Math.sin(cf * Math.PI) * (0.4 + 0.6 * Math.sin(t * Math.PI));
         verts.push(x, y, z);
         c.copy(cb).lerp(ct, t * t);
+        c.lerp(cTrail, Math.max(0, cf - 0.5) * 0.7);   // trailing half deepens → visible chord structure (dir 6)
         // Gold DIFFUSE tip-paint confined to the outer ~12% with a CRISP boundary (gate r4
         // dir 7: law-9 tips only — no gradient wash down a third of the blade).
         if (t > 0.88) c.lerp(cg, Math.min(1, (t - 0.88) / 0.07));
@@ -849,11 +854,12 @@ function buildBladeFeatherWings(def, model, attach, giM) {
     const rootZ = rootX * Math.tan(sweep) + stagger * i;   // sweep back + z-stagger
     const len = maxLen * lenMulFor(i);
     const wRoot = chordK * reach * (0.7 + 0.3 * Math.sin(t * Math.PI));
-    // GENTLE progressive fan (gate r4 dir 1/2/12): a small monotonic rake opens true
-    // planform SLITS between the outer 60% of adjacent blades and keeps the blades
-    // pointing OUTWARD (lateral span up, effective sweep ≤~30°) instead of the hard
-    // back-rake that shingled the comb into one solid scythe (MITTEN) and shortened span.
-    const rakeI = model.bladeRake ?? (0.05 + 0.055 * i);
+    // MINIMAL progressive fan (gate r5 dir 3): the round-4 rake (0.05+0.055i) over-fanned
+    // the comb into lightning-bolt SHARDS (tattered, gaps ~0.8–1.5× blade width). A much
+    // gentler splay leaves the blades near-parallel and pointing OUTWARD, so the gaps are
+    // thin SLITS (0.15–0.25× blade width) and the fan reads as ONE feathered surface —
+    // separation now comes from the z-stagger (depth), not a wide in-plane fan.
+    const rakeI = model.bladeRake ?? (0.02 + 0.02 * i);
     // discrete tier: inner→dark, mid→cMid, outer→light
     const baseHex = t < 0.28 ? cDark : (t < 0.62 ? cMid : cLight);
     const tipHex = t < 0.28 ? cMid : cLight;
@@ -888,20 +894,22 @@ function buildBladeFeatherWings(def, model, attach, giM) {
       par.add(bone((a.x - ox) * side, a.y - oy, a.z - oz, (b.x - ox) * side, b.y - oy, b.z - oz, r0, r1, armMat));
     }
 
-    // Root COVERTS — exactly 3 short dark plates fairing the shoulder joint into the comb
-    // (no naked ball-joint). Seated FLAT on the arm line (cz tracks the spar, no +z float
-    // that read as detached mid-span slivers — gate r4 dir 3) with a clean ×0.8 size step
-    // (law 5 — dir 4) so the cluster reads as deliberate coverts, not broken chips.
-    for (let k = 0; k < 3; k++) {
-      const size = 0.34 * Math.pow(0.8, k);                  // ×0.8 step
-      const cx = armLen * (0.05 + k * 0.06);
-      const cy = cx * Math.tan(theta) - 0.02;
+    // Root COVERTS / inner SECONDARIES — 4 overlapping shingles fairing the shoulder into
+    // the comb AND deepening the inner-arm chord so the mid-arm is not a bare spar tube from
+    // behind (gate r5 dir 4: mid-arm chord ≥0.35× longest blade). They lie FLAT on the wing
+    // plane (dir 7: shingles, not upright cone-spikes — stand ≤0.05× blade length above the
+    // spar) marching out along the arm with a clean ×0.8 size step (law 5).
+    const covN = 4, covChord = chordK * reach * 1.35;        // broad chord → real inner surface (dir 4)
+    for (let k = 0; k < covN; k++) {
+      const size = 0.62 * Math.pow(0.8, k);                  // ×0.8 step, bigger base so the inner fills
+      const cx = armLen * (0.06 + k * 0.135);                // march OUT along the arm (inner 40%)
+      const cy = cx * Math.tan(theta) + 0.01;
       const cz = cx * Math.tan(sweep) + 0.03;                // seat ON the spar, no float
       const cRest = new THREE.Group();
       cRest.position.set(cx * side, cy, cz);
-      cRest.rotation.y = side * -(0.06 + k * 0.07);
-      cRest.rotation.z = side * (theta - 0.04);
-      const cov = new THREE.Mesh(bladeGeo(maxLen * size, chordK * reach * 0.85, cDark, cMid), covertMat);
+      cRest.rotation.y = side * -(0.03 + k * 0.03);          // near-parallel, barely fanned
+      cRest.rotation.z = side * (theta * 0.5);               // LIE FLAT toward the wing plane (dir 7 — no upright spikes)
+      const cov = new THREE.Mesh(bladeGeo(maxLen * size, covChord, cDark, cMid), covertMat);
       cov.scale.x = side;
       cRest.add(cov);
       pivot.add(cRest);

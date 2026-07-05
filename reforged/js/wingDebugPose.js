@@ -165,10 +165,14 @@ export function poseBladePivots(parts, state) {
     // span contracts — a bird folds at the shoulder, not by raking free blades. The comb then
     // lies back as one flat swept dart packet (dir 5), no up-spray, no crossed spars.
     for (const [pv, s] of [[parts.wingPivotR, 1], [parts.wingPivotL, -1]]) {
-      if (pv) pv.rotation.set(0.12, s * 1.66, s * 0.16);
+      // Swing back AND roll the comb DOWN onto the flank (gate r5 dir 8): the round-4 fold
+      // left the packet standing up → two up-sprayed spear fans in a V from behind. A hard
+      // negative roll lays the dart packet flat along the torso so the folded silhouette
+      // sits LOW (height above the spine ≤0.5× body depth), not a raised V.
+      if (pv) pv.rotation.set(0.16, s * 1.66, s * -0.5);
     }
     for (const [tip, s] of [[parts.wingTipR, 1], [parts.wingTipL, -1]]) {
-      if (tip) tip.rotation.set(0, 0, 0);                    // wrist aligned to the swept arm
+      if (tip) tip.rotation.set(0, 0, s * -0.12);            // wrist follows the arm down, tucked
     }
   }
   for (const arr of [parts.wingBladePivotsR, parts.wingBladePivotsL]) {

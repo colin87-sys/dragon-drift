@@ -77,8 +77,8 @@ function buildSmoothWedgeSkull(c) {
     [-0.60, 0.34, 0.32, -0.03],                // eye zone
     [-0.95 * sc, 0.26, 0.24, -0.06],           // snout base
     [-1.35 * sc, 0.17, 0.15, -0.09],           // mid muzzle
-    [-1.72 * sc, 0.09, 0.08, -0.11],           // nose
-    [-1.9 * sc, 0.025, 0.025, -0.11],          // nose tip cap
+    [-1.70 * sc, 0.115, 0.10, -0.11],          // nose
+    [-1.86 * sc, 0.075, 0.065, -0.115],        // BLUNT nose tip built INTO the shell (gate r5 dir 2a: no separate orb — the nose is the loft, one connected component)
   ];
   // Smooth 1-D Catmull-Rom sampler over the (z, w, h, yc) control profile.
   const catmull = (p0, p1, p2, p3, t) => {
@@ -120,11 +120,12 @@ function buildSmoothWedgeSkull(c) {
   const shellMat = m.clone(); shellMat.side = THREE.DoubleSide;   // robust to loft winding
   const shell = new THREE.Mesh(g, shellMat);
   c.head.add(shell);
-  // nose pad + nostrils (a small dark cap so the tip reads as a nose, not a needle)
-  c.head.add(ellipsoid(m, 0.09, 1.0, 0.9, 0.9, 0, -0.12, -1.82 * sc, 8));
+  // Nostrils only — tiny dark pits seated FLUSH on the blunt shell tip (gate r5 dir 2a:
+  // the separate protruding nose-pad ellipsoid was the "clown-nose" orb — deleted; the
+  // blunt loft tip above IS the nose, so the head stays ONE connected silhouette).
   for (const s of [-1, 1]) {
-    const n = new THREE.Mesh(new THREE.SphereGeometry(0.03, seg(5), seg(4)), c.mats.hornMat);
-    n.position.set(s * 0.05, -0.11, -1.8 * sc);
+    const n = new THREE.Mesh(new THREE.SphereGeometry(0.024, seg(5), seg(4)), c.mats.hornMat);
+    n.position.set(s * 0.045, -0.12, -1.74 * sc);
     c.head.add(n);
   }
   // publish the align contract (eye/brow/crest read these)
@@ -226,22 +227,25 @@ function eyeZone(c, { r, x, y, z, glow }) {
     // (the brightest facial point, §4) and a hard white catchlight gives it life. Narrow +
     // tall + tilted = almond; seated close to the crown (not bulged out the cheek).
     const rimMat = new THREE.MeshStandardMaterial({ color: 0x0a1420, roughness: 0.5 });
-    const irisMat = new THREE.MeshStandardMaterial({ color: 0xbfe2ff, emissive: 0xbfe2ff, emissiveIntensity: 1.7, roughness: 0.28 });
-    const catchMat = new THREE.MeshStandardMaterial({ color: 0xffffff, emissive: 0xffffff, emissiveIntensity: 2.2 });
+    // Bright cyan iris (gate r5 dir 9): 0x9fd8ff, high emissive so the eye is the brightest
+    // facial point — NOT a dead black bead. Enlarged + pushed proud of the dark socket rim so
+    // it fills ≥60% of the eye and reads from the face-front AND ¾ crops.
+    const irisMat = new THREE.MeshStandardMaterial({ color: 0x9fd8ff, emissive: 0x9fd8ff, emissiveIntensity: 2.1, roughness: 0.24 });
+    const catchMat = new THREE.MeshStandardMaterial({ color: 0xffffff, emissive: 0xffffff, emissiveIntensity: 2.6 });
     const R2 = rr * 1.5;                                     // ~14–18% head length (dir 8), not 2.4×
     const ex = c.hx * 0.6, ey = c.hy * 0.52, ez = c.faceZ - c.faceR * 0.04;  // HIGHER + forward
     const px = R2 * 0.5;                                     // seated close — no lateral bulge
     for (const s of [-1, 1]) {
       const tilt = new THREE.Euler(0.06, -s * 0.42, -s * 0.5);   // almond keen tilt
       const rim = new THREE.Mesh(new THREE.SphereGeometry(R2, seg(12), seg(10)), rimMat);
-      rim.scale.set(0.6, 1.34, 0.62); rim.rotation.copy(tilt);
+      rim.scale.set(0.58, 1.32, 0.6); rim.rotation.copy(tilt);
       rim.position.set(s * (ex + px), ey, ez); c.head.add(rim);
-      const iris = new THREE.Mesh(new THREE.SphereGeometry(R2 * 0.74, seg(10), seg(8)), irisMat);
-      iris.scale.set(0.58, 1.28, 0.6); iris.rotation.copy(tilt);
-      iris.position.set(s * (ex + px), ey, ez + R2 * 0.3); c.head.add(iris);
-      // hard white catchlight — upper-forward glint (life, dir 8)
-      const spec = new THREE.Mesh(new THREE.SphereGeometry(R2 * 0.16, seg(5), seg(4)), catchMat);
-      spec.position.set(s * (ex + px) - s * R2 * 0.16, ey + R2 * 0.42, ez + R2 * 0.52); c.head.add(spec);
+      const iris = new THREE.Mesh(new THREE.SphereGeometry(R2 * 0.9, seg(10), seg(8)), irisMat);
+      iris.scale.set(0.62, 1.3, 0.66); iris.rotation.copy(tilt);
+      iris.position.set(s * (ex + px), ey, ez + R2 * 0.46); c.head.add(iris);  // proud of the rim → the iris is what the crop sees
+      // hard white catchlight — upper-forward glint (life, dir 9)
+      const spec = new THREE.Mesh(new THREE.SphereGeometry(R2 * 0.22, seg(5), seg(4)), catchMat);
+      spec.position.set(s * (ex + px) - s * R2 * 0.2, ey + R2 * 0.44, ez + R2 * 0.66); c.head.add(spec);
     }
     return;
   }
@@ -399,9 +403,15 @@ function browCrest(c) {
   // (§7 motif-invariance assert). Head-inner-local, independent of headScale.
   const ax = 0, ay = R * 0.62, az = R * 0.06;   // seated high on the crown so the fan clears the head outline
   const cGold = c.def.accentHue ?? 0xd9b36a;
-  const cBase = c.def.crestBase ?? 0x7fa3c8;              // gate r1 dir 7: crest base 0x7fa3c8
+  // Crest blade base (gate r5 dir 10): a MID sky-blue that reads clearly LIGHTER than the
+  // navy head — the round-4 crest went near-black because material.color==cBase multiplied
+  // the SAME cBase vertex colour (value squared). Fix: material.color WHITE (vertex colours
+  // carry the true hue, no double-darken) + a small emissive lift so it separates on a navy
+  // crown. cBase kept for the featherGeo gradient's base end.
+  const cBase = c.cfg.crestBase ?? c.def.crestBase ?? 0x6f97c8;
   const bladeMat = new THREE.MeshStandardMaterial({
-    color: cBase, roughness: 0.4, metalness: 0.3, side: THREE.DoubleSide, vertexColors: true,
+    color: 0xffffff, emissive: 0x25405e, emissiveIntensity: 0.3,
+    roughness: 0.42, metalness: 0.2, side: THREE.DoubleSide, vertexColors: true,
   });
   let maxLen = 0;
   for (let i = 0; i < n; i++) {
@@ -446,7 +456,7 @@ function gradTip(geo, baseHex, tipHex) {
   const col = [];
   for (let i = 0; i < pos.count; i++) {
     const tt = (pos.getZ(i) - z0) / span;
-    c.copy(base).lerp(tip, tt > 0.75 ? (tt - 0.75) / 0.25 : 0);   // gold ONLY the outer 25% (dir 3)
+    c.copy(base).lerp(tip, tt > 0.85 ? (tt - 0.85) / 0.15 : 0);   // gold ONLY the outer 15% (gate r5 dir 10)
     col.push(c.r, c.g, c.b);
   }
   geo.setAttribute('color', new THREE.Float32BufferAttribute(col, 3));

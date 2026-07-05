@@ -40,8 +40,8 @@ export const DRAGONS = {
       neckBlend: 1.15,  // SLIM falcon neck: a fat neck (2.1) swallowed the small proud head — slimmer than the head so it sits proud (§5d avian)
       // blade-feather comb shared dials (per-form span/count/etc. accrete below)
       bladeCount: 5, bladeSweep: 0.38, bladeStagger: 0.2,
-      bladeCamber: 0.28, bladeDihedral: 0.36, bladeChord: 0.15,
-      hornPairs: 1, hornLen: 0.9, ridgeCount: 10,
+      bladeCamber: 0.28, bladeDihedral: 0.30, bladeChord: 0.17,   // dihedral 17° (in the 12–20° band, gate r5 dir 5); wider chord so roots overlap into ONE surface (dir 3)
+      hornPairs: 1, hornLen: 0.9, ridgeCount: 10, ridgeSeat: -0.02,   // embed dorsal ridges into the back (no floating specks — gate r5 dir 2b)
       flapBias: 1.0, flapAmp: 0.9,    // light courier beat
     },
     // Three visible forms (starter caps at SSR / tier 2): a round-chested fluffball
@@ -53,7 +53,7 @@ export const DRAGONS = {
       // Hatchling (form 0) — round fluffball: curled posture, round low eyes, big
       // head, stub gapped comb, crest nub, forked tail-tip hint. Lighter sky value.
       { wingScale: 0.72, bladeSpan: 6.0, bladeCount: 5, bladeDetail: 0.6,
-        spineCurl: -0.8, eyeShape: 0.0, headScale: 1.12, eyeScale: 1.0,
+        spineCurl: -0.8, eyeShape: 0.0, headScale: 1.12, eyeScale: 1.7,
         crestBlades: 1, crestScale: 0.5,
         tailStyle: 'simple', tailTipFork: true, tailSegments: 5, neckSegments: 4,
         ridgeCount: 0, spineGlow: 0,
@@ -62,8 +62,8 @@ export const DRAGONS = {
           apexSeam: 0x86a6c2, eye: 0x9fd0ee, coreGlow: 0x7fa6c8 } },
       // Adolescent (form 1) — straightening posture, keener eyes, blades lengthen,
       // crest begins its 3-blade fan, span 2.0–2.3×. Mid sky value.
-      { wingScale: 0.9, bladeSpan: 6.8, bladeCount: 5, bladeDetail: 0.92,
-        spineCurl: 0.0, eyeShape: 0.55, headScale: 0.74, eyeScale: 0.72,
+      { wingScale: 0.9, bladeSpan: 7.3, bladeCount: 5, bladeDetail: 0.92,
+        spineCurl: 0.0, eyeShape: 0.55, headScale: 0.74, eyeScale: 1.02,
         crestBlades: 2, crestScale: 0.74,
         tailStyle: 'simple', tailTipFork: true, tailSegments: 5, neckSegments: 5,
         ridgeCount: 8, spineGlow: 0,
@@ -73,11 +73,11 @@ export const DRAGONS = {
       // Radiant apex (form 2) — proud upright S, keen almond eyes, full high-aspect
       // comb (span 2.8–3.2×), 3-blade crest fan, dorsal sail, gold-tipped swallow
       // banner tail. Deepest sky value, gold at its richest (still DIFFUSE).
-      { wingScale: 1.0, bladeSpan: 8.6, bladeCount: 5, bladeDetail: 1.45, neckBlend: 1.28,
+      { wingScale: 1.0, bladeSpan: 8.6, bladeCount: 5, bladeDetail: 1.45, neckBlend: 1.45,   // denser neck fuses the segment grooves (gate r5 dir 11 — no segmented-grub read)
         spineCurl: 0.95, eyeShape: 1.0, headScale: 0.52, eyeScale: 0.52,
         crestBlades: 3, crestScale: 1.6, skullType: 'smoothWedgeSkull', snoutScale: 0.68,   // bespoke ONE-shell falcon wedge (no ellipsoid plate-stack); shorter muzzle seats head:body/eye:head in band + kills the needle beak; crest breaks the outline
         tailStyle: 'finned', tailBannerFork: true, tailSegments: 6, neckSegments: 5,
-        ridgeCount: 9, spineGlow: 0.2, dorsal: true,
+        ridgeCount: 7, spineGlow: 0.2, dorsal: true,
         colors: { body: 0x1c3048, belly: 0xcfe6ff, wingInner: 0xa8c6e2, wingOuter: 0x3d5a78,
           wingEmissive: 0x3d5a78, scales: 0x9db8d4, horn: 0xbcd9f0,
           apexSeam: 0x8ed5ff, eye: 0xcfe8ff, coreGlow: 0x8ed5ff } },
