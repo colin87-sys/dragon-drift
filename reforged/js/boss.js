@@ -533,6 +533,7 @@ function driveSwarm(dt, player) {
   if (!def || (!def.condenseInvuln && def.grazeForm !== 'absorbColor') || !model || !model.setCondense) return;
   if (staggerT > 0) staggerT = Math.max(0, staggerT - dt);
   if (phase !== 'fight') { swarmScattered = false; return; }   // entrance/approach/death own the form
+  if (debugSetpiecePin) { swarmScattered = false; return; }    // a capture pin owns the model (don't fight it)
   if (shielded) { swarmScattered = false; return; }            // onShieldChange owns the ring-shield
   if (setpieceT >= 0 && setpieceDef && setpieceDef.dread) { swarmScattered = false; return; }  // Your Own Wings owns the dragon form
   // CONDENSED while a volley winds up / is in flight (vulnerable + firing), held through the
