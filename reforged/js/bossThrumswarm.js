@@ -492,7 +492,9 @@ export function buildThrumswarm(def, quality = 1) {
   let dreadK = 0;
   function setSetpiece(k, sdef) {
     const s = clamp01(k);
-    if (sdef && sdef.dread) { dreadK = s; toForm = 'yourDragon'; condenseK = Math.max(condenseK, s); }
+    // Your Own Wings (the dread card) forms the dragon. Recognize it by `dread` (the live
+    // moving setpiece) OR by id (the capture-tool pin passes {id} without the dread flag).
+    if (sdef && (sdef.dread || sdef.id === 'yourWings')) { dreadK = s; toForm = 'yourDragon'; condenseK = Math.max(condenseK, s); }
     else dreadK = 0;
   }
 
