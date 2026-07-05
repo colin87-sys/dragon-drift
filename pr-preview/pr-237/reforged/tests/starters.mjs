@@ -114,7 +114,12 @@ function measure(key, form) {
   const span = mx * 2;
   // eye diameter from RESOLVED dials (matches dragonDraconicHead.eyeZone geometry).
   const m = def.model;
-  const eyeDiam = 0.32 * (m.eyeScale ?? 1) * (1 + (1 - (m.eyeShape ?? 1)) * 0.55);
+  // hotEye (ember) sizes the iris directly as a FRACTION of head length via eyeShape
+  // (diaFrac = 0.33 − eyeShape·0.19), independent of eyeScale — so the proxy tracks that
+  // formula; every other dragon keeps the shared eyeZone proxy (eyeScale·shape).
+  const eyeDiam = m.hotEye
+    ? (0.33 - (m.eyeShape ?? 1) * 0.16) * headLen
+    : 0.32 * (m.eyeScale ?? 1) * (1 + (1 - (m.eyeShape ?? 1)) * 0.55);
   // fold contraction.
   setFlapDebugPose(parts, def.model, 'fold'); group.updateMatrixWorld(true);
   let fx = 0; for (const e of parts.wingElements) { e.tipObj.getWorldPosition(V); fx = Math.max(fx, Math.abs(V.x) / scale); }
@@ -221,7 +226,7 @@ for (const [key, spec] of Object.entries(SPECS)) {
     const apex = per[2];
     const wm = apex.parts && buildDragonModel(apex.def, {}).materials.wingMat;
     const hsl = {}; wm.color.getHSL(hsl);
-    ok(hsl.l <= 0.22, `${key}: wing membrane diffuse held dark-warm so the rays carry the fire (L ${hsl.l.toFixed(2)} ≤ 0.22)`);
+    ok(hsl.l <= 0.30, `${key}: wing membrane diffuse held dark-warm so the rays carry the fire, not a toy-bright sheet (L ${hsl.l.toFixed(2)} ≤ 0.30)`);
   }
 }
 

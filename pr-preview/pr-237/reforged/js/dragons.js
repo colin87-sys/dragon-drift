@@ -124,15 +124,16 @@ export const DRAGONS = {
       headArchetype: 'feralPredator',   // heavy brow, small deep-set hot eyes, angular jaw ('horned' is OUT — ignores headScale/snout)
       headScale: 1.0, snoutScale: 0.7, browIntensity: 1.35,
       hotEye: true,                     // small PROUD emissive eye clears the long predator muzzle → reads as the brightest facial point (§4)
+      bellyPaint: true,                 // cream two-tone underside (the Charizard belly) vertex-painted on the ventral torso
       tailIron: true,                   // matte-warm iron tail that now GLOWS via spineGlow (a lit flame tail, no cool sheen)
       squareShoulders: true,            // beveled BLOCK scapula plates → the anvil shoulder read (not round balls)
       shoulderWidthScale: 1.4,          // ANVIL shoulders (tier-0 key: ≥1.25× azure's hatchling)
       hornType: 'bladeRearHorns', rearGlowIntensity: 0,
-      neckBlend: 1.5,                   // thick short forge neck fuses the segment beads
+      neckBlend: 1.85,                  // overlapping forge neck — fuses the segment beads into a smooth throat (gate cp2 r2 dir 4: the bead chain shingled under the chin)
       // ember gapped-finger membrane shared dials (per-form span/collar accrete below)
       rayCount: 4, raySweep: 0.62, rayDihedral: 0.26, membraneCamber: 0.34, scallop: 0.28,
       rayScale: 0.82, rayDetail: 1.0, rayEmissiveIntensity: 1.2,
-      membraneBase: 0x521e0e,           // WARM dark-red membrane (fire wings) — the glowing rays read as flame through it
+      membraneBase: 0x6a2410,           // WARM dark-red membrane (fire wings) — held below 0x8a3316 (§7) but clearly warm, not black
       sparColor: 0xc0763c,              // warm ember leading spar (lit)
       flapBias: 0.95, flapAmp: 0.95,    // heavy, powerful beat
     },
@@ -146,7 +147,7 @@ export const DRAGONS = {
       // Hatchling (form 0) — round pot-bellied forge pup: curled chest-down posture,
       // BIG round low-set eyes, near-flat snout, squared shoulders, two dull coals,
       // stub gapped wings. Value-LIGHTEST body.
-      { wingScale: 0.72, raySpan: 4.2, rayDetail: 0.55, collarStage: 0,
+      { wingScale: 0.86, raySpan: 5.5, rayDetail: 0.55, collarStage: 0,
         spineCurl: -0.7, eyeShape: 0.0, headScale: 1.35, eyeScale: 1.6, snoutScale: 0.5,
         shoulderWidthScale: 1.35, hornType: 'noHorn', browIntensity: 0.95,
         tailStyle: 'simple', tailLength: 0.5, tailPlates: false, tailSegments: 5, neckSegments: 4, backSpines: false, ridgeCount: 0, spineGlow: 0.12,
@@ -156,7 +157,7 @@ export const DRAGONS = {
       // Adolescent (form 1) — shoulders square up further, rays lengthen, horns bud,
       // eyes narrow, snout projects, collar becomes a glowing arc. MID value.
       { wingScale: 0.88, raySpan: 8.4, rayDetail: 0.95, collarStage: 1,
-        spineCurl: 0.2, eyeShape: 0.5, headScale: 0.9, eyeScale: 1.15, snoutScale: 0.64,
+        spineCurl: 0.62, eyeShape: 0.5, headScale: 0.9, eyeScale: 1.15, snoutScale: 0.64,   // stronger line-of-action S (gate cp2 dir 6)
         shoulderWidthScale: 1.48, hornType: 'bladeRearHorns', hornScale: 0.55, browIntensity: 1.1,
         tailStyle: 'simple', tailLength: 0.56, tailPlates: false, tailSegments: 6, neckSegments: 5, backSpines: false, ridgeCount: 0, spineGlow: 0.22, glowSeams: true,
         colors: { body: 0xe8792e, belly: 0xf2ce92, wingInner: 0x6e2410, wingOuter: 0x441606,
@@ -167,18 +168,19 @@ export const DRAGONS = {
       // with a DARK IRON blade tip, and the blazing forge-collar corona (the ONE
       // bloom). DEEPEST value; emissive at its richest (still ≤1.2, no glow-seams).
       { wingScale: 1.0, raySpan: 10.5, rayDetail: 1.55, collarStage: 2,
-        spineCurl: 0.95, eyeShape: 1.0, headScale: 0.56, eyeScale: 0.83, snoutScale: 0.6,
+        spineCurl: 0.6, eyeShape: 1.0, headScale: 0.6, eyeScale: 0.83, snoutScale: 0.6,   // line-of-action S; head kept level enough (like f1) for the face to READ head-on (gate cp2 dir 6)   // proud reared neck + tail counter-arc → a clear side-profile inflection (gate cp2 dir 6)
+        snoutTone: 0xd54f16, browTone: 0xa23e10,   // apex head value tiers (gate cp2 dir 2): a darker muzzle + a shaded brow shelf so the head is not ONE flat sticker
         shoulderWidthScale: 1.78, hornType: 'bladeRearHorns', hornScale: 1.5, hornPairs: 2, browIntensity: 1.05,
         // ASH-SCUTE dorsal tier (law 11 / gate dir 8): low warm leaf-scutes tinted ash,
         // ×0.8 falloff toward the tail, seated into the back — the sculpted top value tier
         // the sun shades. 'scute' style (not the debug-arrow cones); ridgeColor forces a
         // MATTE ash material (avoids the shared scalesMat's cyan emissive).
-        tailStyle: 'blade', tailLength: 0.55, tailSegments: 6, neckSegments: 5, backSpines: true, glowSeams: true,
+        tailStyle: 'blade', tailLength: 0.55, tailSegments: 6, neckSegments: 4, backSpines: true, glowSeams: true,
         // warm ash-scute dorsal tier + a GLOWING flaming tail/spine (spineGlow lights the
         // blade tail + dorsal line) — the iconic-flame read.
-        ridgeCount: 12, ridgeStyle: 'scute', ridgeColor: 0xcaa070, ridgeSeat: 0.0, spineGlow: 0.4,
+        ridgeCount: 12, ridgeStyle: 'scute', ridgeColor: 0xf0c888, ridgeSeat: 0.0, spineGlow: 0.4,   // cream scutes (gate cp2 dir 5)
         colors: { body: 0xdd5a1c, belly: 0xf0c888, wingInner: 0x6a2410, wingOuter: 0x3e1406,
-          wingEmissive: 0xff8b2a, scales: 0xe8c888, horn: 0xe8d0a0,
+          wingEmissive: 0xff8b2a, scales: 0xe8c888, horn: 0xf0c888,   // cream horns (gate cp2 dir 5) — separate from the dark membrane behind
           apexSeam: 0xff7a26, eye: 0xffb84a, coreGlow: 0xff9a3a } },
     ],
     fx: { auraColor: '255,139,42', auraIdle: 0.0, sparkle: false },
