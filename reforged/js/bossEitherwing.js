@@ -602,6 +602,7 @@ export function buildTwinWraith(def, quality = 1) {
   const BLINK_DUR = 0.26;
   let blinkT = 0, nextBlink = 3.5 + Math.random() * 3;
   let noticeT = 0;
+  let faceEase = 0;   // eased notice/dread facing (0 = nose→ember, 1 = nose→player) so the turn never snaps
   function notice() { noticeT = 1.0; blinkT = 0; nextBlink = 3; }
   let painT = 0, painTwin = 0, painEase = 0;   // painTwin: which half recoils (the holder); the other darts closer. painEase: SMOOTHED pain so the flinch ramps in/out (never a per-event body snap).
   // COSMETIC bloom (muzzle flash, shield events, etc.) — NO body flinch. The controller calls this
@@ -649,11 +650,19 @@ export function buildTwinWraith(def, quality = 1) {
   }
   const _sa = new THREE.Vector3(), _sb = new THREE.Vector3(), _eye = new THREE.Vector3();
   const _dir = new THREE.Vector3(), _zAxis = new THREE.Vector3(0, 0, 1), _roll = new THREE.Quaternion();
-  function orientDart(twin, pos, cx, cy, time, phase, faceCam) {
-    if (faceCam) _dir.set(0, 0, 1);                                   // notice: nose → the player (camera)
-    else _dir.set(cx - pos[0], cy - pos[1], -pos[2]).normalize();     // else nose → the shared ember (centre)
-    if (_dir.lengthSq() < 1e-6) _dir.set(0, 0, 1);
-    twin.quaternion.setFromUnitVectors(_zAxis, _dir);                 // point the long axis at the target
+  const _dirE = new THREE.Vector3(), _qE = new THREE.Quaternion(), _qP = new THREE.Quaternion();
+  // faceK ∈ [0,1] EASES the notice/dread turn: 0 = nose → the shared ember (centre), 1 = nose →
+  // the player. SLERPED (not a boolean snap) so a twin that must swing ~180° at the entrance→fight
+  // notice rotates over a few frames instead of popping — which also sweeps its socket smoothly, so
+  // the eye seated on the socket-thread no longer lurches (the owner's "eye-twin jump" at the handoff).
+  function orientDart(twin, pos, cx, cy, time, phase, faceK) {
+    _dirE.set(cx - pos[0], cy - pos[1], -pos[2]);                     // nose → the shared ember (centre)
+    if (_dirE.lengthSq() < 1e-6) _dirE.set(0, 0, 1); else _dirE.normalize();
+    _qE.setFromUnitVectors(_zAxis, _dirE);
+    _qP.identity();                                                   // player-facing: nose → +z (the camera)
+    twin.quaternion.slerpQuaternions(_qE, _qP, faceK);               // eased turn between the two
+    _dir.copy(_dirE).lerp(_zAxis, faceK);                            // roll axis ≈ current facing
+    if (_dir.lengthSq() < 1e-6) _dir.copy(_zAxis); else _dir.normalize();
     _roll.setFromAxisAngle(_dir, Math.sin(time * 1.1 + phase) * 0.12);// a slow living roll about the facing axis
     twin.quaternion.premultiply(_roll);
   }
@@ -677,8 +686,14 @@ export function buildTwinWraith(def, quality = 1) {
     // --- The figure-eight orbit (drifting centre). Frozen under a shield/death. ---
     const moving = !shieldClamp && dyingK <= 0 && entranceU == null;   // freeze the orbit clock during the Baton Cross so the fight starts cleanly from th=0
     if (moving) orbitPhase += dt * (0.55 + charge * 0.25 + setpieceK * 0.3);
-    const cx = Math.sin(time * 0.19) * 0.6;            // the slow centre drift
-    const cy = Math.sin(time * 0.13) * 0.4;
+    // The slow centre drift, EASED IN with the intro spread. The drift is a function of
+    // ABSOLUTE time, so at full strength on the first fight frame it snaps the just-converged
+    // twins sideways by up to ~(0.6,0.4) — the janky entrance→fight handoff (the scissor lands
+    // them at exactly [0,0,±ZSEP], but the orbit's th=0 seat is [cx,cy,±ZSEP]). Multiplying by
+    // `spread` (0 on the first fight frame → 1 over ~1.6s) leaves them from the scissor seat and
+    // eases the drift in. Reaches full drift after the spread completes, so nothing else changes.
+    const cx = Math.sin(time * 0.19) * 0.6 * spread;   // the slow centre drift (eased in from the scissor seat)
+    const cy = Math.sin(time * 0.13) * 0.4 * spread;
     // Lemniscate: twin A on one lobe, twin B 180° out of phase (they swap sides).
     // A CONSTANT DEPTH offset (±ZSEP) keeps them apart at the figure-eight node —
     // where both lobes cross — so the twins never collide and the eye-thread length
@@ -730,7 +745,7 @@ export function buildTwinWraith(def, quality = 1) {
       survivorIsA = holdT < 0.5;
     } else if (dyingK > 0) {
       const circle = age * 2.2;                              // two slow laps as it grieves
-      const flee = Math.max(0, dyingK - 0.85) / 0.15;        // stays circling until the very end, THEN leaves
+      const flee = easeK(clamp((dyingK - 0.60) / 0.40, 0, 1));   // widened window (last 40% vs 15%) + eased = a SLOWER, readable escape you can actually see leave (was a one-beat blink)
       fallenShrink = clamp((dyingK - 0.3) / 0.4, 0, 1);      // the fallen half dwindles to nothing by ~0.7
       const fp = [-1.1, -0.2 - dyingK * 0.7, -0.5];          // the fallen half stops and sinks (near centre so the flee frames tight)
       const orbR = 2.7 * (1 - clamp((dyingK - 0.4) / 0.6, 0, 0.62));   // the survivor's circle TIGHTENS as it grieves → a compact frame (CP1 r6 dir 1)
@@ -768,9 +783,13 @@ export function buildTwinWraith(def, quality = 1) {
     // NOTICE snaps both to face the player; the DREAD card also LOCKS both facing forward
     // (both halves squared up at you — distinct body language from charge's inward-nosed
     // taut-tail wind-up, REACH gate directive 1).
-    const faceCam = noticeT > 0.4 || dreadSplit > 0.3;
-    orientDart(twinA.twin, posA, cx, cy, time, 0, faceCam);
-    orientDart(twinB.twin, posB, cx, cy, time, Math.PI, faceCam);
+    // EASE the notice/dread facing rather than snapping it: notice() jumps noticeT 0→1 at the
+    // entrance→fight handoff, so a hard boolean would swing a twin ~180° in one frame (and lurch the
+    // eye seated on its socket-thread). faceEase ramps ~0.25s so the pair TURNS to square up at you.
+    const faceTarget = (noticeT > 0.4 || dreadSplit > 0.3) ? 1 : 0;
+    faceEase += (faceTarget - faceEase) * Math.min(1, dt * 9);
+    orientDart(twinA.twin, posA, cx, cy, time, 0, faceEase);
+    orientDart(twinB.twin, posB, cx, cy, time, Math.PI, faceEase);
 
     // --- The eye handoff (the charge tell). A handoff crosses on its own baton
     // beat; charging PINS the eye to the firing twin (whoever is about to shoot). --

@@ -5676,7 +5676,93 @@ ceiling being reached. Added both: `deploy-pages.yml` now `du -sb _site` and fai
 longer OPEN (weekly + on-demand, shares the `gh-pages` concurrency group). Keep-open / prune-everything-else is the
 safe rule: open PRs re-publish their own preview on the next push anyway.
 
-### L150 — HOLLOWGATE CP1: an architecture boss's face is a STATE TABLE, and decoration can forge a second scar
+### L150 — The entrance→fight handoff jank: two absolute-time motions that start mid-phase, not from zero
+
+**Did / learned.** After the in-fight stop-motion was fixed (L-flinch), the owner still saw a jerk at the
+entrance→fight HANDOFF specifically. Combed the seam and found TWO discontinuities, both the same shape as the flinch
+bug: a motion driven by ABSOLUTE `time` is applied at full strength on the first fight frame, so it snaps from the
+entrance's settled zero to some arbitrary phase value. (1) **Group wobble** (`placeGroup`, roster-wide): a scripted
+entrance holds the group square via `cineYaw≈0` → `group.rotation=(0,0,0)`; the instant `enterFight` nulls cineYaw, the
+idle `sin(time)` yaw/roll wobble applies at full amplitude — up to ~7°/5° of tilt on the whole group in ONE frame,
+random magnitude by start time. (2) **Twin centre-drift** (EITHERWING): the Baton Cross scissor lands the pair at
+exactly `[0,0,±ZSEP]`, but the fight orbit's th=0 seat is `[cx,cy,±ZSEP]` where `cx,cy = sin(time)·0.6/0.4` — so the
+just-converged twins pop sideways by up to ~(0.6,0.4) rig units on frame 1. The group x/y smoother (`poseSmooth`) did
+NOT cover either: it smooths the GROUP position, not group ROTATION or per-twin LOCAL positions.
+
+**The fix (reuse the clock that's already easing).** (2) multiply `cx,cy` by the existing intro-`spread` (0 on the
+first fight frame → 1 over ~1.6s): the pair leaves the exact scissor seat and eases the drift in — reaches full drift
+after the spread, so steady-state is unchanged. (1) a `fightWobbleT` seeded to 0 in `enterFight` ONLY when releasing a
+cinematic entrance (cineYaw was live), easing the wobble amplitude 0→1 over ~0.6s; a huge default keeps plain
+'approach' bosses at full wobble immediately (their wobble already ran during the approach — no dip). Both fixes are
+continuous BY CONSTRUCTION: frame-1 value == entrance-end value.
+
+**The pattern (now three times over).** Any absolute-`time` motion — a flinch, a wobble, a drift — that turns ON at a
+phase boundary must ease from 0 or it snaps by a random amount. Seed it from the boundary state, or gate its amplitude
+on a clock that starts at the boundary (spread, a settle timer). The regression net is placed right: the entrance
+golden pins the SCRIPT math (path/yaw/gaze) only, so fight-handoff smoothing is free to change and stays green — but the
+smoothness itself is a MOTION claim the owner judges on the preview, not something the headless suite can see.
+### L151 — Audio overhaul I: render==live seams + a BS.1770 loudness CI (loudshots) made "Spotify-ready" a measurable property
+
+**Did.** Started the state-of-the-art audio overhaul (branch `claude/game-audio-modernization-t6142e`). Phase 0/1:
+(1) seeded the two real `Math.random()` users in the engine (`makeImpulse`, `getNoiseBuffer`) with `mulberry32` —
+without this NOTHING downstream is reproducible; (2) refactored `sfx.js` so the offline renderer runs the EXACT
+live code: `buildEvents` → pure `compileTrack(tr, loopN, semis)` + thin live wrapper; graph construction extracted
+to `buildBusGraph`/`buildMusicGraph`; `playNoteEvent` → shared `playNoteEventIn` via parameter shadowing (body
+byte-identical). `sfxRender.js` drives these into an `OfflineAudioContext`; `sfxLoudness.js` is a dependency-free
+BS.1770 implementation (K-weighting re-derived at ANY sample rate via the libebur128 bilinear-transform route —
+the RBJ cookbook shelf does NOT reproduce the spec's pre-filter; unit-tested against the −3.01 LUFS 997 Hz
+reference). `tools/loudshots.mjs` (tiershots sibling) renders every station headless and gates
+LUFS/peak/mono-drop/crest with TOLERANCES (±1 LU), never PCM hashes — browser DSP drifts across versions.
+`tools/bounce.mjs` exports a station as a −14 LUFS / −1 dBTP TPDF-dithered PCM16 WAV (the "single").
+
+**Learned.** The shipped roster measured a **4.7 LU loudness spread** (−13.2 … −8.6 LUFS) — the #1 "amateur mix"
+tell, now killed by per-station `mix.trimDb` baked by the tool (target −16 LUFS full-arrangement, leaving SFX
+headroom over a −14-capable master). Committed baselines: `tools/loudshots-baseline-v1.json` (the pre-overhaul
+record) and `loudshots-baseline.json` (the gate; `node tools/loudshots.mjs --check`).
+
+**Patterns.** (a) Never let a dev tool re-implement the engine — extract seams until the tool CALLS the engine, or
+every claim the tool makes is a lie waiting to diverge. (b) Determinism is phase 0: seed every noise source before
+building anything that measures. (c) Assert metrics-with-tolerance, never bit-stability, across browser DSP.
+
+### L152 — Audio overhaul II: worklet limiter with a fallback drill, baked drum kits (velocity is linear!), harmony oracle, continuous energy
+
+**Did.** (1) **Mastering v2** (default-on; `?audio=v1` = shipped chain, the A/B escape hatch): a ~60-line
+AudioWorklet lookahead limiter (4 ms, running-window max, −1 dBFS ceiling) replaces the tanh curve as the loudness
+wall — tanh saturates EVERYTHING (0.89 in → 0.71 out); a limiter is transparent until the ceiling. Loaded async
+from a Blob URL; on ANY failure the shipped comp→tanh chain stays untouched (same null-fallback law as
+`getBeatClock`); a hard-clip (identity to ±1) replaces tanh as insurance; master comp relaxes −12/4:1 → −10/3:1.
+Plus tape-style asymmetric saturation (+DC-block HP@10Hz) on the music bus, parallel (NY) compression on a new
+drum bus, per-station trim node (`stationTrim`), and the echo `delayTime` click fix (ramp, never `.value=` mid-flight).
+The worklet doubles as an **underrun beacon** — audio-thread stalls are invisible to fps meters (`__dd.audioHealth()`).
+(2) **Baked drum kits**: every drum branch uses velocity (`dvol`) LINEARLY in gains, so ONE offline render per drum
+type per station, gain-scaled at trigger, IS the live synthesis — 2 nodes/hit instead of 3–7 and no per-hit
+filter/osc GC churn (the biggest steady-state allocation on mobile Safari). Live synthesis stays as fallback while
+a bake is pending (hybrid: live covers, baked takes over) and IS what the calibration renderer measures.
+(3) **Harmony oracle** (`getHarmony`): the station data already encodes its harmony — each bar's 8-note arp cycle
+IS the current chord. Pitched SFX now snap to live chord tones (`js/harmony.js`, pure + node-tested): streak
+ladders (ember/perfect/parry/phase) climb the actual chord; `bossDefeat` fanfare resolves in the station's key
+(was hardcoded G-major — a wrong note at the game's biggest moment); ambient rewards (milestone/record/levelUp/
+featUnlock) also quantize their START to the next 16th (`toGrid16`) — input feedback is NEVER delayed, only
+ambient rewards. Null oracle (audio off/headless) → fixed-pitch fallback, so CI stays deterministic.
+(4) **Continuous energy**: `music.update`'s combo≥1.5/2/3 layer SNAPS became one smoothstep-banded energy scalar
+CALIBRATED so the old thresholds still hit full gain (roster-safe) while the approach now swells. The fever ×1.2
+swell moved off `musicBus.gain` (owned by mute/volume + the iOS hard-silence path — a real collision) onto the
+trim node.
+
+**Learned/gotchas.** (a) Headless-chromium audio renders to a null sink on a throttled clock — underrun beacons
+there are environmental noise; assert them on-device, not in CI (grace-period the first 2 s regardless: context
+resume jumps the clock). (b) `tests/audioboot.mjs` boots with `--autoplay-policy=no-user-gesture-required` and
+polls `audioHealth()` — fixed sleeps flake. (c) `tests/celebrate.mjs` was already failing on master before this
+work (skin-card locator timeout) — not audio. (d) The iOS lifecycle block and `getBeatClock` contract were
+deliberately untouched; every new subsystem degrades around them.
+
+**Next (the plan lives in the PR):** P4 composition v2 — section graphs/forms via the loop-wrap rebuild seam
+(`pendingRebuild` already lands changes on the downbeat), motif transforms, per-genre groove grids replacing the
+hardcoded four-on-the-floor (a dnb station with a house kick is not dnb), boss music states (mode-darkening over
+the same material), then instrument archetypes (FM EP/supersaw/Karplus plucks) per genre. Judges' full synthesis
+is in the plan file; the composition engine is the single biggest remaining listenability unlock.
+
+### L153 — HOLLOWGATE CP1: an architecture boss's face is a STATE TABLE, and decoration can forge a second scar
 
 **Did.** Built slot 6's CP1 (the ruined-arch Calamity opener, VALUE-INVERTED ivory): builder + def (tier 3,
 4 phases/4 cards, VERSE–CHORUS rhythm), the Vigil Lights entrance data, the 'ahead' approach branch, studio
@@ -5707,7 +5793,7 @@ as shape change to a pixel diff.
 prompt now includes "judge the r5 frames fresh — do not assume the fixes worked", which caught the decoy chip
 a builder self-check would have rationalized away.
 
-### L151 — HOLLOWGATE CP2: the fly-through needed NO dive (measure first), part-tags must ride the bullet, and "absorbed" must mean absorbed
+### L154 — HOLLOWGATE CP2: the fly-through needed NO dive (measure first), part-tags must ride the bullet, and "absorbed" must mean absorbed
 
 **Did.** Shipped slot 6's integration + the engine tranche it carries (§5h ladder controller, §5i.B continuous
 graze + adrenaline ladder, §5e horizon seed, §5f destructible sub-parts). Fable integration gate: PASS, two

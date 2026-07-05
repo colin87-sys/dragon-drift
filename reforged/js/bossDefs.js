@@ -351,6 +351,10 @@ export const BOSSES = {
     name: 'EITHERWING',
     title: 'the Broken Whole',
     epithet: 'Two Halves of the Broken Whole',   // the lore gap: whole of WHAT? (feeds slot 12, ONEWING)
+    // §5h DEFEAT BANNER (optional, per-boss): EITHERWING is never fully SLAIN — one half FLEES with
+    // the shared body (the ONEWING seed, slot 12). So its kill caption reads the escape, not a felling:
+    // the note title acknowledges the flight; the kill card's name line carries the ONEWING rider hook.
+    defeat: { slain: '⟵  ONE HALF FLEES  ⟵', felled: 'IT KEPT THE BODY' },
     tier: 2,                                       // COLOSSUS (§5b band 2), slot-5 PEAK
     // Boss-archetype dispatch (bossModel.js buildBoss): the Twin-Wraith builder
     // (bossEitherwing.js) — BOSS-DESIGN.md §5b registry slot 5, the roster's ONLY
