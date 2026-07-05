@@ -92,7 +92,7 @@ export function renderSilhouette({ key, view = 'rear', tier, W, H, pose, hideWin
       else if (view === 'threeq') { dir = new THREE.Vector3(0.85, 0.5, 1); perpW = Math.max(sz.x, sz.z); perpH = sz.y; } // REAR-¾-above (tail nearest lens, like the chase cam in a hard bank); +z = tail
       else { dir = new THREE.Vector3(1, 0.18, 0); perpW = sz.z; perpH = sz.y; }   // side; -z = head
       const fit = Math.max(perpH * 0.5 / Math.tan(vfov / 2), perpW * 0.5 / Math.tan(hfov / 2));
-      cam.position.copy(ctr).addScaledVector(dir.normalize(), fit * 1.6); cam.lookAt(ctr);  // ≥15% margin every edge so a wide apex span never clips the measurement frame (gate r5 dir 1)
+      cam.position.copy(ctr).addScaledVector(dir.normalize(), fit * 1.9); cam.lookAt(ctr);  // ≥20% margin every edge so the widened apex span never clips the measurement frame (gate r5/r9 dir 1)
     }
   }
   cam.updateMatrixWorld(true);

@@ -790,7 +790,10 @@ function buildBladeFeatherWings(def, model, attach, giM) {
     emissive: 0x2a3a4c, emissiveIntensity: 0.3,           // lifted horn value so the spar reads as light structure, never near-black (r3 dir 5)
   });
   const ribMat = new THREE.MeshStandardMaterial({ color: cMid, roughness: 0.5, metalness: 0.0 });
-  const covertMat = new THREE.MeshStandardMaterial({ color: cDark, roughness: 0.6, metalness: 0.0, side: THREE.DoubleSide });
+  // Root coverts: a mid-dark tier (NOT near-black) so the wing root stays within ~2.5× of the
+  // body flank and doesn't read as scattered black shards over the mid-body (gate r9 dir 7).
+  const cCovert = model.bladeCovertColor ?? 0x2a4562;
+  const covertMat = new THREE.MeshStandardMaterial({ color: cCovert, roughness: 0.6, metalness: 0.0, side: THREE.DoubleSide });
 
   // A cambered feather-blade in the wing plane: length +X, chord in Z (STRAIGHT taut
   // leading edge −Z, convex trailing +Z), tapering to a point. Painted baseHex→tipHex

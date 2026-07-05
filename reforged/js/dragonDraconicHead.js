@@ -82,7 +82,8 @@ function buildSmoothWedgeSkull(c) {
     [-0.95 * sc, 0.24, 0.185, -0.07],          // snout base
     [-1.35 * sc, 0.16, 0.135, -0.10],          // mid muzzle
     [-1.70 * sc, 0.11, 0.093, -0.115],         // nose
-    [-1.86 * sc, 0.072, 0.062, -0.12],         // BLUNT nose tip built INTO the shell (gate r5 dir 2a: no separate orb — the nose is the loft, one connected component)
+    [-1.86 * sc, 0.072, 0.062, -0.12],         // BLUNT nose (built INTO the shell — one connected component)
+    [-1.94 * sc, 0.012, 0.012, -0.122],        // CAP the tip near-closed (gate r9 dir 5: an open last ring read as a drilled tube from the front) — keeps a keen wedge, no aperture
   ];
   // Smooth 1-D Catmull-Rom sampler over the (z, w, h, yc) control profile.
   const catmull = (p0, p1, p2, p3, t) => {
@@ -233,10 +234,10 @@ function eyeZone(c, { r, x, y, z, glow }) {
     // DIAL formula, not this geometry, so the rendered lens is free to be prominent.
     // SATURATED sky-cyan iris (reads BLUE, not a white blow-out): a colored diffuse with a gentle
     // glow, so contrast with the dark pupil + white catchlight reads (the Squirtle/Charmander eye).
-    const irisMat = new THREE.MeshStandardMaterial({ color: 0x54bdec, emissive: 0x1d6fa4, emissiveIntensity: 0.85, roughness: 0.3 });
+    const irisMat = new THREE.MeshStandardMaterial({ color: 0x74d2f4, emissive: 0x46a8dd, emissiveIntensity: 1.35, roughness: 0.26 });   // brighter so the iris is the BRIGHTEST facial point (gate r9 dir 4), still reads blue not white-blown
     const pupilMat = new THREE.MeshStandardMaterial({ color: 0x05101c, roughness: 0.35 });
     const catchMat = new THREE.MeshStandardMaterial({ color: 0xffffff, emissive: 0xffffff, emissiveIntensity: 3.8 });
-    const R2 = rr * 2.6;                                     // large, owl-keen — but not so big the pair merges at the centre
+    const R2 = rr * 2.15;                                    // almond ≤18% head length (gate r9 dir 6) — keen, not a big sticker bean
     // Seated on the FRONT of the face (eye zone), forward-facing, WELL SPREAD so they read as
     // two distinct lenses framing the snout (not a merged cyclops blob). z at the eye zone so
     // the socket cuts the cheek; y a touch below the brow. Turned mostly forward (small yaw).
@@ -246,19 +247,18 @@ function eyeZone(c, { r, x, y, z, glow }) {
       // Turn the almonds FORWARD (gate r8 dir 7): near-zero yaw so BOTH read face-front, not
       // edge-on slivers. A little inward toe-in aims the pair at the front camera.
       const tilt = new THREE.Euler(0.03, s * 0.05, -s * 0.16);
-      // BRIGHT cyan iris — the whole eyeball (Squirtle read): a big proud emissive lens, no dark
-      // socket sphere in front of it (that was occluding the cyan). Deep sky iris = the brightest
-      // facial point.
-      const iris = new THREE.Mesh(new THREE.SphereGeometry(R2 * 1.0, seg(9), seg(7)), irisMat);
-      iris.scale.set(0.94, 1.14, 0.86); iris.rotation.copy(tilt);
-      iris.position.set(s * (ex + px), ey, ez + R2 * 0.34); c.head.add(iris);
+      // BRIGHT cyan iris — an ALMOND lens (straight taut upper edge via the dark lid below):
+      // the brightest facial point, reads blue not white.
+      const iris = new THREE.Mesh(new THREE.SphereGeometry(R2 * 1.12, seg(9), seg(7)), irisMat);
+      iris.scale.set(0.9, 1.18, 0.86); iris.rotation.copy(tilt);
+      iris.position.set(s * (ex + px), ey, ez + R2 * 0.42); c.head.add(iris);   // proud + a touch larger so the BLUE reads
       // dark pupil — a vertical slit almond on the iris front (keen raptor read)
-      const pupil = new THREE.Mesh(new THREE.SphereGeometry(R2 * 0.5, seg(6), seg(5)), pupilMat);
-      pupil.scale.set(0.34, 0.86, 0.5); pupil.rotation.copy(tilt);
-      pupil.position.set(s * (ex + px), ey, ez + R2 * 0.9); c.head.add(pupil);
+      const pupil = new THREE.Mesh(new THREE.SphereGeometry(R2 * 0.52, seg(6), seg(5)), pupilMat);
+      pupil.scale.set(0.32, 0.82, 0.5); pupil.rotation.copy(tilt);
+      pupil.position.set(s * (ex + px), ey, ez + R2 * 1.0); c.head.add(pupil);
       // hard white catchlight — upper-forward glint (life)
-      const spec = new THREE.Mesh(new THREE.SphereGeometry(R2 * 0.16, seg(4), seg(3)), catchMat);
-      spec.position.set(s * (ex + px) - s * R2 * 0.2, ey + R2 * 0.4, ez + R2 * 1.0); c.head.add(spec);
+      const spec = new THREE.Mesh(new THREE.SphereGeometry(R2 * 0.18, seg(4), seg(3)), catchMat);
+      spec.position.set(s * (ex + px) - s * R2 * 0.2, ey + R2 * 0.42, ez + R2 * 1.1); c.head.add(spec);
       // KEEN BROW RIDGE over the eye (Charmeleon/Charizard read, per the reference): a DARK
       // body-toned angular wedge shelving the eye — gives the smooth wedge a keen, expressive
       // face instead of a blank dome. Seated close over the eye, angled down-and-in (the keen V).

@@ -39,8 +39,8 @@ export const DRAGONS = {
       snoutType: 'taperedPredatorSnout', crestBase: 0x7fa3c8, keenEye: true,
       neckBlend: 1.15,  // SLIM falcon neck: a fat neck (2.1) swallowed the small proud head — slimmer than the head so it sits proud (§5d avian)
       // blade-feather comb shared dials (per-form span/count/etc. accrete below)
-      bladeCount: 5, bladeSweep: 0.38, bladeStagger: 0.28,   // deeper z-stagger so the comb shows through-slits from the REAR chase, not a solid plank (gate r8 dir 3)
-      bladeCamber: 0.24, bladeDihedral: 0.22, bladeChord: 0.155,   // dihedral 12.6° (low in band) + less camber → flatter side profile (dir 4); slimmer chord opens the planform slits
+      bladeCount: 5, bladeSweep: 0.34, bladeStagger: 0.28,   // slightly less back-sweep so the wing is more LATERAL → smaller side-view footprint (gate r9 dir 2); deep z-stagger keeps the planform slits
+      bladeCamber: 0.16, bladeDihedral: 0.26, bladeChord: 0.15,   // dihedral 15° for the rear GULL line (gate r9 dir 3); flatter/slimmer blades so they read near-edge-on from the side, not full-face shark-fins (dir 2)
       hornPairs: 1, hornLen: 0.9, ridgeCount: 10, ridgeSeat: -0.02, ridgeStyle: 'scute', ridgeColor: 0x264460,   // dorsal scutes: low leaf-scutes tinted to the body value so the back reads as one sleek mass (gate r8 dir 9), not pale beads
       flapBias: 1.0, flapAmp: 0.9,    // light courier beat
     },
