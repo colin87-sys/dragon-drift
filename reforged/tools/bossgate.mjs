@@ -47,7 +47,11 @@ const DIST = { voidmaw: 2500, stormrend: 5200, craghold: 3800, ashtalon: 2500,
   // pale bodies over DARK skies. ASTRAL SHALLOWS (~8000m, near-black violet sky)
   // lets the bone pop and keeps the additive ice-blue out of a warm horizon
   // (a sunset biome pushed the blue↔orange overlap to false-magenta, a G3 fail).
-  marrowcoil: 8000 };
+  marrowcoil: 8000,
+  // EITHERWING (§5b slot 5): OXBLOOD + aged-silver over the warm AMBER WASTES sunset
+  // (dist ~2250, biome index 1) — its home sky per the r9 spec + §7c sunset backdrop; the
+  // warmest sky in the cycle is the hardest test for the warm-dark accents (L140/L141).
+  eitherwing: 2250 };
 
 // --studio (§7c): run the SAME G1–G7 pixel gate on the ISOLATED STUDIO frames
 // (tools/bossstudio.html) instead of the contaminated in-game frame — a
