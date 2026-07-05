@@ -1351,14 +1351,19 @@ function buildForgeCollar(def, model, attach, spineMats) {
 
   let radius = 0.18;
   if (stage <= 0) {
-    // two dull coals flanking the spine
+    // two WAKING coals flanking the spine — the hatchling's first embers. On the light
+    // baby body a dark-diffuse coal reads as a black lump (the "charcoal lump" §5d warns
+    // against), so the diffuse is a warm ember-brown and the emissive glows enough to
+    // read as HOT-but-young: alive, not blazing (the arc/corona are still stages away).
+    const babyCoalMat = new THREE.MeshStandardMaterial({
+      color: 0x6e2a0e, emissive: cHot, emissiveIntensity: 1.15, roughness: 0.6, metalness: 0.08 });
     for (const s of [-1, 1]) {
-      const coal = new THREE.Mesh(new THREE.SphereGeometry(0.11, seg(7), seg(6)), coalMat(0.35));
+      const coal = new THREE.Mesh(new THREE.SphereGeometry(0.11, seg(7), seg(6)), babyCoalMat);
       coal.scale.set(1.2, 0.8, 1.1);
       coal.position.set(s * 0.16, 0, 0);
       group.add(coal);
-      spineMats.push(coal.material);
     }
+    spineMats.push(babyCoalMat);
     radius = 0.2;
   } else if (stage === 1) {
     // a glowing collar arc across the yoke
