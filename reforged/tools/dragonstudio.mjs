@@ -41,7 +41,8 @@ const SHOTS = [
   { state: 'glide', angle: 'topplan',   bgs: PALE_DARK },                   // wing planform crop
   { state: 'glide', angle: 'wingcrop',  bgs: ['pale', 'dark', 'sunset'] },  // 4× wing close-up (edge/gap/value)
   { state: 'fold',  angle: 'rear34',    bgs: ['dark'] },                    // the fold contracts the span
-  { state: 'face',  angle: 'face',      bgs: PALE_DARK },                   // front-¾ turntable face crop
+  // Face crops come from tools/headshot.mjs (§8.2) — its 4-tile montage frames the
+  // head correctly; the studio's own face view fights the crest-inflated head bbox.
 ];
 
 mkdirSync('reforged-captures', { recursive: true });

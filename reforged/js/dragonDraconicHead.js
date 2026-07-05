@@ -64,6 +64,7 @@ const SKULL_DIMS = {
   roundWedgeSkull:    { csx: 0.98, csy: 0.86, csz: 1.04, brow: 1.0,  cheek: 0.0 },  // rounded, friendly, catlike
   nobleWedgeSkull:    { csx: 0.96, csy: 0.92, csz: 1.1,  brow: 1.3,  cheek: 0.18 }, // taller, armored cheeks, regal
   predatorWedgeSkull: { csx: 0.94, csy: 0.8,  csz: 1.14, brow: 0.85, cheek: 0.12 }, // flatter + longer, aggressive
+  falconWedgeSkull:    { csx: 0.82, csy: 0.78, csz: 1.26, brow: 0.6,  cheek: 0.0 },  // lean keen wedge, NO cheek balls (azure)
 };
 function buildSkull(c) {
   const d = c.dim, m = c.mats.bodyMat;
@@ -134,24 +135,40 @@ function eyeZone(c, { r, x, y, z, glow }) {
   const sx = 0.92 + (1 - es) * 0.12;      // rounder = a touch wider
   const sy = 0.86 + es * 0.32;            // almond = taller
   const tiltY = 0.30 * es, tiltZ = 0.34 * es;
-  const yset = y - (1 - es) * rr * 0.35 + es * rr * 0.25;  // round eyes LOWER, almond HIGHER-set (dir 8)
-  // A keen eye is a DARK orb with a SMALL bright iris (the brightest facial POINT),
-  // not a white-sclera blob (gate r1 dir 8). The dark base is a dim clone; the iris
-  // is a small proud emissive cap in def.eye.
-  const darkEye = c.mats.eyeMat.clone();
-  darkEye.emissive = new THREE.Color(0x0e1a24); darkEye.emissiveIntensity = 0.5;
-  darkEye.color = new THREE.Color(0x14202c);
-  const irisMat = new THREE.MeshStandardMaterial({ color: c.def.eye, emissive: c.def.eye, emissiveIntensity: 1.9 });
+  const yset = y - (1 - es) * rr * 0.35;   // round eyes sit LOWER; es=1 keeps the shipped position (byte-identical)
+
+  // KEEN-EYE treatment (opt-in via model.keenEye — AZURE). A BRIGHT almond iris lens
+  // (def.eye, the brightest facial point §4) with a thin dark sclera rim + small dark
+  // pupil, seated PROUD on the wide cheek (clear of the long muzzle) so it reads on the
+  // small head. Default OFF → obsidian/pearl/solar keep the original eye byte-identical.
+  if (c.cfg.keenEye) {
+    const socketMat = new THREE.MeshStandardMaterial({ color: 0x0a1420, roughness: 0.55, emissive: 0x0a1420, emissiveIntensity: 0.06 });
+    const irisMat = new THREE.MeshStandardMaterial({ color: c.def.eye, emissive: c.def.eye, emissiveIntensity: 2.4 });
+    // A big DARK almond socket seated proud on the cheek IS the eye shape — a dark
+    // almond against the light-lit hide reads as an eye where a light iris dissolves.
+    // A small bright iris glint sits inside it toward the camera (the brightest facial
+    // point, §4). FRONT-cheek, high + forward at the snout↔cranium junction (dir 8).
+    const R2 = rr * 2.55;
+    const ex = c.hx * 0.66, ey = c.hy * 0.42, ez = c.faceZ - c.faceR * 0.22;
+    const px = R2 * 0.5;                                     // proud outward
+    for (const s of [-1, 1]) {
+      const socket = new THREE.Mesh(new THREE.SphereGeometry(R2, seg(11), seg(9)), socketMat);
+      socket.scale.set(0.66, 1.05, 0.6); socket.rotation.set(0.06, -s * 0.55, -s * 0.4);
+      socket.position.set(s * (ex + px), ey, ez - R2 * 0.24); c.head.add(socket);
+      const iris = new THREE.Mesh(new THREE.SphereGeometry(R2 * 0.62, seg(10), seg(8)), irisMat);
+      iris.scale.set(0.66, 1.02, 0.58); iris.rotation.set(0.06, -s * 0.55, -s * 0.4);
+      iris.position.set(s * (ex + px + R2 * 0.14), ey + R2 * 0.02, ez - R2 * 0.3); c.head.add(iris);
+    }
+    return;
+  }
+
+  // Default eye — a single sphere in the shared eyeMat (rig swaps its colour on Surge).
   for (const s of [-1, 1]) {
-    const eye = new THREE.Mesh(new THREE.SphereGeometry(rr, seg(12), seg(9)), darkEye);
+    const eye = new THREE.Mesh(new THREE.SphereGeometry(rr, seg(12), seg(9)), c.mats.eyeMat);
     eye.scale.set(sx, sy, 0.82);
     eye.rotation.set(0.1, -s * tiltY, -s * tiltZ);   // almond/feline tilt (0 when round)
     eye.position.set(s * x, yset, z);
     c.head.add(eye);
-    const iris = new THREE.Mesh(new THREE.SphereGeometry(rr * (0.55 + (1 - es) * 0.12), seg(8), seg(6)), irisMat);
-    iris.scale.set(0.9, 1.15, 0.7);                        // almond iris echoing the eye
-    iris.position.set(s * (x + rr * 0.1), yset + rr * 0.05, z + rr * 0.5);   // proud toward the camera
-    c.head.add(iris);
     if (glow) {
       const rim = new THREE.Mesh(new THREE.TorusGeometry(r * 1.12, r * 0.14, seg(5), seg(10), Math.PI * 1.1), c.glowMat);
       rim.position.set(s * x, y + r * 0.16, z + 0.02);
@@ -293,8 +310,10 @@ function whiskerFins(c) {                          // Jade — calm mystical
 function browCrest(c) {
   const n = Math.max(1, Math.round(c.cfg.crestBlades));
   const sc = c.cfg.crestScale;
-  // FIXED anchor above the eyes (head-inner-local; independent of headScale/form).
-  const ax = 0, ay = c.hy * 0.66, az = c.faceZ + c.faceR * 0.5;
+  // FIXED anchor on the crown — referenced to the CONSTANT base radius R (not the
+  // per-skull dims), so it never drifts when the skull preset changes across forms
+  // (§7 motif-invariance assert). Head-inner-local, independent of headScale.
+  const ax = 0, ay = R * 0.5, az = R * 0.06;
   const cGold = c.def.accentHue ?? 0xd9b36a;
   const cBase = c.def.crestBase ?? 0x7fa3c8;              // gate r1 dir 7: crest base 0x7fa3c8
   const bladeMat = new THREE.MeshStandardMaterial({
@@ -313,11 +332,11 @@ function browCrest(c) {
     const g = featherGeoLocal(len, wid);
     gradTip(g, cBase, cGold);
     const b = new THREE.Mesh(g, bladeMat);
-    const spread = n > 1 ? (t - 0.5) * 1.1 : 0;
+    const spread = n > 1 ? (t - 0.5) * 0.5 : 0;             // tight fan (swept, not radial star — dir 3)
     b.position.set(ax, ay, az);
-    b.rotation.x = -0.62;                                    // rake back ~35° (dir 7), not flat over the crown
+    b.rotation.x = -0.6;                                     // rake back ~35°, blades near-parallel
     b.rotation.z = spread;
-    b.rotation.y = spread * 0.5;
+    b.rotation.y = spread * 0.4;
     c.head.add(b);
   }
   c.motifAnchor = { local: new THREE.Vector3(ax, ay, az), radius: maxLen };
@@ -343,7 +362,7 @@ function gradTip(geo, baseHex, tipHex) {
   const col = [];
   for (let i = 0; i < pos.count; i++) {
     const tt = (pos.getZ(i) - z0) / span;
-    c.copy(base).lerp(tip, tt > 0.7 ? (tt - 0.7) / 0.3 : 0);   // gold ONLY on the outer tip
+    c.copy(base).lerp(tip, tt > 0.75 ? (tt - 0.75) / 0.25 : 0);   // gold ONLY the outer 25% (dir 3)
     col.push(c.r, c.g, c.b);
   }
   geo.setAttribute('color', new THREE.Float32BufferAttribute(col, 3));
@@ -359,7 +378,7 @@ function tuskJaw(c) {                               // Solar / Sovereign
 }
 
 // ── module registry + archetypes ─────────────────────────────────────────────
-const SKULLS = { roundWedgeSkull: buildSkull, nobleWedgeSkull: buildSkull, predatorWedgeSkull: buildSkull };
+const SKULLS = { roundWedgeSkull: buildSkull, nobleWedgeSkull: buildSkull, predatorWedgeSkull: buildSkull, falconWedgeSkull: buildSkull };
 const SNOUTS = { shortBluntSnout, mediumBluntSnout, taperedPredatorSnout };
 const EYES   = { largeSoftEyeZone, mediumAlertEyeZone, narrowRegalEyeZone };
 const BROWS  = { softBrow, alertBrow, commandingBrow };
@@ -381,10 +400,11 @@ const DEFAULTS = {
   eyeShape: 1,          // 1 = almond (draconic default) · 0 = round (cute hatchling)
   crestBlades: 0,       // brow-crest motif blade count (0 = none) — the AZURE motif socket
   crestScale: 1,        // brow-crest bloom scale
+  keenEye: false,       // opt-in bright-almond proud eye (AZURE); default keeps the shared eye
 };
 const OVERRIDE_KEYS = ['skullType', 'snoutType', 'eyeZoneType', 'browType', 'hornType', 'jawType', 'rearCrestType',
   'headScale', 'snoutScale', 'hornScale', 'eyeScale', 'browIntensity', 'rearGlowIntensity', 'whiskerFins', 'tuskJaw',
-  'eyeShape', 'crestBlades', 'crestScale'];
+  'eyeShape', 'crestBlades', 'crestScale', 'keenEye'];
 
 function resolveConfig(model) {
   const arch = ARCHETYPES[model.headArchetype] || ARCHETYPES.softStealth;

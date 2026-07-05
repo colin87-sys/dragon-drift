@@ -786,8 +786,8 @@ function buildBladeFeatherWings(def, model, attach, giM) {
   // Leading-arm SPAR + covert material — MATTE horn (dir 1): dark, metalness 0, so it
   // reads as bone structure, never chrome scaffolding.
   const armMat = new THREE.MeshStandardMaterial({
-    color: model.bladeSparColor ?? 0x2a3a4a, roughness: 0.72, metalness: 0.0,
-    emissive: 0x0a1622, emissiveIntensity: 0.08,
+    color: model.bladeSparColor ?? 0x44566a, roughness: 0.68, metalness: 0.0,
+    emissive: 0x1c2836, emissiveIntensity: 0.16,          // lighter horn so the spar never reads near-black (dir 4)
   });
   const ribMat = new THREE.MeshStandardMaterial({ color: cMid, roughness: 0.5, metalness: 0.0 });
   const covertMat = new THREE.MeshStandardMaterial({ color: cDark, roughness: 0.6, metalness: 0.0, side: THREE.DoubleSide });
@@ -871,7 +871,7 @@ function buildBladeFeatherWings(def, model, attach, giM) {
     // shoulder → 0.15× at the last root (dir 1), ENDING at the outermost blade root
     // (the blade over-reaches it, so nothing pokes past). Split at the wrist to fold.
     const spine = [{ x: 0.06, y: 0, z: -0.03 }, ...roots.map((r) => ({ x: r.rootX, y: r.rootY, z: r.rootZ }))];
-    const baseR = 0.15 * ws;
+    const baseR = 0.19 * ws;                                // thicker base so the root→0.15× taper is legible (dir 4)
     for (let s = 0; s < spine.length - 1; s++) {
       const a = spine[s], b = spine[s + 1];
       const inner = b.x < wristX;

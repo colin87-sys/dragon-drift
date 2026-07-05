@@ -73,9 +73,12 @@ export function setFlapDebugPose(parts, pose = 'glide') {
       const t = b.pivot; if (!t) continue;
       const fr = b.idx / n;
       if (pose === 'fold') {
-        t.rotation.set(0, b.side * (-0.35 - 0.5 * fr), b.side * (-0.05 - 0.02 * fr));  // sweep aft + nest inward
+        // Counter the rest dihedral (theta≈0.36) so the blades drop toward the spar
+        // line and sweep aft in a tight nested stack (≤25° splay, dir 6), not a fan of
+        // upright sails. rest.rotation.z = side*theta; −side*theta flattens it.
+        t.rotation.set(0, b.side * (-0.7 - 0.4 * fr), b.side * (-0.36 + 0.05 * fr));
       } else {
-        t.rotation.set(0, 0, b.side * (0.02 + 0.06 * fr));
+        t.rotation.set(0, 0, b.side * (0.02 + 0.05 * fr));
       }
     }
   }

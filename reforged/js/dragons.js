@@ -36,11 +36,11 @@ export const DRAGONS = {
       // Azure's ONLY head accent is its brow-crest motif (gate r1 dir 7): no ear-fin
       // horns, no rear-crest, no rear glow — the sunburst nape corona is deleted.
       hornType: 'noHorn', rearCrestType: 'noRearCrest', rearGlowIntensity: 0,
-      snoutType: 'taperedPredatorSnout', crestBase: 0x7fa3c8,
-      neckBlend: 1.4,   // fuse the neck spheres into a smooth taper (gate r1 dir 9)
+      snoutType: 'taperedPredatorSnout', crestBase: 0x7fa3c8, keenEye: true,
+      neckBlend: 1.75,   // fuse the neck spheres into a smooth taper (gate r1/r2 dir 9/2)
       // blade-feather comb shared dials (per-form span/count/etc. accrete below)
       bladeCount: 5, bladeSweep: 0.44, bladeStagger: 0.15,
-      bladeCamber: 0.2, bladeDihedral: 0.32, bladeChord: 0.17,
+      bladeCamber: 0.28, bladeDihedral: 0.36, bladeChord: 0.17,
       hornPairs: 1, hornLen: 0.9, ridgeCount: 10,
       flapBias: 1.0, flapAmp: 0.9,    // light courier beat
     },
@@ -74,8 +74,8 @@ export const DRAGONS = {
       // comb (span 2.8–3.2×), 3-blade crest fan, dorsal sail, gold-tipped swallow
       // banner tail. Deepest sky value, gold at its richest (still DIFFUSE).
       { wingScale: 1.0, bladeSpan: 8.6, bladeCount: 5, bladeDetail: 1.45,
-        spineCurl: 0.72, eyeShape: 1.0, headScale: 0.5, eyeScale: 0.46,
-        crestBlades: 3, crestScale: 1.0, skullType: 'predatorWedgeSkull',   // keener flatter apex skull (dir 8)
+        spineCurl: 0.72, eyeShape: 1.0, headScale: 0.5, eyeScale: 0.52,
+        crestBlades: 3, crestScale: 1.0, skullType: 'falconWedgeSkull',   // lean keen apex skull, no cheek balls (r2 dir 1)
         tailStyle: 'finned', tailBannerFork: true, tailSegments: 6, neckSegments: 5,
         ridgeCount: 9, spineGlow: 0.2, dorsal: true,
         colors: { body: 0x1c3048, belly: 0xcfe6ff, wingInner: 0xa8c6e2, wingOuter: 0x3d5a78,
