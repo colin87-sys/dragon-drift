@@ -53,12 +53,12 @@ export const DRAGONS = {
     forms: [
       // Hatchling (form 0) — round fluffball: curled posture, round low eyes, big
       // head, stub gapped comb, crest nub, forked tail-tip hint. Lighter sky value.
-      { wingScale: 0.72, bladeSpan: 5.4, bladeCount: 5, bladeDetail: 0.6, bladeChord: 0.28,   // CP2 dir 3: BABY wings — 5 blades (§3 comb identity holds) but SHORTER + a WIDE chord (0.28 so the roots overlap the arm spar into one connected wing, gate r2 dir 5) → soft welded paddles. NOTE: forms merge CUMULATIVELY (ascension.js) so any dial set here leaks to f1/f2 unless re-declared — the apex re-pins the leaked ones below
+      { wingScale: 0.72, bladeSpan: 5.4, bladeCount: 5, bladeDetail: 0.6, bladeChord: 0.28, bladeStagger: 0.14, bladeRake: 0.015,   // CP2 dir 3: BABY wings — a near-parallel low rake (0.015) + low stagger + wide chord welds the 5 blades into ONE solid MITTEN paddle so the trailing edge stops reading as a Christmas-tree sawtooth (fable gate). The apex re-pins the fanned formula (bladeRake:-1) for its hero planform slits. — 5 blades (§3 comb identity holds) but SHORTER + a WIDE chord (0.28 so the roots overlap the arm spar into one connected wing, gate r2 dir 5) → soft welded paddles. NOTE: forms merge CUMULATIVELY (ascension.js) so any dial set here leaks to f1/f2 unless re-declared — the apex re-pins the leaked ones below
         spineCurl: -0.8, eyeShape: 0.0, headScale: 1.3, eyeScale: 1.25, snoutScale: 0.5,   // CP2 dir 1: SHORT button muzzle; headScale 1.3 keeps the BIG cute head; eyeScale 1.25 opens a nose-bridge GAP between the eyes (1.45 merged them into a figure-8) — still the ladder's biggest eyes (> f1's 1.02) and in the [0.3,0.45] band
         keenEye: false, cuteEye: true,   // CP2: the hatchling wears the ROUND sphere eye with a big dark forward pupil + glint (not the keen falcon almond+brow-slab, which is apex-only). eyeShape 0 + eyeScale 1.7 → a big low round cute eye
         crestBlades: 1, crestScale: 0.7, crestGoldAmount: 0.1,   // CP2 dir 2: a single SOFT NUB (browCrest rounds the n=1 case), body-hued (no gold on the baby), not a wire feeler
         wingTipGold: 0xd9b36a, wingTipGoldAmount: 0.12,   // CP2 dir 5: only a faint amber hint at the baby — the full gold banner is an earned adult signature
-        tailStyle: 'simple', tailTipFork: true, tailSegments: 5, neckSegments: 4,
+        tailStyle: 'simple', tailTipFork: true, tailSegments: 5, neckSegments: 4, tailPlates: false,   // smooth baby tail — the dorsal-cone row read as a drill-bit from rear-chase (fable gate)
         ridgeCount: 0, spineGlow: 0,
         colors: { body: 0x6f8fb2, belly: 0xe2f0fb, wingInner: 0xc8ddee, wingOuter: 0x86a3c0,   // CP2 dir 4: PALE powder-blue baby (was dark navy 0x2a4058, as dark as the teen) — value now clearly lightens toward the hatchling
           wingEmissive: 0x6f8ca6, scales: 0xbcd2e4, horn: 0xc2d6e6,
@@ -84,14 +84,15 @@ export const DRAGONS = {
         // changed — otherwise f1's muted-gold/wide-chord leak forward and silently corrupt
         // the approved apex. These pin the exact approved apex values.
         keenEye: false, cuteEye: true,   // the apex joins the UNIFIED socketed-eye system — eyeShape 1.0 hoods it into a keen slanted almond. (The old keenEye decal was dark-on-dark: it read as NO eyes at gameplay value — the unresolved wall since CP1)
-        bladeChord: 0.133,               // approved apex chord (f0 set 0.28)
+        bladeChord: 0.133, bladeStagger: 0.28, bladeRake: -1,   // approved apex chord + deep stagger + the FANNED per-blade rake formula (sentinel -1) for the hero planform slits (f0 welded them at 0.28/0.14/0.015)
         crestGoldAmount: 1, crestSeat: 0,   // full gold crest at its approved height (f1 muted+sank it)
         wingTipGoldAmount: 1,            // full gold swallow-banner tips (f0/f1 restrained them)
+        tailPlates: true,               // apex keeps its dorsal tail ridge (f0 turned it off)
         crestBlades: 3, crestScale: 1.6, skullType: 'smoothWedgeSkull', snoutScale: 0.68,   // bespoke ONE-shell falcon wedge (no ellipsoid plate-stack); shorter muzzle seats head:body/eye:head in band + kills the needle beak; crest breaks the outline
         tailStyle: 'finned', tailBannerFork: true, tailLength: 0.62, tailSegments: 6, neckSegments: 5,   // shorter tail so the wings visually dominate (gate r7 dir 7) — raises the reconciled visual span:body
         ridgeCount: 7, spineGlow: 0.2, dorsal: true,
-        colors: { body: 0x1c3048, belly: 0xcfe6ff, wingInner: 0xa8c6e2, wingOuter: 0x3d5a78,
-          wingEmissive: 0x3d5a78, scales: 0x9db8d4, horn: 0xbcd9f0,
+        colors: { body: 0x27435f, belly: 0xcfe6ff, wingInner: 0xb0cbe6, wingOuter: 0x466685,   // body lifted 0x1c3048→0x27435f (fable gate: the apex crushed to a black silhouette in dark skies); still clearly the deepest of the ladder
+          wingEmissive: 0x466685, scales: 0x9db8d4, horn: 0xbcd9f0,
           apexSeam: 0x8ed5ff, eye: 0xcfe8ff, coreGlow: 0x8ed5ff } },
     ],
     fx: { auraColor: '142,213,255', auraIdle: 0.0, sparkle: false },

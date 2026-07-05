@@ -863,7 +863,12 @@ function buildBladeFeatherWings(def, model, attach, giM) {
     // the top projection — MITTEN). This mid setting fans the OUTER 55–70% of adjacent blades
     // apart into TRUE through-slits while the wide-chord roots still overlap into one surface
     // near the arm; the taper makes the slits open toward the tips, not the roots.
-    const rakeI = model.bladeRake ?? (0.04 + 0.045 * i);   // fan the OUTER blades a touch more so sky-slits open between blades 2–4 in the rear chase fill (gate r8 dir 3), roots still overlap
+    // bladeRake < 0 is a SENTINEL for "use the per-blade formula" — lets a young form set a
+    // constant low rake (welds the comb into a solid MITTEN paddle, no sawtooth) while the
+    // apex re-pins the formula through the cumulative merge with bladeRake:-1.
+    const rakeI = (model.bladeRake != null && model.bladeRake >= 0)
+      ? model.bladeRake
+      : (0.04 + 0.045 * i);   // fan the OUTER blades a touch more so sky-slits open between blades 2–4 (gate r8 dir 3), roots still overlap
     // discrete tier: inner→dark, mid→cMid, outer→light
     const baseHex = t < 0.28 ? cDark : (t < 0.62 ? cMid : cLight);
     const tipHex = t < 0.28 ? cMid : cLight;
