@@ -6123,3 +6123,39 @@ straight to the fight phase at station; reusable for any future deep-dilate entr
 **Pattern.** The engine-slot recipe held again: every system landed def-gated (`condenseInvuln`, `grazeForm`, the
 formation tables) or neutral, so all six shipped-boss lifecycle sims + the legacy-fallback gate stayed green untouched,
 and the 7-boss gauntlet still clears (its frame budget rose for the 7th boss).
+
+### L150 — The silhouette betrays the mesh: a whale modeled correctly read as a battleship (§3b)
+
+**Did / learned.** BRINEHOLM's CP1 studio sheet came back and the owner's instant read was "a ship with an
+eye, not a whale" — and he was right, even though the builder had faithfully modeled a whale (blunt snout,
+heavy hooded brow, lower jaw, rorqual throat pleats, barnacled arched back, hooked dorsal fins all in the
+geometry). The failure was one level ABOVE the mesh: the player reads the SILHOUETTE (black outline + lit
+emissive edges), and every silhouette-level cue was a boat cue. Diagnosed from the actual code: (1) the
+abalone banding was `flankSegs` placed at a CONSTANT height — a straight horizontal lit stripe = a painted
+waterline, the single strongest "ship" tell; (2) four evenly-spread small dorsal fins read as masts/rigging;
+(3) the eye sat high-forward on a raised head = a conning tower with a searchlight; (4) both body ends tapered
+up symmetrically = a bow and a stern; (5) no positive whale signal (no blow, no fluke) so the brain defaulted
+to the familiar shape. Compounding it, the studio judged on the PALE backdrop, which turns a kelp-black boss
+into a flat cutout and erases every organic relief the builder actually modeled.
+
+**This is the SAME class of bug as EITHERWING (L140/L141):** the build sheet describes the boss in words, the
+builder models the words, and the SILHOUETTE betrays them — EITHERWING as "too small," BRINEHOLM as "wrong
+noun." It will recur, and get worse as bosses grow grander, unless silhouette translation is a hard step. So:
+wrote **§3b — Low-Poly Silhouette Translation** (eight laws + a per-boss translation sheet + a pre-build Fable
+sign-off + a CP1 silhouette gate): judge the black-fill + lit-edge renders FIRST; name the ANTI-READS and the
+primitive choices that cause them before building; lit edges must follow organic anatomy, never a level line;
+reduce identity to 2–3 carrying cues that MUST reach the outline; plant a POSITIVE signal, don't just avoid the
+negative; scale is a silhouette property (span × lit-edge area at fight distance); judge on the HOME backdrop
+first; and the stranger test (name the black fill in 2s or it isn't translated). §7c now defaults the studio to
+the home-value backdrop and emits pure black-fill + lit-edge-only renders judged before the beauty pass.
+
+**BRINEHOLM's fix (r-pass):** kill the horizontal waterline (move the abalone glow to the throat pleats + a
+broken dorsal crest); replace the four mast-fins with ONE tall hooked orca sickle fin; break the fore/aft
+symmetry (heavy head one end, the other end stays low and sinks into fog — a body continuing off-frame, not a
+stern); seat the eye in a heavier brow+jaw so it reads as a face, not a lamp; add a misty blowhole SPOUT on the
+tidal-drone beat (the positive "whale" signal, doubles as a rhythm tell); let barnacles break the top edge.
+
+**The reusable pattern.** Before modeling any boss, translate concept → silhouette explicitly: carrying cues +
+anti-reads + lit-edge plan + scale target + home backdrop, Fable-approved at the SHEET stage. The cheapest place
+to catch "wrong noun" is before geometry exists; the second cheapest is a black-fill render at CP1; the most
+expensive is the owner's eyes after a full build. Never let the mesh detail stand in for a silhouette that reads.
