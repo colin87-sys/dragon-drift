@@ -605,6 +605,72 @@ for (const key of BOSS_ORDER) {
   ok(`hollowgate geometry: gap ${gapW.toFixed(1)}w, portcullis drop ${dropped.toFixed(1)}, pupil ${leftPane}→${rightPane} in ${stepLog.size} steps, ignition ${litEarly}→${litLate}, pane-break ✓`);
 }
 
+// BRINEHOLM (slot 8) — the telegraph gate + the §5d/§7b per-sheet geometry
+// asserts: NAMED telegraph pivots (finPivot0-3 flare + eyeLidPivot grinds on
+// charge), the ONE focal (brineEye/eyeCore), the ONE scar (brineScar), the
+// hull span (the "never fits the frame" number), the EYE WEAK-POINT WINDOW
+// (surfaces/submerges — the §5f turn-taking tell), and the DESTRUCTIBLE SHACKLE
+// posts (the §5f mercy mechanic: per-part hit test + break, mirroring the pane API).
+{
+  const bh = buildBoss(BOSSES.brineholm, 1);
+  // Named parts the gate + the §5f plumbing find by name.
+  for (let i = 0; i < 4; i++) assert(!!bh.group.getObjectByName(`finPivot${i}`), `brineholm exposes named finPivot${i}`);
+  assert(!!bh.group.getObjectByName('eyeLidPivot'), 'brineholm exposes the named eyeLidPivot (the heavy-lid telegraph)');
+  assert(!!bh.group.getObjectByName('brineEye'), 'brineholm exposes the named brineEye (the one HDR focal + weak point)');
+  assert(!!bh.group.getObjectByName('eyeCore'), 'brineholm exposes the named eyeCore (the G1 pinpoint)');
+  assert(!!bh.group.getObjectByName('brineScar'), 'brineholm exposes the ONE asymmetric scar (the snapped bow shackle)');
+  for (let i = 0; i < 3; i++) assert(!!bh.group.getObjectByName(`shacklePost${i}`), `brineholm exposes named shacklePost${i}`);
+
+  // The "NEVER FITS THE FRAME" presence number (§5d / L140): the hull spans an
+  // arena scale that exceeds the ~34-wide portrait envelope at rel 30.
+  const span = bh.hullLength();
+  assert(span >= 34, `brineholm hull spans ${span.toFixed(1)} world units ≥ 34 (exceeds the rel-30 portrait envelope — "never fits the frame")`);
+
+  // Telegraph gate (§3.5): setCharge(1) + tick FLARES the fin-sails up on their
+  // pivots AND grinds the eye-lid open (a silhouette change, not a recolour).
+  bh.tick(0.05, 0.5);
+  const preFins = bh.finRaise();
+  const preLid = bh.group.getObjectByName('eyeLidPivot').rotation.x;
+  bh.setCharge(1);
+  for (let s = 0; s < 24; s++) bh.tick(0.05, 1.0 + s * 0.05);   // let the lid grind + sails flare ease in
+  const postFins = bh.finRaise();
+  let finsMoved = 0;
+  for (let i = 0; i < 4; i++) if (Math.abs(postFins[i] - preFins[i]) > 0.2) finsMoved++;
+  assert(finsMoved >= 3, `brineholm charge FLARES the fin-sails (${finsMoved}/4 pivots rotated >0.2 rad — silhouette change)`);
+  const postLid = bh.group.getObjectByName('eyeLidPivot').rotation.x;
+  assert(postLid > preLid + 0.4, `brineholm charge grinds the eye-lid open (lidPivot.rot.x ${postLid.toFixed(2)} > ${preLid.toFixed(2)} — the lid lifts up-and-back, the eye surfaces to be hit)`);
+
+  // THE EYE WEAK-POINT WINDOW (§5f law 5): the eye surfaces (chip-damage window)
+  // and submerges (invulnerable) — the unmistakable turn-taking tell. Clear the
+  // charge first (a live wind-up forces the eye UP so it can be hit — intended).
+  bh.setCharge(0);
+  bh.setEyeUp(1);
+  for (let s = 0; s < 40; s++) bh.tick(0.05, 3.0 + s * 0.05);
+  assert(bh.eyeIsUp(), `brineholm eye SURFACES on setEyeUp(1) (eyeSurfaced ${bh.eyeSurfaced().toFixed(2)} — the weak-point window opens)`);
+  bh.setEyeUp(0);
+  for (let s = 0; s < 40; s++) bh.tick(0.05, 5.0 + s * 0.05);
+  assert(!bh.eyeIsUp(), `brineholm eye SUBMERGES on setEyeUp(0) (eyeSurfaced ${bh.eyeSurfaced().toFixed(2)} — invulnerable, no chip damage)`);
+
+  // DESTRUCTIBLE SHACKLE POSTS (§5f mercy mechanic; reuses slot 6's per-part
+  // grammar): the hit test routes a hit near a post to that post, crackShackle
+  // breaks it (idempotent), and a broken post never reroutes.
+  assertEq(bh.shackleCount(), 3, 'brineholm has 3 shackle posts');
+  assertEq(bh.liveShackles().length, 3, 'brineholm starts with all 3 shackles bound');
+  const sc8 = BOSSES.brineholm.scale;
+  // A hit at shacklePost1's world x/top (local x 0.4 → world ×scale, y near the post top).
+  const hitIdx = bh.shackleHitTest(0.4 * sc8, 3.4 * sc8);
+  assert(hitIdx >= 0, `brineholm shackleHitTest routes a hit near a post to a live post (got ${hitIdx})`);
+  assert(bh.crackShackle(hitIdx), 'brineholm crackShackle breaks a bound post');
+  assert(!bh.crackShackle(hitIdx), 'brineholm crackShackle is idempotent (already broken)');
+  assertEq(bh.liveShackles().length, 2, 'brineholm a broken post leaves 2 bound');
+  assert(bh.shackleBroken(hitIdx), 'brineholm the broken post reports broken');
+  const reroute = bh.shackleHitTest(0.4 * sc8, 3.4 * sc8);
+  assert(reroute !== hitIdx, `brineholm shackleHitTest never reroutes to a broken post (got ${reroute})`);
+
+  bh.dispose();
+  ok(`brineholm geometry: hull ${span.toFixed(1)}w, fins ${finsMoved}/4 + lid telegraph, eye surface/submerge, shackle-break ✓`);
+}
+
 // Legacy coexist gate: a def WITHOUT `archetype` must still fall through to
 // the legacy construct (bossModel.js's buildBoss dispatcher) — the coexist
 // rule the whole archetype system is built on, guarding against a future def

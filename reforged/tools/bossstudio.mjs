@@ -61,8 +61,18 @@ const HG_EXTRAS = [
   { name: 'ignite', o: { entrance: 0.55, steer: -1, t: 3.0 } },
   { name: 'gaze',   o: { gx: 0.9, gy: -0.3, t: 6.0 } },
 ];
+// BRINEHOLM extras: the EYE WEAK-POINT WINDOW (surfaced vs submerged — the §5f
+// turn-taking tell), a FREED shackle (the mercy read), and the §5j mid-rise
+// HESITATION frame (the hull inhaling through the fog, sails unfolding).
+const BH_EXTRAS = [
+  { name: 'eyeup',   o: { eye: 1, t: 4.0 } },   // the eye SURFACED — the weak-point window (chip damage lands)
+  { name: 'eyedown', o: { eye: 0, t: 4.0 } },   // the eye SUBMERGED — invulnerable (the other half of the tell)
+  { name: 'freed',   o: { crack: 0, t: 2.0 } }, // a shackle post BROKEN (mercy as a mechanic — it vents + unbinds)
+  { name: 'rise',    o: { entrance: 0.55, t: 3.0 } },   // the mid-rise HESITATION (the hull holds as the shadow crosses)
+];
 const states = bossId === 'eitherwing' ? [...STATES, ...EXTRAS]
-  : bossId === 'hollowgate' ? [...STATES, ...HG_EXTRAS] : STATES;
+  : bossId === 'hollowgate' ? [...STATES, ...HG_EXTRAS]
+  : bossId === 'brineholm' ? [...STATES, ...BH_EXTRAS] : STATES;
 
 const BGS = ['dark', 'pale', 'sunset'];   // §7c L140: + warm sunset-gold (warm accents vanish on warm skies)
 // The fight-distance frames (§7c L140): ONE front-on shot per key state at the REAL
@@ -72,7 +82,13 @@ const FIGHT_STATES = bossId === 'eitherwing'
   ? [{ name: 'idle', o: { t: 2.85 } }, { name: 'handoff', o: { handoff: 0.5, t: 2.85 } }]
   : bossId === 'hollowgate'
     ? [{ name: 'idle', o: { t: 2.85 } }, { name: 'dread', o: { charge: 1, sp: 0.9, dread: true, t: 2.0 } }]
-    : [{ name: 'idle', o: { t: 2.85 } }];
+    // BRINEHOLM: the fight-distance frame must show the hull EXCEEDING the frame
+    // (its scale IS being partly off-screen, L140/L141). A closer settle (rel 22 —
+    // the bottom-anchored leviathan holds near) frames the 36-unit ridge spilling
+    // both edges, the eye SURFACED (the money frame: ridge + eye + fin-sails).
+    : bossId === 'brineholm'
+      ? [{ name: 'idle', o: { eye: 1, t: 4.0, fightRel: 22 } }, { name: 'dread', o: { charge: 1, sp: 0.9, dread: true, t: 2.0, fightRel: 22 } }]
+      : [{ name: 'idle', o: { t: 2.85 } }];
 // Grid order: front TL, 3/4 TR, profile BL, top-down BR.
 const ANGLES = [
   { name: 'front',        label: 'front' },

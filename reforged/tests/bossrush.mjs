@@ -76,7 +76,9 @@ let t = 0;
 // joined; raised 320→440s when MARROWCOIL (boss 4) joined; raised 440→640s when
 // EITHERWING (boss 5, the Colossi PEAK) joined — hp 330 + the figure-eight
 // moving-station runs ~120s solo, so the 5-boss gauntlet clears well past the old cap.
-for (let i = 0; i < 60 * 640 && !rushClear; i++) {
+// Raised 640→820s when BRINEHOLM (slot 8, a Calamity — hp 410, the slowest TIDAL
+// DRONE cadence) joined the tail of the gauntlet (7 bosses now).
+for (let i = 0; i < 60 * 820 && !rushClear; i++) {
   const dt = 1 / 60;
   t += dt;
   player.dist += CONFIG.BOSS.cruiseSpeed * dt;     // forward flight crosses the boss/breather marks

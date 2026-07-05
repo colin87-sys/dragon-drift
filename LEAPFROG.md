@@ -5863,3 +5863,39 @@ fire), not into where the camera goes. And watch for **prop-up chains**: the fro
 justify it, which forced the invuln to make it fair, which forced homing to give the shot a point after the lock — when a
 feature needs another feature to be fair, which needs another to have a purpose, the first feature is probably wrong. Pull
 the root (the rear camera) and the whole tower comes down.
+
+### L157 — BRINEHOLM CP1: an HDR "eye" needs ANATOMY (a bright ball is a sun), and the "never-fits" boss is judged only at the fight frame
+
+**Did.** Built slot 8's CP1 (the bound-leviathan Calamity — a bottom-anchored kelp-black ridge, abalone banding, one
+surfacing heavy-lidded EYE, breakable shackle posts): builder (`bossBrineholm.js`) + def (tier 3, 4 phases/4 cards,
+TIDAL-DRONE rhythm, `destructibleShackles`, `eyeWeakPoint`), the *Reef Was Breathing* entrance data, brineholm studio
+states (`eye`/`crack` dials), the §5f shackle-break API mirroring HOLLOWGATE's pane grammar, and the named-pivot
+telegraph + per-sheet asserts. Cleared `bossgate --studio` G1–G7.
+
+**Learned.** (1) **A glowing HDR "eye" reads as a SUN unless it has eye-anatomy.** The first pass — a bright pale
+hemisphere with a hot core at its centre — passed G1 (a 6% bright cluster) but read as a featureless searchlight, and the
+core was *invisible to G1 anyway* because it was buried INSIDE the opaque sclera hemisphere (the identical L142 occlusion
+trap: a focal peak is scalar × size × **unoccluded-proudness** — miss proudness and bloom never sees it). The fix that
+read as an eye AND carried a clean small G1 pinpoint: a flattened **lens** sclera (a deep dome occludes everything behind
+its front surface — flatten it) + a bold abalone **iris ring** (the identity) + a dark **pupil** + a tiny **catchlight**
+glint offset up-left, every layer seated strictly PROUD front-to-back (socket −0.05 → sclera 0.25 → iris 0.7 → pupil 0.78
+→ catchlight 0.98) and the whole assembly pushed clear of the hull flank (`EYE_Z` past the flank's z). Result: G1 cluster
+6.2% wash → **0.16% glint**, and the eye reads as a dread whale-eye. (2) **A hinged lid must lift UP-AND-BACK, not
+forward.** A cowl hinged above the eye and rotated the "obvious" way swung its mass toward +z, occluding the surfaced eye
+from the front camera (the model said `eyeGlow 0.89` while the render showed a dark blob — the tell that it's occlusion,
+not brightness). Flip the hinge sign so it lifts back behind the eye; verify with a frame DUMP, never the model state.
+(3) **"Never fits the frame" is judged ONLY on the fight-distance frame.** The §7c contact sheets auto-frame the whole
+36-unit hull to 57% height, so the leviathan looks fully-contained and small there — the presence claim (the ridge
+exceeding both frame edges) is only visible on the no-auto-frame fight frame at the boss's true close settle (rel 22 for a
+bottom-anchored boss). Author a per-boss `fightRel` into the studio's fight state or the presence read is a lie. (4)
+**TIDAL DRONE clears rhythmprint by being the slowest:** all-long gaps (never below ~1.4s, where every other roster boss
+has sub-1s gaps) makes the KS distance large by construction; the `rests` array the gate samples includes intra-phrase
+gaps, so slow gaps ARE the fingerprint, not just the rest length.
+
+**Gotcha.** Adding a 7th boss to `BOSS_ORDER` pushed the `bossrush.mjs` full-gauntlet past its frame budget (640→820s) —
+the same per-boss bump the test's own comment documents; and the eye-window telegraph test flips sign with the lid (the
+lid now grinds OPEN positive). Both are expected consequences of the boss joining the roster, not regressions.
+
+**Pattern.** Studio-first + a frame DUMP (`GATE_DUMP=dir`) paid for itself: three G1 failures (buried core → dim wash →
+occluding lid) were each diagnosed in one deterministic dump, not a debugging session. When a pixel gate disagrees with
+the model state, dump the actual scored frame — the disagreement is almost always occlusion/proudness.
