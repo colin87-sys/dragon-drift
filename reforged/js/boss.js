@@ -1626,6 +1626,7 @@ function damageBoss(amount, kind) {
   }
   hp = Math.max(0, hp - amount);
   model.flash(0.6);
+  model.hurt?.(0.6);   // PAIN reaction (EITHERWING's recoil/dart) — only on real damage, not on the boss's own attack flash
   if (hpRevealT <= 0) model.setHealth(hp / hpMax);   // don't fight the fill-up flourish
   emit('bossHit', { hp, hpMax, frac: hp / hpMax, kind });
 
