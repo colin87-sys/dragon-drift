@@ -5737,3 +5737,34 @@ already good.** Ledger this next to L136 (a metric that passes a visually-inferi
 ("pine branches" in top silhouette), screw-thread tail segmentation in rear-chase, the apex's stacked
 pancake chin plates + near-black body value in dark scenes. These now drive the honest-gate score (~3.4);
 they are a TORSO/WING/TAIL tranche, not an eye tranche.
+
+
+### L151 — AZURE cleared the HONEST gate (3.25 → 4.00 PASS): the body tranche + the apex-eye anatomy fight
+
+**What we did.** After the human caught what the steered CP2 gate missed (L150), we re-gated with ALL angles and
+zero pre-approval and climbed an honest 3.25 → 3.38 → 3.50 (×3) → **4.00 PASS** over a body pass + the apex eye.
+
+**Body tranche (each a roster-safe opt-out + an apex re-pin, because forms merge cumulatively — L149):**
+`tailPlates:false` drops the baby's dorsal spinePlate cones (the screw-thread/drill-bit rear-chase read);
+`bladeRake:<0` is a SENTINEL for "use the fanned formula" so the baby can weld its comb into a solid MITTEN
+paddle (rake 0.015) while the apex re-pins the hero planform slits (`bladeRake:-1`); the apex body value lifted
+0x1c3048→0x27435f so it stops crushing to a black silhouette in dark skies. The gate rated the body pass
+"near shipping" — value, silhouette, cohesion all landed.
+
+**The apex-eye anatomy fight (4 rounds inside the climb).** The honest gate's blocker walked: dead-profile →
+front-gaze → apex-blind. The lessons: **(a) split the eye across TWO AXES** — iris PAINTED on the outward
+normal (wraps to the profile, side-of-head eyes stay alive) + a dark pupil DISC on a separate FORWARD axis
+(holds the head-on gaze). One axis can't do both; that single change fixed f0/f1 gaze everywhere. **(b) The
+apex is a narrow raptor WEDGE, so its eyes are LATERAL by anatomy** — you cannot pull them inboard for a
+frontal gaze (the one-shell wedge SWALLOWS a flush eye, L147; an inboard experiment buried them). Instead
+angle the PUPIL, not the ball: hard INWARD convergence hid the pupil behind the nose-side rim (bright doll
+orb); forward-OUTWARD convergence (blended by es² so young forms don't move) lands a dark pupil crescent +
+catchlight on the cheek's VISIBLE face at ¾/profile — keen and alive without moving the eyeball. **(c) A keen
+hood must be a brow LINE, not a visor** — a deep hood occludes the pupil and (asymmetrically rolled) swallows
+one eye into socket-shadow while the other reads bare. Brighten the keen iris hard toward pale-ice so lateral
+eyes pop against the deep navy head.
+
+**Remaining polish headroom (non-blocking, the gate's nice-to-haves):** the f2 profile pupil is still a thin
+rim crescent (widen a few degrees for EYE 3→4); only one front eye catches a highlight; the apex face-front
+neck-segment "pinecone" + wing-root blade clutter are the crudest close-ups. The baby comb still serrates
+(a solid baby wing is a different membrane part, not a dial). None hold the PASS.
