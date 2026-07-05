@@ -269,6 +269,11 @@ export const BOSSES = {
     // through. Distinct from slot 1's mask, slot 2's ring-eye, slot 3's raptor.
     archetype: 'boneCoil',
     muzzle: 'skullGroup',     // head-origin patterns (aimed/fan/stream) emit from the skull, not lane centre (L148)
+    // §5f REFLECT HIT-LOCATION (L157): the reflect ANGLE of a parried amber picks a
+    // body part — knock it high → it strikes the skull; a side bullet → the ribs on
+    // that side; a low one → the tail. Reused via partForAngle + partWorldPos; damage
+    // stays one pool (weak-points layer on later). up/left/right/low → part names.
+    reflectParts: { up: 'skullGroup', left: 'ribPivotL2', right: 'ribPivotR2', low: 'tailBlade' },
     accent: 0x8fd0ff,         // ice-blue — the cold lights on dead bone (identity in emissive)
     glow: 0xbfe6ff,           // paler ice (shield rim / shards / backlight)
     bulletColor: 0xff2b6a,    // danger stays magenta (role colour, never per-boss)

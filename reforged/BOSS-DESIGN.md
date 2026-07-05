@@ -767,6 +767,16 @@ precedents are cited inline.
      back to the pose centre, byte-unchanged. Lane-shaped patterns (iris/tunnel/curtain) keep
      their lane geometry. All bullets also SPAWN-IN (`CONFIG.BOSS.spawnRampT`, ~0.12s) — a fresh
      bullet grows from a point to full size instead of popping, so nothing "materialises".
+   - **Reflect hit-location (L157):** the emitter law runs in REVERSE for a parry — a reflected
+     amber should strike a body PART, not a centre hitbox. `def.reflectParts` (a small
+     `{up,left,right,low}` → part-name map) opts a boss in; `reflectBossBullets` takes a
+     `partForAngle(dx,dy)` resolver (boss.js builds it from the def + `partWorldPos`) that sectors
+     the reflect angle into four quadrants and aims the flipped bullet at that part's LIVE world
+     point. The part NAME rides the bullet (`s.hitPart`) into the `bossDamage` arrival event, and
+     `damageBoss` sparks ON that part (`model.hitAt?.(worldPos)` override, else an accent `burst`).
+     DAMAGE stays a single pool — this is the visual foundation the §5f ORGAN-BREAK/weak-point
+     routing layers onto later (route part-specific HP in `damageBoss` off the same `hitPart`/`part`
+     tag). No `def.reflectParts` → reflect aims at the pose centre, no spark, byte-unchanged.
 8. **Rhythm is a fairness subsidy.** Per-attack audio cues; dense patterns emit on the music
    grid where possible; graze ticks confirm "close but safe." Behind-camera depth ambiguity
    becomes thrill, not unfairness. (Grimm; Just Shapes & Beats; Returnal's audio channel.)

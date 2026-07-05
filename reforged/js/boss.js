@@ -1342,7 +1342,7 @@ export function updateBoss(dt, player, time) {
     // (more damage). Announce + ring the parry chime once per roll (streak climbs).
     if (player.rollInvuln > 0) {
       // In Surge, EVERY bullet is reflectable (not just the amber ones).
-      const r = reflectBossBullets(player, B.reflectWindow, B.settleGap, pose.x, pose.y, surge, adrenRung >= 4 ? 1.3 : 1);   // R4 parry burst
+      const r = reflectBossBullets(player, B.reflectWindow, B.settleGap, pose.x, pose.y, surge, adrenRung >= 4 ? 1.3 : 1, partForAngle);   // R4 parry burst; partForAngle → §5f hit-location
       if (r.total > 0) {
         tmp.set(player.position.x, player.position.y, -player.dist);
         burst(tmp, r.perfect > 0 ? 0xaef0ff : 0x66ddff, { count: 7, speed: 16, size: 0.85, life: 0.4 });
@@ -1684,6 +1684,44 @@ function emitHeadShots(player) {
   }
 }
 
+// §5f REFLECT HIT-LOCATION resolver: map a reflect angle (the swatted bullet's
+// x/y offset from the player) to one of the boss's named body parts, and return
+// that part's LIVE world x/y as the reflected bullet's aim point (so the parry
+// visibly strikes the skull vs a rib vs the tail — the spark then lands there).
+// `def.reflectParts` is a small {up,left,right,low}→partName map (bossDefs.js);
+// a boss without it → this returns null → reflect aims at the pose centre as
+// before (byte-unchanged). Sectored into four 90° quadrants around the axes:
+// up→skull, down→tail, left/right→that side's rib (atan2 in screen space).
+const _reflV = new THREE.Vector3();
+function partForAngle(dx, dy) {
+  const map = def && def.reflectParts;
+  if (!map || !(model && model.partWorldPos)) return null;
+  const a = Math.atan2(dy, dx);   // −π..π, screen-space (x right, y up)
+  const Q = Math.PI / 4;
+  let key;
+  if (a >= Q && a < 3 * Q) key = 'up';
+  else if (a >= -Q && a < Q) key = 'right';
+  else if (a >= -3 * Q && a < -Q) key = 'low';
+  else key = 'left';
+  const name = map[key] || map.up;   // fall back to the head if a sector is unmapped
+  if (!name) return null;
+  const w = model.partWorldPos(name, _reflV);
+  if (!w) return null;
+  return { x: w.x, y: w.y, part: name };
+}
+
+// Fire a localized spark ON a named body part (world point resolved live). Routes
+// through an optional per-boss `model.hitAt` override, else a generic accent burst.
+// Used by damageBoss when a reflected amber carried a hitPart tag (§5f).
+const _hitV = new THREE.Vector3();
+function sparkAtPart(name) {
+  if (!(model && model.partWorldPos)) return;
+  const w = model.partWorldPos(name, _hitV);
+  if (!w) return;
+  if (model.hitAt) { model.hitAt(w); return; }
+  burst(w, def.accent ?? def.glow, { count: 6, speed: 12, size: 0.7, life: 0.35 });
+}
+
 // Resolve an attack id to bullets. Instant patterns fire one volley now; sustained
 // patterns push timed sub-volleys onto `pending` so they stream over ~1.5–2s.
 // HOLLOWGATE PANE-RADIAL fire (§5f/§5i.B): each LIVE rose pane emits a short
@@ -2002,6 +2040,11 @@ function damageBoss(amount, kind, e = null) {
     return;
   }
   if (e) amount += routePartDamage(e);   // §5f: a landed part-hit can crack a pane (+bonus chip)
+  // §5f REFLECT HIT-LOCATION spark: a reflected amber that carried a hitPart tag
+  // (its reflect angle picked a body part) flashes ON that part — the parry reads
+  // as striking the skull/ribs/tail, not vanishing into one centre hitbox. Damage
+  // stays a single pool (weak-points layer on later via routePartDamage).
+  if (e && e.hitPart) sparkAtPart(e.hitPart);
   hp = Math.max(0, hp - amount);
   model.flash(0.6);
   model.hurt?.(0.6);   // PAIN reaction (EITHERWING's recoil/dart) — only on real damage, not on the boss's own attack flash
@@ -2153,6 +2196,18 @@ export function debugRunSetpiece(id) {
   setpieceDef = sp;
   setpieceT = 0;
   if (!sp.moving) { attackTimer = Math.max(attackTimer, sp.dur + 1.2); riderTimer = Math.max(riderTimer, sp.dur); }
+}
+
+// Capture/QA hook (?debug): stage a reflect at a given screen angle so a tool (or
+// the owner) can watch the parried amber fly to — and SPARK on — the body part the
+// reflect angle picks (§5f, L157). Spawns one reflectable amber offset (dx,dy) from
+// the player, then runs the same swat path a barrel roll would. dx>0 → right rib,
+// high → skull, low → tail. No-op outside an active un-shielded fight.
+export function debugReflectHit(player, dx = 2, dy = 0) {
+  if (!active || phase !== 'fight') return;
+  const px = player.position.x, py = player.position.y;
+  emitBoss(px + dx, py + dy, 0, 0, -B.bulletSpeed, true, null, 1, null, 2);   // amber, just ahead
+  reflectBossBullets(player, B.reflectWindow, B.settleGap, pose.x, pose.y, false, 1, partForAngle);
 }
 
 export function bossDebugState() {

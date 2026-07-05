@@ -5863,3 +5863,30 @@ fire), not into where the camera goes. And watch for **prop-up chains**: the fro
 justify it, which forced the invuln to make it fair, which forced homing to give the shot a point after the lock — when a
 feature needs another feature to be fair, which needs another to have a purpose, the first feature is probably wrong. Pull
 the root (the rear camera) and the whole tower comes down.
+
+### L157 — Reflect hit-location: the emitter law run in REVERSE (a parry strikes a PART, aimed by its angle)
+
+**Did / learned.** Reflected (parried) ambers used to vanish into ONE centre hitbox — the opposite of law §3.5's "emitter
+= organ." Built the roster-wide **reflect hit-location engine**: the reflect ANGLE (where the swatted bullet sat relative
+to the player) now picks a named body part, the flipped bullet flies to and SPARKS on it, and damage stays one pool
+(the visual foundation the §5f ORGAN-BREAK weak-points layer onto later). MARROWCOIL: up→skull, left/right→ribs, low→tail.
+
+**The seam (three touch-points, all default-off).** (1) `reflectBossBullets` takes an optional `aimFor(dx,dy)` resolver;
+without it, it aims at the pose centre exactly as before (byte-unchanged for every un-opted boss). (2) boss.js builds that
+resolver — `partForAngle` — from `def.reflectParts` (a tiny `{up,left,right,low}`→part-name map) + PR1's `partWorldPos`,
+sectoring `atan2(dy,dx)` into four 90° quadrants and returning the part's LIVE world x/y. (3) the part NAME rides the
+bullet (`s.hitPart`) into the `bossDamage` arrival event; `damageBoss` sparks on it via `model.hitAt?.(worldPos)` (an
+optional per-boss override) else a generic accent `burst`. HP is untouched — one pool.
+
+**The reuse that made it three-line-cheap.** Everything the engine needed already existed: PR1's `partWorldPos` (on every
+model handle) resolves the world point; HOLLOWGATE's L154 work had ALREADY made the `bossDamage` payload carry `x/y/part`
+and taught `damageBoss` to route a part tag (`routePartDamage`). So the reflect-part tag slots into the SAME payload lane
+as the pane tag — `hitPart` (a name, for the spark) beside `part` (a pane index, for the crack). Two hit-location systems,
+one event shape. When a prior lesson hands you a payload that already carries a location, the new feature is plumbing, not
+architecture.
+
+**Gotcha (avoided L156's trap).** The plan floated a `hitAt(worldPos)` method ON the bossKit handle for every boss. But
+bossKit imports no FX (only THREE + CONFIG), and no shipped boss needs a CUSTOM spark yet — forcing the method in would be
+a prop-up. Instead `sparkAtPart` routes through `model.hitAt` IF a boss defines one, else falls back to the accent `burst`
+boss.js already imports. The seam exists for a future boss without a line of dead code today. Byte-safe, and the whole
+change is proven headless (angle→part routing + damage-stays-one-pool), so the shipped roster's reflect stays identical.
