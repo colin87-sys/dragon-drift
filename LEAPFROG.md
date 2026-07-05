@@ -6032,3 +6032,45 @@ eyes pop against the deep navy head.
 rim crescent (widen a few degrees for EYE 3→4); only one front eye catches a highlight; the apex face-front
 neck-segment "pinecone" + wing-root blade clutter are the crudest close-ups. The baby comb still serrates
 (a solid baby wing is a different membrane part, not a dial). None hold the PASS.
+
+### L162 — EMBER cleared the CP1 gate (1.25 → 4.25 PASS, 6 rounds): the gapped-finger membrane + reusable engine dials
+
+**What we did.** Built slot B (ember, the "Ember Wyrm") to the §5d sheet from the merged azure base. Calibration on
+SHIPPED ember FAILed as designed (avg 1.25, MITTEN/FLAT-STICKER/TOY-COLOR/SAME-DRAGON-BIGGER). The rebuild climbed an
+honest 2.0 → 2.4 → 2.75 → 3.4 → 3.69 → **4.25 PASS** over six fresh `fable` gate rounds. New self-registered builder
+`emberMembraneWings` (§3 col 2) + the forge-collar MOTIF SOCKET (§6.3); shipped builders untouched.
+
+**The wing was the whole fight — three structural reworks, each a gate-driven lesson:**
+- **Kite-on-a-stick (r2→r3):** rays fanned from the wrist left the inner ~40% a bare spar. Fix: a deep BRACHIAL
+  PATAGIUM filling root→wrist aft of the arm, its outboard edge = the finger-root hand arc → one broad connected sheet.
+- **Sunburst hub + mid-wing slit (r3→r5):** all fingers rooting at one wrist point read as a sunburst; and the
+  brachial (shoulder group) vs finger fan (wrist group) opened a through-slit UNDER DIHEDRAL because two groups diverge
+  at the joint. Two fixes that stuck: (a) a METACARPAL hand — finger roots MARCH a staggered arc (no shared root);
+  (b) **put the WHOLE membrane on ONE static `hand` group under the shoulder** — never split geometry across an
+  articulated joint, or a seam opens off the glide pose. The fold still contracts because the ember furl YAWS the
+  shoulder (the whole wing sweeps inboard); elbow/wrist stay as empty rig-contract bones for `flapWing`.
+- **Spokes vs mitten (r4→r5):** "true V-gaps at the outer two rays" AND "no bare spokes" reconcile only as a per-v
+  NOTCH — the membrane follows each ray to its tip (v=0/1 full) but RECEDES in the middle (v≈0.5) via `uMax(v) =
+  1 − notchDepth·sin(vπ)^0.7`. sin^0.7 opens a WIDE mouth that survives in black fill; sin^1.4 was a slit that only
+  read via emissive edging. Tip radius must be ~19% of base (law 4) or the fingers disintegrate into pixel specks.
+
+**Reusable engine dials landed (all additive, default-off → roster byte-identical):**
+- **`model.hotEye`** (draconic head): a small PROUD emissive eye pushed out along its own outward normal so the long
+  feralPredator muzzle can't swallow it. A deep-set eye reads as the brightest facial point ONLY if seated proud —
+  size alone leaves it a dark socket; and a hot color must be DEEPENED (0xff6a1a) so ACES doesn't blow it to cream.
+- **`model.tailIron`** (clean tail): matte warm-iron, zero emissive, roughness 0.92, **zero metalness + low
+  envMapIntensity**. The shipped tail's steel-blue was `plateMat` metalness 0.5 catching the studio's COOL key light —
+  warm blacks need low specular/env or they drift navy (azure's territory). Same fix on the membrane (`roughness 0.94`).
+- **`model.squareShoulders`** (arrow torso): a 6-sided BEVELLED prism scapula, not a bare cuboid (a flat box reads as
+  a sticker-backing at 4×) and not the round sphere fairing (the "two balls" the gate rejected 3×).
+
+**Gotchas.** The shared `scalesMat` has a HARDCODED cyan emissive `0x0b79aa` — any dorsal layer that uses it (ridges,
+sail, chevrons) glows steel-blue on a warm dragon; drive `ridgeStyle:'scute'` + `ridgeColor` to force a matte material.
+A fully-EMISSIVE corona reads as a flat sticker (emissive ignores lighting) — give the spikes HALF emissive + warm
+diffuse so directional light shades the faces (the coals stay the ONE bloom, law 12). The `tests/starters.mjs` wing
+loop must guard `parts[k].isObject3D` before traversing — `wingRigL/R` is a rig-HANDLE object, not an Object3D.
+
+**Span-metric reconciliation (open for CP2, gate polish note 1):** the top-planform capture the §8 gate measures reads
+2.77× body (in the 2.5–2.9 band) while the model-space straight-line span:body is ~1.9× — the drooped tail shortens the
+projected denominator. Before CP2, either grow the wing so the model-space number is genuinely in band, or sanction the
+projection convention in the sheet with a rationale line; don't let the droop hide an out-of-band span.
