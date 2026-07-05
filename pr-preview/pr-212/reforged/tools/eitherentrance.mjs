@@ -19,7 +19,7 @@ const { page, done } = await boot({
   viewport: { width: 720, height: 1280 }, deviceScaleFactor: 2,
   initScript: `localStorage.setItem('dragonDriftSave', JSON.stringify({ v: 4, stats: { runs: 5 }, flags: { seenIntro: true } }))`,
 });
-page.setDefaultTimeout(150000);
+page.setDefaultTimeout(290000);   // headless runs ~0.1x real + the entrance dwells in bullet-time; reaching 'fight' is slow
 try {
   await page.click('#btn-start').catch(() => {});
   await page.waitForFunction(() => window.__dd.game.state === 'playing', { timeout: 15000 });
