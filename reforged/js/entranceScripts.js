@@ -222,6 +222,43 @@ export const ENTRANCE_SCRIPTS = {
       };
     },
   },
+  // THRUMSWARM — THE SHAPE IT REMEMBERS (§5j slot 7, hijack 2.8s @0.24× dilate). The
+  // 28 unlit motes converge from AHEAD (approachFrom 'condense' spawns them at rel
+  // ~45) and CLICK slot-by-slot into the YOUR-DRAGON formation — a stippled copy of
+  // dragon AND rider gliding ahead, visibly discrete points, never a solid fill.
+  // The copy's head-cluster performs the ASHTALON glance-back AT you — but the CAMERA
+  // STAYS FORWARD (homage, not reuse: do NOT re-run slot 3's rear-view; §5j uniqueness
+  // ruling — 7's glance-back is the COPY quoting YOU, camera never moves). So this
+  // script has NO camera fn — the whole beat plays in the normal forward view, sold by
+  // deep bullet-time as the swarm condenses ahead. The queen's amber eye ignites inside
+  // the copy's skull at the end. Do NOT live-mirror input here — the copy holds a
+  // NEUTRAL glide (the ring-buffer payoff belongs to the *Your Own Wings* card, §5d).
+  // The per-slot condensation clock lives in the thrumswarm model's setEntrance(u).
+  shapeItRemembers: {
+    dur: 1.5,                  // ~2.8s wall under the deep dilate — the condensation needs the room to CLICK in
+    skipTo: 0.86,              // a tap fast-forwards to the settled copy + eye ignition
+    anchorToDragon: false,     // the swarm owns the lane centre ahead; it condenses INTO the player's shape
+    initYaw: 0,                // the copy glides forward (its head glances back — model-side, not a group yaw)
+    eyeLock: false,
+    announce: { title: '❈  AHEAD  ❈', sub: 'IT REMEMBERS BEING YOU', tone: 'gold', dur: 2.2 },
+    slowWindow: { uIn: 0.15, uOut: 0.86, depth: 0.24 },   // deep bullet-time: the condensation's click-track lands here
+    // A convergence from ahead (rel ~45) to station: fast early (the motes rush in),
+    // easing hard so the last slots CLICK home near-holding under the dilate.
+    path(u, ctx) {
+      const { B } = ctx;
+      const t = 1 - Math.pow(1 - clamp01(u / 0.9), 2.4);
+      return { x: 0, y: B.fightHeight, rel: L(45, B.settleGap, t) };
+    },
+    tuck() { return 0; },
+    yaw() { return 0; },                                    // the group holds forward; the head-glance is model-side
+    gaze() { return { gx: 0, gy: 0 }; },                    // the copy holds a neutral glide (no input mirror — §5d)
+    // Drive the model's per-slot condensation clock. (No steer feed — the neutral
+    // glide is deliberate; setEntranceSteer is a no-op on this model.)
+    onFrame(u, ctx, pose, player, model) { model.setEntrance?.(u); },
+    onStart(model) { model.setEntrance?.(0); },
+    // NO camera fn: the camera STAYS FORWARD (§5j uniqueness ruling — the glance-back is
+    // the copy quoting you, never a rear-view hijack). Bullet-time carries the hijack.
+  },
 };
 
 // Pure per-frame sampler (for tests + any tooling): returns the full frame a script

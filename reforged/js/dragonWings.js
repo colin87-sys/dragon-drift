@@ -8,6 +8,8 @@ import { registerWings } from './dragonRecipe.js';
 import { seg } from './modelDetail.js';
 import { skinnedTube as sweepTube } from './dragonSweep.js';
 import { composeSurface, membraneSSSPatch } from './dragonSurfaceShader.js';
+import { applyFresnelRim } from './surface.js';
+import { mergeGeometries } from '../lib/utils/BufferGeometryUtils.js';
 
 // Wings modules — the second part extracted behind the recipe registry. A wings
 // build owns its own materials (the runtime-animated membrane `wingMat`, the
@@ -739,3 +741,252 @@ function buildFeatherWings(def, model, attach, _giM) {
 }
 
 registerWings('feather', buildFeatherWings);
+
+// ── BLADE-FEATHER COMB (AZURE, §3 col 1) ─────────────────────────────────────
+// A falcon PRIMARY comb: a beveled leading ARM spar sweeping back, with N stiff
+// feather-BLADES marching along it — separated by true planform GAPS + a z-stagger
+// (never a filled mitten web), each a cambered plane with a raised central rib and
+// a STRAIGHT taut leading edge (falcon, not phoenix-soft). Value tiers are PAINTED
+// via per-vertex colour (root coverts darkest → leading blades lightest sky) with a
+// GOLD diffuse tip-paint ONLY at the very tips (law 9 carrier — zero accent emissive
+// on the wing). Motion: direct wingPivotL/R drive (dragon.js) + per-blade LAG pivots
+// (the ASHTALON covert pattern) driven by the shared tick, and the outer blades ride
+// the wrist group so a fold visibly CONTRACTS the span (§3 fold clause / §7 assert).
+//
+// Publishes the assert-metadata contract: parts.wingElements = [{root,tip,length}]
+// per blade (local space) + the tip Object3Ds so a fold measurement re-reads span,
+// and parts.wingBladePivotsL/R for the lag driver.
+function buildBladeFeatherWings(def, model, attach, giM) {
+  const group = new THREE.Group();
+  const spineMats = [];
+  const ws = model.wingScale || 1;
+
+  const N = Math.max(3, Math.round(model.bladeCount ?? 5));
+  const reach = (model.bladeSpan ?? 4.6) * ws;             // half-span (outer tip x)
+  const sweep = model.bladeSweep ?? 0.44;                  // leading-arm back-sweep
+  const stagger = Math.max(0.12, model.bladeStagger ?? 0.14); // z-stagger per blade (≥0.12)
+  const camber = model.bladeCamber ?? 0.2;                // cambered plane billow
+  const theta = model.bladeDihedral ?? 0.32;              // CONTINUOUS dihedral (~18°, §3 12–20°) — arm + blades share it (no gull kink)
+  const armLen = reach * 0.82;                            // the leading arm; blades over-reach it to the tip envelope
+  const chordK = model.bladeChord ?? 0.16;               // chord = chordK×reach (narrower → true planform gaps)
+
+  // 3 PAINTED value tiers (gate r1 dir 4): leading blades lightest → root coverts
+  // darkest. Gold is DIFFUSE tip-paint only (law-9 carrier), on the outer third.
+  const cLight = def.wingInner ?? 0xa8c6e2;               // leading blade
+  const cMid = 0x7fa3c8;                                  // mid blades
+  const cDark = def.wingOuter ?? 0x3d5a78;                // root coverts / blade roots
+  const cGold = model.wingTipGold ?? def.accentHue ?? 0xd9b36a;
+  const goldAmt = model.wingTipGoldAmount ?? 1;   // per-form gold restraint (young forms earn it): 0 = no gold, 1 = full apex banner (default = byte-identical)
+
+  const wingMat = new THREE.MeshStandardMaterial({
+    color: 0xffffff, vertexColors: true, roughness: 0.58, metalness: 0.0,
+    side: THREE.DoubleSide, opacity: 1.0,          // OPAQUE falcon primaries (dir 4), not glass
+    emissive: def.wingEmissive ?? cDark, emissiveIntensity: model.wingPanelGlow ?? 0.05,
+  });
+  applyFresnelRim(wingMat, def.apexSeam ?? def.eye ?? cLight);
+  // Leading-arm SPAR + covert material — MATTE horn (dir 1): dark, metalness 0, so it
+  // reads as bone structure, never chrome scaffolding.
+  const armMat = new THREE.MeshStandardMaterial({
+    color: model.bladeSparColor ?? 0x6a7f96, roughness: 0.6, metalness: 0.0,
+    emissive: 0x2a3a4c, emissiveIntensity: 0.3,           // lifted horn value so the spar reads as light structure, never near-black (r3 dir 5)
+  });
+  const ribMat = new THREE.MeshStandardMaterial({ color: cMid, roughness: 0.5, metalness: 0.0 });
+  // Root coverts: a mid-dark tier (NOT near-black) so the wing root stays within ~2.5× of the
+  // body flank and doesn't read as scattered black shards over the mid-body (gate r9 dir 7).
+  const cCovert = model.bladeCovertColor ?? 0x2a4562;
+  const covertMat = new THREE.MeshStandardMaterial({ color: cCovert, roughness: 0.6, metalness: 0.0, side: THREE.DoubleSide });
+
+  // A cambered feather-blade in the wing plane: length +X, chord in Z (STRAIGHT taut
+  // leading edge −Z, convex trailing +Z), tapering to a point. Painted baseHex→tipHex
+  // with gold on the outer third. Camber lifts +Y.
+  const bd = model.bladeDetail ?? 1;
+  function bladeGeo(L, wRoot, baseHex, tipHex) {
+    const nX = seg(Math.max(3, Math.round(7 * bd))), nZ = seg(Math.max(2, Math.round(4 * bd)));
+    const verts = [], cols = [], idx = [];
+    const cb = new THREE.Color(baseHex), ct = new THREE.Color(tipHex), cg = new THREE.Color(cGold), c = new THREE.Color();
+    // Two-tone chord split (gate r5 dir 6): leading half rides brighter sky, trailing half
+    // steps down a value — so each blade shows in-surface structure (with the rib), never a
+    // blank gradient. Blended in on top of the along-length tier so the tiers still read.
+    const cTrail = new THREE.Color(0x6f8cb0);
+    for (let i = 0; i <= nX; i++) {
+      const t = i / nX;
+      const x = t * L;
+      const zLead = -wRoot * 0.5 * (1 - t);
+      const zTrail = wRoot * 0.5 * (1 - Math.pow(t, 1.4));
+      for (let j = 0; j <= nZ; j++) {
+        const cf = j / nZ;
+        const z = zLead + (zTrail - zLead) * cf;
+        const y = camber * Math.sin(cf * Math.PI) * (0.4 + 0.6 * Math.sin(t * Math.PI));
+        verts.push(x, y, z);
+        c.copy(cb).lerp(ct, t * t);
+        c.lerp(cTrail, Math.max(0, cf - 0.5) * 0.7);   // trailing half deepens → visible chord structure (dir 6)
+        // Gold DIFFUSE tip-paint confined to the outer ~12% with a CRISP boundary (gate r4
+        // dir 7: law-9 tips only — no gradient wash down a third of the blade).
+        if (t > 0.88) c.lerp(cg, goldAmt * Math.min(1, (t - 0.88) / 0.07));
+        cols.push(c.r, c.g, c.b);
+      }
+    }
+    const W = nZ + 1;
+    for (let i = 0; i < nX; i++) for (let j = 0; j < nZ; j++) {
+      const a = i * W + j, b = a + 1, d = a + W, e = d + 1;
+      idx.push(a, d, b, b, d, e);
+    }
+    const g = new THREE.BufferGeometry();
+    g.setAttribute('position', new THREE.Float32BufferAttribute(verts, 3));
+    g.setAttribute('color', new THREE.Float32BufferAttribute(cols, 3));
+    g.setIndex(idx);
+    g.computeVertexNormals();
+    return g;
+  }
+
+  // swell-then-taper blade length curve — longest at position 2 of 5 (dir 5),
+  // neighbours ×0.85 then ×0.72; a smooth curve for other counts.
+  function lenMulFor(i) {
+    if (N === 5) return [0.85, 1.0, 0.85, 0.72, 0.6][i];
+    const t = i / (N - 1);
+    return 0.6 + 0.4 * Math.sin(Math.min(1, (0.18 + t * 0.72)) * Math.PI);
+  }
+  const maxLen = reach * 0.55;
+
+  // Roots MARCH 0.10→0.85 of the arm (dir 2). Roots rise linearly (continuous dihedral,
+  // no kink). rakeI fans successive blades further back → true planform gaps (dir 3).
+  const roots = [];
+  for (let i = 0; i < N; i++) {
+    const t = N > 1 ? i / (N - 1) : 0;
+    const rootX = armLen * (0.10 + 0.75 * t);
+    const rootY = rootX * Math.tan(theta);                 // continuous dihedral
+    const rootZ = rootX * Math.tan(sweep) + stagger * i;   // sweep back + z-stagger
+    const len = maxLen * lenMulFor(i);
+    const wRoot = chordK * reach * (0.7 + 0.3 * Math.sin(t * Math.PI));
+    // MODERATE progressive fan (gate r6 dir 5): r5's near-parallel rake (0.02+0.02i) welded
+    // the comb into a solid deltoid in the PLANFORM (z-stagger separates in depth but not in
+    // the top projection — MITTEN). This mid setting fans the OUTER 55–70% of adjacent blades
+    // apart into TRUE through-slits while the wide-chord roots still overlap into one surface
+    // near the arm; the taper makes the slits open toward the tips, not the roots.
+    // bladeRake < 0 is a SENTINEL for "use the per-blade formula" — lets a young form set a
+    // constant low rake (welds the comb into a solid MITTEN paddle, no sawtooth) while the
+    // apex re-pins the formula through the cumulative merge with bladeRake:-1.
+    const rakeI = (model.bladeRake != null && model.bladeRake >= 0)
+      ? model.bladeRake
+      : (0.04 + 0.045 * i);   // fan the OUTER blades a touch more so sky-slits open between blades 2–4 (gate r8 dir 3), roots still overlap
+    // discrete tier: inner→dark, mid→cMid, outer→light
+    const baseHex = t < 0.28 ? cDark : (t < 0.62 ? cMid : cLight);
+    const tipHex = t < 0.28 ? cMid : cLight;
+    roots.push({ t, rootX, rootY, rootZ, len, wRoot, rakeI, baseHex, tipHex });
+  }
+
+  const wristFrac = 0.30;
+  const wristX = armLen * wristFrac;
+  const wristY = wristX * Math.tan(theta);
+  const wristZ = wristX * Math.tan(sweep);
+
+  function buildSide(side) {
+    const pivot = new THREE.Group();
+    const wr = attach.wingRoot(side);
+    pivot.position.set(wr.x, wr.y, wr.z);
+
+    const wingTip = new THREE.Group();
+    wingTip.position.set(wristX * side, wristY, wristZ);
+
+    // Leading-arm SPAR — a MATTE tapered bone along the rising root line, thick at the
+    // shoulder → 0.15× at the last root (dir 1), ENDING at the outermost blade root
+    // (the blade over-reaches it, so nothing pokes past). Split at the wrist to fold.
+    const spine = [{ x: 0.06, y: 0, z: -0.03 }, ...roots.map((r) => ({ x: r.rootX, y: r.rootY, z: r.rootZ }))];
+    const baseR = 0.19 * ws;                                // thicker base so the root→0.15× taper is legible (dir 4)
+    for (let s = 0; s < spine.length - 1; s++) {
+      const a = spine[s], b = spine[s + 1];
+      const inner = b.x < wristX;
+      const par = inner ? pivot : wingTip;
+      const ox = inner ? 0 : wristX, oy = inner ? 0 : wristY, oz = inner ? 0 : wristZ;
+      const r0 = baseR * (1 - 0.85 * s / (spine.length - 1)) + 0.02;
+      const r1 = baseR * (1 - 0.85 * (s + 1) / (spine.length - 1)) + 0.018;
+      par.add(bone((a.x - ox) * side, a.y - oy, a.z - oz, (b.x - ox) * side, b.y - oy, b.z - oz, r0, r1, armMat));
+    }
+
+    // Root COVERTS / inner SECONDARIES — 4 overlapping shingles fairing the shoulder into
+    // the comb AND deepening the inner-arm chord so the mid-arm is not a bare spar tube from
+    // behind (gate r5 dir 4: mid-arm chord ≥0.35× longest blade). They lie FLAT on the wing
+    // plane (dir 7: shingles, not upright cone-spikes — stand ≤0.05× blade length above the
+    // spar) marching out along the arm with a clean ×0.8 size step (law 5).
+    const covN = 3, covChord = chordK * reach * 1.4;         // broad chord → real inner surface; 3 keeps the apex under the tri ceiling
+    for (let k = 0; k < covN; k++) {
+      const size = 0.52 * Math.pow(0.8, k);                  // ×0.8 step; lower stack so the wing root stops dwarfing the body in side view (gate r10 dir 3)
+      const cx = armLen * (0.06 + k * 0.18);                 // march OUT along the arm (inner 40%)
+      const cy = cx * Math.tan(theta) + 0.01;
+      const cz = cx * Math.tan(sweep) + 0.03;                // seat ON the spar, no float
+      const cRest = new THREE.Group();
+      cRest.position.set(cx * side, cy, cz);
+      cRest.rotation.y = side * -(0.03 + k * 0.03);          // near-parallel, barely fanned
+      cRest.rotation.z = side * (theta * 0.5);               // LIE FLAT toward the wing plane (dir 7 — no upright spikes)
+      const cov = new THREE.Mesh(bladeGeo(maxLen * size, covChord, cDark, cMid), covertMat);
+      cov.scale.x = side;
+      cRest.add(cov);
+      pivot.add(cRest);
+    }
+
+    const bladePivots = [];
+    const elements = [];
+    for (let i = 0; i < N; i++) {
+      const { rootX, rootY, rootZ, len, wRoot, rakeI, baseHex, tipHex } = roots[i];
+      const inner = rootX < wristX;
+      const parent = inner ? pivot : wingTip;
+      const px = inner ? rootX * side : (rootX - wristX) * side;
+      const py = inner ? rootY : rootY - wristY;
+      const pz = inner ? rootZ : rootZ - wristZ;
+
+      // rest = static fan pose; lag = the animated covert-lag child. Dihedral is
+      // CONSTANT (theta) across blades so the wing is a continuous plane (dir 14),
+      // and rake fans the blades to open planform gaps (dir 3).
+      const rest = new THREE.Group();
+      rest.position.set(px, py, pz);
+      rest.rotation.y = side * -rakeI;
+      rest.rotation.z = side * theta;
+      const lag = new THREE.Group();
+      rest.add(lag);
+      const mesh = new THREE.Mesh(bladeGeo(len, wRoot, baseHex, tipHex), wingMat);
+      mesh.scale.x = side;
+      lag.add(mesh);
+      // Raised central RIB geometry (dir 4) — a slim tapered spar down the blade centre.
+      const rib = new THREE.Mesh(new THREE.CylinderGeometry(0.012 * ws, 0.03 * ws, len * 0.86, seg(4)), ribMat);
+      rib.rotation.z = Math.PI / 2;                         // lie along +X
+      rib.position.set(len * 0.43 * side, camber * 0.5, 0);
+      lag.add(rib);
+      const tipObj = new THREE.Object3D();
+      tipObj.position.set(len * side, 0, 0);
+      lag.add(tipObj);
+      parent.add(rest);
+      bladePivots.push({ pivot: lag, idx: i, side, restY: rest.rotation.y, restZ: rest.rotation.z });
+      elements.push({ root: new THREE.Vector3(rootX, rootY, rootZ), len, tipObj });
+    }
+
+    const marker = new THREE.Object3D();
+    marker.position.set((reach - wristX) * side, reach * Math.tan(theta) - wristY, wristZ);
+    wingTip.add(marker);
+    pivot.add(wingTip);
+    group.add(pivot);
+    return { pivot, wingTip, marker, bladePivots, elements };
+  }
+
+  const R = buildSide(1), L = buildSide(-1);
+  // wingElements metadata (canonical right-side geometry) for the §7 asserts.
+  const wingElements = R.elements.map((e) => ({
+    root: e.root, tip: new THREE.Vector3(e.root.x + e.len, e.root.y, e.root.z), length: e.len, tipObj: e.tipObj,
+  }));
+
+  return {
+    group,
+    parts: {
+      wingPivotL: L.pivot, wingPivotR: R.pivot,
+      wingTipL: L.wingTip, wingTipR: R.wingTip,
+      tipMarkerL: L.marker, tipMarkerR: R.marker,
+      wingPivot2L: null, wingPivot2R: null,
+      wingRigL: null, wingRigR: null,
+      wingBladePivotsL: L.bladePivots, wingBladePivotsR: R.bladePivots,
+      wingElements,
+    },
+    wingMat,
+    spineMats,
+  };
+}
+
+registerWings('bladeFeatherWings', buildBladeFeatherWings);
