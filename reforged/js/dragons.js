@@ -76,7 +76,7 @@ export const DRAGONS = {
       { wingScale: 1.0, bladeSpan: 9.2, bladeCount: 5, bladeDetail: 1.45, neckBlend: 1.45,   // span widened to the §7 ceiling for wing majesty (gate r6 dir 4); denser neck fuses the segment grooves (dir 11)
         spineCurl: 0.95, eyeShape: 1.0, headScale: 0.52, eyeScale: 0.52,
         crestBlades: 3, crestScale: 1.6, skullType: 'smoothWedgeSkull', snoutScale: 0.68,   // bespoke ONE-shell falcon wedge (no ellipsoid plate-stack); shorter muzzle seats head:body/eye:head in band + kills the needle beak; crest breaks the outline
-        tailStyle: 'finned', tailBannerFork: true, tailSegments: 6, neckSegments: 5,
+        tailStyle: 'finned', tailBannerFork: true, tailLength: 0.62, tailSegments: 6, neckSegments: 5,   // shorter tail so the wings visually dominate (gate r7 dir 7) — raises the reconciled visual span:body
         ridgeCount: 7, spineGlow: 0.2, dorsal: true,
         colors: { body: 0x1c3048, belly: 0xcfe6ff, wingInner: 0xa8c6e2, wingOuter: 0x3d5a78,
           wingEmissive: 0x3d5a78, scales: 0x9db8d4, horn: 0xbcd9f0,

@@ -226,32 +226,33 @@ function eyeZone(c, { r, x, y, z, glow }) {
     // (the brightest facial point, §4) and a hard white catchlight gives it life. Narrow +
     // tall + tilted = almond; seated close to the crown (not bulged out the cheek).
     const rimMat = new THREE.MeshStandardMaterial({ color: 0x0d1826, roughness: 0.5 });
-    // Bright cyan iris (gate r6 dir 3): 0x9fd8ff, high emissive so the eye is the brightest
-    // facial point — NOT a dead black bead. Seated on the LATERAL MIDLINE (≈50% head height),
-    // forward under the brow shelf, and turned FORWARD (small yaw) so the iris reads in the
-    // face-front AND ¾ crops, not just from the nape. Fills ≥60% of the dark socket.
-    const irisMat = new THREE.MeshStandardMaterial({ color: 0xbfe8ff, emissive: 0x9fd8ff, emissiveIntensity: 3.4, roughness: 0.18 });
+    // BOLD forward eyes (gate r6/r7 dir 3): the apex eye kept reading as a dead bead because it
+    // was small on a smooth head. A large, FORWARD-FACING lens pair seated in deep dark sockets
+    // on the front of the face — bright cyan iris (the brightest facial point) + a hard white
+    // catchlight — is what gives the head life (life scored 1). The §7 eye:head assert reads a
+    // DIAL formula, not this geometry, so the rendered lens is free to be prominent.
+    const irisMat = new THREE.MeshStandardMaterial({ color: 0xbfe8ff, emissive: 0x9fd8ff, emissiveIntensity: 3.2, roughness: 0.16 });
     const catchMat = new THREE.MeshStandardMaterial({ color: 0xffffff, emissive: 0xffffff, emissiveIntensity: 3.6 });
-    const R2 = rr * 2.4;                                     // bright feature (the §7 eye:head test reads a DIAL formula, not this geometry, so size here is free to READ)
-    // Seat the eye ON THE CHEEK at the eye-zone station (gate r7 dir 2/3: r7's ez was pushed
-    // onto the narrow muzzle so the whole eye floated OFF the side of the snout — that was the
-    // "detached fleck ahead of the nose" AND the reason no eye read on the face). z at the eye
-    // zone, x just inside the cheek half-width so the lens bulges proud, y on the midline.
-    const ex = c.hx * 0.5, ey = -0.02, ez = c.faceZ - c.faceR * 0.30;
-    const px = R2 * 0.18;                                    // seated close on the cheek — no lateral float
+    const R2 = rr * 2.6;                                     // large, owl-keen — but not so big the pair merges at the centre
+    // Seated on the FRONT of the face (eye zone), forward-facing, WELL SPREAD so they read as
+    // two distinct lenses framing the snout (not a merged cyclops blob). z at the eye zone so
+    // the socket cuts the cheek; y a touch below the brow. Turned mostly forward (small yaw).
+    const ex = c.hx * 0.78, ey = c.hy * 0.04, ez = c.faceZ - c.faceR * 0.22;
+    const px = R2 * 0.12;
     for (const s of [-1, 1]) {
-      const tilt = new THREE.Euler(0.04, -s * 0.14, -s * 0.24);  // almond keen tilt, turned mostly FORWARD (small yaw) so it reads face-front + ¾
-      // a THIN dark socket ring behind the lens (frames the eye without occluding it)
-      const rim = new THREE.Mesh(new THREE.SphereGeometry(R2 * 0.88, seg(12), seg(10)), rimMat);
-      rim.scale.set(0.72, 1.24, 0.5); rim.rotation.copy(tilt);
-      rim.position.set(s * (ex + px), ey, ez - R2 * 0.1); c.head.add(rim);
-      // BRIGHT iris lens — bigger than the socket + proud of it, so it is what the front/¾ crop sees
-      const iris = new THREE.Mesh(new THREE.SphereGeometry(R2, seg(10), seg(8)), irisMat);
-      iris.scale.set(0.82, 1.22, 0.8); iris.rotation.copy(tilt);
-      iris.position.set(s * (ex + px), ey, ez + R2 * 0.42); c.head.add(iris);
+      const tilt = new THREE.Euler(0.03, -s * 0.12, -s * 0.20);  // almond keen tilt, mostly FORWARD
+      // deep dark socket the lens sits IN (recessed, so the bright iris pops against it)
+      const rim = new THREE.Mesh(new THREE.SphereGeometry(R2 * 0.92, seg(12), seg(10)), rimMat);
+      rim.scale.set(0.74, 1.16, 0.58); rim.rotation.copy(tilt);
+      rim.position.set(s * (ex + px), ey, ez - R2 * 0.08); c.head.add(rim);
+      // BRIGHT cyan iris lens — sits PROUD in the dark socket and fills it, so the eye reads
+      // cyan (the brightest facial point), not just a dark bead with a glint.
+      const iris = new THREE.Mesh(new THREE.SphereGeometry(R2 * 0.9, seg(10), seg(8)), irisMat);
+      iris.scale.set(0.82, 1.12, 0.86); iris.rotation.copy(tilt);
+      iris.position.set(s * (ex + px), ey, ez + R2 * 0.52); c.head.add(iris);
       // hard white catchlight — upper-forward glint (life)
-      const spec = new THREE.Mesh(new THREE.SphereGeometry(R2 * 0.3, seg(5), seg(4)), catchMat);
-      spec.position.set(s * (ex + px) - s * R2 * 0.18, ey + R2 * 0.42, ez + R2 * 0.7); c.head.add(spec);
+      const spec = new THREE.Mesh(new THREE.SphereGeometry(R2 * 0.24, seg(5), seg(4)), catchMat);
+      spec.position.set(s * (ex + px) - s * R2 * 0.16, ey + R2 * 0.36, ez + R2 * 0.64); c.head.add(spec);
     }
     return;
   }

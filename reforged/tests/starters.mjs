@@ -43,7 +43,12 @@ const SPECS = {
     triTargets: [2400, 3800, 5200],             // §5d ~targets (draconic-head floor lifts the hatchling; see PR)
     headBody: [[2.0, 2.6], [3.0, 4.2], [4.8, 6.0]],   // §4 head:body (1:X)
     eyeHead: [[0.30, 0.45], [0.20, 0.30], [0.14, 0.185]], // §4 eye diameter : head length
-    spanBody: [[1.4, 1.7], [2.0, 2.3], [2.8, 3.2]],   // §3/§4 wingspan : body
+    // wingspan : body — RECONCILED to the VISUAL nose-to-tail reference (see measure()'s
+    // visualBodyLen), matching what the §8 gate measures off the top-planform. The old
+    // [1.4,1.7]/[2.0,2.3]/[2.8,3.2] were against the spine-polyline z-range, which under-reads
+    // the body (it excludes the snout + the long forked tail-banner) and so read ~1.4× higher
+    // than the eye does. Bands retuned to the visual metric (ember/jade retune when they build).
+    spanBody: [[0.7, 1.05], [1.1, 1.6], [1.6, 2.5]],
     accentHue: 39,                              // gold ~39°
     carrier: 'diffuse',                         // azure: NO accent-hued emissive on the wing
   },
@@ -67,6 +72,21 @@ function measure(key, form) {
   // body length: the published spine polyline z-range (pre-scale group space).
   const zs = parts.spinePoints.map((p) => p.z);
   const bodyLen = Math.max(...zs) - Math.min(...zs);
+  // VISUAL body length: true nose-tip → tail-tip z-extent of the body (wings EXCLUDED),
+  // de-scaled — this is what the §8 gate measures span:body against (the top-planform
+  // silhouette length). The spine polyline stops at the neck/tail-anchor and under-reads
+  // it, which is why the §7 span:body (spine-z) and the gate's visual span diverged; the
+  // span band is asserted against THIS so the test and the gate agree (reconciled per review).
+  const wingRoots = ['wingPivotL', 'wingPivotR', 'wingTipL', 'wingTipR', 'wingRigL', 'wingRigR', 'wingYokeL', 'wingYokeR', 'wingPivot2L', 'wingPivot2R'];
+  const wingSet = new Set();
+  for (const k of wingRoots) if (parts[k]) parts[k].traverse((o) => wingSet.add(o));
+  let bzMin = Infinity, bzMax = -Infinity; const P = new THREE.Vector3();
+  group.traverse((o) => {
+    if (!o.isMesh || !o.geometry || wingSet.has(o)) return;
+    const pos = o.geometry.attributes.position; if (!pos) return;
+    for (let i = 0; i < pos.count; i++) { P.fromBufferAttribute(pos, i).applyMatrix4(o.matrixWorld); if (P.z < bzMin) bzMin = P.z; if (P.z > bzMax) bzMax = P.z; }
+  });
+  const visualBodyLen = (bzMax - bzMin) / scale;
   // head length: the SKULL length the head builder publishes (crest excluded).
   const headLen = parts.headLength;
   // wingspan: widest blade tip (world → de-scaled), doubled.
@@ -84,8 +104,8 @@ function measure(key, form) {
   const ys = parts.spinePoints.map((p) => p.y);
   let infl = 0; for (let i = 1; i < ys.length - 1; i++) if ((ys[i] - ys[i - 1]) * (ys[i + 1] - ys[i]) < 0) infl++;
   let tris = 0; group.traverse((o) => { if (o.isMesh && o.geometry) { const g = o.geometry; tris += g.index ? g.index.count / 3 : (g.attributes?.position?.count / 3 || 0); } });
-  return { def, parts, m, bodyLen, headLen, span, foldSpan, eyeDiam, infl, tris: Math.round(tris),
-    headBody: bodyLen / headLen, eyeHead: eyeDiam / headLen, spanBody: span / bodyLen };
+  return { def, parts, m, bodyLen, visualBodyLen, headLen, span, foldSpan, eyeDiam, infl, tris: Math.round(tris),
+    headBody: bodyLen / headLen, eyeHead: eyeDiam / headLen, spanBody: span / visualBodyLen };
 }
 
 for (const [key, spec] of Object.entries(SPECS)) {

@@ -89,7 +89,16 @@
     // Bounding box of a named target: whole model, the wing subtrees, or the head.
     function targetBox(part) {
       const parts = built.parts || {};
-      if (part === 'head' && parts.head) return _box.setFromObject(parts.head);
+      if (part === 'head' && parts.head) {
+        // Frame the FACE, not the crest: the standing crest feathers (ExtrudeGeometry) tower over
+        // the crown, so boxing the whole head group centres the fit high and shrinks the face to a
+        // shadowed nub at the bottom (gate r6/r7 dir 1b — "head/eye crop has no eye"). Box only the
+        // cranium/snout/eye meshes so the face fills the crop and the eye is judgeable.
+        const b = new THREE.Box3(); b.makeEmpty();
+        parts.head.traverse((o) => { if (o.isMesh && o.geometry && o.geometry.type !== 'ExtrudeGeometry') b.expandByObject(o); });
+        if (!b.isEmpty()) return _box.copy(b);
+        return _box.setFromObject(parts.head);
+      }
       if (part === 'wing' || part === 'wingR') {
         const roots = part === 'wingR' ? WING_R : WING_ROOTS;
         const b = new THREE.Box3(); b.makeEmpty();
