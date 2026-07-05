@@ -391,10 +391,11 @@ export function buildTwinWraith(def, quality = 1) {
       ribbons.push(tail);
     }
 
-    // Every material this twin draws — set transparent so the §5j materialise can fade each
-    // from 0→1 on the twin's own beat (opacity 1 the rest of the time reads as opaque).
+    // Every material this twin draws — collected so the §5j materialise can fade each from 0→1 on
+    // the twin's own beat. They stay OPAQUE outside the entrance: transparent is toggled ON only
+    // while dissolving (setEntrance) and OFF for the fight — two transparent twin bodies crossing
+    // depth in the figure-eight re-sort every frame and POP (the "occasional stop-motion" snap).
     const fadeMats = [bodyMat, outlineMat, rimMatT, finMat, sockMat, ribMat];
-    for (const m of fadeMats) m.transparent = true;
     return { twin, body, bodyMat, finMat, sockMat, fadeMats, ribbons, sx, seeker };
   }
 
@@ -475,9 +476,7 @@ export function buildTwinWraith(def, quality = 1) {
   glint.position.set(-0.08, 0.09, 0.44);   // upper-left, PROUD OF THE PUPIL (front ~0.36) so it's never occluded
   glint.renderOrder = 7;
   eyeRig.add(glint);
-  // §5j: the eye DISSOLVES in with twinA (opacity driven each tick) — transparent so it can.
-  orbMat.transparent = irisMat.transparent = pupilMat.transparent = glintMat.transparent = true;
-  rig.add(eyeRig);
+  rig.add(eyeRig);   // §5j: the eye dissolves in with twinA — transparent is toggled on only for the entrance (setEntrance), opaque for the fight.
 
   // SPLIT CORE — a second HDR eye-core that ignites INSIDE the SEEKER's empty socket
   // during the dread card only ("EITHER/OR — Both Halves at Once": the eye SPLITS its
@@ -782,11 +781,6 @@ export function buildTwinWraith(def, quality = 1) {
     // Seat the eye on the thread between the two sockets at the hold fraction.
     socketWorldLocal(twinA.twin, _sa);
     socketWorldLocal(twinB.twin, _sb);
-    // §5j MATERIALISE: twinB's socket sits at its full ±9 position even at scale 0, so the
-    // thread/beads/eye would stretch to the still-INVISIBLE twin. Pin twinB's thread-end AT
-    // twinA until it materialises (entMatB 0→1) — the thread is a zero-length point on twinA
-    // through beat 1 (eye rests on A), then GROWS across to twinB as it forms in beat 2.
-    if (entranceU != null) _sb.lerp(_sa, 1 - Math.min(1, Math.max(0, entMatB)));
     // FLEE: the thread SNAPS — its far end collapses to a short dangling arc off the
     // survivor's own socket (not spanning to the vanished fallen half across the
     // frame), so the §7c auto-fit frames the LONE survivor + its hollow socket at
@@ -800,12 +794,22 @@ export function buildTwinWraith(def, quality = 1) {
     // so the eye vanished from the front + profile angles (it only read in 3/4 + top-
     // down, CP1 r8 dir 3). Floating it ~0.3u off the socket keeps the bloom in open air,
     // readable from every angle, while a full 0→1 handoff still crosses 0.1→0.9 (the §7b
-    // travel assert needs ≥0.7·thread; 0.8·thread clears it).
+    // travel assert needs ≥0.7·thread; 0.8·thread clears it). Seated on the FULL A→B thread so
+    // the eye always keeps the SAME 0.1 gap from whichever twin holds it — beat 1 included, so it
+    // never overlaps twinA's body as it shimmers in (the owner's "same distance as at twin 2" fix).
     const eyeF = 0.1 + Math.max(0, Math.min(1, holdT)) * 0.8;
     _eye.copy(_sa).lerp(_sb, eyeF);
     // A gentle arc up off the thread mid-glide (the eye lifts as it crosses).
     const glideLift = Math.sin(Math.max(0, Math.min(1, holdT)) * Math.PI) * (Math.abs(holdTarget - holdT) > 0.05 ? 0.5 : 0.12);
     eyeRig.position.set(_eye.x, _eye.y + glideLift, _eye.z + 0.15);
+    // §5j MATERIALISE: twinB's socket sits at its full ±9 position even at scale 0, so the DRAWN
+    // thread/beads would stretch to the still-INVISIBLE twin. Grow the drawn far-end from the EYE
+    // (beat 1: twinB not formed → a short strand twinA→eye) OUT to twinB's socket as it materialises
+    // (entMatB 0→1). The eye keeps its offset (seated above on the full thread); only the strand grows.
+    if (entranceU != null) {
+      const mB = Math.min(1, Math.max(0, entMatB));
+      _sb.set(_eye.x + (_sb.x - _eye.x) * mB, _eye.y + (_sb.y - _eye.y) * mB, _eye.z + (_sb.z - _eye.z) * mB);
+    }
 
     // Rebuild the beaded thread from socket to socket (drooping slightly at mid).
     for (let i = 0; i < THREAD_BEADS - 1; i++) {
@@ -1085,13 +1089,28 @@ export function buildTwinWraith(def, quality = 1) {
   // §5j THE BATON CROSS: the entrance driver sets the 0..1 clock each frame (null = fight).
   // The rig-local x the eye crosses to (twinA RIGHT +8 → twinB LEFT −8) so the driver can
   // feed the ORB's world-x to the camera + the dragon-look strain.
+  // Toggle every twin + eye material transparent (for the opacity dissolve) vs opaque (the fight).
+  // Opaque in the fight is REQUIRED: two transparent twin bodies (+ their inverted-hull outlines)
+  // crossing depth in the figure-eight re-sort each frame and pop — the "occasional stop-motion".
+  const _eyeMats = [orbMat, irisMat, pupilMat, glintMat];
+  function setFadeTransparent(on) {
+    for (const m of [...twinA.fadeMats, ...twinB.fadeMats, ..._eyeMats]) {
+      if (m.transparent === on) continue;
+      m.transparent = on;
+      if (!on) m.opacity = 1;
+      m.needsUpdate = true;
+    }
+  }
   function setEntrance(u) {
+    const wasActive = entranceU != null;
     entranceU = u == null ? null : Math.max(0, Math.min(1, u));
-    // On RELEASE (fight start), reset the orbit clock to 0 so the figure-eight genuinely resumes
+    if (entranceU != null && !wasActive) setFadeTransparent(true);   // entrance begins → fade materials on
+    // On RELEASE (fight start): reset the orbit clock to 0 so the figure-eight genuinely resumes
     // from th=0 (the twins at CENTRE, matching the scissor's converged seat) and eases OUT with the
     // spread ramp — instead of snapping to a wide orbit position (orbitPhase had accrued while the
     // boss orbited INVISIBLY through the 'warn' phase, so the "freeze" never actually parked it at 0).
-    if (u == null) { entAimSet = false; orbitPhase = 0; }
+    // And return every material to OPAQUE so the fight has no transparent-sort pops.
+    if (u == null) { entAimSet = false; orbitPhase = 0; setFadeTransparent(false); }
   }
   // §5j: the driver feeds the DRAGON's position in RIG space each frame so the eye can lookAt it.
   function setEntranceAim(x, y, z) { if (x == null) { entAimSet = false; } else { _entAim.set(x, y, z); entAimSet = true; } }

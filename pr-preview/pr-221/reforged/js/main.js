@@ -246,6 +246,22 @@ if (urlParams.has('debug')) {
   });
 }
 
+// `?cleanshot` — CAPTURE mode for the studio/gate pipeline (§6.10): strip everything that is
+// not the dragon so an in-game frame is judgeable — the whole HUD DOM (score chrome, the target
+// reticle, onboarding hints, the gesture tutorial + banners all live under #hud), plus the course
+// rings and the dragon's own flight-trail scribbles (forced hidden in the loop below). `?wingDebug`
+// passes straight through (dragon.js reads it directly), so a clean frame can also pin the wing
+// pose. INERT when absent: no cleanshot param → the game is byte-for-byte unchanged.
+const cleanShot = urlParams.has('cleanshot');
+if (cleanShot) {
+  const s = document.createElement('style');
+  // Hide every in-game overlay under #hud (stat chrome, reticle, hints, gesture tutorial,
+  // banners, vignette/flashes) — but SPARE #screen, the menu container #hud also holds (the
+  // TAKE OFF button lives there, so hiding all of #hud would make the run un-startable).
+  s.textContent = '#hud > :not(#screen){display:none!important}';
+  document.head.appendChild(s);
+}
+
 // Perf overlay (?debug=perf): fps / draw calls / quality tier
 let perfEl = null;
 let perfTimer = 0;
@@ -925,8 +941,8 @@ function tick() {
   // boost / speed / ember trails. The emitters re-show their own sprites on emit, so
   // leaving the shop needs no force-show.
   const hideShopFx = ui.atShop() && game.state !== 'playing';
-  setRingsVisible(!hideShopFx);
-  if (hideShopFx) setDragonFxVisible(false);
+  setRingsVisible(!hideShopFx && !cleanShot);   // cleanshot: no course rings in a capture frame
+  if (hideShopFx || cleanShot) setDragonFxVisible(false);   // …and no trail scribbles over the dragon
 
   // Slow-mo bookkeeping runs in REAL time so 0.6s of dilation is 0.6s felt.
   if (game.slowMoTimer > 0) {

@@ -237,10 +237,28 @@ const SETPIECE_PATHS = {
   // MOVING so the coil's iris rings keep expanding as it closes (emitter=organ).
   ribThread(k) {
     const B = CONFIG.BOSS;
-    const NEAR_REL = 7, RISE = 1.0;   // loom close (the ×1.6-bone rework already hangs the cage at rail height; a slight rise centres it)
-    if (k < 0.34) { const t = easeInOut(k / 0.34); return { x: 0, y: B.fightHeight + RISE * t, rel: B.settleGap + (NEAR_REL - B.settleGap) * t }; }
-    if (k < 0.66) { const t = (k - 0.34) / 0.32; return { x: Math.sin(t * Math.PI) * 2.0, y: B.fightHeight + RISE, rel: NEAR_REL }; }   // hold the fly-through (slight drift)
-    const t = easeInOut((k - 0.66) / 0.34); return { x: 0, y: B.fightHeight + RISE * (1 - t), rel: NEAR_REL + (B.settleGap - NEAR_REL) * t };
+    // L141 fix — a TRUE fly-through, not a loom. The old path parked at rel 7 so
+    // the cage only LOOMED (the spine trailed away, the rail never entered it).
+    // Now the group SWEEPS from the loom straight through rel −6 (the cage passes
+    // OVER the camera): the rail threads the barrel, ribs rush past on both flanks
+    // + overhead, then the tail clears behind and it re-approaches to station.
+    // Kept CENTERED (x≈0) — unlike EITHERWING's flank scissor, MARROWCOIL's whole
+    // identity is the rail going THROUGH the aperture, so the big bottom-open cage
+    // (clearance ~6u scaled) is held over the lane rather than dodged aside; the
+    // coil's own sway supplies a small in-aperture wobble that never leaves it.
+    // The barrel interior sits ~4u ABOVE the rail (its dorsal rib roots are high,
+    // the arcs hang bottom-open below them). So the pass also DIVES: the boss drops
+    // ~DIVE units at the thread instant, dropping the barrel INTERIOR down around the
+    // camera (ribs then flank the dragon on both sides + overhead — a true tunnel,
+    // not a canopy skimmed from beneath).
+    const NEAR_REL = 7, PASS_REL = -6, DIVE = 4.2;
+    // 0–0.30 — approach: close from station to the loom, held at frame height.
+    if (k < 0.30) { const t = easeInOut(k / 0.30); return { x: 0, y: B.fightHeight, rel: B.settleGap + (NEAR_REL - B.settleGap) * t }; }
+    // 0.30–0.70 — THE PASS: rel sweeps NEAR → PASS while the boss dives, deepest at the
+    // thread instant (rel 0 ≈ k 0.52). Small sway stays well inside the aperture.
+    if (k < 0.70) { const t = (k - 0.30) / 0.40; const s = Math.sin(t * Math.PI); return { x: s * 0.9, y: B.fightHeight - DIVE * s, rel: NEAR_REL + (PASS_REL - NEAR_REL) * easeInOut(t) }; }
+    // 0.70–1.0 — recover: rise back to frame height and re-approach to station.
+    const t = easeInOut((k - 0.70) / 0.30); return { x: 0, y: B.fightHeight, rel: PASS_REL + (B.settleGap - PASS_REL) * t };
   },
   // MARROWCOIL — THE CLOSING RIBS (§5f dread): holds at mid-close range (the cage
   // readable + threadable) while the model constricts the ribcage one pair at a
