@@ -57,6 +57,82 @@ function rakedHorn(mat, { baseR, len, x, y, z, rake, splay, segments = 6, flatZ 
   return horn;
 }
 
+// ── SMOOTH WEDGE SKULL (AZURE bespoke) ───────────────────────────────────────
+// ONE continuous lofted shell — nape → braincase → brow → snout → nose tip — so the
+// head reads as a single tapered falcon wedge, NOT a stack of overlapping ellipsoids
+// that seam into "plates" at a small head scale (gate r3). It builds the WHOLE head
+// shell (cranium+snout+jaw as one skin), so the snout/jaw modules are skipped. Sets
+// the same c.faceZ/faceR/hx/hy/hz/snoutTipZ contract the eye/brow/crest align to.
+function buildSmoothWedgeSkull(c) {
+  const m = c.mats.bodyMat;
+  const sc = c.cfg.snoutScale ?? 1;
+  // [z, halfWidth, halfHeight, yCentre] — length ≫ width ≥ height (a lean raptor skull);
+  // a sleek braincase (not a ball) tapering smoothly to the nose. The front stretches
+  // with snoutScale. Sampled with a smooth Catmull-Rom so no ring seam reads as a plate.
+  const st = [
+    [ 0.50, 0.10, 0.12, 0.02],                 // nape cap
+    [ 0.30, 0.34, 0.38, 0.03],
+    [ 0.02, 0.42, 0.44, 0.03],                 // braincase — sleek, not a ball
+    [-0.30, 0.40, 0.40, 0.0],                  // brow
+    [-0.60, 0.34, 0.32, -0.03],                // eye zone
+    [-0.95 * sc, 0.26, 0.24, -0.06],           // snout base
+    [-1.35 * sc, 0.17, 0.15, -0.09],           // mid muzzle
+    [-1.72 * sc, 0.09, 0.08, -0.11],           // nose
+    [-1.9 * sc, 0.025, 0.025, -0.11],          // nose tip cap
+  ];
+  // Smooth 1-D Catmull-Rom sampler over the (z, w, h, yc) control profile.
+  const catmull = (p0, p1, p2, p3, t) => {
+    const t2 = t * t, t3 = t2 * t;
+    return 0.5 * ((2 * p1) + (-p0 + p2) * t + (2 * p0 - 5 * p1 + 4 * p2 - p3) * t2 + (-p0 + 3 * p1 - 3 * p2 + p3) * t3);
+  };
+  const SUB = 3;                                        // rings interpolated between each pair → smooth loft (Catmull-Rom stays smooth; SUB 3 keeps the apex under the 6000-tri ceiling)
+  const rings = [];
+  for (let s = 0; s < st.length - 1; s++) {
+    const a = st[Math.max(0, s - 1)], b = st[s], cc = st[s + 1], d = st[Math.min(st.length - 1, s + 2)];
+    for (let u = 0; u < SUB; u++) {
+      const t = u / SUB;
+      rings.push([catmull(a[0], b[0], cc[0], d[0], t), catmull(a[1], b[1], cc[1], d[1], t), catmull(a[2], b[2], cc[2], d[2], t), catmull(a[3], b[3], cc[3], d[3], t)]);
+    }
+  }
+  rings.push(st[st.length - 1]);
+  const M = seg(16);
+  const verts = [], idx = [];
+  for (const [z, w, h, yc] of rings) {
+    for (let k = 0; k < M; k++) {
+      const a = (k / M) * Math.PI * 2;
+      const cs = Math.cos(a), sn = Math.sin(a);
+      // Smooth C1 cross-section: a clean ellipse gently keeled up top and eased flat
+      // on the belly by a SMOOTH weight (no piecewise seam — the seam is what banded
+      // the belly). w2 = 1 at the crown, → 0.9 at the keel line, blended by sn.
+      const keel = 1 + 0.06 * sn;                        // >1 above equator, <1 below — C1 continuous
+      const yy = yc + h * sn * keel;
+      verts.push(w * cs, yy, z);
+    }
+  }
+  for (let s = 0; s < rings.length - 1; s++) for (let k = 0; k < M; k++) {
+    const a = s * M + k, b = s * M + (k + 1) % M, cc = (s + 1) * M + k, d = (s + 1) * M + (k + 1) % M;
+    idx.push(a, cc, b, b, cc, d);
+  }
+  const g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.Float32BufferAttribute(verts, 3));
+  g.setIndex(idx);
+  g.computeVertexNormals();
+  const shellMat = m.clone(); shellMat.side = THREE.DoubleSide;   // robust to loft winding
+  const shell = new THREE.Mesh(g, shellMat);
+  c.head.add(shell);
+  // nose pad + nostrils (a small dark cap so the tip reads as a nose, not a needle)
+  c.head.add(ellipsoid(m, 0.09, 1.0, 0.9, 0.9, 0, -0.12, -1.82 * sc, 8));
+  for (const s of [-1, 1]) {
+    const n = new THREE.Mesh(new THREE.SphereGeometry(0.03, seg(5), seg(4)), c.mats.hornMat);
+    n.position.set(s * 0.05, -0.11, -1.8 * sc);
+    c.head.add(n);
+  }
+  // publish the align contract (eye/brow/crest read these)
+  c.hx = 0.5; c.hy = 0.5; c.hz = 0.62;
+  c.faceZ = -0.42; c.faceR = 0.42;               // the eye/brow anchor sits at the brow front
+  c.snoutTipZ = -1.9 * sc;
+}
+
 // ── SKULL ─────────────────────────────────────────────────────────────────── // one clean rounded cranium (length > width > height); the cone muzzle continues it
 const R = 0.62;               // base cranium radius (before headScale)
 // Per-skull proportions [width, height, length scale] + brow bulge + cheek bevel.
@@ -151,19 +227,19 @@ function eyeZone(c, { r, x, y, z, glow }) {
     // almond against the light-lit hide reads as an eye where a light iris dissolves.
     // A bright iris glint sits inside it toward the camera (the brightest facial point,
     // §4). FRONT-cheek, high + forward at the snout↔cranium junction (r3 dir 2).
-    const R2 = rr * 3.0;
-    const ex = c.hx * 0.6, ey = c.hy * 0.42, ez = c.faceZ - c.faceR * 0.26;
-    const px = R2 * 0.7;                                     // proud outward so it never buries
+    const R2 = rr * 2.4;
+    const ex = c.hx * 0.72, ey = c.hy * 0.34, ez = c.faceZ - c.faceR * 0.14;
+    const px = R2 * 1.15;                                    // clearly proud of the loft surface
     for (const s of [-1, 1]) {
-      // The big DARK almond socket is the dominant, PROUD, outermost element (the eye
-      // shape reads as a dark almond against the light hide); a SMALL central glint
-      // sits just inside it, not poking past — so the dark rim always frames the eye.
-      const socket = new THREE.Mesh(new THREE.SphereGeometry(R2, seg(12), seg(10)), socketMat);
-      socket.scale.set(0.5, 1.15, 0.66); socket.rotation.set(0.06, -s * 0.5, -s * 0.42);
-      socket.position.set(s * (ex + px), ey, ez - R2 * 0.18); c.head.add(socket);
-      const iris = new THREE.Mesh(new THREE.SphereGeometry(R2 * 0.42, seg(9), seg(7)), irisMat);
-      iris.scale.set(0.5, 1.1, 0.62); iris.rotation.set(0.06, -s * 0.5, -s * 0.42);
-      iris.position.set(s * (ex + px + R2 * 0.04), ey + R2 * 0.06, ez - R2 * 0.2); c.head.add(iris);
+      // A clean dark almond socket seated proud on the smooth cheek (the eye shape),
+      // with a small bright iris glint (the brightest facial point, §4). Rounder segs
+      // so it reads as a smooth eye, not a crystal.
+      const socket = new THREE.Mesh(new THREE.SphereGeometry(R2, seg(14), seg(12)), socketMat);
+      socket.scale.set(0.82, 1.18, 0.72); socket.rotation.set(0.05, -s * 0.5, -s * 0.38);
+      socket.position.set(s * (ex + px), ey, ez); c.head.add(socket);
+      const iris = new THREE.Mesh(new THREE.SphereGeometry(R2 * 0.5, seg(12), seg(9)), irisMat);
+      iris.scale.set(0.82, 1.12, 0.7); iris.rotation.set(0.05, -s * 0.5, -s * 0.38);
+      iris.position.set(s * (ex + px + R2 * 0.14), ey + R2 * 0.05, ez + R2 * 0.06); c.head.add(iris);
     }
     return;
   }
@@ -384,7 +460,7 @@ function tuskJaw(c) {                               // Solar / Sovereign
 }
 
 // ── module registry + archetypes ─────────────────────────────────────────────
-const SKULLS = { roundWedgeSkull: buildSkull, nobleWedgeSkull: buildSkull, predatorWedgeSkull: buildSkull, falconWedgeSkull: buildSkull };
+const SKULLS = { roundWedgeSkull: buildSkull, nobleWedgeSkull: buildSkull, predatorWedgeSkull: buildSkull, falconWedgeSkull: buildSkull, smoothWedgeSkull: buildSmoothWedgeSkull };
 const SNOUTS = { shortBluntSnout, mediumBluntSnout, taperedPredatorSnout };
 const EYES   = { largeSoftEyeZone, mediumAlertEyeZone, narrowRegalEyeZone };
 const BROWS  = { softBrow, alertBrow, commandingBrow };
@@ -443,8 +519,13 @@ function buildDraconicHead(def, model, mats) {
 
   // Skull first — it publishes c.faceZ / c.faceR / c.hx-hy-hz that the rest align to.
   (SKULLS[cfg.skullType] || buildSkull)(ctx);
-  (SNOUTS[cfg.snoutType] || shortBluntSnout)(ctx);
-  (JAWS[cfg.jawType] || compactSmoothJaw)(ctx);
+  // The smooth-wedge shell IS the whole head skin (cranium+snout+jaw as one loft), so
+  // the separate snout/jaw modules are skipped for it.
+  const oneShell = cfg.skullType === 'smoothWedgeSkull';
+  if (!oneShell) {
+    (SNOUTS[cfg.snoutType] || shortBluntSnout)(ctx);
+    (JAWS[cfg.jawType] || compactSmoothJaw)(ctx);
+  }
   (EYES[cfg.eyeZoneType] || largeSoftEyeZone)(ctx);
   (BROWS[cfg.browType] || softBrow)(ctx);
   (HORNS[cfg.hornType] || smallSweptBackEarFins)(ctx);

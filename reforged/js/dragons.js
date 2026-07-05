@@ -37,7 +37,7 @@ export const DRAGONS = {
       // horns, no rear-crest, no rear glow — the sunburst nape corona is deleted.
       hornType: 'noHorn', rearCrestType: 'noRearCrest', rearGlowIntensity: 0,
       snoutType: 'taperedPredatorSnout', crestBase: 0x7fa3c8, keenEye: true,
-      neckBlend: 2.1,   // fuse the neck spheres into ONE continuous loft (gate r1/r2/r3 dir 9/2/6)
+      neckBlend: 1.15,  // SLIM falcon neck: a fat neck (2.1) swallowed the small proud head — slimmer than the head so it sits proud (§5d avian)
       // blade-feather comb shared dials (per-form span/count/etc. accrete below)
       bladeCount: 5, bladeSweep: 0.38, bladeStagger: 0.2,
       bladeCamber: 0.28, bladeDihedral: 0.36, bladeChord: 0.15,
@@ -74,8 +74,8 @@ export const DRAGONS = {
       // comb (span 2.8–3.2×), 3-blade crest fan, dorsal sail, gold-tipped swallow
       // banner tail. Deepest sky value, gold at its richest (still DIFFUSE).
       { wingScale: 1.0, bladeSpan: 8.6, bladeCount: 5, bladeDetail: 1.45,
-        spineCurl: 0.72, eyeShape: 1.0, headScale: 0.5, eyeScale: 0.52,
-        crestBlades: 3, crestScale: 1.35, skullType: 'falconWedgeSkull',   // lean keen apex skull, no cheek balls (r2 dir 1); crest breaks the outline (r3 dir 3)
+        spineCurl: 0.72, eyeShape: 1.0, headScale: 0.52, eyeScale: 0.52,
+        crestBlades: 3, crestScale: 1.35, skullType: 'smoothWedgeSkull', snoutScale: 0.68,   // bespoke ONE-shell falcon wedge (no ellipsoid plate-stack); shorter muzzle seats head:body/eye:head in band + kills the needle beak; crest breaks the outline
         tailStyle: 'finned', tailBannerFork: true, tailSegments: 6, neckSegments: 5,
         ridgeCount: 9, spineGlow: 0.2, dorsal: true,
         colors: { body: 0x1c3048, belly: 0xcfe6ff, wingInner: 0xa8c6e2, wingOuter: 0x3d5a78,
