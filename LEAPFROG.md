@@ -6032,3 +6032,94 @@ eyes pop against the deep navy head.
 rim crescent (widen a few degrees for EYE 3→4); only one front eye catches a highlight; the apex face-front
 neck-segment "pinecone" + wing-root blade clutter are the crudest close-ups. The baby comb still serrates
 (a solid baby wing is a different membrane part, not a dial). None hold the PASS.
+### L162 — THRUMSWARM CP1: a swarm's identity is the FORMATION, the meme frame is a POINT-CLOUD silhouette, and a dark boss must still read on a dark studio sky
+
+**Did.** Built slot 7's CP1 (the stippled-swarm Calamity, the pale-sky boss after slot 6's pale arch): the builder
+(`bossThrumswarm.js` — a bone-white lantern QUEEN + 28 dark tetra motes as SEPARATE meshes lerping between authored
+FORMATION-SLOT TABLES: scatter / ring / wall / line / ringShield / **yourDragon** — the meme frame), the def (tier 3,
+4 cards, PRESSURE-OSTINATO rhythm, ABSORB-A-COLOR graze, the SCATTER-STAGGER parry job, the ring-around-you shield),
+the *Shape It Remembers* entrance data + the `condense` approach branch, the studio `condense`/`formation` dials + slot-7
+states, and cleared `bossgate --studio` G1–G7 (one shield-leash fix). Registry row 7 → `claimed`.
+
+**Learned.** (1) **For a SWARM boss the FORMATION is the body, and the queen is a MIGRATING focal.** The 28 motes carry
+NO identity alone — the read lives entirely in the authored slot tables they lerp between. The elegant resolve of "~30
+YOUR-DRAGON slots but only 28 motes": the QUEEN is the dragon's SKULL (her amber eye = the dragon's eye), the 28 motes
+are wings/body/tail/rider. One focal that MIGRATES between formations (centre of the cloud → the copy's head) does two
+jobs with one part. (2) **The meme frame is a POINT-CLOUD silhouette — and it took FIVE Fable rounds + a full pose PIVOT to land.** This
+is the load-bearing lesson of the whole build: the independent Fable design gate FAILED the meme frame FOUR times before
+PASS, and every one of my own "surely it reads as a dragon now" self-judgments was wrong. The failures, in order, and
+what each taught:
+  - **r1 (jellyfish):** an even interior scatter with up-swept sparse wings + a long dangling central tail → reads as a
+    bird/jellyfish. Author on the SILHOUETTE LANDMARKS, not a fill.
+  - **r2 (dotted lines):** 40 points over a ~12u wingspan leave gaps several × the mote width, so the wings DOT OUT into
+    lines. Fix: raise the count AND the mote SIZE (both free, L126/L140) so adjacent motes are ≤1 mote-width apart —
+    Gestalt-closure needs density. A spec part COUNT is a floor, not a law (§5g).
+  - **r3 (moth):** even a DENSE front-on symmetric winged shape reads as a moth/thunderbird — a front elevation of a
+    winged creature is inherently ambiguous. **PIVOT to a SIDE PROFILE** — the unmistakable dragon doodle (neck → skull,
+    one wing up, a long tapering tail the other way). The tail is the single strongest "dragon-not-bird" cue.
+  - **r4 (a lamp with wings):** the brightest, most central element was the bone-white QUEEN LANTERN, so the frame read
+    "glowing lamp + smoke," not "dragon head." The eye must be an EYE, not a light source. Fix: DRAGON-MODE dims/shrinks
+    the lantern AND crushes the amber eye to a contained ember BELOW the bloom threshold (hide the white-hot core) — the
+    eye is FOUND inside a dark skull, never seen first as a lamp. Also: void-black motes DIE on a dark sky, so LIFT the
+    near-black albedo + metalness (sunlit facets hold the silhouette on black while staying dark on the pale home sky).
+  - **r5 PASS:** side profile + horned skull + contained eye + dark-read motes + a tapering tail = a flying dragon on
+    both skies.
+The meta-lesson (louder than any single fix): **on the roster's designated hero frame, do NOT trust your own eye —
+gate it independently and iterate against the gate, however many rounds it takes.** The playbook's studio-first +
+independent-Fable protocol is not ceremony; it caught a hard miss five times that a self-check would have shipped. And
+the identity frame drove a spec change: §5d said "28 motes / a front-on copy"; it ships 48 motes / a side profile /
+a subordinated queen — recorded in the sheet + registry (a shipped axis that differs updates its row, §5b). (3) **A
+CONDENSED shape must go CRISP; a scattered one must MURMUR.** Scale the idle drift by `pow(1-condense, 1.4)` (→0 when
+condensed) but keep a tiny always-on shimmer (~0.06u) so the crisp copy still breathes (§3.7). (4) **A dark boss vanishes
+on the DARK studio backdrop unless its near-black is LIFTED.** Void-black motes (`0x08070c`) read beautifully on the
+bright home sky and DISAPPEARED on `0x14121a`. The two-way read (all three §7c skies) came free from a lifted blue-grey
+near-black albedo (`0x1b1b25`, roughness 0.62, metalness 0.2): the sun sits in FRONT of the boss (§1) so the camera-facing
+FACETS catch enough light to read on dark, while the mote is still far darker than the pale sky — no extra rim mesh
+needed. (The inverted-hull rim, L142, ALSO works but costs a draw per mote — and a per-mote 2-material array (one merged
+mesh, one draw) breaks the dissolve test, which reads `material.opacity` and gets NaN on an array. Lifted albedo is
+cheaper and cleaner.) (5) **G6 (focal leashes under shield) fails when the ADDITIVE SHIELD RIM blooms brighter than the
+tiny leashed eye.** The idle bright cluster is a pinpoint (0.22%); a normal shield rim adds MORE bright pixels than that,
+so the ratio inverts. Fix (the EITHERWING idiom): drop `shieldRimStrength` (0.26) + raise `shieldCageOpacity` (0.44) so
+the faceted WIREFRAME carries the shield read, AND HIDE the ultra-hot eye core entirely under the shield (`eyeCore.visible
+&& !shieldClamp`) — the focal must actually go dark, not just dim.
+
+**Gotcha.** A declared `def.setpieces` MUST have a `SETPIECE_PATHS` entry or the lifecycle test fails ("setpiece
+played") — an un-pathed setpiece is silently skipped. THRUMSWARM's two setpieces (condensePass + Your-Own-Wings) genuinely
+need CP2 (the dread flyby replays the player's RECORDED path via the ring buffer), so they were DEFERRED out of the def
+rather than stubbed — the dread spell CARD still resolves per-phase without a movement path. Don't declare engine you
+haven't wired.
+
+**Pattern.** Studio-first paid again: the bird-V wing, the dark-sky vanish, and the G6 shield-bloom were all caught and
+fixed on deterministic re-renders before any in-game work — three fixes, zero debugging sessions.
+
+### L163 — THRUMSWARM CP2: a swarm is a STATE→FORMATION driver, and the model must expose its LIVE read
+
+**Did.** Wired slot 7's integration (all def-gated, byte-inert for other bosses): the condense/scatter CYCLE +
+formation transitions (a `driveSwarm(dt)` before `model.tick` maps the fight state → formation + condense: CONDENSED
+while a volley winds up/flies, SCATTERED at the phrase rest); chip-only-while-condensed (`condenseInvuln`); the
+SCATTER-STAGGER parry (3 amber parries lock it condensed 2.5s); ABSORB-A-COLOR (the swarm sheds surge-pink soak motes —
+one additive `THREE.Points` cloud — that feed Surge on touch via `bulletGraze`); the §5e input/pose RING BUFFER + the
+condensePass/Your-Own-Wings setpieces (the dread card replays the player's recorded flight path, clamped to the arena).
+
+**Learned.** (1) **The chip-invuln gate needs the model's LIVE eased value, not its target.** `condenseLevel()` returns
+the target `condenseK`; the gate needs the *eased* `condIn` the tick actually rendered, so the model exposes
+`condenseLive()` (stored each tick). Gating on the target would let chip through a frame before the shape formed (or
+block it a frame after it dispersed). (2) **A hard invuln gate doubles TTK — make it a phrase-rest PULSE.** Chip-only-
+while-condensed with a per-attack condense cycle negated ~40% of chip (104s→163s). A `condHold` (~1.1s past the last
+shot) keeps the swarm exposed through the dense ostinato so the invuln is a brief flicker at the rests, not a half-fight
+gate (back to ~107s). "Invulnerable" as a light rhythmic tell reads better than as a wall. (3) **A per-frame state
+driver and a capture PIN fight over the model** — `driveSwarm` forced scatter every frame, silently overriding the
+debug setpiece-pin that freezes the meme frame for a still (the pinned dragon rendered as scatter). Any per-frame driver
+must defer to the capture pins (`if (debugSetpiecePin) return`). Same class as the L153 ambient-drift-inflates-G5 trap:
+a background system quietly overwrites the thing you're trying to observe. (4) **The dread eye must CONTAIN in-game too**
+— the CP1 dragon-mode eye-crush (L162) only fired when `setSetpiece` saw `dread`; the capture pin passes `{id}` without
+it, so the model now recognizes the setpiece by id — otherwise the live meme frame reverts to the lamp-headed read the
+design gate rejected.
+
+**Gotcha.** THRUMSWARM's deep-dilate entrance (2.8s @0.24×) crawls under headless rAF throttle (L105), stalling capture
+tools for minutes — hollowgate's 0s-hijack entrance never hit this. Added a capture-only `debugForceFight()` that snaps
+straight to the fight phase at station; reusable for any future deep-dilate entrance.
+
+**Pattern.** The engine-slot recipe held again: every system landed def-gated (`condenseInvuln`, `grazeForm`, the
+formation tables) or neutral, so all six shipped-boss lifecycle sims + the legacy-fallback gate stayed green untouched,
+and the 7-boss gauntlet still clears (its frame budget rose for the 7th boss).
