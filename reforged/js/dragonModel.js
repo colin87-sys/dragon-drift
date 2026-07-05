@@ -174,6 +174,9 @@ export function buildDragonModel(def, opts = {}) {
     if (torsoResult.mats.eyeMat) eyeMat = torsoResult.mats.eyeMat;
   }
   const torsoCoreGlow = torsoResult.coreGlow ?? null;
+  // Assert-metadata contract (§6.4): a torso may publish a world-space spine
+  // polyline (line-of-action asserts). Additive + nullable — other torsos omit it.
+  const spinePoints = torsoResult.spinePoints ?? null;
   // A segmented torso (the centipede-wyrm) returns its plate Groups so the rig
   // sways them as a lead-first travelling wave (see dragon.js / makePreviewTick).
   const bodySegs = torsoResult.bodySegs ?? null;
@@ -226,6 +229,9 @@ export function buildDragonModel(def, opts = {}) {
   const headResult = getHeadBuilder(recipe.head)(def, model, { bodyMat, hornMat, bellyMat, scalesMat, eyeMat });
   const head = headResult.group;
   for (const m of headResult.spineMats) spineMats.push(m);
+  // Motif socket (§6.3): a head may publish its motif anchor (position invariance
+  // + bloom-volume asserts). Additive + nullable.
+  const motifAnchor = headResult.motifAnchor ?? null;
   const hb = attach.headBase;
   head.position.set(hb.x, hb.y, hb.z);
   group.add(head);
@@ -293,6 +299,7 @@ export function buildDragonModel(def, opts = {}) {
     wingPivotL, wingPivotR, wingTipL, wingTipR,
     tipMarkerL, tipMarkerR, wingPivot2L, wingPivot2R,
     wingRigL, wingRigR, wingMidL, wingMidR, wingYokeL, wingYokeR,
+    wingBladePivotsL, wingBladePivotsR, wingElements,
   } = wingsResult.parts;
   // Night-Fury grows its bat-tail fins + tail-bone whip chain INSIDE the wings
   // builder (the tail is part of the continuous hull, not a bolted tail module), so
@@ -373,7 +380,7 @@ export function buildDragonModel(def, opts = {}) {
 
     return {
       group: wrapper,
-      parts: { head, tailSegs, tailFins, spineSegs, bodySegs, tailOrbiters, riderSocket, wingYokeL, wingYokeR, wingPivotL, wingPivotR, wingMidL, wingMidR, wingTipL, wingTipR, wingPivot2L, wingPivot2R, tipMarkerL, tipMarkerR, wingRigL, wingRigR, coreGlow },
+      parts: { head, tailSegs, tailFins, spineSegs, bodySegs, tailOrbiters, riderSocket, wingYokeL, wingYokeR, wingPivotL, wingPivotR, wingMidL, wingMidR, wingTipL, wingTipR, wingPivot2L, wingPivot2R, tipMarkerL, tipMarkerR, wingRigL, wingRigR, coreGlow, wingBladePivotsL, wingBladePivotsR, wingElements, spinePoints, motifAnchor },
       materials: { bodyMat, wingMat, eyeMat, spineMats },
       auraSprite,
     };
@@ -391,6 +398,7 @@ export function buildDragonModel(def, opts = {}) {
       tipMarkerL, tipMarkerR,
       wingRigL, wingRigR,
       coreGlow,
+      wingBladePivotsL, wingBladePivotsR, wingElements, spinePoints, motifAnchor,
     },
     materials: { bodyMat, wingMat, eyeMat, spineMats },
     auraSprite,

@@ -21,6 +21,8 @@ export const DRAGONS = {
     rarity: 'R',
     maxRarity: 'SSR',   // starter: evolution caps at SSR, never SSSR
     cost: 0,
+    accentHue: 0xd9b36a,
+    parts: { wings: 'bladeFeatherWings' },
     // The humble free starter: the smallest, NARROWEST, cleanest wings in the
     // roster (a nimble messenger), so the premiums feel rare. Sky-blue + gold.
     stats: { speed: 1.0, handling: 1.0, drain: 1.0, regen: 1.0 },

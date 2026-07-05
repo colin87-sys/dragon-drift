@@ -1,0 +1,53 @@
+<!DOCTYPE html><html><head><meta charset="utf-8"/>
+<style>html,body{margin:0;background:#14121a}</style>
+<script type="importmap">{ "imports": { "three": "/lib/three.module.js" } }</script></head>
+<body>
+<canvas id="montage" width="1600" height="440"></canvas>
+<canvas id="gl" width="440" height="440" style="display:none"></canvas>
+<script type="module">
+import * as THREE from 'three';
+import { DRAGONS } from '/js/dragons.js';
+import { ascendedDef } from '/js/ascension.js';
+import { buildDragonModel } from '/js/dragonModel.js';
+import { setFlapDebugPose } from '/js/dragonDebugPose.js';
+const gl = document.getElementById('gl');
+const renderer = new THREE.WebGLRenderer({ canvas: gl, alpha: true, antialias: true, preserveDrawingBuffer: true });
+renderer.setPixelRatio(2); renderer.toneMapping = THREE.ACESFilmicToneMapping;
+const scene = new THREE.Scene();
+const camera = new THREE.PerspectiveCamera(50, 1, 0.1, 100);
+scene.add(new THREE.HemisphereLight(0xbfdcff, 0x2e3448, 1.0));
+const keyL = new THREE.DirectionalLight(0xffe0b0, 1.8); keyL.position.set(2.5, 3, 4); scene.add(keyL);
+const rimL = new THREE.DirectionalLight(0x7fb8ff, 0.9); rimL.position.set(-3, 1.5, -3); scene.add(rimL);
+let current=null;
+const views = {
+  rear:  new THREE.Vector3(0.06, 0.30, 0.95),
+  rear34:new THREE.Vector3(0.55, 0.32, 0.78),
+  top:   new THREE.Vector3(0.02, 0.98, 0.18),
+  side:  new THREE.Vector3(0.98, 0.12, 0.06),
+};
+window.render = (key, tier, pose) => {
+  const m = document.getElementById('montage'); const ctx = m.getContext('2d');
+  ctx.fillStyle='#14121a'; ctx.fillRect(0,0,m.width,m.height);
+  const def = ascendedDef(DRAGONS[key], tier, 0);
+  const names = Object.keys(views);
+  let i=0;
+  for (const nm of names) {
+    if (current){ scene.remove(current); current.traverse(o=>{if(o.geometry)o.geometry.dispose();}); }
+    const { group, parts } = buildDragonModel(def, {});
+    setFlapDebugPose(parts, pose||'glide');
+    current = group; scene.add(group); group.updateMatrixWorld(true);
+    const box = new THREE.Box3().setFromObject(group);
+    const c = box.getCenter(new THREE.Vector3()); const sz = box.getSize(new THREE.Vector3());
+    const r = Math.max(sz.x,sz.y,sz.z)*0.5||3;
+    const dist = r/Math.tan(camera.fov*Math.PI/360)*1.5;
+    camera.position.copy(c).addScaledVector(views[nm].clone().normalize(), dist);
+    camera.lookAt(c); renderer.render(scene, camera);
+    ctx.drawImage(gl, i*400+5, 8, 390, 390);
+    ctx.fillStyle='#ffd86a'; ctx.font='bold 20px sans-serif'; ctx.textAlign='center';
+    ctx.fillText(nm, i*400+200, 425);
+    i++;
+  }
+  return true;
+};
+window.__ready = true;
+</script></body></html>
