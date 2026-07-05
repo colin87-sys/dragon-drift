@@ -10,6 +10,7 @@ import { upgradeMasterChain } from './sfxLimiter.js';
 import { snapToChord, chordLadder, nextGridDelay } from './harmony.js';
 import { INSTS } from './insts.js';
 import { sectionAt, chooseSection, melodyVariant } from './composer.js';
+import { on } from './events.js';
 
 export { TRACKS };
 
@@ -32,6 +33,7 @@ export function getAudioHealth() {
     kitBaked: !!(bakedKit && bakedKit.trackId === TRACKS[trackIndex].id),
     beatClock: !!getBeatClock(),
     harmony: !!getHarmony(),
+    bossActive, bossSemitones,
   };
 }
 
@@ -443,7 +445,7 @@ export function getHarmony() {
   if (!(barLen > 0) || !Number.isFinite(sinceLoop) || sinceLoop < 0) return null;
   const bar = Math.floor(sinceLoop / barLen) % 8;
   const tr = TRACKS[trackIndex];
-  const km = Math.pow(2, biomeSemitones / 12);
+  const km = Math.pow(2, (biomeSemitones + bossSemitones) / 12);
   return { chord: tr.arps[bar % 4].map((f) => f * km), bar };
 }
 
@@ -601,6 +603,24 @@ export const sfx = {
       tone({ freq: 440, end: 680, dur: 0.12, type: 'triangle', vol: 0.09 });
       tone({ freq: 900, dur: 0.14, type: 'sine', vol: 0.04, delay: 0.02 });
     }
+  },
+  // Boss stinger: a low, dark brass-ish swell — the "menace arrives" accent
+  // when a boss appears or advances a phase. Key-aware (roots on the station's
+  // current chord, so it lands IN the music) and drops onto the next beat via
+  // the beat grid. `depth` (phase) makes later phases lower + grittier.
+  bossStinger(depth = 0) {
+    const a = getCtx();
+    if (!a) return;
+    const d0 = toGrid16();
+    const base = inKey(98) * Math.pow(2, -Math.min(depth, 3) / 12);   // sink a semitone per phase
+    // Low fifth-stacked swell (power-chord menace) + a noise swell under it.
+    [1, 1.5, 2].forEach((mult, i) => {
+      const f = base * mult;
+      tone({ freq: f, end: f * 0.98, dur: 0.9 - i * 0.1, type: i === 0 ? 'sawtooth' : 'triangle',
+        vol: (i === 0 ? 0.14 : 0.07) + depth * 0.01, delay: d0 + i * 0.015 });
+    });
+    tone({ freq: base * 0.5, dur: 1.0, type: 'sine', vol: 0.12, delay: d0 });   // sub
+    noiseWhoosh({ from: 300, to: 90, dur: 0.8, vol: 0.1, q: 0.7, delay: d0 });   // dark riser-down
   },
   // Chip/reflect pinging off boss armour: a short, quiet metallic clang so the
   // player reads "that's bouncing off — charge Surge instead" (fires ~2/s, kept low).
@@ -969,6 +989,13 @@ const SCHED_INTERVAL = 100; // ms between scheduler runs
 
 let LOOP_LEN = 64 * E8; // total loop duration in seconds (per track)
 let biomeSemitones = 0; // biome key shift, applied at loop boundaries
+// Boss music state (§ boss fights): the fight darkens the SAME station rather
+// than swapping tracks — transpose DOWN per phase (heavier register) + darker
+// filters + hold the arrangement at its climax. All applied at the next loop
+// boundary (no mid-bar lurch) and cleared on defeat/run-end.
+let bossActive = false;
+let bossSemitones = 0;  // downward transpose (−2 per phase, floor −6)
+let bossBright = 1;     // filter-brightness scale (<1 = darker/more menacing)
 let drumEnergy = 0;     // 0..1 BPM-driven kit punch / bass thickness
 let pumpAmt = 0;        // sidechain depth: 0 (no pump) .. ~0.42 (hard four-on-floor)
 let loopCount = 0;      // which 8-bar loop we're on — drives fills/crash/humanize variation
@@ -1206,9 +1233,13 @@ function buildEvents() {
   // base section, so this is the same 8-bar loop as before. The vote is read
   // once per wrap — the decision governs a whole section, never mid-phrase.
   const section = chooseSection(tr, formPass, gameVote);
-  const c = compileTrack(tr, loopCount, biomeSemitones, section);
+  // Boss mode transposes the whole track down + darkens the filters. Applied
+  // here in the LIVE wrapper (not compileTrack) so the offline calibration —
+  // which never has a boss — stays pure and the trims are unaffected.
+  const c = compileTrack(tr, loopCount, biomeSemitones + bossSemitones, section);
   E8 = c.E8; LOOP_LEN = c.LOOP_LEN; drumEnergy = c.drumEnergy; pumpAmt = c.pumpAmt;
-  mixReverb = c.mixReverb; mixWidth = c.mixWidth; mixDrive = c.mixDrive; mixBright = c.mixBright;
+  mixReverb = c.mixReverb; mixWidth = c.mixWidth; mixDrive = c.mixDrive;
+  mixBright = c.mixBright * bossBright;
   mixTrimDb = c.mixTrimDb;
   return c.events;
 }
@@ -1882,6 +1913,7 @@ export const music = {
   stop() {
     musicActive = false;
     gameVote = null;   // stale run intensity must not steer the next session's form
+    bossActive = false; bossSemitones = 0; bossBright = 1;  // clear any boss darkening
     stopScheduler();
     stopWindSource();
   },
@@ -2000,9 +2032,10 @@ export const music = {
       (game.feverActive ? 0.15 : 0));
     // Publish the intensity vote for the section chooser: Dragon Surge is an
     // outright "hold the drop" (1.0); otherwise the smoothed energy scalar.
-    // Read once per loop-wrap in buildEvents — a boundary decision, not a
-    // per-frame one, so the form never lurches mid-phrase.
-    gameVote = game.feverActive ? 1 : energy;
+    // A boss fight FLOORS the vote high so the arrangement stays at its climax
+    // for the whole encounter. Read once per loop-wrap in buildEvents — a
+    // boundary decision, not per-frame, so the form never lurches mid-phrase.
+    gameVote = game.feverActive ? 1 : (bossActive ? Math.max(energy, 0.85) : energy);
     const band = (lo, hi) => {
       const x = Math.max(0, Math.min(1, (energy - lo) / (hi - lo)));
       return x * x * (3 - 2 * x); // smoothstep
@@ -2027,6 +2060,30 @@ export const music = {
     }
   },
 };
+
+// --- Boss music state -------------------------------------------------------
+// The music darkens the SAME station through a fight (never a track swap): a
+// stinger on arrival + each phase, a downward transpose and darker filters that
+// deepen per phase, and the arrangement held at its climax (the vote floor in
+// music.update). Tonal changes land at the next loop boundary (buildEvents runs
+// every wrap), so they arrive on a downbeat, not mid-bar. Cleared on
+// defeat/flee/run-end. Reads only game events — no boss ever depends on audio.
+function setBossPhase(depth) {
+  bossActive = true;
+  bossSemitones = -2 * Math.min(depth, 3);   // sink up to −6 semitones
+  bossBright = 1 - 0.06 * Math.min(depth, 3); // filters close ~18% by the last phase
+  sfx.bossStinger?.(depth);
+}
+function clearBossMusic() {
+  if (!bossActive) return;
+  bossActive = false;
+  bossSemitones = 0;
+  bossBright = 1;
+}
+on('bossStart', () => setBossPhase(0));
+on('bossPhase', (e) => setBossPhase(((e && e.phase) || 1) - 1));  // event phase is 1-based
+on('bossDefeated', clearBossMusic);
+on('bossEnd', clearBossMusic);
 
 // ---------------------------------------------------------------------------
 // Render seam — dev tooling only (tools/loudshots.mjs, tools/bounce.mjs drive

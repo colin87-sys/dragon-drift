@@ -6580,3 +6580,28 @@ the mechanism (the delay is ~unity gain); route it in series, not parallel. One 
 
 **Pattern.** Genre character that's data-only (an `irPreset` string on the shared MIX preset) scales to the
 whole roster for free and needs no per-station authoring — the same leverage as the groove grids (L149).
+
+### L159 — Audio P7: boss-fight music states (darken the SAME station) + forms rolled to 9 stations
+
+**Did — boss music.** A fight now transforms the playing station instead of swapping tracks: `sfx.js`
+subscribes to the boss event bus (`bossStart`/`bossPhase`/`bossDefeated`/`bossEnd` — all already emitted by
+boss.js) and applies, per phase: a downward transpose (`bossSemitones` −2/phase, floor −6 — heavier
+register), darker filters (`bossBright` closes ~18% by the last phase), a key-aware **stinger** on arrival +
+each phase (power-chord menace, dropped onto the next beat via the grid), and a **vote floor** (0.85) so the
+arrangement holds its climax for the whole encounter. Cleared on defeat/flee/run-end.
+**Learned:** the transform lives in the LIVE wrapper (`buildEvents` folds `bossSemitones` into the key,
+scales `mixBright` by `bossBright`) — NOT in `compileTrack` — so the offline calibration (which never has a
+boss) stays pure and the trims/gate are untouched. Same discipline as the section vote: boss mode reads
+game events only, never the reverse, and tonal shifts land at the next loop boundary (a downbeat), while the
+stinger hits immediately — mood on the phrase, punch on the frame.
+
+**Did — forms rolled out.** Authored 6 more song forms (hypernova/trance, driftking/synthwave, crown/bigroom,
+bloom/futurebass, solarc/hardstyle, slips/liquid) → **9 stations are now songs** (with neon/stratos/storm).
+**Learned:** a well-balanced form (breakdown energy ~0.3 against drop energy 1.0) is loudness-NEUTRAL — all
+six landed within 0.1 LU of −16 with NO re-trim, because the quiet sections offset the loud ones in the
+integrated measure. Only the metrics/`seconds` in the baseline changed (longer songs), not the trims. Third
+confirmation of the L158 rule: measure first, re-trim only what drifts.
+
+**Pattern.** Both features are pure event-consumers with a single seam each — boss music on the event bus,
+forms as opt-in track data — so the roster's un-formed stations and the whole offline calibration path are
+provably unaffected. That's what let two "big" features land in one increment without a calibration cycle.

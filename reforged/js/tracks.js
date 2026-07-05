@@ -393,6 +393,13 @@ export const TRACKS = [
     desc: 'Euphoric golden hardstyle hymn',
     cost: 800,
     bpm: 130,
+    sections: {
+      A:    {},
+      brk:  { bars: 4, mute: ['perc2', 'high', 'arp'], energy: 0.4 },
+      bld:  { bars: 4, energy: 0.7, riser: true },
+      drop: { energy: 1.0, crash: true },
+    },
+    form: ['A', 'A', 'brk', 'bld', 'drop', 'A', 'drop'],
     voices: {
       melody: { osc: 'sawtooth', vol: 0.15, stack: 'detune' },
       bass:   { osc: 'sawtooth', vol: 0.17 },
@@ -486,6 +493,13 @@ export const TRACKS = [
     desc: 'Girl-crush EDM-trap — sub-808 menace',
     cost: 800,
     bpm: 142,
+    sections: {
+      A:    {},
+      bld:  { bars: 4, mute: ['perc2', 'high'], energy: 0.6, riser: true },
+      drop: { energy: 1.0, crash: true },
+      brk:  { bars: 4, mute: ['perc', 'perc2', 'perc3', 'bass', 'arp'], energy: 0.3 },
+    },
+    form: ['A', 'bld', 'drop', 'brk', 'bld', 'drop', 'drop', 'A'],
     voices: {
       melody: { osc: 'sawtooth', vol: 0.14, stack: 'detune', inst: 'supersaw' },
       bass:   { osc: 'sine', vol: 0.28 },
@@ -721,6 +735,13 @@ export const TRACKS = [
     cost: 800,
     bpm: 100,
     swing: 0.14,
+    sections: {
+      A:    {},
+      bld:  { bars: 4, mute: ['perc2'], energy: 0.6, riser: true },
+      drop: { energy: 1.0, crash: true, melVariant: 1 },
+      brk:  { bars: 4, mute: ['perc', 'perc2', 'perc3'], energy: 0.4 },
+    },
+    form: ['A', 'bld', 'drop', 'brk', 'bld', 'drop'],
     voices: {
       melody: { osc: 'triangle', vol: 0.18, stack: 'octave', inst: 'supersaw' },
       bass:   { osc: 'sine', vol: 0.26 },
@@ -773,6 +794,13 @@ export const TRACKS = [
     cost: 800,
     bpm: 174,
     swing: 0.08,
+    sections: {
+      A:    {},
+      brk:  { bars: 4, mute: ['perc', 'perc2', 'bass'], energy: 0.35 },
+      bld:  { bars: 4, mute: ['high'], energy: 0.6, riser: true },
+      drop: { energy: 1.0, crash: true },
+    },
+    form: ['A', 'drop', 'brk', 'bld', 'drop', 'A'],
     voices: {
       melody: { osc: 'triangle', vol: 0.16, inst: 'supersaw' },
       bass:   { osc: 'sawtooth', vol: 0.17 },
@@ -917,6 +945,13 @@ export const TRACKS = [
     desc: 'Touge racing — detuned saw hook',
     cost: 800,
     bpm: 140,
+    sections: {
+      A:    {},
+      bld:  { bars: 4, mute: ['perc2', 'high'], energy: 0.6, riser: true },
+      drop: { energy: 1.0, crash: true },
+      brk:  { bars: 4, mute: ['perc', 'perc2', 'bass'], energy: 0.35 },
+    },
+    form: ['A', 'A', 'bld', 'drop', 'brk', 'bld', 'drop', 'drop'],
     voices: {
       melody: { osc: 'sawtooth', vol: 0.14, stack: 'detune', inst: 'supersaw' },
       bass:   { osc: 'sawtooth', vol: 0.17 },
@@ -1395,6 +1430,14 @@ export const TRACKS = [
     desc: 'Uplifting trance — euphoric supersaw',
     cost: 800,
     bpm: 138,
+    sections: {
+      A:    {},
+      brk:  { bars: 4, mute: ['perc', 'perc2', 'perc3', 'bass'], energy: 0.3 },
+      bld:  { bars: 4, mute: ['high', 'perc2'], energy: 0.65, riser: true },
+      drop: { energy: 1.0, crash: true },
+      lift: { energy: 1.0, crash: true, melVariant: 1 },
+    },
+    form: ['A', 'drop', 'brk', 'bld', 'drop', 'lift', 'brk', 'bld', 'lift'],
     voices: {
       melody: { osc: 'sawtooth', vol: 0.14, stack: 'detune', inst: 'supersaw' },
       bass:   { osc: 'sawtooth', vol: 0.17 },
