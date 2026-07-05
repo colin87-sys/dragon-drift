@@ -75,12 +75,12 @@ export const ENTRANCE_SCRIPTS = {
   // in the eitherwing model's setEntrance(u); this script owns the group path, camera feed,
   // slow-mo window, and banner. eyeLock OFF (the eye does its own crossing, not a dragon-track).
   batonCross: {
-    dur: 1.1,
-    skipTo: 0.82,              // skip → the scissor/settle (the eye still ends on the LEFT twin)
+    dur: 1.5,                  // a touch longer + more frames so the cross + scissor read smoothly (owner: "needs more frames")
+    skipTo: 0.78,              // skip → the scissor/settle (the eye still ends on the LEFT twin)
     anchorToDragon: true,      // the brackets frame the dragon's start position
     initYaw: 0,                // the group stays upright/forward; the twins face inward themselves
     eyeLock: false,
-    slowWindow: { uIn: 0.24, uOut: 0.86, depth: 0.42 },   // the crossing dwells in bullet-time (~1.6s wall)
+    slowWindow: { uIn: 0.22, uOut: 0.9, depth: 0.5 },   // the crossing dwells in bullet-time
     announce: { title: '⟶  TWO HALVES  ⟵', sub: 'ONE EYE BETWEEN THEM', tone: 'gold', dur: 1.8 },
     _cross(u) { const k = clamp01((u - 0.32) / 0.52); return k < 0.5 ? 2 * k * k : 1 - Math.pow(-2 * k + 2, 2) / 2; },
     // The group holds at the bracket distance (rel 14) beside the dragon, then eases back to
@@ -100,7 +100,9 @@ export const ENTRANCE_SCRIPTS = {
     // us" read). The orb rides rel ~12 (a touch nearer than the rel-14 brackets).
     camera(u, pose, player) {
       const orbLocalX = (1 - 2 * this._cross(u)) * 8;   // +8 (right twin) → −8 (left twin)
-      return { k: u, bx: pose.x + orbLocalX, by: pose.y + 1, bz: -(player.dist + 12) };
+      // chaseCam: the camera stays in the normal chase (the twins bracket AHEAD and fit the
+      // frame); only main.js's dragon-look reads bx to sweep the head with the crossing eye.
+      return { k: u, bx: pose.x + orbLocalX, by: pose.y + 1, bz: -(player.dist + 12), chaseCam: true };
     },
   },
 };

@@ -646,7 +646,7 @@ export function buildTwinWraith(def, quality = 1) {
     const spread = Math.min(1, age / 1.6);
 
     // --- The figure-eight orbit (drifting centre). Frozen under a shield/death. ---
-    const moving = !shieldClamp && dyingK <= 0;
+    const moving = !shieldClamp && dyingK <= 0 && entranceU == null;   // freeze the orbit clock during the Baton Cross so the fight starts cleanly from th=0
     if (moving) orbitPhase += dt * (0.55 + charge * 0.25 + setpieceK * 0.3);
     const cx = Math.sin(time * 0.19) * 0.6;            // the slow centre drift
     const cy = Math.sin(time * 0.13) * 0.4;
@@ -682,11 +682,12 @@ export function buildTwinWraith(def, quality = 1) {
       // at x ±8 (twinA RIGHT, twinB LEFT), the EYE detaches and crosses right→left across
       // the FULL portrait width, then both SCISSOR into the figure-eight as the fight opens.
       const u = entranceU;
-      const slide = easeK(clamp(u / 0.3, 0, 1));                 // 0→1: slide in from off-frame ±16 to the ±8 bracket
-      const scissor = easeK(clamp((u - 0.82) / 0.18, 0, 1));    // last 18%: ease the ±8 brackets in toward the orbit start
-      const bx8 = (16 + (8 - 16) * slide) * (1 - scissor) + ORBIT_R * 0.9 * scissor;   // ±16 → ±8 → orbit-start x
+      const slide = easeK(clamp(u / 0.3, 0, 1));                 // 0→1: slide in from off-frame ±13 to the ±8 bracket
+      const scissor = easeK(clamp((u - 0.66) / 0.34, 0, 1));    // last third: ease the ±8 brackets IN toward centre (the
+      // figure-eight's th=0 seat) so the fight opens with NO jump — moving is frozen above, so the orbit resumes from th=0.
+      const bx8 = (13 + (8 - 13) * slide) * (1 - scissor);      // ±13 → ±8 → ~0 (converge into the scissor); ×(1−scissor) lands at centre
       const yB = Math.sin(u * Math.PI) * 0.4;                    // a shallow arc so the slide-in isn't a flat rail
-      posA = [bx8, yB, 0]; posB = [-bx8, yB, 0];                  // twinA RIGHT (+x), twinB LEFT (−x)
+      posA = [bx8, yB, ZSEP * scissor]; posB = [-bx8, yB, -ZSEP * scissor];   // twinA RIGHT, twinB LEFT; ease into the ±ZSEP depth as they scissor to centre (no overlap)
       // The eye crosses right→left over the middle beat (0.32→0.84): holdT 0 (A/right holds)
       // → 1 (B/left catches). Pinned (no lag/random) so the beaded thread reads as one taut
       // line spanning the pair. The rim IGNITION rides holdT via the aHolds body-glow below.

@@ -190,7 +190,11 @@ export const cameraCtl = {
     // you), then blend home to the normal chase as it pulls ahead. Deterministic,
     // camera-only. rearEnv 1→0 across the pivot moves the camera from an ahead/high
     // "look-back" pose to the normal chase pose.
-    if (overtake) {
+    if (overtake && !overtake.chaseCam) {
+      // §5j chaseCam: a hijack can keep the NORMAL chase camera (spends the hijack
+      // "invisibly" — EITHERWING's Baton Cross) while STILL feeding overtakeState so
+      // main.js sweeps the dragon's head with the crossing eye. Such a state skips this
+      // rear-look block and falls through to the normal chase below.
       // §5j: the rear-look pose endpoints, pivot/blend, look weighting, and FOV target are
       // the DEFAULTS of ASHTALON's overtake — a hijack script can override any of them via
       // its setOvertake state (defaults preserve ASHTALON byte-for-byte; EITHERWING's Baton
