@@ -5877,19 +5877,30 @@ states, and cleared `bossgate --studio` G1–G7 (one shield-leash fix). Registry
 NO identity alone — the read lives entirely in the authored slot tables they lerp between. The elegant resolve of "~30
 YOUR-DRAGON slots but only 28 motes": the QUEEN is the dragon's SKULL (her amber eye = the dragon's eye), the 28 motes
 are wings/body/tail/rider. One focal that MIGRATES between formations (centre of the cloud → the copy's head) does two
-jobs with one part. (2) **The meme frame is a POINT-CLOUD silhouette — author it like a DOODLE, and it needs DENSITY.** The
-independent Fable design gate FAILED the whole CP1 on this one frame (everything else passed): my first two passes read
-as a jellyfish/sparkler, not a dragon. Two things fixed it. FIRST, author the motes on the dragon's SILHOUETTE LANDMARKS,
-not an even interior scatter — a HEAD CLUSTER framing the glowing queen (crest + horns + jaw so the head reads as a
-dragon HEAD, not a lantern with dots near it), a connected head→neck→body→tail SPINE, wings spread WIDE and near-
-HORIZONTAL (not a bird's up-swept V, not a downward Y), and a SHORT tapering tail (a long dangling tail dominates and
-reads as "spray"). SECOND — and this was the real unlock — **28 points cannot fill a wing MEMBRANE; raise the count.**
-Each wing needs a ~12-point FILLED triangle (leading edge + trailing scallops + interior fill) or it reads as two thin
-dotted lines. Bumped MOTE_N 28→40 (Fable explicitly sanctioned "raise the count for the condense stage"; still ~54 draws
-≪ the tier-3 70 gate — geometry is free, L126). Order the slots so the lowQ drop sheds legs/tail/rider LAST — the
-essential dragon (head + body + BOTH full 12-point wings = the first 32 slots) survives at q0.5. The lesson: a spec tri/
-part COUNT is a floor, not a law — when the identity frame doesn't read, spend the parts (§5g), and get an INDEPENDENT
-eye on the hook before believing it lands (my own "it reads as a dragon" was wrong twice). (3) **A
+jobs with one part. (2) **The meme frame is a POINT-CLOUD silhouette — and it took FIVE Fable rounds + a full pose PIVOT to land.** This
+is the load-bearing lesson of the whole build: the independent Fable design gate FAILED the meme frame FOUR times before
+PASS, and every one of my own "surely it reads as a dragon now" self-judgments was wrong. The failures, in order, and
+what each taught:
+  - **r1 (jellyfish):** an even interior scatter with up-swept sparse wings + a long dangling central tail → reads as a
+    bird/jellyfish. Author on the SILHOUETTE LANDMARKS, not a fill.
+  - **r2 (dotted lines):** 40 points over a ~12u wingspan leave gaps several × the mote width, so the wings DOT OUT into
+    lines. Fix: raise the count AND the mote SIZE (both free, L126/L140) so adjacent motes are ≤1 mote-width apart —
+    Gestalt-closure needs density. A spec part COUNT is a floor, not a law (§5g).
+  - **r3 (moth):** even a DENSE front-on symmetric winged shape reads as a moth/thunderbird — a front elevation of a
+    winged creature is inherently ambiguous. **PIVOT to a SIDE PROFILE** — the unmistakable dragon doodle (neck → skull,
+    one wing up, a long tapering tail the other way). The tail is the single strongest "dragon-not-bird" cue.
+  - **r4 (a lamp with wings):** the brightest, most central element was the bone-white QUEEN LANTERN, so the frame read
+    "glowing lamp + smoke," not "dragon head." The eye must be an EYE, not a light source. Fix: DRAGON-MODE dims/shrinks
+    the lantern AND crushes the amber eye to a contained ember BELOW the bloom threshold (hide the white-hot core) — the
+    eye is FOUND inside a dark skull, never seen first as a lamp. Also: void-black motes DIE on a dark sky, so LIFT the
+    near-black albedo + metalness (sunlit facets hold the silhouette on black while staying dark on the pale home sky).
+  - **r5 PASS:** side profile + horned skull + contained eye + dark-read motes + a tapering tail = a flying dragon on
+    both skies.
+The meta-lesson (louder than any single fix): **on the roster's designated hero frame, do NOT trust your own eye —
+gate it independently and iterate against the gate, however many rounds it takes.** The playbook's studio-first +
+independent-Fable protocol is not ceremony; it caught a hard miss five times that a self-check would have shipped. And
+the identity frame drove a spec change: §5d said "28 motes / a front-on copy"; it ships 48 motes / a side profile /
+a subordinated queen — recorded in the sheet + registry (a shipped axis that differs updates its row, §5b). (3) **A
 CONDENSED shape must go CRISP; a scattered one must MURMUR.** Scale the idle drift by `pow(1-condense, 1.4)` (→0 when
 condensed) but keep a tiny always-on shimmer (~0.06u) so the crisp copy still breathes (§3.7). (4) **A dark boss vanishes
 on the DARK studio backdrop unless its near-black is LIFTED.** Void-black motes (`0x08070c`) read beautifully on the

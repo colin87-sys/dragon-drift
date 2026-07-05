@@ -172,9 +172,9 @@ function yourDragonTable() {
     [8.6, 4.6, 0.3],   // 0 snout tip (forward)
     [7.8, 5.0, 0.3],   // 1 snout top
     [7.2, 4.6, 0.4],   // 2 snout bridge / nostril
-    [6.6, 5.7, 0.2],   // 3 brow (above the eye)
-    [5.9, 6.3, 0.1],   // 4 horn base
-    [5.0, 6.8, 0.0],   // 5 horn tip (swept back)
+    [6.5, 5.9, 0.2],   // 3 brow (above the eye)
+    [5.7, 6.9, 0.1],   // 4 horn base (pushed UP + back to break the head outline, Fable r5)
+    [4.6, 7.6, 0.0],   // 5 horn tip (swept back, clears the cluster against the sky)
     [7.0, 3.9, 0.4],   // 6 jaw
     [6.1, 4.2, 0.4],   // 7 cheek
     [5.3, 3.9, 0.3],   // 8 throat

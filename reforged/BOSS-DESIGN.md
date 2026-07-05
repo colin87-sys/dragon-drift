@@ -534,10 +534,13 @@ feasibility survey: at rel 30, on-screen centers within x ±15 / y 2..22 on port
   the first sheet said 28 — CP1 raised it, L157: 28 was too few to fill the meme frame's
   wing MEMBRANES; it read as a jellyfish. 40 lets each wing carry a 12-point filled
   triangle. Still ~54 draws ≪ the tier-3 70 gate) lerping between authored formation
-  tables: ring / wall / line / YOUR-DRAGON (the copy is authored as a front-on heraldic
-  dragon DOODLE — head-cluster around the queen-skull + two filled wing membranes +
-  spine + short tail + rider; the runtime hook `setYourDragonSlots()` can replace the
-  authored slots with the player model's own vertices at fight start — the meme frame).
+  tables: ring / wall / line / YOUR-DRAGON (the copy is authored as a SIDE-PROFILE flying
+  dragon DOODLE — a dark HORNED SKULL with the queen's amber eye set inside it as a
+  contained ember (the lantern DIMS in dragon-mode so it reads as an eye, not a lamp),
+  one big filled near-wing, a long tapering serpentine TAIL, a rider hump; the runtime
+  hook `setYourDragonSlots()` can replace the authored slots with the player model's own
+  vertices at fight start — the meme frame. L157: a front-on symmetric winged shape reads
+  as a moth; the SIDE PROFILE is the unmistakable dragon doodle).
   Chip damage only lands while condensed; shield phase = the swarm becomes a ring around
   YOU (L106 law: ring, never a filled volume). Void-black motes / star-white queen +
   amber eye. ~1.1k tris.
