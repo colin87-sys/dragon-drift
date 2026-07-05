@@ -5444,3 +5444,38 @@ TWICE: body presence AND first-contact drama (ASHTALON opens with the overtake; 
 doesn't exist until the CP2 entrance engine). New audit law: **grandeur comparisons must include first-contact
 drama — a slot without its entrance beat will always feel lesser than a slot with one, independent of
 geometry.** Judge drafts accordingly (or discount for it) before concluding a boss's body is the problem.
+
+### L143 — The §5j entrance engine: generalize a shipped cinematic without moving a float
+
+**Did / learned.** Lifted ASHTALON's hardcoded `updateFlythrough` into a data-driven
+`ENTRANCE_SCRIPTS` registry (`js/entranceScripts.js`) + a generic `updateEntrance` driver,
+then built EITHERWING's *Baton Cross* on it — all with ASHTALON replaying byte-for-byte. The
+technique that made a shipped-cinematic refactor safe:
+
+1. **Golden-trace the shipped output BEFORE touching it.** Captured ASHTALON's overtake
+   pose/tuck/yaw/gaze/slow at a u-grid (from the pre-refactor formulas, fixed player ref) into
+   a fixtures JSON, and wrote `tests/entrance.mjs` to assert the refactored script reproduces
+   it (max err 0). The registry is then free to grow — any drift on the exemplar fails loudly.
+2. **Data module with ZERO game deps.** `entranceScripts.js` imports nothing (pure Math), so
+   the test imports it directly — no browser/shim needed to pin the golden. The driver
+   (skip/slow-mo/setOvertake feed/enterFight) stays in boss.js; the per-boss path/tuck/yaw/
+   gaze/camera/announce are functions in the data.
+3. **Coexist by opt-in field.** `def.entrance` (an id) triggers the flythrough phase; the
+   legacy `cinematicEntrance` flag maps to `'overtake'`. Defs with neither keep the plain
+   approach. `setOvertake`'s pose endpoints/pivot/blend/FOV became `?? default` overrides in
+   the state object — overridable, but ASHTALON (passing none) is untouched.
+4. **Reuse the boss's own rig for the new cinematic.** The Baton Cross didn't need bespoke
+   entrance geometry — `setEntrance(u)` on the eitherwing model overrides `posA/posB`
+   (bracket→scissor) and pins `holdT` (the eye cross), reusing the existing twin/eye/thread
+   machinery. The camera + the dragon's head-strain came FREE by feeding the crossing ORB's
+   world-x as `setOvertake.bx` (main.js already drives `setDragonLook` from it).
+
+**The law this mints.** To generalize any shipped set-piece: golden-trace its output first,
+extract the math into a dep-free data module the test can import, and gate the new path behind
+an opt-in def field so the exemplar stays byte-identical. Never refactor a shipped cinematic
+without the golden gate in place first.
+
+**Gotcha.** The setpiece/entrance DEBUG PINS run in the FIGHT phase, so an entrance pin does
+NOT reproduce the live flythrough's cinematic camera/HUD — its stills read as a plain chase.
+Pins verify the model CHOREOGRAPHY (twins bracket, eye crosses) headlessly; the framing/camera
+feel must be judged on the live preview (or a live-flythrough capture), not the pinned still.
