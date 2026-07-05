@@ -902,9 +902,9 @@ function buildBladeFeatherWings(def, model, attach, giM) {
     // behind (gate r5 dir 4: mid-arm chord ≥0.35× longest blade). They lie FLAT on the wing
     // plane (dir 7: shingles, not upright cone-spikes — stand ≤0.05× blade length above the
     // spar) marching out along the arm with a clean ×0.8 size step (law 5).
-    const covN = 3, covChord = chordK * reach * 1.5;         // broad chord → real inner surface (dir 4); 3 keeps the apex under the tri ceiling
+    const covN = 3, covChord = chordK * reach * 1.4;         // broad chord → real inner surface; 3 keeps the apex under the tri ceiling
     for (let k = 0; k < covN; k++) {
-      const size = 0.66 * Math.pow(0.8, k);                  // ×0.8 step, bigger base so the inner fills
+      const size = 0.52 * Math.pow(0.8, k);                  // ×0.8 step; lower stack so the wing root stops dwarfing the body in side view (gate r10 dir 3)
       const cx = armLen * (0.06 + k * 0.18);                 // march OUT along the arm (inner 40%)
       const cy = cx * Math.tan(theta) + 0.01;
       const cz = cx * Math.tan(sweep) + 0.03;                // seat ON the spar, no float
