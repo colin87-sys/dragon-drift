@@ -64,12 +64,12 @@ import { createBossCommon, stripForMerge } from './bossKit.js';
 // Each table is MOTE_N mote slots [x,y,z] (local, pre-scale) + a queen slot. Authored
 // in the frontal x-y plane (the rail camera sees depth barely, §1) so every shape
 // reads as a black-fill emblem at 30m; z gives the field a little volume.
-// COUNT (§5d says "28"): CP1 raised it to 40 — the Fable design gate FAILED the meme
-// frame at 28 (too few points to fill the dragon's WING MEMBRANES; it read as a
-// jellyfish, L157). Fable sanctioned "raise the count for the condense stage." 40 lets
-// each wing carry a 12-point filled triangle (leading edge + membrane fill) so the
-// copy reads as a dragon; still trivial cost (40 draws ≪ the tier-3 70 gate; L126).
-const MOTE_N = 40;
+// COUNT (§5d says "28"): CP1 raised it to 44 — the Fable design gate FAILED the meme
+// frame twice (too few / too-sparse points to fill the dragon's WING MEMBRANES; it
+// read as a jellyfish, L157). Fable sanctioned "raise the count for the condense
+// stage." 44 BIGGER motes (see moteCore) packed into TIGHTER wing triangles fill the
+// membranes so the copy reads as a dragon; still ~58 draws ≪ the tier-3 70 gate (L126).
+const MOTE_N = 44;
 
 // A wide organic idle CLOUD — deterministic (index trig, no PRNG) so the studio
 // replays pixel-identical. Golden-angle spiral splayed WIDE (x ±13, y ±9) so the
@@ -154,41 +154,52 @@ function ringShieldTable() {
 // doodle test — a fresh viewer says "dragon" in under a second. Wingtips ±13.5 ×
 // scale 1.2 → ~32 world units → a GIANT copy that fills the frame (§3.1/§5d, L141).
 function yourDragonTable() {
-  // A WING as a FILLED triangular membrane (12 points): a LEADING EDGE arc (shoulder→
-  // tip, wide + near-horizontal), a scalloped TRAILING edge (tip→hip), and INTERIOR
-  // fill so the discrete points read as a solid membrane, not a dotted line. Authored
-  // for the LEFT wing; the right is a clean x-mirror (§3.6 symmetry reads as intent).
+  // A WING as a DENSELY-FILLED triangle (14 points in 4 rows): the LEADING EDGE + 3
+  // membrane rows packed so adjacent motes are ≤ ~1 mote-width apart — at fight
+  // distance discrete dots must Gestalt-CLOSE into a solid membrane, not dot out into
+  // a line (the CP1-r2 Fable FAIL: 12 points over a ~12u span left gaps several × the
+  // mote width). Tips pulled IN to ±10.5 (readable beats "giant-but-empty", Fable's
+  // fix) and BIGGER motes (moteCore) shrink the gaps. Authored LEFT; right x-mirrors.
+  // Wings RAISED to flank the head (a dragon-DISPLAYED pose: the head crowns two
+  // spread wings, body+tail below) so the head connects to the wing line instead of
+  // floating above a drooping bird-V (the CP1-r3 awkwardness). Leading edge tips
+  // slightly UP (a raised dragon wing, not a drooping one).
   const leftWing = [
-    // leading edge (shoulder → tip), tips rake back in z
-    [-2.3, 3.2, -0.2], [-5.4, 3.5, -0.5], [-8.3, 3.6, -0.8], [-11.2, 3.5, -1.1], [-14.0, 3.3, -1.4],
-    // trailing edge (tip → hip), scalloped (the wing's fingers)
-    [-11.6, 2.2, -1.1], [-8.6, 1.4, -0.8], [-6.0, 0.7, -0.5], [-3.6, -0.1, -0.3],
-    // interior membrane fill (so the triangle reads SOLID)
-    [-6.6, 2.5, -0.6], [-9.6, 2.6, -0.9], [-4.6, 1.5, -0.4],
+    // leading edge (shoulder → tip), sweeps out and slightly UP, tips rake back in z
+    [-2.0, 4.2, -0.2], [-4.2, 4.5, -0.5], [-6.4, 4.7, -0.8], [-8.5, 4.8, -1.1], [-10.6, 4.7, -1.4],
+    // mid membrane row
+    [-3.0, 3.2, -0.3], [-5.2, 3.4, -0.6], [-7.3, 3.5, -0.9], [-9.0, 3.5, -1.1],
+    // lower membrane row
+    [-3.5, 2.2, -0.2], [-5.6, 2.3, -0.5], [-7.3, 2.3, -0.7],
+    // trailing edge near the body (closes the triangle onto the torso)
+    [-3.1, 1.3, -0.2], [-4.9, 1.4, -0.3],
   ];
   const rightWing = leftWing.map(([x, y, z]) => [-x, y, z]);
   const motes = [
-    // HEAD CLUSTER (0–3) — frames the glowing queen skull so the head reads as a DRAGON head
-    [0.0, 7.0, 0.8],   // crest spike (above the skull)
-    [-1.1, 6.4, 0.6],  // horn L
-    [1.1, 6.4, 0.6],   // horn R
-    [0.0, 4.5, 0.9],   // jaw / chin (proud toward camera)
-    // NECK → BODY spine (4–7)
-    [0.0, 3.9, 0.3],   // neck
-    [0.0, 2.8, 0.0],   // chest
-    [0.0, 1.6, 0.0],   // belly
-    [0.0, 0.6, 0.0],   // lower belly
-    // BOTH WINGS (8–31) — the essential-read core: the lowQ 32-mote set is head+body+wings
-    ...leftWing,       // 8–19
-    ...rightWing,      // 20–31
-    // HAUNCH / clawed legs (32–33)
-    [-1.7, 0.1, 0.3], [1.7, 0.1, 0.3],
-    // TAIL (34–37) — SHORT, tapering, a slight asymmetric curl (the memory hook, §3.6), NOT a column
-    [0.3, -0.7, -0.2], [0.9, -1.7, -0.5], [1.4, -2.7, -0.8], [1.7, -3.6, -1.0],
-    // RIDER (38–39) — a hump on the neck/shoulders, proud toward camera (dragon AND rider, §5d)
-    [0.0, 3.3, 1.7], [0.0, 3.9, 1.9],
+    // HEAD CLUSTER (0–3) — crest + horns WIDE (±2.3) crowning the wings; the spiky head
+    // silhouette clears the queen lantern's bloom (the CP1-r2 FAIL: horns at ±1.1 vanished).
+    [0.0, 7.3, 0.7],   // crest spike
+    [-2.3, 6.4, 0.5],  // horn L (wide)
+    [2.3, 6.4, 0.5],   // horn R (wide)
+    [0.0, 4.2, 0.9],   // jaw / chin (bridges the head to the wing line)
+    // BODY — a WIDE 2-column mass (4–8) hanging BELOW the wings, NOT a single-file column
+    [-1.2, 2.7, 0.0],  // chest L
+    [1.2, 2.7, 0.0],   // chest R
+    [0.0, 1.7, 0.0],   // belly centre
+    [-1.1, 0.8, 0.0],  // belly L
+    [1.1, 0.8, 0.0],   // belly R
+    // BOTH WINGS (9–36) — the essential-read core: the lowQ 37-mote set is head+body+wings
+    ...leftWing,       // 9–22
+    ...rightWing,      // 23–36
+    // HAUNCH / clawed legs (37–38)
+    [-1.6, 0.0, 0.3], [1.6, 0.0, 0.3],
+    // TAIL (39–41) — SHORT, kicked to ONE side with a GAP from the body (never a central
+    // dangling column — the jellyfish tell, §3.6 asymmetric memory hook)
+    [1.7, -0.6, -0.2], [2.7, -1.5, -0.4], [3.4, -2.5, -0.6],
+    // RIDER (42–43) — a hump on the upper body/shoulders, proud toward camera (dragon AND rider, §5d)
+    [0.0, 3.1, 1.7], [0.0, 3.7, 1.9],
   ];
-  return { motes, queen: [0.0, 5.6, 0.9] };   // the SKULL between the horns — the amber eye ignites here
+  return { motes, queen: [0.0, 5.4, 0.9] };   // the SKULL between the horns — the amber eye ignites here
 }
 
 const FORMATIONS = {
@@ -211,7 +222,7 @@ export function buildThrumswarm(def, quality = 1) {
   // lowQ drops the trailing motes (legs + tail + rider) — the essential dragon (head +
   // body + BOTH full wings = the first 32 YOUR-DRAGON slots) survives; tris(q0.5) <
   // tris(q1) stays a gate.
-  const nMotes = lowQ ? 32 : MOTE_N;
+  const nMotes = lowQ ? 37 : MOTE_N;
 
   // The kit shield bubble wraps the central mass (the surge answer for the ring
   // shield still bursts THIS bubble — the ring is the visual, the bubble is the
@@ -261,8 +272,11 @@ export function buildThrumswarm(def, quality = 1) {
   // spiking tetra facet (the richer stipple + the quality-ladder tri delta); lowQ =
   // the bare octahedron. Motes are lit-low so shape barely matters — value is all.
   function moteCore() {
-    const a = strip(new THREE.OctahedronGeometry(0.56, 0));
-    a.scale(1, 1.35, 1);   // a slightly elongated crystal shard (a mote with a heading)
+    // BIG motes (0.82, up from 0.56): scaling mote size is FREE (L140) and the extra
+    // area shrinks the inter-mote gaps so the condensed dragon's wing membranes read
+    // SOLID at fight distance (Fable CP1 fix) — a bolder stipple, still discrete dots.
+    const a = strip(new THREE.OctahedronGeometry(0.82, 0));
+    a.scale(1, 1.3, 1);   // a slightly elongated crystal shard (a mote with a heading)
     if (lowQ) return a;
     const b = strip(new THREE.TetrahedronGeometry(0.44, 0));
     b.rotateY(Math.PI); b.rotateX(0.6); b.translate(0, 0.5, 0);
