@@ -65,6 +65,19 @@ export function setFlapDebugPose(parts, model, state) {
       aero01: 0, spread01: 0, surge01: 0, bankHard: Math.abs(bank), strength: formStrength(model) };
     flapWing(parts.wingRigL, st, DT);
     flapWing(parts.wingRigR, st, DT);
+    // EMBER furl (rig.furl): flapWing's shoulder roll alone only contracts a broad
+    // fingered membrane to ~0.85 span (the wing lifts, it doesn't draw inboard). In
+    // FOLD, sweep the shoulder YAW hard back along the flank + tuck the wrist so the
+    // fanned hand furls against the body and the span contracts past 0.7× (§3 fold
+    // clause / §7 assert). Additive + ember-only — other skinned rigs lack rig.furl.
+    if (state === 'fold' && parts.wingRigL.furl) {
+      for (const rig of [parts.wingRigL, parts.wingRigR]) {
+        rig.shoulder.rotation.y = -rig.side * 1.15;     // yaw the whole wing back along the flank
+        rig.shoulder.rotation.z = rig.side * 0.34;      // modest up-roll (not a raised V)
+        if (rig.elbow) rig.elbow.rotation.y = -rig.side * 0.35;
+        if (rig.wrist) rig.wrist.rotation.y = -rig.side * 0.4;
+      }
+    }
     return r;
   }
 

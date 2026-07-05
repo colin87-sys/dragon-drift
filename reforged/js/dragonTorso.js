@@ -168,6 +168,25 @@ function buildTorso(profile, def, model, bodyMat, geoFn = buildTorsoGeometry, op
     pos.needsUpdate = true;
     torsoGeo.computeVertexNormals();
   }
+  // BELLY PAINT (opt-in model.bellyPaint): vertex-paint the ventral torso with
+  // def.belly (a cream two-tone underside — the Charizard read) while the dorsal keeps
+  // the body colour. Additive; default off → torsoMat stays single-colour byte-identical.
+  if (torsoGeo && model.bellyPaint && def.belly != null) {
+    torsoGeo.computeBoundingBox();
+    const bbB = torsoGeo.boundingBox, y0 = bbB.min.y, dyB = (bbB.max.y - bbB.min.y) || 1;
+    const pos = torsoGeo.attributes.position;
+    const cBack = new THREE.Color(def.body ?? 0xffffff), cBelly = new THREE.Color(def.belly), cM = new THREE.Color();
+    const cols = [];
+    for (let i = 0; i < pos.count; i++) {
+      const ny = (pos.getY(i) - y0) / dyB;         // 0 belly → 1 back
+      let t = Math.min(1, Math.max(0, (ny - 0.34) / 0.22)); t = t * t * (3 - 2 * t);   // ventral ~35% = belly, smooth blend up the flank
+      cM.copy(cBelly).lerp(cBack, t);
+      cols.push(cM.r, cM.g, cM.b);
+    }
+    torsoGeo.setAttribute('color', new THREE.Float32BufferAttribute(cols, 3));
+    torsoMat.vertexColors = true;
+    torsoMat.color.set(0xffffff);                  // the vertex colours carry the hue now
+  }
   // Pass 2 (opt-in): weight the body verts near each wing root to that side's
   // shoulder bone so the torso surface itself bulges with the wingbeat. The bones
   // live in the wing mounts → the orchestrator binds this mesh once both exist.
@@ -197,10 +216,28 @@ function buildTorso(profile, def, model, bodyMat, geoFn = buildTorsoGeometry, op
   const bridged = def.parts && def.parts.wings === 'skinnedMembraneBridge';
   const fr = profile.fairing;
   const fScale = shoulderW;
+  // squareShoulders (additive, default off): a beveled BLOCK scapula plate instead of
+  // the rounded sphere fairing — the ANVIL shoulder read (gate: "two round balls").
+  // Chamfered top edge (a scaled cylinder cross-section reads as a bevelled block from
+  // rear chase). Default keeps the shipped sphere byte-identical.
+  const squareShoulder = !!model.squareShoulders;
   if (bodyMesh && !bridged) for (const s of [-1, 1]) {
-    const root = new THREE.Mesh(new THREE.SphereGeometry(fr.r * fScale, seg(9), seg(7)), bodyMat);
-    root.scale.set(fr.scale[0], fr.scale[1], fr.scale[2]);
-    root.position.set(s * fr.pos[0] * fScale, fr.pos[1], fr.pos[2]);
+    let root;
+    if (squareShoulder) {
+      // a BEVELED squared scapula (a 6-sided prism reads as a chamfered muscular block
+      // from rear chase — never a bare flat cuboid, gate r5 dir 1), broad so the anvil
+      // shoulder line reads in the rear silhouette.
+      const g = new THREE.CylinderGeometry(fr.r * fScale * 1.15, fr.r * fScale * 1.3, fr.r * fScale * 2.4, 6, 1);
+      g.rotateZ(Math.PI / 2);                              // lie the prism along the flank (length in x)
+      root = new THREE.Mesh(g, bodyMat);
+      root.scale.set(1.0, 0.92, 1.15);
+      root.rotation.set(0.0, s * 0.14, s * -0.22);         // cant up-and-out (chamfer read)
+      root.position.set(s * fr.pos[0] * fScale * 1.1, fr.pos[1] + fr.r * 0.22, fr.pos[2]);
+    } else {
+      root = new THREE.Mesh(new THREE.SphereGeometry(fr.r * fScale, seg(9), seg(7)), bodyMat);
+      root.scale.set(fr.scale[0], fr.scale[1], fr.scale[2]);
+      root.position.set(s * fr.pos[0] * fScale, fr.pos[1], fr.pos[2]);
+    }
     group.add(root);
   }
 

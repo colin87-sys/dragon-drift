@@ -6159,3 +6159,97 @@ tidal-drone beat (the positive "whale" signal, doubles as a rhythm tell); let ba
 anti-reads + lit-edge plan + scale target + home backdrop, Fable-approved at the SHEET stage. The cheapest place
 to catch "wrong noun" is before geometry exists; the second cheapest is a black-fill render at CP1; the most
 expensive is the owner's eyes after a full build. Never let the mesh detail stand in for a silhouette that reads.
+
+### L164 — EMBER cleared the CP1 gate (1.25 → 4.25 PASS, 6 rounds): the gapped-finger membrane + reusable engine dials
+
+**What we did.** Built slot B (ember, the "Ember Wyrm") to the §5d sheet from the merged azure base. Calibration on
+SHIPPED ember FAILed as designed (avg 1.25, MITTEN/FLAT-STICKER/TOY-COLOR/SAME-DRAGON-BIGGER). The rebuild climbed an
+honest 2.0 → 2.4 → 2.75 → 3.4 → 3.69 → **4.25 PASS** over six fresh `fable` gate rounds. New self-registered builder
+`emberMembraneWings` (§3 col 2) + the forge-collar MOTIF SOCKET (§6.3); shipped builders untouched.
+
+**The wing was the whole fight — three structural reworks, each a gate-driven lesson:**
+- **Kite-on-a-stick (r2→r3):** rays fanned from the wrist left the inner ~40% a bare spar. Fix: a deep BRACHIAL
+  PATAGIUM filling root→wrist aft of the arm, its outboard edge = the finger-root hand arc → one broad connected sheet.
+- **Sunburst hub + mid-wing slit (r3→r5):** all fingers rooting at one wrist point read as a sunburst; and the
+  brachial (shoulder group) vs finger fan (wrist group) opened a through-slit UNDER DIHEDRAL because two groups diverge
+  at the joint. Two fixes that stuck: (a) a METACARPAL hand — finger roots MARCH a staggered arc (no shared root);
+  (b) **put the WHOLE membrane on ONE static `hand` group under the shoulder** — never split geometry across an
+  articulated joint, or a seam opens off the glide pose. The fold still contracts because the ember furl YAWS the
+  shoulder (the whole wing sweeps inboard); elbow/wrist stay as empty rig-contract bones for `flapWing`.
+- **Spokes vs mitten (r4→r5):** "true V-gaps at the outer two rays" AND "no bare spokes" reconcile only as a per-v
+  NOTCH — the membrane follows each ray to its tip (v=0/1 full) but RECEDES in the middle (v≈0.5) via `uMax(v) =
+  1 − notchDepth·sin(vπ)^0.7`. sin^0.7 opens a WIDE mouth that survives in black fill; sin^1.4 was a slit that only
+  read via emissive edging. Tip radius must be ~19% of base (law 4) or the fingers disintegrate into pixel specks.
+
+**Reusable engine dials landed (all additive, default-off → roster byte-identical):**
+- **`model.hotEye`** (draconic head): a small PROUD emissive eye pushed out along its own outward normal so the long
+  feralPredator muzzle can't swallow it. A deep-set eye reads as the brightest facial point ONLY if seated proud —
+  size alone leaves it a dark socket; and a hot color must be DEEPENED (0xff6a1a) so ACES doesn't blow it to cream.
+- **`model.tailIron`** (clean tail): matte warm-iron, zero emissive, roughness 0.92, **zero metalness + low
+  envMapIntensity**. The shipped tail's steel-blue was `plateMat` metalness 0.5 catching the studio's COOL key light —
+  warm blacks need low specular/env or they drift navy (azure's territory). Same fix on the membrane (`roughness 0.94`).
+- **`model.squareShoulders`** (arrow torso): a 6-sided BEVELLED prism scapula, not a bare cuboid (a flat box reads as
+  a sticker-backing at 4×) and not the round sphere fairing (the "two balls" the gate rejected 3×).
+
+**Gotchas.** The shared `scalesMat` has a HARDCODED cyan emissive `0x0b79aa` — any dorsal layer that uses it (ridges,
+sail, chevrons) glows steel-blue on a warm dragon; drive `ridgeStyle:'scute'` + `ridgeColor` to force a matte material.
+A fully-EMISSIVE corona reads as a flat sticker (emissive ignores lighting) — give the spikes HALF emissive + warm
+diffuse so directional light shades the faces (the coals stay the ONE bloom, law 12). The `tests/starters.mjs` wing
+loop must guard `parts[k].isObject3D` before traversing — `wingRigL/R` is a rig-HANDLE object, not an Object3D.
+
+**Span-metric reconciliation (open for CP2, gate polish note 1):** the top-planform capture the §8 gate measures reads
+2.77× body (in the 2.5–2.9 band) while the model-space straight-line span:body is ~1.9× — the drooped tail shortens the
+projected denominator. Before CP2, either grow the wing so the model-space number is genuinely in band, or sanction the
+projection convention in the sheet with a rationale line; don't let the droop hide an out-of-band span.
+
+---
+
+## L165 — EMBER "Ember Wyrm" CP2 PASS (all 3 forms + growth ladder + trio) — 2026-07
+
+Slot B CP2 cleared the fable gate at **avg 4.25, life 4** (wings hero-grade 5) after a HARD
+face+motif climb (3 prior FAILs at life=2). What it took, distilled for the next slot:
+
+**The head was the whole fight; the wings were done at CP1.** The gate settled the wings by
+round 1 and stopped re-litigating them. Every CP2 FAIL was the FACE and the MOTIF. If your
+CP1 apex nailed the wing, expect CP2 to be entirely about the head/eye/collar growth arc —
+budget for it.
+
+**Ellipsoid-stack skulls SHINGLE at a small apex head.** `buildSkull` (cranium + cheeks +
+snout frustum + nose + jaw as overlapping ellipsoids) reads as a stack of pancake bands once
+`headScale` drops (ember apex 0.6). The fix that finally held: a **new `buildSmoothForgeSkull`
+— ONE lofted Catmull shell** (nape→braincase→brow→blunt muzzle), registered + routed via the
+archetype, with the snout/jaw modules skipped (`ONE_SHELL_SKULLS`). Value tiers are **vertex-
+painted onto the one shell** (body crown / darker muzzle / cream jaw) — law-11 relief with ZERO
+seams. This is azure's smooth-wedge pattern generalized; reuse it for any small-headed dragon.
+(Only ember uses `feralPredator`, so its predator skull/jaw/cheek dials were also free to edit.)
+
+**The hot eye, final recipe (survived ~10 rebuilds).** A small keen apex eye on a SAME-HUE
+warm head is invisible without value contrast, but a full dark socket on the big f0 eyes reads
+as fly-goggles. The build that passed:
+- **es-GATED dark socket** (`es >= 0.35` only): a shallow dark almond co-centred with the iris,
+  so f1/f2 get contrast and f0 stays socket-free (the gate's "best face"). Scale the socket with es.
+- **hot iris BEAD** (not a flat disc — dies in profile), hue laddered warm-gold→hot-amber
+  (0xffb347)→near-white-gold, **moderate emissive (~0.5–0.8)** so ACES doesn't blow it to lemon/cream.
+- **dark forward pupil + white catchlight + a thin DARK brow arc sunk into the shell** (a proud
+  arc floats as a clip-on crescent — push it −kN into the loft).
+- **seat it PROUD by a FIXED normal push (`faceR*0.5`), not an iris-relative nudge** — the wide
+  forge cheek (~0.4) buries a small eye pushed only `irisR*0.3`.
+
+**Motif bloom (law 12).** f0 coals must be SIZED up (~0.06× body) to resolve at rear-chase
+distance — brightness alone leaves them invisible dots. The apex corona core needs a **near-white
+hue (0xffe08a) at high emissive (~7.5)** to out-read the lit wing edges and be the ONE brightest point.
+
+**CAPTURE GOTCHA — small nose-down apex heads over-zoom the face state.** dragonstudio's `face`
+state (pose `glide`) frames the head, but ember's apex (headScale 0.6, reared neck) pitches the
+face nose-down so the level face-front camera catches only the CROWN — and the fit over-zooms at
+small headScale regardless of leveling/aim tries. f1 (headScale 0.9) frames fine with the identical
+eye build, so the gate accepted an in-context apex read (whole/whole-dark/glide) + the disclosed
+limitation rather than failing blind. **Open for slot C / a future ember polish:** the face-state
+fit needs a headScale-aware distance (or a level-head portrait pose) so the apex face is directly
+capturable; also tag the crest + horn tips so the head target box excludes them (done for horns via
+`userData.isHorn`; the box now boxes the skull shell + seated eyes only).
+
+**Test proxy must track the geometry.** `tests/starters.mjs` computed eye:head from the OLD
+`eyeScale·shape` formula; the rebuilt `hotEye` sizes off a head-length fraction (`0.33 − es·0.16`),
+so the proxy was made `hotEye`-aware. When you change an eye's sizing law, update its test proxy in
+the same commit or the band asserts measure a formula that no longer exists.

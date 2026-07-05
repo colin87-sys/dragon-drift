@@ -50,6 +50,7 @@ function accentMat(color, intensity) {
 // out, so it lengthens the rear silhouette without towering over the aim point.
 function rakedHorn(mat, { baseR, len, x, y, z, rake, splay, segments = 6, flatZ = 1 }) {
   const horn = new THREE.Mesh(new THREE.ConeGeometry(baseR, len, seg(segments)), mat);
+  horn.userData.isHorn = true;   // so the studio head/face framing can exclude the towering horns (they centre the fit high and shrink the face)
   if (flatZ !== 1) horn.scale.z = flatZ;
   horn.position.set(x, y, z);
   horn.rotation.x = rake;     // +rake → tip sweeps BACK (+z), low
@@ -134,13 +135,78 @@ function buildSmoothWedgeSkull(c) {
   c.snoutTipZ = -1.9 * sc;
 }
 
+// ── SMOOTH FORGE SKULL (EMBER bespoke) ───────────────────────────────────────
+// The ember analogue of the azure smooth wedge: ONE lofted shell (nape→braincase→brow→
+// blunt muzzle) so the small apex head reads as a single forge-broad mass, NOT the
+// ellipsoid PLATE-STACK that shingled into pancakes at headScale 0.56 (gate cp2 r2 dir 4).
+// Broader + blunter than the falcon wedge, with a heavy brow. Value TIERS are vertex-
+// painted onto the one shell (crown = body, muzzle = a darker step, jaw underside = cream)
+// so the head carries law-11 relief with zero seams. Builds the whole head skin → the
+// snout/jaw modules are skipped (oneShell). Sets the same c.faceZ/faceR/hx-hy-hz contract.
+function buildSmoothForgeSkull(c) {
+  const sc = c.cfg.snoutScale ?? 1;
+  const st = [
+    [ 0.55, 0.12, 0.13,  0.02],                  // nape cap
+    [ 0.32, 0.36, 0.33,  0.03],
+    [ 0.05, 0.46, 0.40,  0.04],                  // BROAD braincase (forge head, wider than the falcon)
+    [-0.22, 0.48, 0.36,  0.02],                  // HEAVY brow shelf — widest ring, overhangs the eyes
+    [-0.52, 0.40, 0.28, -0.06],                  // eye / cheek zone
+    [-0.85 * sc, 0.30, 0.22, -0.09],             // blunt snout base
+    [-1.12 * sc, 0.22, 0.17, -0.12],             // muzzle
+    [-1.34 * sc, 0.15, 0.12, -0.14],             // BLUNT nose
+    [-1.46 * sc, 0.06, 0.05, -0.145],            // nose tip built into the shell
+    [-1.52 * sc, 0.012, 0.012, -0.147],          // cap near-closed
+  ];
+  const catmull = (p0, p1, p2, p3, t) => {
+    const t2 = t * t, t3 = t2 * t;
+    return 0.5 * ((2 * p1) + (-p0 + p2) * t + (2 * p0 - 5 * p1 + 4 * p2 - p3) * t2 + (-p0 + 3 * p1 - 3 * p2 + p3) * t3);
+  };
+  const SUB = 3, rings = [];
+  for (let s = 0; s < st.length - 1; s++) {
+    const a = st[Math.max(0, s - 1)], b = st[s], cc = st[s + 1], d = st[Math.min(st.length - 1, s + 2)];
+    for (let u = 0; u < SUB; u++) { const t = u / SUB;
+      rings.push([catmull(a[0], b[0], cc[0], d[0], t), catmull(a[1], b[1], cc[1], d[1], t), catmull(a[2], b[2], cc[2], d[2], t), catmull(a[3], b[3], cc[3], d[3], t)]); }
+  }
+  rings.push(st[st.length - 1]);
+  // value-tier vertex paint: body crown, a darker muzzle step, a cream jaw underside.
+  const bodyC = c.mats.bodyMat.color.clone();
+  const snoutC = bodyC.clone().multiplyScalar(0.86);            // one WARM value step darker over the muzzle (0.78 read muddy-gray, dir 3)
+  const jawC = c.mats.bellyMat.color.clone();                  // cream jaw underside (dir 3: the underjaw must read cream, not a gray smudge)
+  const M = seg(16), verts = [], cols = [], idx = [];
+  for (const [z, w, h, yc] of rings) {
+    for (let k = 0; k < M; k++) {
+      const a = (k / M) * Math.PI * 2, cs = Math.cos(a), sn = Math.sin(a);
+      const keel = 1 + 0.06 * sn, yy = yc + h * sn * keel;
+      verts.push(w * cs, yy, z);
+      let col = bodyC;
+      if (z < -0.7 * sc) col = snoutC;                          // muzzle darker tier
+      if (z < -0.42 * sc && sn < -0.1) col = jawC;              // lower muzzle / jaw underside = cream (wider band so the mouth reads cream, dir 3)
+      cols.push(col.r, col.g, col.b);
+    }
+  }
+  for (let s = 0; s < rings.length - 1; s++) for (let k = 0; k < M; k++) {
+    const a = s * M + k, b = s * M + (k + 1) % M, cc = (s + 1) * M + k, d = (s + 1) * M + (k + 1) % M;
+    idx.push(a, cc, b, b, cc, d);
+  }
+  const g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.Float32BufferAttribute(verts, 3));
+  g.setAttribute('color', new THREE.Float32BufferAttribute(cols, 3));
+  g.setIndex(idx); g.computeVertexNormals();
+  const shellMat = c.mats.bodyMat.clone();
+  shellMat.side = THREE.DoubleSide; shellMat.vertexColors = true; shellMat.color.set(0xffffff);
+  c.head.add(new THREE.Mesh(g, shellMat));
+  c.hx = 0.48; c.hy = 0.40; c.hz = 0.55;
+  c.faceZ = -0.42; c.faceR = 0.42;
+  c.snoutTipZ = -1.55 * sc;
+}
+
 // ── SKULL ─────────────────────────────────────────────────────────────────── // one clean rounded cranium (length > width > height); the cone muzzle continues it
 const R = 0.62;               // base cranium radius (before headScale)
 // Per-skull proportions [width, height, length scale] + brow bulge + cheek bevel.
 const SKULL_DIMS = {
   roundWedgeSkull:    { csx: 0.98, csy: 0.86, csz: 1.04, brow: 1.0,  cheek: 0.0 },  // rounded, friendly, catlike
   nobleWedgeSkull:    { csx: 0.96, csy: 0.92, csz: 1.1,  brow: 1.3,  cheek: 0.18 }, // taller, armored cheeks, regal
-  predatorWedgeSkull: { csx: 0.94, csy: 0.8,  csz: 1.14, brow: 0.85, cheek: 0.12 }, // flatter + longer, aggressive
+  predatorWedgeSkull: { csx: 0.94, csy: 0.8,  csz: 1.14, brow: 0.85, cheek: 0.0 },  // flatter + longer, aggressive; cheek balls OFF (gate cp2 dir 4 — they tangented the jaw into a shingle stack). ember-only archetype
   falconWedgeSkull:    { csx: 0.82, csy: 0.78, csz: 1.26, brow: 0.6,  cheek: 0.0 },  // lean keen wedge, NO cheek balls (azure)
 };
 function buildSkull(c) {
@@ -164,7 +230,11 @@ function buildSkull(c) {
 
 // ── SNOUT ─────────────────────────────────────────────────────────────────── // a clean tapered CONE muzzle with a blunt rounded nose — the sleek read
 function snoutBase(c, { len, baseW, noseW, drop }) {
-  const m = c.mats.bodyMat;
+  // snoutTone (opt-in, EMBER apex — gate cp2 dir 2): a muzzle one value-step darker than the
+  // body so the head carries 2–3 tiers (law 11) instead of reading as ONE flat orange sticker.
+  const m = c.cfg.snoutTone
+    ? (() => { const mm = c.mats.bodyMat.clone(); mm.vertexColors = false; mm.color.set(c.cfg.snoutTone); return mm; })()
+    : c.mats.bodyMat;
   // A FRUSTUM muzzle (truncated cone): wide base blends into the cranium, tapering
   // to a BLUNT (non-zero) nose — the clean way to read a short blunt snout. Capped
   // with a small rounded nose pad. After rotation.x = -PI/2 the cone's wide end
@@ -201,7 +271,7 @@ function jaw(c, { len, wid, drop, sharp }) {
   if (sharp) c.head.add(ellipsoid(m, c.faceR * 0.28, 0.8, 0.55, 1.2, 0, -c.hy * drop - 0.02, z - c.faceR * 0.8 * len * 0.7, 7));
 }
 function compactSmoothJaw(c)   { jaw(c, { len: 1.0,  wid: 0.82, drop: 0.36, sharp: false }); }
-function angularPredatorJaw(c) { jaw(c, { len: 1.2,  wid: 0.64, drop: 0.34, sharp: true }); }
+function angularPredatorJaw(c) { jaw(c, { len: 1.1,  wid: 0.6,  drop: 0.3,  sharp: false }); }   // ember-only; sharp chin plate OFF + tucked (gate cp2 dir 4 — the extra chin ellipsoid stacked as a shingle)
 function refinedNobleJaw(c)    { jaw(c, { len: 1.06, wid: 0.78, drop: 0.38, sharp: false }); }
 
 // ── EYE ZONE ──────────────────────────────────────────────────────────────── // large forward eyes set under the brow — the intelligent/expressive read
@@ -273,6 +343,101 @@ function eyeZone(c, { r, x, y, z, glow }) {
       browR.position.set(s * (ex * 0.98), ey + H * 0.92, ez + R2 * 0.18);
       browR.rotation.set(0.2, s * 0.16, s * 0.4);
       c.head.add(browR);
+    }
+    return;
+  }
+
+  // HOT-EYE treatment (opt-in via model.hotEye — EMBER). A small, deep-set, PROUD
+  // emissive eye that clears the long feralPredator muzzle so it still reads as the
+  // brightest facial point (§4) despite being small. Coal sclera + a hot emissive
+  // iris (def.eye, intensity ≤1.2 so the forge-collar bloom stays the ONE bloom, law
+  // 12), seated in a dark socket recess and pushed proud along its outward normal.
+  if (c.cfg.hotEye) {
+    // REBUILT (gate cp2 dir 1): the old dark-socket + coal-sclera SPHERES read as two black
+    // orbital shells (>60% head) on the young forms and a dead socket at apex. GONE. The eye
+    // is now a clean, luminous LENS: a socket rim tinted 15% darker than the LOCAL body hue
+    // (never black), a hot iris bead (convex so it lives in profile), a forward pupil disc and
+    // a catchlight. Size + set + hue + emissive all track eyeShape (es): f0 big/round/low-set →
+    // f2 small/almond/high-set (§4 growth + the §5d hot-eye read as the brightest facial point).
+    // REBUILT AGAIN (gate cp2 round-2 dir 1/2/3): round 1's full body-dark sphere behind a
+    // PALE high-emissive bead read as fly-goggles — a brown DONUT + a butter ping-pong ball
+    // (high emissive on a light hue BLOWS to cream under ACES). Fixes: (a) the rim is only a
+    // THIN UPPER-ARC brow ring (≤120°), not a full ring; (b) the iris is the whole eye, at a
+    // SATURATED lava hue with MODERATE emissive so it stays orange/hot, not white; (c) the
+    // eyeball is SUNK into the skull (barely proud) so no hammerhead balls; (d) a DARK FORWARD
+    // pupil + white catchlight give the gaze life. The iris is the brightest facial point.
+    const es = c.cfg.eyeShape;
+    const headLen = c.hz * 2;                                 // front-to-back head length
+    const diaFrac = 0.33 - es * 0.16;                         // f0 .33, f1 .25, f2 .17 of head length (eye:head bands; proxy in tests/starters.mjs must match)
+    const irisR = Math.max(0.045, diaFrac * headLen * 0.5);
+    // iris hue LIGHTENS + brightens toward apex so a small apex eye still CONTRASTS the deep
+    // orange body (round 2: a same-hue 0xff8b2a apex iris vanished into the head — dead eye).
+    // iris LIGHTENS hard toward apex (warm gold 0xffb040 young → near-white gold 0xffe89a apex)
+    // so the SMALL keen apex eye pops as a bright spot on the deep-orange head WITHOUT a dark
+    // socket patch (round-2 dark sclera read as goggle-commas); the dark forward pupil reads it.
+    // hue ladder: warm gold (f0) → HOT saturated amber (f1) → bright near-white gold (f2). f1
+    // must NOT wash to pale cream (round-3 dir 2) — it is the most SATURATED of the three.
+    const irisCol = es < 0.5
+      ? new THREE.Color(0xffa838).lerp(new THREE.Color(0xffb347), es * 2)   // f1 target 0xffb347 hot amber (gate cp2 r4 note 2 — was reading lemon-yellow)
+      : new THREE.Color(0xffb347).lerp(new THREE.Color(0xffe0a0), (es - 0.5) * 2);
+    const emisI = 0.5 + es * 0.3;                             // lower so the amber stays HOT amber, not blown to lemon/cream by ACES; the dark pupil + socket carry the read
+    const rimCol = new THREE.Color(0x3a1508);                 // DARK brow arc (dir 4) — a legible ridge, not a body-tinted sliver
+    const irisMat = new THREE.MeshStandardMaterial({ color: irisCol, emissive: irisCol, emissiveIntensity: emisI, roughness: 0.3 });
+    const pupilMat = new THREE.MeshStandardMaterial({ color: 0x1c0a04, roughness: 0.42 });   // dark forward pupil (dir 2) — the contrast that reads the eye even when iris ≈ body hue
+    const rimMat = new THREE.MeshStandardMaterial({ color: rimCol, roughness: 0.72, metalness: 0.02 });
+    const catchMat = new THREE.MeshStandardMaterial({ color: 0xffffff, emissive: 0xffffff, emissiveIntensity: 2.8 });
+    const yEye = c.hy * (0.16 + es * 0.06);                   // low-set young → a touch higher apex, still below the brow
+    const ex = c.hx * 0.66, ez = c.faceZ - c.faceR * 0.14;   // out on the cheek + forward toward the eye zone (mirrors azure's proven smooth-shell seat)
+    const sYamnd = 1.0 + es * 0.45;                           // round young → taller almond apex
+    for (const s of [-1, 1]) {
+      const yaw = Math.PI - s * 0.5;
+      const kN = new THREE.Vector3(Math.sin(yaw), 0.08, Math.cos(yaw)).normalize();
+      // eyeball seated PROUD of the lofted shell — pushed a FIXED distance along the outward
+      // normal (not a tiny iris-relative nudge, which buried the small apex eye INSIDE the wide
+      // forge cheek → invisible). Shallow-Z lens so it never bulges into a hammerhead ball.
+      const eyeC = new THREE.Vector3(s * ex, yEye, ez).addScaledVector(kN, c.faceR * 0.5 + irisR * 0.2);   // clear the WIDE forge cheek (~0.4) so the small apex eye sits proud, not buried
+      // es-SCALED dark eye SOCKET (a shallow dark almond on the cheek behind the iris) — the
+      // value contrast a SMALL SAME-HUE apex eye needs to read as the facial hot point. Scaled
+      // by es so it's a thin lash at f0 (which already contrasts the light baby body → stays
+      // cute, no goggles) and a clear dark socket at the apex (deep-orange body swallows the eye).
+      // dark eye SOCKET — only on the older forms (es≥0.35). The apex/adolescent deep-orange body
+      // swallows a same-hue eye, so a dark almond gives the hot iris its value contrast. f0's light
+      // baby body already contrasts the hot iris, so it stays socket-FREE (the gate's best face —
+      // no goggles). Co-centred with the iris so it reads as the socket the bright iris sits inside.
+      if (es >= 0.35) {
+        const socket = new THREE.Mesh(new THREE.SphereGeometry(irisR * (1.0 + es * 0.32), seg(9), seg(7)),
+          new THREE.MeshStandardMaterial({ color: 0x2a1206, roughness: 0.6 }));
+        socket.position.copy(eyeC).addScaledVector(kN, -irisR * 0.08);
+        socket.scale.set(1.14, sYamnd * 1.1, 0.5);
+        socket.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), kN);
+        c.head.add(socket);
+      }
+      const iris = new THREE.Mesh(new THREE.SphereGeometry(irisR, seg(13), seg(9)), irisMat);   // a touch smoother disc (gate cp2 r4 note 1 — the low-poly rim read as ragged notches)
+      iris.position.copy(eyeC); iris.scale.set(1.0, sYamnd, 0.62);
+      iris.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), kN);
+      c.head.add(iris);
+      // THIN UPPER-ARC brow ring over the top-rear of the eye (≤120°) — the socket read
+      // without a full donut. A torus arc, tube ≤0.18× eye diameter, hugging the iris rim.
+      const rim = new THREE.Mesh(new THREE.TorusGeometry(irisR * 0.98, irisR * 0.17, seg(5), seg(9), Math.PI * 0.7), rimMat);
+      // SUNK back toward the shell (−kN) and lifted a touch so it reads as a brow RIDGE of the
+      // skull overlapping the iris top, not a clip-on crescent floating in daylight (dir 4).
+      rim.position.copy(eyeC).addScaledVector(kN, -irisR * 0.3).add(new THREE.Vector3(0, irisR * 0.12, 0));
+      rim.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), kN);
+      rim.rotateZ(Math.PI * 0.15 - s * 0.1);                 // seat the open gap at the lower-front, arc riding the top-rear
+      rim.scale.y = sYamnd;
+      c.head.add(rim);
+      // DARK pupil — seated on the iris front, nudged slightly forward for a gaze (NOT at the
+      // forward edge — round-2i's big offset slid it half off the iris into a cross-eyed read).
+      const gaze = new THREE.Vector3(kN.x * 0.5, kN.y, kN.z * 0.5 - 0.5).normalize();
+      const pupil = new THREE.Mesh(new THREE.CircleGeometry(irisR * 0.34, seg(12)), pupilMat);
+      pupil.position.copy(eyeC).addScaledVector(kN, irisR * 0.6).addScaledVector(gaze, irisR * 0.15);
+      pupil.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), kN);
+      c.head.add(pupil);
+      // white catchlight — a tiny bright dot upper-forward of the pupil, so the hot eye lives.
+      const spec = new THREE.Mesh(new THREE.CircleGeometry(irisR * 0.13, seg(8)), catchMat);
+      spec.position.copy(eyeC).addScaledVector(kN, irisR * 0.66).add(new THREE.Vector3(-s * irisR * 0.16, irisR * 0.22, 0));
+      spec.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), kN);
+      c.head.add(spec);
     }
     return;
   }
@@ -399,13 +564,26 @@ function narrowRegalEyeZone(c) { eyeZone(c, { r: 0.105 * c.cfg.eyeScale, x: c.hx
 // ── BROW ridge (expression) ──────────────────────────────────────────────────
 function brow(c, { lift, length, angle }) {
   const i = c.cfg.browIntensity;
+  // browTone (opt-in, EMBER apex — gate cp2 dir 2): a matte darker brow material + a low
+  // ridge SHELF spanning the eyes, so the browIntensity casts a visible value break (a lit
+  // shelf shading the sockets) instead of a thin cyan-scale sliver lost on the flat skull.
+  const bm = c.cfg.browTone
+    ? new THREE.MeshStandardMaterial({ color: c.cfg.browTone, roughness: 0.82, metalness: 0.0 })
+    : c.mats.scalesMat;
   for (const s of [-1, 1]) {
-    const b = new THREE.Mesh(new THREE.ConeGeometry(0.055 * (0.8 + i * 0.6), length, seg(5)), c.mats.scalesMat);
+    const b = new THREE.Mesh(new THREE.ConeGeometry(0.055 * (0.8 + i * 0.6), length, seg(5)), bm);
     b.scale.z = 0.4;
     b.position.set(s * c.hx * 0.5, c.hy * (0.36 + lift * 0.12), c.faceZ + c.faceR * 0.55);
     b.rotation.x = 1.45;            // lie flat over the brow
     b.rotation.z = s * angle;       // angle = expression
     c.head.add(b);
+  }
+  if (c.cfg.browTone) {
+    // a shallow brow-ridge shelf bridging the two brows — the overhang that shades the sockets
+    const shelf = new THREE.Mesh(new THREE.BoxGeometry(c.hx * 1.15, c.hy * 0.14 * (0.8 + i * 0.5), c.faceR * 0.5), bm);
+    shelf.position.set(0, c.hy * (0.34 + lift * 0.12), c.faceZ + c.faceR * 0.42);
+    shelf.rotation.x = 0.32;        // tip forward so the sun catches the top plane, shadow drops onto the eyes
+    c.head.add(shelf);
   }
 }
 function softBrow(c)       { brow(c, { lift: 0.0,  length: 0.3,  angle: -0.28 }); }  // raised-outer = friendly
@@ -612,7 +790,8 @@ function tuskJaw(c) {                               // Solar / Sovereign
 }
 
 // ── module registry + archetypes ─────────────────────────────────────────────
-const SKULLS = { roundWedgeSkull: buildSkull, nobleWedgeSkull: buildSkull, predatorWedgeSkull: buildSkull, falconWedgeSkull: buildSkull, smoothWedgeSkull: buildSmoothWedgeSkull };
+const SKULLS = { roundWedgeSkull: buildSkull, nobleWedgeSkull: buildSkull, predatorWedgeSkull: buildSkull, falconWedgeSkull: buildSkull, smoothWedgeSkull: buildSmoothWedgeSkull, smoothForgeSkull: buildSmoothForgeSkull };
+const ONE_SHELL_SKULLS = new Set(['smoothWedgeSkull', 'smoothForgeSkull']);   // whole-head lofts → skip the separate snout/jaw modules
 const SNOUTS = { shortBluntSnout, mediumBluntSnout, taperedPredatorSnout };
 const EYES   = { largeSoftEyeZone, mediumAlertEyeZone, narrowRegalEyeZone };
 const BROWS  = { softBrow, alertBrow, commandingBrow };
@@ -624,7 +803,7 @@ const ARCHETYPES = {
   softStealth:     { skullType: 'roundWedgeSkull',    snoutType: 'shortBluntSnout',      eyeZoneType: 'largeSoftEyeZone',   browType: 'softBrow',       hornType: 'smallSweptBackEarFins', jawType: 'compactSmoothJaw',   rearCrestType: 'smallRearCrest' },
   nobleCrowned:    { skullType: 'nobleWedgeSkull',    snoutType: 'mediumBluntSnout',     eyeZoneType: 'narrowRegalEyeZone', browType: 'commandingBrow', hornType: 'regalCrownHorns',       jawType: 'refinedNobleJaw',    rearCrestType: 'crownRearCrest' },
   elegantLuminous: { skullType: 'nobleWedgeSkull',    snoutType: 'mediumBluntSnout',     eyeZoneType: 'largeSoftEyeZone',   browType: 'softBrow',       hornType: 'smoothDualHorns',       jawType: 'refinedNobleJaw',    rearCrestType: 'glowSpineCrest' },
-  feralPredator:   { skullType: 'predatorWedgeSkull', snoutType: 'taperedPredatorSnout', eyeZoneType: 'mediumAlertEyeZone', browType: 'alertBrow',      hornType: 'bladeRearHorns',        jawType: 'angularPredatorJaw', rearCrestType: 'smallRearCrest' },
+  feralPredator:   { skullType: 'smoothForgeSkull',   snoutType: 'taperedPredatorSnout', eyeZoneType: 'mediumAlertEyeZone', browType: 'alertBrow',      hornType: 'bladeRearHorns',        jawType: 'angularPredatorJaw', rearCrestType: 'smallRearCrest' },   // ember: ONE lofted forge shell (no ellipsoid plate-stack) — snout/jaw skipped
   ancientArcane:   { skullType: 'nobleWedgeSkull',    snoutType: 'mediumBluntSnout',     eyeZoneType: 'narrowRegalEyeZone', browType: 'commandingBrow', hornType: 'smoothDualHorns',       jawType: 'refinedNobleJaw',    rearCrestType: 'glowSpineCrest' },
 };
 
@@ -638,10 +817,13 @@ const DEFAULTS = {
   crestSeat: 0,         // additive DOWNWARD offset of the crest anchor into the crown (young forms seat it deeper so thin blades never float); default 0 = apex byte-identical
   keenEye: false,       // opt-in bright-almond proud eye (AZURE); default keeps the shared eye
   cuteEye: false,       // opt-in dark forward pupil + catchlight on the ROUND eye (AZURE hatchling); default keeps the bare sphere byte-identical
+  hotEye: false,        // opt-in small PROUD emissive eye in a dark socket (EMBER feralPredator) — clears the long muzzle so the deep-set eye still reads as the brightest facial point; default keeps the bare sphere byte-identical
+  snoutTone: null,      // opt-in muzzle hex one step darker than body (EMBER apex head value tier, law 11); null = muzzle stays body-toned (byte-identical)
+  browTone: null,       // opt-in matte darker brow material + ridge shelf (EMBER apex value break); null = the shared thin scale brow (byte-identical)
 };
 const OVERRIDE_KEYS = ['skullType', 'snoutType', 'eyeZoneType', 'browType', 'hornType', 'jawType', 'rearCrestType',
   'headScale', 'snoutScale', 'hornScale', 'eyeScale', 'browIntensity', 'rearGlowIntensity', 'whiskerFins', 'tuskJaw',
-  'eyeShape', 'crestBlades', 'crestScale', 'crestGoldAmount', 'crestSeat', 'keenEye', 'cuteEye'];
+  'eyeShape', 'crestBlades', 'crestScale', 'crestGoldAmount', 'crestSeat', 'keenEye', 'cuteEye', 'hotEye', 'snoutTone', 'browTone'];
 
 function resolveConfig(model) {
   const arch = ARCHETYPES[model.headArchetype] || ARCHETYPES.softStealth;
@@ -676,7 +858,7 @@ function buildDraconicHead(def, model, mats) {
   (SKULLS[cfg.skullType] || buildSkull)(ctx);
   // The smooth-wedge shell IS the whole head skin (cranium+snout+jaw as one loft), so
   // the separate snout/jaw modules are skipped for it.
-  const oneShell = cfg.skullType === 'smoothWedgeSkull';
+  const oneShell = ONE_SHELL_SKULLS.has(cfg.skullType);
   if (!oneShell) {
     (SNOUTS[cfg.snoutType] || shortBluntSnout)(ctx);
     (JAWS[cfg.jawType] || compactSmoothJaw)(ctx);
