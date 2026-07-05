@@ -458,6 +458,9 @@ export const BOSSES = {
     bulletColor: 0xff2b6a,    // danger stays magenta (role colour, never per-boss)
     approachFrom: 'ahead',    // the only boss that NEVER comes to you (§5j Vigil Lights): it holds
                               // the horizon dead ahead and the RAIL closes the distance
+    horizonSeed: true,        // §5e first horizon-presence boss: a fog-exempt dead-black silhouette
+                              // parks at the encounter's fixed spot a full biome early (Majora's-moon
+                              // pattern); the real boss takes over the same spot at warn
     entrance: 'vigilLights',  // §5j VIGIL LIGHTS (0s camera hijack — BANKED): the dead arch eases to
                               // station while the panes ignite one per beat, pooling toward your steer
                               // in DISCRETE wedge-steps (continuous tracking is slot 14's claim)
@@ -467,6 +470,25 @@ export const BOSSES = {
     // the gate's dark-body law (G2) inverts for this def — assert a BRIGHT body
     // (median luma ≥150) with a dark edge-cage sample. Sanctioned by the §5b row.
     gate: { pale: true },
+    // §5f DESTRUCTIBLE SUB-PARTS (the CAVE-law hero): the 8 rose panes are
+    // individually breakable — parry a pane's amber radial 3× (PANE BREAK, the
+    // registry parry job) or land shots on the glass, and that pane cracks: its
+    // radial arm is deleted from the composite (visual + pattern). boss.js
+    // routes the bossDamage part/x-y payload; the model owns crackPane().
+    destructiblePanes: true,
+    // §5i.B Calamities graze debut: RIDE-THE-BEAM-EDGE — per-frame graze ticks
+    // that RAMP with unbroken contact along the pane radials (the beam IS a
+    // pane's radial; anatomy, not an abstract zone). Def-gated: shipped bosses
+    // never tick (the continuous detector lands with this slot).
+    grazeForm: 'beamEdge',
+    // §5e moving-station setpieces. P2 = the ARCH PASS (the SIGNATURE fly-through,
+    // L141: rel sweeps 30 → −8 → back with the gap surrounding the rail — the
+    // door forced open, panes welcoming). P4 = ROSE JUDGMENT (dread): the arch
+    // holds close, the portcullis closes, all 8 panes blaze + fire radially.
+    setpieces: [
+      { id: 'archPass',     atPhase: 1, dur: 7.0, moving: true },
+      { id: 'roseJudgment', atPhase: 3, dur: 6.5, moving: true, dread: true },
+    ],
     // Tier 3 difficulty: the portcullis walls (curtain/movingGap) are the door's
     // signature; spiral/iris re-read as radial pane-fire off the rose window.
     // Escalation by pattern unlock + cadence (floor 1.2), never raw bullet count.
@@ -543,8 +565,49 @@ export const BOSSES = {
 export const BOSS_ORDER = ['voidmaw', 'stormrend', 'ashtalon', 'marrowcoil', 'eitherwing', 'hollowgate'];
 
 // Which boss to use for the Nth encounter of a run (cycles once the list is
-// exhausted — more bosses just extend the list).
+// exhausted — more bosses just extend the list). LEGACY path: kept for the
+// ?bossIdx debug override, forceBoss, and the test seams; live encounter
+// selection now goes through the LIFETIME LADDER below (§5h, lands with slot 6).
 export function bossDefForIndex(i) {
   const key = BOSS_ORDER[i % BOSS_ORDER.length];
   return BOSSES[key];
+}
+
+// ---- THE LIFETIME LADDER (§5h owner decision 1 — the band-aware progression
+// controller that replaces the modulo; the hard blocker for Tier-3
+// foreshadowing). Pure function of (what's been felled this run, lifetime
+// kills per boss) so tests can drive it headlessly:
+//   · a run's FIRST boss = the LOWEST lifetime-unbeaten slot,
+//   · the ladder then walks UP the roster in slot order,
+//   · wrapping past the top brings BEATEN slots back (they recur — the caller
+//     tightens their dials via ladderTighten),
+//   · a slot felled THIS RUN never repeats within the run; if every slot has
+//     been felled this run (a full lap), the exclusion resets and the ladder
+//     laps again from the bottom.
+// `kills(id)` → lifetime kill count (save.js bossLedger). Returns the def.
+export function ladderPickDef(felledThisRun, kills, fromSlot = null) {
+  const n = BOSS_ORDER.length;
+  const excluded = (id) => felledThisRun.has(id);
+  // Full lap → reset the exclusion (the run out-lived the roster).
+  const allFelled = BOSS_ORDER.every(excluded);
+  const isOut = allFelled ? () => false : excluded;
+  // The run's entry rung: the lowest lifetime-unbeaten slot (or 0 if all beaten).
+  let start = fromSlot;
+  if (start == null) {
+    start = BOSS_ORDER.findIndex((id) => (kills(id) || 0) === 0);
+    if (start < 0) start = 0;
+  }
+  for (let k = 0; k < n; k++) {
+    const id = BOSS_ORDER[(start + k) % n];
+    if (!isOut(id)) return BOSSES[id];
+  }
+  return BOSSES[BOSS_ORDER[0]];   // unreachable (isOut is never all-true)
+}
+
+// Tightened dials for a RECURRING (lifetime-beaten) slot: a cadence/rest
+// multiplier that shrinks with kills and floors at 0.78 — recurrence bites a
+// little harder each time without ever breaking the §5b band cadence floors.
+export function ladderTighten(killCount) {
+  if (!killCount) return 1;
+  return Math.max(0.78, Math.pow(0.93, Math.min(killCount, 4)));
 }

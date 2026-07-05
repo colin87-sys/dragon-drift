@@ -108,6 +108,31 @@ assertEq(bossDefForIndex(0).id, BOSS_ORDER[0], 'bossDefForIndex(0) → first bos
 assertEq(bossDefForIndex(BOSS_ORDER.length).id, BOSS_ORDER[0], 'bossDefForIndex wraps the list');
 ok(`bossDefs schema valid for ${BOSS_ORDER.length} boss(es), all 3-phase`);
 
+// --- 1c. §5h LIFETIME LADDER (the band-aware controller, lands with slot 6) --
+{
+  const { ladderPickDef, ladderTighten } = await import('../js/bossDefs.js');
+  const kills = (map) => (id) => map[id] || 0;
+  // Fresh save: the run opens at slot 1.
+  assertEq(ladderPickDef(new Set(), kills({})).id, BOSS_ORDER[0], 'ladder: fresh save opens at slot 1');
+  // Lifetime progress: first boss = lowest UNBEATEN slot.
+  const prog = { [BOSS_ORDER[0]]: 3, [BOSS_ORDER[1]]: 1 };
+  assertEq(ladderPickDef(new Set(), kills(prog)).id, BOSS_ORDER[2], 'ladder: run opens at the lowest lifetime-unbeaten slot');
+  // Felled-this-run never repeats: the ladder walks UP past it.
+  const felled = new Set([BOSS_ORDER[2]]);
+  assertEq(ladderPickDef(felled, kills(prog), 2).id, BOSS_ORDER[3], 'ladder: a felled slot never repeats within the run');
+  // Wrap past the top brings BEATEN slots back (they recur).
+  const highFelled = new Set(BOSS_ORDER.slice(2));
+  assertEq(ladderPickDef(highFelled, kills(prog), 2).id, BOSS_ORDER[0], 'ladder: wrapping past the top recurs the beaten low slots');
+  // Full lap → the exclusion resets (an endless run out-lives the roster).
+  const all = new Set(BOSS_ORDER);
+  assertEq(ladderPickDef(all, kills(prog), 2).id, BOSS_ORDER[2], 'ladder: a full lap resets the exclusion');
+  // Tighten: 1 for a first-time slot; shrinks with kills; floors at 0.78.
+  assertEq(ladderTighten(0), 1, 'tighten: first encounter is untightened (coexist floor)');
+  assert(ladderTighten(1) < 1 && ladderTighten(1) > 0.9, 'tighten: one kill bites gently');
+  assert(ladderTighten(99) >= 0.78, `tighten: floors at 0.78 (got ${ladderTighten(99)})`);
+  ok('lifetime ladder: entry rung, no-repeat, wrap-recur, lap-reset, tighten floor');
+}
+
 // --- 1b. §5i RHYTHM gates: `rhythmprint` (every boss owns a DISTINCT temporal
 // fingerprint — the ping-pong is retired) + `amberdiet` (the AMBER FLOOR holds:
 // a parry-carrier volley lands in every rolling 12s window of every phase). Both
@@ -557,8 +582,27 @@ for (const key of BOSS_ORDER) {
     `hollowgate ignition: ${litEarly} pane(s) lit at u=0.02 → ${litLate} lit at u=0.85 (one per beat)`);
   hg.setEntrance(null);
 
+  // §5f DESTRUCTIBLE PANES (the CAVE-law hero): crackPane deletes the pane from
+  // the composite — visual (mesh hidden, glow dead) AND pattern (livePanes drops
+  // it, so firePaneRadial never emits its arm again). paneHitTest routes a
+  // boss-local landing point to the nearest LIVE pane.
+  assertEq(hg.livePanes().length, 8, 'hollowgate starts with all 8 panes live');
+  const sc6 = BOSSES.hollowgate.scale;
+  const [rdx, rdy] = hg.paneRadialDir(2);
+  const hitIdx = hg.paneHitTest(rdx * 1.2 * sc6, (4.85 + rdy * 1.2) * sc6);
+  assertEq(hitIdx, 2, `hollowgate paneHitTest routes a hit on pane 2's glass to pane 2 (got ${hitIdx})`);
+  assert(hg.crackPane(2), 'hollowgate crackPane(2) cracks a live pane');
+  assert(!hg.crackPane(2), 'hollowgate crackPane(2) is idempotent (already cracked)');
+  assertEq(hg.livePanes().length, 7, 'hollowgate cracked pane leaves 7 live');
+  assert(!hg.paneAlive(2), 'hollowgate pane 2 no longer alive');
+  assert(!hg.group.getObjectByName('rosePane2').visible, 'hollowgate cracked pane mesh is hidden (a hole in the window)');
+  hg.tick(0.016, 30);
+  assert(hg.paneIntensities()[2] === 0, 'hollowgate cracked pane stays dark through the expression rig');
+  const reroute = hg.paneHitTest(rdx * 1.2 * sc6, (4.85 + rdy * 1.2) * sc6);
+  assert(reroute !== 2, `hollowgate paneHitTest never routes to a cracked pane (got ${reroute})`);
+
   hg.dispose();
-  ok(`hollowgate geometry: gap ${gapW.toFixed(1)}w, portcullis drop ${dropped.toFixed(1)}, pupil ${leftPane}→${rightPane} in ${stepLog.size} steps, ignition ${litEarly}→${litLate}`);
+  ok(`hollowgate geometry: gap ${gapW.toFixed(1)}w, portcullis drop ${dropped.toFixed(1)}, pupil ${leftPane}→${rightPane} in ${stepLog.size} steps, ignition ${litEarly}→${litLate}, pane-break ✓`);
 }
 
 // Legacy coexist gate: a def WITHOUT `archetype` must still fall through to
@@ -650,6 +694,28 @@ while (game.consecutiveRings < game.feverThreshold && grazeCount < 400) { runBos
 assert(game.consecutiveRings >= game.feverThreshold, 'sustained grazing fills the surge meter');
 assert(!game.feverActive, 'Surge does NOT auto-fire in a boss (manual unleash)');
 ok(`graze fills the meter (${grazeCount} grazes); no auto-surge in a boss`);
+
+// --- 3b². §5i.B continuous-graze detector (RIDE-THE-BEAM-EDGE, slot 6) -------
+// The ticking sibling of the crossing check: beamContact reports live riding —
+// a bullet AHEAD whose lateral offset is inside the graze annulus. Annulus law:
+// a dead-centre (hit-radius) bullet is NOT contact; far offsets aren't either.
+{
+  bullets.resetBossBullets();
+  const p = makePlayer();
+  const annulus = CONFIG.BOSS.bulletRadius + CONFIG.playerRadius * (CONFIG.BOSS.bulletHitScale + CONFIG.BOSS.grazeScale) / 2;
+  bullets.spawnBossBullet({ owner: 'boss', x: p.position.x + annulus, y: p.position.y, rel: 3, vrel: -28, dmg: 5, r: CONFIG.BOSS.bulletRadius, life: 3 });
+  assert(bullets.beamContact(p, 7), 'beamContact: an annulus-offset bullet ahead reads as riding the edge');
+  bullets.resetBossBullets();
+  bullets.spawnBossBullet({ owner: 'boss', x: p.position.x, y: p.position.y, rel: 3, vrel: -28, dmg: 5, r: CONFIG.BOSS.bulletRadius, life: 3 });
+  assert(!bullets.beamContact(p, 7), 'beamContact: a dead-centre bullet is NOT contact (annulus, not radius)');
+  bullets.resetBossBullets();
+  bullets.spawnBossBullet({ owner: 'boss', x: p.position.x + 12, y: p.position.y, rel: 3, vrel: -28, dmg: 5, r: CONFIG.BOSS.bulletRadius, life: 3 });
+  assert(!bullets.beamContact(p, 7), 'beamContact: a far bullet is not contact');
+  bullets.spawnBossBullet({ owner: 'boss', x: p.position.x + annulus, y: p.position.y, rel: 15, vrel: -28, dmg: 5, r: CONFIG.BOSS.bulletRadius, life: 3 });
+  assert(!bullets.beamContact(p, 7), 'beamContact: depth-window bound holds (rel 15 > 7 is not riding)');
+  bullets.resetBossBullets();
+  ok('beamEdge detector: annulus + depth-window law holds (continuous graze, §5i.B)');
+}
 
 // --- 3c. reflect (Increment 2): a roll swats reflectable bullets back --------
 bullets.resetBossBullets();
@@ -754,7 +820,7 @@ function driveKill(idx) {
   const kills0 = killsSeen, surges0 = surgesSeen;
   cardsResolved.length = 0;
   let t = 0, sawFight = false, sawShield = false, sawNarrow = false;
-  let sawSetpiece = false, setpieceMaxX = 0, setpieceMaxY = 0, chargedDuringSetpiece = false;
+  let sawSetpiece = false, setpieceMaxX = 0, setpieceMaxY = 0, setpieceMinRel = 99, chargedDuringSetpiece = false;
   for (let i = 0; i < 60 * 200 && !(killsSeen > kills0 && !game.inBoss); i++) {
     const dt = 1 / 60;
     t += dt;
@@ -773,13 +839,14 @@ function driveKill(idx) {
       sawSetpiece = true;
       setpieceMaxX = Math.max(setpieceMaxX, Math.abs(st.poseX));
       setpieceMaxY = Math.max(setpieceMaxY, st.poseY);
+      setpieceMinRel = Math.min(setpieceMinRel, st.poseRel);
       if (st.charging) chargedDuringSetpiece = true;
     }
     if (game.bossArenaHW != null) sawNarrow = true;
     boss.updateBoss(dt, player, t);
   }
   return { t, sawFight, sawShield, sawNarrow,
-    sawSetpiece, setpieceMaxX, setpieceMaxY, chargedDuringSetpiece,
+    sawSetpiece, setpieceMaxX, setpieceMaxY, setpieceMinRel, chargedDuringSetpiece,
     killed: killsSeen > kills0, surges: surgesSeen - surges0,
     cardsResolved: [...cardsResolved] };
 }
@@ -818,8 +885,11 @@ for (let idx = 0; idx < BOSS_ORDER.length; idx++) {
   const setpieces = BOSSES[key].setpieces || (BOSSES[key].setpiece ? [BOSSES[key].setpiece] : []);
   if (setpieces.length) {
     assert(r.sawSetpiece, `${key}: the def's setpiece played`);
-    assert(r.setpieceMaxX > 9 || r.setpieceMaxY > CONFIG.BOSS.fightHeight + 3,
-      `${key}: setpiece left station (max |x| ${r.setpieceMaxX.toFixed(1)}, max y ${r.setpieceMaxY.toFixed(1)})`);
+    // "Left station" on ANY excursion axis: lateral (|x|), vertical (y), or DEPTH
+    // (rel through/near the camera — the fly-through axis; L141: HOLLOWGATE's
+    // archPass and EITHERWING's figure-eight cross the player at rel < 0).
+    assert(r.setpieceMaxX > 9 || r.setpieceMaxY > CONFIG.BOSS.fightHeight + 3 || r.setpieceMinRel < 4,
+      `${key}: setpiece left station (max |x| ${r.setpieceMaxX.toFixed(1)}, max y ${r.setpieceMaxY.toFixed(1)}, min rel ${r.setpieceMinRel.toFixed(1)})`);
     if (setpieces.some((s) => s.moving)) {
       assert(r.chargedDuringSetpiece, `${key}: a moving-station setpiece keeps firing while it travels (§5e)`);
     } else {

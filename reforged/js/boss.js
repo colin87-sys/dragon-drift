@@ -8,15 +8,17 @@ import { cameraCtl } from './cameraController.js';
 import { burst } from './particles.js';
 import { emit, on } from './events.js';
 import { clearAhead } from './obstacles.js';
-import { buildBoss } from './bossModel.js';
+import { bulletGraze } from './collision.js';
+import { buildBoss, buildHorizonSeed } from './bossModel.js';
 import { makeRhythm } from './bossRhythm.js';
 import { ENTRANCE_SCRIPTS } from './entranceScripts.js';
-import { BOSSES, BOSS_ORDER, bossDefForIndex } from './bossDefs.js';
-import { saveData, persist, recordBossCard, recordBossLedger } from './save.js';
+import { BOSSES, BOSS_ORDER, bossDefForIndex, ladderPickDef, ladderTighten } from './bossDefs.js';
+import { saveData, persist, recordBossCard, recordBossLedger, bossLedgerStats } from './save.js';
 import { BIOMES, biomeIndexAt } from './biomes.js';
 import {
   initBossBullets, updateBossBullets, spawnBossBullet, resetBossBullets,
   setBossBulletQuality, bossBulletCount, reflectBossBullets, debugActiveBullets,
+  beamContact, setGrazeBonus,
   spawnBossRingHoop,
 } from './bossBullets.js';
 
@@ -177,6 +179,80 @@ const SUSTAINED = new Set(['tunnel', 'spiralStream', 'movingGap', 'iris', 'strea
 // byte-unchanged (the lifecycle test asserts the shipped two never see one).
 let setpieceT = -1;            // <0 idle · ≥0 seconds into the active setpiece
 let setpieceDef = null;
+// §5i.B RIDE-THE-BEAM-EDGE (Calamities graze debut, def-gated `grazeForm:
+// 'beamEdge'`): per-frame ticking graze with its OWN dedup story — the tick
+// clock rate-limits payout (vs the crossing check's one-per-bullet), and the
+// tick PERIOD RAMPS DOWN with unbroken contact (payout richest at the scariest
+// instant). A short grace bridges the gaps between a radial's bullets; losing
+// contact past it resets the ramp. Defs without the flag never tick (coexist).
+let beamHeld = 0;              // seconds of unbroken beam contact (the ramp)
+let beamTick = 0;              // countdown to the next tick payout
+let beamGrace = 0;             // seconds of contact-loss tolerated before reset
+// NO-HIT ADRENALINE LADDER (§5i.B meta spine, global — lands with slot 6).
+// Five per-fight rungs on unbroken no-hit fight time, reset on hit:
+//   R1 magnet (graze annulus ×1.18) → R2 +gain (surge charge ×1.5) →
+//   R3 weak-point ping (rider chip ×1.25 + a soft ping) → R4 +burst (parry
+//   reflect ×1.3) → R5 one-hit shield (the next hit is absorbed, ladder resets).
+// Pure module state driven in the fight loop; every effect multiplier is 1 at
+// rung 0, so a laddered fight at rung 0 is byte-identical to the shipped path.
+const ADREN_RUNGS = [6, 13, 21, 30, 40];   // seconds of no-hit fight time per rung
+let adrenT = 0, adrenRung = 0, adrenHits0 = 0, adrenPing = 0;
+// ---- THE LIFETIME LADDER (§5h owner decision 1 — replaces the modulo for live
+// encounters; rush + ?bossIdx debug paths pick explicitly and bypass it).
+// felledRun: slots felled THIS RUN (never repeat within it); ladderSlot: the
+// rung the ladder walks up from (null → recompute the entry rung from the
+// save's lifetime ledger); cadenceMult: the recurring-slot tighten (1 for a
+// first-time slot — the coexist floor for every dial).
+const felledRun = new Set();
+let ladderSlot = null;
+let cadenceMult = 1;
+// Fixed biome offset encounters snap to (§5h: foreshadowing is only authorable
+// if the encounter distance is deterministic — the horizon seed reads it).
+const BOSS_BIOME_OFFSET = 900;
+function snapBossDist(minDist) {
+  const L = CONFIG.biomeLength;
+  let d = Math.floor((minDist - BOSS_BIOME_OFFSET) / L + 1) * L + BOSS_BIOME_OFFSET;
+  if (d < minDist) d += L;
+  return d;
+}
+// The def the NEXT (non-rush, non-debug) encounter will spawn — the horizon
+// seed needs to know a biome early. Pure peek: no ladder state advances.
+function peekNextDef() {
+  if (rushMode) return BOSSES[rushQueue[rushIndex]] ?? null;
+  if (debugDefIdx != null) return bossDefForIndex(debugDefIdx);
+  return ladderPickDef(felledRun, (id) => bossLedgerStats(id).kills, ladderSlot);
+}
+// ---- §5e HORIZON-PRESENCE SEED (Vigil Lights' foreshadow: the dead black arch
+// grows on the horizon a full biome early and NEVER moves). A fog-exempt
+// far-silhouette parked at the encounter's fixed world spot (the §5h snap makes
+// it deterministic); the real boss takes over at the SAME spot at warn (start.rel
+// 150 — a seamless handoff). Inert unless the upcoming def opts in (coexist);
+// rush breathers are too short for a vigil, so rush skips it.
+let seed = null, seedDef = null;
+function removeSeed() {
+  if (!seed) return;
+  scene.remove(seed.group);
+  seed.dispose();
+  seed = null; seedDef = null;
+}
+function updateHorizonSeed(player) {
+  const nd = (scene && game.state === 'playing' && !game.inCanyon && !rushMode && nextBossDist < Infinity)
+    ? peekNextDef() : null;
+  const want = nd && nd.horizonSeed ? nd : null;
+  const seedZ = nextBossDist + 150;                    // where the boss will hold (start.rel 150)
+  const dAhead = seedZ - player.dist;
+  const SHOW = Math.min(CONFIG.biomeLength + 200, 1500);   // a biome early, inside camera far (1600)
+  if (!want || dAhead > SHOW || dAhead < 60) { removeSeed(); return; }
+  if (!seed || seedDef !== want) {
+    removeSeed();
+    const s = buildHorizonSeed(want);
+    if (!s) return;
+    seed = s; seedDef = want;
+    scene.add(seed.group);
+  }
+  seed.group.position.set(0, B.fightHeight, -seedZ);   // a FIXED world spot — it has not moved. not once.
+  seed.setHaze((SHOW - dAhead) / 400);                 // emerges from the horizon murk over ~400m
+}
 const SETPIECE_PATHS = {
   // The crossing pass: sweep out wide, rise, close in, and drift straight
   // across the lane OVER the player (hands spread via model.setSetpiece) —
@@ -280,6 +356,34 @@ const SETPIECE_PATHS = {
   // moves (slot-3 differentiation: repeating side-by-side flanking passes, not a one-time
   // rear-view beat). Runs MOVING so crossfire keeps raining from wherever the pass carries
   // them. Eases in/out so it laces into station-keeping between beats.
+  // HOLLOWGATE — ARCH PASS (§5b/§5d slot 6, moving-station; the SIGNATURE
+  // fly-through, L141): the ruined arch sweeps STRAIGHT IN and PAST the camera,
+  // rel 30 → −8 → back, held at lane centre so the ≈9.9-unit gap SURROUNDS the
+  // rail (the pillars flank the dragon at ±4.9, the lintel + window pass
+  // overhead, the portcullis is forced OPEN in the model) — the door the player
+  // flies THROUGH, not a loom. Runs MOVING so the verse murmur keeps raining
+  // from the window as it closes. Unlike MARROWCOIL's ribThread the barrel
+  // interior already sits ON the rail (the gap spans world y 0.5..19.3 at
+  // fightHeight, rail ≈11.6), so NO dive is needed — a pure rel sweep encloses it.
+  archPass(k) {
+    const B = CONFIG.BOSS;
+    const NEAR = 8, PASS = -8;
+    if (k < 0.30) { const t = easeInOut(k / 0.30); return { x: 0, y: B.fightHeight, rel: B.settleGap + (NEAR - B.settleGap) * t }; }
+    if (k < 0.68) { const t = (k - 0.30) / 0.38; return { x: 0, y: B.fightHeight, rel: NEAR + (PASS - NEAR) * easeInOut(t) }; }
+    const t = easeInOut((k - 0.68) / 0.32); return { x: 0, y: B.fightHeight, rel: PASS + (B.settleGap - PASS) * t };
+  },
+  // HOLLOWGATE — ROSE JUDGMENT (§5f dread, "THE DOOR PRAYS"): holds at mid-close
+  // range (the window readable, the panes' radials rakeable) while the model
+  // CLOSES the portcullis and blazes all 8 panes (setSetpiece dread envelope);
+  // the P4 pattern + firePaneRadial rain the radial pane-fire through the closing
+  // gate. A slow rise keeps the arch looming as the door prays.
+  roseJudgment(k) {
+    const B = CONFIG.BOSS;
+    const HOLD_REL = 15, RISE = 1.6;
+    if (k < 0.2) { const t = easeInOut(k / 0.2); return { x: 0, y: B.fightHeight + RISE * t, rel: B.settleGap + (HOLD_REL - B.settleGap) * t }; }
+    if (k < 0.82) { const t = (k - 0.2) / 0.62; return { x: Math.sin(t * Math.PI * 2) * 3, y: B.fightHeight + RISE, rel: HOLD_REL }; }
+    const t = easeInOut((k - 0.82) / 0.18); return { x: 0, y: B.fightHeight + RISE * (1 - t), rel: HOLD_REL + (B.settleGap - HOLD_REL) * t };
+  },
   figureEight(k) {
     const B = CONFIG.BOSS;
     // PLATEAU envelope (not a sine lace): ramp the amplitude up over the first 15% and down
@@ -405,7 +509,7 @@ const rand = (lo, hi) => lo + Math.random() * (hi - lo);
 export function initBoss(sc) {
   scene = sc;
   initBossBullets(scene);
-  on('bossDamage', (e) => damageBoss(e.amount, e.kind));
+  on('bossDamage', (e) => damageBoss(e.amount, e.kind, e));
   on('bossDefeated', (e) => recordBossBeaten(e && e.id));   // unlock it in the rush roster
 
   // Arena walls: two tall translucent planes that slide in during a constriction
@@ -617,10 +721,20 @@ export function bossGradeTarget() {
 
 export function startBossEncounter(player, defOverride) {
   if (active) return;
+  removeSeed();   // §5e: the real boss takes over the seed's spot (seamless handoff)
   active = true;
   def = defOverride
     || (rushMode ? BOSSES[rushQueue[rushIndex]]
-      : (debugDefIdx != null ? bossDefForIndex(debugDefIdx) : bossDefForIndex(encounterIndex)));
+      // §5h LIFETIME LADDER (replaces the modulo): the run's first boss is the
+      // lowest lifetime-unbeaten slot; the ladder walks up; felled-this-run
+      // slots never repeat; recurring (beaten) slots come back TIGHTENED.
+      : (debugDefIdx != null ? bossDefForIndex(debugDefIdx)
+        : ladderPickDef(felledRun, (id) => bossLedgerStats(id).kills, ladderSlot)));
+  ladderSlot = BOSS_ORDER.indexOf(def.id);            // the ladder resumes from this rung
+  // Recurring-slot tighten (§5h "beaten slots recur with tightened dials"):
+  // 1 for a first-time slot / rush / debug — every dial byte-identical there.
+  cadenceMult = (!rushMode && debugDefIdx == null && !defOverride)
+    ? ladderTighten(bossLedgerStats(def.id).kills) : 1;
   hpMax = def.hpMax;
   hp = hpMax;
   phaseIdx = 0;
@@ -639,6 +753,11 @@ export function startBossEncounter(player, defOverride) {
   rhythm = def.rhythm ? makeRhythm(def) : null;
   rhythmRest = null;
   perfectHealsUsed = 0;   // §5i C: the perfect-parry heal cap resets each fight
+  paneHits.clear();       // §5f: per-part crack counters reset per encounter
+  // §5i.B: beam-edge ramp + adrenaline ladder reset per encounter (rung-0 = neutral).
+  beamHeld = 0; beamTick = 0; beamGrace = 0;
+  adrenT = 0; adrenRung = 0; adrenHits0 = game.bossHitsTakenRun; adrenPing = 0;
+  setGrazeBonus(1); game.adrenGainMult = 1;
   // Fresh fight = full-width arena; the walls take the boss's accent colour.
   arenaHW = arenaTargetHW = CONFIG.laneHalfWidth;
   game.bossArenaHW = null;
@@ -741,6 +860,8 @@ export function inBossRush() { return rushMode; }
 
 function endEncounter(player) {
   clearSetpiece();
+  setGrazeBonus(1); game.adrenGainMult = 1;   // §5i.B: the ladder's effects never outlive the fight
+  beamHeld = 0; beamTick = 0; beamGrace = 0; adrenRung = 0; adrenT = 0;
   if (group) { scene.remove(group); model.dispose?.(); }
   resetBossBullets();
   group = null; model = null; def = null;
@@ -776,7 +897,9 @@ function endEncounter(player) {
       nextBossDist = player.dist + RUSH_BREATHER;
     }
   } else {
-    nextBossDist = player.dist + B.interval + Math.random() * B.intervalJitter;
+    // §5h: encounters SNAP to a fixed biome offset (deterministic distance —
+    // the horizon seed foreshadows exactly a biome out; jitter retired here).
+    nextBossDist = snapBossDist(player.dist + B.interval);
   }
   emit('bossEnd', { dist: player.dist });   // main.js resumes level generation ahead
 }
@@ -786,6 +909,7 @@ function startDeath(player) {
   dyingT = 0;
   endCard();                              // resolve the final card if a path reached death without a shield-break
   recordBossLedger(def.id, { kill: true });   // per-boss kill accrual (§5h; slot 9's taunts read it)
+  felledRun.add(def.id);                  // §5h ladder: a felled slot never repeats within this run
   clearSetpiece();
   reticleTarget = 0;            // focus circle draws off as the boss disintegrates
   arenaTargetHW = CONFIG.laneHalfWidth;   // storm walls glide out with the dissolve
@@ -932,6 +1056,8 @@ export function updateBoss(dt, player, time) {
     if (wasReady) { sfx.surgeReadyStop?.(); wasReady = false; }
     input.surgeTap = false;   // drop any stale tap between fights
     ui.surgeReady?.(false);
+    // §5e: the horizon seed rides the idle stretch between encounters.
+    updateHorizonSeed(player);
     // Trigger a fresh encounter once the player flies past the scheduled mark
     // (never inside a canyon, never on the menu).
     if (game.state === 'playing' && !game.inCanyon && player.dist >= nextBossDist) {
@@ -1148,7 +1274,7 @@ export function updateBoss(dt, player, time) {
     // (more damage). Announce + ring the parry chime once per roll (streak climbs).
     if (player.rollInvuln > 0) {
       // In Surge, EVERY bullet is reflectable (not just the amber ones).
-      const r = reflectBossBullets(player, B.reflectWindow, B.settleGap, pose.x, pose.y, surge);
+      const r = reflectBossBullets(player, B.reflectWindow, B.settleGap, pose.x, pose.y, surge, adrenRung >= 4 ? 1.3 : 1);   // R4 parry burst
       if (r.total > 0) {
         tmp.set(player.position.x, player.position.y, -player.dist);
         burst(tmp, r.perfect > 0 ? 0xaef0ff : 0x66ddff, { count: 7, speed: 16, size: 0.85, life: 0.4 });
@@ -1179,6 +1305,57 @@ export function updateBoss(dt, player, time) {
       }
     } else {
       rollParried = false;
+    }
+
+    // ---- §5i.B RIDE-THE-BEAM-EDGE (def-gated continuous graze) ----
+    if (def.grazeForm === 'beamEdge') {
+      if (beamContact(player, 7)) {
+        beamGrace = 0.3;                                   // bridge the gaps between a radial's bullets
+        beamHeld += dt;
+        beamTick -= dt;
+        if (beamTick <= 0) {
+          bulletGraze(player);                             // the payout rides the normal graze economy
+          emit('beamGraze', { held: beamHeld });
+          beamTick = Math.max(0.18, 0.5 - beamHeld * 0.07);   // the ramp: longer contact → faster ticks
+        }
+      } else if (beamGrace > 0) {
+        beamGrace -= dt;                                   // grace: contact briefly lost, ramp holds
+      } else {
+        beamHeld = 0; beamTick = 0;                        // contact broken → the ramp resets
+      }
+    }
+
+    // ---- NO-HIT ADRENALINE LADDER (global §5i.B meta spine) ----
+    {
+      if (game.bossHitsTakenRun > adrenHits0) {            // took a hit since last frame
+        adrenHits0 = game.bossHitsTakenRun;
+        if (adrenRung >= 5) {
+          // R5 ONE-HIT SHIELD: absorb the hit (refund the damage), spend the ladder.
+          game.health = Math.min(CONFIG.healthMax, game.health + B.bulletDamage);
+          ui.bossNote?.('⛨ ADRENALINE SHIELD ⛨', 'THE HIT IS ABSORBED — LADDER SPENT', 'gold', 2.2);
+          sfx.milestone?.();
+          emit('adrenalineShield', {});
+        }
+        adrenT = 0;
+        if (adrenRung > 0) emit('adrenalineReset', { from: adrenRung });
+        adrenRung = 0;
+      } else {
+        adrenT += dt;
+        while (adrenRung < 5 && adrenT >= ADREN_RUNGS[adrenRung]) {
+          adrenRung++;
+          const names = ['', 'MAGNET', 'SURGE GAIN UP', 'WEAK-POINT PING', 'PARRY BURST', 'ONE-HIT SHIELD'];
+          ui.bossNote?.(`⚡ ADRENALINE ${adrenRung} — ${names[adrenRung]}`, 'NO-HIT STREAK', 'gold', 1.8);
+          sfx.graze?.(10 + adrenRung * 4);
+          emit('adrenalineRung', { rung: adrenRung });
+        }
+      }
+      // Publish the rung's effects (all 1/neutral at rung 0 — the coexist floor).
+      setGrazeBonus(adrenRung >= 1 ? 1.18 : 1);
+      game.adrenGainMult = adrenRung >= 2 ? 1.5 : 1;
+      if (adrenRung >= 3) {                                // weak-point ping: a soft periodic sonar on the focal
+        adrenPing -= dt;
+        if (adrenPing <= 0) { adrenPing = 4; sfx.graze?.(24); model.flash(0.25); }
+      }
     }
 
     if (shielded) {
@@ -1214,7 +1391,8 @@ export function updateBoss(dt, player, time) {
         const ph = def.phases[phaseIdx];
         // §5i: a rhythm def uses the machine's authored rest (its signature's
         // fingerprint, stashed when the attack was picked); else the legacy roll.
-        attackTimer = (rhythm && rhythmRest != null) ? rhythmRest : rand(ph.cadence[0], ph.cadence[1]);
+        // cadenceMult: the §5h recurring-slot tighten (1 on a first encounter).
+        attackTimer = ((rhythm && rhythmRest != null) ? rhythmRest : rand(ph.cadence[0], ph.cadence[1])) * cadenceMult;
         rhythmRest = null;
       }
     } else if (pending.length === 0) {
@@ -1389,9 +1567,46 @@ function aimVel(targetX, targetY, closing) {
 
 // Resolve an attack id to bullets. Instant patterns fire one volley now; sustained
 // patterns push timed sub-volleys onto `pending` so they stream over ~1.5–2s.
+// HOLLOWGATE PANE-RADIAL fire (§5f/§5i.B): each LIVE rose pane emits a short
+// radial fan OUTWARD along its own screen-radial (the beam IS the pane's radial),
+// tagged with its pane index and amber-tipped so a parry lands on THAT pane
+// (PANE BREAK). Cracked panes emit nothing — their radial is deleted from the
+// composite. Origin is the window hub (def.muzzle 'roseHub', resolved into
+// emitOrigin). Used for HOLLOWGATE's `spiral`/`spiralStream` when it has panes.
+function firePaneRadial(player, spin = 0) {
+  const live = model.livePanes ? model.livePanes() : [];
+  if (!live.length) { return false; }
+  const slow = B.bulletSpeed * 0.8;
+  for (const idx of live) {
+    const [dx, dy] = model.paneRadialDir(idx);
+    // A 3-bullet fan hugging the pane's radial; the CENTRE bullet is amber +
+    // part-tagged (the parry beat that cracks the pane). Rotated a touch by spin
+    // (spiralStream sweeps the whole ring over its ticks).
+    for (let j = -1; j <= 1; j++) {
+      const ang = Math.atan2(dy, dx) + spin + j * 0.16;
+      const amber = j === 0;
+      emitBoss(emitOrigin.x, emitOrigin.y, Math.cos(ang) * 9, Math.sin(ang) * 9, -slow,
+        amber, null, 1, null, emitOrigin.rel, amber ? idx : null);
+    }
+  }
+  return true;
+}
+
 function executeAttack(id, player) {
   resolveEmitOrigin(player);   // head-origin patterns spawn from the body part
   const closing = B.bulletSpeed;
+  // §5f: HOLLOWGATE re-expresses its radial patterns as PANE-RADIAL fire — the
+  // window's live panes ARE the emitters (emitter = organ, §5f law 7), and
+  // parrying a pane's amber cracks it (PANE BREAK). Cracked panes drop their arm.
+  if (def?.destructiblePanes && model?.livePanes) {
+    if (id === 'spiral') { spiralPhase += 0.5; if (firePaneRadial(player, spiralPhase)) return; }
+    else if (id === 'spiralStream') {
+      const steps = quality < 0.75 ? 6 : 9;
+      for (let k = 0; k < steps; k++) pending.push({ t: k * 0.16, fire: () => firePaneRadial(player, spiralPhase + k * 0.4) });
+      spiralPhase += steps * 0.4;
+      return;
+    }
+  }
   // Very light lead only — a strongly-predictive aim makes the shot feel like it
   // homes (you can't dodge by moving). Keep it near where the player IS.
   const lead = 0.08;
@@ -1601,12 +1816,12 @@ function fireRing(cx, cy, radius, m, vrel, color, sizeMult = 1, coreColor = null
 // with the given velocity. `color`/`sizeMult` override for banded rings; else amber
 // if reflectable, otherwise the boss's magenta danger colour. `coreColor` overrides
 // the white "hot disc" centre — ONLY graze-bait passes one (the dark "donut" read).
-function emitBoss(x, y, vx, vy, vrel, reflectable = false, color = null, sizeMult = 1, coreColor = null, originRel = null) {
+function emitBoss(x, y, vx, vy, vrel, reflectable = false, color = null, sizeMult = 1, coreColor = null, originRel = null, part = null) {
   spawnBossBullet({
     owner: 'boss', x, y, rel: originRel ?? pose.rel,
     vx, vy, vrel, color: color ?? (reflectable ? REFLECT_COLOR : bulletColor), reflectable,
     dmg: B.bulletDamage, r: B.bulletRadius * sizeMult, life: 6,
-    coreColor: coreColor ?? 0xffffff,
+    coreColor: coreColor ?? 0xffffff, part,
   });
 }
 
@@ -1619,11 +1834,46 @@ function fireRiderShot(player) {
     owner: 'rider', x: ox, y: oy, rel: 1.5,
     vx: (pose.x - ox) / t, vy: (pose.y - oy) / t, vrel: B.bossSpeed,
     targetRel: pose.rel, tx: pose.x, ty: pose.y,
-    color: 0x8fe9ff, dmg: B.riderShotDamage, r: 0.45, life: 4,
+    color: 0x8fe9ff, dmg: B.riderShotDamage * (adrenRung >= 3 ? 1.25 : 1), r: 0.45, life: 4,   // R3 weak-point chip bonus
   });
 }
 
-function damageBoss(amount, kind) {
+// §5f DESTRUCTIBLE SUB-PARTS (HOLLOWGATE panes — the prove-then-extend hero).
+// Route a landed hit to a part: a REFLECTED amber carries its source-pane tag
+// (parry a pane's radial → THAT pane takes the count); a plain rider chip is
+// routed by the x/y landing point through the model's own hit test. N counted
+// hits crack the pane: its radial deletes from the composite (visual + pattern)
+// and a bonus chunk of hp rewards the sculpting. Bosses without the def flag /
+// model hooks never enter this path (coexist).
+const PANE_CRACK_HITS = 3;
+const paneHits = new Map();          // pane idx → accumulated counted hits (reset per encounter)
+function routePartDamage(e) {
+  if (!def?.destructiblePanes || !model?.crackPane) return 0;
+  let idx = (typeof e.part === 'number') ? e.part : -1;
+  // Fallback routing by landing point (boss-local frame: world x/y minus the
+  // group origin at pose) — rider chips aimed at the centre miss the glass by
+  // design; only a shot that actually lands on the window ring routes here.
+  if (idx < 0 && model.paneHitTest && e.x != null && e.y != null) {
+    idx = model.paneHitTest(e.x - pose.x, e.y - pose.y);
+  }
+  if (idx < 0 || !model.paneAlive?.(idx)) return 0;
+  // Reflected ambers count FULL; a rider chip that happens to land on the glass
+  // counts half (the parry is the sculptor, gunfire helps — §5i.C job).
+  const w = (typeof e.part === 'number') ? 1 : 0.5;
+  const n = (paneHits.get(idx) ?? 0) + w;
+  paneHits.set(idx, n);
+  if (n >= PANE_CRACK_HITS && model.crackPane(idx)) {
+    sfx.shieldShatter?.();
+    if (group) burst(group.position, def.accent, { count: 14, speed: 16, size: 1.0, life: 0.6 });
+    cameraCtl.shake?.(0.6);
+    ui.bossNote?.('✦ PANE SHATTERED ✦', 'ITS RADIAL IS SILENCED', 'gold', 2.2);
+    emit('bossPaneBreak', { pane: idx, left: model.livePanes().length });
+    return 6;                        // bonus chip: sculpting visibly accelerates the kill (§5i.C law 4)
+  }
+  return 0;
+}
+
+function damageBoss(amount, kind, e = null) {
   if (phase !== 'fight') return;
   if (shielded) {
     // Chip/reflect PINGS off the armour — a clang + spark telegraph "a different
@@ -1632,6 +1882,7 @@ function damageBoss(amount, kind) {
     if (group && Math.random() < 0.5) burst(group.position, def.glow, { count: 4, speed: 10, size: 0.7, life: 0.3 });
     return;
   }
+  if (e) amount += routePartDamage(e);   // §5f: a landed part-hit can crack a pane (+bonus chip)
   hp = Math.max(0, hp - amount);
   model.flash(0.6);
   model.hurt?.(0.6);   // PAIN reaction (EITHERWING's recoil/dart) — only on real damage, not on the boss's own attack flash
@@ -1661,6 +1912,7 @@ function damageBoss(amount, kind) {
 
 export function resetBoss() {
   clearSetpiece();
+  removeSeed();   // §5e: no stale horizon silhouette across a run teardown
   // Release the cinematic entrance if we tore down mid-flythrough (game over during
   // the overtake): drop the slow-mo, the camera hijack, and the facing override.
   cineYaw = null; cineSkip = false; entranceId = null; poseSmooth = false;
@@ -1698,12 +1950,22 @@ export function resetBoss() {
   chargeT = 0;
   curAttack = null;
   game.inBoss = false;
+  // §5i.B: neutralise the ladder's published effects on teardown (coexist floor).
+  setGrazeBonus(1); game.adrenGainMult = 1;
+  beamHeld = 0; beamTick = 0; beamGrace = 0; adrenRung = 0; adrenT = 0;
   activeBand = BAND;
   arenaHW = arenaTargetHW = CONFIG.laneHalfWidth;
   game.bossArenaHW = null;
   if (wallL) { wallL.visible = wallR.visible = false; wallMat.opacity = 0; }
-  nextBossDist = debugFirstAt ?? B.firstAt;
+  // Debug pull-in stays EXACT (tests/playtest rely on it); the live first
+  // encounter snaps to the fixed biome offset (§5h — nearest rung to firstAt).
+  nextBossDist = debugFirstAt ?? snapBossDist(B.firstAt - CONFIG.biomeLength * 0.35);
   encounterIndex = 0;
+  // §5h ladder: a NEW RUN re-enters at the lowest lifetime-unbeaten slot and
+  // clears the felled-this-run exclusion.
+  felledRun.clear();
+  ladderSlot = null;
+  cadenceMult = 1;
   // Clear the gauntlet driver (a fresh run re-arms it via startBossRush if in rush).
   rushMode = false; rushQueue = []; rushIndex = 0; rushSolo = false;
 }

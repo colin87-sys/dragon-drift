@@ -54,6 +54,39 @@ import { createBossCommon, stripForMerge } from './bossKit.js';
 // `kit.setDissolve` owns `group.scale` — every animated part lives on `rig`,
 // the portcullisPivot, or the chip orbiters, never on `group` itself.
 
+// §5e HORIZON-PRESENCE SEED (the Calamities foreshadow artifact — Majora's-moon
+// pattern, lands with slot 6). A ~100-tri DEAD-BLACK silhouette of the arch,
+// FOG-EXEMPT (material.fog = false — the sky-dome pattern; normal fog erases
+// everything past ~400m), parked at the encounter's fixed world position a full
+// biome early. It NEVER moves ("It hasn't moved. Not once."); the rail closes
+// the distance until the warn fires and the real boss takes over at the same
+// spot (start.rel 150 — a seamless handoff). boss.js owns the lifecycle; this
+// is pure geometry. `setHaze(k)` fades it up out of the horizon murk.
+export function buildHollowgateSeed(def) {
+  const g = new THREE.Group();
+  const mat = new THREE.MeshBasicMaterial({ color: 0x0a090d, transparent: true, opacity: 0 });
+  mat.fog = false;   // the whole point: visible beyond the fog wall, a black cut-out on the sky
+  const add = (geo, x, y, rz = 0) => {
+    const m = new THREE.Mesh(geo, mat);
+    m.position.set(x, y, 0); m.rotation.z = rz;
+    g.add(m); return m;
+  };
+  // The one-liner at silhouette scale: two pillars + the ring between their tops.
+  add(new THREE.BoxGeometry(2.4, 10.2, 1.8), -3.9, -1.5);
+  add(new THREE.BoxGeometry(2.4, 10.2, 1.8), 3.9, -1.5);
+  const ring = new THREE.Mesh(new THREE.TorusGeometry(2.15, 0.5, 5, 12), mat);
+  ring.position.set(0, 4.85, 0);
+  g.add(ring);
+  add(new THREE.BoxGeometry(1.9, 0.85, 1.4), -3.0, 3.65, 0.42);
+  add(new THREE.BoxGeometry(1.9, 0.85, 1.4), 3.0, 3.65, -0.42);
+  g.scale.setScalar(def.scale ?? 1.9);
+  return {
+    group: g,
+    setHaze(k) { mat.opacity = Math.max(0, Math.min(1, k)) * 0.92; },
+    dispose() { g.traverse((o) => { if (o.geometry) o.geometry.dispose(); }); mat.dispose(); },
+  };
+}
+
 export function buildHollowgate(def, quality = 1) {
   const accent = def.accent ?? 0xe09a3e;    // warm stained-gold — the window's dominant hue
   const glow = def.glow ?? 0xf2e6c8;        // candle-ivory (shield rim / shards)
@@ -429,10 +462,55 @@ export function buildHollowgate(def, quality = 1) {
   function setCharge(k) { charge = clamp01(k); }
   let tell = null;
   function setAttackTell(id) { tell = id || null; }
-  let setpieceK = 0, dreadK = 0;
+  let setpieceK = 0, dreadK = 0, passK = 0;
   function setSetpiece(k, sdef) {
     setpieceK = clamp01(k);
     dreadK = (sdef && sdef.dread) ? setpieceK : 0;
+    passK = (sdef && !sdef.dread) ? setpieceK : 0;   // archPass (fly-through) — the door opens, panes welcome you
+  }
+
+  // ---- DESTRUCTIBLE ROSE PANES (§5f CAVE law — the prove-then-extend hero;
+  // §5i.C PANE BREAK parry job). A cracked pane goes dark + its radial is
+  // deleted from the composite (both the visual wedge and the pattern arm that
+  // fires along it). crackPane() is the per-part hit-test target (boss.js routes
+  // the bossDamage event's part/x-y payload here); the model owns the visual. ----
+  const crackedPanes = new Set();
+  function crackPane(idx) {
+    if (idx == null || idx < 0 || idx > 7 || crackedPanes.has(idx)) return false;
+    crackedPanes.add(idx);
+    panes[idx].visible = false;                 // the wedge is gone — a hole in the window
+    paneMats[idx].emissiveIntensity = 0;
+    // A dark break stub jags into the emptied wedge (a raw fracture, dark tier).
+    const stub = new THREE.Mesh(strip(new THREE.TetrahedronGeometry(0.34, 0)), stoneDarkMat);
+    const a = PANE_ANG[idx];
+    stub.position.set(Math.cos(a) * (PANE_IN + 0.3), RING_C + Math.sin(a) * (PANE_IN + 0.3), 0.3);
+    stub.rotation.z = a * 1.7;
+    rig.add(stub);
+    return true;
+  }
+  function paneAlive(idx) { return idx >= 0 && idx < 8 && !crackedPanes.has(idx); }
+  function livePanes() { const o = []; for (let i = 0; i < 8; i++) if (!crackedPanes.has(i)) o.push(i); return o; }
+  function paneCount() { return 8; }
+  function crackedCount() { return crackedPanes.size; }
+  // The screen-radial (window-outward) direction of a pane — the pattern arm
+  // fires along it (the beam IS the pane's radial, §5i.B RIDE-THE-BEAM-EDGE).
+  function paneRadialDir(idx) { const a = PANE_ANG[idx]; return [Math.cos(a), Math.sin(a)]; }
+  // Per-part hit test (the §5f seam): given a hit in the boss's LOCAL x/y frame
+  // (world minus the group origin, so the window sits near +RING_C·scale), return
+  // the nearest LIVE pane index, or -1 if the hit is nowhere near the window.
+  const _sc = def.scale ?? 1.5;
+  function paneHitTest(localX, localY) {
+    const wy = localY / _sc - RING_C;             // recentre on the window hub
+    const wx = localX / _sc;
+    const rr = Math.hypot(wx, wy);
+    if (rr > PANE_OUT + 0.9 || rr < PANE_IN - 0.5) return -1;   // not on the glass
+    let ang = Math.atan2(wy, wx); if (ang < 0) ang += Math.PI * 2;
+    let best = -1, bd = 9;
+    for (const i of livePanes()) {
+      let d = Math.abs(ang - PANE_ANG[i]); d = Math.min(d, Math.PI * 2 - d);
+      if (d < bd) { bd = d; best = i; }
+    }
+    return best;
   }
 
   // Pane glow state: per-pane eased intensity toward a per-frame target.
@@ -540,8 +618,14 @@ export function buildHollowgate(def, quality = 1) {
     const flicker = (i) => 0.85 + Math.sin(time * 5.3 + i * 1.7) * 0.1 + Math.sin(time * 11 + i * 2.9) * 0.05;
     let hubK = 1;
     for (let i = 0; i < 8; i++) {
+      if (crackedPanes.has(i)) { paneGlow[i] = 0; paneMats[i].emissiveIntensity = 0; continue; }   // a cracked pane is dark & gone
       let t;
-      if (entranceU != null) {
+      if (passK > 0.05) {
+        // ARCH PASS (fly-through): the door WELCOMES you through — every live
+        // pane brightens medium-warm and the hub blazes as the rail threads it.
+        t = (1.15 + passK * 0.7) * flicker(i);
+        hubK = 1 + passK * 0.5;
+      } else if (entranceU != null) {
         // VIGIL LIGHTS ignition — panes light one per beat, pooled pane hottest.
         const u = entranceU;
         const beats = clamp01((u - 0.10) / 0.72) * 8;         // 8 ignition beats across u 0.10–0.82
@@ -622,6 +706,7 @@ export function buildHollowgate(def, quality = 1) {
     if (shieldClamp) drop = Math.max(drop, 0.5);
     if (dreadK > 0) drop = Math.max(drop, dreadK);
     if (dyingK > 0) drop = Math.max(drop, clamp01(dyingK * 1.8));
+    if (passK > 0.05) drop = 0;   // the door MUST stay open through the fly-through (charge can't bar it)
     if (entranceU != null) {
       // The door's one entrance move: shut through the vigil, DROPS at the hub
       // ignition, then LIFTS fully — a door opening in invitation.
@@ -680,6 +765,8 @@ export function buildHollowgate(def, quality = 1) {
     setShieldVisible: kit.setShieldVisible,
     shatterShield: kit.shatterShield,
     flash, hurt,
+    // §5f destructible sub-parts (the per-part hit test target + the pattern-arm query).
+    crackPane, paneAlive, livePanes, paneCount, crackedCount, paneRadialDir, paneHitTest,
     tick(dt, time) { tickBody(dt, time); kit.tickCommon(dt, time); },
     // §7b diagnostics + studio pins (not part of the controller contract).
     archGapWidth, archGapSpan, portcullisDrop, paneIntensities, pupilPane,

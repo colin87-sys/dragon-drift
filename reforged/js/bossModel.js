@@ -6,7 +6,16 @@ import { buildStoneColossus } from './bossColossus.js';
 import { buildEmberHunter } from './bossAshtalon.js';
 import { buildBoneCoil } from './bossMarrowcoil.js';
 import { buildTwinWraith } from './bossEitherwing.js';
-import { buildHollowgate } from './bossHollowgate.js';
+import { buildHollowgate, buildHollowgateSeed } from './bossHollowgate.js';
+
+// §5e HORIZON-PRESENCE dispatcher (the Calamities foreshadow artifact): a def
+// with `horizonSeed: true` gets its fog-exempt far-silhouette here. Returns
+// null for every un-opted def — the seed system is inert for them (coexist).
+export function buildHorizonSeed(def) {
+  if (!def?.horizonSeed) return null;
+  if (def.archetype === 'hollowgate') return buildHollowgateSeed(def);
+  return null;
+}
 
 // API-stable re-export: boss.js imports makeEnergyShell from here for the
 // Surge aura FX. The implementation now lives in bossKit.js (shared plumbing
