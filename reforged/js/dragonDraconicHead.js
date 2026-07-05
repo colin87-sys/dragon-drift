@@ -221,25 +221,27 @@ function eyeZone(c, { r, x, y, z, glow }) {
   // pupil, seated PROUD on the wide cheek (clear of the long muzzle) so it reads on the
   // small head. Default OFF → obsidian/pearl/solar keep the original eye byte-identical.
   if (c.cfg.keenEye) {
-    const socketMat = new THREE.MeshStandardMaterial({ color: 0x0a1420, roughness: 0.5, emissive: 0x0a1420, emissiveIntensity: 0.04 });
-    const irisMat = new THREE.MeshStandardMaterial({ color: 0x9fd8ff, emissive: 0x9fd8ff, emissiveIntensity: 1.4 });
-    // A big DARK almond socket seated PROUD on the cheek IS the eye shape — a dark
-    // almond against the light-lit hide reads as an eye where a light iris dissolves.
-    // A bright iris glint sits inside it toward the camera (the brightest facial point,
-    // §4). FRONT-cheek, high + forward at the snout↔cranium junction (r3 dir 2).
-    const R2 = rr * 2.4;
-    const ex = c.hx * 0.72, ey = c.hy * 0.34, ez = c.faceZ - c.faceR * 0.14;
-    const px = R2 * 1.15;                                    // clearly proud of the loft surface
+    // KEEN FALCON EYE (gate r4 dir 8): a SMALL, HIGH-SET, forward almond — NOT a big
+    // lateral black orb. A thin dark rim reads the socket; a BRIGHT iris fills most of it
+    // (the brightest facial point, §4) and a hard white catchlight gives it life. Narrow +
+    // tall + tilted = almond; seated close to the crown (not bulged out the cheek).
+    const rimMat = new THREE.MeshStandardMaterial({ color: 0x0a1420, roughness: 0.5 });
+    const irisMat = new THREE.MeshStandardMaterial({ color: 0xbfe2ff, emissive: 0xbfe2ff, emissiveIntensity: 1.7, roughness: 0.28 });
+    const catchMat = new THREE.MeshStandardMaterial({ color: 0xffffff, emissive: 0xffffff, emissiveIntensity: 2.2 });
+    const R2 = rr * 1.5;                                     // ~14–18% head length (dir 8), not 2.4×
+    const ex = c.hx * 0.6, ey = c.hy * 0.52, ez = c.faceZ - c.faceR * 0.04;  // HIGHER + forward
+    const px = R2 * 0.5;                                     // seated close — no lateral bulge
     for (const s of [-1, 1]) {
-      // A clean dark almond socket seated proud on the smooth cheek (the eye shape),
-      // with a small bright iris glint (the brightest facial point, §4). Rounder segs
-      // so it reads as a smooth eye, not a crystal.
-      const socket = new THREE.Mesh(new THREE.SphereGeometry(R2, seg(14), seg(12)), socketMat);
-      socket.scale.set(0.82, 1.18, 0.72); socket.rotation.set(0.05, -s * 0.5, -s * 0.38);
-      socket.position.set(s * (ex + px), ey, ez); c.head.add(socket);
-      const iris = new THREE.Mesh(new THREE.SphereGeometry(R2 * 0.5, seg(12), seg(9)), irisMat);
-      iris.scale.set(0.82, 1.12, 0.7); iris.rotation.set(0.05, -s * 0.5, -s * 0.38);
-      iris.position.set(s * (ex + px + R2 * 0.14), ey + R2 * 0.05, ez + R2 * 0.06); c.head.add(iris);
+      const tilt = new THREE.Euler(0.06, -s * 0.42, -s * 0.5);   // almond keen tilt
+      const rim = new THREE.Mesh(new THREE.SphereGeometry(R2, seg(12), seg(10)), rimMat);
+      rim.scale.set(0.6, 1.34, 0.62); rim.rotation.copy(tilt);
+      rim.position.set(s * (ex + px), ey, ez); c.head.add(rim);
+      const iris = new THREE.Mesh(new THREE.SphereGeometry(R2 * 0.74, seg(10), seg(8)), irisMat);
+      iris.scale.set(0.58, 1.28, 0.6); iris.rotation.copy(tilt);
+      iris.position.set(s * (ex + px), ey, ez + R2 * 0.3); c.head.add(iris);
+      // hard white catchlight — upper-forward glint (life, dir 8)
+      const spec = new THREE.Mesh(new THREE.SphereGeometry(R2 * 0.16, seg(5), seg(4)), catchMat);
+      spec.position.set(s * (ex + px) - s * R2 * 0.16, ey + R2 * 0.42, ez + R2 * 0.52); c.head.add(spec);
     }
     return;
   }
@@ -395,7 +397,7 @@ function browCrest(c) {
   // FIXED anchor on the crown — referenced to the CONSTANT base radius R (not the
   // per-skull dims), so it never drifts when the skull preset changes across forms
   // (§7 motif-invariance assert). Head-inner-local, independent of headScale.
-  const ax = 0, ay = R * 0.5, az = R * 0.06;
+  const ax = 0, ay = R * 0.62, az = R * 0.06;   // seated high on the crown so the fan clears the head outline
   const cGold = c.def.accentHue ?? 0xd9b36a;
   const cBase = c.def.crestBase ?? 0x7fa3c8;              // gate r1 dir 7: crest base 0x7fa3c8
   const bladeMat = new THREE.MeshStandardMaterial({
@@ -407,16 +409,16 @@ function browCrest(c) {
     const mid = 1 - Math.abs(t - 0.5) * 1.4;                 // centre blade longest
     // Bloom must GROW monotonically with crestScale even when the count is even
     // (no centre blade) — keep the scale-driven term dominant over the `mid` term.
-    const len = (0.44 + 0.20 * mid) * sc;
+    const len = (0.62 + 0.26 * mid) * sc;                   // longer so the fan clears the crown (gate r4 dir 10)
     const wid = (0.19 + 0.08 * mid) * sc;   // broader = reads as feather-blades, not spikes (dir 7)
     maxLen = Math.max(maxLen, len);
     // A slim feather blade, gold-tipped via a base→tip vertex gradient.
     const g = featherGeoLocal(len, wid);
     gradTip(g, cBase, cGold);
     const b = new THREE.Mesh(g, bladeMat);
-    const spread = n > 1 ? (t - 0.5) * 0.5 : 0;             // tight fan (swept, not radial star — dir 3)
+    const spread = n > 1 ? (t - 0.5) * 0.62 : 0;            // fan (swept, not radial star — dir 3), a touch wider so 3 blades read
     b.position.set(ax, ay, az);
-    b.rotation.x = -0.32;                                    // rake up-and-back so the blades BREAK the head outline (r3 dir 3)
+    b.rotation.x = -0.62;                                    // sweep UP-and-back (≈35°) so the fan BREAKS the head outline from rear + side (dir 10)
     b.rotation.z = spread;
     b.rotation.y = spread * 0.4;
     c.head.add(b);

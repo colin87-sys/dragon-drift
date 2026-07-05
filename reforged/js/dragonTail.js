@@ -494,10 +494,14 @@ export function buildCleanTail(def, model, bodyMat, swept = false) {
       tip.add(shard);
     }
   } else if (style === 'finned') {
-    const fin = new THREE.Mesh(new THREE.ConeGeometry(0.085, 0.46, lod(4)), plateMat);
-    fin.scale.set(1, 1, 0.5);
-    fin.position.set(0, 0.26, -0.05);
-    tip.add(fin);
+    // Dorsal fin spike — suppressed under the AZURE banner fork (gate r4 dir 13: it read
+    // as a stray needle poking up mid-tail; the swallowtail banner is the tail read there).
+    if (!model.tailBannerFork) {
+      const fin = new THREE.Mesh(new THREE.ConeGeometry(0.085, 0.46, lod(4)), plateMat);
+      fin.scale.set(1, 1, 0.5);
+      fin.position.set(0, 0.26, -0.05);
+      tip.add(fin);
+    }
     const point = new THREE.Mesh(new THREE.ConeGeometry(tipR + 0.03, 0.6, lod(6)), bodyMat);
     point.rotation.x = Math.PI / 2;
     point.position.set(0, 0, 0.3);

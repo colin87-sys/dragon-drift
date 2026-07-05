@@ -811,7 +811,9 @@ function buildBladeFeatherWings(def, model, attach, giM) {
         const y = camber * Math.sin(cf * Math.PI) * (0.4 + 0.6 * Math.sin(t * Math.PI));
         verts.push(x, y, z);
         c.copy(cb).lerp(ct, t * t);
-        if (t > 0.66) c.lerp(cg, (t - 0.66) / 0.34 * 0.85);   // gold ONLY on the outer third (dir 5/11)
+        // Gold DIFFUSE tip-paint confined to the outer ~12% with a CRISP boundary (gate r4
+        // dir 7: law-9 tips only — no gradient wash down a third of the blade).
+        if (t > 0.88) c.lerp(cg, Math.min(1, (t - 0.88) / 0.07));
         cols.push(c.r, c.g, c.b);
       }
     }
@@ -847,7 +849,11 @@ function buildBladeFeatherWings(def, model, attach, giM) {
     const rootZ = rootX * Math.tan(sweep) + stagger * i;   // sweep back + z-stagger
     const len = maxLen * lenMulFor(i);
     const wRoot = chordK * reach * (0.7 + 0.3 * Math.sin(t * Math.PI));
-    const rakeI = 0.14 + 0.13 * i;                         // fan: outer blades rake further back
+    // GENTLE progressive fan (gate r4 dir 1/2/12): a small monotonic rake opens true
+    // planform SLITS between the outer 60% of adjacent blades and keeps the blades
+    // pointing OUTWARD (lateral span up, effective sweep ≤~30°) instead of the hard
+    // back-rake that shingled the comb into one solid scythe (MITTEN) and shortened span.
+    const rakeI = model.bladeRake ?? (0.05 + 0.055 * i);
     // discrete tier: inner→dark, mid→cMid, outer→light
     const baseHex = t < 0.28 ? cDark : (t < 0.62 ? cMid : cLight);
     const tipHex = t < 0.28 ? cMid : cLight;
@@ -882,15 +888,20 @@ function buildBladeFeatherWings(def, model, attach, giM) {
       par.add(bone((a.x - ox) * side, a.y - oy, a.z - oz, (b.x - ox) * side, b.y - oy, b.z - oz, r0, r1, armMat));
     }
 
-    // Root COVERTS (dir 2/12) — 3 short dark plates fairing the shoulder joint into the
-    // comb, so no naked ball-joint sphere reads as a bearing.
+    // Root COVERTS — exactly 3 short dark plates fairing the shoulder joint into the comb
+    // (no naked ball-joint). Seated FLAT on the arm line (cz tracks the spar, no +z float
+    // that read as detached mid-span slivers — gate r4 dir 3) with a clean ×0.8 size step
+    // (law 5 — dir 4) so the cluster reads as deliberate coverts, not broken chips.
     for (let k = 0; k < 3; k++) {
-      const cx = armLen * (0.04 + k * 0.05), cy = cx * Math.tan(theta) - 0.02, cz = cx * Math.tan(sweep) + 0.06 + k * 0.05;
+      const size = 0.34 * Math.pow(0.8, k);                  // ×0.8 step
+      const cx = armLen * (0.05 + k * 0.06);
+      const cy = cx * Math.tan(theta) - 0.02;
+      const cz = cx * Math.tan(sweep) + 0.03;                // seat ON the spar, no float
       const cRest = new THREE.Group();
       cRest.position.set(cx * side, cy, cz);
-      cRest.rotation.y = side * -(0.1 + k * 0.12);
+      cRest.rotation.y = side * -(0.06 + k * 0.07);
       cRest.rotation.z = side * (theta - 0.04);
-      const cov = new THREE.Mesh(bladeGeo(maxLen * (0.30 - k * 0.04), chordK * reach * 0.9, cDark, cMid), covertMat);
+      const cov = new THREE.Mesh(bladeGeo(maxLen * size, chordK * reach * 0.85, cDark, cMid), covertMat);
       cov.scale.x = side;
       cRest.add(cov);
       pivot.add(cRest);
