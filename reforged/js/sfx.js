@@ -278,6 +278,26 @@ export function setSfxVolume(v) {
   if (a && sfxBus) sfxBus.gain.setTargetAtTime(sfxTarget(), a.currentTime, 0.05);
 }
 
+// getBeatClock (§5i): expose the music engine's private beat grid so boss RHYTHM
+// signatures (bossRhythm.js) can quantize attack tickets to the track's beat —
+// the "rhythm is a fairness subsidy" law (dense patterns land ON the grid). The
+// grid was always private (per-track bpm + an eighth-note scheduler); this is the
+// read-only window onto it the phrase machine asked for.
+//
+// Returns null when music isn't running (headless tests, muted, backgrounded) —
+// callers MUST fall back to plain timing, so no boss ever depends on audio to
+// fire fairly. `beat` is fractional quarter-notes since the loop started; `phase`
+// is 0..1 within the current beat; `toNextBeat` is seconds to the next downbeat.
+export function getBeatClock() {
+  if (!musicActive || bgSuspended || !ctx) return null;
+  const beatLen = E8 * 2;                       // seconds per quarter-note beat
+  const sinceLoop = ctx.currentTime - loopOffset;
+  if (!(beatLen > 0) || !Number.isFinite(sinceLoop)) return null;
+  const beat = sinceLoop / beatLen;
+  const phase = beat - Math.floor(beat);
+  return { bpm: TRACKS[trackIndex].bpm, beatLen, beat, phase, toNextBeat: beatLen * (1 - phase) };
+}
+
 // --- Noise helper: one cached 2s white-noise buffer, one-shot sources ---
 let noiseBuffer = null;
 function getNoiseBuffer(a) {

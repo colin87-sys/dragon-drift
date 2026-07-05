@@ -190,23 +190,33 @@ export const cameraCtl = {
     // you), then blend home to the normal chase as it pulls ahead. Deterministic,
     // camera-only. rearEnv 1→0 across the pivot moves the camera from an ahead/high
     // "look-back" pose to the normal chase pose.
-    if (overtake) {
-      // Stay locked BACK on it through the whole close pass (C2 ends ~0.58), then
-      // ease home to the forward chase as it pulls ahead (C3) and settles.
-      const pivot = 0.60;
-      const rearEnv = overtake.k < pivot ? 1 : Math.max(0, 1 - (overtake.k - pivot) / 0.32);
-      const nx = player.position.x * 0.9, ny = player.position.y + 3.6, nz = player.position.z + 12.3;
-      const rx = player.position.x * 0.9, ry = player.position.y + 4.4, rz = player.position.z - 9;
+    if (overtake && !overtake.chaseCam) {
+      // §5j chaseCam: a hijack can keep the NORMAL chase camera (spends the hijack
+      // "invisibly" — EITHERWING's Baton Cross) while STILL feeding overtakeState so
+      // main.js sweeps the dragon's head with the crossing eye. Such a state skips this
+      // rear-look block and falls through to the normal chase below.
+      // §5j: the rear-look pose endpoints, pivot/blend, look weighting, and FOV target are
+      // the DEFAULTS of ASHTALON's overtake — a hijack script can override any of them via
+      // its setOvertake state (defaults preserve ASHTALON byte-for-byte; EITHERWING's Baton
+      // Cross reuses them wholesale with a chase-identical pose, feeding the ORB's x as bx
+      // so the camera pans to hold the crossing eye).
+      // Stay locked BACK on it through the whole close pass, then ease home to the forward
+      // chase as it pulls ahead and settles. rearEnv 1→0 across the pivot.
+      const pivot = overtake.pivot ?? 0.60, blend = overtake.blend ?? 0.32;
+      const rearEnv = overtake.k < pivot ? 1 : Math.max(0, 1 - (overtake.k - pivot) / blend);
+      const near = overtake.near ?? [0.9, 3.6, 12.3], rear = overtake.rear ?? [0.9, 4.4, -9];   // [xMul, yOff, zOff]
+      const nx = player.position.x * near[0], ny = player.position.y + near[1], nz = player.position.z + near[2];
+      const rx = player.position.x * rear[0], ry = player.position.y + rear[1], rz = player.position.z + rear[2];
       camera.position.set(nx + (rx - nx) * rearEnv, ny + (ry - ny) * rearEnv, nz + (rz - nz) * rearEnv);
       smoothPos.copy(camera.position);
-      // Look at the MIDPOINT of the dragon and the boss (not the boss alone) so
-      // BOTH stay in the shot for the eye-lock, whatever lane the dragon is in —
-      // easing to the normal forward look as we return to the chase.
-      const mx = (player.position.x + overtake.bx) / 2, my = (player.position.y + overtake.by) / 2 + 1.0, mz = (player.position.z + overtake.bz) / 2;
-      const fx = player.position.x, fy = player.position.y + 1.0, fz = player.position.z - 16;
+      // Look at the MIDPOINT of the dragon and the boss (not the boss alone) so BOTH stay
+      // in the shot, whatever lane the dragon is in — easing to the normal forward look on return.
+      const midY = overtake.midY ?? 1.0, fwd = overtake.forward ?? [0, 1.0, -16];   // fwd = [xOff, yOff, zOff]
+      const mx = (player.position.x + overtake.bx) / 2, my = (player.position.y + overtake.by) / 2 + midY, mz = (player.position.z + overtake.bz) / 2;
+      const fx = player.position.x + fwd[0], fy = player.position.y + fwd[1], fz = player.position.z + fwd[2];
       lookTarget.set(fx + (mx - fx) * rearEnv, fy + (my - fy) * rearEnv, fz + (mz - fz) * rearEnv);
       camera.lookAt(lookTarget);
-      const fovT = 80;
+      const fovT = overtake.fov ?? 80;
       if (Math.abs(camera.fov - fovT) > 0.1) { camera.fov = damp(camera.fov, fovT, 4, dt); camera.updateProjectionMatrix(); }
       return;
     }

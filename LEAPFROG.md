@@ -5381,6 +5381,42 @@ catches. (4) Multi-body bosses: the FORMATION is the body — scale the formatio
 slot 5 is load-bearing (call-response rhythm, DUO law, the Baton Cross entrance, the slot-12 ONEWING seed) and
 the failure was presentation scale. Diagnose which axis actually failed before moving a boss between bands.
 
+### L142 — EITHERWING REACH build: the techniques that hit the r8 spec (studio CP1 PASS)
+
+**Did / learned.** Executed the L140 REACH spec on the shipped twin-wraith builder and cleared a two-round
+studio design gate. Four techniques carried it, each reusable:
+
+1. **Deforming STRIP ribbons beat per-segment pivot chains for long tails on a draw budget.** The spec wants
+   12-segment comet-tails ×2 tails ×2 twins = 48 meshes as separate pivots → 48+ draws, blowing the ≤30 cap.
+   Fix: keep the lagged pivot chain as INVISIBLE logical drivers (still named `ribbonPivot` so the telegraph/
+   §7b asserts pass unchanged) but render each tail as ONE `BufferGeometry` quad-strip rebuilt each tick from
+   the pivots' world positions (`updateMatrixWorld` → `worldToLocal` the joint origins → write a tapered strip
+   with `side = cross(tangent, up)`). 40+ ribbon draws → 4. Net boss: 5401 tris/50 draws → 4817/26.
+2. **Lit-silhouette = INVERTED-HULL outline, not edge-bars.** First attempt traced the base octahedron's 12
+   edges with thin bars — but the body is a detail-3 (sphere-projected) octahedron, so the straight edge-bars
+   CHORD INSIDE the bulged body and only poke out at the apexes → the gate saw "scattered arrow-dabs," seeker
+   perimeter unlit. Fix: a scaled (×1.07) BackSide copy of the body draws a CONTINUOUS silhouette line from
+   every angle in one draw. Two emissive tiers (holder ei 1.15 / seeker 0.75) make the holder/seeker value
+   step read from the OUTLINE ALONE, even where the near-black body dissolves into the sky.
+3. **A "second focal" must borrow the primary focal's whole idiom.** The dread split-core first read as a
+   161-lum peach ring (dread ≈ charge) because it was dim (scalar ~6) and barely proud (z+0.08 → occluded by
+   the socket collar). Fix: match the EYE's catchlight recipe exactly — white-hot scalar ~9, bigger, seated
+   PROUD (z+0.4) toward camera so nothing occludes it → a real ≥240 core. A focal peak is scalar × size ×
+   unoccluded-proudness; miss any factor and bloom won't reach threshold (same lesson as the G1 glint fix).
+4. **Distinguish two tells by OPPOSING one axis, not adding decoration.** Dread and charge both had taut
+   tails. Gating the charge "straighten" OFF during dread (`straighten *= 1 - dreadSplit`) + a dread-only wide
+   flare made the SAME tails read taut-for-charge / flared-for-dread — one shared control, opposite poles.
+
+**The laws this mints.** (a) For animated multi-segment appendages under a draw cap, drive an invisible skeleton
+and skin ONE strip — don't pay a draw per segment. (b) A continuous emissive silhouette is an inverted hull, not
+traced edges (edges of a subdivided/rounded body chord inside it). (c) The ONE-GLOW law and a readable charge
+tell coexist by making the tell SHAPE (pose) not a second glow — the corona/ember/split-core stay dread-only.
+
+**Gotcha.** `THREE.Box3.setFromObject` counts HIDDEN children — the raised-but-hidden shield bubble + hidden HP
+bar inflated the studio auto-fit's `maxDim` ~14× and shrank the flee survivor to ~10% of frame. A per-state
+"fit to visible geometry only" traversal (skip nodes with a hidden ancestor + skip Points debris) is mandatory
+for any auto-framing tool, or a small/off-centre pose is judged as a framing failure that isn't real.
+
 ### L141 — The r8 span bet failed: presence sums per body, and a pass must CROSS the player
 
 **Did / learned.** The r8 REACH pass fixed EITHERWING's color (the inverted-hull lit silhouette is genuinely
@@ -5409,8 +5445,42 @@ doesn't exist until the CP2 entrance engine). New audit law: **grandeur comparis
 drama — a slot without its entrance beat will always feel lesser than a slot with one, independent of
 geometry.** Judge drafts accordingly (or discount for it) before concluding a boss's body is the problem.
 
+### L143 — The §5j entrance engine: generalize a shipped cinematic without moving a float
 
-### L142 — DRAGON-DESIGN.md: the boss pipeline turns on the players; the doc itself must pass a gate
+**Did / learned.** Lifted ASHTALON's hardcoded `updateFlythrough` into a data-driven
+`ENTRANCE_SCRIPTS` registry (`js/entranceScripts.js`) + a generic `updateEntrance` driver,
+then built EITHERWING's *Baton Cross* on it — all with ASHTALON replaying byte-for-byte. The
+technique that made a shipped-cinematic refactor safe:
+
+1. **Golden-trace the shipped output BEFORE touching it.** Captured ASHTALON's overtake
+   pose/tuck/yaw/gaze/slow at a u-grid (from the pre-refactor formulas, fixed player ref) into
+   a fixtures JSON, and wrote `tests/entrance.mjs` to assert the refactored script reproduces
+   it (max err 0). The registry is then free to grow — any drift on the exemplar fails loudly.
+2. **Data module with ZERO game deps.** `entranceScripts.js` imports nothing (pure Math), so
+   the test imports it directly — no browser/shim needed to pin the golden. The driver
+   (skip/slow-mo/setOvertake feed/enterFight) stays in boss.js; the per-boss path/tuck/yaw/
+   gaze/camera/announce are functions in the data.
+3. **Coexist by opt-in field.** `def.entrance` (an id) triggers the flythrough phase; the
+   legacy `cinematicEntrance` flag maps to `'overtake'`. Defs with neither keep the plain
+   approach. `setOvertake`'s pose endpoints/pivot/blend/FOV became `?? default` overrides in
+   the state object — overridable, but ASHTALON (passing none) is untouched.
+4. **Reuse the boss's own rig for the new cinematic.** The Baton Cross didn't need bespoke
+   entrance geometry — `setEntrance(u)` on the eitherwing model overrides `posA/posB`
+   (bracket→scissor) and pins `holdT` (the eye cross), reusing the existing twin/eye/thread
+   machinery. The camera + the dragon's head-strain came FREE by feeding the crossing ORB's
+   world-x as `setOvertake.bx` (main.js already drives `setDragonLook` from it).
+
+**The law this mints.** To generalize any shipped set-piece: golden-trace its output first,
+extract the math into a dep-free data module the test can import, and gate the new path behind
+an opt-in def field so the exemplar stays byte-identical. Never refactor a shipped cinematic
+without the golden gate in place first.
+
+**Gotcha.** The setpiece/entrance DEBUG PINS run in the FIGHT phase, so an entrance pin does
+NOT reproduce the live flythrough's cinematic camera/HUD — its stills read as a plain chase.
+Pins verify the model CHOREOGRAPHY (twins bracket, eye crosses) headlessly; the framing/camera
+feel must be judged on the live preview (or a live-flythrough capture), not the pinned still.
+
+### L144 — DRAGON-DESIGN.md: the boss pipeline turns on the players; the doc itself must pass a gate
 
 **Did.** Wrote `reforged/DRAGON-DESIGN.md` — the starter-rebuild playbook (PR #216): aesthetics-first law set,
 per-architecture WING LAW, hatchling→adolescent→apex growth-arc dial bands, anti-collision trio registry, three

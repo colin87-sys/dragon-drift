@@ -30,7 +30,7 @@ import { DRAGONS } from './dragons.js';
 import { RIDERS } from './riders.js';
 import { dailySeed, recordDailyRun, saveData, persist, grantXp, levelEmberReward, todayUTC, gambitSunsetRefund, freezeSaves } from './save.js';
 import { initEmbers, addEmberLine, updateEmbers, bankEmbers, resetEmbers } from './embers.js';
-import { initBoss, updateBoss, resetBoss, setBossQuality, forceBoss, setBossDebugFirstAt, setBossDebugDefIdx, setBossDebugCharge, setBossDebugSetpiece, bossDebugState, bossGradeTarget, startBossRush, setRushUnlockAll, rushUnlocked, rushRosterInfo } from './boss.js';
+import { initBoss, updateBoss, resetBoss, setBossQuality, forceBoss, setBossDebugFirstAt, setBossDebugDefIdx, setBossDebugCharge, setBossDebugSetpiece, setBossDebugEntrance, bossDebugState, bossGradeTarget, startBossRush, setRushUnlockAll, rushUnlocked, rushRosterInfo } from './boss.js';
 import { emit, on } from './events.js';
 import { initAnalytics } from './analytics.js';
 import { initMissions, settleMissions } from './missions.js';
@@ -231,6 +231,7 @@ if (urlParams.has('debug')) {
     bossPinCharge: (lvl) => setBossDebugCharge(lvl),
     // Capture hook: pin/release a setpiece pose (e.g. the stooping dive) for stills.
     bossPinSetpiece: (pin) => setBossDebugSetpiece(pin),
+    bossPinEntrance: (u) => setBossDebugEntrance(u),
     // Test seam: skip the attract splash and land on the dashboard hub.
     toHub: () => {
       if (!splashVisible()) return;
@@ -1096,7 +1097,12 @@ function tick() {
     const ov = cameraCtl.overtakeState;
     if (ov) {
       const dx = ov.bx - player.position.x, dz = ov.bz - player.position.z;
-      const win = Math.max(0, Math.min(1, (ov.k - 0.20) / 0.12, (0.86 - ov.k) / 0.12));  // ramp in/out around the pass
+      // A script may drive its own look-window (EITHERWING's two-beat reveal needs the
+      // head-turn open across BOTH reveals); ASHTALON leaves lookWin undefined and keeps
+      // its single-glance ramp, so its golden trace is untouched.
+      const win = ov.lookWin !== undefined
+        ? ov.lookWin
+        : Math.max(0, Math.min(1, (ov.k - 0.20) / 0.12, (0.86 - ov.k) / 0.12));  // ramp in/out around the pass
       const yaw = Math.max(-0.7, Math.min(0.7, Math.atan2(-dx, -dz)));                     // face the boss, clamped
       setDragonLook(win > 0 ? yaw * win : null);
     } else setDragonLook(null);

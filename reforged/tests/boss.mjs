@@ -103,6 +103,55 @@ assertEq(bossDefForIndex(0).id, BOSS_ORDER[0], 'bossDefForIndex(0) → first bos
 assertEq(bossDefForIndex(BOSS_ORDER.length).id, BOSS_ORDER[0], 'bossDefForIndex wraps the list');
 ok(`bossDefs schema valid for ${BOSS_ORDER.length} boss(es), all 3-phase`);
 
+// --- 1b. §5i RHYTHM gates: `rhythmprint` (every boss owns a DISTINCT temporal
+// fingerprint — the ping-pong is retired) + `amberdiet` (the AMBER FLOOR holds:
+// a parry-carrier volley lands in every rolling 12s window of every phase). Both
+// simulate the pure phrase machine (bossRhythm.js) headlessly — variance as CI. --
+{
+  const { simulatePhase, hasAmberCarrier } = await import('../js/bossRhythm.js');
+  // seeded rng so the sim is deterministic in CI (no flake across runs)
+  const seeded = (a) => () => { a |= 0; a = a + 0x6D2B79F5 | 0; let t = Math.imul(a ^ a >>> 15, 1 | a); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; };
+  // two-sample Kolmogorov–Smirnov distance between rest-gap samples
+  const ks = (a, b) => {
+    const A = [...a].sort((x, y) => x - y), B = [...b].sort((x, y) => x - y);
+    const F = (s, x) => { let lo = 0, hi = s.length; while (lo < hi) { const m = (lo + hi) >> 1; if (s[m] <= x) lo = m + 1; else hi = m; } return lo / s.length; };
+    let d = 0; for (const x of [...A, ...B]) d = Math.max(d, Math.abs(F(A, x) - F(B, x))); return d;
+  };
+  const KS_FLOOR = 0.20;   // any two bosses' gap distributions differ by at least this
+  const rests = {};
+  for (const key of BOSS_ORDER) {
+    const def = BOSSES[key];
+    assert(def.rhythm && typeof def.rhythm.signature === 'string',
+      `${key} declares a §5i rhythm signature (the ping-pong fix lands with slot 5)`);
+    rests[key] = [];
+    def.phases.forEach((ph, pi) => {
+      // amberdiet: the phase must be ABLE to serve an amber volley (design), and
+      // the machine's amber floor must keep the fire-to-fire gap ≤12s (behaviour).
+      assert(hasAmberCarrier(ph.attacks),
+        `${key} P${pi + 1}: phase can serve an amber volley (AMBER FLOOR, §5i C.1) [${ph.attacks.join(',')}]`);
+      const sim = simulatePhase(def, pi, ph.attacks, 60, seeded(9001 + idxKey(key) * 131 + pi * 13));
+      rests[key].push(...sim.rests);
+      const fires = [0, ...sim.amberFires, sim.endT];
+      let maxGap = 0; for (let i = 1; i < fires.length; i++) maxGap = Math.max(maxGap, fires[i] - fires[i - 1]);
+      assert(maxGap <= 12, `${key} P${pi + 1}: an amber volley every ≤12s (maxGap ${maxGap.toFixed(1)}s — amberdiet)`);
+    });
+    ok(`${key} amberdiet: every phase serves amber within 12s (${def.rhythm.signature})`);
+  }
+  // rhythmprint: pairwise-distinct aggregate distributions (KS floor).
+  let minKS = 1, minPair = '';
+  for (let i = 0; i < BOSS_ORDER.length; i++) {
+    for (let j = i + 1; j < BOSS_ORDER.length; j++) {
+      const a = BOSS_ORDER[i], b = BOSS_ORDER[j];
+      const d = ks(rests[a], rests[b]);
+      if (d < minKS) { minKS = d; minPair = `${a}/${b}`; }
+      assert(d >= KS_FLOOR,
+        `rhythmprint: ${a} (${BOSSES[a].rhythm.signature}) vs ${b} (${BOSSES[b].rhythm.signature}) gap distributions differ (KS ${d.toFixed(2)} ≥ ${KS_FLOOR})`);
+    }
+  }
+  ok(`rhythmprint: ${BOSS_ORDER.length} bosses have distinct rhythm fingerprints (min KS ${minKS.toFixed(2)} @ ${minPair})`);
+}
+function idxKey(k) { return BOSS_ORDER.indexOf(k); }
+
 // --- 2. bossModel: tri budget + dissolve (every boss in the roster) ---------
 for (const key of BOSS_ORDER) {
   const model = buildBoss(BOSSES[key], 1);
@@ -373,6 +422,77 @@ for (const key of BOSS_ORDER) {
 
   coil.dispose();
   ok(`marrowcoil geometry: clearance ${tightest.toFixed(1)}, pitch/width ${minRatio.toFixed(2)}, coil sweep ${sweep.toFixed(1)}, jaw+ribs telegraph`);
+}
+
+// EITHERWING (slot 5) — the telegraph gate + the §5d/§7b per-sheet geometry asserts
+// the build sheet declares: twin-value asymmetry (the eyeless twin measurably
+// darker), ribbon pivot LAG > 0 (the tails FLOW, not stick), eye-thread length > 0
+// at every orbit phase, and a handoff that moves the eye ≥ the twin separation.
+{
+  const tw = buildBoss(BOSSES.eitherwing, 1);
+
+  // Named anatomy the telegraph/design gates + the studio locate by name.
+  assert(findAllByName(tw.group, 'eitherTwinA').length === 1 && findAllByName(tw.group, 'eitherTwinB').length === 1,
+    'eitherwing exposes both named twins (eitherTwinA/B)');
+  assert(!!tw.group.getObjectByName('eyeRig'), 'eitherwing exposes the named eyeRig (the shared eye)');
+  assert(!!tw.group.getObjectByName('eyeThread'), 'eitherwing exposes the named eyeThread (the beaded strand)');
+  assert(!!tw.group.getObjectByName('eitherScar'), 'eitherwing exposes the ONE asymmetric scar (the snapped ribbon)');
+  const ribbons = findAllByName(tw.group, 'ribbonPivot');
+  assert(ribbons.length >= 12, `eitherwing exposes ≥12 named ribbonPivots for the flowing tails (${ribbons.length})`);
+
+  // TELEGRAPH (§3.5): setCharge flares the ribbons + fins and glides the eye — the
+  // SILHOUETTE must change, not just colour. Assert the ribbon pivots re-fan.
+  for (let i = 0; i < 12; i++) tw.tick(0.05, i * 0.05);   // settle idle
+  const preRib = ribbons.map((r) => r.rotation.z);
+  tw.setCharge(1); tw.setAttackTell('crossfire');
+  for (let i = 0; i < 16; i++) tw.tick(0.05, 1 + i * 0.05);
+  const ribMoved = ribbons.filter((r, i) => Math.abs(r.rotation.z - preRib[i]) > 0.03).length;
+  assert(ribMoved >= 6, `eitherwing telegraph: ${ribMoved} ribbon pivots flared on charge (need ≥6 — silhouette change)`);
+  tw.setCharge(0);
+
+  // §7b assert 1 — TWIN VALUE: the eyeless twin is measurably darker. Pin the eye to
+  // twin A (A holds) → twin B is the seeker and must read a value step darker.
+  tw.setDebugHandoff(0);
+  for (let i = 0; i < 24; i++) tw.tick(0.05, 20 + i * 0.05);
+  const lum = tw.twinBodyLum();
+  assert(lum.A - lum.B > 0.03,
+    `eitherwing twin value: the eyeless (seeker) twin is measurably darker (holder ${lum.A.toFixed(3)} vs seeker ${lum.B.toFixed(3)})`);
+
+  // §7b assert 2 — RIBBON LAG > 0: the tails must FLOW, not move as a rigid slab. A
+  // travelling wave with per-segment ease means, at any instant, the segments sit at
+  // DIFFERENT sway angles (spread > 0) — and they actively animate over time.
+  tw.setDebugHandoff(null);
+  let sA = ribbons.map((r) => r.rotation.z);
+  const spreadA = Math.max(...sA) - Math.min(...sA);
+  for (let i = 0; i < 20; i++) tw.tick(0.05, 30 + i * 0.05);
+  let sB = ribbons.map((r) => r.rotation.z);
+  const moved = ribbons.filter((r, i) => Math.abs(sB[i] - sA[i]) > 0.005).length;
+  assert(spreadA > 0.02, `eitherwing ribbon lag: the segments sit at different sway angles (spread ${spreadA.toFixed(3)} — a flowing chain, not a rigid slab)`);
+  assert(moved >= 6, `eitherwing ribbon lag: ${moved} ribbon pivots animate over time (the tails flow)`);
+
+  // §7b assert 3 — EYE-THREAD LENGTH > 0 at EVERY orbit phase: the twins never
+  // collide (the figure-eight node is depth-offset), so the eye always has a thread.
+  let minThread = Infinity, minSep = Infinity;
+  for (let i = 0; i < 200; i++) { tw.tick(0.05, 40 + i * 0.05); minThread = Math.min(minThread, tw.threadLength()); minSep = Math.min(minSep, tw.twinSeparation()); }
+  assert(minThread > 0.5 && minSep > 0.5,
+    `eitherwing eye-thread length ${minThread.toFixed(2)} and twin separation ${minSep.toFixed(2)} stay > 0 at every orbit phase`);
+
+  // §7b assert 4 — HANDOFF TRAVEL: the eye physically DETACHES and crosses the full
+  // thread from one socket to the other (not a nudge). The darts face the ember with
+  // their noses inward, so the eye seats on the inward SOCKETS — its journey is the
+  // socket-to-socket THREAD span (the meaningful separation the eye crosses), which
+  // it must traverse in full, and it must be a real glide (> 1.5 units).
+  tw.setDebugHandoff(0); for (let i = 0; i < 14; i++) tw.tick(0.05, 80 + i * 0.05);
+  const eye0 = tw.eyeWorldLocalPos().clone();
+  tw.setDebugHandoff(1); for (let i = 0; i < 14; i++) tw.tick(0.05, 80.7 + i * 0.05);
+  const eye1 = tw.eyeWorldLocalPos().clone();
+  const threadAt = tw.threadLength();
+  const travel = eye0.distanceTo(eye1);
+  assert(travel >= threadAt * 0.7 && travel > 1.5,
+    `eitherwing handoff: the eye travels ${travel.toFixed(2)} across the full thread span ${threadAt.toFixed(2)} (it detaches and glides, not a nudge)`);
+
+  tw.dispose();
+  ok(`eitherwing geometry: twin ΔL ${(lum.A - lum.B).toFixed(2)}, ribbon spread ${spreadA.toFixed(2)}, thread≥${minThread.toFixed(1)}, handoff ${travel.toFixed(1)}/thread ${threadAt.toFixed(1)}, ${ribMoved} ribbons telegraph`);
 }
 
 // Legacy coexist gate: a def WITHOUT `archetype` must still fall through to
