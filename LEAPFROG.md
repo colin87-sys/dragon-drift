@@ -5480,41 +5480,75 @@ NOT reproduce the live flythrough's cinematic camera/HUD — its stills read as 
 Pins verify the model CHOREOGRAPHY (twins bracket, eye crosses) headlessly; the framing/camera
 feel must be judged on the live preview (or a live-flythrough capture), not the pinned still.
 
-### L144 — The Baton Cross that SHIPPED: the owner's rear-cam sequential reveal beat the parallel bracket
+### L144 — DRAGON-DESIGN.md: the boss pipeline turns on the players; the doc itself must pass a gate
 
-**Did / learned.** The first Baton Cross (L143) had both twins slide in AT ONCE and bracket the
-dragon while the eye crossed between them (chaseCam — normal chase, twins fit ahead). The owner
-previewed it and asked for the *other* idea: a REAR-CAM **sequential** reveal — twinA rises alone
-(dragon cranks its head to look), THEN the eye crosses to twinB rising on the far side (head +
-camera pan with it), THEN both scissor forward into the fight. That version shipped (#217). What
-made the pivot cheap — the L143 engine already had every seam I needed:
+**Did.** Wrote `reforged/DRAGON-DESIGN.md` — the starter-rebuild playbook (PR #216): aesthetics-first law set,
+per-architecture WING LAW, hatchling→adolescent→apex growth-arc dial bands, anti-collision trio registry, three
+§5d build sheets on the real dial grammar, `tests/starters.mjs` assert spec, and a studio-first gate protocol
+with a verbatim aesthetics GATE PROMPT. The owner's verdict on the shipped starters — functionally green,
+visually inferior — is the whole reason: the boss arc proved that a harsh fresh-eyes gate is what buys beauty,
+so the starters get one too.
 
-1. **The parallel→sequential rewrite was ~30 lines, no new machinery.** The model's
-   `setEntrance(u)` batonCross branch went from `slide` (both in together) to `apA`/`apB` (twinA
-   rises over beat 1, twinB over beat 2, staggered by 0.34) + a later `scissor` that lands both on
-   the frozen figure-eight's th=0 seat. The eye `holdT` now crosses when twinB *appears* (0.34→0.62)
-   so the dragon always looks at the LIT twin, not a dark one. Same twin/eye/thread rig.
-2. **Rear-cam = just DON'T set `chaseCam`.** Dropping `chaseCam:true` from the script's camera
-   state falls the frame through to cameraController's rear-look block (the ASHTALON pose). Feed
-   `rel < 0` in `path()` so the group rides BEHIND the dragon (inside the look-back), and `bz =
-   -(player.dist + pose.rel)` puts it where the rear camera catches it rising. The camera pans
-   right→left by feeding the LIT twin's world-x as `bx` (a `_lit(u)` helper: +9 → −9 → 0).
-3. **A two-beat head-turn needed a script-owned look-window.** main.js's `setDragonLook` had
-   ASHTALON's hardcoded single-glance ramp (`(k−0.20)/0.12 … (0.86−k)/0.12`) — a lone glance, wrong
-   for two reveals. Added an optional `ov.lookWin` override: if the state provides it, main.js uses
-   it verbatim; ASHTALON leaves it undefined and keeps its ramp (golden still byte-identical). The
-   batonCross holds `lookWin≈1` across BOTH reveals, eases to 0 through the scissor.
+**Learned.** (1) **Gate the DESIGN DOC like a build.** A 4-lens adversarial panel (feasibility / aesthetics /
+distinctness / process) FAILed the first draft with 30+ surgical directives, then a 2-lens verify pass PASSed
+r2 with a 10-item punch list. The catches were real: per-form BUILDER swaps are impossible (`ascendedDef`
+merges `forms[]` into `d.model` only — every per-form change must be a model knob; `tailStyle` pattern);
+`horned` ignores `headScale` (ember's head is now `draconic feralPredator`); and the planned "Charmander law"
+tail-ember DUPLICATED shipped `fire`'s tailBulb motif — the registry's anti-collision test must sweep the FULL
+roster, not just the trio (ember's motif is now a rear-visible FORGE COLLAR at the yoke). (2) **A universal law
+plus a divergent sheet is a gate deadlock** — jade's fin-sails contradicted the "all wings" finger-ray law, so
+the doc now carries an explicit PRECEDENCE RULE (sheet overrides shared bands, stated inside the gate prompt)
+and a per-architecture clause table instead of one law pretending to fit three wings. (3) **The shipped
+starters are a free calibration target**: §8 step 0 runs the gate on the shipped dragon first and expects FAIL
+(MITTEN / FLAT STICKER / SAME-DRAGON-BIGGER); a gate that passes the old starter is a broken gate — the
+inverse of the bossgate prove-on-shipped-good law. (4) The shipped `membrane` wing with `flame:false` is
+structurally the mitten class the ASHTALON gate killed in round 2 — filled web, one flat material, edge
+treatment opt-in and off. The rebuild is architecture, not polish.
 
-**The law this mints.** When an owner wants to A/B two cinematics, don't fork the driver — express
-BOTH as data on the same engine (L143). Parallel-vs-sequential, chase-vs-rear-look, single-vs-dual
-head-turn were all a few fields (`chaseCam`, `rel` sign, `_lit`, `lookWin`) + one model branch. And
-add generalization seams to the SHARED consumer as `?? default` / `!== undefined` overrides
-(`lookWin` in main.js, like `setOvertake`'s pose defaults) so the exemplar stays untouched.
+**Gotcha.** `tools/tiershots.mjs`/`gameshots.mjs` render tier loops to 3 unconditionally — starters cap at
+tier 2, so every montage grows a mislabeled PHANTOM-T3 tile that a fresh gate will judge. Clamp to
+`maxTierFor(key)` before any starter gate round (§6.5/§8.4; it's a named failure class now).
 
-**Gotcha — the rear-cam pan strands the eye.** When the camera pans from twinA to twinB, the two
-bodies swing to the FRAME EXTREMES (±9 local) and can leave frame, so mid-cross (u≈0.5) you see just
-the floating eye-ring, no bodies — a candidate dead-moment. Fixes if the owner flags it: tighten the
-reveal spread (±9→±6, bodies stay nearer frame during the pan) or OVERLAP the reveals (twinB already
-rising as the eye leaves twinA). Shipped at ±9 (owner merged as-is); noted here so the next tune
-starts from the known trade-off, not a re-discovery. Sequential reveal = you never see BOTH twins
-until the scissor — that's the intended read ("one appears… then the other… then together"), not a bug.
+**Pattern.** Design→build→gate generalizes beyond bosses: registry claim → build sheet → suites → deterministic
+studio captures → fresh `fable` gate (builder never self-judges) → integration pass → human merge verdict. And
+one meta-law: run the adversarial panel on the DOC before any builder burns a session on it — 30 directives
+cost minutes at design time and would have cost three build sessions at build time.
+
+### L145 — The Baton Cross, iterated live: rear-cam sequential → materialise, and the SW-stamp that hid it
+
+**Did / learned.** The first Baton Cross (L143) slid both twins in AT ONCE to bracket the dragon (chaseCam —
+normal chase, twins fit ahead). The owner previewed it and asked for the *other* idea: a REAR-CAM **sequential**
+reveal — twinA appears alone (camera focuses on it), THEN twinB appears on the far side (the dragon turns its
+head to it), THEN both scissor into the fight. That shipped (#217). Then the owner refined it again: instead of
+rising from below, both twins start INVISIBLE and **materialise in place** (#218). The L143 engine had every
+seam, so each pivot was a few fields + one model branch — no driver fork:
+
+1. **Rear-cam = just DON'T set `chaseCam`.** Dropping the flag falls the frame through to cameraController's
+   rear-look block (the ASHTALON pose). `rel < 0` in `path()` parks the group BEHIND the dragon (inside the
+   look-back); `bx` = the LIT twin's world-x (`_lit(u)`: +9 → −9 → 0) pans the camera between reveals.
+2. **A two-beat head-turn needed a script-owned look-window.** main.js's `setDragonLook` had ASHTALON's
+   hardcoded single-glance ramp. Added an optional `ov.lookWin` override: if present main.js uses it verbatim,
+   else ASHTALON's ramp (golden still byte-identical). The materialise shapes it as **camera-led beat 1**
+   (`lookWin≈0`, the rear cam reveals twinA; the dragon faces forward) → **dragon-led beat 2** (`lookWin` ramps
+   as twinB forms and the dragon turns to it) — a deliberate asymmetry the owner asked for.
+3. **Materialise = drive twin scale 0→1 with easeOutBack (a pop), staggered per beat.** `setEntrance` stashes
+   `entMatA/entMatB` and the scale line uses them during the entrance (`entranceU != null`), else the normal
+   survivor/shrink logic. No new geometry — the existing twin rig scaled from nothing.
+4. **The materialise FIXED L144's eye-strand gotcha for free.** A twin's socket sits at its full ±9 position
+   even at scale 0, so the eye-thread would stretch to the still-invisible twin (the old "lone floating ring"
+   mid-cross). Pinning twinB's thread-end onto twinA until it forms (`_sb.lerp(_sa, 1 - entMatB)`) makes the
+   thread a zero-length point on A through beat 1, then GROW across as B materialises — the cross now has a
+   visible destination the whole way.
+
+**The law this re-confirms.** When the owner wants to A/B cinematics, express BOTH as data on the same engine
+(L143) — rise-vs-materialise, chase-vs-rear-look, camera-led-vs-dragon-led were all fields, not forks.
+
+**Gotcha — the service worker hides your deploy unless you re-stamp.** `reforged/sw.js` is cache-first within a
+content-hashed `VERSION` stamped by `tools/stamp-sw.mjs` (which also writes `js/buildId.js`, the on-screen
+`build <hash>`). Change any reforged JS/CSS but forget to re-run the stamper → VERSION is unchanged → every
+returning client (the owner included) keeps serving the OLD cached module graph, and **no hard refresh can break
+through** (the SW intercepts). Symptom: "I hard-refreshed and still see build cXXXX." Fix: `cd reforged && node
+tools/stamp-sw.mjs`, commit `sw.js` + `buildId.js`, push — the new VERSION forces the swap and the new hash in
+the HUD is the proof-of-freshness. **Re-stamp is part of shipping any reforged change, not an afterthought**
+(#217 also merged un-stamped, so master's hash lagged until the next stamp covered it). The build hash on screen
+is your deploy receipt — if it didn't change, the client didn't either.
