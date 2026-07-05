@@ -168,7 +168,7 @@
       let dir, up = [0, 1, 0], fill, target;
       let aimFrac = null;
       if (o.part === 'head') { dir = FACE_ANGLES.front3q.dir; fill = 0.92; target = 'head';
-        if ((o.zoom || 1) > 1.4) aimFrac = [0, 0.16, -0.3]; }   // detail crop: aim up+forward onto the EYE, not the head centroid (gate r13 dir 1)
+        if ((o.zoom || 1) > 1.4) aimFrac = [-0.2, 0.24, -0.34]; }   // detail crop: aim onto the NEAR (front-left) EYE — up + toward the near cheek — not the head centroid (gate r13 dir 1 / cp2 dir 6)
       else if (o.part === 'wing') { dir = [0.45, 0.5, 0.62]; fill = 1.0; target = 'wingR'; }  // rear-above on ONE wing
       else { dir = BODY_ANGLES.rear.dir; fill = 0.95; target = 'whole'; }
       fit(dir, up, targetBox(target), o.fill ?? fill, o.zoom || 1, aimFrac);

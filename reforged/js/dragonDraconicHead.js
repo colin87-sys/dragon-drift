@@ -164,7 +164,11 @@ function buildSkull(c) {
 
 // ── SNOUT ─────────────────────────────────────────────────────────────────── // a clean tapered CONE muzzle with a blunt rounded nose — the sleek read
 function snoutBase(c, { len, baseW, noseW, drop }) {
-  const m = c.mats.bodyMat;
+  // snoutTone (opt-in, EMBER apex — gate cp2 dir 2): a muzzle one value-step darker than the
+  // body so the head carries 2–3 tiers (law 11) instead of reading as ONE flat orange sticker.
+  const m = c.cfg.snoutTone
+    ? (() => { const mm = c.mats.bodyMat.clone(); mm.vertexColors = false; mm.color.set(c.cfg.snoutTone); return mm; })()
+    : c.mats.bodyMat;
   // A FRUSTUM muzzle (truncated cone): wide base blends into the cranium, tapering
   // to a BLUNT (non-zero) nose — the clean way to read a short blunt snout. Capped
   // with a small rounded nose pad. After rotation.x = -PI/2 the cone's wide end
@@ -283,34 +287,55 @@ function eyeZone(c, { r, x, y, z, glow }) {
   // iris (def.eye, intensity ≤1.2 so the forge-collar bloom stays the ONE bloom, law
   // 12), seated in a dark socket recess and pushed proud along its outward normal.
   if (c.cfg.hotEye) {
-    const hotCol = c.mats.eyeMat.emissive.clone();
-    const irisMat = new THREE.MeshStandardMaterial({ color: 0x2a1206, emissive: hotCol, emissiveIntensity: 2.0, roughness: 0.32 });   // hot bright eye — the brightest FACIAL point (§4), below the collar bloom (gate flame-r2 dir 7)
-    const scleraMat = new THREE.MeshStandardMaterial({ color: 0x120a06, emissive: hotCol, emissiveIntensity: 0.32, roughness: 0.45 });
-    const socketMat = new THREE.MeshStandardMaterial({ color: 0x0a0503, roughness: 0.7, metalness: 0.02 });
-    const catchMat = new THREE.MeshStandardMaterial({ color: 0xffdca8, emissive: 0xffdca8, emissiveIntensity: 2.4 });
+    // REBUILT (gate cp2 dir 1): the old dark-socket + coal-sclera SPHERES read as two black
+    // orbital shells (>60% head) on the young forms and a dead socket at apex. GONE. The eye
+    // is now a clean, luminous LENS: a socket rim tinted 15% darker than the LOCAL body hue
+    // (never black), a hot iris bead (convex so it lives in profile), a forward pupil disc and
+    // a catchlight. Size + set + hue + emissive all track eyeShape (es): f0 big/round/low-set →
+    // f2 small/almond/high-set (§4 growth + the §5d hot-eye read as the brightest facial point).
+    const es = c.cfg.eyeShape;
+    const headLen = c.hz * 2;                                 // front-to-back head length
+    const diaFrac = 0.36 - es * 0.20;                         // f0 .36, f1 .26, f2 .16 of head length (dir 1)
+    const irisR = Math.max(0.045, diaFrac * headLen * 0.5);
+    const irisCol = es < 0.5                                  // f0 0xffb347 → f1 0xffa030 → f2 0xffc76a (dir 1)
+      ? new THREE.Color(0xffb347).lerp(new THREE.Color(0xffa030), es * 2)
+      : new THREE.Color(0xffa030).lerp(new THREE.Color(0xffc76a), (es - 0.5) * 2);
+    const emisI = 1.1 - es * 0.3;                             // apex 0.8 (dir 1); younger a touch hotter so the eye reads at every form
+    const rimCol = c.mats.bodyMat.color.clone().multiplyScalar(0.85);   // socket rim = local body hue, 15% darker (dir 1) — no black donut
+    const irisMat = new THREE.MeshStandardMaterial({ color: irisCol, emissive: irisCol, emissiveIntensity: emisI, roughness: 0.3 });
+    const pupilMat = new THREE.MeshStandardMaterial({ color: 0x2a120a, roughness: 0.42 });   // dark pupil (dir 1)
+    const rimMat = new THREE.MeshStandardMaterial({ color: rimCol, roughness: 0.72, metalness: 0.02 });
+    const catchMat = new THREE.MeshStandardMaterial({ color: 0xffe6c2, emissive: 0xffe6c2, emissiveIntensity: 2.6 });
+    const yEye = c.hy * (0.18 + es * 0.24);                   // low-set young → higher-set apex (dir 1)
+    const ex = c.hx * 0.62, ez = c.faceZ + c.faceR * 0.08;
+    const sYamnd = 1.0 + es * 0.4;                            // round young → taller almond apex
     for (const s of [-1, 1]) {
-      const yaw = Math.PI - s * 0.55;
-      const kN = new THREE.Vector3(Math.sin(yaw), 0.05, Math.cos(yaw)).normalize();
-      const base = new THREE.Vector3(s * x, yset + 0.01, z);
-      // dark SOCKET recess (a slightly larger dark bowl seated flush) → the deep-set read.
-      const socket = new THREE.Mesh(new THREE.SphereGeometry(rr * 1.5, seg(8), seg(6)), socketMat);
-      socket.position.copy(base).addScaledVector(kN, rr * 0.2);
-      socket.scale.set(sx * 1.1, sy * 1.15, 0.6);
-      c.head.add(socket);
-      // PROUD hot eyeball — pushed out along the outward normal so the muzzle/brow can't swallow it.
-      const eyeC = base.clone().addScaledVector(kN, rr * 0.9);
-      const sclera = new THREE.Mesh(new THREE.SphereGeometry(rr, seg(10), seg(8)), scleraMat);
-      sclera.position.copy(eyeC); sclera.scale.set(sx, sy, 0.85);
-      sclera.rotation.set(0.08, -s * tiltY, -s * tiltZ);
-      c.head.add(sclera);
-      // hot iris disc on the proud front face
-      const iris = new THREE.Mesh(new THREE.CircleGeometry(rr * 0.66, seg(12)), irisMat);
-      iris.position.copy(eyeC).addScaledVector(kN, rr * 0.72);
+      const yaw = Math.PI - s * 0.58;
+      const kN = new THREE.Vector3(Math.sin(yaw), 0.07, Math.cos(yaw)).normalize();
+      const base = new THREE.Vector3(s * ex, yEye, ez);
+      // socket rim — a shallow body-dark lens seated flush BEHIND the iris (reads the orbit
+      // without a black hole); slightly proud-of-skull, flattened in Z.
+      const rim = new THREE.Mesh(new THREE.SphereGeometry(irisR * 1.3, seg(10), seg(8)), rimMat);
+      rim.position.copy(base).addScaledVector(kN, irisR * 0.1);
+      rim.scale.set(1.02, sYamnd, 0.42);
+      rim.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), kN);
+      c.head.add(rim);
+      // hot iris bead — convex lens proud on the cheek (a flat disc dies in profile; a
+      // shallow bead keeps the eye alive from the side too). Emissive → the facial hot point.
+      const eyeC = base.clone().addScaledVector(kN, irisR * 0.34);
+      const iris = new THREE.Mesh(new THREE.SphereGeometry(irisR, seg(12), seg(9)), irisMat);
+      iris.position.copy(eyeC); iris.scale.set(1.0, sYamnd, 0.72);
       iris.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), kN);
       c.head.add(iris);
-      // tiny catchlight so the hot eye reads alive
-      const spec = new THREE.Mesh(new THREE.CircleGeometry(rr * 0.16, seg(8)), catchMat);
-      spec.position.copy(eyeC).addScaledVector(kN, rr * 0.78).add(new THREE.Vector3(-s * rr * 0.2, rr * 0.24, 0));
+      // pupil — dark disc centred on the iris front face (a lateral prey-eye reads with a
+      // centred pupil; proud along the normal so it clears the bead).
+      const pupil = new THREE.Mesh(new THREE.CircleGeometry(irisR * 0.42, seg(12)), pupilMat);
+      pupil.position.copy(eyeC).addScaledVector(kN, irisR * 0.78);
+      pupil.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), kN);
+      c.head.add(pupil);
+      // catchlight — tiny bright dot, upper-forward of the pupil, so the hot eye reads alive.
+      const spec = new THREE.Mesh(new THREE.CircleGeometry(irisR * 0.15, seg(8)), catchMat);
+      spec.position.copy(eyeC).addScaledVector(kN, irisR * 0.86).add(new THREE.Vector3(-s * irisR * 0.24, irisR * 0.28, 0));
       spec.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), kN);
       c.head.add(spec);
     }
@@ -439,13 +464,26 @@ function narrowRegalEyeZone(c) { eyeZone(c, { r: 0.105 * c.cfg.eyeScale, x: c.hx
 // ── BROW ridge (expression) ──────────────────────────────────────────────────
 function brow(c, { lift, length, angle }) {
   const i = c.cfg.browIntensity;
+  // browTone (opt-in, EMBER apex — gate cp2 dir 2): a matte darker brow material + a low
+  // ridge SHELF spanning the eyes, so the browIntensity casts a visible value break (a lit
+  // shelf shading the sockets) instead of a thin cyan-scale sliver lost on the flat skull.
+  const bm = c.cfg.browTone
+    ? new THREE.MeshStandardMaterial({ color: c.cfg.browTone, roughness: 0.82, metalness: 0.0 })
+    : c.mats.scalesMat;
   for (const s of [-1, 1]) {
-    const b = new THREE.Mesh(new THREE.ConeGeometry(0.055 * (0.8 + i * 0.6), length, seg(5)), c.mats.scalesMat);
+    const b = new THREE.Mesh(new THREE.ConeGeometry(0.055 * (0.8 + i * 0.6), length, seg(5)), bm);
     b.scale.z = 0.4;
     b.position.set(s * c.hx * 0.5, c.hy * (0.36 + lift * 0.12), c.faceZ + c.faceR * 0.55);
     b.rotation.x = 1.45;            // lie flat over the brow
     b.rotation.z = s * angle;       // angle = expression
     c.head.add(b);
+  }
+  if (c.cfg.browTone) {
+    // a shallow brow-ridge shelf bridging the two brows — the overhang that shades the sockets
+    const shelf = new THREE.Mesh(new THREE.BoxGeometry(c.hx * 1.15, c.hy * 0.14 * (0.8 + i * 0.5), c.faceR * 0.5), bm);
+    shelf.position.set(0, c.hy * (0.34 + lift * 0.12), c.faceZ + c.faceR * 0.42);
+    shelf.rotation.x = 0.32;        // tip forward so the sun catches the top plane, shadow drops onto the eyes
+    c.head.add(shelf);
   }
 }
 function softBrow(c)       { brow(c, { lift: 0.0,  length: 0.3,  angle: -0.28 }); }  // raised-outer = friendly
@@ -679,10 +717,12 @@ const DEFAULTS = {
   keenEye: false,       // opt-in bright-almond proud eye (AZURE); default keeps the shared eye
   cuteEye: false,       // opt-in dark forward pupil + catchlight on the ROUND eye (AZURE hatchling); default keeps the bare sphere byte-identical
   hotEye: false,        // opt-in small PROUD emissive eye in a dark socket (EMBER feralPredator) — clears the long muzzle so the deep-set eye still reads as the brightest facial point; default keeps the bare sphere byte-identical
+  snoutTone: null,      // opt-in muzzle hex one step darker than body (EMBER apex head value tier, law 11); null = muzzle stays body-toned (byte-identical)
+  browTone: null,       // opt-in matte darker brow material + ridge shelf (EMBER apex value break); null = the shared thin scale brow (byte-identical)
 };
 const OVERRIDE_KEYS = ['skullType', 'snoutType', 'eyeZoneType', 'browType', 'hornType', 'jawType', 'rearCrestType',
   'headScale', 'snoutScale', 'hornScale', 'eyeScale', 'browIntensity', 'rearGlowIntensity', 'whiskerFins', 'tuskJaw',
-  'eyeShape', 'crestBlades', 'crestScale', 'crestGoldAmount', 'crestSeat', 'keenEye', 'cuteEye', 'hotEye'];
+  'eyeShape', 'crestBlades', 'crestScale', 'crestGoldAmount', 'crestSeat', 'keenEye', 'cuteEye', 'hotEye', 'snoutTone', 'browTone'];
 
 function resolveConfig(model) {
   const arch = ARCHETYPES[model.headArchetype] || ARCHETYPES.softStealth;

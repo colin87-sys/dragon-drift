@@ -147,7 +147,7 @@ export const DRAGONS = {
       // Hatchling (form 0) — round pot-bellied forge pup: curled chest-down posture,
       // BIG round low-set eyes, near-flat snout, squared shoulders, two dull coals,
       // stub gapped wings. Value-LIGHTEST body.
-      { wingScale: 0.72, raySpan: 4.2, rayDetail: 0.55, collarStage: 0,
+      { wingScale: 0.86, raySpan: 5.5, rayDetail: 0.55, collarStage: 0,
         spineCurl: -0.7, eyeShape: 0.0, headScale: 1.35, eyeScale: 1.6, snoutScale: 0.5,
         shoulderWidthScale: 1.35, hornType: 'noHorn', browIntensity: 0.95,
         tailStyle: 'simple', tailLength: 0.5, tailPlates: false, tailSegments: 5, neckSegments: 4, backSpines: false, ridgeCount: 0, spineGlow: 0.12,
@@ -169,6 +169,7 @@ export const DRAGONS = {
       // bloom). DEEPEST value; emissive at its richest (still ≤1.2, no glow-seams).
       { wingScale: 1.0, raySpan: 10.5, rayDetail: 1.55, collarStage: 2,
         spineCurl: 0.95, eyeShape: 1.0, headScale: 0.56, eyeScale: 0.83, snoutScale: 0.6,
+        snoutTone: 0xd54f16, browTone: 0xa23e10,   // apex head value tiers (gate cp2 dir 2): a darker muzzle + a shaded brow shelf so the head is not ONE flat sticker
         shoulderWidthScale: 1.78, hornType: 'bladeRearHorns', hornScale: 1.5, hornPairs: 2, browIntensity: 1.05,
         // ASH-SCUTE dorsal tier (law 11 / gate dir 8): low warm leaf-scutes tinted ash,
         // ×0.8 falloff toward the tail, seated into the back — the sculpted top value tier
@@ -177,9 +178,9 @@ export const DRAGONS = {
         tailStyle: 'blade', tailLength: 0.55, tailSegments: 6, neckSegments: 5, backSpines: true, glowSeams: true,
         // warm ash-scute dorsal tier + a GLOWING flaming tail/spine (spineGlow lights the
         // blade tail + dorsal line) — the iconic-flame read.
-        ridgeCount: 12, ridgeStyle: 'scute', ridgeColor: 0xcaa070, ridgeSeat: 0.0, spineGlow: 0.4,
+        ridgeCount: 12, ridgeStyle: 'scute', ridgeColor: 0xf0c888, ridgeSeat: 0.0, spineGlow: 0.4,   // cream scutes (gate cp2 dir 5)
         colors: { body: 0xdd5a1c, belly: 0xf0c888, wingInner: 0x6a2410, wingOuter: 0x3e1406,
-          wingEmissive: 0xff8b2a, scales: 0xe8c888, horn: 0xe8d0a0,
+          wingEmissive: 0xff8b2a, scales: 0xe8c888, horn: 0xf0c888,   // cream horns (gate cp2 dir 5) — separate from the dark membrane behind
           apexSeam: 0xff7a26, eye: 0xffb84a, coreGlow: 0xff9a3a } },
     ],
     fx: { auraColor: '255,139,42', auraIdle: 0.0, sparkle: false },
