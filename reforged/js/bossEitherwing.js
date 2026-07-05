@@ -603,8 +603,12 @@ export function buildTwinWraith(def, quality = 1) {
   let blinkT = 0, nextBlink = 3.5 + Math.random() * 3;
   let noticeT = 0;
   function notice() { noticeT = 1.0; blinkT = 0; nextBlink = 3; }
-  let painT = 0, painTwin = 0;   // painTwin: which half recoils (the holder); the other darts closer
-  function flinchFlash(amt) { if (amt > 0.3) { painT = Math.max(painT, 0.34); painTwin = holdT < 0.5 ? 0 : 1; } kit.flash(amt); }
+  let painT = 0, painTwin = 0, painEase = 0;   // painTwin: which half recoils (the holder); the other darts closer. painEase: SMOOTHED pain so the flinch ramps in/out (never a per-event body snap).
+  // COSMETIC bloom (muzzle flash, shield events, etc.) — NO body flinch. The controller calls this
+  // on EVERY attack (§5d), so the flinch must NOT ride it (that darted the eyeless twin on every shot
+  // — the "occasional stop-motion on the eyeless twin"). The recoil/dart is a PAIN reaction only → hurt().
+  function flash(amt) { kit.flash(amt); }
+  function hurt(amt) { if (amt > 0.3) { painT = Math.max(painT, 0.34); painTwin = holdT < 0.5 ? 0 : 1; } }   // PAIN: the holder recoils, the eyeless twin darts protectively — only when actually damaged.
 
   // EMOTIONAL DEATH (§4b, the beat that seeds slot 12): the pair breaks, the
   // survivor circles its fallen half twice, takes the eye, and FLEES off-frame.
@@ -935,6 +939,7 @@ export function buildTwinWraith(def, quality = 1) {
     const blinkProg = blinkT > 0 ? 1 - Math.abs((blinkT / BLINK_DUR) * 2 - 1) : 0;
 
     if (painT > 0) painT -= dt;
+    painEase += (Math.max(0, painT) - painEase) * Math.min(1, dt * 8);   // smooth the flinch (ramps in ~0.12s, decays with painT) so it never snaps frame-to-frame
     if (noticeT > 0) noticeT -= dt;
 
     // --- The eye brightness/size: white-hot focal in every state; leashes dim under
@@ -998,10 +1003,11 @@ export function buildTwinWraith(def, quality = 1) {
     for (const w of [twinA, twinB]) {
       const isHolder = (w === twinA) ? aHolds > 0.5 : aHolds <= 0.5;
       // Flinch: holder recoils back (−z), the OTHER twin darts toward centre.
-      const recoil = (painT > 0 && ((painTwin === 0) === (w === twinA))) ? (painT / 0.34) * 0.6 : 0;
-      const dart = (painT > 0 && ((painTwin === 0) !== (w === twinA))) ? (painT / 0.34) * 0.5 : 0;
+      // Driven by the EASED pain (painEase) so the recoil/dart ramps smoothly — no single-frame jump.
+      const recoil = ((painTwin === 0) === (w === twinA)) ? (painEase / 0.34) * 0.6 : 0;
+      const dart = ((painTwin === 0) !== (w === twinA)) ? (painEase / 0.34) * 0.5 : 0;
       w.twin.position.z -= recoil;
-      w.twin.position.x *= (1 - dart * 0.4);   // the protective twin pulls inward
+      w.twin.position.x -= Math.sign(w.twin.position.x || w.sx) * dart * 0.7;   // a small ADDITIVE inward nudge (not ×x → no big jump at the orbit extremes)
 
       // Ribbon flow: the standing-wave base curve + a TRAVELLING wave (animated)
       // that eases in with LAG so the ribbon trails the body (the §7b flow law).
@@ -1135,7 +1141,7 @@ export function buildTwinWraith(def, quality = 1) {
     setHealthBarVisible: kit.setHealthBarVisible,
     setShieldVisible: kit.setShieldVisible,
     shatterShield: kit.shatterShield,
-    flash: flinchFlash,
+    flash, hurt,
     tick(dt, time) { tickBody(dt, time); kit.tickCommon(dt, time); },
     // §7b diagnostics + test/studio pins (not part of the controller contract).
     eyeWorldLocalPos, twinSeparation, threadLength, setDebugHandoff, twinBodyLum,
