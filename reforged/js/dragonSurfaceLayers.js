@@ -115,10 +115,21 @@ registerSurfaceLayer('scaleRidge', ({ model, attach, scalesMat }) => {
   const meshes = [];
   const ridgeCount = model.ridgeCount;
   const ridgeStep = Math.min(0.43, 5.2 / ridgeCount);
+  // ridgeStyle (additive, default 'cone' = byte-identical roster): 'scute' swaps the pointed
+  // back-raked cone — which reads as a DEBUG ARROW marching up the planform (gate r7 dir 11) —
+  // for a low rounded leaf-scute that tapers ×0.8 toward the tail and hugs the dorsal line.
+  const scute = model.ridgeStyle === 'scute';
   for (let i = 0; i < ridgeCount; i++) {
-    const ridge = new THREE.Mesh(
-      new THREE.ConeGeometry(0.09 + Math.max(0, 5 - Math.abs(i - 4)) * 0.016, 0.34, seg(5)), scalesMat);
-    ridge.rotation.x = -Math.PI / 2;
+    const baseR = 0.09 + Math.max(0, 5 - Math.abs(i - 4)) * 0.016;
+    let ridge;
+    if (scute) {
+      const r = baseR * Math.pow(0.8, i * 4 / Math.max(1, ridgeCount));   // size falloff toward the tail
+      ridge = new THREE.Mesh(new THREE.SphereGeometry(r, seg(6), seg(4)), scalesMat);
+      ridge.scale.set(0.7, 0.5, 1.4);      // low + short + a touch elongated along the spine → a leaf scute, not an arrow
+    } else {
+      ridge = new THREE.Mesh(new THREE.ConeGeometry(baseR, 0.34, seg(5)), scalesMat);
+      ridge.rotation.x = -Math.PI / 2;
+    }
     // ridgeSeat (additive, default 0.06 = byte-identical roster): a lower/negative seat
     // EMBEDS the ridge base into the back so it reads as a fused low ridge, not a detached
     // quad floating above the dorsal line (gate r5 dir 2b — the "debris at the wing root").

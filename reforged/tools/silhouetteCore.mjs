@@ -56,7 +56,10 @@ export function renderSilhouette({ key, view = 'rear', tier, W, H, pose, hideWin
   const t = tier != null ? tier : maxTier;
   const cam = new THREE.PerspectiveCamera(60, W / H, 0.1, 200);
   const def = ascendedDef(DRAGONS[key], t, 0);
-  const built = buildDragonModel(def, {});
+  // preview:true OMITS the gameplay aiming-pip (a small always-on-top octahedron on the snout)
+  // — otherwise it fills as a detached DIAMOND ahead of the nose in every black-fill and reads
+  // as a floating component (gate r5–r7 "floating orb": it was the HUD pip, not head geometry).
+  const built = buildDragonModel(def, { preview: true });
   const group = built.group;
   if (pose) setFlapDebugPose(built.parts || {}, def.model, pose);
   // hideWings drops the wing subtrees (isolate the BODY); wingsOnly keeps ONLY them (isolate the

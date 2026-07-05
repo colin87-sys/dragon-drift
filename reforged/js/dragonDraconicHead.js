@@ -233,8 +233,12 @@ function eyeZone(c, { r, x, y, z, glow }) {
     const irisMat = new THREE.MeshStandardMaterial({ color: 0xbfe8ff, emissive: 0x9fd8ff, emissiveIntensity: 3.4, roughness: 0.18 });
     const catchMat = new THREE.MeshStandardMaterial({ color: 0xffffff, emissive: 0xffffff, emissiveIntensity: 3.6 });
     const R2 = rr * 2.4;                                     // bright feature (the §7 eye:head test reads a DIAL formula, not this geometry, so size here is free to READ)
-    const ex = c.hx * 0.58, ey = c.hy * 0.12, ez = c.faceZ - c.faceR * 0.66;  // midline height, well FORWARD onto the brow-snout so the iris faces the front camera
-    const px = R2 * 0.22;                                    // seated close on the cheek — no lateral bulge
+    // Seat the eye ON THE CHEEK at the eye-zone station (gate r7 dir 2/3: r7's ez was pushed
+    // onto the narrow muzzle so the whole eye floated OFF the side of the snout — that was the
+    // "detached fleck ahead of the nose" AND the reason no eye read on the face). z at the eye
+    // zone, x just inside the cheek half-width so the lens bulges proud, y on the midline.
+    const ex = c.hx * 0.5, ey = -0.02, ez = c.faceZ - c.faceR * 0.30;
+    const px = R2 * 0.18;                                    // seated close on the cheek — no lateral float
     for (const s of [-1, 1]) {
       const tilt = new THREE.Euler(0.04, -s * 0.14, -s * 0.24);  // almond keen tilt, turned mostly FORWARD (small yaw) so it reads face-front + ¾
       // a THIN dark socket ring behind the lens (frames the eye without occluding it)
@@ -410,27 +414,27 @@ function browCrest(c) {
   // the SAME cBase vertex colour (value squared). Fix: material.color WHITE (vertex colours
   // carry the true hue, no double-darken) + a small emissive lift so it separates on a navy
   // crown. cBase kept for the featherGeo gradient's base end.
-  const cBase = c.cfg.crestBase ?? c.def.crestBase ?? 0x6f97c8;
+  const cBase = c.cfg.crestBase ?? c.def.crestBase ?? 0x4f74a8;   // the gate's exact ask (gate r6/r7 dir 4) — reads clearly lighter than the navy head without going toy-saturated
   const bladeMat = new THREE.MeshStandardMaterial({
-    color: 0xffffff, emissive: 0x25405e, emissiveIntensity: 0.3,
-    roughness: 0.42, metalness: 0.2, side: THREE.DoubleSide, vertexColors: true,
+    color: 0xffffff, emissive: 0x1a2c40, emissiveIntensity: 0.14,   // faint lift only, so the base stays a calm 0x4f74a8, not a saturated toy-blue
+    roughness: 0.5, metalness: 0.1, side: THREE.DoubleSide, vertexColors: true,
   });
   let maxLen = 0;
   for (let i = 0; i < n; i++) {
     const t = n > 1 ? i / (n - 1) : 0.5;
-    const mid = 1 - Math.abs(t - 0.5) * 1.4;                 // centre blade longest
-    // Bloom must GROW monotonically with crestScale even when the count is even
-    // (no centre blade) — keep the scale-driven term dominant over the `mid` term.
-    const len = (0.62 + 0.26 * mid) * sc;                   // longer so the fan clears the crown (gate r4 dir 10)
-    const wid = (0.19 + 0.08 * mid) * sc;   // broader = reads as feather-blades, not spikes (dir 7)
+    // Distinct per-blade LENGTH (×0.8 steps) + RAKE (gate r7 dir 4c): kill the dead parallel
+    // pair. Centre-out ordering so the middle blade is longest and the outers step down ×0.8.
+    const rank = Math.abs(i - (n - 1) / 2);                 // 0 = centre, grows outward
+    const len = (0.78 * Math.pow(0.8, rank)) * sc;
+    const wid = (0.2 * Math.pow(0.86, rank)) * sc;
     maxLen = Math.max(maxLen, len);
     // A slim feather blade, gold-tipped via a base→tip vertex gradient.
     const g = featherGeoLocal(len, wid);
     gradTip(g, cBase, cGold);
     const b = new THREE.Mesh(g, bladeMat);
-    const spread = n > 1 ? (t - 0.5) * 0.62 : 0;            // fan (swept, not radial star — dir 3), a touch wider so 3 blades read
+    const spread = n > 1 ? (t - 0.5) * 0.66 : 0;            // fan (swept, not radial star), a touch wider so 3 blades read
     b.position.set(ax, ay, az);
-    b.rotation.x = 0.5;                                      // stand the feather UP and lean it back (~29°) so the fan rises above the crown — breaks the head outline from rear + side (dir 9)
+    b.rotation.x = 0.31 + rank * 0.26;                      // distinct rakes ~18°/31°/44° (dir 4c) — the outer blades lean back further
     b.rotation.z = spread;                                   // fan spread in the X-Y plane
     b.rotation.y = spread * 0.3;
     c.head.add(b);
@@ -447,8 +451,8 @@ function featherGeoLocal(len, wid) {
   s.quadraticCurveTo(wid * 0.5, len * 0.34, wid * 0.14, len * 0.9);
   s.quadraticCurveTo(0, len, -wid * 0.14, len * 0.9);
   s.quadraticCurveTo(-wid * 0.5, len * 0.34, 0, 0);
-  const g = new THREE.ExtrudeGeometry(s, { depth: wid * 0.28, bevelEnabled: false, steps: 1 });
-  g.translate(0, 0, -wid * 0.14);      // centre the slab on z so it thickens both faces
+  const g = new THREE.ExtrudeGeometry(s, { depth: wid * 0.16, bevelEnabled: false, steps: 1 });  // thin slab (≤0.35× width) so tips read pointed, not chopstick-flat (gate r7 dir 4b)
+  g.translate(0, 0, -wid * 0.08);      // centre the slab on z so it thickens both faces
   return g;                            // stands in X-Y (length +Y); real thickness in Z
 }
 function gradTip(geo, baseHex, tipHex) {

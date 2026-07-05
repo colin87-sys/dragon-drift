@@ -41,7 +41,7 @@ export const DRAGONS = {
       // blade-feather comb shared dials (per-form span/count/etc. accrete below)
       bladeCount: 5, bladeSweep: 0.38, bladeStagger: 0.2,
       bladeCamber: 0.28, bladeDihedral: 0.24, bladeChord: 0.17,   // dihedral 13.7° (low in the 12–20° band, gate r6 dir 7 — flatter side profile so wings stop dominating the side mass); wide chord so roots overlap into ONE surface
-      hornPairs: 1, hornLen: 0.9, ridgeCount: 10, ridgeSeat: -0.02,   // embed dorsal ridges into the back (no floating specks — gate r5 dir 2b)
+      hornPairs: 1, hornLen: 0.9, ridgeCount: 10, ridgeSeat: -0.02, ridgeStyle: 'scute',   // embed dorsal ridges as low leaf-scutes (no floating specks / debug-arrow read — gate r5 dir 2b / r7 dir 11)
       flapBias: 1.0, flapAmp: 0.9,    // light courier beat
     },
     // Three visible forms (starter caps at SSR / tier 2): a round-chested fluffball
