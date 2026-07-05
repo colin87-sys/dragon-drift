@@ -42,6 +42,7 @@ export const DRAGONS = {
       bladeCount: 5, bladeSweep: 0.34, bladeStagger: 0.28,   // slightly less back-sweep so the wing is more LATERAL → smaller side-view footprint (gate r9 dir 2); deep z-stagger keeps the planform slits
       bladeCamber: 0.16, bladeDihedral: 0.26, bladeChord: 0.133,   // dihedral 15° gull; slimmer chord (side-facing area, NOT span) shrinks the side-view footprint toward body 55-65% (gate r10 dir 3)
       hornPairs: 1, hornLen: 0.9, ridgeCount: 10, ridgeSeat: -0.02, ridgeStyle: 'scute', ridgeColor: 0x264460,   // dorsal scutes: low leaf-scutes tinted to the body value so the back reads as one sleek mass (gate r8 dir 9), not pale beads
+      wingRootOffset: { z: -0.25 },   // shoulder forward toward the nose (−z) so the comb roots on the shoulder, not the mid-back (was reading too far aft)
       flapBias: 1.0, flapAmp: 0.9,    // light courier beat
     },
     // Three visible forms (starter caps at SSR / tier 2): a round-chested fluffball
