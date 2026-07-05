@@ -61,7 +61,10 @@ async function skipToFight(page) {
   await page.waitForTimeout(1200);
 }
 
+const only = process.argv[3] || 'all';   // 'home' | 'sunset' | 'all'
+
 // HOME — the bright biome (FROZEN REACH ~3800; pale sky so the black motes read).
+if (only === 'all' || only === 'home')
 await session(3800, async (page) => {
   await skipToFight(page);
   await page.evaluate(() => window.__dd.bossFireNow('spiral'));   // condense into a ring + fire
@@ -78,6 +81,7 @@ await session(3800, async (page) => {
 });
 
 // SUNSET — the warm biome (AMBER WASTES ~2500).
+if (only === 'all' || only === 'sunset')
 await session(2500, async (page) => {
   await skipToFight(page);
   await page.evaluate(() => window.__dd.bossFireNow('spiral'));
