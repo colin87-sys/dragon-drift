@@ -200,10 +200,13 @@ function buildTorso(profile, def, model, bodyMat, geoFn = buildTorsoGeometry, op
   const neckSegs = model.neckSegments;
   const postureAmp = (n?.yStep ?? 0.08) * (neckSegs || 4) * 0.9;
   const neckArc = (i) => spineCurl * postureAmp * ((i + 1) / Math.max(1, neckSegs)); // grows head-ward
+  // neckBlend (additive, default 1 = byte-identical): thickens + elongates the neck
+  // spheres so a dense chain fuses into a smooth taper instead of visible beads.
+  const nb = model.neckBlend ?? 1;
   if (n && opts.neck !== false) for (let i = 0; i < neckSegs; i++) {
     const neck = new THREE.Mesh(
-      new THREE.SphereGeometry(Math.max(n.rBase - i * n.rStep, n.rMin), seg(9), seg(7)), bodyMat);
-    neck.scale.set(n.scale[0], n.scale[1], n.scale[2]);
+      new THREE.SphereGeometry(Math.max(n.rBase - i * n.rStep, n.rMin) * nb, seg(9), seg(7)), bodyMat);
+    neck.scale.set(n.scale[0], n.scale[1], n.scale[2] * (1 + (nb - 1) * 0.6));
     neck.position.set(
       Math.sin(i * n.wobbleFreq) * n.wobbleAmp,
       n.y0 + i * n.yStep + neckArc(i),

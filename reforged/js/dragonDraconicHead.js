@@ -134,13 +134,24 @@ function eyeZone(c, { r, x, y, z, glow }) {
   const sx = 0.92 + (1 - es) * 0.12;      // rounder = a touch wider
   const sy = 0.86 + es * 0.32;            // almond = taller
   const tiltY = 0.30 * es, tiltZ = 0.34 * es;
-  const yset = y - (1 - es) * rr * 0.35;  // round eyes sit LOWER
+  const yset = y - (1 - es) * rr * 0.35 + es * rr * 0.25;  // round eyes LOWER, almond HIGHER-set (dir 8)
+  // A keen eye is a DARK orb with a SMALL bright iris (the brightest facial POINT),
+  // not a white-sclera blob (gate r1 dir 8). The dark base is a dim clone; the iris
+  // is a small proud emissive cap in def.eye.
+  const darkEye = c.mats.eyeMat.clone();
+  darkEye.emissive = new THREE.Color(0x0e1a24); darkEye.emissiveIntensity = 0.5;
+  darkEye.color = new THREE.Color(0x14202c);
+  const irisMat = new THREE.MeshStandardMaterial({ color: c.def.eye, emissive: c.def.eye, emissiveIntensity: 1.9 });
   for (const s of [-1, 1]) {
-    const eye = new THREE.Mesh(new THREE.SphereGeometry(rr, seg(12), seg(9)), c.mats.eyeMat);
+    const eye = new THREE.Mesh(new THREE.SphereGeometry(rr, seg(12), seg(9)), darkEye);
     eye.scale.set(sx, sy, 0.82);
     eye.rotation.set(0.1, -s * tiltY, -s * tiltZ);   // almond/feline tilt (0 when round)
     eye.position.set(s * x, yset, z);
     c.head.add(eye);
+    const iris = new THREE.Mesh(new THREE.SphereGeometry(rr * (0.55 + (1 - es) * 0.12), seg(8), seg(6)), irisMat);
+    iris.scale.set(0.9, 1.15, 0.7);                        // almond iris echoing the eye
+    iris.position.set(s * (x + rr * 0.1), yset + rr * 0.05, z + rr * 0.5);   // proud toward the camera
+    c.head.add(iris);
     if (glow) {
       const rim = new THREE.Mesh(new THREE.TorusGeometry(r * 1.12, r * 0.14, seg(5), seg(10), Math.PI * 1.1), c.glowMat);
       rim.position.set(s * x, y + r * 0.16, z + 0.02);
@@ -213,6 +224,7 @@ function smoothDualHorns(c) {
     c.head.add(tip);
   }
 }
+function noHorn() {}   // a bare crown — for a line whose ONLY head accent is its motif (azure)
 function bladeRearHorns(c) {
   const hs = c.cfg.hornScale;
   for (const s of [-1, 1]) c.head.add(rakedHorn(c.mats.hornMat, {
@@ -284,7 +296,7 @@ function browCrest(c) {
   // FIXED anchor above the eyes (head-inner-local; independent of headScale/form).
   const ax = 0, ay = c.hy * 0.66, az = c.faceZ + c.faceR * 0.5;
   const cGold = c.def.accentHue ?? 0xd9b36a;
-  const cBase = c.def.horn ?? c.def.scales ?? 0xbcd9f0;
+  const cBase = c.def.crestBase ?? 0x7fa3c8;              // gate r1 dir 7: crest base 0x7fa3c8
   const bladeMat = new THREE.MeshStandardMaterial({
     color: cBase, roughness: 0.4, metalness: 0.3, side: THREE.DoubleSide, vertexColors: true,
   });
@@ -295,7 +307,7 @@ function browCrest(c) {
     // Bloom must GROW monotonically with crestScale even when the count is even
     // (no centre blade) — keep the scale-driven term dominant over the `mid` term.
     const len = (0.44 + 0.20 * mid) * sc;
-    const wid = (0.11 + 0.05 * mid) * sc;
+    const wid = (0.19 + 0.08 * mid) * sc;   // broader = reads as feather-blades, not spikes (dir 7)
     maxLen = Math.max(maxLen, len);
     // A slim feather blade, gold-tipped via a base→tip vertex gradient.
     const g = featherGeoLocal(len, wid);
@@ -303,7 +315,7 @@ function browCrest(c) {
     const b = new THREE.Mesh(g, bladeMat);
     const spread = n > 1 ? (t - 0.5) * 1.1 : 0;
     b.position.set(ax, ay, az);
-    b.rotation.x = -1.15;                                    // rake BACK over the crown (low, rear-readable)
+    b.rotation.x = -0.62;                                    // rake back ~35° (dir 7), not flat over the crown
     b.rotation.z = spread;
     b.rotation.y = spread * 0.5;
     c.head.add(b);
@@ -351,7 +363,7 @@ const SKULLS = { roundWedgeSkull: buildSkull, nobleWedgeSkull: buildSkull, preda
 const SNOUTS = { shortBluntSnout, mediumBluntSnout, taperedPredatorSnout };
 const EYES   = { largeSoftEyeZone, mediumAlertEyeZone, narrowRegalEyeZone };
 const BROWS  = { softBrow, alertBrow, commandingBrow };
-const HORNS  = { smallSweptBackEarFins, longSweptBackEarFins, smoothDualHorns, bladeRearHorns, regalCrownHorns };
+const HORNS  = { smallSweptBackEarFins, longSweptBackEarFins, smoothDualHorns, bladeRearHorns, regalCrownHorns, noHorn };
 const JAWS   = { compactSmoothJaw, angularPredatorJaw, refinedNobleJaw };
 const CRESTS = { noRearCrest, smallRearCrest, glowSpineCrest, crownRearCrest };
 

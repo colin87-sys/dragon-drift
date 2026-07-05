@@ -86,7 +86,12 @@
       let box = visibleBox(group);
       // Fill-the-frame crops (§6.5a): the face crop frames the head; the wing crop
       // frames ONE wing (the right, +x half) so gaps/value-tiers/gold-tips fill ≥60%.
-      if (angle === 'face' && parts.head) box = visibleBox(parts.head);
+      if (angle === 'face' && parts.head) {
+        box = visibleBox(parts.head);
+        // Exclude the swept-back crest (top ~35%) from the face framing so the camera
+        // centres on the eyes+snout, not the crown (§6.5d framing fix).
+        box.max.y = box.min.y + (box.max.y - box.min.y) * 0.66;
+      }
       else if (angle === 'wingcrop') {
         const wb = visibleBox(group);
         wb.min.x = Math.max(wb.min.x, (wb.min.x + wb.max.x) * 0.5 + 0.05);  // right wing only

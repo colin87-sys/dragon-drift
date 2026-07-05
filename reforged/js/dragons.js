@@ -32,10 +32,15 @@ export const DRAGONS = {
     model: {
       scale: 1.0, wingScale: 1.0, tailSegments: 6, neckSegments: 5,
       headArchetype: 'softStealth',   // round friendly base, tuned keen per form via eyeShape/brow
-      headScale: 1.0, snoutScale: 0.94, browIntensity: 1.15, rearGlowIntensity: 0.42,
+      headScale: 1.0, snoutScale: 0.86, browIntensity: 1.15,
+      // Azure's ONLY head accent is its brow-crest motif (gate r1 dir 7): no ear-fin
+      // horns, no rear-crest, no rear glow — the sunburst nape corona is deleted.
+      hornType: 'noHorn', rearCrestType: 'noRearCrest', rearGlowIntensity: 0,
+      snoutType: 'taperedPredatorSnout', crestBase: 0x7fa3c8,
+      neckBlend: 1.4,   // fuse the neck spheres into a smooth taper (gate r1 dir 9)
       // blade-feather comb shared dials (per-form span/count/etc. accrete below)
-      bladeCount: 5, bladeSweep: 0.48, bladeRake: 0.34, bladeStagger: 0.14,
-      bladeCamber: 0.18, bladeDihedral: 0.82,
+      bladeCount: 5, bladeSweep: 0.44, bladeStagger: 0.15,
+      bladeCamber: 0.2, bladeDihedral: 0.32, bladeChord: 0.17,
       hornPairs: 1, hornLen: 0.9, ridgeCount: 10,
       flapBias: 1.0, flapAmp: 0.9,    // light courier beat
     },
@@ -70,17 +75,19 @@ export const DRAGONS = {
       // banner tail. Deepest sky value, gold at its richest (still DIFFUSE).
       { wingScale: 1.0, bladeSpan: 8.6, bladeCount: 5, bladeDetail: 1.45,
         spineCurl: 0.72, eyeShape: 1.0, headScale: 0.5, eyeScale: 0.46,
-        crestBlades: 3, crestScale: 1.0,
+        crestBlades: 3, crestScale: 1.0, skullType: 'predatorWedgeSkull',   // keener flatter apex skull (dir 8)
         tailStyle: 'finned', tailBannerFork: true, tailSegments: 6, neckSegments: 5,
-        ridgeCount: 14, spineGlow: 0.3, dorsal: true, backCrest: true,
-        colors: { body: 0x1c3048, belly: 0xcfe6ff, wingInner: 0xcfe4f6, wingOuter: 0x5f7f9c,
-          wingEmissive: 0x5f7f9c, scales: 0xc6ecff, horn: 0xc2dcf2,
-          apexSeam: 0x8ed5ff, eye: 0xd8eeff, coreGlow: 0x8ed5ff } },
+        ridgeCount: 9, spineGlow: 0.2, dorsal: true,
+        colors: { body: 0x1c3048, belly: 0xcfe6ff, wingInner: 0xa8c6e2, wingOuter: 0x3d5a78,
+          wingEmissive: 0x3d5a78, scales: 0x9db8d4, horn: 0xbcd9f0,
+          apexSeam: 0x8ed5ff, eye: 0xcfe8ff, coreGlow: 0x8ed5ff } },
     ],
     fx: { auraColor: '142,213,255', auraIdle: 0.0, sparkle: false },
-    body: 0x1c3048, belly: 0xcfe6ff, scales: 0xc6ecff, horn: 0xbcd9f0,
-    wingInner: 0xcfe4f6, wingOuter: 0x5f7f9c, wingEmissive: 0x5f7f9c,
-    apexEye: 0xd8eeff, apexSeam: 0x8ed5ff, coreGlow: 0x8ed5ff, surgeHi: 0xeaf6ff,
+    // Matte navy hide (gate r1 dir 10) — not a gloss boat hull.
+    bodyRoughness: 0.62, bodyMetalness: 0.05, bodyEnvIntensity: 0.5,
+    body: 0x1c3048, belly: 0xcfe6ff, scales: 0x9db8d4, horn: 0xbcd9f0,
+    wingInner: 0xa8c6e2, wingOuter: 0x3d5a78, wingEmissive: 0x3d5a78,
+    apexEye: 0xcfe8ff, apexSeam: 0x8ed5ff, coreGlow: 0x8ed5ff, surgeHi: 0xeaf6ff,
     eye: 0x8ed5ff, trail: 0x8ed5ff, boostTrail: 0x67b7ff,
   },
 

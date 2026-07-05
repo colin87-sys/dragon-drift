@@ -63,13 +63,20 @@ export function setFlapDebugPose(parts, pose = 'glide') {
     poseSide(wingPivotL, wingTipL, -1);
   }
 
-  // Per-blade lag pivots settle to a small pose so the comb reads static + clean.
+  // Per-blade lag pivots. In the FOLD the blades NEST toward the spar line in a
+  // stacked furl (dir 13) — each blade sweeps back + rakes in so none crosses another
+  // element's silhouette; in glide/bank they settle to a small even rest.
   for (const arr of [wingBladePivotsR, wingBladePivotsL]) {
     if (!arr) continue;
+    const n = Math.max(1, arr.length - 1);
     for (const b of arr) {
       const t = b.pivot; if (!t) continue;
-      const tuck = pose === 'fold' ? 0.10 : 0;
-      t.rotation.z = b.side * (0.02 + 0.10 * (b.idx / Math.max(1, arr.length - 1)) + tuck);
+      const fr = b.idx / n;
+      if (pose === 'fold') {
+        t.rotation.set(0, b.side * (-0.35 - 0.5 * fr), b.side * (-0.05 - 0.02 * fr));  // sweep aft + nest inward
+      } else {
+        t.rotation.set(0, 0, b.side * (0.02 + 0.06 * fr));
+      }
     }
   }
 }

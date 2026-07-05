@@ -42,7 +42,7 @@ function buildForkedBanner(def, spread, length, notch) {
   const c = new THREE.Color(), col = [];
   for (let i = 0; i < pos.count; i++) {
     const t = (pos.getZ(i) - z0) / span;
-    c.copy(base).lerp(gold, t > 0.66 ? (t - 0.66) / 0.34 : 0);
+    c.copy(base).lerp(gold, t > 0.75 ? (t - 0.75) / 0.25 : 0);   // gold ONLY the outer 25% (dir 11)
     col.push(c.r, c.g, c.b);
   }
   geo.setAttribute('color', new THREE.Float32BufferAttribute(col, 3));
