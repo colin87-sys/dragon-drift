@@ -277,6 +277,46 @@ function eyeZone(c, { r, x, y, z, glow }) {
     return;
   }
 
+  // HOT-EYE treatment (opt-in via model.hotEye — EMBER). A small, deep-set, PROUD
+  // emissive eye that clears the long feralPredator muzzle so it still reads as the
+  // brightest facial point (§4) despite being small. Coal sclera + a hot emissive
+  // iris (def.eye, intensity ≤1.2 so the forge-collar bloom stays the ONE bloom, law
+  // 12), seated in a dark socket recess and pushed proud along its outward normal.
+  if (c.cfg.hotEye) {
+    const hotCol = c.mats.eyeMat.emissive.clone();
+    const irisMat = new THREE.MeshStandardMaterial({ color: 0x1a0d06, emissive: hotCol, emissiveIntensity: 1.15, roughness: 0.32 });
+    const scleraMat = new THREE.MeshStandardMaterial({ color: 0x120a06, emissive: hotCol, emissiveIntensity: 0.32, roughness: 0.45 });
+    const socketMat = new THREE.MeshStandardMaterial({ color: 0x0a0503, roughness: 0.7, metalness: 0.02 });
+    const catchMat = new THREE.MeshStandardMaterial({ color: 0xffdca8, emissive: 0xffdca8, emissiveIntensity: 2.4 });
+    for (const s of [-1, 1]) {
+      const yaw = Math.PI - s * 0.55;
+      const kN = new THREE.Vector3(Math.sin(yaw), 0.05, Math.cos(yaw)).normalize();
+      const base = new THREE.Vector3(s * x, yset + 0.01, z);
+      // dark SOCKET recess (a slightly larger dark bowl seated flush) → the deep-set read.
+      const socket = new THREE.Mesh(new THREE.SphereGeometry(rr * 1.5, seg(8), seg(6)), socketMat);
+      socket.position.copy(base).addScaledVector(kN, rr * 0.2);
+      socket.scale.set(sx * 1.1, sy * 1.15, 0.6);
+      c.head.add(socket);
+      // PROUD hot eyeball — pushed out along the outward normal so the muzzle/brow can't swallow it.
+      const eyeC = base.clone().addScaledVector(kN, rr * 0.9);
+      const sclera = new THREE.Mesh(new THREE.SphereGeometry(rr, seg(10), seg(8)), scleraMat);
+      sclera.position.copy(eyeC); sclera.scale.set(sx, sy, 0.85);
+      sclera.rotation.set(0.08, -s * tiltY, -s * tiltZ);
+      c.head.add(sclera);
+      // hot iris disc on the proud front face
+      const iris = new THREE.Mesh(new THREE.CircleGeometry(rr * 0.66, seg(12)), irisMat);
+      iris.position.copy(eyeC).addScaledVector(kN, rr * 0.72);
+      iris.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), kN);
+      c.head.add(iris);
+      // tiny catchlight so the hot eye reads alive
+      const spec = new THREE.Mesh(new THREE.CircleGeometry(rr * 0.16, seg(8)), catchMat);
+      spec.position.copy(eyeC).addScaledVector(kN, rr * 0.78).add(new THREE.Vector3(-s * rr * 0.2, rr * 0.24, 0));
+      spec.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), kN);
+      c.head.add(spec);
+    }
+    return;
+  }
+
   // Default eye — a single sphere in the shared eyeMat (rig swaps its colour on Surge).
   // CUTE treatment (opt-in via model.cuteEye — AZURE hatchling): a big DARK forward-facing
   // pupil + a hard catchlight turns the blank pale sclera orb into a LIVING eye (the
@@ -638,10 +678,11 @@ const DEFAULTS = {
   crestSeat: 0,         // additive DOWNWARD offset of the crest anchor into the crown (young forms seat it deeper so thin blades never float); default 0 = apex byte-identical
   keenEye: false,       // opt-in bright-almond proud eye (AZURE); default keeps the shared eye
   cuteEye: false,       // opt-in dark forward pupil + catchlight on the ROUND eye (AZURE hatchling); default keeps the bare sphere byte-identical
+  hotEye: false,        // opt-in small PROUD emissive eye in a dark socket (EMBER feralPredator) — clears the long muzzle so the deep-set eye still reads as the brightest facial point; default keeps the bare sphere byte-identical
 };
 const OVERRIDE_KEYS = ['skullType', 'snoutType', 'eyeZoneType', 'browType', 'hornType', 'jawType', 'rearCrestType',
   'headScale', 'snoutScale', 'hornScale', 'eyeScale', 'browIntensity', 'rearGlowIntensity', 'whiskerFins', 'tuskJaw',
-  'eyeShape', 'crestBlades', 'crestScale', 'crestGoldAmount', 'crestSeat', 'keenEye', 'cuteEye'];
+  'eyeShape', 'crestBlades', 'crestScale', 'crestGoldAmount', 'crestSeat', 'keenEye', 'cuteEye', 'hotEye'];
 
 function resolveConfig(model) {
   const arch = ARCHETYPES[model.headArchetype] || ARCHETYPES.softStealth;

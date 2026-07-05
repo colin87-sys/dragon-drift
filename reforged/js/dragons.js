@@ -123,6 +123,8 @@ export const DRAGONS = {
       scale: 1.08, wingScale: 1.0, tailSegments: 6, neckSegments: 4,
       headArchetype: 'feralPredator',   // heavy brow, small deep-set hot eyes, angular jaw ('horned' is OUT — ignores headScale/snout)
       headScale: 1.0, snoutScale: 0.7, browIntensity: 1.35,
+      hotEye: true,                     // small PROUD emissive eye clears the long predator muzzle → reads as the brightest facial point (§4)
+      tailIron: true,                   // matte DARK-IRON tail — zero glow (fire owns the tail bloom, roster law §5)
       shoulderWidthScale: 1.4,          // ANVIL shoulders (tier-0 key: ≥1.25× azure's hatchling)
       hornType: 'bladeRearHorns', rearGlowIntensity: 0,
       neckBlend: 1.5,                   // thick short forge neck fuses the segment beads
@@ -162,7 +164,7 @@ export const DRAGONS = {
       // eyes, full broad gapped wings, backSpines, 2 horn pairs, a short thick tail
       // with a DARK IRON blade tip, and the blazing forge-collar corona (the ONE
       // bloom). DEEPEST value; emissive at its richest (still ≤1.2, no glow-seams).
-      { wingScale: 1.0, raySpan: 9.6, rayDetail: 2.0, collarStage: 2,
+      { wingScale: 1.0, raySpan: 8.8, rayDetail: 2.0, collarStage: 2,
         spineCurl: 0.95, eyeShape: 1.0, headScale: 0.56, eyeScale: 0.83, snoutScale: 0.6,
         shoulderWidthScale: 1.6, hornType: 'bladeRearHorns', hornScale: 1.0, hornPairs: 2, browIntensity: 1.05,
         tailStyle: 'blade', tailLength: 0.55, tailSegments: 6, neckSegments: 5, backSpines: true, ridgeCount: 0, spineGlow: 0,

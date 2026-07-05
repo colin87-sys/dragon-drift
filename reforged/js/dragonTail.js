@@ -151,19 +151,27 @@ export function buildCleanTail(def, model, bodyMat, swept = false) {
   const segLen = spacing * 2.4;            // big overlap → seamless even when coiling
 
   // Spine plates: dull at the whelp (def.scales), molten from the lit forms.
-  const accentCol = g > 0 ? (def.apexSeam || def.scales) : def.scales;
+  // tailIron (additive, default off): a MATTE DARK-IRON tail — zero emissive, low
+  // metalness so it never catches the cool rim light as a steel-blue sheen (ember's
+  // tail must not glow — fire owns the tail bloom, roster law §5). Default = shipped.
+  const iron = !!model.tailIron;
+  const accentCol = iron ? (model.tailIronColor ?? 0x241a16)
+    : (g > 0 ? (def.apexSeam || def.scales) : def.scales);
   const plateMat = new THREE.MeshStandardMaterial({
-    color: accentCol, emissive: accentCol, emissiveIntensity: (0.3 + g * 1.5) * giM,
-    roughness: 0.35, metalness: 0.5,
+    color: accentCol, emissive: iron ? 0x000000 : accentCol,
+    emissiveIntensity: iron ? 0 : (0.3 + g * 1.5) * giM,
+    roughness: iron ? 0.72 : 0.35, metalness: iron ? 0.12 : 0.5,
   });
-  plateMat.userData.baseEmissive = accentCol;
-  plateMat.userData.baseIntensity = (0.3 + g * 1.5) * giM;
-  const accentMats = [plateMat];
-  const membraneMat = new THREE.MeshStandardMaterial({
-    color: def.body, emissive: def.wingOuter || def.body, emissiveIntensity: 0.2,
-    roughness: 0.5, metalness: 0.25, side: THREE.DoubleSide,
-    transparent: true, opacity: 0.9,
-  });
+  plateMat.userData.baseEmissive = iron ? 0x000000 : accentCol;
+  plateMat.userData.baseIntensity = iron ? 0 : (0.3 + g * 1.5) * giM;
+  const accentMats = iron ? [] : [plateMat];      // iron tail: nothing for the Surge flare to light
+  const membraneMat = iron
+    ? new THREE.MeshStandardMaterial({ color: model.tailIronColor ?? 0x241a16, roughness: 0.72, metalness: 0.1, side: THREE.DoubleSide })
+    : new THREE.MeshStandardMaterial({
+        color: def.body, emissive: def.wingOuter || def.body, emissiveIntensity: 0.2,
+        roughness: 0.5, metalness: 0.25, side: THREE.DoubleSide,
+        transparent: true, opacity: 0.9,
+      });
   // Bright rim material for edged fins (tail stabilizers) — created lazily so only
   // the apex tail pays for it; flares on Surge via spineMats. The intensity is
   // CLAMPED (giM) so the cyan rim stays cyan under the ACES tone-map.
