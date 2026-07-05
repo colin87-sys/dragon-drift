@@ -53,24 +53,26 @@ export const DRAGONS = {
     forms: [
       // Hatchling (form 0) — round fluffball: curled posture, round low eyes, big
       // head, stub gapped comb, crest nub, forked tail-tip hint. Lighter sky value.
-      { wingScale: 0.72, bladeSpan: 6.0, bladeCount: 5, bladeDetail: 0.6,
-        spineCurl: -0.8, eyeShape: 0.0, headScale: 1.12, eyeScale: 1.7,
+      { wingScale: 0.72, bladeSpan: 5.0, bladeCount: 5, bladeDetail: 0.6, bladeChord: 0.2, bladeRake: 0.02,   // CP2 dir 3: BABY wings — 5 blades (the §3 comb identity holds) but SHORTER + a wider chord + low rake so they weld into soft rounded paddles, not the apex's razor lightning shards
+        spineCurl: -0.8, eyeShape: 0.0, headScale: 1.3, eyeScale: 1.25, snoutScale: 0.5,   // CP2 dir 1: SHORT button muzzle; headScale 1.3 keeps the BIG cute head; eyeScale 1.25 opens a nose-bridge GAP between the eyes (1.45 merged them into a figure-8) — still the ladder's biggest eyes (> f1's 1.02) and in the [0.3,0.45] band
         keenEye: false, cuteEye: true,   // CP2: the hatchling wears the ROUND sphere eye with a big dark forward pupil + glint (not the keen falcon almond+brow-slab, which is apex-only). eyeShape 0 + eyeScale 1.7 → a big low round cute eye
-        crestBlades: 1, crestScale: 0.5,
+        crestBlades: 1, crestScale: 0.7,   // CP2 dir 2: a single SOFT NUB (browCrest rounds the n=1 case), not a wire feeler
+        wingTipGold: 0xd9b36a, wingTipGoldAmount: 0.12,   // CP2 dir 5: only a faint amber hint at the baby — the full gold banner is an earned adult signature
         tailStyle: 'simple', tailTipFork: true, tailSegments: 5, neckSegments: 4,
         ridgeCount: 0, spineGlow: 0,
-        colors: { body: 0x2a4058, belly: 0xd6e8f6, wingInner: 0xbcd6ea, wingOuter: 0x6f8ca6,
-          wingEmissive: 0x5f7f9c, scales: 0x9db8ce, horn: 0xa8c0d4,
-          apexSeam: 0x86a6c2, eye: 0x9fd0ee, coreGlow: 0x7fa6c8 } },
+        colors: { body: 0x6f8fb2, belly: 0xe2f0fb, wingInner: 0xc8ddee, wingOuter: 0x86a3c0,   // CP2 dir 4: PALE powder-blue baby (was dark navy 0x2a4058, as dark as the teen) — value now clearly lightens toward the hatchling
+          wingEmissive: 0x6f8ca6, scales: 0xbcd2e4, horn: 0xc2d6e6,
+          apexSeam: 0x9cbcd6, eye: 0x8ec6ee, coreGlow: 0x9cc0dc } },
       // Adolescent (form 1) — straightening posture, keener eyes, blades lengthen,
       // crest begins its 3-blade fan, span 2.0–2.3×. Mid sky value.
       { wingScale: 0.9, bladeSpan: 7.3, bladeCount: 5, bladeDetail: 0.92,
-        spineCurl: 0.0, eyeShape: 0.55, headScale: 0.74, eyeScale: 1.02,
+        spineCurl: 0.0, eyeShape: 0.55, headScale: 0.84, eyeScale: 1.02, snoutScale: 0.62,   // CP2 dir 6: trim the muzzle ~28% so it sits BETWEEN f0's button and f2's short beak; headScale 0.84 keeps eye:head in band after the cut (still a clear step down from f0's 1.3)
         keenEye: false, cuteEye: true,   // CP2: the adolescent bridges — a big ROUND-ALERT pupil eye (eyeShape 0.55 half-almonds it), NOT yet the apex keen falcon decal. The keen almond arrives only at the Radiant apex
         crestBlades: 2, crestScale: 0.74,
+        wingTipGold: 0xd9b36a, wingTipGoldAmount: 0.5,   // CP2 dir 5: PARTIAL gold at the adolescent — mutes the floating gold crest slivers too (dir 8)
         tailStyle: 'simple', tailTipFork: true, tailSegments: 5, neckSegments: 5,
         ridgeCount: 8, spineGlow: 0,
-        colors: { body: 0x223a52, belly: 0xcfe6ff, wingInner: 0xc6dff0, wingOuter: 0x64839f,
+        colors: { body: 0x33517a, belly: 0xcfe6ff, wingInner: 0xc6dff0, wingOuter: 0x64839f,   // CP2 dir 4: a clearer MID value — powder-navy between the pale hatchling and the deep apex
           wingEmissive: 0x5f7f9c, scales: 0xb2cee6, horn: 0xb6cfe4,
           apexSeam: 0x9cc0dc, eye: 0xbfe2fb, coreGlow: 0x86bce4 } },
       // Radiant apex (form 2) — proud upright S, keen almond eyes, full high-aspect

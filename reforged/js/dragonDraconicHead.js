@@ -295,14 +295,16 @@ function eyeZone(c, { r, x, y, z, glow }) {
     if (c.cfg.cuteEye) {
       // seat the pupil on the FORWARD-and-slightly-out face of the eyeball so both pupils
       // look ahead (a cute forward gaze), not out the sides like a fish.
-      const nrm = new THREE.Vector3(s * 0.4, 0.05, -1).normalize();
+      const nrm = new THREE.Vector3(s * 0.22, 0.05, -1).normalize();   // mostly FORWARD (small outward) so both pupils gaze ahead — a big lateral component read wall-eyed (gate CP2)
       const ec = new THREE.Vector3(s * x, yset, z);
-      const pc = ec.clone().addScaledVector(nrm, rr * 0.62);
-      const pupil = new THREE.Mesh(new THREE.SphereGeometry(rr * 0.6, seg(9), seg(7)), cutePupilMat);
-      pupil.scale.set(sx, sy, 0.66); pupil.position.copy(pc);
+      const pc = ec.clone().addScaledVector(nrm, rr * 0.68);
+      // pupil ~50% of the eye so a RING of the pale-blue iris reads around it (gate CP2 dir 7:
+      // the old 0.6 pupil swallowed the sclera into one black orb with no gaze read).
+      const pupil = new THREE.Mesh(new THREE.SphereGeometry(rr * 0.5, seg(9), seg(7)), cutePupilMat);
+      pupil.scale.set(sx, sy, 0.6); pupil.position.copy(pc);
       c.head.add(pupil);
-      const glint = new THREE.Mesh(new THREE.SphereGeometry(rr * 0.17, seg(4), seg(3)), cuteGlintMat);
-      glint.position.copy(pc).addScaledVector(nrm, rr * 0.5).add(new THREE.Vector3(s * 0.02, rr * 0.32, 0));
+      const glint = new THREE.Mesh(new THREE.SphereGeometry(rr * 0.22, seg(4), seg(3)), cuteGlintMat);
+      glint.position.copy(pc).addScaledVector(nrm, rr * 0.42).add(new THREE.Vector3(s * 0.03, rr * 0.3, 0));
       c.head.add(glint);
     }
     if (glow) {
@@ -449,7 +451,9 @@ function browCrest(c) {
   // FIXED anchor on the crown — referenced to the CONSTANT base radius R (not the
   // per-skull dims), so it never drifts when the skull preset changes across forms
   // (§7 motif-invariance assert). Head-inner-local, independent of headScale.
-  const ax = 0, ay = R * 0.62, az = R * 0.06;   // seated high on the crown so the fan clears the head outline
+  const isNub = n === 1;   // the hatchling's SINGLE-blade crest is a soft rounded nub, not a thin feeler (gate CP2 f0 dir 2)
+  const ay = isNub ? R * 0.5 : R * 0.62;   // seat the nub lower / rooted INTO the crown so it never floats as a wire antenna
+  const ax = 0, az = R * 0.06;   // seated high on the crown so the fan clears the head outline
   const cGold = c.def.accentHue ?? 0xd9b36a;
   // Crest blade base (gate r5 dir 10): a MID sky-blue that reads clearly LIGHTER than the
   // navy head — the round-4 crest went near-black because material.color==cBase multiplied
@@ -467,8 +471,10 @@ function browCrest(c) {
     // Distinct per-blade LENGTH (×0.8 steps) + RAKE (gate r7 dir 4c): kill the dead parallel
     // pair. Centre-out ordering so the middle blade is longest and the outers step down ×0.8.
     const rank = Math.abs(i - (n - 1) / 2);                 // 0 = centre, grows outward
-    const len = (0.78 * Math.pow(0.8, rank)) * sc;
-    const wid = (0.2 * Math.pow(0.86, rank)) * sc;
+    // NUB (hatchling, n=1): short + FAT (aspect ~1.2) so it reads as a soft thumb-bump, not a
+    // wire antenna. FAN (n>1): the slim swept feathers step down ×0.8 in length outward.
+    const len = isNub ? 0.34 * sc : (0.78 * Math.pow(0.8, rank)) * sc;
+    const wid = isNub ? 0.3 * sc  : (0.2 * Math.pow(0.86, rank)) * sc;
     maxLen = Math.max(maxLen, len);
     // A slim feather blade, gold-tipped via a base→tip vertex gradient.
     const g = featherGeoLocal(len, wid);

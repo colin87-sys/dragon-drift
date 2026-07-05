@@ -776,6 +776,7 @@ function buildBladeFeatherWings(def, model, attach, giM) {
   const cMid = 0x7fa3c8;                                  // mid blades
   const cDark = def.wingOuter ?? 0x3d5a78;                // root coverts / blade roots
   const cGold = model.wingTipGold ?? def.accentHue ?? 0xd9b36a;
+  const goldAmt = model.wingTipGoldAmount ?? 1;   // per-form gold restraint (young forms earn it): 0 = no gold, 1 = full apex banner (default = byte-identical)
 
   const wingMat = new THREE.MeshStandardMaterial({
     color: 0xffffff, vertexColors: true, roughness: 0.58, metalness: 0.0,
@@ -821,7 +822,7 @@ function buildBladeFeatherWings(def, model, attach, giM) {
         c.lerp(cTrail, Math.max(0, cf - 0.5) * 0.7);   // trailing half deepens → visible chord structure (dir 6)
         // Gold DIFFUSE tip-paint confined to the outer ~12% with a CRISP boundary (gate r4
         // dir 7: law-9 tips only — no gradient wash down a third of the blade).
-        if (t > 0.88) c.lerp(cg, Math.min(1, (t - 0.88) / 0.07));
+        if (t > 0.88) c.lerp(cg, goldAmt * Math.min(1, (t - 0.88) / 0.07));
         cols.push(c.r, c.g, c.b);
       }
     }
