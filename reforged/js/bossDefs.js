@@ -583,7 +583,7 @@ export const BOSSES = {
     approachFrom: 'condense',  // §5j new branch: the unlit motes converge from AHEAD and click into the copy
     entrance: 'shapeItRemembers', // §5j THE SHAPE IT REMEMBERS (hijack 2.8s @0.24×): the swarm condenses into
                               // YOU and the copy's head performs a glance-back (falls back to the plain approach if absent)
-    scale: 1.15,              // CALAMITY presence: the YOUR-DRAGON copy spans ~29 world units (GIANT, fills the frame; L140/L141)
+    scale: 1.2,               // CALAMITY presence: the YOUR-DRAGON copy spans ~32 world units (GIANT, fills the frame; L140/L141)
     // §5f dread card is the swarm becoming your dragon on your recorded path
     // ("A THOUSAND — Your Own Wings"). Chip damage ONLY lands while the swarm is
     // CONDENSED (scattered = invulnerable — the turn-taking tell, §5f law 5); the

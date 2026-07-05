@@ -530,11 +530,17 @@ feasibility survey: at rel 30, on-screen centers within x ±15 / y 2..22 on port
   drops once and LIFTS — a door opening in invitation. Title card, first murmured verse.
   Motion risk: portcullis + pane beat must carry it or it reads as a loading screen.
 - **7 THRUMSWARM** — queen: bone-white lantern rhombus (stretched octahedron + 6 rib fins
-  + dark edge cage) with ONE amber eye; swarm: 28 dark tetra motes (separate meshes)
-  lerping between authored formation tables: ring / wall / line / YOUR-DRAGON (~30 slots
-  sampled once from the player's model vertices — the meme frame). Chip damage only lands
-  while condensed; shield phase = the swarm becomes a ring around YOU (L106 law: ring,
-  never a filled volume). Void-black motes ei ≤0.1 / star-white queen. ~1.6k tris.
+  + dark edge cage) with ONE amber eye; swarm: **40** dark tetra motes (separate meshes;
+  the first sheet said 28 — CP1 raised it, L157: 28 was too few to fill the meme frame's
+  wing MEMBRANES; it read as a jellyfish. 40 lets each wing carry a 12-point filled
+  triangle. Still ~54 draws ≪ the tier-3 70 gate) lerping between authored formation
+  tables: ring / wall / line / YOUR-DRAGON (the copy is authored as a front-on heraldic
+  dragon DOODLE — head-cluster around the queen-skull + two filled wing membranes +
+  spine + short tail + rider; the runtime hook `setYourDragonSlots()` can replace the
+  authored slots with the player model's own vertices at fight start — the meme frame).
+  Chip damage only lands while condensed; shield phase = the swarm becomes a ring around
+  YOU (L106 law: ring, never a filled volume). Void-black motes / star-white queen +
+  amber eye. ~1.1k tris.
   ENTRANCE (§5j *The Shape It Remembers*, hijack 2.8s @0.24×): standard warn, ash sold via
   the `bossGradeTarget` ambient channel (the group gate hides ALL parts during warn — no
   per-mote exemption). At hijack u=0 the 28 unlit motes converge at rel ~45 and click,

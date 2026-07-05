@@ -5877,10 +5877,19 @@ states, and cleared `bossgate --studio` G1–G7 (one shield-leash fix). Registry
 NO identity alone — the read lives entirely in the authored slot tables they lerp between. The elegant resolve of "~30
 YOUR-DRAGON slots but only 28 motes": the QUEEN is the dragon's SKULL (her amber eye = the dragon's eye), the 28 motes
 are wings/body/tail/rider. One focal that MIGRATES between formations (centre of the cloud → the copy's head) does two
-jobs with one part. (2) **The meme frame is a POINT-CLOUD silhouette — author it like a constellation, not a mesh.** First
-pass swept the wings UP (bird V) and read as "a bird." Dragon-ness came from ONE geometry change: elbow UP, tip OUT and
-DOWN, a scalloped membrane BELOW (the bat/dragon wing), span widened to ±12.6 (~29 world units, GIANT). Order the slots so
-the lowQ drop sheds tail-tip/rider/crest LAST — the essential dragon (both full wings + body) survives at q0.5. (3) **A
+jobs with one part. (2) **The meme frame is a POINT-CLOUD silhouette — author it like a DOODLE, and it needs DENSITY.** The
+independent Fable design gate FAILED the whole CP1 on this one frame (everything else passed): my first two passes read
+as a jellyfish/sparkler, not a dragon. Two things fixed it. FIRST, author the motes on the dragon's SILHOUETTE LANDMARKS,
+not an even interior scatter — a HEAD CLUSTER framing the glowing queen (crest + horns + jaw so the head reads as a
+dragon HEAD, not a lantern with dots near it), a connected head→neck→body→tail SPINE, wings spread WIDE and near-
+HORIZONTAL (not a bird's up-swept V, not a downward Y), and a SHORT tapering tail (a long dangling tail dominates and
+reads as "spray"). SECOND — and this was the real unlock — **28 points cannot fill a wing MEMBRANE; raise the count.**
+Each wing needs a ~12-point FILLED triangle (leading edge + trailing scallops + interior fill) or it reads as two thin
+dotted lines. Bumped MOTE_N 28→40 (Fable explicitly sanctioned "raise the count for the condense stage"; still ~54 draws
+≪ the tier-3 70 gate — geometry is free, L126). Order the slots so the lowQ drop sheds legs/tail/rider LAST — the
+essential dragon (head + body + BOTH full 12-point wings = the first 32 slots) survives at q0.5. The lesson: a spec tri/
+part COUNT is a floor, not a law — when the identity frame doesn't read, spend the parts (§5g), and get an INDEPENDENT
+eye on the hook before believing it lands (my own "it reads as a dragon" was wrong twice). (3) **A
 CONDENSED shape must go CRISP; a scattered one must MURMUR.** Scale the idle drift by `pow(1-condense, 1.4)` (→0 when
 condensed) but keep a tiny always-on shimmer (~0.06u) so the crisp copy still breathes (§3.7). (4) **A dark boss vanishes
 on the DARK studio backdrop unless its near-black is LIFTED.** Void-black motes (`0x08070c`) read beautifully on the
