@@ -402,8 +402,13 @@ land with the first slot that hits them.
    deterministic contact sheets. Also: clamp tier montages to
    `maxTierFor(key)` (today `tiershots.html` renders and frames by an
    unreachable T3 for starters — the gate must never judge a phantom form).
-6. **`setFlapDebugPose(glide|fold|bank)`** debug pin on the flap rigs —
-   transient poses cannot be captured by waiting (L137 law).
+6. **Flap debug pin for the starter motion paths.** A `?wingDebug=<phase>`
+   FREEZE mode already exists (`dragon.js` ~line 600, used by
+   `tools/flapstrip.mjs`) but it lives inside the Mk II YOKE branch — it only
+   freezes `model.flap` dragons, and NO starter rides that path (§3 motion
+   rows). EXTEND `?wingDebug` (plus a fold/bank pin) to the direct-pivot and
+   skinned-rig paths rather than inventing a parallel mechanism — transient
+   poses cannot be captured by waiting (L137 law).
 7. **`tests/starters.mjs`** (§7) + `def.accentHue` on the three starters.
 8. **`--wings-only` flag** on `tools/silhouette.mjs`/`silhouetteCore.mjs`
    (it has `--no-wings`; CP3 needs the inverse) — slot C.
@@ -464,6 +469,29 @@ Process is the boss playbook's, restyled for dragons:
    Black fills via `tools/silhouette.mjs`; face crops via `tools/headshot.mjs`.
    The tier montage IS the true-scale form-ladder frame (framed once, by the
    apex form).
+
+   **Existing tool inventory — USE these, do not rebuild them** (several have
+   capabilities their usage comments undersell):
+   - `tools/silhouette.mjs <key> <view> [form]` — headless black fills, ~100ms,
+     no browser. Views: rear/side/front/climb AND (undocumented, verified
+     working) `top` — the wing PLANFORM fill — and `threeq` (rear-¾-above,
+     the bank read). Flags: `--pose=glide|recovery|apex|downstroke|settle`
+     (frozen wing-cycle poses, works headlessly on non-yoke dragons too) and
+     `--no-wings` (body-only fill). `--wings-only` is the one missing flag
+     (§6.8).
+   - `tools/silhouette-overlay.mjs <concept.png> <key> [view]` — built-vs-
+     concept overlap %, for tuning a wing planform against a reference sketch.
+   - `tools/flapstrip.mjs [key] [tier]` — the 5-phase wing-motion strip from
+     the REAL chase cam via `?wingDebug` (yoke dragons today; §6.6 extends it
+     to the starter paths).
+   - `tools/nfview.mjs [key] [tier]` — lit multi-yaw stills (front/¾/side/
+     ¾-rear/rear) on a neutral stage — the general angle viewer dragonstudio
+     wraps.
+   - `tools/headshot.mjs [key] [tier]` — 4-angle head montage (azure/ember/
+     jade are already in its default list).
+   - `tools/tiershots.mjs`, `tools/gameshots.mjs`, `tools/inspectshot.mjs` —
+     tier montage / in-game chase crops / shop-showcase phone frames (clamp
+     caveats per §6.5 and step 4).
 3. Spawn a FRESH gate agent (model `fable`) per round with the verbatim GATE
    PROMPT below + capture paths + tri counts (+ prior directives for rounds
    ≥2). The builder NEVER judges its own output. Quote verdicts verbatim.
