@@ -99,8 +99,16 @@ export const ENTRANCE_SCRIPTS = {
       return { x: AX * (1 - s), y: L(AY + 1.5, B.fightHeight, s), rel: L(-9, B.settleGap, s) };
     },
     tuck(u) { return clamp01((u - 0.7) / 0.3) * 0.5; },   // the tails flare as the pair scissor into the fight
-    // Drive the model's per-twin materialise + eye-cross + ignition.
-    onFrame(u, ctx, pose, player, model) { model.setEntrance?.(u); },
+    // Drive the model's per-twin materialise + eye-cross + ignition, AND feed the dragon's position
+    // in the model's RIG space so the eye can lookAt it (a real facing, not a pupil nudge). Group
+    // space: the group sits at `pose` (scale ≈ def.scale); the dragon is at (player − pose) / scale,
+    // and its rig-z is pose.rel/scale (group-z = −(dist+rel), dragon-z = −dist). The eye points its
+    // front at this every frame, so it keeps looking at the dragon as it rides the thread + passes.
+    onFrame(u, ctx, pose, player, model) {
+      model.setEntrance?.(u);
+      const s = ctx.sc || 1.5;
+      model.setEntranceAim?.((player.position.x - pose.x) / s, (player.position.y - pose.y) / s, pose.rel / s);
+    },
     onStart(model) { model.setEntrance?.(0); },
     // Feed the LIT twin's world-x as bx so the rear-look camera focus-pans right→left between
     // the two reveals. lookWin stays ~0 through BEAT 1 (the CAMERA reveals twinA; the dragon

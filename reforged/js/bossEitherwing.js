@@ -311,6 +311,12 @@ export function buildTwinWraith(def, quality = 1) {
     const bodyMat = seeker ? bodySeekerMat : bodyHolderMat;
     const ribMat = seeker ? ribbonSeekerMat : ribbonMat;
     const rimMatT = seeker ? rimSeekerMat : rimHolderMat;   // LIT-SILHOUETTE value tier
+    const outlineMat = seeker ? outlineSeekerMat : outlineHolderMat;
+    // §5j MATERIALISE: the twin DISSOLVES in (per-twin opacity 0→1). silverMat/socketMat are
+    // shared by both twins, so clone them here — every material the twin draws must fade on its
+    // OWN beat (twinA then twinB), independently. The clones mirror the shared emissive each tick.
+    const finMat = track(silverMat.clone());
+    const sockMat = track(socketMat.clone());
 
     // Body (merged kite + spine rib + dorsal vanes + keel so all the relief shares
     // the body material — richness without draw inflation, §5g).
@@ -322,14 +328,14 @@ export function buildTwinWraith(def, quality = 1) {
     // CONTINUOUS oxblood silhouette line around the dart from every angle — the "oxblood
     // line-drawing" read. The HOLDER's line burns bright, the SEEKER's dim (the value tier
     // reads from the outline alone, even where the near-black body dissolves into the sky).
-    const outline = new THREE.Mesh(kiteGeo(), seeker ? outlineSeekerMat : outlineHolderMat);
+    const outline = new THREE.Mesh(kiteGeo(), outlineMat);
     outline.scale.setScalar(1.07);
     outline.name = seeker ? 'eitherOutlineB' : 'eitherOutlineA';
     twin.add(outline);
 
     // Crescent head fin (mirrored on the seeker so the pair reads as mirror-twins). +35%
     // (r9) so it holds its share of the bigger dart's silhouette.
-    const fin = new THREE.Mesh(crescentGeo(), silverMat);
+    const fin = new THREE.Mesh(crescentGeo(), finMat);
     fin.name = 'crescentFin';
     fin.scale.set(sx * 1.35, 1.35, 1.35);              // mirror per side (sx) + 35% (r9)
     fin.position.set(sx * 0.12, 0.7, BODY_LEN * 0.16);
@@ -341,7 +347,7 @@ export function buildTwinWraith(def, quality = 1) {
     twin.add(finRim);
 
     // Eye socket on the nose (empty on the seeker → its face; glows in mourning at death).
-    const socket = new THREE.Mesh(socketGeo(), socketMat);
+    const socket = new THREE.Mesh(socketGeo(), sockMat);
     socket.name = 'eyeSocket';
     twin.add(socket);
 
@@ -385,7 +391,12 @@ export function buildTwinWraith(def, quality = 1) {
       ribbons.push(tail);
     }
 
-    return { twin, body, bodyMat, ribbons, sx, seeker };
+    // Every material this twin draws — collected so the §5j materialise can fade each from 0→1 on
+    // the twin's own beat. They stay OPAQUE outside the entrance: transparent is toggled ON only
+    // while dissolving (setEntrance) and OFF for the fight — two transparent twin bodies crossing
+    // depth in the figure-eight re-sort every frame and POP (the "occasional stop-motion" snap).
+    const fadeMats = [bodyMat, outlineMat, rimMatT, finMat, sockMat, ribMat];
+    return { twin, body, bodyMat, finMat, sockMat, fadeMats, ribbons, sx, seeker };
   }
 
   // REACH COMET-TAILS (§5d L140): 12 segments at base segLen 0.95 → ~7–8-unit flowing
@@ -465,7 +476,7 @@ export function buildTwinWraith(def, quality = 1) {
   glint.position.set(-0.08, 0.09, 0.44);   // upper-left, PROUD OF THE PUPIL (front ~0.36) so it's never occluded
   glint.renderOrder = 7;
   eyeRig.add(glint);
-  rig.add(eyeRig);
+  rig.add(eyeRig);   // §5j: the eye dissolves in with twinA — transparent is toggled on only for the entrance (setEntrance), opaque for the fight.
 
   // SPLIT CORE — a second HDR eye-core that ignites INSIDE the SEEKER's empty socket
   // during the dread card only ("EITHER/OR — Both Halves at Once": the eye SPLITS its
@@ -571,13 +582,18 @@ export function buildTwinWraith(def, quality = 1) {
   let handoffTimer = 3.0;      // seconds until the next handoff (the baton beat)
   let debugHold = null;        // test/studio pin: forces holdT to a value
   let entranceU = null;        // §5j THE BATON CROSS: 0..1 entrance clock (null = normal fight); overrides the orbit
+  const _entAim = new THREE.Vector3();   // §5j: the dragon's position in RIG space (fed by the script) — the eye lookAt target
+  let entAimSet = false;
+  const _aimDir = new THREE.Vector3();
 
   // Figure-eight orbit: the twins ride a lemniscate 180° out of phase around a
   // slowly drifting centre — the fight NEVER stops moving. Kept LOCAL (the group
   // station-keeps; the moving-station setpiece adds the whole-body sweep on top).
   const ORBIT_R = 5.2;   // 2.6 → 5.2 (REACH: crossing span ≈ 23u, ASHTALON-class reach across the portrait)
   let orbitPhase = 0;
+  let sockGlow = 0.10;   // eased socket-ring emissive → the notice/dread glow FADES in/out (never a binary pop — the "round thing" the owner saw appearing/vanishing at the handoff)
   let t0 = null;               // first-tick time → encounter-relative clock (for the intro spread + death)
+  let spreadT0 = null;         // fight-start time → the intro-spread clock (reset when the §5j entrance releases, so the twins ease out of the scissor, never snap wide)
 
   // Charisma state.
   let gazeTX = 0, gazeTY = 0, gazeX = 0, gazeY = 0;
@@ -644,7 +660,15 @@ export function buildTwinWraith(def, quality = 1) {
 
     // --- Intro spread (the 'both sides' arrival): the twins sweep OUT from centre
     // to their orbit radius over the first ~1.6s (the "both flanks at once" read). --
-    const spread = Math.min(1, age / 1.6);
+    // The clock starts when the FIGHT begins (entrance released), NOT at spawn: the
+    // §5j entrance dwells ~3.5s in bullet-time, so an age-from-spawn spread would already
+    // be 1 when the fight opens — the twins would SNAP from the scissor's converged centre
+    // to full orbit radius in one frame (the jarring wide-jump). Basing it on fight-start
+    // lets them ease out from where the scissor left them (a boss with no entrance sets
+    // spreadT0 on its first tick = spawn, so its behaviour is unchanged).
+    if (entranceU != null) spreadT0 = null;                 // entrance owns placement; hold the clock
+    else if (spreadT0 == null) spreadT0 = time;             // first fight frame → start the sweep now
+    const spread = spreadT0 == null ? 0 : Math.min(1, (time - spreadT0) / 1.6);
 
     // --- The figure-eight orbit (drifting centre). Frozen under a shield/death. ---
     const moving = !shieldClamp && dyingK <= 0 && entranceU == null;   // freeze the orbit clock during the Baton Cross so the fight starts cleanly from th=0
@@ -688,8 +712,8 @@ export function buildTwinWraith(def, quality = 1) {
       // opens (moving is frozen above, so the orbit resumes cleanly from th=0). Group space; the
       // group rides behind the dragon (rel<0) through the reveals, per the script's path().
       const u = entranceU;
-      entMatA = clamp(easeBack(clamp(u / 0.30, 0, 1)), 0, 1.12);        // twinA scales 0→1 (pop) over beat 1
-      entMatB = clamp(easeBack(clamp((u - 0.34) / 0.30, 0, 1)), 0, 1.12); // twinB scales 0→1 over beat 2
+      entMatA = easeK(clamp(u / 0.30, 0, 1));                 // twinA DISSOLVES in (opacity 0→1) over beat 1
+      entMatB = easeK(clamp((u - 0.34) / 0.30, 0, 1));        // twinB dissolves in over beat 2
       const scissor = easeK(clamp((u - 0.66) / 0.34, 0, 1));   // both sweep to the th=0 seat over beat 3
       const axL = 9 * (1 - scissor);                            // twinA local x: RIGHT (+9) → centre
       const bxL = -9 * (1 - scissor);                           // twinB local x: LEFT (−9) → centre
@@ -727,9 +751,10 @@ export function buildTwinWraith(def, quality = 1) {
     twinB.twin.position.set(posB[0], posB[1], posB[2]);
     // The FALLEN half shrinks away as it dissolves (the pair breaking); the survivor
     // stays full size and flees intact (§4b, CP1 r3 directive 1). During the §5j entrance the
-    // twins MATERIALISE from nothing (entMat 0→1, each on its own beat) — that scale wins.
-    twinA.twin.scale.setScalar(Math.max(0.001, entranceU != null ? entMatA : (survivorIsA ? 1 : 1 - fallenShrink)));
-    twinB.twin.scale.setScalar(Math.max(0.001, entranceU != null ? entMatB : (survivorIsA ? 1 - fallenShrink : 1)));
+    // twins MATERIALISE via OPACITY (below) — scale only settles 0.94→1 so it reads as a dissolve-
+    // in, NOT an inflate-from-a-dot (the r18 note: the pure scale-pop looked like it was growing).
+    twinA.twin.scale.setScalar(entranceU != null ? 0.94 + 0.06 * entMatA : Math.max(0.001, survivorIsA ? 1 : 1 - fallenShrink));
+    twinB.twin.scale.setScalar(entranceU != null ? 0.94 + 0.06 * entMatB : Math.max(0.001, survivorIsA ? 1 - fallenShrink : 1));
 
     // Orient each dart to FACE THE SHARED EMBER (nose → centre): the two darts read
     // broadside (their length across the frame, the dominant mass) with the ember
@@ -756,11 +781,6 @@ export function buildTwinWraith(def, quality = 1) {
     // Seat the eye on the thread between the two sockets at the hold fraction.
     socketWorldLocal(twinA.twin, _sa);
     socketWorldLocal(twinB.twin, _sb);
-    // §5j MATERIALISE: twinB's socket sits at its full ±9 position even at scale 0, so the
-    // thread/beads/eye would stretch to the still-INVISIBLE twin. Pin twinB's thread-end AT
-    // twinA until it materialises (entMatB 0→1) — the thread is a zero-length point on twinA
-    // through beat 1 (eye rests on A), then GROWS across to twinB as it forms in beat 2.
-    if (entranceU != null) _sb.lerp(_sa, 1 - Math.min(1, Math.max(0, entMatB)));
     // FLEE: the thread SNAPS — its far end collapses to a short dangling arc off the
     // survivor's own socket (not spanning to the vanished fallen half across the
     // frame), so the §7c auto-fit frames the LONE survivor + its hollow socket at
@@ -774,12 +794,22 @@ export function buildTwinWraith(def, quality = 1) {
     // so the eye vanished from the front + profile angles (it only read in 3/4 + top-
     // down, CP1 r8 dir 3). Floating it ~0.3u off the socket keeps the bloom in open air,
     // readable from every angle, while a full 0→1 handoff still crosses 0.1→0.9 (the §7b
-    // travel assert needs ≥0.7·thread; 0.8·thread clears it).
+    // travel assert needs ≥0.7·thread; 0.8·thread clears it). Seated on the FULL A→B thread so
+    // the eye always keeps the SAME 0.1 gap from whichever twin holds it — beat 1 included, so it
+    // never overlaps twinA's body as it shimmers in (the owner's "same distance as at twin 2" fix).
     const eyeF = 0.1 + Math.max(0, Math.min(1, holdT)) * 0.8;
     _eye.copy(_sa).lerp(_sb, eyeF);
     // A gentle arc up off the thread mid-glide (the eye lifts as it crosses).
     const glideLift = Math.sin(Math.max(0, Math.min(1, holdT)) * Math.PI) * (Math.abs(holdTarget - holdT) > 0.05 ? 0.5 : 0.12);
     eyeRig.position.set(_eye.x, _eye.y + glideLift, _eye.z + 0.15);
+    // §5j MATERIALISE: twinB's socket sits at its full ±9 position even at scale 0, so the DRAWN
+    // thread/beads would stretch to the still-INVISIBLE twin. Grow the drawn far-end from the EYE
+    // (beat 1: twinB not formed → a short strand twinA→eye) OUT to twinB's socket as it materialises
+    // (entMatB 0→1). The eye keeps its offset (seated above on the full thread); only the strand grows.
+    if (entranceU != null) {
+      const mB = Math.min(1, Math.max(0, entMatB));
+      _sb.set(_eye.x + (_sb.x - _eye.x) * mB, _eye.y + (_sb.y - _eye.y) * mB, _eye.z + (_sb.z - _eye.z) * mB);
+    }
 
     // Rebuild the beaded thread from socket to socket (drooping slightly at mid).
     for (let i = 0; i < THREAD_BEADS - 1; i++) {
@@ -823,7 +853,9 @@ export function buildTwinWraith(def, quality = 1) {
     // floating white-hot EYE is the sole bright holder-marker — not "two near-identical
     // orange rings" that hid which twin holds the eye (CP1 r8 dir 3). Mourning/dread/notice
     // still tick it up.
-    socketMat.emissiveIntensity = 0.10 + dyingK * 2.4 + dreadSplit * 1.1 + (noticeT > 0.4 ? 0.5 : 0);
+    const sockTarget = 0.10 + dyingK * 2.4 + dreadSplit * 1.1 + (noticeT > 0.4 ? 0.5 : 0);
+    sockGlow += (sockTarget - sockGlow) * Math.min(1, dt * 4);   // ease (~0.4s) so the ring never pops on/off at the handoff
+    socketMat.emissiveIntensity = sockGlow;
     beadMat.opacity = 0.85 * (1 - dyingK * 0.3) + fleeK * 0.15;
     // DREAD "split light" (CP1 r5 directive 1): a second HDR core ignites inside the
     // SEEKER's empty socket and the thread beads overdrive to HDR — the eye's light
@@ -856,11 +888,37 @@ export function buildTwinWraith(def, quality = 1) {
     outlineHolderMat.emissiveIntensity = 1.15 + dyingK * 0.4;
     outlineSeekerMat.emissiveIntensity = 0.75 + dyingK * 0.3;
 
+    // --- §5j MATERIALISE dissolve. finMat/sockMat are per-twin clones (buildTwin), so mirror the
+    // shared silver/socket emissive onto them, then fade EVERY fadeMat by the twin's materialise
+    // factor. A fast edge SHIMMER (twinkle that fades out as it solidifies) + a brightening outline
+    // sell "materialising into being", not a flat crossfade. Opacity 1 (opaque) outside the entrance. ---
+    for (const w of [twinA, twinB]) {
+      w.finMat.emissiveIntensity = silverMat.emissiveIntensity;
+      w.sockMat.emissiveIntensity = socketMat.emissiveIntensity;
+    }
+    // Only the ENTRANCE drives opacity; outside it, the boss's own setDissolve (spawn/death,
+    // which owns every tracked material's opacity) is left untouched — the materialise finished
+    // at opacity 1, so the fight/death fade take over cleanly.
+    if (entranceU != null) {
+      const shimmer = (mat, ph) => {
+        const f = 0.5 + 0.5 * Math.sin(time * 26 + ph);                  // fast twinkle
+        return Math.max(0, Math.min(1, mat * (1 - (1 - mat) * 0.55 * f)));  // flickers while forming, → 1 solid
+      };
+      const oA = shimmer(entMatA, 0), oB = shimmer(entMatB, 3.7);
+      for (const m of twinA.fadeMats) m.opacity = oA;
+      for (const m of twinB.fadeMats) m.opacity = oB;
+      // the resolving EDGE glows brighter the less-formed it is (the shimmer's own light)
+      outlineHolderMat.emissiveIntensity += (1 - entMatA) * 1.8;
+      outlineSeekerMat.emissiveIntensity += (1 - entMatB) * 1.4;
+      const eyeOp = shimmer(entMatA, 1.5);   // the EYE materialises WITH twinA (holder) — never pre-exists
+      orbMat.opacity = irisMat.opacity = pupilMat.opacity = glintMat.opacity = eyeOp;
+    }
+
     // --- Gaze: the HELD eye tracks the player with lag + look-aways (a mind, not a
     // turret). Eye-lock hard-tracks during notice/charge. ---
     nextLookAway -= dt;
     if (lookAwayT > 0) lookAwayT -= dt;
-    else if (nextLookAway <= 0 && charge < 0.2 && noticeT <= 0 && dyingK <= 0) {
+    else if (nextLookAway <= 0 && charge < 0.2 && noticeT <= 0 && dyingK <= 0 && entranceU == null) {   // §5j: the eye LOCKS on the dragon through the entrance — no idle look-aways
       lookAwayT = 0.6 + Math.random() * 0.5; lookAwayX = (Math.random() - 0.5) * 1.4; lookAwayY = Math.random() * 0.4 - 0.15;
       nextLookAway = 5 + Math.random() * 5;
     }
@@ -873,7 +931,7 @@ export function buildTwinWraith(def, quality = 1) {
     // --- Blink-analog: the eye TUCKS shut into its holder's body for a beat (the
     // orb shrinks + pulls back toward the socket, the iris closes over it). ---
     if (blinkT > 0) blinkT -= dt;
-    else { nextBlink -= dt; if (nextBlink <= 0 && charge < 0.5 && noticeT <= 0 && dyingK <= 0) { blinkT = BLINK_DUR; nextBlink = 3.5 + Math.random() * 3; } }
+    else { nextBlink -= dt; if (nextBlink <= 0 && charge < 0.5 && noticeT <= 0 && dyingK <= 0 && entranceU == null) { blinkT = BLINK_DUR; nextBlink = 3.5 + Math.random() * 3; } }
     const blinkProg = blinkT > 0 ? 1 - Math.abs((blinkT / BLINK_DUR) * 2 - 1) : 0;
 
     if (painT > 0) painT -= dt;
@@ -922,6 +980,17 @@ export function buildTwinWraith(def, quality = 1) {
     const glideBiasX = gliding ? Math.max(-1, Math.min(1, (recv.x - _eye.x) * 0.6)) * 0.07 : 0;
     pupil.position.set(gazeX * 0.08 + glideBiasX, gazeY * 0.07, 0.16 - tuck * 0.14);
     glint.position.set(-0.09 + gazeX * 0.05, 0.1 + gazeY * 0.04, 0.44);
+    // §5j: through the entrance the whole eye LOOKS AT the dragon — a real lookAt, not a pupil
+    // nudge. The script feeds the dragon's RIG-space position (_entAim); we point the eyeRig's
+    // FRONT (+z, where the pupil/glint sit) straight at it. As the eye rides the thread from twinA
+    // to twinB and the group approaches, the aim updates every frame, so the eye pivots on the
+    // string to keep facing the dragon — including as it passes. Outside the entrance: shipped forward set.
+    if (entranceU != null && entAimSet) {
+      _aimDir.copy(_entAim).sub(_eye);
+      if (_aimDir.lengthSq() > 1e-4) { _aimDir.normalize(); eyeRig.quaternion.setFromUnitVectors(_zAxis, _aimDir); }
+    } else {
+      eyeRig.rotation.set(0, 0, 0);
+    }
 
     // --- The twins' fins/ribbons pose by charge (EXPRESSION, §4b): open-glide idle,
     // mantle on charge (fins rake up + ribbons flare), furl in death. Plus the flinch
@@ -1020,7 +1089,31 @@ export function buildTwinWraith(def, quality = 1) {
   // §5j THE BATON CROSS: the entrance driver sets the 0..1 clock each frame (null = fight).
   // The rig-local x the eye crosses to (twinA RIGHT +8 → twinB LEFT −8) so the driver can
   // feed the ORB's world-x to the camera + the dragon-look strain.
-  function setEntrance(u) { entranceU = u == null ? null : Math.max(0, Math.min(1, u)); }
+  // Toggle every twin + eye material transparent (for the opacity dissolve) vs opaque (the fight).
+  // Opaque in the fight is REQUIRED: two transparent twin bodies (+ their inverted-hull outlines)
+  // crossing depth in the figure-eight re-sort each frame and pop — the "occasional stop-motion".
+  const _eyeMats = [orbMat, irisMat, pupilMat, glintMat];
+  function setFadeTransparent(on) {
+    for (const m of [...twinA.fadeMats, ...twinB.fadeMats, ..._eyeMats]) {
+      if (m.transparent === on) continue;
+      m.transparent = on;
+      if (!on) m.opacity = 1;
+      m.needsUpdate = true;
+    }
+  }
+  function setEntrance(u) {
+    const wasActive = entranceU != null;
+    entranceU = u == null ? null : Math.max(0, Math.min(1, u));
+    if (entranceU != null && !wasActive) setFadeTransparent(true);   // entrance begins → fade materials on
+    // On RELEASE (fight start): reset the orbit clock to 0 so the figure-eight genuinely resumes
+    // from th=0 (the twins at CENTRE, matching the scissor's converged seat) and eases OUT with the
+    // spread ramp — instead of snapping to a wide orbit position (orbitPhase had accrued while the
+    // boss orbited INVISIBLY through the 'warn' phase, so the "freeze" never actually parked it at 0).
+    // And return every material to OPAQUE so the fight has no transparent-sort pops.
+    if (u == null) { entAimSet = false; orbitPhase = 0; setFadeTransparent(false); }
+  }
+  // §5j: the driver feeds the DRAGON's position in RIG space each frame so the eye can lookAt it.
+  function setEntranceAim(x, y, z) { if (x == null) { entAimSet = false; } else { _entAim.set(x, y, z); entAimSet = true; } }
   function entranceEyeLocalX() { return entranceU == null ? 0 : (1 - 2 * easeK(clamp((entranceU - 0.34) / 0.28, 0, 1))) * 9; }
   function twinBodyLum() {
     // The rendered value of each twin body (diffuse + emissive) — the seeker must be
@@ -1037,7 +1130,7 @@ export function buildTwinWraith(def, quality = 1) {
     setSetpiece,
     setGaze,
     notice,
-    setEntrance, entranceEyeLocalX,
+    setEntrance, setEntranceAim, entranceEyeLocalX,
     setHealth: kit.setHealth,
     setHealthBarVisible: kit.setHealthBarVisible,
     setShieldVisible: kit.setShieldVisible,

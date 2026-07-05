@@ -113,6 +113,11 @@ let riderTimer = 0;
 let cineT = 0;
 let entranceId = null;         // §5j: which ENTRANCE_SCRIPTS entry is playing (null = plain approach)
 let cineYaw = null;            // null = normal facing; else a scripted world-yaw for the turn-around
+// Fight-phase group x/y smoothing (seeded at enterFight from the entrance-end pose). Absorbs the
+// single-frame lateral JUMP when the fight's station-bob (pose.x = sin(t)*5) takes over from the
+// entrance (which ends at x=0) and at every setpiece boundary (station ↔ scripted path). rel is
+// left DIRECT so the flyby dive stays crisp; x/y are slow enough that the damp barely lags them.
+let poseSX = 0, poseSY = 0, poseSmooth = false;
 let cineSide = 1;
 let cineAnchorX = 0, cineAnchorY = 8;   // the dragon's x/y at flythrough start (pass beside it, both in frame)
 let cineSkip = false;         // a tap during the flythrough fast-forwards to the turn-around
@@ -833,6 +838,7 @@ function applyReticle(timeLeft, time) {
 // the cinematic flythrough entrance.
 function enterFight() {
   phase = 'fight';
+  poseSX = pose.x; poseSY = pose.y; poseSmooth = true;   // seed the group x/y smoother from the entrance-end pose (no handoff jump)
   entranceId = null;                  // the scripted entrance is done
   model?.setEntrance?.(null);         // release any per-boss entrance choreography (EITHERWING's Baton Cross)
   cineYaw = null;                     // hand facing back to placeGroup (face the player)
@@ -872,7 +878,7 @@ function updateEntrance(dt, player, time) {
   if (cineSkip && cineT < skipU) { cineT = skipU; releaseCineSlow(); }
   cineT += dt;
   const u = Math.min(cineT / script.dur, 1);
-  const ctx = { AX: cineAnchorX, AY: cineAnchorY, S: cineSide, B };
+  const ctx = { AX: cineAnchorX, AY: cineAnchorY, S: cineSide, B, sc: def.scale ?? 1.5 };
 
   const p = script.path(u, ctx);
   pose.x = p.x; pose.y = p.y; pose.rel = p.rel;
@@ -1048,7 +1054,7 @@ export function updateBoss(dt, player, time) {
     const script = ENTRANCE_SCRIPTS[def.entrance ?? 'overtake'];
     if (script) {
       const u = debugEntrancePin;
-      const ctx = { AX: player.position.x, AY: player.position.y, S: 1, B };
+      const ctx = { AX: player.position.x, AY: player.position.y, S: 1, B, sc: def.scale ?? 1.5 };
       const p = script.path(u, ctx); pose.x = p.x; pose.y = p.y; pose.rel = p.rel;
       model.setSetpiece?.(script.tuck ? script.tuck(u, ctx) : 0);
       model.setCharge?.(0);
@@ -1238,13 +1244,22 @@ export function updateBoss(dt, player, time) {
     if (dyingT >= B.deathTime) { endEncounter(player); return; }
   }
 
-  placeGroup(player, time);
+  placeGroup(player, time, dt);
 }
 
-function placeGroup(player, time) {
+function placeGroup(player, time, dt) {
   if (!group) return;
   group.visible = phase !== 'warn';   // stay hidden behind while the warning flashes
-  group.position.set(pose.x, pose.y, -(player.dist + pose.rel));
+  // Smooth the group's lateral/vertical placement through the fight so regime switches (entrance→
+  // fight station-bob, station↔setpiece) don't jump in one frame; rel stays direct (crisp dive).
+  if (poseSmooth) {
+    const kx = Math.min(1, (dt || 0.016) * 12);
+    poseSX += (pose.x - poseSX) * kx;
+    poseSY += (pose.y - poseSY) * kx;
+    group.position.set(poseSX, poseSY, -(player.dist + pose.rel));
+  } else {
+    group.position.set(pose.x, pose.y, -(player.dist + pose.rel));
+  }
   // Face the player (local +z = front maw, world +z = toward the player) with a
   // little menacing yaw/roll wobble. During the cinematic entrance, cineYaw owns
   // the yaw instead (it faces its dive line, then wheels 180° to face you).
@@ -1620,7 +1635,7 @@ export function resetBoss() {
   clearSetpiece();
   // Release the cinematic entrance if we tore down mid-flythrough (game over during
   // the overtake): drop the slow-mo, the camera hijack, and the facing override.
-  cineYaw = null; cineSkip = false; entranceId = null;
+  cineYaw = null; cineSkip = false; entranceId = null; poseSmooth = false;
   releaseCineSlow();
   cameraCtl.setOvertake?.(null);
   model?.setEyeLock?.(false);
