@@ -314,18 +314,23 @@ function eyeZone(c, { r, x, y, z, glow }) {
       // z-fight itself — and the iris paint wraps the dome, so the profile stays alive.
       const nrm = oneShellEye
         ? new THREE.Vector3(kN.x, 0.06, kN.z).normalize()          // apex: gaze along the wedge-cheek normal (the keen decal's facing)
-        : new THREE.Vector3(s * 0.42, 0.06, -1).normalize();       // young forms: forward + ~23° outward so the iris wrap reaches the profile view
+        : new THREE.Vector3(s * 0.55, 0.06, -1).normalize();       // young forms: forward + ~29° outward so the iris wrap truly reaches the profile view (gate: 23° left the side blank)
       const geo = new THREE.SphereGeometry(rr, seg(14), seg(10));
       const pos = geo.attributes.position;
-      const cP = new THREE.Color(0x0a1622), cI = new THREE.Color(0x4198e2), cS = new THREE.Color(0xe4f0fa);
-      const V = new THREE.Vector3(); const cols = [];
+      // Keen forms brighten the iris (gate: the apex's dark iris on the deep navy head went
+      // murky/invisible at the front) — es lerps the hue toward the pale-ice accent.
+      const cP = new THREE.Color(0x0a1622), cS = new THREE.Color(0xe4f0fa);
+      const cI = new THREE.Color(0x4198e2).lerp(new THREE.Color(0x9fdcff), es * 0.55);
+      const V = new THREE.Vector3(); const cols = []; const CT = new THREE.Color();
+      const band = (ang, a, b) => Math.min(1, Math.max(0, (ang - a) / (b - a)));   // smoothstep-ish edge
       for (let i = 0; i < pos.count; i++) {
         const ang = V.fromBufferAttribute(pos, i).normalize().angleTo(nrm);
-        // IRIS-DOMINANT bands (research: cute ≈ 90% iris+pupil, a sliver of sclera; a small
-        // pupil on a wide white field is the startled/manic read). Pupil to ~29°, bright iris
-        // to ~63° (+23° outboard gaze → wrap reaches ~86°: the profile shows iris + pupil).
-        // Pupil slimmed 0.58→0.5 + iris brightened: at 0.58 the whole ball read as a black bead.
-        cols.push(...(ang < 0.5 ? cP : ang < 1.1 ? cI : cS).toArray());
+        // IRIS-DOMINANT bands with SOFT edges (research: cute ≈ 90% iris+pupil, a sliver of
+        // sclera). Hard band cuts on coarse facets read as a black quadrant "hole" (gate) —
+        // a ~0.14 rad blend across each boundary keeps the facets from carving the eye.
+        // Pupil to ~26°, iris to ~70° (+29° outboard gaze → wrap reaches ~99°: profile alive).
+        CT.copy(cP).lerp(cI, band(ang, 0.38, 0.52)).lerp(cS, band(ang, 1.14, 1.3));
+        cols.push(CT.r, CT.g, CT.b);
       }
       geo.setAttribute('color', new THREE.Float32BufferAttribute(cols, 3));
       const ball = new THREE.Mesh(geo, cuteBallMat);
@@ -334,8 +339,8 @@ function eyeZone(c, { r, x, y, z, glow }) {
       c.head.add(ball);
       // CATCHLIGHT: a tiny proud disc, upper-INNER of the gaze (mirrored per side) — small
       // flat decals never fought; they just can't be the whole iris.
-      const gDir = new THREE.Vector3(nrm.x - s * 0.22, nrm.y + 0.3, nrm.z).normalize();
-      const glint = new THREE.Mesh(new THREE.CircleGeometry(rr * 0.15, seg(10)), cuteGlintMat);
+      const gDir = new THREE.Vector3(nrm.x - s * 0.12, nrm.y + 0.2, nrm.z).normalize();   // closer to the gaze → the glint sits ON the iris (gate: a big flat decagon on the sclera read as a hole)
+      const glint = new THREE.Mesh(new THREE.CircleGeometry(rr * 0.1, seg(10)), cuteGlintMat);
       glint.position.copy(ecA).addScaledVector(gDir, rr * 1.02);
       glint.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), gDir);
       c.head.add(glint);
@@ -658,7 +663,9 @@ function buildDraconicHead(def, model, mats) {
     (JAWS[cfg.jawType] || compactSmoothJaw)(ctx);
   }
   (EYES[cfg.eyeZoneType] || largeSoftEyeZone)(ctx);
-  (BROWS[cfg.browType] || softBrow)(ctx);
+  // cuteEye's socket LIDS are the brow (gate: the old brow cones floated as detached chips
+  // over the skull from the nape) — the separate brow module only runs for the default eye.
+  if (!cfg.cuteEye) (BROWS[cfg.browType] || softBrow)(ctx);
   (HORNS[cfg.hornType] || smallSweptBackEarFins)(ctx);
   (CRESTS[cfg.rearCrestType] || smallRearCrest)(ctx);
   if (cfg.whiskerFins) whiskerFins(ctx);
