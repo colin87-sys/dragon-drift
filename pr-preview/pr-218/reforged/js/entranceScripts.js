@@ -66,17 +66,17 @@ export const ENTRANCE_SCRIPTS = {
     camera(u, pose, player) { return { k: u, bx: pose.x, by: pose.y, bz: -(player.dist + pose.rel) }; },
   },
 
-  // EITHERWING — THE BATON CROSS (§5j slot 5). A REAR-CAM sequential reveal: the camera
-  // wheels to a look-BACK pose as twinA rises from behind-below on the RIGHT (the dragon
-  // cranks its head right to look) with the shared EYE on it; then the EYE crosses to twinB
-  // as it rises on the LEFT (the dragon's head + the camera pan LEFT to follow the eye);
-  // then both SCISSOR forward together into the figure-eight as the camera eases home and
-  // the fight opens. The per-twin rise + eye-cross is choreographed in the eitherwing model's
-  // setEntrance(u); this script owns the group's rear approach, the camera pan (fed the LIT
-  // twin's world-x as bx), the dragon's dual head-turn (lookWin/lookYaw), slow-mo, and banner.
-  // eyeLock OFF (the eye crosses on its own beat, it is not tracking the dragon).
+  // EITHERWING — THE BATON CROSS (§5j slot 5). A REAR-CAM sequential MATERIALISE: both twins
+  // start INVISIBLE. The camera wheels to a look-BACK pose and twinA MATERIALISES on the RIGHT
+  // with the shared EYE on it — the rear camera FOCUSES on it as it forms (the dragon still
+  // faces forward). Then the EYE crosses to twinB as it MATERIALISES on the LEFT, and now the
+  // DRAGON turns its head to that one (lookWin ramps on beat 2). Then both SCISSOR forward
+  // together into the figure-eight as the camera eases home and the fight opens. The per-twin
+  // materialise + eye-cross is choreographed in the eitherwing model's setEntrance(u); this
+  // script owns the group's rear approach, the camera focus-pan (fed the LIT twin's world-x as
+  // bx), the beat-2 dragon head-turn (lookWin), slow-mo, and banner. eyeLock OFF.
   batonCross: {
-    dur: 1.8,                  // ~3.5s wall — three distinct beats (reveal A · reveal B · scissor) need the room
+    dur: 1.8,                  // ~3.5s wall — three distinct beats (materialise A · materialise B · scissor) need the room
     skipTo: 0.70,              // skip → the scissor/settle (the eye still ends on the LEFT twin)
     anchorToDragon: true,      // the reveal frames the dragon's start position
     initYaw: 0,                // the group stays upright/forward; the twins face inward themselves
@@ -99,17 +99,18 @@ export const ENTRANCE_SCRIPTS = {
       return { x: AX * (1 - s), y: L(AY + 1.5, B.fightHeight, s), rel: L(-9, B.settleGap, s) };
     },
     tuck(u) { return clamp01((u - 0.7) / 0.3) * 0.5; },   // the tails flare as the pair scissor into the fight
-    // Drive the model's per-twin rise + eye-cross + ignition.
+    // Drive the model's per-twin materialise + eye-cross + ignition.
     onFrame(u, ctx, pose, player, model) { model.setEntrance?.(u); },
     onStart(model) { model.setEntrance?.(0); },
-    // Feed the LIT twin's world-x as bx so (a) the rear-look camera pans right→left between
-    // the two reveals and (b) main.js turns the dragon's head to each twin in turn. lookWin
-    // holds the head-turn open across BOTH reveals and eases it out through the scissor
-    // (ASHTALON's default single-glance window doesn't fit a two-beat reveal). No chaseCam:
+    // Feed the LIT twin's world-x as bx so the rear-look camera focus-pans right→left between
+    // the two reveals. lookWin stays ~0 through BEAT 1 (the CAMERA reveals twinA; the dragon
+    // faces forward), then ramps on BEAT 2 so the DRAGON turns its head to twinB as it forms,
+    // easing out through the scissor. (ASHTALON's default single-glance window doesn't fit; it
+    // leaves lookWin undefined and keeps its own ramp, so its golden is untouched.) No chaseCam:
     // this uses the rear-look block. pivot 0.70 keeps the look-back through both reveals.
     camera(u, pose, player) {
       const lit = this._lit(u);
-      const lookWin = clamp01(u / 0.12) * (1 - clamp01((u - 0.70) / 0.22));
+      const lookWin = clamp01((u - 0.36) / 0.14) * (1 - clamp01((u - 0.72) / 0.20));
       return {
         k: u, bx: pose.x + lit, by: pose.y + 1.5, bz: -(player.dist + pose.rel),
         pivot: 0.70, blend: 0.24, fov: 82, lookWin,
