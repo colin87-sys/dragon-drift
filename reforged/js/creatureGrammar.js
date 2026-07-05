@@ -64,6 +64,7 @@ export const CREATURE_GRAMMAR = Object.freeze([
   { path: 'model.bladeCamber', group: 'wing', kind: 'number', min: 0, max: 0.5, forms: true, desc: 'Blade cambered-plane billow.' },
   { path: 'model.bladeDihedral', group: 'wing', kind: 'number', min: 0, max: 1.4, forms: true, desc: 'Per-blade dihedral up-tilt.' },
   { path: 'model.bladeRise', group: 'wing', kind: 'number', min: 0, max: 4, forms: true, desc: 'Leading-arm dihedral rise (absolute).' },
+  { path: 'model.bladeDetail', group: 'wing', kind: 'number', min: 0.4, max: 1.6, forms: true, desc: 'Per-form blade tessellation multiplier (form escalation).' },
 
   // --- wing shape + surface (model.*) -----------------------------------------
   { path: 'model.wingOpacity', group: 'wing', kind: 'number', min: 0, max: 1, forms: true, desc: 'Membrane translucency.' },

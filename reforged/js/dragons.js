@@ -21,60 +21,66 @@ export const DRAGONS = {
     rarity: 'R',
     maxRarity: 'SSR',   // starter: evolution caps at SSR, never SSSR
     cost: 0,
-    accentHue: 0xd9b36a,
-    parts: { wings: 'bladeFeatherWings' },
-    // The humble free starter: the smallest, NARROWEST, cleanest wings in the
-    // roster (a nimble messenger), so the premiums feel rare. Sky-blue + gold.
+    accentHue: 0xd9b36a,   // §5d law-9 carrier: DIFFUSE gold tip-paint only, zero wing emissive
+    // AZURE Drake — the falcon-winged sky courier (§5d slot A). A compact avian
+    // glider (deep-keel arrow read) whose HERO is a swept blade-feather comb: 5
+    // stiff falcon primaries marching a swept leading arm, true gaps + z-stagger,
+    // painted value tiers + gold diffuse tips. Draconic head with a brow-crest
+    // motif; a clean tail forking into a swallow-banner at the apex.
     stats: { speed: 1.0, handling: 1.0, drain: 1.0, regen: 1.0 },
+    parts: { torso: 'sweptLoft', wings: 'bladeFeatherWings', head: 'draconic', tail: 'clean' },
     model: {
-      scale: 1.0, wingScale: 0.95, tailSegments: 8, neckSegments: 4,
-      hornLen: 1.0, hornPairs: 1, ridgeCount: 12,
-      flapBias: 1.0, flapAmp: 0.9, // light courier beat, smoothed toward the Phoenix feel
+      scale: 1.0, wingScale: 1.0, tailSegments: 6, neckSegments: 5,
+      headArchetype: 'softStealth',   // round friendly base, tuned keen per form via eyeShape/brow
+      headScale: 1.0, snoutScale: 0.94, browIntensity: 1.15, rearGlowIntensity: 0.42,
+      // blade-feather comb shared dials (per-form span/count/etc. accrete below)
+      bladeCount: 5, bladeSweep: 0.48, bladeRake: 0.34, bladeStagger: 0.14,
+      bladeCamber: 0.18, bladeDihedral: 0.82,
+      hornPairs: 1, hornLen: 0.9, ridgeCount: 10,
+      flapBias: 1.0, flapAmp: 0.9,    // light courier beat
     },
-    // Narrow, short, clean wings — the most compact silhouette of the roster.
-    wingForms: [
-      { tips: [[3.90, 0.28], [3.00, -0.40], [1.90, -0.66]],
-        lead: [2.50, 0.42], scallop: 0.16, flame: false,
-        arc: { bow: 0.50, hump: 0.0, humpAt: 0.6, hook: 0.10 } },
-      { tips: [[4.40, 0.30], [3.50, -0.44], [2.30, -0.82], [1.30, -0.85]],
-        lead: [2.90, 0.50], scallop: 0.28, flame: false,
-        arc: { bow: 0.55, hump: 0.40, humpAt: 0.55, hook: 0.18 } },
-      { tips: [[4.70, 0.34], [3.85, -0.48], [2.60, -0.95], [1.45, -1.00]],
-        lead: [3.15, 0.56], scallop: 0.40, flame: false,
-        arc: { bow: 0.60, hump: 0.70, humpAt: 0.57, hook: 0.30 } },
-      { tips: [[4.95, 0.38], [4.10, -0.50], [2.85, -1.00], [1.60, -1.05]],
-        lead: [3.35, 0.62], scallop: 0.45, flame: false,
-        arc: { bow: 0.65, hump: 1.00, humpAt: 0.58, hook: 0.45 } },
-    ],
-    // Three forms (starter caps at SSR / tier 2): a BARE hatchling (no horns, no
-    // back ridges) → horns + back ridges sprout, wings broaden → the SSR apex
-    // (broadest wings, head crest, dorsal sail, soft spine-glow). Restrained —
-    // no premium glow-seams/veins/aura. Soft airy sky-blue, not too electric.
+    // Three visible forms (starter caps at SSR / tier 2): a round-chested fluffball
+    // glider with a stub comb + crest nub + forked tail-hint → adolescent, blades
+    // lengthen + crest fans → the 2.8–3.2× apex with a full high-aspect comb, a
+    // 3-blade crest, and a gold-tipped swallow-banner tail. Restraint IS the read —
+    // spineGlow ≤0.3, gold stays DIFFUSE.
     forms: [
-      // Hatchling — bare whelp: no horns, no back ridges, dull sky-grey.
-      { wingForm: 0, tailStyle: 'simple', tailSegments: 5, ridgeCount: 0,
-        spineGlow: 0, crest: 0, neckSegments: 4, hornLen: 0,
-        colors: { body: 0x21384f, wingInner: 0x4d7ba6, wingOuter: 0x2f5d84,
-          wingEmissive: 0x42729c, scales: 0x6f93b2, horn: 0x86a0b8,
-          apexSeam: 0x4a7090, eye: 0x74a8cc, coreGlow: 0x5f8fc0 } },
-      // Kindled — horns + back ridges sprout, wings broaden, clearer sky-blue.
-      { wingForm: 1, tailStyle: 'simple', tailSegments: 5, ridgeCount: 8,
-        spineGlow: 0, crest: 0, neckSegments: 4, hornLen: 1.0,
-        colors: { body: 0x1f3650, wingInner: 0x67b7ff, wingOuter: 0x2f5d84,
-          wingEmissive: 0x5fa6ef, scales: 0xa6cdec, horn: 0xa8c4de,
-          apexSeam: 0x67b7ff, eye: 0x8ed5ff, coreGlow: 0x67b7ff } },
-      // Radiant = the SSR apex: broadest wings, finned tail, head crest, dorsal
-      // sail + soft spine-glow — bright airy sky-blue, NO premium glow-seams/veins.
-      { wingForm: 2, tailStyle: 'finned', tailSegments: 6, ridgeCount: 10,
-        spineGlow: 0.3, crest: 1, dorsal: true,
-        colors: { body: 0x1c3048, wingInner: 0x8ed5ff, wingOuter: 0x357096,
-          wingEmissive: 0x8ed5ff, scales: 0xc6ecff, horn: 0xc2dcf2,
-          apexSeam: 0x8ed5ff, eye: 0xc6ecff, coreGlow: 0x8ed5ff } },
+      // Hatchling (form 0) — round fluffball: curled posture, round low eyes, big
+      // head, stub gapped comb, crest nub, forked tail-tip hint. Lighter sky value.
+      { wingScale: 0.72, bladeSpan: 6.0, bladeCount: 5, bladeDetail: 0.6,
+        spineCurl: -0.8, eyeShape: 0.0, headScale: 1.12, eyeScale: 1.0,
+        crestBlades: 1, crestScale: 0.5,
+        tailStyle: 'simple', tailTipFork: true, tailSegments: 5, neckSegments: 4,
+        ridgeCount: 0, spineGlow: 0,
+        colors: { body: 0x2a4058, belly: 0xd6e8f6, wingInner: 0xbcd6ea, wingOuter: 0x6f8ca6,
+          wingEmissive: 0x5f7f9c, scales: 0x9db8ce, horn: 0xa8c0d4,
+          apexSeam: 0x86a6c2, eye: 0x9fd0ee, coreGlow: 0x7fa6c8 } },
+      // Adolescent (form 1) — straightening posture, keener eyes, blades lengthen,
+      // crest begins its 3-blade fan, span 2.0–2.3×. Mid sky value.
+      { wingScale: 0.9, bladeSpan: 6.8, bladeCount: 5, bladeDetail: 0.92,
+        spineCurl: 0.0, eyeShape: 0.55, headScale: 0.74, eyeScale: 0.72,
+        crestBlades: 2, crestScale: 0.74,
+        tailStyle: 'simple', tailTipFork: true, tailSegments: 5, neckSegments: 5,
+        ridgeCount: 8, spineGlow: 0,
+        colors: { body: 0x223a52, belly: 0xcfe6ff, wingInner: 0xc6dff0, wingOuter: 0x64839f,
+          wingEmissive: 0x5f7f9c, scales: 0xb2cee6, horn: 0xb6cfe4,
+          apexSeam: 0x9cc0dc, eye: 0xbfe2fb, coreGlow: 0x86bce4 } },
+      // Radiant apex (form 2) — proud upright S, keen almond eyes, full high-aspect
+      // comb (span 2.8–3.2×), 3-blade crest fan, dorsal sail, gold-tipped swallow
+      // banner tail. Deepest sky value, gold at its richest (still DIFFUSE).
+      { wingScale: 1.0, bladeSpan: 8.6, bladeCount: 5, bladeDetail: 1.45,
+        spineCurl: 0.72, eyeShape: 1.0, headScale: 0.5, eyeScale: 0.46,
+        crestBlades: 3, crestScale: 1.0,
+        tailStyle: 'finned', tailBannerFork: true, tailSegments: 6, neckSegments: 5,
+        ridgeCount: 14, spineGlow: 0.3, dorsal: true, backCrest: true,
+        colors: { body: 0x1c3048, belly: 0xcfe6ff, wingInner: 0xcfe4f6, wingOuter: 0x5f7f9c,
+          wingEmissive: 0x5f7f9c, scales: 0xc6ecff, horn: 0xc2dcf2,
+          apexSeam: 0x8ed5ff, eye: 0xd8eeff, coreGlow: 0x8ed5ff } },
     ],
     fx: { auraColor: '142,213,255', auraIdle: 0.0, sparkle: false },
     body: 0x1c3048, belly: 0xcfe6ff, scales: 0xc6ecff, horn: 0xbcd9f0,
-    wingInner: 0x8ed5ff, wingOuter: 0x2f5d84, wingEmissive: 0x67b7ff,
-    apexEye: 0xc6ecff, apexSeam: 0x8ed5ff, coreGlow: 0x8ed5ff, surgeHi: 0xeaf6ff,
+    wingInner: 0xcfe4f6, wingOuter: 0x5f7f9c, wingEmissive: 0x5f7f9c,
+    apexEye: 0xd8eeff, apexSeam: 0x8ed5ff, coreGlow: 0x8ed5ff, surgeHi: 0xeaf6ff,
     eye: 0x8ed5ff, trail: 0x8ed5ff, boostTrail: 0x67b7ff,
   },
 

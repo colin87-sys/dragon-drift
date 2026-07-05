@@ -129,12 +129,14 @@ function eyeZone(c, { r, x, y, z, glow }) {
   // tilted), 0 = round + low-set (the cute hatchling read). Interpolated so a line
   // can move round→keen across its forms without a second eye builder.
   const es = c.cfg.eyeShape;
+  const rb = 1 + (1 - es) * 0.55;         // round hatchling eyes are BIGGER (cute), keen apex eyes smaller
+  const rr = r * rb;
   const sx = 0.92 + (1 - es) * 0.12;      // rounder = a touch wider
   const sy = 0.86 + es * 0.32;            // almond = taller
   const tiltY = 0.30 * es, tiltZ = 0.34 * es;
-  const yset = y - (1 - es) * r * 0.35;   // round eyes sit LOWER
+  const yset = y - (1 - es) * rr * 0.35;  // round eyes sit LOWER
   for (const s of [-1, 1]) {
-    const eye = new THREE.Mesh(new THREE.SphereGeometry(r, seg(12), seg(9)), c.mats.eyeMat);
+    const eye = new THREE.Mesh(new THREE.SphereGeometry(rr, seg(12), seg(9)), c.mats.eyeMat);
     eye.scale.set(sx, sy, 0.82);
     eye.rotation.set(0.1, -s * tiltY, -s * tiltZ);   // almond/feline tilt (0 when round)
     eye.position.set(s * x, yset, z);
@@ -290,7 +292,9 @@ function browCrest(c) {
   for (let i = 0; i < n; i++) {
     const t = n > 1 ? i / (n - 1) : 0.5;
     const mid = 1 - Math.abs(t - 0.5) * 1.4;                 // centre blade longest
-    const len = (0.30 + 0.34 * mid) * sc;
+    // Bloom must GROW monotonically with crestScale even when the count is even
+    // (no centre blade) — keep the scale-driven term dominant over the `mid` term.
+    const len = (0.44 + 0.20 * mid) * sc;
     const wid = (0.11 + 0.05 * mid) * sc;
     maxLen = Math.max(maxLen, len);
     // A slim feather blade, gold-tipped via a base→tip vertex gradient.
@@ -411,7 +415,13 @@ function buildDraconicHead(def, model, mats) {
   if (cfg.tuskJaw) tuskJaw(ctx);
   if (cfg.crestBlades > 0) browCrest(ctx);
 
-  return { group: outer, spineMats, motifAnchor: ctx.motifAnchor ?? null };
+  // Publish the SKULL length (snout tip → rear of cranium, EXCLUDING the crest/fins)
+  // × headScale, so the §7 head:body / eye:head asserts read the true head length,
+  // not a crest-inflated bbox (§6.4: asserts read published handles, not spelunking).
+  const craniumBack = R * 0.14 + (ctx.hz ?? R);
+  const headLength = (craniumBack - (ctx.snoutTipZ ?? -R)) * cfg.headScale;
+
+  return { group: outer, spineMats, motifAnchor: ctx.motifAnchor ?? null, headLength };
 }
 
 registerHead('draconic', buildDraconicHead);

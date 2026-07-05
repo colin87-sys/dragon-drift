@@ -796,8 +796,9 @@ function buildBladeFeatherWings(def, model, attach, giM) {
   // in Z (straight taut leading edge at −Z, convex trailing at +Z), camber + a
   // raised central rib lift +Y. Painted root→tip (dark→light) with a gold tip band,
   // then scaled by `valMul` for the per-blade covert→leading value tier.
+  const bd = model.bladeDetail ?? 1;                        // per-form tessellation (form escalation)
   function bladeGeo(L, wRoot, valMul) {
-    const nX = seg(7), nZ = seg(4);
+    const nX = seg(Math.max(3, Math.round(7 * bd))), nZ = seg(Math.max(2, Math.round(4 * bd)));
     const verts = [], cols = [], idx = [];
     const cd = new THREE.Color(cDark), cl = new THREE.Color(cLight), cg = new THREE.Color(cGold), c = new THREE.Color();
     const cdv = cd.clone().multiplyScalar(valMul), clv = cl.clone().multiplyScalar(valMul);
@@ -836,6 +837,20 @@ function buildBladeFeatherWings(def, model, attach, giM) {
   const wristY = wingRise * Math.pow(wristFrac, 1.4);
   const wristZ = wristX * Math.tan(sweep);        // sweep the arm back
 
+  // Precompute the blade roots so the leading spar can FOLLOW their rising line
+  // (the leading edge of the fan) instead of a bare horizontal rod poking past it.
+  const roots = [];
+  for (let i = 0; i < N; i++) {
+    const t = N > 1 ? i / (N - 1) : 0;
+    const rootX = reach * (0.26 + 0.34 * t);
+    const rootY = wingRise * Math.pow(rootX / reach, 1.4);
+    const rootZ = reach * (0.02 + 0.05 * t) + stagger * i;       // z-stagger separates the comb
+    const len = (reach * 0.55) * (0.46 + 0.54 * Math.sin((0.16 + 0.7 * t) * Math.PI));
+    const wRoot = (0.66 + 0.34 * Math.sin(t * Math.PI)) * (reach * 0.40); // chord swells mid-fan
+    const valMul = 0.62 + 0.38 * t;                              // coverts (inner) darkest → leading lightest
+    roots.push({ t, rootX, rootY, rootZ, len, wRoot, valMul });
+  }
+
   function buildSide(side) {
     const pivot = new THREE.Group();
     const wr = attach.wingRoot(side);
@@ -846,27 +861,28 @@ function buildBladeFeatherWings(def, model, attach, giM) {
     shoulder.scale.set(1.1, 0.86, 1.2);
     pivot.add(shoulder);
 
-    // Inner leading-arm spar (root → wrist), swept back + up.
-    pivot.add(wingStrut(wristX * side, wristZ, 0.11, 0.05, armMat, wristY));
-
     // wingTip = the wrist fold group; the outer arm + outer blades ride it so a
     // fold contracts the span (dragon.js drives wingTip.rotation.z).
     const wingTip = new THREE.Group();
     wingTip.position.set(wristX * side, wristY, wristZ);
-    const outerX = reach * (0.62 - wristFrac);
-    const outerY = wingRise * (Math.pow(0.62, 1.4) - Math.pow(wristFrac, 1.4)), outerZ = outerX * Math.tan(sweep);
-    wingTip.add(wingStrut(outerX * side, outerZ, 0.05, 0.02, armMat, outerY));
+
+    // Leading-arm SPAR — a tapered beveled bone running along the rising blade-root
+    // line (the leading edge), thick at the shoulder → thin at the last root. Split
+    // at the wrist so the outer half folds. §3 leading-edge weight; no rod poking past.
+    const spine = [{ x: 0.08, y: 0, z: -0.04 }, ...roots.map((r) => ({ x: r.rootX, y: r.rootY, z: r.rootZ }))];
+    for (let s = 0; s < spine.length - 1; s++) {
+      const a = spine[s], b = spine[s + 1];
+      const inner = b.x < wristX;
+      const par = inner ? pivot : wingTip;
+      const ox = inner ? 0 : wristX, oy = inner ? 0 : wristY, oz = inner ? 0 : wristZ;
+      const r0 = 0.13 * (1 - s / spine.length) + 0.03, r1 = 0.13 * (1 - (s + 1) / spine.length) + 0.025;
+      par.add(bone((a.x - ox) * side, a.y - oy, a.z - oz, (b.x - ox) * side, b.y - oy, b.z - oz, r0, r1, armMat));
+    }
 
     const bladePivots = [];
     const elements = [];
     for (let i = 0; i < N; i++) {
-      const t = N > 1 ? i / (N - 1) : 0;
-      const rootX = reach * (0.26 + 0.34 * t);
-      const rootY = wingRise * Math.pow(rootX / reach, 1.4);
-      const rootZ = reach * (0.02 + 0.05 * t) + stagger * i;     // z-stagger separates the comb
-      const len = (reach * 0.55) * (0.46 + 0.54 * Math.sin((0.16 + 0.7 * t) * Math.PI));
-      const wRoot = (0.66 + 0.34 * Math.sin(t * Math.PI)) * (reach * 0.40); // chord swells mid-fan (broad overlapping feather area, thin gaps)
-      const valMul = 0.62 + 0.38 * t;                            // coverts (inner) darkest → leading lightest
+      const { t, rootX, rootY, rootZ, len, wRoot, valMul } = roots[i];
       const inner = rootX < wristX;
       const parent = inner ? pivot : wingTip;
       // In the parent frame: outer blades are relative to the wrist.

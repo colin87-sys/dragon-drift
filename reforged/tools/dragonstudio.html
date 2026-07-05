@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <style>html,body{margin:0;background:#14121a}</style>
+  <script type="importmap">{ "imports": { "three": "/lib/three.module.js" } }</script>
+</head>
+<body>
+  <!-- montage = a composited contact sheet; gl = the offscreen render target -->
+  <canvas id="gl" width="440" height="440"></canvas>
+  <canvas id="montage" width="1280" height="360"></canvas>
+  <script type="module">
+    import * as THREE from 'three';
+    import { DRAGONS } from '/js/dragons.js';
+    import { ascendedDef, maxTierFor } from '/js/ascension.js';
+    import { buildDragonModel } from '/js/dragonModel.js';
+    import { setFlapDebugPose } from '/js/dragonDebugPose.js';
+
+    // §8 studio: DETERMINISTIC (no animation phase — every shot is a pure function of
+    // form/state/angle/bg, so round K and K+1 are pixel-comparable), per reachable
+    // form (clamped to maxTierFor — never a phantom T3), the named debug poses, the
+    // fixed rear-first angle set, and the three backdrops (dark / pale / warm sunset).
+    const BG = { dark: 0x14121a, pale: 0xcfd6e4, sunset: 0xd9a24a };
+    // Rear-chase first: the game is played from behind + slightly above. The dragon
+    // faces −z, so a rear cam sits at +z; a FACE cam sits at −z (in front).
+    const ANGLES = {
+      rearchase: new THREE.Vector3(0.06, 0.22, 0.98),
+      side:      new THREE.Vector3(0.99, 0.10, 0.05),
+      rear34:    new THREE.Vector3(0.52, 0.30, 0.80),
+      topplan:   new THREE.Vector3(0.02, 0.99, 0.14),
+      wingcrop:  new THREE.Vector3(0.30, 0.52, 0.80),   // rear-above, tight on ONE wing
+      face:      new THREE.Vector3(0.34, 0.24, -0.92),  // front-¾ (in front of the head)
+    };
+
+    const gl = document.getElementById('gl');
+    const renderer = new THREE.WebGLRenderer({ canvas: gl, alpha: true, antialias: true, preserveDrawingBuffer: true });
+    renderer.setPixelRatio(2);
+    renderer.toneMapping = THREE.ACESFilmicToneMapping;
+    const scene = new THREE.Scene();
+    const camera = new THREE.PerspectiveCamera(48, 1, 0.1, 200);
+    scene.add(new THREE.HemisphereLight(0xbfdcff, 0x2e3448, 1.0));
+    const keyL = new THREE.DirectionalLight(0xffe0b0, 1.8); keyL.position.set(2.5, 3, 4); scene.add(keyL);
+    const rimL = new THREE.DirectionalLight(0x7fb8ff, 0.9); rimL.position.set(-3, 1.5, -3); scene.add(rimL);
+    const fillL = new THREE.DirectionalLight(0xd0f0ff, 0.4); fillL.position.set(0, -2, 2); scene.add(fillL);
+
+    const _box = new THREE.Box3(), _c = new THREE.Vector3(), _s = new THREE.Vector3();
+    // Fit to VISIBLE geometry only (skip hidden nodes / Points) — L142 framing law.
+    function visibleBox(root) {
+      const box = new THREE.Box3(); const v = new THREE.Vector3();
+      root.updateMatrixWorld(true);
+      root.traverse((o) => {
+        if (!o.isMesh || !o.geometry) return;
+        let p = o, hidden = false; while (p) { if (p.visible === false) { hidden = true; break; } p = p.parent; }
+        if (hidden) return;
+        o.geometry.computeBoundingBox();
+        const bb = o.geometry.boundingBox; if (!bb) return;
+        for (const cx of [bb.min.x, bb.max.x]) for (const cy of [bb.min.y, bb.max.y]) for (const cz of [bb.min.z, bb.max.z]) {
+          v.set(cx, cy, cz).applyMatrix4(o.matrixWorld); box.expandByPoint(v);
+        }
+      });
+      return box;
+    }
+
+    const cache = {};
+    function getModel(key, form) {
+      const k = key + form;
+      if (cache[k]) return cache[k];
+      const def = ascendedDef(DRAGONS[key], form, 0);
+      const built = buildDragonModel(def, {});
+      cache[k] = built;
+      return built;
+    }
+
+    // Render ONE shot into #gl. face = a close crop on the head.
+    window.shot = (key, form, state, angle, bg) => {
+      scene.background = new THREE.Color(BG[bg] ?? BG.dark);
+      for (const c of Object.values(cache)) scene.remove(c.group);
+      const built = getModel(key, form);
+      const { group, parts } = built;
+      if (state === 'face') setFlapDebugPose(parts, 'glide');
+      else setFlapDebugPose(parts, state);
+      scene.add(group);
+      group.updateMatrixWorld(true);
+      let box = visibleBox(group);
+      // Fill-the-frame crops (§6.5a): the face crop frames the head; the wing crop
+      // frames ONE wing (the right, +x half) so gaps/value-tiers/gold-tips fill ≥60%.
+      if (angle === 'face' && parts.head) box = visibleBox(parts.head);
+      else if (angle === 'wingcrop') {
+        const wb = visibleBox(group);
+        wb.min.x = Math.max(wb.min.x, (wb.min.x + wb.max.x) * 0.5 + 0.05);  // right wing only
+        box = wb;
+      }
+      box.getCenter(_c); box.getSize(_s);
+      const r = Math.max(_s.x, _s.y, _s.z) * 0.5 || 3;
+      const pad = (angle === 'face' || angle === 'wingcrop') ? 1.12 : 1.32;
+      const dist = (r / Math.tan(camera.fov * Math.PI / 360)) * pad;
+      const dir = (ANGLES[angle] || ANGLES.rearchase).clone().normalize();
+      camera.position.copy(_c).addScaledVector(dir, dist);
+      camera.near = dist / 100; camera.far = dist * 20;
+      camera.updateProjectionMatrix();
+      camera.lookAt(_c);
+      renderer.render(scene, camera);
+      return true;
+    };
+
+    // True-scale form-ladder montage (framed ONCE by the apex form so the size ramp
+    // reads), clamped to maxTierFor — the tier montage the gate judges.
+    window.ladder = (key, bg) => {
+      const m = document.getElementById('montage'); const ctx = m.getContext('2d');
+      ctx.fillStyle = '#' + (BG[bg] ?? BG.dark).toString(16).padStart(6, '0'); ctx.fillRect(0, 0, m.width, m.height);
+      const maxT = maxTierFor(key);
+      // Frame by apex span at a fixed distance.
+      scene.background = new THREE.Color(BG[bg] ?? BG.dark);
+      for (const c of Object.values(cache)) scene.remove(c.group);
+      const apex = getModel(key, maxT); scene.add(apex.group);
+      setFlapDebugPose(apex.parts, 'glide'); apex.group.updateMatrixWorld(true);
+      const abox = visibleBox(apex.group); abox.getSize(_s);
+      const width = _s.x || 6;
+      const dist = ((width * 0.5) / Math.tan(camera.fov * Math.PI / 360)) * 1.5;
+      const dir = ANGLES.rearchase.clone().normalize();
+      const target = new THREE.Vector3(0, 0.2, 0.4);
+      const PW = Math.floor(m.width / (maxT + 1));
+      for (let t = 0; t <= maxT; t++) {
+        for (const c of Object.values(cache)) scene.remove(c.group);
+        const built = getModel(key, t); scene.add(built.group);
+        setFlapDebugPose(built.parts, 'glide'); built.group.updateMatrixWorld(true);
+        camera.position.copy(target).addScaledVector(dir, dist);
+        camera.near = dist / 100; camera.far = dist * 20; camera.updateProjectionMatrix();
+        camera.lookAt(target);
+        renderer.render(scene, camera);
+        ctx.drawImage(gl, t * PW + 4, 6, PW - 8, m.height - 40);
+        ctx.fillStyle = '#ffd86a'; ctx.font = 'bold 20px sans-serif'; ctx.textAlign = 'center';
+        ctx.fillText(`form ${t}`, t * PW + PW / 2, m.height - 12);
+        ctx.strokeStyle = 'rgba(140,200,255,0.15)'; ctx.strokeRect(t * PW + 4, 6, PW - 8, m.height - 40);
+      }
+      return true;
+    };
+
+    window.hasDragon = (key) => !!DRAGONS[key];
+    window.maxTier = (key) => maxTierFor(key);
+    window.__ready = true;
+  </script>
+</body>
+</html>

@@ -232,6 +232,7 @@ export function buildDragonModel(def, opts = {}) {
   // Motif socket (§6.3): a head may publish its motif anchor (position invariance
   // + bloom-volume asserts). Additive + nullable.
   const motifAnchor = headResult.motifAnchor ?? null;
+  const headLength = headResult.headLength ?? null;   // skull length (§7 head:body assert)
   const hb = attach.headBase;
   head.position.set(hb.x, hb.y, hb.z);
   group.add(head);
@@ -380,7 +381,7 @@ export function buildDragonModel(def, opts = {}) {
 
     return {
       group: wrapper,
-      parts: { head, tailSegs, tailFins, spineSegs, bodySegs, tailOrbiters, riderSocket, wingYokeL, wingYokeR, wingPivotL, wingPivotR, wingMidL, wingMidR, wingTipL, wingTipR, wingPivot2L, wingPivot2R, tipMarkerL, tipMarkerR, wingRigL, wingRigR, coreGlow, wingBladePivotsL, wingBladePivotsR, wingElements, spinePoints, motifAnchor },
+      parts: { head, tailSegs, tailFins, spineSegs, bodySegs, tailOrbiters, riderSocket, wingYokeL, wingYokeR, wingPivotL, wingPivotR, wingMidL, wingMidR, wingTipL, wingTipR, wingPivot2L, wingPivot2R, tipMarkerL, tipMarkerR, wingRigL, wingRigR, coreGlow, wingBladePivotsL, wingBladePivotsR, wingElements, spinePoints, motifAnchor, headLength },
       materials: { bodyMat, wingMat, eyeMat, spineMats },
       auraSprite,
     };
@@ -398,7 +399,7 @@ export function buildDragonModel(def, opts = {}) {
       tipMarkerL, tipMarkerR,
       wingRigL, wingRigR,
       coreGlow,
-      wingBladePivotsL, wingBladePivotsR, wingElements, spinePoints, motifAnchor,
+      wingBladePivotsL, wingBladePivotsR, wingElements, spinePoints, motifAnchor, headLength,
     },
     materials: { bodyMat, wingMat, eyeMat, spineMats },
     auraSprite,
