@@ -56,7 +56,10 @@ export function renderSilhouette({ key, view = 'rear', tier, W, H, pose, hideWin
   const t = tier != null ? tier : maxTier;
   const cam = new THREE.PerspectiveCamera(60, W / H, 0.1, 200);
   const def = ascendedDef(DRAGONS[key], t, 0);
-  const built = buildDragonModel(def, {});
+  // preview:true OMITS the gameplay aiming-pip (a small always-on-top octahedron on the snout)
+  // — otherwise it fills as a detached DIAMOND ahead of the nose in every black-fill and reads
+  // as a floating component (gate r5–r7 "floating orb": it was the HUD pip, not head geometry).
+  const built = buildDragonModel(def, { preview: true });
   const group = built.group;
   if (pose) setFlapDebugPose(built.parts || {}, def.model, pose);
   // hideWings drops the wing subtrees (isolate the BODY); wingsOnly keeps ONLY them (isolate the
@@ -84,11 +87,12 @@ export function renderSilhouette({ key, view = 'rear', tier, W, H, pose, hideWin
       // actually facing the lens). "top" looks straight down → body WIDTH (x) across, LENGTH (z) up-screen.
       let dir, perpW, perpH;
       if (view === 'front') { dir = new THREE.Vector3(0, 0.25, -1); perpW = sz.x; perpH = sz.y; }
+      else if (view === 'rearfit') { dir = new THREE.Vector3(0, 0.22, 1); perpW = sz.x; perpH = sz.y; }  // AUTO-FIT rear (behind, +z) — the measurement frame the chase-cam 'rear' clips at apex span (gate r5 dir1)
       else if (view === 'top') { dir = new THREE.Vector3(0, 1, 0.0001); perpW = sz.x; perpH = sz.z; cam.up.set(0, 0, -1); }
       else if (view === 'threeq') { dir = new THREE.Vector3(0.85, 0.5, 1); perpW = Math.max(sz.x, sz.z); perpH = sz.y; } // REAR-¾-above (tail nearest lens, like the chase cam in a hard bank); +z = tail
       else { dir = new THREE.Vector3(1, 0.18, 0); perpW = sz.z; perpH = sz.y; }   // side; -z = head
       const fit = Math.max(perpH * 0.5 / Math.tan(vfov / 2), perpW * 0.5 / Math.tan(hfov / 2));
-      cam.position.copy(ctr).addScaledVector(dir.normalize(), fit * 1.25); cam.lookAt(ctr);
+      cam.position.copy(ctr).addScaledVector(dir.normalize(), fit * 2.45); cam.lookAt(ctr);  // ≥25% margin every edge — the swept apex wing still clipped the side frame at 1.9 (gate r10 dir 5)
     }
   }
   cam.updateMatrixWorld(true);

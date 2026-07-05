@@ -144,5 +144,50 @@ export function setFlapDebugPose(parts, model, state) {
     tl.rotation.z = -Math.sin(phase + 1.18) * 0.28 + turnBias * 0.45;
     tl.rotation.x = -0.12 - feather * 0.16;
   }
+  poseBladePivots(parts, state);
   return r;
+}
+
+// Per-blade lag pivots (AZURE's blade-feather comb, parts.wingBladePivotsL/R). The base
+// wing pivot above swings the whole comb; this nests the individual blades relative to it.
+// In the FOLD the blades cancel their rest rake (lag.y = −restY) so they stack PARALLEL and
+// furl tightly with the wrist; in glide/bank they settle to a small even rest splay. A rig
+// without blade pivots (ember/jade direct wings) skips this untouched.
+export function poseBladePivots(parts, state) {
+  if (!parts.wingBladePivotsL && !parts.wingBladePivotsR) return;
+  // AZURE-specific comb tuck (the generic direct-pivot fold is too gentle for a wide blade
+  // comb — it only furled the span to ~0.86). In FOLD: furl the WRIST hard up+back so the
+  // outer spar tucks UNDER the packet (no naked spar crossing the back, gate r4 dir 5), and
+  // rake every blade into a PARALLEL stack swept back past the hip. glide/bank keep the
+  // small rest splay + the shared poser's wrist.
+  if (state === 'fold') {
+    // Swing the WHOLE arm back along the flank (~78°) so the blade ROOTS draw inboard and the
+    // span contracts — a bird folds at the shoulder, not by raking free blades. The comb then
+    // lies back as one flat swept dart packet (dir 5), no up-spray, no crossed spars.
+    for (const [pv, s] of [[parts.wingPivotR, 1], [parts.wingPivotL, -1]]) {
+      // Swing back AND roll the comb DOWN onto the flank (gate r5 dir 8): the round-4 fold
+      // left the packet standing up → two up-sprayed spear fans in a V from behind. A hard
+      // negative roll lays the dart packet flat along the torso so the folded silhouette
+      // sits LOW (height above the spine ≤0.5× body depth), not a raised V.
+      if (pv) pv.rotation.set(0.16, s * 1.66, s * -0.5);
+    }
+    for (const [tip, s] of [[parts.wingTipR, 1], [parts.wingTipL, -1]]) {
+      if (tip) tip.rotation.set(0, 0, s * -0.12);            // wrist follows the arm down, tucked
+    }
+  }
+  for (const arr of [parts.wingBladePivotsR, parts.wingBladePivotsL]) {
+    if (!arr) continue;
+    const n = Math.max(1, arr.length - 1);
+    for (const b of arr) {
+      const t = b.pivot; if (!t) continue;
+      const fr = b.idx / n;
+      if (state === 'fold') {
+        // Cancel rest rake + dihedral so the blades stack PARALLEL and flat along the
+        // swept arm (a slight droop keeps them hugging the body, not fanning).
+        t.rotation.set(0, -(b.restY ?? 0) + b.side * 0.04 * fr, -(b.restZ ?? 0) - b.side * 0.06);
+      } else {
+        t.rotation.set(0, 0, b.side * (0.02 + 0.05 * fr));
+      }
+    }
+  }
 }
