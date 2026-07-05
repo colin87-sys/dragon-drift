@@ -5552,3 +5552,72 @@ tools/stamp-sw.mjs`, commit `sw.js` + `buildId.js`, push — the new VERSION for
 the HUD is the proof-of-freshness. **Re-stamp is part of shipping any reforged change, not an afterthought**
 (#217 also merged un-stamped, so master's hash lagged until the next stamp covered it). The build hash on screen
 is your deploy receipt — if it didn't change, the client didn't either.
+
+### L146 — Slot 0, the TOOLING TRANCHE: build the capture/verify toolchain before the builders, and prove it with the calibration gate
+
+**Did.** Cut `claude/dragon-tools-slot-0` from master and made the starter-rebuild pipeline state-of-the-art
+BEFORE slot A, so the azure/ember/jade builders inherit effective tools instead of building them mid-slot
+(DRAGON-DESIGN §8 step 0, pulled forward). Landed: (1) a SHARED `js/wingDebugPose.js` poser
+(`setFlapDebugPose` + `resolveWingDebug`) that the in-game `?wingDebug` freeze AND the studio both call — the
+freeze now covers EVERY wing path (skinned / yoke / per-form / basic direct-pivot) plus `fold`/`bank` posture
+pins, where before it only touched the Mk II yoke branch that no starter rides; (2) `tools/dragonstudio.mjs`
++ `dragonstudio.html` — deterministic per-form contact sheets (states × angles × 3 backdrops, fill-frame +
+4× crops, fixed-distance form ladder), clamped to `maxTierFor`; (3) silhouette `--wings-only`/`--scale`/`--w/--h`/`--crop`
++ a widest-gap metric; (4) headshot NAPE tile (the old rear camera clipped inside the neck) + the three §8
+backdrops; (5) the `maxTierFor` clamp on `tiershots.html`; (6) `?cleanshot` + a clamped/`wingDebug`-passthrough
+gameshots; (7) grammar freebies — `model.tailStyle` as a live-resolved enum + `forms:true` on the head/eye/wing
+dials. Then ran the full dragonstudio set on SHIPPED azure and spawned a fresh `fable` gate with the verbatim §8
+GATE PROMPT.
+
+**The calibration verdict (proof of done, quoted in the PR).** FAIL, average 1.25 — "a sphere head with a cone
+beak, a flat dart body, and a continuous scalloped bat membrane… record this verdict as the calibration FAIL —
+it cites MITTEN, FLAT STICKER, SAME-DRAGON-BIGGER, STRAIGHT SPINE, SAWTOOTH." The gate accurately described the
+REAL shipped geometry from the pixels, which is the whole point: the captures are legible and the gate is
+calibrated (it does NOT rubber-stamp the shipped dragon). A gate that passes the old starter is a broken gate
+(L136 inverse); this one earns its credibility before slot A trusts it.
+
+**Learned.** (1) **One mechanism, two worlds.** `?wingDebug` (gameplay, dragon.js update loop) and the studio
+(build-model-directly, nfview/tiershots) are two posing worlds; the freeze must be ONE shared function both call,
+or the starters — none on the yoke path — stay un-pinnable and the studio forks a parallel poser. Centralising
+in `setFlapDebugPose` made azure freezable headless (`silhouette --pose=apex`) AND in-game (`flapstrip azure`,
+previously impossible). (2) **The doc's enum was a SUBSET of the code's.** DRAGON-DESIGN §6.2 lists 6 tail styles;
+the clean builder dispatches 12, and `nightfury` is used 8× in the shipped roster — freezing the doc's literal
+list would have FAILed `blueprint.mjs`. The grammar's own stated law ("resolve enums LIVE… never drift from
+what's buildable") is the resolution: export `dragonTail.TAIL_STYLES` beside the dispatch (the `SURFACE_PATCH_NAMES`
+pattern) and validate against it. A doc-vs-code conflict on a VALUE LIST is resolved by the code's authoritative
+set, not by improvising the doc's number into a breaking schema (§9).
+
+**Gotcha.** (a) `#hud` is not just the HUD — it also holds the menu `#screen` (the TAKE OFF button), so
+`#hud{display:none}` makes the run un-startable and every gameshots boot burns 30s on a dead click. cleanshot
+must hide `#hud > :not(#screen)`. (b) `page.screenshot({clip})` CLAMPS the clip to the viewport width — a
+contact sheet wider than the viewport (the 3–4-tile ladder/crops) silently loses its right-hand tiles. It
+masqueraded as a framing/overflow bug (f2 "overflowing"); the render was correct, the CAPTURE was cropped. Fix:
+size the viewport past the widest sheet. A box-corner NDC probe (`[-0.65, 0.61]`, fits) vs the on-disk crop is
+what told the two apart — measure the render, don't trust the thumbnail.
+
+**Pattern.** Toolchain-as-slot-0: build + prove the capture/verify pipeline (deterministic studio → fresh `fable`
+gate on the shipped dragon → expected calibration FAIL) as its own tranche BEFORE any builder burns a session.
+Determinism is a deliverable — `setFlapDebugPose` is clock-free, so two dragonstudio runs are byte-identical
+(31/31 verified); non-deterministic capture is the MARROWCOIL churn failure and is treated as a test failure.
+---
+
+### L147 — MARROWCOIL rib fly-through: the loom→through fix needed a DIVE, not just a rel-sweep
+
+**Did / learned.** The L141 gap (the signature "ribcage you fly through" never landed — the cage only LOOMED)
+turned out to be TWO problems, not one. The obvious fix (sweep the group's `rel` from the loom through −6, past the
+camera, like EITHERWING's `figureEight`) was necessary but NOT sufficient: it made the cage rush the camera, but the
+rail still passed UNDER a rib canopy instead of THROUGH the barrel. A rail-camera probe (not the orbit viewer — this
+is a first-person-through-space read the deterministic bossview can't show) found why: at the pass instant
+`cam_y ≈ 11.6` but the dorsal rib ROOTS sit at `y ≈ 19.5` — the barrel interior hangs ~4u ABOVE the rail (bone-coil
+skeletons are tall; the aperture is mid-body, not at the group origin). So `ribThread` now ALSO **dives ~4.2u** at the
+thread instant, dropping the barrel interior down around the camera. Then the ribs flank the dragon on both sides +
+overhead and the corridor reads through the aperture — a true tunnel.
+
+**The pattern.** For a "fly-through" beat, `rel` (depth past the camera) and `y` (barrel-onto-rail) are SEPARATE
+axes and you usually need both. Don't trust a model comment that says a part "hangs at rail height" — MEASURE the
+part's world Y at the pinned pose against `cam_y`, because the group origin ≠ the feature you're threading.
+
+**Tooling.** Built `tools/marrowpass.mjs` (clone of `eitherpass.mjs`): boots the real engine at the boss's home
+biome, `bossPinSetpiece({id:'ribThread', k, moveGroup:true})` across the pass, full-frame rail-view screenshots at
+the bracketing k's (rel 0 ≈ k 0.52 is the money frame). A pinned-setpiece rail capture is the only honest way to
+judge a through-space beat; the orbit viewer answers a different question (silhouette, not immersion).

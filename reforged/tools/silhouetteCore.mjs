@@ -30,41 +30,43 @@ export const THREE = await import('three');
 export const { DRAGONS } = await import('../js/dragons.js');
 export const { ascendedDef, maxTierFor } = await import('../js/ascension.js');
 const { buildDragonModel } = await import('../js/dragonModel.js');
-const { solveWing, phaseCenter } = await import('../js/wingFlapSolver.js');
+const { setFlapDebugPose, WING_DEBUG_STATES } = await import('../js/wingDebugPose.js');
 
 export const FORM = ['Hatchling', 'Kindled', 'Radiant', 'Eternal'];
+export { WING_DEBUG_STATES };
 
-// Hold the Mk II yoke wing at one flap phase, headless — the SAME chain dragon.js drives (poseY,
-// dragon.js:559-571) but NEUTRALISED (no bank/steer/boost), so a static silhouette can match a posed
-// concept instead of the flat rest pose. `pose` is a phase name: glide|recovery|apex|downstroke|settle.
-function applyPose(parts, flap, pose) {
-  if (!flap || !parts || !parts.wingYokeL) return false;
-  const ph = phaseCenter(pose, flap), s = solveWing(ph, flap), featR = Math.sin(ph + Math.PI * 0.55);
-  const set = (yk, pv, md, tp) => {
-    if (!yk) return;
-    yk.rotation.set(s.yoke.twist, -0.12 - s.yoke.sweep, s.yoke.elev);          // yoke: elevation + rowing sweep
-    if (pv) pv.rotation.set(0.10 + featR * 0.12, -0.12, s.inner.curl);          // inner: curl
-    if (md) md.rotation.set(0.02, -s.mid.sweep, s.mid.curl);                    // mid: lagged curl + aft trail
-    if (tp) tp.rotation.set(-0.04, 0.07 - s.tip.sweep, s.tip.curl);             // tip: trailing curl
-  };
-  set(parts.wingYokeR, parts.wingPivotR, parts.wingMidR, parts.wingTipR);
-  set(parts.wingYokeL, parts.wingPivotL, parts.wingMidL, parts.wingTipL);
-  return true;
+// The wing-subtree roots across ALL motion paths — used to hide (--no-wings) or isolate
+// (--wings-only) the wings. Traversing these covers every wing mesh: pivot/mid/tip hang
+// under the yoke (yoke path) or the rig (skinned), or ARE the root (basic direct-pivot).
+const WING_ROOTS = ['wingYokeL', 'wingYokeR', 'wingRigL', 'wingRigR',
+  'wingPivotL', 'wingPivotR', 'wingPivot2L', 'wingPivot2R'];
+function wingMeshSet(parts) {
+  const set = new Set();
+  if (!parts) return set;
+  for (const k of WING_ROOTS) if (parts[k]) parts[k].traverse((o) => set.add(o));
+  return set;
 }
 
 // Render the filled silhouette of one dragon/form/view into an 8-bit coverage buffer (0 bg, 255 fill).
-export function renderSilhouette({ key, view = 'rear', tier, W, H, pose, hideWings = false }) {
+// pose (glide|recovery|apex|downstroke|settle|fold|bank) freezes the wings at a named pose via the
+// SHARED poser (works on EVERY dragon now, not just the yoke path). hideWings drops the wings;
+// wingsOnly keeps ONLY the wings (the inverse — for pixel-level gap/scallop judgment).
+export function renderSilhouette({ key, view = 'rear', tier, W, H, pose, hideWings = false, wingsOnly = false }) {
   const maxTier = maxTierFor(key);
   const t = tier != null ? tier : maxTier;
   const cam = new THREE.PerspectiveCamera(60, W / H, 0.1, 200);
   const def = ascendedDef(DRAGONS[key], t, 0);
   const built = buildDragonModel(def, {});
   const group = built.group;
-  if (pose) applyPose(built.parts || {}, def.model.flap, pose);
-  // hideWings: drop the wing subtrees so the BODY silhouette can be inspected un-occluded.
+  if (pose) setFlapDebugPose(built.parts || {}, def.model, pose);
+  // hideWings drops the wing subtrees (isolate the BODY); wingsOnly keeps ONLY them (isolate the
+  // wings for gap/scallop judgment). Same wing-mesh set, opposite selection.
   const skip = new Set();
-  if (hideWings && built.parts) for (const k of ['wingYokeL', 'wingYokeR', 'wingRigL', 'wingRigR'])
-    if (built.parts[k]) built.parts[k].traverse((o) => skip.add(o));
+  if ((hideWings || wingsOnly) && built.parts) {
+    const wings = wingMeshSet(built.parts);
+    if (hideWings) for (const o of wings) skip.add(o);
+    else group.traverse((o) => { if ((o.isMesh || o.isSkinnedMesh) && !wings.has(o)) skip.add(o); });
+  }
   if (view === 'climb') group.rotation.x = 0.92;          // ~53° nose-up: dorsal back, tail toward the lens
   group.updateMatrixWorld(true);
 
