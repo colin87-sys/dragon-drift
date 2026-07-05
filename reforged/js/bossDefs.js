@@ -575,7 +575,7 @@ export const BOSSES = {
     // not a mask (1), ring-eye (2), raptor (3), skeleton (4), twin darts (5),
     // arch (6), or swarm (7) — a horizon-anchored leviathan.
     archetype: 'brineholm',
-    muzzle: 'brineMuzzle',    // the tide fires from the SURFACED eye (emitter = organ, L148); geysers spawn below-frame (CP2)
+    muzzle: 'brineMaw',       // the beast EXHALES its volleys/geysers from the MAW (emitter = organ, L148)
     accent: 0x3ad0b0,         // ABALONE sea-green — the iridescent banding's dominant tone (the identity hue).
                               // Sits ~168° — clear of danger-magenta's 327–357° reserved band AND of pure
                               // reflected-cyan (~185°+); the near-black hull + white eye complete the read

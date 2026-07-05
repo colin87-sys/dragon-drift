@@ -3,78 +3,60 @@ import { mergeGeometries } from '../lib/utils/BufferGeometryUtils.js';
 import { createBossCommon, stripForMerge } from './bossKit.js';
 
 // BRINEHOLM — "The Island That Breathes" (BOSS-DESIGN.md §5b/§5d slot 8, a Tier-3
-// CALAMITY, the band's RELIEF texture). A bound ORGANIC LEVIATHAN: an island-sized
-// whale that surfaces FACING you. Its scale IS that it never fully fits the frame
-// (the SotC first-colossus read). It is SHACKLED, not hostile, and it HESITATES
-// before dying (the §5c relationship beat).
+// CALAMITY). A bound deep-sea LEVIATHAN whose colossal HEAD lunges up out of the
+// fog and fills the frame — you fight the FACE, you never see the body (a head
+// this size implies a body too vast to show: "never fully on screen" comes free).
 //
-// ORIENTATION (the load-bearing fix, owner call): the boss faces the player (+Z),
-// and the front-on view is the WHOLE fight. So the HEAD + EYE own the +Z face —
-// the eye is the dominant focal you actually look at, NOT a detail on a flank.
-// The wide barnacled BACK is a low island that spans OFF both frame edges and
-// sinks below (bottom-anchored, into the fog) — that is where "never fits the
-// frame" lives. First build put the body broadside (a ship's flank); this one
-// surfaces the head toward you.
+// SILHOUETTE (§3.1, the translation sheet, foolproof this time):
+//   READS AS — a colossal deep-sea leviathan's head lunging up out of the fog.
+//   CARRYING CUES (must reach the OUTLINE): (1) the gaping MAW across the lower
+//   third — a hard jagged jawline over a glowing gullet; (2) the one heavy-lidded
+//   EYE under a jutting brow (the focal, upper); (3) the VERTICAL upward thrust
+//   breaking the fog, chains snapped across the snout (the asymmetric scar).
+//   ANTI-READS — NOT a ship (the mass is VERTICAL; no horizontal lit line
+//   ANYWHERE); NOT VOIDMAW's dead stone mask (this is WET, FLESHY, BREATHING —
+//   one living eye + a maw, never hollow sockets); NOT a generic dragon head
+//   (kelp-black + abalone bioluminescence in the gullet + gill rakes + barnacles
+//   + binding chains = specifically a BOUND DEEP-SEA LEVIATHAN).
+//   LIT-EDGE — abalone glow INSIDE the maw + along the gill rakes + the white-hot
+//   eye (the one focal). The glowing gullet is the organic lit-edge; NO level line.
+//   SCALE — fills the frame vertically at fight distance; the body never appears.
+//   HOME — dark biome.
 //
-// SILHOUETTE-FIRST (§3.1): one sentence — "a kelp-black leviathan head surfacing
-// from a barnacled island-back that runs off both edges of the screen, one pale
-// lidded eye watching you." Organic, rounded-but-landmarked (brow / blunt snout /
-// heavy jaw / dorsal fins / arched back) so it reads as a WHALE, not a blob.
-// Distinct from every prior slot: not a mask (1), ring-eye (2), raptor (3),
-// skeleton (4), twin darts (5), arch (6), or swarm (7) — a surfacing leviathan.
+// THE EYE (§4b, the sole focal + weak point): a heavy lid grinds up to reveal the
+// pale HDR eye + abalone iris; chip damage ONLY lands while it's up (the §5f
+// turn-taking tell). The one white eye out-glows the abalone gullet (G1).
 //
-// THE EYE (§4b, the carrier + the fight): a heavy stone-hard LID (a whale's brow)
-// grinds up to reveal a pale HDR eye + an abalone iris ring, then grinds shut.
-// CHIP DAMAGE ONLY LANDS WHILE THE EYE IS UP — the surfacing IS the turn-taking
-// tell (§5f law 5). The white eye is THE one focal (§3.2); it sits front-and-
-// upper on the head, dominant in the fight view.
+// BOUND (§5f mercy mechanic): chains bind the MAW/SNOUT — the fight is it
+// STRAINING against them. The shackle posts are destructible: break them (parry
+// or gunfire) and the freed beast calms in phase 3; leave it bound and it thrashes.
+// The ONE scar is a snapped chain across the snout.
 //
-// PALETTE (registry slot 8): KELP-BLACK organic hide 0x0c1210 with ABALONE 2-TONE
-// bio-luminescent BANDING (sea-green dominant + nacre-violet) — the THROAT PLEATS
-// (a rorqual's ventral grooves, under the jaw) and a FLANK stripe down the back.
-// The banding is the lit-edge area that sells the near-black hide on every sky
-// (L140). The eye is pale-white (the one focal). No accent enters danger-magenta.
-//
-// THE SCAR (§3.6, one asymmetric break): one snapped shackle fused into the BROW
-// beside the eye — a torn iron ring + a raw pale gouge where a chain wrenched free
-// ("Same forge as the hunter's chains" — the ASHTALON lore hook, point never answer).
-//
-// FACELESS-CARRIER LAW (§4b): GAZE (the iris eases toward you while surfaced, a
-// slow tide — never continuous tracking, slot 14's claim) / BLINK (the lid dips) /
-// CHARGE (the dorsal fins FLARE + the eye grinds fully open) / EXPRESSION (raised
-// fins + lid = mood) / FLINCH (the head heaves, banding shivers) / NOTICE (the lid
-// FLINGS wide, the iris flares, the fins startle, the banding surges) / DEATH
-// (no explosion — the fins fold, the eye eases shut, the banding dims to a last
-// tide and the head SETTLES back beneath the fog).
-//
-// DESTRUCTIBLE SHACKLE POSTS (§5f CAVE law — mercy as a mechanic): the shackle
-// posts on its back are individually breakable (reuses slot 6's per-part hit
-// test). Parry a post's amber strain-volley 3× (or shoot it) and it SNAPS,
-// venting a pink SPRAY-SOAK graze beat; each post freed EARLY softens phase 3.
+// ALIVE, NOT A MASK (the one collision watch-item vs VOIDMAW): wet specular skin,
+// a breathing jaw + gill flex, the throat-glow pulsing on the TIDAL-DRONE beat,
+// the eye tracking under its heavy lid. A living drowned god, never dead stone.
 //
 // CONTRACT: boss.js stomps `group.rotation` (placeGroup) and `kit.setDissolve`
-// owns `group.scale` — every animated part lives on `rig`, the finPivots, the
+// owns `group.scale` — every animated part lives on `rig`, the jawPivot, the
 // eyeLidPivot, the shacklePivots, or the drift orbiters; never on `group` itself.
 
 export function buildBrineholm(def, quality = 1) {
-  const accent = def.accent ?? 0x3ad0b0;   // abalone sea-green — the dominant banding tone (identity hue)
-  const accent2 = 0x7d7ad8;                 // nacre-violet — the second banding tone (the iridescent shift)
-  const glow = def.glow ?? 0xbfe6dd;        // pale abalone-white (shield rim / shards / eye backlight)
+  const accent = def.accent ?? 0x3ad0b0;   // abalone sea-green — the identity hue
+  const accent2 = 0x7d7ad8;                 // nacre-violet — the second bioluminescent tone
+  const glow = def.glow ?? 0xbfe6dd;        // pale abalone-white (shield rim / shards)
   const lowQ = quality < 0.75;
   const strip = stripForMerge;
   const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
   const clamp01 = (v) => clamp(v, 0, 1);
 
-  // The shield wraps the WEAK POINT — the surfacing eye (focal = weak point). The
-  // eye sits high-front on the head; the bubble centres on it. hpBarScale counters
-  // the big def.scale so the bar stays roster-width; hpBarY clears the tallest fin.
+  // The shield wraps the WEAK POINT — the eye (focal). hpBarScale counters the big
+  // def.scale; hpBarY clears the crown of the head.
   const kit = createBossCommon(def, quality, {
-    shieldRadius: 5.2, shieldY: 3.4, hpBarY: 8.2, hpBarZ: 4.5, hpBarScale: 0.62,
+    shieldRadius: 5.6, shieldY: 5.0, hpBarY: 13.5, hpBarZ: 5.0, hpBarScale: 0.6,
     shieldRimStrength: 0.32, shieldCageOpacity: 0.34,
   });
   const { group, track } = kit;
-  group.userData.archetype = 'brineholm';   // guards the legacy-fallback coexist path
-
+  group.userData.archetype = 'brineholm';
   const rig = new THREE.Group();
   group.add(rig);
 
@@ -83,447 +65,258 @@ export function buildBrineholm(def, quality = 1) {
     if (!geo) throw new Error(`buildBrineholm: ${label} mergeGeometries returned null (attribute mismatch)`);
     return geo;
   };
-  // Tier-split a deformed geometry into per-height value tiers (one draw each) so
-  // the near-black hide reads as a lit, arched form under the front sun (§3.4),
-  // not a flat black sticker. Returns { deep, mid, back } non-indexed geos.
   function tierSplit(g, loY, hiY) {
     const src = g.attributes.position, nsrc = g.attributes.normal;
-    const buckets = { deep: [], mid: [], back: [] };
+    const b = { deep: [], mid: [], hi: [] };
     for (let i = 0; i < src.count; i += 3) {
       const cy = (src.getY(i) + src.getY(i + 1) + src.getY(i + 2)) / 3;
-      const t = cy < loY ? 'deep' : cy < hiY ? 'mid' : 'back';
-      for (let k = 0; k < 3; k++) buckets[t].push(i + k);
+      const t = cy < loY ? 'deep' : cy < hiY ? 'mid' : 'hi';
+      for (let k = 0; k < 3; k++) b[t].push(i + k);
     }
     const sub = (idxs) => {
       const geo = new THREE.BufferGeometry();
       const a = new Float32Array(idxs.length * 3), nn = new Float32Array(idxs.length * 3);
-      for (let j = 0; j < idxs.length; j++) {
-        const i = idxs[j];
-        a[j * 3] = src.getX(i); a[j * 3 + 1] = src.getY(i); a[j * 3 + 2] = src.getZ(i);
-        nn[j * 3] = nsrc.getX(i); nn[j * 3 + 1] = nsrc.getY(i); nn[j * 3 + 2] = nsrc.getZ(i);
-      }
+      for (let j = 0; j < idxs.length; j++) { const i = idxs[j]; a[j * 3] = src.getX(i); a[j * 3 + 1] = src.getY(i); a[j * 3 + 2] = src.getZ(i); nn[j * 3] = nsrc.getX(i); nn[j * 3 + 1] = nsrc.getY(i); nn[j * 3 + 2] = nsrc.getZ(i); }
       geo.setAttribute('position', new THREE.BufferAttribute(a, 3));
       geo.setAttribute('normal', new THREE.BufferAttribute(nn, 3));
       return geo;
     };
-    return { deep: sub(buckets.deep), mid: sub(buckets.mid), back: sub(buckets.back) };
+    return { deep: sub(b.deep), mid: sub(b.mid), hi: sub(b.hi) };
   }
 
   // ==================================================================
-  // MATERIALS — painted value tiers on KELP-BLACK organic hide (§3.4).
+  // MATERIALS — WET kelp-black hide (low roughness + a little metal = a wet
+  // specular sheen under the front sun; the anti-mask "it's alive" cue), painted
+  // value tiers (§3.4), abalone bioluminescence in the gullet + gills.
   // ==================================================================
-  const hideDeepMat = track(new THREE.MeshStandardMaterial({   // wet underside / belly (darkest)
-    color: 0x070c0b, emissive: 0x060f0d, emissiveIntensity: 0.05, roughness: 0.95, metalness: 0.03, flatShading: true,
-  }));
-  const hideMat = track(new THREE.MeshStandardMaterial({       // the body of the hide
-    color: 0x0c1210, emissive: 0x0a1512, emissiveIntensity: 0.10, roughness: 0.9, metalness: 0.04, flatShading: true,
-  }));
-  const hideBackMat = track(new THREE.MeshStandardMaterial({   // the lit crest of the back / brow (one step up)
-    color: 0x16211e, emissive: 0x14231f, emissiveIntensity: 0.15, roughness: 0.88, metalness: 0.04, flatShading: true,
-  }));
-  // ABALONE BANDING — the identity. Two emissive tones (sea-green + nacre-violet).
-  const bandAMat = track(new THREE.MeshStandardMaterial({
-    color: 0x08110f, emissive: accent, emissiveIntensity: 0.85, roughness: 0.55, metalness: 0.0, flatShading: true,
-  }));
-  const bandBMat = track(new THREE.MeshStandardMaterial({
-    color: 0x0a0a14, emissive: accent2, emissiveIntensity: 0.78, roughness: 0.55, metalness: 0.0, flatShading: true,
-  }));
-  // FLESHY DORSAL FIN — kelp-black membrane with an abalone-lit trailing edge.
-  const finMat = track(new THREE.MeshStandardMaterial({
-    color: 0x0b1513, emissive: 0x0c1a17, emissiveIntensity: 0.16, roughness: 0.82, metalness: 0.04, flatShading: true, side: THREE.DoubleSide,
-  }));
-  const finEdgeMat = track(new THREE.MeshStandardMaterial({
-    color: 0x09110f, emissive: accent, emissiveIntensity: 0.7, roughness: 0.5, metalness: 0.0, flatShading: true, side: THREE.DoubleSide,
-  }));
-  // Bound iron — the shackle posts + chain (a cold dark metal).
-  const ironMat = track(new THREE.MeshStandardMaterial({
-    color: 0x1a1c20, emissive: 0x101216, emissiveIntensity: 0.05, roughness: 0.55, metalness: 0.55, flatShading: true,
-  }));
-  // The dark EDGE CAGE (keeps the faceted hide from reading as a smooth blob).
-  const cageMat = track(new THREE.LineBasicMaterial({
-    color: 0x040807, transparent: true, opacity: 0.85, depthWrite: false,
-  }));
+  const hideDeepMat = track(new THREE.MeshStandardMaterial({ color: 0x070c0b, emissive: 0x060f0d, emissiveIntensity: 0.05, roughness: 0.62, metalness: 0.18, flatShading: true }));
+  const hideMat = track(new THREE.MeshStandardMaterial({ color: 0x0c1210, emissive: 0x0a1512, emissiveIntensity: 0.10, roughness: 0.55, metalness: 0.16, flatShading: true }));
+  const hideHiMat = track(new THREE.MeshStandardMaterial({ color: 0x16211e, emissive: 0x14231f, emissiveIntensity: 0.14, roughness: 0.5, metalness: 0.15, flatShading: true }));
+  // THE GULLET GLOW — the bioluminescent throat (the organic lit-edge inside the
+  // maw). Bright abalone, 2-tone; pulses on the breath. NOT white-hot (the eye
+  // out-glows it — one focal). Emissive-on-standard, not additive (overdraw, L124).
+  const gulletMat = track(new THREE.MeshStandardMaterial({ color: 0x08110f, emissive: accent, emissiveIntensity: 1.25, roughness: 0.6, metalness: 0.0, flatShading: true }));
+  const gulletVMat = track(new THREE.MeshStandardMaterial({ color: 0x0a0a14, emissive: accent2, emissiveIntensity: 0.95, roughness: 0.6, metalness: 0.0, flatShading: true }));
+  // GILL RAKES — glowing abalone slits on the flanks of the head (the lit-edge).
+  const gillMat = track(new THREE.MeshStandardMaterial({ color: 0x08110f, emissive: accent, emissiveIntensity: 0.9, roughness: 0.55, metalness: 0.0, flatShading: true }));
+  // TEETH — kelp-dark jagged fangs, silhouetted against the glowing gullet.
+  const toothMat = track(new THREE.MeshStandardMaterial({ color: 0x131a17, emissive: 0x0c1512, emissiveIntensity: 0.08, roughness: 0.5, metalness: 0.2, flatShading: true }));
+  const ironMat = track(new THREE.MeshStandardMaterial({ color: 0x1a1c20, emissive: 0x101216, emissiveIntensity: 0.05, roughness: 0.55, metalness: 0.55, flatShading: true }));
+  const cageMat = track(new THREE.LineBasicMaterial({ color: 0x040807, transparent: true, opacity: 0.85, depthWrite: false }));
 
-  // THE EYE materials (the L142 recipe — a lens sclera + iris ring + pupil + a
-  // proud offset CATCHLIGHT that alone carries the G1 ≥250 pinpoint). All
-  // toneMapped=false (survives the no-postfx fallback, L125 law 4); opaque (NOT
-  // additive) so they bloom without counting toward the §2 overdraw budget (G7).
+  // THE EYE (the L142 recipe — lens sclera + iris ring + pupil + proud catchlight).
   const EYE_HOT = 1.35, CORE_HOT = 13.0;
   const EYE_BASE = new THREE.Color(0xd8efe8);
-  const eyeMat = track(new THREE.MeshBasicMaterial({ color: 0xd8efe8 }));
-  eyeMat.toneMapped = false; eyeMat.color.copy(EYE_BASE).multiplyScalar(EYE_HOT);
-  const eyeCoreMat = track(new THREE.MeshBasicMaterial({ color: 0xffffff }));
-  eyeCoreMat.toneMapped = false; eyeCoreMat.color.setScalar(CORE_HOT);
-  const irisMat = track(new THREE.MeshStandardMaterial({
-    color: 0x0a1512, emissive: accent, emissiveIntensity: 1.5, roughness: 0.4, metalness: 0.1, flatShading: true,
-  }));
+  const eyeMat = track(new THREE.MeshBasicMaterial({ color: 0xd8efe8 })); eyeMat.toneMapped = false; eyeMat.color.copy(EYE_BASE).multiplyScalar(EYE_HOT);
+  const eyeCoreMat = track(new THREE.MeshBasicMaterial({ color: 0xffffff })); eyeCoreMat.toneMapped = false; eyeCoreMat.color.setScalar(CORE_HOT);
+  const irisMat = track(new THREE.MeshStandardMaterial({ color: 0x0a1512, emissive: accent, emissiveIntensity: 1.5, roughness: 0.4, metalness: 0.1, flatShading: true }));
   const pupilMat = track(new THREE.MeshBasicMaterial({ color: 0x03110e }));
-  // the freed-shackle vent (pale abalone froth) + the raw-gouge tier
-  const ventMat = track(new THREE.MeshStandardMaterial({
-    color: 0x0a1512, emissive: accent, emissiveIntensity: 1.3, roughness: 0.5, metalness: 0.0, flatShading: true,
-  }));
-  const gougeMat = track(new THREE.MeshStandardMaterial({
-    color: 0x2a3a34, emissive: 0x33463f, emissiveIntensity: 0.22, roughness: 0.85, metalness: 0.0, flatShading: true,
-  }));
+  const ventMat = track(new THREE.MeshStandardMaterial({ color: 0x0a1512, emissive: accent, emissiveIntensity: 1.3, roughness: 0.5, metalness: 0.0, flatShading: true }));
+  const gougeMat = track(new THREE.MeshStandardMaterial({ color: 0x2a3a34, emissive: 0x33463f, emissiveIntensity: 0.22, roughness: 0.7, metalness: 0.0, flatShading: true }));
 
   // ==================================================================
-  // GEOMETRY — local units; def.scale (≈1.5) turns them into arena presence.
-  // +Z faces the player. The BODY is a wide low island-back (spans ±BODY_HX →
-  // exceeds the frame); the HEAD rises from its front-centre toward the camera.
+  // GEOMETRY — the head faces +Z (the player); def.scale (≈1.5) → arena scale.
+  // It fills the frame VERTICALLY (head ~24 local tall → ~36 world). The maw is
+  // the lower third; the eye is upper; nothing is horizontal.
   // ==================================================================
-  const BODY_HX = 13.0;      // half-width of the island-back (×scale ≈ ±19.5 world → off-frame)
-  const BODY_HY = 3.4, BODY_HZ = 7.6;
-  const BODY_CY = -0.6, BODY_CZ = -2.4;    // low + slightly behind the head
+  const HEAD_HW = 11.5;      // half-width (×scale ≈ ±17 world → fills/exceeds the sides)
 
-  // ---- THE BODY: a wide, low, arched, barnacled island-back. A deformed sphere:
-  // stretched wide, flattened low, the belly deepened (it sinks off-frame/into the
-  // fog), a gentle dorsal arch across the span. Split into value tiers.
-  // The dorsal arch is ASYMMETRIC (the fore-aft-symmetry fix): heavy toward the
-  // head end (−X), sinking low toward the tail end (+X) which dissolves into the
-  // fog. A whale is never a bow-and-stern hull. crestArch() is the shared spine
-  // profile the barnacles / crest / fins / shackles all ride.
-  const crestArch = (tx) => Math.cos(tx * 1.05) * 1.0 - tx * 0.85;
-  const crestY = (tx) => BODY_CY + (BODY_HY - Math.abs(tx) * 1.15) + crestArch(tx);
-  const bodyBase = new THREE.SphereGeometry(1, lowQ ? 22 : 32, lowQ ? 14 : 20);
+  // ---- THE UPPER SKULL: cranium + jutting brow + snout + upper-jaw palate. A
+  // deformed ellipsoid; its bottom edge (~y −5) is the upper-teeth line.
+  const skullBase = new THREE.SphereGeometry(1, lowQ ? 24 : 34, lowQ ? 16 : 24);
   {
-    const pos = bodyBase.attributes.position, v = new THREE.Vector3();
+    const pos = skullBase.attributes.position, v = new THREE.Vector3();
     for (let i = 0; i < pos.count; i++) {
       v.fromBufferAttribute(pos, i);
-      v.x *= BODY_HX; v.y *= BODY_HY; v.z *= BODY_HZ;
-      if (v.y < 0) v.y *= 1.8;                                   // deepen the belly (bottom-anchored)
-      const tx = clamp(v.x / BODY_HX, -1, 1);
-      if (tx > 0.55) v.y -= (tx - 0.55) * 2.2 * clamp01(v.y / BODY_HY + 0.4);   // the tail sinks away
-      v.y += crestArch(tx) * clamp01(v.y / BODY_HY + 0.3);      // the asymmetric dorsal arch
+      v.x *= HEAD_HW; v.y *= 8.6; v.z *= 8.0;
+      const ty = v.y / 8.6, tz = v.z / 8.0;
+      // heavy BROW: the upper-front juts forward + up over the eye
+      if (ty > 0.25 && tz > -0.1) { v.z += (ty - 0.25) * (tz + 0.1) * 3.4; v.y += (ty - 0.25) * 1.2; }
+      // SNOUT: the lower-front projects forward (the upper jaw / muzzle)
+      if (ty < 0.0 && tz > 0.2) { v.z += (0.0 - ty) * (tz) * 2.6; }
+      // narrow the palate: pull the very bottom inward (the roof of the maw)
+      if (ty < -0.5) { v.x *= (1 + (ty + 0.5) * 0.5); v.z -= (-ty - 0.5) * 1.2; }
       pos.setXYZ(i, v.x, v.y, v.z);
     }
-    bodyBase.computeVertexNormals();
-    bodyBase.deleteAttribute('uv');
+    skullBase.computeVertexNormals();
+    skullBase.deleteAttribute('uv');
   }
-  const bodyFull = strip(bodyBase);
-  bodyFull.translate(0, BODY_CY, BODY_CZ);
-  const bodyT = tierSplit(bodyFull, BODY_CY - 0.6, BODY_CY + 1.6);
-  const bodyDeep = new THREE.Mesh(bodyT.deep, hideDeepMat); bodyDeep.name = 'brineHull';
-  const bodyMid = new THREE.Mesh(bodyT.mid, hideMat);
-  const bodyBack = new THREE.Mesh(bodyT.back, hideBackMat);
-  rig.add(bodyDeep, bodyMid, bodyBack);
+  const skullFull = strip(skullBase);
+  skullFull.translate(0, 3.6, 0);   // spans world y ≈ −5 … +12
+  const skullT = tierSplit(skullFull, 0.5, 6.5);
+  const skullDeep = new THREE.Mesh(skullT.deep, hideDeepMat); skullDeep.name = 'brineHead';
+  const skullMid = new THREE.Mesh(skullT.mid, hideMat);
+  const skullHi = new THREE.Mesh(skullT.hi, hideHiMat);
+  rig.add(skullDeep, skullMid, skullHi);
 
-  // BARNACLE CRUST — dark clumps that BREAK the top crest edge (knobbly-organic,
-  // never a smooth plated hull), plus GLOWING abalone knobs rim-lit on the crest.
-  // The glowing knobs (2-tone) are the abalone lit-edge re-homed onto ANATOMY that
-  // follows the spine — replacing the straight waterline stripe that read as a hull.
-  const reliefParts = [], knobA = [], knobV = [];
-  const N_CLUMP = lowQ ? 9 : 15;
-  for (let i = 0; i < N_CLUMP; i++) {
-    const tx = -0.9 + (i / (N_CLUMP - 1)) * 1.8;
-    const x = tx * BODY_HX;
-    const topY = crestY(tx);
-    const h = 0.55 + (i % 3) * 0.28;
-    const c = strip(new THREE.ConeGeometry(0.28 + (i % 3) * 0.09, h, 5));
-    c.rotateZ(-Math.sin(tx * 1.05) * 0.4);                    // lean with the arch
-    c.translate(x, topY + h * 0.35, BODY_CZ + 0.5 + (i % 2) * 1.1);   // proud of the crest (breaks the top edge)
-    // ~1/3 of the clumps glow abalone (2-tone), the lit spine; the rest stay dark.
-    if (i % 3 === 0) knobA.push(c);
-    else if (i % 4 === 1) knobV.push(c);
-    else reliefParts.push(c);
-    // a low dark barnacle on the flank (dark relief, no glow)
-    if (i % 2 === 0) { const c2 = strip(new THREE.ConeGeometry(0.22, 0.4, 5)); c2.translate(x * 0.92, topY - 1.5, BODY_CZ + 2.3); reliefParts.push(c2); }
-  }
-  const relief = new THREE.Mesh(mergeBh(reliefParts, 'relief'), hideDeepMat);
-  relief.name = 'hullRelief';
-  rig.add(relief);
-  const barnA = new THREE.Mesh(mergeBh(knobA, 'knobA'), bandAMat); barnA.name = 'abaloneBandA';
-  rig.add(barnA);
-  if (knobV.length) { const barnV = new THREE.Mesh(mergeBh(knobV, 'knobV'), bandBMat); barnV.name = 'abaloneBandV'; rig.add(barnV); }
+  // ---- THE GULLET — a glowing bioluminescent throat mass behind the teeth (the
+  // lit-edge seen through the maw). 2-tone; pulses on the breath in the tick.
+  const gulletCore = new THREE.Mesh(strip(new THREE.SphereGeometry(5.4, lowQ ? 14 : 20, lowQ ? 10 : 14)), gulletMat);
+  gulletCore.name = 'brineGullet';
+  gulletCore.scale.set(1.0, 0.7, 0.7);
+  gulletCore.position.set(0, -4.2, -1.2);
+  rig.add(gulletCore);
+  const gulletInner = new THREE.Mesh(strip(new THREE.SphereGeometry(3.4, lowQ ? 12 : 16, lowQ ? 8 : 12)), gulletVMat);
+  gulletInner.scale.set(1.0, 0.7, 0.7);
+  gulletInner.position.set(0.5, -4.6, -2.4);
+  rig.add(gulletInner);
 
-  // DORSAL CREST — a BROKEN abalone ridge tracing the arched spine (up-and-over,
-  // fading out toward the sinking tail): the continuous-ish lit edge, on anatomy.
-  function crestSegs(pick, mat, label) {
-    const parts = [];
-    const segs = lowQ ? 10 : 16;
-    for (let i = 0; i < segs; i++) {
-      if (!pick(i)) continue;
-      const tx = -0.9 + (i / (segs - 1)) * 1.8;
-      const plate = strip(new THREE.BoxGeometry((BODY_HX * 2 / segs) * 0.82, 0.28, 0.5));
-      plate.rotateZ(-Math.sin(tx * 1.05) * 0.55);
-      plate.translate(tx * BODY_HX, crestY(tx) + 0.05, BODY_CZ + 0.9 - Math.abs(tx) * 0.5);
-      parts.push(plate);
-    }
-    return new THREE.Mesh(mergeBh(parts, label), mat);
-  }
-  // broken pattern + fades before the tail (tx skip past ~0.6 → the tail is bare)
-  const crestA = crestSegs((i) => i % 3 !== 2 && (-0.9 + (i / ((lowQ ? 10 : 16) - 1)) * 1.8) < 0.62, bandAMat, 'crestA');
-  crestA.name = 'abaloneBandCrestA';
-  const crestV = crestSegs((i) => i % 3 === 2 && (-0.9 + (i / ((lowQ ? 10 : 16) - 1)) * 1.8) < 0.62, bandBMat, 'crestV');
-  crestV.name = 'abaloneBandCrestV';
-  rig.add(crestA, crestV);
-
-  // ---- THE HEAD: a blunt organic leviathan head rising front-centre, facing +Z
-  // and tilted up (surfacing, watching you). A deformed ellipsoid (cranium →
-  // blunt snout) with a heavy BROW bump over the eye and a lower JAW.
-  const HEAD_CY = 2.7, HEAD_CZ = 3.6;
-  const headBase = new THREE.SphereGeometry(1, lowQ ? 20 : 28, lowQ ? 14 : 20);
+  // ---- THE LOWER JAW (jawPivot) — a chunky jaw mass hinged at the back; it drops
+  // to GAPE the maw (the breathing + the §3.5 attack telegraph). Jagged upper edge.
+  const jawPivot = new THREE.Group();
+  jawPivot.name = 'jawPivot';
+  jawPivot.position.set(0, -4.4, -4.2);          // hinge behind the throat
+  const jawBase = new THREE.SphereGeometry(1, lowQ ? 18 : 26, lowQ ? 12 : 18);
   {
-    const pos = headBase.attributes.position, v = new THREE.Vector3();
+    const pos = jawBase.attributes.position, v = new THREE.Vector3();
     for (let i = 0; i < pos.count; i++) {
       v.fromBufferAttribute(pos, i);
-      v.x *= 3.5; v.y *= 2.9; v.z *= 4.6;               // width / height / length (snout forward)
-      const tz = clamp(v.z / 4.6, -1, 1), ty = v.y / 2.9;
-      // blunt-taper the snout toward the camera (a whale muzzle, not a ball)
-      if (tz > 0.15) { const s = tz - 0.15; v.x *= (1 - s * 0.45); v.y *= (1 - s * 0.32); }
-      // gently round the MELON crown (a broad whale forehead — domed, NOT flat-topped)
-      if (ty > 0.72) v.y = 2.9 * 0.72 + (v.y - 2.9 * 0.72) * 0.82;
-      // heavy BROW SHELF jutting forward + up over the eye (the dread whale brow)
-      if (ty > 0.3 && tz > -0.1) { v.z += (ty - 0.3) * (tz + 0.1) * 1.6; v.y += (ty - 0.3) * 0.7; }
-      // the JAW juts FORWARD + widens at the bottom-front (the maw)
-      if (ty < -0.3 && tz > -0.3) { v.z += (-ty - 0.3) * 0.9; v.x *= 1.12; v.y *= 1.08; }
+      v.x *= 9.5; v.y *= 3.0; v.z *= 7.0;
+      const tz = v.z / 7.0;
+      if (v.y > 0) v.y *= 0.6;                    // flatten the top (the tooth line)
+      if (tz > 0.2) v.x *= (1 - (tz - 0.2) * 0.5); // taper the chin forward
       pos.setXYZ(i, v.x, v.y, v.z);
     }
-    headBase.computeVertexNormals();
-    headBase.deleteAttribute('uv');
+    jawBase.computeVertexNormals();
+    jawBase.deleteAttribute('uv');
   }
-  const headFull = strip(headBase);
-  headFull.translate(0, HEAD_CY, HEAD_CZ);
-  const headT = tierSplit(headFull, HEAD_CY - 1.0, HEAD_CY + 1.4);
-  const headDeep = new THREE.Mesh(headT.deep, hideDeepMat); headDeep.name = 'brineHead';
-  const headMid = new THREE.Mesh(headT.mid, hideMat);
-  const headBrow = new THREE.Mesh(headT.back, hideBackMat);   // the lit brow/crown tier
-  rig.add(headDeep, headMid, headBrow);
+  const jawGeo = strip(jawBase);
+  jawGeo.translate(0, -1.2, 5.0);                 // project the jaw forward from the hinge
+  const jawT = tierSplit(jawGeo, -3.5, -1.5);
+  const jaw = new THREE.Mesh(jawGeo, hideMat); jaw.name = 'brineJaw';
+  jawPivot.add(jaw);
+  rig.add(jawPivot);
 
-  // ---- THROAT PLEATS (the abalone banding, ventral) — a rorqual's grooves under
-  // the jaw, glowing 2-tone abalone (sea-green + nacre-violet, interleaved 2:1 so
-  // the sea-green stays G3-dominant). The lit-edge that carries the near-black
-  // head on every sky (L140); emissive-on-standard, not an additive shell (L124).
-  function pleatSegs(pick, mat, label) {
-    const parts = [];
-    const segs = lowQ ? 9 : 15;
-    for (let i = 0; i < segs; i++) {
-      if (!pick(i)) continue;
-      const tx = -0.85 + (i / (segs - 1)) * 1.7;    // across the throat
-      const ang = tx * 0.95;                        // fan the grooves around the throat's curve
-      const groove = strip(new THREE.BoxGeometry(0.3, 2.0, 0.2));
-      groove.rotateX(-0.6);                         // tilt to face down-and-forward
-      groove.rotateZ(ang * 0.45);                   // splay outward at the sides
-      groove.translate(
-        Math.sin(ang) * 2.9,                                  // arc across
-        HEAD_CY - 2.0 - Math.abs(tx) * 0.35,                  // dip lower at the throat centre
-        HEAD_CZ + 2.7 + Math.cos(ang) * 0.7 - Math.abs(tx) * 0.4,   // wrap: recede at the sides
-      );
-      parts.push(groove);
+  // ---- THE TEETH — kelp-dark jagged fangs on the upper jaw (pointing DOWN) and
+  // the lower jaw (pointing UP), silhouetted against the glowing gullet. The hard
+  // jagged JAWLINE is the load-bearing "maw" silhouette cue.
+  const upperTeeth = [], lowerTeeth = [];
+  const N_TEETH = lowQ ? 7 : 11;
+  for (let i = 0; i < N_TEETH; i++) {
+    const t = (i / (N_TEETH - 1) - 0.5);          // −0.5..0.5 across
+    const x = t * 13.5;
+    const z = 5.4 - Math.abs(t) * 4.0;            // the tooth arc recedes at the corners
+    const hU = 1.4 + (i % 2) * 0.7 - Math.abs(t) * 0.6;
+    const up = strip(new THREE.ConeGeometry(0.55 - Math.abs(t) * 0.15, hU, 5));
+    up.rotateX(Math.PI); up.translate(x, -4.6 - hU * 0.4, z);   // hang from the upper jaw
+    upperTeeth.push(up);
+    const hL = 1.2 + ((i + 1) % 2) * 0.6 - Math.abs(t) * 0.5;
+    const lo = strip(new THREE.ConeGeometry(0.5 - Math.abs(t) * 0.13, hL, 5));
+    lo.translate(x * 0.94, -6.0 + hL * 0.4, z * 0.96);          // rise from the lower jaw (added to jawPivot)
+    lowerTeeth.push(lo);
+  }
+  rig.add(new THREE.Mesh(mergeBh(upperTeeth, 'upperTeeth'), toothMat));
+  const lowerToothMesh = new THREE.Mesh(mergeBh(lowerTeeth, 'lowerTeeth'), toothMat);
+  jawPivot.add(lowerToothMesh);
+
+  // ---- GILL RAKES — glowing abalone slits on the flanks (the lit-edge + the
+  // "it breathes" cue; they flex on the breath in the tick).
+  const gillPivots = [];
+  for (const sx of [-1, 1]) {
+    const pivot = new THREE.Group();
+    pivot.name = `gillPivot${sx > 0 ? 'R' : 'L'}`;
+    pivot.position.set(sx * (HEAD_HW - 1.5), 1.5, 2.0);
+    for (let g = 0; g < 3; g++) {
+      const slit = new THREE.Mesh(strip(new THREE.BoxGeometry(0.4, 3.2 - g * 0.4, 0.3)), g % 2 ? gillMat : gulletVMat);
+      slit.rotation.z = sx * 0.3; slit.position.set(sx * g * 0.9, -g * 0.6, -g * 0.5);
+      pivot.add(slit);
     }
-    return new THREE.Mesh(mergeBh(parts, label), mat);
+    rig.add(pivot);
+    gillPivots.push(pivot);
   }
-  const pleatA = pleatSegs((i) => i % 3 !== 2, bandAMat, 'throatPleatA'); pleatA.name = 'throatPleatA';
-  const pleatV = pleatSegs((i) => i % 3 === 2, bandBMat, 'throatPleatV'); pleatV.name = 'throatPleatV';
-  rig.add(pleatA, pleatV);
-  // (No flank WATERLINE stripe — a constant-height horizontal lit line is the #1
-  // "ship" silhouette signal. The abalone lit-edge lives on ANATOMY instead: the
-  // throat pleats above + the broken dorsal crest + the glowing barnacle knobs.)
 
-  // ---- THE BLOWHOLE + SPOUT (the positive "living whale" signal — a puff of mist
-  // that breaks on the TIDAL-DRONE breath, doubling as a rhythm tell). A raised
-  // blowhole hump on the crown, and a soft pale SPOUT that swells + fades on the
-  // swell peak (animated in the tick). Transparent (not additive) so it stays out
-  // of the §2 overdraw budget.
-  const blowhole = new THREE.Mesh(strip(new THREE.SphereGeometry(0.55, 10, 8, 0, Math.PI * 2, 0, Math.PI * 0.6)), hideBackMat);
-  blowhole.rotation.x = -0.2;
-  blowhole.position.set(-0.5, HEAD_CY + 2.4, HEAD_CZ + 1.2);
-  rig.add(blowhole);
-  const spoutMat = track(new THREE.MeshBasicMaterial({ color: 0xdff2ec, transparent: true, opacity: 0.0, depthWrite: false }));
-  const spoutGroup = new THREE.Group();
-  spoutGroup.name = 'brineSpout';
-  spoutGroup.position.copy(blowhole.position); spoutGroup.position.y += 0.3;
-  // soft rounded MIST puffs (low spheres, widening as they rise) — a spray, not a
-  // stack of spikes; short (a breath, not a geyser).
-  for (let s = 0; s < 5; s++) {
-    const puff = new THREE.Mesh(strip(new THREE.SphereGeometry(0.45 + s * 0.12, 7, 5)), spoutMat);
-    puff.scale.set(1, 0.7, 1);
-    puff.position.set((s % 2 ? 0.28 : -0.24) * s, 0.35 + s * 0.5, 0);
-    spoutGroup.add(puff);
-  }
-  rig.add(spoutGroup);
-
-  // ---- TAIL FLUKES — a hint of horizontal flukes breaking the surface at the far
-  // SINKING tail end (+X), the fore-aft-asymmetry payoff: the body clearly
-  // continues off-frame into a tail, not a mirrored stern.
-  const flukeParts = [];
-  for (const lobe of [-1, 1]) {
-    const fl = strip(new THREE.BoxGeometry(2.6, 0.35, 1.4));
-    fl.rotateZ(lobe * 0.5); fl.rotateY(0.3);
-    fl.translate(BODY_HX * 0.82 + lobe * 1.4, crestY(0.9) - 0.4, BODY_CZ + 0.5);
-    flukeParts.push(fl);
-  }
-  const flukes = new THREE.Mesh(mergeBh(flukeParts, 'flukes'), hideMat);
-  flukes.name = 'brineFlukes';
-  rig.add(flukes);
-
-  // ---- THE EYE ASSEMBLY (the L142 recipe, proven — reused, scaled up as the big
-  // whale eye and seated front-upper on the head). socket → lens sclera → iris
-  // ring → pupil → proud catchlight; a heavy brow-LID grinds up/down.
-  const EYE_X = 1.3, EYE_Y = 2.6, EYE_Z = 6.4;   // set DOWN into the brow+jaw mass (a face, not a tower)
+  // ---- THE EYE ASSEMBLY (reused; the sole focal + weak point), seated under the
+  // jutting brow, upper-front of the skull, slightly off-centre ("the one eye").
+  const EYE_X = 2.4, EYE_Y = 5.6, EYE_Z = 7.6;
   const eyeRig = new THREE.Group();
   eyeRig.name = 'eyeRig';
   eyeRig.position.set(EYE_X, EYE_Y, EYE_Z);
-  eyeRig.scale.setScalar(1.3);                   // the big surfacing eye
+  eyeRig.scale.setScalar(1.4);
   rig.add(eyeRig);
-  const socket = new THREE.Mesh(new THREE.CircleGeometry(1.55, lowQ ? 16 : 24), hideDeepMat);
-  socket.name = 'eyeSocket'; socket.position.z = -0.05;
-  eyeRig.add(socket);
+  const socket = new THREE.Mesh(new THREE.CircleGeometry(1.55, lowQ ? 16 : 24), hideDeepMat); socket.name = 'eyeSocket'; socket.position.z = -0.05; eyeRig.add(socket);
   const sclGeo = new THREE.SphereGeometry(1.2, 20, 16); sclGeo.scale(1, 1, 0.34);
-  const eyeball = new THREE.Mesh(sclGeo, eyeMat);
-  eyeball.name = 'brineEye'; eyeball.position.z = 0.25;
-  eyeRig.add(eyeball);
-  const iris = new THREE.Mesh(strip(new THREE.TorusGeometry(0.92, 0.24, 8, lowQ ? 16 : 24)), irisMat);
-  iris.name = 'brineIris'; iris.position.z = 0.7;
-  eyeRig.add(iris);
-  const pupil = new THREE.Mesh(new THREE.CircleGeometry(0.62, lowQ ? 14 : 20), pupilMat);
-  pupil.name = 'brinePupil'; pupil.position.z = 0.78; pupil.renderOrder = 5;
-  eyeRig.add(pupil);
-  const eyeCore = new THREE.Mesh(new THREE.SphereGeometry(0.2, 12, 10), eyeCoreMat);
-  eyeCore.name = 'eyeCore'; eyeCore.position.set(-0.26, 0.28, 0.98); eyeCore.renderOrder = 7;
-  eyeRig.add(eyeCore);
-  // the heavy brow-LID (hinged above, seated proud → covers when closed, lifts
-  // up-and-back when it surfaces — a heavy hooded whale brow, never a floating slab).
-  const eyeLidPivot = new THREE.Group();
-  eyeLidPivot.name = 'eyeLidPivot';
-  eyeLidPivot.position.set(0, 1.5, 1.05);
+  const eyeball = new THREE.Mesh(sclGeo, eyeMat); eyeball.name = 'brineEye'; eyeball.position.z = 0.25; eyeRig.add(eyeball);
+  const iris = new THREE.Mesh(strip(new THREE.TorusGeometry(0.92, 0.24, 8, lowQ ? 16 : 24)), irisMat); iris.name = 'brineIris'; iris.position.z = 0.7; eyeRig.add(iris);
+  const pupil = new THREE.Mesh(new THREE.CircleGeometry(0.62, lowQ ? 14 : 20), pupilMat); pupil.name = 'brinePupil'; pupil.position.z = 0.78; pupil.renderOrder = 5; eyeRig.add(pupil);
+  const eyeCore = new THREE.Mesh(new THREE.SphereGeometry(0.2, 12, 10), eyeCoreMat); eyeCore.name = 'eyeCore'; eyeCore.position.set(-0.26, 0.28, 0.98); eyeCore.renderOrder = 7; eyeRig.add(eyeCore);
+  // the heavy hooded brow-LID (rounded, grinds up-and-back).
+  const eyeLidPivot = new THREE.Group(); eyeLidPivot.name = 'eyeLidPivot'; eyeLidPivot.position.set(0, 1.5, 1.05);
   const lidParts = [];
-  // a ROUNDED hooded cowl (a curved brow shell, not a box) — a dome cap curving
-  // down over the eye, rounded on every edge so lifted it reads as a heavy brow,
-  // never a boxy slab.
-  const lid = strip(new THREE.SphereGeometry(1.45, 18, 10, 0, Math.PI * 2, 0, Math.PI * 0.62));
-  lid.scale(1.15, 0.95, 1.0); lid.rotateX(Math.PI); lid.translate(0, -0.5, 0.1);
-  lidParts.push(lid);
-  // a rounded brow WELT along the leading edge (a fleshy ridge, not a bar)
-  const browWelt = strip(new THREE.SphereGeometry(0.55, 10, 7));
-  browWelt.scale(2.6, 0.7, 0.9); browWelt.translate(0, 0.15, 0.5);
-  lidParts.push(browWelt);
-  const lidMesh = new THREE.Mesh(mergeBh(lidParts, 'eyelid'), hideBackMat);
-  lidMesh.name = 'eyeLid';
-  eyeLidPivot.add(lidMesh);
+  const lid = strip(new THREE.SphereGeometry(1.45, 18, 10, 0, Math.PI * 2, 0, Math.PI * 0.62)); lid.scale(1.15, 0.95, 1.0); lid.rotateX(Math.PI); lid.translate(0, -0.5, 0.1); lidParts.push(lid);
+  const welt = strip(new THREE.SphereGeometry(0.55, 10, 7)); welt.scale(2.6, 0.7, 0.9); welt.translate(0, 0.15, 0.5); lidParts.push(welt);
+  const lidMesh = new THREE.Mesh(mergeBh(lidParts, 'eyelid'), hideHiMat); lidMesh.name = 'eyeLid'; eyeLidPivot.add(lidMesh);
   eyeRig.add(eyeLidPivot);
 
-  // ---- THE DORSAL FIN-SAILS (4, fleshy, on named pivots) — curved organic fins
-  // marching down the island-back behind/flanking the head. They sway on the
-  // swell and FLARE on the charge/notice telegraph (§3.5; the gate finds
-  // finPivot0..3). Kelp-black membrane with an abalone-lit leading edge.
-  // A tall hooked ORCA SICKLE profile — a single big curved fin is the strongest
-  // "this is alive and swims" silhouette cue (replaces the four evenly-spread
-  // "masts" that read as rigging). The hero fin is tall + swept back; one small
-  // accent fin sits further down the sinking tail. Off-centre + asymmetric.
-  function sickleShape(h, w, hook) {
-    const s = new THREE.Shape();
-    s.moveTo(-w * 0.5, 0);
-    s.lineTo(w * 0.5, 0);
-    s.quadraticCurveTo(w * 0.45, h * 0.5, w * 0.05 - hook * w, h * 0.98);   // leading edge sweeps up-and-back
-    s.quadraticCurveTo(-hook * w * 1.3, h * 0.86, -w * 0.28 - hook * w, h * 0.5);   // hooked tip
-    s.quadraticCurveTo(-w * 0.42, h * 0.24, -w * 0.5, 0);
-    s.closePath();
-    return s;
+  // ---- BARNACLE CRUST on the crown + temples (breaks the top edge — knobbly).
+  const barnParts = [], barnGlow = [];
+  const N_BARN = lowQ ? 8 : 14;
+  for (let i = 0; i < N_BARN; i++) {
+    const a = (i / N_BARN) * Math.PI * 2;
+    const r = 7 + (i % 3) * 1.6;
+    const x = Math.cos(a) * r, y = 8.5 + Math.sin(a) * 3.5 + (i % 2) * 1.2;
+    const h = 0.6 + (i % 3) * 0.3;
+    const c = strip(new THREE.ConeGeometry(0.3 + (i % 2) * 0.1, h, 5));
+    c.translate(x * 0.7, y, 3.5 - Math.abs(Math.cos(a)) * 2);
+    if (i % 4 === 0) barnGlow.push(c); else barnParts.push(c);
   }
-  const FINS = [
-    { x: -2.6, h: 6.6, w: 3.0, hook: 0.32 },   // the HERO sickle, near the head-body junction
-    { x: 3.4, h: 3.2, w: 2.0, hook: 0.26 },    // a smaller accent, back toward the tail
-  ];
-  const finPivots = [];
-  for (let i = 0; i < FINS.length; i++) {
-    const f = FINS[i];
-    const pivot = new THREE.Group();
-    pivot.name = `finPivot${i}`;
-    pivot.position.set(f.x, crestY(f.x / BODY_HX) - 0.2, BODY_CZ + 0.2);
-    const geo = strip(new THREE.ExtrudeGeometry(sickleShape(f.h, f.w, f.hook), { depth: 0.2, bevelEnabled: false, steps: 1, curveSegments: lowQ ? 5 : 9 }));
-    geo.translate(0, 0, -0.1);
-    const fin = new THREE.Mesh(geo, finMat); fin.name = `finSail${i}`;
-    pivot.add(fin);
-    // abalone-lit LEADING edge (the swept front edge catches the light)
-    const edge = strip(new THREE.BoxGeometry(0.14, f.h * 0.9, 0.24));
-    edge.translate(f.w * 0.32, f.h * 0.48, 0.05); edge.rotateZ(-0.2 - f.hook);
-    pivot.add(new THREE.Mesh(edge, finEdgeMat));
-    rig.add(pivot);
-    finPivots.push(pivot);
-  }
+  rig.add(new THREE.Mesh(mergeBh(barnParts, 'barnacles'), hideDeepMat));
+  if (barnGlow.length) rig.add(new THREE.Mesh(mergeBh(barnGlow, 'barnGlow'), gillMat));
 
-  // ---- THE SHACKLE POSTS (3, destructible — §5f mercy mechanic). Broken iron
-  // posts bound into the back, each with a snapped chain, on named shacklePivots
-  // (they STRAIN as the amber volley charges). Parry ×3 (or shoot) → SNAP + vent.
-  const SHACKLE_X = [-6.5, 0.5, 7.0];
+  // ---- THE BINDING CHAINS + DESTRUCTIBLE SHACKLE POSTS across the SNOUT (§5f
+  // mercy mechanic): the beast strains against them. Break one (parry ×3 or
+  // gunfire) → it SNAPS + vents; freed early softens phase 3. Named shacklePivots.
+  const SHACKLE_X = [-5.5, 1.5, 6.5];
+  const SHACKLE_Y = [-1.5, -2.4, -0.8];
   const shackleRigs = [];
-  function buildShacklePost(i, x) {
+  function buildShacklePost(i, x, y) {
     const pivot = new THREE.Group();
     pivot.name = `shacklePivot${i}`;
-    pivot.position.set(x, crestY(x / BODY_HX) - 0.3, BODY_CZ + 1.6);
+    pivot.position.set(x, y, 6.6 - Math.abs(x) * 0.25);   // across the snout front
     const postParts = [];
-    const post = strip(new THREE.CylinderGeometry(0.28, 0.36, 2.3, 6)); post.translate(0, 1.15, 0);
-    postParts.push(post);
-    const ring = strip(new THREE.TorusGeometry(0.5, 0.14, 5, 10)); ring.rotateX(Math.PI / 2); ring.translate(0, 1.95, 0.2);
-    postParts.push(ring);
-    const postMesh = new THREE.Mesh(mergeBh(postParts, `shacklePost${i}`), ironMat);
-    postMesh.name = `shacklePost${i}`;
+    const bar = strip(new THREE.CylinderGeometry(0.3, 0.34, 2.6, 6)); bar.rotateZ(Math.PI / 2 + (i - 1) * 0.2); postParts.push(bar);
+    const ring = strip(new THREE.TorusGeometry(0.55, 0.15, 5, 10)); ring.rotateY(Math.PI / 2); ring.translate(0, 0, 0.2); postParts.push(ring);
+    const postMesh = new THREE.Mesh(mergeBh(postParts, `shacklePost${i}`), ironMat); postMesh.name = `shacklePost${i}`;
     pivot.add(postMesh);
     const chainParts = [];
-    for (let c = 0; c < 3; c++) {
-      const link = strip(new THREE.TorusGeometry(0.24, 0.08, 4, 8));
-      link.rotateX(c % 2 ? Math.PI / 2 : 0);
-      link.translate(0.5 + c * 0.02, 1.95 - c * 0.42, 0.3 + c * 0.06);
-      chainParts.push(link);
-    }
-    const chain = new THREE.Mesh(mergeBh(chainParts, `chain${i}`), ironMat);
-    chain.name = `shackleChain${i}`;
+    for (let c = 0; c < 3; c++) { const link = strip(new THREE.TorusGeometry(0.26, 0.09, 4, 8)); link.rotateX(c % 2 ? Math.PI / 2 : 0); link.translate((c - 1) * 0.7, -0.3 - c * 0.1, 0.3); chainParts.push(link); }
+    const chain = new THREE.Mesh(mergeBh(chainParts, `chain${i}`), ironMat); chain.name = `shackleChain${i}`;
     pivot.add(chain);
     rig.add(pivot);
-    return { pivot, postMesh, chain, x, broken: false, strain: 0 };
+    return { pivot, postMesh, chain, x, y, broken: false, strain: 0 };
   }
-  for (let i = 0; i < SHACKLE_X.length; i++) shackleRigs.push(buildShacklePost(i, SHACKLE_X[i]));
+  for (let i = 0; i < SHACKLE_X.length; i++) shackleRigs.push(buildShacklePost(i, SHACKLE_X[i], SHACKLE_Y[i]));
 
-  // ---- THE ONE SCAR (§3.6) — a snapped shackle fused into the BROW beside the
+  // ---- THE ONE SCAR (§3.6) — a snapped chain fused across the snout beside the
   // eye (a broken iron half-ring + a raw pale gouge) — the ASHTALON lore hook.
-  const scarRing = strip(new THREE.TorusGeometry(0.55, 0.15, 5, 10, Math.PI * 1.25));
-  scarRing.rotateX(Math.PI / 2); scarRing.rotateZ(0.6);
-  scarRing.translate(EYE_X - 2.6, EYE_Y + 1.4, EYE_Z - 0.6);
-  const scar = new THREE.Mesh(mergeBh([scarRing], 'scar'), ironMat);
-  scar.name = 'brineScar';
-  rig.add(scar);
-  const gouge = new THREE.Mesh(strip(new THREE.BoxGeometry(1.1, 0.28, 0.24)), gougeMat);
-  gouge.name = 'brineGouge';
-  gouge.position.set(EYE_X - 2.2, EYE_Y + 0.9, EYE_Z - 0.1);
-  gouge.rotation.z = -0.4;
-  rig.add(gouge);
+  const scarRing = strip(new THREE.TorusGeometry(0.6, 0.16, 5, 10, Math.PI * 1.3)); scarRing.rotateY(Math.PI / 2); scarRing.rotateZ(0.6); scarRing.translate(EYE_X - 4.0, EYE_Y - 3.2, EYE_Z - 0.6);
+  const scar = new THREE.Mesh(mergeBh([scarRing], 'scar'), ironMat); scar.name = 'brineScar'; rig.add(scar);
+  const gouge = new THREE.Mesh(strip(new THREE.BoxGeometry(1.2, 0.3, 0.3)), gougeMat); gouge.name = 'brineGouge'; gouge.position.set(EYE_X - 3.4, EYE_Y - 3.6, EYE_Z); gouge.rotation.z = -0.4; rig.add(gouge);
 
-  // ---- THE EDGE CAGE (§5d) over the head + body crests.
-  for (const [geoSrc, thresh] of [[headT.back, 24], [bodyT.back, 26]]) {
-    rig.add(new THREE.LineSegments(new THREE.EdgesGeometry(geoSrc, thresh), cageMat));
-  }
+  // ---- EDGE CAGE over the skull + jaw crests.
+  for (const [geoSrc, thresh] of [[skullT.hi, 24], [jawGeo, 26]]) rig.add(new THREE.LineSegments(new THREE.EdgesGeometry(geoSrc, thresh), cageMat));
 
-  // ---- DRIFT ORBITERS (≥2; §3.8 satellites stay dark) — torn kelp on the swell,
-  // kept LOW + CLOSE to the waterline so they read as kelp, not sky-noise.
-  const kelpGeo = strip(new THREE.BoxGeometry(0.38, 0.13, 0.8));
+  // ---- DRIFT ORBITERS (≥2) — rising deep-sea BUBBLES around the head.
+  const bubGeo = strip(new THREE.SphereGeometry(0.3, 7, 5));
+  const bubMat = track(new THREE.MeshBasicMaterial({ color: 0xbfe6dd, transparent: true, opacity: 0.22, depthWrite: false }));
   const orbiters = [];
-  const N_KELP = lowQ ? 2 : 4;
-  for (let i = 0; i < N_KELP; i++) {
-    const m = new THREE.Mesh(kelpGeo, i % 2 ? hideDeepMat : hideMat);
-    m.name = 'driftKelp';
-    m.userData = {
-      ang: (i / N_KELP) * Math.PI * 2,
-      rx: 8 + (i % 3) * 2.2, ry: 0.7 + (i % 2) * 0.35,
-      cy: BODY_CY + 0.4 + (i % 2) * 0.4,
-      speed: 0.09 + (i % 3) * 0.03, bob: 0.5 + (i % 2) * 0.4, spin: 0.18 + (i % 3) * 0.12,
-    };
-    rig.add(m);
-    orbiters.push(m);
+  const N_BUB = lowQ ? 3 : 6;
+  for (let i = 0; i < N_BUB; i++) {
+    const m = new THREE.Mesh(bubGeo, bubMat); m.name = 'driftBubble';
+    m.userData = { x: (i / N_BUB - 0.5) * 20, y0: -8 + (i % 3) * 3, z: 4 + (i % 2) * 3, speed: 1.6 + (i % 3) * 0.7, sway: 0.5 + (i % 2) * 0.4, ph: i * 1.7 };
+    rig.add(m); orbiters.push(m);
   }
 
-  kit.flashBind(bandAMat, 0.85);
+  kit.flashBind(gulletMat, 1.25);
   kit.finalize();
 
   // ==================================================================
-  // ANIMATION — the tidal breathing, the eye weak-point window, the fin flare,
-  // the shackle strain/break, the entrance rise, and the mournful death.
+  // ANIMATION — breathing (jaw + gills + throat-glow), the eye weak-point window,
+  // the maw-gape telegraph, the shackle strain/break, the dread submerge, the
+  // mournful death, and the entrance rise.
   // ==================================================================
-  let charge = 0;
-  function setCharge(k) { charge = clamp01(k); }
-  let tell = null;
-  function setAttackTell(id) { tell = id || null; }
-  let setpieceK = 0, dreadK = 0;
-  function setSetpiece(k, sdef) { setpieceK = clamp01(k); dreadK = (sdef && sdef.dread) ? setpieceK : 0; }
+  let charge = 0; function setCharge(k) { charge = clamp01(k); }
+  let tell = null; function setAttackTell(id) { tell = id || null; }
+  let setpieceK = 0, dreadK = 0; function setSetpiece(k, sdef) { setpieceK = clamp01(k); dreadK = (sdef && sdef.dread) ? setpieceK : 0; }
 
   let eyeUp = 0, eyeUpTarget = 0, eyeAuto = true;
   function setEyeUp(k) { eyeAuto = false; eyeUpTarget = clamp01(k); }
@@ -532,55 +325,31 @@ export function buildBrineholm(def, quality = 1) {
   let gazeTX = 0, gazeTY = 0, irisLock = false;
   function setGaze(nx, ny) { gazeTX = clamp(nx, -1, 1); gazeTY = clamp(ny, -1, 1); }
 
-  const BLINK_DUR = 0.5;
-  let blinkT = 0, nextBlink = 5 + Math.random() * 4;
-  let noticeT = 0;
+  const BLINK_DUR = 0.5; let blinkT = 0, nextBlink = 5 + Math.random() * 4, noticeT = 0;
   function notice() { noticeT = 1.2; blinkT = 0; irisLock = true; }
-
   let painT = 0, painEase = 0;
   function flash(amt) { kit.flash(amt); }
   function hurt(amt) { if (amt > 0.3) painT = Math.max(painT, 0.35); }
 
   let entranceU = null;
-  function setEntrance(u) {
-    const was = entranceU != null;
-    entranceU = u == null ? null : clamp01(u);
-    if (entranceU != null && !was) { eyeAuto = false; eyeUpTarget = 0; irisLock = false; }
-  }
-  function setEntranceSteer() { /* the eye does not track during the entrance (§5d) */ }
+  function setEntrance(u) { const was = entranceU != null; entranceU = u == null ? null : clamp01(u); if (entranceU != null && !was) { eyeAuto = false; eyeUpTarget = 0; irisLock = false; } }
+  function setEntranceSteer() {}
 
   let shieldClamp = false;
   kit.onShieldChange((v) => { shieldClamp = v; if (v) { eyeAuto = false; eyeUpTarget = 0; } else eyeAuto = true; });
 
-  // §5f DESTRUCTIBLE SHACKLE POSTS (reuses slot 6's per-part grammar).
+  // §5f DESTRUCTIBLE SHACKLES (reuses slot 6's per-part grammar).
   const brokenShackles = new Set();
   function crackShackle(idx) {
     if (idx == null || idx < 0 || idx >= shackleRigs.length || brokenShackles.has(idx)) return false;
     brokenShackles.add(idx);
-    const s = shackleRigs[idx];
-    s.broken = true;
+    const s = shackleRigs[idx]; s.broken = true;
     const dir = (idx % 2 ? 1 : -1);
-    // the post SNAPS at half height and topples FORWARD toward the player (over
-    // the crest, not lost behind it), the chain drops free.
-    s.postMesh.rotation.set(-0.9, 0, dir * 0.7);
-    s.postMesh.scale.y = 0.55;
-    s.postMesh.position.set(dir * 0.5, -0.6, 1.2);
-    s.chain.rotation.z = dir * 0.9;
-    s.chain.position.set(dir * 0.4, -0.9, 1.4);
-    const jag = new THREE.Mesh(strip(new THREE.ConeGeometry(0.34, 0.7, 5)), ironMat);
-    jag.position.copy(s.pivot.position); jag.position.y += 0.5; jag.position.z += 1.0; jag.rotation.z = 0.4;
-    jag.name = `shackleJag${idx}`;
-    rig.add(jag);
-    // the VENT — a tall bright abalone PLUME up-and-forward from the stump (the
-    // SPRAY-SOAK marker; findable in a glance, still below eye value).
-    const ventGroup = new THREE.Group();
-    ventGroup.name = `shackleVent${idx}`;
-    ventGroup.position.copy(s.pivot.position); ventGroup.position.y += 0.3; ventGroup.position.z += 1.6;
-    for (let v = 0; v < 5; v++) {
-      const froth = new THREE.Mesh(strip(new THREE.ConeGeometry(0.36 - v * 0.045, 1.0 + v * 0.4, 6)), ventMat);
-      froth.position.set((v - 2) * 0.26, v * 0.62, 0.1); froth.rotation.z = (v - 2) * 0.15;
-      ventGroup.add(froth);
-    }
+    s.postMesh.rotation.set(0, 0, dir * 1.3); s.postMesh.scale.set(0.55, 1, 1); s.postMesh.position.set(dir * 0.5, -0.4, 1.0);
+    s.chain.rotation.z = dir * 0.9; s.chain.position.set(dir * 0.4, -1.2, 1.2);
+    const jag = new THREE.Mesh(strip(new THREE.ConeGeometry(0.34, 0.7, 5)), ironMat); jag.position.copy(s.pivot.position); jag.position.z += 0.8; jag.rotation.z = 0.4; jag.name = `shackleJag${idx}`; rig.add(jag);
+    const ventGroup = new THREE.Group(); ventGroup.name = `shackleVent${idx}`; ventGroup.position.copy(s.pivot.position); ventGroup.position.z += 1.4;
+    for (let v = 0; v < 5; v++) { const froth = new THREE.Mesh(strip(new THREE.ConeGeometry(0.36 - v * 0.045, 1.0 + v * 0.4, 6)), ventMat); froth.position.set((v - 2) * 0.26, 0.3 + v * 0.55, 0.1); froth.rotation.z = (v - 2) * 0.15; ventGroup.add(froth); }
     rig.add(ventGroup);
     return true;
   }
@@ -590,13 +359,8 @@ export function buildBrineholm(def, quality = 1) {
   function brokenCount() { return brokenShackles.size; }
   const _sc = def.scale ?? 1.5;
   function shackleHitTest(localX, localY) {
-    const wx = localX / _sc, wy = localY / _sc;
-    let best = -1, bd = 3.4;
-    for (const i of liveShackles()) {
-      const s = shackleRigs[i];
-      const d = Math.hypot(wx - s.x, wy - (s.pivot.position.y + 1.9));
-      if (d < bd) { bd = d; best = i; }
-    }
+    const wx = localX / _sc, wy = localY / _sc; let best = -1, bd = 3.6;
+    for (const i of liveShackles()) { const s = shackleRigs[i]; const d = Math.hypot(wx - s.x, wy - s.y); if (d < bd) { bd = d; best = i; } }
     return best;
   }
 
@@ -604,48 +368,50 @@ export function buildBrineholm(def, quality = 1) {
   function setDissolveEmotive(k) {
     dyingK = clamp01(k);
     const a = dyingK < 0.82 ? 1 : Math.max(0, 1 - (dyingK - 0.82) / 0.18);
-    for (const m of kit.mats) {
-      m.transparent = true;
-      const base = m.userData.baseOpacity ?? 1;
-      m.opacity = base * a;
-      if (m.uniforms && m.uniforms.uOpacity) m.uniforms.uOpacity.value = base * a;
-    }
+    for (const m of kit.mats) { m.transparent = true; const base = m.userData.baseOpacity ?? 1; m.opacity = base * a; if (m.uniforms && m.uniforms.uOpacity) m.uniforms.uOpacity.value = base * a; }
   }
 
-  let eyeGlow = 0, irisAngle = 0, gazeEX = 0, gazeEY = 0;
+  let eyeGlow = 0, irisAngle = 0, gazeEX = 0, gazeEY = 0, jawOpenK = 0;
 
   function tickBody(dt, time) {
-    // --- TIDAL BREATHING (the slowest idle in the roster, §5i TIDAL DRONE). ---
+    // --- TIDAL BREATHING (the slowest idle): the head heaves on the swell; the
+    // jaw + gills + throat-glow breathe. The flinch rides on top. ---
     if (painT > 0) painT -= dt;
     painEase += (Math.max(0, painT) - painEase) * Math.min(1, dt * 8);
     const swell = Math.sin(time * 0.32) * 0.5 + Math.sin(time * 0.13) * 0.3;
     const noticeK = noticeT > 0 ? clamp01(noticeT / 0.9) : 0;
-    // The leviathan REARS its head as an attack winds up (the §3.5 telegraph — a
-    // big silhouette change on the head, the dominant mass): rig pitches up + lifts.
-    const rear = charge * 0.9 + noticeK * 0.5;
-    rig.position.y = swell * 0.4 + painEase * Math.sin(time * 30) * 0.3 + rear * 1.3;
-    rig.rotation.z = Math.sin(time * 0.22) * 0.01 + painEase * Math.sin(time * 26) * 0.012;
-    rig.rotation.x = Math.sin(time * 0.18) * 0.006 - rear * 0.16;   // rear up
+    rig.position.y = swell * 0.5 + painEase * Math.sin(time * 30) * 0.4;
+    rig.rotation.z = Math.sin(time * 0.22) * 0.008 + painEase * Math.sin(time * 26) * 0.012;
+    // the head REARS back as an attack winds up (the §3.5 telegraph on the big mass)
+    const rear = charge * 0.5 + noticeK * 0.3;
+    rig.rotation.x = Math.sin(time * 0.18) * 0.006 - rear * 0.12;
 
-    // --- THE DORSAL FINS sway bow-to-stern on the swell, FLARE hard on charge/notice. ---
-    for (let i = 0; i < finPivots.length; i++) {
-      const p = finPivots[i];
-      const wave = Math.sin(time * 0.5 - i * 0.7) * 0.5 + 0.5;
-      const base = -0.1 + wave * 0.35;
-      const flare = charge * 1.7 + dreadK * 0.5 + noticeK * 1.1;
-      const submerge = (shieldClamp ? 0.6 : 0) + dyingK * 1.3;
-      p.rotation.x = clamp(base - flare + submerge, -1.7, 0.9);
-      p.scale.setScalar(clamp(1 - dyingK * 0.5, 0.4, 1));
+    // --- THE MAW. Idle = a slow breathing gape; CHARGE/NOTICE = a WIDE gape (the
+    // beast exhales — the silhouette telegraph); shield/death = slack. Straining
+    // against the chains adds a judder while bound. ---
+    const bound = liveShackles().length / Math.max(1, shackleRigs.length);   // 1 fully bound → 0 freed
+    const breathGape = 0.12 + Math.max(0, swell) * 0.16;
+    let gapeT = breathGape + charge * 0.9 + noticeK * 0.7 + dreadK * 0.5;
+    if (shieldClamp) gapeT = 0.05;
+    if (dyingK > 0) gapeT = 0.3 * (1 - dyingK);
+    // while BOUND it strains: a fast judder on the gape (the chains fight it)
+    gapeT += bound * (charge * 0.3 + 0.04) * Math.sin(time * 9) * 0.5;
+    jawOpenK += (gapeT - jawOpenK) * Math.min(1, dt * 5);
+    jawPivot.rotation.x = clamp(jawOpenK, 0, 1.2) * 0.9;
+
+    // --- THE GULLET GLOW pulses on the breath; FLARES on the exhale/charge. ---
+    const throat = 0.85 + Math.max(0, swell) * 0.4 + charge * 0.9 + noticeK * 0.8 + dreadK * 0.6;
+    const throatK = throat * (shieldClamp ? 0.4 : 1) * (1 - dyingK * 0.7);
+    gulletMat.emissiveIntensity = 1.25 * throatK;
+    gulletVMat.emissiveIntensity = 0.95 * (0.9 + Math.sin(time * 0.8 + 1.4) * 0.16) * (1 + charge * 0.5) * (shieldClamp ? 0.4 : 1) * (1 - dyingK * 0.7);
+    // --- THE GILLS flex on the breath + flare on the throat. ---
+    for (let g = 0; g < gillPivots.length; g++) {
+      const p = gillPivots[g];
+      p.scale.y = 1 + Math.max(0, swell) * 0.25 + charge * 0.2;
+      p.children.forEach((c, ci) => { c.material.emissiveIntensity = (0.9 - ci * 0.15) * throatK; });
     }
 
-    // --- THE BLOWHOLE SPOUT puffs on the tidal-drone breath (a rhythm tell +
-    // the positive "living whale" signal): a sharp exhale at the swell peak. ---
-    const spoutK = Math.pow(clamp01(Math.sin(time * 0.32)), 3) * (shieldClamp || dyingK > 0.3 || entranceU != null ? 0 : 1);
-    spoutMat.opacity = spoutK * 0.32;
-    spoutGroup.scale.set(0.8 + spoutK * 0.5, 0.5 + spoutK * 0.9, 0.8 + spoutK * 0.5);
-    spoutGroup.visible = spoutK > 0.02;
-
-    // --- THE EYE WEAK-POINT WINDOW. ---
+    // --- THE EYE WEAK-POINT WINDOW (the sole focal). ---
     if (eyeAuto && entranceU == null && dyingK <= 0) eyeUpTarget = (Math.sin(time * 0.34) > 0.2) ? 1 : 0;
     if (charge > 0.15 && !shieldClamp && dyingK <= 0 && entranceU == null) eyeUpTarget = 1;
     if (noticeT > 0 && !shieldClamp && dyingK <= 0 && entranceU == null) eyeUpTarget = 1;
@@ -655,18 +421,12 @@ export function buildBrineholm(def, quality = 1) {
 
     if (noticeT > 0) noticeT -= dt;
     if (blinkT > 0) blinkT -= dt;
-    else if (eyeUp > 0.6 && entranceU == null && dyingK <= 0 && charge < 0.3) {
-      nextBlink -= dt;
-      if (nextBlink <= 0 && noticeT <= 0) { blinkT = BLINK_DUR; nextBlink = 5 + Math.random() * 4; }
-    }
+    else if (eyeUp > 0.6 && entranceU == null && dyingK <= 0 && charge < 0.3) { nextBlink -= dt; if (nextBlink <= 0 && noticeT <= 0) { blinkT = BLINK_DUR; nextBlink = 5 + Math.random() * 4; } }
     const blink = blinkT > 0 ? 1 - Math.abs((blinkT / BLINK_DUR) * 2 - 1) : 0;
 
-    // the LID: closed over the eye (submerged) / lifted hooded (surfaced) / flung
-    // wide (notice). rotation.x hinges it up-and-back.
     const lidOpen = clamp(eyeUp - blink * 0.6 + noticeK * 0.45, 0, 1.4);
-    eyeLidPivot.rotation.x = lidOpen * 0.92;   // lifts to a heavy hooded brow (not flat onto the crown)
+    eyeLidPivot.rotation.x = lidOpen * 0.92;
 
-    // --- THE EYE glow (the catchlight carries the G1 peak). ---
     let eyeK = eyeUp;
     if (noticeT > 0.4) eyeK = Math.max(eyeK, 1) * 1.3;
     if (dyingK > 0) eyeK *= Math.max(0, 1 - dyingK * 1.5);
@@ -676,57 +436,37 @@ export function buildBrineholm(def, quality = 1) {
     eyeMat.color.copy(EYE_BASE).multiplyScalar(Math.max(0.02, eyeGlow) * EYE_HOT);
     eyeCoreMat.color.setScalar(CORE_HOT * Math.max(0.015, eyeGlow));
     eyeCore.visible = eyeGlow > 0.25 && dyingK < 0.7;
-    pupil.visible = eyeGlow > 0.2;
-    iris.visible = eyeGlow > 0.12;
+    pupil.visible = eyeGlow > 0.2; iris.visible = eyeGlow > 0.12;
     irisMat.emissiveIntensity = 0.2 + eyeGlow * 1.5 + noticeK * 1.2;
     eyeball.scale.setScalar(1 + Math.sin(time * 1.6) * 0.03 * eyeGlow + dreadK * 0.12);
 
-    // --- THE GAZE (a slow tide; LOCKS at notice/settle). ---
-    if (!irisLock && eyeUp > 0.6 && entranceU == null) {
-      gazeEX += (gazeTX * 0.55 - gazeEX) * Math.min(1, dt * 1.2);
-      gazeEY += (gazeTY * 0.38 - gazeEY) * Math.min(1, dt * 1.2);
-    }
-    iris.position.set(gazeEX, gazeEY, 0.7);
-    pupil.position.set(gazeEX, gazeEY, 0.78);
-    eyeCore.position.set(-0.26 + gazeEX, 0.28 + gazeEY, 0.98);
-    eyeball.position.set(gazeEX * 0.35, gazeEY * 0.35, 0.25);
+    if (!irisLock && eyeUp > 0.6 && entranceU == null) { gazeEX += (gazeTX * 0.55 - gazeEX) * Math.min(1, dt * 1.2); gazeEY += (gazeTY * 0.38 - gazeEY) * Math.min(1, dt * 1.2); }
+    iris.position.set(gazeEX, gazeEY, 0.7); pupil.position.set(gazeEX, gazeEY, 0.78);
+    eyeCore.position.set(-0.26 + gazeEX, 0.28 + gazeEY, 0.98); eyeball.position.set(gazeEX * 0.35, gazeEY * 0.35, 0.25);
     iris.rotation.z = irisLock ? irisAngle : (irisAngle += dt * 0.15);
 
     // --- THE SHACKLE POSTS strain as an amber volley charges. ---
     for (let i = 0; i < shackleRigs.length; i++) {
-      const s = shackleRigs[i];
-      if (s.broken) continue;
-      const strain = charge * (tell === 'stream' || tell === 'aimed' ? 1 : 0.5);
+      const s = shackleRigs[i]; if (s.broken) continue;
+      const strain = charge * (tell === 'stream' || tell === 'aimed' ? 1 : 0.5) + bound * 0.1;
       s.strain += (strain - s.strain) * Math.min(1, dt * 5);
-      s.pivot.rotation.z = Math.sin(time * (6 + i)) * 0.05 * s.strain;
-      s.pivot.rotation.x = Math.sin(time * 0.4 + i) * 0.03 + s.strain * 0.08;
+      s.pivot.rotation.z = Math.sin(time * (7 + i)) * 0.05 * s.strain;
     }
 
-    // --- THE BANDING sheen (the tidal drone made visible; 2-tone shimmer). ---
-    const shimmer = 0.85 + Math.sin(time * 0.8) * 0.12 + Math.sin(time * 1.9) * 0.06;
-    const bandK = shimmer * (1 + charge * 0.5 + dreadK * 0.8 + noticeK * 1.1) * (shieldClamp ? 0.45 : 1) * (1 - dyingK * 0.7);
-    bandAMat.emissiveIntensity = 0.85 * bandK;
-    bandBMat.emissiveIntensity = 0.78 * (0.9 + Math.sin(time * 0.8 + 1.6) * 0.16) * (1 + charge * 0.4 + noticeK * 1.1) * (shieldClamp ? 0.45 : 1) * (1 - dyingK * 0.7);
-    finEdgeMat.emissiveIntensity = 0.7 * bandK;
-
-    // --- ENTRANCE: the head/back INHALES up through the fog (rig.y from deep),
-    // the fins unfold, the banding lights in a wave, the lid grinds + iris LOCKS
-    // at settle — with the canon HESITATION hold near u≈0.5-0.6. ---
+    // --- ENTRANCE: the head INHALES up through the fog (rig.y from deep), the maw
+    // parts, the gullet lights, the lid grinds + iris LOCKS at settle — with the
+    // canon HESITATION hold near u≈0.5-0.6. ---
     if (entranceU != null) {
       const u = entranceU;
-      const holdLo = 0.5, holdHi = 0.6;
-      let rise;
+      const holdLo = 0.5, holdHi = 0.6; let rise;
       if (u < holdLo) rise = Math.pow(u / holdLo, 0.8) * 0.62;
       else if (u < holdHi) rise = 0.62;
       else rise = 0.62 + Math.pow((u - holdHi) / (1 - holdHi), 1.4) * 0.38;
-      rig.position.y = (rise - 1) * 10;
-      for (let i = 0; i < finPivots.length; i++) {
-        const unfold = clamp01((u - 0.15 - i * 0.12) / 0.3);
-        finPivots[i].rotation.x = -0.1 * unfold - (1 - unfold) * 1.2;
-      }
+      rig.position.y = (rise - 1) * 14;
+      jawPivot.rotation.x = (0.1 + clamp01(u - 0.6) * 0.2) * 0.9;
       const litFront = u * 1.3;
-      bandAMat.emissiveIntensity = 0.85 * clamp01(litFront);
-      bandBMat.emissiveIntensity = 0.78 * clamp01(litFront - 0.2);
+      gulletMat.emissiveIntensity = 1.25 * clamp01(litFront);
+      gulletVMat.emissiveIntensity = 0.95 * clamp01(litFront - 0.2);
       eyeGlow = 0.12 + clamp01((u - 0.9) / 0.1) * 0.2;
       eyeMat.color.copy(EYE_BASE).multiplyScalar(eyeGlow * EYE_HOT);
       eyeCoreMat.color.setScalar(CORE_HOT * eyeGlow * 0.4);
@@ -734,37 +474,27 @@ export function buildBrineholm(def, quality = 1) {
       if (u > 0.94 && !irisLock) { irisLock = true; irisAngle = iris.rotation.z; }
     }
 
-    // --- DREAD: SOUNDING — the dive (the head sinks + pitches down). ---
-    if (dreadK > 0.05) {
-      rig.position.y = -dreadK * 4.5 + Math.sin(time * 2) * 0.3;
-      rig.rotation.x = -dreadK * 0.14;
-    }
+    // --- DREAD: SOUNDING — the head SUBMERGES back into the fog + pitches down. ---
+    if (dreadK > 0.05) { rig.position.y = -dreadK * 9 + Math.sin(time * 2) * 0.4; rig.rotation.x = dreadK * 0.12; }
 
-    // --- DRIFT ORBITERS (kelp on the swell; sink in death). ---
+    // --- DRIFT BUBBLES rise around the head. ---
     for (const o of orbiters) {
       const u = o.userData;
-      u.ang += dt * u.speed * (1 + painEase);
-      o.position.set(
-        Math.cos(u.ang) * u.rx,
-        u.cy + Math.sin(u.ang * 1.4) * u.ry + Math.sin(time * u.bob + u.ang) * 0.3 - dyingK * (5 + u.cy),
-        BODY_CZ + BODY_HZ * 0.55 + Math.sin(u.ang) * 1.3
-      );
-      o.rotation.x += dt * u.spin;
-      o.rotation.z += dt * u.spin * 0.7;
+      const t2 = (time * u.speed + u.ph) % 20;
+      o.position.set(u.x + Math.sin(time * u.sway + u.ph) * 1.5, u.y0 + t2 - dyingK * 6, u.z);
+      const k = 1 - (t2 / 20);
+      o.scale.setScalar(0.5 + k * 0.8);
     }
+    bubMat.opacity = 0.22 * (1 - dyingK);
   }
 
-  // Muzzle: fire originates at the EYE (emitter = organ, §5f law 7).
-  const muzzle = new THREE.Object3D();
-  muzzle.name = 'brineMuzzle';
-  muzzle.position.set(EYE_X, EYE_Y, EYE_Z + 1.4);
-  group.add(muzzle);
+  // Muzzle: the beast EXHALES its volleys/geysers from the MAW (emitter = organ).
+  const muzzle = new THREE.Object3D(); muzzle.name = 'brineMaw'; muzzle.position.set(0, -3.5, 5.5); group.add(muzzle);
 
-  // ---- §7b per-sheet diagnostics. ----
   const sc = def.scale ?? 1.5;
-  function hullLength() { return BODY_HX * 2 * sc; }        // world span (the "never fits" number)
+  function hullLength() { return HEAD_HW * 2 * sc; }        // world span (the "never fits" number)
   function eyeSurfaced() { return eyeUp; }
-  function finRaise() { return finPivots.map((p) => p.rotation.x); }
+  function jawOpen() { return jawPivot.rotation.x; }
   function shacklePositions() { return shackleRigs.map((s) => s.x * sc); }
 
   return {
@@ -778,7 +508,7 @@ export function buildBrineholm(def, quality = 1) {
     flash, hurt,
     crackShackle, shackleBroken, liveShackles, shackleCount, brokenCount, shackleHitTest,
     tick(dt, time) { tickBody(dt, time); kit.tickCommon(dt, time); },
-    hullLength, eyeSurfaced, finRaise, shacklePositions,
+    hullLength, eyeSurfaced, jawOpen, shacklePositions,
     dispose() { group.traverse((o) => { if (o.geometry) o.geometry.dispose(); if (o.material) o.material.dispose(); }); },
   };
 }

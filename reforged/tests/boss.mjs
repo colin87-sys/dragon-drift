@@ -606,38 +606,36 @@ for (const key of BOSS_ORDER) {
 }
 
 // BRINEHOLM (slot 8) — the telegraph gate + the §5d/§7b per-sheet geometry
-// asserts: NAMED telegraph pivots (finPivot0-3 flare + eyeLidPivot grinds on
-// charge), the ONE focal (brineEye/eyeCore), the ONE scar (brineScar), the
-// hull span (the "never fits the frame" number), the EYE WEAK-POINT WINDOW
-// (surfaces/submerges — the §5f turn-taking tell), and the DESTRUCTIBLE SHACKLE
-// posts (the §5f mercy mechanic: per-part hit test + break, mirroring the pane API).
+// asserts: NAMED telegraph pivots (the jawPivot GAPES the maw + eyeLidPivot grinds
+// on charge), the ONE focal (brineEye/eyeCore), the ONE scar (brineScar), the head
+// span (the "never fits the frame" number), the EYE WEAK-POINT WINDOW (surfaces/
+// submerges — the §5f turn-taking tell), and the DESTRUCTIBLE SHACKLE posts (the
+// §5f mercy mechanic: per-part hit test + break, mirroring the pane API).
 {
   const bh = buildBoss(BOSSES.brineholm, 1);
-  // Named parts the gate + the §5f plumbing find by name (a HERO orca sickle fin
-  // + one small accent — a single big curved fin reads "alive", not a mast row).
-  for (let i = 0; i < 2; i++) assert(!!bh.group.getObjectByName(`finPivot${i}`), `brineholm exposes named finPivot${i}`);
+  // Named parts the gate + the §5f plumbing find by name (the colossal head+maw:
+  // the jawPivot gapes the maw, the eye is the sole focal, chains bind the snout).
+  assert(!!bh.group.getObjectByName('jawPivot'), 'brineholm exposes the named jawPivot (the maw-gape telegraph)');
   assert(!!bh.group.getObjectByName('eyeLidPivot'), 'brineholm exposes the named eyeLidPivot (the heavy-lid telegraph)');
   assert(!!bh.group.getObjectByName('brineEye'), 'brineholm exposes the named brineEye (the one HDR focal + weak point)');
   assert(!!bh.group.getObjectByName('eyeCore'), 'brineholm exposes the named eyeCore (the G1 pinpoint)');
-  assert(!!bh.group.getObjectByName('brineScar'), 'brineholm exposes the ONE asymmetric scar (the snapped bow shackle)');
+  assert(!!bh.group.getObjectByName('brineScar'), 'brineholm exposes the ONE asymmetric scar (the snapped snout chain)');
   for (let i = 0; i < 3; i++) assert(!!bh.group.getObjectByName(`shacklePost${i}`), `brineholm exposes named shacklePost${i}`);
 
-  // The "NEVER FITS THE FRAME" presence number (§5d / L140): the hull spans an
-  // arena scale that exceeds the ~34-wide portrait envelope at rel 30.
+  // The "NEVER FITS THE FRAME" presence number (§5d / L140): the head spans an
+  // arena scale that exceeds the ~34-wide portrait envelope at fight distance.
   const span = bh.hullLength();
-  assert(span >= 34, `brineholm hull spans ${span.toFixed(1)} world units ≥ 34 (exceeds the rel-30 portrait envelope — "never fits the frame")`);
+  assert(span >= 34, `brineholm head spans ${span.toFixed(1)} world units ≥ 34 (exceeds the fight-frame envelope — "never fits the frame")`);
 
-  // Telegraph gate (§3.5): setCharge(1) + tick FLARES the fin-sails up on their
-  // pivots AND grinds the eye-lid open (a silhouette change, not a recolour).
+  // Telegraph gate (§3.5): setCharge(1) + tick GAPES the maw (jawPivot opens) AND
+  // grinds the eye-lid open (a silhouette change, not a recolour).
   bh.tick(0.05, 0.5);
-  const preFins = bh.finRaise();
+  const preJaw = bh.jawOpen();
   const preLid = bh.group.getObjectByName('eyeLidPivot').rotation.x;
   bh.setCharge(1);
-  for (let s = 0; s < 24; s++) bh.tick(0.05, 1.0 + s * 0.05);   // let the lid grind + sails flare ease in
-  const postFins = bh.finRaise();
-  let finsMoved = 0;
-  for (let i = 0; i < preFins.length; i++) if (Math.abs(postFins[i] - preFins[i]) > 0.2) finsMoved++;
-  assert(finsMoved >= 2, `brineholm charge FLARES the fin-sails (${finsMoved}/${preFins.length} pivots rotated >0.2 rad — silhouette change)`);
+  for (let s = 0; s < 24; s++) bh.tick(0.05, 1.0 + s * 0.05);   // let the maw + lid ease open
+  const postJaw = bh.jawOpen();
+  assert(postJaw > preJaw + 0.2, `brineholm charge GAPES the maw (jawPivot.rot.x ${postJaw.toFixed(2)} > ${preJaw.toFixed(2)} + 0.2 — the beast exhales, a silhouette change)`);
   const postLid = bh.group.getObjectByName('eyeLidPivot').rotation.x;
   assert(postLid > preLid + 0.4, `brineholm charge grinds the eye-lid open (lidPivot.rot.x ${postLid.toFixed(2)} > ${preLid.toFixed(2)} — the lid lifts up-and-back, the eye surfaces to be hit)`);
 
@@ -658,14 +656,14 @@ for (const key of BOSS_ORDER) {
   assertEq(bh.shackleCount(), 3, 'brineholm has 3 shackle posts');
   assertEq(bh.liveShackles().length, 3, 'brineholm starts with all 3 shackles bound');
   const sc8 = BOSSES.brineholm.scale;
-  // A hit at shacklePost1's world x/top (local x 0.4 → world ×scale, y near the post top).
-  const hitIdx = bh.shackleHitTest(0.4 * sc8, 3.4 * sc8);
+  // A hit near the centre snout shackle post (local ≈ 1.5, −2.4 → world ×scale).
+  const hitIdx = bh.shackleHitTest(1.5 * sc8, -2.4 * sc8);
   assert(hitIdx >= 0, `brineholm shackleHitTest routes a hit near a post to a live post (got ${hitIdx})`);
   assert(bh.crackShackle(hitIdx), 'brineholm crackShackle breaks a bound post');
   assert(!bh.crackShackle(hitIdx), 'brineholm crackShackle is idempotent (already broken)');
   assertEq(bh.liveShackles().length, 2, 'brineholm a broken post leaves 2 bound');
   assert(bh.shackleBroken(hitIdx), 'brineholm the broken post reports broken');
-  const reroute = bh.shackleHitTest(0.4 * sc8, 3.4 * sc8);
+  const reroute = bh.shackleHitTest(1.5 * sc8, -2.4 * sc8);
   assert(reroute !== hitIdx, `brineholm shackleHitTest never reroutes to a broken post (got ${reroute})`);
 
   // NOTICE state JUMP (§4b — the notice beat must be a discrete state change, not
@@ -675,21 +673,19 @@ for (const key of BOSS_ORDER) {
     const bn = buildBoss(BOSSES.brineholm, 1);
     bn.setGaze(0, 0);
     for (let s = 0; s < 30; s++) bn.tick(0.05, 1.0 + s * 0.05);   // settle a calm idle
-    const idleFins = bn.finRaise();
+    const idleJaw = bn.jawOpen();
     const idleLid = bn.group.getObjectByName('eyeLidPivot').rotation.x;
     bn.notice();
     for (let s = 0; s < 8; s++) bn.tick(0.05, 2.6 + s * 0.05);    // sample mid-notice (before it decays)
-    const nFins = bn.finRaise();
+    const nJaw = bn.jawOpen();
     const nLid = bn.group.getObjectByName('eyeLidPivot').rotation.x;
-    let finStartle = 0;
-    for (let i = 0; i < idleFins.length; i++) if (Math.abs(nFins[i] - idleFins[i]) > 0.15) finStartle++;
-    assert(finStartle >= 2 && nLid > idleLid + 0.2,
-      `brineholm NOTICE is a state JUMP (${finStartle}/${idleFins.length} sails startled, lid flung ${nLid.toFixed(2)} > ${idleLid.toFixed(2)}) — not idle+ε`);
+    assert(nJaw > idleJaw + 0.15 && nLid > idleLid + 0.2,
+      `brineholm NOTICE is a state JUMP (maw gaped ${nJaw.toFixed(2)} > ${idleJaw.toFixed(2)}, lid flung ${nLid.toFixed(2)} > ${idleLid.toFixed(2)}) — not idle+ε`);
     bn.dispose();
   }
 
   bh.dispose();
-  ok(`brineholm geometry: hull ${span.toFixed(1)}w, fins ${finsMoved}/4 + lid telegraph, eye surface/submerge, notice-jump, shackle-break ✓`);
+  ok(`brineholm geometry: head ${span.toFixed(1)}w, maw-gape + lid telegraph, eye surface/submerge, notice-jump, shackle-break ✓`);
 }
 
 // Legacy coexist gate: a def WITHOUT `archetype` must still fall through to
