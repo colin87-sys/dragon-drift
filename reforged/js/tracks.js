@@ -84,7 +84,7 @@ export const MIX = {
 export const TRACKS = [
   { // 0 — the original anthem, refined
     id: 'skyborne',
-    mix: MIX.anthem,
+    mix: { ...MIX.anthem, trimDb: -4.7 },
     name: 'Skyborne',
     desc: 'Soaring chiptune-pop anthem',
     cost: 0,
@@ -126,7 +126,7 @@ export const TRACKS = [
   },
   { // 1 — Panzer-Dragoon-flavoured modal epic: bells over slow pads
     id: 'tides',
-    mix: MIX.epic,
+    mix: { ...MIX.epic, trimDb: -5.3 },
     name: 'Ancient Tides',
     desc: 'Modal bells over deep pads',
     cost: 0,
@@ -171,7 +171,7 @@ export const TRACKS = [
   },
   { // 2 — driving synthwave: pumping saw bass, neon hook
     id: 'rush',
-    mix: MIX.synthwave,
+    mix: { ...MIX.synthwave, trimDb: -4.8 },
     name: 'Ember Rush',
     desc: 'Pumping synthwave neon',
     cost: 0,
@@ -216,7 +216,7 @@ export const TRACKS = [
   },
   { // 3 — mellow lo-fi glide: jazzy 7ths, soft drums
     id: 'drift',
-    mix: MIX.lofi,
+    mix: { ...MIX.lofi, trimDb: -4.9 },
     name: 'Moonlit Drift',
     desc: 'Mellow lo-fi glide',
     cost: 0,
@@ -265,7 +265,7 @@ export const TRACKS = [
   // All premium stations cost the same — pick by taste, not by price tag.
   { // 4 — festival big-room anthem: fat detuned hook over a four-chord pump
     id: 'neon',
-    mix: MIX.bigroom,
+    mix: { ...MIX.bigroom, trimDb: -6 },
     name: 'Neon Apex',
     desc: 'Festival anthem — fat detuned hook',
     cost: 800,
@@ -310,7 +310,7 @@ export const TRACKS = [
   },
   { // 5 — breakneck drum&bass chase in E minor: urgent stabs, soaring lift
     id: 'storm',
-    mix: MIX.dnb,
+    mix: { ...MIX.dnb, trimDb: -7.3 },
     name: 'Stormchaser',
     desc: 'Breakneck D&B chase',
     cost: 800,
@@ -323,6 +323,16 @@ export const TRACKS = [
       lead:   { osc: 'sawtooth', vol: 0.11 },
     },
     drums: { kick: 1.2, snare: 1.15, hat: 1.1, heavy: true },
+    // Groove hero (dnb): two-step break — kick on 1 + the and-of-3, backbeat
+    // snares with ghost notes, shuffled hats. NOT four-on-the-floor.
+    groove: {
+      grid: {
+        kick:  'x.........x.....',
+        snare: '....x..g....x..g',
+        hat:   'x.gxx.g.x.gxx.g.',
+      },
+      hatVel: [1, 0.6, 0.85, 0.6],
+    },
     pad: false,
     melody: [
       [N.E5,2],[N.G5,1],[N.Fs5,1],[N.E5,2],[N.B4,2],
@@ -353,7 +363,7 @@ export const TRACKS = [
   { // 6 — golden hardstyle hymn in D major: insistent fanfare motif, big
     // leaps, off-beat drive — rebuilt for catchiness.
     id: 'solarc',
-    mix: MIX.hardstyle,
+    mix: { ...MIX.hardstyle, trimDb: -4.3 },
     name: 'Solar Cathedral',
     desc: 'Euphoric golden hardstyle hymn',
     cost: 800,
@@ -400,7 +410,7 @@ export const TRACKS = [
   // ============ THE COLLECTION (style studies of iconic sounds) ============
   { // 7 — K-pop dance-pop study: chant verse, octave-jump chorus, disco pump
     id: 'seoul',
-    mix: MIX.idol,
+    mix: { ...MIX.idol, trimDb: -6 },
     name: 'Neon Seoul',
     desc: 'Idol dance-pop — chant verse, big chorus',
     cost: 800,
@@ -446,7 +456,7 @@ export const TRACKS = [
   { // 8 — girl-crush EDM-trap study: minor-key menace, sub-808, harmonic-
     // minor sting on the B chord
     id: 'crown',
-    mix: { ...MIX.bigroom, reverb: 1.2 },
+    mix: { ...MIX.bigroom, reverb: 1.2, trimDb: -5.9 },
     name: 'Velvet Crown',
     desc: 'Girl-crush EDM-trap — sub-808 menace',
     cost: 800,
@@ -491,7 +501,7 @@ export const TRACKS = [
   },
   { // 9 — uplifting trance study: long rising phrases, supersaw shimmer
     id: 'stratos',
-    mix: MIX.trance,
+    mix: { ...MIX.trance, trimDb: -5.5 },
     name: 'Stratosphere',
     desc: 'Uplifting trance — endless climb',
     cost: 800,
@@ -536,7 +546,7 @@ export const TRACKS = [
   },
   { // 10 — big-room festival study: three-note stadium hook, maximum kick
     id: 'titan',
-    mix: MIX.bigroom,
+    mix: { ...MIX.bigroom, trimDb: -5.9 },
     name: 'Titan Drop',
     desc: 'Big-room festival — stadium hook',
     cost: 800,
@@ -581,7 +591,7 @@ export const TRACKS = [
   },
   { // 11 — hardstyle study: off-beat gallop bass, insistent euphoric motif
     id: 'hardlight',
-    mix: MIX.hardstyle,
+    mix: { ...MIX.hardstyle, trimDb: -5.5 },
     name: 'Hardlight',
     desc: 'Hardstyle — off-beat gallop, euphoric hook',
     cost: 800,
@@ -623,7 +633,7 @@ export const TRACKS = [
   },
   { // 12 — synthwave retro-pop study: night-drive arp, chrome and neon
     id: 'chrome',
-    mix: MIX.synthwave,
+    mix: { ...MIX.synthwave, trimDb: -5 },
     name: 'Midnight Chrome',
     desc: 'Synthwave night-drive — retro arp',
     cost: 800,
@@ -669,7 +679,7 @@ export const TRACKS = [
   { // 13 — future bass: "lift-and-sigh" identity — rising-6th leap hook, halftime chop,
     //   call-response gaps. Only leap-first hook in the catalogue. Cmaj7 palette.
     id: 'bloom',
-    mix: MIX.futurebass,
+    mix: { ...MIX.futurebass, trimDb: -5.9 },
     name: 'Aurora Bloom',
     desc: 'Future bass — lift-and-sigh, rising-sixth hook',
     cost: 800,
@@ -721,7 +731,7 @@ export const TRACKS = [
   },
   { // 14 — liquid drum&bass study: rolling jazz sevenths, airborne top line
     id: 'slips',
-    mix: MIX.liquid,
+    mix: { ...MIX.liquid, trimDb: -6.9 },
     name: 'Slipstream',
     desc: 'Liquid D&B — rolling, airborne',
     cost: 800,
@@ -735,6 +745,16 @@ export const TRACKS = [
       lead:   { osc: 'sawtooth', vol: 0.11 },
     },
     drums: { kick: 1.15, snare: 1.2, hat: 1.15, heavy: true },
+    // Groove hero (liquid dnb): rolling break — displaced second kick, clean
+    // backbeats, a 16th hat wash with a velocity wave.
+    groove: {
+      grid: {
+        kick:  'x.....x...x.....',
+        snare: '....x.......x...',
+        hat:   'xxxxxxxxxxxxxxxx',
+      },
+      hatVel: [1, 0.45, 0.7, 0.45],
+    },
     pad: false,
     melody: [
       [N.E5,1],[N.G5,1],[N.A5,2],[N.G5,1],[N.E5,1],[N.C5,2],
@@ -764,7 +784,7 @@ export const TRACKS = [
   },
   { // 15 — French/disco house study: filtered funk, staccato hook, ghost rests
     id: 'goldrush',
-    mix: MIX.house,
+    mix: { ...MIX.house, trimDb: -5.1 },
     name: 'Gold Rush Groove',
     desc: 'French house — filtered disco funk',
     cost: 800,
@@ -810,7 +830,7 @@ export const TRACKS = [
   },
   { // 16 — tropical house study: steel-pan bounce, easy major-key sway
     id: 'lagoon',
-    mix: MIX.tropical,
+    mix: { ...MIX.tropical, trimDb: -5.3 },
     name: 'Crystal Lagoon',
     desc: 'Tropical house — steel-pan bounce',
     cost: 800,
@@ -856,7 +876,7 @@ export const TRACKS = [
   },
   { // 17 — Japanese touge drift: D-major racing hook, detuned saws
     id: 'driftking',
-    mix: MIX.synthwave,
+    mix: { ...MIX.synthwave, trimDb: -6 },
     name: 'Drift King',
     desc: 'Touge racing — detuned saw hook',
     cost: 800,
@@ -903,7 +923,7 @@ export const TRACKS = [
     //   112 bpm (statelier than Drift King's 140), horn-call rising fourths.
     //   Only hemiola track in the catalogue; high voice echoes 1 bar behind.
     id: 'banner',
-    mix: MIX.epicdrive,
+    mix: { ...MIX.epicdrive, trimDb: -5.8 },
     name: 'Banner',
     desc: 'Epic march — 3+3+2 hemiola, G-mixolydian horn call',
     cost: 800,
@@ -953,7 +973,7 @@ export const TRACKS = [
     //   continuous-eighth reel runs, jig-lilt [2,1,1,2,1,1] chorus cell.
     //   Bodhrán-style hat-forward drum mix. 128 bpm (reel tempo).
     id: 'pipers',
-    mix: MIX.celtic,
+    mix: { ...MIX.celtic, trimDb: -5.6 },
     name: 'The Pipers',
     desc: 'Celtic reel — drone bass, A-dorian jig-lilt',
     cost: 800,
@@ -1002,7 +1022,7 @@ export const TRACKS = [
   },
   { // 20 — Chinese-inspired EDM: D-minor pentatonic, red-lantern energy
     id: 'vermilion',
-    mix: MIX.bigroom,
+    mix: { ...MIX.bigroom, trimDb: -5.8 },
     name: 'Vermilion',
     desc: 'Chinese EDM — red-lantern pentatonic drive',
     cost: 800,
@@ -1047,7 +1067,7 @@ export const TRACKS = [
   },
   { // 21 — Disco-pop revival: A-major glitter, ABBA-energy hook
     id: 'mirrorball',
-    mix: MIX.house,
+    mix: { ...MIX.house, trimDb: -5.4 },
     name: 'Mirrorball',
     desc: 'Disco-pop revival — glitter and joy',
     cost: 800,
@@ -1094,7 +1114,7 @@ export const TRACKS = [
   // ============ WORLD FLAVOURS ============
   { // 22 — Afrobeats study: syncopated bounce, call-response, conga flavour
     id: 'afrofire',
-    mix: MIX.world,
+    mix: { ...MIX.world, trimDb: -4.5 },
     name: 'Afro Fire',
     desc: 'Afrobeats — syncopated bounce, call-response',
     cost: 800,
@@ -1136,7 +1156,7 @@ export const TRACKS = [
   },
   { // 23 — Amapiano study: jazzy 7ths, deep log-drum groove, D-major soul
     id: 'mpiano',
-    mix: MIX.world,
+    mix: { ...MIX.world, trimDb: -6.2 },
     name: 'Mpiano High',
     desc: 'Amapiano — jazzy 7ths, log-drum groove',
     cost: 800,
@@ -1150,6 +1170,16 @@ export const TRACKS = [
       lead:   { osc: 'sawtooth', vol: 0.1 },
     },
     drums: { kick: 1.1, snare: 0.8, hat: 1.3, heavy: false, logDrum: 0.9, shaker: 0.6 },
+    // Groove hero (amapiano): the log drum leads — kick reduced to a bar
+    // anchor, sparse late snares, OFFBEAT hats (never four-on-the-floor).
+    groove: {
+      grid: {
+        kick:  'x...............',
+        snare: '....x.......x..g',
+        hat:   '..x...x...x...x.',
+      },
+      hatVel: [1, 0.7],
+    },
     pad: true,
     melody: [
       [N.Fs5,2],[N.A5,1],[N.G5,1],[N.Fs5,2],[N.D5,2],
@@ -1182,7 +1212,7 @@ export const TRACKS = [
   },
   { // 24 — Pop-dance study: bright A-major hook, four-on-floor, radio candy
     id: 'popstar',
-    mix: MIX.idol,
+    mix: { ...MIX.idol, trimDb: -6.2 },
     name: 'Popstar',
     desc: 'Pop-dance — bright hook, four-on-floor',
     cost: 800,
@@ -1231,7 +1261,7 @@ export const TRACKS = [
     //   Lydian #4 lift, octave-leap "lift-off" hook, rising sequences, pedal pump.
     //   I–V–vi–IV (C–G–Am–F).
     id: 'skyward',
-    mix: MIX.epicdrive,
+    mix: { ...MIX.epicdrive, trimDb: -4.7 },
     name: 'Skyward',
     desc: 'Soaring dragon-flight theme — Lydian lift',
     cost: 800,
@@ -1278,7 +1308,7 @@ export const TRACKS = [
     //   minor, descending ANDALUSIAN cadence i–bVII–bVI–V (Dm–C–Bb–A) with the C♯
     //   leading-tone bite, octave-stacked "choir" leaps, relentless pounding kit.
     id: 'requiem',
-    mix: MIX.epicdrive,
+    mix: { ...MIX.epicdrive, trimDb: -6.9 },
     name: 'Eclipse Requiem',
     desc: 'Apocalyptic battle-choir — Andalusian epic',
     cost: 800,
@@ -1324,7 +1354,7 @@ export const TRACKS = [
   { // 27 — Uplifting euphoric trance: A-minor i–VI–III–VII (Am–F–C–G), long anthemic
     //   supersaw lead over a rolling off-beat bass. The classic festival lift.
     id: 'hypernova',
-    mix: MIX.trance,
+    mix: { ...MIX.trance, trimDb: -4 },
     name: 'Hypernova',
     desc: 'Uplifting trance — euphoric supersaw',
     cost: 800,
@@ -1370,7 +1400,7 @@ export const TRACKS = [
   { // 28 — Anthem rock: G-major I–V–vi–IV (G–D–Em–C), big singalong hook, driving
     //   power-chord saws, no pad — raw stadium energy.
     id: 'overdrive',
-    mix: MIX.rock,
+    mix: { ...MIX.rock, trimDb: -7 },
     name: 'Overdrive',
     desc: 'Anthem rock — power-chord drive',
     cost: 800,
@@ -1416,7 +1446,7 @@ export const TRACKS = [
   { // 29 — K-pop "Royal Road" (王道進行): IVmaj7–V7–iii7–vi (Fmaj7–G7–Em7–Am),
     //   the emotional-uplifting J/K-pop chorus engine, bright syncopated vocal hook.
     id: 'idol',
-    mix: MIX.idol,
+    mix: { ...MIX.idol, trimDb: -6.2 },
     name: 'Starlight Idol',
     desc: 'K-pop — royal-road emotional hook',
     cost: 800,
@@ -1465,7 +1495,7 @@ export const TRACKS = [
     // canonical epic loop i–♭VI–♭VII–V (Fm–Db–Eb–C) with the harmonic-minor
     // raised-7th leading tone (E natural over the C dominant).
     id: 'findflame',
-    mix: MIX.epicdrive,
+    mix: { ...MIX.epicdrive, trimDb: -8.2 },
     name: 'Find the Flame',
     desc: 'Eikonic battle anthem · con fuoco',
     cost: 1800,
@@ -1515,7 +1545,7 @@ export const TRACKS = [
     // anthem progression under a soaring hook, with cascading broken-chord arps
     // for that classic FF-Prelude shimmer. Auto-plays on the menu (sfx.js).
     id: 'skybound',
-    mix: MIX.anthem,
+    mix: { ...MIX.anthem, trimDb: -3.5 },
     name: 'Skybound',
     desc: 'Soaring title theme',
     cost: 0,
@@ -1569,7 +1599,7 @@ export const TRACKS = [
     //   sub, harp-like triangle arps, soft kit (no EDM pump) and a high counter-
     //   line that answers the melody. The lyrical, orchestral entry in the radio.
     id: 'firstflight',
-    mix: MIX.epic,
+    mix: { ...MIX.epic, trimDb: -6.4 },
     name: 'First Flight',
     desc: 'Cinematic flight anthem — soaring film-score',
     cost: 0,
@@ -1627,7 +1657,7 @@ export const TRACKS = [
     //   fast wing-beat string ostinato + taiko. Engine layers carry the adaptive
     //   intensity (bass/melody/pad always; high ostinato on combo; fever lead on Surge).
     id: 'pyre',
-    mix: MIX.epicdrive,
+    mix: { ...MIX.epicdrive, trimDb: -7.6 },
     name: 'Pyre Ascendant',
     desc: 'Tragic phoenix ascension — sacred fire',
     cost: 0,
@@ -1681,7 +1711,7 @@ export const TRACKS = [
     //   Brassier saws, octave-leap melody, a galloping high ostinato — built for the
     //   combo/Surge layers to roar. 160 BPM.
     id: 'cinder',
-    mix: MIX.epicdrive,
+    mix: { ...MIX.epicdrive, trimDb: -7.4 },
     name: 'Cinder Requiem',
     desc: 'Phoenix battle-ascent — fire answering fire',
     cost: 0,

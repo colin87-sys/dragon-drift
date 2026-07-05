@@ -74,6 +74,24 @@ for (const t of TRACKS) {
   if (t.chords !== null) {
     check(`${pfx} chords length = 8`, t.chords.length === 8);
   }
+
+  // groove grids (optional): 16 sixteenth-step chars of x / g / . per voice
+  if (t.groove?.grid) {
+    for (const [voice, spec] of Object.entries(t.groove.grid)) {
+      check(`${pfx} groove.${voice} is a 16-step x/g/. grid`,
+        typeof spec === 'string' && spec.length === 16 && /^[x.g]+$/.test(spec));
+    }
+    check(`${pfx} groove keeps a pulse (kick or snare)`, !!(t.groove.grid.kick || t.groove.grid.snare));
+    if (t.groove.hatVel) {
+      check(`${pfx} groove.hatVel values in (0,1]`,
+        t.groove.hatVel.every((v) => v > 0 && v <= 1));
+    }
+  }
+
+  // trimDb (baked by tools/loudshots.mjs): sane range
+  if (t.mix?.trimDb != null) {
+    check(`${pfx} trimDb sane (${t.mix.trimDb})`, t.mix.trimDb > -14 && t.mix.trimDb < 6);
+  }
 }
 
 console.log(`\n${pass} passed, ${fail} failed`);
