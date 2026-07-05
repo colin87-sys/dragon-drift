@@ -1054,42 +1054,48 @@ function buildEmberMembraneWings(def, model, attach, giM) {
     side: THREE.DoubleSide, emissive: 0x000000, emissiveIntensity: 0,   // ZERO emissive + very rough + low env → the coal holds WARM black, never drifts navy under cool studio light (gate r4 dir 7); accent lives on the RAY TUBES only (law-9 carrier)
   });
   const sparMat = new THREE.MeshStandardMaterial({ color: cSpar, roughness: 0.6, metalness: 0.04, emissive: 0x1a0d06, emissiveIntensity: 0.2 });
-  // Ray-tube material: near-black coal diffuse + warm EMISSIVE modulated per-vertex
-  // (root dark → tip hot) via a small shader graft, so ONE mesh carries the gradient.
+  // Ray-tube material: the tubes are the FIRE — a per-vertex emissive gradient
+  // (deep-red root → bright-amber tip) baked as vertex colour, emissive base WHITE so
+  // the colour IS the vertex ramp, cranked bright so the leading ray BLOOMS on the
+  // near-dark backdrop (gate flame-r1: the rays must read as glowing fire, not
+  // hairline pinstripes).
   const rayMat = new THREE.MeshStandardMaterial({
     color: 0x140a06, vertexColors: true, roughness: 0.5, metalness: 0.05,
-    emissive: cAccent, emissiveIntensity: rayEmisI,
+    emissive: 0xffffff, emissiveIntensity: 1.5 * (rayEmisI / 1.2),
   });
   rayMat.onBeforeCompile = (shader) => {
     shader.fragmentShader = shader.fragmentShader.replace(
       '#include <emissivemap_fragment>',
-      '#include <emissivemap_fragment>\n\ttotalEmissiveRadiance *= vColor;');   // vColor = per-vertex ember ramp
+      '#include <emissivemap_fragment>\n\ttotalEmissiveRadiance *= vColor;');   // vColor = the baked fire gradient
   };
+  const rayRoot = new THREE.Color(0x9c2d08), rayTip = new THREE.Color(0xffb347);
 
-  // A straight tapering RAY tube from `a` to `b`, base radius r0 → tip r1, with a
-  // per-vertex emissive ramp (rampBase→rampTip along its length) baked as vertex
-  // colour so rayMat's graft glows hotter toward the tip.
-  function rayTube(a, b, r0, r1, rampBase, rampTip) {
+  // A straight tapering RAY tube from `a` to `b`, base radius r0 → tip r1. `bright` is
+  // the per-ray brightness (leading ray 1.0 → trailing dim); the hue ramps deep-red
+  // root → amber tip along the length so each ray reads as a lit fire vein.
+  function rayTube(a, b, r0, r1, brightBase, brightTip, ringsOverride, radialOverride) {
     const dir = new THREE.Vector3().subVectors(b, a);
     const len = dir.length() || 1e-4;
-    const rings = seg(Math.max(3, Math.round(6 * detail)));
-    const radial = seg(6);
+    const rings = ringsOverride ?? seg(Math.max(3, Math.round(6 * detail)));
+    const radial = radialOverride ?? seg(6);
     const verts = [], cols = [], idx = [];
     const up = Math.abs(dir.y) > 0.9 * len ? new THREE.Vector3(1, 0, 0) : new THREE.Vector3(0, 1, 0);
     const t3 = dir.clone().normalize();
     const s3 = new THREE.Vector3().crossVectors(t3, up).normalize();
     const u3 = new THREE.Vector3().crossVectors(s3, t3).normalize();
+    const cc = new THREE.Color();
     for (let s = 0; s <= rings; s++) {
       const t = s / rings;
       const c = new THREE.Vector3().lerpVectors(a, b, t);
       const r = r0 + (r1 - r0) * t;
-      const g = rampBase + (rampTip - rampBase) * (t * t);   // ramp hotter toward the tip
+      const bright = brightBase + (brightTip - brightBase) * (t * t);   // brighter toward the tip
+      cc.copy(rayRoot).lerp(rayTip, Math.pow(t, 0.7)).multiplyScalar(bright);   // deep-red → amber, scaled by per-ray brightness
       for (let k = 0; k < radial; k++) {
         const ang = (k / radial) * Math.PI * 2;
         verts.push(c.x + (s3.x * Math.cos(ang) + u3.x * Math.sin(ang)) * r,
           c.y + (s3.y * Math.cos(ang) + u3.y * Math.sin(ang)) * r,
           c.z + (s3.z * Math.cos(ang) + u3.z * Math.sin(ang)) * r);
-        cols.push(g, g, g);
+        cols.push(cc.r, cc.g, cc.b);
       }
     }
     for (let s = 0; s < rings; s++) for (let k = 0; k < radial; k++) {
@@ -1117,7 +1123,7 @@ function buildEmberMembraneWings(def, model, attach, giM) {
   // — the festoon read for the inboard brachial panel whose trailing edge is the v=1
   // boundary, not the outboard cap (gate r5 dir 2: inner scallops).
   function membranePanel(A, B, gPanel, notchDepth = 0, festoon = true, trailCusps = 0) {
-    const nu = seg(Math.max(4, Math.round(8 * detail))), nv = seg(4);
+    const nu = seg(Math.max(4, Math.round(6 * detail))), nv = seg(4);
     const verts = [], cols = [], idx = [];
     const pa = new THREE.Vector3(), pb = new THREE.Vector3(), p = new THREE.Vector3();
     const chord = A.tip.distanceTo(B.tip) || 1;      // the panel's free-edge width (scallop reference)
@@ -1260,14 +1266,23 @@ function buildEmberMembraneWings(def, model, attach, giM) {
     const elements = [];
     for (let i = 0; i < N; i++) {
       const r = rays[i];
-      const r0 = 0.075 * ws * (0.85 + 0.3 * (1 - i / N));
-      const rimHot = 1.0 - 0.72 * (i / (N - 1));      // ray0 leading = 1.0 → trailing ray ≤0.35 (backlit, not neon outline)
-      const tube = rayTube(r.root, r.tip, r0, r0 * 0.19, 0.18 * rimHot, rimHot);   // tip r ~19% base (law 4 — survives at silhouette distance, gate r4 dir 4)
+      const r0 = 0.11 * ws * (0.85 + 0.3 * (1 - i / N));   // thicker → the glow reads as a BAND, not a pinstripe (gate flame-r1)
+      const rimHot = 1.0 - 0.55 * (i / (N - 1));      // ray0 leading = 1.0 → trailing ray ~0.45 (dimmer but still lit fire)
+      const tube = rayTube(r.root, r.tip, r0, r0 * 0.2, 0.4 * rimHot, rimHot);   // root deep-red visible → amber tip; per-ray brightness
       hand.add(tube);
       const tipObj = new THREE.Object3D();
       tipObj.position.copy(r.tip);
       hand.add(tipObj);
       elements.push({ root: r.root.clone(), len: r.len, tipObj });
+    }
+    // LAVA-CRACK seams on the membrane (gate flame-r1 dir 2): ONE short thin glowing
+    // crack per inner panel near the ray roots, fading outward (law 8). Cheap (3 rings).
+    for (let i = 0; i < N - 2; i++) {
+      const mid = rays[i].root.clone().lerp(rays[i + 1].root, 0.5);
+      const out = rays[i].tip.clone().lerp(rays[i + 1].tip, 0.5).sub(mid).normalize();
+      const end = mid.clone().addScaledVector(out, rays[i].len * 0.3);
+      end.z += 0.12; end.x += 0.06 * side;
+      hand.add(rayTube(mid, end, 0.03 * ws, 0.006 * ws, 0.95, 0.3, 3, 4));   // hot root → fading tip; low-poly
     }
 
     elbow.add(wrist);
@@ -1357,7 +1372,7 @@ function buildForgeCollar(def, model, attach, spineMats) {
     // RADIATE in 3D. The spikes carry a HALF emissive + warm diffuse so real lighting
     // shades each face per angle (gate r4: a fully-emissive corona read as a flat
     // sticker). Total corona ≤0.8× head length.
-    const coalMat2 = new THREE.MeshStandardMaterial({ color: 0x1c0d08, emissive: cHot, emissiveIntensity: 1.2, roughness: 0.5, metalness: 0.05 });
+    const coalMat2 = new THREE.MeshStandardMaterial({ color: 0x1c0d08, emissive: 0xffc23d, emissiveIntensity: 1.8, roughness: 0.5, metalness: 0.05 });   // BLAZING yoke — the single brightest point, blooms on the near-dark backdrop (gate flame-r1 dir 3)
     for (const [cx, cy, cz, cr] of [[0, 0.04, 0.02, 0.15], [-0.14, -0.01, 0.0, 0.115], [0.14, -0.01, 0.0, 0.115]]) {
       const coal = new THREE.Mesh(new THREE.SphereGeometry(cr, seg(10), seg(8)), coalMat2);
       coal.position.set(cx, cy, cz);

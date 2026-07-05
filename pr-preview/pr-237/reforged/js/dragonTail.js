@@ -156,18 +156,23 @@ export function buildCleanTail(def, model, bodyMat, swept = false) {
   // tail must not glow — fire owns the tail bloom, roster law §5). Default = shipped.
   const iron = !!model.tailIron;
   const ironCol = model.tailIronColor ?? 0x2a1a12;   // WARM dark iron (not navy) — ember blacks are warm
+  // A LIT iron tail (iron + spineGlow>0): the matte-warm plates carry a warm emissive
+  // scaled by spineGlow — a glowing flame tail with NO cool metallic sheen (gate flame-r1
+  // dir 5). Un-lit iron (g=0) stays matte dark. Non-iron keeps the shipped accent glow.
+  const ironGlow = iron && g > 0;
+  const ironEmis = model.tailFlameColor ?? 0xff7a26;
   const accentCol = iron ? ironCol
     : (g > 0 ? (def.apexSeam || def.scales) : def.scales);
   const plateMat = new THREE.MeshStandardMaterial({
-    color: accentCol, emissive: iron ? 0x000000 : accentCol,
-    emissiveIntensity: iron ? 0 : (0.3 + g * 1.5) * giM,
-    roughness: iron ? 0.92 : 0.35, metalness: iron ? 0.0 : 0.5, envMapIntensity: iron ? 0.2 : 1,   // very rough + zero metal + low env → holds warm iron, never a steel-blue sheen (gate r4 dir 7)
+    color: accentCol, emissive: iron ? (ironGlow ? ironEmis : 0x000000) : accentCol,
+    emissiveIntensity: iron ? (ironGlow ? (0.5 + g * 1.4) * giM : 0) : (0.3 + g * 1.5) * giM,
+    roughness: iron ? 0.9 : 0.35, metalness: iron ? 0.0 : 0.5, envMapIntensity: iron ? 0.2 : 1,   // very rough + zero metal + low env → holds warm iron, never a steel-blue sheen
   });
-  plateMat.userData.baseEmissive = iron ? 0x000000 : accentCol;
-  plateMat.userData.baseIntensity = iron ? 0 : (0.3 + g * 1.5) * giM;
-  const accentMats = iron ? [] : [plateMat];      // iron tail: nothing for the Surge flare to light
+  plateMat.userData.baseEmissive = ironGlow ? ironEmis : (iron ? 0x000000 : accentCol);
+  plateMat.userData.baseIntensity = iron ? (ironGlow ? (0.5 + g * 1.4) * giM : 0) : (0.3 + g * 1.5) * giM;
+  const accentMats = (iron && !ironGlow) ? [] : [plateMat];      // lit iron/normal: the Surge flare lights the plate
   const membraneMat = iron
-    ? new THREE.MeshStandardMaterial({ color: ironCol, roughness: 0.92, metalness: 0.0, envMapIntensity: 0.2, side: THREE.DoubleSide })
+    ? new THREE.MeshStandardMaterial({ color: ironCol, emissive: ironGlow ? ironEmis : 0x000000, emissiveIntensity: ironGlow ? 0.3 * giM : 0, roughness: 0.9, metalness: 0.0, envMapIntensity: 0.2, side: THREE.DoubleSide })
     : new THREE.MeshStandardMaterial({
         color: def.body, emissive: def.wingOuter || def.body, emissiveIntensity: 0.2,
         roughness: 0.5, metalness: 0.25, side: THREE.DoubleSide,

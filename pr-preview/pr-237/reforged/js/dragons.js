@@ -124,6 +124,7 @@ export const DRAGONS = {
       headArchetype: 'feralPredator',   // heavy brow, small deep-set hot eyes, angular jaw ('horned' is OUT — ignores headScale/snout)
       headScale: 1.0, snoutScale: 0.7, browIntensity: 1.35,
       hotEye: true,                     // small PROUD emissive eye clears the long predator muzzle → reads as the brightest facial point (§4)
+      tailIron: true,                   // matte-warm iron tail that now GLOWS via spineGlow (a lit flame tail, no cool sheen)
       squareShoulders: true,            // beveled BLOCK scapula plates → the anvil shoulder read (not round balls)
       shoulderWidthScale: 1.4,          // ANVIL shoulders (tier-0 key: ≥1.25× azure's hatchling)
       hornType: 'bladeRearHorns', rearGlowIntensity: 0,
@@ -131,7 +132,7 @@ export const DRAGONS = {
       // ember gapped-finger membrane shared dials (per-form span/collar accrete below)
       rayCount: 4, raySweep: 0.62, rayDihedral: 0.26, membraneCamber: 0.34, scallop: 0.28,
       rayScale: 0.82, rayDetail: 1.0, rayEmissiveIntensity: 1.2,
-      membraneBase: 0x4a1a0c,           // WARM dark-red membrane (fire wings) — the glowing rays read as flame through it
+      membraneBase: 0x521e0e,           // WARM dark-red membrane (fire wings) — the glowing rays read as flame through it
       sparColor: 0xc0763c,              // warm ember leading spar (lit)
       flapBias: 0.95, flapAmp: 0.95,    // heavy, powerful beat
     },
@@ -177,8 +178,8 @@ export const DRAGONS = {
         // blade tail + dorsal line) — the iconic-flame read.
         ridgeCount: 12, ridgeStyle: 'scute', ridgeColor: 0xcaa070, ridgeSeat: 0.0, spineGlow: 0.4,
         colors: { body: 0xdd5a1c, belly: 0xf0c888, wingInner: 0x6a2410, wingOuter: 0x3e1406,
-          wingEmissive: 0xff8b2a, scales: 0xd89858, horn: 0xd4a870,
-          apexSeam: 0xff6a1a, eye: 0xff6a1a, coreGlow: 0xff9a3a } },
+          wingEmissive: 0xff8b2a, scales: 0xe8c888, horn: 0xe8d0a0,
+          apexSeam: 0xff7a26, eye: 0xffb84a, coreGlow: 0xff9a3a } },
     ],
     fx: { auraColor: '255,139,42', auraIdle: 0.0, sparkle: false },
     // ICONIC FLAME hide — a bold warm-orange body (was near-black coal), light cream belly.
