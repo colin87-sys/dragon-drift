@@ -54,6 +54,7 @@ export function buildTwinWraith(def, quality = 1) {
   const strip = stripForMerge;
   const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
   const easeK = (k) => (k < 0.5 ? 2 * k * k : 1 - Math.pow(-2 * k + 2, 2) / 2);   // easeInOut for entrance beats
+  const easeBack = (k) => { const c = 1.70158, p = k - 1; return 1 + (c + 1) * p * p * p + c * p * p; };   // easeOutBack: pops past 1 then settles (the materialise "snap into being")
 
   // Shield wraps whichever body holds the eye — but the kit bubble is centred on
   // the rig origin (the shared ember the twins orbit); the eye-holder is pulled to
@@ -677,24 +678,24 @@ export function buildTwinWraith(def, quality = 1) {
     let posA = [cx + ax, cy + ay, ZSEP], posB = [cx + bx, cy + by, -ZSEP];
     let survivorIsA = holdT < 0.5;
     let fallenShrink = 0;
+    let entMatA = 1, entMatB = 1;   // §5j materialise scale (1 = fully present outside the entrance)
     if (entranceU != null) {
-      // THE BATON CROSS (§5j) — REAR-CAM SEQUENTIAL REVEAL. Beat 1: twinA rises from
-      // behind-below on the RIGHT (+9), eye ON it (the dragon cranks its head right). Beat 2:
-      // the EYE crosses to twinB as it rises on the LEFT (−9), the dragon's head + camera pan
-      // left to follow it. Beat 3: both SCISSOR forward to the figure-eight's th=0 seat
-      // (x→0, y→0, depth→±ZSEP) as the camera eases home and the fight opens (moving is frozen
-      // above, so the orbit resumes cleanly from th=0). Group space; the group itself rides
-      // behind the dragon (rel<0) through the reveals, per the script's path().
+      // THE BATON CROSS (§5j) — REAR-CAM SEQUENTIAL MATERIALISE. Both twins start INVISIBLE
+      // (scale 0). Beat 1: twinA MATERIALISES on the RIGHT (+9), eye ON it — the rear camera
+      // focuses on it as it forms. Beat 2: twinB MATERIALISES on the LEFT (−9), the EYE crosses
+      // to it and the dragon's head turns to follow it. Beat 3: both SCISSOR forward to the
+      // figure-eight's th=0 seat (x→0, y→0, depth→±ZSEP) as the camera eases home and the fight
+      // opens (moving is frozen above, so the orbit resumes cleanly from th=0). Group space; the
+      // group rides behind the dragon (rel<0) through the reveals, per the script's path().
       const u = entranceU;
-      const apA = easeK(clamp(u / 0.30, 0, 1));                 // twinA rises 0→1 over beat 1
-      const apB = easeK(clamp((u - 0.34) / 0.30, 0, 1));       // twinB rises 0→1 over beat 2
+      entMatA = clamp(easeBack(clamp(u / 0.30, 0, 1)), 0, 1.12);        // twinA scales 0→1 (pop) over beat 1
+      entMatB = clamp(easeBack(clamp((u - 0.34) / 0.30, 0, 1)), 0, 1.12); // twinB scales 0→1 over beat 2
       const scissor = easeK(clamp((u - 0.66) / 0.34, 0, 1));   // both sweep to the th=0 seat over beat 3
       const axL = 9 * (1 - scissor);                            // twinA local x: RIGHT (+9) → centre
       const bxL = -9 * (1 - scissor);                           // twinB local x: LEFT (−9) → centre
-      const ayA = (-4 + (1.6 - -4) * apA) * (1 - scissor);     // rise from below-frame to a display height, then settle to 0
-      const ayB = (-4 + (1.6 - -4) * apB) * (1 - scissor);
-      posA = [axL, ayA, ZSEP * scissor]; posB = [bxL, ayB, -ZSEP * scissor];   // gain the ±ZSEP depth only as they scissor to centre (no overlap)
-      // The eye is on A through beat 1, crosses to B as B rises (beat 2, 0.34→0.62) — the
+      const dispY = 1.2 * (1 - scissor);                        // materialise at a display height, settle to 0 as they scissor
+      posA = [axL, dispY, ZSEP * scissor]; posB = [bxL, dispY, -ZSEP * scissor];   // gain the ±ZSEP depth only as they scissor to centre (no overlap)
+      // The eye is on A through beat 1, crosses to B as B materialises (beat 2, 0.34→0.62) — the
       // dragon's head tracks the LIT twin, so it always looks at the eye. Pinned (no lag/random)
       // so the beaded thread reads as one taut line. Rim IGNITION rides holdT (aHolds, below).
       holdTarget = holdT = easeK(clamp((u - 0.34) / 0.28, 0, 1));
@@ -725,9 +726,10 @@ export function buildTwinWraith(def, quality = 1) {
     twinA.twin.position.set(posA[0], posA[1], posA[2]);
     twinB.twin.position.set(posB[0], posB[1], posB[2]);
     // The FALLEN half shrinks away as it dissolves (the pair breaking); the survivor
-    // stays full size and flees intact (§4b, CP1 r3 directive 1).
-    twinA.twin.scale.setScalar(survivorIsA ? 1 : Math.max(0.001, 1 - fallenShrink));
-    twinB.twin.scale.setScalar(survivorIsA ? Math.max(0.001, 1 - fallenShrink) : 1);
+    // stays full size and flees intact (§4b, CP1 r3 directive 1). During the §5j entrance the
+    // twins MATERIALISE from nothing (entMat 0→1, each on its own beat) — that scale wins.
+    twinA.twin.scale.setScalar(Math.max(0.001, entranceU != null ? entMatA : (survivorIsA ? 1 : 1 - fallenShrink)));
+    twinB.twin.scale.setScalar(Math.max(0.001, entranceU != null ? entMatB : (survivorIsA ? 1 - fallenShrink : 1)));
 
     // Orient each dart to FACE THE SHARED EMBER (nose → centre): the two darts read
     // broadside (their length across the frame, the dominant mass) with the ember
@@ -754,6 +756,11 @@ export function buildTwinWraith(def, quality = 1) {
     // Seat the eye on the thread between the two sockets at the hold fraction.
     socketWorldLocal(twinA.twin, _sa);
     socketWorldLocal(twinB.twin, _sb);
+    // §5j MATERIALISE: twinB's socket sits at its full ±9 position even at scale 0, so the
+    // thread/beads/eye would stretch to the still-INVISIBLE twin. Pin twinB's thread-end AT
+    // twinA until it materialises (entMatB 0→1) — the thread is a zero-length point on twinA
+    // through beat 1 (eye rests on A), then GROWS across to twinB as it forms in beat 2.
+    if (entranceU != null) _sb.lerp(_sa, 1 - Math.min(1, Math.max(0, entMatB)));
     // FLEE: the thread SNAPS — its far end collapses to a short dangling arc off the
     // survivor's own socket (not spanning to the vanished fallen half across the
     // frame), so the §7c auto-fit frames the LONE survivor + its hollow socket at
