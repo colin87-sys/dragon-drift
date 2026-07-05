@@ -974,7 +974,10 @@ export function buildTwinWraith(def, quality = 1) {
     // pivots on the ribbon toward the gaze target as it rides from twinA to twinB, so it stays
     // dragon-facing and readable across the cross. The script feeds a strong dragon-tracking gaze;
     // here the eyeRig tilts with it. Outside the entrance the eye keeps its shipped forward set.
-    if (entranceU != null) eyeRig.rotation.set(-gazeY * 0.9 - 0.12, gazeX * 1.1, 0);
+    // A GENTLE turn toward the dragon — the pupil (offset above) carries the tracking; the eyeRig
+    // only leans so the eye reads as facing the dragon. Kept small (≤~16° yaw) so the pupil/glint
+    // NEVER rotate behind the body or away from camera — the eye is the focal, it must always read.
+    if (entranceU != null) eyeRig.rotation.set(-gazeY * 0.38 - 0.06, gazeX * 0.28, 0);
     else eyeRig.rotation.set(0, 0, 0);
 
     // --- The twins' fins/ribbons pose by charge (EXPRESSION, §4b): open-glide idle,
