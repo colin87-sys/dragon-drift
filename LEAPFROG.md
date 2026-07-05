@@ -5675,3 +5675,29 @@ ceiling being reached. Added both: `deploy-pages.yml` now `du -sb _site` and fai
 (instead of the opaque syncing_files), and a scheduled `prune-previews.yml` sweeps `pr-preview/pr-<N>` whose PR is no
 longer OPEN (weekly + on-demand, shares the `gh-pages` concurrency group). Keep-open / prune-everything-else is the
 safe rule: open PRs re-publish their own preview on the next push anyway.
+
+### L150 — The entrance→fight handoff jank: two absolute-time motions that start mid-phase, not from zero
+
+**Did / learned.** After the in-fight stop-motion was fixed (L-flinch), the owner still saw a jerk at the
+entrance→fight HANDOFF specifically. Combed the seam and found TWO discontinuities, both the same shape as the flinch
+bug: a motion driven by ABSOLUTE `time` is applied at full strength on the first fight frame, so it snaps from the
+entrance's settled zero to some arbitrary phase value. (1) **Group wobble** (`placeGroup`, roster-wide): a scripted
+entrance holds the group square via `cineYaw≈0` → `group.rotation=(0,0,0)`; the instant `enterFight` nulls cineYaw, the
+idle `sin(time)` yaw/roll wobble applies at full amplitude — up to ~7°/5° of tilt on the whole group in ONE frame,
+random magnitude by start time. (2) **Twin centre-drift** (EITHERWING): the Baton Cross scissor lands the pair at
+exactly `[0,0,±ZSEP]`, but the fight orbit's th=0 seat is `[cx,cy,±ZSEP]` where `cx,cy = sin(time)·0.6/0.4` — so the
+just-converged twins pop sideways by up to ~(0.6,0.4) rig units on frame 1. The group x/y smoother (`poseSmooth`) did
+NOT cover either: it smooths the GROUP position, not group ROTATION or per-twin LOCAL positions.
+
+**The fix (reuse the clock that's already easing).** (2) multiply `cx,cy` by the existing intro-`spread` (0 on the
+first fight frame → 1 over ~1.6s): the pair leaves the exact scissor seat and eases the drift in — reaches full drift
+after the spread, so steady-state is unchanged. (1) a `fightWobbleT` seeded to 0 in `enterFight` ONLY when releasing a
+cinematic entrance (cineYaw was live), easing the wobble amplitude 0→1 over ~0.6s; a huge default keeps plain
+'approach' bosses at full wobble immediately (their wobble already ran during the approach — no dip). Both fixes are
+continuous BY CONSTRUCTION: frame-1 value == entrance-end value.
+
+**The pattern (now three times over).** Any absolute-`time` motion — a flinch, a wobble, a drift — that turns ON at a
+phase boundary must ease from 0 or it snaps by a random amount. Seed it from the boundary state, or gate its amplitude
+on a clock that starts at the boundary (spread, a settle timer). The regression net is placed right: the entrance
+golden pins the SCRIPT math (path/yaw/gaze) only, so fight-handoff smoothing is free to change and stays green — but the
+smoothness itself is a MOTION claim the owner judges on the preview, not something the headless suite can see.

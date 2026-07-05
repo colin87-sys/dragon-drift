@@ -677,8 +677,14 @@ export function buildTwinWraith(def, quality = 1) {
     // --- The figure-eight orbit (drifting centre). Frozen under a shield/death. ---
     const moving = !shieldClamp && dyingK <= 0 && entranceU == null;   // freeze the orbit clock during the Baton Cross so the fight starts cleanly from th=0
     if (moving) orbitPhase += dt * (0.55 + charge * 0.25 + setpieceK * 0.3);
-    const cx = Math.sin(time * 0.19) * 0.6;            // the slow centre drift
-    const cy = Math.sin(time * 0.13) * 0.4;
+    // The slow centre drift, EASED IN with the intro spread. The drift is a function of
+    // ABSOLUTE time, so at full strength on the first fight frame it snaps the just-converged
+    // twins sideways by up to ~(0.6,0.4) — the janky entrance→fight handoff (the scissor lands
+    // them at exactly [0,0,±ZSEP], but the orbit's th=0 seat is [cx,cy,±ZSEP]). Multiplying by
+    // `spread` (0 on the first fight frame → 1 over ~1.6s) leaves them from the scissor seat and
+    // eases the drift in. Reaches full drift after the spread completes, so nothing else changes.
+    const cx = Math.sin(time * 0.19) * 0.6 * spread;   // the slow centre drift (eased in from the scissor seat)
+    const cy = Math.sin(time * 0.13) * 0.4 * spread;
     // Lemniscate: twin A on one lobe, twin B 180° out of phase (they swap sides).
     // A CONSTANT DEPTH offset (±ZSEP) keeps them apart at the figure-eight node —
     // where both lobes cross — so the twins never collide and the eye-thread length
