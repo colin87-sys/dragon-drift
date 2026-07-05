@@ -1045,10 +1045,9 @@ function buildEmberMembraneWings(def, model, attach, giM) {
   const cSpar    = model.sparColor ?? 0x5a4038;        // warm ash-scute leading spar (top diffuse tier)
 
   const memMat = new THREE.MeshStandardMaterial({
-    color: cMemBase, vertexColors: true, roughness: 0.72, metalness: 0.02,
-    side: THREE.DoubleSide, emissive: 0x0a0402, emissiveIntensity: 0.12,   // faint coal underglow so the dark panel never crushes to pure black
+    color: cMemBase, vertexColors: true, roughness: 0.78, metalness: 0.0,
+    side: THREE.DoubleSide, emissive: 0x000000, emissiveIntensity: 0,   // ZERO emissive — the accent lives on the RAY TUBES only (law-9 carrier); the panel is pure coal, sun-shaded
   });
-  applyFresnelRim(memMat, cAccent);                    // warm backlit rim reads the dark membrane against the sky
   const sparMat = new THREE.MeshStandardMaterial({ color: cSpar, roughness: 0.6, metalness: 0.04, emissive: 0x1a0d06, emissiveIntensity: 0.2 });
   // Ray-tube material: near-black coal diffuse + warm EMISSIVE modulated per-vertex
   // (root dark → tip hot) via a small shader graft, so ONE mesh carries the gradient.
@@ -1101,28 +1100,37 @@ function buildEmberMembraneWings(def, model, attach, giM) {
   }
 
   // A cambered, scalloped MEMBRANE panel webbed between two ray centrelines A,B
-  // (each {root,tip}). uEnd<1 leaves the OUTER (1-uEnd) span open → a true V-gap.
-  // gPanel is the panel's value tier (leading panel brightest → root panel darkest);
-  // within the panel the root darkens (×0.78→×1.0 tip) — grayscale, hue held (law 9).
-  function membranePanel(A, B, uEnd, gPanel) {
+  // (each {root,tip}). The panel fills the FULL quad (root→tip) so it reads as a
+  // broad chord, not bare spokes; only the free TRAILING edge (u→1) scoops inward by
+  // a shallow festoon (scallop × the panel's own CHORD, §3 0.22–0.30 — NOT × span).
+  // notch>0 cuts a deeper V into the outer trailing edge (a true V-gap at the tip).
+  // gPanel is the panel's value tier (leading panel brightest → root panel darkest).
+  function membranePanel(A, B, gPanel, notch = 0) {
     const nu = seg(Math.max(3, Math.round(6 * detail))), nv = seg(3);
     const verts = [], cols = [], idx = [];
     const pa = new THREE.Vector3(), pb = new THREE.Vector3(), p = new THREE.Vector3();
-    const outward = new THREE.Vector3().subVectors(B.tip, A.root).normalize();  // festoon pull-in axis
+    const chord = A.tip.distanceTo(B.tip) || 1;      // the panel's free-edge width (scallop reference)
+    // pull-in axis = the mean ray direction (root→tip), so the festoon scoops the
+    // trailing edge back toward the root rather than sideways off the wing.
+    const spanDir = new THREE.Vector3().subVectors(A.tip, A.root)
+      .add(new THREE.Vector3().subVectors(B.tip, B.root)).normalize();
     for (let i = 0; i <= nu; i++) {
-      const u = (i / nu) * uEnd;
+      const u = i / nu;
       pa.lerpVectors(A.root, A.tip, u);
       pb.lerpVectors(B.root, B.tip, u);
       for (let j = 0; j <= nv; j++) {
         const v = j / nv;
         p.lerpVectors(pa, pb, v);
-        // camber billow (+Y), fullest mid-panel; free trailing edge (u→1) scallops IN.
+        // camber billow (+Y), fullest mid-panel.
         const bill = camber * Math.sin(v * Math.PI) * Math.sin(u * Math.PI) * chordK;
-        const fest = (u > 0.55 ? (u - 0.55) / 0.45 : 0) * scallop * reach * Math.sin(v * Math.PI);
         p.y += bill;
-        p.addScaledVector(outward, -fest);            // festoon: pull the trailing edge inboard
+        // festoon: only the outer 30% near the free edge scoops in, ≤ scallop×chord;
+        // the notch (outer panel) deepens it toward the trailing-tip corner → a V-gap.
+        const edge = u > 0.7 ? (u - 0.7) / 0.3 : 0;
+        const scoop = edge * scallop * chord * Math.sin(v * Math.PI) * (1 + notch * 2.4 * v);
+        p.addScaledVector(spanDir, -scoop);
         verts.push(p.x, p.y, p.z);
-        const g = gPanel * (0.78 + 0.22 * u);          // grayscale value tier (root darker)
+        const g = gPanel * (0.8 + 0.2 * u);            // grayscale value tier (root darker)
         cols.push(g, g, g);
       }
     }
@@ -1181,7 +1189,7 @@ function buildEmberMembraneWings(def, model, attach, giM) {
     {
       const A = { root: new THREE.Vector3(0.02 * side, 0.02, -0.05), tip: new THREE.Vector3(wristX * side, wristY, wristZ - 0.06) };
       const B = { root: new THREE.Vector3(0.02 * side, -0.02, 0.12), tip: new THREE.Vector3(wristX * side, wristY - 0.02, wristZ + 0.16) };
-      const pro = membranePanel(A, B, 1.0, 1.05);      // leading fillet = brightest tier
+      const pro = membranePanel(A, B, 1.05);           // leading fillet = brightest tier
       shoulder.add(pro);
     }
 
@@ -1193,26 +1201,21 @@ function buildEmberMembraneWings(def, model, attach, giM) {
       rr.root.x *= side; rr.tip.x *= side;
       rays.push({ ...r, root: rr.root, tip: rr.tip });
     }
-    // membrane panels between adjacent rays (leading→trailing). The OUTERMOST panel
-    // (between the outer two rays) webs only the inner 58% → a true V-gap ≥0.15× span.
+    // membrane panels between adjacent rays (leading→trailing), each a BROAD full-chord
+    // sheet with a shallow festooned trailing edge. The OUTERMOST panel gets a deep
+    // notch → a true V-gap ≥0.15× span between the outer two rays (§3 col 2).
     for (let i = 0; i < N - 1; i++) {
-      const outer = i >= N - 2;
-      const uEnd = outer ? 0.58 : 1.0;           // outermost panel webs only 58% → true V-gap
+      const notch = i >= N - 2 ? 1 : 0;              // outermost panel cut into a V
       const gPanel = [1.0, 0.86, 0.74][i] ?? 0.74;   // leading panel brightest → outer darkest (value tier)
-      wrist.add(membranePanel(rays[i], rays[i + 1], uEnd, gPanel));
+      wrist.add(membranePanel(rays[i], rays[i + 1], gPanel, notch));
     }
     // ray tubes ON TOP of the panels (drawn after, sit just above the skin), warm-emissive.
     const elements = [];
     for (let i = 0; i < N; i++) {
       const r = rays[i];
       const r0 = 0.075 * ws * (0.85 + 0.3 * (1 - i / N));
-      const tube = rayTube(r.root, r.tip, r0, r0 * 0.15, 0.28, 1.0);   // tip radius ~15% of base; ramp dark→hot
+      const tube = rayTube(r.root, r.tip, r0, r0 * 0.15, 0.22, 1.0);   // tip radius ~15% of base; ramp dark→hot (no tip bead — it read as a floating ball)
       wrist.add(tube);
-      // a hot ember bead at each ray tip (the brightest wing point, still ≤1.2)
-      const bead = new THREE.Mesh(new THREE.SphereGeometry(r0 * 0.9, seg(6), seg(5)),
-        new THREE.MeshStandardMaterial({ color: 0x2a1208, emissive: cAccent, emissiveIntensity: rayEmisI }));
-      bead.position.copy(r.tip);
-      wrist.add(bead);
       const tipObj = new THREE.Object3D();
       tipObj.position.copy(r.tip);
       wrist.add(tipObj);
@@ -1306,16 +1309,20 @@ function buildForgeCollar(def, model, attach, spineMats) {
     const core = new THREE.Mesh(new THREE.SphereGeometry(0.17, seg(10), seg(8)), yokeMat);
     core.scale.set(1.5, 0.9, 1.2);
     group.add(core);
-    // 6 corona spikes fanning up-and-back over the yoke, swell-then-taper (law 5)
+    // 6 corona spikes RADIATING off the yoke in 3D (each oriented along its own
+    // outward direction so the crown reads dimensional from rear chase, not a flat
+    // decal), swell-then-taper length (law 5), tapered cones (law 4).
     const spikeMat = new THREE.MeshStandardMaterial({ color: 0x5a1e08, emissive: cHot, emissiveIntensity: 1.2, roughness: 0.55 });
     const M = 6;
+    const yUp = new THREE.Vector3(0, 1, 0), dir = new THREE.Vector3();
     for (let i = 0; i < M; i++) {
-      const t = i / (M - 1), a = (t - 0.5) * Math.PI * 1.05;
-      const scaleI = 0.9 + 0.25 * Math.sin(t * Math.PI);   // swell mid-fan
-      const spike = new THREE.Mesh(new THREE.ConeGeometry(0.05, 0.5 * scaleI, seg(6)), spikeMat);
-      spike.position.set(Math.sin(a) * 0.26, 0.14 + Math.cos(a) * 0.1, -0.05 - Math.abs(Math.sin(a)) * 0.04);
-      spike.rotation.z = -Math.sin(a) * 0.9;
-      spike.rotation.x = -0.5;
+      const t = i / (M - 1);
+      const az = (t - 0.5) * Math.PI * 1.12;             // fan across the top, −100°..+100°
+      const len = 0.62 * (0.72 + 0.42 * Math.sin(t * Math.PI));   // swell mid-fan → taper to the outers
+      const spike = new THREE.Mesh(new THREE.ConeGeometry(0.058, len, seg(6)), spikeMat);
+      dir.set(Math.sin(az), Math.cos(az) * 0.85 + 0.28, -0.34).normalize();   // up-and-out, leaning back over the yoke
+      spike.quaternion.setFromUnitVectors(yUp, dir);
+      spike.position.copy(dir).multiplyScalar(0.12 + len * 0.5).add(new THREE.Vector3(0, 0.08, -0.02));
       group.add(spike);
     }
     spineMats.push(yokeMat, spikeMat);

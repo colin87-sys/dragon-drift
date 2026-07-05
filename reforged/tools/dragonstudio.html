@@ -57,11 +57,14 @@
       nape:  { dir: [0.12, 0.82, 0.56], up: [0, 1, 0] },
     };
     // state → (wing pose, angle set, target part). 'face' poses a natural glide + frames the head.
+    // fill = fraction of frame the subject box fills (lower = more margin). The bank
+    // raises a wide wing and the face box is tall — both need extra headroom so the
+    // subject is not cropped at the frame edge (gate framing note).
     const STATE = {
-      glide: { pose: 'glide', angles: BODY_ANGLES, target: 'model' },
-      fold:  { pose: 'fold',  angles: BODY_ANGLES, target: 'model' },
-      bank:  { pose: 'bank',  angles: BODY_ANGLES, target: 'model' },
-      face:  { pose: 'glide', angles: FACE_ANGLES, target: 'head' },
+      glide: { pose: 'glide', angles: BODY_ANGLES, target: 'model', fill: 0.86 },
+      fold:  { pose: 'fold',  angles: BODY_ANGLES, target: 'model', fill: 0.84 },
+      bank:  { pose: 'bank',  angles: BODY_ANGLES, target: 'model', fill: 0.70 },
+      face:  { pose: 'glide', angles: FACE_ANGLES, target: 'head',  fill: 0.64 },
     };
 
     const WING_ROOTS = ['wingYokeL','wingYokeR','wingRigL','wingRigR','wingPivotL','wingPivotR','wingPivot2L','wingPivot2R'];
@@ -142,7 +145,7 @@
       b.group.updateMatrixWorld(true);
       setBg(o.bg);
       const a = st.angles[o.angle] || Object.values(st.angles)[0];
-      fit(a.dir, a.up, targetBox(st.target), o.fill ?? 0.9, 1);
+      fit(a.dir, a.up, targetBox(st.target), o.fill ?? st.fill ?? 0.9, 1);
       render();
       return true;
     };
@@ -150,7 +153,7 @@
     window.dsAngle = (o) => {
       const st = STATE[o.state] || STATE.glide;
       const a = st.angles[o.angle] || Object.values(st.angles)[0];
-      fit(a.dir, a.up, targetBox(st.target), o.fill ?? 0.9, 1);
+      fit(a.dir, a.up, targetBox(st.target), o.fill ?? st.fill ?? 0.9, 1);
       render();
       return true;
     };

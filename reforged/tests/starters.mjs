@@ -65,7 +65,7 @@ const SPECS = {
     // what the §8 gate measures), reconciled from the sheet's 1.4–1.7 / 2.0–2.3 / 2.5–2.9
     // body-LENGTH ratios (same reconciliation azure documented — the visual body under-
     // reads the spine-z, so the ratio bands are retuned to the built geometry).
-    spanBody: [[0.55, 1.0], [0.9, 1.6], [1.25, 2.3]],
+    spanBody: [[0.65, 1.1], [1.1, 1.7], [1.7, 2.6]],
     accentHue: 27,                              // lava ~27°
     carrier: 'emissive',                        // ember: warm ONLY as emissive; NO warm accent diffuse on the membrane
   },
