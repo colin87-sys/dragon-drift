@@ -570,8 +570,9 @@ for (const key of BOSS_ORDER) {
   assert(glowNow[rightPane] > Math.min(...glowNow) + 0.3,
     `hollowgate pupil pane ${rightPane} is the brightest wedge (ei ${glowNow[rightPane].toFixed(2)})`);
 
-  // §5j VIGIL LIGHTS ignition: setEntrance ignites the panes progressively —
-  // dark at u≈0, most of the ring lit by u≈0.85.
+  // §5j UPROOT ignition: setEntrance is the rise clock — the rose window ignites
+  // progressively as the arch clears the water (dark at u≈0/dormant, most of the
+  // ring lit by u≈0.85 / risen).
   hg.setEntrance(0.02);
   for (let i = 0; i < 30; i++) hg.tick(0.016, 20 + i * 0.016);
   const litEarly = hg.paneIntensities().filter((v) => v > 0.2).length;
@@ -579,7 +580,7 @@ for (const key of BOSS_ORDER) {
   for (let i = 0; i < 90; i++) hg.tick(0.016, 21 + i * 0.016);
   const litLate = hg.paneIntensities().filter((v) => v > 0.2).length;
   assert(litEarly <= 1 && litLate >= 5,
-    `hollowgate ignition: ${litEarly} pane(s) lit at u=0.02 → ${litLate} lit at u=0.85 (one per beat)`);
+    `hollowgate uproot ignition: ${litEarly} pane(s) lit at u=0.02 (dormant) → ${litLate} lit at u=0.85 (risen)`);
   hg.setEntrance(null);
 
   // §5f DESTRUCTIBLE PANES (the CAVE-law hero): crackPane deletes the pane from
@@ -816,11 +817,16 @@ function driveKill(idx) {
   game.state = 'playing';
   game.health = 1e9;          // immortal player → we are testing the boss economy
   const player = makePlayer();
+  input.surgeTap = false;   // no stale tap leaking from a prior boss into the uproot loom's tap-to-skip
   boss.forceBoss(player, idx);
   const kills0 = killsSeen, surges0 = surgesSeen;
   cardsResolved.length = 0;
   let t = 0, sawFight = false, sawShield = false, sawNarrow = false;
   let sawSetpiece = false, setpieceMaxX = 0, setpieceMaxY = 0, setpieceMinRel = 99, chargedDuringSetpiece = false;
+  // §5j UPROOT entrance: the boss holds a FIXED world spot during 'loom' (rel
+  // closes only as player.dist grows; pose stays low/sunk), then RISES in 'uproot'.
+  let sawLoom = false, sawUproot = false, loomRelFirst = null, loomRelLast = null;
+  let loomYMax = 0, uprootYMin = 99, uprootYMax = -99;
   for (let i = 0; i < 60 * 200 && !(killsSeen > kills0 && !game.inBoss); i++) {
     const dt = 1 / 60;
     t += dt;
@@ -842,10 +848,18 @@ function driveKill(idx) {
       setpieceMinRel = Math.min(setpieceMinRel, st.poseRel);
       if (st.charging) chargedDuringSetpiece = true;
     }
+    if (st.phase === 'loom') {
+      sawLoom = true;
+      if (loomRelFirst == null) loomRelFirst = st.poseRel;
+      loomRelLast = st.poseRel;
+      loomYMax = Math.max(loomYMax, st.poseY);
+    }
+    if (st.phase === 'uproot') { sawUproot = true; uprootYMin = Math.min(uprootYMin, st.poseY); uprootYMax = Math.max(uprootYMax, st.poseY); }
     if (game.bossArenaHW != null) sawNarrow = true;
     boss.updateBoss(dt, player, t);
   }
   return { t, sawFight, sawShield, sawNarrow,
+    sawLoom, sawUproot, loomRelFirst, loomRelLast, loomYMax, uprootYMin, uprootYMax,
     sawSetpiece, setpieceMaxX, setpieceMaxY, setpieceMinRel, chargedDuringSetpiece,
     killed: killsSeen > kills0, surges: surgesSeen - surges0,
     cardsResolved: [...cardsResolved] };
@@ -855,6 +869,18 @@ for (let idx = 0; idx < BOSS_ORDER.length; idx++) {
   const key = BOSS_ORDER[idx];
   const r = driveKill(idx);
   assert(r.sawFight, `${key}: controller passed warn → approach → fight`);
+  // §5j UPROOT entrance (def-gated): the boss LOOMS at a fixed world spot (rel
+  // closes as you fly — dist-driven, pose held low/sunk) then RISES on arrival.
+  // Coexist: a def without uprootEntrance never enters loom/uproot.
+  if (BOSSES[key].uprootEntrance) {
+    assert(r.sawLoom && r.sawUproot, `${key}: entrance passed warn → loom → uproot → fight`);
+    assert(r.loomRelLast < r.loomRelFirst - 20, `${key}: the loom is dist-driven (rel closed ${r.loomRelFirst?.toFixed(0)}→${r.loomRelLast?.toFixed(0)} as the rail advanced)`);
+    assert(r.loomYMax <= (BOSSES[key].sunkY ?? 2) + 0.5, `${key}: it holds the sunk pose through the loom (max y ${r.loomYMax.toFixed(1)})`);
+    assert(r.uprootYMax >= CONFIG.BOSS.fightHeight - 0.5 && r.uprootYMax - r.uprootYMin > 6,
+      `${key}: the uproot RISES out of the water (pose.y ${r.uprootYMin.toFixed(1)}→${r.uprootYMax.toFixed(1)})`);
+  } else {
+    assert(!r.sawLoom && !r.sawUproot, `${key}: no uproot entrance → never enters loom/uproot (coexist)`);
+  }
   assert(r.sawShield, `${key}: raised a shield at a phase floor (only Surge bursts it)`);
   assert(r.surges >= 3, `${key}: ~3 Surge unleashes to burst the shields and kill (got ${r.surges})`);
   assert(r.killed, `${key}: shield-gated boss dies after the phases are burst`);

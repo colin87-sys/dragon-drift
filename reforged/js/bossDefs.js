@@ -463,11 +463,16 @@ export const BOSSES = {
     approachFrom: 'ahead',    // the only boss that NEVER comes to you (§5j Vigil Lights): it holds
                               // the horizon dead ahead and the RAIL closes the distance
     horizonSeed: true,        // §5e first horizon-presence boss: a fog-exempt dead-black silhouette
-                              // parks at the encounter's fixed spot a full biome early (Majora's-moon
-                              // pattern); the real boss takes over the same spot at warn
-    entrance: 'vigilLights',  // §5j VIGIL LIGHTS (0s camera hijack — BANKED): the dead arch eases to
-                              // station while the panes ignite one per beat, pooling toward your steer
-                              // in DISCRETE wedge-steps (continuous tracking is slot 14's claim)
+                              // parks (DROWNED, low on the sea line) at the encounter's fixed spot a
+                              // full biome early (Majora's-moon pattern); the real boss takes over the
+                              // same spot at warn — no blink, the horizon is continuous
+    uprootEntrance: true,     // §5j THE DROWNED DOOR (0s hijack): no cinematic — the warn banner clears
+                              // and normal play continues while the rail closes on the arch (it holds a
+                              // FIXED world spot, dormant + half-sunk). On arrival it RISES OUT OF THE
+                              // WATER (pose.y sunk→fightHeight + the pane-ignition ramp + water spray)
+                              // with a ~0.5s slow-mo hold at the snap. Distinct from slot 8 BRINEHOLM
+                              // (a LIVING reef that inhales on the FLANK, no ignition) — monument vs beast.
+    sunkY: 2,                 // §5j: the dormant/half-sunk pose y (ring above the sea, pillars drowned)
     scale: 1.9,               // CALAMITY presence: arch ~21 world units wide, gap ~9.9 (fly-through law)
     // VALUE-INVERSION sanction (§5b slot 6 / §7b): near-white ivory stone is the
     // registry's claimed identity axis (ivory·stained-glass, VALUE-INVERTED), so

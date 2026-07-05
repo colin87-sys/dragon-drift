@@ -5822,3 +5822,39 @@ now accepts `minRel < 4`. Same class as L141: depth is the axis everyone forgets
 `horizonSeed`) or neutral-at-rung-0 (adrenaline), so the five shipped lifecycle sims stayed green untouched.
 And the integration gate paid for itself again — two real code warts (dead routing, lying banner) that the
 builder's own green suites could never see, because both were CLAIM failures, not behavior failures.
+
+### L155 — HOLLOWGATE entrance rework: a dist-driven LOOM beats a script-timer, and reuse the horizon seed as the boss
+
+**Did.** Owner played the shipped fight and asked for a different entrance: no cinematic spawn — the boss is
+already ahead (the fog-exempt horizon seed), the warn banner CLEARS, normal play continues, and when you reach
+it it UPROOTS (rises out of the water, rose window igniting) with a ~0.5s slow-mo hold. Reworked *Vigil Lights*
+(a script-clock flythrough that eased rel 150→station while panes ignited) into *The Drowned Door*: two new
+def-gated controller phases — **'loom'** (pose.rel = fixedZ − player.dist, so it closes only as you FLY, held
+dormant + half-sunk) and **'uproot'** (pose.y sunk→fightHeight + the model's existing `setEntrance` ignition
+ramp + water-spray bursts + the hold). Dropped the `vigilLights` ENTRANCE_SCRIPTS entry entirely.
+
+**Learned.** (1) **A "you reach it" entrance must be DISTANCE-driven, not clock-driven.** The old flythrough
+closed the gap on its own `dur` timer regardless of the player — which is why it read as a cutscene ("materialise
++ fly in"). Pinning the group to a FIXED world spot and deriving `rel = fixedZ − player.dist` makes the rail do
+the work; the boss genuinely holds station and you fly up to it. (2) **The foreshadow seed IS the boss.** The
+horizon-presence seed (L148-era) and the real boss already shared the same world spot for a seamless handoff —
+so the rework was mostly making the boss VISIBLE during 'warn' in a dormant pose (override the `group.visible =
+phase!=='warn'` hide) and lowering both the seed and the spawn pose to the sea line (`sunkY`). Nothing ever
+blinks out; the thing on the horizon is the thing you fight. (3) **`setEntrance(u)` is a reusable BUILD clock,
+not a Vigil-Lights-specific hook.** The same 0→1 ramp that lit panes "during a cinematic approach" now lights
+them "during the water-rise" — the model didn't change at all; only what drives the clock did (a controller
+uproot timer instead of a `path()` script). (4) **Route the entrance slow-mo through the existing `cineSlow` /
+`releaseCineSlow` pair** so the L139 leak-safety (skip / window-exit / resetBoss) is inherited for free.
+
+**Gotcha — a stale `input.surgeTap` leaked between lifecycle-sim bosses and skipped the loom.** The sim sets
+`input.surgeTap = true` to unleash Surge when shielded; it never cleared it, so the NEXT boss's tap-to-skip
+(`if (input.surgeTap) enterFight()`) fired on the loom's first frame → warn→loom→fight with no uproot. The
+phase-trace (`warn:190 loom:190 fight:189`) was the tell: a fight starting at rel 189 instead of 30 is a skipped
+entrance, not a real one. Fix: `input.surgeTap = false` at the top of `driveKill`. When a headless sim drives a
+new tap-consuming phase, reset the shared input flags per run or a prior run's tap teleports through it.
+
+**Pattern.** To re-time a shipped entrance without touching the model: keep the model's `setEntrance` build clock,
+delete the script, and drive that clock from a new controller phase — dist-driven if the beat is "you arrive at
+it", timer-driven if it's "it comes to you". Gate the whole path on a def flag (`uprootEntrance`) so the other
+bosses' warn→approach/flythrough fork is byte-unchanged (the coexist lifecycle assert proves it: non-uproot defs
+never enter loom/uproot).

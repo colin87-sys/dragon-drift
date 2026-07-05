@@ -502,17 +502,18 @@ feasibility survey: at rel 30, on-screen centers within x ±15 / y 2..22 on port
   (EdgesGeometry) + stained-glass emissive inside the window only. Arch gap ≥ 9 wide —
   the rail flies through every pass. ~2.5k tris. NEEDS: static-ahead approach (trivial) +
   first horizon-presence seeding (fog-exempt, §5e).
-  ENTRANCE (§5j *Vigil Lights*, hijack 0s — BANKS the fight's hijack): the dead black arch
-  grows on the horizon a full biome, never moving — the only boss that never comes to you
-  (degrade: def-flagged warn visibility + large start.rel until the horizon seed ships).
-  rel ~150: look-yaw locks; rider: "It hasn't moved. Not once." Honest top banner. Ease to
-  station — the lintel tops out past the frame. IGNITION: panes light one per slow choir
-  beat, and the LIT pane pools toward whichever side the player steers — in DISCRETE
-  wedge-steps sampled on ignition beats ONLY (continuous tracking is 14's claim); rider:
-  "It's not watching the sky. It's watching US." Last 3 panes under a 0.5× dilate window,
-  camera home; the hub ignites HOT with the sun framed inside the aperture; the portcullis
-  drops once and LIFTS — a door opening in invitation. Title card, first murmured verse.
-  Motion risk: portcullis + pane beat must carry it or it reads as a loading screen.
+  ENTRANCE (§5j *The Drowned Door*, hijack 0s — no camera move at all): the arch is a DEAD
+  DROWNED MONUMENT half-sunk on the sea line, seeded on the horizon a full biome early (the
+  fog-exempt seed) and NEVER moving — the only boss that never comes to you. The honest top
+  banner CLEARS and normal play continues: the boss holds a FIXED world spot (dormant, unlit,
+  portcullis down) while the RAIL closes the distance (the 'loom' phase — pose.rel is
+  dist-driven, not a script clock; owner directive 2026-07). On arrival it UPROOTS — heaves
+  UP OUT OF THE WATER, pillars streaming, rose window igniting pane-by-pane as it clears the
+  surface, portcullis lifting, hub firing HOT — with a ~0.5s slow-mo HOLD at the snap-to-full
+  instant (the `game.slowMoTimer` channel, no camera move). Title card, first murmured verse.
+  Distinct from slot 8 BRINEHOLM (a LIVING reef that INHALES awake on the FLANK, no ignition):
+  monument-tears-free vs beast-breathes — see the §5j uniqueness note. (Superseded the earlier
+  *Vigil Lights* in-place ignition, which "read as a loading screen"; the water-rise is the fix.)
 - **7 THRUMSWARM** — queen: bone-white lantern rhombus (stretched octahedron + 6 rib fins
   + dark edge cage) with ONE amber eye; swarm: 28 dark tetra motes (separate meshes)
   lerping between authored formation tables: ring / wall / line / YOUR-DRAGON (~30 slots
@@ -1132,7 +1133,7 @@ verified against `boss.js`/`cameraController.js` as shipped).
 | 3 | ASHTALON | *The Overtake* (SHIPPED, exemplar) | rear-view overtake + eye-lock | co-star | 2.5s |
 | 4 | MARROWCOIL | *Count the Ribs* (staged retrofit) | scale-by-count (audio) | the measurer | 0s |
 | 5 | EITHERWING | *The Baton Cross* | eye-handoff across your sightline | the crossed | 1.6s |
-| 6 | HOLLOWGATE | *Vigil Lights* | pane-by-pane face ignition | the watched | 0s (banked) |
+| 6 | HOLLOWGATE | *The Drowned Door* | rise-from-water uproot + pane ignition | the watched | 0s (no camera) |
 | 7 | THRUMSWARM | *The Shape It Remembers* | condense-into-YOU + glance-back | the subject | 2.8s |
 | 8 | BRINEHOLM | *The Reef Was Breathing* | terrain-inhale rise | the discoverer | ≤3s |
 | 9 | KARNVOW | *It Kept Count* | save-file taunt at flank hold | the addressee | 2.8s |
@@ -1155,8 +1156,13 @@ from the adversarial pass (binding):
   shocks (consecutive banner rule-breaks, both granted).
 - **13 is the sky in maximum motion; 14 is the sky perfectly still** — the strongest band
   boundary in the roster. Protect both extremes.
-- **8 spends the roster's one environment-wakes archetype.** 6 vs 8 ("scenery was alive")
-  is band-coherent on opposite axes: ahead-architecture ignites vs flank-terrain inhales.
+- **6 and 8 both surface from the sea — but read monument vs beast** (owner ruling 2026-07,
+  after slot 6 shipped its rise-from-water uproot): **6 HOLLOWGATE = a DEAD stone monument
+  that UPROOTS dead AHEAD** (tears free of the seabed, rubble trailing, and its rose window
+  IGNITES as it clears the water — light is its co-signature), station-holding; **8 BRINEHOLM
+  = a LIVING reef/whale that INHALES awake on the FLANK** (breath, bottom-anchored scroll-along,
+  NO ignition). The distinct axes are ahead-architecture-that-lights vs flank-terrain-that-
+  breathes — protect slot 8's living-breath + flank + no-light so the two never collapse.
 - **Escalation guards:** 5's bead-thread cross must span the FULL portrait width or the
   slot reads as a step down from 3; 9's charm-flare-matching-your-top-killer beat is
   MANDATORY (without it 9 is the weakest entrance in the roster); 13's bands must overflow

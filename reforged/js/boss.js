@@ -130,6 +130,20 @@ let cineSide = 1;
 let cineAnchorX = 0, cineAnchorY = 8;   // the dragon's x/y at flythrough start (pass beside it, both in frame)
 let cineSkip = false;         // a tap during the flythrough fast-forwards to the turn-around
 let cineSlow = false;         // bullet-time currently engaged by the flythrough (owns game.slowMoTimer)
+// UPROOT ENTRANCE (§5j slot 6, `def.uprootEntrance`): the drowned door. No cinematic
+// hijack — the boss holds a FIXED world spot (already visible via the horizon seed),
+// the warn banner clears, and normal play continues while the rail closes the distance
+// (the 'loom' phase, pose.rel dist-driven). On arrival it RISES OUT OF THE WATER (the
+// 'uproot' phase: pose.y sunk→fightHeight + the model's setEntrance ignition ramp + a
+// spray of water FX + a ~0.5s hold at the snap). loomZ = the boss's absolute world
+// distance (captured at spawn = the seed's spot, so the handoff never jumps).
+const AHEAD_REL = 190;        // 'ahead' spawn rel — tied to the seed spot (updateHorizonSeed reads it)
+let loomZ = 0;                // absolute world-distance of the fixed spot (pose.rel = loomZ − player.dist)
+let uprootT = 0;              // seconds into the on-arrival rise (0..UPROOT_DUR)
+let uprootRel0 = 0, uprootY0 = 0;   // pose at the instant the uproot begins (eased from here)
+let uprootSprayT = 0;         // throttle for the water-spray bursts during the rise
+const UPROOT_DUR = 1.6;       // scaled seconds for the full rise (the slow-mo hold dwells it longer)
+const UPROOT_TRIGGER_REL = CONFIG.BOSS.settleGap + 6;   // begin rising a touch before final station
 let dyingT = 0;
 let spiralPhase = 0;
 let pendingDeath = false;      // set when hp hits 0; resolved in the update loop
@@ -253,7 +267,7 @@ function updateHorizonSeed(player, dt = 0.016) {
   }
   const nd = seedPeek;
   const want = nd && nd.horizonSeed ? nd : null;
-  const seedZ = nextBossDist + 150;                    // where the boss will hold (start.rel 150)
+  const seedZ = nextBossDist + AHEAD_REL;              // the boss's fixed spot (= start.rel; seamless handoff)
   const dAhead = seedZ - player.dist;
   const SHOW = Math.min(CONFIG.biomeLength + 200, 1500);   // a biome early, inside camera far (1600)
   if (!want || dAhead > SHOW || dAhead < 60) { removeSeed(); return; }
@@ -264,7 +278,10 @@ function updateHorizonSeed(player, dt = 0.016) {
     seed = s; seedDef = want;
     scene.add(seed.group);
   }
-  seed.group.position.set(0, B.fightHeight, -seedZ);   // a FIXED world spot — it has not moved. not once.
+  // A FIXED world spot — it has not moved. not once. An uproot boss sits LOW
+  // (drowned on the sea line, matching the dormant/sunk pose it hands off to);
+  // others hold at fight height.
+  seed.group.position.set(0, want.uprootEntrance ? (want.sunkY ?? 2) : B.fightHeight, -seedZ);
   seed.setHaze((SHOW - dAhead) / 400);                 // emerges from the horizon murk over ~400m
 }
 const SETPIECE_PATHS = {
@@ -782,6 +799,10 @@ export function startBossEncounter(player, defOverride) {
   group = model.group;
   group.userData.__isBoss = true;   // debug seam: locate the boss in the scene graph
   scene.add(group);
+  // §5j UPROOT: hold the DORMANT (unlit, portcullis-down) look from the moment
+  // it takes the horizon seed's spot — so the panes never idle-glow during warn
+  // and then pop dark when the loom begins.
+  if (def.uprootEntrance) model.setEntrance?.(0);
 
   // Approach choreography (§5e): from behind (overtake up and over), the side,
   // ABOVE (a stoop out of the top of the frame), or BELOW (rise out of the deep),
@@ -800,13 +821,14 @@ export function startBossEncounter(player, defOverride) {
     start.x = (Math.random() < 0.5 ? -1 : 1) * 4;
     start.y = -8;                   // rises from below the frame (Brineholm/Marrowcoil)
   } else if (def.approachFrom === 'ahead') {
-    // DEAD AHEAD (§5b/§5d slot 6, HOLLOWGATE): the only boss that never comes
-    // to you — it holds the horizon and the RAIL closes the distance. Large
-    // start.rel is the §5j degrade path until the fog-exempt horizon-presence
-    // seed ships (the arch is visible far up the lane through the haze).
-    start.rel = 150;
+    // DEAD AHEAD (§5b/§5d slot 6, HOLLOWGATE): the only boss that never comes to
+    // you — it holds a FIXED world spot and the RAIL closes the distance. For the
+    // §5j UPROOT entrance it spawns DORMANT and HALF-SUNK (start.y sunk) at the
+    // horizon seed's exact spot (start.rel = AHEAD_REL, so the seed→boss handoff
+    // never jumps), then rises out of the water on arrival.
+    start.rel = def.uprootEntrance ? AHEAD_REL : 150;
     start.x = 0;
-    start.y = B.fightHeight;
+    start.y = def.uprootEntrance ? (def.sunkY ?? 2) : B.fightHeight;
   } else if (def.approachFrom === 'sides') {
     // BOTH SIDES at once (§5b/§5d slot 5, EITHERWING): the pair materialises dead
     // ahead and glides into station centred, while the two twins sweep OUT from the
@@ -1145,6 +1167,13 @@ export function updateBoss(dt, player, time) {
   if (phase === 'warn') {
     warnT -= dt;
     if (warnT <= 0) {
+      // §5j UPROOT ENTRANCE (slot 6): no cinematic. The banner has cleared; the
+      // boss is already ahead (dormant, sunk) and normal play continues while the
+      // rail closes on it (the 'loom' phase). Handled before the scripted fork.
+      if (def.uprootEntrance) {
+        phase = 'loom';
+        loomZ = player.dist + start.rel;   // the fixed world spot (= the seed's, per AHEAD_REL)
+      } else {
       // §5j: a def opts into a scripted pre-fight cinematic via `def.entrance` (an
       // ENTRANCE_SCRIPTS id); the legacy `cinematicEntrance` flag maps to ASHTALON's
       // 'overtake'. Defs with neither keep the plain approach (coexist).
@@ -1167,6 +1196,55 @@ export function updateBoss(dt, player, time) {
       } else {
         phase = 'approach';
       }
+      }
+    }
+  } else if (phase === 'loom') {
+    // §5j UPROOT — THE LOOM: the drowned door holds its FIXED world spot; it only
+    // gets closer because YOU fly toward it (pose.rel is dist-driven, not a script
+    // clock). HUD normal, no dilation, no hijack. It stays dormant + half-sunk
+    // (model.setEntrance(0)) until the rail arrives, then the rise begins.
+    pose.x = 0;
+    pose.y = def.sunkY ?? 2;
+    pose.rel = Math.max(UPROOT_TRIGGER_REL, loomZ - player.dist);
+    model.setEntrance?.(0);
+    model.setEntranceSteer?.(Math.max(-1, Math.min(1, (player.position.x - pose.x) / 8)));
+    if (input.surgeTap) { input.surgeTap = false; enterFight(); }   // tap-to-skip → straight to the fight (law #4)
+    else if (loomZ - player.dist <= UPROOT_TRIGGER_REL) {
+      phase = 'uproot'; uprootT = 0; uprootSprayT = 0;
+      uprootRel0 = pose.rel; uprootY0 = pose.y;
+    }
+  } else if (phase === 'uproot') {
+    // §5j UPROOT — THE RISE: the arch tears free of the sea. pose.y heaves
+    // sunk→fightHeight while the model's ignition ramp (setEntrance) lights the
+    // panes + lifts the portcullis + fires the hub. Water spray sheets off the
+    // pillar feet; a ~0.5s time-dilate HOLDS the snap-to-full instant. No camera
+    // move (the dilate rides the same slow-mo channel the flythrough uses).
+    if (input.surgeTap) { input.surgeTap = false; releaseCineSlow(); enterFight(); }
+    else {
+      uprootT += dt;
+      const u = Math.min(uprootT / UPROOT_DUR, 1);
+      const e = easeInOut(u);
+      pose.x = 0;
+      pose.y = uprootY0 + (B.fightHeight - uprootY0) * e;
+      pose.rel = uprootRel0 + (B.settleGap - uprootRel0) * e;
+      model.setEntrance?.(u);
+      model.setEntranceSteer?.(Math.max(-1, Math.min(1, (player.position.x - pose.x) / 8)));
+      // Water sheeting off the rising pillars — a few pale sprays at the feet as
+      // they clear the surface (reuse the particle burst; no new system).
+      uprootSprayT -= dt;
+      if (u > 0.05 && u < 0.8 && uprootSprayT <= 0) {
+        uprootSprayT = 0.12;
+        const sc = def.scale ?? 1.9;
+        for (const sx of [-1, 1]) {
+          tmp.set(pose.x + sx * 3.9 * sc, 0.5, -(player.dist + pose.rel));   // the waterline at each pillar foot
+          burst(tmp, 0xbfe6ff, { count: 5, speed: 10, size: 0.9, life: 0.5 });
+        }
+      }
+      // THE HOLD: a brief slow-mo punctuates the snap-to-full (no camera move).
+      // Routed through cineSlow so releaseCineSlow (skip / reset / here) is leak-safe.
+      if (u >= 0.80 && u < 0.96 && !cineSlow) { cineSlow = true; game.slowMoTimer = 1; game.slowMoScale = 0.4; setSlowMo(true); sfx.timeDilate?.(true); }
+      else if (u >= 0.96 && cineSlow) releaseCineSlow();
+      if (u >= 1) { releaseCineSlow(); enterFight(); }
     }
   } else if (phase === 'flythrough') {
     updateEntrance(dt, player, time);
@@ -1459,7 +1537,10 @@ export function updateBoss(dt, player, time) {
 
 function placeGroup(player, time, dt) {
   if (!group) return;
-  group.visible = phase !== 'warn';   // stay hidden behind while the warning flashes
+  // Stay hidden behind while the warning flashes — EXCEPT the uproot entrance,
+  // where the boss is already ahead (dormant/sunk) and must never blink out (it
+  // took over the horizon seed's spot); its banner is just an overlay.
+  group.visible = phase !== 'warn' || !!def?.uprootEntrance;
   // Smooth the group's lateral/vertical placement through the fight so regime switches (entrance→
   // fight station-bob, station↔setpiece) don't jump in one frame; rel stays direct (crisp dive).
   if (poseSmooth) {
@@ -1484,9 +1565,11 @@ function placeGroup(player, time, dt) {
   // GAZE FEED (optional model hook): normalized offset of the player relative to
   // the boss's facing axis, in WORLD axes — placeGroup keeps rotation near-
   // identity so world≈local, and the model handles its own local conversion.
-  // Skipped during 'warn' (the boss is still hidden then; nothing to sell yet) and
-  // during the flythrough (updateFlythrough drives the tracking gaze itself).
-  if (phase !== 'warn' && phase !== 'flythrough') {
+  // Skipped during 'warn' (the boss is still hidden then; nothing to sell yet),
+  // the flythrough (updateFlythrough drives the tracking gaze itself), and the
+  // uproot loom/rise (setEntranceSteer owns the pane-pupil pooling there — L139:
+  // a new phase must join this exclusion or it stomps the scripted feed).
+  if (phase !== 'warn' && phase !== 'flythrough' && phase !== 'loom' && phase !== 'uproot') {
     const nx = Math.max(-1, Math.min(1, (player.position.x - pose.x) / 12));
     const ny = Math.max(-1, Math.min(1, (player.position.y - pose.y) / 12));
     model.setGaze?.(nx, ny);
