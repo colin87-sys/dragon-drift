@@ -402,6 +402,19 @@ land with the first slot that hits them.
    deterministic contact sheets. Also: clamp tier montages to
    `maxTierFor(key)` (today `tiershots.html` renders and frames by an
    unreachable T3 for starters — the gate must never judge a phantom form).
+   Effectiveness requirements, from running the current tools on the shipped
+   starters (r1 audit): (a) **fill-the-frame detail crops** — in today's
+   tiershots the dragon is a ~15%-height sliver in a mostly-empty tile; wing
+   gaps, value tiers and scallops are unjudgeable. Keep the fixed-distance
+   ladder frame for the SIZE ramp, but add per-part crops (whole-dragon,
+   wing close-up, head) where the subject fills ≥60% of the crop, and judge
+   emissive/edge detail at a 4× crop (bossgate law). (b) **Backdrop contrast
+   is mandatory** — navy-on-near-black hid azure's silhouette edges in both
+   tiershots and headshot; every state renders on all three §8 backdrops,
+   and the pale backdrop is the primary silhouette-judgment frame.
+   (c) **Deterministic wing phase** via the §6.6 pin — tiershots' idle pose
+   is whatever the clock gives it. (d) headshot's REAR tile currently
+   clips inside the neck geometry — reposition or drop that angle.
 6. **Flap debug pin for the starter motion paths.** A `?wingDebug=<phase>`
    FREEZE mode already exists (`dragon.js` ~line 600, used by
    `tools/flapstrip.mjs`) but it lives inside the Mk II YOKE branch — it only
@@ -412,6 +425,18 @@ land with the first slot that hits them.
 7. **`tests/starters.mjs`** (§7) + `def.accentHue` on the three starters.
 8. **`--wings-only` flag** on `tools/silhouette.mjs`/`silhouetteCore.mjs`
    (it has `--no-wings`; CP3 needs the inverse) — slot C.
+9. **Silhouette resolution for gap asserts**: at the default 560×440 the
+   rear-view dragon spans ~250px, so a 5-blade comb's gaps are 3–5px —
+   aliasing territory. Add a `--w/--h` (or fixed 2×) render size and/or a
+   tight auto-crop so the subject fills the frame before any pixel-level
+   gap judgment; the `top` planform view at default size is already
+   adequate (verified).
+10. **`?cleanshot` capture flag** (in-game): gameshots frames currently have
+   the tutorial banner, the green target ring and trail scribbles OVERLAPPING
+   the dragon, and the wing phase differs per tile (non-comparable). A debug
+   flag that hides HUD/hints/rings/trails + the §6.6 wing pin (pass
+   `wingDebug` through gameshots) makes in-game frames judgeable; clamp its
+   tier loop per §8 step 4.
 
 ## §7 Per-sheet geometry asserts (`tests/starters.mjs`, new)
 
