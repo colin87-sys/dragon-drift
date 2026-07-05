@@ -67,7 +67,7 @@ const HG_EXTRAS = [
 const BH_EXTRAS = [
   { name: 'eyeup',   o: { eye: 1, t: 4.0 } },   // the eye SURFACED — the weak-point window (chip damage lands)
   { name: 'eyedown', o: { eye: 0, t: 4.0 } },   // the eye SUBMERGED — invulnerable (the other half of the tell)
-  { name: 'freed',   o: { crack: 0, t: 2.0 } }, // a shackle post BROKEN (mercy as a mechanic — it vents + unbinds)
+  { name: 'freed',   o: { crack: 1, t: 2.0 } }, // the CENTRE shackle post BROKEN (mercy as a mechanic — it vents a bright plume + unbinds)
   { name: 'rise',    o: { entrance: 0.55, t: 3.0 } },   // the mid-rise HESITATION (the hull holds as the shadow crosses)
 ];
 const states = bossId === 'eitherwing' ? [...STATES, ...EXTRAS]
@@ -87,7 +87,10 @@ const FIGHT_STATES = bossId === 'eitherwing'
     // the bottom-anchored leviathan holds near) frames the 36-unit ridge spilling
     // both edges, the eye SURFACED (the money frame: ridge + eye + fin-sails).
     : bossId === 'brineholm'
-      ? [{ name: 'idle', o: { eye: 1, t: 4.0, fightRel: 22 } }, { name: 'dread', o: { charge: 1, sp: 0.9, dread: true, t: 2.0, fightRel: 22 } }]
+      ? [{ name: 'idle', o: { eye: 1, t: 4.0, fightRel: 22 } },
+         { name: 'dread', o: { charge: 1, sp: 0.9, dread: true, t: 2.0, fightRel: 22 } },
+         // the mercy mechanic at gameplay range: a freed centre shackle venting its plume
+         { name: 'freed', o: { crack: 1, eye: 1, t: 2.0, fightRel: 20 } }]
       : [{ name: 'idle', o: { t: 2.85 } }];
 // Grid order: front TL, 3/4 TR, profile BL, top-down BR.
 const ANGLES = [
@@ -136,7 +139,7 @@ for (const st of FIGHT_STATES) {
   for (const bgName of BGS) {
     await page.evaluate(() => window.studioSheetInit(1, 1, 1000));
     await page.evaluate((o) => window.renderState(o), { boss: bossId, seed: SEED, bg: bgName, fight: true, ...st.o });
-    await page.evaluate((label) => window.studioTile(0, label), `fight · rel30 · ${st.name}`);
+    await page.evaluate((label) => window.studioTile(0, label), `fight · rel${st.o.fightRel ?? 30} · ${st.name}`);
     const path = `reforged-captures/${bossId}-fight-${st.name}-${bgName}-${round}.png`;
     writeFileSync(path, await page.screenshot({ clip: SHEET_CLIP }));
     written.push(path);

@@ -287,28 +287,35 @@ export function buildBrineholm(def, quality = 1) {
   relief.name = 'hullRelief';
   rig.add(relief);
 
-  // ---- ABALONE BANDING (the identity, §5d) — two emissive strips running the
-  // length of the +Z flank at two heights, alternating the two tones so the
-  // sheen reads as iridescent bands (the lit-edge that sells the near-black hull
-  // on all three skies, L140). Thin faceted long strips hugging the flank curve.
-  function bandGeos(y, tone) {
+  // ---- ABALONE BANDING (the identity, §5d) — the iridescent SHEEN. The main
+  // waterline runs the full length as ALTERNATING segments of sea-green and
+  // nacre-violet (a genuine 2-TONE shimmer, not one flat teal line — CP1 gate
+  // concern 3), 2 green : 1 violet so the sea-green stays G3-dominant. A second
+  // dimmer green line lower on the flank doubles the lit-edge area (the read that
+  // sells the near-black hull on all three skies, L140). Emissive-on-standard,
+  // NOT an additive shell (the overdraw law, L124).
+  function bandSegs(y, pick, label) {
     const parts = [];
     const segs = lowQ ? 16 : 26;
     for (let i = 0; i < segs; i++) {
+      if (!pick(i)) continue;
       const tx = -0.9 + (i / (segs - 1)) * 1.8;
       const pr = profileR(tx);
       const seg = strip(new THREE.BoxGeometry(HULL_LEN / segs * 1.02, 0.34, 0.22));
-      // ride the flank: sit just proud of the +Z surface at height y.
       seg.translate(tx * HULL_HALF, y + archY(tx) * clamp(y / 2.4, 0, 1) * 0.5, 2.55 * pr);
       parts.push(seg);
     }
-    return mergeBh(parts, `band${tone}`);
+    return mergeBh(parts, label);
   }
-  const bandA = new THREE.Mesh(bandGeos(1.5, 'A'), bandAMat);
+  // main waterline: 2/3 sea-green + 1/3 nacre-violet, interleaved (the shimmer).
+  const bandA = new THREE.Mesh(bandSegs(1.5, (i) => i % 3 !== 2, 'bandGreen'), bandAMat);
   bandA.name = 'abaloneBandA';
-  const bandB = new THREE.Mesh(bandGeos(0.4, 'B'), bandBMat);
+  const bandV = new THREE.Mesh(bandSegs(1.5, (i) => i % 3 === 2, 'bandViolet'), bandBMat);
+  bandV.name = 'abaloneBandV';
+  // second lower line: sparser sea-green (more lit edge, same tone family).
+  const bandB = new THREE.Mesh(bandSegs(0.4, (i) => i % 2 === 0, 'bandLower'), bandAMat);
   bandB.name = 'abaloneBandB';
-  rig.add(bandA, bandB);
+  rig.add(bandA, bandV, bandB);
 
   // ---- THE FIN-SAILS (4, on named pivots): tapered flat blades rising from the
   // crest of the back at intervals, each on its own pivot so they RISE/FALL on
@@ -482,6 +489,12 @@ export function buildBrineholm(def, quality = 1) {
   gouge.position.set(9.1, 1.2, 2.35);
   gouge.rotation.z = -0.35;
   rig.add(gouge);
+  // A freed-shackle VENT material (pale abalone froth glowing where a post tore
+  // free — the SPRAY-SOAK graze marker; below eye intensity so the eye stays the
+  // one focal, §3.2). Tracked so the dissolve fades it; reused by crackShackle().
+  const ventMat = track(new THREE.MeshStandardMaterial({
+    color: 0x0a1512, emissive: accent, emissiveIntensity: 1.3, roughness: 0.5, metalness: 0.0, flatShading: true,
+  }));
 
   // ---- THE EDGE CAGE (§5d): EdgesGeometry over the hull tiers + the sails so
   // the faceted ridge keeps its plate seams at fight distance (a dark line-work
@@ -492,20 +505,22 @@ export function buildBrineholm(def, quality = 1) {
   }
 
   // ---- DRIFT ORBITERS (the orbiter contract ≥2; §3.8 satellites stay dark):
-  // torn kelp fronds + spray flecks drifting on the swell around the ridge.
-  const kelpGeo = strip(new THREE.BoxGeometry(0.4, 0.14, 0.9));
+  // torn kelp fronds riding the swell. Kept LOW and CLOSE to the waterline so they
+  // read as kelp on the hull, never dark chips floating in the empty sky around the
+  // silhouette (CP1 gate note: floating debris reads as noise / a second scar).
+  const kelpGeo = strip(new THREE.BoxGeometry(0.38, 0.13, 0.8));
   const orbiters = [];
-  const N_KELP = lowQ ? 3 : 6;
+  const N_KELP = lowQ ? 2 : 4;
   for (let i = 0; i < N_KELP; i++) {
     const m = new THREE.Mesh(kelpGeo, i % 2 ? hullDeepMat : hullDarkMat);
     m.name = 'driftKelp';
     m.userData = {
       ang: (i / N_KELP) * Math.PI * 2,
-      rx: 9 + (i % 3) * 2.4, ry: 1.6 + (i % 2) * 0.8,
-      cy: 0.4 + (i % 3) * 0.6,
-      speed: 0.10 + (i % 3) * 0.03,
+      rx: 6.5 + (i % 3) * 1.6, ry: 0.7 + (i % 2) * 0.35,   // tight ellipse hugging the flank
+      cy: -0.6 + (i % 2) * 0.5,                            // low on the flank (near the waterline)
+      speed: 0.09 + (i % 3) * 0.03,
       bob: 0.5 + (i % 2) * 0.4,
-      spin: 0.2 + (i % 3) * 0.15,
+      spin: 0.18 + (i % 3) * 0.12,
     };
     rig.add(m);
     orbiters.push(m);
@@ -583,16 +598,38 @@ export function buildBrineholm(def, quality = 1) {
     brokenShackles.add(idx);
     const s = shackleRigs[idx];
     s.broken = true;
-    // the post SNAPS at the base — it tips and the chain drops (visible unbinding)
-    s.postMesh.rotation.z = (idx % 2 ? 1 : -1) * 0.9;
-    s.postMesh.position.y = -0.4;
-    s.chain.visible = false;
-    // a vent stub of pale spray-froth left where it tore (the SPRAY-SOAK beat marker)
-    const vent = new THREE.Mesh(strip(new THREE.ConeGeometry(0.4, 0.9, 6)), gougeMat);
-    vent.position.copy(s.pivot.position);
-    vent.position.y += 0.4;
-    vent.name = `shackleVent${idx}`;
-    rig.add(vent);
+    // the post SNAPS at half height and TOPPLES — the top half tips right over and
+    // the chain drops free (an unmistakable unbinding, legible at fight distance).
+    const dir = (idx % 2 ? 1 : -1);
+    // the post SNAPS and topples FORWARD toward the player (over the crest, not
+    // behind it), so the broken stub reads front-on, not lost on the ridge back.
+    s.postMesh.rotation.set(-0.9, 0, dir * 0.7);
+    s.postMesh.scale.y = 0.55;                  // snapped at half height (a broken stub)
+    s.postMesh.position.set(dir * 0.5, -0.6, 1.2);
+    // the chain DANGLES free forward rather than vanishing (it visibly hangs off)
+    s.chain.rotation.z = dir * 0.9;
+    s.chain.position.set(dir * 0.4, -0.9, 1.4);
+    // a broken JAG stub at the snap line (dark tier — the raw fracture)
+    const jag = new THREE.Mesh(strip(new THREE.ConeGeometry(0.34, 0.7, 5)), ironMat);
+    jag.position.copy(s.pivot.position);
+    jag.position.y += 0.5; jag.position.z += 1.0;
+    jag.rotation.z = 0.4;
+    jag.name = `shackleJag${idx}`;
+    rig.add(jag);
+    // the VENT — a tall bright abalone PLUME spraying UP-AND-FORWARD from the torn
+    // stump, PROUD of the crest (z forward) so it reads front-on: the SPRAY-SOAK
+    // graze beat marker, findable in a glance, still below eye value.
+    const ventGroup = new THREE.Group();
+    ventGroup.name = `shackleVent${idx}`;
+    ventGroup.position.copy(s.pivot.position);
+    ventGroup.position.y += 0.3; ventGroup.position.z += 1.6;   // forward of the crest, unoccluded
+    for (let v = 0; v < 5; v++) {
+      const froth = new THREE.Mesh(strip(new THREE.ConeGeometry(0.36 - v * 0.045, 1.0 + v * 0.4, 6)), ventMat);
+      froth.position.set((v - 2) * 0.26, v * 0.62, 0.1);
+      froth.rotation.z = (v - 2) * 0.15;
+      ventGroup.add(froth);
+    }
+    rig.add(ventGroup);
     return true;
   }
   function shackleBroken(idx) { return brokenShackles.has(idx); }
@@ -645,13 +682,14 @@ export function buildBrineholm(def, quality = 1) {
 
     // --- THE FIN-SAILS rise/fall on the swell, phase-lagged bow-to-stern (a wave
     // travelling the back), and FLARE up hard on the charge (the §3.5 telegraph).
+    const noticeK = noticeT > 0 ? clamp01(noticeT / 0.9) : 0;    // the notice startle envelope
     for (let i = 0; i < finPivots.length; i++) {
       const p = finPivots[i];
       const wave = Math.sin(time * 0.5 - i * 0.7) * 0.5 + 0.5;   // 0..1 travelling swell
       const base = -0.12 + wave * 0.4;                            // idle: standing sails swaying on the swell
-      const flare = charge * 1.1 + dreadK * 0.5;                  // charge/dread raises them
+      const flare = charge * 1.1 + dreadK * 0.5 + noticeK * 1.0;  // charge/dread/notice-startle raises them
       const submerge = (shieldClamp ? 0.6 : 0) + dyingK * 1.3;    // fold under shield/death
-      p.rotation.x = clamp(base - flare + submerge, -1.2, 0.9);
+      p.rotation.x = clamp(base - flare + submerge, -1.4, 0.9);
       p.scale.setScalar(clamp(1 - dyingK * 0.5, 0.4, 1));
     }
 
@@ -663,6 +701,7 @@ export function buildBrineholm(def, quality = 1) {
       eyeUpTarget = (Math.sin(time * 0.34) > 0.2) ? 1 : 0;
     }
     if (charge > 0.15 && !shieldClamp && dyingK <= 0 && entranceU == null) eyeUpTarget = 1;
+    if (noticeT > 0 && !shieldClamp && dyingK <= 0 && entranceU == null) eyeUpTarget = 1;   // NOTICE snaps the eye UP
     if (shieldClamp || dyingK > 0.05) eyeUpTarget = 0;
     if (entranceU != null) eyeUpTarget = 0;   // stays submerged through the rise (§5d)
     // the lid GRINDS toward the target (never snaps).
@@ -678,8 +717,9 @@ export function buildBrineholm(def, quality = 1) {
     const blink = blinkT > 0 ? 1 - Math.abs((blinkT / BLINK_DUR) * 2 - 1) : 0;
 
     // the LID position: submerged (eyeUp 0) = shut over the eye; surfaced (1) =
-    // lifted to a HOODED brow. A blink dips it partway. rotation.x hinges it up.
-    const lidOpen = clamp(eyeUp - blink * 0.6, 0, 1);
+    // lifted to a HOODED brow; NOTICE flings it WIDE (a startle). A blink dips it
+    // partway. rotation.x hinges it up-and-back.
+    const lidOpen = clamp(eyeUp - blink * 0.6 + noticeK * 0.45, 0, 1.4);
     eyeLidPivot.rotation.x = lidOpen * 1.15;   // 0 = closed over eye, +1.15 = hooded UP-AND-BACK (clears the front)
 
     // --- THE EYE glow. Bright only while surfaced (the weak-point read); the
@@ -696,7 +736,7 @@ export function buildBrineholm(def, quality = 1) {
     eyeCore.visible = eyeGlow > 0.25 && dyingK < 0.7;
     pupil.visible = eyeGlow > 0.2;                       // the pupil hides with the submerged eye
     iris.visible = eyeGlow > 0.12;
-    irisMat.emissiveIntensity = 0.2 + eyeGlow * 1.5;     // the abalone ring reads while surfaced
+    irisMat.emissiveIntensity = 0.2 + eyeGlow * 1.5 + noticeK * 1.2;   // the abalone ring reads while surfaced; FLARES on notice
     eyeball.scale.setScalar(1 + Math.sin(time * 1.6) * 0.03 * eyeGlow + dreadK * 0.12);
 
     // --- THE GAZE. While surfaced + not locked, the pupil/iris/catchlight ease
@@ -727,9 +767,11 @@ export function buildBrineholm(def, quality = 1) {
     // --- THE BANDING sheen. A slow iridescent shimmer travelling the flank (the
     // tidal drone made visible); brightens on charge/dread, dims in shield/death.
     const shimmer = 0.85 + Math.sin(time * 0.8) * 0.12 + Math.sin(time * 1.9) * 0.06;
-    const bandK = shimmer * (1 + charge * 0.5 + dreadK * 0.8) * (shieldClamp ? 0.45 : 1) * (1 - dyingK * 0.7);
+    const bandK = shimmer * (1 + charge * 0.5 + dreadK * 0.8 + noticeK * 1.1) * (shieldClamp ? 0.45 : 1) * (1 - dyingK * 0.7);
     bandAMat.emissiveIntensity = 0.85 * bandK;
-    bandBMat.emissiveIntensity = 0.55 * (0.9 + Math.sin(time * 0.8 + 1.6) * 0.14) * (1 + charge * 0.4) * (shieldClamp ? 0.45 : 1) * (1 - dyingK * 0.7);
+    // the nacre-violet segments shimmer on their OWN phase (a counter-beat sheen)
+    // so the waterline reads iridescent 2-tone (CP1 gate concern 3).
+    bandBMat.emissiveIntensity = 0.78 * (0.9 + Math.sin(time * 0.8 + 1.6) * 0.16) * (1 + charge * 0.4 + noticeK * 1.1) * (shieldClamp ? 0.45 : 1) * (1 - dyingK * 0.7);
     sailEdgeMat.emissiveIntensity = 0.7 * bandK;
 
     // --- ENTRANCE: the hull INHALES up through the fog (rig.y from deep), the
@@ -777,8 +819,8 @@ export function buildBrineholm(def, quality = 1) {
       u.ang += dt * u.speed * (1 + painEase);
       o.position.set(
         Math.cos(u.ang) * u.rx,
-        u.cy + Math.sin(u.ang * 1.4) * u.ry + Math.sin(time * u.bob + u.ang) * 0.4 - dyingK * (5 + u.cy),
-        3 + Math.sin(u.ang) * 2.4
+        u.cy + Math.sin(u.ang * 1.4) * u.ry + Math.sin(time * u.bob + u.ang) * 0.3 - dyingK * (5 + u.cy),
+        2.1 + Math.sin(u.ang) * 1.3   // hug the flank (z ~0.8..3.4), never floating far in front
       );
       o.rotation.x += dt * u.spin;
       o.rotation.z += dt * u.spin * 0.7;

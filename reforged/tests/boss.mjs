@@ -667,8 +667,28 @@ for (const key of BOSS_ORDER) {
   const reroute = bh.shackleHitTest(0.4 * sc8, 3.4 * sc8);
   assert(reroute !== hitIdx, `brineholm shackleHitTest never reroutes to a broken post (got ${reroute})`);
 
+  // NOTICE state JUMP (§4b — the notice beat must be a discrete state change, not
+  // idle+ε; the CP1 gate caught the first pass reading identical to idle). A fresh
+  // build so prior charge/eye/shackle state can't muddy the baseline.
+  {
+    const bn = buildBoss(BOSSES.brineholm, 1);
+    bn.setGaze(0, 0);
+    for (let s = 0; s < 30; s++) bn.tick(0.05, 1.0 + s * 0.05);   // settle a calm idle
+    const idleFins = bn.finRaise();
+    const idleLid = bn.group.getObjectByName('eyeLidPivot').rotation.x;
+    bn.notice();
+    for (let s = 0; s < 8; s++) bn.tick(0.05, 2.6 + s * 0.05);    // sample mid-notice (before it decays)
+    const nFins = bn.finRaise();
+    const nLid = bn.group.getObjectByName('eyeLidPivot').rotation.x;
+    let finStartle = 0;
+    for (let i = 0; i < 4; i++) if (Math.abs(nFins[i] - idleFins[i]) > 0.15) finStartle++;
+    assert(finStartle >= 3 && nLid > idleLid + 0.2,
+      `brineholm NOTICE is a state JUMP (${finStartle}/4 sails startled, lid flung ${nLid.toFixed(2)} > ${idleLid.toFixed(2)}) — not idle+ε`);
+    bn.dispose();
+  }
+
   bh.dispose();
-  ok(`brineholm geometry: hull ${span.toFixed(1)}w, fins ${finsMoved}/4 + lid telegraph, eye surface/submerge, shackle-break ✓`);
+  ok(`brineholm geometry: hull ${span.toFixed(1)}w, fins ${finsMoved}/4 + lid telegraph, eye surface/submerge, notice-jump, shackle-break ✓`);
 }
 
 // Legacy coexist gate: a def WITHOUT `archetype` must still fall through to
