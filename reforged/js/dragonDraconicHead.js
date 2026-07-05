@@ -282,6 +282,8 @@ function eyeZone(c, { r, x, y, z, glow }) {
   // pupil + a hard catchlight turns the blank pale sclera orb into a LIVING eye (the
   // Squirtle/Charmander read: a huge eye is only cute once a dark pupil + glint give it a
   // gaze). Default OFF → obsidian/pearl/solar keep the byte-identical bare sphere.
+  const cuteIrisMat = c.cfg.cuteEye
+    ? new THREE.MeshStandardMaterial({ color: 0x4ea6dc, emissive: 0x1f5f88, emissiveIntensity: 0.35, roughness: 0.3 }) : null;
   const cutePupilMat = c.cfg.cuteEye
     ? new THREE.MeshStandardMaterial({ color: 0x0e1a2a, roughness: 0.38, metalness: 0.02 }) : null;
   const cuteGlintMat = c.cfg.cuteEye
@@ -293,18 +295,22 @@ function eyeZone(c, { r, x, y, z, glow }) {
     eye.position.set(s * x, yset, z);
     c.head.add(eye);
     if (c.cfg.cuteEye) {
-      // seat the pupil on the FORWARD-and-slightly-out face of the eyeball so both pupils
-      // look ahead (a cute forward gaze), not out the sides like a fish.
-      const nrm = new THREE.Vector3(s * 0.22, 0.05, -1).normalize();   // mostly FORWARD (small outward) so both pupils gaze ahead — a big lateral component read wall-eyed (gate CP2)
+      // A CONCENTRIC cartoon eye that reads from EVERY angle (gate CP2 r2 dir 1/2): a big
+      // mid-blue IRIS wrapping most of the dome (only modestly proud → a third still shows in
+      // profile), a dark pupil, and a catchlight seated ON the sclera surface. The old glint
+      // floated a full radius out front and poked above the head from the nape/top; the old
+      // lone pupil vanished in profile (blank disc) and poked past the sclera in ¾. Gaze is
+      // mostly FORWARD (small outward) so the far pupil never protrudes past the sclera edge.
+      const nrm = new THREE.Vector3(s * 0.14, 0.04, -1).normalize();
       const ec = new THREE.Vector3(s * x, yset, z);
-      const pc = ec.clone().addScaledVector(nrm, rr * 0.68);
-      // pupil ~50% of the eye so a RING of the pale-blue iris reads around it (gate CP2 dir 7:
-      // the old 0.6 pupil swallowed the sclera into one black orb with no gaze read).
-      const pupil = new THREE.Mesh(new THREE.SphereGeometry(rr * 0.5, seg(9), seg(7)), cutePupilMat);
-      pupil.scale.set(sx, sy, 0.6); pupil.position.copy(pc);
+      const iris = new THREE.Mesh(new THREE.SphereGeometry(rr * 0.82, seg(8), seg(5)), cuteIrisMat);
+      iris.scale.set(sx, sy, 0.82); iris.position.copy(ec).addScaledVector(nrm, rr * 0.2);
+      c.head.add(iris);
+      const pupil = new THREE.Mesh(new THREE.SphereGeometry(rr * 0.5, seg(7), seg(5)), cutePupilMat);
+      pupil.scale.set(sx, sy, 0.8); pupil.position.copy(ec).addScaledVector(nrm, rr * 0.42);
       c.head.add(pupil);
-      const glint = new THREE.Mesh(new THREE.SphereGeometry(rr * 0.22, seg(4), seg(3)), cuteGlintMat);
-      glint.position.copy(pc).addScaledVector(nrm, rr * 0.42).add(new THREE.Vector3(s * 0.03, rr * 0.3, 0));
+      const glint = new THREE.Mesh(new THREE.SphereGeometry(rr * 0.18, seg(4), seg(3)), cuteGlintMat);
+      glint.position.copy(ec).addScaledVector(nrm, rr * 0.62).add(new THREE.Vector3(s * 0.04, rr * 0.34, 0));
       c.head.add(glint);
     }
     if (glow) {
@@ -452,15 +458,18 @@ function browCrest(c) {
   // per-skull dims), so it never drifts when the skull preset changes across forms
   // (§7 motif-invariance assert). Head-inner-local, independent of headScale.
   const isNub = n === 1;   // the hatchling's SINGLE-blade crest is a soft rounded nub, not a thin feeler (gate CP2 f0 dir 2)
-  const ay = isNub ? R * 0.5 : R * 0.62;   // seat the nub lower / rooted INTO the crown so it never floats as a wire antenna
+  const seat = c.cfg.crestSeat ?? 0;   // young forms seat the blades DEEPER into the crown so thin sprouts never float (gate CP2 r2 dir 3)
+  const ay = (isNub ? R * 0.5 : R * 0.62) - seat;   // seat the nub/fan rooted INTO the crown so it never floats as a wire antenna
   const ax = 0, az = R * 0.06;   // seated high on the crown so the fan clears the head outline
-  const cGold = c.def.accentHue ?? 0xd9b36a;
+  const crestGoldAmt = c.cfg.crestGoldAmount ?? 1;   // young forms mute the gold tip so thin blades don't read as floating bright slivers from behind (gate CP2 r2 dir 3)
+  const cGoldFull = c.def.accentHue ?? 0xd9b36a;
   // Crest blade base (gate r5 dir 10): a MID sky-blue that reads clearly LIGHTER than the
   // navy head — the round-4 crest went near-black because material.color==cBase multiplied
   // the SAME cBase vertex colour (value squared). Fix: material.color WHITE (vertex colours
   // carry the true hue, no double-darken) + a small emissive lift so it separates on a navy
   // crown. cBase kept for the featherGeo gradient's base end.
   const cBase = c.cfg.crestBase ?? c.def.crestBase ?? 0x4f74a8;   // the gate's exact ask (gate r6/r7 dir 4) — reads clearly lighter than the navy head without going toy-saturated
+  const cGold = new THREE.Color(cBase).lerp(new THREE.Color(cGoldFull), crestGoldAmt).getHex();   // crestGoldAmt 1 = full gold (apex, byte-identical); <1 fades the tip toward the crest base hue
   const bladeMat = new THREE.MeshStandardMaterial({
     color: 0xffffff, emissive: 0x1a2c40, emissiveIntensity: 0.14,   // faint lift only, so the base stays a calm 0x4f74a8, not a saturated toy-blue
     roughness: 0.5, metalness: 0.1, side: THREE.DoubleSide, vertexColors: true,
@@ -550,12 +559,14 @@ const DEFAULTS = {
   eyeShape: 1,          // 1 = almond (draconic default) · 0 = round (cute hatchling)
   crestBlades: 0,       // brow-crest motif blade count (0 = none) — the AZURE motif socket
   crestScale: 1,        // brow-crest bloom scale
+  crestGoldAmount: 1,   // brow-crest gold tip-paint amount (young forms earn it): 0 = body-hued tips, 1 = full apex gold (default byte-identical)
+  crestSeat: 0,         // additive DOWNWARD offset of the crest anchor into the crown (young forms seat it deeper so thin blades never float); default 0 = apex byte-identical
   keenEye: false,       // opt-in bright-almond proud eye (AZURE); default keeps the shared eye
   cuteEye: false,       // opt-in dark forward pupil + catchlight on the ROUND eye (AZURE hatchling); default keeps the bare sphere byte-identical
 };
 const OVERRIDE_KEYS = ['skullType', 'snoutType', 'eyeZoneType', 'browType', 'hornType', 'jawType', 'rearCrestType',
   'headScale', 'snoutScale', 'hornScale', 'eyeScale', 'browIntensity', 'rearGlowIntensity', 'whiskerFins', 'tuskJaw',
-  'eyeShape', 'crestBlades', 'crestScale', 'keenEye', 'cuteEye'];
+  'eyeShape', 'crestBlades', 'crestScale', 'crestGoldAmount', 'crestSeat', 'keenEye', 'cuteEye'];
 
 function resolveConfig(model) {
   const arch = ARCHETYPES[model.headArchetype] || ARCHETYPES.softStealth;

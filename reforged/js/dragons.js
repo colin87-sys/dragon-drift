@@ -53,10 +53,10 @@ export const DRAGONS = {
     forms: [
       // Hatchling (form 0) — round fluffball: curled posture, round low eyes, big
       // head, stub gapped comb, crest nub, forked tail-tip hint. Lighter sky value.
-      { wingScale: 0.72, bladeSpan: 5.0, bladeCount: 5, bladeDetail: 0.6, bladeChord: 0.2, bladeRake: 0.02,   // CP2 dir 3: BABY wings — 5 blades (the §3 comb identity holds) but SHORTER + a wider chord + low rake so they weld into soft rounded paddles, not the apex's razor lightning shards
+      { wingScale: 0.72, bladeSpan: 5.4, bladeCount: 5, bladeDetail: 0.6, bladeChord: 0.28,   // CP2 dir 3: BABY wings — 5 blades (§3 comb identity holds) but SHORTER + a WIDE chord (0.28 so the roots overlap the arm spar into one connected wing, gate r2 dir 5) → soft welded paddles. NOTE: forms merge CUMULATIVELY (ascension.js) so any dial set here leaks to f1/f2 unless re-declared — the apex re-pins the leaked ones below
         spineCurl: -0.8, eyeShape: 0.0, headScale: 1.3, eyeScale: 1.25, snoutScale: 0.5,   // CP2 dir 1: SHORT button muzzle; headScale 1.3 keeps the BIG cute head; eyeScale 1.25 opens a nose-bridge GAP between the eyes (1.45 merged them into a figure-8) — still the ladder's biggest eyes (> f1's 1.02) and in the [0.3,0.45] band
         keenEye: false, cuteEye: true,   // CP2: the hatchling wears the ROUND sphere eye with a big dark forward pupil + glint (not the keen falcon almond+brow-slab, which is apex-only). eyeShape 0 + eyeScale 1.7 → a big low round cute eye
-        crestBlades: 1, crestScale: 0.7,   // CP2 dir 2: a single SOFT NUB (browCrest rounds the n=1 case), not a wire feeler
+        crestBlades: 1, crestScale: 0.7, crestGoldAmount: 0.1,   // CP2 dir 2: a single SOFT NUB (browCrest rounds the n=1 case), body-hued (no gold on the baby), not a wire feeler
         wingTipGold: 0xd9b36a, wingTipGoldAmount: 0.12,   // CP2 dir 5: only a faint amber hint at the baby — the full gold banner is an earned adult signature
         tailStyle: 'simple', tailTipFork: true, tailSegments: 5, neckSegments: 4,
         ridgeCount: 0, spineGlow: 0,
@@ -68,11 +68,11 @@ export const DRAGONS = {
       { wingScale: 0.9, bladeSpan: 7.3, bladeCount: 5, bladeDetail: 0.92,
         spineCurl: 0.0, eyeShape: 0.55, headScale: 0.84, eyeScale: 1.02, snoutScale: 0.62,   // CP2 dir 6: trim the muzzle ~28% so it sits BETWEEN f0's button and f2's short beak; headScale 0.84 keeps eye:head in band after the cut (still a clear step down from f0's 1.3)
         keenEye: false, cuteEye: true,   // CP2: the adolescent bridges — a big ROUND-ALERT pupil eye (eyeShape 0.55 half-almonds it), NOT yet the apex keen falcon decal. The keen almond arrives only at the Radiant apex
-        crestBlades: 2, crestScale: 0.74,
-        wingTipGold: 0xd9b36a, wingTipGoldAmount: 0.5,   // CP2 dir 5: PARTIAL gold at the adolescent — mutes the floating gold crest slivers too (dir 8)
+        crestBlades: 2, crestScale: 0.74, crestGoldAmount: 0.15, crestSeat: 0.12,   // CP2 r2 dir 3: mute the crest gold to body-hue + seat the sprouts INTO the crown so they stop floating as bright eyebrow slivers from the nape
+        wingTipGold: 0xd9b36a, wingTipGoldAmount: 0.5,   // CP2 dir 5: PARTIAL gold at the adolescent
         tailStyle: 'simple', tailTipFork: true, tailSegments: 5, neckSegments: 5,
         ridgeCount: 8, spineGlow: 0,
-        colors: { body: 0x33517a, belly: 0xcfe6ff, wingInner: 0xc6dff0, wingOuter: 0x64839f,   // CP2 dir 4: a clearer MID value — powder-navy between the pale hatchling and the deep apex
+        colors: { body: 0x496d99, belly: 0xd4e9ff, wingInner: 0xc6dff0, wingOuter: 0x6f90b4,   // CP2 r2 dir 4: a true MID value (was 0x33517a, near-apex-deep) — the ramp now reads pale f0 → mid f1 → deep f2
           wingEmissive: 0x5f7f9c, scales: 0xb2cee6, horn: 0xb6cfe4,
           apexSeam: 0x9cc0dc, eye: 0xbfe2fb, coreGlow: 0x86bce4 } },
       // Radiant apex (form 2) — proud upright S, keen almond eyes, full high-aspect
@@ -80,6 +80,13 @@ export const DRAGONS = {
       // banner tail. Deepest sky value, gold at its richest (still DIFFUSE).
       { wingScale: 1.0, bladeSpan: 11.6, bladeCount: 5, bladeDetail: 1.45, neckBlend: 1.45,   // longer wing (blade length adds no tris) → top-planform span:body into the 2.8–3.2 band (gate r8 dir 2); denser neck fuses the segment grooves
         spineCurl: 0.95, eyeShape: 1.0, headScale: 0.52, eyeScale: 0.52,
+        // APEX PIN (CP2): forms merge cumulatively, so re-declare every dial the younger forms
+        // changed — otherwise f1's cuteEye/muted-gold/wide-chord leak forward and silently
+        // replace the CP1-approved keen falcon apex. These restore the exact approved apex.
+        keenEye: true, cuteEye: false,   // the keen falcon almond returns (f0/f1 turned it off)
+        bladeChord: 0.133,               // approved apex chord (f0 set 0.28)
+        crestGoldAmount: 1, crestSeat: 0,   // full gold crest at its approved height (f1 muted+sank it)
+        wingTipGoldAmount: 1,            // full gold swallow-banner tips (f0/f1 restrained them)
         crestBlades: 3, crestScale: 1.6, skullType: 'smoothWedgeSkull', snoutScale: 0.68,   // bespoke ONE-shell falcon wedge (no ellipsoid plate-stack); shorter muzzle seats head:body/eye:head in band + kills the needle beak; crest breaks the outline
         tailStyle: 'finned', tailBannerFork: true, tailLength: 0.62, tailSegments: 6, neckSegments: 5,   // shorter tail so the wings visually dominate (gate r7 dir 7) — raises the reconciled visual span:body
         ridgeCount: 7, spineGlow: 0.2, dorsal: true,
