@@ -87,10 +87,10 @@ const FIGHT_STATES = bossId === 'eitherwing'
     // the bottom-anchored leviathan holds near) frames the 36-unit ridge spilling
     // both edges, the eye SURFACED (the money frame: ridge + eye + fin-sails).
     : bossId === 'brineholm'
-      ? [{ name: 'idle', o: { eye: 1, t: 4.0, fightRel: 22 } },
-         { name: 'dread', o: { charge: 1, sp: 0.9, dread: true, t: 2.0, fightRel: 22 } },
+      ? [{ name: 'idle', o: { eye: 1, t: 4.0, fightRel: 26 } },
+         { name: 'dread', o: { charge: 1, sp: 0.9, dread: true, t: 2.0, fightRel: 26 } },
          // the mercy mechanic at gameplay range: a freed centre shackle venting its plume
-         { name: 'freed', o: { crack: 1, eye: 1, t: 2.0, fightRel: 20 } }]
+         { name: 'freed', o: { crack: 1, eye: 1, t: 2.0, fightRel: 22 } }]
       : [{ name: 'idle', o: { t: 2.85 } }];
 // Grid order: front TL, 3/4 TR, profile BL, top-down BR.
 const ANGLES = [
