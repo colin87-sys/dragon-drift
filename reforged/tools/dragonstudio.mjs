@@ -1,91 +1,134 @@
-// tools/dragonstudio.mjs — the §8 STUDIO CONTACT-SHEET driver for starter dragons.
+// tools/dragonstudio.mjs — the §6.5 STUDIO CONTACT-SHEET driver for the starter dragons.
 //
-//   node tools/dragonstudio.mjs <key> [round] [cp]
-//     cp = cp1 (apex form: the CP1 set) | cp2 (all forms + ladder) | all
-//     → reforged-captures/dragon-<key>-f<form>-<state>-<angle>[-<bg>]-rK.png
-//     → reforged-captures/dragon-<key>-ladder-<bg>-rK.png   (cp2)
+//   node tools/dragonstudio.mjs <key> [round]      (default azure r1)
+//     → reforged-captures/dragon-<key>-f<form>-<state>-<bg>-<round>.png   (2×2 angle sheets)
+//     → reforged-captures/dragon-<key>-f<form>-crops-<round>.png          (fill-frame + 4× detail)
+//     → reforged-captures/dragon-<key>-f<form>-sil-<view>-<round>.png     (black fills, headless)
+//     → reforged-captures/dragon-<key>-ladder-<round>.png                 (fixed-distance size ramp)
 //
-// Drives tools/dragonstudio.html through window.shot / window.ladder / window.maxTier.
-// Every shot is DETERMINISTIC (no animation phase — a pure function of
-// form/state/angle/bg via setFlapDebugPose), per reachable form (clamped to
-// maxTierFor — no phantom T3), fill-the-frame crops (subject ≥60%, plus a 4× wing
-// close-up for edge/gap/value judgment — §6.5a), and the three §8.2 backdrops with
-// the PALE backdrop as the primary silhouette frame (§6.5b). Black-fill silhouettes
-// come from tools/silhouette.mjs; face crops are rendered here at a front-¾ angle
-// (headshot's rear tile clips — §6.5d).
+// Drives tools/dragonstudio.html (the seeded, clock-FREE dragon stage with the game's ACES
+// pipeline) through window.dsRender / dsAngle / dsCrop / dsLadderTile. Every frame is a pure
+// function of (key, tier, state, angle, bg) — the wing pose comes from the SHARED setFlapDebugPose
+// pin (no clock), so round K and round K+1 are pixel-comparable. Determinism is a deliverable (§9):
+// non-deterministic capture is the MARROWCOIL churn failure and is treated as a test failure.
+//
+// CLAMPED to maxTierFor(key): only REACHABLE forms are rendered (a starter caps at form 2 — a
+// fourth tile would be a PHANTOM FORM the gate must never judge, §8).
 import { createRequire } from 'module';
-import { execSync } from 'child_process';
-import { mkdirSync } from 'fs';
+import { execFileSync } from 'child_process';
+import { writeFileSync, mkdirSync } from 'fs';
 import { serve } from '../tests/serve.mjs';
 
 const require = createRequire(import.meta.url);
-function loadPlaywright() {
+const pw = (() => {
   const c = [process.env.PLAYWRIGHT_PATH];
-  try { c.push(execSync('npm root -g', { encoding: 'utf8' }).trim() + '/playwright'); } catch {}
+  try { c.push(execFileSync('npm', ['root', '-g'], { encoding: 'utf8' }).trim() + '/playwright'); } catch {}
   c.push('playwright');
   for (const x of c) { if (!x) continue; try { return require(x); } catch {} }
   throw new Error('playwright not found');
-}
+})();
 
 const key = process.argv[2] || 'azure';
 const round = process.argv[3] || 'r1';
-const cp = process.argv[4] || 'cp1';
 
-// Rear chase + side + pinned rear-¾ bank + wing planform (top) + fold + wing close-up
-// crop + face. Each carries the backdrops it should be judged on (pale primary).
-const PALE_DARK = ['pale', 'dark'];
-const SHOTS = [
-  { state: 'glide', angle: 'rearchase', bgs: ['pale', 'dark', 'sunset'] }, // + warm-sky accent check
-  { state: 'glide', angle: 'side',      bgs: PALE_DARK },
-  { state: 'bank',  angle: 'rear34',    bgs: PALE_DARK },                   // pinned rear-¾ BANK
-  { state: 'glide', angle: 'topplan',   bgs: PALE_DARK },                   // wing planform crop
-  { state: 'glide', angle: 'wingcrop',  bgs: ['pale', 'dark', 'sunset'] },  // 4× wing close-up (edge/gap/value)
-  { state: 'fold',  angle: 'rear34',    bgs: ['dark'] },                    // the fold contracts the span
-  // Face crops come from tools/headshot.mjs (§8.2) — its 4-tile montage frames the
-  // head correctly; the studio's own face view fights the crest-inflated head bbox.
+// Angle order per grid: rear chase (TL), side profile (TR), rear-¾ bank (BL), top-down planform (BR).
+const BODY_ANGLES = [['rear', 'rear chase'], ['side', 'side profile'], ['rear3q', 'rear-¾'], ['top', 'top planform']];
+const FACE_ANGLES = [['front', 'face front'], ['front3q', 'face ¾'], ['profile', 'face profile'], ['nape', 'nape']];
+// States × the backdrops each renders on. glide (the hero read) gets all three §8 backdrops
+// (L140: gold/pearl accents must be judged on a warm sky too); the shape states use the PRIMARY
+// pale frame. Pale is the primary silhouette backdrop throughout.
+const STATES = [
+  { name: 'glide', bgs: ['dark', 'pale', 'gold'], angles: BODY_ANGLES },
+  { name: 'fold',  bgs: ['pale'],                 angles: BODY_ANGLES },
+  { name: 'bank',  bgs: ['pale'],                 angles: BODY_ANGLES },
+  { name: 'face',  bgs: ['pale'],                 angles: FACE_ANGLES },
 ];
 
 mkdirSync('reforged-captures', { recursive: true });
 
-const { chromium } = loadPlaywright();
 const srv = await serve();
-const browser = await chromium.launch();
-const page = await browser.newPage({ viewport: { width: 960, height: 960 }, deviceScaleFactor: 2 });
+const browser = await pw.chromium.launch();
+// Viewport must be WIDER than the widest sheet, or page.screenshot clamps the clip to the
+// viewport and silently crops the right-hand tiles: the ladder is up to 4×480=1920 (premium),
+// the crop sheet 3×460=1380. Height covers the 2×2 angle sheet (2×500=1000).
+const page = await browser.newPage({ viewport: { width: 2000, height: 1080 }, deviceScaleFactor: 2 });
 page.on('pageerror', (e) => console.error('PAGEERR', e.message));
 await page.goto(`${srv.url}/tools/dragonstudio.html`);
 await page.waitForFunction(() => window.__ready === true, { timeout: 30000 });
-if (!(await page.evaluate((k) => !!window.hasDragon(k), key))) { console.log(`unknown dragon: ${key}`); await browser.close(); srv.close?.(); process.exit(1); }
+const dsErr = await page.evaluate(() => document.getElementById('err').textContent);
+if (dsErr) { console.error('STUDIO ERROR:', dsErr); await browser.close(); srv.close?.(); process.exit(1); }
 
-const maxT = await page.evaluate((k) => window.maxTier(k), key);
-const forms = cp === 'cp1' ? [maxT] : Array.from({ length: maxT + 1 }, (_, i) => i);
-
-const glEl = await page.$('#gl');
-const monEl = await page.$('#montage');
+const maxTier = await page.evaluate((k) => window.dsMaxTier(k), key);
 const written = [];
-for (const form of forms) {
-  for (const sh of SHOTS) {
-    for (const bg of sh.bgs) {
-      await page.evaluate(([k, f, st, an, b]) => window.shot(k, f, st, an, b), [key, form, sh.state, sh.angle, bg]);
-      const suffix = bg === 'pale' ? '' : `-${bg}`;   // pale = the primary/unmarked frame
-      const path = `reforged-captures/dragon-${key}-f${form}-${sh.state}-${sh.angle}${suffix}-${round}.png`;
-      await glEl.screenshot({ path });
-      written.push(path);
+const clipOf = (cols, rows, cell) => ({ x: 0, y: 0, width: cols * cell, height: rows * cell });
+
+// ── per reachable form: state×backdrop angle sheets + a crop sheet ──────────
+for (let form = 0; form <= maxTier; form++) {
+  for (const st of STATES) {
+    for (const bg of st.bgs) {
+      await page.evaluate((c) => window.dsSheetInit(c[0], c[1], c[2]), [2, 2, 500]);
+      for (let i = 0; i < st.angles.length; i++) {
+        const [angle, label] = st.angles[i];
+        if (i === 0) await page.evaluate((o) => window.dsRender(o), { key, tier: form, state: st.name, bg, angle });
+        else await page.evaluate((o) => window.dsAngle(o), { state: st.name, angle });
+        await page.evaluate((a) => window.dsTile(a[0], a[1]), [i, label]);
+      }
+      const path = `reforged-captures/dragon-${key}-f${form}-${st.name}-${bg}-${round}.png`;
+      writeFileSync(path, await page.screenshot({ clip: clipOf(2, 2, 500) }));
+      written.push(path); console.log('wrote', path);
     }
   }
+
+  // Crop sheet (pale): whole-dragon fill · wing fill · head fill (subject ≥60%), then the 4×
+  // detail crops (wing leading edge · head/eye) for emissive/edge judgment (the bossgate 4× law).
+  const CROPS = [
+    { part: 'whole', zoom: 1, label: 'whole' },
+    { part: 'wing',  zoom: 1, label: 'wing' },
+    { part: 'head',  zoom: 1, label: 'head' },
+    { part: 'wing',  zoom: 4, label: 'wing 4×' },
+    { part: 'head',  zoom: 4, label: 'head/eye 4×' },
+    { part: 'whole', zoom: 1, label: 'whole (dark)', bg: 'dark' },
+  ];
+  await page.evaluate((c) => window.dsSheetInit(c[0], c[1], c[2]), [3, 2, 460]);
+  for (let i = 0; i < CROPS.length; i++) {
+    const cr = CROPS[i];
+    await page.evaluate((o) => window.dsCrop(o), { key, tier: form, part: cr.part, zoom: cr.zoom, bg: cr.bg || 'pale' });
+    await page.evaluate((a) => window.dsTile(a[0], a[1]), [i, cr.label]);
+  }
+  const cpath = `reforged-captures/dragon-${key}-f${form}-crops-${round}.png`;
+  writeFileSync(cpath, await page.screenshot({ clip: clipOf(3, 2, 460) }));
+  written.push(cpath); console.log('wrote', cpath);
 }
 
-// CP2: the true-scale form-ladder montage (framed once by the apex), all backdrops.
-if (cp !== 'cp1') {
-  for (const bg of ['pale', 'dark', 'sunset']) {
-    await page.evaluate(([k, b]) => window.ladder(k, b), [key, bg]);
-    const path = `reforged-captures/dragon-${key}-ladder-${bg}-${round}.png`;
-    await monEl.screenshot({ path });
-    written.push(path);
-  }
+// ── fixed-distance FORM LADDER (the size-ramp read — never reframe per form) ──
+const radius = await page.evaluate((k) => window.dsApexRadius(k), key);
+await page.evaluate((c) => window.dsSheetInit(c[0], c[1], c[2]), [maxTier + 1, 1, 480]);
+const FORM_NAMES = ['Hatchling', 'Kindled', 'Radiant', 'Eternal'];
+for (let form = 0; form <= maxTier; form++) {
+  await page.evaluate((o) => window.dsLadderTile(o), { key, tier: form, bg: 'pale', radius });
+  await page.evaluate((a) => window.dsTile(a[0], a[1]), [form, `f${form} · ${FORM_NAMES[form]}`]);
 }
+const lpath = `reforged-captures/dragon-${key}-ladder-${round}.png`;
+writeFileSync(lpath, await page.screenshot({ clip: clipOf(maxTier + 1, 1, 480) }));
+written.push(lpath); console.log('wrote', lpath);
 
 await browser.close();
 srv.close?.();
-console.log(`\n${written.length} studio captures written:`);
-for (const p of written) console.log('  ' + p);
+
+// ── headless black-fill silhouettes (reuse tools/silhouette.mjs — assembly, not invention) ──
+// The pale sheet is the primary silhouette frame; these are the pure black fills the gate reads for
+// the one-connected-component / gap / mass-hierarchy laws, at a resolution that resolves the gaps.
+for (let form = 0; form <= maxTier; form++) {
+  for (const view of ['rear', 'side', 'top']) {
+    try {
+      execFileSync('node', ['tools/silhouette.mjs', key, view, String(form), '--scale=2', '--crop'], { stdio: 'ignore' });
+      const src = `/tmp/sil-${key}-${view}.png`;
+      const dst = `reforged-captures/dragon-${key}-f${form}-sil-${view}-${round}.png`;
+      execFileSync('cp', [src, dst]);
+      written.push(dst); console.log('wrote', dst);
+    } catch (e) { console.error(`silhouette ${key} ${view} f${form} failed:`, e.message); }
+  }
+}
+
+console.log(`\n${written.length} captures written to reforged-captures/ (round ${round}).`);
 process.exit(0);

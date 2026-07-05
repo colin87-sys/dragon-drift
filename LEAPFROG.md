@@ -5513,3 +5513,89 @@ tier 2, so every montage grows a mislabeled PHANTOM-T3 tile that a fresh gate wi
 studio captures → fresh `fable` gate (builder never self-judges) → integration pass → human merge verdict. And
 one meta-law: run the adversarial panel on the DOC before any builder burns a session on it — 30 directives
 cost minutes at design time and would have cost three build sessions at build time.
+
+### L145 — The Baton Cross, iterated live: rear-cam sequential → materialise, and the SW-stamp that hid it
+
+**Did / learned.** The first Baton Cross (L143) slid both twins in AT ONCE to bracket the dragon (chaseCam —
+normal chase, twins fit ahead). The owner previewed it and asked for the *other* idea: a REAR-CAM **sequential**
+reveal — twinA appears alone (camera focuses on it), THEN twinB appears on the far side (the dragon turns its
+head to it), THEN both scissor into the fight. That shipped (#217). Then the owner refined it again: instead of
+rising from below, both twins start INVISIBLE and **materialise in place** (#218). The L143 engine had every
+seam, so each pivot was a few fields + one model branch — no driver fork:
+
+1. **Rear-cam = just DON'T set `chaseCam`.** Dropping the flag falls the frame through to cameraController's
+   rear-look block (the ASHTALON pose). `rel < 0` in `path()` parks the group BEHIND the dragon (inside the
+   look-back); `bx` = the LIT twin's world-x (`_lit(u)`: +9 → −9 → 0) pans the camera between reveals.
+2. **A two-beat head-turn needed a script-owned look-window.** main.js's `setDragonLook` had ASHTALON's
+   hardcoded single-glance ramp. Added an optional `ov.lookWin` override: if present main.js uses it verbatim,
+   else ASHTALON's ramp (golden still byte-identical). The materialise shapes it as **camera-led beat 1**
+   (`lookWin≈0`, the rear cam reveals twinA; the dragon faces forward) → **dragon-led beat 2** (`lookWin` ramps
+   as twinB forms and the dragon turns to it) — a deliberate asymmetry the owner asked for.
+3. **Materialise = drive twin scale 0→1 with easeOutBack (a pop), staggered per beat.** `setEntrance` stashes
+   `entMatA/entMatB` and the scale line uses them during the entrance (`entranceU != null`), else the normal
+   survivor/shrink logic. No new geometry — the existing twin rig scaled from nothing.
+4. **The materialise FIXED L144's eye-strand gotcha for free.** A twin's socket sits at its full ±9 position
+   even at scale 0, so the eye-thread would stretch to the still-invisible twin (the old "lone floating ring"
+   mid-cross). Pinning twinB's thread-end onto twinA until it forms (`_sb.lerp(_sa, 1 - entMatB)`) makes the
+   thread a zero-length point on A through beat 1, then GROW across as B materialises — the cross now has a
+   visible destination the whole way.
+
+**The law this re-confirms.** When the owner wants to A/B cinematics, express BOTH as data on the same engine
+(L143) — rise-vs-materialise, chase-vs-rear-look, camera-led-vs-dragon-led were all fields, not forks.
+
+**Gotcha — the service worker hides your deploy unless you re-stamp.** `reforged/sw.js` is cache-first within a
+content-hashed `VERSION` stamped by `tools/stamp-sw.mjs` (which also writes `js/buildId.js`, the on-screen
+`build <hash>`). Change any reforged JS/CSS but forget to re-run the stamper → VERSION is unchanged → every
+returning client (the owner included) keeps serving the OLD cached module graph, and **no hard refresh can break
+through** (the SW intercepts). Symptom: "I hard-refreshed and still see build cXXXX." Fix: `cd reforged && node
+tools/stamp-sw.mjs`, commit `sw.js` + `buildId.js`, push — the new VERSION forces the swap and the new hash in
+the HUD is the proof-of-freshness. **Re-stamp is part of shipping any reforged change, not an afterthought**
+(#217 also merged un-stamped, so master's hash lagged until the next stamp covered it). The build hash on screen
+is your deploy receipt — if it didn't change, the client didn't either.
+
+### L146 — Slot 0, the TOOLING TRANCHE: build the capture/verify toolchain before the builders, and prove it with the calibration gate
+
+**Did.** Cut `claude/dragon-tools-slot-0` from master and made the starter-rebuild pipeline state-of-the-art
+BEFORE slot A, so the azure/ember/jade builders inherit effective tools instead of building them mid-slot
+(DRAGON-DESIGN §8 step 0, pulled forward). Landed: (1) a SHARED `js/wingDebugPose.js` poser
+(`setFlapDebugPose` + `resolveWingDebug`) that the in-game `?wingDebug` freeze AND the studio both call — the
+freeze now covers EVERY wing path (skinned / yoke / per-form / basic direct-pivot) plus `fold`/`bank` posture
+pins, where before it only touched the Mk II yoke branch that no starter rides; (2) `tools/dragonstudio.mjs`
++ `dragonstudio.html` — deterministic per-form contact sheets (states × angles × 3 backdrops, fill-frame +
+4× crops, fixed-distance form ladder), clamped to `maxTierFor`; (3) silhouette `--wings-only`/`--scale`/`--w/--h`/`--crop`
++ a widest-gap metric; (4) headshot NAPE tile (the old rear camera clipped inside the neck) + the three §8
+backdrops; (5) the `maxTierFor` clamp on `tiershots.html`; (6) `?cleanshot` + a clamped/`wingDebug`-passthrough
+gameshots; (7) grammar freebies — `model.tailStyle` as a live-resolved enum + `forms:true` on the head/eye/wing
+dials. Then ran the full dragonstudio set on SHIPPED azure and spawned a fresh `fable` gate with the verbatim §8
+GATE PROMPT.
+
+**The calibration verdict (proof of done, quoted in the PR).** FAIL, average 1.25 — "a sphere head with a cone
+beak, a flat dart body, and a continuous scalloped bat membrane… record this verdict as the calibration FAIL —
+it cites MITTEN, FLAT STICKER, SAME-DRAGON-BIGGER, STRAIGHT SPINE, SAWTOOTH." The gate accurately described the
+REAL shipped geometry from the pixels, which is the whole point: the captures are legible and the gate is
+calibrated (it does NOT rubber-stamp the shipped dragon). A gate that passes the old starter is a broken gate
+(L136 inverse); this one earns its credibility before slot A trusts it.
+
+**Learned.** (1) **One mechanism, two worlds.** `?wingDebug` (gameplay, dragon.js update loop) and the studio
+(build-model-directly, nfview/tiershots) are two posing worlds; the freeze must be ONE shared function both call,
+or the starters — none on the yoke path — stay un-pinnable and the studio forks a parallel poser. Centralising
+in `setFlapDebugPose` made azure freezable headless (`silhouette --pose=apex`) AND in-game (`flapstrip azure`,
+previously impossible). (2) **The doc's enum was a SUBSET of the code's.** DRAGON-DESIGN §6.2 lists 6 tail styles;
+the clean builder dispatches 12, and `nightfury` is used 8× in the shipped roster — freezing the doc's literal
+list would have FAILed `blueprint.mjs`. The grammar's own stated law ("resolve enums LIVE… never drift from
+what's buildable") is the resolution: export `dragonTail.TAIL_STYLES` beside the dispatch (the `SURFACE_PATCH_NAMES`
+pattern) and validate against it. A doc-vs-code conflict on a VALUE LIST is resolved by the code's authoritative
+set, not by improvising the doc's number into a breaking schema (§9).
+
+**Gotcha.** (a) `#hud` is not just the HUD — it also holds the menu `#screen` (the TAKE OFF button), so
+`#hud{display:none}` makes the run un-startable and every gameshots boot burns 30s on a dead click. cleanshot
+must hide `#hud > :not(#screen)`. (b) `page.screenshot({clip})` CLAMPS the clip to the viewport width — a
+contact sheet wider than the viewport (the 3–4-tile ladder/crops) silently loses its right-hand tiles. It
+masqueraded as a framing/overflow bug (f2 "overflowing"); the render was correct, the CAPTURE was cropped. Fix:
+size the viewport past the widest sheet. A box-corner NDC probe (`[-0.65, 0.61]`, fits) vs the on-disk crop is
+what told the two apart — measure the render, don't trust the thumbnail.
+
+**Pattern.** Toolchain-as-slot-0: build + prove the capture/verify pipeline (deterministic studio → fresh `fable`
+gate on the shipped dragon → expected calibration FAIL) as its own tranche BEFORE any builder burns a session.
+Determinism is a deliverable — `setFlapDebugPose` is clock-free, so two dragonstudio runs are byte-identical
+(31/31 verified); non-deterministic capture is the MARROWCOIL churn failure and is treated as a test failure.

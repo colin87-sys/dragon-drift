@@ -17,6 +17,7 @@ export const GROUPS = Object.freeze([
 
 // Knob KINDS the validator understands:
 //   'builder'   — a registered part-builder name (registry: torso|wings|head|tail)
+//   'enum'      — one of a closed value set resolved LIVE (registry names an ENUM_SOURCE)
 //   'shaderList'— an array of registered surface-shader names
 //   'shingleList'— an array (or single) of shingle-run specs
 //   'layerList' — an array of declarative surfaceLayers specs (the new path)
@@ -31,6 +32,7 @@ export const CREATURE_GRAMMAR = Object.freeze([
   { path: 'parts.wings', group: 'recipe', kind: 'builder', registry: 'wings', desc: 'Wing builder (e.g. membrane, nightFuryWings, feather, none).' },
   { path: 'parts.head', group: 'recipe', kind: 'builder', registry: 'head', desc: 'Head builder (e.g. horned, draconic, beaked, none).' },
   { path: 'parts.tail', group: 'recipe', kind: 'builder', registry: 'tail', desc: 'Tail builder (e.g. clean, legacy, none).' },
+  { path: 'model.tailStyle', group: 'recipe', kind: 'enum', registry: 'tailStyle', forms: true, desc: 'Clean-tail style (simple/finned/blade/comet/twinfin/shard/… — resolved live against the builder).' },
 
   // --- surface: shaders + relief ----------------------------------------------
   { path: 'parts.surface.shader', group: 'surface', kind: 'shaderList', desc: 'Composable surface-shader patches stacked over the body material.' },
@@ -41,7 +43,7 @@ export const CREATURE_GRAMMAR = Object.freeze([
   { path: 'model.scale', group: 'hull', kind: 'number', min: 0.3, max: 2.5, desc: 'Overall body size multiplier.' },
   { path: 'model.wingScale', group: 'hull', kind: 'number', min: 0.4, max: 2.2, forms: true, desc: 'Wing span multiplier (independent of body).' },
   { path: 'model.spineCurl', group: 'hull', kind: 'number', min: -1.5, max: 1.5, forms: true, desc: 'Posture / line-of-action: <0 curled chest-down whelp, >0 proud upright S.' },
-  { path: 'model.wingChordScale', group: 'hull', kind: 'number', min: 0.5, max: 2.2, desc: 'Wing front-to-back depth/fullness, independent of span (seraphWing).' },
+  { path: 'model.wingChordScale', group: 'hull', kind: 'number', min: 0.5, max: 2.2, forms: true, desc: 'Wing front-to-back depth/fullness, independent of span (seraphWing).' },
   { path: 'model.tailSegments', group: 'hull', kind: 'int', min: 0, max: 16, forms: true, desc: 'Segmented-tail count (0 for hull-grown tails).' },
   { path: 'model.neckSegments', group: 'hull', kind: 'int', min: 0, max: 12, forms: true, desc: 'Neck-chain segment count.' },
   { path: 'model.ridgeCount', group: 'hull', kind: 'int', min: 0, max: 28, forms: true, desc: 'Dorsal scale-ridge count (0 = smooth back).' },
@@ -69,13 +71,13 @@ export const CREATURE_GRAMMAR = Object.freeze([
   // --- wing shape + surface (model.*) -----------------------------------------
   { path: 'model.wingOpacity', group: 'wing', kind: 'number', min: 0, max: 1, forms: true, desc: 'Membrane translucency.' },
   { path: 'model.wingPanelGlow', group: 'wing', kind: 'number', min: 0, max: 1.5, forms: true, desc: 'Emissive glow on the membrane panel.' },
-  { path: 'model.wingBillow', group: 'wing', kind: 'number', min: 0, max: 0.6, desc: 'Chordwise membrane cup amplitude.' },
-  { path: 'model.wingArmLeadChord', group: 'wing', kind: 'number', min: 0, max: 1.5, desc: 'Forward sweep of the arm/leading spar toward the leading edge.' },
-  { path: 'model.wingWristMedial', group: 'wing', kind: 'number', min: 0, max: 2, desc: 'Inboard pull of the wrist (finger fan spread).' },
-  { path: 'model.wingFingerCurve', group: 'wing', kind: 'number', min: 0, max: 1, desc: 'Finger-spoke bow magnitude.' },
-  { path: 'model.wingFingerSplay', group: 'wing', kind: 'number', min: 0, max: 1, desc: 'Finger fan splay.' },
-  { path: 'model.wingFingerBulge', group: 'wing', kind: 'number', min: 0, max: 0.5, desc: 'Strut ridge bulge amplitude.' },
-  { path: 'model.wingFingerRadius', group: 'wing', kind: 'number', min: 0, max: 0.3, desc: 'Finger-strut tube radius.' },
+  { path: 'model.wingBillow', group: 'wing', kind: 'number', min: 0, max: 0.6, forms: true, desc: 'Chordwise membrane cup amplitude.' },
+  { path: 'model.wingArmLeadChord', group: 'wing', kind: 'number', min: 0, max: 1.5, forms: true, desc: 'Forward sweep of the arm/leading spar toward the leading edge.' },
+  { path: 'model.wingWristMedial', group: 'wing', kind: 'number', min: 0, max: 2, forms: true, desc: 'Inboard pull of the wrist (finger fan spread).' },
+  { path: 'model.wingFingerCurve', group: 'wing', kind: 'number', min: 0, max: 1, forms: true, desc: 'Finger-spoke bow magnitude.' },
+  { path: 'model.wingFingerSplay', group: 'wing', kind: 'number', min: 0, max: 1, forms: true, desc: 'Finger fan splay.' },
+  { path: 'model.wingFingerBulge', group: 'wing', kind: 'number', min: 0, max: 0.5, forms: true, desc: 'Strut ridge bulge amplitude.' },
+  { path: 'model.wingFingerRadius', group: 'wing', kind: 'number', min: 0, max: 0.3, forms: true, desc: 'Finger-strut tube radius.' },
 
   // --- motion / feel (model.*) ------------------------------------------------
   { path: 'model.flapBias', group: 'motion', kind: 'number', min: 0.4, max: 1.6, desc: 'Wingbeat phase drift.' },
@@ -107,9 +109,8 @@ export const CREATURE_GRAMMAR = Object.freeze([
   { path: 'model.glowSeams', group: 'surfaceLayers', kind: 'bool', forms: true, desc: 'Under-scale emissive vein seams.' },
   { path: 'model.bladeFins', group: 'surfaceLayers', kind: 'bool', forms: true, desc: 'Sharp lateral blade fins.' },
 
-  // --- tail (model.*) ---------------------------------------------------------
-  { path: 'model.tailStyle', group: 'hull', kind: 'enum', forms: true, desc: 'Clean-tail tip style.',
-    values: ['simple', 'finned', 'blade', 'comet', 'twinfin', 'shard', 'spade', 'splitfin', 'stealthrudder', 'apexstealth', 'nightfury', 'firefan'] },
+  // --- tail (model.*) — tailStyle itself is declared in the recipe group above (master's
+  //     registry-resolved enum); these are AZURE's additive fork-hint knobs.
   { path: 'model.tailTipFork', group: 'hull', kind: 'bool', forms: true, desc: 'Fork-hint knob on the simple tail tip (default off; shipped simple geometry untouched).' },
   { path: 'model.tailBannerFork', group: 'hull', kind: 'bool', forms: true, desc: 'Forked-banner (swallowtail) read on the finned tail tip (default off).' },
 ]);

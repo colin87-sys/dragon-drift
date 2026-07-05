@@ -5,7 +5,8 @@ import { buildRiderFigure, riderMaterials } from './riderParts.js';
 import { setFeverTint } from './postfx.js';
 import { applyRim, updateRim, resetRim } from './rimLight.js';
 import { flapWing, formStrength, formSpeed } from './dragonWingFlap.js';
-import { solveWing, flapEnv, phaseCenter } from './wingFlapSolver.js';
+import { solveWing, flapEnv } from './wingFlapSolver.js';
+import { setFlapDebugPose, resolveWingDebug } from './wingDebugPose.js';
 import { setActiveDetail } from './modelDetail.js';
 
 // Procedural dragon + rider. Built from a dragon def (dragons.js: palette,
@@ -16,9 +17,11 @@ let sceneRef = null;
 let activeDef = null;
 let activeRider = null;
 
-// `?wingDebug=<glide|recovery|apex|downstroke|settle>` FREEZE mode: holds the wings at one
-// cycle point with steering/boost/bank neutralised, and logs the resolved flap config + the
-// wing's WORLD-frame elevation — to prove gameplay reproduces the harness apex.
+// `?wingDebug=<glide|recovery|apex|downstroke|settle|fold|bank>` FREEZE mode: holds the wings
+// at one named pose (5 cycle points + fold/bank posture pins) via the SHARED poser
+// (wingDebugPose.js), so EVERY wing path — skinned, yoke, per-form, and the basic direct-pivot
+// the starters ride — is freezable at the same reproducible pose the studio captures. Logs the
+// resolved config + the wing's WORLD-frame elevation to prove gameplay reproduces the harness.
 const WING_DEBUG = (typeof location !== 'undefined' && location.search)
   ? new URLSearchParams(location.search).get('wingDebug') : null;
 let wingDebugLogged = false;
@@ -585,11 +588,41 @@ export function updateDragon(dt, player, time) {
   // would spasm. Accumulating dt·flapSpeed keeps the phase continuous: changing the frequency
   // only changes the RATE. Wrapped mod 2π for float precision over long sessions.
   flapPhase = (flapPhase + dt * flapSpeed) % (Math.PI * 2);
+  // `?wingDebug`: freeze the whole beat clock at the named cycle point so the wings — AND the
+  // phase-coupled head wobble / secondary wings below — hold ONE reproducible pose.
+  if (WING_DEBUG) flapPhase = resolveWingDebug(WING_DEBUG, activeDef.model.flap).phase;
   const phase = flapPhase;
   const rootFlap = Math.sin(phase) * flapAmp + 0.1;
   const feather = Math.sin(phase + Math.PI * 0.55);
   const tipLag = Math.sin(phase + 0.95);
-  if (wingRigL) {
+  if (WING_DEBUG) {
+    // FREEZE for `?wingDebug`: the SHARED poser holds this dragon's wings at the named pose,
+    // whichever motion path it rides — so the starters (basic direct-pivot) freeze exactly
+    // like the yoke dragons always could, and the studio captures the identical pose.
+    setFlapDebugPose({ wingRigL, wingRigR, wingYokeL, wingYokeR, wingPivotL, wingPivotR,
+      wingMidL, wingMidR, wingTipL, wingTipR, wingBladePivotsL, wingBladePivotsR }, activeDef.model, WING_DEBUG);
+    if (!wingDebugLogged) {
+      // Prove gameplay reaches the harness pose: log the resolved state + (for yoke rigs) the
+      // wing chain's elevation in the DRAGON'S OWN frame (independent of body bank/pitch).
+      try {
+        wingDebugLogged = true;
+        let tipElevDeg = null;
+        if (wingYokeR && wingTipR) {
+          group.updateWorldMatrix(true, true);
+          const inv = group.matrixWorld.clone().invert();
+          const yL = wingYokeR.getWorldPosition(new THREE.Vector3()).applyMatrix4(inv);
+          const tL = wingTipR.getWorldPosition(new THREE.Vector3()).applyMatrix4(inv);
+          tipElevDeg = +(Math.atan2(tL.y - yL.y, Math.hypot(tL.x - yL.x, tL.z - yL.z)) * 180 / Math.PI).toFixed(1);
+        }
+        const path = wingRigL ? 'skinned' : (activeDef.model.flap && wingYokeL) ? 'yoke'
+          : activeDef.model.wingParts ? 'wingParts' : 'direct-pivot';
+        console.log('[wingDebug] ' + JSON.stringify({
+          dragon: activeDef.name, form: activeDef.model.formLevel, phaseName: WING_DEBUG,
+          path, phase: +phase.toFixed(3), tipElevDeg,
+        }));
+      } catch (e) { console.log('[wingDebug] log failed', String(e)); }
+    }
+  } else if (wingRigL) {
     // Skinned wings: the shared animator drives the shoulder→elbow→wrist cascade
     // (lagged whip + anatomical limits). Same flight state, organic motion.
     const flapState = { phase, flapAmp, turnBias, climbBias, rollFold, feather, aero01, spread01, surge01, bankHard, strength: formStrength(activeDef.model) };
@@ -601,14 +634,14 @@ export function updateDragon(dt, player, time) {
     // LEADS and creates the base of the V — the root visibly drives, not just the tip. ONE
     // shared L/R phase (sign-mirror, never a whole-wing L/R lag); banking = pose bias only.
     const m = activeDef.model;
-    // FREEZE/NEUTRALISE for `?wingDebug`: hold one cycle point, zero steering/boost/bank/climb
-    // so the wing pose is PURE solver output (the test the player asked for).
-    const usePhase = WING_DEBUG ? phaseCenter(WING_DEBUG, m.flap) : phase;
-    const tB = WING_DEBUG ? 0 : turnBias, rF = WING_DEBUG ? 0 : rollFold, cB = WING_DEBUG ? 0 : climbBias;
+    // (The `?wingDebug` freeze for this path now runs through the shared poser in the
+    // WING_DEBUG branch above — this branch is live-flight only.)
+    const usePhase = phase;
+    const tB = turnBias, rF = rollFold, cB = climbBias;
     const s = solveWing(usePhase, m.flap);
     bodyFlapLift = (m.flap.body && m.flap.body.liftAmt) ? m.flap.body.liftAmt * s.yoke.env : 0;
     const featR = Math.sin(usePhase + Math.PI * 0.55);
-    const bank = WING_DEBUG ? 0 : Math.max(-1, Math.min(1, turnBias / 0.28));
+    const bank = Math.max(-1, Math.min(1, turnBias / 0.28));
     const poseY = (yk, pv, md, tp, ins) => {
       const inside = Math.max(0, ins), outside = Math.max(0, -ins);
       const ampE = 1 - 0.30 * ins;                 // INSIDE brakes the arc, OUTSIDE powers it
@@ -624,25 +657,6 @@ export function updateDragon(dt, player, time) {
     };
     poseY(wingYokeR, wingPivotR, wingMidR, wingTipR, bank);
     poseY(wingYokeL, wingPivotL, wingMidL, wingTipL, -bank);
-    if (WING_DEBUG && !wingDebugLogged) {
-      // Prove gameplay reaches the harness pose: log the resolved config + the wing chain's
-      // elevation in the DRAGON'S OWN frame (independent of body bank/pitch). tipElevDeg should
-      // read strongly positive at apex (a high V), ~flat at glide.
-      try {
-        wingDebugLogged = true;
-        group.updateWorldMatrix(true, true);
-        const inv = group.matrixWorld.clone().invert();
-        const yL = wingYokeR.getWorldPosition(new THREE.Vector3()).applyMatrix4(inv);
-        const tL = wingTipR.getWorldPosition(new THREE.Vector3()).applyMatrix4(inv);
-        const tipElevDeg = Math.atan2(tL.y - yL.y, Math.hypot(tL.x - yL.x, tL.z - yL.z)) * 180 / Math.PI;
-        console.log('[wingDebug] ' + JSON.stringify({
-          dragon: activeDef.name, form: activeDef.model.formLevel, phaseName: WING_DEBUG,
-          phase: +usePhase.toFixed(3), apexHold: m.flap.apexHold, yokeElevDeg: m.flap.yokeElevDeg, curlDeg: m.flap.curlDeg,
-          yokeRzDeg: +(wingYokeR.rotation.z * 180 / Math.PI).toFixed(1),
-          tipElevDeg: +tipElevDeg.toFixed(1),
-        }));
-      } catch (e) { console.log('[wingDebug] log failed', String(e)); }
-    }
   } else if (activeDef.model.wingParts) {
     // ── Mk II per-FORM articulated wing (1 / 2 / 3 segments) ─────────────────────────
     // ONE shared flap phase; L/R a pure sign-mirror (identical timing, never offset);

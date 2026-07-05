@@ -109,6 +109,17 @@ function buildLegacyTail(def, model, mats) {
   return { group: root, segs, tailFins: null, accentMats: null };
 }
 
+// The closed set of tail STYLES the clean builder dispatches on (model.tailStyle). Kept beside
+// buildCleanTail — its only consumer — so the creature grammar/validator can't drift from what's
+// actually buildable (the SURFACE_PATCH_NAMES pattern). MUST mirror the dispatch chain below.
+// NOTE: the DRAGON-DESIGN §6.2 enum lists only the first six (the starter-relevant subset); the
+// full buildable set includes the Obsidian stealth styles + firefan, so validating against this
+// list keeps the shipped roster (8× 'nightfury') green.
+export const TAIL_STYLES = Object.freeze([
+  'simple', 'finned', 'blade', 'comet', 'twinfin', 'shard',
+  'spade', 'splitfin', 'stealthrudder', 'apexstealth', 'firefan', 'nightfury',
+]);
+
 export function buildCleanTail(def, model, bodyMat, swept = false) {
   const root = new THREE.Group();
   const segs = [];

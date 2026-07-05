@@ -31,7 +31,7 @@ const THREE = await import('three');
 const { DRAGONS } = await import('../js/dragons.js');
 const { ascendedDef, maxTierFor } = await import('../js/ascension.js');
 const { buildDragonModel } = await import('../js/dragonModel.js');
-const { setFlapDebugPose } = await import('../js/dragonDebugPose.js');
+const { setFlapDebugPose } = await import('../js/wingDebugPose.js');
 
 const cp1 = process.argv.includes('--cp1');
 
@@ -62,7 +62,7 @@ function measure(key, form) {
   const { group, parts } = buildDragonModel(def, {});
   const scale = def.model.scale || 1;
   group.updateMatrixWorld(true);
-  setFlapDebugPose(parts, 'glide');
+  setFlapDebugPose(parts, def.model, 'glide');
   group.updateMatrixWorld(true);
   // body length: the published spine polyline z-range (pre-scale group space).
   const zs = parts.spinePoints.map((p) => p.z);
@@ -77,7 +77,7 @@ function measure(key, form) {
   const m = def.model;
   const eyeDiam = 0.32 * (m.eyeScale ?? 1) * (1 + (1 - (m.eyeShape ?? 1)) * 0.55);
   // fold contraction.
-  setFlapDebugPose(parts, 'fold'); group.updateMatrixWorld(true);
+  setFlapDebugPose(parts, def.model, 'fold'); group.updateMatrixWorld(true);
   let fx = 0; for (const e of parts.wingElements) { e.tipObj.getWorldPosition(V); fx = Math.max(fx, Math.abs(V.x) / scale); }
   const foldSpan = fx * 2;
   // spine inflection count.
