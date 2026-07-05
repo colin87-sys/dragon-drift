@@ -110,59 +110,73 @@ export const DRAGONS = {
     rarity: 'SR',
     maxRarity: 'SSR',   // starter: evolution caps at SSR, never SSSR
     cost: 600,
-    // A brutish CINDER-WYRM: broad, JAGGED flame-edged wings, a spiked back and
-    // lava-crack seams — stockier and more aggressive than Solar's elegant
-    // flame. Dark-cinder → bright lava.
+    accentHue: 0xff8b2a,   // §5d law-9 carrier: lava EMISSIVE only on the ray tubes + collar, ZERO warm accent DIFFUSE
+    // EMBER Wyrm — the forge-born bruiser (§5d slot B). A stocky broad wyrm with
+    // ANVIL shoulders whose HERO is a gapped-finger membrane: a thick beveled leading
+    // spar + 4 finger-ray tubes fanning through dark coal membrane, warm emissive on
+    // the rays only. A feralPredator draconic head; a short thick tail ending in a
+    // DARK IRON tip (no glow — fire owns the tail-bulb). The ONE bloom is the forge
+    // COLLAR at the wing-root yoke: coals → arc → a blazing 6-spike corona.
     stats: { speed: 1.04, handling: 1.06, drain: 0.95, regen: 1.05 },
+    parts: { torso: 'arrow', wings: 'emberMembraneWings', head: 'draconic', tail: 'clean' },
     model: {
-      scale: 1.08, wingScale: 1.15, tailSegments: 8, neckSegments: 4,
-      hornLen: 1.4, hornPairs: 2, ridgeCount: 14,
-      flapBias: 0.95, flapAmp: 0.95, // heavy, powerful beat, smoothed toward the Phoenix feel
+      scale: 1.08, wingScale: 1.0, tailSegments: 6, neckSegments: 4,
+      headArchetype: 'feralPredator',   // heavy brow, small deep-set hot eyes, angular jaw ('horned' is OUT — ignores headScale/snout)
+      headScale: 1.0, snoutScale: 0.7, browIntensity: 1.35,
+      shoulderWidthScale: 1.4,          // ANVIL shoulders (tier-0 key: ≥1.25× azure's hatchling)
+      hornType: 'bladeRearHorns', rearGlowIntensity: 0,
+      neckBlend: 1.5,                   // thick short forge neck fuses the segment beads
+      // ember gapped-finger membrane shared dials (per-form span/collar accrete below)
+      rayCount: 4, raySweep: 0.62, rayDihedral: 0.26, membraneCamber: 0.34, scallop: 0.26,
+      rayScale: 0.82, rayDetail: 1.0, rayEmissiveIntensity: 1.1,
+      sparColor: 0x5a4038,              // warm ash-scute leading spar (the sunlit dorsal top tier, law 11)
+      flapBias: 0.95, flapAmp: 0.95,    // heavy, powerful beat
     },
-    // Broad wings with deep, JAGGED flame notches (aggressive cinder edges).
-    wingForms: [
-      { tips: [[4.30, 0.34], [3.50, -0.46], [2.30, -0.80]],
-        lead: [2.90, 0.50], scallop: 0.34, flame: false,
-        arc: { bow: 0.55, hump: 0.30, humpAt: 0.55, hook: 0.20 } },
-      { tips: [[4.85, 0.38], [4.00, -0.50], [2.70, -0.95], [1.50, -1.00]],
-        lead: [3.30, 0.58], scallop: 0.50, flame: true,
-        arc: { bow: 0.60, hump: 0.70, humpAt: 0.55, hook: 0.35 } },
-      { tips: [[5.20, 0.42], [4.35, -0.52], [3.00, -1.05], [1.65, -1.10]],
-        lead: [3.60, 0.64], scallop: 0.60, flame: true,
-        arc: { bow: 0.70, hump: 1.10, humpAt: 0.57, hook: 0.55 } },
-      { tips: [[5.45, 0.46], [4.60, -0.52], [3.25, -1.10], [1.90, -1.15], [1.00, -0.95]],
-        lead: [3.80, 0.70], scallop: 0.60, flame: true,
-        arc: { bow: 0.80, hump: 1.50, humpAt: 0.58, hook: 0.85 } },
-    ],
-    // Three forms (starter caps at SSR / tier 2): a bare cinder whelp → horns +
-    // back ridges sprout, flame wings broaden → the SSR apex (jagged flame wings,
-    // blade-finned spine, crest + soft spine-glow). Restrained — no premium seams.
+    // Three visible forms (starter caps at SSR / tier 2): a round pot-bellied forge
+    // pup (coal pair, stub gapped wings) → shoulders square up, rays lengthen, horns
+    // bud, collar arc → the anvil apex (broad gapped wings, backSpines, blazing
+    // collar corona). Forms differ in PROPORTION + FEATURES, never same-dragon-bigger.
+    // Value ramps DOWN across forms on a held warm hue (law 9); emissive stays on the
+    // ray tubes + collar only (≤1.2 — no premium glow-seams, law 12).
     forms: [
-      // Hatchling — bare cinder whelp: no horns, no back ridges, dull ember.
-      { wingForm: 0, tailStyle: 'simple', tailSegments: 6, ridgeCount: 0,
-        spineGlow: 0, crest: 0, hornPairs: 1, hornLen: 0,
-        colors: { body: 0x2a1610, wingInner: 0x8a3a1e, wingOuter: 0x5c2414,
-          wingEmissive: 0x9a4420, scales: 0x9a5a34, horn: 0xb08058,
-          apexSeam: 0x7a3418, eye: 0xcf7a44, coreGlow: 0xc25a2a } },
-      // Kindled — horns + back ridges sprout, wings broaden, warmer ember-orange.
-      { wingForm: 1, tailStyle: 'simple', tailSegments: 6, ridgeCount: 10,
-        spineGlow: 0, crest: 0, hornPairs: 1, hornLen: 1.1,
-        colors: { body: 0x281410, wingInner: 0xe3561f, wingOuter: 0x7a3018,
-          wingEmissive: 0xff8b2a, scales: 0xe0884a, horn: 0xe0b070,
-          apexSeam: 0xff8b2a, eye: 0xffa347, coreGlow: 0xff7a30 } },
-      // Radiant = the SSR apex: jagged flame wings, finned tail, back-spines,
-      // crest + soft spine-glow — bright ember-orange, NO premium glow-seams.
-      { wingForm: 2, tailStyle: 'finned', tailSegments: 7, ridgeCount: 13,
-        spineGlow: 0.32, backSpines: true, crest: 1,
-        colors: { body: 0x261208, wingInner: 0xff8b2a, wingOuter: 0x7a3018,
-          wingEmissive: 0xffb347, scales: 0xffc070, horn: 0xffd28a,
-          apexSeam: 0xffb347, eye: 0xffc878, coreGlow: 0xff9a3a } },
+      // Hatchling (form 0) — round pot-bellied forge pup: curled chest-down posture,
+      // BIG round low-set eyes, near-flat snout, squared shoulders, two dull coals,
+      // stub gapped wings. Value-LIGHTEST body.
+      { wingScale: 0.72, raySpan: 3.4, rayDetail: 0.55, collarStage: 0,
+        spineCurl: -0.7, eyeShape: 0.0, headScale: 1.35, eyeScale: 1.5, snoutScale: 0.5,
+        shoulderWidthScale: 1.3, hornType: 'noHorn', browIntensity: 1.0,
+        tailStyle: 'simple', tailLength: 0.5, tailPlates: false, tailSegments: 5, neckSegments: 4, backSpines: false, ridgeCount: 0, spineGlow: 0,
+        colors: { body: 0x4f3527, belly: 0x6a4632, wingInner: 0x2a1208, wingOuter: 0x180a06,
+          wingEmissive: 0xff8b2a, scales: 0x5a4038, horn: 0x6a4a38,
+          apexSeam: 0x3a1206, eye: 0xff8a44, coreGlow: 0xc25a2a } },
+      // Adolescent (form 1) — shoulders square up further, rays lengthen, horns bud,
+      // eyes narrow, snout projects, collar becomes a glowing arc. MID value.
+      { wingScale: 0.88, raySpan: 4.7, rayDetail: 0.9, collarStage: 1,
+        spineCurl: 0.1, eyeShape: 0.5, headScale: 0.9, eyeScale: 0.95, snoutScale: 0.64,
+        shoulderWidthScale: 1.42, hornType: 'bladeRearHorns', hornScale: 0.55, browIntensity: 1.2,
+        tailStyle: 'simple', tailLength: 0.56, tailPlates: false, tailSegments: 6, neckSegments: 4, backSpines: false, ridgeCount: 8, spineGlow: 0,
+        colors: { body: 0x2f1a10, belly: 0x422a1c, wingInner: 0x240e07, wingOuter: 0x160905,
+          wingEmissive: 0xff8b2a, scales: 0x4a3226, horn: 0x7a5238,
+          apexSeam: 0x4a1608, eye: 0xff8032, coreGlow: 0xff7a30 } },
+      // Radiant apex (form 2) — the ANVIL: proud upright posture, keen almond hot
+      // eyes, full broad gapped wings, backSpines, 2 horn pairs, a short thick tail
+      // with a DARK IRON blade tip, and the blazing forge-collar corona (the ONE
+      // bloom). DEEPEST value; emissive at its richest (still ≤1.2, no glow-seams).
+      { wingScale: 1.0, raySpan: 6.1, rayDetail: 1.4, collarStage: 2,
+        spineCurl: 0.8, eyeShape: 1.0, headScale: 0.56, eyeScale: 0.72, snoutScale: 0.7,
+        shoulderWidthScale: 1.5, hornType: 'bladeRearHorns', hornScale: 1.0, hornPairs: 2, browIntensity: 1.4,
+        tailStyle: 'blade', tailLength: 0.6, tailSegments: 6, neckSegments: 4, backSpines: true, ridgeCount: 12, spineGlow: 0.3, dorsal: true,
+        colors: { body: 0x1c0d08, belly: 0x2e1c12, wingInner: 0x2a1208, wingOuter: 0x180a06,
+          wingEmissive: 0xff8b2a, scales: 0x5a4038, horn: 0x6a4636,
+          apexSeam: 0x5a1e08, eye: 0xff7a2a, coreGlow: 0xff9a3a } },
     ],
     fx: { auraColor: '255,139,42', auraIdle: 0.0, sparkle: false },
-    body: 0x231108, belly: 0xffd9a8, scales: 0xffc070, horn: 0xffd28a,
-    wingInner: 0xff8b2a, wingOuter: 0xe3561f, wingEmissive: 0xffb347,
-    apexEye: 0xffc878, apexSeam: 0xffb347, coreGlow: 0xff9a3a, surgeHi: 0xfff0d8,
-    eye: 0xffa347, trail: 0xffa347, boostTrail: 0xffc060,
+    // Matte coal hide — near-black body so the ray/collar emissive reads as the only warmth.
+    bodyRoughness: 0.72, bodyMetalness: 0.04, bodyEnvIntensity: 0.5,
+    body: 0x1c0d08, belly: 0x2e1c12, scales: 0x5a4038, horn: 0x6a4636,
+    wingInner: 0x2a1208, wingOuter: 0x180a06, wingEmissive: 0xff8b2a,
+    apexEye: 0xff7a2a, apexSeam: 0x5a1e08, coreGlow: 0xff9a3a, surgeHi: 0xffd8a0,
+    eye: 0xff8a44, trail: 0xffa347, boostTrail: 0xffc060,
   },
 
   jade: {

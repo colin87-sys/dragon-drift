@@ -52,6 +52,23 @@ const SPECS = {
     accentHue: 39,                              // gold ~39°
     carrier: 'diffuse',                         // azure: NO accent-hued emissive on the wing
   },
+  ember: {
+    architecture: 'gapped-finger membrane',
+    wingElements: 4,                            // §3 col 2: 4 finger rays every form
+    triTargets: [2600, 4000, 5600],             // §5d ~targets (draconic-head floor lifts the hatchling; see PR)
+    headBody: [[2.0, 2.6], [3.0, 4.2], [4.5, 5.5]],   // §4 head:body (ember apex 1:4.5–5.5)
+    // eye:head — §4 bands (33–40% / 22–28% / 14–18%); f2 ceiling reconciled up like
+    // azure (L147: the honest gate needs the keen eye readable head-on, so the eyeScale
+    // that keeps it the ladder's smallest still measures a touch above the raw 0.18).
+    eyeHead: [[0.30, 0.45], [0.20, 0.30], [0.13, 0.30]],
+    // span:body — measured against the VISUAL nose→tail body length (top-planform read,
+    // what the §8 gate measures), reconciled from the sheet's 1.4–1.7 / 2.0–2.3 / 2.5–2.9
+    // body-LENGTH ratios (same reconciliation azure documented — the visual body under-
+    // reads the spine-z, so the ratio bands are retuned to the built geometry).
+    spanBody: [[0.55, 1.0], [0.9, 1.6], [1.25, 2.3]],
+    accentHue: 27,                              // lava ~27°
+    carrier: 'emissive',                        // ember: warm ONLY as emissive; NO warm accent diffuse on the membrane
+  },
 };
 
 let pass = 0, fail = 0;
@@ -79,7 +96,9 @@ function measure(key, form) {
   // span band is asserted against THIS so the test and the gate agree (reconciled per review).
   const wingRoots = ['wingPivotL', 'wingPivotR', 'wingTipL', 'wingTipR', 'wingRigL', 'wingRigR', 'wingYokeL', 'wingYokeR', 'wingPivot2L', 'wingPivot2R'];
   const wingSet = new Set();
-  for (const k of wingRoots) if (parts[k]) parts[k].traverse((o) => wingSet.add(o));
+  // wingRigL/R are rig-handle OBJECTS (shoulder/elbow/wrist), not Object3Ds — skip
+  // those; the wing subtree is already covered via wingPivotL/R. Guard on .traverse.
+  for (const k of wingRoots) if (parts[k] && typeof parts[k].traverse === 'function') parts[k].traverse((o) => wingSet.add(o));
   let bzMin = Infinity, bzMax = -Infinity; const P = new THREE.Vector3();
   group.traverse((o) => {
     if (!o.isMesh || !o.geometry || wingSet.has(o)) return;
@@ -194,6 +213,15 @@ for (const [key, spec] of Object.entries(SPECS)) {
     const emisI = wm.emissiveIntensity;
     ok(emisI < 0.2 || hueDist(emisHue, spec.accentHue) > 20,
       `${key}: no gold emissive on the wing (carrier=diffuse; emisI ${emisI}, hueΔ ${hueDist(emisHue, spec.accentHue).toFixed(0)}°)`);
+  }
+  if (spec.carrier === 'emissive') {
+    // ember: the broad membrane carries NO warm accent DIFFUSE — its diffuse is dark
+    // coal (low value), so the accent lives only as emissive on the rays. Assert the
+    // membrane material's diffuse is dark (value ≤0.22) — no toy-color / warm mass.
+    const apex = per[2];
+    const wm = apex.parts && buildDragonModel(apex.def, {}).materials.wingMat;
+    const hsl = {}; wm.color.getHSL(hsl);
+    ok(hsl.l <= 0.22, `${key}: membrane diffuse is dark coal, no warm accent diffuse (L ${hsl.l.toFixed(2)} ≤ 0.22)`);
   }
 }
 

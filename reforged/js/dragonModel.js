@@ -229,9 +229,11 @@ export function buildDragonModel(def, opts = {}) {
   const headResult = getHeadBuilder(recipe.head)(def, model, { bodyMat, hornMat, bellyMat, scalesMat, eyeMat });
   const head = headResult.group;
   for (const m of headResult.spineMats) spineMats.push(m);
-  // Motif socket (§6.3): a head may publish its motif anchor (position invariance
-  // + bloom-volume asserts). Additive + nullable.
-  const motifAnchor = headResult.motifAnchor ?? null;
+  // Motif socket (§6.3): a builder may publish its motif anchor (position invariance
+  // + bloom-volume asserts). Additive + nullable. The HEAD publishes it when the
+  // motif is a head feature (azure's brow crest); ember's forge collar lives at the
+  // wing-root yoke, so the WINGS builder publishes it instead — adopted below.
+  let motifAnchor = headResult.motifAnchor ?? null;
   const headLength = headResult.headLength ?? null;   // skull length (§7 head:body assert)
   const hb = attach.headBase;
   head.position.set(hb.x, hb.y, hb.z);
@@ -308,6 +310,9 @@ export function buildDragonModel(def, opts = {}) {
   // neither → the roster is byte-identical).
   if (wingsResult.parts.tailFins) tailFins = wingsResult.parts.tailFins;
   if (wingsResult.parts.tailSegs) tailSegs = wingsResult.parts.tailSegs;
+  // Yoke-motif socket: a wings builder may own the motif anchor (ember's forge
+  // collar sits between the wing roots). Adopt it only if the head published none.
+  if (!motifAnchor && wingsResult.parts.motifAnchor) motifAnchor = wingsResult.parts.motifAnchor;
   const spineSegs = wingsResult.parts.spineSegs || null;   // night-fury body-spine whip (nullable)
 
   // Solar aura card (apex only): a tall narrow backlight behind the body — a
