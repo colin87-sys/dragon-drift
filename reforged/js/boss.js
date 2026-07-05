@@ -817,6 +817,14 @@ export function startBossEncounter(player, defOverride) {
     start.rel = 150;
     start.x = 0;
     start.y = B.fightHeight;
+  } else if (def.approachFrom === 'condense') {
+    // CONDENSE FROM AHEAD (§5b/§5d slot 7, THRUMSWARM): the swarm's unlit motes
+    // converge from up the lane and CLICK into the YOUR-DRAGON copy (§5j The Shape
+    // It Remembers). The group settles forward in rel only; the model owns the
+    // per-mote convergence (setEntrance). Reads as a scatter assembling ahead.
+    start.rel = 45;
+    start.x = 0;
+    start.y = B.fightHeight;
   } else if (def.approachFrom === 'sides') {
     // BOTH SIDES at once (§5b/§5d slot 5, EITHERWING): the pair materialises dead
     // ahead and glides into station centred, while the two twins sweep OUT from the
@@ -853,7 +861,7 @@ export function startBossEncounter(player, defOverride) {
   // clears as the boss flies in — anchored WHERE it emerges. 'side' → left/right;
   // 'above' → top; 'below'/'behind' → bottom-centre.
   const dir = def.approachFrom === 'side' ? (start.x < 0 ? 'left' : 'right')
-    : (def.approachFrom === 'above' || def.approachFrom === 'ahead') ? 'top' : 'bottom';
+    : (def.approachFrom === 'above' || def.approachFrom === 'ahead' || def.approachFrom === 'condense') ? 'top' : 'bottom';
   ui.bossWarning?.(def.name, def.title, dir, B.warnTime);
   sfx.feverStart?.();
   cameraCtl.shake?.(1.2);

@@ -5863,3 +5863,43 @@ fire), not into where the camera goes. And watch for **prop-up chains**: the fro
 justify it, which forced the invuln to make it fair, which forced homing to give the shot a point after the lock — when a
 feature needs another feature to be fair, which needs another to have a purpose, the first feature is probably wrong. Pull
 the root (the rear camera) and the whole tower comes down.
+
+### L157 — THRUMSWARM CP1: a swarm's identity is the FORMATION, the meme frame is a POINT-CLOUD silhouette, and a dark boss must still read on a dark studio sky
+
+**Did.** Built slot 7's CP1 (the stippled-swarm Calamity, the pale-sky boss after slot 6's pale arch): the builder
+(`bossThrumswarm.js` — a bone-white lantern QUEEN + 28 dark tetra motes as SEPARATE meshes lerping between authored
+FORMATION-SLOT TABLES: scatter / ring / wall / line / ringShield / **yourDragon** — the meme frame), the def (tier 3,
+4 cards, PRESSURE-OSTINATO rhythm, ABSORB-A-COLOR graze, the SCATTER-STAGGER parry job, the ring-around-you shield),
+the *Shape It Remembers* entrance data + the `condense` approach branch, the studio `condense`/`formation` dials + slot-7
+states, and cleared `bossgate --studio` G1–G7 (one shield-leash fix). Registry row 7 → `claimed`.
+
+**Learned.** (1) **For a SWARM boss the FORMATION is the body, and the queen is a MIGRATING focal.** The 28 motes carry
+NO identity alone — the read lives entirely in the authored slot tables they lerp between. The elegant resolve of "~30
+YOUR-DRAGON slots but only 28 motes": the QUEEN is the dragon's SKULL (her amber eye = the dragon's eye), the 28 motes
+are wings/body/tail/rider. One focal that MIGRATES between formations (centre of the cloud → the copy's head) does two
+jobs with one part. (2) **The meme frame is a POINT-CLOUD silhouette — author it like a constellation, not a mesh.** First
+pass swept the wings UP (bird V) and read as "a bird." Dragon-ness came from ONE geometry change: elbow UP, tip OUT and
+DOWN, a scalloped membrane BELOW (the bat/dragon wing), span widened to ±12.6 (~29 world units, GIANT). Order the slots so
+the lowQ drop sheds tail-tip/rider/crest LAST — the essential dragon (both full wings + body) survives at q0.5. (3) **A
+CONDENSED shape must go CRISP; a scattered one must MURMUR.** Scale the idle drift by `pow(1-condense, 1.4)` (→0 when
+condensed) but keep a tiny always-on shimmer (~0.06u) so the crisp copy still breathes (§3.7). (4) **A dark boss vanishes
+on the DARK studio backdrop unless its near-black is LIFTED.** Void-black motes (`0x08070c`) read beautifully on the
+bright home sky and DISAPPEARED on `0x14121a`. The two-way read (all three §7c skies) came free from a lifted blue-grey
+near-black albedo (`0x1b1b25`, roughness 0.62, metalness 0.2): the sun sits in FRONT of the boss (§1) so the camera-facing
+FACETS catch enough light to read on dark, while the mote is still far darker than the pale sky — no extra rim mesh
+needed. (The inverted-hull rim, L142, ALSO works but costs a draw per mote — and a per-mote 2-material array (one merged
+mesh, one draw) breaks the dissolve test, which reads `material.opacity` and gets NaN on an array. Lifted albedo is
+cheaper and cleaner.) (5) **G6 (focal leashes under shield) fails when the ADDITIVE SHIELD RIM blooms brighter than the
+tiny leashed eye.** The idle bright cluster is a pinpoint (0.22%); a normal shield rim adds MORE bright pixels than that,
+so the ratio inverts. Fix (the EITHERWING idiom): drop `shieldRimStrength` (0.26) + raise `shieldCageOpacity` (0.44) so
+the faceted WIREFRAME carries the shield read, AND HIDE the ultra-hot eye core entirely under the shield (`eyeCore.visible
+&& !shieldClamp`) — the focal must actually go dark, not just dim.
+
+**Gotcha.** A declared `def.setpieces` MUST have a `SETPIECE_PATHS` entry or the lifecycle test fails ("setpiece
+played") — an un-pathed setpiece is silently skipped. THRUMSWARM's two setpieces (condensePass + Your-Own-Wings) genuinely
+need CP2 (the dread flyby replays the player's RECORDED path via the ring buffer), so they were DEFERRED out of the def
+rather than stubbed — the dread spell CARD still resolves per-phase without a movement path. Don't declare engine you
+haven't wired.
+
+**Pattern.** Studio-first paid again: the bird-V wing, the dark-sky vanish, and the G6 shield-bloom were all caught and
+fixed on deterministic re-renders before any in-game work — three fixes, zero debugging sessions.
