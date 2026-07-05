@@ -5670,3 +5670,39 @@ side black-fill silhouettes are the views that resolve wing-root fore/aft positi
 (c) **The lever already existed on the torso contract** — reach for the published attach point + its additive
 offset before touching geometry; the roster stays byte-identical because every other dragon leaves the
 offset at 0. Motion/feel is the human's call — capture all three values, state a recommendation, let them pick.
+
+
+### L149 — AZURE CP2, the form-ladder pass (gate 3.50→4.13): the cute eye, and the cumulative-merge apex leak
+
+**What we did.** Turned the three AZURE forms from "shrunk adults" into a real age ladder — cute baby →
+gawky adolescent → noble apex — and drove it through the §8 `fable` gate FOUR rounds (3.50 → 3.75 → 3.81 →
+**4.13 PASS**). The hatchling/adolescent got a cute round eye; every form got value/gold/crest/snout tuning.
+
+**The two big lessons.**
+
+**(1) Forms merge CUMULATIVELY — a dial set on a young form LEAKS into the apex.** `ascension.js` applies
+`def.forms[0..tier]` with `Object.assign` in sequence, so form 2 = base ⊕ f0 ⊕ f1 ⊕ f2. Any dial f0/f1 sets
+that f2 does NOT re-declare persists into the apex. Setting `keenEye:false, cuteEye:true` on f0/f1 silently
+replaced the CP1-approved keen falcon apex eye with a barely-visible cute round eye — and `bladeChord`,
+`crestGoldAmount`, `wingTipGoldAmount` leaked too — for THREE commits before a per-form probe caught it
+(`ascendedDef(def, f)` then read `def.model.keenEye`). Fix + rule: **when you add a dial to a young form,
+re-pin it at its intended value on every later form, and pin the APPROVED apex explicitly** (it now carries a
+"APEX PIN" block). Verify with a per-form dial probe, not just by eyeballing the young form you're editing.
+
+**(2) A cute eye is flat disc DECALS, not stacked spheres.** Three eye builds: (a) one dark pupil sphere on a
+pale sclera → "blank googly orb, no gaze" (gate); (b) added an iris sphere + pupil sphere → the offset spheres
+INTERSECTED into a shattered jagged star with stray fleck-triangles, dropping the LIFE axis to 3.0; (c) FLAT
+coplanar `CircleGeometry` decals (sclera-sphere + blue-iris disc + dark-pupil disc + white-catchlight dot)
+stacked at increasing depth on a group facing the gaze normal, over a *rounded* (un-squashed) sclera → clean
+crisp rims, physically cannot intersect, reads as a crisp button eye from front + ¾. **Parallel planes never
+shatter; near-tangent spheres always do.** Trade: a forward-facing decal is edge-on (plain) in pure profile —
+accepted, because a cute eye lives on the front and players judge it front/¾. Seat the decal plane PROUD of the
+sclera (~0.99·rr, not 0.84) or the white sclera z-fights through the pupil.
+
+**Reusable dials added (all roster-safe, additive, default = byte-identical):** `cuteEye` (disc-decal eye),
+`wingTipGoldAmount` (per-form gold restraint — young forms earn the banner), `crestGoldAmount` + `crestSeat`
+(mute + sink a young crest so thin blades don't float as chevrons — but `crestSeat` is capped by the §7
+motif-invariance drift assert ≤0.15, so you cannot bury it arbitrarily). Age-ladder recipe that PASSED:
+headScale big→small, eyeScale big→small, eyeShape round→almond, snout button→beak, crest nub→fan,
+value pale→deep, gold none→full. §3 fixes the blade COUNT at 5 every form, so "baby wings" = shorter span +
+WIDER chord + no rake divergence (rake would leak to the apex), never fewer blades.
