@@ -5479,3 +5479,42 @@ without the golden gate in place first.
 NOT reproduce the live flythrough's cinematic camera/HUD — its stills read as a plain chase.
 Pins verify the model CHOREOGRAPHY (twins bracket, eye crosses) headlessly; the framing/camera
 feel must be judged on the live preview (or a live-flythrough capture), not the pinned still.
+
+### L144 — The Baton Cross that SHIPPED: the owner's rear-cam sequential reveal beat the parallel bracket
+
+**Did / learned.** The first Baton Cross (L143) had both twins slide in AT ONCE and bracket the
+dragon while the eye crossed between them (chaseCam — normal chase, twins fit ahead). The owner
+previewed it and asked for the *other* idea: a REAR-CAM **sequential** reveal — twinA rises alone
+(dragon cranks its head to look), THEN the eye crosses to twinB rising on the far side (head +
+camera pan with it), THEN both scissor forward into the fight. That version shipped (#217). What
+made the pivot cheap — the L143 engine already had every seam I needed:
+
+1. **The parallel→sequential rewrite was ~30 lines, no new machinery.** The model's
+   `setEntrance(u)` batonCross branch went from `slide` (both in together) to `apA`/`apB` (twinA
+   rises over beat 1, twinB over beat 2, staggered by 0.34) + a later `scissor` that lands both on
+   the frozen figure-eight's th=0 seat. The eye `holdT` now crosses when twinB *appears* (0.34→0.62)
+   so the dragon always looks at the LIT twin, not a dark one. Same twin/eye/thread rig.
+2. **Rear-cam = just DON'T set `chaseCam`.** Dropping `chaseCam:true` from the script's camera
+   state falls the frame through to cameraController's rear-look block (the ASHTALON pose). Feed
+   `rel < 0` in `path()` so the group rides BEHIND the dragon (inside the look-back), and `bz =
+   -(player.dist + pose.rel)` puts it where the rear camera catches it rising. The camera pans
+   right→left by feeding the LIT twin's world-x as `bx` (a `_lit(u)` helper: +9 → −9 → 0).
+3. **A two-beat head-turn needed a script-owned look-window.** main.js's `setDragonLook` had
+   ASHTALON's hardcoded single-glance ramp (`(k−0.20)/0.12 … (0.86−k)/0.12`) — a lone glance, wrong
+   for two reveals. Added an optional `ov.lookWin` override: if the state provides it, main.js uses
+   it verbatim; ASHTALON leaves it undefined and keeps its ramp (golden still byte-identical). The
+   batonCross holds `lookWin≈1` across BOTH reveals, eases to 0 through the scissor.
+
+**The law this mints.** When an owner wants to A/B two cinematics, don't fork the driver — express
+BOTH as data on the same engine (L143). Parallel-vs-sequential, chase-vs-rear-look, single-vs-dual
+head-turn were all a few fields (`chaseCam`, `rel` sign, `_lit`, `lookWin`) + one model branch. And
+add generalization seams to the SHARED consumer as `?? default` / `!== undefined` overrides
+(`lookWin` in main.js, like `setOvertake`'s pose defaults) so the exemplar stays untouched.
+
+**Gotcha — the rear-cam pan strands the eye.** When the camera pans from twinA to twinB, the two
+bodies swing to the FRAME EXTREMES (±9 local) and can leave frame, so mid-cross (u≈0.5) you see just
+the floating eye-ring, no bodies — a candidate dead-moment. Fixes if the owner flags it: tighten the
+reveal spread (±9→±6, bodies stay nearer frame during the pan) or OVERLAP the reveals (twinB already
+rising as the eye leaves twinA). Shipped at ±9 (owner merged as-is); noted here so the next tune
+starts from the known trade-off, not a re-discovery. Sequential reveal = you never see BOTH twins
+until the scissor — that's the intended read ("one appears… then the other… then together"), not a bug.
