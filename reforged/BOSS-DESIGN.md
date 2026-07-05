@@ -436,12 +436,12 @@ feasibility survey: at rel 30, on-screen centers within x ±15 / y 2..22 on port
   meshes — phone-verified fine; NO InstancedMesh, L126). REUSES: mandala rail-merge idiom,
   charisma eye rig, jawPivot precedent. NEEDS: below-approach + cull-bound widening (§5e).
   ENTRANCE: shipped rise stands; §5j *Count the Ribs* retrofit STAGED (inert `def.riseBeats`).
-  KNOWN GAP (owner-verified, 2026-07 — L141): the promised rib FLY-THROUGH does not land
-  in the shipped game. `ribThread` (boss.js:222) brings the GROUP to rel 7 but the spine
-  trails away from the player, so the cage LOOMS and never wraps the rail. Fix candidate
-  for a polish session: sweep the group through rel ~−6 during the thread hold (a true
-  pass, lateral-offset guarded) or advance the mid-cage ahead of the skull for the hold.
-  No behavior change until that session; the sheet stops claiming the fly-through.
+  FLY-THROUGH (2026-07 — L142, RESOLVED; was the L141 gap): the rib fly-through now LANDS.
+  `ribThread` (boss.js) sweeps the GROUP from the loom through rel −6 AND dives ~4.2u so the
+  barrel INTERIOR (its dorsal rib roots sit ~4u above the rail) descends around the camera —
+  the ribs flank the dragon on both flanks + overhead and the pillar corridor reads THROUGH
+  the aperture on exit. Verified in-game from the rail camera (tools/marrowpass.mjs). The
+  sheet claims the fly-through again.
 - **5 EITHERWING** — **REACH SPEC (r8, 2026-07 — supersedes the conservative first sheet;
   L140):** the first draft built to "~2×900 tris, 2.2-long bodies" and presented ~40% of
   ASHTALON's presence at the band PEAK. The ensemble is the body; this boss's wingspan is
