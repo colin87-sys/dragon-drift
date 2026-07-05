@@ -285,7 +285,7 @@ export const BOSSES = {
     // ribcage — the SotC scale-contrast frame); P3 = THE CLOSING RIBS dread (the
     // cage constricts one pair at a time while the coil sweeps — graze goldmine).
     setpieces: [
-      { id: 'ribThread',   atPhase: 1, dur: 6.5, moving: true },
+      { id: 'ribThread',   atPhase: 1, dur: 8.5, moving: true },   // L155: the flyby (thread → off-screen → flank emerge + head-turn → centre)
       { id: 'closingRibs', atPhase: 2, dur: 6.0, moving: true, dread: true },
     ],
     // Tier 2 difficulty: iris DEBUTS as expanding bone-white rings off the coil
