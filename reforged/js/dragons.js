@@ -40,7 +40,7 @@ export const DRAGONS = {
       neckBlend: 1.15,  // SLIM falcon neck: a fat neck (2.1) swallowed the small proud head — slimmer than the head so it sits proud (§5d avian)
       // blade-feather comb shared dials (per-form span/count/etc. accrete below)
       bladeCount: 5, bladeSweep: 0.38, bladeStagger: 0.2,
-      bladeCamber: 0.28, bladeDihedral: 0.30, bladeChord: 0.17,   // dihedral 17° (in the 12–20° band, gate r5 dir 5); wider chord so roots overlap into ONE surface (dir 3)
+      bladeCamber: 0.28, bladeDihedral: 0.24, bladeChord: 0.17,   // dihedral 13.7° (low in the 12–20° band, gate r6 dir 7 — flatter side profile so wings stop dominating the side mass); wide chord so roots overlap into ONE surface
       hornPairs: 1, hornLen: 0.9, ridgeCount: 10, ridgeSeat: -0.02,   // embed dorsal ridges into the back (no floating specks — gate r5 dir 2b)
       flapBias: 1.0, flapAmp: 0.9,    // light courier beat
     },
@@ -73,7 +73,7 @@ export const DRAGONS = {
       // Radiant apex (form 2) — proud upright S, keen almond eyes, full high-aspect
       // comb (span 2.8–3.2×), 3-blade crest fan, dorsal sail, gold-tipped swallow
       // banner tail. Deepest sky value, gold at its richest (still DIFFUSE).
-      { wingScale: 1.0, bladeSpan: 8.6, bladeCount: 5, bladeDetail: 1.45, neckBlend: 1.45,   // denser neck fuses the segment grooves (gate r5 dir 11 — no segmented-grub read)
+      { wingScale: 1.0, bladeSpan: 9.2, bladeCount: 5, bladeDetail: 1.45, neckBlend: 1.45,   // span widened to the §7 ceiling for wing majesty (gate r6 dir 4); denser neck fuses the segment grooves (dir 11)
         spineCurl: 0.95, eyeShape: 1.0, headScale: 0.52, eyeScale: 0.52,
         crestBlades: 3, crestScale: 1.6, skullType: 'smoothWedgeSkull', snoutScale: 0.68,   // bespoke ONE-shell falcon wedge (no ellipsoid plate-stack); shorter muzzle seats head:body/eye:head in band + kills the needle beak; crest breaks the outline
         tailStyle: 'finned', tailBannerFork: true, tailSegments: 6, neckSegments: 5,

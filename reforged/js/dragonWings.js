@@ -854,12 +854,12 @@ function buildBladeFeatherWings(def, model, attach, giM) {
     const rootZ = rootX * Math.tan(sweep) + stagger * i;   // sweep back + z-stagger
     const len = maxLen * lenMulFor(i);
     const wRoot = chordK * reach * (0.7 + 0.3 * Math.sin(t * Math.PI));
-    // MINIMAL progressive fan (gate r5 dir 3): the round-4 rake (0.05+0.055i) over-fanned
-    // the comb into lightning-bolt SHARDS (tattered, gaps ~0.8–1.5× blade width). A much
-    // gentler splay leaves the blades near-parallel and pointing OUTWARD, so the gaps are
-    // thin SLITS (0.15–0.25× blade width) and the fan reads as ONE feathered surface —
-    // separation now comes from the z-stagger (depth), not a wide in-plane fan.
-    const rakeI = model.bladeRake ?? (0.02 + 0.02 * i);
+    // MODERATE progressive fan (gate r6 dir 5): r5's near-parallel rake (0.02+0.02i) welded
+    // the comb into a solid deltoid in the PLANFORM (z-stagger separates in depth but not in
+    // the top projection — MITTEN). This mid setting fans the OUTER 55–70% of adjacent blades
+    // apart into TRUE through-slits while the wide-chord roots still overlap into one surface
+    // near the arm; the taper makes the slits open toward the tips, not the roots.
+    const rakeI = model.bladeRake ?? (0.035 + 0.032 * i);
     // discrete tier: inner→dark, mid→cMid, outer→light
     const baseHex = t < 0.28 ? cDark : (t < 0.62 ? cMid : cLight);
     const tipHex = t < 0.28 ? cMid : cLight;
@@ -899,10 +899,10 @@ function buildBladeFeatherWings(def, model, attach, giM) {
     // behind (gate r5 dir 4: mid-arm chord ≥0.35× longest blade). They lie FLAT on the wing
     // plane (dir 7: shingles, not upright cone-spikes — stand ≤0.05× blade length above the
     // spar) marching out along the arm with a clean ×0.8 size step (law 5).
-    const covN = 4, covChord = chordK * reach * 1.35;        // broad chord → real inner surface (dir 4)
+    const covN = 3, covChord = chordK * reach * 1.5;         // broad chord → real inner surface (dir 4); 3 keeps the apex under the tri ceiling
     for (let k = 0; k < covN; k++) {
-      const size = 0.62 * Math.pow(0.8, k);                  // ×0.8 step, bigger base so the inner fills
-      const cx = armLen * (0.06 + k * 0.135);                // march OUT along the arm (inner 40%)
+      const size = 0.66 * Math.pow(0.8, k);                  // ×0.8 step, bigger base so the inner fills
+      const cx = armLen * (0.06 + k * 0.18);                 // march OUT along the arm (inner 40%)
       const cy = cx * Math.tan(theta) + 0.01;
       const cz = cx * Math.tan(sweep) + 0.03;                // seat ON the spar, no float
       const cRest = new THREE.Group();
