@@ -2015,6 +2015,13 @@ export function debugFireAttack(id, player) {
   executeAttack(id || 'aimed', player);
 }
 
+// Capture hook (?debug): crack a destructible sub-part live (HOLLOWGATE pane N)
+// so the integration shots can show a broken window + its silenced radial.
+export function debugCrackPane(i) {
+  if (!active || !model?.crackPane) return false;
+  return model.crackPane(i);
+}
+
 export function bossDebugState() {
   // chargeLevel: 0 at the start of a wind-up → 1 at full contraction (mirrors the
   // value fed to model.setCharge). The crop tool waits for a HIGH level so it grabs
