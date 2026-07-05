@@ -1371,6 +1371,10 @@ integration → (pass) → post both sets to the PR → STOP for the human.
 ## 9. Ledger reading list (READ ONLY THESE — the ledger is 470KB and mostly not about bosses)
 
 LEAPFROG.md lessons relevant to boss work, in priority order:
+- **L150** — HOLLOWGATE CP1: a faceless architecture face is a per-part emissive STATE TABLE
+  (pupil = a different CLASS, notice = a state JUMP, the DEFAULT state carries the registry
+  claim); dark decoration on a pale mass forges a second scar; ambient drift can silently
+  inflate the G5 telegraph diff.
 - **L129** — CRAGHOLD (boss 3, first Tier 2 Colossus): the gesture-hand limb system, the
   def-gated setpiece seam, flash-bind luminance, and the draw-budget reality at 3 bosses.
 - **L127** — shareability research + charisma layer + the parallel-agent git gotcha.

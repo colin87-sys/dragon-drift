@@ -397,16 +397,18 @@ export function buildHollowgate(def, quality = 1) {
   // ---- FLOATING MASONRY CHIPS (the orbiter contract ≥2; §3.8 satellites stay
   // dark — mid/dark stone, zero emissive lift). They drift slow ellipses around
   // the arch at two frequencies (idle-motion law §3.7).
+  // LIGHT tiers only, orbiting BELOW the window line — a dark chip crossing the
+  // pale rose ring reads as a second wound (§3.6 one-scar law; gate r5 dir 1).
   const chipGeo = strip(new THREE.BoxGeometry(0.5, 0.36, 0.42));
   const orbiters = [];
   const N_CHIP = lowQ ? 3 : 5;
   for (let i = 0; i < N_CHIP; i++) {
-    const m = new THREE.Mesh(chipGeo, i % 2 ? stoneDarkMat : stoneMidMat);
+    const m = new THREE.Mesh(chipGeo, i % 2 ? stoneMidMat : stoneFace2Mat);
     m.name = 'masonryChip';
     m.userData = {
       ang: (i / N_CHIP) * Math.PI * 2,
-      rx: 4.9 + (i % 3) * 0.5, ry: 3.2 + (i % 2) * 1.3,
-      cy: 0.5 + i * 1.1,
+      rx: 4.9 + (i % 3) * 0.5, ry: 2.2 + (i % 2) * 0.7,
+      cy: -0.6 + i * 0.7,
       speed: 0.16 + (i % 3) * 0.05,
       bob: 0.7 + (i % 2) * 0.5,
       spin: 0.3 + (i % 3) * 0.2,

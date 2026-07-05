@@ -5675,3 +5675,34 @@ ceiling being reached. Added both: `deploy-pages.yml` now `du -sb _site` and fai
 (instead of the opaque syncing_files), and a scheduled `prune-previews.yml` sweeps `pr-preview/pr-<N>` whose PR is no
 longer OPEN (weekly + on-demand, shares the `gh-pages` concurrency group). Keep-open / prune-everything-else is the
 safe rule: open PRs re-publish their own preview on the next push anyway.
+
+### L150 — HOLLOWGATE CP1: an architecture boss's face is a STATE TABLE, and decoration can forge a second scar
+
+**Did.** Built slot 6's CP1 (the ruined-arch Calamity opener, VALUE-INVERTED ivory): builder + def (tier 3,
+4 phases/4 cards, VERSE–CHORUS rhythm), the Vigil Lights entrance data, the 'ahead' approach branch, studio
+states, and cleared the studio gate in three rounds (r4 FAIL → r5 PASS-with-cleanup → r6 clean).
+
+**Learned.** (1) **A faceless carrier on architecture = a per-part emissive STATE TABLE.** The rose window's
+8 per-pane materials with one eased intensity array gave all seven §4b channels (gaze/blink/charge/expression/
+flinch/notice/death) as pure data — no bones, no morphs. The two things the gate actually demanded: the PUPIL
+must be visually a different CLASS (emissive lerped toward white-hot), not just brighter — "brightest of eight
+colored panes" is unreadable at fight distance; and NOTICE must be a discrete state JUMP (blackout-except-pupil
+→ full-ring flash), not a modifier on the idle mood. (2) **The default state carries the registry claim.** The
+idle window collapsed to "gold ring-eye" (a slot-2 collision) until two saturated cool panes were HELD lit —
+if an identity axis ("leaded multicolor field") only appears in the dread card, it is not the boss's identity.
+(3) **Decoration can forge a second scar (§3.6).** A dark orbiting chip crossing the pale ring read as a wound
+stronger than the authored one; on a pale boss, ANY dark element that overlaps a pale mass becomes a scar
+candidate — satellites near the face must stay in the light tiers. The real scar became legible only when it
+was subtractive geometry (a bite built into the torus arc) instead of applied stubs. (4) **A tier-3 slot needed
+the phase-count gate made band-aware** (tests/boss.mjs now allows 3–5 carded phases at tier ≥3 — §5g's "4–5
+cards" was in conflict with the flat 3-phase assert).
+
+**Gotcha.** G5 (charge silhouette diff) was silently INFLATED by the drifting masonry chips — different sim
+times between the idle and charge captures moved them, contributing ~7% "telegraph". Tightening their orbits
+dropped the honest portcullis-only diff to 4.9% (fail); the fix was more real gate mass (wider bars, deeper
+travel), not reverting the chips. If a telegraph gate passes, check WHAT is passing it — ambient drift counts
+as shape change to a pixel diff.
+
+**Pattern.** Studio-first paid again: three FAIL→PASS rounds cost only deterministic re-renders. The gate
+prompt now includes "judge the r5 frames fresh — do not assume the fixes worked", which caught the decoy chip
+a builder self-check would have rationalized away.
