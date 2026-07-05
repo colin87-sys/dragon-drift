@@ -366,6 +366,8 @@ export const BOSSES = {
     bulletColor: 0xff2b6a,    // danger stays magenta (role colour, never per-boss)
     approachFrom: 'sides',    // BOTH SIDES at once (§5e new branch): the twins arrive from both flanks
     scale: 1.55,              // COLOSSUS — REACH PASS (r8): 1.35→1.55, crossing span ≈ 23u (ASHTALON-class reach)
+    grazeBaitR: 4.0,          // WIDER shield graze-ring (default 3.6) — the r9 body reads big, so the
+                              // fixed ring felt tight to thread; 4.0 stays ≤ grazeR (≈4.15) so it still fully skims
     hpMax: 330,               // Tier 2 band (260–330); slot-5 PEAK sits at the top (the sawtooth crest)
     // §5f DUO LAW (one per roster): complementary axes — one twin flies lane-denial
     // WALLS (movingGap/secondWave), the other aimed TEMPO (aimed/crossfire); volley

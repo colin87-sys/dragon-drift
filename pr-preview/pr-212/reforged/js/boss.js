@@ -1517,7 +1517,12 @@ function fireGrazeBait(player, time) {
   // Bait gets a DARK core (hollow "donut") — the only emission that does. Every
   // other pattern keeps the default white "hot disc" core (2.4): bait must read
   // as a DIFFERENT thing from danger, on top of the brightness/size banding.
-  fireRing(cx, cy, 3.6, quality < 0.75 ? 11 : 15, B.bulletSpeed * 0.8, b.c, b.s, 0x2a1020);   // denser = clearer circle
+  // Ring radius per-boss (default 3.6): a boss whose body grew (EITHERWING r9) makes the
+  // fixed ring read small + tight to thread, so it opts into a WIDER ring — still ≤ grazeR
+  // (≈4.15, which already folds in the bullet radius) so flying the centre skims the WHOLE
+  // ring and charges Surge, just with a roomier safe lane. Shipped bosses stay byte-identical.
+  const baitR = def.grazeBaitR ?? 3.6;
+  fireRing(cx, cy, baitR, quality < 0.75 ? 11 : 15, B.bulletSpeed * 0.8, b.c, b.s, 0x2a1020);   // denser = clearer circle
 }
 
 // A ring (circle outline) of bullets centred on (cx, cy) that closes straight in.
