@@ -10,6 +10,7 @@ import { emit, on } from './events.js';
 import { clearAhead } from './obstacles.js';
 import { buildBoss } from './bossModel.js';
 import { makeRhythm } from './bossRhythm.js';
+import { ENTRANCE_SCRIPTS } from './entranceScripts.js';
 import { BOSSES, BOSS_ORDER, bossDefForIndex } from './bossDefs.js';
 import { saveData, persist, recordBossCard, recordBossLedger } from './save.js';
 import { BIOMES, biomeIndexAt } from './biomes.js';
@@ -38,6 +39,7 @@ let debugFirstAt = null;       // ?boss override: bring the first encounter in e
 let debugDefIdx = null;        // ?bossIdx override: force a specific BOSS_ORDER entry
 let debugChargePin = -1;       // capture hook: ≥0 holds the charge/mantle pose for a still
 let debugSetpiecePin = null;   // capture hook: { id, k } holds a setpiece pose (the dive) for a still
+let debugEntrancePin = null;   // capture hook: 0..1 holds an ENTRANCE_SCRIPTS pose (the Baton Cross) for a still
 let nextBossDist = B.firstAt;
 let encounterIndex = 0;
 
@@ -109,6 +111,7 @@ let riderTimer = 0;
 // (back to camera), then wheel around to face you. cineYaw overrides placeGroup's
 // face-the-player rule for the turn; cineSide = which flank it sweeps.
 let cineT = 0;
+let entranceId = null;         // §5j: which ENTRANCE_SCRIPTS entry is playing (null = plain approach)
 let cineYaw = null;            // null = normal facing; else a scripted world-yaw for the turn-around
 let cineSide = 1;
 let cineAnchorX = 0, cineAnchorY = 8;   // the dragon's x/y at flythrough start (pass beside it, both in frame)
@@ -812,6 +815,8 @@ function applyReticle(timeLeft, time) {
 // the cinematic flythrough entrance.
 function enterFight() {
   phase = 'fight';
+  entranceId = null;                  // the scripted entrance is done
+  model?.setEntrance?.(null);         // release any per-boss entrance choreography (EITHERWING's Baton Cross)
   cineYaw = null;                     // hand facing back to placeGroup (face the player)
   cameraCtl.setOvertake?.(null);      // release the cinematic camera if it was active
   model.setEyeLock?.(false);          // hand the pupil back to the idle gaze
@@ -829,74 +834,47 @@ function enterFight() {
   if (def.tutorial) ui.bossNote?.('DODGE!', 'ROLL INTO AMBER SHOTS TO PARRY', 'gold', 3.0);
 }
 
-// The cinematic overtake entrance (ASHTALON, §5f). A scripted flythrough on a
-// normalized clock driven by SCALED dt, so the boss AND the world slow together
-// through the bullet-time close pass while the rise/pull-ahead/turn stay snappy —
-// ~2.5s wall total. It rises from behind, sweeps CLOSE past you in DEEP bullet-time
-// with the visor LOCKED on you (the whole body tracks the dragon), then wheels to
-// face you as the fight opens. No fire (the Mantis rule). Space / 2nd-finger tap
-// fast-forwards to the settle. CINE_DUR is scaled-seconds; with CINE_SLOW across
-// the pass the wall-clock lands near 2.5s (tuned empirically).
-const CINE_DUR = 1.32;           // scaled-sec → ~2.5s wall at 60fps (the pass slow-mo stretches it)
-const CINE_SLOW = 0.24;          // bullet-time depth on the pass (deeper than the 0.35 default)
-const U1 = 0.30, U2 = 0.58, U3 = 0.82;   // C1 rise | C2 pass | C3 pull-ahead | C4 settle
+// The §5j ENTRANCE DRIVER (generalized from ASHTALON's shipped overtake). A scripted
+// pre-fight cinematic on a normalized clock driven by SCALED dt, so the boss AND the
+// world slow together through the bullet-time close pass while the rest stays snappy.
+// The DATA (path/tuck/yaw/gaze/camera/slow-mo window, per boss) lives in
+// ENTRANCE_SCRIPTS; this driver owns the SHARED machinery: skip, slow-mo engage/
+// release, setOvertake feed, enterFight handoff. ASHTALON's 'overtake' reproduces the
+// shipped math byte-for-byte (tests/entrance.mjs golden gate). No fire (the Mantis rule).
 function releaseCineSlow() {
   if (!cineSlow) return;
   cineSlow = false; game.slowMoTimer = 0; game.slowMoScale = null; setSlowMo(false); sfx.timeDilate?.(false);
 }
-function updateFlythrough(dt, player, time) {
-  // Tap to skip → jump to the settle (you still see it wheel to face you).
+function updateEntrance(dt, player, time) {
+  const script = ENTRANCE_SCRIPTS[entranceId];
+  if (!script) { enterFight(); return; }
+  const skipU = script.dur * (script.skipTo ?? 1);
+  // Tap to skip → jump to the pull-ahead (you still see it wheel to face you).
   if (input.surgeTap) { input.surgeTap = false; cineSkip = true; }
-  if (cineSkip && cineT < CINE_DUR * U3) { cineT = CINE_DUR * U3; releaseCineSlow(); }
+  if (cineSkip && cineT < skipU) { cineT = skipU; releaseCineSlow(); }
   cineT += dt;
-  const u = Math.min(cineT / CINE_DUR, 1);
-  const L = (a, b, t) => a + (b - a) * t;
-  const seg = (u0, u1) => easeInOut(Math.max(0, Math.min(1, (u - u0) / (u1 - u0))));
-  const S = cineSide;
+  const u = Math.min(cineT / script.dur, 1);
+  const ctx = { AX: cineAnchorX, AY: cineAnchorY, S: cineSide, B };
 
-  // Keyframed player-relative path: behind-below → close pass (crosses your depth,
-  // LARGE and close) → ahead → station. y stays a few units above a typical dragon
-  // height so the pass sweeps OVER your shoulder without clipping.
-  // Path ANCHORED beside the dragon (cineAnchorX/Y, snapshotted at start) so the
-  // pass is always a close encounter with the dragon and the camera can hold BOTH
-  // in frame — then it eases to station centre (0, fightHeight) for the fight.
-  const AX = cineAnchorX, AY = cineAnchorY;
-  let x, y, rel;
-  if (u < U1) { const t = seg(0, U1); x = AX + S * L(2, 4, t); y = L(AY - 3, AY + 3, t); rel = L(-15, -3, t); }
-  else if (u < U2) { const t = seg(U1, U2); x = AX + S * L(4, 3, t); y = AY + L(3, 3.5, t); rel = L(-3, 3, t); }
-  else if (u < U3) { const t = seg(U2, U3); x = L(AX + S * 3, 0, t); y = L(AY + 3.5, B.fightHeight, t); rel = L(3, B.settleGap * 0.7, t); }
-  else { const t = seg(U3, 1); x = 0; y = B.fightHeight; rel = L(B.settleGap * 0.7, B.settleGap, t); }
-  pose.x = x; pose.y = y; pose.rel = rel;
+  const p = script.path(u, ctx);
+  pose.x = p.x; pose.y = p.y; pose.rel = p.rel;
 
-  // DEEP bullet-time across the close pass (C2): a downward time-dilation whoosh on
-  // entry, a snap back on exit. Owns game.slowMoTimer/Scale for the window (main.js
-  // scales dt → boss + world + this clock all slow together = the dwell).
-  if (u >= U1 && u < U2 && !cineSlow) { cineSlow = true; game.slowMoTimer = 5; game.slowMoScale = CINE_SLOW; setSlowMo(true); sfx.timeDilate?.(true); }
-  else if ((u >= U2 || u >= 1) && cineSlow) { releaseCineSlow(); }
+  // DEEP bullet-time across the close pass: main.js scales dt while the window holds, so
+  // boss + world + this clock all slow together = the dwell. Snap back on exit.
+  const sw = script.slowWindow;
+  if (sw) {
+    if (u >= sw.uIn && u < sw.uOut && !cineSlow) { cineSlow = true; game.slowMoTimer = 5; game.slowMoScale = sw.depth; setSlowMo(true); sfx.timeDilate?.(true); }
+    else if ((u >= sw.uOut || u >= 1) && cineSlow) releaseCineSlow();
+  }
 
-  // Wings ramp into the diving tuck, hold through the pass, ease back to rest for the fight.
-  const tuck = u < U1 ? seg(0, U1) * 0.85 : u < U3 ? 0.85 : L(0.85, 0, seg(U3, 1));
-  model.setSetpiece?.(tuck);
+  model.setSetpiece?.(script.tuck ? script.tuck(u, ctx) : 0);
   model.setCharge?.(0);
-
-  // Body flies by on its dive line (visor to the rear camera), with an EVER-SO-
-  // SLIGHT lean toward the dragon through the pass (≤ ~12°, mirroring the dragon's
-  // own glance — they angle toward each other for the eye-lock), then WHEELS 180°
-  // to face you as the fight opens. The real tracking stays in the PUPIL; the lean
-  // rides the same fade as the gaze so the wheel-around starts clean.
-  const dx = player.position.x - pose.x, dy = player.position.y - pose.y;
-  const track = u < U3 ? 1 : (1 - seg(U3, 1));
-  const lean = Math.max(-0.22, Math.min(0.22, -dx * 0.06)) * track;   // yaw π+δ: δ<0 noses toward a +x dragon
-  cineYaw = (u < U3 ? Math.PI : Math.PI * (1 - seg(U3, 1))) + lean;
-  // The PUPIL tracks the dragon (eye-lock): the visor faces the camera/dragon (world
-  // −z) during the pass, so a dragon to world-right reads as the boss's local-left —
-  // hence the −dx. Normalized over ~4m: the anchored path keeps the dragon 3-4 units
-  // away, so the pupil actually reaches FULL deflection (a /8 divisor left it near
-  // centre — the "not tracking" read). Eased out to centre through the turn.
-  model.setGaze?.(Math.max(-1, Math.min(1, -dx / 4)) * track, Math.max(-1, Math.min(1, dy / 4)) * track);
-
+  if (script.yaw) cineYaw = script.yaw(u, ctx, pose, player);
+  if (script.gaze) { const g = script.gaze(u, ctx, pose, player); model.setGaze?.(g.gx, g.gy); }
+  // Per-boss entrance FX hook (EITHERWING's eye-thread cross, twin brackets) — optional.
+  script.onFrame?.(u, ctx, pose, player, model, time);
   // Feed the cinematic camera the boss's world position so it tracks the flythrough.
-  cameraCtl.setOvertake?.({ k: u, bx: pose.x, by: pose.y, bz: -(player.dist + pose.rel) });
+  if (script.camera) cameraCtl.setOvertake?.(script.camera(u, pose, player, ctx));
 
   if (u >= 1) enterFight();
 }
@@ -992,23 +970,31 @@ export function updateBoss(dt, player, time) {
   if (phase === 'warn') {
     warnT -= dt;
     if (warnT <= 0) {
-      if (def.cinematicEntrance) {
-        // §5f rule-break: the full scripted overtake cinematic (flythrough phase).
+      // §5j: a def opts into a scripted pre-fight cinematic via `def.entrance` (an
+      // ENTRANCE_SCRIPTS id); the legacy `cinematicEntrance` flag maps to ASHTALON's
+      // 'overtake'. Defs with neither keep the plain approach (coexist).
+      const eid = def.entrance ?? (def.cinematicEntrance ? 'overtake' : null);
+      const script = eid && ENTRANCE_SCRIPTS[eid];
+      if (script) {
+        entranceId = eid;
         phase = 'flythrough';
         cineT = 0; cineSkip = false; cineSlow = false;
         cineSide = start.x < 0 ? -1 : 1;
-        cineAnchorX = player.position.x; cineAnchorY = player.position.y;   // pass beside the dragon
-        cineYaw = Math.PI;   // faces its dive line (visor to the rear camera) until the turn
-        model.setEyeLock?.(true);         // the pupil hard-tracks the dragon through the pass
+        if (script.anchorToDragon) { cineAnchorX = player.position.x; cineAnchorY = player.position.y; }   // pass beside the dragon
+        else { cineAnchorX = 0; cineAnchorY = B.fightHeight; }
+        cineYaw = script.initYaw ?? Math.PI;
+        if (script.eyeLock !== false) model.setEyeLock?.(true);   // the pupil hard-tracks the dragon (overtake); batonCross opts out
         ui.cinematicHold?.(true);         // hide the gameplay HUD — keep the moment clean
         ui.surgeReady?.(false);
-        ui.bossNote?.('⟲  BEHIND YOU  ⟲', 'THE HUNTER OVERTAKES', 'gold', 2.0);
+        const a = script.announce;
+        if (a) ui.bossNote?.(a.title, a.sub, a.tone ?? 'gold', a.dur ?? 2.0);
+        script.onStart?.(model, player, { side: cineSide, B });
       } else {
         phase = 'approach';
       }
     }
   } else if (phase === 'flythrough') {
-    updateFlythrough(dt, player, time);
+    updateEntrance(dt, player, time);
   } else if (phase === 'approach') {
     approachT += dt;
     const k = Math.min(approachT / B.approachTime, 1);
@@ -1038,6 +1024,21 @@ export function updateBoss(dt, player, time) {
     pose.rel = B.settleGap; pose.x = 0; pose.y = B.fightHeight;
     model.setAttackTell?.('aimed');
     model.setCharge(debugChargePin);
+  } else if (phase === 'fight' && debugEntrancePin != null && (def.entrance || def.cinematicEntrance)) {
+    // Capture-only: freeze a scripted ENTRANCE pose at a fixed clock u so the crop tool
+    // can shoot the Baton Cross (twins bracketing, eye mid-cross, scissor) as a still.
+    const script = ENTRANCE_SCRIPTS[def.entrance ?? 'overtake'];
+    if (script) {
+      const u = debugEntrancePin;
+      const ctx = { AX: player.position.x, AY: player.position.y, S: 1, B };
+      const p = script.path(u, ctx); pose.x = p.x; pose.y = p.y; pose.rel = p.rel;
+      model.setSetpiece?.(script.tuck ? script.tuck(u, ctx) : 0);
+      model.setCharge?.(0);
+      cineYaw = script.yaw ? script.yaw(u, ctx, pose, player) : (script.initYaw ?? null);
+      if (script.gaze) { const g = script.gaze(u, ctx, pose, player); model.setGaze?.(g.gx, g.gy); }
+      script.onFrame?.(u, ctx, pose, player, model, time);
+      if (script.camera) cameraCtl.setOvertake?.(script.camera(u, pose, player, ctx));
+    }
   } else if (phase === 'fight') {
     if (setpieceT >= 0 && !shielded) {
       // Scripted station-leave beat (def-gated; see SETPIECE_PATHS). Attacks +
@@ -1601,7 +1602,7 @@ export function resetBoss() {
   clearSetpiece();
   // Release the cinematic entrance if we tore down mid-flythrough (game over during
   // the overtake): drop the slow-mo, the camera hijack, and the facing override.
-  cineYaw = null; cineSkip = false;
+  cineYaw = null; cineSkip = false; entranceId = null;
   releaseCineSlow();
   cameraCtl.setOvertake?.(null);
   model?.setEyeLock?.(false);
@@ -1670,6 +1671,11 @@ export function setBossDebugCharge(level) {
 // can be shot of e.g. the stooping-dive silhouette. Pass null to release.
 export function setBossDebugSetpiece(pin) {
   debugSetpiecePin = pin;
+}
+
+// Capture hook: pin an ENTRANCE pose at clock u∈[0,1] (the Baton Cross) for a still.
+export function setBossDebugEntrance(u) {
+  debugEntrancePin = u;
 }
 
 // Debug hook: drop straight into a fight (wired under ?debug in main.js).

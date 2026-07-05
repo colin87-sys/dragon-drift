@@ -53,6 +53,7 @@ export function buildTwinWraith(def, quality = 1) {
   const lowQ = quality < 0.75;
   const strip = stripForMerge;
   const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
+  const easeK = (k) => (k < 0.5 ? 2 * k * k : 1 - Math.pow(-2 * k + 2, 2) / 2);   // easeInOut for entrance beats
 
   // Shield wraps whichever body holds the eye — but the kit bubble is centred on
   // the rig origin (the shared ember the twins orbit); the eye-holder is pulled to
@@ -568,6 +569,7 @@ export function buildTwinWraith(def, quality = 1) {
   let holdTarget = 0;
   let handoffTimer = 3.0;      // seconds until the next handoff (the baton beat)
   let debugHold = null;        // test/studio pin: forces holdT to a value
+  let entranceU = null;        // §5j THE BATON CROSS: 0..1 entrance clock (null = normal fight); overrides the orbit
 
   // Figure-eight orbit: the twins ride a lemniscate 180° out of phase around a
   // slowly drifting centre — the fight NEVER stops moving. Kept LOCAL (the group
@@ -675,7 +677,22 @@ export function buildTwinWraith(def, quality = 1) {
     let posA = [cx + ax, cy + ay, ZSEP], posB = [cx + bx, cy + by, -ZSEP];
     let survivorIsA = holdT < 0.5;
     let fallenShrink = 0;
-    if (dyingK > 0) {
+    if (entranceU != null) {
+      // THE BATON CROSS (§5j): the twins slide in from BOTH flanks to bracket the dragon
+      // at x ±8 (twinA RIGHT, twinB LEFT), the EYE detaches and crosses right→left across
+      // the FULL portrait width, then both SCISSOR into the figure-eight as the fight opens.
+      const u = entranceU;
+      const slide = easeK(clamp(u / 0.3, 0, 1));                 // 0→1: slide in from off-frame ±16 to the ±8 bracket
+      const scissor = easeK(clamp((u - 0.82) / 0.18, 0, 1));    // last 18%: ease the ±8 brackets in toward the orbit start
+      const bx8 = (16 + (8 - 16) * slide) * (1 - scissor) + ORBIT_R * 0.9 * scissor;   // ±16 → ±8 → orbit-start x
+      const yB = Math.sin(u * Math.PI) * 0.4;                    // a shallow arc so the slide-in isn't a flat rail
+      posA = [bx8, yB, 0]; posB = [-bx8, yB, 0];                  // twinA RIGHT (+x), twinB LEFT (−x)
+      // The eye crosses right→left over the middle beat (0.32→0.84): holdT 0 (A/right holds)
+      // → 1 (B/left catches). Pinned (no lag/random) so the beaded thread reads as one taut
+      // line spanning the pair. The rim IGNITION rides holdT via the aHolds body-glow below.
+      holdTarget = holdT = easeK(clamp((u - 0.32) / 0.52, 0, 1));
+      survivorIsA = holdT < 0.5;
+    } else if (dyingK > 0) {
       const circle = age * 2.2;                              // two slow laps as it grieves
       const flee = Math.max(0, dyingK - 0.85) / 0.15;        // stays circling until the very end, THEN leaves
       fallenShrink = clamp((dyingK - 0.3) / 0.4, 0, 1);      // the fallen half dwindles to nothing by ~0.7
@@ -720,7 +737,8 @@ export function buildTwinWraith(def, quality = 1) {
     // --- The eye handoff (the charge tell). A handoff crosses on its own baton
     // beat; charging PINS the eye to the firing twin (whoever is about to shoot). --
     handoffTimer -= dt;
-    if (debugHold != null) { holdTarget = debugHold; }
+    if (entranceU != null) { /* the Baton Cross pins holdT directly — no random handoff */ }
+    else if (debugHold != null) { holdTarget = debugHold; }
     else if (charge > 0.15) { /* hold — the tell: the eye stays put on the firer */ }
     else if (handoffTimer <= 0 && moving) { holdTarget = holdTarget < 0.5 ? 1 : 0; handoffTimer = 2.4 + Math.random() * 1.2; }
     const handoffSpeed = charge > 0.15 ? 10 : 3.4;
@@ -985,6 +1003,11 @@ export function buildTwinWraith(def, quality = 1) {
   function twinSeparation() { return twinA.twin.position.distanceTo(twinB.twin.position); }
   function threadLength() { return _sa.distanceTo(_sb); }                // live socket-to-socket length
   function setDebugHandoff(t) { debugHold = t == null ? null : Math.max(0, Math.min(1, t)); }
+  // §5j THE BATON CROSS: the entrance driver sets the 0..1 clock each frame (null = fight).
+  // The rig-local x the eye crosses to (twinA RIGHT +8 → twinB LEFT −8) so the driver can
+  // feed the ORB's world-x to the camera + the dragon-look strain.
+  function setEntrance(u) { entranceU = u == null ? null : Math.max(0, Math.min(1, u)); }
+  function entranceEyeLocalX() { return entranceU == null ? 0 : (1 - 2 * easeK(clamp((entranceU - 0.32) / 0.52, 0, 1))) * 8; }
   function twinBodyLum() {
     // The rendered value of each twin body (diffuse + emissive) — the seeker must be
     // measurably darker (§7b). Diffuse luminance + emissive contribution.
@@ -1000,6 +1023,7 @@ export function buildTwinWraith(def, quality = 1) {
     setSetpiece,
     setGaze,
     notice,
+    setEntrance, entranceEyeLocalX,
     setHealth: kit.setHealth,
     setHealthBarVisible: kit.setHealthBarVisible,
     setShieldVisible: kit.setShieldVisible,
