@@ -268,6 +268,7 @@ export const BOSSES = {
     // leading SIXTEEN coiling vertebrae, with a mid-body RIBCAGE the rail flies
     // through. Distinct from slot 1's mask, slot 2's ring-eye, slot 3's raptor.
     archetype: 'boneCoil',
+    muzzle: 'skullGroup',     // head-origin patterns (aimed/fan/stream) emit from the skull, not lane centre (L148)
     accent: 0x8fd0ff,         // ice-blue — the cold lights on dead bone (identity in emissive)
     glow: 0xbfe6ff,           // paler ice (shield rim / shards / backlight)
     bulletColor: 0xff2b6a,    // danger stays magenta (role colour, never per-boss)

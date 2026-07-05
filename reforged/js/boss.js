@@ -1123,6 +1123,7 @@ export function updateBoss(dt, player, time) {
     }
 
     // Streamed sub-volleys (tunnel / spiral stream) fire on their own clock.
+    resolveEmitOrigin(player);   // keep the body-origin current for deferred sub-volleys
     for (let i = pending.length - 1; i >= 0; i--) {
       pending[i].t -= dt;
       if (pending[i].t <= 0) { pending[i].fire(); pending.splice(i, 1); }
@@ -1355,15 +1356,33 @@ function breakShield(player) {
 
 // ---- Attacks ----------------------------------------------------------------
 
-// Solve the lateral velocity that puts a bullet on a target point as it closes.
+// BODY-ORIGIN emitter (combat-feel): the head-origin patterns spawn from a named
+// body part (def.muzzle, e.g. MARROWCOIL's 'skullGroup') instead of the boss
+// centre, so bullets visibly come FROM the boss. Resolved fresh each frame (the
+// boss bobs; deferred stream/secondWave sub-volleys must read the current spot)
+// and converted to the bullet frame: world (wx,wy,wz) → (x, y, rel=-wz-dist).
+// Falls back to the pose centre when a boss names no muzzle — so un-opted bosses
+// are byte-unchanged. `def.muzzle` is data (bossDefs.js); `partWorldPos` is on
+// every model handle (bossModel.js).
+const emitOrigin = { x: 0, y: 0, rel: 0 };
+const _muzV = new THREE.Vector3();
+function resolveEmitOrigin(player) {
+  const w = def && def.muzzle && model && model.partWorldPos && model.partWorldPos(def.muzzle, _muzV);
+  if (w) { emitOrigin.x = w.x; emitOrigin.y = w.y; emitOrigin.rel = -w.z - player.dist; }
+  else { emitOrigin.x = pose.x; emitOrigin.y = pose.y; emitOrigin.rel = pose.rel; }
+}
+
+// Solve the lateral velocity that puts a bullet on a target point as it closes,
+// FROM the current emitter origin (head, or pose centre when un-opted).
 function aimVel(targetX, targetY, closing) {
-  const t = Math.max(pose.rel / closing, 0.05);
-  return { vx: (targetX - pose.x) / t, vy: (targetY - pose.y) / t };
+  const t = Math.max(emitOrigin.rel / closing, 0.05);
+  return { vx: (targetX - emitOrigin.x) / t, vy: (targetY - emitOrigin.y) / t };
 }
 
 // Resolve an attack id to bullets. Instant patterns fire one volley now; sustained
 // patterns push timed sub-volleys onto `pending` so they stream over ~1.5–2s.
 function executeAttack(id, player) {
+  resolveEmitOrigin(player);   // head-origin patterns spawn from the body part
   const closing = B.bulletSpeed;
   // Very light lead only — a strongly-predictive aim makes the shot feel like it
   // homes (you can't dodge by moving). Keep it near where the player IS.
@@ -1379,14 +1398,14 @@ function executeAttack(id, player) {
     // Aimed/fan are REFLECTABLE (amber) — the precision shots reward a parry.
     for (let i = -1; i <= 1; i++) {
       const v = aimVel(px + i * 1.6, py, closing);
-      emitBoss(pose.x, pose.y, v.vx, v.vy, -closing, true);
+      emitBoss(emitOrigin.x, emitOrigin.y, v.vx, v.vy, -closing, true, null, 1, null, emitOrigin.rel);
     }
   } else if (id === 'fan') {
     const n = quality < 0.75 ? 5 : 7;
     for (let i = 0; i < n; i++) {
       const spread = (i / (n - 1) - 0.5) * 16;   // ±8m across the lane around the player
       const v = aimVel(px + spread, py, closing);
-      emitBoss(pose.x, pose.y, v.vx, v.vy, -closing, true);
+      emitBoss(emitOrigin.x, emitOrigin.y, v.vx, v.vy, -closing, true, null, 1, null, emitOrigin.rel);
     }
   } else if (id === 'spiral') {
     // Instant radial burst: bullets fly OUTWARD from the boss as they close.
@@ -1503,7 +1522,7 @@ function executeAttack(id, player) {
       const amber = (k % 4) === 3;   // amber tip every 4th tick (the parry beat)
       pending.push({ t: k * 0.14, fire: () => {
         const v = aimVel(player.position.x, player.position.y, slow);
-        emitBoss(pose.x, pose.y, v.vx, v.vy, -slow, amber);
+        emitBoss(emitOrigin.x, emitOrigin.y, v.vx, v.vy, -slow, amber, null, 1, null, emitOrigin.rel);
       } });
     }
   } else if (id === 'secondWave') {
@@ -1521,7 +1540,7 @@ function executeAttack(id, player) {
         for (let i = 0; i < n; i++) {
           const sx = px0 + (i / (n - 1) - 0.5) * span + off;
           const v = aimVel(sx, ty, slow);
-          emitBoss(pose.x, pose.y, v.vx, v.vy, -slow, false, b.c, b.s);
+          emitBoss(emitOrigin.x, emitOrigin.y, v.vx, v.vy, -slow, false, b.c, b.s, null, emitOrigin.rel);
         }
       } });
     }
@@ -1574,9 +1593,9 @@ function fireRing(cx, cy, radius, m, vrel, color, sizeMult = 1, coreColor = null
 // with the given velocity. `color`/`sizeMult` override for banded rings; else amber
 // if reflectable, otherwise the boss's magenta danger colour. `coreColor` overrides
 // the white "hot disc" centre — ONLY graze-bait passes one (the dark "donut" read).
-function emitBoss(x, y, vx, vy, vrel, reflectable = false, color = null, sizeMult = 1, coreColor = null) {
+function emitBoss(x, y, vx, vy, vrel, reflectable = false, color = null, sizeMult = 1, coreColor = null, originRel = null) {
   spawnBossBullet({
-    owner: 'boss', x, y, rel: pose.rel,
+    owner: 'boss', x, y, rel: originRel ?? pose.rel,
     vx, vy, vrel, color: color ?? (reflectable ? REFLECT_COLOR : bulletColor), reflectable,
     dmg: B.bulletDamage, r: B.bulletRadius * sizeMult, life: 6,
     coreColor: coreColor ?? 0xffffff,
@@ -1715,6 +1734,14 @@ export function setBossDebugEntrance(u) {
 // `idx` forces a specific BOSS_ORDER entry (?bossIdx=K) for preview judging.
 export function forceBoss(player, idx = null) {
   startBossEncounter(player, idx != null ? bossDefForIndex(idx) : undefined);
+}
+
+// Capture hook (?debug): fire one LIVE attack volley from the current pose so a
+// screenshot tool can catch bullets streaming from the body part + growing in.
+// Unlike debugEmitAttack (headless flush), this emits into the live scene/loop.
+export function debugFireAttack(id, player) {
+  if (!active) return;
+  executeAttack(id || 'aimed', player);
 }
 
 export function bossDebugState() {
