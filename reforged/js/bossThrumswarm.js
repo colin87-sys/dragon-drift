@@ -154,52 +154,49 @@ function ringShieldTable() {
 // doodle test — a fresh viewer says "dragon" in under a second. Wingtips ±13.5 ×
 // scale 1.2 → ~32 world units → a GIANT copy that fills the frame (§3.1/§5d, L141).
 function yourDragonTable() {
-  // A WING as a DENSELY-FILLED triangle (14 points in 4 rows): the LEADING EDGE + 3
-  // membrane rows packed so adjacent motes are ≤ ~1 mote-width apart — at fight
-  // distance discrete dots must Gestalt-CLOSE into a solid membrane, not dot out into
-  // a line (the CP1-r2 Fable FAIL: 12 points over a ~12u span left gaps several × the
-  // mote width). Tips pulled IN to ±10.5 (readable beats "giant-but-empty", Fable's
-  // fix) and BIGGER motes (moteCore) shrink the gaps. Authored LEFT; right x-mirrors.
-  // Wings RAISED to flank the head (a dragon-DISPLAYED pose: the head crowns two
-  // spread wings, body+tail below) so the head connects to the wing line instead of
-  // floating above a drooping bird-V (the CP1-r3 awkwardness). Leading edge tips
-  // slightly UP (a raised dragon wing, not a drooping one).
-  const leftWing = [
-    // leading edge (shoulder → tip), sweeps out and slightly UP, tips rake back in z
-    [-2.0, 4.2, -0.2], [-4.2, 4.5, -0.5], [-6.4, 4.7, -0.8], [-8.5, 4.8, -1.1], [-10.6, 4.7, -1.4],
-    // mid membrane row
-    [-3.0, 3.2, -0.3], [-5.2, 3.4, -0.6], [-7.3, 3.5, -0.9], [-9.0, 3.5, -1.1],
-    // lower membrane row
-    [-3.5, 2.2, -0.2], [-5.6, 2.3, -0.5], [-7.3, 2.3, -0.7],
-    // trailing edge near the body (closes the triangle onto the torso)
-    [-3.1, 1.3, -0.2], [-4.9, 1.4, -0.3],
-  ];
-  const rightWing = leftWing.map(([x, y, z]) => [-x, y, z]);
+  // A SIDE-PROFILE flying dragon (the CP1-r3 pivot): three front-on symmetric passes
+  // read as a moth/thunderbird (a lamp with symmetric wings), never a dragon — a front
+  // elevation of a winged creature is inherently ambiguous. The SIDE PROFILE is the
+  // unmistakable dragon doodle: a long neck → HORNED SKULL, one big NEAR-WING spread
+  // UP, and a long tapering TAIL sweeping the other way. The dragon flies to the RIGHT.
+  // The queen's amber eye is set INSIDE a dark skull cluster (upper-right); the queen's
+  // bone-white LANTERN DIMS in dragon-mode so it reads as an EYE, not a lamp (the Fable
+  // root-cause fix — the naked bloom was reading as the head). One big wing + a faint
+  // FAR-WING hint = asymmetry that KILLS the moth read.
   const motes = [
-    // HEAD CLUSTER (0–3) — crest + horns WIDE (±2.3) crowning the wings; the spiky head
-    // silhouette clears the queen lantern's bloom (the CP1-r2 FAIL: horns at ±1.1 vanished).
-    [0.0, 7.3, 0.7],   // crest spike
-    [-2.3, 6.4, 0.5],  // horn L (wide)
-    [2.3, 6.4, 0.5],   // horn R (wide)
-    [0.0, 4.2, 0.9],   // jaw / chin (bridges the head to the wing line)
-    // BODY — a WIDE 2-column mass (4–8) hanging BELOW the wings, NOT a single-file column
-    [-1.2, 2.7, 0.0],  // chest L
-    [1.2, 2.7, 0.0],   // chest R
-    [0.0, 1.7, 0.0],   // belly centre
-    [-1.1, 0.8, 0.0],  // belly L
-    [1.1, 0.8, 0.0],   // belly R
-    // BOTH WINGS (9–36) — the essential-read core: the lowQ 37-mote set is head+body+wings
-    ...leftWing,       // 9–22
-    ...rightWing,      // 23–36
-    // HAUNCH / clawed legs (37–38)
-    [-1.6, 0.0, 0.3], [1.6, 0.0, 0.3],
-    // TAIL (39–41) — SHORT, kicked to ONE side with a GAP from the body (never a central
-    // dangling column — the jellyfish tell, §3.6 asymmetric memory hook)
-    [1.7, -0.6, -0.2], [2.7, -1.5, -0.4], [3.4, -2.5, -0.6],
-    // RIDER (42–43) — a hump on the upper body/shoulders, proud toward camera (dragon AND rider, §5d)
-    [0.0, 3.1, 1.7], [0.0, 3.7, 1.9],
+    // HEAD SKULL (0–5) — dark motes wrapping the queen-eye into a horned dragon skull
+    [8.4, 4.8, 0.3],   // snout tip (points forward-right)
+    [7.5, 5.3, 0.3],   // upper snout / brow
+    [6.9, 4.1, 0.4],   // lower jaw
+    [5.8, 6.0, 0.2],   // horn base (swept back)
+    [4.9, 6.5, 0.1],   // horn tip (back)
+    [5.9, 4.5, 0.4],   // cheek / throat
+    // NECK arc (6–8) — head down to the body
+    [5.0, 3.9, 0.2], [4.1, 3.2, 0.1], [3.2, 2.7, 0.0],
+    // BODY mass (9–13)
+    [2.4, 2.3, 0.0], [1.4, 2.0, 0.0], [2.1, 1.4, 0.0], [1.1, 1.1, 0.0], [0.4, 1.7, 0.0],
+    // NEAR WING (14–29) — a big DENSELY-FILLED membrane triangle spread UP and BACK
+    // (shoulder → tip up-left), packed so it reads SOLID at fight distance (Fable fix).
+    // leading edge (shoulder → tip)
+    [2.1, 3.2, -0.2], [1.2, 4.4, -0.4], [0.1, 5.6, -0.7], [-1.1, 6.8, -1.0], [-2.5, 7.8, -1.3],
+    // 2nd row
+    [1.6, 3.0, -0.2], [0.6, 4.0, -0.4], [-0.4, 5.2, -0.6], [-1.6, 6.4, -0.9], [-0.1, 6.0, -0.8],
+    // 3rd row
+    [0.9, 3.2, -0.2], [-0.1, 4.2, -0.4], [-1.1, 5.2, -0.6], [0.9, 4.8, -0.5],
+    // trailing near the shoulder (closes onto the torso)
+    [0.4, 3.4, -0.2], [-0.6, 4.0, -0.3],
+    // FAR WING (30–32) — a faint hint behind the body (one big wing + one small = NOT a moth)
+    [3.4, 4.2, -0.6], [3.0, 5.2, -0.8], [2.6, 6.0, -1.0],
+    // TAIL (33–39) — LONG, tapering, curling down to the lower-LEFT (the opposite flank
+    // from the head — a clear serpentine dragon tail, §3.6 the memory hook)
+    [0.1, 0.6, -0.1], [-1.1, 0.1, -0.2], [-2.5, -0.5, -0.3], [-3.9, -1.3, -0.5],
+    [-5.2, -2.3, -0.6], [-6.3, -3.4, -0.7], [-7.0, -4.3, -0.8],
+    // LEGS tucked under the body (40–41)
+    [1.7, 0.5, 0.3], [2.7, 0.7, 0.3],
+    // RIDER (42–43) — a hump on the shoulders/base of the neck, proud toward camera
+    [3.1, 3.3, 1.1], [2.9, 3.9, 1.3],
   ];
-  return { motes, queen: [0.0, 5.4, 0.9] };   // the SKULL between the horns — the amber eye ignites here
+  return { motes, queen: [6.6, 5.0, 0.5] };   // the amber EYE set inside the dark skull (upper-right)
 }
 
 const FORMATIONS = {
@@ -541,6 +538,11 @@ export function buildThrumswarm(def, quality = 1) {
     // CHARGE contracts the field into a forward spear (§3.5 silhouette telegraph):
     // pull toward the queen + toward the muzzle (+z). Held on top of the formation.
     const spear = charge * 0.55;
+    // DRAGON-MODE: while condensed into YOUR-DRAGON, SUBORDINATE the queen's bone-white
+    // lantern so it reads as an EYE inside the dark skull cluster, not a naked lamp (the
+    // Fable root-cause fix). The bloom dims + the lantern shrinks; the amber eye stays.
+    const dragonMode = (toForm === 'yourDragon') ? condIn : 0;
+    queenGroup.scale.setScalar(1.3 * (1 - dragonMode * 0.42));
 
     // Queen migrates to the target formation's queen slot.
     const qT = formQueen(toForm);
@@ -561,7 +563,7 @@ export function buildThrumswarm(def, quality = 1) {
     lantern.scale.setScalar(1 + Math.sin(time * 2.2) * 0.03 + charge * 0.12);
     innerCore.rotation.y -= dt * 0.5; innerCore.rotation.x += dt * 0.3;
     innerCore.scale.setScalar(1 + Math.sin(time * 4) * 0.12 + charge * 0.3);
-    innerMat.opacity = (0.4 + Math.sin(time * 3.5) * 0.12) * (dyingK > 0 ? Math.max(0, 1 - dyingK * 1.3) : shieldClamp ? 0.12 : 1);
+    innerMat.opacity = (0.4 + Math.sin(time * 3.5) * 0.12) * (dyingK > 0 ? Math.max(0, 1 - dyingK * 1.3) : shieldClamp ? 0.12 : 1) * (1 - dragonMode * 0.85);
 
     // --- MOTES: ease each toward lerp(scatter, target, condIn) + spear pull +
     // idle drift/swirl (scaled by 1-condIn so the condensed shape stays crisp) +
@@ -626,13 +628,15 @@ export function buildThrumswarm(def, quality = 1) {
     const pupilR = (charge > 0.02 || dreadK > 0.05) ? 0.05 : 0.12;
     pupil.scale.setScalar((pupilR / 0.12) * (1 + (dyingK > 0 ? dyingK * 1.5 : 0)));   // dilates in death
     pupil.visible = eyeCore.visible;
-    // the lantern dims in death / leashes under shield
-    lanternMat.emissiveIntensity = 0.55 * (dyingK > 0 ? Math.max(0, 1 - dyingK * 1.3) : shieldClamp ? 0.6 : 1) * (1 - blink * 0.4);
+    // the lantern dims in death / leashes under shield / SUBORDINATES in dragon-mode
+    // (so the bone-white body recedes and the amber eye reads as the dragon's eye).
+    lanternMat.emissiveIntensity = 0.55 * (dyingK > 0 ? Math.max(0, 1 - dyingK * 1.3) : shieldClamp ? 0.6 : 1) * (1 - blink * 0.4) * (1 - dragonMode * 0.82);
 
     // A weak-point GLOW rises when CONDENSED (the vulnerability tell — the player
     // must always know whether chip lands, §5d hard callout): the fins brighten as
-    // the swarm tightens; scattered = dim (invulnerable).
-    finMat.emissiveIntensity = 0.4 * (0.35 + condIn * 0.9) * (1 - blink * 0.4) * (dyingK > 0 ? Math.max(0, 1 - dyingK) : 1);
+    // the swarm tightens; scattered = dim (invulnerable). In dragon-mode the fins
+    // recede too (the bone lantern becomes a dark skull around the eye).
+    finMat.emissiveIntensity = 0.4 * (0.35 + condIn * 0.9) * (1 - blink * 0.4) * (dyingK > 0 ? Math.max(0, 1 - dyingK) : 1) * (1 - dragonMode * 0.8);
   }
 
   // Muzzle = the queen (emitter = organ; def.muzzle='queenGroup'). Bullets +
