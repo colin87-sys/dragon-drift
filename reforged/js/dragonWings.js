@@ -859,7 +859,7 @@ function buildBladeFeatherWings(def, model, attach, giM) {
     // the top projection — MITTEN). This mid setting fans the OUTER 55–70% of adjacent blades
     // apart into TRUE through-slits while the wide-chord roots still overlap into one surface
     // near the arm; the taper makes the slits open toward the tips, not the roots.
-    const rakeI = model.bladeRake ?? (0.035 + 0.032 * i);
+    const rakeI = model.bladeRake ?? (0.04 + 0.045 * i);   // fan the OUTER blades a touch more so sky-slits open between blades 2–4 in the rear chase fill (gate r8 dir 3), roots still overlap
     // discrete tier: inner→dark, mid→cMid, outer→light
     const baseHex = t < 0.28 ? cDark : (t < 0.62 ? cMid : cLight);
     const tipHex = t < 0.28 ? cMid : cLight;

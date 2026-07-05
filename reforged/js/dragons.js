@@ -39,9 +39,9 @@ export const DRAGONS = {
       snoutType: 'taperedPredatorSnout', crestBase: 0x7fa3c8, keenEye: true,
       neckBlend: 1.15,  // SLIM falcon neck: a fat neck (2.1) swallowed the small proud head — slimmer than the head so it sits proud (§5d avian)
       // blade-feather comb shared dials (per-form span/count/etc. accrete below)
-      bladeCount: 5, bladeSweep: 0.38, bladeStagger: 0.2,
-      bladeCamber: 0.28, bladeDihedral: 0.24, bladeChord: 0.17,   // dihedral 13.7° (low in the 12–20° band, gate r6 dir 7 — flatter side profile so wings stop dominating the side mass); wide chord so roots overlap into ONE surface
-      hornPairs: 1, hornLen: 0.9, ridgeCount: 10, ridgeSeat: -0.02, ridgeStyle: 'scute',   // embed dorsal ridges as low leaf-scutes (no floating specks / debug-arrow read — gate r5 dir 2b / r7 dir 11)
+      bladeCount: 5, bladeSweep: 0.38, bladeStagger: 0.28,   // deeper z-stagger so the comb shows through-slits from the REAR chase, not a solid plank (gate r8 dir 3)
+      bladeCamber: 0.24, bladeDihedral: 0.22, bladeChord: 0.155,   // dihedral 12.6° (low in band) + less camber → flatter side profile (dir 4); slimmer chord opens the planform slits
+      hornPairs: 1, hornLen: 0.9, ridgeCount: 10, ridgeSeat: -0.02, ridgeStyle: 'scute', ridgeColor: 0x264460,   // dorsal scutes: low leaf-scutes tinted to the body value so the back reads as one sleek mass (gate r8 dir 9), not pale beads
       flapBias: 1.0, flapAmp: 0.9,    // light courier beat
     },
     // Three visible forms (starter caps at SSR / tier 2): a round-chested fluffball
@@ -73,7 +73,7 @@ export const DRAGONS = {
       // Radiant apex (form 2) — proud upright S, keen almond eyes, full high-aspect
       // comb (span 2.8–3.2×), 3-blade crest fan, dorsal sail, gold-tipped swallow
       // banner tail. Deepest sky value, gold at its richest (still DIFFUSE).
-      { wingScale: 1.0, bladeSpan: 9.2, bladeCount: 5, bladeDetail: 1.45, neckBlend: 1.45,   // span widened to the §7 ceiling for wing majesty (gate r6 dir 4); denser neck fuses the segment grooves (dir 11)
+      { wingScale: 1.0, bladeSpan: 11.6, bladeCount: 5, bladeDetail: 1.45, neckBlend: 1.45,   // longer wing (blade length adds no tris) → top-planform span:body into the 2.8–3.2 band (gate r8 dir 2); denser neck fuses the segment grooves
         spineCurl: 0.95, eyeShape: 1.0, headScale: 0.52, eyeScale: 0.52,
         crestBlades: 3, crestScale: 1.6, skullType: 'smoothWedgeSkull', snoutScale: 0.68,   // bespoke ONE-shell falcon wedge (no ellipsoid plate-stack); shorter muzzle seats head:body/eye:head in band + kills the needle beak; crest breaks the outline
         tailStyle: 'finned', tailBannerFork: true, tailLength: 0.62, tailSegments: 6, neckSegments: 5,   // shorter tail so the wings visually dominate (gate r7 dir 7) — raises the reconciled visual span:body

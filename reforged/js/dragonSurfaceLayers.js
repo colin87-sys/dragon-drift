@@ -119,12 +119,17 @@ registerSurfaceLayer('scaleRidge', ({ model, attach, scalesMat }) => {
   // back-raked cone — which reads as a DEBUG ARROW marching up the planform (gate r7 dir 11) —
   // for a low rounded leaf-scute that tapers ×0.8 toward the tail and hugs the dorsal line.
   const scute = model.ridgeStyle === 'scute';
+  // ridgeColor (additive): tint the scutes to the dorsal value so they read as one sleek back
+  // mass, not bright pale beads on a dark body (gate r8 dir 9 — keep within 1.15× of the body).
+  const scuteMat = model.ridgeColor != null
+    ? new THREE.MeshStandardMaterial({ color: model.ridgeColor, roughness: 0.62, metalness: 0.05 })
+    : scalesMat;
   for (let i = 0; i < ridgeCount; i++) {
     const baseR = 0.09 + Math.max(0, 5 - Math.abs(i - 4)) * 0.016;
     let ridge;
     if (scute) {
       const r = baseR * Math.pow(0.8, i * 4 / Math.max(1, ridgeCount));   // size falloff toward the tail
-      ridge = new THREE.Mesh(new THREE.SphereGeometry(r, seg(6), seg(4)), scalesMat);
+      ridge = new THREE.Mesh(new THREE.SphereGeometry(r, seg(6), seg(4)), scuteMat);
       ridge.scale.set(0.7, 0.5, 1.4);      // low + short + a touch elongated along the spine → a leaf scute, not an arrow
     } else {
       ridge = new THREE.Mesh(new THREE.ConeGeometry(baseR, 0.34, seg(5)), scalesMat);
