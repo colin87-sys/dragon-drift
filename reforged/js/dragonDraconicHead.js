@@ -278,12 +278,33 @@ function eyeZone(c, { r, x, y, z, glow }) {
   }
 
   // Default eye — a single sphere in the shared eyeMat (rig swaps its colour on Surge).
+  // CUTE treatment (opt-in via model.cuteEye — AZURE hatchling): a big DARK forward-facing
+  // pupil + a hard catchlight turns the blank pale sclera orb into a LIVING eye (the
+  // Squirtle/Charmander read: a huge eye is only cute once a dark pupil + glint give it a
+  // gaze). Default OFF → obsidian/pearl/solar keep the byte-identical bare sphere.
+  const cutePupilMat = c.cfg.cuteEye
+    ? new THREE.MeshStandardMaterial({ color: 0x0e1a2a, roughness: 0.38, metalness: 0.02 }) : null;
+  const cuteGlintMat = c.cfg.cuteEye
+    ? new THREE.MeshStandardMaterial({ color: 0xffffff, emissive: 0xffffff, emissiveIntensity: 2.6 }) : null;
   for (const s of [-1, 1]) {
     const eye = new THREE.Mesh(new THREE.SphereGeometry(rr, seg(12), seg(9)), c.mats.eyeMat);
     eye.scale.set(sx, sy, 0.82);
     eye.rotation.set(0.1, -s * tiltY, -s * tiltZ);   // almond/feline tilt (0 when round)
     eye.position.set(s * x, yset, z);
     c.head.add(eye);
+    if (c.cfg.cuteEye) {
+      // seat the pupil on the FORWARD-and-slightly-out face of the eyeball so both pupils
+      // look ahead (a cute forward gaze), not out the sides like a fish.
+      const nrm = new THREE.Vector3(s * 0.4, 0.05, -1).normalize();
+      const ec = new THREE.Vector3(s * x, yset, z);
+      const pc = ec.clone().addScaledVector(nrm, rr * 0.62);
+      const pupil = new THREE.Mesh(new THREE.SphereGeometry(rr * 0.6, seg(9), seg(7)), cutePupilMat);
+      pupil.scale.set(sx, sy, 0.66); pupil.position.copy(pc);
+      c.head.add(pupil);
+      const glint = new THREE.Mesh(new THREE.SphereGeometry(rr * 0.17, seg(4), seg(3)), cuteGlintMat);
+      glint.position.copy(pc).addScaledVector(nrm, rr * 0.5).add(new THREE.Vector3(s * 0.02, rr * 0.32, 0));
+      c.head.add(glint);
+    }
     if (glow) {
       const rim = new THREE.Mesh(new THREE.TorusGeometry(r * 1.12, r * 0.14, seg(5), seg(10), Math.PI * 1.1), c.glowMat);
       rim.position.set(s * x, y + r * 0.16, z + 0.02);
@@ -524,10 +545,11 @@ const DEFAULTS = {
   crestBlades: 0,       // brow-crest motif blade count (0 = none) — the AZURE motif socket
   crestScale: 1,        // brow-crest bloom scale
   keenEye: false,       // opt-in bright-almond proud eye (AZURE); default keeps the shared eye
+  cuteEye: false,       // opt-in dark forward pupil + catchlight on the ROUND eye (AZURE hatchling); default keeps the bare sphere byte-identical
 };
 const OVERRIDE_KEYS = ['skullType', 'snoutType', 'eyeZoneType', 'browType', 'hornType', 'jawType', 'rearCrestType',
   'headScale', 'snoutScale', 'hornScale', 'eyeScale', 'browIntensity', 'rearGlowIntensity', 'whiskerFins', 'tuskJaw',
-  'eyeShape', 'crestBlades', 'crestScale', 'keenEye'];
+  'eyeShape', 'crestBlades', 'crestScale', 'keenEye', 'cuteEye'];
 
 function resolveConfig(model) {
   const arch = ARCHETYPES[model.headArchetype] || ARCHETYPES.softStealth;

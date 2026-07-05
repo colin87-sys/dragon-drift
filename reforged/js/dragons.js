@@ -55,6 +55,7 @@ export const DRAGONS = {
       // head, stub gapped comb, crest nub, forked tail-tip hint. Lighter sky value.
       { wingScale: 0.72, bladeSpan: 6.0, bladeCount: 5, bladeDetail: 0.6,
         spineCurl: -0.8, eyeShape: 0.0, headScale: 1.12, eyeScale: 1.7,
+        keenEye: false, cuteEye: true,   // CP2: the hatchling wears the ROUND sphere eye with a big dark forward pupil + glint (not the keen falcon almond+brow-slab, which is apex-only). eyeShape 0 + eyeScale 1.7 → a big low round cute eye
         crestBlades: 1, crestScale: 0.5,
         tailStyle: 'simple', tailTipFork: true, tailSegments: 5, neckSegments: 4,
         ridgeCount: 0, spineGlow: 0,
@@ -65,6 +66,7 @@ export const DRAGONS = {
       // crest begins its 3-blade fan, span 2.0–2.3×. Mid sky value.
       { wingScale: 0.9, bladeSpan: 7.3, bladeCount: 5, bladeDetail: 0.92,
         spineCurl: 0.0, eyeShape: 0.55, headScale: 0.74, eyeScale: 1.02,
+        keenEye: false, cuteEye: true,   // CP2: the adolescent bridges — a big ROUND-ALERT pupil eye (eyeShape 0.55 half-almonds it), NOT yet the apex keen falcon decal. The keen almond arrives only at the Radiant apex
         crestBlades: 2, crestScale: 0.74,
         tailStyle: 'simple', tailTipFork: true, tailSegments: 5, neckSegments: 5,
         ridgeCount: 8, spineGlow: 0,
