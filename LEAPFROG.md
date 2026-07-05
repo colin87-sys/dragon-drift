@@ -5599,3 +5599,53 @@ what told the two apart — measure the render, don't trust the thumbnail.
 gate on the shipped dragon → expected calibration FAIL) as its own tranche BEFORE any builder burns a session.
 Determinism is a deliverable — `setFlapDebugPose` is clock-free, so two dragonstudio runs are byte-identical
 (31/31 verified); non-deterministic capture is the MARROWCOIL churn failure and is treated as a test failure.
+
+### L147 — AZURE slot A, the aesthetics-gate climb (2.25 → 4.19): where the wins and the wall were
+
+**What we did.** Built AZURE ("Azure Drake") to its §5d sheet — `bladeFeatherWings` comb, `sweptLoft`
+avian torso, `smoothWedgeSkull` draconic head, forked-banner `clean` tail, three forms — then drove it
+through ~10 rounds of the §8 `fable` aesthetics gate. The gate climbed **2.25 → 4.19**; it declared the
+wing the HERO feature ("do not touch it") by round 10 and every axis reached 4–4.5 except LIFE (the eye).
+PR #232.
+
+**The two capture-pipeline bugs that masqueraded as geometry (the biggest time sinks).**
+(1) **The "floating orb" the gate flagged for 3 rounds was the gameplay aim-pip, not head geometry.**
+`silhouetteCore.renderSilhouette` built with `buildDragonModel(def, {})` — no `preview:true` — so the
+always-on-top aim octahedron filled as a detached diamond ahead of the nose in EVERY black-fill. dragonstudio's
+LIT renders already passed `preview:true`; the silhouettes didn't. **Any black-fill/silhouette build must set
+`preview:true`** or the HUD pip reads as a one-connected-component violation. Diagnosed with a flood-fill
+component counter (n=38 fleck at a fixed screen coord) + a probe listing small forward meshes → `OctahedronGeometry`.
+(2) **Auto-fit margin is resolution-independent but a SWEPT wing still clips the SIDE frame** — had to push
+`fit * 1.25 → 2.45` and verify with a zero-border-pixel probe, not the coverage %. Measure the render (border
+pixels, component count, x/z extents), never trust the thumbnail (the L146 gotcha, again).
+
+**The span:body metric was a §7-vs-§8 conflict, resolved by aligning the test to the eye.** `tests/starters.mjs`
+measured `span:body` against the SPINE-POLYLINE z-range (apex read 2.92, in band) while the gate measured the
+VISUAL top-planform nose-to-tail (~2.05) and called it BACKPACK WINGS. The spine polyline excludes the snout +
+the long forked tail-banner, so it read ~1.4× high. Fix (user-approved): add a `visualBodyLen` (true nose-to-tail
+z-extent of non-wing meshes) used ONLY for `spanBody`, retune the azure bands, document in-file. Then widen span
+by BLADE LENGTH (`bladeSpan`, costs zero tris — blade tri count is fixed by `bladeDetail`) and SHORTEN the tail
+(`tailLength`) so the wings dominate. A metric that passes a visually-inferior build is the gate's whole reason
+to exist (L136); reconcile the proxy to what the eye measures.
+
+**Wing coherence dials (all gate-confirmed).** Rake is a MITTEN↔TATTERED knob: `0.02+0.02i` welds the planform
+into a solid deltoid; `0.05+0.055i` shatters it into lightning-bolt shards; `~0.035+0.032i` opens true slits in
+the OUTER 55–70% while wide-chord roots overlap into one surface. Planform SLITS come from rake + z-stagger
+(≥0.15); the REAR-chase read is inherently edge-on for a LATERAL comb (judge separation on the top planform +
+rear-¾ bank, not directly-behind). Dihedral ~15° gives the noble gull line; low camber + slim chord + less sweep
+pull side-facing area down for the mass-hierarchy law WITHOUT touching span.
+
+**The eye: the wall, and why.** Life was the sole failing axis for ~6 rounds. Two real lessons: (a) **an eye
+reads by CONTRAST, not brightness** — a near-white emissive iris (`0x9fd4ff` @ high intensity) blows out to a
+white blob; a SATURATED colored iris + a dark slit pupil + a small white catchlight + a dark BROW SOCKET is the
+recipe (the user's Charmander/Squirtle/Blastoise refs nailed it — big forward eye, colored iris, brow shelf).
+(b) **A flat almond DECAL on a smooth procedural loft head is structurally unstable**: seat it flush → the shell
+swallows it; seat it proud → it parallax-floats and breaks the silhouette. Peaked at life 3 / avg 4.19 with a
+proud almond; a socket-carve attempt (recess the loft along the eye normal) buried it again. **Unresolved — the
+real fix is almost certainly a carved orbit tuned to the exact rim depth, or a human art pass.** Recorded so the
+next session starts from "the eye needs a socket, not a bolt-on decal," not from scratch.
+
+**Pattern.** Gate-climb triage: once the gate locks an axis as "done, do not touch" (the wing here), FREEZE it
+and confine every subsequent directive to the failing zone — and when one feature (the eye) eats round after
+round trading one artifact for another, that is the signal it's a STRUCTURAL limit (geometry/pipeline), not a
+tuning one; stop nudging and either change the structure or hand the last 5% to the human on the PR preview.
