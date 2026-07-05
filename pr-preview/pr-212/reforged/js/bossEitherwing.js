@@ -411,7 +411,7 @@ export function buildTwinWraith(def, quality = 1) {
   // carries the §3.2/G1 focal peak (≥250) in a pinpoint cluster. Sclera dimmed from
   // 6.0→2.1 so its annulus bloom can't fill the pupil centre.
   const EYE_HOT = 2.1;                     // the sclera ring — gentle bloom, never floods the pupil
-  const GLINT_HOT = 9.0;                   // the catchlight — the G1 maxLum peak; big enough to survive 2× AA
+  const GLINT_HOT = 9.7;                   // the catchlight — the G1 maxLum peak; 9.0→9.7 so it clears ≥250 even on the BRIGHTEST home sky (Amber Wastes diluted the peak to 249; studio cluster stays well under G1's 7% cap)
   const EYE_BASE = new THREE.Color(0xfff2ea);
   const eyeRig = new THREE.Group();
   eyeRig.name = 'eyeRig';
