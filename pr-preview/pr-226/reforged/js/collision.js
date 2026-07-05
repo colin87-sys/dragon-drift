@@ -346,7 +346,7 @@ export function bulletGraze(player) {
   nearMissSparks(player.position);
   sfx.graze(game.grazeStreak);   // soft shimmer, pitch climbs with the streak
   emit('bossGraze');
-  game.grazeCharge += CONFIG.BOSS.grazeGain;
+  game.grazeCharge += CONFIG.BOSS.grazeGain * (game.adrenGainMult || 1);   // adrenaline R2 "+gain" (unset/1 outside the ladder)
   while (game.grazeCharge >= 1) {
     game.grazeCharge -= 1;
     game.consecutiveRings = Math.min(game.consecutiveRings + 1, game.feverThreshold);

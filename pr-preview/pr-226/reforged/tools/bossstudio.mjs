@@ -55,7 +55,14 @@ const EXTRAS = [
   { name: 'handoff', o: { handoff: 0.5, t: 2.85 } },   // setDebugHandoff(0.5): eye mid-thread; t2.85 = max twin separation (orbitPhase≈π/2) so the 3/4 view has clear air on both sides of the eye, not an eclipse blob (CP1 r8 dir 5)
   { name: 'flee',    o: { death: 0.72, t: 2.6 } },   // the LONE survivor + its hollow "eclipse socket"; per-state auto-fit frames it at spec (short snapped thread), no chip-motes
 ];
-const states = bossId === 'eitherwing' ? [...STATES, ...EXTRAS] : STATES;
+// HOLLOWGATE extras: the §5j Vigil-Lights ignition frame (panes mid-ignition,
+// pooled toward a steered side) + the gaze/pupil frame (the lit pane migrated).
+const HG_EXTRAS = [
+  { name: 'ignite', o: { entrance: 0.55, steer: -1, t: 3.0 } },
+  { name: 'gaze',   o: { gx: 0.9, gy: -0.3, t: 6.0 } },
+];
+const states = bossId === 'eitherwing' ? [...STATES, ...EXTRAS]
+  : bossId === 'hollowgate' ? [...STATES, ...HG_EXTRAS] : STATES;
 
 const BGS = ['dark', 'pale', 'sunset'];   // §7c L140: + warm sunset-gold (warm accents vanish on warm skies)
 // The fight-distance frames (§7c L140): ONE front-on shot per key state at the REAL
@@ -63,7 +70,9 @@ const BGS = ['dark', 'pale', 'sunset'];   // §7c L140: + warm sunset-gold (warm
 // idle = the formation at full spread; handoff = the interlocked-crossing "money frame".
 const FIGHT_STATES = bossId === 'eitherwing'
   ? [{ name: 'idle', o: { t: 2.85 } }, { name: 'handoff', o: { handoff: 0.5, t: 2.85 } }]
-  : [{ name: 'idle', o: { t: 2.85 } }];
+  : bossId === 'hollowgate'
+    ? [{ name: 'idle', o: { t: 2.85 } }, { name: 'dread', o: { charge: 1, sp: 0.9, dread: true, t: 2.0 } }]
+    : [{ name: 'idle', o: { t: 2.85 } }];
 // Grid order: front TL, 3/4 TR, profile BL, top-down BR.
 const ANGLES = [
   { name: 'front',        label: 'front' },

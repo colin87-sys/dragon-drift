@@ -1,4 +1,4 @@
-// tools/ribmaneuver.mjs — the MARROWCOIL fly-through MANEUVER, live (L151).
+// tools/ribmaneuver.mjs — the MARROWCOIL fly-through MANEUVER, live (L155).
 //
 //   node tools/ribmaneuver.mjs [roundTag]
 //
@@ -37,10 +37,9 @@ try {
   await page.waitForTimeout(2500);
 
   await page.evaluate(() => window.__dd.bossRunSetpiece('ribThread'));
-  // L152 cinematic beats over the 10s maneuver: loom / thread / off-screen gap /
-  // rear-look reveal (mouth open, from-behind shots leaving) / bank-away+camera-return /
-  // bullets closing from behind-right / side-lane head-turn shots / restore.
-  const MS = [500, 1800, 2600, 3400, 4200, 5400, 6400, 7600, 8400, 9200];   // times after arming
+  // L155 flyby beats over the ~8.5s pass: loom / thread / off-screen behind /
+  // flank emerge / fly-forward + head-turn mouth shots / bank in / centre restore.
+  const MS = [500, 1600, 2400, 3400, 4400, 5400, 6400, 7400, 8000];   // times after arming
   const written = [];
   let prev = 0;
   for (const ms of MS) {
