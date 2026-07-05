@@ -1028,10 +1028,11 @@ function buildEmberMembraneWings(def, model, attach, giM) {
   // A real jointed arm: the wrist sits at ~35% of half-span along a shoulder→elbow→
   // wrist march (gate r3: no single-point sunburst hub), and the fanned hand + webs
   // hang past it so a wrist furl sweeps the whole outer wing.
+  const leadSweep = Math.tan(model.raySweepBack ?? 0.32);   // leading-edge back-sweep ~18° (§3 15–25°, gate r5 dir 3)
   const wristX = reach * 0.35;
   const elbowX = wristX * 0.52;
-  const wristY = wristX * Math.tan(theta), wristZ = 0;
-  const elbowY = elbowX * Math.tan(theta), elbowZ = 0;
+  const wristY = wristX * Math.tan(theta), wristZ = wristX * leadSweep;
+  const elbowY = elbowX * Math.tan(theta), elbowZ = elbowX * leadSweep;
   // The METACARPAL hand: the 4 finger roots march a short knuckle arc from the wrist
   // (inner, leading) outward+aft, so no two rays share a root (≥0.04× half-span apart).
   const handSpanX = reach * 0.16, handSpanZ = reach * 0.09;
@@ -1043,7 +1044,7 @@ function buildEmberMembraneWings(def, model, attach, giM) {
   // Membrane DIFFUSE is a single dark coal base; the value TIERS ride as grayscale
   // per-vertex multipliers (hue held, law 9) — so the broad mass carries ZERO warm
   // ACCENT diffuse (the §7 carrier assert reads memMat.color as this coal).
-  const cMemBase = model.membraneBase ?? 0x241009;     // representative coal diffuse
+  const cMemBase = model.membraneBase ?? 0x2a160b;     // representative coal diffuse (tiers 0x301a0e leading → 0x180a06 root)
   const cAccent  = model.rayEmissive ?? def.accentHue ?? 0xff8b2a;   // lava emissive (ray tubes only)
   const rayEmisI = Math.min(1.2, model.rayEmissiveIntensity ?? 1.1);  // ≤1.2 (law 12 / fire.tailBulb)
   const cSpar    = model.sparColor ?? 0x5a4038;        // warm ash-scute leading spar (top diffuse tier)
@@ -1112,8 +1113,11 @@ function buildEmberMembraneWings(def, model, attach, giM) {
   // notchDepth>0 cuts a TRUE V-GAP between the two rays: the membrane follows each ray
   // (v=0, v=1) to its tip but RECEDES in the middle (v≈0.5), so an open slit opens
   // between the rays while their tips stay membrane-backed (≤8% bare, no spokes).
-  function membranePanel(A, B, gPanel, notchDepth = 0, festoon = true) {
-    const nu = seg(Math.max(3, Math.round(7 * detail))), nv = seg(4);
+  // trailCusps>0 cuts N scallop cusps into the free TRAILING edge (v→1) along the span
+  // — the festoon read for the inboard brachial panel whose trailing edge is the v=1
+  // boundary, not the outboard cap (gate r5 dir 2: inner scallops).
+  function membranePanel(A, B, gPanel, notchDepth = 0, festoon = true, trailCusps = 0) {
+    const nu = seg(Math.max(4, Math.round(8 * detail))), nv = seg(4);
     const verts = [], cols = [], idx = [];
     const pa = new THREE.Vector3(), pb = new THREE.Vector3(), p = new THREE.Vector3();
     const chord = A.tip.distanceTo(B.tip) || 1;      // the panel's free-edge width (scallop reference)
@@ -1124,22 +1128,29 @@ function buildEmberMembraneWings(def, model, attach, giM) {
       for (let j = 0; j <= nv; j++) {
         const v = j / nv;
         // per-v outboard cap: the V-notch recedes the MIDDLE of the trailing edge so a
-        // real slit opens between the rays (rays at v=0/1 keep full membrane to the tip).
-        const uMax = 1 - notchDepth * Math.pow(Math.sin(v * Math.PI), 1.4);
+        // real slit opens between the rays. sin^0.7 → a WIDE mouth (gate r5 dir 5), not a slit.
+        const uMax = 1 - notchDepth * Math.pow(Math.sin(v * Math.PI), 0.7);
         const u = uu * uMax;
         pa.lerpVectors(A.root, A.tip, u);
         pb.lerpVectors(B.root, B.tip, u);
         p.lerpVectors(pa, pb, v);
         const bill = camber * Math.sin(v * Math.PI) * Math.sin(u * Math.PI) * chordK;
         p.y += bill;
-        // festoon: the outer 45% of the free trailing edge scoops in by ≤ scallop×chord.
+        // festoon: the outer 45% of the free OUTBOARD trailing edge scoops in ≤ scallop×chord.
         if (festoon) {
           const edge = uu > 0.55 ? (uu - 0.55) / 0.45 : 0;
           const scoop = edge * scallop * chord * Math.sin(v * Math.PI);
           p.addScaledVector(spanDir, -scoop);
         }
+        // trailing-edge scallop cusps (brachial): pull the v→1 edge toward leading in a
+        // cusp wave along the span, so the inner trailing edge festoons (§3 0.24–0.30).
+        if (trailCusps && v > 0.6) {
+          const vE = (v - 0.6) / 0.4;
+          const cusp = Math.abs(Math.sin(uu * trailCusps * Math.PI)) * 0.28 * chord * vE;
+          p.addScaledVector(pb.clone().sub(pa).normalize(), -cusp);
+        }
         verts.push(p.x, p.y, p.z);
-        const g = gPanel * (0.8 + 0.2 * u);            // grayscale value tier (root darker)
+        const g = gPanel * (0.72 + 0.28 * u);          // stronger value tier (root darkest → tip lightest), gate r5 dir 7
         cols.push(g, g, g);
       }
     }
@@ -1173,10 +1184,11 @@ function buildEmberMembraneWings(def, model, attach, giM) {
     const root = new THREE.Vector3(rootX, rootX * Math.tan(theta), rootZ);
     const len = (maxLen - rootX) * lenMulFor(i);       // measured from the knuckle to the tip envelope
     const rake = sweep * t;                            // outer rays rake back
+    const tipX = rootX + len * Math.cos(rake);
     const tip = new THREE.Vector3(
-      rootX + len * Math.cos(rake),
-      (rootX + len * Math.cos(rake)) * Math.tan(theta) + len * 0.06,   // arc UP with dihedral (gate r3 #11: not flat)
-      rootZ + len * Math.sin(rake) + 0.10 * t);        // sweep back in +Z
+      tipX,
+      tipX * Math.tan(theta) + len * 0.06,             // arc UP with dihedral (gate r3 #11: not flat)
+      rootZ + len * Math.sin(rake) + 0.10 * t + tipX * leadSweep);   // fan back-rake + the 18° leading-edge sweep (gate r5 dir 3)
     return { root, tip, len };
   }
 
@@ -1225,7 +1237,7 @@ function buildEmberMembraneWings(def, model, attach, giM) {
       const innerChord = reach * 0.34;                 // deep root chord (carries the area)
       const A = { root: new THREE.Vector3(0.02 * side, 0.02, -0.05), tip: hIn.clone() };
       const B = { root: new THREE.Vector3(-0.06 * side, -0.05, innerChord), tip: hOut.clone() };
-      shoulder.add(membranePanel(A, B, 0.9, 0, false));   // no festoon — it meets the hand
+      shoulder.add(membranePanel(A, B, 0.82, 0, false, 2));   // no outboard festoon; 2 trailing-edge scallop cusps (gate r5 dir 2)
     }
     // PROPATAGIUM fillet — the small leading membrane FORE of the arm.
     {
@@ -1237,8 +1249,8 @@ function buildEmberMembraneWings(def, model, attach, giM) {
     // brachial); the OUTER TWO intervals [1-2],[2-3] get a deep V-NOTCH → true through
     // gaps between the rays, tips still membrane-backed (§3 col 2, gate r4 dir 2/4).
     for (let i = 0; i < N - 1; i++) {
-      const notchDepth = i >= 1 ? 0.5 : 0;           // intervals 1-2, 2-3 = the outer two V-gaps
-      const gPanel = [1.0, 0.86, 0.74][i] ?? 0.74;   // leading panel brightest → outer darkest
+      const notchDepth = i >= 1 ? 0.62 : 0;          // intervals 1-2, 2-3 = the outer two V-gaps (WIDE mouths)
+      const gPanel = [1.12, 0.88, 0.64][i] ?? 0.64;  // strong value tiers: leading panel lightest → outer darkest
       hand.add(membranePanel(rays[i], rays[i + 1], gPanel, notchDepth));
     }
     // ray tubes ON TOP of the panels (drawn after, sit just above the skin), warm-emissive.
@@ -1346,29 +1358,30 @@ function buildForgeCollar(def, model, attach, spineMats) {
     // shades each face per angle (gate r4: a fully-emissive corona read as a flat
     // sticker). Total corona ≤0.8× head length.
     const coalMat2 = new THREE.MeshStandardMaterial({ color: 0x1c0d08, emissive: cHot, emissiveIntensity: 1.2, roughness: 0.5, metalness: 0.05 });
-    for (const [cx, cy, cz, cr] of [[0, 0.03, 0, 0.115], [-0.1, -0.015, 0.02, 0.088], [0.1, -0.015, 0.02, 0.088]]) {
-      const coal = new THREE.Mesh(new THREE.SphereGeometry(cr, seg(9), seg(7)), coalMat2);
+    for (const [cx, cy, cz, cr] of [[0, 0.04, 0.02, 0.15], [-0.14, -0.01, 0.0, 0.115], [0.14, -0.01, 0.0, 0.115]]) {
+      const coal = new THREE.Mesh(new THREE.SphereGeometry(cr, seg(10), seg(8)), coalMat2);
       coal.position.set(cx, cy, cz);
       group.add(coal);
     }
     // spikes: warm diffuse + MODERATE emissive so directional light shades the cone faces
-    // (dimensional), and they stay dimmer than the coal bloom core.
+    // (dimensional), and they stay dimmer than the coal bloom core. Clearly separated +
+    // thick so the 6-spike construction reads at a 4× close-up (gate r5 dir 1).
     const spikeMat = new THREE.MeshStandardMaterial({ color: 0x6a2810, emissive: cHot, emissiveIntensity: 0.7, roughness: 0.5, metalness: 0.06 });
     const M = 6;
-    const lens = [0.22, 0.32, 0.40, 0.33, 0.26, 0.18];   // swell-then-taper, no two equal (law 5)
+    const lens = [0.28, 0.40, 0.5, 0.42, 0.33, 0.24];    // swell-then-taper, no two equal (law 5)
     const yUp = new THREE.Vector3(0, 1, 0), dir = new THREE.Vector3();
     for (let i = 0; i < M; i++) {
       const t = i / (M - 1);
-      const az = (t - 0.5) * Math.PI * 1.08;             // fan across the top
+      const az = (t - 0.5) * Math.PI * 1.2;              // fan wide across the top (clear separation)
       const len = lens[i];
-      const spike = new THREE.Mesh(new THREE.ConeGeometry(len * 0.34, len, seg(7)), spikeMat);   // base ≥0.3× length → THICK pyramidal, not a needle
-      dir.set(Math.sin(az), Math.cos(az) * 0.9 + 0.24, -0.28).normalize();   // up-and-out, leaning back over the yoke
+      const spike = new THREE.Mesh(new THREE.ConeGeometry(len * 0.36, len, seg(7)), spikeMat);   // base ≥0.3× length → THICK pyramidal, not a needle
+      dir.set(Math.sin(az), Math.cos(az) * 0.92 + 0.2, -0.26).normalize();   // up-and-out, leaning back over the yoke
       spike.quaternion.setFromUnitVectors(yUp, dir);
-      spike.position.copy(dir).multiplyScalar(0.1 + len * 0.5).add(new THREE.Vector3(0, 0.05, -0.02));
+      spike.position.copy(dir).multiplyScalar(0.13 + len * 0.5).add(new THREE.Vector3(0, 0.06, -0.02));
       group.add(spike);
     }
     spineMats.push(coalMat2, spikeMat);
-    radius = 0.46;
+    radius = 0.5;
   }
   return { group, motifAnchor: { local: new THREE.Vector3(ax, ay, az), radius } };
 }

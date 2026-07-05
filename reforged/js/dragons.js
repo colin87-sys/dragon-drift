@@ -165,9 +165,9 @@ export const DRAGONS = {
       // eyes, full broad gapped wings, backSpines, 2 horn pairs, a short thick tail
       // with a DARK IRON blade tip, and the blazing forge-collar corona (the ONE
       // bloom). DEEPEST value; emissive at its richest (still ≤1.2, no glow-seams).
-      { wingScale: 1.0, raySpan: 11.2, rayDetail: 2.0, collarStage: 2,
+      { wingScale: 1.0, raySpan: 10.5, rayDetail: 1.55, collarStage: 2,
         spineCurl: 0.95, eyeShape: 1.0, headScale: 0.56, eyeScale: 0.83, snoutScale: 0.6,
-        shoulderWidthScale: 1.6, hornType: 'bladeRearHorns', hornScale: 1.5, hornPairs: 2, browIntensity: 1.05,
+        shoulderWidthScale: 1.78, hornType: 'bladeRearHorns', hornScale: 1.5, hornPairs: 2, browIntensity: 1.05,
         // ASH-SCUTE dorsal tier (law 11 / gate dir 8): low warm leaf-scutes tinted ash,
         // ×0.8 falloff toward the tail, seated into the back — the sculpted top value tier
         // the sun shades. 'scute' style (not the debug-arrow cones); ridgeColor forces a

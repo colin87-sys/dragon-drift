@@ -205,11 +205,15 @@ function buildTorso(profile, def, model, bodyMat, geoFn = buildTorsoGeometry, op
   if (bodyMesh && !bridged) for (const s of [-1, 1]) {
     let root;
     if (squareShoulder) {
-      // a low box with chamfered top edges → squared muscular scapula
-      const g = new THREE.BoxGeometry(fr.r * fScale * 1.7, fr.r * fScale * 1.5, fr.r * fScale * 2.2, 1, 1, 1);
+      // a BEVELED squared scapula (a 6-sided prism reads as a chamfered muscular block
+      // from rear chase — never a bare flat cuboid, gate r5 dir 1), broad so the anvil
+      // shoulder line reads in the rear silhouette.
+      const g = new THREE.CylinderGeometry(fr.r * fScale * 1.15, fr.r * fScale * 1.3, fr.r * fScale * 2.4, 6, 1);
+      g.rotateZ(Math.PI / 2);                              // lie the prism along the flank (length in x)
       root = new THREE.Mesh(g, bodyMat);
-      root.rotation.set(0.12, s * 0.16, s * -0.32);      // cant the block up-and-out (chamfer read)
-      root.position.set(s * fr.pos[0] * fScale * 1.05, fr.pos[1] + fr.r * 0.2, fr.pos[2]);
+      root.scale.set(1.0, 0.92, 1.15);
+      root.rotation.set(0.0, s * 0.14, s * -0.22);         // cant up-and-out (chamfer read)
+      root.position.set(s * fr.pos[0] * fScale * 1.1, fr.pos[1] + fr.r * 0.22, fr.pos[2]);
     } else {
       root = new THREE.Mesh(new THREE.SphereGeometry(fr.r * fScale, seg(9), seg(7)), bodyMat);
       root.scale.set(fr.scale[0], fr.scale[1], fr.scale[2]);
