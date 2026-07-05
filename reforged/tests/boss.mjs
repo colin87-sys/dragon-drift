@@ -745,6 +745,50 @@ assert(bullets.reflectBossBullets(makePlayer(), CONFIG.BOSS.reflectWindow, CONFI
 bullets.resetBossBullets();
 ok('reflect: roll swats amber bullets back for bonus damage; plain bullets immune (until Surge)');
 
+// --- 3c². reflect HIT-LOCATION (§5f, L157): the reflect angle picks a body part ─
+// An `aimFor(dx,dy)` resolver (boss.js builds it from def.reflectParts) overrides
+// the reflected bullet's aim from the pose centre to a part's world point, and the
+// part NAME rides the bullet as `hitPart` into the arrival event (so damageBoss can
+// spark ON that part). Assert: the resolver's target is honored (tx/ty steer + the
+// vx/vy solve toward it), the tag is carried, and DAMAGE is unchanged (single pool).
+// Angle sectors mirror boss.js partForAngle: up→skull, left/right→rib, low→tail.
+const PARTS = { up: { x: 0, y: 15, part: 'skullGroup' }, right: { x: 3, y: 13, part: 'ribPivotR2' },
+                left: { x: -3, y: 13, part: 'ribPivotL2' }, low: { x: 0, y: 11, part: 'tailBlade' } };
+const aimFor = (dx, dy) => {
+  const a = Math.atan2(dy, dx), Q = Math.PI / 4;
+  if (a >= Q && a < 3 * Q) return PARTS.up;
+  if (a >= -Q && a < Q) return PARTS.right;
+  if (a >= -3 * Q && a < -Q) return PARTS.low;
+  return PARTS.left;
+};
+// A bullet swatted to the player's RIGHT (dx>0) → routes to the right rib.
+bullets.resetBossBullets();
+bullets.spawnBossBullet({ owner: 'boss', x: 1.5, y: 8, rel: 2, vx: 0, vy: 0, vrel: -28, reflectable: true, dmg: 18, r: CONFIG.BOSS.bulletRadius, color: 0xffc23c, life: 6 });
+bullets.reflectBossBullets(makePlayer(), CONFIG.BOSS.reflectWindow, CONFIG.BOSS.settleGap, 0, CONFIG.BOSS.fightHeight, false, 1, aimFor);
+let ribHitPart = null, ribDmg = 0;
+on('bossDamage', (e) => { if (e.kind === 'player') { ribHitPart = e.hitPart; ribDmg += e.amount; } });
+{ const p = makePlayer(); for (let i = 0; i < 300 && bullets.bossBulletCount() > 0; i++) bullets.updateBossBullets(1 / 60, p); }
+assert(ribHitPart === 'ribPivotR2', `a right-swatted parry routes to the right rib (got ${ribHitPart})`);
+assert(ribDmg === 18 * CONFIG.BOSS.reflectDamageMult, `hit-location leaves damage a single pool (got ${ribDmg})`);
+// A bullet swatted HIGH (dy>0, |dx| small) → routes to the skull.
+bullets.resetBossBullets();
+bullets.spawnBossBullet({ owner: 'boss', x: 0.2, y: 10.5, rel: 2, vx: 0, vy: 0, vrel: -28, reflectable: true, dmg: 18, r: CONFIG.BOSS.bulletRadius, color: 0xffc23c, life: 6 });
+bullets.reflectBossBullets(makePlayer(), CONFIG.BOSS.reflectWindow, CONFIG.BOSS.settleGap, 0, CONFIG.BOSS.fightHeight, false, 1, aimFor);
+let skullHitPart = null;
+on('bossDamage', (e) => { if (e.kind === 'player') skullHitPart = e.hitPart; });
+{ const p = makePlayer(); for (let i = 0; i < 300 && bullets.bossBulletCount() > 0; i++) bullets.updateBossBullets(1 / 60, p); }
+assert(skullHitPart === 'skullGroup', `a high-swatted parry routes to the skull (got ${skullHitPart})`);
+// No resolver (un-opted boss) → aim stays the pose centre, hitPart null (byte-safe).
+bullets.resetBossBullets();
+bullets.spawnBossBullet({ owner: 'boss', x: 1.5, y: 8, rel: 2, vx: 0, vy: 0, vrel: -28, reflectable: true, dmg: 18, r: CONFIG.BOSS.bulletRadius, color: 0xffc23c, life: 6 });
+bullets.reflectBossBullets(makePlayer(), CONFIG.BOSS.reflectWindow, CONFIG.BOSS.settleGap, 0, CONFIG.BOSS.fightHeight);
+let plainHitPart = 'unset';
+on('bossDamage', (e) => { if (e.kind === 'player') plainHitPart = e.hitPart; });
+{ const p = makePlayer(); for (let i = 0; i < 300 && bullets.bossBulletCount() > 0; i++) bullets.updateBossBullets(1 / 60, p); }
+assert(plainHitPart === null, `an un-opted reflect carries no hitPart (got ${plainHitPart})`);
+bullets.resetBossBullets();
+ok('reflect hit-location: the reflect angle routes to skull/rib/tail; damage stays one pool');
+
 // --- 3d. Surge hyper (Increment 3): all-reflect + bullet-time + double rider --
 // The all-reflect core is proven above (all=true). Here assert the two tuning
 // knobs the controller applies while feverActive are sane (slower bullets,

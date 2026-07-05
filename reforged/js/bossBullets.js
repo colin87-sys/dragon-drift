@@ -106,6 +106,8 @@ function makeSlot() {
     coreColor: 0xffffff,   // white by default; graze-bait darkens it (the "donut" read)
     life: 0,
     age: 0,   // seconds since spawn; drives the spawn-in scale ramp (no more pop-at-full-size)
+    hitPart: null,   // §5f reflect hit-location: a reflected amber carries the NAME of the body part
+                     // its reflect angle picked, so damageBoss can spark ON that part (null = boss centre).
   };
 }
 
@@ -288,6 +290,7 @@ export function spawnBossBullet(opts) {
   // part it came from (parry a pane's radial → crack THAT pane). null for the
   // roster's single-centre bosses — byte-unchanged.
   s.part = opts.part ?? null;
+  s.hitPart = opts.hitPart ?? null;   // reflect hit-location tag (set by reflectBossBullets), null on spawn
   return s;
 }
 
@@ -421,7 +424,7 @@ export function updateBossBullets(dt, player) {
           // test; `x`/`y` are the bullet's ACTUAL landing point (not the aim
           // target — the fallback routing must test where the shot really hit,
           // or gunfire can never sculpt a sub-part; CP2 gate finding 4).
-          emit('bossDamage', { amount: s.dmg, kind: s.owner, x: s.x, y: s.y, part: s.part });
+          emit('bossDamage', { amount: s.dmg, kind: s.owner, x: s.x, y: s.y, part: s.part, hitPart: s.hitPart });
         }
         deactivate(i);
       } else if (s.life <= 0) {
@@ -443,7 +446,7 @@ export function updateBossBullets(dt, player) {
 // (Surge hyper, increment 3) makes EVERY boss bullet reflectable, not just the
 // amber ones. A bullet swatted within `perfectParryRel` is a PERFECT parry (more
 // damage). Returns { total, perfect } counts for the FX/announcement.
-export function reflectBossBullets(player, windowRel, settleGap, bossX, bossY, all = false, dmgBonus = 1) {
+export function reflectBossBullets(player, windowRel, settleGap, bossX, bossY, all = false, dmgBonus = 1, aimFor = null) {
   let total = 0, perfect = 0;
   for (let i = 0; i < POOL; i++) {
     const s = slots[i];
@@ -456,11 +459,21 @@ export function reflectBossBullets(player, windowRel, settleGap, bossX, bossY, a
     // Flip it back at the boss.
     s.owner = 'player';
     s.targetRel = settleGap;
-    s.tx = bossX; s.ty = bossY;
+    // §5f REFLECT HIT-LOCATION: the reflect ANGLE (where the swatted bullet sat
+    // relative to the player) picks a target body part — knock a high bullet →
+    // it flies into the skull; a side bullet → the ribs on that side; a low one →
+    // the tail. `aimFor` (from boss.js, def-gated) resolves that part's live world
+    // point; un-opted bosses pass no resolver → aim at the pose centre as before.
+    let tx = bossX, ty = bossY, hitPart = null;
+    if (aimFor) {
+      const t2 = aimFor(dx, dy);
+      if (t2) { tx = t2.x; ty = t2.y; hitPart = t2.part; }
+    }
+    s.tx = tx; s.ty = ty; s.hitPart = hitPart;
     s.vrel = CONFIG.BOSS.bossSpeed;
     const t = Math.max((settleGap - s.rel) / CONFIG.BOSS.bossSpeed, 0.05);
-    s.vx = (bossX - s.x) / t;
-    s.vy = (bossY - s.y) / t;
+    s.vx = (tx - s.x) / t;
+    s.vy = (ty - s.y) / t;
     s.color = isPerfect ? 0xaef0ff : 0x66ddff;      // perfect = brighter
     const mult = (isPerfect ? CONFIG.BOSS.reflectPerfectMult : CONFIG.BOSS.reflectDamageMult) * dmgBonus;   // dmgBonus: adrenaline R4 (default 1)
     s.dmg = (s.dmg > 0 ? s.dmg : 5) * mult;
