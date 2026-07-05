@@ -124,6 +124,7 @@ export const DRAGONS = {
       headArchetype: 'feralPredator',   // heavy brow, small deep-set hot eyes, angular jaw ('horned' is OUT — ignores headScale/snout)
       headScale: 1.0, snoutScale: 0.7, browIntensity: 1.35,
       hotEye: true,                     // small PROUD emissive eye clears the long predator muzzle → reads as the brightest facial point (§4)
+      bellyPaint: true,                 // cream two-tone underside (the Charizard belly) vertex-painted on the ventral torso
       tailIron: true,                   // matte-warm iron tail that now GLOWS via spineGlow (a lit flame tail, no cool sheen)
       squareShoulders: true,            // beveled BLOCK scapula plates → the anvil shoulder read (not round balls)
       shoulderWidthScale: 1.4,          // ANVIL shoulders (tier-0 key: ≥1.25× azure's hatchling)
@@ -132,7 +133,7 @@ export const DRAGONS = {
       // ember gapped-finger membrane shared dials (per-form span/collar accrete below)
       rayCount: 4, raySweep: 0.62, rayDihedral: 0.26, membraneCamber: 0.34, scallop: 0.28,
       rayScale: 0.82, rayDetail: 1.0, rayEmissiveIntensity: 1.2,
-      membraneBase: 0x521e0e,           // WARM dark-red membrane (fire wings) — the glowing rays read as flame through it
+      membraneBase: 0x6a2410,           // WARM dark-red membrane (fire wings) — held below 0x8a3316 (§7) but clearly warm, not black
       sparColor: 0xc0763c,              // warm ember leading spar (lit)
       flapBias: 0.95, flapAmp: 0.95,    // heavy, powerful beat
     },

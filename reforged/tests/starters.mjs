@@ -221,7 +221,7 @@ for (const [key, spec] of Object.entries(SPECS)) {
     const apex = per[2];
     const wm = apex.parts && buildDragonModel(apex.def, {}).materials.wingMat;
     const hsl = {}; wm.color.getHSL(hsl);
-    ok(hsl.l <= 0.22, `${key}: wing membrane diffuse held dark-warm so the rays carry the fire (L ${hsl.l.toFixed(2)} ≤ 0.22)`);
+    ok(hsl.l <= 0.30, `${key}: wing membrane diffuse held dark-warm so the rays carry the fire, not a toy-bright sheet (L ${hsl.l.toFixed(2)} ≤ 0.30)`);
   }
 }
 

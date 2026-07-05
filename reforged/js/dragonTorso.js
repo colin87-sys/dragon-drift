@@ -168,6 +168,25 @@ function buildTorso(profile, def, model, bodyMat, geoFn = buildTorsoGeometry, op
     pos.needsUpdate = true;
     torsoGeo.computeVertexNormals();
   }
+  // BELLY PAINT (opt-in model.bellyPaint): vertex-paint the ventral torso with
+  // def.belly (a cream two-tone underside — the Charizard read) while the dorsal keeps
+  // the body colour. Additive; default off → torsoMat stays single-colour byte-identical.
+  if (torsoGeo && model.bellyPaint && def.belly != null) {
+    torsoGeo.computeBoundingBox();
+    const bbB = torsoGeo.boundingBox, y0 = bbB.min.y, dyB = (bbB.max.y - bbB.min.y) || 1;
+    const pos = torsoGeo.attributes.position;
+    const cBack = new THREE.Color(def.body ?? 0xffffff), cBelly = new THREE.Color(def.belly), cM = new THREE.Color();
+    const cols = [];
+    for (let i = 0; i < pos.count; i++) {
+      const ny = (pos.getY(i) - y0) / dyB;         // 0 belly → 1 back
+      let t = Math.min(1, Math.max(0, (ny - 0.34) / 0.22)); t = t * t * (3 - 2 * t);   // ventral ~35% = belly, smooth blend up the flank
+      cM.copy(cBelly).lerp(cBack, t);
+      cols.push(cM.r, cM.g, cM.b);
+    }
+    torsoGeo.setAttribute('color', new THREE.Float32BufferAttribute(cols, 3));
+    torsoMat.vertexColors = true;
+    torsoMat.color.set(0xffffff);                  // the vertex colours carry the hue now
+  }
   // Pass 2 (opt-in): weight the body verts near each wing root to that side's
   // shoulder bone so the torso surface itself bulges with the wingbeat. The bones
   // live in the wing mounts → the orchestrator binds this mesh once both exist.

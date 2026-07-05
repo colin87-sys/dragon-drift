@@ -1044,7 +1044,7 @@ function buildEmberMembraneWings(def, model, attach, giM) {
   // Membrane DIFFUSE is a single dark coal base; the value TIERS ride as grayscale
   // per-vertex multipliers (hue held, law 9) — so the broad mass carries ZERO warm
   // ACCENT diffuse (the §7 carrier assert reads memMat.color as this coal).
-  const cMemBase = model.membraneBase ?? 0x2a160b;     // representative coal diffuse (tiers 0x301a0e leading → 0x180a06 root)
+  const cMemBase = model.membraneBase ?? 0x2a160b;     // representative coal/ember diffuse (tiers ride as grayscale multipliers)
   const cAccent  = model.rayEmissive ?? def.accentHue ?? 0xff8b2a;   // lava emissive (ray tubes only)
   const rayEmisI = Math.min(1.2, model.rayEmissiveIntensity ?? 1.1);  // ≤1.2 (law 12 / fire.tailBulb)
   const cSpar    = model.sparColor ?? 0x5a4038;        // warm ash-scute leading spar (top diffuse tier)
@@ -1061,7 +1061,7 @@ function buildEmberMembraneWings(def, model, attach, giM) {
   // hairline pinstripes).
   const rayMat = new THREE.MeshStandardMaterial({
     color: 0x140a06, vertexColors: true, roughness: 0.5, metalness: 0.05,
-    emissive: 0xffffff, emissiveIntensity: 1.5 * (rayEmisI / 1.2),
+    emissive: 0xffffff, emissiveIntensity: 2.0 * (rayEmisI / 1.2),   // blooms on the near-dark backdrop (gate flame-r2 dir 1)
   });
   rayMat.onBeforeCompile = (shader) => {
     shader.fragmentShader = shader.fragmentShader.replace(
@@ -1156,7 +1156,7 @@ function buildEmberMembraneWings(def, model, attach, giM) {
           p.addScaledVector(pb.clone().sub(pa).normalize(), -cusp);
         }
         verts.push(p.x, p.y, p.z);
-        const g = gPanel * (0.72 + 0.28 * u);          // stronger value tier (root darkest → tip lightest), gate r5 dir 7
+        const g = gPanel * (0.85 + 0.15 * u);          // value tier with a HIGHER floor so the membrane reads warm-dark-red, not crushed black (gate flame-r2 dir 3)
         cols.push(g, g, g);
       }
     }
@@ -1266,9 +1266,12 @@ function buildEmberMembraneWings(def, model, attach, giM) {
     const elements = [];
     for (let i = 0; i < N; i++) {
       const r = rays[i];
-      const r0 = 0.11 * ws * (0.85 + 0.3 * (1 - i / N));   // thicker → the glow reads as a BAND, not a pinstripe (gate flame-r1)
-      const rimHot = 1.0 - 0.55 * (i / (N - 1));      // ray0 leading = 1.0 → trailing ray ~0.45 (dimmer but still lit fire)
-      const tube = rayTube(r.root, r.tip, r0, r0 * 0.2, 0.4 * rimHot, rimHot);   // root deep-red visible → amber tip; per-ray brightness
+      const r0 = 0.15 * ws * (0.85 + 0.3 * (1 - i / N));   // thick glow BAND (gate flame-r2 dir 1: ~4–6px at chase distance)
+      const rimHot = 1.0 - 0.5 * (i / (N - 1));       // ray0 leading = 1.0 → trailing ray ~0.5
+      // clamp the visible tube to 94% of the ray so its tip ends AT the membrane, no
+      // bare-spoke overshoot (gate flame-r2 dir 2); the tipObj metadata keeps full length.
+      const vTip = r.root.clone().lerp(r.tip, 0.94);
+      const tube = rayTube(r.root, vTip, r0, r0 * 0.18, 0.55 * rimHot, rimHot);   // root visible red → amber tip; brighter floor
       hand.add(tube);
       const tipObj = new THREE.Object3D();
       tipObj.position.copy(r.tip);
@@ -1280,9 +1283,12 @@ function buildEmberMembraneWings(def, model, attach, giM) {
     for (let i = 0; i < N - 2; i++) {
       const mid = rays[i].root.clone().lerp(rays[i + 1].root, 0.5);
       const out = rays[i].tip.clone().lerp(rays[i + 1].tip, 0.5).sub(mid).normalize();
-      const end = mid.clone().addScaledVector(out, rays[i].len * 0.3);
+      const end = mid.clone().addScaledVector(out, rays[i].len * 0.32);
       end.z += 0.12; end.x += 0.06 * side;
-      hand.add(rayTube(mid, end, 0.03 * ws, 0.006 * ws, 0.95, 0.3, 3, 4));   // hot root → fading tip; low-poly
+      hand.add(rayTube(mid, end, 0.05 * ws, 0.01 * ws, 1.1, 0.4, 3, 4));   // WIDER + brighter lava crack, hot root → fading tip; low-poly
+      // a short forked branch for a jagged crack read
+      const br = mid.clone().addScaledVector(out, rays[i].len * 0.14); br.z -= 0.16; br.x += 0.03 * side;
+      hand.add(rayTube(mid, br, 0.04 * ws, 0.008 * ws, 1.0, 0.35, 3, 4));
     }
 
     elbow.add(wrist);
@@ -1372,7 +1378,7 @@ function buildForgeCollar(def, model, attach, spineMats) {
     // RADIATE in 3D. The spikes carry a HALF emissive + warm diffuse so real lighting
     // shades each face per angle (gate r4: a fully-emissive corona read as a flat
     // sticker). Total corona ≤0.8× head length.
-    const coalMat2 = new THREE.MeshStandardMaterial({ color: 0x1c0d08, emissive: 0xffc23d, emissiveIntensity: 1.8, roughness: 0.5, metalness: 0.05 });   // BLAZING yoke — the single brightest point, blooms on the near-dark backdrop (gate flame-r1 dir 3)
+    const coalMat2 = new THREE.MeshStandardMaterial({ color: 0x1c0d08, emissive: 0xffc23d, emissiveIntensity: 2.6, roughness: 0.5, metalness: 0.05 });   // BLAZING yoke — the single brightest point (law 12), out-glows the rays on dark (gate flame-r2 dir 6)
     for (const [cx, cy, cz, cr] of [[0, 0.04, 0.02, 0.15], [-0.14, -0.01, 0.0, 0.115], [0.14, -0.01, 0.0, 0.115]]) {
       const coal = new THREE.Mesh(new THREE.SphereGeometry(cr, seg(10), seg(8)), coalMat2);
       coal.position.set(cx, cy, cz);
