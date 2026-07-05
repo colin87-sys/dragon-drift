@@ -6552,3 +6552,31 @@ re-baking that station's trim + baseline entry. Roster gate after: all pass.
 per-frame one — the same "decisions commit one phrase ahead" law that keeps the scheduler's lookahead
 window honest. Per-frame reactivity stays where it belongs (layer gains via the energy scalar); STRUCTURE
 reacts at musical seams. That split is what makes the music feel conducted rather than twitchy.
+
+### L158 — Audio P6: genre reverb SPACES + a lofi character pack — depth is the cheapest "expensive" signal
+
+**Did.** Upgraded the shared convolution reverb from flat exp-decay noise to a real space, and gave lofi
+stations tape character. All on the render==live seam so calibration stays honest.
+- **`makeImpulse` rebuilt**: PRE-DELAY (a silent 9–40 ms gap → room size + keeps the dry signal clear) +
+  FREQUENCY-DEPENDENT decay (a one-pole lowpass whose smoothing tightens along the tail, so highs die
+  before lows like a real room absorbs them — the #1 "cheap reverb" tell, fixed). Params live in
+  `IR_PRESETS` (hall/plate/room/dark/default); the signature changed from `(a, seconds, decay)` to
+  `(a, presetName)`.
+- **Per-genre spaces**: `mix.irPreset` on the genre MIX presets (epic→hall, trance/bigroom/synthwave→plate,
+  dnb/hardstyle/house→room, lofi/tropical/world→dark). The shared convolver's IR buffer is swapped on
+  station change inside `retuneTo`'s fade (one convolver, per-genre character). The offline renderer builds
+  the bus graph with the station's preset so loudshots measures the real space.
+- **HP'd reverb return** (~200 Hz): reverb below there is just mud on a phone speaker.
+- **Lofi character pack** (`mix.lofiPack`): the whole station runs THROUGH a tape wow/flutter (a ~12 ms
+  delay whose time wobbles under a 0.7 Hz wow + 7.3 Hz flutter) plus a seeded vinyl-crackle bed.
+
+**Learned.** (1) The reverb upgrade is **loudness-neutral** roster-wide (tides/storm/stratos all within
+0.1 LU of −16 after it) — pre-delay + damping + HP-return remove a little tail energy but the send is
+modest, so the ±1 LU gate absorbs it with NO re-trim. Contrast L153/L157: not every render change forces a
+re-bake — measure first, re-trim only what actually drifts. (2) A wow/flutter "dry+wet blend" that feeds the
+bus in parallel DOUBLES the signal (+3 dB — drift jumped −16→−13). Real tape runs the WHOLE signal through
+the mechanism (the delay is ~unity gain); route it in series, not parallel. One representative measurement
+(the lofi hero) caught it before a needless roster re-trim.
+
+**Pattern.** Genre character that's data-only (an `irPreset` string on the shared MIX preset) scales to the
+whole roster for free and needs no per-station authoring — the same leverage as the groove grids (L149).

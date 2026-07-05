@@ -86,18 +86,47 @@ function makeTanhCurve() {
 // convolution tail gives the score the sense of air/space a soaring sea-flight
 // wants — no audio files, just synthesized noise shaped by an exp decay. The
 // two channels decorrelate (independent noise) for a wide, natural stereo tail.
-function makeImpulse(a, seconds = 2.6, decay = 2.8) {
-  const len = Math.max(1, Math.floor(a.sampleRate * seconds));
-  const buf = a.createBuffer(2, len, a.sampleRate);
+// Per-genre reverb "spaces". Each is a set of impulse-response params: `seconds`
+// (tail length), `decay` (exp falloff), `predelayMs` (gap before the tail — a
+// bigger gap reads as a bigger room and keeps the dry signal clear), `damping`
+// (0..1 — how hard the tail darkens over time, the frequency-dependent decay
+// that separates a real room from white-noise-with-an-envelope). Stations pick
+// one via `mix.irPreset`; the default matches the roster's baseline space.
+const IR_PRESETS = {
+  default: { seconds: 2.4, decay: 2.8, predelayMs: 18, damping: 0.5 },
+  hall:    { seconds: 3.4, decay: 2.2, predelayMs: 40, damping: 0.42 }, // epic/orchestral — vast, slow
+  plate:   { seconds: 2.2, decay: 2.6, predelayMs: 12, damping: 0.32 }, // bright dense sheen (synthwave/trance)
+  room:    { seconds: 1.4, decay: 3.4, predelayMs: 9,  damping: 0.6 },  // tight + dry (dnb/hardstyle/house)
+  dark:    { seconds: 1.8, decay: 3.0, predelayMs: 14, damping: 0.78 }, // warm, muffled (lofi/tropical)
+};
+function irParams(preset) {
+  return IR_PRESETS[preset] || IR_PRESETS.default;
+}
+
+// Generated reverb impulse: exponentially-decaying decorrelated stereo noise,
+// now with a PRE-DELAY (silent gap → room size + dry clarity) and a
+// FREQUENCY-DEPENDENT decay (a one-pole lowpass whose smoothing tightens along
+// the tail, so highs die before lows exactly like a real space absorbs them).
+function makeImpulse(a, preset) {
+  const { seconds, decay, predelayMs, damping } = irParams(preset);
+  const sr = a.sampleRate;
+  const len = Math.max(1, Math.floor(sr * seconds));
+  const pre = Math.max(0, Math.floor(sr * predelayMs / 1000));
+  const buf = a.createBuffer(2, len, sr);
+  const tail = Math.max(1, len - pre);
   for (let ch = 0; ch < 2; ch++) {
-    // Seeded noise (not Math.random) so offline renders of the engine are
-    // reproducible — the loudness-calibration CI depends on it. Different seed
-    // per channel keeps the stereo tail decorrelated (wide), same as before.
+    // Seeded noise (not Math.random) so offline renders are reproducible — the
+    // loudness CI depends on it. Different seed per channel = a wide, decorrelated tail.
     const rng = mulberry32(0x51F0AD ^ (ch * 0x9e3779b1));
     const d = buf.getChannelData(ch);
+    let lp = 0;
     for (let i = 0; i < len; i++) {
-      const t = i / len;
-      d[i] = (rng() * 2 - 1) * Math.pow(1 - t, decay);
+      if (i < pre) { d[i] = 0; continue; }   // pre-delay: dry-to-wet gap
+      const t = (i - pre) / tail;
+      // One-pole lowpass, smoothing increases with t → the tail goes dark.
+      const coef = 1 - damping * t;          // 1 (bright, early) → 1-damping (dark, late)
+      lp += coef * ((rng() * 2 - 1) - lp);
+      d[i] = lp * Math.pow(1 - t, decay);
     }
   }
   return buf;
@@ -140,7 +169,7 @@ function makeTapeCurve() {
   return _tapeCurve;
 }
 
-function buildBusGraph(a, musicGain = 1, sfxGain = 1, { v2 = AUDIO_V2 } = {}) {
+function buildBusGraph(a, musicGain = 1, sfxGain = 1, { v2 = AUDIO_V2, irPreset = null } = {}) {
   const masterGain = a.createGain();
   masterGain.gain.value = 1;
   // Soft master compressor: lets the stacked layers run hot without clipping
@@ -196,10 +225,21 @@ function buildBusGraph(a, musicGain = 1, sfxGain = 1, { v2 = AUDIO_V2 } = {}) {
   // music mute/volume and gets muffled by the slow-mo lowpass like the rest
   // of the score. Per-layer send levels are set up in music.start().
   const reverbConvolver = a.createConvolver();
-  reverbConvolver.buffer = makeImpulse(a);
+  reverbConvolver.buffer = makeImpulse(a, v2 ? irPreset : null);
   const reverbReturn = a.createGain();
   reverbReturn.gain.value = 0.9;
-  reverbConvolver.connect(reverbReturn);
+  if (v2) {
+    // High-pass the reverb return (v2): keep the low end dry and defined —
+    // reverb energy below ~200 Hz is just mud on a phone speaker.
+    const rHp = a.createBiquadFilter();
+    rHp.type = 'highpass';
+    rHp.frequency.value = 200;
+    rHp.Q.value = 0.5;
+    reverbConvolver.connect(rHp);
+    rHp.connect(reverbReturn);
+  } else {
+    reverbConvolver.connect(reverbReturn);
+  }
   reverbReturn.connect(musicBus);
   // comp + clipper handles are exposed for the async worklet-limiter upgrade
   // (sfxLimiter.js) — which rewires the tail or, on any failure, leaves this
@@ -220,7 +260,8 @@ function getCtx() {
   try {
     if (!ctx) {
       ctx = new (window.AudioContext || window.webkitAudioContext)();
-      const g = buildBusGraph(ctx, musicTarget(), sfxTarget());
+      const g = buildBusGraph(ctx, musicTarget(), sfxTarget(),
+        { irPreset: TRACKS[trackIndex]?.mix?.irPreset });
       masterGain = g.masterGain;
       musicBus = g.musicBus;
       sfxBus = g.sfxBus;
@@ -1184,7 +1225,44 @@ function buildMusicGraph(a, tr, env, buses, { v2 = AUDIO_V2 } = {}) {
   // integrated loudness. Neutral (0 dB) when the station has no baked trim.
   const stationOut = a.createGain();
   stationOut.gain.value = v2 ? Math.pow(10, (env.mixTrimDb ?? 0) / 20) : 1;
-  stationOut.connect(musicBus);
+
+  // Lofi character pack (v2, `mix.lofiPack`): route the whole station through a
+  // tape wow/flutter (a short delay whose time wobbles under a slow + a fast
+  // LFO) and lay a vinyl-crackle bed under it — the hallmarks that make a lofi
+  // station read as INTENTIONALLY warm/aged instead of "the same engine, quieter".
+  if (v2 && tr.mix && tr.mix.lofiPack) {
+    const warble = a.createDelay(0.05);
+    warble.delayTime.value = 0.012;                 // ~12 ms base tape delay
+    const wow = a.createOscillator();  wow.type = 'sine';    wow.frequency.value = 0.7;
+    const flut = a.createOscillator(); flut.type = 'sine';   flut.frequency.value = 7.3;
+    const wowD = a.createGain();  wowD.gain.value = 0.0016;  // ±1.6 ms wow
+    const flutD = a.createGain(); flutD.gain.value = 0.0004; // ±0.4 ms flutter
+    wow.connect(wowD).connect(warble.delayTime);
+    flut.connect(flutD).connect(warble.delayTime);
+    wow.start(); flut.start();
+    // The whole station runs THROUGH the tape (the delay is ~unity gain, so
+    // this wobbles pitch without adding level) — not a parallel dry+wet blend,
+    // which would double the signal.
+    stationOut.connect(warble);
+    warble.connect(musicBus);
+
+    // Vinyl crackle: a looping buffer of seeded Poisson clicks, dust + the odd pop.
+    const secs = 4;
+    const cbuf = a.createBuffer(1, Math.floor(a.sampleRate * secs), a.sampleRate);
+    const cd = cbuf.getChannelData(0);
+    const crng = mulberry32(0x0FF1CE);
+    for (let i = 0; i < cd.length; i++) {
+      if (crng() < 0.0006) cd[i] = (crng() * 2 - 1) * (crng() < 0.06 ? 0.9 : 0.3); // rare pop vs dust
+    }
+    const csrc = a.createBufferSource();
+    csrc.buffer = cbuf; csrc.loop = true;
+    const chp = a.createBiquadFilter(); chp.type = 'highpass'; chp.frequency.value = 1500;
+    const cg = a.createGain(); cg.gain.value = 0.5;
+    csrc.connect(chp).connect(cg).connect(stationOut);
+    csrc.start();
+  } else {
+    stationOut.connect(musicBus);
+  }
 
   function makeLayer(dest, pan = 0) {
     const g = a.createGain();
@@ -1755,6 +1833,11 @@ function retuneTo(idx) {
     // persists across retunes; only the trim + events change).
     if (stationTrim && AUDIO_V2) {
       stationTrim.gain.setTargetAtTime(Math.pow(10, mixTrimDb / 20), ctx.currentTime, 0.05);
+    }
+    // Swap the shared reverb to the new station's genre space (the one
+    // convolver is reused; only its IR buffer changes, hidden in the fade).
+    if (reverbConvolver && AUDIO_V2) {
+      try { reverbConvolver.buffer = makeImpulse(ctx, TRACKS[trackIndex].mix?.irPreset); } catch { /* keep prior IR */ }
     }
     loopOffset = ctx.currentTime + 0.06;
     nextEvtIdx = 0;
