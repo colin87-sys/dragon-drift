@@ -69,7 +69,7 @@ import { createBossCommon, stripForMerge } from './bossKit.js';
 // read as a jellyfish, L157). Fable sanctioned "raise the count for the condense
 // stage." 44 BIGGER motes (see moteCore) packed into TIGHTER wing triangles fill the
 // membranes so the copy reads as a dragon; still ~58 draws ≪ the tier-3 70 gate (L126).
-const MOTE_N = 44;
+const MOTE_N = 48;
 
 // A wide organic idle CLOUD — deterministic (index trig, no PRNG) so the studio
 // replays pixel-identical. Golden-angle spiral splayed WIDE (x ±13, y ±9) so the
@@ -164,19 +164,25 @@ function yourDragonTable() {
   // root-cause fix — the naked bloom was reading as the head). One big wing + a faint
   // FAR-WING hint = asymmetry that KILLS the moth read.
   const motes = [
-    // HEAD SKULL (0–5) — dark motes wrapping the queen-eye into a horned dragon skull
-    [8.4, 4.8, 0.3],   // snout tip (points forward-right)
-    [7.5, 5.3, 0.3],   // upper snout / brow
-    [6.9, 4.1, 0.4],   // lower jaw
-    [5.8, 6.0, 0.2],   // horn base (swept back)
-    [4.9, 6.5, 0.1],   // horn tip (back)
-    [5.9, 4.5, 0.4],   // cheek / throat
-    // NECK arc (6–8) — head down to the body
-    [5.0, 3.9, 0.2], [4.1, 3.2, 0.1], [3.2, 2.7, 0.0],
-    // BODY mass (9–13)
-    [2.4, 2.3, 0.0], [1.4, 2.0, 0.0], [2.1, 1.4, 0.0], [1.1, 1.1, 0.0], [0.4, 1.7, 0.0],
-    // NEAR WING (14–29) — a big DENSELY-FILLED membrane triangle spread UP and BACK
-    // (shoulder → tip up-left), packed so it reads SOLID at fight distance (Fable fix).
+    // HEAD SKULL (0–8) — a DENSE horned reptilian skull: a snout projecting FORWARD past
+    // the eye, a brow + two swept-back HORNS, a jaw line. The dark skull must carry the
+    // head on its own SILHOUETTE with the glow off (Fable r4: the eye must be FOUND
+    // inside the skull, not seen first as a lamp). The queen-eye sits BEHIND/below the
+    // snout tip, under the brow.
+    [8.6, 4.6, 0.3],   // 0 snout tip (forward)
+    [7.8, 5.0, 0.3],   // 1 snout top
+    [7.2, 4.6, 0.4],   // 2 snout bridge / nostril
+    [6.6, 5.7, 0.2],   // 3 brow (above the eye)
+    [5.9, 6.3, 0.1],   // 4 horn base
+    [5.0, 6.8, 0.0],   // 5 horn tip (swept back)
+    [7.0, 3.9, 0.4],   // 6 jaw
+    [6.1, 4.2, 0.4],   // 7 cheek
+    [5.3, 3.9, 0.3],   // 8 throat
+    // NECK arc (9–11)
+    [5.0, 3.7, 0.2], [4.1, 3.1, 0.1], [3.3, 2.6, 0.0],
+    // BODY mass (12–16)
+    [2.5, 2.3, 0.0], [1.5, 2.0, 0.0], [2.2, 1.4, 0.0], [1.2, 1.1, 0.0], [0.5, 1.7, 0.0],
+    // NEAR WING (17–32) — a big DENSELY-FILLED membrane triangle spread UP and BACK.
     // leading edge (shoulder → tip)
     [2.1, 3.2, -0.2], [1.2, 4.4, -0.4], [0.1, 5.6, -0.7], [-1.1, 6.8, -1.0], [-2.5, 7.8, -1.3],
     // 2nd row
@@ -185,18 +191,19 @@ function yourDragonTable() {
     [0.9, 3.2, -0.2], [-0.1, 4.2, -0.4], [-1.1, 5.2, -0.6], [0.9, 4.8, -0.5],
     // trailing near the shoulder (closes onto the torso)
     [0.4, 3.4, -0.2], [-0.6, 4.0, -0.3],
-    // FAR WING (30–32) — a faint hint behind the body (one big wing + one small = NOT a moth)
-    [3.4, 4.2, -0.6], [3.0, 5.2, -0.8], [2.6, 6.0, -1.0],
-    // TAIL (33–39) — LONG, tapering, curling down to the lower-LEFT (the opposite flank
-    // from the head — a clear serpentine dragon tail, §3.6 the memory hook)
-    [0.1, 0.6, -0.1], [-1.1, 0.1, -0.2], [-2.5, -0.5, -0.3], [-3.9, -1.3, -0.5],
-    [-5.2, -2.3, -0.6], [-6.3, -3.4, -0.7], [-7.0, -4.3, -0.8],
-    // LEGS tucked under the body (40–41)
-    [1.7, 0.5, 0.3], [2.7, 0.7, 0.3],
-    // RIDER (42–43) — a hump on the shoulders/base of the neck, proud toward camera
-    [3.1, 3.3, 1.1], [2.9, 3.9, 1.3],
+    // FAR WING (33–36) — a SECOND filled wing behind the body (a wing PAIR = flight; a
+    // single fan reads as a blade/moth, Fable r4). Smaller, raked back behind the near wing.
+    [3.6, 4.2, -0.7], [3.3, 5.2, -0.9], [2.9, 6.1, -1.1], [4.1, 5.0, -0.8],
+    // TAIL (37–43) — LONG, tapering, curling down to the lower-LEFT (the serpentine dragon
+    // tail — the strongest recognition cue, Fable r4 "a genuine win"; §3.6 the memory hook)
+    [0.2, 0.6, -0.1], [-1.0, 0.1, -0.2], [-2.4, -0.5, -0.3], [-3.8, -1.3, -0.5],
+    [-5.1, -2.3, -0.6], [-6.2, -3.4, -0.7], [-6.9, -4.3, -0.8],
+    // LEGS tucked under the body (44–45)
+    [1.8, 0.5, 0.3], [2.8, 0.7, 0.3],
+    // RIDER (46–47) — a hump on the shoulders/base of the neck, proud toward camera
+    [3.2, 3.3, 1.1], [3.0, 3.9, 1.3],
   ];
-  return { motes, queen: [6.6, 5.0, 0.5] };   // the amber EYE set inside the dark skull (upper-right)
+  return { motes, queen: [6.7, 4.9, 0.5] };   // the amber EYE recessed under the brow, behind the snout
 }
 
 const FORMATIONS = {
@@ -219,7 +226,7 @@ export function buildThrumswarm(def, quality = 1) {
   // lowQ drops the trailing motes (legs + tail + rider) — the essential dragon (head +
   // body + BOTH full wings = the first 32 YOUR-DRAGON slots) survives; tris(q0.5) <
   // tris(q1) stays a gate.
-  const nMotes = lowQ ? 37 : MOTE_N;
+  const nMotes = lowQ ? 40 : MOTE_N;
 
   // The kit shield bubble wraps the central mass (the surge answer for the ring
   // shield still bursts THIS bubble — the ring is the visual, the bubble is the
@@ -260,8 +267,8 @@ export function buildThrumswarm(def, quality = 1) {
   // read on all three §7c backdrops with ZERO extra draws (the swarm's 28 motes stay
   // well inside the tier-3 draw gate). Emissive floor stays ≤0.1 (§5d void-black).
   const moteMat = track(new THREE.MeshStandardMaterial({
-    color: 0x1b1b25, emissive: 0x101018, emissiveIntensity: 0.08,
-    roughness: 0.62, metalness: 0.2, flatShading: true,
+    color: 0x26262f, emissive: 0x181b26, emissiveIntensity: 0.16,
+    roughness: 0.48, metalness: 0.38, flatShading: true,
   }));
 
   // A mote is a small hard-pointed CRYSTAL (§3.1 few hard points — reads as a clean
@@ -619,11 +626,16 @@ export function buildThrumswarm(def, quality = 1) {
     else if (dreadK > 0.05) eyeK = 1.5 + dreadK * 0.6;      // the dread card blazes
     else eyeK = 1 + charge * 0.5 + Math.sin(time * 3) * 0.06;
     eyeK *= (1 - blink * 0.85);
+    // DRAGON-MODE: crush the eye to a small CONTAINED amber ember (≤ bloom threshold)
+    // so it reads as the dragon's EYE inside the dark skull, NEVER the brightest lamp in
+    // frame (Fable r4 root-fix). Blend toward ~0.3 so scalar 0.3·EYE_HOT(2.5)=0.75 < 1.
+    if (dragonMode > 0.05) eyeK = eyeK * (1 - dragonMode) + 0.3 * dragonMode;
     eyeMat.color.copy(EYE_BASE).multiplyScalar(Math.max(0.04, eyeK) * EYE_HOT);
     coreMat.color.setScalar(CORE_HOT * Math.max(0.03, eyeK * (shieldClamp ? 0.18 : 1)));
-    // The ultra-hot pinpoint (the G1 ≥250 cluster) HIDES entirely under the shield —
-    // the focal visibly leashes when the swarm can't be hit (§5f, the G6 read).
-    eyeCore.visible = dyingK < 0.7 && blink < 0.9 && !shieldClamp;
+    // The ultra-hot pinpoint (the G1 ≥250 cluster) HIDES under the shield AND in dragon-
+    // mode — the focal leashes when invulnerable (G6) and the eye stays a contained ember
+    // in the copy's skull (recognition beats blaze there).
+    eyeCore.visible = dyingK < 0.7 && blink < 0.9 && !shieldClamp && dragonMode < 0.5;
     // pupil constricts on charge (small = charge/dread), dilates a touch at rest
     const pupilR = (charge > 0.02 || dreadK > 0.05) ? 0.05 : 0.12;
     pupil.scale.setScalar((pupilR / 0.12) * (1 + (dyingK > 0 ? dyingK * 1.5 : 0)));   // dilates in death
