@@ -5761,3 +5761,64 @@ deliberately untouched; every new subsystem degrades around them.
 hardcoded four-on-the-floor (a dnb station with a house kick is not dnb), boss music states (mode-darkening over
 the same material), then instrument archetypes (FM EP/supersaw/Karplus plucks) per genre. Judges' full synthesis
 is in the plan file; the composition engine is the single biggest remaining listenability unlock.
+
+### L153 — HOLLOWGATE CP1: an architecture boss's face is a STATE TABLE, and decoration can forge a second scar
+
+**Did.** Built slot 6's CP1 (the ruined-arch Calamity opener, VALUE-INVERTED ivory): builder + def (tier 3,
+4 phases/4 cards, VERSE–CHORUS rhythm), the Vigil Lights entrance data, the 'ahead' approach branch, studio
+states, and cleared the studio gate in three rounds (r4 FAIL → r5 PASS-with-cleanup → r6 clean).
+
+**Learned.** (1) **A faceless carrier on architecture = a per-part emissive STATE TABLE.** The rose window's
+8 per-pane materials with one eased intensity array gave all seven §4b channels (gaze/blink/charge/expression/
+flinch/notice/death) as pure data — no bones, no morphs. The two things the gate actually demanded: the PUPIL
+must be visually a different CLASS (emissive lerped toward white-hot), not just brighter — "brightest of eight
+colored panes" is unreadable at fight distance; and NOTICE must be a discrete state JUMP (blackout-except-pupil
+→ full-ring flash), not a modifier on the idle mood. (2) **The default state carries the registry claim.** The
+idle window collapsed to "gold ring-eye" (a slot-2 collision) until two saturated cool panes were HELD lit —
+if an identity axis ("leaded multicolor field") only appears in the dread card, it is not the boss's identity.
+(3) **Decoration can forge a second scar (§3.6).** A dark orbiting chip crossing the pale ring read as a wound
+stronger than the authored one; on a pale boss, ANY dark element that overlaps a pale mass becomes a scar
+candidate — satellites near the face must stay in the light tiers. The real scar became legible only when it
+was subtractive geometry (a bite built into the torus arc) instead of applied stubs. (4) **A tier-3 slot needed
+the phase-count gate made band-aware** (tests/boss.mjs now allows 3–5 carded phases at tier ≥3 — §5g's "4–5
+cards" was in conflict with the flat 3-phase assert).
+
+**Gotcha.** G5 (charge silhouette diff) was silently INFLATED by the drifting masonry chips — different sim
+times between the idle and charge captures moved them, contributing ~7% "telegraph". Tightening their orbits
+dropped the honest portcullis-only diff to 4.9% (fail); the fix was more real gate mass (wider bars, deeper
+travel), not reverting the chips. If a telegraph gate passes, check WHAT is passing it — ambient drift counts
+as shape change to a pixel diff.
+
+**Pattern.** Studio-first paid again: three FAIL→PASS rounds cost only deterministic re-renders. The gate
+prompt now includes "judge the r5 frames fresh — do not assume the fixes worked", which caught the decoy chip
+a builder self-check would have rationalized away.
+
+### L154 — HOLLOWGATE CP2: the fly-through needed NO dive (measure first), part-tags must ride the bullet, and "absorbed" must mean absorbed
+
+**Did.** Shipped slot 6's integration + the engine tranche it carries (§5h ladder controller, §5i.B continuous
+graze + adrenaline ladder, §5e horizon seed, §5f destructible sub-parts). Fable integration gate: PASS, two
+DEFER warts, both fixed same-day.
+
+**Learned.** (1) **L147's dive is not a law, it's a measurement.** MARROWCOIL's fly-through needed a 4.2u dive
+because its barrel interior hung above the rail; HOLLOWGATE's gap was DESIGNED spanning world y 0.5–19.3 with
+the rail at ~11.6, so `archPass` is a pure rel sweep (30 → −8) and encloses on the first try. Measure the
+aperture against cam_y at design time and the fly-through fix costs zero iterations. (2) **A per-part hit test
+wants the part tag ON the bullet, not inferred at landing.** A reflected amber carries its source-pane index
+through the flip (`s.part` survives `reflectBossBullets`), so "parry the pane's radial → crack THAT pane" is
+exact; the landing-point fallback exists but rider chips aim at the pose centre and rarely touch glass — which
+the gate caught as a half-dead claim because the `bossDamage` payload carried the AIM TARGET (tx/ty), not the
+actual landing point (s.x/s.y). When you move a hit's routing, audit the event payload the same way L148 audits
+the velocity solver. (3) **A benefit that says "absorbed" must absorb EVERYTHING the hit costs.** The R5
+adrenaline shield refunded health but the hit still voided the spell-card capture via `bossHitsTakenRun` — an
+invisible lie the player would feel. Un-count the hit (and re-baseline the ladder's own counter) or rename the
+rung. (4) **Headless entrance waits stall under rAF throttling** — expose `input` on `__dd` and tap-skip in a
+loop; a capture tool must never wait wall-clock for a dilated cinematic.
+
+**Gotcha.** The lifecycle test's "setpiece left station" assert only measured x/y — a DEPTH-axis excursion
+(the fly-through's whole identity) read as "never left station". Excursion axes are x, y, AND rel; the assert
+now accepts `minRel < 4`. Same class as L141: depth is the axis everyone forgets.
+
+**Pattern.** The engine-slot recipe held: every system landed def-gated (`grazeForm`, `destructiblePanes`,
+`horizonSeed`) or neutral-at-rung-0 (adrenaline), so the five shipped lifecycle sims stayed green untouched.
+And the integration gate paid for itself again — two real code warts (dead routing, lying banner) that the
+builder's own green suites could never see, because both were CLAIM failures, not behavior failures.

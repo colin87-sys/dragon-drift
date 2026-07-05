@@ -125,6 +125,46 @@ export const ENTRANCE_SCRIPTS = {
       };
     },
   },
+  // HOLLOWGATE — VIGIL LIGHTS (§5j slot 6, hijack 0s — the fight's camera hijack is
+  // BANKED). The dead black arch holds the horizon dead ahead (approachFrom 'ahead'
+  // spawns it at rel 150 — the degrade path until the fog-exempt horizon seed ships)
+  // and the RAIL closes the distance: the only boss that never comes to you. As it
+  // eases to station the rose window IGNITES one pane per slow choir beat, and the
+  // LIT pane POOLS toward whichever side the player steers — in DISCRETE wedge-steps
+  // sampled on ignition beats ONLY (continuous live stick-tracking is slot 14's
+  // exclusive claim; this is architecture ticking, not tracking). The last panes land
+  // inside a 0.5× dilate window (camera home — no hijack, no setOvertake: this script
+  // has NO camera fn); the hub ignites HOT at the end and the portcullis drops once
+  // and LIFTS — a door opening in invitation. The per-pane ignition/pool/portcullis
+  // choreography lives in the hollowgate model's setEntrance(u)/setEntranceSteer(nx);
+  // this script owns only the approach path, the dilate window, and the steer feed.
+  vigilLights: {
+    dur: 2.6,                  // no deep hijack dwell — a slow stately close (≈3.6s wall with the dilate)
+    skipTo: 0.88,              // a tap fast-forwards to the hub ignition + gate lift
+    anchorToDragon: false,     // the arch owns the lane centre; the dragon comes to IT
+    initYaw: 0,                // architecture: it faces the lane, always (it never turns)
+    eyeLock: false,
+    announce: { title: '✛  AHEAD  ✛', sub: 'IT HAS NOT MOVED. NOT ONCE.', tone: 'gold', dur: 2.2 },
+    slowWindow: { uIn: 0.62, uOut: 0.88, depth: 0.5 },   // the last three panes land under 0.5× dilate
+    // A stately straight-line close from the horizon to station: fast early (the
+    // rail eats the distance), easing hard so the last panes ignite near-holding.
+    path(u, ctx) {
+      const { B } = ctx;
+      const t = 1 - Math.pow(1 - clamp01(u / 0.9), 2.2);   // strong ease-out, settled by u=0.9
+      return { x: 0, y: B.fightHeight, rel: L(150, B.settleGap, t) };
+    },
+    tuck() { return 0; },
+    yaw() { return 0; },                                    // it holds its facing — stillness is the read
+    gaze() { return { gx: 0, gy: 0 }; },                    // the pane rig owns the "look" (setEntranceSteer)
+    // Drive the model's pane-ignition clock + feed the STEER sample the ignition
+    // beats quantize (player x relative to the lane centre the arch owns).
+    onFrame(u, ctx, pose, player, model) {
+      model.setEntrance?.(u);
+      model.setEntranceSteer?.(clamp((player.position.x - pose.x) / 8, -1, 1));
+    },
+    onStart(model) { model.setEntrance?.(0); },
+    // NO camera fn: hijack 0s — the chase camera never leaves home (BANKED, §5j).
+  },
 };
 
 // Pure per-frame sampler (for tests + any tooling): returns the full frame a script

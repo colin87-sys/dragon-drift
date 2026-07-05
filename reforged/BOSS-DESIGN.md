@@ -235,7 +235,7 @@ safe-lane gates exactly once.
 | 3 | ASHTALON | winged pursuer (scythe-wing raptor) | never holds station — it hunts you | charcoal·ember / one molten SLIT | behind, overtakes | claimed (replaces retired CRAGHOLD¹) | —³ |
 | 4 | MARROWCOIL | segmented skeleton (bone dragon) | fly-through ribcage + skull lure | bone-white·void·ice-blue / ring-aperture + pinpoints | below (new) | claimed (absorbs VESPERCOIL²) | **rib-slam ambers → ORGAN BREAK** (Colossi debut): parry a rib-slam's ambers N× → that rib CRACKS, its pattern component deleted (reused at 5 on the eye-holder) |
 | 5 | EITHERWING | twin bodies | one eye passed between two | oxblood·aged-silver / single point | both sides (new) | claimed | **eye-holder's amber volley → ORGAN BREAK** (Colossi reuse): parry the holder's amber volley 3× mid-possession → the handoff STAGGERS, the eye DROPS to the thread midpoint for a 2.5s bonus-damage window |
-| 6 | HOLLOWGATE | architecture with a void | rose-window face | ivory·stained-glass / leaded field (VALUE-INVERTED: near-white) | static-ahead | open | — |
+| 6 | HOLLOWGATE | architecture with a void | rose-window face | ivory·stained-glass / leaded field (VALUE-INVERTED: near-white) | static-ahead | shipped | **pane-radial ambers → PANE BREAK** (Calamities ORGAN-BREAK reuse): parry a lit pane's amber volley 3× → that pane CRACKS and its radial component is deleted from the composite (rides the §5f destructible-pane plumbing — parry and gunfire sculpt the same window) |
 | 7 | THRUMSWARM | stippled swarm | condenses into YOUR dragon | void-black·star-white / scattered points | condenses | open | — |
 | 8 | BRINEHOLM | bottom-anchored ridge | the surfacing whale-eye | kelp-black·abalone / iridescent sheen | below-horizon | open | — |
 | 9 | KARNVOW | slender vertical duelist | trophy-chain of earlier bosses' scars | tarnished-iron·trophy glints | alongside | open | — |
@@ -1371,6 +1371,10 @@ integration → (pass) → post both sets to the PR → STOP for the human.
 ## 9. Ledger reading list (READ ONLY THESE — the ledger is 470KB and mostly not about bosses)
 
 LEAPFROG.md lessons relevant to boss work, in priority order:
+- **L153** — HOLLOWGATE CP1: a faceless architecture face is a per-part emissive STATE TABLE
+  (pupil = a different CLASS, notice = a state JUMP, the DEFAULT state carries the registry
+  claim); dark decoration on a pale mass forges a second scar; ambient drift can silently
+  inflate the G5 telegraph diff.
 - **L129** — CRAGHOLD (boss 3, first Tier 2 Colossus): the gesture-hand limb system, the
   def-gated setpiece seam, flash-bind luminance, and the draw-budget reality at 3 bosses.
 - **L127** — shareability research + charisma layer + the parallel-agent git gotcha.
