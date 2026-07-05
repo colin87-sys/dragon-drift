@@ -268,6 +268,17 @@ export const TRACKS = [
     mix: { ...MIX.bigroom, trimDb: -6.7 },
     name: 'Neon Apex',
     desc: 'Festival anthem — fat detuned hook',
+    // Song form (P4): a breakdown → build (riser) → drop arc — the track plays
+    // as a 44-bar song, not an 8-bar loop. Sections are diffs over the base 8
+    // bars; a 4-bar section = its first 4 bars. `energy` scales intensity,
+    // `mute` strips layers, `riser` lifts into the drop, `crash` accents it.
+    sections: {
+      A:    {},                                                                       // full statement
+      bld:  { bars: 4, mute: ['perc2', 'high'], energy: 0.6, riser: true },            // 4-bar build + riser
+      drop: { energy: 1.0, crash: true },                                             // full drop, crash on 1
+      brk:  { bars: 4, mute: ['perc', 'perc2', 'perc3', 'bass', 'arp'], energy: 0.3 }, // pads-only breakdown
+    },
+    form: ['A', 'A', 'bld', 'drop', 'brk', 'bld', 'drop', 'drop'],                    // 44 bars
     cost: 800,
     bpm: 138,
     voices: {

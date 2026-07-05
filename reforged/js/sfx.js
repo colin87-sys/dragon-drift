@@ -9,6 +9,7 @@ import { mulberry32 } from './util.js';
 import { upgradeMasterChain } from './sfxLimiter.js';
 import { snapToChord, chordLadder, nextGridDelay } from './harmony.js';
 import { INSTS } from './insts.js';
+import { sectionAt } from './composer.js';
 
 export { TRACKS };
 
@@ -930,6 +931,7 @@ let biomeSemitones = 0; // biome key shift, applied at loop boundaries
 let drumEnergy = 0;     // 0..1 BPM-driven kit punch / bass thickness
 let pumpAmt = 0;        // sidechain depth: 0 (no pump) .. ~0.42 (hard four-on-floor)
 let loopCount = 0;      // which 8-bar loop we're on — drives fills/crash/humanize variation
+let formPass = 0;       // which section of the song form is playing (advances per loop-wrap)
 // Per-station "remaster" mix scalars (from each track's optional `mix` object).
 // All default to 1.0 → byte-for-byte the current global sound when `mix` is absent.
 let mixReverb = 1, mixWidth = 1, mixDrive = 1, mixBright = 1, mixTrimDb = 0;
@@ -954,9 +956,15 @@ function seqToEvents(seq, layerKey, voice, freqMult, durMult = 0.85, E8 = 0.25) 
 // offline renderer (sfxRender.js: loudness calibration + WAV bounce) runs the
 // EXACT code the live engine plays. The live path is the thin buildEvents()
 // wrapper below, which folds the results into the scheduler's module state.
-function compileTrack(tr, loopN = 0, semis = 0) {
+function compileTrack(tr, loopN = 0, semis = 0, section = null) {
   const E8 = 60 / tr.bpm / 2;
-  const LOOP_LEN = 64 * E8;
+  // Song structure: a station with a `form` plays a different SECTION each
+  // loop-wrap (intro/build/drop/breakdown) instead of the same 8 bars forever.
+  // `sec` is the section for this pass; legacy stations get the implicit
+  // full 8-bar base section, so LOOP_LEN + everything below is unchanged.
+  const sec = section || sectionAt(tr, loopN);
+  const bars = sec.bars;                 // 1..8 (a 4-bar breakdown = first 4 bars)
+  const LOOP_LEN = bars * 8 * E8;
   // Punchier kit + thicker bass on the high-energy stations; chill low-BPM
   // tracks stay soft. 100bpm→0 … 174bpm→1, with an optional per-track nudge.
   const drumEnergy = Math.max(0, Math.min(1, (tr.bpm - 100) / 74)) * (tr.drums.punch ?? 1);
@@ -992,7 +1000,7 @@ function compileTrack(tr, loopN = 0, semis = 0) {
   ];
 
   const e16 = E8 / 2;
-  for (let bar = 0; bar < 8; bar++) {
+  for (let bar = 0; bar < bars; bar++) {
     const barStart = bar * 8 * E8;
     const arp = tr.arps[bar % 4];                       // follow the chord
     for (let cycle = 0; cycle < 2; cycle++) {           // 2 × 8-note cycles per bar
@@ -1076,13 +1084,14 @@ function compileTrack(tr, loopN = 0, semis = 0) {
   // kits get only a light, sparse fill so they stay calm.
   const d = tr.drums;
   const BEAT = 2 * E8;
-  if (d.heavy) {
-    // Crash cymbal on the downbeat of bar 0 — the phrase "1".
+  if (d.heavy || sec.crash) {
+    // Crash cymbal on the downbeat of bar 0 — the phrase "1" (and forced on a
+    // section that requests it, e.g. a drop landing).
     all.push({ t: 0, special: 'crash', layer: 'perc2', dvol: 0.45 + drumEnergy * 0.35 });
   }
-  // Snare fill on the last bar, building into the loop-top crash. Four shapes
-  // rotate by loopCount so consecutive loops differ.
-  const lastBar = 7 * 8 * E8;
+  // Snare fill on the last bar of the SECTION, building into the next section's
+  // downbeat. Four shapes rotate by loopCount so consecutive loops differ.
+  const lastBar = (bars - 1) * 8 * E8;
   const variant = loopN % 4;
   const fillBase = d.heavy ? d.snare : d.snare * 0.6;
   const fill = [];
@@ -1114,14 +1123,38 @@ function compileTrack(tr, loopN = 0, semis = 0) {
     if (ev.dvol != null) ev.dvol *= 1 + (rng() * 2 - 1) * 0.1;
   }
 
-  all.sort((a, b) => a.t - b.t);
-  return { events: all, E8, LOOP_LEN, drumEnergy, pumpAmt, mixReverb, mixWidth, mixDrive, mixBright, mixTrimDb };
+  // --- Section shaping (arrangement dynamics) ----------------------------
+  // A form's sections mute layers + scale intensity so the track breathes. A
+  // legacy station's base section mutes nothing at energy 1 → `out` === `all`.
+  let out = all;
+  // Trim melodic events (melody/bass/high/feverlead run the full 8 bars) to the
+  // section length; the per-bar loop above already bounded the arp/pad/drums.
+  if (bars < 8) out = out.filter((ev) => ev.t < LOOP_LEN - 1e-6);
+  if (sec.mute.size) out = out.filter((ev) => !sec.mute.has(ev.layer));
+  if (sec.energy < 1) {
+    // Quieter, sparser sections: pull percussion velocity hard and tonal
+    // velocity gently, so a breakdown recedes without going lifeless.
+    for (const ev of out) {
+      if (ev.special) { if (ev.dvol != null) ev.dvol *= 0.35 + 0.65 * sec.energy; }
+      else if (ev.vol != null) ev.vol *= 0.55 + 0.45 * sec.energy;
+    }
+  }
+  // Riser: a rising filtered-noise sweep across the section's last bar, tension
+  // into the next section's downbeat (builds).
+  if (sec.riser) out.push({ t: lastBar, durS: 8 * E8, special: 'riser', layer: 'perc2', dvol: 0.8 });
+
+  out.sort((a, b) => a.t - b.t);
+  return { events: out, E8, LOOP_LEN, drumEnergy, pumpAmt, mixReverb, mixWidth, mixDrive, mixBright, mixTrimDb, sectionKey: sec.key };
 }
 
 // Live wrapper: compile the ACTIVE station and fold the derived scalars into
 // the scheduler's module state (E8/LOOP_LEN/drumEnergy/pump/mix knobs).
 function buildEvents() {
-  const c = compileTrack(TRACKS[trackIndex], loopCount, biomeSemitones);
+  const tr = TRACKS[trackIndex];
+  // Resolve the current song section from the form cursor (legacy stations →
+  // the implicit base section, so this is the same 8-bar loop as before).
+  const section = sectionAt(tr, formPass);
+  const c = compileTrack(tr, loopCount, biomeSemitones, section);
   E8 = c.E8; LOOP_LEN = c.LOOP_LEN; drumEnergy = c.drumEnergy; pumpAmt = c.pumpAmt;
   mixReverb = c.mixReverb; mixWidth = c.mixWidth; mixDrive = c.mixDrive; mixBright = c.mixBright;
   mixTrimDb = c.mixTrimDb;
@@ -1519,6 +1552,25 @@ function playNoteEventIn(a, layers, pumpGain, pumpAmt, drumEnergy, mixBright, ev
       click.stop(absTime + 0.03);
       return;
     }
+    if (ev.special === 'riser') {
+      // Build riser: band-passed noise sweeping UP in pitch with a swelling
+      // gain across the section's last bar — the tension lift into a drop.
+      const dur = ev.durS || 1;
+      const src = a.createBufferSource();
+      src.buffer = getNoiseBuffer(a);
+      const bp = a.createBiquadFilter();
+      bp.type = 'bandpass';
+      bp.Q.value = 1.4;
+      bp.frequency.setValueAtTime(400, absTime);
+      bp.frequency.exponentialRampToValueAtTime(7000, absTime + dur);
+      g.gain.setValueAtTime(0.0001, absTime);
+      g.gain.exponentialRampToValueAtTime(0.12 * dv, absTime + dur * 0.92);
+      g.gain.exponentialRampToValueAtTime(0.0001, absTime + dur);
+      src.connect(bp).connect(g).connect(layerGain);
+      src.start(absTime);
+      src.stop(absTime + dur + 0.05);
+      return;
+    }
     // hat: metallic highpassed noise tick
     const src = a.createBufferSource();
     src.buffer = getNoiseBuffer(a);
@@ -1650,11 +1702,13 @@ function runScheduler() {
     nextEvtIdx++;
     if (nextEvtIdx >= events.length) {
       nextEvtIdx = 0;
-      loopOffset += LOOP_LEN;
+      loopOffset += LOOP_LEN;   // advance by the section that just finished
       loopCount++;
-      // Rebuild every loop so fills / crash / humanization vary (cheap: a few
-      // hundred events, once every several seconds). Key shifts (biome changes)
-      // also fold in here, landing cleanly on the downbeat of the new loop.
+      formPass++;               // advance the song-form cursor to the next section
+      // Rebuild every loop so fills / crash / humanization vary AND the next
+      // song section is resolved (cheap: a few hundred events, once every
+      // several seconds). Key shifts (biome changes) also fold in here,
+      // landing cleanly on the downbeat of the new loop/section.
       const keyShift = pendingRebuild;
       pendingRebuild = false;
       events = buildEvents();
@@ -1680,6 +1734,7 @@ function retuneTo(idx) {
   setTimeout(() => {
     if (!musicActive) return;
     loopCount = 0;
+    formPass = 0;                      // restart the song form from the top on retune
     events = buildEvents();            // recomputes E8/LOOP_LEN for the new track
     // Ramped, not jumped — instantaneous delayTime changes click (see scheduler).
     if (echoDelay) echoDelay.delayTime.setTargetAtTime(E8 * 1.5, ctx.currentTime, 0.05);
@@ -1704,6 +1759,7 @@ export const music = {
     restoreBuses(a, true);
     musicActive = true;
     loopCount = 0;
+    formPass = 0;
     events = buildEvents();
 
     // Per-run music graph (pump bus, bass drive, layers, sends, echo, wind) —

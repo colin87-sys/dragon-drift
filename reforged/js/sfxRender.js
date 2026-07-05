@@ -7,6 +7,7 @@
 import { TRACKS, __render } from './sfx.js';
 import { measure, encodeWavPcm16 } from './sfxLoudness.js';
 import { upgradeMasterChain } from './sfxLimiter.js';
+import { sectionAt, resolveForm } from './composer.js';
 import { mulberry32 } from './util.js';
 
 // Layer-gain scenes: which vertical layers are audible in the render.
@@ -23,11 +24,41 @@ export const LAYER_SCENES = {
 // to the rendered AudioBuffer.
 export async function renderStation(idx, {
   loops = 1, sampleRate = 44100, scene = 'full', tailS = 1.2, keyShift = 0, audioV2 = true,
+  walkForm = false,
 } = {}) {
   const tr = TRACKS[idx];
   if (!tr) throw new Error(`no station ${idx}`);
-  const c0 = __render.compileTrack(tr, 0, keyShift);
-  const totalS = c0.LOOP_LEN * loops + tailS;
+  // Song structure: a station with a form plays a different section each
+  // loop-wrap. Two render modes:
+  //  • walkForm=false (measurement, default): render `loops` of the BASE
+  //    section only. A form station calibrates on its main body — the drop
+  //    sits at −16 and the breakdowns are RELATIVELY quieter by design, so
+  //    averaging them into the loudness target would be musically wrong (and
+  //    a full 44-bar render is far too slow for the per-station gate). Legacy
+  //    stations have no form → this is byte-identical to before.
+  //  • walkForm=true (bounce): render whole forms so the exported single is
+  //    the entire arrangement — breakdowns, builds, drops — as the live
+  //    scheduler sequences them.
+  const form = resolveForm(tr);
+  const compiled = [];
+  let totalLoopS = 0;
+  if (walkForm && form) {
+    const passCount = Math.ceil(Math.max(loops, form.length) / form.length) * form.length;
+    for (let p = 0; p < passCount; p++) {
+      const c = __render.compileTrack(tr, p, keyShift, sectionAt(tr, p));
+      compiled.push(c);
+      totalLoopS += c.LOOP_LEN;
+    }
+  } else {
+    const baseSection = sectionAt(tr, 0);   // the full base section (legacy = the only one)
+    for (let loop = 0; loop < loops; loop++) {
+      const c = __render.compileTrack(tr, loop, keyShift, baseSection);
+      compiled.push(c);
+      totalLoopS += c.LOOP_LEN;
+    }
+  }
+  const c0 = compiled[0];
+  const totalS = totalLoopS + tailS;
   const a = new OfflineAudioContext(2, Math.ceil(totalS * sampleRate), sampleRate);
   const buses = __render.buildBusGraph(a, 1, 1, { v2: audioV2 });
   // Mirror the live v2 upgrade (worklet lookahead limiter) so calibration
@@ -38,13 +69,12 @@ export async function renderStation(idx, {
   const g = __render.buildMusicGraph(a, tr, c0, buses, { v2: audioV2 });
   const levels = LAYER_SCENES[scene] || LAYER_SCENES.full;
   for (const k of Object.keys(g.layers)) g.layers[k].gain.value = levels[k] ?? 0;
-  const t0 = 0.05;
-  for (let loop = 0; loop < loops; loop++) {
-    const c = loop === 0 ? c0 : __render.compileTrack(tr, loop, keyShift);
-    const base = t0 + loop * c0.LOOP_LEN;
+  let base = 0.05;
+  for (const c of compiled) {
     for (const ev of c.events) {
       __render.playNoteEventIn(a, g.layers, g.pumpGain, c.pumpAmt, c.drumEnergy, c.mixBright, ev, base + ev.t);
     }
+    base += c.LOOP_LEN;   // sections vary in length — advance by the real amount
   }
   return a.startRendering();
 }
@@ -64,9 +94,9 @@ export async function measureStation(idx, opts = {}) {
 // `targetLufs` (gain applied in float, peak-capped to `ceilingDb` with 0.6 dB
 // sample-peak margin standing in for true peak).
 export async function bounceStation(idx, {
-  loops = 8, targetLufs = -14, ceilingDb = -1, sampleRate = 44100, ...opts
+  loops = 8, targetLufs = -14, ceilingDb = -1, sampleRate = 44100, walkForm = true, ...opts
 } = {}) {
-  const buf = await renderStation(idx, { loops, sampleRate, ...opts });
+  const buf = await renderStation(idx, { loops, sampleRate, walkForm, ...opts });
   const chans = [buf.getChannelData(0), buf.getChannelData(1)];
   const m = measure(chans, buf.sampleRate);
   let gainDb = targetLufs - m.lufs;
