@@ -5923,3 +5923,35 @@ haven't wired.
 
 **Pattern.** Studio-first paid again: the bird-V wing, the dark-sky vanish, and the G6 shield-bloom were all caught and
 fixed on deterministic re-renders before any in-game work — three fixes, zero debugging sessions.
+
+### L158 — THRUMSWARM CP2: a swarm is a STATE→FORMATION driver, and the model must expose its LIVE read
+
+**Did.** Wired slot 7's integration (all def-gated, byte-inert for other bosses): the condense/scatter CYCLE +
+formation transitions (a `driveSwarm(dt)` before `model.tick` maps the fight state → formation + condense: CONDENSED
+while a volley winds up/flies, SCATTERED at the phrase rest); chip-only-while-condensed (`condenseInvuln`); the
+SCATTER-STAGGER parry (3 amber parries lock it condensed 2.5s); ABSORB-A-COLOR (the swarm sheds surge-pink soak motes —
+one additive `THREE.Points` cloud — that feed Surge on touch via `bulletGraze`); the §5e input/pose RING BUFFER + the
+condensePass/Your-Own-Wings setpieces (the dread card replays the player's recorded flight path, clamped to the arena).
+
+**Learned.** (1) **The chip-invuln gate needs the model's LIVE eased value, not its target.** `condenseLevel()` returns
+the target `condenseK`; the gate needs the *eased* `condIn` the tick actually rendered, so the model exposes
+`condenseLive()` (stored each tick). Gating on the target would let chip through a frame before the shape formed (or
+block it a frame after it dispersed). (2) **A hard invuln gate doubles TTK — make it a phrase-rest PULSE.** Chip-only-
+while-condensed with a per-attack condense cycle negated ~40% of chip (104s→163s). A `condHold` (~1.1s past the last
+shot) keeps the swarm exposed through the dense ostinato so the invuln is a brief flicker at the rests, not a half-fight
+gate (back to ~107s). "Invulnerable" as a light rhythmic tell reads better than as a wall. (3) **A per-frame state
+driver and a capture PIN fight over the model** — `driveSwarm` forced scatter every frame, silently overriding the
+debug setpiece-pin that freezes the meme frame for a still (the pinned dragon rendered as scatter). Any per-frame driver
+must defer to the capture pins (`if (debugSetpiecePin) return`). Same class as the L153 ambient-drift-inflates-G5 trap:
+a background system quietly overwrites the thing you're trying to observe. (4) **The dread eye must CONTAIN in-game too**
+— the CP1 dragon-mode eye-crush (L157) only fired when `setSetpiece` saw `dread`; the capture pin passes `{id}` without
+it, so the model now recognizes the setpiece by id — otherwise the live meme frame reverts to the lamp-headed read the
+design gate rejected.
+
+**Gotcha.** THRUMSWARM's deep-dilate entrance (2.8s @0.24×) crawls under headless rAF throttle (L105), stalling capture
+tools for minutes — hollowgate's 0s-hijack entrance never hit this. Added a capture-only `debugForceFight()` that snaps
+straight to the fight phase at station; reusable for any future deep-dilate entrance.
+
+**Pattern.** The engine-slot recipe held again: every system landed def-gated (`condenseInvuln`, `grazeForm`, the
+formation tables) or neutral, so all six shipped-boss lifecycle sims + the legacy-fallback gate stayed green untouched,
+and the 7-boss gauntlet still clears (its frame budget rose for the 7th boss).
