@@ -5652,3 +5652,26 @@ grab a 6-frame burst straddling the 0.12s ramp (t=0/40/90/160/260/420ms). The bu
 frame can't show "grows in"; you need t000 (invisible, at the skull) → t040 (half-size row descending from the head)
 → t090 (full, flaring near the player). The headless `tests/boss.mjs` stays 35/35 (positions shift, geometry patterns
 and lifecycle unchanged), but the "from the body" and "grows in" claims are motion claims — only the burst proves them.
+
+### L149 — Pages deploys silently die at 1GB: stale PR previews are the usual culprit
+
+**Did / learned.** After #225 merged, the live site froze on an old build and every `Deploy Pages` run failed
+identically: status walked `deployment_in_progress → syncing_files → "Deployment failed, try again later."` — which
+reads exactly like a transient GitHub outage and tempts you to just re-run. It is NOT transient. The published site had
+grown to ~1.6GB, past **GitHub Pages' hard 1GB limit**; the artifact uploads fine (artifacts allow >1GB) then Pages
+rejects it during sync. Root cause: `deploy-pages.yml` assembles the site from `master` + the `gh-pages` `pr-preview/`
+store, and that store had **175 full ~9MB copies of the game** — one per PR preview, 146 of them for long-closed PRs
+that were never torn down (`pr-preview.yml` only removes on the PR-close *event*; any missed close lingers forever).
+
+**The gotchas.** (1) `rerun_failed_jobs` on a Pages run **re-runs the build too and uploads a SECOND `github-pages`
+artifact** → `deploy-pages@v4` dies with "Multiple artifacts named github-pages … count is 2". To retry, dispatch a
+FRESH run (`workflow_dispatch`), never rerun-failed-jobs. (2) To prune a 1.6GB branch without pulling it, `git clone
+--filter=blob:none --no-checkout --single-branch --branch gh-pages`, then `git reset -q HEAD` to populate the index from
+trees, `git rm -r --cached` the stale dirs, commit, push — only new tree+commit objects go over the wire; the kept
+blobs are already on the remote. Downloaded ~0 blobs to delete ~1.3GB.
+
+**The pattern.** A silent capacity ceiling deserves a fail-fast guard at the choke point + a backstop that stops the
+ceiling being reached. Added both: `deploy-pages.yml` now `du -sb _site` and fails with an actionable message if >950MiB
+(instead of the opaque syncing_files), and a scheduled `prune-previews.yml` sweeps `pr-preview/pr-<N>` whose PR is no
+longer OPEN (weekly + on-demand, shares the `gh-pages` concurrency group). Keep-open / prune-everything-else is the
+safe rule: open PRs re-publish their own preview on the next push anyway.

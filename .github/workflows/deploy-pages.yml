@@ -70,6 +70,21 @@ jobs:
           # Disable Jekyll so files/dirs beginning with _ are served verbatim.
           touch _site/.nojekyll
 
+      # Fail fast with a clear message if the assembled site approaches GitHub
+      # Pages' hard 1GB cap. Without this, an oversized site (usually stale
+      # pr-preview/ dirs piling up on gh-pages) fails deep in the deploy with an
+      # opaque "syncing_files → Deployment failed, try again later" that reads
+      # like a transient outage. Guard well under 1GB to leave headroom.
+      - name: Guard against the Pages size limit
+        run: |
+          mib=$(( $(du -sb _site | cut -f1) / 1024 / 1024 ))
+          echo "Assembled site: ${mib} MiB (previews: $(ls -1 _site/pr-preview 2>/dev/null | wc -l))"
+          limit=950
+          if [ "$mib" -gt "$limit" ]; then
+            echo "::error::Site is ${mib} MiB, over the ${limit} MiB guard — GitHub Pages hard-caps at 1GB. This is almost always stale pr-preview dirs on gh-pages; run the 'Prune stale PR previews' workflow (clears previews for closed PRs), then redeploy."
+            exit 1
+          fi
+
       - name: Configure Pages
         uses: actions/configure-pages@v5
 

@@ -1,0 +1,68 @@
+name: Prune stale PR previews
+
+# The Deploy Pages job publishes the live site as ONE artifact assembled from
+# master + the gh-pages `pr-preview/` store. pr-preview.yml tears a preview down
+# on the PR-close event, but any missed teardown (a close that raced the
+# concurrency lock, or a preview created before teardown was wired) lingers
+# forever — and each is a full ~9MB copy of the game. Enough of them push the
+# published site past GitHub Pages' hard 1GB limit, at which point EVERY deploy
+# fails at "syncing_files" with an opaque error.
+#
+# This sweeper is the backstop: on a weekly schedule (and on demand) it deletes
+# every pr-preview/pr-<N> whose PR is no longer OPEN, so the store can't balloon
+# even when a teardown is missed. Open PRs' previews are always kept.
+on:
+  schedule:
+    - cron: '17 4 * * 1'   # Mondays 04:17 UTC
+  workflow_dispatch:
+
+permissions:
+  contents: write          # push the pruned gh-pages branch
+  pull-requests: read      # read PR states
+
+# Share the gh-pages concurrency group with pr-preview.yml + deploy so writes to
+# the branch are serialised (no clobbered pushes).
+concurrency:
+  group: gh-pages
+  cancel-in-progress: false
+
+jobs:
+  prune:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout preview store (gh-pages)
+        uses: actions/checkout@v4
+        with:
+          ref: gh-pages
+          fetch-depth: 1
+
+      - name: Delete previews for closed/merged PRs
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          if [ ! -d pr-preview ]; then echo "No pr-preview/ store — nothing to prune."; exit 0; fi
+          removed=0; kept=0
+          for d in pr-preview/pr-*/; do
+            [ -d "$d" ] || continue
+            n=$(basename "$d" | sed 's/^pr-//')
+            # OPEN → keep. Closed, merged, or not-a-PR (orphan) → prune.
+            state=$(gh pr view "$n" --repo "$GITHUB_REPOSITORY" --json state -q .state 2>/dev/null || echo "MISSING")
+            if [ "$state" = "OPEN" ]; then
+              kept=$((kept+1))
+            else
+              echo "prune $d (PR #$n: $state)"
+              git rm -rq "$d"
+              removed=$((removed+1))
+            fi
+          done
+          echo "kept=$kept removed=$removed"
+          if [ "$removed" -gt 0 ]; then
+            git config user.name  "github-actions[bot]"
+            git config user.email "github-actions[bot]@users.noreply.github.com"
+            git commit -qm "chore: prune ${removed} stale PR preview(s) for closed PRs"
+            git push
+            echo "Pushed. The next Deploy Pages run will publish the slimmer site."
+          else
+            echo "No stale previews — store is clean."
+          fi
