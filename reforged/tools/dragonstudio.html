@@ -98,7 +98,7 @@
         // shadowed nub at the bottom (gate r6/r7 dir 1b — "head/eye crop has no eye"). Box only the
         // cranium/snout/eye meshes so the face fills the crop and the eye is judgeable.
         const b = new THREE.Box3(); b.makeEmpty();
-        parts.head.traverse((o) => { if (o.isMesh && o.geometry && o.geometry.type !== 'ExtrudeGeometry') b.expandByObject(o); });
+        parts.head.traverse((o) => { if (o.isMesh && o.geometry && o.geometry.type !== 'ExtrudeGeometry' && !o.userData.isHorn) b.expandByObject(o); });
         if (!b.isEmpty()) return _box.copy(b);
         return _box.setFromObject(parts.head);
       }
@@ -168,7 +168,7 @@
       let dir, up = [0, 1, 0], fill, target;
       let aimFrac = null;
       if (o.part === 'head') { dir = FACE_ANGLES.front3q.dir; fill = 0.92; target = 'head';
-        if ((o.zoom || 1) > 1.4) aimFrac = [-0.2, 0.24, -0.34]; }   // detail crop: aim onto the NEAR (front-left) EYE — up + toward the near cheek — not the head centroid (gate r13 dir 1 / cp2 dir 6)
+        if ((o.zoom || 1) > 1.4) aimFrac = [-0.24, 0.02, -0.32]; }   // detail crop: aim onto the NEAR (front-left) EYE — the eye sits low on the cheek, so aim near the vertical centre (gate cp2 dir 6)
       else if (o.part === 'wing') { dir = [0.45, 0.5, 0.62]; fill = 1.0; target = 'wingR'; }  // rear-above on ONE wing
       else { dir = BODY_ANGLES.rear.dir; fill = 0.95; target = 'whole'; }
       fit(dir, up, targetBox(target), o.fill ?? fill, o.zoom || 1, aimFrac);

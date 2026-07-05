@@ -1359,15 +1359,15 @@ function buildForgeCollar(def, model, attach, spineMats) {
     // the fix is SIZE (~0.06× body length so they resolve as two distinct embers) with a
     // dull warm glow (they are STILL just waking; the arc/corona are the later blooms).
     const babyCoalMat = new THREE.MeshStandardMaterial({
-      color: 0x6e2a0e, emissive: cHot, emissiveIntensity: 0.6, roughness: 0.6, metalness: 0.08 });
+      color: 0x8a3410, emissive: cHot, emissiveIntensity: 0.95, roughness: 0.6, metalness: 0.08 });   // brighter (gate cp2 dir 5) so the coals break into the rear-chase dark frame
     for (const s of [-1, 1]) {
-      const coal = new THREE.Mesh(new THREE.SphereGeometry(0.17, seg(7), seg(6)), babyCoalMat);
-      coal.scale.set(1.15, 0.82, 1.05);
-      coal.position.set(s * 0.2, 0, 0);
+      const coal = new THREE.Mesh(new THREE.SphereGeometry(0.18, seg(7), seg(6)), babyCoalMat);
+      coal.scale.set(1.15, 0.85, 1.05);
+      coal.position.set(s * 0.2, 0.05, 0.02);           // lifted proud of the yoke so they clear the wing roots in the rear tile
       group.add(coal);
     }
     spineMats.push(babyCoalMat);
-    radius = 0.26;
+    radius = 0.28;
   } else if (stage === 1) {
     // a glowing collar arc across the yoke (gate cp2 dir 3: arc emissive +50%, 0.7→1.05)
     const arcMat = coalMat(1.05);
@@ -1389,8 +1389,8 @@ function buildForgeCollar(def, model, attach, spineMats) {
     // gate cp2 dir 3: bloom UP — the corona must be UNAMBIGUOUSLY the brightest point in the
     // rear-chase glide. Coal core emissive 2.6→3.6 and the whole yoke grown so it out-reads a
     // thumbnail. (Law 12: the ONE bloom — it MAY blow to white under ACES.)
-    const coalMat2 = new THREE.MeshStandardMaterial({ color: 0x1c0d08, emissive: 0xffc23d, emissiveIntensity: 3.6, roughness: 0.5, metalness: 0.05 });
-    for (const [cx, cy, cz, cr] of [[0, 0.05, 0.02, 0.2], [-0.18, -0.01, 0.0, 0.15], [0.18, -0.01, 0.0, 0.15]]) {
+    const coalMat2 = new THREE.MeshStandardMaterial({ color: 0x1c0d08, emissive: 0xffc23d, emissiveIntensity: 5.5, roughness: 0.5, metalness: 0.05 });   // peak luminance must beat every other pixel incl. the wing leading edges (gate cp2 dir 5)
+    for (const [cx, cy, cz, cr] of [[0, 0.06, 0.02, 0.24], [-0.2, -0.01, 0.0, 0.18], [0.2, -0.01, 0.0, 0.18]]) {
       const coal = new THREE.Mesh(new THREE.SphereGeometry(cr, seg(10), seg(8)), coalMat2);
       coal.position.set(cx, cy, cz);
       group.add(coal);
@@ -1400,7 +1400,7 @@ function buildForgeCollar(def, model, attach, spineMats) {
     // thick so the 6-spike construction reads at a 4× close-up (gate r5 dir 1).
     const spikeMat = new THREE.MeshStandardMaterial({ color: 0x6a2810, emissive: cHot, emissiveIntensity: 1.0, roughness: 0.5, metalness: 0.06 });
     const M = 6;
-    const CS = 1.7;                                       // gate cp2 dir 3: corona scaled up (~×2.2 on the thumbnail read) so it dominates the rear-chase
+    const CS = 2.4;                                       // gate cp2 dir 5: corona ≥1.5× the round-1 footprint so the yoke dominates the rear-chase
     const lens = [0.28, 0.40, 0.5, 0.42, 0.33, 0.24].map((l) => l * CS);   // swell-then-taper, no two equal (law 5)
     const yUp = new THREE.Vector3(0, 1, 0), dir = new THREE.Vector3();
     for (let i = 0; i < M; i++) {
