@@ -29,6 +29,8 @@ await import('../js/dragonModel.js');
 const { DRAGONS } = await import('../js/dragons.js');
 const { validateCreatureBlueprint, validateRoster } = await import('../js/validateCreatureBlueprint.js');
 const { resolveSurfaceLayers } = await import('../js/dragonSurfaceLayers.js');
+const { knobByPath } = await import('../js/creatureGrammar.js');
+const { TAIL_STYLES } = await import('../js/dragonTail.js');
 
 let n = 0;
 const ok = (m) => { n++; console.log(`  ✓ ${m}`); };
@@ -89,5 +91,37 @@ assertEq(types({ model: {} }).length, 0, 'no flags → no layers');
 // explicit declaration wins and round-trips (string OR { type }).
 assertEq(JSON.stringify(types({ parts: { surfaceLayers: ['backCrest', { type: 'glowSeams' }] }, model: { ridgeCount: 99 } })), JSON.stringify(['backCrest', 'glowSeams']), 'explicit parts.surfaceLayers wins over inference');
 ok('resolveSurfaceLayers reproduces the legacy decoration order/conditions + the explicit path');
+
+// --- 4. grammar freebies (slot 0): tailStyle enum + forms:true dials ----------
+// The new forms:true flags declare per-form range-checking for the dials the §5d sheets vary.
+for (const p of ['model.tailStyle', 'model.headScale', 'model.eyeScale', 'model.wingScale',
+  'model.wingChordScale', 'model.wingBillow', 'model.wingArmLeadChord']) {
+  assert(knobByPath(p) && knobByPath(p).forms === true, `${p} is flagged forms:true in the grammar`);
+}
+assertEq(knobByPath('model.tailStyle').kind, 'enum', 'model.tailStyle is an enum knob');
+
+// tailStyle enum accepts every buildable style (incl. the roster's 'nightfury', NOT in the doc's
+// starter subset) and rejects a typo with a suggestion — on model AND per-form.
+const goodTail = validateCreatureBlueprint(clone({ model: { ...base.model, tailStyle: 'finned' } }));
+assert(goodTail.ok, "tailStyle 'finned' validates");
+const goodTailNF = validateCreatureBlueprint(clone({ model: { ...base.model, tailStyle: 'nightfury' } }));
+assert(goodTailNF.ok, "tailStyle 'nightfury' (roster value beyond the doc's 6) validates");
+assert(TAIL_STYLES.length >= 12 && TAIL_STYLES.includes('nightfury'), 'TAIL_STYLES exposes the full buildable set');
+const badTail = validateCreatureBlueprint(clone({ model: { ...base.model, tailStyle: 'finnd' } }));
+assert(!badTail.ok && badTail.errors.some((e) => e.includes('finnd') && e.includes('did you mean')),
+  'a misspelled tailStyle is an error with a suggestion');
+const badTailForm = validateCreatureBlueprint(clone({ forms: [{ tailStyle: 'simple' }, { tailStyle: 'zzz' }] }));
+assert(!badTailForm.ok && badTailForm.errors.some((e) => e.includes('forms[1].tailStyle')),
+  'a bad per-form tailStyle is caught with the form index');
+
+// forms:true adds per-form RANGE checking (advisory, like the model-level number check).
+const bigHeadForm = validateCreatureBlueprint(clone({ forms: [{ headScale: 99 }] }));
+assert(bigHeadForm.ok, 'an out-of-range per-form headScale does NOT block');
+assert(bigHeadForm.warnings.some((w) => w.includes('forms[0].headScale') && w.includes('maximum')),
+  'an out-of-range per-form headScale warns');
+const badWingForm = validateCreatureBlueprint(clone({ forms: [{ wingScale: 'wide' }] }));
+assert(!badWingForm.ok && badWingForm.errors.some((e) => e.includes('forms[0].wingScale')),
+  'a non-number per-form wingScale is an error');
+ok('tailStyle enum + forms:true dials validate on model and per-form (slot 0 grammar freebies)');
 
 console.log(`\n${n} checks passed.`);

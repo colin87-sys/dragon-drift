@@ -17,12 +17,19 @@ import { CREATURE_GRAMMAR } from './creatureGrammar.js';
 import { hasTorso, hasWings, hasHead, hasTail, listTorsos, listWings, listHeads, listTails } from './dragonRecipe.js';
 import { SURFACE_PATCH_NAMES } from './dragonSurfaceShader.js';
 import { hasSurfaceLayer, listSurfaceLayers } from './dragonSurfaceLayers.js';
+import { TAIL_STYLES } from './dragonTail.js';
 
 const REGISTRY = {
   torso: { has: hasTorso, list: listTorsos },
   wings: { has: hasWings, list: listWings },
   head: { has: hasHead, list: listHeads },
   tail: { has: hasTail, list: listTails },
+};
+
+// Closed VALUE sets for 'enum' knobs — resolved live from the builder's own list so the
+// grammar can never drift from what's actually dispatchable (the SURFACE_PATCH_NAMES pattern).
+const ENUM_SOURCES = {
+  tailStyle: TAIL_STYLES,
 };
 
 function getPath(obj, path) {
@@ -111,6 +118,20 @@ export function validateCreatureBlueprint(def, name = def && def.name) {
       if (typeof val !== 'string') { errors.push(`${where} must be a builder name string.`); continue; }
       const reg = REGISTRY[d.registry];
       if (!reg.has(val)) errors.push(`${where} = '${val}' is not a registered ${d.registry} builder${suggest(val, reg.list())}.`);
+
+    } else if (d.kind === 'enum') {
+      // Closed value set — checked on model AND per-form (a monotonic dial like tailStyle
+      // that changes across forms[] must still name a buildable value in every form).
+      const allowed = ENUM_SOURCES[d.registry] || [];
+      const checkEnum = (v, w) => {
+        if (typeof v !== 'string') { errors.push(`${w} must be one of ${allowed.join('/')}.`); return; }
+        if (!allowed.includes(v)) errors.push(`${w} = '${v}' is not a known ${d.registry} value${suggest(v, allowed)}.`);
+      };
+      if (val != null) checkEnum(val, where);
+      if (d.forms && Array.isArray(def.forms)) {
+        const leaf = d.path.split('.').pop();
+        def.forms.forEach((f, i) => { if (f && f[leaf] != null) checkEnum(f[leaf], `${tag}.forms[${i}].${leaf}`); });
+      }
 
     } else if (d.kind === 'shaderList') {
       if (val == null) continue;
