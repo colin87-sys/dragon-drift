@@ -108,8 +108,11 @@
       return _box.setFromObject(built.group);
     }
     // Fit the camera so `box` fills ~fillFrac of the frame from `dir`. zoom>1 magnifies (detail crop).
-    function fit(dir, up, box, fillFrac, zoom) {
+    function fit(dir, up, box, fillFrac, zoom, aimFrac) {
       box.getCenter(_c); box.getSize(_s);
+      // aimFrac (optional): shift the look target by fractions of the box size — used to aim the
+      // head DETAIL crop at the eye (front-upper) instead of the head centroid (gate r13 dir 1).
+      if (aimFrac) _c.set(_c.x + _s.x * (aimFrac[0] || 0), _c.y + _s.y * (aimFrac[1] || 0), _c.z + _s.z * (aimFrac[2] || 0));
       const radius = 0.5 * Math.max(_s.x, _s.y, _s.z) || 1;
       const vfov = camera.fov * Math.PI / 180;
       const dist = (radius / Math.tan(vfov / 2)) / (fillFrac * (zoom || 1));
@@ -157,10 +160,12 @@
       b.group.updateMatrixWorld(true);
       setBg(o.bg);
       let dir, up = [0, 1, 0], fill, target;
-      if (o.part === 'head') { dir = FACE_ANGLES.front3q.dir; fill = 0.92; target = 'head'; }
+      let aimFrac = null;
+      if (o.part === 'head') { dir = FACE_ANGLES.front3q.dir; fill = 0.92; target = 'head';
+        if ((o.zoom || 1) > 1.4) aimFrac = [0, 0.16, -0.3]; }   // detail crop: aim up+forward onto the EYE, not the head centroid (gate r13 dir 1)
       else if (o.part === 'wing') { dir = [0.45, 0.5, 0.62]; fill = 1.0; target = 'wingR'; }  // rear-above on ONE wing
       else { dir = BODY_ANGLES.rear.dir; fill = 0.95; target = 'whole'; }
-      fit(dir, up, targetBox(target), o.fill ?? fill, o.zoom || 1);
+      fit(dir, up, targetBox(target), o.fill ?? fill, o.zoom || 1, aimFrac);
       render();
       return true;
     };
