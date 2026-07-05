@@ -11,7 +11,7 @@
   <script type="module">
     import * as THREE from 'three';
     import { DRAGONS } from '/js/dragons.js';
-    import { ascendedDef } from '/js/ascension.js';
+    import { ascendedDef, maxTierFor } from '/js/ascension.js';
     import { buildDragonModel } from '/js/dragonModel.js';
 
     const TIER_NAMES = ['Base', 'Kindled', 'Radiant', 'Eternal'];
@@ -35,11 +35,12 @@
     // away from camera), so previews read like live gameplay.
     const _dir = new THREE.Vector3(0.06, 0.20, 0.95).normalize();
 
-    // Measure a dragon's apex (T3) wingspan so every tier can be framed at ONE
-    // fixed distance — that's what makes the size/silhouette RAMP visible
-    // (re-framing each tier to the same width would hide the wingspan growth).
+    // Measure a dragon's APEX (its max REACHABLE tier — 2 for starters, 3 for premiums)
+    // wingspan so every tier can be framed at ONE fixed distance — that's what makes the
+    // size/silhouette RAMP visible (re-framing each tier to the same width would hide the
+    // wingspan growth). Never frame by an unreachable T3 (that is a PHANTOM FORM — §8).
     function apexFraming(key) {
-      const def = ascendedDef(DRAGONS[key], 3, 0);
+      const def = ascendedDef(DRAGONS[key], maxTierFor(key), 0);
       const { group } = buildDragonModel(def, {});
       scene.add(group);
       _box.setFromObject(group);
@@ -73,12 +74,14 @@
 
     window.renderDragon = (key) => {
       const m = document.getElementById('montage');
+      const PW = 310;
+      const maxTier = maxTierFor(key);            // clamp: starters cap at 2 — no phantom T3 tile
+      m.width = PW * (maxTier + 1);               // size the montage to the REACHABLE tiers only
       const ctx = m.getContext('2d');
       ctx.fillStyle = '#0a0e1a';
       ctx.fillRect(0, 0, m.width, m.height);
-      const PW = 310;
       const frame = apexFraming(key);
-      for (let tier = 0; tier <= 3; tier++) {
+      for (let tier = 0; tier <= maxTier; tier++) {
         renderTier(key, tier, frame);
         const x = tier * PW;
         ctx.drawImage(gl, x + 5, 8, 300, 300);
