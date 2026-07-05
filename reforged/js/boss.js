@@ -793,8 +793,10 @@ function startDeath(player) {
   const embers = B.defeatEmbers;
   game.score += bonus;
   game.embersRun += embers;       // banked at run end like any ember haul
-  ui.bossNote?.('✦  SLAIN  ✦', `+${bonus}   ◆${embers}`, 'gold', 3.2);
-  ui.bossFelledCard?.(def.name);   // kill card: gold "FELLED" + the boss name
+  // §5h defeat banner: default is the generic SLAIN/FELLED; a boss whose death isn't a clean kill
+  // (EITHERWING — one half escapes) overrides the title + kill-card name with an on-theme line.
+  ui.bossNote?.(def.defeat?.slain ?? '✦  SLAIN  ✦', `+${bonus}   ◆${embers}`, 'gold', 3.2);
+  ui.bossFelledCard?.(def.defeat?.felled ?? def.name);   // kill card: gold "FELLED" + the boss name (or the boss's own defeat line)
   sfx.bossDefeat?.();
   cameraCtl.shake?.(2.0);
   tmp.set(pose.x, pose.y, -(player.dist + pose.rel));

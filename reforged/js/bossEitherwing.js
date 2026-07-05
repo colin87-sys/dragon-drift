@@ -745,7 +745,7 @@ export function buildTwinWraith(def, quality = 1) {
       survivorIsA = holdT < 0.5;
     } else if (dyingK > 0) {
       const circle = age * 2.2;                              // two slow laps as it grieves
-      const flee = Math.max(0, dyingK - 0.85) / 0.15;        // stays circling until the very end, THEN leaves
+      const flee = easeK(clamp((dyingK - 0.60) / 0.40, 0, 1));   // widened window (last 40% vs 15%) + eased = a SLOWER, readable escape you can actually see leave (was a one-beat blink)
       fallenShrink = clamp((dyingK - 0.3) / 0.4, 0, 1);      // the fallen half dwindles to nothing by ~0.7
       const fp = [-1.1, -0.2 - dyingK * 0.7, -0.5];          // the fallen half stops and sinks (near centre so the flee frames tight)
       const orbR = 2.7 * (1 - clamp((dyingK - 0.4) / 0.6, 0, 0.62));   // the survivor's circle TIGHTENS as it grieves → a compact frame (CP1 r6 dir 1)
