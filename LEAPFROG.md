@@ -5822,3 +5822,44 @@ now accepts `minRel < 4`. Same class as L141: depth is the axis everyone forgets
 `horizonSeed`) or neutral-at-rung-0 (adrenaline), so the five shipped lifecycle sims stayed green untouched.
 And the integration gate paid for itself again — two real code warts (dead routing, lying banner) that the
 builder's own green suites could never see, because both were CLAIM failures, not behavior failures.
+
+### L155 — MARROWCOIL flyby: a facing+banking seam, a head-turn without a neck, and a setpiece that owns its fire
+
+**Did / learned.** Reworked MARROWCOIL's `ribThread` into a readable FLYBY the rail can watch: loom → thread + fly fully
+OFF-SCREEN behind → emerge from ONE flank and fly forward (`yaw 0→π`, body flies its heading) → TURN THE HEAD at you and
+fire a few skull/mouth shots → bank into the lane (`cineRoll`) → centre. Three reusable pieces fell out, all default-off:
+
+**(1) A facing + banking SEAM on the setpiece runner.** Facing had a phase-agnostic override (`cineYaw`, ASHTALON's
+overtake) but the fight-phase setpiece runner never wrote it, and there was NO roll channel. Added `cineRoll` and taught
+the runner to read `{yaw,roll}` off the path object (`cineYaw = p.yaw ?? null; cineRoll = p.roll ?? 0`); `placeGroup`
+applies both; `clearSetpiece` resets them (completion AND shield-abort). A path returning neither is byte-identical —
+banking (`rotation.z`) is a new roster-wide axis, gated by data.
+
+**(2) A head-turn with no neck joint.** `skullGroup` is a direct child of the rig (the "neck" is procedural coil, no
+joint) and its yaw is *assigned* each frame; `setGaze` caps at ~±9°. Added a WIDE `setHeadLook(localYaw)` channel *added*
+onto the gaze at the skull-yaw line (lag-smoothed, `0` = byte-identical, no-op on other bosses). The body flies forward
+(back-turned) on the flank while the head cranes to you (`headLook = atan2(px−x, rel) − cineYaw`). Bullet AIM was already
+positional (L148 `muzzle:'skullGroup'` + `aimVel` from the skull's WORLD pos), so the shots track you regardless of the
+visual head angle — the crane only has to *read* as looking back.
+
+**(3) The pass owns its fire, and the gaze inverts at yaw π.** During `ribThread` the normal skull cadence is suppressed
+and the beat fires its own k-gated sub-cadences (rib bullets in the close band; mouth shots once it's ahead on the flank).
+And `placeGroup`'s gaze feed assumes world≈local — a back-turned pass at yaw π would track the pupil BACKWARDS, so it's
+gated on `cineYaw == null` (any scripted yaw owns facing → suppress the naive feed).
+
+### L156 — The cinematic over-reach, reverted (3 iterations): a signature pass must read from the player's OWN seat
+
+**Did / learned.** Between the flyby's first cut and its final form, the beat grew a **rear-look camera takeover** (the
+view flips behind you), a **from-behind bullet** direction (free: a boss bullet's sense is the sign of `vrel` — spawn
+`rel<0`, close `vrel>0`), a **player freeze + invuln** cutscene (`game.cineLock`), and **per-frame bullet homing** — each
+added to prop up the last. The owner played every version and rejected the direction: *"I don't love it. Go back to the
+fly-through… emerge from the side… turn head to the side and attack from the mouth… fly toward the normal position."* So
+the whole cinematic layer was **reverted** to the plain flyby (L155). All of it was byte-safe to remove.
+
+**The pattern (the real lesson, 3 iterations deep).** On an on-rails game, **spectacle must survive the player's fixed
+viewport** — if a beat only works by seizing the camera, it's a cutscene, and a cutscene mid-fight that also locks the
+stick is an *interruption*, not a boss attack. Author the drama into what the boss DOES (fly past, loom, turn its head,
+fire), not into where the camera goes. And watch for **prop-up chains**: the from-behind shot forced the rear camera to
+justify it, which forced the invuln to make it fair, which forced homing to give the shot a point after the lock — when a
+feature needs another feature to be fair, which needs another to have a purpose, the first feature is probably wrong. Pull
+the root (the rear camera) and the whole tower comes down.

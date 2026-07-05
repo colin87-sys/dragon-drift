@@ -442,6 +442,22 @@ feasibility survey: at rel 30, on-screen centers within x ±15 / y 2..22 on port
   the ribs flank the dragon on both flanks + overhead and the pillar corridor reads THROUGH
   the aperture on exit. Verified in-game from the rail camera (tools/marrowpass.mjs). The
   sheet claims the fly-through again.
+  FLY-THROUGH → FULL MANEUVER (2026-07 — L155): `ribThread` is now the whole aerobatic over 8s —
+  loom → fly completely past → re-emerge on a flank with its BACK TURNED (flying your heading) →
+  accelerate past → BANK into the lane → wheel around to face you. A setpiece path may now return
+  `{yaw, roll}` alongside `{x,y,rel}` (the runner routes them to `cineYaw`/new `cineRoll`; roll/banking
+  is a new roster-wide axis) — a general FACING+BANKING seam any boss can use, default-off. During the
+  close band the pass OWNS its fire: the normal skull-origin cadence is suppressed and slow reflectable
+  AMBER bullets emit from the rib-pivots (`ribPivot{L,R}{1,3}`) converging on the spine centre — the
+  close-range THREAD-THE-GAP + parry beat. Verified live (tools/ribmaneuver.mjs + `bossRunSetpiece`).
+  → FLYBY, SIMPLIFIED (2026-07 — L155, dur 8.5s): the rear-look CINEMATIC (camera takeover +
+  from-behind bullets + player freeze/invuln + homing) was **reverted** — on-rails, a camera-takeover +
+  stick-lock reads as a cutscene interruption, not a boss move (owner rejected it 2×; the over-reach lesson is L156). The shipped beat is a
+  readable flyby from the player's seat: loom → thread + fly fully OFF-SCREEN behind → **emerge from ONE flank
+  and fly forward** (body flies its heading, `yaw 0→π`) → **TURN THE HEAD at you and fire a few mouth shots**
+  (`setHeadLook` + skull-origin `emitHeadShots`, front-closing amber, dodge-or-parry) → **bank into the lane**
+  (`cineRoll`) and settle to centre. Kept: the facing+banking seam, `setHeadLook`, the rib bullets (all L155).
+  LESSON: author the drama into what the boss DOES from a fixed viewport, not into where the camera goes.
 - **5 EITHERWING** — **REACH SPEC (r8, 2026-07 — supersedes the conservative first sheet;
   L140):** the first draft built to "~2×900 tris, 2.2-long bodies" and presented ~40% of
   ASHTALON's presence at the band PEAK. The ensemble is the body; this boss's wingspan is

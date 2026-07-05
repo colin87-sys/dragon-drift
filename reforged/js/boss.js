@@ -115,6 +115,9 @@ let riderTimer = 0;
 let cineT = 0;
 let entranceId = null;         // §5j: which ENTRANCE_SCRIPTS entry is playing (null = plain approach)
 let cineYaw = null;            // null = normal facing; else a scripted world-yaw for the turn-around
+let cineRoll = 0;              // scripted bank (rotation.z) — a setpiece path may return `roll`; 0 = level (L155)
+let ribEmitT = 0;             // sub-cadence accumulator for the ribThread rib-bullet emit (L155)
+let headShotT = 0;            // sub-cadence for the L155 flank head-turn mouth shots
 // Fight-phase group x/y smoothing (seeded at enterFight from the entrance-end pose). Absorbs the
 // single-frame lateral JUMP when the fight's station-bob (pose.x = sin(t)*5) takes over from the
 // entrance (which ends at x=0) and at every setpiece boundary (station ↔ scripted path). rel is
@@ -327,28 +330,31 @@ const SETPIECE_PATHS = {
   // MOVING so the coil's iris rings keep expanding as it closes (emitter=organ).
   ribThread(k) {
     const B = CONFIG.BOSS;
-    // L141 fix — a TRUE fly-through, not a loom. The old path parked at rel 7 so
-    // the cage only LOOMED (the spine trailed away, the rail never entered it).
-    // Now the group SWEEPS from the loom straight through rel −6 (the cage passes
-    // OVER the camera): the rail threads the barrel, ribs rush past on both flanks
-    // + overhead, then the tail clears behind and it re-approaches to station.
-    // Kept CENTERED (x≈0) — unlike EITHERWING's flank scissor, MARROWCOIL's whole
-    // identity is the rail going THROUGH the aperture, so the big bottom-open cage
-    // (clearance ~6u scaled) is held over the lane rather than dodged aside; the
-    // coil's own sway supplies a small in-aperture wobble that never leaves it.
-    // The barrel interior sits ~4u ABOVE the rail (its dorsal rib roots are high,
-    // the arcs hang bottom-open below them). So the pass also DIVES: the boss drops
-    // ~DIVE units at the thread instant, dropping the barrel INTERIOR down around the
-    // camera (ribs then flank the dragon on both sides + overhead — a true tunnel,
-    // not a canopy skimmed from beneath).
-    const NEAR_REL = 7, PASS_REL = -6, DIVE = 4.2;
-    // 0–0.30 — approach: close from station to the loom, held at frame height.
-    if (k < 0.30) { const t = easeInOut(k / 0.30); return { x: 0, y: B.fightHeight, rel: B.settleGap + (NEAR_REL - B.settleGap) * t }; }
-    // 0.30–0.70 — THE PASS: rel sweeps NEAR → PASS while the boss dives, deepest at the
-    // thread instant (rel 0 ≈ k 0.52). Small sway stays well inside the aperture.
-    if (k < 0.70) { const t = (k - 0.30) / 0.40; const s = Math.sin(t * Math.PI); return { x: s * 0.9, y: B.fightHeight - DIVE * s, rel: NEAR_REL + (PASS_REL - NEAR_REL) * easeInOut(t) }; }
-    // 0.70–1.0 — recover: rise back to frame height and re-approach to station.
-    const t = easeInOut((k - 0.70) / 0.30); return { x: 0, y: B.fightHeight, rel: PASS_REL + (B.settleGap - PASS_REL) * t };
+    // L155 — a clean readable FLYBY (the rear-look cinematic was reverted (the over-reach, L156): a
+    // camera-takeover + player-lock read as a cutscene interruption, not a boss move). Returns
+    // {x,y,rel,yaw,roll}; the runner routes yaw→cineYaw, roll→cineRoll, and fires two beats:
+    //   1 loom       — close from station to the aperture, facing you.
+    //   2 fly past   — DIVE thread (L147) + recede to DEEP (off-screen behind), x≈0 straight back.
+    //   3 emerge     — re-enter from ONE flank and fly FORWARD (overtake rel DEEP→AHEAD), yaw 0→π
+    //                  (body flies its heading); the runner turns the HEAD at you + fires mouth shots.
+    //   4 bank in    — curve x→0 with a cineRoll bank, wheel yaw π→0 to face you, ease rel→station.
+    //   5 restore    — settle to centre, level, facing you.
+    const NEAR = 7, DEEP = -22, DIVE = 4.2, AHEAD = 13, FLANK = 11, side = 1;
+    // 1 — loom (facing you: no yaw key → cineYaw null → placeGroup face-player default).
+    if (k < 0.15) { const t = easeInOut(k / 0.15); return { x: 0, y: B.fightHeight, rel: B.settleGap + (NEAR - B.settleGap) * t }; }
+    // 2 — thread + fly fully past: dive at the thread, recede to DEEP (off-screen behind), x≈0.
+    if (k < 0.34) { const t = (k - 0.15) / 0.19, e = easeInOut(t), s = Math.sin(t * Math.PI);
+      return { x: 0, y: B.fightHeight - DIVE * s, rel: NEAR + (DEEP - NEAR) * e, roll: 0 }; }
+    // 3 — emerge from a flank + fly forward: swing x to the side, overtake rel DEEP→AHEAD, yaw 0→π
+    // (body faces its flight direction = back-turned to you as it draws alongside). Head-turn + mouth
+    // shots fire from the runner once it's ahead (pose.rel>3).
+    if (k < 0.66) { const t = easeInOut((k - 0.34) / 0.32);
+      return { x: side * FLANK * t, y: B.fightHeight, rel: DEEP + (AHEAD - DEEP) * t, yaw: Math.PI * t, roll: 0 }; }
+    // 4 — bank into the lane: curve x→0, wheel yaw π→0 to face you, gentle bank, ease rel→station.
+    if (k < 0.88) { const t = (k - 0.66) / 0.22, e = easeInOut(t), s = Math.sin(t * Math.PI);
+      return { x: side * FLANK * (1 - e), y: B.fightHeight, rel: AHEAD + (B.settleGap - AHEAD) * e, yaw: Math.PI * (1 - e), roll: -side * s * 0.4 }; }
+    // 5 — restore: hold station, level, facing you.
+    return { x: 0, y: B.fightHeight, rel: B.settleGap, yaw: 0, roll: 0 };
   },
   // MARROWCOIL — THE CLOSING RIBS (§5f dread): holds at mid-close range (the cage
   // readable + threadable) while the model constricts the ribcage one pair at a
@@ -420,6 +426,10 @@ function clearSetpiece() {
   if (setpieceT >= 0) model?.setSetpiece?.(0);
   setpieceT = -1;
   setpieceDef = null;
+  cineYaw = null;   // hand facing/banking back to placeGroup's face-player default (L155) —
+  cineRoll = 0;     // covers both normal completion (k≥1) and the mid-beat shield abort
+  ribEmitT = 0; headShotT = 0;   // reset the sub-cadences for the next pass
+  model?.setHeadLook?.(0);   // release the L155 head-turn so an aborted beat never leaves the head cranked
 }
 // Resolve the setpiece armed on entering `idx` (per-phase array first, then the
 // legacy single) and arm it. A `moving` setpiece keeps the attack/rider clocks
@@ -1188,7 +1198,13 @@ export function updateBoss(dt, player, time) {
     // `moveGroup` also applies the path's group TRANSLATION — EITHERWING's close pass IS
     // the group diving past the camera, so its money frame needs the real rel/x/y.
     const p = SETPIECE_PATHS[debugSetpiecePin.id]?.(debugSetpiecePin.k);
-    if (p && debugSetpiecePin.moveGroup) { pose.x = p.x; pose.y = p.y; pose.rel = p.rel; }
+    if (p && debugSetpiecePin.moveGroup) {
+      pose.x = p.x; pose.y = p.y; pose.rel = p.rel;
+      // L155: a maneuver pin also holds the path's FACING + BANK so a still shows the
+      // back-turn / bank, not just the translation. clearSetpiece/enterFight reset these.
+      cineYaw = (p.yaw !== undefined) ? p.yaw : null;
+      cineRoll = p.roll ?? 0;
+    }
     else if (p) { pose.x = 0; pose.y = B.fightHeight; pose.rel = B.settleGap; }
     model.setSetpiece?.(Math.sin(debugSetpiecePin.k * Math.PI), { id: debugSetpiecePin.id });
     model.setCharge(0);
@@ -1223,6 +1239,11 @@ export function updateBoss(dt, player, time) {
       const k = Math.min(setpieceT / setpieceDef.dur, 1);
       const p = SETPIECE_PATHS[setpieceDef.id](k);
       pose.x = p.x; pose.y = p.y; pose.rel = p.rel;
+      // A setpiece path MAY drive facing + banking (L155): `yaw` present → cineYaw owns
+      // the world-yaw (else null → placeGroup's face-player default); `roll` → the bank.
+      // Paths that return neither leave facing untouched — un-opted setpieces byte-unchanged.
+      cineYaw = (p.yaw !== undefined) ? p.yaw : null;
+      cineRoll = p.roll ?? 0;
       // Whoosh as a close pass crosses toward the camera (EITHERWING's flyby dives past
       // the player). Fires once per inbound crossing of rel≈8, never every frame.
       if (pose.rel < 8 && prevPassRel >= 8) sfx.nearMiss?.();
@@ -1231,6 +1252,36 @@ export function updateBoss(dt, player, time) {
       // the 2nd arg; MARROWCOIL reads it to tell a fly-through pass — cage OPEN —
       // from its Closing-Ribs dread — cage CONSTRICTING).
       model.setSetpiece?.(Math.sin(k * Math.PI), setpieceDef);   // pose spread eases in and back out
+      // THE RIB THREAD FLYBY (L155): the beat owns its fire — SUPPRESS the normal skull cadence
+      // for the ENTIRE ribThread (hold the timer + cancel any in-flight charge) so nothing fires
+      // on its own while the head dives/turns; the runner drives two scripted beats by k.
+      if (setpieceDef.id === 'ribThread') {
+        attackTimer = Math.max(attackTimer, 0.6);   // never let the cadence reach a fire this frame
+        if (chargeT > 0) { chargeT = 0; model.setAttackTell?.(null); }
+
+        // seg 2 — rib bullets converging from inside the ribs while the cage straddles the
+        // player plane (the L155 close-range thread beat), only during the thread (k<0.34).
+        if (k < 0.34 && pose.rel > -5 && pose.rel < 8) {
+          ribEmitT += dt;
+          if (ribEmitT >= 0.32) { ribEmitT = 0; emitRibBullets(player); }
+        }
+
+        // seg 3–4 — FLANK FLYBY: once the boss is AHEAD on the flank (rel>3, body flying forward
+        // = back-turned, yaw π), TURN THE HEAD at you (setHeadLook counters the body yaw so the
+        // skull's world-yaw points at you) and fire a few skull/mouth shots — normal front-closing,
+        // dodgeable/parryable. Eased back to 0 as it wheels around to face you (seg 4→5).
+        if (pose.rel > 3 && k < 0.90) {
+          const desired = Math.atan2(player.position.x - pose.x, Math.max(pose.rel, 4));
+          let hl = desired - (cineYaw || 0);   // local yaw so the skull's WORLD yaw points at you
+          while (hl > Math.PI) hl -= Math.PI * 2;
+          while (hl < -Math.PI) hl += Math.PI * 2;
+          model.setHeadLook?.(hl);
+          headShotT += dt;
+          if (headShotT >= 0.5) { headShotT = 0; emitHeadShots(player); }
+        } else {
+          model.setHeadLook?.(0);
+        }
+      }
       if (k >= 1) clearSetpiece();
     } else {
       if (setpieceT >= 0) clearSetpiece();   // shield rose mid-beat: abort cleanly
@@ -1471,12 +1522,13 @@ function placeGroup(player, time, dt) {
     group.position.set(pose.x, pose.y, -(player.dist + pose.rel));
   }
   // Face the player (local +z = front maw, world +z = toward the player) with a
-  // little menacing yaw/roll wobble. During the cinematic entrance, cineYaw owns
-  // the yaw instead (it faces its dive line, then wheels 180° to face you).
-  if (cineYaw != null) group.rotation.set(0, cineYaw, 0);
+  // little menacing yaw/roll wobble. During the cinematic entrance OR a facing-owning
+  // setpiece, cineYaw owns the yaw and cineRoll the bank (it faces its line, wheels
+  // 180° to face you, and banks as it curves into the lane — L155).
+  if (cineYaw != null) group.rotation.set(0, cineYaw, cineRoll);
   else {
     // Ease the wobble amplitude in after a cinematic entrance so the group doesn't snap from its
-    // settled square facing (cineYaw≈0) to the full sin-wobble in one frame. Full within ~0.6s.
+    // settled square facing (cineYaw≈0) to the full sin-wobble in one frame (L150). Full within ~0.6s.
     fightWobbleT += dt || 0.016;
     const w = Math.min(1, fightWobbleT / 0.6);
     group.rotation.set(0, Math.sin(time * 0.5) * 0.12 * w, Math.sin(time * 0.9) * 0.08 * w);
@@ -1484,9 +1536,11 @@ function placeGroup(player, time, dt) {
   // GAZE FEED (optional model hook): normalized offset of the player relative to
   // the boss's facing axis, in WORLD axes — placeGroup keeps rotation near-
   // identity so world≈local, and the model handles its own local conversion.
-  // Skipped during 'warn' (the boss is still hidden then; nothing to sell yet) and
-  // during the flythrough (updateFlythrough drives the tracking gaze itself).
-  if (phase !== 'warn' && phase !== 'flythrough') {
+  // Skipped during 'warn' (the boss is still hidden then; nothing to sell yet),
+  // during the flythrough (updateFlythrough drives the tracking gaze itself), and
+  // whenever cineYaw owns facing (L155): at a scripted yaw — the back-turned pass
+  // especially — world≈local inverts, so a naive feed would track backwards.
+  if (phase !== 'warn' && phase !== 'flythrough' && cineYaw == null) {
     const nx = Math.max(-1, Math.min(1, (player.position.x - pose.x) / 12));
     const ny = Math.max(-1, Math.min(1, (player.position.y - pose.y) / 12));
     model.setGaze?.(nx, ny);
@@ -1592,6 +1646,42 @@ function resolveEmitOrigin(player) {
 function aimVel(targetX, targetY, closing) {
   const t = Math.max(emitOrigin.rel / closing, 0.05);
   return { vx: (targetX - emitOrigin.x) / t, vy: (targetY - emitOrigin.y) / t };
+}
+
+// THREAD-THE-GAP rib emit (L155): during the fly-through pass, a few SLOW, reflectable
+// AMBER bullets spawn from INSIDE the ribcage (rib-pivot parts) and CONVERGE toward the
+// dragon's spine centre — the player is threading the barrel, so they read as closing in
+// from all sides. Slow + parryable (the amber floor) because the boss is right on top of
+// you; reflecting swats them boss-ward via the normal reflect path. Emits only from ribs
+// still AHEAD of the player plane (rrel>0) so the convergence closes toward you, not away.
+const _ribV = new THREE.Vector3();
+const RIB_EMITTERS = ['ribPivotL1', 'ribPivotR1', 'ribPivotL3', 'ribPivotR3'];
+function emitRibBullets(player) {
+  if (!(model && model.partWorldPos)) return;
+  const T = 0.9;   // convergence time — slow (a rib ~4u out closes at ~4u/0.9s ≈ fair)
+  const cx = pose.x, cy = pose.y, crel = pose.rel;   // spine centre in the bullet frame
+  for (const name of RIB_EMITTERS) {
+    const w = model.partWorldPos(name, _ribV);
+    if (!w) continue;
+    const rx = w.x, ry = w.y, rrel = -w.z - player.dist;
+    if (rrel <= 0.5) continue;   // rib already at/behind the player → skip (would fly away)
+    // Constant-velocity aim so all bullets reach the spine centre together (converge),
+    // then keep flying through it and cross the player plane (the dodge/parry check).
+    emitBoss(rx, ry, (cx - rx) / T, (cy - ry) / T, (crel - rrel) / T, true, null, 1, null, rrel);
+  }
+}
+
+// FLANK head-turn shots (L155): the body is flying forward on the flank but the head is
+// craned at you (setHeadLook), so a few skull-origin amber shots close the normal FORWARD
+// way (it's ahead of you now). Reuses the head-origin solver from PR1.
+function emitHeadShots(player) {
+  resolveEmitOrigin(player);
+  const closing = B.bulletSpeed;
+  const px = player.position.x, py = player.position.y;
+  for (let i = -1; i <= 1; i++) {
+    const v = aimVel(px + i * 1.8, py, closing);
+    emitBoss(emitOrigin.x, emitOrigin.y, v.vx, v.vy, -closing, true, null, 1, null, emitOrigin.rel);
+  }
 }
 
 // Resolve an attack id to bullets. Instant patterns fire one volley now; sustained
@@ -2049,6 +2139,20 @@ export function debugFireAttack(id, player) {
 export function debugCrackPane(i) {
   if (!active || !model?.crackPane) return false;
   return model.crackPane(i);
+}
+
+// Capture hook (?debug): arm a named setpiece LIVE from the current fight so a tool can
+// watch the whole moving beat play out (the ribThread maneuver + its rib bullets) without
+// having to drive the boss down to the phase that arms it. No-op outside an active fight.
+export function debugRunSetpiece(id) {
+  if (!active || phase !== 'fight') return;
+  const sp = (Array.isArray(def.setpieces) && def.setpieces.find((s) => s.id === id))
+    || (def.setpiece && def.setpiece.id === id ? def.setpiece : null)
+    || { id, dur: 8.0, moving: true };
+  if (!SETPIECE_PATHS[sp.id]) return;
+  setpieceDef = sp;
+  setpieceT = 0;
+  if (!sp.moving) { attackTimer = Math.max(attackTimer, sp.dur + 1.2); riderTimer = Math.max(riderTimer, sp.dur); }
 }
 
 export function bossDebugState() {
