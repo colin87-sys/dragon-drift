@@ -592,6 +592,7 @@ export function buildTwinWraith(def, quality = 1) {
   // station-keeps; the moving-station setpiece adds the whole-body sweep on top).
   const ORBIT_R = 5.2;   // 2.6 → 5.2 (REACH: crossing span ≈ 23u, ASHTALON-class reach across the portrait)
   let orbitPhase = 0;
+  let sockGlow = 0.10;   // eased socket-ring emissive → the notice/dread glow FADES in/out (never a binary pop — the "round thing" the owner saw appearing/vanishing at the handoff)
   let t0 = null;               // first-tick time → encounter-relative clock (for the intro spread + death)
   let spreadT0 = null;         // fight-start time → the intro-spread clock (reset when the §5j entrance releases, so the twins ease out of the scissor, never snap wide)
 
@@ -848,7 +849,9 @@ export function buildTwinWraith(def, quality = 1) {
     // floating white-hot EYE is the sole bright holder-marker — not "two near-identical
     // orange rings" that hid which twin holds the eye (CP1 r8 dir 3). Mourning/dread/notice
     // still tick it up.
-    socketMat.emissiveIntensity = 0.10 + dyingK * 2.4 + dreadSplit * 1.1 + (noticeT > 0.4 ? 0.5 : 0);
+    const sockTarget = 0.10 + dyingK * 2.4 + dreadSplit * 1.1 + (noticeT > 0.4 ? 0.5 : 0);
+    sockGlow += (sockTarget - sockGlow) * Math.min(1, dt * 4);   // ease (~0.4s) so the ring never pops on/off at the handoff
+    socketMat.emissiveIntensity = sockGlow;
     beadMat.opacity = 0.85 * (1 - dyingK * 0.3) + fleeK * 0.15;
     // DREAD "split light" (CP1 r5 directive 1): a second HDR core ignites inside the
     // SEEKER's empty socket and the thread beads overdrive to HDR — the eye's light
@@ -1082,7 +1085,14 @@ export function buildTwinWraith(def, quality = 1) {
   // §5j THE BATON CROSS: the entrance driver sets the 0..1 clock each frame (null = fight).
   // The rig-local x the eye crosses to (twinA RIGHT +8 → twinB LEFT −8) so the driver can
   // feed the ORB's world-x to the camera + the dragon-look strain.
-  function setEntrance(u) { entranceU = u == null ? null : Math.max(0, Math.min(1, u)); if (u == null) entAimSet = false; }
+  function setEntrance(u) {
+    entranceU = u == null ? null : Math.max(0, Math.min(1, u));
+    // On RELEASE (fight start), reset the orbit clock to 0 so the figure-eight genuinely resumes
+    // from th=0 (the twins at CENTRE, matching the scissor's converged seat) and eases OUT with the
+    // spread ramp — instead of snapping to a wide orbit position (orbitPhase had accrued while the
+    // boss orbited INVISIBLY through the 'warn' phase, so the "freeze" never actually parked it at 0).
+    if (u == null) { entAimSet = false; orbitPhase = 0; }
+  }
   // §5j: the driver feeds the DRAGON's position in RIG space each frame so the eye can lookAt it.
   function setEntranceAim(x, y, z) { if (x == null) { entAimSet = false; } else { _entAim.set(x, y, z); entAimSet = true; } }
   function entranceEyeLocalX() { return entranceU == null ? 0 : (1 - 2 * easeK(clamp((entranceU - 0.34) / 0.28, 0, 1))) * 9; }
