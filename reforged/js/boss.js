@@ -228,16 +228,24 @@ function peekNextDef() {
 // it deterministic); the real boss takes over at the SAME spot at warn (start.rel
 // 150 — a seamless handoff). Inert unless the upcoming def opts in (coexist);
 // rush breathers are too short for a vigil, so rush skips it.
-let seed = null, seedDef = null;
+let seed = null, seedDef = null, seedPeek = null, seedPeekT = 0;
 function removeSeed() {
+  seedPeekT = 0;               // the upcoming-def answer changes at encounter seams — re-peek
   if (!seed) return;
   scene.remove(seed.group);
   seed.dispose();
   seed = null; seedDef = null;
 }
-function updateHorizonSeed(player) {
-  const nd = (scene && game.state === 'playing' && !game.inCanyon && !rushMode && nextBossDist < Infinity)
-    ? peekNextDef() : null;
+function updateHorizonSeed(player, dt = 0.016) {
+  // The upcoming-def peek walks the save ledger — throttle it to ~2Hz (the
+  // answer only changes at encounter seams; CP2 gate finding 9 nit).
+  seedPeekT -= dt;
+  if (seedPeekT <= 0 || seedPeek === undefined) {
+    seedPeekT = 0.5;
+    seedPeek = (scene && game.state === 'playing' && !game.inCanyon && !rushMode && nextBossDist < Infinity)
+      ? peekNextDef() : null;
+  }
+  const nd = seedPeek;
   const want = nd && nd.horizonSeed ? nd : null;
   const seedZ = nextBossDist + 150;                    // where the boss will hold (start.rel 150)
   const dAhead = seedZ - player.dist;
@@ -1057,7 +1065,7 @@ export function updateBoss(dt, player, time) {
     input.surgeTap = false;   // drop any stale tap between fights
     ui.surgeReady?.(false);
     // §5e: the horizon seed rides the idle stretch between encounters.
-    updateHorizonSeed(player);
+    updateHorizonSeed(player, dt);
     // Trigger a fresh encounter once the player flies past the scheduled mark
     // (never inside a canyon, never on the menu).
     if (game.state === 'playing' && !game.inCanyon && player.dist >= nextBossDist) {
@@ -1330,12 +1338,18 @@ export function updateBoss(dt, player, time) {
       if (game.bossHitsTakenRun > adrenHits0) {            // took a hit since last frame
         adrenHits0 = game.bossHitsTakenRun;
         if (adrenRung >= 5) {
-          // R5 ONE-HIT SHIELD: absorb the hit (refund the damage), spend the ladder.
+          // R5 ONE-HIT SHIELD: absorb the hit FULLY — refund the damage AND
+          // un-count the hit (the spell-card capture + no-hit feat survive;
+          // "absorbed" must mean absorbed — CP2 gate finding 7 ruling). Only
+          // the graze streak stays broken (the flow flinch is earned). The
+          // ladder is spent either way.
           game.health = Math.min(CONFIG.healthMax, game.health + B.bulletDamage);
+          game.bossHitsTakenRun = Math.max(0, game.bossHitsTakenRun - 1);
           ui.bossNote?.('⛨ ADRENALINE SHIELD ⛨', 'THE HIT IS ABSORBED — LADDER SPENT', 'gold', 2.2);
           sfx.milestone?.();
           emit('adrenalineShield', {});
         }
+        adrenHits0 = game.bossHitsTakenRun;   // re-baseline after any un-count
         adrenT = 0;
         if (adrenRung > 0) emit('adrenalineReset', { from: adrenRung });
         adrenRung = 0;

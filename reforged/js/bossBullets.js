@@ -418,8 +418,10 @@ export function updateBossBullets(dt, player) {
         const dx = s.x - s.tx, dy = s.y - s.ty;
         if (dx * dx + dy * dy < bossR * bossR) {
           // `part` (a reflected amber's source pane) routes the §5f per-part hit
-          // test; `x`/`y` are the landing point (the fallback routing seam).
-          emit('bossDamage', { amount: s.dmg, kind: s.owner, x: s.tx, y: s.ty, part: s.part });
+          // test; `x`/`y` are the bullet's ACTUAL landing point (not the aim
+          // target — the fallback routing must test where the shot really hit,
+          // or gunfire can never sculpt a sub-part; CP2 gate finding 4).
+          emit('bossDamage', { amount: s.dmg, kind: s.owner, x: s.x, y: s.y, part: s.part });
         }
         deactivate(i);
       } else if (s.life <= 0) {
