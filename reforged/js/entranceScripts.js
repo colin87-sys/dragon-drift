@@ -102,6 +102,18 @@ export const ENTRANCE_SCRIPTS = {
     // Drive the model's per-twin materialise + eye-cross + ignition.
     onFrame(u, ctx, pose, player, model) { model.setEntrance?.(u); },
     onStart(model) { model.setEntrance?.(0); },
+    // The eye FACES + tracks the dragon the whole entrance. Aim from the LIT twin's approx world
+    // position (its local ±9 offset × the boss scale ≈1.5) toward the dragon — so the eye turns
+    // INWARD toward the dragon (not just straight down) and PIVOTS as it rides the thread from
+    // twinA (right) to twinB (left), staying dragon-facing across the cross. The model lags the
+    // pupil + tilts the whole eyeRig toward this; look-aways/blinks are suppressed in the entrance.
+    gaze(u, ctx, pose, player) {
+      const eyeX = pose.x + this._lit(u) * 1.5, eyeY = pose.y + 1.4;
+      return {
+        gx: Math.max(-1, Math.min(1, (player.position.x - eyeX) / 8)),
+        gy: Math.max(-1, Math.min(1, (player.position.y - eyeY) / 7)),
+      };
+    },
     // Feed the LIT twin's world-x as bx so the rear-look camera focus-pans right→left between
     // the two reveals. lookWin stays ~0 through BEAT 1 (the CAMERA reveals twinA; the dragon
     // faces forward), then ramps on BEAT 2 so the DRAGON turns its head to twinB as it forms,
