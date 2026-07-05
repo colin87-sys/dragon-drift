@@ -6522,3 +6522,33 @@ drop drop` (breakdown→build→riser→drop arc). Legacy stations resolve the i
 ambient), then the refinements the plan still lists: gameplay VOTING on transitions (fever holds the drop;
 death forces a breakdown) with a one-bar decision deadline inside the lookahead window, motif development
 (sequence/inversion transforms), and per-form-pass ornament reseeding for super-loop freshness.
+
+### L155 — Audio P4b: gameplay-voted sections, motif development, two more song forms — the music now plays WITH the player
+
+**Did.** Three additions on top of the L154 section engine, all pure-data + one seam each:
+(1) **Gameplay-voted transitions** (`chooseSection` in composer.js): the authored form is the script, but a
+0..1 intensity vote — published once per frame by `music.update` (Dragon Surge = outright 1.0, else the
+smoothed energy scalar) and READ ONCE PER LOOP-WRAP in `buildEvents` — can override the scheduled section
+at the boundary: vote ≥0.8 while the script wants a quiet section → hold the song's climax (Surge never
+sinks into a breakdown mid-hype); vote ≤0.25 while the script wants a full drop → ease to the calmest
+section. Deterministic paths (offline render / calibration / headless) pass `vote = null` and get the
+authored form untouched, so CI numbers never depend on gameplay. Vote resets on `music.stop()`/retune so a
+stale run can't steer menu music. Gotcha: energy TIES must break toward the LATER section (`>=` in the
+extreme-scan) or "hold the drop" lands on an early full statement instead of the climax.
+(2) **Motif development** (`melodyVariant`): sections restate the melody TRANSFORMED — variant 1 = octave
+LIFT (climax restatement), variant 2 = the first-two-bars motif LOOPED (hypnotic intro/build statement).
+Bar-aligned track data (the 8-eighths-per-bar gate) makes fragmentation exact. The fever lead shares the
+derived line so Surge stays coherent with the section.
+(3) **Two more hero forms**: `stratos` (trance — long breakdown keeps the ARP running per genre signature;
+second drop is the octave-lift `lift` section; 60 bars) and `storm` (dnb — fragmented-motif intro over the
+break, stripped breakdown, riser build; 44 bars).
+
+**Learned.** Full-form renders CHANGE integrated loudness vs the old 2-loop measure (breakdowns count):
+storm read −17.4 after its form landed → trim re-baked −8.3 → −6.9; stratos happened to land at −16.0
+exactly. The rule from L153 generalizes: any change to WHAT renders (timbre, groove, form) requires
+re-baking that station's trim + baseline entry. Roster gate after: all pass.
+
+**The architecture note.** The vote is a BOUNDARY decision (once per wrap, governs a whole section), not a
+per-frame one — the same "decisions commit one phrase ahead" law that keeps the scheduler's lookahead
+window honest. Per-frame reactivity stays where it belongs (layer gains via the energy scalar); STRUCTURE
+reacts at musical seams. That split is what makes the music feel conducted rather than twitchy.

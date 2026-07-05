@@ -26,13 +26,8 @@ export function resolveForm(tr) {
   return tr.form.map((key) => ({ key, diff: tr.sections[key] || {} }));
 }
 
-// The section playing on loop-wrap number `formPass` (0-based, wraps around the
-// form). Returns a normalized section descriptor. `null` form → the implicit
-// base section so callers have one code path.
-export function sectionAt(tr, formPass) {
-  const form = resolveForm(tr);
-  if (!form) return { key: 'A', bars: 8, mute: new Set(), energy: 1, riser: false, crash: false, melVariant: 0 };
-  const { key, diff } = form[((formPass % form.length) + form.length) % form.length];
+// Normalize a raw section diff into the descriptor compileTrack consumes.
+function normalizeSection(key, diff) {
   return {
     key,
     bars: clampBars(diff.bars),
@@ -42,6 +37,58 @@ export function sectionAt(tr, formPass) {
     crash: !!diff.crash,
     melVariant: diff.melVariant | 0,
   };
+}
+
+const BASE_SECTION = { key: 'A', bars: 8, mute: new Set(), energy: 1, riser: false, crash: false, melVariant: 0 };
+
+// The section playing on loop-wrap number `formPass` (0-based, wraps around the
+// form). Returns a normalized section descriptor. `null` form → the implicit
+// base section so callers have one code path. This is the DETERMINISTIC path
+// (offline render / calibration): it follows the authored form exactly.
+export function sectionAt(tr, formPass) {
+  const form = resolveForm(tr);
+  if (!form) return BASE_SECTION;
+  const { key, diff } = form[((formPass % form.length) + form.length) % form.length];
+  return normalizeSection(key, diff);
+}
+
+// Highest / lowest-energy section authored for a station (for the vote overrides
+// below). null when the station has no form.
+function extremeSection(tr, pick) {
+  const form = resolveForm(tr);
+  if (!form) return null;
+  let best = null, bestE = null;
+  for (const { key, diff } of form) {
+    const e = diff.energy == null ? 1 : diff.energy;
+    if (bestE == null || pick(e, bestE)) { bestE = e; best = normalizeSection(key, diff); }
+  }
+  return best;
+}
+
+// LIVE section choice: the form is the script, but a gameplay "intensity vote"
+// (0..1 — Dragon Surge / hot combo push it high, idle coasting pulls it low)
+// can override the scheduled section AT the wrap so the music responds to the
+// player. `vote == null` (offline/deterministic) → the authored form, untouched.
+// The decision is made at a section boundary and governs the whole next
+// section, so it always lands one full bar-phrase ahead — never a mid-phrase lurch.
+export function chooseSection(tr, formPass, vote = null) {
+  const base = sectionAt(tr, formPass);
+  if (vote == null || !resolveForm(tr)) return base;
+  // Hot (Dragon Surge / high combo): never sink into a breakdown mid-hype —
+  // hold the biggest section the song has.
+  if (vote >= 0.8 && base.energy < 0.7) {
+    // `>=` breaks energy ties toward the LATER section — the song's climax
+    // (the drop) rather than an early full statement.
+    const hot = extremeSection(tr, (e, b) => e >= b);
+    if (hot && hot.energy > base.energy) return hot;
+  }
+  // Cold (idle / just recovered): if the script wants a full drop but the player
+  // is coasting, ease to the calmest section so the music breathes with them.
+  if (vote <= 0.25 && base.energy >= 0.9) {
+    const cool = extremeSection(tr, (e, b) => e < b);
+    if (cool && cool.energy < base.energy) return cool;
+  }
+  return base;
 }
 
 function clampBars(b) {
@@ -58,6 +105,31 @@ export function formBarLength(tr) {
   const form = resolveForm(tr);
   if (!form) return 0;
   return form.reduce((s, { diff }) => s + clampBars(diff.bars), 0);
+}
+
+// Melodic development: a section can restate the melody TRANSFORMED instead of
+// verbatim (`melVariant`), so the writing itself evolves across the form:
+//   0 — the authored melody (default)
+//   1 — LIFT: the whole line an octave up (the drop/climax restatement)
+//   2 — FRAGMENT: the first two bars (the motif) looped — the sparse,
+//       hypnotic statement for intros/builds
+// Pure data transform on [freq, eighths] rows; bar-aligned inputs (the track
+// gate guarantees every bar sums to exactly 8 eighths) keep fragments exact.
+export function melodyVariant(seq, variant) {
+  if (variant === 1) return seq.map(([f, d]) => [f * 2, d]);
+  if (variant === 2) {
+    const motif = [];
+    let sum = 0;
+    for (const [f, d] of seq) {
+      if (sum >= 16) break;      // first 2 bars = 16 eighths
+      motif.push([f, d]);
+      sum += d;
+    }
+    const out = [];
+    for (let i = 0; i < 4; i++) out.push(...motif);
+    return out;
+  }
+  return seq;
 }
 
 // Validate a station's form/sections (used by the headless track gate):
@@ -81,6 +153,7 @@ export function validateForm(tr) {
       }
       if (diff.bars != null && (diff.bars < 1 || diff.bars > 8)) problems.push(`${tr.id}: section '${key}' bars ${diff.bars} out of 1..8`);
       if (diff.energy != null && (diff.energy < 0 || diff.energy > 1)) problems.push(`${tr.id}: section '${key}' energy ${diff.energy} out of 0..1`);
+      if (diff.melVariant != null && ![0, 1, 2].includes(diff.melVariant)) problems.push(`${tr.id}: section '${key}' melVariant ${diff.melVariant} unknown (0..2)`);
     }
     // Energy should MOVE across the form — a form where every section is full
     // energy is just a long loop (the "no dynamics" smell).

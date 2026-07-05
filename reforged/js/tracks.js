@@ -321,9 +321,19 @@ export const TRACKS = [
   },
   { // 5 — breakneck drum&bass chase in E minor: urgent stabs, soaring lift
     id: 'storm',
-    mix: { ...MIX.dnb, trimDb: -8.3 },
+    mix: { ...MIX.dnb, trimDb: -6.9 },
     name: 'Stormchaser',
     desc: 'Breakneck D&B chase',
+    // DnB form: a fragmented-motif intro over sparse drums (melVariant 2 —
+    // the hypnotic two-bar loop), full break statements, a stripped breakdown,
+    // and a riser build back into the break.
+    sections: {
+      intro: { bars: 4, mute: ['perc2', 'high'], energy: 0.5, melVariant: 2 },
+      A:     {},
+      brk:   { bars: 4, mute: ['perc', 'perc2', 'perc3', 'bass'], energy: 0.3 },
+      bld:   { bars: 4, mute: ['high'], energy: 0.6, riser: true },
+    },
+    form: ['intro', 'A', 'A', 'brk', 'bld', 'A', 'A'],  // 44 bars
     cost: 800,
     bpm: 172,
     voices: {
@@ -515,6 +525,17 @@ export const TRACKS = [
     mix: { ...MIX.trance, trimDb: -6.3 },
     name: 'Stratosphere',
     desc: 'Uplifting trance — endless climb',
+    // Trance form: the genre lives on the long breakdown→build→release arc.
+    // The breakdown keeps the ARP running (the trance signature); the second
+    // drop restates the melody an octave UP (melVariant 1 — the climax lift).
+    sections: {
+      A:    {},
+      brk:  { bars: 4, mute: ['perc', 'perc2', 'perc3', 'bass'], energy: 0.3 },
+      bld:  { bars: 4, mute: ['high', 'perc2'], energy: 0.65, riser: true },
+      drop: { energy: 1.0, crash: true },
+      lift: { energy: 1.0, crash: true, melVariant: 1 },
+    },
+    form: ['A', 'drop', 'brk', 'bld', 'drop', 'lift', 'brk', 'bld', 'lift'],  // 60 bars
     cost: 800,
     bpm: 138,
     voices: {

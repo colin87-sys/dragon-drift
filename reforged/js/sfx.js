@@ -9,7 +9,7 @@ import { mulberry32 } from './util.js';
 import { upgradeMasterChain } from './sfxLimiter.js';
 import { snapToChord, chordLadder, nextGridDelay } from './harmony.js';
 import { INSTS } from './insts.js';
-import { sectionAt } from './composer.js';
+import { sectionAt, chooseSection, melodyVariant } from './composer.js';
 
 export { TRACKS };
 
@@ -932,6 +932,9 @@ let drumEnergy = 0;     // 0..1 BPM-driven kit punch / bass thickness
 let pumpAmt = 0;        // sidechain depth: 0 (no pump) .. ~0.42 (hard four-on-floor)
 let loopCount = 0;      // which 8-bar loop we're on — drives fills/crash/humanize variation
 let formPass = 0;       // which section of the song form is playing (advances per loop-wrap)
+let gameVote = null;    // 0..1 gameplay intensity (music.update) — lets Dragon Surge
+                        // HOLD the drop / idle coasting ease to the breakdown at
+                        // the next section boundary. null = no vote (menu/headless).
 // Per-station "remaster" mix scalars (from each track's optional `mix` object).
 // All default to 1.0 → byte-for-byte the current global sound when `mix` is absent.
 let mixReverb = 1, mixWidth = 1, mixDrive = 1, mixBright = 1, mixTrimDb = 0;
@@ -991,12 +994,17 @@ function compileTrack(tr, loopN = 0, semis = 0, section = null) {
   const swing = (tr.swing ?? 0) * E8;
   const swing16 = swing * 0.5;
 
+  // Melodic development: the section may restate the melody transformed
+  // (octave lift for a climax, motif fragment for an intro/build) — the
+  // WRITING evolves across the form, not just the arrangement. Variant 0 →
+  // the authored line, untouched.
+  const mel = sec.melVariant ? melodyVariant(tr.melody, sec.melVariant) : tr.melody;
   const all = [
-    ...seqToEvents(tr.melody, 'melody', v.melody, km, 0.85, E8),
-    ...seqToEvents(tr.bass,   'bass',   v.bass,   km, 0.88, E8),
-    ...seqToEvents(tr.high,   'high',   v.high,   km, 0.85, E8),
+    ...seqToEvents(mel,     'melody', v.melody, km, 0.85, E8),
+    ...seqToEvents(tr.bass, 'bass',   v.bass,   km, 0.88, E8),
+    ...seqToEvents(tr.high, 'high',   v.high,   km, 0.85, E8),
     // Dragon Surge lead: the hook an octave up, hot voice
-    ...seqToEvents(tr.melody, 'feverlead', { ...v.lead, vol: v.lead.vol }, km * 2, 0.8, E8),
+    ...seqToEvents(mel, 'feverlead', { ...v.lead, vol: v.lead.vol }, km * 2, 0.8, E8),
   ];
 
   const e16 = E8 / 2;
@@ -1151,9 +1159,12 @@ function compileTrack(tr, loopN = 0, semis = 0, section = null) {
 // the scheduler's module state (E8/LOOP_LEN/drumEnergy/pump/mix knobs).
 function buildEvents() {
   const tr = TRACKS[trackIndex];
-  // Resolve the current song section from the form cursor (legacy stations →
-  // the implicit base section, so this is the same 8-bar loop as before).
-  const section = sectionAt(tr, formPass);
+  // Resolve the current song section: the authored form, with the live
+  // gameplay vote able to override AT this boundary (Surge holds the drop;
+  // idle coasting eases to the breakdown). Legacy stations → the implicit
+  // base section, so this is the same 8-bar loop as before. The vote is read
+  // once per wrap — the decision governs a whole section, never mid-phrase.
+  const section = chooseSection(tr, formPass, gameVote);
   const c = compileTrack(tr, loopCount, biomeSemitones, section);
   E8 = c.E8; LOOP_LEN = c.LOOP_LEN; drumEnergy = c.drumEnergy; pumpAmt = c.pumpAmt;
   mixReverb = c.mixReverb; mixWidth = c.mixWidth; mixDrive = c.mixDrive; mixBright = c.mixBright;
@@ -1735,6 +1746,7 @@ function retuneTo(idx) {
     if (!musicActive) return;
     loopCount = 0;
     formPass = 0;                      // restart the song form from the top on retune
+    gameVote = null;                   // fresh station starts on its authored form
     events = buildEvents();            // recomputes E8/LOOP_LEN for the new track
     // Ramped, not jumped — instantaneous delayTime changes click (see scheduler).
     if (echoDelay) echoDelay.delayTime.setTargetAtTime(E8 * 1.5, ctx.currentTime, 0.05);
@@ -1786,6 +1798,7 @@ export const music = {
 
   stop() {
     musicActive = false;
+    gameVote = null;   // stale run intensity must not steer the next session's form
     stopScheduler();
     stopWindSource();
   },
@@ -1902,6 +1915,11 @@ export const music = {
       Math.min(combo / 3, 1) * 0.85 +
       (player.boosting ? 0.05 : 0) +
       (game.feverActive ? 0.15 : 0));
+    // Publish the intensity vote for the section chooser: Dragon Surge is an
+    // outright "hold the drop" (1.0); otherwise the smoothed energy scalar.
+    // Read once per loop-wrap in buildEvents — a boundary decision, not a
+    // per-frame one, so the form never lurches mid-phrase.
+    gameVote = game.feverActive ? 1 : energy;
     const band = (lo, hi) => {
       const x = Math.max(0, Math.min(1, (energy - lo) / (hi - lo)));
       return x * x * (3 - 2 * x); // smoothstep

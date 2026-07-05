@@ -1,6 +1,6 @@
 // Unit-checks the composition engine (form walking + section resolution +
 // validation). Run with: node tests/composer.mjs
-import { resolveForm, sectionAt, formBarLength, validateForm } from '../js/composer.js';
+import { resolveForm, sectionAt, formBarLength, validateForm, chooseSection, melodyVariant } from '../js/composer.js';
 
 let pass = 0, fail = 0;
 function check(label, ok) {
@@ -59,6 +59,41 @@ check('form-without-sections flagged', validateForm({ id: 'x', form: ['A'] })
 check('no-dynamic-range flagged', validateForm({ id: 'x', sections: { A: {}, B: { energy: 1 } }, form: ['A', 'B'] })
   .some((p) => p.includes('no dynamic range')));
 check('dynamic form passes', validateForm(song).length === 0);
+
+// --- Gameplay-voted transitions -------------------------------------------
+// Deterministic path (vote null) always follows the authored form.
+check('vote null → authored section (pass 3 = brk)', chooseSection(song, 3, null).key === 'brk');
+check('legacy station ignores vote', chooseSection(legacy, 0, 1.0).key === 'A');
+
+// Hot vote HOLDS the drop: form pass 3 is the breakdown, but Surge is on →
+// swap to the highest-energy section (drop).
+const hot = chooseSection(song, 3, 0.95);
+check('hot vote overrides breakdown → drop', hot.key === 'drop' && hot.energy === 1);
+// Hot vote leaves an already-high section alone.
+check('hot vote keeps the drop as the drop', chooseSection(song, 2, 0.95).key === 'drop');
+// Cold vote RECEDES from a drop to the calmest section.
+const cold = chooseSection(song, 2, 0.1);
+check('cold vote overrides drop → breakdown', cold.key === 'brk' && cold.energy < 0.9);
+// Mid vote leaves the script alone.
+check('mid vote follows the form (pass 1 = build)', chooseSection(song, 1, 0.5).key === 'bld');
+// Boundaries: 0.8 triggers hot, 0.25 triggers cold.
+check('vote 0.8 is hot', chooseSection(song, 3, 0.8).key === 'drop');
+check('vote 0.79 is not hot', chooseSection(song, 3, 0.79).key === 'brk');
+
+// --- Melodic development (melVariant) --------------------------------------
+// A bar-aligned 8-bar melody stub: bar n = one note at 100+n Hz for 8 eighths.
+const mel8 = Array.from({ length: 8 }, (_, n) => [100 + n, 8]);
+const dur = (seq) => seq.reduce((s, [, d]) => s + d, 0);
+check('variant 0 = identity', melodyVariant(mel8, 0) === mel8);
+const lift = melodyVariant(mel8, 1);
+check('variant 1 lifts every note an octave', lift.every(([f], i) => f === mel8[i][0] * 2));
+check('variant 1 keeps durations', dur(lift) === 64);
+const frag = melodyVariant(mel8, 2);
+check('variant 2 loops the 2-bar motif (bars 1-2 × 4)', frag.length === 8 && frag[0][0] === 100 && frag[1][0] === 101 && frag[2][0] === 100 && frag[7][0] === 101);
+check('variant 2 still fills exactly 8 bars', dur(frag) === 64);
+// melVariant validation
+check('bad melVariant flagged', validateForm({ id: 'x', sections: { A: {}, B: { melVariant: 7, energy: 0.5 } }, form: ['A', 'B'] })
+  .some((p) => p.includes('melVariant')));
 
 console.log(`\n${pass} passed, ${fail} failed`);
 if (fail > 0) process.exit(1);

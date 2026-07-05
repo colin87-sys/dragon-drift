@@ -58,12 +58,12 @@
     "id": "storm",
     "name": "Stormchaser",
     "bpm": 172,
-    "lufs": -15.99,
-    "peakDb": -2.53,
-    "monoDropLU": 0.03,
-    "crestDb": 14.99,
-    "renderMs": 12132,
-    "seconds": 23.5
+    "lufs": -16.08,
+    "peakDb": -7.12,
+    "monoDropLU": 0.02,
+    "crestDb": 10.65,
+    "renderMs": 3336,
+    "seconds": 12.4
   },
   {
     "id": "solarc",
@@ -106,7 +106,7 @@
     "peakDb": -2.92,
     "monoDropLU": 0.15,
     "crestDb": 15.06,
-    "renderMs": 16594,
+    "renderMs": 18864,
     "seconds": 29
   },
   {
