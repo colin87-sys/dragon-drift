@@ -35,6 +35,26 @@
 // Naming grammar (§5f): "<FRAGMENT OF THE EPITHET> — <plain pattern name>".
 // Capture = survive the card hitless; ledgered per-card (local-only, save.js).
 // A def WITHOUT `cards` keeps the un-carded phase behaviour (coexist rule).
+//
+// RHYTHM SIGNATURES (§5i): `rhythm = { signature, ticket?, phases:[…] }` gives a
+// boss a DISTINCT temporal fingerprint (the ping-pong fix). The bossRhythm.js
+// phrase machine reads it at the cadence seam — replacing the flat uniform roll.
+// A def WITHOUT `rhythm` keeps the legacy uniform `cadence` roll (coexist).
+// Schema (staged canonical, #211): each `phases[i]` (indexed to `phases` above)
+// authors a `phrase` — an ordered list of MEASURES the machine walks and repeats:
+//   { kind: 'sustain', attack, beats, gap }   a stream: `beats` shots, `gap` between
+//   { kind: 'burst',   attack, count, gap }   a wall slam: `count` shots, tight `gap`
+// `gap` is a scalar or a [lo,hi] range (uniform). Between phrase repeats the machine
+// rests `restLo..restHi` by `restDist` ('uniform' | 'bimodal' lo-or-hi | 'decaying'
+// hi→lo ramp = a crescendo/tightening). `ticket:{bpm,quantize}` snaps to the beat
+// grid via getBeatClock() when music is live. `signature` (the §5i taxonomy name:
+// 'metronome' | 'crescendo' | 'ambush-rest' | 'burst-sustain' | 'call-response')
+// tags the fingerprint for review; `ratioBurst` documents the wall-burst share.
+// The machine owns the AMBER FLOOR: if a phrase runs a rolling 12s window with no
+// amber-carrier volley, the next shot is swapped to an amber-carrier drawn from the
+// phase `attacks` (the parry-diet fairness subsidy). The `rhythmprint` CI gate
+// (tests/boss.mjs) asserts any two bosses' gap distributions differ by a KS floor;
+// `amberdiet` asserts the amber floor holds.
 
 export const BOSSES = {
   voidmaw: {
@@ -70,6 +90,18 @@ export const BOSSES = {
       { id: 'voidmaw_cloven',   name: 'HOLLOW — Cloven Sky',                 atFrac: 0.66, timer: 24 },
       { id: 'voidmaw_splitter', name: 'HOLLOW JUDGMENT — Sky-Splitting Verdict', atFrac: 0.33, timer: 26, dread: true },
     ],
+    // §5i METRONOME — fixed-pulse turn-taking, the teacher; tension IS the
+    // consistency. Every gap equals the pulse (sustain gap == phrase rest, uniform
+    // = degenerate), so it reads as a clock; the pulse only TIGHTENS per phase.
+    rhythm: {
+      signature: 'metronome',
+      ticket: { bpm: 114, quantize: '1/4' },
+      phases: [
+        { phrase: [{ kind: 'sustain', attack: 'aimed', beats: 1, gap: 2.1 }], restLo: 2.1, restHi: 2.1, restDist: 'uniform' },
+        { phrase: [{ kind: 'sustain', attack: 'aimed', beats: 1, gap: 1.85 }, { kind: 'sustain', attack: 'fan', beats: 1, gap: 1.85 }], restLo: 1.85, restHi: 1.85, restDist: 'uniform' },
+        { phrase: [{ kind: 'sustain', attack: 'aimed', beats: 1, gap: 1.6 }, { kind: 'sustain', attack: 'fan', beats: 1, gap: 1.6 }, { kind: 'sustain', attack: 'tunnel', beats: 1, gap: 1.6 }], restLo: 1.6, restHi: 1.6, restDist: 'uniform' },
+      ],
+    },
   },
 
   stormrend: {
@@ -107,6 +139,22 @@ export const BOSSES = {
       { id: 'stormrend_squall',  name: 'UNENDING GALE — Shifting Squall', atFrac: 0.66, timer: 24 },
       { id: 'stormrend_eye',     name: 'EYE OF THE GALE — Heart of the Storm', atFrac: 0.33, timer: 26, dread: true },
     ],
+    // §5i CRESCENDO — one ramp per card: sparse → dense → a HARD CUT at capture
+    // (the gale gathering). Short phrases + a DECAYING phrase rest (restHi→restLo)
+    // make the dominant gap tighten each repeat — the sparse-to-dense ramp — then
+    // reset on the next card. The wall/anti-flee attacks flow inside the phrase.
+    rhythm: {
+      signature: 'crescendo',
+      ticket: { bpm: 100, quantize: '1/4' },
+      phases: [
+        { phrase: [{ kind: 'sustain', attack: 'fan', beats: 1, gap: 0.7 }, { kind: 'sustain', attack: 'curtain', beats: 1, gap: 0.7 }],
+          restLo: 1.3, restHi: 2.6, restDist: 'decaying' },
+        { phrase: [{ kind: 'sustain', attack: 'aimed', beats: 1, gap: 0.6 }, { kind: 'sustain', attack: 'stream', beats: 1, gap: 0.6 }, { kind: 'sustain', attack: 'movingGap', beats: 1, gap: 0.6 }],
+          restLo: 1.1, restHi: 2.3, restDist: 'decaying' },
+        { phrase: [{ kind: 'sustain', attack: 'crossfire', beats: 1, gap: 0.55 }, { kind: 'sustain', attack: 'secondWave', beats: 1, gap: 0.55 }, { kind: 'sustain', attack: 'iris', beats: 1, gap: 0.55 }],
+          restLo: 0.9, restHi: 2.1, restDist: 'decaying' },
+      ],
+    },
   },
 
   craghold: {
@@ -190,6 +238,22 @@ export const BOSSES = {
       { id: 'ashtalon_circle',  name: 'EMBER HUNT — Circling Pass',  atFrac: 0.66, timer: 24 },
       { id: 'ashtalon_strike',  name: 'EMBER HUNT — Stooping Strike', atFrac: 0.33, timer: 26, dread: true },
     ],
+    // §5i AMBUSH–REST — long circling silences (2.4–3.2s), then a sforzando burst
+    // cluster of quick shots (the stoop); the REST is the dread (the hunter sizing
+    // you up). Strongly bimodal, short-heavy. P3's `stream` sustain carries the
+    // amber tips so the stoop still serves parry fuel (the diet, §5i C.1).
+    rhythm: {
+      signature: 'ambush-rest',
+      ticket: { bpm: 92, quantize: '1/8' },
+      phases: [
+        { phrase: [{ kind: 'burst', attack: 'aimed', count: 2, gap: 0.5 }],
+          restLo: 2.6, restHi: 3.2, restDist: 'uniform' },
+        { phrase: [{ kind: 'burst', attack: 'crossfire', count: 2, gap: 0.45 }, { kind: 'burst', attack: 'fan', count: 2, gap: 0.35 }],
+          restLo: 2.4, restHi: 3.0, restDist: 'uniform' },
+        { phrase: [{ kind: 'burst', attack: 'spiralStream', count: 2, gap: 0.4 }, { kind: 'sustain', attack: 'stream', beats: 3, gap: 0.35 }, { kind: 'burst', attack: 'secondWave', count: 2, gap: 0.4 }],
+          restLo: 2.2, restHi: 2.8, restDist: 'uniform' },
+      ],
+    },
   },
 
   marrowcoil: {
@@ -229,7 +293,7 @@ export const BOSSES = {
     phases: [
       { atFrac: 1.00, cadence: [1.5, 2.0], attacks: ['aimed', 'fan'] },                    // P1: read the bone rings
       { atFrac: 0.66, cadence: [1.4, 1.8], attacks: ['iris', 'stream', 'crossfire'] },     // P2: the coil rings expand (fly-through)
-      { atFrac: 0.33, cadence: [1.3, 1.7], attacks: ['iris', 'movingGap', 'spiralStream'] },// P3: the closing ribs (dread)
+      { atFrac: 0.33, cadence: [1.3, 1.7], attacks: ['iris', 'movingGap', 'spiralStream', 'stream'] },// P3: the closing ribs (dread) — `stream` added as the AMBER carrier (§5i C.1 data-tune: the closing coil keeps tracking, so its amber-tipped hose meets the AMBER FLOOR)
     ],
     cards: [
       { id: 'marrowcoil_surface', name: 'SKY COULD NOT — Surfacing',        atFrac: 1.00, timer: 22 },
@@ -239,13 +303,10 @@ export const BOSSES = {
     // §5i.A RHYTHM SIGNATURE — BURST-vs-SUSTAIN (slot 4). The coil sweeps lay a
     // continuous SUSTAIN stream (low, even gaps); the rib slams punch discrete
     // BURST walls (a tight doublet/triplet, then a hard rest). The burst:sustain
-    // ratio CLIMBS each phase — P1 mostly sustain, P3 mostly slam.
-    // STAGED / INERT DATA: no engine reads this yet. The phrase machine + the
-    // getBeatClock() export land with the slot-5 build (§5i staged rollout); until
-    // then this changes ZERO behavior. Attack names mirror the phase `attacks`
-    // arrays above so the machine binds cleanly when it arrives. `phases` is
-    // indexed to `phases` above; `ratioBurst` is the wall-burst share of each
-    // phrase (the per-phase ratio shift that IS the signature).
+    // ratio CLIMBS each phase — P1 mostly sustain, P3 mostly slam. The staged
+    // schema (#211) is now LIVE — bossRhythm.js reads it at the cadence seam.
+    // `phases` is indexed to `phases` above; `ratioBurst` is the wall-burst share
+    // of each phrase (the per-phase ratio shift that IS the signature).
     rhythm: {
       signature: 'burst-sustain',
       ticket: { bpm: 84, quantize: '1/8' },   // the coil's pulse; bursts land on eighth-notes
@@ -267,11 +328,15 @@ export const BOSSES = {
           ],
           restLo: 1.1, restHi: 1.7, restDist: 'bimodal',   // quick inter-burst gaps + one long breath
         },
-        { // P3 — the closing ribs (dread): burst-led, walls dominate
-          ratioBurst: 0.75,
+        { // P3 — the closing ribs (dread): burst-led, walls dominate. The trailing
+          // `stream` sustain is the AMBER carrier (§5i C.1 amberdiet data-tune: the
+          // closing coil keeps its amber-tipped tracking hose, so this dread phase
+          // still serves a parry volley — mirrors the `stream` added to `attacks`).
+          ratioBurst: 0.7,
           phrase: [
             { kind: 'burst',   attack: 'movingGap',    count: 3, gap: 0.14 },
             { kind: 'burst',   attack: 'spiralStream', count: 2, gap: 0.16 },
+            { kind: 'sustain', attack: 'stream',       beats: 3, gap: 0.42 },
             { kind: 'sustain', attack: 'iris',         beats: 2, gap: 0.55 },
           ],
           restLo: 0.9, restHi: 1.5, restDist: 'decaying',  // the rest itself tightens toward each slam
@@ -279,12 +344,103 @@ export const BOSSES = {
       ],
     },
   },
+
+  eitherwing: {
+    id: 'eitherwing',
+    name: 'EITHERWING',
+    title: 'the Broken Whole',
+    epithet: 'Two Halves of the Broken Whole',   // the lore gap: whole of WHAT? (feeds slot 12, ONEWING)
+    tier: 2,                                       // COLOSSUS (§5b band 2), slot-5 PEAK
+    // Boss-archetype dispatch (bossModel.js buildBoss): the Twin-Wraith builder
+    // (bossEitherwing.js) — BOSS-DESIGN.md §5b registry slot 5, the roster's ONLY
+    // multi-body silhouette: TWO mirrored dart-wraiths orbiting a SHARED EMBER —
+    // one eye passed between them (the charge tell). Distinct from every prior
+    // slot: not a mask (1), a ring-eye (2), a raptor (3), or a bone dragon (4).
+    archetype: 'eitherwing',
+    accent: 0x86200f,         // OXBLOOD — a WARM dark red (identity in the emissive rims); pushed WARM off
+                              // pure blood-red (rendered hue ~9°) so NO lit pixel enters danger-magenta's
+                              // reserved band (0xff2b6a≈342°, ±15° = 327–357°) on any state — the §5d/gate
+                              // OXBLOOD-MAGENTA collision law (CP1 gate directive 6: 0x7a1c18 drifted to ~355°).
+    glow: 0xc9c1b4,           // AGED SILVER — the rims/shield/shards read cool desaturated metal, the
+                              // second palette swatch (oxblood + aged-silver, §5d), apart from the eye's white.
+    bulletColor: 0xff2b6a,    // danger stays magenta (role colour, never per-boss)
+    approachFrom: 'sides',    // BOTH SIDES at once (§5e new branch): the twins arrive from both flanks
+    entrance: 'batonCross',   // §5j THE BATON CROSS: twins bracket the dragon, the eye crosses right→left, then scissor into the fight (falls back to the 'sides' approach if the script is absent)
+    scale: 1.55,              // COLOSSUS — REACH PASS (r8): 1.35→1.55, crossing span ≈ 23u (ASHTALON-class reach)
+    grazeBaitR: 4.0,          // WIDER shield graze-ring (default 3.6) — the r9 body reads big, so the
+                              // fixed ring felt tight to thread; 4.0 stays ≤ grazeR (≈4.15) so it still fully skims
+    hpMax: 330,               // Tier 2 band (260–330); slot-5 PEAK sits at the top (the sawtooth crest)
+    // §5f DUO LAW (one per roster): complementary axes — one twin flies lane-denial
+    // WALLS (movingGap/secondWave), the other aimed TEMPO (aimed/crossfire); volley
+    // origins alternate sides (crossfire's ±10 flank emitters ARE the twins). ONE
+    // shared hp pool + one bar (zero hit-model work — the craghold precedent). The
+    // dread card fires the mirrored SIMULTANEOUS crossfire ("Both Halves at Once").
+    // §5i CALL-AND-RESPONSE: the twins alternate A-B phrases; the eye handoff is the
+    // baton between them (the rhythm block below authors the alternation).
+    setpieces: [
+      { id: 'figureEight', atPhase: 1, dur: 8.0, moving: true },                // P2: the pair leaves station, laces the eight
+      { id: 'figureEight', atPhase: 2, dur: 7.0, moving: true, dread: true },   // P3: desperation keeps moving (Both Halves at Once)
+    ],
+    // Tier 2 difficulty: crossfire is the twins' signature (both flanks at once);
+    // movingGap/secondWave = the lane-denial half; iris debuts in the dread phase.
+    // Escalation by pattern unlock + cadence, never raw bullet count.
+    phases: [
+      { atFrac: 1.00, cadence: [1.5, 2.0], attacks: ['aimed', 'movingGap'] },              // P1: introduce the two axes (tempo vs wall)
+      { atFrac: 0.66, cadence: [1.4, 1.8], attacks: ['crossfire', 'secondWave', 'stream'] },// P2: the eye hands off (crossfire = both sides)
+      { atFrac: 0.33, cadence: [1.3, 1.7], attacks: ['crossfire', 'movingGap', 'iris'] },   // P3: Both Halves at Once (dread — mirrored crossfire)
+    ],
+    // Spell cards (§5f grammar; dread card LAST, verbatim from the §5f/§5d sheet).
+    cards: [
+      { id: 'eitherwing_divide', name: 'TWO HALVES — The Divide',        atFrac: 1.00, timer: 24 },
+      { id: 'eitherwing_baton',  name: 'BROKEN WHOLE — Passing the Eye',  atFrac: 0.66, timer: 26 },
+      { id: 'eitherwing_both',   name: 'EITHER/OR — Both Halves at Once', atFrac: 0.33, timer: 28, dread: true },
+    ],
+    // §5i CALL-AND-RESPONSE — the twins alternate A-B phrases; the eye handoff is
+    // the baton between them (a longer phrase REST = the baton crossing). Tight
+    // bimodal: quick in-phrase responses + the handoff beat. Phrases overlap ONLY
+    // during the dread card, where crossfire's two-flank simultaneity delivers it.
+    rhythm: {
+      signature: 'call-response',
+      ticket: { bpm: 108, quantize: '1/8' },   // the shared ember's pulse; the handoff lands on the beat
+      phases: [
+        { // P1 — the two axes trade: tempo (aimed) ↔ wall (movingGap), a long baton between.
+          // Tight-clustered responses (short gap) + a distinctly LONG handoff = a crisp
+          // BIMODAL fingerprint, well apart from Stormrend's crescendo ramp (rhythmprint).
+          ratioBurst: 0.3,
+          phrase: [
+            { kind: 'sustain', attack: 'aimed',     beats: 2, gap: 0.34 },   // twin B (tempo) calls — a quick doublet
+            { kind: 'sustain', attack: 'movingGap', beats: 1, gap: 0.34 },   // twin A (wall) responds
+          ],
+          restLo: 1.75, restHi: 1.95, restDist: 'uniform',                   // the handoff (baton crossing) — the long mode
+        },
+        { // P2 — the eye passes faster; crossfire = both flanks; the response tightens
+          ratioBurst: 0.4,
+          phrase: [
+            { kind: 'sustain', attack: 'crossfire',  beats: 2, gap: 0.3 },
+            { kind: 'sustain', attack: 'secondWave', beats: 1, gap: 0.3 },
+            { kind: 'sustain', attack: 'stream',     beats: 1, gap: 0.3 },   // the amber-tipped tracking half
+          ],
+          restLo: 1.6, restHi: 1.8, restDist: 'uniform',
+        },
+        { // P3 — Both Halves at Once: the response phrases nearly touch (the overlap read)
+          ratioBurst: 0.5,
+          phrase: [
+            { kind: 'sustain', attack: 'crossfire', beats: 2, gap: 0.26 },
+            { kind: 'sustain', attack: 'movingGap', beats: 1, gap: 0.26 },
+            { kind: 'sustain', attack: 'iris',      beats: 1, gap: 0.26 },
+          ],
+          restLo: 1.45, restHi: 1.65, restDist: 'uniform',
+        },
+      ],
+    },
+  },
 };
 
-// Registry slot 3 is ASHTALON (Colossi opener), slot 4 is MARROWCOIL; CRAGHOLD
-// is RETIRED (§5b L130) — its def + builder stay for the geometry-lesson lineage
-// and its own telegraph test, but it is OUT of the encounter rotation.
-export const BOSS_ORDER = ['voidmaw', 'stormrend', 'ashtalon', 'marrowcoil'];
+// Registry slot 3 is ASHTALON (Colossi opener), slot 4 is MARROWCOIL, slot 5 is
+// EITHERWING (the Colossi peak, the roster's only twin body); CRAGHOLD is RETIRED
+// (§5b L130) — its def + builder stay for the geometry-lesson lineage and its own
+// telegraph test, but it is OUT of the encounter rotation.
+export const BOSS_ORDER = ['voidmaw', 'stormrend', 'ashtalon', 'marrowcoil', 'eitherwing'];
 
 // Which boss to use for the Nth encounter of a run (cycles once the list is
 // exhausted — more bosses just extend the list).

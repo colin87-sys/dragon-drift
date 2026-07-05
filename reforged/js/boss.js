@@ -2,13 +2,15 @@ import * as THREE from 'three';
 import { CONFIG } from './config.js';
 import { game } from './gameState.js';
 import { ui } from './ui.js';
-import { sfx, setSlowMo } from './sfx.js';
+import { sfx, setSlowMo, getBeatClock } from './sfx.js';
 import { input } from './input.js';
 import { cameraCtl } from './cameraController.js';
 import { burst } from './particles.js';
 import { emit, on } from './events.js';
 import { clearAhead } from './obstacles.js';
 import { buildBoss } from './bossModel.js';
+import { makeRhythm } from './bossRhythm.js';
+import { ENTRANCE_SCRIPTS } from './entranceScripts.js';
 import { BOSSES, BOSS_ORDER, bossDefForIndex } from './bossDefs.js';
 import { saveData, persist, recordBossCard, recordBossLedger } from './save.js';
 import { BIOMES, biomeIndexAt } from './biomes.js';
@@ -37,6 +39,7 @@ let debugFirstAt = null;       // ?boss override: bring the first encounter in e
 let debugDefIdx = null;        // ?bossIdx override: force a specific BOSS_ORDER entry
 let debugChargePin = -1;       // capture hook: ≥0 holds the charge/mantle pose for a still
 let debugSetpiecePin = null;   // capture hook: { id, k } holds a setpiece pose (the dive) for a still
+let debugEntrancePin = null;   // capture hook: 0..1 holds an ENTRANCE_SCRIPTS pose (the Baton Cross) for a still
 let nextBossDist = B.firstAt;
 let encounterIndex = 0;
 
@@ -108,6 +111,7 @@ let riderTimer = 0;
 // (back to camera), then wheel around to face you. cineYaw overrides placeGroup's
 // face-the-player rule for the turn; cineSide = which flank it sweeps.
 let cineT = 0;
+let entranceId = null;         // §5j: which ENTRANCE_SCRIPTS entry is playing (null = plain approach)
 let cineYaw = null;            // null = normal facing; else a scripted world-yaw for the turn-around
 let cineSide = 1;
 let cineAnchorX = 0, cineAnchorY = 8;   // the dragon's x/y at flythrough start (pass beside it, both in frame)
@@ -117,6 +121,7 @@ let dyingT = 0;
 let spiralPhase = 0;
 let pendingDeath = false;      // set when hp hits 0; resolved in the update loop
 let rollParried = false;       // this roll already landed a parry (announce once per roll)
+let perfectHealsUsed = 0;      // §5i C perfect-parry heals spent this fight (cap 3)
 let reticle = null;            // focus ring around the dragon (a dim track + bright fill)
 let reticleTrack = null;       // dim full-circle base
 let reticleFill = null;        // bright arc: draw-on progress × (in Surge) time-left
@@ -149,6 +154,12 @@ let bulletColor = 0xff2b6a;    // magenta = danger (set per-boss from the def)
 let chargeT = 0;               // telegraph wind-up remaining before the held attack fires
 let chargeDur = 0;
 let curAttack = null;          // the attack being telegraphed
+// §5i RHYTHM: the phrase machine for defs with a `rhythm` block (bossRhythm.js).
+// null for a def without one → the legacy uniform cadence roll (coexist rule).
+// `rhythmRest` stashes the rest the machine returned alongside the picked attack,
+// applied once that attack fires.
+let rhythm = null;
+let rhythmRest = null;
 const pending = [];            // streamed sub-volleys: { t, fire } (tunnel / spiralStream)
 const SUSTAINED = new Set(['tunnel', 'spiralStream', 'movingGap', 'iris', 'stream', 'secondWave']);
 // Def-gated SETPIECE (the ONE deliberate exception to "a new boss needs zero
@@ -236,6 +247,32 @@ const SETPIECE_PATHS = {
     if (k < 0.22) { const t = easeInOut(k / 0.22); return { x: 0, y: B.fightHeight + RISE * t, rel: B.settleGap + (HOLD_REL - B.settleGap) * t }; }
     if (k < 0.8) { const t = (k - 0.22) / 0.58; return { x: Math.sin(t * Math.PI * 2) * SWEEP, y: B.fightHeight + RISE, rel: HOLD_REL }; }
     const t = easeInOut((k - 0.8) / 0.2); return { x: Math.sin(Math.PI * 2) * SWEEP * (1 - t), y: B.fightHeight + RISE * (1 - t), rel: HOLD_REL + (B.settleGap - HOLD_REL) * t };
+  },
+  // EITHERWING — CLOSE-PASS FIGURE-EIGHT (§5b/§5e slot 5, moving-station; r9 PRESENCE, L141):
+  // a TRUE flyby, not a loom. The near lobe of the 3D lemniscate DIVES PAST the camera —
+  // twice over the beat, rel sweeping 26 → −6 → back (the pair genuinely overtake and
+  // re-approach; the r8 loom parked at rel ~20 and never landed). The GROUP carries the rel
+  // dive + the vertical crossover; the twins' own local orbit supplies the ±x SCISSOR so
+  // they pass on OPPOSITE flanks (never lane-center — the no-clip guard). The camera never
+  // moves (slot-3 differentiation: repeating side-by-side flanking passes, not a one-time
+  // rear-view beat). Runs MOVING so crossfire keeps raining from wherever the pass carries
+  // them. Eases in/out so it laces into station-keeping between beats.
+  figureEight(k) {
+    const B = CONFIG.BOSS;
+    // PLATEAU envelope (not a sine lace): ramp the amplitude up over the first 15% and down
+    // over the last 15%, but hold FULL amplitude through the middle — a sine lace peaks at
+    // k=0.5 (a FAR point) and damps the near-lobe crossings (k=0.25/0.75) to 0.7, so the
+    // dive never actually reached the camera. The plateau lets each pass hit full depth.
+    const env = k < 0.15 ? k / 0.15 : k > 0.85 ? (1 - k) / 0.15 : 1;
+    const LAPS = 2;                                    // two full passes over the beat
+    const th = k * Math.PI * 2 * LAPS;
+    const near = (1 - Math.cos(th)) / 2;              // 0 at the far point → 1 as the near lobe crosses
+    const dive = 26 - near * 32;                       // 26 → −6: the near lobe crosses BEHIND the player
+    return {
+      x: Math.sin(th * 0.5) * 3 * env,                 // slow group drift; the ±x scissor is the twins' local orbit
+      y: B.fightHeight + Math.sin(th) * 3.5 * env,     // slightly above / below player height on each pass
+      rel: B.settleGap + (dive - B.settleGap) * env,   // station(26) → the dive (rel −6, past the camera) → station
+    };
   },
 };
 function clearSetpiece() {
@@ -326,6 +363,7 @@ function resolveBand(biomeIdx) {
 
 // Player-relative pose: rel = metres ahead of the player.
 const pose = { x: 0, y: B.fightHeight, rel: B.settleGap };
+let prevPassRel = 99;   // tracks pose.rel across frames so a close-pass whoosh fires once per crossing
 const start = { x: 0, y: 7, rel: -12 };
 const tmp = new THREE.Vector3();
 
@@ -573,6 +611,11 @@ export function startBossEncounter(player, defOverride) {
   pending.length = 0;
   chargeT = 0;
   curAttack = null;
+  // §5i: build the phrase machine for a def with a rhythm signature (else null →
+  // legacy uniform roll). Reset per encounter so its phrase state starts clean.
+  rhythm = def.rhythm ? makeRhythm(def) : null;
+  rhythmRest = null;
+  perfectHealsUsed = 0;   // §5i C: the perfect-parry heal cap resets each fight
   // Fresh fight = full-width arena; the walls take the boss's accent colour.
   arenaHW = arenaTargetHW = CONFIG.laneHalfWidth;
   game.bossArenaHW = null;
@@ -600,6 +643,15 @@ export function startBossEncounter(player, defOverride) {
     start.rel = B.settleGap;
     start.x = (Math.random() < 0.5 ? -1 : 1) * 4;
     start.y = -8;                   // rises from below the frame (Brineholm/Marrowcoil)
+  } else if (def.approachFrom === 'sides') {
+    // BOTH SIDES at once (§5b/§5d slot 5, EITHERWING): the pair materialises dead
+    // ahead and glides into station centred, while the two twins sweep OUT from the
+    // centre to their figure-eight orbit (the model's own intro spread) — the "both
+    // flanks at once" arrival that no single-body boss can make. The group travels
+    // in rel only (a pure forward settle); the twins own the lateral arrival.
+    start.rel = B.settleGap + 10;
+    start.x = 0;
+    start.y = B.fightHeight;
   } else {
     start.rel = -12;
     start.x = (Math.random() < 0.5 ? -1 : 1) * 4;
@@ -763,6 +815,8 @@ function applyReticle(timeLeft, time) {
 // the cinematic flythrough entrance.
 function enterFight() {
   phase = 'fight';
+  entranceId = null;                  // the scripted entrance is done
+  model?.setEntrance?.(null);         // release any per-boss entrance choreography (EITHERWING's Baton Cross)
   cineYaw = null;                     // hand facing back to placeGroup (face the player)
   cameraCtl.setOvertake?.(null);      // release the cinematic camera if it was active
   model.setEyeLock?.(false);          // hand the pupil back to the idle gaze
@@ -780,74 +834,47 @@ function enterFight() {
   if (def.tutorial) ui.bossNote?.('DODGE!', 'ROLL INTO AMBER SHOTS TO PARRY', 'gold', 3.0);
 }
 
-// The cinematic overtake entrance (ASHTALON, §5f). A scripted flythrough on a
-// normalized clock driven by SCALED dt, so the boss AND the world slow together
-// through the bullet-time close pass while the rise/pull-ahead/turn stay snappy —
-// ~2.5s wall total. It rises from behind, sweeps CLOSE past you in DEEP bullet-time
-// with the visor LOCKED on you (the whole body tracks the dragon), then wheels to
-// face you as the fight opens. No fire (the Mantis rule). Space / 2nd-finger tap
-// fast-forwards to the settle. CINE_DUR is scaled-seconds; with CINE_SLOW across
-// the pass the wall-clock lands near 2.5s (tuned empirically).
-const CINE_DUR = 1.32;           // scaled-sec → ~2.5s wall at 60fps (the pass slow-mo stretches it)
-const CINE_SLOW = 0.24;          // bullet-time depth on the pass (deeper than the 0.35 default)
-const U1 = 0.30, U2 = 0.58, U3 = 0.82;   // C1 rise | C2 pass | C3 pull-ahead | C4 settle
+// The §5j ENTRANCE DRIVER (generalized from ASHTALON's shipped overtake). A scripted
+// pre-fight cinematic on a normalized clock driven by SCALED dt, so the boss AND the
+// world slow together through the bullet-time close pass while the rest stays snappy.
+// The DATA (path/tuck/yaw/gaze/camera/slow-mo window, per boss) lives in
+// ENTRANCE_SCRIPTS; this driver owns the SHARED machinery: skip, slow-mo engage/
+// release, setOvertake feed, enterFight handoff. ASHTALON's 'overtake' reproduces the
+// shipped math byte-for-byte (tests/entrance.mjs golden gate). No fire (the Mantis rule).
 function releaseCineSlow() {
   if (!cineSlow) return;
   cineSlow = false; game.slowMoTimer = 0; game.slowMoScale = null; setSlowMo(false); sfx.timeDilate?.(false);
 }
-function updateFlythrough(dt, player, time) {
-  // Tap to skip → jump to the settle (you still see it wheel to face you).
+function updateEntrance(dt, player, time) {
+  const script = ENTRANCE_SCRIPTS[entranceId];
+  if (!script) { enterFight(); return; }
+  const skipU = script.dur * (script.skipTo ?? 1);
+  // Tap to skip → jump to the pull-ahead (you still see it wheel to face you).
   if (input.surgeTap) { input.surgeTap = false; cineSkip = true; }
-  if (cineSkip && cineT < CINE_DUR * U3) { cineT = CINE_DUR * U3; releaseCineSlow(); }
+  if (cineSkip && cineT < skipU) { cineT = skipU; releaseCineSlow(); }
   cineT += dt;
-  const u = Math.min(cineT / CINE_DUR, 1);
-  const L = (a, b, t) => a + (b - a) * t;
-  const seg = (u0, u1) => easeInOut(Math.max(0, Math.min(1, (u - u0) / (u1 - u0))));
-  const S = cineSide;
+  const u = Math.min(cineT / script.dur, 1);
+  const ctx = { AX: cineAnchorX, AY: cineAnchorY, S: cineSide, B };
 
-  // Keyframed player-relative path: behind-below → close pass (crosses your depth,
-  // LARGE and close) → ahead → station. y stays a few units above a typical dragon
-  // height so the pass sweeps OVER your shoulder without clipping.
-  // Path ANCHORED beside the dragon (cineAnchorX/Y, snapshotted at start) so the
-  // pass is always a close encounter with the dragon and the camera can hold BOTH
-  // in frame — then it eases to station centre (0, fightHeight) for the fight.
-  const AX = cineAnchorX, AY = cineAnchorY;
-  let x, y, rel;
-  if (u < U1) { const t = seg(0, U1); x = AX + S * L(2, 4, t); y = L(AY - 3, AY + 3, t); rel = L(-15, -3, t); }
-  else if (u < U2) { const t = seg(U1, U2); x = AX + S * L(4, 3, t); y = AY + L(3, 3.5, t); rel = L(-3, 3, t); }
-  else if (u < U3) { const t = seg(U2, U3); x = L(AX + S * 3, 0, t); y = L(AY + 3.5, B.fightHeight, t); rel = L(3, B.settleGap * 0.7, t); }
-  else { const t = seg(U3, 1); x = 0; y = B.fightHeight; rel = L(B.settleGap * 0.7, B.settleGap, t); }
-  pose.x = x; pose.y = y; pose.rel = rel;
+  const p = script.path(u, ctx);
+  pose.x = p.x; pose.y = p.y; pose.rel = p.rel;
 
-  // DEEP bullet-time across the close pass (C2): a downward time-dilation whoosh on
-  // entry, a snap back on exit. Owns game.slowMoTimer/Scale for the window (main.js
-  // scales dt → boss + world + this clock all slow together = the dwell).
-  if (u >= U1 && u < U2 && !cineSlow) { cineSlow = true; game.slowMoTimer = 5; game.slowMoScale = CINE_SLOW; setSlowMo(true); sfx.timeDilate?.(true); }
-  else if ((u >= U2 || u >= 1) && cineSlow) { releaseCineSlow(); }
+  // DEEP bullet-time across the close pass: main.js scales dt while the window holds, so
+  // boss + world + this clock all slow together = the dwell. Snap back on exit.
+  const sw = script.slowWindow;
+  if (sw) {
+    if (u >= sw.uIn && u < sw.uOut && !cineSlow) { cineSlow = true; game.slowMoTimer = 5; game.slowMoScale = sw.depth; setSlowMo(true); sfx.timeDilate?.(true); }
+    else if ((u >= sw.uOut || u >= 1) && cineSlow) releaseCineSlow();
+  }
 
-  // Wings ramp into the diving tuck, hold through the pass, ease back to rest for the fight.
-  const tuck = u < U1 ? seg(0, U1) * 0.85 : u < U3 ? 0.85 : L(0.85, 0, seg(U3, 1));
-  model.setSetpiece?.(tuck);
+  model.setSetpiece?.(script.tuck ? script.tuck(u, ctx) : 0);
   model.setCharge?.(0);
-
-  // Body flies by on its dive line (visor to the rear camera), with an EVER-SO-
-  // SLIGHT lean toward the dragon through the pass (≤ ~12°, mirroring the dragon's
-  // own glance — they angle toward each other for the eye-lock), then WHEELS 180°
-  // to face you as the fight opens. The real tracking stays in the PUPIL; the lean
-  // rides the same fade as the gaze so the wheel-around starts clean.
-  const dx = player.position.x - pose.x, dy = player.position.y - pose.y;
-  const track = u < U3 ? 1 : (1 - seg(U3, 1));
-  const lean = Math.max(-0.22, Math.min(0.22, -dx * 0.06)) * track;   // yaw π+δ: δ<0 noses toward a +x dragon
-  cineYaw = (u < U3 ? Math.PI : Math.PI * (1 - seg(U3, 1))) + lean;
-  // The PUPIL tracks the dragon (eye-lock): the visor faces the camera/dragon (world
-  // −z) during the pass, so a dragon to world-right reads as the boss's local-left —
-  // hence the −dx. Normalized over ~4m: the anchored path keeps the dragon 3-4 units
-  // away, so the pupil actually reaches FULL deflection (a /8 divisor left it near
-  // centre — the "not tracking" read). Eased out to centre through the turn.
-  model.setGaze?.(Math.max(-1, Math.min(1, -dx / 4)) * track, Math.max(-1, Math.min(1, dy / 4)) * track);
-
+  if (script.yaw) cineYaw = script.yaw(u, ctx, pose, player);
+  if (script.gaze) { const g = script.gaze(u, ctx, pose, player); model.setGaze?.(g.gx, g.gy); }
+  // Per-boss entrance FX hook (EITHERWING's eye-thread cross, twin brackets) — optional.
+  script.onFrame?.(u, ctx, pose, player, model, time);
   // Feed the cinematic camera the boss's world position so it tracks the flythrough.
-  cameraCtl.setOvertake?.({ k: u, bx: pose.x, by: pose.y, bz: -(player.dist + pose.rel) });
+  if (script.camera) cameraCtl.setOvertake?.(script.camera(u, pose, player, ctx));
 
   if (u >= 1) enterFight();
 }
@@ -943,23 +970,31 @@ export function updateBoss(dt, player, time) {
   if (phase === 'warn') {
     warnT -= dt;
     if (warnT <= 0) {
-      if (def.cinematicEntrance) {
-        // §5f rule-break: the full scripted overtake cinematic (flythrough phase).
+      // §5j: a def opts into a scripted pre-fight cinematic via `def.entrance` (an
+      // ENTRANCE_SCRIPTS id); the legacy `cinematicEntrance` flag maps to ASHTALON's
+      // 'overtake'. Defs with neither keep the plain approach (coexist).
+      const eid = def.entrance ?? (def.cinematicEntrance ? 'overtake' : null);
+      const script = eid && ENTRANCE_SCRIPTS[eid];
+      if (script) {
+        entranceId = eid;
         phase = 'flythrough';
         cineT = 0; cineSkip = false; cineSlow = false;
         cineSide = start.x < 0 ? -1 : 1;
-        cineAnchorX = player.position.x; cineAnchorY = player.position.y;   // pass beside the dragon
-        cineYaw = Math.PI;   // faces its dive line (visor to the rear camera) until the turn
-        model.setEyeLock?.(true);         // the pupil hard-tracks the dragon through the pass
+        if (script.anchorToDragon) { cineAnchorX = player.position.x; cineAnchorY = player.position.y; }   // pass beside the dragon
+        else { cineAnchorX = 0; cineAnchorY = B.fightHeight; }
+        cineYaw = script.initYaw ?? Math.PI;
+        if (script.eyeLock !== false) model.setEyeLock?.(true);   // the pupil hard-tracks the dragon (overtake); batonCross opts out
         ui.cinematicHold?.(true);         // hide the gameplay HUD — keep the moment clean
         ui.surgeReady?.(false);
-        ui.bossNote?.('⟲  BEHIND YOU  ⟲', 'THE HUNTER OVERTAKES', 'gold', 2.0);
+        const a = script.announce;
+        if (a) ui.bossNote?.(a.title, a.sub, a.tone ?? 'gold', a.dur ?? 2.0);
+        script.onStart?.(model, player, { side: cineSide, B });
       } else {
         phase = 'approach';
       }
     }
   } else if (phase === 'flythrough') {
-    updateFlythrough(dt, player, time);
+    updateEntrance(dt, player, time);
   } else if (phase === 'approach') {
     approachT += dt;
     const k = Math.min(approachT / B.approachTime, 1);
@@ -972,10 +1007,14 @@ export function updateBoss(dt, player, time) {
     pose.y = start.y + (B.fightHeight - start.y) * e + arc;
     if (k >= 1) enterFight();
   } else if (phase === 'fight' && debugSetpiecePin) {
-    // Capture-only: freeze a SETPIECE pose (e.g. the stooping-dive silhouette) at a
-    // fixed path parameter so the crop tool can shoot the dread pose as a still.
+    // Capture-only: freeze a SETPIECE pose at a fixed path parameter so the crop tool
+    // can shoot it as a still. By default the GROUP holds station (the crop just wants
+    // the model's per-beat pose, e.g. ASHTALON's stoop wing-tuck). A pin with
+    // `moveGroup` also applies the path's group TRANSLATION — EITHERWING's close pass IS
+    // the group diving past the camera, so its money frame needs the real rel/x/y.
     const p = SETPIECE_PATHS[debugSetpiecePin.id]?.(debugSetpiecePin.k);
-    if (p) { pose.x = 0; pose.y = B.fightHeight; pose.rel = B.settleGap; }
+    if (p && debugSetpiecePin.moveGroup) { pose.x = p.x; pose.y = p.y; pose.rel = p.rel; }
+    else if (p) { pose.x = 0; pose.y = B.fightHeight; pose.rel = B.settleGap; }
     model.setSetpiece?.(Math.sin(debugSetpiecePin.k * Math.PI), { id: debugSetpiecePin.id });
     model.setCharge(0);
   } else if (phase === 'fight' && debugChargePin >= 0) {
@@ -985,6 +1024,21 @@ export function updateBoss(dt, player, time) {
     pose.rel = B.settleGap; pose.x = 0; pose.y = B.fightHeight;
     model.setAttackTell?.('aimed');
     model.setCharge(debugChargePin);
+  } else if (phase === 'fight' && debugEntrancePin != null && (def.entrance || def.cinematicEntrance)) {
+    // Capture-only: freeze a scripted ENTRANCE pose at a fixed clock u so the crop tool
+    // can shoot the Baton Cross (twins bracketing, eye mid-cross, scissor) as a still.
+    const script = ENTRANCE_SCRIPTS[def.entrance ?? 'overtake'];
+    if (script) {
+      const u = debugEntrancePin;
+      const ctx = { AX: player.position.x, AY: player.position.y, S: 1, B };
+      const p = script.path(u, ctx); pose.x = p.x; pose.y = p.y; pose.rel = p.rel;
+      model.setSetpiece?.(script.tuck ? script.tuck(u, ctx) : 0);
+      model.setCharge?.(0);
+      cineYaw = script.yaw ? script.yaw(u, ctx, pose, player) : (script.initYaw ?? null);
+      if (script.gaze) { const g = script.gaze(u, ctx, pose, player); model.setGaze?.(g.gx, g.gy); }
+      script.onFrame?.(u, ctx, pose, player, model, time);
+      if (script.camera) cameraCtl.setOvertake?.(script.camera(u, pose, player, ctx));
+    }
   } else if (phase === 'fight') {
     if (setpieceT >= 0 && !shielded) {
       // Scripted station-leave beat (def-gated; see SETPIECE_PATHS). Attacks +
@@ -994,6 +1048,10 @@ export function updateBoss(dt, player, time) {
       const k = Math.min(setpieceT / setpieceDef.dur, 1);
       const p = SETPIECE_PATHS[setpieceDef.id](k);
       pose.x = p.x; pose.y = p.y; pose.rel = p.rel;
+      // Whoosh as a close pass crosses toward the camera (EITHERWING's flyby dives past
+      // the player). Fires once per inbound crossing of rel≈8, never every frame.
+      if (pose.rel < 8 && prevPassRel >= 8) sfx.nearMiss?.();
+      prevPassRel = pose.rel;
       // Pass the setpiece def so a model can respond per-beat (ASHTALON ignores
       // the 2nd arg; MARROWCOIL reads it to tell a fly-through pass — cage OPEN —
       // from its Closing-Ribs dread — cage CONSTRICTING).
@@ -1066,6 +1124,17 @@ export function updateBoss(dt, player, time) {
           rollParried = true;
           const perfect = r.perfect > 0;
           if (perfect) game.parryPerfectStreak++; else game.parryPerfectStreak = 0;
+          // PERFECT-PARRY HEAL (§5i C, adopted GLOBALLY — lands with the slot-5
+          // parry-economy rollout): a perfect parry restores 1 HP pip (one heart),
+          // capped 3/fight — the Furi law (make parry players feel loved; the cap
+          // kills farming). Guarded on health < max so it never touches a player who
+          // isn't hurt (and the immortal test-player is never capped down to max).
+          if (perfect && perfectHealsUsed < 3 && game.health < CONFIG.healthMax) {
+            game.health = Math.min(CONFIG.healthMax, game.health + CONFIG.healthMax / 4);
+            perfectHealsUsed++;
+            ui.bossNote?.('PERFECT — +1 ♥', '', 'gold', 1.4);
+            emit('perfectHeal', { used: perfectHealsUsed });
+          }
           game.parryStreak++;
           const streak = perfect ? game.parryPerfectStreak : game.parryStreak;
           const pts = Math.round(CONFIG.BOSS.parryScore * (perfect ? 1.7 : 1) * game.scoreMult);
@@ -1110,14 +1179,27 @@ export function updateBoss(dt, player, time) {
         burst(tmp, bulletColor, { count: 10, speed: 14, size: 0.9, life: 0.4 });   // "shots away" muzzle flash
         executeAttack(curAttack, player);
         const ph = def.phases[phaseIdx];
-        attackTimer = rand(ph.cadence[0], ph.cadence[1]);
+        // §5i: a rhythm def uses the machine's authored rest (its signature's
+        // fingerprint, stashed when the attack was picked); else the legacy roll.
+        attackTimer = (rhythm && rhythmRest != null) ? rhythmRest : rand(ph.cadence[0], ph.cadence[1]);
+        rhythmRest = null;
       }
     } else if (pending.length === 0) {
       // Idle between attacks → count down, then begin telegraphing the next one.
       attackTimer -= dt;
       if (attackTimer <= 0) {
         const ph = def.phases[phaseIdx];
-        curAttack = ph.attacks[(Math.random() * ph.attacks.length) | 0];
+        // §5i: the phrase machine picks the attack AND the rest that follows it
+        // (amber-floor enforced inside); a def without a rhythm keeps uniform pick.
+        if (rhythm) {
+          // Pass the live music beat grid (null when muted/headless) so a def with
+          // a `ticket` can beat-lock its phrasing (§5i fairness subsidy).
+          const step = rhythm.nextStep(phaseIdx, ph.attacks, Math.random, getBeatClock());
+          curAttack = step.id;
+          rhythmRest = step.rest;
+        } else {
+          curAttack = ph.attacks[(Math.random() * ph.attacks.length) | 0];
+        }
         chargeDur = curAttack === 'curtain' ? B.telegraphWall
           : (SUSTAINED.has(curAttack) ? B.telegraphSustained : B.telegraphInstant);
         chargeT = chargeDur;
@@ -1210,6 +1292,11 @@ function breakShield(player) {
   const next = def.phases[phaseIdx + 1];
   if (next) {
     phaseIdx++;
+    // §5i: restart the phrase state at the phase seam (crescendo re-ramps per
+    // card; the ambush/wall cluster restarts clean) — the amber-floor clock is
+    // kept continuous across the transition inside the machine.
+    rhythm?.reset();
+    rhythmRest = null;
     beginCard(phaseIdx);
     ui.bossNote?.(`PHASE ${phaseIdx + 1}`, def.name, 'phase', 2.6);
     emit('bossPhase', { phase: phaseIdx + 1 });
@@ -1373,13 +1460,17 @@ function executeAttack(id, player) {
     }
   } else if (id === 'stream') {
     // STREAM — a tracking hose: re-aims at your LIVE position every tick, so one
-    // sidestep isn't enough — peel away in a smooth arc while it fires.
+    // sidestep isn't enough — peel away in a smooth arc while it fires. Every 4th
+    // tick is AMBER-tipped (reflectable): the §5i C.1 parry-diet hotfix that makes
+    // the tracking hose a parry-carrier, so stream-heavy dread phases (ASHTALON P3,
+    // MARROWCOIL P3) still meet the AMBER FLOOR (≥1 amber volley per rolling 12s).
     const ticks = quality < 0.75 ? 10 : 14;
     const slow = closing * 0.95;
     for (let k = 0; k < ticks; k++) {
+      const amber = (k % 4) === 3;   // amber tip every 4th tick (the parry beat)
       pending.push({ t: k * 0.14, fire: () => {
         const v = aimVel(player.position.x, player.position.y, slow);
-        emitBoss(pose.x, pose.y, v.vx, v.vy, -slow);
+        emitBoss(pose.x, pose.y, v.vx, v.vy, -slow, amber);
       } });
     }
   } else if (id === 'secondWave') {
@@ -1427,7 +1518,12 @@ function fireGrazeBait(player, time) {
   // Bait gets a DARK core (hollow "donut") — the only emission that does. Every
   // other pattern keeps the default white "hot disc" core (2.4): bait must read
   // as a DIFFERENT thing from danger, on top of the brightness/size banding.
-  fireRing(cx, cy, 3.6, quality < 0.75 ? 11 : 15, B.bulletSpeed * 0.8, b.c, b.s, 0x2a1020);   // denser = clearer circle
+  // Ring radius per-boss (default 3.6): a boss whose body grew (EITHERWING r9) makes the
+  // fixed ring read small + tight to thread, so it opts into a WIDER ring — still ≤ grazeR
+  // (≈4.15, which already folds in the bullet radius) so flying the centre skims the WHOLE
+  // ring and charges Surge, just with a roomier safe lane. Shipped bosses stay byte-identical.
+  const baitR = def.grazeBaitR ?? 3.6;
+  fireRing(cx, cy, baitR, quality < 0.75 ? 11 : 15, B.bulletSpeed * 0.8, b.c, b.s, 0x2a1020);   // denser = clearer circle
 }
 
 // A ring (circle outline) of bullets centred on (cx, cy) that closes straight in.
@@ -1506,7 +1602,7 @@ export function resetBoss() {
   clearSetpiece();
   // Release the cinematic entrance if we tore down mid-flythrough (game over during
   // the overtake): drop the slow-mo, the camera hijack, and the facing override.
-  cineYaw = null; cineSkip = false;
+  cineYaw = null; cineSkip = false; entranceId = null;
   releaseCineSlow();
   cameraCtl.setOvertake?.(null);
   model?.setEyeLock?.(false);
@@ -1575,6 +1671,11 @@ export function setBossDebugCharge(level) {
 // can be shot of e.g. the stooping-dive silhouette. Pass null to release.
 export function setBossDebugSetpiece(pin) {
   debugSetpiecePin = pin;
+}
+
+// Capture hook: pin an ENTRANCE pose at clock u∈[0,1] (the Baton Cross) for a still.
+export function setBossDebugEntrance(u) {
+  debugEntrancePin = u;
 }
 
 // Debug hook: drop straight into a fight (wired under ?debug in main.js).

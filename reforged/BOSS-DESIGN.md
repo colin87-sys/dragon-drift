@@ -234,7 +234,7 @@ safe-lane gates exactly once.
 | 2 | STORMREND | concentric rings | unblinking eye + blade rings | teal·gold·white / points+lines | side | shipped | —³ |
 | 3 | ASHTALON | winged pursuer (scythe-wing raptor) | never holds station — it hunts you | charcoal·ember / one molten SLIT | behind, overtakes | claimed (replaces retired CRAGHOLD¹) | —³ |
 | 4 | MARROWCOIL | segmented skeleton (bone dragon) | fly-through ribcage + skull lure | bone-white·void·ice-blue / ring-aperture + pinpoints | below (new) | claimed (absorbs VESPERCOIL²) | **rib-slam ambers → ORGAN BREAK** (Colossi debut): parry a rib-slam's ambers N× → that rib CRACKS, its pattern component deleted (reused at 5 on the eye-holder) |
-| 5 | EITHERWING | twin bodies | one eye passed between two | oxblood·aged-silver / single point | both sides | open | — |
+| 5 | EITHERWING | twin bodies | one eye passed between two | oxblood·aged-silver / single point | both sides (new) | claimed | **eye-holder's amber volley → ORGAN BREAK** (Colossi reuse): parry the holder's amber volley 3× mid-possession → the handoff STAGGERS, the eye DROPS to the thread midpoint for a 2.5s bonus-damage window |
 | 6 | HOLLOWGATE | architecture with a void | rose-window face | ivory·stained-glass / leaded field (VALUE-INVERTED: near-white) | static-ahead | open | — |
 | 7 | THRUMSWARM | stippled swarm | condenses into YOUR dragon | void-black·star-white / scattered points | condenses | open | — |
 | 8 | BRINEHOLM | bottom-anchored ridge | the surfacing whale-eye | kelp-black·abalone / iridescent sheen | below-horizon | open | — |

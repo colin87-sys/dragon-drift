@@ -198,8 +198,11 @@ body.app-loaded > canvas { opacity: 1; }
 /* Boss callout slot — ONE bottom-centre line, shows a single queued message at a
    time (never overlapping) and doubles as the persistent SURGE-READY prompt.
    Sits low where the eye rests during a fight, clear of the top HUD. */
-.boss-note { position: fixed; left: 0; right: 0; bottom: 22%; text-align: center;
+.boss-note { position: fixed; left: 0; right: 0; bottom: 28%; text-align: center;
   pointer-events: none; opacity: 0; z-index: 45; transition: opacity 0.22s ease; }
+/* Keep the (often two-line, wide) tutorial subtitle from sprawling under the
+   lower-right spell card — bounded + centred so the two never read as one clutter. */
+.boss-note .bn-main, .boss-note .bn-sub, .boss-note .bn-ready { max-width: 88vw; margin-left: auto; margin-right: auto; }
 .boss-note.show { opacity: 1; }
 .boss-note .bn-main { display: block;
   font: 900 clamp(22px,6.5vw,44px)/1.05 'Russo One', system-ui, sans-serif;

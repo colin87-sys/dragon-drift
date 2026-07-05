@@ -73,10 +73,10 @@ on('rushClear', (e) => { rushClear = e; });
 
 let t = 0;
 // Frame budget: ~80s/boss + breathers. Raised 260→320s when CRAGHOLD (boss 3)
-// joined; raised 320→440s when MARROWCOIL (boss 4) joined — its higher hp (300)
-// + moving-station setpieces run ~100s in the gauntlet, and the 3-boss gauntlet
-// already ran ~251s against the old cap.
-for (let i = 0; i < 60 * 440 && !rushClear; i++) {
+// joined; raised 320→440s when MARROWCOIL (boss 4) joined; raised 440→640s when
+// EITHERWING (boss 5, the Colossi PEAK) joined — hp 330 + the figure-eight
+// moving-station runs ~120s solo, so the 5-boss gauntlet clears well past the old cap.
+for (let i = 0; i < 60 * 640 && !rushClear; i++) {
   const dt = 1 / 60;
   t += dt;
   player.dist += CONFIG.BOSS.cruiseSpeed * dt;     // forward flight crosses the boss/breather marks
