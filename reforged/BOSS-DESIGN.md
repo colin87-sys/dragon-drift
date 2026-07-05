@@ -298,14 +298,14 @@ safe-lane gates exactly once.
 
 | # | Working name | Silhouette family | Hook | Palette (hue·value·glow-shape) | Approach | Status | Parry job (§5i.C) |
 |---|---|---|---|---|---|---|---|
-| 1 | VOIDMAW | shattered mask | hollow sockets + broken horn/halo | violet·ember·white / points | behind | shipped | —³ |
+| 1 | VOIDMAW | shattered mask (dead STONE — keep distinct from BRINEHOLM's living wet head, slot 8) | hollow sockets + broken horn/halo | violet·ember·white / points | behind | shipped | —³ |
 | 2 | STORMREND | concentric rings | unblinking eye + blade rings | teal·gold·white / points+lines | side | shipped | —³ |
 | 3 | ASHTALON | winged pursuer (scythe-wing raptor) | never holds station — it hunts you | charcoal·ember / one molten SLIT | behind, overtakes | claimed (replaces retired CRAGHOLD¹) | —³ |
 | 4 | MARROWCOIL | segmented skeleton (bone dragon) | fly-through ribcage + skull lure | bone-white·void·ice-blue / ring-aperture + pinpoints | below (new) | claimed (absorbs VESPERCOIL²) | **rib-slam ambers → ORGAN BREAK** (Colossi debut): parry a rib-slam's ambers N× → that rib CRACKS, its pattern component deleted (reused at 5 on the eye-holder) |
 | 5 | EITHERWING | twin bodies | one eye passed between two | oxblood·aged-silver / single point | both sides (new) | claimed | **eye-holder's amber volley → ORGAN BREAK** (Colossi reuse): parry the holder's amber volley 3× mid-possession → the handoff STAGGERS, the eye DROPS to the thread midpoint for a 2.5s bonus-damage window |
 | 6 | HOLLOWGATE | architecture with a void | rose-window face | ivory·stained-glass / leaded field (VALUE-INVERTED: near-white) | static-ahead | shipped | **pane-radial ambers → PANE BREAK** (Calamities ORGAN-BREAK reuse): parry a lit pane's amber volley 3× → that pane CRACKS and its radial component is deleted from the composite (rides the §5f destructible-pane plumbing — parry and gunfire sculpt the same window) |
 | 7 | THRUMSWARM | stippled swarm | condenses into YOUR dragon (side-profile copy) | void-black·star-white + amber focal-eye / scattered points | condenses | shipped | **queen's amber-eye volley → SCATTER STAGGER** (Calamities): parry the eye's amber volley 3× → the queen recoils, the swarm can't re-condense for a 2.5s bonus-damage window (the condensed weak-point stays exposed — parry answers the same condense/scatter puzzle read the fight is built on) |
-| 8 | BRINEHOLM | colossal leviathan head + maw | the one surfacing eye (a bound drowned god's face) | kelp-black·abalone / bioluminescent gullet | below-horizon (head lunges up) | claimed | **shackle-strain ambers → SHACKLE BREAK** (Calamities ORGAN-BREAK reuse + mercy mechanic): parry a snout shackle post's amber strain-volley 3× → that post SNAPS, vents a 2× pink SPRAY-SOAK graze beat, and frees it EARLY — softening phase 3 (rides the §5f destructible per-part plumbing — parry and gunfire unbind the same post) |
+| 8 | BRINEHOLM | colossal leviathan head + maw (living/wet — NOT Voidmaw's dead mask) | the one surfacing eye — you fight the FACE, never the body | kelp-black·abalone / bioluminescent gullet + one white eye-point | below-horizon (the head lunges up through the fog) | claimed | **shackle-strain ambers → SHACKLE BREAK** (Calamities ORGAN-BREAK reuse + mercy mechanic): parry a snout shackle post's amber strain-volley 3× → that post SNAPS, vents a 2× pink SPRAY-SOAK graze beat, and frees it EARLY — softening phase 3 (rides the §5f destructible per-part plumbing — parry and gunfire unbind the same post) |
 | 9 | KARNVOW | slender vertical duelist | trophy-chain of earlier bosses' scars | tarnished-iron·trophy glints | alongside | open | — |
 | 10 | KNELLGRAVE | hanging pendulum | bound figure as the clapper | patina-copper·candle / vertical slit | pre-heard, fades in | open | — |
 | 11 | WEFTWITCH | radial limbs + threads | visibly re-weaves the arena | moth-grey·rose / taut lines | above (new) | open | — |
@@ -623,27 +623,51 @@ feasibility survey: at rel 30, on-screen centers within x ±15 / y 2..22 on port
   station ring; title card; ostinato opens. Do NOT live-mirror input here — the copy holds
   a neutral glide (the ring-buffer payoff belongs to its *Your Own Wings* card). Skip
   clamps the formation lerp to the ring or the settle pops.
-- **8 BRINEHOLM** — never fully on screen: whale-back ridge = ONE long low-facet hull
-  (~24 units, 8 radial facets) spanning the frame bottom; 4 fin-sails (flat tapered
-  extrudes) rising/falling on pivots; THE EYE: 3-unit HDR hemisphere + iris ring + heavy
-  stone lid that surfaces for weak-point windows; broken shackle posts + snapped chain
-  tori along the ridge. Geyser curtains rise from below-frame (off-rel spawns). Kelp-black
-  0x0c1210 / abalone 2-tone emissive banding / white eye. ~3k tris. NEEDS: below-horizon
-  rise + widened bullet cull bounds (§5e).
-  ENTRANCE (§5j *The Reef Was Breathing*, hijack ≤3s @0.35 — spends the roster's ONE
-  environment-wakes archetype): the crest tease starts AT WARN behind a scoped sub-rig
-  exemption to the group gate (crest only): a kelp-black facet ridge slides into
-  frame-bottom-right paralleling the lane just above the fog, lifting ~0.6m and settling
-  every few seconds, synced to tidal-drone swells driven off the `bossStart` emit. Dragon's
-  head turns down-toward-it; rider: "That reef is keeping pace." Honest bottom banner —
-  the dragon reacted FIRST. Fight start: `setOvertake` slews low across the wing as the
-  24-unit hull INHALES up through the fog floor (start deepened to y≈−14), fin-sails
-  unfolding bow-to-stern, banding lighting in a wave; the crest exits frame-top — it never
-  fits. Mid-rise the ascent HOLDS one fixed ~0.4s u-segment as the dragon's shadow crosses
-  it (the canon hesitation). The eye stays SUBMERGED — a pale glow at the bow; the lid
-  grinds and the iris LOCKS once at settle (no continuous tracking). Rider lore line on a
-  shackle-post flypast: "Same forge as the hunter's chains." Rush re-entry degrades to
-  spawn-at-warn gracefully; the crest stays lane-adjacent, never under the rail.
+- **8 BRINEHOLM** — **SILHOUETTE TRANSLATION (§3b, r-pass 2026-07, L150 — supersedes the
+  rejected island-back ridge, which read as a battleship):**
+  - *Reads as:* a colossal deep-sea leviathan's head lunging up out of the fog.
+  - *Carrying cues (must reach the outline):* (1) the gaping MAW across the lower third — a
+    hard jagged jawline; (2) the one heavy-lidded EYE under a jutting brow (the focal); (3) the
+    vertical UPWARD thrust of the head breaking the fog, one snapped chain across the snout (scar).
+  - *Anti-reads:* NOT a ship/terrain (no horizontal lit line anywhere — the mass is vertical);
+    NOT Voidmaw's mask (must be WET, fleshy, breathing — a living eye + a working maw, never a
+    dead stone face with hollow sockets); NOT a generic dragon head (kelp-black + abalone
+    bioluminescence in the gullet + barnacles + binding chains = a BOUND deep-sea leviathan).
+  - *Lit-edge plan:* abalone glow INSIDE the maw + along the gill rakes; the white-hot eye is
+    the one focal. NO level horizontal line anywhere (that was the rejected waterline).
+  - *Scale target:* the head fills the frame vertically at fight distance; the body is NEVER
+    shown (arena-scale implied — the never-fits requirement, now native).
+  - *Home backdrop:* dark.
+
+  **Geometry:** a titanic HEAD breaching straight up through the fog — you fight the face; the
+  body never appears. Skull mass = a heavy deformed sphere/box-blend with a jutting BROW shelf;
+  the MAW = upper + lower jaw on a named `jawPivot` (the telegraph), jagged teeth (cone/wedge
+  silhouette) along the bite line, a bioluminescent abalone GULLET glowing inside (the lit-edge
+  identity — never a flank stripe); GILL RAKES down each side (raked slits, abalone-lit, flare
+  on breath); BARNACLE clusters breaking the brow/crown edge (organic top silhouette); a
+  BLOWHOLE vent behind the brow that SPOUTS a mist plume on the tidal-drone beat (the positive
+  "leviathan" signal + a rhythm tell). THE EYE (reuse the proven assembly — socket → sclera →
+  iris ring → pupil → catchlight → heavy brow-LID that grinds up/down): ONE eye seated under the
+  brow, the sole white-hot focal, surfaces for weak-point windows (chip only while the lid is
+  open). CHAINS: shackle posts + snapped chain tori binding the JAW/snout (destructible —
+  freeing softens phase 3; one snapped chain across the snout = the asymmetric scar). Kelp-black
+  0x0c1210 body / abalone 2-tone emissive (gullet + gill rakes ONLY) / white eye. NO horizontal
+  banding. Wet specular skin so it reads ALIVE, not stone. def.scale sized so the head spans the
+  portrait vertically. ~4–5k tris (Calamities cap 14k). REUSES: the eye assembly + chain/shackle
+  destructible + geyser system from the r0 build; jawPivot precedent (marrowcoil). NEEDS:
+  below-horizon rise + widened bullet cull bounds (§5e).
+  ENTRANCE (§5j *The Reef Was Breathing*, hijack ≤3s @0.35 — the roster's ONE environment-wakes
+  archetype, now paying off harder): the tease at WARN (scoped sub-rig exemption to the group
+  gate) is a barnacled kelp-black hump sliding into frame-bottom just above the fog, reading as a
+  REEF/rock — the dragon's head turns toward it; rider: "That reef is keeping pace." Honest
+  bottom banner — the dragon reacted FIRST. Fight start: the "reef" INHALES and LUNGES up through
+  the fog floor (start deepened to y≈−14) — the terrain was a HEAD; the maw yawns, gill rakes
+  light in a wave; the crown exits frame-top — it never fits. Mid-lunge the rise HOLDS one fixed
+  ~0.4s u-segment (the canon hesitation — it considers you). The eye stays SUBMERGED — a pale
+  glow below the fog — then the brow clears and the lid grinds open + LOCKS once at settle (no
+  continuous tracking). Rider lore line on a shackle flypast: "Same forge as the hunter's
+  chains." Rush re-entry degrades to spawn-at-warn gracefully; the head stays lane-adjacent on
+  the tease, never under the rail.
 - **9 KARNVOW** — vertical figure ~9 tall: hooded cowl (tapered extrude) whose face is an
   EMPTY VOID with one cold glint deep inside (no face — the anti-mask); pauldrons; lance =
   Voidmaw's snapped-horn geometry (same tube-taper kernel, violet-scarred); trophy chain

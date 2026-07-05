@@ -88,10 +88,12 @@ measurable ones, the gate (§8) judges the rest in pixels.
    | line | accent hex | hue | carrier |
    |---|---|---|---|
    | azure | `0xd9b36a` gold | ~39° | DIFFUSE tip-paint ONLY — zero accent emissive on wings |
-   | ember | `0xff8b2a` lava | ~27° | EMISSIVE ONLY on a near-black body — zero warm accent diffuse |
+   | ember | `0xff8b2a` lava | ~27° | ICONIC FLAME — a BOLD warm-orange body + light cream belly; lava emissive on the ray tubes + collar + a lit spine/tail + glow-seams (human art-direction, "think Charizard"; supersedes the old near-black/emissive-only spec). Wing MEMBRANE stays dark-warm so the glowing rays read AS fire through it |
    | jade  | `0xeafff4` cool pearl | ~149° | rim gradient + pearl glow — iridescent-cold, never warm |
-   Azure and ember are 12° apart in hue; the carrier rule (diffuse-only vs
-   emissive-only) is what separates them — §7 asserts it.
+   Azure (COOL body, diffuse gold tips) and ember (WARM flame body) are 12° apart
+   in HUE but opposite in value/temperature — that separation is the read. §7
+   still asserts ember's wing membrane stays dark (the glowing rays carry the fire,
+   not a toy-bright sheet).
 10. **Life over symmetry.** Perfect L/R pose symmetry in idle reads dead —
     the flap rig's phase/lag already breaks it; keep it. NO scar law for
     player dragons: distinctness comes from design, never from damage.
@@ -214,7 +216,7 @@ change them.
 | Silhouette primitive | △ swept arrow/dart | □ anvil/block masses | ○ flowing S-ribbon |
 | Wing architecture (HERO) | **swept blade-feather comb** (§3 col 1): stiff falcon PRIMARIES, straight taut leading edges (`feather` lineage + ASHTALON comb lessons — CONSTRUCTION only: separation/z-stagger/value-tiers/taper. Do NOT copy its scythe SHAPE language: no hooked crescents, no villain silhouette — azure's blades are straight-edged falcon feathers, a hero read) | **broad-chord ember membrane** (§3 col 2): gapped finger rays through dark membrane (`skinnedMembrane`/`nightFuryWings` lineage) | **silk fin sails** (§3 col 3): tall overlapping koi-fin lobes + trailing streamers (`seraphWing` chord logic + `sideFins`; `plume` TAIL builder is streamer INSPIRATION only) |
 | Motif (fixed anchor, blooms 0.3→0.6→1.0) | **brow crest** (head, gold-tipped): single feather-nub → 3-blade swept crest fan | **forge collar** (nape/wing-root yoke — rear-visible): two dull coals between the wing roots → glowing collar arc → blazing yoke with 6-spike corona | **chin pearl** (jaw) + lockstep rear carrier: pearl bead → held pearl → luminous river-pearl cradled by whiskers, with a pearl rim gradient on the rear lobe tips + tail-veil edge blooming in step |
-| Accent (law 9 table) | gold `0xd9b36a`, diffuse tips only | lava `0xff8b2a`, emissive only | cool pearl `0xeafff4`, rim/pearl |
+| Accent (law 9 table) | gold `0xd9b36a`, diffuse tips only | lava `0xff8b2a` on a BOLD warm FLAME body + cream belly (iconic-flame, §5d) | cool pearl `0xeafff4`, rim/pearl |
 | Eye character | bright, alert, round→keen | small, hot, deep-set | calm, long, painterly |
 | Stats/fx (unchanged) | 1.0 across; aura `142,213,255` | speed 1.04, handling 1.06, drain 0.95, regen 1.05; aura `255,139,42` | speed 1.07, handling 1.11, drain 0.9, regen 1.1; aura `121,226,183` |
 
@@ -226,9 +228,11 @@ instantly tellable from its nearest ROSTER neighbors — azure vs `phoenix` +
   edges (phoenix = soft layered warm feathers); crest ≤3 blades (phoenix =
   flame crown); forked banner tail (phoenix = plume ribbons); ZERO warm glow
   on feathers — gold stays diffuse tip-paint.
-- ember vs `fire` (Cinderwing owns the tail-bulb motif and the Cinder- name
-  root): ember's motif is the FORGE COLLAR at the yoke — no tail glow at all;
-  ember's tail ends in a dark iron tip.
+- ember vs `fire`: MOOT — `fire` (Cinderwing, a failed test starter) is being
+  retired, so ember freely owns the flame identity. Ember still reads distinct by
+  BODY PLAN (anvil bruiser) + the gapped-finger membrane wing silhouette + the
+  forge-collar bloom, not by avoiding warm color. (If `fire` is not removed, the
+  two overlap on palette only — differentiate on silhouette.)
 - ember vs toothless: true V-gaps ≥0.15× span at the outer two rays
   (toothless is a continuous scalloped web, no through-gaps); chord ≥1.3×
   toothless's.
@@ -307,27 +311,40 @@ land with the first slot that hits them.
   levers, and `?cleanshot` — use them, don't rebuild them.
 
 ### EMBER — "Ember Wyrm" (slot B) — branch `claude/ember-rebuild`
-- **Torso** `arrow` broadened (`shoulderWidthScale` ~1.4) or `hullTorso`:
+**PALETTE DIRECTION: ICONIC FLAME (human art-direction, "think Charizard").** This
+supersedes the original near-black coal / emissive-only / no-tail-glow spec below.
+Ember is a BOLD warm-orange flame dragon with a light cream belly, a lit spine/tail,
+and glowing lava-crack seams. The GEOMETRY (anvil body, gapped-finger membrane wings,
+feralPredator head, forge collar) is unchanged — only the palette + flame signatures.
+Colours that landed (approved): body ramp `0xf2a24e`→`0xe8792e`→`0xdd5a1c` (light→rich,
+warm orange), belly cream `0xf7dca6`→`0xf2ce92`→`0xf0c888`, warm dark-red membrane
+(`membraneBase 0x4a1a0c`) so the glowing rays read AS fire, cream scutes/horns.
+- **Torso** `arrow` broadened (`shoulderWidthScale` ~1.4–1.8) or `hullTorso`:
   anvil shoulders (the tier-0 silhouette key: shoulder width ≥1.25× azure's
-  hatchling), thick short neck. Body VALUE ramps per form with the hue anchor
-  constant (law 9): form 0 `0x4f3527` → form 1 `0x2f1a10` → apex `0x1c0d08`.
-  Top diffuse tier: warm ash-scute `0x5a4038` on shoulder tops, spine ridge
-  and leading spar — the sunlit dorsal needs a real tier to shade (law 11).
+  hatchling), thick short neck. Body VALUE ramps per form (light hatchling →
+  rich apex) on the held warm-orange hue (law 9); cream belly two-tone. Top tier:
+  warm cream-ash scutes on the spine ridge + a lit ember leading spar.
 - **Wings (hero)**: new/extended `emberMembraneWings` per §3 col 2. Thick
   beveled leading spar + propatagium fillet; 4 finger rays as REAL tapering
   tube geometry (~0.82 per-digit scale) with raised ribs; membrane panels
   with scallops 0.22–0.30 and true V-gaps ≥0.15× span at the outer two rays;
-  membrane `0x2a1208` dorsal / `0x180a06` ventral. Ember gradient toward the
-  rays as per-vertex EMISSIVE on the ray tubes only (panels stay dark),
-  intensity ≤1.2 (`fire.tailBulb` level) — glowSeams is premium-only (law
-  12), do not use it. Broad chord: span 2.5–2.9× with area at the top of the
-  band. Motion: skinned `wingRigL/R` + `flapWing` (nightFury pattern).
+  warm dark-red membrane (`membraneBase 0x4a1a0c`, held dark so it never reads
+  toy-bright — §7 asserts this) with a per-vertex EMISSIVE gradient on the ray
+  tubes (leading ray brightest → trailing dim, ≤1.2) so the glowing rays read AS
+  FIRE through the membrane. glowSeams (lava-crack seams) is SANCTIONED for
+  ember's iconic-flame identity (a human-directed exception to the law-12 starter
+  ceiling). Broad chord: span 2.5–2.9× with area at the top of the band. Motion:
+  the whole membrane rides ONE static hand group under the shoulder (never split
+  across an articulated joint — L162); `wingRigL/R` + `flapWing`, fold via the
+  shoulder-yaw furl.
 - **Head** `draconic` with `headArchetype: 'feralPredator'` (heavy brow via
   `browIntensity`, small deep-set hot eyes; `horned` is OUT — it ignores
   `headScale` and has no snout dial); 2 horn pairs at apex.
-- **Tail**: short, thick, DARK IRON TIP — no tail glow (that is `fire`'s
-  signature; roster law §5). Tail builder `clean`, `tailStyle` simple →
-  simple → blade.
+- **Tail**: short, thick, with a LIT FLAMING SPINE (a glowing warm tail via
+  `spineGlow`, not a dark iron tip — the old no-tail-glow rule is retired with
+  `fire`). Tail builder `clean`, `tailStyle` simple → simple → blade. (A literal
+  Charizard flame-*tip* was offered and declined — the lit-spine read is the
+  approved look.)
 - **MOTIF — forge collar** at the nape/wing-root yoke (rear-visible every
   frame of play): form 0 = two dull coals between the wing roots (emissive
   ~0.35 — with the warm belly underglow this keeps the hatchling from
@@ -480,10 +497,11 @@ the §4 defaults, via a small per-dragon spec table in the test:
   motif bounding volume monotonic increasing.
 - Tri budget per form within sheet targets ±20% and under the 6,000 ceiling
   (`tricount` remains the hard gate).
-- Palette: ≤3 base diffuse hues + ≤1 emissive accent per form (azure's
-  accent is diffuse-only — zero is correct for it); accent hue within ±20°
-  of `def.accentHue`; carrier rule (azure: no accent-hued emissive on wings;
-  ember: no warm accent diffuse; jade: accent cool, ~149°±20°).
+- Palette: accent hue within ±20° of `def.accentHue`; carrier rule (azure: no
+  accent-hued emissive on wings; ember [ICONIC FLAME]: the wing MEMBRANE diffuse
+  stays dark-warm — L≤0.22 — so the glowing rays carry the fire, not a toy-bright
+  sheet [the old "no warm accent diffuse on the body" rule is retired — the body
+  is now bold warm flame]; jade: accent cool, ~149°±20°).
 
 ## §8 The gate protocol (aesthetics gate — the reason this rebuild exists)
 

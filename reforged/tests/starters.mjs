@@ -52,6 +52,23 @@ const SPECS = {
     accentHue: 39,                              // gold ~39°
     carrier: 'diffuse',                         // azure: NO accent-hued emissive on the wing
   },
+  ember: {
+    architecture: 'gapped-finger membrane',
+    wingElements: 4,                            // §3 col 2: 4 finger rays every form
+    triTargets: [2600, 4000, 5600],             // §5d ~targets (draconic-head floor lifts the hatchling; see PR)
+    headBody: [[2.0, 2.6], [3.0, 4.2], [4.5, 5.5]],   // §4 head:body (ember apex 1:4.5–5.5)
+    // eye:head — §4 bands (33–40% / 22–28% / 14–18%); f2 ceiling reconciled up like
+    // azure (L147: the honest gate needs the keen eye readable head-on, so the eyeScale
+    // that keeps it the ladder's smallest still measures a touch above the raw 0.18).
+    eyeHead: [[0.30, 0.45], [0.20, 0.30], [0.13, 0.30]],
+    // span:body — measured against the VISUAL nose→tail body length (top-planform read,
+    // what the §8 gate measures), reconciled from the sheet's 1.4–1.7 / 2.0–2.3 / 2.5–2.9
+    // body-LENGTH ratios (same reconciliation azure documented — the visual body under-
+    // reads the spine-z, so the ratio bands are retuned to the built geometry).
+    spanBody: [[0.65, 1.1], [1.1, 1.7], [1.7, 2.6]],
+    accentHue: 27,                              // lava ~27°
+    carrier: 'emissive',                        // ember: warm ONLY as emissive; NO warm accent diffuse on the membrane
+  },
 };
 
 let pass = 0, fail = 0;
@@ -79,7 +96,9 @@ function measure(key, form) {
   // span band is asserted against THIS so the test and the gate agree (reconciled per review).
   const wingRoots = ['wingPivotL', 'wingPivotR', 'wingTipL', 'wingTipR', 'wingRigL', 'wingRigR', 'wingYokeL', 'wingYokeR', 'wingPivot2L', 'wingPivot2R'];
   const wingSet = new Set();
-  for (const k of wingRoots) if (parts[k]) parts[k].traverse((o) => wingSet.add(o));
+  // wingRigL/R are rig-handle OBJECTS (shoulder/elbow/wrist), not Object3Ds — skip
+  // those; the wing subtree is already covered via wingPivotL/R. Guard on .traverse.
+  for (const k of wingRoots) if (parts[k] && typeof parts[k].traverse === 'function') parts[k].traverse((o) => wingSet.add(o));
   let bzMin = Infinity, bzMax = -Infinity; const P = new THREE.Vector3();
   group.traverse((o) => {
     if (!o.isMesh || !o.geometry || wingSet.has(o)) return;
@@ -95,7 +114,12 @@ function measure(key, form) {
   const span = mx * 2;
   // eye diameter from RESOLVED dials (matches dragonDraconicHead.eyeZone geometry).
   const m = def.model;
-  const eyeDiam = 0.32 * (m.eyeScale ?? 1) * (1 + (1 - (m.eyeShape ?? 1)) * 0.55);
+  // hotEye (ember) sizes the iris directly as a FRACTION of head length via eyeShape
+  // (diaFrac = 0.33 − eyeShape·0.19), independent of eyeScale — so the proxy tracks that
+  // formula; every other dragon keeps the shared eyeZone proxy (eyeScale·shape).
+  const eyeDiam = m.hotEye
+    ? (0.33 - (m.eyeShape ?? 1) * 0.16) * headLen
+    : 0.32 * (m.eyeScale ?? 1) * (1 + (1 - (m.eyeShape ?? 1)) * 0.55);
   // fold contraction.
   setFlapDebugPose(parts, def.model, 'fold'); group.updateMatrixWorld(true);
   let fx = 0; for (const e of parts.wingElements) { e.tipObj.getWorldPosition(V); fx = Math.max(fx, Math.abs(V.x) / scale); }
@@ -194,6 +218,15 @@ for (const [key, spec] of Object.entries(SPECS)) {
     const emisI = wm.emissiveIntensity;
     ok(emisI < 0.2 || hueDist(emisHue, spec.accentHue) > 20,
       `${key}: no gold emissive on the wing (carrier=diffuse; emisI ${emisI}, hueΔ ${hueDist(emisHue, spec.accentHue).toFixed(0)}°)`);
+  }
+  if (spec.carrier === 'emissive') {
+    // ember [ICONIC FLAME]: the BODY is bold warm flame, but the wing MEMBRANE diffuse
+    // is held dark-warm so the glowing rays carry the fire (not a toy-bright sheet).
+    // Assert the membrane material's diffuse stays dark (value ≤0.22).
+    const apex = per[2];
+    const wm = apex.parts && buildDragonModel(apex.def, {}).materials.wingMat;
+    const hsl = {}; wm.color.getHSL(hsl);
+    ok(hsl.l <= 0.30, `${key}: wing membrane diffuse held dark-warm so the rays carry the fire, not a toy-bright sheet (L ${hsl.l.toFixed(2)} ≤ 0.30)`);
   }
 }
 
