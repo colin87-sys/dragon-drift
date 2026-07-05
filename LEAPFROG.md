@@ -6486,3 +6486,39 @@ KS is deterministic + pitch-cached — catchable in node without a browser.
 pluck→celtic/world), then the big one still queued: the **section-graph composition engine** (song
 structure over the loop-wrap rebuild) — the last major listenability unlock, and the highest-blast-radius
 edit (scheduler surgery), so it goes on top of this proven timbre layer, hero-first.
+
+### L154 — Audio overhaul IV: the section-graph composition engine — song STRUCTURE over the 8-bar loop, hero-first
+
+**Did.** Wired the composition engine (composer.js, committed inert in L-prev) into the live scheduler so a
+station with a `form` plays as a SONG, not an infinite 8-bar loop. `compileTrack` gained a `section` param:
+variable `bars` (melodic events filtered to the section length; the per-bar arp/pad/drum loop bounded by
+`bars`), `mute` (strip layers — drop the bassline + kick for a breakdown), `energy` (scale percussion
+velocity hard + tonal velocity gently), and `riser`/`crash` specials. `buildEvents` resolves the section
+from a `formPass` cursor; the scheduler wrap advances `formPass` alongside `loopCount` and rebuilds, so each
+loop-wrap plays the NEXT section — `loopOffset += LOOP_LEN` uses the JUST-PLAYED section's (variable) length,
+then buildEvents sets the next. `formPass` resets with `loopCount` on start/retune. New `riser` voice
+(band-passed noise sweeping up + swelling). Hero: **neon** (bigroom) → a 44-bar form `A A bld drop brk bld
+drop drop` (breakdown→build→riser→drop arc). Legacy stations resolve the implicit base section → byte-identical.
+
+**Learned / the load-bearing gotchas.**
+- **Variable-length wraps are the whole risk** (both design judges flagged the scheduler surgery). The fix is
+  ordering: `loopOffset += LOOP_LEN` must run BEFORE `formPass++`/`buildEvents()`, because module `LOOP_LEN`
+  still holds the section that just finished; buildEvents then overwrites it with the next section's length.
+  Get this backwards and the grid drifts every wrap.
+- **Calibrate a form station on its MAIN BODY, not the whole song.** First cut had loudshots render the full
+  form (walk all sections) — musically wrong (breakdowns are RELATIVELY quieter by design; averaging them in
+  drags the trim) AND far too slow (a 44-bar render ≈ 90s audio ≈ 3+ min offline — unusable in a per-station
+  gate). Split it: `renderStation({walkForm})` — measurement renders the BASE section only (fast, and section
+  A is unchanged by the form so a form adds ZERO trim drift → the gate holds with no re-bake); the BOUNCE
+  walks the whole form (the exported single is the real song). This is the key architectural correction.
+- **Muting is event-level, gain is real-time.** Section `mute` drops a layer by not emitting its events;
+  `music.update`'s combo-driven gain on that layer is then moot (no events → silent). No collision, no new
+  control surface. Clean.
+- **Semantic CI gate:** `validateForm` (in the track gate) rejects missing sections, unknown fields,
+  out-of-range energy, AND a form with no dynamic range (max-min energy < 0.15) — "a form where every section
+  is full energy is just a long loop." Mechanizes the "no dynamics" smell.
+
+**Next.** Author forms for more heroes per genre (trance/synthwave drops, a lofi `periods`-style non-form for
+ambient), then the refinements the plan still lists: gameplay VOTING on transitions (fever holds the drop;
+death forces a breakdown) with a one-bar decision deadline inside the lookahead window, motif development
+(sequence/inversion transforms), and per-form-pass ornament reseeding for super-loop freshness.
