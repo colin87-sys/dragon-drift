@@ -37,6 +37,8 @@ let wingPivot2L = null;
 let wingPivot2R = null;
 let wingRigL = null;  // skinned-wing flap rigs (shoulder/elbow/wrist), null otherwise
 let wingRigR = null;
+let wingBladePivotsL = null;  // blade-feather comb per-blade lag pivots, null otherwise
+let wingBladePivotsR = null;
 let glbAnim = null;   // { mixer } for an asset-backed (GLB) dragon, null otherwise
 let head = null;
 let tailSegs = [];
@@ -159,6 +161,8 @@ export function createDragon(scene, def, riderDef) {
   wingYokeR = result.parts.wingYokeR || null;
   wingRigL = result.parts.wingRigL || null;
   wingRigR = result.parts.wingRigR || null;
+  wingBladePivotsL = result.parts.wingBladePivotsL || null;
+  wingBladePivotsR = result.parts.wingBladePivotsR || null;
   tailFins = result.parts.tailFins || [];
   spineSegs = result.parts.spineSegs || [];
   bodySegs = result.parts.bodySegs || null;
@@ -706,6 +710,16 @@ export function updateDragon(dt, player, time) {
     wingTipL.rotation.z = damp(wingTipL.rotation.z, -Math.sin(phase + 1.18) * 0.28 + turnBias * 0.45, 12, dt);
     wingTipR.rotation.x = damp(wingTipR.rotation.x, -0.12 + feather * 0.16, 10, dt);
     wingTipL.rotation.x = damp(wingTipL.rotation.x, -0.12 - feather * 0.16, 10, dt);
+  }
+  // Per-blade LAG (blade-feather comb): each feather trails the beat a beat behind
+  // (ASHTALON covert pattern), the lag deepening outward. Additive + nullable.
+  for (const arr of [wingBladePivotsR, wingBladePivotsL]) {
+    if (!arr) continue;
+    for (const b of arr) {
+      const fr = arr.length > 1 ? b.idx / (arr.length - 1) : 0;
+      const sw = Math.sin(phase - 0.5 - fr * 0.9) * (0.05 + 0.09 * fr);
+      b.pivot.rotation.z = damp(b.pivot.rotation.z, b.side * (0.02 + 0.10 * fr) + sw, 12, dt);
+    }
   }
   // Per-form head wobble (Mk II): the baby's head bobbles with the frantic flap; the
   // Eternal's is dead-still (headWobbleScale 0). Mk II-only (undefined elsewhere).

@@ -25,6 +25,35 @@ import { composeSurface, fresnelRimPatch, buildSurfacePatches } from './dragonSu
 // The clean tail's geometry (buildCleanTail) lives here; the shape PRIMITIVES it
 // builds from (fork/blade/spade outlines, layered fins) stay in dragonParts.js.
 
+// A swept forked-banner (swallowtail) membrane laid flat at the tail tip, pointing
+// back (+z), with DIFFUSE gold tips painted per-vertex (law-9 carrier — no emissive
+// on the azure accent). Reuses buildForkShape for the outline. `spread`/`length`/
+// `notch` size the swallowtail; a fork HINT is small, the apex banner is large.
+function buildForkedBanner(def, spread, length, notch) {
+  const geo = new THREE.ShapeGeometry(buildForkShape(spread, length, notch), lod(8));
+  geo.rotateX(Math.PI / 2);                         // lay flat, fork points back (+z)
+  // paint: dark sky root → gold outer tips (the last third along +z)
+  geo.computeBoundingBox();
+  const { min, max } = geo.boundingBox;
+  const z0 = min.z, span = (max.z - min.z) || 1;
+  const pos = geo.attributes.position;
+  const base = new THREE.Color(def.wingOuter ?? def.body ?? 0x2f5d84);
+  const gold = new THREE.Color(def.accentHue ?? 0xd9b36a);
+  const c = new THREE.Color(), col = [];
+  for (let i = 0; i < pos.count; i++) {
+    const t = (pos.getZ(i) - z0) / span;
+    c.copy(base).lerp(gold, t > 0.66 ? (t - 0.66) / 0.34 : 0);
+    col.push(c.r, c.g, c.b);
+  }
+  geo.setAttribute('color', new THREE.Float32BufferAttribute(col, 3));
+  const mat = new THREE.MeshStandardMaterial({
+    color: 0xffffff, vertexColors: true, roughness: 0.5, metalness: 0.08, side: THREE.DoubleSide,
+  });
+  const banner = new THREE.Mesh(geo, mat);
+  banner.position.set(0, 0.02, 0.05);
+  return banner;
+}
+
 // Old segmented tail: cone chain + a mace / fan / plain tip. Built in tail-local
 // space at its original absolute z so it renders exactly as before.
 function buildLegacyTail(def, model, mats) {
@@ -462,11 +491,17 @@ export function buildCleanTail(def, model, bodyMat, swept = false) {
     point.rotation.x = Math.PI / 2;
     point.position.set(0, 0, 0.3);
     tip.add(point);
+    // AZURE forked-banner read (opt-in; shipped finned geometry untouched): a swept
+    // swallowtail membrane echoing the wing blades, DIFFUSE gold tips (law-9 carrier).
+    if (model.tailBannerFork) tip.add(buildForkedBanner(def, 0.62, 1.7, 0.7));
   } else {
     const point = new THREE.Mesh(new THREE.ConeGeometry(tipR + 0.03, 0.55, lod(6)), bodyMat);
     point.rotation.x = Math.PI / 2;
     point.position.set(0, 0, 0.28);
     tip.add(point);
+    // AZURE tier-0 fork HINT (opt-in; shipped simple tip cone untouched): a small
+    // forked tail-tip membrane — the hatchling silhouette key.
+    if (model.tailTipFork) tip.add(buildForkedBanner(def, 0.30, 0.66, 0.55));
   }
   root.add(tip);
   segs.push(tip);

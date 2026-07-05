@@ -412,7 +412,7 @@ export function buildDragonModel(def, opts = {}) {
 export function makePreviewTick(def, result) {
   const { group, parts, auraSprite } = result;
   const { head, tailSegs, wingPivotL, wingPivotR, wingPivot2L, wingPivot2R, wingTipL, wingTipR, wingRigL, wingRigR, wingMidL, wingMidR, wingYokeL, wingYokeR } = parts;
-  const { bodySegs, tailOrbiters } = parts;
+  const { bodySegs, tailOrbiters, wingBladePivotsL, wingBladePivotsR } = parts;
   const flapBias = def.model.flapBias || 1;
   const flapAmp = def.model.flapAmp ?? 1;
   const segLag = (def.model.segmentLag ?? 0.14) * 7;
@@ -484,6 +484,17 @@ export function makePreviewTick(def, result) {
         wingTipL.rotation.z = -Math.sin(phase + 1.18) * 0.34;
         wingTipR.rotation.x = -0.06 + feather;
         wingTipL.rotation.x = -0.06 - feather;
+      }
+    }
+    // Per-blade LAG (blade-feather comb): each feather trails the wingbeat a beat
+    // behind (ASHTALON covert pattern) — a subtle living ripple across the comb, the
+    // lag deepening outward. Additive + nullable (only bladeFeather wings publish it).
+    for (const arr of [wingBladePivotsR, wingBladePivotsL]) {
+      if (!arr) continue;
+      for (const b of arr) {
+        const fr = arr.length > 1 ? b.idx / (arr.length - 1) : 0;
+        const sw = Math.sin(phase - 0.5 - fr * 0.9) * (0.05 + 0.09 * fr);
+        b.pivot.rotation.z = b.side * (0.02 + 0.10 * fr) + sw;
       }
     }
     // Root-locked snake coil (x + y) so the tail stays attached and alive. A SKINNED
