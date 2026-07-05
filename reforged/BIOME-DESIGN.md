@@ -54,7 +54,9 @@ Verified against the code, 2026-07:
 - **A real paint bug compounds the Sanctuary/Wastes overlap:** the shared archetypes
   hardcode their material to Sanctuary verdigris — `build()` calls `mergeParts([...], 0)`
   (`js/environment.js:138,159,177`) — so columns/slabs/domes render verdigris even while
-  standing in the Amber Wastes. The archetype `matIndex` field is vestigial for these.
+  standing in the Amber Wastes. (The archetype `matIndex` field is dead metadata for ALL
+  archetypes — it is never read; every `build()` hardcodes the index it passes to
+  `mergeParts`. Don't assume it drives anything.)
 - Only **three truly bespoke features** exist: Caldera's rising embers
   (`ambient.fall: -2.2`, `js/biomes.js:92`), Astral's sky-whale (`whale: 1`,
   `js/biomes.js:120`), Sanctuary's gull flyby (`faunaFlyby: true`, `js/biomes.js:44`).
@@ -86,8 +88,9 @@ Verified against the code, 2026-07:
   `WALL_WINDOW = 900` (`:24`); instances outside their archetype's `biomes` whitelist
   are PARKED — scaled to ~0.0001 at y=-50 in `writeMatrix` (`:378`) but still submitted;
   `recycleBand` (`:392`) leapfrogs instances >100m behind to +900 ahead. `mergeParts`
-  (`:106`) merges an archetype to **at most 2 material groups** (a third mat silently
-  drops). `frustumCulled=false` is deliberate (bounding sphere at origin) — the correct
+  (`:106`) merges an archetype to **at most 2 material groups** (a part with `mat >= 2`
+  THROWS at build time — the cap is hard, not lossy). `frustumCulled=false` is
+  deliberate (bounding sphere at origin) — the correct
   per-band kill switch is `mesh.visible`, never frustum culling.
 - **There is no terrain.** The floor is the endless water plane (`js/water.js`), one
   shader in two variants (reflective / cheap), tinted per-frame via `setWaterTint`
@@ -113,7 +116,7 @@ Verified against the code, 2026-07:
   Tier 0 = full composer; tier 2 = composer OFF and `updatePostFX` early-returns —
   **any biome grading bias silently vanishes on tier 2.**
 - **Audio: a full procedural engine EXISTS** (`js/sfx.js`, ~1900 lines): Web Audio bus
-  graph, worklet limiter, 36 radio stations (`js/tracks.js`), beat clock + harmony
+  graph, worklet limiter, 35 radio stations (`js/tracks.js`), beat clock + harmony
   oracle, offline render CI (`sfxRender.js`, `tools/loudshots.mjs`). Biome→music wiring
   exists TODAY as `keyShift` per biome (`biomes.js:36,55,72,86,102,118`) applied at
   `main.js:1062` on biome transition, quantized to the loop boundary. Per-biome ambience
@@ -176,9 +179,11 @@ Tempest Reach (the storm turn) → Frozen Reach (cold loneliness) → Emberfall 
 (inferno climax) → Lumen Mire (night, biolume hope) → Astral Shallows (cosmos release)
 → loop.**
 
-The loop seam lands darkest→dusk (relief, not repetition). The two old duplicate
-adjacencies are broken. New biomes slot via the `CYCLE[]` layer (§5.6) so existing
-`biomes:[index]` whitelists never renumber.
+The loop seam lands darkest→dusk (relief, not repetition). Note: the twin pairs are
+de-duplicated by OPPOSITION (Law 4), not by reordering — Sanctuary–Wastes and
+Caldera–Mire remain adjacent BY DESIGN (distinctness comes from the retools, not the
+order); do not "fix" the cycle to separate them. New biomes slot via the `CYCLE[]`
+layer (§5.6) so existing `biomes:[index]` whitelists never renumber.
 
 | # | Biome | Status | Identity (one sentence) | Signature hazard | Verb (deferred kinematics in §10) | Anchor boss | Sensory signature |
 |---|---|---|---|---|---|---|---|
@@ -214,8 +219,8 @@ a designed exception under Law 1, and the Wastes is his most common hunting grou
 
 **2 · FROZEN REACH → MARROWCOIL.** The de-Astral move: Frozen owns the FOG LINE as a
 playable surface — a hard horizontal fog band the player dives under; MARROWCOIL's
-`approach: 'below'` (rises through the fog line) makes the biome's defining feature the
-boss's entrance. Retint ice spires toward bone-white (they read as half-buried ribs —
+`approachFrom: 'below'` (`bossDefs.js:275` — rises through the fog line) makes the
+biome's defining feature the boss's entrance. Retint ice spires toward bone-white (they read as half-buried ribs —
 foreshadowing the skeleton). Cold ice-blue pinlight glints under the fog in the biome
 before its encounter. Ambient snow stays (hardest `fall`).
 
@@ -272,18 +277,31 @@ Add OPTIONAL blocks to biome entries. **Absent block = today's behavior, byte-id
 — that is the coexistence mechanism for the whole arc.
 
 ```js
+// ILLUSTRATIVE — the FULL schema shown on one entry. A real PR adds ONLY the
+// field(s) its §7 increment ships (tags below). Do not add fields ahead of
+// their increment.
 {
   name: 'EMBERFALL CALDERA',
   // ... existing fields unchanged ...
-  anchor: 'ashtalon',            // §6 — Home-biome column. null/absent = no anchor.
-  foreshadow: { kind: 'glint' }, // §6 — the ONE artifact this biome's boss owns:
-                                 // 'glint' | 'audio' | 'skyGrade' | 'landmark'
-  hazard: { type: 'geyser', every: [140, 260], warn: 1.1, radius: 3.2 }, // §5.3
-  mech: { gravityMul: 1, dragMul: 1, handlingMul: 1, ambientLift: 0 },   // §10 —
-                                 // SCHEMA ONLY for now; ship neutral values.
-  fogFar: 0x1c0a08,              // §5.2 dual-fog far color. Absent → falls back to fog.color.
-  grade: { sat: 0, vig: 0, lift: 0 }, // §5.5 additive grading bias. Absent → zeros.
-  bed: 'caldera',                // §5.7 ambience-bed key. Absent → no bed.
+  anchor: 'ashtalon',            // INC 1 · §6 — Home-biome column. null/absent = no anchor.
+  fogFarColor: C(0x1c0a08),      // INC 2 · §5.2 dual-fog FAR COLOR, a THREE.Color via C()
+                                 //   like every other biome color. Absent → fog.color.
+                                 //   ⚠ NAME TRAP: `env.fogFar` already exists and is a
+                                 //   DISTANCE (lerped from fog.far, biomes.js:156/177;
+                                 //   also a water uniform, water.js:30). Never abbreviate
+                                 //   this field to `fogFar`.
+  grade: { sat: 0, vig: 0, lift: 0 }, // INC 2 · §5.5 additive grading bias. Absent → zeros.
+  hazard: {                      // INC 3 · §5.3
+    type: 'geyser',
+    every: [140, 260],           //   [min,max] METRES between vent sites along the course
+    warn: 1.1,                   //   SECONDS of magenta telegraph before a burst
+    radius: 3.2,                 //   collision radius, world units
+  },
+  foreshadow: { kind: 'glint' }, // INC 4 · §6 — the ONE artifact this biome's boss owns:
+                                 //   'glint' | 'audio' | 'skyGrade' | 'landmark'
+  bed: 'caldera',                // INC 5 · §5.7 ambience-bed key. Absent → no bed.
+  mech: { gravityMul: 1, dragMul: 1, handlingMul: 1, ambientLift: 0 }, // DEFERRED · §10 —
+                                 //   SCHEMA ONLY; ship neutral values (1/1/1/0).
 }
 ```
 
@@ -304,17 +322,22 @@ water shader re-implements the same fog manually (`water.js:125-127`) fed from s
 (`:223-227`). Full scene-wide dual fog would require patching `<fog_fragment>` in every
 material — DON'T start there. The 90% version:
 
-1. Add `fogFar` per biome; `computeEnv` lerps `env.fogColorFar` with fallback
-   `fogFar ?? fog.color` (absent = identical to today).
-2. Sky dome: blend its horizon band toward `env.fogColorFar` (it's the far-field
+1. Add `fogFarColor` per biome (a `C()` color — see the §5.1 name-trap note);
+   `computeEnv` lerps `env.fogFarColor` with fallback `fogFarColor ?? fog.color`
+   (absent = identical to today).
+2. Sky dome: blend its horizon band toward `env.fogFarColor` (it's the far-field
    backdrop — this is where "far fog color" actually lives visually).
-3. Water: add a `fogColorFar` uniform to `sharedUniforms` (`water.js:19` — MUST be in
+3. Water: add a `fogFarColor` uniform to `sharedUniforms` (`water.js:19` — MUST be in
    `sharedUniforms` to survive tier rebuilds) + one extra `mix` on the existing
-   `smoothstep(fogNear, fogFar, dist)`.
+   `smoothstep(fogNear, fogFar, dist)`, AND pass the value through at the
+   `setWaterTint`/fog call site in `updateEnvironment` (`environment.js:449-456`) —
+   the §5.1 three-touch rule applies to water uniforms too.
 4. Scene `THREE.Fog` keeps the NEAR color. Near props fade to near-color, the backdrop
    carries the far color — reads as a gradient at a fraction of the cost.
 
-Gotcha: scene fog and water fog must be updated together or they visibly diverge.
+Gotcha: scene fog and water fog must be updated together or they visibly diverge. And
+repeat the name trap once more, because it WILL bite: `fogFarColor` is a COLOR;
+`env.fogFar` / the water `fogFar` uniform are DISTANCES. Never mix the two.
 
 ### 5.3 RNG-safe hazard injection (verdict: feasible; the pattern is proven)
 
@@ -332,10 +355,26 @@ overlayBiomeHazards(out);   // reads out.rings for placement context if needed;
 
 `overlayBiomeHazards` walks the newly generated distance range; for each candidate
 station it calls `biomeIndexAt(dist)` and consults that biome's `hazard` block; rolls
-placement from `hazardRnd` only; pushes `{dist, x, y, type, ...}` into `out.hazards`.
-`main.js` consumes `out.hazards` the way it consumes canyon segments/orbs (see
-`addCanyonSegment` dispatch and `pendingCanyonStarts`/`pendingCanyonEnds` at
-`main.js:153-154` for the crossing-trigger pattern).
+placement from `hazardRnd` only; pushes `{dist, x, y, type, phase, ...}` into
+`out.hazards` (`phase` rolled from `hazardRnd` at placement — see the burst model).
+
+**Runtime home: a NEW `js/hazards.js` module** owns the hazard meshes, the per-vent
+timing loop, the telegraph FX, and the collision test (follow `obstacles.js`'s
+collision pattern). `main.js` consumes `out.hazards` inside its `spawnAhead` flow the
+way it consumes canyon segments/orbs (see `addCanyonSegment` dispatch and
+`pendingCanyonStarts`/`pendingCanyonEnds` at `main.js:153-154` for the
+crossing-trigger pattern) — and CRUCIALLY, below the existing
+`if (game.inBoss) return` (`main.js:165`) and the grace-band early-return
+(`main.js:170-175`). That placement IS the boss/grace suppression rule: generation in
+`level.js` stays game-state-pure (it runs ahead of time and must never read game
+state); suppression is purely a consumption-side concern.
+
+**The burst model (geyser):** each placed vent runs a fixed loop on game time —
+`warn` seconds of magenta-cored telegraph → ~0.8s lethal burst → idle — phase-offset
+per vent by its placement `phase` so vents don't fire in lockstep. Fairness: a
+telegraph must be readable ≥90m out at max approach speed. Telegraph FX are hazards.js's
+own small particle burst — do NOT reuse `addEmberLine` (those are collectibles) or the
+ambient biome motes (`ambient.js` — those are scenery).
 
 Hard rules (each one has bitten before):
 - A hazard only BEGINS where `biomeIndexAt(dist)` matches AND `local > biomeTransition`
@@ -343,8 +382,9 @@ Hard rules (each one has bitten before):
 - **`resume(target)` (`level.js:632-639`) must reset any hazard cursor state** — it
   already reseats `nextGoldAt`/`untilGauntlet`/canyon state after a boss; a forgotten
   `nextHazardAt` misaligns everything post-fight.
-- Suppress hazards during `game.inBoss` (clean-arena law, `main.js:165`) and the
-  post-boss grace band (`bossGraceUntil`, `main.js:170-175`).
+- Suppression during `game.inBoss` (clean-arena law) and the post-boss grace band
+  lives in `main.js`'s consumption (see "Runtime home" above) — NEVER in `level.js`
+  generation, which must stay game-state-pure.
 - Dodge-only for now (owner decision #2): hazards intersect the player like obstacles;
   they never apply force. (When verbs unlock — §10 — forces go in `player.update`,
   which is determinism-safe because the fixture never covers kinematics.)
@@ -365,8 +405,21 @@ Three changes, ordered by leverage:
    The prop-detail shader already multiplies `diffuseColor.rgb`
    (`environment.js:56-57`), so the tint composites for free. Zero new draw calls.
    This kills "verdigris columns in the amber desert" immediately.
-2. **The band visible-gate.** In `recycleBand`, track whether ANY instance is active;
-   if none, `band.mesh.visible = false`. Since `WALL_WINDOW` (900) < `biomeLength`
+   **Tint semantics (get this right or ship a silent regression):** `instanceColor`
+   MULTIPLIES the material's base color. The biome-0 table entry is therefore identity
+   WHITE `0xffffff` — writing the verdigris hex would SQUARE the color and darken
+   Sanctuary while every test stays green. Other entries are per-channel ratios,
+   target ÷ base (e.g. sandstone `0xe2bd8a` ÷ verdigris `0x86b39c`; components > 1 are
+   legal). Call `setColorAt` once per instance at band build — `mesh.instanceColor` is
+   null until the first call allocates it. Caveat: one instance color spans BOTH
+   material groups of a merged archetype; derive the ratio from the primary pair and
+   accept the accent shift as approximate.
+2. **The band visible-gate.** Recompute activity over ALL of `band.data` per
+   `recycleBand` call (`recycleBand` alone only visits instances that fell behind —
+   a counter or full scan is needed), and set `band.mesh.visible` accordingly. Also
+   evaluate the gate in `makeBand` and `reseedBand` (the restart path,
+   `environment.js:408`) or a band can start invisible / go stale after
+   `resetEnvironment`. Since `WALL_WINDOW` (900) < `biomeLength`
    (1500), at most 2 biomes are ever in-window → per-frame prop draws collapse to the
    2 live biomes' archetypes regardless of the global archetype count. This decouples
    "how many exclusive silhouettes exist" from per-frame cost — the unlock for Law 3.
@@ -402,6 +455,8 @@ world. So: **never reorder — append + add an order layer.**
 // New: the play order, decoupled from array order:
 const CYCLE = [0, 1, 7, 6, 2, 3, 4, 5];  // sanctuary, wastes, reef, tempest,
                                           // frozen, caldera, mire, astral
+                                          // (yes, 7 before 6 — Reef precedes Tempest
+                                          //  in the arc; do not "correct" the order)
 // biomeAt(dist): block = floor(dist/L); ia = CYCLE[block % CYCLE.length];
 //                ib = CYCLE[(block+1) % CYCLE.length];  (t unchanged)
 ```
@@ -414,7 +469,8 @@ old cycle to prove the refactor is a no-op before flipping anything.
 
 This is also where the deferred weather×time-of-day multiplier lives later (§10):
 `CYCLE` entries can become `{biome, weather, tod}` descriptors with an `applyWeather`/
-`applyTOD` modifier pass after the lerp — same fields, nudged. Do NOT build that now.
+`applyTOD` modifier pass after the lerp — same fields, nudged. Do NOT build that now:
+**increment 6 ships plain integers**, no future-proofing objects.
 
 ### 5.7 Per-biome ambience beds (owner decision #3)
 
@@ -441,17 +497,40 @@ everyone assumed needed the lifetime-ladder controller needs only a pure lookup:
 ```js
 // js/biomeBoss.js (NEW, ~30 lines)
 import { BIOMES, biomeIndexAt } from './biomes.js';
-export function bossForBiome(bi) { return BIOMES[bi]?.anchor ?? null; }
-export function nextBiomeBoss(dist) {           // foreshadow: the NEXT biome's anchor
-  const next = /* biomeIndexAt(dist + CONFIG.biomeLength), via the CYCLE layer */;
+import { CONFIG } from './config.js';
+
+export function bossForBiome(bi) { return BIOMES[bi]?.anchor ?? null; }   // INC 1
+
+// INC 4 (not increment 1 — don't build it early). Until §5.6's CYCLE layer
+// lands, the body is literally biomeIndexAt(dist + CONFIG.biomeLength);
+// swap to the CYCLE-aware form in increment 6.
+export function nextBiomeBoss(dist) {
+  const next = biomeIndexAt(dist + CONFIG.biomeLength);
   return { key: bossForBiome(next), biome: next };
 }
 ```
 
-At the boss-spawn site (`js/boss.js`, where `bossDefForIndex(encounterIndex)` is
-consulted): prefer `bossForBiome(biomeIndexAt(player.dist))` **iff** that boss is coded
-(in `BOSS_ORDER`) and wasn't the previous encounter (anti-repeat guard); otherwise fall
-through to the existing `encounterIndex % roster` modulo untouched. Rules:
+**The exact seam (increment 1).** The selection ternary at `boss.js:627-629` is
+`defOverride || (rushMode ? … : (debugDefIdx != null ? … : bossDefForIndex(encounterIndex)))`.
+The biome preference replaces ONLY the final `bossDefForIndex(encounterIndex)` arm
+(normal encounters) — `defOverride`, `rushMode`, and `debugDefIdx` paths are untouched,
+and so is the second `bossDefForIndex` call at `boss.js:1752` (debug start).
+
+**The algorithm, pinned** (write it as a pure function
+`pickBossKey(moduloKey, biomeIndex, lastBossKey)` so `BOSS-DESIGN.md §5h`'s eventual
+slot-6 ladder controller can call it unchanged with a different `moduloKey` source):
+
+1. `preferred = bossForBiome(biomeIndex)`; use it iff it is non-null, is in
+   `BOSS_ORDER` (coded), and `!== lastBossKey`.
+2. Else `moduloKey` (= `BOSS_ORDER[encounterIndex % BOSS_ORDER.length]`) — and if
+   THAT `=== lastBossKey` (a biome pick earlier can make the modulo land on the same
+   boss next), step once: `BOSS_ORDER[(encounterIndex + 1) % BOSS_ORDER.length]`.
+3. A biome pick does NOT advance `encounterIndex` (it keeps counting defeats only —
+   `boss.js:761`).
+4. `lastBossKey` is a module-level variable set in `startBossEncounter` on EVERY path
+   (normal/rush/debug), reset alongside `encounterIndex` (`boss.js:1712-1713`).
+
+Rules:
 
 - **Null-safe fallback is the coexistence guarantee**: with only Caldera carrying an
   `anchor`, every run outside Caldera is byte-for-byte the shipped experience.
@@ -461,6 +540,9 @@ through to the existing `encounterIndex % roster` modulo untouched. Rules:
 - Do NOT build the lifetime-ladder controller (`BOSS-DESIGN.md §5h` decision 1) in this
   arc. The biome boundary IS the foreshadow schedule; band progression stays modulo.
 - Bullet legibility per biome is already handled (`resolveBand`, `boss.js:383,638`).
+- Verifying "meet ASHTALON in Caldera" does NOT mean flying 4.5km per attempt: use the
+  debug seams (`debugDefIdx`, the debug start at `boss.js:1752`) plus a temporary
+  dist warp, then confirm once end-to-end on the preview.
 
 **The Home-biome column** (value/temperature complements verified against §5b palettes):
 
@@ -480,13 +562,19 @@ place), EITHERWING/ONEWING (the formation is the arena; ONEWING's placeless jump
 is the point), WEFTWITCH (Astral tenant), EMBERTIDE (a world-state EVENT that grades any
 biome's sky — anchoring it would shrink it), KNELLGRAVE (Sanctuary lore-tenant).
 
-**Foreshadowing** (each anchor owns exactly ONE artifact — §5h): because
+**Foreshadowing** (each anchor owns exactly ONE artifact — §5h lists glint/audio/
+sky-grade; `landmark` is this doc's addition, the sky-whale slot generalized): because
 `biomeIndexAt(dist + biomeLength)` is deterministic, the CURRENT biome can stage the
 NEXT biome's anchor via `nextBiomeBoss(dist)`, wired to existing channels only —
-`glint` → the fauna-flyby seam (`flybyMix` machinery); `audio` → a distance-triggered
-cue through `sfx.js` (KNELLGRAVE's toll pattern); `skyGrade` → the `bossGradeTarget`
-postfx channel (EMBERTIDE's pattern); `landmark` → the fog-exempt horizon slot
-(sky-whale pattern, `material.fog = false`). No new draw-call categories.
+`glint` → a SECOND flyby profile in `ambient.js` with its own foreshadowMix gate
+computed from `nextBiomeBoss` (do NOT retint the biome-0 gull or touch `faunaFlyby`);
+`audio` → a distance-triggered cue through `sfx.js` (KNELLGRAVE's toll pattern);
+`skyGrade` → the `bossGradeTarget` postfx channel (EMBERTIDE's pattern); `landmark` →
+the fog-exempt horizon slot (sky-whale pattern, `material.fog = false`). No new
+draw-call categories. **The glint is atmosphere, not a promise:** encounters are
+interval-scheduled (`nextBossDist`), so a glint may precede a stretch whose encounter
+doesn't land in the home biome — that is ACCEPTED; do not add a `nextBossDist` range
+check.
 
 ## 7. THE ROLLOUT — PR-sized increments (coexist → prove on the hero → migrate)
 
@@ -503,14 +591,14 @@ Each increment = one PR + one ledger lesson. Verification legend: **D** = determ
 | # | Increment | Files | Coexistence guarantee | Verify |
 |---|---|---|---|---|
 | 1 | **Bind ASHTALON→Caldera.** `anchor:'ashtalon'` on Caldera only; new `biomeBoss.js`; spawn-site prefer-with-fallback + anti-repeat | `biomes.js`, `biomeBoss.js` (new), `boss.js` | all other biomes `anchor` absent → modulo fallback; outside Caldera byte-identical | D, A, H (meet ASHTALON in Caldera; pacing feels right) |
-| 2 | **Caldera visual kit + recycler upgrades.** `fogFar` on Caldera (+ fallback plumbing); `instanceColor` tint fix for `column`/`slab`/`dome`; band visible-gate | `biomes.js`, `environment.js`, `water.js` | `fogFar ?? fog.color` fallback; tint matches current verdigris in biome 0 (only biome 1 changes — that's the bug fix); visible-gate is render-only | C, A, H (dual-fog depth; sandstone props in Wastes; no prop pop-in) |
-| 3 | **Geyser hazards (dodge-only) in Caldera.** `hazard` block on Caldera; `hazardRnd` + `out.hazards` + `overlayBiomeHazards`; `main.js` spawn/collide; magenta-cored ember-column telegraph reusing the ember particle system; `resume()` reset; inBoss+grace suppression | `biomes.js`, `level.js`, `main.js`, `config.js` | hazards only spawn where `biomeIndexAt===3`; other biomes have no `hazard` block; fixture byte-identical | **D (the critical one)**, C, A, H (fair telegraphs, dodgeable, fun) |
-| 4 | **Foreshadow ASHTALON a biome early.** `foreshadow:{kind:'glint'}`; `nextBiomeBoss()`; a charcoal wing-silhouette + molten-slit glint rides the flyby seam in the biome before Caldera | `biomeBoss.js`, `biomes.js`, `ambient.js` | glint only fires when next biome's anchor is coded; `flybyMix` machinery reused | A, H ("what is THAT?" reads at a glance) |
-| 5 | **Caldera ambience bed.** `bed:'caldera'` (filtered rumble + ember crackle) under the radio, seam crossfade, null-safe when muted/headless | `biomes.js`, `sfx.js`, `main.js` | bed key absent on other biomes; radio pillar untouched; degrades to null | A + `tools/loudshots.mjs`, H (mix sits under the station) |
+| 2 | **Caldera visual kit + recycler upgrades.** `fogFarColor` on Caldera (+ fallback plumbing — mind the §5.1 name trap); `instanceColor` tint fix for `column`/`slab`/`dome` (§5.4 tint semantics: biome 0 = identity white); band visible-gate. May split into 2–3 PRs (fog / tint / gate) — one done beats three half-done | `biomes.js`, `environment.js`, `water.js` | `fogFarColor ?? fog.color` fallback; biome-0 tint is `0xffffff` so Sanctuary is byte-identical (only biome 1 changes — that's the bug fix); visible-gate is render-only | C, A, H (dual-fog depth; sandstone props in Wastes; no prop pop-in) |
+| 3 | **Geyser hazards (dodge-only) in Caldera.** `hazard` block on Caldera; `hazardRnd` + `out.hazards` + `overlayBiomeHazards` in level.js; NEW `hazards.js` owns meshes/timing-loop/telegraph/collision (§5.3 "Runtime home" + burst model); `main.js` consumes below the inBoss/grace returns; `resume()` reset | `biomes.js`, `level.js`, `hazards.js` (new), `main.js`, `config.js` | hazards only spawn where `biomeIndexAt===3`; other biomes have no `hazard` block; fixture byte-identical | **D (the critical one)**, C, A, H (fair telegraphs, dodgeable, fun) |
+| 4 | **Foreshadow ASHTALON a biome early.** `foreshadow:{kind:'glint'}`; `nextBiomeBoss()` (placeholder body until inc 6 — see §6 code note); a charcoal wing-silhouette + molten-slit glint as a SECOND flyby profile with its own gate (§6 — do not touch the gull/`faunaFlyby`) | `biomeBoss.js`, `biomes.js`, `ambient.js` | glint only fires when next biome's anchor is coded; new gate defaults to 0 everywhere | A, H ("what is THAT?" reads at a glance) |
+| 5 | **Caldera ambience bed.** `bed:'caldera'` (filtered rumble + ember crackle) routed into a new quiet gain feeding `musicBus` (built in `buildBusGraph`, `sfx.js:51,141-205`), seam crossfade, null-safe when muted/headless; add a loudshots baseline entry so the −18-LUFS-relative claim is measured, not asserted | `biomes.js`, `sfx.js`, `main.js` | bed key absent on other biomes; radio pillar untouched; degrades to null | A + `tools/loudshots.mjs`, H (mix sits under the station) |
 | 6 | **`CYCLE[]` refactor (no-op).** Order layer with `CYCLE=[0..5]`; headless env-diff proves identical output | `biomes.js` | provably identical `computeEnv` output across a full cycle | A + a one-off env-diff script, D |
-| 7 | **Migrate the visual kit biome-by-biome.** Per-biome `fogFar`; one exclusive archetype each (Wastes monolith-field first — then prune its shared props); Frozen bone-white retint; Mire canopy pass; grading-bias fields; kill the fake-fauna reskin by introducing 1–2 real flock profiles per PR | `biomes.js`, `environment.js`, `ambient.js`, `postfx.js` | one biome per PR; absent fields = unchanged; **build `tools/envcount.mjs` (§8) in the FIRST of these PRs** | C, A, envcount, H per biome (side-by-side tiershots for the old twin pairs) |
-| 8 | **Tempest Reach** (append `BIOMES[6]`, insert into `CYCLE`) — WITH the STORMREND `warnGrade` retrofit (`BOSS-DESIGN.md §5j`); lightning hazard = increment-3 machinery with a `strike` type; `anchor:'stormrend'` | `biomes.js`, `environment.js`, `level.js`, `sfx.js`, `bossDefs.js` | new biome ships only with its anchor; CYCLE insert leaves indices stable | D, C, A, H |
-| 9 | **Tidal Reef** (append `BIOMES[7]`) — ships WITH BRINEHOLM (slot 8, its own boss-session per `BOSS-DESIGN.md §5d`); waterspout hazard type; `setWaterTint` showcase | `biomes.js`, `environment.js`, `water.js`, `level.js` + the BRINEHOLM build | same gate: no orphan biomes | D, C, A, H |
+| 7 | **Migrate the visual kit biome-by-biome.** Per-biome `fogFarColor`; one exclusive archetype each (Wastes monolith-field first — then prune its shared props); Frozen bone-white retint; Mire canopy pass; grading-bias fields; kill the fake-fauna reskin by introducing 1–2 real flock profiles per PR | `biomes.js`, `environment.js`, `ambient.js`, `postfx.js` | one biome per PR; absent fields = unchanged; **build `tools/envcount.mjs` (§8) in the FIRST of these PRs** | C, A, envcount, H per biome (side-by-side tiershots for the old twin pairs) |
+| 8 | **Tempest Reach** (append `BIOMES[6]`; CYCLE becomes `[0,1,6,2,3,4,5]` — the interim order until Reef lands) — WITH the STORMREND `warnGrade` retrofit (`BOSS-DESIGN.md §5j`); lightning hazard = increment-3 machinery with a `strike` type; `anchor:'stormrend'` | `biomes.js`, `environment.js`, `level.js`, `hazards.js`, `sfx.js`, `bossDefs.js` | new biome ships only with its anchor; CYCLE insert leaves indices stable | D, C, A, H |
+| 9 | **Tidal Reef** (append `BIOMES[7]`; CYCLE becomes the final `[0,1,7,6,2,3,4,5]`) — ships WITH BRINEHOLM (slot 8, its own boss-session per `BOSS-DESIGN.md §5d`); waterspout hazard type; `setWaterTint` showcase | `biomes.js`, `environment.js`, `water.js`, `level.js`, `hazards.js` + the BRINEHOLM build | same gate: no orphan biomes | D, C, A, H |
 | 10+ | Deferred backlog (§10): kinematic verbs (Caldera geyser-launch first), weather×TOD via `CYCLE` descriptors, per-biome water behavior, remaining anchors as their bosses ship | — | each behind default-off data | per-item |
 
 Sequencing rules: 1→2→3 in order (each proves the next's substrate); 4/5/6 may
@@ -591,8 +679,8 @@ feel right", stop the train and fix — do not migrate a pattern the hero hasn't
   §5j entrances (STORMREND's storm retrofit).
 - `LEAPFROG.md` ledger lessons that matter here: **L150** (boundary values must ease —
   the seam law's ancestor), **L151/L152** (audio engine contracts: render==live,
-  seeded randomness, null-safe degradation), plus the biome-arc lessons appended from
-  increment 1 onward (L153+).
+  seeded randomness, null-safe degradation), **L153** (this design arc — the
+  render-only-`BIOMES[]` discovery), plus the increment lessons from L154 onward.
 - After every increment: append the lesson (what/why/gotcha/reusable pattern). This doc
   gets a one-line update per shipped increment (mark the table row ✅) — keep it the
   single source of biome truth the way BOSS-DESIGN.md is for bosses.
