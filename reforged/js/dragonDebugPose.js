@@ -26,10 +26,11 @@ export function setFlapDebugPose(parts, pose = 'glide') {
       pivot.rotation.set(0.14, -s * 0.18, 0);
       if (tip) tip.rotation.set(-0.12, 0, 0);
     } else if (pose === 'fold') {
-      // Shoulder tucks up + sweeps back; wrist flexes hard up + swings the hand
-      // aft — the primaries sweep behind the body and the span collapses.
-      pivot.rotation.set(0.05, -s * 0.55, s * 0.55);
-      if (tip) tip.rotation.set(0.0, -s * 0.9, s * 1.15);
+      // Shoulder tucks up + sweeps back; wrist flexes hard up so the outer comb swings
+      // up and the span collapses. The blades are nested parallel (below) so this reads
+      // as a tight folded stack, not a fan of upright sails (r2 dir 6).
+      pivot.rotation.set(0.05, -s * 0.5, s * 0.5);
+      if (tip) tip.rotation.set(0.0, -s * 0.7, s * 1.1);
     } else if (pose === 'bank') {
       // Hard RIGHT bank: right (inside) wing tucks + dips, left (outside) opens.
       const inside = s > 0;
@@ -73,10 +74,10 @@ export function setFlapDebugPose(parts, pose = 'glide') {
       const t = b.pivot; if (!t) continue;
       const fr = b.idx / n;
       if (pose === 'fold') {
-        // Counter the rest dihedral (theta≈0.36) so the blades drop toward the spar
-        // line and sweep aft in a tight nested stack (≤25° splay, dir 6), not a fan of
-        // upright sails. rest.rotation.z = side*theta; −side*theta flattens it.
-        t.rotation.set(0, b.side * (-0.7 - 0.4 * fr), b.side * (-0.36 + 0.05 * fr));
+        // Nest (dir 6): CANCEL each blade's rest RAKE (lag.y = −restY) so all blades
+        // align PARALLEL — ≤25° splay, high overlap. Dihedral is kept (lag.z small) so
+        // the parallel stack folds up tightly with the wrist instead of fanning.
+        t.rotation.set(0, -(b.restY ?? 0) + b.side * 0.06 * fr, b.side * 0.02 * fr);
       } else {
         t.rotation.set(0, 0, b.side * (0.02 + 0.05 * fr));
       }

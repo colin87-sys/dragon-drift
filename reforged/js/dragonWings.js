@@ -927,7 +927,7 @@ function buildBladeFeatherWings(def, model, attach, giM) {
       tipObj.position.set(len * side, 0, 0);
       lag.add(tipObj);
       parent.add(rest);
-      bladePivots.push({ pivot: lag, idx: i, side });
+      bladePivots.push({ pivot: lag, idx: i, side, restY: rest.rotation.y, restZ: rest.rotation.z });
       elements.push({ root: new THREE.Vector3(rootX, rootY, rootZ), len, tipObj });
     }
 
