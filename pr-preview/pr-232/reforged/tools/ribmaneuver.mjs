@@ -1,13 +1,12 @@
-// tools/marrowpass.mjs — the MARROWCOIL rib FLY-THROUGH verification (L141).
+// tools/ribmaneuver.mjs — the MARROWCOIL fly-through MANEUVER, live (L155).
 //
-//   node tools/marrowpass.mjs [roundTag]
+//   node tools/ribmaneuver.mjs [roundTag]
 //
-// Boots the real engine at the ASTRAL SHALLOWS, forces MARROWCOIL, spawns it,
-// then PINS the ribThread setpiece across the pass (rel sweeps 7 → −6) and grabs
-// a FULL-FRAME rail-view screenshot at each k — so we can see whether the rail
-// actually threads the ribcage aperture (ribs sweeping past on both flanks +
-// overhead) instead of the cage merely looming and trailing away. rel 0 ≈ k 0.52
-// is the thread instant.
+// marrowpass.mjs pins static poses (good for the back-turn / bank silhouette). This one
+// runs the beat LIVE via window.__dd.bossRunSetpiece('ribThread') and grabs a time burst
+// across the ~8s maneuver, so the RIB BULLETS (slow amber, converging from inside the ribs)
+// and the motion are both visible. Frame times target the two close passes where the ribs
+// surround the rail (thread ~1.6–2.4s, overtake ~4.8–5.4s) plus the back-turn and bank.
 import { register } from 'node:module';
 register('../tools/three-resolver.mjs', import.meta.url);
 import fs from 'node:fs';
@@ -20,13 +19,9 @@ const DIST = 8000;   // Astral Shallows — the dark sky the pale bone pairs aga
 const OUT = new URL('../../reforged-captures/', import.meta.url).pathname;
 fs.mkdirSync(OUT, { recursive: true });
 
-// L155 — bracket the six beats of the full maneuver: loom / thread (dive) /
-// back-turned re-approach / accelerate past / bank in / restore.
-const KS = [0.12, 0.28, 0.36, 0.48, 0.66, 0.84, 0.96];
-
 const { page, done } = await boot({
   query: `?debug&bossIdx=${bossIdx}&boss=${DIST}`,
-  viewport: { width: 720, height: 1280 }, deviceScaleFactor: 2,
+  viewport: { width: 600, height: 1066 }, deviceScaleFactor: 1,
   initScript: `localStorage.setItem('dragonDriftSave', JSON.stringify({ v: 4, stats: { runs: 5 }, flags: { seenIntro: true } }))`,
 });
 page.setDefaultTimeout(150000);
@@ -39,22 +34,26 @@ try {
   await page.evaluate(() => window.__dd.spawnBoss());
   await page.waitForFunction(() => window.__dd.bossState().phase === 'fight', { timeout: 90000 });
   await page.waitForFunction(() => window.__dd.bossState().poseY > 10, { timeout: 60000 }).catch(() => {});
-  await page.waitForTimeout(3200);
+  await page.waitForTimeout(2500);
+
+  await page.evaluate(() => window.__dd.bossRunSetpiece('ribThread'));
+  // L155 flyby beats over the ~8.5s pass: loom / thread / off-screen behind /
+  // flank emerge / fly-forward + head-turn mouth shots / bank in / centre restore.
+  const MS = [500, 1600, 2400, 3400, 4400, 5400, 6400, 7400, 8000];   // times after arming
   const written = [];
-  for (const k of KS) {
-    await page.evaluate((kk) => window.__dd.bossPinSetpiece({ id: 'ribThread', k: kk, moveGroup: true }), k);
-    await page.waitForTimeout(900);
-    const relNow = await page.evaluate(() => window.__dd.bossState().poseRel);
-    const path = `${OUT}marrowcoil-pass-k${String(k).replace('.', '')}-${round}.png`;
+  let prev = 0;
+  for (const ms of MS) {
+    await page.waitForTimeout(ms - prev); prev = ms;
+    const st = await page.evaluate(() => { const s = window.__dd.bossState(); return { rel: s.poseRel, x: s.poseX }; });
+    const path = `${OUT}marrowcoil-maneuver-t${String(ms).padStart(4, '0')}-${round}.png`;
     fs.writeFileSync(path, await page.screenshot());
-    written.push(`${path} (rel ${relNow?.toFixed?.(1)})`);
+    written.push(`${path} (rel ${st.rel?.toFixed?.(1)}, x ${st.x?.toFixed?.(1)})`);
     console.log('wrote', written[written.length - 1]);
   }
-  await page.evaluate(() => window.__dd.bossPinSetpiece(null));
   await done();
-  console.log(`\n${written.length} pass frames written.`);
+  console.log(`\n${written.length} maneuver frames written.`);
 } catch (e) {
   await done().catch(() => {});
-  console.error('marrowpass error:', e && e.stack || e);
+  console.error('ribmaneuver error:', e && e.stack || e);
   process.exit(3);
 }

@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { CONFIG } from './config.js';
 import { game } from './gameState.js';
-import { initInput, initTouch, initMouse } from './input.js';
+import { initInput, initTouch, initMouse, input } from './input.js';
 import { createLevelGen } from './level.js';
 import { todaysDailyMod, dailyMods } from './daily.js';
 import { createEnvironment, updateEnvironment, resetEnvironment, getSkyMesh } from './environment.js';
@@ -30,7 +30,7 @@ import { DRAGONS } from './dragons.js';
 import { RIDERS } from './riders.js';
 import { dailySeed, recordDailyRun, saveData, persist, grantXp, levelEmberReward, todayUTC, gambitSunsetRefund, freezeSaves } from './save.js';
 import { initEmbers, addEmberLine, updateEmbers, bankEmbers, resetEmbers } from './embers.js';
-import { initBoss, updateBoss, resetBoss, setBossQuality, forceBoss, debugFireAttack, setBossDebugFirstAt, setBossDebugDefIdx, setBossDebugCharge, setBossDebugSetpiece, setBossDebugEntrance, bossDebugState, bossGradeTarget, startBossRush, setRushUnlockAll, rushUnlocked, rushRosterInfo } from './boss.js';
+import { initBoss, updateBoss, resetBoss, setBossQuality, forceBoss, debugFireAttack, debugCrackPane, debugRunSetpiece, setBossDebugFirstAt, setBossDebugDefIdx, setBossDebugCharge, setBossDebugSetpiece, setBossDebugEntrance, bossDebugState, bossGradeTarget, startBossRush, setRushUnlockAll, rushUnlocked, rushRosterInfo } from './boss.js';
 import { emit, on } from './events.js';
 import { initAnalytics } from './analytics.js';
 import { initMissions, settleMissions } from './missions.js';
@@ -222,6 +222,7 @@ const debugFever = urlParams.get('debug') === 'fever';
 if (urlParams.has('debug')) {
   window.__dd = {
     renderer, scene, camera, game, player, save: saveData, emit, on, ui, cameraCtl, claimFeat, obstacleCount, trailDebug: __trailDebug,
+    input,   // capture tools poke input.surgeTap to skip a scripted entrance headless (rAF-throttled flythroughs stall waits otherwise)
     juice: { hitstop, juiceEvent },
     // Audio overhaul debug: v2 flag, worklet-limiter state, underrun beacons.
     audioHealth: () => getAudioHealth(),
@@ -231,11 +232,15 @@ if (urlParams.has('debug')) {
     bossState: () => bossDebugState(),
     // Capture hook: fire one live volley (default 'aimed') to catch body-origin emit + grow-in.
     bossFireNow: (id) => debugFireAttack(id, player),
+    // Capture hook: arm a setpiece live (e.g. 'ribThread') to watch the whole moving beat + its bullets.
+    bossRunSetpiece: (id) => debugRunSetpiece(id),
     // Capture hook: pin/release the charge (mantle) pose for still crops.
     bossPinCharge: (lvl) => setBossDebugCharge(lvl),
     // Capture hook: pin/release a setpiece pose (e.g. the stooping dive) for stills.
     bossPinSetpiece: (pin) => setBossDebugSetpiece(pin),
     bossPinEntrance: (u) => setBossDebugEntrance(u),
+    // Capture hook: crack a destructible sub-part live (HOLLOWGATE pane N).
+    bossCrackPane: (i) => debugCrackPane(i),
     // Test seam: skip the attract splash and land on the dashboard hub.
     toHub: () => {
       if (!splashVisible()) return;

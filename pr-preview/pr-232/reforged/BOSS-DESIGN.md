@@ -235,7 +235,7 @@ safe-lane gates exactly once.
 | 3 | ASHTALON | winged pursuer (scythe-wing raptor) | never holds station — it hunts you | charcoal·ember / one molten SLIT | behind, overtakes | claimed (replaces retired CRAGHOLD¹) | —³ |
 | 4 | MARROWCOIL | segmented skeleton (bone dragon) | fly-through ribcage + skull lure | bone-white·void·ice-blue / ring-aperture + pinpoints | below (new) | claimed (absorbs VESPERCOIL²) | **rib-slam ambers → ORGAN BREAK** (Colossi debut): parry a rib-slam's ambers N× → that rib CRACKS, its pattern component deleted (reused at 5 on the eye-holder) |
 | 5 | EITHERWING | twin bodies | one eye passed between two | oxblood·aged-silver / single point | both sides (new) | claimed | **eye-holder's amber volley → ORGAN BREAK** (Colossi reuse): parry the holder's amber volley 3× mid-possession → the handoff STAGGERS, the eye DROPS to the thread midpoint for a 2.5s bonus-damage window |
-| 6 | HOLLOWGATE | architecture with a void | rose-window face | ivory·stained-glass / leaded field (VALUE-INVERTED: near-white) | static-ahead | open | — |
+| 6 | HOLLOWGATE | architecture with a void | rose-window face | ivory·stained-glass / leaded field (VALUE-INVERTED: near-white) | static-ahead | shipped | **pane-radial ambers → PANE BREAK** (Calamities ORGAN-BREAK reuse): parry a lit pane's amber volley 3× → that pane CRACKS and its radial component is deleted from the composite (rides the §5f destructible-pane plumbing — parry and gunfire sculpt the same window) |
 | 7 | THRUMSWARM | stippled swarm | condenses into YOUR dragon | void-black·star-white / scattered points | condenses | open | — |
 | 8 | BRINEHOLM | bottom-anchored ridge | the surfacing whale-eye | kelp-black·abalone / iridescent sheen | below-horizon | open | — |
 | 9 | KARNVOW | slender vertical duelist | trophy-chain of earlier bosses' scars | tarnished-iron·trophy glints | alongside | open | — |
@@ -442,6 +442,22 @@ feasibility survey: at rel 30, on-screen centers within x ±15 / y 2..22 on port
   the ribs flank the dragon on both flanks + overhead and the pillar corridor reads THROUGH
   the aperture on exit. Verified in-game from the rail camera (tools/marrowpass.mjs). The
   sheet claims the fly-through again.
+  FLY-THROUGH → FULL MANEUVER (2026-07 — L155): `ribThread` is now the whole aerobatic over 8s —
+  loom → fly completely past → re-emerge on a flank with its BACK TURNED (flying your heading) →
+  accelerate past → BANK into the lane → wheel around to face you. A setpiece path may now return
+  `{yaw, roll}` alongside `{x,y,rel}` (the runner routes them to `cineYaw`/new `cineRoll`; roll/banking
+  is a new roster-wide axis) — a general FACING+BANKING seam any boss can use, default-off. During the
+  close band the pass OWNS its fire: the normal skull-origin cadence is suppressed and slow reflectable
+  AMBER bullets emit from the rib-pivots (`ribPivot{L,R}{1,3}`) converging on the spine centre — the
+  close-range THREAD-THE-GAP + parry beat. Verified live (tools/ribmaneuver.mjs + `bossRunSetpiece`).
+  → FLYBY, SIMPLIFIED (2026-07 — L155, dur 8.5s): the rear-look CINEMATIC (camera takeover +
+  from-behind bullets + player freeze/invuln + homing) was **reverted** — on-rails, a camera-takeover +
+  stick-lock reads as a cutscene interruption, not a boss move (owner rejected it 2×; the over-reach lesson is L156). The shipped beat is a
+  readable flyby from the player's seat: loom → thread + fly fully OFF-SCREEN behind → **emerge from ONE flank
+  and fly forward** (body flies its heading, `yaw 0→π`) → **TURN THE HEAD at you and fire a few mouth shots**
+  (`setHeadLook` + skull-origin `emitHeadShots`, front-closing amber, dodge-or-parry) → **bank into the lane**
+  (`cineRoll`) and settle to centre. Kept: the facing+banking seam, `setHeadLook`, the rib bullets (all L155).
+  LESSON: author the drama into what the boss DOES from a fixed viewport, not into where the camera goes.
 - **5 EITHERWING** — **REACH SPEC (r8, 2026-07 — supersedes the conservative first sheet;
   L140):** the first draft built to "~2×900 tris, 2.2-long bodies" and presented ~40% of
   ASHTALON's presence at the band PEAK. The ensemble is the body; this boss's wingspan is
@@ -1371,6 +1387,10 @@ integration → (pass) → post both sets to the PR → STOP for the human.
 ## 9. Ledger reading list (READ ONLY THESE — the ledger is 470KB and mostly not about bosses)
 
 LEAPFROG.md lessons relevant to boss work, in priority order:
+- **L153** — HOLLOWGATE CP1: a faceless architecture face is a per-part emissive STATE TABLE
+  (pupil = a different CLASS, notice = a state JUMP, the DEFAULT state carries the registry
+  claim); dark decoration on a pale mass forges a second scar; ambient drift can silently
+  inflate the G5 telegraph diff.
 - **L129** — CRAGHOLD (boss 3, first Tier 2 Colossus): the gesture-hand limb system, the
   def-gated setpiece seam, flash-bind luminance, and the draw-budget reality at 3 bosses.
 - **L127** — shareability research + charisma layer + the parallel-agent git gotcha.

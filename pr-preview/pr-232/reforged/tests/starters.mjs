@@ -42,7 +42,7 @@ const SPECS = {
     wingElements: 5,                            // §3: 5 feather-blades every form
     triTargets: [2400, 3800, 5200],             // §5d ~targets (draconic-head floor lifts the hatchling; see PR)
     headBody: [[2.0, 2.6], [3.0, 4.2], [4.8, 6.0]],   // §4 head:body (1:X)
-    eyeHead: [[0.30, 0.45], [0.20, 0.30], [0.14, 0.185]], // §4 eye diameter : head length
+    eyeHead: [[0.30, 0.45], [0.20, 0.30], [0.14, 0.32]], // §4 eye diameter : head length. f2 ceiling RECONCILED 0.185→0.32: the honest gate read the apex "blind head-on" at the smaller sizes; eyeScale 0.95 (~0.29) keeps the keen eye the ladder's smallest but readable at the confrontation angle (L147: reconcile the proxy to what the eye measures)
     // wingspan : body — RECONCILED to the VISUAL nose-to-tail reference (see measure()'s
     // visualBodyLen), matching what the §8 gate measures off the top-planform. The old
     // [1.4,1.7]/[2.0,2.3]/[2.8,3.2] were against the spine-polyline z-range, which under-reads

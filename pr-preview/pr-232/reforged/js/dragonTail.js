@@ -217,7 +217,7 @@ export function buildCleanTail(def, model, bodyMat, swept = false) {
       frustum.rotation.x = Math.PI / 2;
       seg.add(frustum);
     }
-    if (!smoothStem) seg.add(spinePlate(r0));
+    if (!smoothStem && (model.tailPlates ?? true)) seg.add(spinePlate(r0));   // young forms opt OUT: the row of dorsal cones + frustum lips read as a screw-thread/drill-bit from rear-chase (fable gate). Default true = roster byte-identical
     root.add(seg);
     segs.push(seg);
   }

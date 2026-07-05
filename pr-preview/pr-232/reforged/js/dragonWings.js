@@ -776,6 +776,7 @@ function buildBladeFeatherWings(def, model, attach, giM) {
   const cMid = 0x7fa3c8;                                  // mid blades
   const cDark = def.wingOuter ?? 0x3d5a78;                // root coverts / blade roots
   const cGold = model.wingTipGold ?? def.accentHue ?? 0xd9b36a;
+  const goldAmt = model.wingTipGoldAmount ?? 1;   // per-form gold restraint (young forms earn it): 0 = no gold, 1 = full apex banner (default = byte-identical)
 
   const wingMat = new THREE.MeshStandardMaterial({
     color: 0xffffff, vertexColors: true, roughness: 0.58, metalness: 0.0,
@@ -821,7 +822,7 @@ function buildBladeFeatherWings(def, model, attach, giM) {
         c.lerp(cTrail, Math.max(0, cf - 0.5) * 0.7);   // trailing half deepens → visible chord structure (dir 6)
         // Gold DIFFUSE tip-paint confined to the outer ~12% with a CRISP boundary (gate r4
         // dir 7: law-9 tips only — no gradient wash down a third of the blade).
-        if (t > 0.88) c.lerp(cg, Math.min(1, (t - 0.88) / 0.07));
+        if (t > 0.88) c.lerp(cg, goldAmt * Math.min(1, (t - 0.88) / 0.07));
         cols.push(c.r, c.g, c.b);
       }
     }
@@ -862,7 +863,12 @@ function buildBladeFeatherWings(def, model, attach, giM) {
     // the top projection — MITTEN). This mid setting fans the OUTER 55–70% of adjacent blades
     // apart into TRUE through-slits while the wide-chord roots still overlap into one surface
     // near the arm; the taper makes the slits open toward the tips, not the roots.
-    const rakeI = model.bladeRake ?? (0.04 + 0.045 * i);   // fan the OUTER blades a touch more so sky-slits open between blades 2–4 in the rear chase fill (gate r8 dir 3), roots still overlap
+    // bladeRake < 0 is a SENTINEL for "use the per-blade formula" — lets a young form set a
+    // constant low rake (welds the comb into a solid MITTEN paddle, no sawtooth) while the
+    // apex re-pins the formula through the cumulative merge with bladeRake:-1.
+    const rakeI = (model.bladeRake != null && model.bladeRake >= 0)
+      ? model.bladeRake
+      : (0.04 + 0.045 * i);   // fan the OUTER blades a touch more so sky-slits open between blades 2–4 (gate r8 dir 3), roots still overlap
     // discrete tier: inner→dark, mid→cMid, outer→light
     const baseHex = t < 0.28 ? cDark : (t < 0.62 ? cMid : cLight);
     const tipHex = t < 0.28 ? cMid : cLight;

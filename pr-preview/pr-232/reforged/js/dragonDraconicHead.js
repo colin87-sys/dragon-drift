@@ -278,12 +278,112 @@ function eyeZone(c, { r, x, y, z, glow }) {
   }
 
   // Default eye — a single sphere in the shared eyeMat (rig swaps its colour on Surge).
+  // CUTE treatment (opt-in via model.cuteEye — AZURE hatchling): a big DARK forward-facing
+  // pupil + a hard catchlight turns the blank pale sclera orb into a LIVING eye (the
+  // Squirtle/Charmander read: a huge eye is only cute once a dark pupil + glint give it a
+  // gaze). Default OFF → obsidian/pearl/solar keep the byte-identical bare sphere.
+  // cuteEye materials: the eyeball is ONE vertex-painted mesh (sclera+iris+pupil in a single
+  // sphere — a mesh cannot z-fight itself), plus a tiny proud glint disc. Every layered-shell
+  // approach eventually shattered: flat discs died in profile, and cap shells interpenetrate
+  // through POLYHEDRAL SAG (a seg-9 cap's mid-face dips ~6% below its nominal radius, eating
+  // any thin gap). Only the LIDS stay as caps — their 10–12% gaps exceed the sag.
+  const cuteBallMat = c.cfg.cuteEye
+    ? new THREE.MeshStandardMaterial({ color: 0xffffff, vertexColors: true, roughness: 0.32, metalness: 0.02,
+        emissive: 0x1a3652, emissiveIntensity: 0.5 }) : null;   // soft self-light so the iris stays luminous in shade (an unlit lower hemisphere read as black beads)
+  const cutePupilMat = c.cfg.cuteEye
+    ? new THREE.MeshStandardMaterial({ color: 0x0a1622, roughness: 0.4, metalness: 0.02, side: THREE.DoubleSide }) : null;
+  const cuteGlintMat = c.cfg.cuteEye
+    ? new THREE.MeshStandardMaterial({ color: 0xffffff, emissive: 0xffffff, emissiveIntensity: 2.6, side: THREE.DoubleSide }) : null;
   for (const s of [-1, 1]) {
-    const eye = new THREE.Mesh(new THREE.SphereGeometry(rr, seg(12), seg(9)), c.mats.eyeMat);
-    eye.scale.set(sx, sy, 0.82);
-    eye.rotation.set(0.1, -s * tiltY, -s * tiltZ);   // almond/feline tilt (0 when round)
-    eye.position.set(s * x, yset, z);
-    c.head.add(eye);
+    // EYE ANCHOR: the ONE-SHELL smooth wedge (apex skull) SWALLOWS a flush-seated ball —
+    // the r13 keen decal existed precisely because of this, seated proud on the wedge cheek.
+    // The socketed ball inherits that proven proud anchor (up + forward onto the visible
+    // front planes — eyes parked at the dome's silhouette edge read as specks); every other
+    // skull keeps the zone anchor (the default eye keeps its shipped position byte-identical).
+    const oneShellEye = c.cfg.cuteEye && c.cfg.skullType === 'smoothWedgeSkull';
+    const kYaw = Math.PI - s * 0.62, kN = new THREE.Vector3(Math.sin(kYaw), 0, Math.cos(kYaw));
+    const ecA = oneShellEye
+      ? new THREE.Vector3(s * c.hx * 0.6, c.hy * 0.32, c.faceZ - c.faceR * 0.34)   // PROUD on the wedge cheek — the one-shell smoothWedge SWALLOWS a flush/inboard eye (L147); the head-on read is carried by the forward-converged pupil, not by moving the ball inboard
+          .addScaledVector(kN, 0.15 + rr * 0.35)
+      : new THREE.Vector3(s * x, yset, z);
+    if (c.cfg.cuteEye) {
+      // THE CUTE EYE, final architecture: ONE VERTEX-PAINTED BALL + a glint + cap lids.
+      // History of the three failed layered builds (do not repeat): flat forward discs →
+      // dead blank ball in profile; near-tangent full spheres → shattered star; wrapping
+      // cap shells → POLYHEDRAL SAG interpenetration (a seg-9 cap's mid-face dips ~6%
+      // below nominal radius, eating any thin gap). Painting sclera/iris/pupil as vertex
+      // colours on the sclera sphere ITSELF is immune by construction — one mesh cannot
+      // z-fight itself — and the iris paint wraps the dome, so the profile stays alive.
+      const nrm = oneShellEye
+        ? new THREE.Vector3(kN.x, 0.06, kN.z).normalize()          // apex: gaze along the wedge-cheek normal (the keen decal's facing)
+        : new THREE.Vector3(s * 0.55, 0.06, -1).normalize();       // young forms: forward + ~29° outward so the iris wrap truly reaches the profile view (gate: 23° left the side blank)
+      const geo = new THREE.SphereGeometry(rr, seg(14), seg(10));
+      const pos = geo.attributes.position;
+      // TWO AXES (gate fable-r4 dir 2, the change that fixes gaze everywhere). The IRIS is
+      // PAINTED on the eyeball centred on the OUTWARD normal so it wraps to the PROFILE
+      // (side-of-head eyes stay alive from the side). The PUPIL is a separate dark DISC on a
+      // FORWARD-CONVERGED axis so both eyes hold a gaze HEAD-ON — the old single-axis pupil
+      // followed the outward normal and read divergent/derpy at front (and left the apex
+      // blind). Different axes → front-gaze and profile-life stop fighting.
+      const irisAxis = nrm;
+      // Young forms (es→0): forward + slight INWARD convergence so the pair meet the camera
+      // head-on. Keen forms (es→1, blended by es² so f0/f1 barely move): the pupil swings
+      // forward-OUTWARD to sit on the wedge cheek's VISIBLE face — hard inward convergence
+      // hid the apex pupil behind the nose-side rim from ¾/profile (gate fable-r6: "bright
+      // blank doll orb"). Forward-outward shows a dark pupil crescent at ¾ AND profile.
+      const gazeAxis = new THREE.Vector3(s * (-0.06 + es * es * 0.32), 0.05, -1).normalize();
+      const cS = new THREE.Color(0xbfd8ec);
+      const cI = new THREE.Color(0x4198e2).lerp(new THREE.Color(0xbfe8ff), es * 0.9);   // keen forms brighten the iris hard toward pale-ice so the lateral apex eyes POP against the deep navy wedge head-on (dark apex went murky/blind)
+      const V = new THREE.Vector3(); const cols = []; const CT = new THREE.Color();
+      const band = (ang, a, b) => Math.min(1, Math.max(0, (ang - a) / (b - a)));
+      for (let i = 0; i < pos.count; i++) {
+        const ang = V.fromBufferAttribute(pos, i).normalize().angleTo(irisAxis);
+        CT.copy(cI).lerp(cS, band(ang, 1.15, 1.42));   // iris core → sclera rim; wide wrap keeps the profile alive
+        cols.push(CT.r, CT.g, CT.b);
+      }
+      geo.setAttribute('color', new THREE.Float32BufferAttribute(cols, 3));
+      const ball = new THREE.Mesh(geo, cuteBallMat);
+      ball.scale.set(1.0, 0.96, 0.92);
+      ball.position.copy(ecA);
+      c.head.add(ball);
+      // PUPIL: a crisp dark disc converged FORWARD, seated proud on the eyeball's front face
+      // (edge-on and hidden in pure profile — where the iris paint carries the read instead).
+      const pupil = new THREE.Mesh(new THREE.CircleGeometry(rr * (0.44 + es * 0.1), seg(12)), cutePupilMat);   // keen forms get a BIGGER pupil so it clears the hood + reads at the apex's small eye size
+      pupil.position.copy(ecA).addScaledVector(gazeAxis, rr * 0.955);
+      pupil.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), gazeAxis);
+      c.head.add(pupil);
+      // CATCHLIGHT: a tiny disc, upper-inner of the gaze, proud of the pupil (kept SEPARATE
+      // from the pupil so the pupil reads as a pupil, not a hole with a chip in it).
+      const gDir = new THREE.Vector3(gazeAxis.x - s * 0.16, gazeAxis.y + 0.26, gazeAxis.z).normalize();
+      const glint = new THREE.Mesh(new THREE.CircleGeometry(rr * 0.12, seg(10)), cuteGlintMat);
+      glint.position.copy(ecA).addScaledVector(gDir, rr * 1.0);
+      glint.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), gDir);
+      c.head.add(glint);
+
+      // SOCKET LIDS (research: an eye sits IN an orbit under an upper lid — never a naked
+      // exposed ball; the lid gives the aperture its shape and the gaze its seat). Cap
+      // shells are SAFE here: their 10–12% radius gaps exceed the polyhedral sag (the one
+      // shell recipe that never shattered across five rounds). eyeShape drives the lid:
+      // es=0 → a light high hood (round wide baby aperture); es=1 → a deep nose-ward-
+      // slanted hood (the keen almond apex, hooded but READABLE). One dial-driven socket
+      // for every form — the separate keen-almond decal is retired.
+      const SC = new THREE.Vector3(1.0, 0.96, 0.92);
+      const hood = 0.62 + es * 0.14;   // keen hood kept SHALLOW (gate fable-r5 dir 1: at es*0.34 the enlarged hood occluded the apex pupil → blind head-on). A brow LINE, not a visor.
+      const upperLid = new THREE.Mesh(new THREE.SphereGeometry(rr * 1.12, seg(9), seg(3), 0, Math.PI * 2, 0, hood), c.flapMat);
+      upperLid.position.copy(ecA); upperLid.scale.copy(SC);
+      upperLid.rotation.set(-0.5 - es * 0.2, 0, s * es * 0.16);   // tip the hood further UP off the pupil on keen forms + a MINIMAL nose-ward roll (gate fable-r6: an asymmetric hood swallowed the left apex eye into socket-shadow while the right read bare)
+      c.head.add(upperLid);
+      const lowerLid = new THREE.Mesh(new THREE.SphereGeometry(rr * 1.1, seg(8), seg(2), 0, Math.PI * 2, Math.PI - (0.34 + es * 0.18), 0.34 + es * 0.18), c.flapMat);
+      lowerLid.position.copy(ecA); lowerLid.scale.copy(SC);
+      lowerLid.rotation.set(-0.3, 0, 0);                           // a soft lower-lid crescent closes the socket from below
+      c.head.add(lowerLid);
+    } else {
+      const eye = new THREE.Mesh(new THREE.SphereGeometry(rr, seg(12), seg(9)), c.mats.eyeMat);
+      eye.scale.set(sx, sy, 0.82);
+      eye.rotation.set(0.1, -s * tiltY, -s * tiltZ);   // almond/feline tilt (0 when round)
+      eye.position.copy(ecA);
+      c.head.add(eye);
+    }
     if (glow) {
       const rim = new THREE.Mesh(new THREE.TorusGeometry(r * 1.12, r * 0.14, seg(5), seg(10), Math.PI * 1.1), c.glowMat);
       rim.position.set(s * x, y + r * 0.16, z + 0.02);
@@ -428,14 +528,19 @@ function browCrest(c) {
   // FIXED anchor on the crown — referenced to the CONSTANT base radius R (not the
   // per-skull dims), so it never drifts when the skull preset changes across forms
   // (§7 motif-invariance assert). Head-inner-local, independent of headScale.
-  const ax = 0, ay = R * 0.62, az = R * 0.06;   // seated high on the crown so the fan clears the head outline
-  const cGold = c.def.accentHue ?? 0xd9b36a;
+  const isNub = n === 1;   // the hatchling's SINGLE-blade crest is a soft rounded nub, not a thin feeler (gate CP2 f0 dir 2)
+  const seat = c.cfg.crestSeat ?? 0;   // young forms seat the blades DEEPER into the crown so thin sprouts never float (gate CP2 r2 dir 3)
+  const ay = (isNub ? R * 0.5 : R * 0.62) - seat;   // seat the nub/fan rooted INTO the crown so it never floats as a wire antenna
+  const ax = 0, az = R * 0.06;   // seated high on the crown so the fan clears the head outline
+  const crestGoldAmt = c.cfg.crestGoldAmount ?? 1;   // young forms mute the gold tip so thin blades don't read as floating bright slivers from behind (gate CP2 r2 dir 3)
+  const cGoldFull = c.def.accentHue ?? 0xd9b36a;
   // Crest blade base (gate r5 dir 10): a MID sky-blue that reads clearly LIGHTER than the
   // navy head — the round-4 crest went near-black because material.color==cBase multiplied
   // the SAME cBase vertex colour (value squared). Fix: material.color WHITE (vertex colours
   // carry the true hue, no double-darken) + a small emissive lift so it separates on a navy
   // crown. cBase kept for the featherGeo gradient's base end.
   const cBase = c.cfg.crestBase ?? c.def.crestBase ?? 0x4f74a8;   // the gate's exact ask (gate r6/r7 dir 4) — reads clearly lighter than the navy head without going toy-saturated
+  const cGold = new THREE.Color(cBase).lerp(new THREE.Color(cGoldFull), crestGoldAmt).getHex();   // crestGoldAmt 1 = full gold (apex, byte-identical); <1 fades the tip toward the crest base hue
   const bladeMat = new THREE.MeshStandardMaterial({
     color: 0xffffff, emissive: 0x1a2c40, emissiveIntensity: 0.14,   // faint lift only, so the base stays a calm 0x4f74a8, not a saturated toy-blue
     roughness: 0.5, metalness: 0.1, side: THREE.DoubleSide, vertexColors: true,
@@ -446,8 +551,14 @@ function browCrest(c) {
     // Distinct per-blade LENGTH (×0.8 steps) + RAKE (gate r7 dir 4c): kill the dead parallel
     // pair. Centre-out ordering so the middle blade is longest and the outers step down ×0.8.
     const rank = Math.abs(i - (n - 1) / 2);                 // 0 = centre, grows outward
-    const len = (0.78 * Math.pow(0.8, rank)) * sc;
-    const wid = (0.2 * Math.pow(0.86, rank)) * sc;
+    // NUB (hatchling, n=1): short + FAT (aspect ~1.2) so it reads as a soft thumb-bump, not a
+    // wire antenna. SPROUTS (adolescent, n=2): shorter + 1.5× wider so the pair reads as
+    // rooted feathers, not two detached slits hovering over the crown from the nape (the
+    // fable gate flagged them as "floating brow chips" twice). FAN (n≥3, the apex): the
+    // approved slim swept feathers stepping down ×0.8 outward — byte-identical.
+    const isSprout = n === 2;
+    const len = isNub ? 0.34 * sc : (isSprout ? 0.62 : 0.78) * Math.pow(0.8, rank) * sc;
+    const wid = isNub ? 0.3 * sc  : (isSprout ? 0.3 : 0.2) * Math.pow(0.86, rank) * sc;
     maxLen = Math.max(maxLen, len);
     // A slim feather blade, gold-tipped via a base→tip vertex gradient.
     const g = featherGeoLocal(len, wid);
@@ -523,11 +634,14 @@ const DEFAULTS = {
   eyeShape: 1,          // 1 = almond (draconic default) · 0 = round (cute hatchling)
   crestBlades: 0,       // brow-crest motif blade count (0 = none) — the AZURE motif socket
   crestScale: 1,        // brow-crest bloom scale
+  crestGoldAmount: 1,   // brow-crest gold tip-paint amount (young forms earn it): 0 = body-hued tips, 1 = full apex gold (default byte-identical)
+  crestSeat: 0,         // additive DOWNWARD offset of the crest anchor into the crown (young forms seat it deeper so thin blades never float); default 0 = apex byte-identical
   keenEye: false,       // opt-in bright-almond proud eye (AZURE); default keeps the shared eye
+  cuteEye: false,       // opt-in dark forward pupil + catchlight on the ROUND eye (AZURE hatchling); default keeps the bare sphere byte-identical
 };
 const OVERRIDE_KEYS = ['skullType', 'snoutType', 'eyeZoneType', 'browType', 'hornType', 'jawType', 'rearCrestType',
   'headScale', 'snoutScale', 'hornScale', 'eyeScale', 'browIntensity', 'rearGlowIntensity', 'whiskerFins', 'tuskJaw',
-  'eyeShape', 'crestBlades', 'crestScale', 'keenEye'];
+  'eyeShape', 'crestBlades', 'crestScale', 'crestGoldAmount', 'crestSeat', 'keenEye', 'cuteEye'];
 
 function resolveConfig(model) {
   const arch = ARCHETYPES[model.headArchetype] || ARCHETYPES.softStealth;
@@ -568,7 +682,9 @@ function buildDraconicHead(def, model, mats) {
     (JAWS[cfg.jawType] || compactSmoothJaw)(ctx);
   }
   (EYES[cfg.eyeZoneType] || largeSoftEyeZone)(ctx);
-  (BROWS[cfg.browType] || softBrow)(ctx);
+  // cuteEye's socket LIDS are the brow (gate: the old brow cones floated as detached chips
+  // over the skull from the nape) — the separate brow module only runs for the default eye.
+  if (!cfg.cuteEye) (BROWS[cfg.browType] || softBrow)(ctx);
   (HORNS[cfg.hornType] || smallSweptBackEarFins)(ctx);
   (CRESTS[cfg.rearCrestType] || smallRearCrest)(ctx);
   if (cfg.whiskerFins) whiskerFins(ctx);
