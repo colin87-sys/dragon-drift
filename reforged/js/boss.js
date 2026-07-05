@@ -607,6 +607,17 @@ function updateSoakMotes(dt, player) {
   soakMotes.visible = soakList.length > 0;
 }
 
+// Drop every live soak mote and hide the cloud — called on fight teardown so a mote
+// shed just before death/reset (life 3.2s > the 2.6s death dissolve) can't survive
+// frozen into the normal course (review P2).
+function clearSoakMotes() {
+  soakList.length = 0; soakShed = 0;
+  if (soakMotes) {
+    if (soakPos) { soakPos.fill(9999); soakMotes.geometry.attributes.position.needsUpdate = true; }
+    soakMotes.visible = false;
+  }
+}
+
 // ---- Spell cards (BOSS-DESIGN.md §5f/§5h) -----------------------------------
 // beginCard: title-card the phase's named set-piece, arm its timer, snapshot the
 // hit counter (capture = hitless through the whole card). endCard: decide the
@@ -1024,9 +1035,8 @@ export function startBossEncounter(player, defOverride) {
   game.inBoss = true;
   game.bossHitsTakenRun = 0;
   staggerT = 0; staggerHits = 0; swarmScattered = false; swarmDeflectHinted = false;   // §5d slot 7 swarm state
-  condHold = 0; soakShed = 0; soakList.length = 0;
+  condHold = 0; clearSoakMotes();
   poseRing.length = 0; poseRingT = 0; wingsPath = null;   // §5e ring buffer: fresh per encounter
-  if (soakMotes) soakMotes.visible = false;
 
   phase = 'warn';
   warnT = B.warnTime;
@@ -1075,6 +1085,7 @@ function endEncounter(player) {
   beamHeld = 0; beamTick = 0; beamGrace = 0; adrenRung = 0; adrenT = 0;
   if (group) { scene.remove(group); model.dispose?.(); }
   resetBossBullets();
+  clearSoakMotes();            // §5i.B: a late-shed pink mote must not outlive the fight (review P2)
   group = null; model = null; def = null;
   active = false;
   phase = 'idle';
@@ -2212,11 +2223,13 @@ function damageBoss(amount, kind, e = null) {
     if (group && Math.random() < 0.5) burst(group.position, def.glow, { count: 4, speed: 10, size: 0.7, life: 0.3 });
     return;
   }
-  // §5d slot 7 (THRUMSWARM): chip only lands while the swarm is CONDENSED. Scattered =
+  // §5d slot 7 (THRUMSWARM): CHIP only lands while the swarm is CONDENSED. Scattered =
   // invulnerable (the turn-taking tell) — the hit sparks off the dispersed cloud with no
-  // damage, so the player learns to strike the condensed windows. Surge (the shield
-  // break) is a separate path and is never gated here. Def-gated on `condenseInvuln`.
-  if (def.condenseInvuln && model.condenseLive && model.condenseLive() < 0.45) {
+  // damage, so the player learns to strike the condensed windows. The SURGE beam is
+  // EXEMPT (`kind === 'surge'`): banked surge is the player's big investment and always
+  // lands, whether it breaks a shield or chips an unshielded boss (review P2 — otherwise
+  // firing Surge on a scattered swarm wasted it). Def-gated on `condenseInvuln`.
+  if (def.condenseInvuln && kind !== 'surge' && model.condenseLive && model.condenseLive() < 0.45) {
     sfx.shieldPing?.();
     if (!swarmDeflectHinted) { swarmDeflectHinted = true; ui.bossNote?.('✦ SCATTERED — UNTOUCHABLE ✦', 'STRIKE WHEN IT CONDENSES', 'gold', 2.6); }
     emit('bossDeflect', { reason: 'scattered' });
@@ -2267,6 +2280,7 @@ export function resetBoss() {
   ui.bossCardClear?.();
   if (group && scene) { scene.remove(group); model && model.dispose && model.dispose(); }
   resetBossBullets();
+  clearSoakMotes();            // §5i.B: no stray pink mote frozen across a run teardown (review P2)
   active = false;
   phase = 'idle';
   group = null; model = null; def = null;
