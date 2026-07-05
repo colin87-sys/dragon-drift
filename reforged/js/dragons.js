@@ -68,7 +68,7 @@ export const DRAGONS = {
       { wingScale: 0.9, bladeSpan: 7.3, bladeCount: 5, bladeDetail: 0.92,
         spineCurl: 0.0, eyeShape: 0.55, headScale: 0.84, eyeScale: 1.02, snoutScale: 0.62,   // CP2 dir 6: trim the muzzle ~28% so it sits BETWEEN f0's button and f2's short beak; headScale 0.84 keeps eye:head in band after the cut (still a clear step down from f0's 1.3)
         keenEye: false, cuteEye: true,   // CP2: the adolescent bridges — a big ROUND-ALERT pupil eye (eyeShape 0.55 half-almonds it), NOT yet the apex keen falcon decal. The keen almond arrives only at the Radiant apex
-        crestBlades: 2, crestScale: 0.74, crestGoldAmount: 0.15, crestSeat: 0.12,   // CP2 r2 dir 3: mute the crest gold to body-hue + seat the sprouts INTO the crown so they stop floating as bright eyebrow slivers from the nape
+        crestBlades: 2, crestScale: 0.74, crestGoldAmount: 0.15, crestSeat: 0.13,   // CP2 r3 dir 3: mute crest gold to body-hue + seat the sprouts into the crown (0.13 = as deep as the §7 motif-invariance drift cap allows) so they root rather than hover
         wingTipGold: 0xd9b36a, wingTipGoldAmount: 0.5,   // CP2 dir 5: PARTIAL gold at the adolescent
         tailStyle: 'simple', tailTipFork: true, tailSegments: 5, neckSegments: 5,
         ridgeCount: 8, spineGlow: 0,

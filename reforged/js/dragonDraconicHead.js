@@ -283,35 +283,38 @@ function eyeZone(c, { r, x, y, z, glow }) {
   // Squirtle/Charmander read: a huge eye is only cute once a dark pupil + glint give it a
   // gaze). Default OFF → obsidian/pearl/solar keep the byte-identical bare sphere.
   const cuteIrisMat = c.cfg.cuteEye
-    ? new THREE.MeshStandardMaterial({ color: 0x4ea6dc, emissive: 0x1f5f88, emissiveIntensity: 0.35, roughness: 0.3 }) : null;
+    ? new THREE.MeshStandardMaterial({ color: 0x4ea6dc, emissive: 0x1f5f88, emissiveIntensity: 0.35, roughness: 0.3, side: THREE.DoubleSide }) : null;
   const cutePupilMat = c.cfg.cuteEye
-    ? new THREE.MeshStandardMaterial({ color: 0x0e1a2a, roughness: 0.38, metalness: 0.02 }) : null;
+    ? new THREE.MeshStandardMaterial({ color: 0x0e1a2a, roughness: 0.38, metalness: 0.02, side: THREE.DoubleSide }) : null;
   const cuteGlintMat = c.cfg.cuteEye
-    ? new THREE.MeshStandardMaterial({ color: 0xffffff, emissive: 0xffffff, emissiveIntensity: 2.6 }) : null;
+    ? new THREE.MeshStandardMaterial({ color: 0xffffff, emissive: 0xffffff, emissiveIntensity: 2.6, side: THREE.DoubleSide }) : null;
   for (const s of [-1, 1]) {
     const eye = new THREE.Mesh(new THREE.SphereGeometry(rr, seg(12), seg(9)), c.mats.eyeMat);
-    eye.scale.set(sx, sy, 0.82);
+    // cuteEye keeps the sclera nearly ROUND (a squashed sclera made the disc decals clip);
+    // the default eye keeps its shipped almond squash byte-identical.
+    if (c.cfg.cuteEye) eye.scale.set(1.0, 0.96, 0.92); else eye.scale.set(sx, sy, 0.82);
     eye.rotation.set(0.1, -s * tiltY, -s * tiltZ);   // almond/feline tilt (0 when round)
     eye.position.set(s * x, yset, z);
     c.head.add(eye);
     if (c.cfg.cuteEye) {
-      // A CONCENTRIC cartoon eye that reads from EVERY angle (gate CP2 r2 dir 1/2): a big
-      // mid-blue IRIS wrapping most of the dome (only modestly proud → a third still shows in
-      // profile), a dark pupil, and a catchlight seated ON the sclera surface. The old glint
-      // floated a full radius out front and poked above the head from the nape/top; the old
-      // lone pupil vanished in profile (blank disc) and poked past the sclera in ¾. Gaze is
-      // mostly FORWARD (small outward) so the far pupil never protrudes past the sclera edge.
-      const nrm = new THREE.Vector3(s * 0.14, 0.04, -1).normalize();
+      // A cartoon eye built from FLAT COPLANAR DISC DECALS (gate CP2 r3 dir 1). Both prior
+      // builds used intersecting/near-tangent SPHERES that z-fought into a shattered star with
+      // stray fleck-triangles; flat CircleGeometry decals stacked at increasing depth are
+      // parallel planes that CANNOT intersect — clean rims, no shatter. They sit proud of the
+      // sclera in a group facing the forward-and-slightly-out gaze normal (button-eye read).
+      const nrm = new THREE.Vector3(s * 0.15, 0.05, -1).normalize();
       const ec = new THREE.Vector3(s * x, yset, z);
-      const iris = new THREE.Mesh(new THREE.SphereGeometry(rr * 0.82, seg(8), seg(5)), cuteIrisMat);
-      iris.scale.set(sx, sy, 0.82); iris.position.copy(ec).addScaledVector(nrm, rr * 0.2);
-      c.head.add(iris);
-      const pupil = new THREE.Mesh(new THREE.SphereGeometry(rr * 0.5, seg(7), seg(5)), cutePupilMat);
-      pupil.scale.set(sx, sy, 0.8); pupil.position.copy(ec).addScaledVector(nrm, rr * 0.42);
-      c.head.add(pupil);
-      const glint = new THREE.Mesh(new THREE.SphereGeometry(rr * 0.18, seg(4), seg(3)), cuteGlintMat);
-      glint.position.copy(ec).addScaledVector(nrm, rr * 0.62).add(new THREE.Vector3(s * 0.04, rr * 0.34, 0));
-      c.head.add(glint);
+      const dg = new THREE.Group();
+      dg.position.copy(ec).addScaledVector(nrm, rr * 0.99);   // seat the decal plane just PROUD of the sclera front (~0.92·rr) so the white sclera never z-fights through the pupil
+      dg.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), nrm);   // +Z (the CircleGeometry face normal) → gaze
+      c.head.add(dg);
+      const disc = (radius, mat, zoff, ox = 0, oy = 0) => {
+        const m = new THREE.Mesh(new THREE.CircleGeometry(radius, seg(16)), mat);
+        m.position.set(ox, oy, zoff); dg.add(m); return m;
+      };
+      disc(rr * 0.6, cuteIrisMat, 0);                              // blue IRIS disc
+      disc(rr * 0.32, cutePupilMat, rr * 0.02);                    // dark PUPIL, proud of the iris
+      disc(rr * 0.11, cuteGlintMat, rr * 0.04, -rr * 0.13, rr * 0.15);   // CATCHLIGHT dot, upper-inner
     }
     if (glow) {
       const rim = new THREE.Mesh(new THREE.TorusGeometry(r * 1.12, r * 0.14, seg(5), seg(10), Math.PI * 1.1), c.glowMat);
