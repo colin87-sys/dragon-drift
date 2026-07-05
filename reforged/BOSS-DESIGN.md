@@ -45,7 +45,8 @@ on a real phone (`tools/stress.mjs` for relative curves; headless numbers are rA
 
 1. **Silhouette first.** The outline must be describable in ONE sentence and recognizable as
    a solid black fill at 30m. Author FEW hard points — dense outlines read as circles at
-   distance. Dominant mass ≥3× secondary forms ≥3× detail.
+   distance. Dominant mass ≥3× secondary forms ≥3× detail. (Necessary but NOT sufficient — a
+   one-sentence outline can still read as the WRONG noun; the translation discipline is §3b.)
 2. **One focal point = the brightest emissive**, almost always an eye/face, HDR-overdriven.
    Everything else ≤ half its intensity. Weak point = focal point (Zelda grammar).
 3. **Three color tiers, dark body**: ~75% near-black desaturated base (identity hue lives in
@@ -65,6 +66,73 @@ on a real phone (`tools/stress.mjs` for relative curves; headless numbers are rA
    flat-shaded orbiters reads as pale glitchy debris.
 9. **Never animate the root**: `boss.js placeGroup` stomps `group.rotation` every frame and
    `kit.setDissolve` owns `group.scale`. Everything animated lives on an inner `rig`/pivots.
+
+## 3b. LOW-POLY SILHOUETTE TRANSLATION (the anti-failure discipline, 2026-07 — L150)
+
+**Read this before modeling any boss.** Two shipped failures came from the SAME root cause and
+they will keep happening as bosses get grander unless this is a hard step: EITHERWING was
+modeled correctly but read TINY (L140/L141); BRINEHOLM modeled a genuine whale — brow, jaw,
+throat pleats, barnacled arched back, all in the mesh — and read as **a battleship with a
+headlight**. The build sheet describes the boss in WORDS; the builder faithfully models the
+words; but the player reads the **SILHOUETTE** (the black outline + the lit emissive edges),
+and the silhouette can betray every word. §3.1 ("silhouette first") is necessary but not
+sufficient — BRINEHOLM's outline WAS describable in one sentence and still read as the wrong
+object. This section is the translation layer from grand concept → low-poly that actually reads.
+
+**The eight translation laws:**
+
+1. **Judge the silhouette, not the part list.** At 30m on a phone, a low-poly boss is an
+   outline plus a few glowing lines. Modeled detail that never reaches the outline or an emissive
+   edge is INVISIBLE (BRINEHOLM's brow/jaw/pleats were all there and all lost). Every gate judges
+   a pure black-fill render + a lit-edge-only render FIRST, then the beauty pass.
+2. **Name the ANTI-READS before building.** Write what the silhouette must NOT read as — a ship,
+   a blob, a generic bug, another boss — then name the exact primitive choices that cause each
+   and forbid them. (BRINEHOLM "ship" = a straight horizontal lit stripe + a row of small
+   triangular fins + symmetric bow/stern taper + a lamp on a raised deck. All five were present.)
+3. **Lit edges ARE the drawing.** On a near-black body the EMISSIVE lines are the shape the eye
+   traces. A straight, level, horizontal lit line reads as MAN-MADE (waterline, deck, gunwale) no
+   matter how organic the mesh under it is. Emissive must follow character/organic anatomy —
+   ridges, creases, throat grooves, rims — NEVER a level rule line. (EITHERWING's fix was
+   full-perimeter rims; BRINEHOLM's is: kill the waterline stripe, move the glow to the pleats
+   and dorsal crest.)
+4. **Every identity reduces to 2–3 CARRYING CUES that must survive to the outline.** A whale =
+   one big curved dorsal fin + a blunt heavy head + a fluke/blow. Not forty modeled details.
+   Build the 2–3 cues BIG and unmistakable (dominant ≥3× per §3.1); everything else is texture.
+   One iconic cue beats ten subtle ones. If the cues aren't in the outline, nothing else matters.
+5. **Plant a POSITIVE signal — don't just avoid the negative.** The brain defaults to the
+   nearest familiar shape; removing the anti-read isn't enough, you must give it the right shape
+   loudly. A blowhole spout says "whale" louder than deleting masts does; a single hooked orca
+   fin says "it swims." Add one signal the intended object has that NOTHING else does.
+6. **Scale is a silhouette property (L140/L141).** Presence = on-screen span × lit-edge area at
+   FIGHT distance; for multi-body/ensemble bosses the FIELD must read, not the parts. Set an
+   explicit on-screen scale target vs the shipped anchors (ASHTALON ≈24u wingspan; MARROWCOIL ≈
+   screen-length; a Sentinel ≈ small-medium). If the concept needs to feel HUGE, author a
+   PROXIMITY beat (a true pass/fly-through where rel crosses negative) — distance shrinks
+   everything and proximity is the cheapest multiplier.
+7. **Judge on the boss's HOME backdrop first.** A dark boss on a pale backdrop is a flat cutout —
+   all relief vanishes and only the outline + lit lines survive (this is exactly what made
+   BRINEHOLM's studio sheet read featureless). A pale boss on dark, likewise. The home-biome
+   value backdrop + the fight-distance frame are the PRIMARY judgment; the neutral studio
+   backdrops are the stress test, not the verdict. (§7c now defaults the studio to home value.)
+8. **The stranger test.** Show the pure black-fill silhouette to someone with zero context: do
+   they name the intended object in ~2 seconds? If not, it is not translated yet — no amount of
+   in-mesh detail or beauty lighting will fix a silhouette that reads as the wrong noun.
+
+**The per-boss SILHOUETTE TRANSLATION SHEET (fill BEFORE modeling; lives in the §5d entry):**
+- **Reads as:** the intended object, one noun-phrase (the stranger-test target).
+- **Carrying cues (2–3):** the shapes that MUST reach the outline, each sized dominant.
+- **Anti-reads:** what it must NOT look like + the forbidden primitive choices for each.
+- **Lit-edge plan:** where the emissive goes (organic anatomy only — no level lines) + the one focal.
+- **Scale target:** on-screen span vs the anchors; the proximity beat if it must feel huge.
+- **Home backdrop:** value/temperature the boss is judged against first.
+
+**Process (both cheap, both catch the failure before it costs a rebuild):**
+- **PRE-BUILD Fable sign-off:** the builder fills the translation sheet and a Fable agent
+  approves it (or names missing cues / un-forbidden anti-reads) BEFORE any geometry exists. This
+  is where BRINEHOLM should have been caught — at the sheet, not after modeling.
+- **CP1 silhouette gate:** the Fable design gate judges the black-fill + lit-edge renders on the
+  home backdrop + fight-distance frame against the translation sheet's cues, anti-reads, and the
+  stranger test — BEFORE the beauty pass. A boss that fails the stranger test does not proceed.
 
 ## 4. The shareability system (research-backed — this is the game's bar now)
 
@@ -1352,10 +1420,15 @@ already carries an equivalent viewer, adopt and rename it — never rebuild):
 - Boots the builder DIRECTLY (buildBoss(def) — no game world, no fog, no biome, no props);
   the game's real lighting rig (sun + hemisphere) and real postfx chain (bloom/ACES — the
   design laws are written against the bloom pipeline, so the studio must keep it).
-- TWO backdrops per shoot, judged on both: near-dark 0x14121a and pale 0xcfd6e4 (a boss must
-  read against a dark sky AND a bright horizon). **PLUS (L140, EITHERWING lesson): a warm
-  sunset-gold backdrop 0xd9a24a** — warm dark accents (oxblood, ember) vanish against warm
-  skies in a way neither neutral backdrop catches.
+- Backdrops per shoot: near-dark 0x14121a, pale 0xcfd6e4, and warm sunset-gold 0xd9a24a (L140 —
+  warm dark accents vanish against warm skies). **The boss's HOME-value backdrop is the PRIMARY
+  verdict (§3b.7, L150):** judge a dark boss on the dark/home backdrop first — a dark boss on the
+  pale backdrop is a flat cutout whose relief vanishes (this made BRINEHOLM's sheet read
+  featureless and shiplike). The off-value backdrops are the stress test, not the verdict.
+- **SILHOUETTE RENDERS (L150, mandatory, judged BEFORE the beauty pass):** per state, also emit a
+  pure BLACK-FILL render (identity-hue outline only) and a LIT-EDGE-ONLY render (emissive alone on
+  black). §3b's stranger test + anti-reads are checked on these. The beauty contact sheet is
+  secondary — if the black fill reads as the wrong noun, the boss fails regardless of its lighting.
 - **FIGHT-DISTANCE FRAME (L140, mandatory alongside the contact sheet):** one shot at the
   REAL encounter geometry — camera at the live chase FOV (72) and the boss at its true
   station distance (rel 30, or its own settle rel), NO auto-framing. The 60%-height
