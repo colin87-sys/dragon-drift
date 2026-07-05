@@ -303,7 +303,7 @@ function eyeZone(c, { r, x, y, z, glow }) {
     const oneShellEye = c.cfg.cuteEye && c.cfg.skullType === 'smoothWedgeSkull';
     const kYaw = Math.PI - s * 0.62, kN = new THREE.Vector3(Math.sin(kYaw), 0, Math.cos(kYaw));
     const ecA = oneShellEye
-      ? new THREE.Vector3(s * c.hx * 0.6, c.hy * 0.32, c.faceZ - c.faceR * 0.34)   // further UP + FORWARD onto the front planes (gate fable-r4 dir 1: eyes tangent to the dome edge read blind head-on)
+      ? new THREE.Vector3(s * c.hx * 0.6, c.hy * 0.32, c.faceZ - c.faceR * 0.34)   // PROUD on the wedge cheek — the one-shell smoothWedge SWALLOWS a flush/inboard eye (L147); the head-on read is carried by the forward-converged pupil, not by moving the ball inboard
           .addScaledVector(kN, 0.15 + rr * 0.35)
       : new THREE.Vector3(s * x, yset, z);
     if (c.cfg.cuteEye) {
@@ -326,9 +326,9 @@ function eyeZone(c, { r, x, y, z, glow }) {
       // followed the outward normal and read divergent/derpy at front (and left the apex
       // blind). Different axes → front-gaze and profile-life stop fighting.
       const irisAxis = nrm;
-      const gazeAxis = new THREE.Vector3(-s * 0.06, 0.05, -1).normalize();   // forward, slight INWARD convergence so the pair meet the camera head-on
+      const gazeAxis = new THREE.Vector3(-s * (0.06 + es * 0.12), 0.05, -1).normalize();   // forward, INWARD convergence (harder on keen forms whose eyes sit far out on the wedge cheek) so BOTH pupils meet the camera head-on — the apex read blind/asymmetric when its pupils diverged
       const cS = new THREE.Color(0xbfd8ec);
-      const cI = new THREE.Color(0x4198e2).lerp(new THREE.Color(0xa9e2ff), es * 0.75);   // keen forms brighten the iris toward pale-ice (dark apex went murky)
+      const cI = new THREE.Color(0x4198e2).lerp(new THREE.Color(0xbfe8ff), es * 0.9);   // keen forms brighten the iris hard toward pale-ice so the lateral apex eyes POP against the deep navy wedge head-on (dark apex went murky/blind)
       const V = new THREE.Vector3(); const cols = []; const CT = new THREE.Color();
       const band = (ang, a, b) => Math.min(1, Math.max(0, (ang - a) / (b - a)));
       for (let i = 0; i < pos.count; i++) {
@@ -343,7 +343,7 @@ function eyeZone(c, { r, x, y, z, glow }) {
       c.head.add(ball);
       // PUPIL: a crisp dark disc converged FORWARD, seated proud on the eyeball's front face
       // (edge-on and hidden in pure profile — where the iris paint carries the read instead).
-      const pupil = new THREE.Mesh(new THREE.CircleGeometry(rr * 0.44, seg(12)), cutePupilMat);
+      const pupil = new THREE.Mesh(new THREE.CircleGeometry(rr * (0.44 + es * 0.1), seg(12)), cutePupilMat);   // keen forms get a BIGGER pupil so it clears the hood + reads at the apex's small eye size
       pupil.position.copy(ecA).addScaledVector(gazeAxis, rr * 0.955);
       pupil.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), gazeAxis);
       c.head.add(pupil);
@@ -363,10 +363,10 @@ function eyeZone(c, { r, x, y, z, glow }) {
       // slanted hood (the keen almond apex, hooded but READABLE). One dial-driven socket
       // for every form — the separate keen-almond decal is retired.
       const SC = new THREE.Vector3(1.0, 0.96, 0.92);
-      const hood = 0.62 + es * 0.34;   // keen hood: enough to read hooded/keen, not so deep it swallows the eye (gate r3/r4 traded blind for naked fish-eye — this is the middle)
+      const hood = 0.62 + es * 0.14;   // keen hood kept SHALLOW (gate fable-r5 dir 1: at es*0.34 the enlarged hood occluded the apex pupil → blind head-on). A brow LINE, not a visor.
       const upperLid = new THREE.Mesh(new THREE.SphereGeometry(rr * 1.12, seg(9), seg(3), 0, Math.PI * 2, 0, hood), c.flapMat);
       upperLid.position.copy(ecA); upperLid.scale.copy(SC);
-      upperLid.rotation.set(-0.38 - es * 0.22, 0, s * es * 0.5);   // tip the hood forward over the upper iris; roll it nose-ward for the keen slant
+      upperLid.rotation.set(-0.5 - es * 0.12, 0, s * es * 0.28);   // tip the hood UP off the pupil (−0.5) + a gentler nose-ward roll (0.28) so the two hoods occlude symmetrically (gate: one eye read socket, the other bare)
       c.head.add(upperLid);
       const lowerLid = new THREE.Mesh(new THREE.SphereGeometry(rr * 1.1, seg(8), seg(2), 0, Math.PI * 2, Math.PI - (0.34 + es * 0.18), 0.34 + es * 0.18), c.flapMat);
       lowerLid.position.copy(ecA); lowerLid.scale.copy(SC);
