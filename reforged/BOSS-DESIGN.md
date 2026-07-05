@@ -531,7 +531,7 @@ feasibility survey: at rel 30, on-screen centers within x ±15 / y 2..22 on port
   Motion risk: portcullis + pane beat must carry it or it reads as a loading screen.
 - **7 THRUMSWARM** — queen: bone-white lantern rhombus (stretched octahedron + 6 rib fins
   + dark edge cage) with ONE amber eye; swarm: **40** dark tetra motes (separate meshes;
-  the first sheet said 28 — CP1 raised it, L157: 28 was too few to fill the meme frame's
+  the first sheet said 28 — CP1 raised it, L162: 28 was too few to fill the meme frame's
   wing MEMBRANES; it read as a jellyfish. 40 lets each wing carry a 12-point filled
   triangle. Still ~54 draws ≪ the tier-3 70 gate) lerping between authored formation
   tables: ring / wall / line / YOUR-DRAGON (the copy is authored as a SIDE-PROFILE flying
@@ -539,7 +539,7 @@ feasibility survey: at rel 30, on-screen centers within x ±15 / y 2..22 on port
   contained ember (the lantern DIMS in dragon-mode so it reads as an eye, not a lamp),
   one big filled near-wing, a long tapering serpentine TAIL, a rider hump; the runtime
   hook `setYourDragonSlots()` can replace the authored slots with the player model's own
-  vertices at fight start — the meme frame. L157: a front-on symmetric winged shape reads
+  vertices at fight start — the meme frame. L162: a front-on symmetric winged shape reads
   as a moth; the SIDE PROFILE is the unmistakable dragon doodle).
   Chip damage only lands while condensed; shield phase = the swarm becomes a ring around
   YOU (L106 law: ring, never a filled volume). Void-black motes / star-white queen +
@@ -1396,7 +1396,7 @@ integration → (pass) → post both sets to the PR → STOP for the human.
 ## 9. Ledger reading list (READ ONLY THESE — the ledger is 470KB and mostly not about bosses)
 
 LEAPFROG.md lessons relevant to boss work, in priority order:
-- **L157** — THRUMSWARM CP1: a SWARM's identity is the FORMATION (motes carry none alone); the meme frame is a
+- **L162** — THRUMSWARM CP1: a SWARM's identity is the FORMATION (motes carry none alone); the meme frame is a
   point-cloud silhouette authored like a constellation; a migrating focal (queen = swarm-centre → the copy's skull) does
   two jobs with one part; a dark boss needs a LIFTED near-black albedo to read on the dark studio sky (lit facets, no rim);
   G6 fails when the additive shield rim out-blooms the leashed eye — hide the focal core under the shield.
