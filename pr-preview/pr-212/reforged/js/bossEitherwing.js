@@ -59,7 +59,10 @@ export function buildTwinWraith(def, quality = 1) {
   // centre UNDER the bubble when it raises (see onShieldChange), so the centred
   // bubble reads as wrapping the holder without any hit-model work. hpBarY clears
   // the orbiting twins; hpBarScale keeps the shared bar at roster width.
-  const kit = createBossCommon(def, quality, { shieldRadius: 4.4, hpBarY: 5.6, hpBarZ: 1.4, hpBarScale: 0.85, shieldRimStrength: 0.07, shieldCageOpacity: 0.55 });
+  // shieldRadius grows with the r9 body (BODY_LEN 4.6→6.2): the bubble scaled only with
+  // def.scale (×1.15) while the twin grew ×1.55, so at 4.4 it read cramped around the bigger
+  // holder — the "the ring feels smaller" owner note. 5.8 restores the roomy ~1.9× margin.
+  const kit = createBossCommon(def, quality, { shieldRadius: 5.8, hpBarY: 5.6, hpBarZ: 1.4, hpBarScale: 0.85, shieldRimStrength: 0.07, shieldCageOpacity: 0.55 });
   const { group, track } = kit;
   group.userData.archetype = 'eitherwing';   // guards the legacy-fallback coexist path (tests/boss.mjs)
 
@@ -695,7 +698,7 @@ export function buildTwinWraith(def, quality = 1) {
       // state. NOT both-in-bubble (that killed the read).
       const holderIsA = holdT < 0.5;
       const inb = [0, 0.15, 0.5];                        // holder → centre, under the bubble
-      const out = [Math.sin(time * 0.5) * 0.4 + 4.9, 0.5 + Math.sin(time * 0.7) * 0.4, -1.2];   // seeker orbits just OUTSIDE the bubble (|pos|≈5.0 > 4.4) but IN FRAME (CP1 r5 directive 3)
+      const out = [Math.sin(time * 0.5) * 0.5 + 7.4, 0.6 + Math.sin(time * 0.7) * 0.5, -1.2];   // seeker orbits just OUTSIDE the bigger r9 bubble (|pos|≈7.4 > shieldRadius 5.8) but IN FRAME
       if (holderIsA) { posA = inb; posB = out; } else { posB = inb; posA = out; }
     }
     twinA.twin.position.set(posA[0], posA[1], posA[2]);
