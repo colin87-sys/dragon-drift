@@ -6487,7 +6487,7 @@ pluck→celtic/world), then the big one still queued: the **section-graph compos
 structure over the loop-wrap rebuild) — the last major listenability unlock, and the highest-blast-radius
 edit (scheduler surgery), so it goes on top of this proven timbre layer, hero-first.
 
-### L154 — Audio overhaul IV: the section-graph composition engine — song STRUCTURE over the 8-bar loop, hero-first
+### L156 — Audio overhaul IV: the section-graph composition engine — song STRUCTURE over the 8-bar loop, hero-first
 
 **Did.** Wired the composition engine (composer.js, committed inert in L-prev) into the live scheduler so a
 station with a `form` plays as a SONG, not an infinite 8-bar loop. `compileTrack` gained a `section` param:
@@ -6523,9 +6523,9 @@ ambient), then the refinements the plan still lists: gameplay VOTING on transiti
 death forces a breakdown) with a one-bar decision deadline inside the lookahead window, motif development
 (sequence/inversion transforms), and per-form-pass ornament reseeding for super-loop freshness.
 
-### L155 — Audio P4b: gameplay-voted sections, motif development, two more song forms — the music now plays WITH the player
+### L157 — Audio P4b: gameplay-voted sections, motif development, two more song forms — the music now plays WITH the player
 
-**Did.** Three additions on top of the L154 section engine, all pure-data + one seam each:
+**Did.** Three additions on top of the L156 section engine, all pure-data + one seam each:
 (1) **Gameplay-voted transitions** (`chooseSection` in composer.js): the authored form is the script, but a
 0..1 intensity vote — published once per frame by `music.update` (Dragon Surge = outright 1.0, else the
 smoothed energy scalar) and READ ONCE PER LOOP-WRAP in `buildEvents` — can override the scheduled section
