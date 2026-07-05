@@ -105,7 +105,7 @@ export function buildBrineholm(def, quality = 1) {
   const cageMat = track(new THREE.LineBasicMaterial({ color: 0x040807, transparent: true, opacity: 0.85, depthWrite: false }));
 
   // THE EYE (the L142 recipe — lens sclera + iris ring + pupil + proud catchlight).
-  const EYE_HOT = 1.35, CORE_HOT = 13.0;
+  const EYE_HOT = 1.5, CORE_HOT = 17.0;
   const EYE_BASE = new THREE.Color(0xd8efe8);
   const eyeMat = track(new THREE.MeshBasicMaterial({ color: 0xd8efe8 })); eyeMat.toneMapped = false; eyeMat.color.copy(EYE_BASE).multiplyScalar(EYE_HOT);
   const eyeCoreMat = track(new THREE.MeshBasicMaterial({ color: 0xffffff })); eyeCoreMat.toneMapped = false; eyeCoreMat.color.setScalar(CORE_HOT);
@@ -231,16 +231,21 @@ export function buildBrineholm(def, quality = 1) {
   const eyeRig = new THREE.Group();
   eyeRig.name = 'eyeRig';
   eyeRig.position.set(EYE_X, EYE_Y, EYE_Z);
-  eyeRig.scale.setScalar(1.4);
+  eyeRig.scale.setScalar(1.7);
   rig.add(eyeRig);
-  const socket = new THREE.Mesh(new THREE.CircleGeometry(1.55, lowQ ? 16 : 24), hideDeepMat); socket.name = 'eyeSocket'; socket.position.z = -0.05; eyeRig.add(socket);
-  const sclGeo = new THREE.SphereGeometry(1.2, 20, 16); sclGeo.scale(1, 1, 0.34);
-  const eyeball = new THREE.Mesh(sclGeo, eyeMat); eyeball.name = 'brineEye'; eyeball.position.z = 0.25; eyeRig.add(eyeball);
-  const iris = new THREE.Mesh(strip(new THREE.TorusGeometry(0.92, 0.24, 8, lowQ ? 16 : 24)), irisMat); iris.name = 'brineIris'; iris.position.z = 0.7; eyeRig.add(iris);
-  const pupil = new THREE.Mesh(new THREE.CircleGeometry(0.62, lowQ ? 14 : 20), pupilMat); pupil.name = 'brinePupil'; pupil.position.z = 0.78; pupil.renderOrder = 5; eyeRig.add(pupil);
-  const eyeCore = new THREE.Mesh(new THREE.SphereGeometry(0.2, 12, 10), eyeCoreMat); eyeCore.name = 'eyeCore'; eyeCore.position.set(-0.26, 0.28, 0.98); eyeCore.renderOrder = 7; eyeRig.add(eyeCore);
+  const socket = new THREE.Mesh(new THREE.CircleGeometry(1.7, lowQ ? 16 : 24), hideDeepMat); socket.name = 'eyeSocket'; socket.position.z = -0.05; eyeRig.add(socket);
+  // the sclera is a PALE GLOWING dome (bulged forward, z*0.5) — the pale eye reads
+  // as the focal even before the catchlight; the dark pupil is a small slit so the
+  // glow, not black, fills the eye.
+  const sclGeo = new THREE.SphereGeometry(1.3, 20, 16); sclGeo.scale(1, 1, 0.5);
+  const eyeball = new THREE.Mesh(sclGeo, eyeMat); eyeball.name = 'brineEye'; eyeball.position.z = 0.3; eyeRig.add(eyeball);
+  const iris = new THREE.Mesh(strip(new THREE.TorusGeometry(0.78, 0.16, 8, lowQ ? 16 : 24)), irisMat); iris.name = 'brineIris'; iris.position.z = 0.82; eyeRig.add(iris);
+  const pupil = new THREE.Mesh(new THREE.CircleGeometry(0.44, lowQ ? 14 : 20), pupilMat); pupil.name = 'brinePupil'; pupil.scale.set(0.62, 1, 1); pupil.position.z = 0.88; pupil.renderOrder = 5; eyeRig.add(pupil);
+  // the CATCHLIGHT (the G1 peak): a proud white-hot glint seated in the EXPOSED
+  // lower-inner sclera (never under the hood), the single hottest point on-screen.
+  const eyeCore = new THREE.Mesh(new THREE.SphereGeometry(0.3, 12, 10), eyeCoreMat); eyeCore.name = 'eyeCore'; eyeCore.position.set(-0.2, -0.34, 1.02); eyeCore.renderOrder = 7; eyeRig.add(eyeCore);
   // the heavy hooded brow-LID (rounded, grinds up-and-back).
-  const eyeLidPivot = new THREE.Group(); eyeLidPivot.name = 'eyeLidPivot'; eyeLidPivot.position.set(0, 1.5, 1.05);
+  const eyeLidPivot = new THREE.Group(); eyeLidPivot.name = 'eyeLidPivot'; eyeLidPivot.position.set(0, 1.7, 1.05);
   const lidParts = [];
   const lid = strip(new THREE.SphereGeometry(1.45, 18, 10, 0, Math.PI * 2, 0, Math.PI * 0.62)); lid.scale(1.15, 0.95, 1.0); lid.rotateX(Math.PI); lid.translate(0, -0.5, 0.1); lidParts.push(lid);
   const welt = strip(new THREE.SphereGeometry(0.55, 10, 7)); welt.scale(2.6, 0.7, 0.9); welt.translate(0, 0.15, 0.5); lidParts.push(welt);
@@ -425,7 +430,7 @@ export function buildBrineholm(def, quality = 1) {
     const blink = blinkT > 0 ? 1 - Math.abs((blinkT / BLINK_DUR) * 2 - 1) : 0;
 
     const lidOpen = clamp(eyeUp - blink * 0.6 + noticeK * 0.45, 0, 1.4);
-    eyeLidPivot.rotation.x = lidOpen * 0.92;
+    eyeLidPivot.rotation.x = lidOpen * 1.2;   // grind the hood fully clear of the catchlight
 
     let eyeK = eyeUp;
     if (noticeT > 0.4) eyeK = Math.max(eyeK, 1) * 1.3;
@@ -433,16 +438,18 @@ export function buildBrineholm(def, quality = 1) {
     if (shieldClamp) eyeK *= 0.4;
     eyeK *= (1 - blink * 0.85);
     eyeGlow += (eyeK - eyeGlow) * Math.min(1, dt * 6);
-    eyeMat.color.copy(EYE_BASE).multiplyScalar(Math.max(0.02, eyeGlow) * EYE_HOT);
-    eyeCoreMat.color.setScalar(CORE_HOT * Math.max(0.015, eyeGlow));
-    eyeCore.visible = eyeGlow > 0.25 && dyingK < 0.7;
+    eyeMat.color.copy(EYE_BASE).multiplyScalar(Math.max(0.06, eyeGlow) * EYE_HOT);
+    // the catchlight is white-hot whenever it's SHOWN (floored) so the focal always
+    // punches ≥250 for G1; it leashes by HIDING under shield/death, not by dimming.
+    eyeCoreMat.color.setScalar(CORE_HOT * Math.max(0.6, eyeGlow));
+    eyeCore.visible = eyeGlow > 0.3 && dyingK < 0.7;
     pupil.visible = eyeGlow > 0.2; iris.visible = eyeGlow > 0.12;
     irisMat.emissiveIntensity = 0.2 + eyeGlow * 1.5 + noticeK * 1.2;
     eyeball.scale.setScalar(1 + Math.sin(time * 1.6) * 0.03 * eyeGlow + dreadK * 0.12);
 
     if (!irisLock && eyeUp > 0.6 && entranceU == null) { gazeEX += (gazeTX * 0.55 - gazeEX) * Math.min(1, dt * 1.2); gazeEY += (gazeTY * 0.38 - gazeEY) * Math.min(1, dt * 1.2); }
-    iris.position.set(gazeEX, gazeEY, 0.7); pupil.position.set(gazeEX, gazeEY, 0.78);
-    eyeCore.position.set(-0.26 + gazeEX, 0.28 + gazeEY, 0.98); eyeball.position.set(gazeEX * 0.35, gazeEY * 0.35, 0.25);
+    iris.position.set(gazeEX, gazeEY, 0.82); pupil.position.set(gazeEX, gazeEY, 0.88);
+    eyeCore.position.set(-0.2 + gazeEX, -0.34 + gazeEY, 1.02); eyeball.position.set(gazeEX * 0.35, gazeEY * 0.35, 0.3);
     iris.rotation.z = irisLock ? irisAngle : (irisAngle += dt * 0.15);
 
     // --- THE SHACKLE POSTS strain as an amber volley charges. ---
