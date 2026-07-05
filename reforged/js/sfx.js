@@ -8,6 +8,7 @@ import { TRACKS } from './tracks.js';
 import { mulberry32 } from './util.js';
 import { upgradeMasterChain } from './sfxLimiter.js';
 import { snapToChord, chordLadder, nextGridDelay } from './harmony.js';
+import { INSTS } from './insts.js';
 
 export { TRACKS };
 
@@ -940,7 +941,7 @@ function seqToEvents(seq, layerKey, voice, freqMult, durMult = 0.85, E8 = 0.25) 
     if (freq > 0) {
       out.push({
         t, freq: freq * freqMult, durS: dur * E8 * durMult,
-        layer: layerKey, osc: voice.osc, vol: voice.vol, stack: voice.stack,
+        layer: layerKey, osc: voice.osc, vol: voice.vol, stack: voice.stack, inst: voice.inst,
       });
     }
     t += dur * E8;
@@ -1594,6 +1595,16 @@ function playNoteEventIn(a, layers, pumpGain, pumpAmt, drumEnergy, mixBright, ev
     osc.start(absTime);
     osc.stop(absTime + ev.durS + 0.02);
   };
+  // Instrument archetype (opt-in via voices.X.inst): richer FM / supersaw /
+  // physical-model voices. Absent → the legacy osc paths below run unchanged.
+  // The bass sub-octave reinforcement still applies so basslines keep their
+  // weight regardless of the archetype.
+  if (ev.inst && INSTS[ev.inst]) {
+    INSTS[ev.inst](a, layerGain, ev.freq, ev.vol, ev.durS, absTime,
+      { bright: mixBright, lfoGain, att, rel });
+    if (ev.layer === 'bass') spawn(ev.freq * 0.5, ev.vol * (0.12 + drumEnergy * 0.55), 0, 'sine');
+    return;
+  }
   if (ev.stack === 'detune') {
     // Proper supersaw: a detuned pair panned hard L/R for width + a quieter
     // centre voice for body (was just two ±6¢ voices dead-centre before).

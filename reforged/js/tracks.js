@@ -216,16 +216,16 @@ export const TRACKS = [
   },
   { // 3 — mellow lo-fi glide: jazzy 7ths, soft drums
     id: 'drift',
-    mix: { ...MIX.lofi, trimDb: -4.9 },
+    mix: { ...MIX.lofi, trimDb: -4.5 },
     name: 'Moonlit Drift',
     desc: 'Mellow lo-fi glide',
     cost: 0,
     bpm: 85,
     swing: 0.18,
     voices: {
-      melody: { osc: 'triangle', vol: 0.16 },
+      melody: { osc: 'triangle', vol: 0.16, inst: 'fmEP' },   // FM Rhodes — the lofi keys
       bass:   { osc: 'sine', vol: 0.24 },
-      high:   { osc: 'sine', vol: 0.1 },
+      high:   { osc: 'sine', vol: 0.1, inst: 'pluck' },       // Karplus guitar sparkle
       arp:    { osc: 'triangle', vol: 0.06 },
       lead:   { osc: 'triangle', vol: 0.09 },
     },
@@ -501,13 +501,13 @@ export const TRACKS = [
   },
   { // 9 — uplifting trance study: long rising phrases, supersaw shimmer
     id: 'stratos',
-    mix: { ...MIX.trance, trimDb: -5.5 },
+    mix: { ...MIX.trance, trimDb: -6.3 },
     name: 'Stratosphere',
     desc: 'Uplifting trance — endless climb',
     cost: 800,
     bpm: 138,
     voices: {
-      melody: { osc: 'sawtooth', vol: 0.13, stack: 'detune' },
+      melody: { osc: 'sawtooth', vol: 0.13, inst: 'supersaw' },  // wide trance lead
       bass:   { osc: 'sawtooth', vol: 0.16 },
       high:   { osc: 'sine', vol: 0.12 },
       arp:    { osc: 'sawtooth', vol: 0.11 },
@@ -973,13 +973,13 @@ export const TRACKS = [
     //   continuous-eighth reel runs, jig-lilt [2,1,1,2,1,1] chorus cell.
     //   Bodhrán-style hat-forward drum mix. 128 bpm (reel tempo).
     id: 'pipers',
-    mix: { ...MIX.celtic, trimDb: -5.6 },
+    mix: { ...MIX.celtic, trimDb: -4.7 },
     name: 'The Pipers',
     desc: 'Celtic reel — drone bass, A-dorian jig-lilt',
     cost: 800,
     bpm: 128,
     voices: {
-      melody: { osc: 'triangle', vol: 0.18, stack: 'octave' },
+      melody: { osc: 'triangle', vol: 0.18, inst: 'pluck' },   // plucked harp/strings
       bass:   { osc: 'sine', vol: 0.24 },
       high:   { osc: 'triangle', vol: 0.1 },
       arp:    { osc: 'triangle', vol: 0.08 },

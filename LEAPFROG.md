@@ -6453,3 +6453,36 @@ HUD idiom — a verb that's unavailable should be shown DISABLED, not deleted �
 grammar the lock pips will use for the deflect rule (ashen-frozen, not gone). Next: PR1 (V1 aim-line +
 reticle boss-skin + exposure ticks), whose reticle "ashen when muted" state is this same disabled-not-
 deleted principle applied to the reticle. The affordance vocabulary is now: LIVE / SEALED / ASHEN.
+### L155 — Audio overhaul III: instrument archetypes (FM Rhodes, wide supersaw, Karplus pluck) — the "not chiptune" layer, opt-in per voice
+
+**Did.** Started the next audio phase on a fresh branch off the post-merge master (PR #230 shipped
+L151/L152). New `reforged/js/insts.js` (dependency-free — inlines mulberry32 so it stays node-testable
+like tracks.js/harmony.js) with three voice builders, dispatched from `playNoteEventIn`'s pitched path
+via a new `voices.X.inst` field (carried through `seqToEvents`/`compileTrack`):
+- **fmEP** — 2-op FM electric piano (ratio-1 modulator with a fast-decaying index envelope = the Rhodes
+  "bonk→body", plus a high tine partial). ~6 nodes/note, *cheaper* than a detuned-saw stack.
+- **supersaw** — two groups of 3 detuned saws hard-panned L/R (real width = different voices per side,
+  not a copy), per-side lowpass+envelope. The modern trance/EDM lead.
+- **pluck** — true Karplus-Strong (noise burst in a damped delay line) rendered in pure JS into an
+  AudioBuffer, **cached per pitch + seeded from freq** so renders are deterministic and playback is
+  2 nodes. Authentic acoustic guitar/harp for celtic + lofi.
+
+Proved on three heroes: `drift` (lofi → fmEP melody + pluck high), `stratos` (trance → supersaw),
+`pipers` (celtic → pluck). All other stations byte-identical (inst absent → legacy osc path).
+
+**Learned / patterns.** (a) `inst` supersedes the old `stack: detune/octave` — the dispatch returns
+before the legacy branch — but the **bass sub-octave reinforcement still fires** so inst basslines keep
+their weight; easy to forget and lose the low end. (b) New timbres MOVE the loudness: fmEP/pluck render
+~0.4–0.9 LU quieter and supersaw ~0.8 LU louder than the raw oscillators, so every inst adoption must
+**re-bake that station's `trimDb`** (drift −4.9→−4.5, stratos −5.5→−6.3, pipers −5.6→−4.7) and update
+`loudshots-baseline.json`, or the ±1 LU gate flags it. This is the L151 discipline applied to timbre,
+not just mastering. (c) The offline renderer shares `playNoteEventIn`, so instruments are measured by
+loudshots automatically — the calibration is honest by construction. (d) Node-graph unit test
+(`tests/insts.mjs`) drives a mock AudioContext: asserts every source self-terminates, the graph reaches
+the destination, the node budget stays ≤16/note, FM is really wired (modulator→carrier.frequency), and
+KS is deterministic + pitch-cached — catchable in node without a browser.
+
+**Next.** Roll inst adoption per genre-family (fmEP→remaining lofi/amapiano, supersaw→trance/synthwave,
+pluck→celtic/world), then the big one still queued: the **section-graph composition engine** (song
+structure over the loop-wrap rebuild) — the last major listenability unlock, and the highest-blast-radius
+edit (scheduler surgery), so it goes on top of this proven timbre layer, hero-first.
