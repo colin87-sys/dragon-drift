@@ -5599,8 +5599,272 @@ what told the two apart — measure the render, don't trust the thumbnail.
 gate on the shipped dragon → expected calibration FAIL) as its own tranche BEFORE any builder burns a session.
 Determinism is a deliverable — `setFlapDebugPose` is clock-free, so two dragonstudio runs are byte-identical
 (31/31 verified); non-deterministic capture is the MARROWCOIL churn failure and is treated as a test failure.
+---
 
-### L147 — AZURE slot A, the aesthetics-gate climb (2.25 → 4.19): where the wins and the wall were
+### L147 — MARROWCOIL rib fly-through: the loom→through fix needed a DIVE, not just a rel-sweep
+
+**Did / learned.** The L141 gap (the signature "ribcage you fly through" never landed — the cage only LOOMED)
+turned out to be TWO problems, not one. The obvious fix (sweep the group's `rel` from the loom through −6, past the
+camera, like EITHERWING's `figureEight`) was necessary but NOT sufficient: it made the cage rush the camera, but the
+rail still passed UNDER a rib canopy instead of THROUGH the barrel. A rail-camera probe (not the orbit viewer — this
+is a first-person-through-space read the deterministic bossview can't show) found why: at the pass instant
+`cam_y ≈ 11.6` but the dorsal rib ROOTS sit at `y ≈ 19.5` — the barrel interior hangs ~4u ABOVE the rail (bone-coil
+skeletons are tall; the aperture is mid-body, not at the group origin). So `ribThread` now ALSO **dives ~4.2u** at the
+thread instant, dropping the barrel interior down around the camera. Then the ribs flank the dragon on both sides +
+overhead and the corridor reads through the aperture — a true tunnel.
+
+**The pattern.** For a "fly-through" beat, `rel` (depth past the camera) and `y` (barrel-onto-rail) are SEPARATE
+axes and you usually need both. Don't trust a model comment that says a part "hangs at rail height" — MEASURE the
+part's world Y at the pinned pose against `cam_y`, because the group origin ≠ the feature you're threading.
+
+**Tooling.** Built `tools/marrowpass.mjs` (clone of `eitherpass.mjs`): boots the real engine at the boss's home
+biome, `bossPinSetpiece({id:'ribThread', k, moveGroup:true})` across the pass, full-frame rail-view screenshots at
+the bracketing k's (rel 0 ≈ k 0.52 is the money frame). A pinned-setpiece rail capture is the only honest way to
+judge a through-space beat; the orbit viewer answers a different question (silhouette, not immersion).
+
+### L148 — Bullets from the BODY + a spawn-in ramp: the "materialises from nowhere" fix is two seams, one roster-wide
+
+**Did / learned.** Up close (the rib fly-through), MARROWCOIL's bullets read as appearing in mid-air with no source —
+jarring when the boss looms over the rail. Diagnosed as TWO independent causes, not one: (1) most patterns spawn at the
+POSE CENTRE or in lane space, not at a body part, so the shot has no visible muzzle; (2) every bullet POPS in at full
+radius — no birth ramp — so even a correctly-placed shot "materialises". Both are roster-wide (all emission routes
+through `emitBoss`→`spawnBossBullet`, all draw through one `updateBossBullets`), so both fixes land once for every boss
+behind a default-off fallback. **(1) Body origin:** a new `model.partWorldPos(name,out)` (attached in the `buildBoss`
+WRAPPER in `bossModel.js`, so it's on EVERY model handle incl. the legacy construct — NOT in `bossKit`, where builders
+cherry-pick methods and it wouldn't reach the handle) resolves a named node's world pos, cached (getObjectByName is a
+tree walk). `boss.js` reads a data-driven `def.muzzle` (MARROWCOIL: `'skullGroup'`) into a per-frame `emitOrigin`
+(resolved fresh — the boss bobs, and deferred stream/secondWave sub-volleys must read the CURRENT spot), converting
+world→bullet frame with the identity `rel = -w.z - player.dist`. The head-origin patterns (aimed/fan/stream/secondWave)
+now emit from `emitOrigin`; **crucially their velocity solver `aimVel` must divide by `emitOrigin.rel`, not `pose.rel`**
+— aim from a new depth is wrong otherwise. Geometric/lane patterns (iris/tunnel/spiral/curtain/movingGap/crossfire)
+keep their lane-centred geometry untouched — only the fade-in touches them. **(2) Spawn ramp:** a per-bullet `s.age`
+timer in `bossBullets.js`, eased `grow = t(2−t)` over `CONFIG.BOSS.spawnRampT` (0.12s), multiplied into the body/core/
+outline/shadow draw scales. A point that swells to full size in ~2 frames reads as "fired", not "conjured".
+
+**The pattern.** A roster-wide combat-feel seam belongs at the shared choke point (`buildBoss` wrapper for model
+accessors; `updateBossBullets` for per-bullet draw), gated by DATA (`def.muzzle` present? else pose centre; `s.age <
+rampT`? else full) so the un-opted roster is byte-identical. When you move an emitter's origin, audit the VELOCITY
+solver too — position and aim share the same `rel` and a half-migration aims from the old depth. Body-part names
+(`skullGroup`, `ribPivot*`, `tailBlade`) are the reusable API for this and for PR3's reflect-hit-location.
+
+**Tooling.** Built `tools/muzzleshot.mjs` + a `window.__dd.bossFireNow(id)` live-volley hook: fire one aimed volley,
+grab a 6-frame burst straddling the 0.12s ramp (t=0/40/90/160/260/420ms). The burst is the honest read — a single
+frame can't show "grows in"; you need t000 (invisible, at the skull) → t040 (half-size row descending from the head)
+→ t090 (full, flaring near the player). The headless `tests/boss.mjs` stays 35/35 (positions shift, geometry patterns
+and lifecycle unchanged), but the "from the body" and "grows in" claims are motion claims — only the burst proves them.
+
+### L149 — Pages deploys silently die at 1GB: stale PR previews are the usual culprit
+
+**Did / learned.** After #225 merged, the live site froze on an old build and every `Deploy Pages` run failed
+identically: status walked `deployment_in_progress → syncing_files → "Deployment failed, try again later."` — which
+reads exactly like a transient GitHub outage and tempts you to just re-run. It is NOT transient. The published site had
+grown to ~1.6GB, past **GitHub Pages' hard 1GB limit**; the artifact uploads fine (artifacts allow >1GB) then Pages
+rejects it during sync. Root cause: `deploy-pages.yml` assembles the site from `master` + the `gh-pages` `pr-preview/`
+store, and that store had **175 full ~9MB copies of the game** — one per PR preview, 146 of them for long-closed PRs
+that were never torn down (`pr-preview.yml` only removes on the PR-close *event*; any missed close lingers forever).
+
+**The gotchas.** (1) `rerun_failed_jobs` on a Pages run **re-runs the build too and uploads a SECOND `github-pages`
+artifact** → `deploy-pages@v4` dies with "Multiple artifacts named github-pages … count is 2". To retry, dispatch a
+FRESH run (`workflow_dispatch`), never rerun-failed-jobs. (2) To prune a 1.6GB branch without pulling it, `git clone
+--filter=blob:none --no-checkout --single-branch --branch gh-pages`, then `git reset -q HEAD` to populate the index from
+trees, `git rm -r --cached` the stale dirs, commit, push — only new tree+commit objects go over the wire; the kept
+blobs are already on the remote. Downloaded ~0 blobs to delete ~1.3GB.
+
+**The pattern.** A silent capacity ceiling deserves a fail-fast guard at the choke point + a backstop that stops the
+ceiling being reached. Added both: `deploy-pages.yml` now `du -sb _site` and fails with an actionable message if >950MiB
+(instead of the opaque syncing_files), and a scheduled `prune-previews.yml` sweeps `pr-preview/pr-<N>` whose PR is no
+longer OPEN (weekly + on-demand, shares the `gh-pages` concurrency group). Keep-open / prune-everything-else is the
+safe rule: open PRs re-publish their own preview on the next push anyway.
+
+### L150 — The entrance→fight handoff jank: two absolute-time motions that start mid-phase, not from zero
+
+**Did / learned.** After the in-fight stop-motion was fixed (L-flinch), the owner still saw a jerk at the
+entrance→fight HANDOFF specifically. Combed the seam and found TWO discontinuities, both the same shape as the flinch
+bug: a motion driven by ABSOLUTE `time` is applied at full strength on the first fight frame, so it snaps from the
+entrance's settled zero to some arbitrary phase value. (1) **Group wobble** (`placeGroup`, roster-wide): a scripted
+entrance holds the group square via `cineYaw≈0` → `group.rotation=(0,0,0)`; the instant `enterFight` nulls cineYaw, the
+idle `sin(time)` yaw/roll wobble applies at full amplitude — up to ~7°/5° of tilt on the whole group in ONE frame,
+random magnitude by start time. (2) **Twin centre-drift** (EITHERWING): the Baton Cross scissor lands the pair at
+exactly `[0,0,±ZSEP]`, but the fight orbit's th=0 seat is `[cx,cy,±ZSEP]` where `cx,cy = sin(time)·0.6/0.4` — so the
+just-converged twins pop sideways by up to ~(0.6,0.4) rig units on frame 1. The group x/y smoother (`poseSmooth`) did
+NOT cover either: it smooths the GROUP position, not group ROTATION or per-twin LOCAL positions.
+
+**The fix (reuse the clock that's already easing).** (2) multiply `cx,cy` by the existing intro-`spread` (0 on the
+first fight frame → 1 over ~1.6s): the pair leaves the exact scissor seat and eases the drift in — reaches full drift
+after the spread, so steady-state is unchanged. (1) a `fightWobbleT` seeded to 0 in `enterFight` ONLY when releasing a
+cinematic entrance (cineYaw was live), easing the wobble amplitude 0→1 over ~0.6s; a huge default keeps plain
+'approach' bosses at full wobble immediately (their wobble already ran during the approach — no dip). Both fixes are
+continuous BY CONSTRUCTION: frame-1 value == entrance-end value.
+
+**The pattern (now three times over).** Any absolute-`time` motion — a flinch, a wobble, a drift — that turns ON at a
+phase boundary must ease from 0 or it snaps by a random amount. Seed it from the boundary state, or gate its amplitude
+on a clock that starts at the boundary (spread, a settle timer). The regression net is placed right: the entrance
+golden pins the SCRIPT math (path/yaw/gaze) only, so fight-handoff smoothing is free to change and stays green — but the
+smoothness itself is a MOTION claim the owner judges on the preview, not something the headless suite can see.
+### L151 — Audio overhaul I: render==live seams + a BS.1770 loudness CI (loudshots) made "Spotify-ready" a measurable property
+
+**Did.** Started the state-of-the-art audio overhaul (branch `claude/game-audio-modernization-t6142e`). Phase 0/1:
+(1) seeded the two real `Math.random()` users in the engine (`makeImpulse`, `getNoiseBuffer`) with `mulberry32` —
+without this NOTHING downstream is reproducible; (2) refactored `sfx.js` so the offline renderer runs the EXACT
+live code: `buildEvents` → pure `compileTrack(tr, loopN, semis)` + thin live wrapper; graph construction extracted
+to `buildBusGraph`/`buildMusicGraph`; `playNoteEvent` → shared `playNoteEventIn` via parameter shadowing (body
+byte-identical). `sfxRender.js` drives these into an `OfflineAudioContext`; `sfxLoudness.js` is a dependency-free
+BS.1770 implementation (K-weighting re-derived at ANY sample rate via the libebur128 bilinear-transform route —
+the RBJ cookbook shelf does NOT reproduce the spec's pre-filter; unit-tested against the −3.01 LUFS 997 Hz
+reference). `tools/loudshots.mjs` (tiershots sibling) renders every station headless and gates
+LUFS/peak/mono-drop/crest with TOLERANCES (±1 LU), never PCM hashes — browser DSP drifts across versions.
+`tools/bounce.mjs` exports a station as a −14 LUFS / −1 dBTP TPDF-dithered PCM16 WAV (the "single").
+
+**Learned.** The shipped roster measured a **4.7 LU loudness spread** (−13.2 … −8.6 LUFS) — the #1 "amateur mix"
+tell, now killed by per-station `mix.trimDb` baked by the tool (target −16 LUFS full-arrangement, leaving SFX
+headroom over a −14-capable master). Committed baselines: `tools/loudshots-baseline-v1.json` (the pre-overhaul
+record) and `loudshots-baseline.json` (the gate; `node tools/loudshots.mjs --check`).
+
+**Patterns.** (a) Never let a dev tool re-implement the engine — extract seams until the tool CALLS the engine, or
+every claim the tool makes is a lie waiting to diverge. (b) Determinism is phase 0: seed every noise source before
+building anything that measures. (c) Assert metrics-with-tolerance, never bit-stability, across browser DSP.
+
+### L152 — Audio overhaul II: worklet limiter with a fallback drill, baked drum kits (velocity is linear!), harmony oracle, continuous energy
+
+**Did.** (1) **Mastering v2** (default-on; `?audio=v1` = shipped chain, the A/B escape hatch): a ~60-line
+AudioWorklet lookahead limiter (4 ms, running-window max, −1 dBFS ceiling) replaces the tanh curve as the loudness
+wall — tanh saturates EVERYTHING (0.89 in → 0.71 out); a limiter is transparent until the ceiling. Loaded async
+from a Blob URL; on ANY failure the shipped comp→tanh chain stays untouched (same null-fallback law as
+`getBeatClock`); a hard-clip (identity to ±1) replaces tanh as insurance; master comp relaxes −12/4:1 → −10/3:1.
+Plus tape-style asymmetric saturation (+DC-block HP@10Hz) on the music bus, parallel (NY) compression on a new
+drum bus, per-station trim node (`stationTrim`), and the echo `delayTime` click fix (ramp, never `.value=` mid-flight).
+The worklet doubles as an **underrun beacon** — audio-thread stalls are invisible to fps meters (`__dd.audioHealth()`).
+(2) **Baked drum kits**: every drum branch uses velocity (`dvol`) LINEARLY in gains, so ONE offline render per drum
+type per station, gain-scaled at trigger, IS the live synthesis — 2 nodes/hit instead of 3–7 and no per-hit
+filter/osc GC churn (the biggest steady-state allocation on mobile Safari). Live synthesis stays as fallback while
+a bake is pending (hybrid: live covers, baked takes over) and IS what the calibration renderer measures.
+(3) **Harmony oracle** (`getHarmony`): the station data already encodes its harmony — each bar's 8-note arp cycle
+IS the current chord. Pitched SFX now snap to live chord tones (`js/harmony.js`, pure + node-tested): streak
+ladders (ember/perfect/parry/phase) climb the actual chord; `bossDefeat` fanfare resolves in the station's key
+(was hardcoded G-major — a wrong note at the game's biggest moment); ambient rewards (milestone/record/levelUp/
+featUnlock) also quantize their START to the next 16th (`toGrid16`) — input feedback is NEVER delayed, only
+ambient rewards. Null oracle (audio off/headless) → fixed-pitch fallback, so CI stays deterministic.
+(4) **Continuous energy**: `music.update`'s combo≥1.5/2/3 layer SNAPS became one smoothstep-banded energy scalar
+CALIBRATED so the old thresholds still hit full gain (roster-safe) while the approach now swells. The fever ×1.2
+swell moved off `musicBus.gain` (owned by mute/volume + the iOS hard-silence path — a real collision) onto the
+trim node.
+
+**Learned/gotchas.** (a) Headless-chromium audio renders to a null sink on a throttled clock — underrun beacons
+there are environmental noise; assert them on-device, not in CI (grace-period the first 2 s regardless: context
+resume jumps the clock). (b) `tests/audioboot.mjs` boots with `--autoplay-policy=no-user-gesture-required` and
+polls `audioHealth()` — fixed sleeps flake. (c) `tests/celebrate.mjs` was already failing on master before this
+work (skin-card locator timeout) — not audio. (d) The iOS lifecycle block and `getBeatClock` contract were
+deliberately untouched; every new subsystem degrades around them.
+
+**Next (the plan lives in the PR):** P4 composition v2 — section graphs/forms via the loop-wrap rebuild seam
+(`pendingRebuild` already lands changes on the downbeat), motif transforms, per-genre groove grids replacing the
+hardcoded four-on-the-floor (a dnb station with a house kick is not dnb), boss music states (mode-darkening over
+the same material), then instrument archetypes (FM EP/supersaw/Karplus plucks) per genre. Judges' full synthesis
+is in the plan file; the composition engine is the single biggest remaining listenability unlock.
+
+### L153 — HOLLOWGATE CP1: an architecture boss's face is a STATE TABLE, and decoration can forge a second scar
+
+**Did.** Built slot 6's CP1 (the ruined-arch Calamity opener, VALUE-INVERTED ivory): builder + def (tier 3,
+4 phases/4 cards, VERSE–CHORUS rhythm), the Vigil Lights entrance data, the 'ahead' approach branch, studio
+states, and cleared the studio gate in three rounds (r4 FAIL → r5 PASS-with-cleanup → r6 clean).
+
+**Learned.** (1) **A faceless carrier on architecture = a per-part emissive STATE TABLE.** The rose window's
+8 per-pane materials with one eased intensity array gave all seven §4b channels (gaze/blink/charge/expression/
+flinch/notice/death) as pure data — no bones, no morphs. The two things the gate actually demanded: the PUPIL
+must be visually a different CLASS (emissive lerped toward white-hot), not just brighter — "brightest of eight
+colored panes" is unreadable at fight distance; and NOTICE must be a discrete state JUMP (blackout-except-pupil
+→ full-ring flash), not a modifier on the idle mood. (2) **The default state carries the registry claim.** The
+idle window collapsed to "gold ring-eye" (a slot-2 collision) until two saturated cool panes were HELD lit —
+if an identity axis ("leaded multicolor field") only appears in the dread card, it is not the boss's identity.
+(3) **Decoration can forge a second scar (§3.6).** A dark orbiting chip crossing the pale ring read as a wound
+stronger than the authored one; on a pale boss, ANY dark element that overlaps a pale mass becomes a scar
+candidate — satellites near the face must stay in the light tiers. The real scar became legible only when it
+was subtractive geometry (a bite built into the torus arc) instead of applied stubs. (4) **A tier-3 slot needed
+the phase-count gate made band-aware** (tests/boss.mjs now allows 3–5 carded phases at tier ≥3 — §5g's "4–5
+cards" was in conflict with the flat 3-phase assert).
+
+**Gotcha.** G5 (charge silhouette diff) was silently INFLATED by the drifting masonry chips — different sim
+times between the idle and charge captures moved them, contributing ~7% "telegraph". Tightening their orbits
+dropped the honest portcullis-only diff to 4.9% (fail); the fix was more real gate mass (wider bars, deeper
+travel), not reverting the chips. If a telegraph gate passes, check WHAT is passing it — ambient drift counts
+as shape change to a pixel diff.
+
+**Pattern.** Studio-first paid again: three FAIL→PASS rounds cost only deterministic re-renders. The gate
+prompt now includes "judge the r5 frames fresh — do not assume the fixes worked", which caught the decoy chip
+a builder self-check would have rationalized away.
+
+### L154 — HOLLOWGATE CP2: the fly-through needed NO dive (measure first), part-tags must ride the bullet, and "absorbed" must mean absorbed
+
+**Did.** Shipped slot 6's integration + the engine tranche it carries (§5h ladder controller, §5i.B continuous
+graze + adrenaline ladder, §5e horizon seed, §5f destructible sub-parts). Fable integration gate: PASS, two
+DEFER warts, both fixed same-day.
+
+**Learned.** (1) **L147's dive is not a law, it's a measurement.** MARROWCOIL's fly-through needed a 4.2u dive
+because its barrel interior hung above the rail; HOLLOWGATE's gap was DESIGNED spanning world y 0.5–19.3 with
+the rail at ~11.6, so `archPass` is a pure rel sweep (30 → −8) and encloses on the first try. Measure the
+aperture against cam_y at design time and the fly-through fix costs zero iterations. (2) **A per-part hit test
+wants the part tag ON the bullet, not inferred at landing.** A reflected amber carries its source-pane index
+through the flip (`s.part` survives `reflectBossBullets`), so "parry the pane's radial → crack THAT pane" is
+exact; the landing-point fallback exists but rider chips aim at the pose centre and rarely touch glass — which
+the gate caught as a half-dead claim because the `bossDamage` payload carried the AIM TARGET (tx/ty), not the
+actual landing point (s.x/s.y). When you move a hit's routing, audit the event payload the same way L148 audits
+the velocity solver. (3) **A benefit that says "absorbed" must absorb EVERYTHING the hit costs.** The R5
+adrenaline shield refunded health but the hit still voided the spell-card capture via `bossHitsTakenRun` — an
+invisible lie the player would feel. Un-count the hit (and re-baseline the ladder's own counter) or rename the
+rung. (4) **Headless entrance waits stall under rAF throttling** — expose `input` on `__dd` and tap-skip in a
+loop; a capture tool must never wait wall-clock for a dilated cinematic.
+
+**Gotcha.** The lifecycle test's "setpiece left station" assert only measured x/y — a DEPTH-axis excursion
+(the fly-through's whole identity) read as "never left station". Excursion axes are x, y, AND rel; the assert
+now accepts `minRel < 4`. Same class as L141: depth is the axis everyone forgets.
+
+**Pattern.** The engine-slot recipe held: every system landed def-gated (`grazeForm`, `destructiblePanes`,
+`horizonSeed`) or neutral-at-rung-0 (adrenaline), so the five shipped lifecycle sims stayed green untouched.
+And the integration gate paid for itself again — two real code warts (dead routing, lying banner) that the
+builder's own green suites could never see, because both were CLAIM failures, not behavior failures.
+
+### L155 — MARROWCOIL flyby: a facing+banking seam, a head-turn without a neck, and a setpiece that owns its fire
+
+**Did / learned.** Reworked MARROWCOIL's `ribThread` into a readable FLYBY the rail can watch: loom → thread + fly fully
+OFF-SCREEN behind → emerge from ONE flank and fly forward (`yaw 0→π`, body flies its heading) → TURN THE HEAD at you and
+fire a few skull/mouth shots → bank into the lane (`cineRoll`) → centre. Three reusable pieces fell out, all default-off:
+
+**(1) A facing + banking SEAM on the setpiece runner.** Facing had a phase-agnostic override (`cineYaw`, ASHTALON's
+overtake) but the fight-phase setpiece runner never wrote it, and there was NO roll channel. Added `cineRoll` and taught
+the runner to read `{yaw,roll}` off the path object (`cineYaw = p.yaw ?? null; cineRoll = p.roll ?? 0`); `placeGroup`
+applies both; `clearSetpiece` resets them (completion AND shield-abort). A path returning neither is byte-identical —
+banking (`rotation.z`) is a new roster-wide axis, gated by data.
+
+**(2) A head-turn with no neck joint.** `skullGroup` is a direct child of the rig (the "neck" is procedural coil, no
+joint) and its yaw is *assigned* each frame; `setGaze` caps at ~±9°. Added a WIDE `setHeadLook(localYaw)` channel *added*
+onto the gaze at the skull-yaw line (lag-smoothed, `0` = byte-identical, no-op on other bosses). The body flies forward
+(back-turned) on the flank while the head cranes to you (`headLook = atan2(px−x, rel) − cineYaw`). Bullet AIM was already
+positional (L148 `muzzle:'skullGroup'` + `aimVel` from the skull's WORLD pos), so the shots track you regardless of the
+visual head angle — the crane only has to *read* as looking back.
+
+**(3) The pass owns its fire, and the gaze inverts at yaw π.** During `ribThread` the normal skull cadence is suppressed
+and the beat fires its own k-gated sub-cadences (rib bullets in the close band; mouth shots once it's ahead on the flank).
+And `placeGroup`'s gaze feed assumes world≈local — a back-turned pass at yaw π would track the pupil BACKWARDS, so it's
+gated on `cineYaw == null` (any scripted yaw owns facing → suppress the naive feed).
+
+### L156 — The cinematic over-reach, reverted (3 iterations): a signature pass must read from the player's OWN seat
+
+**Did / learned.** Between the flyby's first cut and its final form, the beat grew a **rear-look camera takeover** (the
+view flips behind you), a **from-behind bullet** direction (free: a boss bullet's sense is the sign of `vrel` — spawn
+`rel<0`, close `vrel>0`), a **player freeze + invuln** cutscene (`game.cineLock`), and **per-frame bullet homing** — each
+added to prop up the last. The owner played every version and rejected the direction: *"I don't love it. Go back to the
+fly-through… emerge from the side… turn head to the side and attack from the mouth… fly toward the normal position."* So
+the whole cinematic layer was **reverted** to the plain flyby (L155). All of it was byte-safe to remove.
+
+**The pattern (the real lesson, 3 iterations deep).** On an on-rails game, **spectacle must survive the player's fixed
+viewport** — if a beat only works by seizing the camera, it's a cutscene, and a cutscene mid-fight that also locks the
+stick is an *interruption*, not a boss attack. Author the drama into what the boss DOES (fly past, loom, turn its head,
+fire), not into where the camera goes. And watch for **prop-up chains**: the from-behind shot forced the rear camera to
+justify it, which forced the invuln to make it fair, which forced homing to give the shot a point after the lock — when a
+feature needs another feature to be fair, which needs another to have a purpose, the first feature is probably wrong. Pull
+the root (the rear camera) and the whole tower comes down.
+
+### L157 — AZURE slot A, the aesthetics-gate climb (2.25 → 4.19): where the wins and the wall were
 
 **What we did.** Built AZURE ("Azure Drake") to its §5d sheet — `bladeFeatherWings` comb, `sweptLoft`
 avian torso, `smoothWedgeSkull` draconic head, forked-banner `clean` tail, three forms — then drove it
@@ -5651,7 +5915,7 @@ round trading one artifact for another, that is the signal it's a STRUCTURAL lim
 tuning one; stop nudging and either change the structure or hand the last 5% to the human on the PR preview.
 
 
-### L148 — AZURE wing root: a one-line additive lever, tuned live on the human's eye (backpack → shoulder)
+### L158 — AZURE wing root: a one-line additive lever, tuned live on the human's eye (backpack → shoulder)
 
 **What we did.** The human read the apex comb as "too far back on the body — a backpack, not a shoulder."
 The fix was already a wired lever: `attach.wingRoot` in `dragonTorso.js` publishes the mount point and
@@ -5672,7 +5936,7 @@ offset before touching geometry; the roster stays byte-identical because every o
 offset at 0. Motion/feel is the human's call — capture all three values, state a recommendation, let them pick.
 
 
-### L149 — AZURE CP2, the form-ladder pass (gate 3.50→4.13): the cute eye, and the cumulative-merge apex leak
+### L159 — AZURE CP2, the form-ladder pass (gate 3.50→4.13): the cute eye, and the cumulative-merge apex leak
 
 **What we did.** Turned the three AZURE forms from "shrunk adults" into a real age ladder — cute baby →
 gawky adolescent → noble apex — and drove it through the §8 `fable` gate FOUR rounds (3.50 → 3.75 → 3.81 →
@@ -5708,7 +5972,7 @@ value pale→deep, gold none→full. §3 fixes the blade COUNT at 5 every form, 
 WIDER chord + no rake divergence (rake would leak to the apex), never fewer blades.
 
 
-### L150 — The eye saga, concluded: vertex-paint beats every shell, and never steer your own gate
+### L160 — The eye saga, concluded: vertex-paint beats every shell, and never steer your own gate
 
 **What we did.** Rebuilt the AZURE eye FIVE times before the architecture held. The user called the two
 failures the numbers had hidden ("f0 looks like it's on MDMA, the apex has no eyes") — then research +
@@ -5739,7 +6003,7 @@ pancake chin plates + near-black body value in dark scenes. These now drive the 
 they are a TORSO/WING/TAIL tranche, not an eye tranche.
 
 
-### L151 — AZURE cleared the HONEST gate (3.25 → 4.00 PASS): the body tranche + the apex-eye anatomy fight
+### L161 — AZURE cleared the HONEST gate (3.25 → 4.00 PASS): the body tranche + the apex-eye anatomy fight
 
 **What we did.** After the human caught what the steered CP2 gate missed (L150), we re-gated with ALL angles and
 zero pre-approval and climbed an honest 3.25 → 3.38 → 3.50 (×3) → **4.00 PASS** over a body pass + the apex eye.

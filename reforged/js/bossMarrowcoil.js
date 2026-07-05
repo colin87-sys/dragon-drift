@@ -765,6 +765,11 @@ export function buildBoneCoil(def, quality = 1) {
   let gazeTX = 0, gazeTY = 0, gazeX = 0, gazeY = 0;
   let lookAwayT = 0, lookAwayX = 0, lookAwayY = 0, nextLookAway = 5 + Math.random() * 6;
   function setGaze(nx, ny) { gazeTX = Math.max(-1, Math.min(1, nx)); gazeTY = Math.max(-1, Math.min(1, ny)); }
+  // HEAD-TURN (L155): a WIDE skull yaw (radians) beyond the ±9° gaze look — the flank
+  // "turns its head at you" beat. Lag-smoothed and ADDED to the skull yaw so it composes
+  // with gaze/charge. 0 = no turn → byte-identical. setHeadLook is a no-op on other bosses.
+  let headLook = 0, headLookTarget = 0;
+  function setHeadLook(yaw) { headLookTarget = yaw || 0; }
   const BLINK_DUR = 0.2;
   let blinkT = 0, nextBlink = 3 + Math.random() * 3;
   let noticeT = 0;
@@ -874,9 +879,11 @@ export function buildBoneCoil(def, quality = 1) {
       lookAwayT = 0.6 + Math.random() * 0.6; lookAwayX = (Math.random() - 0.5) * 1.4; lookAwayY = Math.random() * 0.4 - 0.2; nextLookAway = 5 + Math.random() * 6;
     }
     if (charge > 0.4 && lookAwayT > 0) lookAwayT = 0;   // a charging predator locks on — never captured mid-look-away
+    if (Math.abs(headLookTarget) > 0.3 && lookAwayT > 0) lookAwayT = 0;   // mid head-turn, no idle drift (L155)
     const gx = lookAwayT > 0 ? lookAwayX : gazeTX, gy = lookAwayT > 0 ? lookAwayY : gazeTY;
     const gLag = (noticeT > 0 || charge > 0.5) ? 9 : 2.4;
     gazeX += (gx - gazeX) * Math.min(1, dt * gLag); gazeY += (gy - gazeY) * Math.min(1, dt * gLag);
+    headLook += (headLookTarget - headLook) * Math.min(1, dt * 4.5);   // L155 head-turn ease (a shade snappier than gaze)
 
     // Blink
     if (blinkT > 0) blinkT -= dt;
@@ -887,7 +894,7 @@ export function buildBoneCoil(def, quality = 1) {
     if (noticeT > 0) noticeT -= dt;
     if (shieldOpenT > 0) shieldOpenT -= dt;
 
-    skull.rotation.y = gazeX * 0.16 + charge * 0.06;   // roar yaw kept subtle — D12/r14 #2: charge stays a front elevation; both eyes AND both taut strands read
+    skull.rotation.y = gazeX * 0.16 + charge * 0.06 + headLook;   // roar yaw kept subtle; +headLook is the L155 wide head-turn (flank look-back)
     skull.rotation.x = -gazeY * 0.1 - charge * 0.15;   // the head REARS BACK as the jaw drops (the roar) — the dark mouth wedge faces the rail (gate r6 #6)
     eyes.rotation.copy(skull.rotation);
     eyes.position.set(skull.position.x, skull.position.y, skull.position.z);
@@ -996,7 +1003,7 @@ export function buildBoneCoil(def, quality = 1) {
     group, muzzle, orbiters,
     setDissolve: setDissolveEmotive,
     setCharge, setAttackTell, setSetpiece,
-    setGaze, notice,
+    setGaze, setHeadLook, notice,
     setHealth: kit.setHealth,
     setHealthBarVisible: kit.setHealthBarVisible,
     setShieldVisible: kit.setShieldVisible,

@@ -38,6 +38,12 @@ jobs:
       # Staging into ./_site (a sibling the temp folder is never inside) removes the
       # self-copy entirely. Excludes match what the deploy already drops (.git /
       # .github) plus _site itself.
+      # A preview only needs to RUN: the reforged/ game + the root redirect stub (index.html →
+      # ./reforged/) and its small support files. The repo root also holds dev-only image dumps
+      # — mockups/ (~33MiB) + station-reference/ (~22MiB) + reforged-captures/ — that are NEVER
+      # served. Left in, they rode along in EVERY preview (~55MiB dead weight each); enough open
+      # previews then pushed the whole published site past Pages' 1GB cap. Exclude them here so a
+      # preview is ~the game (~21MiB), not the whole repo (~78MiB).
       - name: Stage site
         run: |
           mkdir -p _site
@@ -46,6 +52,11 @@ jobs:
             --exclude '.github' \
             --exclude '_site' \
             --exclude 'github-pages-deploy-action-temp-deployment-folder' \
+            --exclude 'mockups' \
+            --exclude 'station-reference' \
+            --exclude 'reforged-captures' \
+            --exclude 'godfall' \
+            --exclude 'docs' \
             ./ _site/
 
       - name: Deploy / update / remove this PR's preview
