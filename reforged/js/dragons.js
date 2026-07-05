@@ -79,7 +79,7 @@ export const DRAGONS = {
       // comb (span 2.8–3.2×), 3-blade crest fan, dorsal sail, gold-tipped swallow
       // banner tail. Deepest sky value, gold at its richest (still DIFFUSE).
       { wingScale: 1.0, bladeSpan: 11.6, bladeCount: 5, bladeDetail: 1.45, neckBlend: 1.45,   // longer wing (blade length adds no tris) → top-planform span:body into the 2.8–3.2 band (gate r8 dir 2); denser neck fuses the segment grooves
-        spineCurl: 0.95, eyeShape: 1.0, headScale: 0.52, eyeScale: 0.85,   // eyeScale 0.85 (was 0.52): the gate read the apex eyes as "tiny specks on a whale slab — the payoff form with the least life"; ~1.6× diameter keeps them keen-small vs the ladder but READABLE (§7 f2 band retuned to match)
+        spineCurl: 0.95, eyeShape: 1.0, headScale: 0.52, eyeScale: 0.88,   // eyeScale 0.88 (was 0.52→0.85): the gate read the apex "blind head-on"; the readability comes mostly from the forward+up anchor + forward pupil disc — the size stays the ladder's smallest (§7 eye:head monotonic holds)
         // APEX PIN (CP2): forms merge cumulatively, so re-declare every dial the younger forms
         // changed — otherwise f1's muted-gold/wide-chord leak forward and silently corrupt
         // the approved apex. These pin the exact approved apex values.

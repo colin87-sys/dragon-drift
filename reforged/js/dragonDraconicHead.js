@@ -290,6 +290,8 @@ function eyeZone(c, { r, x, y, z, glow }) {
   const cuteBallMat = c.cfg.cuteEye
     ? new THREE.MeshStandardMaterial({ color: 0xffffff, vertexColors: true, roughness: 0.32, metalness: 0.02,
         emissive: 0x1a3652, emissiveIntensity: 0.5 }) : null;   // soft self-light so the iris stays luminous in shade (an unlit lower hemisphere read as black beads)
+  const cutePupilMat = c.cfg.cuteEye
+    ? new THREE.MeshStandardMaterial({ color: 0x0a1622, roughness: 0.4, metalness: 0.02, side: THREE.DoubleSide }) : null;
   const cuteGlintMat = c.cfg.cuteEye
     ? new THREE.MeshStandardMaterial({ color: 0xffffff, emissive: 0xffffff, emissiveIntensity: 2.6, side: THREE.DoubleSide }) : null;
   for (const s of [-1, 1]) {
@@ -301,8 +303,8 @@ function eyeZone(c, { r, x, y, z, glow }) {
     const oneShellEye = c.cfg.cuteEye && c.cfg.skullType === 'smoothWedgeSkull';
     const kYaw = Math.PI - s * 0.62, kN = new THREE.Vector3(Math.sin(kYaw), 0, Math.cos(kYaw));
     const ecA = oneShellEye
-      ? new THREE.Vector3(s * c.hx * 0.64, c.hy * 0.24, c.faceZ - c.faceR * 0.26)
-          .addScaledVector(kN, 0.17 + rr * 0.4)
+      ? new THREE.Vector3(s * c.hx * 0.6, c.hy * 0.32, c.faceZ - c.faceR * 0.34)   // further UP + FORWARD onto the front planes (gate fable-r4 dir 1: eyes tangent to the dome edge read blind head-on)
+          .addScaledVector(kN, 0.15 + rr * 0.35)
       : new THREE.Vector3(s * x, yset, z);
     if (c.cfg.cuteEye) {
       // THE CUTE EYE, final architecture: ONE VERTEX-PAINTED BALL + a glint + cap lids.
@@ -317,35 +319,39 @@ function eyeZone(c, { r, x, y, z, glow }) {
         : new THREE.Vector3(s * 0.55, 0.06, -1).normalize();       // young forms: forward + ~29° outward so the iris wrap truly reaches the profile view (gate: 23° left the side blank)
       const geo = new THREE.SphereGeometry(rr, seg(14), seg(10));
       const pos = geo.attributes.position;
-      // Keen forms brighten the iris (gate: the apex's dark iris on the deep navy head went
-      // murky/invisible at the front) — es lerps the hue toward the pale-ice accent.
-      // Sclera tinted toward the skin-blue (gate fable-r3 dir 2: a bright cream rear cap in
-      // profile read as an eyeball "rolled hard forward" — a calmer blue-grey rear reads as
-      // the eye's own shaded back). Keen forms brighten the iris harder (dir 3: the apex eye
-      // must win against its dark brow hood at gameplay distance).
-      const cP = new THREE.Color(0x0a1622), cS = new THREE.Color(0xbfd8ec);
-      const cI = new THREE.Color(0x4198e2).lerp(new THREE.Color(0xa9e2ff), es * 0.75);
+      // TWO AXES (gate fable-r4 dir 2, the change that fixes gaze everywhere). The IRIS is
+      // PAINTED on the eyeball centred on the OUTWARD normal so it wraps to the PROFILE
+      // (side-of-head eyes stay alive from the side). The PUPIL is a separate dark DISC on a
+      // FORWARD-CONVERGED axis so both eyes hold a gaze HEAD-ON — the old single-axis pupil
+      // followed the outward normal and read divergent/derpy at front (and left the apex
+      // blind). Different axes → front-gaze and profile-life stop fighting.
+      const irisAxis = nrm;
+      const gazeAxis = new THREE.Vector3(-s * 0.06, 0.05, -1).normalize();   // forward, slight INWARD convergence so the pair meet the camera head-on
+      const cS = new THREE.Color(0xbfd8ec);
+      const cI = new THREE.Color(0x4198e2).lerp(new THREE.Color(0xa9e2ff), es * 0.75);   // keen forms brighten the iris toward pale-ice (dark apex went murky)
       const V = new THREE.Vector3(); const cols = []; const CT = new THREE.Color();
-      const band = (ang, a, b) => Math.min(1, Math.max(0, (ang - a) / (b - a)));   // smoothstep-ish edge
+      const band = (ang, a, b) => Math.min(1, Math.max(0, (ang - a) / (b - a)));
       for (let i = 0; i < pos.count; i++) {
-        const ang = V.fromBufferAttribute(pos, i).normalize().angleTo(nrm);
-        // IRIS-DOMINANT bands with SOFT edges (research: cute ≈ 90% iris+pupil, a sliver of
-        // sclera). Hard band cuts on coarse facets read as a black quadrant "hole" (gate) —
-        // a ~0.14 rad blend across each boundary keeps the facets from carving the eye.
-        // Pupil to ~26°, iris to ~70° (+29° outboard gaze → wrap reaches ~99°: profile alive).
-        CT.copy(cP).lerp(cI, band(ang, 0.38, 0.52)).lerp(cS, band(ang, 1.22, 1.42));   // iris wrap extended (gate r3 dir 2: the pale rear cap dominated the profile)
+        const ang = V.fromBufferAttribute(pos, i).normalize().angleTo(irisAxis);
+        CT.copy(cI).lerp(cS, band(ang, 1.15, 1.42));   // iris core → sclera rim; wide wrap keeps the profile alive
         cols.push(CT.r, CT.g, CT.b);
       }
       geo.setAttribute('color', new THREE.Float32BufferAttribute(cols, 3));
       const ball = new THREE.Mesh(geo, cuteBallMat);
-      ball.scale.set(1.0, 0.96, 0.92);                             // near-round; NO rotation — the paint already faces the gaze
+      ball.scale.set(1.0, 0.96, 0.92);
       ball.position.copy(ecA);
       c.head.add(ball);
-      // CATCHLIGHT: a tiny proud disc, upper-INNER of the gaze (mirrored per side) — small
-      // flat decals never fought; they just can't be the whole iris.
-      const gDir = new THREE.Vector3(nrm.x - s * 0.12, nrm.y + 0.2, nrm.z).normalize();   // closer to the gaze → the glint sits ON the iris (gate: a big flat decagon on the sclera read as a hole)
-      const glint = new THREE.Mesh(new THREE.CircleGeometry(rr * 0.1, seg(10)), cuteGlintMat);
-      glint.position.copy(ecA).addScaledVector(gDir, rr * 1.02);
+      // PUPIL: a crisp dark disc converged FORWARD, seated proud on the eyeball's front face
+      // (edge-on and hidden in pure profile — where the iris paint carries the read instead).
+      const pupil = new THREE.Mesh(new THREE.CircleGeometry(rr * 0.44, seg(12)), cutePupilMat);
+      pupil.position.copy(ecA).addScaledVector(gazeAxis, rr * 0.955);
+      pupil.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), gazeAxis);
+      c.head.add(pupil);
+      // CATCHLIGHT: a tiny disc, upper-inner of the gaze, proud of the pupil (kept SEPARATE
+      // from the pupil so the pupil reads as a pupil, not a hole with a chip in it).
+      const gDir = new THREE.Vector3(gazeAxis.x - s * 0.16, gazeAxis.y + 0.26, gazeAxis.z).normalize();
+      const glint = new THREE.Mesh(new THREE.CircleGeometry(rr * 0.12, seg(10)), cuteGlintMat);
+      glint.position.copy(ecA).addScaledVector(gDir, rr * 1.0);
       glint.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), gDir);
       c.head.add(glint);
 
@@ -357,7 +363,7 @@ function eyeZone(c, { r, x, y, z, glow }) {
       // slanted hood (the keen almond apex, hooded but READABLE). One dial-driven socket
       // for every form — the separate keen-almond decal is retired.
       const SC = new THREE.Vector3(1.0, 0.96, 0.92);
-      const hood = 0.62 + es * 0.3;   // keen hood eased 0.38→0.3 (gate r3 dir 3: the apex eye was half-swallowed by the hood at the front)
+      const hood = 0.62 + es * 0.34;   // keen hood: enough to read hooded/keen, not so deep it swallows the eye (gate r3/r4 traded blind for naked fish-eye — this is the middle)
       const upperLid = new THREE.Mesh(new THREE.SphereGeometry(rr * 1.12, seg(9), seg(3), 0, Math.PI * 2, 0, hood), c.flapMat);
       upperLid.position.copy(ecA); upperLid.scale.copy(SC);
       upperLid.rotation.set(-0.38 - es * 0.22, 0, s * es * 0.5);   // tip the hood forward over the upper iris; roll it nose-ward for the keen slant
