@@ -5621,3 +5621,34 @@ part's world Y at the pinned pose against `cam_y`, because the group origin ≠ 
 biome, `bossPinSetpiece({id:'ribThread', k, moveGroup:true})` across the pass, full-frame rail-view screenshots at
 the bracketing k's (rel 0 ≈ k 0.52 is the money frame). A pinned-setpiece rail capture is the only honest way to
 judge a through-space beat; the orbit viewer answers a different question (silhouette, not immersion).
+
+### L148 — Bullets from the BODY + a spawn-in ramp: the "materialises from nowhere" fix is two seams, one roster-wide
+
+**Did / learned.** Up close (the rib fly-through), MARROWCOIL's bullets read as appearing in mid-air with no source —
+jarring when the boss looms over the rail. Diagnosed as TWO independent causes, not one: (1) most patterns spawn at the
+POSE CENTRE or in lane space, not at a body part, so the shot has no visible muzzle; (2) every bullet POPS in at full
+radius — no birth ramp — so even a correctly-placed shot "materialises". Both are roster-wide (all emission routes
+through `emitBoss`→`spawnBossBullet`, all draw through one `updateBossBullets`), so both fixes land once for every boss
+behind a default-off fallback. **(1) Body origin:** a new `model.partWorldPos(name,out)` (attached in the `buildBoss`
+WRAPPER in `bossModel.js`, so it's on EVERY model handle incl. the legacy construct — NOT in `bossKit`, where builders
+cherry-pick methods and it wouldn't reach the handle) resolves a named node's world pos, cached (getObjectByName is a
+tree walk). `boss.js` reads a data-driven `def.muzzle` (MARROWCOIL: `'skullGroup'`) into a per-frame `emitOrigin`
+(resolved fresh — the boss bobs, and deferred stream/secondWave sub-volleys must read the CURRENT spot), converting
+world→bullet frame with the identity `rel = -w.z - player.dist`. The head-origin patterns (aimed/fan/stream/secondWave)
+now emit from `emitOrigin`; **crucially their velocity solver `aimVel` must divide by `emitOrigin.rel`, not `pose.rel`**
+— aim from a new depth is wrong otherwise. Geometric/lane patterns (iris/tunnel/spiral/curtain/movingGap/crossfire)
+keep their lane-centred geometry untouched — only the fade-in touches them. **(2) Spawn ramp:** a per-bullet `s.age`
+timer in `bossBullets.js`, eased `grow = t(2−t)` over `CONFIG.BOSS.spawnRampT` (0.12s), multiplied into the body/core/
+outline/shadow draw scales. A point that swells to full size in ~2 frames reads as "fired", not "conjured".
+
+**The pattern.** A roster-wide combat-feel seam belongs at the shared choke point (`buildBoss` wrapper for model
+accessors; `updateBossBullets` for per-bullet draw), gated by DATA (`def.muzzle` present? else pose centre; `s.age <
+rampT`? else full) so the un-opted roster is byte-identical. When you move an emitter's origin, audit the VELOCITY
+solver too — position and aim share the same `rel` and a half-migration aims from the old depth. Body-part names
+(`skullGroup`, `ribPivot*`, `tailBlade`) are the reusable API for this and for PR3's reflect-hit-location.
+
+**Tooling.** Built `tools/muzzleshot.mjs` + a `window.__dd.bossFireNow(id)` live-volley hook: fire one aimed volley,
+grab a 6-frame burst straddling the 0.12s ramp (t=0/40/90/160/260/420ms). The burst is the honest read — a single
+frame can't show "grows in"; you need t000 (invisible, at the skull) → t040 (half-size row descending from the head)
+→ t090 (full, flaring near the player). The headless `tests/boss.mjs` stays 35/35 (positions shift, geometry patterns
+and lifecycle unchanged), but the "from the body" and "grows in" claims are motion claims — only the burst proves them.

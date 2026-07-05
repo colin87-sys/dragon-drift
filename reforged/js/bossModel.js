@@ -28,7 +28,29 @@ export { makeEnergyShell } from './bossKit.js';
 //   { group, muzzle, orbiters[], setDissolve(k), flash(amt), tick(dt, time) }
 // All materials are collected so the disintegration death can fade them as one.
 
+// Attach a roster-wide named-part WORLD-position accessor to every boss handle
+// (the shared combat-feel seam): bullets can spawn from a body part and reflected
+// shots can land on one. Named parts (skullGroup, ribPivotL/R*, tailBlade, …)
+// already live in every boss's group; this resolves one by name — CACHED, since
+// getObjectByName walks the whole tree — writing its live world position into
+// `out`, or null if the name is absent (callers fall back to the boss centre).
+// Works for archetype heroes AND the legacy construct, so no per-builder wiring,
+// and a boss that names nothing stays byte-unchanged.
 export function buildBoss(def, quality = 1) {
+  const model = buildBossImpl(def, quality);
+  if (model && model.group && !model.partWorldPos) {
+    const cache = new Map(); const _v = new THREE.Vector3();
+    model.partWorldPos = (name, out = _v) => {
+      if (!name) return null;
+      let n = cache.get(name);
+      if (n === undefined) { n = model.group.getObjectByName(name) || null; cache.set(name, n); }
+      return n ? n.getWorldPosition(out) : null;
+    };
+  }
+  return model;
+}
+
+function buildBossImpl(def, quality = 1) {
   // Archetype dispatch (coexist rule): a def with `archetype` gets its own
   // hero builder; a def WITHOUT one falls straight through to the legacy
   // construct below, byte-identical to before archetypes existed — so the

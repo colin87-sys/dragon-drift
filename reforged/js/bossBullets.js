@@ -105,6 +105,7 @@ function makeSlot() {
     color: 0xffffff,
     coreColor: 0xffffff,   // white by default; graze-bait darkens it (the "donut" read)
     life: 0,
+    age: 0,   // seconds since spawn; drives the spawn-in scale ramp (no more pop-at-full-size)
   };
 }
 
@@ -281,6 +282,7 @@ export function spawnBossBullet(opts) {
   s.color = opts.color || 0xff4488;
   s.coreColor = opts.coreColor || 0xffffff;
   s.life = opts.life || 6;
+  s.age = 0;   // reset the spawn-in ramp for this fresh bullet
   return s;
 }
 
@@ -316,6 +318,7 @@ export function updateBossBullets(dt, player) {
     s.y += s.vy * dt;
     s.rel += s.vrel * dt;
     s.life -= dt;
+    s.age += dt;
 
     // Time-to-impact FLARE (the depth cue, replacing the confusing loom): a boss
     // bullet warms toward white-hot in its last ~0.3 s, so the one that reaches
@@ -343,14 +346,22 @@ export function updateBossBullets(dt, player) {
     const gone = past ? Math.max(0, Math.min(1, -s.rel / 5)) : 0;
     const shrink = past ? 1 - gone * 0.7 : 1;
 
+    // Spawn-in ramp (L148): a fresh bullet grows from a point to full size over the
+    // first CONFIG.BOSS.spawnRampT seconds instead of popping in at full radius —
+    // "materialises from nowhere" was the up-close read. eased so it's soft, not linear.
+    const grow = s.age < CONFIG.BOSS.spawnRampT
+      ? (t => t * (2 - t))(Math.max(0, Math.min(1, s.age / CONFIG.BOSS.spawnRampT)))
+      : 1;
+    const drawScale = shrink * grow;
+
     // Round camera-facing bullet: a soft colour BODY with a WHITE CENTRE on top,
     // plus a ground shadow (all off one slot). No spin — the disc is radial.
     posV.set(s.x, s.y, -(player.dist + s.rel));
-    m4.compose(posV, IDENTITY, sclV.setScalar(s.r * 2.7 * shrink));   // body disc
+    m4.compose(posV, IDENTITY, sclV.setScalar(s.r * 2.7 * drawScale));   // body disc
     mesh.setMatrixAt(i, m4);
     colV.setHex(s.color).lerp(FOG_DIM, Math.max(far, gone) * 0.5).lerp(WHITE, flare);
     mesh.setColorAt(i, colV);
-    m4.compose(posV, IDENTITY, sclV.setScalar(s.r * 1.55 * shrink));  // centre (smaller)
+    m4.compose(posV, IDENTITY, sclV.setScalar(s.r * 1.55 * drawScale));  // centre (smaller)
     coreMesh.setMatrixAt(i, m4);
     // Core defaults white (the danger "hot disc"); graze-bait darkens it (a
     // hollow "donut" — reads as a DIFFERENT thing). The tti flare still heats a
@@ -362,12 +373,12 @@ export function updateBossBullets(dt, player) {
       outlineMesh.setMatrixAt(i, HIDDEN);   // hidden the instant it crosses (near-field only)
       shadowMesh.setMatrixAt(i, HIDDEN);
     } else {
-      m4.compose(posV, IDENTITY, sclV.setScalar(s.r * 3.1));   // outline ring (under the body)
+      m4.compose(posV, IDENTITY, sclV.setScalar(s.r * 3.1 * grow));   // outline ring (under the body)
       outlineMesh.setMatrixAt(i, m4);
       outlineColV.copy(OUTLINE_TINT).lerp(OUTLINE_FOG, far * 0.5);
       outlineMesh.setColorAt(i, outlineColV);
       // Shadow on the floor directly beneath the bullet.
-      m4.compose(posV.set(s.x, GROUND_Y, -(player.dist + s.rel)), SHADOW_QUAT, shadowScl.setScalar(s.r * 1.5));
+      m4.compose(posV.set(s.x, GROUND_Y, -(player.dist + s.rel)), SHADOW_QUAT, shadowScl.setScalar(s.r * 1.5 * grow));
       shadowMesh.setMatrixAt(i, m4);
     }
 

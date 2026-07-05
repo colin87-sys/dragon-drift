@@ -171,6 +171,8 @@ export const CONFIG = {
     // the spiral is slower (×0.78) so it reads as more forgiving.
     bulletPool: 320,
     bulletRadius: 0.55,
+    spawnRampT: 0.12,       // seconds a bullet takes to grow from a point to full size at spawn
+                            // (kills the "materialises from nowhere" pop up close — L148)
     bulletHitScale: 0.62,   // effective player hit radius = playerRadius × this (forgiving)
     bulletSpeed: 28,        // closing speed (m/s) → reaction window ≈ settleGap/speed ≈ 1.07s
     bossSpeed: 52,          // closing speed of a rider/reflected bullet toward the boss

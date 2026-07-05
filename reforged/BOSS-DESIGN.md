@@ -744,6 +744,13 @@ precedents are cited inline.
    that part's animation; phase change is visible damage/transformation. If a featureless
    sphere could emit the pattern, the body is set dressing. (CAVE part grammar, Gradius core
    ritual, already implied by law §3.5 — now absolute.)
+   - **Wiring (L148):** the aimed/head-origin patterns emit from a named body part via
+     `def.muzzle` (e.g. `'skullGroup'`) — resolved per-frame through `model.partWorldPos(name)`
+     (on every model handle) into the bullet frame (`rel = -w.z - player.dist`). Aim solves
+     against that origin's `rel`, not the pose centre. Un-opted bosses (no `def.muzzle`) fall
+     back to the pose centre, byte-unchanged. Lane-shaped patterns (iris/tunnel/curtain) keep
+     their lane geometry. All bullets also SPAWN-IN (`CONFIG.BOSS.spawnRampT`, ~0.12s) — a fresh
+     bullet grows from a point to full size instead of popping, so nothing "materialises".
 8. **Rhythm is a fairness subsidy.** Per-attack audio cues; dense patterns emit on the music
    grid where possible; graze ticks confirm "close but safe." Behind-camera depth ambiguity
    becomes thrill, not unfairness. (Grimm; Just Shapes & Beats; Returnal's audio channel.)
