@@ -102,7 +102,10 @@
       if (part === 'wing' || part === 'wingR') {
         const roots = part === 'wingR' ? WING_R : WING_ROOTS;
         const b = new THREE.Box3(); b.makeEmpty();
-        for (const k of roots) if (parts[k]) b.expandByObject(parts[k]);
+        // wingRigL/R may be a rig-HANDLE object ({shoulder,elbow,wrist,…}, ember's
+        // skinned path), not an Object3D — skip those; the wing subtree is covered
+        // by wingPivotL/R. Guard on isObject3D so expandByObject never sees a handle.
+        for (const k of roots) if (parts[k] && parts[k].isObject3D) b.expandByObject(parts[k]);
         if (!b.isEmpty()) return _box.copy(b);
       }
       return _box.setFromObject(built.group);
