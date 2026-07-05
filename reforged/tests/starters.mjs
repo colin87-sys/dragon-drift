@@ -215,13 +215,13 @@ for (const [key, spec] of Object.entries(SPECS)) {
       `${key}: no gold emissive on the wing (carrier=diffuse; emisI ${emisI}, hueΔ ${hueDist(emisHue, spec.accentHue).toFixed(0)}°)`);
   }
   if (spec.carrier === 'emissive') {
-    // ember: the broad membrane carries NO warm accent DIFFUSE — its diffuse is dark
-    // coal (low value), so the accent lives only as emissive on the rays. Assert the
-    // membrane material's diffuse is dark (value ≤0.22) — no toy-color / warm mass.
+    // ember [ICONIC FLAME]: the BODY is bold warm flame, but the wing MEMBRANE diffuse
+    // is held dark-warm so the glowing rays carry the fire (not a toy-bright sheet).
+    // Assert the membrane material's diffuse stays dark (value ≤0.22).
     const apex = per[2];
     const wm = apex.parts && buildDragonModel(apex.def, {}).materials.wingMat;
     const hsl = {}; wm.color.getHSL(hsl);
-    ok(hsl.l <= 0.22, `${key}: membrane diffuse is dark coal, no warm accent diffuse (L ${hsl.l.toFixed(2)} ≤ 0.22)`);
+    ok(hsl.l <= 0.22, `${key}: wing membrane diffuse held dark-warm so the rays carry the fire (L ${hsl.l.toFixed(2)} ≤ 0.22)`);
   }
 }
 
