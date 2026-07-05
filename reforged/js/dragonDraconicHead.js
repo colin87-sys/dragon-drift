@@ -319,8 +319,12 @@ function eyeZone(c, { r, x, y, z, glow }) {
       const pos = geo.attributes.position;
       // Keen forms brighten the iris (gate: the apex's dark iris on the deep navy head went
       // murky/invisible at the front) — es lerps the hue toward the pale-ice accent.
-      const cP = new THREE.Color(0x0a1622), cS = new THREE.Color(0xe4f0fa);
-      const cI = new THREE.Color(0x4198e2).lerp(new THREE.Color(0x9fdcff), es * 0.55);
+      // Sclera tinted toward the skin-blue (gate fable-r3 dir 2: a bright cream rear cap in
+      // profile read as an eyeball "rolled hard forward" — a calmer blue-grey rear reads as
+      // the eye's own shaded back). Keen forms brighten the iris harder (dir 3: the apex eye
+      // must win against its dark brow hood at gameplay distance).
+      const cP = new THREE.Color(0x0a1622), cS = new THREE.Color(0xbfd8ec);
+      const cI = new THREE.Color(0x4198e2).lerp(new THREE.Color(0xa9e2ff), es * 0.75);
       const V = new THREE.Vector3(); const cols = []; const CT = new THREE.Color();
       const band = (ang, a, b) => Math.min(1, Math.max(0, (ang - a) / (b - a)));   // smoothstep-ish edge
       for (let i = 0; i < pos.count; i++) {
@@ -329,7 +333,7 @@ function eyeZone(c, { r, x, y, z, glow }) {
         // sclera). Hard band cuts on coarse facets read as a black quadrant "hole" (gate) —
         // a ~0.14 rad blend across each boundary keeps the facets from carving the eye.
         // Pupil to ~26°, iris to ~70° (+29° outboard gaze → wrap reaches ~99°: profile alive).
-        CT.copy(cP).lerp(cI, band(ang, 0.38, 0.52)).lerp(cS, band(ang, 1.14, 1.3));
+        CT.copy(cP).lerp(cI, band(ang, 0.38, 0.52)).lerp(cS, band(ang, 1.22, 1.42));   // iris wrap extended (gate r3 dir 2: the pale rear cap dominated the profile)
         cols.push(CT.r, CT.g, CT.b);
       }
       geo.setAttribute('color', new THREE.Float32BufferAttribute(cols, 3));
@@ -353,7 +357,7 @@ function eyeZone(c, { r, x, y, z, glow }) {
       // slanted hood (the keen almond apex, hooded but READABLE). One dial-driven socket
       // for every form — the separate keen-almond decal is retired.
       const SC = new THREE.Vector3(1.0, 0.96, 0.92);
-      const hood = 0.62 + es * 0.38;
+      const hood = 0.62 + es * 0.3;   // keen hood eased 0.38→0.3 (gate r3 dir 3: the apex eye was half-swallowed by the hood at the front)
       const upperLid = new THREE.Mesh(new THREE.SphereGeometry(rr * 1.12, seg(9), seg(3), 0, Math.PI * 2, 0, hood), c.flapMat);
       upperLid.position.copy(ecA); upperLid.scale.copy(SC);
       upperLid.rotation.set(-0.38 - es * 0.22, 0, s * es * 0.5);   // tip the hood forward over the upper iris; roll it nose-ward for the keen slant
@@ -537,9 +541,13 @@ function browCrest(c) {
     // pair. Centre-out ordering so the middle blade is longest and the outers step down ×0.8.
     const rank = Math.abs(i - (n - 1) / 2);                 // 0 = centre, grows outward
     // NUB (hatchling, n=1): short + FAT (aspect ~1.2) so it reads as a soft thumb-bump, not a
-    // wire antenna. FAN (n>1): the slim swept feathers step down ×0.8 in length outward.
-    const len = isNub ? 0.34 * sc : (0.78 * Math.pow(0.8, rank)) * sc;
-    const wid = isNub ? 0.3 * sc  : (0.2 * Math.pow(0.86, rank)) * sc;
+    // wire antenna. SPROUTS (adolescent, n=2): shorter + 1.5× wider so the pair reads as
+    // rooted feathers, not two detached slits hovering over the crown from the nape (the
+    // fable gate flagged them as "floating brow chips" twice). FAN (n≥3, the apex): the
+    // approved slim swept feathers stepping down ×0.8 outward — byte-identical.
+    const isSprout = n === 2;
+    const len = isNub ? 0.34 * sc : (isSprout ? 0.62 : 0.78) * Math.pow(0.8, rank) * sc;
+    const wid = isNub ? 0.3 * sc  : (isSprout ? 0.3 : 0.2) * Math.pow(0.86, rank) * sc;
     maxLen = Math.max(maxLen, len);
     // A slim feather blade, gold-tipped via a base→tip vertex gradient.
     const g = featherGeoLocal(len, wid);

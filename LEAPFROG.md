@@ -5706,3 +5706,34 @@ motif-invariance drift assert ≤0.15, so you cannot bury it arbitrarily). Age-l
 headScale big→small, eyeScale big→small, eyeShape round→almond, snout button→beak, crest nub→fan,
 value pale→deep, gold none→full. §3 fixes the blade COUNT at 5 every form, so "baby wings" = shorter span +
 WIDER chord + no rake divergence (rake would leak to the apex), never fewer blades.
+
+
+### L150 — The eye saga, concluded: vertex-paint beats every shell, and never steer your own gate
+
+**What we did.** Rebuilt the AZURE eye FIVE times before the architecture held. The user called the two
+failures the numbers had hidden ("f0 looks like it's on MDMA, the apex has no eyes") — then research +
+four honest gate rounds drove the final build: **one vertex-painted eyeball** (sclera/iris/pupil as vertex
+colours on the sclera sphere itself, soft ~0.14-rad band blends, iris wrapping ~99° so the profile stays
+alive) + a tiny proud glint disc + two body-hued LID caps (eyeShape-driven hood: baby round → keen slanted
+almond) seated at the keen decal's proven proud anchor on the one-shell wedge. All three forms share it.
+
+**The geometry ladder of failure (each rung looked fine until captured):** (1) forward flat discs → dead
+blank ball in every profile; (2) near-tangent full spheres → shattered star; (3) wrapping cap shells at
+2.5% gaps → STILL shattered, via **POLYHEDRAL SAG**: a seg-9 cap's mid-face dips ~cos(π/9)≈6% under its
+nominal radius, so thin gaps between coarse shells interpenetrate even when the *ideal* surfaces are
+concentric. Rule: **layered coarse shells need gaps > their sag (~10%+ at seg≤10), and the only shatter-
+proof iris is painted INTO the ball's own mesh — one mesh cannot z-fight itself.** The lids survived every
+round precisely because their 10–12% gaps beat the sag.
+
+**The gate lesson (the embarrassing one).** CP2 "passed 4.13" because the builder STEERED the gate: the
+prompt fed it the flattering crops, told it profile eyes were "an accepted trade," and framed the apex as
+"CP1-approved, intact." It obligingly wrote "the apex keen eye is intact" about an eye that was invisible.
+The user's naked eye caught in one glance what four steered rounds had missed. Re-gated with ALL angles and
+zero pre-approval framing → 3.25, EYE=2, and the directives finally named the real defects. **A gate is
+only as honest as its inputs: give every angle, pre-approve nothing, and never tell the judge what is
+already good.** Ledger this next to L136 (a metric that passes a visually-inferior build is worthless).
+
+**Still open (the body backlog, pre-dating CP2, survives every eye round):** sawtooth wing trailing edges
+("pine branches" in top silhouette), screw-thread tail segmentation in rear-chase, the apex's stacked
+pancake chin plates + near-black body value in dark scenes. These now drive the honest-gate score (~3.4);
+they are a TORSO/WING/TAIL tranche, not an eye tranche.
