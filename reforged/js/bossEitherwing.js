@@ -678,20 +678,26 @@ export function buildTwinWraith(def, quality = 1) {
     let survivorIsA = holdT < 0.5;
     let fallenShrink = 0;
     if (entranceU != null) {
-      // THE BATON CROSS (§5j): the twins slide in from BOTH flanks to bracket the dragon
-      // at x ±8 (twinA RIGHT, twinB LEFT), the EYE detaches and crosses right→left across
-      // the FULL portrait width, then both SCISSOR into the figure-eight as the fight opens.
+      // THE BATON CROSS (§5j) — REAR-CAM SEQUENTIAL REVEAL. Beat 1: twinA rises from
+      // behind-below on the RIGHT (+9), eye ON it (the dragon cranks its head right). Beat 2:
+      // the EYE crosses to twinB as it rises on the LEFT (−9), the dragon's head + camera pan
+      // left to follow it. Beat 3: both SCISSOR forward to the figure-eight's th=0 seat
+      // (x→0, y→0, depth→±ZSEP) as the camera eases home and the fight opens (moving is frozen
+      // above, so the orbit resumes cleanly from th=0). Group space; the group itself rides
+      // behind the dragon (rel<0) through the reveals, per the script's path().
       const u = entranceU;
-      const slide = easeK(clamp(u / 0.3, 0, 1));                 // 0→1: slide in from off-frame ±13 to the ±8 bracket
-      const scissor = easeK(clamp((u - 0.66) / 0.34, 0, 1));    // last third: ease the ±8 brackets IN toward centre (the
-      // figure-eight's th=0 seat) so the fight opens with NO jump — moving is frozen above, so the orbit resumes from th=0.
-      const bx8 = (13 + (8 - 13) * slide) * (1 - scissor);      // ±13 → ±8 → ~0 (converge into the scissor); ×(1−scissor) lands at centre
-      const yB = Math.sin(u * Math.PI) * 0.4;                    // a shallow arc so the slide-in isn't a flat rail
-      posA = [bx8, yB, ZSEP * scissor]; posB = [-bx8, yB, -ZSEP * scissor];   // twinA RIGHT, twinB LEFT; ease into the ±ZSEP depth as they scissor to centre (no overlap)
-      // The eye crosses right→left over the middle beat (0.32→0.84): holdT 0 (A/right holds)
-      // → 1 (B/left catches). Pinned (no lag/random) so the beaded thread reads as one taut
-      // line spanning the pair. The rim IGNITION rides holdT via the aHolds body-glow below.
-      holdTarget = holdT = easeK(clamp((u - 0.32) / 0.52, 0, 1));
+      const apA = easeK(clamp(u / 0.30, 0, 1));                 // twinA rises 0→1 over beat 1
+      const apB = easeK(clamp((u - 0.34) / 0.30, 0, 1));       // twinB rises 0→1 over beat 2
+      const scissor = easeK(clamp((u - 0.66) / 0.34, 0, 1));   // both sweep to the th=0 seat over beat 3
+      const axL = 9 * (1 - scissor);                            // twinA local x: RIGHT (+9) → centre
+      const bxL = -9 * (1 - scissor);                           // twinB local x: LEFT (−9) → centre
+      const ayA = (-4 + (1.6 - -4) * apA) * (1 - scissor);     // rise from below-frame to a display height, then settle to 0
+      const ayB = (-4 + (1.6 - -4) * apB) * (1 - scissor);
+      posA = [axL, ayA, ZSEP * scissor]; posB = [bxL, ayB, -ZSEP * scissor];   // gain the ±ZSEP depth only as they scissor to centre (no overlap)
+      // The eye is on A through beat 1, crosses to B as B rises (beat 2, 0.34→0.62) — the
+      // dragon's head tracks the LIT twin, so it always looks at the eye. Pinned (no lag/random)
+      // so the beaded thread reads as one taut line. Rim IGNITION rides holdT (aHolds, below).
+      holdTarget = holdT = easeK(clamp((u - 0.34) / 0.28, 0, 1));
       survivorIsA = holdT < 0.5;
     } else if (dyingK > 0) {
       const circle = age * 2.2;                              // two slow laps as it grieves
@@ -1008,7 +1014,7 @@ export function buildTwinWraith(def, quality = 1) {
   // The rig-local x the eye crosses to (twinA RIGHT +8 → twinB LEFT −8) so the driver can
   // feed the ORB's world-x to the camera + the dragon-look strain.
   function setEntrance(u) { entranceU = u == null ? null : Math.max(0, Math.min(1, u)); }
-  function entranceEyeLocalX() { return entranceU == null ? 0 : (1 - 2 * easeK(clamp((entranceU - 0.32) / 0.52, 0, 1))) * 8; }
+  function entranceEyeLocalX() { return entranceU == null ? 0 : (1 - 2 * easeK(clamp((entranceU - 0.34) / 0.28, 0, 1))) * 9; }
   function twinBodyLum() {
     // The rendered value of each twin body (diffuse + emissive) — the seeker must be
     // measurably darker (§7b). Diffuse luminance + emissive contribution.

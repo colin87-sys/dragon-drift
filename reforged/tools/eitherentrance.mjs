@@ -12,7 +12,7 @@ const bossIdx = BOSS_ORDER.indexOf('eitherwing');
 const DIST = 2250;   // Amber Wastes (sunset)
 const OUT = new URL('../../reforged-captures/', import.meta.url).pathname;
 fs.mkdirSync(OUT, { recursive: true });
-const US = [0.15, 0.35, 0.58, 0.8, 0.95];   // slide-in · cross-start · mid-cross · catch · scissor
+const US = [0.12, 0.30, 0.50, 0.64, 0.82, 0.95];   // A rises · A revealed · eye crossing · B revealed · scissor · settle
 
 const { page, done } = await boot({
   query: `?debug&bossIdx=${bossIdx}&boss=${DIST}`,
