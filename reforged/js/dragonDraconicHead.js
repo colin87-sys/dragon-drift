@@ -125,11 +125,19 @@ function refinedNobleJaw(c)    { jaw(c, { len: 1.06, wid: 0.78, drop: 0.38, shar
 
 // ── EYE ZONE ──────────────────────────────────────────────────────────────── // large forward eyes set under the brow — the intelligent/expressive read
 function eyeZone(c, { r, x, y, z, glow }) {
+  // Eye-SHAPE dial (§6): eyeShape 1 = almond/feline (the draconic default, taller +
+  // tilted), 0 = round + low-set (the cute hatchling read). Interpolated so a line
+  // can move round→keen across its forms without a second eye builder.
+  const es = c.cfg.eyeShape;
+  const sx = 0.92 + (1 - es) * 0.12;      // rounder = a touch wider
+  const sy = 0.86 + es * 0.32;            // almond = taller
+  const tiltY = 0.30 * es, tiltZ = 0.34 * es;
+  const yset = y - (1 - es) * r * 0.35;   // round eyes sit LOWER
   for (const s of [-1, 1]) {
     const eye = new THREE.Mesh(new THREE.SphereGeometry(r, seg(12), seg(9)), c.mats.eyeMat);
-    eye.scale.set(0.92, 1.18, 0.82);
-    eye.rotation.set(0.1, -s * 0.3, -s * 0.34);   // almond/feline tilt
-    eye.position.set(s * x, y, z);
+    eye.scale.set(sx, sy, 0.82);
+    eye.rotation.set(0.1, -s * tiltY, -s * tiltZ);   // almond/feline tilt (0 when round)
+    eye.position.set(s * x, yset, z);
     c.head.add(eye);
     if (glow) {
       const rim = new THREE.Mesh(new THREE.TorusGeometry(r * 1.12, r * 0.14, seg(5), seg(10), Math.PI * 1.1), c.glowMat);
@@ -263,6 +271,68 @@ function whiskerFins(c) {                          // Jade — calm mystical
     c.head.add(w);
   }
 }
+// BROW-CREST MOTIF (AZURE §5d) — a swept feather-crest fanning back off the brow,
+// gold-tipped (DIFFUSE tip-paint, law-9 carrier — no emissive on the accent). The
+// motif SOCKET: its anchor (above the eyes) + base hue never move across forms;
+// only the blade COUNT + scale bloom (single nub → 3-blade fan). Returns the fixed
+// head-local anchor + the grown bounding radius so §7 can assert invariance + bloom.
+function browCrest(c) {
+  const n = Math.max(1, Math.round(c.cfg.crestBlades));
+  const sc = c.cfg.crestScale;
+  // FIXED anchor above the eyes (head-inner-local; independent of headScale/form).
+  const ax = 0, ay = c.hy * 0.66, az = c.faceZ + c.faceR * 0.5;
+  const cGold = c.def.accentHue ?? 0xd9b36a;
+  const cBase = c.def.horn ?? c.def.scales ?? 0xbcd9f0;
+  const bladeMat = new THREE.MeshStandardMaterial({
+    color: cBase, roughness: 0.4, metalness: 0.3, side: THREE.DoubleSide, vertexColors: true,
+  });
+  let maxLen = 0;
+  for (let i = 0; i < n; i++) {
+    const t = n > 1 ? i / (n - 1) : 0.5;
+    const mid = 1 - Math.abs(t - 0.5) * 1.4;                 // centre blade longest
+    const len = (0.30 + 0.34 * mid) * sc;
+    const wid = (0.11 + 0.05 * mid) * sc;
+    maxLen = Math.max(maxLen, len);
+    // A slim feather blade, gold-tipped via a base→tip vertex gradient.
+    const g = featherGeoLocal(len, wid);
+    gradTip(g, cBase, cGold);
+    const b = new THREE.Mesh(g, bladeMat);
+    const spread = n > 1 ? (t - 0.5) * 1.1 : 0;
+    b.position.set(ax, ay, az);
+    b.rotation.x = -1.15;                                    // rake BACK over the crown (low, rear-readable)
+    b.rotation.z = spread;
+    b.rotation.y = spread * 0.5;
+    c.head.add(b);
+  }
+  c.motifAnchor = { local: new THREE.Vector3(ax, ay, az), radius: maxLen };
+}
+// A slim crest feather (length +Z, face up) — a local copy so the head module owns
+// its motif geometry without importing the wing kit.
+function featherGeoLocal(len, wid) {
+  const s = new THREE.Shape();
+  s.moveTo(0, 0);
+  s.quadraticCurveTo(wid * 0.5, len * 0.34, wid * 0.14, len * 0.9);
+  s.quadraticCurveTo(0, len, -wid * 0.14, len * 0.9);
+  s.quadraticCurveTo(-wid * 0.5, len * 0.34, 0, 0);
+  const g = new THREE.ShapeGeometry(s, seg(5));
+  g.rotateX(Math.PI / 2);
+  return g;
+}
+function gradTip(geo, baseHex, tipHex) {
+  geo.computeBoundingBox();
+  const { min, max } = geo.boundingBox;
+  const z0 = min.z, span = (max.z - min.z) || 1;
+  const pos = geo.attributes.position;
+  const base = new THREE.Color(baseHex), tip = new THREE.Color(tipHex), c = new THREE.Color();
+  const col = [];
+  for (let i = 0; i < pos.count; i++) {
+    const tt = (pos.getZ(i) - z0) / span;
+    c.copy(base).lerp(tip, tt > 0.7 ? (tt - 0.7) / 0.3 : 0);   // gold ONLY on the outer tip
+    col.push(c.r, c.g, c.b);
+  }
+  geo.setAttribute('color', new THREE.Float32BufferAttribute(col, 3));
+}
+
 function tuskJaw(c) {                               // Solar / Sovereign
   for (const s of [-1, 1]) {
     const tusk = new THREE.Mesh(new THREE.ConeGeometry(0.06, 0.36, seg(5)), c.mats.hornMat);
@@ -292,9 +362,13 @@ const ARCHETYPES = {
 const DEFAULTS = {
   headScale: 1.0, snoutScale: 1, hornScale: 1, eyeScale: 1, browIntensity: 1,
   rearGlowIntensity: 0.5, whiskerFins: false, tuskJaw: false,
+  eyeShape: 1,          // 1 = almond (draconic default) · 0 = round (cute hatchling)
+  crestBlades: 0,       // brow-crest motif blade count (0 = none) — the AZURE motif socket
+  crestScale: 1,        // brow-crest bloom scale
 };
 const OVERRIDE_KEYS = ['skullType', 'snoutType', 'eyeZoneType', 'browType', 'hornType', 'jawType', 'rearCrestType',
-  'headScale', 'snoutScale', 'hornScale', 'eyeScale', 'browIntensity', 'rearGlowIntensity', 'whiskerFins', 'tuskJaw'];
+  'headScale', 'snoutScale', 'hornScale', 'eyeScale', 'browIntensity', 'rearGlowIntensity', 'whiskerFins', 'tuskJaw',
+  'eyeShape', 'crestBlades', 'crestScale'];
 
 function resolveConfig(model) {
   const arch = ARCHETYPES[model.headArchetype] || ARCHETYPES.softStealth;
@@ -335,8 +409,9 @@ function buildDraconicHead(def, model, mats) {
   (CRESTS[cfg.rearCrestType] || smallRearCrest)(ctx);
   if (cfg.whiskerFins) whiskerFins(ctx);
   if (cfg.tuskJaw) tuskJaw(ctx);
+  if (cfg.crestBlades > 0) browCrest(ctx);
 
-  return { group: outer, spineMats };
+  return { group: outer, spineMats, motifAnchor: ctx.motifAnchor ?? null };
 }
 
 registerHead('draconic', buildDraconicHead);
