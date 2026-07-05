@@ -5599,3 +5599,25 @@ what told the two apart — measure the render, don't trust the thumbnail.
 gate on the shipped dragon → expected calibration FAIL) as its own tranche BEFORE any builder burns a session.
 Determinism is a deliverable — `setFlapDebugPose` is clock-free, so two dragonstudio runs are byte-identical
 (31/31 verified); non-deterministic capture is the MARROWCOIL churn failure and is treated as a test failure.
+---
+
+### L147 — MARROWCOIL rib fly-through: the loom→through fix needed a DIVE, not just a rel-sweep
+
+**Did / learned.** The L141 gap (the signature "ribcage you fly through" never landed — the cage only LOOMED)
+turned out to be TWO problems, not one. The obvious fix (sweep the group's `rel` from the loom through −6, past the
+camera, like EITHERWING's `figureEight`) was necessary but NOT sufficient: it made the cage rush the camera, but the
+rail still passed UNDER a rib canopy instead of THROUGH the barrel. A rail-camera probe (not the orbit viewer — this
+is a first-person-through-space read the deterministic bossview can't show) found why: at the pass instant
+`cam_y ≈ 11.6` but the dorsal rib ROOTS sit at `y ≈ 19.5` — the barrel interior hangs ~4u ABOVE the rail (bone-coil
+skeletons are tall; the aperture is mid-body, not at the group origin). So `ribThread` now ALSO **dives ~4.2u** at the
+thread instant, dropping the barrel interior down around the camera. Then the ribs flank the dragon on both sides +
+overhead and the corridor reads through the aperture — a true tunnel.
+
+**The pattern.** For a "fly-through" beat, `rel` (depth past the camera) and `y` (barrel-onto-rail) are SEPARATE
+axes and you usually need both. Don't trust a model comment that says a part "hangs at rail height" — MEASURE the
+part's world Y at the pinned pose against `cam_y`, because the group origin ≠ the feature you're threading.
+
+**Tooling.** Built `tools/marrowpass.mjs` (clone of `eitherpass.mjs`): boots the real engine at the boss's home
+biome, `bossPinSetpiece({id:'ribThread', k, moveGroup:true})` across the pass, full-frame rail-view screenshots at
+the bracketing k's (rel 0 ≈ k 0.52 is the money frame). A pinned-setpiece rail capture is the only honest way to
+judge a through-space beat; the orbit viewer answers a different question (silhouette, not immersion).
