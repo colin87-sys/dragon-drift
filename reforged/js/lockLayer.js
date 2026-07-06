@@ -140,11 +140,16 @@ export function updateLockLayer(dt, player, ctx) {
     // painted organ never re-acquires — the reticle only hunts fresh prey until
     // the set is complete. Refresh becomes reachable again once all are painted.
     if (!hit && ctx.candidates && ctx.candidates.length > 1) {
-      const unpaintedLeft = ctx.paintables &&
+      // While the HUNT is on (an unpainted paintable remains and cap room exists),
+      // neither painted organs NOR the V1-only virtual anchor may steal the aim —
+      // the skull hijacking the line mid-sweep was exactly the stuck-reticle bug.
+      const capRoom = totalPips() < (ctx.cap || 0);
+      const hunting = capRoom && ctx.paintables &&
         ctx.paintables.some((p) => !S.locks.some((lk) => lk.part === p));
-      const painted = (p) => S.locks.some((lk) => lk.part === p);
+      const acquirable = (p) => !hunting ||
+        (ctx.paintables.includes(p) && !S.locks.some((lk) => lk.part === p));
       const cand = coneCandidate(player, ctx);
-      if (cand && !embargoed(cand.part) && !(unpaintedLeft && painted(cand.part))) hit = cand.part;
+      if (cand && !embargoed(cand.part) && acquirable(cand.part)) hit = cand.part;
     }
     if (hit) {
       S.aimPart = hit;
@@ -300,25 +305,37 @@ function refreshHud(ctx, dt, player) {
   if (!part && ctx.candidates) {
     if (ctx.candidates.length === 1) part = ctx.candidates[0];
     else if (ctx.candidates.length > 1 && ctx.model && ctx.model.partWorldPos && player) {
-      // Prefer the nearest UNPAINTED organ (painted ones carry their own markers) —
-      // the reticle actively leads the sweep to the next target; fall back to the
-      // nearest painted one when everything is locked (refresh stays reachable).
-      let bestD = Infinity, bestAnyD = Infinity, bestAny = null, curD = Infinity;
+      // THE RETICLE HUNTS BRANDABLE PREY (owner playtest #3: the V1-only virtual
+      // anchor — MARROWCOIL's skull — counted as 'unpainted' FOREVER, so returning
+      // to centre parked the reticle on a face that can never take a pip: a green
+      // lock, no paint, no hop — reads as stuck). Three preference classes:
+      //   A — unpainted PAINTABLE while cap room remains (the hunt),
+      //   B — any paintable (refresh, once the set is full/painted),
+      //   C — the V1-only anchor last (bonus chip while the inhale burns).
+      // A boss without paintables (VOIDMAW/STORMREND/ASHTALON) has only class C —
+      // byte-identical to before.
+      const capRoom = totalPips() < (ctx.cap || 0);
+      const classOf = (c) => {
+        const paintable = ctx.paintables && ctx.paintables.includes(c);
+        if (!paintable) return 2;
+        const painted = S.locks.some((lk) => lk.part === c);
+        return (!painted && capRoom) ? 0 : 1;
+      };
+      let bestD = Infinity, bestClass = 3, curD = Infinity, curClass = 3;
       for (const c of ctx.candidates) {
         const w = ctx.model.partWorldPos(c, _w);
         if (!w) continue;
         const dx = w.x - player.position.x, dy = w.y - player.position.y;
         const d = dx * dx + dy * dy;
-        if (c === S.hudPart) curD = d;
-        if (d < bestAnyD) { bestAnyD = d; bestAny = c; }
-        if (d < bestD && !S.locks.some((lk) => lk.part === c)) { bestD = d; part = c; }
+        const cl = classOf(c);
+        if (c === S.hudPart) { curD = d; curClass = cl; }
+        if (cl < bestClass || (cl === bestClass && d < bestD)) { bestClass = cl; bestD = d; part = c; }
       }
-      if (!part) part = bestAny;
-      // Hysteresis: keep the current displayed organ unless the new pick is clearly
-      // nearer (coiling anatomy makes near-equidistant ribs swap every frame — a
-      // flickering lead marker is unchaseable).
-      if (S.hudPart && part !== S.hudPart && curD < Infinity &&
-          !S.locks.some((lk) => lk.part === S.hudPart) && bestD > curD * 0.6) part = S.hudPart;
+      // Hysteresis: keep the current displayed organ when it ties the winning CLASS
+      // and isn't clearly further (coiling anatomy makes near-equidistant ribs swap
+      // every frame — a flickering lead marker is unchaseable).
+      if (S.hudPart && part !== S.hudPart && curClass === bestClass &&
+          curD < Infinity && bestD > curD * 0.6) part = S.hudPart;
     } else part = ctx.candidates[0] || null;
   }
   S.hudPart = part;
