@@ -23,7 +23,8 @@ import {
   spawnBossRingHoop,
 } from './bossBullets.js';
 import { initLockLayer, updateLockLayer, clearLocks, lockAimTarget, lockAimHeld,
-  lockCount, notifyHit as lockNotifyHit } from './lockLayer.js';
+  lockCount, notifyHit as lockNotifyHit, consumeAllLocks, requestLoose,
+  lanceDmgEach, __testBank } from './lockLayer.js';
 
 // Boss encounter controller. A boss is an OVERLAY on the normal flight (gated by
 // game.inBoss, mirroring game.inCanyon): forward motion continues, the boss holds
@@ -918,6 +919,10 @@ function updateSurgeBeam(dt, player, time) {
 }
 
 // The beam lands: shatter the shield (or chip an unshielded boss), impact FX, sfx.
+// PR3 V3 SURGE FORK: after the shield/chip resolves, the unleash also LOOSES every
+// banked brand — one lance per pip onto the freshly EXPOSED organs (a shielded burst
+// forks AFTER breakShield, so no lance ever pings the shield). The aimed variant lands
+// the unshielded chip on the organ nearest the player's flight line.
 function strikeSurge(player) {
   sfx.surgeBeam?.();
   cameraCtl.shake?.(1.4);
@@ -925,7 +930,53 @@ function strikeSurge(player) {
   burst(tmp, 0xffffff, { count: 24, speed: 22, size: 1.3, life: 0.6 });
   burst(tmp, 0xff4fd0, { count: 18, speed: 15, size: 1.0, life: 0.7 });
   if (shielded) breakShield(player);
-  else damageBoss(B.surgeBeamDamage ?? 14, 'surge');   // no shield up → a solid chip
+  else {
+    // AIMED UNLEASH: resolve the beam at the lock candidate nearest the player's
+    // flight line (within beamAimDisc). With a part, the chip carries it + the beam
+    // weight so it counts toward part cracks; NO candidate in the disc → the exact
+    // legacy pose-centre chip (byte-identical: damageBoss(14, 'surge') with no e).
+    const aim = beamAimPart(player);
+    if (aim) damageBoss(B.surgeBeamDamage ?? 14, 'surge',
+      { part: aim.part, x: aim.x, y: aim.y, w: CONFIG.LOCK.beamPartWeight });
+    else damageBoss(B.surgeBeamDamage ?? 14, 'surge');   // no shield up → a solid chip
+  }
+  surgeForkLances(player);
+}
+
+// The organ nearest the player's flight line, among this boss's lock candidates,
+// within beamAimDisc (m). Null → no candidate lined up (fall back to the pose-centre
+// chip). Shares lockCandidates() with the aim layer, so a boss with no lock data
+// always returns null and the beam stays byte-identical (coexist).
+const _beamV = new THREE.Vector3();
+function beamAimPart(player) {
+  if (!model || !model.partWorldPos) return null;
+  const px = player.position.x, py = player.position.y;
+  const disc = CONFIG.LOCK.beamAimDisc, disc2 = disc * disc;
+  let best = null, bestD = Infinity;
+  for (const part of lockCandidates()) {
+    const w = model.partWorldPos(part, _beamV);
+    if (!w) continue;
+    const dx = px - w.x, dy = py - w.y;
+    const d = dx * dx + dy * dy;
+    if (d <= disc2 && d < bestD) { bestD = d; best = { part, x: w.x, y: w.y }; }
+  }
+  return best;
+}
+
+// THE FORK: loose every banked brand as direct homing lances onto the exposed organs.
+// consumeAllLocks() hands over the pips and clears them (no auto-volley). Per-lance
+// damage clamps against the CURRENT phase hp — post-breakShield the phase has already
+// advanced, so a shielded burst's fork clamps against the NEW phase (the exposed
+// organs' pool), never the sealed one. brandLoose rides the exhale via the lockVolley
+// listener (source 'fork'). No banked pips → a silent no-op (the common ready tap).
+function surgeForkLances(player) {
+  const locks = consumeAllLocks();
+  if (!locks.length) return;
+  let pips = 0;
+  for (const lk of locks) pips += lk.stacks;
+  const dmgEach = lanceDmgEach(pips, currentPhaseHp());
+  for (const lk of locks) for (let s = 0; s < lk.stacks; s++) fireLanceAt(player, lk.part, dmgEach);
+  emit('lockVolley', { count: pips, source: 'fork', dmgEach });
 }
 
 // Pink aura + crackling lightning on the dragon while Surge is active.
@@ -1580,11 +1631,20 @@ export function updateBoss(dt, player, time) {
       }
     }
 
-    // Manual Surge unleash (Space / 2nd-finger tap) — the shield-breaker.
+    // The tap is ONE word — UNLEASH what's charged (combat-verbs SOP §II.x, PR3
+    // Option A). The ready-tap ALWAYS fires Surge (the fork onto banked brands
+    // resolves at the beam climax inside strikeSurge — cases 1 & 2); a not-ready tap
+    // with a full-enough set (≥ tapVolleyMinLocks) is the player's DELIBERATE LOOSE
+    // (case 3); anything else is the legacy silent no-op (case 4). LATENCY LAW: the
+    // ready path gains ZERO frames — activateSurge is called inline, exactly as before;
+    // the loose is a flag the lock layer consumes later THIS frame (updateLockLayer
+    // runs below), never a deferral or a double-tap window.
     const ready = !game.feverActive && game.consecutiveRings >= game.feverThreshold;
     if (input.surgeTap) {
       input.surgeTap = false;
-      if (ready) activateSurge(player);
+      if (ready) activateSurge(player);                                    // cases 1 & 2
+      else if (lockCount() >= CONFIG.LOCK.tapVolleyMinLocks) requestLoose(); // case 3
+      // case 4: no-op (tap consumed silently)
     }
     ui.surgeReady?.(ready);
     // Enticing looping hum while Surge is ready (and not yet unleashed): "tap me".
@@ -2493,8 +2553,10 @@ function routePartDamage(e) {
     const isAlive = sys.alive ? model[sys.alive]?.(idx) : (idx >= 0 && !model[sys.broken]?.(idx));
     if (idx < 0 || !isAlive) continue;
     // Reflected ambers count FULL; a rider chip that happens to land counts half
-    // (the parry is the sculptor, gunfire helps — §5i.C job).
-    const w = (typeof e.part === 'number') ? 1 : 0.5;
+    // (the parry is the sculptor, gunfire helps — §5i.C job). PR3: an explicit e.w
+    // wins (the aimed Surge beam carries beamPartWeight 1.5) — legacy callers omit it,
+    // so the number is byte-identical wherever e.w is undefined.
+    const w = e.w ?? ((typeof e.part === 'number') ? 1 : 0.5);
     const mk = `${sys.key}:${idx}`;
     const n = (partHits.get(mk) ?? 0) + w;
     partHits.set(mk, n);
@@ -2734,6 +2796,36 @@ export function debugForceFight(player) {
   cameraCtl.setOvertake?.(null);
   placeGroup(player, 0, 0.016);
   enterFight();
+}
+
+// PR3 test seams (headless, deterministic — no flaky rAF-throttled dwell/charge):
+// bank pips directly, read the aimed-beam part pick, and fire the Surge climax
+// synchronously. Only touch live state when a fight is running.
+export function debugBankLocks(n = 2) {
+  const cands = lockCandidates();
+  if (!cands.length) return 0;
+  const parts = [];
+  for (let i = 0; i < n; i++) parts.push(cands[i % cands.length]);
+  return __testBank(parts);
+}
+export function debugBeamAimPart(px = 0, py = 0) {
+  return beamAimPart({ position: { x: px, y: py } })?.part ?? null;
+}
+export function debugLockCandidates() { return lockCandidates(); }
+export function debugPartWorldPos(part) {
+  const w = model && model.partWorldPos ? model.partWorldPos(part, _beamV) : null;
+  return w ? { x: w.x, y: w.y, z: w.z } : null;
+}
+export function debugStrikeSurge() {
+  if (phase !== 'fight' || !lastPlayer) return false;
+  strikeSurge(lastPlayer);
+  return true;
+}
+export function debugRaiseShield() {
+  if (phase !== 'fight') return false;
+  shielded = true;
+  model?.setShieldVisible?.(true);
+  return true;
 }
 
 export function bossDebugState() {

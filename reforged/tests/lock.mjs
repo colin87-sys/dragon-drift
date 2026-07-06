@@ -185,7 +185,7 @@ async function runLock(spec) {
     const mod = await import(new URL('./js/lockLayer.js', document.baseURI).href);
     const ev = await import(new URL('./js/events.js', document.baseURI).href);
     const events = [];
-    for (const name of ['lockPaint', 'lockVolley', 'lockLost', 'lockCap', 'aimLock']) ev.on(name, (p) => events.push({ name, ...(p || {}) }));
+    for (const name of ['lockPaint', 'lockVolley', 'lockLost', 'lockCap', 'aimLock', 'lockSealed']) ev.on(name, (p) => events.push({ name, ...(p || {}) }));
     mod.initLockLayer();
     const ORGANS = spec.organs;
     const model = {
@@ -212,6 +212,7 @@ async function runLock(spec) {
       };
       if (f.hit) mod.notifyHit(spec.tier ?? 2);
       if (f.clear) mod.clearLocks('transition');
+      if (f.loose) mod.requestLoose();   // PR3: a not-ready tap requests the deliberate volley
       for (let i = 0, n = f.n ?? 1; i < n; i++) mod.updateLockLayer(f.dt, player, ctx);
     }
     return { count: mod.lockCount(), hud: mod.lockHudState(), d: mod.__lockDebug(), lances, events };
@@ -382,6 +383,52 @@ check('T2.14 after a paint the reticle hops to the nearest unpainted organ',
   t214.count === 1 && t214.hud.aimPart === 'B');
 
 // ---------------------------------------------------------------------------
+// PR3 — V3 SURGE FORK / AIMED UNLEASH (T3.x). The manual-loose state-machine path
+// is unit-tested here (fabricated ctx); the boss-seam fork/aimed-beam are exercised
+// live in the integration section below.
+// ---------------------------------------------------------------------------
+
+// T3.2 — MANUAL LOOSE: a requested loose with pips banked fires the player's own
+// volley (source 'tap'), spends no fever, and clears the pips. The floor (≥2) lives
+// at the boss tap seam (integration T3.1b); the layer looses whatever it's handed.
+const t32 = await runLock({ organs: ORGANS3, candidates: ['A', 'B'], cap: 3,
+  frames: [...paintSeq([0, 10]), { dt: 0.02, n: 1, px: 10, loose: true }, { dt: 0.06, n: 3, px: 10 }] });
+check('T3.2 manual loose fires ONE tap volley of 2 lances and clears the pips',
+  t32.lances.length === 2 && t32.events.filter((e) => e.name === 'lockVolley').length === 1 &&
+  t32.events.find((e) => e.name === 'lockVolley').source === 'tap');
+// T3.2 — DEFLECT RULE: loosing while sealed keeps every pip (never wasted), fires no
+// lance, and emits lockSealed so the UI can shake + thunk (SEALED honesty, L180.4).
+const t32seal = await runLock({ organs: ORGANS3, candidates: ['A', 'B'], cap: 3,
+  frames: [...paintSeq([0, 10]), { dt: 0.02, n: 1, px: 10, deflected: true, loose: true },
+    { dt: 0.06, n: 3, px: 10, deflected: true }] });
+check('T3.2 loose while sealed keeps the pips and emits lockSealed (no lance)',
+  t32seal.count === 2 && t32seal.lances.length === 0 &&
+  t32seal.events.some((e) => e.name === 'lockSealed') &&
+  !t32seal.events.some((e) => e.name === 'lockVolley'));
+// T3.2 — a loose with NOTHING banked is a silent no-op (stray-tap safety).
+const t32empty = await runLock({ organs: ORGANS3, candidates: ['A'],
+  frames: [{ dt: 0.02, n: 1, px: 50, loose: true }, { dt: 0.06, n: 2, px: 50 }] });
+check('T3.2 loose with no pips is a silent no-op (no volley, no sealed)',
+  t32empty.lances.length === 0 && t32empty.events.length === 0);
+
+// T3.G — the shared ROI-clamp arithmetic (lanceDmgEach) backs BOTH the auto/manual
+// volley AND the Surge fork, so a fork can never exceed volleyRoiFrac × phase hp.
+const dmgMath = await page.evaluate(async () => {
+  const mod = await import(new URL('./js/lockLayer.js', document.baseURI).href);
+  const { CONFIG } = await import(new URL('./js/config.js', document.baseURI).href);
+  const L = CONFIG.LOCK;
+  return {
+    unclamped: mod.lanceDmgEach(2, 100),   // 10%*100/2 = 5.0 > lanceDmg 2.0 → clamps to 2.0
+    clamped: mod.lanceDmgEach(2, 30),      // 10%*30/2 = 1.5 < lanceDmg → 1.5
+    zero: mod.lanceDmgEach(0, 100),        // no pips → 0
+    lanceDmg: L.lanceDmg, roi: L.volleyRoiFrac,
+  };
+});
+check('T3.G fork/volley damage clamps to lanceDmg when hp is high', Math.abs(dmgMath.unclamped - 2.0) < 1e-9);
+check('T3.G fork/volley damage clamps to 10% of phase hp when low', Math.abs(dmgMath.clamped - 1.5) < 1e-9);
+check('T3.G lanceDmgEach(0) is 0 (no divide-by-zero)', dmgMath.zero === 0);
+
+// ---------------------------------------------------------------------------
 // T2.G — config/def gate lints (the honest arithmetic gates; printed value-vs-law).
 // ---------------------------------------------------------------------------
 const gates = await page.evaluate(async () => {
@@ -436,6 +483,21 @@ await page.click('#btn-start');
 await page.waitForFunction(() => window.__dd && window.__dd.game.state === 'playing', { timeout: 8000 });
 await page.evaluate(() => window.__dd.spawnBoss());
 await page.waitForFunction(() => window.__dd.bossState().active, { timeout: 8000 });
+
+// T3.5 — a tap during the scripted ENTRANCE only skips the cinematic. Locks cannot
+// exist pre-fight (updateLockLayer runs only in the fight branch), so the tap has
+// nothing to loose and no volley can fire — the ready-tap fork is a fight-only path.
+const t35 = await page.evaluate(async () => {
+  const lock = await import(new URL('./js/lockLayer.js', document.baseURI).href);
+  let volleys = 0; window.__dd.on('lockVolley', () => { volleys++; });
+  const phase = window.__dd.bossState().phase;
+  const locksPre = lock.lockCount();
+  window.__dd.input.surgeTap = true;   // tap mid-entrance → the cine-skip seam consumes it
+  return { phase, locksPre, volleys };
+});
+check('T3.5 pre-fight: no locks can exist and the entrance is not the fight phase',
+  t35.locksPre === 0 && t35.phase !== 'fight');
+
 await page.evaluate(() => window.__dd.bossForceFight());
 await page.waitForFunction(() => window.__dd.bossState().phase === 'fight', { timeout: 8000 });
 await page.waitForTimeout(200);   // let the fight loop step the lock layer a few frames
@@ -488,6 +550,110 @@ try {
   fired = true;
 } catch { fired = false; }
 check('T0.2 the armed tap spent the ready Surge (feverActive true)', fired === true);
+
+// ---------------------------------------------------------------------------
+// PR3 integration — the tap table, the aimed beam, and the Surge fork on a LIVE
+// VOIDMAW fight (slot 1: lockCandidates() = ['focalEye']). Deterministic seams
+// (bank pips, fire the climax synchronously) avoid the rAF-throttled dwell/charge.
+// ---------------------------------------------------------------------------
+const resetFever = () => page.evaluate(async () => {
+  const lock = await import(new URL('./js/lockLayer.js', document.baseURI).href);
+  lock.clearLocks('transition');
+  const g = window.__dd.game; g.feverActive = false; g.feverTimer = 0;
+});
+
+// T3.1a — a ready tap ALWAYS fires Surge (Option A), gaining ZERO deferred frames:
+// the tap seam calls activateSurge inline, exactly as before the tap table existed.
+await resetFever();
+let t31a = false;
+try {
+  // Re-arm ready AND re-poke the tap each poll (rAF is throttled headless, so a single
+  // poke can be read on a frame where a stray graze reset consecutiveRings): the point
+  // is that on the first frame where ready && surgeTap align, activateSurge fires.
+  await page.waitForFunction(() => {
+    const g = window.__dd.game;
+    if (g.feverActive) return true;
+    g.consecutiveRings = g.feverThreshold;
+    window.__dd.input.surgeTap = true;
+    return false;
+  }, { timeout: 6000, polling: 50 });
+  t31a = true;
+} catch { t31a = false; }
+check('T3.1 a ready tap fires Surge (activateSurge, no added latency)', t31a === true);
+
+// T3.1b — banking pips does NOT change the ready-tap activation, and does NOT consume
+// them at the tap (the fork resolves later, at the beam climax): lockCount is intact
+// right after activation. Identical activation shape with or without locks.
+await resetFever();
+const t31b = await page.evaluate(async () => {
+  const lock = await import(new URL('./js/lockLayer.js', document.baseURI).href);
+  const banked = window.__dd.bossBankLocks(2);
+  const g = window.__dd.game; g.feverActive = false; g.consecutiveRings = g.feverThreshold;
+  window.__dd.input.surgeTap = true;
+  return { banked, count: lock.lockCount() };
+});
+check('T3.1 banking pips arms the fork without changing the ready tap (pips intact at tap)',
+  t31b.banked === 2 && t31b.count === 2);
+
+// T3.3 — the AIMED UNLEASH part pick: a lock candidate within beamAimDisc (4.0m) of
+// the player line resolves the beam onto it; nothing lined up → null (legacy chip).
+// Sample AT the candidate's own live world position (on-line) and 30m off it.
+const t33 = await page.evaluate(() => {
+  const cand = window.__dd.bossLockCandidates()[0];
+  const w = window.__dd.bossPartWorldPos(cand);
+  return { cand, near: window.__dd.bossBeamAimPart(w.x, w.y), far: window.__dd.bossBeamAimPart(w.x + 30, w.y) };
+});
+check('T3.3 aimed beam picks the lock candidate on the flight line, null when none is near',
+  t33.near === t33.cand && t33.cand != null && t33.far === null);
+
+// T3.4 — the FORK: firing Surge looses every banked pip as lances (source 'fork'),
+// clears the pips, and the ROI clamp holds. UNSHIELDED path (VOIDMAW starts open).
+await resetFever();
+const t34 = await page.evaluate(async () => {
+  const lock = await import(new URL('./js/lockLayer.js', document.baseURI).href);
+  window.__dd.bossBankLocks(2);
+  const bulletsBefore = window.__dd.bossState().bullets;
+  let fork = null; window.__dd.on('lockVolley', (p) => { if (p && p.source === 'fork') fork = p; });
+  window.__dd.bossStrikeSurge();
+  return { fork, countAfter: lock.lockCount(), bulletsBefore, bulletsAfter: window.__dd.bossState().bullets };
+});
+check('T3.4 the Surge fork looses banked pips as a fork volley and clears them',
+  t34.fork && t34.fork.count === 2 && t34.countAfter === 0 && t34.bulletsAfter > t34.bulletsBefore);
+
+// T3.4 — SHIELDED fork ORDER: breakShield resolves (bossPhase advances) BEFORE the
+// first fork lance spawns, so lances land on the freshly exposed organs, never a shield.
+await resetFever();
+const t34s = await page.evaluate(async () => {
+  window.__dd.bossBankLocks(2);
+  window.__dd.bossRaiseShield();
+  const order = [];
+  window.__dd.on('bossPhase', () => order.push('phase'));
+  window.__dd.on('lockVolley', (p) => { if (p && p.source === 'fork') order.push('fork'); });
+  const phaseBefore = window.__dd.bossState().phaseIdx;
+  window.__dd.bossStrikeSurge();
+  return { order, phaseBefore, phaseAfter: window.__dd.bossState().phaseIdx, shielded: window.__dd.bossState().shielded };
+});
+check('T3.4 shielded fork: breakShield (phase advance) resolves BEFORE the fork lances',
+  t34s.order[0] === 'phase' && t34s.order.includes('fork') &&
+  t34s.phaseAfter === t34s.phaseBefore + 1 && t34s.shielded === false);
+
+// T3.E — EITHERWING (slot 5) ships its lock data: the shared EYE is the ONLY lock
+// candidate (the twins' bodies are never lockable), and `eyeRig` resolves on the
+// BUILT model (a def naming a nonexistent group would silently never paint/lock).
+const eitherLint = await page.evaluate(async () => {
+  const { buildBoss } = await import(new URL('./js/bossModel.js', document.baseURI).href);
+  const defs = await import(new URL('./js/bossDefs.js', document.baseURI).href);
+  const def = defs.BOSSES.eitherwing;
+  const model = buildBoss(def, 1);
+  model.tick?.(0.016, 0.5);
+  const parts = (def.lockParts || []).map((p) => p.part);
+  const resolves = parts.every((p) => !!model.partWorldPos(p));
+  model.dispose?.();
+  return { parts, resolves, hasVirtual: !!def.virtualLockOrgan };
+});
+check('T3.E EITHERWING locks the EYE only (eyeRig), resolves on the built model, no body parts',
+  eitherLint.parts.length === 1 && eitherLint.parts[0] === 'eyeRig' &&
+  eitherLint.resolves === true && eitherLint.hasVirtual === false);
 
 check('no console errors', errors.length === 0) || console.error(errors.join('\n'));
 await done();

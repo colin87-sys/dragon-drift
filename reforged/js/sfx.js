@@ -987,6 +987,12 @@ export const sfx = {
   brandFizzle() {
     tone({ freq: 760, end: 500, dur: 0.16, type: 'triangle', vol: 0.04 });
   },
+  // Loosing onto a SEALED boss (the mark won't take): a soft, muffled DOWNWARD thunk —
+  // no bright exhale, no metallic clang; a dull "not yet" that keeps the brands banked.
+  brandSeal() {
+    tone({ freq: 300, end: 150, dur: 0.14, type: 'sine', vol: 0.05 });
+    tone({ freq: 190, end: 120, dur: 0.10, type: 'triangle', vol: 0.03, delay: 0.04 });
+  },
 };
 
 // --- Music engine ---

@@ -394,6 +394,14 @@ export const BOSSES = {
     // one eye passed between them (the charge tell). Distinct from every prior
     // slot: not a mask (1), a ring-eye (2), a raptor (3), or a bone dragon (4).
     archetype: 'eitherwing',
+    // V3 LANCE anatomy (PR3): the shared EYE is the ONLY lockable organ (the twins'
+    // dart BODIES are never lockable — LAW §II.9). The eye is the roster's only organ
+    // that HANDS OFF between bodies (holder→seeker, the charge tell); the smoothed
+    // anchor (L177) carries the brand across the handoff. `eyeRig` is the named group
+    // built in bossEitherwing.js — naming is byte-neutral metadata, so the model +
+    // tricount stay unchanged. No virtualLockOrgan: the eye IS both the V1 aim anchor
+    // (via lockParts→candidates) and the V2 paint target — one organ, no duplicate.
+    lockParts: [{ part: 'eyeRig' }],
     accent: 0x86200f,         // OXBLOOD — a WARM dark red (identity in the emissive rims); pushed WARM off
                               // pure blood-red (rendered hue ~9°) so NO lit pixel enters danger-magenta's
                               // reserved band (0xff2b6a≈342°, ±15° = 327–357°) on any state — the §5d/gate

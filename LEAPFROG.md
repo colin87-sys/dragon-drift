@@ -7008,3 +7008,51 @@ in `[150,280]`; same-seed byte-identical / different-seed different; `resume()` 
 byte-identical, bulletcontrast 36 combos green (danger magenta unchanged), smoke/canyon/boss boots green,
 tricount 0 over budget. Reaching them on the preview needs no new code: `?debug` exposes `window.__dd.player`, so
 `__dd.player.dist = 4300` warps to the Caldera lip — the human judges telegraph fairness / dodgeability / fun.
+
+### L185 — LANCE PR3 shipped: the tap became ONE verb (unleash), the Surge fork, and the aimed beam — one arithmetic, one deflect rule, one latency LAW
+
+**Did.** V3 SURGE FORK / AIMED UNLEASH (combat-verbs SOP §II.x, PR3 Option A). The tap seam that was a single
+`if (ready) activateSurge` became a 4-case table with ZERO added latency: **ready → always Surge** (cases 1&2;
+the shielded/unshielded split lives downstream in `strikeSurge`, not at the seam); **not-ready + `lockCount() ≥
+tapVolleyMinLocks` (2) → MANUAL LOOSE** (case 3); **else no-op** (case 4). The manual loose is a REQUEST the
+state machine consumes (`requestLoose()` sets a flag; `updateLockLayer` processes it with the live ctx) — because
+`releaseVolley` needs `ctx.phaseHp` for the ROI clamp, and the seam runs THEN `updateLockLayer` runs in the SAME
+fight frame, so "flag now, process this frame" is latency-free by construction. **The fork:** after the shield/chip
+resolves inside `strikeSurge`, `surgeForkLances` consumes every banked pip and fires one direct `fireLanceAt` per
+stack onto the freshly EXPOSED organs — a shielded burst forks AFTER `breakShield`, so no lance ever pings the
+shield, and the fork clamps against the CURRENT (post-break, phase-advanced) hp. **The aimed beam:** the unshielded
+chip resolves at the lock candidate nearest the player's flight line (`beamAimPart`, within `beamAimDisc` 4.0m),
+carrying `{part, x, y, w: beamPartWeight}`; no candidate lined up → the exact legacy `damageBoss(14,'surge')`.
+EITHERWING (slot 5) shipped its lock data: `lockParts:[{part:'eyeRig'}]` — the shared EYE ONLY (the twins' dart
+bodies are never lockable, LAW §II.9); the smoothed anchor (L177) carries the brand across the holder→seeker
+handoff. 13 new T3.x checks (69 total green); `boss.mjs` kill times byte-stable (eitherwing ~95.2s), tricount
+unchanged (naming `eyeRig` is byte-neutral metadata — the group already existed).
+
+**The load-bearing patterns.** (1) **One arithmetic for one law.** The ROI clamp existed inline in `releaseVolley`;
+the fork needed the SAME clamp. Rather than copy the `Math.min(lanceDmg, roiFrac*hp/pips)`, it was extracted to
+an exported `lanceDmgEach(pips, phaseHp)` that BOTH the volley and the fork call — so "a volley can never exceed
+volleyRoiFrac × phase hp" is enforced by one function, not asserted in two places that could drift. When a second
+caller needs a clamped/derived value, promote the arithmetic to a shared export; don't re-derive it. (2) **A weight
+override that's byte-neutral when absent.** The aimed beam counts 1.5 toward part cracks via `e.w ?? (typeof
+e.part === 'number' ? 1 : 0.5)` in `routePartDamage` — every legacy caller omits `e.w`, so the count is
+byte-identical everywhere it isn't set (the same coexist shape as `holdSway`/`lockParts`: a new field with a
+default that reproduces the old literal). (3) **The deflect rule reaches the new verb too.** A manual loose onto a
+sealed boss keeps every pip (never wasted), emits `lockSealed` (pips shake + soft thunk), and waits for the break —
+the ONE deflect predicate (L178) governs the player's deliberate release exactly as it governs the auto-volley.
+
+**Gotchas (headless).** (1) A new event needs adding to the test harness's capture list — `lockSealed` emitted fine
+but `runLock` only subscribed to five names, so the assert saw nothing until the sixth was added. When a test
+"can't see" an emit, check the SUBSCRIPTION list before the emit site. (2) The rAF-throttled surge-tap integration
+flaked at a 3s timeout under the full suite (cumulative throttling ~15×): the fix is a `waitForFunction` that
+re-arms ready AND re-pokes `surgeTap` every poll (50ms) with a 6s ceiling — a single poke can be read on a frame
+where a stray reset made `ready` false. Never single-poke-then-wait for a throttled game-loop side effect; re-assert
+the precondition each poll. (3) The live slot-1 boss's V1 organ is `faceCore` (the def), NOT the `focalEye` of the
+fabricated-ctx harness — integration tests must read the REAL candidate (`bossLockCandidates()[0]` + its live
+`partWorldPos`), never hardcode a part name from a unit fixture.
+
+**→ Leapfrog.** Deterministic Surge-climax seams now exist (`bossStrikeSurge`/`bossRaiseShield`/`bossBankLocks`/
+`bossBeamAimPart`) — the fork/beam are testable synchronously without flying a headless dwell+charge, so PR4's
+`paintFromParry` (lock-snap parry) and PR5's focus/beat-release can extend these instead of re-solving the "observe
+the climax" problem. Still deferred (L178/L180): tether LineSegments, feats/analytics hooks, the `lockdps` persona
+TTK sim, E1 perfect-release (beat window — `beatWindow`/`beatMult` data present, inert). The owner still owes a
+verdict on Q1 (ready-tap-ALWAYS-Surge vs a context-split) — flagged in the PR body per the SOP.

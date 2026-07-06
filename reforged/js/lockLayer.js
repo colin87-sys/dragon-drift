@@ -46,6 +46,8 @@ const S = {
   hopPart: null,     // the just-painted organ (re-acquire embargo → the reticle hops onward)
   hopT: 0,
   _atCap: false,     // edge-detect: the fuse starting = the dragon DRAWS BREATH (lockCap event)
+  looseReq: false,   // V3 MANUAL LOOSE (PR3): a not-ready tap requested a volley; the
+                     // state machine consumes it next step (releaseVolley needs ctx.phaseHp)
 };
 
 const _w = new THREE.Vector3();       // scratch for partWorldPos
@@ -59,6 +61,7 @@ export function initLockLayer() {
   S.locks.length = 0; S.capFuseT = 0; S.refreshT = 0; S.lanceQ.length = 0;
   S.cap = 0; S.deflected = false;
   S.hopPart = null; S.hopT = 0;
+  S.looseReq = false;
 }
 
 // Reset transient aim + paint state. SILENT by design for every reason
@@ -70,6 +73,7 @@ export function clearLocks(_reason) {
   S.expTickT = 0; S.expTicks = 0; S.expActive = false; S._wasHeld = false;
   S.locks.length = 0; S.capFuseT = 0; S.refreshT = 0; S.lanceQ.length = 0;
   S.hopPart = null; S.hopT = 0;
+  S.looseReq = false;
 }
 
 // NB — the danger-binding quiet-rate penalty (`quietDwellMult`, kills rest-beat
@@ -265,6 +269,19 @@ export function updateLockLayer(dt, player, ctx) {
       if (S.capFuseT >= L.capFuse) releaseVolley(ctx, 'cap');
     } else S.capFuseT = 0;
   }
+  // V3 MANUAL LOOSE (PR3): the player's DELIBERATE volley. A not-ready tap with pips
+  // banked requests a loose (the ≥tapVolleyMinLocks floor is enforced at the boss tap
+  // seam — stray single-pip taps stay a no-op, that's what auto-release is for). THE
+  // ONE DEFLECT RULE still governs: loosing while sealed keeps every pip (never
+  // silently wasted) and says so — the volley waits for the break, on the player's next
+  // call. Processed here (not at the seam) so releaseVolley has the live ctx.phaseHp.
+  if (S.looseReq) {
+    S.looseReq = false;
+    if (S.locks.length) {
+      if (ctx.deflected) emit('lockSealed', { count: totalPips() });
+      else releaseVolley(ctx, 'tap');
+    }
+  }
   // Staggered lance launches — held while deflected (queued to the break, never wasted).
   if (S.lanceQ.length && !ctx.deflected) {
     for (const q of S.lanceQ) q.t -= dt;
@@ -399,13 +416,20 @@ function totalPips() {
   return n;
 }
 
-// Release every painted pip as a staggered homing-lance volley. Per-lance damage is
-// HARD-CLAMPED so a volley can never exceed volleyRoiFrac of the current phase's hp
-// (audit R1 — the clamp is enforced at release, not asserted in prose).
+// Per-lance damage, HARD-CLAMPED so a volley can never exceed volleyRoiFrac of the
+// current phase's hp (audit R1 — the clamp is enforced at release, not asserted in
+// prose). Shared by the auto/manual volleys (releaseVolley) AND the PR3 Surge fork
+// (boss.js), so every lance path clamps against the same law with one arithmetic.
+export function lanceDmgEach(pips, phaseHp) {
+  if (!pips) return 0;
+  return Math.min(L.lanceDmg, (L.volleyRoiFrac * (phaseHp || Infinity)) / pips);
+}
+
+// Release every painted pip as a staggered homing-lance volley.
 function releaseVolley(ctx, source) {
   const pips = totalPips();
   if (!pips) return;
-  const dmgEach = Math.min(L.lanceDmg, (L.volleyRoiFrac * (ctx.phaseHp || Infinity)) / pips);
+  const dmgEach = lanceDmgEach(pips, ctx.phaseHp);
   let i = 0;
   for (const lk of S.locks) {
     for (let s = 0; s < lk.stacks; s++) {
@@ -439,12 +463,23 @@ export function paintFromParry(_part) { /* PR4 */ }
 // PR3 (Surge fork): hand every painted pip to the unleash and clear — no volley here.
 export function consumeAllLocks() {
   const out = S.locks.map((lk) => ({ part: lk.part, stacks: lk.stacks }));
-  S.locks.length = 0; S.capFuseT = 0;
+  S.locks.length = 0; S.capFuseT = 0; S.refreshT = 0;
   return out;
 }
+// PR3 MANUAL LOOSE: a not-ready tap (boss.js tap seam) requests the deliberate volley.
+// A flag, not an immediate release, so updateLockLayer processes it with the live ctx
+// (phaseHp for the ROI clamp, deflected for the sealed-keep rule). Zero-latency by
+// construction: the seam runs, then updateLockLayer runs, in the SAME fight frame.
+export function requestLoose() { S.looseReq = true; }
 
 // Test seam: the raw aim state (fabricated-ctx unit tests read this directly).
 export function __lockDebug() {
   return { aimPart: S.aimPart, aimDwell: S.aimDwell, aimHeld: S.aimHeld, offT: S.offT,
     expTicks: S.expTicks, muted: S.muted, hasOrgan: S.hasOrgan };
+}
+// Test seam (PR3): bank pips directly so integration tests can exercise the Surge
+// fork without flying a headless dwell. Not used by the game — like __lockDebug.
+export function __testBank(parts) {
+  for (const part of parts) S.locks.push({ part, stacks: 1, age: 0 });
+  return totalPips();
 }
