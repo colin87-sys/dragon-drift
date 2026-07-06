@@ -231,18 +231,20 @@ function buildKoiSkull(c) {
       rings.push([catmull(a[0], b[0], cc[0], d[0], t), catmull(a[1], b[1], cc[1], d[1], t), catmull(a[2], b[2], cc[2], d[2], t), catmull(a[3], b[3], cc[3], d[3], t)]); }
   }
   rings.push(st[st.length - 1]);
+  const crownC = c.mats.bodyMat.color.clone().multiplyScalar(1.6);   // LIFT the head dorsal out of near-black into the mid-jade family (gate rework dir 8)
   const bodyC = c.mats.bodyMat.color.clone();
-  const snoutC = bodyC.clone().multiplyScalar(0.82);            // a value step darker over the muzzle (law 11 tier)
+  const snoutC = bodyC.clone().multiplyScalar(0.7);            // a darker value step over the muzzle (law 11 tier)
   const jawC = c.mats.bellyMat.color.clone();                  // pale mint jaw underside
-  const M = seg(14), verts = [], cols = [], idx = [];
+  const M = seg(14), verts = [], cols = [], idx = [], col = new THREE.Color();
   for (const [z, w, h, yc] of rings) {
     for (let k = 0; k < M; k++) {
       const a = (k / M) * Math.PI * 2, cs = Math.cos(a), sn = Math.sin(a);
       const keel = 1 + 0.05 * sn, yy = yc + h * sn * keel;
       verts.push(w * cs, yy, z);
-      let col = bodyC;
-      if (z < -0.72 * sc) col = snoutC;                         // muzzle darker tier
-      if (z < -0.42 * sc && sn < -0.12) col = jawC;             // jaw underside = pale mint
+      col.copy(bodyC);
+      if (sn > 0) col.lerp(crownC, sn * 0.75);                 // dorsal crown lift (the sunlit top reads mid-jade, not black)
+      if (z < -0.72 * sc) col.copy(snoutC);                    // muzzle darker tier
+      if (z < -0.42 * sc && sn < -0.12) col.copy(jawC);        // jaw underside = pale mint
       cols.push(col.r, col.g, col.b);
     }
   }
