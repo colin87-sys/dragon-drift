@@ -179,8 +179,11 @@ export function updateLockLayer(dt, player, ctx) {
   if (S.aimPart && S.aimDwell >= L.dwellTime) S.aimHeld = true;
 
   // Lock-acquired edge (green snap): fire ONCE when a usable lock is achieved, so
-  // ui/sfx can pop + chime. `held` = aimHeld and not muted (a muted organ can't lock).
-  const held = S.aimHeld && !S.muted;
+  // ui/sfx can pop + chime. `held` = aimHeld, not muted, and not DEFLECTED — a
+  // shielded boss voids the promise (chip pings zero, the mark won't take), so the
+  // celebration is suppressed and re-fires the instant the shield breaks (owner
+  // playtest: a bright green 'locked' on a sealed boss reads as a broken lock).
+  const held = S.aimHeld && !S.muted && !ctx.deflected;
   const justLocked = held && !S._wasHeld;
   if (justLocked) emit('aimLock', { part: S.aimPart });
   S._wasHeld = held;
@@ -343,7 +346,7 @@ export function lockHudState() {
   return {
     active: S.fightRunning && S.hasOrgan,
     muted: S.muted,
-    aimHeld: S.aimHeld && !S.muted,
+    aimHeld: S.aimHeld && !S.muted && !S.deflected,   // sealed → never shown green
     dwell: Math.max(0, Math.min(1, S.aimDwell / L.dwellTime)),  // 0..1 acquisition progress
     hasOrgan: S.hasOrgan,
     aimPart: S.hudPart,

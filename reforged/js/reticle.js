@@ -72,7 +72,10 @@ export function updateReticle(player, playing) {
     if (tmpV.z > 1) { el.style.opacity = 0; return; }   // organ behind the camera
     const sx = (tmpV.x * 0.5 + 0.5) * window.innerWidth;
     const sy = (-tmpV.y * 0.5 + 0.5) * window.innerHeight;
-    const ashen = L.muted;
+    // Sealed = muted (slot 13) OR the deflect rule (shield/scatter/closed eye/
+    // survival card): the WHOLE lock layer is paused, and the lead reticle must
+    // say so — a green 'locked' on a shielded boss promises a mark that won't take.
+    const ashen = L.muted || L.ashen;
     const locked = L.aimHeld;
     const dwell = Math.max(0, Math.min(1, L.dwell || 0));
     el.classList.toggle('sealed', ashen);

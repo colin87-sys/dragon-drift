@@ -185,7 +185,7 @@ async function runLock(spec) {
     const mod = await import(new URL('./js/lockLayer.js', document.baseURI).href);
     const ev = await import(new URL('./js/events.js', document.baseURI).href);
     const events = [];
-    for (const name of ['lockPaint', 'lockVolley', 'lockLost', 'lockCap']) ev.on(name, (p) => events.push({ name, ...(p || {}) }));
+    for (const name of ['lockPaint', 'lockVolley', 'lockLost', 'lockCap', 'aimLock']) ev.on(name, (p) => events.push({ name, ...(p || {}) }));
     mod.initLockLayer();
     const ORGANS = spec.organs;
     const model = {
@@ -312,6 +312,19 @@ const t213 = await runLock({ organs: { A: { x: 0, y: 0 }, B: { x: 30, y: 0 }, C:
   candidates: ['A', 'B', 'C'], frames: swing });
 check('T2.13 a fast-swinging organ paints on a multi-organ boss (smoothed acquisition)',
   t213.count >= 1 && t213.events.some((e) => e.name === 'lockPaint' && e.part === 'A'));
+
+// T2.16 — SEALED HONESTY (owner playtest: a bright green 'locked' on a shielded
+// boss promises a mark that won't take): while deflected the held state is never
+// shown/celebrated; the instant the shield breaks, the lock fires AND paints.
+const t216 = await runLock({ organs: { A: { x: 0, y: 0 } }, candidates: ['A'],
+  frames: [{ dt: 0.06, n: 10, px: 0, deflected: true }] });
+check('T2.16 sealed: dwell complete but never shown held, no celebration, no paint',
+  t216.hud.aimHeld === false && t216.count === 0 &&
+  !t216.events.some((e) => e.name === 'aimLock'));
+const t216b = await runLock({ organs: { A: { x: 0, y: 0 } }, candidates: ['A'],
+  frames: [{ dt: 0.06, n: 10, px: 0, deflected: true }, { dt: 0.06, n: 2, px: 0 }] });
+check('T2.16 the break fires the celebration AND the paint instantly',
+  t216b.count === 1 && t216b.events.some((e) => e.name === 'aimLock'));
 
 // T2.15 — UNPAINTED-FIRST LAW (owner playtest: swinging back after a dodge
 // re-grabbed the painted rib and pinned the player on refresh): while an unpainted
