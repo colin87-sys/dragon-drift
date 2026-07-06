@@ -710,6 +710,11 @@ export function updateBossBullets(dt, player) {
 // (Surge hyper, increment 3) makes EVERY boss bullet reflectable, not just the
 // amber ones. A bullet swatted within `perfectParryRel` is a PERFECT parry (more
 // damage). Returns { total, perfect } counts for the FX/announcement.
+// Playtest override (?parry URL param): widens the PERFECT window so the V4
+// snap-parry is testable without frame-tight timing. null = the shipped LAW.
+let debugPerfectRel = null;
+export function setDebugPerfectParryRel(v) { debugPerfectRel = v; }
+
 export function reflectBossBullets(player, windowRel, settleGap, bossX, bossY, all = false, dmgBonus = 1) {
   let total = 0, perfect = 0;
   let snapParts = null;   // V4 (PR4): source-part tags of PERFECTLY parried ambers
@@ -720,7 +725,7 @@ export function reflectBossBullets(player, windowRel, settleGap, bossX, bossY, a
     if (s.rel < 0 || s.rel > windowRel) continue;
     const dx = s.x - player.position.x, dy = s.y - player.position.y;
     if (dx * dx + dy * dy > 9) continue;            // must be near the player to swat
-    const isPerfect = s.rel <= CONFIG.BOSS.perfectParryRel;
+    const isPerfect = s.rel <= (debugPerfectRel ?? CONFIG.BOSS.perfectParryRel);
     // Flip it back at the boss.
     s.owner = 'player';
     s.targetRel = settleGap;
