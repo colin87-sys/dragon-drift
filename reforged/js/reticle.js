@@ -12,12 +12,14 @@ import { lockHudState } from './lockLayer.js';
 
 let el = null;
 let camera = null;
+let prevLocked = false;   // edge-detect the green-snap pop in a boss
 const tmpV = new THREE.Vector3();
 export function initReticle(cam) {
   camera = cam;
   el = document.createElement('div');
   el.id = 'reticle';
-  el.innerHTML = '<div class="rsq"></div><div class="rsq inner"></div>';
+  // .rsnap = the one-shot lock-on ring flash (fires on the green snap).
+  el.innerHTML = '<div class="rsq"></div><div class="rsq inner"></div><div class="rsnap"></div>';
   document.getElementById('hud').appendChild(el);
 }
 
@@ -34,7 +36,7 @@ export function updateReticle(player, playing) {
   // "sealed" skin when the target is muted (slot 13) or no organ is up. Pure DOM.
   if (game.inBoss) {
     const L = lockHudState();
-    if (!L.active) { el.style.opacity = 0; el.classList.remove('boss', 'locked'); return; }
+    if (!L.active) { el.style.opacity = 0; el.classList.remove('boss', 'locked', 'aiming', 'snap'); prevLocked = false; return; }
     el.classList.add('boss');
     el.classList.remove('gate');
     tmpV.set(L.x, L.y, L.z).project(camera);
@@ -43,13 +45,23 @@ export function updateReticle(player, playing) {
     const sy = (-tmpV.y * 0.5 + 0.5) * window.innerHeight;
     const ashen = L.muted;
     const locked = L.aimHeld;
+    const dwell = Math.max(0, Math.min(1, L.dwell || 0));
     el.classList.toggle('sealed', ashen);
     el.classList.toggle('locked', locked && !ashen);
-    el.style.opacity = ashen ? 0.5 : 0.9;
-    el.style.transform = `translate(${sx}px, ${sy}px) scale(${locked ? 0.85 : 1})`;
+    el.classList.toggle('aiming', !locked && !ashen && dwell > 0.03);   // building toward a lock
+    el.style.setProperty('--dwell', dwell.toFixed(3));
+    // Green SNAP the instant it locks: re-arm the one-shot ring-flash via a reflow.
+    if (locked && !prevLocked) { el.classList.remove('snap'); void el.offsetWidth; el.classList.add('snap'); }
+    else if (!locked) el.classList.remove('snap');
+    prevLocked = locked;
+    // The reticle "closes in" as the dwell builds (1.35 → 1.0), snaps tight + green on
+    // lock, and sits wide + dim when ashen (muted). Brightness rises with progress.
+    const scale = ashen ? 1.15 : (locked ? 0.82 : (1.35 - 0.35 * dwell));
+    el.style.opacity = ashen ? 0.5 : (0.72 + 0.28 * dwell);
+    el.style.transform = `translate(${sx}px, ${sy}px) scale(${scale})`;
     return;
   }
-  el.classList.remove('boss', 'sealed');
+  el.classList.remove('boss', 'sealed', 'aiming', 'snap');
 
   const ring = nextRingAhead(player.dist + 4);
   const gate = nextGateAhead(player.dist + 4);
