@@ -688,6 +688,73 @@ for (const key of BOSS_ORDER) {
   ok(`brineholm geometry: head ${span.toFixed(1)}w, maw-gape + lid telegraph, eye surface/submerge, notice-jump, shackle-break ✓`);
 }
 
+// KNELLGRAVE (slot 10) — the named-pivot telegraph gate. The PENDULUM SWING is the
+// §3.5 silhouette telegraph (it WIDENS on charge — the arc winds up); the clapper
+// LIFTS ITS HEAD on notice (the §4b darkest notice, a state jump); the dread survival
+// card GAPES the candle-slit (the AWE FIX — the clapper's mid-fight reveal). All the
+// named organs the controller/aim/gates locate by name must exist.
+{
+  const kn = buildBoss(BOSSES.knellgrave, 1);
+  // Named organs (§6.4 handle + aim): the swing pivot, the clapper, the toll emitter,
+  // the focal slit + crack scar, the chain, the head.
+  const swing = kn.group.getObjectByName('swingPivot');
+  const clapper = kn.group.getObjectByName('clapperPivot');
+  assert(!!swing, 'knellgrave exposes the named swingPivot (the pendulum — the silhouette telegraph)');
+  assert(!!clapper, 'knellgrave exposes the named clapperPivot (the bound figure)');
+  assert(!!kn.group.getObjectByName('bellMouth'), 'knellgrave exposes the named bellMouth (def.muzzle — the toll origin; aim solves against it)');
+  assert(!!kn.group.getObjectByName('knellSlit'), 'knellgrave exposes the named knellSlit (the ONE HDR focal — the vertical candle-slit)');
+  assert(!!kn.group.getObjectByName('knellCrack'), 'knellgrave exposes the named knellCrack (the §3.6 asymmetric scar)');
+  assert(!!kn.group.getObjectByName('knellChain'), 'knellgrave exposes the named knellChain (the off-frame links — hangs from nothing)');
+  assert(!!kn.group.getObjectByName('clapperHead'), 'knellgrave exposes the named clapperHead (the §4b GAZE/NOTICE carrier)');
+
+  // The vertical span exceeds the fight-frame envelope ("never fits the frame" — the
+  // overhead colossus; L140/L141 presence is a silhouette property).
+  assert(kn.hullLength() >= 30, `knellgrave vertical span ${kn.hullLength().toFixed(1)} ≥ 30 world units (colossal — never fully in frame)`);
+
+  // TELEGRAPH (§3.5): the swing ARC WIDENS on charge — a real silhouette change (the
+  // bell winds up before a toll-volley). Measure the peak-to-peak swing amplitude at
+  // idle vs charge over a full pendulum period.
+  const swingAmp = (charge) => {
+    kn.setCharge(charge);
+    for (let s = 0; s < 60; s++) kn.tick(0.05, 20 + s * 0.05);   // settle the amplitude ease
+    let lo = Infinity, hi = -Infinity;
+    for (let s = 0; s < 170; s++) { kn.tick(0.05, 40 + charge * 100 + s * 0.05); lo = Math.min(lo, swing.rotation.z); hi = Math.max(hi, swing.rotation.z); }
+    return hi - lo;
+  };
+  const idleArc = swingAmp(0);
+  const chargeArc = swingAmp(1);
+  assert(idleArc > 0.02, `knellgrave idles with a live pendulum swing (arc ${idleArc.toFixed(3)} rad — never static, §3 law 7)`);
+  assert(chargeArc > idleArc * 1.3, `knellgrave charge WIDENS the swing arc (${chargeArc.toFixed(3)} > ${idleArc.toFixed(3)} × 1.3 — the §3.5 silhouette telegraph)`);
+  kn.setCharge(0);
+
+  // NOTICE (§4b — the roster's darkest notice): the clapper LIFTS ITS HEAD. A state
+  // JUMP (the head tilts UP — clapperHead.rotation.x goes negative), not idle+ε.
+  {
+    const kh = kn.group.getObjectByName('clapperHead');
+    for (let s = 0; s < 30; s++) kn.tick(0.05, 200 + s * 0.05);   // settle a drooped idle
+    const droopX = kh.rotation.x;
+    kn.notice();
+    for (let s = 0; s < 8; s++) kn.tick(0.05, 210 + s * 0.05);    // sample mid-notice
+    const liftedX = kh.rotation.x;
+    assert(liftedX < droopX - 0.3, `knellgrave NOTICE lifts the clapper's head (rot.x ${liftedX.toFixed(2)} < ${droopX.toFixed(2)} − 0.3 — the head tilts UP toward you, a state jump)`);
+  }
+
+  // THE AWE FIX (§5j re-entrance): the dread SURVIVAL card GAPES the candle-slit (the
+  // crack widens, the clapper is fully revealed). setSetpiece(dread) scales the slit.
+  {
+    const slitMesh = kn.group.getObjectByName('knellSlit');
+    for (let s = 0; s < 10; s++) kn.tick(0.05, 300 + s * 0.05);
+    const restW = slitMesh.scale.x;
+    kn.setSetpiece(1.0, { dread: true });
+    for (let s = 0; s < 20; s++) kn.tick(0.05, 310 + s * 0.05);
+    assert(slitMesh.scale.x > restW + 0.5, `knellgrave The Last Toll GAPES the crack (slit scale ${slitMesh.scale.x.toFixed(2)} > ${restW.toFixed(2)} + 0.5 — the mid-fight clapper reveal, not just a rhythm exam)`);
+    kn.setSetpiece(0, {});
+  }
+
+  kn.dispose();
+  ok('knellgrave geometry: swing-widen telegraph, clapper head-lift notice, dread crack-gape reveal, named organs ✓');
+}
+
 // Legacy coexist gate: a def WITHOUT `archetype` must still fall through to
 // the legacy construct (bossModel.js's buildBoss dispatcher) — the coexist
 // rule the whole archetype system is built on, guarding against a future def

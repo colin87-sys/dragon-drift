@@ -7104,3 +7104,58 @@ spawnBossBullet; the (i, n) volley threading through lanceQ/fireLance is the sea
 per-slot choreography (E1 beat-release can ride it). Deferred list unchanged (L178/L180) plus:
 per-dragon wisp tint (Eternal cosmetic hook), wisp-trail LineSegments ribbon if sprites ever
 read muddy on device.
+
+
+### L187 — KNELLGRAVE CP1 (slot 10, the bound bell): a hollow-cone body occludes its own soul, a tilted flat torus reads as a hook, and the dread reveal is GEOMETRY not brightness
+
+**Did.** Built the Tier-4 WORLD-ENDERS opener: a colossal cracked BELL swinging above the lane
+with a living BOUND PRISONER as its clapper (new `boundBell` archetype, `bossKnellgrave.js`).
+Named pivots `swingPivot` (the pendulum — the §3.5 telegraph WIDENS the arc on charge),
+`clapperPivot`/`clapperHead` (the §4b face — head-lift NOTICE, straining dread reveal),
+`bellMouth` (def.muzzle). Candle-slit through the crack = the ONE HDR focal; toll ring-walls =
+the fairness VISUAL TWIN of the dead music. Def is MUSIC-LOCKED (accelerating toll,
+rhythmprint min-KS 0.27), 4 phases 1:1 with 4 cards (the dread = the survival card). ~5-6k tris
+@q1. Landed the §5b/§5d/§5i/§5j doc fixes + registry row 10 → claimed. G1–G7 + all headless
+suites green (bossrush now 9 bosses).
+
+**The load-bearing lessons (all cost a Fable CP1 gate round).**
+1. **A hollow-cone body OCCLUDES its own interior — the soul only reads below the lip.** The
+   clapper/prisoner (the whole reason this boss exists) was built INSIDE the bell and was
+   invisible from the front: the bell's front wall hides everything above the lip line. Fix: build
+   the prisoner BIG + LOW so its drooped HEAD + shoulders protrude ~2u BELOW the mouth (it breaks
+   the bottom outline in the pale test). Any "creature inside a shell" boss must push the readable
+   part OUT of the shell — modeled-inside detail is black-on-black nothing.
+2. **A flat ring TILTED by rotateZ reads as a slanted arc / fish-hook.** The flared lip was a
+   partial torus laid flat (rotateX π/2) then `rotateZ`'d to move the bite to the front — but
+   rotateZ tips the whole ring out of horizontal, so it projects as a big slanted crescent
+   sweeping under the bell (three Fable rounds blamed it on the toll-ring). To move a gap AROUND a
+   horizontal ring's rim, rotate about **Y**, never Z. A tilted torus is a hook.
+3. **The dread "reveal" is GEOMETRY + LIGHT-THE-FIGURE, not focal brightness.** Cranking the slit
+   emissive on the dread card just read as "the lamp got turned up." The reveal has to be: the
+   crack GAPES wider (geometry scale), the figure DROPS clear of the lip + the head WRENCHES up +
+   the arms strain against the cuffs, and the FIGURE lights (dark prisoner → candle-lit). Cap the
+   focal's brightness on the dread beat; spend the drama on shape + on lighting the character.
+4. **Transient FX must leave the RESTING idle silhouette clean — but the orbiter handle contract
+   still needs them tick-animated.** The toll rings are a TOLL beat; auto-firing them at idle put a
+   ring mid-expansion in the stranger-test frame. Gate the auto-toll to active states (charge/dread)
+   AND make the rings ADDITIVE (pure light — an additive ring can never read as a dark crescent on
+   pale, and at base scale it doesn't count toward the G7 overdraw cap). But `boss.mjs` asserts
+   `orbiters[0]` moves on one tick, so PARK the idle rings (invisible, tiny) with a hair of drift
+   each tick — satisfy the §6.4 "tick-animated" contract without cluttering the silhouette.
+5. **A toneMapped=false HDR focal does NOT dim by scaling its multiplier — it must drop below the
+   bloom threshold.** G6 (shield leash) failed at slit×0.32 because the core still clamped to white
+   (candle × 0.32 × 9 > 1 → 255). The ≥240 cluster only shrinks when the leashed value falls under
+   ~1.0 pre-tonemap (×0.09). An HDR focal leashes by going nearly dark or by HIDING, not by a gentle
+   dim.
+6. **A bell is legitimately bottom-heavy — sanctioned G4 presence override for the overhead boss.**
+   A bell's mass IS its wide flared MOUTH, so the silhouette COM sits low; and in-game the body is
+   above y≈22 (only lip + chains dip in). Added `gate:{presence:{comYMax}}` to `bossgate.mjs`
+   (opt-in, coexist-safe) citing the §5b "owns the space above" sanction. True overhead dominance
+   is an IN-GAME (CP2) judgment — the studio auto-frames and centers, hiding it.
+7. **The studio always looks at the boss's bbox CENTER**, even in the "fight-distance" frame — so
+   "looms from above / never fits" cannot be judged there for an overhead boss. Build centered for
+   the studio; bake/place the overhead offset for the game; judge overhead-ness at the CP2 in-game
+   gate.
+8. **amberdiet reads `def.phases[].attacks`, not the card's runtime seal** (as the audit flagged):
+   keep an amber carrier (`aimed`) in the survival phase's attack list so CI passes; the ~28s
+   pure-dodge seal is the sanctioned §5i.C exemption (added to the doc).
