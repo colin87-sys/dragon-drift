@@ -302,7 +302,7 @@ export function buildDragonModel(def, opts = {}) {
     wingPivotL, wingPivotR, wingTipL, wingTipR,
     tipMarkerL, tipMarkerR, wingPivot2L, wingPivot2R,
     wingRigL, wingRigR, wingMidL, wingMidR, wingYokeL, wingYokeR,
-    wingBladePivotsL, wingBladePivotsR, wingElements,
+    wingBladePivotsL, wingBladePivotsR, wingLobePivotsL, wingLobePivotsR, wingElements,
   } = wingsResult.parts;
   // Night-Fury grows its bat-tail fins + tail-bone whip chain INSIDE the wings
   // builder (the tail is part of the continuous hull, not a bolted tail module), so
@@ -386,7 +386,7 @@ export function buildDragonModel(def, opts = {}) {
 
     return {
       group: wrapper,
-      parts: { head, tailSegs, tailFins, spineSegs, bodySegs, tailOrbiters, riderSocket, wingYokeL, wingYokeR, wingPivotL, wingPivotR, wingMidL, wingMidR, wingTipL, wingTipR, wingPivot2L, wingPivot2R, tipMarkerL, tipMarkerR, wingRigL, wingRigR, coreGlow, wingBladePivotsL, wingBladePivotsR, wingElements, spinePoints, motifAnchor, headLength },
+      parts: { head, tailSegs, tailFins, spineSegs, bodySegs, tailOrbiters, riderSocket, wingYokeL, wingYokeR, wingPivotL, wingPivotR, wingMidL, wingMidR, wingTipL, wingTipR, wingPivot2L, wingPivot2R, tipMarkerL, tipMarkerR, wingRigL, wingRigR, coreGlow, wingBladePivotsL, wingBladePivotsR, wingLobePivotsL, wingLobePivotsR, wingElements, spinePoints, motifAnchor, headLength },
       materials: { bodyMat, wingMat, eyeMat, spineMats },
       auraSprite,
     };
@@ -404,7 +404,7 @@ export function buildDragonModel(def, opts = {}) {
       tipMarkerL, tipMarkerR,
       wingRigL, wingRigR,
       coreGlow,
-      wingBladePivotsL, wingBladePivotsR, wingElements, spinePoints, motifAnchor, headLength,
+      wingBladePivotsL, wingBladePivotsR, wingLobePivotsL, wingLobePivotsR, wingElements, spinePoints, motifAnchor, headLength,
     },
     materials: { bodyMat, wingMat, eyeMat, spineMats },
     auraSprite,

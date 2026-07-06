@@ -198,59 +198,74 @@ export const DRAGONS = {
     rarity: 'SR',
     maxRarity: 'SSR',   // starter: evolution caps at SSR, never SSSR
     cost: 1200,
-    // A serpentine EASTERN river-dragon: the SMALLEST wings of the roster on a
-    // long sinuous body — long neck, long flowing tail, trailing whiskers. Its
-    // silhouette is read by the body, not the wings. Jade → bright emerald.
+    accentHue: 0xd6ffe9,   // mint-pearl accent (~148°) — the ICONIC GREEN rim/pearl carrier (human art-direction, DRAGON-DESIGN §5d)
+    // JADE Serpent — an ICONIC GREEN river-dragon (human art-direction). A long
+    // sinuous EASTERN koi/serpent: the BODY is the hero silhouette (S line of
+    // action), the SILK-FIN sails carry the beauty. A stranger's one-word read of
+    // every frame is GREEN — a VIVID mid-value jade body (NOT near-black moss), a
+    // pale mint belly, green-family fin gradients (deep-emerald ray → pale jade
+    // tip), and a MINT-pearl chin-pearl bloom whose lockstep rim carrier lights the
+    // rear fin tips. Restrained — NO premium glow-seams/veins (law 12); the pearl
+    // is the ONE bloom.
     stats: { speed: 1.07, handling: 1.11, drain: 0.9, regen: 1.1 },
+    parts: { torso: 'serpent', wings: 'silkFinWings', head: 'draconic', tail: 'clean' },
     model: {
-      scale: 1.0, wingScale: 0.82, tailSegments: 11, neckSegments: 7,
-      hornLen: 0.9, hornPairs: 1, ridgeCount: 14,
-      flapBias: 1.05, flapAmp: 0.82, // serpent wings, smoothed/fuller toward the Phoenix feel
+      scale: 1.0, wingScale: 1.0, tailSegments: 12, neckSegments: 8,
+      headArchetype: 'softStealth',      // rounded wedge skull + large soft calm eyes + swept ear-fins — the river-dragon read
+      headScale: 0.6, snoutScale: 0.72, eyeScale: 0.82, eyeShape: 1.0,
+      bellyPaint: true,                  // pale mint underside vertex-painted on the ventral serpent torso (ICONIC GREEN belly)
+      whiskerFins: true,                 // trailing whisker fins (jade signature) — cradle the chin pearl
+      // silk-fin shared dials (per-form lobe count / span / carrier accrete below)
+      lobeCount: 4, lobeSpan: 3.5, lobeRake: 0.62, lobeTilt: 0.82, lobeCamber: 0.26,
+      lobeNotch: 0.36, lobeScale: 0.8, lobeDetail: 1.3, rimCarrier: 1.0, streamerLen: 3.0, pearlStage: 2,
+      spineGlow: 0.3,
+      flapBias: 1.05, flapAmp: 0.7,      // slow, sinuous river-wind beat
     },
-    // Small, narrow wings — secondary to the long serpentine body.
-    wingForms: [
-      { tips: [[3.40, 0.24], [2.60, -0.36], [1.60, -0.58]],
-        lead: [2.10, 0.36], scallop: 0.16, flame: false,
-        arc: { bow: 0.45, hump: 0.0, humpAt: 0.6, hook: 0.10 } },
-      { tips: [[3.80, 0.28], [3.00, -0.40], [1.95, -0.70], [1.10, -0.74]],
-        lead: [2.50, 0.44], scallop: 0.26, flame: false,
-        arc: { bow: 0.50, hump: 0.35, humpAt: 0.55, hook: 0.16 } },
-      { tips: [[4.10, 0.30], [3.30, -0.44], [2.20, -0.82], [1.25, -0.88]],
-        lead: [2.75, 0.50], scallop: 0.36, flame: false,
-        arc: { bow: 0.55, hump: 0.60, humpAt: 0.57, hook: 0.26 } },
-      { tips: [[4.35, 0.34], [3.55, -0.46], [2.45, -0.88], [1.40, -0.92], [0.80, -0.78]],
-        lead: [2.95, 0.56], scallop: 0.38, flame: false,
-        arc: { bow: 0.60, hump: 0.85, humpAt: 0.58, hook: 0.40 } },
-    ],
-    // Three forms (starter caps at SSR / tier 2): a bare river-whelp → horns +
-    // back ridges sprout, body lengthens → the SSR apex (longer body + neck,
-    // finned tail, whiskers, crest + soft spine-glow). Restrained — no premium seams.
+    // Three visible forms (starter caps at SSR / tier 2): a chubby LONG river-pup
+    // (3 fin-bud lobes, pearl bead, big calm round eyes) → body lengthens, lobes
+    // unfurl, whiskers + ear-fins bud, pearl held → the S-ribbon apex (4 lobes +
+    // trailing streamers, veil tail, radiant mint-pearl). Forms differ in
+    // PROPORTION + FEATURES, never same-dragon-bigger. Value ramps DOWN + saturation
+    // UP across forms on a held jade hue (law 9); the mint-pearl is the ONE bloom.
     forms: [
-      // Hatchling — bare river-whelp: no horns, no back ridges, no whiskers.
-      { wingForm: 0, tailStyle: 'simple', tailSegments: 8, ridgeCount: 0,
-        spineGlow: 0, crest: 0, neckSegments: 6, hornLen: 0,
-        colors: { body: 0x16302a, wingInner: 0x2a7a5e, wingOuter: 0x1d4c43,
-          wingEmissive: 0x2f8a66, scales: 0x5e9080, horn: 0x88a890,
-          apexSeam: 0x3a6a56, eye: 0x6aa88c, coreGlow: 0x3aa078 } },
-      // Kindled — horns + back ridges sprout, wings broaden, clearer jade-green.
-      { wingForm: 1, tailStyle: 'simple', tailSegments: 8, ridgeCount: 12,
-        spineGlow: 0, crest: 0, neckSegments: 6, hornLen: 0.9,
-        colors: { body: 0x143028, wingInner: 0x3bcb8e, wingOuter: 0x255d50,
-          wingEmissive: 0x3bcb8e, scales: 0x8fd9bc, horn: 0xa8c4a0,
-          apexSeam: 0x3bcb8e, eye: 0x79e2b7, coreGlow: 0x3bcb8e } },
-      // Radiant = the SSR apex: longer body + neck, finned tail, whiskers, crest
-      // + soft spine-glow — bright emerald, NO premium glow-seams/veins.
-      { wingForm: 2, tailStyle: 'finned', tailSegments: 10, ridgeCount: 14,
-        spineGlow: 0.3, whiskers: true, neckSegments: 7, crest: 1,
-        colors: { body: 0x123026, wingInner: 0x79e2b7, wingOuter: 0x1f9e77,
-          wingEmissive: 0x79e2b7, scales: 0xbdf3dc, horn: 0xcfe8c0,
-          apexSeam: 0x79e2b7, eye: 0xbdf3dc, coreGlow: 0x79e2b7 } },
+      // Hatchling (form 0) — chubby LONG river-pup: big round low-set calm eyes,
+      // near-flat snout, 3 fin-bud lobes (≥2 visible — the tier-0 key), pearl bead,
+      // no whiskers, no ridges. Value-LIGHTEST, softest-saturation body.
+      { headScale: 1.15, snoutScale: 0.55, eyeScale: 1.5, eyeShape: 0.0,
+        neckSegments: 5, tailSegments: 6, whiskerFins: false, hornType: 'noHorn',
+        lobeCount: 3, lobeSpan: 1.9, lobeTilt: 0.72, lobeDetail: 0.55, rimCarrier: 0.3, streamerLen: 0, pearlStage: 0,
+        tailStyle: 'simple', ridgeCount: 0, crest: 0, spineGlow: 0,
+        colors: { body: 0x3cb883, belly: 0xdaf7e6, wingInner: 0x3aa578, wingOuter: 0x157a4e,
+          wingEmissive: 0x9ff0c8, scales: 0x9fe6c4, horn: 0xcfe8c0,
+          apexSeam: 0xbdf3dc, eye: 0x8ff0c2, coreGlow: 0x6ad0a0 } },
+      // Adolescent (form 1) — body lengthens, lobes unfurl, whiskers + ear-fins bud,
+      // eyes narrow, snout projects, the pearl is HELD (glowing). MID value.
+      { headScale: 0.85, snoutScale: 0.68, eyeScale: 1.05, eyeShape: 0.5,
+        neckSegments: 7, tailSegments: 10, whiskerFins: true,
+        lobeCount: 3, lobeSpan: 3.0, lobeTilt: 0.78, lobeDetail: 1.0, rimCarrier: 0.6, streamerLen: 0, pearlStage: 1,
+        tailStyle: 'simple', ridgeCount: 10, crest: 0, spineGlow: 0.16,
+        colors: { body: 0x28a06b, belly: 0xd2f2df, wingInner: 0x2f9e77, wingOuter: 0x136b45,
+          wingEmissive: 0x8ff0c2, scales: 0x8fe0be, horn: 0xc7ebcf,
+          apexSeam: 0x9ff0c8, eye: 0x8ff0c2, coreGlow: 0x4fc191 } },
+      // Radiant apex (form 2) — the S-ribbon: proud upright S posture, keen long
+      // almond eyes, 4 lobes + trailing streamers, veil (finned) tail, whiskers
+      // cradling the luminous river-pearl (the ONE bloom). DEEPEST value, richest
+      // saturation — still NO glow-seams (law 12); spineGlow ≤0.32.
+      { headScale: 0.6, snoutScale: 0.72, eyeScale: 0.82, eyeShape: 1.0,
+        neckSegments: 8, tailSegments: 12, whiskerFins: true, crest: 1,
+        lobeCount: 4, lobeSpan: 4.0, lobeTilt: 0.95, lobeDetail: 1.3, rimCarrier: 1.0, streamerLen: 3.0, pearlStage: 2,
+        tailStyle: 'finned', ridgeCount: 14, spineGlow: 0.3,
+        colors: { body: 0x178a54, belly: 0xcaf0d8, wingInner: 0x2f9e77, wingOuter: 0x116b45,
+          wingEmissive: 0x9ff0c8, scales: 0x8fe0be, horn: 0xc7ebcf,
+          apexSeam: 0x9ff0c8, eye: 0x8ff0c2, coreGlow: 0x3aa078 } },
     ],
     fx: { auraColor: '121,226,183', auraIdle: 0.0, sparkle: false },
-    body: 0x102a22, belly: 0xe8ffd0, scales: 0xbdf3dc, horn: 0xcfe8c0,
-    wingInner: 0x79e2b7, wingOuter: 0x1f9e77, wingEmissive: 0x3bcb8e,
-    apexEye: 0xbdf3dc, apexSeam: 0x79e2b7, coreGlow: 0x79e2b7, surgeHi: 0xeafff4,
-    eye: 0x79e2b7, trail: 0x79e2b7, boostTrail: 0x3bcb8e,
+    // ICONIC GREEN hide — a VIVID mid-value jade body (was near-black moss), pale mint belly.
+    bodyRoughness: 0.5, bodyMetalness: 0.02, bodyEnvIntensity: 0.55,
+    body: 0x178a54, belly: 0xcaf0d8, scales: 0x8fe0be, horn: 0xc7ebcf,
+    wingInner: 0x2f9e77, wingOuter: 0x116b45, wingEmissive: 0x9ff0c8,
+    apexEye: 0x8ff0c2, apexSeam: 0x9ff0c8, coreGlow: 0x3aa078, surgeHi: 0xd6ffe9,
+    eye: 0x8ff0c2, trail: 0x3fc48f, boostTrail: 0x9ff0c8,
   },
 
   obsidian: {

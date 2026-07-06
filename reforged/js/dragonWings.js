@@ -1420,3 +1420,270 @@ function buildForgeCollar(def, model, attach, spineMats) {
 }
 
 registerWings('emberMembraneWings', buildEmberMembraneWings);
+
+// ── SILK FIN SAILS (JADE, §3 col 3) ──────────────────────────────────────────
+// A koi/eastern river-dragon's fins: NOT a bat wing. Per side, 3 lobes (forms 0–1)
+// → 4 lobes (apex) marching a short root arc, each a TALL cambered petal tilted
+// ≥40° above horizontal (koi fan, not a flat vane) with a DARKER leading ray, a
+// forked/notched TIP (a V recedes the outer 40% so adjacent lobe tips read as
+// separate koi rays), and a swell-then-taper length curve (×0.8 per step). Fin
+// gradients are GREEN-family per lobe (deep-emerald leading ray → mid jade → pale
+// jade tip, ICONIC GREEN §5d); the REAR-most lobe + its trailing STREAMERS carry
+// the mint-pearl RIM (the lockstep rear carrier of the chin-pearl motif, §1/§5d).
+// OVERDRAW law (§2): only the rear-most lobe + streamers are translucent; the
+// forward lobes are OPAQUE with vertex-colour tip gradients + applyFresnelRim
+// faking the silk (≤2 alpha layers per pixel).
+//
+// Motion: direct wingPivotL/R (dragon.js) + per-lobe FURL pivots (fan-fold) — a
+// fold sweeps the whole fan back along the flank AND collapses the lobes together
+// like a folding fan, contracting the span past 0.7× (§3 fold clause / §7 assert),
+// handled in wingDebugPose's poseLobePivots (keyed on parts.wingLobePivotsL/R).
+//
+// Publishes the §6.4 assert-metadata: parts.wingElements = [{root,tip,length,
+// tipObj,notchDepth}] per lobe (notchDepth ≥0.3 = the jade separation metric), and
+// the chin-pearl MOTIF SOCKET's parts.motifAnchor.
+function buildSilkFinWings(def, model, attach, giM) {
+  const group = new THREE.Group();
+  const spineMats = [];
+  const ws = model.wingScale || 1;
+
+  const N = Math.max(3, Math.round(model.lobeCount ?? 3));
+  const reach = (model.lobeSpan ?? 3.4) * ws;             // half-span (outer lobe tip x)
+  const rake = model.lobeRake ?? 0.62;                    // 30–45° back-rake across the fan
+  const tilt = model.lobeTilt ?? 0.80;                    // FAN TILT ≥40° above horizontal (~46°) — tall koi fans, not flat vanes
+  const camber = model.lobeCamber ?? 0.26;               // petal cup (+ normal)
+  const lobeScale = model.lobeScale ?? 0.8;              // swell-then-taper per-lobe step
+  const notchDepth = Math.max(0.3, model.lobeNotch ?? 0.36); // tip-notch depth (fraction of lobe length) — the §3 jade separation metric (≥0.3)
+  const detail = model.lobeDetail ?? 1;
+  const rimCarrier = model.rimCarrier ?? 1;              // mint-pearl rear-carrier bloom (0.3→0.6→1.0 across forms — the lockstep carrier)
+  const streamerLen = (model.streamerLen ?? 0) * ws;    // trailing streamers off the rear lobe (apex only)
+
+  // ── GREEN-family palette (ICONIC GREEN §5d) ──────────────────────────────────
+  const cLead = model.finLeadColor ?? def.wingOuter ?? 0x116b45;   // deep-emerald leading ray (darkest tier)
+  const cMid = model.finMidColor ?? def.wingInner ?? 0x2f9e77;     // mid jade
+  const cTip = model.finTipColor ?? def.apexSeam ?? 0x9ff0c8;      // pale-jade tip
+  const cRim = model.finRimColor ?? def.accentHue ?? 0xd6ffe9;     // mint-pearl rim carrier (green-leaning)
+
+  // Forward lobes: OPAQUE silk with a fresnel mint-pearl rim (§3 rim beauty).
+  const finMat = new THREE.MeshStandardMaterial({
+    color: 0xffffff, vertexColors: true, roughness: 0.5, metalness: 0.0,
+    side: THREE.DoubleSide, opacity: 1.0,
+    emissive: cMid, emissiveIntensity: model.finGlow ?? 0.06,
+  });
+  applyFresnelRim(finMat, cRim);
+  // Rear-most lobe + streamers: the ONLY translucent silk (overdraw law) — 1 alpha layer.
+  const finMatRear = new THREE.MeshStandardMaterial({
+    color: 0xffffff, vertexColors: true, roughness: 0.5, metalness: 0.0,
+    side: THREE.DoubleSide, transparent: true, opacity: 0.7, depthWrite: false,
+    emissive: cMid, emissiveIntensity: model.finGlow ?? 0.06,
+  });
+  applyFresnelRim(finMatRear, cRim);
+  // Darker leading-RAY spar material (matte emerald bone, §3 "darker leading ray per lobe").
+  const rayMat = new THREE.MeshStandardMaterial({ color: cLead, roughness: 0.55, metalness: 0.0, emissive: 0x06301e, emissiveIntensity: 0.25 });
+  spineMats.push(finMat, finMatRear);
+
+  // A cambered koi-fin PETAL in the lobe plane: length +X, chord in Z (leading −Z,
+  // trailing +Z), tapering to a forked/notched TIP. Painted leading-ray-dark → mid →
+  // pale-tip along the length, with a green leading stripe. `rimAmt`>0 blends the
+  // mint-pearl rim into the outer tip (the rear-carrier lobe).
+  function petalGeo(L, wRoot, rimAmt) {
+    const nX = seg(Math.max(4, Math.round(8 * detail))), nZ = seg(Math.max(3, Math.round(5 * detail)));
+    const verts = [], cols = [], idx = [];
+    const cL = new THREE.Color(cLead), cM = new THREE.Color(cMid), cT = new THREE.Color(cTip), cR = new THREE.Color(cRim), c = new THREE.Color();
+    for (let i = 0; i <= nX; i++) {
+      const uu = i / nX;
+      for (let j = 0; j <= nZ; j++) {
+        const cf = j / nZ;
+        // forked TIP: the middle of the chord recedes over the outer 40% (a V-notch),
+        // so the lobe ends in a leading prong + trailing prong = a koi ray tip (sin^0.7
+        // opens a WIDE notch that survives in black fill, matching ember's mouth math).
+        const uMax = 1 - notchDepth * Math.pow(Math.sin(cf * Math.PI), 1.1);
+        const u = uu * uMax;
+        const x = u * L;
+        // koi petal: broad belly near the root, tapering to the prongs. Chord narrows
+        // with a swell so the silhouette is a leaf, not a triangle.
+        const halfW = wRoot * 0.58 * Math.sin(Math.min(1, 0.14 + u * 0.88) * Math.PI);
+        const z = (cf - 0.5) * 2 * halfW;
+        const y = camber * Math.sin(cf * Math.PI) * (0.35 + 0.65 * Math.sin(u * Math.PI));
+        verts.push(x, y, z);
+        // value tiers along length: leading-ray dark near cf=0, mid body, pale tip.
+        c.copy(cM).lerp(cT, Math.pow(u, 1.3));                 // root→tip lightening
+        c.lerp(cL, Math.max(0, 0.5 - cf) * 1.1);               // darker toward the leading edge (the ray)
+        if (rimAmt > 0 && u > 0.55) c.lerp(cR, rimAmt * Math.min(1, (u - 0.55) / 0.35) * (0.4 + 0.6 * Math.sin(cf * Math.PI)));  // mint-pearl rim on the outer tip
+        cols.push(c.r, c.g, c.b);
+      }
+    }
+    const W = nZ + 1;
+    for (let i = 0; i < nX; i++) for (let j = 0; j < nZ; j++) {
+      const a = i * W + j, b = a + 1, d = a + W, e = d + 1;
+      idx.push(a, d, b, b, d, e);
+    }
+    const g = new THREE.BufferGeometry();
+    g.setAttribute('position', new THREE.Float32BufferAttribute(verts, 3));
+    g.setAttribute('color', new THREE.Float32BufferAttribute(cols, 3));
+    g.setIndex(idx); g.computeVertexNormals();
+    return g;
+  }
+
+  // swell-then-taper lobe length — longest at lobe 1 (mid-fan), then ×lobeScale.
+  function lenMulFor(i) {
+    if (N === 3) return [0.82, 1.0, 0.8][i];
+    if (N === 4) return [0.9, 1.0, 0.85, 0.7][i];
+    const t = i / (N - 1);
+    return 0.7 + 0.3 * Math.sin(Math.min(1, 0.2 + t * 0.7) * Math.PI);
+  }
+  const maxLen = reach * 0.9;
+  const rootArc = reach * 0.14;    // lobe roots MARCH a short arc (overlap permitted, §3) — not a single sunburst hub
+
+  function buildSide(side) {
+    const pivot = new THREE.Group();                       // wingPivotL/R — the whole fan
+    const wr = attach.wingRoot(side);
+    pivot.position.set(wr.x, wr.y, wr.z);
+    const wingTip = new THREE.Group();                     // wingTipL/R — outer-lobe carrier (the direct-pivot poser folds this)
+    wingTip.position.set(0, 0, 0);
+    pivot.add(wingTip);
+
+    const lobePivots = [];
+    const elements = [];
+    for (let i = 0; i < N; i++) {
+      const t = N > 1 ? i / (N - 1) : 0;
+      const len = maxLen * lenMulFor(i);
+      const wRoot = (0.42 + 0.12 * Math.sin(t * Math.PI)) * len;   // broad koi chord
+      const rootX = rootArc * t;                            // march outboard (overlap ok)
+      const rootZ = -0.05 + t * reach * 0.05;               // slight aft spread
+      const rootY = 0.02;
+      const isRear = i === N - 1;                           // rear-most lobe = the translucent carrier lobe
+      const rimAmt = isRear ? rimCarrier : (i === N - 2 ? rimCarrier * 0.35 : 0);
+      // rest = the static fan pose (rake back + tall tilt); furl = the animated fan-fold child.
+      const rest = new THREE.Group();
+      rest.position.set(rootX * side, rootY, rootZ);
+      rest.rotation.y = side * -(rake * (0.4 + 0.5 * t));    // outer lobes rake further back → fan spread (tighter overlap = silk-sail read)
+      rest.rotation.z = side * tilt * (0.82 + 0.22 * t);     // TALL tilt, rising outboard (koi fan)
+      const furl = new THREE.Group();
+      rest.add(furl);
+      const mesh = new THREE.Mesh(petalGeo(len, wRoot, rimAmt), isRear ? finMatRear : finMat);
+      mesh.scale.x = side;
+      furl.add(mesh);
+      // darker leading RAY — a slim tapered emerald spar down the leading edge, ending
+      // WELL INSIDE the petal (≤0.66× len) so it reads as an internal rib, never an
+      // overshooting spike past the silk.
+      const ray = bone(0.03 * side, 0.01, -wRoot * 0.40, len * 0.64 * side, camber * 0.5, -wRoot * 0.12, 0.055 * ws, 0.018 * ws, rayMat);
+      furl.add(ray);
+      const tipObj = new THREE.Object3D();
+      tipObj.position.set(len * side, 0, 0);
+      furl.add(tipObj);
+      (isRear ? wingTip : pivot).add(rest);
+      lobePivots.push({ pivot: furl, idx: i, side, restY: rest.rotation.y, restZ: rest.rotation.z, restGroup: rest });
+
+      // trailing STREAMERS off the rear lobe (apex): broad wavy ribbons that trail
+      // BACKWARD (+z, toward the tail) and droop — a flowing river-veil, NOT side spikes.
+      // Rooted on the wingTip near the rear lobe, OUTSIDE the lobe's rake/tilt rotation.
+      if (isRear && streamerLen > 0.1) {
+        for (let s = 0; s < 2; s++) {
+          const sl = streamerLen * (1 - s * 0.2);
+          const strip = new THREE.Mesh(streamerGeo(sl, 0.26 * ws), finMatRear);
+          strip.scale.x = side;
+          strip.position.set((rootX + 0.12 + s * 0.14) * side, rootY - 0.04, rootZ + 0.12);
+          wingTip.add(strip);
+        }
+      }
+      elements.push({ root: new THREE.Vector3(rootX, rootY, rootZ), len, tipObj, notchDepth });
+    }
+
+    group.add(pivot);
+    return { pivot, wingTip, lobePivots, elements };
+  }
+
+  // a trailing ribbon streamer — length +Z (BACKWARD, toward the tail), width in X, with
+  // an S-flow (x) and a downward droop (−y) so it reads as a flowing river-veil, mint-
+  // pearl toward the trailing tip. Tapers to a point.
+  function streamerGeo(L, w) {
+    const nZ = seg(9), verts = [], cols = [], idx = [];
+    const cM = new THREE.Color(cMid), cR = new THREE.Color(cRim), c = new THREE.Color();
+    for (let i = 0; i <= nZ; i++) {
+      const t = i / nZ;
+      const z = t * L;
+      const hw = w * 0.5 * (1 - Math.pow(t, 0.7));          // taper to a point
+      const xw = Math.sin(t * Math.PI * 1.7) * 0.16 * L;    // lateral S-flow
+      const yd = -Math.pow(t, 1.3) * 0.5 * L;               // droop down as it trails
+      for (let j = 0; j <= 1; j++) {
+        verts.push(xw + (j - 0.5) * 2 * hw, yd, z);
+        c.copy(cM).lerp(cR, Math.pow(t, 0.8));
+        cols.push(c.r, c.g, c.b);
+      }
+    }
+    for (let i = 0; i < nZ; i++) { const a = i * 2, b = a + 1, d = a + 2, e = a + 3; idx.push(a, d, b, b, d, e); }
+    const g = new THREE.BufferGeometry();
+    g.setAttribute('position', new THREE.Float32BufferAttribute(verts, 3));
+    g.setAttribute('color', new THREE.Float32BufferAttribute(cols, 3));
+    g.setIndex(idx); g.computeVertexNormals();
+    return g;
+  }
+
+  const R = buildSide(1), L = buildSide(-1);
+  const wingElements = R.elements.map((e) => ({
+    root: e.root, tip: new THREE.Vector3(e.root.x + e.len, e.root.y, e.root.z), length: e.len, tipObj: e.tipObj, notchDepth: e.notchDepth,
+  }));
+
+  // Chin-pearl MOTIF SOCKET (§6.3) — the ONE bloom, published as motifAnchor.
+  const pearl = buildRiverPearl(def, model, attach, spineMats);
+  if (pearl) group.add(pearl.group);
+
+  return {
+    group,
+    parts: {
+      wingPivotL: L.pivot, wingPivotR: R.pivot,
+      wingTipL: L.wingTip, wingTipR: R.wingTip,
+      tipMarkerL: null, tipMarkerR: null,
+      wingPivot2L: null, wingPivot2R: null,
+      wingRigL: null, wingRigR: null,
+      wingLobePivotsL: L.lobePivots, wingLobePivotsR: R.lobePivots,
+      wingElements,
+      motifAnchor: pearl ? pearl.motifAnchor : null,
+    },
+    wingMat: finMat,
+    spineMats,
+  };
+}
+
+// ── RIVER PEARL — jade's MOTIF SOCKET (§6.3, §5d) ────────────────────────────
+// The dragon's ONE bloom (law 12), a mint-pearl cradled at the throat/chin, blooming
+// per form: pearl bead → held pearl → luminous river-pearl. Anchored to a FORM-
+// INVARIANT torso point (forward of the wing roots — NOT headBase, whose z drifts as
+// the neck grows across forms, which would break the §7 anchor-invariance assert).
+// Publishes { group, motifAnchor:{local,radius} } — local invariant, radius monotonic.
+function buildRiverPearl(def, model, attach, spineMats) {
+  const stage = Math.max(0, Math.round(model.pearlStage ?? 0));
+  const cPearl = model.pearlColor ?? def.accentHue ?? 0xd6ffe9;   // mint-pearl (green-leaning)
+  const group = new THREE.Group();
+  const wr = attach.wingRoot(1);
+  // throat, forward of + below the shoulders — invariant (wingRoot is torso-fixed at the midline).
+  const ax = 0, ay = wr.y - 0.02, az = wr.z - 1.15;
+  group.position.set(ax, ay, az);
+
+  const bloom = [0.4, 0.7, 1.0][stage] ?? 1.0;
+  const r0 = 0.14 * bloom;
+  // The pearl: a mint-pearl emissive bead. Emissive laddered so it is the ONE bloom
+  // (law 12) yet green-leaning even under ACES (never blows to pure white).
+  const emisI = [0.9, 1.6, 2.6][stage] ?? 2.6;
+  const pearlMat = new THREE.MeshStandardMaterial({
+    color: 0x8fe0be, emissive: cPearl, emissiveIntensity: emisI, roughness: 0.28, metalness: 0.0 });
+  const pearl = new THREE.Mesh(new THREE.SphereGeometry(r0, seg(10), seg(8)), pearlMat);
+  group.add(pearl);
+  spineMats.push(pearlMat);
+  // apex: a faint mint halo bead pair (the "cradled" read) — still ONE bloom point,
+  // these are dimmer satellites, not a second bloom.
+  if (stage >= 2) {
+    const satMat = new THREE.MeshStandardMaterial({ color: 0x8fe0be, emissive: cPearl, emissiveIntensity: 0.8, roughness: 0.3, metalness: 0.0 });
+    for (const s of [-1, 1]) {
+      const sat = new THREE.Mesh(new THREE.SphereGeometry(r0 * 0.34, seg(7), seg(6)), satMat);
+      sat.position.set(s * r0 * 1.5, -r0 * 0.2, r0 * 0.4);
+      group.add(sat);
+    }
+    spineMats.push(satMat);
+  }
+  const radius = [0.16, 0.26, 0.4][stage] ?? 0.4;
+  return { group, motifAnchor: { local: new THREE.Vector3(ax, ay, az), radius } };
+}
+
+registerWings('silkFinWings', buildSilkFinWings);

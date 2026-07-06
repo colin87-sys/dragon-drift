@@ -69,6 +69,26 @@ const SPECS = {
     accentHue: 27,                              // lava ~27°
     carrier: 'emissive',                        // ember: warm ONLY as emissive; NO warm accent diffuse on the membrane
   },
+  jade: {
+    architecture: 'silk fin lobes',
+    wingElements: [3, 3, 4],                     // §3 col 3: 3 lobes (forms 0–1) → 4 lobes (apex) — per-form count
+    separation: 'notch',                         // §3 jade metric: overlap permitted; tip NOTCHES separate (depth ≥0.3× lobe len), NOT planform root gaps
+    triTargets: [2300, 3900, 5400],              // §5d ~targets (serpent torso + draconic-head floor lifts the hatchling; see PR)
+    // head:body — §4 jade bands (long serpent: 1:2.8–3.2 / 1:4.5–5.5 / 1:7.5–9.5).
+    headBody: [[2.8, 3.2], [4.5, 5.5], [7.5, 9.5]],
+    // eye:head — §4 bands (33–40% / 22–28% / 14–18%); f2 ceiling reconciled UP to 0.32
+    // like azure/ember (L147): jade's apex eye is "calm, long, painterly" — a larger
+    // almond that still reads as the keen-but-serene apex, not a shrunken pinhole.
+    eyeHead: [[0.30, 0.40], [0.20, 0.28], [0.14, 0.32]],
+    // span:body — measured against the VISUAL nose→tail body length (the §8 top-planform
+    // read). Jade's SERPENT body makes that denominator very long, so the ratio bands are
+    // far below §3's 2.2–2.5× body-LENGTH figure (the same visual-metric reconciliation
+    // azure/ember documented, inverted: here the long tail deflates the ratio, not the
+    // droop). The fins carry the beauty; the gate judges reach in pixels.
+    spanBody: [[0.18, 0.36], [0.20, 0.40], [0.28, 0.46]],
+    accentHue: 149,                              // mint-pearl ~149° (green-leaning, ICONIC GREEN)
+    carrier: 'jade',                             // jade [ICONIC GREEN]: body diffuse reads VIVID mid-value jade (NOT near-black moss); accent green
+  },
 };
 
 let pass = 0, fail = 0;
@@ -144,8 +164,10 @@ for (const [key, spec] of Object.entries(SPECS)) {
   for (let f = 0; f <= maxT; f++) {
     const M = per[f];
     // build-clean: every form must produce geometry + the metadata handles.
-    ok(M.parts.wingElements && M.parts.wingElements.length === spec.wingElements,
-      `${key} f${f}: wing element count ${M.parts.wingElements?.length} == ${spec.wingElements}`);
+    // wingElements count: a constant (azure 5 / ember 4) OR a per-form array (jade 3/3/4).
+    const wantEls = Array.isArray(spec.wingElements) ? spec.wingElements[f] : spec.wingElements;
+    ok(M.parts.wingElements && M.parts.wingElements.length === wantEls,
+      `${key} f${f}: wing element count ${M.parts.wingElements?.length} == ${wantEls}`);
     ok(!!M.parts.spinePoints && M.parts.spinePoints.length >= 4, `${key} f${f}: spinePoints published`);
     ok(!!M.parts.motifAnchor, `${key} f${f}: motifAnchor published`);
     ok(M.tris < 6000, `${key} f${f}: under 6000 ceiling (${M.tris})`);
@@ -156,11 +178,18 @@ for (const [key, spec] of Object.entries(SPECS)) {
     ok(maxLen - minLen > 0.05 * maxLen, `${key} f${f}: blade lengths vary (progression, not sawtooth)`);
     const peakIdx = lens.indexOf(maxLen);
     ok(peakIdx > 0 && peakIdx < lens.length - 1, `${key} f${f}: longest blade is mid-fan (swell-then-taper)`);
-    // separation: planform gaps > 0 (roots march + z-stagger).
-    const roots = M.parts.wingElements.map((e) => e.root);
-    let minGap = Infinity;
-    for (let i = 1; i < roots.length; i++) minGap = Math.min(minGap, Math.hypot(roots[i].x - roots[i - 1].x, roots[i].z - roots[i - 1].z));
-    ok(minGap > 0.05, `${key} f${f}: comb has planform separation (minGap ${minGap.toFixed(2)})`);
+    // separation per the sheet's metric. azure/ember: planform root gaps > 0 (roots march
+    // + z-stagger). jade: overlap is PERMITTED — the tip NOTCHES separate the outer 40% of
+    // each lobe (depth ≥0.3× lobe length), read from the published notchDepth.
+    if (spec.separation === 'notch') {
+      const notches = M.parts.wingElements.map((e) => e.notchDepth ?? 0);
+      ok(notches.every((n) => n >= 0.3), `${key} f${f}: lobe tip-notch depth ≥0.3× (min ${Math.min(...notches).toFixed(2)})`);
+    } else {
+      const roots = M.parts.wingElements.map((e) => e.root);
+      let minGap = Infinity;
+      for (let i = 1; i < roots.length; i++) minGap = Math.min(minGap, Math.hypot(roots[i].x - roots[i - 1].x, roots[i].z - roots[i - 1].z));
+      ok(minGap > 0.05, `${key} f${f}: comb has planform separation (minGap ${minGap.toFixed(2)})`);
+    }
     // taper: each blade tapers to a point (length>0) — the geometry is a point at the tip.
     ok(lens.every((l) => l > 0.1), `${key} f${f}: blades have real length`);
 
@@ -227,6 +256,20 @@ for (const [key, spec] of Object.entries(SPECS)) {
     const wm = apex.parts && buildDragonModel(apex.def, {}).materials.wingMat;
     const hsl = {}; wm.color.getHSL(hsl);
     ok(hsl.l <= 0.30, `${key}: wing membrane diffuse held dark-warm so the rays carry the fire, not a toy-bright sheet (L ${hsl.l.toFixed(2)} ≤ 0.30)`);
+  }
+  if (spec.carrier === 'jade') {
+    // jade [ICONIC GREEN]: the BODY diffuse must read as a VIVID mid-value jade —
+    // unmistakably GREEN at a glance, NOT the near-black moss the §5d starting hexes
+    // were (0x123026, sRGB L≈0.13). Judge in sRGB (what renders), computed from the raw
+    // hex bytes — three's colour management stores linear internally, which would read
+    // even a vivid mid-green as "dark". Body hue in the jade/emerald band + L ≥ 0.24.
+    const hex = per[2].def.body;
+    const r = ((hex >> 16) & 255) / 255, g = ((hex >> 8) & 255) / 255, b = (hex & 255) / 255;
+    const mx = Math.max(r, g, b), mn = Math.min(r, g, b), d = mx - mn;
+    const sL = (mx + mn) / 2;
+    let sH = 0; if (d) { sH = mx === r ? ((g - b) / d) % 6 : mx === g ? (b - r) / d + 2 : (r - g) / d + 4; sH = ((sH * 60) + 360) % 360; }
+    ok(sL >= 0.24 && sL <= 0.55, `${key}: apex body is VIVID mid-value jade, not near-black moss (sRGB L ${sL.toFixed(2)} in [0.24,0.55])`);
+    ok(hueDist(sH, 150) <= 25, `${key}: apex body hue is GREEN (${sH.toFixed(0)}° within ±25° of 150°)`);
   }
 }
 
