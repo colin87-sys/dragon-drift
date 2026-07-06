@@ -221,8 +221,10 @@ export function buildCleanTail(def, model, bodyMat, swept = false) {
   // a tip flick; tailYaw sweeps it laterally to continue the body's lateral S.
   const tailArc = model.tailArc ?? 0;
   const tailYaw = model.tailYaw ?? 0;
-  const arcAt = (i) => { const f = i / (N - 1); return len * (tailArc * (0.32 * f + 0.42 * f * f) + tailArc * 0.16 * Math.sin(f * Math.PI * 1.6)); };
-  const yawAt = (i) => { const f = i / (N - 1); return len * tailYaw * (0.4 * f - 0.28 * Math.sin(f * Math.PI * 1.4)); };
+  const arcF = (f) => len * (tailArc * (0.32 * f + 0.42 * f * f) + tailArc * 0.16 * Math.sin(f * Math.PI * 1.6));
+  const yawF = (f) => len * tailYaw * (0.4 * f - 0.28 * Math.sin(f * Math.PI * 1.4));
+  const arcAt = (i) => arcF(i / (N - 1));
+  const yawAt = (i) => yawF(i / (N - 1));
   // Shaft segments. Each is its own group at a fixed z; the rig sways x/y so the
   // chain coils, with the root (segs[0]) held at the hip.
   for (let i = 0; i < N; i++) {
@@ -578,7 +580,9 @@ export function buildCleanTail(def, model, bodyMat, swept = false) {
     const centre = [], radii = [], skin = [];
     for (let s = 0; s < M; s++) {
       const z = (s / (M - 1)) * len;
-      centre.push({ x: 0, y: 0, z });
+      // build the tube along the ARCED centreline (matches the bones) so a curved
+      // idle tail is ONE seamless surface — no frustum-joint gaps (gate r3 dir 3).
+      centre.push({ x: yawF(z / len), y: arcF(z / len), z });
       radii.push(baseR + (tEnd - baseR) * (z / len));
       const t = z / spacing, i0 = Math.min(N - 1, Math.floor(t)), i1 = Math.min(N - 1, i0 + 1), f = t - i0;
       skin.push({ si: [i0, i1, 0, 0], sw: [1 - f, f, 0, 0] });

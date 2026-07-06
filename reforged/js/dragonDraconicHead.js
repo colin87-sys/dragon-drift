@@ -454,7 +454,7 @@ function eyeZone(c, { r, x, y, z, glow }) {
   // any thin gap). Only the LIDS stay as caps — their 10–12% gaps exceed the sag.
   const cuteBallMat = c.cfg.cuteEye
     ? new THREE.MeshStandardMaterial({ color: 0xffffff, vertexColors: true, roughness: 0.32, metalness: 0.02,
-        emissive: 0x1a3652, emissiveIntensity: 0.5 }) : null;   // soft self-light so the iris stays luminous in shade (an unlit lower hemisphere read as black beads)
+        emissive: c.def.eyeBallEmissive ?? 0x1a3652, emissiveIntensity: 0.5 }) : null;   // soft self-light (def-overridable: azure blue default; jade greens it so the eye never reads off-palette blue)
   const cutePupilMat = c.cfg.cuteEye
     ? new THREE.MeshStandardMaterial({ color: 0x0a1622, roughness: 0.4, metalness: 0.02, side: THREE.DoubleSide }) : null;
   const cuteGlintMat = c.cfg.cuteEye
@@ -689,13 +689,44 @@ function glowSpineCrest(c) { rearCrest(c, { count: 3, glow: true, height: 0.24 }
 function crownRearCrest(c) { rearCrest(c, { count: 3, glow: c.cfg.rearGlowIntensity > 0.3, height: 0.28 }); }
 
 // ── SIGNATURE ADD-ONS (preserve per-species identity) ────────────────────────
-function whiskerFins(c) {                          // Jade — calm mystical
-  for (const [sx, ang] of [[-0.5, 0.26], [0.5, -0.26], [-0.4, 0.48], [0.4, -0.48]]) {
-    const w = new THREE.Mesh(new THREE.CylinderGeometry(0.015, 0.004, 0.66, seg(4)), c.mats.scalesMat);
-    w.rotation.set(Math.PI / 2 + 0.12, 0, ang);
-    w.position.set(sx * c.hx, -c.hy * 0.18, c.snoutTipZ + 0.1);
+function whiskerFins(c) {                          // Jade — calm mystical: 2 CURVED tapering barbels per side
+  // an S-flow barbel: roots at the snout, sweeps BACK (+z) + out (x) with a gentle
+  // dip-then-flick (−y→+y), tapering to a point (tip ≤0.2× base — law 4). Two per side,
+  // distinct lengths (×0.8 step), no straight parallel needles (gate r3 dir 6).
+  const mkWhisker = (sx, L, baseR, spread) => {
+    const pts = [];
+    for (let i = 0; i <= 6; i++) {
+      const t = i / 6;
+      pts.push(new THREE.Vector3(
+        sx * (spread * (0.35 + 0.65 * t) + 0.14 * Math.sin(t * Math.PI)),   // out + a gentle bow
+        -0.12 * L * Math.sin(t * Math.PI) + 0.16 * L * t,                    // dip then rise (a soft flick)
+        t * L));                                                            // trail back
+    }
+    const curve = new THREE.CatmullRomCurve3(pts);
+    const RINGS = seg(10), RAD = seg(4), verts = [], idx = [];
+    const sd = new THREE.Vector3(), ud = new THREE.Vector3();
+    for (let s = 0; s <= RINGS; s++) {
+      const u = s / RINGS, p = curve.getPoint(u), tan = curve.getTangent(u);
+      const up = Math.abs(tan.y) > 0.9 ? new THREE.Vector3(1, 0, 0) : new THREE.Vector3(0, 1, 0);
+      sd.crossVectors(tan, up).normalize(); ud.crossVectors(sd, tan).normalize();
+      const r = baseR * (1 - Math.pow(u, 0.8));
+      for (let k = 0; k < RAD; k++) {
+        const a = (k / RAD) * Math.PI * 2, cx = Math.cos(a), cy = Math.sin(a);
+        verts.push(p.x + (sd.x * cx + ud.x * cy) * r, p.y + (sd.y * cx + ud.y * cy) * r, p.z + (sd.z * cx + ud.z * cy) * r);
+      }
+    }
+    for (let s = 0; s < RINGS; s++) for (let k = 0; k < RAD; k++) {
+      const p0 = s * RAD + k, q0 = s * RAD + (k + 1) % RAD, p1 = (s + 1) * RAD + k, q1 = (s + 1) * RAD + (k + 1) % RAD;
+      idx.push(p0, p1, q0, q0, p1, q1);
+    }
+    const g = new THREE.BufferGeometry();
+    g.setAttribute('position', new THREE.Float32BufferAttribute(verts, 3));
+    g.setIndex(idx); g.computeVertexNormals();
+    const w = new THREE.Mesh(g, c.mats.scalesMat);
+    w.position.set(sx * c.hx * 0.6, -c.hy * 0.14, c.snoutTipZ + 0.04);
     c.head.add(w);
-  }
+  };
+  for (const sx of [-1, 1]) { mkWhisker(sx, 1.0, 0.022, 0.55); mkWhisker(sx, 0.8, 0.017, 0.34); }
 }
 // BROW-CREST MOTIF (AZURE §5d) — a swept feather-crest fanning back off the brow,
 // gold-tipped (DIFFUSE tip-paint, law-9 carrier — no emissive on the accent). The

@@ -208,17 +208,19 @@ export const DRAGONS = {
     // rear fin tips. Restrained — NO premium glow-seams/veins (law 12); the pearl
     // is the ONE bloom.
     stats: { speed: 1.07, handling: 1.11, drain: 0.9, regen: 1.1 },
-    parts: { torso: 'serpent', wings: 'silkFinWings', head: 'draconic', tail: 'clean' },
+    parts: { torso: 'serpent', wings: 'silkFinWings', head: 'draconic', tail: 'sweptTail' },
     model: {
       scale: 1.0, wingScale: 1.0, tailSegments: 12, neckSegments: 8,
       headArchetype: 'softStealth',      // rounded wedge skull + large soft calm eyes + swept ear-fins — the river-dragon read
       headScale: 0.6, snoutScale: 0.72, eyeScale: 0.82, eyeShape: 1.0,
       cuteEye: true,                     // living eye — jade-green iris + dark forward pupil + catchlight (gate r1 dir 9; no more blank doll orb)
       eyeSclera: 0xd6f0e2, eyeIris: 0x2f9e77, eyeIrisKeen: 0x8ff0c2,   // calm GREEN gaze (not azure blue)
+      eyeBallEmissive: 0x0e3a2a,         // GREEN eyeball self-light (was azure's blue 0x1a3652 → the eye read blue, gate r3 dir 4)
       bellyPaint: true,                  // pale mint underside vertex-painted on the ventral serpent torso (ICONIC GREEN belly)
       whiskerFins: true,                 // trailing whisker fins (jade signature) — cradle the chin pearl
       neckBlend: 1.6,                    // fuse the neck beads into a smooth taper (gate r1 dir 3 — no sausage-bead chain)
-      tailArc: 0.5, tailYaw: 0.28,       // the tail COUNTER-ARCS up + flicks, continuing the serpent S (gate r1 dir 1)
+      tailArc: 0.7, tailYaw: 0.42,       // the tail COUNTER-ARCS up + flicks, continuing the serpent S (gate r1 dir 1)
+      tailPlates: false,                 // smooth koi tail — no dorsal spike row (that read as sawtooth/drill-bit)
       // silk-fin shared dials (per-form lobe count / span / carrier accrete below)
       lobeCount: 4, lobeSpan: 3.5, lobeRake: 0.62, lobeTilt: 0.82, lobeCamber: 0.26,
       lobeNotch: 0.42, lobeScale: 0.8, lobeDetail: 1.3, rimCarrier: 1.0, streamerLen: 4.5, pearlStage: 2,
@@ -261,7 +263,7 @@ export const DRAGONS = {
       // saturation — still NO glow-seams (law 12); spineGlow ≤0.32.
       { headScale: 0.6, snoutScale: 0.72, eyeScale: 0.62, eyeShape: 1.0,
         neckSegments: 8, tailSegments: 12, whiskerFins: true, crest: 1,
-        spineCurl: 0.7, spineYaw: 0.55,   // full proud S-ribbon (neck arcs up, mid dips, tail counter-arcs; lateral recurve)
+        spineCurl: 0.9, spineYaw: 0.72,   // full proud S-ribbon (neck arcs up, mid dips, tail counter-arcs; strong lateral recurve)
         lobeCount: 4, lobeSpan: 6.0, lobeTilt: 0.95, lobeDetail: 1.3, rimCarrier: 1.0, streamerLen: 4.5, pearlStage: 2,
         tailStyle: 'finned', ridgeCount: 14, ridgeStyle: 'scute', ridgeColor: 0x1f8a5c, spineGlow: 0.3,
         colors: { body: 0x178a54, belly: 0xa6e2c2, wingInner: 0x2f9e77, wingOuter: 0x116b45,

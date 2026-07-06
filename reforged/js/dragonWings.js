@@ -1587,7 +1587,7 @@ function buildSilkFinWings(def, model, attach, giM) {
           const sl = streamerLen * (1 - s * 0.2);
           // per-side + per-streamer PHASE breaks the dead L/R mirror (gate r1 dir 12: the
           // pair read as a perfect heart from behind) — the veils flow independently.
-          const strip = new THREE.Mesh(streamerGeo(sl, 0.26 * ws, side * 0.8 + s * 0.5), finMatRear);
+          const strip = new THREE.Mesh(streamerGeo(sl, 0.42 * ws, side * 0.8 + s * 0.5), finMatRear);
           strip.scale.x = side;
           strip.position.set((rootX + 0.12 + s * 0.14) * side, rootY - 0.04, rootZ + 0.12);
           wingTip.add(strip);
@@ -1609,9 +1609,9 @@ function buildSilkFinWings(def, model, attach, giM) {
     for (let i = 0; i <= nZ; i++) {
       const t = i / nZ;
       const z = t * L;
-      const hw = w * 0.5 * (1 - Math.pow(t, 0.7));          // taper to a point
+      const hw = w * 0.5 * (1 - Math.pow(t, 0.85));         // thicker root, taper to a point (survives gameplay distance)
       const xw = Math.sin(t * Math.PI * 1.7 + phase) * 0.16 * L;    // lateral S-flow (phase breaks L/R mirror)
-      const yd = -Math.pow(t, 1.3) * 0.5 * L;               // droop down as it trails
+      const yd = -Math.pow(t, 1.5) * 0.16 * L;              // GENTLE droop — trails BACK along the flight path (~within 25° of the body axis), not a dangling jellyfish tendril (gate r3 dir 10)
       for (let j = 0; j <= 1; j++) {
         verts.push(xw + (j - 0.5) * 2 * hw, yd, z);
         c.copy(cM).lerp(cR, Math.pow(t, 0.8));
