@@ -26,7 +26,8 @@ import { createBossCommon, stripForMerge } from './bossKit.js';
 //
 // FACELESS-CARRIER LAW (§4b) — the cowl-glint + lance language carry all seven
 // charisma channels behind the unchanged setGaze/notice hooks:
-//   GAZE   — the cowl turns toward you; the glint looks past (indifference-taunt),
+//   GAZE   — the cowl turns toward you AND the cold glint tracks the dragon (looks AT
+//            you as you move — owner decision, superseding the earlier "looks past"),
 //   BLINK  — the glint GUTTERS (dims + re-lights like a coal); rate = mood,
 //   CHARGE — the LANCE rises + its TIP ignites amber as it snaps to POINT,
 //   EXPRESSION — the lance language: salute (up) / point (level) / lower (couched),
@@ -206,14 +207,18 @@ export function buildKarnvow(def, quality = 1) {
   // dominant cold-accent share every frame (the line-trim flickers; these anchor G3),
   // and they read as a thing lit cold at its forged seams — premium, not a big eye.
   const coldSeams = new THREE.Group();
-  const gorgetBand = new THREE.Mesh(new THREE.TorusGeometry(0.66, 0.06, lowQ ? 6 : 9, lowQ ? 16 : 26), rimMat);
+  const gorgetBand = new THREE.Mesh(new THREE.TorusGeometry(0.66, 0.09, lowQ ? 6 : 9, lowQ ? 16 : 26), rimMat);
   gorgetBand.rotation.x = Math.PI / 2; gorgetBand.position.set(0, 1.95, 0.12); coldSeams.add(gorgetBand);
-  const beltBand = new THREE.Mesh(new THREE.TorusGeometry(0.95, 0.055, lowQ ? 6 : 9, lowQ ? 18 : 30), rimMat);
+  const beltBand = new THREE.Mesh(new THREE.TorusGeometry(0.95, 0.09, lowQ ? 6 : 9, lowQ ? 18 : 30), rimMat);
   beltBand.rotation.x = Math.PI / 2; beltBand.position.set(0, 0.35, 0.05); coldSeams.add(beltBand);
-  const chestSeam = new THREE.Mesh(new THREE.BoxGeometry(0.09, 1.5, 0.1), rimMat);
+  const chestSeam = new THREE.Mesh(new THREE.BoxGeometry(0.12, 1.5, 0.1), rimMat);
   chestSeam.position.set(0, 1.15, 0.62); coldSeams.add(chestSeam);
+  // A cold-lit chest SIGIL (a heraldic diamond — a duelist's device): a solid, sizable,
+  // frame-STABLE cold-accent cluster that anchors the G3 attribution above the noise.
+  const sigil = new THREE.Mesh(new THREE.OctahedronGeometry(0.3, 0), rimMat);
+  sigil.scale.set(0.9, 1.3, 0.4); sigil.position.set(0, 1.0, 0.66); coldSeams.add(sigil);
   for (const sx of [-1, 1]) {   // two pauldron-crest cold seams
-    const ps = new THREE.Mesh(new THREE.BoxGeometry(0.85, 0.08, 0.1), rimMat);
+    const ps = new THREE.Mesh(new THREE.BoxGeometry(0.9, 0.11, 0.1), rimMat);
     ps.rotation.z = -sx * 0.5; ps.position.set(sx * 1.05, 1.95, 0.2); coldSeams.add(ps);
   }
   rig.add(coldSeams);
@@ -271,9 +276,14 @@ export function buildKarnvow(def, quality = 1) {
       fold.rotateX(0.15); fold.translate(fx * 0.6, 0.6 + (0.5 - Math.abs(t - 0.5)) * 0.8, 0.42 - Math.abs(fx) * 0.1);
       parts.push(fold);
     }
-    // Peak back-sweep + a LATERAL hook (a swept horn off the peak) — keeps the hood
-    // asymmetric in the outline at the flank angle (Fable #1).
-    const hook = strip(new THREE.ConeGeometry(0.2, 1.3, lowQ ? 4 : 6)); hook.rotateZ(0.5); hook.rotateX(-0.9); hook.translate(0.32, 2.35, -0.75); parts.push(hook);
+    // The hood PEAK-TIP folds up-and-back (the asymmetric silhouette break) — its
+    // base is SUNK INTO the hood apex so it reads as a continuous curled peak, NOT a
+    // detached horn beside the head (owner fix). In-line (minimal sideways tilt),
+    // gentle back-sweep.
+    const tip = strip(new THREE.ConeGeometry(0.19, 1.25, lowQ ? 4 : 6));
+    tip.rotateZ(0.12); tip.rotateX(-0.55);
+    tip.translate(0.08, 2.05, -0.25);   // base embedded in the apex (no floating gap)
+    parts.push(tip);
     return mergeBody(parts, 'cowlShell');
   })();
   const cowlShell = new THREE.Mesh(cowlShellGeo, cowlMat);
@@ -427,7 +437,7 @@ export function buildKarnvow(def, quality = 1) {
   const TIP_BASE = new THREE.Color(0xffc23c);
   const tipMat = track(new THREE.MeshBasicMaterial({ color: 0xffc23c }));
   tipMat.toneMapped = false;
-  tipMat.color.copy(TIP_BASE).multiplyScalar(0.35);   // dim at rest — ignites on charge
+  tipMat.color.copy(TIP_BASE).multiplyScalar(0.22);   // dim at rest — ignites on charge
   const lanceTip = new THREE.Object3D();
   lanceTip.name = 'lanceTip';                          // the def.muzzle emitter + charge-tell node
   lanceTip.position.set(0.1, 0, LANCE_LEN + 0.15);
@@ -601,8 +611,10 @@ export function buildKarnvow(def, quality = 1) {
     // the indifference-taunt).
     cowlPivot.rotation.y = gazeX * 0.5;
     cowlPivot.rotation.x = -gazeY * 0.28;
-    glint.position.x = APX + gazeX * 0.12 + 0.05;   // biased PAST the player's line (indifference)
-    glint.position.y = 0.55 + gazeY * 0.07;
+    // The cold glint (the "eye") TRACKS the dragon — it slides to look AT you as you
+    // move (owner decision; supersedes the earlier "looks past" indifference bias).
+    glint.position.x = APX + gazeX * 0.15;
+    glint.position.y = 0.55 + gazeY * 0.09;
 
     // --- Guttering glint (blink-analog): dims + re-lights like a coal. Rate rises
     // under pressure (fast-guttering); flares on notice; eases shut LAST in death. ---
@@ -615,11 +627,15 @@ export function buildKarnvow(def, quality = 1) {
     const gutterProg = gutterT > 0 ? 1 - Math.abs((gutterT / GUTTER_DUR) * 2 - 1) : 0;
     if (painT > 0) painT -= dt;
     if (noticeT > 0) noticeT -= dt;
-    let glintK = (1 - gutterProg * 0.75) * (1 + charge * 0.3);
+    let glintK = 1 + charge * 0.3;
     if (noticeT > 0.6) glintK *= 1.5;
     // Death: the glint eases shut LAST (holds until dyingK is nearly full).
     glintK *= Math.max(0, 1 - Math.max(0, dyingK - 0.6) / 0.4);
     glintMat.color.copy(GLINT_BASE).multiplyScalar(Math.max(0.06, glintK) * GLINT_HOT);
+    // The GUTTER (blink-analog) is a SIZE breath, not a brightness drop — the focal
+    // core stays clipped-bright so it never dips below the G1 ≥250 floor when the
+    // gate catches a gutter frame; the eye just shrinks + swells like a live coal.
+    glint.scale.setScalar(Math.max(0.14, (1 - gutterProg * 0.5) * (1 - dyingK * 0.9)));
 
     // --- The LANCE language: couch (rest) → point (charge) → salute (notice) →
     // lower (death). setCharge snaps it to POINT — the silhouette change (telegraph
@@ -642,7 +658,7 @@ export function buildKarnvow(def, quality = 1) {
 
     // The amber lance-TIP ignites as it snaps to point (the amber-organ tell); dim
     // at rest; a hot flash on notice; guttering out in death.
-    let tipK = 0.35 + charge * 1.9;
+    let tipK = 0.22 + charge * 2.0;
     if (noticeT > 0.6) tipK = Math.max(tipK, 1.6);
     tipK *= 1 - dyingK * 0.85;
     tipMat.color.copy(TIP_BASE).multiplyScalar(Math.max(0.1, tipK));

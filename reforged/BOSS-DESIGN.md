@@ -694,7 +694,8 @@ feasibility survey: at rel 30, on-screen centers within x ±15 / y 2..22 on port
   - *Home backdrop:* judged on the pale/neutral studio FIRST (§3b.7); the gate captures over
     a COOL complementary sky (LUMEN MIRE) so the cold accent never fringes false-magenta.
   **§4b CHARISMA (faceless — carriers = cowl-glint + lance language):** GAZE = cowl turns to
-  you, glint looks past (indifference); BLINK = glint GUTTERS like a coal (rate = mood);
+  you AND the cold glint TRACKS the dragon (looks AT you as you move — owner decision, r1,
+  superseding the earlier "looks past" indifference bias); BLINK = glint GUTTERS like a coal (rate = mood);
   CHARGE-TELL = lance rises + tip ignites amber; EXPRESSION = lance salute/point/lower;
   FLINCH = cowl recoils + chain swings; NOTICE = lance SALUTES + glint flares; DEATH = lance
   drops, charms gutter out ONE BY ONE, glint eases shut LAST. GLYPH = cowl peak + couched
