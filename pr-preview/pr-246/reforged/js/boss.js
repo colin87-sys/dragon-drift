@@ -2376,6 +2376,10 @@ function driveLockTeach(dt, ctx) {
   if (ctx.exposureWindow && lockCount() === 0 && lockTeachCd <= 0) {
     ui.bossNote?.('HOLD YOUR LINE ON A RIB', 'PAINT A LOCK', 'gold', 2.6);
     lockTeachCd = 8;   // re-arm later if still unperformed
+    // The SPECCED no-fail window (SOP §I.c V2 'first paint window is fire-free'):
+    // each un-performed prompt holds the attack clock — a genuine breather to line
+    // up the first paint while learning. Gone forever once lockTaught sets.
+    attackTimer = Math.max(attackTimer, 3.5);
   }
 }
 

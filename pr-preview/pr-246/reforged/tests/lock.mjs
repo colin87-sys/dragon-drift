@@ -194,6 +194,7 @@ async function runLock(spec) {
     };
     const lances = [];
     for (const f of (spec.frames || [])) {
+      if (f.ax !== undefined) ORGANS.A.x = f.ax;   // motion sims move organ A per frame
       const player = { position: { x: f.px ?? 0, y: f.py ?? 0 } };
       const ctx = {
         fightRunning: true, model,
@@ -298,6 +299,17 @@ const t210 = await runLock({ organs: ORGANS3, candidates: ['A'],
   frames: [{ dt: 0.06, n: 8, px: 0 }, { dt: 0.02, n: 1, px: 0, clear: true }] });
 check('T2.10 clearLocks(transition) is silent (no lockLost) and empties the pips',
   t210.count === 0 && !t210.events.some((e) => e.name === 'lockLost'));
+
+// T2.13 — MULTI-CANDIDATE MOTION (the owner-caught slot-4 bug): on a boss with
+// several organs, acquisition must test the DISPLAYED smoothed anchor, not a raw
+// scan — a coiling rib (±4.5m @ 2.4, the L175 motion) must paint from a still
+// centre line even with a second candidate in the list.
+const swing = [];
+for (let t = 0; t < 3.0; t += 1 / 60) swing.push({ dt: 1 / 60, px: 0, ax: 4.5 * Math.sin(2.4 * t) });
+const t213 = await runLock({ organs: { A: { x: 0, y: 0 }, B: { x: 30, y: 0 }, C: { x: 40, y: 0 } },
+  candidates: ['A', 'B', 'C'], frames: swing });
+check('T2.13 a fast-swinging organ paints on a multi-organ boss (smoothed acquisition)',
+  t213.count >= 1 && t213.events.some((e) => e.name === 'lockPaint' && e.part === 'A'));
 
 // ---------------------------------------------------------------------------
 // T2.G — config/def gate lints (the honest arithmetic gates; printed value-vs-law).
