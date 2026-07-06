@@ -1478,15 +1478,13 @@ function buildSilkFinWings(def, model, attach, giM) {
     emissive: cMid, emissiveIntensity: model.finGlow ?? 0.06,
   });
   applyFresnelRim(finMatRear, cRim);
-  // Darker leading-RAY spar material (matte emerald bone, §3 "darker leading ray per lobe").
-  const rayMat = new THREE.MeshStandardMaterial({ color: cLead, roughness: 0.55, metalness: 0.0, emissive: 0x06301e, emissiveIntensity: 0.25 });
   spineMats.push(finMat, finMatRear);
 
   // A cambered koi-fin PETAL in the lobe plane: length +X, chord in Z (leading −Z,
   // trailing +Z), tapering to a forked/notched TIP. Painted leading-ray-dark → mid →
   // pale-tip along the length, with a green leading stripe. `rimAmt`>0 blends the
   // mint-pearl rim into the outer tip (the rear-carrier lobe).
-  function petalGeo(L, wRoot, rimAmt) {
+  function petalGeo(L, wRoot, rimAmt, side) {
     const nX = seg(Math.max(4, Math.round(8 * detail))), nZ = seg(Math.max(3, Math.round(5 * detail)));
     const verts = [], cols = [], idx = [];
     const cL = new THREE.Color(cLead), cM = new THREE.Color(cMid), cT = new THREE.Color(cTip), cR = new THREE.Color(cRim), c = new THREE.Color();
@@ -1494,21 +1492,26 @@ function buildSilkFinWings(def, model, attach, giM) {
       const uu = i / nX;
       for (let j = 0; j <= nZ; j++) {
         const cf = j / nZ;
-        // forked TIP: the middle of the chord recedes over the outer 40% (a V-notch),
-        // so the lobe ends in a leading prong + trailing prong = a koi ray tip (sin^0.7
-        // opens a WIDE notch that survives in black fill, matching ember's mouth math).
-        const uMax = 1 - notchDepth * Math.pow(Math.sin(cf * Math.PI), 1.1);
+        // forked TIP: the middle of the chord recedes over the outer 40% (a WIDE V-notch,
+        // sin^0.85), so the lobe ends in a leading prong + trailing prong = a koi ray tip
+        // whose gap survives in the rear black-fill (gate r1 dir 5).
+        const uMax = 1 - notchDepth * Math.pow(Math.sin(cf * Math.PI), 0.85);
         const u = uu * uMax;
         const x = u * L;
         // koi petal: broad belly near the root, tapering to the prongs. Chord narrows
         // with a swell so the silhouette is a leaf, not a triangle.
         const halfW = wRoot * 0.58 * Math.sin(Math.min(1, 0.14 + u * 0.88) * Math.PI);
         const z = (cf - 0.5) * 2 * halfW;
-        const y = camber * Math.sin(cf * Math.PI) * (0.35 + 0.65 * Math.sin(u * Math.PI));
+        // camber cup + a raised LEADING RIB (cf→0): the leading edge lifts into a spine
+        // so the "darker leading ray" reads as integrated relief, not a floating rod
+        // (gate r1 dir 6 — the separate ray bone is gone).
+        const rib = Math.max(0, 0.5 - cf) * 2;                 // 1 at leading edge → 0 by mid-chord
+        const y = camber * Math.sin(cf * Math.PI) * (0.35 + 0.65 * Math.sin(u * Math.PI))
+                + camber * 0.5 * rib * rib * Math.sin(u * Math.PI);
         verts.push(x, y, z);
         // value tiers along length: leading-ray dark near cf=0, mid body, pale tip.
         c.copy(cM).lerp(cT, Math.pow(u, 1.3));                 // root→tip lightening
-        c.lerp(cL, Math.max(0, 0.5 - cf) * 1.1);               // darker toward the leading edge (the ray)
+        c.lerp(cL, Math.max(0, 0.5 - cf) * 1.5);               // darker toward the leading edge (the welded ray)
         if (rimAmt > 0 && u > 0.55) c.lerp(cR, rimAmt * Math.min(1, (u - 0.55) / 0.35) * (0.4 + 0.6 * Math.sin(cf * Math.PI)));  // mint-pearl rim on the outer tip
         cols.push(c.r, c.g, c.b);
       }
@@ -1516,8 +1519,13 @@ function buildSilkFinWings(def, model, attach, giM) {
     const W = nZ + 1;
     for (let i = 0; i < nX; i++) for (let j = 0; j < nZ; j++) {
       const a = i * W + j, b = a + 1, d = a + W, e = d + 1;
-      idx.push(a, d, b, b, d, e);
+      // BAKE the L/R mirror into the winding (not mesh.scale.x=-1, which flips the
+      // normals → one wing lit sage-green, the other blue-teal, gate r1 dir 7). For the
+      // left side we negate x below AND reverse the triangle winding here so normals
+      // still compute OUTWARD and both wings shade identically green.
+      if (side < 0) { idx.push(a, b, d, b, e, d); } else { idx.push(a, d, b, b, d, e); }
     }
+    if (side < 0) for (let k = 0; k < verts.length; k += 3) verts[k] = -verts[k];
     const g = new THREE.BufferGeometry();
     g.setAttribute('position', new THREE.Float32BufferAttribute(verts, 3));
     g.setAttribute('color', new THREE.Float32BufferAttribute(cols, 3));
@@ -1561,14 +1569,10 @@ function buildSilkFinWings(def, model, attach, giM) {
       rest.rotation.z = side * tilt * (0.82 + 0.22 * t);     // TALL tilt, rising outboard (koi fan)
       const furl = new THREE.Group();
       rest.add(furl);
-      const mesh = new THREE.Mesh(petalGeo(len, wRoot, rimAmt), isRear ? finMatRear : finMat);
-      mesh.scale.x = side;
+      // the petal geometry bakes its own L/R mirror (correct outward normals) + the
+      // welded leading rib — no mesh.scale.x flip, no separate ray bone (gate r1 dir 6/7).
+      const mesh = new THREE.Mesh(petalGeo(len, wRoot, rimAmt, side), isRear ? finMatRear : finMat);
       furl.add(mesh);
-      // darker leading RAY — a slim tapered emerald spar down the leading edge, ending
-      // WELL INSIDE the petal (≤0.66× len) so it reads as an internal rib, never an
-      // overshooting spike past the silk.
-      const ray = bone(0.03 * side, 0.01, -wRoot * 0.40, len * 0.64 * side, camber * 0.5, -wRoot * 0.12, 0.055 * ws, 0.018 * ws, rayMat);
-      furl.add(ray);
       const tipObj = new THREE.Object3D();
       tipObj.position.set(len * side, 0, 0);
       furl.add(tipObj);

@@ -6288,3 +6288,57 @@ judges greenness. Jade is not yet in `tests/starters.mjs` SPECS ("joins in its s
 doc-only; roster gates stay green untouched (blueprint 4/4, starters 120/0, tricount 0 over budget).
 (4) **When in doubt, choose GREEN** — the sheet now instructs the gate to treat greenness-at-gameplay-
 distance as part of color/rim beauty, so "tasteful dark jade" is a FAIL, not a safe hedge.
+
+---
+
+## L167 — JADE slot C CP1: silkFinWings + serpent + the ICONIC GREEN build (gate r1 FAIL → r2 in progress)
+
+**What we did.** Built the jade "Jade Serpent" starter to the §5d sheet on the merged ember base — new
+self-registered wing builder `silkFinWings` (§3 col 3: 3→4 tall koi fin-lobes, forked/notched tips = the
+jade separation metric, green gradients, mint-pearl rim carrier + trailing streamers), `buildRiverPearl`
+motif socket (the ONE bloom), the serpent torso + softStealth draconic head, and the full ICONIC GREEN
+palette across 3 forms. All headless gates green (starters --cp1 163/0, blueprint 4/4, tricount 0 over
+budget; jade 2986/4028/5084 tris). Then a fresh `fable` gate FAILed CP1 at avg 2.25 with 14 directives;
+applied the structural ones as r2.
+
+**Reusable engine dials landed (all additive, default-off → roster byte-identical):**
+- **`model.spineYaw`** (torso): a LATERAL top-view S (offsets loft x + neck x + headBase x by a sine along
+  z). The serpent read needs BOTH the existing vertical `spineCurl` AND this lateral S — jade set neither
+  at first and the gate's #1 FAIL was STRAIGHT SPINE. **Jade never setting `spineCurl` was the bug** — the
+  dial existed (ember used it) but a straight body is the default; a serpent MUST dial both.
+- **`def.scaleEmissive`/`scaleEmissiveI`, `def.eyeEmissiveI`, `def.bellyEmissive`/`bellyEmissiveI`**
+  (dragonModel materials): the shared `scalesMat` has a HARDCODED cyan emissive (L164) that lit jade's
+  scutes/**whiskers**/ridges steel-blue, `eyeMat` emissive 2.2 blew the eye to a white googly blob, and the
+  pale `bellyMat` desaturated to slate-blue in shadow under ACES. All three are now def-overridable; jade
+  tints them green/calm. **On a saturated-identity dragon, audit EVERY shared material for an off-hue
+  hardcode — cyan on green is as jarring as the L164 cyan on ember's warm.**
+
+**The wing lessons (gate-driven):**
+- **Bake the L/R mirror into the geometry (negate x + REVERSE winding), never `mesh.scale.x = -1`.** A
+  negative scale flips the normals, so one koi fin lit sage-green and its mirror lit blue-teal (gate r1
+  dir 7). Reversing the index winding makes `computeVertexNormals` point outward on both sides → identical
+  green. This will recur for any mirrored vertex-coloured wing.
+- **A "darker leading ray" is a WELDED vertex-colour stripe + a raised leading rib, not a separate bone.**
+  The first pass added a matte spar bone per lobe; from behind they read as floating black rods overshooting
+  the silk (gate r1 dir 6). Deleting the bones and lifting the leading edge into a camber rib + darkening the
+  leading vertices reads as integrated relief with zero overshoot.
+- **Notch profile `sin^0.85` (wide mouth) survives the rear black-fill; the earlier spiky read was the
+  floating rods, not the notch.** Depth ≥0.3× lobe length is the §3 jade metric (published as
+  `wingElements[].notchDepth`); the test branches on `spec.separation==='notch'` (jade overlaps, so the
+  azure/ember planform-gap assert is wrong for it).
+- **Fan-fold furl:** jade rides direct `wingPivotL/R` + per-lobe `wingLobePivotsL/R`; a new `poseLobePivots`
+  (wingDebugPose) swings the fan back + yaws each lobe inboard so a fold contracts span past 0.72×. GOTCHA:
+  the model orchestrator WHITELISTS which `parts.*` keys it forwards — `wingLobePivotsL/R` were silently
+  dropped (the fold looked broken, contraction stuck at 0.74) until threaded through both forward blocks.
+
+**Test-metric reconciliation.** §3's jade "span:body 2.2–2.5×" is against the CORE body, but the §7 test
+measures against the full nose-to-tail serpent length (huge denominator) → the reconciled band is ~0.28–0.46.
+The r1 gate still called the fans BACKPACK at that band, so the fans were grown ~1.5× (lobeSpan 4→6). When a
+sheet ratio and the built-geometry metric diverge, the GATE's pixel read wins — grow until it reads as the
+hero, and document the band divergence (as azure/ember did).
+
+**Open (gate r1 residual → next rounds, CP2-class):** the HEAD is the battleground (ember's CP2 pattern) —
+round frog-ball skull, blank pale eyes (need iris+pupil), the chin pearl barely reads in the face crop, jaw
+still drifts blue; the beaded neck needs a smooth loft; streamers still mirror into a "heart" (need the
+rig's phase/lag to break L/R); the tail-whip is straight (the tail MODULE needs its own arc — the torso
+`spineCurl` doesn't reach it). CP1 body+wings are close; the face + neck + tail are the next climb.

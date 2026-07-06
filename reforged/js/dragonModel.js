@@ -155,7 +155,11 @@ export function buildDragonModel(def, opts = {}) {
     color: def.scales, emissive: def.scaleEmissive ?? 0x0b79aa, emissiveIntensity: def.scaleEmissiveI ?? 0.42,
     roughness: 0.28, metalness: 0.22,
   });
-  const bellyMat = new THREE.MeshStandardMaterial({ color: def.belly, roughness: 0.5 });
+  const bellyMat = new THREE.MeshStandardMaterial({
+    // a faint def emissive keeps a PALE belly/jaw from desaturating to slate-blue-grey
+    // in shadow under ACES (jade's mint jaw, gate r1 dir 8); default 0 → byte-identical.
+    color: def.belly, roughness: 0.5, emissive: def.bellyEmissive ?? 0x000000, emissiveIntensity: def.bellyEmissiveI ?? 0,
+  });
   let eyeMat = new THREE.MeshStandardMaterial({
     color: 0x223344, emissive: def.eye, emissiveIntensity: def.eyeEmissiveI ?? 2.2,
   });
