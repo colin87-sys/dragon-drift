@@ -6837,8 +6837,38 @@ retention>cone, cap ladder, decay range, the TUTORIAL INEQUALITY, marrowcoil par
 BUILT model). Deferred, tracked for the next PRs: tether LineSegments (in-world lock attribution),
 feats/analytics hooks, the standalone persona TTK sim (lockdps), V3's tap table (fork/early-volley
 — manual release arrives there; today's release is auto-only by design).
+### L179 — Biome increment 1 shipped (ASHTALON→Caldera): the doc's seam had MOVED — adapt the algorithm to the code, not the code to the doc
 
-### L179 — the LANCE playtest loop: four owner-caught UX laws (display==logic, unpainted-first, diegetic timers, sealed honesty)
+**Did.** Built `BIOME-DESIGN.md §7` increment 1: `anchor: 'ashtalon'` on the Emberfall Caldera entry ONLY
+(`biomes.js`), new `js/biomeBoss.js` (`bossForBiome(bi)` + the §6 pure pick `pickBossKey(moduloKey, biomeIndex,
+lastBossKey)` — `nextBiomeBoss` deliberately NOT built, that's increment 4), and the spawn-site pick in
+`boss.js#startBossEncounter`. Proven headless: gold-determinism byte-identical, boss/bossboot/bossrush/defs/
+bulletcontrast/smoke green, `tricount --ci` green, plus a 15-assert pick-logic proof (anchor only on biome 3;
+outside Caldera pick === fallback for every key; anchor preempts; anti-repeat both directions; 4 simulated
+cycles of snapped encounter sites all meet ASHTALON in Caldera).
+
+**The gotcha (the big one).** BIOME-DESIGN §6 pinned the seam as "replace the final `bossDefForIndex(encounterIndex)`
+ternary arm at boss.js:627-629" — but by build time the §5h LIFETIME LADDER had shipped and that arm was already
+`ladderPickDef(...)` at boss.js:~975. The doc had pre-authorized exactly this: `pickBossKey` is pinned as a pure
+function "so the eventual ladder controller can call it unchanged with a different moduloKey source". So the
+adaptation is: the LADDER'S PROPOSAL is the `moduloKey` (fallback) argument; everything else per §6. Two
+consequences the doc couldn't have named: (a) **a biome pick must not advance the ladder rung** (§6 rule 3
+"doesn't advance encounterIndex", generalized) — `ladderSlot` snapshots the LADDER's own proposal, not the
+anchor pick, or an anchor insertion would skip roster slots; (b) **`peekNextDef()` (the §5e horizon-seed peek)
+must mirror the live pick** — ladder proposal → `pickBossKey` at `biomeIndexAt(nextBossDist)` — or the seed
+foreshadows the WRONG boss wherever an anchor preempts the ladder. When a design doc's cited seam has drifted,
+port the doc's ALGORITHM onto the current code and hunt for every OTHER consumer of the old seam (the peek was
+nowhere in the doc).
+
+**Reusable pattern.** `lastBossKey` (anti-repeat memory) follows `encounterIndex`'s lifecycle exactly: set on
+EVERY `startBossEncounter` path, reset wherever `encounterIndex = 0` (run reset + `startBossRush`). And the
+verification seam for "boss X in biome Y" needs no code: `?boss=5400` (debugFirstAt bypasses the biome snap and
+sets the FIRST NORMAL encounter's distance directly) drops the real selection path mid-Caldera — unlike
+`?bossIdx`, which forces the debug arm and never exercises the pick. Note the anti-repeat's fallback-step also
+covers the ladder's full-lap wrap (all 8 felled in one run → ladder re-proposes the just-felled rung) — a
+vanishingly rare, strictly-better divergence from shipped behavior, accepted under §6's pinned ruling.
+
+### L180 — the LANCE playtest loop: four owner-caught UX laws (display==logic, unpainted-first, diegetic timers, sealed honesty)
 
 **Did / learned.** Four rapid owner-playtest rounds on the V2 paint loop (PRs #248/#249 + the
 sealed fix) each exposed a law the headless suites could never see:

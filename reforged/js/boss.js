@@ -13,6 +13,7 @@ import { buildBoss, buildHorizonSeed } from './bossModel.js';
 import { makeRhythm } from './bossRhythm.js';
 import { ENTRANCE_SCRIPTS } from './entranceScripts.js';
 import { BOSSES, BOSS_ORDER, bossDefForIndex, ladderPickDef, ladderTighten } from './bossDefs.js';
+import { pickBossKey } from './biomeBoss.js';
 import { saveData, persist, recordBossCard, recordBossLedger, bossLedgerStats } from './save.js';
 import { BIOMES, biomeIndexAt } from './biomes.js';
 import {
@@ -253,6 +254,10 @@ let adrenT = 0, adrenRung = 0, adrenHits0 = 0, adrenPing = 0;
 const felledRun = new Set();
 let ladderSlot = null;
 let cadenceMult = 1;
+// §6 anti-repeat memory (BIOME-DESIGN.md): the previous encounter's boss key —
+// a biome-anchor pick must never spawn the same boss twice in a row. Set on
+// every startBossEncounter path; reset alongside encounterIndex.
+let lastBossKey = null;
 // Fixed biome offset encounters snap to (§5h: foreshadowing is only authorable
 // if the encounter distance is deterministic — the horizon seed reads it).
 const BOSS_BIOME_OFFSET = 900;
@@ -267,7 +272,11 @@ function snapBossDist(minDist) {
 function peekNextDef() {
   if (rushMode) return BOSSES[rushQueue[rushIndex]] ?? null;
   if (debugDefIdx != null) return bossDefForIndex(debugDefIdx);
-  return ladderPickDef(felledRun, (id) => bossLedgerStats(id).kills, ladderSlot);
+  // Mirror the live pick in startBossEncounter EXACTLY (ladder proposal → §6
+  // biome-anchor preemption at the encounter's snapped distance) or the horizon
+  // seed would foreshadow the wrong boss where an anchor preempts the ladder.
+  const ladderDef = ladderPickDef(felledRun, (id) => bossLedgerStats(id).kills, ladderSlot);
+  return BOSSES[pickBossKey(ladderDef.id, biomeIndexAt(nextBossDist), lastBossKey)];
 }
 // ---- §5e HORIZON-PRESENCE SEED (Vigil Lights' foreshadow: the dead black arch
 // grows on the horizon a full biome early and NEVER moves). A fog-exempt
@@ -962,14 +971,23 @@ export function startBossEncounter(player, defOverride) {
   if (active) return;
   removeSeed();   // §5e: the real boss takes over the seed's spot (seamless handoff)
   active = true;
+  // §5h LIFETIME LADDER (replaces the modulo): the run's first boss is the
+  // lowest lifetime-unbeaten slot; the ladder walks up; felled-this-run
+  // slots never repeat; recurring (beaten) slots come back TIGHTENED.
+  // §6 BIOME ANCHOR (BIOME-DESIGN.md): the ladder PROPOSES; the biome's anchor
+  // boss preempts it iff this encounter lands in its home biome. Null-safe:
+  // an unanchored biome falls straight through to the ladder pick, byte-
+  // identical — and the pick reads state only, no RNG (level.js stream untouched).
+  const ladderDef = (!defOverride && !rushMode && debugDefIdx == null)
+    ? ladderPickDef(felledRun, (id) => bossLedgerStats(id).kills, ladderSlot) : null;
   def = defOverride
     || (rushMode ? BOSSES[rushQueue[rushIndex]]
-      // §5h LIFETIME LADDER (replaces the modulo): the run's first boss is the
-      // lowest lifetime-unbeaten slot; the ladder walks up; felled-this-run
-      // slots never repeat; recurring (beaten) slots come back TIGHTENED.
       : (debugDefIdx != null ? bossDefForIndex(debugDefIdx)
-        : ladderPickDef(felledRun, (id) => bossLedgerStats(id).kills, ladderSlot)));
-  ladderSlot = BOSS_ORDER.indexOf(def.id);            // the ladder resumes from this rung
+        : BOSSES[pickBossKey(ladderDef.id, biomeIndexAt(player.dist), lastBossKey)]));
+  // A biome pick does NOT advance the ladder (§6 rule 3): the rung snapshots the
+  // LADDER's own proposal, so an anchor insertion never skips roster slots.
+  ladderSlot = BOSS_ORDER.indexOf((ladderDef ?? def).id);  // the ladder resumes from this rung
+  lastBossKey = def.id;   // §6 rule 4: the anti-repeat memory, set on EVERY path
   // Recurring-slot tighten (§5h "beaten slots recur with tightened dials"):
   // 1 for a first-time slot / rush / debug — every dial byte-identical there.
   cadenceMult = (!rushMode && debugDefIdx == null && !defOverride)
@@ -1102,6 +1120,7 @@ export function startBossRush(player, only = null) {
   rushSolo = !!(pick && roster.length > 1);
   rushIndex = 0;
   encounterIndex = 0;
+  lastBossKey = null;   // §6: the anti-repeat memory resets alongside encounterIndex
   active = false;
   if (rushQueue.length === 0) { emit('rushClear', { count: 0 }); nextBossDist = Infinity; return; }
   nextBossDist = player.dist + RUSH_LEAD;
@@ -2618,6 +2637,7 @@ export function resetBoss() {
   felledRun.clear();
   ladderSlot = null;
   cadenceMult = 1;
+  lastBossKey = null;   // §6 anti-repeat memory resets with the run
   // Clear the gauntlet driver (a fresh run re-arms it via startBossRush if in rush).
   rushMode = false; rushQueue = []; rushIndex = 0; rushSolo = false;
 }
