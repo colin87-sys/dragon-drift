@@ -6374,3 +6374,36 @@ kill-test's "left station" check only counted up / lateral / near-camera excursi
 downward dive read as "never left." Generalized it to also accept `minY < fightHeight−6` (track
 `setpieceMinY`) — the honest fix, and it can't false-pass the shipped bosses (their setpieces
 don't dive).
+
+### L166 — Biome overhaul designed: BIOMES[] is render-only, so boss↔biome binding needs a lookup, not a controller
+
+**Did.** Ran the full biome research + design arc (codebase audit × boss-roster audit × industry research →
+4-doctrine design panel → adversarial scoring → codebase-grounded synthesis). The output is
+**`reforged/BIOME-DESIGN.md`** — the biome playbook, peer to `BOSS-DESIGN.md`: diagnosis, biome design laws, the
+final 8-biome lineup (retool 6 + NEW Tempest Reach for STORMREND + NEW Tidal Reef for BRINEHOLM), the identity-
+system architecture, the §5h boss↔biome coupling, and a 10-increment coexist→hero→migrate rollout (hero:
+Emberfall Caldera + ASHTALON). Owner locked three decisions: 8 biomes; hazards-first (dodge-only) with kinematic
+verbs deferred behind a neutral-default `mech` schema; ambience beds LAYERED under the radio (station choice is
+inviolable).
+
+**The unlock (why the deferred §5h pairing is suddenly cheap).** `BIOMES[]`/`biomeIndexAt` are pure render-side
+functions of distance, fully decoupled from `level.js`'s determinism-locked RNG — so boss↔biome binding needs
+only a pure `bossForBiome(biomeIndexAt(dist))` lookup with the existing `%`-modulo as null-fallback, NOT the
+lifetime-ladder controller everyone assumed. And `biomeIndexAt(dist + biomeLength)` being deterministic means the
+biome boundary IS the foreshadow schedule (glint/audio/skyGrade/landmark a biome early) for free.
+
+**Gotchas baked into the doc (don't relearn).** (a) The determinism fixture (`gold-determinism.mjs`) covers ONLY
+rings/obstacles/goldEmbers — new content rides a new XOR'd `mulberry32` stream into a NEW `out.*` array (the
+`overlayCanyons`/`goldRnd` pattern), and even kinematic forces are fixture-safe (player physics is never
+fixtured). (b) Every `computeEnv` field needs THREE touches (BIOMES entry + lerp + consumer copy) or it silently
+does nothing. (c) Real paint bug found: shared props `column`/`slab`/`dome` hardcode `mergeParts([...], 0)` so
+they render Sanctuary verdigris inside the Amber Wastes — fix is per-instance `instanceColor` keyed on
+`biomeIndexAt`, zero draw cost. (d) Adding biomes must NEVER reorder `BIOMES[]` (every `biomes:[i]` whitelist /
+skin / mat is index-keyed) — append entries + a `CYCLE[]` order layer, shipped first as a provable no-op.
+(e) The audio engine already has per-biome hooks (`keyShift` at `main.js:1062`); ambience beds are new content on
+existing infra, not a new subsystem.
+
+**The pattern.** Feature-audit × anchor-audit × outside research, run as independent lanes, then scored designs
+grounded against the code before synthesis — the grounding pass killed two wrong assumptions ("no audio system",
+"draw calls are the budget") that would otherwise have shipped into the plan. When a doc is the deliverable,
+adversarially fact-check its file:line claims before committing; implementers will trust it blindly.
