@@ -6761,3 +6761,41 @@ fair without touching the global cone (principle-5 safe). Combined with the L175
 (assert every lock anchor's peak speed ≤ trackable), the roster can be authored so every boss's aim
 difficulty is a deliberate, measured choice. The world-cone model is now viable roster-wide *given*
 per-boss motion budgets — deferring (not forcing) the bigger screen-space rework.
+
+### L177 — the aim model was the problem, not the boss: retention + drain + a smoothed anchor replace the motion nerf (and the L175/L176 probes were clock-polluted)
+
+**Did.** Reconciled the "fast strafing focal vs world-space cone" problem (L175/L176) at the MODEL,
+not the boss: (1) **acquire/retention asymmetry** — acquisition keeps the tight 2.6m cone (it prices
+exposure: corner 3.68m < grazeR 4.15m), but once a dwell is accruing/held the test widens to a 4.0m
+RETENTION cone (`LOCK.retentionConeXY`) — tight to catch, forgiving to keep; (2) **drain, don't
+reset** — past coyote the dwell melts at 2×dt (`dwellDrainMult`) instead of zeroing, so a
+swing-through carries partial credit and the progress fill teaches "catch it at the turn" wordlessly;
+(3) **the SMOOTHED ANCHOR** — an EMA (`anchorSmoothT` 0.25s) low-passes the tracked organ's world
+position, and the reticle, the rider retarget, AND the cone tests all use it: the marker the player
+chases IS the point that locks, and §3-law-7 idle jitter (every boss wobbles at ≥2 frequencies)
+can never break a line by construction. With these, VOIDMAW's holdSway nerf (±1.8m sleepy drift)
+was reverted to a re-livened ±3.2m @ 0.6 under the **TUTORIAL INEQUALITY: sway amplitude <
+retentionConeXY ⇒ a centred player never drops a held lock while the boss still visibly strafes.**
+Motion sims are now tests (lock.mjs T1.10/T1.11): the ORIGINAL ±5m@0.7 sway and the L175 "unlockable"
+fast focal (±4.5m@2.4) both lock from a still centre line; jitter never breaks a hold.
+
+**The correction (important).** L175/L176's alarming numbers were measurement artifacts. The
+hold-station line is `sin(time*0.7)*5` — the analytic peak is **3.5 m/s**, not "~15 m/s"; and the
+dragon's lateral speed target is `lateralSpeed 24` m/s (damp toward axes.x×24), not "~4 m/s". Both
+probe figures are consistent with one clock-scaling error — headless runs rAF-throttle ~15×
+(documented in BOSS-DESIGN §7 as a known flake), which poisons any Δx/Δt velocity estimate. The
+design conclusion half-survived (casuals genuinely can't TRACK an oscillating focal through
+zero-crossings while dodging — accel lag + divided attention), but the boss got calmed on numbers
+that were ~4× wrong. **LAW: velocity/frequency probes must be computed analytically or with
+fixed-dt stepping (drive the module directly, as lock.mjs runAim does) — never from wall-clock
+deltas in a headless rAF loop.** And when a feel problem appears, separate the axes before fixing:
+anchor CHOICE (size/visibility — faceCore fixed this), target MOTION (retention/smoothing fix
+this), and dwell TIME (rate/coyote fix this). L175 conflated them and the boss paid.
+
+**→ Leapfrog.** `holdSway` stays as the def seam (a legit authoring knob), but it is no longer the
+aim-difficulty crutch: the L175 `lockmotion` PR2 gate should assert the TUTORIAL INEQUALITY for
+teach bosses (sway amp < retentionConeXY) and "anchor's SMOOTHED amplitude < retentionConeXY OR
+acquire-window ≥ dwellTime at crossings" for everyone else — both checkable analytically from def
+data + the anchor's motion, no engine boot needed. The screen-space aim rework (L175's leapfrog
+candidate) is now unnecessary: the world-cone with a smoothed anchor handles the measured worst
+case with margin.

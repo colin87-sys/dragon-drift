@@ -73,9 +73,13 @@ export const BOSSES = {
     virtualLockOrgan: 'faceCore',     // V1 slot-1 TUTORIAL: aim at the whole FACE (a big,
                                       // stable central anchor), not the tiny fast-swaying eye —
                                       // so the first teach is easy to lock (bossIdol.js faceCore)
-    holdSway: { amp: 1.8, freq: 0.45 }, // slot-1 TEACH drift: slow + small so the face stays
-                                      // inside the aim cone long enough to learn the lock (the
-                                      // default hold-station sway is ±5m — far too fast to track)
+    holdSway: { amp: 3.2, freq: 0.6 },// slot-1 TEACH sway, re-livened (L177). The TUTORIAL
+                                      // inequality: amp < LOCK.retentionConeXY (4.0) means a
+                                      // centred player NEVER drops a held lock — the whole swing
+                                      // fits inside the retention cone — while the mask still
+                                      // visibly strafes. (The prior ±1.8m calm was compensating
+                                      // for the old binary dwell; retention+drain+anchor
+                                      // smoothing carry the motion now. Default sway is ±5m@0.7.)
     // Boss-archetype dispatch (bossModel.js buildBoss): routes to the
     // Hollow Idol-Mask hero builder (bossIdol.js) instead of the legacy
     // crystal-core construct. A def WITHOUT `archetype` still falls through

@@ -155,12 +155,24 @@ export const CONFIG = {
   // range without re-approval, provided the sim gates stay green. Neutral at rung 0:
   // a def WITHOUT lock data behaves byte-identically to before this block existed.
   LOCK: {
-    // V1 aim-line
-    coneXY: 2.6,            // LAW — m/axis at the boss plane; NEVER per-dragon or per-boss
+    // V1 aim-line. Position-match and target-MOTION are different failure axes (L175/L177):
+    // the ACQUIRE cone stays tight (it prices exposure — corner 3.68m < grazeR 4.15m) while
+    // retention + drain + anchor smoothing make a moving organ holdable, so boss motion never
+    // has to be nerfed to fit the aim model.
+    coneXY: 2.6,            // LAW — ACQUIRE cone, m/axis at the boss plane; NEVER per-dragon or per-boss
+    retentionConeXY: 4.0,   // TUNE(3.5–4.5) — HOLD cone once a dwell is accruing/held: tight to
+                            // catch, forgiving to keep (classic aim-assist shape; exposure was
+                            // priced at acquisition and drain bounds how long retention coasts)
     dwellTime: 0.35,        // LAW (shared clock: V1 acquire + V2 paint)
-    coyote: 0.20,           // TUNE(0.10–0.20) — dwell survives a cone flicker up to this;
-                            // at the max so a strafing organ (VOIDMAW's eye) stays lockable
-                            // as it briefly crosses out of the cone
+    coyote: 0.20,           // TUNE(0.10–0.20) — dwell FREEZES through a cone flicker up to this
+    dwellDrainMult: 2.0,    // TUNE(1.5–3.0) — past coyote, dwell DRAINS at this × dt instead of
+                            // hard-resetting: progress visibly melts, a swing-through carries
+                            // partial credit, and the progress fill teaches "catch it at the
+                            // turn" wordlessly
+    anchorSmoothT: 0.25,    // LAW — EMA time-constant low-passing the tracked organ's world pos.
+                            // §3 law 7 guarantees every boss idles at ≥2 frequencies, so the aim
+                            // anchor must chase the organ's centre of motion, not its animation
+                            // frame — a raw anchor jitter-breaks locks by construction
     linger: 0.6,            // TUNE(0.4–0.8) — aim-line persistence after leaving the cone
     chipRateMult: 1.15,     // LAW — rider interval ÷ this while the line holds an organ
     exposureTickInterval: 0.8, // TUNE(0.6–1.0)

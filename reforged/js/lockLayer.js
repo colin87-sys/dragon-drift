@@ -19,12 +19,18 @@ const L = CONFIG.LOCK;
 
 const S = {
   aimPart: null,     // the part name the line is currently acquiring / holding
-  aimDwell: 0,       // continuous in-cone time accrued toward dwellTime (rate-scaled)
+  aimDwell: 0,       // in-cone time accrued toward dwellTime (drains, never hard-resets — L177)
   aimHeld: false,    // dwell completed → the line is locked on the organ
   offT: 0,           // time since the line last sat in the cone (coyote / linger clock)
   muted: false,      // def.lockMuted — reticle ashen, no V1 rate bonus (slot 13)
   hudPart: null,     // the organ the reticle should point at (aim organ, else primary)
   hasOrgan: false,   // hudPart resolved to a live world position this frame
+  // The SMOOTHED ANCHOR (L177): an EMA low-pass of the tracked organ's world position.
+  // The reticle draws it, the rider aims at it, and retention tests against it — so the
+  // marker the player chases IS the point that locks, and idle-animation jitter (§3 law 7:
+  // every boss wobbles at ≥2 frequencies) can never break a held line.
+  anchorPart: null,
+  ax: 0, ay: 0, az: 0,
   fightRunning: false,
   expTickT: 0,       // exposure-window tick clock
   expTicks: 0,       // ticks paid in the current exposure window (cap 3)
@@ -40,6 +46,7 @@ const _hud = new THREE.Vector3();      // the published HUD world position
 export function initLockLayer() {
   S.aimPart = null; S.aimDwell = 0; S.aimHeld = false; S.offT = 0;
   S.muted = false; S.hudPart = null; S.hasOrgan = false; S.fightRunning = false;
+  S.anchorPart = null; S.ax = 0; S.ay = 0; S.az = 0;
   S.expTickT = 0; S.expTicks = 0; S.expActive = false; S._wasHeld = false;
   S.locks.length = 0;
 }
@@ -48,6 +55,7 @@ export function initLockLayer() {
 // 'transition'/'death' are silent for the lock layer (no lockLost spam — audit).
 export function clearLocks(_reason) {
   S.aimPart = null; S.aimDwell = 0; S.aimHeld = false; S.offT = 0;
+  S.anchorPart = null;
   S.expTickT = 0; S.expTicks = 0; S.expActive = false; S._wasHeld = false;
   S.locks.length = 0;
 }
@@ -58,8 +66,9 @@ export function clearLocks(_reason) {
 // nearly unlockable — you needed ~0.7s on a strafing eye. V1 acquisition is full
 // rate; the quiet penalty applies where camping actually matters (painting locks).
 
-// Nearest candidate organ whose world position sits inside the aim cone (player x/y
-// vs the part's world x/y at the boss plane). Returns { part, wx, wy } or null.
+// Nearest candidate organ whose RAW world position sits inside the ACQUIRE cone
+// (player x/y vs the part's world x/y at the boss plane). Selection only — once a
+// part is being tracked, all cone tests run against the SMOOTHED anchor instead.
 function coneCandidate(player, ctx) {
   let best = null, bestD = Infinity;
   const px = player.position.x, py = player.position.y;
@@ -75,35 +84,64 @@ function coneCandidate(player, ctx) {
   return best;
 }
 
+function releaseAim() {
+  S.aimPart = null; S.aimDwell = 0; S.aimHeld = false; S.offT = 0;
+}
+
 export function updateLockLayer(dt, player, ctx) {
   S.fightRunning = !!ctx.fightRunning;
   S.muted = !!ctx.muted;
-  if (!S.fightRunning) { clearLocks('idle'); refreshHud(ctx); return; }
+  if (!S.fightRunning) { clearLocks('idle'); refreshHud(ctx, dt); return; }
 
-  // ---- V1 aim acquisition ----------------------------------------------------
-  const cand = coneCandidate(player, ctx);
-  if (cand) {
-    S.offT = 0;
-    // Switching to a different organ restarts the dwell (coyote only forgives a
-    // flicker on the SAME line, not a target change).
-    if (cand.part !== S.aimPart) { S.aimPart = cand.part; S.aimDwell = 0; S.aimHeld = false; }
-    // Time-in-cone accrues at FULL rate from the first in-cone frame (the acquisition
-    // frame counts). No quiet penalty on aiming — see the NB above.
-    S.aimDwell = Math.min(S.aimDwell + dt, L.dwellTime);
-  } else {
-    // Line left the cone this frame.
-    S.offT += dt;
-    if (!S.aimHeld) {
-      // Still acquiring: tolerate a flicker up to coyote, then reset the dwell.
-      if (S.offT > L.coyote) { S.aimDwell = 0; S.aimPart = null; }
+  // Resolve + smooth the tracked/display organ FIRST: the anchor the reticle draws
+  // this frame is the same point the cone logic tests (display == logic — the marker
+  // the player chases IS the thing that locks).
+  refreshHud(ctx, dt);
+  const px = player.position.x, py = player.position.y;
+
+  // ---- V1 aim: acquire (tight cone) / hold (retention cone + drain) — L177 ----
+  if (!S.aimPart) {
+    // ACQUISITION — the tight cone prices exposure. Single-candidate fast path tests
+    // the smoothed anchor (what the reticle shows); a multi-part roster (PR2) falls
+    // back to a raw nearest-in-cone scan for selection.
+    let hit = null;
+    if (S.hasOrgan && S.hudPart && (!ctx.candidates || ctx.candidates.length <= 1)) {
+      if (Math.abs(px - S.ax) < L.coneXY && Math.abs(py - S.ay) < L.coneXY) hit = S.hudPart;
     } else {
-      // Already held: persist the lock (reticle + retarget) through linger, then revert.
-      if (S.offT > L.linger) { S.aimHeld = false; S.aimPart = null; S.aimDwell = 0; }
+      const cand = coneCandidate(player, ctx);
+      if (cand) hit = cand.part;
+    }
+    if (hit) {
+      S.aimPart = hit;
+      S.offT = 0;
+      // The acquisition frame counts, at FULL rate (no quiet penalty on aiming — NB above).
+      S.aimDwell = Math.min(dt, L.dwellTime);
+    }
+  } else {
+    // TRACKING — once a dwell is accruing/held, the wider RETENTION cone applies,
+    // tested against the smoothed anchor: tight to catch, forgiving to keep. A
+    // strafing organ (VOIDMAW ±5m) or an idle-anim wobble no longer knife-edges
+    // the dwell (L175's real failure — target MOTION, not dwell rate).
+    const inRet = S.hasOrgan && S.anchorPart === S.aimPart &&
+      Math.abs(px - S.ax) < L.retentionConeXY && Math.abs(py - S.ay) < L.retentionConeXY;
+    if (inRet) {
+      S.offT = 0;
+      S.aimDwell = Math.min(S.aimDwell + dt, L.dwellTime);
+    } else {
+      S.offT += dt;
+      if (S.aimHeld) {
+        // Held: persist the lock (reticle + retarget) through linger, then revert.
+        if (S.offT > L.linger) releaseAim();
+      } else if (S.offT > L.coyote) {
+        // Acquiring: freeze through coyote, then DRAIN — progress melts instead of
+        // vanishing, so a swing-through keeps partial credit and the progress fill
+        // teaches "catch it at the turn" without a word of text.
+        S.aimDwell -= dt * L.dwellDrainMult;
+        if (S.aimDwell <= 0) releaseAim();
+      }
     }
   }
   if (S.aimPart && S.aimDwell >= L.dwellTime) S.aimHeld = true;
-
-  refreshHud(ctx);
 
   // Lock-acquired edge (green snap): fire ONCE when a usable lock is achieved, so
   // ui/sfx can pop + chime. `held` = aimHeld and not muted (a muted organ can't lock).
@@ -128,14 +166,28 @@ export function updateLockLayer(dt, player, ctx) {
   }
 }
 
-// Resolve the organ the reticle should point at: the held/acquiring aim organ, else
+// Resolve the organ the reticle should point at — the held/acquiring aim organ, else
 // the primary candidate (candidates[0]) so the reticle shows WHERE to aim even before
-// the line locks (mirrors how the ring reticle shows the next ring).
-function refreshHud(ctx) {
+// the line locks — and low-pass it into the SMOOTHED ANCHOR (S.ax/ay/az → _hud). The
+// anchor snaps on a part change, then EMAs toward the raw position, so reticle, rider
+// aim, and retention all track the organ's centre of motion, never its per-frame
+// animation jitter (idle motion at ≥2 frequencies is a design LAW — §3.7).
+function refreshHud(ctx, dt) {
   const part = S.aimPart || (ctx.candidates && ctx.candidates[0]) || null;
   S.hudPart = part;
-  const w = part && ctx.model && ctx.model.partWorldPos ? ctx.model.partWorldPos(part, _hud) : null;
-  S.hasOrgan = !!w;
+  const w = part && ctx.model && ctx.model.partWorldPos ? ctx.model.partWorldPos(part, _w) : null;
+  if (!w) { S.hasOrgan = false; return; }
+  if (S.anchorPart !== part) {
+    S.anchorPart = part;
+    S.ax = w.x; S.ay = w.y; S.az = w.z;
+  } else {
+    const k = 1 - Math.exp(-(dt || 0.016) / L.anchorSmoothT);
+    S.ax += (w.x - S.ax) * k;
+    S.ay += (w.y - S.ay) * k;
+    S.az += (w.z - S.az) * k;
+  }
+  _hud.set(S.ax, S.ay, S.az);
+  S.hasOrgan = true;
 }
 
 // --- Published state ---------------------------------------------------------
