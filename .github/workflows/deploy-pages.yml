@@ -28,11 +28,17 @@ permissions:
   pages: write         # deploy to the github-pages environment
   id-token: write      # OIDC for actions/deploy-pages
 
-# Serialise deployments so concurrent triggers (a merge + a preview) can't race;
-# never cancel an in-flight publish.
+# Serialise deployments so concurrent triggers (a merge + a preview) can't race.
+# cancel-in-progress: true — when many PR-preview pushes + master merges queue up
+# (lots of active branches), a newer deploy supersedes the older queued ones
+# instead of waiting behind them. The published site is reassembled FRESH from
+# master + the gh-pages preview store on every run, so it is idempotent: the
+# latest run always publishes the complete, current site. Dropping stale queued
+# deploys just gets the newest content live sooner and shrinks the window where a
+# freshly-commented preview URL 404s because its deploy is still stuck in line.
 concurrency:
   group: pages
-  cancel-in-progress: false
+  cancel-in-progress: true
 
 jobs:
   deploy:
