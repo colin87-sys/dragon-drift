@@ -214,10 +214,10 @@ export const DRAGONS = {
       headArchetype: 'softStealth',      // rounded wedge skull + large soft calm eyes + swept ear-fins — the river-dragon read
       headScale: 0.6, snoutScale: 0.72, eyeScale: 0.82, eyeShape: 1.0,
       cuteEye: true,                     // living eye — jade-green iris + dark forward pupil + catchlight (gate r1 dir 9; no more blank doll orb)
-      headStretch: 1.42, headNarrow: 0.8,   // slim ELONGATED koi/serpent head (not a round blob-pile — gate r3 dir 5)
+      skullType: 'koiSkull',             // a NEW lofted koi/eastern-serpent head shell (slim, browed, tapered snout) — replaces softStealth's round ellipsoid blob (gate structural rework)
       bellyPaint: true,                  // pale mint underside vertex-painted on the ventral serpent torso (ICONIC GREEN belly)
       whiskerFins: true,                 // trailing whisker fins (jade signature) — cradle the chin pearl
-      neckBlend: 1.6,                    // fuse the neck beads into a smooth taper (gate r1 dir 3 — no sausage-bead chain)
+      neckBlend: 2.4,                    // fuse the neck beads into a SMOOTH tapered tube (gate r6 dir 2 — no michelin-ring caterpillar neck)
       tailArc: 0.7, tailYaw: 1.4,        // the tail COUNTER-ARCS up + coils LATERALLY into the rear-chase frame (the serpent body IS the silhouette — gate r6 dir 1)
       tailGirth: 1.7,                    // FAT serpent ribbon (the body carries the rear-chase silhouette, §5d wings+fins 30-50% / body 40-60%)
       tailPlates: false,                 // smooth koi tail — no dorsal spike row (that read as sawtooth/drill-bit)
@@ -262,7 +262,7 @@ export const DRAGONS = {
       // almond eyes, 4 lobes + trailing streamers, veil (finned) tail, whiskers
       // cradling the luminous river-pearl (the ONE bloom). DEEPEST value, richest
       // saturation — still NO glow-seams (law 12); spineGlow ≤0.32.
-      { headScale: 0.48, snoutScale: 0.98, eyeScale: 0.72, eyeShape: 0.62,
+      { headScale: 0.42, snoutScale: 0.98, eyeScale: 0.52, eyeShape: 0.62,
         neckSegments: 8, tailSegments: 12, whiskerFins: true, crest: 1,
         spineCurl: 0.9, spineYaw: 0.72,   // full proud S-ribbon (neck arcs up, mid dips, tail counter-arcs; strong lateral recurve)
         lobeCount: 4, lobeSpan: 5.3, lobeTilt: 0.95, lobeDetail: 1.3, rimCarrier: 1.0, streamerLen: 4.5, pearlStage: 2,

@@ -200,6 +200,68 @@ function buildSmoothForgeSkull(c) {
   c.snoutTipZ = -1.55 * sc;
 }
 
+// KOI / eastern-serpent head — ONE lofted Catmull shell (the smoothForgeSkull pattern,
+// L165), shaped SLIM + ELONGATED for jade: a rounded braincase → a defined BROW ridge
+// over the eyes → a soft stop → a full but tapering snout to a rounded nose. No ellipsoid
+// stack, no bead-chain — a sleek river-dragon head instead of a caterpillar blob.
+function buildKoiSkull(c) {
+  const sc = c.cfg.snoutScale ?? 1;
+  const st = [
+    [ 0.60, 0.09, 0.10,  0.00],   // nape cap → flows into the neck
+    [ 0.36, 0.28, 0.30,  0.02],   // nape blend
+    [ 0.10, 0.37, 0.41,  0.05],   // rounded braincase (taller than wide — slim)
+    [-0.12, 0.40, 0.45,  0.08],   // BROW shelf — widest+tallest, overhangs the eyes (eastern brow)
+    [-0.34, 0.36, 0.35, -0.01],   // eye zone — dips after the brow (the "stop")
+    [-0.58, 0.34, 0.30, -0.05],   // cheek
+    [-0.84 * sc, 0.32, 0.28, -0.08],   // snout base (full/broad — koi)
+    [-1.12 * sc, 0.28, 0.25, -0.11],   // muzzle
+    [-1.38 * sc, 0.24, 0.22, -0.13],   // pre-nose (broad rounded)
+    [-1.56 * sc, 0.17, 0.16, -0.15],   // rounded nose
+    [-1.66 * sc, 0.08, 0.08, -0.155],  // nose pad
+    [-1.72 * sc, 0.02, 0.02, -0.156],  // cap near-closed
+  ];
+  const catmull = (p0, p1, p2, p3, t) => {
+    const t2 = t * t, t3 = t2 * t;
+    return 0.5 * ((2 * p1) + (-p0 + p2) * t + (2 * p0 - 5 * p1 + 4 * p2 - p3) * t2 + (-p0 + 3 * p1 - 3 * p2 + p3) * t3);
+  };
+  const SUB = 2, rings = [];
+  for (let s = 0; s < st.length - 1; s++) {
+    const a = st[Math.max(0, s - 1)], b = st[s], cc = st[s + 1], d = st[Math.min(st.length - 1, s + 2)];
+    for (let u = 0; u < SUB; u++) { const t = u / SUB;
+      rings.push([catmull(a[0], b[0], cc[0], d[0], t), catmull(a[1], b[1], cc[1], d[1], t), catmull(a[2], b[2], cc[2], d[2], t), catmull(a[3], b[3], cc[3], d[3], t)]); }
+  }
+  rings.push(st[st.length - 1]);
+  const bodyC = c.mats.bodyMat.color.clone();
+  const snoutC = bodyC.clone().multiplyScalar(0.82);            // a value step darker over the muzzle (law 11 tier)
+  const jawC = c.mats.bellyMat.color.clone();                  // pale mint jaw underside
+  const M = seg(14), verts = [], cols = [], idx = [];
+  for (const [z, w, h, yc] of rings) {
+    for (let k = 0; k < M; k++) {
+      const a = (k / M) * Math.PI * 2, cs = Math.cos(a), sn = Math.sin(a);
+      const keel = 1 + 0.05 * sn, yy = yc + h * sn * keel;
+      verts.push(w * cs, yy, z);
+      let col = bodyC;
+      if (z < -0.72 * sc) col = snoutC;                         // muzzle darker tier
+      if (z < -0.42 * sc && sn < -0.12) col = jawC;             // jaw underside = pale mint
+      cols.push(col.r, col.g, col.b);
+    }
+  }
+  for (let s = 0; s < rings.length - 1; s++) for (let k = 0; k < M; k++) {
+    const a = s * M + k, b = s * M + (k + 1) % M, cc = (s + 1) * M + k, d = (s + 1) * M + (k + 1) % M;
+    idx.push(a, cc, b, b, cc, d);
+  }
+  const g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.Float32BufferAttribute(verts, 3));
+  g.setAttribute('color', new THREE.Float32BufferAttribute(cols, 3));
+  g.setIndex(idx); g.computeVertexNormals();
+  const shellMat = c.mats.bodyMat.clone();
+  shellMat.side = THREE.DoubleSide; shellMat.vertexColors = true; shellMat.color.set(0xffffff);
+  c.head.add(new THREE.Mesh(g, shellMat));
+  c.hx = 0.38; c.hy = 0.36; c.hz = 0.52;
+  c.faceZ = -0.30; c.faceR = 0.38;
+  c.snoutTipZ = -1.75 * sc;
+}
+
 // ── SKULL ─────────────────────────────────────────────────────────────────── // one clean rounded cranium (length > width > height); the cone muzzle continues it
 const R = 0.62;               // base cranium radius (before headScale)
 // Per-skull proportions [width, height, length scale] + brow bulge + cheek bevel.
@@ -470,7 +532,7 @@ function eyeZone(c, { r, x, y, z, glow }) {
     // The socketed ball inherits that proven proud anchor (up + forward onto the visible
     // front planes — eyes parked at the dome's silhouette edge read as specks); every other
     // skull keeps the zone anchor (the default eye keeps its shipped position byte-identical).
-    const oneShellEye = c.cfg.cuteEye && c.cfg.skullType === 'smoothWedgeSkull';
+    const oneShellEye = c.cfg.cuteEye && (c.cfg.skullType === 'smoothWedgeSkull' || c.cfg.skullType === 'koiSkull');
     const kYaw = Math.PI - s * 0.62, kN = new THREE.Vector3(Math.sin(kYaw), 0, Math.cos(kYaw));
     const ecA = oneShellEye
       ? new THREE.Vector3(s * c.hx * 0.6, c.hy * 0.32, c.faceZ - c.faceR * 0.34)   // PROUD on the wedge cheek — the one-shell smoothWedge SWALLOWS a flush/inboard eye (L147); the head-on read is carried by the forward-converged pupil, not by moving the ball inboard
@@ -828,8 +890,8 @@ function tuskJaw(c) {                               // Solar / Sovereign
 }
 
 // ── module registry + archetypes ─────────────────────────────────────────────
-const SKULLS = { roundWedgeSkull: buildSkull, nobleWedgeSkull: buildSkull, predatorWedgeSkull: buildSkull, falconWedgeSkull: buildSkull, smoothWedgeSkull: buildSmoothWedgeSkull, smoothForgeSkull: buildSmoothForgeSkull };
-const ONE_SHELL_SKULLS = new Set(['smoothWedgeSkull', 'smoothForgeSkull']);   // whole-head lofts → skip the separate snout/jaw modules
+const SKULLS = { roundWedgeSkull: buildSkull, nobleWedgeSkull: buildSkull, predatorWedgeSkull: buildSkull, falconWedgeSkull: buildSkull, smoothWedgeSkull: buildSmoothWedgeSkull, smoothForgeSkull: buildSmoothForgeSkull, koiSkull: buildKoiSkull };
+const ONE_SHELL_SKULLS = new Set(['smoothWedgeSkull', 'smoothForgeSkull', 'koiSkull']);   // whole-head lofts → skip the separate snout/jaw modules
 const SNOUTS = { shortBluntSnout, mediumBluntSnout, taperedPredatorSnout };
 const EYES   = { largeSoftEyeZone, mediumAlertEyeZone, narrowRegalEyeZone };
 const BROWS  = { softBrow, alertBrow, commandingBrow };
