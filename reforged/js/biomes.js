@@ -91,6 +91,10 @@ export const BIOMES = [
     water: { deep: C(0x2a0a08), shallow: C(0xc84818), waveAmp: 0.55 },
     ambient: { color: C(0xff9a40), fall: -2.2, sway: 1.4, size: 0.36, opacity: 0.9 },
     fauna: { color: C(0xff6a20), scale: 0.6, flap: 3.5 }, // fire-moths: tiny, erratic
+    // Anchor boss (BIOME-DESIGN.md §6): an encounter landing in this biome
+    // prefers this BOSS_ORDER key (biomeBoss.js). OPTIONAL — absent on every
+    // other biome, so their selection is byte-identical to the shipped game.
+    anchor: 'ashtalon',
     props: ['basalt', 'vent'],
     matIndex: 3, // basalt + ember veins
     // Contrast gate: dark band vs this biome's near-black fog (L≈0.18) — lifted.
