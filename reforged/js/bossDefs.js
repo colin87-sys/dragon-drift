@@ -861,8 +861,10 @@ export const BOSSES = {
     glow: 0xffe0a8,              // candle-pale (shield rim / shards) — a touch paler than the accent
     bulletColor: 0xff2b6a,        // danger magenta — the role colour (never per-boss)
     bpm: 60,                      // the toll's base pulse (§5h optional def.bpm for rhythm slots; accelerates live)
-    scale: 1.35,                 // COLOSSAL: baked overhead — the bell body sits above y≈22 at station, only the
-                                  // flared lip + draping shackle-chains dip into the y∈[2,22] envelope (§5d L140/L141)
+    scale: 1.75,                 // COLOSSAL (owner pazzazz pass): lip ≈21 world units across, ~42u chain→clapper —
+                                  // bigger than BRINEHOLM's head (the Tier-3 peak, ~37.5u). Baked overhead: the body
+                                  // sits above y≈22 at station, only the flared lip + chains dip into the y∈[2,22]
+                                  // envelope (§5d L140/L141) — a bell the dragon could fly INTO.
     // §5i.B World-Enders graze debut: SHRINKING SAFE DISC — the toll ring-walls ARE
     // the graze anatomy; ride the shrinking safe disc through escalating ticks, bail
     // on the last beat (offered once per phase). Def-gated (slot-6 continuous detector).

@@ -182,6 +182,88 @@ export function buildKnellgrave(def, quality = 1) {
   }
   bellGroup.add(new THREE.Mesh(mergeK(reliefParts, 'bellRelief'), patinaHiMat));
 
+  // ---- THE YOKE (headstock) — the heavy iron crossbeam a real cathedral bell hangs
+  // from, bolted above the crown; the chain rises from IT (§5g pazzazz pass: mass +
+  // credibility at the top of the silhouette). Bolt heads at the beam ends.
+  const yokeParts = [];
+  const beam = strip(new THREE.BoxGeometry(5.4, 0.85, 1.15)); beam.translate(0, 4.75, 0); yokeParts.push(beam);
+  for (const sx of [-1, 1]) {
+    const post = strip(new THREE.BoxGeometry(0.55, 1.3, 0.7)); post.translate(sx * 1.15, 3.9, 0); yokeParts.push(post);
+    const bolt = strip(new THREE.CylinderGeometry(0.26, 0.26, 1.5, 6)); bolt.rotateZ(Math.PI / 2); bolt.translate(sx * 2.35, 4.75, 0); yokeParts.push(bolt);
+  }
+  bellGroup.add(new THREE.Mesh(mergeK(yokeParts, 'yoke'), ironMat));
+  // crown CANNONS — the cast loops on a real bell's crown, under the yoke.
+  const cannonParts = [];
+  for (const ca of [Math.PI * 0.25, Math.PI * 0.75, Math.PI * 1.25, Math.PI * 1.75]) {
+    const loop = strip(new THREE.TorusGeometry(0.38, 0.14, 5, 9));
+    loop.rotateY(ca); loop.translate(Math.sin(ca) * 0.85, 3.95, Math.cos(ca) * 0.85);
+    cannonParts.push(loop);
+  }
+  bellGroup.add(new THREE.Mesh(mergeK(cannonParts, 'crownCannons'), patinaHiMat));
+
+  // ---- THE FRIEZE + NICHE BANDS (§5g: ornament, not facets) — a shoulder band of
+  // raised inscription blocks + a waist band of arched funeral niches, both wrapping
+  // the body and BROKEN at the crack sector (the frieze itself is interrupted — the
+  // damage reads as history). Embedded at the live surface radius (never floating).
+  const friezeParts = [];
+  const NF = lowQ ? 10 : 14;
+  for (let i = 0; i < NF; i++) {
+    const a = (i / NF) * Math.PI * 2;
+    if (a < 0.35 || a > 5.85) continue;                    // the crack sector stays bare
+    const blk = strip(new THREE.BoxGeometry(0.56, 0.78, 0.32));
+    blk.rotateY(a);
+    const rr = bellRadiusAt(1.6) + 0.06;
+    blk.translate(Math.sin(a) * rr, 1.6, Math.cos(a) * rr);
+    friezeParts.push(blk);
+  }
+  const NN = lowQ ? 9 : 12;
+  for (let i = 0; i < NN; i++) {
+    const a = (i / NN) * Math.PI * 2 + 0.26;
+    if (a < 0.35 || a > 5.85) continue;
+    const nh = i % 2 ? 1.35 : 1.0;                          // alternating arch heights
+    const niche = strip(new THREE.BoxGeometry(0.62, nh, 0.3));
+    niche.rotateY(a);
+    const rr = bellRadiusAt(-2.0) + 0.05;
+    niche.translate(Math.sin(a) * rr, -2.0, Math.cos(a) * rr);
+    friezeParts.push(niche);
+  }
+  bellGroup.add(new THREE.Mesh(mergeK(friezeParts, 'knellFrieze'), patinaHiMat));
+
+  // ---- DRAPED BROKEN CHAINS off the lip rim (chunky — chain-language in the resting
+  // outline, away from the crack sector).
+  const drapeParts = [];
+  for (const [ca, nlk] of [[2.35, 5], [-1.05, 4]]) {
+    const bx = Math.sin(ca) * 5.3, bz = Math.cos(ca) * 5.3;
+    for (let c = 0; c < nlk; c++) {
+      const link = strip(new THREE.TorusGeometry(0.42, 0.16, 5, 9));
+      if (c % 2) link.rotateY(Math.PI / 2);
+      link.translate(bx + Math.sin(ca) * c * 0.06, -6.7 - c * 0.72, bz + Math.cos(ca) * c * 0.06);
+      drapeParts.push(link);
+    }
+  }
+  bellGroup.add(new THREE.Mesh(mergeK(drapeParts, 'knellDrapes'), ironMat));
+
+  // ---- CRACK BRANCHES + SPRUNG PLATES — hairline fractures forking off the main
+  // crack + a few plates of the bell wall sprung slightly proud along the seam (the
+  // bell is coming APART; the plates catch the slit light at their edges).
+  const branchPts = [];
+  for (const [x0, y0, x1, y1] of [[-0.75, 0.2, -1.7, 0.95], [-0.9, -3.0, -2.0, -3.75], [-0.5, -4.6, 0.35, -5.4]]) {
+    branchPts.push(new THREE.Vector3(x0, y0, bellRadiusAt(y0) + 0.08));
+    branchPts.push(new THREE.Vector3(x1, y1, bellRadiusAt(y1) + 0.08));
+  }
+  const branchLines = new THREE.LineSegments(new THREE.BufferGeometry().setFromPoints(branchPts), crackLineMat);
+  branchLines.name = 'knellCrackBranch';
+  bellGroup.add(branchLines);
+  const plateParts = [];
+  for (const [px, py, prz] of [[-1.5, 0.9, 0.18], [-1.7, -2.3, -0.15], [-0.1, -4.0, 0.22]]) {
+    const plate = strip(new THREE.BoxGeometry(0.85, 1.15, 0.18));
+    plate.rotateZ(prz);
+    plate.rotateY(Math.atan2(px, bellRadiusAt(py)));
+    plate.translate(px, py, bellRadiusAt(py) + 0.1);
+    plateParts.push(plate);
+  }
+  bellGroup.add(new THREE.Mesh(mergeK(plateParts, 'crackPlates'), patinaHiMat));
+
   // the flared LIP as its own lighter-value ring (the brightest patina tier, the
   // widest outline point) + a jagged BITE removed on the front-left (the scar). The
   // bite is faked by omitting a wedge of the lip torus and adding two broken fangs.
@@ -247,7 +329,7 @@ export function buildKnellgrave(def, quality = 1) {
   for (let c = 0; c < NLINK; c++) {
     const link = strip(new THREE.TorusGeometry(0.82, 0.3, 6, 12));
     if (c % 2) link.rotateY(Math.PI / 2);   // alternate the weave
-    link.translate(0, 3.7 + c * 1.5, 0);    // from the crown upward, well-separated
+    link.translate(0, 5.6 + c * 1.5, 0);    // from the YOKE upward, well-separated
     chainParts.push(link);
   }
   const chainMesh = new THREE.Mesh(mergeK(chainParts, 'mainChain'), ironMat); chainMesh.name = 'knellChain';
@@ -255,7 +337,7 @@ export function buildKnellgrave(def, quality = 1) {
   swingPivot.add(chainMesh);
   // a short thread continues the last link off-frame (the "hangs from nothing" tail).
   const chainLinePts = [];
-  for (let i = 0; i < 2; i++) chainLinePts.push(new THREE.Vector3((i % 2 ? 0.16 : -0.16), 1.2 + 3.7 + NLINK * 1.5 + i * 1.1, 0));
+  for (let i = 0; i < 2; i++) chainLinePts.push(new THREE.Vector3((i % 2 ? 0.16 : -0.16), 1.2 + 5.6 + NLINK * 1.5 + i * 1.1, 0));
   const chainLine = new THREE.Line(new THREE.BufferGeometry().setFromPoints(chainLinePts), cageMat); chainLine.name = 'knellChainTail';
   swingPivot.add(chainLine);
 
@@ -333,6 +415,18 @@ export function buildKnellgrave(def, quality = 1) {
   // a thin NECK joining the head up to the chest (so head+shoulders read as one body).
   const neck2 = strip(new THREE.CapsuleGeometry(0.24, 0.6, 2, 6)); neck2.translate(0, -9.1, 1.0);
   clapperPivot.add(new THREE.Mesh(neck2, figureMat));
+  // an iron COLLAR at the neck (§5g clapper detail — it is COLLARED to the tongue).
+  const collar = strip(new THREE.TorusGeometry(0.4, 0.14, 5, 10)); collar.rotateX(Math.PI / 2); collar.translate(0, -9.05, 1.0);
+  clapperPivot.add(new THREE.Mesh(collar, ironMat));
+  // TATTERED cloth strips hanging off the shoulders/straps (they sway with the swing —
+  // free motion pazzazz; dark, they read as rags on a prisoner, never bright).
+  const tatParts = [];
+  for (const [tx, ty, ta] of [[-0.55, -8.55, 0.3], [0.6, -8.45, -0.25], [0.1, -9.0, 0.12]]) {
+    const tat = strip(new THREE.BoxGeometry(0.16, 1.15, 0.05));
+    tat.rotateZ(ta); tat.translate(tx, ty - 0.5, 1.18);
+    tatParts.push(tat);
+  }
+  clapperPivot.add(new THREE.Mesh(mergeK(tatParts, 'clapperTatters'), strapMat));
 
   // ---- THE BELL MOUTH — the toll emitter (def.muzzle = 'bellMouth', §5f law 7). A
   // bare node at the lip opening, facing DOWN+toward the player (where the rings + the
@@ -356,6 +450,20 @@ export function buildKnellgrave(def, quality = 1) {
     m.userData = { ph: i / NRING, born: -1 };
     rig.add(m);
     orbiters.push(m);
+  }
+
+  // ---- CANDLE EMBER MOTES — tiny additive sparks drifting UP out of the crack (the
+  // flame inside is ALIVE; §5g toll spectacle). Small sprites, capped opacity — they
+  // ride bellGroup so they swing with the bell. Never near the §2 overdraw cap.
+  const moteMat = track(new THREE.MeshBasicMaterial({ color: new THREE.Color(candle).multiplyScalar(0.9), transparent: true, opacity: 0.45, blending: THREE.AdditiveBlending, depthWrite: false }));
+  const motes = [];
+  const N_MOTE = lowQ ? 4 : 7;
+  for (let i = 0; i < N_MOTE; i++) {
+    const m = new THREE.Mesh(strip(new THREE.SphereGeometry(0.13 + (i % 3) * 0.05, 6, 5)), moteMat);
+    m.name = 'candleMote';
+    m.userData = { ph: i / N_MOTE, sp: 0.45 + (i % 3) * 0.22, sw: (i % 2 ? 1 : -1) * (0.4 + (i % 3) * 0.2) };
+    bellGroup.add(m);
+    motes.push(m);
   }
 
   // edge cage over the bell (a dark outline pass — carves the facets on a bright sky).
@@ -408,12 +516,15 @@ export function buildKnellgrave(def, quality = 1) {
   let shieldClamp = false;
   kit.onShieldChange((v) => { shieldClamp = v; });
 
-  // toll ring-walls: fire one on each toll; each expands + drops + fades fast.
+  // toll ring-walls: each toll fires a PRIMARY ring + a trailing ECHO (a double
+  // wavefront — §5g toll spectacle); each expands + drops + fades fast.
   let ringCursor = 0;
   function fireRing(time) {
-    const m = orbiters[ringCursor % orbiters.length];
-    m.userData.born = time;
-    ringCursor++;
+    const a = orbiters[ringCursor % orbiters.length];
+    a.userData.born = time;
+    const b = orbiters[(ringCursor + 1) % orbiters.length];
+    b.userData.born = time + 0.14;   // the echo (parked until its birth frame)
+    ringCursor += 2;
   }
 
   let dyingK = 0;
@@ -516,8 +627,12 @@ export function buildKnellgrave(def, quality = 1) {
     if (tollActive && autoTollT <= 0 && entranceU == null && dyingK < 0.7) {
       const beat = 1.5 - charge * 0.4 - dreadK * 0.5;    // the accelerating toll
       autoTollT = Math.max(0.4, beat);
-      fireRing(time);
+      tollNow(time);
     }
+    // IT RINGS — a felt reverberation on every toll: the bell body kicks a ~2% pulse
+    // that decays over ~0.35s (the sound made visible on the body itself, §5g).
+    const tollK = Math.max(0, 1 - (time - lastTollAt) / 0.35);
+    bellGroup.scale.setScalar(1 + tollK * 0.022);
     const mouthWX = Math.sin(swingPivot.rotation.z) * -8.6;
     for (const m of orbiters) {
       const born = m.userData.born;
@@ -543,6 +658,18 @@ export function buildKnellgrave(def, quality = 1) {
     // additive candle, value-capped WELL below the HDR slit focal (never out-blooms it).
     ringMat.color.copy(SLIT_BASE).multiplyScalar(0.85);
     ringMat.opacity = ringGlow * 0.5 * (shieldClamp ? 0.4 : 1) * (1 - dyingK);
+
+    // --- CANDLE EMBERS drift up along the crack (the flame is alive; brisker + denser
+    // as the fight heats). Each mote loops a rise cycle seeded by its phase. ---
+    for (const mo of motes) {
+      const u = ((time * mo.userData.sp + mo.userData.ph * 9.7) % 8) / 8;   // 0→1 rise
+      mo.position.set(
+        -0.6 + Math.sin(time * 1.2 + mo.userData.ph * 11) * (0.35 + u * 0.8) * mo.userData.sw,
+        -5.2 + u * 9.5,
+        bellRadiusAt(-5.2 + u * 9.5) + 0.45 + u * 0.5);
+      mo.scale.setScalar((1 - u * 0.65) * (0.8 + charge * 0.5 + dreadK * 0.7));
+    }
+    moteMat.opacity = 0.45 * (1 - dyingK) * (shieldClamp ? 0.3 : 1) * (0.7 + gutter * 0.3);
 
     // --- ENTRANCE: the bell fades in ABOVE the frame already mid-swing; the slit
     // snaps on; the clapper LIFTS ITS HEAD at the apex (driven by the controller via
