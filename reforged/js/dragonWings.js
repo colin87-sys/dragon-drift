@@ -1474,8 +1474,11 @@ function buildSilkFinWings(def, model, attach, giM) {
   // Rear-most lobe + streamers: the ONLY translucent silk (overdraw law) — 1 alpha layer.
   const finMatRear = new THREE.MeshStandardMaterial({
     color: 0xffffff, vertexColors: true, roughness: 0.5, metalness: 0.0,
-    side: THREE.DoubleSide, transparent: true, opacity: 0.7, depthWrite: false,
-    emissive: cMid, emissiveIntensity: model.finGlow ?? 0.06,
+    // held MORE opaque (0.85) + a green emissive floor so the cool backdrop can't bleed
+    // through and tint the rear lobe teal from one side (gate r3 dir 7). Still reads as
+    // silk (slightly translucent), still the only <1-alpha layer (overdraw law).
+    side: THREE.DoubleSide, transparent: true, opacity: 0.85, depthWrite: false,
+    emissive: cMid, emissiveIntensity: Math.max(0.14, model.finGlow ?? 0.06),
   });
   applyFresnelRim(finMatRear, cRim);
   spineMats.push(finMat, finMatRear);
@@ -1509,9 +1512,13 @@ function buildSilkFinWings(def, model, attach, giM) {
         const y = camber * Math.sin(cf * Math.PI) * (0.35 + 0.65 * Math.sin(u * Math.PI))
                 + camber * 0.5 * rib * rib * Math.sin(u * Math.PI);
         verts.push(x, y, z);
-        // value tiers along length: leading-ray dark near cf=0, mid body, pale tip.
+        // value tiers along the chord (law 11): a deep-emerald leading RAY → bright mid
+        // body → a darker trailing step, so each lobe reads DIMENSIONAL, not a flat
+        // sticker (gate r3 dir 9), plus root→tip lightening.
         c.copy(cM).lerp(cT, Math.pow(u, 1.3));                 // root→tip lightening
-        c.lerp(cL, Math.max(0, 0.5 - cf) * 1.5);               // darker toward the leading edge (the welded ray)
+        const lead = Math.pow(Math.max(0, 1 - cf * 2.4), 1.3); // 1 at leading edge → 0 by ~mid-chord
+        c.lerp(cL, lead * 0.92);                               // strong deep-emerald leading RAY (welded, readable at 4×)
+        if (cf > 0.72) c.lerp(cL, (cf - 0.72) * 0.9);          // trailing-edge value step (a 2nd tier, not a flat gradient)
         if (rimAmt > 0 && u > 0.55) c.lerp(cR, rimAmt * Math.min(1, (u - 0.55) / 0.35) * (0.4 + 0.6 * Math.sin(cf * Math.PI)));  // mint-pearl rim on the outer tip
         cols.push(c.r, c.g, c.b);
       }
@@ -1565,8 +1572,8 @@ function buildSilkFinWings(def, model, attach, giM) {
       // rest = the static fan pose (rake back + tall tilt); furl = the animated fan-fold child.
       const rest = new THREE.Group();
       rest.position.set(rootX * side, rootY, rootZ);
-      rest.rotation.y = side * -(rake * (0.4 + 0.5 * t));    // outer lobes rake further back → fan spread (tighter overlap = silk-sail read)
-      rest.rotation.z = side * tilt * (0.82 + 0.22 * t);     // TALL tilt, rising outboard (koi fan)
+      rest.rotation.y = side * -(rake * (0.32 + 0.78 * t));  // outer lobes rake much further back → the 4 lobe TIPS fan APART (distinct koi rays in silhouette, gate r3 dir 8)
+      rest.rotation.z = side * tilt * (0.78 + 0.30 * t);     // TALL tilt, rising outboard (koi fan)
       const furl = new THREE.Group();
       rest.add(furl);
       // the petal geometry bakes its own L/R mirror (correct outward normals) + the
