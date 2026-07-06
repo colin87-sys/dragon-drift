@@ -6867,3 +6867,31 @@ sets the FIRST NORMAL encounter's distance directly) drops the real selection pa
 `?bossIdx`, which forces the debug arm and never exercises the pick. Note the anti-repeat's fallback-step also
 covers the ladder's full-lap wrap (all 8 felled in one run → ladder re-proposes the just-felled rung) — a
 vanishingly rare, strictly-better divergence from shipped behavior, accepted under §6's pinned ruling.
+
+### L180 — Biome increment 2 shipped (Caldera visual kit): a color FALLBACK is not a color GATE — the sky needed both
+
+**Did.** Built `BIOME-DESIGN.md §7` increment 2 in one PR, three legs: (1) **dual-fog** — `fogFarColor:
+C(0x1c0a08)` on Caldera only; `computeEnv` lerps `env.fogFarColor` with the `?? fog.color` fallback + a lerped
+`env.fogFarMix` 0→1 gate; the sky dome sinks its lowest band (`1.0 - smoothstep(0.0, 0.15, h)`) toward it
+(branchless, × `fogFarMix`); the water fog term becomes `mix(col, mix(fogColor, fogFarColor, fogF), fogF)`; scene
+`THREE.Fog` keeps the NEAR color. (2) **the verdigris paint-bug fix** — shared archetypes (`biomes.length > 1`)
+now `setColorAt` per instance from a ratio tint table keyed on `biomeIndexAt(d.dist)` (biome 0 = identity WHITE,
+biome 1 = sandstone ÷ verdigris per channel, components > 1); `instanceColor.needsUpdate` flagged everywhere
+`instanceMatrix.needsUpdate` is. (3) **band visible-gate** — `updateBandVisibility` (any-instance-active scan)
+called from `makeBand`/`reseedBand`/`recycleBand`-when-changed; since active/parked is baked into each matrix at
+WRITE time, visibility can only change when instances are rewritten — no per-frame scan needed.
+
+**The gotcha (the design doc undersold one seam).** §5.2 says "fallback `fogFarColor ?? fog.color` (absent =
+identical to today)" — TRUE for the water (where far==near color makes the extra mix an exact no-op) but FALSE
+for the sky: the sky horizon is `sky.horizon`, NOT `fog.color`, so blending it toward the fallback would SHIFT
+every biome's horizon. The fix is the codebase's own `xMix` pattern: a lerped presence gate (`fogFarMix`) on top
+of the color fallback. General rule: **a fallback value guarantees continuity; only a zero-default gate
+guarantees identity.** Check which one each consumer needs.
+
+**Reusable pattern + proof.** An 18-assert headless env proof (scratchpad `envcheck.mjs` shape): declared-field
+exclusivity, EXACT fallback equality mid-biome (`env.fogFarColor === env.fogColor` where absent), gate=1
+mid-hero-biome, 0<gate<1 inside both 150m seams (Law 5), near-fog unchanged, tint ratio×base===target per
+channel. Suite: bulletcontrast 36 combos green (2 pre-existing accepted exceptions), gold-determinism
+byte-identical (render-only change), smoke/canyon/boss boots compile the edited GLSL in headless-Chromium WebGL.
+Human judges on the preview: Caldera far-field depth, sandstone columns/slabs/domes in the Wastes, no prop
+pop-in at seams (the visible-gate).

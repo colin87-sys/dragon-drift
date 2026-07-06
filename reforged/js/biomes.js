@@ -12,6 +12,11 @@ import { CONFIG } from './config.js';
 //   ambient.fall < 0 — particles RISE (volcanic embers)
 //   fauna    — the background flock's look (color/size/wingbeat)
 //   whale    — a colossal sky whale drifts the horizon (astral only)
+//   fogFarColor — OPTIONAL far-field fog COLOR (dual-fog, BIOME-DESIGN.md §5.2):
+//              scene THREE.Fog keeps the NEAR color; the sky-dome horizon band
+//              and the water shader's fog term blend toward this at distance.
+//              Absent → falls back to fog.color (byte-identical). ⚠ NAME TRAP:
+//              env.fogFar is a DISTANCE — never abbreviate this field.
 //   bullets  — OPTIONAL hex overrides { light, mid, dark } for the boss danmaku
 //              BAND (see boss.js). Present ONLY where the contrast gate
 //              (tests/bulletcontrast.mjs) fails against this biome's fog/horizon —
@@ -87,6 +92,9 @@ export const BIOMES = [
     stars: 0,
     sky: { top: C(0x261016), mid: C(0x7a2a1a), horizon: C(0xff7a30), sun: C(0xffb060) },
     fog: { color: C(0x57221a), near: 65, far: 340 },
+    // Dual-fog far color (§5.2): near props hold the ember-red fog while the
+    // far field sinks toward near-black scorched dark — the caldera reads DEEP.
+    fogFarColor: C(0x1c0a08),
     light: { sun: C(0xff9a50), sunI: 1.6, hemiSky: C(0x8a5040), hemiGround: C(0x301010) },
     water: { deep: C(0x2a0a08), shallow: C(0xc84818), waveAmp: 0.55 },
     ambient: { color: C(0xff9a40), fall: -2.2, sway: 1.4, size: 0.36, opacity: 0.9 },
@@ -158,6 +166,10 @@ const env = {
   skyTop: new THREE.Color(), skyMid: new THREE.Color(), skyHorizon: new THREE.Color(),
   sunGlow: new THREE.Color(),
   fogColor: new THREE.Color(), fogNear: 70, fogFar: 380,
+  // Dual-fog (§5.2): fogFarColor is a COLOR (fogFar above is a DISTANCE).
+  // fogFarMix gates the sky-horizon blend — 0 where no biome declares a
+  // fogFarColor, so the sky is byte-identical there (the xMix pattern).
+  fogFarColor: new THREE.Color(), fogFarMix: 0,
   lightSun: new THREE.Color(), lightSunI: 1.6,
   hemiSky: new THREE.Color(), hemiGround: new THREE.Color(),
   waterDeep: new THREE.Color(), waterShallow: new THREE.Color(), waveAmp: 1,
@@ -179,6 +191,8 @@ export function computeEnv(dist) {
   env.fogColor.lerpColors(a.fog.color, b.fog.color, t);
   env.fogNear = lerp(a.fog.near, b.fog.near, t);
   env.fogFar = lerp(a.fog.far, b.fog.far, t);
+  env.fogFarColor.lerpColors(a.fogFarColor ?? a.fog.color, b.fogFarColor ?? b.fog.color, t);
+  env.fogFarMix = lerp(a.fogFarColor ? 1 : 0, b.fogFarColor ? 1 : 0, t);
   env.lightSun.lerpColors(a.light.sun, b.light.sun, t);
   env.lightSunI = lerp(a.light.sunI, b.light.sunI, t);
   env.hemiSky.lerpColors(a.light.hemiSky, b.light.hemiSky, t);
