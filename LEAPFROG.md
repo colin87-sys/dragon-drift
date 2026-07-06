@@ -6453,3 +6453,155 @@ HUD idiom — a verb that's unavailable should be shown DISABLED, not deleted �
 grammar the lock pips will use for the deflect rule (ashen-frozen, not gone). Next: PR1 (V1 aim-line +
 reticle boss-skin + exposure ticks), whose reticle "ashen when muted" state is this same disabled-not-
 deleted principle applied to the reticle. The affordance vocabulary is now: LIVE / SEALED / ASHEN.
+### L168 — Audio overhaul III: instrument archetypes (FM Rhodes, wide supersaw, Karplus pluck) — the "not chiptune" layer, opt-in per voice
+
+**Did.** Started the next audio phase on a fresh branch off the post-merge master (PR #230 shipped
+L151/L152). New `reforged/js/insts.js` (dependency-free — inlines mulberry32 so it stays node-testable
+like tracks.js/harmony.js) with three voice builders, dispatched from `playNoteEventIn`'s pitched path
+via a new `voices.X.inst` field (carried through `seqToEvents`/`compileTrack`):
+- **fmEP** — 2-op FM electric piano (ratio-1 modulator with a fast-decaying index envelope = the Rhodes
+  "bonk→body", plus a high tine partial). ~6 nodes/note, *cheaper* than a detuned-saw stack.
+- **supersaw** — two groups of 3 detuned saws hard-panned L/R (real width = different voices per side,
+  not a copy), per-side lowpass+envelope. The modern trance/EDM lead.
+- **pluck** — true Karplus-Strong (noise burst in a damped delay line) rendered in pure JS into an
+  AudioBuffer, **cached per pitch + seeded from freq** so renders are deterministic and playback is
+  2 nodes. Authentic acoustic guitar/harp for celtic + lofi.
+
+Proved on three heroes: `drift` (lofi → fmEP melody + pluck high), `stratos` (trance → supersaw),
+`pipers` (celtic → pluck). All other stations byte-identical (inst absent → legacy osc path).
+
+**Learned / patterns.** (a) `inst` supersedes the old `stack: detune/octave` — the dispatch returns
+before the legacy branch — but the **bass sub-octave reinforcement still fires** so inst basslines keep
+their weight; easy to forget and lose the low end. (b) New timbres MOVE the loudness: fmEP/pluck render
+~0.4–0.9 LU quieter and supersaw ~0.8 LU louder than the raw oscillators, so every inst adoption must
+**re-bake that station's `trimDb`** (drift −4.9→−4.5, stratos −5.5→−6.3, pipers −5.6→−4.7) and update
+`loudshots-baseline.json`, or the ±1 LU gate flags it. This is the L151 discipline applied to timbre,
+not just mastering. (c) The offline renderer shares `playNoteEventIn`, so instruments are measured by
+loudshots automatically — the calibration is honest by construction. (d) Node-graph unit test
+(`tests/insts.mjs`) drives a mock AudioContext: asserts every source self-terminates, the graph reaches
+the destination, the node budget stays ≤16/note, FM is really wired (modulator→carrier.frequency), and
+KS is deterministic + pitch-cached — catchable in node without a browser.
+
+**Next.** Roll inst adoption per genre-family (fmEP→remaining lofi/amapiano, supersaw→trance/synthwave,
+pluck→celtic/world), then the big one still queued: the **section-graph composition engine** (song
+structure over the loop-wrap rebuild) — the last major listenability unlock, and the highest-blast-radius
+edit (scheduler surgery), so it goes on top of this proven timbre layer, hero-first.
+
+### L169 — Audio overhaul IV: the section-graph composition engine — song STRUCTURE over the 8-bar loop, hero-first
+
+**Did.** Wired the composition engine (composer.js, committed inert in L-prev) into the live scheduler so a
+station with a `form` plays as a SONG, not an infinite 8-bar loop. `compileTrack` gained a `section` param:
+variable `bars` (melodic events filtered to the section length; the per-bar arp/pad/drum loop bounded by
+`bars`), `mute` (strip layers — drop the bassline + kick for a breakdown), `energy` (scale percussion
+velocity hard + tonal velocity gently), and `riser`/`crash` specials. `buildEvents` resolves the section
+from a `formPass` cursor; the scheduler wrap advances `formPass` alongside `loopCount` and rebuilds, so each
+loop-wrap plays the NEXT section — `loopOffset += LOOP_LEN` uses the JUST-PLAYED section's (variable) length,
+then buildEvents sets the next. `formPass` resets with `loopCount` on start/retune. New `riser` voice
+(band-passed noise sweeping up + swelling). Hero: **neon** (bigroom) → a 44-bar form `A A bld drop brk bld
+drop drop` (breakdown→build→riser→drop arc). Legacy stations resolve the implicit base section → byte-identical.
+
+**Learned / the load-bearing gotchas.**
+- **Variable-length wraps are the whole risk** (both design judges flagged the scheduler surgery). The fix is
+  ordering: `loopOffset += LOOP_LEN` must run BEFORE `formPass++`/`buildEvents()`, because module `LOOP_LEN`
+  still holds the section that just finished; buildEvents then overwrites it with the next section's length.
+  Get this backwards and the grid drifts every wrap.
+- **Calibrate a form station on its MAIN BODY, not the whole song.** First cut had loudshots render the full
+  form (walk all sections) — musically wrong (breakdowns are RELATIVELY quieter by design; averaging them in
+  drags the trim) AND far too slow (a 44-bar render ≈ 90s audio ≈ 3+ min offline — unusable in a per-station
+  gate). Split it: `renderStation({walkForm})` — measurement renders the BASE section only (fast, and section
+  A is unchanged by the form so a form adds ZERO trim drift → the gate holds with no re-bake); the BOUNCE
+  walks the whole form (the exported single is the real song). This is the key architectural correction.
+- **Muting is event-level, gain is real-time.** Section `mute` drops a layer by not emitting its events;
+  `music.update`'s combo-driven gain on that layer is then moot (no events → silent). No collision, no new
+  control surface. Clean.
+- **Semantic CI gate:** `validateForm` (in the track gate) rejects missing sections, unknown fields,
+  out-of-range energy, AND a form with no dynamic range (max-min energy < 0.15) — "a form where every section
+  is full energy is just a long loop." Mechanizes the "no dynamics" smell.
+
+**Next.** Author forms for more heroes per genre (trance/synthwave drops, a lofi `periods`-style non-form for
+ambient), then the refinements the plan still lists: gameplay VOTING on transitions (fever holds the drop;
+death forces a breakdown) with a one-bar decision deadline inside the lookahead window, motif development
+(sequence/inversion transforms), and per-form-pass ornament reseeding for super-loop freshness.
+
+### L170 — Audio P4b: gameplay-voted sections, motif development, two more song forms — the music now plays WITH the player
+
+**Did.** Three additions on top of the L169 section engine, all pure-data + one seam each:
+(1) **Gameplay-voted transitions** (`chooseSection` in composer.js): the authored form is the script, but a
+0..1 intensity vote — published once per frame by `music.update` (Dragon Surge = outright 1.0, else the
+smoothed energy scalar) and READ ONCE PER LOOP-WRAP in `buildEvents` — can override the scheduled section
+at the boundary: vote ≥0.8 while the script wants a quiet section → hold the song's climax (Surge never
+sinks into a breakdown mid-hype); vote ≤0.25 while the script wants a full drop → ease to the calmest
+section. Deterministic paths (offline render / calibration / headless) pass `vote = null` and get the
+authored form untouched, so CI numbers never depend on gameplay. Vote resets on `music.stop()`/retune so a
+stale run can't steer menu music. Gotcha: energy TIES must break toward the LATER section (`>=` in the
+extreme-scan) or "hold the drop" lands on an early full statement instead of the climax.
+(2) **Motif development** (`melodyVariant`): sections restate the melody TRANSFORMED — variant 1 = octave
+LIFT (climax restatement), variant 2 = the first-two-bars motif LOOPED (hypnotic intro/build statement).
+Bar-aligned track data (the 8-eighths-per-bar gate) makes fragmentation exact. The fever lead shares the
+derived line so Surge stays coherent with the section.
+(3) **Two more hero forms**: `stratos` (trance — long breakdown keeps the ARP running per genre signature;
+second drop is the octave-lift `lift` section; 60 bars) and `storm` (dnb — fragmented-motif intro over the
+break, stripped breakdown, riser build; 44 bars).
+
+**Learned.** Full-form renders CHANGE integrated loudness vs the old 2-loop measure (breakdowns count):
+storm read −17.4 after its form landed → trim re-baked −8.3 → −6.9; stratos happened to land at −16.0
+exactly. The rule from L153 generalizes: any change to WHAT renders (timbre, groove, form) requires
+re-baking that station's trim + baseline entry. Roster gate after: all pass.
+
+**The architecture note.** The vote is a BOUNDARY decision (once per wrap, governs a whole section), not a
+per-frame one — the same "decisions commit one phrase ahead" law that keeps the scheduler's lookahead
+window honest. Per-frame reactivity stays where it belongs (layer gains via the energy scalar); STRUCTURE
+reacts at musical seams. That split is what makes the music feel conducted rather than twitchy.
+
+### L171 — Audio P6: genre reverb SPACES + a lofi character pack — depth is the cheapest "expensive" signal
+
+**Did.** Upgraded the shared convolution reverb from flat exp-decay noise to a real space, and gave lofi
+stations tape character. All on the render==live seam so calibration stays honest.
+- **`makeImpulse` rebuilt**: PRE-DELAY (a silent 9–40 ms gap → room size + keeps the dry signal clear) +
+  FREQUENCY-DEPENDENT decay (a one-pole lowpass whose smoothing tightens along the tail, so highs die
+  before lows like a real room absorbs them — the #1 "cheap reverb" tell, fixed). Params live in
+  `IR_PRESETS` (hall/plate/room/dark/default); the signature changed from `(a, seconds, decay)` to
+  `(a, presetName)`.
+- **Per-genre spaces**: `mix.irPreset` on the genre MIX presets (epic→hall, trance/bigroom/synthwave→plate,
+  dnb/hardstyle/house→room, lofi/tropical/world→dark). The shared convolver's IR buffer is swapped on
+  station change inside `retuneTo`'s fade (one convolver, per-genre character). The offline renderer builds
+  the bus graph with the station's preset so loudshots measures the real space.
+- **HP'd reverb return** (~200 Hz): reverb below there is just mud on a phone speaker.
+- **Lofi character pack** (`mix.lofiPack`): the whole station runs THROUGH a tape wow/flutter (a ~12 ms
+  delay whose time wobbles under a 0.7 Hz wow + 7.3 Hz flutter) plus a seeded vinyl-crackle bed.
+
+**Learned.** (1) The reverb upgrade is **loudness-neutral** roster-wide (tides/storm/stratos all within
+0.1 LU of −16 after it) — pre-delay + damping + HP-return remove a little tail energy but the send is
+modest, so the ±1 LU gate absorbs it with NO re-trim. Contrast L168/L170: not every render change forces a
+re-bake — measure first, re-trim only what actually drifts. (2) A wow/flutter "dry+wet blend" that feeds the
+bus in parallel DOUBLES the signal (+3 dB — drift jumped −16→−13). Real tape runs the WHOLE signal through
+the mechanism (the delay is ~unity gain); route it in series, not parallel. One representative measurement
+(the lofi hero) caught it before a needless roster re-trim.
+
+**Pattern.** Genre character that's data-only (an `irPreset` string on the shared MIX preset) scales to the
+whole roster for free and needs no per-station authoring — the same leverage as the groove grids (L149).
+
+### L172 — Audio P7: boss-fight music states (darken the SAME station) + forms rolled to 9 stations
+
+**Did — boss music.** A fight now transforms the playing station instead of swapping tracks: `sfx.js`
+subscribes to the boss event bus (`bossStart`/`bossPhase`/`bossDefeated`/`bossEnd` — all already emitted by
+boss.js) and applies, per phase: a downward transpose (`bossSemitones` −2/phase, floor −6 — heavier
+register), darker filters (`bossBright` closes ~18% by the last phase), a key-aware **stinger** on arrival +
+each phase (power-chord menace, dropped onto the next beat via the grid), and a **vote floor** (0.85) so the
+arrangement holds its climax for the whole encounter. Cleared on defeat/flee/run-end.
+**Learned:** the transform lives in the LIVE wrapper (`buildEvents` folds `bossSemitones` into the key,
+scales `mixBright` by `bossBright`) — NOT in `compileTrack` — so the offline calibration (which never has a
+boss) stays pure and the trims/gate are untouched. Same discipline as the section vote: boss mode reads
+game events only, never the reverse, and tonal shifts land at the next loop boundary (a downbeat), while the
+stinger hits immediately — mood on the phrase, punch on the frame.
+
+**Did — forms rolled out.** Authored 6 more song forms (hypernova/trance, driftking/synthwave, crown/bigroom,
+bloom/futurebass, solarc/hardstyle, slips/liquid) → **9 stations are now songs** (with neon/stratos/storm).
+**Learned:** a well-balanced form (breakdown energy ~0.3 against drop energy 1.0) is loudness-NEUTRAL — all
+six landed within 0.1 LU of −16 with NO re-trim, because the quiet sections offset the loud ones in the
+integrated measure. Only the metrics/`seconds` in the baseline changed (longer songs), not the trims. Third
+confirmation of the L171 rule: measure first, re-trim only what drifts.
+
+**Pattern.** Both features are pure event-consumers with a single seam each — boss music on the event bus,
+forms as opt-in track data — so the roster's un-formed stations and the whole offline calibration path are
+provably unaffected. That's what let two "big" features land in one increment without a calibration cycle.
