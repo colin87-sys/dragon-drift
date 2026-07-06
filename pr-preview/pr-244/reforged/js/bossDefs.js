@@ -73,6 +73,9 @@ export const BOSSES = {
     virtualLockOrgan: 'faceCore',     // V1 slot-1 TUTORIAL: aim at the whole FACE (a big,
                                       // stable central anchor), not the tiny fast-swaying eye —
                                       // so the first teach is easy to lock (bossIdol.js faceCore)
+    holdSway: { amp: 1.8, freq: 0.45 }, // slot-1 TEACH drift: slow + small so the face stays
+                                      // inside the aim cone long enough to learn the lock (the
+                                      // default hold-station sway is ±5m — far too fast to track)
     // Boss-archetype dispatch (bossModel.js buildBoss): routes to the
     // Hollow Idol-Mask hero builder (bossIdol.js) instead of the legacy
     // crystal-core construct. A def WITHOUT `archetype` still falls through
