@@ -116,6 +116,7 @@ export function buildStormMandala(def, quality = 1) {
   eyeMat.toneMapped = false;
   eyeMat.color.copy(EYE_BASE).multiplyScalar(EYE_HOT);
   const eyeMesh = new THREE.Mesh(eyeGeo, eyeMat);
+  eyeMesh.name = 'focalEye';   // LANCE seam: V1 aim-line target (partWorldPos), byte-neutral metadata
   rig.add(eyeMesh);
 
   // ---------------------------------------------------------------------

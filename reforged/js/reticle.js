@@ -3,6 +3,8 @@ import { nextRingAhead } from './rings.js';
 import { nextGateAhead } from './obstacles.js';
 import { CONFIG } from './config.js';
 import { saveData } from './save.js';
+import { game } from './gameState.js';
+import { lockHudState } from './lockLayer.js';
 
 // Panzer-Dragoon-style nested-square target reticle: projects the next
 // ring/window onto the screen as two counter-rotating squares. Pure DOM
@@ -24,7 +26,30 @@ export function updateReticle(player, playing) {
   // Reticle assist can be disabled in settings for a score bonus, but Glide
   // Assist forces it on — it's the directional cue beginners aim their swipe at.
   const wantReticle = saveData.settings.reticle || saveData.settings.glideAssist;
-  if (!playing || !wantReticle) { el.style.opacity = 0; return; }
+  if (!playing || !wantReticle) { el.style.opacity = 0; el.classList.remove('boss'); return; }
+
+  // THE LANCE layer — the reticle's SECOND job. In a boss there are no rings/gates;
+  // instead it wakes on the aim-line organ: it snaps to the focal (so you see WHERE
+  // to fly), goes GREEN when a line holds (dwell complete), and shows the ashen
+  // "sealed" skin when the target is muted (slot 13) or no organ is up. Pure DOM.
+  if (game.inBoss) {
+    const L = lockHudState();
+    if (!L.active) { el.style.opacity = 0; el.classList.remove('boss', 'locked'); return; }
+    el.classList.add('boss');
+    el.classList.remove('gate');
+    tmpV.set(L.x, L.y, L.z).project(camera);
+    if (tmpV.z > 1) { el.style.opacity = 0; return; }   // organ behind the camera
+    const sx = (tmpV.x * 0.5 + 0.5) * window.innerWidth;
+    const sy = (-tmpV.y * 0.5 + 0.5) * window.innerHeight;
+    const ashen = L.muted;
+    const locked = L.aimHeld;
+    el.classList.toggle('sealed', ashen);
+    el.classList.toggle('locked', locked && !ashen);
+    el.style.opacity = ashen ? 0.5 : 0.9;
+    el.style.transform = `translate(${sx}px, ${sy}px) scale(${locked ? 0.85 : 1})`;
+    return;
+  }
+  el.classList.remove('boss', 'sealed');
 
   const ring = nextRingAhead(player.dist + 4);
   const gate = nextGateAhead(player.dist + 4);

@@ -387,6 +387,7 @@ export function buildIdolMask(def, quality = 1) {
   // line, not about the rig origin). Blinks are the aliveness heartbeat —
   // and eyes closing to slits over sky-holes is a read no flat sprite gets.
   const eyeGroup = new THREE.Group();
+  eyeGroup.name = 'focalEye';   // LANCE seam: V1 aim-line target (partWorldPos), byte-neutral metadata
   eyeGroup.position.set(0, 0.30, -0.25);
   rig.add(eyeGroup);
   const eyeSeg = lowQ ? [8, 6] : [10, 8];

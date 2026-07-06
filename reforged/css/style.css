@@ -436,6 +436,15 @@ body.app-loaded > canvas { opacity: 1; }
 #reticle.gate .rsq { border-color: rgba(170, 230, 255, 0.92); box-shadow: 0 0 12px rgba(120, 210, 255, 0.55); animation: ret-spin 4s linear infinite; }
 #reticle.gate .rsq.inner { border-color: rgba(220, 245, 255, 0.85); animation: ret-spin-rev 2.5s linear infinite; }
 #reticle.gate.locked .rsq { border-color: rgba(235, 250, 255, 0.97); box-shadow: 0 0 16px rgba(150, 225, 255, 0.8); }
+/* THE LANCE reticle — the in-boss SECOND job (aim-line on a boss organ). A NEUTRAL
+   steel skin, deliberately NOT the amber ring skin (parry-amber role collision,
+   §II.1.6); locks GREEN (the lock-green family) on dwell; ashen 'sealed' when the
+   target is muted or no organ is up (slot 13). */
+#reticle.boss .rsq { border-color: rgba(200, 210, 225, 0.55); box-shadow: 0 0 10px rgba(180, 200, 220, 0.32); }
+#reticle.boss .rsq.inner { border-color: rgba(215, 225, 240, 0.5); }
+#reticle.boss.locked .rsq { border-color: rgba(80, 255, 170, 0.95); box-shadow: 0 0 15px rgba(60, 255, 160, 0.75); }
+#reticle.boss.sealed .rsq { border-color: rgba(150, 160, 175, 0.4); box-shadow: none; }
+#reticle.boss.sealed .rsq.inner { border-color: rgba(160, 170, 185, 0.36); }
 @keyframes ret-spin { from { transform: rotate(0deg); } to { transform: rotate(90deg); } }
 @keyframes ret-spin-rev { from { transform: rotate(45deg); } to { transform: rotate(-45deg); } }
 

@@ -150,6 +150,47 @@ export const CONFIG = {
   // fixed player-relative distance while forward motion continues. Bullets close
   // toward the player in the player-relative frame and are dodged in the X/Y lane.
   // Gated by game.inBoss so a normal run is untouched when no boss is active.
+  // THE LANCE (lock) layer — the player combat-verb system (combat-verbs SOP §II.3).
+  // Legend: LAW = locked (owner sign-off to change); TUNE(range) = adjustable within
+  // range without re-approval, provided the sim gates stay green. Neutral at rung 0:
+  // a def WITHOUT lock data behaves byte-identically to before this block existed.
+  LOCK: {
+    // V1 aim-line
+    coneXY: 2.6,            // LAW — m/axis at the boss plane; NEVER per-dragon or per-boss
+    dwellTime: 0.35,        // LAW (shared clock: V1 acquire + V2 paint)
+    coyote: 0.12,           // TUNE(0.10–0.20) — dwell survives a cone flicker up to this
+    linger: 0.6,            // TUNE(0.4–0.8) — aim-line persistence after leaving the cone
+    chipRateMult: 1.15,     // LAW — rider interval ÷ this while the line holds an organ
+    exposureTickInterval: 0.8, // TUNE(0.6–1.0)
+    exposureTickDmg: 1.0,   // TUNE(0.5–1.5); max 3 ticks per exposure window (LAW)
+    quietDwellMult: 0.5,    // LAW — danger-binding: dwell rate while no boss fire is live
+    // V2 paint & volley (wired from PR2 — data present now, inert in PR1)
+    capByTier: { 1: 0, 2: 3, 3: 5, 4: 6, 5: 6 },  // LAW ladder
+    decay: 3.5,             // TUNE(3.0–4.0) — per-lock lifetime, seconds
+    refreshDwell: 0.15,     // TUNE(0.1–0.2)
+    stackMax: 2,            // LAW — per part, tiers ≥3 only
+    stripNewestMaxTier: 2,  // LAW — ≤ this tier a hit strips newest only; above strips all
+    capFuse: 1.0,           // LAW — delay between reaching cap and auto-release
+    lanceDmg: 2.0,          // TUNE(1.2–2.4) — screw #1
+    lanceWeight: 0.5,       // LAW — counts HALF toward PART_CRACK_HITS (rider-chip parity)
+    lanceStaggerMs: 60,     // LAW
+    volleyRoiFrac: 0.10,    // LAW — hard clamp at release: volley total ≤ this × current phase hp
+    // V3
+    beamAimDisc: 4.0,       // LAW — m; nearest partWorldPos within this of the player line
+    beamPartWeight: 1.5,    // TUNE(1.0–2.0)
+    tapVolleyMinLocks: 2,   // LAW — case-3 floor
+    // V3.E1
+    beatWindow: 0.12,       // LAW — ± seconds on getBeatClock()
+    beatMult: 1.25,         // LAW — volleys ONLY, never the Surge beam/break
+    // V4
+    snapPerVolley: 1,       // LAW — max V4 paints per amber volley; 0 during fever (LAW)
+    // V5
+    focusArmMs: 300,        // LAW — must stay > tap ceiling 260
+    focusDwellMult: 0.5,    // LAW
+    // score (embers NEVER)
+    paintScore: 10, lanceHitScore: 15, perfectReleaseScore: 150,  // LAW: parry stays score-premier
+  },
+
   BOSS: {
     firstAt: 2500,          // metres: earliest a boss can appear
     interval: 3200,         // metres between encounters
