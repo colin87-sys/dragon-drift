@@ -108,13 +108,18 @@ export function updateLockLayer(dt, player, ctx) {
 
   // ---- V1 aim: acquire (tight cone) / hold (retention cone + drain) — L177 ----
   if (!S.aimPart) {
-    // ACQUISITION — the tight cone prices exposure. Single-candidate fast path tests
-    // the smoothed anchor (what the reticle shows); a multi-part roster (PR2) falls
-    // back to a raw nearest-in-cone scan for selection.
+    // ACQUISITION — the tight cone prices exposure. The DISPLAYED organ's SMOOTHED
+    // anchor is the primary target on EVERY boss (the marker the player chases IS
+    // the thing that locks — a raw-position scan on a coiling rib knife-edges in
+    // and out of the cone while the player is correctly on the smoothed marker,
+    // the exact L177 failure re-introduced; owner playtest caught it on slot 4).
     let hit = null;
-    if (S.hasOrgan && S.hudPart && (!ctx.candidates || ctx.candidates.length <= 1)) {
-      if (Math.abs(px - S.ax) < L.coneXY && Math.abs(py - S.ay) < L.coneXY) hit = S.hudPart;
-    } else {
+    if (S.hasOrgan && S.hudPart &&
+        Math.abs(px - S.ax) < L.coneXY && Math.abs(py - S.ay) < L.coneXY) hit = S.hudPart;
+    // Fallback: another candidate dead-on in the raw cone (the player deliberately
+    // went elsewhere — e.g. re-dwelling a painted organ while the display leads to
+    // an unpainted one; the display follows the acquisition next frame).
+    if (!hit && ctx.candidates && ctx.candidates.length > 1) {
       const cand = coneCandidate(player, ctx);
       if (cand) hit = cand.part;
     }
@@ -263,16 +268,22 @@ function refreshHud(ctx, dt, player) {
       // Prefer the nearest UNPAINTED organ (painted ones carry their own markers) —
       // the reticle actively leads the sweep to the next target; fall back to the
       // nearest painted one when everything is locked (refresh stays reachable).
-      let bestD = Infinity, bestAnyD = Infinity, bestAny = null;
+      let bestD = Infinity, bestAnyD = Infinity, bestAny = null, curD = Infinity;
       for (const c of ctx.candidates) {
         const w = ctx.model.partWorldPos(c, _w);
         if (!w) continue;
         const dx = w.x - player.position.x, dy = w.y - player.position.y;
         const d = dx * dx + dy * dy;
+        if (c === S.hudPart) curD = d;
         if (d < bestAnyD) { bestAnyD = d; bestAny = c; }
         if (d < bestD && !S.locks.some((lk) => lk.part === c)) { bestD = d; part = c; }
       }
       if (!part) part = bestAny;
+      // Hysteresis: keep the current displayed organ unless the new pick is clearly
+      // nearer (coiling anatomy makes near-equidistant ribs swap every frame — a
+      // flickering lead marker is unchaseable).
+      if (S.hudPart && part !== S.hudPart && curD < Infinity &&
+          !S.locks.some((lk) => lk.part === S.hudPart) && bestD > curD * 0.6) part = S.hudPart;
     } else part = ctx.candidates[0] || null;
   }
   S.hudPart = part;
