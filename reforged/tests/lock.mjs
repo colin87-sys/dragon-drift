@@ -214,7 +214,7 @@ async function runLock(spec) {
       if (f.clear) mod.clearLocks('transition');
       for (let i = 0, n = f.n ?? 1; i < n; i++) mod.updateLockLayer(f.dt, player, ctx);
     }
-    return { count: mod.lockCount(), hud: mod.lockHudState(), lances, events };
+    return { count: mod.lockCount(), hud: mod.lockHudState(), d: mod.__lockDebug(), lances, events };
   }, spec);
 }
 const ORGANS3 = { A: { x: 0, y: 0 }, B: { x: 10, y: 0 }, C: { x: 20, y: 0 } };
@@ -313,6 +313,28 @@ const t213 = await runLock({ organs: { A: { x: 0, y: 0 }, B: { x: 30, y: 0 }, C:
 check('T2.13 a fast-swinging organ paints on a multi-organ boss (smoothed acquisition)',
   t213.count >= 1 && t213.events.some((e) => e.name === 'lockPaint' && e.part === 'A'));
 
+// T2.17 — THE VIRTUAL ANCHOR NEVER TRAPS THE HUNT (owner playtest #3): a V1-only
+// anchor (MARROWCOIL's skull — a candidate but never paintable) counted as
+// 'unpainted' forever, so returning to centre parked the reticle on a face that
+// can never take a pip. Three-class law: unpainted paintables > paintables > the
+// virtual anchor; during the hunt the anchor can't steal the aim at all.
+const T217 = { organs: { skull: { x: 0, y: 0 }, ribA: { x: 8, y: 0 }, ribB: { x: 16, y: 0 } },
+  candidates: ['skull', 'ribA', 'ribB'], paintables: ['ribA', 'ribB'] };
+const t217a = await runLock({ ...T217, frames: [{ dt: 0.06, n: 10, px: 0 }] });
+check('T2.17 sitting on the virtual anchor: reticle leads to a rib, anchor never acquires',
+  t217a.hud.aimPart === 'ribA' && t217a.d.aimPart === null);
+const t217b = await runLock({ ...T217, frames: [
+  { dt: 0.06, n: 10, px: 0 }, { dt: 0.06, n: 20, px: 8 }, { dt: 0.06, n: 12, px: 0 },
+] });
+check('T2.17 after branding rib A, returning to centre leads to rib B — never the skull',
+  t217b.count === 1 && t217b.d.aimPart === null && t217b.hud.aimPart === 'ribB');
+const t217c = await runLock({ ...T217, frames: [
+  { dt: 0.06, n: 10, px: 0 }, { dt: 0.06, n: 20, px: 8 }, { dt: 0.06, n: 20, px: 16 },
+  { dt: 0.06, n: 12, px: 0 },
+] });
+check('T2.17 hunt complete (all ribs branded, cap room left) → the anchor unlocks for V1 chip',
+  t217c.count === 2 && t217c.d.aimPart === 'skull');
+
 // T2.16 — SEALED HONESTY (owner playtest: a bright green 'locked' on a shielded
 // boss promises a mark that won't take): while deflected the held state is never
 // shown/celebrated; the instant the shield breaks, the lock fires AND paints.
@@ -325,6 +347,19 @@ const t216b = await runLock({ organs: { A: { x: 0, y: 0 } }, candidates: ['A'],
   frames: [{ dt: 0.06, n: 10, px: 0, deflected: true }, { dt: 0.06, n: 2, px: 0 }] });
 check('T2.16 the break fires the celebration AND the paint instantly',
   t216b.count === 1 && t216b.events.some((e) => e.name === 'aimLock'));
+
+// T2.18 — the AIM ANCHOR PROMOTED to a brand target (owner playtest #4: locked the
+// head, it never took a pip, the reticle stranded on it). T2.17's three-class rule
+// still governs a V1-ONLY anchor; here MARROWCOIL's head is data-promoted INTO
+// `paintables` (boss.js paintableParts adds virtualLockOrgan on a V2 boss), so it
+// leaves class C and behaves like any brand target: landing on it paints a pip AND
+// hops onward — no dead-green stranding, and the head is the easy first mark.
+const t218 = await runLock({ organs: { head: { x: 0, y: 0 }, rib: { x: 12, y: 0 } },
+  candidates: ['head', 'rib'], paintables: ['head', 'rib'],
+  frames: [{ dt: 0.06, n: 8, px: 0 }, { dt: 0.06, n: 2, px: 0 }] });
+check('T2.18 a promoted anchor paints a pip and the reticle hops off it (UNPAINTED-FIRST)',
+  t218.count === 1 && t218.hud.aimPart === 'rib' &&
+  t218.events.some((e) => e.name === 'lockPaint' && e.part === 'head'));
 
 // T2.15 — UNPAINTED-FIRST LAW (owner playtest: swinging back after a dodge
 // re-grabbed the painted rib and pinned the player on refresh): while an unpainted
@@ -361,6 +396,7 @@ const gates = await page.evaluate(async () => {
     caps: L.capByTier, decay: L.decay,
     tutorialAmp: voidmaw.holdSway?.amp ?? 5.0,
     marrowTier: marrow.tier, marrowParts: (marrow.lockParts || []).map((p) => p.part),
+    marrowVirtual: marrow.virtualLockOrgan,
     roiWorst: (L.capByTier[4] * L.lanceDmg),
   };
 });
@@ -373,6 +409,8 @@ check(`T2.G decay ${gates.decay}s within the TUNE range [3,4]`, gates.decay >= 3
 check(`T2.G TUTORIAL INEQUALITY: voidmaw sway amp ${gates.tutorialAmp} < retention ${gates.retention}`,
   gates.tutorialAmp < gates.retention);
 check('T2.G marrowcoil is tier 2 with 4 rib lockParts', gates.marrowTier === 2 && gates.marrowParts.length === 4);
+check('T2.G marrowcoil head is a brand target (virtualLockOrgan present, not already a rib)',
+  gates.marrowVirtual === 'skullGroup' && !gates.marrowParts.includes(gates.marrowVirtual));
 
 // T2.12 — def-lint: every marrowcoil lockPart resolves via the BUILT model's
 // partWorldPos (a def naming a nonexistent part would silently never paint).

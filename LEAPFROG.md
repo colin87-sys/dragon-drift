@@ -6921,7 +6921,56 @@ byte-identical (render-only change), smoke/canyon/boss boots compile the edited 
 Human judges on the preview: Caldera far-field depth, sandstone columns/slabs/domes in the Wastes, no prop
 pop-in at seams (the visible-gate).
 
-### L182 — Biome increment 3 shipped (Caldera geyser hazards): the third RNG stream + a game-state-pure generator, suppression lives entirely on the consumer
+### L182 — a V1-only virtual anchor counts as "unpainted" forever: the reticle must hunt in CLASSES (brandable prey first, the anchor last)
+
+**Did / learned.** Owner playtest #3 on the paint loop: with one pip banked and no shield up,
+returning to centre "stuck" the reticle. Root cause: MARROWCOIL carries FIVE lock candidates but
+only four are paintable — the fifth (`virtualLockOrgan: 'skullGroup'`, the V1 chip-retarget
+anchor) can never take a pip, so the unpainted-first preference scored it as "unpainted"
+FOREVER. Every return to centre (naturally toward the face) elected the skull as the lead
+target; it even locks green (V1 working as designed), but no paint can occur and no paint-hop
+can fire — an infinite decoy that only cleared when the lone pip decay-volleyed and the scene
+reshuffled. **Fix: three preference CLASSES** in both display and acquisition — (A) unpainted
+paintable while cap room remains, (B) any paintable (refresh), (C) the virtual anchor last —
+and during the hunt (class A non-empty) neither painted organs nor the anchor may steal the
+aim at all. Once the set is branded/capped, the anchor unlocks again (bonus chip while the
+inhale burns — the right rhythm anyway). Hysteresis now sticks only within the winning class.
+Bosses without paintables (VOIDMAW/STORMREND/ASHTALON) have only class C — byte-identical.
+
+**The general law.** When one UI cursor serves TWO overlapping target sets with different
+capabilities (aim-only vs paintable), any "prefer the un-done one" heuristic must score
+capability FIRST, completion second — an un-completable target is otherwise a permanent
+magnet exactly where the player most often flies. Regression wall: T2.17 ×3 (anchor never
+acquires mid-hunt; return-to-centre leads to the next rib; hunt-complete unlocks the anchor).
+
+### L183 — the V1-only anchor was a UX dead end; PROMOTE it to a brand target rather than route around it
+
+**Did / learned.** L182 solved "the reticle sticks on the un-brandable head" by routing AROUND it
+(three preference classes: unpainted paintables > paintables > the V1-only anchor; the anchor can't
+steal the aim mid-hunt). Owner playtest #4 showed the deeper issue survives: the head is the ONLY
+candidate reachable when the ribs coil out of the acquire cone, so the player still lands on it,
+greens (V1 rider-retarget), and gets NOTHING — a green that never takes a mark reads as broken no
+matter how cleverly the reticle tries to lead elsewhere. **The fix the owner asked for is the right
+one: stop making the head special. Promote it to a real brand target.** `paintableParts()` now adds
+`def.virtualLockOrgan` on any V2 boss (has `lockParts`), so MARROWCOIL's five candidates are all
+paintable and every organ the reticle greens on takes a mark. It's fair — the anchor is the muzzle
+(always emitting → always under fire, never a free rest-beat paint) — and UNPAINTED-FIRST still
+drives the sweep to the ribs after the easy first head-mark (cap 3, no head-stacking at tier 2 →
+ribs still required for a full volley). Good difficulty gradient for the TEACH boss: easy first,
+then hunt.
+
+**The mechanism composes — L182 was not wrong, just incomplete.** The three-class code stays and
+still governs a GENUINELY V1-only anchor (slots 1–3: `virtualLockOrgan`, no `lockParts` → the
+anchor is class C, V1 chip only, painting never unlocks). MARROWCOIL's head simply GRADUATES out
+of class C by being data-promoted into `paintables`. T2.17 (three-class, non-paintable anchor) and
+T2.18 (promoted anchor) both pass — the same mechanism, two data configs.
+
+**Reusable principle.** When a UI element can be TARGETED but does nothing useful, the durable fix
+is to make it do the useful thing, not to teach the cursor to avoid it. "Every green takes a mark"
+is a simpler, unbreakable contract than "some greens are special and the reticle should dodge them."
+Prefer collapsing a special case into the general one over adding avoidance logic around it.
+
+### L184 — Biome increment 3 shipped (Caldera geyser hazards): the third RNG stream + a game-state-pure generator, suppression lives entirely on the consumer
 
 **Did.** Built `BIOME-DESIGN.md §7` increment 3 — the first biome MECHANIC (dodge-only geyser columns in the
 Caldera). Five files: `config.js` (`hazardBurstDur`/`hazardIdle`/`hazardDamage`), `biomes.js` (`hazard: {type,
