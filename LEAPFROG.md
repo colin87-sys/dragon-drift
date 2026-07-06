@@ -6288,3 +6288,43 @@ capturable; also tag the crest + horn tips so the head target box excludes them 
 `eyeScale·shape` formula; the rebuilt `hotEye` sizes off a head-length fraction (`0.33 − es·0.16`),
 so the proxy was made `hotEye`-aware. When you change an eye's sizing law, update its test proxy in
 the same commit or the band asserts measure a formula that no longer exists.
+
+### L164 — BRINEHOLM CP1 (the head+maw rebuild): the SILHOUETTE is judged at the FIGHT frame, not the fit frame — a boss can pass every pixel gate and still read as the wrong noun
+
+The island-back ridge was scrapped (read as a battleship); the merged §5d spec re-cast slot 8 as a
+**colossal leviathan HEAD + MAW** that fills the frame — you fight the face, never the body. The rebuild
+(`bossBrineholm.js`) and its independent Fable gate taught the following, all of which generalize:
+
+**A bright HDR eye is necessary but the FOCAL can be occluded by its own anatomy.** First pass failed G1
+(maxLum 243) not because the catchlight was dim but because it sat at eye-local `y +0.28` — *under the
+hooded brow-lid* — and the dark pupil (r0.62) filled the sclera, so the eye read as a dark teacup. Fix:
+seat the catchlight in the EXPOSED lower-inner sclera, shrink the pupil to a slit so the pale glow (not
+black) fills the eye, floor the core brightness whenever it's SHOWN (it leashes for G6 by HIDING under
+shield/death, not by dimming). When a focal fails the gate, check occlusion before you crank intensity.
+
+**The studio fit-frame lies about scale reads; the FIGHT frame is the verdict (§3b law 6/7).** At the
+zoomed-out auto-fit distance the head read as a smooth ball/egg with one eye (a cyclops orb) and every
+gate still PASSED — G1–G7 are colour/luma/coverage laws, blind to "reads as the wrong object." The SAME
+model at fight distance (rel 26, no auto-fit, head exceeds the frame) read as a menacing drowned-god
+face. Judge the fight frame on the DARK home backdrop first; the fit-frame contact sheet is the stress
+test, not the gate.
+
+**The three carrying cues have to reach a LIT EDGE at fight distance, or the dominant one eats the read.**
+Fable's first verdict was REVISE: the maw was dark-on-dark (fangs invisible in idle) so the eye owned ~10×
+the visual weight → cyclops. Four fixes, each a reusable move: (1) **dim always-on abalone ember on the
+fang material + a raised, brighter gullet** so the jagged jawline is a lit edge even at rest; (2) **hood
+the eye** — the brow-lid covers the top third so it's a lidded ARC, not a full circle (hood *hardest* in
+the dread pose, where a bare disc read worst); (3) **sell the one scar** — thicken it, run it diagonal,
+put a glint on the broken end so it reaches a lit edge instead of reading as clutter; (4) **keep the
+positive signal (the blowhole spout) inside the tight fight framing** — lower the vent + lean the plume
+forward, else the one cue that says "leviathan not cyclops" crops out exactly where the player fights.
+Re-judge → PASS.
+
+**Telegraph must change the OUTLINE, not just the glow.** G5 measured 33% silhouette diff (pixels) yet
+Fable read the charge as "a lighting change" — because at a wide idle gape, opening the jaw further barely
+moves the outline. Rearing the whole head (chin up, crown higher) is what makes the wind-up read as a POSE.
+
+**"Never fits the frame" is a per-axis property.** Narrowing + heightening the skull (vertical thrust,
+not a ball) dropped the width-based `hullLength()` below the test's ≥34 floor; the honest span is now the
+VERTICAL extent. When you re-proportion a boss, the "never-fits" number must follow its largest axis —
+update `hullLength()` (and its test proxy) in the same commit.

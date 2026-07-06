@@ -100,7 +100,10 @@ export function buildBrineholm(def, quality = 1) {
   // GILL RAKES — glowing abalone slits on the flanks of the head (the lit-edge).
   const gillMat = track(new THREE.MeshStandardMaterial({ color: 0x08110f, emissive: accent, emissiveIntensity: 0.9, roughness: 0.55, metalness: 0.0, flatShading: true }));
   // TEETH — kelp-dark jagged fangs, silhouetted against the glowing gullet.
-  const toothMat = track(new THREE.MeshStandardMaterial({ color: 0x131a17, emissive: 0x0c1512, emissiveIntensity: 0.08, roughness: 0.5, metalness: 0.2, flatShading: true }));
+  // fangs carry a DIM always-on abalone ember (so the jagged jawline reads as a lit
+  // edge at fight distance even in idle — without it the maw is dark-on-dark and the
+  // head half-reads as a lone cyclops orb).
+  const toothMat = track(new THREE.MeshStandardMaterial({ color: 0x0e1512, emissive: accent, emissiveIntensity: 0.16, roughness: 0.5, metalness: 0.2, flatShading: true }));
   const ironMat = track(new THREE.MeshStandardMaterial({ color: 0x1a1c20, emissive: 0x101216, emissiveIntensity: 0.05, roughness: 0.55, metalness: 0.55, flatShading: true }));
   const cageMat = track(new THREE.LineBasicMaterial({ color: 0x040807, transparent: true, opacity: 0.85, depthWrite: false }));
 
@@ -119,31 +122,47 @@ export function buildBrineholm(def, quality = 1) {
   // It fills the frame VERTICALLY (head ~24 local tall → ~36 world). The maw is
   // the lower third; the eye is upper; nothing is horizontal.
   // ==================================================================
-  const HEAD_HW = 11.5;      // half-width (×scale ≈ ±17 world → fills/exceeds the sides)
+  const HEAD_HW = 9.0;       // half-width — NARROW (the head thrusts UP, it is not a ball)
+  const HEAD_VH = 12.5;      // half-height — TALLER than wide = a vertical leviathan skull
+  const HEAD_VD = 8.5;       // half-depth (front→back)
 
-  // ---- THE UPPER SKULL: cranium + jutting brow + snout + upper-jaw palate. A
-  // deformed ellipsoid; its bottom edge (~y −5) is the upper-teeth line.
-  const skullBase = new THREE.SphereGeometry(1, lowQ ? 24 : 34, lowQ ? 16 : 24);
+  // ---- THE UPPER SKULL (§5d): a vertically-thrusting cranium with a jutting BROW
+  // SHELF over the eye, a projecting SNOUT, and a palate tapering back to the jaw
+  // hinge. The FRONT is FLATTENED to a broad face-plane so features (brow, eye,
+  // snout, maw) protrude FROM a face — a sphere-front reads as a ball/eyeball (the
+  // rejected read). Chunky low-poly facets = carved bone-black, not a smooth orb.
+  const skullBase = new THREE.SphereGeometry(1, lowQ ? 18 : 26, lowQ ? 14 : 18);
   {
     const pos = skullBase.attributes.position, v = new THREE.Vector3();
     for (let i = 0; i < pos.count; i++) {
       v.fromBufferAttribute(pos, i);
-      v.x *= HEAD_HW; v.y *= 8.6; v.z *= 8.0;
-      const ty = v.y / 8.6, tz = v.z / 8.0;
-      // heavy BROW: the upper-front juts forward + up over the eye
-      if (ty > 0.25 && tz > -0.1) { v.z += (ty - 0.25) * (tz + 0.1) * 3.4; v.y += (ty - 0.25) * 1.2; }
-      // SNOUT: the lower-front projects forward (the upper jaw / muzzle)
-      if (ty < 0.0 && tz > 0.2) { v.z += (0.0 - ty) * (tz) * 2.6; }
-      // narrow the palate: pull the very bottom inward (the roof of the maw)
-      if (ty < -0.5) { v.x *= (1 + (ty + 0.5) * 0.5); v.z -= (-ty - 0.5) * 1.2; }
+      v.x *= HEAD_HW; v.y *= HEAD_VH; v.z *= HEAD_VD;
+      const ty = v.y / HEAD_VH, tz = v.z / HEAD_VD, tx = v.x / HEAD_HW;
+      // FLATTEN THE FACE-PLANE: pull the front bulge back toward a broad plane so
+      // the frontal read is a FACE, not a sphere front (kills the eyeball/moon read).
+      if (tz > 0.1) v.z -= (tz - 0.1) * (tz - 0.1) * HEAD_VD * 0.6 * (1 - Math.abs(ty) * 0.25);
+      // heavy BROW SHELF: a forward overhang across the upper-front with a down-lip
+      // at the leading edge — it breaks the top-front outline (a carrying cue). The
+      // temples BULGE wider at the brow line so the side-outline knuckles out (not
+      // a smooth egg): a bony beast-brow, the eye set deep beneath it.
+      if (ty > 0.2 && ty < 0.64 && tz > -0.1) { const b = (ty - 0.2) * (0.64 - ty) * 11; v.z += b * (tz + 0.3) * 1.5; v.y -= Math.max(0, b - 0.5) * 0.7; if (Math.abs(tx) > 0.35 && tz > 0.1) v.x *= 1 + b * 0.16; }
+      // SNOUT / upper muzzle: the mid-lower front juts forward over the maw.
+      if (ty < 0.06 && ty > -0.6 && tz > 0.0) { v.z += (0.06 - ty) * (tz + 0.1) * 3.4; }
+      // TAPER to the jaw hinge: the lower skull narrows + recedes (the roof of the maw).
+      if (ty < -0.35) { const k = clamp((-ty - 0.35) / 0.65, 0, 1); v.x *= (1 - k * 0.5); v.z -= k * 2.4; v.y += k * 1.2; }
+      // NARROW + SLOPE-BACK the crown so the top comes to a bony ridge and recedes
+      // (an angular beast-skull), NOT a full-width smooth dome (the ball read).
+      if (ty > 0.5) { const k = clamp((ty - 0.5) / 0.5, 0, 1); v.x *= (1 - k * 0.34); v.z -= k * k * 2.4; }
+      // squared cheeks (carved, not round): flatten the flanks.
+      if (Math.abs(tx) > 0.5 && Math.abs(ty) < 0.55) v.x *= 0.9;
       pos.setXYZ(i, v.x, v.y, v.z);
     }
     skullBase.computeVertexNormals();
     skullBase.deleteAttribute('uv');
   }
   const skullFull = strip(skullBase);
-  skullFull.translate(0, 3.6, 0);   // spans world y ≈ −5 … +12
-  const skullT = tierSplit(skullFull, 0.5, 6.5);
+  skullFull.translate(0, 3.6, 0);   // spans world y ≈ −6.2 … +15.8 (crown exits frame-top)
+  const skullT = tierSplit(skullFull, 1.0, 8.0);
   const skullDeep = new THREE.Mesh(skullT.deep, hideDeepMat); skullDeep.name = 'brineHead';
   const skullMid = new THREE.Mesh(skullT.mid, hideMat);
   const skullHi = new THREE.Mesh(skullT.hi, hideHiMat);
@@ -151,21 +170,24 @@ export function buildBrineholm(def, quality = 1) {
 
   // ---- THE GULLET — a glowing bioluminescent throat mass behind the teeth (the
   // lit-edge seen through the maw). 2-tone; pulses on the breath in the tick.
-  const gulletCore = new THREE.Mesh(strip(new THREE.SphereGeometry(5.4, lowQ ? 14 : 20, lowQ ? 10 : 14)), gulletMat);
+  // THE GULLET — a tall glowing throat set in the maw; the dark fangs silhouette
+  // in FRONT of it (a fanged glowing maw, not a flat green grin-band). Bright at
+  // the core, tapering to a narrow column so it reads as a throat, not a fill.
+  const gulletCore = new THREE.Mesh(strip(new THREE.SphereGeometry(4.4, lowQ ? 14 : 20, lowQ ? 10 : 14)), gulletMat);
   gulletCore.name = 'brineGullet';
-  gulletCore.scale.set(1.0, 0.7, 0.7);
-  gulletCore.position.set(0, -4.2, -1.2);
+  gulletCore.scale.set(0.86, 1.25, 0.8);
+  gulletCore.position.set(0, -3.7, -2.0);        // raised into the lower third (not cropped at the frame edge)
   rig.add(gulletCore);
-  const gulletInner = new THREE.Mesh(strip(new THREE.SphereGeometry(3.4, lowQ ? 12 : 16, lowQ ? 8 : 12)), gulletVMat);
-  gulletInner.scale.set(1.0, 0.7, 0.7);
-  gulletInner.position.set(0.5, -4.6, -2.4);
+  const gulletInner = new THREE.Mesh(strip(new THREE.SphereGeometry(2.6, lowQ ? 12 : 16, lowQ ? 8 : 12)), gulletVMat);
+  gulletInner.scale.set(0.82, 1.2, 0.74);
+  gulletInner.position.set(0.4, -4.3, -3.2);
   rig.add(gulletInner);
 
   // ---- THE LOWER JAW (jawPivot) — a chunky jaw mass hinged at the back; it drops
   // to GAPE the maw (the breathing + the §3.5 attack telegraph). Jagged upper edge.
   const jawPivot = new THREE.Group();
   jawPivot.name = 'jawPivot';
-  jawPivot.position.set(0, -4.4, -4.2);          // hinge behind the throat
+  jawPivot.position.set(0, -3.2, -4.2);          // hinge behind the throat (raised — the maw sits in the lower third)
   const jawBase = new THREE.SphereGeometry(1, lowQ ? 18 : 26, lowQ ? 12 : 18);
   {
     const pos = jawBase.attributes.position, v = new THREE.Vector3();
@@ -192,17 +214,21 @@ export function buildBrineholm(def, quality = 1) {
   // jagged JAWLINE is the load-bearing "maw" silhouette cue.
   const upperTeeth = [], lowerTeeth = [];
   const N_TEETH = lowQ ? 7 : 11;
+  // deterministic per-tooth jitter (irregular = predatory; a clean arc = a grin).
+  const jit = (n) => { const s = Math.sin(n * 12.9898) * 43758.5453; return s - Math.floor(s); };
   for (let i = 0; i < N_TEETH; i++) {
     const t = (i / (N_TEETH - 1) - 0.5);          // −0.5..0.5 across
-    const x = t * 13.5;
-    const z = 5.4 - Math.abs(t) * 4.0;            // the tooth arc recedes at the corners
-    const hU = 1.4 + (i % 2) * 0.7 - Math.abs(t) * 0.6;
-    const up = strip(new THREE.ConeGeometry(0.55 - Math.abs(t) * 0.15, hU, 5));
-    up.rotateX(Math.PI); up.translate(x, -4.6 - hU * 0.4, z);   // hang from the upper jaw
+    const x = t * 12.0;
+    const z = 5.6 - Math.abs(t) * 2.2;            // near-LEVEL bite line (not an up-curved smile)
+    // LONG irregular dark fangs (silhouetted against the deep throat glow) — a few
+    // hero fangs hang well into the gape so the maw reads FANGED, not a tidy grin.
+    const hU = 2.3 + jit(i) * 2.2 - Math.abs(t) * 0.7;
+    const up = strip(new THREE.ConeGeometry(0.6 - Math.abs(t) * 0.14, hU, 5));
+    up.rotateX(Math.PI); up.translate(x, -3.0 - hU * 0.5, z);   // hang from the upper jaw (raised bite line)
     upperTeeth.push(up);
-    const hL = 1.2 + ((i + 1) % 2) * 0.6 - Math.abs(t) * 0.5;
-    const lo = strip(new THREE.ConeGeometry(0.5 - Math.abs(t) * 0.13, hL, 5));
-    lo.translate(x * 0.94, -6.0 + hL * 0.4, z * 0.96);          // rise from the lower jaw (added to jawPivot)
+    const hL = 1.9 + jit(i + 7) * 1.9 - Math.abs(t) * 0.6;
+    const lo = strip(new THREE.ConeGeometry(0.54 - Math.abs(t) * 0.12, hL, 5));
+    lo.translate(x * 0.92 + (jit(i + 3) - 0.5) * 0.5, -5.0 + hL * 0.5, z * 0.95);   // rise from the lower jaw
     lowerTeeth.push(lo);
   }
   rig.add(new THREE.Mesh(mergeBh(upperTeeth, 'upperTeeth'), toothMat));
@@ -252,20 +278,41 @@ export function buildBrineholm(def, quality = 1) {
   const lidMesh = new THREE.Mesh(mergeBh(lidParts, 'eyelid'), hideHiMat); lidMesh.name = 'eyeLid'; eyeLidPivot.add(lidMesh);
   eyeRig.add(eyeLidPivot);
 
-  // ---- BARNACLE CRUST on the crown + temples (breaks the top edge — knobbly).
+  // ---- BARNACLE CRUST on the crown + temples (breaks the top edge — knobbly
+  // organic outline, not a smooth dome). The crown clusters are the biggest.
   const barnParts = [], barnGlow = [];
-  const N_BARN = lowQ ? 8 : 14;
+  const N_BARN = lowQ ? 9 : 16;
   for (let i = 0; i < N_BARN; i++) {
     const a = (i / N_BARN) * Math.PI * 2;
-    const r = 7 + (i % 3) * 1.6;
-    const x = Math.cos(a) * r, y = 8.5 + Math.sin(a) * 3.5 + (i % 2) * 1.2;
-    const h = 0.6 + (i % 3) * 0.3;
-    const c = strip(new THREE.ConeGeometry(0.3 + (i % 2) * 0.1, h, 5));
-    c.translate(x * 0.7, y, 3.5 - Math.abs(Math.cos(a)) * 2);
+    const r = 6.5 + (i % 3) * 1.4;
+    const crown = Math.max(0, Math.sin(a));                // up-facing → bigger (breaks the crown outline)
+    const x = Math.cos(a) * r, y = 10.8 + Math.sin(a) * 4.2 + (i % 2) * 1.0;
+    const h = 0.8 + (i % 3) * 0.4 + crown * crown * 3.0;   // crown knobs are tall horns (jagged top outline)
+    const c = strip(new THREE.ConeGeometry(0.34 + (i % 2) * 0.14 + crown * 0.3, h, 5));
+    c.translate(x * 0.72, y, 2.4 - Math.abs(Math.cos(a)) * 1.6);
     if (i % 4 === 0) barnGlow.push(c); else barnParts.push(c);
   }
   rig.add(new THREE.Mesh(mergeBh(barnParts, 'barnacles'), hideDeepMat));
   if (barnGlow.length) rig.add(new THREE.Mesh(mergeBh(barnGlow, 'barnGlow'), gillMat));
+
+  // ---- THE BLOWHOLE + MIST SPOUT (§3b law-5 — the POSITIVE "leviathan" signal
+  // NOTHING else in the roster has; also the TIDAL-DRONE rhythm tell). A paired
+  // vent sits on the crown behind the brow; on the exhale beat it SPOUTS a pale
+  // vertical mist column that breaks the top of frame — a plume, never a level line.
+  const BLOW_Y = 11.4, BLOW_Z = 2.2;   // a touch lower + forward on the crown so the plume stays in the tight fight framing
+  const ventRim = [];
+  for (const sx of [-1, 1]) { const r = strip(new THREE.TorusGeometry(0.72, 0.3, 6, 10)); r.rotateX(Math.PI / 2 - 0.55); r.scale(1, 1, 0.6); r.translate(sx * 1.15, BLOW_Y, BLOW_Z); ventRim.push(r); }
+  rig.add(new THREE.Mesh(mergeBh(ventRim, 'blowRim'), hideHiMat));
+  const spoutPivot = new THREE.Group(); spoutPivot.name = 'spoutPivot'; spoutPivot.position.set(0, BLOW_Y + 0.4, BLOW_Z);
+  const spoutMat = track(new THREE.MeshBasicMaterial({ color: 0xcfeee6, transparent: true, opacity: 0.0, depthWrite: false }));
+  const spoutPuffs = [];
+  const N_SPOUT = lowQ ? 6 : 9;
+  for (let i = 0; i < N_SPOUT; i++) {
+    const puff = new THREE.Mesh(strip(new THREE.SphereGeometry(0.9 + (i % 3) * 0.28, 7, 6)), spoutMat); puff.name = 'spoutPuff';
+    puff.userData = { f: i / N_SPOUT, sway: (i % 2 ? 1 : -1) * (0.5 + (i % 3) * 0.22) };
+    spoutPivot.add(puff); spoutPuffs.push(puff);
+  }
+  rig.add(spoutPivot);
 
   // ---- THE BINDING CHAINS + DESTRUCTIBLE SHACKLE POSTS across the SNOUT (§5f
   // mercy mechanic): the beast strains against them. Break one (parry ×3 or
@@ -291,11 +338,17 @@ export function buildBrineholm(def, quality = 1) {
   }
   for (let i = 0; i < SHACKLE_X.length; i++) shackleRigs.push(buildShacklePost(i, SHACKLE_X[i], SHACKLE_Y[i]));
 
-  // ---- THE ONE SCAR (§3.6) — a snapped chain fused across the snout beside the
-  // eye (a broken iron half-ring + a raw pale gouge) — the ASHTALON lore hook.
-  const scarRing = strip(new THREE.TorusGeometry(0.6, 0.16, 5, 10, Math.PI * 1.3)); scarRing.rotateY(Math.PI / 2); scarRing.rotateZ(0.6); scarRing.translate(EYE_X - 4.0, EYE_Y - 3.2, EYE_Z - 0.6);
-  const scar = new THREE.Mesh(mergeBh([scarRing], 'scar'), ironMat); scar.name = 'brineScar'; rig.add(scar);
-  const gouge = new THREE.Mesh(strip(new THREE.BoxGeometry(1.2, 0.3, 0.3)), gougeMat); gouge.name = 'brineGouge'; gouge.position.set(EYE_X - 3.4, EYE_Y - 3.6, EYE_Z); gouge.rotation.z = -0.4; rig.add(gouge);
+  // ---- THE ONE SCAR (§3.6) — a snapped chain fused DIAGONALLY across the snout
+  // below the eye (a heavy broken iron half-ring + a raw pale gouge, with an
+  // abalone glint on the broken end so the asymmetric scar reaches a lit edge at
+  // fight distance) — the ASHTALON lore hook.
+  const scarParts = [];
+  const scarRing = strip(new THREE.TorusGeometry(0.85, 0.24, 5, 10, Math.PI * 1.25)); scarRing.rotateY(Math.PI / 2); scarRing.rotateZ(0.9); scarRing.translate(EYE_X - 3.6, EYE_Y - 3.4, EYE_Z - 0.4); scarParts.push(scarRing);
+  const scarBar = strip(new THREE.CylinderGeometry(0.22, 0.26, 3.4, 6)); scarBar.rotateZ(0.7); scarBar.rotateX(0.2); scarBar.translate(EYE_X - 2.6, EYE_Y - 4.0, EYE_Z + 0.2); scarParts.push(scarBar);
+  const scar = new THREE.Mesh(mergeBh(scarParts, 'scar'), ironMat); scar.name = 'brineScar'; rig.add(scar);
+  const gouge = new THREE.Mesh(strip(new THREE.BoxGeometry(1.6, 0.34, 0.34)), gougeMat); gouge.name = 'brineGouge'; gouge.position.set(EYE_X - 3.0, EYE_Y - 3.7, EYE_Z + 0.4); gouge.rotation.z = -0.7; rig.add(gouge);
+  // the abalone glint on the snapped end (the lit-edge tick that sells the scar).
+  const scarGlint = new THREE.Mesh(strip(new THREE.SphereGeometry(0.34, 8, 6)), ventMat); scarGlint.name = 'brineScarGlint'; scarGlint.position.set(EYE_X - 1.9, EYE_Y - 2.9, EYE_Z + 0.5); rig.add(scarGlint);
 
   // ---- EDGE CAGE over the skull + jaw crests.
   for (const [geoSrc, thresh] of [[skullT.hi, 24], [jawGeo, 26]]) rig.add(new THREE.LineSegments(new THREE.EdgesGeometry(geoSrc, thresh), cageMat));
@@ -387,33 +440,50 @@ export function buildBrineholm(def, quality = 1) {
     const noticeK = noticeT > 0 ? clamp01(noticeT / 0.9) : 0;
     rig.position.y = swell * 0.5 + painEase * Math.sin(time * 30) * 0.4;
     rig.rotation.z = Math.sin(time * 0.22) * 0.008 + painEase * Math.sin(time * 26) * 0.012;
-    // the head REARS back as an attack winds up (the §3.5 telegraph on the big mass)
+    // the head REARS back hard as an attack winds up — it lifts the chin + throws
+    // the maw open toward you, changing the SILHOUETTE (not just the glow; §3.5).
     const rear = charge * 0.5 + noticeK * 0.3;
-    rig.rotation.x = Math.sin(time * 0.18) * 0.006 - rear * 0.12;
+    rig.rotation.x = Math.sin(time * 0.18) * 0.006 - rear * 0.22;
 
     // --- THE MAW. Idle = a slow breathing gape; CHARGE/NOTICE = a WIDE gape (the
     // beast exhales — the silhouette telegraph); shield/death = slack. Straining
     // against the chains adds a judder while bound. ---
     const bound = liveShackles().length / Math.max(1, shackleRigs.length);   // 1 fully bound → 0 freed
-    const breathGape = 0.12 + Math.max(0, swell) * 0.16;
-    let gapeT = breathGape + charge * 0.9 + noticeK * 0.7 + dreadK * 0.5;
-    if (shieldClamp) gapeT = 0.05;
-    if (dyingK > 0) gapeT = 0.3 * (1 - dyingK);
+    // idle = a WIDE-YAWNING surfaced maw — the dominant carrying cue must read at
+    // rest as a gaping cavern (deep glowing throat + long fangs), never a closed
+    // grin; charge/notice yawn it wider still (the §3.5 telegraph).
+    const breathGape = 0.82 + Math.max(0, swell) * 0.16;
+    let gapeT = breathGape + charge * 0.55 + noticeK * 0.4 + dreadK * 0.35;
+    if (shieldClamp) gapeT = 0.08;
+    if (dyingK > 0) gapeT = 0.4 * (1 - dyingK);
     // while BOUND it strains: a fast judder on the gape (the chains fight it)
     gapeT += bound * (charge * 0.3 + 0.04) * Math.sin(time * 9) * 0.5;
     jawOpenK += (gapeT - jawOpenK) * Math.min(1, dt * 5);
-    jawPivot.rotation.x = clamp(jawOpenK, 0, 1.2) * 0.9;
+    jawPivot.rotation.x = clamp(jawOpenK, 0, 1.5) * 0.95;
 
     // --- THE GULLET GLOW pulses on the breath; FLARES on the exhale/charge. ---
-    const throat = 0.85 + Math.max(0, swell) * 0.4 + charge * 0.9 + noticeK * 0.8 + dreadK * 0.6;
+    const throat = 1.05 + Math.max(0, swell) * 0.4 + charge * 0.85 + noticeK * 0.7 + dreadK * 0.55;
     const throatK = throat * (shieldClamp ? 0.4 : 1) * (1 - dyingK * 0.7);
-    gulletMat.emissiveIntensity = 1.25 * throatK;
+    gulletMat.emissiveIntensity = 1.5 * throatK;
     gulletVMat.emissiveIntensity = 0.95 * (0.9 + Math.sin(time * 0.8 + 1.4) * 0.16) * (1 + charge * 0.5) * (shieldClamp ? 0.4 : 1) * (1 - dyingK * 0.7);
     // --- THE GILLS flex on the breath + flare on the throat. ---
     for (let g = 0; g < gillPivots.length; g++) {
       const p = gillPivots[g];
       p.scale.y = 1 + Math.max(0, swell) * 0.25 + charge * 0.2;
       p.children.forEach((c, ci) => { c.material.emissiveIntensity = (0.9 - ci * 0.15) * throatK; });
+    }
+
+    // --- THE BLOWHOLE SPOUT — a pale mist column that GROWS + brightens on the
+    // exhale beat (and hard on charge/notice), rising off the crown. The rhythm
+    // tell + the positive "leviathan" read. Fades right out while shielded/dying. ---
+    const entSpout = entranceU == null ? 1 : clamp01((entranceU - 0.62) / 0.28);   // spouts as the crown clears the fog
+    const spoutPower = clamp((swell > 0 ? swell * 1.3 : 0) + charge * 0.9 + noticeK * 0.7, 0, 1.5) * (shieldClamp ? 0.15 : 1) * (1 - dyingK) * entSpout;
+    spoutMat.opacity = clamp(0.06 + spoutPower * 0.3, 0, 0.5);
+    const colH = 6 + spoutPower * 6;
+    for (let i = 0; i < spoutPuffs.length; i++) {
+      const p = spoutPuffs[i], f = p.userData.f;
+      p.position.set(Math.sin(time * 1.1 + i) * (0.4 + f * 1.7) + p.userData.sway * f, f * colH, 1.4 + f * 2.2 + Math.cos(time * 0.7 + i) * 0.4);   // leans FORWARD as it rises (stays in the fight framing)
+      p.scale.setScalar(clamp(1.15 - f * 0.7, 0.28, 1.15) * (0.55 + spoutPower * 0.6));
     }
 
     // --- THE EYE WEAK-POINT WINDOW (the sole focal). ---
@@ -429,8 +499,12 @@ export function buildBrineholm(def, quality = 1) {
     else if (eyeUp > 0.6 && entranceU == null && dyingK <= 0 && charge < 0.3) { nextBlink -= dt; if (nextBlink <= 0 && noticeT <= 0) { blinkT = BLINK_DUR; nextBlink = 5 + Math.random() * 4; } }
     const blink = blinkT > 0 ? 1 - Math.abs((blinkT / BLINK_DUR) * 2 - 1) : 0;
 
-    const lidOpen = clamp(eyeUp - blink * 0.6 + noticeK * 0.45, 0, 1.4);
-    eyeLidPivot.rotation.x = lidOpen * 1.2;   // grind the hood fully clear of the catchlight
+    // HEAVY-LIDDED: even fully open the hood keeps the TOP of the eye covered (a
+    // lidded ARC, not a full disc — this kills the cyclops/eyeball read). The
+    // catchlight sits in the EXPOSED lower sclera so it stays clear. Hood hardest
+    // in dread (where a bare circle read worst).
+    const lidOpen = clamp(eyeUp - blink * 0.6 + noticeK * 0.45 - dreadK * 0.85, 0, 1.4);
+    eyeLidPivot.rotation.x = lidOpen * 0.8;
 
     let eyeK = eyeUp;
     if (noticeT > 0.4) eyeK = Math.max(eyeK, 1) * 1.3;
@@ -496,10 +570,12 @@ export function buildBrineholm(def, quality = 1) {
   }
 
   // Muzzle: the beast EXHALES its volleys/geysers from the MAW (emitter = organ).
-  const muzzle = new THREE.Object3D(); muzzle.name = 'brineMaw'; muzzle.position.set(0, -3.5, 5.5); group.add(muzzle);
+  const muzzle = new THREE.Object3D(); muzzle.name = 'brineMaw'; muzzle.position.set(0, -2.5, 5.5); group.add(muzzle);
 
   const sc = def.scale ?? 1.5;
-  function hullLength() { return HEAD_HW * 2 * sc; }        // world span (the "never fits" number)
+  // the "never fits" number is now the VERTICAL span (the head thrusts UP — its
+  // tallest extent, crown-to-jaw, is the dimension that exceeds the frame).
+  function hullLength() { return HEAD_VH * 2 * sc; }        // world span (the "never fits" number)
   function eyeSurfaced() { return eyeUp; }
   function jawOpen() { return jawPivot.rotation.x; }
   function shacklePositions() { return shackleRigs.map((s) => s.x * sc); }
