@@ -1671,7 +1671,7 @@ function buildRiverPearl(def, model, attach, spineMats) {
   const r0 = 0.14 * bloom;
   // The pearl: a mint-pearl emissive bead. Emissive laddered so it is the ONE bloom
   // (law 12) yet green-leaning even under ACES (never blows to pure white).
-  const emisI = [0.9, 1.6, 2.6][stage] ?? 2.6;
+  const emisI = [0.8, 1.3, 1.9][stage] ?? 1.9;   // bright ONE bloom, but not blown to a white slab (gate r3 dir 11 — reads mint, not raw white)
   const pearlMat = new THREE.MeshStandardMaterial({
     color: 0x8fe0be, emissive: cPearl, emissiveIntensity: emisI, roughness: 0.28, metalness: 0.0 });
   const pearl = new THREE.Mesh(new THREE.SphereGeometry(r0, seg(10), seg(8)), pearlMat);

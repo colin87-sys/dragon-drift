@@ -214,8 +214,7 @@ export const DRAGONS = {
       headArchetype: 'softStealth',      // rounded wedge skull + large soft calm eyes + swept ear-fins — the river-dragon read
       headScale: 0.6, snoutScale: 0.72, eyeScale: 0.82, eyeShape: 1.0,
       cuteEye: true,                     // living eye — jade-green iris + dark forward pupil + catchlight (gate r1 dir 9; no more blank doll orb)
-      eyeSclera: 0xd6f0e2, eyeIris: 0x2f9e77, eyeIrisKeen: 0x8ff0c2,   // calm GREEN gaze (not azure blue)
-      eyeBallEmissive: 0x0e3a2a,         // GREEN eyeball self-light (was azure's blue 0x1a3652 → the eye read blue, gate r3 dir 4)
+      headStretch: 1.42, headNarrow: 0.8,   // slim ELONGATED koi/serpent head (not a round blob-pile — gate r3 dir 5)
       bellyPaint: true,                  // pale mint underside vertex-painted on the ventral serpent torso (ICONIC GREEN belly)
       whiskerFins: true,                 // trailing whisker fins (jade signature) — cradle the chin pearl
       neckBlend: 1.6,                    // fuse the neck beads into a smooth taper (gate r1 dir 3 — no sausage-bead chain)
@@ -261,7 +260,7 @@ export const DRAGONS = {
       // almond eyes, 4 lobes + trailing streamers, veil (finned) tail, whiskers
       // cradling the luminous river-pearl (the ONE bloom). DEEPEST value, richest
       // saturation — still NO glow-seams (law 12); spineGlow ≤0.32.
-      { headScale: 0.6, snoutScale: 0.72, eyeScale: 0.62, eyeShape: 1.0,
+      { headScale: 0.48, snoutScale: 0.98, eyeScale: 0.72, eyeShape: 0.62,
         neckSegments: 8, tailSegments: 12, whiskerFins: true, crest: 1,
         spineCurl: 0.9, spineYaw: 0.72,   // full proud S-ribbon (neck arcs up, mid dips, tail counter-arcs; strong lateral recurve)
         lobeCount: 4, lobeSpan: 6.0, lobeTilt: 0.95, lobeDetail: 1.3, rimCarrier: 1.0, streamerLen: 4.5, pearlStage: 2,
@@ -276,6 +275,7 @@ export const DRAGONS = {
     scaleEmissive: 0x0d6b45, scaleEmissiveI: 0.22,   // GREEN scale glow (scutes/whiskers/ridges) — never the shared cyan (L164) on a green dragon
     eyeEmissiveI: 1.1,                                // calm painterly eye — not blown to a white googly blob under ACES
     bellyEmissive: 0x1f8a5c, bellyEmissiveI: 0.5,    // anchor the pale mint belly/jaw GREEN so it never drifts slate-blue in shadow (gate r1 dir 8)
+    eyeSclera: 0xbfe6cf, eyeIris: 0x2f9e77, eyeIrisKeen: 0x8ff0c2, eyeBallEmissive: 0x0e3a2a,   // calm GREEN gaze (top-level def — the head reads c.def.*, NOT model.*); greener sclera so the eye never reads cool-blue
     body: 0x178a54, belly: 0xa6e2c2, scales: 0x8fe0be, horn: 0xc7ebcf,
     wingInner: 0x2f9e77, wingOuter: 0x116b45, wingEmissive: 0x9ff0c8,
     apexEye: 0x8ff0c2, apexSeam: 0x9ff0c8, coreGlow: 0x3aa078, surgeHi: 0xd6ffe9,

@@ -211,13 +211,18 @@ const SKULL_DIMS = {
 };
 function buildSkull(c) {
   const d = c.dim, m = c.mats.bodyMat;
+  // headStretch / headNarrow (additive, default 1 → byte-identical): elongate + narrow
+  // the cranium into a slim wedge instead of a round ball — the eastern-serpent read
+  // (jade, gate r3 dir 5: "blob-pile" → a sleek tapered head).
+  const csz = d.csz * (c.model.headStretch ?? 1);
+  const csx = d.csx * (c.model.headNarrow ?? 1);
   // ONE smooth rounded cranium — slightly elongated. Keeping the core to a few,
   // well-matched forms (cranium + cone muzzle + jaw) is what reads as a sleek
   // wedge instead of a lumpy ball-chain.
-  c.head.add(ellipsoid(m, R, d.csx, d.csy, d.csz, 0, 0, R * 0.14, 14));
-  c.faceZ = R * 0.14 - R * d.csz;            // front of the cranium (muzzle anchor)
-  c.faceR = R * d.csx;                        // half-width there
-  c.hx = R * d.csx; c.hy = R * d.csy; c.hz = R * d.csz;
+  c.head.add(ellipsoid(m, R, csx, d.csy, csz, 0, 0, R * 0.14, 14));
+  c.faceZ = R * 0.14 - R * csz;              // front of the cranium (muzzle anchor)
+  c.faceR = R * csx;                          // half-width there
+  c.hx = R * csx; c.hy = R * d.csy; c.hz = R * csz;
   // Subtle brow ridge bulges over the eyes — the intelligent read (low + small).
   if (d.brow > 0) for (const s of [-1, 1]) {
     c.head.add(ellipsoid(m, R * 0.24 * d.brow, 1.0, 0.62, 1.15, s * c.faceR * 0.5, c.hy * 0.34, c.faceZ + c.faceR * 0.34, 8));
