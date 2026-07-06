@@ -235,6 +235,11 @@ if (urlParams.has('debug')) {
     postfx: { setPostTier, kick, kickState, handle: postfx },
     // Drop straight into a boss fight (also bound to the B key under ?debug).
     spawnBoss: () => { if (game.state === 'playing') forceBoss(player); },
+    // Push the boss schedule out of the way (or restore it) so a stretch of
+    // course — e.g. the Caldera geyser field — can be flown WITHOUT a boss
+    // clearing the hazards. Persists across restarts (debugFirstAt is honoured
+    // on reset); pass false to hand the normal schedule back.
+    noBoss: (on = true) => setBossDebugFirstAt(on ? Infinity : CONFIG.BOSS.firstAt),
     bossState: () => bossDebugState(),
     // Capture hook: fire one live volley (default 'aimed') to catch body-origin emit + grow-in.
     bossFireNow: (id) => debugFireAttack(id, player),
