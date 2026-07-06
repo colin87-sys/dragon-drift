@@ -187,11 +187,22 @@ export function buildKnellgrave(def, quality = 1) {
   // credibility at the top of the silhouette). Bolt heads at the beam ends.
   const yokeParts = [];
   const beam = strip(new THREE.BoxGeometry(5.4, 0.85, 1.15)); beam.translate(0, 4.75, 0); yokeParts.push(beam);
+  const mountPlate = strip(new THREE.BoxGeometry(1.7, 0.3, 1.5)); mountPlate.translate(0, 5.35, 0); yokeParts.push(mountPlate);
   for (const sx of [-1, 1]) {
     const post = strip(new THREE.BoxGeometry(0.55, 1.3, 0.7)); post.translate(sx * 1.15, 3.9, 0); yokeParts.push(post);
     const bolt = strip(new THREE.CylinderGeometry(0.26, 0.26, 1.5, 6)); bolt.rotateZ(Math.PI / 2); bolt.translate(sx * 2.35, 4.75, 0); yokeParts.push(bolt);
+    const cap = strip(new THREE.BoxGeometry(0.5, 1.05, 1.3)); cap.translate(sx * 2.7, 4.75, 0); yokeParts.push(cap);
+    const underBolt = strip(new THREE.CylinderGeometry(0.16, 0.16, 1.0, 5)); underBolt.rotateX(Math.PI / 2); underBolt.translate(sx * 1.6, 4.45, 0); yokeParts.push(underBolt);
   }
   bellGroup.add(new THREE.Mesh(mergeK(yokeParts, 'yoke'), ironMat));
+  // THE EMPTY HOOK (§3.6-adjacent lore, one asymmetric): a snapped second chain stub +
+  // a bare open hook hanging off the beam's far end — something ELSE hung beside the
+  // bell once, and it is GONE (an open thread the registry can point at later).
+  const hookParts = [];
+  const stubLink = strip(new THREE.TorusGeometry(0.34, 0.13, 5, 9)); stubLink.translate(2.15, 4.05, 0); hookParts.push(stubLink);
+  const stubHalf = strip(new THREE.TorusGeometry(0.34, 0.13, 5, 9, Math.PI * 1.1)); stubHalf.rotateY(Math.PI / 2); stubHalf.rotateZ(0.5); stubHalf.translate(2.15, 3.4, 0.05); hookParts.push(stubHalf);
+  const bareHook = strip(new THREE.TorusGeometry(0.42, 0.14, 5, 9, Math.PI * 1.25)); bareHook.rotateZ(-0.6); bareHook.translate(-2.15, 3.75, 0); hookParts.push(bareHook);
+  bellGroup.add(new THREE.Mesh(mergeK(hookParts, 'emptyHook'), ironMat));
   // crown CANNONS — the cast loops on a real bell's crown, under the yoke.
   const cannonParts = [];
   for (const ca of [Math.PI * 0.25, Math.PI * 0.75, Math.PI * 1.25, Math.PI * 1.75]) {
@@ -216,23 +227,59 @@ export function buildKnellgrave(def, quality = 1) {
     blk.translate(Math.sin(a) * rr, 1.6, Math.cos(a) * rr);
     friezeParts.push(blk);
   }
-  const NN = lowQ ? 9 : 12;
-  for (let i = 0; i < NN; i++) {
-    const a = (i / NN) * Math.PI * 2 + 0.26;
-    if (a < 0.35 || a > 5.85) continue;
-    const nh = i % 2 ? 1.35 : 1.0;                          // alternating arch heights
-    const niche = strip(new THREE.BoxGeometry(0.62, nh, 0.3));
-    niche.rotateY(a);
-    const rr = bellRadiusAt(-2.0) + 0.05;
-    niche.translate(Math.sin(a) * rr, -2.0, Math.cos(a) * rr);
-    friezeParts.push(niche);
-  }
   bellGroup.add(new THREE.Mesh(mergeK(friezeParts, 'knellFrieze'), patinaHiMat));
+  // THE BURIED — the waist band is a PROCESSION of hunched figure reliefs cast into
+  // the bell wall ("It Rings for What It Buried" — the buried are ON the bell; the
+  // §4.7 fan-art hook + the lore made ornament). Each: a bowed body, a drooped head,
+  // folded arms. The procession BREAKS at the crack — the figures nearest the wound
+  // are gone (what escaped? the lore gap points at the clapper).
+  const buriedParts = [];
+  const NB = lowQ ? 6 : 11;
+  for (let i = 0; i < NB; i++) {
+    const a = (i / NB) * Math.PI * 2 + 0.3;
+    if (a < 0.45 || a > 5.75) continue;                     // the crack sector: emptied
+    const rr = bellRadiusAt(-2.1) + 0.02;
+    const parts = [];
+    const body = strip(new THREE.CapsuleGeometry(0.27, 0.85, 2, 6)); body.rotateX(0.22); body.translate(0, -0.1, 0.24); parts.push(body);
+    const bHead = strip(new THREE.SphereGeometry(0.19, 6, 5)); bHead.translate(0, 0.62, 0.34); parts.push(bHead);
+    const fold = strip(new THREE.BoxGeometry(0.5, 0.16, 0.18)); fold.translate(0, 0.12, 0.42); parts.push(fold);
+    for (const p of parts) { p.rotateY(a); p.translate(Math.sin(a) * rr, -2.1, Math.cos(a) * rr); buriedParts.push(p); }
+  }
+  bellGroup.add(new THREE.Mesh(mergeK(buriedParts, 'theBuried'), patinaHiMat));
+  // RIVET STUDS around the relief rings (cast hardware — carved, not scattered).
+  const rivetParts = [];
+  const NR = lowQ ? 8 : 14;
+  for (const [ry, rr0] of [[1.4, 3.05], [-3.4, 4.15]]) {
+    for (let i = 0; i < NR; i++) {
+      const a = (i / NR) * Math.PI * 2 + 0.1;
+      if (a < 0.35 || a > 5.85) continue;
+      const riv = strip(new THREE.SphereGeometry(0.14, 5, 4));
+      riv.translate(Math.sin(a) * (rr0 + 0.22), ry, Math.cos(a) * (rr0 + 0.22));
+      rivetParts.push(riv);
+    }
+  }
+  bellGroup.add(new THREE.Mesh(mergeK(rivetParts, 'knellRivets'), ironMat));
+  // BUTTRESS FINS — eight thin cast ribs running the shoulder→waist slope (cathedral
+  // verticality; their edges catch rim light as the bell heels on the swing). The
+  // crack sector stays bare.
+  const finParts = [];
+  const NFIN = lowQ ? 6 : 8;
+  for (let i = 0; i < NFIN; i++) {
+    const a = (i / NFIN) * Math.PI * 2 + 0.42;
+    if (a < 0.45 || a > 5.75) continue;
+    const fin = strip(new THREE.BoxGeometry(0.24, 4.6, 0.55));
+    fin.rotateX(0.21);                                     // follow the profile slope
+    fin.rotateY(a);
+    const rr = 3.72;
+    fin.translate(Math.sin(a) * rr, -0.9, Math.cos(a) * rr);
+    finParts.push(fin);
+  }
+  bellGroup.add(new THREE.Mesh(mergeK(finParts, 'buttressFins'), patinaMat));
 
   // ---- DRAPED BROKEN CHAINS off the lip rim (chunky — chain-language in the resting
   // outline, away from the crack sector).
   const drapeParts = [];
-  for (const [ca, nlk] of [[2.35, 5], [-1.05, 4]]) {
+  for (const [ca, nlk] of [[2.35, 5], [-1.05, 4], [3.6, 3]]) {
     const bx = Math.sin(ca) * 5.3, bz = Math.cos(ca) * 5.3;
     for (let c = 0; c < nlk; c++) {
       const link = strip(new THREE.TorusGeometry(0.42, 0.16, 5, 9));
@@ -280,17 +327,40 @@ export function buildKnellgrave(def, quality = 1) {
   lipRing.translate(0, -6.4, 0);
   const lipMesh = new THREE.Mesh(lipRing, lipMat); lipMesh.name = 'knellLip';
   bellGroup.add(lipMesh);
+  // an INNER lip ring (a second, recessed rim — the wall has thickness; the mouth
+  // reads as a real casting, and the ring's shadow gap deepens the mouth's black).
+  const lipInner = strip(new THREE.TorusGeometry(4.85, 0.34, 6, lowQ ? 20 : 30, Math.PI * 1.32));
+  lipInner.rotateX(Math.PI / 2);
+  lipInner.rotateY(Math.PI * 1.0);
+  lipInner.translate(0, -6.15, 0);
+  bellGroup.add(new THREE.Mesh(lipInner, patinaMat));
   // jagged broken fangs edging the bite (irregular lengths — a torn rim). Placed at the
   // rim radius by angle; the bite sits at the front-left (angles ~200°-320°).
   const fangParts = [];
-  for (const fa of [Math.PI * 1.12, Math.PI * 1.32, Math.PI * 1.5, Math.PI * 1.68]) {
-    const fh = 0.7 + ((Math.sin(fa * 5) + 1) * 0.6);   // irregular lengths
-    const fang = strip(new THREE.ConeGeometry(0.55, fh, 5));
+  for (const fa of [Math.PI * 1.06, Math.PI * 1.18, Math.PI * 1.32, Math.PI * 1.44, Math.PI * 1.58, Math.PI * 1.72]) {
+    const fh = 0.6 + ((Math.sin(fa * 5) + 1) * 0.65);   // irregular lengths
+    const fang = strip(new THREE.ConeGeometry(0.5, fh, 5));
     fang.rotateX(Math.PI);
     fang.translate(Math.cos(fa) * 5.5, -6.4 - fh * 0.4, Math.sin(fa) * 5.5);
     fangParts.push(fang);
   }
+  // lip RIVETS along the surviving rim (cast hardware, skipping the bite arc).
+  const NLR = lowQ ? 7 : 12;
+  for (let i = 0; i < NLR; i++) {
+    const a = (i / NLR) * Math.PI * 2;
+    if (a > Math.PI * 0.95 && a < Math.PI * 1.85) continue;   // the bite arc stays bare
+    const riv = strip(new THREE.SphereGeometry(0.16, 5, 4));
+    riv.translate(Math.cos(a) * 5.6, -5.95, Math.sin(a) * 5.6);
+    fangParts.push(riv);
+  }
   bellGroup.add(new THREE.Mesh(mergeK(fangParts, 'lipFangs'), lipMat));
+  // a DIM ember rim just inside the mouth — the smolder the player glimpses looking UP
+  // into the bell on the swing-over pass (≤ half the slit per §3.2; the mouth stays
+  // dead-black around it — a smolder inside a void, never a downward lamp-glow).
+  const innerRim = strip(new THREE.TorusGeometry(4.5, 0.13, 5, lowQ ? 18 : 26));
+  innerRim.rotateX(Math.PI / 2);
+  innerRim.translate(0, -5.7, 0);
+  bellGroup.add(new THREE.Mesh(innerRim, emberMat));
 
   // ---- THE CRACK + CANDLE-SLIT (the focal + the §3.6 scar). A jagged vertical crack
   // runs the front-left face; behind it a thin HDR box is the candle-slit — the ONE
@@ -324,7 +394,7 @@ export function buildKnellgrave(def, quality = 1) {
   // pivot; a LineSegments continues the last links off into nothing. It swings WITH
   // the bell (a child of swingPivot) so on the arc it crosses the frame diagonally.
   const chainParts = [];
-  const NLINK = lowQ ? 4 : 6;              // HEAVY links (~1/6 bell width — Fable CP1: not a thread) clearly
+  const NLINK = lowQ ? 4 : 7;              // HEAVY links (~1/6 bell width — Fable CP1: not a thread) clearly
                                            // vanishing UP; the presence override absorbs the taller bbox (G4 COM)
   for (let c = 0; c < NLINK; c++) {
     const link = strip(new THREE.TorusGeometry(0.82, 0.3, 6, 12));
@@ -412,6 +482,31 @@ export function buildKnellgrave(def, quality = 1) {
   headMesh.position.y = -0.35;     // droops down out of the mouth at rest
   headMesh.rotation.x = 0.9;
   headPivot.add(headMesh);
+  // HANGING HAIR — head-down, so the hair falls TOWARD the player (thin dark strands
+  // off the drooped head; the drowned read — §4.7 drawable dread). Rides headPivot so
+  // the head-wrench on notice throws the hair back.
+  const hairParts = [];
+  for (const [hx, hh, ha] of [[-0.26, 0.85, 0.15], [0.05, 1.1, -0.05], [0.28, 0.75, 0.2], [-0.05, 0.95, -0.22]]) {
+    const strand = strip(new THREE.ConeGeometry(0.085, hh, 4));
+    strand.rotateX(Math.PI); strand.rotateZ(ha);
+    strand.translate(hx, -0.85 - hh * 0.4, 0.12);
+    hairParts.push(strand);
+  }
+  headPivot.add(new THREE.Mesh(mergeK(hairParts, 'knellHair'), strapMat));
+  // HANDS below the wrist cuffs (small fists — the arms END in something human).
+  for (const a of armPivots) {
+    const hand = strip(new THREE.SphereGeometry(0.2, 6, 5)); hand.scale(0.9, 1.15, 0.9); hand.translate(0, -2.42, 0);
+    a.pivot.add(new THREE.Mesh(hand, figureMat));
+  }
+  // RIB RIDGES across the chest (three thin arcs — a starved, bound torso).
+  const ribParts = [];
+  for (let r = 0; r < 3; r++) {
+    const rib = strip(new THREE.TorusGeometry(0.62 - r * 0.06, 0.055, 4, 8, Math.PI * 0.9));
+    rib.rotateZ(Math.PI * 0.05); rib.rotateY(0.2);
+    rib.translate(0, -7.0 - r * 0.42, 1.28);
+    ribParts.push(rib);
+  }
+  clapperPivot.add(new THREE.Mesh(mergeK(ribParts, 'knellRibs'), figureMat));
   // a thin NECK joining the head up to the chest (so head+shoulders read as one body).
   const neck2 = strip(new THREE.CapsuleGeometry(0.24, 0.6, 2, 6)); neck2.translate(0, -9.1, 1.0);
   clapperPivot.add(new THREE.Mesh(neck2, figureMat));
@@ -457,13 +552,33 @@ export function buildKnellgrave(def, quality = 1) {
   // ride bellGroup so they swing with the bell. Never near the §2 overdraw cap.
   const moteMat = track(new THREE.MeshBasicMaterial({ color: new THREE.Color(candle).multiplyScalar(0.9), transparent: true, opacity: 0.45, blending: THREE.AdditiveBlending, depthWrite: false }));
   const motes = [];
-  const N_MOTE = lowQ ? 4 : 7;
+  const N_MOTE = lowQ ? 4 : 10;
   for (let i = 0; i < N_MOTE; i++) {
     const m = new THREE.Mesh(strip(new THREE.SphereGeometry(0.13 + (i % 3) * 0.05, 6, 5)), moteMat);
     m.name = 'candleMote';
     m.userData = { ph: i / N_MOTE, sp: 0.45 + (i % 3) * 0.22, sw: (i % 2 ? 1 : -1) * (0.4 + (i % 3) * 0.2) };
     bellGroup.add(m);
     motes.push(m);
+  }
+
+  // ---- SUSPENDED BELL-SHARDS — torn pieces of the wall hanging WEIGHTLESS in an arc
+  // off the crack side (authored cluster near the wound, §3 law 6 — never a uniform
+  // ring). The World-Enders tell: the bell's own debris stopped obeying gravity. Dark
+  // patina chips (≤0.25 emissive per §3 law 8), each slowly tumbling in the tick.
+  const bellShards = [];
+  const SHARD_SPOTS = [   // authored (azimuth from front-left crack, radius, height) — a shedding arc
+    [-0.5, 7.0, -3.0], [-0.9, 7.6, -0.8], [-0.2, 6.8, -5.0], [-1.4, 7.3, -2.0],
+    [0.15, 7.1, -4.2], [-1.05, 8.0, -4.6], [-0.65, 6.6, 0.6], [-1.8, 7.5, -0.2],
+  ];
+  const N_SHARD = lowQ ? 4 : 8;
+  for (let i = 0; i < N_SHARD; i++) {
+    const [saz, srad, sh] = SHARD_SPOTS[i];
+    const geo = strip(new THREE.BoxGeometry(0.55 + (i % 3) * 0.22, 0.8 + (i % 2) * 0.35, 0.14));
+    const m = new THREE.Mesh(geo, patinaHiMat);
+    m.name = 'bellShard';
+    m.userData = { az: saz - 0.19, rad: srad, h: sh, ph: i * 1.31, tum: 0.25 + (i % 3) * 0.12 };
+    bellGroup.add(m);
+    bellShards.push(m);
   }
 
   // edge cage over the bell (a dark outline pass — carves the facets on a bright sky).
@@ -670,6 +785,20 @@ export function buildKnellgrave(def, quality = 1) {
       mo.scale.setScalar((1 - u * 0.65) * (0.8 + charge * 0.5 + dreadK * 0.7));
     }
     moteMat.opacity = 0.45 * (1 - dyingK) * (shieldClamp ? 0.3 : 1) * (0.7 + gutter * 0.3);
+
+    // --- SUSPENDED SHARDS hover + slowly tumble by the crack; on the toll's reverb
+    // they shiver, and in the dread they drift OUTWARD (the wound widening). On death
+    // they sink with the swing's decay. ---
+    for (const sh of bellShards) {
+      const u = sh.userData;
+      const rr = u.rad + dreadK * 1.6 + Math.sin(time * 0.4 + u.ph) * 0.25;
+      sh.position.set(
+        Math.sin(u.az) * rr,
+        u.h + Math.sin(time * 0.55 + u.ph * 2.1) * 0.45 + tollK * Math.sin(time * 40 + u.ph) * 0.12 - dyingK * 6,
+        Math.cos(u.az) * rr);
+      sh.rotation.x += dt * u.tum * 0.6;
+      sh.rotation.y += dt * u.tum;
+    }
 
     // --- ENTRANCE: the bell fades in ABOVE the frame already mid-swing; the slit
     // snaps on; the clapper LIFTS ITS HEAD at the apex (driven by the controller via
