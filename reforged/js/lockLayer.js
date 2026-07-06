@@ -45,6 +45,7 @@ const S = {
   deflected: false,  // last ctx.deflected (pips freeze ashen)
   hopPart: null,     // the just-painted organ (re-acquire embargo → the reticle hops onward)
   hopT: 0,
+  _atCap: false,     // edge-detect: the fuse starting = the dragon DRAWS BREATH (lockCap event)
 };
 
 const _w = new THREE.Vector3();       // scratch for partWorldPos
@@ -133,12 +134,17 @@ export function updateLockLayer(dt, player, ctx) {
     const embargoed = (p) => p === S.hopPart && S.hopT > 0;
     if (S.hasOrgan && S.hudPart && !embargoed(S.hudPart) &&
         Math.abs(px - S.ax) < L.coneXY && Math.abs(py - S.ay) < L.coneXY) hit = S.hudPart;
-    // Fallback: another candidate dead-on in the raw cone (the player deliberately
-    // went elsewhere — e.g. re-dwelling a painted organ while the display leads to
-    // an unpainted one; the display follows the acquisition next frame).
+    // Fallback: another candidate dead-on in the raw cone. UNPAINTED-FIRST LAW
+    // (owner playtest: swinging back after a dodge re-grabbed the painted rib and
+    // pinned the player on 'refresh'): while ANY unpainted paintable remains, a
+    // painted organ never re-acquires — the reticle only hunts fresh prey until
+    // the set is complete. Refresh becomes reachable again once all are painted.
     if (!hit && ctx.candidates && ctx.candidates.length > 1) {
+      const unpaintedLeft = ctx.paintables &&
+        ctx.paintables.some((p) => !S.locks.some((lk) => lk.part === p));
+      const painted = (p) => S.locks.some((lk) => lk.part === p);
       const cand = coneCandidate(player, ctx);
-      if (cand && !embargoed(cand.part)) hit = cand.part;
+      if (cand && !embargoed(cand.part) && !(unpaintedLeft && painted(cand.part))) hit = cand.part;
     }
     if (hit) {
       S.aimPart = hit;
@@ -237,11 +243,16 @@ export function updateLockLayer(dt, player, ctx) {
       if (w) { lk.x = w.x; lk.y = w.y; lk.z = w.z; }
     }
   }
-  // Decay + cap fuse (both frozen while deflected).
+  // Decay + cap fuse (both frozen while deflected). Reaching the cap fires the
+  // one-shot 'lockCap' — the DRAWN BREATH: the fuse is diegetic (the dragon
+  // inhales), so the sound/visual tell IS the timer the player reads.
+  const atCap = S.cap > 0 && totalPips() >= S.cap;
+  if (atCap && !S._atCap && !ctx.deflected) emit('lockCap', { count: totalPips() });
+  S._atCap = atCap;
   if (S.locks.length && !ctx.deflected) {
     for (const lk of S.locks) lk.age += dt;
     if (S.locks[0].age >= L.decay) releaseVolley(ctx, 'decay');   // oldest first (push order)
-    else if (totalPips() >= S.cap) {
+    else if (atCap) {
       S.capFuseT += dt;
       if (S.capFuseT >= L.capFuse) releaseVolley(ctx, 'cap');
     } else S.capFuseT = 0;
@@ -341,6 +352,8 @@ export function lockHudState() {
     pips: totalPips(),
     ashen: S.deflected,
     blink: S.locks.length > 0 && !S.deflected && S.locks[0].age > L.decay - 1.0,
+    fuse01: (S.cap > 0 && totalPips() >= S.cap && !S.deflected)
+      ? Math.min(1, S.capFuseT / L.capFuse) : 0,   // the inhale: pips swell as the breath draws
     // Per-lock marker anchors: live world pos + remaining life (1 → fresh, 0 → gone).
     locks: S.locks.map((lk) => ({
       x: lk.x ?? 0, y: lk.y ?? 0, z: lk.z ?? 0,

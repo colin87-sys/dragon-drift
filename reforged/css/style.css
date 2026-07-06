@@ -2213,6 +2213,7 @@ canvas.skin-preview[data-kind="dragon"] { cursor: pointer; }
    how long it holds. Ashen = deflect-frozen; blink = final second; double border =
    stacked (tier 3+). The reticle paints; these persist. */
 .lockmark { position: absolute; left: 0; top: 0; width: 24px; height: 24px;
+  transform: translate(var(--mx, 0), var(--my, 0));
   margin: -12px 0 0 -12px; border: 2px solid rgba(80, 255, 170, 0.85);
   box-shadow: 0 0 10px rgba(60, 255, 160, 0.45); box-sizing: border-box;
   pointer-events: none; display: none; z-index: 4; }
@@ -2223,3 +2224,23 @@ canvas.skin-preview[data-kind="dragon"] { cursor: pointer; }
 .lockmark.ashen { border-color: rgba(150, 160, 175, 0.7); box-shadow: none; }
 .lockmark.ashen .fill { background: rgba(150, 160, 175, 0.3); }
 .lockmark.blink { animation: lockpip-blink 0.4s steps(2, start) infinite; }
+
+/* HUNTER'S BRAND skin: the wyrm-rune sigil on each painted organ; a jade-white
+   kindle flash on paint; the pip row INHALES (swells) through the cap fuse and
+   flares on the exhale volley. Kindle stays in the green family — amber/orange
+   is the parry role colour and never appears here. */
+.lockmark .rune { position: absolute; inset: 1px; }
+.lockmark .rune path { stroke: rgba(140, 255, 190, 0.95); stroke-width: 1.6; fill: none; }
+.lockmark.ashen .rune path { stroke: rgba(150, 160, 175, 0.7); }
+.lockmark.kindle { animation: brand-kindle 0.35s ease-out; }
+@keyframes brand-kindle {
+  0% { transform: translate(var(--mx, 0), var(--my, 0)) scale(1.7); filter: brightness(2.2); }
+  100% { transform: translate(var(--mx, 0), var(--my, 0)) scale(1); filter: brightness(1); }
+}
+#reticle .lockpips.inhale { transform: translateX(-50%) scale(calc(1 + var(--fuse, 0) * 0.35));
+  filter: brightness(calc(1 + var(--fuse, 0) * 0.8)); }
+#reticle .lockpips.volley .lockpip { animation: pip-loose 0.45s ease-out; }
+@keyframes pip-loose {
+  0% { transform: scale(1.6); filter: brightness(2.4); }
+  100% { transform: scale(1); filter: brightness(1); }
+}

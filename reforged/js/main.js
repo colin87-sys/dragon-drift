@@ -303,6 +303,11 @@ on('bossStart', () => { resetRings(); resetEmbers(); resetPowerups(); resetGoldE
 // organ (paired with the reticle's green snap), and a soft tick on each crack-tick
 // the held line chips in a lull — so "you're doing the right thing" is audible.
 on('aimLock', () => sfx.lockOn?.());
+// HUNTER'S BRAND sound phrase: set (per paint, rising) → inhale (cap fuse) →
+// exhale (cap volley) / fizzle (a lone brand ashing off on decay).
+on('lockPaint', (p) => sfx.brandSet?.((p && p.count) || 1));
+on('lockCap', () => sfx.brandCap?.());
+on('lockVolley', (p) => ((p && p.source === 'cap') ? sfx.brandLoose?.(p.count) : sfx.brandFizzle?.()));
 on('lockTick', () => sfx.lockTick?.());
 // Boss over → resume the course FRESH from here (the arena stretch was suppressed;
 // without this the world is blank until the player catches up to the old cursor).

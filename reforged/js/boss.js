@@ -2358,9 +2358,12 @@ function fireLanceAt(player, part, dmg) {
   const trel = w ? Math.max(-w.z - player.dist, 4) : pose.rel;
   const ox = player.position.x - 0.6, oy = player.position.y + 0.4;
   const t = Math.max((trel - 1.5) / B.bossSpeed, 0.05);
+  // Launch curl (wisp arc): a deterministic per-part sideways+upward kick that the
+  // in-flight steering bends back onto the brand — each wisp takes its own path.
+  const curl = (part && part.charCodeAt(part.length - 1) % 2 === 0) ? 5 : -5;
   spawnBossBullet({
     owner: 'lance', x: ox, y: oy, rel: 1.5,
-    vx: (tx - ox) / t, vy: (ty - oy) / t, vrel: B.bossSpeed,
+    vx: (tx - ox) / t + curl, vy: (ty - oy) / t + 4, vrel: B.bossSpeed,
     targetRel: trel, tx, ty,
     color: 0x50ffaa, dmg, r: 0.5, life: 4, part,
   });
