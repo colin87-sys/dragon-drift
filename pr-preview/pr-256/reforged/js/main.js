@@ -13,6 +13,7 @@ import { player, applyDragonStats } from './player.js';
 import { cameraCtl } from './cameraController.js';
 import { initRings, addRing, updateRings, resetRings, setRingsVisible } from './rings.js';
 import { initObstacles, addObstacle, addCanyonSegment, updateObstacles, resetObstacles, obstacleCount } from './obstacles.js';
+import { initHazards, addHazard, updateHazards, resetHazards } from './hazards.js';
 import { initPowerups, addOrb, updatePowerups, resetPowerups } from './powerups.js';
 import { initParticles, updateParticles, resetParticles, setParticleQuality } from './particles.js';
 import { setDragonQuality, setDragonLook } from './dragon.js';
@@ -31,6 +32,7 @@ import { RIDERS } from './riders.js';
 import { dailySeed, recordDailyRun, saveData, persist, grantXp, levelEmberReward, todayUTC, gambitSunsetRefund, freezeSaves } from './save.js';
 import { initEmbers, addEmberLine, updateEmbers, bankEmbers, resetEmbers } from './embers.js';
 import { initBoss, updateBoss, resetBoss, setBossQuality, forceBoss, debugFireAttack, debugCrackPane, debugRunSetpiece, debugForceFight, setBossDebugFirstAt, setBossDebugDefIdx, setBossDebugCharge, setBossDebugSetpiece, setBossDebugEntrance, bossDebugState, debugBankLocks, debugBeamAimPart, debugLockCandidates, debugPartWorldPos, debugStrikeSurge, debugRaiseShield, bossGradeTarget, startBossRush, setRushUnlockAll, rushUnlocked, rushRosterInfo } from './boss.js';
+import { debugActiveBullets } from './bossBullets.js';
 import { emit, on } from './events.js';
 import { initAnalytics } from './analytics.js';
 import { initMissions, settleMissions } from './missions.js';
@@ -132,6 +134,7 @@ initContactShadow(scene);
 applyDragonStats(equippedDragon());
 initRings(scene);
 initObstacles(scene);
+initHazards(scene);
 initPowerups(scene);
 initParticles(scene);
 initEmbers(scene);
@@ -190,6 +193,10 @@ function spawnAhead() {
   chunk.canyonSegments && chunk.canyonSegments.forEach(addCanyonSegment);
   chunk.canyonStarts && pendingCanyonStarts.push(...chunk.canyonStarts);
   chunk.canyonEnds && pendingCanyonEnds.push(...chunk.canyonEnds);
+  // Biome hazards spawn ONLY here — below both the inBoss return (clean arena)
+  // and the grace-band return above (§5.3): generation stays game-state-pure;
+  // suppression is purely a consumption-side concern.
+  chunk.hazards && chunk.hazards.forEach(addHazard);
   // Set-pieces
   chunk.setPieces && chunk.setPieces.forEach(sp => triggerSetPiece(sp));
 }
@@ -229,6 +236,11 @@ if (urlParams.has('debug')) {
     postfx: { setPostTier, kick, kickState, handle: postfx },
     // Drop straight into a boss fight (also bound to the B key under ?debug).
     spawnBoss: () => { if (game.state === 'playing') forceBoss(player); },
+    // Push the boss schedule out of the way (or restore it) so a stretch of
+    // course — e.g. the Caldera geyser field — can be flown WITHOUT a boss
+    // clearing the hazards. Persists across restarts (debugFirstAt is honoured
+    // on reset); pass false to hand the normal schedule back.
+    noBoss: (on = true) => setBossDebugFirstAt(on ? Infinity : CONFIG.BOSS.firstAt),
     bossState: () => bossDebugState(),
     // Capture hook: fire one live volley (default 'aimed') to catch body-origin emit + grow-in.
     bossFireNow: (id) => debugFireAttack(id, player),
@@ -244,6 +256,8 @@ if (urlParams.has('debug')) {
     bossPartWorldPos: (part) => debugPartWorldPos(part),
     bossStrikeSurge: () => debugStrikeSurge(),
     bossRaiseShield: () => debugRaiseShield(),
+    // PR4a wisp seams: live bullet kinematics (fan-divergence asserts).
+    bossBullets: () => debugActiveBullets(),
     // Capture hook: pin/release the charge (mantle) pose for still crops.
     bossPinCharge: (lvl) => setBossDebugCharge(lvl),
     // Capture hook: pin/release a setpiece pose (e.g. the stooping dive) for stills.
@@ -306,7 +320,7 @@ initAnalytics();
 on('firstSurge', () => ui.surgeFlourish());
 // A boss encounter clears the field for a clean arena (the boss wipes hazards
 // itself; here we clear the collectibles so only the fight is on screen).
-on('bossStart', () => { resetRings(); resetEmbers(); resetPowerups(); resetGoldEmbers(); ui.staminaBoss(true); });
+on('bossStart', () => { resetRings(); resetEmbers(); resetPowerups(); resetGoldEmbers(); resetHazards(); ui.staminaBoss(true); });
 // THE LANCE V1 juice: a crisp chime the instant the aim-line locks onto a boss
 // organ (paired with the reticle's green snap), and a soft tick on each crack-tick
 // the held line chips in a lull — so "you're doing the right thing" is audible.
@@ -634,6 +648,7 @@ function restart(opts = {}) {
   resetDragon(player);
   resetRings();
   resetObstacles();
+  resetHazards();
   resetPowerups();
   resetParticles();
   resetCollision();
@@ -1162,6 +1177,7 @@ function tick() {
     updateParticles(dt, camera);
     const obstacleSpeedNorm = (player.speed - CONFIG.baseSpeed) / (CONFIG.orbSpeed - CONFIG.baseSpeed);
     updateObstacles(dt, t, player.dist, obstacleSpeedNorm);
+    updateHazards(dt, player, t);
     const atShop = ui.atShop();   // shop open → static hero framing (no orbit)
     cameraCtl.update(dt, player, game.state === 'ready' || atShop, atShop);
     if (introPlaying && !cameraCtl.introPlaying) introPlaying = false;

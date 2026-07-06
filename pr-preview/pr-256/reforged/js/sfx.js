@@ -961,12 +961,18 @@ export const sfx = {
     tone({ freq: 1650, dur: 0.035, type: 'triangle', vol: 0.045 });
   },
   // --- HUNTER'S BRAND (the lock layer's sound phrase: set → inhale → exhale) ---
-  // A brand kindles: a low rune-hum that rises a step per brand already set (the
-  // player HEARS the set building: 1st low, 3rd bright).
+  // A brand kindles (PR4a body upgrade — owner: "more engaging and rewarding"):
+  // a soft noise-kindle SIZZLE under two detuned rune-hums that rise a step per
+  // brand already set (1st low, 3rd bright), a shimmer octave answering, and a
+  // tiny sub tick so the paint lands with WEIGHT, not just brightness.
   brandSet(count = 1) {
     const f = 560 * (1 + 0.18 * (count - 1));
-    tone({ freq: f, end: f * 1.4, dur: 0.12, type: 'triangle', vol: 0.06 });
-    tone({ freq: f * 3, dur: 0.05, type: 'sine', vol: 0.025, delay: 0.07 });
+    noiseWhoosh({ from: 800, to: 2400, dur: 0.12, vol: 0.05, q: 1.8 });      // the kindle sizzle
+    tone({ freq: f, end: f * 1.4, dur: 0.14, type: 'triangle', vol: 0.06 }); // rune-hum
+    tone({ freq: f * 1.007, end: f * 1.41, dur: 0.14, type: 'triangle', vol: 0.045 }); // detune body
+    tone({ freq: f * 2, end: f * 2.6, dur: 0.09, type: 'sine', vol: 0.04, delay: 0.06 }); // shimmer octave
+    tone({ freq: f * 3, dur: 0.05, type: 'sine', vol: 0.025, delay: 0.09 }); // the old sparkle, kept
+    tone({ freq: 140, end: 90, dur: 0.06, type: 'sine', vol: 0.05 });        // sub tick (weight)
   },
   // The set completes: a quick low→high arpeggio (each brand answers), then the
   // dragon DRAWS BREATH — the rising inhale IS the cap fuse made audible.
@@ -976,11 +982,16 @@ export const sfx = {
     tone({ freq: 1175, dur: 0.1, type: 'triangle', vol: 0.065, delay: 0.14 });
     tone({ freq: 280, end: 860, dur: 0.8, type: 'sine', vol: 0.05, delay: 0.2 });
   },
-  // The exhale: breath-whoosh down, then a soft crackle per wisp finding its brand.
+  // The exhale (PR4a): a real BREATH — bandpassed noise falling under the saw
+  // sweep — then a brighter crackle per wisp, staggered to ride the visible fan
+  // (delay ≈ the launch stagger), each topped with a tiny white-hot ping.
   brandLoose(n = 3) {
-    tone({ freq: 900, end: 220, dur: 0.38, type: 'sawtooth', vol: 0.06 });
+    noiseWhoosh({ from: 900, to: 180, dur: 0.42, vol: 0.09, q: 0.9 });        // the breath
+    tone({ freq: 900, end: 220, dur: 0.38, type: 'sawtooth', vol: 0.06 });    // the body sweep
     for (let i = 0; i < Math.min(n, 6); i++) {
-      tone({ freq: 1500 + i * 170, end: 1100, dur: 0.06, type: 'square', vol: 0.035, delay: 0.28 + i * 0.07 });
+      const d = 0.22 + i * 0.06;
+      tone({ freq: 1500 + i * 170, end: 1100, dur: 0.07, type: 'square', vol: 0.04, delay: d });
+      tone({ freq: 2100 + i * 130, dur: 0.04, type: 'sine', vol: 0.03, delay: d + 0.02 }); // white-hot ping
     }
   },
   // A lone brand ashing off (decay release) — deliberately lesser than the exhale.

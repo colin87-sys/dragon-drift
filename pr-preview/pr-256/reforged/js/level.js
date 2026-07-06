@@ -1,6 +1,6 @@
 import { CONFIG } from './config.js';
 import { mulberry32, clamp } from './util.js';
-import { BIOMES } from './biomes.js';
+import { BIOMES, biomeIndexAt } from './biomes.js';
 import { FIRST_FLIGHT_BEATS, FIRST_FLIGHT_END } from './firstFlight.js';
 
 const lerp = (a, b, k) => a + (b - a) * k;
@@ -47,6 +47,12 @@ export function createLevelGen(seed = CONFIG.seed, opts = {}) {
   // as a separate output (never touches rnd / rings / obstacles), so the base
   // course for a seed stays byte-identical (gold-determinism fixture safe).
   const canyonRnd = mulberry32((seed ^ 0x2f9b4e17) >>> 0);
+  // Biome hazards ride a THIRD independent stream + a separate output array
+  // (BIOME-DESIGN.md §5.3), so — like gold + canyon — they never touch rnd /
+  // rings / obstacles / golds and the base course stays byte-identical for a
+  // seed. A cursor walks the course; overlayBiomeHazards decides per site.
+  const hazardRnd = mulberry32((seed ^ 0x3d81c94b) >>> 0);
+  let nextHazardAt = 0;
   // Test harness brings the first canyon in right after takeoff; normal play
   // waits past the tutorial with a jittered interval.
   let nextCanyonAt = CANYON_FORCE ? 340 : CONFIG.canyonFirstAt + canyonRnd() * 500;
@@ -357,6 +363,9 @@ export function createLevelGen(seed = CONFIG.seed, opts = {}) {
       rings: [], obstacles: [], orbs: [], setPieces: [], embers: [],
       goldEmbers: [], gauntletStarts: [], gauntletEnds: [],
       canyonSegments: [], canyonStarts: [], canyonEnds: [],
+      // Biome hazards (§5.3) — a SEPARATE output on its own RNG stream; never
+      // reads/writes rnd, rings, obstacles or golds → gold-determinism safe.
+      hazards: [],
       // Dists of base Phase Gates that fall INSIDE a canyon run — main.js skips
       // spawning these so a blind crystal window never appears between rib sections.
       // A separate output array (never touches rings/obstacles) → fixture-safe.
@@ -473,8 +482,44 @@ export function createLevelGen(seed = CONFIG.seed, opts = {}) {
       prev = wp;
     }
     overlayCanyons(out);
+    overlayBiomeHazards(out);
     generatedUntil = prev.dist;
     return out;
+  }
+
+  // Biome hazards overlay: a PURELY ADDITIVE post-pass, twin to overlayCanyons.
+  // A cursor walks the freshly generated distance range; at each candidate site
+  // it consults the DOMINANT biome's `hazard` block and, if present (and past
+  // the entry crossfade), places a vent — position + phase rolled from
+  // hazardRnd ONLY. It never reads/writes rnd, rings, obstacles or golds, so the
+  // gold-determinism fixture stays byte-identical. Timing/collision live in
+  // hazards.js; this only decides WHERE (deterministically).
+  function overlayBiomeHazards(out) {
+    const L = CONFIG.biomeLength;
+    const HALF = CONFIG.laneHalfWidth - 4;   // keep columns off the very edge (fair weave room)
+    while (nextHazardAt < prev.dist) {
+      const at = nextHazardAt;
+      const hz = BIOMES[biomeIndexAt(at)]?.hazard;
+      const local = at - Math.floor(at / L) * L;   // position within this biome block
+      // A hazard only BEGINS in a hazard biome past the crossfade band (Law 5:
+      // nothing born inside the 150m seam; already-placed vents play out).
+      if (hz && local > CONFIG.biomeTransition) {
+        const [gmin, gmax] = hz.every;
+        out.hazards.push({
+          dist: at,
+          x: (hazardRnd() * 2 - 1) * HALF,
+          warn: hz.warn,
+          radius: hz.radius,
+          type: hz.type,
+          phase: hazardRnd(),                  // per-vent cycle offset (no lockstep)
+        });
+        nextHazardAt = at + gmin + hazardRnd() * (gmax - gmin);
+      } else {
+        // No hazard here — step forward and re-check WITHOUT consuming the
+        // hazard stream, so placements stay stable regardless of scan spacing.
+        nextHazardAt = at + 120;
+      }
+    }
   }
 
   // Sky Canyon overlay: a PURELY ADDITIVE post-pass. It frames a run of the
@@ -636,6 +681,9 @@ export function createLevelGen(seed = CONFIG.seed, opts = {}) {
       gauntlet = null; canyon = null;
       untilGauntlet = target + 650 + rnd() * 450;
       nextGoldAt = target + CONFIG.goldEmberInterval;
+      // §5.3 hard rule: reseat the hazard cursor past the boss too, or the
+      // post-fight course would backfill vents across the arena gap.
+      nextHazardAt = target;
     },
   };
 }
