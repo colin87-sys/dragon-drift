@@ -29,6 +29,7 @@ const S = {
   expTickT: 0,       // exposure-window tick clock
   expTicks: 0,       // ticks paid in the current exposure window (cap 3)
   expActive: false,  // were we inside an exposure window last frame (edge detect)
+  _wasHeld: false,   // edge-detect for the aimLock (green snap) event
   // PR2+ (inert in PR1)
   locks: [],
 };
@@ -39,7 +40,7 @@ const _hud = new THREE.Vector3();      // the published HUD world position
 export function initLockLayer() {
   S.aimPart = null; S.aimDwell = 0; S.aimHeld = false; S.offT = 0;
   S.muted = false; S.hudPart = null; S.hasOrgan = false; S.fightRunning = false;
-  S.expTickT = 0; S.expTicks = 0; S.expActive = false;
+  S.expTickT = 0; S.expTicks = 0; S.expActive = false; S._wasHeld = false;
   S.locks.length = 0;
 }
 
@@ -47,7 +48,7 @@ export function initLockLayer() {
 // 'transition'/'death' are silent for the lock layer (no lockLost spam — audit).
 export function clearLocks(_reason) {
   S.aimPart = null; S.aimDwell = 0; S.aimHeld = false; S.offT = 0;
-  S.expTickT = 0; S.expTicks = 0; S.expActive = false;
+  S.expTickT = 0; S.expTicks = 0; S.expActive = false; S._wasHeld = false;
   S.locks.length = 0;
 }
 
@@ -101,6 +102,12 @@ export function updateLockLayer(dt, player, ctx) {
 
   refreshHud(ctx);
 
+  // Lock-acquired edge (green snap): fire ONCE when a usable lock is achieved, so
+  // ui/sfx can pop + chime. `held` = aimHeld and not muted (a muted organ can't lock).
+  const held = S.aimHeld && !S.muted;
+  if (held && !S._wasHeld) emit('aimLock', { part: S.aimPart });
+  S._wasHeld = held;
+
   // ---- V1 exposure ticks (the turn-taking payoff — legible from fight 1) ------
   // A held line during a post-string exposure window pays visible crack ticks,
   // capped at 3 per window. The window edge resets the counter.
@@ -136,6 +143,7 @@ export function lockHudState() {
     active: S.fightRunning && S.hasOrgan,
     muted: S.muted,
     aimHeld: S.aimHeld && !S.muted,
+    dwell: Math.max(0, Math.min(1, S.aimDwell / L.dwellTime)),  // 0..1 acquisition progress
     hasOrgan: S.hasOrgan,
     aimPart: S.hudPart,
     x: _hud.x, y: _hud.y, z: _hud.z,

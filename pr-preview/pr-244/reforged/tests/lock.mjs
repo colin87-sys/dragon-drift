@@ -19,6 +19,9 @@ const { page, errors, done } = await boot({ query: '?debug&boss=180' });
 async function runAim(spec) {
   return page.evaluate(async (spec) => {
     const mod = await import(new URL('./js/lockLayer.js', document.baseURI).href);
+    const ev = await import(new URL('./js/events.js', document.baseURI).href);
+    let aimLocks = 0;
+    ev.on('aimLock', () => { aimLocks++; });
     mod.initLockLayer();
     const ORGAN = { focalEye: { x: 0, y: 0, z: 0 } };
     const model = {
@@ -46,7 +49,7 @@ async function runAim(spec) {
       for (let i = 0; i < n; i++) mod.updateLockLayer(f.dt, player, ctx);
     }
     return { d: mod.__lockDebug(), aim: mod.lockAimHeld(), target: mod.lockAimTarget(),
-      hud: mod.lockHudState(), dmg };
+      hud: mod.lockHudState(), dmg, aimLocks };
   }, spec);
 }
 
@@ -101,6 +104,15 @@ check('T1.6 quiet period accrues dwell at 0.5× (0.40s → not held)', t16.d.aim
 // reticle boss-skin (hudState.active stays false), so the layer is fully inert.
 const t15 = await runAim({ candidates: [], frames: [{ dt: 0.06, n: 8, px: 0, live: true }] });
 check('T1.5 no candidates → reticle never activates (coexist)', t15.hud.active === false && t15.d.aimHeld === false);
+
+// T1.7 — the juice hooks: dwell progress (0..1) drives the reticle "closing in",
+// and the aimLock (green-snap) event fires EXACTLY ONCE per lock (drives pop+chime).
+const t17 = await runAim({ frames: [{ dt: 0.06, n: 10, px: 0, live: true }] });   // acquire + hold
+check('T1.7 dwell progress reaches full when locked', t17.hud.dwell >= 0.999);
+check('T1.7 aimLock (green-snap) event fires exactly once on a lock', t17.aimLocks === 1);
+const t17none = await runAim({ frames: [{ dt: 0.05, n: 3, px: 0, live: true }] });  // 0.15s — never locks
+check('T1.7 no aimLock when the line never locks', t17none.aimLocks === 0 && t17none.d.aimHeld === false);
+check('T1.7 dwell progresses fractionally before lock', t17none.hud.dwell > 0.1 && t17none.hud.dwell < 1);
 
 // ---------------------------------------------------------------------------
 // Integration — reach a live VOIDMAW fight (slot 1: virtualLockOrgan present).

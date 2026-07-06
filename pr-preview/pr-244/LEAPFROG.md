@@ -6666,3 +6666,39 @@ can wire the V2 seams against a stable API with no churn. Next: PR2 — V2 LANCE
 the paint/decay/cap/volley machine, the deflect predicate, lances as pooled player-ward bullets, HUD
 pips/tethers, plus the DPS-sim personas + lockdiet/anti-camp CI gates in the SAME PR. The unit
 harness proven here means the paint-cycle math can be asserted headlessly before a single lance flies.
+
+### L174 — LANCE PR1 juice pass: a new mechanic is INVISIBLE until it announces itself — legibility is a feature, not polish
+
+**Did / learned.** Owner feel-test on the VOIDMAW preview surfaced the real gap: V1's aim-reticle
+was mechanically correct but *unnoticeable* — a faint steel square on the eye, easily confused with
+the pre-existing bright cyan **focus ring on the dragon** (two circular UI elements competing, the
+louder one unrelated to the new verb). The fix wasn't the mechanic, it was the FEEDBACK: (1) the
+reticle now BREATHES + is bold steel, (2) tints steel→green as the dwell builds via a per-frame
+`--dwell` CSS var (`color-mix`), so you see it *working before it locks*, (3) a green SNAP with a
+one-shot ring-flash the instant it locks, (4) a `lockOn` chime + a soft `lockTick` on each crack
+tick — so "you're doing the right thing" is unmistakable, visually AND audibly. Wiring: lockLayer
+emits `aimLock` on the false→true edge (unit-tested: fires exactly once per lock); main.js maps
+`aimLock`→`sfx.lockOn` and `lockTick`→`sfx.lockTick`; reticle.js reads `hud.dwell` for the closing-in
+scale and edge-detects the snap.
+
+**The screenshot was the unlock.** No amount of describing the reticle resolved the confusion; a
+single headless capture (drive into the fight, screenshot the DOM-overlay reticle) instantly showed
+BOTH of us that the bright ring the owner saw was the *old* focus circle, and mine was the faint
+thing on the eye. Generalize: when a UI/feel disagreement stalls, **capture the actual frame** — the
+`page.screenshot` after forcing the game state is cheap and ends the guessing. (Gotcha: forcing a
+lock in the capture by writing `player.position` fails — flight physics overwrites it every frame;
+steer via `input`, or for a pure *visual* capture temporarily widen `CONFIG.LOCK.coneXY` so the line
+is trivially "on" the organ. The mechanic stays honest because it's unit-tested at the real cone.)
+
+**→ Systematize.** Every verb in this build now owes three feedback channels the moment it fires: a
+BUILD cue (progress you can watch), a COMMIT cue (the snap/pop + sound on success), and a distinct
+identity that doesn't collide with existing UI (the aim-green vs the focus-cyan vs parry-amber role
+colors). Bake this into the V2+ checklist: a lock painted, a lance loosed, a perfect release — none
+ship without their own build/commit/identity cues, or they'll read as "nothing happened" exactly
+like V1 first did. The `aimLock`-style edge event + `--progress` CSS var is the reusable rig.
+
+**→ Leapfrog.** The reticle now has a full state vocabulary — idle-steel → aiming-greening → locked-
+green-snap → ashen-muted — which is precisely the surface V2's pips/tethers render into. And the
+audio hooks (`lockOn`/`lockTick`) are the first two of the lock layer's sound set; V2's paint/volley/
+cap-release cues slot into the same emit→sfx map. Legibility work done now is amortized across every
+later verb.

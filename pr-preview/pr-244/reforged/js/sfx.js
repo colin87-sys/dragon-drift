@@ -947,6 +947,19 @@ export const sfx = {
     tone({ freq: 520, dur: 0.12, type: 'triangle', vol: 0.1 });
     tone({ freq: 1040, end: 1240, dur: 0.3, type: 'sine', vol: 0.08, delay: 0.06 });
   },
+  // Aim-line LOCK acquired (V1): a crisp two-note "got it" blip + a tiny sparkle,
+  // so a green snap is AUDIBLE, not just visual. Short + light — it can fire often
+  // (every time a held line locks), so it stays out of the way of the music.
+  lockOn() {
+    tone({ freq: 740, dur: 0.06, type: 'triangle', vol: 0.07 });
+    tone({ freq: 1110, end: 1480, dur: 0.12, type: 'square', vol: 0.055, delay: 0.05 });
+    tone({ freq: 2220, dur: 0.05, type: 'sine', vol: 0.03, delay: 0.1 });
+  },
+  // Crack-tick: a tiny bright metallic tick when a held line chips the organ in a
+  // boss lull — the "you're doing the right thing" pulse (quieter than lockOn).
+  lockTick() {
+    tone({ freq: 1650, dur: 0.035, type: 'triangle', vol: 0.045 });
+  },
 };
 
 // --- Music engine ---
