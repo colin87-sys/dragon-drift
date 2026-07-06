@@ -42,12 +42,21 @@ export function initReticle(cam) {
     hud.appendChild(m);
     markEls.push(m);
   }
-  // The exhale flash: a cap volley flares the pip row once (the decay fizzle doesn't).
+  // The exhale flash: a DELIBERATE loose flares the pip row once — the cap auto-volley,
+  // the PR3 manual tap-loose, and the Surge fork all earn it (the decay fizzle doesn't).
   on('lockVolley', (p) => {
-    if (!pipWrap || !p || p.source !== 'cap') return;
+    if (!pipWrap || !p || (p.source !== 'cap' && p.source !== 'tap' && p.source !== 'fork')) return;
     pipWrap.classList.remove('volley');
     void pipWrap.offsetWidth;
     pipWrap.classList.add('volley');
+  });
+  // PR3 SEALED loose: a tap onto a deflected boss can't take — the kept pips SHAKE once
+  // (sealed honesty: no green celebration, the brands stay banked for the break).
+  on('lockSealed', () => {
+    if (!pipWrap) return;
+    pipWrap.classList.remove('sealshake');
+    void pipWrap.offsetWidth;
+    pipWrap.classList.add('sealshake');
   });
   document.getElementById('hud').appendChild(el);
 }

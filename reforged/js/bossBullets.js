@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import { CONFIG } from './config.js';
 import { game } from './gameState.js';
 import { hitPlayer, bulletGraze } from './collision.js';
-import { burst } from './particles.js';
+import { burst, wispTrail, wispImpact } from './particles.js';
 import { emit } from './events.js';
 
 // Boss bullet pool — one InstancedMesh, recycled by the same windowed-cursor
@@ -90,6 +90,8 @@ const eul = new THREE.Euler();
 const posV = new THREE.Vector3();
 const sclV = new THREE.Vector3();
 const colV = new THREE.Color();
+const trailV = new THREE.Vector3();   // wisp trail/impact world-pos scratch
+let lastWispRing = -1;                // rate gate: ≤1 wisp impact ring per 150ms
 const HIDDEN = new THREE.Matrix4().makeScale(0.0001, 0.0001, 0.0001);
 
 function makeSlot() {
@@ -106,6 +108,11 @@ function makeSlot() {
     coreColor: 0xffffff,   // white by default; graze-bait darkens it (the "donut" read)
     life: 0,
     age: 0,   // seconds since spawn; drives the spawn-in scale ramp (no more pop-at-full-size)
+    // WYRMFIRE WISPS (lances only; inert 0 for every other owner):
+    homeDelay: 0,   // seconds of pure fan-arc before the homing steer engages
+    curl: 0,        // rad/s velocity rotation during the fan phase (sign = volley-slot parity)
+    trailT: 0,      // per-wisp trail-emit clock
+    trailFlip: false, // alternates hot/dim trail motes (deterministic 2-tone ribbon)
   };
 }
 
@@ -243,9 +250,12 @@ export function initBossBullets(scene) {
   initHoops(scene);
 }
 
-// Quality scales the concurrent-bullet ceiling (mobile draws fewer).
+// Quality scales the concurrent-bullet ceiling (mobile draws fewer) AND the
+// wisp-trail emit rate (fxQuality — the source-side particle throttle).
+let fxQuality = 1;
 export function setBossBulletQuality(q) {
   visibleCap = Math.max(60, Math.round(POOL * q));
+  fxQuality = q;
 }
 
 function activeCount() {
@@ -283,6 +293,10 @@ export function spawnBossBullet(opts) {
   s.coreColor = opts.coreColor || 0xffffff;
   s.life = opts.life || 6;
   s.age = 0;   // reset the spawn-in ramp for this fresh bullet
+  s.homeDelay = opts.homeDelay ?? 0;
+  s.curl = opts.curl ?? 0;
+  s.trailT = 0;
+  s.trailFlip = false;
   // §5f destructible sub-parts: an optional source-part tag (e.g. HOLLOWGATE's
   // pane index) rides the bullet so a REFLECTED amber lands its damage on the
   // part it came from (parry a pane's radial → crack THAT pane). null for the
@@ -291,11 +305,16 @@ export function spawnBossBullet(opts) {
   return s;
 }
 
-// Test seam: positions of all ACTIVE bullets (slot order) so headless suites
-// can budget-check pattern emissions and scan fills for designed safe gaps.
+// Test seam: kinematics of all ACTIVE bullets (slot order) so headless suites
+// can budget-check pattern emissions, scan fills for designed safe gaps, and
+// assert the wisp fan (vx/vy divergence). Existing consumers read x/y only —
+// the extra fields are additive-safe.
 export function debugActiveBullets() {
   const out = [];
-  for (let i = 0; i < POOL; i++) { const s = slots[i]; if (s.active) out.push({ x: s.x, y: s.y }); }
+  for (let i = 0; i < POOL; i++) {
+    const s = slots[i];
+    if (s.active) out.push({ x: s.x, y: s.y, vx: s.vx, vy: s.vy, rel: s.rel, owner: s.owner, age: s.age });
+  }
   return out;
 }
 
@@ -330,6 +349,7 @@ export function updateBossBullets(dt, player) {
     // you FIRST flares first — "which hits me" is a colour read. A reflectable
     // bullet flares bright the instant it enters the parry window (the parry cue).
     let flare = 0;
+    let breathe = 1;
     if (s.owner === 'boss' && s.rel > 0) {
       const tti = s.rel / Math.max(Math.abs(s.vrel), 1);
       if (tti < 0.3) flare = 1 - tti / 0.3;
@@ -338,6 +358,13 @@ export function updateBossBullets(dt, player) {
       if (parryable && s.rel <= CONFIG.BOSS.reflectWindow) {
         flare = Math.max(flare, 0.55 + Math.sin(clock * 22) * 0.35);
       }
+    } else if (s.owner === 'lance') {
+      // A wisp is ALIVE: a fast luminance pulse + a ~10% breathing head, phase-offset
+      // per pool slot so a volley shimmers, never strobes in unison. Render-side only
+      // (s.r and every gameplay field untouched — the arrival law can't drift).
+      const pulse = Math.sin(clock * 16 + i * 2.4);
+      flare = 0.2 + 0.18 * pulse;
+      breathe = 1 + 0.1 * pulse;
     }
 
     // Successive-ring depth ordering: a far-out bullet fogs dim, a boss bullet
@@ -362,11 +389,11 @@ export function updateBossBullets(dt, player) {
     // Round camera-facing bullet: a soft colour BODY with a WHITE CENTRE on top,
     // plus a ground shadow (all off one slot). No spin — the disc is radial.
     posV.set(s.x, s.y, -(player.dist + s.rel));
-    m4.compose(posV, IDENTITY, sclV.setScalar(s.r * 2.7 * drawScale));   // body disc
+    m4.compose(posV, IDENTITY, sclV.setScalar(s.r * 2.7 * drawScale * breathe));   // body disc
     mesh.setMatrixAt(i, m4);
     colV.setHex(s.color).lerp(FOG_DIM, Math.max(far, gone) * 0.5).lerp(WHITE, flare);
     mesh.setColorAt(i, colV);
-    m4.compose(posV, IDENTITY, sclV.setScalar(s.r * 1.55 * drawScale));  // centre (smaller)
+    m4.compose(posV, IDENTITY, sclV.setScalar(s.r * 1.55 * drawScale * breathe));  // centre (smaller)
     coreMesh.setMatrixAt(i, m4);
     // Core defaults white (the danger "hot disc"); graze-bait darkens it (a
     // hollow "donut" — reads as a DIFFERENT thing). The tti flare still heats a
@@ -414,14 +441,39 @@ export function updateBossBullets(dt, player) {
       }
     } else {
       // Rider / reflected bullet flying toward the boss.
-      // WYRMFIRE WISPS (Hunter's Brand skin): a lance launches with a sideways curl
-      // (set at spawn) and steers home per-frame — the arc + correction reads as a
-      // living ember called to its brand, not a bullet. Rider/reflected fly straight.
+      // WYRMFIRE WISPS (Hunter's Brand skin): a lance FANS OUT on its authored
+      // launch bearing — a pure circular arc (velocity rotated by `curl`) for
+      // `homeDelay` seconds, Panzer-Dragoon style — then the homing arrive steer
+      // ramps in over homeBlend and reels it unerringly onto its brand. vrel is
+      // NEVER touched, so the arrival frame is identical to a straight lance
+      // (the boss.mjs kill-time invariance rests on this). Rider/reflected fly
+      // straight. Determinism: bearing + curl are authored table + slot parity,
+      // zero RNG in any gameplay field.
       if (s.owner === 'lance') {
-        const tLeft = Math.max((s.targetRel - s.rel) / Math.max(s.vrel, 1), 0.06);
-        const k = Math.min(1, dt * 5);
-        s.vx += ((s.tx - s.x) / tLeft - s.vx) * k;
-        s.vy += ((s.ty - s.y) / tLeft - s.vy) * k;
+        const L = CONFIG.LOCK;
+        if (s.age < s.homeDelay) {
+          // FAN phase — rotate the launch vector; no homing yet.
+          const w = s.curl * dt, c = Math.cos(w), sn = Math.sin(w);
+          const nvx = s.vx * c - s.vy * sn;
+          s.vy = s.vx * sn + s.vy * c;
+          s.vx = nvx;
+        } else {
+          // HOMING — the arrive controller, gain ramped in so there's no elbow.
+          const ramp = Math.min(1, (s.age - s.homeDelay) / L.lanceHomeBlend);
+          const tLeft = Math.max((s.targetRel - s.rel) / Math.max(s.vrel, 1), 0.06);
+          const k = Math.min(1, dt * L.lanceSteerGain * ramp);
+          s.vx += ((s.tx - s.x) / tLeft - s.vx) * k;
+          s.vy += ((s.ty - s.y) / tLeft - s.vy) * k;
+        }
+        // The wisp's ribbon: small additive motes dropped in world space; forward
+        // flight strings them out (the dragon-trail trick). Throttled at the SOURCE
+        // by quality; skipped entirely on potato tiers.
+        s.trailT -= dt;
+        if (s.trailT <= 0 && fxQuality > 0.3) {
+          s.trailT = 1 / (L.lanceTrailHz * fxQuality);
+          trailV.set(s.x, s.y, -(player.dist + s.rel));
+          wispTrail(trailV, (s.trailFlip = !s.trailFlip));
+        }
       }
       if (s.rel >= s.targetRel) {
         const dx = s.x - s.tx, dy = s.y - s.ty;
@@ -431,6 +483,15 @@ export function updateBossBullets(dt, player) {
           // target — the fallback routing must test where the shot really hit,
           // or gunfire can never sculpt a sub-part; CP2 gate finding 4).
           emit('bossDamage', { amount: s.dmg, kind: s.owner, x: s.x, y: s.y, part: s.part });
+        }
+        // A wisp POPS at its brand (hit or whiff — it visibly dies where it aimed);
+        // the small shockwave ring is rate-gated so a 6-pip Surge fork over the
+        // shield-shatter never stacks large additive volumes (§2 overdraw cap).
+        if (s.owner === 'lance') {
+          trailV.set(s.x, s.y, -(player.dist + s.rel));
+          const ring = clock - lastWispRing > 0.15;
+          if (ring) lastWispRing = clock;
+          wispImpact(trailV, ring);
         }
         deactivate(i);
       } else if (s.life <= 0) {

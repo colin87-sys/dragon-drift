@@ -7008,3 +7008,99 @@ in `[150,280]`; same-seed byte-identical / different-seed different; `resume()` 
 byte-identical, bulletcontrast 36 combos green (danger magenta unchanged), smoke/canyon/boss boots green,
 tricount 0 over budget. Reaching them on the preview needs no new code: `?debug` exposes `window.__dd.player`, so
 `__dd.player.dist = 4300` warps to the Caldera lip — the human judges telegraph fairness / dodgeability / fun.
+
+### L185 — LANCE PR3 shipped: the tap became ONE verb (unleash), the Surge fork, and the aimed beam — one arithmetic, one deflect rule, one latency LAW
+
+**Did.** V3 SURGE FORK / AIMED UNLEASH (combat-verbs SOP §II.x, PR3 Option A). The tap seam that was a single
+`if (ready) activateSurge` became a 4-case table with ZERO added latency: **ready → always Surge** (cases 1&2;
+the shielded/unshielded split lives downstream in `strikeSurge`, not at the seam); **not-ready + `lockCount() ≥
+tapVolleyMinLocks` (2) → MANUAL LOOSE** (case 3); **else no-op** (case 4). The manual loose is a REQUEST the
+state machine consumes (`requestLoose()` sets a flag; `updateLockLayer` processes it with the live ctx) — because
+`releaseVolley` needs `ctx.phaseHp` for the ROI clamp, and the seam runs THEN `updateLockLayer` runs in the SAME
+fight frame, so "flag now, process this frame" is latency-free by construction. **The fork:** after the shield/chip
+resolves inside `strikeSurge`, `surgeForkLances` consumes every banked pip and fires one direct `fireLanceAt` per
+stack onto the freshly EXPOSED organs — a shielded burst forks AFTER `breakShield`, so no lance ever pings the
+shield, and the fork clamps against the CURRENT (post-break, phase-advanced) hp. **The aimed beam:** the unshielded
+chip resolves at the lock candidate nearest the player's flight line (`beamAimPart`, within `beamAimDisc` 4.0m),
+carrying `{part, x, y, w: beamPartWeight}`; no candidate lined up → the exact legacy `damageBoss(14,'surge')`.
+EITHERWING (slot 5) shipped its lock data: `lockParts:[{part:'eyeRig'}]` — the shared EYE ONLY (the twins' dart
+bodies are never lockable, LAW §II.9); the smoothed anchor (L177) carries the brand across the holder→seeker
+handoff. 13 new T3.x checks (69 total green); `boss.mjs` kill times byte-stable (eitherwing ~95.2s), tricount
+unchanged (naming `eyeRig` is byte-neutral metadata — the group already existed).
+
+**The load-bearing patterns.** (1) **One arithmetic for one law.** The ROI clamp existed inline in `releaseVolley`;
+the fork needed the SAME clamp. Rather than copy the `Math.min(lanceDmg, roiFrac*hp/pips)`, it was extracted to
+an exported `lanceDmgEach(pips, phaseHp)` that BOTH the volley and the fork call — so "a volley can never exceed
+volleyRoiFrac × phase hp" is enforced by one function, not asserted in two places that could drift. When a second
+caller needs a clamped/derived value, promote the arithmetic to a shared export; don't re-derive it. (2) **A weight
+override that's byte-neutral when absent.** The aimed beam counts 1.5 toward part cracks via `e.w ?? (typeof
+e.part === 'number' ? 1 : 0.5)` in `routePartDamage` — every legacy caller omits `e.w`, so the count is
+byte-identical everywhere it isn't set (the same coexist shape as `holdSway`/`lockParts`: a new field with a
+default that reproduces the old literal). (3) **The deflect rule reaches the new verb too.** A manual loose onto a
+sealed boss keeps every pip (never wasted), emits `lockSealed` (pips shake + soft thunk), and waits for the break —
+the ONE deflect predicate (L178) governs the player's deliberate release exactly as it governs the auto-volley.
+
+**Gotchas (headless).** (1) A new event needs adding to the test harness's capture list — `lockSealed` emitted fine
+but `runLock` only subscribed to five names, so the assert saw nothing until the sixth was added. When a test
+"can't see" an emit, check the SUBSCRIPTION list before the emit site. (2) The rAF-throttled surge-tap integration
+flaked at a 3s timeout under the full suite (cumulative throttling ~15×): the fix is a `waitForFunction` that
+re-arms ready AND re-pokes `surgeTap` every poll (50ms) with a 6s ceiling — a single poke can be read on a frame
+where a stray reset made `ready` false. Never single-poke-then-wait for a throttled game-loop side effect; re-assert
+the precondition each poll. (3) The live slot-1 boss's V1 organ is `faceCore` (the def), NOT the `focalEye` of the
+fabricated-ctx harness — integration tests must read the REAL candidate (`bossLockCandidates()[0]` + its live
+`partWorldPos`), never hardcode a part name from a unit fixture.
+
+**→ Leapfrog.** Deterministic Surge-climax seams now exist (`bossStrikeSurge`/`bossRaiseShield`/`bossBankLocks`/
+`bossBeamAimPart`) — the fork/beam are testable synchronously without flying a headless dwell+charge, so PR4's
+`paintFromParry` (lock-snap parry) and PR5's focus/beat-release can extend these instead of re-solving the "observe
+the climax" problem. Still deferred (L178/L180): tether LineSegments, feats/analytics hooks, the `lockdps` persona
+TTK sim, E1 perfect-release (beat window — `beatWindow`/`beatMult` data present, inert). The owner still owes a
+verdict on Q1 (ready-tap-ALWAYS-Surge vs a context-split) — flagged in the PR body per the SOP.
+
+### L186 — LANCE PR4a (wyrmfire wisps): FX rides existing pools, the arrival-frame law IS the coexist proof, and a first-run tutorial was silently pausing the test fights
+
+**Did.** The owner's PR3 playtest: the volley read as "boring bullets" (the fork lost in the
+shield-shatter), painting felt spammy, paint sounds thin, and single-organ EITHERWING was a
+regression after MARROWCOIL's rib teach. Shipped: (1) **wyrmfire wisps** — lances now FAN OUT on
+authored bearings (`lanceFanDeg` [65,115,15,165,−35,215], mirrored pairs widening around
+straight-up; Panzer-Dragoon lock-on fan) at `lanceFanSpeed`, arc for `lanceHomeDelay` (velocity
+rotated by `lanceCurlRate`, sign = slot parity), then the arrive steer ramps in over
+`lanceHomeBlend` at gain 9 — plus per-wisp two-tone trails (`wispTrail`, jade-white/dim-green
+motes off the shared particles pool at `lanceTrailHz`×quality), a render-side luminance
+pulse + 10% breathing head, and `wispImpact` (jade sparks + white-hot pips + ONE small
+rate-gated shockwave ring per volley window). (2) `paintCooldown` 0.45s — cross-organ pip
+spacing; aim/hop stay instant, only conversion waits (the refresh clock converts the held line
+the moment it clears). (3) brandSet/brandLoose upgraded with noiseWhoosh bodies + shimmer/sub
+layers. (4) EITHERWING `lockParts` = eye + `seekerFin`/`seekerScar` — **named EMPTY Object3D
+markers** on the seeker's fin mesh and scar-chain pivot (zero geometry, tricount unchanged).
+
+**The load-bearing laws.** (1) **The arrival-frame law:** the whole flight rework never touches
+`vrel`, so a wisp lands on the SAME frame the old straight lance did — T-W2 spawns the worst-case
+6-slot fan (incl. the 215° away-facing bearing) at fixed dt and asserts 6/6 land ON the computed
+straight-lance frame. That single invariant makes the entire FX pass coexist-proof (boss.mjs kill
+times can't drift) without touching the sim. (2) **FX rides existing pools or doesn't ship:**
+trails/impacts are small additive sprites from particles.js (spawn/burst/shockwave) — zero new
+draw layers, no instanced-matrix additions (the §2 jank trap), budget lints in-code
+(6×Hz×life ≤ 60 ≤ cap headroom). (3) **Anchors must track the VISIBLE organ:** `eitherScar`
+names a strip whose geometry rebuilds in twin-local space — its mesh origin sits at the twin
+CENTRE, so partWorldPos on it would brand the body. When an organ is a deforming strip, anchor
+an empty on its pivot CHAIN, and test that the anchor resolves ≠ the body centre (T3.E).
+
+**The gotcha that ate a day: the first-run GESTURE TUTORIAL pauses headless fights.** On a fresh
+profile (`runs===0`) gestureTutorial.js freezes the game (pauseReason 'tutorial') at t>1.2s /
+150m / 225m waiting for steer/boost/roll — squarely inside a `?boss=180` test fight. The T0.x
+synthesized touches satisfied steps at semi-random times, so the Surge-tap integration checks
+flaked run-to-run for THREE debugging rounds (blamed on rAF throttle twice). The failure-only
+forensic dump (frames-per-500ms + game.state + pauseReason) found it in one run. LAWS: (a) test
+boots that reach gameplay must call `skipGestureTutorial()` before starting; (b) when an
+integration wait times out, dump `game.state`/`pauseReason`/a frame-counter BEFORE theorizing —
+"paused" vs "throttled" vs "broken" are three different bugs; (c) detect one-shot activations by
+EVENT (`on('surge')`), never by polling a state flag a single throttled frame can raise and
+lower invisibly.
+
+**→ Leapfrog.** The wisp flight fields (`homeDelay`/`curl` on bullet slots) are a general
+two-phase-path primitive — any future projectile can fan/arc then home by passing them to
+spawnBossBullet; the (i, n) volley threading through lanceQ/fireLance is the seam for
+per-slot choreography (E1 beat-release can ride it). Deferred list unchanged (L178/L180) plus:
+per-dragon wisp tint (Eternal cosmetic hook), wisp-trail LineSegments ribbon if sprites ever
+read muddy on device.

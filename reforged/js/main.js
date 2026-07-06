@@ -31,7 +31,8 @@ import { DRAGONS } from './dragons.js';
 import { RIDERS } from './riders.js';
 import { dailySeed, recordDailyRun, saveData, persist, grantXp, levelEmberReward, todayUTC, gambitSunsetRefund, freezeSaves } from './save.js';
 import { initEmbers, addEmberLine, updateEmbers, bankEmbers, resetEmbers } from './embers.js';
-import { initBoss, updateBoss, resetBoss, setBossQuality, forceBoss, debugFireAttack, debugCrackPane, debugRunSetpiece, debugForceFight, setBossDebugFirstAt, setBossDebugDefIdx, setBossDebugCharge, setBossDebugSetpiece, setBossDebugEntrance, bossDebugState, bossGradeTarget, startBossRush, setRushUnlockAll, rushUnlocked, rushRosterInfo } from './boss.js';
+import { initBoss, updateBoss, resetBoss, setBossQuality, forceBoss, debugFireAttack, debugCrackPane, debugRunSetpiece, debugForceFight, setBossDebugFirstAt, setBossDebugDefIdx, setBossDebugCharge, setBossDebugSetpiece, setBossDebugEntrance, bossDebugState, debugBankLocks, debugBeamAimPart, debugLockCandidates, debugPartWorldPos, debugStrikeSurge, debugRaiseShield, bossGradeTarget, startBossRush, setRushUnlockAll, rushUnlocked, rushRosterInfo } from './boss.js';
+import { debugActiveBullets } from './bossBullets.js';
 import { emit, on } from './events.js';
 import { initAnalytics } from './analytics.js';
 import { initMissions, settleMissions } from './missions.js';
@@ -247,6 +248,16 @@ if (urlParams.has('debug')) {
     bossRunSetpiece: (id) => debugRunSetpiece(id),
     // Capture hook: snap to fight (skip the slow-to-skip entrance headless).
     bossForceFight: () => debugForceFight(player),
+    // PR3 lock-fork test seams (headless-deterministic): bank pips, read the aimed-beam
+    // part pick against a flight line, fire the Surge climax synchronously.
+    bossBankLocks: (n) => debugBankLocks(n),
+    bossBeamAimPart: (px, py) => debugBeamAimPart(px, py),
+    bossLockCandidates: () => debugLockCandidates(),
+    bossPartWorldPos: (part) => debugPartWorldPos(part),
+    bossStrikeSurge: () => debugStrikeSurge(),
+    bossRaiseShield: () => debugRaiseShield(),
+    // PR4a wisp seams: live bullet kinematics (fan-divergence asserts).
+    bossBullets: () => debugActiveBullets(),
     // Capture hook: pin/release the charge (mantle) pose for still crops.
     bossPinCharge: (lvl) => setBossDebugCharge(lvl),
     // Capture hook: pin/release a setpiece pose (e.g. the stooping dive) for stills.
@@ -318,7 +329,14 @@ on('aimLock', () => sfx.lockOn?.());
 // exhale (cap volley) / fizzle (a lone brand ashing off on decay).
 on('lockPaint', (p) => sfx.brandSet?.((p && p.count) || 1));
 on('lockCap', () => sfx.brandCap?.());
-on('lockVolley', (p) => ((p && p.source === 'cap') ? sfx.brandLoose?.(p.count) : sfx.brandFizzle?.()));
+// A DELIBERATE loose sounds the full exhale — the cap auto-volley, the PR3 manual
+// tap-loose, and the Surge fork are all the player's earned release (brandLoose); only
+// a lone brand ashing off on decay is the lesser fizzle.
+on('lockVolley', (p) => (p && (p.source === 'cap' || p.source === 'tap' || p.source === 'fork')
+  ? sfx.brandLoose?.(p.count) : sfx.brandFizzle?.()));
+// PR3: loosing onto a SEALED boss can't take — a soft muffled thunk names the miss;
+// the pips are kept (the lock layer never wastes them), the reticle row shakes once.
+on('lockSealed', () => sfx.brandSeal?.());
 on('lockTick', () => sfx.lockTick?.());
 // Boss over → resume the course FRESH from here (the arena stretch was suppressed;
 // without this the world is blank until the player catches up to the old cursor).
