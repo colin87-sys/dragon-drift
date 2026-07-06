@@ -185,6 +185,12 @@ export function initTouch(el) {
   );
 
   const end = (e) => {
+    // touchcancel routes through here too, but a system-cancelled contact (palm
+    // rejection, OS gesture-nav, app switch, incoming call) must NEVER read as a
+    // deliberate tap — otherwise a cancel could SPEND a ready Dragon Surge. Only a
+    // real `touchend` evaluates the surge-tap branch; a cancel just tears the
+    // record down (and drops steering / boost) with no tap read.
+    const isEnd = e.type === 'touchend';
     for (const t of e.changedTouches) {
       if (t.identifier === steerId) {
         // Steering finger lifted: neutral steering until a new finger lands.
@@ -195,7 +201,7 @@ export function initTouch(el) {
       } else {
         // A brief, still 2nd-finger touch (not a swipe/roll) = unleash Surge.
         const rec = extras.get(t.identifier);
-        if (rec && !rec.rolled && rec.moved < 16 && performance.now() - rec.down < 260) {
+        if (isEnd && rec && !rec.rolled && rec.moved < 16 && performance.now() - rec.down < 260) {
           input.surgeTap = true;
         }
         extras.delete(t.identifier);

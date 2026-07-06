@@ -470,6 +470,19 @@ export const ui = {
           <path class="arc-cell" id="stam-seg-1" pathLength="100" stroke-dasharray="0 100" d="M 100.3 42.3 Q 125 45.7 149.7 42.3"/>
           <path class="arc-cell" id="stam-seg-2" pathLength="100" stroke-dasharray="0 100" d="M 170.3 38.2 Q 199.2 30.8 228 14"/>
         </svg>
+        <!-- Boost is SEALED in a boss (speed locked). The bar chains + dims rather
+             than vanishing, so the second verb doesn't die silently; a one-time
+             "BOOST SEALED" label fades in on the first boss entry. -->
+        <div class="stamina-seal" id="stamina-seal" aria-hidden="true">
+          <svg class="seal-chain" viewBox="0 0 30 12" preserveAspectRatio="xMidYMid meet">
+            <g fill="none" stroke="currentColor" stroke-width="1.5">
+              <rect x="1" y="3" width="9.5" height="6" rx="3"/>
+              <rect x="9.75" y="3" width="9.5" height="6" rx="3"/>
+              <rect x="18.5" y="3" width="9.5" height="6" rx="3"/>
+            </g>
+          </svg>
+          <span class="seal-label">BOOST SEALED</span>
+        </div>
       </div>
       <!-- Surge: a bare gem row (no label/box) + a quiet multiplier -->
       <div class="surge-min" id="surge-widget" data-tier="0">
@@ -534,6 +547,7 @@ export const ui = {
     document.body.appendChild(root);
     els = {
       staminaArc:   root.querySelector('#stamina-arc'),
+      staminaSeal:  root.querySelector('#stamina-seal'),
       stamSegs:     [root.querySelector('#stam-seg-0'), root.querySelector('#stam-seg-1'), root.querySelector('#stam-seg-2')],
       score:        root.querySelector('#score'),
       chain:        root.querySelector('#chain'),
@@ -1055,10 +1069,19 @@ export const ui = {
     if (els.bossNote) els.bossNote.classList.remove('show', 'ready');
   },
 
-  // Fade the stamina arc away for a boss (unlimited/locked speed → the bar is
-  // meaningless) and back in after; the boss focus ring draws on in its place.
+  // Boost is SEALED for a boss (speed locked / unlimited → the bar is meaningless).
+  // Instead of silently vanishing — which let the casual's second verb die unnoticed
+  // in every fight — the bar CHAINS and dims so the seal is legible, then restores on
+  // boss exit. A one-time "BOOST SEALED" label fades in on the first sealing.
   staminaBoss(hidden) {
-    if (els.staminaArc) els.staminaArc.classList.toggle('boss-hidden', hidden);
+    if (els.staminaArc) els.staminaArc.classList.toggle('sealed', hidden);
+    if (hidden && els.staminaSeal && !this._sealLabelSeen) {
+      this._sealLabelSeen = true;
+      // Re-flow to (re)start the one-shot fade-in/out CSS animation.
+      els.staminaSeal.classList.remove('show');
+      void els.staminaSeal.offsetWidth;
+      els.staminaSeal.classList.add('show');
+    }
   },
 
   radioPopup(name) {

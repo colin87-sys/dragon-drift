@@ -6407,3 +6407,49 @@ existing infra, not a new subsystem.
 grounded against the code before synthesis — the grounding pass killed two wrong assumptions ("no audio system",
 "draw calls are the budget") that would otherwise have shipped into the plan. When a doc is the deliverable,
 adversarially fact-check its file:line claims before committing; implementers will trust it blindly.
+
+### L167 — LOCK LAYER PR0 (input hygiene + boost-sealed affordance): a `touchcancel` that shares the `touchend` handler can SPEND a ready action — gate the tap read on the event TYPE, not just the record
+
+**Did / learned.** First PR of the combat-verb "LANCE" build (the lock layer SOP, PART II). PR0 is
+the tiny, independent, ship-first hygiene fix. Two things, both def-neutral / behavior-preserving:
+
+(a) **The touchcancel-spends-Surge bug.** `input.js`'s `initTouch` registered ONE `end` handler for
+BOTH `touchend` and `touchcancel`, and the 2nd-finger surge-tap read (`!rec.rolled && rec.moved<16 &&
+elapsed<260`) fired for either. So a SYSTEM-cancelled contact — palm rejection, OS gesture-nav, an app
+switch, an incoming call — read as a deliberate tap and could SPEND a ready Dragon Surge the player
+never meant to unleash. Fix: the handler already receives the event, so gate the tap branch on
+`e.type === 'touchend'`; a cancel now only tears the record down (drops steer/boost) with no tap read.
+Zero threshold changes, zero latency added (§II.1.2 latency law preserved).
+
+(b) **The boost-sealed affordance.** In a boss the stamina bar was `staminaBoss(true)` → `boss-hidden`
+(opacity 0): the casual's second verb (boost) died SILENTLY every fight. Replaced the silent full-fade
+with a `sealed` state — the bar chains (a 3-link monochrome SVG, no additive/emoji) + dims to ~0.32 +
+desaturates, and a one-time "BOOST SEALED" label fades in on the first sealing (session flag
+`_sealLabelSeen`, one-shot CSS keyframe re-triggered via a forced reflow). Restored on boss exit.
+
+**Regression guard:** `tests/lock.mjs` (NEW — the SOP's battery home, grows per-PR). T0.1 dispatches a
+synthetic `touchcancel` on the real canvas with a ready Surge in a forced fight and asserts
+`input.surgeTap` stays false AND `feverActive` never flips; T0.2 is the `touchend` control (arms the tap,
+the ready Surge fires). The input-contract read is captured SYNCHRONOUSLY right after dispatch (before
+any rAF consumes it) so it's race-free; the downstream fire check keeps `consecutiveRings` topped in the
+`waitForFunction` predicate so `ready` holds until the fight loop consumes the tap.
+
+**→ Systematize.** *One handler, two event types, one silent misread.* The class of bug: a shared DOM
+handler where the SEMANTICS differ by `event.type` but the code only branches on accumulated RECORD
+state. Anywhere a `pointercancel`/`touchcancel`/`blur`/`visibilitychange` shares a path with its
+"clean" sibling (`pointerup`/`touchend`/`focus`), audit whether a CANCEL can trip a commit/fire/spend
+branch — a cancel means "this contact is void," never "the user acted." The reusable rule: **cancel
+paths tear down; only clean-end paths commit.** This matters doubly for the lock layer to come — every
+release path (cap-auto, decay, tap-volley) must be un-spendable by a cancelled contact for the same
+reason. And the test pattern generalizes: to prove an input-layer contract deterministically, read the
+one-shot flag inside the SAME synchronous `evaluate` as the dispatch, and drive any downstream
+consumer by holding its precondition true inside the `waitForFunction` predicate.
+
+**→ Leapfrog (innovate).** PR0 lays the two seams the whole 6-PR lock build leans on: (1) a canvas-touch
+synthetic-dispatch harness in `tests/lock.mjs` that can forge any gesture (start/move/end/cancel, N
+fingers) against the live fight — this is exactly what V5 focus (rest-finger trap, arm-at-300ms,
+second-extra-disarm) will need, so its test infra already exists; (2) the "sealed / dimmed-not-hidden"
+HUD idiom — a verb that's unavailable should be shown DISABLED, not deleted — which is the same visual
+grammar the lock pips will use for the deflect rule (ashen-frozen, not gone). Next: PR1 (V1 aim-line +
+reticle boss-skin + exposure ticks), whose reticle "ashen when muted" state is this same disabled-not-
+deleted principle applied to the reticle. The affordance vocabulary is now: LIVE / SEALED / ASHEN.
