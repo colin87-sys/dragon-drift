@@ -2190,3 +2190,19 @@ canvas.skin-preview[data-kind="dragon"] { cursor: pointer; }
   box-shadow: 0 4px 18px rgba(0,0,0,0.5), 0 0 22px rgba(255,160,80,0.3); }
 .gx-skip:active { transform: scale(0.96); }
 @media (prefers-reduced-motion: reduce){ .gesture-overlay.on{animation:none;} .gx-card{animation:none;} }
+
+/* V2 LANCE pips (combat-verbs PR2): painted locks under the reticle squares.
+   Squares, never dots — role is never hue-alone (colourblind law). Ashen = the
+   deflect rule froze the layer; the oldest pip blinks its final second (decay
+   legibility is FREE at rung 0 — never ascension-gated). */
+#reticle .lockpips { position: absolute; left: 50%; top: 114%; transform: translateX(-50%);
+  display: none; gap: 5px; }
+#reticle.boss .lockpips { display: flex; }
+#reticle .lockpip { width: 10px; height: 10px; border: 2px solid rgba(80, 255, 170, 0.35);
+  box-sizing: border-box; }
+#reticle .lockpip.filled { background: rgba(80, 255, 170, 0.9); border-color: rgba(80, 255, 170, 0.95);
+  box-shadow: 0 0 8px rgba(60, 255, 160, 0.6); }
+#reticle .lockpip.ashen { background: rgba(150, 160, 175, 0.45); border-color: rgba(150, 160, 175, 0.6);
+  box-shadow: none; }
+#reticle .lockpip.blink { animation: lockpip-blink 0.4s steps(2, start) infinite; }
+@keyframes lockpip-blink { 50% { opacity: 0.2; } }

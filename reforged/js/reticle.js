@@ -13,13 +13,16 @@ import { lockHudState } from './lockLayer.js';
 let el = null;
 let camera = null;
 let prevLocked = false;   // edge-detect the green-snap pop in a boss
+let pipWrap = null;       // the V2 painted-pip row (created in initReticle)
+let pipEls = [];
 const tmpV = new THREE.Vector3();
 export function initReticle(cam) {
   camera = cam;
   el = document.createElement('div');
   el.id = 'reticle';
   // .rsnap = the one-shot lock-on ring flash (fires on the green snap).
-  el.innerHTML = '<div class="rsq"></div><div class="rsq inner"></div><div class="rsnap"></div>';
+  el.innerHTML = '<div class="rsq"></div><div class="rsq inner"></div><div class="rsnap"></div><div class="lockpips"></div>';
+  pipWrap = el.querySelector('.lockpips');
   document.getElementById('hud').appendChild(el);
 }
 
@@ -59,6 +62,7 @@ export function updateReticle(player, playing) {
     const scale = ashen ? 1.15 : (locked ? 0.82 : (1.35 - 0.35 * dwell));
     el.style.opacity = ashen ? 0.5 : (0.72 + 0.28 * dwell);
     el.style.transform = `translate(${sx}px, ${sy}px) scale(${scale})`;
+    renderPips(L);
     return;
   }
   el.classList.remove('boss', 'sealed', 'aiming', 'snap');
@@ -98,4 +102,30 @@ export function updateReticle(player, playing) {
   el.style.opacity = 0.85 * fade;
   el.style.transform = `translate(${sx}px, ${sy}px) scale(${scale * (locked ? 0.85 : 1)})`;
   el.classList.toggle('locked', locked);
+}
+
+// V2 LANCE pips: painted locks as a square-pip row under the reticle (squares, not
+// dots — role is never hue-alone). Slots = the band cap; filled left-to-right in
+// paint order; ashen while the target deflects (the ONE deflect rule freezes the
+// layer); the OLDEST pip blinks its final second — decay legibility is free for
+// every player at rung 0 (audit F9). Pure DOM, zero render cost.
+function renderPips(hud) {
+  if (!pipWrap) return;
+  const cap = hud.cap || 0;
+  if (pipEls.length !== cap) {
+    pipWrap.innerHTML = '';
+    pipEls = [];
+    for (let i = 0; i < cap; i++) {
+      const p = document.createElement('div');
+      p.className = 'lockpip';
+      pipWrap.appendChild(p);
+      pipEls.push(p);
+    }
+  }
+  for (let i = 0; i < pipEls.length; i++) {
+    const filled = i < (hud.pips || 0);
+    pipEls[i].classList.toggle('filled', filled);
+    pipEls[i].classList.toggle('ashen', filled && hud.ashen);
+    pipEls[i].classList.toggle('blink', filled && hud.blink && i === 0);
+  }
 }

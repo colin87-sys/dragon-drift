@@ -6799,3 +6799,41 @@ acquire-window ≥ dwellTime at crossings" for everyone else — both checkable 
 data + the anchor's motion, no engine boot needed. The screen-space aim rework (L175's leapfrog
 candidate) is now unnecessary: the world-cone with a smoothed anchor handles the measured worst
 case with margin.
+
+### L178 — LANCE PR2 shipped: the paint machine, the ONE deflect predicate, and lances as pooled bullets
+
+**Did.** V2 LANCE-PAINT per the combat-verbs SOP §II.5: completing V1's dwell on a `def.lockParts`
+organ PAINTS a lock pip (the dwell IS the paint — one clock); pips decay (3.5s), refresh on held
+re-dwell (0.15s, stacking reserved for tier ≥3), and auto-release as a staggered homing-lance
+volley at the band cap (after a 1.0s fuse — a beat stays catchable) or on oldest-decay expiry —
+partial paints are never silently lost. Lances = pooled boss-ward bullets (`owner:'lance'`, the
+rider-shot kinematics aimed at the part's live world position); arrival rides the standard
+`bossDamage` event so every deflect gate applies unmodified, and PART_SYS counts them half via the
+landing-point route (rider-chip parity, zero new code). Per-volley damage HARD-CLAMPS to 10% of
+the current phase hp at release. A hit strips pips band-scaled (newest ≤ tier 2, all above).
+MARROWCOIL is the hero: its four rib emitters are the lockParts — the same pivots that vent the
+parryable rib ambers, so the amber-exemption is felt on the teach boss first. Unlock = first
+ENTERING a lockParts fight (kept on a loss); teach = P2's authored lull, re-armed until performed.
+
+**The load-bearing pattern: ONE deflect predicate.** `lockDeflected()` (boss.js) is the single
+source of truth for "a lance would ping for zero": shield, scattered swarm, closed eye, survival
+card. lockLayer pauses painting, decay, the cap fuse, AND queued launches on it together — pips
+freeze ashen, resume on the break. This unified what the audits found as six separate waste/
+punishment bugs into one rule, and it created a better decision than the one it replaced: you top
+off locks BEFORE pushing hp past a phase floor, and the banked pips ride the break. Every future
+def that adds an invulnerable state must be reachable from this predicate.
+
+**Gotchas.** (1) The paint trigger can't live only on the aimLock EDGE: a line held on a venting
+(amber-exempt) organ would never paint when the window closes — the held re-dwell clock now also
+paints an unpainted held organ, which for free covers "a cap slot opened while I was holding".
+(2) Post-volley, the still-held line legitimately starts REPAINTING ~0.15s later — intended
+(presence keeps converting), but tests asserting count===0 after a volley will flake; assert the
+volley, not the emptiness. (3) Test timing: linger (0.6s) + travel dominates organ-to-organ paint
+cycles — sequences that paint 3 organs take ~3.6s, long enough for the FIRST pip to decay before
+a cap fuse completes; cap-2 fixtures keep unit tests deterministic.
+
+**→ Leapfrog.** T2.G gate lints are live in tests/lock.mjs (exposure-coupling corner<grazeR,
+retention>cone, cap ladder, decay range, the TUTORIAL INEQUALITY, marrowcoil part-lint on the
+BUILT model). Deferred, tracked for the next PRs: tether LineSegments (in-world lock attribution),
+feats/analytics hooks, the standalone persona TTK sim (lockdps), V3's tap table (fork/early-volley
+— manual release arrives there; today's release is auto-only by design).

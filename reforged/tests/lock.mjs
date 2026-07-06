@@ -177,6 +177,171 @@ const t111 = await runAim({ frames: sine(3.2, 0.6, 11.0) });
 check('T1.11 tutorial sway (±3.2m) locks once and holds a full cycle', t111.aimLocks === 1 && t111.aim === true);
 
 // ---------------------------------------------------------------------------
+// PR2 — V2 LANCE-PAINT unit tests (T2.x): the paint/decay/cap/volley machine with
+// a fabricated multi-organ ctx. Frames may set deflected/venting/hit/clear.
+// ---------------------------------------------------------------------------
+async function runLock(spec) {
+  return page.evaluate(async (spec) => {
+    const mod = await import(new URL('./js/lockLayer.js', document.baseURI).href);
+    const ev = await import(new URL('./js/events.js', document.baseURI).href);
+    const events = [];
+    for (const name of ['lockPaint', 'lockVolley', 'lockLost']) ev.on(name, (p) => events.push({ name, ...(p || {}) }));
+    mod.initLockLayer();
+    const ORGANS = spec.organs;
+    const model = {
+      partWorldPos: (n, out) => { const p = ORGANS[n]; if (!p) return null; out.x = p.x; out.y = p.y; out.z = p.z ?? 0; return out; },
+      flash() {},
+    };
+    const lances = [];
+    for (const f of (spec.frames || [])) {
+      const player = { position: { x: f.px ?? 0, y: f.py ?? 0 } };
+      const ctx = {
+        fightRunning: true, model,
+        candidates: spec.candidates,
+        muted: false, emittersLive: true, exposureWindow: false,
+        damageBoss() {}, flashPart() {},
+        tier: spec.tier ?? 2,
+        cap: spec.cap ?? 3,
+        deflected: !!f.deflected,
+        phaseHp: spec.phaseHp ?? 100,
+        paintUnlocked: spec.paintUnlocked !== false,
+        paintables: spec.paintables ?? spec.candidates,
+        amberVenting: (part) => (f.venting || []).includes(part),
+        fireLance: (part, dmg) => lances.push({ part, dmg }),
+      };
+      if (f.hit) mod.notifyHit(spec.tier ?? 2);
+      if (f.clear) mod.clearLocks('transition');
+      for (let i = 0, n = f.n ?? 1; i < n; i++) mod.updateLockLayer(f.dt, player, ctx);
+    }
+    return { count: mod.lockCount(), hud: mod.lockHudState(), lances, events };
+  }, spec);
+}
+const ORGANS3 = { A: { x: 0, y: 0 }, B: { x: 10, y: 0 }, C: { x: 20, y: 0 } };
+const paintSeq = (xs) => xs.flatMap((x) => [
+  { dt: 0.06, n: 20, px: x },   // 1.2s at the organ: linger-release of the last line + acquire + paint
+]);
+
+// T2.1 — the completed dwell IS the first paint.
+const t21 = await runLock({ organs: ORGANS3, candidates: ['A'], frames: [{ dt: 0.06, n: 8, px: 0 }] });
+check('T2.1 dwell completion paints a lock pip', t21.count === 1 &&
+  t21.events.some((e) => e.name === 'lockPaint' && e.part === 'A'));
+
+// T2.2 — cap fuse auto-release: paint to cap 2, hold ~1.5s → one volley, 2 lances,
+// locks cleared, per-lance dmg = min(lanceDmg 2.0, 10% of 100hp phase / 2 = 5.0) = 2.0.
+const t22 = await runLock({ organs: ORGANS3, candidates: ['A', 'B'], cap: 2,
+  frames: [...paintSeq([0, 10]), { dt: 0.06, n: 25, px: 10 }] });
+// NB the held line legitimately begins REPAINTING right after the release (holding
+// presence on an organ keeps converting — intended), so count may be 0 or 1 here.
+check('T2.2 cap fuse fires ONE volley of 2 lances and clears the pips',
+  t22.count <= 1 && t22.lances.length === 2 &&
+  t22.events.filter((e) => e.name === 'lockVolley').length === 1 &&
+  t22.events.find((e) => e.name === 'lockVolley').source === 'cap');
+check('T2.2 lance damage is the un-clamped 2.0 at a 100hp phase', Math.abs(t22.lances[0].dmg - 2.0) < 1e-9);
+
+// T2.2b — decay release: one painted pip, abandon the line → the volley fires itself
+// when the oldest decay expires (partial paints are never silently lost).
+const t22b = await runLock({ organs: ORGANS3, candidates: ['A'],
+  frames: [{ dt: 0.06, n: 8, px: 0 }, { dt: 0.1, n: 42, px: 50 }] });
+check('T2.2b decay expiry releases the partial paint as a volley',
+  t22b.lances.length === 1 && t22b.events.find((e) => e.name === 'lockVolley')?.source === 'decay');
+
+// T2.3 — THE ONE DEFLECT RULE: painting, decay, fuse all freeze; nothing fires.
+const t23 = await runLock({ organs: ORGANS3, candidates: ['A', 'B'],
+  frames: [
+    { dt: 0.06, n: 8, px: 0 },                       // paint A
+    { dt: 0.1, n: 50, px: 10, deflected: true },     // 5s deflected AT organ B, dwell held
+  ] });
+check('T2.3 deflect freezes decay (pip survives 5s) and blocks painting (B never paints)',
+  t23.count === 1 && t23.lances.length === 0 && !t23.events.some((e) => e.name === 'lockVolley'));
+check('T2.3 pips read ashen while deflected', t23.hud.ashen === true);
+
+// T2.5 — queued launches hold while deflected and release on the break.
+const t25 = await runLock({ organs: ORGANS3, candidates: ['A', 'B'], cap: 2,
+  frames: [
+    ...paintSeq([0, 10]),                            // cap 2 reached
+    { dt: 0.06, n: 25, px: 10, deflected: true },    // fuse frozen: no volley into a shield
+    { dt: 0.06, n: 25, px: 10 },                     // break → fuse completes → volley
+  ] });
+check('T2.5 no lance ever fires into a deflect state; the volley lands after the break',
+  t25.lances.length === 2);
+
+// T2.4 — hit strip is band-scaled: newest-only at tier ≤2, everything at tier ≥3.
+const t24a = await runLock({ organs: ORGANS3, candidates: ['A', 'B'], tier: 2,
+  frames: [...paintSeq([0, 10]), { dt: 0.02, n: 1, px: 10, hit: true }] });
+check('T2.4 tier-2 hit strips the NEWEST pip only (+lockLost)', t24a.count === 1 &&
+  t24a.events.some((e) => e.name === 'lockLost' && e.reason === 'hit'));
+const t24b = await runLock({ organs: ORGANS3, candidates: ['A', 'B'], tier: 4, cap: 6,
+  frames: [...paintSeq([0, 10]), { dt: 0.02, n: 1, px: 10, hit: true }] });
+check('T2.4 tier-4 hit strips ALL pips', t24b.count === 0);
+
+// T2.7 — amber-venting organs are dwell-exempt; the held line converts the moment
+// the window closes (the refresh clock paints it — no re-acquire needed).
+const t27 = await runLock({ organs: ORGANS3, candidates: ['A'],
+  frames: [
+    { dt: 0.06, n: 12, px: 0, venting: ['A'] },      // held, but A vents → no paint
+    { dt: 0.06, n: 4, px: 0 },                       // window closed → refresh clock paints
+  ] });
+check('T2.7 venting organ never dwell-paints; paints right after the window closes',
+  t27.count === 1 && t27.events.filter((e) => e.name === 'lockPaint').length === 1);
+
+// T2.8 — the ROI clamp is enforced AT RELEASE: 2 lances vs a 30hp phase = 1.5 each.
+const t28 = await runLock({ organs: ORGANS3, candidates: ['A', 'B'], cap: 2, phaseHp: 30,
+  frames: [...paintSeq([0, 10]), { dt: 0.06, n: 25, px: 10 }] });
+check('T2.8 per-volley damage hard-clamps to 10% of phase hp', t28.lances.length === 2 &&
+  Math.abs(t28.lances[0].dmg - (0.10 * 30) / 2) < 1e-6);
+
+// T2.10 — transitions clear silently: no lockLost spam on fight seams.
+const t210 = await runLock({ organs: ORGANS3, candidates: ['A'],
+  frames: [{ dt: 0.06, n: 8, px: 0 }, { dt: 0.02, n: 1, px: 0, clear: true }] });
+check('T2.10 clearLocks(transition) is silent (no lockLost) and empties the pips',
+  t210.count === 0 && !t210.events.some((e) => e.name === 'lockLost'));
+
+// ---------------------------------------------------------------------------
+// T2.G — config/def gate lints (the honest arithmetic gates; printed value-vs-law).
+// ---------------------------------------------------------------------------
+const gates = await page.evaluate(async () => {
+  const { CONFIG } = await import(new URL('./js/config.js', document.baseURI).href);
+  const defs = await import(new URL('./js/bossDefs.js', document.baseURI).href);
+  const L = CONFIG.LOCK, B = CONFIG.BOSS;
+  const grazeR = CONFIG.playerRadius * B.grazeScale + B.bulletRadius;
+  const voidmaw = defs.BOSSES.voidmaw, marrow = defs.BOSSES.marrowcoil;
+  return {
+    coneCorner: Math.SQRT2 * L.coneXY, grazeR,
+    retention: L.retentionConeXY, cone: L.coneXY,
+    caps: L.capByTier, decay: L.decay,
+    tutorialAmp: voidmaw.holdSway?.amp ?? 5.0,
+    marrowTier: marrow.tier, marrowParts: (marrow.lockParts || []).map((p) => p.part),
+    roiWorst: (L.capByTier[4] * L.lanceDmg),
+  };
+});
+check(`T2.G exposure-coupling law: cone corner ${gates.coneCorner.toFixed(2)} < grazeR ${gates.grazeR.toFixed(2)}`,
+  gates.coneCorner < gates.grazeR);
+check(`T2.G retention ${gates.retention} > acquire cone ${gates.cone}`, gates.retention > gates.cone);
+check('T2.G cap ladder is 0/3/5/6/6 by tier', gates.caps[1] === 0 && gates.caps[2] === 3 &&
+  gates.caps[3] === 5 && gates.caps[4] === 6 && gates.caps[5] === 6);
+check(`T2.G decay ${gates.decay}s within the TUNE range [3,4]`, gates.decay >= 3 && gates.decay <= 4);
+check(`T2.G TUTORIAL INEQUALITY: voidmaw sway amp ${gates.tutorialAmp} < retention ${gates.retention}`,
+  gates.tutorialAmp < gates.retention);
+check('T2.G marrowcoil is tier 2 with 4 rib lockParts', gates.marrowTier === 2 && gates.marrowParts.length === 4);
+
+// T2.12 — def-lint: every marrowcoil lockPart resolves via the BUILT model's
+// partWorldPos (a def naming a nonexistent part would silently never paint).
+const partLint = await page.evaluate(async () => {
+  const { buildBoss } = await import(new URL('./js/bossModel.js', document.baseURI).href);
+  const defs = await import(new URL('./js/bossDefs.js', document.baseURI).href);
+  const def = defs.BOSSES.marrowcoil;
+  const model = buildBoss(def, 1);
+  model.tick?.(0.016, 0.5);   // one tick so animated pivots take their posed positions
+  const missing = [];
+  for (const lp of def.lockParts) if (!model.partWorldPos(lp.part)) missing.push(lp.part);
+  if (def.virtualLockOrgan && !model.partWorldPos(def.virtualLockOrgan)) missing.push(def.virtualLockOrgan);
+  model.dispose?.();
+  return missing;
+});
+check(`T2.12 marrowcoil lock anatomy resolves on the built model${partLint.length ? ' — MISSING: ' + partLint.join(',') : ''}`,
+  partLint.length === 0);
+
+// ---------------------------------------------------------------------------
 // Integration — reach a live VOIDMAW fight (slot 1: virtualLockOrgan present).
 // ---------------------------------------------------------------------------
 await page.click('#btn-start');

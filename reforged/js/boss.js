@@ -21,7 +21,8 @@ import {
   beamContact, setGrazeBonus,
   spawnBossRingHoop,
 } from './bossBullets.js';
-import { initLockLayer, updateLockLayer, clearLocks, lockAimTarget, lockAimHeld } from './lockLayer.js';
+import { initLockLayer, updateLockLayer, clearLocks, lockAimTarget, lockAimHeld,
+  lockCount, notifyHit as lockNotifyHit } from './lockLayer.js';
 
 // Boss encounter controller. A boss is an OVERLAY on the normal flight (gated by
 // game.inBoss, mirroring game.inCanyon): forward motion continues, the boss holds
@@ -110,6 +111,9 @@ let approachT = 0;
 let attackTimer = 0;
 let aimHeldT = 0;              // V1 teach: continuous seconds a line has been held (≥1s = performed)
 let aimTeachCd = 0;           // V1 teach: cooldown between re-armed prompts
+let lockTeachCd = 0;          // V2 teach: cooldown between re-armed paint prompts (slot 4 P2)
+let fightNow = 0;             // fight clock mirror (the updateBoss `time` param) for venting windows
+const amberVent = new Map();  // part → fight-time until which its amber volley is in flight (C3 dwell-exemption)
 let riderTimer = 0;
 // Cinematic overtake entrance (§5f, ASHTALON): a scripted flythrough — rise from
 // behind, a bullet-time close pass with the visor/eyes tracking you, pull ahead
@@ -1223,6 +1227,13 @@ function enterFight() {
   phase = 'fight';
   initLockLayer();   // THE LANCE layer: fresh aim/lock state per fight
   aimHeldT = 0; aimTeachCd = 1.5;   // V1 teach: first prompt after a short settle
+  lockTeachCd = 1.5; amberVent.clear();
+  // V2 access unlocks permanently on first ENTERING a lock-anatomy fight (slot 4 is
+  // the first def with lockParts) — a player stuck on the boss keeps the tool (§I.e).
+  if (def.lockParts && !saveData.flags.lockUnlocked) {
+    saveData.flags.lockUnlocked = true;
+    persist();
+  }
   poseSX = pose.x; poseSY = pose.y; poseSmooth = true;   // seed the group x/y smoother from the entrance-end pose (no handoff jump)
   if (cineYaw != null) fightWobbleT = 0;   // released from a scripted entrance → ease the yaw/roll wobble in from its settled facing (no snap)
   entranceId = null;                  // the scripted entrance is done
@@ -1580,6 +1591,7 @@ export function updateBoss(dt, player, time) {
     // Danger-binding: `emittersLive` gates the dwell rate (full while fire is live,
     // half during authored quiet); `exposureWindow` = the §5f post-string turn-taking
     // gap where a held line pays crack ticks.
+    fightNow = time;
     const lockCtx = {
       fightRunning: true,
       model,
@@ -1589,9 +1601,19 @@ export function updateBoss(dt, player, time) {
       exposureWindow: !shielded && chargeT <= 0 && pending.length === 0 && attackTimer > 0,
       damageBoss,
       flashPart: () => model.flash?.(0.15),
+      // V2 LANCE-PAINT (SOP §II.5): the paint machine's per-frame world view.
+      tier: def.tier ?? 1,
+      cap: CONFIG.LOCK.capByTier[def.tier ?? 1] ?? 0,
+      deflected: lockDeflected(),
+      phaseHp: currentPhaseHp(),
+      paintUnlocked: !!saveData.flags.lockUnlocked,
+      paintables: paintableParts(),
+      amberVenting: (part) => (amberVent.get(part) ?? -1) > fightNow,
+      fireLance: (part, dmg) => fireLanceAt(player, part, dmg),
     };
     updateLockLayer(dt, player, lockCtx);
     driveAimTeach(dt, lockCtx);
+    driveLockTeach(dt, lockCtx);
 
     riderTimer -= dt;
     if (riderTimer <= 0) {
@@ -1689,6 +1711,8 @@ export function updateBoss(dt, player, time) {
     // ---- NO-HIT ADRENALINE LADDER (global §5i.B meta spine) ----
     {
       if (game.bossHitsTakenRun > adrenHits0) {            // took a hit since last frame
+        // V2: a hit strips locks, band-scaled (newest pip ≤ tier 2, all above — audit F8).
+        lockNotifyHit(def.tier ?? 1);
         adrenHits0 = game.bossHitsTakenRun;
         if (adrenRung >= 5) {
           // R5 ONE-HIT SHIELD: absorb the hit FULLY — refund the damage AND
@@ -1978,6 +2002,9 @@ function emitRibBullets(player) {
     // Constant-velocity aim so all bullets reach the spine centre together (converge),
     // then keep flying through it and cross the player plane (the dodge/parry check).
     emitBoss(rx, ry, (cx - rx) / T, (cy - ry) / T, (crel - rrel) / T, true, null, 1, null, rrel);
+    // C3: an amber-CARRYING organ is dwell-exempt while its volley is in flight —
+    // parry (V4, PR4) is the only sanctioned way to paint a venting organ.
+    amberVent.set(name, fightNow + 2.2);
   }
 }
 
@@ -2287,6 +2314,83 @@ function lockCandidates() {
 // V1 teach (slot 1 VOIDMAW, §II.11): prompt in an opening exposure lull via the
 // queued bossNote channel; RE-ARM until performed — mark seen only when the player
 // holds a line ≥1s. Its own save bit (independent of V2's lockTaught).
+// ---- THE LANCE V2 (lock-paint) wiring — SOP §II.5/§II.6 ----------------------
+
+// THE ONE DEFLECT PREDICATE (single source of truth): every state in which a lance
+// would ping for zero. lockLayer pauses painting, decay, the cap fuse, and queued
+// launches on this — no lance is ever silently wasted (audit B2/B3/F2). Every future
+// def that adds an invulnerable state must be reachable from here.
+function lockDeflected() {
+  if (shielded) return true;
+  if (def.condenseInvuln && model.condenseLive && model.condenseLive() < 0.45) return true;   // swarm scattered
+  if (def.eyeWeakPoint && model.eyeIsUp && !model.eyeIsUp()) return true;                     // lid down
+  if (activeCard && activeCard.survival) return true;                                        // survival card
+  return false;
+}
+
+// The current phase's hp span (hpMax × its atFrac slice) — the base of the per-volley
+// ROI clamp (volley total ≤ volleyRoiFrac × this, enforced in lockLayer at release).
+function currentPhaseHp() {
+  const cur = def.phases[phaseIdx]?.atFrac ?? 1;
+  const next = def.phases[phaseIdx + 1]?.atFrac ?? 0;
+  return Math.max(1, (cur - next) * hpMax);
+}
+
+// V2 paintable organs this phase: def.lockParts filtered by their optional phase gate.
+function paintableParts() {
+  if (!def || !def.lockParts) return null;
+  const out = [];
+  for (const lp of def.lockParts) {
+    if (!lp.phases || lp.phases.includes(phaseIdx)) out.push(lp.part);
+  }
+  return out;
+}
+
+// Launch one homing lance at a painted organ: a pooled boss-ward bullet (the rider-shot
+// kinematics, aimed at the PART's live world position). Arrival emits the standard
+// bossDamage event with kind:'lance' — every deflect gate in damageBoss applies, and
+// PART_SYS counts it half (landing-point route), the rider-chip weight. Spawned from
+// the dragon's off-shoulder (the rider fires from +0.6; lances leave from −0.6).
+const _lanceV = new THREE.Vector3();
+function fireLanceAt(player, part, dmg) {
+  const w = model && model.partWorldPos ? model.partWorldPos(part, _lanceV) : null;
+  const tx = w ? w.x : pose.x, ty = w ? w.y : pose.y;
+  const trel = w ? Math.max(-w.z - player.dist, 4) : pose.rel;
+  const ox = player.position.x - 0.6, oy = player.position.y + 0.4;
+  const t = Math.max((trel - 1.5) / B.bossSpeed, 0.05);
+  spawnBossBullet({
+    owner: 'lance', x: ox, y: oy, rel: 1.5,
+    vx: (tx - ox) / t, vy: (ty - oy) / t, vrel: B.bossSpeed,
+    targetRel: trel, tx, ty,
+    color: 0x50ffaa, dmg, r: 0.5, life: 4, part,
+  });
+}
+
+// V2 teach (slot 4 MARROWCOIL, P2's authored lull — audit F3: intra-fight phase
+// stagger keeps the band-2 concept load down; P1 belongs to the fight's own reads).
+// Re-armed until performed; the flag is set by the lockPaint listener below.
+function driveLockTeach(dt, ctx) {
+  if (!def || !def.lockParts || saveData.flags.lockTaught || !ctx.paintUnlocked) return;
+  if (def.id !== 'marrowcoil' || phaseIdx < 1) return;
+  lockTeachCd -= dt;
+  if (ctx.exposureWindow && lockCount() === 0 && lockTeachCd <= 0) {
+    ui.bossNote?.('HOLD YOUR LINE ON A RIB', 'PAINT A LOCK', 'gold', 2.6);
+    lockTeachCd = 8;   // re-arm later if still unperformed
+  }
+}
+
+// Dismiss-on-perform (the hints.js BIT.roll pattern): the first paint retires the
+// teach forever; the first CAP volley names the release rule once.
+on('lockPaint', () => {
+  if (!saveData.flags.lockTaught) { saveData.flags.lockTaught = true; persist(); }
+});
+on('lockVolley', (p) => {
+  if (p && p.source === 'cap' && !saveData.flags.lockCapSeen) {
+    saveData.flags.lockCapSeen = true; persist();
+    ui.bossNote?.('LOCKS FULL', 'LANCES FLY THEMSELVES', 'gold', 2.6);
+  }
+});
+
 function driveAimTeach(dt, ctx) {
   if (!def || !def.virtualLockOrgan || saveData.flags.aimTaught) return;
   if (lockAimHeld()) {
