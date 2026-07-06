@@ -6837,3 +6837,28 @@ retention>cone, cap ladder, decay range, the TUTORIAL INEQUALITY, marrowcoil par
 BUILT model). Deferred, tracked for the next PRs: tether LineSegments (in-world lock attribution),
 feats/analytics hooks, the standalone persona TTK sim (lockdps), V3's tap table (fork/early-volley
 — manual release arrives there; today's release is auto-only by design).
+
+### L179 — the LANCE playtest loop: four owner-caught UX laws (display==logic, unpainted-first, diegetic timers, sealed honesty)
+
+**Did / learned.** Four rapid owner-playtest rounds on the V2 paint loop (PRs #248/#249 + the
+sealed fix) each exposed a law the headless suites could never see:
+1. **Display == logic, everywhere.** The reticle showed the SMOOTHED anchor while multi-organ
+   acquisition scanned RAW positions — the player was correctly on the marker and the code tested
+   a different point (L177's failure, silently re-introduced for `candidates.length > 1`). The
+   marker the player chases must BE the point every cone tests, on every boss, in every path.
+2. **The reticle leads; it never pins.** A completed paint RELEASES the aim (paint-hop) and the
+   painted organ is embargoed; while any unpainted paintable remains, painted organs never
+   re-acquire (UNPAINTED-FIRST). Without both, the brightest marker on screen (the painted one)
+   traps the player in 'refresh' and the sweep dead-ends under their own dragon.
+3. **Diegetic timers beat invisible ones.** The 1s cap fuse read as 'it fires itself' until it
+   became the dragon's INHALE (arpeggio → rising swell → exhale volley). If a timer matters,
+   make the game visibly/audibly BREATHE it — the fuse is now the tell the player acts around.
+4. **Sealed honesty.** While the deflect rule pauses the layer (shield/scatter/eye/card), NOTHING
+   may celebrate: pips, markers, AND the lead reticle all go ashen, the lock chime holds, and the
+   break re-fires it ('NOW it counts') — a green 'locked' on a sealed boss reads as a broken game.
+   A once-per-fight hint names the alternative ('GRAZE ITS RINGS — UNLEASH TO BREAK').
+
+**The pattern.** Every one of these was invisible to 57 green checks and obvious in 30 seconds of
+owner play. The loop that worked: playtest verdict → reproduce the geometry in a fabricated-ctx
+unit test FIRST (T2.13/T2.15/T2.16) → fix → the test becomes the permanent regression wall. Feel
+bugs get the same test-first discipline as logic bugs.
