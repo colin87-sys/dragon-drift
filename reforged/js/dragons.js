@@ -213,8 +213,12 @@ export const DRAGONS = {
       scale: 1.0, wingScale: 1.0, tailSegments: 12, neckSegments: 8,
       headArchetype: 'softStealth',      // rounded wedge skull + large soft calm eyes + swept ear-fins — the river-dragon read
       headScale: 0.6, snoutScale: 0.72, eyeScale: 0.82, eyeShape: 1.0,
+      cuteEye: true,                     // living eye — jade-green iris + dark forward pupil + catchlight (gate r1 dir 9; no more blank doll orb)
+      eyeSclera: 0xd6f0e2, eyeIris: 0x2f9e77, eyeIrisKeen: 0x8ff0c2,   // calm GREEN gaze (not azure blue)
       bellyPaint: true,                  // pale mint underside vertex-painted on the ventral serpent torso (ICONIC GREEN belly)
       whiskerFins: true,                 // trailing whisker fins (jade signature) — cradle the chin pearl
+      neckBlend: 1.6,                    // fuse the neck beads into a smooth taper (gate r1 dir 3 — no sausage-bead chain)
+      tailArc: 0.5, tailYaw: 0.28,       // the tail COUNTER-ARCS up + flicks, continuing the serpent S (gate r1 dir 1)
       // silk-fin shared dials (per-form lobe count / span / carrier accrete below)
       lobeCount: 4, lobeSpan: 3.5, lobeRake: 0.62, lobeTilt: 0.82, lobeCamber: 0.26,
       lobeNotch: 0.42, lobeScale: 0.8, lobeDetail: 1.3, rimCarrier: 1.0, streamerLen: 4.5, pearlStage: 2,
@@ -234,6 +238,7 @@ export const DRAGONS = {
       { headScale: 1.15, snoutScale: 0.55, eyeScale: 1.5, eyeShape: 0.0,
         neckSegments: 5, tailSegments: 6, whiskerFins: false, hornType: 'noHorn',
         spineCurl: -0.35, spineYaw: 0.3,   // curled river-whelp: chest-down + a gentle lateral wiggle (S line of action)
+        tailArc: 0.22, tailYaw: 0.16, neckBlend: 1.4,
         lobeCount: 3, lobeSpan: 2.6, lobeTilt: 0.72, lobeDetail: 0.55, rimCarrier: 0.3, streamerLen: 0, pearlStage: 0,
         tailStyle: 'simple', ridgeCount: 0, crest: 0, spineGlow: 0,
         colors: { body: 0x3cb883, belly: 0xdaf7e6, wingInner: 0x3aa578, wingOuter: 0x157a4e,
@@ -244,6 +249,7 @@ export const DRAGONS = {
       { headScale: 0.85, snoutScale: 0.68, eyeScale: 1.05, eyeShape: 0.5,
         neckSegments: 7, tailSegments: 10, whiskerFins: true,
         spineCurl: 0.45, spineYaw: 0.42,   // straightening into the proud S
+        tailArc: 0.38, tailYaw: 0.22, neckBlend: 1.5,
         lobeCount: 3, lobeSpan: 4.2, lobeTilt: 0.78, lobeDetail: 1.0, rimCarrier: 0.6, streamerLen: 0, pearlStage: 1,
         tailStyle: 'simple', ridgeCount: 10, ridgeStyle: 'scute', ridgeColor: 0x1f8a5c, crest: 0, spineGlow: 0.16,
         colors: { body: 0x28a06b, belly: 0xd2f2df, wingInner: 0x2f9e77, wingOuter: 0x136b45,
@@ -258,7 +264,7 @@ export const DRAGONS = {
         spineCurl: 0.7, spineYaw: 0.55,   // full proud S-ribbon (neck arcs up, mid dips, tail counter-arcs; lateral recurve)
         lobeCount: 4, lobeSpan: 6.0, lobeTilt: 0.95, lobeDetail: 1.3, rimCarrier: 1.0, streamerLen: 4.5, pearlStage: 2,
         tailStyle: 'finned', ridgeCount: 14, ridgeStyle: 'scute', ridgeColor: 0x1f8a5c, spineGlow: 0.3,
-        colors: { body: 0x178a54, belly: 0xcaf0d8, wingInner: 0x2f9e77, wingOuter: 0x116b45,
+        colors: { body: 0x178a54, belly: 0xa6e2c2, wingInner: 0x2f9e77, wingOuter: 0x116b45,
           wingEmissive: 0x9ff0c8, scales: 0x8fe0be, horn: 0xc7ebcf,
           apexSeam: 0x9ff0c8, eye: 0x8ff0c2, coreGlow: 0x3aa078 } },
     ],
@@ -267,8 +273,8 @@ export const DRAGONS = {
     bodyRoughness: 0.5, bodyMetalness: 0.02, bodyEnvIntensity: 0.55,
     scaleEmissive: 0x0d6b45, scaleEmissiveI: 0.22,   // GREEN scale glow (scutes/whiskers/ridges) — never the shared cyan (L164) on a green dragon
     eyeEmissiveI: 1.1,                                // calm painterly eye — not blown to a white googly blob under ACES
-    bellyEmissive: 0x1f8a5c, bellyEmissiveI: 0.3,    // anchor the pale mint belly/jaw GREEN so it never drifts slate-blue in shadow (gate r1 dir 8)
-    body: 0x178a54, belly: 0xcaf0d8, scales: 0x8fe0be, horn: 0xc7ebcf,
+    bellyEmissive: 0x1f8a5c, bellyEmissiveI: 0.5,    // anchor the pale mint belly/jaw GREEN so it never drifts slate-blue in shadow (gate r1 dir 8)
+    body: 0x178a54, belly: 0xa6e2c2, scales: 0x8fe0be, horn: 0xc7ebcf,
     wingInner: 0x2f9e77, wingOuter: 0x116b45, wingEmissive: 0x9ff0c8,
     apexEye: 0x8ff0c2, apexSeam: 0x9ff0c8, coreGlow: 0x3aa078, surgeHi: 0xd6ffe9,
     eye: 0x8ff0c2, trail: 0x3fc48f, boostTrail: 0x9ff0c8,

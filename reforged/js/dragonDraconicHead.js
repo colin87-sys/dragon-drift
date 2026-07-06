@@ -497,8 +497,10 @@ function eyeZone(c, { r, x, y, z, glow }) {
       // hid the apex pupil behind the nose-side rim from ¾/profile (gate fable-r6: "bright
       // blank doll orb"). Forward-outward shows a dark pupil crescent at ¾ AND profile.
       const gazeAxis = new THREE.Vector3(s * (-0.06 + es * es * 0.32), 0.05, -1).normalize();
-      const cS = new THREE.Color(0xbfd8ec);
-      const cI = new THREE.Color(0x4198e2).lerp(new THREE.Color(0xbfe8ff), es * 0.9);   // keen forms brighten the iris hard toward pale-ice so the lateral apex eyes POP against the deep navy wedge head-on (dark apex went murky/blind)
+      // iris/sclera hues are def-overridable (default = azure's blue, byte-identical): a
+      // green dragon (jade) sets a jade iris so the eye reads GREEN, not off-palette blue.
+      const cS = new THREE.Color(c.def.eyeSclera ?? 0xbfd8ec);
+      const cI = new THREE.Color(c.def.eyeIris ?? 0x4198e2).lerp(new THREE.Color(c.def.eyeIrisKeen ?? 0xbfe8ff), es * 0.9);   // keen forms brighten the iris toward the keen hue so the lateral apex eyes POP head-on
       const V = new THREE.Vector3(); const cols = []; const CT = new THREE.Color();
       const band = (ang, a, b) => Math.min(1, Math.max(0, (ang - a) / (b - a)));
       for (let i = 0; i < pos.count; i++) {

@@ -1585,7 +1585,9 @@ function buildSilkFinWings(def, model, attach, giM) {
       if (isRear && streamerLen > 0.1) {
         for (let s = 0; s < 2; s++) {
           const sl = streamerLen * (1 - s * 0.2);
-          const strip = new THREE.Mesh(streamerGeo(sl, 0.26 * ws), finMatRear);
+          // per-side + per-streamer PHASE breaks the dead L/R mirror (gate r1 dir 12: the
+          // pair read as a perfect heart from behind) — the veils flow independently.
+          const strip = new THREE.Mesh(streamerGeo(sl, 0.26 * ws, side * 0.8 + s * 0.5), finMatRear);
           strip.scale.x = side;
           strip.position.set((rootX + 0.12 + s * 0.14) * side, rootY - 0.04, rootZ + 0.12);
           wingTip.add(strip);
@@ -1601,14 +1603,14 @@ function buildSilkFinWings(def, model, attach, giM) {
   // a trailing ribbon streamer — length +Z (BACKWARD, toward the tail), width in X, with
   // an S-flow (x) and a downward droop (−y) so it reads as a flowing river-veil, mint-
   // pearl toward the trailing tip. Tapers to a point.
-  function streamerGeo(L, w) {
+  function streamerGeo(L, w, phase = 0) {
     const nZ = seg(9), verts = [], cols = [], idx = [];
     const cM = new THREE.Color(cMid), cR = new THREE.Color(cRim), c = new THREE.Color();
     for (let i = 0; i <= nZ; i++) {
       const t = i / nZ;
       const z = t * L;
       const hw = w * 0.5 * (1 - Math.pow(t, 0.7));          // taper to a point
-      const xw = Math.sin(t * Math.PI * 1.7) * 0.16 * L;    // lateral S-flow
+      const xw = Math.sin(t * Math.PI * 1.7 + phase) * 0.16 * L;    // lateral S-flow (phase breaks L/R mirror)
       const yd = -Math.pow(t, 1.3) * 0.5 * L;               // droop down as it trails
       for (let j = 0; j <= 1; j++) {
         verts.push(xw + (j - 0.5) * 2 * hw, yd, z);

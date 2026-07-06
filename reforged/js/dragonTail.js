@@ -215,6 +215,14 @@ export function buildCleanTail(def, model, bodyMat, swept = false) {
     return plate;
   }
 
+  // tailArc / tailYaw (additive, default 0 → byte-identical): an idle CURVE baked into
+  // the segment rest positions so the tail COUNTER-ARCS (a koi/serpent S, not a straight
+  // whip — jade §5d, gate r1 dir 1). tailArc lifts the chain in +y with a rising curve +
+  // a tip flick; tailYaw sweeps it laterally to continue the body's lateral S.
+  const tailArc = model.tailArc ?? 0;
+  const tailYaw = model.tailYaw ?? 0;
+  const arcAt = (i) => { const f = i / (N - 1); return len * (tailArc * (0.32 * f + 0.42 * f * f) + tailArc * 0.16 * Math.sin(f * Math.PI * 1.6)); };
+  const yawAt = (i) => { const f = i / (N - 1); return len * tailYaw * (0.4 * f - 0.28 * Math.sin(f * Math.PI * 1.4)); };
   // Shaft segments. Each is its own group at a fixed z; the rig sways x/y so the
   // chain coils, with the root (segs[0]) held at the hip.
   for (let i = 0; i < N; i++) {
@@ -225,7 +233,13 @@ export function buildCleanTail(def, model, bodyMat, swept = false) {
     // existing coil writes the same .position/.rotation on these handles, now bending
     // a seamless surface. Default (Group + per-segment frustum) is byte-identical.
     const seg = swept ? new THREE.Bone() : new THREE.Group();
-    seg.position.set(0, 0, i * spacing);
+    seg.position.set(yawAt(i), arcAt(i), i * spacing);
+    if ((tailArc || tailYaw) && !swept) {                    // pitch/yaw the frustum to follow the curve tangent (no staircase)
+      const dydz = (arcAt(Math.min(N - 1, i + 1)) - arcAt(Math.max(0, i - 1))) / (2 * spacing);
+      const dxdz = (yawAt(Math.min(N - 1, i + 1)) - yawAt(Math.max(0, i - 1))) / (2 * spacing);
+      seg.rotation.x = -Math.atan(dydz);
+      seg.rotation.y = Math.atan(dxdz);
+    }
     if (!swept) {
       const frustum = new THREE.Mesh(new THREE.CylinderGeometry(r1, r0, segLen, lod(8)), bodyMat);
       frustum.rotation.x = Math.PI / 2;
