@@ -6735,3 +6735,29 @@ world-x/y match): at 30m depth a ±4.5m world swing is a bounded screen arc, and
 faster than flying the whole dragon to match — decoupling "aim" from "body position" is exactly what a
 fast focal needs. The world-cone stays viable only for slow/steady organs. Next decision point with the
 owner: calm VOIDMAW's opening (cheap, unblocks the teach) vs. build screen-space aim (correct, broader).
+
+### L176 — LANCE PR1 mover fix landed: calm the TUTORIAL boss's motion via a def-param, not the shared sway — and the win is measurable
+
+**Did / learned.** Closing L175: VOIDMAW (slot-1 teach) strafed ±5m at ~15 m/s — unlockable by
+chasing. Fix chosen by owner: calm the tutorial's motion. The shared hold-station line
+(`pose.x = Math.sin(time*0.7)*5`) is used by EVERY boss, so it was made def-tunable —
+`def.holdSway = { amp, freq }` with defaults `(5.0, 0.7)` that reproduce the shipped sway
+byte-for-byte (every other boss omits it → coexist no-op, boss.mjs kill times unchanged). VOIDMAW
+opts into `{ amp: 1.8, freq: 0.45 }`: a slow ±1.8m drift. Headless proof: poseX now ≤4 m/s, and the
+same crude P-controller that could NEVER lock the ±5m version rode the dwell to `held=true` on the
+gentle one. So the tutorial is now lockable by construction, not by hope.
+
+**The pattern (reusable).** A shared per-frame motion constant that one boss needs to differ on →
+promote it to a `def.*` with a default that equals the old literal (`x ?? DEFAULT`), so the change
+is provably a no-op for everyone who doesn't opt in. This is the same coexist move as `virtualLockOrgan`/
+`lockParts`/`holdSway` — the roster stays byte-identical while one creature gets new behavior. And when
+a feel fix is claimed "done," back it with a MEASUREMENT (the pose-speed probe + the bot now locking),
+not just "should be better" — the probes caught that anchor-choice and dwell-tuning DIDN'T fix it, and
+that the motion change DID.
+
+**→ Leapfrog.** The `holdSway` dial is now the per-boss knob for tuning aim difficulty across the
+roster: later movers (ASHTALON's designed mover stress test) can pick their own amp/freq so V1 stays
+fair without touching the global cone (principle-5 safe). Combined with the L175 `lockmotion` sim gate
+(assert every lock anchor's peak speed ≤ trackable), the roster can be authored so every boss's aim
+difficulty is a deliberate, measured choice. The world-cone model is now viable roster-wide *given*
+per-boss motion budgets — deferring (not forcing) the bigger screen-space rework.

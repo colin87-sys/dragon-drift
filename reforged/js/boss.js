@@ -1525,8 +1525,13 @@ export function updateBoss(dt, player, time) {
     } else {
       if (setpieceT >= 0) clearSetpiece();   // shield rose mid-beat: abort cleanly
       // Hold station ahead and "fly backward"; gentle strafe/bob keeps it alive.
+      // Sway amplitude/speed are def-tunable so a TUTORIAL boss (slot 1) can drift
+      // slowly enough that its face stays inside the V1 aim cone long enough to
+      // lock — LANCE §II.9. Defaults reproduce the shipped ±5m sway byte-for-byte
+      // (every existing boss omits `holdSway`, so this is a coexist no-op).
+      const sway = def.holdSway;
       pose.rel = B.settleGap;
-      pose.x = Math.sin(time * 0.7) * 5.0;
+      pose.x = Math.sin(time * (sway?.freq ?? 0.7)) * (sway?.amp ?? 5.0);
       pose.y = B.fightHeight + Math.sin(time * 1.3) * 0.8;
     }
 
