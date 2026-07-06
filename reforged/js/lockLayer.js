@@ -36,8 +36,13 @@ const S = {
   expTicks: 0,       // ticks paid in the current exposure window (cap 3)
   expActive: false,  // were we inside an exposure window last frame (edge detect)
   _wasHeld: false,   // edge-detect for the aimLock (green snap) event
-  // PR2+ (inert in PR1)
-  locks: [],
+  // V2 LANCE-PAINT (PR2)
+  locks: [],         // painted pips, oldest first: [{ part, stacks, age }]
+  capFuseT: 0,       // time at/above cap — auto-release after L.capFuse (a beat is catchable)
+  refreshT: 0,       // held re-dwell clock toward L.refreshDwell (refresh / stack)
+  lanceQ: [],        // staggered launches: [{ part, dmg, t }] — held while deflected
+  cap: 0,            // last ctx.cap (published to the HUD)
+  deflected: false,  // last ctx.deflected (pips freeze ashen)
 };
 
 const _w = new THREE.Vector3();       // scratch for partWorldPos
@@ -48,16 +53,18 @@ export function initLockLayer() {
   S.muted = false; S.hudPart = null; S.hasOrgan = false; S.fightRunning = false;
   S.anchorPart = null; S.ax = 0; S.ay = 0; S.az = 0;
   S.expTickT = 0; S.expTicks = 0; S.expActive = false; S._wasHeld = false;
-  S.locks.length = 0;
+  S.locks.length = 0; S.capFuseT = 0; S.refreshT = 0; S.lanceQ.length = 0;
+  S.cap = 0; S.deflected = false;
 }
 
-// Reset transient aim state (locks are cleared here too once they exist — PR2).
-// 'transition'/'death' are silent for the lock layer (no lockLost spam — audit).
+// Reset transient aim + paint state. SILENT by design for every reason
+// ('transition'/'death'/'idle') — no lockLost spam on fight seams (audit R11);
+// the loud loss feedback belongs to notifyHit alone.
 export function clearLocks(_reason) {
   S.aimPart = null; S.aimDwell = 0; S.aimHeld = false; S.offT = 0;
   S.anchorPart = null;
   S.expTickT = 0; S.expTicks = 0; S.expActive = false; S._wasHeld = false;
-  S.locks.length = 0;
+  S.locks.length = 0; S.capFuseT = 0; S.refreshT = 0; S.lanceQ.length = 0;
 }
 
 // NB — the danger-binding quiet-rate penalty (`quietDwellMult`, kills rest-beat
@@ -91,23 +98,28 @@ function releaseAim() {
 export function updateLockLayer(dt, player, ctx) {
   S.fightRunning = !!ctx.fightRunning;
   S.muted = !!ctx.muted;
-  if (!S.fightRunning) { clearLocks('idle'); refreshHud(ctx, dt); return; }
+  if (!S.fightRunning) { clearLocks('idle'); refreshHud(ctx, dt, player); return; }
 
   // Resolve + smooth the tracked/display organ FIRST: the anchor the reticle draws
   // this frame is the same point the cone logic tests (display == logic — the marker
   // the player chases IS the thing that locks).
-  refreshHud(ctx, dt);
+  refreshHud(ctx, dt, player);
   const px = player.position.x, py = player.position.y;
 
   // ---- V1 aim: acquire (tight cone) / hold (retention cone + drain) — L177 ----
   if (!S.aimPart) {
-    // ACQUISITION — the tight cone prices exposure. Single-candidate fast path tests
-    // the smoothed anchor (what the reticle shows); a multi-part roster (PR2) falls
-    // back to a raw nearest-in-cone scan for selection.
+    // ACQUISITION — the tight cone prices exposure. The DISPLAYED organ's SMOOTHED
+    // anchor is the primary target on EVERY boss (the marker the player chases IS
+    // the thing that locks — a raw-position scan on a coiling rib knife-edges in
+    // and out of the cone while the player is correctly on the smoothed marker,
+    // the exact L177 failure re-introduced; owner playtest caught it on slot 4).
     let hit = null;
-    if (S.hasOrgan && S.hudPart && (!ctx.candidates || ctx.candidates.length <= 1)) {
-      if (Math.abs(px - S.ax) < L.coneXY && Math.abs(py - S.ay) < L.coneXY) hit = S.hudPart;
-    } else {
+    if (S.hasOrgan && S.hudPart &&
+        Math.abs(px - S.ax) < L.coneXY && Math.abs(py - S.ay) < L.coneXY) hit = S.hudPart;
+    // Fallback: another candidate dead-on in the raw cone (the player deliberately
+    // went elsewhere — e.g. re-dwelling a painted organ while the display leads to
+    // an unpainted one; the display follows the acquisition next frame).
+    if (!hit && ctx.candidates && ctx.candidates.length > 1) {
       const cand = coneCandidate(player, ctx);
       if (cand) hit = cand.part;
     }
@@ -146,8 +158,81 @@ export function updateLockLayer(dt, player, ctx) {
   // Lock-acquired edge (green snap): fire ONCE when a usable lock is achieved, so
   // ui/sfx can pop + chime. `held` = aimHeld and not muted (a muted organ can't lock).
   const held = S.aimHeld && !S.muted;
-  if (held && !S._wasHeld) emit('aimLock', { part: S.aimPart });
+  const justLocked = held && !S._wasHeld;
+  if (justLocked) emit('aimLock', { part: S.aimPart });
   S._wasHeld = held;
+
+  // ---- V2 LANCE-PAINT (PR2) ----------------------------------------------------
+  // Painting: the aimLock edge on a PAINTABLE organ paints a lock pip; staying held
+  // re-dwells (refreshDwell) to refresh its decay (and stack at tier ≥3). Pips decay
+  // (L.decay each) and auto-release as a homing lance volley at the band cap (after
+  // the capFuse) or when the oldest expires with ≥1 painted — partial paints are
+  // never silently lost. THE ONE DEFLECT RULE (audit B2/F2/B3): while ctx.deflected
+  // (shield up / swarm scattered / eye closed / survival card) painting, decay, the
+  // cap fuse, AND queued lance launches ALL pause together — no lance ever pings a
+  // deflect state; pips freeze ashen and resume on the break.
+  S.cap = ctx.cap || 0;
+  S.deflected = !!ctx.deflected;
+  const canPaint = ctx.paintUnlocked && S.cap > 0 && !ctx.deflected;
+  const isPaintable = (part) => !!(part && ctx.paintables && ctx.paintables.includes(part)
+    && !(ctx.amberVenting && ctx.amberVenting(part)));   // amber-carriers are dwell-exempt while venting (C3)
+  if (canPaint && held && isPaintable(S.aimPart)) {
+    const existing = S.locks.find((lk) => lk.part === S.aimPart);
+    if (justLocked && !existing && totalPips() < S.cap) {
+      // The dwell that completed IS the first paint (one clock to learn).
+      S.locks.push({ part: S.aimPart, stacks: 1, age: 0 });
+      emit('lockPaint', { part: S.aimPart, count: totalPips() });
+      S.refreshT = 0;
+    } else {
+      // Held re-dwell (refreshDwell): refresh an existing pip's decay (and STACK at
+      // tier ≥3, ≤ stackMax, stacks count toward the cap) — or paint a held organ
+      // that couldn't take a pip at the lock instant (amber window just closed, or
+      // a cap slot just freed): the held line converts as soon as it's allowed to.
+      S.refreshT += dt;
+      if (S.refreshT >= L.refreshDwell) {
+        S.refreshT = 0;
+        if (existing) {
+          existing.age = 0;
+          if ((ctx.tier ?? 1) >= 3 && existing.stacks < L.stackMax && totalPips() < S.cap) {
+            existing.stacks++;
+            emit('lockPaint', { part: S.aimPart, count: totalPips(), stacked: true });
+          }
+        } else if (totalPips() < S.cap) {
+          S.locks.push({ part: S.aimPart, stacks: 1, age: 0 });
+          emit('lockPaint', { part: S.aimPart, count: totalPips() });
+        }
+      }
+    }
+  } else {
+    S.refreshT = 0;
+  }
+  // Resolve each painted lock's live world position — the in-world MARKER anchor:
+  // a painted organ carries its own pinned marker with a draining fill, so the
+  // player sees WHAT is locked, WHERE it is, and HOW LONG it holds (owner feedback:
+  // one reticle can't carry three locks' worth of state).
+  if (S.locks.length && ctx.model && ctx.model.partWorldPos) {
+    for (const lk of S.locks) {
+      const w = ctx.model.partWorldPos(lk.part, _w);
+      if (w) { lk.x = w.x; lk.y = w.y; lk.z = w.z; }
+    }
+  }
+  // Decay + cap fuse (both frozen while deflected).
+  if (S.locks.length && !ctx.deflected) {
+    for (const lk of S.locks) lk.age += dt;
+    if (S.locks[0].age >= L.decay) releaseVolley(ctx, 'decay');   // oldest first (push order)
+    else if (totalPips() >= S.cap) {
+      S.capFuseT += dt;
+      if (S.capFuseT >= L.capFuse) releaseVolley(ctx, 'cap');
+    } else S.capFuseT = 0;
+  }
+  // Staggered lance launches — held while deflected (queued to the break, never wasted).
+  if (S.lanceQ.length && !ctx.deflected) {
+    for (const q of S.lanceQ) q.t -= dt;
+    while (S.lanceQ.length && S.lanceQ[0].t <= 0) {
+      const q = S.lanceQ.shift();
+      ctx.fireLance?.(q.part, q.dmg);
+    }
+  }
 
   // ---- V1 exposure ticks (the turn-taking payoff — legible from fight 1) ------
   // A held line during a post-string exposure window pays visible crack ticks,
@@ -172,8 +257,35 @@ export function updateLockLayer(dt, player, ctx) {
 // anchor snaps on a part change, then EMAs toward the raw position, so reticle, rider
 // aim, and retention all track the organ's centre of motion, never its per-frame
 // animation jitter (idle motion at ≥2 frequencies is a design LAW — §3.7).
-function refreshHud(ctx, dt) {
-  const part = S.aimPart || (ctx.candidates && ctx.candidates[0]) || null;
+function refreshHud(ctx, dt, player) {
+  // Display target: the aim organ; else the NEAREST candidate to the player (the
+  // reticle shows WHERE to aim — on a multi-organ boss that's the closest organ,
+  // mirroring how the ring reticle always shows the next ring).
+  let part = S.aimPart;
+  if (!part && ctx.candidates) {
+    if (ctx.candidates.length === 1) part = ctx.candidates[0];
+    else if (ctx.candidates.length > 1 && ctx.model && ctx.model.partWorldPos && player) {
+      // Prefer the nearest UNPAINTED organ (painted ones carry their own markers) —
+      // the reticle actively leads the sweep to the next target; fall back to the
+      // nearest painted one when everything is locked (refresh stays reachable).
+      let bestD = Infinity, bestAnyD = Infinity, bestAny = null, curD = Infinity;
+      for (const c of ctx.candidates) {
+        const w = ctx.model.partWorldPos(c, _w);
+        if (!w) continue;
+        const dx = w.x - player.position.x, dy = w.y - player.position.y;
+        const d = dx * dx + dy * dy;
+        if (c === S.hudPart) curD = d;
+        if (d < bestAnyD) { bestAnyD = d; bestAny = c; }
+        if (d < bestD && !S.locks.some((lk) => lk.part === c)) { bestD = d; part = c; }
+      }
+      if (!part) part = bestAny;
+      // Hysteresis: keep the current displayed organ unless the new pick is clearly
+      // nearer (coiling anatomy makes near-equidistant ribs swap every frame — a
+      // flickering lead marker is unchaseable).
+      if (S.hudPart && part !== S.hudPart && curD < Infinity &&
+          !S.locks.some((lk) => lk.part === S.hudPart) && bestD > curD * 0.6) part = S.hudPart;
+    } else part = ctx.candidates[0] || null;
+  }
   S.hudPart = part;
   const w = part && ctx.model && ctx.model.partWorldPos ? ctx.model.partWorldPos(part, _w) : null;
   if (!w) { S.hasOrgan = false; return; }
@@ -192,7 +304,9 @@ function refreshHud(ctx, dt) {
 
 // --- Published state ---------------------------------------------------------
 
-// The reticle's second job (reticle.js): the organ world position + skin flags.
+// The reticle's second job (reticle.js): the organ world position + skin flags +
+// the painted-pip row (count/cap/ashen/blink — decay legibility is FREE at rung 0,
+// audit F9: the final-second blink is never ascension-gated).
 export function lockHudState() {
   return {
     active: S.fightRunning && S.hasOrgan,
@@ -202,6 +316,17 @@ export function lockHudState() {
     hasOrgan: S.hasOrgan,
     aimPart: S.hudPart,
     x: _hud.x, y: _hud.y, z: _hud.z,
+    cap: S.cap,
+    pips: totalPips(),
+    ashen: S.deflected,
+    blink: S.locks.length > 0 && !S.deflected && S.locks[0].age > L.decay - 1.0,
+    // Per-lock marker anchors: live world pos + remaining life (1 → fresh, 0 → gone).
+    locks: S.locks.map((lk) => ({
+      x: lk.x ?? 0, y: lk.y ?? 0, z: lk.z ?? 0,
+      life: Math.max(0, 1 - lk.age / L.decay),
+      stacks: lk.stacks,
+      blink: !S.deflected && lk.age > L.decay - 1.0,
+    })),
   };
 }
 
@@ -214,11 +339,55 @@ export function lockAimTarget() {
 // Rider fire-rate bonus is active while an organ is held (and not muted).
 export function lockAimHeld() { return S.aimHeld && !S.muted; }
 
-// PR2+ API — present and inert in PR1 so boss.js seams reference a stable surface.
-export function lockCount() { return S.locks.length; }
+function totalPips() {
+  let n = 0;
+  for (const lk of S.locks) n += lk.stacks;
+  return n;
+}
+
+// Release every painted pip as a staggered homing-lance volley. Per-lance damage is
+// HARD-CLAMPED so a volley can never exceed volleyRoiFrac of the current phase's hp
+// (audit R1 — the clamp is enforced at release, not asserted in prose).
+function releaseVolley(ctx, source) {
+  const pips = totalPips();
+  if (!pips) return;
+  const dmgEach = Math.min(L.lanceDmg, (L.volleyRoiFrac * (ctx.phaseHp || Infinity)) / pips);
+  let i = 0;
+  for (const lk of S.locks) {
+    for (let s = 0; s < lk.stacks; s++) {
+      S.lanceQ.push({ part: lk.part, dmg: dmgEach, t: i++ * (L.lanceStaggerMs / 1000) });
+    }
+  }
+  emit('lockVolley', { count: pips, source, dmgEach });
+  S.locks.length = 0;
+  S.capFuseT = 0;
+  S.refreshT = 0;
+}
+
+// A bullet hit strips locks — band-scaled (audit F8: full-strip from fight one
+// quadruple-stacked punishment on the weakest players): newest pip only at tiers
+// ≤ stripNewestMaxTier, everything at tiers above. The one LOUD loss path.
+export function notifyHit(tier = 1) {
+  if (!S.locks.length) return;
+  if (tier <= L.stripNewestMaxTier) {
+    const last = S.locks[S.locks.length - 1];
+    if (last.stacks > 1) last.stacks--;
+    else S.locks.pop();
+  } else {
+    S.locks.length = 0;
+  }
+  S.capFuseT = 0;
+  emit('lockLost', { reason: 'hit' });
+}
+
+export function lockCount() { return totalPips(); }
 export function paintFromParry(_part) { /* PR4 */ }
-export function consumeAllLocks() { const out = S.locks.slice(); S.locks.length = 0; return out; }
-export function notifyHit() { /* PR2 */ }
+// PR3 (Surge fork): hand every painted pip to the unleash and clear — no volley here.
+export function consumeAllLocks() {
+  const out = S.locks.map((lk) => ({ part: lk.part, stacks: lk.stacks }));
+  S.locks.length = 0; S.capFuseT = 0;
+  return out;
+}
 
 // Test seam: the raw aim state (fabricated-ctx unit tests read this directly).
 export function __lockDebug() {

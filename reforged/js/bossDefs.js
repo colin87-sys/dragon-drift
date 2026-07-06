@@ -289,6 +289,14 @@ export const BOSSES = {
     // through. Distinct from slot 1's mask, slot 2's ring-eye, slot 3's raptor.
     archetype: 'boneCoil',
     muzzle: 'skullGroup',     // head-origin patterns (aimed/fan/stream) emit from the skull, not lane centre (L148)
+    virtualLockOrgan: 'skullGroup',   // V1 aim anchor (big, central) — live even before V2 unlocks
+    // V2 LANCE-PAINT anatomy (PR2, the teach fight): the four rib emitters — the SAME
+    // pivots that vent the parryable rib ambers, so the C3 exemption is felt here first
+    // (a venting rib can't be dwell-painted; parry-paint is PR4's answer). All phases.
+    lockParts: [
+      { part: 'ribPivotL1' }, { part: 'ribPivotR1' },
+      { part: 'ribPivotL3' }, { part: 'ribPivotR3' },
+    ],
     accent: 0x8fd0ff,         // ice-blue — the cold lights on dead bone (identity in emissive)
     glow: 0xbfe6ff,           // paler ice (shield rim / shards / backlight)
     bulletColor: 0xff2b6a,    // danger stays magenta (role colour, never per-boss)
