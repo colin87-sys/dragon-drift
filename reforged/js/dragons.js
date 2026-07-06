@@ -217,7 +217,7 @@ export const DRAGONS = {
       skullType: 'koiSkull',             // a NEW lofted koi/eastern-serpent head shell (slim, browed, tapered snout) — replaces softStealth's round ellipsoid blob (gate structural rework)
       bellyPaint: true,                  // pale mint underside vertex-painted on the ventral serpent torso (ICONIC GREEN belly)
       whiskerFins: true,                 // trailing whisker fins (jade signature) — cradle the chin pearl
-      neckBlend: 2.4,                    // fuse the neck beads into a SMOOTH tapered tube (gate r6 dir 2 — no michelin-ring caterpillar neck)
+      neckBlend: 3.0,                    // fuse the neck beads into a SMOOTH tapered tube (gate r6 dir 2 — no michelin-ring caterpillar neck)
       tailArc: 0.7, tailYaw: 1.4,        // the tail COUNTER-ARCS up + coils LATERALLY into the rear-chase frame (the serpent body IS the silhouette — gate r6 dir 1)
       tailGirth: 1.7,                    // FAT serpent ribbon (the body carries the rear-chase silhouette, §5d wings+fins 30-50% / body 40-60%)
       tailPlates: false,                 // smooth koi tail — no dorsal spike row (that read as sawtooth/drill-bit)
@@ -263,10 +263,10 @@ export const DRAGONS = {
       // almond eyes, 4 lobes + trailing streamers, veil (finned) tail, whiskers
       // cradling the luminous river-pearl (the ONE bloom). DEEPEST value, richest
       // saturation — still NO glow-seams (law 12); spineGlow ≤0.32.
-      { headScale: 0.42, snoutScale: 0.98, eyeScale: 0.52, eyeShape: 0.62,
+      { headScale: 0.42, snoutScale: 0.98, eyeScale: 0.66, eyeShape: 0.62,
         neckSegments: 8, tailSegments: 12, whiskerFins: true, crest: 1,
-        spineCurl: 0.9, spineYaw: 0.72,   // full proud S-ribbon (neck arcs up, mid dips, tail counter-arcs; strong lateral recurve)
-        lobeCount: 4, lobeSpan: 5.3, lobeTilt: 0.95, lobeDetail: 1.3, rimCarrier: 1.0, streamerLen: 7.5, pearlStage: 2,
+        spineCurl: 1.05, spineYaw: 0.72,  // full proud S-ribbon (neck arcs up HARD, mid dips, tail counter-arcs; strong lateral recurve)
+        lobeCount: 4, lobeSpan: 5.3, lobeTilt: 0.74, lobeDetail: 1.3, rimCarrier: 1.0, streamerLen: 7.5, pearlStage: 2,
         tailStyle: 'simple', ridgeCount: 14, ridgeStyle: 'scute', ridgeColor: 0x1f8a5c, spineGlow: 0.3,
         colors: { body: 0x178a54, belly: 0xa6e2c2, wingInner: 0x2f9e77, wingOuter: 0x116b45,
           wingEmissive: 0x9ff0c8, scales: 0x8fe0be, horn: 0xc7ebcf,
@@ -276,7 +276,7 @@ export const DRAGONS = {
     // ICONIC GREEN hide — a VIVID mid-value jade body (was near-black moss), pale mint belly.
     bodyRoughness: 0.5, bodyMetalness: 0.02, bodyEnvIntensity: 0.55,
     scaleEmissive: 0x0d6b45, scaleEmissiveI: 0.22,   // GREEN scale glow (scutes/whiskers/ridges) — never the shared cyan (L164) on a green dragon
-    eyeEmissiveI: 1.1,                                // calm painterly eye — not blown to a white googly blob under ACES
+    eyeEmissiveI: 1.5,                      // calm painterly eye — not blown to a white googly blob under ACES
     bellyEmissive: 0x1f8a5c, bellyEmissiveI: 0.5,    // anchor the pale mint belly/jaw GREEN so it never drifts slate-blue in shadow (gate r1 dir 8)
     eyeSclera: 0xbfe6cf, eyeIris: 0x2f9e77, eyeIrisKeen: 0x8ff0c2, eyeBallEmissive: 0x0e3a2a,   // calm GREEN gaze (top-level def — the head reads c.def.*, NOT model.*); greener sclera so the eye never reads cool-blue
     body: 0x178a54, belly: 0xa6e2c2, scales: 0x8fe0be, horn: 0xc7ebcf,

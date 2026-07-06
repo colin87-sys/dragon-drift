@@ -767,9 +767,9 @@ function whiskerFins(c) {                          // Jade — calm mystical: 2 
     for (let i = 0; i <= 6; i++) {
       const t = i / 6;
       pts.push(new THREE.Vector3(
-        sx * (spread * (0.35 + 0.65 * t) + 0.14 * Math.sin(t * Math.PI)),   // out + a gentle bow
-        -0.12 * L * Math.sin(t * Math.PI) + 0.16 * L * t,                    // dip then rise (a soft flick)
-        t * L));                                                            // trail back
+        sx * spread * (0.28 + 0.72 * t),          // sweep smoothly OUT (no sin bow → no fish-hook loop)
+        -0.14 * L * Math.pow(t, 1.35),            // ONE gentle downward droop (single inflection)
+        t * L));                                  // trail back past the jaw
     }
     const curve = new THREE.CatmullRomCurve3(pts);
     const RINGS = seg(10), RAD = seg(4), verts = [], idx = [];

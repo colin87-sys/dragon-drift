@@ -304,9 +304,15 @@ export function buildCleanTail(def, model, bodyMat, swept = false) {
     segs[0].add(chev);
   }
 
-  // Tip ornament — the final coiling segment, overlapping the shaft end.
+  // Tip ornament — the final coiling segment, overlapping the shaft end. Sits on the
+  // ARCED centreline (matches the last shaft segment) + follows the tangent, so it never
+  // detaches from a curved tail (the floating-fragment law-1 fail, gate rework r2 dir 1).
   const tip = new THREE.Group();
-  tip.position.set(0, 0, (N - 1) * spacing);
+  tip.position.set(yawAt(N - 1), arcAt(N - 1), (N - 1) * spacing);
+  if (tailArc || tailYaw) {
+    const dydz = (arcAt(N - 1) - arcAt(N - 2)) / spacing, dxdz = (yawAt(N - 1) - yawAt(N - 2)) / spacing;
+    tip.rotation.x = -Math.atan(dydz); tip.rotation.y = Math.atan(dxdz);
+  }
   if (style === 'comet') {
     const forkGeo = new THREE.ShapeGeometry(buildForkShape(0.46, 1.5, 0.85));
     forkGeo.rotateX(Math.PI / 2);

@@ -186,7 +186,7 @@ function buildTorso(profile, def, model, bodyMat, geoFn = buildTorsoGeometry, op
     const cols = [];
     for (let i = 0; i < pos.count; i++) {
       const ny = (pos.getY(i) - y0) / dyB;         // 0 belly → 1 back
-      let t = Math.min(1, Math.max(0, (ny - 0.34) / 0.22)); t = t * t * (3 - 2 * t);   // ventral ~35% = belly, smooth blend up the flank
+      let t = Math.min(1, Math.max(0, (ny - 0.30) / 0.16)); t = t * t * (3 - 2 * t);   // ventral ~30% = belly, blend up ONLY to the lateral midline (never wraps onto the dorsal/back — gate rework r2 dir 6)
       cM.copy(cBelly).lerp(cBack, t);
       cols.push(cM.r, cM.g, cM.b);
     }

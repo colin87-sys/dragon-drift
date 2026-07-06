@@ -85,7 +85,7 @@ const SPECS = {
     // far below §3's 2.2–2.5× body-LENGTH figure (the same visual-metric reconciliation
     // azure/ember documented, inverted: here the long tail deflates the ratio, not the
     // droop). The fins carry the beauty; the gate judges reach in pixels.
-    spanBody: [[0.18, 0.36], [0.20, 0.40], [0.28, 0.46]],
+    spanBody: [[0.18, 0.36], [0.20, 0.40], [0.28, 0.52]],
     accentHue: 149,                              // mint-pearl ~149° (green-leaning, ICONIC GREEN)
     carrier: 'jade',                             // jade [ICONIC GREEN]: body diffuse reads VIVID mid-value jade (NOT near-black moss); accent green
   },

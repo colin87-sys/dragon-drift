@@ -1612,21 +1612,24 @@ function buildSilkFinWings(def, model, attach, giM) {
     return { pivot, wingTip, lobePivots, elements };
   }
 
-  // a trailing ribbon streamer — length +Z (BACKWARD, toward the tail), width in X, with
-  // an S-flow (x) and a downward droop (−y) so it reads as a flowing river-veil, mint-
-  // pearl toward the trailing tip. Tapers to a point.
+  // a trailing ribbon streamer — length +Z (BACKWARD, toward the tail), width in X. ONE
+  // smooth single-curvature spline (no hard kinks), width tapering monotonically to a
+  // point (10-20% of root), held GREEN with the mint-pearl only at the last ~15% of the
+  // tip — a flowing silk veil, not wire wreckage (gate rework r2 dir 2).
   function streamerGeo(L, w, phase = 0) {
-    const nZ = seg(9), verts = [], cols = [], idx = [];
-    const cM = new THREE.Color(cMid), cR = new THREE.Color(cRim), c = new THREE.Color();
+    const nZ = seg(11), verts = [], cols = [], idx = [];
+    const cM = new THREE.Color(cMid), cT = new THREE.Color(cTip), cR = new THREE.Color(cRim), c = new THREE.Color();
+    const bend = 0.14 + 0.05 * phase;                        // per-streamer curvature (breaks the L/R mirror without kinks)
     for (let i = 0; i <= nZ; i++) {
       const t = i / nZ;
       const z = t * L;
-      const hw = w * 0.5 * (1 - Math.pow(t, 0.85));         // thicker root, taper to a point (survives gameplay distance)
-      const xw = Math.sin(t * Math.PI * 1.7 + phase) * 0.16 * L;    // lateral S-flow (phase breaks L/R mirror)
-      const yd = -Math.pow(t, 1.5) * 0.16 * L;              // GENTLE droop — trails BACK along the flight path (~within 25° of the body axis), not a dangling jellyfish tendril (gate r3 dir 10)
+      const hw = w * 0.5 * Math.pow(1 - t, 1.1) + 0.004;    // smooth monotonic taper to a fine point
+      const xw = Math.sin(t * Math.PI * 0.9) * bend * L;    // ONE gentle hump (single inflection), no zigzag
+      const yd = -Math.pow(t, 1.4) * 0.1 * L;               // very gentle droop — trails aft behind the dragon
       for (let j = 0; j <= 1; j++) {
         verts.push(xw + (j - 0.5) * 2 * hw, yd, z);
-        c.copy(cM).lerp(cR, Math.pow(t, 0.8));
+        c.copy(cM).lerp(cT, t * 0.6);                        // held in the green band (mid → pale-jade)
+        if (t > 0.85) c.lerp(cR, (t - 0.85) / 0.15);         // mint-pearl only at the last ~15% of the tip
         cols.push(c.r, c.g, c.b);
       }
     }
