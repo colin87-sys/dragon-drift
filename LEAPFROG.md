@@ -6453,7 +6453,7 @@ HUD idiom — a verb that's unavailable should be shown DISABLED, not deleted �
 grammar the lock pips will use for the deflect rule (ashen-frozen, not gone). Next: PR1 (V1 aim-line +
 reticle boss-skin + exposure ticks), whose reticle "ashen when muted" state is this same disabled-not-
 deleted principle applied to the reticle. The affordance vocabulary is now: LIVE / SEALED / ASHEN.
-### L155 — Audio overhaul III: instrument archetypes (FM Rhodes, wide supersaw, Karplus pluck) — the "not chiptune" layer, opt-in per voice
+### L168 — Audio overhaul III: instrument archetypes (FM Rhodes, wide supersaw, Karplus pluck) — the "not chiptune" layer, opt-in per voice
 
 **Did.** Started the next audio phase on a fresh branch off the post-merge master (PR #230 shipped
 L151/L152). New `reforged/js/insts.js` (dependency-free — inlines mulberry32 so it stays node-testable
@@ -6487,7 +6487,7 @@ pluck→celtic/world), then the big one still queued: the **section-graph compos
 structure over the loop-wrap rebuild) — the last major listenability unlock, and the highest-blast-radius
 edit (scheduler surgery), so it goes on top of this proven timbre layer, hero-first.
 
-### L156 — Audio overhaul IV: the section-graph composition engine — song STRUCTURE over the 8-bar loop, hero-first
+### L169 — Audio overhaul IV: the section-graph composition engine — song STRUCTURE over the 8-bar loop, hero-first
 
 **Did.** Wired the composition engine (composer.js, committed inert in L-prev) into the live scheduler so a
 station with a `form` plays as a SONG, not an infinite 8-bar loop. `compileTrack` gained a `section` param:
@@ -6523,9 +6523,9 @@ ambient), then the refinements the plan still lists: gameplay VOTING on transiti
 death forces a breakdown) with a one-bar decision deadline inside the lookahead window, motif development
 (sequence/inversion transforms), and per-form-pass ornament reseeding for super-loop freshness.
 
-### L157 — Audio P4b: gameplay-voted sections, motif development, two more song forms — the music now plays WITH the player
+### L170 — Audio P4b: gameplay-voted sections, motif development, two more song forms — the music now plays WITH the player
 
-**Did.** Three additions on top of the L156 section engine, all pure-data + one seam each:
+**Did.** Three additions on top of the L169 section engine, all pure-data + one seam each:
 (1) **Gameplay-voted transitions** (`chooseSection` in composer.js): the authored form is the script, but a
 0..1 intensity vote — published once per frame by `music.update` (Dragon Surge = outright 1.0, else the
 smoothed energy scalar) and READ ONCE PER LOOP-WRAP in `buildEvents` — can override the scheduled section
@@ -6553,7 +6553,7 @@ per-frame one — the same "decisions commit one phrase ahead" law that keeps th
 window honest. Per-frame reactivity stays where it belongs (layer gains via the energy scalar); STRUCTURE
 reacts at musical seams. That split is what makes the music feel conducted rather than twitchy.
 
-### L158 — Audio P6: genre reverb SPACES + a lofi character pack — depth is the cheapest "expensive" signal
+### L171 — Audio P6: genre reverb SPACES + a lofi character pack — depth is the cheapest "expensive" signal
 
 **Did.** Upgraded the shared convolution reverb from flat exp-decay noise to a real space, and gave lofi
 stations tape character. All on the render==live seam so calibration stays honest.
@@ -6572,7 +6572,7 @@ stations tape character. All on the render==live seam so calibration stays hones
 
 **Learned.** (1) The reverb upgrade is **loudness-neutral** roster-wide (tides/storm/stratos all within
 0.1 LU of −16 after it) — pre-delay + damping + HP-return remove a little tail energy but the send is
-modest, so the ±1 LU gate absorbs it with NO re-trim. Contrast L153/L157: not every render change forces a
+modest, so the ±1 LU gate absorbs it with NO re-trim. Contrast L168/L170: not every render change forces a
 re-bake — measure first, re-trim only what actually drifts. (2) A wow/flutter "dry+wet blend" that feeds the
 bus in parallel DOUBLES the signal (+3 dB — drift jumped −16→−13). Real tape runs the WHOLE signal through
 the mechanism (the delay is ~unity gain); route it in series, not parallel. One representative measurement
@@ -6581,7 +6581,7 @@ the mechanism (the delay is ~unity gain); route it in series, not parallel. One 
 **Pattern.** Genre character that's data-only (an `irPreset` string on the shared MIX preset) scales to the
 whole roster for free and needs no per-station authoring — the same leverage as the groove grids (L149).
 
-### L159 — Audio P7: boss-fight music states (darken the SAME station) + forms rolled to 9 stations
+### L172 — Audio P7: boss-fight music states (darken the SAME station) + forms rolled to 9 stations
 
 **Did — boss music.** A fight now transforms the playing station instead of swapping tracks: `sfx.js`
 subscribes to the boss event bus (`bossStart`/`bossPhase`/`bossDefeated`/`bossEnd` — all already emitted by
@@ -6600,7 +6600,7 @@ bloom/futurebass, solarc/hardstyle, slips/liquid) → **9 stations are now songs
 **Learned:** a well-balanced form (breakdown energy ~0.3 against drop energy 1.0) is loudness-NEUTRAL — all
 six landed within 0.1 LU of −16 with NO re-trim, because the quiet sections offset the loud ones in the
 integrated measure. Only the metrics/`seconds` in the baseline changed (longer songs), not the trims. Third
-confirmation of the L158 rule: measure first, re-trim only what drifts.
+confirmation of the L171 rule: measure first, re-trim only what drifts.
 
 **Pattern.** Both features are pure event-consumers with a single seam each — boss music on the event bus,
 forms as opt-in track data — so the roster's un-formed stations and the whole offline calibration path are
