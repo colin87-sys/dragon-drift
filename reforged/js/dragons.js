@@ -243,7 +243,7 @@ export const DRAGONS = {
       { headScale: 0.85, snoutScale: 0.68, eyeScale: 1.05, eyeShape: 0.5,
         neckSegments: 7, tailSegments: 10, whiskerFins: true,
         lobeCount: 3, lobeSpan: 3.0, lobeTilt: 0.78, lobeDetail: 1.0, rimCarrier: 0.6, streamerLen: 0, pearlStage: 1,
-        tailStyle: 'simple', ridgeCount: 10, crest: 0, spineGlow: 0.16,
+        tailStyle: 'simple', ridgeCount: 10, ridgeStyle: 'scute', ridgeColor: 0x1f8a5c, crest: 0, spineGlow: 0.16,
         colors: { body: 0x28a06b, belly: 0xd2f2df, wingInner: 0x2f9e77, wingOuter: 0x136b45,
           wingEmissive: 0x8ff0c2, scales: 0x8fe0be, horn: 0xc7ebcf,
           apexSeam: 0x9ff0c8, eye: 0x8ff0c2, coreGlow: 0x4fc191 } },
@@ -251,10 +251,10 @@ export const DRAGONS = {
       // almond eyes, 4 lobes + trailing streamers, veil (finned) tail, whiskers
       // cradling the luminous river-pearl (the ONE bloom). DEEPEST value, richest
       // saturation — still NO glow-seams (law 12); spineGlow ≤0.32.
-      { headScale: 0.6, snoutScale: 0.72, eyeScale: 0.82, eyeShape: 1.0,
+      { headScale: 0.6, snoutScale: 0.72, eyeScale: 0.62, eyeShape: 1.0,
         neckSegments: 8, tailSegments: 12, whiskerFins: true, crest: 1,
         lobeCount: 4, lobeSpan: 4.0, lobeTilt: 0.95, lobeDetail: 1.3, rimCarrier: 1.0, streamerLen: 3.0, pearlStage: 2,
-        tailStyle: 'finned', ridgeCount: 14, spineGlow: 0.3,
+        tailStyle: 'finned', ridgeCount: 14, ridgeStyle: 'scute', ridgeColor: 0x1f8a5c, spineGlow: 0.3,
         colors: { body: 0x178a54, belly: 0xcaf0d8, wingInner: 0x2f9e77, wingOuter: 0x116b45,
           wingEmissive: 0x9ff0c8, scales: 0x8fe0be, horn: 0xc7ebcf,
           apexSeam: 0x9ff0c8, eye: 0x8ff0c2, coreGlow: 0x3aa078 } },
@@ -262,6 +262,8 @@ export const DRAGONS = {
     fx: { auraColor: '121,226,183', auraIdle: 0.0, sparkle: false },
     // ICONIC GREEN hide — a VIVID mid-value jade body (was near-black moss), pale mint belly.
     bodyRoughness: 0.5, bodyMetalness: 0.02, bodyEnvIntensity: 0.55,
+    scaleEmissive: 0x0d6b45, scaleEmissiveI: 0.22,   // GREEN scale glow (scutes/whiskers/ridges) — never the shared cyan (L164) on a green dragon
+    eyeEmissiveI: 1.1,                                // calm painterly eye — not blown to a white googly blob under ACES
     body: 0x178a54, belly: 0xcaf0d8, scales: 0x8fe0be, horn: 0xc7ebcf,
     wingInner: 0x2f9e77, wingOuter: 0x116b45, wingEmissive: 0x9ff0c8,
     apexEye: 0x8ff0c2, apexSeam: 0x9ff0c8, coreGlow: 0x3aa078, surgeHi: 0xd6ffe9,

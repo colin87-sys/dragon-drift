@@ -149,12 +149,15 @@ export function buildDragonModel(def, opts = {}) {
   // wingMat (the runtime-animated membrane material) is created by the wings
   // module and returned below, so it stays paired with the wing geometry.
   const scalesMat = new THREE.MeshStandardMaterial({
-    color: def.scales, emissive: 0x0b79aa, emissiveIntensity: 0.42,
+    // scale emissive is def-overridable (default = the shared cyan, byte-identical): a
+    // warm/cool dragon (ember, jade) tints it to its OWN accent so shared users of this
+    // material (scutes, whiskers, ridges) never glow off-palette steel-blue (L164).
+    color: def.scales, emissive: def.scaleEmissive ?? 0x0b79aa, emissiveIntensity: def.scaleEmissiveI ?? 0.42,
     roughness: 0.28, metalness: 0.22,
   });
   const bellyMat = new THREE.MeshStandardMaterial({ color: def.belly, roughness: 0.5 });
   let eyeMat = new THREE.MeshStandardMaterial({
-    color: 0x223344, emissive: def.eye, emissiveIntensity: 2.2,
+    color: 0x223344, emissive: def.eye, emissiveIntensity: def.eyeEmissiveI ?? 2.2,
   });
 
   // --- Body foundation: composable torso ---------------------------------
