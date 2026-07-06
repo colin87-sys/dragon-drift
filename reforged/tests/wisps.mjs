@@ -208,4 +208,57 @@ ok('T-W4 config lints: homing window, ribbon thinness/rings, wobble margin, fan 
   bullets.resetBossBullets();
 }
 
+// --- T-V4 — lock-snap parry seam (PR4): reflectBossBullets returns the source
+// parts of PERFECTLY parried ambers only (the owner-ruled perfect-only trigger).
+{
+  const spawnAmber = (rel, part) => bullets.spawnBossBullet({
+    owner: 'boss', x: player.position.x, y: player.position.y, rel,
+    vx: 0, vy: 0, vrel: -10, reflectable: true, dmg: 4, r: 0.6, life: 4, part,
+  });
+  const perfectRel = CONFIG.BOSS.perfectParryRel;
+  spawnAmber(perfectRel * 0.5, 'ribPivotL1');            // inside the perfect window
+  spawnAmber(perfectRel * 0.5, 'ribPivotL1');            // duplicate part → deduped
+  spawnAmber(CONFIG.BOSS.reflectWindow * 0.9, 'ribPivotR1');   // parried, NOT perfect
+  spawnAmber(perfectRel * 0.5, null);                    // perfect but untagged → skipped
+  const r = bullets.reflectBossBullets(player, CONFIG.BOSS.reflectWindow, B.settleGap, 0, 13);
+  assertEq(r.total, 4, 'all four ambers parried');
+  assertEq(r.perfect, 3, 'three inside the perfect window');
+  assertEq(r.snapParts.join(','), 'ribPivotL1', 'snapParts = PERFECT + tagged + deduped only');
+  ok('T-V4 reflect seam: perfect-only, tagged-only, deduped snap parts');
+  bullets.resetBossBullets();
+}
+
+// --- T-V4b — paintFromParry state machine (headless, the runLock-equivalent) --
+{
+  lock.initLockLayer();
+  const paints = [];
+  on('lockPaint', (p) => { if (p && p.snap) paints.push(p); });
+  const ORGANS = { A: { x: 0, y: 0, z: 0 }, B: { x: 3, y: 0, z: 0 } };
+  const model = { partWorldPos: (p, out) => { const o = ORGANS[p]; if (!o) return null; out.x = o.x; out.y = o.y; out.z = o.z; return out; } };
+  const mkCtx = (over = {}) => ({
+    fightRunning: true, model, candidates: ['A', 'B'], muted: false,
+    emittersLive: true, exposureWindow: false, damageBoss() {}, flashPart() {},
+    tier: 2, cap: 2, deflected: false, phaseHp: 100, paintUnlocked: true,
+    paintables: ['A', 'B'], amberVenting: (p) => p === 'A',   // A VENTS the whole time
+    fireLance() {}, ...over,
+  });
+  const p0 = { position: { x: 50, y: 50 } };   // parked far away — no dwell interference
+  lock.updateLockLayer(0.06, p0, mkCtx());     // one frame arms S.cap/fightRunning
+  // The C3 proof: the VENTING organ (dwell-exempt) snap-paints.
+  assert(lock.paintFromParry('A') === true && lock.lockCount() === 1, 'snap paints the VENTING organ (C3)');
+  assert(paints.length === 1 && paints[0].snap === true, 'snap paint emits lockPaint{snap:true}');
+  // Snap onto an existing pip refreshes its decay instead.
+  for (let f = 0; f < 20; f++) lock.updateLockLayer(0.06, p0, mkCtx());   // age the pip 1.2s
+  assert(lock.paintFromParry('A') === true, 'snap onto an existing pip returns true (refresh)');
+  lock.updateLockLayer(0.06, p0, mkCtx());
+  const life = lock.lockHudState().locks[0].life;
+  assert(life > 0.95, `refresh reset the pip's decay (life ${life.toFixed(3)})`);
+  // Cap-full snap is refused; deflected snap is refused.
+  assert(lock.paintFromParry('B') === true && lock.lockCount() === 2, 'second organ snaps to cap');
+  assert(lock.paintFromParry('C') === false, 'cap-full snap of a NEW organ is refused');
+  lock.updateLockLayer(0.06, p0, mkCtx({ deflected: true }));
+  assert(lock.paintFromParry('B') === false, 'sealed boss refuses the snap (sealed honesty)');
+  ok('T-V4b paintFromParry: C3 venting paint, refresh, cap, sealed-refusal');
+}
+
 console.log(`\n${n} wisp checks passed.`);

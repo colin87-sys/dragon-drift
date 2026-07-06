@@ -712,6 +712,7 @@ export function updateBossBullets(dt, player) {
 // damage). Returns { total, perfect } counts for the FX/announcement.
 export function reflectBossBullets(player, windowRel, settleGap, bossX, bossY, all = false, dmgBonus = 1) {
   let total = 0, perfect = 0;
+  let snapParts = null;   // V4 (PR4): source-part tags of PERFECTLY parried ambers
   for (let i = 0; i < POOL; i++) {
     const s = slots[i];
     if (!s.active || s.owner !== 'boss') continue;
@@ -733,9 +734,18 @@ export function reflectBossBullets(player, windowRel, settleGap, bossX, bossY, a
     s.dmg = (s.dmg > 0 ? s.dmg : 5) * mult;
     s.life = 4;
     total++;
-    if (isPerfect) perfect++;
+    if (isPerfect) {
+      perfect++;
+      // V4 LOCK-SNAP (PR4): a PERFECT parry knows which organ fired the bullet
+      // (the §5f source-part tag rides the slot) — surface it so the caller can
+      // snap a brand onto that organ. Deduped; nulls (untagged emitters) skipped.
+      if (s.part != null) {
+        if (!snapParts) snapParts = [];
+        if (!snapParts.includes(s.part)) snapParts.push(s.part);
+      }
+    }
   }
-  return { total, perfect };
+  return { total, perfect, snapParts: snapParts || [] };
 }
 
 // Adrenaline R1 "magnet" (§5i.B meta spine): a multiplier on the crossing-graze

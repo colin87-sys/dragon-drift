@@ -7149,3 +7149,38 @@ Deferred: audio bus duck under the release (needs sfxBus gain automation), per-d
 (Eternal cosmetic), the shelved PR4 lock-snap parry brief (reflectBossBullets must return parried
 parts; rib ambers need part tags; Calamities lockParts data; "relics/profiles" maps to nothing —
 ask, don't build).
+
+### L188 — LANCE PR4 shipped (V4 lock-snap parry): the data was waiting at the seam, not in the feature — and a 3-year-old comment was the whole spec
+
+**Did.** The perfect-parry brand: perfectly parrying an amber snaps a lock pip onto the ORGAN
+that fired it. Owner rulings: PERFECT-only (the brand joins the perfect tier — heal + score +
+snap), and verb-only scope (no Calamities lockParts this PR; "relics/profiles" from the old
+handover maps to nothing in the repo and was dropped). Wiring: `reflectBossBullets` now returns
+`snapParts` (source tags of PERFECTLY parried ambers, deduped, nulls skipped — the tag was
+always on the slot, just dropped from the return); MARROWCOIL's rib ambers carry their rib name
+(the same trailing `emitBoss` arg HOLLOWGATE panes pioneered — and the tag is INERT for damage
+routing on marrowcoil since it has no PART_SYS flag, so coexist held with zero routing changes);
+the roll-parry seam calls `paintFromParry` gated on `!surge` (the "0 during fever" LAW) +
+`!lockDeflected()` (sealed honesty — a survival-card parry can't promise a mark) + snapPerVolley;
+`paintFromParry` finally has a body — paints the venting organ (NO amberVenting check by design,
+that gate is dwell-only: C3's whole point), refreshes an existing pip's decay, EXEMPT from
+paintCooldown (perfect-only is already the price) but SETS it after. Teach: `snapTaught` bit +
+`driveSnapTeach` on the teach boss (fires only when a rib is actually VENTING and only after
+lockTaught — one concept at a time), dismissed by the first `lockPaint{snap:true}`.
+
+**The lesson.** This feature was ~40 lines because every hard part existed as dormant DATA:
+the config LAW (`snapPerVolley`, written in PR1), the C3 dwell-exemption (PR2), the part-tag
+plumbing (HOLLOWGATE's §5f), and the single intent sentence in a code comment ("parry is the
+only sanctioned way to paint a venting organ") which turned out to be the entire spec. Two
+reusable morals: (1) when a subsystem reserves seams ahead (stub exports, tagged config LAWS,
+one-line intent comments), the eventual feature is mostly UNDROPPING data at the seams — spend
+the design effort naming the seam correctly the first time; (2) an emitter TAG can ship for one
+consumer (pane cracking) and be silently load-bearing for the next verb years later — when
+adding a per-entity tag, tag EVERY emitter that has an identity, not just the one the current
+feature needs (the rib ambers going untagged in PR2 cost this PR its only real archaeology).
+
+**→ Leapfrog.** The perfect-parry now carries THREE rewards (heal, score, brand) — the §5i
+parry ladder's premium tier is getting crowded; if a fourth lands, split rewards by parry
+CONTEXT (venting-organ parry → brand; clean parry → heal) instead of stacking. Deferred:
+Calamities lockParts (own PR, each tier-3 invuln state must join lockDeflected), V5 focus +
+E1 beat-release (beatWindow/beatMult still inert), audio bus duck, per-dragon wisp tint.
