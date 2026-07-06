@@ -1464,20 +1464,23 @@ function buildSilkFinWings(def, model, attach, giM) {
   const cTip = model.finTipColor ?? def.apexSeam ?? 0x9ff0c8;      // pale-jade tip
   const cRim = model.finRimColor ?? def.accentHue ?? 0xd6ffe9;     // mint-pearl rim carrier (green-leaning)
 
-  // Forward lobes: OPAQUE silk with a fresnel mint-pearl rim (§3 rim beauty).
+  // Forward lobes: OPAQUE matte green silk. NO fresnel rim here — the rim is VIEW-
+  // DEPENDENT, so on the L vs R fan (at different angles to the camera) it added
+  // different amounts of pale mint → one wing read green, the other teal/ivory (gate r6
+  // dir 6). envMapIntensity 0 so the cool studio env can't tint the fans either. The
+  // mint-pearl rim carrier lives ONLY on the rear lobe + streamers (§5d), below.
   const finMat = new THREE.MeshStandardMaterial({
-    color: 0xffffff, vertexColors: true, roughness: 0.5, metalness: 0.0,
+    color: 0xffffff, vertexColors: true, roughness: 0.62, metalness: 0.0, envMapIntensity: 0,
     side: THREE.DoubleSide, opacity: 1.0,
     emissive: cMid, emissiveIntensity: model.finGlow ?? 0.06,
   });
-  applyFresnelRim(finMat, cRim);
-  // Rear-most lobe + streamers: the ONLY translucent silk (overdraw law) — 1 alpha layer.
+  // Rear-most lobe + streamers: the carrier lobe — a fresnel mint-pearl rim (the ONE
+  // place the rim lives). OPAQUE now: the translucency was depth-sorted view-dependently,
+  // so the right fan read teal and the left green from the same angle (gate r3/r6 dir 7).
+  // The silk read comes from the vertex gradient + the rim, not from see-through alpha.
   const finMatRear = new THREE.MeshStandardMaterial({
-    color: 0xffffff, vertexColors: true, roughness: 0.5, metalness: 0.0,
-    // held MORE opaque (0.85) + a green emissive floor so the cool backdrop can't bleed
-    // through and tint the rear lobe teal from one side (gate r3 dir 7). Still reads as
-    // silk (slightly translucent), still the only <1-alpha layer (overdraw law).
-    side: THREE.DoubleSide, transparent: true, opacity: 0.85, depthWrite: false,
+    color: 0xffffff, vertexColors: true, roughness: 0.55, metalness: 0.0, envMapIntensity: 0,
+    side: THREE.DoubleSide, opacity: 1.0,
     emissive: cMid, emissiveIntensity: Math.max(0.14, model.finGlow ?? 0.06),
   });
   applyFresnelRim(finMatRear, cRim);
@@ -1515,9 +1518,9 @@ function buildSilkFinWings(def, model, attach, giM) {
         // value tiers along the chord (law 11): a deep-emerald leading RAY → bright mid
         // body → a darker trailing step, so each lobe reads DIMENSIONAL, not a flat
         // sticker (gate r3 dir 9), plus root→tip lightening.
-        c.copy(cM).lerp(cT, Math.pow(u, 1.3));                 // root→tip lightening
+        c.copy(cM).lerp(cT, Math.pow(u, 2.6));                 // stay SATURATED mid-jade for most of the lobe; pale-jade only on the outer ~25% tip (gate r6 dir 7 — kill the gray-sage wash)
         const lead = Math.pow(Math.max(0, 1 - cf * 2.4), 1.3); // 1 at leading edge → 0 by ~mid-chord
-        c.lerp(cL, lead * 0.92);                               // strong deep-emerald leading RAY (welded, readable at 4×)
+        c.lerp(cL, lead * 0.95);                               // strong deep-emerald leading RAY (welded, readable at 4×)
         if (cf > 0.72) c.lerp(cL, (cf - 0.72) * 0.9);          // trailing-edge value step (a 2nd tier, not a flat gradient)
         if (rimAmt > 0 && u > 0.55) c.lerp(cR, rimAmt * Math.min(1, (u - 0.55) / 0.35) * (0.4 + 0.6 * Math.sin(cf * Math.PI)));  // mint-pearl rim on the outer tip
         cols.push(c.r, c.g, c.b);
@@ -1572,8 +1575,8 @@ function buildSilkFinWings(def, model, attach, giM) {
       // rest = the static fan pose (rake back + tall tilt); furl = the animated fan-fold child.
       const rest = new THREE.Group();
       rest.position.set(rootX * side, rootY, rootZ);
-      rest.rotation.y = side * -(rake * (0.32 + 0.78 * t));  // outer lobes rake much further back → the 4 lobe TIPS fan APART (distinct koi rays in silhouette, gate r3 dir 8)
-      rest.rotation.z = side * tilt * (0.78 + 0.30 * t);     // TALL tilt, rising outboard (koi fan)
+      rest.rotation.y = side * -(rake * (0.42 + 0.52 * t));  // moderate fan spread — the 4 lobe tips separate but don't shatter into thin slivers (gate r6 dir 9)
+      rest.rotation.z = side * tilt * (0.8 + 0.26 * t);      // TALL tilt, rising outboard (koi fan)
       const furl = new THREE.Group();
       rest.add(furl);
       // the petal geometry bakes its own L/R mirror (correct outward normals) + the

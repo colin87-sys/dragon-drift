@@ -146,7 +146,10 @@ export function buildCleanTail(def, model, bodyMat, swept = false) {
   // base ≈ hip width so the tail flows out cleanly. The stealth stem keeps a
   // FULLER taper (thicker toward the fins) so the long apex stem reads as a
   // substantial tail-boom the stabilizers root into, not a thin whip.
-  const baseR = 0.27, tipR = smoothStem ? 0.095 : 0.05;
+  // tailGirth (additive, default 1): fatten the whole tail so the serpent RIBBON reads as
+  // a substantial body mass in the rear-chase silhouette (jade, gate r6 dir 1), not a thin whip.
+  const girth = model.tailGirth ?? 1;
+  const baseR = 0.27 * girth, tipR = (smoothStem ? 0.095 : 0.05) * girth;
   const spacing = len / (N - 1);
   const segLen = spacing * 2.4;            // big overlap → seamless even when coiling
 
@@ -558,7 +561,7 @@ export function buildCleanTail(def, model, bodyMat, swept = false) {
   if (swept) {
     const bones = segs.slice(0, N);                  // the 7 shaft bones (tip excluded)
     const M = (N - 1) * 2 + 1;                       // longitudinal stations (smooth bend)
-    const tEnd = Math.max(tipR, 0.13);               // fuller tail end — not a thin pale rod
+    const tEnd = Math.max(tipR, 0.06 * girth);       // taper to a THIN tip (≤0.2× base, law 4) so the fattened tail still reads tapering, not a sausage (gate r6 dir 5)
     // Dark MATTE stem material so the tail integrates with the black body instead of
     // reading as a lit grey cylinder (no metallic sheen, high roughness).
     const stemMat = new THREE.MeshStandardMaterial({ color: def.body, roughness: 0.85, metalness: 0.04 });

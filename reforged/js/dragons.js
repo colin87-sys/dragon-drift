@@ -218,11 +218,13 @@ export const DRAGONS = {
       bellyPaint: true,                  // pale mint underside vertex-painted on the ventral serpent torso (ICONIC GREEN belly)
       whiskerFins: true,                 // trailing whisker fins (jade signature) — cradle the chin pearl
       neckBlend: 1.6,                    // fuse the neck beads into a smooth taper (gate r1 dir 3 — no sausage-bead chain)
-      tailArc: 0.7, tailYaw: 0.42,       // the tail COUNTER-ARCS up + flicks, continuing the serpent S (gate r1 dir 1)
+      tailArc: 0.7, tailYaw: 1.4,        // the tail COUNTER-ARCS up + coils LATERALLY into the rear-chase frame (the serpent body IS the silhouette — gate r6 dir 1)
+      tailGirth: 1.7,                    // FAT serpent ribbon (the body carries the rear-chase silhouette, §5d wings+fins 30-50% / body 40-60%)
       tailPlates: false,                 // smooth koi tail — no dorsal spike row (that read as sawtooth/drill-bit)
       // silk-fin shared dials (per-form lobe count / span / carrier accrete below)
       lobeCount: 4, lobeSpan: 3.5, lobeRake: 0.62, lobeTilt: 0.82, lobeCamber: 0.26,
       lobeNotch: 0.42, lobeScale: 0.8, lobeDetail: 1.3, rimCarrier: 1.0, streamerLen: 4.5, pearlStage: 2,
+      finGlow: 0.26,                     // GREEN emissive floor on the fins so the shadowed wing holds jade (doesn't drift teal in cool fill light) — the persistent L/R read (gate)
       spineGlow: 0.3,
       flapBias: 1.05, flapAmp: 0.7,      // slow, sinuous river-wind beat
     },
@@ -263,7 +265,7 @@ export const DRAGONS = {
       { headScale: 0.48, snoutScale: 0.98, eyeScale: 0.72, eyeShape: 0.62,
         neckSegments: 8, tailSegments: 12, whiskerFins: true, crest: 1,
         spineCurl: 0.9, spineYaw: 0.72,   // full proud S-ribbon (neck arcs up, mid dips, tail counter-arcs; strong lateral recurve)
-        lobeCount: 4, lobeSpan: 6.0, lobeTilt: 0.95, lobeDetail: 1.3, rimCarrier: 1.0, streamerLen: 4.5, pearlStage: 2,
+        lobeCount: 4, lobeSpan: 5.3, lobeTilt: 0.95, lobeDetail: 1.3, rimCarrier: 1.0, streamerLen: 4.5, pearlStage: 2,
         tailStyle: 'finned', ridgeCount: 14, ridgeStyle: 'scute', ridgeColor: 0x1f8a5c, spineGlow: 0.3,
         colors: { body: 0x178a54, belly: 0xa6e2c2, wingInner: 0x2f9e77, wingOuter: 0x116b45,
           wingEmissive: 0x9ff0c8, scales: 0x8fe0be, horn: 0xc7ebcf,
