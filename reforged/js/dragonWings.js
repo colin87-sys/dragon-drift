@@ -1498,15 +1498,18 @@ function buildSilkFinWings(def, model, attach, giM) {
       const uu = i / nX;
       for (let j = 0; j <= nZ; j++) {
         const cf = j / nZ;
-        // forked TIP: the middle of the chord recedes over the outer 40% (a WIDE V-notch,
-        // sin^0.85), so the lobe ends in a leading prong + trailing prong = a koi ray tip
-        // whose gap survives in the rear black-fill (gate r1 dir 5).
-        const uMax = 1 - notchDepth * Math.pow(Math.sin(cf * Math.PI), 0.85);
+        // KOI SILK BLADE (not a pointed leaf): the lobe is a BROAD blade that reaches
+        // near-full length across most of its chord and ROUNDS at the tip, with ONE soft
+        // SCALLOP notch cut into the outer TRAILING corner (cf→1) — the flowing fin-ray
+        // read, not a central fork that shatters into slivers (gate r6 dir 9).
+        const scallop = notchDepth * Math.max(0, (cf - 0.5) / 0.5) * Math.pow(Math.sin(cf * Math.PI), 0.6);
+        const uMax = 1 - scallop;
         const u = uu * uMax;
         const x = u * L;
-        // koi petal: broad belly near the root, tapering to the prongs. Chord narrows
-        // with a swell so the silhouette is a leaf, not a triangle.
-        const halfW = wRoot * 0.58 * Math.sin(Math.min(1, 0.14 + u * 0.88) * Math.PI);
+        // width: broad + full for most of the length, rounding to a soft (non-zero) tip
+        // — a betta/koi fin blade, not a sharp spike. Overlapping lobes read as one sail.
+        const wShape = Math.pow(Math.sin(Math.min(1, 0.16 + u * 0.84) * Math.PI), 0.62);
+        const halfW = wRoot * 0.74 * wShape;
         const z = (cf - 0.5) * 2 * halfW;
         // camber cup + a raised LEADING RIB (cf→0): the leading edge lifts into a spine
         // so the "darker leading ray" reads as integrated relief, not a floating rod
@@ -1566,7 +1569,7 @@ function buildSilkFinWings(def, model, attach, giM) {
     for (let i = 0; i < N; i++) {
       const t = N > 1 ? i / (N - 1) : 0;
       const len = maxLen * lenMulFor(i);
-      const wRoot = (0.42 + 0.12 * Math.sin(t * Math.PI)) * len;   // broad koi chord
+      const wRoot = (0.66 + 0.16 * Math.sin(t * Math.PI)) * len;   // BROAD koi silk chord (blades overlap into a continuous sail, not thin spikes)
       const rootX = rootArc * t;                            // march outboard (overlap ok)
       const rootZ = -0.05 + t * reach * 0.05;               // slight aft spread
       const rootY = 0.02;
@@ -1575,8 +1578,8 @@ function buildSilkFinWings(def, model, attach, giM) {
       // rest = the static fan pose (rake back + tall tilt); furl = the animated fan-fold child.
       const rest = new THREE.Group();
       rest.position.set(rootX * side, rootY, rootZ);
-      rest.rotation.y = side * -(rake * (0.42 + 0.52 * t));  // moderate fan spread — the 4 lobe tips separate but don't shatter into thin slivers (gate r6 dir 9)
-      rest.rotation.z = side * tilt * (0.8 + 0.26 * t);      // TALL tilt, rising outboard (koi fan)
+      rest.rotation.y = side * -(rake * (0.45 + 0.4 * t));   // gentle fan spread — broad blades OVERLAP into a continuous silk sail (koi), tips still separate at the scalloped edge
+      rest.rotation.z = side * tilt * (0.82 + 0.22 * t);     // TALL tilt, rising outboard (koi fan)
       const furl = new THREE.Group();
       rest.add(furl);
       // the petal geometry bakes its own L/R mirror (correct outward normals) + the

@@ -224,7 +224,7 @@ export const DRAGONS = {
       // silk-fin shared dials (per-form lobe count / span / carrier accrete below)
       lobeCount: 4, lobeSpan: 3.5, lobeRake: 0.62, lobeTilt: 0.82, lobeCamber: 0.26,
       lobeNotch: 0.42, lobeScale: 0.8, lobeDetail: 1.3, rimCarrier: 1.0, streamerLen: 4.5, pearlStage: 2,
-      finGlow: 0.26,                     // GREEN emissive floor on the fins so the shadowed wing holds jade (doesn't drift teal in cool fill light) — the persistent L/R read (gate)
+      finGlow: 0.4,                      // GREEN emissive floor on the fins so the shadowed wing holds jade (doesn't drift teal in cool fill light) — the persistent L/R read (gate)
       spineGlow: 0.3,
       flapBias: 1.05, flapAmp: 0.7,      // slow, sinuous river-wind beat
     },
