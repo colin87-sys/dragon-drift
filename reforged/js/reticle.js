@@ -15,6 +15,7 @@ let camera = null;
 let prevLocked = false;   // edge-detect the green-snap pop in a boss
 let pipWrap = null;       // the V2 painted-pip row (created in initReticle)
 let pipEls = [];
+let markEls = [];          // in-world painted-organ markers (pooled, ≤6)
 const tmpV = new THREE.Vector3();
 export function initReticle(cam) {
   camera = cam;
@@ -23,6 +24,18 @@ export function initReticle(cam) {
   // .rsnap = the one-shot lock-on ring flash (fires on the green snap).
   el.innerHTML = '<div class="rsq"></div><div class="rsq inner"></div><div class="rsnap"></div><div class="lockpips"></div>';
   pipWrap = el.querySelector('.lockpips');
+  // Painted-organ marker pool: a painted organ carries its OWN pinned square with a
+  // draining fill (how long the lock holds) — the reticle is the PAINTER, these are
+  // the PAINTED (one reticle can't carry three locks' worth of state). Pure DOM.
+  const hud = document.getElementById('hud');
+  markEls = [];
+  for (let i = 0; i < 6; i++) {
+    const m = document.createElement('div');
+    m.className = 'lockmark';
+    m.innerHTML = '<div class="fill"></div>';
+    hud.appendChild(m);
+    markEls.push(m);
+  }
   document.getElementById('hud').appendChild(el);
 }
 
@@ -63,9 +76,11 @@ export function updateReticle(player, playing) {
     el.style.opacity = ashen ? 0.5 : (0.72 + 0.28 * dwell);
     el.style.transform = `translate(${sx}px, ${sy}px) scale(${scale})`;
     renderPips(L);
+    renderMarks(L);
     return;
   }
   el.classList.remove('boss', 'sealed', 'aiming', 'snap');
+  if (markEls.length && markEls[0].classList.contains('show')) for (const m of markEls) m.classList.remove('show');
 
   const ring = nextRingAhead(player.dist + 4);
   const gate = nextGateAhead(player.dist + 4);
@@ -122,10 +137,39 @@ function renderPips(hud) {
       pipEls.push(p);
     }
   }
+  const locks = hud.locks || [];
   for (let i = 0; i < pipEls.length; i++) {
     const filled = i < (hud.pips || 0);
     pipEls[i].classList.toggle('filled', filled);
     pipEls[i].classList.toggle('ashen', filled && hud.ashen);
     pipEls[i].classList.toggle('blink', filled && hud.blink && i === 0);
+    // Each pip drains with its lock's remaining life, mirroring the organ marker.
+    if (filled && locks.length) {
+      const lk = locks[Math.min(i, locks.length - 1)];
+      pipEls[i].style.setProperty('--life', Math.max(0, Math.min(1, lk.life)).toFixed(3));
+    }
+  }
+}
+
+// Project each painted lock's live world anchor to the screen: a pinned square whose
+// inner fill DRAINS with the lock's remaining life (--life 1 → fresh, 0 → expired),
+// ashen while the deflect rule freezes the layer, blinking its final second.
+const _mv = new THREE.Vector3();
+function renderMarks(hud) {
+  const locks = hud.locks || [];
+  for (let i = 0; i < markEls.length; i++) {
+    const m = markEls[i];
+    const lk = locks[i];
+    if (!lk) { m.classList.remove('show'); continue; }
+    _mv.set(lk.x, lk.y, lk.z).project(camera);
+    if (_mv.z > 1) { m.classList.remove('show'); continue; }
+    const sx = (_mv.x * 0.5 + 0.5) * window.innerWidth;
+    const sy = (-_mv.y * 0.5 + 0.5) * window.innerHeight;
+    m.classList.add('show');
+    m.classList.toggle('ashen', !!hud.ashen);
+    m.classList.toggle('blink', !!lk.blink);
+    m.classList.toggle('stacked', (lk.stacks || 1) > 1);
+    m.style.setProperty('--life', Math.max(0, Math.min(1, lk.life)).toFixed(3));
+    m.style.transform = `translate(${sx}px, ${sy}px)`;
   }
 }

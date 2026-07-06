@@ -201,6 +201,16 @@ export function updateLockLayer(dt, player, ctx) {
   } else {
     S.refreshT = 0;
   }
+  // Resolve each painted lock's live world position — the in-world MARKER anchor:
+  // a painted organ carries its own pinned marker with a draining fill, so the
+  // player sees WHAT is locked, WHERE it is, and HOW LONG it holds (owner feedback:
+  // one reticle can't carry three locks' worth of state).
+  if (S.locks.length && ctx.model && ctx.model.partWorldPos) {
+    for (const lk of S.locks) {
+      const w = ctx.model.partWorldPos(lk.part, _w);
+      if (w) { lk.x = w.x; lk.y = w.y; lk.z = w.z; }
+    }
+  }
   // Decay + cap fuse (both frozen while deflected).
   if (S.locks.length && !ctx.deflected) {
     for (const lk of S.locks) lk.age += dt;
@@ -250,14 +260,19 @@ function refreshHud(ctx, dt, player) {
   if (!part && ctx.candidates) {
     if (ctx.candidates.length === 1) part = ctx.candidates[0];
     else if (ctx.candidates.length > 1 && ctx.model && ctx.model.partWorldPos && player) {
-      let bestD = Infinity;
+      // Prefer the nearest UNPAINTED organ (painted ones carry their own markers) —
+      // the reticle actively leads the sweep to the next target; fall back to the
+      // nearest painted one when everything is locked (refresh stays reachable).
+      let bestD = Infinity, bestAnyD = Infinity, bestAny = null;
       for (const c of ctx.candidates) {
         const w = ctx.model.partWorldPos(c, _w);
         if (!w) continue;
         const dx = w.x - player.position.x, dy = w.y - player.position.y;
         const d = dx * dx + dy * dy;
-        if (d < bestD) { bestD = d; part = c; }
+        if (d < bestAnyD) { bestAnyD = d; bestAny = c; }
+        if (d < bestD && !S.locks.some((lk) => lk.part === c)) { bestD = d; part = c; }
       }
+      if (!part) part = bestAny;
     } else part = ctx.candidates[0] || null;
   }
   S.hudPart = part;
@@ -294,6 +309,13 @@ export function lockHudState() {
     pips: totalPips(),
     ashen: S.deflected,
     blink: S.locks.length > 0 && !S.deflected && S.locks[0].age > L.decay - 1.0,
+    // Per-lock marker anchors: live world pos + remaining life (1 → fresh, 0 → gone).
+    locks: S.locks.map((lk) => ({
+      x: lk.x ?? 0, y: lk.y ?? 0, z: lk.z ?? 0,
+      life: Math.max(0, 1 - lk.age / L.decay),
+      stacks: lk.stacks,
+      blink: !S.deflected && lk.age > L.decay - 1.0,
+    })),
   };
 }
 

@@ -225,6 +225,9 @@ const paintSeq = (xs) => xs.flatMap((x) => [
 const t21 = await runLock({ organs: ORGANS3, candidates: ['A'], frames: [{ dt: 0.06, n: 8, px: 0 }] });
 check('T2.1 dwell completion paints a lock pip', t21.count === 1 &&
   t21.events.some((e) => e.name === 'lockPaint' && e.part === 'A'));
+check('T2.1 the painted lock publishes a live marker anchor + draining life',
+  t21.hud.locks.length === 1 && t21.hud.locks[0].x === 0 &&
+  t21.hud.locks[0].life > 0.9 && t21.hud.locks[0].life < 1);
 
 // T2.2 — cap fuse auto-release: paint to cap 2, hold ~1.5s → one volley, 2 lances,
 // locks cleared, per-lance dmg = min(lanceDmg 2.0, 10% of 100hp phase / 2 = 5.0) = 2.0.
