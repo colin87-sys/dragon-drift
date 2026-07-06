@@ -12,7 +12,7 @@
 //     so offline/flaky loads always replay a single coherent build.
 //   - activate deletes every other dd-reforged-* cache, so stale versions
 //     can't linger and get mixed in.
-const VERSION = 'e9c2bdf30ed2';                          // STAMP:VERSION
+const VERSION = '9120cac31167';                          // STAMP:VERSION
 const ASSETS = [
   './',
   './assets/models/thundercoil.glb',
@@ -41,6 +41,7 @@ const ASSETS = [
   './js/buildId.js',
   './js/cameraController.js',
   './js/collision.js',
+  './js/composer.js',
   './js/config.js',
   './js/contactShadow.js',
   './js/creatureGrammar.js',
@@ -88,6 +89,7 @@ const ASSETS = [
   './js/harmony.js',
   './js/hints.js',
   './js/input.js',
+  './js/insts.js',
   './js/juice.js',
   './js/level.js',
   './js/lockLayer.js',
