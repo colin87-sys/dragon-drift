@@ -1247,6 +1247,7 @@ function enterFight() {
   initLockLayer();   // THE LANCE layer: fresh aim/lock state per fight
   aimHeldT = 0; aimTeachCd = 1.5;   // V1 teach: first prompt after a short settle
   lockTeachCd = 1.5; amberVent.clear();
+  lockSealHinted = false; sealHoldT = 0;
   // V2 access unlocks permanently on first ENTERING a lock-anatomy fight (slot 4 is
   // the first def with lockParts) — a player stuck on the boss keeps the tool (§I.e).
   if (def.lockParts && !saveData.flags.lockUnlocked) {
@@ -1633,6 +1634,7 @@ export function updateBoss(dt, player, time) {
     updateLockLayer(dt, player, lockCtx);
     driveAimTeach(dt, lockCtx);
     driveLockTeach(dt, lockCtx);
+    driveSealHint(dt, lockCtx);
 
     riderTimer -= dt;
     if (riderTimer <= 0) {
@@ -2391,6 +2393,20 @@ function fireLanceAt(player, part, dmg) {
 // V2 teach (slot 4 MARROWCOIL, P2's authored lull — audit F3: intra-fight phase
 // stagger keeps the band-2 concept load down; P1 belongs to the fight's own reads).
 // Re-armed until performed; the flag is set by the lockPaint listener below.
+// Once-per-fight SEALED hint: the player holds a line on a DEFLECTED boss for a
+// beat → name what the game wants instead (the shield phase is the graze showcase;
+// Surge is the only breaker). The reticle's sealed skin shows the state; this line
+// explains it — the same pattern as the scattered-swarm / submerged-eye hints.
+let lockSealHinted = false;
+let sealHoldT = 0;
+function driveSealHint(dt, ctx) {
+  if (lockSealHinted || !ctx.paintUnlocked || !ctx.deflected) { sealHoldT = 0; return; }
+  sealHoldT = (lockAimTarget() !== null ? sealHoldT + dt : 0);
+  if (sealHoldT >= 0.9) {
+    lockSealHinted = true;
+    ui.bossNote?.('✦ SEALED — THE MARK WON\'T TAKE ✦', 'GRAZE ITS RINGS — UNLEASH TO BREAK', 'gold', 2.8);
+  }
+}
 function driveLockTeach(dt, ctx) {
   if (!def || !def.lockParts || saveData.flags.lockTaught || !ctx.paintUnlocked) return;
   if (def.id !== 'marrowcoil' || phaseIdx < 1) return;
