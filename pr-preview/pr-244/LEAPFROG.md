@@ -6702,3 +6702,36 @@ green-snap → ashen-muted — which is precisely the surface V2's pips/tethers 
 audio hooks (`lockOn`/`lockTick`) are the first two of the lock layer's sound set; V2's paint/volley/
 cap-release cues slot into the same emit→sfx map. Legibility work done now is amortized across every
 later verb.
+
+### L175 — LANCE PR1 mover tuning: a world-space aim cone fights a fast-strafing focal, and dwell-RATE isn't the lever — target MOTION is
+
+**Did / learned.** Owner feel-test: locking VOIDMAW's eye was near-impossible. Chose the "forgiving"
+fix — V1 acquires at FULL rate (the danger-binding quiet-rate penalty is now reserved for V2 paint,
+its real anti-camp purpose) + coyote 0.12→0.20 (max of its tune range). Tests updated + green. But a
+headless probe (still player) exposed the deeper truth: **VOIDMAW's tracked focal (`focalEye`)
+oscillates ±4.5m at ~0.38Hz, peaking ~10 m/s — inherent boss idle/strafe motion, NOT self-amplified
+by the player.** The dragon's max lateral speed (~4 m/s) is below that, so you physically cannot
+*chase* the eye through its zero-crossing; the only lock is to CAMP at a swing extreme, where the eye
+slows (speed→0) and lingers ~1s inside a 2.6m cone. Forgiving tuning makes that camp-catch easy; it
+does nothing for chasing. For a slot-1 TEACH, "wait at the edge of its swing" is too subtle.
+
+**Two reusable lessons.** (1) **The `partWorldPos` target of a V1/paint organ must be a SLOW-moving
+point, or the world-cone is unwinnable no matter the dwell tuning.** Measure the candidate's world
+velocity (a still-player probe) BEFORE shipping a `virtualLockOrgan`/`lockPart` — if its peak speed
+exceeds the player's tracking speed, the cone can only be satisfied at motion turnarounds, which is
+not teachable. This is a def-authoring gate, not a constant to tune. (2) **Dwell RATE and MOTION are
+different failure axes.** Full-rate + coyote widen the *time* tolerance; they can't help when the
+*target* leaves the cone for ~1s per swing. When a lock feels bad, probe whether it's a time problem
+(rate/coyote) or a motion problem (target velocity) — they have disjoint fixes.
+
+**→ Systematize.** Add a `lockmotion` check to the PR2 sim battery: for every `virtualLockOrgan`/
+`lockPart`, assert peak world-speed ≤ the dragon's lateral speed OR the organ dwells ≥ dwellTime
+inside the cone at its turnaround — else the def must pick a steadier anchor (skull/mask centre for
+slot 1) or the boss's opening must calm its strafe. This catches "unlockable focal" at authoring time
+across the whole roster (ASHTALON's moving visor is the next at-risk case).
+
+**→ Leapfrog.** This is the empirical case FOR the screen-space aim model (reticle-over-organ vs
+world-x/y match): at 30m depth a ±4.5m world swing is a bounded screen arc, and small steering re-aims
+faster than flying the whole dragon to match — decoupling "aim" from "body position" is exactly what a
+fast focal needs. The world-cone stays viable only for slow/steady organs. Next decision point with the
+owner: calm VOIDMAW's opening (cheap, unblocks the teach) vs. build screen-space aim (correct, broader).

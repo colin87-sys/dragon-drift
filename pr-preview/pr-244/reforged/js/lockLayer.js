@@ -52,9 +52,11 @@ export function clearLocks(_reason) {
   S.locks.length = 0;
 }
 
-// Dwell accrues at full rate only while boss fire is live; authored quiet halves it
-// (danger-binding law — kills rest-beat cap-painting). §II.3 quietDwellMult.
-function dwellRate(ctx) { return ctx.emittersLive ? 1 : L.quietDwellMult; }
+// NB — the danger-binding quiet-rate penalty (`quietDwellMult`, kills rest-beat
+// cap-painting) is reserved for V2 PAINT-dwell (PR2), NOT V1 aim acquisition:
+// halving the aim rate during a boss's calm opening made the slot-1 teach (VOIDMAW)
+// nearly unlockable — you needed ~0.7s on a strafing eye. V1 acquisition is full
+// rate; the quiet penalty applies where camping actually matters (painting locks).
 
 // Nearest candidate organ whose world position sits inside the aim cone (player x/y
 // vs the part's world x/y at the boss plane). Returns { part, wx, wy } or null.
@@ -85,8 +87,9 @@ export function updateLockLayer(dt, player, ctx) {
     // Switching to a different organ restarts the dwell (coyote only forgives a
     // flicker on the SAME line, not a target change).
     if (cand.part !== S.aimPart) { S.aimPart = cand.part; S.aimDwell = 0; S.aimHeld = false; }
-    // Time-in-cone accrues from the first in-cone frame (the acquisition frame counts).
-    S.aimDwell = Math.min(S.aimDwell + dt * dwellRate(ctx), L.dwellTime);
+    // Time-in-cone accrues at FULL rate from the first in-cone frame (the acquisition
+    // frame counts). No quiet penalty on aiming — see the NB above.
+    S.aimDwell = Math.min(S.aimDwell + dt, L.dwellTime);
   } else {
     // Line left the cone this frame.
     S.offT += dt;

@@ -390,6 +390,16 @@ export function buildIdolMask(def, quality = 1) {
   eyeGroup.name = 'focalEye';   // LANCE seam: V1 aim-line target (partWorldPos), byte-neutral metadata
   eyeGroup.position.set(0, 0.30, -0.25);
   rig.add(eyeGroup);
+
+  // LANCE 'faceCore' anchor: a BIG stable aim target for the slot-1 tutorial — the
+  // whole face, not the tiny fast-swaying eye. Seated at the rig PIVOT (z≈0, so
+  // head-sway rotation barely moves it) at eye height, so the reticle sits on the
+  // mask centre and holding a line on VOIDMAW is easy to learn. Empty marker: no
+  // geometry, byte-neutral. (The eye stays named for later per-organ work.)
+  const faceCore = new THREE.Group();
+  faceCore.name = 'faceCore';
+  faceCore.position.set(0, 0.28, 0);
+  rig.add(faceCore);
   const eyeSeg = lowQ ? [8, 6] : [10, 8];
   const eyeParts = [];
   for (const sx of [-1, 1]) {
