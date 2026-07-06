@@ -7008,3 +7008,49 @@ in `[150,280]`; same-seed byte-identical / different-seed different; `resume()` 
 byte-identical, bulletcontrast 36 combos green (danger magenta unchanged), smoke/canyon/boss boots green,
 tricount 0 over budget. Reaching them on the preview needs no new code: `?debug` exposes `window.__dd.player`, so
 `__dd.player.dist = 4300` warps to the Caldera lip — the human judges telegraph fairness / dodgeability / fun.
+
+### L185 — KARNVOW CP1 (the band-peak trophy-duelist): presence from PROXIMITY + assembly not height; the lance is ONE part with THREE jobs; a COLD accent is a palette-gate minefield
+
+**Did.** Built slot 9 CP1 — `archetype: 'trophyDuelist'`, new `bossKarnvow.js` + one `bossModel.js` dispatch
+line + the def + `BOSS_ORDER` append + a `boss.mjs` named-pivot telegraph test. A lean HOODED DUELIST: peaked
+back-swept cowl framing a recessed cold-glint socket, hard pauldrons + a faceted armored fauld, a couched
+horn-lance (Voidmaw's tube-taper kernel), a trophy chain on a baldric. Both Fable gates passed (pre-build sheet
+sign-off, then the CP1 design gate after a FIX round); `boss.mjs`/`bossboot` green, `bossgate` G1–G7 PASS, 8
+shipped bosses byte-unchanged. ~6k tris, scale 2.0.
+
+**The L140 presence fix, confirmed on a lean figure.** The audit flagged slot 9 as the thin-tris band-peak trap
+(~2k). The fix was NOT bulk: raise tris toward the band floor as DETAIL (chain charms, fauld/pauldron facets,
+cowl folds, lance horn-ridge) + set the on-screen scale (2.0) so the fight-frame reads a peer, and let PROXIMITY
++ the lance+chain assembly carry presence. A lean figure legitimately sits ~6k, not brineholm's ~7.6k whale —
+tris are a detail-density proxy, not a size lever. G4 geom-coverage (bump scale) and Fable presence both cleared.
+
+**The lance is ONE part, THREE jobs** — the silhouette's dominant diagonal, the amber-emitting `lanceTip` organ
+(the ONLY amber, §5i.C.3), and the `setCharge` telegraph (couch→point→salute). Naming the pivots (`lancePivot`/
+`chainPivot`/`cowlPivot`/`lanceTip`) is what the telegraph gate + `def.muzzle` aim + the controller charisma
+hooks all key off. Reused the bossIdol `taperTube` horn kernel and the ashtalon handle contract verbatim.
+
+**The stranger test fails at the FRONT even when ¾/profile pass — and the fight-frame IS front-on.** Fable's
+first CP1 verdict was FIX: the couched lance ran near-VERTICAL against the body in the front view → read as a
+wizard's STAFF; the glint was a big lamp-eye on a smooth cone → wizard; the charms floated as detached orbs. A
+foreshortened forward (+Z) lance vanishes from the front — the couched rest pose must angle DOWN-AND-OUT so a
+hard diagonal lives in the SCREEN PLANE, not pointed at the camera. Recess the glint into a dark socket + brow
+and shrink it (kills the lamp), attach the chain with VISIBLE link bars overlapping the body (kills the orbs).
+All four fixes landed and the re-gate PASSed. **Judge the silhouette at the canonical FIGHT angle, not just the
+angles that flatter it.**
+
+**A COLD accent on a warm-lit game is a palette-gate minefield — the two robust levers.** bossgate G3 flaked
+wildly (12%↔61% across identical runs) for a cold-steel boss: (1) cold edges/bloom over a WARM sky fringe
+false-magenta (danger-band fail), the symmetric twin of the warm-boss-cool-sky trap the DIST table already
+guards — so PAIR the capture with a COOL sky (added `karnvow: 6600` = LUMEN MIRE; NOT a `gate.pale` override, a
+DARK boss); (2) attribution flaked because the cold identity rode THIN aliasing seam-LINES while the biome tint +
+saturated trophy charms polluted the accent tier. Fixes: carry the cold identity on SOLID emissive elements
+(gorget/belt bands, rim) not just lines (solid = stable pixel count frame-to-frame), and DIM the satellite charms
+so they drop out of the accent tier at idle (their owed-palette moment is the CP2 entrance flare). Floor went
+from a flaky 12% to a robust ~30–52%. **Reusable: solid emissive > thin lines for any gate that counts pixels;
+a cold accent needs a cool, ideally accent-aligned, capture sky.**
+
+**Residuals for CP2 / owner (non-gating, Fable-flagged):** strengthen the recessed-socket rim read; tuck two
+small detached hip plates against the fauld; one more front-on hood-cone asymmetry break. **Deferred to CP2
+(Decision C1):** the reflect-once riposte, the *It Kept Count* stat-taunt entrance + MANDATORY top-killer charm
+flare, the moving-station flank setpiece (reuse ashtalon's), and the HOLD-UNTIL-FLINCH graze (discrete tiers, not
+slot 6's beam-ride). Pipeline stopped at posted crops for the owner's green-light before CP2 (the anti-rebuild law).

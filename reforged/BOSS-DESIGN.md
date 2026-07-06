@@ -306,7 +306,7 @@ safe-lane gates exactly once.
 | 6 | HOLLOWGATE | architecture with a void | rose-window face | ivory·stained-glass / leaded field (VALUE-INVERTED: near-white) | static-ahead | shipped | **pane-radial ambers → PANE BREAK** (Calamities ORGAN-BREAK reuse): parry a lit pane's amber volley 3× → that pane CRACKS and its radial component is deleted from the composite (rides the §5f destructible-pane plumbing — parry and gunfire sculpt the same window) |
 | 7 | THRUMSWARM | stippled swarm | condenses into YOUR dragon (side-profile copy) | void-black·star-white + amber focal-eye / scattered points | condenses | shipped | **queen's amber-eye volley → SCATTER STAGGER** (Calamities): parry the eye's amber volley 3× → the queen recoils, the swarm can't re-condense for a 2.5s bonus-damage window (the condensed weak-point stays exposed — parry answers the same condense/scatter puzzle read the fight is built on) |
 | 8 | BRINEHOLM | colossal leviathan head + maw (living/wet — NOT Voidmaw's dead mask) | the one surfacing eye — you fight the FACE, never the body | kelp-black·abalone / bioluminescent gullet + one white eye-point | below-horizon (the head lunges up through the fog) | claimed | **shackle-strain ambers → SHACKLE BREAK** (Calamities ORGAN-BREAK reuse + mercy mechanic): parry a snout shackle post's amber strain-volley 3× → that post SNAPS, vents a 2× pink SPRAY-SOAK graze beat, and frees it EARLY — softening phase 3 (rides the §5f destructible per-part plumbing — parry and gunfire unbind the same post) |
-| 9 | KARNVOW | slender vertical duelist | trophy-chain of earlier bosses' scars | tarnished-iron·trophy glints | alongside | open | — |
+| 9 | KARNVOW | slender vertical duelist | trophy-chain of earlier bosses' scars + one EMPTY hook | tarnished-iron·cold-glint / multi-hue trophy glints + amber organ | alongside (moving-station: `side` + setpiece) | open (CP1 model built, gated) | TENNIS RALLY + REFLECT-ONLY SEAL (Calamities showcase, §5i.C) — v1: reflect-once riposte; full seal deferred |
 | 10 | KNELLGRAVE | hanging pendulum | bound figure as the clapper | patina-copper·candle / vertical slit | pre-heard, fades in | open | — |
 | 11 | WEFTWITCH | radial limbs + threads | visibly re-weaves the arena | moth-grey·rose / taut lines | above (new) | open | — |
 | 12 | ONEWING | lopsided twin (designed echo of 5 — flagged) | twin's frame fused in its chest | ashen-rose·blackened silver | behind, NO warning banner | open | — |
@@ -668,25 +668,74 @@ feasibility survey: at rel 30, on-screen centers within x ±15 / y 2..22 on port
   continuous tracking). Rider lore line on a shackle flypast: "Same forge as the hunter's
   chains." Rush re-entry degrades to spawn-at-warn gracefully; the head stays lane-adjacent on
   the tease, never under the rail.
-- **9 KARNVOW** — vertical figure ~9 tall: hooded cowl (tapered extrude) whose face is an
-  EMPTY VOID with one cold glint deep inside (no face — the anti-mask); pauldrons; lance =
-  Voidmaw's snapped-horn geometry (same tube-taper kernel, violet-scarred); trophy chain
-  (LineSegments + relic charms: Ashtalon's feather-blade, one unclaimed hook). Rides
-  ALONGSIDE matching your speed (moving station at x ≈ ±12, rel 12–18), then cuts in.
-  Parries your reflected bullets once (amber flash + riposte). Tarnished iron 0x1c1e22 /
-  trophy glints in the owed bosses' palettes / amber. ~2k tris.
-  ENTRANCE (§5j *It Kept Count*, hijack 2.8s @0.5 shallow): banner RIGHT, honest. It fades
+- **9 KARNVOW** — the Tier-3 band PEAK, `archetype: 'trophyDuelist'`, `bossKarnvow.js`.
+  **§3b SILHOUETTE TRANSLATION (approved + Fable pre-build sign-off, r1):**
+  - *Reads as:* a lean HOODED DUELIST riding at your shoulder, one long lance couched low —
+    "a cloaked figure with a couched lance, keeping pace." The roster's deliberate
+    scale-DOWN — a dragon-PEER, never a colossus; grandeur = personalization + dread, not bulk.
+  - *Carrying cues (reach the OUTLINE):* (1) THE LANCE — one long straight asymmetric
+    DIAGONAL, the single longest hard edge, HELD to one side + biased down-and-out (never
+    straddled — the anti-witch/broom forbid); (2) THE PEAKED HOOD, swept back/asymmetric
+    (the void + glint are the EMISSIVE focal, NOT the outline — a void inside a black fill is
+    invisible; the outline cue is the hood shape); (3) THE TROPHY CHAIN — skull-sized charms
+    on a HEAVY baldric at the hip, hugging the body (visible link bars, not floating orbs).
+  - *Anti-reads (forbidden by primitive):* generic reaper (lance is STRAIGHT/couched, no
+    scythe curve); WITCH/BROOM (lance held to one side + forward, never straddled under the
+    pelvis); WIZARD (the couched DIAGONAL lance + hard pauldrons/fauld + a RECESSED small
+    glint, NOT a lamp-eye on a smooth cone — the fix that carried CP1); floating cloak/blob
+    (hard pauldrons ~3–4u span + a HARD-EDGED armored fauld taper, no soft fade); Voidmaw's
+    cracked-stone socket PAIR (ONE aperture, ONE cold glint).
+  - *Lit-edge plan (ONE focal):* the cold GLINT deep in a recessed cowl socket (small,
+    white-cored, HDR toneMapped=false) is the ONE focal; the cold-steel IDENTITY is carried
+    by lit forged SEAM-lines + a lit gorget/belt band + the aperture rim (all accent 0x5aa0d8).
+    The COWL APERTURE tracks the player so the focal reads at the flank angle, but the glint
+    looks PAST/THROUGH you (the indifference-taunt; 12 owns the mutual gaze). Amber ONLY on
+    the lance TIP (the §5i.C.3 organ). Trophy charms LOW in their owed palettes (satellite law).
+  - *Home backdrop:* judged on the pale/neutral studio FIRST (§3b.7); the gate captures over
+    a COOL complementary sky (LUMEN MIRE) so the cold accent never fringes false-magenta.
+  **§4b CHARISMA (faceless — carriers = cowl-glint + lance language):** GAZE = cowl turns to
+  you, glint looks past (indifference); BLINK = glint GUTTERS like a coal (rate = mood);
+  CHARGE-TELL = lance rises + tip ignites amber; EXPRESSION = lance salute/point/lower;
+  FLINCH = cowl recoils + chain swings; NOTICE = lance SALUTES + glint flares; DEATH = lance
+  drops, charms gutter out ONE BY ONE, glint eases shut LAST. GLYPH = cowl peak + couched
+  lance + one EMPTY hook (the §3-law-6 scar — what it awaits is deliberately unnamed).
+  **BUILD:** figure ~10–11u tall (post-scale, `scale: 2.0`), shoulder span ~3–4u; hooded cowl
+  (extruded, back-swept + a lateral hook) framing a RECESSED dark socket + a small HDR glint;
+  hard pauldrons + arm couters; a HARD-EDGED faceted FAULD (tasset staves, no soft fade) +
+  surcoat with a cut hem; lance = Voidmaw's snapped-horn tube-taper kernel (violet-scar seam,
+  a spiral horn ridge) on `lancePivot`, `lanceTip` = the amber organ/`def.muzzle`; trophy
+  chain = a heavy baldric strap + charms (Ashtalon's feather-blade, relics, one EMPTY hook)
+  on `chainPivot`; named pivots `lancePivot`/`chainPivot`/`cowlPivot`/`lanceTip`. Tarnished
+  iron 0x1c1e22 (albedo lifted, L162) / cold-steel accent 0x5aa0d8 + glow 0x74b4e4 / amber
+  organ 0xffc23c (isolated HDR, §5i.C.3 sanction) / owed-boss trophy glints. **~6k tris**
+  (Calamities-band detail spent on the chain, fauld/pauldron facets, cowl folds, lance
+  horn-ridge — NOT bulk; the L140 presence fix is PROXIMITY + the assembly, not height).
+  Gates: `boss.mjs` (tri/telegraph/amberdiet/rhythmprint/lifecycle) green; `bossgate` G1–G7 PASS.
+  **ENGINE (Part 3.4 verified):** `approachFrom: 'alongside'` is NOT a shipped branch — reuses
+  `side` + the moving-station SETPIECE machinery (ASHTALON's circling-pass idiom; CP2).
+  `grazeForm: 'holdFlinch'` — GRAZE FORM (HOLD-UNTIL-FLINCH): the lance's threat-line is the
+  anatomy; hold it through discrete proximity TIERS to the amber FLINCH flash (a stare-down,
+  NOT slot 6's continuous beam-ride); offered once per phase (CP2, may reuse the beamEdge
+  detector plumbing — a small addition flagged before build).
+  ENTRANCE (§5j *It Kept Count*, hijack 2.8s @0.5 shallow, CP2): banner RIGHT, honest. It fades
   in alongside at x+12, rel 16 — rel ROCK-STEADY, no pull-ahead ever (any rel change reads
-  as 3's spent overtake); lance held LOW, cowl facing forward — it NEVER looks at you
-  (indifference is the taunt; 12 owns the mutual gaze). Shallow flank slew; the taunt lands
-  via `ui.bossNote` reading the SHIPPED `save.js bossLedgerStats`: "KARNVOW — WEARS THE
-  HORN IT TOOK / FELLED ×12. MOST: ASHTALON." — the Psycho Mantis stat-quote, granted §5f.
-  Mandatory fallback on fresh saves: "NO RECORD. IT WILL START ONE." As the line lands, the
-  ONE charm matching your top killer FLARES in that boss's palette (MANDATORY beat — the
-  escalation hinge), the rotation ending on the tilted EMPTY hook. Rider: "It's wearing
-  the one that beat us." Without turning its head the lance snaps low→POINT. Card out,
-  cut in laterally, wheel, settle — zero shots. Dedicated taunt-card UI + shortened
-  rush-repeat variant land with the §5f cost item; v1 ships on bossNote.
+  as 3's spent overtake); lance held LOW; the cowl TURNS toward you but the GLINT looks
+  PAST/THROUGH you — it never grants the mutual gaze (indifference is the taunt; 12 owns the
+  mutual look). Shallow flank slew; the taunt lands via `ui.bossNote` reading the SHIPPED
+  `save.js bossLedgerStats`: "KARNVOW — WEARS THE HORN IT TOOK / FELLED ×12. MOST: ASHTALON."
+  — the Psycho Mantis stat-quote, granted §5f. Mandatory fallback on fresh saves: "NO RECORD.
+  IT WILL START ONE." As the line lands, the ONE charm matching your top killer FLARES in that
+  boss's palette (MANDATORY beat — the escalation hinge), the rotation ending on the tilted
+  EMPTY hook. Rider: "It's wearing the one that beat us." The lance snaps low→POINT. Card out,
+  cut in laterally, wheel, settle — zero shots (the ONE granted hold-breaker shot fires in the
+  reveal HOLD after enterFight, NOT in the cinematic — two separate beats). Dedicated taunt-card
+  UI + shortened rush-repeat variant land with the §5f cost item; v1 ships on bossNote.
+  **LORE (Part 3.5):** KARNVOW is the THIEF/collector — it wears TAKEN trophies (Ashtalon's
+  feather-blade, relics, one EMPTY hook = the next victim = you). Slot 14 (THE UNMASKED) wears
+  the roster's scars as the MAKER (transfer clause: 14 reclaims the horn + feather-blade after 9
+  falls). The empty-hook thread stays OPEN — what it awaits is deliberately unnamed; it points
+  at the player, do not resolve before slot 14 / post-game. "Something SENT it" (the epithet
+  *Whatever Sent It*) is an owner lore call — never answered here.
 - **10 KNELLGRAVE** — bell: 3 stacked tapered cylinder bands + flared lip (10 facets),
   crack seam = jagged LineSegments + thin HDR candle-slit box behind it; chain: 3 link
   tori + LineSegments vanishing up off-frame (hangs from NOTHING); clapper: bound figure

@@ -688,6 +688,38 @@ for (const key of BOSS_ORDER) {
   ok(`brineholm geometry: head ${span.toFixed(1)}w, maw-gape + lid telegraph, eye surface/submerge, notice-jump, shackle-break ✓`);
 }
 
+// KARNVOW (slot 9, Tier-3 PEAK) — the named-pivot telegraph gate (§7b): the LANCE
+// is the silhouette's dominant diagonal AND the charge telegraph. setCharge(1) must
+// snap the lance from couched to point (a lancePivot rotation = a silhouette
+// change); the cowl/lance-tip/chain pivots must all exist (the emotion + organ +
+// swing rig the controller drives). The lance is one part, three jobs (§5f).
+{
+  const kv = buildBoss(BOSSES.karnvow, 1);
+  // Named pivots the telegraph + charisma + organ rig depend on.
+  const lancePivot = kv.group.getObjectByName('lancePivot');
+  assert(!!lancePivot, 'karnvow exposes the named lancePivot (the couch→point telegraph)');
+  assert(!!kv.group.getObjectByName('lanceTip'), 'karnvow exposes the named lanceTip (the amber-emitting organ / def.muzzle)');
+  assert(!!kv.group.getObjectByName('cowlPivot'), 'karnvow exposes the named cowlPivot (the player-tracking hood + focal glint)');
+  assert(!!kv.group.getObjectByName('chainPivot'), 'karnvow exposes the named chainPivot (the swinging trophy chain)');
+
+  // Telegraph: setCharge(1) snaps the lance to POINT — a real silhouette change on
+  // the dominant diagonal (couched-low pitch lifts toward level).
+  for (let i = 0; i < 30; i++) kv.tick(0.05, i * 0.05);   // settle the couched rest pose
+  const preLance = lancePivot.rotation.x;
+  kv.setCharge(1);
+  for (let i = 0; i < 20; i++) kv.tick(0.05, 2 + i * 0.05);
+  assert(lancePivot.rotation.x < preLance - 0.3,
+    `karnvow lance snaps couch→point on charge (lancePivot.rot.x ${lancePivot.rotation.x.toFixed(3)} < ${preLance.toFixed(3)} − 0.3 — the dominant-diagonal silhouette change)`);
+  kv.setCharge(0);
+
+  // partWorldPos resolves the live lance tip (the def.muzzle 'lanceTip' aim anchor).
+  const tipPos = kv.partWorldPos('lanceTip', new THREE.Vector3());
+  assert(tipPos && Number.isFinite(tipPos.z), 'karnvow partWorldPos resolves the live lanceTip world position (the aim anchor)');
+
+  kv.dispose();
+  ok('karnvow telegraph: setCharge(1) snaps the lance couch→point (silhouette change); cowl/tip/chain pivots present');
+}
+
 // Legacy coexist gate: a def WITHOUT `archetype` must still fall through to
 // the legacy construct (bossModel.js's buildBoss dispatcher) — the coexist
 // rule the whole archetype system is built on, guarding against a future def

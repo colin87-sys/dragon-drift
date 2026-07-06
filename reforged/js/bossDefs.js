@@ -820,6 +820,62 @@ export const BOSSES = {
       ],
     },
   },
+
+  karnvow: {
+    id: 'karnvow',
+    name: 'KARNVOW',
+    title: 'the Trophy-Hunter',
+    epithet: 'Whatever Sent It',   // §5f lore gap: something SENT it — the epithet points, never answers
+    tier: 3,                       // CALAMITY band; slot-9 is the band PEAK → hpMax/dials sit HIGH
+    // Boss-archetype dispatch (bossModel.js buildBoss): the Trophy-Duelist builder
+    // (bossKarnvow.js) — BOSS-DESIGN.md §5b/§5d registry slot 9, the Tier-3 band
+    // PEAK. A lean HOODED DUELIST riding at your shoulder, one long lance couched
+    // low, a swinging trophy chain of what it has killed; faceless but for one cold
+    // guttering glint deep in the cowl void. It does NOT tower (the roster's
+    // deliberate scale-DOWN) — its presence is PROXIMITY (the closest flank station)
+    // + the lance+chain assembly, never bulk (§3b.6, L140/L141). Distinct from slot 1's
+    // cracked-stone socket PAIR (one aperture, one glint) and slot 3's raptor cowl.
+    archetype: 'trophyDuelist',
+    accent: 0x5aa0d8,   // cold cowl-glint steel-blue (~207°, 40° clear of reflected-cyan) — identity + focal
+    glow: 0x74b4e4,     // lighter cold steel (shield rim / shards / backlight) — the shielded state stays cold
+    bulletColor: 0xff2b6a,   // danger stays magenta (role colour, never per-boss)
+    approachFrom: 'side',    // rides in on the flank (the moving-station riding beat is a CP2 setpiece)
+    muzzle: 'lanceTip',      // fire originates from the lance tip — the amber-emitting organ (§5f law 7)
+    scale: 2.0,              // a lean dragon-PEER, NOT a colossus — tuned up from 1.5 so the studio
+                             // fight-frame reads at band presence (G4) without bulking the mesh (L140)
+    hpMax: 440,              // Tier-3 band 360–450; the slot-9 PEAK sits high (the sawtooth crest)
+    // Precision jobs (§5f), tightening toward the dread: aimed/crossfire/stream — the
+    // duelist's exchange, almost no fills. Every phase carries an amber carrier so the
+    // lance-tip organ always serves parry fuel (amberdiet, §5i C.1).
+    phases: [
+      { atFrac: 1.00, cadence: [1.4, 1.8], attacks: ['aimed', 'crossfire'] },            // P1: the duel opens
+      { atFrac: 0.55, cadence: [1.3, 1.6], attacks: ['aimed', 'crossfire', 'stream'] },  // P2: it presses
+      { atFrac: 0.25, cadence: [1.2, 1.5], attacks: ['stream', 'crossfire', 'aimed'] },  // P3: Voidmaw's Verdict (dread)
+    ],
+    cards: [
+      { id: 'karnvow_gambit',  name: 'IT KEPT COUNT — Opening Gambit',     atFrac: 1.00, timer: 24 },
+      { id: 'karnvow_riposte', name: 'WEARS THE HORN — Riposte',           atFrac: 0.55, timer: 26 }, // the parry beat
+      { id: 'karnvow_verdict', name: 'WEARS THE HORN — Voidmaw’s Verdict',  atFrac: 0.25, timer: 28, dread: true },
+    ],
+    // §5i AGGRESSION EXCHANGE — tight, initiative-driven, SHORT rests: a BIMODAL trade
+    // of quick jabs (the short mode) and a measured riposte-beat (the long mode),
+    // tightening each phase. Distinct from ashtalon's long uniform ambush-rest and
+    // thrumswarm's relentless narrow thrum (rhythmprint KS-floor). All phases carry an
+    // amber carrier (aimed/crossfire/stream) → the lance organ always serves parry fuel.
+    // The "your parries steal its tempo" reactive layer is a CP2 enhancement (Decision C).
+    rhythm: {
+      signature: 'aggression-exchange',
+      ticket: { bpm: 100, quantize: '1/8' },
+      phases: [
+        { phrase: [{ kind: 'burst', attack: 'aimed', count: 2, gap: 0.4 }, { kind: 'burst', attack: 'crossfire', count: 2, gap: 0.45 }],
+          restLo: 0.55, restHi: 1.4, restDist: 'bimodal' },
+        { phrase: [{ kind: 'burst', attack: 'aimed', count: 2, gap: 0.35 }, { kind: 'burst', attack: 'crossfire', count: 2, gap: 0.4 }, { kind: 'sustain', attack: 'stream', beats: 2, gap: 0.4 }],
+          restLo: 0.5, restHi: 1.25, restDist: 'bimodal' },
+        { phrase: [{ kind: 'sustain', attack: 'stream', beats: 3, gap: 0.35 }, { kind: 'burst', attack: 'crossfire', count: 2, gap: 0.4 }, { kind: 'burst', attack: 'aimed', count: 2, gap: 0.35 }],
+          restLo: 0.45, restHi: 1.15, restDist: 'bimodal' },
+      ],
+    },
+  },
 };
 
 // Registry slot 3 is ASHTALON (Colossi opener), slot 4 is MARROWCOIL, slot 5 is
@@ -828,7 +884,7 @@ export const BOSSES = {
 // (a Calamity — the bound deep-sea leviathan head). CRAGHOLD is RETIRED (§5b L130)
 // — its def + builder stay for the geometry-lesson lineage + its telegraph test,
 // but it is OUT of the encounter rotation.
-export const BOSS_ORDER = ['voidmaw', 'stormrend', 'ashtalon', 'marrowcoil', 'eitherwing', 'hollowgate', 'thrumswarm', 'brineholm'];
+export const BOSS_ORDER = ['voidmaw', 'stormrend', 'ashtalon', 'marrowcoil', 'eitherwing', 'hollowgate', 'thrumswarm', 'brineholm', 'karnvow'];
 
 // Which boss to use for the Nth encounter of a run (cycles once the list is
 // exhausted — more bosses just extend the list). LEGACY path: kept for the
