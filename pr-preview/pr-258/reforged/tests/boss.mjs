@@ -712,12 +712,40 @@ for (const key of BOSS_ORDER) {
     `karnvow lance snaps couch→point on charge (lancePivot.rot.x ${lancePivot.rotation.x.toFixed(3)} < ${preLance.toFixed(3)} − 0.3 — the dominant-diagonal silhouette change)`);
   kv.setCharge(0);
 
+  // CP1.5 tell FAMILIES (owner fix: one pose per attack, not one animation): under
+  // charge, 'crossfire' sweeps the lance ACROSS (yaw differs from aimed's point) and
+  // 'stream' rolls it into the overhead flourish (roll differs) — machine-checked
+  // silhouette variety, keyed off the setAttackTell hook boss.js already calls.
+  kv.setAttackTell('aimed');
+  kv.setCharge(1);
+  for (let i = 0; i < 25; i++) kv.tick(0.05, 4 + i * 0.05);
+  const yAimed = lancePivot.rotation.y, zAimed = lancePivot.rotation.z;
+  kv.setAttackTell('crossfire');
+  for (let i = 0; i < 25; i++) kv.tick(0.05, 6 + i * 0.05);
+  const ySweep = lancePivot.rotation.y;
+  assert(Math.abs(ySweep - yAimed) > 0.4,
+    `karnvow crossfire tell SWEEPS the lance across (yaw ${ySweep.toFixed(2)} vs aimed ${yAimed.toFixed(2)} — Δ>0.4)`);
+  kv.setAttackTell('stream');
+  for (let i = 0; i < 25; i++) kv.tick(0.05, 8 + i * 0.05);
+  const zFlourish = lancePivot.rotation.z;
+  assert(Math.abs(zFlourish - zAimed) > 0.3,
+    `karnvow stream tell rolls the overhead FLOURISH (roll ${zFlourish.toFixed(2)} vs aimed ${zAimed.toFixed(2)} — Δ>0.3)`);
+  kv.setAttackTell(null);
+  kv.setCharge(0);
+
+  // CP1.5 de-clutter (owner fix): the trophy chain hangs at the LEFT hip — the
+  // side OPPOSITE the lance grip (lancePivot x=+1.15) — so the charms jiggle clear
+  // of the weapon arm.
+  const chainP = kv.group.getObjectByName('chainPivot');
+  assert(chainP.position.x < 0, `karnvow chainPivot at the LEFT hip, opposite the lance grip (x ${chainP.position.x.toFixed(2)} < 0)`);
+  assert(!!kv.group.getObjectByName('surcoatPivot'), 'karnvow exposes the named surcoatPivot (the swaying tabard)');
+
   // partWorldPos resolves the live lance tip (the def.muzzle 'lanceTip' aim anchor).
   const tipPos = kv.partWorldPos('lanceTip', new THREE.Vector3());
   assert(tipPos && Number.isFinite(tipPos.z), 'karnvow partWorldPos resolves the live lanceTip world position (the aim anchor)');
 
   kv.dispose();
-  ok('karnvow telegraph: setCharge(1) snaps the lance couch→point (silhouette change); cowl/tip/chain pivots present');
+  ok('karnvow telegraph: couch→point on charge + per-attack tell families (thrust/sweep/flourish); chain on the off-hip');
 }
 
 // Legacy coexist gate: a def WITHOUT `archetype` must still fall through to

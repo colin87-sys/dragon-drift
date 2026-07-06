@@ -88,8 +88,11 @@ export function buildKarnvow(def, quality = 1) {
   // Cold cowl RIM — the character line: a thin cold emissive band around the void
   // aperture, so the "dark aperture framed by a lit rim" reads as deliberate (not a
   // modeling hole) even black-on-black on the pale sky.
+  // Emissive kept MODERATE: over-bright cold emissive clips toward WHITE under the
+  // in-game bloom → desaturates → the pixels drop OUT of the gate's accent tier
+  // (s>0.35) and G3 attribution collapses. Saturated > bright for identity.
   const rimMat = track(new THREE.MeshStandardMaterial({
-    color: 0x0c1016, emissive: accent, emissiveIntensity: 2.4, roughness: 0.4, metalness: 0.3, flatShading: true,
+    color: 0x0c1016, emissive: accent, emissiveIntensity: 1.15, roughness: 0.4, metalness: 0.3, flatShading: true,
   }));
 
   // ---------------------------------------------------------------------
@@ -174,19 +177,32 @@ export function buildKarnvow(def, quality = 1) {
       return out;
     };
     for (const g of [...arm(1), ...arm(-1)]) push(g, true);
-    // SURCOAT — a short hard-hemmed tabard hanging over the chest+fauld (a duelist's
-    // surcoat, NOT a bell robe): a straight panel with a CUT hem (the Fable fauld
-    // discipline — hem never bell-flares) + fold ridges. Adds silhouette + relief.
-    const surcoat = strip(new THREE.BoxGeometry(1.15, 2.6, 0.16)); surcoat.rotateX(-0.05); surcoat.translate(0, -0.35, 0.66); push(surcoat, false);
-    const hem = strip(new THREE.BoxGeometry(1.2, 0.2, 0.24)); hem.translate(0, -1.62, 0.68); push(hem, false);   // the hard cut hem
-    for (let i = 0; i < (lowQ ? 2 : 4); i++) {
-      const f = strip(new THREE.BoxGeometry(0.08, 2.4, 0.1)); f.translate(-0.4 + i * 0.26, -0.35, 0.75); push(f, false);   // surcoat fold ridges
-    }
     return { bodyGeo: mergeBody(parts, 'body'), trimGeo: mergeBody(upper, 'bodyTrim') };
   })();
   const bodyGeo = bodyParts.bodyGeo;
   const body = new THREE.Mesh(bodyGeo, ironMat);
   rig.add(body);
+
+  // SURCOAT — a short hard-hemmed tabard hanging over the chest+fauld (a duelist's
+  // surcoat, NOT a bell robe): a straight panel with a CUT hem (the Fable fauld
+  // discipline — hem never bell-flares) + fold ridges. On its OWN `surcoatPivot`
+  // hinged at the waist (owner pizzazz pick, CP1.5): it lag-sways with the body
+  // bank + streams back with travel, so the lower body reads as cloth over motion
+  // instead of a rigid block. Kept OUT of the cold-trim geo (Fable #2 wireframe fix).
+  const surcoatPivot = new THREE.Object3D();
+  surcoatPivot.name = 'surcoatPivot';
+  surcoatPivot.position.set(0, 0.95, 0.66);   // hinge at the belt line, panel hangs below
+  rig.add(surcoatPivot);
+  const surcoatGeo = (() => {
+    const parts = [];
+    const panel = strip(new THREE.BoxGeometry(1.15, 2.6, 0.16)); panel.rotateX(-0.05); panel.translate(0, -1.3, 0); parts.push(panel);
+    const hem = strip(new THREE.BoxGeometry(1.2, 0.2, 0.24)); hem.translate(0, -2.57, 0.02); parts.push(hem);   // the hard cut hem
+    for (let i = 0; i < (lowQ ? 2 : 4); i++) {
+      const f = strip(new THREE.BoxGeometry(0.08, 2.4, 0.1)); f.translate(-0.4 + i * 0.26, -1.3, 0.09); parts.push(f);   // fold ridges
+    }
+    return mergeBody(parts, 'surcoat');
+  })();
+  surcoatPivot.add(new THREE.Mesh(surcoatGeo, ironMat));
 
   // Cold character-line TRIM (§3.4 "lit edges ARE the drawing" + eitherwing's
   // full-perimeter-rim lesson): a cold-accent edge overlay tracing EVERY armor seam
@@ -195,8 +211,11 @@ export function buildKarnvow(def, quality = 1) {
   // thumbnail (G3 attribution) regardless of the biome's ambient, WITHOUT a big eye.
   // Punchy (toneMapped=false, HDR-tinted) so the emissive 207° dominates the accent
   // tier over any sky; judged on the cool LUMEN-MIRE sky so it never fringes magenta.
+  // ×1.35 (NOT hotter): the seam-lines must stay SATURATED cold-steel — a hotter
+  // multiplier clips G/B to 1.0, shifts the hue off 207° and desaturates, and the
+  // gate's accent tier stops counting them (the G3 collapse the CP1.5 pass hit).
   const trimMat = track(new THREE.LineBasicMaterial({
-    color: new THREE.Color(accent).multiplyScalar(2.5), transparent: true, opacity: 1.0, depthWrite: false,
+    color: new THREE.Color(accent).multiplyScalar(1.35), transparent: true, opacity: 0.95, depthWrite: false,
   }));
   trimMat.toneMapped = false;
   rig.add(new THREE.LineSegments(new THREE.EdgesGeometry(bodyParts.trimGeo, 34), trimMat));   // cold seam-lines on the UPPER plate only
@@ -339,13 +358,17 @@ export function buildKarnvow(def, quality = 1) {
   // rim/trim). Judged over the cool LUMEN-MIRE sky (the gate's temperature-complement
   // pairing, DIST[karnvow]) so the cold bloom never fringes false-magenta.
   const GLINT_BASE = new THREE.Color(accent).lerp(new THREE.Color(0xffffff), 0.45);
-  const GLINT_HOT = 4.2;
+  const GLINT_HOT = 5.2;   // hot enough that the few-pixel focal survives AA on ANY idle-motion frame (G1 margin)
   const glintMat = track(new THREE.MeshBasicMaterial({ color: accent }));
   glintMat.toneMapped = false;
   glintMat.color.copy(GLINT_BASE).multiplyScalar(GLINT_HOT);
-  const glint = new THREE.Mesh(new THREE.SphereGeometry(0.14, lowQ ? 6 : 12, lowQ ? 6 : 10), glintMat);
-  glint.position.set(APX, 0.55, 0.36);   // at the socket MOUTH (framed by the dark socket + brow = recessed read,
-                                         // but the face is visible to the fight camera so the focal reads — G1)
+  // r0.21: big enough that the focal keeps PURE-INTERIOR pixels at fight-capture
+  // scale (smaller and every pixel is an AA edge-blend → maxLum caps ~247, a G1
+  // fail) — still far below the lamp-eye size Fable rejected (the old 0.5 ring).
+  const glint = new THREE.Mesh(new THREE.SphereGeometry(0.21, lowQ ? 6 : 12, lowQ ? 6 : 10), glintMat);
+  glint.position.set(APX, 0.55, 0.42);   // proud of the rim plane (framed by the dark socket + brow = recessed
+                                         // read) so the focal face stays camera-visible through the CP1.5 body
+                                         // bank/bob — the G1 floor must hold on EVERY idle-motion frame
   cowlPivot.add(glint);
 
   // ---------------------------------------------------------------------
@@ -456,14 +479,15 @@ export function buildKarnvow(def, quality = 1) {
   lancePivot.rotation.copy(LANCE_REST);
 
   // ---------------------------------------------------------------------
-  // THE TROPHY CHAIN — a HEAVY baldric strap across the torso (from the LEFT
-  // shoulder, opposite the lance grip — Fable condition #2, keeps the chain's swing
-  // clear of the lance edge so "pole + dangles" never reads as broom-bristles) with
-  // skull-sized charms hanging off it at the right hip on `chainPivot` (they SWING).
-  // Each charm emits LOW in its owed boss's palette (satellite law ≤0.25); one is
-  // the EMPTY HOOK (the §3 scar — what it awaits is unnamed).
+  // THE TROPHY CHAIN — a HEAVY baldric strap across the torso (from the RIGHT
+  // shoulder, under the lance arm, down to the LEFT hip — the hip OPPOSITE the
+  // lance grip: owner fix + Fable condition #2, so the charms get their own clear
+  // jiggle space instead of cluttering the weapon arm, and "pole + dangles" never
+  // reads as broom-bristles). Charms hang at the LEFT hip on `chainPivot` and SWING
+  // with real pendulum inertia. Each charm emits LOW in its owed boss's palette
+  // (satellite law ≤0.25); one is the EMPTY HOOK (the §3 scar — unnamed).
   // ---------------------------------------------------------------------
-  // The baldric strap (a heavy diagonal band L-shoulder → R-hip), static on rig.
+  // The baldric strap (a heavy diagonal band R-shoulder → L-hip), static on rig.
   const strapMat = track(new THREE.MeshStandardMaterial({ color: 0x101216, emissive: accent, emissiveIntensity: 0.05, roughness: 0.75, metalness: 0.3, flatShading: true }));
   const strapGeo = (() => {
     const parts = [strip(new THREE.BoxGeometry(0.26, 3.4, 0.16))];
@@ -477,14 +501,16 @@ export function buildKarnvow(def, quality = 1) {
     return mergeBody(parts, 'strap');
   })();
   const strap = new THREE.Mesh(strapGeo, strapMat);
-  strap.position.set(-0.15, 0.5, 0.62);
-  strap.rotation.z = 0.62;   // the diagonal across the chest
+  strap.position.set(0.15, 0.5, 0.62);
+  strap.rotation.z = -0.62;   // the diagonal across the chest: R-shoulder → L-hip
   rig.add(strap);
 
   const chainPivot = new THREE.Object3D();
   chainPivot.name = 'chainPivot';
-  chainPivot.position.set(0.66, -0.35, 0.6);   // the right hip where the baldric ends — pulled IN so the
-                                               // charms overlap the body/fauld outline (Fable #2: not floating orbs)
+  chainPivot.position.set(-0.66, -0.35, 0.6);  // the LEFT hip where the baldric ends (opposite the
+                                               // lance grip at x+1.15 — owner fix: de-clutter the weapon
+                                               // arm, give the charms free jiggle space) — pulled IN so
+                                               // the charms overlap the body/fauld outline (Fable #2)
   rig.add(chainPivot);
 
   // Charm palette: owed-boss glints (§5b lore web) at low intensity + the EMPTY HOOK.
@@ -561,8 +587,27 @@ export function buildKarnvow(def, quality = 1) {
   let charge = 0;
   function setCharge(k) { charge = Math.max(0, Math.min(1, k)); }
 
+  // Attack-tell FAMILIES (the ashtalon TELL_FAMILY pattern — owner CP1.5 fix: one
+  // pose per attack, not one pose for everything). boss.js feeds the raw attack id.
+  //   thrust   (aimed)     — levels at you + a forward JAB as charge peaks
+  //   sweep    (crossfire) — the lance arcs ACROSS the body, torso counter-rotates
+  //   flourish (stream)    — rises overhead with a rolling twirl (feeds the sustained hose)
+  const TELL_FAMILY = { aimed: 'thrust', crossfire: 'sweep', stream: 'flourish' };
   let tell = null;
-  function setAttackTell(id) { tell = id || null; }
+  function setAttackTell(id) { tell = id ? (TELL_FAMILY[id] ?? 'thrust') : null; }
+
+  // --- CP1.5 MOTION STATE (the anti-Lego layer) ---
+  // Velocity recovered by diffing group.position frame-to-frame (placeGroup runs
+  // AFTER model.tick, so at tick time the position holds the PREVIOUS frame's
+  // placement — a stable one-frame-lag velocity, the dragon.js banking idiom).
+  let prevGX = null, prevGY = null;
+  let velX = 0, velY = 0;        // smoothed world-units/s
+  let bankEase = 0;              // velocity-coupled body bank (rig.rotation.z component)
+  let cowlLagZ = 0;              // the hood trails the bank (ashtalon covert-lag idiom)
+  let surcoatSway = 0, surcoatBack = 0;   // the tabard lags the bank + streams with travel
+  let chainAng = 0, chainVel = 0;         // damped-spring pendulum (real inertia jiggle)
+  let followT = 0, prevCharge = 0;        // follow-through overshoot after a released attack
+  let sweepYaw = 0;                       // torso counter-rotation during the cross-sweep
 
   // --- Charisma: the cowl tracks the player; the glint looks past ---
   let gazeTX = 0, gazeTY = 0, gazeX = 0, gazeY = 0;
@@ -585,10 +630,39 @@ export function buildKarnvow(def, quality = 1) {
   function setDissolveEmotive(k) { dyingK = Math.max(0, Math.min(1, k)); kit.setDissolve(k); }
 
   function tickBody(dt, time) {
-    // Idle: a slow lean/breathe (root never animates — placeGroup owns it). KARNVOW
-    // leans into its lane (a duelist's forward-bias), deepening in death (it sags).
-    rig.rotation.z = -0.06 + Math.sin(time * 0.5) * 0.012;
-    rig.rotation.x += ((dyingK * 0.28) - rig.rotation.x) * Math.min(1, dt * 3);
+    // --- Velocity from the controller's placement (CP1.5): diff group.position.
+    // placeGroup wrote it LAST frame, so this is a clean one-frame-lag velocity.
+    // Teleport guard (warn→approach jumps, studio resets): a step > 4u is not
+    // motion — just re-baseline. Clamped + smoothed (dragon.js damp idiom). ---
+    if (dt > 0) {
+      const gx2 = group.position.x, gy2 = group.position.y;
+      if (prevGX !== null) {
+        const dx = gx2 - prevGX, dy = gy2 - prevGY;
+        if (Math.abs(dx) < 4 && Math.abs(dy) < 4) {
+          const vx = Math.max(-25, Math.min(25, dx / dt));
+          const vy = Math.max(-25, Math.min(25, dy / dt));
+          velX += (vx - velX) * Math.min(1, dt * 8);
+          velY += (vy - velY) * Math.min(1, dt * 8);
+        }
+      }
+      prevGX = gx2; prevGY = gy2;
+    }
+
+    // --- The body BANKS into lateral travel (the #1 anti-Lego lever — the station
+    // bob + setpieces slide it laterally all fight; a rigid slide reads as Lego,
+    // a lean into the turn reads as RIDING). Eased like dragon.js bankZ. ---
+    bankEase += (Math.max(-0.3, Math.min(0.3, -velX * 0.04)) - bankEase) * Math.min(1, dt * 6);
+
+    // --- Multi-frequency idle (the eitherwing layering): the at-rest duelist
+    // shifts his seat — lean (two incommensurate sines) + a slow weave + a bob —
+    // instead of hovering frozen. Death sag composes on x. ---
+    const idleLean = -0.06 + Math.sin(time * 0.5) * 0.014 + Math.sin(time * 0.83) * 0.009;
+    rig.rotation.z = idleLean + bankEase;
+    const pitchTarget = dyingK * 0.28 + Math.max(-0.1, Math.min(0.1, velY * 0.012)) + Math.sin(time * 0.31) * 0.008;
+    rig.rotation.x += (pitchTarget - rig.rotation.x) * Math.min(1, dt * 3);
+    // sweepYaw (the cross-sweep torso counter-rotation) is eased in the lance section.
+    rig.rotation.y = Math.sin(time * 0.23) * 0.035 + velX * 0.006 + sweepYaw;
+    rig.position.y = Math.sin(time * 0.7) * 0.05 + Math.sin(time * 1.13) * 0.03;
 
     // --- Gaze: the cowl turns toward the player with LAG + look-aways (the hunter
     // sizing you up — but it looks THROUGH you, never granting the mutual gaze). ---
@@ -611,6 +685,11 @@ export function buildKarnvow(def, quality = 1) {
     // the indifference-taunt).
     cowlPivot.rotation.y = gazeX * 0.5;
     cowlPivot.rotation.x = -gazeY * 0.28;
+    // The hood TRAILS the body bank a beat behind (the ashtalon covert-lag idiom):
+    // cowlLagZ chases the rig lean with a SLOWER ease, and the pivot wears the
+    // difference — on a quick bank the hood momentarily holds back, then settles.
+    cowlLagZ += (rig.rotation.z - cowlLagZ) * Math.min(1, dt * 2.5);
+    cowlPivot.rotation.z = (cowlLagZ - rig.rotation.z) * 0.7;
     // The cold glint (the "eye") TRACKS the dragon — it slides to look AT you as you
     // move (owner decision; supersedes the earlier "looks past" indifference bias).
     glint.position.x = APX + gazeX * 0.15;
@@ -637,24 +716,72 @@ export function buildKarnvow(def, quality = 1) {
     // gate catches a gutter frame; the eye just shrinks + swells like a live coal.
     glint.scale.setScalar(Math.max(0.14, (1 - gutterProg * 0.5) * (1 - dyingK * 0.9)));
 
-    // --- The LANCE language: couch (rest) → point (charge) → salute (notice) →
-    // lower (death). setCharge snaps it to POINT — the silhouette change (telegraph
-    // gate) + the amber tip igniting. ---
+    // --- The LANCE language (CP1.5 tell FAMILIES — one pose per attack, owner fix):
+    // couch (rest, with a restless grip float) → per-family charge pose:
+    //   thrust   — levels at you + a forward JAB (the pivot pushes down the lane),
+    //   sweep    — arcs ACROSS the body (yaw swing), the torso counter-rotates,
+    //   flourish — rises overhead with a rolling TWIRL (feeds the stream hose),
+    // → salute (notice) → drop (death), with a follow-through overshoot on release. ---
+    // Follow-through: a released attack (charge collapses from high) earns a brief
+    // recover-overshoot back through the couch — the classic anti-stiffness beat.
+    if (prevCharge > 0.5 && charge < 0.05 && dyingK <= 0) followT = 0.35;
+    prevCharge = charge;
+    if (followT > 0) followT -= dt;
+
     let target = LANCE_REST, poseSpeed = 6;
+    let sweepYawTarget = 0;
+    let jabZ = 0;                                     // forward push of the grip (the thrust jab)
     if (dyingK > 0.15) { target = new THREE.Euler(1.35, -0.2, 0.15); poseSpeed = 4; }   // dropped + clattered
     else if (noticeT > 0.5) { target = LANCE_SALUTE; poseSpeed = 16; }                  // the salute (respect)
-    else if (charge > 0.02) {                                                            // snap to POINT
-      target = new THREE.Euler(
-        LANCE_REST.x + (LANCE_POINT.x - LANCE_REST.x) * charge,
-        LANCE_REST.y + (LANCE_POINT.y - LANCE_REST.y) * charge,
-        LANCE_REST.z + (LANCE_POINT.z - LANCE_REST.z) * charge,
-      );
+    else if (charge > 0.02) {
+      const fam = tell ?? 'thrust';
+      if (fam === 'sweep') {
+        // CROSS-SWEEP: the point stays near level while the shaft swings across the
+        // lane (yaw from +0.5 couch out past the body's midline); torso counters.
+        target = new THREE.Euler(
+          LANCE_REST.x + (0.18 - LANCE_REST.x) * charge,
+          LANCE_REST.y + (-0.85 - LANCE_REST.y) * charge,
+          LANCE_REST.z + (0.16 - LANCE_REST.z) * charge,
+        );
+        sweepYawTarget = 0.14 * charge;
+      } else if (fam === 'flourish') {
+        // HIGH FLOURISH: overhead rise + a rolling twirl (a live wobble on the roll
+        // so the sustained stream reads as a spun hose, not a frozen pose).
+        target = new THREE.Euler(
+          LANCE_REST.x + (-0.7 - LANCE_REST.x) * charge,
+          LANCE_REST.y + (0.25 - LANCE_REST.y) * charge,
+          LANCE_REST.z + (0.85 - LANCE_REST.z) * charge + Math.sin(time * 5.2) * 0.16 * charge,
+        );
+      } else {
+        // POINT-THRUST (aimed / default): level at the player + a forward jab.
+        target = new THREE.Euler(
+          LANCE_REST.x + (LANCE_POINT.x - LANCE_REST.x) * charge,
+          LANCE_REST.y + (LANCE_POINT.y - LANCE_REST.y) * charge,
+          LANCE_REST.z + (LANCE_POINT.z - LANCE_REST.z) * charge,
+        );
+        jabZ = 0.5 * Math.max(0, charge - 0.55) / 0.45;   // the jab lands late in the wind-up
+      }
       poseSpeed = 18;
+    } else if (followT > 0) {
+      // The recover: a single overshoot bump through the couch, then settle.
+      const k = Math.sin((1 - followT / 0.35) * Math.PI);
+      target = new THREE.Euler(LANCE_REST.x + k * 0.22, LANCE_REST.y - k * 0.1, LANCE_REST.z + k * 0.06);
+      poseSpeed = 10;
+    } else {
+      // The restless GRIP FLOAT (a duelist's live hand, never frozen): micro-adjust
+      // sines on the couched rest — small, two frequencies, always moving.
+      target = new THREE.Euler(
+        LANCE_REST.x + Math.sin(time * 0.9) * 0.03 + Math.sin(time * 1.7) * 0.015,
+        LANCE_REST.y + Math.sin(time * 0.63) * 0.025,
+        LANCE_REST.z + Math.sin(time * 1.21) * 0.012,
+      );
     }
     const le = Math.min(1, dt * poseSpeed);
     lancePivot.rotation.x += (target.x - lancePivot.rotation.x) * le;
     lancePivot.rotation.y += (target.y - lancePivot.rotation.y) * le;
     lancePivot.rotation.z += (target.z - lancePivot.rotation.z) * le;
+    lancePivot.position.z += (0.35 + jabZ - lancePivot.position.z) * Math.min(1, dt * 12);
+    sweepYaw += (sweepYawTarget - sweepYaw) * Math.min(1, dt * 8);
 
     // The amber lance-TIP ignites as it snaps to point (the amber-organ tell); dim
     // at rest; a hot flash on notice; guttering out in death.
@@ -668,14 +795,26 @@ export function buildKarnvow(def, quality = 1) {
     rig.position.z = -recoil;
     cowlPivot.position.y = 2.55 - recoil * 0.4;   // the hood jerks back
 
-    // --- The trophy CHAIN: an idle sway (the pace) + a hard SWING on flinch/notice
-    // (the impact). In death, the charms gutter out ONE BY ONE. ---
-    const swing = Math.sin(time * 1.6) * 0.08 + (painT > 0 ? Math.sin(time * 20) * 0.4 * (painT / 0.34) : 0)
-      + (noticeT > 0.6 ? Math.sin(time * 14) * 0.3 : 0);
-    chainPivot.rotation.z = swing;
+    // --- The trophy CHAIN (CP1.5): a REAL damped-spring pendulum — the body's own
+    // motion drives it (lateral velocity swings the hang opposite the travel, the
+    // owner's "jiggle"), plus hard kicks on flinch/notice. Not a canned sine. ---
+    if (dt > 0) {
+      // Drive: the charms want to hang opposite the lateral travel (inertia), with
+      // pain/notice jolting the spring directly (impulses, decayed by the damping).
+      const drive = velX * 0.55
+        + (painT > 0.3 ? Math.sin(time * 22) * 9 * (painT / 0.34) : 0)
+        + (noticeT > 0.75 ? Math.sin(time * 16) * 5 : 0);
+      chainVel += (-9 * chainAng - 4 * chainVel + drive) * Math.min(dt, 0.05);
+      chainAng += chainVel * Math.min(dt, 0.05);
+      chainAng = Math.max(-0.7, Math.min(0.7, chainAng));
+    }
+    chainPivot.rotation.z = chainAng + Math.sin(time * 1.6) * 0.04;   // pendulum + a faint idle sway
     chainPivot.rotation.x = rig.rotation.z * 0.5;   // hangs with gravity as the body leans
     charms.forEach((c, i) => {
-      c.hang.rotation.z = Math.sin(time * (1.4 + i * 0.2) + c.phase) * 0.12 * (1 + (painT > 0 ? 3 : 0));
+      // Each hang LAGS the pendulum with a graded ease (deeper charm = slower — the
+      // eitherwing ribbon-chain trailing read) + its own phase-offset flutter.
+      const hangTarget = chainAng * (0.7 + i * 0.12) + Math.sin(time * (1.4 + i * 0.2) + c.phase) * 0.1;
+      c.hang.rotation.z += (hangTarget - c.hang.rotation.z) * Math.min(1, dt * (4.5 - i * 0.45));
       if (!c.isHook) {
         // Idle: a low emissive pulse in the owed palette. Death: gutter out staggered
         // (charm i dies as dyingK crosses (i+1)/(nCharm+1)) — the trophies freed.
@@ -684,6 +823,13 @@ export function buildKarnvow(def, quality = 1) {
         c.mat.emissiveIntensity = (0.06 + Math.sin(time * 1.6 + c.phase) * 0.02) * alive;
       }
     });
+
+    // --- The SURCOAT (owner pizzazz pick): the tabard lags the body bank and
+    // streams BACK with travel — cloth over motion, not a rigid block. ---
+    surcoatSway += (bankEase * 1.4 - surcoatSway) * Math.min(1, dt * 3);
+    surcoatBack += ((Math.abs(velX) * 0.02 + 0.04) - surcoatBack) * Math.min(1, dt * 2.2);
+    surcoatPivot.rotation.z = (surcoatSway - bankEase) + Math.sin(time * 1.05) * 0.03;
+    surcoatPivot.rotation.x = -surcoatBack + Math.sin(time * 0.77) * 0.025;   // hem drifts aft + breathes
 
     // Ash-motes drift near the body (dark, dim — never a false glint).
     for (const o of orbiters) {

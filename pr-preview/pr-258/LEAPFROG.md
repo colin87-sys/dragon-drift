@@ -7197,3 +7197,37 @@ now TRACKS the dragon (looks AT you as you move) — the owner overrode the earl
 asymmetry break. **Deferred to CP2 (Decision C1):** reflect-once riposte, the *It Kept Count* stat-taunt entrance
 + MANDATORY top-killer charm flare, the moving-station flank setpiece (reuse ashtalon's), HOLD-UNTIL-FLINCH graze.
 Pipeline stopped at posted crops for the owner's green-light before CP2 (the anti-rebuild law).
+
+### L189 — KARNVOW CP1.5 (the "stiff like Lego" owner verdict): velocity-diff banking is a new boss-motion primitive; tell FAMILIES end one-animation bosses; cold emissive must stay SATURATED, not bright
+
+**Did.** The owner judged CP1 on the live PR preview: silhouette fine, but "moves stiff like a Lego
+character" (vs EITHERWING/ASHTALON), "one animation with the stick looks basic", charms cluttering the
+weapon-arm hip. The fluidity pass, all inside `bossKarnvow.js` + test asserts: (1) **velocity-coupled
+bank** — the model diffs `group.position` frame-to-frame (placeGroup runs AFTER model.tick, so at tick
+time the position is a clean one-frame-lag placement; clamp + re-baseline on >4u teleports) and leans
+into lateral travel, the dragon.js `damp(bank, -vx*k)` idiom transplanted to a boss for the first time;
+(2) multi-frequency idle (two lean sines + weave + bob — eitherwing layering); (3) cowl TRAILS the bank
+(ashtalon covert-lag: a slower ease chasing the rig lean, the pivot wears the delta); (4) the trophy
+chain became a **damped-spring pendulum** (`vel += (-k·ang − c·vel + drive)·dt`) driven by the body's own
+velocity + flinch/notice impulses — real inertia jiggle, charms lag with graded ease; (5) the surcoat
+split out of the merged body onto `surcoatPivot` (lag-sway + backstream — cloth over motion); (6) the
+chain moved to the LEFT hip, opposite the lance grip.
+
+**Tell FAMILIES end the one-animation boss.** `setAttackTell` was already fed the raw attack id by
+boss.js — the builder just ignored it. Mapping attacks to lance poses (aimed=THRUST jab / crossfire=
+SWEEP across with torso counter-rotation / stream=overhead FLOURISH twirl) + a follow-through overshoot
+on release + a restless grip-float at rest turned one pose into a fencing vocabulary for ~60 lines.
+Machine-checked (boss.mjs asserts sweep-yaw and flourish-roll differ from thrust) so it can't silently
+regress. **Reusable: any boss whose tick ignores `tell` is leaving its cheapest expressiveness unbuilt.**
+
+**Two pixel-gate laws learned the hard way.** (a) A tiny HDR focal needs PURE-INTERIOR pixels at
+fight-capture scale — below that size every pixel is an AA edge-blend and maxLum caps ~247 no matter how
+hot the material (the mysterious deterministic 247). Size the focal for the capture distance, not the
+close-up. (b) **Cold emissive must stay SATURATED, not bright**: over-bright cold (emissive ×2.4, line
+color ×2.5) clips G/B to 1.0 under bloom → hue shifts off-accent and saturation collapses → the pixels
+drop OUT of the G3 accent tier entirely (in-game 15% vs studio 68%). Halving the emissive RAISED
+attribution to a robust 29–41%. Brighter ≠ more identity; saturated = identity.
+
+**Owner-loop lesson.** Stills passed two Fable gates and every pixel law — the stiffness was only
+visible on the LIVE preview. Motion verdicts belong to the preview build; budget an owner FIX round
+after first live viewing as the NORMAL pipeline, not a failure of the gates.
