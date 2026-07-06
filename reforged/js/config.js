@@ -185,7 +185,9 @@ export const CONFIG = {
     quietDwellMult: 0.5,    // LAW — danger-binding: dwell rate while no boss fire is live
     // V2 paint & volley (wired from PR2 — data present now, inert in PR1)
     capByTier: { 1: 0, 2: 3, 3: 5, 4: 6, 5: 6 },  // LAW ladder
-    decay: 3.5,             // TUNE(3.0–4.0) — per-lock lifetime, seconds
+    decay: 4.0,             // TUNE(3.0–4.0) — per-lock lifetime; at the range top so a
+                            // dodge mid-sweep doesn't cost the first brand (owner playtest:
+                            // 'doesn't always lock 3 again' — the sweep must survive a dodge)
     refreshDwell: 0.15,     // TUNE(0.1–0.2)
     stackMax: 2,            // LAW — per part, tiers ≥3 only
     stripNewestMaxTier: 2,  // LAW — ≤ this tier a hit strips newest only; above strips all

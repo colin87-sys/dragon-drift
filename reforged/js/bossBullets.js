@@ -414,6 +414,15 @@ export function updateBossBullets(dt, player) {
       }
     } else {
       // Rider / reflected bullet flying toward the boss.
+      // WYRMFIRE WISPS (Hunter's Brand skin): a lance launches with a sideways curl
+      // (set at spawn) and steers home per-frame — the arc + correction reads as a
+      // living ember called to its brand, not a bullet. Rider/reflected fly straight.
+      if (s.owner === 'lance') {
+        const tLeft = Math.max((s.targetRel - s.rel) / Math.max(s.vrel, 1), 0.06);
+        const k = Math.min(1, dt * 5);
+        s.vx += ((s.tx - s.x) / tLeft - s.vx) * k;
+        s.vy += ((s.ty - s.y) / tLeft - s.vy) * k;
+      }
       if (s.rel >= s.targetRel) {
         const dx = s.x - s.tx, dy = s.y - s.ty;
         if (dx * dx + dy * dy < bossR * bossR) {

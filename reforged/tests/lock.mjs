@@ -185,7 +185,7 @@ async function runLock(spec) {
     const mod = await import(new URL('./js/lockLayer.js', document.baseURI).href);
     const ev = await import(new URL('./js/events.js', document.baseURI).href);
     const events = [];
-    for (const name of ['lockPaint', 'lockVolley', 'lockLost']) ev.on(name, (p) => events.push({ name, ...(p || {}) }));
+    for (const name of ['lockPaint', 'lockVolley', 'lockLost', 'lockCap']) ev.on(name, (p) => events.push({ name, ...(p || {}) }));
     mod.initLockLayer();
     const ORGANS = spec.organs;
     const model = {
@@ -241,6 +241,8 @@ check('T2.2 cap fuse fires ONE volley of 2 lances and clears the pips',
   t22.events.filter((e) => e.name === 'lockVolley').length === 1 &&
   t22.events.find((e) => e.name === 'lockVolley').source === 'cap');
 check('T2.2 lance damage is the un-clamped 2.0 at a 100hp phase', Math.abs(t22.lances[0].dmg - 2.0) < 1e-9);
+check('T2.2 the cap fires ONE lockCap (the inhale) before the volley',
+  t22.events.filter((e) => e.name === 'lockCap').length === 1);
 
 // T2.2b — decay release: one painted pip, abandon the line → the volley fires itself
 // when the oldest decay expires (partial paints are never silently lost).
@@ -310,6 +312,17 @@ const t213 = await runLock({ organs: { A: { x: 0, y: 0 }, B: { x: 30, y: 0 }, C:
   candidates: ['A', 'B', 'C'], frames: swing });
 check('T2.13 a fast-swinging organ paints on a multi-organ boss (smoothed acquisition)',
   t213.count >= 1 && t213.events.some((e) => e.name === 'lockPaint' && e.part === 'A'));
+
+// T2.15 — UNPAINTED-FIRST LAW (owner playtest: swinging back after a dodge
+// re-grabbed the painted rib and pinned the player on refresh): while an unpainted
+// paintable remains, sitting on a painted organ acquires NOTHING — even past the
+// hop embargo. Once ALL are painted, refresh becomes reachable again.
+const t215 = await runLock({ organs: { A: { x: 0, y: 0 }, B: { x: 12, y: 0 } },
+  candidates: ['A', 'B'],
+  frames: [{ dt: 0.06, n: 8, px: 0 }, { dt: 0.06, n: 30, px: 0 }] });   // paint A, sit on it 1.8s
+check('T2.15 a painted organ never re-acquires while unpainted prey remains',
+  t215.count === 1 && t215.hud.aimPart === 'B' &&
+  t215.events.filter((e) => e.name === 'lockPaint').length === 1);
 
 // T2.14 — PAINT-HOP (owner playtest): the instant a paint completes, the aim
 // releases, the painted organ is briefly embargoed, and the reticle leads to the

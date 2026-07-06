@@ -5,6 +5,7 @@ import { CONFIG } from './config.js';
 import { saveData } from './save.js';
 import { game } from './gameState.js';
 import { lockHudState } from './lockLayer.js';
+import { on } from './events.js';
 
 // Panzer-Dragoon-style nested-square target reticle: projects the next
 // ring/window onto the screen as two counter-rotating squares. Pure DOM
@@ -32,10 +33,22 @@ export function initReticle(cam) {
   for (let i = 0; i < 6; i++) {
     const m = document.createElement('div');
     m.className = 'lockmark';
-    m.innerHTML = '<div class="fill"></div>';
+    // The wyrm-rune sigil (Hunter's Brand): the brand your rider burns onto the
+    // organ — kindles jade-white on paint, banks as the fill drains, ashes grey
+    // when the deflect rule freezes it. One shared rune for now; the per-dragon
+    // sigil is the planned Eternal-ascension cosmetic hook.
+    m.innerHTML = '<div class="fill"></div>' +
+      '<svg class="rune" viewBox="0 0 24 24"><path d="M12 2 L20 12 L12 22 L4 12 Z M12 6 V18 M7.5 12 H16.5"/></svg>';
     hud.appendChild(m);
     markEls.push(m);
   }
+  // The exhale flash: a cap volley flares the pip row once (the decay fizzle doesn't).
+  on('lockVolley', (p) => {
+    if (!pipWrap || !p || p.source !== 'cap') return;
+    pipWrap.classList.remove('volley');
+    void pipWrap.offsetWidth;
+    pipWrap.classList.add('volley');
+  });
   document.getElementById('hud').appendChild(el);
 }
 
@@ -137,6 +150,10 @@ function renderPips(hud) {
       pipEls.push(p);
     }
   }
+  // The INHALE: while the cap fuse draws, the pip row swells + brightens — the
+  // 1s between "set complete" and the exhale is a readable breath, not a timer.
+  pipWrap.style.setProperty('--fuse', (hud.fuse01 || 0).toFixed(3));
+  pipWrap.classList.toggle('inhale', (hud.fuse01 || 0) > 0);
   const locks = hud.locks || [];
   for (let i = 0; i < pipEls.length; i++) {
     const filled = i < (hud.pips || 0);
@@ -166,10 +183,14 @@ function renderMarks(hud) {
     const sx = (_mv.x * 0.5 + 0.5) * window.innerWidth;
     const sy = (-_mv.y * 0.5 + 0.5) * window.innerHeight;
     m.classList.add('show');
+    m.classList.toggle('kindle', lk.life > 0.94);   // the fresh brand's kindle flash
     m.classList.toggle('ashen', !!hud.ashen);
     m.classList.toggle('blink', !!lk.blink);
     m.classList.toggle('stacked', (lk.stacks || 1) > 1);
     m.style.setProperty('--life', Math.max(0, Math.min(1, lk.life)).toFixed(3));
-    m.style.transform = `translate(${sx}px, ${sy}px)`;
+    // Position via CSS vars so the kindle animation (which owns transform for
+    // 0.35s) composes with the screen placement instead of fighting it.
+    m.style.setProperty('--mx', sx.toFixed(1) + 'px');
+    m.style.setProperty('--my', sy.toFixed(1) + 'px');
   }
 }
