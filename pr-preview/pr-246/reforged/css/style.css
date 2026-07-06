@@ -2200,9 +2200,26 @@ canvas.skin-preview[data-kind="dragon"] { cursor: pointer; }
 #reticle.boss .lockpips { display: flex; }
 #reticle .lockpip { width: 10px; height: 10px; border: 2px solid rgba(80, 255, 170, 0.35);
   box-sizing: border-box; }
-#reticle .lockpip.filled { background: rgba(80, 255, 170, 0.9); border-color: rgba(80, 255, 170, 0.95);
-  box-shadow: 0 0 8px rgba(60, 255, 160, 0.6); }
+#reticle .lockpip.filled { border-color: rgba(80, 255, 170, 0.95);
+  box-shadow: 0 0 8px rgba(60, 255, 160, 0.6);
+  background: linear-gradient(to top, rgba(80, 255, 170, 0.9) calc(var(--life, 1) * 100%), rgba(80, 255, 170, 0.12) 0); }
 #reticle .lockpip.ashen { background: rgba(150, 160, 175, 0.45); border-color: rgba(150, 160, 175, 0.6);
   box-shadow: none; }
 #reticle .lockpip.blink { animation: lockpip-blink 0.4s steps(2, start) infinite; }
 @keyframes lockpip-blink { 50% { opacity: 0.2; } }
+
+/* Painted-organ markers: each painted lock pins its own square ON the organ, the
+   inner fill draining with the lock's remaining life — what is locked, where it is,
+   how long it holds. Ashen = deflect-frozen; blink = final second; double border =
+   stacked (tier 3+). The reticle paints; these persist. */
+.lockmark { position: absolute; left: 0; top: 0; width: 24px; height: 24px;
+  margin: -12px 0 0 -12px; border: 2px solid rgba(80, 255, 170, 0.85);
+  box-shadow: 0 0 10px rgba(60, 255, 160, 0.45); box-sizing: border-box;
+  pointer-events: none; display: none; z-index: 4; }
+.lockmark.show { display: block; }
+.lockmark .fill { position: absolute; left: 2px; right: 2px; bottom: 2px;
+  height: calc(var(--life, 1) * 100% - 4px); background: rgba(80, 255, 170, 0.35); }
+.lockmark.stacked { outline: 2px solid rgba(80, 255, 170, 0.45); outline-offset: 2px; }
+.lockmark.ashen { border-color: rgba(150, 160, 175, 0.7); box-shadow: none; }
+.lockmark.ashen .fill { background: rgba(150, 160, 175, 0.3); }
+.lockmark.blink { animation: lockpip-blink 0.4s steps(2, start) infinite; }
