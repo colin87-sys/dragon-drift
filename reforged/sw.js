@@ -12,7 +12,7 @@
 //     so offline/flaky loads always replay a single coherent build.
 //   - activate deletes every other dd-reforged-* cache, so stale versions
 //     can't linger and get mixed in.
-const VERSION = '8e72fb48eb33';                          // STAMP:VERSION
+const VERSION = '004c956ec8c2';                          // STAMP:VERSION
 const ASSETS = [
   './',
   './assets/models/thundercoil.glb',
@@ -25,16 +25,19 @@ const ASSETS = [
   './js/biomes.js',
   './js/boss.js',
   './js/bossAshtalon.js',
+  './js/bossBrineholm.js',
   './js/bossBullets.js',
   './js/bossColossus.js',
   './js/bossDefs.js',
   './js/bossEitherwing.js',
+  './js/bossHollowgate.js',
   './js/bossIdol.js',
   './js/bossKit.js',
   './js/bossMandala.js',
   './js/bossMarrowcoil.js',
   './js/bossModel.js',
   './js/bossRhythm.js',
+  './js/bossThrumswarm.js',
   './js/buildId.js',
   './js/cameraController.js',
   './js/collision.js',
@@ -82,6 +85,7 @@ const ASSETS = [
   './js/gestureTutorial.js',
   './js/godrays.js',
   './js/goldEmbers.js',
+  './js/harmony.js',
   './js/hints.js',
   './js/input.js',
   './js/juice.js',
@@ -109,6 +113,9 @@ const ASSETS = [
   './js/save.js',
   './js/setpieces.js',
   './js/sfx.js',
+  './js/sfxLimiter.js',
+  './js/sfxLoudness.js',
+  './js/sfxRender.js',
   './js/showcaseBackdrop.js',
   './js/splash.js',
   './js/surface.js',

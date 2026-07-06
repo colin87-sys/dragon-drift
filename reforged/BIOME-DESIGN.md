@@ -679,8 +679,8 @@ feel right", stop the train and fix — do not migrate a pattern the hero hasn't
   §5j entrances (STORMREND's storm retrofit).
 - `LEAPFROG.md` ledger lessons that matter here: **L150** (boundary values must ease —
   the seam law's ancestor), **L151/L152** (audio engine contracts: render==live,
-  seeded randomness, null-safe degradation), **L153** (this design arc — the
-  render-only-`BIOMES[]` discovery), plus the increment lessons from L154 onward.
+  seeded randomness, null-safe degradation), **L166** (this design arc — the
+  render-only-`BIOMES[]` discovery), plus the increment lessons from L167 onward.
 - After every increment: append the lesson (what/why/gotcha/reusable pattern). This doc
   gets a one-line update per shipped increment (mark the table row ✅) — keep it the
   single source of biome truth the way BOSS-DESIGN.md is for bosses.

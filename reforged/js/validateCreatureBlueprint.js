@@ -160,6 +160,20 @@ export function validateCreatureBlueprint(def, name = def && def.name) {
         def.forms.forEach((f, i) => { if (f && f[leaf] != null) checkNumber(f[leaf], d, `${tag}.forms[${i}].${leaf}`, errors, warnings); });
       }
 
+    } else if (d.kind === 'enum') {
+      // One of a closed value set (checked on model AND per-form). A bad value is a
+      // hard error (a real typo, like a bad builder name).
+      const checkEnum = (v, w) => {
+        if (typeof v !== 'string' || !d.values.includes(v)) {
+          errors.push(`${w} = ${JSON.stringify(v)} is not one of ${d.values.join('/')}${typeof v === 'string' ? suggest(v, d.values) : ''}.`);
+        }
+      };
+      if (val != null) checkEnum(val, where);
+      if (d.forms && Array.isArray(def.forms)) {
+        const leaf = d.path.split('.').pop();
+        def.forms.forEach((f, i) => { if (f && f[leaf] != null) checkEnum(f[leaf], `${tag}.forms[${i}].${leaf}`); });
+      }
+
     } else if (d.kind === 'bool') {
       if (val != null && typeof val !== 'boolean') warnings.push(`${where} = ${JSON.stringify(val)} is usually a boolean.`);
     }

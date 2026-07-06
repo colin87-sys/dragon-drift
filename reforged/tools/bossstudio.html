@@ -137,7 +137,7 @@
     const DT = 1 / 60, T_MAX = 20;
     let model = null, current = null;
     let simT = 0, playing = false;
-    const dials = { charge: 0, sp: 0, spmode: 'figureEight', death: 0, hp: 1, shield: false, noticeAt: -1, gx: 0, gy: 0, handoff: null };
+    const dials = { charge: 0, sp: 0, spmode: 'figureEight', death: 0, hp: 1, shield: false, noticeAt: -1, gx: 0, gy: 0, handoff: null, entrance: null, steer: 0, eye: null, crack: null, condense: null, formation: null };
 
     const center = new THREE.Vector3(0, 0, 0);
     let baseDist = 30;
@@ -166,6 +166,14 @@
       // mask matches the shipped frame.
       if (dials.death > 0) m.setDissolve?.(dials.death);
       if (dials.handoff != null) m.setDebugHandoff?.(dials.handoff);   // eitherwing eye-thread pin (§7c handoff frame)
+      if (dials.entrance != null) { m.setEntrance?.(dials.entrance); m.setEntranceSteer?.(dials.steer); }   // §5j entrance-clock pin (hollowgate ignition frame)
+      if (dials.eye != null) m.setEyeUp?.(dials.eye);        // brineholm eye weak-point window (surfaced/submerged, §5f)
+      if (dials.crack != null) m.crackShackle?.(dials.crack); // brineholm broken-shackle mercy read (§5f)
+      // thrumswarm formation pins (§5d): the swarm condensing into a named shape
+      // (scatter / ring / wall / line / yourDragon / ringShield). Order matters —
+      // setFormation names the target, setCondense blends scatter→target.
+      if (dials.formation != null) m.setFormation?.(dials.formation);
+      if (dials.condense != null) m.setCondense?.(dials.condense);
       if (dials.noticeAt >= 0 && t >= dials.noticeAt && t - DT < dials.noticeAt) m.notice?.();
     }
 
@@ -326,8 +334,8 @@
       if (opts.seed != null) seed = opts.seed;
       if (opts.bg != null) setBackdrop(opts.bg);
       // RESET to base state each call — dials must never leak between canonical frames.
-      Object.assign(dials, { charge: 0, sp: 0, spmode: 'figureEight', dread: false, death: 0, hp: 1, shield: false, noticeAt: -1, gx: 0, gy: 0, handoff: null });
-      for (const k of ['charge', 'sp', 'spmode', 'dread', 'death', 'hp', 'shield', 'gx', 'gy', 'noticeAt', 'handoff']) if (opts[k] != null) dials[k] = opts[k];
+      Object.assign(dials, { charge: 0, sp: 0, spmode: 'figureEight', dread: false, death: 0, hp: 1, shield: false, noticeAt: -1, gx: 0, gy: 0, handoff: null, entrance: null, steer: 0, eye: null, crack: null, condense: null, formation: null });
+      for (const k of ['charge', 'sp', 'spmode', 'dread', 'death', 'hp', 'shield', 'gx', 'gy', 'noticeAt', 'handoff', 'entrance', 'steer', 'eye', 'crack', 'condense', 'formation']) if (opts[k] != null) dials[k] = opts[k];
       simulate(opts.t ?? 1.0);
       camera.fov = opts.fov ?? FOV; camera.updateProjectionMatrix();
       freeCam = false;

@@ -283,6 +283,11 @@ export function spawnBossBullet(opts) {
   s.coreColor = opts.coreColor || 0xffffff;
   s.life = opts.life || 6;
   s.age = 0;   // reset the spawn-in ramp for this fresh bullet
+  // §5f destructible sub-parts: an optional source-part tag (e.g. HOLLOWGATE's
+  // pane index) rides the bullet so a REFLECTED amber lands its damage on the
+  // part it came from (parry a pane's radial → crack THAT pane). null for the
+  // roster's single-centre bosses — byte-unchanged.
+  s.part = opts.part ?? null;
   return s;
 }
 
@@ -392,7 +397,7 @@ export function updateBossBullets(dt, player) {
         const d2 = dx * dx + dy * dy;
         // Per-bullet radius so the hitbox matches the banded VISUAL size (fair).
         const hitRi = s.r + R * CONFIG.BOSS.bulletHitScale;
-        const grazeRi = s.r + R * CONFIG.BOSS.grazeScale;
+        const grazeRi = (s.r + R * CONFIG.BOSS.grazeScale) * grazeBonus;   // adrenaline R1 "magnet" widens the annulus (default 1)
         if (d2 < hitRi * hitRi) { hitPlayer(player, s.dmg, 'bullet'); deactivate(i); continue; }
         if (d2 < grazeRi * grazeRi) bulletGraze(player);
       }
@@ -412,7 +417,11 @@ export function updateBossBullets(dt, player) {
       if (s.rel >= s.targetRel) {
         const dx = s.x - s.tx, dy = s.y - s.ty;
         if (dx * dx + dy * dy < bossR * bossR) {
-          emit('bossDamage', { amount: s.dmg, kind: s.owner, x: s.tx, y: s.ty });
+          // `part` (a reflected amber's source pane) routes the §5f per-part hit
+          // test; `x`/`y` are the bullet's ACTUAL landing point (not the aim
+          // target — the fallback routing must test where the shot really hit,
+          // or gunfire can never sculpt a sub-part; CP2 gate finding 4).
+          emit('bossDamage', { amount: s.dmg, kind: s.owner, x: s.x, y: s.y, part: s.part });
         }
         deactivate(i);
       } else if (s.life <= 0) {
@@ -434,7 +443,7 @@ export function updateBossBullets(dt, player) {
 // (Surge hyper, increment 3) makes EVERY boss bullet reflectable, not just the
 // amber ones. A bullet swatted within `perfectParryRel` is a PERFECT parry (more
 // damage). Returns { total, perfect } counts for the FX/announcement.
-export function reflectBossBullets(player, windowRel, settleGap, bossX, bossY, all = false) {
+export function reflectBossBullets(player, windowRel, settleGap, bossX, bossY, all = false, dmgBonus = 1) {
   let total = 0, perfect = 0;
   for (let i = 0; i < POOL; i++) {
     const s = slots[i];
@@ -453,13 +462,42 @@ export function reflectBossBullets(player, windowRel, settleGap, bossX, bossY, a
     s.vx = (bossX - s.x) / t;
     s.vy = (bossY - s.y) / t;
     s.color = isPerfect ? 0xaef0ff : 0x66ddff;      // perfect = brighter
-    const mult = isPerfect ? CONFIG.BOSS.reflectPerfectMult : CONFIG.BOSS.reflectDamageMult;
+    const mult = (isPerfect ? CONFIG.BOSS.reflectPerfectMult : CONFIG.BOSS.reflectDamageMult) * dmgBonus;   // dmgBonus: adrenaline R4 (default 1)
     s.dmg = (s.dmg > 0 ? s.dmg : 5) * mult;
     s.life = 4;
     total++;
     if (isPerfect) perfect++;
   }
   return { total, perfect };
+}
+
+// Adrenaline R1 "magnet" (§5i.B meta spine): a multiplier on the crossing-graze
+// annulus. 1 = the shipped geometry (byte-identical for the un-laddered path);
+// boss.js drives it from the no-hit ladder each frame.
+let grazeBonus = 1;
+export function setGrazeBonus(m) { grazeBonus = Math.max(1, m || 1); }
+
+// §5i.B CONTINUOUS-GRAZE detector (the ticking sibling of the one-per-bullet
+// crossing check — lands with slot 6, RIDE-THE-BEAM-EDGE). Reports whether the
+// player is currently RIDING alongside live boss fire: ≥1 boss bullet ahead
+// (0 < rel ≤ depthHi) whose lateral offset sits inside the graze annulus
+// (outside its hit radius — a too-close edge always exists, annulus-not-radius
+// law). PURE QUERY, no payout: the caller (boss.js) owns the tick clock, the
+// ramp, and the dedup story (rate-limited ticks vs the crossing check's
+// one-per-bullet), so parking exploits die at the policy layer, not here.
+export function beamContact(player, depthHi = 7) {
+  const px = player.position.x, py = player.position.y;
+  for (let i = 0; i < POOL; i++) {
+    const s = slots[i];
+    if (!s.active || s.owner !== 'boss') continue;
+    if (s.rel <= 0 || s.rel > depthHi) continue;
+    const dx = s.x - px, dy = s.y - py;
+    const d2 = dx * dx + dy * dy;
+    const hitRi = s.r + R * CONFIG.BOSS.bulletHitScale;
+    const grazeRi = (s.r + R * CONFIG.BOSS.grazeScale) * grazeBonus;
+    if (d2 > hitRi * hitRi && d2 <= grazeRi * grazeRi) return true;
+  }
+  return false;
 }
 
 export function bossBulletCount() { return activeCount(); }

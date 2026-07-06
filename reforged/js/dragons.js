@@ -21,58 +21,86 @@ export const DRAGONS = {
     rarity: 'R',
     maxRarity: 'SSR',   // starter: evolution caps at SSR, never SSSR
     cost: 0,
-    // The humble free starter: the smallest, NARROWEST, cleanest wings in the
-    // roster (a nimble messenger), so the premiums feel rare. Sky-blue + gold.
+    accentHue: 0xd9b36a,   // §5d law-9 carrier: DIFFUSE gold tip-paint only, zero wing emissive
+    // AZURE Drake — the falcon-winged sky courier (§5d slot A). A compact avian
+    // glider (deep-keel arrow read) whose HERO is a swept blade-feather comb: 5
+    // stiff falcon primaries marching a swept leading arm, true gaps + z-stagger,
+    // painted value tiers + gold diffuse tips. Draconic head with a brow-crest
+    // motif; a clean tail forking into a swallow-banner at the apex.
     stats: { speed: 1.0, handling: 1.0, drain: 1.0, regen: 1.0 },
+    parts: { torso: 'sweptLoft', wings: 'bladeFeatherWings', head: 'draconic', tail: 'clean' },
     model: {
-      scale: 1.0, wingScale: 0.95, tailSegments: 8, neckSegments: 4,
-      hornLen: 1.0, hornPairs: 1, ridgeCount: 12,
-      flapBias: 1.0, flapAmp: 0.9, // light courier beat, smoothed toward the Phoenix feel
+      scale: 1.0, wingScale: 1.0, tailSegments: 6, neckSegments: 5,
+      headArchetype: 'softStealth',   // round friendly base, tuned keen per form via eyeShape/brow
+      headScale: 1.0, snoutScale: 0.86, browIntensity: 1.15,
+      // Azure's ONLY head accent is its brow-crest motif (gate r1 dir 7): no ear-fin
+      // horns, no rear-crest, no rear glow — the sunburst nape corona is deleted.
+      hornType: 'noHorn', rearCrestType: 'noRearCrest', rearGlowIntensity: 0,
+      snoutType: 'taperedPredatorSnout', crestBase: 0x7fa3c8, keenEye: true,
+      neckBlend: 1.15,  // SLIM falcon neck: a fat neck (2.1) swallowed the small proud head — slimmer than the head so it sits proud (§5d avian)
+      // blade-feather comb shared dials (per-form span/count/etc. accrete below)
+      bladeCount: 5, bladeSweep: 0.34, bladeStagger: 0.28,   // slightly less back-sweep so the wing is more LATERAL → smaller side-view footprint (gate r9 dir 2); deep z-stagger keeps the planform slits
+      bladeCamber: 0.16, bladeDihedral: 0.26, bladeChord: 0.133,   // dihedral 15° gull; slimmer chord (side-facing area, NOT span) shrinks the side-view footprint toward body 55-65% (gate r10 dir 3)
+      hornPairs: 1, hornLen: 0.9, ridgeCount: 10, ridgeSeat: -0.02, ridgeStyle: 'scute', ridgeColor: 0x264460,   // dorsal scutes: low leaf-scutes tinted to the body value so the back reads as one sleek mass (gate r8 dir 9), not pale beads
+      wingRootOffset: { z: -0.4 },   // shoulder forward toward the nose (−z) so the comb roots on the shoulder, not the mid-back (was reading too far aft)
+      flapBias: 1.0, flapAmp: 0.9,    // light courier beat
     },
-    // Narrow, short, clean wings — the most compact silhouette of the roster.
-    wingForms: [
-      { tips: [[3.90, 0.28], [3.00, -0.40], [1.90, -0.66]],
-        lead: [2.50, 0.42], scallop: 0.16, flame: false,
-        arc: { bow: 0.50, hump: 0.0, humpAt: 0.6, hook: 0.10 } },
-      { tips: [[4.40, 0.30], [3.50, -0.44], [2.30, -0.82], [1.30, -0.85]],
-        lead: [2.90, 0.50], scallop: 0.28, flame: false,
-        arc: { bow: 0.55, hump: 0.40, humpAt: 0.55, hook: 0.18 } },
-      { tips: [[4.70, 0.34], [3.85, -0.48], [2.60, -0.95], [1.45, -1.00]],
-        lead: [3.15, 0.56], scallop: 0.40, flame: false,
-        arc: { bow: 0.60, hump: 0.70, humpAt: 0.57, hook: 0.30 } },
-      { tips: [[4.95, 0.38], [4.10, -0.50], [2.85, -1.00], [1.60, -1.05]],
-        lead: [3.35, 0.62], scallop: 0.45, flame: false,
-        arc: { bow: 0.65, hump: 1.00, humpAt: 0.58, hook: 0.45 } },
-    ],
-    // Three forms (starter caps at SSR / tier 2): a BARE hatchling (no horns, no
-    // back ridges) → horns + back ridges sprout, wings broaden → the SSR apex
-    // (broadest wings, head crest, dorsal sail, soft spine-glow). Restrained —
-    // no premium glow-seams/veins/aura. Soft airy sky-blue, not too electric.
+    // Three visible forms (starter caps at SSR / tier 2): a round-chested fluffball
+    // glider with a stub comb + crest nub + forked tail-hint → adolescent, blades
+    // lengthen + crest fans → the 2.8–3.2× apex with a full high-aspect comb, a
+    // 3-blade crest, and a gold-tipped swallow-banner tail. Restraint IS the read —
+    // spineGlow ≤0.3, gold stays DIFFUSE.
     forms: [
-      // Hatchling — bare whelp: no horns, no back ridges, dull sky-grey.
-      { wingForm: 0, tailStyle: 'simple', tailSegments: 5, ridgeCount: 0,
-        spineGlow: 0, crest: 0, neckSegments: 4, hornLen: 0,
-        colors: { body: 0x21384f, wingInner: 0x4d7ba6, wingOuter: 0x2f5d84,
-          wingEmissive: 0x42729c, scales: 0x6f93b2, horn: 0x86a0b8,
-          apexSeam: 0x4a7090, eye: 0x74a8cc, coreGlow: 0x5f8fc0 } },
-      // Kindled — horns + back ridges sprout, wings broaden, clearer sky-blue.
-      { wingForm: 1, tailStyle: 'simple', tailSegments: 5, ridgeCount: 8,
-        spineGlow: 0, crest: 0, neckSegments: 4, hornLen: 1.0,
-        colors: { body: 0x1f3650, wingInner: 0x67b7ff, wingOuter: 0x2f5d84,
-          wingEmissive: 0x5fa6ef, scales: 0xa6cdec, horn: 0xa8c4de,
-          apexSeam: 0x67b7ff, eye: 0x8ed5ff, coreGlow: 0x67b7ff } },
-      // Radiant = the SSR apex: broadest wings, finned tail, head crest, dorsal
-      // sail + soft spine-glow — bright airy sky-blue, NO premium glow-seams/veins.
-      { wingForm: 2, tailStyle: 'finned', tailSegments: 6, ridgeCount: 10,
-        spineGlow: 0.3, crest: 1, dorsal: true,
-        colors: { body: 0x1c3048, wingInner: 0x8ed5ff, wingOuter: 0x357096,
-          wingEmissive: 0x8ed5ff, scales: 0xc6ecff, horn: 0xc2dcf2,
-          apexSeam: 0x8ed5ff, eye: 0xc6ecff, coreGlow: 0x8ed5ff } },
+      // Hatchling (form 0) — round fluffball: curled posture, round low eyes, big
+      // head, stub gapped comb, crest nub, forked tail-tip hint. Lighter sky value.
+      { wingScale: 0.72, bladeSpan: 5.4, bladeCount: 5, bladeDetail: 0.6, bladeChord: 0.28, bladeStagger: 0.14, bladeRake: 0.015,   // CP2 dir 3: BABY wings — a near-parallel low rake (0.015) + low stagger + wide chord welds the 5 blades into ONE solid MITTEN paddle so the trailing edge stops reading as a Christmas-tree sawtooth (fable gate). The apex re-pins the fanned formula (bladeRake:-1) for its hero planform slits. — 5 blades (§3 comb identity holds) but SHORTER + a WIDE chord (0.28 so the roots overlap the arm spar into one connected wing, gate r2 dir 5) → soft welded paddles. NOTE: forms merge CUMULATIVELY (ascension.js) so any dial set here leaks to f1/f2 unless re-declared — the apex re-pins the leaked ones below
+        spineCurl: -0.8, eyeShape: 0.0, headScale: 1.3, eyeScale: 1.25, snoutScale: 0.5,   // CP2 dir 1: SHORT button muzzle; headScale 1.3 keeps the BIG cute head; eyeScale 1.25 opens a nose-bridge GAP between the eyes (1.45 merged them into a figure-8) — still the ladder's biggest eyes (> f1's 1.02) and in the [0.3,0.45] band
+        keenEye: false, cuteEye: true,   // CP2: the hatchling wears the ROUND sphere eye with a big dark forward pupil + glint (not the keen falcon almond+brow-slab, which is apex-only). eyeShape 0 + eyeScale 1.7 → a big low round cute eye
+        crestBlades: 1, crestScale: 0.7, crestGoldAmount: 0.1,   // CP2 dir 2: a single SOFT NUB (browCrest rounds the n=1 case), body-hued (no gold on the baby), not a wire feeler
+        wingTipGold: 0xd9b36a, wingTipGoldAmount: 0.12,   // CP2 dir 5: only a faint amber hint at the baby — the full gold banner is an earned adult signature
+        tailStyle: 'simple', tailTipFork: true, tailSegments: 5, neckSegments: 4, tailPlates: false,   // smooth baby tail — the dorsal-cone row read as a drill-bit from rear-chase (fable gate)
+        ridgeCount: 0, spineGlow: 0,
+        colors: { body: 0x6f8fb2, belly: 0xe2f0fb, wingInner: 0xc8ddee, wingOuter: 0x86a3c0,   // CP2 dir 4: PALE powder-blue baby (was dark navy 0x2a4058, as dark as the teen) — value now clearly lightens toward the hatchling
+          wingEmissive: 0x6f8ca6, scales: 0xbcd2e4, horn: 0xc2d6e6,
+          apexSeam: 0x9cbcd6, eye: 0x8ec6ee, coreGlow: 0x9cc0dc } },
+      // Adolescent (form 1) — straightening posture, keener eyes, blades lengthen,
+      // crest begins its 3-blade fan, span 2.0–2.3×. Mid sky value.
+      { wingScale: 0.9, bladeSpan: 7.3, bladeCount: 5, bladeDetail: 0.92,
+        spineCurl: 0.0, eyeShape: 0.55, headScale: 0.84, eyeScale: 1.02, snoutScale: 0.62,   // CP2 dir 6: trim the muzzle ~28% so it sits BETWEEN f0's button and f2's short beak; headScale 0.84 keeps eye:head in band after the cut (still a clear step down from f0's 1.3)
+        keenEye: false, cuteEye: true,   // CP2: the adolescent bridges — a big ROUND-ALERT pupil eye (eyeShape 0.55 half-almonds it), NOT yet the apex keen falcon decal. The keen almond arrives only at the Radiant apex
+        crestBlades: 2, crestScale: 0.74, crestGoldAmount: 0.15, crestSeat: 0.13,   // CP2 r3 dir 3: mute crest gold to body-hue + seat the sprouts into the crown (0.13 = as deep as the §7 motif-invariance drift cap allows) so they root rather than hover
+        wingTipGold: 0xd9b36a, wingTipGoldAmount: 0.5,   // CP2 dir 5: PARTIAL gold at the adolescent
+        tailStyle: 'simple', tailTipFork: true, tailSegments: 5, neckSegments: 5,
+        ridgeCount: 8, spineGlow: 0,
+        colors: { body: 0x496d99, belly: 0xd4e9ff, wingInner: 0xc6dff0, wingOuter: 0x6f90b4,   // CP2 r2 dir 4: a true MID value (was 0x33517a, near-apex-deep) — the ramp now reads pale f0 → mid f1 → deep f2
+          wingEmissive: 0x5f7f9c, scales: 0xb2cee6, horn: 0xb6cfe4,
+          apexSeam: 0x9cc0dc, eye: 0xbfe2fb, coreGlow: 0x86bce4 } },
+      // Radiant apex (form 2) — proud upright S, keen almond eyes, full high-aspect
+      // comb (span 2.8–3.2×), 3-blade crest fan, dorsal sail, gold-tipped swallow
+      // banner tail. Deepest sky value, gold at its richest (still DIFFUSE).
+      { wingScale: 1.0, bladeSpan: 11.6, bladeCount: 5, bladeDetail: 1.45, neckBlend: 1.45,   // longer wing (blade length adds no tris) → top-planform span:body into the 2.8–3.2 band (gate r8 dir 2); denser neck fuses the segment grooves
+        spineCurl: 0.95, eyeShape: 1.0, headScale: 0.52, eyeScale: 0.88,   // eyeScale 0.88 (was 0.52→0.85): the gate read the apex "blind head-on"; the readability comes mostly from the forward+up anchor + forward pupil disc — the size stays the ladder's smallest (§7 eye:head monotonic holds)
+        // APEX PIN (CP2): forms merge cumulatively, so re-declare every dial the younger forms
+        // changed — otherwise f1's muted-gold/wide-chord leak forward and silently corrupt
+        // the approved apex. These pin the exact approved apex values.
+        keenEye: false, cuteEye: true,   // the apex joins the UNIFIED socketed-eye system — eyeShape 1.0 hoods it into a keen slanted almond. (The old keenEye decal was dark-on-dark: it read as NO eyes at gameplay value — the unresolved wall since CP1)
+        bladeChord: 0.133, bladeStagger: 0.28, bladeRake: -1,   // approved apex chord + deep stagger + the FANNED per-blade rake formula (sentinel -1) for the hero planform slits (f0 welded them at 0.28/0.14/0.015)
+        crestGoldAmount: 1, crestSeat: 0,   // full gold crest at its approved height (f1 muted+sank it)
+        wingTipGoldAmount: 1,            // full gold swallow-banner tips (f0/f1 restrained them)
+        tailPlates: true,               // apex keeps its dorsal tail ridge (f0 turned it off)
+        crestBlades: 3, crestScale: 1.6, skullType: 'smoothWedgeSkull', snoutScale: 0.68,   // bespoke ONE-shell falcon wedge (no ellipsoid plate-stack); shorter muzzle seats head:body/eye:head in band + kills the needle beak; crest breaks the outline
+        tailStyle: 'finned', tailBannerFork: true, tailLength: 0.62, tailSegments: 6, neckSegments: 5,   // shorter tail so the wings visually dominate (gate r7 dir 7) — raises the reconciled visual span:body
+        ridgeCount: 7, spineGlow: 0.2, dorsal: true,
+        colors: { body: 0x27435f, belly: 0xcfe6ff, wingInner: 0xb0cbe6, wingOuter: 0x466685,   // body lifted 0x1c3048→0x27435f (fable gate: the apex crushed to a black silhouette in dark skies); still clearly the deepest of the ladder
+          wingEmissive: 0x466685, scales: 0x9db8d4, horn: 0xbcd9f0,
+          apexSeam: 0x8ed5ff, eye: 0xcfe8ff, coreGlow: 0x8ed5ff } },
     ],
     fx: { auraColor: '142,213,255', auraIdle: 0.0, sparkle: false },
-    body: 0x1c3048, belly: 0xcfe6ff, scales: 0xc6ecff, horn: 0xbcd9f0,
-    wingInner: 0x8ed5ff, wingOuter: 0x2f5d84, wingEmissive: 0x67b7ff,
-    apexEye: 0xc6ecff, apexSeam: 0x8ed5ff, coreGlow: 0x8ed5ff, surgeHi: 0xeaf6ff,
+    // Matte navy hide (gate r1 dir 10) — not a gloss boat hull.
+    bodyRoughness: 0.62, bodyMetalness: 0.05, bodyEnvIntensity: 0.5,
+    body: 0x1c3048, belly: 0xcfe6ff, scales: 0x9db8d4, horn: 0xbcd9f0,
+    wingInner: 0xa8c6e2, wingOuter: 0x3d5a78, wingEmissive: 0x3d5a78,
+    apexEye: 0xcfe8ff, apexSeam: 0x8ed5ff, coreGlow: 0x8ed5ff, surgeHi: 0xeaf6ff,
     eye: 0x8ed5ff, trail: 0x8ed5ff, boostTrail: 0x67b7ff,
   },
 
@@ -82,59 +110,86 @@ export const DRAGONS = {
     rarity: 'SR',
     maxRarity: 'SSR',   // starter: evolution caps at SSR, never SSSR
     cost: 600,
-    // A brutish CINDER-WYRM: broad, JAGGED flame-edged wings, a spiked back and
-    // lava-crack seams — stockier and more aggressive than Solar's elegant
-    // flame. Dark-cinder → bright lava.
+    accentHue: 0xff8b2a,   // lava accent (~27°) — carried on a BOLD warm flame body (iconic-flame direction, human-directed override of the old near-black coal sheet)
+    // EMBER Wyrm — an ICONIC FLAME dragon (human art-direction: "think Charizard").
+    // Bold warm-orange body + a light cream belly; the gapped-finger membrane wings
+    // read as fire (glowing rays through a warm membrane); glowing lava-crack seams; a
+    // FLAMING tail; feralPredator draconic head; the forge-collar corona as a bloom.
+    // NOTE: this reverses the §5d near-black/emissive-only palette + the "no tail glow"
+    // rule and now overlaps `fire` (Cinderwing) — flagged for the doc + roster (see PR).
     stats: { speed: 1.04, handling: 1.06, drain: 0.95, regen: 1.05 },
+    parts: { torso: 'arrow', wings: 'emberMembraneWings', head: 'draconic', tail: 'clean' },
     model: {
-      scale: 1.08, wingScale: 1.15, tailSegments: 8, neckSegments: 4,
-      hornLen: 1.4, hornPairs: 2, ridgeCount: 14,
-      flapBias: 0.95, flapAmp: 0.95, // heavy, powerful beat, smoothed toward the Phoenix feel
+      scale: 1.08, wingScale: 1.0, tailSegments: 6, neckSegments: 4,
+      headArchetype: 'feralPredator',   // heavy brow, small deep-set hot eyes, angular jaw ('horned' is OUT — ignores headScale/snout)
+      headScale: 1.0, snoutScale: 0.7, browIntensity: 1.35,
+      hotEye: true,                     // small PROUD emissive eye clears the long predator muzzle → reads as the brightest facial point (§4)
+      bellyPaint: true,                 // cream two-tone underside (the Charizard belly) vertex-painted on the ventral torso
+      tailIron: true,                   // matte-warm iron tail that now GLOWS via spineGlow (a lit flame tail, no cool sheen)
+      squareShoulders: true,            // beveled BLOCK scapula plates → the anvil shoulder read (not round balls)
+      shoulderWidthScale: 1.4,          // ANVIL shoulders (tier-0 key: ≥1.25× azure's hatchling)
+      hornType: 'bladeRearHorns', rearGlowIntensity: 0,
+      neckBlend: 1.85,                  // overlapping forge neck — fuses the segment beads into a smooth throat (gate cp2 r2 dir 4: the bead chain shingled under the chin)
+      // ember gapped-finger membrane shared dials (per-form span/collar accrete below)
+      rayCount: 4, raySweep: 0.62, rayDihedral: 0.26, membraneCamber: 0.34, scallop: 0.28,
+      rayScale: 0.82, rayDetail: 1.0, rayEmissiveIntensity: 1.2,
+      membraneBase: 0x6a2410,           // WARM dark-red membrane (fire wings) — held below 0x8a3316 (§7) but clearly warm, not black
+      sparColor: 0xc0763c,              // warm ember leading spar (lit)
+      flapBias: 0.95, flapAmp: 0.95,    // heavy, powerful beat
     },
-    // Broad wings with deep, JAGGED flame notches (aggressive cinder edges).
-    wingForms: [
-      { tips: [[4.30, 0.34], [3.50, -0.46], [2.30, -0.80]],
-        lead: [2.90, 0.50], scallop: 0.34, flame: false,
-        arc: { bow: 0.55, hump: 0.30, humpAt: 0.55, hook: 0.20 } },
-      { tips: [[4.85, 0.38], [4.00, -0.50], [2.70, -0.95], [1.50, -1.00]],
-        lead: [3.30, 0.58], scallop: 0.50, flame: true,
-        arc: { bow: 0.60, hump: 0.70, humpAt: 0.55, hook: 0.35 } },
-      { tips: [[5.20, 0.42], [4.35, -0.52], [3.00, -1.05], [1.65, -1.10]],
-        lead: [3.60, 0.64], scallop: 0.60, flame: true,
-        arc: { bow: 0.70, hump: 1.10, humpAt: 0.57, hook: 0.55 } },
-      { tips: [[5.45, 0.46], [4.60, -0.52], [3.25, -1.10], [1.90, -1.15], [1.00, -0.95]],
-        lead: [3.80, 0.70], scallop: 0.60, flame: true,
-        arc: { bow: 0.80, hump: 1.50, humpAt: 0.58, hook: 0.85 } },
-    ],
-    // Three forms (starter caps at SSR / tier 2): a bare cinder whelp → horns +
-    // back ridges sprout, flame wings broaden → the SSR apex (jagged flame wings,
-    // blade-finned spine, crest + soft spine-glow). Restrained — no premium seams.
+    // Three visible forms (starter caps at SSR / tier 2): a round pot-bellied forge
+    // pup (coal pair, stub gapped wings) → shoulders square up, rays lengthen, horns
+    // bud, collar arc → the anvil apex (broad gapped wings, backSpines, blazing
+    // collar corona). Forms differ in PROPORTION + FEATURES, never same-dragon-bigger.
+    // Value ramps DOWN across forms on a held warm hue (law 9); emissive stays on the
+    // ray tubes + collar only (≤1.2 — no premium glow-seams, law 12).
     forms: [
-      // Hatchling — bare cinder whelp: no horns, no back ridges, dull ember.
-      { wingForm: 0, tailStyle: 'simple', tailSegments: 6, ridgeCount: 0,
-        spineGlow: 0, crest: 0, hornPairs: 1, hornLen: 0,
-        colors: { body: 0x2a1610, wingInner: 0x8a3a1e, wingOuter: 0x5c2414,
-          wingEmissive: 0x9a4420, scales: 0x9a5a34, horn: 0xb08058,
-          apexSeam: 0x7a3418, eye: 0xcf7a44, coreGlow: 0xc25a2a } },
-      // Kindled — horns + back ridges sprout, wings broaden, warmer ember-orange.
-      { wingForm: 1, tailStyle: 'simple', tailSegments: 6, ridgeCount: 10,
-        spineGlow: 0, crest: 0, hornPairs: 1, hornLen: 1.1,
-        colors: { body: 0x281410, wingInner: 0xe3561f, wingOuter: 0x7a3018,
-          wingEmissive: 0xff8b2a, scales: 0xe0884a, horn: 0xe0b070,
-          apexSeam: 0xff8b2a, eye: 0xffa347, coreGlow: 0xff7a30 } },
-      // Radiant = the SSR apex: jagged flame wings, finned tail, back-spines,
-      // crest + soft spine-glow — bright ember-orange, NO premium glow-seams.
-      { wingForm: 2, tailStyle: 'finned', tailSegments: 7, ridgeCount: 13,
-        spineGlow: 0.32, backSpines: true, crest: 1,
-        colors: { body: 0x261208, wingInner: 0xff8b2a, wingOuter: 0x7a3018,
-          wingEmissive: 0xffb347, scales: 0xffc070, horn: 0xffd28a,
-          apexSeam: 0xffb347, eye: 0xffc878, coreGlow: 0xff9a3a } },
+      // Hatchling (form 0) — round pot-bellied forge pup: curled chest-down posture,
+      // BIG round low-set eyes, near-flat snout, squared shoulders, two dull coals,
+      // stub gapped wings. Value-LIGHTEST body.
+      { wingScale: 0.86, raySpan: 5.5, rayDetail: 0.55, collarStage: 0,
+        spineCurl: -0.7, eyeShape: 0.0, headScale: 1.35, eyeScale: 1.6, snoutScale: 0.5,
+        shoulderWidthScale: 1.35, hornType: 'noHorn', browIntensity: 0.95,
+        tailStyle: 'simple', tailLength: 0.5, tailPlates: false, tailSegments: 5, neckSegments: 4, backSpines: false, ridgeCount: 0, spineGlow: 0.12,
+        colors: { body: 0xf2a24e, belly: 0xf7dca6, wingInner: 0x7a2c12, wingOuter: 0x4a1a0a,
+          wingEmissive: 0xff8b2a, scales: 0xe8b878, horn: 0xe8c89a,
+          apexSeam: 0xff8a3a, eye: 0xff8b2a, coreGlow: 0xff7a30 } },
+      // Adolescent (form 1) — shoulders square up further, rays lengthen, horns bud,
+      // eyes narrow, snout projects, collar becomes a glowing arc. MID value.
+      { wingScale: 0.88, raySpan: 8.4, rayDetail: 0.95, collarStage: 1,
+        spineCurl: 0.62, eyeShape: 0.5, headScale: 0.9, eyeScale: 1.15, snoutScale: 0.64,   // stronger line-of-action S (gate cp2 dir 6)
+        shoulderWidthScale: 1.48, hornType: 'bladeRearHorns', hornScale: 0.55, browIntensity: 1.1,
+        tailStyle: 'simple', tailLength: 0.56, tailPlates: false, tailSegments: 6, neckSegments: 5, backSpines: false, ridgeCount: 0, spineGlow: 0.22, glowSeams: true,
+        colors: { body: 0xe8792e, belly: 0xf2ce92, wingInner: 0x6e2410, wingOuter: 0x441606,
+          wingEmissive: 0xff8b2a, scales: 0xe0a85e, horn: 0xdcb884,
+          apexSeam: 0xff7a2a, eye: 0xff8b2a, coreGlow: 0xff7a30 } },
+      // Radiant apex (form 2) — the ANVIL: proud upright posture, keen almond hot
+      // eyes, full broad gapped wings, backSpines, 2 horn pairs, a short thick tail
+      // with a DARK IRON blade tip, and the blazing forge-collar corona (the ONE
+      // bloom). DEEPEST value; emissive at its richest (still ≤1.2, no glow-seams).
+      { wingScale: 1.0, raySpan: 10.5, rayDetail: 1.55, collarStage: 2,
+        spineCurl: 0.6, eyeShape: 1.0, headScale: 0.6, eyeScale: 0.83, snoutScale: 0.6,   // line-of-action S; head kept level enough (like f1) for the face to READ head-on (gate cp2 dir 6)   // proud reared neck + tail counter-arc → a clear side-profile inflection (gate cp2 dir 6)
+        snoutTone: 0xd54f16, browTone: 0xa23e10,   // apex head value tiers (gate cp2 dir 2): a darker muzzle + a shaded brow shelf so the head is not ONE flat sticker
+        shoulderWidthScale: 1.78, hornType: 'bladeRearHorns', hornScale: 1.5, hornPairs: 2, browIntensity: 1.05,
+        // ASH-SCUTE dorsal tier (law 11 / gate dir 8): low warm leaf-scutes tinted ash,
+        // ×0.8 falloff toward the tail, seated into the back — the sculpted top value tier
+        // the sun shades. 'scute' style (not the debug-arrow cones); ridgeColor forces a
+        // MATTE ash material (avoids the shared scalesMat's cyan emissive).
+        tailStyle: 'blade', tailLength: 0.55, tailSegments: 6, neckSegments: 4, backSpines: true, glowSeams: true,
+        // warm ash-scute dorsal tier + a GLOWING flaming tail/spine (spineGlow lights the
+        // blade tail + dorsal line) — the iconic-flame read.
+        ridgeCount: 12, ridgeStyle: 'scute', ridgeColor: 0xf0c888, ridgeSeat: 0.0, spineGlow: 0.4,   // cream scutes (gate cp2 dir 5)
+        colors: { body: 0xdd5a1c, belly: 0xf0c888, wingInner: 0x6a2410, wingOuter: 0x3e1406,
+          wingEmissive: 0xff8b2a, scales: 0xe8c888, horn: 0xf0c888,   // cream horns (gate cp2 dir 5) — separate from the dark membrane behind
+          apexSeam: 0xff7a26, eye: 0xffb84a, coreGlow: 0xff9a3a } },
     ],
     fx: { auraColor: '255,139,42', auraIdle: 0.0, sparkle: false },
-    body: 0x231108, belly: 0xffd9a8, scales: 0xffc070, horn: 0xffd28a,
-    wingInner: 0xff8b2a, wingOuter: 0xe3561f, wingEmissive: 0xffb347,
-    apexEye: 0xffc878, apexSeam: 0xffb347, coreGlow: 0xff9a3a, surgeHi: 0xfff0d8,
-    eye: 0xffa347, trail: 0xffa347, boostTrail: 0xffc060,
+    // ICONIC FLAME hide — a bold warm-orange body (was near-black coal), light cream belly.
+    bodyRoughness: 0.6, bodyMetalness: 0.03, bodyEnvIntensity: 0.5,
+    body: 0xdd5a1c, belly: 0xf0c888, scales: 0xd89858, horn: 0xd4a870,
+    wingInner: 0x6a2410, wingOuter: 0x3e1406, wingEmissive: 0xff8b2a,
+    apexEye: 0xff7a2a, apexSeam: 0xff6a1a, coreGlow: 0xff9a3a, surgeHi: 0xffe0b0,
+    eye: 0xff8a44, trail: 0xffa347, boostTrail: 0xffc060,
   },
 
   jade: {

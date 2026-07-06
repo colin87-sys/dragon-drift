@@ -65,6 +65,19 @@ export function setFlapDebugPose(parts, model, state) {
       aero01: 0, spread01: 0, surge01: 0, bankHard: Math.abs(bank), strength: formStrength(model) };
     flapWing(parts.wingRigL, st, DT);
     flapWing(parts.wingRigR, st, DT);
+    // EMBER furl (rig.furl): flapWing's shoulder roll alone only contracts a broad
+    // fingered membrane to ~0.85 span (the wing lifts, it doesn't draw inboard). In
+    // FOLD, sweep the shoulder YAW hard back along the flank + tuck the wrist so the
+    // fanned hand furls against the body and the span contracts past 0.7× (§3 fold
+    // clause / §7 assert). Additive + ember-only — other skinned rigs lack rig.furl.
+    if (state === 'fold' && parts.wingRigL.furl) {
+      for (const rig of [parts.wingRigL, parts.wingRigR]) {
+        rig.shoulder.rotation.y = -rig.side * 1.15;     // yaw the whole wing back along the flank
+        rig.shoulder.rotation.z = rig.side * 0.34;      // modest up-roll (not a raised V)
+        if (rig.elbow) rig.elbow.rotation.y = -rig.side * 0.35;
+        if (rig.wrist) rig.wrist.rotation.y = -rig.side * 0.4;
+      }
+    }
     return r;
   }
 
@@ -144,5 +157,50 @@ export function setFlapDebugPose(parts, model, state) {
     tl.rotation.z = -Math.sin(phase + 1.18) * 0.28 + turnBias * 0.45;
     tl.rotation.x = -0.12 - feather * 0.16;
   }
+  poseBladePivots(parts, state);
   return r;
+}
+
+// Per-blade lag pivots (AZURE's blade-feather comb, parts.wingBladePivotsL/R). The base
+// wing pivot above swings the whole comb; this nests the individual blades relative to it.
+// In the FOLD the blades cancel their rest rake (lag.y = −restY) so they stack PARALLEL and
+// furl tightly with the wrist; in glide/bank they settle to a small even rest splay. A rig
+// without blade pivots (ember/jade direct wings) skips this untouched.
+export function poseBladePivots(parts, state) {
+  if (!parts.wingBladePivotsL && !parts.wingBladePivotsR) return;
+  // AZURE-specific comb tuck (the generic direct-pivot fold is too gentle for a wide blade
+  // comb — it only furled the span to ~0.86). In FOLD: furl the WRIST hard up+back so the
+  // outer spar tucks UNDER the packet (no naked spar crossing the back, gate r4 dir 5), and
+  // rake every blade into a PARALLEL stack swept back past the hip. glide/bank keep the
+  // small rest splay + the shared poser's wrist.
+  if (state === 'fold') {
+    // Swing the WHOLE arm back along the flank (~78°) so the blade ROOTS draw inboard and the
+    // span contracts — a bird folds at the shoulder, not by raking free blades. The comb then
+    // lies back as one flat swept dart packet (dir 5), no up-spray, no crossed spars.
+    for (const [pv, s] of [[parts.wingPivotR, 1], [parts.wingPivotL, -1]]) {
+      // Swing back AND roll the comb DOWN onto the flank (gate r5 dir 8): the round-4 fold
+      // left the packet standing up → two up-sprayed spear fans in a V from behind. A hard
+      // negative roll lays the dart packet flat along the torso so the folded silhouette
+      // sits LOW (height above the spine ≤0.5× body depth), not a raised V.
+      if (pv) pv.rotation.set(0.16, s * 1.66, s * -0.5);
+    }
+    for (const [tip, s] of [[parts.wingTipR, 1], [parts.wingTipL, -1]]) {
+      if (tip) tip.rotation.set(0, 0, s * -0.12);            // wrist follows the arm down, tucked
+    }
+  }
+  for (const arr of [parts.wingBladePivotsR, parts.wingBladePivotsL]) {
+    if (!arr) continue;
+    const n = Math.max(1, arr.length - 1);
+    for (const b of arr) {
+      const t = b.pivot; if (!t) continue;
+      const fr = b.idx / n;
+      if (state === 'fold') {
+        // Cancel rest rake + dihedral so the blades stack PARALLEL and flat along the
+        // swept arm (a slight droop keeps them hugging the body, not fanning).
+        t.rotation.set(0, -(b.restY ?? 0) + b.side * 0.04 * fr, -(b.restZ ?? 0) - b.side * 0.06);
+      } else {
+        t.rotation.set(0, 0, b.side * (0.02 + 0.05 * fr));
+      }
+    }
+  }
 }

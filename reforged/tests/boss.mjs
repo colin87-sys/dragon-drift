@@ -69,7 +69,12 @@ for (const key of BOSS_ORDER) {
   // Defs-lint name budgets (§5h): NAME ≤12, epithet ≤34 (title-card legibility).
   assert((d.name || '').length <= 12, `${key} name ≤12 chars ("${d.name}")`);
   assert((d.epithet || '').length <= 34, `${key} epithet ≤34 chars ("${d.epithet}")`);
-  assertEq(d.phases.length, 3, `${key} has 3 phases (the vision: ~3 surges to kill)`);
+  // Phase count is band-scaled (§5g move-set richness): Sentinels/Colossi hold
+  // the original 3-surge vision; Calamities+ may carry 4–5 carded phases (the
+  // band contract's "4–5 cards"). One shield per phase stays the invariant —
+  // phase count IS the §5h scaling knob.
+  if (d.tier <= 2) assertEq(d.phases.length, 3, `${key} has 3 phases (the vision: ~3 surges to kill)`);
+  else assert(d.phases.length >= 3 && d.phases.length <= 5, `${key} (tier ${d.tier}) has 3–5 phases (got ${d.phases.length})`);
   let prev = Infinity;
   for (const ph of d.phases) {
     assert(ph.atFrac <= prev, `${key} phase atFrac is descending`);
@@ -102,6 +107,31 @@ for (const key of BOSS_ORDER) {
 assertEq(bossDefForIndex(0).id, BOSS_ORDER[0], 'bossDefForIndex(0) → first boss');
 assertEq(bossDefForIndex(BOSS_ORDER.length).id, BOSS_ORDER[0], 'bossDefForIndex wraps the list');
 ok(`bossDefs schema valid for ${BOSS_ORDER.length} boss(es), all 3-phase`);
+
+// --- 1c. §5h LIFETIME LADDER (the band-aware controller, lands with slot 6) --
+{
+  const { ladderPickDef, ladderTighten } = await import('../js/bossDefs.js');
+  const kills = (map) => (id) => map[id] || 0;
+  // Fresh save: the run opens at slot 1.
+  assertEq(ladderPickDef(new Set(), kills({})).id, BOSS_ORDER[0], 'ladder: fresh save opens at slot 1');
+  // Lifetime progress: first boss = lowest UNBEATEN slot.
+  const prog = { [BOSS_ORDER[0]]: 3, [BOSS_ORDER[1]]: 1 };
+  assertEq(ladderPickDef(new Set(), kills(prog)).id, BOSS_ORDER[2], 'ladder: run opens at the lowest lifetime-unbeaten slot');
+  // Felled-this-run never repeats: the ladder walks UP past it.
+  const felled = new Set([BOSS_ORDER[2]]);
+  assertEq(ladderPickDef(felled, kills(prog), 2).id, BOSS_ORDER[3], 'ladder: a felled slot never repeats within the run');
+  // Wrap past the top brings BEATEN slots back (they recur).
+  const highFelled = new Set(BOSS_ORDER.slice(2));
+  assertEq(ladderPickDef(highFelled, kills(prog), 2).id, BOSS_ORDER[0], 'ladder: wrapping past the top recurs the beaten low slots');
+  // Full lap → the exclusion resets (an endless run out-lives the roster).
+  const all = new Set(BOSS_ORDER);
+  assertEq(ladderPickDef(all, kills(prog), 2).id, BOSS_ORDER[2], 'ladder: a full lap resets the exclusion');
+  // Tighten: 1 for a first-time slot; shrinks with kills; floors at 0.78.
+  assertEq(ladderTighten(0), 1, 'tighten: first encounter is untightened (coexist floor)');
+  assert(ladderTighten(1) < 1 && ladderTighten(1) > 0.9, 'tighten: one kill bites gently');
+  assert(ladderTighten(99) >= 0.78, `tighten: floors at 0.78 (got ${ladderTighten(99)})`);
+  ok('lifetime ladder: entry rung, no-repeat, wrap-recur, lap-reset, tighten floor');
+}
 
 // --- 1b. §5i RHYTHM gates: `rhythmprint` (every boss owns a DISTINCT temporal
 // fingerprint — the ping-pong is retired) + `amberdiet` (the AMBER FLOOR holds:
@@ -495,6 +525,169 @@ for (const key of BOSS_ORDER) {
   ok(`eitherwing geometry: twin ΔL ${(lum.A - lum.B).toFixed(2)}, ribbon spread ${spreadA.toFixed(2)}, thread≥${minThread.toFixed(1)}, handoff ${travel.toFixed(1)}/thread ${threadAt.toFixed(1)}, ${ribMoved} ribbons telegraph`);
 }
 
+// HOLLOWGATE (slot 6) — the telegraph gate + the §5d/§7b per-sheet geometry
+// asserts (the ruined-arch Calamity opener: fly-through gap ≥9, portcullis
+// telegraph on a named pivot, the 8-pane expression rig, the discrete pupil).
+{
+  const hg = buildBoss(BOSSES.hollowgate, 1);
+
+  // Named anatomy the telegraph/design gates + the studio locate by name.
+  const pivot = hg.group.getObjectByName('portcullisPivot');
+  assert(!!pivot, 'hollowgate exposes a named portcullisPivot for the telegraph gate');
+  assert(!!hg.group.getObjectByName('roseHub'), 'hollowgate exposes the named roseHub (the focal + def.muzzle organ)');
+  assert(!!hg.group.getObjectByName('scarShard'), 'hollowgate exposes the ONE asymmetric scar (the orphan voussoir shard)');
+  for (let i = 0; i < 8; i++) assert(!!hg.group.getObjectByName(`rosePane${i}`), `hollowgate exposes named rosePane${i}`);
+
+  // §5d sheet law — the FLY-THROUGH GAP: ≥9 world units wide (the rail flies
+  // through the arch every pass; L141 — the pass must genuinely enclose the rail).
+  const gapW = hg.archGapWidth();
+  assert(gapW >= 9, `hollowgate arch gap ${gapW.toFixed(1)} ≥ 9 world units (the fly-through law)`);
+  const span = hg.archGapSpan();
+  assert(span.hi - span.lo >= 12, `hollowgate arch gap vertical span ${(span.hi - span.lo).toFixed(1)} ≥ 12 (clears the rail height band)`);
+
+  // TELEGRAPH (§3.5, the named-pivot gate): setCharge(1) DESCENDS the portcullis
+  // into the gap — a shape change in the void, not a colour change.
+  hg.tick(0.016, 0.5);
+  const y0 = pivot.position.y;
+  hg.setCharge(1);
+  hg.setAttackTell('curtain');
+  for (let i = 0; i < 90; i++) hg.tick(0.016, 1 + i * 0.016);
+  const dropped = y0 - pivot.position.y;
+  assert(dropped > 3, `hollowgate telegraph: setCharge(1) drops the portcullis ${dropped.toFixed(2)} local units into the gap (silhouette change)`);
+  hg.setCharge(0); hg.setAttackTell(null);
+
+  // EXPRESSION RIG (§4b): the lit PUPIL pane migrates toward the gaze — and it
+  // TICKS in discrete wedge-steps (≤1 wedge per tick interval; continuous
+  // tracking is slot 14's exclusive claim).
+  for (let i = 0; i < 240; i++) { hg.setGaze(-1, 0); hg.tick(0.016, 4 + i * 0.016); }
+  const leftPane = hg.pupilPane();
+  const stepLog = new Set([leftPane]);
+  for (let i = 0; i < 240; i++) { hg.setGaze(1, 0); hg.tick(0.016, 9 + i * 0.016); stepLog.add(hg.pupilPane()); }
+  const rightPane = hg.pupilPane();
+  assert(leftPane !== rightPane, `hollowgate pupil migrates with gaze (pane ${leftPane} → ${rightPane})`);
+  assert(stepLog.size >= 3, `hollowgate pupil moved through ${stepLog.size} discrete wedge-steps (ticking, not teleporting)`);
+  const glowNow = hg.paneIntensities();
+  assert(glowNow[rightPane] > Math.min(...glowNow) + 0.3,
+    `hollowgate pupil pane ${rightPane} is the brightest wedge (ei ${glowNow[rightPane].toFixed(2)})`);
+
+  // §5j VIGIL LIGHTS ignition: setEntrance ignites the panes progressively —
+  // dark at u≈0, most of the ring lit by u≈0.85.
+  hg.setEntrance(0.02);
+  for (let i = 0; i < 30; i++) hg.tick(0.016, 20 + i * 0.016);
+  const litEarly = hg.paneIntensities().filter((v) => v > 0.2).length;
+  hg.setEntrance(0.85);
+  for (let i = 0; i < 90; i++) hg.tick(0.016, 21 + i * 0.016);
+  const litLate = hg.paneIntensities().filter((v) => v > 0.2).length;
+  assert(litEarly <= 1 && litLate >= 5,
+    `hollowgate ignition: ${litEarly} pane(s) lit at u=0.02 → ${litLate} lit at u=0.85 (one per beat)`);
+  hg.setEntrance(null);
+
+  // §5f DESTRUCTIBLE PANES (the CAVE-law hero): crackPane deletes the pane from
+  // the composite — visual (mesh hidden, glow dead) AND pattern (livePanes drops
+  // it, so firePaneRadial never emits its arm again). paneHitTest routes a
+  // boss-local landing point to the nearest LIVE pane.
+  assertEq(hg.livePanes().length, 8, 'hollowgate starts with all 8 panes live');
+  const sc6 = BOSSES.hollowgate.scale;
+  const [rdx, rdy] = hg.paneRadialDir(2);
+  const hitIdx = hg.paneHitTest(rdx * 1.2 * sc6, (4.85 + rdy * 1.2) * sc6);
+  assertEq(hitIdx, 2, `hollowgate paneHitTest routes a hit on pane 2's glass to pane 2 (got ${hitIdx})`);
+  assert(hg.crackPane(2), 'hollowgate crackPane(2) cracks a live pane');
+  assert(!hg.crackPane(2), 'hollowgate crackPane(2) is idempotent (already cracked)');
+  assertEq(hg.livePanes().length, 7, 'hollowgate cracked pane leaves 7 live');
+  assert(!hg.paneAlive(2), 'hollowgate pane 2 no longer alive');
+  assert(!hg.group.getObjectByName('rosePane2').visible, 'hollowgate cracked pane mesh is hidden (a hole in the window)');
+  hg.tick(0.016, 30);
+  assert(hg.paneIntensities()[2] === 0, 'hollowgate cracked pane stays dark through the expression rig');
+  const reroute = hg.paneHitTest(rdx * 1.2 * sc6, (4.85 + rdy * 1.2) * sc6);
+  assert(reroute !== 2, `hollowgate paneHitTest never routes to a cracked pane (got ${reroute})`);
+
+  hg.dispose();
+  ok(`hollowgate geometry: gap ${gapW.toFixed(1)}w, portcullis drop ${dropped.toFixed(1)}, pupil ${leftPane}→${rightPane} in ${stepLog.size} steps, ignition ${litEarly}→${litLate}, pane-break ✓`);
+}
+
+// BRINEHOLM (slot 8) — the telegraph gate + the §5d/§7b per-sheet geometry
+// asserts: NAMED telegraph pivots (the jawPivot GAPES the maw + eyeLidPivot grinds
+// on charge), the ONE focal (brineEye/eyeCore), the ONE scar (brineScar), the head
+// span (the "never fits the frame" number), the EYE WEAK-POINT WINDOW (surfaces/
+// submerges — the §5f turn-taking tell), and the DESTRUCTIBLE SHACKLE posts (the
+// §5f mercy mechanic: per-part hit test + break, mirroring the pane API).
+{
+  const bh = buildBoss(BOSSES.brineholm, 1);
+  // Named parts the gate + the §5f plumbing find by name (the colossal head+maw:
+  // the jawPivot gapes the maw, the eye is the sole focal, chains bind the snout).
+  assert(!!bh.group.getObjectByName('jawPivot'), 'brineholm exposes the named jawPivot (the maw-gape telegraph)');
+  assert(!!bh.group.getObjectByName('eyeLidPivot'), 'brineholm exposes the named eyeLidPivot (the heavy-lid telegraph)');
+  assert(!!bh.group.getObjectByName('brineEye'), 'brineholm exposes the named brineEye (the one HDR focal + weak point)');
+  assert(!!bh.group.getObjectByName('eyeCore'), 'brineholm exposes the named eyeCore (the G1 pinpoint)');
+  assert(!!bh.group.getObjectByName('brineScar'), 'brineholm exposes the ONE asymmetric scar (the snapped snout chain)');
+  for (let i = 0; i < 3; i++) assert(!!bh.group.getObjectByName(`shacklePost${i}`), `brineholm exposes named shacklePost${i}`);
+
+  // The "NEVER FITS THE FRAME" presence number (§5d / L140): the head spans an
+  // arena scale that exceeds the ~34-wide portrait envelope at fight distance.
+  const span = bh.hullLength();
+  assert(span >= 34, `brineholm head spans ${span.toFixed(1)} world units ≥ 34 (exceeds the fight-frame envelope — "never fits the frame")`);
+
+  // Telegraph gate (§3.5): setCharge(1) + tick GAPES the maw (jawPivot opens) AND
+  // grinds the eye-lid open (a silhouette change, not a recolour).
+  bh.tick(0.05, 0.5);
+  const preJaw = bh.jawOpen();
+  const preLid = bh.group.getObjectByName('eyeLidPivot').rotation.x;
+  bh.setCharge(1);
+  for (let s = 0; s < 24; s++) bh.tick(0.05, 1.0 + s * 0.05);   // let the maw + lid ease open
+  const postJaw = bh.jawOpen();
+  assert(postJaw > preJaw + 0.2, `brineholm charge GAPES the maw (jawPivot.rot.x ${postJaw.toFixed(2)} > ${preJaw.toFixed(2)} + 0.2 — the beast exhales, a silhouette change)`);
+  const postLid = bh.group.getObjectByName('eyeLidPivot').rotation.x;
+  assert(postLid > preLid + 0.4, `brineholm charge grinds the eye-lid open (lidPivot.rot.x ${postLid.toFixed(2)} > ${preLid.toFixed(2)} — the lid lifts up-and-back, the eye surfaces to be hit)`);
+
+  // THE EYE WEAK-POINT WINDOW (§5f law 5): the eye surfaces (chip-damage window)
+  // and submerges (invulnerable) — the unmistakable turn-taking tell. Clear the
+  // charge first (a live wind-up forces the eye UP so it can be hit — intended).
+  bh.setCharge(0);
+  bh.setEyeUp(1);
+  for (let s = 0; s < 40; s++) bh.tick(0.05, 3.0 + s * 0.05);
+  assert(bh.eyeIsUp(), `brineholm eye SURFACES on setEyeUp(1) (eyeSurfaced ${bh.eyeSurfaced().toFixed(2)} — the weak-point window opens)`);
+  bh.setEyeUp(0);
+  for (let s = 0; s < 40; s++) bh.tick(0.05, 5.0 + s * 0.05);
+  assert(!bh.eyeIsUp(), `brineholm eye SUBMERGES on setEyeUp(0) (eyeSurfaced ${bh.eyeSurfaced().toFixed(2)} — invulnerable, no chip damage)`);
+
+  // DESTRUCTIBLE SHACKLE POSTS (§5f mercy mechanic; reuses slot 6's per-part
+  // grammar): the hit test routes a hit near a post to that post, crackShackle
+  // breaks it (idempotent), and a broken post never reroutes.
+  assertEq(bh.shackleCount(), 3, 'brineholm has 3 shackle posts');
+  assertEq(bh.liveShackles().length, 3, 'brineholm starts with all 3 shackles bound');
+  const sc8 = BOSSES.brineholm.scale;
+  // A hit near the centre snout shackle post (local ≈ 1.5, −2.4 → world ×scale).
+  const hitIdx = bh.shackleHitTest(1.5 * sc8, -2.4 * sc8);
+  assert(hitIdx >= 0, `brineholm shackleHitTest routes a hit near a post to a live post (got ${hitIdx})`);
+  assert(bh.crackShackle(hitIdx), 'brineholm crackShackle breaks a bound post');
+  assert(!bh.crackShackle(hitIdx), 'brineholm crackShackle is idempotent (already broken)');
+  assertEq(bh.liveShackles().length, 2, 'brineholm a broken post leaves 2 bound');
+  assert(bh.shackleBroken(hitIdx), 'brineholm the broken post reports broken');
+  const reroute = bh.shackleHitTest(1.5 * sc8, -2.4 * sc8);
+  assert(reroute !== hitIdx, `brineholm shackleHitTest never reroutes to a broken post (got ${reroute})`);
+
+  // NOTICE state JUMP (§4b — the notice beat must be a discrete state change, not
+  // idle+ε; the CP1 gate caught the first pass reading identical to idle). A fresh
+  // build so prior charge/eye/shackle state can't muddy the baseline.
+  {
+    const bn = buildBoss(BOSSES.brineholm, 1);
+    bn.setGaze(0, 0);
+    for (let s = 0; s < 30; s++) bn.tick(0.05, 1.0 + s * 0.05);   // settle a calm idle
+    const idleJaw = bn.jawOpen();
+    const idleLid = bn.group.getObjectByName('eyeLidPivot').rotation.x;
+    bn.notice();
+    for (let s = 0; s < 8; s++) bn.tick(0.05, 2.6 + s * 0.05);    // sample mid-notice (before it decays)
+    const nJaw = bn.jawOpen();
+    const nLid = bn.group.getObjectByName('eyeLidPivot').rotation.x;
+    assert(nJaw > idleJaw + 0.15 && nLid > idleLid + 0.2,
+      `brineholm NOTICE is a state JUMP (maw gaped ${nJaw.toFixed(2)} > ${idleJaw.toFixed(2)}, lid flung ${nLid.toFixed(2)} > ${idleLid.toFixed(2)}) — not idle+ε`);
+    bn.dispose();
+  }
+
+  bh.dispose();
+  ok(`brineholm geometry: head ${span.toFixed(1)}w, maw-gape + lid telegraph, eye surface/submerge, notice-jump, shackle-break ✓`);
+}
+
 // Legacy coexist gate: a def WITHOUT `archetype` must still fall through to
 // the legacy construct (bossModel.js's buildBoss dispatcher) — the coexist
 // rule the whole archetype system is built on, guarding against a future def
@@ -584,6 +777,28 @@ while (game.consecutiveRings < game.feverThreshold && grazeCount < 400) { runBos
 assert(game.consecutiveRings >= game.feverThreshold, 'sustained grazing fills the surge meter');
 assert(!game.feverActive, 'Surge does NOT auto-fire in a boss (manual unleash)');
 ok(`graze fills the meter (${grazeCount} grazes); no auto-surge in a boss`);
+
+// --- 3b². §5i.B continuous-graze detector (RIDE-THE-BEAM-EDGE, slot 6) -------
+// The ticking sibling of the crossing check: beamContact reports live riding —
+// a bullet AHEAD whose lateral offset is inside the graze annulus. Annulus law:
+// a dead-centre (hit-radius) bullet is NOT contact; far offsets aren't either.
+{
+  bullets.resetBossBullets();
+  const p = makePlayer();
+  const annulus = CONFIG.BOSS.bulletRadius + CONFIG.playerRadius * (CONFIG.BOSS.bulletHitScale + CONFIG.BOSS.grazeScale) / 2;
+  bullets.spawnBossBullet({ owner: 'boss', x: p.position.x + annulus, y: p.position.y, rel: 3, vrel: -28, dmg: 5, r: CONFIG.BOSS.bulletRadius, life: 3 });
+  assert(bullets.beamContact(p, 7), 'beamContact: an annulus-offset bullet ahead reads as riding the edge');
+  bullets.resetBossBullets();
+  bullets.spawnBossBullet({ owner: 'boss', x: p.position.x, y: p.position.y, rel: 3, vrel: -28, dmg: 5, r: CONFIG.BOSS.bulletRadius, life: 3 });
+  assert(!bullets.beamContact(p, 7), 'beamContact: a dead-centre bullet is NOT contact (annulus, not radius)');
+  bullets.resetBossBullets();
+  bullets.spawnBossBullet({ owner: 'boss', x: p.position.x + 12, y: p.position.y, rel: 3, vrel: -28, dmg: 5, r: CONFIG.BOSS.bulletRadius, life: 3 });
+  assert(!bullets.beamContact(p, 7), 'beamContact: a far bullet is not contact');
+  bullets.spawnBossBullet({ owner: 'boss', x: p.position.x + annulus, y: p.position.y, rel: 15, vrel: -28, dmg: 5, r: CONFIG.BOSS.bulletRadius, life: 3 });
+  assert(!bullets.beamContact(p, 7), 'beamContact: depth-window bound holds (rel 15 > 7 is not riding)');
+  bullets.resetBossBullets();
+  ok('beamEdge detector: annulus + depth-window law holds (continuous graze, §5i.B)');
+}
 
 // --- 3c. reflect (Increment 2): a roll swats reflectable bullets back --------
 bullets.resetBossBullets();
@@ -688,7 +903,7 @@ function driveKill(idx) {
   const kills0 = killsSeen, surges0 = surgesSeen;
   cardsResolved.length = 0;
   let t = 0, sawFight = false, sawShield = false, sawNarrow = false;
-  let sawSetpiece = false, setpieceMaxX = 0, setpieceMaxY = 0, chargedDuringSetpiece = false;
+  let sawSetpiece = false, setpieceMaxX = 0, setpieceMaxY = 0, setpieceMinY = 99, setpieceMinRel = 99, chargedDuringSetpiece = false;
   for (let i = 0; i < 60 * 200 && !(killsSeen > kills0 && !game.inBoss); i++) {
     const dt = 1 / 60;
     t += dt;
@@ -707,13 +922,15 @@ function driveKill(idx) {
       sawSetpiece = true;
       setpieceMaxX = Math.max(setpieceMaxX, Math.abs(st.poseX));
       setpieceMaxY = Math.max(setpieceMaxY, st.poseY);
+      setpieceMinY = Math.min(setpieceMinY, st.poseY);
+      setpieceMinRel = Math.min(setpieceMinRel, st.poseRel);
       if (st.charging) chargedDuringSetpiece = true;
     }
     if (game.bossArenaHW != null) sawNarrow = true;
     boss.updateBoss(dt, player, t);
   }
   return { t, sawFight, sawShield, sawNarrow,
-    sawSetpiece, setpieceMaxX, setpieceMaxY, chargedDuringSetpiece,
+    sawSetpiece, setpieceMaxX, setpieceMaxY, setpieceMinY, setpieceMinRel, chargedDuringSetpiece,
     killed: killsSeen > kills0, surges: surgesSeen - surges0,
     cardsResolved: [...cardsResolved] };
 }
@@ -752,8 +969,14 @@ for (let idx = 0; idx < BOSS_ORDER.length; idx++) {
   const setpieces = BOSSES[key].setpieces || (BOSSES[key].setpiece ? [BOSSES[key].setpiece] : []);
   if (setpieces.length) {
     assert(r.sawSetpiece, `${key}: the def's setpiece played`);
-    assert(r.setpieceMaxX > 9 || r.setpieceMaxY > CONFIG.BOSS.fightHeight + 3,
-      `${key}: setpiece left station (max |x| ${r.setpieceMaxX.toFixed(1)}, max y ${r.setpieceMaxY.toFixed(1)})`);
+    // "Left station" on ANY excursion axis: lateral (|x|), vertical (y), or DEPTH
+    // (rel through/near the camera — the fly-through axis; L141: HOLLOWGATE's
+    // archPass and EITHERWING's figure-eight cross the player at rel < 0).
+    // Excursion on ANY axis: lateral (|x|), UP (y high), DOWN (y below the frame —
+    // BRINEHOLM's SOUNDING dive, the §5e "below" counterpart to the stoop), or DEPTH
+    // (rel through/near the camera — the fly-through axis).
+    assert(r.setpieceMaxX > 9 || r.setpieceMaxY > CONFIG.BOSS.fightHeight + 3 || r.setpieceMinY < CONFIG.BOSS.fightHeight - 6 || r.setpieceMinRel < 4,
+      `${key}: setpiece left station (max |x| ${r.setpieceMaxX.toFixed(1)}, max y ${r.setpieceMaxY.toFixed(1)}, min y ${r.setpieceMinY.toFixed(1)}, min rel ${r.setpieceMinRel.toFixed(1)})`);
     if (setpieces.some((s) => s.moving)) {
       assert(r.chargedDuringSetpiece, `${key}: a moving-station setpiece keeps firing while it travels (§5e)`);
     } else {

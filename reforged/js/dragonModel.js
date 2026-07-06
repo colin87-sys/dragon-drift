@@ -174,6 +174,9 @@ export function buildDragonModel(def, opts = {}) {
     if (torsoResult.mats.eyeMat) eyeMat = torsoResult.mats.eyeMat;
   }
   const torsoCoreGlow = torsoResult.coreGlow ?? null;
+  // Assert-metadata contract (§6.4): a torso may publish a world-space spine
+  // polyline (line-of-action asserts). Additive + nullable — other torsos omit it.
+  const spinePoints = torsoResult.spinePoints ?? null;
   // A segmented torso (the centipede-wyrm) returns its plate Groups so the rig
   // sways them as a lead-first travelling wave (see dragon.js / makePreviewTick).
   const bodySegs = torsoResult.bodySegs ?? null;
@@ -226,6 +229,12 @@ export function buildDragonModel(def, opts = {}) {
   const headResult = getHeadBuilder(recipe.head)(def, model, { bodyMat, hornMat, bellyMat, scalesMat, eyeMat });
   const head = headResult.group;
   for (const m of headResult.spineMats) spineMats.push(m);
+  // Motif socket (§6.3): a builder may publish its motif anchor (position invariance
+  // + bloom-volume asserts). Additive + nullable. The HEAD publishes it when the
+  // motif is a head feature (azure's brow crest); ember's forge collar lives at the
+  // wing-root yoke, so the WINGS builder publishes it instead — adopted below.
+  let motifAnchor = headResult.motifAnchor ?? null;
+  const headLength = headResult.headLength ?? null;   // skull length (§7 head:body assert)
   const hb = attach.headBase;
   head.position.set(hb.x, hb.y, hb.z);
   group.add(head);
@@ -293,6 +302,7 @@ export function buildDragonModel(def, opts = {}) {
     wingPivotL, wingPivotR, wingTipL, wingTipR,
     tipMarkerL, tipMarkerR, wingPivot2L, wingPivot2R,
     wingRigL, wingRigR, wingMidL, wingMidR, wingYokeL, wingYokeR,
+    wingBladePivotsL, wingBladePivotsR, wingElements,
   } = wingsResult.parts;
   // Night-Fury grows its bat-tail fins + tail-bone whip chain INSIDE the wings
   // builder (the tail is part of the continuous hull, not a bolted tail module), so
@@ -300,6 +310,9 @@ export function buildDragonModel(def, opts = {}) {
   // neither → the roster is byte-identical).
   if (wingsResult.parts.tailFins) tailFins = wingsResult.parts.tailFins;
   if (wingsResult.parts.tailSegs) tailSegs = wingsResult.parts.tailSegs;
+  // Yoke-motif socket: a wings builder may own the motif anchor (ember's forge
+  // collar sits between the wing roots). Adopt it only if the head published none.
+  if (!motifAnchor && wingsResult.parts.motifAnchor) motifAnchor = wingsResult.parts.motifAnchor;
   const spineSegs = wingsResult.parts.spineSegs || null;   // night-fury body-spine whip (nullable)
 
   // Solar aura card (apex only): a tall narrow backlight behind the body — a
@@ -373,7 +386,7 @@ export function buildDragonModel(def, opts = {}) {
 
     return {
       group: wrapper,
-      parts: { head, tailSegs, tailFins, spineSegs, bodySegs, tailOrbiters, riderSocket, wingYokeL, wingYokeR, wingPivotL, wingPivotR, wingMidL, wingMidR, wingTipL, wingTipR, wingPivot2L, wingPivot2R, tipMarkerL, tipMarkerR, wingRigL, wingRigR, coreGlow },
+      parts: { head, tailSegs, tailFins, spineSegs, bodySegs, tailOrbiters, riderSocket, wingYokeL, wingYokeR, wingPivotL, wingPivotR, wingMidL, wingMidR, wingTipL, wingTipR, wingPivot2L, wingPivot2R, tipMarkerL, tipMarkerR, wingRigL, wingRigR, coreGlow, wingBladePivotsL, wingBladePivotsR, wingElements, spinePoints, motifAnchor, headLength },
       materials: { bodyMat, wingMat, eyeMat, spineMats },
       auraSprite,
     };
@@ -391,6 +404,7 @@ export function buildDragonModel(def, opts = {}) {
       tipMarkerL, tipMarkerR,
       wingRigL, wingRigR,
       coreGlow,
+      wingBladePivotsL, wingBladePivotsR, wingElements, spinePoints, motifAnchor, headLength,
     },
     materials: { bodyMat, wingMat, eyeMat, spineMats },
     auraSprite,
@@ -404,7 +418,7 @@ export function buildDragonModel(def, opts = {}) {
 export function makePreviewTick(def, result) {
   const { group, parts, auraSprite } = result;
   const { head, tailSegs, wingPivotL, wingPivotR, wingPivot2L, wingPivot2R, wingTipL, wingTipR, wingRigL, wingRigR, wingMidL, wingMidR, wingYokeL, wingYokeR } = parts;
-  const { bodySegs, tailOrbiters } = parts;
+  const { bodySegs, tailOrbiters, wingBladePivotsL, wingBladePivotsR } = parts;
   const flapBias = def.model.flapBias || 1;
   const flapAmp = def.model.flapAmp ?? 1;
   const segLag = (def.model.segmentLag ?? 0.14) * 7;
@@ -476,6 +490,17 @@ export function makePreviewTick(def, result) {
         wingTipL.rotation.z = -Math.sin(phase + 1.18) * 0.34;
         wingTipR.rotation.x = -0.06 + feather;
         wingTipL.rotation.x = -0.06 - feather;
+      }
+    }
+    // Per-blade LAG (blade-feather comb): each feather trails the wingbeat a beat
+    // behind (ASHTALON covert pattern) — a subtle living ripple across the comb, the
+    // lag deepening outward. Additive + nullable (only bladeFeather wings publish it).
+    for (const arr of [wingBladePivotsR, wingBladePivotsL]) {
+      if (!arr) continue;
+      for (const b of arr) {
+        const fr = arr.length > 1 ? b.idx / (arr.length - 1) : 0;
+        const sw = Math.sin(phase - 0.5 - fr * 0.9) * (0.05 + 0.09 * fr);
+        b.pivot.rotation.z = b.side * (0.02 + 0.10 * fr) + sw;
       }
     }
     // Root-locked snake coil (x + y) so the tail stays attached and alive. A SKINNED
